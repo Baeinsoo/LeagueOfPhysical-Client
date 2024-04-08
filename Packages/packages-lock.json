@@ -1,5 +1,12 @@
 {
   "dependencies": {
+    "com.baesoft.gameframework": {
+      "version": "https://github.com/Baeinsoo/GameFramework.git",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "c555c136928e2e5f5c11a7658c631b457a628c39"
+    },
     "com.unity.collab-proxy": {
       "version": "2.3.1",
       "depth": 0,

@@ -1,11 +1,11 @@
 {
   "dependencies": {
-    "com.baesoft.gameframework": {
+    "com.baegames.gameframework": {
       "version": "https://github.com/Baeinsoo/GameFramework.git",
       "depth": 0,
       "source": "git",
       "dependencies": {},
-      "hash": "c555c136928e2e5f5c11a7658c631b457a628c39"
+      "hash": "816ad6255c9da9b0e3b9502ab813dc487e2684d0"
     },
     "com.unity.collab-proxy": {
       "version": "2.3.1",
@@ -63,6 +63,13 @@
     "com.unity.ide.vscode": {
       "version": "1.2.5",
       "depth": 1,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://packages.unity.com"
+    },
+    "com.unity.nuget.newtonsoft-json": {
+      "version": "3.2.1",
+      "depth": 0,
       "source": "registry",
       "dependencies": {},
       "url": "https://packages.unity.com"

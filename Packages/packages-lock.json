@@ -7,6 +7,20 @@
       "dependencies": {},
       "hash": "816ad6255c9da9b0e3b9502ab813dc487e2684d0"
     },
+    "com.cysharp.unitask": {
+      "version": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#2.5.4",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "d057074f177b078e29f10dd511b54df48a8806ea"
+    },
+    "com.neuecc.unirx": {
+      "version": "https://github.com/neuecc/UniRx.git?path=Assets/Plugins/UniRx/Scripts",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "6baeccf6c544c155497164327cca72f28163a578"
+    },
     "com.unity.collab-proxy": {
       "version": "2.3.1",
       "depth": 0,

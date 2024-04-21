@@ -5,10 +5,13 @@ using UnityEngine;
 using Cysharp.Threading.Tasks;
 using System;
 
-public class JoinLobbyComponent : MonoBehaviour, IEntranceComponent
+namespace LOP
 {
-    public async Task Execute()
+    public class JoinLobbyComponent : MonoBehaviour, IEntranceComponent
     {
-        await UniTask.Delay(TimeSpan.FromSeconds(1));
+        public async Task Execute()
+        {
+            await UniTask.Delay(TimeSpan.FromSeconds(1));
+        }
     }
 }

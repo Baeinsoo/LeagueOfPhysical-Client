@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 
-public interface IEntranceComponent
+namespace LOP
 {
-    Task Execute();
+    public interface IEntranceComponent
+    {
+        Task Execute();
+    }
 }

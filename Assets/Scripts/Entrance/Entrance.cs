@@ -6,35 +6,38 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class Entrance : MonoBehaviour
+namespace LOP
 {
-    private IEntranceComponent[] entranceComponents;
-
-    private async void Start()
+    public class Entrance : MonoBehaviour
     {
-        entranceComponents = GetComponents<IEntranceComponent>();
+        private IEntranceComponent[] entranceComponents;
 
-        if (await ExecuteEntranceComponents())
+        private async void Start()
         {
-            SceneManager.LoadScene("Lobby");
-        }
-    }
+            entranceComponents = GetComponents<IEntranceComponent>();
 
-    private async Task<bool> ExecuteEntranceComponents()
-    {
-        try
-        {
-            foreach (var entranceComponent in entranceComponents ?? Enumerable.Empty<IEntranceComponent>())
+            if (await ExecuteEntranceComponents())
             {
-                await entranceComponent.Execute();
+                SceneManager.LoadScene("Lobby");
             }
-
-            return true;
         }
-        catch (Exception exception)
+
+        private async Task<bool> ExecuteEntranceComponents()
         {
-            Debug.LogError(exception);
-            return false;
+            try
+            {
+                foreach (var entranceComponent in entranceComponents ?? Enumerable.Empty<IEntranceComponent>())
+                {
+                    await entranceComponent.Execute();
+                }
+
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError(exception);
+                return false;
+            }
         }
     }
 }

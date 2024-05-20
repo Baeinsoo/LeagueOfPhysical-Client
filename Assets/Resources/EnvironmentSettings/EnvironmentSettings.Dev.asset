@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 147fb5da6469b4f41b874a256827f349, type: 3}
+  m_Name: EnvironmentSettings.Dev
+  m_EditorClassIdentifier: 
+  lobbyServerSetting:
+    scheme: http
+    host: 3.35.176.152:1340
+  matchmakingServerSetting:
+    scheme: http
+    host: 3.35.176.152:1555
+  roomServerSetting:
+    scheme: http
+    host: 3.35.176.152:2000

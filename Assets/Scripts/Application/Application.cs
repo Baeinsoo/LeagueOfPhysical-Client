@@ -5,31 +5,20 @@ using GameFramework;
 
 namespace LOP
 {
-    public class Application : MonoSingleton<Application>, IInitializable
+    [DontDestroyMonoSingleton]
+    public class Application : MonoSingleton<Application>
     {
-        public bool initialized { get; private set; }
-
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void OnBeforeSceneLoadRuntimeMethod()
         {
-            instance.Initialize();
+            Application.Instantiate();
         }
 
-        public void Initialize()
+        protected override void Awake()
         {
-            if (initialized == true)
-            {
-                return;
-            }
+            base.Awake();
 
             UnityEngine.Application.targetFrameRate = 30;      //  targetFrameRate이 있어야 일관된 deltaTime == 좋은 사용자 경험 가능
-
-            initialized = true;
-        }
-
-        private void Start()
-        {
-            DontDestroyOnLoad(this);
         }
     }
 }

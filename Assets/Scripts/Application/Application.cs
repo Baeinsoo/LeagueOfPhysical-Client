@@ -18,7 +18,7 @@ namespace LOP
         {
             base.Awake();
 
-            UnityEngine.Application.targetFrameRate = 30;      //  targetFrameRateÀÌ ÀÖ¾î¾ß ÀÏ°üµÈ deltaTime == ÁÁÀº »ç¿ëÀÚ °æÇè °¡´É
+            UnityEngine.Application.targetFrameRate = 30;      //  targetFrameRateì´ ìˆì–´ì•¼ ì¼ê´€ëœ deltaTime == ì¢‹ì€ ì‚¬ìš©ì ê²½í—˜ ê°€ëŠ¥
         }
     }
 }

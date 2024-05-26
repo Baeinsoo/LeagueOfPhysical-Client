@@ -2,8 +2,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
-using Cysharp.Threading.Tasks;
 using System;
+using UnityEngine.SceneManagement;
+using GameFramework;
 
 namespace LOP
 {
@@ -11,7 +12,16 @@ namespace LOP
     {
         public async Task Execute()
         {
-            await UniTask.Delay(TimeSpan.FromSeconds(1));
+            var joinLobby = WebAPI.JoinLobby(Data.User.user.id);
+
+            await joinLobby;
+
+            if (joinLobby.isSuccess == false || joinLobby.response.code != ResponseCode.SUCCESS)
+            {
+                throw new Exception($"로비 접속에 실패하였습니다. error: {joinLobby.error}");
+            }
+
+            SceneManager.LoadScene("Lobby");
         }
     }
 }

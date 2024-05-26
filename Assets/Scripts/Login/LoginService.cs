@@ -21,21 +21,19 @@ namespace LOP
             guestLogin = this.GetOrAddComponent<GuestLogin>();
         }
 
-        public async Task<bool> TryAutoLogin()
+        public async Task<LoginResult> TryAutoLogin()
         {
             if (!PlayerPrefs.HasKey(LOGIN_TYPE_KEY))
             {
-                return false;
+                return new LoginResult(false, "No cached login data.", "");
             }
 
             var loginType = PlayerPrefs.GetString(LOGIN_TYPE_KEY).Parse<LoginType>();
 
-            Login(loginType);
-
-            return true;
+            return Login(loginType);
         }
 
-        public void Login(LoginType loginType)
+        public LoginResult Login(LoginType loginType)
         {
             LoginResult loginResult = null;
 
@@ -61,14 +59,16 @@ namespace LOP
             {
                 Debug.LogWarning(loginResult.reason);
             }
+
+            return loginResult;
         }
 
-        public void Logout()
+        public LogoutResult Logout()
         {
             if (!PlayerPrefs.HasKey(LOGIN_TYPE_KEY))
             {
                 Debug.LogWarning($"There is no login data. Logout is ignored.");
-                return;
+                return new LogoutResult(false, "There is no login data.");
             }
 
             LogoutResult logoutResult = null;
@@ -95,6 +95,8 @@ namespace LOP
             {
                 Debug.LogWarning(logoutResult.reason);
             }
+
+            return logoutResult;
         }
     }
 }

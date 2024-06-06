@@ -4,11 +4,11 @@ using UnityEngine;
 
 namespace LOP
 {
-    public partial class UserData
+    public partial class UserContainer
     {
         public User user;
 
-        public UserData()
+        public UserContainer()
         {
             user = new User();
         }

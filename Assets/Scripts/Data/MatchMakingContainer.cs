@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace LOP
 {
-    public partial class MatchMaking
+    public partial class MatchMakingContainer
     {
         public MatchType matchType;
         public string subGameId;

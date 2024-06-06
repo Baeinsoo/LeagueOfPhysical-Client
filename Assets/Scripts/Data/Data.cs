@@ -7,5 +7,6 @@ namespace LOP
     public partial class Data
     {
         public static UserData User = new UserData();
+        public static MatchMaking MatchMaking = new MatchMaking();
     }
 }

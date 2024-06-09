@@ -9,8 +9,8 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a1eeb472d13b0b247ad7831b39315ee3, type: 3}
-  m_Name: PopupReferences
+  m_Script: {fileID: 11500000, guid: 6ce516efe7a2cb1449ba32def303404b, type: 3}
+  m_Name: PrefabReferences
   m_EditorClassIdentifier: 
-  popupPrefabs:
-  - {fileID: 5121020475427935691, guid: 781e67d648c4b98499d90febbf21a50f, type: 3}
+  prefabs:
+  - {fileID: 2549864147742882068, guid: 781e67d648c4b98499d90febbf21a50f, type: 3}

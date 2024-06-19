@@ -6,7 +6,7 @@ namespace LOP
 {
     public partial class Data
     {
-        public static UserContainer User = new UserContainer();
-        public static MatchMakingContainer MatchMaking = new MatchMakingContainer();
+        public static UserContainer User { get; } = new UserContainer();
+        public static MatchMakingContainer MatchMaking { get; } = new MatchMakingContainer();
     }
 }

@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace LOP
 {
-    public partial class UserContainer
+    public partial class UserContainer : IDataContainer
     {
         public User user;
 

@@ -4,8 +4,8 @@ using UnityEngine;
 
 namespace LOP
 {
-    public class GetUserResponse : HttpResponse
+    public class GetRoomResponse : HttpResponse
     {
-        public User user;
+        public RoomDto room;
     }
 }

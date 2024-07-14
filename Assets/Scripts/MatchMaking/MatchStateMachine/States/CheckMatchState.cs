@@ -39,7 +39,7 @@ namespace LOP
                 throw new Exception($"유저 정보를 받아오는데 실패하였습니다. error: {getUser.error}");
             }
 
-            Data.User.user = getUser.response.user;
+            Data.User.user = MapperConfig.mapper.Map<User>(getUser.response.user);
 
             switch (getUser.response.user.location)
             {

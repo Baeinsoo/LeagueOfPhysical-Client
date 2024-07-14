@@ -1,11 +1,12 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace LOP
 {
-    public class GetRoomResponse : HttpResponse
+    public class CreateUserResponse : HttpResponse
     {
-        public Room room;
+        public UserDto user;
     }
 }

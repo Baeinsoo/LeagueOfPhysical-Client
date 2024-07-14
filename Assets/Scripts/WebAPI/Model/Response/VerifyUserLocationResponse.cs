@@ -1,12 +1,11 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace LOP
 {
-    public class CreateUserResponse : HttpResponse
+    public class VerifyUserLocationResponse : HttpResponse
     {
-        public User user;
+        public UserDto user;
     }
 }

@@ -1,13 +1,12 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 
 namespace LOP
 {
     [Serializable]
-    public class Match
+    public class MatchDto
     {
         public string id;
         public MatchType matchType;

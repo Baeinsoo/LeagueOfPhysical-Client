@@ -6,7 +6,7 @@ using UnityEngine;
 namespace LOP
 {
     [Serializable]
-    public class Room
+    public class RoomDto
     {
         public string id;
         public string matchId;

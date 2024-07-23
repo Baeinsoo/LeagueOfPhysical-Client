@@ -9,10 +9,10 @@ namespace LOP
     {
         protected override void Configure(IContainerBuilder builder)
         {
-            builder.Register<IEntranceComponent, CheckLocationComponent>(Lifetime.Transient);
+            builder.Register<IEntranceComponent, LoginComponent>(Lifetime.Transient);
             builder.Register<IEntranceComponent, CheckUserComponent>(Lifetime.Transient);
             builder.Register<IEntranceComponent, JoinLobbyComponent>(Lifetime.Transient);
-            builder.Register<IEntranceComponent, LoginComponent>(Lifetime.Transient);
+            //builder.Register<IEntranceComponent, CheckLocationComponent>(Lifetime.Transient);
         }
     }
 }

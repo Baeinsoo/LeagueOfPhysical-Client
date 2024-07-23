@@ -1,3 +1,4 @@
+using GameFramework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -5,17 +6,17 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using VContainer;
 
 namespace LOP
 {
     public class Entrance : MonoBehaviour
     {
-        private IEntranceComponent[] entranceComponents;
+        [Inject]
+        private IEnumerable<IEntranceComponent> entranceComponents;
 
         private async void Start()
         {
-            entranceComponents = GetComponents<IEntranceComponent>();
-
             if (await ExecuteEntranceComponents())
             {
                 SceneManager.LoadScene("Lobby");
@@ -26,7 +27,7 @@ namespace LOP
         {
             try
             {
-                foreach (var entranceComponent in entranceComponents ?? Enumerable.Empty<IEntranceComponent>())
+                foreach (var entranceComponent in entranceComponents.OrEmpty())
                 {
                     await entranceComponent.Execute();
                 }

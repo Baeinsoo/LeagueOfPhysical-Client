@@ -8,7 +8,7 @@ using GameFramework;
 
 namespace LOP
 {
-    public class JoinLobbyComponent : MonoBehaviour, IEntranceComponent
+    public class JoinLobbyComponent : IEntranceComponent
     {
         public async Task Execute()
         {

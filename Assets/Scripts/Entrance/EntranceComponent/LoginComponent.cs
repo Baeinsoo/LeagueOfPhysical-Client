@@ -7,7 +7,7 @@ using System;
 
 namespace LOP
 {
-    public class LoginComponent : MonoBehaviour, IEntranceComponent
+    public class LoginComponent : IEntranceComponent
     {
         public async Task Execute()
         {

@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace LOP
 {
-    public class CheckUserComponent : MonoBehaviour, IEntranceComponent
+    public class CheckUserComponent : IEntranceComponent
     {
         public async Task Execute()
         {

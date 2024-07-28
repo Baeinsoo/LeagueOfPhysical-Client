@@ -5,7 +5,7 @@ using VContainer.Unity;
 
 namespace LOP
 {
-    public class EntranceLifetimeScope : LifetimeScope
+    public class EntranceLifetimeScope : SceneLifetimeScope
     {
         protected override void Configure(IContainerBuilder builder)
         {

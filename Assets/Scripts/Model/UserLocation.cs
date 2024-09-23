@@ -7,7 +7,7 @@ namespace LOP
 {
     public class UserLocation
     {
-        public string id;
+        public string userId;
         public Location location;
         public LocationDetail locationDetail;
         public double timestamp;

@@ -11,6 +11,9 @@ namespace LOP
         {
             CreateMap<User, UserDto>();
             CreateMap<UserDto, User>();
+
+            CreateMap<UserLocation, UserLocationDto>();
+            CreateMap<UserLocationDto, UserLocation>();
         }
     }
 }

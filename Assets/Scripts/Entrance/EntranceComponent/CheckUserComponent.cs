@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using UniRx;
 using UnityEngine;
 
 namespace LOP
@@ -11,51 +12,46 @@ namespace LOP
     {
         public async Task Execute()
         {
-            var getUser = WebAPI.GetUser(Data.User.user.id);
-            await getUser;
-
-            if (getUser.isSuccess == false)
+            try
             {
-                throw new Exception($"유저 정보를 가져오는데 실패하였습니다. error: {getUser.error}");
+                var getUser = await WebAPI.GetUser(Data.User.user.id);
+
+                switch (getUser.response.code)
+                {
+                    case ResponseCode.SUCCESS:
+                        Data.User.user = MapperConfig.mapper.Map<User>(getUser.response.user);
+
+                        var getUserLocation = await WebAPI.GetUserLocation(getUser.response.user.id);
+
+                        Data.User.userLocation = MapperConfig.mapper.Map<UserLocation>(getUserLocation.response.userLocation);
+                        break;
+
+                    case ResponseCode.USER_NOT_EXIST:
+                        var createUser = await WebAPI.CreateUser(new CreateUserRequest
+                        {
+                            id = Data.User.user.id,
+                            nickname = $"{Data.User.user.id} nickname",
+                        });
+
+                        if (createUser.response.code != ResponseCode.SUCCESS)
+                        {
+                            throw new Exception($"유저 생성에 실패하였습니다. error: {createUser.error}");
+                        }
+
+                        Data.User.user = MapperConfig.mapper.Map<User>(createUser.response.user);
+                        break;
+
+                    default:
+                        throw new Exception($"유저 정보를 가져오는데 실패하였습니다. GetUserResponse code: {getUser.response.code}");
+                }
             }
-
-            switch (getUser.response.code)
+            catch (WebRequestException)
             {
-                case ResponseCode.SUCCESS:
 
-                    Data.User.user = MapperConfig.mapper.Map<User>(getUser.response.user);
-
-                    var verifyUserLocation = WebAPI.VerifyUserLocation(getUser.response.user.id);
-                    await verifyUserLocation;
-
-                    if (verifyUserLocation.isSuccess == false || verifyUserLocation.response.code != ResponseCode.SUCCESS)
-                    {
-                        throw new Exception($"유저 위치 정보를 가져오는데 실패하였습니다. error: {verifyUserLocation.error}");
-                    }
-
-                    Data.User.user = MapperConfig.mapper.Map<User>(verifyUserLocation.response.user);
-                    break;
-
-                case ResponseCode.USER_NOT_EXIST:
-
-                    var createUser = WebAPI.CreateUser(new CreateUserRequest
-                    {
-                        id = Data.User.user.id,
-                        nickname = $"{Data.User.user.id} nickname",
-                    });
-
-                    await createUser;
-
-                    if (createUser.isSuccess == false || createUser.response.code != ResponseCode.SUCCESS)
-                    {
-                        throw new Exception($"유저 생성에 실패하였습니다. error: {createUser.error}");
-                    }
-
-                    Data.User.user = MapperConfig.mapper.Map<User>(createUser.response.user);
-                    break;
-
-                default:
-                    throw new Exception($"유저 정보를 가져오는데 실패하였습니다. getUser.response.code: {getUser.response.code}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError(e);
             }
         }
     }

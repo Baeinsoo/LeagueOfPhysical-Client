@@ -12,16 +12,25 @@ namespace LOP
     {
         public async Task Execute()
         {
-            var joinLobby = WebAPI.JoinLobby(Data.User.user.id);
-
-            await joinLobby;
-
-            if (joinLobby.isSuccess == false || joinLobby.response.code != ResponseCode.SUCCESS)
+            try
             {
-                throw new Exception($"로비 접속에 실패하였습니다. error: {joinLobby.error}");
-            }
+                var joinLobby = await WebAPI.JoinLobby(Data.User.user.id);
 
-            SceneManager.LoadScene("Lobby");
+                if (joinLobby.response.code != ResponseCode.SUCCESS)
+                {
+                    throw new Exception($"로비 접속에 실패하였습니다. JoinLobbyResponse code: {joinLobby.response.code}");
+                }
+
+                SceneManager.LoadScene("Lobby");
+            }
+            catch (WebRequestException)
+            {
+
+            }
+            catch (Exception e)
+            {
+                Debug.LogError(e);
+            }
         }
     }
 }

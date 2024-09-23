@@ -4,8 +4,8 @@ using UnityEngine;
 
 namespace LOP
 {
-    public class VerifyUserLocationResponse : HttpResponse
+    public partial class GetUserLocationResponse : HttpResponse
     {
-        public UserDto user;
+        public UserLocationDto userLocation;
     }
 }

@@ -31,6 +31,11 @@ namespace LOP
 
         #region Room
         public const int ROOM_NOT_EXIST = 50000;
+        public const int ROOM_NOT_JOINABLE = 50001;
+        #endregion
+
+        #region User Location
+        public const int USER_LOCATION_NOT_EXIST = 60000;
         #endregion
 
         public const int UNKNOWN_ERROR = 5000000;

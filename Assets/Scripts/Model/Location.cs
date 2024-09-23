@@ -8,8 +8,8 @@ namespace LOP
     [Serializable]
     public enum Location
     {
-        Unknown = 0,
-        InWaitingRoom = 1,
-        InGameRoom = 2,
+        None = 0,
+        WaitingRoom = 1,
+        GameRoom = 2,
     }
 }

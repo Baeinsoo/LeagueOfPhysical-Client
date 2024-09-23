@@ -15,7 +15,5 @@ namespace LOP
         public int rankRating;
         public int goldCoin;
         public int gem;
-        public Location location;
-        public LocationDetail locationDetail;
     }
 }

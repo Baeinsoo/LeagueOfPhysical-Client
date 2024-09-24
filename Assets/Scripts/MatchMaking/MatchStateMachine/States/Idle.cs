@@ -10,9 +10,9 @@ namespace LOP
     {
         public override IState GetNext<I>(I input)
         {
-            if (!input.TryParse(out MatchStateInput matchStateInput))
+            if (input is not MatchStateInput matchStateInput)
             {
-                throw new ArgumentException($"Invalid input. input: {input}");
+                throw new ArgumentException($"Invalid input type. Expected MatchStateInput, got {typeof(I).Name}");
             }
 
             switch (matchStateInput)

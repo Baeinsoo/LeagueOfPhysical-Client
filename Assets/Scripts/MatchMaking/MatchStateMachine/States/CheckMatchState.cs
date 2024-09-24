@@ -9,45 +9,39 @@ namespace LOP
     {
         public override IState GetNext<I>(I input)
         {
-            if (!input.TryParse(out MatchStateInput matchStateInput))
+            if (input is not MatchStateInput matchStateInput)
             {
-                throw new ArgumentException($"Invalid input. input: {input}");
+                throw new ArgumentException($"Invalid input type. Expected MatchStateInput, got {typeof(I).Name}");
             }
 
-            switch (matchStateInput)
+            return matchStateInput switch
             {
-                case MatchStateInput.InWaitingRoom:
-                    return gameObject.GetOrAddComponent<InWaitingRoom>();
-
-                case MatchStateInput.InGameRoom:
-                    return gameObject.GetOrAddComponent<InGameRoom>();
-
-                case MatchStateInput.Idle:
-                    return gameObject.GetOrAddComponent<Idle>();
-            }
-
-            throw new ArgumentException($"Invalid transition: {GetType().Name} with {matchStateInput}");
+                MatchStateInput.InWaitingRoom => gameObject.GetOrAddComponent<InWaitingRoom>(),
+                MatchStateInput.InGameRoom => gameObject.GetOrAddComponent<InGameRoom>(),
+                MatchStateInput.Idle => gameObject.GetOrAddComponent<Idle>(),
+                _ => throw new ArgumentException($"Invalid transition: {GetType().Name} with {matchStateInput}")
+            };
         }
 
         protected override IEnumerator OnExecute()
         {
-            var getUser = WebAPI.GetUser(Data.User.user.id);
-            yield return getUser;
+            var getUserLocation = WebAPI.GetUserLocation(Data.User.user.id);
+            yield return getUserLocation;
 
-            if (getUser.isSuccess == false)
+            if (getUserLocation.isSuccess == false || getUserLocation.response.code != ResponseCode.SUCCESS)
             {
-                throw new Exception($"유저 정보를 받아오는데 실패하였습니다. error: {getUser.error}");
+                throw new Exception($"Failed to retrieve user information. Error: {getUserLocation.error}");
             }
 
-            Data.User.user = MapperConfig.mapper.Map<User>(getUser.response.user);
+            Data.User.userLocation = MapperConfig.mapper.Map<UserLocation>(getUserLocation.response.userLocation);
 
-            switch (getUser.response.user.location)
+            switch (getUserLocation.response.userLocation.location)
             {
-                case Location.InWaitingRoom:
+                case Location.WaitingRoom:
                     FSM.ProcessInput(MatchStateInput.InWaitingRoom);
                     break;
 
-                case Location.InGameRoom:
+                case Location.GameRoom:
                     FSM.ProcessInput(MatchStateInput.InGameRoom);
                     break;
 

@@ -10,37 +10,35 @@ namespace LOP
     {
         public override IState GetNext<I>(I input)
         {
-            if (!input.TryParse(out MatchStateInput matchStateInput))
+            if (input is not MatchStateInput matchStateInput)
             {
-                throw new ArgumentException($"Invalid input. input: {input}");
+                throw new ArgumentException($"Invalid input type. Expected MatchStateInput, got {typeof(I).Name}");
             }
 
-            switch (matchStateInput)
+            return matchStateInput switch
             {
-                case MatchStateInput.Idle:
-                    return gameObject.GetOrAddComponent<Idle>();
-
-                case MatchStateInput.InGameRoom:
-                    return gameObject.GetOrAddComponent<InGameRoom>();
-
-                case MatchStateInput.CheckMatchState:
-                    return gameObject.GetOrAddComponent<CheckMatchState>();
-            }
-
-            throw new ArgumentException($"Invalid transition: {GetType().Name} with {matchStateInput}");
+                MatchStateInput.Idle => gameObject.GetOrAddComponent<Idle>(),
+                MatchStateInput.InGameRoom => gameObject.GetOrAddComponent<InGameRoom>(),
+                MatchStateInput.CheckMatchState => gameObject.GetOrAddComponent<CheckMatchState>(),
+                _ => throw new ArgumentException($"Invalid transition: {GetType().Name} with {matchStateInput}")
+            };
         }
 
         protected override IEnumerator OnExecute()
         {
-            var waitingRoomLocationDetail = Data.User.user.locationDetail as WaitingRoomLocationDetail;
-            var matchmakingTicketId = waitingRoomLocationDetail.matchmakingTicketId;
+            if (Data.User.userLocation.locationDetail is not WaitingRoomLocationDetail waitingRoomLocationDetail)
+            {
+                Debug.LogError("User is not in a waiting room.");
+                FSM.ProcessInput(MatchStateInput.CheckMatchState);
+                yield break;
+            }
 
-            var cancelMatchmaking = WebAPI.CancelMatchmaking(matchmakingTicketId);
+            var cancelMatchmaking = WebAPI.CancelMatchmaking(waitingRoomLocationDetail.matchmakingTicketId);
             yield return cancelMatchmaking;
 
-            if (cancelMatchmaking.isSuccess == false)
+            if (!cancelMatchmaking.isSuccess)
             {
-                Debug.LogError($"Matchmaking 취소에 실패하였습니다. error: {cancelMatchmaking.error}");
+                Debug.LogError($"Failed to cancel matchmaking. Error: {cancelMatchmaking.error}");
                 FSM.ProcessInput(MatchStateInput.CheckMatchState);
                 yield break;
             }
@@ -49,18 +47,20 @@ namespace LOP
             {
                 case ResponseCode.ALREADY_IN_GAME:
                     FSM.ProcessInput(MatchStateInput.InGameRoom);
-                    yield break;
+                    break;
 
                 case ResponseCode.MATCH_MAKING_TICKET_NOT_EXIST:
-                    Debug.LogError("Matchmaking 티켓이 존재하지 않습니다.");
-                    yield break;
+                    Debug.LogError("Matchmaking ticket does not exist.");
+                    break;
 
                 case ResponseCode.NOT_MATCH_MAKING_STATE:
-                    Debug.LogError("Matchmaking 상태가 아니었습니다.");
-                    yield break;
-            }
+                    Debug.LogError("Not in matchmaking state.");
+                    break;
 
-            FSM.ProcessInput(MatchStateInput.CheckMatchState);
+                default:
+                    FSM.ProcessInput(MatchStateInput.CheckMatchState);
+                    break;
+            }
         }
     }
 }

@@ -10,53 +10,39 @@ namespace LOP
     {
         public override IState GetNext<I>(I input)
         {
-            if (!input.TryParse(out MatchStateInput matchStateInput))
+            if (input is not MatchStateInput matchStateInput)
             {
-                throw new ArgumentException($"Invalid input. input: {input}");
+                throw new ArgumentException($"Invalid input type. Expected MatchStateInput, got {typeof(I).Name}");
             }
 
-            switch (matchStateInput)
+            return matchStateInput switch
             {
-                case MatchStateInput.InWaitingRoom:
-                    return gameObject.GetOrAddComponent<InWaitingRoom>();
-
-                case MatchStateInput.CheckMatchState:
-                    return gameObject.GetOrAddComponent<CheckMatchState>();
-            }
-
-            throw new ArgumentException($"Invalid transition: {GetType().Name} with {matchStateInput}");
+                MatchStateInput.InWaitingRoom => gameObject.GetOrAddComponent<InWaitingRoom>(),
+                MatchStateInput.CheckMatchState => gameObject.GetOrAddComponent<CheckMatchState>(),
+                _ => throw new ArgumentException($"Invalid transition: {GetType().Name} with {matchStateInput}")
+            };
         }
 
         protected override IEnumerator OnExecute()
         {
-            //var matchSelectData = SceneDataContainer.Get<MatchSelectData>();
-
-            //if (LOPSettings.Get().connectLocalServer)
-            //{
-            //    RoomConnector.Instance.TryToEnterRoomById("EditorTestRoom");
-            //    yield break;
-            //}
-
-            var requestMatchmaking = WebAPI.RequestMatchmaking(new MatchmakingRequest
+            var matchmakingRequest = new MatchmakingRequest
             {
                 userId = Data.User.user.id,
                 matchType = Data.MatchMaking.matchType,
                 subGameId = Data.MatchMaking.subGameId,
                 mapId = Data.MatchMaking.mapId,
-            });
+            };
 
+            var requestMatchmaking = WebAPI.RequestMatchmaking(matchmakingRequest);
             yield return requestMatchmaking;
 
-            if (requestMatchmaking.isSuccess == false)
+            if (!requestMatchmaking.isSuccess || requestMatchmaking.response.code != ResponseCode.SUCCESS)
             {
-                Debug.LogError($"매치메이킹 요청에 실패하였습니다. error: {requestMatchmaking.error}");
-                FSM.ProcessInput(MatchStateInput.CheckMatchState);
-                yield break;
-            }
+                var errorMessage = !requestMatchmaking.isSuccess
+                    ? $"Failed to request matchmaking. Error: {requestMatchmaking.error}"
+                    : $"Matchmaking request failed. Response code: {requestMatchmaking.response.code}";
 
-            if (requestMatchmaking.response.code != ResponseCode.SUCCESS)
-            {
-                Debug.LogError($"매치메이킹 요청에 실패하였습니다. response.code: {requestMatchmaking.response.code}");
+                Debug.LogError(errorMessage);
                 FSM.ProcessInput(MatchStateInput.CheckMatchState);
                 yield break;
             }

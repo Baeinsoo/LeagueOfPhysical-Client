@@ -62,11 +62,12 @@ namespace LOP
                 .Build();
         }
 
-        public static WebRequest<VerifyUserLocationResponse> VerifyUserLocation(string userId)
+        public static WebRequest<GetUserLocationResponse> GetUserLocation(string userId)
         {
-            return new WebRequestBuilder<VerifyUserLocationResponse>()
-                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user/verify-location/{userId}")
-                .SetMethod(HttpMethod.PUT)
+            return new WebRequestBuilder<GetUserLocationResponse>()
+                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/location/")
+                .SetMethod(HttpMethod.GET)
+                .SetDeserialize(GetUserLocationResponse.Deserialize)
                 .Build();
         }
         #endregion
@@ -76,6 +77,14 @@ namespace LOP
         {
             return new WebRequestBuilder<GetRoomResponse>()
                 .SetUri($"{EnvironmentSettings.active.roomBaseURL}/room/{roomId}")
+                .SetMethod(HttpMethod.GET)
+                .Build();
+        }
+
+        public static WebRequest<RoomJoinableResponse> CheckRoomJoinable(string roomId)
+        {
+            return new WebRequestBuilder<RoomJoinableResponse>()
+                .SetUri($"{EnvironmentSettings.active.roomBaseURL}/room/{roomId}/joinable")
                 .SetMethod(HttpMethod.GET)
                 .Build();
         }

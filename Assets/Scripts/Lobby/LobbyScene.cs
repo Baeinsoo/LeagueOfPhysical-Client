@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace LOP
 {
-    public class Lobby : MonoBehaviour
+    public class LobbyScene : MonoBehaviour
     {
         
     }

@@ -10,7 +10,7 @@ using VContainer;
 
 namespace LOP
 {
-    public class Entrance : MonoBehaviour
+    public class EntranceScene : MonoBehaviour
     {
         [Inject]
         private IEnumerable<IEntranceComponent> entranceComponents;

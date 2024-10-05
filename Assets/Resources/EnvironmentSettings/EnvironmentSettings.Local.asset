@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 147fb5da6469b4f41b874a256827f349, type: 3}
-  m_Name: EnvironmentSettings.Local
+  m_Name: EnvironmentSettings.local
   m_EditorClassIdentifier: 
   lobbyServerSetting:
     scheme: http

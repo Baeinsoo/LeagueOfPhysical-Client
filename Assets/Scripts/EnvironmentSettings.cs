@@ -15,7 +15,7 @@ namespace LOP
             {
                 if (_active == null)
                 {
-                    _active = Resources.Load<EnvironmentSettings>($"EnvironmentSettings/EnvironmentSettings.Dev");
+                    _active = Resources.Load<EnvironmentSettings>($"EnvironmentSettings/EnvironmentSettings.local-k8s");
                 }
                 return _active;
             }

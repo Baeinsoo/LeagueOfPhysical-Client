@@ -10,7 +10,7 @@ namespace LOP
 {
     public class RoomConnector
     {
-        private const int DEFAULT_RETRY_COUNT = 5;
+        private const int DEFAULT_RETRY_COUNT = 10;
         private const int RETRY_INTERVAL_MILLISECONDS = 1000;
 
         public async Task<bool> TryToEnterRoomById(string roomId, int retryCount = DEFAULT_RETRY_COUNT)
@@ -27,8 +27,6 @@ namespace LOP
                         SceneManager.LoadScene("Room");
                         return true;
                     }
-
-                    Debug.LogWarning($"Failed to join room (Attempt {attempt + 1}/{retryCount}): {checkRoomJoinable.response.code}");
                 }
                 catch (Exception e)
                 {

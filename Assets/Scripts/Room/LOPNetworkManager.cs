@@ -1,4 +1,5 @@
 using Mirror;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -7,6 +8,24 @@ namespace LOP
 {
     public class LOPNetworkManager : NetworkManager
     {
+        public event Action onStartClient;
+        public event Action onStopClient;
+
+        private PortTransport _portTransport;
+        public PortTransport portTransport
+        {
+            get
+            {
+                return _portTransport ??= (transport is LatencySimulation latencySimulation ? latencySimulation.wrap : transport) as PortTransport;
+            }
+        }
+
+        public ushort port
+        {
+            set => portTransport.Port = value;
+            get => portTransport.Port;
+        }
+
         #region Start & Stop Callbacks
         /// <summary>
         /// This is invoked when the client is started.
@@ -15,7 +34,7 @@ namespace LOP
         {
             base.OnStartClient();
 
-            Debug.Log("[OnStartClient]");
+            onStartClient?.Invoke();
         }
 
         /// <summary>
@@ -25,7 +44,7 @@ namespace LOP
         {
             base.OnStopClient();
 
-            Debug.Log("[OnStopClient]");
+            onStopClient?.Invoke();
         }
         #endregion
 

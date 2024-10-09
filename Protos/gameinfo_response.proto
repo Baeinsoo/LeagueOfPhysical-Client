@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+import "gameinfo.proto";
+
+message GameInfoResponse {
+  int32 entityId = 1;
+  GameInfo game_info = 2;
+}

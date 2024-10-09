@@ -1,4 +1,3 @@
-using GameFramework;
 using Mirror;
 using System.Collections;
 using System.Collections.Generic;
@@ -10,23 +9,20 @@ namespace LOP
     {
         public static void WriteCustomMirrorMessage(this NetworkWriter writer, CustomMirrorMessage value)
         {
-            writer.WriteBytesAndSize(value.payload.CompressionSerialize());
+            writer.WriteUShort(value.payload.messageId);
+            writer.WriteBytesAndSize(value.payload.Serialize());
         }
 
         public static CustomMirrorMessage ReadCustomMirrorMessage(this NetworkReader reader)
         {
-            byte[] data = reader.ReadBytesAndSize();
-            var payload = GetMirrorMessage(data);
+            ushort id = reader.ReadUShort();
+            var payload = MessageFactory.CreateMessage(id);
+            payload.Deserialize(reader.ReadBytesAndSize());
 
             return new CustomMirrorMessage
             {
                 payload = payload,
             };
-        }
-
-        public static IMessage GetMirrorMessage(byte[] data)
-        {
-            return data.CompressionDeserialize() as IMessage;
         }
     }
 }

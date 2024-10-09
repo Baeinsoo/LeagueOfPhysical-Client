@@ -9,6 +9,8 @@ namespace LOP
 {
     public class MirrorNetworkImpl : MonoBehaviour, INetwork
     {
+        private const int ServerId = 0;
+
         public event Action<int, IMessage> onMessage;
 
         private void Awake()
@@ -27,7 +29,7 @@ namespace LOP
         {
             NetworkClient.RegisterHandler<CustomMirrorMessage>(message =>
             {
-                onMessage?.Invoke(0/*0: serverId*/, message.payload);
+                onMessage?.Invoke(ServerId, message.payload);
             });
         }
 

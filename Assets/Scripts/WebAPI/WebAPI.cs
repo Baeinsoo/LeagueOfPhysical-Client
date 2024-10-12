@@ -42,6 +42,14 @@ namespace LOP
                 .SetMethod(HttpMethod.DELETE)
                 .Build();
         }
+
+        public static WebRequest<GetMatchResponse> GetMatch(string matchId)
+        {
+            return new WebRequestBuilder<GetMatchResponse>()
+                .SetUri($"{EnvironmentSettings.active.matchmakingBaseURL}/match/{matchId}")
+                .SetMethod(HttpMethod.GET)
+                .Build();
+        }
         #endregion
 
         #region User
@@ -85,16 +93,6 @@ namespace LOP
         {
             return new WebRequestBuilder<RoomJoinableResponse>()
                 .SetUri($"{EnvironmentSettings.active.roomBaseURL}/room/{roomId}/joinable")
-                .SetMethod(HttpMethod.GET)
-                .Build();
-        }
-        #endregion
-
-        #region Match
-        public static WebRequest<GetMatchResponse> GetMatch(string matchId)
-        {
-            return new WebRequestBuilder<GetMatchResponse>()
-                .SetUri($"{EnvironmentSettings.active.roomBaseURL}/match/{matchId}")
                 .SetMethod(HttpMethod.GET)
                 .Build();
         }

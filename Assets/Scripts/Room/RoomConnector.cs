@@ -23,7 +23,7 @@ namespace LOP
 
                     if (checkRoomJoinable.response.code == ResponseCode.SUCCESS)
                     {
-                        Blackboard.Write("room", checkRoomJoinable.response.room);
+                        Blackboard.Write(checkRoomJoinable.response.room);
                         SceneManager.LoadScene("Room");
                         return true;
                     }

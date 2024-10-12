@@ -6,27 +6,27 @@ using UnityEngine;
 
 namespace LOP
 {
-    public class RoomNetwork : MonoSingleton<RoomNetwork>
+    public class RoomNetwork : MonoBehaviour
     {
-        private Dictionary<Type, Action<IMessage>> handlerMap;
+        private const int SERVER_ID = 0;
 
+        private Dictionary<Type, Action<IMessage>> handlerMap;
         private INetwork networkImpl;
 
-        protected override void Awake()
+        private void Awake()
         {
-            base.Awake();
-
-            networkImpl = GetComponent<INetwork>() ?? gameObject.AddComponent<MirrorNetworkImpl>();
-            networkImpl.onMessage += OnMessage;
-
             handlerMap = new Dictionary<Type, Action<IMessage>>();
+            networkImpl = GetComponent<INetwork>();
+            networkImpl.onMessage += OnMessage;
         }
 
-        protected override void OnDestroy()
+        private void OnDestroy()
         {
-            base.OnDestroy();
+            handlerMap.Clear();
+            handlerMap = null;
 
             networkImpl.onMessage -= OnMessage;
+            networkImpl = null;
         }
 
         private void OnMessage(int connectionId/*0: serverId*/, IMessage message)
@@ -39,27 +39,27 @@ namespace LOP
 
         public void SendToServer(IMessage message, bool reliable = true, bool instant = false)
         {
-            networkImpl.Send(message, 0/*0: serverId*/, reliable, instant);
+            networkImpl.Send(message, SERVER_ID, reliable, instant);
         }
 
-        public void RegisterHandler(Type type, Action<IMessage> handler)
+        public void RegisterHandler<T>(Action<T> handler) where T : IMessage
         {
-            if (handlerMap.ContainsKey(type) == true)
+            if (handlerMap.ContainsKey(typeof(T)) == true)
             {
-                handlerMap[type] += handler;
+                handlerMap[typeof(T)] += handler as Action<IMessage>;
             }
             else
             {
-                handlerMap[type] = handler;
+                handlerMap[typeof(T)] = handler as Action<IMessage>;
             }
         }
 
-        public void UnregisterHandler(Type type, Action<IMessage> handler)
+        public void UnregisterHandler<T>(Action<T> handler) where T : IMessage
         {
-            handlerMap[type] -= handler;
-            if (handlerMap[type] == null)
+            handlerMap[typeof(T)] -= handler as Action<IMessage>;
+            if (handlerMap[typeof(T)] == null)
             {
-                handlerMap.Remove(type);
+                handlerMap.Remove(typeof(T));
             }
         }
     }

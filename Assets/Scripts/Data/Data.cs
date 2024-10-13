@@ -8,5 +8,6 @@ namespace LOP
     {
         public static UserContainer User { get; } = new UserContainer();
         public static MatchMakingContainer MatchMaking { get; } = new MatchMakingContainer();
+        public static RoomContainer Room { get; } = new RoomContainer();
     }
 }

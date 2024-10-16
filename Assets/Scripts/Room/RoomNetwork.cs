@@ -10,12 +10,12 @@ namespace LOP
     {
         private const int SERVER_ID = 0;
 
-        private Dictionary<Type, Action<IMessage>> handlerMap;
+        private Dictionary<Type, MessageHandlerBase> handlerMap;
         private INetwork networkImpl;
 
         private void Awake()
         {
-            handlerMap = new Dictionary<Type, Action<IMessage>>();
+            handlerMap = new Dictionary<Type, MessageHandlerBase>();
             networkImpl = GetComponent<INetwork>();
             networkImpl.onMessage += OnMessage;
         }
@@ -44,22 +44,42 @@ namespace LOP
 
         public void RegisterHandler<T>(Action<T> handler) where T : IMessage
         {
-            if (handlerMap.ContainsKey(typeof(T)) == true)
+            if (handlerMap.TryGetValue(typeof(T), out var baseMessageHandler))
             {
-                handlerMap[typeof(T)] += handler as Action<IMessage>;
+                if (baseMessageHandler is MessageHandler<T> messageHandler)
+                {
+                    messageHandler.AddHandler(handler);
+                }
+                else
+                {
+                    Debug.LogWarning($"MessageHandler for {typeof(T)} is of a different type.");
+                }
             }
             else
             {
-                handlerMap[typeof(T)] = handler as Action<IMessage>;
+                var messageHandler = new MessageHandler<T>();
+                messageHandler.AddHandler(handler);
+                handlerMap[typeof(T)] = messageHandler;
             }
         }
 
         public void UnregisterHandler<T>(Action<T> handler) where T : IMessage
         {
-            handlerMap[typeof(T)] -= handler as Action<IMessage>;
-            if (handlerMap[typeof(T)] == null)
+            if (handlerMap.TryGetValue(typeof(T), out var baseMessageHandler))
             {
-                handlerMap.Remove(typeof(T));
+                if (baseMessageHandler is MessageHandler<T> messageHandler)
+                {
+                    messageHandler.RemoveHandler(handler);
+
+                    if (messageHandler.IsEmpty)
+                    {
+                        handlerMap.Remove(typeof(T));
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"MessageHandler for {typeof(T)} is of a different type.");
+                }
             }
         }
     }

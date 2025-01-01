@@ -12,37 +12,23 @@ namespace LOP
     {
         public async Task Execute()
         {
-            var getUser = WebAPI.GetUser(Data.User.user.id);
-            await getUser;
+            var getUserLocation = await WebAPI.GetUserLocation(Data.User.user.id);
 
-            if (getUser.isSuccess == false || getUser.response.code != ResponseCode.SUCCESS)
+            if (getUserLocation.response.code != ResponseCode.SUCCESS)
             {
-                throw new Exception($"유저 정보를 가져오는데 실패하였습니다. error: {getUser.error}");
+                throw new Exception($"유저 위치 정보를 가져오는데 실패하였습니다. GetUserLocation code: {getUserLocation.response.code}");
             }
 
-            Data.User.user = MapperConfig.mapper.Map<User>(getUser.response.user);
+            Data.User.userLocation = MapperConfig.mapper.Map<UserLocation>(getUserLocation.response.userLocation);
 
-            switch (getUser.response.user.location)
+            switch (getUserLocation.response.userLocation.location)
             {
-                case Location.InGameRoom:
-                    var roomId = (getUser.response.user.locationDetail as GameRoomLocationDetail).gameRoomId;
-                    var getRoom = WebAPI.GetRoom(roomId);
-
-                    await getRoom;
-
-                    if (getRoom.isSuccess == false || getRoom.response.code != ResponseCode.SUCCESS)
-                    {
-                        throw new Exception($"룸 정보를 가져오는데 실패하였습니다. error: {getRoom.error}");
-                    }
-
-                    if (getRoom.response.room.status == RoomStatus.Ready || getRoom.response.room.status == RoomStatus.Playing)
-                    {
-                        //RoomConnector.Instance.TryToEnterRoomById(roomId);
-                        Debug.LogWarning($"RoomConnector is not implemented yet.");
-                    }
+                case Location.GameRoom:
+                    var roomId = (Data.User.userLocation.locationDetail as GameRoomLocationDetail).gameRoomId;
+                    await new RoomConnector().TryToEnterRoomById(roomId);
                     break;
 
-                case Location.InWaitingRoom:
+                case Location.WaitingRoom:
                 default:
                     SceneManager.LoadScene("Lobby");
                     break;

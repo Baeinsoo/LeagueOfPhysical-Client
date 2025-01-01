@@ -23,7 +23,7 @@ public static partial class GameinfoResponseReflection {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
           "ChdnYW1laW5mb19yZXNwb25zZS5wcm90bxoOZ2FtZWluZm8ucHJvdG8iQgoQ",
-          "R2FtZUluZm9SZXNwb25zZRIQCghlbnRpdHlJZBgBIAEoBRIcCglnYW1lX2lu",
+          "R2FtZUluZm9SZXNwb25zZRIQCghlbnRpdHlJZBgBIAEoCRIcCglnYW1lX2lu",
           "Zm8YAiABKAsyCS5HYW1lSW5mb2IGcHJvdG8z"));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { global::GameinfoReflection.Descriptor, },
@@ -83,13 +83,13 @@ public sealed partial class GameInfoResponse : pb::IMessage<GameInfoResponse>
 
   /// <summary>Field number for the "entityId" field.</summary>
   public const int EntityIdFieldNumber = 1;
-  private int entityId_;
+  private string entityId_ = "";
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-  public int EntityId {
+  public string EntityId {
     get { return entityId_; }
     set {
-      entityId_ = value;
+      entityId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
     }
   }
 
@@ -129,7 +129,7 @@ public sealed partial class GameInfoResponse : pb::IMessage<GameInfoResponse>
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public override int GetHashCode() {
     int hash = 1;
-    if (EntityId != 0) hash ^= EntityId.GetHashCode();
+    if (EntityId.Length != 0) hash ^= EntityId.GetHashCode();
     if (gameInfo_ != null) hash ^= GameInfo.GetHashCode();
     if (_unknownFields != null) {
       hash ^= _unknownFields.GetHashCode();
@@ -149,9 +149,9 @@ public sealed partial class GameInfoResponse : pb::IMessage<GameInfoResponse>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
     output.WriteRawMessage(this);
   #else
-    if (EntityId != 0) {
-      output.WriteRawTag(8);
-      output.WriteInt32(EntityId);
+    if (EntityId.Length != 0) {
+      output.WriteRawTag(10);
+      output.WriteString(EntityId);
     }
     if (gameInfo_ != null) {
       output.WriteRawTag(18);
@@ -167,9 +167,9 @@ public sealed partial class GameInfoResponse : pb::IMessage<GameInfoResponse>
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-    if (EntityId != 0) {
-      output.WriteRawTag(8);
-      output.WriteInt32(EntityId);
+    if (EntityId.Length != 0) {
+      output.WriteRawTag(10);
+      output.WriteString(EntityId);
     }
     if (gameInfo_ != null) {
       output.WriteRawTag(18);
@@ -185,8 +185,8 @@ public sealed partial class GameInfoResponse : pb::IMessage<GameInfoResponse>
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public int CalculateSize() {
     int size = 0;
-    if (EntityId != 0) {
-      size += 1 + pb::CodedOutputStream.ComputeInt32Size(EntityId);
+    if (EntityId.Length != 0) {
+      size += 1 + pb::CodedOutputStream.ComputeStringSize(EntityId);
     }
     if (gameInfo_ != null) {
       size += 1 + pb::CodedOutputStream.ComputeMessageSize(GameInfo);
@@ -203,7 +203,7 @@ public sealed partial class GameInfoResponse : pb::IMessage<GameInfoResponse>
     if (other == null) {
       return;
     }
-    if (other.EntityId != 0) {
+    if (other.EntityId.Length != 0) {
       EntityId = other.EntityId;
     }
     if (other.gameInfo_ != null) {
@@ -231,8 +231,8 @@ public sealed partial class GameInfoResponse : pb::IMessage<GameInfoResponse>
         default:
           _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
           break;
-        case 8: {
-          EntityId = input.ReadInt32();
+        case 10: {
+          EntityId = input.ReadString();
           break;
         }
         case 18: {
@@ -261,8 +261,8 @@ public sealed partial class GameInfoResponse : pb::IMessage<GameInfoResponse>
         default:
           _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
           break;
-        case 8: {
-          EntityId = input.ReadInt32();
+        case 10: {
+          EntityId = input.ReadString();
           break;
         }
         case 18: {

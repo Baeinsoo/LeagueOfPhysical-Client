@@ -5,7 +5,7 @@ using VContainer.Unity;
 
 namespace LOP
 {
-    public class RoomLifetimeScope : LifetimeScope
+    public class RoomLifetimeScope : SceneLifetimeScope
     {
         [SerializeField] private LOPRoom room;
         [SerializeField] private RoomNetwork roomNetwork;

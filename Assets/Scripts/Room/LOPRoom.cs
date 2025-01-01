@@ -72,7 +72,7 @@ namespace LOP
 
             roomNetwork.RegisterHandler<GameInfoResponse>(OnGameInfoResponse);
 
-            game.onGameEnd += OnGameEnd;
+            game.onGameStateChanged += OnGameStateChanged;
 
             initialized = true;
         }
@@ -92,7 +92,7 @@ namespace LOP
                 //  Maybe roomNetwork was already destroyed.
             }
 
-            game.onGameEnd -= OnGameEnd;
+            game.onGameStateChanged -= OnGameStateChanged;
 
             initialized = false;
         }
@@ -135,9 +135,7 @@ namespace LOP
 
             game.Run(gameInfoResponse.GameInfo.Tick, gameInfoResponse.GameInfo.Interval, gameInfoResponse.GameInfo.ElapsedTime);
 
-            Debug.Log($"My EntityId: {gameInfoResponse.EntityId}");
-
-            //Data.User.player.entityId = gameInfoResponse.EntityId.ToString();
+            Data.Room.player.entityId = gameInfoResponse.EntityId;
         }
 
         private void OnGameInfoResponse(GameInfoResponse gameInfoResponse)
@@ -145,9 +143,14 @@ namespace LOP
             Blackboard.Write(gameInfoResponse);
         }
 
-        private void OnGameEnd()
+        private void OnGameStateChanged(GameState gameState)
         {
-            SceneManager.LoadScene("Lobby");
+            switch (gameState)
+            {
+                case GameState.GameOver:
+                    SceneManager.LoadScene("Lobby");
+                    break;
+            }
         }
     }
 }

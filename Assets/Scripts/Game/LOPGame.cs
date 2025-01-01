@@ -4,33 +4,55 @@ using System.Collections.Generic;
 using UnityEngine;
 using VContainer;
 using System.Threading.Tasks;
+using System;
 
 namespace LOP
 {
     public class LOPGame : MonoBehaviour, IGame
     {
-        public IGameEngine gameEngine { get; private set; }
-        [Inject] private RoomNetwork roomNetwork;
+        public event Action<GameState> onGameStateChanged;
 
-        private float originalFixedDeltaTime;
-        private bool originalAutoSyncTransforms;
+        [Inject]
+        private RoomNetwork roomNetwork;
+
+        public IGameEngine gameEngine { get; private set; }
+
+        private GameState _gameState;
+        public GameState gameState
+        {
+            get => _gameState;
+            private set
+            {
+                _gameState = value;
+                onGameStateChanged?.Invoke(value);
+            }
+        }
 
         public bool initialized { get; private set; }
 
+        private Restorer restorer = new Restorer();
+
         public async Task InitializeAsync()
         {
-            gameEngine = GetComponentInChildren<IGameEngine>();
+            gameState = GameState.Initializing;
 
-            await gameEngine.InitializeAsync();
+            var oldSimulationMode = Physics.simulationMode;
+            var oldAutoSyncTransforms = Physics.autoSyncTransforms;
 
-            roomNetwork.RegisterHandler<GameInfoResponse>(OnGameInfoResponse);
+            restorer.action += () =>
+            {
+                Physics.simulationMode = oldSimulationMode;
+                Physics.autoSyncTransforms = oldAutoSyncTransforms;
+            };
 
             Physics.simulationMode = SimulationMode.Script;
+            Physics.autoSyncTransforms = false;
 
-            originalAutoSyncTransforms = Physics.autoSyncTransforms;
-            Physics.autoSyncTransforms = true;
+            //var sceneLoadOperation = SceneManager.LoadSceneAsync(Data.Room.match.mapId, LoadSceneMode.Additive);
 
-            originalFixedDeltaTime = UnityEngine.Time.fixedDeltaTime;
+            gameEngine = GetComponentInChildren<IGameEngine>();
+            await gameEngine.InitializeAsync();
+            //await UniTask.WaitUntil(() => sceneLoadOperation.isDone && gameEngine.initialized);
 
             initialized = true;
         }
@@ -39,12 +61,7 @@ namespace LOP
         {
             await gameEngine.DeinitializeAsync();
 
-            roomNetwork.UnregisterHandler<GameInfoResponse>(OnGameInfoResponse);
-
-            Physics.simulationMode = SimulationMode.FixedUpdate;
-            Physics.autoSyncTransforms = originalAutoSyncTransforms;
-
-            UnityEngine.Time.fixedDeltaTime = originalFixedDeltaTime;
+            restorer.Dispose();
 
             initialized = false;
         }
@@ -52,16 +69,6 @@ namespace LOP
         public void Run(long tick, double interval, double elapsedTime)
         {
             gameEngine.Run(tick, interval, elapsedTime);
-        }
-
-        public void Stop()
-        {
-            gameEngine.Stop();
-        }
-
-        private void OnGameInfoResponse(GameInfoResponse gameInfoResponse)
-        {
-            Debug.Log($"OnGameInfoResponse. EntityId: {gameInfoResponse.EntityId}");
         }
     }
 }

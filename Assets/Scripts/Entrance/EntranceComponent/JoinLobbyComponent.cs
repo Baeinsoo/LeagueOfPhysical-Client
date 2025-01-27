@@ -20,8 +20,6 @@ namespace LOP
                 {
                     throw new Exception($"로비 접속에 실패하였습니다. JoinLobbyResponse code: {joinLobby.response.code}");
                 }
-
-                SceneManager.LoadScene("Lobby");
             }
             catch (WebRequestException)
             {

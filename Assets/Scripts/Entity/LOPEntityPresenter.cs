@@ -44,7 +44,7 @@ namespace LOP
                     break;
 
                 case nameof(entity.velocity):
-                    modelRigidbody.velocity = entity.velocity;
+                    modelRigidbody.linearVelocity = entity.velocity;
                     break;
 
                 case "modelId":
@@ -63,7 +63,7 @@ namespace LOP
         {
             entity.position = modelRigidbody.position;
             entity.rotation = modelRigidbody.rotation.eulerAngles;
-            entity.velocity = modelRigidbody.velocity;
+            entity.velocity = modelRigidbody.linearVelocity;
         }
     }
 }

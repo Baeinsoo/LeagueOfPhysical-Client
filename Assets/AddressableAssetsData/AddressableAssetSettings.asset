@@ -24,11 +24,11 @@ MonoBehaviour:
   m_InternalBundleIdMode: 1
   m_AssetLoadMode: 0
   m_BundledAssetProviderType:
-    m_AssemblyName: 
-    m_ClassName: 
+    m_AssemblyName: Unity.ResourceManager, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+    m_ClassName: UnityEngine.ResourceManagement.ResourceProviders.BundledAssetProvider
   m_AssetBundleProviderType:
-    m_AssemblyName: 
-    m_ClassName: 
+    m_AssemblyName: Unity.ResourceManager, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+    m_ClassName: UnityEngine.ResourceManagement.ResourceProviders.AssetBundleProvider
   m_IgnoreUnsupportedFilesInBuild: 0
   m_UniqueBundleIds: 0
   m_EnableJsonCatalog: 0
@@ -50,10 +50,10 @@ MonoBehaviour:
   m_CheckForContentUpdateRestrictionsOption: 0
   m_MonoScriptBundleCustomNaming: 
   m_RemoteCatalogBuildPath:
-    m_Id: 
+    m_Id: c49d37a88e2212543beb490d525d5574
   m_RemoteCatalogLoadPath:
-    m_Id: 
-  m_ContentStateBuildPathProfileVariableName: 
+    m_Id: 80a9ca5fc23ba404ea3af36720a64964
+  m_ContentStateBuildPathProfileVariableName: <default settings path>
   m_CustomContentStateBuildPath: 
   m_ContentStateBuildPath: 
   m_BuildAddressablesWithPlayerBuild: 0
@@ -75,6 +75,48 @@ MonoBehaviour:
         m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
       - m_Id: 80a9ca5fc23ba404ea3af36720a64964
         m_Value: <undefined>
+      - m_Id: c49d37a88e2212543beb490d525d5574
+        m_Value: 'ServerData/[BuildTarget]'
+      - m_Id: e052636f8a1f4e646927ee283f3b488c
+        m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
+    - m_InheritedParent: 
+      m_Id: 7be7bb1697b827f46afbb5ead6a9b45f
+      m_ProfileName: dev
+      m_Values:
+      - m_Id: 3880b443112e691408fd47fd86581c64
+        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
+      - m_Id: 64e65fe6f4c10e64d83e401046ee5b83
+        m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
+      - m_Id: 80a9ca5fc23ba404ea3af36720a64964
+        m_Value: 'https://lop-dev-assets.s3.ap-northeast-2.amazonaws.com/[BuildTarget]'
+      - m_Id: c49d37a88e2212543beb490d525d5574
+        m_Value: 'ServerData/[BuildTarget]'
+      - m_Id: e052636f8a1f4e646927ee283f3b488c
+        m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
+    - m_InheritedParent: 
+      m_Id: 8acb93a140fde3140a84146a1cb70be7
+      m_ProfileName: stage
+      m_Values:
+      - m_Id: 3880b443112e691408fd47fd86581c64
+        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
+      - m_Id: 64e65fe6f4c10e64d83e401046ee5b83
+        m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
+      - m_Id: 80a9ca5fc23ba404ea3af36720a64964
+        m_Value: 'https://lop-stage-assets.s3.ap-northeast-2.amazonaws.com/[BuildTarget]'
+      - m_Id: c49d37a88e2212543beb490d525d5574
+        m_Value: 'ServerData/[BuildTarget]'
+      - m_Id: e052636f8a1f4e646927ee283f3b488c
+        m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
+    - m_InheritedParent: 
+      m_Id: f2430b6883cf0c142bc308a6fc88fce3
+      m_ProfileName: prod
+      m_Values:
+      - m_Id: 3880b443112e691408fd47fd86581c64
+        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
+      - m_Id: 64e65fe6f4c10e64d83e401046ee5b83
+        m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
+      - m_Id: 80a9ca5fc23ba404ea3af36720a64964
+        m_Value: 'https://lop-prod-assets.s3.ap-northeast-2.amazonaws.com/[BuildTarget]'
       - m_Id: c49d37a88e2212543beb490d525d5574
         m_Value: 'ServerData/[BuildTarget]'
       - m_Id: e052636f8a1f4e646927ee283f3b488c
@@ -111,4 +153,4 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5f425fd9e21b65646846d62f2db6f002, type: 2}
   - {fileID: 11400000, guid: 1d31500b80aa8f3439f925c3514b4e42, type: 2}
   - {fileID: 11400000, guid: 6c122c21bb0f81344b6c573a502d7ac1, type: 2}
-  m_ActiveProfileId: 0dc89934c14f13f478f7726acfaa9d57
+  m_ActiveProfileId: 7be7bb1697b827f46afbb5ead6a9b45f

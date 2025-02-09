@@ -13,6 +13,7 @@ namespace LOP
             builder.Register<IEntranceComponent, CheckUserComponent>(Lifetime.Transient);
             builder.Register<IEntranceComponent, JoinLobbyComponent>(Lifetime.Transient);
             //builder.Register<IEntranceComponent, CheckLocationComponent>(Lifetime.Transient);
+            builder.Register<IEntranceComponent, LoadMasterDataComponent>(Lifetime.Transient);
         }
     }
 }

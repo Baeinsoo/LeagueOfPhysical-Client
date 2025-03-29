@@ -4,12 +4,12 @@ using UnityEngine;
 
 namespace LOP
 {
-    public partial class UserContainer : IDataContainer
+    public partial class UserDataContext : IDataContext
     {
         public User user;
         public UserLocation userLocation;
 
-        public UserContainer()
+        public UserDataContext()
         {
             user = new User();
             userLocation = new UserLocation();

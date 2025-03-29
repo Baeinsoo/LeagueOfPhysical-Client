@@ -4,13 +4,13 @@ using UnityEngine;
 
 namespace LOP
 {
-    public partial class RoomContainer : IDataContainer
+    public partial class RoomDataContext : IDataContext
     {
         public RoomDto room;
         public MatchDto match;
         public Player player;
 
-        public RoomContainer()
+        public RoomDataContext()
         {
             player = new Player();
         }

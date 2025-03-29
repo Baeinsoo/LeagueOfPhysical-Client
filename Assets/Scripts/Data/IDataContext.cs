@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace LOP
 {
-    public interface IDataContainer
+    public interface IDataContext
     {
         //void ApplyData(object data);
         void Clear();

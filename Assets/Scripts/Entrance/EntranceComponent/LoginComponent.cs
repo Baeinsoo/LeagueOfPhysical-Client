@@ -26,7 +26,11 @@ namespace LOP
 
                 loginPopup.Close();
 
-                if (loginResult.success == false)
+                if (loginResult.success)
+                {
+                    //Data.User.user.id = loginResult.id;
+                }
+                else
                 {
                     throw new Exception(loginResult.reason);
                 }

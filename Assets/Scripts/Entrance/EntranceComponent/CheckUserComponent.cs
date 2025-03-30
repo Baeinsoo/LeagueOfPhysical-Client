@@ -29,8 +29,8 @@ namespace LOP
                     case ResponseCode.USER_NOT_EXIST:
                         var createUser = await WebAPI.CreateUser(new CreateUserRequest
                         {
-                            id = Data.User.user.id,
-                            nickname = $"{Data.User.user.id} nickname",
+                            username = Data.User.user.username,
+                            email = $"{Data.User.user.username} email",
                         });
 
                         if (createUser.response.code != ResponseCode.SUCCESS)

@@ -53,11 +53,6 @@ namespace LOP
             if (loginResult.success)
             {
                 PlayerPrefs.SetString(LOGIN_TYPE_KEY, loginType.ToString());
-                Data.User.user.id = loginResult.id;
-            }
-            else
-            {
-                Debug.LogWarning(loginResult.reason);
             }
 
             return loginResult;

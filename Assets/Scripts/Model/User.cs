@@ -7,11 +7,7 @@ namespace LOP
     public class User
     {
         public string id;
-        public string nickname;
-        public int masterExp;
-        public int friendlyRating;
-        public int rankRating;
-        public int goldCoin;
-        public int gem;
+        public string username;
+        public string email;
     }
 }

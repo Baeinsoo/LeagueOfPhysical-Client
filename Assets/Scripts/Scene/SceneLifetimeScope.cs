@@ -6,9 +6,18 @@ namespace LOP
 {
     public class SceneLifetimeScope : LifetimeScope
     {
+        public static SceneLifetimeScope instance { get; private set; }
+
+        public static void Inject(object obj)
+        {
+            instance.Container.Inject(obj);
+        }
+
         protected override void Awake()
         {
             base.Awake();
+
+            instance = this;
 
             var activeScene = SceneManager.GetActiveScene();
 
@@ -22,6 +31,16 @@ namespace LOP
             foreach (var DIMonoBehaviour in DIMonoBehaviours.OrEmpty())
             {
                 Container.Inject(DIMonoBehaviour);
+            }
+        }
+
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+
+            if (instance == this)
+            {
+                instance = null;
             }
         }
     }

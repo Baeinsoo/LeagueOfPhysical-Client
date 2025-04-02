@@ -9,5 +9,11 @@ namespace LOP
         public string id;
         public string username;
         public string email;
+
+        public User()
+        {
+            username = SystemInfo.deviceUniqueIdentifier;
+            email = $"{username}@email";
+        }
     }
 }

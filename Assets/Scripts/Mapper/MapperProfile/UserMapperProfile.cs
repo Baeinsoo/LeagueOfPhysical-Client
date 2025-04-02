@@ -5,9 +5,9 @@ using UnityEngine;
 
 namespace LOP
 {
-    public class UserProfile : Profile
+    public class UserMapperProfile : Profile
     {
-        public UserProfile()
+        public UserMapperProfile()
         {
             CreateMap<User, UserDto>();
             CreateMap<UserDto, User>();

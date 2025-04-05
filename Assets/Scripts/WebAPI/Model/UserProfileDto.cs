@@ -1,10 +1,9 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+using System;
 
 namespace LOP
 {
-    public class UserProfile
+    [Serializable]
+    public class UserProfileDto
     {
         public string userId;
         public string nickname;

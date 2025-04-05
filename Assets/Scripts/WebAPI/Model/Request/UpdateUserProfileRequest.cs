@@ -4,11 +4,10 @@ using UnityEngine;
 
 namespace LOP
 {
-    public class UserProfile
+    public class UpdateUserProfileRequest
     {
         public string userId;
         public string nickname;
-        public string avatarUrl;
         public string bio;
     }
 }

@@ -5,32 +5,37 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using UniRx;
 using UnityEngine;
+using VContainer;
 
 namespace LOP
 {
     public class CheckUserComponent : IEntranceComponent
     {
+        [Inject]
+        private IDataContextManager dataManager;
+
         public async Task Execute()
         {
             try
             {
-                var getUser = await WebAPI.GetUserByUsername(Data.User.user.username);
+                var getUser = await WebAPI.GetUserByUsername(dataManager.Get<UserDataContext>().user.username);
 
                 switch (getUser.response.code)
                 {
                     case ResponseCode.SUCCESS:
-                        Data.User.user = MapperConfig.mapper.Map<User>(getUser.response.user);
 
-                        var getUserLocation = await WebAPI.GetUserLocation(getUser.response.user.id);
+                        dataManager.UpdateData(getUser.response.user);
 
-                        Data.User.userLocation = MapperConfig.mapper.Map<UserLocation>(getUserLocation.response.userLocation);
+                        var getUserLocation = await WebAPI.GetUserLocation(dataManager.Get<UserDataContext>().user.id);
+                        dataManager.UpdateData(getUserLocation.response.userLocation);
+
                         break;
 
                     case ResponseCode.USER_NOT_EXIST:
                         var createUser = await WebAPI.CreateUser(new CreateUserRequest
                         {
-                            username = Data.User.user.username,
-                            email = $"{Data.User.user.username} email",
+                            username = dataManager.Get<UserDataContext>().user.username,
+                            email = dataManager.Get<UserDataContext>().user.email,
                         });
 
                         if (createUser.response.code != ResponseCode.SUCCESS)
@@ -38,16 +43,16 @@ namespace LOP
                             throw new Exception($"유저 생성에 실패하였습니다. error: {createUser.error}");
                         }
 
-                        Data.User.user = MapperConfig.mapper.Map<User>(createUser.response.user);
+                        dataManager.UpdateData(createUser.response.user);
                         break;
 
                     default:
                         throw new Exception($"유저 정보를 가져오는데 실패하였습니다. GetUserResponse code: {getUser.response.code}");
                 }
             }
-            catch (WebRequestException)
+            catch (WebRequestException e)
             {
-
+                Debug.LogError(e);
             }
             catch (Exception e)
             {

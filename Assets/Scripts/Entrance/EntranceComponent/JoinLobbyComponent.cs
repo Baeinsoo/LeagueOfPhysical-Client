@@ -3,27 +3,30 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 using System;
-using UnityEngine.SceneManagement;
 using GameFramework;
+using VContainer;
 
 namespace LOP
 {
     public class JoinLobbyComponent : IEntranceComponent
     {
+        [Inject]
+        private IDataContextManager dataManager;
+
         public async Task Execute()
         {
             try
             {
-                var joinLobby = await WebAPI.JoinLobby(Data.User.user.id);
+                var joinLobby = await WebAPI.JoinLobby(dataManager.Get<UserDataContext>().user.id);
 
                 if (joinLobby.response.code != ResponseCode.SUCCESS)
                 {
                     throw new Exception($"로비 접속에 실패하였습니다. JoinLobbyResponse code: {joinLobby.response.code}");
                 }
             }
-            catch (WebRequestException)
+            catch (WebRequestException e)
             {
-
+                Debug.LogError(e);
             }
             catch (Exception e)
             {

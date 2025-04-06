@@ -3,12 +3,21 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using VContainer;
 
 namespace LOP
 {
     public class InWaitingRoom : MonoState
     {
         private const int CHECK_INTERVAL = 1;   //  sec
+
+        [Inject]
+        private IDataContextManager dataManager;
+
+        private void Awake()
+        {
+            SceneLifetimeScope.Inject(this);
+        }
 
         public override IState GetNext<I>(I input)
         {
@@ -30,7 +39,7 @@ namespace LOP
         {
             while (true)
             {
-                var getUserLocation = WebAPI.GetUserLocation(Data.User.user.id);
+                var getUserLocation = WebAPI.GetUserLocation(dataManager.Get<UserDataContext>().user.id);
                 yield return getUserLocation;
 
                 if (!getUserLocation.isSuccess)
@@ -38,7 +47,7 @@ namespace LOP
                     throw new Exception($"Failed to retrieve user information. Error: {getUserLocation.error}");
                 }
 
-                Data.User.userLocation = MapperConfig.mapper.Map<UserLocation>(getUserLocation.response.userLocation);
+                dataManager.UpdateData(getUserLocation.response.userLocation);
 
                 switch (getUserLocation.response.userLocation.location)
                 {

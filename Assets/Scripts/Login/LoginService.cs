@@ -4,15 +4,20 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
+using VContainer;
 
 namespace LOP
 {
     [DontDestroyMonoSingleton]
+    [DIMonoBehaviour]
     public class LoginService : MonoSingleton<LoginService>
     {
         private const string LOGIN_TYPE_KEY = "LOGIN_TYPE_KEY";
 
         private GuestLogin guestLogin;
+
+        [Inject]
+        private IDataContextManager dataManager;
 
         protected override void Awake()
         {
@@ -84,7 +89,7 @@ namespace LOP
             if (logoutResult.success)
             {
                 PlayerPrefs.DeleteKey(LOGIN_TYPE_KEY);
-                Data.User.Clear();
+                dataManager.Get<UserDataContext>().Clear();
             }
             else
             {

@@ -1,6 +1,7 @@
 using GameFramework;
 using UnityEngine.SceneManagement;
 using VContainer.Unity;
+using VContainer;
 
 namespace LOP
 {
@@ -11,6 +12,11 @@ namespace LOP
         public static void Inject(object obj)
         {
             instance.Container.Inject(obj);
+        }
+
+        public static T Resolve<T>()
+        {
+            return instance.Container.Resolve<T>();
         }
 
         protected override void Awake()

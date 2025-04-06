@@ -5,26 +5,30 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using GameFramework;
+using VContainer;
 
 namespace LOP
 {
     public class CheckLocationComponent : IEntranceComponent
     {
+        [Inject]
+        private IDataContextManager dataManager;
+
         public async Task Execute()
         {
-            var getUserLocation = await WebAPI.GetUserLocation(Data.User.user.id);
+            var getUserLocation = await WebAPI.GetUserLocation(dataManager.Get<UserDataContext>().user.id);
 
             if (getUserLocation.response.code != ResponseCode.SUCCESS)
             {
                 throw new Exception($"유저 위치 정보를 가져오는데 실패하였습니다. GetUserLocation code: {getUserLocation.response.code}");
             }
 
-            Data.User.userLocation = MapperConfig.mapper.Map<UserLocation>(getUserLocation.response.userLocation);
+            dataManager.UpdateData(getUserLocation.response.userLocation);
 
             switch (getUserLocation.response.userLocation.location)
             {
                 case Location.GameRoom:
-                    var roomId = (Data.User.userLocation.locationDetail as GameRoomLocationDetail).gameRoomId;
+                    var roomId = (dataManager.Get<UserDataContext>().userLocation.locationDetail as GameRoomLocationDetail).gameRoomId;
                     await new RoomConnector().TryToEnterRoomById(roomId);
                     break;
 

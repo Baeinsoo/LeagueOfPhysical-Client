@@ -3,11 +3,20 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using VContainer;
 
 namespace LOP
 {
     public class CancelMatchmaking : MonoState
     {
+        [Inject]
+        private IDataContextManager dataManager;
+
+        private void Awake()
+        {
+            SceneLifetimeScope.Inject(this);
+        }
+
         public override IState GetNext<I>(I input)
         {
             if (input is not MatchStateInput matchStateInput)
@@ -26,7 +35,7 @@ namespace LOP
 
         protected override IEnumerator OnExecute()
         {
-            if (Data.User.userLocation.locationDetail is not WaitingRoomLocationDetail waitingRoomLocationDetail)
+            if (dataManager.Get<UserDataContext>().userLocation.locationDetail is not WaitingRoomLocationDetail waitingRoomLocationDetail)
             {
                 Debug.LogError("User is not in a waiting room.");
                 FSM.ProcessInput(MatchStateInput.CheckMatchState);

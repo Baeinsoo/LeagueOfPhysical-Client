@@ -9,7 +9,8 @@ namespace LOP
 {
     public class LoadMasterDataComponent : IEntranceComponent
     {
-        [Inject] private IMasterDataManager masterDataManager;
+        [Inject]
+        private IMasterDataManager masterDataManager;
 
         public async Task Execute()
         {

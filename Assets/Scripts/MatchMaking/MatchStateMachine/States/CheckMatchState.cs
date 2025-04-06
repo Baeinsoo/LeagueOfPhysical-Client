@@ -2,11 +2,20 @@ using GameFramework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using VContainer;
 
 namespace LOP
 {
     public class CheckMatchState : MonoState
     {
+        [Inject]
+        private IDataContextManager dataManager;
+
+        private void Awake()
+        {
+            SceneLifetimeScope.Inject(this);
+        }
+
         public override IState GetNext<I>(I input)
         {
             if (input is not MatchStateInput matchStateInput)
@@ -25,7 +34,7 @@ namespace LOP
 
         protected override IEnumerator OnExecute()
         {
-            var getUserLocation = WebAPI.GetUserLocation(Data.User.user.id);
+            var getUserLocation = WebAPI.GetUserLocation(dataManager.Get<UserDataContext>().user.id);
             yield return getUserLocation;
 
             if (getUserLocation.isSuccess == false || getUserLocation.response.code != ResponseCode.SUCCESS)
@@ -33,7 +42,7 @@ namespace LOP
                 throw new Exception($"Failed to retrieve user information. Error: {getUserLocation.error}");
             }
 
-            Data.User.userLocation = MapperConfig.mapper.Map<UserLocation>(getUserLocation.response.userLocation);
+            dataManager.UpdateData(getUserLocation.response.userLocation);
 
             switch (getUserLocation.response.userLocation.location)
             {
@@ -52,3 +61,4 @@ namespace LOP
         }
     }
 }
+

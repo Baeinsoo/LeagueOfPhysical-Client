@@ -3,12 +3,21 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using VContainer;
 
 namespace LOP
 {
     public class InGameRoom : MonoState
     {
         private const int CHECK_INTERVAL = 1;   //  sec
+
+        [Inject]
+        private IDataContextManager dataManager;
+
+        private void Awake()
+        {
+            SceneLifetimeScope.Inject(this);
+        }
 
         public override IState GetNext<I>(I input)
         {
@@ -22,7 +31,7 @@ namespace LOP
 
         protected override IEnumerator OnExecute()
         {
-            if (Data.User.userLocation.locationDetail is not GameRoomLocationDetail gameRoomLocationDetail)
+            if (dataManager.Get<UserDataContext>().userLocation.locationDetail is not GameRoomLocationDetail gameRoomLocationDetail)
             {
                 Debug.LogError("User is not in a game room.");
                 FSM.ProcessInput(MatchStateInput.CheckMatchState);

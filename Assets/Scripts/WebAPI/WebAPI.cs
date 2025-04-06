@@ -61,6 +61,14 @@ namespace LOP
                 .Build();
         }
 
+        public static WebRequest<GetUserResponse> GetUserByUsername(string username)
+        {
+            return new WebRequestBuilder<GetUserResponse>()
+                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user/username/{username}")
+                .SetMethod(HttpMethod.GET)
+                .Build();
+        }
+
         public static WebRequest<CreateUserResponse> CreateUser(CreateUserRequest request)
         {
             return new WebRequestBuilder<CreateUserResponse>()

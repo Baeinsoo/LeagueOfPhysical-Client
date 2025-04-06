@@ -14,7 +14,7 @@ namespace LOP
         {
             try
             {
-                var getUser = await WebAPI.GetUser(Data.User.user.id);
+                var getUser = await WebAPI.GetUserByUsername(Data.User.user.username);
 
                 switch (getUser.response.code)
                 {

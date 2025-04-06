@@ -10,6 +10,5 @@ namespace LOP
         public string userId;
         public Location location;
         public LocationDetail locationDetail;
-        public double timestamp;
     }
 }

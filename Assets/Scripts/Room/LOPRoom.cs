@@ -16,6 +16,7 @@ namespace LOP
         [Inject] public IGame game { get; private set; }
         [Inject] private RoomNetwork roomNetwork;
         [Inject] private LOPNetworkManager networkManager;
+        [Inject] private IDataContextManager dataManager;
 
         public bool initialized { get; private set; }
 
@@ -57,18 +58,18 @@ namespace LOP
                     ip = "localhost",
                     port = 7777,
                 };
-                Data.Room.room = roomMeta;
+                dataManager.Get<RoomDataContext>().room = roomMeta;
             }
 #endif
-            Data.Room.room = Blackboard.Read<RoomDto>(erase: true);
+            dataManager.Get<RoomDataContext>().room = Blackboard.Read<RoomDto>(erase: true);
 
-            var getMatch = await WebAPI.GetMatch(Data.Room.room.matchId);
+            var getMatch = await WebAPI.GetMatch(dataManager.Get<RoomDataContext>().room.matchId);
             if (getMatch.response.code != ResponseCode.SUCCESS)
             {
                 throw new Exception($"GetMatch Error. code: {getMatch.response.code}");
             }
 
-            Data.Room.match = getMatch.response.match;
+            dataManager.Get<RoomDataContext>().match = getMatch.response.match;
 
             roomNetwork.RegisterHandler<GameInfoResponse>(OnGameInfoResponse);
 
@@ -81,7 +82,7 @@ namespace LOP
         {
             await game.DeinitializeAsync();
 
-            Data.Room.Clear();
+            dataManager.Get<RoomDataContext>().Clear();
 
             try
             {
@@ -99,8 +100,8 @@ namespace LOP
 
         private async Task ConnectRoomServerAsync()
         {
-            networkManager.networkAddress = Data.Room.room.ip;
-            networkManager.port = Data.Room.room.port;
+            networkManager.networkAddress = dataManager.Get<RoomDataContext>().room.ip;
+            networkManager.port = dataManager.Get<RoomDataContext>().room.port;
 
             //networkManager.onStartClient += () =>
             //{
@@ -135,7 +136,7 @@ namespace LOP
 
             game.Run(gameInfoResponse.GameInfo.Tick, gameInfoResponse.GameInfo.Interval, gameInfoResponse.GameInfo.ElapsedTime);
 
-            Data.Room.player.entityId = gameInfoResponse.EntityId;
+            dataManager.Get<RoomDataContext>().player.entityId = gameInfoResponse.EntityId;
         }
 
         private void OnGameInfoResponse(GameInfoResponse gameInfoResponse)

@@ -3,11 +3,20 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using VContainer;
 
 namespace LOP
 {
     public class RequestMatchmaking : MonoState
     {
+        [Inject]
+        private IDataContextManager dataManager;
+
+        private void Awake()
+        {
+            SceneLifetimeScope.Inject(this);
+        }
+
         public override IState GetNext<I>(I input)
         {
             if (input is not MatchStateInput matchStateInput)
@@ -27,10 +36,10 @@ namespace LOP
         {
             var matchmakingRequest = new MatchmakingRequest
             {
-                userId = Data.User.user.id,
-                matchType = Data.MatchMaking.matchType,
-                subGameId = Data.MatchMaking.subGameId,
-                mapId = Data.MatchMaking.mapId,
+                userId = dataManager.Get<UserDataContext>().user.id,
+                matchType = dataManager.Get<MatchMakingDataContext>().matchType,
+                subGameId = dataManager.Get<MatchMakingDataContext>().subGameId,
+                mapId = dataManager.Get<MatchMakingDataContext>().mapId,
             };
 
             var requestMatchmaking = WebAPI.RequestMatchmaking(matchmakingRequest);

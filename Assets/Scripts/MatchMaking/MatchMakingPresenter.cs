@@ -4,13 +4,21 @@ using UnityEngine;
 using UnityEngine.UI;
 using UniRx;
 using GameFramework;
+using VContainer;
 
 namespace LOP
 {
+    [DIMonoBehaviour]
     public class MatchMakingPresenter : MonoBehaviour
     {
-        [SerializeField] private MatchStateMachine matchStateMachine;
-        [SerializeField] private Button playButton;
+        [SerializeField]
+        private MatchStateMachine matchStateMachine;
+
+        [SerializeField]
+        private Button playButton;
+
+        [Inject]
+        private IDataContextManager dataManager;
 
         private void Start()
         {
@@ -26,9 +34,9 @@ namespace LOP
 
         private void OnPlayButtonClick(Unit value)
         {
-            Data.MatchMaking.matchType = MatchType.Friendly;
-            Data.MatchMaking.subGameId = "FlapWang";
-            Data.MatchMaking.mapId = "FlapWangMap";
+            dataManager.Get<MatchMakingDataContext>().matchType = MatchType.Friendly;
+            dataManager.Get<MatchMakingDataContext>().subGameId = "FlapWang";
+            dataManager.Get<MatchMakingDataContext>().mapId = "FlapWangMap";
 
             matchStateMachine.ProcessInput(MatchStateInput.RequestMatchmaking);
         }

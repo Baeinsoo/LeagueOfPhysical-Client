@@ -86,6 +86,14 @@ namespace LOP
                 .SetDeserialize(GetUserLocationResponse.Deserialize)
                 .Build();
         }
+
+        public static WebRequest<GetUserStatsResponse> GetUserStats(string userId, GameMode gameMode)
+        {
+            return new WebRequestBuilder<GetUserStatsResponse>()
+                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/stats?gameMode={gameMode}")
+                .SetMethod(HttpMethod.GET)
+                .Build();
+        }
         #endregion
 
         #region Room

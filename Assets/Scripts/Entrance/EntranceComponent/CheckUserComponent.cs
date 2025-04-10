@@ -23,12 +23,7 @@ namespace LOP
                 switch (getUser.response.code)
                 {
                     case ResponseCode.SUCCESS:
-
-                        dataManager.UpdateData(getUser.response.user);
-
                         var getUserLocation = await WebAPI.GetUserLocation(dataManager.Get<UserDataContext>().user.id);
-                        dataManager.UpdateData(getUserLocation.response.userLocation);
-
                         break;
 
                     case ResponseCode.USER_NOT_EXIST:
@@ -42,13 +37,14 @@ namespace LOP
                         {
                             throw new Exception($"유저 생성에 실패하였습니다. error: {createUser.error}");
                         }
-
-                        dataManager.UpdateData(createUser.response.user);
                         break;
 
                     default:
                         throw new Exception($"유저 정보를 가져오는데 실패하였습니다. GetUserResponse code: {getUser.response.code}");
                 }
+
+                var getNormalUserStats = await WebAPI.GetUserStats(dataManager.Get<UserDataContext>().user.id, GameMode.Normal);
+                var getRankedUserStats = await WebAPI.GetUserStats(dataManager.Get<UserDataContext>().user.id, GameMode.Ranked);
             }
             catch (WebRequestException e)
             {

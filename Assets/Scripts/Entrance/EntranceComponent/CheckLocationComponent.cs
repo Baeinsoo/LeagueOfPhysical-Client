@@ -23,8 +23,6 @@ namespace LOP
                 throw new Exception($"유저 위치 정보를 가져오는데 실패하였습니다. GetUserLocation code: {getUserLocation.response.code}");
             }
 
-            dataManager.UpdateData(getUserLocation.response.userLocation);
-
             switch (getUserLocation.response.userLocation.location)
             {
                 case Location.GameRoom:

@@ -13,6 +13,7 @@ namespace LOP
             return new WebRequestBuilder<JoinLobbyResponse>()
                 .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/lobby/join/{userId}")
                 .SetMethod(HttpMethod.PUT)
+                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
                 .Build();
         }
 
@@ -21,6 +22,7 @@ namespace LOP
             return new WebRequestBuilder<LeaveLobbyResponse>()
                 .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/lobby/leave/{userId}")
                 .SetMethod(HttpMethod.PUT)
+                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
                 .Build();
         }
         #endregion
@@ -32,6 +34,7 @@ namespace LOP
                 .SetUri($"{EnvironmentSettings.active.matchmakingBaseURL}/matchmaking")
                 .SetMethod(HttpMethod.POST)
                 .SetRequestBody(request)
+                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
                 .Build();
         }
 
@@ -40,6 +43,7 @@ namespace LOP
             return new WebRequestBuilder<CancelMatchmakingResponse>()
                 .SetUri($"{EnvironmentSettings.active.matchmakingBaseURL}/matchmaking/{ticketId}")
                 .SetMethod(HttpMethod.DELETE)
+                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
                 .Build();
         }
 
@@ -48,6 +52,7 @@ namespace LOP
             return new WebRequestBuilder<GetMatchResponse>()
                 .SetUri($"{EnvironmentSettings.active.matchmakingBaseURL}/match/{matchId}")
                 .SetMethod(HttpMethod.GET)
+                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
                 .Build();
         }
         #endregion
@@ -58,6 +63,7 @@ namespace LOP
             return new WebRequestBuilder<GetUserResponse>()
                 .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}")
                 .SetMethod(HttpMethod.GET)
+                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
                 .Build();
         }
 
@@ -66,6 +72,7 @@ namespace LOP
             return new WebRequestBuilder<GetUserResponse>()
                 .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user/username/{username}")
                 .SetMethod(HttpMethod.GET)
+                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
                 .Build();
         }
 
@@ -75,6 +82,7 @@ namespace LOP
                 .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user")
                 .SetMethod(HttpMethod.POST)
                 .SetRequestBody(request)
+                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
                 .Build();
         }
 
@@ -84,6 +92,7 @@ namespace LOP
                 .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/location/")
                 .SetMethod(HttpMethod.GET)
                 .SetDeserialize(GetUserLocationResponse.Deserialize)
+                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
                 .Build();
         }
 
@@ -92,6 +101,7 @@ namespace LOP
             return new WebRequestBuilder<GetUserStatsResponse>()
                 .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/stats?gameMode={gameMode}")
                 .SetMethod(HttpMethod.GET)
+                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
                 .Build();
         }
         #endregion
@@ -102,6 +112,7 @@ namespace LOP
             return new WebRequestBuilder<GetRoomResponse>()
                 .SetUri($"{EnvironmentSettings.active.roomBaseURL}/room/{roomId}")
                 .SetMethod(HttpMethod.GET)
+                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
                 .Build();
         }
 
@@ -110,6 +121,7 @@ namespace LOP
             return new WebRequestBuilder<RoomJoinableResponse>()
                 .SetUri($"{EnvironmentSettings.active.roomBaseURL}/room/{roomId}/joinable")
                 .SetMethod(HttpMethod.GET)
+                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
                 .Build();
         }
         #endregion

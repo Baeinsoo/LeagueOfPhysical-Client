@@ -38,6 +38,10 @@ namespace LOP
         public const int USER_LOCATION_NOT_EXIST = 60000;
         #endregion
 
+        #region User Stats
+        public const int USER_STATS_NOT_EXIST = 70000;
+        #endregion
+
         public const int UNKNOWN_ERROR = 5000000;
     }
 }

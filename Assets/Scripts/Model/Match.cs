@@ -1,12 +1,9 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace LOP
 {
-    [Serializable]
-    public class MatchDto
+    public class Match
     {
         public string id;
         public MatchType matchType;
@@ -14,5 +11,12 @@ namespace LOP
         public string mapId;
         public int targetRating;
         public string[] playerList;
+    }
+
+    [Serializable]
+    public enum MatchType
+    {
+        Friendly = 0,
+        Rank = 1,
     }
 }

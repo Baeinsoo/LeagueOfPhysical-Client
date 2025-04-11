@@ -49,27 +49,19 @@ namespace LOP
             await game.InitializeAsync();
 
 #if UNITY_EDITOR
-            if (Blackboard.Contain<RoomDto>() == false)
+            dataManager.Get<RoomDataContext>().room = new Room
             {
-                var roomMeta = new RoomDto
-                {
-                    id = "test",
-                    matchId = "",
-                    ip = "localhost",
-                    port = 7777,
-                };
-                dataManager.Get<RoomDataContext>().room = roomMeta;
-            }
+                id = "test",
+                matchId = "",
+                ip = "localhost",
+                port = 7777,
+            };
 #endif
-            dataManager.Get<RoomDataContext>().room = Blackboard.Read<RoomDto>(erase: true);
-
             var getMatch = await WebAPI.GetMatch(dataManager.Get<RoomDataContext>().room.matchId);
             if (getMatch.response.code != ResponseCode.SUCCESS)
             {
                 throw new Exception($"GetMatch Error. code: {getMatch.response.code}");
             }
-
-            dataManager.Get<RoomDataContext>().match = getMatch.response.match;
 
             roomNetwork.RegisterHandler<GameInfoResponse>(OnGameInfoResponse);
 

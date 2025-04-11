@@ -6,26 +6,47 @@ using GameFramework;
 
 namespace LOP
 {
-    //  user와 같이 따로 model 정의하여 사용하도록 수정 필요 (dto 사용 x)
     public partial class RoomDataContext : IDataContext
     {
-        public Type[] subscribedTypes => new Type[] { typeof(MatchDto) };
+        public Type[] subscribedTypes => new Type[]
+        {
+            typeof(GetMatchResponse),
+            typeof(RoomJoinableResponse),
+        };
 
-        public RoomDto room;
-        public MatchDto match;
+        private Dictionary<Type, Action<object>> updateHandlers;
+
+        public Room room;
+        public Match match;
         public Player player;
 
         public RoomDataContext()
         {
             player = new Player();
+
+            updateHandlers = new Dictionary<Type, Action<object>>
+            {
+                { typeof(GetMatchResponse), data => HandleGetMatch((GetMatchResponse)data) },
+                { typeof(RoomJoinableResponse), data => HandleRoomJoinable((RoomJoinableResponse)data) },
+            };
         }
 
         public void UpdateData<T>(T data)
         {
-            if (data is MatchDto matchDto)
+            if (updateHandlers.TryGetValue(data.GetType(), out var handler))
             {
-                match = matchDto;
+                handler(data);
             }
+        }
+
+        private void HandleGetMatch(GetMatchResponse response)
+        {
+            match = MapperConfig.mapper.Map<Match>(response.match);
+        }
+
+        private void HandleRoomJoinable(RoomJoinableResponse response)
+        {
+            room = MapperConfig.mapper.Map<Room>(response.room);
         }
 
         public void Clear()
@@ -33,6 +54,7 @@ namespace LOP
             room = null;
             match = null;
             player.Clear();
+            updateHandlers.Clear();
         }
     }
 }

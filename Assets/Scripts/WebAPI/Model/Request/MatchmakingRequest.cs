@@ -8,7 +8,7 @@ namespace LOP
     public class MatchmakingRequest
     {
         public string userId;
-        public MatchType matchType;
+        public GameMode matchType;
         public string subGameId;
         public string mapId;
     }

@@ -34,7 +34,7 @@ namespace LOP
 
         private void OnPlayButtonClick(Unit value)
         {
-            dataManager.Get<MatchMakingDataContext>().matchType = MatchType.Friendly;
+            dataManager.Get<MatchMakingDataContext>().matchType = GameMode.Normal;
             dataManager.Get<MatchMakingDataContext>().subGameId = "FlapWang";
             dataManager.Get<MatchMakingDataContext>().mapId = "FlapWangMap";
 

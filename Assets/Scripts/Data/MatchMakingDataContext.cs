@@ -10,7 +10,7 @@ namespace LOP
     {
         public Type[] subscribedTypes => new Type[] { };
 
-        public MatchType matchType;
+        public GameMode matchType;
         public string subGameId;
         public string mapId;
 

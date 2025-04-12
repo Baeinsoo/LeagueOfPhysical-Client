@@ -13,11 +13,4 @@ namespace LOP
         public int eloRating;
         public string tier;
     }
-
-    [Serializable]
-    public enum GameMode
-    {
-        Normal = 0,
-        Ranked = 1,
-    }
 }

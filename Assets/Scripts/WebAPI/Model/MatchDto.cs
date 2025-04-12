@@ -9,7 +9,7 @@ namespace LOP
     public class MatchDto
     {
         public string id;
-        public MatchType matchType;
+        public GameMode matchType;
         public string subGameId;
         public string mapId;
         public int targetRating;

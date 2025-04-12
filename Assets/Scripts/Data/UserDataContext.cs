@@ -61,6 +61,11 @@ namespace LOP
 
         private void HandleGetUser(GetUserResponse response)
         {
+            if (response.user == null)
+            {
+                return;
+            }
+
             user = MapperConfig.mapper.Map<User>(response.user);
         }
 

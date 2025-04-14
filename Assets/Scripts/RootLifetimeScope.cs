@@ -14,6 +14,7 @@ namespace LOP
             builder.Register<IDataContext, UserDataContext>(Lifetime.Transient);
             builder.Register<IDataContext, MatchMakingDataContext>(Lifetime.Transient);
             builder.Register<IDataContext, RoomDataContext>(Lifetime.Transient);
+            builder.Register<IDataContext, GameDataContext>(Lifetime.Transient);
         }
     }
 }

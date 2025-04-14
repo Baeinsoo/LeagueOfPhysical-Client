@@ -6,7 +6,7 @@ using GameFramework;
 
 namespace LOP
 {
-    public partial class RoomDataContext : IDataContext
+    public class RoomDataContext : IDataContext
     {
         public Type[] subscribedTypes => new Type[]
         {
@@ -18,12 +18,9 @@ namespace LOP
 
         public Room room;
         public Match match;
-        public Player player;
 
         public RoomDataContext()
         {
-            player = new Player();
-
             updateHandlers = new Dictionary<Type, Action<object>>
             {
                 { typeof(GetMatchResponse), data => HandleGetMatch((GetMatchResponse)data) },
@@ -53,7 +50,6 @@ namespace LOP
         {
             room = null;
             match = null;
-            player.Clear();
             updateHandlers.Clear();
         }
     }

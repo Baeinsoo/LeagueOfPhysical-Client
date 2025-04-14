@@ -6,7 +6,7 @@ using GameFramework;
 
 namespace LOP
 {
-    public partial class UserDataContext : IDataContext
+    public class UserDataContext : IDataContext
     {
         public Type[] subscribedTypes => new Type[]
         {

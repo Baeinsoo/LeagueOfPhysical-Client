@@ -2,11 +2,10 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using GameFramework;
 
 namespace LOP
 {
-    public class GameDataContext : IDataContext
+    public class GameDataContext : IGameDataContext
     {
         public Type[] subscribedTypes => new Type[]
         {
@@ -15,8 +14,8 @@ namespace LOP
 
         private Dictionary<Type, Action<object>> updateHandlers;
 
-        public Player player;
-        public GameInfo gameInfo;
+        public Player player { get; set; }
+        public GameInfo gameInfo { get; set; }
 
         public GameDataContext()
         {

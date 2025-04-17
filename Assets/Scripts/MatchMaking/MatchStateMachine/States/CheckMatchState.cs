@@ -9,7 +9,7 @@ namespace LOP
     public class CheckMatchState : MonoState
     {
         [Inject]
-        private IDataContextManager dataManager;
+        private IUserDataContext userDataContext;
 
         private void Awake()
         {
@@ -34,15 +34,13 @@ namespace LOP
 
         protected override IEnumerator OnExecute()
         {
-            var getUserLocation = WebAPI.GetUserLocation(dataManager.Get<UserDataContext>().user.id);
+            var getUserLocation = WebAPI.GetUserLocation(userDataContext.user.id);
             yield return getUserLocation;
 
             if (getUserLocation.isSuccess == false || getUserLocation.response.code != ResponseCode.SUCCESS)
             {
                 throw new Exception($"Failed to retrieve user information. Error: {getUserLocation.error}");
             }
-
-            dataManager.UpdateData(getUserLocation.response.userLocation);
 
             switch (getUserLocation.response.userLocation.location)
             {

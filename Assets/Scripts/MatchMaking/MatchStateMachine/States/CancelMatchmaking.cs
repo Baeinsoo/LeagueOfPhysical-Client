@@ -10,7 +10,7 @@ namespace LOP
     public class CancelMatchmaking : MonoState
     {
         [Inject]
-        private IDataContextManager dataManager;
+        private IUserDataContext userDataContext;
 
         private void Awake()
         {
@@ -35,7 +35,7 @@ namespace LOP
 
         protected override IEnumerator OnExecute()
         {
-            if (dataManager.Get<UserDataContext>().userLocation.locationDetail is not WaitingRoomLocationDetail waitingRoomLocationDetail)
+            if (userDataContext.userLocation.locationDetail is not WaitingRoomLocationDetail waitingRoomLocationDetail)
             {
                 Debug.LogError("User is not in a waiting room.");
                 FSM.ProcessInput(MatchStateInput.CheckMatchState);

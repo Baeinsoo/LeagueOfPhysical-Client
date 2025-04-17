@@ -11,10 +11,26 @@ namespace LOP
         {
             builder.Register<IMasterDataManager, LOPMasterDataManager>(Lifetime.Singleton);
             builder.Register<IDataContextManager, LOPDataContextManager>(Lifetime.Singleton);
-            builder.Register<IDataContext, UserDataContext>(Lifetime.Transient);
-            builder.Register<IDataContext, MatchMakingDataContext>(Lifetime.Transient);
-            builder.Register<IDataContext, RoomDataContext>(Lifetime.Transient);
-            builder.Register<IDataContext, GameDataContext>(Lifetime.Transient);
+
+            builder.Register<UserDataContext>(Lifetime.Singleton)
+                .As<IUserDataContext>()
+                .As<IDataContext>()
+                .AsSelf();
+
+            builder.Register<MatchMakingDataContext>(Lifetime.Singleton)
+                .As<IMatchMakingDataContext>()
+                .As<IDataContext>()
+                .AsSelf();
+
+            builder.Register<RoomDataContext>(Lifetime.Singleton)
+                .As<IRoomDataContext>()
+                .As<IDataContext>()
+                .AsSelf();
+
+            builder.Register<GameDataContext>(Lifetime.Singleton)
+                .As<IGameDataContext>()
+                .As<IDataContext>()
+                .AsSelf();
         }
     }
 }

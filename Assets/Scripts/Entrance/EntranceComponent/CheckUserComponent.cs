@@ -12,25 +12,25 @@ namespace LOP
     public class CheckUserComponent : IEntranceComponent
     {
         [Inject]
-        private IDataContextManager dataManager;
+        private IUserDataContext userDataContext;
 
         public async Task Execute()
         {
             try
             {
-                var getUser = await WebAPI.GetUserByUsername(dataManager.Get<UserDataContext>().user.username);
+                var getUser = await WebAPI.GetUserByUsername(userDataContext.user.username);
 
                 switch (getUser.response.code)
                 {
                     case ResponseCode.SUCCESS:
-                        var getUserLocation = await WebAPI.GetUserLocation(dataManager.Get<UserDataContext>().user.id);
+                        var getUserLocation = await WebAPI.GetUserLocation(userDataContext.user.id);
                         break;
 
                     case ResponseCode.USER_NOT_EXIST:
                         var createUser = await WebAPI.CreateUser(new CreateUserRequest
                         {
-                            username = dataManager.Get<UserDataContext>().user.username,
-                            email = dataManager.Get<UserDataContext>().user.email,
+                            username = userDataContext.user.username,
+                            email = userDataContext.user.email,
                         });
 
                         if (createUser.response.code != ResponseCode.SUCCESS)
@@ -43,8 +43,8 @@ namespace LOP
                         throw new Exception($"유저 정보를 가져오는데 실패하였습니다. GetUserResponse code: {getUser.response.code}");
                 }
 
-                var getNormalUserStats = await WebAPI.GetUserStats(dataManager.Get<UserDataContext>().user.id, GameMode.Normal);
-                var getRankedUserStats = await WebAPI.GetUserStats(dataManager.Get<UserDataContext>().user.id, GameMode.Ranked);
+                var getNormalUserStats = await WebAPI.GetUserStats(userDataContext.user.id, GameMode.Normal);
+                var getRankedUserStats = await WebAPI.GetUserStats(userDataContext.user.id, GameMode.Ranked);
             }
             catch (WebRequestException e)
             {

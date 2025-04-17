@@ -10,7 +10,10 @@ namespace LOP
     public class RequestMatchmaking : MonoState
     {
         [Inject]
-        private IDataContextManager dataManager;
+        private IUserDataContext userDataContext;
+
+        [Inject]
+        private IMatchMakingDataContext matchMakingDataContext;
 
         private void Awake()
         {
@@ -36,10 +39,10 @@ namespace LOP
         {
             var matchmakingRequest = new MatchmakingRequest
             {
-                userId = dataManager.Get<UserDataContext>().user.id,
-                matchType = dataManager.Get<MatchMakingDataContext>().matchType,
-                subGameId = dataManager.Get<MatchMakingDataContext>().subGameId,
-                mapId = dataManager.Get<MatchMakingDataContext>().mapId,
+                userId = userDataContext.user.id,
+                matchType = matchMakingDataContext.matchType,
+                subGameId = matchMakingDataContext.subGameId,
+                mapId = matchMakingDataContext.mapId,
             };
 
             var requestMatchmaking = WebAPI.RequestMatchmaking(matchmakingRequest);

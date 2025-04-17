@@ -11,13 +11,13 @@ namespace LOP
     public class JoinLobbyComponent : IEntranceComponent
     {
         [Inject]
-        private IDataContextManager dataManager;
+        private IUserDataContext userDataContext;
 
         public async Task Execute()
         {
             try
             {
-                var joinLobby = await WebAPI.JoinLobby(dataManager.Get<UserDataContext>().user.id);
+                var joinLobby = await WebAPI.JoinLobby(userDataContext.user.id);
 
                 if (joinLobby.response.code != ResponseCode.SUCCESS)
                 {

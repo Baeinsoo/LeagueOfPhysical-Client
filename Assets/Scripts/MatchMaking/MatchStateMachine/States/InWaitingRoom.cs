@@ -12,7 +12,7 @@ namespace LOP
         private const int CHECK_INTERVAL = 1;   //  sec
 
         [Inject]
-        private IDataContextManager dataManager;
+        private IUserDataContext userDataContext;
 
         private void Awake()
         {
@@ -39,15 +39,13 @@ namespace LOP
         {
             while (true)
             {
-                var getUserLocation = WebAPI.GetUserLocation(dataManager.Get<UserDataContext>().user.id);
+                var getUserLocation = WebAPI.GetUserLocation(userDataContext.user.id);
                 yield return getUserLocation;
 
                 if (!getUserLocation.isSuccess)
                 {
                     throw new Exception($"Failed to retrieve user information. Error: {getUserLocation.error}");
                 }
-
-                dataManager.UpdateData(getUserLocation.response.userLocation);
 
                 switch (getUserLocation.response.userLocation.location)
                 {

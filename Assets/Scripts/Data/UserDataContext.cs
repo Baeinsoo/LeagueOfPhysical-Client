@@ -2,11 +2,10 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using GameFramework;
 
 namespace LOP
 {
-    public class UserDataContext : IDataContext
+    public class UserDataContext : IUserDataContext
     {
         public Type[] subscribedTypes => new Type[]
         {
@@ -19,11 +18,11 @@ namespace LOP
 
         private Dictionary<Type, Action<object>> updateHandlers;
 
-        public User user;
-        public UserProfile userProfile;
-        public UserLocation userLocation;
-        public UserStats normalUserStats;
-        public UserStats rankedUserStats;
+        public User user { get; set; }
+        public UserProfile userProfile { get; set; }
+        public UserLocation userLocation { get; set; }
+        public UserStats normalUserStats { get; set; }
+        public UserStats rankedUserStats { get; set; }
 
         public UserDataContext()
         {

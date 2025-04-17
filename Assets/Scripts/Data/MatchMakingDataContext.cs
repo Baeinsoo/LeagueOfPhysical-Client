@@ -2,17 +2,16 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using GameFramework;
 
 namespace LOP
 {
-    public class MatchMakingDataContext : IDataContext
+    public class MatchMakingDataContext : IMatchMakingDataContext
     {
         public Type[] subscribedTypes => new Type[] { };
 
-        public GameMode matchType;
-        public string subGameId;
-        public string mapId;
+        public GameMode matchType { get; set; }
+        public string subGameId { get; set; }
+        public string mapId { get; set; }
 
         public void UpdateData<T>(T data)
         {

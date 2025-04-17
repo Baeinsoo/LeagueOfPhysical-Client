@@ -2,11 +2,10 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using GameFramework;
 
 namespace LOP
 {
-    public class RoomDataContext : IDataContext
+    public class RoomDataContext : IRoomDataContext
     {
         public Type[] subscribedTypes => new Type[]
         {
@@ -16,8 +15,8 @@ namespace LOP
 
         private Dictionary<Type, Action<object>> updateHandlers;
 
-        public Room room;
-        public Match match;
+        public Room room { get; set; }
+        public Match match { get; set; }
 
         public RoomDataContext()
         {

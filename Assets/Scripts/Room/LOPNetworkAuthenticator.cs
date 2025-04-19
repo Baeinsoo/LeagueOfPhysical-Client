@@ -1,13 +1,19 @@
+using GameFramework;
 using Mirror;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using VContainer;
 
 namespace LOP
 {
+    [DIMonoBehaviour]
     public class LOPNetworkAuthenticator : NetworkAuthenticator
     {
+        [Inject]
+        private IUserDataContext userDataContext;
+
         #region Messages
         public struct AuthRequestMessage : NetworkMessage
         {
@@ -49,7 +55,7 @@ namespace LOP
         {
             var customProperties = new CustomProperties
             {
-                userId = SystemInfo.deviceUniqueIdentifier,
+                userId = userDataContext.user.id,
                 token = "token",
                 characterId = 0,
             };

@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace LOP.Message.LOPGameEngine.Update
+namespace LOP.Event.LOPGameEngine.Update
 {
     public struct Begin { }
     public struct BeforeEntityUpdate { }

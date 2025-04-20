@@ -10,13 +10,19 @@ namespace LOP
     {
         public LOPEntity Create(LOPEntityCreationData lopEntityCreationData)
         {
-            var lopEntity = new GameObject($"{nameof(LOPEntity)}_{lopEntityCreationData.entityId}").AddComponent<LOPEntity>();
-            var lopEntityPresenter = lopEntity.gameObject.AddComponent<LOPEntityPresenter>();
+            GameObject root = new GameObject($"{nameof(LOPEntity)}_{lopEntityCreationData.entityId}");
 
-            lopEntity.Initialize(lopEntityCreationData);
-            lopEntityPresenter.Initialize(lopEntityCreationData);
+            LOPEntity entity = root.CreateChildWithComponent<LOPEntity>();
+            entity.Initialize(lopEntityCreationData);
 
-            return lopEntity;
+            LOPEntityController controller = root.CreateChildWithComponent<LOPEntityController>();
+            controller.SetEntity(entity);
+
+            LOPEntityView view = root.CreateChildWithComponent<LOPEntityView>();
+            view.SetEntity(entity);
+            view.SetEntityController(controller);
+
+            return entity;
         }
     }
 }

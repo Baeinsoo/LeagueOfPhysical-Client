@@ -9,6 +9,8 @@ namespace LOP
     {
         protected override void Configure(IContainerBuilder builder)
         {
+            base.Configure(builder);
+
             builder.Register<IEntranceComponent, LoginComponent>(Lifetime.Transient);
             builder.Register<IEntranceComponent, CheckUserComponent>(Lifetime.Transient);
             builder.Register<IEntranceComponent, JoinLobbyComponent>(Lifetime.Transient);

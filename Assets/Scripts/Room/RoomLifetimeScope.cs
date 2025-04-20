@@ -14,6 +14,8 @@ namespace LOP
 
         protected override void Configure(IContainerBuilder builder)
         {
+            base.Configure(builder);
+
             builder.RegisterComponent(room);
             builder.RegisterComponent(roomNetwork).As<IRoomNetwork>();
             builder.RegisterComponent(networkManager);

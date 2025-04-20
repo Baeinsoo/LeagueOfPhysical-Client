@@ -14,13 +14,13 @@ namespace LOP
     public class LOPRoom : MonoBehaviour, IRoom
     {
         [Inject] public IGame game { get; private set; }
-        [Inject] private RoomNetwork roomNetwork;
+        [Inject] private IRoomNetwork roomNetwork;
         [Inject] private LOPNetworkManager networkManager;
-        [Inject] private IDataContextManager dataManager;
+        [Inject] private IRoomDataContext roomDataContext;
+        [Inject] private IGameDataContext gameDataContext;
+        [Inject] private IEnumerable<IRoomMessageHandler> roomMessageHandlers;
 
         public bool initialized { get; private set; }
-
-        public float latency => (float)Mirror.NetworkTime.rtt * 0.5f;
 
         private async void Awake()
         {
@@ -46,26 +46,20 @@ namespace LOP
 
         public async Task InitializeAsync()
         {
-            await game.InitializeAsync();
-
-#if UNITY_EDITOR
-            dataManager.Get<RoomDataContext>().room = new Room
-            {
-                id = "test",
-                matchId = "",
-                ip = "localhost",
-                port = 7777,
-            };
-#endif
-            var getMatch = await WebAPI.GetMatch(dataManager.Get<RoomDataContext>().room.matchId);
+            var getMatch = await WebAPI.GetMatch(roomDataContext.room.matchId);
             if (getMatch.response.code != ResponseCode.SUCCESS)
             {
                 throw new Exception($"GetMatch Error. code: {getMatch.response.code}");
             }
 
-            roomNetwork.RegisterHandler<GameInfoResponse>(OnGameInfoResponse);
+            foreach (var roomMessageHandler in roomMessageHandlers.OrEmpty())
+            {
+                roomMessageHandler.Register();
+            }
 
             game.onGameStateChanged += OnGameStateChanged;
+
+            await game.InitializeAsync();
 
             initialized = true;
         }
@@ -74,26 +68,23 @@ namespace LOP
         {
             await game.DeinitializeAsync();
 
-            dataManager.Get<RoomDataContext>().Clear();
-
-            try
-            {
-                roomNetwork.UnregisterHandler<GameInfoResponse>(OnGameInfoResponse);
-            }
-            catch
-            {
-                //  Maybe roomNetwork was already destroyed.
-            }
-
             game.onGameStateChanged -= OnGameStateChanged;
+
+            foreach (var roomMessageHandler in roomMessageHandlers.OrEmpty())
+            {
+                roomMessageHandler.Unregister();
+            }
+
+            roomDataContext.Clear();
+            gameDataContext.Clear();
 
             initialized = false;
         }
 
         private async Task ConnectRoomServerAsync()
         {
-            networkManager.networkAddress = dataManager.Get<RoomDataContext>().room.ip;
-            networkManager.port = dataManager.Get<RoomDataContext>().room.port;
+            networkManager.networkAddress = roomDataContext.room.ip;
+            networkManager.port = roomDataContext.room.port;
 
             //networkManager.onStartClient += () =>
             //{
@@ -112,7 +103,7 @@ namespace LOP
         {
             roomNetwork.SendToServer(new GameInfoRequest());
 
-            await UniTask.WaitUntil(() => Blackboard.Contain<GameInfoResponse>());
+            await UniTask.WaitUntil(() => gameDataContext.gameInfo != null);
         }
 
         private async Task DisconnectRoomServerAsync()
@@ -124,23 +115,17 @@ namespace LOP
 
         public async Task StartGameAsync()
         {
-            var gameInfoResponse = Blackboard.Read<GameInfoResponse>(erase: true);
+            var gameInfo = gameDataContext.gameInfo;
 
-            game.Run(gameInfoResponse.GameInfo.Tick, gameInfoResponse.GameInfo.Interval, gameInfoResponse.GameInfo.ElapsedTime);
-
-            dataManager.Get<RoomDataContext>().player.entityId = gameInfoResponse.EntityId;
+            game.Run(gameInfo.Tick, gameInfo.Interval, gameInfo.ElapsedTime);
         }
 
-        private void OnGameInfoResponse(GameInfoResponse gameInfoResponse)
-        {
-            Blackboard.Write(gameInfoResponse);
-        }
-
-        private void OnGameStateChanged(GameState gameState)
+        private void OnGameStateChanged(IGameState gameState)
         {
             switch (gameState)
             {
-                case GameState.GameOver:
+                case GameOver:
+                    Debug.Log("Game Over");
                     SceneManager.LoadScene("Lobby");
                     break;
             }

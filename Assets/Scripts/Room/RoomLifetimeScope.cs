@@ -20,6 +20,8 @@ namespace LOP
             builder.RegisterComponent(roomNetwork).As<IRoomNetwork>();
             builder.RegisterComponent(networkManager);
             builder.RegisterComponent(lopGame).As<IGame>();
+
+            builder.Register<IRoomMessageHandler, GameMessageHandler>(Lifetime.Transient);
         }
     }
 }

@@ -8,6 +8,8 @@ namespace LOP
 {
     public class RoomNetwork : MonoBehaviour, IRoomNetwork
     {
+        public float latency => (float)Mirror.NetworkTime.rtt * 0.5f;
+
         public event Action<IMessage> onMessage;
 
         private const int SERVER_ID = 0;

@@ -4,7 +4,7 @@ namespace LOP
 {
     public interface IRoomMessageHandler
     {
-        void Register() { }
-        void Unregister() { }
+        void Register();
+        void Unregister();
     }
 }

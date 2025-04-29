@@ -1,6 +1,7 @@
 using GameFramework;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace LOP
@@ -26,7 +27,7 @@ namespace LOP
 
         public IEnumerable<T> GetEntities<T>() where T : IEntity
         {
-            return entityMap.Values as IEnumerable<T>;
+            return entityMap.Values.Cast<T>();
         }
 
         public TEntity CreateEntity<TEntity, TCreationData>(TCreationData creationData)

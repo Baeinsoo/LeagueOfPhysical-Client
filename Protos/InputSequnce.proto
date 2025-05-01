@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+message InputSequnce {
+  int64 tick = 1;
+  int64 sequence = 2;
+}

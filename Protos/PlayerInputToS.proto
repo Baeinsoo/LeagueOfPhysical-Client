@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+import "PlayerInput.proto";
+
+// @auto_generate
+message PlayerInputToS
+{
+	string entityId = 1;
+	PlayerInput playerInput = 2;
+}

@@ -101,7 +101,7 @@ namespace LOP
 
         private async Task JoinRoomServerAsync()
         {
-            roomNetwork.SendToServer(new GameInfoRequest());
+            roomNetwork.SendToServer(new GameInfoToS());
 
             await UniTask.WaitUntil(() => gameDataContext.gameInfo != null);
         }

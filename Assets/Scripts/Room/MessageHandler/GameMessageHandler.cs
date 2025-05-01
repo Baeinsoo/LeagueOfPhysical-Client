@@ -14,19 +14,19 @@ namespace LOP
 
         public void Register()
         {
-            roomNetwork.RegisterHandler<GameInfoResponse>(OnGameInfoResponse, LOPRoomMessageInterceptor.Default);
+            roomNetwork.RegisterHandler<GameInfoToC>(OnGameInfoToC, LOPRoomMessageInterceptor.Default);
         }
 
         public void Unregister()
         {
-            roomNetwork.UnregisterHandler<GameInfoResponse>(OnGameInfoResponse);
+            roomNetwork.UnregisterHandler<GameInfoToC>(OnGameInfoToC);
         }
 
-        private void OnGameInfoResponse(GameInfoResponse response)
+        private void OnGameInfoToC(GameInfoToC gameInfoToC)
         {
             game.gameEngine.entityManager.CreateEntity<LOPEntity, LOPEntityCreationData>(new LOPEntityCreationData
             {
-                entityId = response.EntityId,
+                entityId = gameInfoToC.EntityId,
                 visualId = "Assets/Art/Characters/Knight/Knight.prefab",
             });
         }

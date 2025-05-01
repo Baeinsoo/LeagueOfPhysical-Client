@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+import "ProtoVector3.proto";
+
+message EntityState
+{
+	int64 tick = 1;
+	string entityId = 2; 
+	ProtoVector3 position = 3;
+	ProtoVector3 rotation = 4;
+}

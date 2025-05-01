@@ -9,7 +9,7 @@ namespace LOP
     {
         public Type[] subscribedTypes => new Type[]
         {
-            typeof(GameInfoResponse),
+            typeof(GameInfoToC),
         };
 
         private Dictionary<Type, Action<object>> updateHandlers;
@@ -23,7 +23,7 @@ namespace LOP
 
             updateHandlers = new Dictionary<Type, Action<object>>
             {
-                { typeof(GameInfoResponse), data => HandleGameInfo((GameInfoResponse)data) },
+                { typeof(GameInfoToC), data => HandleGameInfo((GameInfoToC)data) },
             };
         }
 
@@ -35,10 +35,10 @@ namespace LOP
             }
         }
 
-        private void HandleGameInfo(GameInfoResponse response)
+        private void HandleGameInfo(GameInfoToC gameInfoToC)
         {
-            player.entityId = response.EntityId;
-            gameInfo = response.GameInfo;
+            player.entityId = gameInfoToC.EntityId;
+            gameInfo = gameInfoToC.GameInfo;
         }
 
         public void Clear()

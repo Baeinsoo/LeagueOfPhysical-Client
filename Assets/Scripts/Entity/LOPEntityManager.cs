@@ -20,6 +20,28 @@ namespace LOP
             return (T)entityMap[entityId];
         }
 
+        public bool TryGetEntity(string entityId, out IEntity entity)
+        {
+            if (entityMap.TryGetValue(entityId, out entity) == false)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool TryGetEntity<T>(string entityId, out T entity) where T : IEntity
+        {
+            if (entityMap.TryGetValue(entityId, out var value) == false)
+            {
+                entity = default;
+                return false;
+            }
+
+            entity = (T)value;
+            return true;
+        }
+
         public IEnumerable<IEntity> GetEntities()
         {
             return entityMap.Values;

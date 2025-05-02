@@ -1,9 +1,9 @@
 using UnityEngine;
 using GameFramework;
 
-namespace LOP
+namespace LOP.Static
 {
-    public static class GameLocator
+    public static class GameContext
     {
         public static IGame game => SceneLifetimeScope.Resolve<IGame>();
     }

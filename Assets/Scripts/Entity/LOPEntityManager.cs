@@ -9,6 +9,8 @@ namespace LOP
     public class LOPEntityManager : MonoBehaviour, IEntityManager
     {
         private Dictionary<string, IEntity> entityMap = new Dictionary<string, IEntity>();
+        private Dictionary<string, string> userEntityMap = new Dictionary<string, string>();
+        private Dictionary<string, string> entityUserMap = new Dictionary<string, string>();
 
         public IEntity GetEntity(string entityId)
         {
@@ -56,9 +58,18 @@ namespace LOP
             where TEntity : IEntity
             where TCreationData : struct, IEntityCreationData
         {
+            if (creationData is not LOPEntityCreationData lOPEntityCreationData)
+            {
+                throw new InvalidOperationException(
+                    $"Entity creation data type '{creationData.GetType().Name}' is not supported for LOPEntityManager.");
+            }
+
             var entity = EntityFactory.CreateEntity<TEntity, TCreationData>(creationData);
 
             entityMap[entity.entityId] = entity;
+
+            userEntityMap[lOPEntityCreationData.userId] = entity.entityId;
+            entityUserMap[entity.entityId] = lOPEntityCreationData.userId;
 
             return entity;
         }
@@ -70,6 +81,10 @@ namespace LOP
             Destroy(lopEntity.gameObject);
 
             entityMap.Remove(entityId);
+
+            string userId = entityUserMap[entityId];
+            userEntityMap.Remove(userId);
+            entityUserMap.Remove(entityId);
         }
 
         public void UpdateEntities()
@@ -78,6 +93,18 @@ namespace LOP
             {
                 entity.UpdateEntity();
             }
+        }
+
+        public string GetUserIdByEntityId(string entityId)
+        {
+            return entityUserMap[entityId];
+        }
+
+        public TEntity GetEntityByUserId<TEntity>(string userId) where TEntity : IEntity
+        {
+            string entityId = userEntityMap[userId];
+
+            return GetEntity<TEntity>(entityId);
         }
     }
 }

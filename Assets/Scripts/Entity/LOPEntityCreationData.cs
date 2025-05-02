@@ -7,6 +7,7 @@ namespace LOP
 {
     public struct LOPEntityCreationData : IEntityCreationData
     {
+        public string userId { get; set; }
         public string entityId { get; set; }
         public Vector3 position { get; set; }
         public Vector3 rotation { get; set; }

@@ -6,6 +6,7 @@ using System.Linq;
 using UnityEngine;
 using UniRx;
 using UnityEngine.AddressableAssets;
+using LOP.Event.LOPGameEngine.Update;
 
 namespace LOP
 {
@@ -80,10 +81,12 @@ namespace LOP
 
         protected virtual void Awake()
         {
-            LOPGameEngine.updateEvents.Receive<Event.LOPGameEngine.Update.Begin>().Subscribe(OnUpdateBegin).AddTo(this);
-            LOPGameEngine.updateEvents.Receive<Event.LOPGameEngine.Update.BeforePhysicsSimulation>().Subscribe(OnUpdateBeforePhysicsSimulation).AddTo(this);
-            LOPGameEngine.updateEvents.Receive<Event.LOPGameEngine.Update.AfterPhysicsSimulation>().Subscribe(OnUpdateAfterPhysicsSimulation).AddTo(this);
-            LOPGameEngine.updateEvents.Receive<Event.LOPGameEngine.Update.End>().Subscribe(OnUpdateEnd).AddTo(this);
+            GameLocator.game.gameEngine.AddListener(this);
+        }
+
+        protected virtual void OnDestroy()
+        {
+            GameLocator.game.gameEngine.RemoveListener(this);
         }
 
         public virtual void Initialize<TEntityCreationData>(TEntityCreationData creationData) where TEntityCreationData : struct, IEntityCreationData
@@ -104,7 +107,8 @@ namespace LOP
             }
         }
 
-        private void OnUpdateBegin(Event.LOPGameEngine.Update.Begin updateEvent)
+        [GameEngineListen(typeof(Begin))]
+        private void OnUpdateBegin()
         {
             beginPosition = position;
             beginRotation = rotation;
@@ -117,7 +121,8 @@ namespace LOP
             UpdateAbilities();
         }
 
-        private void OnUpdateEnd(Event.LOPGameEngine.Update.End updateEvent)
+        [GameEngineListen(typeof(End))]
+        private void OnUpdateEnd()
         {
             UpdateNetworkState();
         }
@@ -142,9 +147,11 @@ namespace LOP
         {
         }
 
-        private void OnUpdateBeforePhysicsSimulation(Event.LOPGameEngine.Update.BeforePhysicsSimulation updateEvent) { }
+        [GameEngineListen(typeof(BeforePhysicsSimulation))]
+        private void OnUpdateBeforePhysicsSimulation() { }
 
-        private void OnUpdateAfterPhysicsSimulation(Event.LOPGameEngine.Update.AfterPhysicsSimulation updateEvent)
+        [GameEngineListen(typeof(AfterPhysicsSimulation))]
+        private void OnUpdateAfterPhysicsSimulation()
         {
             SyncPhysics();
         }

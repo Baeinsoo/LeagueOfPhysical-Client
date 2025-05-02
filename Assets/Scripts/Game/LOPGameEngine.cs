@@ -2,13 +2,12 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using GameFramework;
+using LOP.Event.LOPGameEngine.Update;
 
 namespace LOP
 {
     public class LOPGameEngine : GameEngineBase
     {
-        public static readonly IMessageBrokerExtended updateEvents = new MessageBrokerExtended();
-
         public override void UpdateEngine()
         {
             BeginUpdate();
@@ -34,7 +33,7 @@ namespace LOP
 
         private void BeginUpdate()
         {
-            updateEvents.Publish(new Event.LOPGameEngine.Update.Begin());
+            DispatchEvent<Begin>();
         }
 
         private void ProcessNetworkMessage()
@@ -52,11 +51,11 @@ namespace LOP
 
         private void UpdateEntity()
         {
-            updateEvents.Publish(new Event.LOPGameEngine.Update.BeforeEntityUpdate());
+            DispatchEvent<BeforeEntityUpdate>();
 
             entityManager.UpdateEntities();
 
-            updateEvents.Publish(new Event.LOPGameEngine.Update.AfterEntityUpdate());
+            DispatchEvent<AfterEntityUpdate>();
         }
 
         private void UpdateAI()
@@ -65,11 +64,11 @@ namespace LOP
 
         private void SimulatePhysics()
         {
-            updateEvents.Publish(new Event.LOPGameEngine.Update.BeforePhysicsSimulation());
+            DispatchEvent<BeforePhysicsSimulation>();
 
             Physics.Simulate((float)tickUpdater.interval);
 
-            updateEvents.Publish(new Event.LOPGameEngine.Update.AfterPhysicsSimulation());
+            DispatchEvent<AfterPhysicsSimulation>();
         }
 
         private void UpdateVisualEffect()
@@ -82,7 +81,7 @@ namespace LOP
 
         private void EndUpdate()
         {
-            updateEvents.Publish(new Event.LOPGameEngine.Update.End());
+            DispatchEvent<End>();
         }
     }
 }

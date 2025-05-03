@@ -81,12 +81,12 @@ namespace LOP
 
         protected virtual void Awake()
         {
-            GameLocator.game.gameEngine.AddListener(this);
+            GameEngine.current.AddListener(this);
         }
 
         protected virtual void OnDestroy()
         {
-            GameLocator.game.gameEngine.RemoveListener(this);
+            GameEngine.current.RemoveListener(this);
         }
 
         public virtual void Initialize<TEntityCreationData>(TEntityCreationData creationData) where TEntityCreationData : struct, IEntityCreationData

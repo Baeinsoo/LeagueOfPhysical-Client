@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+// @auto_generate
+message GameInfoToS {
+	string userId = 1;
+}

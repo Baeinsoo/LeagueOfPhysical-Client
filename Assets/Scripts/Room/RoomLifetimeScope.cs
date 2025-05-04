@@ -8,7 +8,6 @@ namespace LOP
     public class RoomLifetimeScope : SceneLifetimeScope
     {
         [SerializeField] private LOPRoom room;
-        [SerializeField] private RoomNetwork roomNetwork;
         [SerializeField] private LOPNetworkManager networkManager;
         [SerializeField] private LOPGame game;
         [SerializeField] private LOPGameEngine gameEngine;
@@ -19,7 +18,6 @@ namespace LOP
             base.Configure(builder);
 
             builder.RegisterComponent(room);
-            builder.RegisterComponent(roomNetwork).As<IRoomNetwork>();
             builder.RegisterComponent(networkManager);
             builder.RegisterComponent(game).As<IGame>();
             builder.RegisterComponent(gameEngine).As<IGameEngine>();
@@ -29,6 +27,10 @@ namespace LOP
             
             builder.Register<IGameMessageHandler, GameEntityMessageHandler>(Lifetime.Transient);
             builder.Register<IGameMessageHandler, GameInputMessageHandler>(Lifetime.Transient);
+
+            builder.Register<ISessionManager, SessionManager>(Lifetime.Singleton);
+
+            builder.Register<IMessageDispatcher, LOPMessageDispatcher>(Lifetime.Singleton);
         }
     }
 }

@@ -1,53 +1,21 @@
 using GameFramework;
+using Mirror;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace LOP
 {
-    public class RoomNetwork : MonoBehaviour, IRoomNetwork
+    public class LOPMessageDispatcher : IMessageDispatcher
     {
-        public float latency => (float)Mirror.NetworkTime.rtt * 0.5f;
+        private Dictionary<Type, MessageHandlerBase> handlerMap = new Dictionary<Type, MessageHandlerBase>();
 
-        public event Action<IMessage> onMessage;
-
-        private const int SERVER_ID = 0;
-
-        private Dictionary<Type, MessageHandlerBase> handlerMap;
-        private INetwork networkImpl;
-
-        private void Awake()
+        public LOPMessageDispatcher()
         {
-            handlerMap = new Dictionary<Type, MessageHandlerBase>();
-            networkImpl = GetComponent<INetwork>();
-            networkImpl.onMessage += OnMessage;
-        }
-
-        private void OnDestroy()
-        {
-            handlerMap.Clear();
-            handlerMap = null;
-
-            networkImpl.onMessage -= OnMessage;
-            networkImpl = null;
-
-            onMessage = null;
-        }
-
-        private void OnMessage(int connectionId/*0: serverId*/, IMessage message)
-        {
-            if (handlerMap.TryGetValue(message.GetType(), out var handler))
+            NetworkClient.RegisterHandler<CustomMirrorMessage>(message =>
             {
-                handler?.Invoke(message);
-            };
-
-            onMessage?.Invoke(message);
-        }
-
-        public void SendToServer(IMessage message, bool reliable = true, bool instant = false)
-        {
-            networkImpl.Send(message, SERVER_ID, reliable, instant);
+                EnqueueMessage(message.payload);
+            });
         }
 
         public void RegisterHandler<T>(Action<T> handler) where T : IMessage
@@ -89,6 +57,14 @@ namespace LOP
                     Debug.LogWarning($"MessageHandler for {typeof(T)} is of a different type.");
                 }
             }
+        }
+
+        public void EnqueueMessage(IMessage message)
+        {
+            if (handlerMap.TryGetValue(message.GetType(), out var handler))
+            {
+                handler?.Invoke(message);
+            };
         }
     }
 }

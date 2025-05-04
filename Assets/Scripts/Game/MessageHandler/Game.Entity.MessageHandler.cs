@@ -7,10 +7,7 @@ namespace LOP
     public class GameEntityMessageHandler : IGameMessageHandler
     {
         [Inject]
-        private IGame game;
-
-        [Inject]
-        private IRoomNetwork roomNetwork;
+        private IMessageDispatcher messageDispatcher;
 
         public void Register()
         {

@@ -6,9 +6,9 @@ namespace LOP
 {
     public static partial class Extensions
     {
-        public static void RegisterHandler<T>(this IRoomNetwork network, Action<T> handler, IMessageInterceptor interceptor = null) where T : IMessage
+        public static void RegisterHandler<T>(this IMessageDispatcher messageDispatcher, Action<T> handler, IMessageInterceptor interceptor = null) where T : IMessage
         {
-            network.RegisterHandler<T>(message =>
+            messageDispatcher.RegisterHandler<T>(message =>
             {
                 try
                 {

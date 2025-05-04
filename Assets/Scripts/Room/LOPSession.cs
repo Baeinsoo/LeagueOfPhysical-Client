@@ -14,7 +14,7 @@ namespace LOP
 
         public NetworkConnection networkConnection { get; private set; }
 
-        public LOPSession(string sessionId, string userId, string entityId, NetworkConnection networkConnection)
+        public LOPSession(string sessionId, string userId, NetworkConnection networkConnection)
         {
             this.sessionId = sessionId;
             this.userId = userId;

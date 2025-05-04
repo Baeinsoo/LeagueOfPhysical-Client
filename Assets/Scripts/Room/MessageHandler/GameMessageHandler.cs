@@ -1,4 +1,5 @@
 using GameFramework;
+using Mirror;
 using UnityEngine;
 using VContainer;
 
@@ -7,28 +8,42 @@ namespace LOP
     public class GameMessageHandler : IRoomMessageHandler
     {
         [Inject]
-        private IGame game;
+        private IMessageDispatcher messageDispatcher;
 
         [Inject]
-        private IRoomNetwork roomNetwork;
+        private IUserDataContext userDataContext;
+
+        [Inject]
+        private IGameDataContext gameDataContext;
+
+        [Inject]
+        private IGameEngine gameEngine;
 
         public void Register()
         {
-            roomNetwork.RegisterHandler<GameInfoToC>(OnGameInfoToC, LOPRoomMessageInterceptor.Default);
+            messageDispatcher.RegisterHandler<GameInfoToC>(OnGameInfoToC, LOPRoomMessageInterceptor.Default);
         }
 
         public void Unregister()
         {
-            roomNetwork.UnregisterHandler<GameInfoToC>(OnGameInfoToC);
+            messageDispatcher.UnregisterHandler<GameInfoToC>(OnGameInfoToC);
         }
 
         private void OnGameInfoToC(GameInfoToC gameInfoToC)
         {
-            game.gameEngine.entityManager.CreateEntity<LOPEntity, LOPEntityCreationData>(new LOPEntityCreationData
+            gameDataContext.entity = gameEngine.entityManager.CreateEntity<LOPEntity, LOPEntityCreationData>(new LOPEntityCreationData
             {
+                userId = userDataContext.user.id,
                 entityId = gameInfoToC.EntityId,
                 visualId = "Assets/Art/Characters/Knight/Knight.prefab",
             });
+
+            gameDataContext.session = new LOPSession
+            (
+                gameInfoToC.SessionId,
+                userDataContext.user.id,
+                NetworkClient.connection
+            );
         }
     }
 }

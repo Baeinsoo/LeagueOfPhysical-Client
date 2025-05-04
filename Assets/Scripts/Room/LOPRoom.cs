@@ -14,10 +14,10 @@ namespace LOP
     public class LOPRoom : MonoBehaviour, IRoom
     {
         [Inject] public IGame game { get; private set; }
-        [Inject] private IRoomNetwork roomNetwork;
         [Inject] private LOPNetworkManager networkManager;
         [Inject] private IRoomDataContext roomDataContext;
         [Inject] private IGameDataContext gameDataContext;
+        [Inject] private IUserDataContext userDataContext;
         [Inject] private IEnumerable<IRoomMessageHandler> roomMessageHandlers;
 
         public bool initialized { get; private set; }
@@ -101,7 +101,14 @@ namespace LOP
 
         private async Task JoinRoomServerAsync()
         {
-            roomNetwork.SendToServer(new GameInfoToS());
+            CustomMirrorMessage message = new CustomMirrorMessage
+            {
+                payload = new GameInfoToS
+                {
+                    UserId = userDataContext.user.id
+                },
+            };
+            NetworkClient.Send(message);
 
             await UniTask.WaitUntil(() => gameDataContext.gameInfo != null);
         }

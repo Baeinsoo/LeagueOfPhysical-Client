@@ -14,7 +14,7 @@ namespace LOP
         private IUserDataContext userDataContext;
 
         [Inject]
-        private IGameDataContext gameDataContext;
+        private IPlayerContext playerContext;
 
         [Inject]
         private IGameEngine gameEngine;
@@ -31,14 +31,14 @@ namespace LOP
 
         private void OnGameInfoToC(GameInfoToC gameInfoToC)
         {
-            gameDataContext.entity = gameEngine.entityManager.CreateEntity<LOPEntity, LOPEntityCreationData>(new LOPEntityCreationData
+            playerContext.entity = gameEngine.entityManager.CreateEntity<LOPEntity, LOPEntityCreationData>(new LOPEntityCreationData
             {
                 userId = userDataContext.user.id,
                 entityId = gameInfoToC.EntityId,
                 visualId = "Assets/Art/Characters/Knight/Knight.prefab",
             });
 
-            gameDataContext.session = new LOPSession
+            playerContext.session = new LOPSession
             (
                 gameInfoToC.SessionId,
                 userDataContext.user.id,

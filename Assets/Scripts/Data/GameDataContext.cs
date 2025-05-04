@@ -1,7 +1,7 @@
+using GameFramework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace LOP
 {
@@ -14,12 +14,11 @@ namespace LOP
 
         private Dictionary<Type, Action<object>> updateHandlers;
 
-        public Player player { get; set; }
         public GameInfo gameInfo { get; set; }
 
-        public GameDataContext()
+        public GameDataContext(IDataContextManager dataContextManager)
         {
-            player = new Player();
+            dataContextManager.Register(this);
 
             updateHandlers = new Dictionary<Type, Action<object>>
             {
@@ -37,13 +36,11 @@ namespace LOP
 
         private void HandleGameInfo(GameInfoToC gameInfoToC)
         {
-            player.entityId = gameInfoToC.EntityId;
             gameInfo = gameInfoToC.GameInfo;
         }
 
         public void Clear()
         {
-            player.Clear();
             gameInfo = null;
             updateHandlers.Clear();
         }

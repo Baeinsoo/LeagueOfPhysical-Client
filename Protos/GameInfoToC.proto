@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-import "GameInfo.proto";
-
-// @auto_generate
-message GameInfoToC {
-  string entityId = 1;
-  GameInfo game_info = 2;
-}

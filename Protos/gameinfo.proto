@@ -1,7 +1,0 @@
-syntax = "proto3";
-
-message GameInfo {
-  int64 tick = 1;
-  double interval = 2;
-  double elapsedTime = 3;
-}

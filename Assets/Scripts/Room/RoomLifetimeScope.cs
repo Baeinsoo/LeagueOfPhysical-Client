@@ -31,6 +31,8 @@ namespace LOP
             builder.Register<ISessionManager, SessionManager>(Lifetime.Singleton);
 
             builder.Register<IMessageDispatcher, LOPMessageDispatcher>(Lifetime.Singleton);
+
+            builder.RegisterEntryPoint<GameDataContext>().AsImplementedInterfaces();
         }
     }
 }

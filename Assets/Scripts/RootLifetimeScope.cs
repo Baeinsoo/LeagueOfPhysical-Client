@@ -26,11 +26,6 @@ namespace LOP
                 .As<IRoomDataContext>()
                 .As<IDataContext>()
                 .AsSelf();
-
-            builder.Register<GameDataContext>(Lifetime.Singleton)
-                .As<IGameDataContext>()
-                .As<IDataContext>()
-                .AsSelf();
         }
     }
 }

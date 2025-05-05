@@ -66,5 +66,11 @@ namespace LOP
                 handler?.Invoke(message);
             };
         }
+
+        public void Dispose()
+        {
+            handlerMap.Clear();
+            NetworkClient.UnregisterHandler<CustomMirrorMessage>();
+        }
     }
 }

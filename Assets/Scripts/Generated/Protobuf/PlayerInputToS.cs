@@ -22,13 +22,13 @@ public static partial class PlayerInputToSReflection {
   static PlayerInputToSReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "ChRQbGF5ZXJJbnB1dFRvUy5wcm90bxoRUGxheWVySW5wdXQucHJvdG8iRQoO",
-          "UGxheWVySW5wdXRUb1MSEAoIZW50aXR5SWQYASABKAkSIQoLcGxheWVySW5w",
-          "dXQYAiABKAsyDC5QbGF5ZXJJbnB1dGIGcHJvdG8z"));
+          "ChRQbGF5ZXJJbnB1dFRvUy5wcm90bxoRUGxheWVySW5wdXQucHJvdG8iUwoO",
+          "UGxheWVySW5wdXRUb1MSEAoIZW50aXR5SWQYASABKAkSDAoEdGljaxgCIAEo",
+          "AxIhCgtwbGF5ZXJJbnB1dBgDIAEoCzIMLlBsYXllcklucHV0YgZwcm90bzM="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { global::PlayerInputReflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-          new pbr::GeneratedClrTypeInfo(typeof(global::PlayerInputToS), global::PlayerInputToS.Parser, new[]{ "EntityId", "PlayerInput" }, null, null, null, null)
+          new pbr::GeneratedClrTypeInfo(typeof(global::PlayerInputToS), global::PlayerInputToS.Parser, new[]{ "EntityId", "Tick", "PlayerInput" }, null, null, null, null)
         }));
   }
   #endregion
@@ -74,6 +74,7 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public PlayerInputToS(PlayerInputToS other) : this() {
     entityId_ = other.entityId_;
+    tick_ = other.tick_;
     playerInput_ = other.playerInput_ != null ? other.playerInput_.Clone() : null;
     _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
   }
@@ -96,8 +97,20 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
     }
   }
 
+  /// <summary>Field number for the "tick" field.</summary>
+  public const int TickFieldNumber = 2;
+  private long tick_;
+  [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+  [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+  public long Tick {
+    get { return tick_; }
+    set {
+      tick_ = value;
+    }
+  }
+
   /// <summary>Field number for the "playerInput" field.</summary>
-  public const int PlayerInputFieldNumber = 2;
+  public const int PlayerInputFieldNumber = 3;
   private global::PlayerInput playerInput_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -124,6 +137,7 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
       return true;
     }
     if (EntityId != other.EntityId) return false;
+    if (Tick != other.Tick) return false;
     if (!object.Equals(PlayerInput, other.PlayerInput)) return false;
     return Equals(_unknownFields, other._unknownFields);
   }
@@ -133,6 +147,7 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
   public override int GetHashCode() {
     int hash = 1;
     if (EntityId.Length != 0) hash ^= EntityId.GetHashCode();
+    if (Tick != 0L) hash ^= Tick.GetHashCode();
     if (playerInput_ != null) hash ^= PlayerInput.GetHashCode();
     if (_unknownFields != null) {
       hash ^= _unknownFields.GetHashCode();
@@ -156,8 +171,12 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
       output.WriteRawTag(10);
       output.WriteString(EntityId);
     }
+    if (Tick != 0L) {
+      output.WriteRawTag(16);
+      output.WriteInt64(Tick);
+    }
     if (playerInput_ != null) {
-      output.WriteRawTag(18);
+      output.WriteRawTag(26);
       output.WriteMessage(PlayerInput);
     }
     if (_unknownFields != null) {
@@ -174,8 +193,12 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
       output.WriteRawTag(10);
       output.WriteString(EntityId);
     }
+    if (Tick != 0L) {
+      output.WriteRawTag(16);
+      output.WriteInt64(Tick);
+    }
     if (playerInput_ != null) {
-      output.WriteRawTag(18);
+      output.WriteRawTag(26);
       output.WriteMessage(PlayerInput);
     }
     if (_unknownFields != null) {
@@ -190,6 +213,9 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
     int size = 0;
     if (EntityId.Length != 0) {
       size += 1 + pb::CodedOutputStream.ComputeStringSize(EntityId);
+    }
+    if (Tick != 0L) {
+      size += 1 + pb::CodedOutputStream.ComputeInt64Size(Tick);
     }
     if (playerInput_ != null) {
       size += 1 + pb::CodedOutputStream.ComputeMessageSize(PlayerInput);
@@ -208,6 +234,9 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
     }
     if (other.EntityId.Length != 0) {
       EntityId = other.EntityId;
+    }
+    if (other.Tick != 0L) {
+      Tick = other.Tick;
     }
     if (other.playerInput_ != null) {
       if (playerInput_ == null) {
@@ -238,7 +267,11 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
           EntityId = input.ReadString();
           break;
         }
-        case 18: {
+        case 16: {
+          Tick = input.ReadInt64();
+          break;
+        }
+        case 26: {
           if (playerInput_ == null) {
             PlayerInput = new global::PlayerInput();
           }
@@ -268,7 +301,11 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
           EntityId = input.ReadString();
           break;
         }
-        case 18: {
+        case 16: {
+          Tick = input.ReadInt64();
+          break;
+        }
+        case 26: {
           if (playerInput_ == null) {
             PlayerInput = new global::PlayerInput();
           }

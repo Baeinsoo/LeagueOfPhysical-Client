@@ -6,5 +6,6 @@ import "PlayerInput.proto";
 message PlayerInputToS
 {
 	string entityId = 1;
-	PlayerInput playerInput = 2;
+	int64 tick = 2;
+	PlayerInput playerInput = 3;
 }

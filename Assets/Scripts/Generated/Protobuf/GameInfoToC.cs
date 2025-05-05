@@ -22,13 +22,15 @@ public static partial class GameInfoToCReflection {
   static GameInfoToCReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "ChFHYW1lSW5mb1RvQy5wcm90bxoOR2FtZUluZm8ucHJvdG8iUAoLR2FtZUlu",
-          "Zm9Ub0MSEAoIZW50aXR5SWQYASABKAkSEQoJc2Vzc2lvbklkGAIgASgJEhwK",
-          "CWdhbWVfaW5mbxgDIAEoCzIJLkdhbWVJbmZvYgZwcm90bzM="));
+          "ChFHYW1lSW5mb1RvQy5wcm90bxoOR2FtZUluZm8ucHJvdG8aEUVudGl0eVN0",
+          "YXRlLnByb3RvInUKC0dhbWVJbmZvVG9DEhAKCGVudGl0eUlkGAEgASgJEhEK",
+          "CXNlc3Npb25JZBgCIAEoCRIcCglnYW1lX2luZm8YAyABKAsyCS5HYW1lSW5m",
+          "bxIjCg1lbnRpdHlfc3RhdGVzGAQgAygLMgwuRW50aXR5U3RhdGViBnByb3Rv",
+          "Mw=="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
-        new pbr::FileDescriptor[] { global::GameInfoReflection.Descriptor, },
+        new pbr::FileDescriptor[] { global::GameInfoReflection.Descriptor, global::EntityStateReflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-          new pbr::GeneratedClrTypeInfo(typeof(global::GameInfoToC), global::GameInfoToC.Parser, new[]{ "EntityId", "SessionId", "GameInfo" }, null, null, null, null)
+          new pbr::GeneratedClrTypeInfo(typeof(global::GameInfoToC), global::GameInfoToC.Parser, new[]{ "EntityId", "SessionId", "GameInfo", "EntityStates" }, null, null, null, null)
         }));
   }
   #endregion
@@ -76,6 +78,7 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
     entityId_ = other.entityId_;
     sessionId_ = other.sessionId_;
     gameInfo_ = other.gameInfo_ != null ? other.gameInfo_.Clone() : null;
+    entityStates_ = other.entityStates_.Clone();
     _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
   }
 
@@ -121,6 +124,17 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
     }
   }
 
+  /// <summary>Field number for the "entity_states" field.</summary>
+  public const int EntityStatesFieldNumber = 4;
+  private static readonly pb::FieldCodec<global::EntityState> _repeated_entityStates_codec
+      = pb::FieldCodec.ForMessage(34, global::EntityState.Parser);
+  private readonly pbc::RepeatedField<global::EntityState> entityStates_ = new pbc::RepeatedField<global::EntityState>();
+  [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+  [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+  public pbc::RepeatedField<global::EntityState> EntityStates {
+    get { return entityStates_; }
+  }
+
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public override bool Equals(object other) {
@@ -139,6 +153,7 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
     if (EntityId != other.EntityId) return false;
     if (SessionId != other.SessionId) return false;
     if (!object.Equals(GameInfo, other.GameInfo)) return false;
+    if(!entityStates_.Equals(other.entityStates_)) return false;
     return Equals(_unknownFields, other._unknownFields);
   }
 
@@ -149,6 +164,7 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
     if (EntityId.Length != 0) hash ^= EntityId.GetHashCode();
     if (SessionId.Length != 0) hash ^= SessionId.GetHashCode();
     if (gameInfo_ != null) hash ^= GameInfo.GetHashCode();
+    hash ^= entityStates_.GetHashCode();
     if (_unknownFields != null) {
       hash ^= _unknownFields.GetHashCode();
     }
@@ -179,6 +195,7 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
       output.WriteRawTag(26);
       output.WriteMessage(GameInfo);
     }
+    entityStates_.WriteTo(output, _repeated_entityStates_codec);
     if (_unknownFields != null) {
       _unknownFields.WriteTo(output);
     }
@@ -201,6 +218,7 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
       output.WriteRawTag(26);
       output.WriteMessage(GameInfo);
     }
+    entityStates_.WriteTo(ref output, _repeated_entityStates_codec);
     if (_unknownFields != null) {
       _unknownFields.WriteTo(ref output);
     }
@@ -220,6 +238,7 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
     if (gameInfo_ != null) {
       size += 1 + pb::CodedOutputStream.ComputeMessageSize(GameInfo);
     }
+    size += entityStates_.CalculateSize(_repeated_entityStates_codec);
     if (_unknownFields != null) {
       size += _unknownFields.CalculateSize();
     }
@@ -244,6 +263,7 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
       }
       GameInfo.MergeFrom(other.GameInfo);
     }
+    entityStates_.Add(other.entityStates_);
     _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
   }
 
@@ -278,6 +298,10 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
           input.ReadMessage(GameInfo);
           break;
         }
+        case 34: {
+          entityStates_.AddEntriesFrom(input, _repeated_entityStates_codec);
+          break;
+        }
       }
     }
   #endif
@@ -310,6 +334,10 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
             GameInfo = new global::GameInfo();
           }
           input.ReadMessage(GameInfo);
+          break;
+        }
+        case 34: {
+          entityStates_.AddEntriesFrom(ref input, _repeated_entityStates_codec);
           break;
         }
       }

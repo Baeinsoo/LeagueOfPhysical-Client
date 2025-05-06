@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+import "ProtoVector3.proto";
+
+message EntitySnap
+{
+	string entityId = 1;
+	ProtoVector3 position = 2;
+	ProtoVector3 rotation = 3;
+}

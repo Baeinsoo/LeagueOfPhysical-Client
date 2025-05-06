@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-import "EntityState.proto";
-
-// @auto_generate
-message EntityStatesToC
-{
-	repeated EntityState entityStates = 1;
-}

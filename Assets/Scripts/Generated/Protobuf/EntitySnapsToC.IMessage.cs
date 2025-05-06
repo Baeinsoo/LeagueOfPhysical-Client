@@ -1,9 +1,9 @@
 using Google.Protobuf;
 using LOP;
 
-public sealed partial class EntityStatesToC : GameFramework.IMessage
+public sealed partial class EntitySnapsToC : GameFramework.IMessage
 {
-    public ushort messageId => MessageIds.EntityStatesToC;
+    public ushort messageId => MessageIds.EntitySnapsToC;
 
     public byte[] Serialize()
     {

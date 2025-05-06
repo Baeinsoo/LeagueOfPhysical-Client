@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+import "EntitySnap.proto";
+
+// @auto_generate
+message EntitySnapsToC
+{
+	int64 tick = 1;
+	repeated EntitySnap entity_snaps = 2;
+}

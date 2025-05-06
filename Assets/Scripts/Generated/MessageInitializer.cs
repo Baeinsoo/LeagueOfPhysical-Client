@@ -7,7 +7,7 @@ namespace LOP
         [RuntimeInitializeOnLoadMethod]
         private static void Initialize()
         {
-            MessageFactory.RegisterCreator(MessageIds.EntityStatesToC, () => new EntityStatesToC());
+            MessageFactory.RegisterCreator(MessageIds.EntitySnapsToC, () => new EntitySnapsToC());
             MessageFactory.RegisterCreator(MessageIds.GameInfoToC, () => new GameInfoToC());
             MessageFactory.RegisterCreator(MessageIds.GameInfoToS, () => new GameInfoToS());
             MessageFactory.RegisterCreator(MessageIds.InputSequnceToC, () => new InputSequnceToC());

@@ -1,12 +1,10 @@
 syntax = "proto3";
 
 import "GameInfo.proto";
-import "EntityState.proto";
 
 // @auto_generate
 message GameInfoToC {
   string entityId = 1;
   string sessionId = 2;
   GameInfo game_info = 3;
-  repeated EntityState entity_states = 4;
 }

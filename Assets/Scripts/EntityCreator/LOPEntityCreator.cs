@@ -22,6 +22,17 @@ namespace LOP
             view.SetEntity(entity);
             view.SetEntityController(controller);
 
+            if (lopEntityCreationData.isUserEntity)
+            {
+                SnapReconciler snapReconciler = entity.gameObject.AddComponent<SnapReconciler>();
+                snapReconciler.entity = entity;
+            }
+            else
+            {
+                SnapInterpolator snapInterpolator = entity.gameObject.AddComponent<SnapInterpolator>();
+                snapInterpolator.entity = entity;
+            }
+
             return entity;
         }
     }

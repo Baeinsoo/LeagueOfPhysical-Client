@@ -9,8 +9,6 @@ namespace LOP
     public class LOPEntityManager : MonoBehaviour, IEntityManager
     {
         private Dictionary<string, IEntity> entityMap = new Dictionary<string, IEntity>();
-        private Dictionary<string, string> userEntityMap = new Dictionary<string, string>();
-        private Dictionary<string, string> entityUserMap = new Dictionary<string, string>();
 
         public IEntity GetEntity(string entityId)
         {
@@ -58,7 +56,7 @@ namespace LOP
             where TEntity : IEntity
             where TCreationData : struct, IEntityCreationData
         {
-            if (creationData is not LOPEntityCreationData lOPEntityCreationData)
+            if (creationData is not LOPEntityCreationData lopEntityCreationData)
             {
                 throw new InvalidOperationException(
                     $"Entity creation data type '{creationData.GetType().Name}' is not supported for LOPEntityManager.");
@@ -67,9 +65,6 @@ namespace LOP
             var entity = EntityFactory.CreateEntity<TEntity, TCreationData>(creationData);
 
             entityMap[entity.entityId] = entity;
-
-            userEntityMap[lOPEntityCreationData.userId] = entity.entityId;
-            entityUserMap[entity.entityId] = lOPEntityCreationData.userId;
 
             return entity;
         }
@@ -81,10 +76,6 @@ namespace LOP
             Destroy(lopEntity.gameObject);
 
             entityMap.Remove(entityId);
-
-            string userId = entityUserMap[entityId];
-            userEntityMap.Remove(userId);
-            entityUserMap.Remove(entityId);
         }
 
         public void UpdateEntities()
@@ -97,14 +88,17 @@ namespace LOP
 
         public string GetUserIdByEntityId(string entityId)
         {
-            return entityUserMap[entityId];
+            throw new NotImplementedException();
         }
 
         public TEntity GetEntityByUserId<TEntity>(string userId) where TEntity : IEntity
         {
-            string entityId = userEntityMap[userId];
+            throw new NotImplementedException();
+        }
 
-            return GetEntity<TEntity>(entityId);
+        public string GenerateEntityId()
+        {
+            throw new NotImplementedException();
         }
     }
 }

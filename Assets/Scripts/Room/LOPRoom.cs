@@ -127,7 +127,7 @@ namespace LOP
         {
             var gameInfo = gameDataContext.gameInfo;
 
-            game.Run(gameInfo.Tick, gameInfo.Interval, gameInfo.ElapsedTime);
+            game.Run(gameInfo.Tick + 1, gameInfo.Interval, gameInfo.ElapsedTime);
         }
 
         private void OnGameStateChanged(IGameState gameState)

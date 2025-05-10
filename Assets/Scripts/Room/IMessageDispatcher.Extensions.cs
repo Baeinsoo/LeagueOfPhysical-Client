@@ -18,7 +18,7 @@ namespace LOP
                 }
                 catch (Exception e)
                 {
-                    interceptor?.OnError(message, e.Message);
+                    interceptor?.OnError(message, e);
                 }
             });
         }

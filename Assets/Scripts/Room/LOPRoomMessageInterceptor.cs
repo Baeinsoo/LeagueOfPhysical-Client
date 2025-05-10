@@ -17,9 +17,9 @@ namespace LOP
 
         public void OnAfterHandle<T>(T message) where T : IMessage { }
 
-        public void OnError<T>(T message, string error) where T : IMessage
+        public void OnError<T>(T message, Exception e) where T : IMessage
         {
-            Debug.LogError($"error: {error}");
+            Debug.LogError(e);
         }
     }
 }

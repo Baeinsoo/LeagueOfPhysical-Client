@@ -22,14 +22,14 @@ public static partial class EntitySnapReflection {
   static EntitySnapReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "ChBFbnRpdHlTbmFwLnByb3RvGhJQcm90b1ZlY3RvcjMucHJvdG8iYAoKRW50",
-          "aXR5U25hcBIQCghlbnRpdHlJZBgBIAEoCRIfCghwb3NpdGlvbhgCIAEoCzIN",
-          "LlByb3RvVmVjdG9yMxIfCghyb3RhdGlvbhgDIAEoCzINLlByb3RvVmVjdG9y",
-          "M2IGcHJvdG8z"));
+          "ChBFbnRpdHlTbmFwLnByb3RvGhJQcm90b1ZlY3RvcjMucHJvdG8igQEKCkVu",
+          "dGl0eVNuYXASEAoIZW50aXR5SWQYASABKAkSHwoIcG9zaXRpb24YAiABKAsy",
+          "DS5Qcm90b1ZlY3RvcjMSHwoIcm90YXRpb24YAyABKAsyDS5Qcm90b1ZlY3Rv",
+          "cjMSHwoIdmVsb2NpdHkYBCABKAsyDS5Qcm90b1ZlY3RvcjNiBnByb3RvMw=="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { global::ProtoVector3Reflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-          new pbr::GeneratedClrTypeInfo(typeof(global::EntitySnap), global::EntitySnap.Parser, new[]{ "EntityId", "Position", "Rotation" }, null, null, null, null)
+          new pbr::GeneratedClrTypeInfo(typeof(global::EntitySnap), global::EntitySnap.Parser, new[]{ "EntityId", "Position", "Rotation", "Velocity" }, null, null, null, null)
         }));
   }
   #endregion
@@ -74,6 +74,7 @@ public sealed partial class EntitySnap : pb::IMessage<EntitySnap>
     entityId_ = other.entityId_;
     position_ = other.position_ != null ? other.position_.Clone() : null;
     rotation_ = other.rotation_ != null ? other.rotation_.Clone() : null;
+    velocity_ = other.velocity_ != null ? other.velocity_.Clone() : null;
     _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
   }
 
@@ -119,6 +120,18 @@ public sealed partial class EntitySnap : pb::IMessage<EntitySnap>
     }
   }
 
+  /// <summary>Field number for the "velocity" field.</summary>
+  public const int VelocityFieldNumber = 4;
+  private global::ProtoVector3 velocity_;
+  [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+  [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+  public global::ProtoVector3 Velocity {
+    get { return velocity_; }
+    set {
+      velocity_ = value;
+    }
+  }
+
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public override bool Equals(object other) {
@@ -137,6 +150,7 @@ public sealed partial class EntitySnap : pb::IMessage<EntitySnap>
     if (EntityId != other.EntityId) return false;
     if (!object.Equals(Position, other.Position)) return false;
     if (!object.Equals(Rotation, other.Rotation)) return false;
+    if (!object.Equals(Velocity, other.Velocity)) return false;
     return Equals(_unknownFields, other._unknownFields);
   }
 
@@ -147,6 +161,7 @@ public sealed partial class EntitySnap : pb::IMessage<EntitySnap>
     if (EntityId.Length != 0) hash ^= EntityId.GetHashCode();
     if (position_ != null) hash ^= Position.GetHashCode();
     if (rotation_ != null) hash ^= Rotation.GetHashCode();
+    if (velocity_ != null) hash ^= Velocity.GetHashCode();
     if (_unknownFields != null) {
       hash ^= _unknownFields.GetHashCode();
     }
@@ -177,6 +192,10 @@ public sealed partial class EntitySnap : pb::IMessage<EntitySnap>
       output.WriteRawTag(26);
       output.WriteMessage(Rotation);
     }
+    if (velocity_ != null) {
+      output.WriteRawTag(34);
+      output.WriteMessage(Velocity);
+    }
     if (_unknownFields != null) {
       _unknownFields.WriteTo(output);
     }
@@ -199,6 +218,10 @@ public sealed partial class EntitySnap : pb::IMessage<EntitySnap>
       output.WriteRawTag(26);
       output.WriteMessage(Rotation);
     }
+    if (velocity_ != null) {
+      output.WriteRawTag(34);
+      output.WriteMessage(Velocity);
+    }
     if (_unknownFields != null) {
       _unknownFields.WriteTo(ref output);
     }
@@ -217,6 +240,9 @@ public sealed partial class EntitySnap : pb::IMessage<EntitySnap>
     }
     if (rotation_ != null) {
       size += 1 + pb::CodedOutputStream.ComputeMessageSize(Rotation);
+    }
+    if (velocity_ != null) {
+      size += 1 + pb::CodedOutputStream.ComputeMessageSize(Velocity);
     }
     if (_unknownFields != null) {
       size += _unknownFields.CalculateSize();
@@ -244,6 +270,12 @@ public sealed partial class EntitySnap : pb::IMessage<EntitySnap>
         Rotation = new global::ProtoVector3();
       }
       Rotation.MergeFrom(other.Rotation);
+    }
+    if (other.velocity_ != null) {
+      if (velocity_ == null) {
+        Velocity = new global::ProtoVector3();
+      }
+      Velocity.MergeFrom(other.Velocity);
     }
     _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
   }
@@ -282,6 +314,13 @@ public sealed partial class EntitySnap : pb::IMessage<EntitySnap>
           input.ReadMessage(Rotation);
           break;
         }
+        case 34: {
+          if (velocity_ == null) {
+            Velocity = new global::ProtoVector3();
+          }
+          input.ReadMessage(Velocity);
+          break;
+        }
       }
     }
   #endif
@@ -317,6 +356,13 @@ public sealed partial class EntitySnap : pb::IMessage<EntitySnap>
             Rotation = new global::ProtoVector3();
           }
           input.ReadMessage(Rotation);
+          break;
+        }
+        case 34: {
+          if (velocity_ == null) {
+            Velocity = new global::ProtoVector3();
+          }
+          input.ReadMessage(Velocity);
           break;
         }
       }

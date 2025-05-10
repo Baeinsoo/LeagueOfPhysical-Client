@@ -7,4 +7,5 @@ message EntitySnap
 	string entityId = 1;
 	ProtoVector3 position = 2;
 	ProtoVector3 rotation = 3;
+	ProtoVector3 velocity = 4;
 }

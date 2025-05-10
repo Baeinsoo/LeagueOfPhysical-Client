@@ -45,9 +45,16 @@ namespace LOP
                 }
             }
 
-            EntitySnap first = serverEntitySnaps.First();
-            entity.position = first.position;
-            entity.rotation = first.rotation;
+            EntitySnap fallback = serverEntitySnaps
+                .Where(snap => snap.timestamp <= interpolationTime)
+                .OrderByDescending(snap => snap.timestamp)
+                .FirstOrDefault();
+
+            if (fallback != null)
+            {
+                entity.position = fallback.position;
+                entity.rotation = fallback.rotation;
+            }
         }
 
         public void AddServerEntitySnap(EntitySnap entitySnap)

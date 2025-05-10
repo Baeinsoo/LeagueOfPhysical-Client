@@ -34,7 +34,7 @@ namespace LOP
 
             builder.Register<IPlayerContext, PlayerContext>(Lifetime.Singleton);
 
-            builder.RegisterEntryPoint<GameDataContext>().As<IGameDataContext, IDataContext>();
+            builder.Register<GameDataContext>(Lifetime.Singleton).As<IGameDataContext, IDataContext>();
         }
     }
 }

@@ -9,6 +9,8 @@ namespace LOP
         {
             CreateMap<ProtoVector3, Vector3>();
             CreateMap<Vector3, ProtoVector3>();
+
+            CreateMap<global::EntitySnap, EntitySnap>();
         }
     }
 }

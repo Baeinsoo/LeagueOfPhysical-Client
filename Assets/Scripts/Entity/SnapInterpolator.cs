@@ -17,13 +17,13 @@ namespace LOP
 
         private void Interpolation()
         {
-            if (serverEntitySnaps.Count < 2)
+            if (serverEntitySnaps.Count < 2 || GameEngine.current == null)
             {
                 return;
             }
 
             float interpolationBackTime = 0.1f;
-            double interpolationTime = Time.timeAsDouble - interpolationBackTime;
+            double interpolationTime = GameEngine.Time.elapsedTime - interpolationBackTime;
 
             for (int i = serverEntitySnaps.Count - 1; i >= 1; i--)
             {

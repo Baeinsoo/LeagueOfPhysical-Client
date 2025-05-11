@@ -81,12 +81,12 @@ namespace LOP
 
         protected virtual void Awake()
         {
-            GameEngine.current.AddListener(this);
+            SceneLifetimeScope.Resolve<IGameEngine>().AddListener(this);
         }
 
         protected virtual void OnDestroy()
         {
-            GameEngine.current.RemoveListener(this);
+            SceneLifetimeScope.Resolve<IGameEngine>().RemoveListener(this);
         }
 
         public virtual void Initialize<TEntityCreationData>(TEntityCreationData creationData) where TEntityCreationData : struct, IEntityCreationData
@@ -103,6 +103,11 @@ namespace LOP
                 {
                     visualGameObject = Instantiate(prefab.Result, transform);
                     visualRigidbody = visualGameObject.AddComponent<Rigidbody>();
+                    visualRigidbody.constraints = RigidbodyConstraints.FreezeRotation;
+
+                    SphereCollider sphereCollider = visualGameObject.AddComponent<SphereCollider>();
+                    sphereCollider.radius = 0.5f;
+                    sphereCollider.center = new Vector3(0, 0.5f, 0);
                 };
             }
         }
@@ -158,6 +163,11 @@ namespace LOP
 
         private void SyncPhysics()
         {
+            if (visualRigidbody == null)
+            {
+                return;
+            }
+
             position = visualRigidbody.position;
             rotation = visualRigidbody.rotation.eulerAngles;
             velocity = visualRigidbody.linearVelocity;

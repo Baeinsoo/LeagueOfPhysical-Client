@@ -5,6 +5,8 @@ using UnityEngine;
 using VContainer;
 using System.Threading.Tasks;
 using System;
+using UnityEngine.SceneManagement;
+using Cysharp.Threading.Tasks;
 
 namespace LOP
 {
@@ -17,6 +19,9 @@ namespace LOP
 
         [Inject]
         private IEnumerable<IGameMessageHandler> gameMessageHandlers;
+
+        [Inject]
+        private IRoomDataContext roomDataContext;
 
         private IGameState _gameState;
         public IGameState gameState
@@ -54,10 +59,11 @@ namespace LOP
                 gameMessageHandler.Register();
             }
 
-            //var sceneLoadOperation = SceneManager.LoadSceneAsync(Data.Room.match.mapId, LoadSceneMode.Additive);
+            var sceneLoadOperation = SceneManager.LoadSceneAsync(roomDataContext.match.mapId, LoadSceneMode.Additive);  //  gamedata? addressable?
 
             await gameEngine.InitializeAsync();
-            //await UniTask.WaitUntil(() => sceneLoadOperation.isDone && gameEngine.initialized);
+
+            await UniTask.WaitUntil(() => sceneLoadOperation.isDone);
 
             gameState = Initialized.State;
 

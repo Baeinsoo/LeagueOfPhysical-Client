@@ -43,6 +43,7 @@ namespace LOP
 
         private void ProcessInput()
         {
+            DispatchEvent<ProcessInput>();
         }
 
         private void InterpolateEntity()

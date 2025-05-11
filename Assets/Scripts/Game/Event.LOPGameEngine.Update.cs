@@ -5,6 +5,7 @@ using UnityEngine;
 namespace LOP.Event.LOPGameEngine.Update
 {
     public struct Begin { }
+    public struct ProcessInput { }
     public struct BeforeEntityUpdate { }
     public struct AfterEntityUpdate { }
     public struct BeforePhysicsSimulation { }

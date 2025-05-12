@@ -102,12 +102,7 @@ namespace LOP
                 handle.Completed += (prefab) =>
                 {
                     visualGameObject = Instantiate(prefab.Result, transform);
-                    visualRigidbody = visualGameObject.AddComponent<Rigidbody>();
-                    visualRigidbody.constraints = RigidbodyConstraints.FreezeRotation;
-
-                    SphereCollider sphereCollider = visualGameObject.AddComponent<SphereCollider>();
-                    sphereCollider.radius = 0.5f;
-                    sphereCollider.center = new Vector3(0, 0.5f, 0);
+                    visualRigidbody = visualGameObject.GetComponent<Rigidbody>();
                 };
             }
         }

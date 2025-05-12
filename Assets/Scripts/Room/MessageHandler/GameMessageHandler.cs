@@ -18,6 +18,9 @@ namespace LOP
         [Inject]
         private IGameEngine gameEngine;
 
+        [Inject]
+        private PlayerInputManager playerInputManager;
+
         public void Register()
         {
             messageDispatcher.RegisterHandler<GameInfoToC>(OnGameInfoToC, LOPRoomMessageInterceptor.Default);
@@ -59,6 +62,8 @@ namespace LOP
                 {
                     playerContext.entity = entity;
                 }
+
+                playerInputManager.SetSequenceNumber(gameInfoToC.ExpectedNextSequence);
             }
         }
     }

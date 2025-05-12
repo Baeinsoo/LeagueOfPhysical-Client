@@ -24,6 +24,11 @@ namespace LOP
             return sequenceNumber++;
         }
 
+        public void SetSequenceNumber(long sequenceNumber)
+        {
+            this.sequenceNumber = sequenceNumber;
+        }
+
         [GameEngineListen(typeof(ProcessInput))]
         private void ProcessInput()
         {

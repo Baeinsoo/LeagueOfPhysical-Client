@@ -22,13 +22,14 @@ public static partial class GameInfoToCReflection {
   static GameInfoToCReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "ChFHYW1lSW5mb1RvQy5wcm90bxoOR2FtZUluZm8ucHJvdG8iUAoLR2FtZUlu",
+          "ChFHYW1lSW5mb1RvQy5wcm90bxoOR2FtZUluZm8ucHJvdG8ibgoLR2FtZUlu",
           "Zm9Ub0MSEAoIZW50aXR5SWQYASABKAkSEQoJc2Vzc2lvbklkGAIgASgJEhwK",
-          "CWdhbWVfaW5mbxgDIAEoCzIJLkdhbWVJbmZvYgZwcm90bzM="));
+          "FGV4cGVjdGVkTmV4dFNlcXVlbmNlGAMgASgDEhwKCWdhbWVfaW5mbxgEIAEo",
+          "CzIJLkdhbWVJbmZvYgZwcm90bzM="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { global::GameInfoReflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-          new pbr::GeneratedClrTypeInfo(typeof(global::GameInfoToC), global::GameInfoToC.Parser, new[]{ "EntityId", "SessionId", "GameInfo" }, null, null, null, null)
+          new pbr::GeneratedClrTypeInfo(typeof(global::GameInfoToC), global::GameInfoToC.Parser, new[]{ "EntityId", "SessionId", "ExpectedNextSequence", "GameInfo" }, null, null, null, null)
         }));
   }
   #endregion
@@ -75,6 +76,7 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
   public GameInfoToC(GameInfoToC other) : this() {
     entityId_ = other.entityId_;
     sessionId_ = other.sessionId_;
+    expectedNextSequence_ = other.expectedNextSequence_;
     gameInfo_ = other.gameInfo_ != null ? other.gameInfo_.Clone() : null;
     _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
   }
@@ -109,8 +111,20 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
     }
   }
 
+  /// <summary>Field number for the "expectedNextSequence" field.</summary>
+  public const int ExpectedNextSequenceFieldNumber = 3;
+  private long expectedNextSequence_;
+  [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+  [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+  public long ExpectedNextSequence {
+    get { return expectedNextSequence_; }
+    set {
+      expectedNextSequence_ = value;
+    }
+  }
+
   /// <summary>Field number for the "game_info" field.</summary>
-  public const int GameInfoFieldNumber = 3;
+  public const int GameInfoFieldNumber = 4;
   private global::GameInfo gameInfo_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -138,6 +152,7 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
     }
     if (EntityId != other.EntityId) return false;
     if (SessionId != other.SessionId) return false;
+    if (ExpectedNextSequence != other.ExpectedNextSequence) return false;
     if (!object.Equals(GameInfo, other.GameInfo)) return false;
     return Equals(_unknownFields, other._unknownFields);
   }
@@ -148,6 +163,7 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
     int hash = 1;
     if (EntityId.Length != 0) hash ^= EntityId.GetHashCode();
     if (SessionId.Length != 0) hash ^= SessionId.GetHashCode();
+    if (ExpectedNextSequence != 0L) hash ^= ExpectedNextSequence.GetHashCode();
     if (gameInfo_ != null) hash ^= GameInfo.GetHashCode();
     if (_unknownFields != null) {
       hash ^= _unknownFields.GetHashCode();
@@ -175,8 +191,12 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
       output.WriteRawTag(18);
       output.WriteString(SessionId);
     }
+    if (ExpectedNextSequence != 0L) {
+      output.WriteRawTag(24);
+      output.WriteInt64(ExpectedNextSequence);
+    }
     if (gameInfo_ != null) {
-      output.WriteRawTag(26);
+      output.WriteRawTag(34);
       output.WriteMessage(GameInfo);
     }
     if (_unknownFields != null) {
@@ -197,8 +217,12 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
       output.WriteRawTag(18);
       output.WriteString(SessionId);
     }
+    if (ExpectedNextSequence != 0L) {
+      output.WriteRawTag(24);
+      output.WriteInt64(ExpectedNextSequence);
+    }
     if (gameInfo_ != null) {
-      output.WriteRawTag(26);
+      output.WriteRawTag(34);
       output.WriteMessage(GameInfo);
     }
     if (_unknownFields != null) {
@@ -216,6 +240,9 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
     }
     if (SessionId.Length != 0) {
       size += 1 + pb::CodedOutputStream.ComputeStringSize(SessionId);
+    }
+    if (ExpectedNextSequence != 0L) {
+      size += 1 + pb::CodedOutputStream.ComputeInt64Size(ExpectedNextSequence);
     }
     if (gameInfo_ != null) {
       size += 1 + pb::CodedOutputStream.ComputeMessageSize(GameInfo);
@@ -237,6 +264,9 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
     }
     if (other.SessionId.Length != 0) {
       SessionId = other.SessionId;
+    }
+    if (other.ExpectedNextSequence != 0L) {
+      ExpectedNextSequence = other.ExpectedNextSequence;
     }
     if (other.gameInfo_ != null) {
       if (gameInfo_ == null) {
@@ -271,7 +301,11 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
           SessionId = input.ReadString();
           break;
         }
-        case 26: {
+        case 24: {
+          ExpectedNextSequence = input.ReadInt64();
+          break;
+        }
+        case 34: {
           if (gameInfo_ == null) {
             GameInfo = new global::GameInfo();
           }
@@ -305,7 +339,11 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
           SessionId = input.ReadString();
           break;
         }
-        case 26: {
+        case 24: {
+          ExpectedNextSequence = input.ReadInt64();
+          break;
+        }
+        case 34: {
           if (gameInfo_ == null) {
             GameInfo = new global::GameInfo();
           }

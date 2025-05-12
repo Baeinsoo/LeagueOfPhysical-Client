@@ -6,5 +6,6 @@ import "GameInfo.proto";
 message GameInfoToC {
   string entityId = 1;
   string sessionId = 2;
-  GameInfo game_info = 3;
+  int64 expectedNextSequence = 3;
+  GameInfo game_info = 4;
 }

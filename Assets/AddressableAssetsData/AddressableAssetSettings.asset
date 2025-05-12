@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: 47abe2ef8fdecf84f9263049777fbb0b
   m_currentHash:
     serializedVersion: 2
-    Hash: 00000000000000000000000000000000
+    Hash: 395692d021a98cac50947625e0f2e431
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_CatalogRequestsTimeout: 0
@@ -59,6 +59,7 @@ MonoBehaviour:
   m_BuildAddressablesWithPlayerBuild: 0
   m_overridePlayerVersion: '[UnityEditor.PlayerSettings.bundleVersion]'
   m_GroupAssets:
+  - {fileID: 11400000, guid: 9b095aac49a5970479ff3e36cfcdb8da, type: 2}
   - {fileID: 11400000, guid: 28216a03bc583ed499e79a1994f6b520, type: 2}
   m_BuildSettings:
     m_LogResourceManagerExceptions: 1
@@ -88,7 +89,7 @@ MonoBehaviour:
       - m_Id: 64e65fe6f4c10e64d83e401046ee5b83
         m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
       - m_Id: 80a9ca5fc23ba404ea3af36720a64964
-        m_Value: 'https://lop-dev-assets.s3.ap-northeast-2.amazonaws.com/[BuildTarget]'
+        m_Value: 'https://lop-assets.s3.ap-northeast-2.amazonaws.com/dev/[BuildTarget]'
       - m_Id: c49d37a88e2212543beb490d525d5574
         m_Value: 'ServerData/[BuildTarget]'
       - m_Id: e052636f8a1f4e646927ee283f3b488c

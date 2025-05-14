@@ -13,6 +13,12 @@ namespace LOP
         private void LateUpdate()
         {
             Interpolation();
+
+            if (entity.visualGameObject != null)
+            {
+                entity.visualGameObject.transform.position = entity.position;
+                entity.visualGameObject.transform.rotation = Quaternion.Euler(entity.rotation);
+            }
         }
 
         private void Interpolation()

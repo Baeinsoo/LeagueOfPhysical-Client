@@ -23,9 +23,9 @@ namespace LOP
             get => _position;
             set
             {
-                if (visualRigidbody != null)
+                if (entityRigidbody != null)
                 {
-                    visualRigidbody.position = value;
+                    entityRigidbody.position = value;
                 }
                 this.SetProperty(ref _position, value, RaisePropertyChanged);
             }
@@ -37,9 +37,9 @@ namespace LOP
             get => _rotation;
             set
             {
-                if (visualRigidbody != null)
+                if (entityRigidbody != null)
                 {
-                    visualRigidbody.rotation = Quaternion.Euler(value);
+                    entityRigidbody.rotation = Quaternion.Euler(value);
                 }
                 this.SetProperty(ref _rotation, value, RaisePropertyChanged);
             }
@@ -51,15 +51,13 @@ namespace LOP
             get => _velocity;
             set
             {
-                if (visualRigidbody != null)
+                if (entityRigidbody != null)
                 {
-                    visualRigidbody.linearVelocity = value;
+                    entityRigidbody.linearVelocity = value;
                 }
                 this.SetProperty(ref _velocity, value, RaisePropertyChanged);
             }
         }
-
-        public Rigidbody visualRigidbody { get; protected set; }
 
         private GameObject _visualGameObject;
         public GameObject visualGameObject
@@ -70,6 +68,19 @@ namespace LOP
                 this.SetProperty(ref _visualGameObject, value, RaisePropertyChanged);
             }
         }
+
+        private GameObject _physicsGameObject;
+        public GameObject physicsGameObject
+        {
+            get => _physicsGameObject;
+            set
+            {
+                this.SetProperty(ref _physicsGameObject, value, RaisePropertyChanged);
+            }
+        }
+
+        public Rigidbody entityRigidbody { get; private set; }
+        public Collider[] entityColliders { get; private set; }
 
         public Vector3 beginPosition { get; private set; }
         public Vector3 beginRotation { get; private set; }
@@ -101,8 +112,20 @@ namespace LOP
                 var handle = Addressables.LoadAssetAsync<GameObject>(lopEntityCreationData.visualId);
                 handle.Completed += (prefab) =>
                 {
-                    visualGameObject = Instantiate(prefab.Result, transform);
-                    visualRigidbody = visualGameObject.GetComponent<Rigidbody>();
+                    GameObject visual = gameObject.CreateChild("Visual");
+                    visualGameObject = Instantiate(prefab.Result, visual.transform);
+
+                    GameObject physics = gameObject.CreateChild("Physics");
+                    physicsGameObject = physics.CreateChild("PhysicsGameObject");
+
+                    entityRigidbody = physicsGameObject.AddComponent<Rigidbody>();
+                    entityRigidbody.constraints = RigidbodyConstraints.FreezeRotation;
+
+                    CapsuleCollider capsuleCollider = physicsGameObject.AddComponent<CapsuleCollider>();
+                    capsuleCollider.radius = 0.35f;
+                    capsuleCollider.height = 1.5f;
+                    capsuleCollider.center = new Vector3(0, capsuleCollider.height * 0.5f, 0);
+                    entityColliders = new Collider[] { capsuleCollider };
                 };
             }
         }
@@ -158,14 +181,14 @@ namespace LOP
 
         private void SyncPhysics()
         {
-            if (visualRigidbody == null)
+            if (entityRigidbody == null)
             {
                 return;
             }
 
-            position = visualRigidbody.position;
-            rotation = visualRigidbody.rotation.eulerAngles;
-            velocity = visualRigidbody.linearVelocity;
+            position = entityRigidbody.position;
+            rotation = entityRigidbody.rotation.eulerAngles;
+            velocity = entityRigidbody.linearVelocity;
         }
     }
 }

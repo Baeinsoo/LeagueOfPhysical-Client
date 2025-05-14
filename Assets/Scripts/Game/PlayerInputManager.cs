@@ -90,7 +90,7 @@ namespace LOP
                 var dir = Vector3.up;
                 var JumpPowerFactor = 10;
 
-                playerContext.entity.visualRigidbody.AddForce(normalizedPower * dir.normalized * JumpPowerFactor, ForceMode.Impulse);
+                playerContext.entity.entityRigidbody.AddForce(normalizedPower * dir.normalized * JumpPowerFactor, ForceMode.Impulse);
             }
         }
 

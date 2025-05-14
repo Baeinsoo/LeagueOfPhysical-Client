@@ -5,6 +5,7 @@ using UnityEngine;
 
 namespace LOP
 {
+    [DefaultExecutionOrder(3000)]
     public class CameraController : MonoBehaviour
     {
         [SerializeField] private CinemachineBrain cinemachineBrain;

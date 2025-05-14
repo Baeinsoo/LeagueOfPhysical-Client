@@ -140,8 +140,11 @@ namespace LOP
 
         private void LateUpdate()
         {
-            //  To Do:
-            //  visualObject만 따로 빼서 (elapsedTime - tickTime) * velocity 로 보정해 주기
+            if (entity.visualGameObject != null)
+            {
+                entity.visualGameObject.transform.position = entity.position;
+                entity.visualGameObject.transform.rotation = Quaternion.Euler(entity.rotation);
+            }
         }
     }
 }

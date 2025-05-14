@@ -1,6 +1,6 @@
-using Cinemachine;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Cinemachine;
 using UnityEngine;
 
 namespace LOP
@@ -9,17 +9,17 @@ namespace LOP
     public class CameraController : MonoBehaviour
     {
         [SerializeField] private CinemachineBrain cinemachineBrain;
-        [SerializeField] private CinemachineVirtualCamera cinemachineVirtualCamera;
+        [SerializeField] private CinemachineCamera cinemachineCamera;
 
         private void Awake()
         {
-            cinemachineBrain.m_UpdateMethod = CinemachineBrain.UpdateMethod.ManualUpdate;
+            cinemachineBrain.UpdateMethod = CinemachineBrain.UpdateMethods.ManualUpdate;
         }
 
         public void SetTarget(Transform target)
         {
-            cinemachineVirtualCamera.Follow = target;
-            cinemachineVirtualCamera.LookAt = target;
+            cinemachineCamera.Follow = target;
+            cinemachineCamera.LookAt = target;
         }
 
         private void LateUpdate()

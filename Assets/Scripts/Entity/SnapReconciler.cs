@@ -14,6 +14,7 @@ namespace LOP
         private List<LocalEntitySnap> localEntitySnaps;
         private BoundedList<InputSequnce> serverInputSequnces;
         private BoundedList<InputSequnce> localInputSequnces;
+        private BoundedDictionary<long, EntityTransformSnap> entityTransformSnaps;
 
         private Vector3 beginPosition;
         private Vector3 beginRotation;
@@ -26,6 +27,7 @@ namespace LOP
             localEntitySnaps = new List<LocalEntitySnap>(100);
             serverInputSequnces = new BoundedList<InputSequnce>(50);
             localInputSequnces = new BoundedList<InputSequnce>(50);
+            entityTransformSnaps = new BoundedDictionary<long, EntityTransformSnap>(20);
 
             SceneLifetimeScope.Resolve<IGameEngine>().AddListener(this);  //  addto(this);
         }
@@ -48,6 +50,8 @@ namespace LOP
             SaveLocalEntitySnap();
 
             Reconcile();
+
+            SaveEntityTransformSnap();
         }
 
         private void SaveLocalEntitySnap()
@@ -123,6 +127,16 @@ namespace LOP
             //  충돌 체크.. 벽이나 지면 뚫지 않도록..
         }
 
+        private void SaveEntityTransformSnap()
+        {
+            entityTransformSnaps[GameEngine.Time.tick] = new EntityTransformSnap
+            {
+                position = entity.position,
+                rotation = entity.rotation,
+                velocity = entity.velocity,
+            };
+        }
+
         public void AddServerEntitySnap(EntitySnap entitySnap)
         {
             serverEntitySnaps.Add(entitySnap);
@@ -140,11 +154,28 @@ namespace LOP
 
         private void LateUpdate()
         {
-            if (entity.visualGameObject != null)
+            if (entity.visualGameObject == null || entityTransformSnaps.Count < 2)
             {
-                entity.visualGameObject.transform.position = entity.position;
-                entity.visualGameObject.transform.rotation = Quaternion.Euler(entity.rotation);
+                return;
             }
+
+            double tickInterval = GameEngine.Time.tickInterval;
+            double renderTime = GameEngine.Time.elapsedTime - tickInterval;
+
+            long tickPrev = (long)(renderTime / tickInterval);
+            long tickNext = tickPrev + 1;
+
+            float t = (float)((renderTime % tickInterval) / tickInterval);
+
+            entity.visualGameObject.transform.position = Vector3.Lerp(
+                entityTransformSnaps[tickPrev].position,
+                entityTransformSnaps[tickNext].position,
+                t);
+
+            entity.visualGameObject.transform.rotation = Quaternion.Slerp(
+                Quaternion.Euler(entityTransformSnaps[tickPrev].rotation),
+                Quaternion.Euler(entityTransformSnaps[tickNext].rotation),
+                t);
         }
     }
 }

@@ -21,13 +21,13 @@ namespace LOP
         public void Register()
         {
             messageDispatcher.RegisterHandler<EntitySnapsToC>(OnEntitySnapsToC, LOPRoomMessageInterceptor.Default);
-            messageDispatcher.RegisterHandler<InputSequnceToC>(OnInputSequnceToC, LOPRoomMessageInterceptor.Default);
+            messageDispatcher.RegisterHandler<InputSequenceToC>(OnInputSequenceToC, LOPRoomMessageInterceptor.Default);
         }
 
         public void Unregister()
         {
             messageDispatcher.UnregisterHandler<EntitySnapsToC>(OnEntitySnapsToC);
-            messageDispatcher.UnregisterHandler<InputSequnceToC>(OnInputSequnceToC);
+            messageDispatcher.UnregisterHandler<InputSequenceToC>(OnInputSequenceToC);
         }
 
         private void OnEntitySnapsToC(EntitySnapsToC entitySnapsToC)
@@ -55,7 +55,7 @@ namespace LOP
             }
         }
 
-        private void OnInputSequnceToC(InputSequenceToC inputSequenceToC)
+        private void OnInputSequenceToC(InputSequenceToC inputSequenceToC)
         {
             InputSequence inputSequence = new InputSequence
             {

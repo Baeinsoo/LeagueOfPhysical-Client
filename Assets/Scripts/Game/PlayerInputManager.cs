@@ -56,7 +56,7 @@ namespace LOP
                 // Do client-side prediction.
                 ApplyInput(playerInput);
 
-                playerContext.entity.GetComponent<SnapReconciler>().AddLocalInputSequnce(new InputSequnce
+                playerContext.entity.GetComponent<SnapReconciler>().AddLocalInputSequence(new InputSequence
                 {
                     Tick = playerInputToS.Tick,
                     Sequence = playerInputToS.PlayerInput.SequenceNumber,

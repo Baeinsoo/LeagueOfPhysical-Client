@@ -1,9 +1,9 @@
 using Google.Protobuf;
 using LOP;
 
-public sealed partial class InputSequnceToC : GameFramework.IMessage
+public sealed partial class InputSequenceToC : GameFramework.IMessage
 {
-    public ushort messageId => MessageIds.InputSequnceToC;
+    public ushort messageId => MessageIds.InputSequenceToC;
 
     public byte[] Serialize()
     {

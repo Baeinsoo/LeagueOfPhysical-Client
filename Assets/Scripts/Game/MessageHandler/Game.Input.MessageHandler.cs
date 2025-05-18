@@ -55,17 +55,17 @@ namespace LOP
             }
         }
 
-        private void OnInputSequnceToC(InputSequnceToC inputSequnceToC)
+        private void OnInputSequnceToC(InputSequenceToC inputSequenceToC)
         {
-            InputSequnce inputSequnceData = new InputSequnce
+            InputSequence inputSequence = new InputSequence
             {
-                Tick = inputSequnceToC.InputSequnce.Tick,
-                Sequence = inputSequnceToC.InputSequnce.Sequence,
+                Tick = inputSequenceToC.InputSequence.Tick,
+                Sequence = inputSequenceToC.InputSequence.Sequence,
             };
 
-            LOPEntity lopEntity = gameEngine.entityManager.GetEntity<LOPEntity>(inputSequnceToC.EntityId);
+            LOPEntity lopEntity = gameEngine.entityManager.GetEntity<LOPEntity>(inputSequenceToC.EntityId);
 
-            lopEntity.GetComponent<SnapReconciler>().AddServerInputSequnce(inputSequnceData);
+            lopEntity.GetComponent<SnapReconciler>().AddServerInputSequence(inputSequence);
         }
     }
 }

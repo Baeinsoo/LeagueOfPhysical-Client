@@ -12,8 +12,8 @@ namespace LOP
 
         private BoundedList<EntitySnap> serverEntitySnaps;
         private List<LocalEntitySnap> localEntitySnaps;
-        private BoundedList<InputSequnce> serverInputSequnces;
-        private BoundedList<InputSequnce> localInputSequnces;
+        private BoundedList<InputSequence> serverInputSequences;
+        private BoundedList<InputSequence> localInputSequences;
         private BoundedDictionary<long, EntityTransformSnap> entityTransformSnaps;
 
         private Vector3 beginPosition;
@@ -25,8 +25,8 @@ namespace LOP
         {
             serverEntitySnaps = new BoundedList<EntitySnap>(5);
             localEntitySnaps = new List<LocalEntitySnap>(100);
-            serverInputSequnces = new BoundedList<InputSequnce>(50);
-            localInputSequnces = new BoundedList<InputSequnce>(50);
+            serverInputSequences = new BoundedList<InputSequence>(50);
+            localInputSequences = new BoundedList<InputSequence>(50);
             entityTransformSnaps = new BoundedDictionary<long, EntityTransformSnap>(20);
 
             SceneLifetimeScope.Resolve<IGameEngine>().AddListener(this);  //  addto(this);
@@ -79,9 +79,9 @@ namespace LOP
             Vector3 position = lastServerEntitySnap.position;
             Vector3 rotation = lastServerEntitySnap.rotation;
 
-            //  서버에서 처리한 인풋 Sequnce를 기점으로, 서버의 값에 클라의 인풋 처리 값(로컬 Diff)를 적용하여 보정.
+            //  서버에서 처리한 인풋 Sequence를 기점으로, 서버의 값에 클라의 인풋 처리 값(로컬 Diff)를 적용하여 보정.
             long baseLocalTick = 0;
-            if (serverInputSequnces.Count == 0)
+            if (serverInputSequences.Count == 0)
             {
                 baseLocalTick = localEntitySnaps[0].tick - 1;
             }
@@ -89,10 +89,10 @@ namespace LOP
             {
                 var serverTick = lastServerEntitySnap.tick;
 
-                var serverInputSequnce = serverInputSequnces.Last(x => x.Tick <= serverTick);
-                long offset = serverTick - serverInputSequnce.Tick;
+                var serverInputSequence = serverInputSequences.Last(x => x.Tick <= serverTick);
+                long offset = serverTick - serverInputSequence.Tick;
 
-                var localSyncSequence = localInputSequnces.First(x => x.Sequence == serverInputSequnce.Sequence);
+                var localSyncSequence = localInputSequences.First(x => x.Sequence == serverInputSequence.Sequence);
                 baseLocalTick = localSyncSequence.Tick + offset;
             }
 
@@ -142,14 +142,14 @@ namespace LOP
             serverEntitySnaps.Add(entitySnap);
         }
 
-        public void AddServerInputSequnce(InputSequnce inputSequnce)
+        public void AddServerInputSequence(InputSequence inputSequence)
         {
-            serverInputSequnces.Add(inputSequnce);
+            serverInputSequences.Add(inputSequence);
         }
 
-        public void AddLocalInputSequnce(InputSequnce inputSequnce)
+        public void AddLocalInputSequence(InputSequence inputSequence)
         {
-            localInputSequnces.Add(inputSequnce);
+            localInputSequences.Add(inputSequence);
         }
 
         private void LateUpdate()

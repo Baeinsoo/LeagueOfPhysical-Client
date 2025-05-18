@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+import "InputSequence.proto";
+
+// @auto_generate 
+message InputSequenceToC
+{
+	string entityId = 1;
+	InputSequence inputSequence = 2;
+}

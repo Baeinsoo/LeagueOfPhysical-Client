@@ -14,10 +14,10 @@ namespace LOP
 
         public async Task LoadMasterData()
         {
-            var characterCollection = MasterDataLoader.LoadFromCSV<MasterData.Character>(Path.Combine(UnityEngine.Application.streamingAssetsPath, "MasterData", "Character.csv"));
+            var characterCollection = await MasterDataLoader.LoadFromCSV<MasterData.Character>("MasterData/Character.csv");
             RegisterMasterData(characterCollection);
 
-            var resourceCollection = MasterDataLoader.LoadFromCSV<MasterData.Resource>(Path.Combine(UnityEngine.Application.streamingAssetsPath, "MasterData", "Resource.csv"));
+            var resourceCollection = await MasterDataLoader.LoadFromCSV<MasterData.Resource>("MasterData/Resource.csv");
             RegisterMasterData(resourceCollection);
         }
 

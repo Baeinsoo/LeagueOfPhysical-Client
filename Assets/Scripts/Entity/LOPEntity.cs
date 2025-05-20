@@ -120,6 +120,9 @@ namespace LOP
 
                     entityRigidbody = physicsGameObject.AddComponent<Rigidbody>();
                     entityRigidbody.constraints = RigidbodyConstraints.FreezeRotation;
+                    entityRigidbody.position = position;
+                    entityRigidbody.rotation = Quaternion.Euler(rotation);
+                    entityRigidbody.linearVelocity = velocity;
 
                     CapsuleCollider capsuleCollider = physicsGameObject.AddComponent<CapsuleCollider>();
                     capsuleCollider.radius = 0.35f;

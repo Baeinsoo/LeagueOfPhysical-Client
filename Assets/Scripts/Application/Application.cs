@@ -18,7 +18,7 @@ namespace LOP
         {
             base.Awake();
 
-            UnityEngine.Application.targetFrameRate = 30;      //  targetFrameRate이 있어야 일관된 deltaTime == 좋은 사용자 경험 가능
+            UnityEngine.Application.targetFrameRate = 60;
         }
     }
 }

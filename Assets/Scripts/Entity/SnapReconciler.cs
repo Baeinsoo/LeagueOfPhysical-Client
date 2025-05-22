@@ -10,10 +10,10 @@ namespace LOP
     {
         public LOPEntity entity { get; set; }
 
-        private BoundedList<EntitySnap> serverEntitySnaps;
+        private CircularBuffer<EntitySnap> serverEntitySnaps;
         private List<LocalEntitySnap> localEntitySnaps;
-        private BoundedList<InputSequence> serverInputSequences;
-        private BoundedList<InputSequence> localInputSequences;
+        private CircularBuffer<InputSequence> serverInputSequences;
+        private CircularBuffer<InputSequence> localInputSequences;
         private BoundedDictionary<long, EntityTransformSnap> entityTransformSnaps;
 
         private Vector3 beginPosition;
@@ -23,10 +23,10 @@ namespace LOP
 
         private void Awake()
         {
-            serverEntitySnaps = new BoundedList<EntitySnap>(5);
+            serverEntitySnaps = new CircularBuffer<EntitySnap>(5);
             localEntitySnaps = new List<LocalEntitySnap>(100);
-            serverInputSequences = new BoundedList<InputSequence>(50);
-            localInputSequences = new BoundedList<InputSequence>(50);
+            serverInputSequences = new CircularBuffer<InputSequence>(50);
+            localInputSequences = new CircularBuffer<InputSequence>(50);
             entityTransformSnaps = new BoundedDictionary<long, EntityTransformSnap>(20);
 
             SceneLifetimeScope.Resolve<IGameEngine>().AddListener(this);  //  addto(this);

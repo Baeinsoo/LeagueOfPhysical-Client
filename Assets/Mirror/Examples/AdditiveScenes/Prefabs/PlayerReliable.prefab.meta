@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 018486f7f30e3cf4fb0b639100499bb5
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 129321
+  packageName: Mirror
+  packageVersion: 96.0.1
+  assetPath: Assets/Mirror/Examples/AdditiveScenes/Prefabs/PlayerReliable.prefab
+  uploadId: 736421

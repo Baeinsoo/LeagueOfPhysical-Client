@@ -18,7 +18,9 @@ namespace LOP
 
         private Vector3 beginPosition;
         private Vector3 beginRotation;
+        private Vector3 beginVelocity;
 
+        private Vector3 positionForSmoothDamp;
         private Vector3 velocityForSmoothDamp;
 
         private void Awake()
@@ -42,6 +44,8 @@ namespace LOP
         {
             beginPosition = entity.position;
             beginRotation = entity.rotation;
+            beginVelocity = entity.velocity;
+
         }
 
         [GameEngineListen(typeof(End))]
@@ -61,6 +65,7 @@ namespace LOP
                 tick = GameEngine.Time.tick,
                 positionDiff = entity.position - beginPosition,
                 rotationDiff = entity.rotation - beginRotation,
+                velocityDiff = entity.velocity - beginVelocity,
             });
         }
 
@@ -73,11 +78,13 @@ namespace LOP
 
             var pos = entity.position;
             var rot = entity.rotation;
+            var vel = entity.velocity;
 
             var lastServerEntitySnap = serverEntitySnaps.Last();
 
             Vector3 position = lastServerEntitySnap.position;
             Vector3 rotation = lastServerEntitySnap.rotation;
+            Vector3 velocity = lastServerEntitySnap.velocity;
 
             //  서버에서 처리한 인풋 Sequence를 기점으로, 서버의 값에 클라의 인풋 처리 값(로컬 Diff)를 적용하여 보정.
             long baseLocalTick = 0;
@@ -102,6 +109,7 @@ namespace LOP
                 {
                     position += localEntitySnap.positionDiff;
                     rotation += localEntitySnap.rotationDiff;
+                    velocity += localEntitySnap.velocityDiff;
                 }
             }
             localEntitySnaps.RemoveAll(x => x.tick <= baseLocalTick);
@@ -113,13 +121,17 @@ namespace LOP
             float lerpFactor = Mathf.Clamp01(distance / threshold);
             float smoothTime = Mathf.Lerp(0.5f, 0.1f, lerpFactor);
 
-            entity.position = Vector3.SmoothDamp(pos, position, ref velocityForSmoothDamp, smoothTime, entity.velocity.magnitude * 2f, (float)GameEngine.Time.tickInterval);
+            entity.position = Vector3.SmoothDamp(pos, position, ref positionForSmoothDamp, smoothTime, entity.velocity.magnitude * 2f, (float)GameEngine.Time.tickInterval);
             entity.rotation = Quaternion.Slerp(Quaternion.Euler(rot), Quaternion.Euler(rotation), (float)GameEngine.Time.tickInterval * (2f + lerpFactor * 3f)).eulerAngles;
+            entity.velocity = Vector3.SmoothDamp(vel, velocity, ref velocityForSmoothDamp, smoothTime, entity.velocity.magnitude * 2f, (float)GameEngine.Time.tickInterval);
 
             if (distance > threshold * 5)
             {
                 entity.position = position;
                 entity.rotation = rotation;
+                entity.velocity = velocity;
+
+                positionForSmoothDamp = Vector3.zero;
                 velocityForSmoothDamp = Vector3.zero;
             }
 

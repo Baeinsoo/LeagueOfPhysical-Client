@@ -7,5 +7,6 @@ namespace LOP
         public long tick;
         public Vector3 positionDiff;
         public Vector3 rotationDiff;
+        public Vector3 velocityDiff;
     }
 }

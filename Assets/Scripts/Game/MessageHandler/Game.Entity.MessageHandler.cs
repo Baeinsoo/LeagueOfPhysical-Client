@@ -6,34 +6,44 @@ namespace LOP
 {
     public class GameEntityMessageHandler : IGameMessageHandler
     {
-        [Inject]
-        private IMessageDispatcher messageDispatcher;
+        [Inject] private IMessageDispatcher messageDispatcher;
+        [Inject] private IPlayerContext playerContext;
+        [Inject] private IGameDataContext gameDataContext;
+        [Inject] private IGameEngine gameEngine;
 
         public void Register()
         {
-            //roomNetwork.RegisterHandler<EntityStatesToC>(OnEntityStatesToC, LOPRoomMessageInterceptor.Default);
+            messageDispatcher.RegisterHandler<EntitySnapsToC>(OnEntitySnapsToC, LOPRoomMessageInterceptor.Default);
         }
 
         public void Unregister()
         {
-            //roomNetwork.UnregisterHandler<EntityStatesToC>(OnEntityStatesToC);
+            messageDispatcher.UnregisterHandler<EntitySnapsToC>(OnEntitySnapsToC);
         }
 
-        //private void OnEntityStatesToC(EntityStatesToC response)
-        //{
-        //    foreach (var entityState in response.entityStates ?? Enumerable.Empty<EntityState>())
-        //    {
-        //        var entity = EntityManager.instance.GetEntity(entityState.entityId);
+        private void OnEntitySnapsToC(EntitySnapsToC entitySnapsToC)
+        {
+            foreach (var serverEntitySnap in entitySnapsToC.EntitySnaps.OrEmpty())
+            {
+                if (gameEngine.entityManager.TryGetEntity<LOPEntity>(serverEntitySnap.EntityId, out var entity) == false)
+                {
+                    Debug.LogWarning($"Entity {serverEntitySnap.EntityId} not found");
+                    continue;
+                }
 
-        //        if (entity.GetComponent<TransformAdjuster>() == null)
-        //        {
-        //            entity.GetComponent<MyTransformAdjuster>().FeedEntityState(entityState);
-        //        }
-        //        else
-        //        {
-        //            entity.GetComponent<TransformAdjuster>().FeedEntityState(entityState);
-        //        }
-        //    }
-        //}
+                EntitySnap entitySnap = MapperConfig.mapper.Map<EntitySnap>(serverEntitySnap);
+                entitySnap.tick = entitySnapsToC.Tick;
+                entitySnap.timestamp = entitySnapsToC.Tick * gameDataContext.gameInfo.Interval;
+
+                if (playerContext.entity.entityId == entity.entityId)
+                {
+                    entity.GetComponent<SnapReconciler>().AddServerEntitySnap(entitySnap);
+                }
+                else
+                {
+                    entity.GetComponent<SnapInterpolator>().AddServerEntitySnap(entitySnap);
+                }
+            }
+        }
     }
 }

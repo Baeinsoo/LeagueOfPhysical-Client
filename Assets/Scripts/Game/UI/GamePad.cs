@@ -10,6 +10,7 @@ namespace LOP
     {
         [SerializeField] private JoyStick joyStick;
         [SerializeField] private Button jumpButton;
+        [SerializeField] private Button dashButton;
 
         [Inject]
         private PlayerInputManager playerInputManager;
@@ -17,16 +18,23 @@ namespace LOP
         private void Start()
         {
             jumpButton.onClick.AddListener(OnJumpButtonClick);
+            dashButton.onClick.AddListener(OnDashButtonClick);
         }
 
         private void OnDestroy()
         {
             jumpButton.onClick.RemoveListener(OnJumpButtonClick);
+            dashButton.onClick.RemoveListener(OnDashButtonClick);
         }
 
         private void OnJumpButtonClick()
         {
             playerInputManager.SetJump(true);
+        }
+
+        private void OnDashButtonClick()
+        {
+            playerInputManager.SetSkillId(1);
         }
     }
 }

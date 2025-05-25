@@ -48,6 +48,7 @@ namespace LOP
                     Horizontal = playerInput.horizontal,
                     Vertical = playerInput.vertical,
                     Jump = playerInput.jump,
+                    SkillId = playerInput.skillId
                 };
 
                 // Send to server.
@@ -92,6 +93,17 @@ namespace LOP
 
                 playerContext.entity.entityRigidbody.AddForce(normalizedPower * dir.normalized * JumpPowerFactor, ForceMode.Impulse);
             }
+
+            //  Dash (Temporary Skill Example)
+            if (playerInput.skillId == 1)
+            {
+                Quaternion rotation = Quaternion.Euler(playerContext.entity.rotation);
+                Vector3 forward = rotation * Vector3.forward;
+
+                playerContext.entity.entityRigidbody.AddForce(forward * 20, ForceMode.Impulse);
+
+                //// Handle skill logic here, e.g., playerContext.entity.UseSkill(playerInput.skillId);
+            }
         }
 
         public void SetHorizontal(float horizontal)
@@ -119,6 +131,15 @@ namespace LOP
                 playerInput = new PlayerInput();
             }
             this.playerInput.jump = jump;
+        }
+
+        public void SetSkillId(int skillId)
+        {
+            if (playerInput == null)
+            {
+                playerInput = new PlayerInput();
+            }
+            this.playerInput.skillId = skillId;
         }
 
         public bool GetInput<T>(out T value) where T : PlayerInput

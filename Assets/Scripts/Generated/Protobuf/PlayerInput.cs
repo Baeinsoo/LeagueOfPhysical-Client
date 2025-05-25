@@ -22,13 +22,13 @@ public static partial class PlayerInputReflection {
   static PlayerInputReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "ChFQbGF5ZXJJbnB1dC5wcm90byJZCgtQbGF5ZXJJbnB1dBIWCg5zZXF1ZW5j",
+          "ChFQbGF5ZXJJbnB1dC5wcm90byJqCgtQbGF5ZXJJbnB1dBIWCg5zZXF1ZW5j",
           "ZU51bWJlchgBIAEoAxISCgpob3Jpem9udGFsGAIgASgCEhAKCHZlcnRpY2Fs",
-          "GAMgASgCEgwKBGp1bXAYBCABKAhiBnByb3RvMw=="));
+          "GAMgASgCEgwKBGp1bXAYBCABKAgSDwoHc2tpbGxJZBgFIAEoBWIGcHJvdG8z"));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-          new pbr::GeneratedClrTypeInfo(typeof(global::PlayerInput), global::PlayerInput.Parser, new[]{ "SequenceNumber", "Horizontal", "Vertical", "Jump" }, null, null, null, null)
+          new pbr::GeneratedClrTypeInfo(typeof(global::PlayerInput), global::PlayerInput.Parser, new[]{ "SequenceNumber", "Horizontal", "Vertical", "Jump", "SkillId" }, null, null, null, null)
         }));
   }
   #endregion
@@ -74,6 +74,7 @@ public sealed partial class PlayerInput : pb::IMessage<PlayerInput>
     horizontal_ = other.horizontal_;
     vertical_ = other.vertical_;
     jump_ = other.jump_;
+    skillId_ = other.skillId_;
     _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
   }
 
@@ -131,6 +132,18 @@ public sealed partial class PlayerInput : pb::IMessage<PlayerInput>
     }
   }
 
+  /// <summary>Field number for the "skillId" field.</summary>
+  public const int SkillIdFieldNumber = 5;
+  private int skillId_;
+  [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+  [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+  public int SkillId {
+    get { return skillId_; }
+    set {
+      skillId_ = value;
+    }
+  }
+
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public override bool Equals(object other) {
@@ -150,6 +163,7 @@ public sealed partial class PlayerInput : pb::IMessage<PlayerInput>
     if (!pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.Equals(Horizontal, other.Horizontal)) return false;
     if (!pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.Equals(Vertical, other.Vertical)) return false;
     if (Jump != other.Jump) return false;
+    if (SkillId != other.SkillId) return false;
     return Equals(_unknownFields, other._unknownFields);
   }
 
@@ -161,6 +175,7 @@ public sealed partial class PlayerInput : pb::IMessage<PlayerInput>
     if (Horizontal != 0F) hash ^= pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.GetHashCode(Horizontal);
     if (Vertical != 0F) hash ^= pbc::ProtobufEqualityComparers.BitwiseSingleEqualityComparer.GetHashCode(Vertical);
     if (Jump != false) hash ^= Jump.GetHashCode();
+    if (SkillId != 0) hash ^= SkillId.GetHashCode();
     if (_unknownFields != null) {
       hash ^= _unknownFields.GetHashCode();
     }
@@ -195,6 +210,10 @@ public sealed partial class PlayerInput : pb::IMessage<PlayerInput>
       output.WriteRawTag(32);
       output.WriteBool(Jump);
     }
+    if (SkillId != 0) {
+      output.WriteRawTag(40);
+      output.WriteInt32(SkillId);
+    }
     if (_unknownFields != null) {
       _unknownFields.WriteTo(output);
     }
@@ -221,6 +240,10 @@ public sealed partial class PlayerInput : pb::IMessage<PlayerInput>
       output.WriteRawTag(32);
       output.WriteBool(Jump);
     }
+    if (SkillId != 0) {
+      output.WriteRawTag(40);
+      output.WriteInt32(SkillId);
+    }
     if (_unknownFields != null) {
       _unknownFields.WriteTo(ref output);
     }
@@ -242,6 +265,9 @@ public sealed partial class PlayerInput : pb::IMessage<PlayerInput>
     }
     if (Jump != false) {
       size += 1 + 1;
+    }
+    if (SkillId != 0) {
+      size += 1 + pb::CodedOutputStream.ComputeInt32Size(SkillId);
     }
     if (_unknownFields != null) {
       size += _unknownFields.CalculateSize();
@@ -266,6 +292,9 @@ public sealed partial class PlayerInput : pb::IMessage<PlayerInput>
     }
     if (other.Jump != false) {
       Jump = other.Jump;
+    }
+    if (other.SkillId != 0) {
+      SkillId = other.SkillId;
     }
     _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
   }
@@ -302,6 +331,10 @@ public sealed partial class PlayerInput : pb::IMessage<PlayerInput>
           Jump = input.ReadBool();
           break;
         }
+        case 40: {
+          SkillId = input.ReadInt32();
+          break;
+        }
       }
     }
   #endif
@@ -335,6 +368,10 @@ public sealed partial class PlayerInput : pb::IMessage<PlayerInput>
         }
         case 32: {
           Jump = input.ReadBool();
+          break;
+        }
+        case 40: {
+          SkillId = input.ReadInt32();
           break;
         }
       }

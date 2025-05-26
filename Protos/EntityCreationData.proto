@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+import "LOPEntityCreationData.proto";
+
+message EntityCreationData
+{
+	oneof creation_data
+    {
+        LOPEntityCreationData lop_entity_creation_data = 1;
+    }
+}

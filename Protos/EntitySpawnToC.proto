@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+import "EntityCreationData.proto";
+
+// @auto_generate 
+message EntitySpawnToC
+{
+	EntityCreationData entity_creation_data = 1;
+}

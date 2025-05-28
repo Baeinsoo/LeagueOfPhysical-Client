@@ -1,5 +1,6 @@
 using GameFramework;
 using Mirror;
+using UnityEngine;
 using VContainer;
 
 namespace LOP
@@ -40,27 +41,29 @@ namespace LOP
                 NetworkClient.connection
             );
 
-            foreach (var protoSnap in gameInfoToC.GameInfo.EntitySnaps)
+            foreach (var entityCreationData in gameInfoToC.GameInfo.EntityCreationDatas)
             {
-                EntitySnap entitySnap = MapperConfig.mapper.Map<EntitySnap>(protoSnap);
-                entitySnap.tick = gameInfoToC.GameInfo.Tick;
-                entitySnap.timestamp = gameInfoToC.GameInfo.ElapsedTime;
+                bool isUserEntity = entityCreationData.LopEntityCreationData.BaseEntityCreationData.EntityId == gameInfoToC.EntityId;
 
-                bool isUserEntity = entitySnap.entityId == gameInfoToC.EntityId;
-
-                LOPEntity entity = gameEngine.entityManager.CreateEntity<LOPEntity, LOPEntityCreationData>(new LOPEntityCreationData
+                switch (entityCreationData.CreationDataCase)
                 {
-                    entityId = entitySnap.entityId,
-                    visualId = "Assets/Art/Characters/Knight/Knight.prefab",
-                    position = entitySnap.position,
-                    rotation = entitySnap.rotation,
-                    velocity = entitySnap.velocity,
-                    isUserEntity = isUserEntity,
-                });
+                    case EntityCreationData.CreationDataOneofCase.LopEntityCreationData:
+                        LOPEntity entity = gameEngine.entityManager.CreateEntity<LOPEntity, LOPEntityCreationData>(new LOPEntityCreationData
+                        {
+                            entityId = entityCreationData.LopEntityCreationData.BaseEntityCreationData.EntityId,
+                            position = MapperConfig.mapper.Map<Vector3>(entityCreationData.LopEntityCreationData.BaseEntityCreationData.Position),
+                            rotation = MapperConfig.mapper.Map<Vector3>(entityCreationData.LopEntityCreationData.BaseEntityCreationData.Rotation),
+                            velocity = MapperConfig.mapper.Map<Vector3>(entityCreationData.LopEntityCreationData.BaseEntityCreationData.Velocity),
+                            visualId = entityCreationData.LopEntityCreationData.VisualId,
+                            isUserEntity = isUserEntity,
+                        });
 
-                if (isUserEntity)
-                {
-                    playerContext.entity = entity;
+                        if (isUserEntity)
+                        {
+                            playerContext.entity = entity;
+                        }
+
+                        break;
                 }
 
                 playerInputManager.SetSequenceNumber(gameInfoToC.ExpectedNextSequence);

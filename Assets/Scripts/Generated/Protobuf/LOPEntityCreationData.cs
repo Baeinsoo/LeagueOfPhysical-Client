@@ -23,14 +23,13 @@ public static partial class LOPEntityCreationDataReflection {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
           "ChtMT1BFbnRpdHlDcmVhdGlvbkRhdGEucHJvdG8aHEJhc2VFbnRpdHlDcmVh",
-          "dGlvbkRhdGEucHJvdG8ifgoVTE9QRW50aXR5Q3JlYXRpb25EYXRhEjoKGWJh",
+          "dGlvbkRhdGEucHJvdG8iZgoVTE9QRW50aXR5Q3JlYXRpb25EYXRhEjoKGWJh",
           "c2VfZW50aXR5X2NyZWF0aW9uX2RhdGEYASABKAsyFy5CYXNlRW50aXR5Q3Jl",
-          "YXRpb25EYXRhEhYKDmlzX3VzZXJfZW50aXR5GAIgASgIEhEKCXZpc3VhbF9p",
-          "ZBgDIAEoCWIGcHJvdG8z"));
+          "YXRpb25EYXRhEhEKCXZpc3VhbF9pZBgCIAEoCWIGcHJvdG8z"));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { global::BaseEntityCreationDataReflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-          new pbr::GeneratedClrTypeInfo(typeof(global::LOPEntityCreationData), global::LOPEntityCreationData.Parser, new[]{ "BaseEntityCreationData", "IsUserEntity", "VisualId" }, null, null, null, null)
+          new pbr::GeneratedClrTypeInfo(typeof(global::LOPEntityCreationData), global::LOPEntityCreationData.Parser, new[]{ "BaseEntityCreationData", "VisualId" }, null, null, null, null)
         }));
   }
   #endregion
@@ -73,7 +72,6 @@ public sealed partial class LOPEntityCreationData : pb::IMessage<LOPEntityCreati
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public LOPEntityCreationData(LOPEntityCreationData other) : this() {
     baseEntityCreationData_ = other.baseEntityCreationData_ != null ? other.baseEntityCreationData_.Clone() : null;
-    isUserEntity_ = other.isUserEntity_;
     visualId_ = other.visualId_;
     _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
   }
@@ -96,20 +94,8 @@ public sealed partial class LOPEntityCreationData : pb::IMessage<LOPEntityCreati
     }
   }
 
-  /// <summary>Field number for the "is_user_entity" field.</summary>
-  public const int IsUserEntityFieldNumber = 2;
-  private bool isUserEntity_;
-  [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-  [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-  public bool IsUserEntity {
-    get { return isUserEntity_; }
-    set {
-      isUserEntity_ = value;
-    }
-  }
-
   /// <summary>Field number for the "visual_id" field.</summary>
-  public const int VisualIdFieldNumber = 3;
+  public const int VisualIdFieldNumber = 2;
   private string visualId_ = "";
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -136,7 +122,6 @@ public sealed partial class LOPEntityCreationData : pb::IMessage<LOPEntityCreati
       return true;
     }
     if (!object.Equals(BaseEntityCreationData, other.BaseEntityCreationData)) return false;
-    if (IsUserEntity != other.IsUserEntity) return false;
     if (VisualId != other.VisualId) return false;
     return Equals(_unknownFields, other._unknownFields);
   }
@@ -146,7 +131,6 @@ public sealed partial class LOPEntityCreationData : pb::IMessage<LOPEntityCreati
   public override int GetHashCode() {
     int hash = 1;
     if (baseEntityCreationData_ != null) hash ^= BaseEntityCreationData.GetHashCode();
-    if (IsUserEntity != false) hash ^= IsUserEntity.GetHashCode();
     if (VisualId.Length != 0) hash ^= VisualId.GetHashCode();
     if (_unknownFields != null) {
       hash ^= _unknownFields.GetHashCode();
@@ -170,12 +154,8 @@ public sealed partial class LOPEntityCreationData : pb::IMessage<LOPEntityCreati
       output.WriteRawTag(10);
       output.WriteMessage(BaseEntityCreationData);
     }
-    if (IsUserEntity != false) {
-      output.WriteRawTag(16);
-      output.WriteBool(IsUserEntity);
-    }
     if (VisualId.Length != 0) {
-      output.WriteRawTag(26);
+      output.WriteRawTag(18);
       output.WriteString(VisualId);
     }
     if (_unknownFields != null) {
@@ -192,12 +172,8 @@ public sealed partial class LOPEntityCreationData : pb::IMessage<LOPEntityCreati
       output.WriteRawTag(10);
       output.WriteMessage(BaseEntityCreationData);
     }
-    if (IsUserEntity != false) {
-      output.WriteRawTag(16);
-      output.WriteBool(IsUserEntity);
-    }
     if (VisualId.Length != 0) {
-      output.WriteRawTag(26);
+      output.WriteRawTag(18);
       output.WriteString(VisualId);
     }
     if (_unknownFields != null) {
@@ -212,9 +188,6 @@ public sealed partial class LOPEntityCreationData : pb::IMessage<LOPEntityCreati
     int size = 0;
     if (baseEntityCreationData_ != null) {
       size += 1 + pb::CodedOutputStream.ComputeMessageSize(BaseEntityCreationData);
-    }
-    if (IsUserEntity != false) {
-      size += 1 + 1;
     }
     if (VisualId.Length != 0) {
       size += 1 + pb::CodedOutputStream.ComputeStringSize(VisualId);
@@ -236,9 +209,6 @@ public sealed partial class LOPEntityCreationData : pb::IMessage<LOPEntityCreati
         BaseEntityCreationData = new global::BaseEntityCreationData();
       }
       BaseEntityCreationData.MergeFrom(other.BaseEntityCreationData);
-    }
-    if (other.IsUserEntity != false) {
-      IsUserEntity = other.IsUserEntity;
     }
     if (other.VisualId.Length != 0) {
       VisualId = other.VisualId;
@@ -269,11 +239,7 @@ public sealed partial class LOPEntityCreationData : pb::IMessage<LOPEntityCreati
           input.ReadMessage(BaseEntityCreationData);
           break;
         }
-        case 16: {
-          IsUserEntity = input.ReadBool();
-          break;
-        }
-        case 26: {
+        case 18: {
           VisualId = input.ReadString();
           break;
         }
@@ -303,11 +269,7 @@ public sealed partial class LOPEntityCreationData : pb::IMessage<LOPEntityCreati
           input.ReadMessage(BaseEntityCreationData);
           break;
         }
-        case 16: {
-          IsUserEntity = input.ReadBool();
-          break;
-        }
-        case 26: {
+        case 18: {
           VisualId = input.ReadString();
           break;
         }

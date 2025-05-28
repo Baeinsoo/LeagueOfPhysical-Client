@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-import "EntitySnap.proto";
+import "EntityCreationData.proto";
 
 message GameInfo {
   int64 tick = 1;
   double interval = 2;
   double elapsedTime = 3;
-  repeated EntitySnap entity_snaps = 4;
+  repeated EntityCreationData entity_creation_datas = 4;
 }

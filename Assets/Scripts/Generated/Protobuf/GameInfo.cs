@@ -22,14 +22,14 @@ public static partial class GameInfoReflection {
   static GameInfoReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "Cg5HYW1lSW5mby5wcm90bxoQRW50aXR5U25hcC5wcm90byJiCghHYW1lSW5m",
-          "bxIMCgR0aWNrGAEgASgDEhAKCGludGVydmFsGAIgASgBEhMKC2VsYXBzZWRU",
-          "aW1lGAMgASgBEiEKDGVudGl0eV9zbmFwcxgEIAMoCzILLkVudGl0eVNuYXBi",
-          "BnByb3RvMw=="));
+          "Cg5HYW1lSW5mby5wcm90bxoYRW50aXR5Q3JlYXRpb25EYXRhLnByb3RvInMK",
+          "CEdhbWVJbmZvEgwKBHRpY2sYASABKAMSEAoIaW50ZXJ2YWwYAiABKAESEwoL",
+          "ZWxhcHNlZFRpbWUYAyABKAESMgoVZW50aXR5X2NyZWF0aW9uX2RhdGFzGAQg",
+          "AygLMhMuRW50aXR5Q3JlYXRpb25EYXRhYgZwcm90bzM="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
-        new pbr::FileDescriptor[] { global::EntitySnapReflection.Descriptor, },
+        new pbr::FileDescriptor[] { global::EntityCreationDataReflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-          new pbr::GeneratedClrTypeInfo(typeof(global::GameInfo), global::GameInfo.Parser, new[]{ "Tick", "Interval", "ElapsedTime", "EntitySnaps" }, null, null, null, null)
+          new pbr::GeneratedClrTypeInfo(typeof(global::GameInfo), global::GameInfo.Parser, new[]{ "Tick", "Interval", "ElapsedTime", "EntityCreationDatas" }, null, null, null, null)
         }));
   }
   #endregion
@@ -74,7 +74,7 @@ public sealed partial class GameInfo : pb::IMessage<GameInfo>
     tick_ = other.tick_;
     interval_ = other.interval_;
     elapsedTime_ = other.elapsedTime_;
-    entitySnaps_ = other.entitySnaps_.Clone();
+    entityCreationDatas_ = other.entityCreationDatas_.Clone();
     _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
   }
 
@@ -120,15 +120,15 @@ public sealed partial class GameInfo : pb::IMessage<GameInfo>
     }
   }
 
-  /// <summary>Field number for the "entity_snaps" field.</summary>
-  public const int EntitySnapsFieldNumber = 4;
-  private static readonly pb::FieldCodec<global::EntitySnap> _repeated_entitySnaps_codec
-      = pb::FieldCodec.ForMessage(34, global::EntitySnap.Parser);
-  private readonly pbc::RepeatedField<global::EntitySnap> entitySnaps_ = new pbc::RepeatedField<global::EntitySnap>();
+  /// <summary>Field number for the "entity_creation_datas" field.</summary>
+  public const int EntityCreationDatasFieldNumber = 4;
+  private static readonly pb::FieldCodec<global::EntityCreationData> _repeated_entityCreationDatas_codec
+      = pb::FieldCodec.ForMessage(34, global::EntityCreationData.Parser);
+  private readonly pbc::RepeatedField<global::EntityCreationData> entityCreationDatas_ = new pbc::RepeatedField<global::EntityCreationData>();
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-  public pbc::RepeatedField<global::EntitySnap> EntitySnaps {
-    get { return entitySnaps_; }
+  public pbc::RepeatedField<global::EntityCreationData> EntityCreationDatas {
+    get { return entityCreationDatas_; }
   }
 
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -149,7 +149,7 @@ public sealed partial class GameInfo : pb::IMessage<GameInfo>
     if (Tick != other.Tick) return false;
     if (!pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.Equals(Interval, other.Interval)) return false;
     if (!pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.Equals(ElapsedTime, other.ElapsedTime)) return false;
-    if(!entitySnaps_.Equals(other.entitySnaps_)) return false;
+    if(!entityCreationDatas_.Equals(other.entityCreationDatas_)) return false;
     return Equals(_unknownFields, other._unknownFields);
   }
 
@@ -160,7 +160,7 @@ public sealed partial class GameInfo : pb::IMessage<GameInfo>
     if (Tick != 0L) hash ^= Tick.GetHashCode();
     if (Interval != 0D) hash ^= pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.GetHashCode(Interval);
     if (ElapsedTime != 0D) hash ^= pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.GetHashCode(ElapsedTime);
-    hash ^= entitySnaps_.GetHashCode();
+    hash ^= entityCreationDatas_.GetHashCode();
     if (_unknownFields != null) {
       hash ^= _unknownFields.GetHashCode();
     }
@@ -191,7 +191,7 @@ public sealed partial class GameInfo : pb::IMessage<GameInfo>
       output.WriteRawTag(25);
       output.WriteDouble(ElapsedTime);
     }
-    entitySnaps_.WriteTo(output, _repeated_entitySnaps_codec);
+    entityCreationDatas_.WriteTo(output, _repeated_entityCreationDatas_codec);
     if (_unknownFields != null) {
       _unknownFields.WriteTo(output);
     }
@@ -214,7 +214,7 @@ public sealed partial class GameInfo : pb::IMessage<GameInfo>
       output.WriteRawTag(25);
       output.WriteDouble(ElapsedTime);
     }
-    entitySnaps_.WriteTo(ref output, _repeated_entitySnaps_codec);
+    entityCreationDatas_.WriteTo(ref output, _repeated_entityCreationDatas_codec);
     if (_unknownFields != null) {
       _unknownFields.WriteTo(ref output);
     }
@@ -234,7 +234,7 @@ public sealed partial class GameInfo : pb::IMessage<GameInfo>
     if (ElapsedTime != 0D) {
       size += 1 + 8;
     }
-    size += entitySnaps_.CalculateSize(_repeated_entitySnaps_codec);
+    size += entityCreationDatas_.CalculateSize(_repeated_entityCreationDatas_codec);
     if (_unknownFields != null) {
       size += _unknownFields.CalculateSize();
     }
@@ -256,7 +256,7 @@ public sealed partial class GameInfo : pb::IMessage<GameInfo>
     if (other.ElapsedTime != 0D) {
       ElapsedTime = other.ElapsedTime;
     }
-    entitySnaps_.Add(other.entitySnaps_);
+    entityCreationDatas_.Add(other.entityCreationDatas_);
     _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
   }
 
@@ -289,7 +289,7 @@ public sealed partial class GameInfo : pb::IMessage<GameInfo>
           break;
         }
         case 34: {
-          entitySnaps_.AddEntriesFrom(input, _repeated_entitySnaps_codec);
+          entityCreationDatas_.AddEntriesFrom(input, _repeated_entityCreationDatas_codec);
           break;
         }
       }
@@ -324,7 +324,7 @@ public sealed partial class GameInfo : pb::IMessage<GameInfo>
           break;
         }
         case 34: {
-          entitySnaps_.AddEntriesFrom(ref input, _repeated_entitySnaps_codec);
+          entityCreationDatas_.AddEntriesFrom(ref input, _repeated_entityCreationDatas_codec);
           break;
         }
       }

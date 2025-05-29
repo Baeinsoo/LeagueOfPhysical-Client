@@ -91,6 +91,7 @@ namespace LOP
                 var dir = Vector3.up;
                 var JumpPowerFactor = 10;
 
+                playerContext.entity.entityRigidbody.linearVelocity -= new Vector3(0, playerContext.entity.entityRigidbody.linearVelocity.y, 0);
                 playerContext.entity.entityRigidbody.AddForce(normalizedPower * dir.normalized * JumpPowerFactor, ForceMode.Impulse);
             }
 
@@ -100,7 +101,7 @@ namespace LOP
                 Quaternion rotation = Quaternion.Euler(playerContext.entity.rotation);
                 Vector3 forward = rotation * Vector3.forward;
 
-                playerContext.entity.entityRigidbody.AddForce(forward * 20, ForceMode.Impulse);
+                playerContext.entity.entityRigidbody.AddForce(forward * 7, ForceMode.Impulse);
 
                 //// Handle skill logic here, e.g., playerContext.entity.UseSkill(playerInput.skillId);
             }

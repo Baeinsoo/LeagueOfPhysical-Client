@@ -57,6 +57,7 @@ namespace LOP
 
             Physics.simulationMode = SimulationMode.Script;
             Physics.autoSyncTransforms = false;
+            Physics.gravity = new Vector3(0, -9.81f * 2, 0);
 
             foreach (var gameMessageHandler in gameMessageHandlers.OrEmpty())
             {

@@ -15,6 +15,7 @@ namespace LOP
         private Dictionary<Type, Action<object>> updateHandlers;
 
         public GameInfo gameInfo { get; set; }
+        public string userEntityId { get; set; }
 
         public GameDataContext(IDataContextManager dataContextManager)
         {
@@ -37,6 +38,7 @@ namespace LOP
         private void HandleGameInfo(GameInfoToC gameInfoToC)
         {
             gameInfo = gameInfoToC.GameInfo;
+            userEntityId = gameInfoToC.EntityId;
         }
 
         public void Clear()

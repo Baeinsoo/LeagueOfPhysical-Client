@@ -22,7 +22,9 @@ namespace LOP
             view.SetEntity(entity);
             view.SetEntityController(controller);
 
-            if (lopEntityCreationData.isUserEntity)
+            bool isUserEntity = SceneLifetimeScope.Resolve<IGameDataContext>().userEntityId == lopEntityCreationData.entityId;
+
+            if (isUserEntity)
             {
                 SnapReconciler snapReconciler = entity.gameObject.AddComponent<SnapReconciler>();
                 snapReconciler.entity = entity;

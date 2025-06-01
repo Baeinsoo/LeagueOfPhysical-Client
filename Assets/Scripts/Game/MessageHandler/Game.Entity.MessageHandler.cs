@@ -57,7 +57,6 @@ namespace LOP
                 case EntityCreationData.CreationDataOneofCase.LopEntityCreationData:
 
                     string entityId = entitySpawnToC.EntityCreationData.LopEntityCreationData.BaseEntityCreationData.EntityId;
-                    bool isUserEntity = false;
 
                     if (gameEngine.entityManager.TryGetEntity<LOPEntity>(entityId, out var entity))
                     {
@@ -72,7 +71,6 @@ namespace LOP
                         position = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.LopEntityCreationData.BaseEntityCreationData.Position),
                         rotation = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.LopEntityCreationData.BaseEntityCreationData.Rotation),
                         velocity = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.LopEntityCreationData.BaseEntityCreationData.Velocity),
-                        isUserEntity = isUserEntity,
                     });
 
                     break;

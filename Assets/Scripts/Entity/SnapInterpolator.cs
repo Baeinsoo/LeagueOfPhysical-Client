@@ -7,6 +7,7 @@ namespace LOP
     public class SnapInterpolator : MonoBehaviour
     {
         public LOPEntity entity { get; set; }
+        public LOPEntityView entityView { get; set; }
 
         private BoundedList<EntitySnap> serverEntitySnaps = new BoundedList<EntitySnap>(20);
     
@@ -14,10 +15,10 @@ namespace LOP
         {
             Interpolation();
 
-            if (entity.visualGameObject != null)
+            if (entityView.visualGameObject != null)
             {
-                entity.visualGameObject.transform.position = entity.position;
-                entity.visualGameObject.transform.rotation = Quaternion.Euler(entity.rotation);
+                entityView.visualGameObject.transform.position = entity.position;
+                entityView.visualGameObject.transform.rotation = Quaternion.Euler(entity.rotation);
             }
         }
 

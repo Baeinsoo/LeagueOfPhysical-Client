@@ -56,12 +56,6 @@ namespace LOP
                             velocity = MapperConfig.mapper.Map<Vector3>(entityCreationData.LopEntityCreationData.BaseEntityCreationData.Velocity),
                             visualId = entityCreationData.LopEntityCreationData.VisualId,
                         });
-
-                        if (isUserEntity)
-                        {
-                            playerContext.entity = entity;
-                        }
-
                         break;
                 }
 

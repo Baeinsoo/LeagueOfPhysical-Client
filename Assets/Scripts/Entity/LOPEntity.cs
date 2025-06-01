@@ -5,7 +5,6 @@ using System.ComponentModel;
 using System.Linq;
 using UnityEngine;
 using UniRx;
-using UnityEngine.AddressableAssets;
 using LOP.Event.LOPGameEngine.Update;
 
 namespace LOP
@@ -59,13 +58,13 @@ namespace LOP
             }
         }
 
-        private GameObject _visualGameObject;
-        public GameObject visualGameObject
+        private string _visualId;
+        public string visualId
         {
-            get => _visualGameObject;
+            get => _visualId;
             set
             {
-                this.SetProperty(ref _visualGameObject, value, RaisePropertyChanged);
+                this.SetProperty(ref _visualId, value, RaisePropertyChanged);
             }
         }
 
@@ -76,51 +75,6 @@ namespace LOP
             set
             {
                 this.SetProperty(ref _physicsGameObject, value, RaisePropertyChanged);
-            }
-        }
-
-        private string _visualId;
-        public string visualId
-        {
-            get => _visualId;
-            set
-            {
-                this.SetProperty(ref _visualId, value, RaisePropertyChanged);
-
-                //  Temp.. (view 쪽으로 빼고 고도화 필요)
-                if (value == "Cube")
-                {
-                    visualGameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    visualGameObject.transform.SetParent(gameObject.transform);
-                    visualGameObject.transform.localScale = new Vector3(2, 1, 2);
-
-                    entityColliders = new Collider[] { visualGameObject.GetComponent<Collider>() };
-                }
-                else
-                {
-                    var handle = Addressables.LoadAssetAsync<GameObject>(value);
-                    handle.Completed += (prefab) =>
-                    {
-                        GameObject visual = gameObject.CreateChild("Visual");
-                        visualGameObject = Instantiate(prefab.Result, visual.transform);
-
-                        GameObject physics = gameObject.CreateChild("Physics");
-                        physicsGameObject = physics.CreateChild("PhysicsGameObject");
-
-                        entityRigidbody = physicsGameObject.AddComponent<Rigidbody>();
-                        entityRigidbody.constraints = RigidbodyConstraints.FreezeRotation;
-                        entityRigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-                        entityRigidbody.position = position;
-                        entityRigidbody.rotation = Quaternion.Euler(rotation);
-                        entityRigidbody.linearVelocity = velocity;
-
-                        CapsuleCollider capsuleCollider = physicsGameObject.AddComponent<CapsuleCollider>();
-                        capsuleCollider.radius = 0.35f;
-                        capsuleCollider.height = 1.5f;
-                        capsuleCollider.center = new Vector3(0, capsuleCollider.height * 0.5f, 0);
-                        entityColliders = new Collider[] { capsuleCollider };
-                    };
-                }
             }
         }
 
@@ -155,6 +109,33 @@ namespace LOP
             if (creationData is LOPEntityCreationData lopEntityCreationData)
             {
                 visualId = lopEntityCreationData.visualId;
+
+                if (physicsGameObject != null)
+                {
+                    Destroy(physicsGameObject);
+                }
+
+                GameObject physics = transform.parent.Find("Physics").gameObject;
+                physicsGameObject = physics.CreateChild("PhysicsGameObject");
+
+                entityRigidbody = physicsGameObject.AddComponent<Rigidbody>();
+                entityRigidbody.constraints = RigidbodyConstraints.FreezeRotation;
+                entityRigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                entityRigidbody.position = position;
+                entityRigidbody.rotation = Quaternion.Euler(rotation);
+                entityRigidbody.linearVelocity = velocity;
+
+                CapsuleCollider capsuleCollider = physicsGameObject.AddComponent<CapsuleCollider>();
+                capsuleCollider.radius = 0.35f;
+                capsuleCollider.height = 1.5f;
+                capsuleCollider.center = new Vector3(0, capsuleCollider.height * 0.5f, 0);
+                entityColliders = new Collider[] { capsuleCollider };
+            }
+
+            bool isUserEntity = SceneLifetimeScope.Resolve<IGameDataContext>().userEntityId == creationData.entityId;
+            if (isUserEntity)
+            {
+                SceneLifetimeScope.Resolve<IPlayerContext>().entity = this;
             }
         }
 

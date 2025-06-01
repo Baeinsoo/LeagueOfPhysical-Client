@@ -53,9 +53,9 @@ namespace LOP
 
         private async void OnGameInfoToC(GameInfoToC gameInfoToC)
         {
-            await UniTask.WaitUntil(() => playerContext.entity != null && playerContext.entity.visualGameObject != null);
+            await UniTask.WaitUntil(() => playerContext.entityView != null && playerContext.entityView.visualGameObject != null);
 
-            cameraController.SetTarget(playerContext.entity.visualGameObject.transform);
+            cameraController.SetTarget(playerContext.entityView.visualGameObject.transform);
         }
     }
 }

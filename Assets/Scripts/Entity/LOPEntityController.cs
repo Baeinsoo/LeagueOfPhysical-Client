@@ -16,7 +16,7 @@ namespace LOP
         {
             switch (propertyChange.propertyName)
             {
-                case nameof(entity.visualGameObject):
+                case nameof(entity.visualId):
                     break;
             }
         }

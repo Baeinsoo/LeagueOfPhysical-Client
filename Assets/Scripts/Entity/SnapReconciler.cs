@@ -9,6 +9,7 @@ namespace LOP
     public class SnapReconciler : MonoBehaviour
     {
         public LOPEntity entity { get; set; }
+        public LOPEntityView entityView { get; set; }
 
         private CircularBuffer<EntitySnap> serverEntitySnaps;
         private List<LocalEntitySnap> localEntitySnaps;
@@ -166,7 +167,7 @@ namespace LOP
 
         private void LateUpdate()
         {
-            if (entity.visualGameObject == null || entityTransformSnaps.Count < 2)
+            if (entityView.visualGameObject == null || entityTransformSnaps.Count < 2)
             {
                 return;
             }
@@ -179,12 +180,12 @@ namespace LOP
 
             float t = (float)((renderTime % tickInterval) / tickInterval);
 
-            entity.visualGameObject.transform.position = Vector3.Lerp(
+            entityView.visualGameObject.transform.position = Vector3.Lerp(
                 entityTransformSnaps[tickPrev].position,
                 entityTransformSnaps[tickNext].position,
                 t);
 
-            entity.visualGameObject.transform.rotation = Quaternion.Slerp(
+            entityView.visualGameObject.transform.rotation = Quaternion.Slerp(
                 Quaternion.Euler(entityTransformSnaps[tickPrev].rotation),
                 Quaternion.Euler(entityTransformSnaps[tickNext].rotation),
                 t);

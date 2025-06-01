@@ -7,5 +7,6 @@ namespace LOP
     {
         public ISession session { get; set; }
         public LOPEntity entity { get; set; }
+        public LOPEntityView entityView { get; set; }
     }
 }

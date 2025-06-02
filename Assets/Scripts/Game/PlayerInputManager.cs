@@ -10,11 +10,15 @@ namespace LOP
         private PlayerInput playerInput;
         private IGameEngine gameEngine;
         private IPlayerContext playerContext;
+        private IMovementManager movementManager;
+        private IActionManager actionManager;
 
-        public PlayerInputManager(IGameEngine gameEngine, IPlayerContext playerContext)
+        public PlayerInputManager(IGameEngine gameEngine, IPlayerContext playerContext, IMovementManager movementManager, IActionManager actionManager)
         {
             this.gameEngine = gameEngine;
             this.playerContext = playerContext;
+            this.movementManager = movementManager;
+            this.actionManager = actionManager;
 
             this.gameEngine.AddListener(this);
         }
@@ -48,7 +52,7 @@ namespace LOP
                     Horizontal = playerInput.horizontal,
                     Vertical = playerInput.vertical,
                     Jump = playerInput.jump,
-                    SkillId = playerInput.skillId
+                    SkillId = playerInput.actionId
                 };
 
                 // Send to server.
@@ -69,41 +73,11 @@ namespace LOP
 
         private void ApplyInput(PlayerInput playerInput)
         {
-            Vector3 direction = new Vector3(playerInput.horizontal, 0, playerInput.vertical).normalized;
+            movementManager.ProcessInput(playerContext.entity, playerInput.horizontal, playerInput.vertical, playerInput.jump);
 
-            //  Move & Rotate
-            if (direction.normalized.sqrMagnitude > 0)
+            if (playerInput.actionId > 0)
             {
-                var velocity = direction.normalized * 5;
-                playerContext.entity.velocity = new Vector3(velocity.x, playerContext.entity.velocity.y, velocity.z);
-
-                float myFloat = 0;
-                var angle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
-                var smooth = Mathf.SmoothDampAngle(playerContext.entity.rotation.y, angle, ref myFloat, 0.01f);
-
-                playerContext.entity.rotation = new Vector3(0, smooth, 0);
-            }
-
-            //  Jump
-            if (playerInput.jump)
-            {
-                var normalizedPower = 1;
-                var dir = Vector3.up;
-                var JumpPowerFactor = 10;
-
-                playerContext.entity.entityRigidbody.linearVelocity -= new Vector3(0, playerContext.entity.entityRigidbody.linearVelocity.y, 0);
-                playerContext.entity.entityRigidbody.AddForce(normalizedPower * dir.normalized * JumpPowerFactor, ForceMode.Impulse);
-            }
-
-            //  Dash (Temporary Skill Example)
-            if (playerInput.skillId == 1)
-            {
-                Quaternion rotation = Quaternion.Euler(playerContext.entity.rotation);
-                Vector3 forward = rotation * Vector3.forward;
-
-                playerContext.entity.entityRigidbody.AddForce(forward * 7, ForceMode.Impulse);
-
-                //// Handle skill logic here, e.g., playerContext.entity.UseSkill(playerInput.skillId);
+                actionManager.TryExecuteAction(playerContext.entity, playerInput.actionId);
             }
         }
 
@@ -134,13 +108,13 @@ namespace LOP
             this.playerInput.jump = jump;
         }
 
-        public void SetSkillId(int skillId)
+        public void SetActionId(int actionId)
         {
             if (playerInput == null)
             {
                 playerInput = new PlayerInput();
             }
-            this.playerInput.skillId = skillId;
+            this.playerInput.actionId = actionId;
         }
 
         public bool GetInput<T>(out T value) where T : PlayerInput

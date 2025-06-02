@@ -37,6 +37,9 @@ namespace LOP
             builder.Register<GameDataContext>(Lifetime.Singleton).As<IGameDataContext, IDataContext>();
 
             builder.Register<PlayerInputManager>(Lifetime.Singleton).AsSelf();
+
+            builder.Register<IActionManager, LOPActionManager>(Lifetime.Singleton);
+            builder.Register<IMovementManager, LOPMovementManager>(Lifetime.Singleton);
         }
     }
 }

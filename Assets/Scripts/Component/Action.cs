@@ -4,8 +4,8 @@ using UnityEngine;
 
 namespace LOP
 {
-    public abstract class Ability : LOPComponent
+    public abstract class Action : LOPComponent
     {
-        public abstract void UpdateAbility();
+        public abstract void UpdateAction();
     }
 }

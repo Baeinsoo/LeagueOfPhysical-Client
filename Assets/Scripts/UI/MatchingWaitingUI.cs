@@ -5,7 +5,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using UniRx;
 using GameFramework;
-using System;
 
 namespace LOP
 {
@@ -15,7 +14,7 @@ namespace LOP
         [SerializeField] private TextMeshProUGUI message;
         [SerializeField] private Button cancelButton;
 
-        private event Action onCancelClick;
+        private event System.Action onCancelClick;
 
         private void Start()
         {
@@ -27,7 +26,7 @@ namespace LOP
             ;
         }
 
-        public static void Show(Action onCancelClick = null)
+        public static void Show(System.Action onCancelClick = null)
         {
             instance.gameObject.SetActive(true);
 

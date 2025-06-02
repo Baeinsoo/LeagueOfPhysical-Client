@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UniRx;
-using System;
 
 namespace LOP
 {
@@ -14,7 +13,7 @@ namespace LOP
         [SerializeField] private Button gamecenterLoginButton;
         [SerializeField] private Button guestLoginButton;
 
-        public event Action onGuestLoginClick;
+        public event System.Action onGuestLoginClick;
 
         private void Awake()
         {

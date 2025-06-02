@@ -1,5 +1,4 @@
 using Mirror;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -8,8 +7,8 @@ namespace LOP
 {
     public class LOPNetworkManager : NetworkManager
     {
-        public event Action onStartClient;
-        public event Action onStopClient;
+        public event System.Action onStartClient;
+        public event System.Action onStopClient;
 
         private PortTransport _portTransport;
         public PortTransport portTransport

@@ -172,6 +172,7 @@ namespace LOP
                 return;
             }
 
+            //  렌더링과 물리 시뮬레이션의 주기가 달라 움직임이 튀어 보일 수 있는 부분을 지연 렌더링을 사용하여 부드럽게 렌더링한다.
             double tickInterval = GameEngine.Time.tickInterval;
             double renderTime = GameEngine.Time.elapsedTime - tickInterval;
 

@@ -52,7 +52,7 @@ namespace LOP
                     Horizontal = playerInput.horizontal,
                     Vertical = playerInput.vertical,
                     Jump = playerInput.jump,
-                    SkillId = playerInput.actionId
+                    ActionId = playerInput.actionId
                 };
 
                 // Send to server.

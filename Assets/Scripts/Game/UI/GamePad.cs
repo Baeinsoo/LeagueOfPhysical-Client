@@ -37,12 +37,12 @@ namespace LOP
 
         private void OnDashButtonClick()
         {
-            playerInputManager.SetSkillId(1);
+            playerInputManager.SetActionId(1);
         }
 
         private void OnSpawnButtonClick()
         {
-            playerInputManager.SetSkillId(2);
+            playerInputManager.SetActionId(2);
         }
     }
 }

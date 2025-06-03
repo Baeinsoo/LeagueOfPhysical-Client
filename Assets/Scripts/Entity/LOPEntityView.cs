@@ -4,6 +4,7 @@ using LOP.Event.Entity;
 using UniRx;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace LOP
 {
@@ -25,6 +26,7 @@ namespace LOP
         }
 
         private string visualId;
+        private AsyncOperationHandle<GameObject> asyncOperationHandle;
 
         protected virtual void Start()
         {
@@ -36,6 +38,21 @@ namespace LOP
             if (isUserEntity)
             {
                 SceneLifetimeScope.Resolve<IPlayerContext>().entityView = this;
+            }
+        }
+
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+
+            if (asyncOperationHandle.IsValid())
+            {
+                Addressables.Release(asyncOperationHandle);
+            }
+
+            if (_visualGameObject != null)
+            {
+                Destroy(_visualGameObject);
             }
         }
 
@@ -57,9 +74,14 @@ namespace LOP
             }
 
             this.visualId = visualId;
-         
-            var handle = Addressables.LoadAssetAsync<GameObject>(visualId);
-            handle.Completed += (prefab) =>
+
+            if (asyncOperationHandle.IsValid())
+            {
+                Addressables.Release(asyncOperationHandle);
+            }
+
+            asyncOperationHandle = Addressables.LoadAssetAsync<GameObject>(visualId);
+            asyncOperationHandle.Completed += (prefab) =>
             {
                 GameObject visual = transform.parent.Find("Visual").gameObject;
 

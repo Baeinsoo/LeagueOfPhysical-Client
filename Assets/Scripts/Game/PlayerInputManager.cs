@@ -1,6 +1,5 @@
 using GameFramework;
 using LOP.Event.LOPGameEngine.Update;
-using UnityEngine;
 
 namespace LOP
 {
@@ -52,7 +51,7 @@ namespace LOP
                     Horizontal = playerInput.horizontal,
                     Vertical = playerInput.vertical,
                     Jump = playerInput.jump,
-                    ActionId = playerInput.actionId
+                    ActionCode = playerInput.actionCode,
                 };
 
                 // Send to server.
@@ -75,9 +74,9 @@ namespace LOP
         {
             movementManager.ProcessInput(playerContext.entity, playerInput.horizontal, playerInput.vertical, playerInput.jump);
 
-            if (playerInput.actionId > 0)
+            if (string.IsNullOrEmpty(playerInput.actionCode) == false)
             {
-                actionManager.TryExecuteAction(playerContext.entity, playerInput.actionId);
+                actionManager.TryExecuteAction(playerContext.entity, playerInput.actionCode);
             }
         }
 
@@ -108,13 +107,13 @@ namespace LOP
             this.playerInput.jump = jump;
         }
 
-        public void SetActionId(int actionId)
+        public void SetActionCode(string actionCode)
         {
             if (playerInput == null)
             {
                 playerInput = new PlayerInput();
             }
-            this.playerInput.actionId = actionId;
+            this.playerInput.actionCode = actionCode;
         }
 
         public bool GetInput<T>(out T value) where T : PlayerInput

@@ -5,5 +5,5 @@ message PlayerInput {
   float horizontal = 2;
   float vertical = 3;
   bool jump = 4;
-  int32 actionId = 5;
+  string actionCode = 5;
 }

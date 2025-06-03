@@ -7,6 +7,6 @@ namespace LOP
         public float horizontal;
         public float vertical;
         public bool jump;
-        public int actionId;
+        public string actionCode;
     }
 }

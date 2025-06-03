@@ -1,0 +1,4 @@
+code,name,description,class,duration,cast_time,cooldown,hp_cost,mp_cost
+dash_001,default_dash,기본 대쉬 액션,Dash,0.0,0.0,0.2,0,0
+spawn_001,default_spawn,기본 스폰 액션,Spawn,0.5,0.5,1.0,0,0
+attack_001,default_attack,기본 공격 액션,Attack,0.02,0.0,0.0,0,0

@@ -51,7 +51,7 @@ namespace LOP
                     Horizontal = playerInput.horizontal,
                     Vertical = playerInput.vertical,
                     Jump = playerInput.jump,
-                    ActionCode = playerInput.actionCode,
+                    ActionCode = playerInput.actionCode ?? "",
                 };
 
                 // Send to server.

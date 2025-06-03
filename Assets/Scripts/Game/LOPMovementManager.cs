@@ -6,10 +6,6 @@ namespace LOP
 {
     public class LOPMovementManager : IMovementManager<LOPEntity>
     {
-        private const float MOVE_SPEED = 5f;
-        private const float ROTATION_SPEED = 360f;
-        private const float JUMP_POWER = 10f;
-
         public void ProcessInput(LOPEntity entity, float horizontal, float vertical, bool jump)
         {
             Vector3 direction = new Vector3(horizontal, 0, vertical).normalized;
@@ -17,7 +13,7 @@ namespace LOP
             if (direction.sqrMagnitude > 0)
             {
                 //  Move
-                var velocity = direction * MOVE_SPEED;
+                var velocity = direction * entity.masterData.speed;
                 entity.velocity = new Vector3(velocity.x, entity.velocity.y, velocity.z);
 
                 // Rotate
@@ -31,7 +27,7 @@ namespace LOP
             if (jump)
             {
                 entity.entityRigidbody.linearVelocity -= new Vector3(0, entity.entityRigidbody.linearVelocity.y, 0);
-                entity.entityRigidbody.AddForce(Vector3.up * JUMP_POWER, ForceMode.Impulse);
+                entity.entityRigidbody.AddForce(Vector3.up * entity.masterData.jump_power, ForceMode.Impulse);
             }
         }
 

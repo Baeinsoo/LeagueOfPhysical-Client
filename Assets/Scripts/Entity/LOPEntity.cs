@@ -6,6 +6,7 @@ using System.Linq;
 using UnityEngine;
 using UniRx;
 using LOP.Event.LOPGameEngine.Update;
+using LOP.MasterData;
 
 namespace LOP
 {
@@ -15,7 +16,10 @@ namespace LOP
 
         public Status[] statuses => components.OfType<Status>()?.ToArray();
         public Action[] actions => components.OfType<Action>()?.ToArray();
- 
+
+        public string characterCode { get; private set; }
+        public MasterData.Character masterData { get; private set; }
+
         private Vector3 _position;
         public override Vector3 position
         {
@@ -108,6 +112,8 @@ namespace LOP
 
             if (creationData is LOPEntityCreationData lopEntityCreationData)
             {
+                characterCode = lopEntityCreationData.characterCode;
+                masterData = SceneLifetimeScope.Resolve<IMasterDataManager>().GetMasterData<Character>(lopEntityCreationData.characterCode);
                 visualId = lopEntityCreationData.visualId;
 
                 if (physicsGameObject != null)

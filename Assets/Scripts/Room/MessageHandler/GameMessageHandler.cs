@@ -54,6 +54,7 @@ namespace LOP
                             position = MapperConfig.mapper.Map<Vector3>(entityCreationData.LopEntityCreationData.BaseEntityCreationData.Position),
                             rotation = MapperConfig.mapper.Map<Vector3>(entityCreationData.LopEntityCreationData.BaseEntityCreationData.Rotation),
                             velocity = MapperConfig.mapper.Map<Vector3>(entityCreationData.LopEntityCreationData.BaseEntityCreationData.Velocity),
+                            characterCode = entityCreationData.LopEntityCreationData.CharacterCode,
                             visualId = entityCreationData.LopEntityCreationData.VisualId,
                         });
                         break;

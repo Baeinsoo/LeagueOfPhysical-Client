@@ -1,11 +1,16 @@
 using GameFramework;
 using UnityEngine;
+using System.Linq;
+using VContainer;
 
 namespace LOP
 {
     public class LOPActionManager : IActionManager<LOPEntity>
     {
-        public bool TryExecuteAction(LOPEntity entity, int actionId)
+        [Inject]
+        private IMasterDataManager masterDataManager;
+
+        public bool TryExecuteAction(LOPEntity entity, string actionCode)
         {
             if (entity == null)
             {
@@ -13,34 +18,44 @@ namespace LOP
                 return false;
             }
 
-            if (actionId <= 0)
+            if (string.IsNullOrEmpty(actionCode))
             {
-                Debug.LogWarning($"Invalid action ID. Cannot execute action. actionId: {actionId}");
+                Debug.LogWarning($"Invalid action Code. Cannot execute action. actionCode: {actionCode}");
                 return false;
             }
 
-            //  Dash (Temporary Skill Example)
-            if (actionId == 1)
-            {
-                Quaternion rotation = Quaternion.Euler(entity.rotation);
-                Vector3 forward = rotation * Vector3.forward;
+            GetOrAddAction(entity, actionCode, out Action action);
 
-                entity.entityRigidbody.AddForce(forward * 7, ForceMode.Impulse);
-            }
+            action.TryActionStart();
 
             return true;
         }
 
-        bool IActionManager.TryExecuteAction(IEntity entity, int actionId)
+        bool IActionManager.TryExecuteAction(IEntity entity, string actionCode)
         {
             if (entity is LOPEntity lopEntity)
             {
-                return TryExecuteAction(lopEntity, actionId);
+                return TryExecuteAction(lopEntity, actionCode);
             }
             else
             {
                 Debug.LogWarning("Entity must be of type LOPEntity.");
                 return false;
+            }
+        }
+
+        private void GetOrAddAction(LOPEntity entity, string actionCode, out Action action)
+        {
+            action = entity.actions.FirstOrDefault(x => x.actionCode == actionCode);
+            if (action == null)
+            {
+                var actionMasterData = masterDataManager.GetMasterData<MasterData.Action>(actionCode);
+                var actionType = System.Type.GetType($"LOP.{actionMasterData.@class}");
+
+                action = entity.gameObject.AddComponent(actionType) as Action;
+                entity.AttachComponent(action);
+
+                action.Initialize(actionCode);
             }
         }
     }

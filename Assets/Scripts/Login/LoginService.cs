@@ -17,7 +17,7 @@ namespace LOP
         private GuestLogin guestLogin;
 
         [Inject]
-        private IUserDataContext userDataContext;
+        private IUserDataStore userDataStore;
 
         protected override void Awake()
         {
@@ -89,7 +89,7 @@ namespace LOP
             if (logoutResult.success)
             {
                 PlayerPrefs.DeleteKey(LOGIN_TYPE_KEY);
-                userDataContext.Clear();
+                userDataStore.Clear();
             }
             else
             {

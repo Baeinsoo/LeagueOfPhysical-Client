@@ -138,7 +138,7 @@ namespace LOP
                 entityColliders = new Collider[] { capsuleCollider };
             }
 
-            bool isUserEntity = SceneLifetimeScope.Resolve<IGameDataContext>().userEntityId == creationData.entityId;
+            bool isUserEntity = SceneLifetimeScope.Resolve<IGameDataStore>().userEntityId == creationData.entityId;
             if (isUserEntity)
             {
                 SceneLifetimeScope.Resolve<IPlayerContext>().entity = this;

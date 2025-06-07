@@ -12,7 +12,7 @@ namespace LOP
         private const int CHECK_INTERVAL = 1;   //  sec
 
         [Inject]
-        private IUserDataContext userDataContext;
+        private IUserDataStore userDataStore;
 
         private void Awake()
         {
@@ -31,7 +31,7 @@ namespace LOP
 
         protected override IEnumerator OnExecute()
         {
-            if (userDataContext.userLocation.locationDetail is not GameRoomLocationDetail gameRoomLocationDetail)
+            if (userDataStore.userLocation.locationDetail is not GameRoomLocationDetail gameRoomLocationDetail)
             {
                 Debug.LogError("User is not in a game room.");
                 FSM.ProcessInput(MatchStateInput.CheckMatchState);

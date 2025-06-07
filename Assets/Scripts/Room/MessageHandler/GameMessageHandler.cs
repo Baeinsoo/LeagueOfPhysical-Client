@@ -11,7 +11,7 @@ namespace LOP
         private IMessageDispatcher messageDispatcher;
 
         [Inject]
-        private IUserDataContext userDataContext;
+        private IUserDataStore userDataStore;
 
         [Inject]
         private IPlayerContext playerContext;
@@ -37,7 +37,7 @@ namespace LOP
             playerContext.session = new LOPSession
             (
                 gameInfoToC.SessionId,
-                userDataContext.user.id,
+                userDataStore.user.id,
                 NetworkClient.connection
             );
 

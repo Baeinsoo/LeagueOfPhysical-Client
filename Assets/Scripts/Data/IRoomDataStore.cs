@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace LOP
 {
-    public interface IRoomDataContext : IDataContext
+    public interface IRoomDataStore : IDataStore
     {
         Room room { get; set; }
         Match match { get; set; }

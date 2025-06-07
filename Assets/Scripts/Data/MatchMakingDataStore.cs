@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace LOP
 {
-    public class MatchMakingDataContext : IMatchMakingDataContext
+    public class MatchMakingDataStore : IMatchMakingDataStore
     {
         public Type[] subscribedTypes => new Type[] { };
 

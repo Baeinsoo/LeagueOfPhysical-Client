@@ -12,7 +12,7 @@ namespace LOP
         private const int CHECK_INTERVAL = 1;   //  sec
 
         [Inject]
-        private IUserDataContext userDataContext;
+        private IUserDataStore userDataStore;
 
         private void Awake()
         {
@@ -39,7 +39,7 @@ namespace LOP
         {
             while (true)
             {
-                var getUserLocation = WebAPI.GetUserLocation(userDataContext.user.id);
+                var getUserLocation = WebAPI.GetUserLocation(userDataStore.user.id);
                 yield return getUserLocation;
 
                 if (!getUserLocation.isSuccess)

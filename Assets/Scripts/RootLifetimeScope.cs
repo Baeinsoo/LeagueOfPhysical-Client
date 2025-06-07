@@ -10,21 +10,21 @@ namespace LOP
         protected override void Configure(IContainerBuilder builder)
         {
             builder.Register<IMasterDataManager, LOPMasterDataManager>(Lifetime.Singleton);
-            builder.Register<IDataContextManager, LOPDataContextManager>(Lifetime.Singleton);
+            builder.Register<IDataStoreManager, LOPDataStoreManager>(Lifetime.Singleton);
 
-            builder.Register<UserDataContext>(Lifetime.Singleton)
-                .As<IUserDataContext>()
-                .As<IDataContext>()
+            builder.Register<UserDataStore>(Lifetime.Singleton)
+                .As<IUserDataStore>()
+                .As<IDataStore>()
                 .AsSelf();
 
-            builder.Register<MatchMakingDataContext>(Lifetime.Singleton)
-                .As<IMatchMakingDataContext>()
-                .As<IDataContext>()
+            builder.Register<MatchMakingDataStore>(Lifetime.Singleton)
+                .As<IMatchMakingDataStore>()
+                .As<IDataStore>()
                 .AsSelf();
 
-            builder.Register<RoomDataContext>(Lifetime.Singleton)
-                .As<IRoomDataContext>()
-                .As<IDataContext>()
+            builder.Register<RoomDataStore>(Lifetime.Singleton)
+                .As<IRoomDataStore>()
+                .As<IDataStore>()
                 .AsSelf();
         }
     }

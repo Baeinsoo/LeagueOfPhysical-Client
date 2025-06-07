@@ -12,7 +12,7 @@ namespace LOP
     public class LOPNetworkAuthenticator : NetworkAuthenticator
     {
         [Inject]
-        private IUserDataContext userDataContext;
+        private IUserDataStore userDataStore;
 
         #region Messages
         public struct AuthRequestMessage : NetworkMessage
@@ -55,7 +55,7 @@ namespace LOP
         {
             var customProperties = new CustomProperties
             {
-                userId = userDataContext.user.id,
+                userId = userDataStore.user.id,
                 token = "token",
                 characterId = 0,
             };

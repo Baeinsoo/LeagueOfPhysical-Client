@@ -23,9 +23,6 @@ namespace LOP
         [Inject]
         private IEnumerable<IGameMessageHandler> gameMessageHandlers;
 
-        [Inject]
-        private IRoomDataContext roomDataContext;
-
         private IGameState _gameState;
         public IGameState gameState
         {

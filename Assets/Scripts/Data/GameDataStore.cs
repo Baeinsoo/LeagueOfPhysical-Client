@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace LOP
 {
-    public class GameDataContext : IGameDataContext
+    public class GameDataStore : IGameDataStore
     {
         public Type[] subscribedTypes => new Type[]
         {
@@ -17,9 +17,9 @@ namespace LOP
         public GameInfo gameInfo { get; set; }
         public string userEntityId { get; set; }
 
-        public GameDataContext(IDataContextManager dataContextManager)
+        public GameDataStore(IDataStoreManager dataStoreManager)
         {
-            dataContextManager.Register(this);
+            dataStoreManager.Register(this);
 
             updateHandlers = new Dictionary<Type, Action<object>>
             {

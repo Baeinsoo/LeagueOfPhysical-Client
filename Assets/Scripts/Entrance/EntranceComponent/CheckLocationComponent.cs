@@ -12,11 +12,11 @@ namespace LOP
     public class CheckLocationComponent : IEntranceComponent
     {
         [Inject]
-        private IUserDataContext userDataContext;
+        private IUserDataStore userDataStore;
 
         public async Task Execute()
         {
-            var getUserLocation = await WebAPI.GetUserLocation(userDataContext.user.id);
+            var getUserLocation = await WebAPI.GetUserLocation(userDataStore.user.id);
 
             if (getUserLocation.response.code != ResponseCode.SUCCESS)
             {
@@ -26,7 +26,7 @@ namespace LOP
             switch (getUserLocation.response.userLocation.location)
             {
                 case Location.GameRoom:
-                    var roomId = (userDataContext.userLocation.locationDetail as GameRoomLocationDetail).gameRoomId;
+                    var roomId = (userDataStore.userLocation.locationDetail as GameRoomLocationDetail).gameRoomId;
                     await new RoomConnector().TryToEnterRoomById(roomId);
                     break;
 

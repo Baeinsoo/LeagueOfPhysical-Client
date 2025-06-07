@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace LOP
 {
-    public interface IUserDataContext : IDataContext
+    public interface IUserDataStore : IDataStore
     {
         User user { get; set; }
         UserProfile userProfile { get; set; }

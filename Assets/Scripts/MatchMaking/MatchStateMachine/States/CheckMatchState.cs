@@ -9,7 +9,7 @@ namespace LOP
     public class CheckMatchState : MonoState
     {
         [Inject]
-        private IUserDataContext userDataContext;
+        private IUserDataStore userDataStore;
 
         private void Awake()
         {
@@ -34,7 +34,7 @@ namespace LOP
 
         protected override IEnumerator OnExecute()
         {
-            var getUserLocation = WebAPI.GetUserLocation(userDataContext.user.id);
+            var getUserLocation = WebAPI.GetUserLocation(userDataStore.user.id);
             yield return getUserLocation;
 
             if (getUserLocation.isSuccess == false || getUserLocation.response.code != ResponseCode.SUCCESS)

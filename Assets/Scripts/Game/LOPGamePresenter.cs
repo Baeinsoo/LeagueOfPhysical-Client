@@ -15,7 +15,7 @@ namespace LOP
         private CameraController cameraController;
 
         [Inject]
-        private IGameDataContext gameDataContext;
+        private IGameDataStore gameDataStore;
 
         [Inject]
         private IMessageDispatcher messageDispatcher;

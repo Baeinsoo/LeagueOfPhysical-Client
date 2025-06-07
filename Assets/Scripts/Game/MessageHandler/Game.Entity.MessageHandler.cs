@@ -8,7 +8,7 @@ namespace LOP
     {
         [Inject] private IMessageDispatcher messageDispatcher;
         [Inject] private IPlayerContext playerContext;
-        [Inject] private IGameDataContext gameDataContext;
+        [Inject] private IGameDataStore gameDataStore;
         [Inject] private IGameEngine gameEngine;
 
         public void Register()
@@ -37,7 +37,7 @@ namespace LOP
 
                 EntitySnap entitySnap = MapperConfig.mapper.Map<EntitySnap>(serverEntitySnap);
                 entitySnap.tick = entitySnapsToC.Tick;
-                entitySnap.timestamp = entitySnapsToC.Tick * gameDataContext.gameInfo.Interval;
+                entitySnap.timestamp = entitySnapsToC.Tick * gameDataStore.gameInfo.Interval;
 
                 if (playerContext.entity.entityId == entity.entityId)
                 {

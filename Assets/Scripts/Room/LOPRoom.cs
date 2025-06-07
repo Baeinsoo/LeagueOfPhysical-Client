@@ -15,9 +15,9 @@ namespace LOP
     {
         [Inject] public IGame game { get; private set; }
         [Inject] private LOPNetworkManager networkManager;
-        [Inject] private IRoomDataContext roomDataContext;
-        [Inject] private IGameDataContext gameDataContext;
-        [Inject] private IUserDataContext userDataContext;
+        [Inject] private IRoomDataStore roomDataStore;
+        [Inject] private IGameDataStore gameDataStore;
+        [Inject] private IUserDataStore userDataStore;
         [Inject] private IMessageDispatcher messageDispatcher;
         [Inject] private IEnumerable<IRoomMessageHandler> roomMessageHandlers;
 
@@ -47,7 +47,7 @@ namespace LOP
 
         public async Task InitializeAsync()
         {
-            var getMatch = await WebAPI.GetMatch(roomDataContext.room.matchId);
+            var getMatch = await WebAPI.GetMatch(roomDataStore.room.matchId);
             if (getMatch.response.code != ResponseCode.SUCCESS)
             {
                 throw new Exception($"GetMatch Error. code: {getMatch.response.code}");
@@ -76,8 +76,8 @@ namespace LOP
                 roomMessageHandler.Unregister();
             }
 
-            roomDataContext.Clear();
-            gameDataContext.Clear();
+            roomDataStore.Clear();
+            gameDataStore.Clear();
 
             messageDispatcher.Dispose();
 
@@ -86,8 +86,8 @@ namespace LOP
 
         private async Task ConnectRoomServerAsync()
         {
-            networkManager.networkAddress = roomDataContext.room.ip;
-            networkManager.port = roomDataContext.room.port;
+            networkManager.networkAddress = roomDataStore.room.ip;
+            networkManager.port = roomDataStore.room.port;
 
             //networkManager.onStartClient += () =>
             //{
@@ -108,12 +108,12 @@ namespace LOP
             {
                 payload = new GameInfoToS
                 {
-                    UserId = userDataContext.user.id
+                    UserId = userDataStore.user.id
                 },
             };
             NetworkClient.Send(message);
 
-            await UniTask.WaitUntil(() => gameDataContext.gameInfo != null);
+            await UniTask.WaitUntil(() => gameDataStore.gameInfo != null);
         }
 
         private async Task DisconnectRoomServerAsync()
@@ -125,7 +125,7 @@ namespace LOP
 
         public async Task StartGameAsync()
         {
-            var gameInfo = gameDataContext.gameInfo;
+            var gameInfo = gameDataStore.gameInfo;
 
             game.Run(gameInfo.Tick + 1, gameInfo.Interval, gameInfo.ElapsedTime);
         }

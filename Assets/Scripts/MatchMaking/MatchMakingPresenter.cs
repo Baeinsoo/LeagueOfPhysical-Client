@@ -18,7 +18,7 @@ namespace LOP
         private Button playButton;
 
         [Inject]
-        private IMatchMakingDataContext matchMakingDataContext;
+        private IMatchMakingDataStore matchMakingDataStore;
 
         private void Start()
         {
@@ -34,9 +34,9 @@ namespace LOP
 
         private void OnPlayButtonClick(Unit value)
         {
-            matchMakingDataContext.matchType = GameMode.Normal;
-            matchMakingDataContext.subGameId = "FlapWang";
-            matchMakingDataContext.mapId = "FlapWangMap";
+            matchMakingDataStore.matchType = GameMode.Normal;
+            matchMakingDataStore.subGameId = "FlapWang";
+            matchMakingDataStore.mapId = "FlapWangMap";
 
             matchStateMachine.ProcessInput(MatchStateInput.RequestMatchmaking);
         }

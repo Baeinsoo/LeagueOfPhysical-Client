@@ -34,7 +34,7 @@ namespace LOP
 
             UpdateVisual(entity.visualId);
 
-            bool isUserEntity = SceneLifetimeScope.Resolve<IGameDataContext>().userEntityId == entity.entityId;
+            bool isUserEntity = SceneLifetimeScope.Resolve<IGameDataStore>().userEntityId == entity.entityId;
             if (isUserEntity)
             {
                 SceneLifetimeScope.Resolve<IPlayerContext>().entityView = this;

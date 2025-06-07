@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace LOP
 {
-    public class UserDataContext : IUserDataContext
+    public class UserDataStore : IUserDataStore
     {
         public Type[] subscribedTypes => new Type[]
         {
@@ -24,7 +24,7 @@ namespace LOP
         public UserStats normalUserStats { get; set; }
         public UserStats rankedUserStats { get; set; }
 
-        public UserDataContext()
+        public UserDataStore()
         {
             user = new User();
             userProfile = new UserProfile();

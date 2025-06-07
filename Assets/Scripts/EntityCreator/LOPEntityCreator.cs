@@ -24,7 +24,7 @@ namespace LOP
             view.SetEntity(entity);
             view.SetEntityController(controller);
 
-            bool isUserEntity = SceneLifetimeScope.Resolve<IGameDataContext>().userEntityId == lopEntityCreationData.entityId;
+            bool isUserEntity = SceneLifetimeScope.Resolve<IGameDataStore>().userEntityId == lopEntityCreationData.entityId;
 
             if (isUserEntity)
             {

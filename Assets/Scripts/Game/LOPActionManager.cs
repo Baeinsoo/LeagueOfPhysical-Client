@@ -50,7 +50,7 @@ namespace LOP
             if (action == null)
             {
                 var actionMasterData = masterDataManager.GetMasterData<MasterData.Action>(actionCode);
-                var actionType = System.Type.GetType($"LOP.{actionMasterData.@class}");
+                var actionType = System.Type.GetType($"LOP.{actionMasterData.Class}");
 
                 action = entity.gameObject.AddComponent(actionType) as Action;
                 entity.AttachComponent(action);

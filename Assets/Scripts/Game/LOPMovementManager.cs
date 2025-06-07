@@ -13,7 +13,7 @@ namespace LOP
             if (direction.sqrMagnitude > 0)
             {
                 //  Move
-                var velocity = direction * entity.masterData.speed;
+                var velocity = direction * entity.masterData.Speed;
                 entity.velocity = new Vector3(velocity.x, entity.velocity.y, velocity.z);
 
                 // Rotate
@@ -27,7 +27,7 @@ namespace LOP
             if (jump)
             {
                 entity.entityRigidbody.linearVelocity -= new Vector3(0, entity.entityRigidbody.linearVelocity.y, 0);
-                entity.entityRigidbody.AddForce(Vector3.up * entity.masterData.jump_power, ForceMode.Impulse);
+                entity.entityRigidbody.AddForce(Vector3.up * entity.masterData.JumpPower, ForceMode.Impulse);
             }
         }
 

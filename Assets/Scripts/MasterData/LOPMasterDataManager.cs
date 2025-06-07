@@ -16,8 +16,8 @@ namespace LOP
             var characterCollection = await MasterDataLoader.LoadFromCSV<MasterData.Character>("MasterData/Character.csv");
             RegisterMasterData(characterCollection);
 
-            var resourceCollection = await MasterDataLoader.LoadFromCSV<MasterData.Resource>("MasterData/Resource.csv");
-            RegisterMasterData(resourceCollection);
+            var skinCollection = await MasterDataLoader.LoadFromCSV<MasterData.Skin>("MasterData/Skin.csv");
+            RegisterMasterData(skinCollection);
 
             var actionCollection = await MasterDataLoader.LoadFromCSV<MasterData.Action>("MasterData/Action.csv");
             RegisterMasterData(actionCollection);
@@ -31,7 +31,7 @@ namespace LOP
                 return;
             }
 
-            masterDataMap[typeof(T)] = collection.ToDictionary(data => data.code, data => (IMasterData)data);
+            masterDataMap[typeof(T)] = collection.ToDictionary(data => data.Code, data => (IMasterData)data);
         }
 
         public T GetMasterData<T>(string code) where T : IMasterData    

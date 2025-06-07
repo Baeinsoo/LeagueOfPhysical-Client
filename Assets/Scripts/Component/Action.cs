@@ -9,7 +9,7 @@ namespace LOP
         public string actionCode { get; private set; }
         public MasterData.Action masterData { get; private set; }
         
-        public bool isCasting => GameEngine.Time.tick < startTick + masterData.cast_time / GameEngine.Time.tickInterval;
+        public bool isCasting => GameEngine.Time.tick < startTick + masterData.CastTime / GameEngine.Time.tickInterval;
         public double remainCooldown { get; protected set; }
 
         protected long startTick;
@@ -63,7 +63,7 @@ namespace LOP
         {
             isActive = false;
             endTick = GameEngine.Time.tick;
-            remainCooldown = masterData.cooldown;
+            remainCooldown = masterData.Cooldown;
 
             OnActionEnd();
 
@@ -82,7 +82,7 @@ namespace LOP
             {
                 OnActionUpdate();
 
-                if (elapsedTime >= masterData.duration)
+                if (elapsedTime >= masterData.Duration)
                 {
                     ActionEnd();
                 }

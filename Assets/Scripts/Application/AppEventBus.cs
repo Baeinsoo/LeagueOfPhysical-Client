@@ -85,10 +85,6 @@ namespace LOP
             {
                 handler.Invoke(eventData);
             }
-            else
-            {
-                Debug.Log($"[AppEventBus] No handlers for event type: {typeof(T).Name}");
-            }
         }
 
         void IEventBus.Clear()

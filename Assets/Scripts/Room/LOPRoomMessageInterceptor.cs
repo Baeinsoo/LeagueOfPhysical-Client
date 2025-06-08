@@ -10,9 +10,8 @@ namespace LOP
 
         public void OnBeforeHandle<T>(T message) where T : IMessage
         {
-            var dataStoreManager = SceneLifetimeScope.Resolve<IDataStoreManager>();
-
-            dataStoreManager.UpdateData(message);
+            AppEventBus.Publish(message);
+            RoomEventBus.Publish(message);
         }
 
         public void OnAfterHandle<T>(T message) where T : IMessage { }

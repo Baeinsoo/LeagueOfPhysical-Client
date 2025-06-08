@@ -1,40 +1,18 @@
 using GameFramework;
-using System;
-using System.Collections;
-using System.Collections.Generic;
 
 namespace LOP
 {
     public class GameDataStore : IGameDataStore
     {
-        public Type[] subscribedTypes => new Type[]
-        {
-            typeof(GameInfoToC),
-        };
-
-        private Dictionary<Type, Action<object>> updateHandlers;
-
         public GameInfo gameInfo { get; set; }
         public string userEntityId { get; set; }
 
-        public GameDataStore(IDataStoreManager dataStoreManager)
+        public GameDataStore(IDataUpdater dataUpdater)
         {
-            dataStoreManager.Register(this);
-
-            updateHandlers = new Dictionary<Type, Action<object>>
-            {
-                { typeof(GameInfoToC), data => HandleGameInfo((GameInfoToC)data) },
-            };
+            dataUpdater.AddListener(this);
         }
 
-        public void UpdateData<T>(T data)
-        {
-            if (updateHandlers.TryGetValue(data.GetType(), out var handler))
-            {
-                handler(data);
-            }
-        }
-
+        [DataListen(typeof(GameInfoToC))]
         private void HandleGameInfo(GameInfoToC gameInfoToC)
         {
             gameInfo = gameInfoToC.GameInfo;
@@ -44,7 +22,6 @@ namespace LOP
         public void Clear()
         {
             gameInfo = null;
-            updateHandlers.Clear();
         }
     }
 }

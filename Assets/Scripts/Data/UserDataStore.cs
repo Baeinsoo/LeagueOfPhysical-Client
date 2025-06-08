@@ -1,3 +1,4 @@
+using GameFramework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -7,57 +8,25 @@ namespace LOP
 {
     public class UserDataStore : IUserDataStore
     {
-        public Type[] subscribedTypes => new Type[]
-        {
-            typeof(CreateUserResponse),
-            typeof(GetUserLocationResponse),
-            typeof(GetUserResponse),
-            typeof(GetUserStatsResponse),
-            typeof(UpdateUserProfileResponse)
-        };
-
-        private Dictionary<Type, Action<object>> updateHandlers;
-
-        public User user { get; set; }
-        public UserProfile userProfile { get; set; }
-        public UserLocation userLocation { get; set; }
+        public User user { get; set; } = new User();
+        public UserProfile userProfile { get; set; } = new UserProfile();
+        public UserLocation userLocation { get; set; } = new UserLocation();
         public UserStats normalUserStats { get; set; }
         public UserStats rankedUserStats { get; set; }
 
-        public UserDataStore()
-        {
-            user = new User();
-            userProfile = new UserProfile();
-            userLocation = new UserLocation();
-
-            updateHandlers = new Dictionary<Type, Action<object>>
-            {
-                { typeof(CreateUserResponse), data => HandleCreateUser((CreateUserResponse)data) },
-                { typeof(GetUserLocationResponse), data => HandleGetUserLocation((GetUserLocationResponse)data) },
-                { typeof(GetUserResponse), data => HandleGetUser((GetUserResponse)data) },
-                { typeof(GetUserStatsResponse), data => HandleGetUserStats((GetUserStatsResponse)data) },
-                { typeof(UpdateUserProfileResponse), data => HandleUpdateUserProfile((UpdateUserProfileResponse)data) }
-            };
-        }
-
-        public void UpdateData<T>(T data)
-        {
-            if (updateHandlers.TryGetValue(data.GetType(), out var handler))
-            {
-                handler(data);
-            }
-        }
-
+        [DataListen(typeof(CreateUserResponse))]
         private void HandleCreateUser(CreateUserResponse response)
         {
             user = MapperConfig.mapper.Map<User>(response.user);
         }
 
+        [DataListen(typeof(GetUserLocationResponse))]
         private void HandleGetUserLocation(GetUserLocationResponse response)
         {
             userLocation = MapperConfig.mapper.Map<UserLocation>(response.userLocation);
         }
 
+        [DataListen(typeof(GetUserResponse))]
         private void HandleGetUser(GetUserResponse response)
         {
             if (response.user == null)
@@ -68,6 +37,7 @@ namespace LOP
             user = MapperConfig.mapper.Map<User>(response.user);
         }
 
+        [DataListen(typeof(GetUserStatsResponse))]
         private void HandleGetUserStats(GetUserStatsResponse response)
         {
             UserStats userStats = MapperConfig.mapper.Map<UserStats>(response.userStats);
@@ -82,6 +52,7 @@ namespace LOP
             }
         }
 
+        [DataListen(typeof(UpdateUserProfileResponse))]
         private void HandleUpdateUserProfile(UpdateUserProfileResponse response)
         {
             userProfile = MapperConfig.mapper.Map<UserProfile>(response.userProfile);
@@ -94,7 +65,6 @@ namespace LOP
             userLocation = new UserLocation();
             normalUserStats = null;
             rankedUserStats = null;
-            updateHandlers.Clear();
         }
     }
 }

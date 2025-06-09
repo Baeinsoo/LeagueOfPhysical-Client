@@ -10,16 +10,21 @@ namespace LOP
     public class JoyStick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
     {
         [SerializeField] private RectTransform joyStickRoot;
+        [SerializeField] private Image joyStickArea;
         [SerializeField] private Image joyStickBackground;
         [SerializeField] private Image joyStickHandle;
 
         [Inject]
         private PlayerInputManager playerInputManager;
 
+        [Inject]
+        private CameraController cameraController;
+
         public Vector2 inputVector { get; private set; }
 
         private float maxRadius;
         private Vector2 initPosition;
+        private bool isDragging;
 
         private void Start()
         {
@@ -34,15 +39,32 @@ namespace LOP
                 playerInputManager.SetJump(true);
             }
 
-            if (inputVector != Vector2.zero)
+            if (isDragging && inputVector != Vector2.zero)
             {
-                playerInputManager.SetHorizontal(inputVector.x);
-                playerInputManager.SetVertical(inputVector.y);
+                float yAngle = cameraController.MainCamera.transform.eulerAngles.y;
+                Quaternion cameraRotation = Quaternion.Euler(0, yAngle, 0);
+
+                Vector3 transformedInput = cameraRotation * new Vector3(inputVector.x, 0, inputVector.y);
+
+                playerInputManager.SetHorizontal(transformedInput.x);
+                playerInputManager.SetVertical(transformedInput.z);
             }
         }
 
         public void OnPointerDown(PointerEventData eventData)
         {
+            if (eventData.pointerId < 0 && eventData.button != PointerEventData.InputButton.Left)
+            {
+                return;
+            }
+
+            if (RectTransformUtility.RectangleContainsScreenPoint(joyStickArea.rectTransform, eventData.position, eventData.pressEventCamera) == false)
+            {
+                return;
+            }
+
+            isDragging = true;
+
             if (RectTransformUtility.ScreenPointToLocalPointInRectangle(joyStickRoot, eventData.position, eventData.pressEventCamera, out var localPoint))
             {
                 joyStickBackground.rectTransform.anchoredPosition = localPoint;
@@ -53,6 +75,11 @@ namespace LOP
 
         public void OnDrag(PointerEventData eventData)
         {
+            if (isDragging == false)
+            {
+                return;
+            }
+
             if (RectTransformUtility.ScreenPointToLocalPointInRectangle(joyStickBackground.rectTransform, eventData.position, eventData.pressEventCamera, out var localPoint))
             {
                 if (localPoint.magnitude > maxRadius)
@@ -68,6 +95,12 @@ namespace LOP
 
         public void OnPointerUp(PointerEventData eventData)
         {
+            if (isDragging == false)
+            {
+                return;
+            }
+
+            isDragging = false;
             inputVector = Vector2.zero;
             joyStickHandle.rectTransform.anchoredPosition = Vector2.zero;
             joyStickBackground.rectTransform.anchoredPosition = initPosition;

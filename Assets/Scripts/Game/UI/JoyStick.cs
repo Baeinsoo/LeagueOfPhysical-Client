@@ -9,7 +9,6 @@ namespace LOP
     [DIMonoBehaviour]
     public class JoyStick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
     {
-        [SerializeField] private RectTransform joyStickRoot;
         [SerializeField] private Image joyStickArea;
         [SerializeField] private Image joyStickBackground;
         [SerializeField] private Image joyStickHandle;
@@ -22,12 +21,14 @@ namespace LOP
 
         public Vector2 inputVector { get; private set; }
 
+        private RectTransform rectTransform;
         private float maxRadius;
         private Vector2 initPosition;
         private bool isDragging;
 
         private void Start()
         {
+            rectTransform = GetComponent<RectTransform>();
             maxRadius = (joyStickBackground.rectTransform.sizeDelta.x - joyStickHandle.rectTransform.sizeDelta.x) / 2;
             initPosition = joyStickBackground.rectTransform.anchoredPosition;
         }
@@ -65,7 +66,7 @@ namespace LOP
 
             isDragging = true;
 
-            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(joyStickRoot, eventData.position, eventData.pressEventCamera, out var localPoint))
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform, eventData.position, eventData.pressEventCamera, out var localPoint))
             {
                 joyStickBackground.rectTransform.anchoredPosition = localPoint;
 

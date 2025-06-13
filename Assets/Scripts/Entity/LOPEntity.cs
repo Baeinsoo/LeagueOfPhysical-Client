@@ -111,8 +111,10 @@ namespace LOP
                 physicsGameObject = physics.CreateChild("PhysicsGameObject");
 
                 entityRigidbody = physicsGameObject.AddComponent<Rigidbody>();
+                entityRigidbody.linearDamping = 0.1f;
+                entityRigidbody.angularDamping = 0.05f;
                 entityRigidbody.constraints = RigidbodyConstraints.FreezeRotation;
-                entityRigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                entityRigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
                 entityRigidbody.position = position;
                 entityRigidbody.rotation = Quaternion.Euler(rotation);
                 entityRigidbody.linearVelocity = velocity;

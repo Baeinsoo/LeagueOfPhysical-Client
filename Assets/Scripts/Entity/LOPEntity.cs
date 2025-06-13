@@ -5,7 +5,6 @@ using System.ComponentModel;
 using System.Linq;
 using UnityEngine;
 using UniRx;
-using LOP.Event.LOPGameEngine.Update;
 using LOP.MasterData;
 
 namespace LOP
@@ -85,22 +84,9 @@ namespace LOP
         public Rigidbody entityRigidbody { get; private set; }
         public Collider[] entityColliders { get; private set; }
 
-        public Vector3 beginPosition { get; private set; }
-        public Vector3 beginRotation { get; private set; }
-
         protected void RaisePropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             eventBus.Publish(new Event.Entity.PropertyChange(e.PropertyName));
-        }
-
-        protected virtual void Awake()
-        {
-            SceneLifetimeScope.Resolve<IGameEngine>().AddListener(this);
-        }
-
-        protected virtual void OnDestroy()
-        {
-            SceneLifetimeScope.Resolve<IGameEngine>().RemoveListener(this);
         }
 
         public virtual void Initialize<TEntityCreationData>(TEntityCreationData creationData) where TEntityCreationData : struct, IEntityCreationData
@@ -145,24 +131,11 @@ namespace LOP
             }
         }
 
-        [GameEngineListen(typeof(Begin))]
-        private void OnUpdateBegin()
-        {
-            beginPosition = position;
-            beginRotation = rotation;
-        }
-
         public override void UpdateEntity()
         {
             UpdateStatuses();
 
             UpdateActions();
-        }
-
-        [GameEngineListen(typeof(End))]
-        private void OnUpdateEnd()
-        {
-            UpdateNetworkState();
         }
 
         private void UpdateStatuses()
@@ -181,20 +154,7 @@ namespace LOP
             }
         }
 
-        private void UpdateNetworkState()
-        {
-        }
-
-        [GameEngineListen(typeof(BeforePhysicsSimulation))]
-        private void OnUpdateBeforePhysicsSimulation() { }
-
-        [GameEngineListen(typeof(AfterPhysicsSimulation))]
-        private void OnUpdateAfterPhysicsSimulation()
-        {
-            SyncPhysics();
-        }
-
-        private void SyncPhysics()
+        public void SyncPhysics()
         {
             if (entityRigidbody == null)
             {

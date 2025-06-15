@@ -10,9 +10,16 @@ namespace LOP
         public LOPEntityView entityView { get; set; }
 
         private BoundedList<EntitySnap> serverEntitySnaps = new BoundedList<EntitySnap>(20);
-    
+
+        private const float MIN_BACK_TIME = 0.05f;
+        private const float MAX_BACK_TIME = 0.2f;
+        private const float SMOOTHING_FACTOR = 5f;
+
+        private float interpolationBackTime = 0.1f;
+
         private void LateUpdate()
         {
+            UpdateInterpolationBackTime();
             Interpolation();
 
             if (entityView.visualGameObject != null)
@@ -22,6 +29,13 @@ namespace LOP
             }
         }
 
+        private void UpdateInterpolationBackTime()
+        {
+            float targetBackTime = Mathf.Clamp((float)Mirror.NetworkTime.rtt * 0.5f, MIN_BACK_TIME, MAX_BACK_TIME);
+
+            interpolationBackTime = Mathf.Lerp(interpolationBackTime, targetBackTime, SMOOTHING_FACTOR * Time.deltaTime);
+        }
+
         private void Interpolation()
         {
             if (serverEntitySnaps.Count < 2 || GameEngine.current == null)
@@ -29,7 +43,6 @@ namespace LOP
                 return;
             }
 
-            float interpolationBackTime = 0.1f;
             double interpolationTime = GameEngine.Time.elapsedTime - interpolationBackTime;
 
             for (int i = serverEntitySnaps.Count - 1; i >= 1; i--)

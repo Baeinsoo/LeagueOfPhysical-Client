@@ -116,17 +116,18 @@ namespace LOP
             localEntitySnaps.RemoveAll(x => x.tick <= baseLocalTick);
 
 
-            float threshold = 0.1f;
+            float threshold = 0.06f;
             float distance = (pos - position).magnitude;
 
             float lerpFactor = Mathf.Clamp01(distance / threshold);
-            float smoothTime = Mathf.Lerp(0.5f, 0.1f, lerpFactor);
+            float smoothTime = Mathf.Lerp(0.4f, 0.08f, lerpFactor);
+            float maxSpeed = Mathf.Lerp(8f, 25f, lerpFactor);
 
-            entity.position = Vector3.SmoothDamp(pos, position, ref positionForSmoothDamp, smoothTime, entity.velocity.magnitude * 2f, (float)GameEngine.Time.tickInterval);
+            entity.position = Vector3.SmoothDamp(pos, position, ref positionForSmoothDamp, smoothTime, maxSpeed, (float)GameEngine.Time.tickInterval);
             entity.rotation = Quaternion.Slerp(Quaternion.Euler(rot), Quaternion.Euler(rotation), (float)GameEngine.Time.tickInterval * (2f + lerpFactor * 3f)).eulerAngles;
-            entity.velocity = Vector3.SmoothDamp(vel, velocity, ref velocityForSmoothDamp, smoothTime, entity.velocity.magnitude * 2f, (float)GameEngine.Time.tickInterval);
+            entity.velocity = Vector3.SmoothDamp(vel, velocity, ref velocityForSmoothDamp, smoothTime, maxSpeed, (float)GameEngine.Time.tickInterval);
 
-            if (distance > threshold * 5)
+            if (distance > threshold * 8)
             {
                 entity.position = position;
                 entity.rotation = rotation;

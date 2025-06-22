@@ -46,7 +46,6 @@ namespace LOP
             beginPosition = entity.position;
             beginRotation = entity.rotation;
             beginVelocity = entity.velocity;
-
         }
 
         [GameEngineListen(typeof(End))]
@@ -77,15 +76,15 @@ namespace LOP
                 return;
             }
 
-            var pos = entity.position;
-            var rot = entity.rotation;
-            var vel = entity.velocity;
+            var position = entity.position;
+            var rotation = entity.rotation;
+            var velocity = entity.velocity;
 
             var lastServerEntitySnap = serverEntitySnaps.Last();
 
-            Vector3 position = lastServerEntitySnap.position;
-            Vector3 rotation = lastServerEntitySnap.rotation;
-            Vector3 velocity = lastServerEntitySnap.velocity;
+            Vector3 targetPosition = lastServerEntitySnap.position;
+            Vector3 targetRotation = lastServerEntitySnap.rotation;
+            Vector3 targetVelocity = lastServerEntitySnap.velocity;
 
             //  서버에서 처리한 인풋 Sequence를 기점으로, 서버의 값에 클라의 인풋 처리 값(로컬 Diff)를 적용하여 보정.
             long baseLocalTick = 0;
@@ -108,30 +107,30 @@ namespace LOP
             {
                 if (localEntitySnap.tick > baseLocalTick)
                 {
-                    position += localEntitySnap.positionDiff;
-                    rotation += localEntitySnap.rotationDiff;
-                    velocity += localEntitySnap.velocityDiff;
+                    targetPosition += localEntitySnap.positionDiff;
+                    targetRotation += localEntitySnap.rotationDiff;
+                    targetVelocity += localEntitySnap.velocityDiff;
                 }
             }
             localEntitySnaps.RemoveAll(x => x.tick <= baseLocalTick);
 
 
             float threshold = 0.06f;
-            float distance = (pos - position).magnitude;
+            float distance = (position - targetPosition).magnitude;
 
             float lerpFactor = Mathf.Clamp01(distance / threshold);
             float smoothTime = Mathf.Lerp(0.4f, 0.08f, lerpFactor);
             float maxSpeed = Mathf.Lerp(8f, 25f, lerpFactor);
 
-            entity.position = Vector3.SmoothDamp(pos, position, ref positionForSmoothDamp, smoothTime, maxSpeed, (float)GameEngine.Time.tickInterval);
-            entity.rotation = Quaternion.Slerp(Quaternion.Euler(rot), Quaternion.Euler(rotation), (float)GameEngine.Time.tickInterval * (2f + lerpFactor * 3f)).eulerAngles;
-            entity.velocity = Vector3.SmoothDamp(vel, velocity, ref velocityForSmoothDamp, smoothTime, maxSpeed, (float)GameEngine.Time.tickInterval);
+            entity.position = Vector3.SmoothDamp(position, targetPosition, ref positionForSmoothDamp, smoothTime, maxSpeed, (float)GameEngine.Time.tickInterval);
+            entity.rotation = Quaternion.Slerp(Quaternion.Euler(rotation), Quaternion.Euler(targetRotation), (float)GameEngine.Time.tickInterval * (2f + lerpFactor * 3f)).eulerAngles;
+            entity.velocity = Vector3.SmoothDamp(velocity, targetVelocity, ref velocityForSmoothDamp, smoothTime, maxSpeed, (float)GameEngine.Time.tickInterval);
 
             if (distance > threshold * 8)
             {
-                entity.position = position;
-                entity.rotation = rotation;
-                entity.velocity = velocity;
+                entity.position = targetPosition;
+                entity.rotation = targetRotation;
+                entity.velocity = targetVelocity;
 
                 positionForSmoothDamp = Vector3.zero;
                 velocityForSmoothDamp = Vector3.zero;

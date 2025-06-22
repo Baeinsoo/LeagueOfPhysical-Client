@@ -45,7 +45,7 @@ namespace LOP
                 }
                 else
                 {
-                    entity.GetComponent<SnapInterpolator>().AddServerEntitySnap(entitySnap);
+                    entity.GetComponent<ServerStateReconciler>().AddServerEntitySnap(entitySnap);
                 }
             }
         }

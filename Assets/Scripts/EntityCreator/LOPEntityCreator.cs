@@ -34,9 +34,9 @@ namespace LOP
             }
             else
             {
-                SnapInterpolator snapInterpolator = entity.gameObject.AddComponent<SnapInterpolator>();
-                snapInterpolator.entity = entity;
-                snapInterpolator.entityView = view;
+                ServerStateReconciler serverStateReconciler = entity.gameObject.AddComponent<ServerStateReconciler>();
+                serverStateReconciler.entity = entity;
+                serverStateReconciler.entityView = view;
             }
 
             return entity;

@@ -29,6 +29,11 @@ namespace LOP
             get => _gameState;
             private set
             {
+                if (_gameState == value)
+                {
+                    return;
+                }
+
                 _gameState = value;
                 onGameStateChanged?.Invoke(value);
             }

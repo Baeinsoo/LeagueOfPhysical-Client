@@ -15,7 +15,7 @@ namespace LOP
         private List<LocalEntitySnap> localEntitySnaps;
         private CircularBuffer<InputSequence> serverInputSequences;
         private CircularBuffer<InputSequence> localInputSequences;
-        private BoundedDictionary<long, EntityTransformSnap> entityTransformSnaps;
+        private BoundedDictionary<long, EntityTransform> entityTransformSnaps;
 
         private Vector3 beginPosition;
         private Vector3 beginRotation;
@@ -30,7 +30,7 @@ namespace LOP
             localEntitySnaps = new List<LocalEntitySnap>(100);
             serverInputSequences = new CircularBuffer<InputSequence>(50);
             localInputSequences = new CircularBuffer<InputSequence>(50);
-            entityTransformSnaps = new BoundedDictionary<long, EntityTransformSnap>(20);
+            entityTransformSnaps = new BoundedDictionary<long, EntityTransform>(20);
 
             SceneLifetimeScope.Resolve<IGameEngine>().AddListener(this);  //  addto(this);
         }
@@ -142,7 +142,7 @@ namespace LOP
 
         private void SaveEntityTransformSnap()
         {
-            entityTransformSnaps[GameEngine.Time.tick] = new EntityTransformSnap
+            entityTransformSnaps[GameEngine.Time.tick] = new EntityTransform
             {
                 position = entity.position,
                 rotation = entity.rotation,

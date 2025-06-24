@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+import "ProtoVector3.proto";
+
+message ProtoTransform
+{
+	ProtoVector3 position = 1;
+	ProtoVector3 rotation = 2;
+	ProtoVector3 velocity = 3;
+}

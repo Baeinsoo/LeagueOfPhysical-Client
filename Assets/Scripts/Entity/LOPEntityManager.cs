@@ -44,12 +44,12 @@ namespace LOP
 
         public IEnumerable<IEntity> GetEntities()
         {
-            return entityMap.Values;
+            return entityMap.Values.ToList();
         }
 
         public IEnumerable<T> GetEntities<T>() where T : IEntity
         {
-            return entityMap.Values.Cast<T>();
+            return entityMap.Values.Cast<T>().ToList();
         }
 
         public TEntity CreateEntity<TEntity, TCreationData>(TCreationData creationData)

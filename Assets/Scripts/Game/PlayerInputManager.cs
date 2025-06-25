@@ -54,6 +54,14 @@ namespace LOP
                     ActionCode = playerInput.actionCode ?? "",
                 };
 
+                EntityTransform entityTransform = new EntityTransform
+                {
+                    position = playerContext.entity.position,
+                    rotation = playerContext.entity.rotation,
+                    velocity = playerContext.entity.velocity,
+                };
+                playerInputToS.EntityTransform = MapperConfig.mapper.Map<ProtoTransform>(entityTransform);
+
                 // Send to server.
                 playerContext.session.Send(playerInputToS);
 

@@ -6,7 +6,7 @@ namespace LOP
 {
     public class LOPMovementManager : IMovementManager<LOPEntity>
     {
-        public void ProcessInput(LOPEntity entity, float horizontal, float vertical, bool jump)
+        public void ProcessInput(LOPEntity entity, EntityTransform entityTransform, float horizontal, float vertical, bool jump)
         {
             Vector3 direction = new Vector3(horizontal, 0, vertical).normalized;
 
@@ -31,11 +31,11 @@ namespace LOP
             }
         }
 
-        void IMovementManager.ProcessInput(IEntity entity, float horizontal, float vertical, bool jump)
+        void IMovementManager.ProcessInput(IEntity entity, EntityTransform entityTransform, float horizontal, float vertical, bool jump)
         {
             if (entity is LOPEntity lopEntity)
             {
-                ProcessInput(lopEntity, horizontal, vertical, jump);
+                ProcessInput(lopEntity, entityTransform, horizontal, vertical, jump);
             }
             else
             {

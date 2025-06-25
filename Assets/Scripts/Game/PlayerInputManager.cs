@@ -80,7 +80,7 @@ namespace LOP
 
         private void ApplyInput(PlayerInput playerInput)
         {
-            movementManager.ProcessInput(playerContext.entity, playerInput.horizontal, playerInput.vertical, playerInput.jump);
+            movementManager.ProcessInput(playerContext.entity, playerContext.entity.GetEntityTransform(), playerInput.horizontal, playerInput.vertical, playerInput.jump);
 
             if (string.IsNullOrEmpty(playerInput.actionCode) == false)
             {

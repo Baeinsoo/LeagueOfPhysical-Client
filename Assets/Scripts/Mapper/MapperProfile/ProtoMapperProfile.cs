@@ -1,5 +1,6 @@
 using AutoMapper;
 using UnityEngine;
+using GameFramework;
 
 namespace LOP
 {

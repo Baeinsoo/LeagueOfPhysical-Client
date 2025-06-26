@@ -31,6 +31,7 @@ namespace LOP
         protected virtual void Start()
         {
             entity.eventBus.Receive<PropertyChange>().Subscribe(OnPropertyChange).AddTo(this);
+            entity.eventBus.Receive<ActionStart>().Subscribe(OnActionStart).AddTo(this);
 
             UpdateVisual(entity.visualId);
 
@@ -63,6 +64,29 @@ namespace LOP
                 case nameof(entity.visualId):
                     UpdateVisual(entity.visualId);
                     break;
+
+                case nameof(entity.velocity):
+                case nameof(entity.position):
+                    float walkThreshold = 0.01f;
+                    float walkThresholdSquared = walkThreshold * walkThreshold;
+                    float horizontalSpeedSquared = entity.velocity.x * entity.velocity.x + entity.velocity.z * entity.velocity.z;
+                    if (horizontalSpeedSquared > walkThresholdSquared && entity.IsGrounded())
+                    {
+                        visualGameObject?.GetComponent<Animator>().SetBool("Run", true);
+                    }
+                    else
+                    {
+                        visualGameObject?.GetComponent<Animator>().SetBool("Run", false);
+                    }
+                    break;
+            }
+        }
+     
+        private void OnActionStart(ActionStart actionStart)
+        {
+            if (actionStart.actionCode == "attack_001")
+            {
+                visualGameObject.GetComponent<Animator>().SetTrigger("Attack 01");
             }
         }
 

@@ -9,7 +9,7 @@ namespace LOP
             Quaternion rotation = Quaternion.Euler(entity.rotation);
             Vector3 forward = rotation * Vector3.forward;
 
-            entity.entityRigidbody.AddForce(forward * 7, ForceMode.Impulse);
+            entity.entityRigidbody.AddForce(forward * 10, ForceMode.Impulse);
         }
     }
 }

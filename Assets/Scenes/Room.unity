@@ -2787,8 +2787,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mainCamera: {fileID: 1625307425}
-  zoomSensitivity: 2
-  rotationSensitivity: 2
+  rotationAcceleration: 1000
+  rotationDamping: 10
+  rotationMaxSpeed: 500
+  zoomAcceleration: 1000
+  zoomDamping: 10
+  zoomMaxSpeed: 100
+  minPitch: -20
+  maxPitch: 80
   minDistance: 2
   maxDistance: 20
 --- !u!4 &1835644558

@@ -22,6 +22,7 @@ namespace LOP
         private Vector3 beginVelocity;
 
         private Vector3 positionForSmoothDamp;
+        private Vector3 rotationForSmoothDamp;
         private Vector3 velocityForSmoothDamp;
 
         private void Awake()
@@ -123,7 +124,7 @@ namespace LOP
             float maxSpeed = Mathf.Lerp(8f, 25f, lerpFactor);
 
             entity.position = Vector3.SmoothDamp(position, targetPosition, ref positionForSmoothDamp, smoothTime, maxSpeed, (float)GameEngine.Time.tickInterval);
-            entity.rotation = Quaternion.Slerp(Quaternion.Euler(rotation), Quaternion.Euler(targetRotation), (float)GameEngine.Time.tickInterval * (2f + lerpFactor * 3f)).eulerAngles;
+            entity.rotation = MathUtility.SmoothDampAngle(rotation, targetRotation, ref rotationForSmoothDamp, smoothTime, maxSpeed, (float)GameEngine.Time.tickInterval);
             entity.velocity = Vector3.SmoothDamp(velocity, targetVelocity, ref velocityForSmoothDamp, smoothTime, maxSpeed, (float)GameEngine.Time.tickInterval);
 
             if (distance > threshold * 8)

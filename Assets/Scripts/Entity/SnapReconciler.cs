@@ -127,15 +127,16 @@ namespace LOP
             entity.rotation = MathUtility.SmoothDampAngle(rotation, targetRotation, ref rotationForSmoothDamp, smoothTime, maxSpeed, (float)GameEngine.Time.tickInterval);
             entity.velocity = Vector3.SmoothDamp(velocity, targetVelocity, ref velocityForSmoothDamp, smoothTime, maxSpeed, (float)GameEngine.Time.tickInterval);
 
-            if (distance > threshold * 8)
-            {
-                entity.position = targetPosition;
-                entity.rotation = targetRotation;
-                entity.velocity = targetVelocity;
+            //if (distance > threshold * 8)
+            //{
+            //    entity.position = targetPosition;
+            //    entity.rotation = targetRotation;
+            //    entity.velocity = targetVelocity;
 
-                positionForSmoothDamp = Vector3.zero;
-                velocityForSmoothDamp = Vector3.zero;
-            }
+            //    positionForSmoothDamp = Vector3.zero;
+            //    rotationForSmoothDamp = Vector3.zero;
+            //    velocityForSmoothDamp = Vector3.zero;
+            //}
 
             //  To DO:
             //  충돌 체크.. 벽이나 지면 뚫지 않도록..

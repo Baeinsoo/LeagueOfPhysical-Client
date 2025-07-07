@@ -125,12 +125,6 @@ namespace LOP
                 capsuleCollider.center = new Vector3(0, capsuleCollider.height * 0.5f, 0);
                 entityColliders = new Collider[] { capsuleCollider };
             }
-
-            bool isUserEntity = SceneLifetimeScope.Resolve<IGameDataStore>().userEntityId == creationData.entityId;
-            if (isUserEntity)
-            {
-                SceneLifetimeScope.Resolve<IPlayerContext>().entity = this;
-            }
         }
 
         public override void UpdateEntity()

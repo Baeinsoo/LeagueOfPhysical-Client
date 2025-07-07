@@ -34,12 +34,6 @@ namespace LOP
             entity.eventBus.Receive<ActionStart>().Subscribe(OnActionStart).AddTo(this);
 
             UpdateVisual(entity.visualId);
-
-            bool isUserEntity = SceneLifetimeScope.Resolve<IGameDataStore>().userEntityId == entity.entityId;
-            if (isUserEntity)
-            {
-                SceneLifetimeScope.Resolve<IPlayerContext>().entityView = this;
-            }
         }
 
         protected override void OnDestroy()

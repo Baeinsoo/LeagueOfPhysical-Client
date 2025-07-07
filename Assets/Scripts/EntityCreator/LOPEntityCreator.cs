@@ -28,6 +28,9 @@ namespace LOP
 
             if (isUserEntity)
             {
+                SceneLifetimeScope.Resolve<IPlayerContext>().entity = entity;
+                SceneLifetimeScope.Resolve<IPlayerContext>().entityView = view;
+
                 SnapReconciler snapReconciler = entity.gameObject.AddComponent<SnapReconciler>();
                 snapReconciler.entity = entity;
                 snapReconciler.entityView = view;

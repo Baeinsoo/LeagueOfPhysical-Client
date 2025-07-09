@@ -53,7 +53,7 @@ namespace LOP
                 var actionType = System.Type.GetType($"LOP.{actionMasterData.Class}");
 
                 action = entity.gameObject.AddComponent(actionType) as Action;
-                entity.AttachComponent(action);
+                entity.AttachEntityComponent(action);
 
                 action.Initialize(actionCode);
             }

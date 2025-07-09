@@ -84,7 +84,7 @@ namespace LOP
         public Rigidbody entityRigidbody { get; private set; }
         public Collider[] entityColliders { get; private set; }
 
-        protected void RaisePropertyChanged(object sender, PropertyChangedEventArgs e)
+        public void RaisePropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             eventBus.Publish(new Event.Entity.PropertyChange(e.PropertyName));
         }

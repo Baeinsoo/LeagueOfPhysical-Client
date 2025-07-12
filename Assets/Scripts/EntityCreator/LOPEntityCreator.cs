@@ -17,6 +17,15 @@ namespace LOP
             LOPEntity entity = root.CreateChildWithComponent<LOPEntity>();
             entity.Initialize(lopEntityCreationData);
 
+            CharacterComponent characterComponent = entity.AddEntityComponent<CharacterComponent>();
+            characterComponent.Initialize(lopEntityCreationData.characterCode);
+
+            AppearanceComponent appearanceComponent = entity.AddEntityComponent<AppearanceComponent>();
+            appearanceComponent.Initialize(lopEntityCreationData.visualId);
+
+            PhysicsComponent physicsComponent = entity.AddEntityComponent<PhysicsComponent>();
+            physicsComponent.Initialize();
+
             LOPEntityController controller = root.CreateChildWithComponent<LOPEntityController>();
             controller.SetEntity(entity);
 

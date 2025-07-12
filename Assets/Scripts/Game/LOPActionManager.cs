@@ -46,7 +46,7 @@ namespace LOP
 
         private void GetOrAddAction(LOPEntity entity, string actionCode, out Action action)
         {
-            action = entity.actions.FirstOrDefault(x => x.actionCode == actionCode);
+            action = entity.FindEntityComponent<Action>(x => x.actionCode == actionCode);
             if (action == null)
             {
                 var actionMasterData = masterDataManager.GetMasterData<MasterData.Action>(actionCode);

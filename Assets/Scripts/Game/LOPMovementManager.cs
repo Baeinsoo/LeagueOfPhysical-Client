@@ -8,12 +8,22 @@ namespace LOP
     {
         public void ProcessInput(LOPEntity entity, EntityTransform entityTransform, float horizontal, float vertical, bool jump)
         {
+            if (entity.TryGetComponent<CharacterComponent>(out var characterComponent) == false)
+            {
+                throw new Exception("CharacterComponent does not exist. Cannot process input.");
+            }
+
+            if (entity.TryGetComponent<PhysicsComponent>(out var physicsComponent) == false)
+            {
+                throw new Exception("PhysicsComponent does not exist. Cannot process input.");
+            }
+
             Vector3 direction = new Vector3(horizontal, 0, vertical).normalized;
 
             if (direction.sqrMagnitude > 0)
             {
                 //  Move
-                var velocity = direction * entity.masterData.Speed;
+                var velocity = direction * characterComponent.masterData.Speed;
                 entity.velocity = new Vector3(velocity.x, entity.velocity.y, velocity.z);
 
                 // Rotate
@@ -26,8 +36,8 @@ namespace LOP
             //  Jump
             if (jump)
             {
-                entity.entityRigidbody.linearVelocity -= new Vector3(0, entity.entityRigidbody.linearVelocity.y, 0);
-                entity.entityRigidbody.AddForce(Vector3.up * entity.masterData.JumpPower, ForceMode.Impulse);
+                physicsComponent.entityRigidbody.linearVelocity -= new Vector3(0, physicsComponent.entityRigidbody.linearVelocity.y, 0);
+                physicsComponent.entityRigidbody.AddForce(Vector3.up * characterComponent.masterData.JumpPower, ForceMode.Impulse);
             }
         }
 

@@ -28,7 +28,7 @@ namespace LOP
         {
             switch (propertyChange.propertyName)
             {
-                case nameof(entity.visualId):
+                case nameof(AppearanceComponent.visualId):
                     break;
             }
         }

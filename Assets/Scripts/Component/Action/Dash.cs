@@ -1,4 +1,6 @@
 using UnityEngine;
+using System;
+using GameFramework;
 
 namespace LOP
 {
@@ -9,7 +11,12 @@ namespace LOP
             Quaternion rotation = Quaternion.Euler(entity.rotation);
             Vector3 forward = rotation * Vector3.forward;
 
-            entity.entityRigidbody.AddForce(forward * 10, ForceMode.Impulse);
+            if (entity.TryGetEntityComponent<PhysicsComponent>(out var physicsComponent) == false)
+            {
+                throw new Exception("PhysicsComponent does not exist. Cannot apply force.");
+            }
+
+            physicsComponent.entityRigidbody.AddForce(forward * 10, ForceMode.Impulse);
         }
     }
 }

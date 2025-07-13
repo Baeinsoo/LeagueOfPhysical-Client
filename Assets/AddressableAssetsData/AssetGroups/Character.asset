@@ -15,8 +15,18 @@ MonoBehaviour:
   m_GroupName: Character
   m_GUID: 47abe2ef8fdecf84f9263049777fbb0b
   m_SerializeEntries:
+  - m_GUID: 1c33ecd06418a164780d8e84a1b7747f
+    m_Address: Assets/Art/Characters/Archer/Archer.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 392b9d0272a9a8a4fb131cb88e0d314f
     m_Address: Assets/Art/Characters/Knight/Knight.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 454a000ef82793548a39e02013f9eff4
+    m_Address: Assets/Art/Characters/Necromancer/Necromancer.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

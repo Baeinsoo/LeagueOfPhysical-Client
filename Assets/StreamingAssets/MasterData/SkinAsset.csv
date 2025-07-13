@@ -1,2 +1,4 @@
 code,skinCode,modelPath
 skin_asset_001,character_001_skin,Assets/Art/Characters/Knight/Knight.prefab
+monster_001_skin_asset_001,monster_001_skin_001,Assets/Art/Characters/Archer/Necromancer.prefab
+monster_002_skin_asset_001,monster_002_skin_001,Assets/Art/Characters/Archer/Archer.prefab

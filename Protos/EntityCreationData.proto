@@ -1,11 +1,13 @@
 syntax = "proto3";
 
-import "LOPEntityCreationData.proto";
+import "CharacterCreationData.proto";
+import "ItemCreationData.proto";
 
 message EntityCreationData
 {
 	oneof creation_data
     {
-        LOPEntityCreationData lop_entity_creation_data = 1;
+        CharacterCreationData character_creation_data = 1;
+        ItemCreationData item_creation_data = 2;
     }
 }

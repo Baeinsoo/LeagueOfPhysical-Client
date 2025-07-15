@@ -2,9 +2,9 @@ syntax = "proto3";
 
 import "BaseEntityCreationData.proto";
 
-message LOPEntityCreationData
+message ItemCreationData
 {
 	BaseEntityCreationData base_entity_creation_data = 1;
-	string character_code = 2;
+	string item_code = 2;
 	string visual_id = 3;
 }

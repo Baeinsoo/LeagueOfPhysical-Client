@@ -22,14 +22,16 @@ public static partial class EntityCreationDataReflection {
   static EntityCreationDataReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "ChhFbnRpdHlDcmVhdGlvbkRhdGEucHJvdG8aG0xPUEVudGl0eUNyZWF0aW9u",
-          "RGF0YS5wcm90byJhChJFbnRpdHlDcmVhdGlvbkRhdGESOgoYbG9wX2VudGl0",
-          "eV9jcmVhdGlvbl9kYXRhGAEgASgLMhYuTE9QRW50aXR5Q3JlYXRpb25EYXRh",
-          "SABCDwoNY3JlYXRpb25fZGF0YWIGcHJvdG8z"));
+          "ChhFbnRpdHlDcmVhdGlvbkRhdGEucHJvdG8aG0NoYXJhY3RlckNyZWF0aW9u",
+          "RGF0YS5wcm90bxoWSXRlbUNyZWF0aW9uRGF0YS5wcm90byKRAQoSRW50aXR5",
+          "Q3JlYXRpb25EYXRhEjkKF2NoYXJhY3Rlcl9jcmVhdGlvbl9kYXRhGAEgASgL",
+          "MhYuQ2hhcmFjdGVyQ3JlYXRpb25EYXRhSAASLwoSaXRlbV9jcmVhdGlvbl9k",
+          "YXRhGAIgASgLMhEuSXRlbUNyZWF0aW9uRGF0YUgAQg8KDWNyZWF0aW9uX2Rh",
+          "dGFiBnByb3RvMw=="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
-        new pbr::FileDescriptor[] { global::LOPEntityCreationDataReflection.Descriptor, },
+        new pbr::FileDescriptor[] { global::CharacterCreationDataReflection.Descriptor, global::ItemCreationDataReflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-          new pbr::GeneratedClrTypeInfo(typeof(global::EntityCreationData), global::EntityCreationData.Parser, new[]{ "LopEntityCreationData" }, new[]{ "CreationData" }, null, null, null)
+          new pbr::GeneratedClrTypeInfo(typeof(global::EntityCreationData), global::EntityCreationData.Parser, new[]{ "CharacterCreationData", "ItemCreationData" }, new[]{ "CreationData" }, null, null, null)
         }));
   }
   #endregion
@@ -72,8 +74,11 @@ public sealed partial class EntityCreationData : pb::IMessage<EntityCreationData
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public EntityCreationData(EntityCreationData other) : this() {
     switch (other.CreationDataCase) {
-      case CreationDataOneofCase.LopEntityCreationData:
-        LopEntityCreationData = other.LopEntityCreationData.Clone();
+      case CreationDataOneofCase.CharacterCreationData:
+        CharacterCreationData = other.CharacterCreationData.Clone();
+        break;
+      case CreationDataOneofCase.ItemCreationData:
+        ItemCreationData = other.ItemCreationData.Clone();
         break;
     }
 
@@ -86,15 +91,27 @@ public sealed partial class EntityCreationData : pb::IMessage<EntityCreationData
     return new EntityCreationData(this);
   }
 
-  /// <summary>Field number for the "lop_entity_creation_data" field.</summary>
-  public const int LopEntityCreationDataFieldNumber = 1;
+  /// <summary>Field number for the "character_creation_data" field.</summary>
+  public const int CharacterCreationDataFieldNumber = 1;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-  public global::LOPEntityCreationData LopEntityCreationData {
-    get { return creationDataCase_ == CreationDataOneofCase.LopEntityCreationData ? (global::LOPEntityCreationData) creationData_ : null; }
+  public global::CharacterCreationData CharacterCreationData {
+    get { return creationDataCase_ == CreationDataOneofCase.CharacterCreationData ? (global::CharacterCreationData) creationData_ : null; }
     set {
       creationData_ = value;
-      creationDataCase_ = value == null ? CreationDataOneofCase.None : CreationDataOneofCase.LopEntityCreationData;
+      creationDataCase_ = value == null ? CreationDataOneofCase.None : CreationDataOneofCase.CharacterCreationData;
+    }
+  }
+
+  /// <summary>Field number for the "item_creation_data" field.</summary>
+  public const int ItemCreationDataFieldNumber = 2;
+  [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+  [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+  public global::ItemCreationData ItemCreationData {
+    get { return creationDataCase_ == CreationDataOneofCase.ItemCreationData ? (global::ItemCreationData) creationData_ : null; }
+    set {
+      creationData_ = value;
+      creationDataCase_ = value == null ? CreationDataOneofCase.None : CreationDataOneofCase.ItemCreationData;
     }
   }
 
@@ -102,7 +119,8 @@ public sealed partial class EntityCreationData : pb::IMessage<EntityCreationData
   /// <summary>Enum of possible cases for the "creation_data" oneof.</summary>
   public enum CreationDataOneofCase {
     None = 0,
-    LopEntityCreationData = 1,
+    CharacterCreationData = 1,
+    ItemCreationData = 2,
   }
   private CreationDataOneofCase creationDataCase_ = CreationDataOneofCase.None;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -133,7 +151,8 @@ public sealed partial class EntityCreationData : pb::IMessage<EntityCreationData
     if (ReferenceEquals(other, this)) {
       return true;
     }
-    if (!object.Equals(LopEntityCreationData, other.LopEntityCreationData)) return false;
+    if (!object.Equals(CharacterCreationData, other.CharacterCreationData)) return false;
+    if (!object.Equals(ItemCreationData, other.ItemCreationData)) return false;
     if (CreationDataCase != other.CreationDataCase) return false;
     return Equals(_unknownFields, other._unknownFields);
   }
@@ -142,7 +161,8 @@ public sealed partial class EntityCreationData : pb::IMessage<EntityCreationData
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public override int GetHashCode() {
     int hash = 1;
-    if (creationDataCase_ == CreationDataOneofCase.LopEntityCreationData) hash ^= LopEntityCreationData.GetHashCode();
+    if (creationDataCase_ == CreationDataOneofCase.CharacterCreationData) hash ^= CharacterCreationData.GetHashCode();
+    if (creationDataCase_ == CreationDataOneofCase.ItemCreationData) hash ^= ItemCreationData.GetHashCode();
     hash ^= (int) creationDataCase_;
     if (_unknownFields != null) {
       hash ^= _unknownFields.GetHashCode();
@@ -162,9 +182,13 @@ public sealed partial class EntityCreationData : pb::IMessage<EntityCreationData
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
     output.WriteRawMessage(this);
   #else
-    if (creationDataCase_ == CreationDataOneofCase.LopEntityCreationData) {
+    if (creationDataCase_ == CreationDataOneofCase.CharacterCreationData) {
       output.WriteRawTag(10);
-      output.WriteMessage(LopEntityCreationData);
+      output.WriteMessage(CharacterCreationData);
+    }
+    if (creationDataCase_ == CreationDataOneofCase.ItemCreationData) {
+      output.WriteRawTag(18);
+      output.WriteMessage(ItemCreationData);
     }
     if (_unknownFields != null) {
       _unknownFields.WriteTo(output);
@@ -176,9 +200,13 @@ public sealed partial class EntityCreationData : pb::IMessage<EntityCreationData
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-    if (creationDataCase_ == CreationDataOneofCase.LopEntityCreationData) {
+    if (creationDataCase_ == CreationDataOneofCase.CharacterCreationData) {
       output.WriteRawTag(10);
-      output.WriteMessage(LopEntityCreationData);
+      output.WriteMessage(CharacterCreationData);
+    }
+    if (creationDataCase_ == CreationDataOneofCase.ItemCreationData) {
+      output.WriteRawTag(18);
+      output.WriteMessage(ItemCreationData);
     }
     if (_unknownFields != null) {
       _unknownFields.WriteTo(ref output);
@@ -190,8 +218,11 @@ public sealed partial class EntityCreationData : pb::IMessage<EntityCreationData
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public int CalculateSize() {
     int size = 0;
-    if (creationDataCase_ == CreationDataOneofCase.LopEntityCreationData) {
-      size += 1 + pb::CodedOutputStream.ComputeMessageSize(LopEntityCreationData);
+    if (creationDataCase_ == CreationDataOneofCase.CharacterCreationData) {
+      size += 1 + pb::CodedOutputStream.ComputeMessageSize(CharacterCreationData);
+    }
+    if (creationDataCase_ == CreationDataOneofCase.ItemCreationData) {
+      size += 1 + pb::CodedOutputStream.ComputeMessageSize(ItemCreationData);
     }
     if (_unknownFields != null) {
       size += _unknownFields.CalculateSize();
@@ -206,11 +237,17 @@ public sealed partial class EntityCreationData : pb::IMessage<EntityCreationData
       return;
     }
     switch (other.CreationDataCase) {
-      case CreationDataOneofCase.LopEntityCreationData:
-        if (LopEntityCreationData == null) {
-          LopEntityCreationData = new global::LOPEntityCreationData();
+      case CreationDataOneofCase.CharacterCreationData:
+        if (CharacterCreationData == null) {
+          CharacterCreationData = new global::CharacterCreationData();
         }
-        LopEntityCreationData.MergeFrom(other.LopEntityCreationData);
+        CharacterCreationData.MergeFrom(other.CharacterCreationData);
+        break;
+      case CreationDataOneofCase.ItemCreationData:
+        if (ItemCreationData == null) {
+          ItemCreationData = new global::ItemCreationData();
+        }
+        ItemCreationData.MergeFrom(other.ItemCreationData);
         break;
     }
 
@@ -234,12 +271,21 @@ public sealed partial class EntityCreationData : pb::IMessage<EntityCreationData
           _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
           break;
         case 10: {
-          global::LOPEntityCreationData subBuilder = new global::LOPEntityCreationData();
-          if (creationDataCase_ == CreationDataOneofCase.LopEntityCreationData) {
-            subBuilder.MergeFrom(LopEntityCreationData);
+          global::CharacterCreationData subBuilder = new global::CharacterCreationData();
+          if (creationDataCase_ == CreationDataOneofCase.CharacterCreationData) {
+            subBuilder.MergeFrom(CharacterCreationData);
           }
           input.ReadMessage(subBuilder);
-          LopEntityCreationData = subBuilder;
+          CharacterCreationData = subBuilder;
+          break;
+        }
+        case 18: {
+          global::ItemCreationData subBuilder = new global::ItemCreationData();
+          if (creationDataCase_ == CreationDataOneofCase.ItemCreationData) {
+            subBuilder.MergeFrom(ItemCreationData);
+          }
+          input.ReadMessage(subBuilder);
+          ItemCreationData = subBuilder;
           break;
         }
       }
@@ -262,12 +308,21 @@ public sealed partial class EntityCreationData : pb::IMessage<EntityCreationData
           _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
           break;
         case 10: {
-          global::LOPEntityCreationData subBuilder = new global::LOPEntityCreationData();
-          if (creationDataCase_ == CreationDataOneofCase.LopEntityCreationData) {
-            subBuilder.MergeFrom(LopEntityCreationData);
+          global::CharacterCreationData subBuilder = new global::CharacterCreationData();
+          if (creationDataCase_ == CreationDataOneofCase.CharacterCreationData) {
+            subBuilder.MergeFrom(CharacterCreationData);
           }
           input.ReadMessage(subBuilder);
-          LopEntityCreationData = subBuilder;
+          CharacterCreationData = subBuilder;
+          break;
+        }
+        case 18: {
+          global::ItemCreationData subBuilder = new global::ItemCreationData();
+          if (creationDataCase_ == CreationDataOneofCase.ItemCreationData) {
+            subBuilder.MergeFrom(ItemCreationData);
+          }
+          input.ReadMessage(subBuilder);
+          ItemCreationData = subBuilder;
           break;
         }
       }

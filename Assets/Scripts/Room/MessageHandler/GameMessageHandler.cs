@@ -43,19 +43,17 @@ namespace LOP
 
             foreach (var entityCreationData in gameInfoToC.GameInfo.EntityCreationDatas)
             {
-                bool isUserEntity = entityCreationData.LopEntityCreationData.BaseEntityCreationData.EntityId == gameInfoToC.EntityId;
-
                 switch (entityCreationData.CreationDataCase)
                 {
-                    case EntityCreationData.CreationDataOneofCase.LopEntityCreationData:
-                        LOPEntity entity = gameEngine.entityManager.CreateEntity<LOPEntity, LOPEntityCreationData>(new LOPEntityCreationData
+                    case EntityCreationData.CreationDataOneofCase.CharacterCreationData:
+                        LOPEntity entity = gameEngine.entityManager.CreateEntity<LOPEntity, CharacterCreationData>(new CharacterCreationData
                         {
-                            entityId = entityCreationData.LopEntityCreationData.BaseEntityCreationData.EntityId,
-                            position = MapperConfig.mapper.Map<Vector3>(entityCreationData.LopEntityCreationData.BaseEntityCreationData.Position),
-                            rotation = MapperConfig.mapper.Map<Vector3>(entityCreationData.LopEntityCreationData.BaseEntityCreationData.Rotation),
-                            velocity = MapperConfig.mapper.Map<Vector3>(entityCreationData.LopEntityCreationData.BaseEntityCreationData.Velocity),
-                            characterCode = entityCreationData.LopEntityCreationData.CharacterCode,
-                            visualId = entityCreationData.LopEntityCreationData.VisualId,
+                            entityId = entityCreationData.CharacterCreationData.BaseEntityCreationData.EntityId,
+                            position = MapperConfig.mapper.Map<Vector3>(entityCreationData.CharacterCreationData.BaseEntityCreationData.Position),
+                            rotation = MapperConfig.mapper.Map<Vector3>(entityCreationData.CharacterCreationData.BaseEntityCreationData.Rotation),
+                            velocity = MapperConfig.mapper.Map<Vector3>(entityCreationData.CharacterCreationData.BaseEntityCreationData.Velocity),
+                            characterCode = entityCreationData.CharacterCreationData.CharacterCode,
+                            visualId = entityCreationData.CharacterCreationData.VisualId,
                         });
                         break;
                 }

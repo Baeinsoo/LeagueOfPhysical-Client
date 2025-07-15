@@ -56,12 +56,6 @@ namespace LOP
             where TEntity : IEntity
             where TCreationData : struct, IEntityCreationData
         {
-            if (creationData is not LOPEntityCreationData lopEntityCreationData)
-            {
-                throw new InvalidOperationException(
-                    $"Entity creation data type '{creationData.GetType().Name}' is not supported for LOPEntityManager.");
-            }
-
             var entity = EntityFactory.CreateEntity<TEntity, TCreationData>(creationData);
 
             entityMap[entity.entityId] = entity;

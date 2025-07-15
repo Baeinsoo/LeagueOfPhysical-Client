@@ -54,9 +54,9 @@ namespace LOP
         {
             switch (entitySpawnToC.EntityCreationData.CreationDataCase)
             {
-                case EntityCreationData.CreationDataOneofCase.LopEntityCreationData:
+                case EntityCreationData.CreationDataOneofCase.CharacterCreationData:
 
-                    string entityId = entitySpawnToC.EntityCreationData.LopEntityCreationData.BaseEntityCreationData.EntityId;
+                    string entityId = entitySpawnToC.EntityCreationData.CharacterCreationData.BaseEntityCreationData.EntityId;
 
                     if (gameEngine.entityManager.TryGetEntity<LOPEntity>(entityId, out var entity))
                     {
@@ -64,13 +64,13 @@ namespace LOP
                         return;
                     }
 
-                    gameEngine.entityManager.CreateEntity<LOPEntity, LOPEntityCreationData>(new LOPEntityCreationData
+                    gameEngine.entityManager.CreateEntity<LOPEntity, CharacterCreationData>(new CharacterCreationData
                     {
                         entityId = entityId,
-                        visualId = entitySpawnToC.EntityCreationData.LopEntityCreationData.VisualId,
-                        position = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.LopEntityCreationData.BaseEntityCreationData.Position),
-                        rotation = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.LopEntityCreationData.BaseEntityCreationData.Rotation),
-                        velocity = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.LopEntityCreationData.BaseEntityCreationData.Velocity),
+                        visualId = entitySpawnToC.EntityCreationData.CharacterCreationData.VisualId,
+                        position = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.CharacterCreationData.BaseEntityCreationData.Position),
+                        rotation = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.CharacterCreationData.BaseEntityCreationData.Rotation),
+                        velocity = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.CharacterCreationData.BaseEntityCreationData.Velocity),
                     });
 
                     break;

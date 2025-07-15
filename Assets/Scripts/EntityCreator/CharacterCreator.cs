@@ -1,27 +1,28 @@
 using GameFramework;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace LOP
 {
     [EntityCreatorRegistration]
-    public class LOPEntityCreator : IEntityCreator<LOPEntity, LOPEntityCreationData>
+    public class CharacterCreator : IEntityCreator<LOPEntity, CharacterCreationData>
     {
-        public LOPEntity Create(LOPEntityCreationData lopEntityCreationData)
+        public LOPEntity Create(CharacterCreationData creationData)
         {
-            GameObject root = new GameObject($"{nameof(LOPEntity)}_{lopEntityCreationData.entityId}");
+            GameObject root = new GameObject($"Character_{creationData.entityId}");
             GameObject visual = root.CreateChild("Visual");
             GameObject physics = root.CreateChild("Physics");
 
             LOPEntity entity = root.CreateChildWithComponent<LOPEntity>();
-            entity.Initialize(lopEntityCreationData);
+            entity.Initialize(creationData);
+
+            EntityTypeComponent entityTypeComponent = entity.AddEntityComponent<EntityTypeComponent>();
+            entityTypeComponent.Initialize(EntityType.Character);
 
             CharacterComponent characterComponent = entity.AddEntityComponent<CharacterComponent>();
-            characterComponent.Initialize(lopEntityCreationData.characterCode);
+            characterComponent.Initialize(creationData.characterCode);
 
             AppearanceComponent appearanceComponent = entity.AddEntityComponent<AppearanceComponent>();
-            appearanceComponent.Initialize(lopEntityCreationData.visualId);
+            appearanceComponent.Initialize(creationData.visualId);
 
             PhysicsComponent physicsComponent = entity.AddEntityComponent<PhysicsComponent>();
             physicsComponent.Initialize();
@@ -33,7 +34,7 @@ namespace LOP
             view.SetEntity(entity);
             view.SetEntityController(controller);
 
-            bool isUserEntity = SceneLifetimeScope.Resolve<IGameDataStore>().userEntityId == lopEntityCreationData.entityId;
+            bool isUserEntity = SceneLifetimeScope.Resolve<IGameDataStore>().userEntityId == creationData.entityId;
 
             if (isUserEntity)
             {

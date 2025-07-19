@@ -106,9 +106,9 @@ namespace LOP
             {
                 GameObject visual = transform.parent.Find("Visual").gameObject;
 
-                var instance = Instantiate(prefab.Result, visual.transform);
-
-                visualGameObject = instance;
+                visualGameObject = Instantiate(prefab.Result, visual.transform);
+                visualGameObject.transform.position = entity.position;
+                visualGameObject.transform.rotation = Quaternion.Euler(entity.rotation);
             };
         }
     }

@@ -67,12 +67,12 @@ namespace LOP
                     gameEngine.entityManager.CreateEntity<LOPEntity, CharacterCreationData>(new CharacterCreationData
                     {
                         entityId = entityId,
-                        visualId = entitySpawnToC.EntityCreationData.CharacterCreationData.VisualId,
                         position = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.CharacterCreationData.BaseEntityCreationData.Position),
                         rotation = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.CharacterCreationData.BaseEntityCreationData.Rotation),
                         velocity = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.CharacterCreationData.BaseEntityCreationData.Velocity),
+                        characterCode = entitySpawnToC.EntityCreationData.CharacterCreationData.CharacterCode,
+                        visualId = entitySpawnToC.EntityCreationData.CharacterCreationData.VisualId,
                     });
-
                     break;
             }
         }

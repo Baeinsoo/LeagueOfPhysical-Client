@@ -67,7 +67,7 @@ namespace LOP
         {
             LOPEntity lopEntity = entityMap[entityId] as LOPEntity;
 
-            Destroy(lopEntity.gameObject);
+            Destroy(lopEntity.transform.parent.gameObject);
 
             entityMap.Remove(entityId);
         }

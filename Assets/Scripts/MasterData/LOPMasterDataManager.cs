@@ -21,6 +21,9 @@ namespace LOP
 
             var actionCollection = await MasterDataLoader.LoadFromCSV<MasterData.Action>("MasterData/Action.csv");
             RegisterMasterData(actionCollection);
+
+            var itemCollection = await MasterDataLoader.LoadFromCSV<MasterData.Item>("MasterData/Item.csv");
+            RegisterMasterData(itemCollection);
         }
 
         public void RegisterMasterData<T>(IEnumerable<T> collection) where T : IMasterData

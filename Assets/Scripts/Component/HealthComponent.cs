@@ -1,4 +1,3 @@
-using GameFramework;
 using UnityEngine;
 
 namespace LOP
@@ -23,15 +22,13 @@ namespace LOP
                 currentHP = 0;
                 Debug.Log($"Entity {entity.entityId} has died.");
 
-                RoomEventBus.Publish(new Event.Entity.EntityDeath(entity.entityId, attackerId));
+                RoomEventBus.Publish(new Event.Entity.EntityDeath(entity.entityId, attackerId, entity.position));
             }
             else if (currentHP > maxHP)
             {
                 currentHP = maxHP;
                 Debug.Log($"Entity {entity.entityId} is at full health.");
             }
-
-            Debug.Log($"[{GameEngine.Time.tick}] Entity {entity.entityId} took {damage} damage, current HP: {currentHP}/{maxHP}");
         }
     }
 }

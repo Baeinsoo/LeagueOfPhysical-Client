@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Item
+  m_EditorClassIdentifier: 
+  m_GroupName: Item
+  m_GUID: a62ffb7c9a7b30e4faefaccbd382d01f
+  m_SerializeEntries:
+  - m_GUID: 11e31a2ebb4e6e246bcf8c0ba034a031
+    m_Address: Assets/Art/Items/ExpMarble/ExpMarble.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 853e27bf3e281af488214b7f6b35dfdf, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: a06eab699fa261a4db969a0d1b48e4a4, type: 2}
+    - {fileID: 11400000, guid: 7a8fd4f64c4bea842ae8d7f59df011ce, type: 2}

@@ -55,7 +55,6 @@ namespace LOP
             switch (entitySpawnToC.EntityCreationData.CreationDataCase)
             {
                 case EntityCreationData.CreationDataOneofCase.CharacterCreationData:
-
                     string entityId = entitySpawnToC.EntityCreationData.CharacterCreationData.BaseEntityCreationData.EntityId;
 
                     if (gameEngine.entityManager.TryGetEntity<LOPEntity>(entityId, out var entity))
@@ -72,6 +71,26 @@ namespace LOP
                         velocity = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.CharacterCreationData.BaseEntityCreationData.Velocity),
                         characterCode = entitySpawnToC.EntityCreationData.CharacterCreationData.CharacterCode,
                         visualId = entitySpawnToC.EntityCreationData.CharacterCreationData.VisualId,
+                    });
+                    break;
+
+                case EntityCreationData.CreationDataOneofCase.ItemCreationData:
+                    string itemEntityId = entitySpawnToC.EntityCreationData.ItemCreationData.BaseEntityCreationData.EntityId;
+
+                    if (gameEngine.entityManager.TryGetEntity<LOPEntity>(itemEntityId, out var item))
+                    {
+                        Debug.LogWarning($"Entity {itemEntityId} already exists");
+                        return;
+                    }
+
+                    gameEngine.entityManager.CreateEntity<LOPEntity, ItemCreationData>(new ItemCreationData
+                    {
+                        entityId = itemEntityId,
+                        position = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.ItemCreationData.BaseEntityCreationData.Position),
+                        rotation = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.ItemCreationData.BaseEntityCreationData.Rotation),
+                        velocity = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.ItemCreationData.BaseEntityCreationData.Velocity),
+                        itemCode = entitySpawnToC.EntityCreationData.ItemCreationData.ItemCode,
+                        visualId = entitySpawnToC.EntityCreationData.ItemCreationData.VisualId,
                     });
                     break;
             }

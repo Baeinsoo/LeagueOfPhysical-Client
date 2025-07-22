@@ -46,7 +46,7 @@ namespace LOP
                 switch (entityCreationData.CreationDataCase)
                 {
                     case EntityCreationData.CreationDataOneofCase.CharacterCreationData:
-                        LOPEntity entity = gameEngine.entityManager.CreateEntity<LOPEntity, CharacterCreationData>(new CharacterCreationData
+                        gameEngine.entityManager.CreateEntity<LOPEntity, CharacterCreationData>(new CharacterCreationData
                         {
                             entityId = entityCreationData.CharacterCreationData.BaseEntityCreationData.EntityId,
                             position = MapperConfig.mapper.Map<Vector3>(entityCreationData.CharacterCreationData.BaseEntityCreationData.Position),
@@ -54,6 +54,18 @@ namespace LOP
                             velocity = MapperConfig.mapper.Map<Vector3>(entityCreationData.CharacterCreationData.BaseEntityCreationData.Velocity),
                             characterCode = entityCreationData.CharacterCreationData.CharacterCode,
                             visualId = entityCreationData.CharacterCreationData.VisualId,
+                        });
+                        break;
+
+                    case EntityCreationData.CreationDataOneofCase.ItemCreationData:
+                        gameEngine.entityManager.CreateEntity<LOPEntity, ItemCreationData>(new ItemCreationData
+                        {
+                            entityId = entityCreationData.ItemCreationData.BaseEntityCreationData.EntityId,
+                            position = MapperConfig.mapper.Map<Vector3>(entityCreationData.ItemCreationData.BaseEntityCreationData.Position),
+                            rotation = MapperConfig.mapper.Map<Vector3>(entityCreationData.ItemCreationData.BaseEntityCreationData.Rotation),
+                            velocity = MapperConfig.mapper.Map<Vector3>(entityCreationData.ItemCreationData.BaseEntityCreationData.Velocity),
+                            itemCode = entityCreationData.ItemCreationData.ItemCode,
+                            visualId = entityCreationData.ItemCreationData.VisualId,
                         });
                         break;
                 }

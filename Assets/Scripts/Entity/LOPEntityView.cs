@@ -69,11 +69,19 @@ namespace LOP
                     float horizontalSpeedSquared = entity.velocity.x * entity.velocity.x + entity.velocity.z * entity.velocity.z;
                     if (horizontalSpeedSquared > walkThresholdSquared && entity.IsGrounded())
                     {
-                        visualGameObject?.GetComponent<Animator>().SetBool("Run", true);
+                        Animator animator = visualGameObject?.GetComponent<Animator>();
+                        if (animator != null)
+                        {
+                            animator.SetBool("Run", true);
+                        }
                     }
                     else
                     {
-                        visualGameObject?.GetComponent<Animator>().SetBool("Run", false);
+                        Animator animator = visualGameObject?.GetComponent<Animator>();
+                        if (animator != null)
+                        {
+                            animator.SetBool("Run", false);
+                        }
                     }
                     break;
             }

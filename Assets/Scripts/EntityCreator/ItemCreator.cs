@@ -25,7 +25,7 @@ namespace LOP
             appearanceComponent.Initialize(creationData.visualId);
 
             PhysicsComponent physicsComponent = entity.AddEntityComponent<PhysicsComponent>();
-            physicsComponent.Initialize();
+            physicsComponent.Initialize(true, true);
 
             LOPEntityController controller = root.CreateChildWithComponent<LOPEntityController>();
             controller.SetEntity(entity);

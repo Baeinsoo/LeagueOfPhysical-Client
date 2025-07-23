@@ -20,7 +20,7 @@ namespace LOP
         public Rigidbody entityRigidbody { get; private set; }
         public Collider[] entityColliders { get; private set; }
 
-        public void Initialize()
+        public void Initialize(bool isKinematic, bool isTrigger)
         {
             entity.eventBus.Receive<PropertyChange>().Subscribe(OnPropertyChange).AddTo(this);
 
@@ -35,11 +35,13 @@ namespace LOP
             entityRigidbody.position = entity.position;
             entityRigidbody.rotation = Quaternion.Euler(entity.rotation);
             entityRigidbody.linearVelocity = entity.velocity;
+            entityRigidbody.isKinematic = isKinematic;
 
             CapsuleCollider capsuleCollider = physicsGameObject.AddComponent<CapsuleCollider>();
             capsuleCollider.radius = 0.35f;
             capsuleCollider.height = 1.5f;
             capsuleCollider.center = new Vector3(0, capsuleCollider.height * 0.5f, 0);
+            capsuleCollider.isTrigger = isTrigger;
             entityColliders = new Collider[] { capsuleCollider };
         }
 

@@ -27,6 +27,18 @@ namespace LOP
             PhysicsComponent physicsComponent = entity.AddEntityComponent<PhysicsComponent>();
             physicsComponent.Initialize(false, false);
 
+            HealthComponent healthComponent = entity.AddEntityComponent<HealthComponent>();
+            healthComponent.Initialize(creationData.maxHP, creationData.currentHP);
+
+            ManaComponent manaComponent = entity.AddEntityComponent<ManaComponent>();
+            manaComponent.Initialize(creationData.maxMP, creationData.currentMP);
+
+            StatsComponent statsComponent = entity.AddEntityComponent<StatsComponent>();
+            statsComponent.Initialize(creationData.characterCode);
+
+            LevelComponent levelComponent = entity.AddEntityComponent<LevelComponent>();
+            levelComponent.Initialize(creationData.level, creationData.currentExp);
+
             LOPEntityController controller = root.CreateChildWithComponent<LOPEntityController>();
             controller.SetEntity(entity);
 

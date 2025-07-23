@@ -23,14 +23,16 @@ public static partial class CharacterCreationDataReflection {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
           "ChtDaGFyYWN0ZXJDcmVhdGlvbkRhdGEucHJvdG8aHEJhc2VFbnRpdHlDcmVh",
-          "dGlvbkRhdGEucHJvdG8ifgoVQ2hhcmFjdGVyQ3JlYXRpb25EYXRhEjoKGWJh",
-          "c2VfZW50aXR5X2NyZWF0aW9uX2RhdGEYASABKAsyFy5CYXNlRW50aXR5Q3Jl",
-          "YXRpb25EYXRhEhYKDmNoYXJhY3Rlcl9jb2RlGAIgASgJEhEKCXZpc3VhbF9p",
-          "ZBgDIAEoCWIGcHJvdG8z"));
+          "dGlvbkRhdGEucHJvdG8i5QEKFUNoYXJhY3RlckNyZWF0aW9uRGF0YRI6Chli",
+          "YXNlX2VudGl0eV9jcmVhdGlvbl9kYXRhGAEgASgLMhcuQmFzZUVudGl0eUNy",
+          "ZWF0aW9uRGF0YRIWCg5jaGFyYWN0ZXJfY29kZRgCIAEoCRIRCgl2aXN1YWxf",
+          "aWQYAyABKAkSDQoFbWF4SFAYBCABKAUSEQoJY3VycmVudEhQGAUgASgFEg0K",
+          "BW1heE1QGAYgASgFEhEKCWN1cnJlbnRNUBgHIAEoBRINCgVsZXZlbBgIIAEo",
+          "BRISCgpjdXJyZW50RXhwGAkgASgDYgZwcm90bzM="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { global::BaseEntityCreationDataReflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-          new pbr::GeneratedClrTypeInfo(typeof(global::CharacterCreationData), global::CharacterCreationData.Parser, new[]{ "BaseEntityCreationData", "CharacterCode", "VisualId" }, null, null, null, null)
+          new pbr::GeneratedClrTypeInfo(typeof(global::CharacterCreationData), global::CharacterCreationData.Parser, new[]{ "BaseEntityCreationData", "CharacterCode", "VisualId", "MaxHP", "CurrentHP", "MaxMP", "CurrentMP", "Level", "CurrentExp" }, null, null, null, null)
         }));
   }
   #endregion
@@ -75,6 +77,12 @@ public sealed partial class CharacterCreationData : pb::IMessage<CharacterCreati
     baseEntityCreationData_ = other.baseEntityCreationData_ != null ? other.baseEntityCreationData_.Clone() : null;
     characterCode_ = other.characterCode_;
     visualId_ = other.visualId_;
+    maxHP_ = other.maxHP_;
+    currentHP_ = other.currentHP_;
+    maxMP_ = other.maxMP_;
+    currentMP_ = other.currentMP_;
+    level_ = other.level_;
+    currentExp_ = other.currentExp_;
     _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
   }
 
@@ -120,6 +128,78 @@ public sealed partial class CharacterCreationData : pb::IMessage<CharacterCreati
     }
   }
 
+  /// <summary>Field number for the "maxHP" field.</summary>
+  public const int MaxHPFieldNumber = 4;
+  private int maxHP_;
+  [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+  [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+  public int MaxHP {
+    get { return maxHP_; }
+    set {
+      maxHP_ = value;
+    }
+  }
+
+  /// <summary>Field number for the "currentHP" field.</summary>
+  public const int CurrentHPFieldNumber = 5;
+  private int currentHP_;
+  [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+  [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+  public int CurrentHP {
+    get { return currentHP_; }
+    set {
+      currentHP_ = value;
+    }
+  }
+
+  /// <summary>Field number for the "maxMP" field.</summary>
+  public const int MaxMPFieldNumber = 6;
+  private int maxMP_;
+  [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+  [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+  public int MaxMP {
+    get { return maxMP_; }
+    set {
+      maxMP_ = value;
+    }
+  }
+
+  /// <summary>Field number for the "currentMP" field.</summary>
+  public const int CurrentMPFieldNumber = 7;
+  private int currentMP_;
+  [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+  [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+  public int CurrentMP {
+    get { return currentMP_; }
+    set {
+      currentMP_ = value;
+    }
+  }
+
+  /// <summary>Field number for the "level" field.</summary>
+  public const int LevelFieldNumber = 8;
+  private int level_;
+  [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+  [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+  public int Level {
+    get { return level_; }
+    set {
+      level_ = value;
+    }
+  }
+
+  /// <summary>Field number for the "currentExp" field.</summary>
+  public const int CurrentExpFieldNumber = 9;
+  private long currentExp_;
+  [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+  [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+  public long CurrentExp {
+    get { return currentExp_; }
+    set {
+      currentExp_ = value;
+    }
+  }
+
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public override bool Equals(object other) {
@@ -138,6 +218,12 @@ public sealed partial class CharacterCreationData : pb::IMessage<CharacterCreati
     if (!object.Equals(BaseEntityCreationData, other.BaseEntityCreationData)) return false;
     if (CharacterCode != other.CharacterCode) return false;
     if (VisualId != other.VisualId) return false;
+    if (MaxHP != other.MaxHP) return false;
+    if (CurrentHP != other.CurrentHP) return false;
+    if (MaxMP != other.MaxMP) return false;
+    if (CurrentMP != other.CurrentMP) return false;
+    if (Level != other.Level) return false;
+    if (CurrentExp != other.CurrentExp) return false;
     return Equals(_unknownFields, other._unknownFields);
   }
 
@@ -148,6 +234,12 @@ public sealed partial class CharacterCreationData : pb::IMessage<CharacterCreati
     if (baseEntityCreationData_ != null) hash ^= BaseEntityCreationData.GetHashCode();
     if (CharacterCode.Length != 0) hash ^= CharacterCode.GetHashCode();
     if (VisualId.Length != 0) hash ^= VisualId.GetHashCode();
+    if (MaxHP != 0) hash ^= MaxHP.GetHashCode();
+    if (CurrentHP != 0) hash ^= CurrentHP.GetHashCode();
+    if (MaxMP != 0) hash ^= MaxMP.GetHashCode();
+    if (CurrentMP != 0) hash ^= CurrentMP.GetHashCode();
+    if (Level != 0) hash ^= Level.GetHashCode();
+    if (CurrentExp != 0L) hash ^= CurrentExp.GetHashCode();
     if (_unknownFields != null) {
       hash ^= _unknownFields.GetHashCode();
     }
@@ -178,6 +270,30 @@ public sealed partial class CharacterCreationData : pb::IMessage<CharacterCreati
       output.WriteRawTag(26);
       output.WriteString(VisualId);
     }
+    if (MaxHP != 0) {
+      output.WriteRawTag(32);
+      output.WriteInt32(MaxHP);
+    }
+    if (CurrentHP != 0) {
+      output.WriteRawTag(40);
+      output.WriteInt32(CurrentHP);
+    }
+    if (MaxMP != 0) {
+      output.WriteRawTag(48);
+      output.WriteInt32(MaxMP);
+    }
+    if (CurrentMP != 0) {
+      output.WriteRawTag(56);
+      output.WriteInt32(CurrentMP);
+    }
+    if (Level != 0) {
+      output.WriteRawTag(64);
+      output.WriteInt32(Level);
+    }
+    if (CurrentExp != 0L) {
+      output.WriteRawTag(72);
+      output.WriteInt64(CurrentExp);
+    }
     if (_unknownFields != null) {
       _unknownFields.WriteTo(output);
     }
@@ -200,6 +316,30 @@ public sealed partial class CharacterCreationData : pb::IMessage<CharacterCreati
       output.WriteRawTag(26);
       output.WriteString(VisualId);
     }
+    if (MaxHP != 0) {
+      output.WriteRawTag(32);
+      output.WriteInt32(MaxHP);
+    }
+    if (CurrentHP != 0) {
+      output.WriteRawTag(40);
+      output.WriteInt32(CurrentHP);
+    }
+    if (MaxMP != 0) {
+      output.WriteRawTag(48);
+      output.WriteInt32(MaxMP);
+    }
+    if (CurrentMP != 0) {
+      output.WriteRawTag(56);
+      output.WriteInt32(CurrentMP);
+    }
+    if (Level != 0) {
+      output.WriteRawTag(64);
+      output.WriteInt32(Level);
+    }
+    if (CurrentExp != 0L) {
+      output.WriteRawTag(72);
+      output.WriteInt64(CurrentExp);
+    }
     if (_unknownFields != null) {
       _unknownFields.WriteTo(ref output);
     }
@@ -218,6 +358,24 @@ public sealed partial class CharacterCreationData : pb::IMessage<CharacterCreati
     }
     if (VisualId.Length != 0) {
       size += 1 + pb::CodedOutputStream.ComputeStringSize(VisualId);
+    }
+    if (MaxHP != 0) {
+      size += 1 + pb::CodedOutputStream.ComputeInt32Size(MaxHP);
+    }
+    if (CurrentHP != 0) {
+      size += 1 + pb::CodedOutputStream.ComputeInt32Size(CurrentHP);
+    }
+    if (MaxMP != 0) {
+      size += 1 + pb::CodedOutputStream.ComputeInt32Size(MaxMP);
+    }
+    if (CurrentMP != 0) {
+      size += 1 + pb::CodedOutputStream.ComputeInt32Size(CurrentMP);
+    }
+    if (Level != 0) {
+      size += 1 + pb::CodedOutputStream.ComputeInt32Size(Level);
+    }
+    if (CurrentExp != 0L) {
+      size += 1 + pb::CodedOutputStream.ComputeInt64Size(CurrentExp);
     }
     if (_unknownFields != null) {
       size += _unknownFields.CalculateSize();
@@ -242,6 +400,24 @@ public sealed partial class CharacterCreationData : pb::IMessage<CharacterCreati
     }
     if (other.VisualId.Length != 0) {
       VisualId = other.VisualId;
+    }
+    if (other.MaxHP != 0) {
+      MaxHP = other.MaxHP;
+    }
+    if (other.CurrentHP != 0) {
+      CurrentHP = other.CurrentHP;
+    }
+    if (other.MaxMP != 0) {
+      MaxMP = other.MaxMP;
+    }
+    if (other.CurrentMP != 0) {
+      CurrentMP = other.CurrentMP;
+    }
+    if (other.Level != 0) {
+      Level = other.Level;
+    }
+    if (other.CurrentExp != 0L) {
+      CurrentExp = other.CurrentExp;
     }
     _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
   }
@@ -277,6 +453,30 @@ public sealed partial class CharacterCreationData : pb::IMessage<CharacterCreati
           VisualId = input.ReadString();
           break;
         }
+        case 32: {
+          MaxHP = input.ReadInt32();
+          break;
+        }
+        case 40: {
+          CurrentHP = input.ReadInt32();
+          break;
+        }
+        case 48: {
+          MaxMP = input.ReadInt32();
+          break;
+        }
+        case 56: {
+          CurrentMP = input.ReadInt32();
+          break;
+        }
+        case 64: {
+          Level = input.ReadInt32();
+          break;
+        }
+        case 72: {
+          CurrentExp = input.ReadInt64();
+          break;
+        }
       }
     }
   #endif
@@ -309,6 +509,30 @@ public sealed partial class CharacterCreationData : pb::IMessage<CharacterCreati
         }
         case 26: {
           VisualId = input.ReadString();
+          break;
+        }
+        case 32: {
+          MaxHP = input.ReadInt32();
+          break;
+        }
+        case 40: {
+          CurrentHP = input.ReadInt32();
+          break;
+        }
+        case 48: {
+          MaxMP = input.ReadInt32();
+          break;
+        }
+        case 56: {
+          CurrentMP = input.ReadInt32();
+          break;
+        }
+        case 64: {
+          Level = input.ReadInt32();
+          break;
+        }
+        case 72: {
+          CurrentExp = input.ReadInt64();
           break;
         }
       }

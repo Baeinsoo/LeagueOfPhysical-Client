@@ -11,5 +11,12 @@ namespace LOP
         public Vector3 velocity { get; set; }
         public string characterCode { get; set; }
         public string visualId { get; set; }
+
+        public int maxHP { get; set; }
+        public int currentHP { get; set; }
+        public int maxMP { get; set; }
+        public int currentMP { get; set; }
+        public int level { get; set; }
+        public long currentExp { get; set; }
     }
 }

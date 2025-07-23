@@ -7,4 +7,11 @@ message CharacterCreationData
 	BaseEntityCreationData base_entity_creation_data = 1;
 	string character_code = 2;
 	string visual_id = 3;
+
+	int32 maxHP = 4;
+    int32 currentHP = 5;
+	int32 maxMP = 6;
+	int32 currentMP = 7;
+	int32 level = 8;
+	int64 currentExp = 9;
 }

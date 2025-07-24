@@ -89,9 +89,16 @@ namespace LOP
      
         private void OnActionStart(ActionStart actionStart)
         {
+            if (visualGameObject == null)
+            {
+                return;
+            }
+
             if (actionStart.actionCode == "attack_001")
             {
                 visualGameObject.GetComponent<Animator>().SetTrigger("Attack 01");
+                visualGameObject.GetComponent<Animator>().SetTrigger("Attack");
+                visualGameObject.GetComponent<Animator>().SetTrigger("Melee Attack");
             }
         }
 

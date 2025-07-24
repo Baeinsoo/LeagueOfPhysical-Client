@@ -4,8 +4,8 @@ namespace LOP
 {
     public class HealthComponent : LOPComponent
     {
-        public int maxHP { get; private set; }
-        public int currentHP;
+        public int maxHP { get; set; }
+        public int currentHP { get; set; }
 
         public void Initialize(int maxHP, int currentHP)
         {

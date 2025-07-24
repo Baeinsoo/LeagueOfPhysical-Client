@@ -4,8 +4,8 @@ namespace LOP
 {
     public class ManaComponent : LOPComponent
     {
-        public int maxMP { get; private set; }
-        public int currentMP;
+        public int maxMP { get; set; }
+        public int currentMP { get; set; }
 
         public void Initialize(int maxMP, int currentMP)
         {

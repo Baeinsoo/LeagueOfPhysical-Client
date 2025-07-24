@@ -16,6 +16,8 @@ namespace LOP
             messageDispatcher.RegisterHandler<EntitySnapsToC>(OnEntitySnapsToC, LOPRoomMessageInterceptor.Default);
             messageDispatcher.RegisterHandler<EntitySpawnToC>(OnEntitySpawnToC, LOPRoomMessageInterceptor.Default);
             messageDispatcher.RegisterHandler<EntityDespawnToC>(OnEntityDespawnToC, LOPRoomMessageInterceptor.Default);
+            messageDispatcher.RegisterHandler<ActionStartToC>(OnActionStartToC, LOPRoomMessageInterceptor.Default);
+            messageDispatcher.RegisterHandler<UserEntitySnapToC>(OnUserEntitySnapToC, LOPRoomMessageInterceptor.Default);
         }
 
         public void Unregister()
@@ -23,6 +25,8 @@ namespace LOP
             messageDispatcher.UnregisterHandler<EntitySnapsToC>(OnEntitySnapsToC);
             messageDispatcher.UnregisterHandler<EntitySpawnToC>(OnEntitySpawnToC);
             messageDispatcher.UnregisterHandler<EntityDespawnToC>(OnEntityDespawnToC);
+            messageDispatcher.UnregisterHandler<ActionStartToC>(OnActionStartToC);
+            messageDispatcher.UnregisterHandler<UserEntitySnapToC>(OnUserEntitySnapToC);
         }
 
         private void OnEntitySnapsToC(EntitySnapsToC entitySnapsToC)
@@ -71,6 +75,13 @@ namespace LOP
                         velocity = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.CharacterCreationData.BaseEntityCreationData.Velocity),
                         characterCode = entitySpawnToC.EntityCreationData.CharacterCreationData.CharacterCode,
                         visualId = entitySpawnToC.EntityCreationData.CharacterCreationData.VisualId,
+
+                        maxHP = entitySpawnToC.EntityCreationData.CharacterCreationData.MaxHP,
+                        currentHP = entitySpawnToC.EntityCreationData.CharacterCreationData.CurrentHP,
+                        maxMP = entitySpawnToC.EntityCreationData.CharacterCreationData.MaxMP,
+                        currentMP = entitySpawnToC.EntityCreationData.CharacterCreationData.CurrentMP,
+                        level = entitySpawnToC.EntityCreationData.CharacterCreationData.Level,
+                        currentExp = entitySpawnToC.EntityCreationData.CharacterCreationData.CurrentExp,
                     });
                     break;
 
@@ -106,6 +117,34 @@ namespace LOP
             {
                 Debug.LogWarning($"Entity {entityDespawnToC.EntityId} not found for despawn");
             }
+        }
+
+        private void OnActionStartToC(ActionStartToC actionStartToC)
+        {
+            if (playerContext.entity != null && playerContext.entity.entityId == actionStartToC.EntityId)
+            {
+                return;
+            }
+
+            if (gameEngine.entityManager.TryGetEntity<LOPEntity>(actionStartToC.EntityId, out var entity))
+            {
+                entity.eventBus.Publish(new Event.Entity.ActionStart(actionStartToC.ActionCode));
+            }
+        }
+
+        private void OnUserEntitySnapToC(UserEntitySnapToC userEntitySnapToC)
+        {
+            if (playerContext.entity == null)
+            {
+                return;
+            }
+
+            playerContext.entity.GetComponent<HealthComponent>().currentHP = userEntitySnapToC.CurrentHP;
+            playerContext.entity.GetComponent<HealthComponent>().maxHP = userEntitySnapToC.MaxHP;
+            playerContext.entity.GetComponent<ManaComponent>().currentMP = userEntitySnapToC.CurrentMP;
+            playerContext.entity.GetComponent<ManaComponent>().maxMP = userEntitySnapToC.MaxMP;
+            playerContext.entity.GetComponent<LevelComponent>().currentExp = userEntitySnapToC.CurrentExp;
+            playerContext.entity.GetComponent<LevelComponent>().level = userEntitySnapToC.Level;
         }
     }
 }

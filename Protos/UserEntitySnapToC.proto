@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+// @auto_generate
+message UserEntitySnapToC
+{
+	int32 maxHP = 1;
+    int32 currentHP = 2;
+	int32 maxMP = 3;
+	int32 currentMP = 4;
+	int32 level = 5;
+	int64 currentExp = 6;
+}

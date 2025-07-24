@@ -54,6 +54,13 @@ namespace LOP
                             velocity = MapperConfig.mapper.Map<Vector3>(entityCreationData.CharacterCreationData.BaseEntityCreationData.Velocity),
                             characterCode = entityCreationData.CharacterCreationData.CharacterCode,
                             visualId = entityCreationData.CharacterCreationData.VisualId,
+
+                            maxHP = entityCreationData.CharacterCreationData.MaxHP,
+                            currentHP = entityCreationData.CharacterCreationData.CurrentHP,
+                            maxMP = entityCreationData.CharacterCreationData.MaxMP,
+                            currentMP = entityCreationData.CharacterCreationData.CurrentMP,
+                            level = entityCreationData.CharacterCreationData.Level,
+                            currentExp = entityCreationData.CharacterCreationData.CurrentExp,
                         });
                         break;
 

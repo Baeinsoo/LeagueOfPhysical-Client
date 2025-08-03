@@ -14,9 +14,7 @@ namespace LOP
         {
             NetworkClient.RegisterHandler<CustomMirrorMessage>(message =>
             {
-                EnqueueMessage(message.payload);
-
-                RoomEventBus.Publish(message.payload);
+                EventBus.Default.Publish(nameof(IMessage), message.payload);
             });
         }
 

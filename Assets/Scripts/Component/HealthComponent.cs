@@ -22,7 +22,7 @@ namespace LOP
                 currentHP = 0;
                 Debug.Log($"Entity {entity.entityId} has died.");
 
-                RoomEventBus.Publish(new Event.Entity.EntityDeath(entity.entityId, attackerId, entity.position));
+                EventBus.Default.Publish(EventTopic.Entity, new Event.Entity.EntityDeath(entity.entityId, attackerId, entity.position));
             }
             else if (currentHP > maxHP)
             {

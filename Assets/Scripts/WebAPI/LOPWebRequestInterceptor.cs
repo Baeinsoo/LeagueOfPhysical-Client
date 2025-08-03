@@ -1,5 +1,4 @@
 using GameFramework;
-using UnityEngine;
 using UnityEngine.Networking;
 
 namespace LOP
@@ -12,8 +11,7 @@ namespace LOP
 
         public void OnSuccess<T>(UnityWebRequest request, T response)
         {
-            AppEventBus.Publish(response);
-            RoomEventBus.Publish(response);
+            EventBus.Default.Publish(EventTopic.WebResponse, response);
         }
 
         public void OnError(UnityWebRequest request, string error) { }

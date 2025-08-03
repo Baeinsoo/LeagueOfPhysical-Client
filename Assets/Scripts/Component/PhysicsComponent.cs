@@ -1,6 +1,5 @@
 using GameFramework;
 using LOP.Event.Entity;
-using UniRx;
 using UnityEngine;
 
 namespace LOP
@@ -22,7 +21,7 @@ namespace LOP
 
         public void Initialize(bool isKinematic, bool isTrigger)
         {
-            entity.eventBus.Receive<PropertyChange>().Subscribe(OnPropertyChange).AddTo(this);
+            EventBus.Default.Subscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
 
             GameObject physics = entity.transform.parent.Find("Physics").gameObject;
             physicsGameObject = physics.CreateChild("PhysicsGameObject");
@@ -43,6 +42,11 @@ namespace LOP
             capsuleCollider.center = new Vector3(0, capsuleCollider.height * 0.5f, 0);
             capsuleCollider.isTrigger = isTrigger;
             entityColliders = new Collider[] { capsuleCollider };
+        }
+
+        private void OnDestroy()
+        {
+            EventBus.Default.Unsubscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
         }
 
         private void OnPropertyChange(PropertyChange propertyChange)

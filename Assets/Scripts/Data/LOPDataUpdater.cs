@@ -1,6 +1,7 @@
 using GameFramework;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 namespace LOP
@@ -48,10 +49,17 @@ namespace LOP
                 var actionType = typeof(Action<>).MakeGenericType(listenType);
                 var action = Delegate.CreateDelegate(actionType, listener, method);
 
-                var subscribeMethod = typeof(LOP.AppEventBus)
-                    .GetMethod("Subscribe", BindingFlags.Public | BindingFlags.Static)
-                    ?.MakeGenericMethod(listenType);
-                subscribeMethod?.Invoke(null, new object[] { action });
+                var eventBusType = typeof(IEventBus);
+                var subscribeMethod = eventBusType.GetMethods()
+                    .Where(m => m.Name == "Subscribe" && m.IsGenericMethodDefinition && m.GetParameters().Length == 2)
+                    .FirstOrDefault();
+
+                if (subscribeMethod != null)
+                {
+                    var genericSubscribe = subscribeMethod.MakeGenericMethod(listenType);
+                    var topic = "*";
+                    genericSubscribe.Invoke(EventBus.Default, new object[] { topic, action });
+                }
 
                 listeners[listener] = action;
             }
@@ -63,10 +71,17 @@ namespace LOP
             {
                 if (kv.Value.TryGetValue(listener, out var action))
                 {
-                    var unsubscribeMethod = typeof(LOP.AppEventBus)
-                        .GetMethod("Unsubscribe", BindingFlags.Public | BindingFlags.Static)
-                        ?.MakeGenericMethod(kv.Key);
-                    unsubscribeMethod?.Invoke(null, new object[] { action });
+                    var eventBusType = typeof(IEventBus);
+                    var unsubscribeMethod = eventBusType.GetMethods()
+                        .Where(m => m.Name == "Unsubscribe" && m.IsGenericMethodDefinition && m.GetParameters().Length == 2)
+                        .FirstOrDefault();
+                    
+                    if (unsubscribeMethod != null)
+                    {
+                        var genericUnsubscribe = unsubscribeMethod.MakeGenericMethod(kv.Key);
+                        var topic = "*";
+                        genericUnsubscribe.Invoke(EventBus.Default, new object[] { topic, action });
+                    }
 
                     kv.Value.Remove(listener);
                 }

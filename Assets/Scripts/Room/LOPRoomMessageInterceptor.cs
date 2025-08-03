@@ -10,8 +10,7 @@ namespace LOP
 
         public void OnBeforeHandle<T>(T message) where T : IMessage
         {
-            AppEventBus.Publish(message);
-            RoomEventBus.Publish(message);
+            EventBus.Default.Publish(nameof(IMessage), message);
         }
 
         public void OnAfterHandle<T>(T message) where T : IMessage { }

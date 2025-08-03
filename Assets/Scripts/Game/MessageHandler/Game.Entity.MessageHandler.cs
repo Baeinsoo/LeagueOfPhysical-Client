@@ -1,4 +1,5 @@
 using GameFramework;
+using LOP.Event.Entity;
 using UnityEngine;
 using VContainer;
 
@@ -6,27 +7,26 @@ namespace LOP
 {
     public class GameEntityMessageHandler : IGameMessageHandler
     {
-        [Inject] private IMessageDispatcher messageDispatcher;
         [Inject] private IPlayerContext playerContext;
         [Inject] private IGameDataStore gameDataStore;
         [Inject] private IGameEngine gameEngine;
 
         public void Register()
         {
-            messageDispatcher.RegisterHandler<EntitySnapsToC>(OnEntitySnapsToC, LOPRoomMessageInterceptor.Default);
-            messageDispatcher.RegisterHandler<EntitySpawnToC>(OnEntitySpawnToC, LOPRoomMessageInterceptor.Default);
-            messageDispatcher.RegisterHandler<EntityDespawnToC>(OnEntityDespawnToC, LOPRoomMessageInterceptor.Default);
-            messageDispatcher.RegisterHandler<ActionStartToC>(OnActionStartToC, LOPRoomMessageInterceptor.Default);
-            messageDispatcher.RegisterHandler<UserEntitySnapToC>(OnUserEntitySnapToC, LOPRoomMessageInterceptor.Default);
+            EventBus.Default.Subscribe<EntitySnapsToC>(nameof(IMessage), OnEntitySnapsToC);
+            EventBus.Default.Subscribe<EntitySpawnToC>(nameof(IMessage), OnEntitySpawnToC);
+            EventBus.Default.Subscribe<EntityDespawnToC>(nameof(IMessage), OnEntityDespawnToC);
+            EventBus.Default.Subscribe<ActionStartToC>(nameof(IMessage), OnActionStartToC);
+            EventBus.Default.Subscribe<UserEntitySnapToC>(nameof(IMessage), OnUserEntitySnapToC);
         }
 
         public void Unregister()
         {
-            messageDispatcher.UnregisterHandler<EntitySnapsToC>(OnEntitySnapsToC);
-            messageDispatcher.UnregisterHandler<EntitySpawnToC>(OnEntitySpawnToC);
-            messageDispatcher.UnregisterHandler<EntityDespawnToC>(OnEntityDespawnToC);
-            messageDispatcher.UnregisterHandler<ActionStartToC>(OnActionStartToC);
-            messageDispatcher.UnregisterHandler<UserEntitySnapToC>(OnUserEntitySnapToC);
+            EventBus.Default.Unsubscribe<EntitySnapsToC>(nameof(IMessage), OnEntitySnapsToC);
+            EventBus.Default.Unsubscribe<EntitySpawnToC>(nameof(IMessage), OnEntitySpawnToC);
+            EventBus.Default.Unsubscribe<EntityDespawnToC>(nameof(IMessage), OnEntityDespawnToC);
+            EventBus.Default.Unsubscribe<ActionStartToC>(nameof(IMessage), OnActionStartToC);
+            EventBus.Default.Unsubscribe<UserEntitySnapToC>(nameof(IMessage), OnUserEntitySnapToC);
         }
 
         private void OnEntitySnapsToC(EntitySnapsToC entitySnapsToC)
@@ -37,6 +37,11 @@ namespace LOP
                 {
                     Debug.LogWarning($"Entity {serverEntitySnap.EntityId} not found");
                     continue;
+                }
+
+                if (gameDataStore.gameInfo == null)
+                {
+                    return;
                 }
 
                 EntitySnap entitySnap = MapperConfig.mapper.Map<EntitySnap>(serverEntitySnap);
@@ -128,7 +133,7 @@ namespace LOP
 
             if (gameEngine.entityManager.TryGetEntity<LOPEntity>(actionStartToC.EntityId, out var entity))
             {
-                entity.eventBus.Publish(new Event.Entity.ActionStart(actionStartToC.ActionCode));
+                EventBus.Default.Publish(EventTopic.EntityId<LOPEntity>(entity.entityId), new ActionStart(actionStartToC.ActionCode));
             }
         }
 

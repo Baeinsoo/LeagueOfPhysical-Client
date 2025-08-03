@@ -14,12 +14,12 @@ namespace LOP
 
         public void Register()
         {
-            messageDispatcher.RegisterHandler<InputSequenceToC>(OnInputSequenceToC, LOPRoomMessageInterceptor.Default);
+            EventBus.Default.Subscribe<InputSequenceToC>(nameof(IMessage), OnInputSequenceToC);
         }
 
         public void Unregister()
         {
-            messageDispatcher.UnregisterHandler<InputSequenceToC>(OnInputSequenceToC);
+            EventBus.Default.Unsubscribe<InputSequenceToC>(nameof(IMessage), OnInputSequenceToC);
         }
 
         private void OnInputSequenceToC(InputSequenceToC inputSequenceToC)

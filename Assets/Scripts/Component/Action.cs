@@ -1,4 +1,5 @@
 using GameFramework;
+using LOP.Event.Entity;
 using UnityEngine;
 
 namespace LOP
@@ -56,7 +57,7 @@ namespace LOP
 
             OnActionStart();
 
-            entity.eventBus.Publish(new Event.Entity.ActionStart(actionCode));
+            EventBus.Default.Publish(EventTopic.EntityId<LOPEntity>(entity.entityId), new ActionStart(actionCode));
         }
 
         protected void ActionEnd()
@@ -67,7 +68,7 @@ namespace LOP
 
             OnActionEnd();
 
-            entity.eventBus.Publish(new Event.Entity.ActionEnd(actionCode));
+            EventBus.Default.Publish(EventTopic.EntityId<LOPEntity>(entity.entityId), new ActionEnd(actionCode));
         }
 
         public void UpdateAction()

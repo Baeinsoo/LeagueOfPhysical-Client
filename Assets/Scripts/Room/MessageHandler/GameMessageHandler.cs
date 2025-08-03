@@ -8,9 +8,6 @@ namespace LOP
     public class GameMessageHandler : IRoomMessageHandler
     {
         [Inject]
-        private IMessageDispatcher messageDispatcher;
-
-        [Inject]
         private IUserDataStore userDataStore;
 
         [Inject]
@@ -24,12 +21,12 @@ namespace LOP
 
         public void Register()
         {
-            messageDispatcher.RegisterHandler<GameInfoToC>(OnGameInfoToC, LOPRoomMessageInterceptor.Default);
+            EventBus.Default.Subscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);
         }
 
         public void Unregister()
         {
-            messageDispatcher.UnregisterHandler<GameInfoToC>(OnGameInfoToC);
+            EventBus.Default.Unsubscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);
         }
 
         private void OnGameInfoToC(GameInfoToC gameInfoToC)

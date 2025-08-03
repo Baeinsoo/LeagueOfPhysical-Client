@@ -14,12 +14,14 @@ namespace LOP
 
         protected virtual void Start()
         {
-            entity.eventBus.Receive<PropertyChange>().Subscribe(OnPropertyChange).AddTo(this);
+            EventBus.Default.Subscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
         }
 
         protected override void OnDestroy()
         {
             base.OnDestroy();
+
+            EventBus.Default.Unsubscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
 
             SceneLifetimeScope.Resolve<IGameEngine>().RemoveListener(this);
         }

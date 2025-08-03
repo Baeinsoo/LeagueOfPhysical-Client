@@ -1,6 +1,5 @@
 using GameFramework;
-using System.Collections;
-using System.Collections.Generic;
+using LOP.Event.Entity;
 using System.ComponentModel;
 using UnityEngine;
 
@@ -8,8 +7,6 @@ namespace LOP
 {
     public class LOPEntity : MonoEntity
     {
-        public readonly IMessageBrokerExtended eventBus = new MessageBrokerExtended();
-
         private Vector3 _position;
         public override Vector3 position
         {
@@ -42,7 +39,7 @@ namespace LOP
 
         public void RaisePropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            eventBus.Publish(new Event.Entity.PropertyChange(e.PropertyName));
+            EventBus.Default.Publish(EventTopic.EntityId<LOPEntity>(entityId), new PropertyChange(e.PropertyName));
         }
 
         public virtual void Initialize<TEntityCreationData>(TEntityCreationData creationData) where TEntityCreationData : struct, IEntityCreationData

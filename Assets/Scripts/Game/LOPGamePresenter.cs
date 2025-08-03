@@ -1,8 +1,5 @@
 using Cysharp.Threading.Tasks;
 using GameFramework;
-using Mirror;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using VContainer;
 
@@ -17,20 +14,14 @@ namespace LOP
         private CameraController cameraController;
 
         [Inject]
-        private IGameDataStore gameDataStore;
-
-        [Inject]
-        private IMessageDispatcher messageDispatcher;
-
-        [Inject]
         private IPlayerContext playerContext;
 
         private void Awake()
         {
             game = GetComponent<LOPGame>();
             game.onGameStateChanged += OnGameStateChanged;
-
-            messageDispatcher.RegisterHandler<GameInfoToC>(OnGameInfoToC, LOPRoomMessageInterceptor.Default);
+            
+            EventBus.Default.Subscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);
         }
 
         private void OnDestroy()
@@ -38,7 +29,7 @@ namespace LOP
             game.onGameStateChanged -= OnGameStateChanged;
             game = null;
 
-            messageDispatcher.UnregisterHandler<GameInfoToC>(OnGameInfoToC);
+            EventBus.Default.Unsubscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);
         }
 
         private void OnGameStateChanged(IGameState gameState)

@@ -9,9 +9,6 @@ namespace LOP
         [Inject]
         private IGameEngine gameEngine;
 
-        [Inject]
-        private IMessageDispatcher messageDispatcher;
-
         public void Register()
         {
             EventBus.Default.Subscribe<InputSequenceToC>(nameof(IMessage), OnInputSequenceToC);

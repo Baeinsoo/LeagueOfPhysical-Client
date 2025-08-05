@@ -18,7 +18,6 @@ namespace LOP
         [Inject] private IRoomDataStore roomDataStore;
         [Inject] private IGameDataStore gameDataStore;
         [Inject] private IUserDataStore userDataStore;
-        [Inject] private IMessageDispatcher messageDispatcher;
         [Inject] private IEnumerable<IRoomMessageHandler> roomMessageHandlers;
 
         public bool initialized { get; private set; }
@@ -78,8 +77,6 @@ namespace LOP
 
             roomDataStore.Clear();
             gameDataStore.Clear();
-
-            messageDispatcher.Dispose();
 
             initialized = false;
         }

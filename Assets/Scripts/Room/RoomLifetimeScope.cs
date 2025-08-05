@@ -40,6 +40,13 @@ namespace LOP
 
             builder.Register<IActionManager, LOPActionManager>(Lifetime.Singleton);
             builder.Register<IMovementManager, LOPMovementManager>(Lifetime.Singleton);
+
+            #region RegisterBuildCallback
+            builder.RegisterBuildCallback(container =>
+            {
+                container.Resolve<IMessageDispatcher>();
+            });
+            #endregion
         }
     }
 }

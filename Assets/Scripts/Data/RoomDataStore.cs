@@ -7,13 +7,17 @@ namespace LOP
         public Room room { get; set; }
         public Match match { get; set; }
 
-        [DataListen(typeof(GetMatchResponse))]
+        public RoomDataStore()
+        {
+            EventBus.Default.Subscribe<GetMatchResponse>(EventTopic.WebResponse, HandleGetMatch);
+            EventBus.Default.Subscribe<RoomJoinableResponse>(EventTopic.WebResponse, HandleRoomJoinable);
+        }
+
         private void HandleGetMatch(GetMatchResponse response)
         {
             match = MapperConfig.mapper.Map<Match>(response.match);
         }
 
-        [DataListen(typeof(RoomJoinableResponse))]
         private void HandleRoomJoinable(RoomJoinableResponse response)
         {
             room = MapperConfig.mapper.Map<Room>(response.room);

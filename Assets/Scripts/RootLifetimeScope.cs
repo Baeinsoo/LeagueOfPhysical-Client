@@ -26,13 +26,9 @@ namespace LOP
                 .As<IDataStore>()
                 .AsSelf();
 
-            builder.Register<IDataUpdater, LOPDataUpdater>(Lifetime.Singleton);
-
-
             #region RegisterBuildCallback
             builder.RegisterBuildCallback(container =>
             {
-                container.Resolve<IDataUpdater>();
             });
             #endregion
         }

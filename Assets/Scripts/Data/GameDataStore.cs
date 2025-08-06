@@ -7,12 +7,11 @@ namespace LOP
         public GameInfo gameInfo { get; set; }
         public string userEntityId { get; set; }
 
-        public GameDataStore(IDataUpdater dataUpdater)
+        public GameDataStore()
         {
-            dataUpdater.AddListener(this);
+            EventBus.Default.Subscribe<GameInfoToC>(nameof(IMessage), HandleGameInfo);
         }
 
-        [DataListen(typeof(GameInfoToC))]
         private void HandleGameInfo(GameInfoToC gameInfoToC)
         {
             gameInfo = gameInfoToC.GameInfo;

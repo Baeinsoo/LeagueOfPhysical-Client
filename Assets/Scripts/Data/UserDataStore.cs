@@ -1,8 +1,3 @@
-using GameFramework;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
 
 namespace LOP
 {
@@ -14,19 +9,25 @@ namespace LOP
         public UserStats normalUserStats { get; set; }
         public UserStats rankedUserStats { get; set; }
 
-        [DataListen(typeof(CreateUserResponse))]
+        public UserDataStore()
+        {
+            EventBus.Default.Subscribe<CreateUserResponse>(EventTopic.WebResponse, HandleCreateUser);
+            EventBus.Default.Subscribe<GetUserLocationResponse>(EventTopic.WebResponse, HandleGetUserLocation);
+            EventBus.Default.Subscribe<GetUserResponse>(EventTopic.WebResponse, HandleGetUser);
+            EventBus.Default.Subscribe<GetUserStatsResponse>(EventTopic.WebResponse, HandleGetUserStats);
+            EventBus.Default.Subscribe<UpdateUserProfileResponse>(EventTopic.WebResponse, HandleUpdateUserProfile);
+        }
+
         private void HandleCreateUser(CreateUserResponse response)
         {
             user = MapperConfig.mapper.Map<User>(response.user);
         }
 
-        [DataListen(typeof(GetUserLocationResponse))]
         private void HandleGetUserLocation(GetUserLocationResponse response)
         {
             userLocation = MapperConfig.mapper.Map<UserLocation>(response.userLocation);
         }
 
-        [DataListen(typeof(GetUserResponse))]
         private void HandleGetUser(GetUserResponse response)
         {
             if (response.user == null)
@@ -37,7 +38,6 @@ namespace LOP
             user = MapperConfig.mapper.Map<User>(response.user);
         }
 
-        [DataListen(typeof(GetUserStatsResponse))]
         private void HandleGetUserStats(GetUserStatsResponse response)
         {
             UserStats userStats = MapperConfig.mapper.Map<UserStats>(response.userStats);
@@ -52,7 +52,6 @@ namespace LOP
             }
         }
 
-        [DataListen(typeof(UpdateUserProfileResponse))]
         private void HandleUpdateUserProfile(UpdateUserProfileResponse response)
         {
             userProfile = MapperConfig.mapper.Map<UserProfile>(response.userProfile);

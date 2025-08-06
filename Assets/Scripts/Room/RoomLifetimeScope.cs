@@ -30,8 +30,6 @@ namespace LOP
 
             builder.Register<ISessionManager, SessionManager>(Lifetime.Singleton);
 
-            builder.Register<IMessageDispatcher, LOPMessageDispatcher>(Lifetime.Singleton);
-
             builder.Register<IPlayerContext, PlayerContext>(Lifetime.Singleton);
 
             builder.Register<GameDataStore>(Lifetime.Singleton).As<IGameDataStore, IDataStore>();
@@ -44,7 +42,6 @@ namespace LOP
             #region RegisterBuildCallback
             builder.RegisterBuildCallback(container =>
             {
-                container.Resolve<IMessageDispatcher>();
             });
             #endregion
         }

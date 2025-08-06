@@ -83,6 +83,11 @@ namespace LOP
 
         private async Task ConnectRoomServerAsync()
         {
+            NetworkClient.RegisterHandler<CustomMirrorMessage>(message =>
+            {
+                EventBus.Default.Publish(nameof(IMessage), message.payload);
+            });
+
             networkManager.networkAddress = roomDataStore.room.ip;
             networkManager.port = roomDataStore.room.port;
 

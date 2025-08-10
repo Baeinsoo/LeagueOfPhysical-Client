@@ -31,17 +31,17 @@ namespace LOP
 
         private void OnEntitySnapsToC(EntitySnapsToC entitySnapsToC)
         {
+            if (gameDataStore.gameInfo == null)
+            {
+                return;
+            }
+
             foreach (var serverEntitySnap in entitySnapsToC.EntitySnaps.OrEmpty())
             {
                 if (gameEngine.entityManager.TryGetEntity<LOPEntity>(serverEntitySnap.EntityId, out var entity) == false)
                 {
                     Debug.LogWarning($"Entity {serverEntitySnap.EntityId} not found");
                     continue;
-                }
-
-                if (gameDataStore.gameInfo == null)
-                {
-                    return;
                 }
 
                 EntitySnap entitySnap = MapperConfig.mapper.Map<EntitySnap>(serverEntitySnap);

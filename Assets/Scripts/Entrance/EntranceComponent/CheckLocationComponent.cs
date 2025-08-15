@@ -27,7 +27,7 @@ namespace LOP
             {
                 case Location.GameRoom:
                     var roomId = (userDataStore.userLocation.locationDetail as GameRoomLocationDetail).gameRoomId;
-                    await new RoomConnector().TryToEnterRoomById(roomId);
+                    await SceneLifetimeScope.Resolve<RoomConnector>().TryToEnterRoomById(roomId);
                     break;
 
                 case Location.WaitingRoom:

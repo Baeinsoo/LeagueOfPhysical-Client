@@ -7,7 +7,7 @@ namespace LOP
 {
     public class MatchStateMachine : MonoStateMachine
     {
-        public override IState initState => gameObject.GetOrAddComponent<CheckMatchState>();
+        public override IState initState => gameObject.GetOrAddComponentWithInject<CheckMatchState>();
 
         private void Awake()
         {

@@ -14,11 +14,6 @@ namespace LOP
         [Inject]
         private IUserDataStore userDataStore;
 
-        private void Awake()
-        {
-            SceneLifetimeScope.Inject(this);
-        }
-
         public override IState GetNext<I>(I input)
         {
             if (input is not MatchStateInput matchStateInput)
@@ -28,9 +23,9 @@ namespace LOP
 
             return matchStateInput switch
             {
-                MatchStateInput.CancelMatchmaking => gameObject.GetOrAddComponent<CancelMatchmaking>(),
-                MatchStateInput.InGameRoom => gameObject.GetOrAddComponent<InGameRoom>(),
-                MatchStateInput.Idle => gameObject.GetOrAddComponent<Idle>(),
+                MatchStateInput.CancelMatchmaking => gameObject.GetOrAddComponentWithInject<CancelMatchmaking>(),
+                MatchStateInput.InGameRoom => gameObject.GetOrAddComponentWithInject<InGameRoom>(),
+                MatchStateInput.Idle => gameObject.GetOrAddComponentWithInject<Idle>(),
                 _ => throw new ArgumentException($"Invalid transition: {GetType().Name} with {matchStateInput}")
             };
         }

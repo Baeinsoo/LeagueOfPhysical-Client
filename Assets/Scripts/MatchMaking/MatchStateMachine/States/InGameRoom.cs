@@ -14,11 +14,6 @@ namespace LOP
         [Inject]
         private IUserDataStore userDataStore;
 
-        private void Awake()
-        {
-            SceneLifetimeScope.Inject(this);
-        }
-
         public override IState GetNext<I>(I input)
         {
             if (input is not MatchStateInput matchStateInput)
@@ -40,7 +35,7 @@ namespace LOP
 
             while (true)
             {
-                yield return new RoomConnector().TryToEnterRoomById(gameRoomLocationDetail.gameRoomId).AsIEnumerator();
+                yield return SceneLifetimeScope.Resolve<RoomConnector>().TryToEnterRoomById(gameRoomLocationDetail.gameRoomId).AsIEnumerator();
 
                 yield return new WaitForSeconds(CHECK_INTERVAL);
             }

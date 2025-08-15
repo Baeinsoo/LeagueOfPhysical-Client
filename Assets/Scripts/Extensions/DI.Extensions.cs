@@ -1,19 +1,23 @@
 using UnityEngine;
-using VContainer.Unity;
+using VContainer;
 
 namespace LOP
 {
     public static partial class Extensions
     {
-        public static T AddComponentWithDI<T>(this GameObject self) where T : Component
+        public static T GetOrAddComponentWithInject<T>(this GameObject self) where T : Component
         {
-            return AddComponentWithDI<T>(self, SceneLifetimeScope.instance);
+            return GetOrAddComponentWithInject<T>(self, SceneLifetimeScope.instance.Container);
         }
 
-        public static T AddComponentWithDI<T>(this GameObject self, LifetimeScope scope) where T : Component
+        public static T GetOrAddComponentWithInject<T>(this GameObject self, IObjectResolver objectResolver) where T : Component
         {
-            var component = self.AddComponent<T>();
-            scope.Container.Inject(component);
+            T component = self.GetComponent<T>();
+            if (component == null)
+            {
+                component = self.AddComponent<T>();
+                objectResolver.Inject(component);
+            }
             return component;
         }
     }

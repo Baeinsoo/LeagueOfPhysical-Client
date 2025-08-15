@@ -1,11 +1,15 @@
 using GameFramework;
 using LOP.Event.Entity;
 using UnityEngine;
+using VContainer;
 
 namespace LOP
 {
     public abstract class Action : LOPComponent, IInitializable<string>
     {
+        [Inject]
+        private IMasterDataManager masterDataManager;
+
         public bool isActive { get; protected set; }
         public string actionCode { get; private set; }
         public MasterData.Action masterData { get; private set; }
@@ -25,7 +29,7 @@ namespace LOP
         public virtual void Initialize(string actionCode)
         {
             this.actionCode = actionCode;
-            this.masterData = SceneLifetimeScope.Resolve<IMasterDataManager>().GetMasterData<MasterData.Action>(actionCode);
+            this.masterData = masterDataManager.GetMasterData<MasterData.Action>(actionCode);
             this.initialized = true;
         }
 

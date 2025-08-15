@@ -26,6 +26,8 @@ namespace LOP
                 .As<IDataStore>()
                 .AsSelf();
 
+            builder.Register<RoomConnector>(Lifetime.Transient);
+
             #region RegisterBuildCallback
             builder.RegisterBuildCallback(container =>
             {

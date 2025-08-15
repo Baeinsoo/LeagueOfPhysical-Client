@@ -10,6 +10,9 @@ namespace LOP
         [Inject]
         private IMasterDataManager masterDataManager;
 
+        [Inject]
+        private IObjectResolver objectResolver;
+
         public bool TryExecuteAction(LOPEntity entity, string actionCode)
         {
             if (entity == null)
@@ -53,6 +56,7 @@ namespace LOP
                 var actionType = System.Type.GetType($"LOP.{actionMasterData.Class}");
 
                 action = entity.gameObject.AddComponent(actionType) as Action;
+                objectResolver.Inject(action);
                 entity.AttachEntityComponent(action);
 
                 action.Initialize(actionCode);

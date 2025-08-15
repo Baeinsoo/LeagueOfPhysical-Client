@@ -18,7 +18,7 @@ namespace LOP
             switch (matchStateInput)
             {
                 case MatchStateInput.RequestMatchmaking:
-                    return gameObject.GetOrAddComponent<RequestMatchmaking>();
+                    return gameObject.GetOrAddComponentWithInject<RequestMatchmaking>();
             }
 
             throw new ArgumentException($"Invalid transition: {GetType().Name} with {matchStateInput}");

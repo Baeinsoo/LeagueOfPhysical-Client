@@ -3,11 +3,15 @@ using LOP.Event.LOPGameEngine.Update;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using VContainer;
 
 namespace LOP
 {
     public class SnapReconciler : MonoBehaviour
     {
+        [Inject]
+        private IGameEngine gameEngine;
+
         public LOPEntity entity { get; set; }
         public LOPEntityView entityView { get; set; }
 
@@ -32,13 +36,16 @@ namespace LOP
             serverInputSequences = new CircularBuffer<InputSequence>(50);
             localInputSequences = new CircularBuffer<InputSequence>(50);
             entityTransformSnaps = new BoundedDictionary<long, EntityTransform>(20);
+        }
 
-            SceneLifetimeScope.Resolve<IGameEngine>().AddListener(this);  //  addto(this);
+        private void Start()
+        {
+            gameEngine.AddListener(this);  //  addto(this);
         }
 
         private void OnDestroy()
         {
-            SceneLifetimeScope.Resolve<IGameEngine>().RemoveListener(this);
+            gameEngine.RemoveListener(this);
         }
 
         [GameEngineListen(typeof(Begin))]

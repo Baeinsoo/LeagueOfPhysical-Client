@@ -13,6 +13,13 @@ namespace LOP
         private const int DEFAULT_RETRY_COUNT = 10;
         private const int RETRY_INTERVAL_MILLISECONDS = 1000;
 
+        private IRoomDataStore roomDataStore;
+
+        public RoomConnector(IRoomDataStore roomDataStore)
+        {
+            this.roomDataStore = roomDataStore;
+        }
+
         public async Task<bool> TryToEnterRoomById(string roomId, int retryCount = DEFAULT_RETRY_COUNT)
         {
             for (int attempt = 0; attempt < retryCount; attempt++)

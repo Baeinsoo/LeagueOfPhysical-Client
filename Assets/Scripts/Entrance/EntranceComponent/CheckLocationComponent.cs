@@ -11,8 +11,14 @@ namespace LOP
 {
     public class CheckLocationComponent : IEntranceComponent
     {
-        [Inject]
         private IUserDataStore userDataStore;
+        private RoomConnector roomConnector;
+
+        public CheckLocationComponent(IUserDataStore userDataStore, RoomConnector roomConnector)
+        {
+            this.userDataStore = userDataStore;
+            this.roomConnector = roomConnector;
+        }
 
         public async Task Execute()
         {
@@ -27,7 +33,7 @@ namespace LOP
             {
                 case Location.GameRoom:
                     var roomId = (userDataStore.userLocation.locationDetail as GameRoomLocationDetail).gameRoomId;
-                    await SceneLifetimeScope.Resolve<RoomConnector>().TryToEnterRoomById(roomId);
+                    await roomConnector.TryToEnterRoomById(roomId);
                     break;
 
                 case Location.WaitingRoom:

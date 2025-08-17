@@ -10,6 +10,7 @@ namespace LOP
         [Inject] private IPlayerContext playerContext;
         [Inject] private IGameDataStore gameDataStore;
         [Inject] private IGameEngine gameEngine;
+        [Inject] private IActionManager actionManager;
 
         public void Register()
         {
@@ -17,6 +18,7 @@ namespace LOP
             EventBus.Default.Subscribe<EntitySpawnToC>(nameof(IMessage), OnEntitySpawnToC);
             EventBus.Default.Subscribe<EntityDespawnToC>(nameof(IMessage), OnEntityDespawnToC);
             EventBus.Default.Subscribe<ActionStartToC>(nameof(IMessage), OnActionStartToC);
+            EventBus.Default.Subscribe<ActionEndToC>(nameof(IMessage), OnActionEndToC);
             EventBus.Default.Subscribe<UserEntitySnapToC>(nameof(IMessage), OnUserEntitySnapToC);
         }
 
@@ -26,6 +28,7 @@ namespace LOP
             EventBus.Default.Unsubscribe<EntitySpawnToC>(nameof(IMessage), OnEntitySpawnToC);
             EventBus.Default.Unsubscribe<EntityDespawnToC>(nameof(IMessage), OnEntityDespawnToC);
             EventBus.Default.Unsubscribe<ActionStartToC>(nameof(IMessage), OnActionStartToC);
+            EventBus.Default.Unsubscribe<ActionEndToC>(nameof(IMessage), OnActionEndToC);
             EventBus.Default.Unsubscribe<UserEntitySnapToC>(nameof(IMessage), OnUserEntitySnapToC);
         }
 
@@ -133,7 +136,20 @@ namespace LOP
 
             if (gameEngine.entityManager.TryGetEntity<LOPEntity>(actionStartToC.EntityId, out var entity))
             {
-                EventBus.Default.Publish(EventTopic.EntityId<LOPEntity>(entity.entityId), new ActionStart(actionStartToC.ActionCode));
+                actionManager.TryStartAction(entity, actionStartToC.ActionCode);
+            }
+        }
+
+        private void OnActionEndToC(ActionEndToC actionEndToC)
+        {
+            if (playerContext.entity != null && playerContext.entity.entityId == actionEndToC.EntityId)
+            {
+                return;
+            }
+
+            if (gameEngine.entityManager.TryGetEntity<LOPEntity>(actionEndToC.EntityId, out var entity))
+            {
+                actionManager.TryEndAction(entity, actionEndToC.ActionCode);
             }
         }
 

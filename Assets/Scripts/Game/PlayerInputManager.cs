@@ -84,7 +84,7 @@ namespace LOP
 
             if (string.IsNullOrEmpty(playerInput.actionCode) == false)
             {
-                actionManager.TryExecuteAction(playerContext.entity, playerInput.actionCode);
+                actionManager.TryStartAction(playerContext.entity, playerInput.actionCode);
             }
         }
 

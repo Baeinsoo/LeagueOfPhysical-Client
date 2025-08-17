@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+message ActionData
+{
+	string actionCode = 1;
+	bool isActive = 2;
+	double remainCooldown = 3;
+	int64 startTick = 4;
+}

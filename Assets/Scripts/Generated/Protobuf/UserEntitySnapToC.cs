@@ -22,14 +22,15 @@ public static partial class UserEntitySnapToCReflection {
   static UserEntitySnapToCReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "ChdVc2VyRW50aXR5U25hcFRvQy5wcm90byJ6ChFVc2VyRW50aXR5U25hcFRv",
-          "QxINCgVtYXhIUBgBIAEoBRIRCgljdXJyZW50SFAYAiABKAUSDQoFbWF4TVAY",
-          "AyABKAUSEQoJY3VycmVudE1QGAQgASgFEg0KBWxldmVsGAUgASgFEhIKCmN1",
-          "cnJlbnRFeHAYBiABKANiBnByb3RvMw=="));
+          "ChdVc2VyRW50aXR5U25hcFRvQy5wcm90bxoQQWN0aW9uRGF0YS5wcm90byKd",
+          "AQoRVXNlckVudGl0eVNuYXBUb0MSDQoFbWF4SFAYASABKAUSEQoJY3VycmVu",
+          "dEhQGAIgASgFEg0KBW1heE1QGAMgASgFEhEKCWN1cnJlbnRNUBgEIAEoBRIN",
+          "CgVsZXZlbBgFIAEoBRISCgpjdXJyZW50RXhwGAYgASgDEiEKDGFjdGlvbl9k",
+          "YXRhcxgHIAMoCzILLkFjdGlvbkRhdGFiBnByb3RvMw=="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
-        new pbr::FileDescriptor[] { },
+        new pbr::FileDescriptor[] { global::ActionDataReflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-          new pbr::GeneratedClrTypeInfo(typeof(global::UserEntitySnapToC), global::UserEntitySnapToC.Parser, new[]{ "MaxHP", "CurrentHP", "MaxMP", "CurrentMP", "Level", "CurrentExp" }, null, null, null, null)
+          new pbr::GeneratedClrTypeInfo(typeof(global::UserEntitySnapToC), global::UserEntitySnapToC.Parser, new[]{ "MaxHP", "CurrentHP", "MaxMP", "CurrentMP", "Level", "CurrentExp", "ActionDatas" }, null, null, null, null)
         }));
   }
   #endregion
@@ -80,6 +81,7 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
     currentMP_ = other.currentMP_;
     level_ = other.level_;
     currentExp_ = other.currentExp_;
+    actionDatas_ = other.actionDatas_.Clone();
     _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
   }
 
@@ -161,6 +163,17 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
     }
   }
 
+  /// <summary>Field number for the "action_datas" field.</summary>
+  public const int ActionDatasFieldNumber = 7;
+  private static readonly pb::FieldCodec<global::ActionData> _repeated_actionDatas_codec
+      = pb::FieldCodec.ForMessage(58, global::ActionData.Parser);
+  private readonly pbc::RepeatedField<global::ActionData> actionDatas_ = new pbc::RepeatedField<global::ActionData>();
+  [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+  [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+  public pbc::RepeatedField<global::ActionData> ActionDatas {
+    get { return actionDatas_; }
+  }
+
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public override bool Equals(object other) {
@@ -182,6 +195,7 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
     if (CurrentMP != other.CurrentMP) return false;
     if (Level != other.Level) return false;
     if (CurrentExp != other.CurrentExp) return false;
+    if(!actionDatas_.Equals(other.actionDatas_)) return false;
     return Equals(_unknownFields, other._unknownFields);
   }
 
@@ -195,6 +209,7 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
     if (CurrentMP != 0) hash ^= CurrentMP.GetHashCode();
     if (Level != 0) hash ^= Level.GetHashCode();
     if (CurrentExp != 0L) hash ^= CurrentExp.GetHashCode();
+    hash ^= actionDatas_.GetHashCode();
     if (_unknownFields != null) {
       hash ^= _unknownFields.GetHashCode();
     }
@@ -237,6 +252,7 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
       output.WriteRawTag(48);
       output.WriteInt64(CurrentExp);
     }
+    actionDatas_.WriteTo(output, _repeated_actionDatas_codec);
     if (_unknownFields != null) {
       _unknownFields.WriteTo(output);
     }
@@ -271,6 +287,7 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
       output.WriteRawTag(48);
       output.WriteInt64(CurrentExp);
     }
+    actionDatas_.WriteTo(ref output, _repeated_actionDatas_codec);
     if (_unknownFields != null) {
       _unknownFields.WriteTo(ref output);
     }
@@ -299,6 +316,7 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
     if (CurrentExp != 0L) {
       size += 1 + pb::CodedOutputStream.ComputeInt64Size(CurrentExp);
     }
+    size += actionDatas_.CalculateSize(_repeated_actionDatas_codec);
     if (_unknownFields != null) {
       size += _unknownFields.CalculateSize();
     }
@@ -329,6 +347,7 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
     if (other.CurrentExp != 0L) {
       CurrentExp = other.CurrentExp;
     }
+    actionDatas_.Add(other.actionDatas_);
     _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
   }
 
@@ -372,6 +391,10 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
           CurrentExp = input.ReadInt64();
           break;
         }
+        case 58: {
+          actionDatas_.AddEntriesFrom(input, _repeated_actionDatas_codec);
+          break;
+        }
       }
     }
   #endif
@@ -413,6 +436,10 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
         }
         case 48: {
           CurrentExp = input.ReadInt64();
+          break;
+        }
+        case 58: {
+          actionDatas_.AddEntriesFrom(ref input, _repeated_actionDatas_codec);
           break;
         }
       }

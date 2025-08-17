@@ -19,10 +19,10 @@ namespace LOP
 
         protected override void OnDestroy()
         {
-            base.OnDestroy();
-
             EventBus.Default.Unsubscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
             gameEngine.RemoveListener(this);
+
+            base.OnDestroy();
         }
 
         private void OnPropertyChange(PropertyChange propertyChange)

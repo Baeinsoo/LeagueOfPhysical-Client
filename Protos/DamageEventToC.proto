@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+// @auto_generate 
+message DamageEventToC
+{
+	int64 tick = 1;
+	string attackerId = 2;
+	string targetId = 3;
+	string actionCode = 4;
+	string damageType = 5;
+	int64 damage = 6;
+	bool isCritical = 7;
+	bool isDodged = 8;
+	bool isBlocked = 9;
+	int64 remainingHP = 10;
+	bool isDead = 11;
+}

@@ -97,7 +97,7 @@ namespace LOP
                 return;
             }
 
-            if (actionStart.actionCode == "attack_001")
+            if (actionStart.actionCode.Contains("attack_001"))
             {
                 visualGameObject.GetComponent<Animator>().SetTrigger("Attack 01");
                 visualGameObject.GetComponent<Animator>().SetTrigger("Attack");

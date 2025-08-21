@@ -17,6 +17,9 @@ namespace LOP
         [Inject]
         private PlayerInputManager playerInputManager;
 
+        [Inject]
+        private IPlayerContext playerContext;
+
         private void Start()
         {
             jumpButton.onClick.AddListener(OnJumpButtonClick);
@@ -50,7 +53,18 @@ namespace LOP
 
         private void OnAttackButtonClick()
         {
-            playerInputManager.SetActionCode("attack_001");
+            switch (playerContext.entity.GetComponent<AppearanceComponent>().visualId)
+            {
+                case "Assets/Art/Characters/Knight/Knight.prefab":
+                    playerInputManager.SetActionCode("knight_attack_001");
+                    break;
+                case "Assets/Art/Characters/Archer/Archer.prefab":
+                    playerInputManager.SetActionCode("archer_attack_001");
+                    break;
+                case "Assets/Art/Characters/Necromancer/Necromancer.prefab":
+                    playerInputManager.SetActionCode("necromancer_attack_001");
+                    break;
+            }
         }
     }
 }

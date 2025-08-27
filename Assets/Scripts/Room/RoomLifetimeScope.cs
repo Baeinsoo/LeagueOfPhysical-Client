@@ -12,7 +12,6 @@ namespace LOP
         [SerializeField] private LOPGame game;
         [SerializeField] private LOPGameEngine gameEngine;
         [SerializeField] private CameraController cameraController;
-        [SerializeField] private LOPEntityManager entityManager;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -23,7 +22,6 @@ namespace LOP
             builder.RegisterComponent(game).As<IGame>();
             builder.RegisterComponent(gameEngine).As<IGameEngine>();
             builder.RegisterComponent(cameraController);
-            builder.RegisterComponent(entityManager).As<IEntityManager>();
 
             builder.Register<IRoomMessageHandler, GameMessageHandler>(Lifetime.Transient);
             

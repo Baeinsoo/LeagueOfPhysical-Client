@@ -2102,7 +2102,6 @@ MonoBehaviour:
   game: {fileID: 690142452}
   gameEngine: {fileID: 1216527341}
   cameraController: {fileID: 1835644557}
-  entityManager: {fileID: 1216527343}
 --- !u!4 &1390053276
 Transform:
   m_ObjectHideFlags: 0

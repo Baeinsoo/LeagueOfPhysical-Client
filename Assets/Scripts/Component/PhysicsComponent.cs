@@ -44,9 +44,11 @@ namespace LOP
             entityColliders = new Collider[] { capsuleCollider };
         }
 
-        private void OnDestroy()
+        public override void OnDetach()
         {
             EventBus.Default.Unsubscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
+
+            base.OnDetach();
         }
 
         private void OnPropertyChange(PropertyChange propertyChange)

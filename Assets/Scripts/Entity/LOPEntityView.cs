@@ -39,7 +39,7 @@ namespace LOP
             }
         }
 
-        protected override void OnDestroy()
+        public override void Cleanup()
         {
             EventBus.Default.Unsubscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
             EventBus.Default.Unsubscribe<ActionStart>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnActionStart);
@@ -54,7 +54,7 @@ namespace LOP
                 Destroy(_visualGameObject);
             }
 
-            base.OnDestroy();
+            base.Cleanup();
         }
 
         private void OnPropertyChange(PropertyChange propertyChange)

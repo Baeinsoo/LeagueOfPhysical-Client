@@ -7,7 +7,7 @@ using VContainer;
 
 namespace LOP
 {
-    public class ServerStateReconciler : MonoBehaviour
+    public class ServerStateReconciler : MonoBehaviour, ICleanup
     {
         [Inject]
         private IGameEngine gameEngine;
@@ -38,7 +38,7 @@ namespace LOP
             gameEngine.AddListener(this);  //  addto(this);
         }
 
-        private void OnDestroy()
+        public void Cleanup()
         {
             gameEngine.RemoveListener(this);
         }

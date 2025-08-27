@@ -17,12 +17,12 @@ namespace LOP
             EventBus.Default.Subscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
         }
 
-        protected override void OnDestroy()
+        public override void Cleanup()
         {
             EventBus.Default.Unsubscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
             gameEngine.RemoveListener(this);
 
-            base.OnDestroy();
+            base.Cleanup();
         }
 
         private void OnPropertyChange(PropertyChange propertyChange)

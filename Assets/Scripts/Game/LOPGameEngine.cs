@@ -8,6 +8,8 @@ namespace LOP
 {
     public class LOPGameEngine : GameEngineBase
     {
+        public new LOPEntityManager entityManager => base.entityManager as LOPEntityManager;
+
         public override void UpdateEngine()
         {
             BeginUpdate();
@@ -83,6 +85,8 @@ namespace LOP
         private void EndUpdate()
         {
             DispatchEvent<End>();
+
+            entityManager.DestroyMarkedEntities();
         }
     }
 }

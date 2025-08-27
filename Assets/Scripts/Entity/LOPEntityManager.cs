@@ -9,6 +9,7 @@ namespace LOP
     public class LOPEntityManager : MonoBehaviour, IEntityManager
     {
         private Dictionary<string, IEntity> entityMap = new Dictionary<string, IEntity>();
+        private HashSet<string> entitiesToDestroy = new HashSet<string>();
 
         public IEntity GetEntity(string entityId)
         {
@@ -65,11 +66,31 @@ namespace LOP
 
         public void DeleteEntityById(string entityId)
         {
-            LOPEntity lopEntity = entityMap[entityId] as LOPEntity;
+            entitiesToDestroy.Add(entityId);
+        }
 
-            Destroy(lopEntity.transform.parent.gameObject);
+        public void DestroyMarkedEntities()
+        {
+            foreach (var entityId in entitiesToDestroy)
+            {
+                LOPEntity lopEntity = GetEntity<LOPEntity>(entityId);
 
-            entityMap.Remove(entityId);
+                foreach (var component in lopEntity.components.ToArray())
+                {
+                    lopEntity.DetachEntityComponent(component);
+                }
+
+                foreach (var cleanup in lopEntity.transform.parent.GetComponentsInChildren<ICleanup>(true))
+                {
+                    cleanup.Cleanup();
+                }
+
+                Destroy(lopEntity.transform.parent.gameObject);
+
+                entityMap.Remove(entityId);
+            }
+
+            entitiesToDestroy.Clear();
         }
 
         public void UpdateEntities()

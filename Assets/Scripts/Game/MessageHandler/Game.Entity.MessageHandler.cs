@@ -34,7 +34,7 @@ namespace LOP
 
         private void OnEntitySnapsToC(EntitySnapsToC entitySnapsToC)
         {
-            if (gameDataStore.gameInfo == null)
+            if (GameEngine.current == null)
             {
                 return;
             }
@@ -129,6 +129,11 @@ namespace LOP
 
         private void OnActionStartToC(ActionStartToC actionStartToC)
         {
+            if (GameEngine.current == null)
+            {
+                return;
+            }
+
             if (playerContext.entity != null && playerContext.entity.entityId == actionStartToC.EntityId)
             {
                 return;

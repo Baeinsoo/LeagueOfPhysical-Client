@@ -42,4 +42,22 @@ namespace LOP.Event.Entity
             this.position = position;
         }
     }
+
+    public struct EntityDamage
+    {
+        public bool isDodged;
+        public bool isCritical;
+        public long damage;
+        public long remainingHP;
+        public bool isDead;
+
+        public EntityDamage(bool isDodged, bool isCritical, long damage, long remainingHP, bool isDead)
+        {
+            this.isDodged = isDodged;
+            this.isCritical = isCritical;
+            this.damage = damage;
+            this.remainingHP = remainingHP;
+            this.isDead = isDead;
+        }
+    }
 }

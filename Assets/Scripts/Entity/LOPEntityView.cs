@@ -32,6 +32,7 @@ namespace LOP
         {
             EventBus.Default.Subscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
             EventBus.Default.Subscribe<ActionStart>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnActionStart);
+            EventBus.Default.Subscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
 
             if (entity.TryGetEntityComponent<AppearanceComponent>(out var appearanceComponent))
             {
@@ -43,6 +44,7 @@ namespace LOP
         {
             EventBus.Default.Unsubscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
             EventBus.Default.Unsubscribe<ActionStart>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnActionStart);
+            EventBus.Default.Unsubscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
 
             if (asyncOperationHandle.IsValid())
             {
@@ -102,6 +104,20 @@ namespace LOP
                 visualGameObject.GetComponent<Animator>().SetTrigger("Attack 01");
                 visualGameObject.GetComponent<Animator>().SetTrigger("Attack");
                 visualGameObject.GetComponent<Animator>().SetTrigger("Melee Attack");
+            }
+        }
+
+        private void OnEntityDamage(EntityDamage entityDamage)
+        {
+            if (visualGameObject == null)
+            {
+                return;
+            }
+
+            Animator animator = visualGameObject.GetComponent<Animator>();
+            if (animator != null)
+            {
+                animator.SetTrigger("Hit");
             }
         }
 

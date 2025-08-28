@@ -11,5 +11,6 @@ message UserEntitySnapToC
 	int32 currentMP = 4;
 	int32 level = 5;
 	int64 currentExp = 6;
-	repeated ActionData action_datas = 7;
+	int32 statPoints = 7;
+	repeated ActionData action_datas = 8;
 }

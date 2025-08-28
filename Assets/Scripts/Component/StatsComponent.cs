@@ -1,13 +1,51 @@
+using GameFramework;
+using LOP.Event.Entity;
+using System.ComponentModel;
 
 namespace LOP
 {
     public class StatsComponent : LOPComponent
     {
         //  기본 능력치 (Primary Stats)
-        public int strength { get; set; }   //  (힘) 물리 공격력 증가, 장비 착용 조건(무기, 갑옷 등)
-        public int dexterity { get; set; }  //  (민첩) 공격 정확도, 크리티컬, 회피율, 원거리 데미지 증가, 공격속도
-        public int intelligence { get; set; } //  (지능) 마법 공격력 증가, 마나/자원 관련 보너스, 마나량
-        public int vitality { get; set; }   //  (체력) HP 증가, 생존력 강화, 체력 회복
+        private int _strength;  //  (힘) 물리 공격력 증가, 장비 착용 조건(무기, 갑옷 등)
+        public int strength
+        {
+            get => _strength;
+            set
+            {
+                this.SetProperty(ref _strength, value, RaisePropertyChanged);
+            }
+        }
+
+        private int _dexterity; //  (민첩) 공격 정확도, 크리티컬, 회피율, 원거리 데미지 증가, 공격속도
+        public int dexterity
+        {
+            get => _dexterity;
+            set
+            {
+                this.SetProperty(ref _dexterity, value, RaisePropertyChanged);
+            }
+        }
+
+        private int _intelligence; //  (지능) 마법 공격력 증가, 마나/자원 관련 보너스, 마나량
+        public int intelligence
+        {
+            get => _intelligence;
+            set
+            {
+                this.SetProperty(ref _intelligence, value, RaisePropertyChanged);
+            }
+        }
+
+        private int _vitality; //  (체력) HP 증가, 생존력 강화, 체력 회복
+        public int vitality
+        {
+            get => _vitality;
+            set
+            {
+                this.SetProperty(ref _vitality, value, RaisePropertyChanged);
+            }
+        }
 
         //  전투 관련 스탯 (Combat Stats)
         public int attackPower { get; set; } //  기본 공격력(물리, 원소 포함)
@@ -51,6 +89,11 @@ namespace LOP
         public int elementalDamageBonus { get; set; } //  특정 속성 데미지 증가 (불, 냉기 등)
         public int pierce { get; set; } //  방어력, 저항력 관통
         public int thorns { get; set; } //  피격 시 반사 데미지
+
+        public void RaisePropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            EventBus.Default.Publish(EventTopic.EntityId<LOPEntity>(entity.entityId), new PropertyChange(e.PropertyName));
+        }
 
         public void Initialize(string characterCode)
         {

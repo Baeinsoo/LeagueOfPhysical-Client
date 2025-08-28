@@ -20,6 +20,7 @@ namespace LOP
             EventBus.Default.Subscribe<ActionStartToC>(nameof(IMessage), OnActionStartToC);
             EventBus.Default.Subscribe<ActionEndToC>(nameof(IMessage), OnActionEndToC);
             EventBus.Default.Subscribe<UserEntitySnapToC>(nameof(IMessage), OnUserEntitySnapToC);
+            EventBus.Default.Subscribe<StatAllocationToC>(nameof(IMessage), OnStatAllocationToC);
         }
 
         public void Unregister()
@@ -30,6 +31,7 @@ namespace LOP
             EventBus.Default.Unsubscribe<ActionStartToC>(nameof(IMessage), OnActionStartToC);
             EventBus.Default.Unsubscribe<ActionEndToC>(nameof(IMessage), OnActionEndToC);
             EventBus.Default.Unsubscribe<UserEntitySnapToC>(nameof(IMessage), OnUserEntitySnapToC);
+            EventBus.Default.Unsubscribe<StatAllocationToC>(nameof(IMessage), OnStatAllocationToC);
         }
 
         private void OnEntitySnapsToC(EntitySnapsToC entitySnapsToC)
@@ -171,6 +173,30 @@ namespace LOP
             playerContext.entity.GetComponent<ManaComponent>().maxMP = userEntitySnapToC.MaxMP;
             playerContext.entity.GetComponent<LevelComponent>().currentExp = userEntitySnapToC.CurrentExp;
             playerContext.entity.GetComponent<LevelComponent>().level = userEntitySnapToC.Level;
+            playerContext.entity.GetComponent<UserComponent>().statPoints = userEntitySnapToC.StatPoints;
+        }
+
+        private void OnStatAllocationToC(StatAllocationToC statAllocationToC)
+        {
+            StatsComponent statsComponent = playerContext.entity.GetComponent<StatsComponent>();
+            switch (statAllocationToC.Stat)
+            {
+                case nameof(StatsComponent.strength):
+                    statsComponent.strength = statAllocationToC.StatValue;
+                    break;
+
+                case nameof(StatsComponent.dexterity):
+                    statsComponent.dexterity = statAllocationToC.StatValue;
+                    break;
+
+                case nameof(StatsComponent.intelligence):
+                    statsComponent.intelligence = statAllocationToC.StatValue;
+                    break;
+
+                case nameof(StatsComponent.vitality):
+                    statsComponent.vitality = statAllocationToC.StatValue;
+                    break;
+            }
         }
     }
 }

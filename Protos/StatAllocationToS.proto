@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+// @auto_generate
+message StatAllocationToS
+{
+	string entityId = 1;
+    string stat = 2;
+}

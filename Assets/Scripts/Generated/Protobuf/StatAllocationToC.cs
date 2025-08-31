@@ -22,13 +22,12 @@ public static partial class StatAllocationToCReflection {
   static StatAllocationToCReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "ChdTdGF0QWxsb2NhdGlvblRvQy5wcm90byJIChFTdGF0QWxsb2NhdGlvblRv",
-          "QxIRCgllbnRpdHlfaWQYASABKAkSDAoEc3RhdBgCIAEoCRISCgpzdGF0X3Zh",
-          "bHVlGAMgASgFYgZwcm90bzM="));
+          "ChdTdGF0QWxsb2NhdGlvblRvQy5wcm90byI1ChFTdGF0QWxsb2NhdGlvblRv",
+          "QxIMCgRzdGF0GAEgASgJEhIKCnN0YXRfdmFsdWUYAiABKAViBnByb3RvMw=="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-          new pbr::GeneratedClrTypeInfo(typeof(global::StatAllocationToC), global::StatAllocationToC.Parser, new[]{ "EntityId", "Stat", "StatValue" }, null, null, null, null)
+          new pbr::GeneratedClrTypeInfo(typeof(global::StatAllocationToC), global::StatAllocationToC.Parser, new[]{ "Stat", "StatValue" }, null, null, null, null)
         }));
   }
   #endregion
@@ -73,7 +72,6 @@ public sealed partial class StatAllocationToC : pb::IMessage<StatAllocationToC>
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public StatAllocationToC(StatAllocationToC other) : this() {
-    entityId_ = other.entityId_;
     stat_ = other.stat_;
     statValue_ = other.statValue_;
     _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
@@ -85,20 +83,8 @@ public sealed partial class StatAllocationToC : pb::IMessage<StatAllocationToC>
     return new StatAllocationToC(this);
   }
 
-  /// <summary>Field number for the "entity_id" field.</summary>
-  public const int EntityIdFieldNumber = 1;
-  private string entityId_ = "";
-  [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-  [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-  public string EntityId {
-    get { return entityId_; }
-    set {
-      entityId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-    }
-  }
-
   /// <summary>Field number for the "stat" field.</summary>
-  public const int StatFieldNumber = 2;
+  public const int StatFieldNumber = 1;
   private string stat_ = "";
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -110,7 +96,7 @@ public sealed partial class StatAllocationToC : pb::IMessage<StatAllocationToC>
   }
 
   /// <summary>Field number for the "stat_value" field.</summary>
-  public const int StatValueFieldNumber = 3;
+  public const int StatValueFieldNumber = 2;
   private int statValue_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -136,7 +122,6 @@ public sealed partial class StatAllocationToC : pb::IMessage<StatAllocationToC>
     if (ReferenceEquals(other, this)) {
       return true;
     }
-    if (EntityId != other.EntityId) return false;
     if (Stat != other.Stat) return false;
     if (StatValue != other.StatValue) return false;
     return Equals(_unknownFields, other._unknownFields);
@@ -146,7 +131,6 @@ public sealed partial class StatAllocationToC : pb::IMessage<StatAllocationToC>
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public override int GetHashCode() {
     int hash = 1;
-    if (EntityId.Length != 0) hash ^= EntityId.GetHashCode();
     if (Stat.Length != 0) hash ^= Stat.GetHashCode();
     if (StatValue != 0) hash ^= StatValue.GetHashCode();
     if (_unknownFields != null) {
@@ -167,16 +151,12 @@ public sealed partial class StatAllocationToC : pb::IMessage<StatAllocationToC>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
     output.WriteRawMessage(this);
   #else
-    if (EntityId.Length != 0) {
-      output.WriteRawTag(10);
-      output.WriteString(EntityId);
-    }
     if (Stat.Length != 0) {
-      output.WriteRawTag(18);
+      output.WriteRawTag(10);
       output.WriteString(Stat);
     }
     if (StatValue != 0) {
-      output.WriteRawTag(24);
+      output.WriteRawTag(16);
       output.WriteInt32(StatValue);
     }
     if (_unknownFields != null) {
@@ -189,16 +169,12 @@ public sealed partial class StatAllocationToC : pb::IMessage<StatAllocationToC>
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-    if (EntityId.Length != 0) {
-      output.WriteRawTag(10);
-      output.WriteString(EntityId);
-    }
     if (Stat.Length != 0) {
-      output.WriteRawTag(18);
+      output.WriteRawTag(10);
       output.WriteString(Stat);
     }
     if (StatValue != 0) {
-      output.WriteRawTag(24);
+      output.WriteRawTag(16);
       output.WriteInt32(StatValue);
     }
     if (_unknownFields != null) {
@@ -211,9 +187,6 @@ public sealed partial class StatAllocationToC : pb::IMessage<StatAllocationToC>
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public int CalculateSize() {
     int size = 0;
-    if (EntityId.Length != 0) {
-      size += 1 + pb::CodedOutputStream.ComputeStringSize(EntityId);
-    }
     if (Stat.Length != 0) {
       size += 1 + pb::CodedOutputStream.ComputeStringSize(Stat);
     }
@@ -231,9 +204,6 @@ public sealed partial class StatAllocationToC : pb::IMessage<StatAllocationToC>
   public void MergeFrom(StatAllocationToC other) {
     if (other == null) {
       return;
-    }
-    if (other.EntityId.Length != 0) {
-      EntityId = other.EntityId;
     }
     if (other.Stat.Length != 0) {
       Stat = other.Stat;
@@ -261,14 +231,10 @@ public sealed partial class StatAllocationToC : pb::IMessage<StatAllocationToC>
           _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
           break;
         case 10: {
-          EntityId = input.ReadString();
-          break;
-        }
-        case 18: {
           Stat = input.ReadString();
           break;
         }
-        case 24: {
+        case 16: {
           StatValue = input.ReadInt32();
           break;
         }
@@ -292,14 +258,10 @@ public sealed partial class StatAllocationToC : pb::IMessage<StatAllocationToC>
           _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
           break;
         case 10: {
-          EntityId = input.ReadString();
-          break;
-        }
-        case 18: {
           Stat = input.ReadString();
           break;
         }
-        case 24: {
+        case 16: {
           StatValue = input.ReadInt32();
           break;
         }

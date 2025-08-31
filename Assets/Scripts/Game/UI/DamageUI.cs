@@ -40,11 +40,6 @@ namespace LOP
             rectTransform = GetComponent<RectTransform>();
         }
 
-        private void OnDestroy()
-        {
-            Debug.Log($"DamageUI for entity index {index} is being destroyed.");
-        }
-
         public void Clear()
         {
             index = 0;

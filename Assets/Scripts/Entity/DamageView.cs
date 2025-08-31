@@ -12,8 +12,6 @@ namespace LOP
         private const int MAX_DAMAGE_UI = 4;
         private List<DamageUI> damageUIs = new List<DamageUI>();
 
-        private bool isCleanup = false;
-
         private void Awake()
         {
             for (int i = 0; i < MAX_DAMAGE_UI; i++)
@@ -31,9 +29,6 @@ namespace LOP
 
         public override void Cleanup()
         {
-            Debug.Log($"DamageView Cleanup. EntityId: {entity.entityId}");
-            isCleanup = true;
-
             EventBus.Default.Unsubscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
 
             foreach (var damageUI in damageUIs)
@@ -50,8 +45,6 @@ namespace LOP
 
         private void OnEntityDamage(EntityDamage entityDamage)
         {
-            if (isCleanup) return;
-
             List<DamageUI> activeUIs = damageUIs.FindAll(d => d.isActive);
             foreach (var activeUI in activeUIs)
             {
@@ -68,7 +61,7 @@ namespace LOP
             targetUI.Clear();
 
             Canvas canvas = Object.FindFirstObjectByType<Canvas>();
-            string text = entityDamage.isDodged ? "회피"
+            string text = entityDamage.isDodged ? "Dodge"
                 : entityDamage.isCritical ? "Critical!\n" + entityDamage.damage
                 : entityDamage.damage.ToString();
 

@@ -109,7 +109,7 @@ namespace LOP
 
         private void OnEntityDamage(EntityDamage entityDamage)
         {
-            if (visualGameObject == null)
+            if (visualGameObject == null || entityDamage.isDodged)
             {
                 return;
             }

@@ -23,14 +23,14 @@ public static partial class PlayerInputToSReflection {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
           "ChRQbGF5ZXJJbnB1dFRvUy5wcm90bxoRUGxheWVySW5wdXQucHJvdG8aFFBy",
-          "b3RvVHJhbnNmb3JtLnByb3RvIn0KDlBsYXllcklucHV0VG9TEhAKCGVudGl0",
-          "eUlkGAEgASgJEgwKBHRpY2sYAiABKAMSIQoLcGxheWVySW5wdXQYAyABKAsy",
-          "DC5QbGF5ZXJJbnB1dBIoCg9lbnRpdHlUcmFuc2Zvcm0YBCABKAsyDy5Qcm90",
-          "b1RyYW5zZm9ybWIGcHJvdG8z"));
+          "b3RvVHJhbnNmb3JtLnByb3RvIoEBCg5QbGF5ZXJJbnB1dFRvUxISCgpzZXNz",
+          "aW9uX2lkGAEgASgJEgwKBHRpY2sYAiABKAMSIgoMcGxheWVyX2lucHV0GAMg",
+          "ASgLMgwuUGxheWVySW5wdXQSKQoQZW50aXR5X3RyYW5zZm9ybRgEIAEoCzIP",
+          "LlByb3RvVHJhbnNmb3JtYgZwcm90bzM="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { global::PlayerInputReflection.Descriptor, global::ProtoTransformReflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-          new pbr::GeneratedClrTypeInfo(typeof(global::PlayerInputToS), global::PlayerInputToS.Parser, new[]{ "EntityId", "Tick", "PlayerInput", "EntityTransform" }, null, null, null, null)
+          new pbr::GeneratedClrTypeInfo(typeof(global::PlayerInputToS), global::PlayerInputToS.Parser, new[]{ "SessionId", "Tick", "PlayerInput", "EntityTransform" }, null, null, null, null)
         }));
   }
   #endregion
@@ -75,7 +75,7 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public PlayerInputToS(PlayerInputToS other) : this() {
-    entityId_ = other.entityId_;
+    sessionId_ = other.sessionId_;
     tick_ = other.tick_;
     playerInput_ = other.playerInput_ != null ? other.playerInput_.Clone() : null;
     entityTransform_ = other.entityTransform_ != null ? other.entityTransform_.Clone() : null;
@@ -88,15 +88,15 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
     return new PlayerInputToS(this);
   }
 
-  /// <summary>Field number for the "entityId" field.</summary>
-  public const int EntityIdFieldNumber = 1;
-  private string entityId_ = "";
+  /// <summary>Field number for the "session_id" field.</summary>
+  public const int SessionIdFieldNumber = 1;
+  private string sessionId_ = "";
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-  public string EntityId {
-    get { return entityId_; }
+  public string SessionId {
+    get { return sessionId_; }
     set {
-      entityId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      sessionId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
     }
   }
 
@@ -112,7 +112,7 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
     }
   }
 
-  /// <summary>Field number for the "playerInput" field.</summary>
+  /// <summary>Field number for the "player_input" field.</summary>
   public const int PlayerInputFieldNumber = 3;
   private global::PlayerInput playerInput_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -124,7 +124,7 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
     }
   }
 
-  /// <summary>Field number for the "entityTransform" field.</summary>
+  /// <summary>Field number for the "entity_transform" field.</summary>
   public const int EntityTransformFieldNumber = 4;
   private global::ProtoTransform entityTransform_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -151,7 +151,7 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
     if (ReferenceEquals(other, this)) {
       return true;
     }
-    if (EntityId != other.EntityId) return false;
+    if (SessionId != other.SessionId) return false;
     if (Tick != other.Tick) return false;
     if (!object.Equals(PlayerInput, other.PlayerInput)) return false;
     if (!object.Equals(EntityTransform, other.EntityTransform)) return false;
@@ -162,7 +162,7 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public override int GetHashCode() {
     int hash = 1;
-    if (EntityId.Length != 0) hash ^= EntityId.GetHashCode();
+    if (SessionId.Length != 0) hash ^= SessionId.GetHashCode();
     if (Tick != 0L) hash ^= Tick.GetHashCode();
     if (playerInput_ != null) hash ^= PlayerInput.GetHashCode();
     if (entityTransform_ != null) hash ^= EntityTransform.GetHashCode();
@@ -184,9 +184,9 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
     output.WriteRawMessage(this);
   #else
-    if (EntityId.Length != 0) {
+    if (SessionId.Length != 0) {
       output.WriteRawTag(10);
-      output.WriteString(EntityId);
+      output.WriteString(SessionId);
     }
     if (Tick != 0L) {
       output.WriteRawTag(16);
@@ -210,9 +210,9 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-    if (EntityId.Length != 0) {
+    if (SessionId.Length != 0) {
       output.WriteRawTag(10);
-      output.WriteString(EntityId);
+      output.WriteString(SessionId);
     }
     if (Tick != 0L) {
       output.WriteRawTag(16);
@@ -236,8 +236,8 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public int CalculateSize() {
     int size = 0;
-    if (EntityId.Length != 0) {
-      size += 1 + pb::CodedOutputStream.ComputeStringSize(EntityId);
+    if (SessionId.Length != 0) {
+      size += 1 + pb::CodedOutputStream.ComputeStringSize(SessionId);
     }
     if (Tick != 0L) {
       size += 1 + pb::CodedOutputStream.ComputeInt64Size(Tick);
@@ -260,8 +260,8 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
     if (other == null) {
       return;
     }
-    if (other.EntityId.Length != 0) {
-      EntityId = other.EntityId;
+    if (other.SessionId.Length != 0) {
+      SessionId = other.SessionId;
     }
     if (other.Tick != 0L) {
       Tick = other.Tick;
@@ -298,7 +298,7 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
           _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
           break;
         case 10: {
-          EntityId = input.ReadString();
+          SessionId = input.ReadString();
           break;
         }
         case 16: {
@@ -339,7 +339,7 @@ public sealed partial class PlayerInputToS : pb::IMessage<PlayerInputToS>
           _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
           break;
         case 10: {
-          EntityId = input.ReadString();
+          SessionId = input.ReadString();
           break;
         }
         case 16: {

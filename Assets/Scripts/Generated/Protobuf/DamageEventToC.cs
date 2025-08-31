@@ -22,12 +22,12 @@ public static partial class DamageEventToCReflection {
   static DamageEventToCReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "ChREYW1hZ2VFdmVudFRvQy5wcm90byLaAQoORGFtYWdlRXZlbnRUb0MSDAoE",
-          "dGljaxgBIAEoAxISCgphdHRhY2tlcklkGAIgASgJEhAKCHRhcmdldElkGAMg",
-          "ASgJEhIKCmFjdGlvbkNvZGUYBCABKAkSEgoKZGFtYWdlVHlwZRgFIAEoCRIO",
-          "CgZkYW1hZ2UYBiABKAMSEgoKaXNDcml0aWNhbBgHIAEoCBIQCghpc0RvZGdl",
-          "ZBgIIAEoCBIRCglpc0Jsb2NrZWQYCSABKAgSEwoLcmVtYWluaW5nSFAYCiAB",
-          "KAMSDgoGaXNEZWFkGAsgASgIYgZwcm90bzM="));
+          "ChREYW1hZ2VFdmVudFRvQy5wcm90byLjAQoORGFtYWdlRXZlbnRUb0MSDAoE",
+          "dGljaxgBIAEoAxITCgthdHRhY2tlcl9pZBgCIAEoCRIRCgl0YXJnZXRfaWQY",
+          "AyABKAkSEwoLYWN0aW9uX2NvZGUYBCABKAkSEwoLZGFtYWdlX3R5cGUYBSAB",
+          "KAkSDgoGZGFtYWdlGAYgASgDEhMKC2lzX2NyaXRpY2FsGAcgASgIEhEKCWlz",
+          "X2RvZGdlZBgIIAEoCBISCgppc19ibG9ja2VkGAkgASgIEhQKDHJlbWFpbmlu",
+          "Z19IUBgKIAEoAxIPCgdpc19kZWFkGAsgASgIYgZwcm90bzM="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -108,7 +108,7 @@ public sealed partial class DamageEventToC : pb::IMessage<DamageEventToC>
     }
   }
 
-  /// <summary>Field number for the "attackerId" field.</summary>
+  /// <summary>Field number for the "attacker_id" field.</summary>
   public const int AttackerIdFieldNumber = 2;
   private string attackerId_ = "";
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -120,7 +120,7 @@ public sealed partial class DamageEventToC : pb::IMessage<DamageEventToC>
     }
   }
 
-  /// <summary>Field number for the "targetId" field.</summary>
+  /// <summary>Field number for the "target_id" field.</summary>
   public const int TargetIdFieldNumber = 3;
   private string targetId_ = "";
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -132,7 +132,7 @@ public sealed partial class DamageEventToC : pb::IMessage<DamageEventToC>
     }
   }
 
-  /// <summary>Field number for the "actionCode" field.</summary>
+  /// <summary>Field number for the "action_code" field.</summary>
   public const int ActionCodeFieldNumber = 4;
   private string actionCode_ = "";
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -144,7 +144,7 @@ public sealed partial class DamageEventToC : pb::IMessage<DamageEventToC>
     }
   }
 
-  /// <summary>Field number for the "damageType" field.</summary>
+  /// <summary>Field number for the "damage_type" field.</summary>
   public const int DamageTypeFieldNumber = 5;
   private string damageType_ = "";
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -168,7 +168,7 @@ public sealed partial class DamageEventToC : pb::IMessage<DamageEventToC>
     }
   }
 
-  /// <summary>Field number for the "isCritical" field.</summary>
+  /// <summary>Field number for the "is_critical" field.</summary>
   public const int IsCriticalFieldNumber = 7;
   private bool isCritical_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -180,7 +180,7 @@ public sealed partial class DamageEventToC : pb::IMessage<DamageEventToC>
     }
   }
 
-  /// <summary>Field number for the "isDodged" field.</summary>
+  /// <summary>Field number for the "is_dodged" field.</summary>
   public const int IsDodgedFieldNumber = 8;
   private bool isDodged_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -192,7 +192,7 @@ public sealed partial class DamageEventToC : pb::IMessage<DamageEventToC>
     }
   }
 
-  /// <summary>Field number for the "isBlocked" field.</summary>
+  /// <summary>Field number for the "is_blocked" field.</summary>
   public const int IsBlockedFieldNumber = 9;
   private bool isBlocked_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -204,7 +204,7 @@ public sealed partial class DamageEventToC : pb::IMessage<DamageEventToC>
     }
   }
 
-  /// <summary>Field number for the "remainingHP" field.</summary>
+  /// <summary>Field number for the "remaining_HP" field.</summary>
   public const int RemainingHPFieldNumber = 10;
   private long remainingHP_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -216,7 +216,7 @@ public sealed partial class DamageEventToC : pb::IMessage<DamageEventToC>
     }
   }
 
-  /// <summary>Field number for the "isDead" field.</summary>
+  /// <summary>Field number for the "is_dead" field.</summary>
   public const int IsDeadFieldNumber = 11;
   private bool isDead_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

@@ -8,10 +8,10 @@ message CharacterCreationData
 	string character_code = 2;
 	string visual_id = 3;
 
-	int32 maxHP = 4;
-    int32 currentHP = 5;
-	int32 maxMP = 6;
-	int32 currentMP = 7;
+	int32 max_HP = 4;
+    int32 current_HP = 5;
+	int32 max_MP = 6;
+	int32 current_MP = 7;
 	int32 level = 8;
-	int64 currentExp = 9;
+	int64 current_exp = 9;
 }

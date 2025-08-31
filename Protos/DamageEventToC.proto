@@ -4,14 +4,14 @@ syntax = "proto3";
 message DamageEventToC
 {
 	int64 tick = 1;
-	string attackerId = 2;
-	string targetId = 3;
-	string actionCode = 4;
-	string damageType = 5;
+	string attacker_id = 2;
+	string target_id = 3;
+	string action_code = 4;
+	string damage_type = 5;
 	int64 damage = 6;
-	bool isCritical = 7;
-	bool isDodged = 8;
-	bool isBlocked = 9;
-	int64 remainingHP = 10;
-	bool isDead = 11;
+	bool is_critical = 7;
+	bool is_dodged = 8;
+	bool is_blocked = 9;
+	int64 remaining_HP = 10;
+	bool is_dead = 11;
 }

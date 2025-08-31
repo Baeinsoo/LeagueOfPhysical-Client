@@ -5,6 +5,6 @@ import "EntityCreationData.proto";
 message GameInfo {
   int64 tick = 1;
   double interval = 2;
-  double elapsedTime = 3;
+  double elapsed_time = 3;
   repeated EntityCreationData entity_creation_datas = 4;
 }

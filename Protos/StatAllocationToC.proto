@@ -3,7 +3,7 @@ syntax = "proto3";
 // @auto_generate
 message StatAllocationToC
 {
-	string entityId = 1;
+	string entity_id = 1;
     string stat = 2;
-	int32 statValue = 3;
+	int32 stat_value = 3;
 }

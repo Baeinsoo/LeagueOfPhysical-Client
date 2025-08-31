@@ -74,7 +74,7 @@ namespace LOP
 
             StatAllocationToS statAllocationToS = new StatAllocationToS
             {
-                EntityId = playerContext.entity.entityId,
+                SessionId = playerContext.session.sessionId,
                 Stat = nameof(StatsComponent.strength),
             };
 
@@ -90,7 +90,7 @@ namespace LOP
 
             StatAllocationToS statAllocationToS = new StatAllocationToS
             {
-                EntityId = playerContext.entity.entityId,
+                SessionId = playerContext.session.sessionId,
                 Stat = nameof(StatsComponent.dexterity),
             };
 
@@ -106,7 +106,7 @@ namespace LOP
 
             StatAllocationToS statAllocationToS = new StatAllocationToS
             {
-                EntityId = playerContext.entity.entityId,
+                SessionId = playerContext.session.sessionId,
                 Stat = nameof(StatsComponent.intelligence),
             };
 
@@ -122,7 +122,7 @@ namespace LOP
 
             StatAllocationToS statAllocationToS = new StatAllocationToS
             {
-                EntityId = playerContext.entity.entityId,
+                SessionId = playerContext.session.sessionId,
                 Stat = nameof(StatsComponent.vitality),
             };
 

@@ -22,9 +22,9 @@ public static partial class StatAllocationToCReflection {
   static StatAllocationToCReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "ChdTdGF0QWxsb2NhdGlvblRvQy5wcm90byJGChFTdGF0QWxsb2NhdGlvblRv",
-          "QxIQCghlbnRpdHlJZBgBIAEoCRIMCgRzdGF0GAIgASgJEhEKCXN0YXRWYWx1",
-          "ZRgDIAEoBWIGcHJvdG8z"));
+          "ChdTdGF0QWxsb2NhdGlvblRvQy5wcm90byJIChFTdGF0QWxsb2NhdGlvblRv",
+          "QxIRCgllbnRpdHlfaWQYASABKAkSDAoEc3RhdBgCIAEoCRISCgpzdGF0X3Zh",
+          "bHVlGAMgASgFYgZwcm90bzM="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -85,7 +85,7 @@ public sealed partial class StatAllocationToC : pb::IMessage<StatAllocationToC>
     return new StatAllocationToC(this);
   }
 
-  /// <summary>Field number for the "entityId" field.</summary>
+  /// <summary>Field number for the "entity_id" field.</summary>
   public const int EntityIdFieldNumber = 1;
   private string entityId_ = "";
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -109,7 +109,7 @@ public sealed partial class StatAllocationToC : pb::IMessage<StatAllocationToC>
     }
   }
 
-  /// <summary>Field number for the "statValue" field.</summary>
+  /// <summary>Field number for the "stat_value" field.</summary>
   public const int StatValueFieldNumber = 3;
   private int statValue_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

@@ -22,8 +22,8 @@ public static partial class GameInfoToSReflection {
   static GameInfoToSReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "ChFHYW1lSW5mb1RvUy5wcm90byIdCgtHYW1lSW5mb1RvUxIOCgZ1c2VySWQY",
-          "ASABKAliBnByb3RvMw=="));
+          "ChFHYW1lSW5mb1RvUy5wcm90byIeCgtHYW1lSW5mb1RvUxIPCgd1c2VyX2lk",
+          "GAEgASgJYgZwcm90bzM="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -82,7 +82,7 @@ public sealed partial class GameInfoToS : pb::IMessage<GameInfoToS>
     return new GameInfoToS(this);
   }
 
-  /// <summary>Field number for the "userId" field.</summary>
+  /// <summary>Field number for the "user_id" field.</summary>
   public const int UserIdFieldNumber = 1;
   private string userId_ = "";
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

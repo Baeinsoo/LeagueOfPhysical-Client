@@ -2,5 +2,5 @@ syntax = "proto3";
 
 // @auto_generate
 message GameInfoToS {
-	string userId = 1;
+	string user_id = 1;
 }

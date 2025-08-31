@@ -5,6 +5,6 @@ import "InputSequence.proto";
 // @auto_generate 
 message InputSequenceToC
 {
-	string entityId = 1;
-	InputSequence inputSequence = 2;
+	string entity_id = 1;
+	InputSequence input_sequence = 2;
 }

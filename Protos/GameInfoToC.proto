@@ -4,8 +4,8 @@ import "GameInfo.proto";
 
 // @auto_generate
 message GameInfoToC {
-  string entityId = 1;
-  string sessionId = 2;
-  int64 expectedNextSequence = 3;
+  string entity_id = 1;
+  string session_id = 2;
+  int64 expected_next_sequence = 3;
   GameInfo game_info = 4;
 }

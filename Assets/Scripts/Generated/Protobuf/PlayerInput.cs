@@ -22,10 +22,10 @@ public static partial class PlayerInputReflection {
   static PlayerInputReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "ChFQbGF5ZXJJbnB1dC5wcm90byJtCgtQbGF5ZXJJbnB1dBIWCg5zZXF1ZW5j",
-          "ZU51bWJlchgBIAEoAxISCgpob3Jpem9udGFsGAIgASgCEhAKCHZlcnRpY2Fs",
-          "GAMgASgCEgwKBGp1bXAYBCABKAgSEgoKYWN0aW9uQ29kZRgFIAEoCWIGcHJv",
-          "dG8z"));
+          "ChFQbGF5ZXJJbnB1dC5wcm90byJvCgtQbGF5ZXJJbnB1dBIXCg9zZXF1ZW5j",
+          "ZV9udW1iZXIYASABKAMSEgoKaG9yaXpvbnRhbBgCIAEoAhIQCgh2ZXJ0aWNh",
+          "bBgDIAEoAhIMCgRqdW1wGAQgASgIEhMKC2FjdGlvbl9jb2RlGAUgASgJYgZw",
+          "cm90bzM="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -85,7 +85,7 @@ public sealed partial class PlayerInput : pb::IMessage<PlayerInput>
     return new PlayerInput(this);
   }
 
-  /// <summary>Field number for the "sequenceNumber" field.</summary>
+  /// <summary>Field number for the "sequence_number" field.</summary>
   public const int SequenceNumberFieldNumber = 1;
   private long sequenceNumber_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -133,7 +133,7 @@ public sealed partial class PlayerInput : pb::IMessage<PlayerInput>
     }
   }
 
-  /// <summary>Field number for the "actionCode" field.</summary>
+  /// <summary>Field number for the "action_code" field.</summary>
   public const int ActionCodeFieldNumber = 5;
   private string actionCode_ = "";
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

@@ -23,8 +23,8 @@ public static partial class InputSequenceToCReflection {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
           "ChZJbnB1dFNlcXVlbmNlVG9DLnByb3RvGhNJbnB1dFNlcXVlbmNlLnByb3Rv",
-          "IksKEElucHV0U2VxdWVuY2VUb0MSEAoIZW50aXR5SWQYASABKAkSJQoNaW5w",
-          "dXRTZXF1ZW5jZRgCIAEoCzIOLklucHV0U2VxdWVuY2ViBnByb3RvMw=="));
+          "Ik0KEElucHV0U2VxdWVuY2VUb0MSEQoJZW50aXR5X2lkGAEgASgJEiYKDmlu",
+          "cHV0X3NlcXVlbmNlGAIgASgLMg4uSW5wdXRTZXF1ZW5jZWIGcHJvdG8z"));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { global::InputSequenceReflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -84,7 +84,7 @@ public sealed partial class InputSequenceToC : pb::IMessage<InputSequenceToC>
     return new InputSequenceToC(this);
   }
 
-  /// <summary>Field number for the "entityId" field.</summary>
+  /// <summary>Field number for the "entity_id" field.</summary>
   public const int EntityIdFieldNumber = 1;
   private string entityId_ = "";
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -96,7 +96,7 @@ public sealed partial class InputSequenceToC : pb::IMessage<InputSequenceToC>
     }
   }
 
-  /// <summary>Field number for the "inputSequence" field.</summary>
+  /// <summary>Field number for the "input_sequence" field.</summary>
   public const int InputSequenceFieldNumber = 2;
   private global::InputSequence inputSequence_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

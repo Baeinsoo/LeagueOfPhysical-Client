@@ -22,12 +22,12 @@ public static partial class UserEntitySnapToCReflection {
   static UserEntitySnapToCReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "ChdVc2VyRW50aXR5U25hcFRvQy5wcm90bxoQQWN0aW9uRGF0YS5wcm90byKx",
-          "AQoRVXNlckVudGl0eVNuYXBUb0MSDQoFbWF4SFAYASABKAUSEQoJY3VycmVu",
-          "dEhQGAIgASgFEg0KBW1heE1QGAMgASgFEhEKCWN1cnJlbnRNUBgEIAEoBRIN",
-          "CgVsZXZlbBgFIAEoBRISCgpjdXJyZW50RXhwGAYgASgDEhIKCnN0YXRQb2lu",
-          "dHMYByABKAUSIQoMYWN0aW9uX2RhdGFzGAggAygLMgsuQWN0aW9uRGF0YWIG",
-          "cHJvdG8z"));
+          "ChdVc2VyRW50aXR5U25hcFRvQy5wcm90bxoQQWN0aW9uRGF0YS5wcm90byK3",
+          "AQoRVXNlckVudGl0eVNuYXBUb0MSDgoGbWF4X0hQGAEgASgFEhIKCmN1cnJl",
+          "bnRfSFAYAiABKAUSDgoGbWF4X01QGAMgASgFEhIKCmN1cnJlbnRfTVAYBCAB",
+          "KAUSDQoFbGV2ZWwYBSABKAUSEwoLY3VycmVudF9leHAYBiABKAMSEwoLc3Rh",
+          "dF9wb2ludHMYByABKAUSIQoMYWN0aW9uX2RhdGFzGAggAygLMgsuQWN0aW9u",
+          "RGF0YWIGcHJvdG8z"));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { global::ActionDataReflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -93,7 +93,7 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
     return new UserEntitySnapToC(this);
   }
 
-  /// <summary>Field number for the "maxHP" field.</summary>
+  /// <summary>Field number for the "max_HP" field.</summary>
   public const int MaxHPFieldNumber = 1;
   private int maxHP_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -105,7 +105,7 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
     }
   }
 
-  /// <summary>Field number for the "currentHP" field.</summary>
+  /// <summary>Field number for the "current_HP" field.</summary>
   public const int CurrentHPFieldNumber = 2;
   private int currentHP_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -117,7 +117,7 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
     }
   }
 
-  /// <summary>Field number for the "maxMP" field.</summary>
+  /// <summary>Field number for the "max_MP" field.</summary>
   public const int MaxMPFieldNumber = 3;
   private int maxMP_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -129,7 +129,7 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
     }
   }
 
-  /// <summary>Field number for the "currentMP" field.</summary>
+  /// <summary>Field number for the "current_MP" field.</summary>
   public const int CurrentMPFieldNumber = 4;
   private int currentMP_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -153,7 +153,7 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
     }
   }
 
-  /// <summary>Field number for the "currentExp" field.</summary>
+  /// <summary>Field number for the "current_exp" field.</summary>
   public const int CurrentExpFieldNumber = 6;
   private long currentExp_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -165,7 +165,7 @@ public sealed partial class UserEntitySnapToC : pb::IMessage<UserEntitySnapToC>
     }
   }
 
-  /// <summary>Field number for the "statPoints" field.</summary>
+  /// <summary>Field number for the "stat_points" field.</summary>
   public const int StatPointsFieldNumber = 7;
   private int statPoints_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

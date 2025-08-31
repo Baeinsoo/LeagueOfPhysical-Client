@@ -6,8 +6,8 @@ import "ProtoTransform.proto";
 // @auto_generate
 message PlayerInputToS
 {
-	string entityId = 1;
+	string session_id = 1;
 	int64 tick = 2;
-	PlayerInput playerInput = 3;
-	ProtoTransform entityTransform = 4;
+	PlayerInput player_input = 3;
+	ProtoTransform entity_transform = 4;
 }

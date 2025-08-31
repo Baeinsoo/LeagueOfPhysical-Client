@@ -22,10 +22,10 @@ public static partial class GameInfoReflection {
   static GameInfoReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "Cg5HYW1lSW5mby5wcm90bxoYRW50aXR5Q3JlYXRpb25EYXRhLnByb3RvInMK",
-          "CEdhbWVJbmZvEgwKBHRpY2sYASABKAMSEAoIaW50ZXJ2YWwYAiABKAESEwoL",
-          "ZWxhcHNlZFRpbWUYAyABKAESMgoVZW50aXR5X2NyZWF0aW9uX2RhdGFzGAQg",
-          "AygLMhMuRW50aXR5Q3JlYXRpb25EYXRhYgZwcm90bzM="));
+          "Cg5HYW1lSW5mby5wcm90bxoYRW50aXR5Q3JlYXRpb25EYXRhLnByb3RvInQK",
+          "CEdhbWVJbmZvEgwKBHRpY2sYASABKAMSEAoIaW50ZXJ2YWwYAiABKAESFAoM",
+          "ZWxhcHNlZF90aW1lGAMgASgBEjIKFWVudGl0eV9jcmVhdGlvbl9kYXRhcxgE",
+          "IAMoCzITLkVudGl0eUNyZWF0aW9uRGF0YWIGcHJvdG8z"));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { global::EntityCreationDataReflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -108,7 +108,7 @@ public sealed partial class GameInfo : pb::IMessage<GameInfo>
     }
   }
 
-  /// <summary>Field number for the "elapsedTime" field.</summary>
+  /// <summary>Field number for the "elapsed_time" field.</summary>
   public const int ElapsedTimeFieldNumber = 3;
   private double elapsedTime_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

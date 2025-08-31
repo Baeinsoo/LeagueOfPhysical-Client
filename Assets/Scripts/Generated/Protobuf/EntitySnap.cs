@@ -22,10 +22,10 @@ public static partial class EntitySnapReflection {
   static EntitySnapReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "ChBFbnRpdHlTbmFwLnByb3RvGhJQcm90b1ZlY3RvcjMucHJvdG8igQEKCkVu",
-          "dGl0eVNuYXASEAoIZW50aXR5SWQYASABKAkSHwoIcG9zaXRpb24YAiABKAsy",
-          "DS5Qcm90b1ZlY3RvcjMSHwoIcm90YXRpb24YAyABKAsyDS5Qcm90b1ZlY3Rv",
-          "cjMSHwoIdmVsb2NpdHkYBCABKAsyDS5Qcm90b1ZlY3RvcjNiBnByb3RvMw=="));
+          "ChBFbnRpdHlTbmFwLnByb3RvGhJQcm90b1ZlY3RvcjMucHJvdG8iggEKCkVu",
+          "dGl0eVNuYXASEQoJZW50aXR5X2lkGAEgASgJEh8KCHBvc2l0aW9uGAIgASgL",
+          "Mg0uUHJvdG9WZWN0b3IzEh8KCHJvdGF0aW9uGAMgASgLMg0uUHJvdG9WZWN0",
+          "b3IzEh8KCHZlbG9jaXR5GAQgASgLMg0uUHJvdG9WZWN0b3IzYgZwcm90bzM="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { global::ProtoVector3Reflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -84,7 +84,7 @@ public sealed partial class EntitySnap : pb::IMessage<EntitySnap>
     return new EntitySnap(this);
   }
 
-  /// <summary>Field number for the "entityId" field.</summary>
+  /// <summary>Field number for the "entity_id" field.</summary>
   public const int EntityIdFieldNumber = 1;
   private string entityId_ = "";
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

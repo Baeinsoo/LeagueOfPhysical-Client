@@ -44,7 +44,7 @@ namespace LOP
             {
                 PlayerInputToS playerInputToS = new PlayerInputToS();
                 playerInputToS.Tick = GameEngine.Time.tick;
-                playerInputToS.EntityId = playerContext.entity.entityId;
+                playerInputToS.SessionId = playerContext.session.sessionId;
                 playerInputToS.PlayerInput = new global::PlayerInput
                 {
                     SequenceNumber = GenerateSequenceNumber(),

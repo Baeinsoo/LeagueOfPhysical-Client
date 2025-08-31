@@ -23,12 +23,12 @@ public static partial class CharacterCreationDataReflection {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
           "ChtDaGFyYWN0ZXJDcmVhdGlvbkRhdGEucHJvdG8aHEJhc2VFbnRpdHlDcmVh",
-          "dGlvbkRhdGEucHJvdG8i5QEKFUNoYXJhY3RlckNyZWF0aW9uRGF0YRI6Chli",
+          "dGlvbkRhdGEucHJvdG8i6gEKFUNoYXJhY3RlckNyZWF0aW9uRGF0YRI6Chli",
           "YXNlX2VudGl0eV9jcmVhdGlvbl9kYXRhGAEgASgLMhcuQmFzZUVudGl0eUNy",
           "ZWF0aW9uRGF0YRIWCg5jaGFyYWN0ZXJfY29kZRgCIAEoCRIRCgl2aXN1YWxf",
-          "aWQYAyABKAkSDQoFbWF4SFAYBCABKAUSEQoJY3VycmVudEhQGAUgASgFEg0K",
-          "BW1heE1QGAYgASgFEhEKCWN1cnJlbnRNUBgHIAEoBRINCgVsZXZlbBgIIAEo",
-          "BRISCgpjdXJyZW50RXhwGAkgASgDYgZwcm90bzM="));
+          "aWQYAyABKAkSDgoGbWF4X0hQGAQgASgFEhIKCmN1cnJlbnRfSFAYBSABKAUS",
+          "DgoGbWF4X01QGAYgASgFEhIKCmN1cnJlbnRfTVAYByABKAUSDQoFbGV2ZWwY",
+          "CCABKAUSEwoLY3VycmVudF9leHAYCSABKANiBnByb3RvMw=="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { global::BaseEntityCreationDataReflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -128,7 +128,7 @@ public sealed partial class CharacterCreationData : pb::IMessage<CharacterCreati
     }
   }
 
-  /// <summary>Field number for the "maxHP" field.</summary>
+  /// <summary>Field number for the "max_HP" field.</summary>
   public const int MaxHPFieldNumber = 4;
   private int maxHP_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -140,7 +140,7 @@ public sealed partial class CharacterCreationData : pb::IMessage<CharacterCreati
     }
   }
 
-  /// <summary>Field number for the "currentHP" field.</summary>
+  /// <summary>Field number for the "current_HP" field.</summary>
   public const int CurrentHPFieldNumber = 5;
   private int currentHP_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -152,7 +152,7 @@ public sealed partial class CharacterCreationData : pb::IMessage<CharacterCreati
     }
   }
 
-  /// <summary>Field number for the "maxMP" field.</summary>
+  /// <summary>Field number for the "max_MP" field.</summary>
   public const int MaxMPFieldNumber = 6;
   private int maxMP_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -164,7 +164,7 @@ public sealed partial class CharacterCreationData : pb::IMessage<CharacterCreati
     }
   }
 
-  /// <summary>Field number for the "currentMP" field.</summary>
+  /// <summary>Field number for the "current_MP" field.</summary>
   public const int CurrentMPFieldNumber = 7;
   private int currentMP_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -188,7 +188,7 @@ public sealed partial class CharacterCreationData : pb::IMessage<CharacterCreati
     }
   }
 
-  /// <summary>Field number for the "currentExp" field.</summary>
+  /// <summary>Field number for the "current_exp" field.</summary>
   public const int CurrentExpFieldNumber = 9;
   private long currentExp_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

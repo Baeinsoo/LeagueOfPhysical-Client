@@ -22,10 +22,10 @@ public static partial class GameInfoToCReflection {
   static GameInfoToCReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "ChFHYW1lSW5mb1RvQy5wcm90bxoOR2FtZUluZm8ucHJvdG8ibgoLR2FtZUlu",
-          "Zm9Ub0MSEAoIZW50aXR5SWQYASABKAkSEQoJc2Vzc2lvbklkGAIgASgJEhwK",
-          "FGV4cGVjdGVkTmV4dFNlcXVlbmNlGAMgASgDEhwKCWdhbWVfaW5mbxgEIAEo",
-          "CzIJLkdhbWVJbmZvYgZwcm90bzM="));
+          "ChFHYW1lSW5mb1RvQy5wcm90bxoOR2FtZUluZm8ucHJvdG8icgoLR2FtZUlu",
+          "Zm9Ub0MSEQoJZW50aXR5X2lkGAEgASgJEhIKCnNlc3Npb25faWQYAiABKAkS",
+          "HgoWZXhwZWN0ZWRfbmV4dF9zZXF1ZW5jZRgDIAEoAxIcCglnYW1lX2luZm8Y",
+          "BCABKAsyCS5HYW1lSW5mb2IGcHJvdG8z"));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { global::GameInfoReflection.Descriptor, },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -87,7 +87,7 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
     return new GameInfoToC(this);
   }
 
-  /// <summary>Field number for the "entityId" field.</summary>
+  /// <summary>Field number for the "entity_id" field.</summary>
   public const int EntityIdFieldNumber = 1;
   private string entityId_ = "";
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -99,7 +99,7 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
     }
   }
 
-  /// <summary>Field number for the "sessionId" field.</summary>
+  /// <summary>Field number for the "session_id" field.</summary>
   public const int SessionIdFieldNumber = 2;
   private string sessionId_ = "";
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -111,7 +111,7 @@ public sealed partial class GameInfoToC : pb::IMessage<GameInfoToC>
     }
   }
 
-  /// <summary>Field number for the "expectedNextSequence" field.</summary>
+  /// <summary>Field number for the "expected_next_sequence" field.</summary>
   public const int ExpectedNextSequenceFieldNumber = 3;
   private long expectedNextSequence_;
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

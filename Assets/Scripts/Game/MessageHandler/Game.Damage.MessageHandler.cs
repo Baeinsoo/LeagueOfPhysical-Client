@@ -22,19 +22,21 @@ namespace LOP
 
         private async void OnDamageEventToC(DamageEventToC damageEventToC)
         {
-            LOPEntity attackerEntity = gameEngine.entityManager.GetEntity<LOPEntity>(damageEventToC.AttackerId);
-            LOPEntity targetEntity = gameEngine.entityManager.GetEntity<LOPEntity>(damageEventToC.TargetId);
+            return;
 
-            ServerStateReconciler serverStateReconciler = targetEntity.gameObject.GetComponent<ServerStateReconciler>();
-            while (serverStateReconciler != null && serverStateReconciler.currentT < damageEventToC.Tick)
-            {
-                await System.Threading.Tasks.Task.Yield();
-            }
+            //LOPEntity attackerEntity = gameEngine.entityManager.GetEntity<LOPEntity>(damageEventToC.AttackerId);
+            //LOPEntity targetEntity = gameEngine.entityManager.GetEntity<LOPEntity>(damageEventToC.TargetId);
 
-            EventBus.Default.Publish(
-                EventTopic.EntityId<LOPEntity>(targetEntity.entityId),
-                new EntityDamage(damageEventToC.IsDodged, damageEventToC.IsCritical, damageEventToC.Damage, damageEventToC.RemainingHP, damageEventToC.IsDead)
-            );
+            //ServerStateReconciler serverStateReconciler = targetEntity.gameObject.GetComponent<ServerStateReconciler>();
+            //while (serverStateReconciler != null && serverStateReconciler.currentT < damageEventToC.Tick)
+            //{
+            //    await System.Threading.Tasks.Task.Yield();
+            //}
+
+            //EventBus.Default.Publish(
+            //    EventTopic.EntityId<LOPEntity>(targetEntity.entityId),
+            //    new EntityDamage(damageEventToC.IsDodged, damageEventToC.IsCritical, damageEventToC.Damage, damageEventToC.RemainingHP, damageEventToC.IsDead)
+            //);
         }
     }
 }

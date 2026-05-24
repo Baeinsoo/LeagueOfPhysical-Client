@@ -10,14 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 147fb5da6469b4f41b874a256827f349, type: 3}
-  m_Name: EnvironmentSettings.local
+  m_Name: EnvironmentSettings.Local
   m_EditorClassIdentifier: 
   lobbyServerSetting:
     scheme: http
-    host: localhost:1340
+    host: localhost/lobby
   matchmakingServerSetting:
     scheme: http
-    host: localhost:1555
+    host: localhost/matchmaking
   roomServerSetting:
     scheme: http
-    host: localhost:2000
+    host: localhost/room
+  useLocalRoomInstance: 1
+  localRoomHost: localhost
+  localRoomPort: 7777

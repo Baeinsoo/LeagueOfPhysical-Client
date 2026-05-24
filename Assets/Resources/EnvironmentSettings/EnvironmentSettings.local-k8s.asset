@@ -21,3 +21,6 @@ MonoBehaviour:
   roomServerSetting:
     scheme: http
     host: localhost/room
+  useLocalRoomInstance: 0
+  localRoomHost: localhost
+  localRoomPort: 7777

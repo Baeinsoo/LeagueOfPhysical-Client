@@ -88,8 +88,16 @@ namespace LOP
                 EventBus.Default.Publish(nameof(IMessage), message.payload);
             });
 
-            networkManager.networkAddress = roomDataStore.room.ip;
-            networkManager.port = roomDataStore.room.port;
+            if (EnvironmentSettings.active.UseLocalRoomInstance)
+            {
+                networkManager.networkAddress = EnvironmentSettings.active.LocalRoomHost;
+                networkManager.port = EnvironmentSettings.active.LocalRoomPort;
+            }
+            else
+            {
+                networkManager.networkAddress = roomDataStore.room.ip;
+                networkManager.port = roomDataStore.room.port;
+            }
 
             //networkManager.onStartClient += () =>
             //{

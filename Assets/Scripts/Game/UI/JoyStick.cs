@@ -1,6 +1,7 @@
 using GameFramework;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using VContainer;
 
@@ -35,7 +36,7 @@ namespace LOP
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.Space))
+            if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
             {
                 playerInputManager.SetJump(true);
             }

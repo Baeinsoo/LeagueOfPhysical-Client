@@ -1,63 +1,75 @@
+using Cysharp.Threading.Tasks;
 using GameFramework;
 using System;
-using System.Collections;
-using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using VContainer;
 
 namespace LOP
 {
-    public class InWaitingRoom : MonoState
+    public class InWaitingRoom : State<MatchEvent>
     {
         private const int CHECK_INTERVAL = 1;   //  sec
 
-        [Inject]
-        private IUserDataStore userDataStore;
+        private readonly IObjectResolver resolver;
+        private readonly IUserDataStore userDataStore;
 
-        public override IState GetNext<I>(I input)
+        public InWaitingRoom(IObjectResolver resolver, IUserDataStore userDataStore)
         {
-            if (input is not MatchStateInput matchStateInput)
-            {
-                throw new ArgumentException($"Invalid input type. Expected MatchStateInput, got {typeof(I).Name}");
-            }
+            this.resolver = resolver;
+            this.userDataStore = userDataStore;
+        }
 
-            return matchStateInput switch
+        public override IState<MatchEvent> GetNextState(MatchEvent ev)
+        {
+            return ev switch
             {
-                MatchStateInput.CancelMatchmaking => gameObject.GetOrAddComponentWithInject<CancelMatchmaking>(),
-                MatchStateInput.InGameRoom => gameObject.GetOrAddComponentWithInject<InGameRoom>(),
-                MatchStateInput.Idle => gameObject.GetOrAddComponentWithInject<Idle>(),
-                _ => throw new ArgumentException($"Invalid transition: {GetType().Name} with {matchStateInput}")
+                MatchEvent.CancelClicked => resolver.Resolve<CancelMatchmaking>(),
+                MatchEvent.LocationIsGameRoom => resolver.Resolve<InGameRoom>(),
+                MatchEvent.LocationIsNone => resolver.Resolve<Idle>(),
+                _ => this,
             };
         }
 
-        protected override IEnumerator OnExecute()
+        protected override async Task OnExecuteAsync(CancellationToken ct)
         {
-            while (true)
+            try
             {
-                var getUserLocation = WebAPI.GetUserLocation(userDataStore.user.id);
-                yield return getUserLocation;
-
-                if (!getUserLocation.isSuccess)
+                while (!ct.IsCancellationRequested)
                 {
-                    throw new Exception($"Failed to retrieve user information. Error: {getUserLocation.error}");
+                    var getUserLocation = await WebAPI.GetUserLocation(userDataStore.user.id);
+
+                    if (ct.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    switch (getUserLocation.response.userLocation.location)
+                    {
+                        case Location.GameRoom:
+                            FSM.Fire(MatchEvent.LocationIsGameRoom);
+                            return;
+
+                        case Location.WaitingRoom:
+                            //  Still waiting, keep polling.
+                            break;
+
+                        default:
+                            FSM.Fire(MatchEvent.LocationIsNone);
+                            return;
+                    }
+
+                    await UniTask.Delay(TimeSpan.FromSeconds(CHECK_INTERVAL), cancellationToken: ct);
                 }
-
-                switch (getUserLocation.response.userLocation.location)
-                {
-                    case Location.GameRoom:
-                        FSM.ProcessInput(MatchStateInput.InGameRoom);
-                        yield break;
-
-                    case Location.WaitingRoom:
-                        // User is still in the waiting room, continue waiting
-                        break;
-
-                    default:
-                        FSM.ProcessInput(MatchStateInput.Idle);
-                        yield break;
-                }
-
-                yield return new WaitForSeconds(CHECK_INTERVAL);
+            }
+            catch (OperationCanceledException)
+            {
+                //  State exited while waiting.
+            }
+            catch (WebRequestException e)
+            {
+                Debug.LogError($"Failed to retrieve user information. Error: {e.Message}");
             }
         }
     }

@@ -37,9 +37,11 @@ namespace LOP
             switch (gameState)
             {
                 case Initialized:
+                    GameLoadingUI.Show();
                     break;
 
                 case Playing:
+                    GameLoadingUI.Hide();
                     break;
             }
         }

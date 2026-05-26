@@ -1,69 +1,78 @@
 using GameFramework;
-using System;
-using System.Collections;
-using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using VContainer;
 
 namespace LOP
 {
-    public class CancelMatchmaking : MonoState
+    public class CancelMatchmaking : State<MatchEvent>
     {
-        [Inject]
-        private IUserDataStore userDataStore;
+        private readonly IObjectResolver resolver;
+        private readonly IUserDataStore userDataStore;
 
-        public override IState GetNext<I>(I input)
+        public CancelMatchmaking(IObjectResolver resolver, IUserDataStore userDataStore)
         {
-            if (input is not MatchStateInput matchStateInput)
-            {
-                throw new ArgumentException($"Invalid input type. Expected MatchStateInput, got {typeof(I).Name}");
-            }
+            this.resolver = resolver;
+            this.userDataStore = userDataStore;
+        }
 
-            return matchStateInput switch
+        public override IState<MatchEvent> GetNextState(MatchEvent ev)
+        {
+            return ev switch
             {
-                MatchStateInput.Idle => gameObject.GetOrAddComponentWithInject<Idle>(),
-                MatchStateInput.InGameRoom => gameObject.GetOrAddComponentWithInject<InGameRoom>(),
-                MatchStateInput.CheckMatchState => gameObject.GetOrAddComponentWithInject<CheckMatchState>(),
-                _ => throw new ArgumentException($"Invalid transition: {GetType().Name} with {matchStateInput}")
+                MatchEvent.LocationIsGameRoom => resolver.Resolve<InGameRoom>(),
+                MatchEvent.RecheckRequested => resolver.Resolve<CheckMatch>(),
+                _ => this,
             };
         }
 
-        protected override IEnumerator OnExecute()
+        protected override async Task OnExecuteAsync(CancellationToken ct)
         {
             if (userDataStore.userLocation.locationDetail is not WaitingRoomLocationDetail waitingRoomLocationDetail)
             {
                 Debug.LogError("User is not in a waiting room.");
-                FSM.ProcessInput(MatchStateInput.CheckMatchState);
-                yield break;
+                FSM.Fire(MatchEvent.RecheckRequested);
+                return;
             }
 
-            var cancelMatchmaking = WebAPI.CancelMatchmaking(waitingRoomLocationDetail.matchmakingTicketId);
-            yield return cancelMatchmaking;
-
-            if (!cancelMatchmaking.isSuccess)
+            try
             {
-                Debug.LogError($"Failed to cancel matchmaking. Error: {cancelMatchmaking.error}");
-                FSM.ProcessInput(MatchStateInput.CheckMatchState);
-                yield break;
+                var cancelMatchmaking = await WebAPI.CancelMatchmaking(waitingRoomLocationDetail.matchmakingTicketId);
+
+                if (ct.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                switch (cancelMatchmaking.response.code)
+                {
+                    case ResponseCode.ALREADY_IN_GAME:
+                        FSM.Fire(MatchEvent.LocationIsGameRoom);
+                        break;
+
+                    case ResponseCode.MATCH_MAKING_TICKET_NOT_EXIST:
+                        Debug.LogError("Matchmaking ticket does not exist.");
+                        break;
+
+                    case ResponseCode.NOT_MATCH_MAKING_STATE:
+                        Debug.LogError("Not in matchmaking state.");
+                        break;
+
+                    default:
+                        FSM.Fire(MatchEvent.RecheckRequested);
+                        break;
+                }
             }
-
-            switch (cancelMatchmaking.response.code)
+            catch (WebRequestException e)
             {
-                case ResponseCode.ALREADY_IN_GAME:
-                    FSM.ProcessInput(MatchStateInput.InGameRoom);
-                    break;
+                if (ct.IsCancellationRequested)
+                {
+                    return;
+                }
 
-                case ResponseCode.MATCH_MAKING_TICKET_NOT_EXIST:
-                    Debug.LogError("Matchmaking ticket does not exist.");
-                    break;
-
-                case ResponseCode.NOT_MATCH_MAKING_STATE:
-                    Debug.LogError("Not in matchmaking state.");
-                    break;
-
-                default:
-                    FSM.ProcessInput(MatchStateInput.CheckMatchState);
-                    break;
+                Debug.LogError($"Failed to cancel matchmaking. Error: {e.Message}");
+                FSM.Fire(MatchEvent.RecheckRequested);
             }
         }
     }

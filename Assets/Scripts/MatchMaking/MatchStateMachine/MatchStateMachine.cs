@@ -1,17 +1,17 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
 using GameFramework;
+using VContainer;
 
 namespace LOP
 {
-    public class MatchStateMachine : MonoStateMachine
+    public class MatchStateMachine : StateMachine<MatchEvent>
     {
-        public override IState initState => gameObject.GetOrAddComponentWithInject<CheckMatchState>();
+        private readonly IObjectResolver resolver;
 
-        private void Awake()
+        public MatchStateMachine(IObjectResolver resolver)
         {
-            StartStateMachine();
+            this.resolver = resolver;
         }
+
+        public override IState<MatchEvent> initState => resolver.Resolve<CheckMatch>();
     }
 }

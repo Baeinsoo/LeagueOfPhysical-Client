@@ -1,36 +1,35 @@
 using GameFramework;
-using System;
-using System.Collections;
-using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using VContainer;
 
 namespace LOP
 {
-    public class RequestMatchmaking : MonoState
+    public class RequestMatchmaking : State<MatchEvent>
     {
-        [Inject]
-        private IUserDataStore userDataStore;
+        private readonly IObjectResolver resolver;
+        private readonly IUserDataStore userDataStore;
+        private readonly IMatchMakingDataStore matchMakingDataStore;
 
-        [Inject]
-        private IMatchMakingDataStore matchMakingDataStore;
-
-        public override IState GetNext<I>(I input)
+        public RequestMatchmaking(IObjectResolver resolver, IUserDataStore userDataStore, IMatchMakingDataStore matchMakingDataStore)
         {
-            if (input is not MatchStateInput matchStateInput)
-            {
-                throw new ArgumentException($"Invalid input type. Expected MatchStateInput, got {typeof(I).Name}");
-            }
+            this.resolver = resolver;
+            this.userDataStore = userDataStore;
+            this.matchMakingDataStore = matchMakingDataStore;
+        }
 
-            return matchStateInput switch
+        public override IState<MatchEvent> GetNextState(MatchEvent ev)
+        {
+            return ev switch
             {
-                MatchStateInput.InWaitingRoom => gameObject.GetOrAddComponentWithInject<InWaitingRoom>(),
-                MatchStateInput.CheckMatchState => gameObject.GetOrAddComponentWithInject<CheckMatchState>(),
-                _ => throw new ArgumentException($"Invalid transition: {GetType().Name} with {matchStateInput}")
+                MatchEvent.MatchRequestSucceeded => resolver.Resolve<InWaitingRoom>(),
+                MatchEvent.MatchRequestFailed => resolver.Resolve<CheckMatch>(),
+                _ => this,
             };
         }
 
-        protected override IEnumerator OnExecute()
+        protected override async Task OnExecuteAsync(CancellationToken ct)
         {
             var matchmakingRequest = new MatchmakingRequest
             {
@@ -40,21 +39,34 @@ namespace LOP
                 mapId = matchMakingDataStore.mapId,
             };
 
-            var requestMatchmaking = WebAPI.RequestMatchmaking(matchmakingRequest);
-            yield return requestMatchmaking;
-
-            if (!requestMatchmaking.isSuccess || requestMatchmaking.response.code != ResponseCode.SUCCESS)
+            try
             {
-                var errorMessage = !requestMatchmaking.isSuccess
-                    ? $"Failed to request matchmaking. Error: {requestMatchmaking.error}"
-                    : $"Matchmaking request failed. Response code: {requestMatchmaking.response.code}";
+                var requestMatchmaking = await WebAPI.RequestMatchmaking(matchmakingRequest);
 
-                Debug.LogError(errorMessage);
-                FSM.ProcessInput(MatchStateInput.CheckMatchState);
-                yield break;
+                if (ct.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                if (requestMatchmaking.response.code != ResponseCode.SUCCESS)
+                {
+                    Debug.LogError($"Matchmaking request failed. Response code: {requestMatchmaking.response.code}");
+                    FSM.Fire(MatchEvent.MatchRequestFailed);
+                    return;
+                }
+
+                FSM.Fire(MatchEvent.MatchRequestSucceeded);
             }
+            catch (WebRequestException e)
+            {
+                if (ct.IsCancellationRequested)
+                {
+                    return;
+                }
 
-            FSM.ProcessInput(MatchStateInput.InWaitingRoom);
+                Debug.LogError($"Failed to request matchmaking. Error: {e.Message}");
+                FSM.Fire(MatchEvent.MatchRequestFailed);
+            }
         }
     }
 }

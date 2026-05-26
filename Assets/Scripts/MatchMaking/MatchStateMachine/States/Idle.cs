@@ -1,27 +1,24 @@
 using GameFramework;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+using VContainer;
 
 namespace LOP
 {
-    public class Idle : MonoState
+    public class Idle : State<MatchEvent>
     {
-        public override IState GetNext<I>(I input)
+        private readonly IObjectResolver resolver;
+
+        public Idle(IObjectResolver resolver)
         {
-            if (input is not MatchStateInput matchStateInput)
-            {
-                throw new ArgumentException($"Invalid input type. Expected MatchStateInput, got {typeof(I).Name}");
-            }
+            this.resolver = resolver;
+        }
 
-            switch (matchStateInput)
+        public override IState<MatchEvent> GetNextState(MatchEvent ev)
+        {
+            return ev switch
             {
-                case MatchStateInput.RequestMatchmaking:
-                    return gameObject.GetOrAddComponentWithInject<RequestMatchmaking>();
-            }
-
-            throw new ArgumentException($"Invalid transition: {GetType().Name} with {matchStateInput}");
+                MatchEvent.PlayClicked => resolver.Resolve<RequestMatchmaking>(),
+                _ => this,
+            };
         }
     }
 }

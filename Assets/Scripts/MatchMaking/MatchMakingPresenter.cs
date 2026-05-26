@@ -12,24 +12,29 @@ namespace LOP
     public class MatchMakingPresenter : MonoBehaviour
     {
         [SerializeField]
-        private MatchStateMachine matchStateMachine;
-
-        [SerializeField]
         private Button playButton;
 
         [Inject]
         private IMatchMakingDataStore matchMakingDataStore;
 
+        [Inject]
+        private MatchStateMachine matchStateMachine;
+
         private void Start()
         {
-            playButton.OnClickAsObservable().Subscribe(OnPlayButtonClick).AddTo(this);
-
             matchStateMachine.onStateChange += OnStateChange;
+            matchStateMachine.Start();
+
+            playButton.OnClickAsObservable().Subscribe(OnPlayButtonClick).AddTo(this);
         }
 
         private void OnDestroy()
         {
-            matchStateMachine.onStateChange -= OnStateChange;
+            if (matchStateMachine != null)
+            {
+                matchStateMachine.onStateChange -= OnStateChange;
+                matchStateMachine.Stop();
+            }
         }
 
         private void OnPlayButtonClick(Unit value)
@@ -38,19 +43,15 @@ namespace LOP
             matchMakingDataStore.subGameId = "FlapWang";
             matchMakingDataStore.mapId = "FlapWangMap";
 
-            matchStateMachine.ProcessInput(MatchStateInput.RequestMatchmaking);
+            matchStateMachine.Fire(MatchEvent.PlayClicked);
         }
 
-        private void OnStateChange(IState previous, IState current)
+        private void OnStateChange(IState<MatchEvent> previous, IState<MatchEvent> current)
         {
             switch (previous)
             {
                 case InWaitingRoom:
                     MatchingWaitingUI.Hide();
-                    break;
-
-                case InGameRoom:
-                    GameLoadingUI.Hide();
                     break;
             }
 
@@ -59,12 +60,8 @@ namespace LOP
                 case InWaitingRoom:
                     MatchingWaitingUI.Show(() =>
                     {
-                        matchStateMachine.ProcessInput(MatchStateInput.CancelMatchmaking);
+                        matchStateMachine.Fire(MatchEvent.CancelClicked);
                     });
-                    break;
-
-                case InGameRoom:
-                    GameLoadingUI.Show();
                     break;
             }
         }

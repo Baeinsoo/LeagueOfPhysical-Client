@@ -1,46 +1,58 @@
+using Cysharp.Threading.Tasks;
 using GameFramework;
 using System;
-using System.Collections;
-using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using VContainer;
 
 namespace LOP
 {
-    public class InGameRoom : MonoState
+    public class InGameRoom : State<MatchEvent>
     {
         private const int CHECK_INTERVAL = 1;   //  sec
 
-        [Inject]
-        private IUserDataStore userDataStore;
+        private readonly IObjectResolver resolver;
+        private readonly IUserDataStore userDataStore;
+        private readonly RoomConnector roomConnector;
 
-        [Inject]
-        private RoomConnector roomConnector;
-
-        public override IState GetNext<I>(I input)
+        public InGameRoom(IObjectResolver resolver, IUserDataStore userDataStore, RoomConnector roomConnector)
         {
-            if (input is not MatchStateInput matchStateInput)
-            {
-                throw new ArgumentException($"Invalid input type. Expected MatchStateInput, got {typeof(I).Name}");
-            }
-
-            throw new ArgumentException($"Invalid transition: {GetType().Name} with {matchStateInput}");
+            this.resolver = resolver;
+            this.userDataStore = userDataStore;
+            this.roomConnector = roomConnector;
         }
 
-        protected override IEnumerator OnExecute()
+        public override IState<MatchEvent> GetNextState(MatchEvent ev)
+        {
+            return ev switch
+            {
+                MatchEvent.RecheckRequested => resolver.Resolve<CheckMatch>(),
+                _ => this,
+            };
+        }
+
+        protected override async Task OnExecuteAsync(CancellationToken ct)
         {
             if (userDataStore.userLocation.locationDetail is not GameRoomLocationDetail gameRoomLocationDetail)
             {
                 Debug.LogError("User is not in a game room.");
-                FSM.ProcessInput(MatchStateInput.CheckMatchState);
-                yield break;
+                FSM.Fire(MatchEvent.RecheckRequested);
+                return;
             }
 
-            while (true)
+            try
             {
-                yield return roomConnector.TryToEnterRoomById(gameRoomLocationDetail.gameRoomId).AsIEnumerator();
+                while (!ct.IsCancellationRequested)
+                {
+                    await roomConnector.TryToEnterRoomById(gameRoomLocationDetail.gameRoomId);
 
-                yield return new WaitForSeconds(CHECK_INTERVAL);
+                    await UniTask.Delay(TimeSpan.FromSeconds(CHECK_INTERVAL), cancellationToken: ct);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                //  Left the room scene (or state exited); stop retrying.
             }
         }
     }

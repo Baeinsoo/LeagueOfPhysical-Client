@@ -16,6 +16,9 @@ namespace LOP
         [Inject]
         private IObjectResolver objectResolver;
 
+        [Inject]
+        private GameFramework.World.EntityRegistry entityRegistry;
+
         public CharacterCreator()
         {
             SceneLifetimeScope.Inject(this);
@@ -99,6 +102,14 @@ namespace LOP
                 serverStateReconciler.entity = entity;
                 serverStateReconciler.entityView = view;
             }
+
+            // --- World Core (병렬·추가) — 마이그레이션 Slice 1: Walking Skeleton ---
+            var worldEntity = new GameFramework.World.Entity(creationData.entityId);
+            var worldHealth = new GameFramework.World.Health(creationData.maxHP) { Current = creationData.currentHP };
+            worldEntity.Add(worldHealth);
+            entityRegistry.Add(worldEntity);
+            Debug.Log($"[World] Registered entity {worldEntity.Id} Health={worldHealth.Current}/{worldHealth.Max}");
+            // --- end World Core slice 1 ---
 
             return entity;
         }

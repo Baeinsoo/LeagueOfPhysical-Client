@@ -35,6 +35,18 @@ Entity와 IEntityComponent는 다른 피처에서도 사용되므로 Core에 배
 - **Has**: 해당 타입 컴포넌트의 존재 여부 반환
 - **Remove**: 타입으로 컴포넌트를 제거하고, 제거된 컴포넌트의 Owner를 null로 해제
 
+#### EntityRegistry
+
+월드의 엔티티 보관소(Core 레이어 순수 C# 컨테이너). `Entity.Id`를 키로 모든 엔티티를 관리한다.
+
+- **Add**: 엔티티 등록. null 엔티티 / null Id / 중복 Id에는 예외 (레지스트리는 진실원본 — 중복은 버그)
+- **Get / TryGet**: Id로 조회. 없으면 null / false
+- **Remove**: 제거 및 제거 여부 반환
+- **Contains**: 존재 여부
+- **Count / All**: 총 개수 / 전체 열거
+
+엔티티의 생성·등록은 게임 측(LOP 등)의 크리에이터/팩토리가 수행하고, 외부 시스템(뷰·UI·netcode)은 이 레지스트리를 통해 entityId로 엔티티에 접근한다.
+
 ### Core Enums
 
 #### EntityStatType

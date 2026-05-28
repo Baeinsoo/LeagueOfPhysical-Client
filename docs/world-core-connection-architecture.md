@@ -35,8 +35,10 @@
 
 ## 연결 배선
 
+- **World 컨테이너 = `GameFramework.World.EntityRegistry`** (id-키 엔티티 보관소, 코어 측 진실원본). 게임 측(LOP)이 VContainer DI로 한 인스턴스를 받아 사용 — **씬 생명주기(`SceneLifetimeScope`)에 Singleton 등록**(월드는 씬에 속함, 앱 전역 아님).
+- 엔티티 생성 시 게임 측 크리에이터가 `World.Entity`를 만들어 `EntityRegistry.Add(entity)`로 등록하고, 파괴 시 `Remove(id)`로 해제.
 - View/Controller MonoBehaviour가 `World.Entity` 참조를 보유(생성 시 `Bind`). **이 참조가 곧 연결.**
-- 프레젠터/매니저가 World를 보고 **entityId로** GameObject+View를 생성/바인드/파괴.
+- 프레젠터/매니저가 `EntityRegistry`를 보고 **entityId로** GameObject+View를 생성/바인드/파괴.
 - eventbus(R3)는 **바깥(브릿지)에** 둔다. 확정 이벤트 버퍼가 그걸 먹인다. **코어 안엔 두지 않는다.**
 
 ## 동기화 모델 (fast-paced, 오버워치식) — 상세는 Stage ④에서
@@ -61,6 +63,14 @@
 - deferred(롤백): [SnapNet](https://www.snapnet.dev/blog/netcode-architectures-part-2-rollback/), [coherence](https://docs.coherence.io/manual/advanced-topics/competitive-games/determinism-prediction-rollback)
 - deferred(ECS 커맨드버퍼): [Unity DOTS ECB](https://docs.unity3d.com/Packages/com.unity.entities@1.0/manual/systems-entity-command-buffers.html)
 - 도메인 이벤트(일반): [Fowler, Domain Event](https://martinfowler.com/eaaDev/DomainEvent.html)
+
+## 프로젝트 컨벤션
+
+**네임스페이스 풀 한정 (LOP 측 파일)**: `GameFramework.World.Component`는 `UnityEngine.Component`와 이름이 겹친다. LOP 측 코드 파일은 거의 모두 `using UnityEngine;`을 쓰므로, **`using GameFramework.World;`를 추가하지 않고 World 타입은 항상 풀 네임스페이스로 한정한다.**
+
+- 예: `GameFramework.World.Entity worldEntity = ...;`, `[Inject] GameFramework.World.EntityRegistry entityRegistry;`
+- 이렇게 하면 `Component` 모호성이 자연스럽게 회피되고 컴파일러가 강제하지 않아도 됨.
+- `noEngineReferences`인 World 어셈블리 내부 코드는 `UnityEngine`을 쓰지 않으므로 평소처럼 짧은 이름을 사용해도 충돌 없음.
 
 ## 상태
 

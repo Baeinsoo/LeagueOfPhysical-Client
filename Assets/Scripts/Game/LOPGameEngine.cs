@@ -3,11 +3,17 @@ using System.Collections.Generic;
 using UnityEngine;
 using GameFramework;
 using LOP.Event.LOPGameEngine.Update;
+using VContainer;
 
 namespace LOP
 {
+    [DIMonoBehaviour]
     public class LOPGameEngine : GameEngineBase
     {
+        [Inject] private GameFramework.World.WorldEventBuffer worldEventBuffer;
+        [Inject] private GameFramework.World.WorldEventApplicator worldEventApplicator;
+        [Inject] private WorldEventBridge worldEventBridge;
+
         public new LOPEntityManager entityManager => base.entityManager as LOPEntityManager;
 
         public override void UpdateEngine()
@@ -80,6 +86,14 @@ namespace LOP
 
         private void ProcessEvent()
         {
+            // --- World Core — 슬라이스 3: 이벤트 버퍼 드레인 ---
+            var snapshot = worldEventBuffer.Snapshot;
+            if (snapshot.Count == 0) return;
+
+            worldEventApplicator.Apply(snapshot);
+            worldEventBridge.FanOut(snapshot);
+            worldEventBuffer.Clear();
+            // --- end World Core slice 3 ---
         }
 
         private void EndUpdate()

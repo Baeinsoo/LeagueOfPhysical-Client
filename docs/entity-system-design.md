@@ -127,13 +127,17 @@ Entity와 IEntityComponent는 다른 피처에서도 사용되므로 Core에 배
 
 컴포넌트 데이터를 읽고 쓰는 모든 처리 로직은 System에 둔다.
 
+> 시스템 메서드는 Generation 측(룰/결정 로직, 예: `TakeDamage`)과 Application 측(이벤트 기반 쓰기, 예: `ApplyDamageDealt`)으로 분리해 노출한다. 분리 모델·페이즈·와이어 격리는 `docs/world-core-connection-architecture.md`의 [Generation vs Application](world-core-connection-architecture.md#generation-vs-application--결정과-적용의-분리) 섹션 참고.
+
 #### HealthSystem
 
 Health 컴포넌트의 상태를 변경하는 로직.
 
-- **TakeDamage**: CurrentHp 감소. 0 미만으로 내려가지 않도록 클램프
-- **Heal**: CurrentHp 증가. MaxHp를 초과하지 않도록 클램프
-- **SetMaxHp**: MaxHp 변경. 새 MaxHp보다 CurrentHp가 크면 CurrentHp를 조정
+- **TakeDamage** (Generation): CurrentHp 감소. 0 미만으로 내려가지 않도록 클램프
+- **Heal** (Generation): CurrentHp 증가. MaxHp를 초과하지 않도록 클램프
+- **SetMaxHp** (Generation): MaxHp 변경. 새 MaxHp보다 CurrentHp가 크면 CurrentHp를 조정
+- **ApplyDamageDealt** (Application, 슬라이스 3+): `DamageDealtEvent.remaining`을 그대로 Health.Current에 반영
+- **ApplyDeath** (Application, 슬라이스 3+): `DeathEvent` 수신 시 사망 마크
 
 #### StatsSystem
 

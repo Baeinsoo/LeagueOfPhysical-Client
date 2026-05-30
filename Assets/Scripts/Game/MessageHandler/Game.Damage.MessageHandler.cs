@@ -1,6 +1,4 @@
 using GameFramework;
-using LOP.Event.Entity;
-using UnityEngine;
 using VContainer;
 
 namespace LOP
@@ -8,7 +6,7 @@ namespace LOP
     public class GameDamageMessageHandler : IGameMessageHandler
     {
         [Inject]
-        private IGameEngine gameEngine;
+        private GameFramework.World.WorldEventBuffer worldEventBuffer;
 
         public void Register()
         {
@@ -20,23 +18,26 @@ namespace LOP
             EventBus.Default.Unsubscribe<DamageEventToC>(nameof(IMessage), OnDamageEventToC);
         }
 
-        private async void OnDamageEventToC(DamageEventToC damageEventToC)
+        private void OnDamageEventToC(DamageEventToC msg)
         {
-            return;
+            // 와이어 → 코어 이벤트 변환 어댑터. 슬라이스 3에선 레거시 메시지를 코어 도메인으로 격리.
+            worldEventBuffer.Append(new GameFramework.World.DamageDealtEvent(
+                targetId:   msg.TargetId,
+                attackerId: msg.AttackerId,
+                amount:     (int)msg.Damage,
+                isCritical: msg.IsCritical,
+                isDodged:   msg.IsDodged,
+                remaining:  (int)msg.RemainingHP,
+                isDead:     msg.IsDead
+            ));
 
-            //LOPEntity attackerEntity = gameEngine.entityManager.GetEntity<LOPEntity>(damageEventToC.AttackerId);
-            //LOPEntity targetEntity = gameEngine.entityManager.GetEntity<LOPEntity>(damageEventToC.TargetId);
-
-            //ServerStateReconciler serverStateReconciler = targetEntity.gameObject.GetComponent<ServerStateReconciler>();
-            //while (serverStateReconciler != null && serverStateReconciler.currentT < damageEventToC.Tick)
-            //{
-            //    await System.Threading.Tasks.Task.Yield();
-            //}
-
-            //EventBus.Default.Publish(
-            //    EventTopic.EntityId<LOPEntity>(targetEntity.entityId),
-            //    new EntityDamage(damageEventToC.IsDodged, damageEventToC.IsCritical, damageEventToC.Damage, damageEventToC.RemainingHP, damageEventToC.IsDead)
-            //);
+            if (msg.IsDead)
+            {
+                worldEventBuffer.Append(new GameFramework.World.DeathEvent(
+                    victimId:   msg.TargetId,
+                    attackerId: msg.AttackerId
+                ));
+            }
         }
     }
 }

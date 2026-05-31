@@ -869,10 +869,10 @@ Expected: structure includes:
 - [ ] **Step 11.1: Move `Protos/`**
 
 ```bash
-CLIENT=C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client
+CLIENT_WT=C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client/.claude/worktrees/feature+lop-shared-bootstrap
 SHARED=C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared
 
-mv "$CLIENT/Protos" "$SHARED/Protos"
+mv "$CLIENT_WT/Protos" "$SHARED/Protos"
 ls "$SHARED/Protos" | wc -l
 ```
 
@@ -882,7 +882,7 @@ Expected: ~24 `.proto` files moved.
 
 ```bash
 mkdir -p "$SHARED/Tools"
-mv "$CLIENT/Tools/Protobuf" "$SHARED/Tools/Protobuf"
+mv "$CLIENT_WT/Tools/Protobuf" "$SHARED/Tools/Protobuf"
 ls "$SHARED/Tools/Protobuf/"
 # Verify protoc binary
 ls -la "$SHARED/Tools/Protobuf/protoc-28.2-win64/bin/protoc.exe"
@@ -892,7 +892,7 @@ Expected: `protoc.exe` exists with expected size.
 
 ```bash
 # Remove Tools/ if empty afterward
-rmdir "$CLIENT/Tools" 2>/dev/null || true
+rmdir "$CLIENT_WT/Tools" 2>/dev/null || true
 ```
 
 - [ ] **Step 11.3: Move 5 codegen scripts**
@@ -900,11 +900,11 @@ rmdir "$CLIENT/Tools" 2>/dev/null || true
 ```bash
 mkdir -p "$SHARED/Scripts"
 for f in compile_protos.sh generate_imessage.sh generate_message_ids.sh generate_message_initializer.sh generate_protos.sh; do
-  mv "$CLIENT/Scripts/$f" "$SHARED/Scripts/$f"
+  mv "$CLIENT_WT/Scripts/$f" "$SHARED/Scripts/$f"
 done
 
 ls "$SHARED/Scripts/"
-ls "$CLIENT/Scripts/"
+ls "$CLIENT_WT/Scripts/"
 ```
 
 Expected: 5 scripts in Shared. Client `Scripts/` retains `upload-apk-s3.sh`, `upload-serverdata-s3.sh`.
@@ -1226,19 +1226,30 @@ Both should remain in clean compile state.
 
 - [ ] **Step 17.4: Revert the test edit**
 
+> Shared repo has no commit yet at this point (T19 is the first commit), so `git checkout` cannot restore. Use `sed` to remove the marker line directly.
+
 ```bash
 cd C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared
-git checkout Protos/DamageEventToC.proto
-# Regenerate to clean the test marker
-./Scripts/generate_protos.sh
+sed -i '/^\/\/ touched at /d' Protos/DamageEventToC.proto
+# Regenerate to clean the test marker from outputs
+cd Scripts
+./generate_protos.sh
+cd ..
 ```
 
-Verify:
+Verify the marker line is gone:
 ```bash
-git status --short Protos/DamageEventToC.proto Runtime.Generated/
+grep -c '^// touched at' Protos/DamageEventToC.proto
 ```
 
-Expected: nothing related to our test edit. Generated output is back to clean state (matching pre-test state).
+Expected: `0`.
+
+Verify the proto file is back to pristine state (no `// touched` anywhere, last line of file looks like original syntax not a comment):
+```bash
+tail -3 Protos/DamageEventToC.proto
+```
+
+Expected: original last 3 lines (e.g., closing `}` of message definition).
 
 ---
 

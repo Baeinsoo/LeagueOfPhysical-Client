@@ -1,11 +1,18 @@
 {
   "dependencies": {
     "com.baegames.gameframework": {
-      "version": "https://github.com/Baeinsoo/GameFramework.git",
+      "version": "file:C:/Users/re5na/workspace/LOP/GameFramework",
       "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "77c541b04f453e93c941bde615ae36c98dafd248"
+      "source": "local",
+      "dependencies": {}
+    },
+    "com.baegames.lop.shared": {
+      "version": "file:C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.baegames.gameframework": "0.0.2"
+      }
     },
     "com.coplaydev.unity-mcp": {
       "version": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
@@ -339,6 +346,48 @@
       "source": "git",
       "dependencies": {},
       "hash": "fbc5b06545695cc964142f33aa2443e337b38d5c"
+    },
+    "org.nuget.google.protobuf": {
+      "version": "3.28.2",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "org.nuget.system.memory": "4.5.3",
+        "org.nuget.system.runtime.compilerservices.unsafe": "4.5.2"
+      },
+      "url": "https://unitynuget-registry.openupm.com"
+    },
+    "org.nuget.system.buffers": {
+      "version": "4.4.0",
+      "depth": 2,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://unitynuget-registry.openupm.com"
+    },
+    "org.nuget.system.memory": {
+      "version": "4.5.3",
+      "depth": 1,
+      "source": "registry",
+      "dependencies": {
+        "org.nuget.system.buffers": "4.4.0",
+        "org.nuget.system.numerics.vectors": "4.4.0",
+        "org.nuget.system.runtime.compilerservices.unsafe": "4.5.2"
+      },
+      "url": "https://unitynuget-registry.openupm.com"
+    },
+    "org.nuget.system.numerics.vectors": {
+      "version": "4.4.0",
+      "depth": 2,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://unitynuget-registry.openupm.com"
+    },
+    "org.nuget.system.runtime.compilerservices.unsafe": {
+      "version": "4.5.2",
+      "depth": 1,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://unitynuget-registry.openupm.com"
     },
     "com.unity.modules.accessibility": {
       "version": "1.0.0",

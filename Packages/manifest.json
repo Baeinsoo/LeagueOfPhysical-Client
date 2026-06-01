@@ -1,6 +1,15 @@
 {
+  "scopedRegistries": [
+    {
+      "name": "Unity NuGet",
+      "url": "https://unitynuget-registry.openupm.com",
+      "scopes": ["org.nuget"]
+    }
+  ],
   "dependencies": {
-    "com.baegames.gameframework": "https://github.com/Baeinsoo/GameFramework.git",
+    "com.baegames.gameframework": "file:C:/Users/re5na/workspace/LOP/GameFramework",
+    "com.baegames.lop.shared":    "file:C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared",
+    "org.nuget.google.protobuf":  "3.28.2",
     "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
     "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#2.5.4",
     "com.github-glitchenzo.nugetforunity": "https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity",
@@ -52,5 +61,9 @@
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
     "com.unity.modules.xr": "1.0.0"
-  }
+  },
+  "testables": [
+    "com.baegames.gameframework",
+    "com.baegames.lop.shared"
+  ]
 }

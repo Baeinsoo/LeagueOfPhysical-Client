@@ -6,6 +6,14 @@
       "source": "local",
       "dependencies": {}
     },
+    "com.baegames.lop.masterdata.client": {
+      "version": "file:C:/Users/re5na/workspace/LOP/LeagueOfPhysical-MasterData-Client",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.baegames.gameframework": "0.0.2"
+      }
+    },
     "com.baegames.lop.shared": {
       "version": "file:C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared",
       "depth": 0,

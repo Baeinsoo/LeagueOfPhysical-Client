@@ -9,6 +9,7 @@
   "dependencies": {
     "com.baegames.gameframework": "file:C:/Users/re5na/workspace/LOP/GameFramework",
     "com.baegames.lop.shared":    "file:C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared",
+    "com.baegames.lop.masterdata.client": "file:C:/Users/re5na/workspace/LOP/LeagueOfPhysical-MasterData-Client",
     "org.nuget.google.protobuf":  "3.28.2",
     "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
     "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#2.5.4",
@@ -64,6 +65,7 @@
   },
   "testables": [
     "com.baegames.gameframework",
-    "com.baegames.lop.shared"
+    "com.baegames.lop.shared",
+    "com.baegames.lop.masterdata.client"
   ]
 }

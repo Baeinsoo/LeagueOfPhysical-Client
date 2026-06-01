@@ -1,8 +1,0 @@
-syntax = "proto3";
-
-// @auto_generate 
-message ActionStartToC
-{
-	string entity_id = 1;
-	string action_code = 2;
-}

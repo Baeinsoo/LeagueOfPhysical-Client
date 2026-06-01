@@ -1,8 +1,0 @@
-syntax = "proto3";
-
-// @auto_generate
-message StatAllocationToS
-{
-	string session_id = 1;
-    string stat = 2;
-}

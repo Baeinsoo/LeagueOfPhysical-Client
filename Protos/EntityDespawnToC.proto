@@ -1,7 +1,0 @@
-syntax = "proto3";
-
-// @auto_generate 
-message EntityDespawnToC
-{
-	string entity_id = 1;
-}

@@ -10,6 +10,22 @@
 
 ---
 
+## As-Built Notes (Slice α — discovered during execution, 2026-06-03)
+
+The committed files in `infrastructure/table/` (`scripts/convert_source_to_luban.py`, `luban.conf`) are the **canonical source of truth**. Execution against real Luban v4.9.0 surfaced 5 version-specific requirements beyond the original plan; all are reflected in the committed files:
+
+1. **`__tables__.xlsx` requires `output` (+ `tags`) columns** — the built-in `__TableRecord__` bean validates them. Header must be `full_name | value_type | read_schema_from_file | input | index | mode | group | comment | tags | output` (data rows leave tags/output blank). (`write_tables_index`.)
+2. **`__beans__.xlsx` / `__enums__.xlsx` need their full required column headers**, not just `##var`. Beans: `full_name, parent, valueType, sep, alias, comment, tags, group`. Enums: `full_name, comment, flags, group, tags, unique`. (`write_beans_index` / `write_enums_index`.)
+3. **Auto table-importer must be disabled** — Luban auto-scans `Datas/#*.xlsx` and re-registers them, duplicating the explicit `__tables__` entries (`type 'SkinAsset' duplicate`). Fix: `"xargs": ["tableImporter.name=none"]` in `luban.conf`.
+4. **`class` is a rejected field name** (C# reserved keyword) — Luban errors `Action::class contains preserved keyword`. Fix: converter `FIELD_RENAME = {"Action": {"class": "category"}}` (aligns with the 2a proto decision). Generated property is `Category`. **β impact:** Action call sites using `.Class` become `.Category`.
+5. **Committed Luban path is lowercase** `table/tools/Luban/` (matches the repo's existing `table/tools/` dir). gen scripts use `tools/Luban/Luban.dll`.
+
+Verified working output: client target generates `{Character,Skin,SkinAsset,Action,Item}.cs` + `Tb*.cs` + `Tables.cs` (namespace `LOP.MasterData`) + `tb*.bytes`; server target omits `SkinAsset` and the `Description` field entirely (group `c` split confirmed). Branch `feature/master-data-luban-bootstrap`, commits `31d927b` → `4090992` → `3a3bffa` → `10d7f1a`.
+
+> The Task 3/4/5 code blocks below show the original plan; the as-built converter/luban.conf differ per the 5 notes above. Treat the committed files as authoritative.
+
+---
+
 ## Repos & branches
 
 - **Primary work: `infrastructure` repo** — `C:/Users/re5na/workspace/LOP/infrastructure`, all `table/` changes. Create branch `feature/master-data-luban-bootstrap` there.
@@ -177,11 +193,14 @@ def write_table(name, cfg):
 
 def write_tables_index():
     wb = Workbook(); ws = wb.active
+    # Luban 4.9.0's built-in __TableRecord__ bean REQUIRES the `output` column
+    # (and accepts `tags`). The canonical header is:
+    #   full_name | value_type | read_schema_from_file | input | index | mode | group | comment | tags | output
     ws.append(["##var", "full_name", "value_type", "read_schema_from_file",
-               "input", "index", "mode", "group", "comment"])
+               "input", "index", "mode", "group", "comment", "tags", "output"])
     for name, cfg in TABLES.items():
         ws.append(["", f"Tb{cfg['value_type']}", cfg["value_type"], "TRUE",
-                   f"#{name}.xlsx", cfg["index"], "map", cfg["table_group"], name])
+                   f"#{name}.xlsx", cfg["index"], "map", cfg["table_group"], name, "", ""])
     wb.save(os.path.join(OUT, "__tables__.xlsx"))
 
 def write_empty(fname, header_tag):

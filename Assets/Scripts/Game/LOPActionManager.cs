@@ -8,7 +8,7 @@ namespace LOP
     public class LOPActionManager : IActionManager<LOPEntity>
     {
         [Inject]
-        private IMasterDataManager masterDataManager;
+        private LOP.MasterData.LOPMasterData md;
 
         [Inject]
         private IObjectResolver objectResolver;
@@ -86,8 +86,8 @@ namespace LOP
             action = entity.FindEntityComponent<Action>(x => x.actionCode == actionCode);
             if (action == null)
             {
-                var actionMasterData = masterDataManager.GetMasterData<MasterData.Action>(actionCode);
-                var actionType = System.Type.GetType($"LOP.{actionMasterData.Class}");
+                var actionMasterData = md.Tables.TbAction.Get(actionCode);
+                var actionType = System.Type.GetType($"LOP.{actionMasterData.Category}");
 
                 action = entity.gameObject.AddComponent(actionType) as Action;
                 objectResolver.Inject(action);

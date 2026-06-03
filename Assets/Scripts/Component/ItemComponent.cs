@@ -1,4 +1,3 @@
-using GameFramework;
 using VContainer;
 
 namespace LOP
@@ -6,7 +5,7 @@ namespace LOP
     public class ItemComponent : LOPComponent
     {
         [Inject]
-        private IMasterDataManager masterDataManager;
+        private LOP.MasterData.LOPMasterData md;
 
         public string itemCode { get; private set; }
         public MasterData.Item masterData { get; private set; }
@@ -14,7 +13,7 @@ namespace LOP
         public void Initialize(string itemCode)
         {
             this.itemCode = itemCode;
-            this.masterData = masterDataManager.GetMasterData<MasterData.Item>(itemCode);
+            this.masterData = md.Tables.TbItem.Get(itemCode);
         }
     }
 }

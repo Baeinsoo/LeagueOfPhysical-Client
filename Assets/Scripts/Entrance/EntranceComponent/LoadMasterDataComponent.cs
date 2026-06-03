@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using GameFramework;
 using VContainer;
 
 namespace LOP
@@ -10,11 +9,11 @@ namespace LOP
     public class LoadMasterDataComponent : IEntranceComponent
     {
         [Inject]
-        private IMasterDataManager masterDataManager;
+        private LOP.MasterData.LOPMasterData masterData;
 
         public async Task Execute()
         {
-            await masterDataManager.LoadMasterData();
+            await masterData.LoadAsync();
         }
     }
 }

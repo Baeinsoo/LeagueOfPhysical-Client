@@ -9,7 +9,7 @@ namespace LOP
     {
         protected override void Configure(IContainerBuilder builder)
         {
-            builder.Register<IMasterDataManager, LOPMasterDataManager>(Lifetime.Singleton);
+            builder.Register<LOP.MasterData.LOPMasterData>(Lifetime.Singleton);
 
             builder.Register<UserDataStore>(Lifetime.Singleton)
                 .As<IUserDataStore>()

@@ -95,9 +95,16 @@ namespace LOP
 
         public void Run(long tick, double interval, double elapsedTime)
         {
-            gameState = Playing.State;
-
             gameEngine.Run(tick, interval, elapsedTime);
+
+            gameState = Playing.State;
+        }
+
+        public void Stop()
+        {
+            gameEngine.Stop();
+
+            gameState = Paused.State;
         }
     }
 }

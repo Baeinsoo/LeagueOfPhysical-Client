@@ -1,7 +1,8 @@
+using System;
 
 namespace LOP
 {
-    public class UserDataStore : IUserDataStore
+    public class UserDataStore : IUserDataStore, IDisposable
     {
         public User user { get; set; } = new User();
         public UserProfile userProfile { get; set; } = new UserProfile();
@@ -16,6 +17,15 @@ namespace LOP
             EventBus.Default.Subscribe<GetUserResponse>(EventTopic.WebResponse, HandleGetUser);
             EventBus.Default.Subscribe<GetUserStatsResponse>(EventTopic.WebResponse, HandleGetUserStats);
             EventBus.Default.Subscribe<UpdateUserProfileResponse>(EventTopic.WebResponse, HandleUpdateUserProfile);
+        }
+
+        public void Dispose()
+        {
+            EventBus.Default.Unsubscribe<CreateUserResponse>(EventTopic.WebResponse, HandleCreateUser);
+            EventBus.Default.Unsubscribe<GetUserLocationResponse>(EventTopic.WebResponse, HandleGetUserLocation);
+            EventBus.Default.Unsubscribe<GetUserResponse>(EventTopic.WebResponse, HandleGetUser);
+            EventBus.Default.Unsubscribe<GetUserStatsResponse>(EventTopic.WebResponse, HandleGetUserStats);
+            EventBus.Default.Unsubscribe<UpdateUserProfileResponse>(EventTopic.WebResponse, HandleUpdateUserProfile);
         }
 
         private void HandleCreateUser(CreateUserResponse response)

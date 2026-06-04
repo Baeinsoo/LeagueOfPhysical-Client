@@ -1,8 +1,9 @@
+using System;
 using GameFramework;
 
 namespace LOP
 {
-    public class RoomDataStore : IRoomDataStore
+    public class RoomDataStore : IRoomDataStore, IDisposable
     {
         public Room room { get; set; }
         public Match match { get; set; }
@@ -11,6 +12,12 @@ namespace LOP
         {
             EventBus.Default.Subscribe<GetMatchResponse>(EventTopic.WebResponse, HandleGetMatch);
             EventBus.Default.Subscribe<RoomJoinableResponse>(EventTopic.WebResponse, HandleRoomJoinable);
+        }
+
+        public void Dispose()
+        {
+            EventBus.Default.Unsubscribe<GetMatchResponse>(EventTopic.WebResponse, HandleGetMatch);
+            EventBus.Default.Unsubscribe<RoomJoinableResponse>(EventTopic.WebResponse, HandleRoomJoinable);
         }
 
         private void HandleGetMatch(GetMatchResponse response)

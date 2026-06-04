@@ -4,7 +4,6 @@ using VContainer;
 
 namespace LOP
 {
-    [EntityCreatorRegistration]
     public class CharacterCreator : IEntityCreator<LOPEntity, CharacterCreationData>
     {
         [Inject]
@@ -18,11 +17,6 @@ namespace LOP
 
         [Inject]
         private GameFramework.World.EntityRegistry entityRegistry;
-
-        public CharacterCreator()
-        {
-            SceneLifetimeScope.Inject(this);
-        }
 
         public LOPEntity Create(CharacterCreationData creationData)
         {

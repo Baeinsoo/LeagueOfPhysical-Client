@@ -13,6 +13,9 @@ namespace LOP
         [Inject]
         private GameFramework.World.EntityRegistry entityRegistry;
 
+        [Inject]
+        private IEntityFactory entityFactory;
+
         private Dictionary<string, IEntity> entityMap = new Dictionary<string, IEntity>();
         private HashSet<string> entitiesToDestroy = new HashSet<string>();
 
@@ -62,7 +65,7 @@ namespace LOP
             where TEntity : IEntity
             where TCreationData : struct, IEntityCreationData
         {
-            var entity = EntityFactory.CreateEntity<TEntity, TCreationData>(creationData);
+            var entity = entityFactory.CreateEntity<TEntity, TCreationData>(creationData);
 
             entityMap[entity.entityId] = entity;
 

@@ -4,16 +4,10 @@ using VContainer;
 
 namespace LOP
 {
-    [EntityCreatorRegistration]
     public class ItemCreator : IEntityCreator<LOPEntity, ItemCreationData>
     {
         [Inject]
         private IObjectResolver objectResolver;
-
-        public ItemCreator()
-        {
-            SceneLifetimeScope.Inject(this);
-        }
 
         public LOPEntity Create(ItemCreationData creationData)
         {

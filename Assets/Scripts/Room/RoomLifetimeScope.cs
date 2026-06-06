@@ -17,6 +17,12 @@ namespace LOP
         {
             base.Configure(builder);
 
+            builder.Register<GameFramework.World.EntityRegistry>(Lifetime.Singleton);
+            builder.Register<GameFramework.World.WorldEventBuffer>(Lifetime.Singleton);
+            builder.Register<GameFramework.World.HealthSystem>(Lifetime.Singleton);
+            builder.Register<GameFramework.World.WorldEventApplicator>(Lifetime.Singleton);
+            builder.Register<WorldEventBridge>(Lifetime.Singleton);
+
             builder.RegisterComponent(room);
             builder.RegisterComponent(networkManager);
             builder.RegisterComponent(game).As<IGame>();

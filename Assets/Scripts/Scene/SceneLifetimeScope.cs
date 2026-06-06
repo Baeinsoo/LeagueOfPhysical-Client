@@ -7,15 +7,6 @@ namespace LOP
 {
     public class SceneLifetimeScope : LifetimeScope
     {
-        protected override void Configure(IContainerBuilder builder)
-        {
-            builder.Register<GameFramework.World.EntityRegistry>(Lifetime.Singleton);
-            builder.Register<GameFramework.World.WorldEventBuffer>(Lifetime.Singleton);
-            builder.Register<GameFramework.World.HealthSystem>(Lifetime.Singleton);
-            builder.Register<GameFramework.World.WorldEventApplicator>(Lifetime.Singleton);
-            builder.Register<WorldEventBridge>(Lifetime.Singleton);
-        }
-
         public static SceneLifetimeScope instance { get; private set; }
 
         public static void Inject(object obj)

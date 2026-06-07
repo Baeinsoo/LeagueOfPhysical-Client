@@ -1,0 +1,27 @@
+.login-root {
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-card {
+    width: 480px;
+    padding: 32px;
+    border-radius: 12px;
+    background-color: rgba(20, 20, 28, 0.92);
+    align-items: stretch;
+}
+
+.login-title {
+    font-size: 28px;
+    color: rgb(235, 235, 245);
+    -unity-text-align: middle-center;
+    margin-bottom: 24px;
+}
+
+.login-button {
+    height: 56px;
+    margin-top: 12px;
+    font-size: 18px;
+    border-radius: 8px;
+}

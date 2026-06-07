@@ -1,0 +1,67 @@
+using GameFramework;
+using UnityEngine;
+using VContainer;
+
+namespace LOP
+{
+    public class GameInfoMessageHandler : IGameMessageHandler
+    {
+        [Inject]
+        private IGameEngine gameEngine;
+
+        [Inject]
+        private PlayerInputManager playerInputManager;
+
+        public void Register()
+        {
+            EventBus.Default.Subscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);
+        }
+
+        public void Unregister()
+        {
+            EventBus.Default.Unsubscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);
+        }
+
+        private void OnGameInfoToC(GameInfoToC gameInfoToC)
+        {
+            foreach (var entityCreationData in gameInfoToC.GameInfo.EntityCreationDatas)
+            {
+                switch (entityCreationData.CreationDataCase)
+                {
+                    case EntityCreationData.CreationDataOneofCase.CharacterCreationData:
+                        gameEngine.entityManager.CreateEntity<LOPEntity, CharacterCreationData>(new CharacterCreationData
+                        {
+                            entityId = entityCreationData.CharacterCreationData.BaseEntityCreationData.EntityId,
+                            position = MapperConfig.mapper.Map<Vector3>(entityCreationData.CharacterCreationData.BaseEntityCreationData.Position),
+                            rotation = MapperConfig.mapper.Map<Vector3>(entityCreationData.CharacterCreationData.BaseEntityCreationData.Rotation),
+                            velocity = MapperConfig.mapper.Map<Vector3>(entityCreationData.CharacterCreationData.BaseEntityCreationData.Velocity),
+                            characterCode = entityCreationData.CharacterCreationData.CharacterCode,
+                            visualId = entityCreationData.CharacterCreationData.VisualId,
+
+                            maxHP = entityCreationData.CharacterCreationData.MaxHP,
+                            currentHP = entityCreationData.CharacterCreationData.CurrentHP,
+                            maxMP = entityCreationData.CharacterCreationData.MaxMP,
+                            currentMP = entityCreationData.CharacterCreationData.CurrentMP,
+                            level = entityCreationData.CharacterCreationData.Level,
+                            currentExp = entityCreationData.CharacterCreationData.CurrentExp,
+                        });
+                        break;
+
+                    case EntityCreationData.CreationDataOneofCase.ItemCreationData:
+                        gameEngine.entityManager.CreateEntity<LOPEntity, ItemCreationData>(new ItemCreationData
+                        {
+                            entityId = entityCreationData.ItemCreationData.BaseEntityCreationData.EntityId,
+                            position = MapperConfig.mapper.Map<Vector3>(entityCreationData.ItemCreationData.BaseEntityCreationData.Position),
+                            rotation = MapperConfig.mapper.Map<Vector3>(entityCreationData.ItemCreationData.BaseEntityCreationData.Rotation),
+                            velocity = MapperConfig.mapper.Map<Vector3>(entityCreationData.ItemCreationData.BaseEntityCreationData.Velocity),
+                            itemCode = entityCreationData.ItemCreationData.ItemCode,
+                            visualId = entityCreationData.ItemCreationData.VisualId,
+                        });
+                        break;
+                }
+            }
+
+            playerInputManager.SetSequenceNumber(gameInfoToC.ExpectedNextSequence);
+        }
+    }
+}

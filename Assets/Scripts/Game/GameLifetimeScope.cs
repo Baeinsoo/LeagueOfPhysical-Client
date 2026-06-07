@@ -1,0 +1,68 @@
+using GameFramework;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using VContainer;
+using VContainer.Unity;
+
+namespace LOP
+{
+    /// <summary>
+    /// 게임 씬의 게임 스코프. EnqueueParent(Room)로 로드되면 Room 자식으로 빌드된다.
+    /// </summary>
+    public class GameLifetimeScope : LifetimeScope
+    {
+        [SerializeField] private LOPGame game;
+        [SerializeField] private LOPGameEngine gameEngine;
+        [SerializeField] private CameraController cameraController;
+
+        protected override void Configure(IContainerBuilder builder)
+        {
+            builder.Register<GameFramework.World.EntityRegistry>(Lifetime.Singleton);
+            builder.Register<GameFramework.World.WorldEventBuffer>(Lifetime.Singleton);
+            builder.Register<GameFramework.World.HealthSystem>(Lifetime.Singleton);
+            builder.Register<GameFramework.World.WorldEventApplicator>(Lifetime.Singleton);
+            builder.Register<WorldEventBridge>(Lifetime.Singleton);
+
+            // game/gameEngine은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.
+            builder.RegisterComponent(game).As<IGame>();
+            builder.RegisterComponent(gameEngine).As<IGameEngine>();
+            builder.RegisterComponent(cameraController);
+
+            builder.Register<IGameMessageHandler, GameInfoMessageHandler>(Lifetime.Transient);
+            builder.Register<IGameMessageHandler, GameEntityMessageHandler>(Lifetime.Transient);
+            builder.Register<IGameMessageHandler, GameInputMessageHandler>(Lifetime.Transient);
+            builder.Register<IGameMessageHandler, GameDamageMessageHandler>(Lifetime.Transient);
+            builder.Register<PlayerInputManager>(Lifetime.Singleton).AsSelf();
+            builder.Register<IActionManager, LOPActionManager>(Lifetime.Singleton);
+            builder.Register<IMovementManager, LOPMovementManager>(Lifetime.Singleton);
+            builder.Register<IEntityCreator, CharacterCreator>(Lifetime.Singleton);
+            builder.Register<IEntityCreator, ItemCreator>(Lifetime.Singleton);
+            builder.Register<IEntityFactory, EntityFactory>(Lifetime.Singleton);
+
+            builder.RegisterBuildCallback(container =>
+            {
+                container.InjectSceneObjects(gameObject.scene);
+                SceneManager.sceneLoaded += OnSceneLoaded;
+            });
+        }
+
+        protected override void OnDestroy()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            base.OnDestroy();
+        }
+
+        // LOPGame이 additive 로드하는 맵 씬도 이 컨테이너로 주입한다.
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            // 자기 씬은 빌드 콜백에서 이미 주입했다. (자기 씬 Awake 중 구독해 자기 sceneLoaded도 수신됨)
+            if (scene == gameObject.scene)
+            {
+                Debug.Log($"[GameLifetimeScope] Skip re-injecting own scene '{scene.name}'; already injected in build callback.");
+                return;
+            }
+
+            Container.InjectSceneObjects(scene);
+        }
+    }
+}

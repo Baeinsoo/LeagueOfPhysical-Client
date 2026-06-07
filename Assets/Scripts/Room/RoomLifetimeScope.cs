@@ -9,46 +9,21 @@ namespace LOP
     {
         [SerializeField] private LOPRoom room;
         [SerializeField] private LOPNetworkManager networkManager;
-        [SerializeField] private LOPGame game;
-        [SerializeField] private LOPGameEngine gameEngine;
-        [SerializeField] private CameraController cameraController;
 
         protected override void Configure(IContainerBuilder builder)
         {
             base.Configure(builder);
 
-            builder.Register<GameFramework.World.EntityRegistry>(Lifetime.Singleton);
-            builder.Register<GameFramework.World.WorldEventBuffer>(Lifetime.Singleton);
-            builder.Register<GameFramework.World.HealthSystem>(Lifetime.Singleton);
-            builder.Register<GameFramework.World.WorldEventApplicator>(Lifetime.Singleton);
-            builder.Register<WorldEventBridge>(Lifetime.Singleton);
-
             builder.RegisterComponent(room);
             builder.RegisterComponent(networkManager);
-            builder.RegisterComponent(game).As<IGame>();
-            builder.RegisterComponent(gameEngine).As<IGameEngine>();
-            builder.RegisterComponent(cameraController);
-
-            builder.Register<IRoomMessageHandler, GameMessageHandler>(Lifetime.Transient);
-            
-            builder.Register<IGameMessageHandler, GameEntityMessageHandler>(Lifetime.Transient);
-            builder.Register<IGameMessageHandler, GameInputMessageHandler>(Lifetime.Transient);
-            builder.Register<IGameMessageHandler, GameDamageMessageHandler>(Lifetime.Transient);
 
             builder.Register<ISessionManager, SessionManager>(Lifetime.Singleton);
-
             builder.Register<IPlayerContext, PlayerContext>(Lifetime.Singleton);
-
             builder.Register<GameDataStore>(Lifetime.Singleton).As<IGameDataStore, IDataStore>();
 
-            builder.Register<PlayerInputManager>(Lifetime.Singleton).AsSelf();
+            builder.Register<IRoomMessageHandler, GameMessageHandler>(Lifetime.Transient);
 
-            builder.Register<IActionManager, LOPActionManager>(Lifetime.Singleton);
-            builder.Register<IMovementManager, LOPMovementManager>(Lifetime.Singleton);
-
-            builder.Register<IEntityCreator, CharacterCreator>(Lifetime.Singleton);
-            builder.Register<IEntityCreator, ItemCreator>(Lifetime.Singleton);
-            builder.Register<IEntityFactory, EntityFactory>(Lifetime.Singleton);
+            builder.Register<IGameFactory, LOPGameFactory>(Lifetime.Singleton);
 
             #region RegisterBuildCallback
             builder.RegisterBuildCallback(container =>

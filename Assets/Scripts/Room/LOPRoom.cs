@@ -13,12 +13,14 @@ namespace LOP
 {
     public class LOPRoom : MonoBehaviour, IRoom
     {
-        [Inject] public IGame game { get; private set; }
+        [Inject] private IGameFactory gameFactory;
         [Inject] private LOPNetworkManager networkManager;
         [Inject] private IRoomDataStore roomDataStore;
         [Inject] private IGameDataStore gameDataStore;
         [Inject] private IUserDataStore userDataStore;
         [Inject] private IEnumerable<IRoomMessageHandler> roomMessageHandlers;
+
+        public IGame game { get; private set; }
 
         public bool initialized { get; private set; }
 
@@ -57,8 +59,9 @@ namespace LOP
                 roomMessageHandler.Register();
             }
 
+            // 초기 엔티티 생성(GameInfoToC)이 JoinRoomServer에서 처리되기 전에 게임이 준비돼야 하므로 여기서 생성한다.
+            game = await gameFactory.CreateAsync();
             game.onGameStateChanged += OnGameStateChanged;
-
             await game.InitializeAsync();
 
             initialized = true;
@@ -67,8 +70,10 @@ namespace LOP
         public async Task DeinitializeAsync()
         {
             await game.DeinitializeAsync();
-
             game.onGameStateChanged -= OnGameStateChanged;
+
+            await gameFactory.DestroyAsync();
+            game = null;
 
             foreach (var roomMessageHandler in roomMessageHandlers.OrEmpty())
             {

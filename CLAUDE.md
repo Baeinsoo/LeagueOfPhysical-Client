@@ -44,6 +44,7 @@ World Core, netcode, or matching FSM.
 - @docs/superpowers/specs/2026-05-31-lop-shared-package-design.md
 - @docs/superpowers/specs/2026-06-03-master-data-luban-migration-design.md
 - @docs/superpowers/specs/2026-06-06-game-scene-scope-design.md
+- @docs/superpowers/specs/2026-06-07-ui-toolkit-migration-m1-design.md
 
 If you add a new spec under `docs/superpowers/specs/`, append an `@` line above.
 `docs/superpowers/plans/` is **not** auto-loaded — plans are per-task and read

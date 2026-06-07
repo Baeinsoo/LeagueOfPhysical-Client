@@ -1,39 +1,37 @@
 using GameFramework;
-using System.Collections;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using UnityEngine;
+using LOP.UI;
+using R3;
 using System;
+using System.Threading.Tasks;
+using VContainer;
 
 namespace LOP
 {
     public class LoginComponent : IEntranceComponent
     {
+        [Inject] private IObjectResolver resolver;
+        [Inject] private IUIManager uiManager;
+
         public async Task Execute()
         {
             var autoLoginResult = await LoginService.instance.TryAutoLogin();
-            if (autoLoginResult.success == false)
+            if (autoLoginResult.success)
             {
-                LoginResult loginResult = null;
-                var loginPopup = PopupManager.instance.GetPopup<LoginPopup>();
-                loginPopup.onGuestLoginClick += () =>
-                {
-                    loginResult = LoginService.instance.Login(LoginType.Guest);
-                };
-                loginPopup.Show();
+                return;
+            }
 
-                await Cysharp.Threading.Tasks.UniTask.WaitUntil(() => loginResult != null);
+            var view = resolver.Resolve<LoginView>();
+            uiManager.Open(view, UILayer.Popup);
 
-                loginPopup.Close();
+            LoginType loginType = await view.ViewModel.OnLoginRequested.FirstAsync();
 
-                if (loginResult.success)
-                {
-                    //Data.User.user.id = loginResult.id;
-                }
-                else
-                {
-                    throw new Exception(loginResult.reason);
-                }
+            LoginResult loginResult = LoginService.instance.Login(loginType);
+
+            uiManager.Close(view);
+
+            if (loginResult.success == false)
+            {
+                throw new Exception(loginResult.reason);
             }
         }
     }

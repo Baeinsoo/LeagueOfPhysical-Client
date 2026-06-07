@@ -1,3 +1,4 @@
+using LOP.UI;
 using System;
 using UnityEngine;
 using VContainer;
@@ -16,6 +17,9 @@ namespace LOP
             builder.Register<IEntranceComponent, JoinLobbyComponent>(Lifetime.Transient);
             //builder.Register<IEntranceComponent, CheckLocationComponent>(Lifetime.Transient);
             builder.Register<IEntranceComponent, LoadMasterDataComponent>(Lifetime.Transient);
+
+            builder.Register<LoginViewModel>(Lifetime.Transient);
+            builder.Register<LoginView>(Lifetime.Transient);
         }
     }
 }

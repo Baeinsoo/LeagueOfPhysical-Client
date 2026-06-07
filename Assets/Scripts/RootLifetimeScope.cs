@@ -1,4 +1,5 @@
 using GameFramework;
+using LOP.UI;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -27,6 +28,11 @@ namespace LOP
                 .AsSelf();
 
             builder.Register<RoomConnector>(Lifetime.Transient);
+
+            var uiRootPrefab = Resources.Load<UIManager>("UI/UIRoot");
+            builder.RegisterComponentInNewPrefab(uiRootPrefab, Lifetime.Singleton)
+                .DontDestroyOnLoad()
+                .As<IUIManager>();
 
             #region RegisterBuildCallback
             builder.RegisterBuildCallback(container =>

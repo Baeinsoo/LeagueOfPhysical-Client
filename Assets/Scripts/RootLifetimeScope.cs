@@ -1,4 +1,5 @@
 using GameFramework;
+using LOP.UI;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -27,6 +28,8 @@ namespace LOP
                 .AsSelf();
 
             builder.Register<RoomConnector>(Lifetime.Transient);
+
+            new UIInstaller().Install(builder);
 
             #region RegisterBuildCallback
             builder.RegisterBuildCallback(container =>

@@ -1,0 +1,10 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="login-root" class="login-root">
+        <ui:VisualElement name="login-card" class="login-card">
+            <ui:Label text="LEAGUE OF PHYSICAL" class="login-title" />
+            <ui:Button name="guest-login" text="Guest Login" class="login-button" />
+            <ui:Button name="gpgs-login" text="Google Play" class="login-button" />
+            <ui:Button name="gamecenter-login" text="Game Center" class="login-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

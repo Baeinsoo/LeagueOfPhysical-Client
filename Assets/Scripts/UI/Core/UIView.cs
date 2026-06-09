@@ -10,6 +10,12 @@ namespace LOP.UI
     {
         public VisualElement Root { get; private set; }
 
+        /// <summary>이 View가 속하는 밴드(z-order 등급).</summary>
+        public abstract UILayer Layer { get; }
+
+        /// <summary>모달이면 밴드에 백드롭(딤+입력 차단)을 깐다.</summary>
+        public virtual bool IsModal => false;
+
         protected CompositeDisposable Disposables { get; } = new();
 
         /// <summary>UIManager가 UXML 클론 직후 1회 호출. 파생은 base 호출 후 바인딩.</summary>

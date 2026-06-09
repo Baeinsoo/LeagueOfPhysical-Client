@@ -29,10 +29,7 @@ namespace LOP
 
             builder.Register<RoomConnector>(Lifetime.Transient);
 
-            var uiRootPrefab = Resources.Load<UIManager>("UI/UIRoot");
-            builder.RegisterComponentInNewPrefab(uiRootPrefab, Lifetime.Singleton)
-                .DontDestroyOnLoad()
-                .As<IUIManager>();
+            new UIInstaller().Install(builder);
 
             #region RegisterBuildCallback
             builder.RegisterBuildCallback(container =>

@@ -9,8 +9,7 @@ namespace LOP
 {
     public class LoginComponent : IEntranceComponent
     {
-        [Inject] private IObjectResolver resolver;
-        [Inject] private IUIManager uiManager;
+        [Inject] private IWindowManager windowManager;
 
         public async Task Execute()
         {
@@ -20,14 +19,13 @@ namespace LOP
                 return;
             }
 
-            var view = resolver.Resolve<LoginView>();
-            uiManager.Open(view, UILayer.Popup);
+            var view = windowManager.Open<LoginView>();
 
             LoginType loginType = await view.ViewModel.OnLoginRequested.FirstAsync();
 
             LoginResult loginResult = LoginService.instance.Login(loginType);
 
-            uiManager.Close(view);
+            windowManager.Close(view);
 
             if (loginResult.success == false)
             {

@@ -1,6 +1,6 @@
 # UI Toolkit 전환 — M1: 토대 + UI 관리 모델 + LoginPopup 파일럿
 
-**Date:** 2026-06-07
+**Date:** 2026-06-07 (개정 2026-06-09)
 **Branch (제안):** `feature/ui-toolkit-migration-m1`
 **Related:** [아키텍처 가이드라인](../../architecture-guidelines.md) · [LOP 저장소 토폴로지](../../lop-repo-topology.md)
 
@@ -8,246 +8,241 @@
 
 현재 100% UGUI인 클라 UI를 가이드라인 정합(**UI Toolkit + MVVM + R3**)으로 점진 전환하는 작업의 **첫 마일스톤(M1)**. M1은 이후 모든 화면이 따를 **재사용 패턴과 UI 관리 인프라를 확립**하고, 가장 단순한 화면(**LoginPopup**)을 끝-끝으로 전환해 검증한다.
 
-부수 목표: 현재 더미 수준인 `PopupManager`를 **일반적인 UI 관리 모델**(레이어 + 모달 스택 + 비동기 결과 + 라이프사이클 훅)로 재설계해 클라에 구축한다.
+부수 목표: 현재 더미 수준인 `PopupManager`를 **일반적(업계 표준) UI 관리 모델 — 레이어(밴드) × 스택 윈도우 매니저**로 재설계해 클라에 구축한다.
+
+### 개정 노트 (2026-06-09)
+
+초기 구현(고정 5-레이어 enum `Hud/Popup/Loading/Toast/System`, 수동 `Q` 컨트롤러 View, `RootLifetimeScope`/`EntranceLifetimeScope` 직접 등록)을 다음으로 **개정**한다. 근거는 업계 표준 교차검증(Unreal CommonUI/Lyra, UnityScreenNavigator) 및 Unity 6 바인딩 수준 재평가:
+
+1. **윈도우 매니저 = 레이어(원칙적 밴드) × 스택** — 임의 레이어 enum 폐기. 밴드는 상호작용 등급(`Window/Popup/Notification/System`), 각 밴드가 자체 스택. "시스템/모달 항상 최상단"을 밴드 우선순위로 선언적 보장.
+2. **R3 중심 바인딩 유지(Unity 6 네이티브 런타임 바인딩 미채택)** — U6 바인딩은 값 바인딩 한정·커맨드 부재·보일러플레이트·미성숙. ViewModel이 R3로 상태/이벤트 노출, View가 구독.
+3. **전용 `UIInstaller`** — UI 인프라 등록을 앱 스코프(Root/Entrance)에서 분리.
 
 ### 동기
 
 - 가이드라인은 "UI = UI Toolkit + MVVM + R3"를 표준으로 규정하나, 현재는 UGUI + Presenter/MonoSingleton + UniRx + `Update()` 폴링으로 어긋나 있다.
 - 아트 품질이 낮아 옮기는 김에 **소폭 정리**(재디자인 아님, USS로 스타일만 정돈).
-- Unity 6.3(6000.3.16f1)은 **UI Toolkit World Space를 정식 지원**([매뉴얼](https://docs.unity3d.com/6000.3/Documentation/Manual/ui-systems/world-space-ui.html))하므로 월드 추적 UI(머리 위 HP바·데미지 숫자)까지 포함해 **100% UI Toolkit**이 기술적으로 가능하다.
+- Unity 6.3은 **UI Toolkit World Space를 정식 지원**하므로 월드 추적 UI(M3)까지 포함해 **100% UI Toolkit**이 가능.
 
 ## 전체 로드맵 (M1은 이 중 첫 조각)
 
-전체 전환은 단일 spec/plan으로 묶기엔 커서, 화면 단위 점진 전환 결정에 따라 마일스톤으로 분해한다. **각 마일스톤이 자기 spec→plan→구현 사이클을 가진다.**
-
 | 마일스톤 | 내용 | 상태 |
 |---|---|---|
-| **M1 — 토대 + 파일럿** | R3 추가 + 클라 UI 관리 인프라(`UIManager`, `UIRoot` 문서, 레이어/모달 스택) + base View/ViewModel 패턴 + **LoginPopup** 끝-끝 전환 | **이 spec** |
-| **M2 — 화면 고정 UI** | MatchMaking/`MatchingWaitingUI`, `GameLoadingUI`, **StatsPopup**(라이브 데이터 바인딩 예시) | 예정 |
-| **M3 — 인게임 월드 HUD** | World Space `PanelSettings` 스파이크 → `CharacterUI`(머리 위 HP바), `DamageUI`/`DamageView`(데미지 숫자) | 예정 |
+| **M1 — 토대 + 파일럿** | R3 추가 + 클라 UI 관리 인프라(윈도우 매니저, `UIRoot` 문서, 레이어×스택) + base View/ViewModel 패턴 + **LoginPopup** 끝-끝 전환 | **이 spec** |
+| **M2 — 화면 고정 UI** | MatchMaking/`MatchingWaitingUI`, `GameLoadingUI`, **StatsPopup**(라이브 R3 바인딩 예시) | 예정 |
+| **M3 — 인게임 월드 HUD** | World Space `PanelSettings` 스파이크 → `CharacterUI`(머리 위 HP바), `DamageUI`/`DamageView` | 예정 |
 | **M4 — 터치 입력** | `GamePad`/`JoyStick`/`CameraTouchController`를 UI Toolkit 포인터 이벤트로 | 예정 |
 | **M5 — 정리/승격** | 클라에서 `CanvasManager`/UGUI `PopupManager` 사용 제거, UI 관리 인프라를 GameFramework로 승격 | 예정 |
-
-M2~M5는 박제만 한다. M1 완료 후 그 패턴을 기준으로 각 마일스톤을 그때 brainstorm/plan.
 
 ## Architecture (1-pager)
 
 ```
                  PanelSettings (Screen-space, 클라)
                           │
-              ┌───────────┴───────────────┐
+              ┌───────────┴──────────────────────────┐
               │  UIRoot (UIDocument, DontDestroyOnLoad)
-              │   └ 레이어 컨테이너 VisualElement (문서 순서 = z-order)
-              │       #hud  <  #popup  <  #loading  <  #toast  <  #system
-              └───────────┬───────────────┘
+              │   └ 밴드 컨테이너 VisualElement (z-order 낮음→높음)
+              │       #window  <  #popup  <  #notification  <  #system
+              │       (각 밴드 = 자체 스택; 모달 밴드는 top 아래 백드롭)
+              └───────────┬──────────────────────────┘
                           ▲
-                          │ open/close, 레이어 배치, 모달 스택+백드롭
-              ┌───────────┴───────────────┐
-              │  UIManager (IUIManager, DI Singleton)
-              │   - Open<TView>(layer) / Close(view)
-              │   - 모달 popup 스택 (push/pop, back/ESC, 백드롭)
-              │   - IObjectResolver로 View 생성 → ViewModel 자동 주입
-              └───────────┬───────────────┘
+                          │ Open/Close/Back, 밴드 배치, 밴드별 스택+백드롭
+              ┌───────────┴──────────────────────────┐
+              │  WindowManager (IWindowManager)
+              │   - Open<T>() : T 를 UI 스코프에서 resolve → 선언된 밴드 스택에 push
+              │   - Close(window) / Back()
+              │   - IObjectResolver(UI 스코프)로 View+ViewModel 생성
+              └───────────┬──────────────────────────┘
                           │ 생성
-        ┌─────────────────┼──────────────────────────┐
-        ▼                 ▼                           ▼
-   UIView (base, 순수 C# 컨트롤러)            UIPopup : UIView (모달)
-   - VisualElement root (UXML 클론)           - 백드롭, autoClose, 결과 반환
-   - OnOpen/OnClose 훅, CompositeDisposable    
-        │
+                          ▼
+   UIView (얇은 바인더; UXML 트리 소유)
+   - Root(VisualElement, UXML 클론), Layer(밴드), IsModal
+   - OnOpen/OnClose, CompositeDisposable, (no-op)PlayOpen/CloseAsync
+   - ViewModel의 R3 구독 → VisualElement 갱신, 입력 → 커맨드
         │ 구독/커맨드 (R3)
         ▼
-   ViewModel (순수 C#, ReactiveProperty 소유, IDisposable)
+   ViewModel (순수 C#)
+   - 상태: ReadOnlyReactiveProperty<T> / 이벤트·커맨드: Observable(Subject), IDisposable
         │ pull
         ▼
-   Model (기존 도메인 — 데이터스토어 / 엔티티 컴포넌트 / 상태머신 / 네트워크 메시지)
+   Model (기존 도메인 — 데이터스토어 / 엔티티 컴포넌트 / 상태머신 / 네트워크)
 ```
 
 핵심 디자인 결정:
 
-- **View = 순수 C# 컨트롤러** (MonoBehaviour 아님). `UIManager`가 단일 `UIRoot` UIDocument의 레이어 컨테이너에 UXML을 클론하고 컨트롤러를 생성·주입한다. → **단일 PanelSettings/단일 패널**, 패널 난립 없음, MVVM에 자연스러움. (대안 "화면당 UIDocument MonoBehaviour"는 아래 Open Decisions 참고)
-- **DI는 `IObjectResolver`로**: `UIManager.Open<TView>()`가 `resolver.Resolve<TView>()`로 View를 만들면 VContainer가 ViewModel을 자동 주입. 현 `[DIMonoBehaviour]` 씬 스캔 대신 명시적 resolve.
-- **R3 신규 도입, 공존**: 새 UI만 R3. 기존 UniRx(비-UI 포함)는 그대로 두고 전역 스왑은 별도 작업.
-- **클라 전용 인프라**: GameFramework의 `Popup`/`PopupManager`(UGUI 결합)는 건드리지 않고 클라에 새 인프라 구축. 안정화 후 M5에서 GameFramework 승격.
-- **공존 기간**: M1 시점엔 `CanvasManager`(로딩/토스트 캔버스)와 GameFramework `PopupManager`(StatsPopup 등)가 **그대로 살아 있다**. LoginPopup만 새 `UIManager`로 이동. 두 시스템이 한동안 병존.
+- **레이어(밴드) × 스택** — 고정 임의 enum 대신 상호작용 등급 밴드. 각 밴드가 자체 스택. 입력 포커스 = 가장 높은 가시 밴드의 top. ("UI 아키텍처" 가이드라인 절과 동일 모델.)
+- **R3 중심 바인딩** — ViewModel이 R3로 상태/이벤트 노출, View가 구독. U6 네이티브 바인딩 미채택.
+- **얇은 View** — UXML 트리 소유 + R3 구독 바인더. 비즈니스 로직 없음. (VisualElement 파생/컨트롤러 둘 다 허용 — M1은 컨트롤러형 `UIView` 사용, UXML은 클론.)
+- **전용 `UIInstaller`** — `IWindowManager` + 모든 View/ViewModel 등록을 한 모듈에. 앱 루트 스코프에 `Install`(코드 결합 분리). View는 윈도우 매니저가 자기 스코프 `IObjectResolver`로 resolve → 부모/자식 스코프 가시성 문제 회피.
+- **클라 전용 인프라** — GameFramework의 `Popup`/`PopupManager`(UGUI)는 미변경. 안정화 후 M5에서 GameFramework 승격.
+- **공존 기간** — M1엔 `CanvasManager`/GameFramework `PopupManager`(StatsPopup 등)가 그대로. LoginPopup만 새 매니저로 이동.
 
-## UI 관리 모델 (일반형 — 더미 `PopupManager` 대체)
+## UI 관리 모델 — 레이어(밴드) × 스택 윈도우 매니저
 
 ### 현재 (더미)
 
-`GameFramework.PopupManager`: `HashSet<IPopup>`에 평면 보관, `GetPopup<T>`(프리팹 인스턴스화)→`Show`→`Close`(파괴). 스택·모달·백드롭·트랜지션·결과 반환 없음. `Canvas`에 직접 결합. 씬 전환 시 `autoClose` 팝업 정리.
+`GameFramework.PopupManager`: `HashSet<IPopup>` 평면 보관, `GetPopup→Show→Close`. 스택·모달·밴드·백드롭·결과 반환 없음. `Canvas` 결합.
 
-### 신규 — `UIManager` (클라)
+### 신규 — `WindowManager` (클라)
 
-**레이어** (`enum UILayer`, z-order 낮음→높음):
+**밴드** (`enum UILayer`, z-order 낮음→높음):
 
-| 레이어 | 용도 | M1 사용 |
-|---|---|---|
-| `Hud` | 인게임 월드/오버레이 HUD | (M3) |
-| `Popup` | 모달 팝업 스택 | ✅ LoginPopup |
-| `Loading` | 로딩 화면 | (M2) |
-| `Toast` | 일시 알림 | (M2) |
-| `System` | 시스템 UI | (M2) |
+| 밴드 | 성격 | 스택/모달 | M1 |
+|---|---|---|---|
+| `Window` | 주 화면/페이지 | 스택 | (M2) |
+| `Popup` | 모달 다이얼로그 | 스택 + 백드롭 | ✅ LoginView |
+| `Notification` | 토스트/일시 알림 | 비모달 큐 | (M2) |
+| `System` | 시스템/치명/항상 최상단 | 스택(+필요시 백드롭) | (M2) |
 
-각 레이어 = `UIRoot` UXML의 컨테이너 `VisualElement`. 문서 순서가 곧 z-order.
+각 밴드 = `UIRoot`의 컨테이너 `VisualElement`(z-order 순서). **각 밴드가 자기 스택을 관리** — 하위 밴드는 상위 밴드 위로 못 올라감. 인게임 HUD/월드 추적 UI는 이 매니저 밖(M3, World Space PanelSettings).
 
 **API (M1 구현분):**
 
 ```csharp
-public interface IUIManager
+public interface IWindowManager
 {
-    // 비모달 뷰(오버레이/HUD) 또는 모달 팝업을 열고 컨트롤러 반환.
-    // 모달(UIPopup)이면 스택 push + 백드롭 표시.
-    TView Open<TView>(UILayer layer) where TView : UIView;
+    // T를 UI 스코프에서 resolve(ViewModel 자동 주입) → T.Layer 밴드 스택에 push.
+    // 모달이면 백드롭 삽입. 생성된 View 반환.
+    T Open<T>() where T : UIView;
 
-    // 뷰를 닫고 dispose. 모달이면 스택 pop + 백드롭 갱신.
+    // 닫고 dispose. 스택 pop + (모달이면) 백드롭 갱신.
     void Close(UIView view);
 
-    // 모달 스택 최상단 닫기 (back/ESC 대응).
-    bool CloseTop();
+    // 가장 높은 가시 밴드의 top을 닫는다(back/ESC). 닫았으면 true.
+    bool Back();
 }
 ```
 
-- **모달 스택**: `Open`된 `UIPopup`은 스택에 push. 최상단 모달 바로 아래 **백드롭 `VisualElement`**(입력 차단 + 딤) 자동 삽입. `Close`/`CloseTop`/백드롭 클릭(팝업의 `autoClose`에 따라)으로 pop.
-- **생성·주입**: `UIManager`가 주입받은 `IObjectResolver`로 `Resolve<TView>()` → ViewModel 자동 주입 → `UIRoot`의 해당 레이어에 `view.Root` 부착 → `view.OnOpen()` 호출.
-- **수명**: `Close` 시 `view.OnClose()` → `view.Dispose()`(CompositeDisposable 해제) → VisualElement 분리.
+- **스택/백드롭**: 모달 `UIView`(IsModal) push 시 해당 밴드 컨테이너에서 top 아래 **백드롭 `VisualElement`**(딤+입력 차단) 삽입. `Close`/`Back`/백드롭 클릭(AutoClose)으로 pop.
+- **생성·주입**: `WindowManager`가 주입받은 `IObjectResolver`(UI 스코프)로 `Resolve<T>()` → ViewModel 자동 주입 → UXML 클론을 `view.Initialize(root)` → `T.Layer` 밴드에 부착 → `view.OnOpen()`.
+- **수명**: `Close` 시 `OnClose()` → `Dispose()`(CompositeDisposable 해제) → VisualElement 분리.
 
-**M1에서 의도적으로 미구현(훅만/추후):**
-
-- **Open/Close 트랜지션·애니메이션**: base에 `virtual UniTask PlayOpenAsync()/PlayCloseAsync()`(기본 no-op) 훅만 두고 실제 연출은 필요해질 때.
-- **씬 레벨 페이지 네비게이션(push/pop pages)**: LOP의 최상위 화면은 씬(Entrance/Lobby/Room/LOPGame)이 전환하므로 페이지 네비게이션 스택은 **YAGNI** — 두지 않음. 관리 모델은 팝업·오버레이만 책임.
-- **씬 전환 자동 닫기**: 현 `PopupManager.AutoCloseAll` 대응은 M2(여러 화면이 들어올 때) 정합.
+**M1 의도적 미구현(훅/추후):** Open/Close 트랜지션(훅만 no-op), 씬 레벨 페이지 네비게이션(YAGNI — 씬이 담당), 씬 전환 자동 닫기(M2).
 
 ### Base 클래스
 
 ```csharp
-// 순수 C# 뷰 컨트롤러. UXML 클론을 받아 바인딩.
+// 얇은 View 바인더. UXML 트리 소유 + ViewModel R3 구독.
 public abstract class UIView : IDisposable
 {
-    public VisualElement Root { get; }              // UIManager가 UXML 클론 주입
-    protected CompositeDisposable Disposables { get; }
+    public VisualElement Root { get; private set; }
+    public abstract UILayer Layer { get; }       // 어느 밴드에 속하는가
+    public virtual bool IsModal => false;         // 모달이면 백드롭+입력 차단
+    protected CompositeDisposable Disposables { get; } = new();
 
+    public virtual void Initialize(VisualElement root) { Root = root; }
     public virtual void OnOpen() { }
     public virtual void OnClose() { }
     protected virtual UniTask PlayOpenAsync() => UniTask.CompletedTask;
     protected virtual UniTask PlayCloseAsync() => UniTask.CompletedTask;
-    public void Dispose() { /* Disposables.Dispose() */ }
+    public virtual void Dispose() { Disposables.Dispose(); }
 }
 
-// 모달 팝업. 백드롭/autoClose. 결과 반환은 파생에서 R3/UniTask로 노출.
+// 모달 팝업: Popup 밴드 + 백드롭. 결과 반환은 파생에서 R3로.
 public abstract class UIPopup : UIView
 {
-    public virtual bool AutoClose => true;          // 백드롭 클릭/씬전환 시 자동 닫힘
+    public override UILayer Layer => UILayer.Popup;
+    public override bool IsModal => true;
+    public virtual bool AutoClose => true;        // 백드롭 클릭 시 닫힘
 }
 ```
 
-> UXML/USS 에셋은 View와 짝지어 로드한다(예: `Resources`/Addressables/`UxmlReference` 어트리뷰트). 정확한 로딩 방식은 plan에서 확정(아래 Open Decisions).
+> UXML/USS는 View와 짝지어 로드(`UIViewCatalog` SO: viewName→UXML/USS 매핑). View는 R3 구독으로 동적 값을 갱신하고, 입력은 ViewModel 커맨드로 전달한다.
 
 ## LoginPopup 파일럿 전환
 
 ### 현재
+- `LoginPopup : GameFramework.Popup` — UGUI 버튼 3개, `onGuestLoginClick`, `Show()` 플랫폼 토글, UniRx.
+- `LoginComponent.Execute()`: `PopupManager.GetPopup<LoginPopup>()` → 이벤트 구독 → `Show()` → `UniTask.WaitUntil` → `Close()`.
 
-- `LoginPopup : GameFramework.Popup` — UGUI `Button` 3개(GPGS/GameCenter/Guest), `onGuestLoginClick` 이벤트, `Show()`에서 플랫폼별 버튼 토글. 버튼은 UniRx `onClick.AsObservable()`.
-- 소비자 `LoginComponent.Execute()`(`IEntranceComponent`): `PopupManager.instance.GetPopup<LoginPopup>()` → `onGuestLoginClick` 구독 → `Show()` → `UniTask.WaitUntil(loginResult != null)` → `Close()`.
+### 신규 구조 (R3 중심)
 
-### 신규 구조
+**`LoginViewModel`** (순수 C#):
+- `Observable<LoginType> OnLoginRequested` (`Subject`) — 선택된 로그인 타입 1회 발행.
+- `bool ShowGuest/ShowGpgs/ShowGameCenter` — 플랫폼 분기(전처리기). (로그인은 표시 *값*이 거의 정적 → R3 바인딩 진가는 M2 StatsPopup에서.)
+- 커맨드: `RequestLogin(LoginType)` → 발행.
 
-**`LoginViewModel`** (순수 C#, DI):
-- `Observable<LoginType> OnLoginRequested` (R3 `Subject` 노출) — Guest/GPGS/GameCenter 중 요청된 타입 발행.
-- 플랫폼별 버튼 노출 여부: `bool ShowGuest/ShowGpgs/ShowGameCenter` (생성 시 `Application.platform`/전처리기로 결정. ViewModel은 순수 C#이라 플랫폼 분기 데이터만 보유, UI 토글은 View가).
-- 커맨드: `RequestLogin(LoginType)` → `OnLoginRequested`에 발행.
-
-**`LoginView : UIPopup`**:
-- UXML: 버튼 3개(`#guest-login`, `#gpgs-login`, `#gamecenter-login`) + 백드롭은 매니저 제공.
-- `OnOpen`: ViewModel의 `ShowXxx`에 따라 버튼 `display` 토글. 각 버튼 `clicked` → `viewModel.RequestLogin(...)`. (R3로 구독, `Disposables`에 등록)
+**`LoginView : UIPopup`** (Layer=Popup, IsModal):
+- UXML 버튼 3개. `OnOpen`: `ShowXxx`로 버튼 `display` 설정, 각 버튼 `clicked` → `viewModel.RequestLogin(...)`(구독은 `Disposables`).
 - USS: 현 레이아웃 충실 이식 + 소폭 정돈.
 
-**`LoginComponent` 재작성** (R3 결과 await):
+**`LoginComponent` 재작성**:
 ```csharp
+[Inject] private IWindowManager windowManager;
+
 public async Task Execute()
 {
     var autoLoginResult = await LoginService.instance.TryAutoLogin();
     if (autoLoginResult.success) return;
 
-    var view = uiManager.Open<LoginView>(UILayer.Popup);
-    LoginType type = await view.ViewModel.OnLoginRequested.FirstAsync();   // R3 → UniTask
-    var loginResult = LoginService.instance.Login(type);
-    uiManager.Close(view);
+    var view = windowManager.Open<LoginView>();                 // UI 스코프에서 resolve+push
+    LoginType type = await view.ViewModel.OnLoginRequested.FirstAsync();
+    LoginResult loginResult = LoginService.instance.Login(type);
+    windowManager.Close(view);
 
     if (!loginResult.success) throw new Exception(loginResult.reason);
 }
 ```
-- `LoginComponent`의 `IUIManager` 획득 방식(주입 vs 루트 스코프 resolve)은 plan에서 확정(엔트런스 컴포넌트 생성 경로 확인 필요).
+`LoginComponent`는 `IWindowManager`만 주입받으면 됨(View resolve는 매니저가 자기 스코프에서 수행 → 스코프 가시성 문제 없음).
 
 ### 제거/정리
+- 기존 `Assets/Scripts/Popup/LoginPopup.cs` + `Assets/Popups/LoginPopup.prefab` 제거, `PrefabReferences` 엔트리 제거.
+- `CanvasManager`/GameFramework `PopupManager`/`Popup`은 **유지**(미이전 화면 사용).
 
-- 기존 `Assets/Scripts/Popup/LoginPopup.cs` + `Assets/Popups/LoginPopup.prefab`(UGUI) 제거.
-- `PrefabReferences`에서 LoginPopup 등록 제거(있다면).
-- `CanvasManager`/GameFramework `PopupManager`/`Popup`은 **유지**(StatsPopup 등이 아직 사용).
+## R3 셋업 (현황)
 
-## R3 셋업
+- **R3 코어 1.3.1**을 NuGetForUnity로 설치 완료(+전이 의존: `Microsoft.Bcl.TimeProvider`/`AsyncInterfaces`, `System.Threading.Channels`/`ComponentModel.Annotations`, `Unsafe 6.0.0`). UniRx와 공존 컴파일 통과.
+- **R3.Unity(UPM)는 보류** — Windows PackageCache EPERM(파일 잠금)으로 클론 실패. M1이 쓰는 API(`Subject`/`FirstAsync`/`CompositeDisposable`)는 코어에 전부 존재. 프레임/타임 프로바이더가 필요한 시점(M2/M3)에 **OpenUPM tarball**로 추가 예정.
 
-- 클라 `Packages/manifest.json` + `Assets/NuGetForUnity/packages.config`에 R3 추가.
-- 정확한 의존 구성(예: NuGetForUnity `R3` 코어 + `Microsoft.Bcl.TimeProvider`/`ObservableCollections` + UPM `R3.Unity` 통합 — `AddTo`, frame provider 제공) 은 **plan의 첫 셋업 태스크에서 확정**한다. 프로젝트는 이미 NuGetForUnity + UPM 병용.
-- 검증: R3 `using R3;` 컴파일 통과 + 기존 UniRx 코드 동시 컴파일 통과(공존 확인).
+## DI — 전용 `UIInstaller`
 
-## DI 결선
+UI 인프라 등록을 한 모듈로 분리(앱 스코프 결합 차단). 앱 루트 스코프에서 `builder.Install(...)`로 적용.
 
-| 등록 | 스코프 | 비고 |
+| 등록 | 수명 | 비고 |
 |---|---|---|
-| `IUIManager` → `UIManager` | Root (앱 전역, DontDestroyOnLoad) | 기존 `CanvasManager`/`PopupManager`가 앱 전역인 것과 동일 위상 |
-| `UIRoot`(UIDocument+PanelSettings GameObject) | Root | `UIManager`가 참조 보유 |
-| `LoginView`, `LoginViewModel` | Transient | `UIManager`가 `IObjectResolver`로 resolve 시 ViewModel 자동 주입 |
+| `IWindowManager` → `WindowManager` | Singleton | UIRoot 프리팹 인스턴스(DontDestroyOnLoad), `IObjectResolver` 보유 |
+| `UIViewCatalog` | Singleton | viewName→UXML/USS 매핑 SO |
+| `LoginView`, `LoginViewModel` | Transient | 매니저가 `Open<LoginView>()` 시 resolve(VM 자동 주입) |
 
-> `UIManager`를 MonoBehaviour(UIRoot에 부착)로 둘지 순수 C#+별도 부트스트랩 MonoBehaviour로 둘지는 plan에서 확정. 어느 쪽이든 Root 스코프 Singleton으로 노출.
+> `WindowManager`는 `UIRoot.prefab`(UIDocument+PanelSettings) 위 MonoBehaviour. `RegisterComponentInNewPrefab(...).DontDestroyOnLoad()`로 등록. 등록 코드는 `RootLifetimeScope`가 아니라 `UIInstaller`에 둔다.
 
 ## 테스트 전략
 
-- **`LoginViewModel`**(순수 C#): 가능하면 EditMode 단위 테스트. 단, **클라 전 코드가 단일 Assembly-CSharp라 EditMode asmdef가 직접 참조 불가**(기존 제약 — 클라 PlayMode는 리플렉션+빌드세팅 씬 패턴). 따라서 ViewModel 단위 테스트는 리플렉션 패턴이 가능하면 추가하되, **무리하지 않고 런타임 수동 검증을 1차**로 둔다(이전 World Core 슬라이스들과 동일 기조).
-- **런타임 수동 검증** (Unity Play Mode):
-  1. Entrance 진입 → 자동 로그인 실패 시 **로그인 팝업(UI Toolkit) 표시**
-  2. Guest 로그인 버튼 클릭 → `LoginService.Login(Guest)` 호출 → 팝업 닫힘 → 정상 진행
-  3. 플랫폼별 버튼 노출 토글 동작(에디터/Android/iOS)
-  4. 모달 백드롭 표시 + 하단 입력 차단
-  5. 에러 0건 (DI 누락 NRE 없음)
+- **`LoginViewModel`**(순수 C#): 클라 단일 Assembly-CSharp 제약으로 EditMode asmdef 직접 참조 불가 → **런타임 수동 검증이 1차**(이전 슬라이스 기조).
+- **런타임 수동 검증** (Play Mode): ① 자동 로그인 실패 시 로그인 팝업(UI Toolkit) 표시 ② Guest 클릭 → `Login(Guest)` → 팝업 닫힘 → 진행 ③ 플랫폼 버튼 토글 ④ 모달 백드롭+입력 차단 ⑤ 에러 0건.
 
 ## Wiring & 변경 요약
 
 | 파일/에셋 | 변경 |
 |---|---|
-| `Packages/manifest.json`, `NuGetForUnity/packages.config` | R3 추가 (M1) |
-| 신규 `UIManager`, `UIView`, `UIPopup`, `UILayer` | 클라 UI 관리 인프라 |
-| 신규 `UIRoot` UXML/USS + `PanelSettings` 에셋 | 레이어 컨테이너 |
+| `NuGetForUnity/packages.config` | R3 코어 추가 (완료) |
+| 신규 `WindowManager`/`IWindowManager`, `UIView`, `UIPopup`, `UILayer`(밴드), `UIViewCatalog` | 클라 UI 관리 인프라 |
+| 신규 `UIInstaller` | UI DI 등록 모듈 |
+| 신규 `UIRoot` 프리팹(Resources) + `PanelSettings`(+테마) | 밴드 컨테이너 호스트 |
 | 신규 `LoginView`(+UXML/USS), `LoginViewModel` | 파일럿 |
-| `LoginComponent.cs` | `IUIManager` + R3 결과 await로 재작성 |
+| `LoginComponent.cs` | `IWindowManager` + R3 결과 await로 재작성 |
+| 앱 루트 `LifetimeScope` | `UIInstaller` 한 줄 Install (개별 UI 등록은 인스톨러로 이관) |
 | `Assets/Scripts/Popup/LoginPopup.cs`, `Assets/Popups/LoginPopup.prefab` | 제거 |
-| Root `LifetimeScope` | `IUIManager`/`UIRoot`/`LoginView`/`LoginViewModel` 등록 |
-| `CanvasManager`, GameFramework `PopupManager`/`Popup` | **유지**(M2+에서 정리) |
+| `CanvasManager`, GameFramework `PopupManager`/`Popup` | 유지(M5에서 정리) |
 
 ## Out of Scope
 
-- M2~M5 전부(다른 화면, 월드 HUD, 터치 입력, GameFramework 승격).
-- 전역 UniRx → R3 스왑(비-UI 코드 포함).
-- Open/Close 트랜지션·애니메이션 구현(훅만).
-- 씬 레벨 페이지 네비게이션 스택(YAGNI — 씬이 담당).
-- UI 재디자인(스타일 소폭 정돈만).
-- World Space `PanelSettings`(M3).
+- M2~M5 전부. 전역 UniRx→R3 스왑. Open/Close 트랜지션 구현(훅만). 씬 레벨 페이지 네비게이션. UI 재디자인. World Space PanelSettings(M3). R3.Unity 도입(보류).
 
 ## Open Decisions (plan에서 해소)
 
-- [ ] **View 호스팅 모델 확정** — 채택안: **단일 `UIRoot` UIDocument + 순수 C# View 컨트롤러 + UXML 클론**(패널 난립 없음, MVVM 정합). 대안: 화면당 UIDocument MonoBehaviour(현 `[DIMonoBehaviour]` 스캔과 더 가깝지만 패널 다수). 채택안으로 가되 plan 초반 스파이크로 확정.
-- [ ] **UXML/USS ↔ View 로딩 방식** — `Resources` vs Addressables vs 직접 참조 에셋. 프로젝트가 맵 로딩에 Addressables 사용 중 → 통일 후보.
-- [ ] **R3 정확한 패키지 구성** — 코어/Unity 통합/전이 의존 버전. plan 첫 태스크.
-- [ ] **`UIManager` 형태** — MonoBehaviour(UIRoot 부착) vs 순수 C#+부트스트랩. Root 스코프 Singleton 노출은 공통.
-- [ ] **`LoginComponent`의 `IUIManager` 획득** — 주입 vs 루트 스코프 resolve. 엔트런스 컴포넌트 생성 경로 확인.
-- [ ] **`PanelSettings` 스케일 모드** — 현 Canvas Scaler 설정(해상도 대응) 대응값.
+- [ ] **밴드 세트 최종** — `Window/Popup/Notification/System` 기본. M1은 `Popup`만 실사용. 확장은 필요 시.
+- [ ] **`UIInstaller` 적용 지점** — 루트 스코프 `Install` vs 전용 `UILifetimeScope`(루트 자식·씬 부모). M1은 루트 `Install`(단순). 강한 격리 필요 시 별도 스코프로.
+- [ ] **`Back()` 입력 소스** — ESC/안드로이드 back 바인딩은 Input System 연동(M2+). M1은 메서드만.
+- [ ] **`PanelSettings` 스케일 모드** — 현 Canvas Scaler 대응값(런타임 검증에서 조정).
 
 ## 진행
 
-- [x] 브레인스토밍 합의 (목표=가이드라인 정합, 화면 단위 점진, 100% UI Toolkit(월드 포함), R3 공존, 클라 우선 인프라, 로드맵 M1~M5 분해, 일반형 UI 관리 모델)
-- [ ] 이 spec self-review
+- [x] 브레인스토밍 합의 + 업계 표준 교차검증(CommonUI/Lyra, UnityScreenNavigator, U6 바인딩 재평가)
+- [x] 가이드라인(`architecture-guidelines.md`) "UI 아키텍처" 절 갱신
+- [x] 이 spec 개정 (레이어×스택 / R3 중심 / UIInstaller)
 - [ ] 사용자 spec 리뷰
-- [ ] `writing-plans`로 M1 구현 plan 작성
-- [ ] subagent-driven 또는 inline 실행
+- [ ] `writing-plans`로 M1 구현 plan **개정** (기존 구현 → 이 설계로 리팩터)
+- [ ] inline 실행
 
-M1 완료 후 main tip = 신규 commit(피처 브랜치 `--no-ff` 머지). 이후 M2를 그때 brainstorm.
+> 비고: 현재 `feature/ui-toolkit-migration-m1` 브랜치엔 *초기 설계*(고정 레이어 enum / 수동 View / Root·Entrance 등록)로 동작하는 구현이 커밋되어 있다. 이 spec 개정에 맞춰 해당 구현을 리팩터한다(처음부터 재작성 아님 — 진화).

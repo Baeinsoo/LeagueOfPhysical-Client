@@ -1,6 +1,6 @@
+using Cysharp.Threading.Tasks;
 using GameFramework;
 using LOP.UI;
-using R3;
 using System;
 using System.Threading.Tasks;
 using VContainer;
@@ -19,13 +19,7 @@ namespace LOP
                 return;
             }
 
-            var view = windowManager.Open<LoginView>();
-
-            LoginType loginType = await view.ViewModel.OnLoginRequested.FirstAsync();
-
-            LoginResult loginResult = LoginService.instance.Login(loginType);
-
-            windowManager.Close(view);
+            LoginResult loginResult = await windowManager.OpenModalAsync<LoginView, LoginResult>();
 
             if (loginResult.success == false)
             {

@@ -1,11 +1,13 @@
+using Cysharp.Threading.Tasks;
 using UnityEngine.UIElements;
 
 namespace LOP.UI
 {
-    /// <summary>로그인 팝업 View. 버튼 클릭을 ViewModel 커맨드로 전달, 플랫폼별 버튼 노출 토글.</summary>
-    public class LoginView : UIPopup
+    /// <summary>로그인 팝업 View. 버튼 클릭을 ViewModel 커맨드로 전달하고, ViewModel이 만든 결과를 포워딩한다.
+    /// ViewModel은 외부에 노출하지 않는다(다이얼로그 서비스 패턴 — 소비자는 결과만 받음).</summary>
+    public class LoginView : UIPopup, IResultView<LoginResult>
     {
-        public LoginViewModel ViewModel { get; }
+        private readonly LoginViewModel _viewModel;
 
         private Button _guestButton;
         private Button _gpgsButton;
@@ -13,8 +15,13 @@ namespace LOP.UI
 
         public LoginView(LoginViewModel viewModel)
         {
-            ViewModel = viewModel;
+            _viewModel = viewModel;
         }
+
+        /// <summary>로그인은 임의로 닫을 수 없는 필수 모달.</summary>
+        public override bool AutoClose => false;
+
+        public UniTask<LoginResult> ResultAsync => _viewModel.ResultAsync;
 
         public override void OnOpen()
         {
@@ -24,9 +31,9 @@ namespace LOP.UI
             _gpgsButton = Root.Q<Button>("gpgs-login");
             _gamecenterButton = Root.Q<Button>("gamecenter-login");
 
-            SetVisible(_guestButton, ViewModel.ShowGuest);
-            SetVisible(_gpgsButton, ViewModel.ShowGpgs);
-            SetVisible(_gamecenterButton, ViewModel.ShowGameCenter);
+            SetVisible(_guestButton, _viewModel.ShowGuest);
+            SetVisible(_gpgsButton, _viewModel.ShowGpgs);
+            SetVisible(_gamecenterButton, _viewModel.ShowGameCenter);
 
             _guestButton.clicked += OnGuestClicked;
             _gpgsButton.clicked += OnGpgsClicked;
@@ -42,9 +49,9 @@ namespace LOP.UI
             base.OnClose();
         }
 
-        private void OnGuestClicked() => ViewModel.RequestLogin(LoginType.Guest);
-        private void OnGpgsClicked() => ViewModel.RequestLogin(LoginType.GooglePlayGame);
-        private void OnGameCenterClicked() => ViewModel.RequestLogin(LoginType.GameCenter);
+        private void OnGuestClicked() => _viewModel.RequestLogin(LoginType.Guest);
+        private void OnGpgsClicked() => _viewModel.RequestLogin(LoginType.GooglePlayGame);
+        private void OnGameCenterClicked() => _viewModel.RequestLogin(LoginType.GameCenter);
 
         private static void SetVisible(VisualElement element, bool visible)
         {
@@ -53,7 +60,7 @@ namespace LOP.UI
 
         public override void Dispose()
         {
-            ViewModel.Dispose();
+            _viewModel.Dispose();
             base.Dispose();
         }
     }

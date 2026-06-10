@@ -110,6 +110,10 @@ public interface IWindowManager
 
     // 가장 높은 가시 밴드의 top을 닫는다(back/ESC). 닫았으면 true.
     bool Back();
+
+    // 결과 반환 모달(다이얼로그 서비스): 모달을 열고 ViewModel이 만든 결과를 await로 반환, 확정 후 자동 Close.
+    // 소비자는 View/VM을 만지지 않고 결과만 받는다. View는 IResultView<TResult>로 VM 결과를 포워딩.
+    UniTask<TResult> OpenModalAsync<TView, TResult>() where TView : UIView, IResultView<TResult>;
 }
 ```
 
@@ -155,18 +159,21 @@ public abstract class UIPopup : UIView
 - `LoginPopup : GameFramework.Popup` — UGUI 버튼 3개, `onGuestLoginClick`, `Show()` 플랫폼 토글, UniRx.
 - `LoginComponent.Execute()`: `PopupManager.GetPopup<LoginPopup>()` → 이벤트 구독 → `Show()` → `UniTask.WaitUntil` → `Close()`.
 
-### 신규 구조 (R3 중심)
+### 신규 구조 (결과 반환 모달 — VM이 로그인 처리, 소비자는 결과만)
 
-**`LoginViewModel`** (순수 C#):
-- `Observable<LoginType> OnLoginRequested` (`Subject`) — 선택된 로그인 타입 1회 발행.
-- `bool ShowGuest/ShowGpgs/ShowGameCenter` — 플랫폼 분기(전처리기). (로그인은 표시 *값*이 거의 정적 → R3 바인딩 진가는 M2 StatsPopup에서.)
-- 커맨드: `RequestLogin(LoginType)` → 발행.
+업계 MVVM 다이얼로그 서비스 패턴(Prism `IDialogService`/`IDialogAware`) 적용. 로그인은 표시할 라이브 상태가 없는(정적 버튼 + 단일 결과) 화면이라 **결과는 R3가 아니라 UniTask**로 다룬다. (R3는 라이브 상태 바인딩용 — M2 StatsPopup에서 발현.)
 
-**`LoginView : UIPopup`** (Layer=Popup, IsModal):
-- UXML 버튼 3개. `OnOpen`: `ShowXxx`로 버튼 `display` 설정, 각 버튼 `clicked` → `viewModel.RequestLogin(...)`(구독은 `Disposables`).
+**`LoginViewModel`** (순수 C#, IDisposable):
+- `UniTask<LoginResult> ResultAsync` — `UniTaskCompletionSource<LoginResult>` 기반. 매니저가 await.
+- `bool ShowGuest/ShowGpgs/ShowGameCenter` — 플랫폼 분기(전처리기).
+- `RequestLogin(LoginType)` — **서비스 레이어(`LoginService.Login`)를 직접 호출**해 로그인 수행 → 결과 확정(`TrySetResult`). VM이 로그인 use-case를 소유.
+
+**`LoginView : UIPopup, IResultView<LoginResult>`** (Layer=Popup, IsModal, **AutoClose=false** — 필수 모달):
+- **ViewModel을 외부에 노출하지 않음**(private). `ResultAsync`는 VM 결과를 포워딩.
+- UXML 버튼 3개. `OnOpen`: `ShowXxx`로 `display` 설정, 각 버튼 `clicked` → `viewModel.RequestLogin(...)`.
 - USS: 현 레이아웃 충실 이식 + 소폭 정돈.
 
-**`LoginComponent` 재작성**:
+**`LoginComponent` 재작성** (얇은 플로우 코디네이터 — 자동 로그인 판단 + 게이트만):
 ```csharp
 [Inject] private IWindowManager windowManager;
 
@@ -175,15 +182,14 @@ public async Task Execute()
     var autoLoginResult = await LoginService.instance.TryAutoLogin();
     if (autoLoginResult.success) return;
 
-    var view = windowManager.Open<LoginView>();                 // UI 스코프에서 resolve+push
-    LoginType type = await view.ViewModel.OnLoginRequested.FirstAsync();
-    LoginResult loginResult = LoginService.instance.Login(type);
-    windowManager.Close(view);
+    LoginResult loginResult = await windowManager.OpenModalAsync<LoginView, LoginResult>();
 
-    if (!loginResult.success) throw new Exception(loginResult.reason);
+    if (loginResult.success == false) throw new Exception(loginResult.reason);
 }
 ```
-`LoginComponent`는 `IWindowManager`만 주입받으면 됨(View resolve는 매니저가 자기 스코프에서 수행 → 스코프 가시성 문제 없음).
+소비자는 View/VM을 만지지 않고 **타입 안전한 결과만** 받는다. "타입 받기→서비스 호출" 2단계 컨트롤러 노릇은 VM으로 내려감.
+
+> `LoginService`는 현재 MonoSingleton(`LoginService.instance`)이라 VM이 정적 접근한다. 이상적으론 `ILoginService` DI 주입이나, MonoSingleton DI화는 별도 정리 대상(이번 범위 밖).
 
 ### 제거/정리
 - 기존 `Assets/Scripts/Popup/LoginPopup.cs` + `Assets/Popups/LoginPopup.prefab` 제거, `PrefabReferences` 엔트리 제거.

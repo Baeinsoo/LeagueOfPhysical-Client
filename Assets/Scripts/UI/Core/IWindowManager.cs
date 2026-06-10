@@ -1,3 +1,5 @@
+using Cysharp.Threading.Tasks;
+
 namespace LOP.UI
 {
     public interface IWindowManager
@@ -10,5 +12,9 @@ namespace LOP.UI
 
         /// <summary>가장 높은 가시 밴드의 top을 닫는다(back/ESC). 닫았으면 true.</summary>
         bool Back();
+
+        /// <summary>모달 View를 열고 ViewModel이 만든 결과를 await로 반환. 결과 확정 후 자동 Close.
+        /// 소비자는 View/ViewModel을 만지지 않고 결과만 받는다(다이얼로그 서비스 패턴).</summary>
+        UniTask<TResult> OpenModalAsync<TView, TResult>() where TView : UIView, IResultView<TResult>;
     }
 }

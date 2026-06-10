@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UIElements;
 using VContainer;
@@ -70,6 +71,14 @@ namespace LOP.UI
 
             view.OnOpen();
             return view;
+        }
+
+        public async UniTask<TResult> OpenModalAsync<TView, TResult>() where TView : UIView, IResultView<TResult>
+        {
+            var view = Open<TView>();
+            TResult result = await view.ResultAsync;
+            Close(view);
+            return result;
         }
 
         public void Close(UIView view)

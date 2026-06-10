@@ -140,6 +140,7 @@ Tests.PlayMode → 전체
 ### 바인딩 — R3 중심
 - ViewModel(순수 C#)이 상태를 R3 `ReadOnlyReactiveProperty<T>`로, 일회성/커맨드를 `Observable`(Subject)로 노출한다. View는 이를 **구독**해 `VisualElement`를 갱신하고, 사용자 입력(버튼 `clicked` 등)은 ViewModel 커맨드로 전달한다.
 - **결정 — Unity 6 런타임 데이터 바인딩 미채택(R3 유지)**: Unity 6의 런타임 데이터 바인딩은 *값(프로퍼티) 바인딩* 수준으로, 커맨드 바인딩 부재 · `[CreateProperty]`/`INotifyBindablePropertyChanged` 보일러플레이트 · 미성숙 이슈가 있다. 반응형 컴포지션은 R3가 우월하므로 **R3 중심 바인딩을 기본**으로 한다. 값이 많은 정적 화면에서 선언적 이득이 분명하면 네이티브 바인딩을 *선택적으로* 병용할 수 있다.
+- **1회성 async 결과는 UniTask** (R3 아님): 모달 결과처럼 *한 번 await로 받는* 값은 R3 스트림이 아니라 `UniTask`/`UniTaskCompletionSource`로 다룬다(아래 "결과 반환 모달"). R3는 *연속 스트림·라이브 상태*(시간에 따라 여러 번 바뀌는 값) 전용. 바인딩할 라이브 상태가 없는 화면(예: 정적 버튼 + 단일 결과)에는 R3가 등장하지 않는 게 정상이다.
 
 ### View 구조
 - 화면은 UXML/USS로 정의하고, View는 그 트리를 소유하며 ViewModel의 R3를 구독하는 **얇은 바인더**다. 구현은 **`VisualElement` 파생 컴포넌트(`[UxmlElement]`)** 또는 **컨트롤러 클래스** 중 무엇이든 가능하다(둘 다 UI Toolkit에서 통용). View에는 비즈니스 로직을 두지 않는다.
@@ -153,7 +154,11 @@ Tests.PlayMode → 전체
 - **렌더 구성**: 단일 루트 UIDocument 안에 밴드 컨테이너 `VisualElement`를 z-순서대로 두고, 각 컨테이너가 자기 스택을 관리. UI Toolkit 전용 성숙 라이브러리가 드물어 보통 직접 구현한다.
 - **월드 추적 UI**(머리 위 체력바·플로팅 데미지 등)는 이 스크린스페이스 매니저 밖이며, **World Space `PanelSettings`**(별도 렌더)로 다룬다.
 
-### DI
+### 결과 반환 모달 (다이얼로그 서비스)
+모달이 단일 결과를 돌려주는 경우(확인/선택/로그인 등)는 **다이얼로그 서비스 패턴**을 따른다(Prism `IDialogService`/`IDialogAware`에 대응):
+- 매니저가 `UniTask<TResult> OpenModalAsync<TView, TResult>()`로 **결과를 await 반환**한다. **소비자는 View/ViewModel을 만지지 않고 결과만 받는다** — 외부에서 `view.ViewModel`에 접근하는 것은 tight-coupling 안티패턴.
+- **결과 출처 = ViewModel**: VM이 서비스 레이어를 호출해 로직을 수행하고 결과를 확정한다(결과 확정 = 닫기 신호). View는 버튼→VM 커맨드 전달 + VM 결과 포워딩(`IResultView<TResult>`)만 하는 수동 바인더.
+- 필수 모달(닫기 불가)은 `AutoClose = false`로 백드롭 클릭 무시.
 - UI 인프라(윈도우 매니저 등)는 **전용 UI Installer**로 등록해 앱/씬 스코프와의 결합을 분리한다.
 
 > 업계 근거: Unreal Engine CommonUI/Lyra(레이어별 activatable 위젯 스택, ZOrder, push/pop, 최상위 가시 레이어 top에 입력 포커스), UnityScreenNavigator(Page/Modal/Sheet 스택 + 모달 입력 차단). 소규모 프로젝트에서는 밴드 수를 최소화해 과설계를 피한다.

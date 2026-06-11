@@ -1,4 +1,5 @@
 using GameFramework;
+using LOP.UI;
 using UnityEngine;
 using VContainer;
 
@@ -17,6 +18,11 @@ namespace LOP
 
         [Inject]
         private GameFramework.World.EntityRegistry entityRegistry;
+
+        [Inject]
+        private IWindowManager windowManager;
+
+        private bool _statsViewOpened;
 
         public LOPEntity Create(CharacterCreationData creationData)
         {
@@ -83,6 +89,13 @@ namespace LOP
 
                 playerContext.entity = entity;
                 playerContext.entityView = view;
+
+                // 유저 엔티티(데이터)가 준비된 시점에 스탯 패널을 연다. 리스폰 재바인딩은 M2a 범위 밖이라 1회만.
+                if (!_statsViewOpened)
+                {
+                    windowManager.Open<StatsView>();
+                    _statsViewOpened = true;
+                }
 
                 SnapReconciler snapReconciler = entity.gameObject.AddComponent<SnapReconciler>();
                 objectResolver.Inject(snapReconciler);

@@ -24,6 +24,9 @@ namespace LOP.UI
         private readonly Dictionary<UILayer, VisualElement> _backdrops = new();
         private readonly Dictionary<UIView, VisualElement> _roots = new();
 
+        // 자식 스코프가 기여한 타입별 View 팩토리. 있으면 root resolver 대신 이걸로 생성한다.
+        private readonly Dictionary<Type, Func<UIView>> _factories = new();
+
         private void Awake()
         {
             if (document == null) document = GetComponent<UIDocument>();
@@ -48,7 +51,10 @@ namespace LOP.UI
 
         public T Open<T>() where T : UIView
         {
-            var view = resolver.Resolve<T>();
+            // 자식 스코프가 기여한 팩토리가 있으면 그걸로(= 자식 resolver) 생성, 없으면 자기(root) resolver.
+            var view = _factories.TryGetValue(typeof(T), out var factory)
+                ? (T)factory()
+                : resolver.Resolve<T>();
 
             if (!catalog.TryGet(typeof(T).Name, out var entry) || entry.uxml == null)
             {
@@ -59,6 +65,10 @@ namespace LOP.UI
             var viewRoot = entry.uxml.Instantiate();
             viewRoot.style.flexGrow = 1;
             if (entry.uss != null) viewRoot.styleSheets.Add(entry.uss);
+
+            // 비모달 View의 전체화면 래퍼는 입력을 통과시킨다(자식 카드/버튼만 picking).
+            // 안 그러면 전체화면 래퍼가 포인터를 먹어 아래 UGUI(조그패드 등)가 막힌다. 모달은 막아야 하므로 제외.
+            if (!view.IsModal) viewRoot.pickingMode = PickingMode.Ignore;
 
             view.Initialize(viewRoot);
             _roots[view] = viewRoot;
@@ -79,6 +89,50 @@ namespace LOP.UI
             TResult result = await view.ResultAsync;
             Close(view);
             return result;
+        }
+
+        public IDisposable RegisterViewFactory<T>(Func<T> factory) where T : UIView
+        {
+            if (factory == null) throw new ArgumentNullException(nameof(factory));
+
+            var type = typeof(T);
+            _factories[type] = () => factory();
+            return new FactoryRegistration(this, type);
+        }
+
+        // 팩토리를 제거하고, 그 타입으로 현재 열린 View들을 모두 닫는다(자식 스코프 teardown).
+        private void RemoveViewFactory(Type type)
+        {
+            _factories.Remove(type);
+
+            var toClose = new List<UIView>();
+            foreach (var stack in _stacks.Values)
+            {
+                foreach (var view in stack)
+                {
+                    if (view.GetType() == type) toClose.Add(view);
+                }
+            }
+            foreach (var view in toClose) Close(view);
+        }
+
+        private sealed class FactoryRegistration : IDisposable
+        {
+            private WindowManager _owner;
+            private readonly Type _type;
+
+            public FactoryRegistration(WindowManager owner, Type type)
+            {
+                _owner = owner;
+                _type = type;
+            }
+
+            public void Dispose()
+            {
+                if (_owner == null) return;
+                _owner.RemoveViewFactory(_type);
+                _owner = null;
+            }
         }
 
         public void Close(UIView view)

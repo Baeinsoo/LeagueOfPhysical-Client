@@ -1,4 +1,6 @@
 using GameFramework;
+using LOP.UI;
+using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using VContainer;
@@ -14,6 +16,9 @@ namespace LOP
         [SerializeField] private LOPGame game;
         [SerializeField] private LOPGameEngine gameEngine;
         [SerializeField] private CameraController cameraController;
+
+        // 전역 WindowManager에 게임 스코프 View 팩토리를 기여한 핸들(OnDestroy에서 해제).
+        private IDisposable _statsViewRegistration;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -39,15 +44,24 @@ namespace LOP
             builder.Register<IEntityCreator, ItemCreator>(Lifetime.Singleton);
             builder.Register<IEntityFactory, EntityFactory>(Lifetime.Singleton);
 
+            builder.Register<StatsViewModel>(Lifetime.Transient);
+            builder.Register<StatsView>(Lifetime.Transient);
+
             builder.RegisterBuildCallback(container =>
             {
                 container.InjectSceneObjects(gameObject.scene);
                 SceneManager.sceneLoaded += OnSceneLoaded;
+
+                // 전역 WindowManager에 StatsView 팩토리 기여: Open<StatsView>가 게임 스코프 resolver로 생성 → IPlayerContext 주입.
+                var windowManager = container.Resolve<IWindowManager>();
+                _statsViewRegistration = windowManager.RegisterViewFactory<StatsView>(() => container.Resolve<StatsView>());
             });
         }
 
         protected override void OnDestroy()
         {
+            // 팩토리 해제 + 열린 StatsView Close (base가 컨테이너를 dispose하기 전에).
+            _statsViewRegistration?.Dispose();
             SceneManager.sceneLoaded -= OnSceneLoaded;
             base.OnDestroy();
         }

@@ -16,6 +16,9 @@ namespace LOP.UI
 
             builder.Register<LoginViewModel>(Lifetime.Transient);
             builder.Register<LoginView>(Lifetime.Transient);
+
+            builder.Register<GameLoadingView>(Lifetime.Transient);
+            builder.Register<MatchingWaitingView>(Lifetime.Transient);
         }
     }
 }

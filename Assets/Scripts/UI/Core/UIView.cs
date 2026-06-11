@@ -16,6 +16,9 @@ namespace LOP.UI
         /// <summary>모달이면 밴드에 백드롭(딤+입력 차단)을 깐다.</summary>
         public virtual bool IsModal => false;
 
+        /// <summary>아래로의 입력을 막는지. 기본은 모달 여부. 전체화면 오버레이(로딩/매칭)는 모달이 아니어도 true로 override.</summary>
+        public virtual bool BlocksUnderlyingInput => IsModal;
+
         protected CompositeDisposable Disposables { get; } = new();
 
         /// <summary>UIManager가 UXML 클론 직후 1회 호출. 파생은 base 호출 후 바인딩.</summary>

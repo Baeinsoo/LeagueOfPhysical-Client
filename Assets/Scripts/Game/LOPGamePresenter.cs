@@ -1,5 +1,6 @@
 using Cysharp.Threading.Tasks;
 using GameFramework;
+using LOP.UI;
 using UnityEngine;
 using VContainer;
 
@@ -15,6 +16,11 @@ namespace LOP
 
         [Inject]
         private IPlayerContext playerContext;
+
+        [Inject]
+        private IWindowManager windowManager;
+
+        private UIView gameLoadingView;
 
         private void Awake()
         {
@@ -37,11 +43,15 @@ namespace LOP
             switch (gameState)
             {
                 case Initialized:
-                    GameLoadingUI.Show();
+                    gameLoadingView = windowManager.Open<GameLoadingView>();
                     break;
 
                 case Playing:
-                    GameLoadingUI.Hide();
+                    if (gameLoadingView != null)
+                    {
+                        windowManager.Close(gameLoadingView);
+                        gameLoadingView = null;
+                    }
                     break;
             }
         }

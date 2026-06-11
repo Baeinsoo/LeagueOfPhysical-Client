@@ -1,0 +1,62 @@
+.stats-root {
+    flex-grow: 1;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+
+.stats-card {
+    margin: 24px;
+    padding: 16px;
+    width: 220px;
+    border-radius: 12px;
+    background-color: rgba(20, 20, 28, 0.85);
+    align-items: stretch;
+}
+
+.stats-title {
+    font-size: 20px;
+    color: rgb(235, 235, 245);
+    -unity-text-align: middle-center;
+    margin-bottom: 12px;
+}
+
+.stats-row {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 6px;
+}
+
+.stats-points-row {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 12px;
+}
+
+.stats-name {
+    width: 64px;
+    font-size: 16px;
+    color: rgb(180, 180, 195);
+}
+
+.stats-value {
+    flex-grow: 1;
+    font-size: 18px;
+    color: rgb(235, 235, 245);
+    -unity-text-align: middle-right;
+    margin-right: 12px;
+}
+
+.stats-points-value {
+    flex-grow: 1;
+    font-size: 18px;
+    color: rgb(120, 220, 140);
+    -unity-text-align: middle-right;
+    margin-right: 12px;
+}
+
+.stats-button {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+    border-radius: 6px;
+}

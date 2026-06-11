@@ -25,3 +25,6 @@ MonoBehaviour:
   - viewName: MatchingWaitingView
     uxml: {fileID: 9197481963319205126, guid: 81fea3d7553c89e42bad9c098fb26206, type: 3}
     uss: {fileID: 7433441132597879392, guid: 0c8aac2fed20a4d4186ced1b2a42e117, type: 3}
+  - viewName: MatchMakingView
+    uxml: {fileID: 9197481963319205126, guid: c728ed2c90563a24b983a6a9d4ea42e7, type: 3}
+    uss: {fileID: 7433441132597879392, guid: f7e04eac2a452f2448b729d43fcff6ac, type: 3}

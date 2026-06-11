@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="matching-root" class="matching-root">
+        <ui:VisualElement name="matching-card" class="matching-card">
+            <ui:Label text="MATCHING" class="matching-title" />
+            <ui:Label text="Waiting for players..." class="matching-message" />
+            <ui:Button name="cancel-button" text="Cancel" class="matching-cancel" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

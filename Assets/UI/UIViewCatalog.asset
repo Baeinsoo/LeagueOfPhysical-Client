@@ -19,3 +19,9 @@ MonoBehaviour:
   - viewName: StatsView
     uxml: {fileID: 9197481963319205126, guid: b066deb5ee1e6924298f480bae1f4d2f, type: 3}
     uss: {fileID: 7433441132597879392, guid: ede0b89d80197074c86736564e4dec1f, type: 3}
+  - viewName: GameLoadingView
+    uxml: {fileID: 9197481963319205126, guid: ead86d3d19187cb4abad145f3206f38d, type: 3}
+    uss: {fileID: 7433441132597879392, guid: ea14cb8b9f5dcbf49bb2bd240894685f, type: 3}
+  - viewName: MatchingWaitingView
+    uxml: {fileID: 9197481963319205126, guid: 81fea3d7553c89e42bad9c098fb26206, type: 3}
+    uss: {fileID: 7433441132597879392, guid: 0c8aac2fed20a4d4186ced1b2a42e117, type: 3}

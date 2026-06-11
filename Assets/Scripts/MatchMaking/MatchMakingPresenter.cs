@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UniRx;
 using GameFramework;
+using LOP.UI;
 using VContainer;
 
 namespace LOP
@@ -19,6 +20,11 @@ namespace LOP
 
         [Inject]
         private MatchStateMachine matchStateMachine;
+
+        [Inject]
+        private IWindowManager windowManager;
+
+        private MatchingWaitingView matchingWaitingView;
 
         private void Start()
         {
@@ -51,14 +57,19 @@ namespace LOP
             switch (previous)
             {
                 case InWaitingRoom:
-                    MatchingWaitingUI.Hide();
+                    if (matchingWaitingView != null)
+                    {
+                        windowManager.Close(matchingWaitingView);
+                        matchingWaitingView = null;
+                    }
                     break;
             }
 
             switch (current)
             {
                 case InWaitingRoom:
-                    MatchingWaitingUI.Show(() =>
+                    matchingWaitingView = windowManager.Open<MatchingWaitingView>();
+                    matchingWaitingView.SetCancelCallback(() =>
                     {
                         matchStateMachine.Fire(MatchEvent.CancelClicked);
                     });

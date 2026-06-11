@@ -66,9 +66,10 @@ namespace LOP.UI
             viewRoot.style.flexGrow = 1;
             if (entry.uss != null) viewRoot.styleSheets.Add(entry.uss);
 
-            // 비모달 View의 전체화면 래퍼는 입력을 통과시킨다(자식 카드/버튼만 picking).
-            // 안 그러면 전체화면 래퍼가 포인터를 먹어 아래 UGUI(조그패드 등)가 막힌다. 모달은 막아야 하므로 제외.
-            if (!view.IsModal) viewRoot.pickingMode = PickingMode.Ignore;
+            // 입력을 안 막는 View의 전체화면 래퍼는 포인터를 통과시킨다(자식 위젯만 picking).
+            // 안 그러면 전체화면 래퍼가 포인터를 먹어 아래 UGUI(조그패드 등)가 막힌다.
+            // 모달·전체화면 오버레이(로딩/매칭)는 막아야 하므로 제외.
+            if (!view.BlocksUnderlyingInput) viewRoot.pickingMode = PickingMode.Ignore;
 
             view.Initialize(viewRoot);
             _roots[view] = viewRoot;

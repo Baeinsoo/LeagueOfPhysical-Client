@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="DamageFloater.uss" />
+    <ui:VisualElement name="floater-root" class="floater-root">
+        <ui:Label name="damage-text" class="damage-text" />
+    </ui:VisualElement>
+</ui:UXML>

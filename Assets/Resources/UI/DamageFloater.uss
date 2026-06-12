@@ -1,0 +1,12 @@
+.floater-root {
+    flex-grow: 1;
+    justify-content: center;
+    align-items: center;
+}
+
+.damage-text {
+    font-size: 40px;
+    color: rgb(255, 230, 120);
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+}

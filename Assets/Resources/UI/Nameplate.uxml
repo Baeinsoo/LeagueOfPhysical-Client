@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="Nameplate.uss" />
+    <ui:VisualElement name="nameplate-root" class="nameplate-root">
+        <ui:VisualElement name="hp-bar-bg" class="hp-bar-bg">
+            <ui:VisualElement name="hp-bar-fill" class="hp-bar-fill" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

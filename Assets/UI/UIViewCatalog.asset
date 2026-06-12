@@ -28,3 +28,6 @@ MonoBehaviour:
   - viewName: MatchMakingView
     uxml: {fileID: 9197481963319205126, guid: c728ed2c90563a24b983a6a9d4ea42e7, type: 3}
     uss: {fileID: 7433441132597879392, guid: f7e04eac2a452f2448b729d43fcff6ac, type: 3}
+  - viewName: CharacterHudView
+    uxml: {fileID: 9197481963319205126, guid: c1e0707ce965d6c4c97674353c7994f1, type: 3}
+    uss: {fileID: 7433441132597879392, guid: c19e4ce591bc32140ab9d4763259152d, type: 3}

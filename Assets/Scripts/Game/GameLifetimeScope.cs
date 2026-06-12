@@ -19,6 +19,7 @@ namespace LOP
 
         // 전역 WindowManager에 게임 스코프 View 팩토리를 기여한 핸들(OnDestroy에서 해제).
         private IDisposable _statsViewRegistration;
+        private IDisposable _characterHudViewRegistration;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -47,21 +48,26 @@ namespace LOP
             builder.Register<StatsViewModel>(Lifetime.Transient);
             builder.Register<StatsView>(Lifetime.Transient);
 
+            builder.Register<CharacterHudViewModel>(Lifetime.Transient);
+            builder.Register<CharacterHudView>(Lifetime.Transient);
+
             builder.RegisterBuildCallback(container =>
             {
                 container.InjectSceneObjects(gameObject.scene);
                 SceneManager.sceneLoaded += OnSceneLoaded;
 
-                // 전역 WindowManager에 StatsView 팩토리 기여: Open<StatsView>가 게임 스코프 resolver로 생성 → IPlayerContext 주입.
+                // 전역 WindowManager에 게임 스코프 View 팩토리 기여: Open<T>가 게임 스코프 resolver로 생성 → IPlayerContext 주입.
                 var windowManager = container.Resolve<IWindowManager>();
                 _statsViewRegistration = windowManager.RegisterViewFactory<StatsView>(() => container.Resolve<StatsView>());
+                _characterHudViewRegistration = windowManager.RegisterViewFactory<CharacterHudView>(() => container.Resolve<CharacterHudView>());
             });
         }
 
         protected override void OnDestroy()
         {
-            // 팩토리 해제 + 열린 StatsView Close (base가 컨테이너를 dispose하기 전에).
+            // 팩토리 해제 + 열린 View Close (base가 컨테이너를 dispose하기 전에).
             _statsViewRegistration?.Dispose();
+            _characterHudViewRegistration?.Dispose();
             SceneManager.sceneLoaded -= OnSceneLoaded;
             base.OnDestroy();
         }

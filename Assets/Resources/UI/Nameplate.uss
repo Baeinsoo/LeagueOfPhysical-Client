@@ -1,0 +1,20 @@
+.nameplate-root {
+    flex-grow: 1;
+    justify-content: center;
+    align-items: center;
+}
+
+.hp-bar-bg {
+    width: 92%;
+    height: 55%;
+    background-color: rgba(15, 15, 18, 0.85);
+    border-radius: 5px;
+    padding: 2px;
+}
+
+.hp-bar-fill {
+    height: 100%;
+    width: 100%;
+    background-color: rgb(60, 200, 90);
+    border-radius: 3px;
+}

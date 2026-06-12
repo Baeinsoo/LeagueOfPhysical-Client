@@ -95,10 +95,11 @@ namespace LOP
                 playerContext.entity = entity;
                 playerContext.entityView = view;
 
-                // 유저 엔티티(데이터)가 준비된 시점에 스탯 패널을 연다. 리스폰 재바인딩은 M2a 범위 밖이라 1회만.
+                // 유저 엔티티(데이터)가 준비된 시점에 스탯 패널 + HUD를 연다. 리스폰 재바인딩은 범위 밖이라 1회만.
                 if (!_statsViewOpened)
                 {
                     windowManager.Open<StatsView>();
+                    windowManager.Open<CharacterHudView>();
                     _statsViewOpened = true;
                 }
 

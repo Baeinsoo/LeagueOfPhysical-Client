@@ -9,8 +9,6 @@ namespace LOP
     [DIMonoBehaviour]
     public class LOPGamePresenter : MonoGamePresenter<LOPGame>
     {
-        [SerializeField] private CharacterUI characterUI;
-
         [Inject]
         private CameraController cameraController;
 
@@ -61,7 +59,6 @@ namespace LOP
             await UniTask.WaitUntil(() => playerContext.entityView != null && playerContext.entityView.visualGameObject != null);
 
             cameraController.SetTarget(playerContext.entityView.visualGameObject.transform);
-            characterUI.SetEntity(playerContext.entity);
         }
     }
 }

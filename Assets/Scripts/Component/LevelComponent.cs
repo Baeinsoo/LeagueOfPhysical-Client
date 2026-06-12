@@ -1,12 +1,32 @@
+using GameFramework;
+using LOP.Event.Entity;
+using System.ComponentModel;
 using UnityEngine;
 
 namespace LOP
 {
     public class LevelComponent : LOPComponent
     {
-        public int level { get; set; }
-        public long currentExp { get; set; }
-        public long expToNextLevel { get; private set; }
+        private int _level;
+        public int level
+        {
+            get => _level;
+            set => this.SetProperty(ref _level, value, RaisePropertyChanged);
+        }
+
+        private long _currentExp;
+        public long currentExp
+        {
+            get => _currentExp;
+            set => this.SetProperty(ref _currentExp, value, RaisePropertyChanged);
+        }
+
+        private long _expToNextLevel;
+        public long expToNextLevel
+        {
+            get => _expToNextLevel;
+            private set => this.SetProperty(ref _expToNextLevel, value, RaisePropertyChanged);
+        }
 
         public void Initialize(int level, long currentExp)
         {
@@ -25,6 +45,11 @@ namespace LOP
                 Debug.Log($"Level Up! New Level: {level}");
                 expToNextLevel = 100;
             }
+        }
+
+        public void RaisePropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            EventBus.Default.Publish(EventTopic.EntityId<LOPEntity>(entity.entityId), new PropertyChange(e.PropertyName));
         }
     }
 }

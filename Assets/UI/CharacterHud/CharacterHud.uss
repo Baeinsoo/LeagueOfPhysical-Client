@@ -1,0 +1,57 @@
+.hud-root {
+    flex-grow: 1;
+}
+
+.hud-panel {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    width: 300px;
+    padding: 10px;
+    background-color: rgba(10, 10, 14, 0.55);
+    border-radius: 8px;
+}
+
+.level-text {
+    color: rgb(235, 235, 245);
+    font-size: 18px;
+    -unity-font-style: bold;
+    margin-bottom: 8px;
+}
+
+.bar {
+    height: 22px;
+    margin-bottom: 6px;
+    background-color: rgb(28, 28, 34);
+    border-radius: 4px;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.bar-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    border-radius: 4px;
+}
+
+.hp-fill {
+    background-color: rgb(210, 60, 60);
+}
+
+.mp-fill {
+    background-color: rgb(60, 110, 220);
+}
+
+.exp-fill {
+    background-color: rgb(220, 190, 60);
+}
+
+.bar-text {
+    -unity-text-align: middle-center;
+    color: rgb(245, 245, 250);
+    font-size: 12px;
+    -unity-font-style: bold;
+}

@@ -63,7 +63,13 @@ namespace LOP.UI
             }
 
             var viewRoot = entry.uxml.Instantiate();
-            viewRoot.style.flexGrow = 1;
+            // 한 밴드 안 여러 뷰는 겹쳐(overlay) 떠야 한다. flexGrow=1로 두면 형제 뷰끼리 공간을 세로로
+            // 나눠 가지므로(예: HUD + StatsView), 전체화면 absolute로 깔아 각자 자기 위치에 오버레이한다.
+            viewRoot.style.position = Position.Absolute;
+            viewRoot.style.left = 0;
+            viewRoot.style.top = 0;
+            viewRoot.style.right = 0;
+            viewRoot.style.bottom = 0;
             if (entry.uss != null) viewRoot.styleSheets.Add(entry.uss);
 
             // 입력을 안 막는 View의 전체화면 래퍼는 포인터를 통과시킨다(자식 위젯만 picking).

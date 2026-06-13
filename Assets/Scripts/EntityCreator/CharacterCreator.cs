@@ -98,6 +98,8 @@ namespace LOP
                 // 유저 엔티티(데이터)가 준비된 시점에 스탯 패널 + HUD를 연다. 리스폰 재바인딩은 범위 밖이라 1회만.
                 if (!_statsViewOpened)
                 {
+                    // GamePad를 먼저 열어 Window 밴드 최하단에 깐다(전체화면 카메라 드래그 배경이 위 UI 위젯 입력을 막지 않도록).
+                    windowManager.Open<GamePadView>();
                     windowManager.Open<StatsView>();
                     windowManager.Open<CharacterHudView>();
                     _statsViewOpened = true;

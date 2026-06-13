@@ -1,0 +1,90 @@
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace LOP.UI
+{
+    /// <summary>
+    /// 인게임 터치 입력(가상 조이스틱 · 액션 버튼 · 카메라 드래그) ViewModel.
+    /// 게임 스코프 resolver로 생성되어 PlayerInputManager/IPlayerContext/CameraController를 주입받는다.
+    /// 표시할 라이브 상태가 없는 입력 전용 화면이라 R3 없이 커맨드 타깃 역할만 한다(가이드라인 정합).
+    /// 도메인 로직(공격 액션코드 분기, 카메라 상대 이동 변환)을 소유하고 View는 얇은 입력 포워더다.
+    /// </summary>
+    public class GamePadViewModel
+    {
+        private readonly PlayerInputManager _playerInputManager;
+        private readonly IPlayerContext _playerContext;
+        private readonly CameraController _cameraController;
+
+        private Vector2 _moveInput;
+
+        public GamePadViewModel(PlayerInputManager playerInputManager, IPlayerContext playerContext, CameraController cameraController)
+        {
+            _playerInputManager = playerInputManager;
+            _playerContext = playerContext;
+            _cameraController = cameraController;
+        }
+
+        /// <summary>조이스틱 입력 벡터(단위 방향, Y는 전진+). 매 프레임 FeedMove가 소비한다.</summary>
+        public void SetMove(Vector2 input) => _moveInput = input;
+
+        public void ClearMove() => _moveInput = Vector2.zero;
+
+        /// <summary>
+        /// 누르고 있는 동안 매 프레임 호출. 엔진이 매 틱 입력을 소비·clear하므로 지속 이동엔 매 프레임 set이 필요.
+        /// 입력 벡터를 카메라 Y회전 기준으로 변환해 수평/수직 입력으로 넘긴다.
+        /// </summary>
+        public void FeedMove()
+        {
+            if (_moveInput == Vector2.zero)
+            {
+                return;
+            }
+
+            float yAngle = _cameraController.MainCamera.transform.eulerAngles.y;
+            Quaternion cameraRotation = Quaternion.Euler(0, yAngle, 0);
+            Vector3 transformedInput = cameraRotation * new Vector3(_moveInput.x, 0, _moveInput.y);
+
+            _playerInputManager.SetHorizontal(transformedInput.x);
+            _playerInputManager.SetVertical(transformedInput.z);
+        }
+
+        /// <summary>데스크톱 편의: Space 키 점프(원본 JoyStick.Update 동작 보존).</summary>
+        public void PollKeyboard()
+        {
+            if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
+            {
+                _playerInputManager.SetJump(true);
+            }
+        }
+
+        public void Jump() => _playerInputManager.SetJump(true);
+
+        public void Dash() => _playerInputManager.SetActionCode("dash_001");
+
+        public void Spawn() => _playerInputManager.SetActionCode("spawn_001");
+
+        public void Attack()
+        {
+            AppearanceComponent appearance = _playerContext.entity?.GetComponent<AppearanceComponent>();
+            if (appearance == null)
+            {
+                return;
+            }
+
+            switch (appearance.visualId)
+            {
+                case "Assets/Art/Characters/Knight/Knight.prefab":
+                    _playerInputManager.SetActionCode("knight_attack_001");
+                    break;
+                case "Assets/Art/Characters/Archer/Archer.prefab":
+                    _playerInputManager.SetActionCode("archer_attack_001");
+                    break;
+                case "Assets/Art/Characters/Necromancer/Necromancer.prefab":
+                    _playerInputManager.SetActionCode("necromancer_attack_001");
+                    break;
+            }
+        }
+
+        public void CameraLook(Vector2 delta) => _cameraController.ProcessTouchInput(delta);
+    }
+}

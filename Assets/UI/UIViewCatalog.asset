@@ -34,3 +34,6 @@ MonoBehaviour:
   - viewName: GamePadView
     uxml: {fileID: 9197481963319205126, guid: fae6a32c696bd1748a00581bd5caca05, type: 3}
     uss: {fileID: 7433441132597879392, guid: d872a7026fa89e542bad6138d9beac9e, type: 3}
+  - viewName: DebugHudView
+    uxml: {fileID: 9197481963319205126, guid: f615e19ec988e574f9be2ab35d1a3b1b, type: 3}
+    uss: {fileID: 7433441132597879392, guid: ef76afdf1eb160949bb5e208766322fd, type: 3}

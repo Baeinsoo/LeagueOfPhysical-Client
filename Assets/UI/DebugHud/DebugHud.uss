@@ -1,0 +1,20 @@
+.debug-hud-root {
+    flex-grow: 1;
+}
+
+.debug-panel {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 150px;
+    padding: 6px 10px;
+    background-color: rgba(10, 10, 14, 0.5);
+    border-radius: 6px;
+}
+
+.debug-text {
+    color: rgb(180, 230, 180);
+    font-size: 13px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-left;
+}

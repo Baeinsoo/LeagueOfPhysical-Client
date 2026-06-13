@@ -1,0 +1,63 @@
+.gamepad-root {
+    flex-grow: 1;
+}
+
+.camera-drag {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.joystick-area {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 45%;
+    height: 55%;
+}
+
+.joystick-bg {
+    position: absolute;
+    width: 160px;
+    height: 160px;
+    border-radius: 80px;
+    background-color: rgba(255, 255, 255, 0.12);
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.joystick-handle {
+    position: absolute;
+    left: 45px;
+    top: 45px;
+    width: 70px;
+    height: 70px;
+    border-radius: 35px;
+    background-color: rgba(255, 255, 255, 0.45);
+}
+
+.action-buttons {
+    position: absolute;
+    right: 24px;
+    bottom: 24px;
+    flex-direction: row;
+}
+
+.action-button {
+    width: 78px;
+    height: 78px;
+    border-radius: 39px;
+    margin-left: 12px;
+    font-size: 18px;
+    -unity-font-style: bold;
+    color: rgb(245, 245, 250);
+    background-color: rgba(40, 40, 50, 0.7);
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.attack-button {
+    background-color: rgba(150, 50, 50, 0.7);
+}

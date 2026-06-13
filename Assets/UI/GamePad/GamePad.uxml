@@ -1,0 +1,17 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="GamePad.uss" />
+    <ui:VisualElement name="gamepad-root" class="gamepad-root" picking-mode="Ignore">
+        <ui:VisualElement name="camera-drag" class="camera-drag" />
+        <ui:VisualElement name="joystick-area" class="joystick-area">
+            <ui:VisualElement name="joystick-bg" class="joystick-bg" picking-mode="Ignore">
+                <ui:VisualElement name="joystick-handle" class="joystick-handle" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="action-buttons" class="action-buttons" picking-mode="Ignore">
+            <ui:Button name="dash-button" class="action-button dash-button" text="DASH" />
+            <ui:Button name="spawn-button" class="action-button spawn-button" text="SPAWN" />
+            <ui:Button name="jump-button" class="action-button jump-button" text="JUMP" />
+            <ui:Button name="attack-button" class="action-button attack-button" text="ATK" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

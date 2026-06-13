@@ -20,6 +20,7 @@ namespace LOP
         // 전역 WindowManager에 게임 스코프 View 팩토리를 기여한 핸들(OnDestroy에서 해제).
         private IDisposable _statsViewRegistration;
         private IDisposable _characterHudViewRegistration;
+        private IDisposable _gamePadViewRegistration;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -51,6 +52,9 @@ namespace LOP
             builder.Register<CharacterHudViewModel>(Lifetime.Transient);
             builder.Register<CharacterHudView>(Lifetime.Transient);
 
+            builder.Register<GamePadViewModel>(Lifetime.Transient);
+            builder.Register<GamePadView>(Lifetime.Transient);
+
             builder.RegisterBuildCallback(container =>
             {
                 container.InjectSceneObjects(gameObject.scene);
@@ -60,6 +64,7 @@ namespace LOP
                 var windowManager = container.Resolve<IWindowManager>();
                 _statsViewRegistration = windowManager.RegisterViewFactory<StatsView>(() => container.Resolve<StatsView>());
                 _characterHudViewRegistration = windowManager.RegisterViewFactory<CharacterHudView>(() => container.Resolve<CharacterHudView>());
+                _gamePadViewRegistration = windowManager.RegisterViewFactory<GamePadView>(() => container.Resolve<GamePadView>());
             });
         }
 
@@ -68,6 +73,7 @@ namespace LOP
             // 팩토리 해제 + 열린 View Close (base가 컨테이너를 dispose하기 전에).
             _statsViewRegistration?.Dispose();
             _characterHudViewRegistration?.Dispose();
+            _gamePadViewRegistration?.Dispose();
             SceneManager.sceneLoaded -= OnSceneLoaded;
             base.OnDestroy();
         }

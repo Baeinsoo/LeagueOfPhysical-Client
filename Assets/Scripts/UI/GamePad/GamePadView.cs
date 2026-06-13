@@ -69,7 +69,11 @@ namespace LOP.UI
             _viewModel.PollKeyboard();
             if (_joystickPointerId != -1)
             {
-                _viewModel.FeedMove();
+                _viewModel.FeedMove(); // 조이스틱 우선
+            }
+            else
+            {
+                _viewModel.TryFeedKeyboardMove(); // WASD 이동
             }
         }
 

@@ -57,6 +57,31 @@ namespace LOP.UI
             }
         }
 
+        /// <summary>WASD 키 이동. 눌린 방향이 있으면 단위 벡터로 이동을 피드하고 true를 반환(조이스틱 미사용 시 호출).</summary>
+        public bool TryFeedKeyboardMove()
+        {
+            Keyboard kb = Keyboard.current;
+            if (kb == null)
+            {
+                return false;
+            }
+
+            Vector2 dir = Vector2.zero;
+            if (kb.wKey.isPressed) dir.y += 1f;
+            if (kb.sKey.isPressed) dir.y -= 1f;
+            if (kb.dKey.isPressed) dir.x += 1f;
+            if (kb.aKey.isPressed) dir.x -= 1f;
+
+            if (dir == Vector2.zero)
+            {
+                return false;
+            }
+
+            SetMove(dir.normalized);
+            FeedMove();
+            return true;
+        }
+
         public void Jump() => _playerInputManager.SetJump(true);
 
         public void Dash() => _playerInputManager.SetActionCode("dash_001");

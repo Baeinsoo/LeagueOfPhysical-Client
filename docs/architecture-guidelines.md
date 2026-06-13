@@ -38,7 +38,7 @@ Assets/Scripts/
       Components/           # MonoBehaviour (View+Controller 통합)
       UI/
         ViewModels/         # ViewModel (순수 C#)
-        Views/              # View — UXML 트리 소유 + ViewModel의 R3 구독 (VisualElement 파생 또는 컨트롤러)
+        Views/              # View — 일반 C# 바인더 클래스: UXML 트리 소유 + ViewModel의 R3 구독 (VisualElement 상속 아님)
         Uxml/               # UXML 레이아웃
         Uss/                # USS 스타일시트
       Data/                 # ScriptableObject (불변 설정 데이터)
@@ -74,7 +74,7 @@ Assets/Tests/
 
 > **게임플레이 월드**: MonoBehaviour는 View 또는 Controller 역할을 할 수 있으며, 역할이 명확하면 분리한다. Unity 엔진 기능(Collider 반응, Animator 구동 등)과 강결합되어 분리가 오히려 복잡성을 높이는 경우에만 하나의 MonoBehaviour가 두 역할을 겸한다. 비즈니스 로직과 게임 상태는 반드시 순수 C# 레이어(Models/Systems)에 둘 것.
 >
-> **UI**: ViewModel(순수 C#)과 View를 분리하는 MVVM을 적용한다. View는 UXML/USS 트리를 소유하고 ViewModel의 R3 상태를 구독해 갱신하는 얇은 바인더다(VisualElement 파생 또는 컨트롤러 — 둘 다 허용). 화면 관리·바인딩 결정은 "UI 아키텍처" 절 참고.
+> **UI**: ViewModel(순수 C#)과 View를 분리하는 MVVM을 적용한다. View는 UXML/USS 트리를 소유하고 ViewModel의 R3 상태를 구독해 갱신하는 **얇은 바인더(일반 C# 클래스)** 다 — `VisualElement`를 상속하지 않는다. 재사용 위젯/컨트롤(`VisualElement` 상속)은 View와 **다른 레이어**다. 화면 관리·바인딩·레이어 구분은 "UI 아키텍처" 절 참고.
 >
 > **Model/System 로직 분배 기준**:
 > - **Model 내부**: 데이터 프로퍼티, 파생/계산 속성(읽기 전용), 생성자의 구조적 무결성 검증(null 검사, 필수 필드 유효성)
@@ -143,7 +143,11 @@ Tests.PlayMode → 전체
 - **1회성 async 결과는 UniTask** (R3 아님): 모달 결과처럼 *한 번 await로 받는* 값은 R3 스트림이 아니라 `UniTask`/`UniTaskCompletionSource`로 다룬다(아래 "결과 반환 모달"). R3는 *연속 스트림·라이브 상태*(시간에 따라 여러 번 바뀌는 값) 전용. 바인딩할 라이브 상태가 없는 화면(예: 정적 버튼 + 단일 결과)에는 R3가 등장하지 않는 게 정상이다.
 
 ### View 구조
-- 화면은 UXML/USS로 정의하고, View는 그 트리를 소유하며 ViewModel의 R3를 구독하는 **얇은 바인더**다. 구현은 **`VisualElement` 파생 컴포넌트(`[UxmlElement]`)** 또는 **컨트롤러 클래스** 중 무엇이든 가능하다(둘 다 UI Toolkit에서 통용). View에는 비즈니스 로직을 두지 않는다.
+- 화면은 UXML/USS로 정의하고, **View는 그 트리를 소유하며 ViewModel의 R3를 구독하는 얇은 바인더(일반 C# 클래스)** 다. **View는 `VisualElement`를 상속하지 않는다** — View에는 비즈니스 로직을 두지 않는다.
+- **위젯/컨트롤 ≠ View (레이어 구분)**: `VisualElement`를 상속하는 것은 *재사용 위젯/커스텀 컨트롤*(예: `HealthBar : VisualElement` — `value`/`max` 같은 프로퍼티만 노출, 특정 ViewModel·도메인은 모름)이며 View와 **다른 레이어**다. View(바인더)가 그 위젯을 *소비*해 `vm.Hp → healthBar.value`로 잇는다. 위젯에 특정 VM 바인딩을 박지 않는다(재사용성이 깨짐). 즉 **VisualElement를 상속한 View는 존재하지 않는다.**
+  - **위젯/컨트롤** — `VisualElement` 상속. dumb·재사용·컨텍스트 무지. 프로퍼티/이벤트만 노출.
+  - **View** — 일반 C# 바인더. *특정* VM 구독(R3)·커맨드 라우팅, UXML 트리(위젯 포함)를 소유·갱신.
+  - **ViewModel** — 순수 C#. 상태/로직.
 - 구독은 View 수명에 묶어 `CompositeDisposable`로 해제한다.
 
 ### 흐름의 경계 — VM(작은 흐름) vs 코디네이터(큰 흐름)

@@ -1,0 +1,10 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="DebugHud.uss" />
+    <ui:VisualElement name="debug-hud-root" class="debug-hud-root" picking-mode="Ignore">
+        <ui:VisualElement name="debug-panel" class="debug-panel" picking-mode="Ignore">
+            <ui:Label name="tick-text" class="debug-text" text="Tick: 0" />
+            <ui:Label name="elapsed-text" class="debug-text" text="elapsed: 0.00" />
+            <ui:Label name="rtt-text" class="debug-text" text="RTT: 0" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

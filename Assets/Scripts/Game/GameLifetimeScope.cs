@@ -21,6 +21,7 @@ namespace LOP
         private IDisposable _statsViewRegistration;
         private IDisposable _characterHudViewRegistration;
         private IDisposable _gamePadViewRegistration;
+        private IDisposable _debugHudViewRegistration;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -55,6 +56,9 @@ namespace LOP
             builder.Register<GamePadViewModel>(Lifetime.Transient);
             builder.Register<GamePadView>(Lifetime.Transient);
 
+            builder.Register<DebugHudViewModel>(Lifetime.Transient);
+            builder.Register<DebugHudView>(Lifetime.Transient);
+
             builder.RegisterBuildCallback(container =>
             {
                 container.InjectSceneObjects(gameObject.scene);
@@ -65,6 +69,7 @@ namespace LOP
                 _statsViewRegistration = windowManager.RegisterViewFactory<StatsView>(() => container.Resolve<StatsView>());
                 _characterHudViewRegistration = windowManager.RegisterViewFactory<CharacterHudView>(() => container.Resolve<CharacterHudView>());
                 _gamePadViewRegistration = windowManager.RegisterViewFactory<GamePadView>(() => container.Resolve<GamePadView>());
+                _debugHudViewRegistration = windowManager.RegisterViewFactory<DebugHudView>(() => container.Resolve<DebugHudView>());
             });
         }
 
@@ -74,6 +79,7 @@ namespace LOP
             _statsViewRegistration?.Dispose();
             _characterHudViewRegistration?.Dispose();
             _gamePadViewRegistration?.Dispose();
+            _debugHudViewRegistration?.Dispose();
             SceneManager.sceneLoaded -= OnSceneLoaded;
             base.OnDestroy();
         }

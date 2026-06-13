@@ -102,6 +102,7 @@ namespace LOP
                     windowManager.Open<GamePadView>();
                     windowManager.Open<StatsView>();
                     windowManager.Open<CharacterHudView>();
+                    windowManager.Open<DebugHudView>();
                     _statsViewOpened = true;
                 }
 

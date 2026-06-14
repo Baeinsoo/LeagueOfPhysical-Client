@@ -69,16 +69,6 @@ namespace LOP
             view.SetEntity(entity);
             view.SetEntityController(controller);
 
-            DamageView damageView = root.CreateChildWithComponent<DamageView>();
-            objectResolver.Inject(damageView);
-            damageView.SetEntity(entity);
-            damageView.SetEntityController(controller);
-
-            CharacterNameplate nameplate = root.CreateChildWithComponent<CharacterNameplate>();
-            objectResolver.Inject(nameplate);
-            nameplate.SetEntity(entity);
-            nameplate.SetEntityController(controller);
-
             bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
 
             if (isUserEntity)

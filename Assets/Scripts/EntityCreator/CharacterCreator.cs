@@ -67,7 +67,6 @@ namespace LOP
             LOPEntityView view = root.CreateChildWithComponent<LOPEntityView>();
             objectResolver.Inject(view);
             view.SetEntity(entity);
-            view.SetEntityController(controller);
 
             bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
 

@@ -42,17 +42,14 @@ namespace LOP
             }
 
             GameObject root = entity.transform.parent.gameObject;
-            LOPEntityController controller = root.GetComponentInChildren<LOPEntityController>();
 
             DamageFloaterEmitter damageFloaterEmitter = root.CreateChildWithComponent<DamageFloaterEmitter>();
             objectResolver.Inject(damageFloaterEmitter);
             damageFloaterEmitter.SetEntity(entity);
-            damageFloaterEmitter.SetEntityController(controller);
 
             CharacterNameplate nameplate = root.CreateChildWithComponent<CharacterNameplate>();
             objectResolver.Inject(nameplate);
             nameplate.SetEntity(entity);
-            nameplate.SetEntityController(controller);
         }
     }
 }

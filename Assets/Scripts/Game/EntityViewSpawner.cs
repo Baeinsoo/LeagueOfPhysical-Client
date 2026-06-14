@@ -6,7 +6,7 @@ using VContainer;
 namespace LOP
 {
     /// <summary>
-    /// 엔티티 수명 신호를 구독해 장식 뷰(데미지 숫자 <see cref="DamageView"/>, 머리 위 HP
+    /// 엔티티 수명 신호를 구독해 장식 프레젠테이션(데미지 에미터 <see cref="DamageFloaterEmitter"/>, 머리 위 HP
     /// <see cref="CharacterNameplate"/>)를 엔티티별로 생성한다. 엔티티 생성(크리에이터)과 장식
     /// 프레젠테이션 생성을 분리 — 크리에이터는 엔티티(모델/엔진 강결합 표현)만, 장식 오버레이는
     /// 이 스포너가 수명 신호에 반응해 띄운다(분리형).
@@ -44,10 +44,10 @@ namespace LOP
             GameObject root = entity.transform.parent.gameObject;
             LOPEntityController controller = root.GetComponentInChildren<LOPEntityController>();
 
-            DamageView damageView = root.CreateChildWithComponent<DamageView>();
-            objectResolver.Inject(damageView);
-            damageView.SetEntity(entity);
-            damageView.SetEntityController(controller);
+            DamageFloaterEmitter damageFloaterEmitter = root.CreateChildWithComponent<DamageFloaterEmitter>();
+            objectResolver.Inject(damageFloaterEmitter);
+            damageFloaterEmitter.SetEntity(entity);
+            damageFloaterEmitter.SetEntityController(controller);
 
             CharacterNameplate nameplate = root.CreateChildWithComponent<CharacterNameplate>();
             objectResolver.Inject(nameplate);

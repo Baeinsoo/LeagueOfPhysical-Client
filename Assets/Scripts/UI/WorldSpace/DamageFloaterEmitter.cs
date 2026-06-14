@@ -7,10 +7,11 @@ using UnityEngine.UIElements;
 namespace LOP
 {
     /// <summary>
-    /// 엔티티별 데미지 숫자 표시. EntityDamage 이벤트를 받아 World Space 데미지 플로터(<see cref="DamageFloater"/>)를
-    /// 풀에서 꺼내 머리 위에 띄운다. M3b에서 UGUI(screen-space 투영) → World Space UI Toolkit로 전환.
+    /// 엔티티별 데미지 숫자 에미터/매니저. <see cref="EntityDamage"/>(fan-out)를 받아 World Space
+    /// 데미지 플로터(<see cref="DamageFloater"/>)를 풀에서 꺼내 머리 위에 띄운다. *뷰 자체가 아니라*
+    /// floater 풀을 소유·재사용하는 에미터다. M3b에서 UGUI(screen-space 투영) → World Space UI Toolkit로 전환.
     /// </summary>
-    public class DamageView : MonoEntityView<LOPEntity, LOPEntityController>
+    public class DamageFloaterEmitter : MonoEntityView<LOPEntity, LOPEntityController>
     {
         private const int MAX_FLOATERS = 4;
         private const string PanelSettingsResource = "UI/WorldSpaceNameplatePanelSettings";
@@ -31,7 +32,7 @@ namespace LOP
             var uxml = Resources.Load<VisualTreeAsset>(UxmlResource);
             if (panelSettings == null || uxml == null)
             {
-                Debug.LogError($"[DamageView] 리소스 로드 실패: {PanelSettingsResource} / {UxmlResource}");
+                Debug.LogError($"[DamageFloaterEmitter] 리소스 로드 실패: {PanelSettingsResource} / {UxmlResource}");
                 return;
             }
 

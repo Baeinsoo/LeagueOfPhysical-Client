@@ -13,7 +13,7 @@ namespace LOP
     ///
     /// 실행순서를 CameraController(3000) 뒤(3100)로 두어, 카메라가 LateUpdate에서 이동한 뒤 위치/billboard를
     /// 계산한다(그렇지 않으면 카메라 추적이 한 프레임 어긋나 떨린다).
-    /// HP는 EntityDamage(presentation fan-out, DamageView와 동일 신호)로 갱신 — 발화가 보장된 경로.
+    /// HP는 EntityDamage(presentation fan-out, DamageFloaterEmitter와 동일 신호)로 갱신 — 발화가 보장된 경로.
     /// maxHP/초기값은 스폰 시 초기화된 HealthComponent에서 읽는다.
     /// </summary>
     [DefaultExecutionOrder(3100)]

@@ -8,7 +8,7 @@ namespace LOP
     /// <summary>
     /// WorldEventBuffer 스냅샷을 프레젠테이션 EventBus로 fan-out한다. 코어 상태는 안 만짐.
     /// 슬라이스 3 처리 이벤트:
-    ///   DamageDealtEvent → EventBus.Publish(EntityId<LOPEntity>(targetId), EntityDamage) → DamageView, LOPEntityView 소비
+    ///   DamageDealtEvent → EventBus.Publish(EntityId<LOPEntity>(targetId), EntityDamage) → DamageFloaterEmitter, CharacterNameplate, LOPEntityView 소비
     ///   DeathEvent       → Debug.Log only (구독자 없음, future-proof 자리만 잡음)
     /// </summary>
     public class WorldEventBridge

@@ -6,7 +6,7 @@ namespace LOP
     /// <summary>
     /// World Space 데미지 플로터(데미지 숫자). 히트 지점에 스폰되어 월드 공간에서 위로 떠오르며
     /// 카메라를 향해 billboard, 거리비례 스케일로 화면상 크기 일정, 수명 동안 페이드아웃한다.
-    /// DamageView가 풀링해 재사용한다. World Space 패턴은 M3a(CharacterNameplate)와 동일.
+    /// DamageFloaterEmitter가 풀링해 재사용한다. World Space 패턴은 M3a(CharacterNameplate)와 동일.
     /// 실행순서 3100(CameraController 3000 뒤)로 카메라 이동 후 위치/billboard 계산 → 떨림 방지.
     /// </summary>
     [DefaultExecutionOrder(3100)]
@@ -27,7 +27,7 @@ namespace LOP
 
         public bool IsActive => _active;
 
-        /// <summary>DamageView가 UIDocument 빌드 후 root/label을 주입하고 숨긴다.</summary>
+        /// <summary>DamageFloaterEmitter가 UIDocument 빌드 후 root/label을 주입하고 숨긴다.</summary>
         public void Initialize(VisualElement root, Label label)
         {
             _root = root;

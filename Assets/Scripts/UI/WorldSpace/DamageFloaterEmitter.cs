@@ -11,8 +11,15 @@ namespace LOP
     /// 데미지 플로터(<see cref="DamageFloater"/>)를 풀에서 꺼내 머리 위에 띄운다. *뷰 자체가 아니라*
     /// floater 풀을 소유·재사용하는 에미터다. M3b에서 UGUI(screen-space 투영) → World Space UI Toolkit로 전환.
     /// </summary>
-    public class DamageFloaterEmitter : MonoEntityView<LOPEntity, LOPEntityController>
+    public class DamageFloaterEmitter : MonoBehaviour, ICleanup
     {
+        public LOPEntity entity { get; private set; }
+
+        public void SetEntity(LOPEntity entity)
+        {
+            this.entity = entity;
+        }
+
         private const int MAX_FLOATERS = 4;
         private const string PanelSettingsResource = "UI/WorldSpaceNameplatePanelSettings";
         private const string UxmlResource = "UI/DamageFloater";
@@ -61,7 +68,7 @@ namespace LOP
             EventBus.Default.Subscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
         }
 
-        public override void Cleanup()
+        public void Cleanup()
         {
             EventBus.Default.Unsubscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
 
@@ -74,7 +81,7 @@ namespace LOP
             }
             _floaters.Clear();
 
-            base.Cleanup();
+            entity = null;
         }
 
         private void OnEntityDamage(EntityDamage entityDamage)

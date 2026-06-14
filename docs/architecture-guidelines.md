@@ -137,6 +137,8 @@ Tests.PlayMode → 전체
 
 ## UI 아키텍처 (UI Toolkit + MVVM)
 
+> **레이어 범위**: 이 절의 MVVM·데이터 바인딩은 **UI 레이어 전용**이다. 월드/게임플레이(엔티티)는 MVVM이 아니라 **Component+System + (연속 상태 pull / 이산 사건 event)**로 다룬다 — 상세는 `world-core-connection-architecture.md`. (연속값에 프로퍼티당 변경 이벤트를 거는 MVVM은 매 프레임 읽는 게임플레이엔 오버헤드라 부적합 — 월드는 직접 읽기[pull] + 이산 이벤트가 표준.)
+
 ### 바인딩 — R3 중심
 - ViewModel(순수 C#)이 상태를 R3 `ReadOnlyReactiveProperty<T>`로, 일회성/커맨드를 `Observable`(Subject)로 노출한다. View는 이를 **구독**해 `VisualElement`를 갱신하고, 사용자 입력(버튼 `clicked` 등)은 ViewModel 커맨드로 전달한다.
 - **결정 — Unity 6 런타임 데이터 바인딩 미채택(R3 유지)**: Unity 6의 런타임 데이터 바인딩은 *값(프로퍼티) 바인딩* 수준으로, 커맨드 바인딩 부재 · `[CreateProperty]`/`INotifyBindablePropertyChanged` 보일러플레이트 · 미성숙 이슈가 있다. 반응형 컴포지션은 R3가 우월하므로 **R3 중심 바인딩을 기본**으로 한다. 값이 많은 정적 화면에서 선언적 이득이 분명하면 네이티브 바인딩을 *선택적으로* 병용할 수 있다.

@@ -86,8 +86,9 @@ Application 코드는 누가 이벤트를 만들었든(서버 Generation, 자기
 
 - **World 컨테이너 = `GameFramework.World.EntityRegistry`** (id-키 엔티티 보관소, 코어 측 진실원본). 게임 측(LOP)이 VContainer DI로 한 인스턴스를 받아 사용 — **씬 생명주기(`SceneLifetimeScope`)에 Singleton 등록**(월드는 씬에 속함, 앱 전역 아님).
 - 엔티티 생성 시 게임 측 크리에이터가 `World.Entity`를 만들어 `EntityRegistry.Add(entity)`로 등록하고, 파괴 시 `Remove(id)`로 해제.
-- View/Controller MonoBehaviour가 `World.Entity` 참조를 보유(생성 시 `Bind`). **이 참조가 곧 연결.**
-- 프레젠터/매니저가 `EntityRegistry`를 보고 **entityId로** GameObject+View를 생성/바인드/파괴.
+- View/Controller MonoBehaviour가 `World.Entity` 참조를 보유(생성 시 attach/link). **이 참조가 곧 연결.** 연속 상태(위치/HP값)는 이 참조로 *pull*(매 프레임 읽기), 이산 사건(데미지/사망)은 `WorldEventBuffer` fan-out 구독으로 받는다. — **월드는 component+system + (연속 pull / 이산 event)이며, UI 레이어의 MVVM 데이터 바인딩과 다른 축이다.**
+- **뷰 스포너/바인딩 시스템**(*MVP의 "프레젠터"가 아님* — 프레젠터는 UI 용어)이 `EntityRegistry`의 **수명(add/remove)**을 보고 **entityId로** GameObject+View를 생성/연결/파괴한다. ECS/Entitas의 *view-resolver / 리액티브 뷰 시스템*에 해당하며, 이 "뷰 수명" 역할은 `WorldEventBuffer`(이산 게임플레이 사건 fan-out)와 **별개 축**이다.
+- **분리형 구조**: 엔티티(데이터, `EntityRegistry`)와 뷰를 분리하고, **뷰 스포너가 엔티티 수명(add/remove)을 보고 GameObject+View를 생성/연결/파괴**한다 — ECS/Entitas의 view-resolver 정석. (로직+뷰를 한 프리팹에 합쳐 스폰하는 *합체형*도 업계 통용 대안이나, LOP는 분리형을 따른다.)
 - eventbus(R3)는 **바깥(브릿지)에** 둔다. 확정 이벤트 버퍼가 그걸 먹인다. **코어 안엔 두지 않는다.**
 - **`WorldEventBuffer`** — 코어 측 단일 폴리모픽 큐. Generation이 append, Application이 dequeue해서 상태 쓰기, Bridge가 같은 시퀀스를 dequeue해서 프레젠테이션 fan-out. 두 소비자(Application, Bridge)는 같은 데이터를 다른 책임으로 본다.
 - **와이어 envelope** (`WorldEventBatch`): 서버↔클라 이벤트 전송은 단일 폴리모픽 Mirror 메시지에 여러 `WorldEvent` 레코드를 담아 보낸다. 개념별 패킷 타입 신설 안 함.

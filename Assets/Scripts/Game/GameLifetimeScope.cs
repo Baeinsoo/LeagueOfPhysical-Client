@@ -40,6 +40,7 @@ namespace LOP
             builder.Register<IGameMessageHandler, GameEntityMessageHandler>(Lifetime.Transient);
             builder.Register<IGameMessageHandler, GameInputMessageHandler>(Lifetime.Transient);
             builder.Register<IGameMessageHandler, GameDamageMessageHandler>(Lifetime.Transient);
+            builder.Register<IGameMessageHandler, PlayerHudCoordinator>(Lifetime.Transient);
             builder.Register<PlayerInputManager>(Lifetime.Singleton).AsSelf();
             builder.Register<IActionManager, LOPActionManager>(Lifetime.Singleton);
             builder.Register<IMovementManager, LOPMovementManager>(Lifetime.Singleton);

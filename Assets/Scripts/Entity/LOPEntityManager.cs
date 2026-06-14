@@ -1,4 +1,5 @@
 using GameFramework;
+using LOP.Event.Entity;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -69,6 +70,8 @@ namespace LOP
 
             entityMap[entity.entityId] = entity;
 
+            EventBus.Default.Publish(nameof(EntityCreated), new EntityCreated(entity));
+
             return entity;
         }
 
@@ -99,6 +102,8 @@ namespace LOP
                     Debug.Log($"[World] Unregistered entity {entityId}");
                 }
                 // --- end World Core slice 2 ---
+
+                EventBus.Default.Publish(nameof(EntityDestroyed), new EntityDestroyed(entityId));
 
                 Destroy(lopEntity.transform.parent.gameObject);
 

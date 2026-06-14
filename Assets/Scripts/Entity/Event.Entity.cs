@@ -1,3 +1,4 @@
+using GameFramework;
 using UnityEngine;
 
 namespace LOP.Event.Entity
@@ -58,6 +59,24 @@ namespace LOP.Event.Entity
             this.damage = damage;
             this.remainingHP = remainingHP;
             this.isDead = isDead;
+        }
+    }
+
+    public struct EntityCreated
+    {
+        public IEntity entity;
+        public EntityCreated(IEntity entity)
+        {
+            this.entity = entity;
+        }
+    }
+
+    public struct EntityDestroyed
+    {
+        public string entityId;
+        public EntityDestroyed(string entityId)
+        {
+            this.entityId = entityId;
         }
     }
 }

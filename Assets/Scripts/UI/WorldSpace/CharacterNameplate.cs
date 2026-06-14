@@ -13,12 +13,19 @@ namespace LOP
     ///
     /// 실행순서를 CameraController(3000) 뒤(3100)로 두어, 카메라가 LateUpdate에서 이동한 뒤 위치/billboard를
     /// 계산한다(그렇지 않으면 카메라 추적이 한 프레임 어긋나 떨린다).
-    /// HP는 EntityDamage(presentation fan-out, DamageView와 동일 신호)로 갱신 — 발화가 보장된 경로.
+    /// HP는 EntityDamage(presentation fan-out, DamageFloaterEmitter와 동일 신호)로 갱신 — 발화가 보장된 경로.
     /// maxHP/초기값은 스폰 시 초기화된 HealthComponent에서 읽는다.
     /// </summary>
     [DefaultExecutionOrder(3100)]
-    public class CharacterNameplate : MonoEntityView<LOPEntity, LOPEntityController>
+    public class CharacterNameplate : MonoBehaviour, ICleanup
     {
+        public LOPEntity entity { get; private set; }
+
+        public void SetEntity(LOPEntity entity)
+        {
+            this.entity = entity;
+        }
+
         private const string PanelSettingsResource = "UI/WorldSpaceNameplatePanelSettings";
         private const string UxmlResource = "UI/Nameplate";
         private static readonly Vector3 HeadOffset = new Vector3(0f, 2.0f, 0f);
@@ -66,7 +73,7 @@ namespace LOP
             EventBus.Default.Subscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
         }
 
-        public override void Cleanup()
+        public void Cleanup()
         {
             EventBus.Default.Unsubscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
 
@@ -76,7 +83,7 @@ namespace LOP
                 _panelGameObject = null;
             }
 
-            base.Cleanup();
+            entity = null;
         }
 
         private void OnEntityDamage(EntityDamage entityDamage)

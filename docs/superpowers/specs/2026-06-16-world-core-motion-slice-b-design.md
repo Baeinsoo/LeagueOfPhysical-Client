@@ -27,10 +27,11 @@
 
 **Client (`Assets/Scripts/World/`):**
 - 변환 확장(메서드) — `UnityEngine.Vector3 ↔ System.Numerics.Vector3`, `UnityEngine.Quaternion ↔ System.Numerics.Quaternion`(x,y,z[,w] 매핑). 경계 전용(클라 측, `UnityEngine` 참조 OK).
-- `WorldMotionSync`(신규 per-entity `MonoBehaviour, ICleanup`) — `[GameEngineListen(typeof(AfterPhysicsSimulation))]`로 매 틱 `LOPEntity.position/rotation/velocity`를 변환해 `World.Transform`/`World.Velocity`에 기록(단방향). `[Inject] EntityRegistry`로 World.Entity를 id로 해석(캐시). `CharacterCreator`가 생성.
+- `WorldMotionSync`(신규 per-entity `MonoBehaviour, ICleanup`) — `[GameEngineListen(typeof(AfterPhysicsSimulation))]`로 매 틱 `LOPEntity.position/rotation/velocity`를 변환해 `World.Transform`/`World.Velocity`에 기록(단방향). `[Inject] EntityRegistry`로 World.Entity를 id로 해석(캐시). **`EntityBinder`(구 `EntityViewSpawner`, 이번에 리네임)가 `EntityCreated` 수명 신호에 반응해 생성**(크리에이터가 아니라 바인더가 per-entity 어댑터를 붙임 — 장식 뷰와 동일 지점, 분리형 view-resolver 정합).
 
 **Client 기존 파일 변경:**
-- `CharacterCreator` — World.Entity 등록 시 `World.Transform`(position, `Quaternion.Euler(rotation)`)과 `World.Velocity`(velocity)를 초기값으로 추가(World.Health 옆). `WorldMotionSync` 컴포넌트 생성+주입.
+- `CharacterCreator` — World.Entity 등록 시 `World.Transform`(position, `Quaternion.Euler(rotation)`)과 `World.Velocity`(velocity)를 초기값으로 추가(World.Health 옆). *코어 데이터만* — 어댑터 생성은 스포너로.
+- `EntityViewSpawner` → `EntityBinder` (리네임, `IGameMessageHandler` 평범 클래스라 GUID 영향 없음) — `OnEntityCreated`(캐릭터 한정)에서 장식 뷰 옆에 `WorldMotionSync`도 생성·주입·`SetEntity`. DI 등록(`GameLifetimeScope`)도 타입명 갱신. (설계 문서의 "뷰 스포너/바인딩 시스템"은 *개념명*이라 변경 불필요.)
 
 ## 데이터 흐름
 

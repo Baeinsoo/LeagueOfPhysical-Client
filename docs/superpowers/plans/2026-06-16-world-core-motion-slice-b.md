@@ -24,7 +24,9 @@
 | `Runtime/Scripts/World/Components/Velocity.cs` (신규) | GameFramework | 순수 C# 선속도(Linear) |
 | `Assets/Scripts/World/NumericsConversionExtensions.cs` (신규) | Client | UnityEngine→System.Numerics 변환(경계 어댑터) |
 | `Assets/Scripts/World/WorldMotionSync.cs` (신규) | Client | per-entity 단방향 미러 어댑터(AfterPhysicsSimulation) |
-| `Assets/Scripts/EntityCreator/CharacterCreator.cs` (수정) | Client | World.Entity에 Transform/Velocity 초기값 + WorldMotionSync 생성 |
+| `Assets/Scripts/EntityCreator/CharacterCreator.cs` (수정) | Client | World.Entity에 Transform/Velocity 초기값 추가(코어 데이터만) |
+| `Assets/Scripts/Game/EntityViewSpawner.cs` → `EntityBinder.cs` (리네임+수정) | Client | `EntityViewSpawner`→`EntityBinder` 일반화; EntityCreated 반응해 `WorldMotionSync`도 생성 |
+| `Assets/Scripts/Game/GameLifetimeScope.cs` (수정) | Client | DI 등록 타입명 `EntityViewSpawner`→`EntityBinder` |
 
 > **신규 `.cs`는 Unity가 `.meta`를 생성**한다. 직접 만들지 말고, 파일 작성 후 Unity 새로고침으로 생성된 `.meta`를 `.cs`와 함께 커밋한다(CLAUDE.md). 본 plan에서는 컨트롤러가 UnityMCP 새로고침으로 `.meta`를 만들고 커밋에 포함한다.
 
@@ -110,6 +112,8 @@ EOF
 - Create: `Assets/Scripts/World/NumericsConversionExtensions.cs`
 - Create: `Assets/Scripts/World/WorldMotionSync.cs`
 - Modify: `Assets/Scripts/EntityCreator/CharacterCreator.cs`
+- Rename+Modify: `Assets/Scripts/Game/EntityViewSpawner.cs` → `Assets/Scripts/Game/EntityBinder.cs`
+- Modify: `Assets/Scripts/Game/GameLifetimeScope.cs`
 
 - [ ] **Step 1: `NumericsConversionExtensions.cs` 작성** (정확한 내용 — Slice B는 UnityEngine→System.Numerics만 사용)
 
@@ -200,7 +204,7 @@ namespace LOP
 }
 ```
 
-- [ ] **Step 3: `CharacterCreator.cs` 의 World Core 블록 수정** (Transform/Velocity 초기값 + WorldMotionSync 생성)
+- [ ] **Step 3: `CharacterCreator.cs` 의 World Core 블록 수정** (Transform/Velocity 초기값 — 코어 데이터만; WorldMotionSync 생성은 Step 4 EntityBinder가 담당)
 
 Replace:
 ```csharp
@@ -226,29 +230,95 @@ With:
             worldEntity.Add(new GameFramework.World.Velocity { Linear = entity.velocity.ToNumerics() });
             entityRegistry.Add(worldEntity);
             Debug.Log($"[World] Registered entity {worldEntity.Id} Health={worldHealth.Current}/{worldHealth.Max}");
-
-            WorldMotionSync worldMotionSync = root.CreateChildWithComponent<WorldMotionSync>();
-            objectResolver.Inject(worldMotionSync);
-            worldMotionSync.SetEntity(entity);
             // --- end World Core slice 1+B ---
 ```
 
 (`entity.position/rotation/velocity`는 `entity.Initialize(creationData)` 후 설정돼 있음. `Quaternion.Euler`/`.ToNumerics()`는 `using UnityEngine;`/LOP 네임스페이스라 추가 using 불필요.)
 
-- [ ] **Step 4: `.meta` 생성 + 클라 컴파일 검증** — Verification Procedure(A/B) 를 **클라 인스턴스**에 수행. 기대: 새 에러 0건.
+- [ ] **Step 4: `EntityViewSpawner` → `EntityBinder` 리네임 + `WorldMotionSync` 생성 추가**
 
-- [ ] **Step 5: Commit** (Client 저장소, 신규 `.cs`+`.meta` 2쌍 + CharacterCreator)
+`EntityViewSpawner`는 평범한 `IGameMessageHandler` 클래스(MonoBehaviour 아님)라 prefab/GUID 영향 없음 — 리네임 안전. 설계 문서의 "뷰 스포너/바인딩 시스템" 역할에 정합(개념 문서는 클래스명을 박지 않으므로 문서 변경 없음).
+
+**4a. 파일 리네임 (`.cs`+`.meta`):**
+```bash
+cd "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client"
+git mv Assets/Scripts/Game/EntityViewSpawner.cs Assets/Scripts/Game/EntityBinder.cs
+git mv Assets/Scripts/Game/EntityViewSpawner.cs.meta Assets/Scripts/Game/EntityBinder.cs.meta
+```
+
+**4b. `EntityBinder.cs` — 클래스명 변경 + 주석 일반화.** Replace:
+```csharp
+    /// <summary>
+    /// 엔티티 수명 신호를 구독해 장식 프레젠테이션(데미지 에미터 <see cref="DamageFloaterEmitter"/>, 머리 위 HP
+    /// <see cref="CharacterNameplate"/>)를 엔티티별로 생성한다. 엔티티 생성(크리에이터)과 장식
+    /// 프레젠테이션 생성을 분리 — 크리에이터는 엔티티(모델/엔진 강결합 표현)만, 장식 오버레이는
+    /// 이 스포너가 수명 신호에 반응해 띄운다(분리형).
+    ///
+    /// 파괴는 엔티티 GameObject(root) 파괴 + ICleanup 경로가 처리한다(장식 뷰가 같은 root 자식이라
+    /// 함께 정리됨) — 별도 추적 불필요.
+    /// </summary>
+    public class EntityViewSpawner : IGameMessageHandler
+```
+With:
+```csharp
+    /// <summary>
+    /// 엔티티 수명 신호(<see cref="EntityCreated"/>)에 반응해 엔티티별 바깥 컴포넌트를 생성·연결한다
+    /// (분리형 바인딩 시스템 — 설계 문서의 "뷰 스포너/바인딩 시스템" 역할). 생성 대상: 장식 뷰
+    /// (<see cref="DamageFloaterEmitter"/>, <see cref="CharacterNameplate"/>) + World 미러 어댑터(<see cref="WorldMotionSync"/>).
+    /// 크리에이터는 엔티티(모델/코어 데이터)만, 바깥 표현/바인딩은 이 바인더가 붙인다.
+    ///
+    /// 파괴는 엔티티 GameObject(root) 파괴 + ICleanup 경로가 처리한다(생성물이 같은 root 자식이라 함께 정리됨).
+    /// </summary>
+    public class EntityBinder : IGameMessageHandler
+```
+
+**4c. `EntityBinder.cs` — `OnEntityCreated`에 `WorldMotionSync` 생성 추가.** Replace:
+```csharp
+            CharacterNameplate nameplate = root.CreateChildWithComponent<CharacterNameplate>();
+            objectResolver.Inject(nameplate);
+            nameplate.SetEntity(entity);
+        }
+```
+With:
+```csharp
+            CharacterNameplate nameplate = root.CreateChildWithComponent<CharacterNameplate>();
+            objectResolver.Inject(nameplate);
+            nameplate.SetEntity(entity);
+
+            WorldMotionSync worldMotionSync = root.CreateChildWithComponent<WorldMotionSync>();
+            objectResolver.Inject(worldMotionSync);
+            worldMotionSync.SetEntity(entity);
+        }
+```
+
+**4d. DI 등록 갱신 — `Assets/Scripts/Game/GameLifetimeScope.cs`.** Replace:
+```csharp
+            builder.Register<IGameMessageHandler, EntityViewSpawner>(Lifetime.Transient);
+```
+With:
+```csharp
+            builder.Register<IGameMessageHandler, EntityBinder>(Lifetime.Transient);
+```
+
+- [ ] **Step 5: `.meta` 생성 + 클라 컴파일 검증** — Verification Procedure(A/B) 를 **클라 인스턴스**에 수행. 기대: 새 에러 0건.
+
+- [ ] **Step 6: Commit** (Client 저장소 — 신규 `.cs`+`.meta` 2쌍 + CharacterCreator + EntityBinder 리네임/수정 + GameLifetimeScope)
 
 ```bash
 cd "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client"
-git add Assets/Scripts/World/NumericsConversionExtensions.cs Assets/Scripts/World/NumericsConversionExtensions.cs.meta Assets/Scripts/World/WorldMotionSync.cs Assets/Scripts/World/WorldMotionSync.cs.meta Assets/Scripts/EntityCreator/CharacterCreator.cs
+git add Assets/Scripts/World/NumericsConversionExtensions.cs Assets/Scripts/World/NumericsConversionExtensions.cs.meta \
+        Assets/Scripts/World/WorldMotionSync.cs Assets/Scripts/World/WorldMotionSync.cs.meta \
+        Assets/Scripts/EntityCreator/CharacterCreator.cs \
+        Assets/Scripts/Game/EntityBinder.cs \
+        Assets/Scripts/Game/GameLifetimeScope.cs
 git commit -m "$(cat <<'EOF'
-feat(world): WorldMotionSync adapter mirrors LOPEntity motion into World (Slice B)
+feat(world): WorldMotionSync adapter + rename EntityViewSpawner to EntityBinder (Slice B)
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 EOF
 )"
 ```
+(`git mv`가 EntityViewSpawner 삭제 + `EntityBinder.cs.meta`(GUID 유지) 스테이징을 이미 처리 — 위 `git add`는 내용 편집/신규분만.)
 
 ---
 
@@ -271,5 +341,5 @@ EOF
 ## 진행
 
 - [ ] Task 1 — 코어 Transform/Velocity (GameFramework)
-- [ ] Task 2 — 클라 어댑터 WorldMotionSync + 변환 + Creator 배선
+- [ ] Task 2 — 클라 어댑터 WorldMotionSync + 변환 + Creator 데이터 + EntityBinder 리네임/생성
 - [ ] Task 3 — 런타임 검증(수동)

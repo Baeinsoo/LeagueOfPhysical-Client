@@ -6,15 +6,14 @@ using VContainer;
 namespace LOP
 {
     /// <summary>
-    /// 엔티티 수명 신호를 구독해 장식 프레젠테이션(데미지 에미터 <see cref="DamageFloaterEmitter"/>, 머리 위 HP
-    /// <see cref="CharacterNameplate"/>)를 엔티티별로 생성한다. 엔티티 생성(크리에이터)과 장식
-    /// 프레젠테이션 생성을 분리 — 크리에이터는 엔티티(모델/엔진 강결합 표현)만, 장식 오버레이는
-    /// 이 스포너가 수명 신호에 반응해 띄운다(분리형).
+    /// 엔티티 수명 신호(<see cref="EntityCreated"/>)에 반응해 엔티티별 바깥 컴포넌트를 생성·연결한다
+    /// (분리형 바인딩 시스템 — 설계 문서의 "뷰 스포너/바인딩 시스템" 역할). 생성 대상: 장식 뷰
+    /// (<see cref="DamageFloaterEmitter"/>, <see cref="CharacterNameplate"/>) + World 미러 어댑터(<see cref="WorldMotionSync"/>).
+    /// 크리에이터는 엔티티(모델/코어 데이터)만, 바깥 표현/바인딩은 이 바인더가 붙인다.
     ///
-    /// 파괴는 엔티티 GameObject(root) 파괴 + ICleanup 경로가 처리한다(장식 뷰가 같은 root 자식이라
-    /// 함께 정리됨) — 별도 추적 불필요.
+    /// 파괴는 엔티티 GameObject(root) 파괴 + ICleanup 경로가 처리한다(생성물이 같은 root 자식이라 함께 정리됨).
     /// </summary>
-    public class EntityViewSpawner : IGameMessageHandler
+    public class EntityBinder : IGameMessageHandler
     {
         [Inject] private IObjectResolver objectResolver;
 
@@ -50,6 +49,10 @@ namespace LOP
             CharacterNameplate nameplate = root.CreateChildWithComponent<CharacterNameplate>();
             objectResolver.Inject(nameplate);
             nameplate.SetEntity(entity);
+
+            WorldMotionSync worldMotionSync = root.CreateChildWithComponent<WorldMotionSync>();
+            objectResolver.Inject(worldMotionSync);
+            worldMotionSync.SetEntity(entity);
         }
     }
 }

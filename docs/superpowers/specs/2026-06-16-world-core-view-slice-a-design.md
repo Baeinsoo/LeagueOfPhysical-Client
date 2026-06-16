@@ -21,7 +21,7 @@
 
 `Assets/Scripts/UI/WorldSpace/CharacterNameplate.cs`:
 - `[Inject] private GameFramework.World.EntityRegistry entityRegistry;` 추가 (World 타입은 풀 네임스페이스 한정 — 프로젝트 컨벤션).
-- `Start`에서 `entityRegistry.Get(entity.entityId)`로 `World.Entity`를 1회 해석·캐시(뷰가 코어 참조 보유 = Model A).
+- `Start`에서 `entityRegistry.Get(entity.entityId)`로 `World.Entity`를 1회 해석(Nameplate는 init 1회 읽기라 지역 변수로 충분; 매 프레임 pull하는 뷰는 참조를 필드로 보유 — Slice B). Model A: 뷰가 코어를 직접 읽음.
 - 초기 `maxHP`/`currentHP`를 `world.Get<GameFramework.World.Health>().Max/Current`에서 읽음 — **레거시 `entity.GetEntityComponent<HealthComponent>()` 읽기 제거.**
 - 실시간 갱신(`EntityDamage` 구독 → `remainingHP`)은 그대로(이미 World 발 fan-out).
 - null 가드: 미등록 시(`world == null` 또는 `Health` 부재) 기존 폴백(`_maxHp = 1`)과 동등하게 안전 처리.

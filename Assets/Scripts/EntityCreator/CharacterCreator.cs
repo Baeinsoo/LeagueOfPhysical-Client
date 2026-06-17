@@ -91,13 +91,19 @@ namespace LOP
                 serverStateReconciler.entityView = view;
             }
 
-            // --- World Core (병렬·추가) — 마이그레이션 Slice 1: Walking Skeleton ---
+            // --- World Core (병렬·추가) — Slice 1: Health, Slice B: Transform/Velocity ---
             var worldEntity = new GameFramework.World.Entity(creationData.entityId);
             var worldHealth = new GameFramework.World.Health(creationData.maxHP) { Current = creationData.currentHP };
             worldEntity.Add(worldHealth);
+            worldEntity.Add(new GameFramework.World.Transform
+            {
+                Position = entity.position.ToNumerics(),
+                Rotation = Quaternion.Euler(entity.rotation).ToNumerics(),
+            });
+            worldEntity.Add(new GameFramework.World.Velocity { Linear = entity.velocity.ToNumerics() });
             entityRegistry.Add(worldEntity);
             Debug.Log($"[World] Registered entity {worldEntity.Id} Health={worldHealth.Current}/{worldHealth.Max}");
-            // --- end World Core slice 1 ---
+            // --- end World Core slice 1+B ---
 
             return entity;
         }

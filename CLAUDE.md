@@ -47,6 +47,7 @@ World Core, netcode, or matching FSM.
 - @docs/superpowers/specs/2026-06-07-ui-toolkit-migration-m1-design.md
 - @docs/superpowers/specs/2026-06-14-entity-view-mvc-decouple-design.md
 - @docs/superpowers/specs/2026-06-16-world-core-view-slice-a-design.md
+- @docs/superpowers/specs/2026-06-16-world-core-motion-slice-b-design.md
 
 If you add a new spec under `docs/superpowers/specs/`, append an `@` line above.
 `docs/superpowers/plans/` is **not** auto-loaded — plans are per-task and read

@@ -44,10 +44,6 @@ namespace LOP
             objectResolver.Inject(physicsComponent);
             physicsComponent.Initialize(false, false);
 
-            ManaComponent manaComponent = entity.AddEntityComponent<ManaComponent>();
-            objectResolver.Inject(manaComponent);
-            manaComponent.Initialize(creationData.maxMP, creationData.currentMP);
-
             StatsComponent statsComponent = entity.AddEntityComponent<StatsComponent>();
             objectResolver.Inject(statsComponent);
             statsComponent.Initialize(creationData.characterCode);
@@ -91,6 +87,7 @@ namespace LOP
             var worldEntity = new GameFramework.World.Entity(creationData.entityId);
             var worldHealth = new GameFramework.World.Health(creationData.maxHP) { Current = creationData.currentHP };
             worldEntity.Add(worldHealth);
+            worldEntity.Add(new GameFramework.World.Mana(creationData.maxMP) { Current = creationData.currentMP });
             worldEntity.Add(new GameFramework.World.Transform
             {
                 Position = entity.position.ToNumerics(),

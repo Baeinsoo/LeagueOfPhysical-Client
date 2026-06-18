@@ -52,6 +52,7 @@ World Core, netcode, or matching FSM.
 - @docs/superpowers/specs/2026-06-18-world-core-motion-server-design.md
 - @docs/superpowers/specs/2026-06-18-server-creationdata-di-design.md
 - @docs/superpowers/specs/2026-06-18-server-health-read-flip-design.md
+- @docs/superpowers/specs/2026-06-18-server-health-slice2-design.md
 
 If you add a new spec under `docs/superpowers/specs/`, append an `@` line above.
 `docs/superpowers/plans/` is **not** auto-loaded — plans are per-task and read

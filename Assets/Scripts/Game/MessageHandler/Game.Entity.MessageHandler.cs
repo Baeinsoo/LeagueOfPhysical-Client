@@ -13,6 +13,7 @@ namespace LOP
         [Inject] private IActionManager actionManager;
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
         [Inject] private GameFramework.World.HealthSystem healthSystem;
+        [Inject] private GameFramework.World.ManaSystem manaSystem;
 
         public void Register()
         {
@@ -179,8 +180,23 @@ namespace LOP
             {
                 Debug.LogWarning($"[World] UserEntitySnap: Health not found for entity {playerContext.entity.entityId}");
             }
-            playerContext.entity.GetComponent<ManaComponent>().currentMP = userEntitySnapToC.CurrentMP;
-            playerContext.entity.GetComponent<ManaComponent>().maxMP = userEntitySnapToC.MaxMP;
+            GameFramework.World.Mana mana = worldEntity?.Get<GameFramework.World.Mana>();
+            if (mana != null)
+            {
+                int prevCurrent = mana.Current;
+                int prevMax = mana.Max;
+                manaSystem.ApplyAuthoritativeState(mana, userEntitySnapToC.MaxMP, userEntitySnapToC.CurrentMP);
+                if (mana.Current != prevCurrent || mana.Max != prevMax)
+                {
+                    EventBus.Default.Publish(
+                        EventTopic.EntityId<LOPEntity>(playerContext.entity.entityId),
+                        new EntityManaChanged(mana.Current, mana.Max));
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[World] UserEntitySnap: Mana not found for entity {playerContext.entity.entityId}");
+            }
             playerContext.entity.GetComponent<LevelComponent>().currentExp = userEntitySnapToC.CurrentExp;
             playerContext.entity.GetComponent<LevelComponent>().level = userEntitySnapToC.Level;
             playerContext.entity.GetComponent<UserComponent>().statPoints = userEntitySnapToC.StatPoints;

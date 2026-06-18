@@ -62,6 +62,18 @@ namespace LOP.Event.Entity
         }
     }
 
+    public struct EntityManaChanged
+    {
+        public int current;
+        public int max;
+
+        public EntityManaChanged(int current, int max)
+        {
+            this.current = current;
+            this.max = max;
+        }
+    }
+
     public struct EntityCreated
     {
         public IEntity entity;

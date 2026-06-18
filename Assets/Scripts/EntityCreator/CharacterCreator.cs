@@ -44,10 +44,6 @@ namespace LOP
             objectResolver.Inject(physicsComponent);
             physicsComponent.Initialize(false, false);
 
-            HealthComponent healthComponent = entity.AddEntityComponent<HealthComponent>();
-            objectResolver.Inject(healthComponent);
-            healthComponent.Initialize(creationData.maxHP, creationData.currentHP);
-
             ManaComponent manaComponent = entity.AddEntityComponent<ManaComponent>();
             objectResolver.Inject(manaComponent);
             manaComponent.Initialize(creationData.maxMP, creationData.currentMP);

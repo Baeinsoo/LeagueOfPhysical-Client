@@ -9,13 +9,13 @@ namespace LOP.UI
     /// <summary>
     /// 플레이어 HUD ViewModel. 게임 스코프 resolver로 생성되어 IPlayerContext를 주입받는다.
     /// 엔티티의 HP/MP/EXP/Level을 R3 ReactiveProperty로 노출 → View가 구독(폴링 없음).
-    /// MP/EXP/Level은 컴포넌트 PropertyChange(반응형, M2a 패턴)로, HP는 EntityDamage 이벤트로 갱신한다
-    /// (레거시 HealthComponent.currentHP는 새 데미지 흐름이 갱신하지 않으므로 — World Core가 HP 진실).
+    /// MP/EXP/Level은 컴포넌트 PropertyChange(반응형, M2a 패턴)로, HP는 EntityDamage 이벤트로 갱신한다.
+    /// HP 초기값은 World.Entity의 World.Health(순수 C# 코어 — HP 진실원본)에서 읽는다(Model A — pull).
     /// </summary>
     public class CharacterHudViewModel : IDisposable
     {
         private readonly LOPEntity _entity;
-        private readonly HealthComponent _health;
+        private readonly GameFramework.World.EntityRegistry _entityRegistry;
         private readonly ManaComponent _mana;
         private readonly LevelComponent _level;
 
@@ -35,8 +35,9 @@ namespace LOP.UI
         public ReadOnlyReactiveProperty<long> ExpToNext => _expToNext;
         public ReadOnlyReactiveProperty<int> Level => _levelValue;
 
-        public CharacterHudViewModel(IPlayerContext playerContext)
+        public CharacterHudViewModel(IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry)
         {
+            _entityRegistry = entityRegistry;
             _entity = playerContext.entity;
             if (_entity == null)
             {
@@ -44,7 +45,6 @@ namespace LOP.UI
                 return;
             }
 
-            _health = _entity.GetEntityComponent<HealthComponent>();
             _mana = _entity.GetEntityComponent<ManaComponent>();
             _level = _entity.GetEntityComponent<LevelComponent>();
 
@@ -73,10 +73,12 @@ namespace LOP.UI
 
         private void PushAll()
         {
-            if (_health != null)
+            GameFramework.World.Entity worldEntity = _entityRegistry.Get(_entity.entityId);
+            GameFramework.World.Health health = worldEntity?.Get<GameFramework.World.Health>();
+            if (health != null)
             {
-                _hp.Value = _health.currentHP;
-                _maxHp.Value = _health.maxHP;
+                _hp.Value = health.Current;
+                _maxHp.Value = health.Max;
             }
             if (_mana != null)
             {

@@ -11,6 +11,8 @@ namespace LOP
         [Inject] private IGameDataStore gameDataStore;
         [Inject] private IGameEngine gameEngine;
         [Inject] private IActionManager actionManager;
+        [Inject] private GameFramework.World.EntityRegistry entityRegistry;
+        [Inject] private GameFramework.World.HealthSystem healthSystem;
 
         public void Register()
         {
@@ -167,8 +169,16 @@ namespace LOP
                 return;
             }
 
-            playerContext.entity.GetComponent<HealthComponent>().currentHP = userEntitySnapToC.CurrentHP;
-            playerContext.entity.GetComponent<HealthComponent>().maxHP = userEntitySnapToC.MaxHP;
+            GameFramework.World.Entity worldEntity = entityRegistry.Get(playerContext.entity.entityId);
+            GameFramework.World.Health health = worldEntity?.Get<GameFramework.World.Health>();
+            if (health != null)
+            {
+                healthSystem.ApplyAuthoritativeState(health, userEntitySnapToC.MaxHP, userEntitySnapToC.CurrentHP);
+            }
+            else
+            {
+                Debug.LogWarning($"[World] UserEntitySnap: Health not found for entity {playerContext.entity.entityId}");
+            }
             playerContext.entity.GetComponent<ManaComponent>().currentMP = userEntitySnapToC.CurrentMP;
             playerContext.entity.GetComponent<ManaComponent>().maxMP = userEntitySnapToC.MaxMP;
             playerContext.entity.GetComponent<LevelComponent>().currentExp = userEntitySnapToC.CurrentExp;

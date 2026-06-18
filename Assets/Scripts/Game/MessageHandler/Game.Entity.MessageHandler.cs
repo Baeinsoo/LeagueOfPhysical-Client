@@ -175,6 +175,10 @@ namespace LOP
             {
                 healthSystem.ApplyAuthoritativeState(health, userEntitySnapToC.MaxHP, userEntitySnapToC.CurrentHP);
             }
+            else
+            {
+                Debug.LogWarning($"[World] UserEntitySnap: Health not found for entity {playerContext.entity.entityId}");
+            }
             playerContext.entity.GetComponent<ManaComponent>().currentMP = userEntitySnapToC.CurrentMP;
             playerContext.entity.GetComponent<ManaComponent>().maxMP = userEntitySnapToC.MaxMP;
             playerContext.entity.GetComponent<LevelComponent>().currentExp = userEntitySnapToC.CurrentExp;

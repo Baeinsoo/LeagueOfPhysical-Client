@@ -56,6 +56,7 @@ World Core, netcode, or matching FSM.
 - @docs/superpowers/specs/2026-06-18-world-core-mana-migration-design.md
 - @docs/superpowers/specs/2026-06-18-world-core-level-migration-design.md
 - @docs/superpowers/specs/2026-06-19-world-core-stats-migration-design.md
+- @docs/superpowers/specs/2026-06-19-world-core-owner-migration-design.md
 
 If you add a new spec under `docs/superpowers/specs/`, append an `@` line above.
 `docs/superpowers/plans/` is **not** auto-loaded — plans are per-task and read

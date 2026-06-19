@@ -48,10 +48,6 @@ namespace LOP
             objectResolver.Inject(statsComponent);
             statsComponent.Initialize(creationData.characterCode);
 
-            LevelComponent levelComponent = entity.AddEntityComponent<LevelComponent>();
-            objectResolver.Inject(levelComponent);
-            levelComponent.Initialize(creationData.level, creationData.currentExp);
-
             LOPEntityController controller = root.CreateChildWithComponent<LOPEntityController>();
             objectResolver.Inject(controller);
             controller.SetEntity(entity);
@@ -88,6 +84,7 @@ namespace LOP
             var worldHealth = new GameFramework.World.Health(creationData.maxHP) { Current = creationData.currentHP };
             worldEntity.Add(worldHealth);
             worldEntity.Add(new GameFramework.World.Mana(creationData.maxMP) { Current = creationData.currentMP });
+            worldEntity.Add(new GameFramework.World.Level { Value = creationData.level, Exp = creationData.currentExp, ExpToNext = 100 });
             worldEntity.Add(new GameFramework.World.Transform
             {
                 Position = entity.position.ToNumerics(),

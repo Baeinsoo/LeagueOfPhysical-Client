@@ -74,6 +74,20 @@ namespace LOP.Event.Entity
         }
     }
 
+    public struct EntityLevelChanged
+    {
+        public int level;
+        public long currentExp;
+        public long expToNext;
+
+        public EntityLevelChanged(int level, long currentExp, long expToNext)
+        {
+            this.level = level;
+            this.currentExp = currentExp;
+            this.expToNext = expToNext;
+        }
+    }
+
     public struct EntityCreated
     {
         public IEntity entity;

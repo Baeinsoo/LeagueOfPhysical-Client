@@ -11,13 +11,12 @@ namespace LOP.UI
     /// 엔티티의 HP/MP/EXP/Level을 R3 ReactiveProperty로 노출 → View가 구독(폴링 없음).
     /// HP: 초기값 World.Health pull, 라이브 EntityDamage 이벤트로 갱신.
     /// MP: 초기값 World.Mana pull, 라이브 EntityManaChanged 이벤트로 갱신.
-    /// EXP/Level: 컴포넌트 PropertyChange(반응형, M2a 패턴)로 갱신.
+    /// EXP/Level: 초기값 World.Level pull, 라이브 EntityLevelChanged 이벤트로 갱신.
     /// </summary>
     public class CharacterHudViewModel : IDisposable
     {
         private readonly LOPEntity _entity;
         private readonly GameFramework.World.EntityRegistry _entityRegistry;
-        private readonly LevelComponent _level;
 
         private readonly ReactiveProperty<int> _hp = new(0);
         private readonly ReactiveProperty<int> _maxHp = new(1);
@@ -45,23 +44,18 @@ namespace LOP.UI
                 return;
             }
 
-            _level = _entity.GetEntityComponent<LevelComponent>();
-
             PushAll();
 
-            EventBus.Default.Subscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnPropertyChange);
             EventBus.Default.Subscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityDamage);
             EventBus.Default.Subscribe<EntityManaChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityManaChanged);
+            EventBus.Default.Subscribe<EntityLevelChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityLevelChanged);
         }
 
-        private void OnPropertyChange(PropertyChange propertyChange)
+        private void OnEntityLevelChanged(EntityLevelChanged e)
         {
-            switch (propertyChange.propertyName)
-            {
-                case nameof(LevelComponent.level): _levelValue.Value = _level.level; break;
-                case nameof(LevelComponent.currentExp): _exp.Value = _level.currentExp; break;
-                case nameof(LevelComponent.expToNextLevel): _expToNext.Value = _level.expToNextLevel; break;
-            }
+            _levelValue.Value = e.level;
+            _exp.Value = e.currentExp;
+            _expToNext.Value = e.expToNext;
         }
 
         private void OnEntityDamage(EntityDamage entityDamage)
@@ -90,11 +84,12 @@ namespace LOP.UI
                 _mp.Value = mana.Current;
                 _maxMp.Value = mana.Max;
             }
-            if (_level != null)
+            GameFramework.World.Level level = worldEntity?.Get<GameFramework.World.Level>();
+            if (level != null)
             {
-                _exp.Value = _level.currentExp;
-                _expToNext.Value = _level.expToNextLevel;
-                _levelValue.Value = _level.level;
+                _exp.Value = level.Exp;
+                _expToNext.Value = level.ExpToNext;
+                _levelValue.Value = level.Value;
             }
         }
 
@@ -102,9 +97,9 @@ namespace LOP.UI
         {
             if (_entity != null)
             {
-                EventBus.Default.Unsubscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnPropertyChange);
                 EventBus.Default.Unsubscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityDamage);
                 EventBus.Default.Unsubscribe<EntityManaChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityManaChanged);
+                EventBus.Default.Unsubscribe<EntityLevelChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityLevelChanged);
             }
 
             _hp.Dispose();

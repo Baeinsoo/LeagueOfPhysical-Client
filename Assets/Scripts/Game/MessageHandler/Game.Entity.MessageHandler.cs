@@ -14,6 +14,7 @@ namespace LOP
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
         [Inject] private GameFramework.World.HealthSystem healthSystem;
         [Inject] private GameFramework.World.ManaSystem manaSystem;
+        [Inject] private GameFramework.World.LevelSystem levelSystem;
 
         public void Register()
         {
@@ -197,8 +198,23 @@ namespace LOP
             {
                 Debug.LogWarning($"[World] UserEntitySnap: Mana not found for entity {playerContext.entity.entityId}");
             }
-            playerContext.entity.GetComponent<LevelComponent>().currentExp = userEntitySnapToC.CurrentExp;
-            playerContext.entity.GetComponent<LevelComponent>().level = userEntitySnapToC.Level;
+            GameFramework.World.Level level = worldEntity?.Get<GameFramework.World.Level>();
+            if (level != null)
+            {
+                int prevValue = level.Value;
+                long prevExp = level.Exp;
+                levelSystem.ApplyAuthoritativeState(level, userEntitySnapToC.Level, userEntitySnapToC.CurrentExp);
+                if (level.Value != prevValue || level.Exp != prevExp)
+                {
+                    EventBus.Default.Publish(
+                        EventTopic.EntityId<LOPEntity>(playerContext.entity.entityId),
+                        new EntityLevelChanged(level.Value, level.Exp, level.ExpToNext));
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[World] UserEntitySnap: Level not found for entity {playerContext.entity.entityId}");
+            }
             playerContext.entity.GetComponent<UserComponent>().statPoints = userEntitySnapToC.StatPoints;
         }
 

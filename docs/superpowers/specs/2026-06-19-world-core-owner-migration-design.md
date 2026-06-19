@@ -5,6 +5,8 @@
 **Branch (code):** GameFramework + 클·서 각 repo 피처 브랜치 (구현 시 생성)
 **Related:** [Stats 이행](2026-06-19-world-core-stats-migration-design.md) · [Level 이행](2026-06-18-world-core-level-migration-design.md) · [World Core 연결 아키텍처](../../world-core-connection-architecture.md) · [Entity System Design](../../entity-system-design.md)
 
+> **⚠️ 명명 정정 (Slice 1 구현 중):** 컴포넌트명을 `Owner` → **`Ownership`** 로 변경했다 — base `Component.Owner`(컴포넌트를 소유한 엔티티) 프로퍼티와 충돌해서다. 이 문서의 모든 `Owner`/`World.Owner`/`Has<Owner>`/`Get<Owner>`는 **`Ownership`**으로 읽는다. `OwnerId` 필드명은 유지. 생성은 **불변 ctor** `new GameFramework.World.Ownership(userId)`(`OwnerId { get; }`).
+
 ## Goal
 
 마지막 레거시 엔티티 컴포넌트 `UserComponent`(클라) / `PlayerComponent`(서버)를 제거한다. 이 둘이 섞고 있던 **두 직교 개념을 분해**해 각각의 일반적 집으로 옮긴다:
@@ -41,19 +43,20 @@
 
 ### ① GameFramework (공유 코어)
 
-- `World/Components/Owner.cs` **신설**:
+- `World/Components/Ownership.cs` **신설** (← `Owner`에서 리네임, Component.Owner 충돌 회피):
   ```csharp
   namespace GameFramework.World
   {
       /// <summary>엔티티가 유저/세션에 의해 소유·제어됨을 표시. 존재 자체가 "플레이어(비-NPC)" 마커.
-      /// OwnerId는 소유자 식별자(LOP=userId). 로직 없음(anemic) — 생성 시 1회 세팅 후 불변.</summary>
-      public class Owner : Component
+      /// OwnerId는 소유자 식별자(LOP=userId), 생성 시 1회 세팅 후 불변(ctor).</summary>
+      public class Ownership : Component
       {
-          public string OwnerId { get; set; }
+          public string OwnerId { get; }
+          public Ownership(string ownerId) { OwnerId = ownerId; }
       }
   }
   ```
-  (시스템 없음 — 순수 데이터 태그, per-tick 싱크 없음.)
+  (시스템 없음 — 순수 데이터 태그, per-tick 싱크 없음. 마커 = `entity.Has<Ownership>()`.)
 - `World/Components/Stats.cs`: `public int UnspentPoints { get; set; }` 추가(기존 `BaseStats`/`Modifiers` 옆).
 - `World/Systems/StatsSystem.cs` 확장(기존 GetValue/SetBase/AddBase 유지):
   - `void AddUnspent(Stats stats, int amount)` — `stats.UnspentPoints += amount;` (레벨업 보상).

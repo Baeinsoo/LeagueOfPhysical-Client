@@ -15,6 +15,7 @@ namespace LOP
         [Inject] private GameFramework.World.HealthSystem healthSystem;
         [Inject] private GameFramework.World.ManaSystem manaSystem;
         [Inject] private GameFramework.World.LevelSystem levelSystem;
+        [Inject] private GameFramework.World.StatsSystem statsSystem;
 
         public void Register()
         {
@@ -96,6 +97,10 @@ namespace LOP
                         currentMP = entitySpawnToC.EntityCreationData.CharacterCreationData.CurrentMP,
                         level = entitySpawnToC.EntityCreationData.CharacterCreationData.Level,
                         currentExp = entitySpawnToC.EntityCreationData.CharacterCreationData.CurrentExp,
+                        strength = entitySpawnToC.EntityCreationData.CharacterCreationData.Strength,
+                        dexterity = entitySpawnToC.EntityCreationData.CharacterCreationData.Dexterity,
+                        intelligence = entitySpawnToC.EntityCreationData.CharacterCreationData.Intelligence,
+                        vitality = entitySpawnToC.EntityCreationData.CharacterCreationData.Vitality,
                     });
                     break;
 
@@ -220,25 +225,34 @@ namespace LOP
 
         private void OnStatAllocationToC(StatAllocationToC statAllocationToC)
         {
-            StatsComponent statsComponent = playerContext.entity.GetComponent<StatsComponent>();
+            if (playerContext.entity == null)
+            {
+                return;
+            }
+
+            GameFramework.World.Stats stats = entityRegistry.Get(playerContext.entity.entityId)?.Get<GameFramework.World.Stats>();
+            if (stats == null)
+            {
+                Debug.LogWarning($"[World] StatAllocation: Stats not found for entity {playerContext.entity.entityId}");
+                return;
+            }
+
+            int statType;
+            // wire stat 문자열은 소문자 필드명("strength" 등) — 서버 Slice 3 계약과 일치.
             switch (statAllocationToC.Stat)
             {
-                case nameof(StatsComponent.strength):
-                    statsComponent.strength = statAllocationToC.StatValue;
-                    break;
-
-                case nameof(StatsComponent.dexterity):
-                    statsComponent.dexterity = statAllocationToC.StatValue;
-                    break;
-
-                case nameof(StatsComponent.intelligence):
-                    statsComponent.intelligence = statAllocationToC.StatValue;
-                    break;
-
-                case nameof(StatsComponent.vitality):
-                    statsComponent.vitality = statAllocationToC.StatValue;
-                    break;
+                case "strength": statType = (int)GameFramework.World.EntityStatType.Strength; break;
+                case "dexterity": statType = (int)GameFramework.World.EntityStatType.Dexterity; break;
+                case "intelligence": statType = (int)GameFramework.World.EntityStatType.Intelligence; break;
+                case "vitality": statType = (int)GameFramework.World.EntityStatType.Vitality; break;
+                default: return;
             }
+
+            statsSystem.SetBase(stats, statType, statAllocationToC.StatValue);
+            int effectiveValue = Mathf.RoundToInt(statsSystem.GetValue(stats, statType));
+            EventBus.Default.Publish(
+                EventTopic.EntityId<LOPEntity>(playerContext.entity.entityId),
+                new EntityStatChanged(statType, effectiveValue));
         }
     }
 }

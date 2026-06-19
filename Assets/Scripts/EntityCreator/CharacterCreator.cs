@@ -44,10 +44,6 @@ namespace LOP
             objectResolver.Inject(physicsComponent);
             physicsComponent.Initialize(false, false);
 
-            StatsComponent statsComponent = entity.AddEntityComponent<StatsComponent>();
-            objectResolver.Inject(statsComponent);
-            statsComponent.Initialize(creationData.characterCode);
-
             LOPEntityController controller = root.CreateChildWithComponent<LOPEntityController>();
             objectResolver.Inject(controller);
             controller.SetEntity(entity);
@@ -85,6 +81,12 @@ namespace LOP
             worldEntity.Add(worldHealth);
             worldEntity.Add(new GameFramework.World.Mana(creationData.maxMP) { Current = creationData.currentMP });
             worldEntity.Add(new GameFramework.World.Level { Value = creationData.level, Exp = creationData.currentExp, ExpToNext = 100 });
+            var worldStats = new GameFramework.World.Stats();
+            worldStats.BaseStats[(int)GameFramework.World.EntityStatType.Strength] = creationData.strength;
+            worldStats.BaseStats[(int)GameFramework.World.EntityStatType.Dexterity] = creationData.dexterity;
+            worldStats.BaseStats[(int)GameFramework.World.EntityStatType.Intelligence] = creationData.intelligence;
+            worldStats.BaseStats[(int)GameFramework.World.EntityStatType.Vitality] = creationData.vitality;
+            worldEntity.Add(worldStats);
             worldEntity.Add(new GameFramework.World.Transform
             {
                 Position = entity.position.ToNumerics(),

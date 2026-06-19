@@ -18,5 +18,10 @@ namespace LOP
         public int currentMP { get; set; }
         public int level { get; set; }
         public long currentExp { get; set; }
+
+        public int strength { get; set; }
+        public int dexterity { get; set; }
+        public int intelligence { get; set; }
+        public int vitality { get; set; }
     }
 }

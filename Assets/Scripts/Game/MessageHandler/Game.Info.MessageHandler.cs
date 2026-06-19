@@ -44,6 +44,10 @@ namespace LOP
                             currentMP = entityCreationData.CharacterCreationData.CurrentMP,
                             level = entityCreationData.CharacterCreationData.Level,
                             currentExp = entityCreationData.CharacterCreationData.CurrentExp,
+                            strength = entityCreationData.CharacterCreationData.Strength,
+                            dexterity = entityCreationData.CharacterCreationData.Dexterity,
+                            intelligence = entityCreationData.CharacterCreationData.Intelligence,
+                            vitality = entityCreationData.CharacterCreationData.Vitality,
                         });
                         break;
 

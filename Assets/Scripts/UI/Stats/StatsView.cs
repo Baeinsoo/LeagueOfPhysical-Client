@@ -68,10 +68,11 @@ namespace LOP.UI
             base.OnClose();
         }
 
-        private void OnStrengthClicked() => _viewModel.Allocate(nameof(StatsComponent.strength));
-        private void OnDexterityClicked() => _viewModel.Allocate(nameof(StatsComponent.dexterity));
-        private void OnIntelligenceClicked() => _viewModel.Allocate(nameof(StatsComponent.intelligence));
-        private void OnVitalityClicked() => _viewModel.Allocate(nameof(StatsComponent.vitality));
+        // wire stat 식별 문자열(소문자) — 서버 Slice 3 switch 키와 일치.
+        private void OnStrengthClicked() => _viewModel.Allocate("strength");
+        private void OnDexterityClicked() => _viewModel.Allocate("dexterity");
+        private void OnIntelligenceClicked() => _viewModel.Allocate("intelligence");
+        private void OnVitalityClicked() => _viewModel.Allocate("vitality");
 
         private void SetButtonsVisible(bool visible)
         {

@@ -88,6 +88,18 @@ namespace LOP.Event.Entity
         }
     }
 
+    public struct EntityStatChanged
+    {
+        public int statType;
+        public int value;
+
+        public EntityStatChanged(int statType, int value)
+        {
+            this.statType = statType;
+            this.value = value;
+        }
+    }
+
     public struct EntityCreated
     {
         public IEntity entity;

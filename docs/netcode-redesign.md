@@ -123,19 +123,19 @@ LOP는 PhysX 기반(비결정적)이고 strict server-authoritative를 원하므
 
 > 각 단계는 독립적으로 측정 가능. 한 단계 끝낼 때마다 공중 점프 시나리오에서 갭 크기를 측정해서 다음 단계로 넘어갈지 결정.
 
-### Phase 0 — 측정 도구 마련 (선행 작업)
+### Phase 0 — 측정 도구 마련 (선행 작업) ✅ 완료(2026-06-20)
 
-- [ ] 디버그 HUD에 표시: 클라 tick, 서버 tick(추정), RTT, 마지막 reconciliation distance
-- [ ] 공중 점프 시나리오 재현 케이스 (반복 가능한 테스트 환경)
-- [ ] 변경 전 baseline 측정: 평균/최대 reconciliation distance
+- [x] 디버그 HUD에 표시: 클라 tick, **서버 tick(추정) + lead**, RTT, reconciliation distance(last/avg/max). `ReconciliationStats` 홀더 + `DebugHud` 확장. spec/plan: `docs/superpowers/specs|plans/2026-06-20-netcode-phase0-debug-hud*`.
+- [ ] 공중 점프 시나리오 재현 케이스 (반복 가능한 테스트 환경) — HUD가 측정 도구. 수동 재현.
+- [ ] 변경 전 baseline 측정: 평균/최대 reconciliation distance — Phase 2 전 기록.
 
-### Phase 1 — 명백한 버그 수정 (효과: 작지만 즉시 적용 가치 있음)
+> 로컬 2-에디터에선 RTT가 와이어 지연이 아니라 프레임/throttling 지연(수십 ms) — 실측 baseline은 Latency Simulation으로 현실적 RTT 주입 필요(§9.6).
 
-- [ ] `LOPMovementManager.cs:30-33` SmoothDampAngle 수정
-  - `ref` 변수를 컴포넌트 필드로 (예: `CharacterComponent.rotationVelocity`)
-  - `Time.deltaTime` 대신 명시적 `(float)GameEngine.Time.tickInterval` 전달
-  - `Mathf.SmoothDampAngle(currentRot, targetRot, ref field, smoothTime, Mathf.Infinity, tickInterval)` 형태 사용
-  - 또는 자체 보간 (현재 0.01f smoothTime은 사실상 즉시 회전이므로 단순 `Mathf.LerpAngle` 도 검토)
+### Phase 1 — 명백한 버그 수정 (효과: 작지만 즉시 적용 가치 있음) ✅ 완료(2026-06-20)
+
+- [x] `LOPMovementManager` 회전 SmoothDampAngle 버그 수정 → **결정론적 snap**(`entity.rotation = new Vector3(0, angle, 0)`) 채택. 클·서 동시.
+  - 채택 근거: 회전은 velocity와 무관한 cosmetic facing + 현 `smoothTime=0.01`이 사실상 즉시 → snap이 체감 동일·무상태·dt 비의존(클·서 동일). SmoothDamp는 velocity 상태가 스냅샷/롤백에 끌려 들어가 시뮬엔 부적합(카메라/뷰 idiom). **부드러운 facing ease는 시뮬 아닌 뷰(Stage④ view-pull)로 분리** — `MoveTowardsAngle`(고정 rate, 무상태)은 게임플레이상 turn 시간이 필요해질 때 대안.
+  - spec/plan: `docs/superpowers/specs|plans/2026-06-20-netcode-phase1-rotation-snap*`.
 
 ### Phase 2 — Clock Sync (Overwatch 모델의 절반)
 
@@ -148,6 +148,8 @@ LOP는 PhysX 기반(비결정적)이고 strict server-authoritative를 원하므
   double jitterBuffer = 0.030;  // 30ms 시작값, 추후 튜닝
   double clientLeadTime = oneWayLatency + jitterBuffer;
   double targetClientTime = Mirror.NetworkTime.time + clientLeadTime;
+  // ⚠️ 정정(§9.6): "기존 smoothing 그대로"가 아니라 rate time-dilation으로 수렴(값 SmoothDamp 금지 — 역행 위험).
+  //   RTT는 min-RTT 샘플 검토. NetworkTime.time 의미(서버시간 추정 vs 뒤처진 보간 클럭) 사전 검증(§9.4).
   // 기존 smoothing은 그대로
   ```
 - [ ] Lead time 변동 시 갑작스러운 점프 방지 (lead 자체도 smoothing)
@@ -269,3 +271,78 @@ Clock sync가 완벽해도 FP 오차 / 패킷 손실로 인한 미세 갭은 여
 - 본인 외 엔티티(`ServerStateReconciler`)는 별도 — clock sync와 무관, interpolation delay 그대로 유지
 - Phase 2/3 도입 후 기존 `SnapReconciler`의 `entityTransformSnaps` 기반 delayed rendering (`SnapReconciler.cs:177-202`)과의 상호작용 확인
 - LOPGameEngine ↔ LOPGameSimulation 컴포지션 (Slice 4) 도입 후, 현 `SnapReconciler`의 *delta replay* 방식을 *Snapshot/Restore + input replay* 방식으로 자연 수렴 가능 — Stage ④에서 평가
+
+---
+
+## 9. 시간 동기화 — 업계 표준 대비 & 구조/네이밍 (리서치 2026-06-20)
+
+Unity 생태계(Mirror/NGO/Netcode-for-Entities/FishNet/Photon Fusion·Quantum), Unreal, 그리고 1차 원리(NTP·Gambetta·Gaffer·Overwatch GDC) 깊은 조사 결과. 현 `LOPTickUpdater`(값을 `NetworkTime.time`으로 critically-damped smooth, 클라 lead 없음) 방식의 표준 정합성 평가와 정련 방향.
+
+### 9.1 업계 표준 모델 (전 시스템 수렴)
+
+조사한 **모든** 성숙 netcode가 동일 패턴:
+
+| 시스템 | 클라 lead | 보정 방식 | 서버 피드백 |
+|---|---|---|---|
+| Unity NGO | RTT/2 + buffer | time dilation (`AdjustmentRatio`≈1%), 200ms 초과 시 snap | 동기 |
+| Unity NetCode(DOTS) | RTT/tick + `TargetCommandSlack`(2) | DeltaTime 스케일링 | `ServerCommandAge` 피드백(폐루프) |
+| FishNet | HalfRTT | `_adjustedTickDelta` dilation | 주기적 timing 패킷 |
+| Photon Fusion/Quantum | RTT/2 ticks | 틱 micro-correction + rollback/resim | 서버가 per-client lead 지시 |
+| Overwatch(원형) | RTT/2 + 1 command frame | 계단식 time dilation(16ms→~15.2ms) | input-buffer 점유 피드백 |
+| **LOP 현재** | **없음(서버 시간선 위)** | **시간 *값* smoothing** | **없음** |
+
+**표준 3단계:**
+1. **오프셋 추정** — NTP식 4-timestamp(`θ=((t1−t0)+(t2−t3))/2`) 또는 단순 `RTT/2`. 단 raw RTT의 EWMA가 아니라 **min-RTT 샘플 / trimmed-mean**(혼잡 시 EWMA가 오프셋을 systematically 왜곡 — 오차는 `RTT/2`로 bound, 짧은 RTT 샘플일수록 정확).
+2. **lead 타깃** — `clientClock = serverTime + RTT/2 + jitterBuffer`. jitter ≈ `K·σ_OWL`(K≈3) 또는 2~3틱(≈30~50ms). 이게 입력이 서버에 *적시 도착*하게 만드는 핵심.
+3. **smooth 수렴 = time dilation** — 시간 *값*을 건드리지 않고 **rate를 ±1~5% 조정**(절대 뒤로 안 감). 값에 저역통과/critically-damped를 걸면 타깃이 뒤일 때 클럭이 역행해 결정론·보간을 깸 → rate에 적용해야 함(=1차 PLL과 동형).
+
+### 9.2 두(세) 타임라인 모델
+
+fast-paced 클라는 **시간 기준점을 동시에 3개** 유지(naive 구현이 가장 많이 놓치는 지점):
+
+- **server time** — 기준.
+- **predicted time** = `serverTime + RTT/2 + jitter` — **앞선** 클럭, *내 캐릭* 입력/예측용.
+- **interpolation time** = `serverTime − RTT/2 − jitterMargin` — **뒤처진** 클럭, *원격 엔티티* 렌더용(스냅샷 보간 버퍼 ≈ 3× 패킷 간격, Fiedler).
+
+내 캐릭 입력은 서버가 필요로 하기 *전에* 도착해야 하므로 앞서고, 원격은 *이미 받은* 두 스냅샷 사이를 보간하므로 뒤처진다 — 두 클럭을 하나로 합치면 안 됨.
+
+### 9.3 LOP 평가 — 갭과 이미 정합인 부분
+
+**구조적 결함(우선순위):**
+1. **클라 lead 없음** (Critical) — 입력이 서버에 ~RTT/2 늦게 도착 → 서버가 버퍼 지연을 전역 부과하거나 입력 유실. reconciliation 갭이 체계적으로 ~RTT/2에 비례(Phase 0 Recon HUD가 측정하는 바로 그것).
+2. **값 smoothing(rate dilation 아님)** (High) — 큰 음수 오차 시 클럭 역행 위험.
+3. **RTT 추정이 Mirror EWMA** (Medium) — min-RTT 샘플이 더 정확.
+4. **서버 피드백 없음** (High, Phase 4) — open-loop lead만으론 경로 변화/지터에 self-correct 불가.
+5. **단일 입력 전송** (Medium) — 패킷당 최근 N틱 입력 **sliding-window 중복 전송**이면 단일 손실=1틱 손실 방지(싸고 효과 큼).
+
+**이미 표준 정합:**
+- **두 reconciler 분리** — `SnapReconciler`(내 캐릭, delta replay) vs `ServerStateReconciler`(원격 보간) + `SnapReconciler.LateUpdate` 지연 렌더링 = 9.2의 predicted/interpolation 타임라인 분리와 부분 정합(단 predicted에 lead 없음).
+- 시작 시 서버 `gameInfo.Tick`으로 시드 = 권위 기준 시드(옳음).
+- `processibleTick` accumulator = 표준 fixed-timestep(Fiedler "Fix Your Timestep").
+
+### 9.4 ⚠️ Mirror `NetworkTime` 의미 사전 검증 (Phase 2 전 필수)
+
+조사에 따르면 최신 Mirror에서 **`NetworkTime.time = NetworkClient.localTimeline`은 스냅샷 보간용으로 서버보다 *뒤*에 있는** 클럭이고, 예측용 앞선 클럭은 실험적 `predictedTime`이 별도다. 우리 Mirror 버전에서 `NetworkTime.time`이 *동기 서버시간 추정*인지 *뒤처진 보간 클럭*인지에 따라 lead 식이 달라진다(뒤처진 클럭이면 우리 sim이 이미 서버보다 뒤 → lead가 더 필요). **Phase 2 착수 시 이걸 먼저 확인**한다.
+
+### 9.5 구조/네이밍 — TickUpdater 분리 (durable 가이드)
+
+- **TickUpdater를 별도 클래스로 빼고 GameFramework generic 베이스 + 사이드별 override(클=Mirror smoothing, 서=자기 클럭)로 둔 것 = 표준 정합, 유지.** 모든 엔진이 전용 time/tick 서브시스템을 가지며, 시간 동기는 본질적으로 사이드별이라 connection-architecture가 `ITickUpdater`를 I/O 어댑터로 분류한 것이 정확.
+- **단, 현 단일 `TickUpdater`가 3책임을 혼재**: (1) 클럭 동기/추정(시간 출처+lead+dilation, 현 `OnElapsedTimeUpdate` override), (2) 틱 루프 구동(accumulator), (3) 시간 값 보유(tick/interval/elapsed). 업계는 분리: NGO=`NetworkTimeSystem`(동기)+`NetworkTickSystem`(구동)+`NetworkTime`(값 struct); FishNet=`TimeManager`(통합·멤버 분리). LOP는 이미 `GameEngine.Time`(값 facade)가 값 책임을 분리 → 동기·구동이 한 클래스에 엉킨 게 잔여 문제.
+- **권고(언제):** 지금 rename/분리는 churn이라 안 함. **Phase 2에서 lead/dilation을 붙이는 시점**에 `OnElapsedTimeUpdate`가 god-method화하므로, 그때 **"클럭/시간소스 추정"(사이드별)을 별도 seam으로 추출**하고 틱 구동은 generic 유지. 네이밍도 그때 책임 기반으로 — `TickUpdater`는 *구동*엔 맞지만 *동기/추정*까지 담기엔 좁음. 통합 시 `TimeManager`, 분리 시 `Clock`/`TimeSync`(추정) vs `TickDriver`(구동) 류.
+- **라이브러리 교체(NGO/FishNet)는 불필요** — 동작하는 Mirror 커스텀 스택을 표준 쪽으로 *진화*시키는 게 맞음(아래 Phase 2~4가 그 경로).
+
+### 9.6 Phase 2~4 정련 (이 리서치가 기존 계획을 검증 + 보정)
+
+리서치는 §5의 Phase 2(clock sync)/3(input buffer)/4(time dilation 피드백) 방향이 **정확히 표준**임을 확인. 단 다음을 반영:
+
+- **Phase 2** — lead(`serverTime + RTT/2 + jitter`) 도입하되 **§5 Phase 2 의사코드의 "기존 smoothing 그대로"를 rate time-dilation으로 정정**(값 SmoothDamp 금지). RTT 추정은 min-RTT 검토. §9.4 Mirror 의미 검증 선행.
+- **Phase 3** — 서버 input 버퍼를 "클라 tick == 서버 tick"에 정렬(=표준 command-frame).
+- **Phase 4** — 서버가 input 버퍼 점유(early/late)를 클라에 보고 → 클라 dilation(폐루프). NGO/NetCode/FishNet/Overwatch 전부 채택. Overwatch 계단식 표(>32틱=¼ 보정, 15~32=⅛, 1~7틱 early=dead-zone, late=가속)가 참조 구현.
+- **추가(저비용·고효과)** — sliding-window 입력 중복 전송(§9.3-5), 원격 엔티티 적응형 jitter buffer.
+
+### 9.7 출처 (대표)
+
+- Unity NGO NetworkTime/Ticks, Netcode-for-Entities Time Synchronization(DeltaTime 스케일링), FishNet TimeManager API — 각 공식 문서.
+- Overwatch: [Edgegap deep dive](https://edgegap.com/blog/game-backend-deep-dive-overwatch-2016-netcode-architecture-rollback), [Daposto Overwatch model](https://daposto.medium.com/game-networking-9-bonus-overwatch-model-4faba078cf05), [GDC Vault(Tim Ford)](https://www.gdcvault.com/play/1024001/-Overwatch-Gameplay-Architecture-and).
+- 1차 원리: [NTP FAQ algo](https://www.ntp.org/ntpfaq/NTP-s-algo/), [Gambetta](https://www.gabrielgambetta.com/client-server-game-architecture.html), [Gaffer Snapshot Interpolation](https://gafferongames.com/post/snapshot_interpolation/), [SnapNet snapshot-interpolation](https://snapnet.dev/blog/netcode-architectures-part-3-snapshot-interpolation/).
+- Unreal: [Josh Sutphin — syncing UE network clock](https://joshsutphin.com/blog/accurately-syncing-unreals-network-clock.html)(NTP식 핸드셰이크), [Vorixo non-destructive synced clock](https://vorixo.github.io/devtricks/non-destructive-synced-net-clock/).

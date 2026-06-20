@@ -4,7 +4,7 @@
 
 **Goal:** `LOPEntityManager`의 중복 역방향 맵(`entityUserMap`)을 제거하고 entity→owner 조회를 `Ownership.OwnerId`로 파생 — 정방향 맵(`userEntityMap`)은 Game 스코프 인덱스로 유지(접근자 시그니처 유지, 호출부 무변경).
 
-**Architecture:** 서버 전용. **스코프 보존이 핵심** — 세션(Room 스코프)이 엔티티(Game 스코프)를 forward 참조하면 수명 역전·stale이 되므로(옵션 B 기각), 정방향 인덱스 `userEntityMap`을 Game 스코프 `LOPEntityManager`에 그대로 두고 군더더기 역방향 맵만 Ownership(Game 스코프)으로 대체한다. `GetEntityByUserId`는 본문도 불변, `GetUserIdByEntityId`만 Ownership 파생으로 재구현. `GetUserIdByEntityId`가 throw→null로 바뀌므로 `LOPGameEngine.ProcessInput`에 null 가드 추가(polish). 자동 테스트 없음(단일 Assembly-CSharp, LOP 글루) — 컴파일 + 수동 플레이.
+**Architecture:** 서버 전용 1파일. **스코프 보존이 핵심** — 세션(Room 스코프)이 엔티티(Game 스코프)를 forward 참조하면 수명 역전·stale이 되므로(옵션 B 기각), 정방향 인덱스 `userEntityMap`을 Game 스코프 `LOPEntityManager`에 그대로 두고 군더더기 역방향 맵만 Ownership(Game 스코프)으로 대체한다. `GetEntityByUserId`는 본문도 불변, `GetUserIdByEntityId`만 Ownership 파생으로 재구현. `GetUserIdByEntityId`가 throw→null로 바뀌지만 호출처 `ProcessInput`은 "입력=항상 플레이어=항상 Ownership" 불변식 자리라 **가드를 추가하지 않는다**(원 설계 의도 = fail-loud; null이 내려가도 downstream에서 시끄럽게 터짐). 자동 테스트 없음(단일 Assembly-CSharp, LOP 글루) — 컴파일 + 수동 플레이.
 
 **Tech Stack:** C# (Unity), VContainer DI, UnityMCP 컴파일 검증.
 
@@ -12,16 +12,17 @@
 
 **Resolved Unity instance (매 UnityMCP 호출에 명시 — HTTP stateless):** Server `LeagueOfPhysical-Server@f99391fa2dbaaf3c` (서버 작업 인가).
 
-> **픽스처:** 변경 2파일(`LOPEntityManager.cs`/`LOPGameEngine.cs`)은 픽스처 아님. `LOPGame.cs`/`ConfigureRoomComponent.cs`(dirty 로컬 픽스처)는 **미접촉** → stash 댄스 불필요, 커밋 시 제외만.
+> **픽스처:** 변경 파일(`LOPEntityManager.cs`)은 픽스처 아님. `LOPGame.cs`/`ConfigureRoomComponent.cs`(dirty 로컬 픽스처)는 **미접촉** → stash 댄스 불필요, 커밋 시 제외만.
 
 > **옵션 B 폐기 노트:** 초기 plan은 `LOPSession.controlledEntityId`(세션 forward 참조)로 두 맵 모두 제거하는 옵션 B였으나, 세션(Room 스코프)이 엔티티(Game 스코프)를 알면 게임 teardown 시 stale 참조가 남는 스코프 역전이 발견되어 기각. 이 plan은 옵션 A(스코프 보존)로 개정됨. `LOPSession`은 main 그대로.
+
+> **`ProcessInput` 가드 안 함 노트:** `GetUserIdByEntityId`가 throw→null로 바뀌지만, 그 자리는 "입력 엔티티=항상 플레이어=항상 Ownership 보유" 불변식이 성립하는 곳이라 **null 가드를 추가하지 않는다**(원 설계가 일부러 예외 처리를 안 둔 fail-loud 의도). 불변식이 깨지면 downstream(`GetSessionByUserId`/`Send`)에서 시끄럽게 터지게 둔다. `LOPGameEngine`은 main 그대로.
 
 ---
 
 ## File Structure (server repo: `C:\Users\re5na\workspace\LOP\LeagueOfPhysical-Server`)
 
-- **Modify:** `Assets/Scripts/Entity/LOPEntityManager.cs` — `entityUserMap` 제거 + `CreateEntity` populate 1줄 제거 + `DestroyMarkedEntities` ownerId 캡처/clear 교체 + `GetUserIdByEntityId` Ownership 파생 재구현. (`userEntityMap`·`GetEntityByUserId` 유지.)
-- **Modify:** `Assets/Scripts/Game/LOPGameEngine.cs` — `ProcessInput`에 null userId 가드(polish).
+- **Modify:** `Assets/Scripts/Entity/LOPEntityManager.cs` — `entityUserMap` 제거 + `CreateEntity` populate 1줄 제거 + `DestroyMarkedEntities` ownerId 캡처/clear 교체 + `GetUserIdByEntityId` Ownership 파생 재구현. (`userEntityMap`·`GetEntityByUserId` 유지.) **이 1파일만 변경.**
 
 ---
 
@@ -69,41 +70,26 @@ private Dictionary<string, string> entityUserMap = new Dictionary<string, string
         }
 ```
 
----
-
-## Task 3: LOPGameEngine — ProcessInput null 가드 (polish)
-
-**Files:** Modify `Assets/Scripts/Game/LOPGameEngine.cs`
-
-- [ ] **Step 1:** `ProcessInput`의 `string userId = entityManager.GetUserIdByEntityId(entity.entityId);`와 `ISession session = sessionManager.GetSessionByUserId(userId);` 사이에 가드 추가:
-```csharp
-                string userId = entityManager.GetUserIdByEntityId(entity.entityId);
-                if (string.IsNullOrEmpty(userId))
-                {
-                    continue;
-                }
-                ISession session = sessionManager.GetSessionByUserId(userId);
-```
-(플레이어만 입력 송신 — 불변식 방어. 회귀 0.)
+> **ProcessInput 가드 추가 안 함:** `GetUserIdByEntityId`가 throw→null로 바뀌지만 호출처는 "입력=항상 플레이어=항상 Ownership" 불변식 자리라 null 가드를 두지 않는다(fail-loud 의도). `LOPGameEngine`은 main 그대로.
 
 ---
 
-## Task 4: 컴파일 + 잔존 참조 확인
+## Task 3: 컴파일 + 잔존 참조 확인
 
 - [ ] **Step 1: 컴파일** — `refresh_unity(mode="force", scope="all", compile="request", unity_instance="LeagueOfPhysical-Server@f99391fa2dbaaf3c")` + `read_console(types=["error"])` → 0 errors.
 - [ ] **Step 2: 역방향 맵 잔존 0** — `git -C "..." grep -n "entityUserMap" -- "Assets/Scripts" || echo "NO MATCHES"` → `NO MATCHES`. `userEntityMap`은 유지(매치 있어야 정상).
 
 ---
 
-## Task 5: 커밋 (2파일 — 픽스처 제외)
+## Task 4: 커밋 (1파일 — 픽스처 제외)
 
-- [ ] **Step 1:** `git -C "..." status --short` — `LOPEntityManager.cs` + `LOPGameEngine.cs` 수정 + (무관 픽스처) `LOPGame.cs`/`ConfigureRoomComponent.cs`. **픽스처 2파일 stage 안 함.**
-- [ ] **Step 2:** `git add Assets/Scripts/Entity/LOPEntityManager.cs Assets/Scripts/Game/LOPGameEngine.cs` + 커밋.
-- [ ] **Step 3:** `git show --stat HEAD | head -8` — 2파일만. 픽스처 포함되면 중단.
+- [ ] **Step 1:** `git -C "..." status --short` — `LOPEntityManager.cs` 수정 + (무관 픽스처) `LOPGame.cs`/`ConfigureRoomComponent.cs`. **픽스처 stage 안 함.**
+- [ ] **Step 2:** `git add Assets/Scripts/Entity/LOPEntityManager.cs` + 커밋.
+- [ ] **Step 3:** `git show --stat HEAD | head -8` — `LOPEntityManager.cs` 1파일만. 픽스처/`LOPGameEngine` 포함되면 중단.
 
 ---
 
-## Task 6: 런타임 수동 검증 (사용자)
+## Task 5: 런타임 수동 검증 (사용자)
 
 서버 플레이: 1. 입력 라우팅(이동/액션 + InputSequenceToC 수신). 2. 유저별 스냅샷(HUD HP/MP/Level/Stat/StatPoints). 3. 스탯 할당 +버튼. 4. 늦은접속/GameInfo. 5. 사망 디스폰 + 플레이어 despawn 시 userEntityMap 클리어. 6. 콘솔 에러 0(`KeyNotFoundException`/NRE 없음). 동작 보존(회귀 0)이 성공.
 
@@ -111,9 +97,9 @@ private Dictionary<string, string> entityUserMap = new Dictionary<string, string
 
 ## 완료 기준
 
-- [ ] 서버 `feature/owner-map-dedup`에 커밋(2파일, 픽스처 미포함).
+- [ ] 서버 `feature/owner-map-dedup`에 커밋(`LOPEntityManager.cs` 1파일, 픽스처/`LOPGameEngine` 미포함).
 - [ ] 서버 컴파일 0에러. `entityUserMap` 완전 제거(grep 0), `userEntityMap` 유지.
-- [ ] 픽스처 2파일 working tree 보존(미커밋), `5-23` stash 무손상.
+- [ ] 픽스처 2파일(`LOPGame`/`ConfigureRoomComponent`) working tree 보존(미커밋), `5-23` stash 무손상.
 - [ ] 수동 플레이: 입력/스냅샷/할당/늦은접속/디스폰 동작 보존.
 
 이후: 사용자 검증 후 서버 → main 머지(머지가 LOPGame 커밋 안 건드림 — stash 댄스 불필요). 중복 역방향 맵 제거 + 스코프 보존 완료. 남은 건 Stage④급.

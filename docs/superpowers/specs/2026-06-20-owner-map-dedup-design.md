@@ -41,11 +41,11 @@
 | ③ | 역방향 | `Ownership.OwnerId`(기존) | entity→owner 단일 소스. 중복 `entityUserMap` 제거 |
 | ④ | 접근자 facade | `GetEntityByUserId`/`GetUserIdByEntityId` 시그니처 유지 | 호출처 변경 0. `GetEntityByUserId`는 본문도 불변(userEntityMap), `GetUserIdByEntityId`만 Ownership 파생으로 재구현 |
 | ⑤ | clear | `DestroyMarkedEntities`에서 `registry.Remove` **전에** Ownership으로 ownerId 캡처 → `userEntityMap.Remove(ownerId)` | Ownership은 registry.Remove 후 사라지므로 사전 캡처 |
-| ⑥ | 범위 | **서버 전용, 1파일 코어(+1 polish).** GameFramework/클라/`LOPSession`/`LOPGame` 무변경 | 변경이 `LOPEntityManager`에 갇힘. `LOPSession`은 main 그대로 |
+| ⑥ | 범위 | **서버 전용, 1파일.** GameFramework/클라/`LOPSession`/`LOPGame`/`LOPGameEngine` 무변경 | 변경이 `LOPEntityManager`에 갇힘. `LOPSession`은 main 그대로 |
 
 ## Scope (In) — 서버 전용
 
-### `Assets/Scripts/Entity/LOPEntityManager.cs` (코어 변경)
+### `Assets/Scripts/Entity/LOPEntityManager.cs` (유일 변경)
 
 1. **`entityUserMap` 필드 제거** (`userEntityMap`은 유지).
 2. **`CreateEntity`**: `entityUserMap[entity.entityId] = userId;` 줄 제거 (`userEntityMap[userId] = entity.entityId;`는 유지).
@@ -69,20 +69,9 @@
    ```
 5. **`GetEntityByUserId` 무변경**: `string entityId = userEntityMap[userId]; return GetEntity<TEntity>(entityId);`
 
-### `Assets/Scripts/Game/LOPGameEngine.cs` (polish — 계약 변경 대응)
+> **`GetUserIdByEntityId` 계약 변경 — 가드 추가 안 함 (의도적 fail-loud)**: 본문이 `entityUserMap[entityId]`(miss 시 `KeyNotFoundException`) → `entityRegistry.Get(...)?.Get<Ownership>()?.OwnerId`(miss 시 null)로 바뀐다. 유일 호출처 `LOPGameEngine.ProcessInput`은 "입력 엔티티 = 항상 플레이어 = 항상 Ownership 보유"라는 **불변식**이 성립하는 자리이며, 그 불변식이 깨지면 **시끄럽게 터지도록** 일부러 예외 처리를 두지 않는다(원 설계 의도). null이 내려가면 `GetSessionByUserId(null)`/`session.Send`에서 여전히 loud하게 실패 → fail-loud 보존. 따라서 `ProcessInput`에 null 가드(`continue`)를 **추가하지 않는다** — 가드는 불변식 위반을 조용히 삼켜 의도와 정반대.
 
-`GetUserIdByEntityId`가 miss 시 예외(`KeyNotFoundException`) → null(fail-soft)로 계약이 바뀐다. `ProcessInput`의 유일 호출처가 null을 `GetSessionByUserId`로 흘려보내지 않도록 가드 추가(플레이어 엔티티만 입력 송신 — 불변식 방어):
-```csharp
-string userId = entityManager.GetUserIdByEntityId(entity.entityId);
-if (string.IsNullOrEmpty(userId))
-{
-    continue;
-}
-ISession session = sessionManager.GetSessionByUserId(userId);
-```
-실제 경로(플레이어는 항상 Ownership 보유)에선 무발화 — 회귀 0, 잠재 NRE 방어.
-
-> `LOPSession`·호출처(`GetEntityByUserId` 4곳)·`LOPGame`·`ISession`·클라·GameFramework 무변경.
+> `LOPSession`·호출처(`GetEntityByUserId` 4곳 + `GetUserIdByEntityId` 1곳)·`LOPGame`·`LOPGameEngine`·`ISession`·클라·GameFramework 무변경.
 
 ## 데이터 흐름 (전환 후)
 
@@ -115,7 +104,7 @@ teardown(게임 종료): GameLifetimeScope dispose → LOPEntityManager(userEnti
 
 ## 픽스처 정책
 
-변경 파일(`LOPEntityManager.cs`/`LOPGameEngine.cs`)은 픽스처 아님. `LOPGame.cs`/`ConfigureRoomComponent.cs`(로컬 픽스처)는 **미접촉 → stash 댄스 불필요**. 커밋 시 그 둘 제외(working tree dirty 유지). 커밋 금지·stash 보존 원칙 유지.
+변경 파일(`LOPEntityManager.cs`)은 픽스처 아님. `LOPGame.cs`/`ConfigureRoomComponent.cs`(로컬 픽스처)는 **미접촉 → stash 댄스 불필요**. 커밋 시 그 둘 제외(working tree dirty 유지). 커밋 금지·stash 보존 원칙 유지.
 
 ## Out of scope (defer)
 
@@ -131,7 +120,7 @@ teardown(게임 종료): GameLifetimeScope dispose → LOPEntityManager(userEnti
 
 - [x] 업계 패턴 웹 확인(옵션 B) → **스코프 역전 발견 → 옵션 A(스코프 보존) 채택**
 - [x] 이 spec 작성(옵션 A로 개정)
-- [x] 구현(서버 repo) — `LOPEntityManager` dedup + `LOPGameEngine` null 가드
+- [x] 구현(서버 repo) — `LOPEntityManager` dedup (1파일). `GetUserIdByEntityId`는 fail-loud 유지(가드 추가 안 함)
 - [ ] 사용자 런타임 검증
 - [ ] 서버 → main 머지
 

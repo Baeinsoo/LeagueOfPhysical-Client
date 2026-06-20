@@ -21,17 +21,18 @@ namespace LOP
             this.networkConnection = networkConnection;
         }
 
-        public void Send<T>(T message) where T : IMessage
+        public void Send<T>(T message, bool reliable = true) where T : IMessage
         {
             if (isConnected == false)
             {
                 return;
             }
 
+            int channelId = reliable ? Channels.Reliable : Channels.Unreliable;
             networkConnection.Send(new CustomMirrorMessage
             {
                 payload = message,
-            });
+            }, channelId);
         }
 
         public IMessage Receive()

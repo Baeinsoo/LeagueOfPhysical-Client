@@ -5,6 +5,9 @@ namespace LOP
 {
     public class PlayerInputManager
     {
+        private const int RedundancyWindow = 3;  // 패킷당 최근 N틱 입력(현재 포함) — sliding-window redundancy
+        private readonly System.Collections.Generic.List<PlayerInputEntry> recentInputs = new System.Collections.Generic.List<PlayerInputEntry>();
+
         private long sequenceNumber;
         private PlayerInput playerInput;
         private IGameEngine gameEngine;
@@ -62,8 +65,20 @@ namespace LOP
                 };
                 playerInputToS.EntityTransform = MapperConfig.mapper.Map<ProtoTransform>(entityTransform);
 
-                // Send to server.
-                playerContext.session.Send(playerInputToS);
+                // sliding-window redundancy: 최근 N틱(현재 포함)을 함께 실어 패킷 유실에 대비.
+                recentInputs.Add(new PlayerInputEntry
+                {
+                    Tick = playerInputToS.Tick,
+                    PlayerInput = playerInputToS.PlayerInput,
+                });
+                while (recentInputs.Count > RedundancyWindow)
+                {
+                    recentInputs.RemoveAt(0);
+                }
+                playerInputToS.RecentInputs.AddRange(recentInputs);
+
+                // Send to server (unreliable — 시간민감 입력. 유실은 redundancy로 복구, head-of-line blocking 회피).
+                playerContext.session.Send(playerInputToS, reliable: false);
 
                 // Do client-side prediction.
                 ApplyInput(playerInput);

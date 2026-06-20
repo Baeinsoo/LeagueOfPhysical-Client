@@ -26,11 +26,9 @@ namespace LOP
                 var velocity = direction * characterComponent.masterData.Speed;
                 entity.velocity = new Vector3(velocity.x, entity.velocity.y, velocity.z);
 
-                // Rotate
-                float myFloat = 0;
-                var angle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
-                var smooth = Mathf.SmoothDampAngle(entity.rotation.y, angle, ref myFloat, 0.01f);
-                entity.rotation = new Vector3(0, smooth, 0);
+                // Rotate (deterministic snap — facing은 cosmetic, 부드러운 연출은 뷰/Stage④)
+                float angle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
+                entity.rotation = new Vector3(0, angle, 0);
             }
 
             //  Jump

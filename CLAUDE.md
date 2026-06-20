@@ -29,8 +29,8 @@ explicitly asks.
 
 ## Architecture & design docs (auto-loaded every session)
 
-These files describe the **structure, design contracts, and conventions** that
-all work in this repo must follow. They are imported via `@` syntax below so
+These files describe the **durable structure, design contracts, and conventions**
+that all work in this repo must follow. They are imported via `@` syntax below so
 their contents are injected into the context at session start — no hook needed.
 Read and respect them **before** modifying anything related to entities, the
 World Core, netcode, or matching FSM.
@@ -40,30 +40,20 @@ World Core, netcode, or matching FSM.
 - @docs/lop-repo-topology.md
 - @docs/world-core-connection-architecture.md
 - @docs/netcode-redesign.md
-- @docs/superpowers/specs/2026-05-30-world-core-slice3-design.md
-- @docs/superpowers/specs/2026-05-31-lop-shared-package-design.md
-- @docs/superpowers/specs/2026-06-03-master-data-luban-migration-design.md
 - @docs/superpowers/specs/2026-06-06-game-scene-scope-design.md
-- @docs/superpowers/specs/2026-06-07-ui-toolkit-migration-m1-design.md
-- @docs/superpowers/specs/2026-06-14-entity-view-mvc-decouple-design.md
-- @docs/superpowers/specs/2026-06-16-world-core-view-slice-a-design.md
-- @docs/superpowers/specs/2026-06-16-world-core-motion-slice-b-design.md
-- @docs/superpowers/specs/2026-06-18-world-core-health-replace-legacy-design.md
-- @docs/superpowers/specs/2026-06-18-world-core-motion-server-design.md
-- @docs/superpowers/specs/2026-06-18-server-creationdata-di-design.md
-- @docs/superpowers/specs/2026-06-18-server-health-read-flip-design.md
-- @docs/superpowers/specs/2026-06-18-server-health-slice2-design.md
-- @docs/superpowers/specs/2026-06-18-world-core-mana-migration-design.md
-- @docs/superpowers/specs/2026-06-18-world-core-level-migration-design.md
-- @docs/superpowers/specs/2026-06-19-world-core-stats-migration-design.md
-- @docs/superpowers/specs/2026-06-19-world-core-owner-migration-design.md
-- @docs/superpowers/specs/2026-06-20-server-health-slice3-despawn-unify-design.md
-- @docs/superpowers/specs/2026-06-20-owner-map-dedup-design.md
-- @docs/superpowers/specs/2026-06-20-netcode-phase1-rotation-snap-design.md
-- @docs/superpowers/specs/2026-06-20-netcode-phase0-debug-hud-design.md
-- @docs/superpowers/specs/2026-06-20-netcode-phase2-clock-sync-design.md
-- @docs/superpowers/specs/2026-06-20-netcode-phase3-input-buffer-design.md
 
-If you add a new spec under `docs/superpowers/specs/`, append an `@` line above.
-`docs/superpowers/plans/` is **not** auto-loaded — plans are per-task and read
-on demand only when executing that specific plan.
+> Only **durable** docs are auto-loaded: the five architecture docs above, plus
+> the *parked, not-yet-implemented* `game-scene-scope` design. Add an `@` line for
+> a new spec **only while its work is active**; once a slice is implemented and
+> merged, **remove its `@` line** (the file stays in `docs/superpowers/specs/` for
+> reference, read on demand). This keeps the auto-load set small.
+>
+> Completed slice specs (World Core Health/Mana/Level/Stats/Owner migration,
+> server Health slices, Motion, MVC-decouple, UI-Toolkit M1, LOP-Shared,
+> MasterData-Luban, netcode Phase 0–3, etc.) live in `docs/superpowers/specs/` but
+> are **not** auto-loaded — their locked decisions are summarized in the
+> architecture docs above and in project memory. Read a completed spec on demand
+> only if you need its detail.
+>
+> `docs/superpowers/plans/` is likewise **not** auto-loaded — plans are per-task,
+> read on demand only when executing that specific plan.

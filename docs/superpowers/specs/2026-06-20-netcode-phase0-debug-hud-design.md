@@ -164,6 +164,14 @@ DebugHudView.Refresh (매 렌더 프레임 pull):
 
 선례대로 **spec·plan·코드 모두 클라 repo**(클라 전용 작업) 피처 브랜치 `feature/netcode-phase0-debug-hud`. 서버 무변경(픽스처 무관). 이 spec은 `CLAUDE.md` `@` 자동 로드 목록에 추가.
 
+## 구현 중 조정 (런타임 검증 폴리시)
+
+- **Recon 한 줄 → 3 라벨 분리**: `recon-text` 한 라벨(`Recon: x / avg y / max z`)이 패널 폭(150px)에서 잘려, `recon-last-text`/`recon-avg-text`/`recon-max-text` 3개로 분리.
+- **패널 폭 150 → 200px** (`.debug-panel`), 잘림 방지.
+- **라벨 문구·단위 명시**(가독성): `Client tick` / `Server tick` / `Lead: N tick` / `Elapsed: N s` / `RTT: N ms` / `Recon last|avg|max: N m`. 의미가 한눈에 보이도록.
+- 아키텍처·메트릭·데이터 흐름은 불변(표시 레이아웃만 조정).
+- **메모(로컬 RTT)**: 로컬 2-에디터 환경에선 RTT가 와이어 지연이 아니라 프레임 처리 지연(에디터 throttling)을 반영해 수십 ms로 크게 뜸 — 정상. 실제 netcode 튜닝(Phase 2) 측정 시엔 Latency Simulation으로 현실적 RTT 주입 필요.
+
 ## 진행
 
 - [x] 목적(측정 도구)·핵심 메트릭(reconciliation distance)·서버 tick=추정+lead·텔레메트리 홀더 합의 (브레인스토밍)

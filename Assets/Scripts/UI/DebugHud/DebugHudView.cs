@@ -12,8 +12,11 @@ namespace LOP.UI
         private readonly DebugHudViewModel _viewModel;
 
         private Label _tickText;
+        private Label _serverTickText;
+        private Label _leadText;
         private Label _elapsedText;
         private Label _rttText;
+        private Label _reconText;
 
         private IVisualElementScheduledItem _tick;
 
@@ -29,8 +32,11 @@ namespace LOP.UI
             base.OnOpen();
 
             _tickText = Root.Q<Label>("tick-text");
+            _serverTickText = Root.Q<Label>("server-tick-text");
+            _leadText = Root.Q<Label>("lead-text");
             _elapsedText = Root.Q<Label>("elapsed-text");
             _rttText = Root.Q<Label>("rtt-text");
+            _reconText = Root.Q<Label>("recon-text");
 
             _tick = Root.schedule.Execute(Refresh).Every(0);
         }
@@ -43,8 +49,11 @@ namespace LOP.UI
             }
 
             _tickText.text = $"Tick: {_viewModel.Tick}";
+            _serverTickText.text = $"Server: {_viewModel.ServerTickEstimate}";
+            _leadText.text = $"Lead: {_viewModel.Lead}";
             _elapsedText.text = $"elapsed: {_viewModel.ElapsedTime:F2}";
             _rttText.text = $"RTT: {_viewModel.RttMs:F0}";
+            _reconText.text = $"Recon: {_viewModel.ReconLast:F2} / avg {_viewModel.ReconAverage:F2} / max {_viewModel.ReconMax:F2}";
         }
 
         public override void Dispose()

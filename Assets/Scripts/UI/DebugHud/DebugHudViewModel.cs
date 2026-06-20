@@ -21,7 +21,8 @@ namespace LOP.UI
 
         public double RttMs => Mirror.NetworkTime.rtt * 1000;
 
-        public long ServerTickEstimate => (long)(Mirror.NetworkTime.time / GameEngine.Time.tickInterval);
+        // 서버 현재 tick 추정 ≈ (predictedTime − 편도지연)/interval. Lead = Tick − 이것 = (AheadMargin + 편도지연)/interval = 진짜 lead.
+        public long ServerTickEstimate => (long)((Mirror.NetworkTime.predictedTime - Mirror.NetworkTime.rtt * 0.5) / GameEngine.Time.tickInterval);
 
         public long Lead => GameEngine.Time.tick - ServerTickEstimate;
 

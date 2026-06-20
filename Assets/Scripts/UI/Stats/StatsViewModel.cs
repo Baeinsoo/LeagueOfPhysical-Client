@@ -8,7 +8,7 @@ namespace LOP.UI
 {
     /// <summary>
     /// 스탯 패널 ViewModel. 게임 스코프 resolver로 생성되므로 IPlayerContext를 생성자 주입받는다.
-    /// 엔티티의 EventBus PropertyChange를 R3 ReactiveProperty로 브리지(폴링 제거) → View가 구독.
+    /// World.Stats를 pull(초기값) + EntityStatChanged/EntityStatPointsChanged 이벤트를 R3 ReactiveProperty로 브리지 → View가 구독.
     /// </summary>
     public class StatsViewModel : IDisposable
     {
@@ -16,7 +16,6 @@ namespace LOP.UI
         private readonly LOPEntity _entity;
         private readonly GameFramework.World.EntityRegistry _entityRegistry;
         private readonly GameFramework.World.StatsSystem _statsSystem;
-        private readonly UserComponent _user;
 
         private readonly ReactiveProperty<int> _strength = new(0);
         private readonly ReactiveProperty<int> _dexterity = new(0);
@@ -46,16 +45,14 @@ namespace LOP.UI
                 return;
             }
 
-            _user = _entity.GetEntityComponent<UserComponent>();
-
             PushAll();
-            EventBus.Default.Subscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnPropertyChange);
             EventBus.Default.Subscribe<EntityStatChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityStatChanged);
+            EventBus.Default.Subscribe<EntityStatPointsChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityStatPointsChanged);
         }
 
         public void Allocate(string statName)
         {
-            if (_user == null || _user.statPoints == 0)
+            if (_statPoints.CurrentValue == 0)
             {
                 return;
             }
@@ -67,12 +64,9 @@ namespace LOP.UI
             });
         }
 
-        private void OnPropertyChange(PropertyChange propertyChange)
+        private void OnEntityStatPointsChanged(EntityStatPointsChanged e)
         {
-            switch (propertyChange.propertyName)
-            {
-                case nameof(UserComponent.statPoints): _statPoints.Value = _user.statPoints; break;
-            }
+            _statPoints.Value = e.statPoints;
         }
 
         private void OnEntityStatChanged(EntityStatChanged e)
@@ -95,16 +89,16 @@ namespace LOP.UI
                 _dexterity.Value = Mathf.RoundToInt(_statsSystem.GetValue(stats, (int)GameFramework.World.EntityStatType.Dexterity));
                 _intelligence.Value = Mathf.RoundToInt(_statsSystem.GetValue(stats, (int)GameFramework.World.EntityStatType.Intelligence));
                 _vitality.Value = Mathf.RoundToInt(_statsSystem.GetValue(stats, (int)GameFramework.World.EntityStatType.Vitality));
+                _statPoints.Value = stats.UnspentPoints;
             }
-            _statPoints.Value = _user.statPoints;
         }
 
         public void Dispose()
         {
             if (_entity != null)
             {
-                EventBus.Default.Unsubscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnPropertyChange);
                 EventBus.Default.Unsubscribe<EntityStatChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityStatChanged);
+                EventBus.Default.Unsubscribe<EntityStatPointsChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityStatPointsChanged);
             }
 
             _strength.Dispose();

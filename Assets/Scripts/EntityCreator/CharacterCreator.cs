@@ -56,9 +56,6 @@ namespace LOP
 
             if (isUserEntity)
             {
-                UserComponent userComponent = entity.AddEntityComponent<UserComponent>();
-                objectResolver.Inject(userComponent);
-
                 playerContext.entity = entity;
                 playerContext.entityView = view;
 

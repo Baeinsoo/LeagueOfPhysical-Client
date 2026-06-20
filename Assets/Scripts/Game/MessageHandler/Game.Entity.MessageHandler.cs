@@ -220,7 +220,22 @@ namespace LOP
             {
                 Debug.LogWarning($"[World] UserEntitySnap: Level not found for entity {playerContext.entity.entityId}");
             }
-            playerContext.entity.GetComponent<UserComponent>().statPoints = userEntitySnapToC.StatPoints;
+            GameFramework.World.Stats stats = worldEntity?.Get<GameFramework.World.Stats>();
+            if (stats != null)
+            {
+                int prevUnspent = stats.UnspentPoints;
+                statsSystem.SetUnspent(stats, userEntitySnapToC.StatPoints);
+                if (stats.UnspentPoints != prevUnspent)
+                {
+                    EventBus.Default.Publish(
+                        EventTopic.EntityId<LOPEntity>(playerContext.entity.entityId),
+                        new EntityStatPointsChanged(stats.UnspentPoints));
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[World] UserEntitySnap: Stats not found for entity {playerContext.entity.entityId}");
+            }
         }
 
         private void OnStatAllocationToC(StatAllocationToC statAllocationToC)

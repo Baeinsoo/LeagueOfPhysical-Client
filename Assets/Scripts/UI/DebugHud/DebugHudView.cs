@@ -12,8 +12,13 @@ namespace LOP.UI
         private readonly DebugHudViewModel _viewModel;
 
         private Label _tickText;
+        private Label _serverTickText;
+        private Label _leadText;
         private Label _elapsedText;
         private Label _rttText;
+        private Label _reconLastText;
+        private Label _reconAvgText;
+        private Label _reconMaxText;
 
         private IVisualElementScheduledItem _tick;
 
@@ -29,8 +34,13 @@ namespace LOP.UI
             base.OnOpen();
 
             _tickText = Root.Q<Label>("tick-text");
+            _serverTickText = Root.Q<Label>("server-tick-text");
+            _leadText = Root.Q<Label>("lead-text");
             _elapsedText = Root.Q<Label>("elapsed-text");
             _rttText = Root.Q<Label>("rtt-text");
+            _reconLastText = Root.Q<Label>("recon-last-text");
+            _reconAvgText = Root.Q<Label>("recon-avg-text");
+            _reconMaxText = Root.Q<Label>("recon-max-text");
 
             _tick = Root.schedule.Execute(Refresh).Every(0);
         }
@@ -42,9 +52,14 @@ namespace LOP.UI
                 return;
             }
 
-            _tickText.text = $"Tick: {_viewModel.Tick}";
-            _elapsedText.text = $"elapsed: {_viewModel.ElapsedTime:F2}";
-            _rttText.text = $"RTT: {_viewModel.RttMs:F0}";
+            _tickText.text = $"Client tick: {_viewModel.Tick}";
+            _serverTickText.text = $"Server tick: {_viewModel.ServerTickEstimate}";
+            _leadText.text = $"Lead: {_viewModel.Lead} tick";
+            _elapsedText.text = $"Elapsed: {_viewModel.ElapsedTime:F2} s";
+            _rttText.text = $"RTT: {_viewModel.RttMs:F0} ms";
+            _reconLastText.text = $"Recon last: {_viewModel.ReconLast:F2} m";
+            _reconAvgText.text = $"Recon avg: {_viewModel.ReconAverage:F2} m";
+            _reconMaxText.text = $"Recon max: {_viewModel.ReconMax:F2} m";
         }
 
         public override void Dispose()

@@ -12,6 +12,9 @@ namespace LOP
         [Inject]
         private IGameEngine gameEngine;
 
+        [Inject]
+        private ReconciliationStats reconciliationStats;
+
         public LOPEntity entity { get; set; }
         public LOPEntityView entityView { get; set; }
 
@@ -125,6 +128,7 @@ namespace LOP
 
             float threshold = 0.06f;
             float distance = (position - targetPosition).magnitude;
+            reconciliationStats.Record(distance);
 
             float lerpFactor = Mathf.Clamp01(distance / threshold);
             float smoothTime = Mathf.Lerp(0.4f, 0.08f, lerpFactor);

@@ -64,6 +64,8 @@ namespace LOP
             builder.Register<DebugHudViewModel>(Lifetime.Transient);
             builder.Register<DebugHudView>(Lifetime.Transient);
 
+            builder.Register<ReconciliationStats>(Lifetime.Singleton);
+
             builder.RegisterBuildCallback(container =>
             {
                 container.InjectSceneObjects(gameObject.scene);

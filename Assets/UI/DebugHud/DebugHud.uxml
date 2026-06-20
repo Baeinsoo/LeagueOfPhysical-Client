@@ -2,9 +2,14 @@
     <Style src="DebugHud.uss" />
     <ui:VisualElement name="debug-hud-root" class="debug-hud-root" picking-mode="Ignore">
         <ui:VisualElement name="debug-panel" class="debug-panel" picking-mode="Ignore">
-            <ui:Label name="tick-text" class="debug-text" text="Tick: 0" />
-            <ui:Label name="elapsed-text" class="debug-text" text="elapsed: 0.00" />
-            <ui:Label name="rtt-text" class="debug-text" text="RTT: 0" />
+            <ui:Label name="tick-text" class="debug-text" text="Client tick: 0" />
+            <ui:Label name="server-tick-text" class="debug-text" text="Server tick: 0" />
+            <ui:Label name="lead-text" class="debug-text" text="Lead: 0 tick" />
+            <ui:Label name="elapsed-text" class="debug-text" text="Elapsed: 0.00 s" />
+            <ui:Label name="rtt-text" class="debug-text" text="RTT: 0 ms" />
+            <ui:Label name="recon-last-text" class="debug-text" text="Recon last: 0.00 m" />
+            <ui:Label name="recon-avg-text" class="debug-text" text="Recon avg: 0.00 m" />
+            <ui:Label name="recon-max-text" class="debug-text" text="Recon max: 0.00 m" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

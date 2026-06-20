@@ -1,14 +1,18 @@
 using GameFramework;
+using VContainer;
 
 namespace LOP.UI
 {
     /// <summary>
-    /// 디버그/유틸 HUD ViewModel. tick·경과시간·RTT는 변경을 통지하는 이벤트 소스가 없는
-    /// 샘플링 값이라 R3(push) 대신 평범한 getter로 노출하고, View가 매 프레임 pull한다.
-    /// (이벤트가 있으면 R3, 없으면 폴링 — 아키텍처 가이드라인 "흐름의 경계" 결.)
+    /// 디버그/유틸 HUD ViewModel. tick·경과시간·RTT·서버tick추정·lead·reconciliation은 변경을
+    /// 통지하는 이벤트 소스가 없는 샘플링 값이라 R3(push) 대신 평범한 getter로 노출하고,
+    /// View가 매 프레임 pull한다. reconciliation 값은 ReconciliationStats(SnapReconciler가 write)에서 읽는다.
     /// </summary>
     public class DebugHudViewModel
     {
+        [Inject]
+        private ReconciliationStats reconciliationStats;
+
         public bool IsRunning => GameEngine.current != null;
 
         public long Tick => GameEngine.Time.tick;
@@ -16,5 +20,15 @@ namespace LOP.UI
         public double ElapsedTime => GameEngine.Time.elapsedTime;
 
         public double RttMs => Mirror.NetworkTime.rtt * 1000;
+
+        public long ServerTickEstimate => (long)(Mirror.NetworkTime.time / GameEngine.Time.tickInterval);
+
+        public long Lead => GameEngine.Time.tick - ServerTickEstimate;
+
+        public float ReconLast => reconciliationStats.Last;
+
+        public float ReconAverage => reconciliationStats.Average;
+
+        public float ReconMax => reconciliationStats.Max;
     }
 }

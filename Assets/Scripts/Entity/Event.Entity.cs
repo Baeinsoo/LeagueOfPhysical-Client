@@ -100,6 +100,16 @@ namespace LOP.Event.Entity
         }
     }
 
+    public struct EntityStatPointsChanged
+    {
+        public int statPoints;
+
+        public EntityStatPointsChanged(int statPoints)
+        {
+            this.statPoints = statPoints;
+        }
+    }
+
     public struct EntityCreated
     {
         public IEntity entity;

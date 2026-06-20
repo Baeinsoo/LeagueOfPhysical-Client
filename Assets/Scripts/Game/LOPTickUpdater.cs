@@ -5,13 +5,14 @@ namespace LOP
 {
     public class LOPTickUpdater : TickUpdaterBase
     {
+        // 오버워치식 ahead 마진(지터/+1프레임). predictedTime에 편도지연(RTT/2)+서버피드백 이미 포함 — 마진만 추가.
+        private const double AheadMargin = 0.030;
+
         private readonly ClockDilator clockDilator = new ClockDilator();
 
         protected override void OnElapsedTimeUpdate()
         {
-            // 2a: 타깃은 현행 NetworkTime.time 유지(lead 없음). 메커니즘만 rate dilation으로 전환.
-            //     (2b에서 predictedTime + aheadMargin으로 flip)
-            double target = Mirror.NetworkTime.time;
+            double target = Mirror.NetworkTime.predictedTime + AheadMargin;
             elapsedTime = clockDilator.Advance(elapsedTime, target, Time.deltaTime);
         }
     }

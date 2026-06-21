@@ -12,7 +12,7 @@ namespace LOP
 
         protected override void OnElapsedTimeUpdate()
         {
-            double target = Mirror.NetworkTime.predictedTime + AheadMargin;
+            double target = GameEngine.NetworkTime.predictedTime + AheadMargin;
             elapsedTime = clockDilator.Advance(elapsedTime, target, Time.deltaTime);
         }
     }

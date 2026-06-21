@@ -31,7 +31,7 @@ namespace LOP
 
         private void UpdateInterpolationBackTime()
         {
-            float targetBackTime = Mathf.Clamp((float)Mirror.NetworkTime.rtt * 0.5f, MIN_BACK_TIME, MAX_BACK_TIME);
+            float targetBackTime = Mathf.Clamp((float)GameEngine.NetworkTime.remoteBackTime, MIN_BACK_TIME, MAX_BACK_TIME);
 
             interpolationBackTime = Mathf.Lerp(interpolationBackTime, targetBackTime, SMOOTHING_FACTOR * Time.deltaTime);
         }

@@ -16,6 +16,8 @@ namespace LOP
 
         public new LOPEntityManager entityManager => base.entityManager as LOPEntityManager;
 
+        protected override INetworkTime CreateNetworkTime() => new MirrorNetworkTime();
+
         public override void UpdateEngine()
         {
             BeginUpdate();

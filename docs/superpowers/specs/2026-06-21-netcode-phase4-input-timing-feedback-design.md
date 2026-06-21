@@ -149,20 +149,28 @@ margin = clamp(margin, minMargin, maxMargin);  // 폭주 방지
 **LOP-Shared**
 - `InputTimingToC` 메시지 proto 추가 + 재생성(.cs / IMessage / MessageIds).
 
-**Server**
-- `EntityInputComponent.cs` — 측정 훅(AddInput=d, GetInput=prune/seq-gap) → tracker 기록.
+**GameFramework** (순수 로직 — EditMode 테스트 가능한 유일한 자리. 서버/클라 게임코드는 전부 `Assembly-CSharp`라 asmdef 참조 불가 → `ClockDilator` 선례대로 GameFramework에 둠)
+- 신규 `InputTimingSummary.cs` (struct, 4값 + SampleCount).
 - 신규 `InputTimingTracker.cs` (순수 C#, per-entity 누적·요약) + EditMode 테스트.
-- 신규 주기 sender (서버 루프 타이머 훅, 0.5초마다 조종 엔티티별 `InputTimingToC` 전송).
+- 신규 `LeadController.cs` + `LeadControllerConfig` (순수 정책) + EditMode 테스트. **(Stage 2)**
+- `ClockDilator` 재사용(무변경).
+
+**LOP-Shared**
+- `InputTimingToC.proto` + 재생성.
+
+**Server**
+- `EntityInputComponent.cs` — `InputTimingTracker` 소유 + 측정 훅(AddInput=d, GetInput=prune/seq-gap) + `Summarize` 노출.
+- `LOPGameEngine.cs`(server) — 주기 sender(틱 모듈로 ~0.5초, 조종 엔티티별 `InputTimingToC` 전송, 활동 없으면 skip).
 
 **Client**
-- 신규 `InputTimingStats.cs` (DI singleton 홀더).
-- 신규 `InputTimingToC` 핸들러 (핸들러 세트 등록).
-- `DebugHudViewModel.cs` + HUD UXML — 4라벨.
-- 신규 `LeadController.cs` (순수 C#, 정책) + EditMode 테스트. **(Stage 2)**
-- `LOPTickUpdater.cs` — `AheadMargin` settable화 + LeadController 구동 + 토글. **(Stage 2)**
-- `GameLifetimeScope` DI 등록(홀더, LeadController).
+- 신규 `InputTimingStats.cs` (DI singleton 홀더 — 최신 요약 보관).
+- 신규 `GameInputTimingMessageHandler.cs` (`InputTimingToC` 수신 → 홀더; Stage 2에서 LeadController 구동).
+- `DebugHud.uxml` + `DebugHudViewModel.cs` + `DebugHudView.cs` — 4라벨.
+- 신규 `LeadState.cs` (DI singleton — 동적 `AheadMargin` + 토글 보관). **(Stage 2)**
+- `LOPTickUpdater.cs` — `AheadMargin` const → `LeadState`에서 read. **(Stage 2)**
+- `GameLifetimeScope.cs` DI 등록(홀더/핸들러/LeadState/LeadController).
 
-**GameFramework**: 변경 없음 (`ClockDilator` 재사용).
+> **정책 적용은 메시지 핸들러에서 (매 프레임 아님):** `LeadController`는 *증분*(margin += step)이라 프레임마다 호출하면 과조정된다. `InputTimingToC` 수신 시(0.5초 1회)만 핸들러가 `LeadController`로 `LeadState.AheadMargin`을 갱신하고, `LOPTickUpdater`는 그 값을 매 프레임 *읽기만* 한다.
 
 ## 테스트 전략
 

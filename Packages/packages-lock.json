@@ -1,13 +1,13 @@
 {
   "dependencies": {
     "com.baegames.gameframework": {
-      "version": "file:C:/Users/re5na/workspace/LOP/GameFramework",
+      "version": "file:../../GameFramework",
       "depth": 0,
       "source": "local",
       "dependencies": {}
     },
     "com.baegames.lop.masterdata.client": {
-      "version": "file:C:/Users/re5na/workspace/LOP/LeagueOfPhysical-MasterData-Client",
+      "version": "file:../../LeagueOfPhysical-MasterData-Client",
       "depth": 0,
       "source": "local",
       "dependencies": {
@@ -15,7 +15,7 @@
       }
     },
     "com.baegames.lop.shared": {
-      "version": "file:C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared",
+      "version": "file:../../LeagueOfPhysical-Shared",
       "depth": 0,
       "source": "local",
       "dependencies": {

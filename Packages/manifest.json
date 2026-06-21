@@ -7,9 +7,9 @@
     }
   ],
   "dependencies": {
-    "com.baegames.gameframework": "file:C:/Users/re5na/workspace/LOP/GameFramework",
-    "com.baegames.lop.shared":    "file:C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared",
-    "com.baegames.lop.masterdata.client": "file:C:/Users/re5na/workspace/LOP/LeagueOfPhysical-MasterData-Client",
+    "com.baegames.gameframework": "file:../../GameFramework",
+    "com.baegames.lop.shared":    "file:../../LeagueOfPhysical-Shared",
+    "com.baegames.lop.masterdata.client": "file:../../LeagueOfPhysical-MasterData-Client",
     "com.code-philosophy.luban": "https://github.com/focus-creative-games/luban_unity.git#v1.2.0",
     "org.nuget.google.protobuf":  "3.28.2",
     "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",

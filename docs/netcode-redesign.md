@@ -137,7 +137,7 @@ LOP는 PhysX 기반(비결정적)이고 strict server-authoritative를 원하므
   - 채택 근거: 회전은 velocity와 무관한 cosmetic facing + 현 `smoothTime=0.01`이 사실상 즉시 → snap이 체감 동일·무상태·dt 비의존(클·서 동일). SmoothDamp는 velocity 상태가 스냅샷/롤백에 끌려 들어가 시뮬엔 부적합(카메라/뷰 idiom). **부드러운 facing ease는 시뮬 아닌 뷰(Stage④ view-pull)로 분리** — `MoveTowardsAngle`(고정 rate, 무상태)은 게임플레이상 turn 시간이 필요해질 때 대안.
   - spec/plan: `docs/superpowers/specs|plans/2026-06-20-netcode-phase1-rotation-snap*`.
 
-### Phase 2 — Clock Sync (Overwatch 모델의 절반)
+### Phase 2 — Clock Sync (Overwatch 모델의 절반) ✅ 완료(2026-06-20)
 
 목적: 클라가 서버 시간선보다 앞쪽에서 시뮬레이션하도록 변경
 
@@ -154,7 +154,7 @@ LOP는 PhysX 기반(비결정적)이고 strict server-authoritative를 원하므
 - [ ] Lead time 변동 시 갑작스러운 점프 방지 (lead 자체도 smoothing)
 - [ ] RTT 급변(예: ping spike) 시 안전장치 (max delta, freeze 등)
 
-### Phase 3 — Server Input Buffer 정렬
+### Phase 3 — Server Input Buffer 정렬 ✅ 완료(2026-06-21, 3a+3b+3c)
 
 목적: 서버가 "인풋의 클라 tick == 자기 tick"에 인풋을 처리하도록
 
@@ -162,14 +162,10 @@ LOP는 PhysX 기반(비결정적)이고 strict server-authoritative를 원하므
   - 현재 `GetInput(serverTick)`: `tick <= targetTick` 인 가장 오래된 인풋
   - 변경 후: `tick == serverTick` 인 인풋 (또는 `tick <= serverTick`이지만 가장 가까운 것)
   - `INPUT_DELAY_TICKS`를 jitter buffer로 명확히 정의 (예: 2틱)
-- [ ] 인풋이 해당 tick에 도착 안 했을 때 정책 결정
-  - 옵션 A: 마지막 인풋 반복 (input prediction)
-  - 옵션 B: no-input으로 진행 (가만히 있음)
-  - 추천: A로 시작
-- [ ] 인풋이 너무 늦게 도착 (이미 처리 시점이 지남) 시 정책
-  - 옵션 A: 무시 (drop)
-  - 옵션 B: 가장 최근 tick에 강제 처리
-  - 추천: A로 시작 + drop count를 클라에 알림 (Phase 4용)
+- [x] 인풋이 해당 tick에 도착 안 했을 때 정책 → **옵션 B(no-input) 채택** (옵션 A=마지막 인풋 반복은 미채택 — 아래 "고손실 강건성 드롭" 참고)
+- [x] 인풋이 너무 늦게 도착 시 정책 → **옵션 A(drop/prune)** + drop·seq-gap count를 클라에 피드백(Phase 4 `InputTimingToC`)
+
+> **고손실 강건성(옵션 A = miss 시 마지막 인풋 반복) — 드롭(2026-06-21).** 한때 reconciliation 갭이 "심함"으로 보고돼 후속으로 검토했으나, 발산 근본원인은 입력 정책이 아니라 *redundancy 스트림 끊김*(Phase 3c에서 해결)이었음이 밝혀짐. 이후 측정(공중 점프 × RTT 50/150/300ms × 20% loss)에서 prune≈0·갭 수용 가능·rubberbanding 육안 소멸 확인 → 현 miss=no-input 유지, 옵션 A 업그레이드는 **로드맵에서 내림**. 실환경 prune율이 유의미해지면 재개.
 
 #### Phase 3c — 연속 command-frame 스트림 (sliding-window redundancy의 전제) ✅ 완료(2026-06-21)
 
@@ -193,7 +189,7 @@ LOP는 PhysX 기반(비결정적)이고 strict server-authoritative를 원하므
 - **구조 결정:** 측정=서버 / 정책=클라(A, DOTS `ServerCommandAge`식) / 정책 모양=오버워치 / 실행=클라 `ClockDilator`. 서버 `INPUT_DELAY_TICKS=2`는 상수 유지(동적인 건 클라 lead뿐). 순수 로직(Tracker/Controller)은 EditMode 테스트 위해 GameFramework에 배치.
 - **측정 근거:** Stage 1 관측 — latency 0/100/300ms+20% loss 모두 prune 0, d max ≤ 0, 체감 정상 → *고정 30ms도 테스트 범위에선 충분*. 동적 조정은 더 거친 실환경 jitter 보험 + 평온 시 마진 트림. 정책 임계값(dead-zone [−1,+1], step 10/2ms, 0~100ms)은 그 데이터 기반.
 
-### Phase 5 — 점프 임펄스 처리 개선 (보조)
+### Phase 5 — 점프 임펄스 처리 개선 (보조) ⏸ 보류 — 게임 디자인 콜(2026-06-21)
 
 목적: y-velocity 리셋이 시점 차이에 덜 민감하도록
 
@@ -204,12 +200,22 @@ LOP는 PhysX 기반(비결정적)이고 strict server-authoritative를 원하므
   - 대안 C: 점프 입력에 클라가 본 vy 값 첨부, 서버가 그 vy 기준으로 처리
 - 게임플레이 의도와 절충 필요. Phase 2/3 효과 확인 후 결정
 
-### Phase 6 — 종합 검증
+### Phase 6 — 종합 검증 ✅ 검증됨(2026-06-21, 사전 관측 — 절대 수치+육안)
 
 - [ ] Baseline 대비 갭 크기 비교 (평균, 95th percentile, max)
 - [ ] 다양한 RTT (50ms / 150ms / 300ms) 시나리오 측정
 - [ ] 다양한 시나리오 (지상 이동, 공중 낙하 중 점프, 연속 점프, 가만히 있을 때) 측정
 - [ ] 시각적으로 rubberbanding 확인 (육안 + 녹화)
+
+### 진행 상태 (2026-06-21 — netcode 일단락)
+
+**netcode-redesign 핵심 = 완료 + 검증.** Overwatch 모델의 핵심 절반(clock sync Phase 2 + server input buffer Phase 3)이 공중 점프 갭을 닫았다. 검증은 Phase 3c·4 진행 중 사전 관측으로 갈음 — 공중 점프 × RTT 50/150/300ms × 20% loss에서 prune≈0, reconciliation 갭 수용 가능, rubberbanding 육안 소멸. (단 Phase 0 절대 baseline 수치는 기록된 적 없어 "before/after delta"는 없고 *절대 수치 + 육안*으로 판정.)
+
+내려간/보류 항목:
+- **Phase 3 고손실 강건성(옵션 A = miss 시 마지막 인풋 반복) — 드롭.** 발산 근본원인은 입력 정책이 아니라 redundancy 스트림 끊김(Phase 3c에서 해결)이었고, 측정에서 현 miss=no-input이 수용 가능함이 확인됨. 실환경 prune율이 유의미해지면 재개.
+- **Phase 5 (점프 임펄스 vy) — 보류.** clock sync가 처리 시점 차이를 이미 줄여 netcode 측 동기가 약해짐 → 남은 건 순수 게임 디자인 콜(낙하 중 점프 세기). 게임플레이상 필요해지면 재개.
+
+**남은 큰 트랙 = Stage④** (클라 예측·롤백·Snapshot/Restore·통합 fan-out·`LOPGameSimulation` 공유 시뮬 추출 — `world-core-connection-architecture.md` Slice 4와 결합). 별도 brainstorm→spec→plan.
 
 ---
 

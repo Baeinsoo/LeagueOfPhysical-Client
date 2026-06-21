@@ -363,3 +363,13 @@ double targetClientTime = Mirror.NetworkTime.predictedTime + aheadMargin;
 - Overwatch: [Edgegap deep dive](https://edgegap.com/blog/game-backend-deep-dive-overwatch-2016-netcode-architecture-rollback), [Daposto Overwatch model](https://daposto.medium.com/game-networking-9-bonus-overwatch-model-4faba078cf05), [GDC Vault(Tim Ford)](https://www.gdcvault.com/play/1024001/-Overwatch-Gameplay-Architecture-and).
 - 1차 원리: [NTP FAQ algo](https://www.ntp.org/ntpfaq/NTP-s-algo/), [Gambetta](https://www.gabrielgambetta.com/client-server-game-architecture.html), [Gaffer Snapshot Interpolation](https://gafferongames.com/post/snapshot_interpolation/), [SnapNet snapshot-interpolation](https://snapnet.dev/blog/netcode-architectures-part-3-snapshot-interpolation/).
 - Unreal: [Josh Sutphin — syncing UE network clock](https://joshsutphin.com/blog/accurately-syncing-unreals-network-clock.html)(NTP식 핸드셰이크), [Vorixo non-destructive synced clock](https://vorixo.github.io/devtricks/non-destructive-synced-net-clock/).
+
+### 9.8 네이티브 clock sync (방향 B) — 측정 한계 & 보류 결정 (2026-06-21)
+
+`INetworkTime` 추상화(NetworkTime 슬라이스) 위에 **Mirror `predictedTime`을 자체 ping/pong으로 대체**하는 네이티브 구현(방향 B)을 검토 → **보류**. 동기는 "더 순수·정확한 latency 측정 + Mirror-time 독립 + 튜닝 자유"였으나, *정확도* 동기는 Mirror transport 위에서 달성 불가임이 드러남:
+
+- **Mirror transport를 쓰는 한 ping/pong 타임스탬프는 메인스레드에 묶인다.** Mirror가 데이터를 메인스레드 update에서 우리 코드로 마샬링하고, 기본 transport(kcp2k)는 소켓 recv 자체가 `LateUpdate`(메인스레드)다. → 우리가 어디서 타임스탬프를 찍든 **메인스레드 시각**이라 별도 스레드를 돌려도 순수 와이어 지연을 못 얻는다(= "Mirror transport + 별도 스레드"는 양립 불가, 효과 없음). 측정 정확도가 **Mirror 자신의 predictedTime과 동급**.
+- **순수 와이어 측정 ⟺ Mirror transport를 떠나야 한다.** 전용 UDP 소켓 + 전용 스레드에서 소켓 send/recv 직전에 고해상도 Stopwatch 타임스탬프 = **별도 networking 인프라**(포트/NAT/Mirror 연결과 매칭 handshake/스푸핑 방지) = 큰 작업.
+- **min-RTT 통계 정제는 메인스레드 오염을 *부분* 회복**: 프레임 지터는 *항상 지연을 더하기만* 하므로 창 내 **최소 RTT 샘플 ≈ 순수 와이어 지연**(NTP 방식). 로컬 프레임 히칭 spike는 최소값에서 자동 배제되고, 진짜 네트워크 지연 변화는 추적된다(맞음). 단 Mirror EWMA 대비 이득은 미미.
+- **→ Mirror transport 위 네이티브 sync의 실질 가치 = 정확도 아니라 *구조적 Mirror-time 독립 + 튜닝 훅 소유*.** 정확도가 주동기였고 전용 소켓은 부담이라 **보류**(§9.4 방향 A = Mirror predictedTime 재사용 결론 재확인).
+- **재개 조건 = Mirror 제거가 실제 안건이 될 때.** 그땐 (b) 구조독립+튜닝 목적 네이티브(Mirror transport + min-RTT) 또는 (c) 전용 소켓 순수 측정. **측정 레이어를 인터페이스(`ILatencyProbe` 류)로 추상화**하면 (b)→(c)를 무중단 교체 가능.

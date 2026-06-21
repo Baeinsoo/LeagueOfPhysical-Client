@@ -74,3 +74,7 @@ crashlytics-build.properties
 Assets/NuGetForUnity/Packages/
 ServerData/
 .vscode/
+
+# macOS / IDE
+.DS_Store
+*.slnx

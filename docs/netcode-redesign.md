@@ -183,14 +183,15 @@ LOP는 PhysX 기반(비결정적)이고 strict server-authoritative를 원하므
 
 > Anemic 대칭성 확인: 무입력은 `LOPMovementManager.ProcessInput(...,0,0,false)`에서 `direction.sqrMagnitude > 0` 가드로 **완전한 no-op**(velocity·rotation 미변경, jump 없음) → no-op 처리/스킵이 클·서 동일. 그래서 윈도우 재전송 방식이 안전.
 
-### Phase 4 — Time Dilation 피드백 루프 (선택)
+### Phase 4 — 입력 타이밍 피드백 + 동적 lead ✅ 완료(2026-06-21)
 
-목적: 클라 lead가 항상 적절한 값을 유지하도록
+목적: 클라 lead(특히 *임의로 둔* `AheadMargin` 30ms jitter 쿠션)가 환경에 맞춰 자동으로 적정값을 유지하도록. **latency 추적은 이미 `predictedTime`이 담당(Phase 2)** — Phase 4는 그 위의 **jitter 마진만** 동적 조정. spec/plan: `docs/superpowers/specs|plans/2026-06-21-netcode-phase4-input-timing-feedback*`.
 
-- [ ] 서버가 클라 인풋 도착 분포 모니터링 (몇 틱 일찍/늦게 오는지)
-- [ ] 서버 → 클라 시계 조정 메시지
-- [ ] 클라가 잠시 ±1% 정도 빠르거나 느리게 진행
-- 우선 Phase 2/3만으로 충분한지 확인 후 필요시 진행
+- [x] 서버가 클라 입력 도착 분포 측정 (per-client) — `EntityInputComponent`가 GameFramework `InputTimingTracker` 소유, 도착 마진 `d`(=serverTick−inputTick) / prune / seq-gap 누적.
+- [x] 서버 → 클라 피드백 메시지 — 신규 `InputTimingToC`(LOP-Shared proto, MessageId 14, unreliable), ~0.5초마다 per-client 요약(avg d / max d / prune / seq-gap / sample) 전송.
+- [x] 클라가 그 피드백으로 lead 조정 — GameFramework `LeadController`(오버워치식 dead-zone + 계단식 밴드 + 비대칭) 정책이 `AheadMargin`을 갱신, 기존 `ClockDilator`가 rate dilation으로 수렴. `LeadState`(토글 보유)로 고정/동적 A/B.
+- **구조 결정:** 측정=서버 / 정책=클라(A, DOTS `ServerCommandAge`식) / 정책 모양=오버워치 / 실행=클라 `ClockDilator`. 서버 `INPUT_DELAY_TICKS=2`는 상수 유지(동적인 건 클라 lead뿐). 순수 로직(Tracker/Controller)은 EditMode 테스트 위해 GameFramework에 배치.
+- **측정 근거:** Stage 1 관측 — latency 0/100/300ms+20% loss 모두 prune 0, d max ≤ 0, 체감 정상 → *고정 30ms도 테스트 범위에선 충분*. 동적 조정은 더 거친 실환경 jitter 보험 + 평온 시 마진 트림. 정책 임계값(dead-zone [−1,+1], step 10/2ms, 0~100ms)은 그 데이터 기반.
 
 ### Phase 5 — 점프 임펄스 처리 개선 (보조)
 

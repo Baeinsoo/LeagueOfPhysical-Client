@@ -91,6 +91,19 @@ namespace LOP
 
                 ClearInput();
             }
+            else if (recentInputs.Count > 0)
+            {
+                // 무입력 틱에도 최근 입력 윈도우를 재전송해 연속 스트림을 유지한다.
+                // sliding-window redundancy는 "유실돼도 다음 패킷이 곧바로 온다"를 전제하는데, 입력이 띄엄띄엄이면
+                // 그 다음 전송이 수십 틱 뒤에야 와 유실 입력이 서버 jitter buffer를 넘겨 폐기(PRUNE)된다.
+                // 무입력 틱마다 윈도우를 재송출하면 유실 입력이 1틱 내 재도착해 buffer 안에서 복구된다.
+                // (새 seq를 만들지 않고 기존 윈도우만 재전송 — 서버 처리·reconciliation·seq cadence 무변경.)
+                PlayerInputToS redundancy = new PlayerInputToS();
+                redundancy.Tick = GameEngine.Time.tick;
+                redundancy.SessionId = playerContext.session.sessionId;
+                redundancy.RecentInputs.AddRange(recentInputs);
+                playerContext.session.Send(redundancy, reliable: false);
+            }
         }
 
         private void ApplyInput(PlayerInput playerInput)

@@ -171,6 +171,18 @@ LOP는 PhysX 기반(비결정적)이고 strict server-authoritative를 원하므
   - 옵션 B: 가장 최근 tick에 강제 처리
   - 추천: A로 시작 + drop count를 클라에 알림 (Phase 4용)
 
+#### Phase 3c — 연속 command-frame 스트림 (sliding-window redundancy의 전제) ✅ 완료(2026-06-21)
+
+**핵심 전제 박제:** sliding-window redundancy(3b)는 *"패킷이 유실돼도 다음 패킷이 곧바로 온다"* 를 암묵 전제한다. 이는 **틱을 건너뛰지 않고 연속으로 흐르는 패킷 스트림**이 있어야만 성립한다 — 표준 fast-paced(Overwatch)의 command-frame 모델이 *매 틱 입력 프레임을 전송*하는 이유. 무입력 틱도 스트림에 포함된다.
+
+**발견된 버그(3b의 결함):** 클라가 *입력 있을 때만* 전송 → 무입력 구간(특히 점프 후 공중 정지)에 스트림이 **끊김**. 유실된 입력의 복구 사본을 실어 나를 "다음 패킷"이 수십 틱 뒤에야 와서, 서버 jitter buffer(`INPUT_DELAY_TICKS=2`)를 넘겨 **PRUNE(폐기)** 됨. 결과: 유실된 점프가 서버에 영영 적용 안 됨 → 클·서 발산("떨어지는 점프가 완전히 다르게 보임"). 20% loss + 공중 점프에서 재현. *latency가 아니라 loss가 원인*이라 latency=0에서도 재현.
+
+**수정(클라 단독):** `PlayerInputManager.ProcessInput`에서 **무입력 틱에도 redundancy 윈도우를 재전송**해 연속 스트림 유지. **새 seq를 만들지 않고 기존 윈도우만 재송출** — 서버 처리·`SnapReconciler`(real-input seq 매칭에 의존)·seq cadence 전부 무변경. 서버는 이미 `RecentInputs` 루프 + `AddInput` dedup으로 redundancy를 처리하고 있었으므로 **서버 변경 0**. 유실 입력이 1틱 내 재도착 → buffer 안에서 복구.
+
+**검증:** loss 20% + 공중 점프 반복. 이전 3건 PRUNE → **0건**, 모든 점프 `received → processed` 1:1, 점프 발산 체감 소멸. (계측: 클라 `[JUMP] client sent` ↔ 서버 `[JUMP] received/processed/PRUNED` 로그로 1:1 대조 — 검증 후 제거.)
+
+> Anemic 대칭성 확인: 무입력은 `LOPMovementManager.ProcessInput(...,0,0,false)`에서 `direction.sqrMagnitude > 0` 가드로 **완전한 no-op**(velocity·rotation 미변경, jump 없음) → no-op 처리/스킵이 클·서 동일. 그래서 윈도우 재전송 방식이 안전.
+
 ### Phase 4 — Time Dilation 피드백 루프 (선택)
 
 목적: 클라 lead가 항상 적절한 값을 유지하도록

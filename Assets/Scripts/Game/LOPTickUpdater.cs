@@ -1,18 +1,21 @@
 using GameFramework;
 using UnityEngine;
+using VContainer;
 
 namespace LOP
 {
     public class LOPTickUpdater : TickUpdaterBase
     {
-        // 오버워치식 ahead 마진(지터/+1프레임). predictedTime에 편도지연(RTT/2)+서버피드백 이미 포함 — 마진만 추가.
-        private const double AheadMargin = 0.030;
+        [Inject]
+        private LeadState leadState;
 
         private readonly ClockDilator clockDilator = new ClockDilator();
 
         protected override void OnElapsedTimeUpdate()
         {
-            double target = GameEngine.NetworkTime.predictedTime + AheadMargin;
+            // 동적 lead(LeadState)는 입력 타이밍 피드백으로 갱신됨. 주입 전(초기 프레임)엔 기본값.
+            double aheadMargin = leadState != null ? leadState.AheadMargin : LeadState.DefaultMargin;
+            double target = GameEngine.NetworkTime.predictedTime + aheadMargin;
             elapsedTime = clockDilator.Advance(elapsedTime, target, Time.deltaTime);
         }
     }

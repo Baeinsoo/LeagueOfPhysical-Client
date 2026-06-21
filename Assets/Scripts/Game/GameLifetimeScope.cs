@@ -65,6 +65,7 @@ namespace LOP
             builder.Register<DebugHudView>(Lifetime.Transient);
 
             builder.Register<ReconciliationStats>(Lifetime.Singleton);
+            builder.Register<InputTimingStats>(Lifetime.Singleton);
 
             builder.RegisterBuildCallback(container =>
             {

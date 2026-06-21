@@ -67,6 +67,7 @@ namespace LOP
 
             builder.Register<ReconciliationStats>(Lifetime.Singleton);
             builder.Register<InputTimingStats>(Lifetime.Singleton);
+            builder.Register<LeadState>(Lifetime.Singleton);
 
             builder.RegisterBuildCallback(container =>
             {

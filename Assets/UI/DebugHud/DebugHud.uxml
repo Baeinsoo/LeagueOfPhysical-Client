@@ -10,6 +10,10 @@
             <ui:Label name="recon-last-text" class="debug-text" text="Recon last: 0.00 m" />
             <ui:Label name="recon-avg-text" class="debug-text" text="Recon avg: 0.00 m" />
             <ui:Label name="recon-max-text" class="debug-text" text="Recon max: 0.00 m" />
+            <ui:Label name="timing-avgd-text" class="debug-text" text="d avg: 0.0" />
+            <ui:Label name="timing-maxd-text" class="debug-text" text="d max: 0" />
+            <ui:Label name="timing-prune-text" class="debug-text" text="Prune: 0" />
+            <ui:Label name="timing-seqgap-text" class="debug-text" text="SeqGap: 0" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

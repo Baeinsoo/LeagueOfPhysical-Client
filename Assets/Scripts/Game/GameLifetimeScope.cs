@@ -42,6 +42,7 @@ namespace LOP
             builder.Register<IGameMessageHandler, GameInfoMessageHandler>(Lifetime.Transient);
             builder.Register<IGameMessageHandler, GameEntityMessageHandler>(Lifetime.Transient);
             builder.Register<IGameMessageHandler, GameInputMessageHandler>(Lifetime.Transient);
+            builder.Register<IGameMessageHandler, GameInputTimingMessageHandler>(Lifetime.Transient);
             builder.Register<IGameMessageHandler, GameDamageMessageHandler>(Lifetime.Transient);
             builder.Register<IGameMessageHandler, PlayerHudCoordinator>(Lifetime.Transient);
             builder.Register<IGameMessageHandler, EntityBinder>(Lifetime.Transient);
@@ -65,6 +66,8 @@ namespace LOP
             builder.Register<DebugHudView>(Lifetime.Transient);
 
             builder.Register<ReconciliationStats>(Lifetime.Singleton);
+            builder.Register<InputTimingStats>(Lifetime.Singleton);
+            builder.Register<LeadState>(Lifetime.Singleton);
 
             builder.RegisterBuildCallback(container =>
             {

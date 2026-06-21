@@ -13,6 +13,9 @@ namespace LOP.UI
         [Inject]
         private ReconciliationStats reconciliationStats;
 
+        [Inject]
+        private InputTimingStats inputTimingStats;
+
         public bool IsRunning => GameEngine.current != null;
 
         public long Tick => GameEngine.Time.tick;
@@ -31,5 +34,13 @@ namespace LOP.UI
         public float ReconAverage => reconciliationStats.Average;
 
         public float ReconMax => reconciliationStats.Max;
+
+        public double TimingAvgD => inputTimingStats.AvgD;
+
+        public int TimingMaxD => inputTimingStats.MaxD;
+
+        public int TimingPrune => inputTimingStats.PruneCount;
+
+        public int TimingSeqGap => inputTimingStats.SeqGapCount;
     }
 }

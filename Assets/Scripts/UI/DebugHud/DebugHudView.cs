@@ -19,6 +19,10 @@ namespace LOP.UI
         private Label _reconLastText;
         private Label _reconAvgText;
         private Label _reconMaxText;
+        private Label _timingAvgDText;
+        private Label _timingMaxDText;
+        private Label _timingPruneText;
+        private Label _timingSeqGapText;
 
         private IVisualElementScheduledItem _tick;
 
@@ -41,6 +45,10 @@ namespace LOP.UI
             _reconLastText = Root.Q<Label>("recon-last-text");
             _reconAvgText = Root.Q<Label>("recon-avg-text");
             _reconMaxText = Root.Q<Label>("recon-max-text");
+            _timingAvgDText = Root.Q<Label>("timing-avgd-text");
+            _timingMaxDText = Root.Q<Label>("timing-maxd-text");
+            _timingPruneText = Root.Q<Label>("timing-prune-text");
+            _timingSeqGapText = Root.Q<Label>("timing-seqgap-text");
 
             _tick = Root.schedule.Execute(Refresh).Every(0);
         }
@@ -60,6 +68,10 @@ namespace LOP.UI
             _reconLastText.text = $"Recon last: {_viewModel.ReconLast:F2} m";
             _reconAvgText.text = $"Recon avg: {_viewModel.ReconAverage:F2} m";
             _reconMaxText.text = $"Recon max: {_viewModel.ReconMax:F2} m";
+            _timingAvgDText.text = $"d avg: {_viewModel.TimingAvgD:F1}";
+            _timingMaxDText.text = $"d max: {_viewModel.TimingMaxD}";
+            _timingPruneText.text = $"Prune: {_viewModel.TimingPrune}";
+            _timingSeqGapText.text = $"SeqGap: {_viewModel.TimingSeqGap}";
         }
 
         public override void Dispose()

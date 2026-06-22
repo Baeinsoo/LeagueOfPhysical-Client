@@ -11,7 +11,6 @@ namespace LOP
     public class LOPGameEngine : GameEngineBase
     {
         [Inject] private GameFramework.World.WorldEventBuffer worldEventBuffer;
-        [Inject] private GameFramework.World.WorldEventApplicator worldEventApplicator;
         [Inject] private GameFramework.World.IEventSink eventSink;
         [Inject] private IPhysicsSimulator physicsSimulator;
 
@@ -93,7 +92,6 @@ namespace LOP
             var snapshot = worldEventBuffer.Snapshot;
             if (snapshot.Count == 0) return;
 
-            worldEventApplicator.Apply(snapshot);
             eventSink.Emit(snapshot);
             worldEventBuffer.Clear();
             // --- end World Core slice 3 ---

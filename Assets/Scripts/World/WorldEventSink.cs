@@ -6,14 +6,13 @@ using UnityEngine;
 namespace LOP
 {
     /// <summary>
-    /// WorldEventBuffer 스냅샷을 프레젠테이션 EventBus로 fan-out한다. 코어 상태는 안 만짐.
-    /// 슬라이스 3 처리 이벤트:
-    ///   DamageDealtEvent → EventBus.Publish(EntityId<LOPEntity>(targetId), EntityDamage) → DamageFloaterEmitter, CharacterNameplate, LOPEntityView 소비
-    ///   DeathEvent       → Debug.Log only (구독자 없음, future-proof 자리만 잡음)
+    /// WorldEventBuffer 스냅샷을 프레젠테이션 EventBus로 송출하는 egress sink(클라). 코어 상태·새 이벤트 안 만듦.
+    ///   DamageDealtEvent → EventBus.Publish(EntityId&lt;LOPEntity&gt;(targetId), EntityDamage) → DamageFloaterEmitter/CharacterNameplate/LOPEntityView 소비
+    ///   DeathEvent       → Debug.Log only (구독자 없음, future-proof 자리)
     /// </summary>
-    public class WorldEventBridge
+    public class WorldEventSink : GameFramework.World.IEventSink
     {
-        public void FanOut(IReadOnlyList<GameFramework.World.WorldEvent> events)
+        public void Emit(IReadOnlyList<GameFramework.World.WorldEvent> events)
         {
             foreach (var e in events)
             {

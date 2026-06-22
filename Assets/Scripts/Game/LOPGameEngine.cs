@@ -12,7 +12,7 @@ namespace LOP
     {
         [Inject] private GameFramework.World.WorldEventBuffer worldEventBuffer;
         [Inject] private GameFramework.World.WorldEventApplicator worldEventApplicator;
-        [Inject] private WorldEventBridge worldEventBridge;
+        [Inject] private GameFramework.World.IEventSink eventSink;
         [Inject] private IPhysicsSimulator physicsSimulator;
 
         public new LOPEntityManager entityManager => base.entityManager as LOPEntityManager;
@@ -94,7 +94,7 @@ namespace LOP
             if (snapshot.Count == 0) return;
 
             worldEventApplicator.Apply(snapshot);
-            worldEventBridge.FanOut(snapshot);
+            eventSink.Emit(snapshot);
             worldEventBuffer.Clear();
             // --- end World Core slice 3 ---
         }

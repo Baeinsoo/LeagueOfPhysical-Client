@@ -20,24 +20,14 @@ namespace LOP
 
         private void OnDamageEventToC(DamageEventToC msg)
         {
-            // 와이어 → 코어 이벤트 변환 어댑터. 슬라이스 3에선 레거시 메시지를 코어 도메인으로 격리.
+            // 와이어 → 코어 연출 이벤트 변환 어댑터. HP/죽음은 스냅샷에서 파생되므로 여기선 연출만.
             worldEventBuffer.Append(new GameFramework.World.DamageDealtEvent(
                 targetId:   msg.TargetId,
                 attackerId: msg.AttackerId,
                 amount:     (int)msg.Damage,
                 isCritical: msg.IsCritical,
-                isDodged:   msg.IsDodged,
-                remaining:  (int)msg.RemainingHP,
-                isDead:     msg.IsDead
+                isDodged:   msg.IsDodged
             ));
-
-            if (msg.IsDead)
-            {
-                worldEventBuffer.Append(new GameFramework.World.DeathEvent(
-                    victimId:   msg.TargetId,
-                    attackerId: msg.AttackerId
-                ));
-            }
         }
     }
 }

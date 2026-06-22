@@ -19,9 +19,52 @@
 
 **금지**: 코어가 View/Controller를 참조하거나 eventbus를 직접 호출하는 것(= 안쪽→바깥 호출). 지금 LOP가 컴포넌트 setter에서 `EventBus.Publish` 하는 방식은 새 구조에서 버린다.
 
+## 용어와 두 축 — 먼저 못박기
+
+이벤트 모델을 읽기 전에 어휘부터 고정한다. 이게 안 되면 "apply에서 죽음이 생기네?" 같은 혼동이 생긴다.
+
+### Command(의도) vs Event(사실)
+
+| | 정의 | 예 |
+|---|---|---|
+| **Command / Intent** | 아직 *해소되지 않은 요청* | "X에게 30 데미지 줘라" |
+| **Event / Fact** | *해소된 불변 과거사실* | "X가 30 맞아 HP 70, 사망" |
+
+원시 입력만 든 메시지는 *Command*다. HP를 실제로 깎아 `remaining`·`isDead`를 알아내는 *해소(resolve)* 를 거쳐야 비로소 *Event*가 된다.
+
+### 세 계층 (Intent → Resolve → Project)
+
+```
+① Intent 수집            의도를 큐잉                                              — 상태 안 바꿈
+② Resolve(=Generation)   상태 변경 + 파생 판정(HP≤0) + 결과 Event raise(Death 포함)   — 여기서만 Event 태어남
+③ Projection/Egress      확정 Event를 read-state에 쓰고 / 바깥(프레젠테이션·wire)으로 송출   — 새 Event 0
+```
+
+**핵심 불변식:** *HP를 바꾸고 ≤0를 판정해 `DeathEvent`를 만드는 층은 — 이름이 "apply"든 뭐든 — 정의상 ②(Generation)다.* 순수 소비(이벤트 0)는 항상 그 아래 ③이다. 즉 **Event는 ②에서만 생성, ③은 절대 생성하지 않는다.** (CQRS: aggregate가 mutate+raise, projection은 consume만.)
+
+### 두 직교 축 (혼동 주의)
+
+| 축 | 정체 | 무엇을 위해 |
+|---|---|---|
+| **축 A** | Generation ↔ Application (결정/이벤트 ↔ 상태쓰기) | 멱등·재생·네트워킹·롤백 |
+| **축 B** | Collection → Mutation → **Detection** 배리어 (의도 다 모음 → 다 적용 → *그 다음* 죽음 스캔, 중간 alive-guard 없음) | **동시죽음/트레이드 공정성·결정론** |
+
+**트레이드(동시죽음)를 만드는 건 축 B다 — 축 A가 아니다.** 둘은 독립: 락스텝 RTS는 축 B만으로 트레이드를 얻고, CQRS 웹앱은 축 A만 쓴다. 우리 파이프라인은 둘을 함께 쓰지만 *서로를 함의하지 않는다.*
+
+### 죽음은 4단계, 각기 다른 계층
+
+| 단계 | 표준(목표) 모델 | 현재 코드 |
+|---|---|---|
+| **① 판정** (HP≤0?) | **Detection** (Generation): 데미지 다 적용된 최종상태 스캔 → `DeathEvent` | `LOPCombatSystem`이 `TakeDamage` 직후 `health.IsDead` 인라인 |
+| **② 마크** (상태에 사망 기록) | **Application** (Projection): `DeathEvent` → 사망 마크 | 암묵적 — `Health.IsDead`가 HP≤0 파생 |
+| **③ 후처리** (despawn·loot·exp) | **Cascade Reactor** (Generation): `DespawnEvent` 등 emit → Application 적용 | **`LOPGame.HandleDeath` — fan-out 경로에 올라탐 ⚠️ 위반** |
+| **④ 송출** (클라·VFX) | **Egress** (Projection): wire + presentation | `WireBroadcaster`/`Bridge`(현재 Debug.Log) |
+
+**서버권위:** 죽음 *판정·생성*은 서버 Resolve(②)에서만. 클라는 *받는다*(재해소 불가 — 공격자 스탯·RNG 모름). 그래서 "apply"가 서버=Resolve(생성층) / 클라=Projection(소비층)으로 의미가 다르다.
+
 ## Generation vs Application — 결정과 적용의 분리
 
-이벤트 처리는 두 단계로 분리한다. 이 분리가 멀티플레이 구조, 동시 사망 의미론, 후일 예측·롤백을 모두 받친다.
+이벤트 처리는 두 단계로 분리한다(축 A). 이 분리는 멀티플레이 구조와 후일 예측·롤백을 받친다. (동시 사망/트레이드 의미론은 이 분리가 아니라 Collection→Mutation→Detection 배리어[축 B] 소관 — 위 "두 직교 축" 참고.)
 
 ### Generation (생성) — "무엇이 일어났나"를 결정
 
@@ -66,6 +109,34 @@ Application 코드는 누가 이벤트를 만들었든(서버 Generation, 자기
 - **Overwatch** (Tim Ford GDC 2017): 위 + 자기 캐릭 클라 Generation 예측 + 서버 확정 reconcile.
 - **격투게임(SF, GGPO) / StarCraft lockstep**: 결정론적 Generation + 인풋 동기화만, 모든 피어가 같은 Application 실행.
 - **CQRS / Event Sourcing** (소프트웨어 일반): Command(intent) → Event(decision) → Projection(state apply).
+
+## 와이어 표현 — Snapshot vs Event (역할 분리 hybrid)
+
+World 상태가 네트워크를 건널 때 *값을 snapshot(상태)으로 보낼지 event(사건)로 보낼지* 의 결정 기준.
+
+### 결정 기준: "잃으면 영구 desync 되나?"
+
+| | 유실 시 영구 desync? | → 표현 |
+|---|---|---|
+| HP · Transform · MP · Stats | **예** (durable·정확 필수) | **Snapshot** — 권위, 자가보정(다음 스냅이 덮음) |
+| 데미지 숫자 · 크리/회피 · 킬피드 · 히트마커 | **아니오** (transient 연출) | **Event** — cosmetic, fire-and-forget, *클라가 state로 안 씀* |
+
+> 묻는 건 "연속/이산"이 아니라 **"durable이냐"** 다. HP는 *이산적으로* 바뀌지만 durable이라 snapshot(안 바뀐 틱엔 안 보내는 델타압축). 연속/이산은 *빈도*(압축 여부)만 정한다.
+
+### 결정 — 역할 분리 hybrid
+
+- **Snapshot = 모든 durable 값의 단일 권위** (Transform/HP/MP/Lv/Stats). 클라 HP의 진실원본.
+- **Event = 연출/귀속 전용** (데미지 숫자·크리·회피·death 연출). **클라는 event로 authoritative 상태를 쓰지 않는다.**
+- *순수 snapshot 아님*: 크리/회피/누가-때렸나 같은 attribution을 snapshot delta로 복원 어려움.
+- *순수 event 아님*: event는 lossy → durable HP가 desync (Source의 "durable state = entity-state, not message" 규칙).
+
+### 산업 정렬 (개념 vs 와이어 — 분리해서)
+
+- **계층 *개념*(Resolve가 이벤트 생성 / Projection은 소비)** = 업계 표준 (CQRS/ES/DDD).
+- ***와이어*: durable=snapshot이 AAA 정석** — Overwatch ECS 컴포넌트 스냅샷 / Source entity-state / Fiedler 3학파(lockstep·snapshot·state-sync). *도메인 이벤트 레코드로 연속상태 전송*은 비전형(이산 사실엔 OK).
+- ⚠️ **Overwatch는 우리 *개념*과 *state 와이어*를 지지하지, *fat-event-record 와이어*를 지지하지 않는다.** 근거 인용 시 분리할 것. (OW 1차자료는 GDC 유료 → 2차자료 기반.)
+
+> 출처: [Fiedler — State Synchronization](https://gafferongames.com/post/state_synchronization/) · [Valve — Source Multiplayer Networking](https://developer.valvesoftware.com/wiki/Source_Multiplayer_Networking) · [MS Learn — Domain Events](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/domain-events-design-implementation) · [Gambetta — Client-Server Architecture](https://www.gabrielgambetta.com/client-server-game-architecture.html)
 
 ## Deferred — "모아서 확정 후 지연 처리" (구조적 핵심)
 
@@ -212,6 +283,14 @@ LOP 매핑: `LOPGameSimulation`(Shared) ↔ `LOPGameEngine`(각 사이드).
 - `noEngineReferences`인 World 어셈블리 내부 코드는 `UnityEngine`을 쓰지 않으므로 평소처럼 짧은 이름을 사용해도 충돌 없음.
 
 **임시 명명 + 재논의 노트**: 현재 외각 호스트는 `LOPGameEngine`, 시뮬 코어는 `LOPGameSimulation`이라는 이름을 *임시로* 쓴다. *엄밀한 업계 정의*는 "engine = 인프라/플랫폼"이라 LOP의 host 자리에는 *어긋남* — Photon Quantum의 `Runner`(외각 호스트 통용) 같은 후보를 Slice 4 흡수 완료 후 재논의한다. 자세한 결정 항목은 `lop-repo-topology.md`의 Open Decisions 참조.
+
+## 알려진 괴리 — 모델 vs 현재 코드 (cleanup backlog)
+
+모델은 위와 같고, 현재 코드는 slice-3 단순화라 3곳이 어긋난다. 각각 별도 슬라이스로 정리(`IEventSink` egress 포트 작업과 독립):
+
+1. **이중 apply** — Generation이 `TakeDamage`로 직접 mutate + Application이 `remaining`으로 재적용. 표준은 "단일 권위 mutation"(Overwatch는 큐에 기록→한 번 드레인). → Generation은 *결정/기록*만, 단일 드레인이 *유일* 적용.
+2. **despawn이 fan-out에** — `LOPGame.HandleDeath`(디스폰+경험치)가 egress(fan-out) 경로에서 상태를 바꿈 = "egress가 새 사실 생성" 안티패턴. → Cascade Reactor(Generation)로 이전해 `DespawnEvent` emit, egress는 *통지만*.
+3. **이중 HP 경로** — 클라가 `DamageDealtEvent.remaining`(event)으로도, `UserEntitySnap.CurrentHP`(state)로도 HP를 받음. → HP 권위 = **state 단일화**, event = 연출 전용(클라가 state로 안 씀).
 
 ## 상태
 

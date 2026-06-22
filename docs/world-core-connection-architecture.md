@@ -286,11 +286,11 @@ LOP 매핑: `LOPGameSimulation`(Shared) ↔ `LOPGameEngine`(각 사이드).
 
 ## 알려진 괴리 — 모델 vs 현재 코드 (cleanup backlog)
 
-모델은 위와 같고, 현재 코드는 slice-3 단순화라 3곳이 어긋난다. 각각 별도 슬라이스로 정리(`IEventSink` egress 포트 작업과 독립):
+모델은 위와 같고, 현재 코드는 slice-3 단순화라 어긋난 곳이 있었다. **#1·#3은 해소됨**(2026-06-22, HP 스냅샷 단일권위 슬라이스), **#2는 남음**:
 
-1. **이중 apply** — Generation이 `TakeDamage`로 직접 mutate + Application이 `remaining`으로 재적용. 표준은 "단일 권위 mutation"(Overwatch는 큐에 기록→한 번 드레인). → Generation은 *결정/기록*만, 단일 드레인이 *유일* 적용.
-2. **despawn이 fan-out에** — `LOPGame.HandleDeath`(디스폰+경험치)가 egress(fan-out) 경로에서 상태를 바꿈 = "egress가 새 사실 생성" 안티패턴. → Cascade Reactor(Generation)로 이전해 `DespawnEvent` emit, egress는 *통지만*.
-3. **이중 HP 경로** — 클라가 `DamageDealtEvent.remaining`(event)으로도, `UserEntitySnap.CurrentHP`(state)로도 HP를 받음. → HP 권위 = **state 단일화**, event = 연출 전용(클라가 state로 안 씀).
+1. ~~**이중 apply**~~ ✅ **해소(2026-06-22)** — 서버 Generation이 `TakeDamage`로 mutate한 뒤 Application(`WorldEventApplicator`)이 `remaining`으로 재적용하던 중복을 제거. 서버·클라 양쪽 event-apply 삭제, 호출처가 사라진 `WorldEventApplicator`/`HealthSystem.ApplyDamageDealt`도 삭제. **Application 코드는 Stage④(Death 컴포넌트·클라 예측-apply)에서 새 모양으로 복귀.**
+2. **despawn이 fan-out에** — `LOPGame.HandleDeath`(디스폰+경험치)가 egress(fan-out) 경로에서 상태를 바꿈 = "egress가 새 사실 생성" 안티패턴. → Cascade Reactor(Generation)로 이전해 `DespawnEvent` emit, egress는 *통지만*. (별도 슬라이스, **미해소**)
+3. ~~**이중 HP 경로**~~ ✅ **해소(2026-06-22)** — 클라가 `DamageDealtEvent.remaining`(event)과 `UserEntitySnap.CurrentHP`(state) 둘로 HP를 받던 것을 **HP 권위 = 스냅샷 state 단일화**로 정리(클라 event-apply 삭제). 이벤트는 연출 전용(숫자·크리·HP바·HUD). 단 HP **UI**가 아직 그 연출 이벤트에서 값을 읽는 잔여(scope B: UI를 스냅샷-fed 모델로 이전 + 와이어 이벤트에서 HP 흔적 제거)는 다음 슬라이스.
 
 ## 상태
 

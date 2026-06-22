@@ -49,16 +49,24 @@ namespace LOP.Event.Entity
         public bool isDodged;
         public bool isCritical;
         public long damage;
-        public long remainingHP;
-        public bool isDead;
 
-        public EntityDamage(bool isDodged, bool isCritical, long damage, long remainingHP, bool isDead)
+        public EntityDamage(bool isDodged, bool isCritical, long damage)
         {
             this.isDodged = isDodged;
             this.isCritical = isCritical;
             this.damage = damage;
-            this.remainingHP = remainingHP;
-            this.isDead = isDead;
+        }
+    }
+
+    public struct EntityHealthChanged
+    {
+        public int current;
+        public int max;
+
+        public EntityHealthChanged(int current, int max)
+        {
+            this.current = current;
+            this.max = max;
         }
     }
 

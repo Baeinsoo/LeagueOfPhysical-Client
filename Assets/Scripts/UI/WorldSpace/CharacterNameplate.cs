@@ -14,7 +14,7 @@ namespace LOP
     ///
     /// 실행순서를 CameraController(3000) 뒤(3100)로 두어, 카메라가 LateUpdate에서 이동한 뒤 위치/billboard를
     /// 계산한다(그렇지 않으면 카메라 추적이 한 프레임 어긋나 떨린다).
-    /// HP는 EntityDamage(presentation fan-out, DamageFloaterEmitter와 동일 신호)로 갱신 — 발화가 보장된 경로.
+    /// HP는 EntityHealthChanged(스냅샷 적용 시 변경분 발행 — 로컬=UserEntitySnap, 원격=EntitySnap)로 갱신 — 권위 상태 기반.
     /// maxHP/초기값은 World.Entity의 World.Health(순수 C# 코어)에서 읽는다(Model A — 뷰가 코어를 pull).
     /// </summary>
     [DefaultExecutionOrder(3100)]
@@ -75,12 +75,12 @@ namespace LOP
             _hpFill = document.rootVisualElement.Q<VisualElement>("hp-bar-fill");
             UpdateHpBar();
 
-            EventBus.Default.Subscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
+            EventBus.Default.Subscribe<EntityHealthChanged>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityHealthChanged);
         }
 
         public void Cleanup()
         {
-            EventBus.Default.Unsubscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
+            EventBus.Default.Unsubscribe<EntityHealthChanged>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityHealthChanged);
 
             if (_panelGameObject != null)
             {
@@ -91,9 +91,10 @@ namespace LOP
             entity = null;
         }
 
-        private void OnEntityDamage(EntityDamage entityDamage)
+        private void OnEntityHealthChanged(EntityHealthChanged e)
         {
-            _currentHp = (int)entityDamage.remainingHP;
+            _currentHp = e.current;
+            _maxHp = e.max;
             UpdateHpBar();
         }
 

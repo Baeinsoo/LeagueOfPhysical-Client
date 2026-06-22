@@ -1,5 +1,12 @@
 # LeagueOfPhysical-Client
 
+## 답변 스타일 (필수)
+
+**답변은 항상 이해하기 쉬운 형태로 한다.** 전문용어·추상 개념(generation/application,
+cascade, egress, CQRS 등)을 그대로 나열하지 말고, 일상어로 풀고 구체 예시·표·다이어그램을
+곁들인다. 큰 그림(왜/무엇)을 먼저 제시하고 세부는 뒤에 둔다. 한 문단에 새 개념을 여러 개
+몰아넣지 않는다. 개념 자체는 정교하게 다루되, *전달*은 쉬워야 한다.
+
 ## UnityMCP instance targeting
 
 This project is the **client**. The UnityMCP server may have both the server and

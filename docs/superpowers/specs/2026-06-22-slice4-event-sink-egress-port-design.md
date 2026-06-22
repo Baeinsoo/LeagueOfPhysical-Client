@@ -54,19 +54,21 @@ namespace GameFramework.World
 
 > **배치 근거:** `IEventSink`는 `WorldEvent`를 시그니처에 노출하므로 `WorldEvent`가 사는 World 어셈블리여야 한다(Runtime은 World 미참조). 또한 *port는 core에 정의, adapter는 outer에 구현*(헥사고날)이 정석이라 World(core)에 두는 게 맞다. `WorldEventBuffer`(이벤트 큐) 바로 옆이라 응집도 좋다. (물리/RNG 포트가 Runtime에 있는 것과 다른 이유 = 그것들은 World 타입 비참조.) 순수 인터페이스라 noEngineReferences 위반 없음.
 
-### 구현 — 기존 클래스가 직접 구현 (래퍼 신설 X)
+### 구현 — 기존 클래스가 직접 구현 + rename (래퍼 신설 X)
 
-추상화 대상이 *우리 자신의 클래스*라 불필요한 indirection 없이 직접 구현한다.
+추상화 대상이 *우리 자신의 클래스*라 불필요한 indirection 없이 직접 구현한다. 포트가 `IEventSink`이므로 구현체도 어휘를 맞춰 rename한다(짝 일관). **클·서 egress 구현은 같은 이름 `WorldEventSink`** — 기존 `WorldEventBridge`가 클·서 *같은 이름·다른 본문*이던 사이드별 분기 관습 그대로(`LOPGameEngine` 패턴). `WorldEvent*` 패밀리로 일관: `WorldEvent`(데이터) / `WorldEventBuffer`(큐) / `WorldEventSink`(egress) / `WorldEventReactor`(서버 cascade).
 
-**클라 `WorldEventBridge` → `IEventSink` 구현** (`Assets/Scripts/World/WorldEventBridge.cs`):
-- `: GameFramework.World.IEventSink` 추가, 메서드 `FanOut` → **`Emit`** rename (본문 동일). 클라 Bridge는 순수 프레젠테이션이라 그대로 sink.
+**클라 `WorldEventBridge` → `WorldEventSink : IEventSink`** (`Assets/Scripts/World/WorldEventBridge.cs` → `WorldEventSink.cs`):
+- 클래스 + 파일 rename(`git mv` + `.meta` 동반), `: GameFramework.World.IEventSink` 추가, 메서드 `FanOut` → **`Emit`**(본문 동일). 클라 sink = EventBus 프레젠테이션.
 
-**서버 `WireBroadcaster` → `IEventSink` 구현** (`Assets/Scripts/World/WireBroadcaster.cs`):
-- `: GameFramework.World.IEventSink` 추가, 메서드 `Broadcast` → **`Emit`** rename (본문·ctor 동일). wire egress sink.
+**서버 `WireBroadcaster` → `WorldEventSink : IEventSink`** (`Assets/Scripts/World/WireBroadcaster.cs` → `WorldEventSink.cs`):
+- 클래스 + 파일 rename(`git mv` + `.meta` 동반), `: GameFramework.World.IEventSink` 추가, 메서드 `Broadcast` → **`Emit`**(본문·ctor `ISessionManager` 동일). 서버 sink = wire broadcast.
 
-**서버 `WorldEventBridge` → `WorldEventReactor` rename** (`Assets/Scripts/World/WorldEventBridge.cs` → `WorldEventReactor.cs`):
-- 클래스명 `WorldEventBridge` → `WorldEventReactor`, 파일 rename(`git mv` + `.meta` 동반), 메서드 `FanOut` → **`React`**(본문 동일 — DeathEvent → EventBus → HandleDeath). **`IEventSink` 구현 안 함**(reactor지 sink 아님). 순수 C# 클래스 유지(MonoBehaviour 아님이라 파일명-클래스명 강제는 아니나 컨벤션상 맞춤).
+**서버 `WorldEventBridge` → `WorldEventReactor`** (`Assets/Scripts/World/WorldEventBridge.cs` → `WorldEventReactor.cs`):
+- 클래스 + 파일 rename(`git mv` + `.meta` 동반), 메서드 `FanOut` → **`React`**(본문 동일 — DeathEvent → EventBus → HandleDeath). **`IEventSink` 구현 안 함**(reactor지 sink 아님). 순수 C# 클래스.
 - 주석 정합: 클래스 doc + `LOPCombatSystem.cs:73,76`의 "WorldEventBridge.FanOut → HandleDeath" 언급을 `WorldEventReactor.React`로 갱신.
+
+> 서버 파일 rename 충돌 없음: `WireBroadcaster.cs` → `WorldEventSink.cs`, `WorldEventBridge.cs` → `WorldEventReactor.cs` (서로 다른 타깃). 서버엔 `WorldEventSink.cs` + `WorldEventReactor.cs` 둘, 클라엔 `WorldEventSink.cs` 하나.
 
 ### 호출부 재배선 (`ProcessEvent`, Apply·Clear 그대로)
 
@@ -80,8 +82,8 @@ namespace GameFramework.World
 
 ### DI 등록
 
-- 클 `GameLifetimeScope`: `Register<WorldEventBridge>(Singleton)` → `Register<GameFramework.World.IEventSink, WorldEventBridge>(Singleton)`.
-- 서 `GameLifetimeScope`: `Register<WireBroadcaster>(Singleton)` → `Register<GameFramework.World.IEventSink, WireBroadcaster>(Singleton)`; `Register<WorldEventBridge>(Singleton)` → `Register<WorldEventReactor>(Singleton)`.
+- 클 `GameLifetimeScope`: `Register<WorldEventBridge>(Singleton)` → `Register<GameFramework.World.IEventSink, WorldEventSink>(Singleton)`.
+- 서 `GameLifetimeScope`: `Register<WireBroadcaster>(Singleton)` → `Register<GameFramework.World.IEventSink, WorldEventSink>(Singleton)`; `Register<WorldEventBridge>(Singleton)` → `Register<WorldEventReactor>(Singleton)`.
 - (각 클래스의 다른 concrete 주입 없음 — grep 확인 — 이라 인터페이스 등록만으로 충분.)
 
 ## 동작 보존 / 검증
@@ -92,8 +94,9 @@ namespace GameFramework.World
 
 ## 산업 표준 매핑
 
-- `IEventSink` = connection-arch가 정의한 I/O 어댑터(클=EventBus / 서=WireBroadcaster) 포트화. port/adapter(헥사고날) — port를 core(World)에 정의.
+- `IEventSink` = connection-arch가 정의한 I/O 어댑터(클=EventBus / 서=wire) 포트화. port/adapter(헥사고날) — port를 core(World)에 정의.
 - **egress와 reactor 분리** = connection-arch "③ Egress는 새 사실 생성 안 함" 불변식 + CQRS "projection은 이벤트 안 만듦" 적용. 서버 death cascade는 reactor(Generation 계열)로 명명 분리.
+- **네이밍:** 구현체 `WorldEventSink`는 클·서 *같은 이름·다른 본문*(`LOPGameEngine`/구 `WorldEventBridge`의 "의도적 양쪽 분기" 관습 — `lop-repo-topology.md`). 포트 `IEventSink` ↔ 구현 `WorldEventSink` ↔ `WorldEvent*` 패밀리로 짝 일관.
 
 ## Out of Scope (backlog 유지)
 
@@ -103,12 +106,12 @@ namespace GameFramework.World
 
 ## Open Questions (구현 plan에서 해소)
 
-- 서버 `WorldEventBridge.cs` → `WorldEventReactor.cs` 파일 rename 시 `.meta` GUID 보존(`git mv`로 `.cs`+`.meta` 동반 이동).
+- 파일 rename 3건 모두 `.meta` GUID 보존(`git mv`로 `.cs`+`.meta` 동반): 클 `WorldEventBridge.cs`→`WorldEventSink.cs`, 서 `WireBroadcaster.cs`→`WorldEventSink.cs`, 서 `WorldEventBridge.cs`→`WorldEventReactor.cs`.
 - `IEventSink.cs` 배치 = `Runtime/Scripts/World/Events/`(WorldEventBuffer 옆) 확정.
 
 ## 진행
 
-- [x] 브레인스토밍 합의(egress 포트 B-minimal, 기존클래스 직접구현, 서버 Bridge→Reactor rename, IEventSink=World 어셈블리)
+- [x] 브레인스토밍 합의(egress 포트 B-minimal, 기존클래스 직접구현+rename, 클·서 egress=`WorldEventSink`/서버 cascade=`WorldEventReactor`, IEventSink=World 어셈블리)
 - [x] 이 spec 작성
 - [ ] spec self-review
 - [ ] 사용자 spec 리뷰

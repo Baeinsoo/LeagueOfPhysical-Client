@@ -57,14 +57,41 @@
 |---|---|---|
 | **① 판정** (HP≤0?) | **Detection** (Generation): 데미지 다 적용된 최종상태 스캔 → `DeathEvent` | `LOPCombatSystem`이 `TakeDamage` 직후 `health.IsDead` 인라인 |
 | **② 마크** (상태에 사망 기록) | **Application** (Projection): `DeathEvent` → 사망 마크 | 암묵적 — `Health.IsDead`가 HP≤0 파생 |
-| **③ 후처리** (despawn·loot·exp) | **Cascade Reactor** (Generation): `DespawnEvent` 등 emit → Application 적용 | **`LOPGame.HandleDeath` — fan-out 경로에 올라탐 ⚠️ 위반** |
-| **④ 송출** (클라·VFX) | **Egress** (Projection): wire + presentation | `WireBroadcaster`/`Bridge`(현재 Debug.Log) |
+| **③ 후처리** (despawn·loot·exp) | **Cascade (Generation/Resolve)**: resolve 단계(egress 전)에서 despawn·loot 직접 처리. 풀 이벤트화(`DespawnEvent`+Application)는 deferred 인프라(Stage④) | **`LOPGame.HandleDeath` — egress(fan-out) 경로 ⚠️ #2** → resolve 단계로 이전(진행 중) |
+| **④ 송출** (클라·VFX) | **Egress** (Projection): wire + presentation | `WorldEventSink`(클·서). 죽음 연출은 `DamageDealtEvent.IsDead`로 전달(별도 DeathEvent wire 없음) |
 
 **서버권위:** 죽음 *판정·생성*은 서버 Resolve(②)에서만. 클라는 *받는다*(재해소 불가 — 공격자 스탯·RNG 모름). 그래서 "apply"가 서버=Resolve(생성층) / 클라=Projection(소비층)으로 의미가 다르다.
+
+## 무엇을 deferred로 모으고, 무엇을 즉시 처리하나 (선택적 — "전부"가 아님)
+
+위 4단계(Collection→Mutation→Detection→React)는 **모든 월드 갱신에 거는 게 아니라, 특정 종류에만** 건다. "전부 모았다가 한 번에 처리"는 과설계다 (Bevy 공식: *deferral is not free, only for infrequent mutations*; Photon Quantum은 게임플레이 mutation을 하나도 안 미루고 즉시 — 결정론은 *시스템 순서*로 잡는다). 업계는 종류별로 선을 긋는다:
+
+| deferred (모았다 일괄) | inline (즉시) |
+|---|---|
+| **구조 변경** — 스폰/디스폰, 컴포넌트 추가/제거 (이터레이터 무결성·스레드 안전) | **이동·속도·위치** (이번 틱 충돌에 바로 필요) |
+| **데미지/힐** — 교차 엔티티 + 죽음 연쇄 (OW `ModifyHealthQueue`) | **물리 시뮬** (PhysX 한 방) |
+| **버프/디버프 적용** — 권위 확정·스택 순서 | **애니/방향** (연출, 순서대로) |
+| **loot/exp/죽음 cascade** — 이미 확정된 사건의 *반응* | 자기완결·단일 소유 갱신 |
+
+**선 긋는 기준:** ① 구조를 바꾸나? ② 여러 엔티티에 걸치고 심각한 부작용(죽음 연쇄)이 있나? ③ 동시성 공정성이 필요한가? → **deferred**. 자기 안에서 끝나고 순서대로면 → **inline**. (ECS 통설: 구조 변경은 ECB로 *항상* defer, 컴포넌트 *값* 쓰기는 inline.)
+
+### alive-guard의 위치 (트레이드 공정성)
+
+"이미 죽었으면 무시" 가드는 **②Mutation(데미지 적용)에 절대 두지 않는다** — 두면 실행 순서상 먼저 처리된 공격만 킬을 먹고 동시죽음(트레이드)이 깨진다(LoL·격겜·스타 동시죽음이 이 원리). 데미지는 가드 없이 *전부* 적용 → **③Detection이 HP≤0를 스캔**해 죽음을 만든다. "무시" 가드는 **①행동 자격**(기절·사망 중 행동 *시작* 불가)에만 둔다.
+
+### React(연계) — 죽음→분노버프 같은 연쇄
+
+④React가 만든 새 의도(분노버프 적용 등)는 **다음 틱의 ①Collection으로** 넣거나, 같은 틱 서브패스로 fixpoint 처리한다. 무한 연쇄(proc 폭주)는 **proc 마스크**(반응 체인에 이미 있으면 거부 — Unreal GAS 커뮤니티 표준)로 막는다.
+
+> **YAGNI — 지금 짓지 않는다:** 풀 deferred 큐 인프라(OW `ModifyHealthQueue`급 — 모든 데미지/버프를 큐에 모아 일괄 확정)는 **버프·연계·광역 공격이 실제로 생길 때** 값을 한다. 현재 LOP는 단순 공격→데미지→죽음→디스폰뿐이라, 그 인프라는 **목표 모델**로만 남기고 즉시 짓지 않는다. 새 콘텐츠가 그 구조를 요구할 때 이 표를 기준으로 자라게 한다.
+
+> 산업 근거: [OW ModifyHealthQueue 분석(Alibaba/GDC2017)](https://topic.alibabacloud.com/a/on-the-ecs-architecture-in-the-overwatch_8_8_31063753.html) · [Unreal GAS — GASDocumentation](https://github.com/tranek/GASDocumentation) · [Unity DOTS ECB](https://docs.unity3d.com/Packages/com.unity.entities@1.0/manual/systems-entity-command-buffers.html) · [Bevy Commands/Deferred](https://deepwiki.com/bevyengine/bevy/2.3-commands-and-deferred-operations) · [Photon Quantum — Signals vs Events](https://doc.photonengine.com/quantum/current/manual/quantum-ecs/game-events) · [Nystrom — Event Queue](https://gameprogrammingpatterns.com/event-queue.html)
 
 ## Generation vs Application — 결정과 적용의 분리
 
 이벤트 처리는 두 단계로 분리한다(축 A). 이 분리는 멀티플레이 구조와 후일 예측·롤백을 받친다. (동시 사망/트레이드 의미론은 이 분리가 아니라 Collection→Mutation→Detection 배리어[축 B] 소관 — 위 "두 직교 축" 참고.)
+
+> **⚠️ "apply" 용어 + 현재 코드 정합 (2026-06-22 갱신).** 이벤트소싱에서 **"apply"는 *과거 이벤트를 상태에 되먹여 재구성*(rehydration/fold)** 을 뜻한다 — 아래 "Application"이 바로 그것이고, 우리가 *지운* `WorldEventApplicator`가 이 fold였다. 의도를 상태로 *확정하는* 단계(②Mutation)는 업계어로 **Handle/Decide/Resolve**이지 "apply"가 아니다. **서버 권위 모드에선 서버가 ②에서 상태를 *직접 한 번* mutate하고, 별도 Application(이벤트→상태 재적용)은 없다**(중복이라 삭제 — backlog #1). durable 값은 **스냅샷**으로 클라에 간다(이벤트 아님 — backlog #3). **Application(이벤트 fold)은 클라 *예측*(Stage④)에서만** 되살아난다: 클라가 자기 로컬 이벤트를 적용해 예측하고 스냅샷과 reconcile. 아래 "Application" 절은 그 **Stage④ 목표 모델**로 읽을 것 — 현재 서버·클라 런타임엔 없다.
 
 ### Generation (생성) — "무엇이 일어났나"를 결정
 
@@ -89,11 +116,11 @@ Application 코드는 누가 이벤트를 만들었든(서버 Generation, 자기
 
 ### 모드별 책임
 
-| 모드 | Generation | Wire | Application | 비고 |
-|---|---|---|---|---|
-| **서버 권위** | 서버가 풀 실행 | 서버 → 클라 (`WorldEventBatch` 폴리모픽 envelope) | 클라가 받은 이벤트 적용 + 서버도 자기 상태 동기화로 적용 | LOP 슬라이스 3 출발점 |
-| **클라 단독(싱글)** | 클라가 풀 실행 | 없음 | 클라가 자기 이벤트 적용 | 같은 Application 코드 재사용, 분기 없음 |
-| **클라 예측 (Stage ④)** | 클라가 자기 캐릭만 로컬 Generation(예측) + 서버 확정 수신 | 서버 → 클라 | 예측 이벤트 즉시 Application + 서버 확정과 비교 → 일치/롤백 | Application은 그대로, 예측 태그·롤백 레이어 추가 |
+| 모드 | 상태 확정 (Resolve = ②Mutation) | durable → 클라 | 연출 event | Application(이벤트 fold) | 비고 |
+|---|---|---|---|---|---|
+| **서버 권위 (현재)** | 서버가 ②에서 상태 **직접 한 번** mutate | **스냅샷** (단일 권위) | 서버 → 클라 (연출만) | **없음** — 서버 in-place mutate | HP 슬라이스 후 |
+| **클라 단독(싱글)** | 클라가 직접 mutate | — (로컬) | 로컬 fan-out | 없음 | 같은 Resolve 코드 |
+| **클라 예측 (Stage ④)** | 클라가 자기 캐릭만 로컬 Resolve(예측) | 서버 → 클라 스냅샷 | 로컬 + 서버 | **여기서만** — 예측 이벤트 즉시 fold + 스냅샷과 reconcile → 일치/롤백 | Stage④에서 추가 |
 
 ### 와이어 추상
 
@@ -161,7 +188,7 @@ World 상태가 네트워크를 건널 때 *값을 snapshot(상태)으로 보낼
 - **뷰 스포너/바인딩 시스템**(*MVP의 "프레젠터"가 아님* — 프레젠터는 UI 용어)이 `EntityRegistry`의 **수명(add/remove)**을 보고 **entityId로** GameObject+View를 생성/연결/파괴한다. ECS/Entitas의 *view-resolver / 리액티브 뷰 시스템*에 해당하며, 이 "뷰 수명" 역할은 `WorldEventBuffer`(이산 게임플레이 사건 fan-out)와 **별개 축**이다.
 - **분리형 구조**: 엔티티(데이터, `EntityRegistry`)와 뷰를 분리하고, **뷰 스포너가 엔티티 수명(add/remove)을 보고 GameObject+View를 생성/연결/파괴**한다 — ECS/Entitas의 view-resolver 정석. (로직+뷰를 한 프리팹에 합쳐 스폰하는 *합체형*도 업계 통용 대안이나, LOP는 분리형을 따른다.)
 - eventbus(R3)는 **바깥(브릿지)에** 둔다. 확정 이벤트 버퍼가 그걸 먹인다. **코어 안엔 두지 않는다.**
-- **`WorldEventBuffer`** — 코어 측 단일 폴리모픽 큐. Generation이 append, Application이 dequeue해서 상태 쓰기, Bridge가 같은 시퀀스를 dequeue해서 프레젠테이션 fan-out. 두 소비자(Application, Bridge)는 같은 데이터를 다른 책임으로 본다.
+- **`WorldEventBuffer`** — 코어 측 단일 폴리모픽 큐. Generation이 append, egress sink(`WorldEventSink`)가 dequeue해서 연출 fan-out. (서버 Application 소비자는 제거됨 — durable은 스냅샷. Application[이벤트 fold]은 Stage④ 클라 예측에서 복귀.)
 - **와이어 envelope** (`WorldEventBatch`): 서버↔클라 이벤트 전송은 단일 폴리모픽 Mirror 메시지에 여러 `WorldEvent` 레코드를 담아 보낸다. 개념별 패킷 타입 신설 안 함.
 
 ## Engine ↔ Simulation 책임 분리 (Composition)
@@ -181,8 +208,8 @@ World 상태가 네트워크를 건널 때 *값을 snapshot(상태)으로 보낼
 
 **책임**: 사이드/도메인 *정책* 일체.
 
-- **클라**: 입력 캡처, 서버 snap 수신, **Snapshot/Restore + 입력 replay**(Stage ④), 보간(`SnapInterpolator`), 이벤트 fan-out(`WorldEventBridge`), VFX
-- **서버**: 입력 수신, AI 의도 push(`LOPAIController`), 와이어 송신(`WireBroadcaster`), 권위 판정
+- **클라**: 입력 캡처, 서버 snap 수신, **Snapshot/Restore + 입력 replay**(Stage ④), 보간(`SnapInterpolator`), 이벤트 fan-out(`WorldEventSink`), VFX
+- **서버**: 입력 수신, AI 의도 push(`LOPAIController`), 와이어 송신(`WorldEventSink`), 권위 판정
 
 ### GameFramework 추상 (재사용 골격)
 
@@ -192,7 +219,7 @@ World 상태가 네트워크를 건널 때 *값을 snapshot(상태)으로 보낼
 | `IGameEngine` / `GameEngineBase` (기존) | 외각 호스트 추상 — `UpdateEngine()` 라이프사이클, 초기화/해제 |
 | `ITickUpdater` / `TickUpdaterBase` | 틱 시간 계산 — 클라(Mirror NetworkTime smoothing) vs 서버(자기 클럭) 분기 |
 | `IInputSource` | 인풋 어댑터 — 클라(키보드/마우스) vs 서버(네트워크 큐) |
-| `IEventSink` | 이벤트 fan-out 어댑터 — 클라(`EventBus` publish) vs 서버(`WireBroadcaster`) |
+| `IEventSink` | 이벤트 fan-out 어댑터 — 클·서 각자 `WorldEventSink` 구현 (클=`EventBus` publish / 서=wire 송신) |
 | `IPhysicsSimulator` | PhysX 호출 추상 (양쪽 동일 구체) |
 | `INetworkSession` | 네트워크 송수신 추상 (Mirror NetworkClient/Server 어댑터로 구현) |
 
@@ -205,7 +232,7 @@ World 상태가 네트워크를 건널 때 *값을 snapshot(상태)으로 보낼
 public class LOPGameEngine : GameEngineBase
 {
     [Inject] LOPGameSimulation simulation;
-    [Inject] WorldEventBridge bridge;
+    [Inject] IEventSink eventSink;          // WorldEventSink (클)
     [Inject] SnapshotHistory history;       // 클라 전용 (Stage ④)
 
     public override void UpdateEngine() {
@@ -217,7 +244,7 @@ public class LOPGameEngine : GameEngineBase
         ProcessInput();                       // 클·서 다름
         simulation.Tick(currentTick, dt);     // *공통*
         history.Record(simulation, currentTick);   // 클라 전용
-        bridge.FanOut(simulation.EventBuffer.Snapshot);
+        eventSink.Emit(simulation.EventBuffer.Snapshot);
         simulation.EventBuffer.Clear();
     }
 }
@@ -226,13 +253,13 @@ public class LOPGameEngine : GameEngineBase
 public class LOPGameEngine : GameEngineBase
 {
     [Inject] LOPGameSimulation simulation;
-    [Inject] WireBroadcaster broadcaster;
+    [Inject] IEventSink eventSink;          // WorldEventSink (서)
 
     public override void UpdateEngine() {
         ProcessNetworkMessage();              // 서버 입력 수신
         PushAIIntents();                      // 서버 전용
         simulation.Tick(currentTick, dt);     // *공통*
-        broadcaster.Broadcast(simulation.EventBuffer.Snapshot, currentTick);
+        eventSink.Emit(simulation.EventBuffer.Snapshot);
         simulation.EventBuffer.Clear();
     }
 }
@@ -273,6 +300,8 @@ LOP 매핑: `LOPGameSimulation`(Shared) ↔ `LOPGameEngine`(각 사이드).
 - deferred(ECS 커맨드버퍼): [Unity DOTS ECB](https://docs.unity3d.com/Packages/com.unity.entities@1.0/manual/systems-entity-command-buffers.html)
 - 도메인 이벤트(일반): [Fowler, Domain Event](https://martinfowler.com/eaaDev/DomainEvent.html)
 - CQRS / Event Sourcing: [Fowler, CQRS](https://martinfowler.com/bliki/CQRS.html)
+- "apply" 모호성(ES fold vs command handle): [Marten — Command Handler Workflow](https://martendb.io/scenarios/command_handler_workflow.html), [Daniel Whittaker — CQRS Command vs GoF Command](https://danielwhittaker.me/2015/05/25/is-a-cqrs-command-gof-command/)
+- 선택적 deferral / reactive trigger: [OW ModifyHealthQueue(Alibaba/GDC2017)](https://topic.alibabacloud.com/a/on-the-ecs-architecture-in-the-overwatch_8_8_31063753.html), [Unreal GAS Documentation](https://github.com/tranek/GASDocumentation), [Bevy Commands/Deferred](https://deepwiki.com/bevyengine/bevy/2.3-commands-and-deferred-operations), [Photon Quantum — Signals vs Events](https://doc.photonengine.com/quantum/current/manual/quantum-ecs/game-events), [Nystrom — Event Queue](https://gameprogrammingpatterns.com/event-queue.html)
 
 ## 프로젝트 컨벤션
 
@@ -289,7 +318,7 @@ LOP 매핑: `LOPGameSimulation`(Shared) ↔ `LOPGameEngine`(각 사이드).
 모델은 위와 같고, 현재 코드는 slice-3 단순화라 어긋난 곳이 있었다. **#1·#3은 해소됨**(2026-06-22, HP 스냅샷 단일권위 슬라이스), **#2는 남음**:
 
 1. ~~**이중 apply**~~ ✅ **해소(2026-06-22)** — 서버 Generation이 `TakeDamage`로 mutate한 뒤 Application(`WorldEventApplicator`)이 `remaining`으로 재적용하던 중복을 제거. 서버·클라 양쪽 event-apply 삭제, 호출처가 사라진 `WorldEventApplicator`/`HealthSystem.ApplyDamageDealt`도 삭제. **Application 코드는 Stage④(Death 컴포넌트·클라 예측-apply)에서 새 모양으로 복귀.**
-2. **despawn이 fan-out에** — `LOPGame.HandleDeath`(디스폰+경험치)가 egress(fan-out) 경로에서 상태를 바꿈 = "egress가 새 사실 생성" 안티패턴. → Cascade Reactor(Generation)로 이전해 `DespawnEvent` emit, egress는 *통지만*. (별도 슬라이스, **미해소**)
+2. **despawn이 fan-out에 (진행 중 — 위치 교정 슬라이스)** — `LOPGame.HandleDeath`(디스폰+경험치)가 egress(`ProcessEvent`의 `Emit` 뒤 `reactor.React`) 경로에서 상태를 바꿈 = "egress가 새 사실 생성" 안티패턴. → **죽음 cascade를 resolve 단계(egress 전)로 이전** + reactor/EventBus 왕복 제거(직접 처리). 풀 이벤트화(`DespawnEvent`+Application 적용)는 deferred 큐 인프라가 필요해 **Stage④로 미룸** — 지금은 *위치 교정만*(위 "선택적 deferral" 절 YAGNI).
 3. ~~**이중 HP 경로**~~ ✅ **해소(2026-06-22)** — 클라가 `DamageDealtEvent.remaining`(event)과 `UserEntitySnap.CurrentHP`(state) 둘로 HP를 받던 것을 **HP 권위 = 스냅샷 state 단일화**로 정리(클라 event-apply 삭제). 이벤트는 연출 전용(숫자·크리·HP바·HUD). 단 HP **UI**가 아직 그 연출 이벤트에서 값을 읽는 잔여(scope B: UI를 스냅샷-fed 모델로 이전 + 와이어 이벤트에서 HP 흔적 제거)는 다음 슬라이스.
 
 ## 상태
@@ -298,7 +327,7 @@ LOP 매핑: `LOPGameSimulation`(Shared) ↔ `LOPGameEngine`(각 사이드).
 
 - **슬라이스 1 (완료)**: `EntityRegistry`, `Entity`, `Component`, `Health`, `HealthSystem` (Generation Phase 2 측 `TakeDamage`만). Generation/Application 분리는 없고 슬라이스 분리만.
 - **슬라이스 2 (완료)**: `LOPEntityManager.DestroyMarkedEntities`에서 `EntityRegistry.Remove` 연결, 라이프사이클 닫기.
-- **슬라이스 3 (진행)**: Generation Phase 2/3 + `WorldEventBuffer` + Application(쓰기) + Bridge(fan-out)로 **데미지 → 사망 경로의 첫 끝-끝 구현**. 와이어는 레거시 `DamageEventToC`를 어댑터로 격리하고 내부는 새 `WorldEvent` 추상으로 통일. 확정 게이트는 trivial(매 드레인=commit), 클라 측 Generation은 없음(서버 권위).
+- **슬라이스 3 (완료)**: Generation Phase 2/3 + `WorldEventBuffer` + Bridge(fan-out)로 **데미지 → 사망 경로의 첫 끝-끝 구현**. 와이어는 레거시 `DamageEventToC`를 어댑터로 격리하고 내부는 새 `WorldEvent` 추상으로 통일. 확정 게이트는 trivial(매 드레인=commit), 클라 측 Generation은 없음(서버 권위). *(후속 HP 슬라이스에서 중복 Application 제거 — backlog #1/#3 해소. Bridge/Broadcaster → `WorldEventSink`[`IEventSink`]로 리네임.)*
 - **LOP-Shared 도입 (Slice 0/1, 진행 예정)**: 별도 git 저장소 `LeagueOfPhysical-Shared`(패키지 `com.baegames.lop.shared`)를 만들어 클·서 *진짜 공통* 코드(wire/proto + 메시지 인프라)를 추출. 자세한 토폴로지·범위는 `lop-repo-topology.md` 참조.
 - **Slice 4(a~e) — Engine ↔ Simulation 추출 (예정)**: `LOPGameEngine`의 시뮬 흐름을 `LOPGameSimulation`으로 점진 흡수.
   - **4a**: GameFramework에 추상 추가 — `IGameSimulation` + `GameSimulationBase`, `ITickUpdater` + `TickUpdaterBase`, `IInputSource`, `IEventSink`, `IPhysicsSimulator`, `INetworkSession`

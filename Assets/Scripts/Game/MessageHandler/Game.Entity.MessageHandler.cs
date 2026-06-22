@@ -64,6 +64,20 @@ namespace LOP
                 }
                 else
                 {
+                    GameFramework.World.Health health = entityRegistry.Get(serverEntitySnap.EntityId)?.Get<GameFramework.World.Health>();
+                    if (health != null)
+                    {
+                        int prevCurrent = health.Current;
+                        int prevMax = health.Max;
+                        healthSystem.ApplyAuthoritativeState(health, serverEntitySnap.MaxHP, serverEntitySnap.CurrentHP);
+                        if (health.Current != prevCurrent || health.Max != prevMax)
+                        {
+                            EventBus.Default.Publish(
+                                EventTopic.EntityId<LOPEntity>(serverEntitySnap.EntityId),
+                                new EntityHealthChanged(health.Current, health.Max));
+                        }
+                    }
+
                     entity.GetComponent<ServerStateReconciler>().AddServerEntitySnap(entitySnap);
                 }
             }
@@ -180,7 +194,15 @@ namespace LOP
             GameFramework.World.Health health = worldEntity?.Get<GameFramework.World.Health>();
             if (health != null)
             {
+                int prevCurrent = health.Current;
+                int prevMax = health.Max;
                 healthSystem.ApplyAuthoritativeState(health, userEntitySnapToC.MaxHP, userEntitySnapToC.CurrentHP);
+                if (health.Current != prevCurrent || health.Max != prevMax)
+                {
+                    EventBus.Default.Publish(
+                        EventTopic.EntityId<LOPEntity>(playerContext.entity.entityId),
+                        new EntityHealthChanged(health.Current, health.Max));
+                }
             }
             else
             {

@@ -9,7 +9,7 @@ namespace LOP.UI
     /// <summary>
     /// 플레이어 HUD ViewModel. 게임 스코프 resolver로 생성되어 IPlayerContext를 주입받는다.
     /// 엔티티의 HP/MP/EXP/Level을 R3 ReactiveProperty로 노출 → View가 구독(폴링 없음).
-    /// HP: 초기값 World.Health pull, 라이브 EntityDamage 이벤트로 갱신.
+    /// HP: 초기값 World.Health pull, 라이브 EntityHealthChanged 이벤트로 갱신.
     /// MP: 초기값 World.Mana pull, 라이브 EntityManaChanged 이벤트로 갱신.
     /// EXP/Level: 초기값 World.Level pull, 라이브 EntityLevelChanged 이벤트로 갱신.
     /// </summary>
@@ -46,7 +46,7 @@ namespace LOP.UI
 
             PushAll();
 
-            EventBus.Default.Subscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityDamage);
+            EventBus.Default.Subscribe<EntityHealthChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityHealthChanged);
             EventBus.Default.Subscribe<EntityManaChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityManaChanged);
             EventBus.Default.Subscribe<EntityLevelChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityLevelChanged);
         }
@@ -58,9 +58,10 @@ namespace LOP.UI
             _expToNext.Value = e.expToNext;
         }
 
-        private void OnEntityDamage(EntityDamage entityDamage)
+        private void OnEntityHealthChanged(EntityHealthChanged e)
         {
-            _hp.Value = (int)entityDamage.remainingHP;
+            _hp.Value = e.current;
+            _maxHp.Value = e.max;
         }
 
         private void OnEntityManaChanged(EntityManaChanged e)
@@ -97,7 +98,7 @@ namespace LOP.UI
         {
             if (_entity != null)
             {
-                EventBus.Default.Unsubscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityDamage);
+                EventBus.Default.Unsubscribe<EntityHealthChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityHealthChanged);
                 EventBus.Default.Unsubscribe<EntityManaChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityManaChanged);
                 EventBus.Default.Unsubscribe<EntityLevelChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityLevelChanged);
             }

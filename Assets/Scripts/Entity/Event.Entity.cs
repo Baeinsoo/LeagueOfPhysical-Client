@@ -62,6 +62,18 @@ namespace LOP.Event.Entity
         }
     }
 
+    public struct EntityHealthChanged
+    {
+        public int current;
+        public int max;
+
+        public EntityHealthChanged(int current, int max)
+        {
+            this.current = current;
+            this.max = max;
+        }
+    }
+
     public struct EntityManaChanged
     {
         public int current;

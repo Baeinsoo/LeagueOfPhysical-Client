@@ -31,19 +31,19 @@ namespace LOP
 
         private void UpdateInterpolationBackTime()
         {
-            float targetBackTime = Mathf.Clamp((float)GameEngine.NetworkTime.remoteBackTime, MIN_BACK_TIME, MAX_BACK_TIME);
+            float targetBackTime = Mathf.Clamp((float)Runner.NetworkTime.remoteBackTime, MIN_BACK_TIME, MAX_BACK_TIME);
 
             interpolationBackTime = Mathf.Lerp(interpolationBackTime, targetBackTime, SMOOTHING_FACTOR * Time.deltaTime);
         }
 
         private void Interpolation()
         {
-            if (serverEntitySnaps.Count < 2 || GameEngine.current == null)
+            if (serverEntitySnaps.Count < 2 || Runner.current == null)
             {
                 return;
             }
 
-            double interpolationTime = GameEngine.Time.elapsedTime - interpolationBackTime;
+            double interpolationTime = Runner.Time.elapsedTime - interpolationBackTime;
 
             for (int i = serverEntitySnaps.Count - 1; i >= 1; i--)
             {

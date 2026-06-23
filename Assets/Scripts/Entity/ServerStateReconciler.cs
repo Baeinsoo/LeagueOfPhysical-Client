@@ -1,5 +1,5 @@
 using GameFramework;
-using LOP.Event.LOPGameEngine.Update;
+using LOP.Event.LOPRunner.Update;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -10,7 +10,7 @@ namespace LOP
     public class ServerStateReconciler : MonoBehaviour, ICleanup
     {
         [Inject]
-        private IGameEngine gameEngine;
+        private IRunner runner;
 
         public LOPEntity entity { get; set; }
         public LOPEntityView entityView { get; set; }
@@ -35,15 +35,15 @@ namespace LOP
 
         private void Start()
         {
-            gameEngine.AddListener(this);  //  addto(this);
+            runner.AddListener(this);  //  addto(this);
         }
 
         public void Cleanup()
         {
-            gameEngine.RemoveListener(this);
+            runner.RemoveListener(this);
         }
 
-        [GameEngineListen(typeof(Begin))]
+        [RunnerListen(typeof(Begin))]
         private void OnBegin()
         {
             beginPosition = entity.position;
@@ -51,7 +51,7 @@ namespace LOP
             beginVelocity = entity.velocity;
         }
 
-        [GameEngineListen(typeof(End))]
+        [RunnerListen(typeof(End))]
         private void OnEnd()
         {
             SaveLocalEntitySnap();
@@ -65,7 +65,7 @@ namespace LOP
         {
             localEntitySnaps.Add(new LocalEntitySnap
             {
-                tick = GameEngine.Time.tick,
+                tick = Runner.Time.tick,
                 positionDiff = entity.position - beginPosition,
                 rotationDiff = entity.rotation - beginRotation,
                 velocityDiff = entity.velocity - beginVelocity,
@@ -110,9 +110,9 @@ namespace LOP
             float smoothTime = Mathf.Lerp(0.4f, 0.08f, lerpFactor);
             float maxSpeed = Mathf.Lerp(8f, 25f, lerpFactor);
 
-            entity.position = Vector3.SmoothDamp(position, targetPosition, ref positionForSmoothDamp, smoothTime, maxSpeed, (float)GameEngine.Time.tickInterval);
-            entity.rotation = Quaternion.Slerp(Quaternion.Euler(rotation), Quaternion.Euler(targetRotation), (float)GameEngine.Time.tickInterval * (2f + lerpFactor * 3f)).eulerAngles;
-            entity.velocity = Vector3.SmoothDamp(velocity, targetVelocity, ref velocityForSmoothDamp, smoothTime, maxSpeed, (float)GameEngine.Time.tickInterval);
+            entity.position = Vector3.SmoothDamp(position, targetPosition, ref positionForSmoothDamp, smoothTime, maxSpeed, (float)Runner.Time.tickInterval);
+            entity.rotation = Quaternion.Slerp(Quaternion.Euler(rotation), Quaternion.Euler(targetRotation), (float)Runner.Time.tickInterval * (2f + lerpFactor * 3f)).eulerAngles;
+            entity.velocity = Vector3.SmoothDamp(velocity, targetVelocity, ref velocityForSmoothDamp, smoothTime, maxSpeed, (float)Runner.Time.tickInterval);
 
             if (distance > threshold * 8)
             {
@@ -130,7 +130,7 @@ namespace LOP
 
         private void SaveEntityTransformSnap()
         {
-            entityTransformSnaps[GameEngine.Time.tick] = new EntityTransform
+            entityTransformSnaps[Runner.Time.tick] = new EntityTransform
             {
                 position = entity.position,
                 rotation = entity.rotation,
@@ -151,8 +151,8 @@ namespace LOP
             }
 
             //  렌더링과 물리 시뮬레이션의 주기가 달라 움직임이 튀어 보일 수 있는 부분을 지연 렌더링을 사용하여 부드럽게 렌더링한다.
-            double tickInterval = GameEngine.Time.tickInterval;
-            double renderTime = GameEngine.Time.elapsedTime - tickInterval;
+            double tickInterval = Runner.Time.tickInterval;
+            double renderTime = Runner.Time.elapsedTime - tickInterval;
 
             long tickPrev = (long)(renderTime / tickInterval);
             long tickNext = tickPrev + 1;

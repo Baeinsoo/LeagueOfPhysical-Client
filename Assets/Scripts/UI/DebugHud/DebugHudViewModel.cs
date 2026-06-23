@@ -16,18 +16,18 @@ namespace LOP.UI
         [Inject]
         private InputTimingStats inputTimingStats;
 
-        public bool IsRunning => GameEngine.current != null;
+        public bool IsRunning => Runner.current != null;
 
-        public long Tick => GameEngine.Time.tick;
+        public long Tick => Runner.Time.tick;
 
-        public double ElapsedTime => GameEngine.Time.elapsedTime;
+        public double ElapsedTime => Runner.Time.elapsedTime;
 
-        public double RttMs => GameEngine.NetworkTime.rtt * 1000;
+        public double RttMs => Runner.NetworkTime.rtt * 1000;
 
         // 서버 현재 tick 추정 ≈ (predictedTime − 편도지연)/interval. Lead = Tick − 이것 = (AheadMargin + 편도지연)/interval = 진짜 lead.
-        public long ServerTickEstimate => (long)(GameEngine.NetworkTime.serverNow / GameEngine.Time.tickInterval);
+        public long ServerTickEstimate => (long)(Runner.NetworkTime.serverNow / Runner.Time.tickInterval);
 
-        public long Lead => GameEngine.Time.tick - ServerTickEstimate;
+        public long Lead => Runner.Time.tick - ServerTickEstimate;
 
         public float ReconLast => reconciliationStats.Last;
 

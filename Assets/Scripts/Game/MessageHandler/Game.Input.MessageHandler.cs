@@ -7,7 +7,7 @@ namespace LOP
     public class GameInputMessageHandler : IGameMessageHandler
     {
         [Inject]
-        private IGameEngine gameEngine;
+        private IRunner runner;
 
         public void Register()
         {
@@ -27,7 +27,7 @@ namespace LOP
                 Sequence = inputSequenceToC.InputSequence.Sequence,
             };
 
-            LOPEntity lopEntity = gameEngine.entityManager.GetEntity<LOPEntity>(inputSequenceToC.EntityId);
+            LOPEntity lopEntity = runner.entityManager.GetEntity<LOPEntity>(inputSequenceToC.EntityId);
 
             lopEntity.GetComponent<SnapReconciler>().AddServerInputSequence(inputSequence);
         }

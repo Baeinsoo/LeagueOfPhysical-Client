@@ -2,13 +2,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using GameFramework;
-using LOP.Event.LOPGameEngine.Update;
+using LOP.Event.LOPRunner.Update;
 using VContainer;
 
 namespace LOP
 {
     [DIMonoBehaviour]
-    public class LOPGameEngine : GameEngineBase
+    public class LOPRunner : RunnerBase
     {
         [Inject] private GameFramework.World.WorldEventBuffer worldEventBuffer;
         [Inject] private GameFramework.World.IEventSink eventSink;
@@ -18,7 +18,7 @@ namespace LOP
 
         protected override INetworkTime CreateNetworkTime() => new MirrorNetworkTime();
 
-        public override void UpdateEngine()
+        public override void UpdateRunner()
         {
             BeginUpdate();
 

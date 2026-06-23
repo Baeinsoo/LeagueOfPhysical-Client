@@ -14,12 +14,12 @@ namespace LOP
         public string actionCode { get; private set; }
         public MasterData.Action masterData { get; private set; }
 
-        public bool isCasting => GameEngine.Time.tick < startTick + masterData.CastTime / GameEngine.Time.tickInterval;
+        public bool isCasting => Runner.Time.tick < startTick + masterData.CastTime / Runner.Time.tickInterval;
         public double remainCooldown { get; protected set; }
 
         public long startTick { get; protected set; }
         public long endTick { get; protected set; }
-        protected double elapsedTime => (GameEngine.Time.tick - startTick) * GameEngine.Time.tickInterval;
+        protected double elapsedTime => (Runner.Time.tick - startTick) * Runner.Time.tickInterval;
         private long lastUpdateTick;
 
         protected new LOPEntity entity => (LOPEntity)base.entity;
@@ -68,7 +68,7 @@ namespace LOP
         protected void ActionStart()
         {
             isActive = true;
-            startTick = GameEngine.Time.tick;
+            startTick = Runner.Time.tick;
 
             OnActionStart();
 
@@ -78,7 +78,7 @@ namespace LOP
         protected void ActionEnd()
         {
             isActive = false;
-            endTick = GameEngine.Time.tick;
+            endTick = Runner.Time.tick;
             remainCooldown = masterData.Cooldown;
 
             OnActionEnd();
@@ -88,7 +88,7 @@ namespace LOP
 
         public void UpdateAction()
         {
-            if (GameEngine.Time.tick == lastUpdateTick)
+            if (Runner.Time.tick == lastUpdateTick)
             {
                 Debug.LogWarning("Action update called with the same tick. Skipping update.");
                 return;
@@ -105,7 +105,7 @@ namespace LOP
             }
             else
             {
-                remainCooldown = System.Math.Max(remainCooldown - GameEngine.Time.tickInterval, 0);
+                remainCooldown = System.Math.Max(remainCooldown - Runner.Time.tickInterval, 0);
             }
         }
 

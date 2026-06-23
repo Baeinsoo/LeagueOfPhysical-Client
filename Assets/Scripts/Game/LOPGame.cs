@@ -18,7 +18,7 @@ namespace LOP
         public event Action<IGameState> onGameStateChanged;
 
         [Inject]
-        public IGameEngine gameEngine { get; private set; }
+        public IRunner runner { get; private set; }
 
         [Inject]
         private IEnumerable<IGameMessageHandler> gameMessageHandlers;
@@ -68,7 +68,7 @@ namespace LOP
 
             handle = Addressables.LoadSceneAsync(/*roomDataContext.match.mapId*/"Assets/Art/Scenes/FlapWangMap.unity", LoadSceneMode.Additive);
 
-            await gameEngine.InitializeAsync();
+            await runner.InitializeAsync();
 
             await UniTask.WaitUntil(() => handle.IsDone);
 
@@ -79,7 +79,7 @@ namespace LOP
 
         public async Task DeinitializeAsync()
         {
-            await gameEngine.DeinitializeAsync();
+            await runner.DeinitializeAsync();
 
             foreach (var gameMessageHandler in gameMessageHandlers.OrEmpty())
             {
@@ -95,14 +95,14 @@ namespace LOP
 
         public void Run(long tick, double interval, double elapsedTime)
         {
-            gameEngine.Run(tick, interval, elapsedTime);
+            runner.Run(tick, interval, elapsedTime);
 
             gameState = Playing.State;
         }
 
         public void Stop()
         {
-            gameEngine.Stop();
+            runner.Stop();
 
             gameState = Paused.State;
         }

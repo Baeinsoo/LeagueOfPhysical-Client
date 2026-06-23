@@ -3,6 +3,7 @@ using LOP.UI;
 using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 using VContainer;
 using VContainer.Unity;
 
@@ -14,7 +15,7 @@ namespace LOP
     public class GameLifetimeScope : LifetimeScope
     {
         [SerializeField] private LOPGame game;
-        [SerializeField] private LOPGameEngine gameEngine;
+        [SerializeField, FormerlySerializedAs("gameEngine")] private LOPRunner runner;
         [SerializeField] private CameraController cameraController;
 
         // 전역 WindowManager에 게임 스코프 View 팩토리를 기여한 핸들(OnDestroy에서 해제).
@@ -34,9 +35,9 @@ namespace LOP
             builder.Register<GameFramework.World.IEventSink, WorldEventSink>(Lifetime.Singleton);
             builder.Register<GameFramework.IPhysicsSimulator, GameFramework.UnityPhysicsSimulator>(Lifetime.Singleton);
 
-            // game/gameEngine은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.
+            // game/runner은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.
             builder.RegisterComponent(game).As<IGame>();
-            builder.RegisterComponent(gameEngine).As<IGameEngine>();
+            builder.RegisterComponent(runner).As<IRunner>();
             builder.RegisterComponent(cameraController);
 
             builder.Register<IGameMessageHandler, GameInfoMessageHandler>(Lifetime.Transient);

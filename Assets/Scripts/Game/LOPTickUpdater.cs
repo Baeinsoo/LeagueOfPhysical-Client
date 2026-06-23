@@ -15,7 +15,7 @@ namespace LOP
         {
             // 동적 lead(LeadState)는 입력 타이밍 피드백으로 갱신됨. 주입 전(초기 프레임)엔 기본값.
             double aheadMargin = leadState != null ? leadState.AheadMargin : LeadState.DefaultMargin;
-            double target = GameEngine.NetworkTime.predictedTime + aheadMargin;
+            double target = Runner.NetworkTime.predictedTime + aheadMargin;
             elapsedTime = clockDilator.Advance(elapsedTime, target, Time.deltaTime);
         }
     }

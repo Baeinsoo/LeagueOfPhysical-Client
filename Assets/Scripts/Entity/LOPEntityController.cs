@@ -1,6 +1,6 @@
 using GameFramework;
 using LOP.Event.Entity;
-using LOP.Event.LOPGameEngine.Update;
+using LOP.Event.LOPRunner.Update;
 using UniRx;
 using UnityEngine;
 using VContainer;
@@ -10,7 +10,7 @@ namespace LOP
     public class LOPEntityController : MonoBehaviour, ICleanup
     {
         [Inject]
-        private IGameEngine gameEngine;
+        private IRunner runner;
 
         public LOPEntity entity { get; private set; }
 
@@ -21,14 +21,14 @@ namespace LOP
         
         protected virtual void Start()
         {
-            gameEngine.AddListener(this);
+            runner.AddListener(this);
             EventBus.Default.Subscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
         }
 
         public void Cleanup()
         {
             EventBus.Default.Unsubscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
-            gameEngine.RemoveListener(this);
+            runner.RemoveListener(this);
             entity = null;
         }
 
@@ -41,7 +41,7 @@ namespace LOP
             }
         }
 
-        [GameEngineListen(typeof(AfterPhysicsSimulation))]
+        [RunnerListen(typeof(AfterPhysicsSimulation))]
         private void OnUpdateAfterPhysicsSimulation()
         {
             entity.SyncPhysics();

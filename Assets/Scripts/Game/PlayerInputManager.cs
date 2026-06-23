@@ -1,5 +1,5 @@
 using GameFramework;
-using LOP.Event.LOPGameEngine.Update;
+using LOP.Event.LOPRunner.Update;
 
 namespace LOP
 {
@@ -10,19 +10,19 @@ namespace LOP
 
         private long sequenceNumber;
         private PlayerInput playerInput;
-        private IGameEngine gameEngine;
+        private IRunner runner;
         private IPlayerContext playerContext;
         private IMovementManager movementManager;
         private IActionManager actionManager;
 
-        public PlayerInputManager(IGameEngine gameEngine, IPlayerContext playerContext, IMovementManager movementManager, IActionManager actionManager)
+        public PlayerInputManager(IRunner runner, IPlayerContext playerContext, IMovementManager movementManager, IActionManager actionManager)
         {
-            this.gameEngine = gameEngine;
+            this.runner = runner;
             this.playerContext = playerContext;
             this.movementManager = movementManager;
             this.actionManager = actionManager;
 
-            this.gameEngine.AddListener(this);
+            this.runner.AddListener(this);
         }
 
         public long GenerateSequenceNumber()
@@ -35,7 +35,7 @@ namespace LOP
             this.sequenceNumber = sequenceNumber;
         }
 
-        [GameEngineListen(typeof(ProcessInput))]
+        [RunnerListen(typeof(ProcessInput))]
         private void ProcessInput()
         {
             if (playerContext.entity == null)
@@ -46,7 +46,7 @@ namespace LOP
             if (GetInput<PlayerInput>(out var playerInput))
             {
                 PlayerInputToS playerInputToS = new PlayerInputToS();
-                playerInputToS.Tick = GameEngine.Time.tick;
+                playerInputToS.Tick = Runner.Time.tick;
                 playerInputToS.SessionId = playerContext.session.sessionId;
                 playerInputToS.PlayerInput = new global::PlayerInput
                 {
@@ -99,7 +99,7 @@ namespace LOP
                 // 무입력 틱마다 윈도우를 재송출하면 유실 입력이 1틱 내 재도착해 buffer 안에서 복구된다.
                 // (새 seq를 만들지 않고 기존 윈도우만 재전송 — 서버 처리·reconciliation·seq cadence 무변경.)
                 PlayerInputToS redundancy = new PlayerInputToS();
-                redundancy.Tick = GameEngine.Time.tick;
+                redundancy.Tick = Runner.Time.tick;
                 redundancy.SessionId = playerContext.session.sessionId;
                 redundancy.RecentInputs.AddRange(recentInputs);
                 playerContext.session.Send(redundancy, reliable: false);

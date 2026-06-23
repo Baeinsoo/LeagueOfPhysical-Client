@@ -7,7 +7,7 @@ namespace LOP
     public class GameInfoMessageHandler : IGameMessageHandler
     {
         [Inject]
-        private IGameEngine gameEngine;
+        private IRunner runner;
 
         [Inject]
         private PlayerInputManager playerInputManager;
@@ -29,7 +29,7 @@ namespace LOP
                 switch (entityCreationData.CreationDataCase)
                 {
                     case EntityCreationData.CreationDataOneofCase.CharacterCreationData:
-                        gameEngine.entityManager.CreateEntity<LOPEntity, CharacterCreationData>(new CharacterCreationData
+                        runner.entityManager.CreateEntity<LOPEntity, CharacterCreationData>(new CharacterCreationData
                         {
                             entityId = entityCreationData.CharacterCreationData.BaseEntityCreationData.EntityId,
                             position = MapperConfig.mapper.Map<Vector3>(entityCreationData.CharacterCreationData.BaseEntityCreationData.Position),
@@ -52,7 +52,7 @@ namespace LOP
                         break;
 
                     case EntityCreationData.CreationDataOneofCase.ItemCreationData:
-                        gameEngine.entityManager.CreateEntity<LOPEntity, ItemCreationData>(new ItemCreationData
+                        runner.entityManager.CreateEntity<LOPEntity, ItemCreationData>(new ItemCreationData
                         {
                             entityId = entityCreationData.ItemCreationData.BaseEntityCreationData.EntityId,
                             position = MapperConfig.mapper.Map<Vector3>(entityCreationData.ItemCreationData.BaseEntityCreationData.Position),

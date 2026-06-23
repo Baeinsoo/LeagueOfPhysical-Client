@@ -9,7 +9,7 @@ namespace LOP
     {
         [Inject] private IPlayerContext playerContext;
         [Inject] private IGameDataStore gameDataStore;
-        [Inject] private IGameEngine gameEngine;
+        [Inject] private IRunner runner;
         [Inject] private IActionManager actionManager;
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
         [Inject] private GameFramework.World.HealthSystem healthSystem;
@@ -41,14 +41,14 @@ namespace LOP
 
         private void OnEntitySnapsToC(EntitySnapsToC entitySnapsToC)
         {
-            if (GameEngine.current == null)
+            if (Runner.current == null)
             {
                 return;
             }
 
             foreach (var serverEntitySnap in entitySnapsToC.EntitySnaps.OrEmpty())
             {
-                if (gameEngine.entityManager.TryGetEntity<LOPEntity>(serverEntitySnap.EntityId, out var entity) == false)
+                if (runner.entityManager.TryGetEntity<LOPEntity>(serverEntitySnap.EntityId, out var entity) == false)
                 {
                     Debug.LogWarning($"Entity {serverEntitySnap.EntityId} not found");
                     continue;
@@ -90,13 +90,13 @@ namespace LOP
                 case EntityCreationData.CreationDataOneofCase.CharacterCreationData:
                     string entityId = entitySpawnToC.EntityCreationData.CharacterCreationData.BaseEntityCreationData.EntityId;
 
-                    if (gameEngine.entityManager.TryGetEntity<LOPEntity>(entityId, out var entity))
+                    if (runner.entityManager.TryGetEntity<LOPEntity>(entityId, out var entity))
                     {
                         Debug.LogWarning($"Entity {entityId} already exists");
                         return;
                     }
 
-                    gameEngine.entityManager.CreateEntity<LOPEntity, CharacterCreationData>(new CharacterCreationData
+                    runner.entityManager.CreateEntity<LOPEntity, CharacterCreationData>(new CharacterCreationData
                     {
                         entityId = entityId,
                         position = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.CharacterCreationData.BaseEntityCreationData.Position),
@@ -121,13 +121,13 @@ namespace LOP
                 case EntityCreationData.CreationDataOneofCase.ItemCreationData:
                     string itemEntityId = entitySpawnToC.EntityCreationData.ItemCreationData.BaseEntityCreationData.EntityId;
 
-                    if (gameEngine.entityManager.TryGetEntity<LOPEntity>(itemEntityId, out var item))
+                    if (runner.entityManager.TryGetEntity<LOPEntity>(itemEntityId, out var item))
                     {
                         Debug.LogWarning($"Entity {itemEntityId} already exists");
                         return;
                     }
 
-                    gameEngine.entityManager.CreateEntity<LOPEntity, ItemCreationData>(new ItemCreationData
+                    runner.entityManager.CreateEntity<LOPEntity, ItemCreationData>(new ItemCreationData
                     {
                         entityId = itemEntityId,
                         position = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.ItemCreationData.BaseEntityCreationData.Position),
@@ -142,9 +142,9 @@ namespace LOP
 
         private void OnEntityDespawnToC(EntityDespawnToC entityDespawnToC)
         {
-            if (gameEngine.entityManager.TryGetEntity<LOPEntity>(entityDespawnToC.EntityId, out var entity))
+            if (runner.entityManager.TryGetEntity<LOPEntity>(entityDespawnToC.EntityId, out var entity))
             {
-                gameEngine.entityManager.DeleteEntityById(entityDespawnToC.EntityId);
+                runner.entityManager.DeleteEntityById(entityDespawnToC.EntityId);
             }
             else
             {
@@ -154,7 +154,7 @@ namespace LOP
 
         private void OnActionStartToC(ActionStartToC actionStartToC)
         {
-            if (GameEngine.current == null)
+            if (Runner.current == null)
             {
                 return;
             }
@@ -164,7 +164,7 @@ namespace LOP
                 return;
             }
 
-            if (gameEngine.entityManager.TryGetEntity<LOPEntity>(actionStartToC.EntityId, out var entity))
+            if (runner.entityManager.TryGetEntity<LOPEntity>(actionStartToC.EntityId, out var entity))
             {
                 actionManager.TryStartAction(entity, actionStartToC.ActionCode);
             }
@@ -177,7 +177,7 @@ namespace LOP
                 return;
             }
 
-            if (gameEngine.entityManager.TryGetEntity<LOPEntity>(actionEndToC.EntityId, out var entity))
+            if (runner.entityManager.TryGetEntity<LOPEntity>(actionEndToC.EntityId, out var entity))
             {
                 actionManager.TryEndAction(entity, actionEndToC.ActionCode);
             }

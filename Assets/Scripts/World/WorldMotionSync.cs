@@ -1,5 +1,5 @@
 using GameFramework;
-using LOP.Event.LOPGameEngine.Update;
+using LOP.Event.LOPRunner.Update;
 using UnityEngine;
 using VContainer;
 
@@ -13,7 +13,7 @@ namespace LOP
     public class WorldMotionSync : MonoBehaviour, ICleanup
     {
         [Inject]
-        private IGameEngine gameEngine;
+        private IRunner runner;
 
         [Inject]
         private GameFramework.World.EntityRegistry entityRegistry;
@@ -32,18 +32,18 @@ namespace LOP
             GameFramework.World.Entity worldEntity = entityRegistry.Get(entity.entityId);
             worldTransform = worldEntity?.Get<GameFramework.World.Transform>();
             worldVelocity = worldEntity?.Get<GameFramework.World.Velocity>();
-            gameEngine.AddListener(this);
+            runner.AddListener(this);
         }
 
         public void Cleanup()
         {
-            gameEngine.RemoveListener(this);
+            runner.RemoveListener(this);
             worldTransform = null;
             worldVelocity = null;
             entity = null;
         }
 
-        [GameEngineListen(typeof(AfterPhysicsSimulation))]
+        [RunnerListen(typeof(AfterPhysicsSimulation))]
         private void OnAfterPhysicsSimulation()
         {
             if (worldTransform != null)

@@ -28,6 +28,7 @@ namespace LOP
         {
             builder.Register<GameFramework.World.EntityRegistry>(Lifetime.Singleton);
             builder.Register<GameFramework.World.WorldEventBuffer>(Lifetime.Singleton);
+            builder.Register<GameFramework.World.IWorld, LOPWorld>(Lifetime.Singleton);
             builder.Register<GameFramework.World.HealthSystem>(Lifetime.Singleton);
             builder.Register<GameFramework.World.ManaSystem>(Lifetime.Singleton);
             builder.Register<GameFramework.World.LevelSystem>(Lifetime.Singleton);

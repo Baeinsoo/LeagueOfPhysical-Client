@@ -13,6 +13,7 @@ namespace LOP
         [Inject] private GameFramework.World.WorldEventBuffer worldEventBuffer;
         [Inject] private GameFramework.World.IEventSink eventSink;
         [Inject] private IPhysicsSimulator physicsSimulator;
+        [Inject] private GameFramework.World.IWorld world;
 
         public new LOPEntityManager entityManager => base.entityManager as LOPEntityManager;
 
@@ -31,6 +32,8 @@ namespace LOP
             UpdateEntity();
 
             UpdateAI();
+
+            world.Tick(Runner.Time.tick, (float)tickUpdater.interval);
 
             SimulatePhysics();
 

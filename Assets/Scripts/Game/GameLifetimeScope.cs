@@ -35,6 +35,7 @@ namespace LOP
             builder.Register<GameFramework.World.StatsSystem>(Lifetime.Singleton);
             builder.Register<GameFramework.World.IEventSink, WorldEventSink>(Lifetime.Singleton);
             builder.Register<GameFramework.IPhysicsSimulator, GameFramework.UnityPhysicsSimulator>(Lifetime.Singleton);
+            builder.Register<GameFramework.IMapLoader, AddressablesMapLoader>(Lifetime.Singleton);
 
             // game/runner은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.
             builder.RegisterComponent(game).As<IGame>();
@@ -96,7 +97,7 @@ namespace LOP
             base.OnDestroy();
         }
 
-        // LOPGame이 additive 로드하는 맵 씬도 이 컨테이너로 주입한다.
+        // Factory가 additive 로드하는 맵 씬도 이 컨테이너로 주입한다.
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             // 자기 씬은 빌드 콜백에서 이미 주입했다. (자기 씬 Awake 중 구독해 자기 sceneLoaded도 수신됨)

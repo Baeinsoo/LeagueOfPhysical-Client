@@ -5,11 +5,6 @@ using UnityEngine;
 using VContainer;
 using System.Threading.Tasks;
 using System;
-using UnityEngine.SceneManagement;
-using Cysharp.Threading.Tasks;
-using UnityEngine.ResourceManagement.AsyncOperations;
-using UnityEngine.ResourceManagement.ResourceProviders;
-using UnityEngine.AddressableAssets;
 
 namespace LOP
 {
@@ -22,6 +17,11 @@ namespace LOP
 
         [Inject]
         private IEnumerable<IGameMessageHandler> gameMessageHandlers;
+
+        [Inject]
+        private IMapLoader mapLoader;
+
+        private const string MapId = "Assets/Art/Scenes/FlapWangMap.unity";
 
         private IGameState _gameState;
         public IGameState gameState
@@ -42,7 +42,6 @@ namespace LOP
         public bool initialized { get; private set; }
 
         private Restorer restorer = new Restorer();
-        private AsyncOperationHandle<SceneInstance> handle;
 
         public async Task InitializeAsync()
         {
@@ -66,11 +65,12 @@ namespace LOP
                 gameMessageHandler.Register();
             }
 
-            handle = Addressables.LoadSceneAsync(/*roomDataContext.match.mapId*/"Assets/Art/Scenes/FlapWangMap.unity", LoadSceneMode.Additive);
+            // 맵 로딩과 runner 초기화를 병렬로 — 둘 다 끝나길 기다린다.
+            var mapLoadTask = mapLoader.LoadAsync(MapId);
 
             await runner.InitializeAsync();
 
-            await UniTask.WaitUntil(() => handle.IsDone);
+            await mapLoadTask;
 
             gameState = Initialized.State;
 
@@ -88,7 +88,7 @@ namespace LOP
 
             restorer.Dispose();
 
-            await Addressables.UnloadSceneAsync(handle);
+            await mapLoader.UnloadAsync();
 
             initialized = false;
         }

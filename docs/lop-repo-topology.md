@@ -188,6 +188,15 @@ LOP.MasterData.{Side}.Tests.{EditMode,PlayMode}
 - **Auto Referenced: true** (Runtime, Generated) — use-side 편의. Editor/Tests는 false.
 - 네임스페이스 `LOP.MasterData` 유지.
 
+### 마스터데이터 키 규약 — 기본키 = 정수 `id` (산업 표준)
+
+설정/마스터데이터 테이블의 **기본키(고유 식별)는 정수 `id`** 를 표준으로 한다. 사람이 읽는 이름은 *키가 아니라* `name`/`code` **컬럼**(메타데이터)으로 둔다.
+
+- **근거(산업 표준):** TrinityCore(WoW 서버, MMO 데이터 정전)의 `item_template`/`creature_template`/`spell`은 모두 **int 기본키**(entry/id) + `name` 컬럼. 일반 DB 베스트프랙티스도 "int 기본키 디폴트, string 키는 ISO 국가코드·통화 같은 *안정된 전역 표준*일 때만". Luban 자체 관용도 int 키(`TbItem.Get(12)`, `TbMail[1001]`). 숫자 키 = 인덱스 효율·FK 일관성.
+- **적용:** **신규 World Core 설정 테이블**(`TbStatusEffect`, 향후 `TbAbility`)은 int `id` 기본키. 코어가 이미 int(`EntityStatType`·`AbilityData.AbilityId`·`StatusEffectData.EffectId`·`ProducesEffectIds[]`)라 정합. int→int FK(어빌리티가 효과 id 참조)도 자연스러움.
+- **레거시:** 기존 `TbCharacter`/`TbAction`/`TbItem`/`TbSkin`은 string `code` 기본키(2a 부트스트랩 관성). 이는 *비표준 레거시*다. **지금 일괄 마이그레이션하지 않는다**(YAGNI) — 해당 테이블을 손대는 슬라이스에서 *기회 있을 때* int id로 수렴(예: `TbAction→TbAbility` 리네임 시). 새 string 키 테이블을 *추가하지 않는다.*
+- **구분:** 엔티티 *런타임 인스턴스 id*(`EntityRegistry`/`Entity.Id`, 현재 string)는 *설정 키와 별개 축*이다 — 인스턴스 식별이지 설정 참조가 아니므로 이 규약 대상 아님(타입 변경은 netcode/Stage④ 소관).
+
 ## use-side 계약
 
 LOP-Shared와 MasterData-Client/Server 패키지가 *패키지 dependencies로 표현하기 어려운* 외부 의존은 README에 *문서적 계약*으로 명시한다 (세 패키지 공통):

@@ -165,6 +165,7 @@ struct ActiveEffect                  // 순수 데이터
 - **Ability→Effect 이음새** = GAS `ApplyGameplayEffectToTarget`. 효과는 다출처·단일적용.
 - **Stats 연동** = GAS Attribute Modifier ≈ `StatModifier`(Flat/PercentAdd/PercentMult). SourceId 일괄제거가 GE 제거에 대응.
 - **cost/cooldown=필드** = Quantum `FP Cooldown`(GAS GE-우회 비채택, 명시적 최소화).
+- **마스터데이터 키 = int `id`** = TrinityCore(MMO 데이터 정전) item/spell/creature int 기본키 + `name` 컬럼 / Luban 관용(`TbItem.Get(12)`). 코어 int(`AbilityId`/`EffectId`/`ProducesEffectIds[]`)와 정합. 상세·근거·레거시 수렴 정책은 [lop-repo-topology.md](../../lop-repo-topology.md#마스터데이터-키-규약--기본키--정수-id-산업-표준).
 
 ## Out of Scope (다음 / 별도)
 

@@ -1,6 +1,7 @@
 using GameFramework;
 using LOP.UI;
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
@@ -14,7 +15,6 @@ namespace LOP
     /// </summary>
     public class GameLifetimeScope : LifetimeScope
     {
-        [SerializeField] private LOPGame game;
         [SerializeField, FormerlySerializedAs("gameEngine")] private LOPRunner runner;
         [SerializeField] private CameraController cameraController;
 
@@ -23,6 +23,9 @@ namespace LOP
         private IDisposable _characterHudViewRegistration;
         private IDisposable _gamePadViewRegistration;
         private IDisposable _debugHudViewRegistration;
+
+        // 메시지 핸들러 구독 생명주기는 게임 세션 스코프에 속한다(호스트 아님). 컴포지션 루트가 구동·해제.
+        private List<IGameMessageHandler> _gameMessageHandlers;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -37,8 +40,7 @@ namespace LOP
             builder.Register<GameFramework.IPhysicsSimulator, GameFramework.UnityPhysicsSimulator>(Lifetime.Singleton);
             builder.Register<GameFramework.IMapLoader, AddressablesMapLoader>(Lifetime.Singleton);
 
-            // game/runner은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.
-            builder.RegisterComponent(game).As<IGame>();
+            // runner은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.
             builder.RegisterComponent(runner).As<IRunner>();
             builder.RegisterComponent(cameraController);
 
@@ -83,6 +85,12 @@ namespace LOP
                 _characterHudViewRegistration = windowManager.RegisterViewFactory<CharacterHudView>(() => container.Resolve<CharacterHudView>());
                 _gamePadViewRegistration = windowManager.RegisterViewFactory<GamePadView>(() => container.Resolve<GamePadView>());
                 _debugHudViewRegistration = windowManager.RegisterViewFactory<DebugHudView>(() => container.Resolve<DebugHudView>());
+
+                _gameMessageHandlers = new List<IGameMessageHandler>(container.Resolve<IEnumerable<IGameMessageHandler>>());
+                foreach (var gameMessageHandler in _gameMessageHandlers.OrEmpty())
+                {
+                    gameMessageHandler.Register();
+                }
             });
         }
 
@@ -93,6 +101,12 @@ namespace LOP
             _characterHudViewRegistration?.Dispose();
             _gamePadViewRegistration?.Dispose();
             _debugHudViewRegistration?.Dispose();
+
+            foreach (var gameMessageHandler in _gameMessageHandlers.OrEmpty())
+            {
+                gameMessageHandler.Unregister();
+            }
+
             SceneManager.sceneLoaded -= OnSceneLoaded;
             base.OnDestroy();
         }

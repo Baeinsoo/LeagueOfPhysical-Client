@@ -14,7 +14,7 @@ namespace LOP
     {
         private const string GameSceneName = "LOPGame";
 
-        public async Task<IGame> CreateAsync()
+        public async Task<IRunner> CreateAsync()
         {
             var roomScope = LifetimeScope.Find<RoomLifetimeScope>();
 
@@ -24,7 +24,7 @@ namespace LOP
             }
 
             var gameScope = LifetimeScope.Find<GameLifetimeScope>();
-            return gameScope.Container.Resolve<IGame>();
+            return gameScope.Container.Resolve<IRunner>();
         }
 
         public async Task DestroyAsync()

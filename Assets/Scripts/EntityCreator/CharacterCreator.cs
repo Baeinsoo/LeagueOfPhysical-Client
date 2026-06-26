@@ -83,6 +83,7 @@ namespace LOP
             worldStats.BaseStats[(int)GameFramework.World.EntityStatType.Dexterity] = creationData.dexterity;
             worldStats.BaseStats[(int)GameFramework.World.EntityStatType.Intelligence] = creationData.intelligence;
             worldStats.BaseStats[(int)GameFramework.World.EntityStatType.Vitality] = creationData.vitality;
+            worldStats.BaseStats[(int)GameFramework.World.EntityStatType.MoveSpeed] = characterComponent.masterData.Speed;
             worldEntity.Add(worldStats);
             worldEntity.Add(new GameFramework.World.Transform
             {

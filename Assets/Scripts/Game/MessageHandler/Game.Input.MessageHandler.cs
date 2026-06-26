@@ -9,12 +9,12 @@ namespace LOP
         [Inject]
         private IRunner runner;
 
-        public void Register()
+        public void Initialize()
         {
             EventBus.Default.Subscribe<InputSequenceToC>(nameof(IMessage), OnInputSequenceToC);
         }
 
-        public void Unregister()
+        public void Dispose()
         {
             EventBus.Default.Unsubscribe<InputSequenceToC>(nameof(IMessage), OnInputSequenceToC);
         }

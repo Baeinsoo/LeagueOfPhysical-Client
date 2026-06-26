@@ -18,7 +18,6 @@ namespace LOP
         [Inject] private IRoomDataStore roomDataStore;
         [Inject] private IGameDataStore gameDataStore;
         [Inject] private IUserDataStore userDataStore;
-        [Inject] private IEnumerable<IRoomMessageHandler> roomMessageHandlers;
 
         public IRunner runner { get; private set; }
 
@@ -54,11 +53,6 @@ namespace LOP
                 throw new Exception($"GetMatch Error. code: {getMatch.response.code}");
             }
 
-            foreach (var roomMessageHandler in roomMessageHandlers.OrEmpty())
-            {
-                roomMessageHandler.Register();
-            }
-
             // 초기 엔티티 생성(GameInfoToC)이 JoinRoomServer에서 처리되기 전에 게임이 준비돼야 하므로 여기서 생성한다.
             runner = await gameFactory.CreateAsync();
             runner.onGameStateChanged += OnGameStateChanged;
@@ -74,11 +68,6 @@ namespace LOP
 
             await gameFactory.DestroyAsync();
             runner = null;
-
-            foreach (var roomMessageHandler in roomMessageHandlers.OrEmpty())
-            {
-                roomMessageHandler.Unregister();
-            }
 
             roomDataStore.Clear();
             gameDataStore.Clear();

@@ -17,7 +17,7 @@ namespace LOP
         [Inject] private GameFramework.World.LevelSystem levelSystem;
         [Inject] private GameFramework.World.StatsSystem statsSystem;
 
-        public void Register()
+        public void Initialize()
         {
             EventBus.Default.Subscribe<EntitySnapsToC>(nameof(IMessage), OnEntitySnapsToC);
             EventBus.Default.Subscribe<EntitySpawnToC>(nameof(IMessage), OnEntitySpawnToC);
@@ -28,7 +28,7 @@ namespace LOP
             EventBus.Default.Subscribe<StatAllocationToC>(nameof(IMessage), OnStatAllocationToC);
         }
 
-        public void Unregister()
+        public void Dispose()
         {
             EventBus.Default.Unsubscribe<EntitySnapsToC>(nameof(IMessage), OnEntitySnapsToC);
             EventBus.Default.Unsubscribe<EntitySpawnToC>(nameof(IMessage), OnEntitySpawnToC);

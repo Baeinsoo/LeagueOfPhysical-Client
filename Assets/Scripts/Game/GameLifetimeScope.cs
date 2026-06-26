@@ -1,7 +1,6 @@
 using GameFramework;
 using LOP.UI;
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
@@ -24,9 +23,6 @@ namespace LOP
         private IDisposable _gamePadViewRegistration;
         private IDisposable _debugHudViewRegistration;
 
-        // 메시지 핸들러 구독 생명주기는 게임 세션 스코프에 속한다(호스트 아님). 컴포지션 루트가 구동·해제.
-        private List<IGameMessageHandler> _gameMessageHandlers;
-
         protected override void Configure(IContainerBuilder builder)
         {
             builder.Register<GameFramework.World.EntityRegistry>(Lifetime.Singleton);
@@ -44,13 +40,14 @@ namespace LOP
             builder.RegisterComponent(runner).As<IRunner>();
             builder.RegisterComponent(cameraController);
 
-            builder.Register<IGameMessageHandler, GameInfoMessageHandler>(Lifetime.Transient);
-            builder.Register<IGameMessageHandler, GameEntityMessageHandler>(Lifetime.Transient);
-            builder.Register<IGameMessageHandler, GameInputMessageHandler>(Lifetime.Transient);
-            builder.Register<IGameMessageHandler, GameInputTimingMessageHandler>(Lifetime.Transient);
-            builder.Register<IGameMessageHandler, GameDamageMessageHandler>(Lifetime.Transient);
-            builder.Register<IGameMessageHandler, PlayerHudCoordinator>(Lifetime.Transient);
-            builder.Register<IGameMessageHandler, EntityBinder>(Lifetime.Transient);
+            // 메시지 핸들러: 컨테이너 엔트리포인트로 자기 구독 생명주기를 스스로 관리(스코프가 Initialize/Dispose 구동).
+            builder.RegisterEntryPoint<GameInfoMessageHandler>();
+            builder.RegisterEntryPoint<GameEntityMessageHandler>();
+            builder.RegisterEntryPoint<GameInputMessageHandler>();
+            builder.RegisterEntryPoint<GameInputTimingMessageHandler>();
+            builder.RegisterEntryPoint<GameDamageMessageHandler>();
+            builder.RegisterEntryPoint<PlayerHudCoordinator>();
+            builder.RegisterEntryPoint<EntityBinder>();
             builder.Register<PlayerInputManager>(Lifetime.Singleton).AsSelf();
             builder.Register<IActionManager, LOPActionManager>(Lifetime.Singleton);
             builder.Register<IMovementManager, LOPMovementManager>(Lifetime.Singleton);
@@ -85,12 +82,6 @@ namespace LOP
                 _characterHudViewRegistration = windowManager.RegisterViewFactory<CharacterHudView>(() => container.Resolve<CharacterHudView>());
                 _gamePadViewRegistration = windowManager.RegisterViewFactory<GamePadView>(() => container.Resolve<GamePadView>());
                 _debugHudViewRegistration = windowManager.RegisterViewFactory<DebugHudView>(() => container.Resolve<DebugHudView>());
-
-                _gameMessageHandlers = new List<IGameMessageHandler>(container.Resolve<IEnumerable<IGameMessageHandler>>());
-                foreach (var gameMessageHandler in _gameMessageHandlers.OrEmpty())
-                {
-                    gameMessageHandler.Register();
-                }
             });
         }
 
@@ -101,11 +92,6 @@ namespace LOP
             _characterHudViewRegistration?.Dispose();
             _gamePadViewRegistration?.Dispose();
             _debugHudViewRegistration?.Dispose();
-
-            foreach (var gameMessageHandler in _gameMessageHandlers.OrEmpty())
-            {
-                gameMessageHandler.Unregister();
-            }
 
             SceneManager.sceneLoaded -= OnSceneLoaded;
             base.OnDestroy();

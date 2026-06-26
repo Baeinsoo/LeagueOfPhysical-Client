@@ -17,12 +17,12 @@ namespace LOP
     {
         [Inject] private IObjectResolver objectResolver;
 
-        public void Register()
+        public void Initialize()
         {
             EventBus.Default.Subscribe<EntityCreated>(nameof(EntityCreated), OnEntityCreated);
         }
 
-        public void Unregister()
+        public void Dispose()
         {
             EventBus.Default.Unsubscribe<EntityCreated>(nameof(EntityCreated), OnEntityCreated);
         }

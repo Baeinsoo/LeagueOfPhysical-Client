@@ -12,12 +12,12 @@ namespace LOP
         [Inject]
         private PlayerInputManager playerInputManager;
 
-        public void Register()
+        public void Initialize()
         {
             EventBus.Default.Subscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);
         }
 
-        public void Unregister()
+        public void Dispose()
         {
             EventBus.Default.Unsubscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);
         }

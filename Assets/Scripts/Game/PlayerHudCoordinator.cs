@@ -19,12 +19,12 @@ namespace LOP
 
         private bool _opened;
 
-        public void Register()
+        public void Initialize()
         {
             EventBus.Default.Subscribe<EntityCreated>(nameof(EntityCreated), OnEntityCreated);
         }
 
-        public void Unregister()
+        public void Dispose()
         {
             EventBus.Default.Unsubscribe<EntityCreated>(nameof(EntityCreated), OnEntityCreated);
         }

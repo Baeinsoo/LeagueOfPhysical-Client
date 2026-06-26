@@ -14,7 +14,6 @@ namespace LOP
     /// </summary>
     public class GameLifetimeScope : LifetimeScope
     {
-        [SerializeField] private LOPGame game;
         [SerializeField, FormerlySerializedAs("gameEngine")] private LOPRunner runner;
         [SerializeField] private CameraController cameraController;
 
@@ -35,19 +34,20 @@ namespace LOP
             builder.Register<GameFramework.World.StatsSystem>(Lifetime.Singleton);
             builder.Register<GameFramework.World.IEventSink, WorldEventSink>(Lifetime.Singleton);
             builder.Register<GameFramework.IPhysicsSimulator, GameFramework.UnityPhysicsSimulator>(Lifetime.Singleton);
+            builder.Register<GameFramework.IMapLoader, AddressablesMapLoader>(Lifetime.Singleton);
 
-            // game/runner은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.
-            builder.RegisterComponent(game).As<IGame>();
+            // runner은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.
             builder.RegisterComponent(runner).As<IRunner>();
             builder.RegisterComponent(cameraController);
 
-            builder.Register<IGameMessageHandler, GameInfoMessageHandler>(Lifetime.Transient);
-            builder.Register<IGameMessageHandler, GameEntityMessageHandler>(Lifetime.Transient);
-            builder.Register<IGameMessageHandler, GameInputMessageHandler>(Lifetime.Transient);
-            builder.Register<IGameMessageHandler, GameInputTimingMessageHandler>(Lifetime.Transient);
-            builder.Register<IGameMessageHandler, GameDamageMessageHandler>(Lifetime.Transient);
-            builder.Register<IGameMessageHandler, PlayerHudCoordinator>(Lifetime.Transient);
-            builder.Register<IGameMessageHandler, EntityBinder>(Lifetime.Transient);
+            // 메시지 핸들러: 컨테이너 엔트리포인트로 자기 구독 생명주기를 스스로 관리(스코프가 Initialize/Dispose 구동).
+            builder.RegisterEntryPoint<GameInfoMessageHandler>();
+            builder.RegisterEntryPoint<GameEntityMessageHandler>();
+            builder.RegisterEntryPoint<GameInputMessageHandler>();
+            builder.RegisterEntryPoint<GameInputTimingMessageHandler>();
+            builder.RegisterEntryPoint<GameDamageMessageHandler>();
+            builder.RegisterEntryPoint<PlayerHudCoordinator>();
+            builder.RegisterEntryPoint<EntityBinder>();
             builder.Register<PlayerInputManager>(Lifetime.Singleton).AsSelf();
             builder.Register<IActionManager, LOPActionManager>(Lifetime.Singleton);
             builder.Register<IMovementManager, LOPMovementManager>(Lifetime.Singleton);
@@ -92,11 +92,12 @@ namespace LOP
             _characterHudViewRegistration?.Dispose();
             _gamePadViewRegistration?.Dispose();
             _debugHudViewRegistration?.Dispose();
+
             SceneManager.sceneLoaded -= OnSceneLoaded;
             base.OnDestroy();
         }
 
-        // LOPGame이 additive 로드하는 맵 씬도 이 컨테이너로 주입한다.
+        // Factory가 additive 로드하는 맵 씬도 이 컨테이너로 주입한다.
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             // 자기 씬은 빌드 콜백에서 이미 주입했다. (자기 씬 Awake 중 구독해 자기 sceneLoaded도 수신됨)

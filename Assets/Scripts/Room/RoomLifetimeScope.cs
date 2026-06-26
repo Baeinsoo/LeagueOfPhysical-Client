@@ -21,7 +21,8 @@ namespace LOP
             builder.Register<IPlayerContext, PlayerContext>(Lifetime.Singleton);
             builder.Register<GameDataStore>(Lifetime.Singleton).As<IGameDataStore, IDataStore>();
 
-            builder.Register<IRoomMessageHandler, GameMessageHandler>(Lifetime.Transient);
+            // 룸 메시지 핸들러: 컨테이너 엔트리포인트로 자기 구독 생명주기를 관리(스코프가 Initialize/Dispose 구동).
+            builder.RegisterEntryPoint<GameMessageHandler>();
 
             builder.Register<IGameFactory, LOPGameFactory>(Lifetime.Singleton);
 

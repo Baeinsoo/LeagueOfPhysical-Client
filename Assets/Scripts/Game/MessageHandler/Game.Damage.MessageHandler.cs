@@ -8,12 +8,12 @@ namespace LOP
         [Inject]
         private GameFramework.World.WorldEventBuffer worldEventBuffer;
 
-        public void Register()
+        public void Initialize()
         {
             EventBus.Default.Subscribe<DamageEventToC>(nameof(IMessage), OnDamageEventToC);
         }
 
-        public void Unregister()
+        public void Dispose()
         {
             EventBus.Default.Unsubscribe<DamageEventToC>(nameof(IMessage), OnDamageEventToC);
         }

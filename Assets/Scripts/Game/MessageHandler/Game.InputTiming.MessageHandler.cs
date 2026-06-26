@@ -13,12 +13,12 @@ namespace LOP
 
         private readonly LeadController leadController = new LeadController();
 
-        public void Register()
+        public void Initialize()
         {
             EventBus.Default.Subscribe<InputTimingToC>(nameof(IMessage), OnInputTimingToC);
         }
 
-        public void Unregister()
+        public void Dispose()
         {
             EventBus.Default.Unsubscribe<InputTimingToC>(nameof(IMessage), OnInputTimingToC);
         }

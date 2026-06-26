@@ -7,7 +7,7 @@ using VContainer;
 namespace LOP
 {
     [DIMonoBehaviour]
-    public class LOPGamePresenter : MonoGamePresenter<LOPGame>
+    public class LOPGamePresenter : MonoGamePresenter<LOPRunner>
     {
         [Inject]
         private CameraController cameraController;
@@ -22,7 +22,8 @@ namespace LOP
 
         private void Awake()
         {
-            game = GetComponent<LOPGame>();
+            // LOPRunner은 이 프레젠터 GameObject의 자식("LOPGameEngine")에 있다.
+            game = GetComponentInChildren<LOPRunner>();
             game.onGameStateChanged += OnGameStateChanged;
             
             EventBus.Default.Subscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);

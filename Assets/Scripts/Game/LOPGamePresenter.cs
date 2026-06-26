@@ -23,16 +23,16 @@ namespace LOP
         private void Awake()
         {
             // LOPRunner은 이 프레젠터 GameObject의 자식("LOPGameEngine")에 있다.
-            game = GetComponentInChildren<LOPRunner>();
-            game.onGameStateChanged += OnGameStateChanged;
+            runner = GetComponentInChildren<LOPRunner>();
+            runner.onGameStateChanged += OnGameStateChanged;
             
             EventBus.Default.Subscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);
         }
 
         private void OnDestroy()
         {
-            game.onGameStateChanged -= OnGameStateChanged;
-            game = null;
+            runner.onGameStateChanged -= OnGameStateChanged;
+            runner = null;
 
             EventBus.Default.Unsubscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);
         }

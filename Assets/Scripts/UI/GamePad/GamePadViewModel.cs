@@ -51,9 +51,20 @@ namespace LOP.UI
         /// <summary>데스크톱 편의: Space 키 점프(원본 JoyStick.Update 동작 보존).</summary>
         public void PollKeyboard()
         {
-            if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
+            if (Keyboard.current == null)
+            {
+                return;
+            }
+
+            if (Keyboard.current.spaceKey.wasPressedThisFrame)
             {
                 _playerInputManager.SetJump(true);
+            }
+
+            // 3d 데스크톱 편의: H 키로 헤이스트 발동(온스크린 버튼은 Haste() 커맨드 사용).
+            if (Keyboard.current.hKey.wasPressedThisFrame)
+            {
+                _playerInputManager.SetActionCode("haste");
             }
         }
 
@@ -85,6 +96,9 @@ namespace LOP.UI
         public void Jump() => _playerInputManager.SetJump(true);
 
         public void Dash() => _playerInputManager.SetActionCode("dash_001");
+
+        /// <summary>3d: 헤이스트 어빌리티 발동(이동속도 +30%, 한시). 온스크린 버튼/단축키(H)에서 호출.</summary>
+        public void Haste() => _playerInputManager.SetActionCode("haste");
 
         public void Spawn() => _playerInputManager.SetActionCode("spawn_001");
 

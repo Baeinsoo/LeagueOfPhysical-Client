@@ -18,6 +18,9 @@ namespace LOP
         [Inject]
         private GameFramework.World.EntityRegistry entityRegistry;
 
+        [Inject]
+        private AbilitySystem abilitySystem;
+
         public LOPEntity Create(CharacterCreationData creationData)
         {
             GameObject root = new GameObject($"Character_{creationData.entityId}");
@@ -91,9 +94,13 @@ namespace LOP
                 Rotation = Quaternion.Euler(entity.rotation).ToNumerics(),
             });
             worldEntity.Add(new GameFramework.World.Velocity { Linear = entity.velocity.ToNumerics() });
-            worldEntity.Add(new Abilities());        // 3d까지 빈 컨테이너(inert)
+            worldEntity.Add(new Abilities());
             worldEntity.Add(new StatusEffects());
             entityRegistry.Add(worldEntity);
+
+            // 3d: 헤이스트 어빌리티 부여(발동은 입력 트리거 — AbilityActivator). TEMP: 전체 부여, 캐릭터별 셋은 후속.
+            abilitySystem.Grant(worldEntity, 1);
+
             Debug.Log($"[World] Registered entity {worldEntity.Id} Health={worldHealth.Current}/{worldHealth.Max}");
             // --- end World Core slice 1+B ---
 

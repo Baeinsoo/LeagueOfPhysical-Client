@@ -9,6 +9,7 @@
         </ui:VisualElement>
         <ui:VisualElement name="action-buttons" class="action-buttons" picking-mode="Ignore">
             <ui:Button name="dash-button" class="action-button dash-button" text="DASH" />
+            <ui:Button name="haste-button" class="action-button haste-button" text="HASTE" />
             <ui:Button name="spawn-button" class="action-button spawn-button" text="SPAWN" />
             <ui:Button name="jump-button" class="action-button jump-button" text="JUMP" />
             <ui:Button name="attack-button" class="action-button attack-button" text="ATK" />

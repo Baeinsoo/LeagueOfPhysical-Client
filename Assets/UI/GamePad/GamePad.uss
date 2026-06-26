@@ -61,3 +61,7 @@
 .attack-button {
     background-color: rgba(150, 50, 50, 0.7);
 }
+
+.haste-button {
+    background-color: rgba(50, 110, 150, 0.7);
+}

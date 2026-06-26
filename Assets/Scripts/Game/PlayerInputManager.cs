@@ -14,13 +14,15 @@ namespace LOP
         private IPlayerContext playerContext;
         private IMovementManager movementManager;
         private IActionManager actionManager;
+        private AbilityActivator abilityActivator;
 
-        public PlayerInputManager(IRunner runner, IPlayerContext playerContext, IMovementManager movementManager, IActionManager actionManager)
+        public PlayerInputManager(IRunner runner, IPlayerContext playerContext, IMovementManager movementManager, IActionManager actionManager, AbilityActivator abilityActivator)
         {
             this.runner = runner;
             this.playerContext = playerContext;
             this.movementManager = movementManager;
             this.actionManager = actionManager;
+            this.abilityActivator = abilityActivator;
 
             this.runner.AddListener(this);
         }
@@ -112,7 +114,11 @@ namespace LOP
 
             if (string.IsNullOrEmpty(playerInput.actionCode) == false)
             {
-                actionManager.TryStartAction(playerContext.entity, playerInput.actionCode);
+                // 어빌리티 코드면 클라 예측 발동(서버도 권위 발동), 아니면 레거시 액션.
+                if (abilityActivator.TryActivate(playerContext.entity.entityId, playerInput.actionCode, Runner.Time.tick) == false)
+                {
+                    actionManager.TryStartAction(playerContext.entity, playerInput.actionCode);
+                }
             }
         }
 

@@ -90,6 +90,8 @@ namespace LOP
                 Rotation = Quaternion.Euler(entity.rotation).ToNumerics(),
             });
             worldEntity.Add(new GameFramework.World.Velocity { Linear = entity.velocity.ToNumerics() });
+            worldEntity.Add(new Abilities());        // 3d까지 빈 컨테이너(inert)
+            worldEntity.Add(new StatusEffects());
             entityRegistry.Add(worldEntity);
             Debug.Log($"[World] Registered entity {worldEntity.Id} Health={worldHealth.Current}/{worldHealth.Max}");
             // --- end World Core slice 1+B ---

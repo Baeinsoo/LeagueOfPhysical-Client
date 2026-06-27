@@ -31,7 +31,11 @@ namespace LOP
             int[] effects = r.ProducesEffectId == 0
                 ? System.Array.Empty<int>()
                 : new[] { r.ProducesEffectId };
-            return new AbilityData(r.Id, r.CooldownTicks, r.MpCost, r.CastTimeTicks, targeting, r.Range, effects);
+            // 프레임 데이터(startup/active/recovery)는 TbAbility 컬럼 외부화 전까지 기본값(즉발 등가).
+            // dash/attack 슬라이스에서 컬럼화하며 r.* 매핑으로 교체.
+            return new AbilityData(r.Id, r.CooldownTicks, r.MpCost,
+                startupTicks: 0, activeTicks: 1, recoveryTicks: 0,
+                targeting, r.Range, effects);
         }
     }
 }

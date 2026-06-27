@@ -61,10 +61,10 @@ namespace LOP.UI
                 _playerInputManager.SetJump(true);
             }
 
-            // 3d 데스크톱 편의: H 키로 헤이스트 발동(온스크린 버튼은 Haste() 커맨드 사용).
+            // 데스크톱 편의: H 키로 헤이스트 발동(온스크린 버튼은 Haste() 커맨드 사용).
             if (Keyboard.current.hKey.wasPressedThisFrame)
             {
-                _playerInputManager.SetActionCode("haste");
+                _playerInputManager.SetAbilityId(HasteAbilityId);
             }
         }
 
@@ -97,8 +97,11 @@ namespace LOP.UI
 
         public void Dash() => _playerInputManager.SetActionCode("dash_001");
 
-        /// <summary>3d: 헤이스트 어빌리티 발동(이동속도 +30%, 한시). 온스크린 버튼/단축키(H)에서 호출.</summary>
-        public void Haste() => _playerInputManager.SetActionCode("haste");
+        // 어빌리티는 int id로 발동(런타임 식별=id; string code는 데이터/에디터용). 버튼=어빌리티 슬롯 설정.
+        private const int HasteAbilityId = 1;
+
+        /// <summary>헤이스트 어빌리티 발동(이동속도 +30%, 한시). 온스크린 버튼/단축키(H)에서 호출.</summary>
+        public void Haste() => _playerInputManager.SetAbilityId(HasteAbilityId);
 
         public void Spawn() => _playerInputManager.SetActionCode("spawn_001");
 

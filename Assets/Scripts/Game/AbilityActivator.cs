@@ -3,9 +3,8 @@ using VContainer;
 namespace LOP
 {
     /// <summary>
-    /// 입력 actionCode를 어빌리티 발동으로 라우팅하는 side-local 서비스.
-    /// 코드가 어빌리티면 <see cref="AbilitySystem.TryActivate"/>로 발동하고 true, 아니면 false(레거시 액션 폴백).
-    /// TEMP(3d): 단일 "haste"만 인식. 3e에서 Luban TbAbility 조회로 일반화(호출부 불변).
+    /// 어빌리티 id로 발동을 라우팅하는 side-local 서비스(런타임 식별=int id).
+    /// id가 <c>TbAbility</c>에 있으면 <see cref="AbilitySystem.TryActivate"/>로 발동하고 true, 아니면 false.
     /// </summary>
     public class AbilityActivator
     {
@@ -21,9 +20,9 @@ namespace LOP
         [Inject]
         private GameFramework.World.EntityRegistry entityRegistry;
 
-        public bool TryActivate(string casterEntityId, string code, long currentTick)
+        public bool TryActivate(string casterEntityId, int abilityId, long currentTick)
         {
-            if (code != "haste")        // TEMP(3d): 단일 헤이스트. 3e에서 TbAbility 키 매칭으로 일반화.
+            if (abilityDataProvider.TryGet(abilityId, out var ability) == false)
             {
                 return false;
             }
@@ -34,8 +33,13 @@ namespace LOP
                 return false;
             }
 
-            abilitySystem.TryActivate(caster, abilityDataProvider.Get(1), caster,
-                new[] { statusEffectDataProvider.Get(1) }, currentTick);
+            var effects = new StatusEffectData[ability.ProducesEffectIds.Length];
+            for (int i = 0; i < effects.Length; i++)
+            {
+                effects[i] = statusEffectDataProvider.Get(ability.ProducesEffectIds[i]);
+            }
+
+            abilitySystem.TryActivate(caster, ability, caster, effects, currentTick);
             return true;
         }
     }

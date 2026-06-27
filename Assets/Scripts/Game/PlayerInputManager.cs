@@ -57,6 +57,7 @@ namespace LOP
                     Vertical = playerInput.vertical,
                     Jump = playerInput.jump,
                     ActionCode = playerInput.actionCode ?? "",
+                    AbilityId = playerInput.abilityId,
                 };
 
                 EntityTransform entityTransform = new EntityTransform
@@ -112,13 +113,15 @@ namespace LOP
         {
             movementManager.ProcessInput(playerContext.entity, playerContext.entity.GetEntityTransform(), playerInput.horizontal, playerInput.vertical, playerInput.jump);
 
-            if (string.IsNullOrEmpty(playerInput.actionCode) == false)
+            if (playerInput.abilityId != 0)
             {
-                // 어빌리티 코드면 클라 예측 발동(서버도 권위 발동), 아니면 레거시 액션.
-                if (abilityActivator.TryActivate(playerContext.entity.entityId, playerInput.actionCode, Runner.Time.tick) == false)
-                {
-                    actionManager.TryStartAction(playerContext.entity, playerInput.actionCode);
-                }
+                // 어빌리티 = int id 기반 발동(클라 예측, 서버도 권위 발동).
+                abilityActivator.TryActivate(playerContext.entity.entityId, playerInput.abilityId, Runner.Time.tick);
+            }
+            else if (string.IsNullOrEmpty(playerInput.actionCode) == false)
+            {
+                // 레거시 액션(dash/attack 등 — string code).
+                actionManager.TryStartAction(playerContext.entity, playerInput.actionCode);
             }
         }
 
@@ -156,6 +159,15 @@ namespace LOP
                 playerInput = new PlayerInput();
             }
             this.playerInput.actionCode = actionCode;
+        }
+
+        public void SetAbilityId(int abilityId)
+        {
+            if (playerInput == null)
+            {
+                playerInput = new PlayerInput();
+            }
+            this.playerInput.abilityId = abilityId;
         }
 
         public bool GetInput<T>(out T value) where T : PlayerInput

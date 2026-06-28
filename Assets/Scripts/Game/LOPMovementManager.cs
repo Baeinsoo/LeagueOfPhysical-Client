@@ -7,6 +7,8 @@ namespace LOP
 {
     public class LOPMovementManager : IMovementManager<LOPEntity>
     {
+        private const float MaxAcceleration = 100f;   // 목표 속도로 따라붙는 빠르기(클수록 즉각 반응 — 튜닝값)
+
         [Inject]
         private GameFramework.World.EntityRegistry entityRegistry;
 
@@ -29,19 +31,23 @@ namespace LOP
             float speed = statsSystem.GetValue(worldStats, (int)GameFramework.World.EntityStatType.MoveSpeed);
 
             var result = MovementSystem.ProcessMovement(new MovementInput(
-                entity.velocity, horizontal, vertical, speed));
+                entity.velocity, horizontal, vertical, speed,
+                MaxAcceleration, (float)Runner.Time.tickInterval));
 
-            if (result.hasMove)
+            // 계산된 새 속도와 지금 속도의 차이만큼 힘을 줘서 속도를 맞춘다(좌우/앞뒤만).
+            Vector3 delta = result.velocity - entity.velocity;
+            physicsComponent.entityRigidbody.AddForce(new Vector3(delta.x, 0f, delta.z), ForceMode.VelocityChange);
+            if (result.hasRotation)
             {
-                entity.velocity = result.velocity;   // EventBus 연출은 여기(host)
                 entity.rotation = result.rotation;
             }
 
-            //  Jump
+            // 점프: 위쪽 속도를 점프 속도로 맞춘다(땅에 있는지 체크는 아직 없음).
             if (jump)
             {
-                physicsComponent.entityRigidbody.linearVelocity -= new Vector3(0, physicsComponent.entityRigidbody.linearVelocity.y, 0);
-                physicsComponent.entityRigidbody.AddForce(Vector3.up * characterComponent.masterData.JumpPower, ForceMode.Impulse);
+                var rb = physicsComponent.entityRigidbody;
+                float jumpSpeed = characterComponent.masterData.JumpPower;
+                rb.AddForce(Vector3.up * (jumpSpeed - rb.linearVelocity.y), ForceMode.VelocityChange);
             }
         }
 

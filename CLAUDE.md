@@ -7,6 +7,17 @@ cascade, egress, CQRS 등)을 그대로 나열하지 말고, 일상어로 풀고
 곁들인다. 큰 그림(왜/무엇)을 먼저 제시하고 세부는 뒤에 둔다. 한 문단에 새 개념을 여러 개
 몰아넣지 않는다. 개념 자체는 정교하게 다루되, *전달*은 쉬워야 한다.
 
+## 코드 주석 (필수)
+
+**불필요한 주석은 달지 않고, 다는 주석은 쉽게 쓴다.**
+
+- **불필요한 주석 지양**: 코드로 자명한 것(무엇을 하는지)은 주석 없이 둔다. 변수명/함수명으로
+  드러나면 주석 불필요. 비자명한 *의도(왜)* 만 짧게 남긴다.
+- **쉽게 쓰기**: 주석은 일상어로. 설명 없이 전문용어(예: kernel, brake-to-desired,
+  passthrough, momentum 등)를 던지지 말고, 그 자리에서 무슨 뜻인지 풀어 쓴다. 코드를 처음 보는
+  사람이 한 줄로 이해되게.
+- 아직 없는 미래 기능을 현재 주석에 섞지 않는다(혼동 유발). 상세 컨벤션은 `docs/architecture-guidelines.md`의 "주석 컨벤션" 참고.
+
 ## UnityMCP instance targeting
 
 This project is the **client**. The UnityMCP server may have both the server and

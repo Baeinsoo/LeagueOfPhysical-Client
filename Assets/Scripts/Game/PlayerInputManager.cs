@@ -15,14 +15,18 @@ namespace LOP
         private IMovementManager movementManager;
         private IActionManager actionManager;
         private AbilityActivator abilityActivator;
+        private GameFramework.World.EntityRegistry entityRegistry;
+        private LOP.MasterData.LOPMasterData md;
 
-        public PlayerInputManager(IRunner runner, IPlayerContext playerContext, IMovementManager movementManager, IActionManager actionManager, AbilityActivator abilityActivator)
+        public PlayerInputManager(IRunner runner, IPlayerContext playerContext, IMovementManager movementManager, IActionManager actionManager, AbilityActivator abilityActivator, GameFramework.World.EntityRegistry entityRegistry, LOP.MasterData.LOPMasterData md)
         {
             this.runner = runner;
             this.playerContext = playerContext;
             this.movementManager = movementManager;
             this.actionManager = actionManager;
             this.abilityActivator = abilityActivator;
+            this.entityRegistry = entityRegistry;
+            this.md = md;
 
             this.runner.AddListener(this);
         }
@@ -47,6 +51,13 @@ namespace LOP
 
             if (GetInput<PlayerInput>(out var playerInput))
             {
+                // 대시 같은 조작 불가 상태에선 이동 입력을 무시한다(전송·예측 모두 0 → 보정 간섭 방지).
+                if (AbilityMotionSystem.TryGetActiveMotionSpeed(entityRegistry.Get(playerContext.entity.entityId), md, out _))
+                {
+                    playerInput.horizontal = 0f;
+                    playerInput.vertical = 0f;
+                }
+
                 PlayerInputToS playerInputToS = new PlayerInputToS();
                 playerInputToS.Tick = Runner.Time.tick;
                 playerInputToS.SessionId = playerContext.session.sessionId;
@@ -94,18 +105,24 @@ namespace LOP
 
                 ClearInput();
             }
-            else if (recentInputs.Count > 0)
+            else
             {
-                // 무입력 틱에도 최근 입력 윈도우를 재전송해 연속 스트림을 유지한다.
-                // sliding-window redundancy는 "유실돼도 다음 패킷이 곧바로 온다"를 전제하는데, 입력이 띄엄띄엄이면
-                // 그 다음 전송이 수십 틱 뒤에야 와 유실 입력이 서버 jitter buffer를 넘겨 폐기(PRUNE)된다.
-                // 무입력 틱마다 윈도우를 재송출하면 유실 입력이 1틱 내 재도착해 buffer 안에서 복구된다.
-                // (새 seq를 만들지 않고 기존 윈도우만 재전송 — 서버 처리·reconciliation·seq cadence 무변경.)
-                PlayerInputToS redundancy = new PlayerInputToS();
-                redundancy.Tick = Runner.Time.tick;
-                redundancy.SessionId = playerContext.session.sessionId;
-                redundancy.RecentInputs.AddRange(recentInputs);
-                playerContext.session.Send(redundancy, reliable: false);
+                // 무입력 틱: 수평 속도를 0으로 제동한다(매 틱). 어빌리티/액션은 없음.
+                movementManager.ProcessInput(playerContext.entity, playerContext.entity.GetEntityTransform(), 0f, 0f, false);
+
+                if (recentInputs.Count > 0)
+                {
+                    // 무입력 틱에도 최근 입력 윈도우를 재전송해 연속 스트림을 유지한다.
+                    // sliding-window redundancy는 "유실돼도 다음 패킷이 곧바로 온다"를 전제하는데, 입력이 띄엄띄엄이면
+                    // 그 다음 전송이 수십 틱 뒤에야 와 유실 입력이 서버 jitter buffer를 넘겨 폐기(PRUNE)된다.
+                    // 무입력 틱마다 윈도우를 재송출하면 유실 입력이 1틱 내 재도착해 buffer 안에서 복구된다.
+                    // (새 seq를 만들지 않고 기존 윈도우만 재전송 — 서버 처리·reconciliation·seq cadence 무변경.)
+                    PlayerInputToS redundancy = new PlayerInputToS();
+                    redundancy.Tick = Runner.Time.tick;
+                    redundancy.SessionId = playerContext.session.sessionId;
+                    redundancy.RecentInputs.AddRange(recentInputs);
+                    playerContext.session.Send(redundancy, reliable: false);
+                }
             }
         }
 

@@ -7,11 +7,16 @@ namespace LOP
 {
     public class LOPMovementManager : IMovementManager<LOPEntity>
     {
+        private const float MaxAcceleration = 100f;   // 목표 속도로 따라붙는 빠르기(클수록 즉각 반응 — 튜닝값)
+
         [Inject]
         private GameFramework.World.EntityRegistry entityRegistry;
 
         [Inject]
         private GameFramework.World.StatsSystem statsSystem;
+
+        [Inject]
+        private LOP.MasterData.LOPMasterData md;
 
         public void ProcessInput(LOPEntity entity, EntityTransform entityTransform, float horizontal, float vertical, bool jump)
         {
@@ -25,23 +30,33 @@ namespace LOP
                 throw new Exception("PhysicsComponent does not exist. Cannot process input.");
             }
 
+            // 대시 같은 이동 어빌리티가 Active면 입력 이동을 무시한다(대시가 방향·속도를 주도).
+            if (AbilityMotionSystem.TryGetActiveMotionSpeed(entityRegistry.Get(entity.entityId), md, out _))
+            {
+                return;
+            }
+
             var worldStats = entityRegistry.Get(entity.entityId).Get<GameFramework.World.Stats>();
             float speed = statsSystem.GetValue(worldStats, (int)GameFramework.World.EntityStatType.MoveSpeed);
 
             var result = MovementSystem.ProcessMovement(new MovementInput(
-                entity.velocity, horizontal, vertical, speed));
+                entity.velocity, horizontal, vertical, speed,
+                MaxAcceleration, (float)Runner.Time.tickInterval));
 
-            if (result.hasMove)
+            // 계산된 새 속도와 지금 속도의 차이만큼 힘을 줘서 속도를 맞춘다(좌우/앞뒤만).
+            Vector3 delta = result.velocity - entity.velocity;
+            physicsComponent.entityRigidbody.AddForce(new Vector3(delta.x, 0f, delta.z), ForceMode.VelocityChange);
+            if (result.hasRotation)
             {
-                entity.velocity = result.velocity;   // EventBus 연출은 여기(host)
                 entity.rotation = result.rotation;
             }
 
-            //  Jump
+            // 점프: 위쪽 속도를 점프 속도로 맞춘다(땅에 있는지 체크는 아직 없음).
             if (jump)
             {
-                physicsComponent.entityRigidbody.linearVelocity -= new Vector3(0, physicsComponent.entityRigidbody.linearVelocity.y, 0);
-                physicsComponent.entityRigidbody.AddForce(Vector3.up * characterComponent.masterData.JumpPower, ForceMode.Impulse);
+                var rb = physicsComponent.entityRigidbody;
+                float jumpSpeed = characterComponent.masterData.JumpPower;
+                rb.AddForce(Vector3.up * (jumpSpeed - rb.linearVelocity.y), ForceMode.VelocityChange);
             }
         }
 

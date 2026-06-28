@@ -37,6 +37,7 @@ namespace LOP
             builder.Register<StatusEffectDataProvider>(Lifetime.Singleton);
             builder.Register<AbilityDataProvider>(Lifetime.Singleton);
             builder.Register<AbilityActivator>(Lifetime.Singleton);
+            builder.Register<AbilityMotionSystem>(Lifetime.Singleton);
             builder.Register<GameFramework.World.IEventSink, WorldEventSink>(Lifetime.Singleton);
             builder.Register<GameFramework.IPhysicsSimulator, GameFramework.UnityPhysicsSimulator>(Lifetime.Singleton);
             builder.Register<GameFramework.IMapLoader, AddressablesMapLoader>(Lifetime.Singleton);

@@ -95,10 +95,11 @@ namespace LOP.UI
 
         public void Jump() => _playerInputManager.SetJump(true);
 
-        public void Dash() => _playerInputManager.SetActionCode("dash_001");
+        public void Dash() => _playerInputManager.SetAbilityId(DashAbilityId);
 
         // 어빌리티는 int id로 발동(런타임 식별=id; string code는 데이터/에디터용). 버튼=어빌리티 슬롯 설정.
         private const int HasteAbilityId = 1;
+        private const int DashAbilityId = 2;
 
         /// <summary>헤이스트 어빌리티 발동(이동속도 +30%, 한시). 온스크린 버튼/단축키(H)에서 호출.</summary>
         public void Haste() => _playerInputManager.SetAbilityId(HasteAbilityId);

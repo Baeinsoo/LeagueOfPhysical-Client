@@ -15,6 +15,7 @@ namespace LOP
         [Inject] private GameFramework.World.IEventSink eventSink;
         [Inject] private IPhysicsSimulator physicsSimulator;
         [Inject] private GameFramework.World.IWorld world;
+        [Inject] private AbilityMotionSystem abilityMotionSystem;
 
         [Inject] private IMapLoader mapLoader;
 
@@ -91,6 +92,8 @@ namespace LOP
             UpdateAI();
 
             world.Tick(Runner.Time.tick, (float)tickUpdater.interval);
+
+            abilityMotionSystem.ApplyMotion(entityManager.GetEntities<LOPEntity>());
 
             SimulatePhysics();
 

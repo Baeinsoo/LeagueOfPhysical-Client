@@ -31,10 +31,8 @@ namespace LOP
             int[] effects = r.ProducesEffectId == 0
                 ? System.Array.Empty<int>()
                 : new[] { r.ProducesEffectId };
-            // 프레임 데이터(startup/active/recovery)는 TbAbility 컬럼 외부화 전까지 기본값(즉발 등가).
-            // dash/attack 슬라이스에서 컬럼화하며 r.* 매핑으로 교체.
             return new AbilityData(r.Id, r.CooldownTicks, r.MpCost,
-                startupTicks: 0, activeTicks: 1, recoveryTicks: 0,
+                r.StartupTicks, r.ActiveTicks, r.RecoveryTicks,
                 targeting, r.Range, effects);
         }
     }

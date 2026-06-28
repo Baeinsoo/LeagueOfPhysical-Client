@@ -159,14 +159,22 @@ namespace LOP
 
             float t = (float)((renderTime % tickInterval) / tickInterval);
 
+            // 렌더 시간으로 역산한 틱이 저장 버퍼에 없을 수 있다(틱 카운터 vs 경과시간 어긋남/갭).
+            // 없으면 이번 프레임 보간을 건너뛰고 직전 위치 유지 — 다음 프레임에 다시 맞춰진다.
+            if (entityTransformSnaps.TryGetValue(tickPrev, out var prev) == false ||
+                entityTransformSnaps.TryGetValue(tickNext, out var next) == false)
+            {
+                return;
+            }
+
             entityView.visualGameObject.transform.position = Vector3.Lerp(
-                entityTransformSnaps[tickPrev].position,
-                entityTransformSnaps[tickNext].position,
+                prev.position,
+                next.position,
                 t);
 
             entityView.visualGameObject.transform.rotation = Quaternion.Slerp(
-                Quaternion.Euler(entityTransformSnaps[tickPrev].rotation),
-                Quaternion.Euler(entityTransformSnaps[tickNext].rotation),
+                Quaternion.Euler(prev.rotation),
+                Quaternion.Euler(next.rotation),
                 t);
         }
     }

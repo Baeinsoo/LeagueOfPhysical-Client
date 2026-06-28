@@ -27,13 +27,33 @@ namespace LOP
 
         private static AbilityData Map(LOP.MasterData.Ability r)
         {
-            var targeting = (TargetingMode)System.Enum.Parse(typeof(TargetingMode), r.TargetingMode);
-            int[] effects = r.ProducesEffectId == 0
-                ? System.Array.Empty<int>()
-                : new[] { r.ProducesEffectId };
             return new AbilityData(r.Id, r.CooldownTicks, r.MpCost,
                 r.StartupTicks, r.ActiveTicks, r.RecoveryTicks,
-                targeting, r.Range, effects);
+                MapEffects(r.Effects));
+        }
+
+        // Luban 다형 effect 행을 코어 AbilityEffect로 매핑(코어는 MasterData 비참조 → 여기서 변환).
+        private static AbilityEffect[] MapEffects(System.Collections.Generic.List<LOP.MasterData.AbilityEffect> src)
+        {
+            if (src == null || src.Count == 0)
+            {
+                return System.Array.Empty<AbilityEffect>();
+            }
+            var result = new System.Collections.Generic.List<AbilityEffect>(src.Count);
+            foreach (var e in src)
+            {
+                switch (e)
+                {
+                    case LOP.MasterData.StatusEffectApplyEffect s:
+                        result.Add(new StatusEffectApplyEffect(s.StatusEffectId));
+                        break;
+                    case LOP.MasterData.MotionEffect m:
+                        result.Add(new MotionEffect(m.Speed));
+                        break;
+                    // DamageEffect는 attack 슬라이스(B1)에서 추가.
+                }
+            }
+            return result.ToArray();
         }
     }
 }

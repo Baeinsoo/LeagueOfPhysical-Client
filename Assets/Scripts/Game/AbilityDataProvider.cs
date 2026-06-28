@@ -50,7 +50,9 @@ namespace LOP
                     case LOP.MasterData.MotionEffect m:
                         result.Add(new MotionEffect(m.Speed));
                         break;
-                    // DamageEffect는 attack 슬라이스(B1)에서 추가.
+                    case LOP.MasterData.DamageEffect d:
+                        result.Add(new DamageEffect(d.Amount, d.Range, d.Angle));
+                        break;
                 }
             }
             return result.ToArray();

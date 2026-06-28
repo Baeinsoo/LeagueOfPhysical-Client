@@ -7,20 +7,18 @@ namespace LOP.UI
     /// 인게임 터치 입력(가상 조이스틱 · 액션 버튼 · 카메라 드래그) ViewModel.
     /// 게임 스코프 resolver로 생성되어 PlayerInputManager/IPlayerContext/CameraController를 주입받는다.
     /// 표시할 라이브 상태가 없는 입력 전용 화면이라 R3 없이 커맨드 타깃 역할만 한다(가이드라인 정합).
-    /// 도메인 로직(공격 액션코드 분기, 카메라 상대 이동 변환)을 소유하고 View는 얇은 입력 포워더다.
+    /// 도메인 로직(카메라 상대 이동 변환)을 소유하고 View는 얇은 입력 포워더다.
     /// </summary>
     public class GamePadViewModel
     {
         private readonly PlayerInputManager _playerInputManager;
-        private readonly IPlayerContext _playerContext;
         private readonly CameraController _cameraController;
 
         private Vector2 _moveInput;
 
-        public GamePadViewModel(PlayerInputManager playerInputManager, IPlayerContext playerContext, CameraController cameraController)
+        public GamePadViewModel(PlayerInputManager playerInputManager, CameraController cameraController)
         {
             _playerInputManager = playerInputManager;
-            _playerContext = playerContext;
             _cameraController = cameraController;
         }
 
@@ -100,33 +98,16 @@ namespace LOP.UI
         // 어빌리티는 int id로 발동(런타임 식별=id; string code는 데이터/에디터용). 버튼=어빌리티 슬롯 설정.
         private const int HasteAbilityId = 1;
         private const int DashAbilityId = 2;
+        private const int AttackAbilityId = 3;
 
         /// <summary>헤이스트 어빌리티 발동(이동속도 +30%, 한시). 온스크린 버튼/단축키(H)에서 호출.</summary>
         public void Haste() => _playerInputManager.SetAbilityId(HasteAbilityId);
 
         public void Spawn() => _playerInputManager.SetActionCode("spawn_001");
 
-        public void Attack()
-        {
-            AppearanceComponent appearance = _playerContext.entity?.GetComponent<AppearanceComponent>();
-            if (appearance == null)
-            {
-                return;
-            }
-
-            switch (appearance.visualId)
-            {
-                case "Assets/Art/Characters/Knight/Knight.prefab":
-                    _playerInputManager.SetActionCode("knight_attack_001");
-                    break;
-                case "Assets/Art/Characters/Archer/Archer.prefab":
-                    _playerInputManager.SetActionCode("archer_attack_001");
-                    break;
-                case "Assets/Art/Characters/Necromancer/Necromancer.prefab":
-                    _playerInputManager.SetActionCode("necromancer_attack_001");
-                    break;
-            }
-        }
+        // 공격 = DamageEffect 어빌리티(서버권위 판정). 캐릭터별 단일 대표 어빌리티 — 로드아웃은 후속.
+        // 레거시 캐릭터별 attack actionCode 경로는 코드엔 남아있지만(slice 5에서 은퇴) 트리거는 여기서 어빌리티로 이전.
+        public void Attack() => _playerInputManager.SetAbilityId(AttackAbilityId);
 
         public void CameraLook(Vector2 delta) => _cameraController.ProcessTouchInput(delta);
     }

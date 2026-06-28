@@ -16,9 +16,8 @@ namespace LOP
         private IActionManager actionManager;
         private AbilityActivator abilityActivator;
         private GameFramework.World.EntityRegistry entityRegistry;
-        private LOP.MasterData.LOPMasterData md;
 
-        public PlayerInputManager(IRunner runner, IPlayerContext playerContext, IMovementManager movementManager, IActionManager actionManager, AbilityActivator abilityActivator, GameFramework.World.EntityRegistry entityRegistry, LOP.MasterData.LOPMasterData md)
+        public PlayerInputManager(IRunner runner, IPlayerContext playerContext, IMovementManager movementManager, IActionManager actionManager, AbilityActivator abilityActivator, GameFramework.World.EntityRegistry entityRegistry)
         {
             this.runner = runner;
             this.playerContext = playerContext;
@@ -26,7 +25,6 @@ namespace LOP
             this.actionManager = actionManager;
             this.abilityActivator = abilityActivator;
             this.entityRegistry = entityRegistry;
-            this.md = md;
 
             this.runner.AddListener(this);
         }
@@ -52,7 +50,7 @@ namespace LOP
             if (GetInput<PlayerInput>(out var playerInput))
             {
                 // 대시 같은 조작 불가 상태에선 이동 입력을 무시한다(전송·예측 모두 0 → 보정 간섭 방지).
-                if (AbilityMotionSystem.TryGetActiveMotionSpeed(entityRegistry.Get(playerContext.entity.entityId), md, out _))
+                if (AbilitySystem.HasActiveMotionEffect(entityRegistry.Get(playerContext.entity.entityId)))
                 {
                     playerInput.horizontal = 0f;
                     playerInput.vertical = 0f;

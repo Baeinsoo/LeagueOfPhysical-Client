@@ -15,9 +15,6 @@ namespace LOP
         private AbilityDataProvider abilityDataProvider;
 
         [Inject]
-        private StatusEffectDataProvider statusEffectDataProvider;
-
-        [Inject]
         private GameFramework.World.EntityRegistry entityRegistry;
 
         public bool TryActivate(string casterEntityId, int abilityId, long currentTick)
@@ -33,13 +30,8 @@ namespace LOP
                 return false;
             }
 
-            var effects = new StatusEffectData[ability.ProducesEffectIds.Length];
-            for (int i = 0; i < effects.Length; i++)
-            {
-                effects[i] = statusEffectDataProvider.Get(ability.ProducesEffectIds[i]);
-            }
-
-            abilitySystem.TryActivate(caster, ability, caster, effects, currentTick);
+            // effect는 ability.Effects에 실려 있고, Active 창에서 executor가 타입별 핸들러로 디스패치한다.
+            abilitySystem.TryActivate(caster, ability, caster, currentTick);
             return true;
         }
     }

@@ -15,7 +15,8 @@ namespace LOP
         [Inject] private GameFramework.World.IEventSink eventSink;
         [Inject] private IPhysicsSimulator physicsSimulator;
         [Inject] private GameFramework.World.IWorld world;
-        [Inject] private AbilityMotionSystem abilityMotionSystem;
+        [Inject] private GameFramework.World.EntityRegistry entityRegistry;
+        [Inject] private AbilityEffectExecutor abilityEffectExecutor;
 
         [Inject] private IMapLoader mapLoader;
 
@@ -92,8 +93,7 @@ namespace LOP
             UpdateAI();
 
             world.Tick(Runner.Time.tick, (float)tickUpdater.interval);
-
-            abilityMotionSystem.ApplyMotion(entityManager.GetEntities<LOPEntity>());
+            DriveAbilityEffects();
 
             SimulatePhysics();
 
@@ -102,6 +102,17 @@ namespace LOP
             ProcessEvent();
 
             EndUpdate();
+        }
+
+        // world.Tick이 페이즈를 전진시킨 뒤, 진행 중 어빌리티의 Active 창 effect를 executor로 구동(대시 push 등).
+        // 핸들러가 side 자원(Rigidbody)을 ctx의 entityManager로 잡도록 host가 구동 — DI 순환 회피.
+        private void DriveAbilityEffects()
+        {
+            long tick = Runner.Time.tick;
+            foreach (var entity in entityManager.GetEntities<LOPEntity>())
+            {
+                abilityEffectExecutor.DriveActiveEntity(entityRegistry.Get(entity.entityId), entityManager, tick);
+            }
         }
 
         private void BeginUpdate()

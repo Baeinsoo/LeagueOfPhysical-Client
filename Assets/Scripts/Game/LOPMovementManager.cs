@@ -15,9 +15,6 @@ namespace LOP
         [Inject]
         private GameFramework.World.StatsSystem statsSystem;
 
-        [Inject]
-        private LOP.MasterData.LOPMasterData md;
-
         public void ProcessInput(LOPEntity entity, EntityTransform entityTransform, float horizontal, float vertical, bool jump)
         {
             if (entity.TryGetComponent<CharacterComponent>(out var characterComponent) == false)
@@ -31,7 +28,7 @@ namespace LOP
             }
 
             // 대시 같은 이동 어빌리티가 Active면 입력 이동을 무시한다(대시가 방향·속도를 주도).
-            if (AbilityMotionSystem.TryGetActiveMotionSpeed(entityRegistry.Get(entity.entityId), md, out _))
+            if (AbilitySystem.HasActiveMotionEffect(entityRegistry.Get(entity.entityId)))
             {
                 return;
             }

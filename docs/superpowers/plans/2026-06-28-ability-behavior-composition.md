@@ -89,5 +89,5 @@
 
 ## 진행
 - [x] Step 0 — Luban 다형 list 검증 (게이트) ✅ YES, 다형 bean 리스트 채택
-- [ ] B0.1 코어 → B0.2 데이터 → B0.3 side+배선 → B0 검증
-- [ ] B1.1 데이터 → B1.2 서버 핸들러 → B1.3 부여+트리거 → B1 검증
+- [x] **B0 완료** — 0.1 코어 + 0.2 데이터 + 0.3 side+배선. 컴파일 0 + EditMode 33/33 + 플레이 검증 OK(대시/헤이스트/게임시작). ⚠️ B0.3에서 DI 순환 발견 → **executor host-driven + 핸들러는 ctx로 entityManager**(서비스로케이터 아님)로 해소. `ctx.EntityManager`는 **interim**(Stage④ "접근 B"=World.Entity velocity 권위로 이전 시 제거) — spec "구현 정정" 절 박제.
+- [ ] B1.1 데이터(DamageEffect 다중필드 bean 추가) → B1.2 서버 DamageEffectHandler(타게팅+LOPCombatSystem) → B1.3 부여+트리거 → B1 검증

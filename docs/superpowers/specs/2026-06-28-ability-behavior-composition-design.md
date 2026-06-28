@@ -97,6 +97,13 @@ AbilityEffect (추상 베이스: 공통 메타 — 예: 발화 시점)
 - **executor 입력 = `ActiveAbility`에 실린 resolve된 `AbilityEffect[]`**: side `AbilityActivator`가 발동 시 `AbilityData.Effects`(순수 데이터)를 `ActiveAbility`에 실어두면, 코어 executor가 매 틱 그걸 순회(코어가 MasterData를 만지지 않음).
 - **cadence**: instant(Active 진입 1회) vs per-tick(Active 매 틱) — executor가 진입 훅 + 틱 훅 둘 다 제공, 각 effect/handler가 자기 cadence 선언(GAS Instant vs Duration/periodic 대응).
 
+> ⚠️ **구현 정정 — executor는 *host-driven* (B0.3 실측, DI 순환 회피).** 당초 이 절은 "코어 `AbilitySystem.Tick`이 executor 구동"으로 적었으나, 그렇게 하면 **DI 순환**이 생긴다: `runner → IWorld → AbilitySystem → executor → MotionEffectHandler → IEntityManager → entityManager(팩토리들) → … → AbilitySystem`(상호 의존, VContainer Lazy 재진입 예외). 게다가 *effect 적용이 side(Rigidbody/entityManager)를 만지는 것은 본디 코어가 아니라 host egress 책임*(WorldEventBuffer를 host가 드레인하는 결과 동일). → **수정:**
+> - 코어 `AbilitySystem.Tick` = **페이즈 전진만**(effect 미적용, 순수).
+> - `AbilityEffectExecutor.DriveActiveEntity(caster, entityManager, tick)`를 **host(`LOPRunner`)가 `world.Tick` 뒤 매 틱·엔티티마다 구동**. enter(=StartupEndTick)/tick cadence는 executor가 소유.
+> - 핸들러는 `entityManager`를 **DI 주입이 아니라 `AbilityEffectContext`로 받음**(host가 채움). 핸들러에 DI로 박으면 위 순환 재발(entityManager 그래프 ↔ executor 그래프가 얽힘). ctx 전달 = 서비스 로케이터 아님(파라미터 주입).
+>
+> ⚠️ **`ctx.EntityManager` = interim (근본 아님).** host-driven 배치는 원칙 정합이지만, 핸들러가 entityManager를 통해 *side Rigidbody*에 닿는 것 자체는 **속도 권위가 아직 side(Rigidbody)에 있어서**다. **근본 수정 = Stage④ "접근 B"**(이동을 코어 `World.Entity`의 velocity에서 처리 = 속도 권위 Rigidbody→World 이전). 그러면 `MotionEffectHandler`가 *순수 코어*가 되어 `ctx.EntityManager` 자체가 사라진다. 그때까지 이 ctx 다리는 의도된 interim. (대시 reconciliation 갭 문제도 같은 Stage④ 자리에서 해소 — netcode-redesign §3.1.)
+
 ### 데이터 표현 (Luban) — 결정 필요
 
 논리 모델 = WoW 패턴(타입 있는 1:N). 구체 Luban 형태 두 후보:

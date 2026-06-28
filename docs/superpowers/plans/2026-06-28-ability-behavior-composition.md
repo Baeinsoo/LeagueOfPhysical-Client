@@ -8,15 +8,26 @@
 
 ---
 
-## Step 0 — Luban 다형 list 검증 (게이트, rename 비용 최대)
+## Step 0 — Luban 다형 list 검증 (게이트) ✅ 완료(2026-06-28)
 
-데이터 형태가 모든 코드 형태를 좌우하므로 **먼저** 확정한다.
+**VERDICT: YES** — Luban 4.9.0이 다형 bean 리스트 컬럼을 생성·직렬화(격리 샌드박스 스파이크). `[Motion, Damage]` 섞인 리스트까지 OK. → **다형 bean 리스트 채택, 자식 테이블 폴백 불요.**
 
-- [ ] **0a. Luban 능력 확인** — `infrastructure/table/tools/Luban` 버전 확인 + 공식 문서로 (1) bean 상속, (2) `$type` 판별자, (3) 테이블 컬럼의 `list<베이스bean>` 다형 리스트 지원 여부 확인.
-- [ ] **0b. 최소 스파이크** — 버려도 되는 형태로: `__beans__`에 `AbilityEffect`(추상) + `DamageEffect`/`StatusEffectApplyEffect`/`MotionEffect` 정의, `Ability` 테이블에 `effects: list<AbilityEffect>` 컬럼, 1행(예: dash=`[Motion{15}]`)을 `$type`으로 채워 `gen.sh` → **생성된 C#(다형 클래스들)·`tbability.bytes` 직렬화 성공** 확인. convert 스크립트가 이 스키마를 못 만들면 *수기 author* 경로 확정.
-- [ ] **0c. 결정 기록** — 다형 list 가능 → 채택. *기능적으로* 불가할 때만 자식 테이블(`TbAbilityEffect`) 폴백(편의 사유 금지). 결과를 spec "데이터 표현"·이 plan에 반영.
+- [x] 0a. Luban 4.9.0 확인 (상속/`$type`/`list,bean` 지원).
+- [x] 0b. 샌드박스 스파이크 성공 — `abstract AbilityEffect` + 3 서브타입 + `Ability.Effects:List<AbilityEffect>` + `tbability.bytes` 생성.
+- [x] 0c. 채택 + spec 반영.
 
-> ⚠️ 이 스텝은 infra/MasterData 레포를 실험적으로 건드린다 → 스파이크 후 churn은 `git checkout`으로 정리(메모리 [[masterdata-key-convention]]·대시 재생성 절차 동일). 채택 형태가 정해지면 B0.2에서 정식 author.
+### ⭐ 검증된 작성 레시피 (B0.2에서 그대로 사용)
+- **`__beans__.xlsx`**: 베이스 `AbilityEffect`(full_name만, parent·fields 없음 → 자식 있으면 **자동 abstract**) + 자식 `DamageEffect{amount:int}`/`StatusEffectApplyEffect{status_effect_id:int}`/`MotionEffect{speed:float}`(각 `parent=AbilityEffect`). 자식 필드는 **같은 시트의 `*fields` 멀티컬럼 그룹**에 인라인(서브컬럼 name/alias/type/…).
+  - ⚠️ **`*fields` 헤더 셀은 서브컬럼들 가로로 *병합* 필수**(openpyxl `merge_cells`). 미병합 시 `bean '__FieldInfo__' 缺失 列:'alias'` 에러. (현 `__beans__`엔 `*fields` 컬럼 자체가 없음 — 우리가 첫 수기 bean 도입.)
+- **`#Ability.xlsx`(임베디드 데이터)**: 컬럼 헤더 `##var=effects#sep=,`(4.x는 `&` 아님 **`#`**), `##type=list,AbilityEffect`. 데이터 셀 = `Subtype,field…`(첫 토큰=`$type`=bean 이름), **리스트 원소는 다음 *열*로** 나열(예: id3 → B열 `MotionEffect,15`, C열 `DamageEffect,30`). `#sep=,`는 한 원소 셀 *안*(타입+필드)만 분리.
+- **생성 C#**: `abstract AbilityEffect:Luban.BeanBase`(ReadInt 타입-id 디스패치) + 서브타입 `__ID__` 상수 + `Ability.Effects:List<AbilityEffect>`.
+
+### ⚠️ convert 파이프라인 결정 (B0.2)
+현 `convert_source_to_luban.py`는 source 평면 → bean 자동유도라 다형 bean을 못 만든다. **Ability가 첫 수기 정의 bean**이 된다. B0.2에서 택1:
+- (권장) convert가 **Ability만 특수 처리** — effects 다형 스키마(`__beans__` 행 + 병합 `*fields` + `#Ability.xlsx` list 컬럼)를 author하도록 확장.
+- (대안) Ability를 convert 자동흐름에서 빼고 `__beans__`/`#Ability.xlsx`를 **수기 유지**(나머지 평면 테이블만 convert).
+
+샌드박스(`_gen_scratch/luban-spike/`, gitignored)는 남겨둠/삭제 무방. 실제 Datas/source/MasterData 무변경 확인됨.
 
 ---
 
@@ -77,6 +88,6 @@
 - EOL: 신규=Write/편집=Edit(mass sed 금지), 커밋 후 worktree CRLF는 `git checkout`으로 복원(메모리 교훈).
 
 ## 진행
-- [ ] Step 0 — Luban 다형 list 검증 (게이트)
+- [x] Step 0 — Luban 다형 list 검증 (게이트) ✅ YES, 다형 bean 리스트 채택
 - [ ] B0.1 코어 → B0.2 데이터 → B0.3 side+배선 → B0 검증
 - [ ] B1.1 데이터 → B1.2 서버 핸들러 → B1.3 부여+트리거 → B1 검증

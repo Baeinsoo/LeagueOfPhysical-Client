@@ -106,7 +106,11 @@ AbilityEffect (추상 베이스: 공통 메타 — 예: 발화 시점)
 | **(권장) 다형 bean 리스트** | `TbAbility`에 `effects: list<AbilityEffect>` 컬럼, `$type`로 서브타입 선택 (Luban 네이티브 다형성) | 타입별 전용 필드(sparse 컬럼 없음), 타입 안전, 한 테이블 | 현 평면 convert 스크립트가 bean 상속·list 컬럼을 못 만들어 **Ability 스키마 수기 author 필요** |
 | (대안) 자식 테이블 | `TbAbility` + `TbAbilityEffect(ability_id, index, effect_type, …공유 param)` | WoW 정확 대응, 평면 테이블 | 공유 param sparse NULL, 비-유니크 키 테이블이라 convert 파이프라인 확장 필요 |
 
-둘 다 표준이다. **정확성 기준으로 선택**(파이프라인 편의 아님): 우리 런타임은 객체지향(C# 타입 있는 effect 객체)이라 **다형 bean 리스트가 런타임 객체 모델과 1:1**(임피던스 불일치 0) — 자식 테이블은 관계형 정통이나 런타임 객체로 한 겹 더 변환이 든다. → **다형 bean 리스트 채택, 필요한 Luban 스키마 작업(bean 상속·`$type`·list 컬럼)은 제대로 author**. convert 스크립트가 평면만 만들어도 *그걸 확장하거나 Ability 스키마를 수기 author* 한다(편해서 자식 테이블로 도망가지 않음). Luban 버전의 정확 문법은 **plan에서 검증**(만약 이 Luban 버전이 다형 list를 *기능적으로* 지원 못 하면 그때 자식 테이블 — 편의가 아니라 도구 한계 사유로만).
+둘 다 표준이다. **정확성 기준으로 선택**(파이프라인 편의 아님): 우리 런타임은 객체지향(C# 타입 있는 effect 객체)이라 **다형 bean 리스트가 런타임 객체 모델과 1:1**(임피던스 불일치 0) — 자식 테이블은 관계형 정통이나 런타임 객체로 한 겹 더 변환이 든다. → **다형 bean 리스트 채택.**
+
+> ✅ **Step 0 검증 완료(2026-06-28, 격리 샌드박스 스파이크).** Luban 4.9.0이 다형 bean 리스트 컬럼을 생성·직렬화함 — `id=3 → [Motion, Damage]`처럼 **한 리스트에 섞인 다중 타입**까지 OK. 생성 C# = `abstract AbilityEffect : Luban.BeanBase`(타입-id 디스패치) + 서브타입들(`__ID__` 상수) + `Ability.Effects : List<AbilityEffect>`. 작성 문법 핵심(plan에 전체 레시피): ① 헤더 옵션 구분자 `#`(4.x, `&` 폐기) → 컬럼 `effects#sep=,`, 타입 `list,AbilityEffect`; ② `__beans__`의 `*fields`는 **셀 병합 필수**(미병합 시 `alias 列 누락` 에러); ③ 추상 베이스는 **암묵**(parent 없고 자식 있으면 자동 abstract, 플래그 없음); ④ 데이터 셀 = `Subtype,field…`(첫 토큰=`$type`=bean 이름), 리스트 원소는 **칸(열)으로** 나열. → **자식 테이블 폴백 불요**(도구 한계 없음).
+>
+> ⚠️ 단, 현 convert 스크립트(`convert_source_to_luban.py`)는 source 평면 → bean 자동유도라 다형 bean을 못 만든다. **Ability는 첫 수기 정의 bean이 됨** — convert가 Ability를 특수 처리하거나 Ability 스키마(`__beans__` 행 + `#Ability.xlsx`)를 수기 author. (B0.2 결정.)
 
 ### 명명 (업계 어휘 — 임의 명명 금지)
 

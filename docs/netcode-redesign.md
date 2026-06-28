@@ -288,6 +288,7 @@ Clock sync가 완벽해도 FP 오차 / 패킷 손실로 인한 미세 갭은 여
 - Tick interval이 변경되면 영향받는 시스템 (애니메이션, 이펙트, AI 등) 검토
 - 본인 외 엔티티(`ServerStateReconciler`)는 별도 — clock sync와 무관, interpolation delay 그대로 유지
 - Phase 2/3 도입 후 기존 `SnapReconciler`의 `entityTransformSnaps` 기반 delayed rendering (`SnapReconciler.cs:177-202`)과의 상호작용 확인
+  - ⚠️ **임시 가드 박제 (2026-06-28):** 지연 렌더링이 스냅을 *틱 카운터*(`Runner.Time.tick`)로 저장하는데, `LateUpdate`는 *경과시간 역산*(`elapsedTime / tickInterval`)으로 틱을 찾는다. 둘이 1틱 어긋나거나 중간 틱이 비면 `BoundedDictionary` 인덱서가 `KeyNotFoundException`을 던져 런타임 예외가 폭주했다(클럭 dilation 도입 후 노출된 잠복 버그). **임시 조치 = `SnapReconciler`/`ServerStateReconciler` 두 `LateUpdate`에서 `TryGetValue` 가드 → 없으면 그 프레임 보간 스킵**(직전 위치 유지). 이건 *증상 차단*일 뿐, 두 시간선이 어긋나는 *근본 원인*은 안 고쳤다. **Stage④에서 스냅샷 타임라인을 재설계(delta replay → Snapshot/Restore + input replay)할 때 가드를 걷어내고 틱 정렬을 제대로 잡을 것.**
 - LOPGameEngine ↔ LOPGameSimulation 컴포지션 (Slice 4) 도입 후, 현 `SnapReconciler`의 *delta replay* 방식을 *Snapshot/Restore + input replay* 방식으로 자연 수렴 가능 — Stage ④에서 평가
 
 ---

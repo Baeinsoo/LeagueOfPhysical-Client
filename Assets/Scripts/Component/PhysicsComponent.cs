@@ -27,7 +27,7 @@ namespace LOP
             physicsGameObject = physics.CreateChild("PhysicsGameObject");
 
             entityRigidbody = physicsGameObject.AddComponent<Rigidbody>();
-            entityRigidbody.linearDamping = 0.1f;   // 입력이 없을 때 서서히 멈추게 하는 마찰(얼음이면 낮추는 식으로 지형별 조절 가능)
+            entityRigidbody.linearDamping = 0f;   // 수평 정지는 이동 모터가 0으로 제동(아래). 수직=순수 중력.
             entityRigidbody.angularDamping = 0.05f;
             entityRigidbody.constraints = RigidbodyConstraints.FreezeRotation;
             entityRigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;

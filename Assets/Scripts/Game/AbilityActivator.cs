@@ -31,8 +31,8 @@ namespace LOP
             }
 
             // effect는 ability.Effects에 실려 있고, Active 창에서 executor가 타입별 핸들러로 디스패치한다.
-            abilitySystem.TryActivate(caster, ability, caster, currentTick);
-            return true;
+            // 코어 결과를 그대로 반환 — 실제 발동(쿨다운/busy/자원 통과)됐을 때만 true(연출 발화 게이트로 쓰임).
+            return abilitySystem.TryActivate(caster, ability, caster, currentTick);
         }
     }
 }

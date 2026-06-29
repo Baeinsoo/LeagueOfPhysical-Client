@@ -16,8 +16,9 @@ namespace LOP
         private IActionManager actionManager;
         private AbilityActivator abilityActivator;
         private GameFramework.World.EntityRegistry entityRegistry;
+        private GameFramework.World.WorldEventBuffer worldEventBuffer;
 
-        public PlayerInputManager(IRunner runner, IPlayerContext playerContext, IMovementManager movementManager, IActionManager actionManager, AbilityActivator abilityActivator, GameFramework.World.EntityRegistry entityRegistry)
+        public PlayerInputManager(IRunner runner, IPlayerContext playerContext, IMovementManager movementManager, IActionManager actionManager, AbilityActivator abilityActivator, GameFramework.World.EntityRegistry entityRegistry, GameFramework.World.WorldEventBuffer worldEventBuffer)
         {
             this.runner = runner;
             this.playerContext = playerContext;
@@ -25,6 +26,7 @@ namespace LOP
             this.actionManager = actionManager;
             this.abilityActivator = abilityActivator;
             this.entityRegistry = entityRegistry;
+            this.worldEventBuffer = worldEventBuffer;
 
             this.runner.AddListener(this);
         }
@@ -131,7 +133,11 @@ namespace LOP
             if (playerInput.abilityId != 0)
             {
                 // 어빌리티 = int id 기반 발동(클라 예측, 서버도 권위 발동).
-                abilityActivator.TryActivate(playerContext.entity.entityId, playerInput.abilityId, Runner.Time.tick);
+                // 실제 발동 시 발동 연출 이벤트를 로컬 버퍼에 넣어 즉시 애니(내 캐릭 예측). 서버 사본은 핸들러가 자기 스킵.
+                if (abilityActivator.TryActivate(playerContext.entity.entityId, playerInput.abilityId, Runner.Time.tick))
+                {
+                    worldEventBuffer.Append(new GameFramework.World.AbilityActivatedEvent(playerContext.entity.entityId, playerInput.abilityId));
+                }
             }
             else if (string.IsNullOrEmpty(playerInput.actionCode) == false)
             {

@@ -44,6 +44,15 @@ namespace LOP.Event.Entity
         }
     }
 
+    public struct AbilityActivated
+    {
+        public string cue;
+        public AbilityActivated(string cue)
+        {
+            this.cue = cue;
+        }
+    }
+
     public struct EntityDamage
     {
         public bool isDodged;

@@ -47,6 +47,23 @@
 - 클라 `WorldEventSink`(또는 cue 해석 지점)가 `abilityId → TbAbility.cue` 조회 → EventBus `AbilityActivated(cue)` 발행 → `LOPEntityView`가 `cue=="attack"` → `SetTrigger("Attack 01"/"Attack"/"Melee Attack")`(레거시 3트리거 그대로 = 캐릭터별 컨트롤러 호환). 빈 cue = 연출 없음(dash/haste).
 - 서버는 cue 미보유(group `c`) — 항상 abilityId만 브로드캐스트(연출 해석은 클라 책임).
 
+## 미스예측 발동의 취소 — 롤백과의 관계 (Stage④ 박제, 2026-06-29 웹 재검증)
+
+연출(cue)을 event로 둔 게 "취소가 필요 없다"는 뜻은 **아니다**(초기 구두 설명 정정). 구분:
+- **되감기(rewind)** — 애니를 프레임 거꾸로 스크럽: 안 함(흉함).
+- **취소/중단(interrupt)** — 액션 자체가 무효가 되면 애니를 끊고 idle로 블렌드: **해야 함.**
+
+미스예측 시나리오(내 캐릭이 공격을 예측해 애니를 켰는데 서버가 "그때 기절/사망/쿨다운이라 발동 무효"):
+- **현재(Stage④ 전): 취소 경로 없음 — 클라가 그냥 재생.** 위치가 진짜 롤백 없이 delta 보정만 하는 것과 같은 미완성 공백. 단 클라도 같은 발동 게이트(`CanActivate`: 쿨다운/busy/자원)를 돌려 *대부분의 거절을 스스로 예측*하므로, 어긋나는 건 **서버만 아는 사실**(미수신 기절/사망·레이스)뿐 — 드물지만 0은 아님.
+- **Stage④ 목표:** durable 어빌리티 상태(`Abilities.ActiveAbility`)가 Snapshot/Restore로 롤백 → 연출 레이어가 "active가 사라짐"을 보고 애니 **중단**(새 cue가 아니라 취소). 한 줄 요약: **"발동 = event로 켜고 / 유효성 = durable 상태로 끈다."**
+
+**산업 표준(Unreal GAS, 웹 검증):** 예측 어빌리티가 서버에서 거절(`ClientAbilityFailed`)되면 GAS가 **어빌리티 즉시 kill + 예측 키 side effect 롤백 + 몽타주(애니) 종료**(rejection delegate). 단 **순간(instant) 효과(데미지 등)는 롤백 안 함** — 우리 "HP=snapshot 자가보정 / 데미지=cosmetic event"와 정합. GameplayCue 자체는 **unreliable multicast · cosmetic 전용 · 유실 허용** — 우리 cue(event·연출만·유실 허용)와 1:1.
+> 출처: [Epic — Understanding GAS / GameplayEffects(GameplayCue)](https://dev.epicgames.com/documentation/en-us/unreal-engine/understanding-the-unreal-engine-gameplay-ability-system) · [GAS Networking notes(bebylon/ikrima)](https://bebylon.dev/ue4guide/gameplay-programming/gameplay-ability-system/gas-networking/) · [GASDocumentation(tranek)].
+
+## 후속 정리 (slice 5에서 함께)
+
+- **cue→트리거 하드코딩 정리**: 현 `LOPEntityView.OnAbilityActivated`의 `if (cue=="attack") SetTrigger("Attack 01"/"Attack"/"Melee Attack")`는 interim — ① cue 문자열 하드코딩 if 분기 + ② 레거시 3트리거 난사(컨트롤러별 이름 차이 회피). 정상형 = cue→연출 **디스패치 레지스트리**(view에 if 누적 금지) + 트리거 이름 표준화/데이터화. slice 5 레거시 은퇴와 함께 정리.
+
 ## 영향 파일 (개략 — 세부는 plan)
 
 - **GameFramework**: 신규 `World/Events/AbilityActivatedEvent.cs`.

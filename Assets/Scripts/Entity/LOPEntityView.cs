@@ -39,6 +39,7 @@ namespace LOP
         {
             EventBus.Default.Subscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
             EventBus.Default.Subscribe<ActionStart>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnActionStart);
+            EventBus.Default.Subscribe<AbilityActivated>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnAbilityActivated);
             EventBus.Default.Subscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
 
             if (entity.TryGetEntityComponent<AppearanceComponent>(out var appearanceComponent))
@@ -51,6 +52,7 @@ namespace LOP
         {
             EventBus.Default.Unsubscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
             EventBus.Default.Unsubscribe<ActionStart>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnActionStart);
+            EventBus.Default.Unsubscribe<AbilityActivated>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnAbilityActivated);
             EventBus.Default.Unsubscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
 
             if (asyncOperationHandle.IsValid())
@@ -111,6 +113,24 @@ namespace LOP
                 visualGameObject.GetComponent<Animator>().SetTrigger("Attack 01");
                 visualGameObject.GetComponent<Animator>().SetTrigger("Attack");
                 visualGameObject.GetComponent<Animator>().SetTrigger("Melee Attack");
+            }
+        }
+
+        // 어빌리티 발동 연출. cue(클라 마스터데이터에서 해석됨)로 어떤 애니를 칠지 가른다.
+        // 캐릭터별 컨트롤러가 쓰는 트리거 이름이 달라 attack은 3개를 다 친다(레거시 OnActionStart와 동일).
+        private void OnAbilityActivated(AbilityActivated abilityActivated)
+        {
+            if (visualGameObject == null)
+            {
+                return;
+            }
+
+            if (abilityActivated.cue == "attack")
+            {
+                Animator animator = visualGameObject.GetComponent<Animator>();
+                animator.SetTrigger("Attack 01");
+                animator.SetTrigger("Attack");
+                animator.SetTrigger("Melee Attack");
             }
         }
 

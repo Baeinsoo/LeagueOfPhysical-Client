@@ -101,6 +101,7 @@ namespace LOP
             // 3d: 헤이스트 어빌리티 부여(발동은 입력 트리거 — AbilityActivator). TEMP: 전체 부여, 캐릭터별 셋은 후속.
             abilitySystem.Grant(worldEntity, 1);
             abilitySystem.Grant(worldEntity, 2);   // dash (TEMP 전체 부여)
+            abilitySystem.Grant(worldEntity, 3);   // attack (TEMP 전체 부여)
 
             Debug.Log($"[World] Registered entity {worldEntity.Id} Health={worldHealth.Current}/{worldHealth.Max}");
             // --- end World Core slice 1+B ---

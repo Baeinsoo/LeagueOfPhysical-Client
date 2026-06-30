@@ -13,20 +13,16 @@ namespace LOP
         private IRunner runner;
         private IPlayerContext playerContext;
         private IMovementManager movementManager;
-        private IActionManager actionManager;
         private AbilityActivator abilityActivator;
         private GameFramework.World.EntityRegistry entityRegistry;
-        private GameFramework.World.WorldEventBuffer worldEventBuffer;
 
-        public PlayerInputManager(IRunner runner, IPlayerContext playerContext, IMovementManager movementManager, IActionManager actionManager, AbilityActivator abilityActivator, GameFramework.World.EntityRegistry entityRegistry, GameFramework.World.WorldEventBuffer worldEventBuffer)
+        public PlayerInputManager(IRunner runner, IPlayerContext playerContext, IMovementManager movementManager, AbilityActivator abilityActivator, GameFramework.World.EntityRegistry entityRegistry)
         {
             this.runner = runner;
             this.playerContext = playerContext;
             this.movementManager = movementManager;
-            this.actionManager = actionManager;
             this.abilityActivator = abilityActivator;
             this.entityRegistry = entityRegistry;
-            this.worldEventBuffer = worldEventBuffer;
 
             this.runner.AddListener(this);
         }
@@ -67,7 +63,6 @@ namespace LOP
                     Horizontal = playerInput.horizontal,
                     Vertical = playerInput.vertical,
                     Jump = playerInput.jump,
-                    ActionCode = playerInput.actionCode ?? "",
                     AbilityId = playerInput.abilityId,
                 };
 
@@ -132,17 +127,8 @@ namespace LOP
 
             if (playerInput.abilityId != 0)
             {
-                // 어빌리티 = int id 기반 발동(클라 예측, 서버도 권위 발동).
-                // 실제 발동 시 발동 연출 이벤트를 로컬 버퍼에 넣어 즉시 애니(내 캐릭 예측). 서버 사본은 핸들러가 자기 스킵.
-                if (abilityActivator.TryActivate(playerContext.entity.entityId, playerInput.abilityId, Runner.Time.tick))
-                {
-                    worldEventBuffer.Append(new GameFramework.World.AbilityActivatedEvent(playerContext.entity.entityId, playerInput.abilityId));
-                }
-            }
-            else if (string.IsNullOrEmpty(playerInput.actionCode) == false)
-            {
-                // 레거시 액션(dash/attack 등 — string code).
-                actionManager.TryStartAction(playerContext.entity, playerInput.actionCode);
+                // 어빌리티 = int id 기반 발동(클라 예측). 발동 연출 cue는 AbilityActivator가 내부에서 append.
+                abilityActivator.TryActivate(playerContext.entity.entityId, playerInput.abilityId, Runner.Time.tick);
             }
         }
 
@@ -171,15 +157,6 @@ namespace LOP
                 playerInput = new PlayerInput();
             }
             this.playerInput.jump = jump;
-        }
-
-        public void SetActionCode(string actionCode)
-        {
-            if (playerInput == null)
-            {
-                playerInput = new PlayerInput();
-            }
-            this.playerInput.actionCode = actionCode;
         }
 
         public void SetAbilityId(int abilityId)

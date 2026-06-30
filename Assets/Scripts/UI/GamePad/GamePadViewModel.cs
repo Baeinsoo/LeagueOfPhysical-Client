@@ -103,10 +103,7 @@ namespace LOP.UI
         /// <summary>헤이스트 어빌리티 발동(이동속도 +30%, 한시). 온스크린 버튼/단축키(H)에서 호출.</summary>
         public void Haste() => _playerInputManager.SetAbilityId(HasteAbilityId);
 
-        public void Spawn() => _playerInputManager.SetActionCode("spawn_001");
-
         // 공격 = DamageEffect 어빌리티(서버권위 판정). 캐릭터별 단일 대표 어빌리티 — 로드아웃은 후속.
-        // 레거시 캐릭터별 attack actionCode 경로는 코드엔 남아있지만(slice 5에서 은퇴) 트리거는 여기서 어빌리티로 이전.
         public void Attack() => _playerInputManager.SetAbilityId(AttackAbilityId);
 
         public void CameraLook(Vector2 delta) => _cameraController.ProcessTouchInput(delta);

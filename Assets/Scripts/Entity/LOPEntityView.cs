@@ -38,7 +38,6 @@ namespace LOP
         protected virtual void Start()
         {
             EventBus.Default.Subscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
-            EventBus.Default.Subscribe<ActionStart>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnActionStart);
             EventBus.Default.Subscribe<AbilityActivated>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnAbilityActivated);
             EventBus.Default.Subscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
 
@@ -51,7 +50,6 @@ namespace LOP
         public void Cleanup()
         {
             EventBus.Default.Unsubscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
-            EventBus.Default.Unsubscribe<ActionStart>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnActionStart);
             EventBus.Default.Unsubscribe<AbilityActivated>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnAbilityActivated);
             EventBus.Default.Unsubscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
 
@@ -101,23 +99,14 @@ namespace LOP
             }
         }
      
-        private void OnActionStart(ActionStart actionStart)
-        {
-            if (visualGameObject == null)
+        // 어빌리티 발동 연출 cue → 애니 트리거. 한 곳에서 매핑(cue 늘면 dict에 추가, if 누적 없음).
+        // 캐릭터별 컨트롤러가 쓰는 트리거 이름이 달라 cue 하나에 후보 트리거를 다 친다(없는 건 no-op).
+        private static readonly System.Collections.Generic.Dictionary<string, string[]> CueTriggers =
+            new System.Collections.Generic.Dictionary<string, string[]>
             {
-                return;
-            }
+                ["attack"] = new[] { "Attack 01", "Attack", "Melee Attack" },
+            };
 
-            if (actionStart.actionCode.Contains("attack_001"))
-            {
-                visualGameObject.GetComponent<Animator>().SetTrigger("Attack 01");
-                visualGameObject.GetComponent<Animator>().SetTrigger("Attack");
-                visualGameObject.GetComponent<Animator>().SetTrigger("Melee Attack");
-            }
-        }
-
-        // 어빌리티 발동 연출. cue(클라 마스터데이터에서 해석됨)로 어떤 애니를 칠지 가른다.
-        // 캐릭터별 컨트롤러가 쓰는 트리거 이름이 달라 attack은 3개를 다 친다(레거시 OnActionStart와 동일).
         private void OnAbilityActivated(AbilityActivated abilityActivated)
         {
             if (visualGameObject == null)
@@ -125,12 +114,13 @@ namespace LOP
                 return;
             }
 
-            if (abilityActivated.cue == "attack")
+            if (CueTriggers.TryGetValue(abilityActivated.cue, out var triggers))
             {
                 Animator animator = visualGameObject.GetComponent<Animator>();
-                animator.SetTrigger("Attack 01");
-                animator.SetTrigger("Attack");
-                animator.SetTrigger("Melee Attack");
+                foreach (var trigger in triggers)
+                {
+                    animator.SetTrigger(trigger);
+                }
             }
         }
 

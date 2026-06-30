@@ -53,8 +53,6 @@ namespace LOP
         public override void UpdateEntity()
         {
             UpdateStatuses();
-
-            UpdateActions();
         }
 
         private void UpdateStatuses()
@@ -62,14 +60,6 @@ namespace LOP
             foreach (var status in this.GetEntityComponents<Status>().OrEmpty())
             {
                 status.UpdateStatus();
-            }
-        }
-
-        private void UpdateActions()
-        {
-            foreach (var action in this.GetEntityComponents<Action>().OrEmpty())
-            {
-                action.UpdateAction();
             }
         }
 

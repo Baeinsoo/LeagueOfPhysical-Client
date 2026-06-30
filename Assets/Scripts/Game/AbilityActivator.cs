@@ -17,6 +17,9 @@ namespace LOP
         [Inject]
         private GameFramework.World.EntityRegistry entityRegistry;
 
+        [Inject]
+        private GameFramework.World.WorldEventBuffer worldEventBuffer;
+
         public bool TryActivate(string casterEntityId, int abilityId, long currentTick)
         {
             if (abilityDataProvider.TryGet(abilityId, out var ability) == false)
@@ -31,8 +34,13 @@ namespace LOP
             }
 
             // effect는 ability.Effects에 실려 있고, Active 창에서 executor가 타입별 핸들러로 디스패치한다.
-            // 코어 결과를 그대로 반환 — 실제 발동(쿨다운/busy/자원 통과)됐을 때만 true(연출 발화 게이트로 쓰임).
-            return abilitySystem.TryActivate(caster, ability, caster, currentTick);
+            bool activated = abilitySystem.TryActivate(caster, ability, caster, currentTick);
+            if (activated)
+            {
+                // 발동 연출 cue — 내 캐릭 예측 발동도 여기서 한 곳에 모아 송출(서버 사본은 핸들러가 자기 스킵).
+                worldEventBuffer.Append(new GameFramework.World.AbilityActivatedEvent(casterEntityId, abilityId));
+            }
+            return activated;
         }
     }
 }

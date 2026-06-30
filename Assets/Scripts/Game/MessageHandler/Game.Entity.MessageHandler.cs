@@ -10,7 +10,6 @@ namespace LOP
         [Inject] private IPlayerContext playerContext;
         [Inject] private IGameDataStore gameDataStore;
         [Inject] private IRunner runner;
-        [Inject] private IActionManager actionManager;
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
         [Inject] private GameFramework.World.HealthSystem healthSystem;
         [Inject] private GameFramework.World.ManaSystem manaSystem;
@@ -22,8 +21,6 @@ namespace LOP
             EventBus.Default.Subscribe<EntitySnapsToC>(nameof(IMessage), OnEntitySnapsToC);
             EventBus.Default.Subscribe<EntitySpawnToC>(nameof(IMessage), OnEntitySpawnToC);
             EventBus.Default.Subscribe<EntityDespawnToC>(nameof(IMessage), OnEntityDespawnToC);
-            EventBus.Default.Subscribe<ActionStartToC>(nameof(IMessage), OnActionStartToC);
-            EventBus.Default.Subscribe<ActionEndToC>(nameof(IMessage), OnActionEndToC);
             EventBus.Default.Subscribe<UserEntitySnapToC>(nameof(IMessage), OnUserEntitySnapToC);
             EventBus.Default.Subscribe<StatAllocationToC>(nameof(IMessage), OnStatAllocationToC);
         }
@@ -33,8 +30,6 @@ namespace LOP
             EventBus.Default.Unsubscribe<EntitySnapsToC>(nameof(IMessage), OnEntitySnapsToC);
             EventBus.Default.Unsubscribe<EntitySpawnToC>(nameof(IMessage), OnEntitySpawnToC);
             EventBus.Default.Unsubscribe<EntityDespawnToC>(nameof(IMessage), OnEntityDespawnToC);
-            EventBus.Default.Unsubscribe<ActionStartToC>(nameof(IMessage), OnActionStartToC);
-            EventBus.Default.Unsubscribe<ActionEndToC>(nameof(IMessage), OnActionEndToC);
             EventBus.Default.Unsubscribe<UserEntitySnapToC>(nameof(IMessage), OnUserEntitySnapToC);
             EventBus.Default.Unsubscribe<StatAllocationToC>(nameof(IMessage), OnStatAllocationToC);
         }
@@ -149,37 +144,6 @@ namespace LOP
             else
             {
                 Debug.LogWarning($"Entity {entityDespawnToC.EntityId} not found for despawn");
-            }
-        }
-
-        private void OnActionStartToC(ActionStartToC actionStartToC)
-        {
-            if (Runner.current == null)
-            {
-                return;
-            }
-
-            if (playerContext.entity != null && playerContext.entity.entityId == actionStartToC.EntityId)
-            {
-                return;
-            }
-
-            if (runner.entityManager.TryGetEntity<LOPEntity>(actionStartToC.EntityId, out var entity))
-            {
-                actionManager.TryStartAction(entity, actionStartToC.ActionCode);
-            }
-        }
-
-        private void OnActionEndToC(ActionEndToC actionEndToC)
-        {
-            if (playerContext.entity != null && playerContext.entity.entityId == actionEndToC.EntityId)
-            {
-                return;
-            }
-
-            if (runner.entityManager.TryGetEntity<LOPEntity>(actionEndToC.EntityId, out var entity))
-            {
-                actionManager.TryEndAction(entity, actionEndToC.ActionCode);
             }
         }
 

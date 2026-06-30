@@ -12,24 +12,6 @@ namespace LOP.Event.Entity
         }
     }
 
-    public struct ActionStart
-    {
-        public string actionCode;
-        public ActionStart(string actionCode)
-        {
-            this.actionCode = actionCode;
-        }
-    }
-
-    public struct ActionEnd
-    {
-        public string actionCode;
-        public ActionEnd(string actionCode)
-        {
-            this.actionCode = actionCode;
-        }
-    }
-
     public struct EntityDeath
     {
         public string victimId;

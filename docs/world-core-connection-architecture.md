@@ -329,10 +329,12 @@ LOP 매핑: `LOPGameSimulation`(Shared) ↔ `LOPGameEngine`(각 사이드).
 - **슬라이스 2 (완료)**: `LOPEntityManager.DestroyMarkedEntities`에서 `EntityRegistry.Remove` 연결, 라이프사이클 닫기.
 - **슬라이스 3 (완료)**: Generation Phase 2/3 + `WorldEventBuffer` + Bridge(fan-out)로 **데미지 → 사망 경로의 첫 끝-끝 구현**. 와이어는 레거시 `DamageEventToC`를 어댑터로 격리하고 내부는 새 `WorldEvent` 추상으로 통일. 확정 게이트는 trivial(매 드레인=commit), 클라 측 Generation은 없음(서버 권위). *(후속 HP 슬라이스에서 중복 Application 제거 — backlog #1/#3 해소. Bridge/Broadcaster → `WorldEventSink`[`IEventSink`]로 리네임.)*
 - **LOP-Shared 도입 (Slice 0/1, 진행 예정)**: 별도 git 저장소 `LeagueOfPhysical-Shared`(패키지 `com.baegames.lop.shared`)를 만들어 클·서 *진짜 공통* 코드(wire/proto + 메시지 인프라)를 추출. 자세한 토폴로지·범위는 `lop-repo-topology.md` 참조.
-- **Slice 4(a~e) — Engine ↔ Simulation 추출 (예정)**: `LOPGameEngine`의 시뮬 흐름을 `LOPGameSimulation`으로 점진 흡수.
-  - **4a**: GameFramework에 추상 추가 — `IGameSimulation` + `GameSimulationBase`, `ITickUpdater` + `TickUpdaterBase`, `IInputSource`, `IEventSink`, `IPhysicsSimulator`, `INetworkSession`
-  - **4b**: LOP-Shared에 `LOPGameSimulation` 빈 골격 + `UnityPhysicsSimulator` 구체. 양쪽 `LOPGameEngine`이 simulation 보유(아직 흐름은 host에 남김).
-  - **4c**: 시뮬 매니저 host → simulation 점진 흡수 (각자 별도 슬라이스)
-  - **4d**: I/O 어댑터화 — `PlayerInputManager` → `IInputSource` 구현, `WorldEventBridge`/`WireBroadcaster` → `IEventSink` 구현, `LOPTickUpdater` → `ITickUpdater` 구현
-  - **4e**: `LOPGameEngine`이 *얇은 호스트*로 수렴. 흐름이 simulation 호출 + 어댑터 조립만.
-- **Stage ④ (예정)**: 확정 게이트 본격(틱 스탬프 + 롤백 폐기), Snapshot/Restore(클라 외각 책임 — `netcode-redesign.md` 참조), 클라 측 Generation(예측), 결정론적 RNG, reconciliation.
+- **Slice 4(a~e) — Engine ↔ Simulation 추출**: 호스트(`LOPRunner`, 구 `LOPGameEngine`)의 시뮬 흐름을 공유 시뮬(`LOPWorld`, 구 `LOPGameSimulation`)로 점진 흡수. *(Runner/World 리네임 완료.)*
+  - **4a (완료)**: GameFramework 추상 — `IWorld`/`WorldBase`(구 `IGameSimulation`), `ITickUpdater`/`TickUpdaterBase`, `IEventSink`, `IPhysicsSimulator`, `IRandom`. (`IInputSource`·`INetworkSession`은 미생성 — 아래 참고.)
+  - **4b (완료)**: `LOPWorld` 골격 + `UnityPhysicsSimulator`. 호스트가 빈 `LOPWorld`를 매 틱 `Tick`.
+  - **4c (완료)**: 이동 커널 공유(`MovementSystem.ProcessMovement`) + 어빌리티/StatusEffect 틱을 `LOPWorld.Mutation`으로 이전.
+  - **어댑터 (완료)**: `IEventSink`(`WorldEventSink`)·`IPhysicsSimulator`·`IRandom` 도입 — wrap-only 모양이 *이미 최종 표준*(구현만 후일 심화)이라 안전.
+  - **⛔ 4d (입력 어댑터) — Stage④로 이관 (2026-07-01).** 업계 표준 `IInputSource`는 *틱별 입력 데이터를 제공/폴링하는 provider*(`Poll(tick)→데이터`; Quantum `PollInput`/`SetInput`, Unity Netcode for Entities `IInputComponentData`/`ICommandData`)다. 이 모양은 *적용(예측 mutate)·송신을 source 밖으로* 빼야 성립 = 클라 예측 = **Stage④**. 현재 `PlayerInputManager.ProcessInput`은 capture+예측+송신을 묶은 *비표준 verb*라, 지금 wrap-only 포트로 박으면 Stage④에서 인터페이스를 깨는 reshape(임의명명→표준 rename churn)이 된다 — RNG/물리(모양이 이미 최종)와 비대칭. 상세: `docs/superpowers/specs/2026-06-30-slice4-input-source-port-design.md`(보류 표시).
+  - **⛔ 4e (얇은 호스트) — Stage④에 막힘 (2026-07-01).** 호스트 잔여 페이즈 중 **지금 `LOPWorld.Tick`으로 깨끗이 옮길 수 있는 게 없음**: ① `UpdateEntity`(=`LOPEntity.UpdateEntity→Status`)는 클라 MonoBehaviour 프레젠테이션이라 *영구히 호스트*. ② `DriveAbilityEffects`·③ `SimulatePhysics`는 **velocity 권위가 아직 Rigidbody(side)** 라 막힘 — effect 핸들러(`MotionEffectHandler`)가 클라 전용 `PhysicsComponent`/`Rigidbody.velocity`에 쓰고, after-physics 동기(`LOPEntityController.SyncPhysics`/`WorldMotionSync`)가 호스트 리스너. 공유 `LOPWorld`는 이 클라 타입들을 참조 불가. **keystone = velocity 권위를 Rigidbody → `World.Entity`로 이전**(Stage④, "접근 B") — 이게 풀리면 ②③가 자연히 `LOPWorld.Tick`으로 들어가 4e가 닫힌다.
+  - **요지:** Slice 4의 *분리 가능한* 작업은 완료. 잔여(4d·4e)는 전부 Stage④ 결정(예측·롤백·velocity 권위)에 묶여 있어 **Slice 4는 Stage④ 전 단계에선 사실상 닫힘** — 다음 실제 작업은 Stage④다.
+- **Stage ④ (다음 — brainstorm 예정)**: 확정 게이트 본격(틱 스탬프 + 롤백 폐기), **velocity 권위 이전(Rigidbody → `World.Entity`, 4e 잠금 해제 + 예측 전제)**, Snapshot/Restore(클라 외각 책임 — `netcode-redesign.md` 참조), 클라 측 Generation(예측), 결정론적 RNG, `IInputSource` 표준 provider(4d), reconciliation 재설계(delta-replay → Snapshot/Restore + input replay).

@@ -7,33 +7,49 @@ namespace LOP
 {
     public class LOPEntity : MonoEntity
     {
-        private Vector3 _position;
+        private GameFramework.World.Transform worldTransform;
+        private GameFramework.World.Velocity worldVelocity;
+
+        /// <summary>크리에이터가 이 엔티티의 World.Entity 모션 컴포넌트를 연결한다(파사드 백킹). Initialize 전에 호출.</summary>
+        public void LinkWorldMotion(GameFramework.World.Transform transform, GameFramework.World.Velocity velocity)
+        {
+            this.worldTransform = transform;
+            this.worldVelocity = velocity;
+        }
+
         public override Vector3 position
         {
-            get => _position;
+            get => worldTransform.Position.ToUnity();
             set
             {
-                this.SetProperty(ref _position, value, RaisePropertyChanged);
+                var current = worldTransform.Position.ToUnity();
+                if (Vector3EqualityComparer.instance.Equals(current, value)) return;
+                worldTransform.Position = value.ToNumerics();
+                RaisePropertyChanged(this, new PropertyChangedEventArgs(nameof(position)));
             }
         }
 
-        private Vector3 _rotation;
         public override Vector3 rotation
         {
-            get => _rotation;
+            get => worldTransform.Rotation.ToUnity().eulerAngles;
             set
             {
-                this.SetProperty(ref _rotation, value, RaisePropertyChanged);
+                var current = worldTransform.Rotation.ToUnity().eulerAngles;
+                if (Vector3EqualityComparer.instance.Equals(current, value)) return;
+                worldTransform.Rotation = Quaternion.Euler(value).ToNumerics();
+                RaisePropertyChanged(this, new PropertyChangedEventArgs(nameof(rotation)));
             }
         }
 
-        private Vector3 _velocity;
         public override Vector3 velocity
         {
-            get => _velocity;
+            get => worldVelocity.Linear.ToUnity();
             set
             {
-                this.SetProperty(ref _velocity, value, RaisePropertyChanged);
+                var current = worldVelocity.Linear.ToUnity();
+                if (Vector3EqualityComparer.instance.Equals(current, value)) return;
+                worldVelocity.Linear = value.ToNumerics();
+                RaisePropertyChanged(this, new PropertyChangedEventArgs(nameof(velocity)));
             }
         }
 

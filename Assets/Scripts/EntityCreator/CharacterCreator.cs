@@ -27,8 +27,15 @@ namespace LOP
             GameObject visual = root.CreateChild("Visual");
             GameObject physics = root.CreateChild("Physics");
 
+            var worldEntity = new GameFramework.World.Entity(creationData.entityId);
+            worldEntity.Add(new GameFramework.World.Transform());
+            worldEntity.Add(new GameFramework.World.Velocity());
+
             LOPEntity entity = root.CreateChildWithComponent<LOPEntity>();
             objectResolver.Inject(entity);
+            entity.LinkWorldMotion(
+                worldEntity.Get<GameFramework.World.Transform>(),
+                worldEntity.Get<GameFramework.World.Velocity>());
             entity.Initialize(creationData);
 
             EntityTypeComponent entityTypeComponent = entity.AddEntityComponent<EntityTypeComponent>();
@@ -75,8 +82,7 @@ namespace LOP
                 serverStateReconciler.entityView = view;
             }
 
-            // --- World Core (병렬·추가) — Slice 1: Health, Slice B: Transform/Velocity ---
-            var worldEntity = new GameFramework.World.Entity(creationData.entityId);
+            // --- World Core (병렬·추가) — Health/Mana/Level/Stats/Abilities. Transform/Velocity는 위에서 생성(파사드 백킹). ---
             var worldHealth = new GameFramework.World.Health(creationData.maxHP) { Current = creationData.currentHP };
             worldEntity.Add(worldHealth);
             worldEntity.Add(new GameFramework.World.Mana(creationData.maxMP) { Current = creationData.currentMP });
@@ -88,12 +94,6 @@ namespace LOP
             worldStats.BaseStats[(int)GameFramework.World.EntityStatType.Vitality] = creationData.vitality;
             worldStats.BaseStats[(int)GameFramework.World.EntityStatType.MoveSpeed] = characterComponent.masterData.Speed;
             worldEntity.Add(worldStats);
-            worldEntity.Add(new GameFramework.World.Transform
-            {
-                Position = entity.position.ToNumerics(),
-                Rotation = Quaternion.Euler(entity.rotation).ToNumerics(),
-            });
-            worldEntity.Add(new GameFramework.World.Velocity { Linear = entity.velocity.ToNumerics() });
             worldEntity.Add(new Abilities());
             worldEntity.Add(new StatusEffects());
             entityRegistry.Add(worldEntity);

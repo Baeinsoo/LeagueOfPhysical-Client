@@ -22,11 +22,6 @@ namespace LOP
                 throw new Exception("CharacterComponent does not exist. Cannot process input.");
             }
 
-            if (entity.TryGetComponent<PhysicsComponent>(out var physicsComponent) == false)
-            {
-                throw new Exception("PhysicsComponent does not exist. Cannot process input.");
-            }
-
             // 대시 같은 이동 어빌리티가 Active면 입력 이동을 무시한다(대시가 방향·속도를 주도).
             if (AbilitySystem.HasActiveMotionEffect(entityRegistry.Get(entity.entityId)))
             {
@@ -40,20 +35,20 @@ namespace LOP
                 entity.velocity, horizontal, vertical, speed,
                 MaxAcceleration, (float)Runner.Time.tickInterval));
 
-            // 계산된 새 속도와 지금 속도의 차이만큼 힘을 줘서 속도를 맞춘다(좌우/앞뒤만).
-            Vector3 delta = result.velocity - entity.velocity;
-            physicsComponent.entityRigidbody.AddForce(new Vector3(delta.x, 0f, delta.z), ForceMode.VelocityChange);
+            // 계산된 새 속도를 World.velocity에 반영한다(좌우/앞뒤만; Y는 중력에 맡겨 보존).
+            // 점프면 Y를 점프 속도로 세팅. World 쓰기 → PhysicsComponent 반응 동기 → Rigidbody.
+            Vector3 velocity = entity.velocity;
+            velocity.x = result.velocity.x;
+            velocity.z = result.velocity.z;
+            if (jump)
+            {
+                velocity.y = characterComponent.masterData.JumpPower;
+            }
+            entity.velocity = velocity;
+
             if (result.hasRotation)
             {
                 entity.rotation = result.rotation;
-            }
-
-            // 점프: 위쪽 속도를 점프 속도로 맞춘다(땅에 있는지 체크는 아직 없음).
-            if (jump)
-            {
-                var rb = physicsComponent.entityRigidbody;
-                float jumpSpeed = characterComponent.masterData.JumpPower;
-                rb.AddForce(Vector3.up * (jumpSpeed - rb.linearVelocity.y), ForceMode.VelocityChange);
             }
         }
 

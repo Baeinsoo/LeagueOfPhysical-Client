@@ -147,14 +147,14 @@ LOPEntity가 곧 World이므로 "LOPEntity→World 복사"는 무의미. 파일 
 ## Open Questions (구현 plan 전 확인)
 
 - **link 메서드 명명**: `LinkWorldMotion(Transform, Velocity)` vs `BindWorldMotion` vs worldEntity 통째 전달 후 내부 Get. (추천: 컴포넌트 2개 명시 전달 = 결합 최소.)
-- **`Initialize`의 위치 세팅 유지 vs 제거**: 파사드 통해 시드(유지) vs Transform/Velocity를 creationData로 직접 시드하고 Initialize에서 위치줄 제거. (추천: 유지 — 단일 시드 지점, 단 link가 Initialize보다 먼저여야.)
+- ~~**`Initialize`의 위치 세팅 유지 vs 제거**~~ **→ 결정: 직접 시드 (2026-07-02).** creator가 `worldEntity.Add(new Transform { Position = creationData.position.ToNumerics(), ... })`로 **실제 모델(World)에 명시적 시드**, `LOPEntity.Initialize`는 entityId만. 근거(사용자): "값은 실제 모델(World.Transform/Velocity)에 넣어야" — 데이터 흐름이 creationData→World로 자명해짐(파사드 경유 암묵 시드보다 명확). Rigidbody 초기화는 `PhysicsComponent.Initialize`가 `entity.position`(파사드→World) 직접 읽어 세팅하므로 Initialize의 PropertyChange 불필요. 클·서 동시 적용.
 - **link 전 접근 가드**: 재배치로 link-first 보장되면 불필요(fail-loud). 방어 가드 추가 여부.
 
 ## 진행
 
 - [x] 브레인스토밍 — Stage④ 첫 슬라이스=Motion 권위 이전, 파사드 방식, 클라 단독 합의
 - [x] 현재 흐름·연결 메커니즘·아이템 비대칭·레지스트리 순회 안전성 실측
-- [x] 이 spec 작성
-- [ ] spec self-review
-- [ ] 사용자 spec 리뷰
-- [ ] `writing-plans`로 구현 plan 작성
+- [x] 이 spec 작성 + self-review + 사용자 리뷰
+- [x] 구현 plan (`docs/superpowers/plans/2026-07-01-stage4-motion-world-authority.md`)
+- [x] **클라 구현 완료 + 플레이 검증 + main 머지 (2026-07-01).** GameFramework `81913b2`(ToUnity) / Client `445333f`. (GF·클라 push됨.)
+- [x] **서버 Motion flip 완료 + 플레이 검증 + main 머지 (2026-07-02).** Server `516964c`. 대칭 미러 + 서버 EntityBinder 삭제(빈 껍데기). **클·서 둘 다 World.Entity 모션 소유 = 대칭 완성.** (서버 미푸시.) **다음 = 4e(물리·어빌리티를 LOPWorld.Tick으로) / Snapshot/Restore / 클라 예측.**

@@ -61,9 +61,7 @@ namespace LOP
         public virtual void Initialize<TEntityCreationData>(TEntityCreationData creationData) where TEntityCreationData : struct, IEntityCreationData
         {
             entityId = creationData.entityId;
-            position = creationData.position;
-            rotation = creationData.rotation;
-            velocity = creationData.velocity;
+            // 모션(position/rotation/velocity)은 크리에이터가 World.Transform/Velocity(진실원본)에 직접 시드한다.
         }
 
         public override void UpdateEntity()

@@ -19,8 +19,12 @@ namespace LOP
             GameObject physics = root.CreateChild("Physics");
 
             var worldEntity = new GameFramework.World.Entity(creationData.entityId);
-            worldEntity.Add(new GameFramework.World.Transform());
-            worldEntity.Add(new GameFramework.World.Velocity());
+            worldEntity.Add(new GameFramework.World.Transform
+            {
+                Position = creationData.position.ToNumerics(),
+                Rotation = Quaternion.Euler(creationData.rotation).ToNumerics(),
+            });
+            worldEntity.Add(new GameFramework.World.Velocity { Linear = creationData.velocity.ToNumerics() });
 
             LOPEntity entity = root.CreateChildWithComponent<LOPEntity>();
             objectResolver.Inject(entity);

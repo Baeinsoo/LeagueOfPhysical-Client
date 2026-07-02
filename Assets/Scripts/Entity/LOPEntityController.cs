@@ -41,6 +41,12 @@ namespace LOP
             }
         }
 
+        [RunnerListen(typeof(BeforePhysicsSimulation))]
+        private void OnBeforePhysicsSimulation()
+        {
+            entity.PushVelocityToPhysics();
+        }
+
         [RunnerListen(typeof(AfterPhysicsSimulation))]
         private void OnUpdateAfterPhysicsSimulation()
         {

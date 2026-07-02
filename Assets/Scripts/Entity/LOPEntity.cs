@@ -90,5 +90,18 @@ namespace LOP
             rotation = physicsComponent.entityRigidbody.rotation.eulerAngles;
             velocity = physicsComponent.entityRigidbody.linearVelocity;
         }
+
+        /// <summary>World.velocity를 물리 바디에 밀어넣는다(Simulate 직전 호출). SyncPhysics(rb→World)의 역방향.</summary>
+        public void PushVelocityToPhysics()
+        {
+            PhysicsComponent physicsComponent = this.GetEntityComponent<PhysicsComponent>();
+
+            if (physicsComponent == null)
+            {
+                return;
+            }
+
+            physicsComponent.entityRigidbody.linearVelocity = velocity;
+        }
     }
 }

@@ -96,13 +96,13 @@ namespace LOP
         // 와이어(proto) 변환은 여기(송신 어댑터)부터 — 도메인은 InputCommand만 다룬다.
         private void SendToServer(InputBuffer buffer, long tick, InputCommand current)
         {
-            PlayerInputToS playerInputToS = new PlayerInputToS();
-            playerInputToS.Tick = tick;
-            playerInputToS.SessionId = playerContext.session.sessionId;
+            InputCommandToS inputCommandToS = new InputCommandToS();
+            inputCommandToS.Tick = tick;
+            inputCommandToS.SessionId = playerContext.session.sessionId;
 
             if (current != null)
             {
-                playerInputToS.PlayerInput = ToProto(current);
+                inputCommandToS.InputCommand = ToProto(current);
 
                 EntityTransform entityTransform = new EntityTransform
                 {
@@ -110,26 +110,26 @@ namespace LOP
                     rotation = playerContext.entity.rotation,
                     velocity = playerContext.entity.velocity,
                 };
-                playerInputToS.EntityTransform = MapperConfig.mapper.Map<ProtoTransform>(entityTransform);
+                inputCommandToS.EntityTransform = MapperConfig.mapper.Map<ProtoTransform>(entityTransform);
             }
 
             // sliding-window redundancy: 스트림의 최근 N틱을 함께 실어 패킷 유실에 대비.
             foreach (var pair in buffer.Commands)
             {
-                playerInputToS.RecentInputs.Add(new PlayerInputEntry
+                inputCommandToS.RecentInputs.Add(new InputCommandEntry
                 {
                     Tick = pair.Key,
-                    PlayerInput = ToProto(pair.Value),
+                    InputCommand = ToProto(pair.Value),
                 });
             }
 
             // unreliable — 시간민감 입력. 유실은 redundancy로 복구, head-of-line blocking 회피.
-            playerContext.session.Send(playerInputToS, reliable: false);
+            playerContext.session.Send(inputCommandToS, reliable: false);
         }
 
-        private static global::PlayerInput ToProto(InputCommand command)
+        private static global::InputCommand ToProto(InputCommand command)
         {
-            return new global::PlayerInput
+            return new global::InputCommand
             {
                 SequenceNumber = command.SequenceNumber,
                 Horizontal = command.Horizontal,

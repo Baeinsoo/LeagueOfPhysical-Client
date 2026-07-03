@@ -32,6 +32,8 @@ namespace LOP
             builder.Register<GameFramework.World.ManaSystem>(Lifetime.Singleton);
             builder.Register<GameFramework.World.LevelSystem>(Lifetime.Singleton);
             builder.Register<GameFramework.World.StatsSystem>(Lifetime.Singleton);
+            builder.Register<MovementSystem>(Lifetime.Singleton);
+            builder.Register<InputBufferSystem>(Lifetime.Singleton);
             builder.Register<StatusEffectSystem>(Lifetime.Singleton);
             builder.Register<AbilitySystem>(Lifetime.Singleton);
             builder.Register<StatusEffectDataProvider>(Lifetime.Singleton);
@@ -62,7 +64,6 @@ namespace LOP
             builder.RegisterEntryPoint<PlayerHudCoordinator>();
             builder.RegisterEntryPoint<EntityBinder>();
             builder.Register<PlayerInputManager>(Lifetime.Singleton).AsSelf();
-            builder.Register<IMovementManager, LOPMovementManager>(Lifetime.Singleton);
             builder.Register<IEntityCreator, CharacterCreator>(Lifetime.Singleton);
             builder.Register<IEntityCreator, ItemCreator>(Lifetime.Singleton);
             builder.Register<IEntityFactory, EntityFactory>(Lifetime.Singleton);

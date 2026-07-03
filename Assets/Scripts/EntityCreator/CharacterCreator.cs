@@ -97,9 +97,15 @@ namespace LOP
             worldStats.BaseStats[(int)GameFramework.World.EntityStatType.Intelligence] = creationData.intelligence;
             worldStats.BaseStats[(int)GameFramework.World.EntityStatType.Vitality] = creationData.vitality;
             worldStats.BaseStats[(int)GameFramework.World.EntityStatType.MoveSpeed] = characterComponent.masterData.Speed;
+            worldStats.BaseStats[(int)GameFramework.World.EntityStatType.JumpPower] = characterComponent.masterData.JumpPower;
             worldEntity.Add(worldStats);
             worldEntity.Add(new Abilities());
             worldEntity.Add(new StatusEffects());
+            if (isUserEntity)
+            {
+                // 입력으로 조종되는 엔티티(내 캐릭)만 — 호스트가 매 틱 커맨드를 채우고 MovementSystem이 읽는다.
+                worldEntity.Add(new InputBuffer());
+            }
             entityRegistry.Add(worldEntity);
 
             // 3d: 헤이스트 어빌리티 부여(발동은 입력 트리거 — AbilityActivator). TEMP: 전체 부여, 캐릭터별 셋은 후속.

@@ -91,8 +91,8 @@ namespace LOP
             velocity = physicsComponent.entityRigidbody.linearVelocity;
         }
 
-        /// <summary>World.velocity를 물리 바디에 밀어넣는다(Simulate 직전 호출). SyncPhysics(rb→World)의 역방향.</summary>
-        public void PushVelocityToPhysics()
+        /// <summary>World 모션(velocity·rotation)을 물리 바디에 밀어넣는다(Simulate 직전 호출). SyncPhysics(rb→World)의 역방향.</summary>
+        public void PushMotionToPhysics()
         {
             PhysicsComponent physicsComponent = this.GetEntityComponent<PhysicsComponent>();
 
@@ -102,6 +102,7 @@ namespace LOP
             }
 
             physicsComponent.entityRigidbody.linearVelocity = velocity;
+            physicsComponent.entityRigidbody.rotation = Quaternion.Euler(rotation);
         }
     }
 }

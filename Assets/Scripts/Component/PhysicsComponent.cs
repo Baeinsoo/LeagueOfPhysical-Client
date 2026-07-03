@@ -59,11 +59,7 @@ namespace LOP
                     entityRigidbody.position = entity.position;
                     break;
 
-                case nameof(entity.rotation):
-                    entityRigidbody.rotation = Quaternion.Euler(entity.rotation);
-                    break;
-
-                // velocity는 BeforePhysicsSimulation 브릿지(LOPEntity.PushVelocityToPhysics)가 담당.
+                // velocity·rotation은 BeforePhysicsSimulation 브릿지(LOPEntity.PushMotionToPhysics)가 담당.
             }
         }
     }

@@ -73,30 +73,32 @@ namespace LOP
                 case nameof(AppearanceComponent.visualId):
                     UpdateVisual(entity.GetEntityComponent<AppearanceComponent>().visualId);
                     break;
-
-                case nameof(entity.velocity):
-                case nameof(entity.position):
-                    float walkThreshold = 0.01f;
-                    float walkThresholdSquared = walkThreshold * walkThreshold;
-                    float horizontalSpeedSquared = entity.velocity.x * entity.velocity.x + entity.velocity.z * entity.velocity.z;
-                    if (horizontalSpeedSquared > walkThresholdSquared && entity.IsGrounded())
-                    {
-                        Animator animator = visualGameObject?.GetComponent<Animator>();
-                        if (animator != null)
-                        {
-                            animator.SetBool("Run", true);
-                        }
-                    }
-                    else
-                    {
-                        Animator animator = visualGameObject?.GetComponent<Animator>();
-                        if (animator != null)
-                        {
-                            animator.SetBool("Run", false);
-                        }
-                    }
-                    break;
             }
+        }
+
+        private void Update()
+        {
+            UpdateRunAnimation();
+        }
+
+        // 걷기 애니는 연속 상태(속도)라 매 프레임 읽어 갱신한다(pull).
+        // 변경 알림(PropertyChange)에 기대면 이동이 World에 직접 쓴 변화(제동→0 등)를 놓쳐 애니가 옛 상태에 머문다.
+        private void UpdateRunAnimation()
+        {
+            if (entity == null || visualGameObject == null)
+            {
+                return;
+            }
+
+            Animator animator = visualGameObject.GetComponent<Animator>();
+            if (animator == null)
+            {
+                return;
+            }
+
+            const float walkThreshold = 0.01f;
+            float horizontalSpeedSquared = entity.velocity.x * entity.velocity.x + entity.velocity.z * entity.velocity.z;
+            animator.SetBool("Run", horizontalSpeedSquared > walkThreshold * walkThreshold && entity.IsGrounded());
         }
      
         // 어빌리티 발동 연출 cue → 애니 트리거. 한 곳에서 매핑(cue 늘면 dict에 추가, if 누적 없음).

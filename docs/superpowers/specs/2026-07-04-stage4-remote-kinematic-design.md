@@ -46,18 +46,19 @@ Stage④의 접근을 리서치(Fusion/Fish-Net/Netick/Mirror/Quake·Source·Ove
 - 변경: `isUserEntity`면 `(false, false)`(dynamic 유지), 아니면 `(true, false)`(kinematic, non-trigger).
 - kinematic 바디는 `Physics.Simulate`에 의해 적분되지 않고, 우리가 `rigidbody.position`을 세팅해 움직인다. dynamic 바디(내 캐릭)와는 **여전히 충돌**(장애물로 작용).
 
-### ② 원격 모션 적용 = 위치 직접 (velocity 아님)
+### ② `SyncPhysics`를 kinematic에서 스킵 (실측 후 단순화)
 
-kinematic 바디는 `linearVelocity`로 안 움직이므로, 원격은 position/rotation을 직접 세팅한다.
-- **`ServerStateReconciler`**: `SmoothDamp`로 계산한 목표를 `entity.position`/`entity.rotation`에 쓰는 흐름은 유지(파사드 → World). `entity.velocity`는 물리 적분용이 아니라 SmoothDamp 계산·스냅 보간용으로만 남는다(rigidbody에 안 먹어도 무해).
-- **브릿지 분기 필요**: `PushMotionToPhysics`가 원격에선 `rigidbody.position = position`(kinematic 이동), 로컬에선 현행 `linearVelocity = velocity`. 
-  - 방식 A: `PushMotionToPhysics`에서 `rigidbody.isKinematic`로 분기 — kinematic이면 position, dynamic이면 velocity 세팅.
-  - 방식 B(추천): kinematic 바디는 `rigidbody.position`(+`MovePosition`) 세팅이 자연스러움. `isKinematic` 체크 한 줄로 분기. 로컬 경로 무변경.
-- `SyncPhysics`(물리 후 rb→World): 원격은 우리가 세팅한 값이 그대로라 무해(왕복 일치). 로컬은 현행.
+**실측 결과 브릿지 분기는 불필요하다.** 이유:
+- **position은 이미 reactive 경로**: `PhysicsComponent.OnPropertyChange`가 `entity.position` 변경 시 `rigidbody.position = entity.position`을 세팅한다. 원격은 `ServerStateReconciler`가 `entity.position`(SmoothDamp)을 쓰면 이 경로로 rb에 반영됨. **kinematic 이동이 이걸로 이미 됨.**
+- **브릿지(`PushMotionToPhysics`)는 kinematic에 무해**: `rigidbody.linearVelocity = velocity`는 kinematic 바디에서 **무시**됨(에러·효과 없음). `rigidbody.rotation = ...`은 kinematic에도 정상 세팅. → **브릿지 무변경.**
+- **진짜 필요한 변경 = `SyncPhysics` 스킵**: `SyncPhysics`(AfterPhysicsSimulation, rb→World)가 kinematic 바디의 `rigidbody.linearVelocity`(=0)를 읽어 `entity.velocity`를 **0으로 덮는다.** 이는 원격의 run 애니(`LOPEntityView`가 `entity.velocity`로 판정)와 reconciler SmoothDamp 상태를 망친다. → **kinematic이면 `SyncPhysics`를 스킵**한다(kinematic은 World가 권위, rb는 follower라 rb→World 되읽기가 무의미·유해).
 
-> **정밀화 포인트(구현 시 검증)**: 현재 원격도 브릿지가 `BeforePhysicsSimulation`에 velocity를 밀어넣는데, kinematic이면 그게 무시된다. 원격 position 세팅 타이밍을 `Physics.Simulate` 전/후 어디에 두든 kinematic이라 적분 영향이 없어 안전. 지연 렌더(`LateUpdate`)는 `entityTransformSnaps`(우리가 쓴 값)를 읽으므로 무변경.
->
-> **페이즈 순서 주의(무해)**: 런너 루프에서 `ServerStateReconciler.Reconcile`은 `End`(=`SimulatePhysics` 뒤)에서 `entity.position`을 갱신하고, 브릿지는 다음 틱 `BeforePhysicsSimulation`에서 그 값을 rigidbody에 민다. 즉 내 캐릭의 `Simulate`는 원격의 *직전 틱 reconcile 위치*에 대해 충돌 판정한다(1틱 지연). 원격은 어차피 보간(과거)이라 이 1틱 지연은 수용 가능 — 명시만 하고 이 슬라이스에선 교정하지 않는다.
+즉 변경은 **`LOPEntity.SyncPhysics`에 `if (rb.isKinematic) return;` 가드** 하나. `ServerStateReconciler`·브릿지·`OnPropertyChange`는 무변경.
+
+- 로컬(dynamic)은 `SyncPhysics`가 정상 실행(물리 적분 결과 rb→World 되읽기 필수) — 무변경.
+- 아이템(이미 kinematic)도 `SyncPhysics` 스킵 대상이 됨 — 기존엔 왕복 no-op이었고 velocity를 0으로 덮던 것도 사라져 오히려 깔끔(아이템은 velocity 미사용이라 영향 없음).
+
+> **페이즈 순서 주의(무해)**: `ServerStateReconciler.Reconcile`은 `End`(=`SimulatePhysics` 뒤)에서 `entity.position`을 갱신 → reactive로 rb.position 반영. 즉 내 캐릭의 `Simulate`는 원격의 *직전 틱 reconcile 위치*에 대해 충돌 판정(1틱 지연). 원격은 어차피 보간(과거)이라 수용 가능 — 이 슬라이스에선 교정하지 않는다.
 
 ### ③ 아이템 — 무변경
 
@@ -88,11 +89,11 @@ kinematic 바디는 `linearVelocity`로 안 움직이므로, 원격은 position/
 - **대규모 AoI 시 별도 물리 씬(패턴 2) + 컬링** — YAGNI, 스케일이 실제 문제될 때.
 - **A2(kinematic 컨트롤러) 승격** — A1 드리프트가 실제로 거슬릴 때 재검토.
 
-## Open Questions (구현 plan 전 확인)
+## Open Questions — 실측으로 해소 (2026-07-04)
 
-- **브릿지 분기 방식** — `PushMotionToPhysics`에서 `isKinematic` 체크로 position/velocity 분기(추천) vs 원격 전용 컴포넌트/경로 분리. (추천: 최소 변경 = `isKinematic` 한 줄 분기.)
-- **kinematic 이동 API** — `rigidbody.position =` (텔레포트) vs `rigidbody.MovePosition()` (보간 이동). 원격은 이미 SmoothDamp로 부드럽게 계산된 값이라 `position =`로 충분할 듯. 구현 시 떨림 확인.
-- **원격 `velocity` 잔존 필요성** — SmoothDamp 계산에 쓰이므로 `entity.velocity`는 유지하되 물리엔 미적용. 완전 제거 가능 여부는 구현 시 판단.
+- ~~**브릿지 분기 방식**~~ **→ 불필요.** position은 이미 reactive(`OnPropertyChange`), 브릿지 velocity는 kinematic서 무시(무해). 변경은 `SyncPhysics` 가드 하나뿐. (설계 ② 참고.)
+- ~~**kinematic 이동 API**~~ **→ reactive `rigidbody.position =`(기존 경로) 유지.** 원격은 SmoothDamp된 값이라 텔레포트-set로 충분. `MovePosition` 불필요.
+- ~~**원격 `velocity` 잔존**~~ **→ 유지.** `entity.velocity`는 SmoothDamp 상태·run 애니 판정에 쓰이므로 유지하되 물리엔 미적용(kinematic 무시). `SyncPhysics` 스킵으로 0-덮어쓰기가 사라져 오히려 정상화.
 
 ## 진행
 
@@ -100,5 +101,5 @@ kinematic 바디는 `linearVelocity`로 안 움직이므로, 원격은 position/
 - [x] 현재 물리·원격 구동·브릿지 실측
 - [x] 이 spec 작성
 - [x] spec self-review (플레이스홀더·일관성·스코프·모호성 점검, 페이즈 순서 주의 보강)
-- [ ] 사용자 spec 리뷰
+- [x] 사용자 spec 리뷰 — 승인
 - [ ] `writing-plans`로 구현 plan 작성

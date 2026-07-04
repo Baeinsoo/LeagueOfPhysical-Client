@@ -19,6 +19,8 @@ namespace LOP
         [Inject] private AbilityEffectExecutor abilityEffectExecutor;
 
         [Inject] private IMapLoader mapLoader;
+        [Inject] private IPlayerContext playerContext;
+        [Inject] private GameFramework.Netcode.SnapshotHistory snapshotHistory;
 
         private const string MapId = "Assets/Art/Scenes/FlapWangMap.unity";
 
@@ -173,9 +175,41 @@ namespace LOP
 
         private void EndUpdate()
         {
+            RecordLocalSnapshot();
+
             DispatchEvent<End>();
 
             entityManager.DestroyMarkedEntities();
+        }
+
+        // 내 캐릭의 이번 틱 최종 시뮬 상태를 스냅샷에 남긴다. End 디스패치(=SnapReconciler 스무딩) 전에
+        // 찍어 스무딩이 얹히기 전 원본 예측 상태를 포착한다. 되돌리기는 슬라이스 ③.
+        private void RecordLocalSnapshot()
+        {
+            LOPEntity local = playerContext.entity;
+            if (local == null)
+            {
+                return;
+            }
+
+            GameFramework.World.Entity worldEntity = entityRegistry.Get(local.entityId);
+            if (worldEntity == null)
+            {
+                return;
+            }
+
+            var transform = worldEntity.Get<GameFramework.World.Transform>();
+            var velocity = worldEntity.Get<GameFramework.World.Velocity>();
+            if (transform == null || velocity == null)
+            {
+                return;
+            }
+
+            snapshotHistory.Record(new GameFramework.Netcode.EntitySnapshot(
+                Runner.Time.tick,
+                transform.Position,
+                transform.Rotation,
+                velocity.Linear));
         }
     }
 }

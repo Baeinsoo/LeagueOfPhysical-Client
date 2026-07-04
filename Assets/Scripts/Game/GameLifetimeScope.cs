@@ -85,6 +85,7 @@ namespace LOP
             builder.Register<LeadState>(Lifetime.Singleton);
             builder.Register(_ => new GameFramework.Netcode.SnapshotHistory(128), Lifetime.Singleton);
             builder.Register(_ => new InputHistory(128), Lifetime.Singleton);
+            builder.Register<Reconciler>(Lifetime.Singleton);
 
             builder.RegisterBuildCallback(container =>
             {

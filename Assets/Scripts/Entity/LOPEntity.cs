@@ -86,6 +86,13 @@ namespace LOP
                 return;
             }
 
+            // kinematic 바디(원격 캐릭·아이템)는 World가 권위 — rb→World 되읽기는 rb.linearVelocity(=0)를
+            // entity.velocity에 덮어 run 애니·smoothing을 망친다. 스킵한다(rb는 World를 따르는 follower).
+            if (physicsComponent.entityRigidbody.isKinematic)
+            {
+                return;
+            }
+
             position = physicsComponent.entityRigidbody.position;
             rotation = physicsComponent.entityRigidbody.rotation.eulerAngles;
             velocity = physicsComponent.entityRigidbody.linearVelocity;
@@ -101,8 +108,18 @@ namespace LOP
                 return;
             }
 
-            physicsComponent.entityRigidbody.linearVelocity = velocity;
-            physicsComponent.entityRigidbody.rotation = Quaternion.Euler(rotation);
+            Rigidbody rigidbody = physicsComponent.entityRigidbody;
+
+            // kinematic 바디(원격 캐릭·아이템)는 velocity를 못 받는다(Unity가 매 틱 경고). rotation만 밀고 velocity는 스킵.
+            // (position은 reactive 경로 PhysicsComponent.OnPropertyChange가 담당하므로 여기선 불필요.)
+            if (rigidbody.isKinematic)
+            {
+                rigidbody.rotation = Quaternion.Euler(rotation);
+                return;
+            }
+
+            rigidbody.linearVelocity = velocity;
+            rigidbody.rotation = Quaternion.Euler(rotation);
         }
     }
 }

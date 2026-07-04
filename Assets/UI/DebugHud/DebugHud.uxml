@@ -14,6 +14,8 @@
             <ui:Label name="timing-maxd-text" class="debug-text" text="d max: 0" />
             <ui:Label name="timing-prune-text" class="debug-text" text="Prune: 0" />
             <ui:Label name="timing-seqgap-text" class="debug-text" text="SeqGap: 0" />
+            <ui:Label name="snapshot-count-text" class="debug-text" text="Snap count: 0" />
+            <ui:Label name="snapshot-tick-text" class="debug-text" text="Snap tick: -1" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

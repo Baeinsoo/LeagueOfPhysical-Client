@@ -16,6 +16,9 @@ namespace LOP.UI
         [Inject]
         private InputTimingStats inputTimingStats;
 
+        [Inject]
+        private GameFramework.Netcode.SnapshotHistory snapshotHistory;
+
         public bool IsRunning => Runner.current != null;
 
         public long Tick => Runner.Time.tick;
@@ -42,5 +45,9 @@ namespace LOP.UI
         public int TimingPrune => inputTimingStats.PruneCount;
 
         public int TimingSeqGap => inputTimingStats.SeqGapCount;
+
+        public int SnapshotCount => snapshotHistory.Count;
+
+        public long SnapshotLatestTick => snapshotHistory.Latest?.Tick ?? -1;
     }
 }

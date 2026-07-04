@@ -83,6 +83,7 @@ namespace LOP
             builder.Register<ReconciliationStats>(Lifetime.Singleton);
             builder.Register<InputTimingStats>(Lifetime.Singleton);
             builder.Register<LeadState>(Lifetime.Singleton);
+            builder.Register(_ => new GameFramework.Netcode.SnapshotHistory(128), Lifetime.Singleton);
 
             builder.RegisterBuildCallback(container =>
             {

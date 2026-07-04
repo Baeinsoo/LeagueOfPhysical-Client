@@ -86,6 +86,13 @@ namespace LOP
                 return;
             }
 
+            // kinematic 바디(원격 캐릭·아이템)는 World가 권위 — rb→World 되읽기는 rb.linearVelocity(=0)를
+            // entity.velocity에 덮어 run 애니·smoothing을 망친다. 스킵한다(rb는 World를 따르는 follower).
+            if (physicsComponent.entityRigidbody.isKinematic)
+            {
+                return;
+            }
+
             position = physicsComponent.entityRigidbody.position;
             rotation = physicsComponent.entityRigidbody.rotation.eulerAngles;
             velocity = physicsComponent.entityRigidbody.linearVelocity;

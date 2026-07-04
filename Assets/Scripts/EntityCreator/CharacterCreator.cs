@@ -54,9 +54,12 @@ namespace LOP
             objectResolver.Inject(appearanceComponent);
             appearanceComponent.Initialize(creationData.visualId);
 
+            bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
+
             PhysicsComponent physicsComponent = entity.AddEntityComponent<PhysicsComponent>();
             objectResolver.Inject(physicsComponent);
-            physicsComponent.Initialize(false, false);
+            // 내 캐릭만 dynamic(예측 대상). 남은 kinematic 장애물 — 스냅 위치로 세팅, 서버 권위.
+            physicsComponent.Initialize(!isUserEntity, false);
 
             LOPEntityController controller = root.CreateChildWithComponent<LOPEntityController>();
             objectResolver.Inject(controller);
@@ -65,8 +68,6 @@ namespace LOP
             LOPEntityView view = root.CreateChildWithComponent<LOPEntityView>();
             objectResolver.Inject(view);
             view.SetEntity(entity);
-
-            bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
 
             if (isUserEntity)
             {

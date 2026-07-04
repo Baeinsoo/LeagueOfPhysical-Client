@@ -14,15 +14,18 @@ namespace LOP
         private AbilityActivator abilityActivator;
         private GameFramework.World.EntityRegistry entityRegistry;
         private InputBufferSystem inputBufferSystem;
+        private InputHistory inputHistory;
 
         public PlayerInputManager(IRunner runner, IPlayerContext playerContext, AbilityActivator abilityActivator,
-            GameFramework.World.EntityRegistry entityRegistry, InputBufferSystem inputBufferSystem)
+            GameFramework.World.EntityRegistry entityRegistry, InputBufferSystem inputBufferSystem,
+            InputHistory inputHistory)
         {
             this.runner = runner;
             this.playerContext = playerContext;
             this.abilityActivator = abilityActivator;
             this.entityRegistry = entityRegistry;
             this.inputBufferSystem = inputBufferSystem;
+            this.inputHistory = inputHistory;
 
             this.runner.AddListener(this);
         }
@@ -71,18 +74,16 @@ namespace LOP
                     abilityActivator.TryActivate(playerContext.entity.entityId, captured.AbilityId, tick);
                 }
 
-                playerContext.entity.GetComponent<SnapReconciler>().AddLocalInputSequence(new InputSequence
-                {
-                    Tick = tick,
-                    Sequence = captured.SequenceNumber,
-                });
+                inputHistory.Record(tick, captured);
 
                 captured = null;
             }
             else
             {
                 // 무입력 틱: 0 커맨드를 확정 → MovementSystem이 수평 속도를 0으로 제동한다.
-                inputBufferSystem.SetCurrent(buffer, new InputCommand());
+                var noInput = new InputCommand();
+                inputBufferSystem.SetCurrent(buffer, noInput);
+                inputHistory.Record(tick, noInput);
 
                 if (buffer.Commands.Count > 0)
                 {

@@ -15,6 +15,7 @@ namespace LOP
         [Inject] private GameFramework.World.ManaSystem manaSystem;
         [Inject] private GameFramework.World.LevelSystem levelSystem;
         [Inject] private GameFramework.World.StatsSystem statsSystem;
+        [Inject] private Reconciler reconciler;
 
         public void Initialize()
         {
@@ -55,7 +56,7 @@ namespace LOP
 
                 if (playerContext.entity.entityId == entity.entityId)
                 {
-                    entity.GetComponent<SnapReconciler>().AddServerEntitySnap(entitySnap);
+                    reconciler.AddServerSnap(entitySnap);
                 }
                 else
                 {

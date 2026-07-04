@@ -74,10 +74,10 @@ namespace LOP
                 playerContext.entity = entity;
                 playerContext.entityView = view;
 
-                SnapReconciler snapReconciler = entity.gameObject.AddComponent<SnapReconciler>();
-                objectResolver.Inject(snapReconciler);
-                snapReconciler.entity = entity;
-                snapReconciler.entityView = view;
+                LocalEntityInterpolator interpolator = entity.gameObject.AddComponent<LocalEntityInterpolator>();
+                objectResolver.Inject(interpolator);
+                interpolator.entity = entity;
+                interpolator.entityView = view;
             }
             else
             {

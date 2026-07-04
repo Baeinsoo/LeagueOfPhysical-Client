@@ -20,6 +20,7 @@ namespace LOP
         [Inject] private InputHistory inputHistory;
         [Inject] private MovementSystem movementSystem;
         [Inject] private GameFramework.IPhysicsSimulator physicsSimulator;
+        [Inject] private ReconciliationStats reconciliationStats;
 
         private EntitySnap latestSnap;
         private bool hasPending;
@@ -58,11 +59,15 @@ namespace LOP
             }
 
             // errorGate: 예측이 서버와 충분히 가까우면 아무것도 안 함.
-            if (snapshotHistory.TryGet(anchorTick, out var predicted) &&
-                !GameFramework.Netcode.ReconcileGate.ShouldReconcile(
-                    predicted.Position, snap.position.ToNumerics(), Threshold))
+            // 그 전에 예측-서버 거리를 항상 기록해 Recon HUD(ReconciliationStats)가 계속 갱신되게 한다.
+            if (snapshotHistory.TryGet(anchorTick, out var predicted))
             {
-                return;
+                var authoritative = snap.position.ToNumerics();
+                reconciliationStats.Record(System.Numerics.Vector3.Distance(predicted.Position, authoritative));
+                if (!GameFramework.Netcode.ReconcileGate.ShouldReconcile(predicted.Position, authoritative, Threshold))
+                {
+                    return;
+                }
             }
 
             // 하드 복원: 내 캐릭을 서버 스냅(anchorTick) 상태로. reactive 경로가 rigidbody에 반영되므로

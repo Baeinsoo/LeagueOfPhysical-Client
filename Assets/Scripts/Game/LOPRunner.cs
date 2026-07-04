@@ -21,6 +21,7 @@ namespace LOP
         [Inject] private IMapLoader mapLoader;
         [Inject] private IPlayerContext playerContext;
         [Inject] private GameFramework.Netcode.SnapshotHistory snapshotHistory;
+        [Inject] private Reconciler reconciler;
 
         private const string MapId = "Assets/Art/Scenes/FlapWangMap.unity";
 
@@ -85,6 +86,8 @@ namespace LOP
             BeginUpdate();
 
             ProcessNetworkMessage();
+
+            reconciler.Reconcile(Runner.Time.tick, (float)tickUpdater.interval);
 
             ProcessInput();
 
@@ -182,8 +185,9 @@ namespace LOP
             entityManager.DestroyMarkedEntities();
         }
 
-        // 내 캐릭의 이번 틱 최종 시뮬 상태를 스냅샷에 남긴다. End 디스패치(=SnapReconciler 스무딩) 전에
-        // 찍어 스무딩이 얹히기 전 원본 예측 상태를 포착한다. 되돌리기는 슬라이스 ③.
+        // 내 캐릭의 이번 틱 최종 시뮬 상태를 스냅샷에 남긴다. End 디스패치(=LocalEntityInterpolator의
+        // 지연 렌더링용 틱 기록) 전에 찍어, 뷰 보간이 얹히기 전 원본 예측 상태를 포착한다.
+        // 되돌리기(하드 복원+재생)는 Reconciler.Reconcile이 다음 틱 앞에서 수행.
         private void RecordLocalSnapshot()
         {
             LOPEntity local = playerContext.entity;

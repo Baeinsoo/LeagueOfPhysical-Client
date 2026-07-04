@@ -172,5 +172,12 @@ protected override void Mutation(long tick, float deltaTime)
 
 - [x] 브레인스토밍(이전 세션 — 4e 스코핑에서 슬라이스 확정) + 현재 코드 실측
 - [x] 이 spec 작성
-- [x] 사용자 리뷰 — 명명 웹 검증 후 `PlayerInput` 확정
-- [ ] 구현(원자적 4 repo: GF → Shared → 클 → 서) + 컴파일 + EditMode + 플레이 검증
+- [x] 사용자 리뷰 — 명명 웹 검증 반복. **최종 확정: `InputCommand`(순수 데이터) + `InputBuffer`(World 컴포넌트, 엔티티마다 커맨드 스트림 저장) + `InputBufferSystem`(Enqueue/Consume/Prune/Trim). 조달 정책은 사이드별 호스트(PlayerInputManager/LOPRunner). proto는 아직 `PlayerInput`/`PlayerInputToS` 유지(리네임은 별도 후속 — 재생성 리스크 격리).**
+- [x] **구현 완료 + 컴파일 클린(클·서) + EditMode 44/44 + 플레이 검증 + 4 repo main 머지·push (2026-07-03).** GameFramework 453f094 / Shared 4c54fd1 / Client a732bb9 / Server ac7b3ca.
+
+## 구현 후기 (설계 대비 진화)
+
+- **최종 구조 = 3층**: `InputCommand`(순수 데이터, usercmd) → `InputBuffer`(World 컴포넌트, 엔티티 위 커맨드 스트림) → `InputBufferSystem`(버퍼 연산). 정책은 사이드 호스트. **spec 초안의 단일 `PlayerInput{h,v,jump}` 슬롯 컴포넌트를 폐기**하고, 사용자 지적("순수 인풋 데이터 vs 컴포넌트 혼재")으로 데이터/컴포넌트를 분리 + 버퍼를 엔티티 컴포넌트로 통일(DOTS command stream 정렬, Stage④ replay 대비).
+- **서버 `InputBufferComponent`(구 LOPComponent) 폐기 → World `InputBuffer`로 통일.** 지터정렬(tick−2)/prune/timing은 서버 `LOPRunner.ProcessInput`에, dedup/window는 클라 `PlayerInputManager`에. `InputBufferSystem`은 얇은 버퍼 연산(HealthSystem↔Health처럼 InputBuffer↔그 시스템 짝).
+- **proto 리네임(2단계) 미실시** — 동작무관 코스메틱 + MessageId 재생성 리스크라 별도 슬라이스로 분리. 도메인=InputCommand / 와이어=PlayerInput 공존(어댑터 변환).
+- **Stage④ 이월(의도)**: (a) "커맨드 소비→Current 확정"을 호스트 → `LOPWorld.Tick` Collection 페이즈로(롤백 재소비). (b) reconciliation replay 소비자. (c) 클라 SetCurrent → Consume(틱별) 통일.

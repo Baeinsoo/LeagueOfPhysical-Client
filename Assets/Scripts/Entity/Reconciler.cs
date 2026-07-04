@@ -70,6 +70,7 @@ namespace LOP
             entity.position = snap.position;
             entity.rotation = snap.rotation;
             entity.velocity = snap.velocity;
+            entity.PushMotionToPhysics();
             Physics.SyncTransforms();
 
             // 격차가 과도하면 재생 생략(텔레포트) — 입력/스냅 히스토리 밖이라 재생 불가.
@@ -80,6 +81,10 @@ namespace LOP
 
             // 재생: 이미 예측했던 과거 틱(anchor+1 ~ currentTick-1)을 이동+물리로 재구성.
             var buffer = worldEntity.Get<InputBuffer>();
+            if (buffer == null)
+            {
+                return;
+            }
             for (long t = anchorTick + 1; t < currentTick; t++)
             {
                 buffer.Current = inputHistory.TryGet(t, out var cmd) ? cmd : null;

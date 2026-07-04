@@ -108,8 +108,18 @@ namespace LOP
                 return;
             }
 
-            physicsComponent.entityRigidbody.linearVelocity = velocity;
-            physicsComponent.entityRigidbody.rotation = Quaternion.Euler(rotation);
+            Rigidbody rigidbody = physicsComponent.entityRigidbody;
+
+            // kinematic 바디(원격 캐릭·아이템)는 velocity를 못 받는다(Unity가 매 틱 경고). rotation만 밀고 velocity는 스킵.
+            // (position은 reactive 경로 PhysicsComponent.OnPropertyChange가 담당하므로 여기선 불필요.)
+            if (rigidbody.isKinematic)
+            {
+                rigidbody.rotation = Quaternion.Euler(rotation);
+                return;
+            }
+
+            rigidbody.linearVelocity = velocity;
+            rigidbody.rotation = Quaternion.Euler(rotation);
         }
     }
 }

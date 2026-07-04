@@ -50,7 +50,7 @@ Stage④의 접근을 리서치(Fusion/Fish-Net/Netick/Mirror/Quake·Source·Ove
 
 **실측 결과 브릿지 분기는 불필요하다.** 이유:
 - **position은 이미 reactive 경로**: `PhysicsComponent.OnPropertyChange`가 `entity.position` 변경 시 `rigidbody.position = entity.position`을 세팅한다. 원격은 `ServerStateReconciler`가 `entity.position`(SmoothDamp)을 쓰면 이 경로로 rb에 반영됨. **kinematic 이동이 이걸로 이미 됨.**
-- **브릿지(`PushMotionToPhysics`)는 kinematic에 무해**: `rigidbody.linearVelocity = velocity`는 kinematic 바디에서 **무시**됨(에러·효과 없음). `rigidbody.rotation = ...`은 kinematic에도 정상 세팅. → **브릿지 무변경.**
+- **브릿지(`PushMotionToPhysics`)에 kinematic 가드 필요(플레이 검증서 발견)**: `rigidbody.linearVelocity = velocity`는 kinematic 바디에서 효과는 무시되나 **Unity 6가 매 틱 경고를 뿜는다**(원격+아이템 × 틱 = 로그 스팸). → kinematic이면 `linearVelocity` 스킵, `rotation`만 세팅(rotation은 kinematic서 경고 없음 + 원격 rotation은 reactive가 아니라 브릿지가 담당). *(spec 초안은 "무시(무해)"로 오판 → 플레이 검증서 경고 발견해 가드 추가.)*
 - **진짜 필요한 변경 = `SyncPhysics` 스킵**: `SyncPhysics`(AfterPhysicsSimulation, rb→World)가 kinematic 바디의 `rigidbody.linearVelocity`(=0)를 읽어 `entity.velocity`를 **0으로 덮는다.** 이는 원격의 run 애니(`LOPEntityView`가 `entity.velocity`로 판정)와 reconciler SmoothDamp 상태를 망친다. → **kinematic이면 `SyncPhysics`를 스킵**한다(kinematic은 World가 권위, rb는 follower라 rb→World 되읽기가 무의미·유해).
 
 즉 변경은 **`LOPEntity.SyncPhysics`에 `if (rb.isKinematic) return;` 가드** 하나. `ServerStateReconciler`·브릿지·`OnPropertyChange`는 무변경.

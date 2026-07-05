@@ -311,6 +311,10 @@ LOP 매핑: `LOPGameSimulation`(Shared) ↔ `LOPGameEngine`(각 사이드).
 - 이렇게 하면 `Component` 모호성이 자연스럽게 회피되고 컴파일러가 강제하지 않아도 됨.
 - `noEngineReferences`인 World 어셈블리 내부 코드는 `UnityEngine`을 쓰지 않으므로 평소처럼 짧은 이름을 사용해도 충돌 없음.
 
+**시뮬 코드 형태 — 구체 공유 / System vs 커널 (결정론)**: 클·서가 동일하게 동작해야 하는 시뮬 로직은 **구체 클래스를 공유**한다(인터페이스 seam 금지). LOP-Shared의 *같은 구체 코드*를 양쪽이 컴파일·실행하므로 같은 입력이면 같은 출력(결정론) — 인터페이스는 사이드가 다른 구현을 넣을 여지를 만들어 시뮬엔 쓰지 않는다. **인터페이스는 사이드가 *달라야* 하는 I/O 어댑터에만**(`IEventSink`/`IPhysicsSimulator`/`ITickUpdater`/`IRandom`/`INetworkSession`). DI 등록도 시뮬 = `Register<Concrete>`, I/O = `Register<IFoo, Foo>`로 "동일해야/달라야"를 인코딩한다. (결정론을 보장하는 건 *공유 구체 코드*이지 DI가 아님 — DI는 배선 도구일 뿐. 손수 `new`로 조립해도 결정론은 동일.)
+
+- **`*System` = 무상태 DI 인스턴스**(월드/컴포넌트를 조작; 상태는 컴포넌트에 둔다). 다른 `*System`과 동일하게 DI 등록·주입한다. **`static`은 컨텍스트 없는 순수 커널에만** 쓴다(예: `MovementSystem.ProcessMovement`, `AbilitySystem.HasActiveMotionEffect`) — 그런 순수 커널엔 `*System` 이름을 붙이지 않는다(static 클래스를 "System"이라 부르지 않음). 업계 표준 정합: Photon Quantum도 *systems=인스턴스* / *`FPMath`=static util*로 가른다.
+
 **임시 명명 + 재논의 노트**: 현재 외각 호스트는 `LOPGameEngine`, 시뮬 코어는 `LOPGameSimulation`이라는 이름을 *임시로* 쓴다. *엄밀한 업계 정의*는 "engine = 인프라/플랫폼"이라 LOP의 host 자리에는 *어긋남* — Photon Quantum의 `Runner`(외각 호스트 통용) 같은 후보를 Slice 4 흡수 완료 후 재논의한다. 자세한 결정 항목은 `lop-repo-topology.md`의 Open Decisions 참조.
 
 ## 알려진 괴리 — 모델 vs 현재 코드 (cleanup backlog)

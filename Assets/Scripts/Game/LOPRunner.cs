@@ -21,6 +21,7 @@ namespace LOP
         [Inject] private IMapLoader mapLoader;
         [Inject] private IPlayerContext playerContext;
         [Inject] private GameFramework.Netcode.SnapshotHistory snapshotHistory;
+        [Inject] private PredictedAbilityStateHistory predictedAbilityStateHistory;
         [Inject] private Reconciler reconciler;
 
         private const string MapId = "Assets/Art/Scenes/FlapWangMap.unity";
@@ -87,7 +88,7 @@ namespace LOP
 
             ProcessNetworkMessage();
 
-            reconciler.Reconcile(Runner.Time.tick, (float)tickUpdater.interval);
+            reconciler.Reconcile(Runner.Time.tick, (float)tickUpdater.interval, entityManager);
 
             ProcessInput();
 
@@ -214,6 +215,8 @@ namespace LOP
                 transform.Position,
                 transform.Rotation,
                 velocity.Linear));
+
+            predictedAbilityStateHistory.Record(Runner.Time.tick, PredictedAbilityState.Capture(worldEntity));
         }
     }
 }

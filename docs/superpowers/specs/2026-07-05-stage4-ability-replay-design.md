@@ -159,3 +159,13 @@ for t = anchorTick+1 .. currentTick-1:
 - [ ] spec self-review
 - [ ] 사용자 spec 리뷰
 - [ ] `writing-plans`로 구현 plan 작성
+
+## 구현 후기 (2026-07-05)
+
+Subagent-Driven으로 6 태스크 구현·리뷰. **LOP-Shared**: `PredictedAbilityState`(깊은복사 캡처/복원) + `PredictedAbilityStateHistory`(링) + 결정론 라운드트립 테스트 — EditMode 7/7 그린. **LOP-Client**: `LOPRunner`가 매 틱 어빌리티 상태 기록 + `Reconciler`가 앵커에서 풀 복원 후 예측 틱 전체(발동→이동→어빌리티페이즈→상태이상→효과구동→물리) 재생. 발동 재현은 `AbilitySystem.TryActivate` 직접 호출(=`AbilityActivator` 우회)로 연출 cue(`AbilityActivatedEvent`) 재송출 회피.
+
+**최종 전체 브랜치 리뷰(opus): READY TO MERGE** — Critical/Important 0. end-to-end 재생 경로·two-ring lockstep(위치 `SnapshotHistory` + 어빌리티 `PredictedAbilityStateHistory` 동시 기록/복원)·cue 비중복·깊은복사 안전성 검증. Minor 3건(앵커 누락 시 대칭 복원 가드 + 주석 2)은 반영(`be37273`). 남은 minor(Stats 격리 커버리지/count-only 단언)는 defer.
+
+**플레이 검증:** 재조정 창 중 대시 재생 정상(러버밴딩 없음) — 사용자 확인.
+
+레벨 2(velocity 권위 통합 = "효과가 velocity 직접 쓰기 + 모터 비켜주기" 제거)는 별개 Stage④ velocity-권위 작업으로 분리 유지. 점프 임펄스 재생은 slice② 기존 조건(host 잔류) 그대로 범위 밖.

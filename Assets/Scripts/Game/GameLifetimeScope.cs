@@ -33,6 +33,7 @@ namespace LOP
             builder.Register<GameFramework.World.LevelSystem>(Lifetime.Singleton);
             builder.Register<GameFramework.World.StatsSystem>(Lifetime.Singleton);
             builder.Register<MovementSystem>(Lifetime.Singleton);
+            builder.Register<MotionContributionSystem>(Lifetime.Singleton);
             builder.Register<InputBufferSystem>(Lifetime.Singleton);
             builder.Register<StatusEffectSystem>(Lifetime.Singleton);
             builder.Register<AbilitySystem>(Lifetime.Singleton);

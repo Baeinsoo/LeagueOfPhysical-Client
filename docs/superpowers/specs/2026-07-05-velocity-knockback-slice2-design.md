@@ -142,6 +142,19 @@
 
 - [x] 브레인스토밍 합의 (넉백=서버 권위 Additive 기여, 지수 감쇠=drag 순수함수, 로컬 대상 완주, 모터 유지)
 - [x] 이 spec 작성
-- [ ] spec self-review
-- [ ] 사용자 spec 리뷰
-- [ ] `writing-plans`로 구현 plan 작성
+- [x] spec self-review
+- [x] 사용자 spec 리뷰
+- [x] `writing-plans`로 구현 plan 작성 (`docs/superpowers/plans/2026-07-05-velocity-knockback-slice2.md`)
+- [x] 구현 (Subagent-Driven, 7 코드 태스크) + 플레이 검증
+
+## 구현 후기 (2026-07-05)
+
+Subagent-Driven으로 7개 코드 태스크 구현·리뷰. **Shared**: `MotionContribution` 지수 감쇠(`DecayPerTick`, `v0·k^elapsed`) + `KnockbackEffect` + `CreateRadialKnockback` 순수 팩토리 + proto(`ProtoMotionContribution` + `EntitySnap.motion_contributions`) — EditMode 74/74 그린. **Server**: `KnockbackEffectHandler`(부채꼴 OverlapSphere, 서버 전용) + `MotionContributions` 부여 + `GetAllEntitySnaps` 직렬화 + TEMP 발동(공격에 넉백 얹기). **Client**: 스냅에서 기여 수신 + 로컬 엔티티 `MotionContributions` 부여 + `Reconciler`가 **서버 스냅에서** 기여 복원(예측 히스토리 아님 — 서버가 가한 것이라 클라 미예측).
+
+**설계 교정(spec §D → plan):** brainstorm 당시 §D는 기여를 `PredictedAbilityState`(클라 예측 캡처)에 넣는 것으로 적었으나, 구현 중 `Reconciler`가 어빌리티 상태를 *클라 자기 예측 히스토리*에서 복원함을 확인 → 서버 넉백은 그 히스토리에 없어 복원 시 유실됨. 그래서 **기여를 `EntitySnap`(서버 권위 스냅샷)에 실어 스냅에서 복원**하도록 교정(position/velocity와 같은 권위 축). `PredictedAbilityState` 무변경.
+
+**최종 전체 브랜치 리뷰(opus): READY TO MERGE** — 6 크로스-레포 불변식 통과(필드 round-trip, 절대 StartTick 결정론, 스냅 단일 복원원[RestoreTo가 MotionContributions 미접촉], 부여 대칭+null 가드, 걷기/대시 무회귀, 서버→클라 단방향). Critical/Important 0. 비차단 nice-to-have 2건(공격자==대상 시 0벡터 기여 직렬화 스킵, `IsInAttackSector` Damage/Knockback 공유).
+
+**플레이 검증(사용자):** 원격 대상 넉백 밀림·감쇠 정상, **로컬 대상(내 캐릭 피격) 러버밴딩 없이 넉백 재현** 확인. 강도 TEMP `strength 8f→5f` 조율. 걷기/대시 무회귀.
+
+**후속(비차단):** MasterData `KnockbackEffect` 승격(현 TEMP 코드 배선 은퇴), `generate_protos.sh`가 `MessageIds.cs`를 regen 전 삭제하는 footgun 수정, Override 완전경직/CC·Y축(띄우기) 넉백.

@@ -69,6 +69,8 @@ namespace LOP
             {
                 var authoritative = snap.position.ToNumerics();
                 reconciliationStats.Record(System.Numerics.Vector3.Distance(predicted.Position, authoritative));
+                // 게이트는 위치만 본다(의도적): 어빌리티/상태이상은 서버 권위 wire 값이 없고 입력으로
+                // 결정론적 재생되므로 별도 게이트 불필요.
                 if (!GameFramework.Netcode.ReconcileGate.ShouldReconcile(predicted.Position, authoritative, Threshold))
                 {
                     return;
@@ -84,10 +86,13 @@ namespace LOP
             Physics.SyncTransforms();
 
             // 어빌리티/상태이상/스탯/마나도 앵커 틱 상태로 복원 — 재생이 대시 등을 정확히 재현하려면 필요.
-            if (predictedAbilityStateHistory.TryGet(anchorTick, out var abilityState))
+            // 두 히스토리가 어긋나면(정상 경로엔 없음 — 엔티티 일시 null 등 엣지) 재생을 생략한다.
+            // 위치는 이미 서버 스냅으로 복원됐고, stale 어빌리티 기준으로 재생하지 않기 위함(두 링 대칭 복원).
+            if (!predictedAbilityStateHistory.TryGet(anchorTick, out var abilityState))
             {
-                abilityState.RestoreTo(worldEntity);
+                return;
             }
+            abilityState.RestoreTo(worldEntity);
 
             // 격차가 과도하면 재생 생략(텔레포트) — 입력/스냅 히스토리 밖이라 재생 불가.
             if (currentTick - anchorTick > MaxReplayTicks)
@@ -112,6 +117,8 @@ namespace LOP
                 if (cmd != null && cmd.AbilityId != 0 &&
                     abilityDataProvider.TryGet(cmd.AbilityId, out var data))
                 {
+                    // target=self(worldEntity) — 현재 자기시전 어빌리티 기준(AbilityActivator와 동일).
+                    // 향후 타깃 예측 어빌리티 추가 시 AbilityActivator의 타깃 해석을 여기서도 맞출 것.
                     abilitySystem.TryActivate(worldEntity, data, worldEntity, t);
                 }
 

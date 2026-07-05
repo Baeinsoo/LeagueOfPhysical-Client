@@ -64,23 +64,27 @@ World.Velocity.Linear = velocity          ← 유일 write
 (슬라이스 1엔 Additive 인스턴스가 없어 대시 시엔 `수평 = Override값`으로 현행과 동일. Additive 경로·합성은 모델로 갖추고 테스트하되 첫 실사용은 슬라이스 2 넉백.)
 `HasActiveMotionEffect` 게이트(입력 락·회전 억제)는 "활성 Override 기여 존재"로 대체.
 
-### C. 대시 이행 (동작 동일)
+### C. 대시 이행 (동작 동일) — 파생(derived), CMC movement-mode 방식
 
-- `MotionEffectHandler`가 velocity를 직접 쓰지 않고, 대시를 **Override 기여**로 표현한다(값=forward×Speed, 수평).
-- **파리티 불변식:** 대시 중 매 틱 velocity = `forward(rotation)×Speed`(현재와 동일), 입력 락 동일, Y 보존 동일. 리팩터 전/후 같은 시나리오가 같은 velocity 산출.
-- **대시 표현 (표준대로 확정):** 대시 = `MotionContributions` 리스트 속 **Override 기여**(넉백=Additive 기여와 같은 방식 — CMC root motion source 정석). **재조정 무영향:** 재생 때 대시 어빌리티가 결정론적으로 재활성(ability-replay 슬라이스가 이미 재현)되면서 대시 기여도 **결정론적으로 재등록**되므로, 기여를 별도 스냅샷하지 않아도 재생에서 그대로 살아난다(새 스냅샷 필드 0). 즉 "리스트에 저장 + 어빌리티에서 결정론적 재등록" — 표준 일관성과 netcode 무변경을 동시에.
+- **대시 = 모터가 `ActiveAbility`에서 파생**(CMC "movement mode" — 내재적, 모터가 계산). 리스트 엔트리로 등록하지 않는다(등록 시점 배선·이중표현 회피). 대시는 어빌리티에만 있고, 모터가 그걸 읽어 velocity로 만든다.
+- `MotionEffectHandler`(velocity 직접 쓰기)는 **제거**. 모터가 그 계산을 흡수한다.
+- **파생 규칙:** 엔티티의 `ActiveAbility`에 `MotionEffect`가 있고 `currentTick ∈ [StartupEndTick, ActiveEndTick)`(활성 창)이면, 모터가 `forward(현재 rotation)×MotionEffect.Speed`(수평)를 Override로 쓴다(입력 무시=락, Y 보존).
+- **파리티 불변식:** 창 `[StartupEnd, ActiveEnd)`·`forward×Speed`·입력 락·Y 보존이 현재와 동일. (창 검사라 전이 틱에도 same-tick 적용 — 현 "핸들러 늦-덮어쓰기"와 동일 타이밍.)
+- **재조정 무영향:** 대시는 이미 스냅샷되는 `ActiveAbility`에서 파생 → 재생 때 복원·재활성된 어빌리티에서 모터가 그대로 재파생. **새 스냅샷 필드 0.**
+- **리스트(`MotionContributions`)는 외부 Additive용**(넉백=슬라이스 2). 슬라이스 1엔 리스트에 실인스턴스 없음(모터가 null-safe로 합성) — 해소 로직은 갖추고 단위 테스트하되 첫 실사용은 슬라이스 2.
 
-### D. 순서 (표준대로 확정 — 활성-창 방식)
+### D. 순서 (표준대로 확정 — 창 검사로 파생, 재정렬 없음)
 
-현재 대시 same-tick 반응은 "핸들러가 모터보다 늦게 velocity를 덮어쓰기"로 성립한다. 이를 없애고, **기여가 활성-창(active window)을 스스로 들고 모터가 매 틱 창을 검사**하는 표준(CMC RootMotionSource의 StartTime/Duration)으로 배선한다:
+현재 대시 same-tick 반응은 "핸들러가 모터보다 늦게 velocity를 덮어쓰기"로 성립한다. 모터가 대시를 `ActiveAbility` **경계틱 창** `[StartupEndTick, ActiveEndTick)`으로 판정하면, ability.Tick의 페이즈 전진 순서와 무관하게 same-tick에 대시를 적용한다(창이 곧 타이밍). 그래서 **파이프라인 재정렬 없이**:
 
 **결정:**
-- 대시 Override 기여는 **발동(activation) 시 등록**되며 활성 창 `[StartupEndTick, ActiveEndTick)`을 갖는다. → 모터가 어느 위치서 돌든(현 `MovementSystem` pass1 유지) 창 안이면 same-tick에 대시를 적용한다. **ability.Tick 순서·핸들러 늦-덮어쓰기에 의존하지 않는다**(창이 곧 타이밍).
-- `MovementSystem`은 **현 위치(pass1) 유지 + 유일 writer**: base(입력) 계산 후 활성 창 기여를 합성해 한 번 write. `HasActiveMotionEffect` 게이트는 "활성 Override 기여 존재(창 검사)"로 대체.
-- `MotionEffectHandler`의 velocity 직접 쓰기 제거(대시는 발동 시 등록된 기여로 표현). 다른 효과(Damage/StatusEffectApply) 핸들러·`DriveActiveEntity`는 무변경.
-- 대시 방향: 기여는 `Speed`(+"전방" 표시)를 들고, 모터가 창 안에서 **현재 rotation의 forward×Speed**를 계산 → 현행 "매 Active 틱 facing×Speed"와 파리티.
+- `MovementSystem`은 **현 위치(`LOPWorld.Mutation` pass1) 유지 + 유일 writer.** 단 `Tick` 시그니처에 `currentTick`을 추가한다(창 검사에 필요) — `Tick(entity, long currentTick, float deltaTime)`.
+- `MovementSystem`이 `AbilitySystem.TryGetActiveMotionEffect(entity, currentTick)`(창 검사 헬퍼)로 대시를 파생. `HasActiveMotionEffect`(페이즈 기반, 전이 틱에 1틱 지연) 대신 창 기반으로 — 전이 틱 파리티 확보.
+- 리스트 Additive 합성은 `MotionContributionSystem.Resolve`로. (슬라이스 1엔 리스트 비어 no-op.)
+- `MotionEffectHandler`의 velocity 직접 쓰기 제거. 다른 효과(Damage/StatusEffectApply) 핸들러·`DriveActiveEntity`는 무변경.
+- `LOPWorld.Mutation`의 "이동 먼저" 순서 주석은 창 검사로 무의미해짐 → 갱신(순서 자체는 유지, 최소 변경).
 
-파리티 테스트가 대시 velocity 불변(범위 `[StartupEnd, ActiveEnd)`, forward×Speed, Y 보존, 입력 락)을 강제한다.
+**시그니처 파급:** `MovementSystem.Tick(+currentTick)` → 호출처 `LOPWorld.Mutation`(공유), `Reconciler` 재생 루프(클라), `MovementSystemTickTests`(공유) 갱신. 파리티 테스트가 대시 velocity 불변(창 `[StartupEnd, ActiveEnd)`, forward×Speed, Y 보존, 입력 락)을 강제.
 
 ### E. 검증
 
@@ -90,9 +94,11 @@ World.Velocity.Linear = velocity          ← 유일 write
 
 ## 영향 파일 (개략 — 세부는 plan)
 
-- **신규(LOP-Shared):** `MotionContribution`(+`MotionContributionMode`), `MotionContributions` 컴포넌트, EditMode 테스트(해소 + 대시 파리티).
-- **수정(LOP-Shared):** `MovementSystem`(단일 writer 해소), `MotionEffectHandler`(velocity 직접 쓰기 제거 → 기여 표현), 순서 조정(위 D). 대시 컴포넌트 부여(엔티티 생성 시 `MotionContributions` add — creator).
-- **무변경:** 클라/서버 호스트(같은 공유 시스템 호출), Rigidbody 브릿지(`LOPEntity`/`PhysicsComponent`/`LOPEntityController`), 스냅샷/wire, ability-replay 재조정(대시 파생이 파리티면 무영향).
+- **신규(LOP-Shared):** `MotionContribution`(+`MotionContributionMode`), `MotionContributions` 컴포넌트, `MotionContributionSystem`(Prune/Resolve), EditMode 테스트(해소 + 대시 파리티).
+- **수정(LOP-Shared):** `MovementSystem.Tick`(+`currentTick`, 단일 writer, 대시 파생 + 리스트 합성), `AbilitySystem`(창 검사 헬퍼 `TryGetActiveMotionEffect`), `LOPWorld.Mutation`(`Tick`에 tick 전달 + 주석 갱신), `MovementSystemTickTests`(시그니처 + 대시 테스트 갱신).
+- **삭제(LOP-Shared):** `MotionEffectHandler`.
+- **수정(클라):** `Reconciler` 재생 루프(`movementSystem.Tick`에 tick 전달), `GameLifetimeScope`(MotionEffectHandler 등록 제거). **수정(서버):** `GameLifetimeScope`(MotionEffectHandler 등록 제거).
+- **무변경:** 클·서 호스트 나머지, Rigidbody 브릿지(`LOPEntity`/`PhysicsComponent`/`LOPEntityController`), 스냅샷/wire, ability-replay 재조정(대시 파생 파리티라 무영향), `CharacterCreator`(`MotionContributions` 부여는 슬라이스 2 넉백서).
 
 ## Out of Scope
 

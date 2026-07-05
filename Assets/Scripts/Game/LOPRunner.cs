@@ -88,7 +88,7 @@ namespace LOP
 
             ProcessNetworkMessage();
 
-            reconciler.Reconcile(Runner.Time.tick, (float)tickUpdater.interval);
+            reconciler.Reconcile(Runner.Time.tick, (float)tickUpdater.interval, entityManager);
 
             ProcessInput();
 

@@ -53,32 +53,30 @@ velocity 저작을 **단일 모터(MovementSystem) 권위**로 통합한다. 지
 ```
 base = 입력 desired 수평 velocity(걷기) 또는 무입력 시 0 제동   ← 현 ProcessMovement 재사용
 활성 기여 = MotionContributions 중 currentTick∈[Start,End)
-if 활성 Override 있음:
-    수평 = 최고 Priority Override의 값        (입력 무시 = 락)
-else:
-    수평 = base + Σ(활성 Additive의 값)
+# 합성 규칙(표준: Override가 base를 대체, Additive는 그 위에 가산):
+root = 활성 Override 있으면 최고 Priority Override값, 아니면 base   (Override면 입력 무시 = 락)
+수평 = root + Σ(활성 Additive의 값)
 velocity.x/z = 수평;  velocity.y = (중력/점프 그대로)
 World.Velocity.Linear = velocity          ← 유일 write
 회전: 입력 방향 있을 때만(현행). Override 활성 중엔 회전 미변경(대시가 방향 고정 — 현행과 동일)
 만료된 기여(EndTick ≤ currentTick) 프루닝
 ```
+(슬라이스 1엔 Additive 인스턴스가 없어 대시 시엔 `수평 = Override값`으로 현행과 동일. Additive 경로·합성은 모델로 갖추고 테스트하되 첫 실사용은 슬라이스 2 넉백.)
 `HasActiveMotionEffect` 게이트(입력 락·회전 억제)는 "활성 Override 기여 존재"로 대체.
 
 ### C. 대시 이행 (동작 동일)
 
 - `MotionEffectHandler`가 velocity를 직접 쓰지 않고, 대시를 **Override 기여**로 표현한다(값=forward×Speed, 수평).
 - **파리티 불변식:** 대시 중 매 틱 velocity = `forward(rotation)×Speed`(현재와 동일), 입력 락 동일, Y 보존 동일. 리팩터 전/후 같은 시나리오가 같은 velocity 산출.
-- **재조정 무영향:** 대시 기여가 어빌리티 상태(`ActiveAbility`, 이미 스냅샷됨)에서 결정론적으로 파생/재현되면, ability-replay 슬라이스의 스냅샷/복원/재생이 그대로 동작한다(새 스냅샷 필드 0). → 대시 기여는 **외부 저장이 아니라 활성 어빌리티에서 파생**되는 게 netcode상 이점(중복 스냅샷 회피). 정확한 표현(파생 vs 저장)은 아래 Open Question.
+- **대시 표현 (표준대로 확정):** 대시 = `MotionContributions` 리스트 속 **Override 기여**(넉백=Additive 기여와 같은 방식 — CMC root motion source 정석). **재조정 무영향:** 재생 때 대시 어빌리티가 결정론적으로 재활성(ability-replay 슬라이스가 이미 재현)되면서 대시 기여도 **결정론적으로 재등록**되므로, 기여를 별도 스냅샷하지 않아도 재생에서 그대로 살아난다(새 스냅샷 필드 0). 즉 "리스트에 저장 + 어빌리티에서 결정론적 재등록" — 표준 일관성과 netcode 무변경을 동시에.
 
-### D. 순서 (핵심 난점 — Open Question로 명시)
+### D. 순서 (표준대로 확정)
 
-현재 대시 same-tick 반응은 "핸들러가 모터보다 늦게 velocity를 덮어쓰기"로 성립한다. 모터가 유일 writer가 되면 이 늦-덮어쓰기가 사라지므로, **모터가 대시 Override를 same-tick에 반영할 순서**를 다시 잡아야 한다(무회귀 필수). 후보(플랜에서 파리티 테스트로 확정):
+현재 대시 same-tick 반응은 "핸들러가 모터보다 늦게 velocity를 덮어쓰기"로 성립한다. 모터가 유일 writer가 되면 그 늦-덮어쓰기가 사라지므로, **표준(CMC: 한 이동 업데이트가 base 계산 + root motion source 합성을 한 번에)** 대로 배선한다:
 
-1. **분리 2단계:** MovementSystem이 base(입력)만 계산(velocity 미확정) → ability.Tick(페이즈 전진) → **최종 해소 단계**(base+기여→velocity write)를 현재 핸들러 위치(ability 전진 후)에 둠. 늦-해소가 유일 write라 same-tick 대시 유지 + 단일 writer.
-2. **페이즈 재정렬:** ability.Tick(전진)을 모터 앞으로 → 모터가 Active 상태를 same-tick에 보고 대시 반영. (단 기존 2-패스[이동 전부→어빌리티 전부] 의미 재검토 필요.)
-3. **모터가 어빌리티서 대시 파생:** 모터가 `Abilities.ActiveAbility`의 MotionEffect를 직접 읽어 Override 계산(별도 기여 저장 없음); 외부 기여(넉백)만 `MotionContributions` 저장. 하이브리드.
+**결정 — "해소를 늦은 단일 단계로":** MovementSystem이 base(입력 걷기)를 계산하고, **기여 합성 + 최종 velocity write를 ability 페이즈 전진 이후(현재 대시 핸들러가 돌던 지점)의 단일 단계**로 둔다. 이 늦-해소가 유일 write이므로 same-tick 대시가 유지되고(현재와 동일 타이밍) writer는 하나다. 페이즈 재정렬(후보2)은 기존 2-패스 의미를 흔들어 미채택; 이 방식이 현 파이프라인 최소 변경.
 
-권고 방향: **1 또는 3.** 3은 대시-파생이 재조정에 이점(C)이지만 대시를 리스트 밖에 두는 하이브리드; 1은 리스트 일관성 유지. 플랜에서 파리티 테스트로 결정.
+파리티 테스트가 대시 velocity 불변을 강제한다.
 
 ### E. 검증
 
@@ -98,12 +96,13 @@ World.Velocity.Linear = velocity          ← 유일 write
 - 축 B: Rigidbody→World.Entity velocity 권위 이전(4e keystone).
 - Y축(수직) 기여, 외력(external force) 채널, CC(조작 불가) 상태.
 
-## Open Questions (plan에서 해소)
+## 표준대로 확정된 결정 (사용자 결정 아님 — 참고)
 
-- **순서/등록 메커니즘(D):** 후보 1/2/3 중 택 — 파리티 테스트로 same-tick 대시·무회귀 확정.
-- **대시 표현:** 리스트에 저장(Override 기여) vs 모터가 `ActiveAbility`서 파생(하이브리드). netcode 이점(파생) vs 일관성(저장).
-- **Override + Additive 합성 규칙:** Override가 활성일 때 Additive도 가산하나(대시 중 넉백=대시 override + 넉백 additive?) 아니면 Override가 전부 대체하나. 슬라이스 2 넉백 의미론에 영향 — 슬라이스 1은 규칙만 정하고(대시엔 Additive 없음) 테스트로 고정.
-- **대시 값 방향 해소 시점:** 등록 시 고정 vs 모터-time에 현재 rotation서 계산(현행 "매 틱 facing"과 파리티하려면 후자). 입력 락으로 rotation이 Active 중 고정이라 대개 무차이.
+- **순서:** 늦은 단일 해소 단계(§D). **대시 표현:** 리스트 속 Override 기여, 재생 때 어빌리티가 결정론적 재등록(§C). **합성:** Override가 base 대체 + Additive 가산(§B). 전부 CMC/Mover 표준.
+
+## Open Questions (plan에서 해소 — 사소한 배선 디테일만)
+
+- **대시 값 방향 해소 시점:** 등록 시 고정 vs 모터-time에 현재 rotation서 계산. 파리티 제약(현행 "매 틱 facing×Speed")을 만족하는 쪽으로 — 입력 락으로 Active 중 rotation 고정이라 대개 무차이. 파리티 테스트로 확정.
 - **`MotionContributions` 컴포넌트 부여 대상:** 모든 이동 엔티티 vs 필요 시. (creator 배선.)
 
 ## 진행

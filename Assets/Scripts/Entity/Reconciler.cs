@@ -122,7 +122,7 @@ namespace LOP
                     abilitySystem.TryActivate(worldEntity, data, worldEntity, t);
                 }
 
-                movementSystem.Tick(worldEntity, deltaTime);
+                movementSystem.Tick(worldEntity, t, deltaTime);
                 abilitySystem.Tick(worldEntity, t);
                 statusEffectSystem.Tick(worldEntity, t);
                 abilityEffectExecutor.DriveActiveEntity(worldEntity, entityManager, t);

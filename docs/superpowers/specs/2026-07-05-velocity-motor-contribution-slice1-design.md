@@ -70,13 +70,17 @@ World.Velocity.Linear = velocity          ← 유일 write
 - **파리티 불변식:** 대시 중 매 틱 velocity = `forward(rotation)×Speed`(현재와 동일), 입력 락 동일, Y 보존 동일. 리팩터 전/후 같은 시나리오가 같은 velocity 산출.
 - **대시 표현 (표준대로 확정):** 대시 = `MotionContributions` 리스트 속 **Override 기여**(넉백=Additive 기여와 같은 방식 — CMC root motion source 정석). **재조정 무영향:** 재생 때 대시 어빌리티가 결정론적으로 재활성(ability-replay 슬라이스가 이미 재현)되면서 대시 기여도 **결정론적으로 재등록**되므로, 기여를 별도 스냅샷하지 않아도 재생에서 그대로 살아난다(새 스냅샷 필드 0). 즉 "리스트에 저장 + 어빌리티에서 결정론적 재등록" — 표준 일관성과 netcode 무변경을 동시에.
 
-### D. 순서 (표준대로 확정)
+### D. 순서 (표준대로 확정 — 활성-창 방식)
 
-현재 대시 same-tick 반응은 "핸들러가 모터보다 늦게 velocity를 덮어쓰기"로 성립한다. 모터가 유일 writer가 되면 그 늦-덮어쓰기가 사라지므로, **표준(CMC: 한 이동 업데이트가 base 계산 + root motion source 합성을 한 번에)** 대로 배선한다:
+현재 대시 same-tick 반응은 "핸들러가 모터보다 늦게 velocity를 덮어쓰기"로 성립한다. 이를 없애고, **기여가 활성-창(active window)을 스스로 들고 모터가 매 틱 창을 검사**하는 표준(CMC RootMotionSource의 StartTime/Duration)으로 배선한다:
 
-**결정 — "해소를 늦은 단일 단계로":** MovementSystem이 base(입력 걷기)를 계산하고, **기여 합성 + 최종 velocity write를 ability 페이즈 전진 이후(현재 대시 핸들러가 돌던 지점)의 단일 단계**로 둔다. 이 늦-해소가 유일 write이므로 same-tick 대시가 유지되고(현재와 동일 타이밍) writer는 하나다. 페이즈 재정렬(후보2)은 기존 2-패스 의미를 흔들어 미채택; 이 방식이 현 파이프라인 최소 변경.
+**결정:**
+- 대시 Override 기여는 **발동(activation) 시 등록**되며 활성 창 `[StartupEndTick, ActiveEndTick)`을 갖는다. → 모터가 어느 위치서 돌든(현 `MovementSystem` pass1 유지) 창 안이면 same-tick에 대시를 적용한다. **ability.Tick 순서·핸들러 늦-덮어쓰기에 의존하지 않는다**(창이 곧 타이밍).
+- `MovementSystem`은 **현 위치(pass1) 유지 + 유일 writer**: base(입력) 계산 후 활성 창 기여를 합성해 한 번 write. `HasActiveMotionEffect` 게이트는 "활성 Override 기여 존재(창 검사)"로 대체.
+- `MotionEffectHandler`의 velocity 직접 쓰기 제거(대시는 발동 시 등록된 기여로 표현). 다른 효과(Damage/StatusEffectApply) 핸들러·`DriveActiveEntity`는 무변경.
+- 대시 방향: 기여는 `Speed`(+"전방" 표시)를 들고, 모터가 창 안에서 **현재 rotation의 forward×Speed**를 계산 → 현행 "매 Active 틱 facing×Speed"와 파리티.
 
-파리티 테스트가 대시 velocity 불변을 강제한다.
+파리티 테스트가 대시 velocity 불변(범위 `[StartupEnd, ActiveEnd)`, forward×Speed, Y 보존, 입력 락)을 강제한다.
 
 ### E. 검증
 

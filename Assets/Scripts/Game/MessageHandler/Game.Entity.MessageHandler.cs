@@ -54,6 +54,14 @@ namespace LOP
                 entitySnap.tick = entitySnapsToC.Tick;
                 entitySnap.timestamp = entitySnapsToC.Tick * gameDataStore.gameInfo.Interval;
 
+                entitySnap.contributions.Clear();
+                foreach (var pc in serverEntitySnap.MotionContributions.OrEmpty())
+                {
+                    entitySnap.contributions.Add(new MotionContribution(
+                        new System.Numerics.Vector3(pc.Horizontal.X, pc.Horizontal.Y, pc.Horizontal.Z),
+                        (MotionContributionMode)pc.Mode, pc.Priority, pc.StartTick, pc.EndTick, pc.DecayPerTick));
+                }
+
                 if (playerContext.entity.entityId == entity.entityId)
                 {
                     reconciler.AddServerSnap(entitySnap);

@@ -85,6 +85,15 @@ namespace LOP
             entity.PushMotionToPhysics();
             Physics.SyncTransforms();
 
+            // 넉백 등 외부 이동 기여는 서버 권위 → 스냅에서 복원한다. 내 예측 히스토리(PredictedAbilityState)엔
+            // 없다: 서버가 가한 것이라 클라가 예측·생성하지 않기 때문. position/velocity와 같은 권위 축.
+            var motionContributions = worldEntity.Get<MotionContributions>();
+            if (motionContributions != null)
+            {
+                motionContributions.Items.Clear();
+                motionContributions.Items.AddRange(snap.contributions);
+            }
+
             // 어빌리티/상태이상/스탯/마나도 앵커 틱 상태로 복원 — 재생이 대시 등을 정확히 재현하려면 필요.
             // 두 히스토리가 어긋나면(정상 경로엔 없음 — 엔티티 일시 null 등 엣지) 재생을 생략한다.
             // 위치는 이미 서버 스냅으로 복원됐고, stale 어빌리티 기준으로 재생하지 않기 위함(두 링 대칭 복원).

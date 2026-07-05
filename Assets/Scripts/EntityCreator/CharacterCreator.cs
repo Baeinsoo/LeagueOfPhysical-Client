@@ -102,6 +102,7 @@ namespace LOP
             worldEntity.Add(worldStats);
             worldEntity.Add(new Abilities());
             worldEntity.Add(new StatusEffects());
+            worldEntity.Add(new MotionContributions());
             if (isUserEntity)
             {
                 // 입력으로 조종되는 엔티티(내 캐릭)만 — 호스트가 매 틱 커맨드를 채우고 MovementSystem이 읽는다.

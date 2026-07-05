@@ -1,4 +1,4 @@
-# Velocity 권위 통합 슬라이스 1 — 모터 단일 권위 + 기여(Contribution) 모델
+# Velocity 권위 통합 슬라이스 1 — 이동 시스템 단일 권위 + 기여(Contribution) 모델
 
 **Date:** 2026-07-05
 **Branch:** `feature/velocity-motor-contribution`
@@ -6,13 +6,13 @@
 
 ## Goal
 
-velocity 저작을 **단일 모터(MovementSystem) 권위**로 통합한다. 지금은 `MovementSystem`이 걷기를 쓰고 대시일 땐 게이트로 비켜주며, `MotionEffectHandler`(대시 효과)가 `World.Velocity`를 **직접** 쓴다 — velocity writer가 두 곳으로 갈린 "효과가 모터 뒤에서 직접 쓰기" 안티패턴. 이 슬라이스는 모터를 **유일 writer**로 만들고, 어빌리티/효과는 velocity를 직접 쓰지 않고 **기여(contribution)를 등록**만 하도록 바꾼다. 대시 = Override 기여로 이행한다. **동작·재조정은 현재와 동일(무회귀), 새 기능·wire 0.** 넉백(Additive 기여) + 넷코드는 슬라이스 2.
+velocity 저작을 **단일 이동 시스템(MovementSystem) 권위**로 통합한다. 지금은 `MovementSystem`이 걷기를 쓰고 대시일 땐 게이트로 비켜주며, `MotionEffectHandler`(대시 효과)가 `World.Velocity`를 **직접** 쓴다 — velocity writer가 두 곳으로 갈린 "효과가 이동 시스템 뒤에서 직접 쓰기" 안티패턴. 이 슬라이스는 이동 시스템을 **유일 writer**로 만들고, 어빌리티/효과는 velocity를 직접 쓰지 않고 **기여(contribution)를 등록**만 하도록 바꾼다. 대시 = Override 기여로 이행한다. **동작·재조정은 현재와 동일(무회귀), 새 기능·wire 0.** 넉백(Additive 기여) + 넷코드는 슬라이스 2.
 
 ## 배경 — 현재 velocity 저작(실측)
 
 - `MovementSystem.Tick`(`MovementSystem.cs`): 걷기/점프를 `World.Velocity.Linear`에 쓴다(`:100`). 단 `AbilitySystem.HasActiveMotionEffect(entity)`면 **early-return(비켜줌)**(`:79-82`). 회전도 여기서 씀(`:104-105`).
 - `MotionEffectHandler.OnActiveTick`(`MotionEffectHandler.cs:29`): 대시 Active 동안 `forward(current rotation)×Speed`의 수평 velocity를 `World.Velocity.Linear`에 **직접** 쓴다(Y 보존).
-- 둘은 같은 틱엔 안 겹침(게이트로 배타적 hand-off)이지만 velocity 저작이 두 파일로 갈려 있다. **대시가 velocity를 쓸 수 있는 건 "핸들러가 모터보다 늦게 실행돼 덮어쓰기" 때문**(파이프라인: 모터 pass1 → ability.Tick pass2 → DriveAbilityEffects 핸들러). 이 늦-덮어쓰기가 대시의 same-tick 반응을 만든다 — 아래 "순서" 참고.
+- 둘은 같은 틱엔 안 겹침(게이트로 배타적 hand-off)이지만 velocity 저작이 두 파일로 갈려 있다. **대시가 velocity를 쓸 수 있는 건 "핸들러가 이동 시스템보다 늦게 실행돼 덮어쓰기" 때문**(파이프라인: 이동 시스템 pass1 → ability.Tick pass2 → DriveAbilityEffects 핸들러). 이 늦-덮어쓰기가 대시의 same-tick 반응을 만든다 — 아래 "순서" 참고.
 - `MotionEffect`(`AbilityEffect.cs:39-47`): 필드 `float Speed`뿐. 방향은 런타임에 caster의 `World.Transform.Rotation` forward에서 파생.
 - **좋은 소식:** `MotionEffectHandler`는 이미 순수 코어 `World.Velocity`에만 쓴다(Rigidbody 미접촉). 즉 pre-physics velocity는 이미 공유 코어 소유 — 이 슬라이스는 순수 시뮬 레벨이고 Rigidbody/물리 브릿지(축 B)는 안 건드린다.
 
@@ -20,7 +20,7 @@ velocity 저작을 **단일 모터(MovementSystem) 권위**로 통합한다. 지
 
 이 모델은 새 발명이 아니라 표준 조립이다(리서치 2026-07-05, ability-replay 슬라이스와 동일 조사):
 
-- **모터 단일 권위 = 안티패턴 교정.** "어빌리티가 모터 뒤/옆에서 velocity 직접 쓰기"는 문서화된 안티패턴 — 모터가 유일 권위로 남고 어빌리티가 그걸 *구동*해야 한다. (Unreal GAS+GMC 가이드 [reznok "How NOT to Use GAS+GMC"](https://reznok.com/how-not-to-use-gas-gmc/).)
+- **이동 시스템 단일 권위 = 안티패턴 교정.** "어빌리티가 이동 시스템 뒤/옆에서 velocity 직접 쓰기"는 문서화된 안티패턴 — 이동 시스템이 유일 권위로 남고 어빌리티가 그걸 *구동*해야 한다. (Unreal GAS+GMC 가이드 [reznok "How NOT to Use GAS+GMC"](https://reznok.com/how-not-to-use-gas-gmc/).)
 - **기여 모델 = Unreal CMC `RootMotionSource` / Unreal Mover `LayeredMove`.** CMC `FRootMotionSource`: `AccumulateMode {Override, Additive}` + `Priority` + `Duration`(StartTime/EndTime). Mover `FLayeredMoveBase`: `MixMode {OverrideVelocity, AdditiveVelocity, …}`. 우리 `MotionContribution{값, 모드(Override/Additive), 우선순위, 활성 창}`이 여기 1:1.
 - **모드가 base velocity를 필터** = ECM2 "modes act as filters rather than external code writing velocity directly"(입력→desired velocity→모드가 실제 velocity로 조정).
 
@@ -47,7 +47,7 @@ velocity 저작을 **단일 모터(MovementSystem) 권위**로 통합한다. 지
 - **`MotionContribution`**(struct 또는 class): `{ Vector3 Horizontal(수평 값), MotionContributionMode Mode, int Priority, long StartTick, long EndTick(활성 창; currentTick∈[Start,End)) }`. 값은 수평(x,z)만 — Y 미포함.
 - **`MotionContributions : Component`**: 활성 기여 컬렉션 보유. 로직 없음(anemic) — 등록/프루닝/해소는 시스템.
 
-### B. 모터 해소 — MovementSystem = 유일 writer
+### B. 이동 시스템 해소 — MovementSystem = 유일 writer
 
 한 틱의 최종 velocity를 한 곳에서 계산·write:
 ```
@@ -66,16 +66,16 @@ World.Velocity.Linear = velocity          ← 유일 write
 
 ### C. 대시 이행 (동작 동일) — 파생(derived), CMC movement-mode 방식
 
-- **대시 = 모터가 `ActiveAbility`에서 파생**(CMC "movement mode" — 내재적, 모터가 계산). 리스트 엔트리로 등록하지 않는다(등록 시점 배선·이중표현 회피). 대시는 어빌리티에만 있고, 모터가 그걸 읽어 velocity로 만든다.
-- `MotionEffectHandler`(velocity 직접 쓰기)는 **제거**. 모터가 그 계산을 흡수한다.
-- **파생 규칙:** 엔티티의 `ActiveAbility`에 `MotionEffect`가 있고 `currentTick ∈ [StartupEndTick, ActiveEndTick)`(활성 창)이면, 모터가 `forward(현재 rotation)×MotionEffect.Speed`(수평)를 Override로 쓴다(입력 무시=락, Y 보존).
+- **대시 = 이동 시스템이 `ActiveAbility`에서 파생**(CMC "movement mode" — 내재적, 이동 시스템이 계산). 리스트 엔트리로 등록하지 않는다(등록 시점 배선·이중표현 회피). 대시는 어빌리티에만 있고, 이동 시스템이 그걸 읽어 velocity로 만든다.
+- `MotionEffectHandler`(velocity 직접 쓰기)는 **제거**. 이동 시스템이 그 계산을 흡수한다.
+- **파생 규칙:** 엔티티의 `ActiveAbility`에 `MotionEffect`가 있고 `currentTick ∈ [StartupEndTick, ActiveEndTick)`(활성 창)이면, 이동 시스템이 `forward(현재 rotation)×MotionEffect.Speed`(수평)를 Override로 쓴다(입력 무시=락, Y 보존).
 - **파리티 불변식:** 창 `[StartupEnd, ActiveEnd)`·`forward×Speed`·입력 락·Y 보존이 현재와 동일. (창 검사라 전이 틱에도 same-tick 적용 — 현 "핸들러 늦-덮어쓰기"와 동일 타이밍.)
-- **재조정 무영향:** 대시는 이미 스냅샷되는 `ActiveAbility`에서 파생 → 재생 때 복원·재활성된 어빌리티에서 모터가 그대로 재파생. **새 스냅샷 필드 0.**
-- **리스트(`MotionContributions`)는 외부 Additive용**(넉백=슬라이스 2). 슬라이스 1엔 리스트에 실인스턴스 없음(모터가 null-safe로 합성) — 해소 로직은 갖추고 단위 테스트하되 첫 실사용은 슬라이스 2.
+- **재조정 무영향:** 대시는 이미 스냅샷되는 `ActiveAbility`에서 파생 → 재생 때 복원·재활성된 어빌리티에서 이동 시스템이 그대로 재파생. **새 스냅샷 필드 0.**
+- **리스트(`MotionContributions`)는 외부 Additive용**(넉백=슬라이스 2). 슬라이스 1엔 리스트에 실인스턴스 없음(이동 시스템이 null-safe로 합성) — 해소 로직은 갖추고 단위 테스트하되 첫 실사용은 슬라이스 2.
 
 ### D. 순서 (표준대로 확정 — 창 검사로 파생, 재정렬 없음)
 
-현재 대시 same-tick 반응은 "핸들러가 모터보다 늦게 velocity를 덮어쓰기"로 성립한다. 모터가 대시를 `ActiveAbility` **경계틱 창** `[StartupEndTick, ActiveEndTick)`으로 판정하면, ability.Tick의 페이즈 전진 순서와 무관하게 same-tick에 대시를 적용한다(창이 곧 타이밍). 그래서 **파이프라인 재정렬 없이**:
+현재 대시 same-tick 반응은 "핸들러가 이동 시스템보다 늦게 velocity를 덮어쓰기"로 성립한다. 이동 시스템이 대시를 `ActiveAbility` **경계틱 창** `[StartupEndTick, ActiveEndTick)`으로 판정하면, ability.Tick의 페이즈 전진 순서와 무관하게 same-tick에 대시를 적용한다(창이 곧 타이밍). 그래서 **파이프라인 재정렬 없이**:
 
 **결정:**
 - `MovementSystem`은 **현 위치(`LOPWorld.Mutation` pass1) 유지 + 유일 writer.** 단 `Tick` 시그니처에 `currentTick`을 추가한다(창 검사에 필요) — `Tick(entity, long currentTick, float deltaTime)`.
@@ -88,7 +88,7 @@ World.Velocity.Linear = velocity          ← 유일 write
 
 ### E. 검증
 
-- **EditMode(순수, LOP-Shared):** 모터 해소 — (a) Override 최고 우선순위가 base 대체, (b) 여러 Additive 합산, (c) Override+Additive 동시(Override가 base 대체 후 Additive 가산 여부는 결정 사항 — 아래 Open Q), (d) 활성 창 밖 기여 무시·만료 프루닝, (e) 입력 락(Override 시 입력 무시).
+- **EditMode(순수, LOP-Shared):** 이동 시스템 해소 — (a) Override 최고 우선순위가 base 대체, (b) 여러 Additive 합산, (c) Override+Additive 동시(Override가 base 대체 후 Additive 가산 여부는 결정 사항 — 아래 Open Q), (d) 활성 창 밖 기여 무시·만료 프루닝, (e) 입력 락(Override 시 입력 무시).
 - **파리티(순수):** 대시 시나리오(활성 창 동안)가 리팩터 전 `MotionEffectHandler` 경로와 **동일 velocity 산출**(forward×Speed, Y 보존). 회귀 방지 핵심.
 - **플레이:** 대시(지상/공중/방향전환), 걷기, 정지, 점프 — 현재와 체감 동일(무회귀). 재조정 중 대시도 무영향.
 
@@ -112,12 +112,12 @@ World.Velocity.Linear = velocity          ← 유일 write
 
 ## Open Questions (plan에서 해소 — 사소한 배선 디테일만)
 
-- **대시 값 방향 해소 시점:** 등록 시 고정 vs 모터-time에 현재 rotation서 계산. 파리티 제약(현행 "매 틱 facing×Speed")을 만족하는 쪽으로 — 입력 락으로 Active 중 rotation 고정이라 대개 무차이. 파리티 테스트로 확정.
+- **대시 값 방향 해소 시점:** 등록 시 고정 vs 이동 시스템-time에 현재 rotation서 계산. 파리티 제약(현행 "매 틱 facing×Speed")을 만족하는 쪽으로 — 입력 락으로 Active 중 rotation 고정이라 대개 무차이. 파리티 테스트로 확정.
 - **`MotionContributions` 컴포넌트 부여 대상:** 모든 이동 엔티티 vs 필요 시. (creator 배선.)
 
 ## 진행
 
-- [x] 브레인스토밍 합의 (모터 단일 권위 + 기여 모델 (3) 일반형, 대시=Override, 넷코드 무변경, 넉백은 슬라이스 2)
+- [x] 브레인스토밍 합의 (이동 시스템 단일 권위 + 기여 모델 (3) 일반형, 대시=Override, 넷코드 무변경, 넉백은 슬라이스 2)
 - [x] 이 spec 작성
 - [ ] spec self-review
 - [ ] 사용자 spec 리뷰

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** `MovementSystem`을 velocity 유일 writer로 만든다 — 대시는 모터가 `ActiveAbility`에서 파생(CMC movement-mode 방식), 외부 힘은 `MotionContributions`(Additive) 리스트로. `MotionEffectHandler`의 velocity 직접 쓰기를 제거하고, 동작·재조정은 현재와 동일(무회귀). 넉백은 슬라이스 2.
+**Goal:** `MovementSystem`을 velocity 유일 writer로 만든다 — 대시는 이동 시스템이 `ActiveAbility`에서 파생(CMC movement-mode 방식), 외부 힘은 `MotionContributions`(Additive) 리스트로. `MotionEffectHandler`의 velocity 직접 쓰기를 제거하고, 동작·재조정은 현재와 동일(무회귀). 넉백은 슬라이스 2.
 
-**Architecture:** 순수 코어(LOP-Shared)에 기여 모델(`MotionContribution`/`MotionContributions`/`MotionContributionSystem`)을 추가한다. `MovementSystem.Tick`에 `currentTick`을 더해 대시를 활성 창 `[StartupEndTick, ActiveEndTick)`으로 파생(`AbilitySystem.TryGetActiveMotionEffect`)하고, 외부 Additive 기여를 `MotionContributionSystem.Resolve`로 합성해 `World.Velocity`에 한 번만 쓴다. 리스트는 슬라이스 1엔 엔티티에 안 붙는다(모터 null-safe; 첫 실사용=슬라이스 2 넉백).
+**Architecture:** 순수 코어(LOP-Shared)에 기여 모델(`MotionContribution`/`MotionContributions`/`MotionContributionSystem`)을 추가한다. `MovementSystem.Tick`에 `currentTick`을 더해 대시를 활성 창 `[StartupEndTick, ActiveEndTick)`으로 파생(`AbilitySystem.TryGetActiveMotionEffect`)하고, 외부 Additive 기여를 `MotionContributionSystem.Resolve`로 합성해 `World.Velocity`에 한 번만 쓴다. 리스트는 슬라이스 1엔 엔티티에 안 붙는다(이동 시스템 null-safe; 첫 실사용=슬라이스 2 넉백).
 
 **Tech Stack:** Unity, C#, NUnit(EditMode), 순수 C# World Core(GameFramework.World / LOP-Shared), VContainer.
 
@@ -89,11 +89,11 @@ using System.Numerics;
 
 namespace LOP
 {
-    /// <summary>모터가 base velocity 위에 얹는 기여의 합성 방식.</summary>
+    /// <summary>이동 시스템이 base velocity 위에 얹는 기여의 합성 방식.</summary>
     public enum MotionContributionMode { Override, Additive }
 
     /// <summary>
-    /// 이동 모터에 얹히는 수평 velocity 기여 하나(순수 데이터). 활성 창 <c>[StartTick, EndTick)</c> 동안만 적용.
+    /// 이동 시스템에 얹히는 수평 velocity 기여 하나(순수 데이터). 활성 창 <c>[StartTick, EndTick)</c> 동안만 적용.
     /// 산업 표준: Unreal CMC RootMotionSource(AccumulateMode Override/Additive + Priority + Duration).
     /// </summary>
     public readonly struct MotionContribution
@@ -308,7 +308,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ### Task 3: `AbilitySystem.TryGetActiveMotionEffect` 창 검사 헬퍼 (LOP-Shared)
 
-모터가 대시를 파생할 수 있게, `ActiveAbility`의 경계틱 창 `[StartupEndTick, ActiveEndTick)` 안이면 그 `MotionEffect`를 돌려주는 static 헬퍼. (기존 `HasActiveMotionEffect`는 페이즈 기반 — 입력 락용으로 유지; 이건 창 기반 — 모터용, 전이 틱 파리티.)
+이동 시스템이 대시를 파생할 수 있게, `ActiveAbility`의 경계틱 창 `[StartupEndTick, ActiveEndTick)` 안이면 그 `MotionEffect`를 돌려주는 static 헬퍼. (기존 `HasActiveMotionEffect`는 페이즈 기반 — 입력 락용으로 유지; 이건 창 기반 — 이동 시스템용, 전이 틱 파리티.)
 
 **Files:**
 - Modify: `C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared/Runtime/Scripts/Game/Ability/AbilitySystem.cs` (`HasActiveMotionEffect` 아래 static 추가)
@@ -374,7 +374,7 @@ namespace LOP.Tests
 ```csharp
         /// <summary>
         /// 활성 창 <c>[StartupEndTick, ActiveEndTick)</c> 안이면 진행 중 어빌리티의 <see cref="MotionEffect"/>를 돌려준다.
-        /// 페이즈가 아니라 경계틱으로 판정 → 대시 전이 틱에도 same-tick 파생(모터가 대시를 파생할 때 사용).
+        /// 페이즈가 아니라 경계틱으로 판정 → 대시 전이 틱에도 same-tick 파생(이동 시스템이 대시를 파생할 때 사용).
         /// </summary>
         public static bool TryGetActiveMotionEffect(Entity entity, long currentTick, out MotionEffect motionEffect)
         {
@@ -475,7 +475,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ### Task 5: `MovementSystem.Tick` 단일 writer 로직 — 대시 파생 + 기여 합성 (LOP-Shared)
 
-모터를 유일 writer로: 대시면 `forward×Speed`(파생 Override, 입력 락), 아니면 걷기; 그 위에 외부 Additive 기여 합성. `HasActiveMotionEffect` bow-out 제거.
+이동 시스템을 유일 writer로: 대시면 `forward×Speed`(파생 Override, 입력 락), 아니면 걷기; 그 위에 외부 Additive 기여 합성. `HasActiveMotionEffect` bow-out 제거.
 
 **Files:**
 - Modify: `C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared/Runtime/Scripts/Game/MovementSystem.cs` (`Tick` 본문)
@@ -492,7 +492,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
         [Test]
         public void ActiveMotionEffect_DerivesDashVelocity_FromFacing_IgnoresInput()
         {
-            // 대시 활성 창 안 → 모터가 forward×Speed를 직접 쓴다(입력 무시). 기본 rotation=identity → forward=+z.
+            // 대시 활성 창 안 → 이동 시스템이 forward×Speed를 직접 쓴다(입력 무시). 기본 rotation=identity → forward=+z.
             var entity = CreateControlledEntity(new Vector3(15f, 0f, 0f), new InputCommand { Vertical = 1f });
             var abilities = new Abilities();
             abilities.ActiveAbility = new ActiveAbility(2, AbilityPhase.Startup, 0, 100, 200, null,
@@ -611,7 +611,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ### Task 6: `MotionEffectHandler` 제거 + DI 등록 제거 (LOP-Shared + 클라 + 서버)
 
-대시 velocity는 이제 모터가 파생하므로 핸들러는 불필요.
+대시 velocity는 이제 이동 시스템이 파생하므로 핸들러는 불필요.
 
 **Files:**
 - Delete: `C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared/Runtime/Scripts/Game/Ability/MotionEffectHandler.cs` (+ `.meta`)
@@ -619,7 +619,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 - Modify: `C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Server/Assets/Scripts/Game/GameLifetimeScope.cs:37` (등록 제거)
 
 **Interfaces:**
-- Consumes: Task 5(모터가 대시 파생). Produces: `MotionEffectHandler` 부재.
+- Consumes: Task 5(이동 시스템이 대시 파생). Produces: `MotionEffectHandler` 부재.
 
 - [ ] **Step 1: 클라 DI 등록 제거** — `GameLifetimeScope.cs:45`
 ```csharp
@@ -671,7 +671,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ## 자기 검토 메모 (작성자)
 
-- **스펙 커버리지:** 모델(§A)=T1/T2. 대시 파생(§C)=T3+T5. 순서/시그니처(§D)=T4+T5. `MotionEffectHandler` 제거=T6. 파리티/무회귀=T5 테스트+T7. 리스트는 슬라이스1에 엔티티 미부착(§C/영향파일)=의도적(모터 null-safe, T5 additive 테스트는 합성 컴포넌트로 검증).
+- **스펙 커버리지:** 모델(§A)=T1/T2. 대시 파생(§C)=T3+T5. 순서/시그니처(§D)=T4+T5. `MotionEffectHandler` 제거=T6. 파리티/무회귀=T5 테스트+T7. 리스트는 슬라이스1에 엔티티 미부착(§C/영향파일)=의도적(이동 시스템 null-safe, T5 additive 테스트는 합성 컴포넌트로 검증).
 - **파리티 근거:** 대시 창 `[StartupEnd, ActiveEnd)`·`forward×Speed`·입력락·Y보존·점프무시가 현 bow-out+handler 넷 동작과 동일(§C). T5 대시 테스트가 값 고정.
-- **idempotent 인터림:** T5(모터가 대시 씀) 후 T6(핸들러 제거) 전까지 핸들러가 같은 값 재기록 — 무해. 순수 EditMode엔 executor 미구동이라 무영향.
+- **idempotent 인터림:** T5(이동 시스템이 대시 씀) 후 T6(핸들러 제거) 전까지 핸들러가 같은 값 재기록 — 무해. 순수 EditMode엔 executor 미구동이라 무영향.
 - **타입 일관성:** `Tick(entity, long currentTick, float deltaTime)`, `TryGetActiveMotionEffect(entity, currentTick, out MotionEffect)`, `MotionContributionSystem.Resolve/Prune`(System.Numerics), `MotionContribution`(System.Numerics) — 태스크 간 일치 확인.

@@ -13,6 +13,7 @@ namespace LOP
     public class LocalEntityInterpolator : MonoBehaviour, ICleanup
     {
         [Inject] private IRunner runner;
+        [Inject] private GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
 
         public LOPEntity entity { get; set; }
         public LOPEntityView entityView { get; set; }
@@ -32,6 +33,7 @@ namespace LOP
         public void Cleanup()
         {
             runner.RemoveListener(this);
+            renderCorrectionSmoother.Reset();
         }
 
         [RunnerListen(typeof(End))]
@@ -66,7 +68,9 @@ namespace LOP
                 return;
             }
 
-            entityView.visualGameObject.transform.position = Vector3.Lerp(prev.position, next.position, t);
+            Vector3 target = Vector3.Lerp(prev.position, next.position, t);
+            entityView.visualGameObject.transform.position =
+                renderCorrectionSmoother.Smooth(target.ToNumerics(), Time.deltaTime).ToUnity();
             entityView.visualGameObject.transform.rotation = Quaternion.Slerp(
                 Quaternion.Euler(prev.rotation), Quaternion.Euler(next.rotation), t);
         }

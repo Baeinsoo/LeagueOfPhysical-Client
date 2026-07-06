@@ -6,7 +6,7 @@
 
 ## Goal
 
-넉백 슬라이스 2가 남긴 **TEMP 코드 배선**(서버 `AbilityDataProvider`에서 "DamageEffect 있으면 무조건 `new KnockbackEffect(8f,...)` 하드코딩")을 **Luban MasterData 데이터**로 승격한다. 넉백을 정식 effect 타입(`KnockbackEffect` bean)으로 스키마에 넣고, 어떤 어빌리티가 얼마나 밀지를 **데이터(`#Ability.xlsx`)로 지정**한다. 다른 effect(Damage/Motion/StatusEffectApply)와 완전히 동형이 된다.
+넉백 슬라이스 2가 남긴 **TEMP 코드 배선**(서버 `AbilityDataProvider`에서 "DamageEffect 있으면 무조건 `new KnockbackEffect(5f,...)` 하드코딩")을 **Luban MasterData 데이터**로 승격한다. 넉백을 정식 effect 타입(`KnockbackEffect` bean)으로 스키마에 넣고, 어떤 어빌리티가 얼마나 밀지를 **데이터(`#Ability.xlsx`)로 지정**한다. 다른 effect(Damage/Motion/StatusEffectApply)와 완전히 동형이 된다.
 
 ## 배경 — 현재 TEMP 상태
 
@@ -134,8 +134,23 @@ case LOP.MasterData.KnockbackEffect k:
 
 ## 진행
 
-- [x] 브레인스토밍 합의 (파이프라인 모델 조사 → bean=스크립트/데이터=#Ability.xlsx 직접, 양쪽 그룹, 2단 구분자, 현행 값 유지)
+- [x] 브레인스토밍 합의 (파이프라인 모델 조사 → bean=스크립트/데이터=#Ability.xlsx 직접, 양쪽 그룹, 현행 값 유지)
 - [x] 이 spec 작성
-- [ ] spec self-review
-- [ ] 사용자 spec 리뷰
-- [ ] `writing-plans`로 구현 plan 작성
+- [x] spec self-review
+- [x] 사용자 spec 리뷰
+- [x] `writing-plans`로 구현 plan 작성 (`docs/superpowers/plans/2026-07-06-knockback-masterdata-promotion.md`)
+- [x] 구현 (Subagent-Driven, 4 코드 태스크) + 플레이 검증
+
+## 구현 후기 (2026-07-06)
+
+Subagent-Driven으로 4개 코드 태스크 구현·리뷰. **infra**: `write_beans_index()`에 `KnockbackEffect` bean(양쪽 그룹, 5필드) + `__beans__.xlsx` 타깃 재생성 / `#Ability.xlsx` attack에 `KnockbackEffect,5,2,90,12,0.8` 이어붙임. **regen(gen.sh)**: 양쪽 MasterData 패키지에 `KnockbackEffect.cs` + dispatch switch 자동 case + `tbability.bytes`. **런타임**: 클·서 `AbilityDataProvider`에 KnockbackEffect case, 서버 TEMP 하드코딩 은퇴.
+
+**구분자 — 변경 불필요 확정:** 기존 `#sep=,` 단일 콤마가 Luban 다형 리스트를 **필드 개수로 소비**함(현 단일-effect 셀이 증거)을 근거로 effect 2개를 같은 콤마로 이어붙였고, **gen.sh가 에러 없이 파싱** → 2단 구분자 폴백 불필요(spec §B 정련). attack이 `[DamageEffect, KnockbackEffect]`로 역직렬화됨.
+
+**.meta 처리:** gen.sh `rm -rf`가 추적된 `.meta`를 지워, 재생성 후 **삭제된 .meta를 git restore**(내용 동일 파일이라 GUID 유효) → 신규 `KnockbackEffect.cs.meta`만 추가. 전 파일 GUID churn 회피.
+
+**최종 전체 브랜치 리뷰(opus): READY TO MERGE** — 6 불변식 통과(5-레이어 필드 순서 무-스왑, TEMP 은퇴=단일 데이터 소스, 양쪽 패키지/프로바이더 lockstep, 슬라이스2 값 파리티, 하위호환, blank 그룹). Critical/Important 0. Minor(Goal 프로즈의 stale `8f`)는 `5f`로 수정.
+
+**플레이 검증(사용자):** attack 넉백이 슬라이스 2와 **동일 손맛**(값이 이제 데이터에서 옴, 코드 TEMP 없음), 중복/누락 없음. 걷기/대시 무회귀.
+
+**후속(비차단):** attack 외 어빌리티에 넉백 데이터 확장(자유), `generate_protos.sh` footgun(별건, LOP-Shared), Override 완전경직/CC·Y축 넉백.

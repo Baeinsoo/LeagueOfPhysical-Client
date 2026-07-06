@@ -8,7 +8,10 @@ namespace LOP
         private const int RedundancyWindow = 3;  // 패킷당 최근 N틱 입력(현재 포함) — sliding-window redundancy
 
         private long sequenceNumber;
-        private InputCommand captured;   // 틱 사이 UI 입력 캡처(null = 이번 틱 입력 없음)
+        private float heldHorizontal;   // 연속 이동 — 입력 소스가 매 프레임 갱신(뗄 때 0), 틱마다 샘플
+        private float heldVertical;
+        private bool pendingJump;        // 이산 액션 — 소비 후 리셋
+        private int pendingAbilityId;
         private IRunner runner;
         private IPlayerContext playerContext;
         private AbilityActivator abilityActivator;
@@ -48,39 +51,56 @@ namespace LOP
                 return;
             }
 
-            var buffer = entityRegistry.Get(playerContext.entity.entityId).Get<InputBuffer>();
+            var worldEntity = entityRegistry.Get(playerContext.entity.entityId);
+            var buffer = worldEntity.Get<InputBuffer>();
             long tick = Runner.Time.tick;
 
-            if (captured != null)
+            bool hasMovement = heldHorizontal != 0f || heldVertical != 0f;
+            bool hasAction = pendingJump || pendingAbilityId != 0;
+
+            // [INPUT-DIAG 임시] 걷는 중 모든 틱이 이동을 받는지 확인(멀티틱 둘째 틱 포함). Task 2 후 제거.
+            UnityEngine.Debug.Log($"[INPUT] frame={UnityEngine.Time.frameCount} tick={tick} hasMove={hasMovement} hasAction={hasAction}");
+
+            if (hasMovement || hasAction)
             {
-                // 대시 같은 조작 불가 상태에선 이동 입력을 무시한다(전송·예측 모두 0 → 보정 간섭 방지).
-                if (AbilitySystem.HasActiveMotionEffect(entityRegistry.Get(playerContext.entity.entityId)))
+                var command = new InputCommand
                 {
-                    captured.Horizontal = 0f;
-                    captured.Vertical = 0f;
+                    Horizontal = heldHorizontal,
+                    Vertical = heldVertical,
+                    Jump = pendingJump,
+                    AbilityId = pendingAbilityId,
+                };
+
+                // 대시 등 조작 불가 상태에선 이동 입력을 무시한다(전송·예측 모두 0 → 보정 간섭 방지).
+                if (AbilitySystem.HasActiveMotionEffect(worldEntity))
+                {
+                    command.Horizontal = 0f;
+                    command.Vertical = 0f;
                 }
-                captured.SequenceNumber = GenerateSequenceNumber();
+                command.SequenceNumber = GenerateSequenceNumber();
 
                 // 스트림에 저장(redundancy 윈도우) + 이번 틱 예측 확정(world.Tick의 MovementSystem이 읽음).
-                inputBufferSystem.Enqueue(buffer, tick, captured);
-                inputBufferSystem.SetCurrent(buffer, captured);
+                inputBufferSystem.Enqueue(buffer, tick, command);
+                inputBufferSystem.SetCurrent(buffer, command);
                 inputBufferSystem.TrimToWindow(buffer, RedundancyWindow);
 
-                SendToServer(buffer, tick, captured);
+                SendToServer(buffer, tick, command);
 
                 // 어빌리티 예측 발동(연출 cue는 AbilityActivator가 내부에서 append).
-                if (captured.AbilityId != 0)
+                if (command.AbilityId != 0)
                 {
-                    abilityActivator.TryActivate(playerContext.entity.entityId, captured.AbilityId, tick);
+                    abilityActivator.TryActivate(playerContext.entity.entityId, command.AbilityId, tick);
                 }
 
-                inputHistory.Record(tick, captured);
+                inputHistory.Record(tick, command);
 
-                captured = null;
+                // 이산 액션만 소비 — held 이동은 다음 틱까지 유지(연속).
+                pendingJump = false;
+                pendingAbilityId = 0;
             }
             else
             {
-                // 무입력 틱: 0 커맨드를 확정 → MovementSystem이 수평 속도를 0으로 제동한다.
+                // 무입력 틱(held=0, 액션 없음): 0 커맨드 확정 → MovementSystem이 수평 속도를 0으로 제동.
                 var noInput = new InputCommand();
                 inputBufferSystem.SetCurrent(buffer, noInput);
                 inputHistory.Record(tick, noInput);
@@ -88,7 +108,6 @@ namespace LOP
                 if (buffer.Commands.Count > 0)
                 {
                     // 무입력 틱에도 최근 입력 윈도우를 재전송해 연속 스트림을 유지한다(유실 입력이 1틱 내 재도착해 복구).
-                    // 새 seq를 만들지 않고 기존 윈도우만 재전송 — 서버 처리·reconciliation·seq cadence 무변경.
                     SendToServer(buffer, tick, null);
                 }
             }
@@ -140,29 +159,21 @@ namespace LOP
             };
         }
 
-        private InputCommand EnsureCaptured()
+        /// <summary>held 이동 갱신 — 입력 소스가 매 프레임 호출(뗄 때 0). 틱마다 샘플된다.</summary>
+        public void SetMovement(float horizontal, float vertical)
         {
-            return captured ??= new InputCommand();
-        }
-
-        public void SetHorizontal(float horizontal)
-        {
-            EnsureCaptured().Horizontal = horizontal;
-        }
-
-        public void SetVertical(float vertical)
-        {
-            EnsureCaptured().Vertical = vertical;
+            heldHorizontal = horizontal;
+            heldVertical = vertical;
         }
 
         public void SetJump(bool jump)
         {
-            EnsureCaptured().Jump = jump;
+            pendingJump = jump;
         }
 
         public void SetAbilityId(int abilityId)
         {
-            EnsureCaptured().AbilityId = abilityId;
+            pendingAbilityId = abilityId;
         }
     }
 }

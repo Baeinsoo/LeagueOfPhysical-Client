@@ -98,8 +98,21 @@ namespace LOP
 
             const float walkThreshold = 0.01f;
             float horizontalSpeedSquared = entity.velocity.x * entity.velocity.x + entity.velocity.z * entity.velocity.z;
-            animator.SetBool("Run", horizontalSpeedSquared > walkThreshold * walkThreshold && entity.IsGrounded());
+            bool fast = horizontalSpeedSquared > walkThreshold * walkThreshold;
+            bool grounded = entity.IsGrounded();
+            bool run = fast && grounded;
+
+            // [RUN-DIAG 임시] velocity=0 깜빡임(가짜 무입력) 소멸 확인용. Task 2 후 제거.
+            if (run != _lastRunDiag)
+            {
+                UnityEngine.Debug.Log($"[RUN] {(run ? "RUN" : "IDLE")} spd={Mathf.Sqrt(horizontalSpeedSquared):F3} fast={fast} grounded={grounded}");
+                _lastRunDiag = run;
+            }
+
+            animator.SetBool("Run", run);
         }
+
+        private bool _lastRunDiag;
      
         // 어빌리티 발동 연출 cue → 애니 트리거. 한 곳에서 매핑(cue 늘면 dict에 추가, if 누적 없음).
         // 캐릭터별 컨트롤러가 쓰는 트리거 이름이 달라 cue 하나에 후보 트리거를 다 친다(없는 건 no-op).

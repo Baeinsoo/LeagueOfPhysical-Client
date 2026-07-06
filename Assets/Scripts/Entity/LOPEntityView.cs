@@ -100,7 +100,7 @@ namespace LOP
             float horizontalSpeedSquared = entity.velocity.x * entity.velocity.x + entity.velocity.z * entity.velocity.z;
             animator.SetBool("Run", horizontalSpeedSquared > walkThreshold * walkThreshold && entity.IsGrounded());
         }
-     
+
         // 어빌리티 발동 연출 cue → 애니 트리거. 한 곳에서 매핑(cue 늘면 dict에 추가, if 누적 없음).
         // 캐릭터별 컨트롤러가 쓰는 트리거 이름이 달라 cue 하나에 후보 트리거를 다 친다(없는 건 no-op).
         private static readonly System.Collections.Generic.Dictionary<string, string[]> CueTriggers =

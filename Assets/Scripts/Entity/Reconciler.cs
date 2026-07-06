@@ -13,8 +13,7 @@ namespace LOP
     {
         private const float Threshold = 0.06f;     // 이 이하 오차는 롤백 스킵(예측 정확)
         private const long MaxReplayTicks = 128;   // 격차가 이보다 크면 텔레포트 폴백(재생 생략)
-        private const float TeleportThreshold = 3f;    // 이보다 큰 보정(리스폰 등)은 스무딩 안 함(스냅)
-        private const float CorrectionWindow = 0.3f;   // 보정 이징 창(초)
+        // 렌더 보정 임계(minCorrection/teleport)는 RenderCorrectionSmoother가 소유 — 여기선 seed만 한다.
 
         [Inject] private IPlayerContext playerContext;
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
@@ -154,12 +153,9 @@ namespace LOP
                 predictedAbilityStateHistory.Record(t, PredictedAbilityState.Capture(worldEntity));
             }
 
-            // 하드 보정으로 시뮬이 튄 크기가 유의미하면(텔레포트 아님) 렌더 스무더에 "보정 발생"을 알린다.
-            // 스무더가 보이는 메시를 창 동안 부드럽게 이징(시뮬 무영향). 큰 보정(리스폰)은 신호 안 함 → 스냅.
-            if ((preCorrectionPos - entity.position).magnitude <= TeleportThreshold)
-            {
-                renderCorrectionSmoother.MarkCorrection(CorrectionWindow);
-            }
+            // 하드 보정으로 시뮬 위치가 튄 것을 렌더 스무더에 알린다. 스무더가 보이는 위치를
+            // (보정 전 예측 → 보정 후 권위)만큼 부드럽게 흡수한다(시뮬 무영향). 크기별 스냅/무시는 스무더가 판단.
+            renderCorrectionSmoother.OnCorrection(preCorrectionPos.ToNumerics(), entity.position.ToNumerics());
         }
     }
 }

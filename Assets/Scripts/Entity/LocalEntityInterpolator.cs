@@ -39,12 +39,15 @@ namespace LOP
         [RunnerListen(typeof(End))]
         private void OnEnd()
         {
+            // renderTarget = 시뮬 위치 + 감쇠 중인 보정 offset. offset이 시뮬 스텝과 상쇄되어
+            // 이 스트림은 보정 순간에도 연속 → 아래 LateUpdate 보간이 튀지 않는다(걷기 지연도 없음).
             entityTransformSnaps[Runner.Time.tick] = new EntityTransform
             {
-                position = entity.position,
+                position = renderCorrectionSmoother.Target(entity.position.ToNumerics()).ToUnity(),
                 rotation = entity.rotation,
                 velocity = entity.velocity,
             };
+            renderCorrectionSmoother.DecayTick((float)Runner.Time.tickInterval);
         }
 
         private void LateUpdate()
@@ -68,9 +71,8 @@ namespace LOP
                 return;
             }
 
-            Vector3 target = Vector3.Lerp(prev.position, next.position, t);
-            entityView.visualGameObject.transform.position =
-                renderCorrectionSmoother.Smooth(target.ToNumerics(), Time.deltaTime).ToUnity();
+            // prev/next는 이미 스무딩된 renderTarget이라 그대로 보간하면 된다.
+            entityView.visualGameObject.transform.position = Vector3.Lerp(prev.position, next.position, t);
             entityView.visualGameObject.transform.rotation = Quaternion.Slerp(
                 Quaternion.Euler(prev.rotation), Quaternion.Euler(next.rotation), t);
         }

@@ -13,6 +13,8 @@ namespace LOP
     {
         private const float Threshold = 0.06f;     // 이 이하 오차는 롤백 스킵(예측 정확)
         private const long MaxReplayTicks = 128;   // 격차가 이보다 크면 텔레포트 폴백(재생 생략)
+        private const float TeleportThreshold = 3f;    // 이보다 큰 보정(리스폰 등)은 스무딩 안 함(스냅)
+        private const float CorrectionWindow = 0.3f;   // 보정 이징 창(초)
 
         [Inject] private IPlayerContext playerContext;
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
@@ -26,6 +28,7 @@ namespace LOP
         [Inject] private AbilityDataProvider abilityDataProvider;
         [Inject] private GameFramework.IPhysicsSimulator physicsSimulator;
         [Inject] private ReconciliationStats reconciliationStats;
+        [Inject] private GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
 
         private EntitySnap latestSnap;
         private bool hasPending;
@@ -62,6 +65,9 @@ namespace LOP
             {
                 return;
             }
+
+            // 예측된 현재 위치 — 하드 보정 전. 재생 후와의 차이로 보정 크기를 판정(시각 신호용).
+            Vector3 preCorrectionPos = entity.position;
 
             // errorGate: 예측이 서버와 충분히 가까우면 아무것도 안 함.
             // 그 전에 예측-서버 거리를 항상 기록해 Recon HUD(ReconciliationStats)가 계속 갱신되게 한다.
@@ -146,6 +152,13 @@ namespace LOP
                 snapshotHistory.Record(new GameFramework.Netcode.EntitySnapshot(
                     t, transform.Position, transform.Rotation, velocity.Linear));
                 predictedAbilityStateHistory.Record(t, PredictedAbilityState.Capture(worldEntity));
+            }
+
+            // 하드 보정으로 시뮬이 튄 크기가 유의미하면(텔레포트 아님) 렌더 스무더에 "보정 발생"을 알린다.
+            // 스무더가 보이는 메시를 창 동안 부드럽게 이징(시뮬 무영향). 큰 보정(리스폰)은 신호 안 함 → 스냅.
+            if ((preCorrectionPos - entity.position).magnitude <= TeleportThreshold)
+            {
+                renderCorrectionSmoother.MarkCorrection(CorrectionWindow);
             }
         }
     }

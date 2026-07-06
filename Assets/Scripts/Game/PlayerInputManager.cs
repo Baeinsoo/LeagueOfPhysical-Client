@@ -58,9 +58,6 @@ namespace LOP
             bool hasMovement = heldHorizontal != 0f || heldVertical != 0f;
             bool hasAction = pendingJump || pendingAbilityId != 0;
 
-            // [INPUT-DIAG 임시] 걷는 중 모든 틱이 이동을 받는지 확인(멀티틱 둘째 틱 포함). Task 2 후 제거.
-            UnityEngine.Debug.Log($"[INPUT] frame={UnityEngine.Time.frameCount} tick={tick} hasMove={hasMovement} hasAction={hasAction}");
-
             if (hasMovement || hasAction)
             {
                 var command = new InputCommand

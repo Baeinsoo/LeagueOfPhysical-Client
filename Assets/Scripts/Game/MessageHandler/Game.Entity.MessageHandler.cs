@@ -16,6 +16,7 @@ namespace LOP
         [Inject] private GameFramework.World.LevelSystem levelSystem;
         [Inject] private GameFramework.World.StatsSystem statsSystem;
         [Inject] private Reconciler reconciler;
+        [Inject] private RemoteInterpolationClock remoteInterpolationClock;
 
         public void Initialize()
         {
@@ -41,6 +42,8 @@ namespace LOP
             {
                 return;
             }
+
+            remoteInterpolationClock.RecordArrival(entitySnapsToC.Tick, UnityEngine.Time.timeAsDouble);
 
             foreach (var serverEntitySnap in entitySnapsToC.EntitySnaps.OrEmpty())
             {
@@ -82,7 +85,7 @@ namespace LOP
                         }
                     }
 
-                    entity.GetComponent<ServerStateReconciler>().AddServerEntitySnap(entitySnap);
+                    entity.GetComponent<RemoteEntityInterpolator>().AddServerEntitySnap(entitySnap);
                 }
             }
         }

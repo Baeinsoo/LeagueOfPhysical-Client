@@ -10,28 +10,44 @@ namespace LOP
     /// </summary>
     public class RemoteInterpolationClock
     {
-        private readonly double sendInterval;
-        private readonly ClockDilator dilator;
-        private readonly InterpolationDelayEstimator estimator;
+        private readonly IGameDataStore gameDataStore;
+
+        private double sendInterval;
+        private ClockDilator dilator;
+        private InterpolationDelayEstimator estimator;
+        private bool initialized;
 
         private long newestTick;
         private bool hasSnapshot;
         private double renderTime;
         private int lastAdvancedFrame = -1;
 
-        public RemoteInterpolationClock(double sendInterval)
+        public RemoteInterpolationClock(IGameDataStore gameDataStore)
         {
-            this.sendInterval = sendInterval;
+            this.gameDataStore = gameDataStore;
+        }
+
+        // gameInfo는 스코프 빌드 시점(엔트리포인트가 이 clock을 즉시 주입)엔 아직 null일 수 있다 →
+        // 첫 스냅 도착(게임 실행 중, gameInfo 준비됨) 시점에 sendInterval을 읽어 초기화한다.
+        private void EnsureInitialized()
+        {
+            if (initialized)
+            {
+                return;
+            }
+            sendInterval = gameDataStore.gameInfo.Interval;
             // errorScale=sendInterval → 오차 1틱이면 최대 rate. snapThreshold=8틱(오래 굶다 재개 시만 점프).
-            this.dilator = new ClockDilator(maxRate: 0.05, errorScale: sendInterval, snapThreshold: sendInterval * 8);
-            this.estimator = new InterpolationDelayEstimator(
+            dilator = new ClockDilator(maxRate: 0.05, errorScale: sendInterval, snapThreshold: sendInterval * 8);
+            estimator = new InterpolationDelayEstimator(
                 sendInterval, n: 2, k: 2, minCushion: sendInterval, maxCushion: sendInterval * 5);
+            initialized = true;
         }
 
         public bool HasSnapshot => hasSnapshot;
 
         public void RecordArrival(long serverTick, double clientTime)
         {
+            EnsureInitialized();
             estimator.RecordArrival(clientTime);
             if (hasSnapshot == false || serverTick > newestTick)
             {

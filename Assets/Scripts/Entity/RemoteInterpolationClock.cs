@@ -57,7 +57,11 @@ namespace LOP
                 }
                 if (Time.frameCount != lastAdvancedFrame)
                 {
-                    renderTime = dilator.Advance(renderTime, Target(), Time.unscaledDeltaTime);
+                    double advanced = dilator.Advance(renderTime, Target(), Time.unscaledDeltaTime);
+                    // 최신 받은 스냅 너머로는 안 감(외삽 금지) — 굶으면 여기 park, 새 스냅 오면 재개.
+                    // 이 상한이 target 동결(손실) 시 current 폭주 → 역방향 snap 사이클도 막는다(역행 금지 불변식).
+                    double newestTime = newestTick * sendInterval;
+                    renderTime = advanced < newestTime ? advanced : newestTime;
                     lastAdvancedFrame = Time.frameCount;
                 }
                 return renderTime;

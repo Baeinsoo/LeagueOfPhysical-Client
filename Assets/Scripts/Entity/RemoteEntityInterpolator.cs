@@ -30,7 +30,7 @@ namespace LOP
 
         private void LateUpdate()
         {
-            if (entityView.visualGameObject == null || snaps.Count == 0 || clock.HasSnapshot == false)
+            if (snaps.Count == 0 || clock.HasSnapshot == false)
             {
                 return;
             }
@@ -62,13 +62,17 @@ namespace LOP
             Apply(newest.position, Quaternion.Euler(newest.rotation));
         }
 
-        // 엔티티(월드 Transform → reactive로 kinematic 콜라이더 + 네임플레이트 등) + 비주얼 메시 둘 다 구동.
+        // 엔티티(월드 Transform → reactive로 kinematic 콜라이더 + 네임플레이트)는 항상 갱신 —
+        // 비주얼 애셋이 async 로드 중이어도 콜라이더/위치가 얼어붙지 않게. 비주얼 메시는 로드된 뒤에만.
         private void Apply(Vector3 pos, Quaternion rot)
         {
             entity.position = pos;
             entity.rotation = rot.eulerAngles;
-            entityView.visualGameObject.transform.position = pos;
-            entityView.visualGameObject.transform.rotation = rot;
+            if (entityView.visualGameObject != null)
+            {
+                entityView.visualGameObject.transform.position = pos;
+                entityView.visualGameObject.transform.rotation = rot;
+            }
         }
     }
 }

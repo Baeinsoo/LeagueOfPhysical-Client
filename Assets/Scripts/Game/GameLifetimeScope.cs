@@ -88,6 +88,7 @@ namespace LOP
             builder.Register(_ => new PredictedAbilityStateHistory(128), Lifetime.Singleton);
             builder.Register(_ => new InputHistory(128), Lifetime.Singleton);
             builder.Register<Reconciler>(Lifetime.Singleton);
+            builder.Register(c => new RemoteInterpolationClock(c.Resolve<IGameDataStore>().gameInfo.Interval), Lifetime.Singleton);
 
             builder.RegisterBuildCallback(container =>
             {

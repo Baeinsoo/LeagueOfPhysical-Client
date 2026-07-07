@@ -89,8 +89,8 @@
 - 큐빅 Hermite: `p(u) = h00·posA + h10·(dt)·velA + h01·posB + h11·(dt)·velB`, `dt=tB−tA`. **탄젠트를 구간 길이 dt로 스케일**(velocity는 m/s라 위치 단위로 환산).
 - 회전은 Slerp(최단호 — 쿼터니언 double-cover 부호 처리).
 
-### 채널 변경 (LOP-Server)
-- `LOPRunner.EndUpdate`의 `session.Send(entitySnapsToC)` → **`session.Send(entitySnapsToC, reliable: false)`**. (입력은 이미 Phase 3b에서 unreliable — 스냅만 맞추면 됨.)
+### 채널 (LOP-Server) — reliable 유지
+~~unreliable로 변경~~ **보류** — 메시지가 unreliable 상한(1184B) 초과(위 "채널 결정" 참고). `LOPRunner.EndUpdate`의 `session.Send(entitySnapsToC)` **그대로**.
 
 ### 정리 (삭제)
 - **`ServerStateReconciler`** — 남 캐릭·아이템 이관 후 삭제(dead-reckoning 잔재 포함).
@@ -105,8 +105,9 @@
 - **삭제(Client)**: `ServerStateReconciler.cs`, `SnapInterpolator.cs`
 - **수정(Server)**: `LOPRunner.cs`(스냅 `reliable: false`)
 
-## 알려진 한계 (후속)
-- **unreliable 스냅 메시지 크기 상한**: `EntitySnapsToC`는 모든 엔티티 스냅을 한 메시지로 보낸다. KCP unreliable 채널은 1 UDP 프레임(~1150B)으로 제한 → 엔티티/`MotionContribution`이 많아 초과하면 그 틱 브로드캐스트가 **silent drop**(로그만, 예외 없음). 현재 소규모(2인+소수 아이템 ≈ 600B)는 안전하고, 초과 시에도 **손실처럼 degrade → 보간 hold로 흡수**(치명 아님). 표준 해법 = **interest management(근처 엔티티만) 또는 스냅 분할/델타 압축** — 별도 슬라이스. 규모 커지면 착수.
+## 채널 결정 — reliable 유지 (unreliable 보류)
+당초 스냅을 **unreliable**로 바꾸려 했으나(표준: full-state라 재전송 무의미), 실측에서 `EntitySnapsToC`가 **현재 스케일에서 이미 ~1200B**로 Mirror unreliable **단일 배치 상한(1184B)을 초과** → 매 틱 통째 드롭(원격 동기 붕괴)이 확인됨. reliable은 Mirror가 조각내 보내 이 크기도 문제없다. → **reliable 유지**(status quo). 보간(receive-anchored+쿠션+hold)은 reliable에서도 정상이고, reliable은 순서 보장이라 오히려 보간이 단순.
+- **unreliable 채택은 별도 슬라이스**: 메시지를 1184B 밑으로 만드는 선행 작업 필요 — **interest management(근처 엔티티만) 또는 스냅 분할/델타 압축**. 규모 커지면 착수.
 
 ## Out of Scope
 - **서버 lag compensation**(권위 피격을 클라가 본 과거 시점으로 되감기) — 별개 서버 트랙.

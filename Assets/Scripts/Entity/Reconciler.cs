@@ -13,6 +13,7 @@ namespace LOP
     {
         private const float Threshold = 0.06f;     // 이 이하 오차는 롤백 스킵(예측 정확)
         private const long MaxReplayTicks = 128;   // 격차가 이보다 크면 텔레포트 폴백(재생 생략)
+        // 렌더 보정 임계(minCorrection/teleport)는 RenderCorrectionSmoother가 소유 — 여기선 seed만 한다.
 
         [Inject] private IPlayerContext playerContext;
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
@@ -26,6 +27,7 @@ namespace LOP
         [Inject] private AbilityDataProvider abilityDataProvider;
         [Inject] private GameFramework.IPhysicsSimulator physicsSimulator;
         [Inject] private ReconciliationStats reconciliationStats;
+        [Inject] private GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
 
         private EntitySnap latestSnap;
         private bool hasPending;
@@ -62,6 +64,9 @@ namespace LOP
             {
                 return;
             }
+
+            // 예측된 현재 위치 — 하드 보정 전. 재생 후와의 차이로 보정 크기를 판정(시각 신호용).
+            Vector3 preCorrectionPos = entity.position;
 
             // errorGate: 예측이 서버와 충분히 가까우면 아무것도 안 함.
             // 그 전에 예측-서버 거리를 항상 기록해 Recon HUD(ReconciliationStats)가 계속 갱신되게 한다.
@@ -147,6 +152,10 @@ namespace LOP
                     t, transform.Position, transform.Rotation, velocity.Linear));
                 predictedAbilityStateHistory.Record(t, PredictedAbilityState.Capture(worldEntity));
             }
+
+            // 하드 보정으로 시뮬 위치가 튄 것을 렌더 스무더에 알린다. 스무더가 보이는 위치를
+            // (보정 전 예측 → 보정 후 권위)만큼 부드럽게 흡수한다(시뮬 무영향). 크기별 스냅/무시는 스무더가 판단.
+            renderCorrectionSmoother.OnCorrection(preCorrectionPos.ToNumerics(), entity.position.ToNumerics());
         }
     }
 }

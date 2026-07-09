@@ -1,0 +1,86 @@
+name: client-app-deploy
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: client-app-deploy
+  cancel-in-progress: false
+
+env:
+  AWS_DEFAULT_REGION: ap-northeast-2
+
+jobs:
+  build-deploy:
+    runs-on: [self-hosted, client]      # Client 전용 맥 러너
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive          # Assets/Art (public) 포함
+
+      - name: sha 산출
+        id: tag
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: 의존 UPM 패키지 레포 체크아웃 (file:../../ 형제 위치)
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE/.."
+          for r in GameFramework LeagueOfPhysical-Shared LeagueOfPhysical-MasterData-Client; do
+            if [ -d "$r/.git" ]; then
+              git -C "$r" fetch --depth 1 origin && git -C "$r" reset --hard @{u}
+            else
+              git clone --depth 1 "https://github.com/Baeinsoo/$r" "$r"
+            fi
+            echo "$r @ $(git -C "$r" rev-parse --short HEAD)"
+          done
+
+      - name: 어드레서블 콘텐츠 full 빌드 (Android)
+        run: |
+          set -eo pipefail
+          UNITY="/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity"
+          if ! "$UNITY" -batchmode -quit -nographics -buildTarget Android -projectPath . \
+                -executeMethod BuildScript.BuildAndroidContentFull -logFile - > unity-content.log 2>&1; then
+            echo "::error::content build failed"; tail -80 unity-content.log; exit 1
+          fi
+          tail -15 unity-content.log
+          test -f Assets/AddressableAssetsData/Android/addressables_content_state.bin
+          ls ServerData/Android
+
+      - name: 콘텐츠 업로드 (additive, --delete 금지)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          set -e
+          aws s3 sync ServerData/Android "s3://lop-assets/dev/Android"
+          echo "콘텐츠 업로드 완료: s3://lop-assets/dev/Android/"
+
+      - name: APK 빌드 (Android, 디버그 서명)
+        run: |
+          set -eo pipefail
+          UNITY="/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity"
+          if ! "$UNITY" -batchmode -quit -nographics -buildTarget Android -projectPath . \
+                -executeMethod BuildScript.BuildAndroidApk -logFile - > unity-apk.log 2>&1; then
+            echo "::error::APK build failed"; tail -80 unity-apk.log; exit 1
+          fi
+          tail -15 unity-apk.log
+          test -f Build/lop.apk
+
+      - name: APK + content_state 보존 (버전드) + latest 갱신
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          set -e
+          SHA="${{ steps.tag.outputs.sha }}"
+          DEST="s3://lop-client/builds/$SHA"
+          aws s3 cp Build/lop.apk "$DEST/lop.apk"
+          aws s3 cp Assets/AddressableAssetsData/Android/addressables_content_state.bin \
+            "$DEST/addressables_content_state.bin"
+          # latest 포인터 (③b가 읽음)
+          printf '{"sha":"%s","apk":"%s/lop.apk","content_state":"%s/addressables_content_state.bin"}\n' \
+            "$SHA" "$DEST" "$DEST" > latest.json
+          aws s3 cp latest.json "s3://lop-client/builds/latest.json"
+          echo "보존: $DEST/ , latest.json -> $SHA"
+          # 공유용 presigned URL (7일)
+          aws s3 presign "$DEST/lop.apk" --expires-in 604800

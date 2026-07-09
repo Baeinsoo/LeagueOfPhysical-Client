@@ -23,6 +23,7 @@ namespace LOP
         [Inject] private GameFramework.Netcode.SnapshotHistory snapshotHistory;
         [Inject] private PredictedAbilityStateHistory predictedAbilityStateHistory;
         [Inject] private Reconciler reconciler;
+        [Inject] private KinematicMoveSystem kinematicMoveSystem;
 
         private const string MapId = "Assets/Art/Scenes/FlapWangMap.unity";
 
@@ -101,6 +102,8 @@ namespace LOP
             world.Tick(Runner.Time.tick, (float)tickUpdater.interval);
             DriveAbilityEffects();
 
+            MoveLocalPlayer();
+
             SimulatePhysics();
 
             UpdateVisualEffect();
@@ -119,6 +122,22 @@ namespace LOP
             {
                 abilityEffectExecutor.DriveActiveEntity(entityRegistry.Get(entity.entityId), entityManager, tick);
             }
+        }
+
+        // 내 캐릭(예측 대상)만 키네마틱 이동(중력+collide-and-slide)시킨다 — 서버와 같은 KinematicMoveSystem.
+        // 원격은 스냅 팔로워(ServerStateReconciler/보간)라 여기서 안 움직인다.
+        private void MoveLocalPlayer()
+        {
+            LOPEntity entity = playerContext.entity;
+            if (entity == null)
+            {
+                return;
+            }
+            Physics.SyncTransforms();   // 캐스트가 최신 콜라이더 포즈를 보도록(autoSyncTransforms=false)
+            int layerMask = LayerMask.GetMask("Default");
+            entity.GetEntityComponent<PhysicsComponent>().Depenetrate(layerMask);
+            kinematicMoveSystem.Tick(entityRegistry.Get(entity.entityId), (float)tickUpdater.interval);
+            entity.PushMotionToPhysics();
         }
 
         private void BeginUpdate()

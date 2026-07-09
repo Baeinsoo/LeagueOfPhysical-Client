@@ -58,8 +58,8 @@ namespace LOP
 
             PhysicsComponent physicsComponent = entity.AddEntityComponent<PhysicsComponent>();
             objectResolver.Inject(physicsComponent);
-            // 내 캐릭만 dynamic(예측 대상). 남은 kinematic 장애물 — 스냅 위치로 세팅, 서버 권위.
-            physicsComponent.Initialize(!isUserEntity, false);
+            // 모든 캐릭터 kinematic — 우리가 직접 이동시킨다. 내 캐릭=예측(KinematicMoveSystem), 남=스냅 팔로워.
+            physicsComponent.Initialize(true, false);
 
             LOPEntityController controller = root.CreateChildWithComponent<LOPEntityController>();
             objectResolver.Inject(controller);

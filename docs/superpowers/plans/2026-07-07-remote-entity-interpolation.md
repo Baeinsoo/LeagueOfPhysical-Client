@@ -36,6 +36,7 @@
 `GameFramework/Tests/Runtime/Netcode/HermiteTests.cs`:
 ```csharp
 using System.Numerics;
+using GameFramework.Netcode;
 using NUnit.Framework;
 
 namespace GameFramework.Tests.Netcode
@@ -59,12 +60,13 @@ namespace GameFramework.Tests.Netcode
         }
 
         [Test]
-        public void ZeroVelocities_EqualsLinearLerp()
+        public void ZeroVelocities_EasesLikeSmoothstep()
         {
+            // 끝점 속도 0 → 큐빅 Hermite는 smoothstep(ease-in-out), 선형 Lerp 아님.
             var p0 = new Vector3(0, 0, 0);
             var p1 = new Vector3(10, 0, 0);
-            var r = Hermite.Position(p0, Vector3.Zero, p1, Vector3.Zero, 0.033f, 0.25f);
-            Assert.AreEqual(2.5f, r.X, 1e-5f);   // Lerp(0,10,0.25)
+            Assert.AreEqual(5.0f, Hermite.Position(p0, Vector3.Zero, p1, Vector3.Zero, 0.033f, 0.5f).X, 1e-5f);
+            Assert.AreEqual(1.5625f, Hermite.Position(p0, Vector3.Zero, p1, Vector3.Zero, 0.033f, 0.25f).X, 1e-5f);
         }
 
         [Test]
@@ -154,6 +156,7 @@ EOF
 
 `GameFramework/Tests/Runtime/Netcode/InterpolationDelayEstimatorTests.cs`:
 ```csharp
+using GameFramework.Netcode;
 using NUnit.Framework;
 
 namespace GameFramework.Tests.Netcode

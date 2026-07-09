@@ -199,5 +199,6 @@ using (worldEventBuffer.Suppress())
 - [x] 브레인스토밍 (A/B 범위, 방식 1 확정, 통합 fan-out 드롭, 웹 표준 검증)
 - [x] 이 spec 작성
 - [x] spec self-review (버퍼/입력버퍼 이름 모호성 정정)
-- [ ] 사용자 spec 리뷰
-- [ ] `writing-plans` 로 구현 plan 작성
+- [x] 사용자 spec 리뷰
+- [x] `writing-plans` 로 구현 plan 작성 (`plans/2026-07-09-commit-gate-replay-suppression`)
+- [x] 구현 (Task 1 `WorldEventBuffer.Suppress()` GameFramework `a37cd20`, 12/12 EditMode green / Task 2 `Reconciler` `7eac879`, 컴파일 clean·리뷰 clean·플레이 검증 통과)

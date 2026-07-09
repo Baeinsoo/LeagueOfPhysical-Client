@@ -59,16 +59,19 @@
 
 ### Stage④ 남은 트랙 (netcode-redesign.md §5 프론티어)
 
-1. **확정 게이트 (commit gate) + 통합 fan-out** ← **현재 브레인스토밍 중**
-   - 이벤트에 **틱 도장** + Quantum식 **해시(이벤트 데이터 + 틱) dedup 게이트**를 씌워, 재생(replay) 틱의 연출이 중복 fan-out되지 않게 한다. 지금 `Reconciler`가 손으로 하는 cue 회피(`AbilitySystem.TryActivate` 직접 호출)를 **구조로 대체**.
-   - 통합 fan-out: egress 경로(클 EventBus / 서 wire)를 게이트된 **단일 드레인**으로.
-   - 관련 임시코드 청소: `fix/reconciler-tick-guard`의 `[임시]` 틱 가드(`TryGetValue` 스킵)를 걷어내고 틱 정렬 제대로.
-   - 산업 근거(웹 검증 2026-07-09): Quantum "이벤트 데이터+ID+틱 해시로 중복 제거", `synced` 이벤트는 서버 확정까지 뷰 전달 지연 / non-synced는 즉시(틀리면 취소).
+1. **확정 게이트 (commit gate) — 재생 억제 (방식 1)** ← **설계 확정, spec 작성 중**
+   - 재생(replay)이 도는 동안 `WorldEventBuffer`를 **억제 스코프**로 둬서, 재생이 만든 연출 이벤트(현재는 cue 하나)를 버린다. `Reconciler`의 cue 손-회피(`AbilitySystem.TryActivate` 직접 호출)를 제거하고 재생도 정식 통로(`AbilityActivator`)를 그대로 쓰게 한다.
+   - **통합 fan-out은 드롭:** 조사 결과 클라 egress는 이미 설계상 올바르게 분리돼 있음(durable=스냅샷/pull, 생명주기=뷰-스포너 별개축). 억지로 통합하면 오히려 설계 훼손. 서버쪽 egress 청소(backlog #2)는 별개 항목.
+   - **틱 도장·해시 dedup은 지금 안 함** — 방식 1(억제)엔 불필요. B에서 방식 3으로 확장(아래).
+   - 산업 근거(웹 검증 2026-07-09): "연출=한 방향 부수효과, 라이브만 재생·resim 스킵"(SnapNet/GGPO) = Quantum **non-synced** 이벤트 정책의 경량 구현.
+   - spec: `specs/2026-07-09-commit-gate-replay-suppression-design`
+   - (별개) `fix/reconciler-tick-guard`의 `[임시]` 틱 가드 제거는 Stage④ 스냅샷 타임라인 재설계 때.
 
-2. **B — 예측/확정 이벤트 machinery** (commit gate 위에 얹음)
-   - 내 캐릭이 만든 **예측 이벤트를 확정 전 즉시** 연출(데미지 숫자 등) → 서버 확정 도착 시 **맞으면 확정 / 안 나타나면 취소**. Quantum non-synced 이벤트 모델의 취소 방향.
-   - **선결 조건 (이게 B를 지금 안 하는 이유):** 오늘 클라엔 **예측 이벤트 생산자가 없다** — 데미지=서버권위라 클라 `AbilityEffectExecutor`에 `DamageEffectHandler` 미등록. B의 취소/확정 배관을 지금 깔면 **파이프에 물이 없어** 끝-끝 검증 불가. → 먼저 **클라 측 예측 전투 생성**(client `DamageEffectHandler` 등록 + 내 히트 예측)이 있어야 B가 돌아간다.
-   - **A(commit gate)가 B의 뼈대 ~80%** (틱 도장 + 해시 dedup 게이트)를 이미 깐다. B가 추가하는 건 **취소 방향 + 예측 생산자**뿐.
+2. **B — 예측/확정 이벤트 machinery = 방식 3 (해시 dedup)** (commit gate 위에 얹음)
+   - 방식 1(재생 억제)을 **방식 3(이벤트 (내용+틱) 해시 dedup, Quantum식)**으로 확장: 재생이 이벤트를 다시 만들되 **이미 낸 것과 같으면 버리고, 예측이 틀려 달라졌으면 내보낸다.** 내 예측 연출을 확정 전 즉시 표시 → 서버 확정 도착 시 맞으면 유지 / 틀리면 취소.
+   - **필요 부품:** ① `WorldEvent`에 **틱 도장**(방식 1은 안 넣음) ② **예측 이벤트 생산자**(클 `DamageEffectHandler` 등록 + 내 히트 예측) ③ **취소 방향** ④ 상황 X 흡수 — 서버 사본 self-skip(`GameAbilityMessageHandler`)을 해시 dedup으로 통합.
+   - **선결 조건 (지금 B를 안 하는 이유):** 오늘 클라엔 예측 이벤트 생산자가 없다(데미지=서버권위, `DamageEffectHandler` 미등록). 배관을 깔아도 흐를 물이 없어 끝-끝 검증 불가 → **클라 측 예측 전투 생성이 먼저**.
+   - **방식 1(A)이 깐 토대:** 단일 egress 제어점 + "라이브만 연출 / 재생은 스킵" baseline 정책. B는 그 위에 dedup + 취소만 얹는다.
    - 설계 결정 박제: `[[event-model-wire-decision]]` — durable=snapshot / transient-cosmetic=event, 예측 즉시표시+보정.
 
 3. **완전 결정론 RNG** — 시드 기반 RNG로 크리/회피/스프레드가 클 예측·서버에서 동일 재생. **B의 예측 전투에 RNG가 들어오기 전 선결.** (산업 표준: "RNG를 입력처럼 취급 — 시드를 상태에 넣거나 입력에 실어 보냄".)

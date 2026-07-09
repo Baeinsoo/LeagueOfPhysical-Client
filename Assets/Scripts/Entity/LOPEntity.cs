@@ -110,10 +110,12 @@ namespace LOP
 
             Rigidbody rigidbody = physicsComponent.entityRigidbody;
 
-            // kinematic 바디(원격 캐릭·아이템)는 velocity를 못 받는다(Unity가 매 틱 경고). rotation만 밀고 velocity는 스킵.
-            // (position은 reactive 경로 PhysicsComponent.OnPropertyChange가 담당하므로 여기선 불필요.)
+            // kinematic 바디(캐릭·아이템)는 velocity를 못 받는다(Unity가 매 틱 경고). velocity는 스킵.
+            // 내 캐릭 예측은 KinematicMoveSystem이 World.Transform을 직접 써서 facade 이벤트가 안 뜨므로,
+            // World 위치·회전을 rb에 직접 밀어넣는다(원격은 World=스냅 위치라 idempotent).
             if (rigidbody.isKinematic)
             {
+                rigidbody.position = position;
                 rigidbody.rotation = Quaternion.Euler(rotation);
                 return;
             }

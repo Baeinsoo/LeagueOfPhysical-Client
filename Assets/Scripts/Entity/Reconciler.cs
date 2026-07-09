@@ -25,7 +25,7 @@ namespace LOP
         [Inject] private StatusEffectSystem statusEffectSystem;
         [Inject] private AbilityEffectExecutor abilityEffectExecutor;
         [Inject] private AbilityDataProvider abilityDataProvider;
-        [Inject] private GameFramework.IPhysicsSimulator physicsSimulator;
+        [Inject] private KinematicMoveSystem kinematicMoveSystem;
         [Inject] private ReconciliationStats reconciliationStats;
         [Inject] private GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
 
@@ -120,6 +120,7 @@ namespace LOP
             {
                 return;
             }
+            int layerMask = LayerMask.GetMask("Default");
             for (long t = anchorTick + 1; t < currentTick; t++)
             {
                 var cmd = inputHistory.TryGet(t, out var recorded) ? recorded : null;
@@ -141,9 +142,11 @@ namespace LOP
                 statusEffectSystem.Tick(worldEntity, t);
                 abilityEffectExecutor.DriveActiveEntity(worldEntity, entityManager, t);
 
+                // 재생: 서버 MoveCharacters와 동일한 키네마틱 한 틱(PhysX 적분 대신 mover 커널).
+                Physics.SyncTransforms();
+                entity.GetEntityComponent<PhysicsComponent>().Depenetrate(layerMask);
+                kinematicMoveSystem.Tick(worldEntity, deltaTime);
                 entity.PushMotionToPhysics();
-                physicsSimulator.Simulate(deltaTime);
-                entity.SyncPhysics();
 
                 // 보정값으로 두 히스토리 갱신(다음 비교/재생이 stale값을 안 보도록).
                 var transform = worldEntity.Get<GameFramework.World.Transform>();

@@ -51,6 +51,46 @@ namespace LOP
             base.OnDetach();
         }
 
+        /// <summary>
+        /// 겹친 지오메트리(스폰 시 지면과 붙음·끼임)에서 캡슐을 밖으로 밀어낸다.
+        /// sweep 이동은 "시작부터 겹친" 콜라이더를 무시하므로, 겹친 채로는 지면을 못 잡아 통과한다 —
+        /// 그래서 이동 전에 실제 콜라이더로 밀어내 겹침을 푼다(PhysX가 하던 일을 대신).
+        /// </summary>
+        public void Depenetrate(int layerMask)
+        {
+            var capsule = (CapsuleCollider)entityColliders[0];
+            Vector3 ownPos = capsule.transform.position;
+            Quaternion ownRot = capsule.transform.rotation;
+
+            Vector3 center = capsule.transform.TransformPoint(capsule.center);
+            float radius = capsule.radius;
+            float halfSpan = Mathf.Max(capsule.height * 0.5f - radius, 0f);
+            Vector3 up = capsule.transform.up;
+            Vector3 p1 = center - up * halfSpan;
+            Vector3 p2 = center + up * halfSpan;
+
+            Collider[] overlaps = Physics.OverlapCapsule(p1, p2, radius, layerMask, QueryTriggerInteraction.Ignore);
+            Vector3 total = Vector3.zero;
+            foreach (var other in overlaps)
+            {
+                if (other == capsule)
+                {
+                    continue;   // 자기 콜라이더 제외
+                }
+                if (Physics.ComputePenetration(capsule, ownPos, ownRot,
+                        other, other.transform.position, other.transform.rotation,
+                        out Vector3 dir, out float dist))
+                {
+                    total += dir * dist;
+                }
+            }
+
+            if (total.sqrMagnitude > 0f)
+            {
+                entity.position += total;   // 파사드 → World.Transform + reactive rb.position
+            }
+        }
+
         private void OnPropertyChange(PropertyChange propertyChange)
         {
             switch (propertyChange.propertyName)

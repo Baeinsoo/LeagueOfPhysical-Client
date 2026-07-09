@@ -57,10 +57,10 @@ namespace LOP
             objectResolver.Inject(view);
             view.SetEntity(entity);
 
-            ServerStateReconciler serverStateReconciler = entity.gameObject.AddComponent<ServerStateReconciler>();
-            objectResolver.Inject(serverStateReconciler);
-            serverStateReconciler.entity = entity;
-            serverStateReconciler.entityView = view;
+            RemoteEntityInterpolator interpolator = entity.gameObject.AddComponent<RemoteEntityInterpolator>();
+            objectResolver.Inject(interpolator);
+            interpolator.entity = entity;
+            interpolator.entityView = view;
 
             entityRegistry.Add(worldEntity);
 

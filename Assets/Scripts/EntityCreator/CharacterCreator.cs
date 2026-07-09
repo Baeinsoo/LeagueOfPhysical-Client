@@ -81,10 +81,10 @@ namespace LOP
             }
             else
             {
-                ServerStateReconciler serverStateReconciler = entity.gameObject.AddComponent<ServerStateReconciler>();
-                objectResolver.Inject(serverStateReconciler);
-                serverStateReconciler.entity = entity;
-                serverStateReconciler.entityView = view;
+                RemoteEntityInterpolator interpolator = entity.gameObject.AddComponent<RemoteEntityInterpolator>();
+                objectResolver.Inject(interpolator);
+                interpolator.entity = entity;
+                interpolator.entityView = view;
             }
 
             // --- World Core (병렬·추가) — Health/Mana/Level/Stats/Abilities. Transform/Velocity는 위에서 생성(파사드 백킹). ---

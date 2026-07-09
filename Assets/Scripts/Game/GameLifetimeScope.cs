@@ -48,6 +48,9 @@ namespace LOP
                 id => c.Resolve<StatusEffectDataProvider>().Get(id)), Lifetime.Singleton);
             builder.Register<GameFramework.World.IEventSink, WorldEventSink>(Lifetime.Singleton);
             builder.Register<GameFramework.IPhysicsSimulator, GameFramework.UnityPhysicsSimulator>(Lifetime.Singleton);
+            builder.Register<GameFramework.ICollisionQuery, GameFramework.UnityCollisionQuery>(Lifetime.Singleton);
+            builder.Register<KinematicMoveSystem>(c => new KinematicMoveSystem(
+                c.Resolve<GameFramework.ICollisionQuery>(), LayerMask.GetMask("Default")), Lifetime.Singleton);
             builder.Register<GameFramework.IMapLoader, AddressablesMapLoader>(Lifetime.Singleton);
 
             // runner은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.

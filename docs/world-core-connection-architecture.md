@@ -220,7 +220,8 @@ World 상태가 네트워크를 건널 때 *값을 snapshot(상태)으로 보낼
 | `ITickUpdater` / `TickUpdaterBase` | 틱 시간 계산 — 클라(Mirror NetworkTime smoothing) vs 서버(자기 클럭) 분기 |
 | `IInputSource` | 인풋 어댑터 — 클라(키보드/마우스) vs 서버(네트워크 큐) |
 | `IEventSink` | 이벤트 fan-out 어댑터 — 클·서 각자 `WorldEventSink` 구현 (클=`EventBus` publish / 서=wire 송신) |
-| `IPhysicsSimulator` | PhysX 호출 추상 (양쪽 동일 구체) |
+| `IPhysicsSimulator` | PhysX 스텝 호출 추상 (양쪽 동일 구체 — 다이나믹 물체 적분) |
+| `ICollisionQuery` | 캡슐 sweep 충돌 쿼리 추상 (양쪽 동일 구체 `UnityCollisionQuery` — 키네마틱 이동 collide-and-slide용) |
 | `INetworkSession` | 네트워크 송수신 추상 (Mirror NetworkClient/Server 어댑터로 구현) |
 
 > **`IGameSimulation`의 책임 경계**: Snapshot/Restore *메서드*는 두지 않는다. *상태 access*만 노출하고, 보관·복원 정책은 외각의 책임. 자세한 위치는 [netcode-redesign.md](netcode-redesign.md) 참조.
@@ -280,7 +281,16 @@ LOP 매핑: `LOPGameSimulation`(Shared) ↔ `LOPGameEngine`(각 사이드).
 - **남/서버권위 객체**: 과거 보간(interpolation), 미래 예측 안 함. (LOP `ServerStateReconciler`)
 - **판정 공정성**: 서버 lag compensation(favor-the-shooter) — 남을 내가 본 과거 시점으로 되감아 판정.
 - 내가 **단독·결정론적으로** 유발하는 기믹만 "예측 버블"에 넣어 내 캐릭과 함께 롤백/리시뮬. 경합/비결정적이면 서버 권위 대기.
-- **액션/공격 예측 확장**: 위치 예측(`SnapReconciler`)뿐 아니라 공격·피격·버프 같은 액션 이벤트도 같은 모델로 예측 가능. 내 캐릭 인풋이 클라 Generation(`AttackSystem` 등)에서 로컬 이벤트 발생 → 즉시 Application + 프레젠테이션 → 서버 확정 도착 시 비교 후 일치/롤백. Generation/Application 분리가 이 확장의 토대.
+- **액션/공격 예측 확장**: 위치 예측(`Reconciler`)뿐 아니라 공격·피격·버프 같은 액션 이벤트도 같은 모델로 예측 가능. 내 캐릭 인풋이 클라 Generation(`AttackSystem` 등)에서 로컬 이벤트 발생 → 즉시 Application + 프레젠테이션 → 서버 확정 도착 시 비교 후 일치/롤백. Generation/Application 분리가 이 확장의 토대.
+
+### 이동 substrate — 공유 키네마틱 컨트롤러
+
+캐릭터 이동은 **다이나믹 리지드바디가 아니라 클·서 공유 키네마틱 컨트롤러**다(넷코드 표준 — Photon Quantum KCC / 언리얼 CMC / Source `gamemovement`). "속도를 rb에 넣고 PhysX가 밀게" 하지 않고 **우리가 계산해 포지션을 직접 제어**한다:
+
+- **속도·중력을 게임 코드가 계산** — `MovementSystem`(입력→수평 속도, velocity 단일 writer) + `KinematicMoveSystem`(중력=분리된 수직 스텝 + collide-and-slide). 중력은 컨트롤러 레이어 소관이지 넉백류 외력(`MotionContributions`)과 다른 축.
+- **캡슐 sweep으로 벽까지만 이동 + 미끄러짐** — `KinematicMover`(LOP-Shared 공유 static 커널) + `ICollisionQuery` 포트(PhysX `CapsuleCast`). 시작 겹침(스폰 flush 등)은 `Depenetrate`(`ComputePenetration`)로 밀어냄 — 실제 콜라이더로 self 제외해야 해 host-side.
+- **포지션 직접 제어** — 결과를 `World.Transform.Position`에 씀(진실원본). Rigidbody는 우리가 `rb.position`을 미는 **kinematic follower**, PhysX `Physics.Simulate`는 다이나믹 물체 전용. 캐릭터끼리 충돌도 PhysX 해소가 아니라 우리 sweep이 처리(둘 다 kinematic).
+- **예측=권위** — 클라 예측(`LOPRunner.MoveLocalPlayer` + `Reconciler` 재생)과 서버 권위(`LOPRunner.MoveCharacters`)가 **같은 `KinematicMoveSystem` 구체 코드**라 접지 높이·궤적이 일치 → reconciliation 최소. 게이트: 서버=모든 Character, 클라=내 캐릭만(원격은 스냅 팔로워).
 
 ## 코어에 요구되는 능력 (이 모델을 받치기 위해)
 
@@ -288,7 +298,7 @@ LOP 매핑: `LOPGameSimulation`(Shared) ↔ `LOPGameEngine`(각 사이드).
 - 외부에 *상태 access* 노출 (`EntityRegistry`, `WorldEventBuffer`). **`Snapshot()`/`Restore(snap)` 메서드는 코어에 두지 않는다** — 보관·복원 정책은 클라 외각의 책임([netcode-redesign.md](netcode-redesign.md) 참조).
 - 이벤트는 **데이터로 출력**(버퍼). 코어는 이벤트 없이 순수·결정론 유지.
 - **Generation/Application 시그니처 컨벤션**: 시스템은 Generation 측 메서드(`TakeDamage(Health, int amount)` 같은 의도/결정 로직)와 Application 측 메서드(`ApplyDamageDealt(Health, DamageDealtEvent)`, `ApplyDeath(Entity, DeathEvent)` 같은 쓰기 전용)를 별도 시그니처로 노출. 의도 메서드는 룰 적용·이벤트 발행, 적용 메서드는 데이터 그대로 반영.
-- I/O 어댑터 추상 — `IInputSource`, `IEventSink`, `ITickUpdater`, `IPhysicsSimulator`, `INetworkSession`. 각 어댑터의 구체는 클라/서버 각자 보유. 시뮬은 어댑터를 *알 수 있어도(의존 주입)* 구체 타입을 알지 않는다.
+- I/O 어댑터 추상 — `IInputSource`, `IEventSink`, `ITickUpdater`, `IPhysicsSimulator`, `ICollisionQuery`(캡슐 sweep 충돌 쿼리 — 키네마틱 이동용), `INetworkSession`. 각 어댑터의 구체는 클라/서버 각자 보유. 시뮬은 어댑터를 *알 수 있어도(의존 주입)* 구체 타입을 알지 않는다.
 
 ## 참고 링크
 
@@ -310,6 +320,10 @@ LOP 매핑: `LOPGameSimulation`(Shared) ↔ `LOPGameEngine`(각 사이드).
 - 예: `GameFramework.World.Entity worldEntity = ...;`, `[Inject] GameFramework.World.EntityRegistry entityRegistry;`
 - 이렇게 하면 `Component` 모호성이 자연스럽게 회피되고 컴파일러가 강제하지 않아도 됨.
 - `noEngineReferences`인 World 어셈블리 내부 코드는 `UnityEngine`을 쓰지 않으므로 평소처럼 짧은 이름을 사용해도 충돌 없음.
+
+**시뮬 코드 형태 — 구체 공유 / System vs 커널 (결정론)**: 클·서가 동일하게 동작해야 하는 시뮬 로직은 **구체 클래스를 공유**한다(인터페이스 seam 금지). LOP-Shared의 *같은 구체 코드*를 양쪽이 컴파일·실행하므로 같은 입력이면 같은 출력(결정론) — 인터페이스는 사이드가 다른 구현을 넣을 여지를 만들어 시뮬엔 쓰지 않는다. **인터페이스는 사이드가 *달라야* 하는 I/O 어댑터에만**(`IEventSink`/`IPhysicsSimulator`/`ITickUpdater`/`IRandom`/`INetworkSession`). DI 등록도 시뮬 = `Register<Concrete>`, I/O = `Register<IFoo, Foo>`로 "동일해야/달라야"를 인코딩한다. (결정론을 보장하는 건 *공유 구체 코드*이지 DI가 아님 — DI는 배선 도구일 뿐. 손수 `new`로 조립해도 결정론은 동일.)
+
+- **`*System` = 무상태 DI 인스턴스**(월드/컴포넌트를 조작; 상태는 컴포넌트에 둔다). 다른 `*System`과 동일하게 DI 등록·주입한다. **`static`은 컨텍스트 없는 순수 커널에만** 쓴다(예: `MovementSystem.ProcessMovement`, `AbilitySystem.HasActiveMotionEffect`) — 그런 순수 커널엔 `*System` 이름을 붙이지 않는다(static 클래스를 "System"이라 부르지 않음). 업계 표준 정합: Photon Quantum도 *systems=인스턴스* / *`FPMath`=static util*로 가른다.
 
 **임시 명명 + 재논의 노트**: 현재 외각 호스트는 `LOPGameEngine`, 시뮬 코어는 `LOPGameSimulation`이라는 이름을 *임시로* 쓴다. *엄밀한 업계 정의*는 "engine = 인프라/플랫폼"이라 LOP의 host 자리에는 *어긋남* — Photon Quantum의 `Runner`(외각 호스트 통용) 같은 후보를 Slice 4 흡수 완료 후 재논의한다. 자세한 결정 항목은 `lop-repo-topology.md`의 Open Decisions 참조.
 
@@ -335,6 +349,7 @@ LOP 매핑: `LOPGameSimulation`(Shared) ↔ `LOPGameEngine`(각 사이드).
   - **4c (완료)**: 이동 커널 공유(`MovementSystem.ProcessMovement`) + 어빌리티/StatusEffect 틱을 `LOPWorld.Mutation`으로 이전.
   - **어댑터 (완료)**: `IEventSink`(`WorldEventSink`)·`IPhysicsSimulator`·`IRandom` 도입 — wrap-only 모양이 *이미 최종 표준*(구현만 후일 심화)이라 안전.
   - **⛔ 4d (입력 어댑터) — Stage④로 이관 (2026-07-01).** 업계 표준 `IInputSource`는 *틱별 입력 데이터를 제공/폴링하는 provider*(`Poll(tick)→데이터`; Quantum `PollInput`/`SetInput`, Unity Netcode for Entities `IInputComponentData`/`ICommandData`)다. 이 모양은 *적용(예측 mutate)·송신을 source 밖으로* 빼야 성립 = 클라 예측 = **Stage④**. 현재 `PlayerInputManager.ProcessInput`은 capture+예측+송신을 묶은 *비표준 verb*라, 지금 wrap-only 포트로 박으면 Stage④에서 인터페이스를 깨는 reshape(임의명명→표준 rename churn)이 된다 — RNG/물리(모양이 이미 최종)와 비대칭. 상세: `docs/superpowers/specs/2026-06-30-slice4-input-source-port-design.md`(보류 표시).
-  - **⛔ 4e (얇은 호스트) — Stage④에 막힘 (2026-07-01).** 호스트 잔여 페이즈 중 **지금 `LOPWorld.Tick`으로 깨끗이 옮길 수 있는 게 없음**: ① `UpdateEntity`(=`LOPEntity.UpdateEntity→Status`)는 클라 MonoBehaviour 프레젠테이션이라 *영구히 호스트*. ② `DriveAbilityEffects`·③ `SimulatePhysics`는 **velocity 권위가 아직 Rigidbody(side)** 라 막힘 — effect 핸들러(`MotionEffectHandler`)가 클라 전용 `PhysicsComponent`/`Rigidbody.velocity`에 쓰고, after-physics 동기(`LOPEntityController.SyncPhysics`/`WorldMotionSync`)가 호스트 리스너. 공유 `LOPWorld`는 이 클라 타입들을 참조 불가. **keystone = velocity 권위를 Rigidbody → `World.Entity`로 이전**(Stage④, "접근 B") — 이게 풀리면 ②③가 자연히 `LOPWorld.Tick`으로 들어가 4e가 닫힌다.
-  - **요지:** Slice 4의 *분리 가능한* 작업은 완료. 잔여(4d·4e)는 전부 Stage④ 결정(예측·롤백·velocity 권위)에 묶여 있어 **Slice 4는 Stage④ 전 단계에선 사실상 닫힘** — 다음 실제 작업은 Stage④다.
-- **Stage ④ (다음 — brainstorm 예정)**: 확정 게이트 본격(틱 스탬프 + 롤백 폐기), **velocity 권위 이전(Rigidbody → `World.Entity`, 4e 잠금 해제 + 예측 전제)**, Snapshot/Restore(클라 외각 책임 — `netcode-redesign.md` 참조), 클라 측 Generation(예측), 결정론적 RNG, `IInputSource` 표준 provider(4d), reconciliation 재설계(delta-replay → Snapshot/Restore + input replay).
+  - **✅ 4e keystone 해소 — velocity·위치 권위 이전 (2026-07-09).** 4e를 막던 keystone(**velocity 권위 Rigidbody → `World.Entity`**)이 키네마틱 컨트롤러 이행으로 달성됐다: 이동이 **클·서 공유 키네마틱 컨트롤러**로 바뀌어(`KinematicMoveSystem`이 `World.Velocity`/`World.Transform`에 직접 쓰고, velocity 단일 writer는 이미 `MovementSystem` — `MotionEffectHandler` 제거됨) velocity·위치 **진실원본이 `World.Entity`**다. Rigidbody는 우리가 `rb.position`을 밀어넣는 **kinematic follower**, PhysX는 다이나믹 물체·충돌쿼리 전용. 남은 4e 정리(②`DriveAbilityEffects`·③ 물리 페이즈를 `LOPWorld.Tick`으로 흡수)는 참조 제약이 풀려 자연히 가능 — 별도 후속. 아래 "동기화 모델"의 키네마틱 이동 참조.
+  - **요지:** Slice 4의 분리 가능한 작업 + keystone(velocity 권위)까지 완료. 남은 큰 트랙 = Stage④(확정 게이트·완전 결정론 등).
+- **✅ 키네마틱 컨트롤러 이행 (2026-07-09, 4레포 main 머지)**: 캐릭터 이동을 다이나믹 PhysX → **공유 키네마틱 컨트롤러**로 전환(예측=권위). 상세는 아래 "동기화 모델 — 키네마틱 이동" + `docs/superpowers/specs/2026-07-09-shared-kinematic-character-controller-design.md`·plans `2026-07-09-kinematic-*`.
+- **Stage ④ (다음 — brainstorm 예정)**: 확정 게이트 본격(틱 스탬프 + 롤백 폐기), Snapshot/Restore(클라 외각 책임 — `netcode-redesign.md` 참조), 클라 측 Generation(예측 액션/공격), 결정론적 RNG, `IInputSource` 표준 provider(4d). *(velocity 권위 이전 = 키네마틱 이행으로 완료. 위치 예측·하드 롤백 재생[Snapshot/Restore + input replay]은 이미 `Reconciler`로 구현됨 — Stage④ rollback 슬라이스.)*

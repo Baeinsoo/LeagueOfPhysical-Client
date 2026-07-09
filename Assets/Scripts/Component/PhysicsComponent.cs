@@ -51,6 +51,20 @@ namespace LOP
             base.OnDetach();
         }
 
+        /// <summary>
+        /// 겹친 지오메트리(스폰 시 지면과 붙음·끼임)에서 캡슐을 밖으로 밀어낸다.
+        /// sweep 이동은 "시작부터 겹친" 콜라이더를 무시하므로, 겹친 채로는 지면을 못 잡아 통과한다 —
+        /// 그래서 이동 전에 실제 콜라이더로 밀어내 겹침을 푼다(PhysX가 하던 일을 대신).
+        /// </summary>
+        public void Depenetrate(int layerMask)
+        {
+            Vector3 push = KinematicDepenetration.ComputePushOut((CapsuleCollider)entityColliders[0], layerMask);
+            if (push.sqrMagnitude > 0f)
+            {
+                entity.position += push;   // 파사드 → World.Transform + reactive rb.position
+            }
+        }
+
         private void OnPropertyChange(PropertyChange propertyChange)
         {
             switch (propertyChange.propertyName)

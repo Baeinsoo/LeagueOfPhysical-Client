@@ -15,6 +15,8 @@ namespace LOP
         [Inject] private GameFramework.World.ManaSystem manaSystem;
         [Inject] private GameFramework.World.LevelSystem levelSystem;
         [Inject] private GameFramework.World.StatsSystem statsSystem;
+        [Inject] private Reconciler reconciler;
+        [Inject] private RemoteInterpolationClock remoteInterpolationClock;
 
         public void Initialize()
         {
@@ -41,6 +43,8 @@ namespace LOP
                 return;
             }
 
+            remoteInterpolationClock.RecordArrival(entitySnapsToC.Tick, UnityEngine.Time.timeAsDouble);
+
             foreach (var serverEntitySnap in entitySnapsToC.EntitySnaps.OrEmpty())
             {
                 if (runner.entityManager.TryGetEntity<LOPEntity>(serverEntitySnap.EntityId, out var entity) == false)
@@ -53,9 +57,17 @@ namespace LOP
                 entitySnap.tick = entitySnapsToC.Tick;
                 entitySnap.timestamp = entitySnapsToC.Tick * gameDataStore.gameInfo.Interval;
 
+                entitySnap.contributions.Clear();
+                foreach (var pc in serverEntitySnap.MotionContributions.OrEmpty())
+                {
+                    entitySnap.contributions.Add(new MotionContribution(
+                        new System.Numerics.Vector3(pc.Horizontal.X, pc.Horizontal.Y, pc.Horizontal.Z),
+                        (MotionContributionMode)pc.Mode, pc.Priority, pc.StartTick, pc.EndTick, pc.DecayPerTick));
+                }
+
                 if (playerContext.entity.entityId == entity.entityId)
                 {
-                    entity.GetComponent<SnapReconciler>().AddServerEntitySnap(entitySnap);
+                    reconciler.AddServerSnap(entitySnap);
                 }
                 else
                 {
@@ -73,7 +85,7 @@ namespace LOP
                         }
                     }
 
-                    entity.GetComponent<ServerStateReconciler>().AddServerEntitySnap(entitySnap);
+                    entity.GetComponent<RemoteEntityInterpolator>().AddServerEntitySnap(entitySnap);
                 }
             }
         }

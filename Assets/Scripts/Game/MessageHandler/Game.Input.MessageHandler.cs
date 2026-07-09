@@ -1,14 +1,9 @@
 using GameFramework;
-using UnityEngine;
-using VContainer;
 
 namespace LOP
 {
     public class GameInputMessageHandler : IGameMessageHandler
     {
-        [Inject]
-        private IRunner runner;
-
         public void Initialize()
         {
             EventBus.Default.Subscribe<InputSequenceToC>(nameof(IMessage), OnInputSequenceToC);
@@ -19,17 +14,10 @@ namespace LOP
             EventBus.Default.Unsubscribe<InputSequenceToC>(nameof(IMessage), OnInputSequenceToC);
         }
 
+        // 서버 인풋 시퀀스 앵커는 더 이상 쓰지 않는다 — 재조정 기준점이 틱 기반 하드 복원(Reconciler)으로
+        // 바뀌면서 delta-replay용 앵커 자체가 필요 없어졌다.
         private void OnInputSequenceToC(InputSequenceToC inputSequenceToC)
         {
-            InputSequence inputSequence = new InputSequence
-            {
-                Tick = inputSequenceToC.InputSequence.Tick,
-                Sequence = inputSequenceToC.InputSequence.Sequence,
-            };
-
-            LOPEntity lopEntity = runner.entityManager.GetEntity<LOPEntity>(inputSequenceToC.EntityId);
-
-            lopEntity.GetComponent<SnapReconciler>().AddServerInputSequence(inputSequence);
         }
     }
 }

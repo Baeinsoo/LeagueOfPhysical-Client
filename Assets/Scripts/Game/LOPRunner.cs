@@ -19,6 +19,11 @@ namespace LOP
         [Inject] private AbilityEffectExecutor abilityEffectExecutor;
 
         [Inject] private IMapLoader mapLoader;
+        [Inject] private IPlayerContext playerContext;
+        [Inject] private GameFramework.Netcode.SnapshotHistory snapshotHistory;
+        [Inject] private PredictedAbilityStateHistory predictedAbilityStateHistory;
+        [Inject] private Reconciler reconciler;
+        [Inject] private KinematicMoveSystem kinematicMoveSystem;
 
         private const string MapId = "Assets/Art/Scenes/FlapWangMap.unity";
 
@@ -84,6 +89,8 @@ namespace LOP
 
             ProcessNetworkMessage();
 
+            reconciler.Reconcile(Runner.Time.tick, (float)tickUpdater.interval, entityManager);
+
             ProcessInput();
 
             InterpolateEntity();
@@ -94,6 +101,8 @@ namespace LOP
 
             world.Tick(Runner.Time.tick, (float)tickUpdater.interval);
             DriveAbilityEffects();
+
+            MoveLocalPlayer();
 
             SimulatePhysics();
 
@@ -113,6 +122,22 @@ namespace LOP
             {
                 abilityEffectExecutor.DriveActiveEntity(entityRegistry.Get(entity.entityId), entityManager, tick);
             }
+        }
+
+        // 내 캐릭(예측 대상)만 키네마틱 이동(중력+collide-and-slide)시킨다 — 서버와 같은 KinematicMoveSystem.
+        // 원격은 스냅 팔로워(ServerStateReconciler/보간)라 여기서 안 움직인다.
+        private void MoveLocalPlayer()
+        {
+            LOPEntity entity = playerContext.entity;
+            if (entity == null)
+            {
+                return;
+            }
+            Physics.SyncTransforms();   // 캐스트가 최신 콜라이더 포즈를 보도록(autoSyncTransforms=false)
+            int layerMask = LayerMask.GetMask("Default");
+            entity.GetEntityComponent<PhysicsComponent>().Depenetrate(layerMask);
+            kinematicMoveSystem.Tick(entityRegistry.Get(entity.entityId), (float)tickUpdater.interval);
+            entity.PushMotionToPhysics();
         }
 
         private void BeginUpdate()
@@ -173,9 +198,44 @@ namespace LOP
 
         private void EndUpdate()
         {
+            RecordLocalSnapshot();
+
             DispatchEvent<End>();
 
             entityManager.DestroyMarkedEntities();
+        }
+
+        // 내 캐릭의 이번 틱 최종 시뮬 상태를 스냅샷에 남긴다. End 디스패치(=LocalEntityInterpolator의
+        // 지연 렌더링용 틱 기록) 전에 찍어, 뷰 보간이 얹히기 전 원본 예측 상태를 포착한다.
+        // 되돌리기(하드 복원+재생)는 Reconciler.Reconcile이 다음 틱 앞에서 수행.
+        private void RecordLocalSnapshot()
+        {
+            LOPEntity local = playerContext.entity;
+            if (local == null)
+            {
+                return;
+            }
+
+            GameFramework.World.Entity worldEntity = entityRegistry.Get(local.entityId);
+            if (worldEntity == null)
+            {
+                return;
+            }
+
+            var transform = worldEntity.Get<GameFramework.World.Transform>();
+            var velocity = worldEntity.Get<GameFramework.World.Velocity>();
+            if (transform == null || velocity == null)
+            {
+                return;
+            }
+
+            snapshotHistory.Record(new GameFramework.Netcode.EntitySnapshot(
+                Runner.Time.tick,
+                transform.Position,
+                transform.Rotation,
+                velocity.Linear));
+
+            predictedAbilityStateHistory.Record(Runner.Time.tick, PredictedAbilityState.Capture(worldEntity));
         }
     }
 }

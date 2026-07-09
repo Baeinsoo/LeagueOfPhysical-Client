@@ -58,8 +58,8 @@ namespace LOP
 
             PhysicsComponent physicsComponent = entity.AddEntityComponent<PhysicsComponent>();
             objectResolver.Inject(physicsComponent);
-            // 내 캐릭만 dynamic(예측 대상). 남은 kinematic 장애물 — 스냅 위치로 세팅, 서버 권위.
-            physicsComponent.Initialize(!isUserEntity, false);
+            // 모든 캐릭터 kinematic — 우리가 직접 이동시킨다. 내 캐릭=예측(KinematicMoveSystem), 남=스냅 팔로워.
+            physicsComponent.Initialize(true, false);
 
             LOPEntityController controller = root.CreateChildWithComponent<LOPEntityController>();
             objectResolver.Inject(controller);
@@ -74,17 +74,17 @@ namespace LOP
                 playerContext.entity = entity;
                 playerContext.entityView = view;
 
-                SnapReconciler snapReconciler = entity.gameObject.AddComponent<SnapReconciler>();
-                objectResolver.Inject(snapReconciler);
-                snapReconciler.entity = entity;
-                snapReconciler.entityView = view;
+                LocalEntityInterpolator interpolator = entity.gameObject.AddComponent<LocalEntityInterpolator>();
+                objectResolver.Inject(interpolator);
+                interpolator.entity = entity;
+                interpolator.entityView = view;
             }
             else
             {
-                ServerStateReconciler serverStateReconciler = entity.gameObject.AddComponent<ServerStateReconciler>();
-                objectResolver.Inject(serverStateReconciler);
-                serverStateReconciler.entity = entity;
-                serverStateReconciler.entityView = view;
+                RemoteEntityInterpolator interpolator = entity.gameObject.AddComponent<RemoteEntityInterpolator>();
+                objectResolver.Inject(interpolator);
+                interpolator.entity = entity;
+                interpolator.entityView = view;
             }
 
             // --- World Core (병렬·추가) — Health/Mana/Level/Stats/Abilities. Transform/Velocity는 위에서 생성(파사드 백킹). ---
@@ -102,6 +102,7 @@ namespace LOP
             worldEntity.Add(worldStats);
             worldEntity.Add(new Abilities());
             worldEntity.Add(new StatusEffects());
+            worldEntity.Add(new MotionContributions());
             if (isUserEntity)
             {
                 // 입력으로 조종되는 엔티티(내 캐릭)만 — 호스트가 매 틱 커맨드를 채우고 MovementSystem이 읽는다.

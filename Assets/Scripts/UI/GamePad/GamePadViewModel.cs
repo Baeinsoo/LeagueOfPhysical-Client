@@ -27,23 +27,20 @@ namespace LOP.UI
 
         public void ClearMove() => _moveInput = Vector2.zero;
 
-        /// <summary>
-        /// 누르고 있는 동안 매 프레임 호출. 엔진이 매 틱 입력을 소비·clear하므로 지속 이동엔 매 프레임 set이 필요.
-        /// 입력 벡터를 카메라 Y회전 기준으로 변환해 수평/수직 입력으로 넘긴다.
-        /// </summary>
+        /// <summary>조이스틱 held 이동을 매 프레임 push(센터=0 포함). held 모델: 뗄 때 0을 밀어야 캐릭이 멈춘다.</summary>
         public void FeedMove()
         {
-            if (_moveInput == Vector2.zero)
-            {
-                return;
-            }
+            PushMovement(_moveInput);
+        }
 
+        // 원시 이동 벡터를 카메라 Y회전 기준으로 변환해 held 이동으로 넘긴다(0이면 0 그대로 → 정지 신호).
+        private void PushMovement(Vector2 rawMove)
+        {
             float yAngle = _cameraController.MainCamera.transform.eulerAngles.y;
             Quaternion cameraRotation = Quaternion.Euler(0, yAngle, 0);
-            Vector3 transformedInput = cameraRotation * new Vector3(_moveInput.x, 0, _moveInput.y);
+            Vector3 transformedInput = cameraRotation * new Vector3(rawMove.x, 0, rawMove.y);
 
-            _playerInputManager.SetHorizontal(transformedInput.x);
-            _playerInputManager.SetVertical(transformedInput.z);
+            _playerInputManager.SetMovement(transformedInput.x, transformedInput.z);
         }
 
         /// <summary>데스크톱 편의: Space 키 점프(원본 JoyStick.Update 동작 보존).</summary>
@@ -66,29 +63,20 @@ namespace LOP.UI
             }
         }
 
-        /// <summary>WASD 키 이동. 눌린 방향이 있으면 단위 벡터로 이동을 피드하고 true를 반환(조이스틱 미사용 시 호출).</summary>
-        public bool TryFeedKeyboardMove()
+        /// <summary>WASD held 이동을 매 프레임 push(안 누르면 0). 조이스틱 미사용 시 호출.</summary>
+        public void FeedKeyboardMove()
         {
-            Keyboard kb = Keyboard.current;
-            if (kb == null)
-            {
-                return false;
-            }
-
             Vector2 dir = Vector2.zero;
-            if (kb.wKey.isPressed) dir.y += 1f;
-            if (kb.sKey.isPressed) dir.y -= 1f;
-            if (kb.dKey.isPressed) dir.x += 1f;
-            if (kb.aKey.isPressed) dir.x -= 1f;
-
-            if (dir == Vector2.zero)
+            Keyboard kb = Keyboard.current;
+            if (kb != null)
             {
-                return false;
+                if (kb.wKey.isPressed) dir.y += 1f;
+                if (kb.sKey.isPressed) dir.y -= 1f;
+                if (kb.dKey.isPressed) dir.x += 1f;
+                if (kb.aKey.isPressed) dir.x -= 1f;
             }
 
-            SetMove(dir.normalized);
-            FeedMove();
-            return true;
+            PushMovement(dir == Vector2.zero ? Vector2.zero : dir.normalized);
         }
 
         public void Jump() => _playerInputManager.SetJump(true);

@@ -23,6 +23,8 @@ namespace LOP.UI
         private Label _timingMaxDText;
         private Label _timingPruneText;
         private Label _timingSeqGapText;
+        private Label _snapshotCountText;
+        private Label _snapshotTickText;
 
         private IVisualElementScheduledItem _tick;
 
@@ -49,6 +51,8 @@ namespace LOP.UI
             _timingMaxDText = Root.Q<Label>("timing-maxd-text");
             _timingPruneText = Root.Q<Label>("timing-prune-text");
             _timingSeqGapText = Root.Q<Label>("timing-seqgap-text");
+            _snapshotCountText = Root.Q<Label>("snapshot-count-text");
+            _snapshotTickText = Root.Q<Label>("snapshot-tick-text");
 
             _tick = Root.schedule.Execute(Refresh).Every(0);
         }
@@ -72,6 +76,8 @@ namespace LOP.UI
             _timingMaxDText.text = $"d max: {_viewModel.TimingMaxD}";
             _timingPruneText.text = $"Prune: {_viewModel.TimingPrune}";
             _timingSeqGapText.text = $"SeqGap: {_viewModel.TimingSeqGap}";
+            _snapshotCountText.text = $"Snap count: {_viewModel.SnapshotCount}";
+            _snapshotTickText.text = $"Snap tick: {_viewModel.SnapshotLatestTick}";
         }
 
         public override void Dispose()

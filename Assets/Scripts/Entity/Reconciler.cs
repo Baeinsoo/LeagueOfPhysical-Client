@@ -17,6 +17,8 @@ namespace LOP
 
         [Inject] private IPlayerContext playerContext;
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
+        [Inject] private GameFramework.World.WorldEventBuffer worldEventBuffer;
+        [Inject] private AbilityActivator abilityActivator;
         [Inject] private GameFramework.Netcode.SnapshotHistory snapshotHistory;
         [Inject] private PredictedAbilityStateHistory predictedAbilityStateHistory;
         [Inject] private InputHistory inputHistory;
@@ -24,7 +26,6 @@ namespace LOP
         [Inject] private AbilitySystem abilitySystem;
         [Inject] private StatusEffectSystem statusEffectSystem;
         [Inject] private AbilityEffectExecutor abilityEffectExecutor;
-        [Inject] private AbilityDataProvider abilityDataProvider;
         [Inject] private KinematicMoveSystem kinematicMoveSystem;
         [Inject] private ReconciliationStats reconciliationStats;
         [Inject] private GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
@@ -115,45 +116,45 @@ namespace LOP
             }
 
             // 재생: 이미 예측했던 과거 틱(anchor+1 ~ currentTick-1)을 이동+물리로 재구성.
-            var buffer = worldEntity.Get<InputBuffer>();
-            if (buffer == null)
+            var inputBuffer = worldEntity.Get<InputBuffer>();   // 입력 버퍼 (WorldEventBuffer 아님 — 이름 구분)
+            if (inputBuffer == null)
             {
                 return;
             }
             int layerMask = LayerMask.GetMask("Default");
-            for (long t = anchorTick + 1; t < currentTick; t++)
+
+            // 재생이 만든 연출 이벤트(cue 등)는 이미 라이브 때 방출됐으므로 버린다.
+            using (worldEventBuffer.Suppress())
             {
-                var cmd = inputHistory.TryGet(t, out var recorded) ? recorded : null;
-                buffer.Current = cmd;
-
-                // 발동 재현: 입력에 어빌리티가 있으면 그 틱에 다시 발동한다. AbilityActivator가 아니라
-                // AbilitySystem.TryActivate를 직접 부른다 — 연출 cue 이벤트(AbilityActivatedEvent)를 재생 때
-                // 중복 송출하지 않기 위해(cue는 원래 라이브 틱에 이미 발화됨).
-                if (cmd != null && cmd.AbilityId != 0 &&
-                    abilityDataProvider.TryGet(cmd.AbilityId, out var data))
+                for (long t = anchorTick + 1; t < currentTick; t++)
                 {
-                    // target=self(worldEntity) — 현재 자기시전 어빌리티 기준(AbilityActivator와 동일).
-                    // 향후 타깃 예측 어빌리티 추가 시 AbilityActivator의 타깃 해석을 여기서도 맞출 것.
-                    abilitySystem.TryActivate(worldEntity, data, worldEntity, t);
+                    var cmd = inputHistory.TryGet(t, out var recorded) ? recorded : null;
+                    inputBuffer.Current = cmd;
+
+                    // 발동 재현: 라이브와 같은 정식 통로. cue Append는 위 억제 스코프가 버린다.
+                    if (cmd != null && cmd.AbilityId != 0)
+                    {
+                        abilityActivator.TryActivate(worldEntity.Id, cmd.AbilityId, t);
+                    }
+
+                    movementSystem.Tick(worldEntity, t, deltaTime);
+                    abilitySystem.Tick(worldEntity, t);
+                    statusEffectSystem.Tick(worldEntity, t);
+                    abilityEffectExecutor.DriveActiveEntity(worldEntity, entityManager, t);
+
+                    // 재생: 서버 MoveCharacters와 동일한 키네마틱 한 틱.
+                    Physics.SyncTransforms();
+                    entity.GetEntityComponent<PhysicsComponent>().Depenetrate(layerMask);
+                    kinematicMoveSystem.Tick(worldEntity, deltaTime);
+                    entity.PushMotionToPhysics();
+
+                    // 보정값으로 두 히스토리 갱신(다음 비교/재생이 stale값을 안 보도록).
+                    var transform = worldEntity.Get<GameFramework.World.Transform>();
+                    var velocity = worldEntity.Get<GameFramework.World.Velocity>();
+                    snapshotHistory.Record(new GameFramework.Netcode.EntitySnapshot(
+                        t, transform.Position, transform.Rotation, velocity.Linear));
+                    predictedAbilityStateHistory.Record(t, PredictedAbilityState.Capture(worldEntity));
                 }
-
-                movementSystem.Tick(worldEntity, t, deltaTime);
-                abilitySystem.Tick(worldEntity, t);
-                statusEffectSystem.Tick(worldEntity, t);
-                abilityEffectExecutor.DriveActiveEntity(worldEntity, entityManager, t);
-
-                // 재생: 서버 MoveCharacters와 동일한 키네마틱 한 틱(PhysX 적분 대신 mover 커널).
-                Physics.SyncTransforms();
-                entity.GetEntityComponent<PhysicsComponent>().Depenetrate(layerMask);
-                kinematicMoveSystem.Tick(worldEntity, deltaTime);
-                entity.PushMotionToPhysics();
-
-                // 보정값으로 두 히스토리 갱신(다음 비교/재생이 stale값을 안 보도록).
-                var transform = worldEntity.Get<GameFramework.World.Transform>();
-                var velocity = worldEntity.Get<GameFramework.World.Velocity>();
-                snapshotHistory.Record(new GameFramework.Netcode.EntitySnapshot(
-                    t, transform.Position, transform.Rotation, velocity.Linear));
-                predictedAbilityStateHistory.Record(t, PredictedAbilityState.Capture(worldEntity));
             }
 
             // 하드 보정으로 시뮬 위치가 튄 것을 렌더 스무더에 알린다. 스무더가 보이는 위치를

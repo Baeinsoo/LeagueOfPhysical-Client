@@ -113,7 +113,7 @@ var smooth = Mathf.SmoothDampAngle(entity.rotation.y, angle, ref myFloat, 0.01f)
 | Valorant | ✅ | Overwatch와 유사 |
 | Source (CS) | ❌ | Lag compensation은 히트만 |
 | Unreal | ❌ | ServerMove에 결과 state 첨부 (client-trust 위주) |
-| Rocket League | ❌ | 결정적 물리 + 풀 rollback |
+| Rocket League | ❌ | 비결정 물리(Bullet/UE3) — 예측 + 서버 권위 *상태* 복제 + 보정 시 재시뮬. **결정론 락스텝 아님**(Cone, GDC 2018) |
 
 LOP는 PhysX 기반(비결정적)이고 strict server-authoritative를 원하므로 → Overwatch 모델이 가장 직접적인 참고
 

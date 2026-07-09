@@ -58,36 +58,10 @@ namespace LOP
         /// </summary>
         public void Depenetrate(int layerMask)
         {
-            var capsule = (CapsuleCollider)entityColliders[0];
-            Vector3 ownPos = capsule.transform.position;
-            Quaternion ownRot = capsule.transform.rotation;
-
-            Vector3 center = capsule.transform.TransformPoint(capsule.center);
-            float radius = capsule.radius;
-            float halfSpan = Mathf.Max(capsule.height * 0.5f - radius, 0f);
-            Vector3 up = capsule.transform.up;
-            Vector3 p1 = center - up * halfSpan;
-            Vector3 p2 = center + up * halfSpan;
-
-            Collider[] overlaps = Physics.OverlapCapsule(p1, p2, radius, layerMask, QueryTriggerInteraction.Ignore);
-            Vector3 total = Vector3.zero;
-            foreach (var other in overlaps)
+            Vector3 push = KinematicDepenetration.ComputePushOut((CapsuleCollider)entityColliders[0], layerMask);
+            if (push.sqrMagnitude > 0f)
             {
-                if (other == capsule)
-                {
-                    continue;   // 자기 콜라이더 제외
-                }
-                if (Physics.ComputePenetration(capsule, ownPos, ownRot,
-                        other, other.transform.position, other.transform.rotation,
-                        out Vector3 dir, out float dist))
-                {
-                    total += dir * dist;
-                }
-            }
-
-            if (total.sqrMagnitude > 0f)
-            {
-                entity.position += total;   // 파사드 → World.Transform + reactive rb.position
+                entity.position += push;   // 파사드 → World.Transform + reactive rb.position
             }
         }
 

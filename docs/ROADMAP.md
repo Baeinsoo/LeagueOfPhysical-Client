@@ -60,21 +60,25 @@
 
 ### Stage④ 남은 트랙 (netcode-redesign.md §5 프론티어)
 
-1. **`IInputSource` 표준 provider (4d)** ← **현재 진행** (예측 전투에 안 묶인 유일한 독립 트랙)
-   - 입력 캡처를 `Poll(tick)→data` provider(Quantum `PollInput` / Unity Netcode `ICommandData`)로. capture+예측+송신 묶인 현 `PlayerInputManager.ProcessInput`을 표준 모양으로 분리. 보류 spec 있음: `specs/2026-06-30-slice4-input-source-port-design`(브레인스토밍 재개 대상).
+**셋 다 A(클라 예측 재구성)에 수렴한다 — commit gate 이후 깨끗한 독립 Stage④ 곁다리는 없다.** 현재 진행 중인 항목 없음.
 
-2. **클라 측 예측 전투 생성 (A — 키스톤)** — 내 히트/데미지/크리를 클라가 로컬에서 굴려 서버 답 기다리지 않고 **즉시 연출** → 서버 확정과 reconcile. **B와 결정론 RNG가 모두 이걸 기다리는 실제 열쇠.**
+1. **클라 측 예측 전투 생성 (A — 키스톤)** — 내 히트/데미지/크리를 클라가 로컬에서 굴려 서버 답 기다리지 않고 **즉시 연출** → 서버 확정과 reconcile. **B·RNG·C(표준 IInputSource)가 모두 이걸 기다리는 실제 열쇠.**
    - 필요: 클 `DamageEffectHandler` 등록(내 캐릭 예측 히트 생성) + 서버 확정 대조.
    - **결정론 RNG는 별도 트랙이 아니라 이 안에 포함** — 시드 스트림이 아니라 **counter-based/키 기반**(`값 = hash(매치시드, tick, entityId, 굴림종류)`). 이유: 예측-보정은 클·서가 같은 글로벌 스트림을 안 돌려 호출 횟수가 달라짐 → 스트림 방식은 데스싱크. 키 기반은 굴림마다 독립 재현이라 횟수 무관. `IRandom`(GameFramework)에 counter-based 구현 drop-in(문서가 이미 예고). 상세·근거: `[[deterministic-rng-counter-based]]`.
    - Stage④ "클라 측 Generation(예측 액션/공격)" 트랙과 동일.
 
-3. **B — 예측/확정 이벤트 machinery = 방식 3 (해시 dedup)** (A 필요 + 완료된 commit gate 위에 얹음)
+2. **B — 예측/확정 이벤트 machinery = 방식 3 (해시 dedup)** (A 필요 + 완료된 commit gate 위에 얹음)
    - 방식 1(재생 억제)을 **방식 3(이벤트 (내용+틱) 해시 dedup, Quantum식)**으로 확장: 재생이 이벤트를 다시 만들되 **이미 낸 것과 같으면 버리고, 예측이 틀려 달라졌으면 내보낸다.** 내 예측 연출을 확정 전 즉시 표시 → 서버 확정 도착 시 맞으면 유지 / 틀리면 취소.
    - **필요 부품:** ① `WorldEvent`에 **틱 도장**(방식 1은 안 넣음) ② A의 예측 이벤트 생산자 ③ **취소 방향** ④ 상황 X 흡수 — 서버 사본 self-skip(`GameAbilityMessageHandler`)을 해시 dedup으로 통합.
    - **완료된 commit gate(방식 1)가 깐 토대:** `WorldEventBuffer.Suppress()` 단일 egress 제어점 + "라이브만 연출 / 재생은 스킵" baseline. B는 그 위에 dedup + 취소만 얹는다.
    - 설계 결정 박제: `[[event-model-wire-decision]]`.
 
-> 순서: 4d(1)는 독립이라 **지금 진행**. A(2)는 키스톤 — B·RNG가 대기. B(3)는 A 필요. **결정론 RNG는 독립 트랙 아님 → A에 흡수(counter-based).**
+3. **`IInputSource` 표준 provider (4d)** (A 필요 — **독립 아님**)
+   - 입력 캡처를 `Poll(tick)→data` provider(Quantum `PollInput` / Unity Netcode `ICommandData`)로. capture+예측+송신 묶인 현 `PlayerInputManager.ProcessInput`을 표준 모양으로 분리.
+   - **왜 A에 묶이나:** 표준 provider는 입력을 *읽기 전용 데이터*로만 내주고 **예측 적용·송신을 입력 경로 밖**(world Collection→Mutation / 호스트)으로 빼야 성립 = 클라 예측 재구성(A). 그래서 A 없이는 표준 모양이 안 나온다.
+   - **독립인 wrap-only(`void ProcessInput()`)는 거부됨(2026-07-01)** — 비표준 verb라 나중 표준화 시 인터페이스가 깨짐(rename churn, CLAUDE.md 명명 규칙 위반). 보류 spec: `specs/2026-06-30-slice4-input-source-port-design`.
+
+> 순서: 셋 다 A에 의존 → **A(1)가 먼저**, B(2)·C(3)는 A 후. **결정론 RNG는 독립 트랙 아님 → A에 흡수(counter-based).**
 > (별개 정리) `fix/reconciler-tick-guard`의 `[임시]` 틱 가드 제거 — Stage④ 스냅샷 타임라인 재설계 때.
 
 ### 넷코드 잔여 (Stage④ 밖)

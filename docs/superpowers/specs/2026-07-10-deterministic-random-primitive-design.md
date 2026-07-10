@@ -130,5 +130,6 @@ namespace GameFramework
 
 - [x] 브레인스토밍 (A1 범위=원시 도구만, 방식 1=이벤트 씨앗 스트림, SplitMix64 직접 소유, float [min,max))
 - [x] spec self-review (플레이스홀더/일관성/범위/모호성 — 이상 없음)
-- [ ] 사용자 spec 리뷰
-- [ ] `writing-plans`로 구현 plan 작성
+- [x] 사용자 spec 리뷰
+- [x] `writing-plans`로 구현 plan 작성 (`plans/2026-07-10-deterministic-random-primitive`)
+- [x] 구현 (GameFramework `108b98a`, 8/8 EditMode green, seed=0 SplitMix64 레퍼런스 벡터 일치, 리뷰 clean). Minor(defer): Range(int) 극단 범위 오버플로 — out-of-scope.

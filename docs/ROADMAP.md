@@ -47,6 +47,7 @@
 | 07-12 | **A2.1 — 서버 전투 키 RNG + 매치시드** (4저장소) — `LOPCombatSystem`이 키 `hash(matchSeed,tick,attacker,target,effectIndex)`로 크리/회피, `Hashing` 헬퍼, `AbilityEffectContext.EffectIndex`, `GameInfo.match_seed` 서버→클라 동기(클라 보관, A2.3 흡수). combat만 | `specs/2026-07-12-a2-1-server-combat-keyed-rng-design`, `plans/2026-07-12-a2-1-server-combat-keyed-rng` |
 | 07-12 | **A2.2a — 전투 해소 LOP-Shared 공유화** — `LOPCombatSystem`을 서버→LOP-Shared 공유 concrete(`World.Entity`+씨앗 param), `ICombatSystem` 제거, `DamageEffectHandler` 배선. 이동으로 전투 해소 EditMode 테스트 가능. (+별도 밸런스: 데미지 3배) | `specs/2026-07-12-a2-2a-combat-resolution-shared-design`, `plans/2026-07-12-a2-2a-combat-resolution-shared` |
 | 07-12 | **A2.2b — 히트 판정 LOP-Shared 공유화** (4저장소) — `IOverlapQuery`(GameFramework 포트, `ICollisionQuery` 짝) + 사이드별 `LOPOverlapQuery`(엔진 broad-phase). 부채꼴 필터·자기제외·Attack 루프를 공유 `DamageEffectHandler`(LOP-Shared)로, `World.Transform`(numerics 진실원본) 기준. 씨앗은 `IMatchSeed`. EditMode 7테스트. 서버 판정 EditMode 테스트 가능화 + 이중타격 dedup 교정. | `specs/2026-07-12-a2-2b-hit-detection-shared-design`, `plans/2026-07-12-a2-2b-hit-detection-shared` |
+| 07-13 | **reconciler tick-guard 근본 수정** — 로컬 지연 렌더(`LocalEntityInterpolator`)의 "절대 틱키 dict 조회 + `[임시]` skip 가드"를 `GameFramework.Netcode.SnapshotInterpolation.Solve`(연속 renderTime 브래킷 탐색, 범위 밖 hold → 미스 불가) + EditMode 7테스트로 교체. 시간 기준(Fiedler alpha) 유지. 원격은 07-07에 이미 해소. | `netcode-redesign.md` §8 |
 
 ### 그 밖의 완료 워크스트림 (요약 — 상세는 메모리)
 
@@ -74,7 +75,7 @@
 
 3. **`IInputSource` 표준 provider (4d)** — ⏸ A(예측 확장)에 묶여 함께 보류. 독립 wrap-only는 거부됨(2026-07-01, `specs/2026-06-30-slice4-input-source-port-design`).
 
-> **독립 정리(예측과 무관, correctness 값어치 있음):** `fix/reconciler-tick-guard`의 `[임시]` 틱 가드 제거 — 지연 렌더링 스냅을 *틱 카운터*로 저장 vs `LateUpdate`가 *경과시간 역산*으로 조회, 두 시간선이 어긋나면 `TryGetValue` 가드로 프레임 스킵(증상 차단). 근본은 타임라인 정렬. 지금 손댈 수 있는 항목. `[[netcode-migration-status]]`.
+> ~~독립 정리: reconciler-tick-guard `[임시]` 틱 가드 제거~~ ✅ **완료(07-13)** — 위 Done 원장 참조(브래킷 탐색 교체).
 
 ### 넷코드 잔여 (Stage④ 밖)
 

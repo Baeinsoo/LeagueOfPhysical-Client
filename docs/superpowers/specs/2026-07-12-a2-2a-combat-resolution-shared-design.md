@@ -101,5 +101,6 @@ LOP-Shared가 UnityEngine 참조 가능 + 결정론 차이 없음(Mathf.RoundToI
 
 - [x] 브레인스토밍 (A2.2 분해, A2.2a=해소, World.Entity+씨앗 param, ICombatSystem 제거, Mathf/Debug 유지)
 - [x] spec self-review (시그니처/의존/ICombatSystem 일관·범위·Id 전제 명시 — 이상 없음)
-- [ ] 사용자 spec 리뷰
-- [ ] `writing-plans`로 구현 plan
+- [x] 사용자 spec 리뷰
+- [x] `writing-plans`로 구현 plan (`plans/2026-07-12-a2-2a-combat-resolution-shared`)
+- [x] 구현 완료 (LOP-Shared 공유 LOPCombatSystem + EditMode 4테스트 / Server 중복제거·DamageEffectHandler 배선). 2 태스크 리뷰 clean, 플레이 검증 통과(전투 회귀 없음). ⭐구현서가 Task 1 Combine 관련 아님 — 이번엔 브리프 버그 없음. **별도: 데미지 3배 밸런스 커밋(4339acf)이 같은 브랜치에 라이딩**(사용자 요청, A2.2a 이동과 별개).

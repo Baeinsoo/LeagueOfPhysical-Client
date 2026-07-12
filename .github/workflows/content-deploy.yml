@@ -1,0 +1,71 @@
+name: content-deploy
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: content-deploy
+  cancel-in-progress: false
+
+env:
+  AWS_DEFAULT_REGION: ap-northeast-2
+
+jobs:
+  build-deploy:
+    runs-on: [self-hosted, client]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 의존 UPM 패키지 레포 체크아웃
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE/.."
+          for r in GameFramework LeagueOfPhysical-Shared LeagueOfPhysical-MasterData-Client; do
+            if [ -d "$r/.git" ]; then
+              git -C "$r" fetch --depth 1 origin && git -C "$r" reset --hard @{u}
+            else
+              git clone --depth 1 "https://github.com/Baeinsoo/$r" "$r"
+            fi
+          done
+
+      - name: NuGet 패키지 복원 (NuGetForUnity CLI, packages.config 기반)
+        run: |
+          set -e
+          dotnet tool restore
+          dotnet tool run nugetforunity restore .
+          test -f Assets/NuGetForUnity/Packages/R3.1.3.1/lib/netstandard2.1/R3.dll
+
+      - name: baseline content_state 다운로드 (S3 latest)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          set -e
+          if ! aws s3 cp "s3://lop-client/builds/latest.json" latest.json 2>/dev/null; then
+            echo "::error::latest.json 없음 — ③a(client-app-deploy)를 먼저 실행해 baseline을 만드세요."; exit 1
+          fi
+          STATE_KEY=$(python3 -c "import json;print(json.load(open('latest.json'))['content_state'])")
+          echo "baseline: $STATE_KEY"
+          mkdir -p Assets/AddressableAssetsData/Android
+          aws s3 cp "$STATE_KEY" Assets/AddressableAssetsData/Android/addressables_content_state.bin
+
+      - name: 어드레서블 콘텐츠 update 빌드 (Update a Previous Build)
+        run: |
+          set -eo pipefail
+          UNITY="/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity"
+          if ! "$UNITY" -batchmode -quit -nographics -buildTarget Android -projectPath . \
+                -executeMethod BuildScript.BuildAndroidContentUpdate -logFile - > unity-content.log 2>&1; then
+            echo "::error::content update failed"; tail -80 unity-content.log; exit 1
+          fi
+          tail -15 unity-content.log
+          ls ServerData/Android
+
+      - name: 콘텐츠 업로드 (additive, --delete 금지)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          set -e
+          aws s3 sync ServerData/Android "s3://lop-assets/dev/Android"
+          echo "콘텐츠 갱신 완료: s3://lop-assets/dev/Android/"

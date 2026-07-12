@@ -222,6 +222,7 @@ World 상태가 네트워크를 건널 때 *값을 snapshot(상태)으로 보낼
 | `IEventSink` | 이벤트 fan-out 어댑터 — 클·서 각자 `WorldEventSink` 구현 (클=`EventBus` publish / 서=wire 송신) |
 | `IPhysicsSimulator` | PhysX 스텝 호출 추상 (양쪽 동일 구체 — 다이나믹 물체 적분) |
 | `ICollisionQuery` | 캡슐 sweep 충돌 쿼리 추상 (양쪽 동일 구체 `UnityCollisionQuery` — 키네마틱 이동 collide-and-slide용) |
+| `IOverlapQuery` | 범위(구) 오버랩 쿼리 추상 (`ICollisionQuery` 짝) — `string[] OverlapSphere(numerics center, radius)`. **구체는 사이드별**(`LOPOverlapQuery` 클·서): `Physics.OverlapSphere` + collider→엔티티 매핑이 사이드 타입(`LOPEntity`)을 알아야 하므로 `UnityCollisionQuery`처럼 공통 구체가 아니라 각 레포 보유. 공유 히트 판정(`DamageEffectHandler`)의 엔진 broad-phase 포트. |
 | `INetworkSession` | 네트워크 송수신 추상 (Mirror NetworkClient/Server 어댑터로 구현) |
 
 > **`IGameSimulation`의 책임 경계**: Snapshot/Restore *메서드*는 두지 않는다. *상태 access*만 노출하고, 보관·복원 정책은 외각의 책임. 자세한 위치는 [netcode-redesign.md](netcode-redesign.md) 참조.

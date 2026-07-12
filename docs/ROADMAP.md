@@ -44,6 +44,7 @@
 | 07-09 | **Depenetrate 공유 헬퍼 추출** (`KinematicDepenetration`, 클·서 중복 제거) | — |
 | 07-10 | **확정 게이트 — 재생 억제 (방식 1)** — `WorldEventBuffer.Suppress()`(GameFramework) + `Reconciler` cue 손-회피 제거(라이브/재생 발동 경로 통일). 재생이 만든 연출을 억제 스코프가 버림 | `specs/2026-07-09-commit-gate-replay-suppression-design`, `plans/2026-07-09-commit-gate-replay-suppression` |
 | 07-10 | **A1 — `DeterministicRandom`** (SplitMix64 결정론 난수 struct, GameFramework, 엔진 비의존) — 클라 예측 전투(A)의 첫 조각. 씨앗 유도·서버 배선·IRandom 교체는 A2 | `specs/2026-07-10-deterministic-random-primitive-design`, `plans/2026-07-10-deterministic-random-primitive` |
+| 07-12 | **A2.1 — 서버 전투 키 RNG + 매치시드** (4저장소) — `LOPCombatSystem`이 키 `hash(matchSeed,tick,attacker,target,effectIndex)`로 크리/회피, `Hashing` 헬퍼, `AbilityEffectContext.EffectIndex`, `GameInfo.match_seed` 서버→클라 동기(클라 보관, A2.3 흡수). combat만 | `specs/2026-07-12-a2-1-server-combat-keyed-rng-design`, `plans/2026-07-12-a2-1-server-combat-keyed-rng` |
 
 ### 그 밖의 완료 워크스트림 (요약 — 상세는 메모리)
 
@@ -64,7 +65,7 @@
 **셋 다 A(클라 예측 재구성)에 수렴한다 — commit gate 이후 깨끗한 독립 Stage④ 곁다리는 없다.** 현재 진행 중인 항목 없음.
 
 1. **클라 측 예측 전투 생성 (A — 키스톤)** — 내 히트/데미지/크리를 클라가 로컬에서 굴려 서버 답 기다리지 않고 **즉시 연출** → 서버 확정과 reconcile. **B·RNG·C(표준 IInputSource)가 모두 이걸 기다리는 실제 열쇠.**
-   - **A1 완료(2026-07-10):** `DeterministicRandom`(SplitMix64) 원시 도구 = Done ledger. **남은 A2 =** 씨앗 유도(키 정책)·`LOPCombatSystem`을 LOP-Shared 공유화·클라 `DamageEffectHandler` 등록(예측 히트 생성)·서버 확정 대조·예측/확정(B) reconcile.
+   - **A1 완료(07-10):** `DeterministicRandom`(SplitMix64) 원시 도구. **A2.1 완료(07-12):** 서버 combat 키 RNG + 매치시드 서버→클라 동기(클라 보관). **남은 A2 =** **A2.2** `LOPCombatSystem`을 LOP-Shared 공유화(+`Physics.OverlapSphere` 오버랩 쿼리 포트) · **A2.4** 클라 `DamageEffectHandler` 등록(예측 히트 생성, 저장된 매치시드로 같은 키 RNG) · **A2.5(=B)** 서버 확정 대조·예측/확정 reconcile(확인/취소).
    - 필요: 클 `DamageEffectHandler` 등록(내 캐릭 예측 히트 생성) + 서버 확정 대조.
    - **결정론 RNG는 별도 트랙이 아니라 이 안에 포함** — 시드 스트림이 아니라 **counter-based/키 기반**(`값 = hash(매치시드, tick, entityId, 굴림종류)`). 이유: 예측-보정은 클·서가 같은 글로벌 스트림을 안 돌려 호출 횟수가 달라짐 → 스트림 방식은 데스싱크. 키 기반은 굴림마다 독립 재현이라 횟수 무관. `IRandom`(GameFramework)에 counter-based 구현 drop-in(문서가 이미 예고). 상세·근거: `[[deterministic-rng-counter-based]]`.
    - Stage④ "클라 측 Generation(예측 액션/공격)" 트랙과 동일.

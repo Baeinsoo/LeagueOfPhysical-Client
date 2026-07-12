@@ -64,26 +64,17 @@
 
 ### Stage④ 남은 트랙 (netcode-redesign.md §5 프론티어)
 
-**셋 다 A(클라 예측 재구성)에 수렴한다 — commit gate 이후 깨끗한 독립 Stage④ 곁다리는 없다.** 현재 진행 중인 항목 없음.
+**A(클라 예측 전투)의 데미지 트랙은 닫혔다 (2026-07-12 결정).** 이동은 이미 예측(키네마틱+Reconciler), 어빌리티 발동도 예측(self-skip). **데미지는 예측하지 않고 서버권위 재생 유지** — 넷코드/예측 에픽은 자연 일단락. 아래 잔여는 대부분 **예측 콘텐츠 대기(B)** 또는 **독립 정리**다. 현재 진행 중인 항목 없음.
 
-1. **클라 측 예측 전투 생성 (A — 키스톤)** — 내 히트/데미지/크리를 클라가 로컬에서 굴려 서버 답 기다리지 않고 **즉시 연출** → 서버 확정과 reconcile. **B·RNG·C(표준 IInputSource)가 모두 이걸 기다리는 실제 열쇠.**
-   - **A1 완료(07-10):** `DeterministicRandom`(SplitMix64). **A2.1 완료(07-12):** 서버 combat 키 RNG + 매치시드 동기. **A2.2a 완료(07-12):** 전투 해소를 LOP-Shared 공유 concrete로(클·서 같은 코드). **A2.2b 완료(07-12):** 히트 판정 공유화(`IOverlapQuery` 포트 + 공유 `DamageEffectHandler`, `World.Transform` 기준 부채꼴). **남은 A2 =** **A2.4** 클라 `DamageEffectHandler`+`LOPOverlapQuery` 등록(예측 히트 생성, 저장된 매치시드로 같은 키 RNG) · **A2.5(=B)** 서버 확정 대조·예측/확정 reconcile(확인/취소=예측 실패 보정).
-   - **결정론 RNG는 별도 트랙이 아니라 이 안에 포함** — 시드 스트림이 아니라 **counter-based/키 기반**(`값 = hash(매치시드, tick, entityId, 굴림종류)`). 이유: 예측-보정은 클·서가 같은 글로벌 스트림을 안 돌려 호출 횟수가 달라짐 → 스트림 방식은 데스싱크. 키 기반은 굴림마다 독립 재현이라 횟수 무관. `IRandom`(GameFramework)에 counter-based 구현 drop-in(문서가 이미 예고). 상세·근거: `[[deterministic-rng-counter-based]]`.
-   - Stage④ "클라 측 Generation(예측 액션/공격)" 트랙과 동일.
+1. **클라 측 예측 전투 생성 (A)** — ⏸ **데미지 예측은 안 짓기로 결정(2026-07-12).** 데미지 숫자는 서버 `DamageEventToC` 재생 유지(남 캐릭터와 동일). 근거: HP는 스냅샷으로 항상 정확 → 틀릴 수 있는 건 떠오르는 숫자(연출)뿐이고, 이동(게임필의 큰 축)은 이미 예측됨 → 데미지 숫자 ~RTT 지연은 수용(빠른 슈터 표준, YAGNI). **재검토 조건:** 근접 타격감이 지연으로 답답해질 때.
+   - 완료 잔재(헛되지 않음): A1 `DeterministicRandom`, A2.1 매치시드 클라 동기(**휴면·준비됨**), A2.2a/A2.2b 전투 공유화(**서버 EditMode 테스트 + 이중타격 dedup 버그교정 = 독립 이득**). 상세: 위 Done 원장.
+   - 결정론 RNG(counter-based)·클라 combat RNG 소비는 데미지 예측과 함께 **휴면**. `[[deterministic-rng-counter-based]]`.
 
-2. **B — 예측/확정 이벤트 machinery = 방식 3 (해시 dedup)** (A 필요 + 완료된 commit gate 위에 얹음)
-   - 방식 1(재생 억제)을 **방식 3(이벤트 (내용+틱) 해시 dedup, Quantum식)**으로 확장: 재생이 이벤트를 다시 만들되 **이미 낸 것과 같으면 버리고, 예측이 틀려 달라졌으면 내보낸다.** 내 예측 연출을 확정 전 즉시 표시 → 서버 확정 도착 시 맞으면 유지 / 틀리면 취소.
-   - **필요 부품:** ① `WorldEvent`에 **틱 도장**(방식 1은 안 넣음) ② A의 예측 이벤트 생산자 ③ **취소 방향** ④ 상황 X 흡수 — 서버 사본 self-skip(`GameAbilityMessageHandler`)을 해시 dedup으로 통합.
-   - **완료된 commit gate(방식 1)가 깐 토대:** `WorldEventBuffer.Suppress()` 단일 egress 제어점 + "라이브만 연출 / 재생은 스킵" baseline. B는 그 위에 dedup + 취소만 얹는다.
-   - 설계 결정 박제: `[[event-model-wire-decision]]`.
+2. **B — 예측/확정 이벤트 machinery (해시 dedup)** — ⏸ **예측가치 있는 스킬이 올 때** 그 실제 사례 2~3종과 함께 짓는다. 근거: 재사용되는 "대조 원장"(틱도장+해시 dedup)은 예측 이벤트가 여럿일 때 값을 하고, 연출별 "취소"(예: 데미지 플로터 제자리 교체)는 종류마다 새로 만들어야 해 지금 하나로는 상각 안 됨. 방식 1(재생 억제, `WorldEventBuffer.Suppress()`)이 완료된 토대. 설계: `[[event-model-wire-decision]]`.
 
-3. **`IInputSource` 표준 provider (4d)** (A 필요 — **독립 아님**)
-   - 입력 캡처를 `Poll(tick)→data` provider(Quantum `PollInput` / Unity Netcode `ICommandData`)로. capture+예측+송신 묶인 현 `PlayerInputManager.ProcessInput`을 표준 모양으로 분리.
-   - **왜 A에 묶이나:** 표준 provider는 입력을 *읽기 전용 데이터*로만 내주고 **예측 적용·송신을 입력 경로 밖**(world Collection→Mutation / 호스트)으로 빼야 성립 = 클라 예측 재구성(A). 그래서 A 없이는 표준 모양이 안 나온다.
-   - **독립인 wrap-only(`void ProcessInput()`)는 거부됨(2026-07-01)** — 비표준 verb라 나중 표준화 시 인터페이스가 깨짐(rename churn, CLAUDE.md 명명 규칙 위반). 보류 spec: `specs/2026-06-30-slice4-input-source-port-design`.
+3. **`IInputSource` 표준 provider (4d)** — ⏸ A(예측 확장)에 묶여 함께 보류. 독립 wrap-only는 거부됨(2026-07-01, `specs/2026-06-30-slice4-input-source-port-design`).
 
-> 순서: 셋 다 A에 의존 → **A(1)가 먼저**, B(2)·C(3)는 A 후. **결정론 RNG는 독립 트랙 아님 → A에 흡수(counter-based).**
-> (별개 정리) `fix/reconciler-tick-guard`의 `[임시]` 틱 가드 제거 — Stage④ 스냅샷 타임라인 재설계 때.
+> **독립 정리(예측과 무관, correctness 값어치 있음):** `fix/reconciler-tick-guard`의 `[임시]` 틱 가드 제거 — 지연 렌더링 스냅을 *틱 카운터*로 저장 vs `LateUpdate`가 *경과시간 역산*으로 조회, 두 시간선이 어긋나면 `TryGetValue` 가드로 프레임 스킵(증상 차단). 근본은 타임라인 정렬. 지금 손댈 수 있는 항목. `[[netcode-migration-status]]`.
 
 ### 넷코드 잔여 (Stage④ 밖)
 

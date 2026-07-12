@@ -101,10 +101,11 @@ namespace GameFramework
         }
 
         /// <summary>누적 해시에 값 하나를 접어 넣는다(씨앗 부품 결합, 순서 의존).</summary>
+        // 곱셈 먼저 → XOR: XOR을 먼저 하면 교환법칙 때문에 Combine(a,b)==Combine(b,a)가 되어 순서 의존이 깨진다.
         public static ulong Combine(ulong hash, ulong value)
         {
-            hash ^= value;
             hash *= Fnv64Prime;
+            hash ^= value;
             return hash;
         }
     }

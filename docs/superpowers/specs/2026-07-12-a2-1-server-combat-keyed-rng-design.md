@@ -193,5 +193,6 @@ var rng = new GameFramework.DeterministicRandom(seed);
 
 - [x] 브레인스토밍 (A2 분해, A2.1 범위, matchseed=GameInfo, 키+effectIndex[abilityId 배제 근거], 업계 표준 검증)
 - [x] spec self-review (키/Attack 시그니처/effectIndex 일관·스코프·모호성 — 매치시드 생성 소스만 plan 이월, 그 외 이상 없음)
-- [ ] 사용자 spec 리뷰
-- [ ] `writing-plans`로 구현 plan
+- [x] 사용자 spec 리뷰
+- [x] `writing-plans`로 구현 plan (`plans/2026-07-12-a2-1-server-combat-keyed-rng`)
+- [x] 구현 완료 (GameFramework Hashing / LOP-Shared EffectIndex+proto / Server LOPCombatSystem 키화·MatchSeed / Client 보관). 5 태스크 리뷰 clean, 플레이 검증 통과(서버·클라 매치시드 일치 + 전투 회귀 없음). ⭐구현서가 Combine XOR 대칭 버그 발견·정정.

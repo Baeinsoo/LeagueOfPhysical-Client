@@ -66,7 +66,16 @@
 **셋 다 A(클라 예측 재구성)에 수렴한다 — commit gate 이후 깨끗한 독립 Stage④ 곁다리는 없다.** 현재 진행 중인 항목 없음.
 
 1. **클라 측 예측 전투 생성 (A — 키스톤)** — 내 히트/데미지/크리를 클라가 로컬에서 굴려 서버 답 기다리지 않고 **즉시 연출** → 서버 확정과 reconcile. **B·RNG·C(표준 IInputSource)가 모두 이걸 기다리는 실제 열쇠.**
-   - **A1 완료(07-10):** `DeterministicRandom`(SplitMix64). **A2.1 완료(07-12):** 서버 combat 키 RNG + 매치시드 동기. **A2.2a 완료(07-12):** 전투 해소를 LOP-Shared 공유 concrete로(클·서 같은 코드). **남은 A2 =** **A2.2b** 히트 판정 공유화(`Physics.OverlapSphere` → 오버랩 쿼리 포트 + 부채꼴 필터 공유) · **A2.4** 클라 `DamageEffectHandler` 등록(예측 히트 생성, 저장된 매치시드로 같은 키 RNG) · **A2.5(=B)** 서버 확정 대조·예측/확정 reconcile(확인/취소=예측 실패 보정).
+   - **A1 완료(07-10):** `DeterministicRandom`(SplitMix64). **A2.1 완료(07-12):** 서버 combat 키 RNG + 매치시드 동기. **A2.2a 완료(07-12):** 전투 해소를 LOP-Shared 공유 concrete로(클·서 같은 코드). **남은 A2 =** **A2.2b** 히트 판정 공유화 · **A2.4** 클라 `DamageEffectHandler` 등록(예측 히트 생성, 저장된 매치시드로 같은 키 RNG) · **A2.5(=B)** 서버 확정 대조·예측/확정 reconcile(확인/취소=예측 실패 보정).
+
+   #### A2.2b 접근 확정 (2026-07-12, 브레인스토밍 — spec/구현은 다음 세션) — **접근 1: 오버랩 포트 + 공유 드라이버**
+   - 현재 서버 `DamageEffectHandler.OnActiveEnter` = ①`Physics.OverlapSphere`→Collider[] ②collider→`LOPEntity`→entityId ③부채꼴 필터(`IsInAttackSector`)→공유 `LOPCombatSystem.Attack`. ①②와 matchSeed가 사이드 특화라 공유 blocker.
+   - **`IOverlapQuery`**(GameFramework 인터페이스, `ICollisionQuery` 짝): `entityId[] OverlapSphere(System.Numerics.Vector3 center, float radius)`. 구체는 **사이드별**(`LOPOverlapQuery` 클·서)이 `Physics.OverlapSphere` + collider→`LOPEntity`.entityId 매핑(LOPEntity가 사이드 타입이라 구체는 각 레포).
+   - **부채꼴 필터 + Attack 루프는 LOP-Shared 공유** — numerics(`World.Transform.Position`=Numerics.Vector3, `Rotation`=Numerics.Quaternion; forward=`Vector3.Transform(UnitZ, Rotation)`). Unity transform 대신 **World.Transform**(진실원본) 사용 = 엔진 프리 + 더 정확.
+   - **matchSeed는 `IMatchSeed`**(양쪽 `MatchSeed`가 구현하는 공유 인터페이스)로 공유 핸들러에 주입 → 핸들러가 사이드 무지.
+   - **`DamageEffectHandler`를 LOP-Shared로**(공유 concrete), 서버가 `IOverlapQuery`(서버 구체)·`IMatchSeed`(서버 MatchSeed)·`LOPCombatSystem`·`EntityRegistry` 주입해 등록. 클라 등록은 A2.4.
+   - 근거: A2의 목표가 "클·서 같은 코드로 예측" → 판정까지 공유해야 A2.4가 판정 재구현 없이 깔끔. (접근 2=순수 로직만 공유는 A2.4에서 OverlapSphere+매핑 중복이라 기각.)
+   - 열린 디테일(spec에서): `IMatchSeed`·`IOverlapQuery` 위치(GameFramework vs LOP-Shared), `World.Transform.Rotation`이 실제 facing과 정합인지(키네마틱 이행 후), 부채꼴 판정에 Unity vs World 위치 차이 영향.
    - 필요: 클 `DamageEffectHandler` 등록(내 캐릭 예측 히트 생성) + 서버 확정 대조.
    - **결정론 RNG는 별도 트랙이 아니라 이 안에 포함** — 시드 스트림이 아니라 **counter-based/키 기반**(`값 = hash(매치시드, tick, entityId, 굴림종류)`). 이유: 예측-보정은 클·서가 같은 글로벌 스트림을 안 돌려 호출 횟수가 달라짐 → 스트림 방식은 데스싱크. 키 기반은 굴림마다 독립 재현이라 횟수 무관. `IRandom`(GameFramework)에 counter-based 구현 drop-in(문서가 이미 예고). 상세·근거: `[[deterministic-rng-counter-based]]`.
    - Stage④ "클라 측 Generation(예측 액션/공격)" 트랙과 동일.

@@ -34,6 +34,13 @@ jobs:
             echo "$r @ $(git -C "$r" rev-parse --short HEAD)"
           done
 
+      - name: NuGet 패키지 복원 (NuGetForUnity CLI, packages.config 기반)
+        run: |
+          set -e
+          dotnet tool restore
+          dotnet tool run nugetforunity restore .
+          test -f Assets/NuGetForUnity/Packages/R3.1.3.1/lib/netstandard2.1/R3.dll
+
       - name: 어드레서블 콘텐츠 full 빌드 (Android)
         run: |
           set -eo pipefail

@@ -83,6 +83,7 @@ namespace LOP
             builder.Register<DebugHudViewModel>(Lifetime.Transient);
             builder.Register<DebugHudView>(Lifetime.Transient);
 
+            builder.Register<MatchSeed>(Lifetime.Singleton);
             builder.Register<ReconciliationStats>(Lifetime.Singleton);
             builder.Register(_ => new GameFramework.Netcode.RenderCorrectionSmoother(0.1f, 0.025f, 3f), Lifetime.Singleton);
             builder.Register<InputTimingStats>(Lifetime.Singleton);

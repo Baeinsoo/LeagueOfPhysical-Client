@@ -12,6 +12,9 @@ namespace LOP
         [Inject]
         private PlayerInputManager playerInputManager;
 
+        [Inject]
+        private MatchSeed matchSeed;
+
         public void Initialize()
         {
             EventBus.Default.Subscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);
@@ -24,6 +27,8 @@ namespace LOP
 
         private void OnGameInfoToC(GameInfoToC gameInfoToC)
         {
+            matchSeed.Set(gameInfoToC.GameInfo.MatchSeed);
+
             foreach (var entityCreationData in gameInfoToC.GameInfo.EntityCreationDatas)
             {
                 switch (entityCreationData.CreationDataCase)

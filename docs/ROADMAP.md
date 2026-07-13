@@ -81,6 +81,17 @@
 
 - **Phase 5 — 점프 임펄스 vy** ⏸ 보류(게임 디자인 콜). `[[netcode-migration-status]]`
 
+### 구조 정리 백로그 (2026-07-13 전반 감사)
+
+전반 구조/구현을 업계 표준 대비 5영역 병렬 감사. 코드는 대체로 건강 — 유의미한 것만. 소스 레벨 확인됨.
+
+- ✅ **#1 데미지 Amount 데이터 구동** (07-13) — `LOPCombatSystem.Attack`에 baseDamage 배선 → `DamageEffect.Amount` 소비(무동작; attack Amount=10=옛 하드코딩). 이제 Excel로 데미지 조정 가능.
+- ✅ **#2 넉백 공유화 + `AttackSector` 추출** (07-13) — 넉백을 `IOverlapQuery`+`World.Transform`로 이관(마지막 World Core 우회 제거), 부채꼴 판정 공유 헬퍼화(Damage/Knockback 복사본 2벌 제거). 18 EditMode.
+- ⏳ **#4 스냅샷 채널 reliable→unreliable** — 서버 per-tick `EntitySnapsToC`/`UserEntitySnapToC`가 reliable 디폴트. durable=스냅샷=유실허용이 정석(입력측은 이미 unreliable). 저비용.
+- ⏳ **#5 `generate_protos.sh` MessageId 보존** — 스크립트가 `MessageIds.cs`를 지우고 재생성 → 전체 파이프라인 돌리면 ID 재번호(wire desync). 절차적 우회만 있고 스크립트 미패치.
+- **신규(플레이 발견): 적(AI) 넉백 미적용** — `MotionContributionSystem.Resolve`가 `MovementSystem`(입력 게이트, InputBuffer 필요) 안에서만 실행 → AI(버퍼 없음)는 스킵, `EnemyBrain`이 velocity 직접 세팅. 넉백 기여는 붙지만 미해소. **AI 이동을 기여 채널에 태우면 해소**(외력을 플레이어·AI 공통화). 별개 게임플레이 수정. (#2 회귀 아님 — 이동 경로 문제.)
+- **Tier-2/3 (별도 슬라이스):** #6 Reconciler 재생이 `LOPWorld.Mutation` 시스템 시퀀스 수기 복제(desync 실패 클래스) · #7 `WorldEventBatch` 단일 envelope 미구현(개념별 패킷 `DamageEventToC` 등) · #8 static `EventBus.Default`(DI/R3 밖) · `ctx.EntityManager` 탈출구 제거(#2로 마지막 소비처 정리 — 잔여 확인 후 제거) · 문서 stale(`entity-system-design.md` 전면, netcode-redesign, connection-arch backlog) · 크리/회피 상수 하드코딩 · `ctx.Target` 항상 자기자신(실 타게팅 없음) · 링버퍼 3중복 · 죽은 레거시 `Status` 매틱.
+
 ---
 
 ## ⏸ 파킹 (Parked — 미룬 것 + 재개 조건)
@@ -92,7 +103,7 @@
 | **M5b — LOP.UI 인프라 GameFramework 승격** | 단일 클라라 YAGNI | 서버도 같은 UI 인프라가 필요해질 때. `[[uitoolkit-migration-status]]` |
 | **넷코드 status 메모리류 `GameFramework.Netcode` 수렴** | 흩어진 클래스 일괄 이동은 YAGNI | 각 클래스 손댈 때 기회 있을 때. `[[netcode-namespace-consolidation]]` |
 | **MasterData `file:` → git URL + tag 전환** | 안정화 후 결정 | 패키지 3종 함께 전환 시점. topology Open Decisions |
-| **게임 씬 스코프 분리** (GamePlay 씬) | 설계 박제만, 즉시 구현 X | 착수 시 `specs/2026-06-06-game-scene-scope-design` 기준 plan |
+| ~~**게임 씬 스코프 분리** (GamePlay 씬)~~ ⚠️ **감사(07-13): 이미 구현됨** — DI 감사가 Root→Room→Game 스코프 분리 + `EnqueueParent(roomScope)` + additive 로드 양쪽 확인. spec의 "미구현" 서술이 stale. 파킹 해제, 문서 정합만 남음(Tier-3 문서 stale에 포함). | — |
 
 ---
 

@@ -93,7 +93,8 @@
 - ✅ **적(AI) 넉백 적용** (07-13) — 넉백 resolve가 `MovementSystem.Tick`의 입력 게이트 안에서만 돌아 AI(버퍼 없음)가 스킵되던 버그. 재사용 헬퍼 `MotionContributionSystem.ApplyToVelocity`(현 수평 velocity를 base로 외력 folding, y 보존·프루닝) 신설 + 서버 `MoveCharacters`에서 입력 비조종 캐릭에 호출(KinematicMove 통합 전). **공유 `MovementSystem.Tick`·클라 원격 경로 무변경** — 원격은 스냅 팔로워라 게이트 밖으로 빼면 스냅샷 권위 충돌 → 서버 host에서 AI만 folding. Shared 111 EditMode green + **인게임 육안 확인됨(몬스터 넉백 적용).** ⚠️ **임시 배치**(서버 분기) — 이상적 공통 루프 이전은 파킹(아래 "외력 처리 공통 루프 이전" 부채).
 - ✅ **문서 stale 정합** (07-13, `docs/audit-stale-reconcile`) — `entity-system-design.md` 전면 재작성(코드 위치·타입명·enum값·컴포넌트/시스템 인벤토리 실제화) · `netcode-redesign.md §2.2`(input-as-데이터 축 + `InputBuffer` 실명; audit의 "예측 없음" 주장은 반박 — PlayerInputManager는 예측 트리거 유지) · connection-arch "괴리 #2" 해소 반영(`DeathCascadeSystem`, `LOPGame.HandleDeath` 삭제, death wire=`EntityDespawnToC` — `DamageDealtEvent.IsDead` 없음).
 - ✅ **#3-WC `ctx.EntityManager` 탈출구 제거** (07-13) — 재검증 결과 완전한 죽은 pass-through(핸들러 전부 `EntityRegistry`+`IOverlapQuery`로 이전 완료). `AbilityEffectContext` 필드+ctor·`DriveActiveEntity` 파라미터·호출부 3곳·`Reconcile` 미사용 파라미터·테스트 5곳 정리. 동작 무변경.
-- **Tier-2/3 (별도 슬라이스):** #6 Reconciler 재생이 `LOPWorld.Mutation` 시스템 시퀀스 수기 복제(desync 실패 클래스) · #7 `WorldEventBatch` 단일 envelope 미구현(개념별 패킷 `DamageEventToC` 등) · #8 static `EventBus.Default`(DI/R3 밖) · 크리/회피 상수 하드코딩 · `ctx.Target` 항상 자기자신(실 타게팅 없음) · 링버퍼 3중복 · 죽은 레거시 `Status` 매틱.
+- 🔨 **#6 통합 World Tick (진행 중)** — Reconciler 재생이 `LOPWorld.Mutation` 시퀀스를 수기 복제하던 desync 실패 클래스. **표준 정합**(클라 시뮬=예측 엔티티만 / 남·NPC=보간)으로 `Simulated` 마커 도입 → `world.Tick`이 그것만 순회 → 라이브==재생. spec `2026-07-13-unified-world-tick-client-sim-scope-design.md`, 3-슬라이스 분해(A/B/C). **✅ Sub-slice A 완료·머지**(07-13, 4 repo: `Simulated` 마커 + `Mutation` 순회 + driveeffects·외력 `world.Tick` 흡수, 양쪽 동작 보존, Shared EditMode 110/110, 플레이 무회귀). **남음: B**(물리 브리지 포트·키네마틱 흡수) → **C**(클라 scope 축소 + Reconciler=world.Tick 재생 + `#6` 종결).
+- **Tier-2/3 (별도 슬라이스):** #7 `WorldEventBatch` 단일 envelope 미구현(개념별 패킷 `DamageEventToC` 등) · #8 static `EventBus.Default`(DI/R3 밖) · 크리/회피 상수 하드코딩 · `ctx.Target` 항상 자기자신(실 타게팅 없음) · 링버퍼 3중복 · 죽은 레거시 `Status` 매틱.
 
 ---
 
@@ -101,7 +102,7 @@
 
 | 항목 | 왜 미뤘나 | 재개 조건 |
 |---|---|---|
-| **외력(넉백) 처리를 공통 엔티티 루프로 이전** (부채) | AI 넉백 fix(07-13)를 서버 `MoveCharacters`의 "입력 없으면 AI" 분기에 임시로 넣음. **이상적 자리는 공통 루프 `LOPWorld.Tick`(Mutation)에서 플레이어·AI 구분 없이 한 번에.** 지금 못 하는 이유: 그 루프는 클·서 공유인데 **클라가 원격(스냅 팔로워) 엔티티까지 훑음** → 게이트 밖으로 빼면 원격 velocity를 건드려 스냅샷 권위와 충돌. 먼저 "클라 공통 루프의 대상 = 내 캐릭만" 정리가 선행돼야 함. 로직은 이미 `MotionContributionSystem.ApplyToVelocity` 공통 함수로 추출됨 → 이전 시 호출 위치만 이동(비용 최소). | **Stage④ 4e 흡수**(`DriveAbilityEffects`·물리·외력을 `LOPWorld.Tick`으로, 클라 sim 엔티티 범위 정리와 함께). 문서: connection-arch "Engine↔Simulation" 4e 노트. `[[velocity-motor-contribution-slice]]` |
+| ~~**외력(넉백) 처리를 공통 엔티티 루프로 이전** (부채)~~ ✅ **정산(07-13)** — 통합 World Tick Sub-slice A에서 외력 resolve를 공유 `MovementSystem.Tick`(=`world.Tick` 이동 페이즈)로 흡수, 서버 `MoveCharacters` 임시분기 제거. 입력 없는 Simulated(서버 AI)도 resolve. `Simulated` 마커가 클라 원격 문제를 자연 해소(원격은 마킹 안 돼 클라가 안 틱). `[[velocity-motor-contribution-slice]]` | — |
 | **Recon 엔티티-로드 러버밴딩** | 엔티티 많을 때 빈 곳 점프에도 recon 러버밴딩 관찰. 진단틀(A 서버틱밀림 vs B 클라FPS) 프로토타입 후 롤백 | 각 잡고 재개. `[[recon-entity-load-parked]]` |
 | **네이티브 clock sync (방향 B)** | Mirror transport=메인스레드라 ping/pong 정확도 이득 미미; 순수측정=전용소켓+스레드 큰 작업 | **Mirror 제거가 실제 안건이 될 때.** `[[netcode-migration-status]]` §9.8 |
 | **M5b — LOP.UI 인프라 GameFramework 승격** | 단일 클라라 YAGNI | 서버도 같은 UI 인프라가 필요해질 때. `[[uitoolkit-migration-status]]` |

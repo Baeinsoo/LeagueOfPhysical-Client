@@ -1,5 +1,7 @@
 # 통합 World Tick — Sub-slice B (클라 scope 축소 + 물리 흡수) Implementation Plan
 
+> ✅ **완료·머지됨 (2026-07-13, 4 repo main).** 3태스크 구현, Shared EditMode 111/111, 클·서 컴파일 클린, 플레이 무회귀 확인. `world.Tick`이 5페이즈 단일 진입점. **gotcha(플레이서 발견):** 클라는 `IEntityManager`를 DI 미등록(RunnerBase 프로퍼티로만 사용)이라 새 `LOPMotionBridge`의 `[Inject] IEntityManager`가 해석 실패 → 게임 스코프 빌드 예외로 클라가 안 떴다. fix=클라 스코프에 `runner.GetComponent<IEntityManager>()`로 등록(서버는 원래 `RegisterComponent`로 등록돼 문제 없었음). 다음 = Sub-slice C(`Reconciler`=`world.Tick` 재생, `#6` 종결).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans (inline) to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax.
 
 **Goal:** 클라 `Simulated` 마커를 내 캐릭만으로 좁히고, 키네마틱 이동을 `IMotionBridge` 포트로 추상화해 `LOPWorld.Tick`의 5번째 페이즈로 흡수한다 — **클·서 양쪽 동작 무변경**, `world.Tick`이 5페이즈 단일 진입점이 된다.

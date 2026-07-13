@@ -21,7 +21,9 @@
 
 ## ⏳ 남은 것 — Tier 2 (별도 슬라이스, 유의미)
 
-### #6 (넷코드 HIGH, M) Reconciler 재생이 `LOPWorld.Mutation` 시스템 시퀀스를 수기 복제
+### ✅ #6 (넷코드 HIGH, M) Reconciler 재생이 `LOPWorld.Mutation` 시스템 시퀀스를 수기 복제 — 완료 (07-13)
+> **해소:** "통합 World Tick" 슬라이스(A/B/C + 모션 브릿지 공유화)로 `IWorld.Tick`을 단일 결정론 진입점화. 표준 정합(`Simulated` 마커로 클라 시뮬=예측 엔티티만) → `Reconciler` 재생이 `world.Tick` 하나 = 라이브==재생, 수기 시퀀스 소멸. spec `2026-07-13-unified-world-tick-client-sim-scope-design.md`. (아래는 착수 시점 서술.)
+
 - **위치:** `Client/Reconciler.cs:140-148` (replay가 `movementSystem.Tick`→`abilitySystem.Tick`→`statusEffectSystem.Tick`→`abilityEffectExecutor.DriveActiveEntity`→`kinematicMoveSystem.Tick` 개별 호출) vs `Shared/LOPWorld.cs:22-36`(`Mutation`) + `LOPRunner.cs:102-105`.
 - **위배:** `IWorld.Tick`이 *단일* 결정론 진입점이어야(connection-arch "코어 능력"). 지금 라이브 경로와 재생 경로가 **두 벌 수기 시퀀스** → 컴파일러 아닌 기억으로 lockstep. 메모리 `[[hard-rollback-input-tick-alignment]]`의 desync 실패 클래스.
 - **수정:** per-entity-filtered `IWorld.Tick` 또는 공유 "TickEntity" 헬퍼를 양쪽이 호출.

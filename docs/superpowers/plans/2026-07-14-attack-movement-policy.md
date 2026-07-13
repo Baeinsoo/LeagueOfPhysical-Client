@@ -16,7 +16,7 @@
 - **결정론**: 배율/게이트는 부수효과·랜덤 없는 순수 읽기. 캔슬(조기종료) 없음(v2).
 - **`ActiveAbility.WithPhase`**: 새 4필드도 복사해야 함(페이즈 전진 시 유실 금지).
 - **멀티 repo**: LOP-Shared(시뮬 코드/테스트) · infrastructure/table + MasterData-Client/Server(데이터) · LOP-Client + LOP-Server(Provider). 커밋은 각 repo에서 `git -C`.
-- **`dotnet` 미설치(이 환경)**: `gen.sh`(Luban regen)는 사용자가 dotnet 있는 환경에서 실행 — Task 4 체크포인트.
+- **Luban regen**: `dotnet` 런타임 8.0.22 설치됨. `gen.sh`는 `dotnet tools/Luban/Luban.dll` 방식(DLL 직접 실행 → **SDK 아니라 런타임만 필요**)이라 이 환경에서 바로 실행 가능. (참고: SDK는 없어 `dotnet test`류 standalone .NET 테스트는 불가 — 그건 Unity Test Runner로.)
 
 ## 파일 구조 (생성/수정)
 
@@ -461,9 +461,8 @@ for r in range(1,8):
 ```
 Expected: r1=`['startup_move_scale','active_move_scale','recovery_move_scale','block_jump']`, r2=`['float','float','float','bool']`, r7=`[0,0,0,'true']`, r5/r6=`[1,1,1,'false']`.
 
-- [ ] **Step 3: Luban regen** ⚠️ **체크포인트 — `dotnet` 필요(이 환경 미설치)**
+- [ ] **Step 3: Luban regen** (dotnet 런타임 8.0.22로 이 환경에서 실행 가능 — `gen.sh`가 `dotnet <dll>`이라 SDK 불필요)
 
-dotnet SDK가 있는 환경에서:
 ```bash
 cd "C:/Users/re5na/workspace/LOP/infrastructure/table" && ./gen.sh
 ```

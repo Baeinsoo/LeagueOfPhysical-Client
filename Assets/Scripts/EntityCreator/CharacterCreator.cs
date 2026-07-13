@@ -107,9 +107,9 @@ namespace LOP
             {
                 // 입력으로 조종되는 엔티티(내 캐릭)만 — 호스트가 매 틱 커맨드를 채우고 MovementSystem이 읽는다.
                 worldEntity.Add(new InputBuffer());
+                // 클라 시뮬 대상 = 예측하는 내 캐릭만. 남/NPC는 Simulated 아님 → 스냅샷 보간 전용.
+                worldEntity.Add(new GameFramework.World.Simulated());
             }
-            // Sub-slice A: 현행(전 캐릭 틱) 보존을 위해 전 캐릭 마킹. Sub-slice C에서 내 캐릭만으로 좁힌다.
-            worldEntity.Add(new GameFramework.World.Simulated());
             entityRegistry.Add(worldEntity);
 
             // 3d: 헤이스트 어빌리티 부여(발동은 입력 트리거 — AbilityActivator). TEMP: 전체 부여, 캐릭터별 셋은 후속.

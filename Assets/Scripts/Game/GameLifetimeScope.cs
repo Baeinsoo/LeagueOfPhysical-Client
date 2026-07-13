@@ -57,6 +57,9 @@ namespace LOP
             // runner은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.
             builder.RegisterComponent(runner).As<IRunner>();
             builder.RegisterComponent(cameraController);
+            // entityManager(runner GO의 LOPEntityManager)를 IEntityManager로 등록 — LOPMotionBridge가 주입받아
+            // id→LOPEntity를 잡는다(서버는 serialize된 컴포넌트를 RegisterComponent; 클라는 GetComponent로 동형 노출).
+            builder.Register<IEntityManager>(_ => runner.GetComponent<IEntityManager>(), Lifetime.Singleton);
 
             // 메시지 핸들러: 컨테이너 엔트리포인트로 자기 구독 생명주기를 스스로 관리(스코프가 Initialize/Dispose 구동).
             builder.RegisterEntryPoint<GameInfoMessageHandler>();

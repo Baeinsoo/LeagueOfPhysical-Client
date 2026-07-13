@@ -1,255 +1,194 @@
 # Entity System Design
 
+월드 엔티티 데이터 모델 시스템. CBD(Component-Based Design) 기반으로, Entity는 빈 껍데기이고
+능력(`Component`)을 조합하여 캐릭터·몬스터·오브젝트 등을 구성한다.
+
+> **코드 위치 (중요).** 이 문서가 설명하는 World Core는 **이 클라 repo에 없다.** 실제 코드는:
+> - **`GameFramework` 패키지 (`namespace GameFramework.World`)** — 앱 비종속 코어: `Entity`,
+>   `Component`(추상 클래스), `EntityRegistry`, `EntityStatType`, `StatModifier`/`ModifierType`,
+>   공통 컴포넌트(`Health`/`Mana`/`Level`/`Stats`/`Ownership`/`Transform`/`Velocity`)와
+>   그 System(`HealthSystem`/`ManaSystem`/`LevelSystem`/`StatsSystem`), 이벤트(`WorldEventBuffer`,
+>   `DamageDealtEvent`/`DeathEvent`/`AbilityActivatedEvent`), `IWorld`/`WorldBase`.
+> - **`LeagueOfPhysical-Shared` 패키지 (`namespace LOP`)** — LOP 도메인 컴포넌트/시스템:
+>   `StatusEffects`/`Abilities`/`InputBuffer`/`MotionContributions`/`PredictedAbilityState`,
+>   `LOPCombatSystem`/`MovementSystem`/`KinematicMoveSystem`/`AbilitySystem`/`StatusEffectSystem` 등.
+>
+> 코드가 어느 repo에 사는지는 `docs/lop-repo-topology.md`, 코어↔프레젠테이션 연결은
+> `docs/world-core-connection-architecture.md` 참고. 이 문서는 **데이터 모델(CBD 컴포지션 + 스탯)**
+> 자체에 집중한다.
+
 ## Overview
 
-월드 엔티티 데이터 모델 시스템. CBD(Component-Based Design) 기반으로, Entity는 빈 껍데기이고 능력(IEntityComponent)을 조합하여 캐릭터, 몬스터, 보스, NPC, 오브젝트, 이펙트 영역 등을 구성한다.
-
-## Requirements
-
 - 상호작용이 있는 모든 월드 객체를 엔티티로 취급 (렌더링만 하는 배경 객체 제외)
-- 엔티티 공통: Id
-- CBD 컴포지션 방식: Entity는 빈 컨테이너, 능력은 IEntityComponent 구현체로 조합
-- 컴포넌트는 자신이 속한 Entity(Owner)를 알고 있음
-- Anemic Domain Model: 컴포넌트는 데이터와 파생 속성(읽기 전용 계산값)만 소유. 생성자에서 구조적 무결성(필수 초기값 설정)은 처리하되, 상태 변경 로직은 두지 않는다. 모든 처리 로직은 System에 둔다
+- 엔티티 공통: `Id` (문자열 — 런타임 인스턴스 식별자)
+- CBD 컴포지션: Entity는 빈 컨테이너, 능력은 `Component` 서브클래스로 조합
+- 컴포넌트는 자신이 속한 Entity(`Owner`)를 알고 있음 (`Entity.Add` 시 자동 설정)
+- **Anemic Domain Model**: 컴포넌트는 데이터와 파생 속성(읽기 전용 계산값)만 소유. 생성자에서
+  구조적 무결성(필수 초기값)만 처리하고, 상태 변경 로직은 두지 않는다. 모든 처리 로직은 System에 둔다
 - 스탯: Base + Modifiers(출처 추적, 해제 가능) = Current
-- 구현 범위: 순수 C# 데이터 모델 (MonoBehaviour, 전투 시스템 연결은 이후)
 
 ## Architecture: CBD 컴포지션 (Dictionary 기반)
 
-### Core 레이어
+World Core는 순수 C#(`noEngineReferences`)이며 `GameFramework.World`에 있다.
 
-Entity와 IEntityComponent는 다른 피처에서도 사용되므로 Core에 배치한다.
+### `Component` (추상 클래스)
 
-#### IEntityComponent
+모든 엔티티 컴포넌트의 기반. **인터페이스가 아니라 `abstract class Component`** 다. 자신이 속한
+`Entity Owner`를 노출하며(`Owner { get; internal set; }`), Owner는 `Entity.Add<T>` 시 자동 설정된다.
 
-모든 엔티티 컴포넌트의 기반 인터페이스. 자신이 속한 `Entity Owner` 참조를 노출하며, Owner는 `Entity.Add` 시 자동으로 설정된다.
+> (역사 노트) 초기 설계는 `IEntityComponent` 인터페이스였으나 실제 구현은 추상 클래스로 정착했다.
+> `GameFramework`에는 옛 MonoBehaviour 시스템의 별개 `interface IComponent`가 남아 있으나 World
+> Core와 무관하다.
 
-#### Entity
+### `Entity`
 
-엔티티의 빈 컨테이너. 다음을 갖는다.
+엔티티의 빈 컨테이너.
 
-- **Id**: 엔티티 식별자 (불변)
-- **컴포넌트 저장소**: 컴포넌트 타입(`Type`)을 키로 하는 딕셔너리. 타입당 하나의 컴포넌트만 보유
-- **Add**: 컴포넌트를 추가하고 해당 컴포넌트의 Owner를 자기 자신으로 설정
-- **Get**: 타입으로 컴포넌트를 조회. 없으면 null 반환
-- **Has**: 해당 타입 컴포넌트의 존재 여부 반환
-- **Remove**: 타입으로 컴포넌트를 제거하고, 제거된 컴포넌트의 Owner를 null로 해제
+- **Id**: `string` 식별자 (불변). 생성자 `Entity(string id)`
+- **컴포넌트 저장소**: `Dictionary<Type, Component>` — 타입당 하나
+- **`Add<T>(T)`**: 컴포넌트 추가 + Owner를 자기 자신으로 설정 (같은 타입은 교체)
+- **`Get<T>()`**: 타입으로 조회. 없으면 null
+- **`Has<T>()`**: 존재 여부
+- **`Remove<T>()`**: 제거 + 제거된 컴포넌트의 Owner를 null로 해제. 제거 여부 반환
 
-#### EntityRegistry
+### `EntityRegistry`
 
-월드의 엔티티 보관소(Core 레이어 순수 C# 컨테이너). `Entity.Id`를 키로 모든 엔티티를 관리한다.
+월드의 엔티티 보관소 (코어 순수 C# 컨테이너). `Entity.Id`(string)를 키로 관리한다.
 
-- **Add**: 엔티티 등록. null 엔티티 / null Id / 중복 Id에는 예외 (레지스트리는 진실원본 — 중복은 버그)
-- **Get / TryGet**: Id로 조회. 없으면 null / false
-- **Remove**: 제거 및 제거 여부 반환
-- **Contains**: 존재 여부
-- **Count / All**: 총 개수 / 전체 열거
+- **`Add(Entity)`**: 등록. null 엔티티 / null Id / 중복 Id에는 예외 (레지스트리는 진실원본 — 중복은 버그)
+- **`Get(id)` / `TryGet(id, out)`**: 조회. 없으면 null / false
+- **`Remove(id)`**: 제거 및 제거 여부 반환
+- **`Contains(id)`**: 존재 여부
+- **`Count` / `All`**: 총 개수 / 전체 열거
 
-엔티티의 생성·등록은 게임 측(LOP 등)의 크리에이터/팩토리가 수행하고, 외부 시스템(뷰·UI·netcode)은 이 레지스트리를 통해 entityId로 엔티티에 접근한다.
+엔티티 생성·등록은 게임 측(LOP)의 크리에이터가 `new Entity(id)` + `Add<T>` + `EntityRegistry.Add`로
+수행한다. 외부 시스템(뷰·UI·netcode)은 이 레지스트리를 통해 entityId로 엔티티에 접근한다. (전용
+`EntityFactory`는 World Core에 없다 — 직접 조립.)
 
-### Core Enums
+## 스탯 모델
 
-#### EntityStatType
+### `EntityStatType` (enum, `GameFramework.World`)
 
-스탯 종류 enum. 자유롭게 확장 가능하며, 아이템 효과 등으로 새로운 스탯이 필요하면 값을 추가한다.
+스탯 종류. 확장 가능하며 현재 값은 **RPG primary 스탯 6종**:
 
-- MaxHp
-- Attack
-- Defense
-- Speed
-- Mana
-- CriticalRate
-- EvasionRate
+- `Strength`
+- `Dexterity`
+- `Intelligence`
+- `Vitality`
+- `MoveSpeed`
+- `JumpPower`
 
-### Features/Entity 레이어
+> `LOPCombatSystem`은 `Strength`(공격)·`Dexterity`(회피/치명 관련)를, `MovementSystem`은
+> `MoveSpeed`/`JumpPower`를 읽는다.
 
-엔티티 전용 컴포넌트 구현체와 관련 타입.
+### `StatModifier` (struct) + `ModifierType` (enum)
 
-#### ModifierSource (Enum)
+스탯 보정값 하나를 표현하는 불변 구조체(`readonly struct StatModifier`):
 
-스탯 모디파이어의 출처 종류.
+- **`StatType`** (`int`): 어떤 스탯에 적용되는지 (`EntityStatType` 캐스트)
+- **`Value`** (`float`): 보정 수치
+- **`Type`** (`ModifierType`): 보정 방식
+- **`SourceId`** (`string`): 출처 식별자 — 같은 출처의 모디파이어를 일괄 해제할 때 사용
 
-- Equipment
-- Buff
-- Debuff
-- Passive
+`ModifierType`은 **합연산이 아니라 적용 방식**을 나눈다:
 
-#### EntityStatModifier (Struct)
+- `Flat` — 절대값 가산
+- `PercentAdd` — 퍼센트 가산(서로 더해짐)
+- `PercentMult` — 퍼센트 곱연산(각각 곱해짐)
 
-스탯 보정값 하나를 표현하는 직렬화 가능한 구조체. 다음 필드를 갖는다.
+최종값 계산: `(Base + ΣFlat) × (1 + ΣPercentAdd) × Π(1 + PercentMult)`.
 
-- **StatType**: 어떤 스탯에 적용되는지 (`EntityStatType`)
-- **Value**: 보정 수치
-- **Source**: 출처 종류 (`ModifierSource`)
-- **SourceId**: 출처 식별자 — 같은 출처에서 부여한 모디파이어를 일괄 해제할 때 사용
+> (역사 노트) 초기 설계의 `EntityStatModifier` + `ModifierSource`(Equipment/Buff/Debuff/Passive)는
+> 구현되지 않았다. 출처 종류 대신 `SourceId` 문자열로 일괄 해제한다.
 
-### 컴포넌트 구현체 (Features/Entity/Models)
+## 컴포넌트 인벤토리 (실제 존재)
 
-컴포넌트는 Anemic Domain Model 원칙을 따른다: 데이터와 파생 속성만 소유하고, 상태 변경 로직은 두지 않는다. 다른 컴포넌트를 직접 참조하지 않는다.
+모두 Anemic Domain Model — 데이터 + 파생 속성만. 다른 컴포넌트를 직접 참조하지 않는다.
 
-#### Stats
+### World Core (`GameFramework.World`, `World/Components/`)
 
-- **BaseStats**: 스탯 종류별 기본값 딕셔너리
-- **Modifiers**: 적용 중인 스탯 모디파이어 목록
+| 컴포넌트 | 데이터 | 파생/비고 |
+|---|---|---|
+| `Health` | `int Max`, `int Current` | `IsAlive`/`IsDead`. ctor `Health(int max)` |
+| `Mana` | `int Max`, `int Current` | ctor `Mana(int max)` |
+| `Level` | `int Value`, `long Exp`, `long ExpToNext` | |
+| `Stats` | `Dictionary<int,float> BaseStats`, `List<StatModifier> Modifiers`, `int UnspentPoints` | |
+| `Ownership` | `string OwnerId` (불변) | 존재 자체가 "플레이어/비-NPC" 마커 |
+| `Transform` | `System.Numerics.Vector3 Position`, `Quaternion Rotation` | 엔진 비의존이라 `System.Numerics` |
+| `Velocity` | `System.Numerics.Vector3 Linear` | 진실원본 (키네마틱 이동이 씀) |
 
-#### Health
+### LOP 도메인 (`namespace LOP`, LeagueOfPhysical-Shared `Runtime/Scripts/Game/`)
 
-- **CurrentHp**: 현재 체력
-- **MaxHp**: 최대 체력
-- **IsAlive / IsDead**: 체력 기반 파생 속성(읽기 전용)
-- 생성 시 CurrentHp를 MaxHp로 초기화
+- `StatusEffects` — `List<ActiveEffect> Effects` (상태이상 목록)
+- `Abilities` — 어빌리티 슬롯/활성 상태(`AbilitySlot`/`ActiveAbility`/`AbilityPhase`)
+- `InputBuffer` — 서버 입력 버퍼(구 `EntityInputComponent`, 입력-as-데이터로 rename)
+- `MotionContributions` — 외력(넉백 등) 기여 채널 (Additive)
+- `PredictedAbilityState` — 클라 예측/롤백용 어빌리티 상태 스냅샷
 
-#### Combat
+> **존재하지 않음**: `Combat`/`Dialogue`/`Interactable` 컴포넌트, `EntityFactory`. 초기 설계에만
+> 있던 것들로 구현되지 않았다. (`Combat`/`Ability`/`StatusEffect`라는 이름은 System 또는 MasterData
+> Luban 클래스로만 존재.)
 
-- **IsInCombat**: 전투 중 여부
+## Systems (처리 로직)
 
-#### Dialogue
+컴포넌트 데이터를 읽고 쓰는 모든 처리 로직은 System에 둔다. World Core System은 무상태 로직 클래스
+(상태는 컴포넌트에). Generation(룰/결정)과 Application(권위 상태 쓰기)을 별도 시그니처로 노출한다 —
+상세는 `docs/world-core-connection-architecture.md`의 Generation vs Application 절 참고.
 
-- **DialogueId**: 대화 식별자 (생성 시 지정, 불변)
+### World Core (`GameFramework.World`, `World/Systems/`)
 
-#### Interactable
+- **`HealthSystem`**: `TakeDamage(Health,int)`, `Heal(Health,int)`, `SetMax(Health,int)`,
+  `ApplyAuthoritativeState(Health, int max, int current)` (스냅샷 적용)
+- **`ManaSystem`**: `bool Spend(Mana,int)`, `ApplyAuthoritativeState(Mana,int,int)`
+- **`LevelSystem`**: `int AddExperience(Level,long)` (레벨업 처리 후 획득 statPoints 반환),
+  `ApplyAuthoritativeState(Level, int value, long exp)`
+- **`StatsSystem`**: 조회·모디파이어·base 관리 (아래)
 
-- **InteractionType**: 상호작용 종류 (생성 시 지정, 불변)
-- **IsInteractable**: 상호작용 가능 여부 (생성 시 기본 true)
+### `StatsSystem` API
 
-### 엔티티 조합 예시
+- `float GetValue(Stats, int statType)` — 최종값 (`(Base+ΣFlat)×(1+ΣPercentAdd)×Π(1+PercentMult)`)
+- `void AddModifier(Stats, StatModifier)`
+- `bool RemoveModifiersBySourceId(Stats, string sourceId)`
+- `void SetBase(Stats, int statType, float value)` / `float AddBase(Stats, int, float)` (새 base 반환)
+- `void AddUnspent(Stats, int)` / `void SetUnspent(Stats, int)`
+- `int Allocate(Stats, int statType)` — 미사용 포인트 1 소비 + base +1, 최종값 반환
 
-| 엔티티 | 컴포넌트 조합 |
+> Health/Mana/Level과 달리 `StatsSystem`에는 `ApplyAuthoritativeState`가 **없다** — 스탯은
+> per-tick 스냅샷을 보내지 않고 스폰/재접 시드 + `StatAllocation` 채널로만 싱크한다(하이브리드).
+
+### LOP 도메인 시스템 (`namespace LOP`)
+
+- **`LOPCombatSystem`** — `Attack(Entity attacker, Entity target, int baseDamage, long tick, int effectIndex, ulong matchSeed)`,
+  `IsDodge`/`IsCritical`(결정론 RNG). Strength/Dexterity를 `statsSystem.GetValue`로 읽음
+- **`MovementSystem`** — `Tick(Entity, long, float)` + `static MovementResult ProcessMovement(in MovementInput)`
+  (공유 순수 커널). velocity 단일 writer. MoveSpeed/JumpPower 읽음
+- **`KinematicMoveSystem`** — `Tick(Entity, float)`: 중력(분리된 수직 스텝) + collide-and-slide.
+  Transform/Velocity에 직접 씀 (`ICollisionQuery` 포트로 sweep)
+- **`AbilitySystem`** — `TryActivate`/`CanActivate`/`Grant`/`Tick` + `static HasActiveMotionEffect`
+- **`StatusEffectSystem`** — `Apply`/`Tick`/`Remove`
+- 보조: `MotionContributionSystem`, `InputBufferSystem`, `AbilityEffectExecutor`,
+  effect handler(`DamageEffectHandler`/`KnockbackEffectHandler`/`StatusEffectApplyEffectHandler`)
+
+## 엔티티 조합 예시
+
+| 엔티티 | 컴포넌트 조합 (현재) |
 |---|---|
-| 플레이어 | Stats + Health + Combat |
-| 몬스터 | Stats + Health + Combat |
-| 보스 | Stats + Health + Combat |
-| NPC | Dialogue (+ 필요시 Stats + Health) |
-| 상자/문 | Interactable |
-| 힐 영역 | Interactable + Stats (효과 수치용) |
+| 플레이어 | `Health` + `Mana` + `Level` + `Stats` + `Ownership` + `Transform` + `Velocity` + `Abilities` + `StatusEffects` + `InputBuffer` |
+| 적(AI) | `Health` + `Stats` + `Transform` + `Velocity` (+ 어빌리티/상태이상 필요 시) |
 
-### Systems (Features/Entity/Systems)
+> 조합은 크리에이터/`EntityCreationData`가 결정한다. NPC/상호작용 오브젝트(Dialogue/Interactable)는
+> 아직 콘텐츠가 없어 미구현.
 
-컴포넌트 데이터를 읽고 쓰는 모든 처리 로직은 System에 둔다.
+## Assembly / 레이어
 
-> 시스템 메서드는 Generation 측(룰/결정 로직, 예: `TakeDamage`)과 Application 측(이벤트 기반 쓰기, 예: `ApplyDamageDealt`)으로 분리해 노출한다. 분리 모델·페이즈·와이어 격리는 `docs/world-core-connection-architecture.md`의 [Generation vs Application](world-core-connection-architecture.md#generation-vs-application--결정과-적용의-분리) 섹션 참고.
-
-#### HealthSystem
-
-Health 컴포넌트의 상태를 변경하는 로직.
-
-- **TakeDamage** (Generation): CurrentHp 감소. 0 미만으로 내려가지 않도록 클램프
-- **Heal** (Generation): CurrentHp 증가. MaxHp를 초과하지 않도록 클램프
-- **SetMaxHp** (Generation): MaxHp 변경. 새 MaxHp보다 CurrentHp가 크면 CurrentHp를 조정
-- **ApplyDamageDealt** (Application, 슬라이스 3+): `DamageDealtEvent.remaining`을 그대로 Health.Current에 반영
-- **ApplyDeath** (Application, 슬라이스 3+): `DeathEvent` 수신 시 사망 마크
-
-#### StatsSystem
-
-Stats 컴포넌트의 조회와 모디파이어 관리.
-
-- **GetValue**: 특정 스탯의 최종값 반환 = BaseStats 값 + 해당 스탯의 모든 모디파이어 합. 없는 스탯은 0
-- **AddModifier**: 모디파이어 추가
-- **RemoveModifiersBySourceId**: 특정 SourceId의 모디파이어 일괄 제거
-- **RemoveModifiersBySource**: 특정 출처 종류(`ModifierSource`)의 모디파이어 일괄 제거
-
-#### EntityFactory
-
-자주 쓰는 컴포넌트 조합을 만들어 주는 편의 메서드. 직접 Entity 생성 + Add로 커스텀 조합도 가능하다.
-
-- **CreateCombatEntity**: Stats + Health + Combat 조합 생성
-- **CreateNpc**: Dialogue 컴포넌트 보유 엔티티 생성
-- **CreateInteractable**: Interactable 컴포넌트 보유 엔티티 생성
-
-## Folder Structure
-
-```
-Assets/Scripts/
-  Core/
-    Enums/
-      EntityStatType.cs
-    Interfaces/
-      IEntityComponent.cs
-    Entity/
-      Entity.cs
-
-  Features/
-    Entity/
-      Models/
-        Stats.cs
-        Health.cs
-        Combat.cs
-        Dialogue.cs
-        Interactable.cs
-      Enums/
-        ModifierSource.cs
-      Structs/
-        EntityStatModifier.cs
-      Systems/
-        EntityFactory.cs
-        HealthSystem.cs
-        StatsSystem.cs
-
-Assets/Tests/
-  EditMode/
-    Entity/
-      EntityTests.cs
-      StatsSystemTests.cs
-      HealthSystemTests.cs
-```
-
-## Assembly Definition References
-
-기존 레이어 asmdef를 사용한다.
-
-- **Core**: Entity, IEntityComponent, EntityStatType 추가
-- **Features**: 컴포넌트 구현체, EntityFactory 추가
-- **Tests.EditMode**: 테스트 추가
-
-Core asmdef는 `noEngineReferences: true`를 유지한다 — Entity와 IEntityComponent는 순수 C#.
-
-## Test Strategy
-
-EditMode 단위 테스트 (순수 C# 모델).
-
-### Entity Tests
-- Add로 컴포넌트 추가 후 Get으로 조회
-- Add 시 Owner 자동 설정
-- Has로 존재 여부 확인
-- Remove로 제거 후 Has == false
-- Remove 시 Owner가 null로 해제
-- 존재하지 않는 컴포넌트 Get 시 null 반환
-
-### StatsSystem Tests
-- BaseStats 설정 후 GetValue = Base 값 반환
-- Modifier 추가 후 GetValue = Base + Modifier 합산
-- 같은 StatType Modifier 여러 개 합산
-- RemoveModifiersBySourceId로 특정 출처 수정자 제거
-- RemoveModifiersBySource로 출처 종류별 일괄 제거
-- 없는 StatType 조회 시 0 반환
-
-### HealthSystem Tests
-- TakeDamage: CurrentHp 감소
-- TakeDamage: CurrentHp가 0 이하로 내려가지 않음
-- Heal: CurrentHp 증가
-- Heal: MaxHp 초과하지 않음
-- SetMaxHp: CurrentHp가 새 MaxHp 초과 시 조정
-
-### Health 컴포넌트 Tests
-- 생성 시 CurrentHp == MaxHp
-- IsAlive/IsDead 파생 속성 검증
-
-### Combat 컴포넌트 Tests
-- IsInCombat 기본값 false
-- 직접 값 설정 후 상태 확인
-
-### Interactable 컴포넌트 Tests
-- 생성 시 기본 IsInteractable == true
-- InteractionType 설정 확인
-
-### EntityFactory Tests
-- CreateCombatEntity: Stats + Health + Combat 조합 확인
-- CreateNpc: Dialogue 컴포넌트 확인
-- CreateInteractable: Interactable 컴포넌트 확인
+- **World Core**: `GameFramework.Runtime` asmdef. `noEngineReferences: true` 유지 — `Entity`,
+  `Component`, 스탯, 공통 컴포넌트/시스템 모두 순수 C#. `Transform`/`Velocity`가 `System.Numerics`를
+  쓰는 이유.
+- **LOP 도메인**: `baegames.LOP.Shared.Runtime` asmdef (`GameFramework.Runtime` 참조).
+- **테스트**: World Core는 GameFramework의 EditMode, LOP 도메인은 LeagueOfPhysical-Shared의 EditMode.
 
 ## Open Decisions
 
-- [ ] MonoBehaviour 컴포넌트 (월드 배치, 렌더링, 물리)
-- [ ] 전투 시스템 (System 레이어 — 데미지 계산, 턴 진행 등)
-- [ ] NPC의 HP 보유 여부 (전투 가능 NPC)
-- [ ] 엔티티 설정 데이터용 ScriptableObject (EntityData 등)
+- [ ] NPC/상호작용 오브젝트 컴포넌트(Dialogue/Interactable류) — 해당 콘텐츠 착수 시
+- [ ] 엔티티 설정 데이터 SO/MasterData 연동 확장
+- [ ] `Ownership` 외 팀/진영 마커

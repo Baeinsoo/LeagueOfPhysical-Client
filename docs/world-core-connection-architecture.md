@@ -57,8 +57,8 @@
 |---|---|---|
 | **① 판정** (HP≤0?) | **Detection** (Generation): 데미지 다 적용된 최종상태 스캔 → `DeathEvent` | `LOPCombatSystem`이 `TakeDamage` 직후 `health.IsDead` 인라인 |
 | **② 마크** (상태에 사망 기록) | **Application** (Projection): `DeathEvent` → 사망 마크 | 암묵적 — `Health.IsDead`가 HP≤0 파생 |
-| **③ 후처리** (despawn·loot·exp) | **Cascade (Generation/Resolve)**: resolve 단계(egress 전)에서 despawn·loot 직접 처리. 풀 이벤트화(`DespawnEvent`+Application)는 deferred 인프라(Stage④) | **`LOPGame.HandleDeath` — egress(fan-out) 경로 ⚠️ #2** → resolve 단계로 이전(진행 중) |
-| **④ 송출** (클라·VFX) | **Egress** (Projection): wire + presentation | `WorldEventSink`(클·서). 죽음 연출은 `DamageDealtEvent.IsDead`로 전달(별도 DeathEvent wire 없음) |
+| **③ 후처리** (despawn·loot·exp) | **Cascade (Generation/Resolve)**: resolve 단계(egress 전)에서 despawn·loot 직접 처리. 풀 이벤트화(`DespawnEvent`+Application)는 deferred 인프라(Stage④) | ✅ **`DeathCascadeSystem.Resolve` — resolve 단계(egress 전)**: `DeathEvent`마다 디스폰+경험치를 직접 처리. reactor/EventBus 왕복 제거됨(`LOPGame.HandleDeath` 삭제). 풀 이벤트화만 Stage④ |
+| **④ 송출** (클라·VFX) | **Egress** (Projection): wire + presentation | `WorldEventSink`(클·서). 죽음은 **`EntityDespawnToC`(디스폰) + HP 스냅샷**으로 전달 — `DamageDealtEvent`엔 HP·death 필드 없음(연출 전용: 데미지 숫자·크리·회피) |
 
 **서버권위:** 죽음 *판정·생성*은 서버 Resolve(②)에서만. 클라는 *받는다*(재해소 불가 — 공격자 스탯·RNG 모름). 그래서 "apply"가 서버=Resolve(생성층) / 클라=Projection(소비층)으로 의미가 다르다.
 
@@ -330,10 +330,10 @@ LOP 매핑: `LOPGameSimulation`(Shared) ↔ `LOPGameEngine`(각 사이드).
 
 ## 알려진 괴리 — 모델 vs 현재 코드 (cleanup backlog)
 
-모델은 위와 같고, 현재 코드는 slice-3 단순화라 어긋난 곳이 있었다. **#1·#3은 해소됨**(2026-06-22, HP 스냅샷 단일권위 슬라이스), **#2는 남음**:
+모델은 위와 같고, 현재 코드는 slice-3 단순화라 어긋난 곳이 있었다. **#1·#2·#3 모두 해소됨** (#1·#3은 2026-06-22 HP 스냅샷 단일권위 슬라이스, #2는 죽음 cascade 위치 교정):
 
 1. ~~**이중 apply**~~ ✅ **해소(2026-06-22)** — 서버 Generation이 `TakeDamage`로 mutate한 뒤 Application(`WorldEventApplicator`)이 `remaining`으로 재적용하던 중복을 제거. 서버·클라 양쪽 event-apply 삭제, 호출처가 사라진 `WorldEventApplicator`/`HealthSystem.ApplyDamageDealt`도 삭제. **Application 코드는 Stage④(Death 컴포넌트·클라 예측-apply)에서 새 모양으로 복귀.**
-2. **despawn이 fan-out에 (진행 중 — 위치 교정 슬라이스)** — `LOPGame.HandleDeath`(디스폰+경험치)가 egress(`ProcessEvent`의 `Emit` 뒤 `reactor.React`) 경로에서 상태를 바꿈 = "egress가 새 사실 생성" 안티패턴. → **죽음 cascade를 resolve 단계(egress 전)로 이전** + reactor/EventBus 왕복 제거(직접 처리). 풀 이벤트화(`DespawnEvent`+Application 적용)는 deferred 큐 인프라가 필요해 **Stage④로 미룸** — 지금은 *위치 교정만*(위 "선택적 deferral" 절 YAGNI).
+2. ~~**despawn이 fan-out에**~~ ✅ **해소** — 위치 교정 완료. 죽음 cascade(디스폰+경험치)가 **`DeathCascadeSystem.Resolve`로 resolve 단계(egress 전)에서 직접 처리**된다(서버 `LOPRunner.ProcessDeaths` → egress `ProcessEvent`보다 먼저 호출). 옛 egress 경로 안티패턴(`LOPGame.HandleDeath` + `reactor.React` + EventBus 왕복)은 **삭제됨**(`LOPGame` 클래스 자체가 없음). 남은 것은 풀 이벤트화(`DespawnEvent` + Application 적용)뿐 — deferred 큐 인프라가 필요해 **Stage④로 미룸**(위 "선택적 deferral" 절 YAGNI). 현재 death wire는 `EntityDespawnToC`(+ HP 스냅샷).
 3. ~~**이중 HP 경로**~~ ✅ **해소(2026-06-22)** — 클라가 `DamageDealtEvent.remaining`(event)과 `UserEntitySnap.CurrentHP`(state) 둘로 HP를 받던 것을 **HP 권위 = 스냅샷 state 단일화**로 정리(클라 event-apply 삭제). 이벤트는 연출 전용(숫자·크리·HP바·HUD). 단 HP **UI**가 아직 그 연출 이벤트에서 값을 읽는 잔여(scope B: UI를 스냅샷-fed 모델로 이전 + 와이어 이벤트에서 HP 흔적 제거)는 다음 슬라이스.
 
 ## 상태

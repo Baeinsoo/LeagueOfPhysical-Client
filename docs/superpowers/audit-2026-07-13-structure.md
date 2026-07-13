@@ -61,9 +61,11 @@
 
 ## 📄 문서 stale 정합 (저비용·고레버리지 — 자동 로드라 능동적 오해)
 
-- **`entity-system-design.md` 전면 stale** — 실제 코드와 불일치: `IEntityComponent`→실제 `abstract class Component`; `EntityStatType`(MaxHp/Attack/…)→실제(Strength/Dexterity/Intelligence/Vitality/MoveSpeed/JumpPower); `EntityStatModifier`+`ModifierSource`→실제 `StatModifier`+`ModifierType`(Flat→PercentAdd→PercentMult); `EntityFactory`/`Combat`/`Dialogue`/`Interactable` World/ 밑에 0건. **CLAUDE.md `@`로 매 세션 auto-load** → 능동적 오해. (HIGH-우선 문서작업.)
-- **`netcode-redesign.md` §2.2 stale** — `PlayerInputManager`를 "capture+predict+send 묶음"으로 서술하나, input-as-data(2026-07-02)로 이미 분리(`PlayerInputManager.cs:46-111`은 capture+InputBuffer write+send만). §4d "IInputSource 블로커"가 이미 해소인데 미반영.
-- **`world-core-connection-architecture.md` "알려진 괴리 #2"(despawn cascade)** — 이미 해소(`Server/DeathCascadeSystem.cs:28-79`, resolve 단계, `LOPRunner.cs:122` ProcessDeaths). 문서는 "남음"으로 서술. + death-wire를 `DamageDealtEvent.IsDead`로 서술하나 그 필드 없음(실제 death는 `EntityDespawnToC`).
+> ✅ **아래 3건 정합 완료 (2026-07-13, `docs/audit-stale-reconcile` 브랜치).** 정합 전 재검증에서 아래 원래 findings 중 **§2.2 항목은 부분 반박**됨(정정 반영).
+
+- ✅ **`entity-system-design.md` 전면 stale** — 재작성. 코드 위치(GameFramework.World + LOP-Shared, 이 repo 아님) 헤더 추가; `IEntityComponent`→`abstract class Component`; `EntityStatType`→실제 6종(Strength/Dexterity/Intelligence/Vitality/MoveSpeed/JumpPower); `EntityStatModifier`+`ModifierSource`→`StatModifier`+`ModifierType`(Flat/PercentAdd/PercentMult); 실제 컴포넌트 인벤토리(Health/Mana/Level/Stats/Ownership/Transform/Velocity + LOP StatusEffects/Abilities/InputBuffer/…)와 System(Health/Mana/Level/Stats + LOP Combat/Movement/Kinematic/Ability/StatusEffect); `Combat`/`Dialogue`/`Interactable`/`EntityFactory` 미존재 명시.
+- ✅ **`netcode-redesign.md` §2.2 stale** — 정정. ⚠️ **원 finding 부분 반박:** "capture+buffer+send만(예측 없음)"은 틀림 — `PlayerInputManager.ProcessInput`은 여전히 로컬 예측을 **트리거**한다(이동=`SetCurrent`→공유 `MovementSystem`, 어빌리티=`abilityActivator.TryActivate`). 따라서 §4d `IInputSource` provider는 *아직 미해소*(Stage④). 실제 오류는 서버 버퍼 컴포넌트 실명(`InputBuffer`, `InputBufferComponent`/`EntityInputComponent` 아님). §2 배너에 input-as-데이터 축 추가 + 구체 참조 교정.
+- ✅ **`world-core-connection-architecture.md` "알려진 괴리 #2"(despawn cascade)** — 해소 반영. `DeathCascadeSystem.Resolve`(resolve 단계, `LOPRunner.ProcessDeaths`가 egress보다 먼저), `LOPGame.HandleDeath`는 **삭제됨**(클래스 자체 없음). death-wire를 `DamageDealtEvent.IsDead`(존재하지 않는 필드)→실제 `EntityDespawnToC`(+HP 스냅샷)로 교정. 4단계 표 + 백로그 #2 둘 다 갱신.
 - **`#3-NC (Low)` `IWorld` DI 인터페이스 seam** — `Server/GameLifetimeScope.cs:30`(`Register<IWorld, LOPWorld>`)이 형제 `*System`(concrete 등록)과 불일치. connection-arch "시뮬=Register<Concrete>, I/O=Register<IFoo>" 컨벤션 회색지대(문서 미해소).
 - **`#2-NC`·`#7-NC` (Low) 넷코드 네임스페이스 분산** — `ClockDilator`/`InputTimingTracker`/`LeadController`/`INetworkTime`은 `GameFramework`, 나머지는 `GameFramework.Netcode`. 메모리 `[[netcode-namespace-consolidation]]` 인지(YAGNI).
 

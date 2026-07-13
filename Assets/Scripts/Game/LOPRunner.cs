@@ -89,7 +89,7 @@ namespace LOP
 
             ProcessNetworkMessage();
 
-            reconciler.Reconcile(Runner.Time.tick, (float)tickUpdater.interval, entityManager);
+            reconciler.Reconcile(Runner.Time.tick, (float)tickUpdater.interval);
 
             ProcessInput();
 
@@ -120,7 +120,7 @@ namespace LOP
             long tick = Runner.Time.tick;
             foreach (var entity in entityManager.GetEntities<LOPEntity>())
             {
-                abilityEffectExecutor.DriveActiveEntity(entityRegistry.Get(entity.entityId), entityManager, tick);
+                abilityEffectExecutor.DriveActiveEntity(entityRegistry.Get(entity.entityId), tick);
             }
         }
 

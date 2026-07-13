@@ -18,6 +18,9 @@ namespace LOP
         [Inject] private Reconciler reconciler;
         [Inject] private RemoteInterpolationClock remoteInterpolationClock;
 
+        // 스냅이 틱당 여러 메시지로 청킹돼 온다 → 도착 기록을 틱당 1회로 dedupe(간격 기반 추정기 왜곡 방지).
+        private long lastRecordedArrivalTick = long.MinValue;
+
         public void Initialize()
         {
             EventBus.Default.Subscribe<EntitySnapsToC>(nameof(IMessage), OnEntitySnapsToC);
@@ -43,7 +46,11 @@ namespace LOP
                 return;
             }
 
-            remoteInterpolationClock.RecordArrival(entitySnapsToC.Tick, UnityEngine.Time.timeAsDouble);
+            if (entitySnapsToC.Tick > lastRecordedArrivalTick)
+            {
+                remoteInterpolationClock.RecordArrival(entitySnapsToC.Tick, UnityEngine.Time.timeAsDouble);
+                lastRecordedArrivalTick = entitySnapsToC.Tick;
+            }
 
             foreach (var serverEntitySnap in entitySnapsToC.EntitySnaps.OrEmpty())
             {

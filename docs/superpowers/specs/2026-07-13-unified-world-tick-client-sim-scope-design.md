@@ -160,4 +160,5 @@ foreach 과거틱 t in (anchor+1 .. current-1):
 - [x] spec self-review (placeholder/일관성/범위/모호성 — 서버 페이즈 순서 보존 확인, 외력 재구성 명시)
 - [x] 사용자 spec 리뷰 (승인)
 - [x] `writing-plans`로 Sub-slice A 구현 plan 작성 → `docs/superpowers/plans/2026-07-13-unified-world-tick-sub-slice-a.md` (분해를 A/B/C로 보정 — LOPWorld 공유라 A는 양쪽 동작 보존)
-- [x] **Sub-slice A 구현·머지 (2026-07-13, 4 repo main)** — `Simulated` 마커 + `LOPWorld.Mutation` `Has<Simulated>` 순회 + driveeffects·외력 `world.Tick` 흡수. Shared EditMode 110/110, 플레이 무회귀. **넉백 부채 정산**(외력이 공통 이동 페이즈로). 남음: **Sub-slice B**(물리 브리지 포트·키네마틱 흡수) → **C**(클라 scope 축소 + Reconciler = world.Tick 재생 + `#6` 종결).
+- [x] **Sub-slice A 구현·머지 (2026-07-13, 4 repo main)** — `Simulated` 마커 + `LOPWorld.Mutation` `Has<Simulated>` 순회 + driveeffects·외력 `world.Tick` 흡수. Shared EditMode 110/110, 플레이 무회귀. **넉백 부채 정산**(외력이 공통 이동 페이즈로).
+- [x] **Sub-slice B 구현·머지 (2026-07-13, 4 repo main)** — 클라 `Simulated` 내 캐릭만으로 축소 + `IMotionBridge` 포트(클·서 `LOPMotionBridge`) + 키네마틱을 `LOPWorld.Tick` 물리 페이즈로 흡수 + host `MoveCharacters`/`MoveLocalPlayer` 제거. **`world.Tick` 5페이즈 단일 진입점 완성.** Shared EditMode 111/111, 플레이 무회귀. gotcha: 클라 `IEntityManager` DI 미등록이라 브릿지 주입 실패 → 클라 스코프에 등록 추가로 fix. 남음: **Sub-slice C**(Reconciler = world.Tick 재생 + `#6` 종결).

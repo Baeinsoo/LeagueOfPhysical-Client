@@ -162,4 +162,9 @@ foreach 과거틱 t in (anchor+1 .. current-1):
 - [x] `writing-plans`로 Sub-slice A 구현 plan 작성 → `docs/superpowers/plans/2026-07-13-unified-world-tick-sub-slice-a.md` (분해를 A/B/C로 보정 — LOPWorld 공유라 A는 양쪽 동작 보존)
 - [x] **Sub-slice A 구현·머지 (2026-07-13, 4 repo main)** — `Simulated` 마커 + `LOPWorld.Mutation` `Has<Simulated>` 순회 + driveeffects·외력 `world.Tick` 흡수. Shared EditMode 110/110, 플레이 무회귀. **넉백 부채 정산**(외력이 공통 이동 페이즈로).
 - [x] **Sub-slice B 구현·머지 (2026-07-13, 4 repo main)** — 클라 `Simulated` 내 캐릭만으로 축소 + `IMotionBridge` 포트 + 키네마틱을 `LOPWorld.Tick` 물리 페이즈로 흡수 + host `MoveCharacters`/`MoveLocalPlayer` 제거. **`world.Tick` 5페이즈 단일 진입점 완성.** Shared EditMode 111/111, 플레이 무회귀.
-- [x] **후속 리팩터: 모션 브릿지 공유화 (2026-07-13, 4 repo main)** — B는 per-side `LOPMotionBridge` 2개(→클라 `IEntityManager` DI gotcha)로 착수했으나, 사용자 지적("구조·개념 공통이면 shared로")에 따라 **공유 concrete 1개 `MotionBridge` + 공유 `PhysicsBody`(rb/콜라이더 핸들) 컴포넌트**로 통합. 포트(`IMotionBridge`, `GameFramework.World`로 이동—Entity 받으니 `IEventSink`와 동일 어셈블리) 유지 → 경계·테스트 seam 유지, `UnityCollisionQuery↔ICollisionQuery`와 동형. 중복 2개 + DI gotcha 동시 해소. 남음: **Sub-slice C**(Reconciler = world.Tick 재생 + `#6` 종결).
+- [x] **후속 리팩터: 모션 브릿지 공유화 (2026-07-13, 4 repo main)** — B는 per-side `LOPMotionBridge` 2개(→클라 `IEntityManager` DI gotcha)로 착수했으나, 사용자 지적("구조·개념 공통이면 shared로")에 따라 **공유 concrete 1개 `MotionBridge` + 공유 `PhysicsBody`(rb/콜라이더 핸들) 컴포넌트**로 통합. 포트(`IMotionBridge`, `GameFramework.World`로 이동—Entity 받으니 `IEventSink`와 동일 어셈블리) 유지 → 경계·테스트 seam 유지, `UnityCollisionQuery↔ICollisionQuery`와 동형. 중복 2개 + DI gotcha 동시 해소.
+- [x] **Sub-slice C 구현·머지 (2026-07-13, 클라 repo main)** — `Reconciler`의 수기 5시스템 재생 시퀀스를 단일 `world.Tick(t, dt)`로 교체. 클라 Simulated=내 캐릭만이라 재생 중 `world.Tick`이 내 캐릭만 재생. 미사용 시스템 5개 주입→`IWorld` 하나로. 클라 컴파일 클린 + 롤백(공중 점프/대시/넉백) 플레이 무회귀. **→ `#6` 종결: 라이브·재생 둘 다 `world.Tick` = 두 벌 수기 시퀀스 소멸, `IWorld.Tick`이 단일 결정론 진입점.**
+
+## 완료 (2026-07-13)
+
+`#6` 전체 종결. spec 목표(단일 진입점 world.Tick + 클라 시뮬 범위 표준 정합 → 라이브==재생 → 수기 시퀀스 desync 실패 클래스 제거) 달성. Sub-slice A/B/C + 모션 브릿지 공유화 전부 4-repo main 머지, 각 슬라이스 플레이 무회귀 확인.

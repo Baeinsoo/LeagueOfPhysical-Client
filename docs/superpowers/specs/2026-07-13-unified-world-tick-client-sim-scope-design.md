@@ -119,11 +119,17 @@ foreach 과거틱 t in (anchor+1 .. current-1):
 ### Sub-slice A — 기반 (양쪽 동작 보존)
 `Simulated` 마커 도입 + **양쪽 `CharacterCreator`가 현재 틱하던 셋을 그대로 마킹**(서버=전 캐릭 / 클라=전 캐릭 = 현행 유지). `LOPWorld.Tick`(Mutation)이 `Has<Simulated>` 순회. `AbilityEffectExecutor`(driveeffects)를 `world.Tick`에 흡수 + 양쪽 `LOPRunner`가 `DriveAbilityEffects()` 호출 제거. `MovementSystem.Tick`을 재구성해 입력 없는 Simulated 엔티티(서버 AI)도 외력 resolve → 서버 `MoveCharacters`의 임시 AI 분기(`ApplyToVelocity`) 제거(넉백 부채 정산). **클·서 양쪽 동작 무변경**(컴파일 + 서버/클라 플레이 무회귀 + Shared EditMode). 키네마틱은 아직 host `MoveCharacters`/`MoveLocalPlayer`에 남김.
 
-### Sub-slice B — 물리 흡수 (양쪽 동작 보존)
-`IMotionBridge` 포트(`SyncTransforms`/`Depenetrate(id)`/`PushMotion(id)`) + 클·서 구체 + 키네마틱을 `world.Tick`에 흡수 + 양쪽 `LOPRunner`가 `MoveCharacters`/`MoveLocalPlayer` 호출 제거. **5페이즈 단일 진입점 완성.** 양쪽 동작 무변경.
+### Sub-slice B — 클라 scope 축소 + 물리 흡수 (양쪽 동작 보존)
+> **⚠️ 보정 (2026-07-13, B 착수 시):** 키네마틱을 `world.Tick`(Simulated 순회)에 흡수하면 클라가 **전 캐릭 Simulated**(A)라 원격까지 키네마틱 이동시켜 스냅 팔로워를 깬다. 그래서 **클라 scope 축소(내 캐릭만)를 C에서 B로 앞당긴다.** 이는 무변경 — 클라 원격 틱은 전부 no-op(`AbilitySystem.Tick`은 `ActiveAbility==null`이면 즉시 return, 원격은 `TryActivate` 안 받음 / `MovementSystem`은 빈 contributions로 같은 값 재기록 / 상태·효과 no-op).
 
-### Sub-slice C — 클라 scope + `#6` 종결
-클라 `CharacterCreator`가 마커를 **내 캐릭만**으로 좁힘(남/NPC 마킹 제거 → 자동 보간 전용) + `Reconciler`를 `world.Tick` 재생으로 재작성(수기 5줄 시퀀스 삭제) + 죽은 남 틱 무회귀 확인. **여기서 `#6`이 실제로 닫힘.** 검증: 공중 점프/대시/넉백 롤백 재생 무회귀(육안 + Recon HUD), 남 연출 무회귀.
+- **클라 `CharacterCreator`가 마커를 내 캐릭(`isUserEntity`)에만** 부착(남/NPC 마킹 제거 → 자동 보간 전용, 죽은 남 틱 제거).
+- **`IMotionBridge` 포트**(`SyncTransforms`/`Depenetrate(id)`/`PushMotion(id)`) 신설 + 클·서 구체(`LOPMotionBridge`, `LOPEntity`/`PhysicsComponent` 래핑). 인터페이스는 GameFramework(다른 포트와 동일 레이어).
+- **키네마틱을 `world.Tick`에 흡수**: `LOPWorld.Tick` 물리 페이즈 = `bridge.SyncTransforms()` → `foreach Simulated: bridge.Depenetrate(id); kinematicMoveSystem.Tick(e); bridge.PushMotion(id)`. `LOPWorld` ctor에 `KinematicMoveSystem`+`IMotionBridge` 추가.
+- **양쪽 `LOPRunner`가 `MoveCharacters`/`MoveLocalPlayer` 제거.** **5페이즈 단일 진입점 완성.**
+- 검증: 양쪽 동작 무변경(서버=전 캐릭 키네마틱 / 클라=내 캐릭만, 원격 보간 유지). Shared EditMode + 플레이(이동/점프/대시/넉백/원격 보간).
+
+### Sub-slice C — `Reconciler` = `world.Tick` 재생 (`#6` 종결)
+`Reconciler`를 재작성 — 수기 5줄 시퀀스(movement→ability→status→driveeffects→kinematic) 삭제, `상태 복원 → foreach 과거틱: 입력 재주입 + world.Tick`으로. 재생 중엔 클라 Simulated=내 캐릭만이라 `world.Tick`이 자연히 내 캐릭만 재생. **여기서 `#6`이 실제로 닫힘**(라이브==재생, 두 벌 시퀀스 소멸). 검증: 공중 점프/대시/넉백 롤백 재생 무회귀(육안 + Recon HUD).
 
 ## Out of Scope
 

@@ -66,15 +66,6 @@ namespace LOP
 
         public override void UpdateEntity()
         {
-            UpdateStatuses();
-        }
-
-        private void UpdateStatuses()
-        {
-            foreach (var status in this.GetEntityComponents<Status>().OrEmpty())
-            {
-                status.UpdateStatus();
-            }
         }
 
         public void SyncPhysics()

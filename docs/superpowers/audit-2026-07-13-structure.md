@@ -53,8 +53,8 @@
 - **#5-AC (Low→High-if-unnoticed, M) `ctx.Target` 항상 자기자신** — 실 타게팅 없음. `AbilityActivator.cs:37`/`Reconciler.cs:137`/`EnemyBrain.cs:47` 전부 target==caster. `StatusEffectApplyEffectHandler`가 `ctx.Target`에 적용 → 미래 비-자기 status(디버프/힐)가 조용히 시전자에 적용될 함정. GAS `TargetData` 대응 없음.
 - **#4-AC (Low-Med, S) 크리/회피 상수 하드코딩** — `LOPCombatSystem.cs:99`(dodge clamp 0.05~0.95), `:107`(crit 0.05~0.50), `:71`(crit mult 1.25~1.75). MasterData(`TbCombatConfig` 등)로 승격 여지.
 - **#4-NC (Low-Med, S) 링버퍼 3벌 중복** — `GameFramework/Netcode/SnapshotHistory.cs`, `Shared/InputHistory.cs`, `Shared/PredictedAbilityStateHistory.cs` 동일 `tick%capacity` 슬롯팅. 공유 제네릭 `RingBuffer<T>` 없음.
-- **#6-NC (Low, S) 죽은 레거시 `Status` 매틱 실행** — `Client/LOPEntity.cs:67-78`(`UpdateStatuses` 매틱) + `Component/Status.cs`. 구체 `Status` 서브클래스 0(World Core StatusEffect로 대체됨). 죽은 코드.
-- **#5-DM (Low-Med, S) `MessageHandler<T>` 죽은 코드** — `Shared/Network/Message/MessageHandler.cs:9-42` 사용처 0. 실제 라우팅은 `MessageFactory`+`LOPRoom.cs:80`+`EventBus`. topology 문서가 지목한 추상이 안 돎.
+- ✅ **#6-NC 죽은 레거시 `Status` 매틱 제거 — 완료 (07-13)** — 구체 `Status` 서브클래스 0 재확인 → `Component/Status.cs` 삭제 + `LOPEntity.UpdateStatuses` 제거(`UpdateEntity`는 `MonoEntity` abstract 계약이라 빈 override 잔류). 클·서 클린 컴파일. Client `cleanup/dead-status-matic`.
+- ✅ **#5-DM `MessageHandler<T>` 죽은 코드 제거 — 완료 (07-13)** — 4레포 전수 사용처 0 재확인 → `Shared/Network/Message/MessageHandler.cs` 삭제. 실 라우팅은 `MessageFactory`+`LOPRoom.cs:80`+`EventBus`. Shared `cleanup/dead-message-handler`.
 - **#6-DM (Med-Low, S) `LoginService` MonoSingleton+`[DIMonoBehaviour]` 혼종** — `Client/Login/LoginService.cs:13`. static accessor + `[Inject]` 동시 → 수명 모호.
 - **#1-UI (Med, M) `MatchMakingViewModel`이 코디네이터 대신 직접 네비게이션** — `Client/UI/MatchMaking/MatchMakingViewModel.cs:42-65`(`_windowManager.Open`/`Close` + child View API 직접). guidelines "큰 흐름=코디네이터" 위배. 옳은 예: `PlayerHudCoordinator.cs`/`LOPGamePresenter.cs`.
 - **#3-UI (Low, S) `PercentBar` 위젯 미추출** — `Client/UI/CharacterHud/CharacterHudView.cs:58-63`(`SetBar`)와 `WorldSpace/CharacterNameplate.cs:101-110`(`UpdateHpBar`) 동일 `Length.Percent` 채우기 중복. 문서가 `HealthBar:VisualElement`를 정본 예로 지목.

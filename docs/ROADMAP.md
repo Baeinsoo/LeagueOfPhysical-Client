@@ -83,7 +83,7 @@
 
 ### 구조 정리 백로그 (2026-07-13 전반 감사)
 
-전반 구조/구현을 업계 표준 대비 5영역 병렬 감사. 코드는 대체로 건강 — 유의미한 것만. 소스 레벨 확인됨.
+전반 구조/구현을 업계 표준 대비 5영역 병렬 감사. 코드는 대체로 건강 — 유의미한 것만. 소스 레벨 확인됨. **전체 findings 상세(file:line·심각도·노력): `docs/superpowers/audit-2026-07-13-structure.md`.**
 
 - ✅ **#1 데미지 Amount 데이터 구동** (07-13) — `LOPCombatSystem.Attack`에 baseDamage 배선 → `DamageEffect.Amount` 소비(무동작; attack Amount=10=옛 하드코딩). 이제 Excel로 데미지 조정 가능.
 - ✅ **#2 넉백 공유화 + `AttackSector` 추출** (07-13) — 넉백을 `IOverlapQuery`+`World.Transform`로 이관(마지막 World Core 우회 제거), 부채꼴 판정 공유 헬퍼화(Damage/Knockback 복사본 2벌 제거). 18 EditMode.

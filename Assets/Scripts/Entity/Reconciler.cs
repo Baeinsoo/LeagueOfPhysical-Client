@@ -44,7 +44,7 @@ namespace LOP
         }
 
         /// <summary>틱 앞에서 호출. 대기 스냅이 있고 예측이 어긋났으면 복원+재생.</summary>
-        public void Reconcile(long currentTick, float deltaTime, GameFramework.IEntityManager entityManager)
+        public void Reconcile(long currentTick, float deltaTime)
         {
             if (!hasPending)
             {
@@ -140,7 +140,7 @@ namespace LOP
                     movementSystem.Tick(worldEntity, t, deltaTime);
                     abilitySystem.Tick(worldEntity, t);
                     statusEffectSystem.Tick(worldEntity, t);
-                    abilityEffectExecutor.DriveActiveEntity(worldEntity, entityManager, t);
+                    abilityEffectExecutor.DriveActiveEntity(worldEntity, t);
 
                     // 재생: 서버 MoveCharacters와 동일한 키네마틱 한 틱.
                     Physics.SyncTransforms();

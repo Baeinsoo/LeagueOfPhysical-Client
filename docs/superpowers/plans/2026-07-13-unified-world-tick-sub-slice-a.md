@@ -1,5 +1,7 @@
 # 통합 World Tick — Sub-slice A (기반, 양쪽 동작 보존) Implementation Plan
 
+> ✅ **완료·머지됨 (2026-07-13, 4 repo main).** 5개 Task 전부 구현, Shared EditMode 110/110 green, 클·서 컴파일 클린, 플레이 무회귀 확인. 넉백 부채(외력 공통 루프 이전)도 이 슬라이스로 정산(외력 resolve가 `MovementSystem.Tick` 이동 페이즈로 흡수). 다음 = Sub-slice B(물리 브리지 포트·키네마틱 흡수).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** `Simulated` 마커를 도입하고 `LOPWorld.Tick`이 그것만 순회하게 바꾼 뒤, driveeffects(어빌리티 효과 구동)와 외력(넉백) resolve를 `world.Tick`으로 흡수한다 — **클·서 양쪽 동작 무변경**.

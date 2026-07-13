@@ -37,15 +37,16 @@
 - **위배:** architecture-guidelines "R3 통일" + VContainer DI(이벤트 소스만 static 글로벌). 룸 재입장 시 leak 위험(`GameDataStore.cs:11-21` 주석이 경고).
 - **수정:** R3 MessageBroker + DI 등록으로. (큰 작업 — 메시징·연출 fan-out 연결조직.)
 
-### #3-WC (Med, M) `ctx.EntityManager` 레거시 탈출구 제거
-- **위치:** `Shared/Ability/AbilityEffectContext.cs:9,16`(`IEntityManager EntityManager`, 구 `GameFramework/Entity/IEntityManager` = UnityEngine 의존). 소비 `AbilityEffectExecutor.cs`.
-- **위배:** velocity 권위 World.Entity 이전(2026-07-09) 후 제거됐어야. **#2로 마지막 소비처(넉백) 정리됨** → 잔여 소비처 확인 후 필드 제거 가능. (StatusEffectApplyEffectHandler 등 확인 필요.)
+### ✅ #3-WC (Med, M) `ctx.EntityManager` 레거시 탈출구 제거 — 완료 (07-13)
+- **위치(였음):** `Shared/Ability/AbilityEffectContext.cs`(`IEntityManager EntityManager`, 구 `GameFramework/Entity/IEntityManager` = UnityEngine 의존). 소비 `AbilityEffectExecutor.cs`.
+- **재검증 결과:** 필드는 **완전한 죽은 pass-through** — 어떤 핸들러도 읽지 않음(Damage/Knockback/StatusEffectApply 전부 이미 `EntityRegistry`+`IOverlapQuery`로 이전 완료). executor가 파라미터로 받아 ctx에 복사만 하고 소비처 0.
+- **수정:** 필드+ctor 파라미터 삭제, `DriveActiveEntity`의 `IEntityManager` 파라미터+2개 전파 복사 삭제, 호출부(Server/Client `LOPRunner`, Client `Reconciler` — 미사용 `Reconcile` 파라미터까지) + 테스트 5곳 정리. 순수 시그니처 변경(동작 무변경, Shared 111 EditMode green).
 
 ---
 
 ## ⏳ 남은 것 — Tier 3 (정리/일관성, 저심각)
 
-- **적(AI) 넉백 미적용** (플레이 발견) — `MotionContributionSystem.Resolve`가 `MovementSystem.Tick`(InputBuffer 게이트, `MovementSystem.cs:64-72`) 안에서만 실행 → AI(버퍼 없음) 스킵, `EnemyBrain.cs:52-53`이 velocity 직접 세팅. 넉백 기여 붙지만 미해소. **수정:** AI/적 velocity를 `MotionContributionSystem.Resolve`에 태우기(외력 플레이어·AI 공통화).
+- ✅ **적(AI) 넉백 미적용 — 완료 (07-13)** — `MotionContributionSystem.Resolve`/`Prune`이 `MovementSystem.Tick`(InputBuffer 게이트) 안에서만 실행 → AI(버퍼 없음) 스킵, 넉백 기여가 folding 안 됨. **수정:** 재사용 헬퍼 `MotionContributionSystem.ApplyToVelocity(entity, tick)`(현재 수평 velocity를 base로 외력 folding, y 보존, 프루닝) 신설 + 서버 `MoveCharacters`에서 입력 비조종(AI) 캐릭에 호출(KinematicMove 통합 전). **공유 `MovementSystem.Tick`은 안 건드림** — 클라 원격은 스냅 팔로워라 게이트 밖으로 빼면 스냅샷 권위와 충돌(그래서 서버 host 쪽에서 AI만 folding). 플레이어는 여전히 `MovementSystem.Tick`이 입력 base로 같은 `Resolve`를 태움. EditMode +4. ⏳ **남은 검증: 인게임 플레이 관찰**(클·서 매치에서 적 타격 → 넉백 육안).
 - **#5-AC (Low→High-if-unnoticed, M) `ctx.Target` 항상 자기자신** — 실 타게팅 없음. `AbilityActivator.cs:37`/`Reconciler.cs:137`/`EnemyBrain.cs:47` 전부 target==caster. `StatusEffectApplyEffectHandler`가 `ctx.Target`에 적용 → 미래 비-자기 status(디버프/힐)가 조용히 시전자에 적용될 함정. GAS `TargetData` 대응 없음.
 - **#4-AC (Low-Med, S) 크리/회피 상수 하드코딩** — `LOPCombatSystem.cs:99`(dodge clamp 0.05~0.95), `:107`(crit 0.05~0.50), `:71`(crit mult 1.25~1.75). MasterData(`TbCombatConfig` 등)로 승격 여지.
 - **#4-NC (Low-Med, S) 링버퍼 3벌 중복** — `GameFramework/Netcode/SnapshotHistory.cs`, `Shared/InputHistory.cs`, `Shared/PredictedAbilityStateHistory.cs` 동일 `tick%capacity` 슬롯팅. 공유 제네릭 `RingBuffer<T>` 없음.

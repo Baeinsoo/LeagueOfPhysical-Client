@@ -87,8 +87,9 @@
 
 - ✅ **#1 데미지 Amount 데이터 구동** (07-13) — `LOPCombatSystem.Attack`에 baseDamage 배선 → `DamageEffect.Amount` 소비(무동작; attack Amount=10=옛 하드코딩). 이제 Excel로 데미지 조정 가능.
 - ✅ **#2 넉백 공유화 + `AttackSector` 추출** (07-13) — 넉백을 `IOverlapQuery`+`World.Transform`로 이관(마지막 World Core 우회 제거), 부채꼴 판정 공유 헬퍼화(Damage/Knockback 복사본 2벌 제거). 18 EditMode.
-- ⏳ **#4 스냅샷 채널 reliable→unreliable** — 서버 per-tick `EntitySnapsToC`/`UserEntitySnapToC`가 reliable 디폴트. durable=스냅샷=유실허용이 정석(입력측은 이미 unreliable). 저비용.
-- ⏳ **#5 `generate_protos.sh` MessageId 보존** — 스크립트가 `MessageIds.cs`를 지우고 재생성 → 전체 파이프라인 돌리면 ID 재번호(wire desync). 절차적 우회만 있고 스크립트 미패치.
+- ⏳ **#4 스냅샷 채널 reliable→unreliable (서브셋 청킹)** — 통짜 flip은 실패: Mirror unreliable은 조각내기 불가라 `EntitySnapsToC`(~1200B, 전 엔티티 한 메시지) > **1184B** → 드롭(플레이서 확인). **표준 해법 = 서브셋 청킹**(Quake/Source): 엔티티를 바이트 예산(~1100B)으로 나눠 **여러 EntitySnapsToC(같은 tick) unreliable** 송신 — 각 청크 독립이라 손실 시 그 엔티티만 한 틱 놓침(Fiedler fragment-재조립의 손실 복리 회피). **클라 무변경**(이미 메시지·엔티티별 loop + tick stale 무시). 델타 압축(C)은 엔티티 많아질 때 후속. UserEntitySnap은 reliable 유지(소용량, #5에서 결정). 근거: `[[snapshot-mtu-chunking]]`.
+- ✅ **#5 `generate_protos.sh` MessageId 보존** (07-13) — 부모 스크립트의 `rm MessageIds.cs` 제거. `generate_message_ids.sh`의 기존-ID-보존 로직이 이제 작동(파일이 있어야 읽어 보존). 검증: 서브스크립트 재실행 시 13개 ID 전부 불변. 메모리 gotcha 해소 → `[[proto-message-id-regen-gotcha]]`.
+  - **UserEntitySnapToC → unreliable은 안 함(결정):** 한 엔티티(내 HP/MP/레벨) 소용량이라 reliable head-of-line-blocking 비용이 작음. 번호표(tick)+가드 들일 값어치 낮음 → **reliable 유지.** (스냅=unreliable 정석은 고빈도·대용량 스트림[위치]에서 값을 함.)
 - **신규(플레이 발견): 적(AI) 넉백 미적용** — `MotionContributionSystem.Resolve`가 `MovementSystem`(입력 게이트, InputBuffer 필요) 안에서만 실행 → AI(버퍼 없음)는 스킵, `EnemyBrain`이 velocity 직접 세팅. 넉백 기여는 붙지만 미해소. **AI 이동을 기여 채널에 태우면 해소**(외력을 플레이어·AI 공통화). 별개 게임플레이 수정. (#2 회귀 아님 — 이동 경로 문제.)
 - **Tier-2/3 (별도 슬라이스):** #6 Reconciler 재생이 `LOPWorld.Mutation` 시스템 시퀀스 수기 복제(desync 실패 클래스) · #7 `WorldEventBatch` 단일 envelope 미구현(개념별 패킷 `DamageEventToC` 등) · #8 static `EventBus.Default`(DI/R3 밖) · `ctx.EntityManager` 탈출구 제거(#2로 마지막 소비처 정리 — 잔여 확인 후 제거) · 문서 stale(`entity-system-design.md` 전면, netcode-redesign, connection-arch backlog) · 크리/회피 상수 하드코딩 · `ctx.Target` 항상 자기자신(실 타게팅 없음) · 링버퍼 3중복 · 죽은 레거시 `Status` 매틱.
 

@@ -1,0 +1,84 @@
+# 전반 구조/구현 감사 — 2026-07-13
+
+업계 표준(DOTS/Quantum/GAS/Source/Overwatch/MVVM/CommonUI/VContainer/CQRS) 대비 5영역 병렬 감사(World Core / 넷코드 / 어빌리티·전투 / UI / DI·메시징). **코드는 전반적으로 건강** — anemic 모델·System/커널 규율·DI 스코프·UI MVVM·sim/host 분리 모두 표준 충실. 아래는 유의미한 divergence만(소스 레벨 확인).
+
+> 상태 원장은 `ROADMAP.md`의 "구조 정리 백로그". 이 문서는 그 **세부 백킹**(file:line·근거). 상태: ✅완료 / ⏳남음 / 📄문서 / ⚪비이슈(정당한 예외).
+
+---
+
+## ✅ 이 세션 완료 (#1·#2·#4·#5, 2026-07-13)
+
+| # | 발견 | 위치 | 커밋 |
+|---|---|---|---|
+| **#1** | `DamageEffect.Amount` 죽은 데이터 — 데미지 하드코딩(10+STR×3), MasterData Amount 무시 | `LOPCombatSystem.cs:24,46,55` · `AbilityDataProvider.cs:53` | LOP-Shared `0a8e0d2` |
+| **#2** | 넉백 핸들러가 World Core/`IOverlapQuery` 우회(Unity Physics+ctx.EntityManager) + 부채꼴 수학 중복 | `Server/KnockbackEffectHandler.cs:21-58` | Shared `f8474e5`+Server `836e83e` (`AttackSector` 추출) |
+| **#4** | per-tick 위치 스냅이 reliable 채널 | `Server/LOPRunner.cs:315` | 서브셋 청킹 Server `459b550`+Client `d1f22bb` (`[[snapshot-mtu-chunking]]`) |
+| **#5** | `generate_protos.sh`가 `MessageIds.cs` 파괴 → ID 재번호 wire desync | `Shared/Scripts/generate_protos.sh:7` | Shared `52ecb3c` |
+
+부수: `AttackSector` 공유 헬퍼(Damage/Knockback 부채꼴 중복 제거) · **적 넉백 갭 발견**(아래) · game-scene-scope 이미 구현됨 확인(파킹 해제).
+
+---
+
+## ⏳ 남은 것 — Tier 2 (별도 슬라이스, 유의미)
+
+### #6 (넷코드 HIGH, M) Reconciler 재생이 `LOPWorld.Mutation` 시스템 시퀀스를 수기 복제
+- **위치:** `Client/Reconciler.cs:140-148` (replay가 `movementSystem.Tick`→`abilitySystem.Tick`→`statusEffectSystem.Tick`→`abilityEffectExecutor.DriveActiveEntity`→`kinematicMoveSystem.Tick` 개별 호출) vs `Shared/LOPWorld.cs:22-36`(`Mutation`) + `LOPRunner.cs:102-105`.
+- **위배:** `IWorld.Tick`이 *단일* 결정론 진입점이어야(connection-arch "코어 능력"). 지금 라이브 경로와 재생 경로가 **두 벌 수기 시퀀스** → 컴파일러 아닌 기억으로 lockstep. 메모리 `[[hard-rollback-input-tick-alignment]]`의 desync 실패 클래스.
+- **수정:** per-entity-filtered `IWorld.Tick` 또는 공유 "TickEntity" 헬퍼를 양쪽이 호출.
+- **문서 인지:** 부분(connection-arch "알려진 괴리"가 `DriveAbilityEffects`/물리 페이즈 흡수는 언급하나 Reconciler 중복은 미언급).
+
+### #7 (DI HIGH, M) `WorldEventBatch` 단일 envelope 미구현 — 개념별 패킷이 와이어에
+- **위치:** `Server/WorldEventSink.cs:29,50`(`new DamageEventToC`/`new AbilityActivatedToC` + `session.Send` 개별) · 클라 미러 `Client/WorldEventSink.cs`. `WorldEventBatch` 전체 소스 0건. proto `DamageEventToC.proto`/`AbilityActivatedToC.proto`.
+- **위배:** connection-arch "와이어 추상" — 단일 폴리모픽 `WorldEventBatch`가 여러 `WorldEvent` 운반, "개념별 패킷 신설 안 함" 명시. 지금은 정반대(새 이벤트마다 패킷+MessageId 증식).
+- **수정:** `WorldEventBatch` 도입, 레거시 `ToC`는 수신 어댑터에서 `WorldEvent`로 변환 격리.
+
+### #8 (DI Med-High, L) static `EventBus.Default` 글로벌 버스 — DI/R3 밖
+- **위치:** `GameFramework/EventBus/EventBus.cs:7`(`static IEventBus Default`). 모든 메시지 핸들러·뷰가 여기 구독(`LOPRoom.cs:80`). topic+Type-keyed Dictionary, R3 아님.
+- **위배:** architecture-guidelines "R3 통일" + VContainer DI(이벤트 소스만 static 글로벌). 룸 재입장 시 leak 위험(`GameDataStore.cs:11-21` 주석이 경고).
+- **수정:** R3 MessageBroker + DI 등록으로. (큰 작업 — 메시징·연출 fan-out 연결조직.)
+
+### #3-WC (Med, M) `ctx.EntityManager` 레거시 탈출구 제거
+- **위치:** `Shared/Ability/AbilityEffectContext.cs:9,16`(`IEntityManager EntityManager`, 구 `GameFramework/Entity/IEntityManager` = UnityEngine 의존). 소비 `AbilityEffectExecutor.cs`.
+- **위배:** velocity 권위 World.Entity 이전(2026-07-09) 후 제거됐어야. **#2로 마지막 소비처(넉백) 정리됨** → 잔여 소비처 확인 후 필드 제거 가능. (StatusEffectApplyEffectHandler 등 확인 필요.)
+
+---
+
+## ⏳ 남은 것 — Tier 3 (정리/일관성, 저심각)
+
+- **적(AI) 넉백 미적용** (플레이 발견) — `MotionContributionSystem.Resolve`가 `MovementSystem.Tick`(InputBuffer 게이트, `MovementSystem.cs:64-72`) 안에서만 실행 → AI(버퍼 없음) 스킵, `EnemyBrain.cs:52-53`이 velocity 직접 세팅. 넉백 기여 붙지만 미해소. **수정:** AI/적 velocity를 `MotionContributionSystem.Resolve`에 태우기(외력 플레이어·AI 공통화).
+- **#5-AC (Low→High-if-unnoticed, M) `ctx.Target` 항상 자기자신** — 실 타게팅 없음. `AbilityActivator.cs:37`/`Reconciler.cs:137`/`EnemyBrain.cs:47` 전부 target==caster. `StatusEffectApplyEffectHandler`가 `ctx.Target`에 적용 → 미래 비-자기 status(디버프/힐)가 조용히 시전자에 적용될 함정. GAS `TargetData` 대응 없음.
+- **#4-AC (Low-Med, S) 크리/회피 상수 하드코딩** — `LOPCombatSystem.cs:99`(dodge clamp 0.05~0.95), `:107`(crit 0.05~0.50), `:71`(crit mult 1.25~1.75). MasterData(`TbCombatConfig` 등)로 승격 여지.
+- **#4-NC (Low-Med, S) 링버퍼 3벌 중복** — `GameFramework/Netcode/SnapshotHistory.cs`, `Shared/InputHistory.cs`, `Shared/PredictedAbilityStateHistory.cs` 동일 `tick%capacity` 슬롯팅. 공유 제네릭 `RingBuffer<T>` 없음.
+- **#6-NC (Low, S) 죽은 레거시 `Status` 매틱 실행** — `Client/LOPEntity.cs:67-78`(`UpdateStatuses` 매틱) + `Component/Status.cs`. 구체 `Status` 서브클래스 0(World Core StatusEffect로 대체됨). 죽은 코드.
+- **#5-DM (Low-Med, S) `MessageHandler<T>` 죽은 코드** — `Shared/Network/Message/MessageHandler.cs:9-42` 사용처 0. 실제 라우팅은 `MessageFactory`+`LOPRoom.cs:80`+`EventBus`. topology 문서가 지목한 추상이 안 돎.
+- **#6-DM (Med-Low, S) `LoginService` MonoSingleton+`[DIMonoBehaviour]` 혼종** — `Client/Login/LoginService.cs:13`. static accessor + `[Inject]` 동시 → 수명 모호.
+- **#1-UI (Med, M) `MatchMakingViewModel`이 코디네이터 대신 직접 네비게이션** — `Client/UI/MatchMaking/MatchMakingViewModel.cs:42-65`(`_windowManager.Open`/`Close` + child View API 직접). guidelines "큰 흐름=코디네이터" 위배. 옳은 예: `PlayerHudCoordinator.cs`/`LOPGamePresenter.cs`.
+- **#3-UI (Low, S) `PercentBar` 위젯 미추출** — `Client/UI/CharacterHud/CharacterHudView.cs:58-63`(`SetBar`)와 `WorldSpace/CharacterNameplate.cs:101-110`(`UpdateHpBar`) 동일 `Length.Percent` 채우기 중복. 문서가 `HealthBar:VisualElement`를 정본 예로 지목.
+- **#3-WC (Low/Med, M) `PredictedAbilityState.RestoreTo` 직접 필드 변경** — `Shared/PredictedAbilityState.cs:50-89`(abilities/stats/status/mana 직접). Health/Mana/Level는 `*System.ApplyAuthoritativeState` 경유인데 이것만 System 우회. **문서 인지**(plan `2026-07-05-stage4-ability-replay:17` 의도적 tradeoff).
+- **#8-DM (Low, M, gray) `LOPEntity.RaisePropertyChanged`가 setter에서 push** — `Client/LOPEntity.cs:56-59`(Transform/Velocity setter→`EventBus.Publish`). 연속 상태는 pull이 원칙. 단 `LOPEntity`는 outer MonoEntity(코어 아님)라 inner/outer 경계 위배 아님(코어엔 `EventBus.Publish` 0건 확인). 스타일 divergence.
+
+---
+
+## 📄 문서 stale 정합 (저비용·고레버리지 — 자동 로드라 능동적 오해)
+
+- **`entity-system-design.md` 전면 stale** — 실제 코드와 불일치: `IEntityComponent`→실제 `abstract class Component`; `EntityStatType`(MaxHp/Attack/…)→실제(Strength/Dexterity/Intelligence/Vitality/MoveSpeed/JumpPower); `EntityStatModifier`+`ModifierSource`→실제 `StatModifier`+`ModifierType`(Flat→PercentAdd→PercentMult); `EntityFactory`/`Combat`/`Dialogue`/`Interactable` World/ 밑에 0건. **CLAUDE.md `@`로 매 세션 auto-load** → 능동적 오해. (HIGH-우선 문서작업.)
+- **`netcode-redesign.md` §2.2 stale** — `PlayerInputManager`를 "capture+predict+send 묶음"으로 서술하나, input-as-data(2026-07-02)로 이미 분리(`PlayerInputManager.cs:46-111`은 capture+InputBuffer write+send만). §4d "IInputSource 블로커"가 이미 해소인데 미반영.
+- **`world-core-connection-architecture.md` "알려진 괴리 #2"(despawn cascade)** — 이미 해소(`Server/DeathCascadeSystem.cs:28-79`, resolve 단계, `LOPRunner.cs:122` ProcessDeaths). 문서는 "남음"으로 서술. + death-wire를 `DamageDealtEvent.IsDead`로 서술하나 그 필드 없음(실제 death는 `EntityDespawnToC`).
+- **`#3-NC (Low)` `IWorld` DI 인터페이스 seam** — `Server/GameLifetimeScope.cs:30`(`Register<IWorld, LOPWorld>`)이 형제 `*System`(concrete 등록)과 불일치. connection-arch "시뮬=Register<Concrete>, I/O=Register<IFoo>" 컨벤션 회색지대(문서 미해소).
+- **`#2-NC`·`#7-NC` (Low) 넷코드 네임스페이스 분산** — `ClockDilator`/`InputTimingTracker`/`LeadController`/`INetworkTime`은 `GameFramework`, 나머지는 `GameFramework.Netcode`. 메모리 `[[netcode-namespace-consolidation]]` 인지(YAGNI).
+
+---
+
+## ⚪ 비이슈 (확인·refute — 안심용)
+
+- World Core `EntityRegistry`/`Entity`/`Component` = 표준 ECS/CBD 정합. 결정론 seam(`LOPCombatSystem`/`KinematicMover`/`MovementSystem`=공유 concrete, I/O만 인터페이스) 정확. static은 순수 커널만.
+- DI: Root→Room→Game 스코프 계층 정확(parent/child 가시성, `LOPGameFactory` 양쪽 `EnqueueParent`), World Core는 Game 스코프만, 크로스스코프 중복 0. 메시지 핸들러 `RegisterEntryPoint` 생명주기. 클라 R3 구독 100% `CompositeDisposable`.
+- UI: `VisualElement` 상속 View 0, View에 비즈니스 로직 0, dialog service(`OpenModalAsync`+`IResultView`) 정합, world-space UI 분리. DebugHud 폴링=문서 허용 예외(라이브 상태 없음).
+- 어빌리티 페이즈머신(Startup/Active/Recovery, `AbilityEffectExecutor.DriveActiveEntity` 정확 틱 enter)은 멀티틱 catch-up에도 스킵 안 됨(refute됨). `MotionEffect`가 executor 우회(static query)는 문서상 의도적 tradeoff(velocity 단일 writer).
+- 청킹 스냅샷 초기상태 안전(`EntitySpawnToC` reliable 유지).
+
+---
+
+## 세션 진행 순서 참고 (2026-07-13)
+
+완료: #1 → #2(+AttackSector) → #4(통짜 flip 실패→서브셋 청킹 재구현) → #5. 남은 것 착수 추천 순: (a) 문서 stale 정합(저비용·auto-load 오해 제거), (b) #3-WC `ctx.EntityManager` 제거(#2로 열림) + 적 넉백, (c) Tier-2 큰 것(#6 Reconciler / #7 WorldEventBatch / #8 EventBus)은 각각 brainstorm→plan.

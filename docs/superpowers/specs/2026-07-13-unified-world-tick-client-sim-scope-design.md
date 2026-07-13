@@ -112,15 +112,18 @@ foreach 과거틱 t in (anchor+1 .. current-1):
 
 남 어빌리티 연출은 이미 **서버 cue 이벤트**로 구동된다: 서버 `AbilityActivatedToC` → `GameAbilityMessageHandler`(내 캐릭이면 스킵, 남이면 `AbilityActivatedEvent` cue) → `LOPEntityView.OnAbilityActivated`가 일회성 애니 재생. 위치는 `RemoteEntityInterpolator`(스냅 보간). 클라 sim 틱과 무관하므로 **남을 `Simulated`에서 빼도 연출 무회귀** — 죽은 남 틱만 정리된다.
 
-## 분해 — Sub-slice A / B
+## 분해 — Sub-slice A / B / C
 
-큰 다-repo 변경이라 두 조각으로 나눈다(각자 검증 가능).
+> **⚠️ 보정 (2026-07-13, plan 착수 시):** 당초 A(서버)/B(클라) 2조각으로 잡았으나, **`LOPWorld.Tick`은 클·서 공유 코드**라 "서버만 바꾸고 클라 무변경"이 성립하지 않는다(world.Tick 구조 변경은 양쪽 동시). 경계를 *사이드*가 아니라 *동작 보존 여부*로 다시 긋는다. `RemoteEntityInterpolator`는 위치만 쓰고 velocity는 미기록(스냅 velocity를 Hermite 탄젠트로만 사용) + 클라 원격 `MotionContributions`는 항상 비어 있음 → 외력 fold가 클라 원격엔 "같은 값 재기록"이라 무해(A에서 안전).
 
-### Sub-slice A — 기반(서버부터, 동작 무변경)
-`Simulated` 마커 + `IMotionBridge` 포트 + 통합 `LOPWorld.Tick`(5페이즈)을 **서버에 먼저** 도입. 서버는 원래 전 캐릭을 틱하므로 **동작 무변경**으로 기계(컴파일+플레이) 검증. `DriveAbilityEffects`·`MoveCharacters`를 `world.Tick`으로 흡수, AI 외력 resolve를 이동 페이즈로 통합(넉백 부채 정산). 서버 EditMode/플레이 무회귀 기준.
+### Sub-slice A — 기반 (양쪽 동작 보존)
+`Simulated` 마커 도입 + **양쪽 `CharacterCreator`가 현재 틱하던 셋을 그대로 마킹**(서버=전 캐릭 / 클라=전 캐릭 = 현행 유지). `LOPWorld.Tick`(Mutation)이 `Has<Simulated>` 순회. `AbilityEffectExecutor`(driveeffects)를 `world.Tick`에 흡수 + 양쪽 `LOPRunner`가 `DriveAbilityEffects()` 호출 제거. `MovementSystem.Tick`을 재구성해 입력 없는 Simulated 엔티티(서버 AI)도 외력 resolve → 서버 `MoveCharacters`의 임시 AI 분기(`ApplyToVelocity`) 제거(넉백 부채 정산). **클·서 양쪽 동작 무변경**(컴파일 + 서버/클라 플레이 무회귀 + Shared EditMode). 키네마틱은 아직 host `MoveCharacters`/`MoveLocalPlayer`에 남김.
 
-### Sub-slice B — 클라 scope + `#6` 종결
-클라가 `Simulated` 마커 채택(내 캐릭만) + `DriveAbilityEffects`/`MoveLocalPlayer`를 `world.Tick`으로 흡수 + `Reconciler`를 `world.Tick` 재생으로 재작성 + 죽은 남 틱 제거. **여기서 `#6`이 실제로 닫힘.** 검증: 공중 점프/대시/넉백 롤백 재생 무회귀(육안 + Recon HUD), 남 연출 무회귀.
+### Sub-slice B — 물리 흡수 (양쪽 동작 보존)
+`IMotionBridge` 포트(`SyncTransforms`/`Depenetrate(id)`/`PushMotion(id)`) + 클·서 구체 + 키네마틱을 `world.Tick`에 흡수 + 양쪽 `LOPRunner`가 `MoveCharacters`/`MoveLocalPlayer` 호출 제거. **5페이즈 단일 진입점 완성.** 양쪽 동작 무변경.
+
+### Sub-slice C — 클라 scope + `#6` 종결
+클라 `CharacterCreator`가 마커를 **내 캐릭만**으로 좁힘(남/NPC 마킹 제거 → 자동 보간 전용) + `Reconciler`를 `world.Tick` 재생으로 재작성(수기 5줄 시퀀스 삭제) + 죽은 남 틱 무회귀 확인. **여기서 `#6`이 실제로 닫힘.** 검증: 공중 점프/대시/넉백 롤백 재생 무회귀(육안 + Recon HUD), 남 연출 무회귀.
 
 ## Out of Scope
 
@@ -149,5 +152,5 @@ foreach 과거틱 t in (anchor+1 .. current-1):
 - [x] 브레인스토밍 합의 (표준 = 클라 예측 엔티티만 시뮬 / `Simulated` 마커 / 물리 브리지 포트 A안 / 5페이즈 통합 Tick / 재생=라이브 / 남 연출 무변경 / A·B 분해)
 - [x] 이 spec 작성
 - [x] spec self-review (placeholder/일관성/범위/모호성 — 서버 페이즈 순서 보존 확인, 외력 재구성 명시)
-- [ ] 사용자 spec 리뷰
-- [ ] `writing-plans`로 Sub-slice A 구현 plan 작성
+- [x] 사용자 spec 리뷰 (승인)
+- [x] `writing-plans`로 Sub-slice A 구현 plan 작성 → `docs/superpowers/plans/2026-07-13-unified-world-tick-sub-slice-a.md` (분해를 A/B/C로 보정 — LOPWorld 공유라 A는 양쪽 동작 보존)

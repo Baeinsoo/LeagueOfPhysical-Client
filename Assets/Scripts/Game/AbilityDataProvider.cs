@@ -29,7 +29,8 @@ namespace LOP
         {
             return new AbilityData(r.Id, r.CooldownTicks, r.MpCost,
                 r.StartupTicks, r.ActiveTicks, r.RecoveryTicks,
-                MapEffects(r.Effects));
+                MapEffects(r.Effects),
+                r.StartupMoveScale, r.ActiveMoveScale, r.RecoveryMoveScale, r.BlockJump);
         }
 
         // Luban 다형 effect 행을 코어 AbilityEffect로 매핑(코어는 MasterData 비참조 → 여기서 변환).

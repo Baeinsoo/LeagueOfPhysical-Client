@@ -48,6 +48,8 @@
 | 07-12 | **A2.2a — 전투 해소 LOP-Shared 공유화** — `LOPCombatSystem`을 서버→LOP-Shared 공유 concrete(`World.Entity`+씨앗 param), `ICombatSystem` 제거, `DamageEffectHandler` 배선. 이동으로 전투 해소 EditMode 테스트 가능. (+별도 밸런스: 데미지 3배) | `specs/2026-07-12-a2-2a-combat-resolution-shared-design`, `plans/2026-07-12-a2-2a-combat-resolution-shared` |
 | 07-12 | **A2.2b — 히트 판정 LOP-Shared 공유화** (4저장소) — `IOverlapQuery`(GameFramework 포트, `ICollisionQuery` 짝) + 사이드별 `LOPOverlapQuery`(엔진 broad-phase). 부채꼴 필터·자기제외·Attack 루프를 공유 `DamageEffectHandler`(LOP-Shared)로, `World.Transform`(numerics 진실원본) 기준. 씨앗은 `IMatchSeed`. EditMode 7테스트. 서버 판정 EditMode 테스트 가능화 + 이중타격 dedup 교정. | `specs/2026-07-12-a2-2b-hit-detection-shared-design`, `plans/2026-07-12-a2-2b-hit-detection-shared` |
 | 07-13 | **reconciler tick-guard 근본 수정** — 로컬 지연 렌더(`LocalEntityInterpolator`)의 "절대 틱키 dict 조회 + `[임시]` skip 가드"를 `GameFramework.Netcode.SnapshotInterpolation.Solve`(연속 renderTime 브래킷 탐색, 범위 밖 hold → 미스 불가) + EditMode 7테스트로 교체. 시간 기준(Fiedler alpha) 유지. 원격은 07-07에 이미 해소. | `netcode-redesign.md` §8 |
+| 07-14 | **공격 어빌리티 이동 정책** (6레포) — 어빌리티가 Startup/Active/Recovery **페이즈별 이동배율(0~1)** + `BlockJump`를 데이터로 선언(`TbAbility`), 공유 `MovementSystem.Tick`이 수평속도에 곱(플레이어=모터결과·AI=잔류속도 공통), 회전은 자유. 업계표준=격투 프레임데이터 + GAS 이속 modifier. Tasks 1-6 TDD(122 EditMode), 플레이 검증. 캔슬(벌처 킁)은 v2 | `specs/2026-07-14-attack-movement-policy-design`, `plans/2026-07-14-attack-movement-policy` |
+| 07-15 | **키네마틱 지면 캐칭 수정** — `KinematicMover`가 수평+중력을 한 sweep으로 합쳐, 발이 바닥 flush일 때 그 sweep이 바닥을 dist≈0로 맞아 `moveDist=0` → **수평 이동까지 취소**(발-바닥 접촉 종이한장 차이로 간헐 발현). 표준대로 **수평/수직 스텝 분리 + step offset**(수평 sweep을 0.1 띄워 발밑 바닥 회피). TDD(`GroundPlaneQuery` 재현) 122/122. **기본형** — 경사 따라가기·명시 step-up·ground snap은 경사/계단 콘텐츠 시 후속 | — |
 
 ### 그 밖의 완료 워크스트림 (요약 — 상세는 메모리)
 
@@ -105,6 +107,10 @@
 |---|---|---|
 | ~~**외력(넉백) 처리를 공통 엔티티 루프로 이전** (부채)~~ ✅ **정산(07-13)** — 통합 World Tick Sub-slice A에서 외력 resolve를 공유 `MovementSystem.Tick`(=`world.Tick` 이동 페이즈)로 흡수, 서버 `MoveCharacters` 임시분기 제거. 입력 없는 Simulated(서버 AI)도 resolve. `Simulated` 마커가 클라 원격 문제를 자연 해소(원격은 마킹 안 돼 클라가 안 틱). `[[velocity-motor-contribution-slice]]` | — |
 | **Recon 엔티티-로드 러버밴딩** | 엔티티 많을 때 빈 곳 점프에도 recon 러버밴딩 관찰. 진단틀(A 서버틱밀림 vs B 클라FPS) 프로토타입 후 롤백 | 각 잡고 재개. `[[recon-entity-load-parked]]` |
+| **캐릭터끼리 충돌 wedge** (몹 뭉침) | 캐릭터 콜라이더가 "Default" 레이어라 이동 스윕이 서로를 벽으로 인식 + 둘 다 kinematic이라 PhysX 밀어냄 없음 → **정면 붙으면 서로 못 지나가고 낌**. 몹 클러스터 스폰 시 즉시. (지면 캐칭 fix와 별개 — 캐릭터↔캐릭터. 진단: `hit='PhysicsGameObject'` normal 수평. 07-15 세션 발견) | 캐릭터 간 상호작용 정할 때 — **A**(전용 레이어로 이동 마스크 제외=서로 통과, MMO 표준) vs **B**(소프트 분리, MOBA 유닛식) |
+| **서버 뷰 NRE** (`LOPEntity.get_position`/`LOPEntityView.LateUpdate`) | 뷰 `LateUpdate`가 `worldTransform` 링크 전/해제 후 `position`을 읽는 수명 타이밍. 도메인 리로드(재시작) 시 발현. 이동 버그와 무관(07-15 확인) | 서버 뷰 수명 손댈 때 |
+| **EventSystem 2개** (additive 씬 중복) | GamePlay + Room/베이스 씬이 각각 하나씩 → "only one active EventSystem" 경고. 키보드 폴링(디바이스 직접)엔 영향 없으나 UI 이벤트 위생 이슈 | 씬 구성 정리 시(하나만 남기기) |
+| **입력 포커스** (에디터 Play Mode Input Behavior) | **게임 버그 아님** — Game 뷰 포커스 잃으면 Input System이 키를 0으로 봄(`kbNull=False`인데 전 키 false). brake-to-desired 모터가 입력 0→즉시 정지시켜 "낀 것처럼" 드러남(옛 관성 모터는 덮여 안 보였음). 빌드 무관, 2에디터 테스트 artifact | 테스트 편의 시 InputSettings에 `All Device Input Always Goes To Game View` 설정, 또는 Game 뷰 포커스 유지 |
 | **네이티브 clock sync (방향 B)** | Mirror transport=메인스레드라 ping/pong 정확도 이득 미미; 순수측정=전용소켓+스레드 큰 작업 | **Mirror 제거가 실제 안건이 될 때.** `[[netcode-migration-status]]` §9.8 |
 | **M5b — LOP.UI 인프라 GameFramework 승격** | 단일 클라라 YAGNI | 서버도 같은 UI 인프라가 필요해질 때. `[[uitoolkit-migration-status]]` |
 | **넷코드 status 메모리류 `GameFramework.Netcode` 수렴** | 흩어진 클래스 일괄 이동은 YAGNI | 각 클래스 손댈 때 기회 있을 때. `[[netcode-namespace-consolidation]]` |

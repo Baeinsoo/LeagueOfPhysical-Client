@@ -1,6 +1,7 @@
 using Cysharp.Threading.Tasks;
 using GameFramework;
 using LOP.Event.Entity;
+using MessagePipe;
 using UniRx;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -35,11 +36,15 @@ namespace LOP
         private string visualId;
         private AsyncOperationHandle<GameObject> asyncOperationHandle;
 
+        private System.IDisposable subscriptions;
+
         protected virtual void Start()
         {
-            EventBus.Default.Subscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
-            EventBus.Default.Subscribe<AbilityActivated>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnAbilityActivated);
-            EventBus.Default.Subscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
+            var bag = DisposableBag.CreateBuilder();
+            GlobalMessagePipe.GetSubscriber<string, PropertyChange>().Subscribe(entity.entityId, OnPropertyChange).AddTo(bag);
+            GlobalMessagePipe.GetSubscriber<string, AbilityActivated>().Subscribe(entity.entityId, OnAbilityActivated).AddTo(bag);
+            GlobalMessagePipe.GetSubscriber<string, EntityDamage>().Subscribe(entity.entityId, OnEntityDamage).AddTo(bag);
+            subscriptions = bag.Build();
 
             if (entity.TryGetEntityComponent<AppearanceComponent>(out var appearanceComponent))
             {
@@ -49,9 +54,7 @@ namespace LOP
 
         public void Cleanup()
         {
-            EventBus.Default.Unsubscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
-            EventBus.Default.Unsubscribe<AbilityActivated>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnAbilityActivated);
-            EventBus.Default.Unsubscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
+            subscriptions?.Dispose();
 
             if (asyncOperationHandle.IsValid())
             {

@@ -1,5 +1,6 @@
 using GameFramework;
 using LOP.Event.Entity;
+using MessagePipe;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -32,6 +33,7 @@ namespace LOP
         private readonly List<DamageFloater> _floaters = new List<DamageFloater>();
         private LOPEntityView _entityView;
         private Camera _camera;
+        private System.IDisposable _subscription;
 
         private void Awake()
         {
@@ -65,12 +67,12 @@ namespace LOP
         protected void Start()
         {
             _entityView = transform.parent.GetComponentInChildren<LOPEntityView>();
-            EventBus.Default.Subscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
+            _subscription = GlobalMessagePipe.GetSubscriber<string, EntityDamage>().Subscribe(entity.entityId, OnEntityDamage);
         }
 
         public void Cleanup()
         {
-            EventBus.Default.Unsubscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
+            _subscription?.Dispose();
 
             foreach (var floater in _floaters)
             {

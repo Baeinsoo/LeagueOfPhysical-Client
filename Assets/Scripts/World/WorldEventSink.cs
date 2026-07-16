@@ -1,5 +1,6 @@
 using GameFramework;
 using LOP.Event.Entity;
+using MessagePipe;
 using System.Collections.Generic;
 using VContainer;
 
@@ -15,6 +16,12 @@ namespace LOP
         [Inject]
         private LOP.MasterData.LOPMasterData md;
 
+        [Inject]
+        private IPublisher<string, EntityDamage> entityDamagePublisher;
+
+        [Inject]
+        private IPublisher<string, AbilityActivated> abilityActivatedPublisher;
+
         public void Emit(IReadOnlyList<GameFramework.World.WorldEvent> events)
         {
             foreach (var e in events)
@@ -22,10 +29,7 @@ namespace LOP
                 switch (e)
                 {
                     case GameFramework.World.DamageDealtEvent dde:
-                        EventBus.Default.Publish(
-                            EventTopic.EntityId<LOPEntity>(dde.targetId),
-                            new EntityDamage(dde.isDodged, dde.isCritical, dde.amount)
-                        );
+                        entityDamagePublisher.Publish(dde.targetId, new EntityDamage(dde.isDodged, dde.isCritical, dde.amount));
                         break;
 
                     case GameFramework.World.AbilityActivatedEvent ae:
@@ -34,10 +38,7 @@ namespace LOP
                         string cue = md.Tables.TbAbility.GetOrDefault(ae.abilityId)?.Cue;
                         if (string.IsNullOrEmpty(cue) == false)
                         {
-                            EventBus.Default.Publish(
-                                EventTopic.EntityId<LOPEntity>(ae.entityId),
-                                new AbilityActivated(cue)
-                            );
+                            abilityActivatedPublisher.Publish(ae.entityId, new AbilityActivated(cue));
                         }
                         break;
                     }

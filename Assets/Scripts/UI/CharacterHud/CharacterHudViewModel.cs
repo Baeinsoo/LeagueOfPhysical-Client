@@ -1,6 +1,7 @@
 using System;
 using GameFramework;
 using LOP.Event.Entity;
+using MessagePipe;
 using R3;
 using UnityEngine;
 
@@ -34,7 +35,14 @@ namespace LOP.UI
         public ReadOnlyReactiveProperty<long> ExpToNext => _expToNext;
         public ReadOnlyReactiveProperty<int> Level => _levelValue;
 
-        public CharacterHudViewModel(IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry)
+        private IDisposable _subscriptions;
+
+        public CharacterHudViewModel(
+            IPlayerContext playerContext,
+            GameFramework.World.EntityRegistry entityRegistry,
+            ISubscriber<string, EntityHealthChanged> healthSubscriber,
+            ISubscriber<string, EntityManaChanged> manaSubscriber,
+            ISubscriber<string, EntityLevelChanged> levelSubscriber)
         {
             _entityRegistry = entityRegistry;
             _entity = playerContext.entity;
@@ -46,9 +54,11 @@ namespace LOP.UI
 
             PushAll();
 
-            EventBus.Default.Subscribe<EntityHealthChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityHealthChanged);
-            EventBus.Default.Subscribe<EntityManaChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityManaChanged);
-            EventBus.Default.Subscribe<EntityLevelChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityLevelChanged);
+            var bag = MessagePipe.DisposableBag.CreateBuilder();
+            healthSubscriber.Subscribe(_entity.entityId, OnEntityHealthChanged).AddTo(bag);
+            manaSubscriber.Subscribe(_entity.entityId, OnEntityManaChanged).AddTo(bag);
+            levelSubscriber.Subscribe(_entity.entityId, OnEntityLevelChanged).AddTo(bag);
+            _subscriptions = bag.Build();
         }
 
         private void OnEntityLevelChanged(EntityLevelChanged e)
@@ -96,12 +106,7 @@ namespace LOP.UI
 
         public void Dispose()
         {
-            if (_entity != null)
-            {
-                EventBus.Default.Unsubscribe<EntityHealthChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityHealthChanged);
-                EventBus.Default.Unsubscribe<EntityManaChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityManaChanged);
-                EventBus.Default.Unsubscribe<EntityLevelChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityLevelChanged);
-            }
+            _subscriptions?.Dispose();
 
             _hp.Dispose();
             _maxHp.Dispose();

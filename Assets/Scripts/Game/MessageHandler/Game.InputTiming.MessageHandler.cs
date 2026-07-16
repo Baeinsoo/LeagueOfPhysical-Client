@@ -1,4 +1,5 @@
 using GameFramework;
+using MessagePipe;
 using VContainer;
 
 namespace LOP
@@ -11,16 +12,21 @@ namespace LOP
         [Inject]
         private LeadState leadState;
 
+        [Inject]
+        private ISubscriber<InputTimingToC> inputTimingSubscriber;
+
         private readonly LeadController leadController = new LeadController();
+
+        private System.IDisposable subscription;
 
         public void Initialize()
         {
-            EventBus.Default.Subscribe<InputTimingToC>(nameof(IMessage), OnInputTimingToC);
+            subscription = inputTimingSubscriber.Subscribe(OnInputTimingToC);
         }
 
         public void Dispose()
         {
-            EventBus.Default.Unsubscribe<InputTimingToC>(nameof(IMessage), OnInputTimingToC);
+            subscription?.Dispose();
         }
 
         private void OnInputTimingToC(InputTimingToC message)

@@ -18,6 +18,7 @@ namespace LOP
         [Inject] private IRoomDataStore roomDataStore;
         [Inject] private IGameDataStore gameDataStore;
         [Inject] private IUserDataStore userDataStore;
+        [Inject] private NetworkMessageDispatcher dispatcher;
 
         public IRunner runner { get; private set; }
 
@@ -79,7 +80,7 @@ namespace LOP
         {
             NetworkClient.RegisterHandler<CustomMirrorMessage>(message =>
             {
-                EventBus.Default.Publish(nameof(IMessage), message.payload);
+                dispatcher.Dispatch(message.payload);
             });
 
             if (EnvironmentSettings.active.UseLocalRoomInstance)

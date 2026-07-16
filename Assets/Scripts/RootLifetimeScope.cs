@@ -28,6 +28,19 @@ namespace LOP
             builder.RegisterMessageBroker<Event.Entity.EntityCreated>(options);
             builder.RegisterMessageBroker<Event.Entity.EntityDestroyed>(options);
 
+            // 네트워크 수신(NetworkMessageDispatcher가 발행 → MessageHandler가 구독)
+            builder.RegisterMessageBroker<GameInfoToC>(options);
+            builder.RegisterMessageBroker<DamageEventToC>(options);
+            builder.RegisterMessageBroker<AbilityActivatedToC>(options);
+            builder.RegisterMessageBroker<EntitySnapsToC>(options);
+            builder.RegisterMessageBroker<EntitySpawnToC>(options);
+            builder.RegisterMessageBroker<EntityDespawnToC>(options);
+            builder.RegisterMessageBroker<UserEntitySnapToC>(options);
+            builder.RegisterMessageBroker<StatAllocationToC>(options);
+            builder.RegisterMessageBroker<InputSequenceToC>(options);
+            builder.RegisterMessageBroker<InputTimingToC>(options);
+            builder.Register<NetworkMessageDispatcher>(Lifetime.Singleton);
+
             builder.Register<LOP.MasterData.LOPMasterData>(Lifetime.Singleton);
 
             builder.Register<UserDataStore>(Lifetime.Singleton)

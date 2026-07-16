@@ -1,17 +1,24 @@
 using GameFramework;
+using MessagePipe;
+using VContainer;
 
 namespace LOP
 {
     public class GameInputMessageHandler : IGameMessageHandler
     {
+        [Inject]
+        private ISubscriber<InputSequenceToC> inputSequenceSubscriber;
+
+        private System.IDisposable subscription;
+
         public void Initialize()
         {
-            EventBus.Default.Subscribe<InputSequenceToC>(nameof(IMessage), OnInputSequenceToC);
+            subscription = inputSequenceSubscriber.Subscribe(OnInputSequenceToC);
         }
 
         public void Dispose()
         {
-            EventBus.Default.Unsubscribe<InputSequenceToC>(nameof(IMessage), OnInputSequenceToC);
+            subscription?.Dispose();
         }
 
         // 서버 인풋 시퀀스 앵커는 더 이상 쓰지 않는다 — 재조정 기준점이 틱 기반 하드 복원(Reconciler)으로

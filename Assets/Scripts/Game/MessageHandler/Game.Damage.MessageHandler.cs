@@ -1,4 +1,5 @@
 using GameFramework;
+using MessagePipe;
 using VContainer;
 
 namespace LOP
@@ -8,14 +9,19 @@ namespace LOP
         [Inject]
         private GameFramework.World.WorldEventBuffer worldEventBuffer;
 
+        [Inject]
+        private ISubscriber<DamageEventToC> damageSubscriber;
+
+        private System.IDisposable subscription;
+
         public void Initialize()
         {
-            EventBus.Default.Subscribe<DamageEventToC>(nameof(IMessage), OnDamageEventToC);
+            subscription = damageSubscriber.Subscribe(OnDamageEventToC);
         }
 
         public void Dispose()
         {
-            EventBus.Default.Unsubscribe<DamageEventToC>(nameof(IMessage), OnDamageEventToC);
+            subscription?.Dispose();
         }
 
         private void OnDamageEventToC(DamageEventToC msg)

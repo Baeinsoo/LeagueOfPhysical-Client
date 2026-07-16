@@ -11,9 +11,10 @@
 ## Global Constraints
 
 - **IL2CPP 안전 필수**: LOP는 모바일 타깃(IL2CPP AOT) → open generics 미지원. **모든 메시지 타입을 `RegisterMessageBroker<T>`(또는 keyed `<TKey,TMessage>`)로 명시 등록**한다. 에디터(Mono)에서 자동 해석돼도 명시 등록을 생략하지 않는다.
-- **브로커 스코프 = Room(게임플레이/네트워크/엔티티) + Root(WebResponse)**. Game 스코프에 두지 않는다(Room 스코프 발행자 `LOPRoom`이 자식 Game 브로커를 못 봄).
-- **구독 = `IDisposable` → 소유 수명에 묶음**: 순수 C#(VContainer)은 `CompositeDisposable`/MessagePipe `DisposableBag`, MonoBehaviour는 `destroyCancellationToken`/OnDestroy, ViewModel은 기존 `CompositeDisposable`.
-- **VContainer 가시성**: 자식 스코프는 부모 등록을 resolve 가능, 부모는 자식을 못 봄. 발행자·구독자가 브로커 스코프의 *같거나 자식* 스코프에 있어야 한다.
+- **브로커 스코프 = 전부 Root 싱글턴** (①-only 결정, 2026-07-16 실행 중 확정). 발행/구독이 어느 스코프든 같은 Root 싱글턴을 resolve → 교차 스코프 공유 문제 없음. `InstanceLifetime.Singleton`(MessagePipe 기본).
+- **leak 해소 = ① 구독 처분만** (②[스코프 브로커] 드롭). 감사 leak(룸 재입장)은 ①이 구조적으로 보장: `Subscribe().AddTo(소유자수명)` → 소유자 파괴(씬 언로드/스코프 dispose) 시 구독 자동 해제 = 브로커에서 핸들러 제거 → 죽은 핸들러 누적 0. *깜빡할 수동 unsubscribe가 없음.* ②(브로커를 룸과 함께 폐기)는 교차스코프 공유·이중 `RegisterMessagePipe` 복잡도 대비 redundant라 채택 안 함.
+- **구독 = `IDisposable` → 소유 수명에 묶음(필수)**: 순수 C#(VContainer)은 `CompositeDisposable`/MessagePipe `DisposableBag`, MonoBehaviour는 `destroyCancellationToken`/OnDestroy, ViewModel은 기존 `CompositeDisposable`. **모든 Subscribe는 반드시 AddTo — 이게 leak 해소의 유일 기전**(Rx 표준 관례, 코드리뷰로 커버).
+- **범위 특정 = 타입 + 키 + (필요 시)필터**, 스코프 아님. 타입(`ISubscriber<T>`)이 주 채널, 엔티티별은 keyed(키=entityId), 세밀 조건은 `MessageHandlerFilter<T>`/핸들러 내 조건.
 - **네임스페이스 풀 한정**: World 타입은 `GameFramework.World.*` 풀 네임스페이스(`using GameFramework.World;` 추가 금지 — `Component` 모호성).
 - **패키지 파일 삭제 후**: `refresh_unity scope=all force`로 stale CS2001 방지(양쪽 에디터). UnityMCP는 `unity_instance="LeagueOfPhysical-Client@<hash>"` 명시(id는 `mcpforunity://instances`에서 조회).
 - **클·서 동시**: 각 이벤트 패밀리는 클라·서버 양쪽에서 함께 이전한다. 커밋은 피처 브랜치 `feature/eventbus-messagepipe-migration`(양쪽 레포에 생성).
@@ -62,26 +63,18 @@
 
 `refresh_unity scope=all force compile=request` (클라 인스턴스) → `read_console types=[error]` → Expected: MessagePipe 심볼 해석됨, 에러 0.
 
-- [ ] **Step 3: Root 스코프에 WebResponse 브로커 골격 등록**
+- [ ] **Step 3: Root 스코프에 `RegisterMessagePipe` + 스파이크 브로커 등록**
 
-루트 스코프 `Configure`에:
+`RootLifetimeScope.Configure`에(모든 브로커는 Root 싱글턴):
 ```csharp
-var options = builder.RegisterMessagePipe(o => o.InstanceLifetime = InstanceLifetime.Scoped);
-// WebResponse 타입(IL2CPP 명시 등록) — 실제 타입은 Slice 1에서 채움. 여기선 스파이크 1개만:
-builder.RegisterMessageBroker<CreateUserResponse>(options);
+var options = builder.RegisterMessagePipe();   // InstanceLifetime.Singleton 기본
+builder.RegisterMessageBroker<EntityCreated>(options);            // plain 스파이크(IL2CPP 명시)
+builder.RegisterMessageBroker<string, PropertyChange>(options);   // keyed 스파이크
 ```
 
-- [ ] **Step 4: Room 스코프에 게임플레이 브로커 골격 + 스파이크 keyed 등록**
+- [ ] **Step 4: 검증 spike 작성 (`_MessagePipeSpike.cs`) + Root 엔트리포인트 등록**
 
-Room 스코프 `Configure`에:
-```csharp
-var options = builder.RegisterMessagePipe(o => o.InstanceLifetime = InstanceLifetime.Scoped);
-builder.RegisterMessageBroker<EntityCreated>(options);          // plain 스파이크
-builder.RegisterMessageBroker<string, PropertyChange>(options); // keyed 스파이크
-```
-
-- [ ] **Step 5: 검증 spike 작성 (`_MessagePipeSpike.cs`)**
-
+룸 불필요 — 앱 시작(Root Start)에서 keyed pub/sub·키격리·처분을 한 곳에서 검증한다.
 ```csharp
 using MessagePipe;
 using UnityEngine;
@@ -89,51 +82,46 @@ using VContainer;
 
 namespace LOP
 {
-    // Room 스코프에 등록해 임시 검증 후 삭제한다.
+    // Root 스코프에 등록해 앱 시작 시 검증 후 삭제한다.
     public class _MessagePipeSpike : VContainer.Unity.IStartable
     {
-        [Inject] private IPublisher<EntityCreated> pub;
-        [Inject] private ISubscriber<EntityCreated> sub;
         [Inject] private IPublisher<string, PropertyChange> keyedPub;
         [Inject] private ISubscriber<string, PropertyChange> keyedSub;
 
         public void Start()
         {
             var bag = DisposableBag.CreateBuilder();
-            sub.Subscribe(e => Debug.Log($"[SPIKE] plain received")).AddTo(bag);
             keyedSub.Subscribe("entity7", p => Debug.Log($"[SPIKE] keyed received: {p.propertyName}")).AddTo(bag);
             var d = bag.Build();
 
-            keyedPub.Publish("entity7", new PropertyChange("position"));   // [SPIKE] keyed received: position 기대
-            keyedPub.Publish("entity8", new PropertyChange("x"));          // 로그 없어야(다른 키)
+            keyedPub.Publish("entity7", new PropertyChange("position"));  // [SPIKE] keyed received: position 기대
+            keyedPub.Publish("entity8", new PropertyChange("x"));         // 로그 없어야(다른 키)
 
             d.Dispose();
-            keyedPub.Publish("entity7", new PropertyChange("after"));      // 로그 없어야(구독 해제됨)
+            keyedPub.Publish("entity7", new PropertyChange("after"));     // 로그 없어야(구독 해제됨)
         }
     }
 }
 ```
-Room 스코프에 `builder.RegisterEntryPoint<_MessagePipeSpike>();` 등록.
+`RootLifetimeScope`에 `builder.RegisterEntryPoint<_MessagePipeSpike>();` 등록. `PropertyChange`는 `LOP.Event.Entity` 네임스페이스 — using 확인.
 
-- [ ] **Step 6: 인게임 실행으로 검증**
+- [ ] **Step 5: 컴파일 확인** — `refresh_unity scope=all force` + `read_console types=[error]`. Expected: 에러 0(MessagePipe 심볼·open-generic 해석됨).
 
-룸 진입 → `read_console`에서 확인:
+- [ ] **Step 6: Play mode 실행으로 검증**
+
+`manage_editor`로 play mode 진입 → `read_console filter_text=SPIKE` 확인:
 - `[SPIKE] keyed received: position` 1회 (entity7)
 - entity8·다른키 로그 없음 (키 격리)
 - Dispose 후 `after` 로그 없음 (구독 해제)
-Expected: 위 3가지 모두 충족. keyed 격리 + 처분 동작 확인.
+Play mode 종료. Expected: 위 3가지 충족 → keyed 라우팅·키격리·`AddTo` 처분 동작 확인.
 
-- [ ] **Step 7: 스코프 폐기 자동 해제 검증**
+> 기대와 다르면 멈추고 원인 파악(등록 위치·open-generic·IL2CPP 명시등록). 동작한 관용구를 이 plan에 기록.
 
-룸을 나갔다 재입장 → 이전 룸의 구독이 새 룸에 누적되지 않는지(스파이크 로그가 룸당 1세트만) 확인. Expected: 룸 재입장해도 스파이크 로그가 중복되지 않음(Room 스코프 dispose가 구독 정리).
+- [ ] **Step 7: 스파이크 제거 + 커밋**
 
-> 만약 Step 6-7이 기대와 다르면(스코프 격리·자동해제 미작동), 등록 토폴로지를 조정한다: `InstanceLifetime.Scoped` 확인, `RegisterMessagePipe`를 Root/Room 어디서 호출하는지 조정, 필요 시 `IScopedPublisher<T>`/`IScopedSubscriber<T>` 명시 사용. **실제로 동작한 등록 관용구를 이 plan의 Slice 0에 주석으로 기록**하고 나머지 슬라이스가 그대로 복사한다.
-
-- [ ] **Step 8: 스파이크 제거 + 커밋**
-
-`_MessagePipeSpike.cs` 삭제, 스파이크용 `RegisterEntryPoint`·스파이크 브로커 등록(EntityCreated/PropertyChange는 Slice 1/3에서 정식 등록하므로 중복 시 정리) 되돌림. Root/Room의 `RegisterMessagePipe(o => InstanceLifetime.Scoped)` 골격은 유지.
+`_MessagePipeSpike.cs` 삭제 + `RegisterEntryPoint<_MessagePipeSpike>` 및 스파이크 브로커 등록(EntityCreated/PropertyChange — Slice 1/3서 정식 등록) 되돌림. `RootLifetimeScope`의 `var options = builder.RegisterMessagePipe();`는 유지(다음 슬라이스가 브로커를 이 options로 등록).
 ```bash
-git add -A && git commit -m "feat(messaging): MessagePipe 도입 + Root/Room 스코프 브로커 골격(검증됨)"
+git add -A && git commit -m "feat(messaging): MessagePipe 도입 + Root 싱글턴 브로커 골격(검증됨)"
 ```
 
 ---

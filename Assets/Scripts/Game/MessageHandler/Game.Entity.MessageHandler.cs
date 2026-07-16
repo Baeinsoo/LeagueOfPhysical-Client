@@ -1,5 +1,6 @@
 using GameFramework;
 using LOP.Event.Entity;
+using MessagePipe;
 using UnityEngine;
 using VContainer;
 
@@ -18,25 +19,31 @@ namespace LOP
         [Inject] private Reconciler reconciler;
         [Inject] private RemoteInterpolationClock remoteInterpolationClock;
 
+        [Inject] private ISubscriber<EntitySnapsToC> snapsSubscriber;
+        [Inject] private ISubscriber<EntitySpawnToC> spawnSubscriber;
+        [Inject] private ISubscriber<EntityDespawnToC> despawnSubscriber;
+        [Inject] private ISubscriber<UserEntitySnapToC> userSnapSubscriber;
+        [Inject] private ISubscriber<StatAllocationToC> statAllocationSubscriber;
+
         // 스냅이 틱당 여러 메시지로 청킹돼 온다 → 도착 기록을 틱당 1회로 dedupe(간격 기반 추정기 왜곡 방지).
         private long lastRecordedArrivalTick = long.MinValue;
 
+        private System.IDisposable subscriptions;
+
         public void Initialize()
         {
-            EventBus.Default.Subscribe<EntitySnapsToC>(nameof(IMessage), OnEntitySnapsToC);
-            EventBus.Default.Subscribe<EntitySpawnToC>(nameof(IMessage), OnEntitySpawnToC);
-            EventBus.Default.Subscribe<EntityDespawnToC>(nameof(IMessage), OnEntityDespawnToC);
-            EventBus.Default.Subscribe<UserEntitySnapToC>(nameof(IMessage), OnUserEntitySnapToC);
-            EventBus.Default.Subscribe<StatAllocationToC>(nameof(IMessage), OnStatAllocationToC);
+            var bag = DisposableBag.CreateBuilder();
+            snapsSubscriber.Subscribe(OnEntitySnapsToC).AddTo(bag);
+            spawnSubscriber.Subscribe(OnEntitySpawnToC).AddTo(bag);
+            despawnSubscriber.Subscribe(OnEntityDespawnToC).AddTo(bag);
+            userSnapSubscriber.Subscribe(OnUserEntitySnapToC).AddTo(bag);
+            statAllocationSubscriber.Subscribe(OnStatAllocationToC).AddTo(bag);
+            subscriptions = bag.Build();
         }
 
         public void Dispose()
         {
-            EventBus.Default.Unsubscribe<EntitySnapsToC>(nameof(IMessage), OnEntitySnapsToC);
-            EventBus.Default.Unsubscribe<EntitySpawnToC>(nameof(IMessage), OnEntitySpawnToC);
-            EventBus.Default.Unsubscribe<EntityDespawnToC>(nameof(IMessage), OnEntityDespawnToC);
-            EventBus.Default.Unsubscribe<UserEntitySnapToC>(nameof(IMessage), OnUserEntitySnapToC);
-            EventBus.Default.Unsubscribe<StatAllocationToC>(nameof(IMessage), OnStatAllocationToC);
+            subscriptions?.Dispose();
         }
 
         private void OnEntitySnapsToC(EntitySnapsToC entitySnapsToC)

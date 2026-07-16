@@ -1,6 +1,7 @@
 using Cysharp.Threading.Tasks;
 using GameFramework;
 using LOP.UI;
+using MessagePipe;
 using UnityEngine;
 using VContainer;
 
@@ -19,14 +20,16 @@ namespace LOP
         private IWindowManager windowManager;
 
         private UIView gameLoadingView;
+        private System.IDisposable gameInfoSubscription;
 
         private void Awake()
         {
             // LOPRunner은 이 프레젠터 GameObject의 자식("LOPGameEngine")에 있다.
             runner = GetComponentInChildren<LOPRunner>();
             runner.onGameStateChanged += OnGameStateChanged;
-            
-            EventBus.Default.Subscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);
+
+            // MonoBehaviour가 Awake에서 구독 — 주입 타이밍 의존을 피해 GlobalMessagePipe로 구독(구 정적 버스와 동형).
+            gameInfoSubscription = GlobalMessagePipe.GetSubscriber<GameInfoToC>().Subscribe(OnGameInfoToC);
         }
 
         private void OnDestroy()
@@ -34,7 +37,7 @@ namespace LOP
             runner.onGameStateChanged -= OnGameStateChanged;
             runner = null;
 
-            EventBus.Default.Unsubscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);
+            gameInfoSubscription?.Dispose();
         }
 
         private void OnGameStateChanged(IGameState gameState)

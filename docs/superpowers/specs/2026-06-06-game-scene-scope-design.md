@@ -4,6 +4,25 @@
 **Branch (제안):** `feature/game-scene-scope`
 **Related:** [World Core 연결 아키텍처](../../world-core-connection-architecture.md) · [LOP 저장소 토폴로지](../../lop-repo-topology.md) · [아키텍처 가이드라인](../../architecture-guidelines.md)
 
+> **✅ 구현 완료 (2026-07-13 감사에서 확인).** 이 문서는 **설계 박제 + 구현 기록**이다. 스코프 분리
+> (Root→Room→Game) + `EnqueueParent(roomScope)` + additive 로드가 코드에 존재한다
+> (`LOPGameFactory`, `GameLifetimeScope`, `RoomLifetimeScope`). 실제 구현이 아래 설계와 **달라진 점**:
+>
+> - **씬 이름**: `GamePlay`(설계) → 실제 **`LOPGame`** (`LOPGameFactory.GameSceneName`).
+> - **런타임 인자(gameInfo) 주입**: 설계는 `Enqueue(RegisterInstance(gameInfo))`로 자식 스코프에 DI 주입
+>   → 실제는 **안 씀**. `gameInfo`는 `runner.Run(gameInfo.Tick+1, …)` 파라미터로 넘기고, 필요 시
+>   `gameDataStore.gameInfo`로 읽는다.
+> - **씬 로딩 메커니즘**: 열어뒀던 둘 중 **SceneManager** 채택
+>   (`LoadSceneAsync`/`UnloadSceneAsync`, Additive). 맵 씬은 여전히 Addressables.
+> - **게임 수명 제어 주체**: 설계는 `LOPRoom` 직접 → 실제는 **`IGameFactory`(`LOPGameFactory`)** 가
+>   로드/언로드를 캡슐화하고 `LOPRoom`이 이를 호출(`CreateAsync`/`DestroyAsync`).
+> - **명명**: 이후 Runner/World 리네임 반영 — 본문의 `IGame`/`LOPGame`(MonoBehaviour)/`LOPGameEngine`은
+>   실제 `IRunner`/`LOPRunner`다(스코프 이름 `GameLifetimeScope`/`RoomLifetimeScope`는 유지). 본문의
+>   옛 이름은 *설계 시점 어휘*로 읽을 것.
+> - **Open Questions 해소**: `roomScope`=`LifetimeScope.Find<RoomLifetimeScope>()`, 게임 스코프
+>   핸들=`LifetimeScope.Find<GameLifetimeScope>()`, 자기 씬 주입=`RegisterBuildCallback`에서
+>   `InjectSceneObjects` + `SceneManager.sceneLoaded`(additive 맵 씬도 주입).
+
 ## Goal
 
 게임 시스템(플레이 전체 — 게임 로직·엔진·매니저·World Core + 게임 UI + 카메라 + 입력)을 **별도 `GamePlay` 씬**으로 빼고, `LOPRoom`이 인자(`gameInfo`)와 함께 그 씬을 **Room 스코프의 자식 컨테이너**로 동적 로딩한다. 게임 종료 시 씬 언로드로 스코프와 게임 객체가 통째로 정리된다.
@@ -165,8 +184,6 @@ DI 구조와 **직교적**이다. `EnqueueParent`/`Enqueue` 코드는 두 방식
 
 - [x] 브레인스토밍 합의 (씬 분리, 플레이 전체, 맵 별도, EnqueueParent/Enqueue, 로딩 직교)
 - [x] 이 spec 작성
-- [ ] spec self-review
-- [ ] 사용자 spec 리뷰
-- [ ] `writing-plans`로 구현 plan 작성 (사용자가 구현 착수할 때)
+- [x] **구현 완료** — 상단 "구현 완료" 배너의 차이대로 배선됨(`LOPGameFactory`/`GameLifetimeScope`/`RoomLifetimeScope`). 2026-07-13 감사에서 확인.
 
-이 spec은 **설계 박제**가 목적이다. 즉시 구현하지 않으며, 추후 작업 착수 시 이 문서를 기준으로 plan을 작성한다.
+이 문서는 이제 **구현 기록**이다(원래 목적이던 설계 박제 + 실제와의 차이). 세부는 상단 배너 참조.

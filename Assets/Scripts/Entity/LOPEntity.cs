@@ -1,5 +1,6 @@
 using GameFramework;
 using LOP.Event.Entity;
+using MessagePipe;
 using System.ComponentModel;
 using UnityEngine;
 
@@ -37,7 +38,7 @@ namespace LOP
                 var current = worldTransform.Rotation.ToUnity().eulerAngles;
                 if (Vector3EqualityComparer.instance.Equals(current, value)) return;
                 worldTransform.Rotation = Quaternion.Euler(value).ToNumerics();
-                RaisePropertyChanged(this, new PropertyChangedEventArgs(nameof(rotation)));
+                // rotation 변경 이벤트는 소비자가 없어 발행하지 않는다(연속 상태는 pull). 값만 쓴다.
             }
         }
 
@@ -49,13 +50,14 @@ namespace LOP
                 var current = worldVelocity.Linear.ToUnity();
                 if (Vector3EqualityComparer.instance.Equals(current, value)) return;
                 worldVelocity.Linear = value.ToNumerics();
-                RaisePropertyChanged(this, new PropertyChangedEventArgs(nameof(velocity)));
+                // velocity 변경 이벤트는 소비자가 없어 발행하지 않는다(연속 상태는 pull). 값만 쓴다.
             }
         }
 
         public void RaisePropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            EventBus.Default.Publish(EventTopic.EntityId<LOPEntity>(entityId), new PropertyChange(e.PropertyName));
+            // 엔티티 컴포넌트라 DI 주입 타이밍이 불확실 → GlobalMessagePipe로 keyed 발행(키=entityId).
+            GlobalMessagePipe.GetPublisher<string, PropertyChange>().Publish(entityId, new PropertyChange(e.PropertyName));
         }
 
         public virtual void Initialize<TEntityCreationData>(TEntityCreationData creationData) where TEntityCreationData : struct, IEntityCreationData

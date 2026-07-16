@@ -1,5 +1,6 @@
 using GameFramework;
 using LOP.Event.Entity;
+using MessagePipe;
 using UnityEngine;
 using UnityEngine.UIElements;
 using VContainer;
@@ -43,6 +44,7 @@ namespace LOP
         private LOPEntityView _entityView;
         private int _maxHp;
         private int _currentHp;
+        private System.IDisposable _subscription;
 
         protected void Start()
         {
@@ -75,12 +77,12 @@ namespace LOP
             _hpFill = document.rootVisualElement.Q<VisualElement>("hp-bar-fill");
             UpdateHpBar();
 
-            EventBus.Default.Subscribe<EntityHealthChanged>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityHealthChanged);
+            _subscription = GlobalMessagePipe.GetSubscriber<string, EntityHealthChanged>().Subscribe(entity.entityId, OnEntityHealthChanged);
         }
 
         public void Cleanup()
         {
-            EventBus.Default.Unsubscribe<EntityHealthChanged>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityHealthChanged);
+            _subscription?.Dispose();
 
             if (_panelGameObject != null)
             {

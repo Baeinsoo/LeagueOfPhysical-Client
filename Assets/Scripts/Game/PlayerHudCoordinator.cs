@@ -1,6 +1,8 @@
 using GameFramework;
 using LOP.Event.Entity;
 using LOP.UI;
+using MessagePipe;
+using System;
 using VContainer;
 
 namespace LOP
@@ -16,17 +18,19 @@ namespace LOP
     {
         [Inject] private IGameDataStore gameDataStore;
         [Inject] private IWindowManager windowManager;
+        [Inject] private ISubscriber<EntityCreated> entityCreatedSubscriber;
 
         private bool _opened;
+        private IDisposable subscription;
 
         public void Initialize()
         {
-            EventBus.Default.Subscribe<EntityCreated>(nameof(EntityCreated), OnEntityCreated);
+            subscription = entityCreatedSubscriber.Subscribe(OnEntityCreated);
         }
 
         public void Dispose()
         {
-            EventBus.Default.Unsubscribe<EntityCreated>(nameof(EntityCreated), OnEntityCreated);
+            subscription?.Dispose();
         }
 
         private void OnEntityCreated(EntityCreated entityCreated)

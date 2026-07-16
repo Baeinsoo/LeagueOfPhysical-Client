@@ -1,5 +1,6 @@
 using GameFramework;
 using LOP.Event.Entity;
+using MessagePipe;
 using UnityEngine;
 using VContainer;
 
@@ -18,25 +19,37 @@ namespace LOP
         [Inject] private Reconciler reconciler;
         [Inject] private RemoteInterpolationClock remoteInterpolationClock;
 
+        [Inject] private ISubscriber<EntitySnapsToC> snapsSubscriber;
+        [Inject] private ISubscriber<EntitySpawnToC> spawnSubscriber;
+        [Inject] private ISubscriber<EntityDespawnToC> despawnSubscriber;
+        [Inject] private ISubscriber<UserEntitySnapToC> userSnapSubscriber;
+        [Inject] private ISubscriber<StatAllocationToC> statAllocationSubscriber;
+
+        [Inject] private IPublisher<string, EntityHealthChanged> healthChangedPublisher;
+        [Inject] private IPublisher<string, EntityManaChanged> manaChangedPublisher;
+        [Inject] private IPublisher<string, EntityLevelChanged> levelChangedPublisher;
+        [Inject] private IPublisher<string, EntityStatPointsChanged> statPointsChangedPublisher;
+        [Inject] private IPublisher<string, EntityStatChanged> statChangedPublisher;
+
         // 스냅이 틱당 여러 메시지로 청킹돼 온다 → 도착 기록을 틱당 1회로 dedupe(간격 기반 추정기 왜곡 방지).
         private long lastRecordedArrivalTick = long.MinValue;
 
+        private System.IDisposable subscriptions;
+
         public void Initialize()
         {
-            EventBus.Default.Subscribe<EntitySnapsToC>(nameof(IMessage), OnEntitySnapsToC);
-            EventBus.Default.Subscribe<EntitySpawnToC>(nameof(IMessage), OnEntitySpawnToC);
-            EventBus.Default.Subscribe<EntityDespawnToC>(nameof(IMessage), OnEntityDespawnToC);
-            EventBus.Default.Subscribe<UserEntitySnapToC>(nameof(IMessage), OnUserEntitySnapToC);
-            EventBus.Default.Subscribe<StatAllocationToC>(nameof(IMessage), OnStatAllocationToC);
+            var bag = DisposableBag.CreateBuilder();
+            snapsSubscriber.Subscribe(OnEntitySnapsToC).AddTo(bag);
+            spawnSubscriber.Subscribe(OnEntitySpawnToC).AddTo(bag);
+            despawnSubscriber.Subscribe(OnEntityDespawnToC).AddTo(bag);
+            userSnapSubscriber.Subscribe(OnUserEntitySnapToC).AddTo(bag);
+            statAllocationSubscriber.Subscribe(OnStatAllocationToC).AddTo(bag);
+            subscriptions = bag.Build();
         }
 
         public void Dispose()
         {
-            EventBus.Default.Unsubscribe<EntitySnapsToC>(nameof(IMessage), OnEntitySnapsToC);
-            EventBus.Default.Unsubscribe<EntitySpawnToC>(nameof(IMessage), OnEntitySpawnToC);
-            EventBus.Default.Unsubscribe<EntityDespawnToC>(nameof(IMessage), OnEntityDespawnToC);
-            EventBus.Default.Unsubscribe<UserEntitySnapToC>(nameof(IMessage), OnUserEntitySnapToC);
-            EventBus.Default.Unsubscribe<StatAllocationToC>(nameof(IMessage), OnStatAllocationToC);
+            subscriptions?.Dispose();
         }
 
         private void OnEntitySnapsToC(EntitySnapsToC entitySnapsToC)
@@ -86,9 +99,7 @@ namespace LOP
                         healthSystem.ApplyAuthoritativeState(health, serverEntitySnap.MaxHP, serverEntitySnap.CurrentHP);
                         if (health.Current != prevCurrent || health.Max != prevMax)
                         {
-                            EventBus.Default.Publish(
-                                EventTopic.EntityId<LOPEntity>(serverEntitySnap.EntityId),
-                                new EntityHealthChanged(health.Current, health.Max));
+                            healthChangedPublisher.Publish(serverEntitySnap.EntityId, new EntityHealthChanged(health.Current, health.Max));
                         }
                     }
 
@@ -182,9 +193,7 @@ namespace LOP
                 healthSystem.ApplyAuthoritativeState(health, userEntitySnapToC.MaxHP, userEntitySnapToC.CurrentHP);
                 if (health.Current != prevCurrent || health.Max != prevMax)
                 {
-                    EventBus.Default.Publish(
-                        EventTopic.EntityId<LOPEntity>(playerContext.entity.entityId),
-                        new EntityHealthChanged(health.Current, health.Max));
+                    healthChangedPublisher.Publish(playerContext.entity.entityId, new EntityHealthChanged(health.Current, health.Max));
                 }
             }
             else
@@ -199,9 +208,7 @@ namespace LOP
                 manaSystem.ApplyAuthoritativeState(mana, userEntitySnapToC.MaxMP, userEntitySnapToC.CurrentMP);
                 if (mana.Current != prevCurrent || mana.Max != prevMax)
                 {
-                    EventBus.Default.Publish(
-                        EventTopic.EntityId<LOPEntity>(playerContext.entity.entityId),
-                        new EntityManaChanged(mana.Current, mana.Max));
+                    manaChangedPublisher.Publish(playerContext.entity.entityId, new EntityManaChanged(mana.Current, mana.Max));
                 }
             }
             else
@@ -216,9 +223,7 @@ namespace LOP
                 levelSystem.ApplyAuthoritativeState(level, userEntitySnapToC.Level, userEntitySnapToC.CurrentExp);
                 if (level.Value != prevValue || level.Exp != prevExp)
                 {
-                    EventBus.Default.Publish(
-                        EventTopic.EntityId<LOPEntity>(playerContext.entity.entityId),
-                        new EntityLevelChanged(level.Value, level.Exp, level.ExpToNext));
+                    levelChangedPublisher.Publish(playerContext.entity.entityId, new EntityLevelChanged(level.Value, level.Exp, level.ExpToNext));
                 }
             }
             else
@@ -232,9 +237,7 @@ namespace LOP
                 statsSystem.SetUnspent(stats, userEntitySnapToC.StatPoints);
                 if (stats.UnspentPoints != prevUnspent)
                 {
-                    EventBus.Default.Publish(
-                        EventTopic.EntityId<LOPEntity>(playerContext.entity.entityId),
-                        new EntityStatPointsChanged(stats.UnspentPoints));
+                    statPointsChangedPublisher.Publish(playerContext.entity.entityId, new EntityStatPointsChanged(stats.UnspentPoints));
                 }
             }
             else
@@ -270,9 +273,7 @@ namespace LOP
 
             statsSystem.SetBase(stats, statType, statAllocationToC.StatValue);
             int effectiveValue = Mathf.RoundToInt(statsSystem.GetValue(stats, statType));
-            EventBus.Default.Publish(
-                EventTopic.EntityId<LOPEntity>(playerContext.entity.entityId),
-                new EntityStatChanged(statType, effectiveValue));
+            statChangedPublisher.Publish(playerContext.entity.entityId, new EntityStatChanged(statType, effectiveValue));
         }
     }
 }

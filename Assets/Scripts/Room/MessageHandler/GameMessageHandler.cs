@@ -1,4 +1,5 @@
 using GameFramework;
+using MessagePipe;
 using Mirror;
 using VContainer;
 
@@ -12,14 +13,19 @@ namespace LOP
         [Inject]
         private IPlayerContext playerContext;
 
+        [Inject]
+        private ISubscriber<GameInfoToC> gameInfoSubscriber;
+
+        private System.IDisposable subscription;
+
         public void Initialize()
         {
-            EventBus.Default.Subscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);
+            subscription = gameInfoSubscriber.Subscribe(OnGameInfoToC);
         }
 
         public void Dispose()
         {
-            EventBus.Default.Unsubscribe<GameInfoToC>(nameof(IMessage), OnGameInfoToC);
+            subscription?.Dispose();
         }
 
         private void OnGameInfoToC(GameInfoToC gameInfoToC)

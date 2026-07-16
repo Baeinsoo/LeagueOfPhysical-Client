@@ -1,6 +1,7 @@
 using System;
 using GameFramework;
 using LOP.Event.Entity;
+using MessagePipe;
 using R3;
 using UnityEngine;
 
@@ -31,7 +32,14 @@ namespace LOP.UI
         public ReadOnlyReactiveProperty<int> StatPoints => _statPoints;
         public ReadOnlyReactiveProperty<bool> CanAllocate => _canAllocate;
 
-        public StatsViewModel(IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry, GameFramework.World.StatsSystem statsSystem)
+        private IDisposable _subscriptions;
+
+        public StatsViewModel(
+            IPlayerContext playerContext,
+            GameFramework.World.EntityRegistry entityRegistry,
+            GameFramework.World.StatsSystem statsSystem,
+            ISubscriber<string, EntityStatChanged> statChangedSubscriber,
+            ISubscriber<string, EntityStatPointsChanged> statPointsChangedSubscriber)
         {
             _playerContext = playerContext;
             _entityRegistry = entityRegistry;
@@ -46,8 +54,10 @@ namespace LOP.UI
             }
 
             PushAll();
-            EventBus.Default.Subscribe<EntityStatChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityStatChanged);
-            EventBus.Default.Subscribe<EntityStatPointsChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityStatPointsChanged);
+            var bag = MessagePipe.DisposableBag.CreateBuilder();
+            statChangedSubscriber.Subscribe(_entity.entityId, OnEntityStatChanged).AddTo(bag);
+            statPointsChangedSubscriber.Subscribe(_entity.entityId, OnEntityStatPointsChanged).AddTo(bag);
+            _subscriptions = bag.Build();
         }
 
         public void Allocate(string statName)
@@ -95,11 +105,7 @@ namespace LOP.UI
 
         public void Dispose()
         {
-            if (_entity != null)
-            {
-                EventBus.Default.Unsubscribe<EntityStatChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityStatChanged);
-                EventBus.Default.Unsubscribe<EntityStatPointsChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityStatPointsChanged);
-            }
+            _subscriptions?.Dispose();
 
             _strength.Dispose();
             _dexterity.Dispose();

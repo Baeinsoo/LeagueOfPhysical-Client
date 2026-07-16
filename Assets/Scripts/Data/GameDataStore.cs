@@ -1,5 +1,6 @@
 using System;
 using GameFramework;
+using MessagePipe;
 
 namespace LOP
 {
@@ -8,16 +9,16 @@ namespace LOP
         public GameInfo gameInfo { get; set; }
         public string userEntityId { get; set; }
 
-        public GameDataStore()
+        private readonly IDisposable subscription;
+
+        public GameDataStore(ISubscriber<GameInfoToC> gameInfoSubscriber)
         {
-            EventBus.Default.Subscribe<GameInfoToC>(nameof(IMessage), HandleGameInfo);
+            subscription = gameInfoSubscriber.Subscribe(HandleGameInfo);
         }
 
         public void Dispose()
         {
-            // 룸 스코프가 dispose될 때 전역 EventBus 구독을 해제한다.
-            // (해제 안 하면 룸 재입장마다 죽은 GameDataStore가 EventBus.Default에 누적됨)
-            EventBus.Default.Unsubscribe<GameInfoToC>(nameof(IMessage), HandleGameInfo);
+            subscription.Dispose();
         }
 
         private void HandleGameInfo(GameInfoToC gameInfoToC)

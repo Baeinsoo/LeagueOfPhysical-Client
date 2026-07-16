@@ -1,5 +1,7 @@
 using GameFramework;
 using LOP.Event.Entity;
+using MessagePipe;
+using System;
 using UnityEngine;
 using VContainer;
 
@@ -16,15 +18,18 @@ namespace LOP
     public class EntityBinder : IGameMessageHandler
     {
         [Inject] private IObjectResolver objectResolver;
+        [Inject] private ISubscriber<EntityCreated> entityCreatedSubscriber;
+
+        private IDisposable subscription;
 
         public void Initialize()
         {
-            EventBus.Default.Subscribe<EntityCreated>(nameof(EntityCreated), OnEntityCreated);
+            subscription = entityCreatedSubscriber.Subscribe(OnEntityCreated);
         }
 
         public void Dispose()
         {
-            EventBus.Default.Unsubscribe<EntityCreated>(nameof(EntityCreated), OnEntityCreated);
+            subscription?.Dispose();
         }
 
         private void OnEntityCreated(EntityCreated entityCreated)

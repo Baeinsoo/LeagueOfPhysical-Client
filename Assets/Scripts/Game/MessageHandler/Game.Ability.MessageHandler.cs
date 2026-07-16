@@ -1,4 +1,5 @@
 using GameFramework;
+using MessagePipe;
 using VContainer;
 
 namespace LOP
@@ -15,14 +16,19 @@ namespace LOP
         [Inject]
         private IPlayerContext playerContext;
 
+        [Inject]
+        private ISubscriber<AbilityActivatedToC> abilityActivatedSubscriber;
+
+        private System.IDisposable subscription;
+
         public void Initialize()
         {
-            EventBus.Default.Subscribe<AbilityActivatedToC>(nameof(IMessage), OnAbilityActivatedToC);
+            subscription = abilityActivatedSubscriber.Subscribe(OnAbilityActivatedToC);
         }
 
         public void Dispose()
         {
-            EventBus.Default.Unsubscribe<AbilityActivatedToC>(nameof(IMessage), OnAbilityActivatedToC);
+            subscription?.Dispose();
         }
 
         private void OnAbilityActivatedToC(AbilityActivatedToC msg)

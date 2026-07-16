@@ -34,10 +34,8 @@
 - **위배:** connection-arch "와이어 추상" — 단일 폴리모픽 `WorldEventBatch`가 여러 `WorldEvent` 운반, "개념별 패킷 신설 안 함" 명시. 지금은 정반대(새 이벤트마다 패킷+MessageId 증식).
 - **수정:** `WorldEventBatch` 도입, 레거시 `ToC`는 수신 어댑터에서 `WorldEvent`로 변환 격리.
 
-### #8 (DI Med-High, L) static `EventBus.Default` 글로벌 버스 — DI/R3 밖
-- **위치:** `GameFramework/EventBus/EventBus.cs:7`(`static IEventBus Default`). 모든 메시지 핸들러·뷰가 여기 구독(`LOPRoom.cs:80`). topic+Type-keyed Dictionary, R3 아님.
-- **위배:** architecture-guidelines "R3 통일" + VContainer DI(이벤트 소스만 static 글로벌). 룸 재입장 시 leak 위험(`GameDataStore.cs:11-21` 주석이 경고).
-- **수정:** R3 MessageBroker + DI 등록으로. (큰 작업 — 메시징·연출 fan-out 연결조직.)
+### ✅ #8 static `EventBus.Default` 글로벌 버스 — 완료 (07-16, Cysharp MessagePipe 이전)
+- **해소:** 전역 static 커스텀 버스를 **MessagePipe**(타입·keyed pub/sub + DI 스코프 브로커)로 이전 후 삭제(클·서·GameFramework). 문자열 토픽·리플렉션 디스패치·전역 static 제거. **①구독 IDisposable(AddTo) + Root 싱글턴 브로커**로 룸 재입장 leak 구조적 해소(②스코프 브로커=redundant 드롭). 네트워크 수신은 `NetworkMessageDispatcher`(리플렉션 없는 타입 라우팅, IL2CPP 안전), 엔티티별은 keyed(키=entityId). 정적/엔티티 컴포넌트=`GlobalMessagePipe`, DI 서비스/VM=주입. 5슬라이스, 종합 플레이 검증 통과, EditMode 269 green. spec/plan `2026-07-16-eventbus-messagepipe-migration*`. 리서치: 패턴=표준 / 전역-static 형태=비표준 / MessagePipe=R3 생태계 표준 답.
 
 ### ✅ #3-WC (Med, M) `ctx.EntityManager` 레거시 탈출구 제거 — 완료 (07-13)
 - **위치(였음):** `Shared/Ability/AbilityEffectContext.cs`(`IEntityManager EntityManager`, 구 `GameFramework/Entity/IEntityManager` = UnityEngine 의존). 소비 `AbilityEffectExecutor.cs`.

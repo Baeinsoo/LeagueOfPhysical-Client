@@ -1,4 +1,5 @@
 using System;
+using MessagePipe;
 
 namespace LOP
 {
@@ -10,22 +11,27 @@ namespace LOP
         public UserStats normalUserStats { get; set; }
         public UserStats rankedUserStats { get; set; }
 
-        public UserDataStore()
+        private readonly IDisposable subscriptions;
+
+        public UserDataStore(
+            ISubscriber<CreateUserResponse> createUserSubscriber,
+            ISubscriber<GetUserLocationResponse> getUserLocationSubscriber,
+            ISubscriber<GetUserResponse> getUserSubscriber,
+            ISubscriber<GetUserStatsResponse> getUserStatsSubscriber,
+            ISubscriber<UpdateUserProfileResponse> updateUserProfileSubscriber)
         {
-            EventBus.Default.Subscribe<CreateUserResponse>(EventTopic.WebResponse, HandleCreateUser);
-            EventBus.Default.Subscribe<GetUserLocationResponse>(EventTopic.WebResponse, HandleGetUserLocation);
-            EventBus.Default.Subscribe<GetUserResponse>(EventTopic.WebResponse, HandleGetUser);
-            EventBus.Default.Subscribe<GetUserStatsResponse>(EventTopic.WebResponse, HandleGetUserStats);
-            EventBus.Default.Subscribe<UpdateUserProfileResponse>(EventTopic.WebResponse, HandleUpdateUserProfile);
+            var bag = DisposableBag.CreateBuilder();
+            createUserSubscriber.Subscribe(HandleCreateUser).AddTo(bag);
+            getUserLocationSubscriber.Subscribe(HandleGetUserLocation).AddTo(bag);
+            getUserSubscriber.Subscribe(HandleGetUser).AddTo(bag);
+            getUserStatsSubscriber.Subscribe(HandleGetUserStats).AddTo(bag);
+            updateUserProfileSubscriber.Subscribe(HandleUpdateUserProfile).AddTo(bag);
+            subscriptions = bag.Build();
         }
 
         public void Dispose()
         {
-            EventBus.Default.Unsubscribe<CreateUserResponse>(EventTopic.WebResponse, HandleCreateUser);
-            EventBus.Default.Unsubscribe<GetUserLocationResponse>(EventTopic.WebResponse, HandleGetUserLocation);
-            EventBus.Default.Unsubscribe<GetUserResponse>(EventTopic.WebResponse, HandleGetUser);
-            EventBus.Default.Unsubscribe<GetUserStatsResponse>(EventTopic.WebResponse, HandleGetUserStats);
-            EventBus.Default.Unsubscribe<UpdateUserProfileResponse>(EventTopic.WebResponse, HandleUpdateUserProfile);
+            subscriptions.Dispose();
         }
 
         private void HandleCreateUser(CreateUserResponse response)

@@ -1,5 +1,6 @@
 using GameFramework;
 using LOP.Event.Entity;
+using MessagePipe;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,6 +17,12 @@ namespace LOP
 
         [Inject]
         private IEntityFactory entityFactory;
+
+        [Inject]
+        private IPublisher<EntityCreated> entityCreatedPublisher;
+
+        [Inject]
+        private IPublisher<EntityDestroyed> entityDestroyedPublisher;
 
         private Dictionary<string, IEntity> entityMap = new Dictionary<string, IEntity>();
         private HashSet<string> entitiesToDestroy = new HashSet<string>();
@@ -70,7 +77,7 @@ namespace LOP
 
             entityMap[entity.entityId] = entity;
 
-            EventBus.Default.Publish(nameof(EntityCreated), new EntityCreated(entity));
+            entityCreatedPublisher.Publish(new EntityCreated(entity));
 
             return entity;
         }
@@ -103,7 +110,7 @@ namespace LOP
                 }
                 // --- end World Core slice 2 ---
 
-                EventBus.Default.Publish(nameof(EntityDestroyed), new EntityDestroyed(entityId));
+                entityDestroyedPublisher.Publish(new EntityDestroyed(entityId));
 
                 Destroy(lopEntity.transform.parent.gameObject);
 

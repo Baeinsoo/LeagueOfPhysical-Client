@@ -1,5 +1,5 @@
 using System;
-using GameFramework;
+using MessagePipe;
 
 namespace LOP
 {
@@ -8,16 +8,21 @@ namespace LOP
         public Room room { get; set; }
         public Match match { get; set; }
 
-        public RoomDataStore()
+        private readonly IDisposable subscriptions;
+
+        public RoomDataStore(
+            ISubscriber<GetMatchResponse> getMatchSubscriber,
+            ISubscriber<RoomJoinableResponse> roomJoinableSubscriber)
         {
-            EventBus.Default.Subscribe<GetMatchResponse>(EventTopic.WebResponse, HandleGetMatch);
-            EventBus.Default.Subscribe<RoomJoinableResponse>(EventTopic.WebResponse, HandleRoomJoinable);
+            var bag = DisposableBag.CreateBuilder();
+            getMatchSubscriber.Subscribe(HandleGetMatch).AddTo(bag);
+            roomJoinableSubscriber.Subscribe(HandleRoomJoinable).AddTo(bag);
+            subscriptions = bag.Build();
         }
 
         public void Dispose()
         {
-            EventBus.Default.Unsubscribe<GetMatchResponse>(EventTopic.WebResponse, HandleGetMatch);
-            EventBus.Default.Unsubscribe<RoomJoinableResponse>(EventTopic.WebResponse, HandleRoomJoinable);
+            subscriptions.Dispose();
         }
 
         private void HandleGetMatch(GetMatchResponse response)

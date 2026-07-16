@@ -17,11 +17,11 @@ namespace LOP
         private AbilityActivator abilityActivator;
         private GameFramework.World.EntityRegistry entityRegistry;
         private InputBufferSystem inputBufferSystem;
-        private InputHistory inputHistory;
+        private GameFramework.Netcode.SequenceBuffer<InputCommand> inputHistory;
 
         public PlayerInputManager(IRunner runner, IPlayerContext playerContext, AbilityActivator abilityActivator,
             GameFramework.World.EntityRegistry entityRegistry, InputBufferSystem inputBufferSystem,
-            InputHistory inputHistory)
+            GameFramework.Netcode.SequenceBuffer<InputCommand> inputHistory)
         {
             this.runner = runner;
             this.playerContext = playerContext;

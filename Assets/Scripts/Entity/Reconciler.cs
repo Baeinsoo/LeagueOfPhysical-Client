@@ -20,8 +20,8 @@ namespace LOP
         [Inject] private GameFramework.World.WorldEventBuffer worldEventBuffer;
         [Inject] private AbilityActivator abilityActivator;
         [Inject] private GameFramework.Netcode.SnapshotHistory snapshotHistory;
-        [Inject] private PredictedAbilityStateHistory predictedAbilityStateHistory;
-        [Inject] private InputHistory inputHistory;
+        [Inject] private GameFramework.Netcode.SequenceBuffer<PredictedAbilityState> predictedAbilityStateHistory;
+        [Inject] private GameFramework.Netcode.SequenceBuffer<InputCommand> inputHistory;
         [Inject] private GameFramework.World.IWorld world;   // 재생 = 라이브와 같은 단일 진입점 world.Tick
         [Inject] private ReconciliationStats reconciliationStats;
         [Inject] private GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;

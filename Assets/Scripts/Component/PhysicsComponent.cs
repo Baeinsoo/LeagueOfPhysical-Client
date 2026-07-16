@@ -25,6 +25,7 @@ namespace LOP
 
             GameObject physics = entity.transform.parent.Find("Physics").gameObject;
             physicsGameObject = physics.CreateChild("PhysicsGameObject");
+            physicsGameObject.layer = LayerMask.NameToLayer("Character");
 
             entityRigidbody = physicsGameObject.AddComponent<Rigidbody>();
             entityRigidbody.linearDamping = 0f;   // 수평 정지는 이동 모터가 0으로 제동(아래). 수직=순수 중력.

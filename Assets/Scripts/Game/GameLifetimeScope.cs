@@ -49,9 +49,13 @@ namespace LOP
             builder.Register<GameFramework.World.IEventSink, WorldEventSink>(Lifetime.Singleton);
             builder.Register<GameFramework.IPhysicsSimulator, GameFramework.UnityPhysicsSimulator>(Lifetime.Singleton);
             builder.Register<GameFramework.ICollisionQuery, GameFramework.UnityCollisionQuery>(Lifetime.Singleton);
+            // sweep이 캐릭터도 막는다(Character 포함) — 캐릭터는 서로 통과 못 하는 단단한 벽. 서버와 동일 설정.
             builder.Register<KinematicMoveSystem>(c => new KinematicMoveSystem(
-                c.Resolve<GameFramework.ICollisionQuery>(), LayerMask.GetMask("Default")), Lifetime.Singleton);
-            builder.Register<GameFramework.World.IMotionBridge, MotionBridge>(Lifetime.Singleton);
+                c.Resolve<GameFramework.ICollisionQuery>(), LayerMask.GetMask("Default", "Character")), Lifetime.Singleton);
+            // 클라: 내 캐릭만 움직인다(남은 벽). 겹치면 내가 전부 빠져나옴(1.0) — sweep 벽이 주로 막고
+            // 밀어내기는 슬쩍 들어간 겹침만 복구. 남은 서버 스냅대로 보간해 따라옴.
+            builder.Register<GameFramework.World.IMotionBridge>(_ => new MotionBridge(
+                LayerMask.GetMask("Default"), LayerMask.GetMask("Character"), 1f), Lifetime.Singleton);
             builder.Register<GameFramework.IMapLoader, AddressablesMapLoader>(Lifetime.Singleton);
 
             // runner은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.

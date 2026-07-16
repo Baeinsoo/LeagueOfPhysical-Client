@@ -58,13 +58,14 @@ World Core, netcode, or matching FSM.
 - @docs/lop-repo-topology.md
 - @docs/world-core-connection-architecture.md
 - @docs/netcode-redesign.md
-- @docs/superpowers/specs/2026-06-06-game-scene-scope-design.md
 
-> Only **durable** docs are auto-loaded: the five architecture docs above, plus
-> the *parked, not-yet-implemented* `game-scene-scope` design. Add an `@` line for
-> a new spec **only while its work is active**; once a slice is implemented and
-> merged, **remove its `@` line** (the file stays in `docs/superpowers/specs/` for
-> reference, read on demand). This keeps the auto-load set small.
+> Only **durable** docs are auto-loaded: the five architecture docs above. Add an
+> `@` line for a new spec **only while its work is active**; once a slice is
+> implemented and merged, **remove its `@` line** (the file stays in
+> `docs/superpowers/specs/` for reference, read on demand). This keeps the
+> auto-load set small. (The `game-scene-scope` design was auto-loaded while parked;
+> its `@` line was removed once it shipped — confirmed implemented in the 2026-07-13
+> audit.)
 >
 > Completed slice specs (World Core Health/Mana/Level/Stats/Owner migration,
 > server Health slices, Motion, MVC-decouple, UI-Toolkit M1, LOP-Shared,

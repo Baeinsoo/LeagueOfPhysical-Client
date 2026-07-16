@@ -117,7 +117,7 @@
 | **M5b — LOP.UI 인프라 GameFramework 승격** | 단일 클라라 YAGNI | 서버도 같은 UI 인프라가 필요해질 때. `[[uitoolkit-migration-status]]` |
 | **넷코드 status 메모리류 `GameFramework.Netcode` 수렴** | 흩어진 클래스 일괄 이동은 YAGNI | 각 클래스 손댈 때 기회 있을 때. `[[netcode-namespace-consolidation]]` |
 | **MasterData `file:` → git URL + tag 전환** | 안정화 후 결정 | 패키지 3종 함께 전환 시점. topology Open Decisions |
-| ~~**게임 씬 스코프 분리** (GamePlay 씬)~~ ⚠️ **감사(07-13): 이미 구현됨** — DI 감사가 Root→Room→Game 스코프 분리 + `EnqueueParent(roomScope)` + additive 로드 양쪽 확인. spec의 "미구현" 서술이 stale. 파킹 해제, 문서 정합만 남음(Tier-3 문서 stale에 포함). | — |
+| ~~**게임 씬 스코프 분리** (GamePlay 씬)~~ ✅ **종결(07-17)** — 이미 구현돼 있었고(Root→Room→Game 스코프 + `EnqueueParent(roomScope)` + additive 로드: `LOPGameFactory`/`GameLifetimeScope`/`RoomLifetimeScope`), **문서 정합 완료**: spec 상단에 "구현 완료 + 실제와의 차이" 배너 추가(씬명 `GamePlay`→`LOPGame`, gameInfo=`runner.Run` 파라미터[Enqueue 아님], SceneManager 채택, 수명제어=`IGameFactory` 캡슐화, Runner/World 리네임) + CLAUDE.md 자동로드 `@` 줄 제거(구현됨). | — |
 
 ---
 

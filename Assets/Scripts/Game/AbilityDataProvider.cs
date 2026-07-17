@@ -55,7 +55,7 @@ namespace LOP
                         result.Add(new DamageEffect(d.Amount, d.Range, d.Angle));
                         break;
                     case LOP.MasterData.KnockbackEffect k:
-                        result.Add(new KnockbackEffect(k.Strength, k.Range, k.Angle, k.DurationTicks, k.DecayPerTick));
+                        result.Add(new KnockbackEffect(k.Strength, k.DurationTicks, k.DecayPerTick));
                         break;
                 }
             }

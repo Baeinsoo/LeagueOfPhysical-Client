@@ -30,8 +30,7 @@ namespace LOP
 
             // 네트워크 수신(NetworkMessageDispatcher가 발행 → MessageHandler가 구독)
             builder.RegisterMessageBroker<GameInfoToC>(options);
-            builder.RegisterMessageBroker<DamageEventToC>(options);
-            builder.RegisterMessageBroker<AbilityActivatedToC>(options);
+            builder.RegisterMessageBroker<WorldEventBatchToC>(options);
             builder.RegisterMessageBroker<EntitySnapsToC>(options);
             builder.RegisterMessageBroker<EntitySpawnToC>(options);
             builder.RegisterMessageBroker<EntityDespawnToC>(options);

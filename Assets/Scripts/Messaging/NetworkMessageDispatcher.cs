@@ -18,8 +18,7 @@ namespace LOP
         [Inject]
         public NetworkMessageDispatcher(
             IPublisher<GameInfoToC> gameInfo,
-            IPublisher<DamageEventToC> damage,
-            IPublisher<AbilityActivatedToC> ability,
+            IPublisher<WorldEventBatchToC> worldEventBatch,
             IPublisher<EntitySnapsToC> snaps,
             IPublisher<EntitySpawnToC> spawn,
             IPublisher<EntityDespawnToC> despawn,
@@ -29,8 +28,7 @@ namespace LOP
             IPublisher<InputTimingToC> inputTiming)
         {
             Register(gameInfo);
-            Register(damage);
-            Register(ability);
+            Register(worldEventBatch);
             Register(snaps);
             Register(spawn);
             Register(despawn);

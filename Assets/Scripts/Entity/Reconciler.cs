@@ -80,7 +80,7 @@ namespace LOP
                 }
             }
 
-            // 하드 복원: 내 캐릭을 서버 스냅(anchorTick) 상태로. reactive 경로가 rigidbody에 반영되므로
+            // 하드 복원: 내 캐릭을 서버 스냅(anchorTick) 상태로. World에 쓴 포즈를 MotionBridge가 rb에 밀고,
             // PhysX가 새 포즈를 보도록 수동 SyncTransforms(autoSyncTransforms=false).
             entity.position = snap.position;
             entity.rotation = snap.rotation;

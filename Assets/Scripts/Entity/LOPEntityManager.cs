@@ -28,17 +28,17 @@ namespace LOP
         private Dictionary<string, LOPActor> entityMap = new Dictionary<string, LOPActor>();
         private HashSet<string> entitiesToDestroy = new HashSet<string>();
 
-        public IEntity GetEntity(string entityId)
+        public MonoBehaviour GetEntity(string entityId)
         {
             return entityMap[entityId];
         }
 
-        public T GetEntity<T>(string entityId) where T : IEntity
+        public T GetEntity<T>(string entityId) where T : MonoBehaviour
         {
             return (T)(object)entityMap[entityId];
         }
 
-        public bool TryGetEntity(string entityId, out IEntity entity)
+        public bool TryGetEntity(string entityId, out MonoBehaviour entity)
         {
             if (entityMap.TryGetValue(entityId, out var value) == false)
             {
@@ -50,7 +50,7 @@ namespace LOP
             return true;
         }
 
-        public bool TryGetEntity<T>(string entityId, out T entity) where T : IEntity
+        public bool TryGetEntity<T>(string entityId, out T entity) where T : MonoBehaviour
         {
             if (entityMap.TryGetValue(entityId, out var value) == false)
             {
@@ -62,18 +62,18 @@ namespace LOP
             return true;
         }
 
-        public IEnumerable<IEntity> GetEntities()
+        public IEnumerable<MonoBehaviour> GetEntities()
         {
-            return entityMap.Values.Cast<IEntity>().ToList();
+            return entityMap.Values.Cast<MonoBehaviour>().ToList();
         }
 
-        public IEnumerable<T> GetEntities<T>() where T : IEntity
+        public IEnumerable<T> GetEntities<T>() where T : MonoBehaviour
         {
             return entityMap.Values.Cast<T>().ToList();
         }
 
         public TEntity CreateEntity<TEntity, TCreationData>(TCreationData creationData)
-            where TEntity : IEntity
+            where TEntity : MonoBehaviour
             where TCreationData : struct, IEntityCreationData
         {
             var entity = entityFactory.CreateEntity<TEntity, TCreationData>(creationData);
@@ -128,7 +128,7 @@ namespace LOP
             throw new NotImplementedException();
         }
 
-        public TEntity GetEntityByUserId<TEntity>(string userId) where TEntity : IEntity
+        public TEntity GetEntityByUserId<TEntity>(string userId) where TEntity : MonoBehaviour
         {
             throw new NotImplementedException();
         }

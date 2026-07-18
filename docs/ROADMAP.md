@@ -65,6 +65,14 @@
 
 ## ▶ 다음 (Next — 순서 있음)
 
+### 엔티티 Unity 레이어 재구조화 — **현재 활성 트랙**
+World Core(순수 C# Entity/Component) 위 Unity 프레젠테이션을 **얇은 뷰/컴패니언 + Actor식 앵커**로 수렴하는 S1~S5 리팩터. **S1(설정 컴포넌트→World)·S2(PhysicsComponent→PhysicsFollower)·S3(레거시 substrate machinery 삭제: IComponent/MonoComponent/LOPComponent/Status/MonoEntity/Entity.Extensions)·③물리통합(rb-follow 3경로→호스트 단일 MotionBridge 패스) 완료** → 레거시 MonoBehaviour machinery 소멸, `LOPEntity`=순수 `MonoBehaviour, IEntity`.
+
+- **다음 = S4** — Unity 트리 재구성: 빈 루트 `Character_{id}`(컴포넌트 0) → **Actor식 앵커 루트**(단일 소유 핸들), Visual/Physics/뷰를 자식화, 형제 배선 `transform.parent.Find("Visual")`/`Find("Physics")` 문자열 → **typed 핸들/직렬화 참조**.
+- **그다음 = S5** — 매니저/팩토리/스포너 구조 재작업(거대 Creator → 표준 스포너/바인더 분해) + `entityMap`↔`EntityRegistry` 이중화 축소 + **얇은 `IEntity` 완전 삭제**(제네릭 재타입 — 서버 매니저 `GetAllEntitySnaps`가 파사드를 IEntity로 읽어 매니저 재작업과 묶여 있어 S5로 미뤄둠).
+
+umbrella `docs/superpowers/specs/2026-07-18-entity-view-rearchitecture-umbrella-design.md`. 워크플로우: 각 슬라이스 brainstorming→spec→writing-plans→subagent-driven(컴파일=UnityMCP, 플레이=사용자). `[[entity-unity-layer-rearchitecture]]`.
+
 ### Stage④ 남은 트랙 (netcode-redesign.md §5 프론티어)
 
 **A(클라 예측 전투)의 데미지 트랙은 닫혔다 (2026-07-12 결정).** 이동은 이미 예측(키네마틱+Reconciler), 어빌리티 발동도 예측(self-skip). **데미지는 예측하지 않고 서버권위 재생 유지** — 넷코드/예측 에픽은 자연 일단락. 아래 잔여는 대부분 **예측 콘텐츠 대기(B)** 또는 **독립 정리**다. 현재 진행 중인 항목 없음.

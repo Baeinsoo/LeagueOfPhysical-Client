@@ -24,7 +24,8 @@ namespace LOP
         [Inject]
         private IPublisher<EntityDestroyed> entityDestroyedPublisher;
 
-        private Dictionary<string, IEntity> entityMap = new Dictionary<string, IEntity>();
+        // id→뷰 앵커 인덱스. World EntityRegistry(id→데이터 진실원본)와 별개 축.
+        private Dictionary<string, LOPActor> entityMap = new Dictionary<string, LOPActor>();
         private HashSet<string> entitiesToDestroy = new HashSet<string>();
 
         public IEntity GetEntity(string entityId)
@@ -34,16 +35,18 @@ namespace LOP
 
         public T GetEntity<T>(string entityId) where T : IEntity
         {
-            return (T)entityMap[entityId];
+            return (T)(object)entityMap[entityId];
         }
 
         public bool TryGetEntity(string entityId, out IEntity entity)
         {
-            if (entityMap.TryGetValue(entityId, out entity) == false)
+            if (entityMap.TryGetValue(entityId, out var value) == false)
             {
+                entity = null;
                 return false;
             }
 
+            entity = value;
             return true;
         }
 
@@ -55,13 +58,13 @@ namespace LOP
                 return false;
             }
 
-            entity = (T)value;
+            entity = (T)(object)value;
             return true;
         }
 
         public IEnumerable<IEntity> GetEntities()
         {
-            return entityMap.Values.ToList();
+            return entityMap.Values.Cast<IEntity>().ToList();
         }
 
         public IEnumerable<T> GetEntities<T>() where T : IEntity
@@ -75,9 +78,10 @@ namespace LOP
         {
             var entity = entityFactory.CreateEntity<TEntity, TCreationData>(creationData);
 
-            entityMap[entity.entityId] = entity;
+            var actor = (LOPActor)(object)entity;
+            entityMap[actor.entityId] = actor;
 
-            entityCreatedPublisher.Publish(new EntityCreated(entity));
+            entityCreatedPublisher.Publish(new EntityCreated(actor));
 
             return entity;
         }

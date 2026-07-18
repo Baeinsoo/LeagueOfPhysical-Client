@@ -102,8 +102,8 @@ namespace LOP.Event.Entity
 
     public struct EntityCreated
     {
-        public IEntity entity;
-        public EntityCreated(IEntity entity)
+        public LOPActor entity;
+        public EntityCreated(LOPActor entity)
         {
             this.entity = entity;
         }

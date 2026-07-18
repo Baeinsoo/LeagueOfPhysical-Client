@@ -117,10 +117,6 @@ namespace LOP
 
         public void UpdateEntities()
         {
-            foreach (var entity in GetEntities())
-            {
-                entity.UpdateEntity();
-            }
         }
 
         public string GetUserIdByEntityId(string entityId)

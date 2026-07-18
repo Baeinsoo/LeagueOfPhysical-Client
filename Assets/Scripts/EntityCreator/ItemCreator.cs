@@ -36,9 +36,9 @@ namespace LOP
                 worldEntity.Get<GameFramework.World.Velocity>());
             entity.Initialize(creationData);
 
-            PhysicsComponent physicsComponent = entity.AddEntityComponent<PhysicsComponent>();
-            objectResolver.Inject(physicsComponent);
-            physicsComponent.Initialize(true, true);
+            PhysicsFollower physicsFollower = entity.gameObject.AddComponent<PhysicsFollower>();
+            objectResolver.Inject(physicsFollower);
+            physicsFollower.Initialize(worldEntity, true, true);
 
             LOPEntityController controller = root.CreateChildWithComponent<LOPEntityController>();
             objectResolver.Inject(controller);

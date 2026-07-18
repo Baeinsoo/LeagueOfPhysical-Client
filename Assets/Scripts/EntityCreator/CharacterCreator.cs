@@ -50,10 +50,10 @@ namespace LOP
 
             bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
 
-            PhysicsComponent physicsComponent = entity.AddEntityComponent<PhysicsComponent>();
-            objectResolver.Inject(physicsComponent);
+            PhysicsFollower physicsFollower = entity.gameObject.AddComponent<PhysicsFollower>();
+            objectResolver.Inject(physicsFollower);
             // 모든 캐릭터 kinematic — 우리가 직접 이동시킨다. 내 캐릭=예측(KinematicMoveSystem), 남=스냅 팔로워.
-            physicsComponent.Initialize(true, false);
+            physicsFollower.Initialize(worldEntity, true, false);
 
             LOPEntityController controller = root.CreateChildWithComponent<LOPEntityController>();
             objectResolver.Inject(controller);
@@ -99,7 +99,7 @@ namespace LOP
             worldEntity.Add(new StatusEffects());
             worldEntity.Add(new MotionContributions());
             // 물리 핸들(rb/콜라이더)을 공유 컴포넌트로 — 공유 MotionBridge가 이걸로 겹침해소·rb 반영(per-side LOPEntity 안 만짐).
-            worldEntity.Add(new PhysicsBody(physicsComponent.entityRigidbody, (CapsuleCollider)physicsComponent.entityColliders[0]));
+            worldEntity.Add(new PhysicsBody(physicsFollower.entityRigidbody, (CapsuleCollider)physicsFollower.entityColliders[0]));
             if (isUserEntity)
             {
                 // 입력으로 조종되는 엔티티(내 캐릭)만 — 호스트가 매 틱 커맨드를 채우고 MovementSystem이 읽는다.

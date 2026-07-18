@@ -93,11 +93,6 @@ namespace LOP
             {
                 LOPEntity lopEntity = GetEntity<LOPEntity>(entityId);
 
-                foreach (var component in lopEntity.components.ToArray())
-                {
-                    lopEntity.DetachEntityComponent(component);
-                }
-
                 foreach (var cleanup in lopEntity.transform.parent.GetComponentsInChildren<ICleanup>(true))
                 {
                     cleanup.Cleanup();

@@ -7,10 +7,11 @@
 ## 목표
 
 S1+S2로 `entity.components` 병렬 리스트가 비었으므로, 이제 **레거시 GameFramework 엔티티/컴포넌트
-substrate를 통째 삭제**한다: `IComponent`/`MonoComponent`/`LOP.LOPComponent`/`Status`(컴포넌트 반쪽) +
-`IEntity`/`MonoEntity`(엔티티 반쪽) + `Entity.Extensions`. `LOPEntity`는 순수 `MonoBehaviour`(파사드 +
-물리 브릿지만 든 얇은 뷰 앵커)로 남는다. 이로써 World Core와 병존하던 옛 MonoBehaviour 타입 시스템이
-소멸한다.
+substrate machinery를 삭제**한다: `IComponent`/`MonoComponent`/`LOP.LOPComponent`/`Status`(컴포넌트 반쪽) +
+`MonoEntity`(엔티티 베이스) + `Entity.Extensions`. `LOPEntity`는 순수 `MonoBehaviour`(파사드 + 물리
+브릿지만 든 얇은 뷰 앵커)로 남는다. **`IEntity`는 4멤버 파사드 계약으로 축소해 잠정 유지**(매니저가 파사드를
+IEntity로 읽어 완전 삭제는 매니저 재작업=S5와 묶임 — 아래 정정 참조). 이로써 World Core와 병존하던 옛
+MonoBehaviour *machinery*(컴포넌트 시스템 + MonoEntity 베이스)가 소멸한다.
 
 ## 실측 근거 (2026-07-18 blast-radius 감사)
 
@@ -49,33 +50,33 @@ substrate를 통째 삭제**한다: `IComponent`/`MonoComponent`/`LOP.LOPCompone
 **그린(S3a):** GF·클·서 컴파일 클린 + `IComponent`/`MonoComponent`/`LOPComponent`/`Status` 참조 0 +
 GF EditMode 회귀(269 green). 인게임 무변화(죽은 코드라 자명하나 스모크 확인).
 
-## 설계 — S3b: 엔티티 substrate 완전 삭제
+## 설계 — S3b: `MonoEntity` 삭제 + `LOPEntity` 순수 MonoBehaviour화 (얇은 IEntity 유지)
 
-- **`LOPEntity : MonoEntity` → `LOPEntity : MonoBehaviour`**(클·서). `entityId`·`position`/`rotation`/
-  `velocity`를 `override`가 아니라 자체 선언(본문·PropertyChange 발행 동일 유지). `LinkWorldMotion`/
-  `Initialize`/`RaisePropertyChanged`/`SyncPhysics`/`PushMotionToPhysics`는 평범한 메서드로 유지.
-- **`UpdateEntity`(빈 함수) + 매니저 호출(client `:127`/server `:153`) 제거.**
-- **`IsGrounded`를 `LOPEntity`의 메서드로 이전**(`this IEntity` 확장 → 인스턴스 메서드), 호출부
-  `LOPEntityView.cs:97`를 `entity.IsGrounded()`로 유지. `GetEntityTransform` 삭제 → **`Entity.Extensions.cs`
-  통째 삭제.**
-- **`MonoEntity.cs` + `IEntity.cs` 삭제(GF).**
-- **`IEntity` 결합점 재타입:**
-  - `IEntityCreator<out TEntity,in TCreationData> where TEntity : IEntity` → `where TEntity : MonoBehaviour`.
-  - `IEntityManager`(제네릭·반환 `IEntity`) → `MonoBehaviour`(entityMap `Dictionary<string,MonoBehaviour>`,
-    `GetEntity<T> where T : MonoBehaviour`).
-  - `IEntityFactory`/`EntityFactory` `where TEntity : IEntity` → `MonoBehaviour`.
-  - server `IBrain<T> where T : IEntity` → `MonoBehaviour`.
-  - `EntityCreated.entity : IEntity` → `LOPEntity`(클·서). 소비자 캐스트(`is not LOPEntity`)는 단순화 or 유지.
+> **범위 정정 (계획 단계 실측):** 서버 `LOPEntityManager.GetAllEntitySnaps`(`:178-190`)가 `GetEntities()`로
+> 얻은 엔티티에서 **`IEntity`의 파사드(entityId/position/rotation/velocity)를 제네릭으로 읽는다.** 따라서
+> `IEntity`를 `MonoBehaviour`로 재타입하면 매니저가 깨져 — **`IEntity` 완전 삭제는 매니저를 LOP-concrete로
+> 재작업하는 S5와 묶인다.** 사용자 지침("힘들면 S5로 이월")대로 **S3는 `IEntity`를 얇은 계약으로 남기고**
+> machinery만 제거한다.
 
-**안전장치:** 매니저/팩토리 *구조*(LOPEntityManager/EntityFactory 자체)는 S5 소관 — S3b는 **제약만 완화**.
-- **알려진 얽힘 리스크:** 제네릭 코드가 `IEntity.entityId`를 *제네릭 참조로* 읽으면 `MonoBehaviour`엔
-  `entityId`가 없어 깨진다(예: `LOPEntityManager.Add`가 `entity.entityId`로 키를 만들면). 계획 단계에서
-  각 재타입 지점이 `.entityId`/파사드를 *제네릭 T로 접근*하는지 확인 — 접근하면 그 지점만 (a) `LOPEntity`로
-  캐스트하거나 (b) **S5로 이월**(구조 재작업과 함께). 순수 저장·반환만 하는 제네릭은 `MonoBehaviour`로 즉시 완화.
-- 재타입이 예상보다 얽히면 **그 부분만 S5로 이월**(사용자 승인). 목표는 IEntity/IComponent 레거시 완전 청소.
+- **`IEntity` 축소:** `{ entityId, position/rotation/velocity }` 4멤버 파사드 계약만 남긴다(S3a에서 이미
+  components/Attach/Detach 제거, 아래에서 `UpdateEntity`도 제거). **삭제는 안 함 → S5.**
+- **`LOPEntity : MonoEntity` → `LOPEntity : MonoBehaviour, IEntity`**(클·서). `entityId`·`position`/
+  `rotation`/`velocity`를 `override`가 아니라 자체 선언(`IEntity` 구현, 본문·PropertyChange 발행 동일 유지).
+  `LinkWorldMotion`/`Initialize`/`RaisePropertyChanged`/`SyncPhysics`/`PushMotionToPhysics`는 평범한 메서드로 유지.
+- **`MonoEntity.cs` 삭제(GF)** — `LOPEntity`가 더는 상속 안 함.
+- **`UpdateEntity` 제거:** `IEntity`에서 `UpdateEntity()` 멤버 제거 + `LOPEntity` override 삭제 + 매니저
+  `UpdateEntities()`(client `:123-129`/server `:149-155`)와 그 호출부 제거(빈 순회).
+- **`IsGrounded`를 `LOPEntity` 인스턴스 메서드로 이전**(`this IEntity` 확장 → `this.position` 읽는 메서드),
+  호출부 `LOPEntityView.cs:97` `entity.IsGrounded()` 유지. `GetEntityTransform`(0 호출) 삭제 →
+  **`Entity.Extensions.cs` 통째 삭제.**
+- `EntityCreated.entity : IEntity` **유지**(IEntity 살아있음) — 소비자 무변경.
 
-**그린(S3b):** `IEntity`/`MonoEntity` 참조 0, `Entity.Extensions` 삭제됨, 클·서·GF 컴파일 클린,
-GF EditMode 269 green, 인게임(스폰·이동·충돌·아이템·AI·넉백·전역공격) 무변화.
+**S5로 이월(명시):** `IEntity` 삭제 + `IEntityCreator`/`IEntityManager`/`IEntityFactory`/`IBrain` 제네릭
+재타입 + `EntityCreated` 재타입 + 서버 매니저 파사드-읽기(GetAllEntitySnaps)를 LOP-concrete로. 매니저/팩토리
+구조 재작업과 한 슬라이스로 묶어 처리(목표는 IEntity/IComponent 레거시 완전 청소).
+
+**그린(S3b):** `MonoEntity` 참조 0, `Entity.Extensions` 삭제됨, `LOPEntity : MonoBehaviour, IEntity`,
+클·서·GF 컴파일 클린, GF EditMode 269 green, 인게임(스폰·이동·충돌·아이템·AI·넉백·전역공격) 무변화.
 
 ## 범위 밖 (이월)
 
@@ -90,6 +91,7 @@ GF EditMode 269 green, 인게임(스폰·이동·충돌·아이템·AI·넉백·
   DOTS/Entitas에서 데이터=엔티티, GameObject=얇은 뷰(back-machinery 없음)와 정합.
 
 ## Open Decisions (확정)
-- **IEntity 완전 삭제**(마커로 유지 아님) — 제네릭 제약 `MonoBehaviour`로 재타입. ✅ (얽히면 S5 이월)
+- **IEntity는 S3에서 얇은 계약(4멤버 파사드)으로 축소·유지, 완전 삭제는 S5**(매니저가 파사드를 IEntity로
+  읽어 매니저 재작업과 묶임). 사용자 "완전 삭제가 목표, 힘들면 S5 이월" 지침 반영. ✅
 - **물리 브릿지 유지, ③ 통합은 별도 슬라이스.** ✅
 - **S3a→S3b 순서**(컴포넌트 반쪽 먼저 죽은 삭제, 그다음 엔티티 반쪽). ✅

@@ -2,12 +2,15 @@ using GameFramework;
 using LOP.Event.Entity;
 using MessagePipe;
 using System.ComponentModel;
+using System.Linq;
 using UnityEngine;
 
 namespace LOP
 {
-    public class LOPEntity : MonoEntity
+    public class LOPEntity : MonoBehaviour, IEntity
     {
+        public string entityId { get; private set; }
+
         private GameFramework.World.Transform worldTransform;
         private GameFramework.World.Velocity worldVelocity;
 
@@ -18,7 +21,7 @@ namespace LOP
             this.worldVelocity = velocity;
         }
 
-        public override Vector3 position
+        public Vector3 position
         {
             get => worldTransform.Position.ToUnity();
             set
@@ -30,7 +33,7 @@ namespace LOP
             }
         }
 
-        public override Vector3 rotation
+        public Vector3 rotation
         {
             get => worldTransform.Rotation.ToUnity().eulerAngles;
             set
@@ -42,7 +45,7 @@ namespace LOP
             }
         }
 
-        public override Vector3 velocity
+        public Vector3 velocity
         {
             get => worldVelocity.Linear.ToUnity();
             set
@@ -66,8 +69,12 @@ namespace LOP
             // 모션(position/rotation/velocity)은 크리에이터가 World.Transform/Velocity(진실원본)에 직접 시드한다.
         }
 
-        public override void UpdateEntity()
+        // TODO: 고도화 필요! (구 GameFramework IsGrounded 확장에서 이전)
+        public bool IsGrounded()
         {
+            Vector3 checkPosition = position + Vector3.down * 0.2f;
+            Collider[] colliders = Physics.OverlapSphere(checkPosition, 0.4f);
+            return colliders.Any(col => col.gameObject.name == "Plane");
         }
 
         public void SyncPhysics()

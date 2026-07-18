@@ -6,28 +6,15 @@ namespace LOP
 {
     public class CharacterCreator : IEntityCreator<LOPActor, CharacterCreationData>
     {
-        [Inject]
-        private IGameDataStore gameDataStore;
-
-        [Inject]
-        private IPlayerContext playerContext;
-
-        [Inject]
-        private IObjectResolver objectResolver;
-
-        [Inject]
-        private GameFramework.World.EntityRegistry entityRegistry;
-
-        [Inject]
-        private AbilitySystem abilitySystem;
-
-        [Inject]
-        private LOP.MasterData.LOPMasterData md;
+        [Inject] private IGameDataStore gameDataStore;
+        [Inject] private IPlayerContext playerContext;
+        [Inject] private IObjectResolver objectResolver;
+        [Inject] private GameFramework.World.EntityRegistry entityRegistry;
+        [Inject] private AbilitySystem abilitySystem;
+        [Inject] private LOP.MasterData.LOPMasterData md;
 
         public LOPActor Create(CharacterCreationData creationData)
         {
-            GameObject root = new GameObject($"Actor_{creationData.entityId}");
-
             var worldEntity = new GameFramework.World.Entity(creationData.entityId);
             worldEntity.Add(new GameFramework.World.Transform
             {
@@ -39,41 +26,6 @@ namespace LOP
             worldEntity.Add(new MasterDataRef(creationData.characterCode));
             worldEntity.Add(new Appearance(creationData.visualId));
 
-            LOPActor entity = root.AddComponent<LOPActor>();
-            objectResolver.Inject(entity);
-            entity.Initialize(creationData);
-
-            bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
-
-            PhysicsFollower physicsFollower = entity.gameObject.AddComponent<PhysicsFollower>();
-            objectResolver.Inject(physicsFollower);
-            // 모든 캐릭터 kinematic — 우리가 직접 이동시킨다. 내 캐릭=예측(KinematicMoveSystem), 남=스냅 팔로워.
-            physicsFollower.Initialize(worldEntity, true, false);
-
-            LOPEntityView view = root.AddComponent<LOPEntityView>();
-            objectResolver.Inject(view);
-            view.SetEntity(entity);
-
-            if (isUserEntity)
-            {
-                playerContext.entity = entity;
-                playerContext.entityView = view;
-
-                LocalEntityInterpolator interpolator = entity.gameObject.AddComponent<LocalEntityInterpolator>();
-                objectResolver.Inject(interpolator);
-                interpolator.entity = entity;
-                interpolator.entityView = view;
-            }
-            else
-            {
-                RemoteEntityInterpolator interpolator = entity.gameObject.AddComponent<RemoteEntityInterpolator>();
-                objectResolver.Inject(interpolator);
-                interpolator.entity = entity;
-                interpolator.worldEntity = worldEntity;
-                interpolator.entityView = view;
-            }
-
-            // --- World Core (병렬·추가) — Health/Mana/Level/Stats/Abilities. Transform/Velocity는 위에서 생성. ---
             var worldHealth = new GameFramework.World.Health(creationData.maxHP) { Current = creationData.currentHP };
             worldEntity.Add(worldHealth);
             worldEntity.Add(new GameFramework.World.Mana(creationData.maxMP) { Current = creationData.currentMP });
@@ -90,29 +42,35 @@ namespace LOP
             worldEntity.Add(new Abilities());
             worldEntity.Add(new StatusEffects());
             worldEntity.Add(new MotionContributions());
-            // 물리 핸들(rb/콜라이더)을 공유 컴포넌트로 — 공유 MotionBridge가 이걸로 겹침해소·rb 반영(per-side LOPActor 안 만짐).
-            worldEntity.Add(new PhysicsBody(physicsFollower.entityRigidbody, (CapsuleCollider)physicsFollower.entityColliders[0]));
+
+            bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
             if (isUserEntity)
             {
-                // 입력으로 조종되는 엔티티(내 캐릭)만 — 호스트가 매 틱 커맨드를 채우고 MovementSystem이 읽는다.
+                // 입력으로 조종되는 엔티티(내 캐릭)만. 클라 시뮬 대상=예측하는 내 캐릭만(Simulated).
                 worldEntity.Add(new InputBuffer());
-                // 클라 시뮬 대상 = 예측하는 내 캐릭만. 남/NPC는 Simulated 아님 → 스냅샷 보간 전용.
                 worldEntity.Add(new GameFramework.World.Simulated());
             }
             entityRegistry.Add(worldEntity);
 
-            // 3d: 헤이스트 어빌리티 부여(발동은 입력 트리거 — AbilityActivator). TEMP: 전체 부여, 캐릭터별 셋은 후속.
             abilitySystem.Grant(worldEntity, 1);
-            abilitySystem.Grant(worldEntity, 2);   // dash (TEMP 전체 부여)
-            abilitySystem.Grant(worldEntity, 3);   // attack (TEMP 전체 부여)
+            abilitySystem.Grant(worldEntity, 2);   // dash
+            abilitySystem.Grant(worldEntity, 3);   // attack
             if (isUserEntity)
             {
-                abilitySystem.Grant(worldEntity, 4);   // 전역 공격 — 내 캐릭 전용 테스트 툴(G키)
+                abilitySystem.Grant(worldEntity, 4);   // 내 캐릭 전용 테스트 툴(G키)
+            }
+
+            // 앵커: 뷰 컴포넌트(물리/모델/보간/장식)는 EntityBinder가 EntityCreated 반응으로 붙인다.
+            GameObject root = new GameObject($"Actor_{creationData.entityId}");
+            LOPActor entity = root.AddComponent<LOPActor>();
+            objectResolver.Inject(entity);
+            entity.Initialize(creationData);
+            if (isUserEntity)
+            {
+                playerContext.entity = entity;   // .entityView는 스포너가 뷰 생성 후 세팅
             }
 
             Debug.Log($"[World] Registered entity {worldEntity.Id} Health={worldHealth.Current}/{worldHealth.Max}");
-            // --- end World Core slice 1+B ---
-
             return entity;
         }
     }

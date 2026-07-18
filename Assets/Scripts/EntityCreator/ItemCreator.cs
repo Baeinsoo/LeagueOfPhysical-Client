@@ -29,9 +29,6 @@ namespace LOP
 
             LOPActor entity = root.AddComponent<LOPActor>();
             objectResolver.Inject(entity);
-            entity.LinkWorldMotion(
-                worldEntity.Get<GameFramework.World.Transform>(),
-                worldEntity.Get<GameFramework.World.Velocity>());
             entity.Initialize(creationData);
 
             PhysicsFollower physicsFollower = entity.gameObject.AddComponent<PhysicsFollower>();

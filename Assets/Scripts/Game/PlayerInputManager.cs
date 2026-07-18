@@ -121,13 +121,17 @@ namespace LOP
             {
                 inputCommandToS.InputCommand = ToProto(current);
 
-                EntityTransform entityTransform = new EntityTransform
+                var worldEntity = entityRegistry.Get(playerContext.entity.entityId);
+                if (worldEntity != null)
                 {
-                    position = playerContext.entity.position,
-                    rotation = playerContext.entity.rotation,
-                    velocity = playerContext.entity.velocity,
-                };
-                inputCommandToS.EntityTransform = MapperConfig.mapper.Map<ProtoTransform>(entityTransform);
+                    EntityTransform entityTransform = new EntityTransform
+                    {
+                        position = GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity),
+                        rotation = GameFramework.World.EntityMotionExtensions.GetRotation(worldEntity),
+                        velocity = GameFramework.World.EntityMotionExtensions.GetVelocity(worldEntity),
+                    };
+                    inputCommandToS.EntityTransform = MapperConfig.mapper.Map<ProtoTransform>(entityTransform);
+                }
             }
 
             // sliding-window redundancy: 스트림의 최근 N틱을 함께 실어 패킷 유실에 대비.

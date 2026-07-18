@@ -96,7 +96,16 @@ namespace LOP
             var worldEntity = entityRegistry.Get(entity.entityId);
             Vector3 v = worldEntity != null ? GameFramework.World.EntityMotionExtensions.GetVelocity(worldEntity) : Vector3.zero;
             float horizontalSpeedSquared = v.x * v.x + v.z * v.z;
-            animator.SetBool("Run", horizontalSpeedSquared > walkThreshold * walkThreshold && entity.IsGrounded());
+            bool grounded = worldEntity != null && IsGrounded(GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity));
+            animator.SetBool("Run", horizontalSpeedSquared > walkThreshold * walkThreshold && grounded);
+        }
+
+        // TODO: 고도화 필요! (접지 판정 — 구 LOPActor에서 이전)
+        private static bool IsGrounded(Vector3 position)
+        {
+            Vector3 checkPosition = position + Vector3.down * 0.2f;
+            Collider[] colliders = Physics.OverlapSphere(checkPosition, 0.4f);
+            return System.Linq.Enumerable.Any(colliders, col => col.gameObject.name == "Plane");
         }
 
         // 어빌리티 발동 연출 cue → 애니 트리거. 한 곳에서 매핑(cue 늘면 dict에 추가, if 누적 없음).

@@ -41,9 +41,6 @@ namespace LOP
 
             LOPActor entity = root.AddComponent<LOPActor>();
             objectResolver.Inject(entity);
-            entity.LinkWorldMotion(
-                worldEntity.Get<GameFramework.World.Transform>(),
-                worldEntity.Get<GameFramework.World.Velocity>());
             entity.Initialize(creationData);
 
             bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
@@ -76,7 +73,7 @@ namespace LOP
                 interpolator.entityView = view;
             }
 
-            // --- World Core (병렬·추가) — Health/Mana/Level/Stats/Abilities. Transform/Velocity는 위에서 생성(파사드 백킹). ---
+            // --- World Core (병렬·추가) — Health/Mana/Level/Stats/Abilities. Transform/Velocity는 위에서 생성. ---
             var worldHealth = new GameFramework.World.Health(creationData.maxHP) { Current = creationData.currentHP };
             worldEntity.Add(worldHealth);
             worldEntity.Add(new GameFramework.World.Mana(creationData.maxMP) { Current = creationData.currentMP });

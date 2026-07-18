@@ -18,6 +18,7 @@ namespace LOP
     {
         [Inject] private IRunner runner;
         [Inject] private GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
+        [Inject] private GameFramework.World.EntityRegistry entityRegistry;
 
         public LOPActor entity { get; set; }
         public LOPEntityView entityView { get; set; }
@@ -53,11 +54,16 @@ namespace LOP
         {
             // renderTarget = 시뮬 위치 + 감쇠 중인 보정 offset. offset이 시뮬 스텝과 상쇄되어
             // 이 스트림은 보정 순간에도 연속 → 아래 LateUpdate 보간이 튀지 않는다(걷기 지연도 없음).
+            var worldEntity = entityRegistry.Get(entity.entityId);
+            if (worldEntity == null)
+            {
+                return;
+            }
             samples.Add(new RenderSample
             {
                 time = Runner.Time.tick * Runner.Time.tickInterval,
-                position = renderCorrectionSmoother.Target(entity.position.ToNumerics()).ToUnity(),
-                rotation = entity.rotation,
+                position = renderCorrectionSmoother.Target(GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity).ToNumerics()).ToUnity(),
+                rotation = GameFramework.World.EntityMotionExtensions.GetRotation(worldEntity),
             });
             renderCorrectionSmoother.DecayTick((float)Runner.Time.tickInterval);
         }

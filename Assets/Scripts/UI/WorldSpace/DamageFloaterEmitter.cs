@@ -66,7 +66,7 @@ namespace LOP
 
         protected void Start()
         {
-            _entityView = transform.parent.GetComponentInChildren<LOPEntityView>();
+            _entityView = GetComponent<LOPEntityView>();
             _subscription = GlobalMessagePipe.GetSubscriber<string, EntityDamage>().Subscribe(entity.entityId, OnEntityDamage);
         }
 

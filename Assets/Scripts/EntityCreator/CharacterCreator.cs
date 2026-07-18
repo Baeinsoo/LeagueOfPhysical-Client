@@ -26,9 +26,7 @@ namespace LOP
 
         public LOPActor Create(CharacterCreationData creationData)
         {
-            GameObject root = new GameObject($"Character_{creationData.entityId}");
-            GameObject visual = root.CreateChild("Visual");
-            GameObject physics = root.CreateChild("Physics");
+            GameObject root = new GameObject($"Actor_{creationData.entityId}");
 
             var worldEntity = new GameFramework.World.Entity(creationData.entityId);
             worldEntity.Add(new GameFramework.World.Transform
@@ -41,7 +39,7 @@ namespace LOP
             worldEntity.Add(new MasterDataRef(creationData.characterCode));
             worldEntity.Add(new Appearance(creationData.visualId));
 
-            LOPActor entity = root.CreateChildWithComponent<LOPActor>();
+            LOPActor entity = root.AddComponent<LOPActor>();
             objectResolver.Inject(entity);
             entity.LinkWorldMotion(
                 worldEntity.Get<GameFramework.World.Transform>(),
@@ -55,7 +53,7 @@ namespace LOP
             // 모든 캐릭터 kinematic — 우리가 직접 이동시킨다. 내 캐릭=예측(KinematicMoveSystem), 남=스냅 팔로워.
             physicsFollower.Initialize(worldEntity, true, false);
 
-            LOPEntityView view = root.CreateChildWithComponent<LOPEntityView>();
+            LOPEntityView view = root.AddComponent<LOPEntityView>();
             objectResolver.Inject(view);
             view.SetEntity(entity);
 

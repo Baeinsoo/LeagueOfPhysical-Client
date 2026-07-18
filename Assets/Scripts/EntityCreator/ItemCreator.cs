@@ -14,9 +14,7 @@ namespace LOP
 
         public LOPActor Create(ItemCreationData creationData)
         {
-            GameObject root = new GameObject($"Item_{creationData.entityId}");
-            GameObject visual = root.CreateChild("Visual");
-            GameObject physics = root.CreateChild("Physics");
+            GameObject root = new GameObject($"Actor_{creationData.entityId}");
 
             var worldEntity = new GameFramework.World.Entity(creationData.entityId);
             worldEntity.Add(new GameFramework.World.Transform
@@ -29,7 +27,7 @@ namespace LOP
             worldEntity.Add(new MasterDataRef(creationData.itemCode));
             worldEntity.Add(new Appearance(creationData.visualId));
 
-            LOPActor entity = root.CreateChildWithComponent<LOPActor>();
+            LOPActor entity = root.AddComponent<LOPActor>();
             objectResolver.Inject(entity);
             entity.LinkWorldMotion(
                 worldEntity.Get<GameFramework.World.Transform>(),
@@ -41,7 +39,7 @@ namespace LOP
             physicsFollower.Initialize(worldEntity, true, true);
             worldEntity.Add(new PhysicsBody(physicsFollower.entityRigidbody, (CapsuleCollider)physicsFollower.entityColliders[0]));
 
-            LOPEntityView view = root.CreateChildWithComponent<LOPEntityView>();
+            LOPEntityView view = root.AddComponent<LOPEntityView>();
             objectResolver.Inject(view);
             view.SetEntity(entity);
 

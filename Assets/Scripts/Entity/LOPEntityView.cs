@@ -153,9 +153,7 @@ namespace LOP
             asyncOperationHandle = Addressables.LoadAssetAsync<GameObject>(visualId);
             await asyncOperationHandle.Task;
 
-            GameObject visual = transform.parent.Find("Visual").gameObject;
-
-            visualGameObject = Instantiate(asyncOperationHandle.Task.Result, visual.transform);
+            visualGameObject = Instantiate(asyncOperationHandle.Task.Result, transform);
             visualGameObject.transform.position = entity.position;
             visualGameObject.transform.rotation = Quaternion.Euler(entity.rotation);
         }

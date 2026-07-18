@@ -48,7 +48,7 @@ namespace LOP
 
         protected void Start()
         {
-            _entityView = transform.parent.GetComponentInChildren<LOPEntityView>();
+            _entityView = GetComponent<LOPEntityView>();
 
             GameFramework.World.Entity worldEntity = entityRegistry.Get(entity.entityId);
             GameFramework.World.Health health = worldEntity?.Get<GameFramework.World.Health>();

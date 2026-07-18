@@ -46,6 +46,7 @@ namespace LOP
             RemoteEntityInterpolator interpolator = entity.gameObject.AddComponent<RemoteEntityInterpolator>();
             objectResolver.Inject(interpolator);
             interpolator.entity = entity;
+            interpolator.worldEntity = worldEntity;
             interpolator.entityView = view;
 
             entityRegistry.Add(worldEntity);

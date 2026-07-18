@@ -64,7 +64,7 @@ namespace LOP
             }
 
             // 예측된 현재 위치 — 하드 보정 전. 재생 후와의 차이로 보정 크기를 판정(시각 신호용).
-            Vector3 preCorrectionPos = entity.position;
+            Vector3 preCorrectionPos = GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity);
 
             // errorGate: 예측이 서버와 충분히 가까우면 아무것도 안 함.
             // 그 전에 예측-서버 거리를 항상 기록해 Recon HUD(ReconciliationStats)가 계속 갱신되게 한다.
@@ -82,9 +82,9 @@ namespace LOP
 
             // 하드 복원: 내 캐릭을 서버 스냅(anchorTick) 상태로. World에 쓴 포즈를 MotionBridge가 rb에 밀고,
             // PhysX가 새 포즈를 보도록 수동 SyncTransforms(autoSyncTransforms=false).
-            entity.position = snap.position;
-            entity.rotation = snap.rotation;
-            entity.velocity = snap.velocity;
+            GameFramework.World.EntityMotionExtensions.SetPosition(worldEntity, snap.position);
+            GameFramework.World.EntityMotionExtensions.SetRotation(worldEntity, snap.rotation);
+            GameFramework.World.EntityMotionExtensions.SetVelocity(worldEntity, snap.velocity);
             motionBridge.PushMotion(worldEntity);
             Physics.SyncTransforms();
 
@@ -147,7 +147,7 @@ namespace LOP
 
             // 하드 보정으로 시뮬 위치가 튄 것을 렌더 스무더에 알린다. 스무더가 보이는 위치를
             // (보정 전 예측 → 보정 후 권위)만큼 부드럽게 흡수한다(시뮬 무영향). 크기별 스냅/무시는 스무더가 판단.
-            renderCorrectionSmoother.OnCorrection(preCorrectionPos.ToNumerics(), entity.position.ToNumerics());
+            renderCorrectionSmoother.OnCorrection(preCorrectionPos.ToNumerics(), GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity).ToNumerics());
         }
     }
 }

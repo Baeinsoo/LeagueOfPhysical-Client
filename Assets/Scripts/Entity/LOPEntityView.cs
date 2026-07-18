@@ -93,7 +93,9 @@ namespace LOP
             }
 
             const float walkThreshold = 0.01f;
-            float horizontalSpeedSquared = entity.velocity.x * entity.velocity.x + entity.velocity.z * entity.velocity.z;
+            var worldEntity = entityRegistry.Get(entity.entityId);
+            Vector3 v = worldEntity != null ? GameFramework.World.EntityMotionExtensions.GetVelocity(worldEntity) : Vector3.zero;
+            float horizontalSpeedSquared = v.x * v.x + v.z * v.z;
             animator.SetBool("Run", horizontalSpeedSquared > walkThreshold * walkThreshold && entity.IsGrounded());
         }
 
@@ -154,8 +156,12 @@ namespace LOP
             await asyncOperationHandle.Task;
 
             visualGameObject = Instantiate(asyncOperationHandle.Task.Result, transform);
-            visualGameObject.transform.position = entity.position;
-            visualGameObject.transform.rotation = Quaternion.Euler(entity.rotation);
+            var worldEntity = entityRegistry.Get(entity.entityId);
+            if (worldEntity != null)
+            {
+                visualGameObject.transform.position = GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity);
+                visualGameObject.transform.rotation = Quaternion.Euler(GameFramework.World.EntityMotionExtensions.GetRotation(worldEntity));
+            }
         }
     }
 }

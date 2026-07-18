@@ -61,6 +61,12 @@ namespace LOP.UI
             {
                 _playerInputManager.SetAbilityId(HasteAbilityId);
             }
+
+            // 테스트 편의: G 키로 전역 공격(플레이어 전용 부여) — 넓은 범위 다수 적 타격.
+            if (Keyboard.current.gKey.wasPressedThisFrame)
+            {
+                _playerInputManager.SetAbilityId(GlobalAttackAbilityId);
+            }
         }
 
         /// <summary>WASD held 이동을 매 프레임 push(안 누르면 0). 조이스틱 미사용 시 호출.</summary>
@@ -87,12 +93,16 @@ namespace LOP.UI
         private const int HasteAbilityId = 1;
         private const int DashAbilityId = 2;
         private const int AttackAbilityId = 3;
+        private const int GlobalAttackAbilityId = 4;   // 테스트용 광역 공격(플레이어 전용)
 
         /// <summary>헤이스트 어빌리티 발동(이동속도 +30%, 한시). 온스크린 버튼/단축키(H)에서 호출.</summary>
         public void Haste() => _playerInputManager.SetAbilityId(HasteAbilityId);
 
         // 공격 = DamageEffect 어빌리티(서버권위 판정). 캐릭터별 단일 대표 어빌리티 — 로드아웃은 후속.
         public void Attack() => _playerInputManager.SetAbilityId(AttackAbilityId);
+
+        // 테스트용 광역 공격(플레이어 전용 부여). 온스크린 버튼/단축키(G)에서 호출.
+        public void GlobalAttack() => _playerInputManager.SetAbilityId(GlobalAttackAbilityId);
 
         public void CameraLook(Vector2 delta) => _cameraController.ProcessTouchInput(delta);
     }

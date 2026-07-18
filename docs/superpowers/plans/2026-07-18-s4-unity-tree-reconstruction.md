@@ -302,6 +302,10 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```csharp
             gameObject.layer = LayerMask.NameToLayer("Character");
 
+            // 루트(시뮬 바디)를 스폰 위치에 즉시 배치 — kinematic rb.position은 다음 물리 스텝에야 반영돼
+            // 루트가 한 틱 원점에 머물다 점프하면 자식 모델이 끌려가 첫 틱 순간이동한다(그 방지, 클라와 동일).
+            transform.SetPositionAndRotation(worldTransform.Position.ToUnity(), worldTransform.Rotation.ToUnity());
+
             entityRigidbody = gameObject.AddComponent<Rigidbody>();
 ```
 로, 이하 `physicsGameObject.AddComponent<CapsuleCollider>()`/`GetOrAddComponent<TriggerDetector>()`를 `gameObject.AddComponent`/`gameObject.GetOrAddComponent`로. `private GameObject physicsGameObject;` 필드 삭제. 그리고 `OnTriggerEnter`:

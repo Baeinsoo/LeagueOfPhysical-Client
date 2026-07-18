@@ -12,6 +12,7 @@
             <ui:Button name="haste-button" class="action-button haste-button" text="HASTE" />
             <ui:Button name="jump-button" class="action-button jump-button" text="JUMP" />
             <ui:Button name="attack-button" class="action-button attack-button" text="ATK" />
+            <ui:Button name="global-attack-button" class="action-button global-attack-button" text="AOE" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

@@ -59,6 +59,7 @@ namespace LOP.UI
             Root.Q<Button>("jump-button").clicked += _viewModel.Jump;
             Root.Q<Button>("dash-button").clicked += _viewModel.Dash;
             Root.Q<Button>("haste-button").clicked += _viewModel.Haste;
+            Root.Q<Button>("global-attack-button").clicked += _viewModel.GlobalAttack;
 
             // UIView는 MonoBehaviour가 아니므로 Update 대신 패널 스케줄러로 매 프레임 틱(키보드 폴링 + 조이스틱 지속 이동).
             _tick = Root.schedule.Execute(Tick).Every(0);

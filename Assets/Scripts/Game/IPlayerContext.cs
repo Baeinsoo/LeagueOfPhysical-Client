@@ -6,7 +6,7 @@ namespace LOP
     public interface IPlayerContext
     {
         ISession session { get; set; }
-        LOPEntity entity { get; set; }
+        LOPActor entity { get; set; }
         LOPEntityView entityView { get; set; }
     }
 }

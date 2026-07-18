@@ -16,7 +16,7 @@ namespace LOP.UI
     /// </summary>
     public class CharacterHudViewModel : IDisposable
     {
-        private readonly LOPEntity _entity;
+        private readonly LOPActor _entity;
         private readonly GameFramework.World.EntityRegistry _entityRegistry;
 
         private readonly ReactiveProperty<int> _hp = new(0);

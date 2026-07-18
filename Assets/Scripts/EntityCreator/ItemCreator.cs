@@ -4,7 +4,7 @@ using VContainer;
 
 namespace LOP
 {
-    public class ItemCreator : IEntityCreator<LOPEntity, ItemCreationData>
+    public class ItemCreator : IEntityCreator<LOPActor, ItemCreationData>
     {
         [Inject]
         private IObjectResolver objectResolver;
@@ -12,7 +12,7 @@ namespace LOP
         [Inject]
         private GameFramework.World.EntityRegistry entityRegistry;
 
-        public LOPEntity Create(ItemCreationData creationData)
+        public LOPActor Create(ItemCreationData creationData)
         {
             GameObject root = new GameObject($"Item_{creationData.entityId}");
             GameObject visual = root.CreateChild("Visual");
@@ -29,7 +29,7 @@ namespace LOP
             worldEntity.Add(new MasterDataRef(creationData.itemCode));
             worldEntity.Add(new Appearance(creationData.visualId));
 
-            LOPEntity entity = root.CreateChildWithComponent<LOPEntity>();
+            LOPActor entity = root.CreateChildWithComponent<LOPActor>();
             objectResolver.Inject(entity);
             entity.LinkWorldMotion(
                 worldEntity.Get<GameFramework.World.Transform>(),

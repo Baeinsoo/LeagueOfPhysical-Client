@@ -35,7 +35,7 @@ namespace LOP
 
         private void OnEntityCreated(EntityCreated entityCreated)
         {
-            if (entityCreated.entity is not LOPEntity entity)
+            if (entityCreated.entity is not LOPActor entity)
             {
                 return;
             }

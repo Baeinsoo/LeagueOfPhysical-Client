@@ -91,7 +91,7 @@ namespace LOP
         {
             foreach (var entityId in entitiesToDestroy)
             {
-                LOPEntity lopEntity = GetEntity<LOPEntity>(entityId);
+                LOPActor lopEntity = GetEntity<LOPActor>(entityId);
 
                 foreach (var cleanup in lopEntity.transform.parent.GetComponentsInChildren<ICleanup>(true))
                 {

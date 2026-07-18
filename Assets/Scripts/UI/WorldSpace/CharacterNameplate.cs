@@ -24,9 +24,9 @@ namespace LOP
         [Inject]
         private GameFramework.World.EntityRegistry entityRegistry;
 
-        public LOPEntity entity { get; private set; }
+        public LOPActor entity { get; private set; }
 
-        public void SetEntity(LOPEntity entity)
+        public void SetEntity(LOPActor entity)
         {
             this.entity = entity;
         }

@@ -12,11 +12,11 @@ namespace LOP
 {
     public class LOPEntityView : MonoBehaviour, ICleanup
     {
-        public LOPEntity entity { get; private set; }
+        public LOPActor entity { get; private set; }
 
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
 
-        public void SetEntity(LOPEntity entity)
+        public void SetEntity(LOPActor entity)
         {
             this.entity = entity;
         }

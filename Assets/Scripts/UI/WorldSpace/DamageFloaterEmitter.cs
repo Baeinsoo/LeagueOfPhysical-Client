@@ -4,6 +4,7 @@ using MessagePipe;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
+using VContainer;
 
 namespace LOP
 {
@@ -14,6 +15,9 @@ namespace LOP
     /// </summary>
     public class DamageFloaterEmitter : MonoBehaviour, ICleanup
     {
+        [Inject]
+        private GameFramework.World.EntityRegistry entityRegistry;
+
         public LOPActor entity { get; private set; }
 
         public void SetEntity(LOPActor entity)
@@ -98,9 +102,10 @@ namespace LOP
                 return;
             }
 
+            var worldEntity = entityRegistry.Get(entity.entityId);
             Vector3 headPosition = (_entityView != null && _entityView.visualGameObject != null)
                 ? _entityView.visualGameObject.transform.position
-                : entity.position;
+                : worldEntity != null ? GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity) : Vector3.zero;
 
             // 활성 플로터 수에 따라 중앙→좌우로 부채꼴 분산(단일은 중앙, 동시 타격은 겹치지 않게).
             int activeBefore = 0;

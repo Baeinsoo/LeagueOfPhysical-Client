@@ -14,6 +14,7 @@ namespace LOP
         [Inject] private RemoteInterpolationClock clock;
 
         public LOPActor entity { get; set; }
+        public GameFramework.World.Entity worldEntity { get; set; }
         public LOPEntityView entityView { get; set; }
 
         private readonly BoundedList<EntitySnap> snaps = new BoundedList<EntitySnap>(32);
@@ -66,8 +67,8 @@ namespace LOP
         // 비주얼 애셋이 async 로드 중이어도 콜라이더/위치가 얼어붙지 않게. 비주얼 메시는 로드된 뒤에만.
         private void Apply(Vector3 pos, Quaternion rot)
         {
-            entity.position = pos;
-            entity.rotation = rot.eulerAngles;
+            GameFramework.World.EntityMotionExtensions.SetPosition(worldEntity, pos);
+            GameFramework.World.EntityMotionExtensions.SetRotation(worldEntity, rot.eulerAngles);
             if (entityView.visualGameObject != null)
             {
                 entityView.visualGameObject.transform.position = pos;

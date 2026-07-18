@@ -93,8 +93,19 @@ namespace LOP
             }
 
             const float walkThreshold = 0.01f;
-            float horizontalSpeedSquared = entity.velocity.x * entity.velocity.x + entity.velocity.z * entity.velocity.z;
-            animator.SetBool("Run", horizontalSpeedSquared > walkThreshold * walkThreshold && entity.IsGrounded());
+            var worldEntity = entityRegistry.Get(entity.entityId);
+            Vector3 v = worldEntity != null ? GameFramework.World.EntityMotionExtensions.GetVelocity(worldEntity) : Vector3.zero;
+            float horizontalSpeedSquared = v.x * v.x + v.z * v.z;
+            bool grounded = worldEntity != null && IsGrounded(GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity));
+            animator.SetBool("Run", horizontalSpeedSquared > walkThreshold * walkThreshold && grounded);
+        }
+
+        // TODO: 고도화 필요! (접지 판정 — 구 LOPActor에서 이전)
+        private static bool IsGrounded(Vector3 position)
+        {
+            Vector3 checkPosition = position + Vector3.down * 0.2f;
+            Collider[] colliders = Physics.OverlapSphere(checkPosition, 0.4f);
+            return System.Linq.Enumerable.Any(colliders, col => col.gameObject.name == "Plane");
         }
 
         // 어빌리티 발동 연출 cue → 애니 트리거. 한 곳에서 매핑(cue 늘면 dict에 추가, if 누적 없음).
@@ -154,8 +165,12 @@ namespace LOP
             await asyncOperationHandle.Task;
 
             visualGameObject = Instantiate(asyncOperationHandle.Task.Result, transform);
-            visualGameObject.transform.position = entity.position;
-            visualGameObject.transform.rotation = Quaternion.Euler(entity.rotation);
+            var worldEntity = entityRegistry.Get(entity.entityId);
+            if (worldEntity != null)
+            {
+                visualGameObject.transform.position = GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity);
+                visualGameObject.transform.rotation = Quaternion.Euler(GameFramework.World.EntityMotionExtensions.GetRotation(worldEntity));
+            }
         }
     }
 }

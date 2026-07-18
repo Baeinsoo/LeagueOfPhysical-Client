@@ -29,9 +29,6 @@ namespace LOP
 
             LOPActor entity = root.AddComponent<LOPActor>();
             objectResolver.Inject(entity);
-            entity.LinkWorldMotion(
-                worldEntity.Get<GameFramework.World.Transform>(),
-                worldEntity.Get<GameFramework.World.Velocity>());
             entity.Initialize(creationData);
 
             PhysicsFollower physicsFollower = entity.gameObject.AddComponent<PhysicsFollower>();
@@ -46,6 +43,7 @@ namespace LOP
             RemoteEntityInterpolator interpolator = entity.gameObject.AddComponent<RemoteEntityInterpolator>();
             objectResolver.Inject(interpolator);
             interpolator.entity = entity;
+            interpolator.worldEntity = worldEntity;
             interpolator.entityView = view;
 
             entityRegistry.Add(worldEntity);

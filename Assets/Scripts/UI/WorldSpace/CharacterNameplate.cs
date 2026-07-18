@@ -128,9 +128,10 @@ namespace LOP
                 return;
             }
 
+            var worldEntity = entityRegistry.Get(entity.entityId);
             Vector3 basePosition = (_entityView != null && _entityView.visualGameObject != null)
                 ? _entityView.visualGameObject.transform.position
-                : entity.position;
+                : worldEntity != null ? GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity) : Vector3.zero;
 
             Vector3 worldPosition = basePosition + HeadOffset;
             _panelGameObject.transform.position = worldPosition;

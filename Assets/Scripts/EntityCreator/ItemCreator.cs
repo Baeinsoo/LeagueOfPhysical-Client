@@ -25,10 +25,10 @@ namespace LOP
 
             // 앵커: 뷰(물리/모델/보간)는 EntityBinder가 붙인다.
             GameObject root = new GameObject($"Actor_{creationData.entityId}");
-            LOPActor entity = root.AddComponent<LOPActor>();
-            objectResolver.Inject(entity);
-            entity.Initialize(creationData);
-            return entity;
+            LOPActor actor = root.AddComponent<LOPActor>();
+            objectResolver.Inject(actor);
+            actor.Initialize(creationData);
+            return actor;
         }
     }
 }

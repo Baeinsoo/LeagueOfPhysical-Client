@@ -62,16 +62,16 @@ namespace LOP
 
             // 앵커: 뷰 컴포넌트(물리/모델/보간/장식)는 EntityBinder가 EntityCreated 반응으로 붙인다.
             GameObject root = new GameObject($"Actor_{creationData.entityId}");
-            LOPActor entity = root.AddComponent<LOPActor>();
-            objectResolver.Inject(entity);
-            entity.Initialize(creationData);
+            LOPActor actor = root.AddComponent<LOPActor>();
+            objectResolver.Inject(actor);
+            actor.Initialize(creationData);
             if (isUserEntity)
             {
-                playerContext.entity = entity;   // .entityView는 스포너가 뷰 생성 후 세팅
+                playerContext.actor = actor;   // .entityView는 스포너가 뷰 생성 후 세팅
             }
 
             Debug.Log($"[World] Registered entity {worldEntity.Id} Health={worldHealth.Current}/{worldHealth.Max}");
-            return entity;
+            return actor;
         }
     }
 }

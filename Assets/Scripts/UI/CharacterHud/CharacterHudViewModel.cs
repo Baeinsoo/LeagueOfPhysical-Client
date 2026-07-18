@@ -16,7 +16,7 @@ namespace LOP.UI
     /// </summary>
     public class CharacterHudViewModel : IDisposable
     {
-        private readonly LOPActor _entity;
+        private readonly LOPActor _actor;
         private readonly GameFramework.World.EntityRegistry _entityRegistry;
 
         private readonly ReactiveProperty<int> _hp = new(0);
@@ -45,19 +45,19 @@ namespace LOP.UI
             ISubscriber<string, EntityLevelChanged> levelSubscriber)
         {
             _entityRegistry = entityRegistry;
-            _entity = playerContext.entity;
-            if (_entity == null)
+            _actor = playerContext.actor;
+            if (_actor == null)
             {
-                Debug.LogWarning("[CharacterHudViewModel] playerContext.entity가 null입니다. 유저 엔티티 생성 후 열어야 합니다.");
+                Debug.LogWarning("[CharacterHudViewModel] playerContext.actor가 null입니다. 유저 엔티티 생성 후 열어야 합니다.");
                 return;
             }
 
             PushAll();
 
             var bag = MessagePipe.DisposableBag.CreateBuilder();
-            healthSubscriber.Subscribe(_entity.entityId, OnEntityHealthChanged).AddTo(bag);
-            manaSubscriber.Subscribe(_entity.entityId, OnEntityManaChanged).AddTo(bag);
-            levelSubscriber.Subscribe(_entity.entityId, OnEntityLevelChanged).AddTo(bag);
+            healthSubscriber.Subscribe(_actor.entityId, OnEntityHealthChanged).AddTo(bag);
+            manaSubscriber.Subscribe(_actor.entityId, OnEntityManaChanged).AddTo(bag);
+            levelSubscriber.Subscribe(_actor.entityId, OnEntityLevelChanged).AddTo(bag);
             _subscriptions = bag.Build();
         }
 
@@ -82,7 +82,7 @@ namespace LOP.UI
 
         private void PushAll()
         {
-            GameFramework.World.Entity worldEntity = _entityRegistry.Get(_entity.entityId);
+            GameFramework.World.Entity worldEntity = _entityRegistry.Get(_actor.entityId);
             GameFramework.World.Health health = worldEntity?.Get<GameFramework.World.Health>();
             if (health != null)
             {

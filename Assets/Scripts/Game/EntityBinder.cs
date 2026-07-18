@@ -35,12 +35,12 @@ namespace LOP
 
         private void OnEntityCreated(EntityCreated entityCreated)
         {
-            LOPActor entity = entityCreated.entity;
-            if (entity == null)
+            LOPActor actor = entityCreated.actor;
+            if (actor == null)
             {
                 return;
             }
-            GameFramework.World.Entity worldEntity = entityRegistry.Get(entity.entityId);
+            GameFramework.World.Entity worldEntity = entityRegistry.Get(actor.entityId);
             if (worldEntity == null)
             {
                 return;
@@ -51,7 +51,7 @@ namespace LOP
                 return;
             }
 
-            GameObject root = entity.gameObject;
+            GameObject root = actor.gameObject;
             bool isItem = kind.Kind == EntityType.Item;
 
             // 물리 팔로워 + PhysicsBody (모든 엔티티 공통). 아이템=trigger, 캐릭터=non-trigger.
@@ -62,25 +62,25 @@ namespace LOP
 
             LOPEntityView view = root.AddComponent<LOPEntityView>();
             objectResolver.Inject(view);
-            view.SetEntity(entity);
+            view.SetEntity(actor);
 
             if (kind.Kind == EntityType.Character)
             {
-                bool isUserEntity = gameDataStore.userEntityId == entity.entityId;
+                bool isUserEntity = gameDataStore.userEntityId == actor.entityId;
                 if (isUserEntity)
                 {
                     playerContext.entityView = view;
 
                     LocalEntityInterpolator interpolator = root.AddComponent<LocalEntityInterpolator>();
                     objectResolver.Inject(interpolator);
-                    interpolator.entity = entity;
+                    interpolator.actor = actor;
                     interpolator.entityView = view;
                 }
                 else
                 {
                     RemoteEntityInterpolator interpolator = root.AddComponent<RemoteEntityInterpolator>();
                     objectResolver.Inject(interpolator);
-                    interpolator.entity = entity;
+                    interpolator.actor = actor;
                     interpolator.worldEntity = worldEntity;
                     interpolator.entityView = view;
                 }
@@ -88,18 +88,18 @@ namespace LOP
                 // 장식 뷰(캐릭터만).
                 DamageFloaterEmitter damageFloaterEmitter = root.AddComponent<DamageFloaterEmitter>();
                 objectResolver.Inject(damageFloaterEmitter);
-                damageFloaterEmitter.SetEntity(entity);
+                damageFloaterEmitter.SetEntity(actor);
 
                 CharacterNameplate nameplate = root.AddComponent<CharacterNameplate>();
                 objectResolver.Inject(nameplate);
-                nameplate.SetEntity(entity);
+                nameplate.SetEntity(actor);
             }
             else
             {
                 // 아이템: 원격 보간만(내 예측 대상 아님).
                 RemoteEntityInterpolator interpolator = root.AddComponent<RemoteEntityInterpolator>();
                 objectResolver.Inject(interpolator);
-                interpolator.entity = entity;
+                interpolator.actor = actor;
                 interpolator.worldEntity = worldEntity;
                 interpolator.entityView = view;
             }

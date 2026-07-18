@@ -20,7 +20,7 @@ namespace LOP
         [Inject] private GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
 
-        public LOPActor entity { get; set; }
+        public LOPActor actor { get; set; }
         public LOPEntityView entityView { get; set; }
 
         private struct RenderSample
@@ -54,7 +54,7 @@ namespace LOP
         {
             // renderTarget = 시뮬 위치 + 감쇠 중인 보정 offset. offset이 시뮬 스텝과 상쇄되어
             // 이 스트림은 보정 순간에도 연속 → 아래 LateUpdate 보간이 튀지 않는다(걷기 지연도 없음).
-            var worldEntity = entityRegistry.Get(entity.entityId);
+            var worldEntity = entityRegistry.Get(actor.entityId);
             if (worldEntity == null)
             {
                 return;

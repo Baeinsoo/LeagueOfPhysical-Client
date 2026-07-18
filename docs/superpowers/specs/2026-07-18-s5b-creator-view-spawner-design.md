@@ -27,33 +27,46 @@ Stats/Abilities/… 15종), ③ **Unity 뷰 조립**(LOPActor/PhysicsFollower/LO
 
 ## 목표 (한 줄)
 
-`CharacterCreator`를 **세 역할**로 가른다 — 순수 **데이터 조립기**(World.Entity 컴포넌트 조립), 얇은
-**Creator**(anchor + 조립 위임 + 등록 + LOPActor 반환), 반응형 **뷰 스포너**(모든 Unity 뷰 컴포넌트 +
-PhysicsBody). "데이터 직원 / 뷰 스포너" 구조를 완성하되, GF 계약·물리 레이어·매니저는 건드리지 않는다.
+`CharacterCreator`를 **두 역할**로 가른다 — **Creator = 데이터 직원**(World.Entity 데이터 조립 **인라인** +
+anchor + 등록 + LOPActor 반환), 반응형 **뷰 스포너 = 뷰 직원**(모든 Unity 뷰 컴포넌트 + PhysicsBody).
+"데이터 직원 / 뷰 스포너" 구조를 완성하되, GF 계약·물리 레이어·매니저는 건드리지 않는다.
+
+> **정정(설계 확정 시):** 초안은 순수 **데이터 조립기** 클래스를 세 번째 역할로 뒀으나, `CreationData`가
+> `UnityEngine.Vector3`를 써서 조립 코드는 **Assembly-CSharp**에 살 수밖에 없고 → 프로젝트 제약상
+> **EditMode 테스트 불가**(`[[client-test-infra-constraint]]`). 테스트 이득이 없어 별도 조립기 클래스는
+> YAGNI. **데이터 조립은 Creator에 인라인 유지**하고 **뷰만 스포너로** 옮긴다(두 역할). 검증은 인게임 스모크.
 
 ## 설계
 
-### 세 역할
+### 두 역할
 
 | 역할 | 무엇 | Unity |
 |---|---|---|
-| **데이터 조립기** (신설, per-side) | `CreationData` → World.Entity 컴포넌트 조립(Transform/Velocity/EntityKind/MasterDataRef/Appearance/Health/Mana/Level/Stats/Abilities/StatusEffects/MotionContributions/Ownership·InputBuffer·Simulated 등). **PhysicsBody 제외**(뷰가 만든 rb 필요). 어빌리티 Grant 포함. | ❌ 순수 C#(EditMode 테스트) |
-| **얇은 Creator** (`CharacterCreator` 축소, per-side) | GameObject+`LOPActor` **앵커** 생성 → 조립기 호출 → `EntityRegistry.Add` → `LOPActor` 반환 | 최소(앵커만) |
-| **뷰 스포너** (클: `EntityBinder` 확장 / 서: 신설, per-side) | `EntityCreated` 반응 → `PhysicsFollower`/`LOPEntityView`/interpolator(+장식 뷰, +서버 AIController) 부착 → PhysicsFollower의 rb로 `worldEntity.Add(new PhysicsBody(...))`. playerContext 세팅(클). | ✅ 뷰 전담 |
+| **Creator = 데이터 직원** (`CharacterCreator`/`ItemCreator` 축소, per-side) | `CreationData` → World.Entity 컴포넌트 조립(Transform/Velocity/EntityKind/MasterDataRef/Appearance/Health/Mana/Level/Stats/Abilities/StatusEffects/MotionContributions/Ownership·InputBuffer·Simulated + 어빌리티 Grant, **인라인**). **PhysicsBody 제외**(뷰가 만든 rb 필요). + GameObject+`LOPActor` **앵커** 생성 → `EntityRegistry.Add` → `LOPActor` 반환. | 앵커 GameObject/LOPActor만 |
+| **뷰 스포너 = 뷰 직원** (클: `EntityBinder` 확장 / 서: 신설, per-side) | `EntityCreated` 반응 → `PhysicsFollower`/`LOPEntityView`/interpolator(+장식 뷰, +서버 AIController) 부착 → PhysicsFollower의 rb로 `worldEntity.Add(new PhysicsBody(...))`. playerContext.entityView 세팅(클). | ✅ 뷰 전담 |
+
+> **isUser/isPlayer 재판정 (스포너):** 스포너는 `EntityCreated(actor)`로 entityId만 받으므로 CreationData의
+> isUser/isPlayer를 다시 판정한다 — 클라=`gameDataStore.userEntityId == actor.entityId`, 서버=World.Entity에
+> `Ownership` 유무(`entityRegistry.Get(id).Has<Ownership>()`, 플레이어면 Creator가 이미 추가). Kind 분기는
+> `EntityKind`(Character/Item)로. (Creator가 데이터에 그 마커들을 이미 넣어서 스포너가 되읽을 수 있음.)
+> **playerContext.entity(=LOPActor)는 Creator가 앵커 생성 직후 세팅**(publish 전 동기라 다른 EntityCreated
+> 구독자가 안전하게 읽음); .entityView만 스포너가 뷰 생성 후 세팅.
 
 ### 생성 흐름 (동기 — 한-프레임 공백 없음)
 
 ```
 manager.CreateEntity<LOPActor, CharacterCreationData>(data)
  → Creator.Create(data):
-      dataAssembler.Assemble(worldEntity, data)   // World 컴포넌트(=PhysicsBody 제외) + 어빌리티 Grant
+      worldEntity = new Entity(id); worldEntity.Add(...World 데이터 컴포넌트, PhysicsBody 제외...) + 어빌리티 Grant
       entityRegistry.Add(worldEntity)
       root = new GameObject("Actor_{id}"); actor = root.AddComponent<LOPActor>(); actor.Initialize(data)
+      (클) isUser면 playerContext.entity = actor
       return actor
  → manager: entityMap[id] = actor; publisher.Publish(new EntityCreated(actor))   // MessagePipe 동기
       → 뷰 스포너.OnEntityCreated(actor)(같은 호출 내 즉시 실행):
            PhysicsFollower 부착·Initialize → LOPEntityView·interpolator·(장식·AIController) 부착
            worldEntity.Add(new PhysicsBody(follower.rb, follower.collider))
+           (클) isUser면 playerContext.entityView = view
  → return actor   // 완전히 조립된 상태로 반환
 ```
 
@@ -91,14 +104,17 @@ manager.CreateEntity<LOPActor, CharacterCreationData>(data)
 
 | # | 슬라이스 | 무엇 | 그린 판정 |
 |---|---|---|---|
-| **S5b-1** | 데이터 조립기 추출 | 크리에이터의 World.Entity 데이터-조립(+어빌리티 Grant)을 순수 `CharacterDataAssembler`(per-side)로 위임. 뷰는 **아직 크리에이터 인라인**. PhysicsBody는 뷰 뒤라 크리에이터에 잔류. | 순수 재조직, EditMode(조립기), 스폰 무변화 |
-| **S5b-2** | 뷰 → 스포너 이전 | 주요 뷰 컴포넌트 + PhysicsBody를 크리에이터에서 빼 뷰 스포너로(클: EntityBinder 확장 / 서: 신설). 크리에이터=앵커+조립+등록. | 컴파일 클린, 인게임(스폰/뷰/물리/AI/장식/보간/playerContext) 무변화 |
+| **S5b-1** | 클라 뷰 → 스포너 | 클라 `CharacterCreator`/`ItemCreator`의 주요 뷰 컴포넌트(PhysicsFollower/LOPEntityView/interpolator) + PhysicsBody + playerContext.entityView를 빼 **`EntityBinder` 확장**(Kind·isUser 분기)으로. 크리에이터=데이터+앵커+등록(+playerContext.entity). | 컴파일 클린, 인게임(스폰/뷰/물리/보간/장식/playerContext/카메라·HUD) 무변화 |
+| **S5b-2** | 서버 뷰 → 스포너 | 서버 `CharacterCreator`/`ItemCreator`의 뷰(LOPEntityView/AIController) + PhysicsBody를 빼 **서버 뷰 스포너 신설**(EntityCreated 구독 entry point). 크리에이터=데이터+앵커+등록. | 컴파일 클린, 인게임(스폰/AI/테스트렌더/물리) 무변화 |
 | **S5b-3** | 어휘 rename | `entity`/`entities`/`LOPEntities` 식별자 → `actor`(타입은 이미 LOPActor). 순수 기계적. | 컴파일 클린 |
+
+> 클·서를 별도 슬라이스로: 뷰 스포너가 사이드별(클=EntityBinder 확장 / 서=신설)이라 독립 그린·인게임 가능.
+> 데이터 조립은 각 크리에이터에 **인라인 유지**(별도 조립기 클래스 없음 — 위 정정).
 
 ## 테스트 / 그린 판정
 
-- **EditMode(데이터 조립기):** `CreationData` → 기대 World 컴포넌트 집합/값 매핑 검증(Unity 없이). 어빌리티
-  Grant는 `AbilitySystem` 페이크 or 실인스턴스로.
+- **EditMode 없음(불가):** 대상 코드(크리에이터/스포너)는 전부 Assembly-CSharp(Unity 타입)라 EditMode 테스트
+  불가(`[[client-test-infra-constraint]]`). 검증 = **컴파일 + 인게임 스모크**.
 - **컴파일:** 클·서 UnityMCP `read_console`(unity_instance 명시).
 - **인게임(사용자):** 스폰·모델 로드·이동·충돌·아이템·넉백/데미지·롤백·원격 보간·서버 AI·장식 뷰(HP바/데미지
   플로터)·playerContext(카메라/HUD) 무변화.
@@ -118,12 +134,11 @@ manager.CreateEntity<LOPActor, CharacterCreationData>(data)
 
 ## Open Decisions (plan/구현에서 확정)
 
-- 데이터 조립기 형태: static 순수 함수 vs DI 인스턴스(`AbilitySystem`/`LOPMasterData` 의존이 있어 인스턴스가 자연 —
-  `*System` 아닌 `*Assembler` 네이밍). per-side 2개 or 공유 1개(클·서 데이터 조립이 거의 동일하나 isUser/isPlayer
-  분기·Ownership·Simulated·playerContext-무관 부분이 갈려 per-side가 단순할 수 있음 — plan에서 판단).
 - 클라 `EntityBinder` 확장 시 이름 유지 vs `EntityViewSpawner`류로 rename(역할이 커지므로). 업계어=뷰 리졸버/
-  스포너. rename churn과 저울질(어휘 패스 S5b-3와 묶을지).
-- 서버 뷰 스포너 클래스명/등록 위치(`GameLifetimeScope`).
+  스포너. rename churn과 저울질(어휘 패스 S5b-3와 묶을지) — plan은 **이름 유지**(EntityBinder)로 잡고 rename은 S5b-3에 위임.
+- 서버 뷰 스포너 클래스명(`EntityViewSpawner`류)/등록 위치(`GameLifetimeScope` entry point).
+- 스포너 다중 구독자 순서: `playerContext.entityView`를 읽는 다른 `EntityCreated` 구독자(예: `PlayerHudCoordinator`)가
+  스포너보다 먼저 도는지 확인 — 있으면 스포너를 선순위 등록 or 그 읽기를 .entity로 대체(plan에서 실확인).
 
 ## 상태
 

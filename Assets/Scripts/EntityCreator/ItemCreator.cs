@@ -41,10 +41,6 @@ namespace LOP
             physicsFollower.Initialize(worldEntity, true, true);
             worldEntity.Add(new PhysicsBody(physicsFollower.entityRigidbody, (CapsuleCollider)physicsFollower.entityColliders[0]));
 
-            LOPEntityController controller = root.CreateChildWithComponent<LOPEntityController>();
-            objectResolver.Inject(controller);
-            controller.SetEntity(entity);
-
             LOPEntityView view = root.CreateChildWithComponent<LOPEntityView>();
             objectResolver.Inject(view);
             view.SetEntity(entity);

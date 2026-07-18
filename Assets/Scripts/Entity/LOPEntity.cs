@@ -1,7 +1,4 @@
 using GameFramework;
-using LOP.Event.Entity;
-using MessagePipe;
-using System.ComponentModel;
 using System.Linq;
 using UnityEngine;
 
@@ -29,7 +26,6 @@ namespace LOP
                 var current = worldTransform.Position.ToUnity();
                 if (Vector3EqualityComparer.instance.Equals(current, value)) return;
                 worldTransform.Position = value.ToNumerics();
-                RaisePropertyChanged(this, new PropertyChangedEventArgs(nameof(position)));
             }
         }
 
@@ -57,12 +53,6 @@ namespace LOP
             }
         }
 
-        public void RaisePropertyChanged(object sender, PropertyChangedEventArgs e)
-        {
-            // 엔티티 컴포넌트라 DI 주입 타이밍이 불확실 → GlobalMessagePipe로 keyed 발행(키=entityId).
-            GlobalMessagePipe.GetPublisher<string, PropertyChange>().Publish(entityId, new PropertyChange(e.PropertyName));
-        }
-
         public virtual void Initialize<TEntityCreationData>(TEntityCreationData creationData) where TEntityCreationData : struct, IEntityCreationData
         {
             entityId = creationData.entityId;
@@ -75,53 +65,6 @@ namespace LOP
             Vector3 checkPosition = position + Vector3.down * 0.2f;
             Collider[] colliders = Physics.OverlapSphere(checkPosition, 0.4f);
             return colliders.Any(col => col.gameObject.name == "Plane");
-        }
-
-        public void SyncPhysics()
-        {
-            PhysicsFollower physicsFollower = GetComponent<PhysicsFollower>();
-
-            if (physicsFollower == null)
-            {
-                return;
-            }
-
-            // kinematic 바디(원격 캐릭·아이템)는 World가 권위 — rb→World 되읽기는 rb.linearVelocity(=0)를
-            // entity.velocity에 덮어 run 애니·smoothing을 망친다. 스킵한다(rb는 World를 따르는 follower).
-            if (physicsFollower.entityRigidbody.isKinematic)
-            {
-                return;
-            }
-
-            position = physicsFollower.entityRigidbody.position;
-            rotation = physicsFollower.entityRigidbody.rotation.eulerAngles;
-            velocity = physicsFollower.entityRigidbody.linearVelocity;
-        }
-
-        /// <summary>World 모션(velocity·rotation)을 물리 바디에 밀어넣는다(Simulate 직전 호출). SyncPhysics(rb→World)의 역방향.</summary>
-        public void PushMotionToPhysics()
-        {
-            PhysicsFollower physicsFollower = GetComponent<PhysicsFollower>();
-
-            if (physicsFollower == null)
-            {
-                return;
-            }
-
-            Rigidbody rigidbody = physicsFollower.entityRigidbody;
-
-            // kinematic 바디(캐릭·아이템)는 velocity를 못 받는다(Unity가 매 틱 경고). velocity는 스킵.
-            // 내 캐릭 예측은 KinematicMoveSystem이 World.Transform을 직접 써서 facade 이벤트가 안 뜨므로,
-            // World 위치·회전을 rb에 직접 밀어넣는다(원격은 World=스냅 위치라 idempotent).
-            if (rigidbody.isKinematic)
-            {
-                rigidbody.position = position;
-                rigidbody.rotation = Quaternion.Euler(rotation);
-                return;
-            }
-
-            rigidbody.linearVelocity = velocity;
-            rigidbody.rotation = Quaternion.Euler(rotation);
         }
     }
 }

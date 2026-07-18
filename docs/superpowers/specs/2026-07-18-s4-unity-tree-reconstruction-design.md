@@ -26,9 +26,15 @@ Character_{id}                  ← 빈 루트
 ├── Physics
 │   └── PhysicsGameObject       ← Rigidbody + CapsuleCollider + TriggerDetector
 ├── LOPEntity (GO)             ← LOPEntity + PhysicsFollower
-├── LOPEntityView (GO)         ← 죽은 코드 (never used, 컴파일만)
+├── LOPEntityView (GO)         ← 테스트용 최소 렌더(모델 로드 + 매 프레임 위치 이동; 애니/데미지 없음)
 └── LOPAIController (GO)       ← AI일 때만
 ```
+
+> **서버 렌더 = 테스트 편의(의도).** 서버 `LOPEntityView`는 죽은 코드가 아니라 실제로 Addressables
+> 모델을 로드해 서버 Scene 뷰에서 엔티티를 보이게 한다(디버깅에 유용). 실 배포(dedicated server)에서만
+> 제외하는 게 목표 — 표준 수단은 Unity `UNITY_SERVER` 심볼(`#if !UNITY_SERVER`로 생성부 래핑, 프로덕션
+> 빌드 시 자동 스트립). **그 `#if` 게이트는 실 배포 빌드 세팅 때 추가(S4 범위 밖).** S4는 서버 뷰를
+> 유지하되 트리만 표준화한다.
 
 ### 표준과 어긋난 점 (5)
 
@@ -70,23 +76,25 @@ Actor_{id}   (루트 = 앵커 + 시뮬 바디)
    컴포넌트:  LOPActor  ·  Rigidbody + CapsuleCollider (kinematic, layer=Character)
              PhysicsFollower  ·  Local/RemoteEntityInterpolator
              LOPEntityView  ·  CharacterNameplate  ·  DamageFloaterEmitter
-   └── Visual (자식 = 렌더/보간 바디; 모델 인스턴스가 이 밑, 독립 보간)
+   └── {모델 인스턴스}  (자식 = 렌더/보간 바디; View가 루트 밑에 직접 로드, 독립 보간)
 ```
 
 **클라 Item 목표 트리:** 동일 골격, nameplate/floater 없음. interpolator=Remote만.
 ```
 Actor_{id}   (루트)
    컴포넌트:  LOPActor · Rigidbody + CapsuleCollider(trigger) · PhysicsFollower · RemoteEntityInterpolator · LOPEntityView
-   └── Visual (자식)
+   └── {모델 인스턴스}  (자식)
 ```
 
-**서버 Character 목표 트리:** (뷰/Visual 없음)
+**서버 Character 목표 트리:** (클라와 동일 골격, nameplate/floater·애니만 없음)
 ```
 Actor_{id}   (루트 = 시뮬 바디)
    컴포넌트:  LOPActor · Rigidbody + CapsuleCollider(+TriggerDetector) · PhysicsFollower
-             LOPAIController (AI일 때만)
+             LOPEntityView (테스트 렌더 — 모델 로드+이동만)  ·  LOPAIController (AI일 때만)
+   └── {모델 인스턴스}  (자식 = 렌더 바디; View가 루트 밑에 로드)
 ```
-서버는 `Visual`/`LOPEntityView`/nameplate/floater 없음. 죽은 `LOPEntityView.cs` **삭제**.
+서버는 nameplate/floater·애니/데미지 없음. `LOPEntityView`는 **유지**(테스트 렌더, 프로덕션 제외는
+`#if !UNITY_SERVER`로 후속). 클라와 같은 표준 트리로 reshape.
 
 ### 두 바디 명확화 (넷코드)
 
@@ -104,13 +112,13 @@ Actor_{id}   (루트 = 시뮬 바디)
 | `LOPEntityView` (자식 GO) | **루트 컴포넌트로**(이름 유지 — "View"는 표준어) | Entitas View = 컴포넌트 |
 | `CharacterNameplate`/`DamageFloaterEmitter` (자식 GO) | **루트 컴포넌트로** (binder가 AddComponent) | world-UI 소유 스크립트 |
 | `LOPAIController` (서버, 자식 GO) | **루트 컴포넌트로** | behavior 컴포넌트 |
-| `Visual` 컨테이너 | **단일 렌더 바디 자식으로** 유지 | interpolation body |
+| `Visual` 컨테이너 | **제거** — 모델 인스턴스를 루트 밑에 직접 로드(모델 = 렌더 바디 자식) | 불필요 래퍼 |
 | `Physics` 컨테이너 / `PhysicsGameObject` | **제거** — rb+콜라이더 루트로 | 불필요 중첩 |
-| 서버 `LOPEntityView.cs` | **삭제** | 죽은 코드 |
+| 서버 `LOPEntityView` (자식 GO) | **루트 컴포넌트로**(유지 — 테스트 렌더) | 클라와 동일 reshape |
 
 ## 배선 (문자열/구조 순회 제거)
 
-`LOPActor`가 자기 파트 typed 핸들을 노출(크리에이터가 조립 시 세팅): **`View`**(LOPEntityView), **`VisualRoot`**(Visual 자식 Transform). 소비자는 문자열 대신 핸들/`GetComponent`로 획득.
+모든 behavior가 **같은 루트**에 모이므로 별도 핸들 컴포넌트가 필요 없다 — 소비자는 문자열 순회 대신 **같은 루트의 `GetComponent<T>()`**로 형제 컴포넌트를 얻는다. 모델 인스턴스는 View가 **루트 밑에 직접 로드**(`this.transform` = 루트; 별도 `Visual` 컨테이너 없음). 콜라이더→엔티티는 `GetComponentInParent<LOPActor>()`.
 
 | 현재 배선 | 교체 |
 |---|---|
@@ -118,9 +126,11 @@ Actor_{id}   (루트 = 시뮬 바디)
 | 클 `LOPEntityView`: `parent.Find("Visual")` | `VisualRoot` 핸들(크리에이터 세팅) 밑에 모델 인스턴스 |
 | 클 `DamageFloaterEmitter`/`CharacterNameplate`: `parent.GetComponentInChildren<LOPEntityView>()` | `GetComponent<LOPEntityView>()` (같은 루트) |
 | 클 `EntityBinder`: `entity.transform.parent.gameObject` | `entity.gameObject`(= 루트) + `AddComponent` |
+| 클·서 `LOPEntityManager.DestroyMarkedEntities`: `lopActor.transform.parent.GetComponentsInChildren<ICleanup>()` + `Destroy(lopActor.transform.parent.gameObject)` | `lopActor.transform.GetComponentsInChildren<ICleanup>()` + `Destroy(lopActor.gameObject)` (LOPActor=루트) |
+| 서 `LOPEntityView`: `parent.Find("Visual")` | `VisualRoot` 핸들 |
 | 서 `PhysicsFollower.OnTriggerEnter`: `other.transform.parent?.parent?.GetComponentInChildren<LOPEntity>()` | `other.GetComponentInParent<LOPActor>()` |
 | 서 `LOPOverlapQuery`: `hit.transform.parent?.parent?.GetComponentInChildren<LOPEntity>()` | `hit.GetComponentInParent<LOPActor>()` |
-| 매니저/핸들러: `TryGetEntity<LOPEntity>` | `TryGetEntity<LOPActor>` (rename) |
+| 매니저/핸들러: `TryGetEntity<LOPEntity>` / `GetEntity<LOPEntity>` | `<LOPActor>` (rename) |
 
 `IEntity` 인터페이스(GameFramework 공유)는 **유지** — 서버 매니저 `GetAllEntitySnaps`가 파사드를 `IEntity`로 읽어 완전 삭제는 매니저 재작업(S5)과 묶임. rename은 concrete `LOPEntity`→`LOPActor`만.
 
@@ -129,9 +139,9 @@ Actor_{id}   (루트 = 시뮬 바디)
 매 스텝 끝에 게임이 그대로 돌아야 함. leaf-first가 아니라 이번엔 **rename → 골격 → 배선** 순서(구조 변경을 rename diff와 분리).
 
 1. **rename만** — `LOPEntity`→`LOPActor` (클·서 + 매니저/핸들러 호출부). 순수 rename 격리 커밋, 동작·구조 무변화. (파일 rename + `.meta` 동반.)
-2. **시뮬 바디 루트 이전** — 크리에이터가 루트 GameObject에 `LOPActor`를 직접 붙임(자식 GO 아님). `PhysicsFollower`가 rb+콜라이더를 **루트에** 생성(`Physics` 래퍼 제거, layer=Character). `PhysicsFollower`/interpolator/(서버)AIController도 루트 컴포넌트. 콜라이더→엔티티 매핑을 `GetComponentInParent<LOPActor>()`로 교체(서버 trigger + LOPOverlapQuery). `EntityBinder`가 `entity.gameObject`(루트)에 부착.
-3. **뷰/UI 컴포넌트 루트 이전** — `LOPEntityView`·`CharacterNameplate`·`DamageFloaterEmitter`를 루트 컴포넌트로(binder AddComponent). `GetComponentInChildren`→`GetComponent`. 서버 죽은 `LOPEntityView.cs` 삭제.
-4. **렌더 바디 정리** — `Visual`을 단일 렌더 바디 자식으로, `LOPActor.VisualRoot` 핸들. `LOPEntityView`가 모델을 `VisualRoot` 밑에 로드, 인터폴레이터가 그것을 보간. 문자열 배선 최종 제거 확인.
+2. **시뮬 바디 루트 이전** — 크리에이터(클·서)가 루트 GameObject에 `LOPActor`를 직접 붙임(자식 GO 아님). `PhysicsFollower`가 rb+콜라이더를 **루트에** 생성(`Physics` 래퍼 제거, layer=Character). `PhysicsFollower`/interpolator/(서버)AIController도 루트 컴포넌트. `LOPEntityManager.DestroyMarkedEntities`의 `transform.parent`→`transform`·`gameObject`(클·서). 콜라이더→엔티티 매핑을 `GetComponentInParent<LOPActor>()`로 교체(서버 trigger + LOPOverlapQuery). `EntityBinder`가 `entity.gameObject`(루트)에 부착.
+3. **뷰/UI 컴포넌트 루트 이전** — `LOPEntityView`(클·서)·`CharacterNameplate`·`DamageFloaterEmitter`(클)를 루트 컴포넌트로(binder AddComponent). `GetComponentInChildren`→`GetComponent`.
+4. **렌더 바디 정리** — `Visual` 컨테이너 제거. `LOPEntityView`(클·서)가 모델을 **루트(`this.transform`) 밑에** 직접 로드, 인터폴레이터가 그 모델 인스턴스를 보간. `Find("Visual")` 최종 제거.
 
 ## 범위
 
@@ -147,12 +157,14 @@ Actor_{id}   (루트 = 시뮬 바디)
 
 ## 검증 포인트 (plan에서 확정)
 
-- `Character` 레이어 충돌 매트릭스 — 루트가 Character 레이어를 이게 됨(루트에 다른 레이어 의존 없는지).
-- 클라 kinematic sweep(`ICollisionQuery`/`KinematicMover`)의 self-collider 제외 방식이 트리 구조에 의존하는지.
-- 서버 working-tree 로컬 픽스처(테스트 auth/playerList 등) 커밋 금지 — plan에서 격리.
-- 각 저장소 feature 브랜치(`feature/entity-s4-*`), 클·서 원자적으로(같은 rename).
+- `Character` 레이어 충돌 매트릭스 — 루트가 Character 레이어가 됨(루트에 다른 레이어 의존 없는지). 렌더 바디(Visual/모델) 콜라이더 없음 확인.
+- 클·서 kinematic sweep(`ICollisionQuery`/`KinematicMover`)·`MotionBridge` 겹침해소의 self-collider 제외가 **콜라이더 참조**(`PhysicsBody`)로 되는지(트리 구조 의존이면 콜라이더 이전 시 재확인).
+- rename 주의: `LOPEntity`는 `LOPEntityView`/`LOPEntityManager`의 **부분 문자열** — 반드시 **whole-word 타입 rename**(`LOPEntityView`/`LOPEntityManager` 손대지 말 것).
+- 서버 working-tree 로컬 픽스처(테스트 auth/playerList·`ConfigureRoomComponent` 등) 커밋 금지 — 명시 `git add`만.
+- 각 저장소 feature 브랜치(`feature/entity-s4-tree`), 클·서 원자적으로(같은 rename).
+- 프로덕션 서버 렌더 제외(`#if !UNITY_SERVER`)는 S4 밖 — 실 배포 빌드 세팅 시.
 
-## Open Decisions (plan/구현에서)
+## Open Decisions (해소됨)
 
-- `LOPActor` 핸들 표면: `View`+`VisualRoot`만으로 충분한지(다른 소비자 없으면 최소).
-- `Visual` 렌더 바디를 지속 노드로 둘지(인터폴레이터가 항상 이동, 모델은 그 자식) vs 모델 인스턴스 자체를 이동(현행). 지속 노드가 async 로드 전에도 보간 대상이 있어 더 깨끗 — plan에서 확정.
+- ~~`LOPActor` 핸들 표면~~ → **핸들 불필요**. 모든 behavior가 같은 루트라 `GetComponent<T>()`로 충분.
+- ~~`Visual` 렌더 바디 지속 노드 vs 모델 인스턴스 이동~~ → **`Visual` 컨테이너 제거, 모델 인스턴스가 렌더 바디 자식**(View가 루트 밑에 로드, 인터폴레이터가 모델을 직접 보간 — 현행 유지, 래퍼만 제거). async 로드 전엔 렌더 바디 없음(인터폴레이터 null 가드 기존대로).

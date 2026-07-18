@@ -19,6 +19,7 @@ namespace LOP
     {
         [Inject] private IObjectResolver objectResolver;
         [Inject] private ISubscriber<EntityCreated> entityCreatedSubscriber;
+        [Inject] private GameFramework.World.EntityRegistry entityRegistry;
 
         private IDisposable subscription;
 
@@ -40,7 +41,8 @@ namespace LOP
             }
 
             // 장식 뷰는 캐릭터 엔티티에만 (아이템 등 제외).
-            if (entity.GetEntityComponent<CharacterComponent>() == null)
+            var kind = entityRegistry.Get(entity.entityId)?.Get<EntityKind>();
+            if (kind == null || kind.Kind != EntityType.Character)
             {
                 return;
             }

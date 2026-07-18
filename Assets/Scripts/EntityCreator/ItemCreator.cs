@@ -25,6 +25,9 @@ namespace LOP
                 Rotation = Quaternion.Euler(creationData.rotation).ToNumerics(),
             });
             worldEntity.Add(new GameFramework.World.Velocity { Linear = creationData.velocity.ToNumerics() });
+            worldEntity.Add(new EntityKind(EntityType.Item));
+            worldEntity.Add(new MasterDataRef(creationData.itemCode));
+            worldEntity.Add(new Appearance(creationData.visualId));
 
             LOPEntity entity = root.CreateChildWithComponent<LOPEntity>();
             objectResolver.Inject(entity);
@@ -32,18 +35,6 @@ namespace LOP
                 worldEntity.Get<GameFramework.World.Transform>(),
                 worldEntity.Get<GameFramework.World.Velocity>());
             entity.Initialize(creationData);
-
-            EntityTypeComponent entityTypeComponent = entity.AddEntityComponent<EntityTypeComponent>();
-            objectResolver.Inject(entityTypeComponent);
-            entityTypeComponent.Initialize(EntityType.Item);
-
-            ItemComponent itemComponent = entity.AddEntityComponent<ItemComponent>();
-            objectResolver.Inject(itemComponent);
-            itemComponent.Initialize(creationData.itemCode);
-
-            AppearanceComponent appearanceComponent = entity.AddEntityComponent<AppearanceComponent>();
-            objectResolver.Inject(appearanceComponent);
-            appearanceComponent.Initialize(creationData.visualId);
 
             PhysicsComponent physicsComponent = entity.AddEntityComponent<PhysicsComponent>();
             objectResolver.Inject(physicsComponent);

@@ -41,7 +41,6 @@ namespace LOP
             builder.Register<NetworkMessageDispatcher>(Lifetime.Singleton);
 
             // 엔티티별 이벤트(keyed, 키=entityId)
-            builder.RegisterMessageBroker<string, Event.Entity.PropertyChange>(options);
             builder.RegisterMessageBroker<string, Event.Entity.EntityDamage>(options);
             builder.RegisterMessageBroker<string, Event.Entity.AbilityActivated>(options);
             builder.RegisterMessageBroker<string, Event.Entity.EntityHealthChanged>(options);

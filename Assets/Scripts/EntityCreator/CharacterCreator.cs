@@ -55,10 +55,6 @@ namespace LOP
             // 모든 캐릭터 kinematic — 우리가 직접 이동시킨다. 내 캐릭=예측(KinematicMoveSystem), 남=스냅 팔로워.
             physicsFollower.Initialize(worldEntity, true, false);
 
-            LOPEntityController controller = root.CreateChildWithComponent<LOPEntityController>();
-            objectResolver.Inject(controller);
-            controller.SetEntity(entity);
-
             LOPEntityView view = root.CreateChildWithComponent<LOPEntityView>();
             objectResolver.Inject(view);
             view.SetEntity(entity);

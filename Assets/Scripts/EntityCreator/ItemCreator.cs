@@ -39,6 +39,7 @@ namespace LOP
             PhysicsFollower physicsFollower = entity.gameObject.AddComponent<PhysicsFollower>();
             objectResolver.Inject(physicsFollower);
             physicsFollower.Initialize(worldEntity, true, true);
+            worldEntity.Add(new PhysicsBody(physicsFollower.entityRigidbody, (CapsuleCollider)physicsFollower.entityColliders[0]));
 
             LOPEntityController controller = root.CreateChildWithComponent<LOPEntityController>();
             objectResolver.Inject(controller);

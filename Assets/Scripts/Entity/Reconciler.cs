@@ -23,6 +23,7 @@ namespace LOP
         [Inject] private GameFramework.Netcode.SequenceBuffer<PredictedAbilityState> predictedAbilityStateHistory;
         [Inject] private GameFramework.Netcode.SequenceBuffer<InputCommand> inputHistory;
         [Inject] private GameFramework.World.IWorld world;   // 재생 = 라이브와 같은 단일 진입점 world.Tick
+        [Inject] private GameFramework.World.IMotionBridge motionBridge;
         [Inject] private ReconciliationStats reconciliationStats;
         [Inject] private GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
 
@@ -84,7 +85,7 @@ namespace LOP
             entity.position = snap.position;
             entity.rotation = snap.rotation;
             entity.velocity = snap.velocity;
-            entity.PushMotionToPhysics();
+            motionBridge.PushMotion(worldEntity);
             Physics.SyncTransforms();
 
             // 넉백 등 외부 이동 기여는 서버 권위 → 스냅에서 복원한다. 내 예측 히스토리(PredictedAbilityState)엔

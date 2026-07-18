@@ -24,9 +24,9 @@ namespace LOP
         [Inject]
         private GameFramework.World.EntityRegistry entityRegistry;
 
-        public LOPEntity entity { get; private set; }
+        public LOPActor entity { get; private set; }
 
-        public void SetEntity(LOPEntity entity)
+        public void SetEntity(LOPActor entity)
         {
             this.entity = entity;
         }
@@ -48,7 +48,7 @@ namespace LOP
 
         protected void Start()
         {
-            _entityView = transform.parent.GetComponentInChildren<LOPEntityView>();
+            _entityView = GetComponent<LOPEntityView>();
 
             GameFramework.World.Entity worldEntity = entityRegistry.Get(entity.entityId);
             GameFramework.World.Health health = worldEntity?.Get<GameFramework.World.Health>();

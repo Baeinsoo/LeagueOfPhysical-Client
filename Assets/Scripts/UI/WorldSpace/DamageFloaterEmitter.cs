@@ -14,9 +14,9 @@ namespace LOP
     /// </summary>
     public class DamageFloaterEmitter : MonoBehaviour, ICleanup
     {
-        public LOPEntity entity { get; private set; }
+        public LOPActor entity { get; private set; }
 
-        public void SetEntity(LOPEntity entity)
+        public void SetEntity(LOPActor entity)
         {
             this.entity = entity;
         }
@@ -66,7 +66,7 @@ namespace LOP
 
         protected void Start()
         {
-            _entityView = transform.parent.GetComponentInChildren<LOPEntityView>();
+            _entityView = GetComponent<LOPEntityView>();
             _subscription = GlobalMessagePipe.GetSubscriber<string, EntityDamage>().Subscribe(entity.entityId, OnEntityDamage);
         }
 

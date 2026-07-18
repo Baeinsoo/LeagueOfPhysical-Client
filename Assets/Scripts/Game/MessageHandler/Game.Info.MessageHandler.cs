@@ -40,7 +40,7 @@ namespace LOP
                 switch (entityCreationData.CreationDataCase)
                 {
                     case EntityCreationData.CreationDataOneofCase.CharacterCreationData:
-                        runner.entityManager.CreateEntity<LOPEntity, CharacterCreationData>(new CharacterCreationData
+                        runner.entityManager.CreateEntity<LOPActor, CharacterCreationData>(new CharacterCreationData
                         {
                             entityId = entityCreationData.CharacterCreationData.BaseEntityCreationData.EntityId,
                             position = MapperConfig.mapper.Map<Vector3>(entityCreationData.CharacterCreationData.BaseEntityCreationData.Position),
@@ -63,7 +63,7 @@ namespace LOP
                         break;
 
                     case EntityCreationData.CreationDataOneofCase.ItemCreationData:
-                        runner.entityManager.CreateEntity<LOPEntity, ItemCreationData>(new ItemCreationData
+                        runner.entityManager.CreateEntity<LOPActor, ItemCreationData>(new ItemCreationData
                         {
                             entityId = entityCreationData.ItemCreationData.BaseEntityCreationData.EntityId,
                             position = MapperConfig.mapper.Map<Vector3>(entityCreationData.ItemCreationData.BaseEntityCreationData.Position),

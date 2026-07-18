@@ -19,7 +19,7 @@ namespace LOP
         [Inject] private IRunner runner;
         [Inject] private GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
 
-        public LOPEntity entity { get; set; }
+        public LOPActor entity { get; set; }
         public LOPEntityView entityView { get; set; }
 
         private struct RenderSample

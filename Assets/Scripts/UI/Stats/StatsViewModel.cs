@@ -14,7 +14,7 @@ namespace LOP.UI
     public class StatsViewModel : IDisposable
     {
         private readonly IPlayerContext _playerContext;
-        private readonly LOPEntity _entity;
+        private readonly LOPActor _entity;
         private readonly GameFramework.World.EntityRegistry _entityRegistry;
         private readonly GameFramework.World.StatsSystem _statsSystem;
 

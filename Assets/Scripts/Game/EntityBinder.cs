@@ -35,7 +35,7 @@ namespace LOP
 
         private void OnEntityCreated(EntityCreated entityCreated)
         {
-            if (entityCreated.entity is not LOPEntity entity)
+            if (entityCreated.entity is not LOPActor entity)
             {
                 return;
             }
@@ -47,13 +47,13 @@ namespace LOP
                 return;
             }
 
-            GameObject root = entity.transform.parent.gameObject;
+            GameObject root = entity.gameObject;
 
-            DamageFloaterEmitter damageFloaterEmitter = root.CreateChildWithComponent<DamageFloaterEmitter>();
+            DamageFloaterEmitter damageFloaterEmitter = root.AddComponent<DamageFloaterEmitter>();
             objectResolver.Inject(damageFloaterEmitter);
             damageFloaterEmitter.SetEntity(entity);
 
-            CharacterNameplate nameplate = root.CreateChildWithComponent<CharacterNameplate>();
+            CharacterNameplate nameplate = root.AddComponent<CharacterNameplate>();
             objectResolver.Inject(nameplate);
             nameplate.SetEntity(entity);
         }

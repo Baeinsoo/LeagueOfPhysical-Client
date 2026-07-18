@@ -52,7 +52,7 @@ namespace LOP
             EntitySnap snap = latestSnap;
             long anchorTick = snap.tick;
 
-            LOPEntity entity = playerContext.entity;
+            LOPActor entity = playerContext.entity;
             if (entity == null)
             {
                 return;

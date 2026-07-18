@@ -13,7 +13,7 @@ namespace LOP
     {
         [Inject] private RemoteInterpolationClock clock;
 
-        public LOPEntity entity { get; set; }
+        public LOPActor entity { get; set; }
         public LOPEntityView entityView { get; set; }
 
         private readonly BoundedList<EntitySnap> snaps = new BoundedList<EntitySnap>(32);

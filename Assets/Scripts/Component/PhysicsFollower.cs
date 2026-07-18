@@ -20,6 +20,11 @@ namespace LOP
 
             gameObject.layer = LayerMask.NameToLayer("Character");
 
+            // 루트(시뮬 바디)를 스폰 위치에 즉시 배치한다. kinematic rb의 rb.position은 다음 물리 스텝에야
+            // 트랜스폼에 반영돼, 루트가 한 틱 원점에 머물다 스폰 지점으로 점프하면 자식 모델이 끌려가
+            // 첫 틱에 순간이동한다 — 트랜스폼을 바로 세팅해 그 점프를 없앤다.
+            transform.SetPositionAndRotation(worldTransform.Position.ToUnity(), worldTransform.Rotation.ToUnity());
+
             entityRigidbody = gameObject.AddComponent<Rigidbody>();
             entityRigidbody.linearDamping = 0f;
             entityRigidbody.angularDamping = 0.05f;

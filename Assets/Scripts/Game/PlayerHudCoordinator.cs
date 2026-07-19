@@ -35,12 +35,12 @@ namespace LOP
 
         private void OnEntityCreated(EntityCreated entityCreated)
         {
-            if (_opened || entityCreated.entity == null)
+            if (_opened || entityCreated.actor == null)
             {
                 return;
             }
 
-            if (entityCreated.entity.entityId != gameDataStore.userEntityId)
+            if (entityCreated.actor.entityId != gameDataStore.userEntityId)
             {
                 return;
             }

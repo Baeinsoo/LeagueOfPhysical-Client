@@ -52,12 +52,12 @@ namespace LOP
             EntitySnap snap = latestSnap;
             long anchorTick = snap.tick;
 
-            LOPActor entity = playerContext.entity;
-            if (entity == null)
+            LOPActor actor = playerContext.actor;
+            if (actor == null)
             {
                 return;
             }
-            GameFramework.World.Entity worldEntity = entityRegistry.Get(entity.entityId);
+            GameFramework.World.Entity worldEntity = entityRegistry.Get(actor.entityId);
             if (worldEntity == null)
             {
                 return;

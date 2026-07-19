@@ -186,7 +186,7 @@ namespace LOP
         // 되돌리기(하드 복원+재생)는 Reconciler.Reconcile이 다음 틱 앞에서 수행.
         private void RecordLocalSnapshot()
         {
-            LOPActor local = playerContext.entity;
+            LOPActor local = playerContext.actor;
             if (local == null)
             {
                 return;

@@ -18,11 +18,11 @@ namespace LOP
         [Inject]
         private GameFramework.World.EntityRegistry entityRegistry;
 
-        public LOPActor entity { get; private set; }
+        public LOPActor actor { get; private set; }
 
-        public void SetEntity(LOPActor entity)
+        public void SetEntity(LOPActor actor)
         {
-            this.entity = entity;
+            this.actor = actor;
         }
 
         private const int MAX_FLOATERS = 4;
@@ -71,7 +71,7 @@ namespace LOP
         protected void Start()
         {
             _entityView = GetComponent<LOPEntityView>();
-            _subscription = GlobalMessagePipe.GetSubscriber<string, EntityDamage>().Subscribe(entity.entityId, OnEntityDamage);
+            _subscription = GlobalMessagePipe.GetSubscriber<string, EntityDamage>().Subscribe(actor.entityId, OnEntityDamage);
         }
 
         public void Cleanup()
@@ -87,7 +87,7 @@ namespace LOP
             }
             _floaters.Clear();
 
-            entity = null;
+            actor = null;
         }
 
         private void OnEntityDamage(EntityDamage entityDamage)
@@ -102,7 +102,7 @@ namespace LOP
                 return;
             }
 
-            var worldEntity = entityRegistry.Get(entity.entityId);
+            var worldEntity = entityRegistry.Get(actor.entityId);
             Vector3 headPosition = (_entityView != null && _entityView.visualGameObject != null)
                 ? _entityView.visualGameObject.transform.position
                 : worldEntity != null ? GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity) : Vector3.zero;

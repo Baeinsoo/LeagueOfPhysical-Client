@@ -1,6 +1,7 @@
 using GameFramework;
 using MessagePipe;
 using VContainer;
+using GameFramework.Netcode;
 
 namespace LOP
 {

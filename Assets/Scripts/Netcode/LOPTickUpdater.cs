@@ -1,6 +1,7 @@
 using GameFramework;
 using UnityEngine;
 using VContainer;
+using GameFramework.Netcode;
 
 namespace LOP
 {

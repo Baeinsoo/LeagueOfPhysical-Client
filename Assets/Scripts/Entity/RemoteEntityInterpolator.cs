@@ -13,7 +13,6 @@ namespace LOP
     {
         [Inject] private RemoteInterpolationClock clock;
 
-        public LOPActor actor { get; set; }
         public GameFramework.World.Entity worldEntity { get; set; }
         public LOPEntityView entityView { get; set; }
 

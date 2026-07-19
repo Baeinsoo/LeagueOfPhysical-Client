@@ -14,7 +14,7 @@ namespace LOP.UI
     public class StatsViewModel : IDisposable
     {
         private readonly IPlayerContext _playerContext;
-        private readonly LOPActor _actor;
+        private readonly string _entityId;
         private readonly GameFramework.World.EntityRegistry _entityRegistry;
         private readonly GameFramework.World.StatsSystem _statsSystem;
 
@@ -46,17 +46,17 @@ namespace LOP.UI
             _statsSystem = statsSystem;
             _canAllocate = _statPoints.Select(p => p > 0).ToReadOnlyReactiveProperty(false);
 
-            _actor = playerContext.actor;
-            if (_actor == null)
+            _entityId = playerContext.entityId;
+            if (_entityId == null)
             {
-                Debug.LogWarning("[StatsViewModel] playerContext.actor가 null입니다. 유저 엔티티 생성 후 열어야 합니다.");
+                Debug.LogWarning("[StatsViewModel] playerContext.entityId가 null입니다. 유저 엔티티 생성 후 열어야 합니다.");
                 return;
             }
 
             PushAll();
             var bag = MessagePipe.DisposableBag.CreateBuilder();
-            statChangedSubscriber.Subscribe(_actor.entityId, OnEntityStatChanged).AddTo(bag);
-            statPointsChangedSubscriber.Subscribe(_actor.entityId, OnEntityStatPointsChanged).AddTo(bag);
+            statChangedSubscriber.Subscribe(_entityId, OnEntityStatChanged).AddTo(bag);
+            statPointsChangedSubscriber.Subscribe(_entityId, OnEntityStatPointsChanged).AddTo(bag);
             _subscriptions = bag.Build();
         }
 
@@ -92,7 +92,7 @@ namespace LOP.UI
 
         private void PushAll()
         {
-            GameFramework.World.Stats stats = _entityRegistry.Get(_actor.entityId)?.Get<GameFramework.World.Stats>();
+            GameFramework.World.Stats stats = _entityRegistry.Get(_entityId)?.Get<GameFramework.World.Stats>();
             if (stats != null)
             {
                 _strength.Value = Mathf.RoundToInt(_statsSystem.GetValue(stats, (int)GameFramework.World.EntityStatType.Strength));

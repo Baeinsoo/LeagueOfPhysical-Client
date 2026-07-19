@@ -85,7 +85,7 @@ namespace LOP
                         (MotionContributionMode)pc.Mode, pc.Priority, pc.StartTick, pc.EndTick, pc.DecayPerTick));
                 }
 
-                if (playerContext.actor.entityId == actor.entityId)
+                if (playerContext.entityId == actor.entityId)
                 {
                     reconciler.AddServerSnap(entitySnap);
                 }
@@ -115,7 +115,7 @@ namespace LOP
                 case EntityCreationData.CreationDataOneofCase.CharacterCreationData:
                     string entityId = entitySpawnToC.EntityCreationData.CharacterCreationData.BaseEntityCreationData.EntityId;
 
-                    if (runner.entityManager.TryGetEntity<LOPActor>(entityId, out var actor))
+                    if (entityRegistry.Contains(entityId))
                     {
                         Debug.LogWarning($"Entity {entityId} already exists");
                         return;
@@ -146,7 +146,7 @@ namespace LOP
                 case EntityCreationData.CreationDataOneofCase.ItemCreationData:
                     string itemEntityId = entitySpawnToC.EntityCreationData.ItemCreationData.BaseEntityCreationData.EntityId;
 
-                    if (runner.entityManager.TryGetEntity<LOPActor>(itemEntityId, out var item))
+                    if (entityRegistry.Contains(itemEntityId))
                     {
                         Debug.LogWarning($"Entity {itemEntityId} already exists");
                         return;
@@ -167,7 +167,7 @@ namespace LOP
 
         private void OnEntityDespawnToC(EntityDespawnToC entityDespawnToC)
         {
-            if (runner.entityManager.TryGetEntity<LOPActor>(entityDespawnToC.EntityId, out var actor))
+            if (entityRegistry.Contains(entityDespawnToC.EntityId))
             {
                 runner.entityManager.DeleteEntityById(entityDespawnToC.EntityId);
             }
@@ -179,12 +179,12 @@ namespace LOP
 
         private void OnUserEntitySnapToC(UserEntitySnapToC userEntitySnapToC)
         {
-            if (playerContext.actor == null)
+            if (playerContext.entityId == null)
             {
                 return;
             }
 
-            GameFramework.World.Entity worldEntity = entityRegistry.Get(playerContext.actor.entityId);
+            GameFramework.World.Entity worldEntity = entityRegistry.Get(playerContext.entityId);
             GameFramework.World.Health health = worldEntity?.Get<GameFramework.World.Health>();
             if (health != null)
             {
@@ -193,12 +193,12 @@ namespace LOP
                 healthSystem.ApplyAuthoritativeState(health, userEntitySnapToC.MaxHP, userEntitySnapToC.CurrentHP);
                 if (health.Current != prevCurrent || health.Max != prevMax)
                 {
-                    healthChangedPublisher.Publish(playerContext.actor.entityId, new EntityHealthChanged(health.Current, health.Max));
+                    healthChangedPublisher.Publish(playerContext.entityId, new EntityHealthChanged(health.Current, health.Max));
                 }
             }
             else
             {
-                Debug.LogWarning($"[World] UserEntitySnap: Health not found for entity {playerContext.actor.entityId}");
+                Debug.LogWarning($"[World] UserEntitySnap: Health not found for entity {playerContext.entityId}");
             }
             GameFramework.World.Mana mana = worldEntity?.Get<GameFramework.World.Mana>();
             if (mana != null)
@@ -208,12 +208,12 @@ namespace LOP
                 manaSystem.ApplyAuthoritativeState(mana, userEntitySnapToC.MaxMP, userEntitySnapToC.CurrentMP);
                 if (mana.Current != prevCurrent || mana.Max != prevMax)
                 {
-                    manaChangedPublisher.Publish(playerContext.actor.entityId, new EntityManaChanged(mana.Current, mana.Max));
+                    manaChangedPublisher.Publish(playerContext.entityId, new EntityManaChanged(mana.Current, mana.Max));
                 }
             }
             else
             {
-                Debug.LogWarning($"[World] UserEntitySnap: Mana not found for entity {playerContext.actor.entityId}");
+                Debug.LogWarning($"[World] UserEntitySnap: Mana not found for entity {playerContext.entityId}");
             }
             GameFramework.World.Level level = worldEntity?.Get<GameFramework.World.Level>();
             if (level != null)
@@ -223,12 +223,12 @@ namespace LOP
                 levelSystem.ApplyAuthoritativeState(level, userEntitySnapToC.Level, userEntitySnapToC.CurrentExp);
                 if (level.Value != prevValue || level.Exp != prevExp)
                 {
-                    levelChangedPublisher.Publish(playerContext.actor.entityId, new EntityLevelChanged(level.Value, level.Exp, level.ExpToNext));
+                    levelChangedPublisher.Publish(playerContext.entityId, new EntityLevelChanged(level.Value, level.Exp, level.ExpToNext));
                 }
             }
             else
             {
-                Debug.LogWarning($"[World] UserEntitySnap: Level not found for entity {playerContext.actor.entityId}");
+                Debug.LogWarning($"[World] UserEntitySnap: Level not found for entity {playerContext.entityId}");
             }
             GameFramework.World.Stats stats = worldEntity?.Get<GameFramework.World.Stats>();
             if (stats != null)
@@ -237,26 +237,26 @@ namespace LOP
                 statsSystem.SetUnspent(stats, userEntitySnapToC.StatPoints);
                 if (stats.UnspentPoints != prevUnspent)
                 {
-                    statPointsChangedPublisher.Publish(playerContext.actor.entityId, new EntityStatPointsChanged(stats.UnspentPoints));
+                    statPointsChangedPublisher.Publish(playerContext.entityId, new EntityStatPointsChanged(stats.UnspentPoints));
                 }
             }
             else
             {
-                Debug.LogWarning($"[World] UserEntitySnap: Stats not found for entity {playerContext.actor.entityId}");
+                Debug.LogWarning($"[World] UserEntitySnap: Stats not found for entity {playerContext.entityId}");
             }
         }
 
         private void OnStatAllocationToC(StatAllocationToC statAllocationToC)
         {
-            if (playerContext.actor == null)
+            if (playerContext.entityId == null)
             {
                 return;
             }
 
-            GameFramework.World.Stats stats = entityRegistry.Get(playerContext.actor.entityId)?.Get<GameFramework.World.Stats>();
+            GameFramework.World.Stats stats = entityRegistry.Get(playerContext.entityId)?.Get<GameFramework.World.Stats>();
             if (stats == null)
             {
-                Debug.LogWarning($"[World] StatAllocation: Stats not found for entity {playerContext.actor.entityId}");
+                Debug.LogWarning($"[World] StatAllocation: Stats not found for entity {playerContext.entityId}");
                 return;
             }
 
@@ -273,7 +273,7 @@ namespace LOP
 
             statsSystem.SetBase(stats, statType, statAllocationToC.StatValue);
             int effectiveValue = Mathf.RoundToInt(statsSystem.GetValue(stats, statType));
-            statChangedPublisher.Publish(playerContext.actor.entityId, new EntityStatChanged(statType, effectiveValue));
+            statChangedPublisher.Publish(playerContext.entityId, new EntityStatChanged(statType, effectiveValue));
         }
     }
 }

@@ -67,7 +67,7 @@ namespace LOP
             actor.Initialize(creationData);
             if (isUserEntity)
             {
-                playerContext.actor = actor;   // .entityView는 스포너가 뷰 생성 후 세팅
+                playerContext.entityId = creationData.entityId;   // .entityView는 스포너가 뷰 생성 후 세팅
             }
 
             Debug.Log($"[World] Registered entity {worldEntity.Id} Health={worldHealth.Current}/{worldHealth.Max}");

@@ -186,13 +186,13 @@ namespace LOP
         // 되돌리기(하드 복원+재생)는 Reconciler.Reconcile이 다음 틱 앞에서 수행.
         private void RecordLocalSnapshot()
         {
-            LOPActor local = playerContext.actor;
-            if (local == null)
+            string entityId = playerContext.entityId;
+            if (entityId == null)
             {
                 return;
             }
 
-            GameFramework.World.Entity worldEntity = entityRegistry.Get(local.entityId);
+            GameFramework.World.Entity worldEntity = entityRegistry.Get(entityId);
             if (worldEntity == null)
             {
                 return;

@@ -68,6 +68,8 @@ namespace LOP
             builder.RegisterEntryPoint<GameInputMessageHandler>();
             builder.RegisterEntryPoint<GameInputTimingMessageHandler>();
             builder.RegisterEntryPoint<GameWorldEventMessageHandler>();
+            // 순서 중요: EntityBinder가 먼저 구독해야 EntityCreated 시 actor를 만들고 playerContext.actor를 세팅한다.
+            // PlayerHudCoordinator(및 actor를 읽는 후속 구독자)는 그 뒤에 와야 한다 — 재정렬 금지.
             builder.RegisterEntryPoint<EntityBinder>();
             builder.RegisterEntryPoint<PlayerHudCoordinator>();
             builder.Register<PlayerInputManager>(Lifetime.Singleton).AsSelf();

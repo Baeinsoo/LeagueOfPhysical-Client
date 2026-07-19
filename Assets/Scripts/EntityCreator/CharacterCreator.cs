@@ -1,3 +1,4 @@
+using GameFramework;
 using UnityEngine;
 using VContainer;
 

@@ -5,6 +5,7 @@ using UnityEngine;
 using GameFramework;
 using LOP.Event.LOPRunner.Update;
 using VContainer;
+using GameFramework.Netcode;
 
 namespace LOP
 {

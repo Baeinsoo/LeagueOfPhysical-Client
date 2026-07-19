@@ -6,6 +6,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 using VContainer;
 using VContainer.Unity;
+using GameFramework.Netcode;
 
 namespace LOP
 {

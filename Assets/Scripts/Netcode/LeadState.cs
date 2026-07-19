@@ -1,3 +1,5 @@
+using GameFramework.Netcode;
+
 namespace LOP
 {
     /// <summary>

@@ -68,9 +68,9 @@
 ### 엔티티 Unity 레이어 재구조화 — **현재 활성 트랙**
 World Core(순수 C# Entity/Component) 위 Unity 프레젠테이션을 **얇은 뷰/컴패니언 + Actor식 앵커**로 수렴하는 S1~S5 리팩터. **S1(설정 컴포넌트→World)·S2(PhysicsComponent→PhysicsFollower)·S3(레거시 substrate machinery 삭제)·③물리통합·S4(Unity 트리 표준화: LOPActor 루트 앵커+rb 루트+컴포넌트 co-location) 완료** → 엔티티=`Actor_{id}` 단일 루트(모든 behavior 컴포넌트, 모델=렌더 바디 자식), 문자열/구조 배선 소멸.
 
-**S1~S5 완료 + 로직 분리 완료.** 엔티티 = 순수 C# `World.Entity`(데이터+시뮬), Unity = 얇은 프레젠테이션(Creator=데이터 직원 / 반응형 뷰 스포너=뷰 직원). 로직/시뮬도 `World.Entity`로 분리(LOPActor는 뷰 레이어 ~6곳만). 문자열/구조 배선·병렬 컴포넌트 시스템·파사드·레거시 과참조 소멸(아래 Done 원장).
+**S1~S5 완료 + 로직 분리 완료 + Actor 뷰 파사드 완료.** 엔티티 = 순수 C# `World.Entity`(데이터+시뮬), Unity = 얇은 프레젠테이션(Creator=데이터 직원 / 반응형 뷰 스포너=뷰 직원). 로직/시뮬도 `World.Entity`로 분리(LOPActor는 뷰 레이어 ~6곳만). 문자열/구조 배선·병렬 컴포넌트 시스템·파사드·레거시 과참조 소멸(아래 Done 원장).
 
-- **다음 아이디어(사용자, 별도 brainstorm)**: `LOPEntityView`(시각 뷰)를 `LOPActor`에 **통합**(이름은 **Actor 유지** — Unreal식 뷰+컨트롤러 겸 앵커). 뷰/UI 컴포넌트의 LOPActor 참조 정리도 이때. `[[entity-unity-layer-rearchitecture]]`.
+- **Actor 뷰 파사드 ✅ 완료 (2026-07-19, main 머지 d9275bf)**: `LOPActor`를 엔티티의 **단일 대표(파사드)** 로 승격. 애초 아이디어("`LOPEntityView`를 Actor에 *통합*")는 brainstorm에서 **파사드로 선회** — 웹 리서치로 언리얼 Actor가 렌더러를 *소유·대표*(통합 아님)하고 유니티 `gameObject.transform`이 파사드-라이트 선례임을 확인 → `LOPEntityView`는 렌더링 전담으로 **유지**하되 `LOPActor`가 소유(`SetView`)+`visualGameObject` 위임 노출, 외부 소비처(playerContext/카메라/보간기2/월드스페이스 UI2)는 `entityView`→`actor` 단일 참조로 전환. spec/plan `2026-07-19-actor-view-facade*`. `[[entity-unity-layer-rearchitecture]]`.
 - **의도적 보류(별도 슬라이스, 필요 시)**: `entityMap`→스포너 이전 / `IEntityManager` 규격 해체(YAGNI) · **PhysicsBody 순수 포트화(Y)** (`[[physicsbody-port-purity-deferred]]`, 코어는 이미 IMotionBridge로 격리).
 - **비차단 후속(기회 정리)**: register→PhysicsBody 순서 불변 주석 · S5b Task1 rationale 주석 복원 · `CharacterCreationDataCreator` param `lopEntity`→`actor`.
 

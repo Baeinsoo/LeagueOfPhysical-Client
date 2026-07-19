@@ -10,7 +10,8 @@ namespace LOP
     {
         [Inject] private IPlayerContext playerContext;
         [Inject] private IGameDataStore gameDataStore;
-        [Inject] private IRunner runner;
+        [Inject] private EntitySpawner entitySpawner;
+        [Inject] private ActorRegistry actorRegistry;
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
         [Inject] private GameFramework.World.HealthSystem healthSystem;
         [Inject] private GameFramework.World.ManaSystem manaSystem;
@@ -67,7 +68,7 @@ namespace LOP
 
             foreach (var serverEntitySnap in entitySnapsToC.EntitySnaps.OrEmpty())
             {
-                if (runner.entityManager.TryGetEntity<LOPActor>(serverEntitySnap.EntityId, out var actor) == false)
+                if (actorRegistry.TryGet(serverEntitySnap.EntityId, out var actor) == false)
                 {
                     Debug.LogWarning($"Entity {serverEntitySnap.EntityId} not found");
                     continue;
@@ -121,7 +122,7 @@ namespace LOP
                         return;
                     }
 
-                    runner.entityManager.CreateEntity<LOPActor, CharacterCreationData>(new CharacterCreationData
+                    entitySpawner.Spawn(new CharacterCreationData
                     {
                         entityId = entityId,
                         position = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.CharacterCreationData.BaseEntityCreationData.Position),
@@ -152,7 +153,7 @@ namespace LOP
                         return;
                     }
 
-                    runner.entityManager.CreateEntity<LOPActor, ItemCreationData>(new ItemCreationData
+                    entitySpawner.Spawn(new ItemCreationData
                     {
                         entityId = itemEntityId,
                         position = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.ItemCreationData.BaseEntityCreationData.Position),
@@ -169,7 +170,7 @@ namespace LOP
         {
             if (entityRegistry.Contains(entityDespawnToC.EntityId))
             {
-                runner.entityManager.DeleteEntityById(entityDespawnToC.EntityId);
+                entitySpawner.Despawn(entityDespawnToC.EntityId);
             }
             else
             {

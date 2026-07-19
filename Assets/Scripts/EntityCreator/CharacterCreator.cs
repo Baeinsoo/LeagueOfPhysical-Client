@@ -1,19 +1,18 @@
-using GameFramework;
 using UnityEngine;
 using VContainer;
 
 namespace LOP
 {
-    public class CharacterCreator : IEntityCreator<LOPActor, CharacterCreationData>
+    // 데이터 전용 creator — World.Entity 조립 + registry.Add + 어빌리티 Grant. actor(뷰 앵커)는 EntityBinder가 만든다.
+    public class CharacterCreator
     {
         [Inject] private IGameDataStore gameDataStore;
         [Inject] private IPlayerContext playerContext;
-        [Inject] private IObjectResolver objectResolver;
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
         [Inject] private AbilitySystem abilitySystem;
         [Inject] private LOP.MasterData.LOPMasterData md;
 
-        public LOPActor Create(CharacterCreationData creationData)
+        public void Create(CharacterCreationData creationData)
         {
             var worldEntity = new GameFramework.World.Entity(creationData.entityId);
             worldEntity.Add(new GameFramework.World.Transform
@@ -58,20 +57,10 @@ namespace LOP
             if (isUserEntity)
             {
                 abilitySystem.Grant(worldEntity, 4);   // 내 캐릭 전용 테스트 툴(G키)
-            }
-
-            // 앵커: 뷰 컴포넌트(물리/모델/보간/장식)는 EntityBinder가 EntityCreated 반응으로 붙인다.
-            GameObject root = new GameObject($"Actor_{creationData.entityId}");
-            LOPActor actor = root.AddComponent<LOPActor>();
-            objectResolver.Inject(actor);
-            actor.Initialize(creationData);
-            if (isUserEntity)
-            {
-                playerContext.entityId = creationData.entityId;   // .actor는 스포너가 뷰 생성 후 세팅
+                playerContext.entityId = creationData.entityId;   // .actor는 EntityBinder가 뷰 생성 후 세팅
             }
 
             Debug.Log($"[World] Registered entity {worldEntity.Id} Health={worldHealth.Current}/{worldHealth.Max}");
-            return actor;
         }
     }
 }

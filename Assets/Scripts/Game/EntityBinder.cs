@@ -70,7 +70,7 @@ namespace LOP
                 bool isUserEntity = gameDataStore.userEntityId == actor.entityId;
                 if (isUserEntity)
                 {
-                    playerContext.entityView = view;
+                    playerContext.actor = actor;
 
                     LocalEntityInterpolator interpolator = root.AddComponent<LocalEntityInterpolator>();
                     objectResolver.Inject(interpolator);

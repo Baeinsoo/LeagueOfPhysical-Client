@@ -12,13 +12,13 @@ namespace LOP
 {
     public class LOPEntityView : MonoBehaviour, ICleanup
     {
-        public LOPActor actor { get; private set; }
+        public string entityId { get; private set; }
 
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
 
-        public void SetEntity(LOPActor actor)
+        public void SetEntityId(string entityId)
         {
-            this.actor = actor;
+            this.entityId = entityId;
         }
 
         private GameObject _visualGameObject;
@@ -44,11 +44,11 @@ namespace LOP
         protected virtual void Start()
         {
             var bag = DisposableBag.CreateBuilder();
-            GlobalMessagePipe.GetSubscriber<string, AbilityActivated>().Subscribe(actor.entityId, OnAbilityActivated).AddTo(bag);
-            GlobalMessagePipe.GetSubscriber<string, EntityDamage>().Subscribe(actor.entityId, OnEntityDamage).AddTo(bag);
+            GlobalMessagePipe.GetSubscriber<string, AbilityActivated>().Subscribe(entityId, OnAbilityActivated).AddTo(bag);
+            GlobalMessagePipe.GetSubscriber<string, EntityDamage>().Subscribe(entityId, OnEntityDamage).AddTo(bag);
             subscriptions = bag.Build();
 
-            var appearance = entityRegistry.Get(actor.entityId)?.Get<Appearance>();
+            var appearance = entityRegistry.Get(entityId)?.Get<Appearance>();
             if (appearance != null)
             {
                 UpdateVisual(appearance.VisualId);
@@ -69,7 +69,7 @@ namespace LOP
                 Destroy(_visualGameObject);
             }
 
-            actor = null;
+            entityId = null;
         }
 
         private void Update()
@@ -81,7 +81,7 @@ namespace LOP
         // 변경 알림(PropertyChange)에 기대면 이동이 World에 직접 쓴 변화(제동→0 등)를 놓쳐 애니가 옛 상태에 머문다.
         private void UpdateRunAnimation()
         {
-            if (actor == null || visualGameObject == null)
+            if (entityId == null || visualGameObject == null)
             {
                 return;
             }
@@ -93,7 +93,7 @@ namespace LOP
             }
 
             const float walkThreshold = 0.01f;
-            var worldEntity = entityRegistry.Get(actor.entityId);
+            var worldEntity = entityRegistry.Get(entityId);
             Vector3 v = worldEntity != null ? GameFramework.World.EntityMotionExtensions.GetVelocity(worldEntity) : Vector3.zero;
             float horizontalSpeedSquared = v.x * v.x + v.z * v.z;
             bool grounded = worldEntity != null && IsGrounded(GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity));
@@ -165,7 +165,7 @@ namespace LOP
             await asyncOperationHandle.Task;
 
             visualGameObject = Instantiate(asyncOperationHandle.Task.Result, transform);
-            var worldEntity = entityRegistry.Get(actor.entityId);
+            var worldEntity = entityRegistry.Get(entityId);
             if (worldEntity != null)
             {
                 visualGameObject.transform.position = GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity);

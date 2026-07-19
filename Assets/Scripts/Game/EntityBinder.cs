@@ -62,7 +62,8 @@ namespace LOP
 
             LOPEntityView view = root.AddComponent<LOPEntityView>();
             objectResolver.Inject(view);
-            view.SetEntity(actor);
+            view.SetEntityId(actor.entityId);
+            actor.SetView(view);
 
             if (kind.Kind == EntityType.Character)
             {

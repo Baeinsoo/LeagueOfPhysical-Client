@@ -46,12 +46,12 @@ namespace LOP
         [RunnerListen(typeof(ProcessInput))]
         private void ProcessInput()
         {
-            if (playerContext.actor == null)
+            if (playerContext.entityId == null)
             {
                 return;
             }
 
-            var worldEntity = entityRegistry.Get(playerContext.actor.entityId);
+            var worldEntity = entityRegistry.Get(playerContext.entityId);
             var buffer = worldEntity.Get<InputBuffer>();
             long tick = Runner.Time.tick;
 
@@ -86,7 +86,7 @@ namespace LOP
                 // 어빌리티 예측 발동(연출 cue는 AbilityActivator가 내부에서 append).
                 if (command.AbilityId != 0)
                 {
-                    abilityActivator.TryActivate(playerContext.actor.entityId, command.AbilityId, tick);
+                    abilityActivator.TryActivate(playerContext.entityId, command.AbilityId, tick);
                 }
 
                 inputHistory.Record(tick, command);
@@ -121,7 +121,7 @@ namespace LOP
             {
                 inputCommandToS.InputCommand = ToProto(current);
 
-                var worldEntity = entityRegistry.Get(playerContext.actor.entityId);
+                var worldEntity = entityRegistry.Get(playerContext.entityId);
                 if (worldEntity != null)
                 {
                     EntityTransform entityTransform = new EntityTransform

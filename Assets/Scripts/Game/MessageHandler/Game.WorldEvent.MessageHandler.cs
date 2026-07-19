@@ -44,7 +44,7 @@ namespace LOP
 
                 // 내 캐릭 발동은 로컬 예측이 이미 넣었으므로 서버 사본 skip(중복 방지). HP/죽음은 스냅샷 파생.
                 if (worldEvent is GameFramework.World.AbilityActivatedEvent ability &&
-                    playerContext.actor != null && ability.entityId == playerContext.actor.entityId)
+                    playerContext.entityId != null && ability.entityId == playerContext.entityId)
                 {
                     continue;
                 }

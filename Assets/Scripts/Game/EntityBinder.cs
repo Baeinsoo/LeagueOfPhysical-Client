@@ -80,7 +80,6 @@ namespace LOP
                 {
                     RemoteEntityInterpolator interpolator = root.AddComponent<RemoteEntityInterpolator>();
                     objectResolver.Inject(interpolator);
-                    interpolator.actor = actor;
                     interpolator.worldEntity = worldEntity;
                     interpolator.entityView = view;
                 }
@@ -99,7 +98,6 @@ namespace LOP
                 // 아이템: 원격 보간만(내 예측 대상 아님).
                 RemoteEntityInterpolator interpolator = root.AddComponent<RemoteEntityInterpolator>();
                 objectResolver.Inject(interpolator);
-                interpolator.actor = actor;
                 interpolator.worldEntity = worldEntity;
                 interpolator.entityView = view;
             }

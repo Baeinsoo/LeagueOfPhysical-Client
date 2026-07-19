@@ -75,14 +75,13 @@ namespace LOP
                     LocalEntityInterpolator interpolator = root.AddComponent<LocalEntityInterpolator>();
                     objectResolver.Inject(interpolator);
                     interpolator.actor = actor;
-                    interpolator.entityView = view;
                 }
                 else
                 {
                     RemoteEntityInterpolator interpolator = root.AddComponent<RemoteEntityInterpolator>();
                     objectResolver.Inject(interpolator);
                     interpolator.worldEntity = worldEntity;
-                    interpolator.entityView = view;
+                    interpolator.actor = actor;
                 }
 
                 // 장식 뷰(캐릭터만).
@@ -100,7 +99,7 @@ namespace LOP
                 RemoteEntityInterpolator interpolator = root.AddComponent<RemoteEntityInterpolator>();
                 objectResolver.Inject(interpolator);
                 interpolator.worldEntity = worldEntity;
-                interpolator.entityView = view;
+                interpolator.actor = actor;
             }
         }
     }

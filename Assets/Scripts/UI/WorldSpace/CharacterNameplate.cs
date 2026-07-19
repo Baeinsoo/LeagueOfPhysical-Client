@@ -41,15 +41,12 @@ namespace LOP
         private Camera _camera;
         private GameObject _panelGameObject;
         private VisualElement _hpFill;
-        private LOPEntityView _entityView;
         private int _maxHp;
         private int _currentHp;
         private System.IDisposable _subscription;
 
         protected void Start()
         {
-            _entityView = GetComponent<LOPEntityView>();
-
             GameFramework.World.Entity worldEntity = entityRegistry.Get(actor.entityId);
             GameFramework.World.Health health = worldEntity?.Get<GameFramework.World.Health>();
             _maxHp = health != null ? health.Max : 1;
@@ -129,8 +126,8 @@ namespace LOP
             }
 
             var worldEntity = entityRegistry.Get(actor.entityId);
-            Vector3 basePosition = (_entityView != null && _entityView.visualGameObject != null)
-                ? _entityView.visualGameObject.transform.position
+            Vector3 basePosition = (actor.visualGameObject != null)
+                ? actor.visualGameObject.transform.position
                 : worldEntity != null ? GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity) : Vector3.zero;
 
             Vector3 worldPosition = basePosition + HeadOffset;

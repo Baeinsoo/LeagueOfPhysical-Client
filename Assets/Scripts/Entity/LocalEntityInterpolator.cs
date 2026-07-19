@@ -21,7 +21,6 @@ namespace LOP
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
 
         public LOPActor actor { get; set; }
-        public LOPEntityView entityView { get; set; }
 
         private struct RenderSample
         {
@@ -70,7 +69,7 @@ namespace LOP
 
         private void LateUpdate()
         {
-            if (entityView.visualGameObject == null || samples.Count == 0)
+            if (actor.visualGameObject == null || samples.Count == 0)
             {
                 return;
             }
@@ -89,8 +88,8 @@ namespace LOP
             RenderSample upper = samples[bracket.Upper];
 
             // lower/upper는 이미 스무딩된 renderTarget이라 그대로 보간하면 된다.
-            entityView.visualGameObject.transform.position = Vector3.Lerp(lower.position, upper.position, bracket.Alpha);
-            entityView.visualGameObject.transform.rotation = Quaternion.Slerp(
+            actor.visualGameObject.transform.position = Vector3.Lerp(lower.position, upper.position, bracket.Alpha);
+            actor.visualGameObject.transform.rotation = Quaternion.Slerp(
                 Quaternion.Euler(lower.rotation), Quaternion.Euler(upper.rotation), bracket.Alpha);
         }
     }

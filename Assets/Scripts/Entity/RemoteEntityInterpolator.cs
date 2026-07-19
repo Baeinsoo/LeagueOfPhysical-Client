@@ -14,7 +14,7 @@ namespace LOP
         [Inject] private RemoteInterpolationClock clock;
 
         public GameFramework.World.Entity worldEntity { get; set; }
-        public LOPEntityView entityView { get; set; }
+        public LOPActor actor { get; set; }
 
         private readonly BoundedList<EntitySnap> snaps = new BoundedList<EntitySnap>(32);
 
@@ -68,10 +68,10 @@ namespace LOP
         {
             GameFramework.World.EntityMotionExtensions.SetPosition(worldEntity, pos);
             GameFramework.World.EntityMotionExtensions.SetRotation(worldEntity, rot.eulerAngles);
-            if (entityView.visualGameObject != null)
+            if (actor.visualGameObject != null)
             {
-                entityView.visualGameObject.transform.position = pos;
-                entityView.visualGameObject.transform.rotation = rot;
+                actor.visualGameObject.transform.position = pos;
+                actor.visualGameObject.transform.rotation = rot;
             }
         }
     }

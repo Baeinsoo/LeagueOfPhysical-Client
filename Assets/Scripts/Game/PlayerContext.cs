@@ -6,6 +6,6 @@ namespace LOP
     {
         public ISession session { get; set; }
         public string entityId { get; set; }
-        public LOPEntityView entityView { get; set; }
+        public LOPActor actor { get; set; }
     }
 }

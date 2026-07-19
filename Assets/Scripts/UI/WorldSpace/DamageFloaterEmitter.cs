@@ -35,7 +35,6 @@ namespace LOP
         private const float JitterScreenFactor = 0.015f;
 
         private readonly List<DamageFloater> _floaters = new List<DamageFloater>();
-        private LOPEntityView _entityView;
         private Camera _camera;
         private System.IDisposable _subscription;
 
@@ -70,7 +69,6 @@ namespace LOP
 
         protected void Start()
         {
-            _entityView = GetComponent<LOPEntityView>();
             _subscription = GlobalMessagePipe.GetSubscriber<string, EntityDamage>().Subscribe(actor.entityId, OnEntityDamage);
         }
 
@@ -103,8 +101,8 @@ namespace LOP
             }
 
             var worldEntity = entityRegistry.Get(actor.entityId);
-            Vector3 headPosition = (_entityView != null && _entityView.visualGameObject != null)
-                ? _entityView.visualGameObject.transform.position
+            Vector3 headPosition = (actor.visualGameObject != null)
+                ? actor.visualGameObject.transform.position
                 : worldEntity != null ? GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity) : Vector3.zero;
 
             // 활성 플로터 수에 따라 중앙→좌우로 부채꼴 분산(단일은 중앙, 동시 타격은 겹치지 않게).

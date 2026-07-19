@@ -23,12 +23,11 @@ namespace LOP
         [Inject] private GameFramework.Netcode.SnapshotHistory snapshotHistory;
         [Inject] private GameFramework.Netcode.SequenceBuffer<PredictedAbilityState> predictedAbilityStateHistory;
         [Inject] private Reconciler reconciler;
+        [Inject] private EntitySpawner entitySpawner;
 
         private const string MapId = "Assets/Art/Scenes/FlapWangMap.unity";
 
         private readonly Restorer restorer = new Restorer();
-
-        public new LOPEntityManager entityManager => base.entityManager as LOPEntityManager;
 
         protected override INetworkTime CreateNetworkTime() => new MirrorNetworkTime();
 
@@ -132,8 +131,6 @@ namespace LOP
         {
             DispatchEvent<BeforeEntityUpdate>();
 
-            entityManager.UpdateEntities();
-
             DispatchEvent<AfterEntityUpdate>();
         }
 
@@ -178,7 +175,7 @@ namespace LOP
 
             DispatchEvent<End>();
 
-            entityManager.DestroyMarkedEntities();
+            entitySpawner.FlushDespawns();
         }
 
         // 내 캐릭의 이번 틱 최종 시뮬 상태를 스냅샷에 남긴다. End 디스패치(=LocalEntityInterpolator의

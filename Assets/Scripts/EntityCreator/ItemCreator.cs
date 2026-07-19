@@ -4,12 +4,11 @@ using VContainer;
 
 namespace LOP
 {
-    public class ItemCreator : IEntityCreator<LOPActor, ItemCreationData>
+    public class ItemCreator
     {
-        [Inject] private IObjectResolver objectResolver;
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
 
-        public LOPActor Create(ItemCreationData creationData)
+        public void Create(ItemCreationData creationData)
         {
             var worldEntity = new GameFramework.World.Entity(creationData.entityId);
             worldEntity.Add(new GameFramework.World.Transform
@@ -22,13 +21,6 @@ namespace LOP
             worldEntity.Add(new MasterDataRef(creationData.itemCode));
             worldEntity.Add(new Appearance(creationData.visualId));
             entityRegistry.Add(worldEntity);
-
-            // 앵커: 뷰(물리/모델/보간)는 EntityBinder가 붙인다.
-            GameObject root = new GameObject($"Actor_{creationData.entityId}");
-            LOPActor actor = root.AddComponent<LOPActor>();
-            objectResolver.Inject(actor);
-            actor.Initialize(creationData);
-            return actor;
         }
     }
 }

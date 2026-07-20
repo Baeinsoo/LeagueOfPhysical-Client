@@ -14,24 +14,15 @@ namespace LOP
     /// 엔티티 수명 신호(<see cref="EntityCreated"/>)를 구독해 로컬 유저일 때 1회 연다.
     /// 닫기는 게임 스코프 teardown(WindowManager 팩토리 해제)이 담당.
     /// </summary>
-    public class PlayerHudCoordinator : IGameMessageHandler
+    public class PlayerHudCoordinator : MessageHandlerBase
     {
         [Inject] private IGameDataStore gameDataStore;
         [Inject] private IWindowManager windowManager;
         [Inject] private ISubscriber<EntityCreated> entityCreatedSubscriber;
 
         private bool _opened;
-        private IDisposable subscription;
 
-        public void Initialize()
-        {
-            subscription = entityCreatedSubscriber.Subscribe(OnEntityCreated);
-        }
-
-        public void Dispose()
-        {
-            subscription?.Dispose();
-        }
+        protected override void Subscribe() => Track(entityCreatedSubscriber.Subscribe(OnEntityCreated));
 
         private void OnEntityCreated(EntityCreated entityCreated)
         {

@@ -14,7 +14,7 @@ namespace LOP
     /// 뷰를 Creator에서 여기로 떼어내도 안전한 이유: <see cref="EntityCreated"/>가 동기 발행이라
     /// 이 핸들러가 CreateEntity 반환 전에 뷰·PhysicsBody를 전부 붙인다 → "뷰/물리 없는 엔티티"가 보이는 틈이 없다.
     /// </summary>
-    public class EntityBinder : IGameMessageHandler
+    public class EntityBinder : MessageHandlerBase
     {
         [Inject] private IObjectResolver objectResolver;
         [Inject] private ISubscriber<EntityCreated> entityCreatedSubscriber;
@@ -24,19 +24,10 @@ namespace LOP
         [Inject] private IGameDataStore gameDataStore;
         [Inject] private IPlayerContext playerContext;
 
-        private IDisposable subscriptions;
-
-        public void Initialize()
+        protected override void Subscribe()
         {
-            var bag = DisposableBag.CreateBuilder();
-            entityCreatedSubscriber.Subscribe(OnEntityCreated).AddTo(bag);
-            entityDestroyedSubscriber.Subscribe(OnEntityDestroyed).AddTo(bag);
-            subscriptions = bag.Build();
-        }
-
-        public void Dispose()
-        {
-            subscriptions?.Dispose();
+            Track(entityCreatedSubscriber.Subscribe(OnEntityCreated));
+            Track(entityDestroyedSubscriber.Subscribe(OnEntityDestroyed));
         }
 
         private void OnEntityCreated(EntityCreated entityCreated)

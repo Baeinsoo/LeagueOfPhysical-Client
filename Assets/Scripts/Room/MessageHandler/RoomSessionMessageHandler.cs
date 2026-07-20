@@ -5,7 +5,7 @@ using VContainer;
 
 namespace LOP
 {
-    public class GameMessageHandler : IRoomMessageHandler
+    public class RoomSessionMessageHandler : MessageHandlerBase
     {
         [Inject]
         private IUserDataStore userDataStore;
@@ -16,17 +16,7 @@ namespace LOP
         [Inject]
         private ISubscriber<GameInfoToC> gameInfoSubscriber;
 
-        private System.IDisposable subscription;
-
-        public void Initialize()
-        {
-            subscription = gameInfoSubscriber.Subscribe(OnGameInfoToC);
-        }
-
-        public void Dispose()
-        {
-            subscription?.Dispose();
-        }
+        protected override void Subscribe() => Track(gameInfoSubscriber.Subscribe(OnGameInfoToC));
 
         private void OnGameInfoToC(GameInfoToC gameInfoToC)
         {

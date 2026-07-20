@@ -11,6 +11,7 @@ namespace LOP
     public class InGameRoom : State<MatchEvent>
     {
         private const int CHECK_INTERVAL = 1;   //  sec
+        private const int MAX_ATTEMPTS = 10;
 
         private readonly IObjectResolver resolver;
         private readonly IUserDataStore userDataStore;
@@ -32,28 +33,29 @@ namespace LOP
             };
         }
 
-        protected override async Task OnExecuteAsync(CancellationToken ct)
+        protected override async Task<MatchEvent?> OnExecuteAsync(CancellationToken ct)
         {
             if (userDataStore.userLocation.locationDetail is not GameRoomLocationDetail gameRoomLocationDetail)
             {
                 Debug.LogError("User is not in a game room.");
-                FSM.Fire(MatchEvent.RecheckRequested);
-                return;
+                return MatchEvent.RecheckRequested;
             }
 
-            try
+            for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)
             {
-                while (!ct.IsCancellationRequested)
-                {
-                    await roomConnector.TryToEnterRoomById(gameRoomLocationDetail.gameRoomId);
+                await roomConnector.TryToEnterRoomById(gameRoomLocationDetail.gameRoomId);
+                await UniTask.Delay(TimeSpan.FromSeconds(CHECK_INTERVAL), cancellationToken: ct);
+            }
 
-                    await UniTask.Delay(TimeSpan.FromSeconds(CHECK_INTERVAL), cancellationToken: ct);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                //  Left the room scene (or state exited); stop retrying.
-            }
+            //  여러 번 시도해도 입장 실패 → 위치 재확인.
+            Debug.LogError($"Failed to enter game room after {MAX_ATTEMPTS} attempts.");
+            return MatchEvent.RecheckRequested;
+        }
+
+        protected override MatchEvent? OnError(Exception e)
+        {
+            Debug.LogError($"Error while entering game room. Error: {e.Message}");
+            return MatchEvent.RecheckRequested;
         }
     }
 }

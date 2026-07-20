@@ -1,4 +1,6 @@
+using Cysharp.Threading.Tasks;
 using GameFramework;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -8,6 +10,9 @@ namespace LOP
 {
     public class CheckMatch : State<MatchEvent>
     {
+        private const int MAX_ATTEMPTS = 3;
+        private static readonly TimeSpan RetryInterval = TimeSpan.FromSeconds(1);
+
         private readonly IObjectResolver resolver;
         private readonly IUserDataStore userDataStore;
 
@@ -28,47 +33,39 @@ namespace LOP
             };
         }
 
-        protected override async Task OnExecuteAsync(CancellationToken ct)
+        protected override async Task<MatchEvent?> OnExecuteAsync(CancellationToken ct)
         {
-            try
+            for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)
             {
                 var getUserLocation = await WebAPI.GetUserLocation(userDataStore.user.id);
 
-                if (ct.IsCancellationRequested)
+                if (getUserLocation.response.code == ResponseCode.SUCCESS)
                 {
-                    return;
+                    return ToEvent(getUserLocation.response.userLocation.location);
                 }
 
-                if (getUserLocation.response.code != ResponseCode.SUCCESS)
-                {
-                    Debug.LogError($"Failed to retrieve user information. code: {getUserLocation.response.code}");
-                    return;
-                }
-
-                switch (getUserLocation.response.userLocation.location)
-                {
-                    case Location.WaitingRoom:
-                        FSM.Fire(MatchEvent.LocationIsWaitingRoom);
-                        break;
-
-                    case Location.GameRoom:
-                        FSM.Fire(MatchEvent.LocationIsGameRoom);
-                        break;
-
-                    default:
-                        FSM.Fire(MatchEvent.LocationIsNone);
-                        break;
-                }
+                Debug.LogError($"Failed to retrieve user information. code: {getUserLocation.response.code} (attempt {attempt}/{MAX_ATTEMPTS})");
+                await UniTask.Delay(RetryInterval, cancellationToken: ct);
             }
-            catch (WebRequestException e)
+
+            //  반복 실패 → 초기 화면(Idle)으로 안전 복귀.
+            return MatchEvent.LocationIsNone;
+        }
+
+        protected override MatchEvent? OnError(Exception e)
+        {
+            Debug.LogError($"Failed to retrieve user information. Error: {e.Message}");
+            return MatchEvent.LocationIsNone;
+        }
+
+        private static MatchEvent ToEvent(Location location)
+        {
+            return location switch
             {
-                if (ct.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                Debug.LogError($"Failed to retrieve user information. Error: {e.Message}");
-            }
+                Location.WaitingRoom => MatchEvent.LocationIsWaitingRoom,
+                Location.GameRoom => MatchEvent.LocationIsGameRoom,
+                _ => MatchEvent.LocationIsNone,
+            };
         }
     }
 }

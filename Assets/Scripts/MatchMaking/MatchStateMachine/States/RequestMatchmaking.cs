@@ -1,4 +1,5 @@
 using GameFramework;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -29,7 +30,7 @@ namespace LOP
             };
         }
 
-        protected override async Task OnExecuteAsync(CancellationToken ct)
+        protected override async Task<MatchEvent?> OnExecuteAsync(CancellationToken ct)
         {
             var matchmakingRequest = new MatchmakingRequest
             {
@@ -39,34 +40,21 @@ namespace LOP
                 mapId = matchMakingDataStore.mapId,
             };
 
-            try
+            var requestMatchmaking = await WebAPI.RequestMatchmaking(matchmakingRequest);
+
+            if (requestMatchmaking.response.code != ResponseCode.SUCCESS)
             {
-                var requestMatchmaking = await WebAPI.RequestMatchmaking(matchmakingRequest);
-
-                if (ct.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                if (requestMatchmaking.response.code != ResponseCode.SUCCESS)
-                {
-                    Debug.LogError($"Matchmaking request failed. Response code: {requestMatchmaking.response.code}");
-                    FSM.Fire(MatchEvent.MatchRequestFailed);
-                    return;
-                }
-
-                FSM.Fire(MatchEvent.MatchRequestSucceeded);
+                Debug.LogError($"Matchmaking request failed. Response code: {requestMatchmaking.response.code}");
+                return MatchEvent.MatchRequestFailed;
             }
-            catch (WebRequestException e)
-            {
-                if (ct.IsCancellationRequested)
-                {
-                    return;
-                }
 
-                Debug.LogError($"Failed to request matchmaking. Error: {e.Message}");
-                FSM.Fire(MatchEvent.MatchRequestFailed);
-            }
+            return MatchEvent.MatchRequestSucceeded;
+        }
+
+        protected override MatchEvent? OnError(Exception e)
+        {
+            Debug.LogError($"Failed to request matchmaking. Error: {e.Message}");
+            return MatchEvent.MatchRequestFailed;
         }
     }
 }

@@ -1,4 +1,5 @@
 using GameFramework;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -39,34 +40,27 @@ namespace LOP
                 mapId = matchMakingDataStore.mapId,
             };
 
-            try
+            var requestMatchmaking = await WebAPI.RequestMatchmaking(matchmakingRequest);
+
+            if (ct.IsCancellationRequested)
             {
-                var requestMatchmaking = await WebAPI.RequestMatchmaking(matchmakingRequest);
-
-                if (ct.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                if (requestMatchmaking.response.code != ResponseCode.SUCCESS)
-                {
-                    Debug.LogError($"Matchmaking request failed. Response code: {requestMatchmaking.response.code}");
-                    FSM.Fire(MatchEvent.MatchRequestFailed);
-                    return;
-                }
-
-                FSM.Fire(MatchEvent.MatchRequestSucceeded);
+                return;
             }
-            catch (WebRequestException e)
-            {
-                if (ct.IsCancellationRequested)
-                {
-                    return;
-                }
 
-                Debug.LogError($"Failed to request matchmaking. Error: {e.Message}");
+            if (requestMatchmaking.response.code != ResponseCode.SUCCESS)
+            {
+                Debug.LogError($"Matchmaking request failed. Response code: {requestMatchmaking.response.code}");
                 FSM.Fire(MatchEvent.MatchRequestFailed);
+                return;
             }
+
+            FSM.Fire(MatchEvent.MatchRequestSucceeded);
+        }
+
+        protected override void OnError(Exception e)
+        {
+            Debug.LogError($"Failed to request matchmaking. Error: {e.Message}");
+            FSM.Fire(MatchEvent.MatchRequestFailed);
         }
     }
 }

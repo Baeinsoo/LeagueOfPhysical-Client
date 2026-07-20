@@ -1,4 +1,5 @@
 using GameFramework;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -36,44 +37,39 @@ namespace LOP
                 return;
             }
 
-            try
+            var cancelMatchmaking = await WebAPI.CancelMatchmaking(waitingRoomLocationDetail.matchmakingTicketId);
+
+            if (ct.IsCancellationRequested)
             {
-                var cancelMatchmaking = await WebAPI.CancelMatchmaking(waitingRoomLocationDetail.matchmakingTicketId);
-
-                if (ct.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                switch (cancelMatchmaking.response.code)
-                {
-                    case ResponseCode.ALREADY_IN_GAME:
-                        FSM.Fire(MatchEvent.LocationIsGameRoom);
-                        break;
-
-                    case ResponseCode.MATCH_MAKING_TICKET_NOT_EXIST:
-                        Debug.LogError("Matchmaking ticket does not exist.");
-                        break;
-
-                    case ResponseCode.NOT_MATCH_MAKING_STATE:
-                        Debug.LogError("Not in matchmaking state.");
-                        break;
-
-                    default:
-                        FSM.Fire(MatchEvent.RecheckRequested);
-                        break;
-                }
+                return;
             }
-            catch (WebRequestException e)
+
+            switch (cancelMatchmaking.response.code)
             {
-                if (ct.IsCancellationRequested)
-                {
-                    return;
-                }
+                case ResponseCode.ALREADY_IN_GAME:
+                    FSM.Fire(MatchEvent.LocationIsGameRoom);
+                    break;
 
-                Debug.LogError($"Failed to cancel matchmaking. Error: {e.Message}");
-                FSM.Fire(MatchEvent.RecheckRequested);
+                case ResponseCode.MATCH_MAKING_TICKET_NOT_EXIST:
+                    Debug.LogError("Matchmaking ticket does not exist.");
+                    FSM.Fire(MatchEvent.RecheckRequested);
+                    break;
+
+                case ResponseCode.NOT_MATCH_MAKING_STATE:
+                    Debug.LogError("Not in matchmaking state.");
+                    FSM.Fire(MatchEvent.RecheckRequested);
+                    break;
+
+                default:
+                    FSM.Fire(MatchEvent.RecheckRequested);
+                    break;
             }
+        }
+
+        protected override void OnError(Exception e)
+        {
+            Debug.LogError($"Failed to cancel matchmaking. Error: {e.Message}");
+            FSM.Fire(MatchEvent.RecheckRequested);
         }
     }
 }

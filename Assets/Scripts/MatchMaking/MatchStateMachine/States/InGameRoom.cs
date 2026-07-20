@@ -11,6 +11,7 @@ namespace LOP
     public class InGameRoom : State<MatchEvent>
     {
         private const int CHECK_INTERVAL = 1;   //  sec
+        private const int MAX_ATTEMPTS = 10;
 
         private readonly IObjectResolver resolver;
         private readonly IUserDataStore userDataStore;
@@ -41,19 +42,26 @@ namespace LOP
                 return;
             }
 
-            try
+            for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)
             {
-                while (!ct.IsCancellationRequested)
+                if (ct.IsCancellationRequested)
                 {
-                    await roomConnector.TryToEnterRoomById(gameRoomLocationDetail.gameRoomId);
-
-                    await UniTask.Delay(TimeSpan.FromSeconds(CHECK_INTERVAL), cancellationToken: ct);
+                    return;
                 }
+
+                await roomConnector.TryToEnterRoomById(gameRoomLocationDetail.gameRoomId);
+                await UniTask.Delay(TimeSpan.FromSeconds(CHECK_INTERVAL), cancellationToken: ct);
             }
-            catch (OperationCanceledException)
-            {
-                //  Left the room scene (or state exited); stop retrying.
-            }
+
+            //  여러 번 시도해도 입장 실패 → 위치 재확인.
+            Debug.LogError($"Failed to enter game room after {MAX_ATTEMPTS} attempts.");
+            FSM.Fire(MatchEvent.RecheckRequested);
+        }
+
+        protected override void OnError(Exception e)
+        {
+            Debug.LogError($"Error while entering game room. Error: {e.Message}");
+            FSM.Fire(MatchEvent.RecheckRequested);
         }
     }
 }

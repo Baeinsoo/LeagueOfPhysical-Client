@@ -33,35 +33,29 @@ namespace LOP
             };
         }
 
-        protected override async Task OnExecuteAsync(CancellationToken ct)
+        protected override async Task<MatchEvent?> OnExecuteAsync(CancellationToken ct)
         {
             if (userDataStore.userLocation.locationDetail is not GameRoomLocationDetail gameRoomLocationDetail)
             {
                 Debug.LogError("User is not in a game room.");
-                FSM.Fire(MatchEvent.RecheckRequested);
-                return;
+                return MatchEvent.RecheckRequested;
             }
 
             for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)
             {
-                if (ct.IsCancellationRequested)
-                {
-                    return;
-                }
-
                 await roomConnector.TryToEnterRoomById(gameRoomLocationDetail.gameRoomId);
                 await UniTask.Delay(TimeSpan.FromSeconds(CHECK_INTERVAL), cancellationToken: ct);
             }
 
             //  여러 번 시도해도 입장 실패 → 위치 재확인.
             Debug.LogError($"Failed to enter game room after {MAX_ATTEMPTS} attempts.");
-            FSM.Fire(MatchEvent.RecheckRequested);
+            return MatchEvent.RecheckRequested;
         }
 
-        protected override void OnError(Exception e)
+        protected override MatchEvent? OnError(Exception e)
         {
             Debug.LogError($"Error while entering game room. Error: {e.Message}");
-            FSM.Fire(MatchEvent.RecheckRequested);
+            return MatchEvent.RecheckRequested;
         }
     }
 }

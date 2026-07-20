@@ -33,21 +33,15 @@ namespace LOP
             };
         }
 
-        protected override async Task OnExecuteAsync(CancellationToken ct)
+        protected override async Task<MatchEvent?> OnExecuteAsync(CancellationToken ct)
         {
             for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)
             {
                 var getUserLocation = await WebAPI.GetUserLocation(userDataStore.user.id);
 
-                if (ct.IsCancellationRequested)
-                {
-                    return;
-                }
-
                 if (getUserLocation.response.code == ResponseCode.SUCCESS)
                 {
-                    FSM.Fire(ToEvent(getUserLocation.response.userLocation.location));
-                    return;
+                    return ToEvent(getUserLocation.response.userLocation.location);
                 }
 
                 Debug.LogError($"Failed to retrieve user information. code: {getUserLocation.response.code} (attempt {attempt}/{MAX_ATTEMPTS})");
@@ -55,13 +49,13 @@ namespace LOP
             }
 
             //  반복 실패 → 초기 화면(Idle)으로 안전 복귀.
-            FSM.Fire(MatchEvent.LocationIsNone);
+            return MatchEvent.LocationIsNone;
         }
 
-        protected override void OnError(Exception e)
+        protected override MatchEvent? OnError(Exception e)
         {
             Debug.LogError($"Failed to retrieve user information. Error: {e.Message}");
-            FSM.Fire(MatchEvent.LocationIsNone);
+            return MatchEvent.LocationIsNone;
         }
 
         private static MatchEvent ToEvent(Location location)

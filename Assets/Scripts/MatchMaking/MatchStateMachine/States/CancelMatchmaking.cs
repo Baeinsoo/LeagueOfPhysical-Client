@@ -28,48 +28,38 @@ namespace LOP
             };
         }
 
-        protected override async Task OnExecuteAsync(CancellationToken ct)
+        protected override async Task<MatchEvent?> OnExecuteAsync(CancellationToken ct)
         {
             if (userDataStore.userLocation.locationDetail is not WaitingRoomLocationDetail waitingRoomLocationDetail)
             {
                 Debug.LogError("User is not in a waiting room.");
-                FSM.Fire(MatchEvent.RecheckRequested);
-                return;
+                return MatchEvent.RecheckRequested;
             }
 
             var cancelMatchmaking = await WebAPI.CancelMatchmaking(waitingRoomLocationDetail.matchmakingTicketId);
 
-            if (ct.IsCancellationRequested)
-            {
-                return;
-            }
-
             switch (cancelMatchmaking.response.code)
             {
                 case ResponseCode.ALREADY_IN_GAME:
-                    FSM.Fire(MatchEvent.LocationIsGameRoom);
-                    break;
+                    return MatchEvent.LocationIsGameRoom;
 
                 case ResponseCode.MATCH_MAKING_TICKET_NOT_EXIST:
                     Debug.LogError("Matchmaking ticket does not exist.");
-                    FSM.Fire(MatchEvent.RecheckRequested);
-                    break;
+                    return MatchEvent.RecheckRequested;
 
                 case ResponseCode.NOT_MATCH_MAKING_STATE:
                     Debug.LogError("Not in matchmaking state.");
-                    FSM.Fire(MatchEvent.RecheckRequested);
-                    break;
+                    return MatchEvent.RecheckRequested;
 
                 default:
-                    FSM.Fire(MatchEvent.RecheckRequested);
-                    break;
+                    return MatchEvent.RecheckRequested;
             }
         }
 
-        protected override void OnError(Exception e)
+        protected override MatchEvent? OnError(Exception e)
         {
             Debug.LogError($"Failed to cancel matchmaking. Error: {e.Message}");
-            FSM.Fire(MatchEvent.RecheckRequested);
+            return MatchEvent.RecheckRequested;
         }
     }
 }

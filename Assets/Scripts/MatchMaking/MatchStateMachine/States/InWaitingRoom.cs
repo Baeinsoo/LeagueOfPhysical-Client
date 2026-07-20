@@ -33,7 +33,7 @@ namespace LOP
             };
         }
 
-        protected override async Task OnExecuteAsync(CancellationToken ct)
+        protected override async Task<MatchEvent?> OnExecuteAsync(CancellationToken ct)
         {
             int consecutiveFailures = 0;
 
@@ -43,25 +43,18 @@ namespace LOP
                 {
                     var getUserLocation = await WebAPI.GetUserLocation(userDataStore.user.id);
 
-                    if (ct.IsCancellationRequested)
-                    {
-                        return;
-                    }
-
                     consecutiveFailures = 0;
 
                     switch (getUserLocation.response.userLocation.location)
                     {
                         case Location.GameRoom:
-                            FSM.Fire(MatchEvent.LocationIsGameRoom);
-                            return;
+                            return MatchEvent.LocationIsGameRoom;
 
                         case Location.WaitingRoom:
                             break;   //  아직 대기 중 — 계속 폴링.
 
                         default:
-                            FSM.Fire(MatchEvent.LocationIsNone);
-                            return;
+                            return MatchEvent.LocationIsNone;
                     }
                 }
                 catch (WebRequestException e)
@@ -70,8 +63,7 @@ namespace LOP
                     if (++consecutiveFailures >= MAX_CONSECUTIVE_FAILURES)
                     {
                         Debug.LogError($"Giving up polling after {consecutiveFailures} failures. Error: {e.Message}");
-                        FSM.Fire(MatchEvent.LocationIsNone);
-                        return;
+                        return MatchEvent.LocationIsNone;
                     }
 
                     Debug.LogWarning($"Location poll failed ({consecutiveFailures}/{MAX_CONSECUTIVE_FAILURES}). Error: {e.Message}");
@@ -79,6 +71,14 @@ namespace LOP
 
                 await UniTask.Delay(TimeSpan.FromSeconds(CHECK_INTERVAL), cancellationToken: ct);
             }
+
+            return null;
+        }
+
+        protected override MatchEvent? OnError(Exception e)
+        {
+            Debug.LogError($"Unexpected error while waiting. Error: {e.Message}");
+            return MatchEvent.LocationIsNone;
         }
     }
 }

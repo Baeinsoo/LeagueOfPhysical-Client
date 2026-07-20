@@ -63,7 +63,9 @@ namespace GameFramework
 
         void VContainer.Unity.IInitializable.Initialize() => Subscribe();
 
-        public void Dispose()
+        // 구독 외 추가 teardown이 필요한 핸들러(예: 서버 GameInfoMessageHandler의 runner 리스너 해제)는
+        // 이 메서드를 override하고 base.Dispose()를 먼저 호출한다.
+        public virtual void Dispose()
         {
             foreach (var s in subscriptions) s.Dispose();
             subscriptions.Clear();
@@ -110,6 +112,22 @@ protected override void Subscribe()
 ```
 
 각 핸들러의 `OnXxx` 로직 본문은 **한 줄도 바꾸지 않는다**. `Initialize`/`Dispose`/`subscription` 필드/`DisposableBag` 필드만 걷어낸다.
+
+**구독 외 teardown이 있는 핸들러 (서버 `GameInfoMessageHandler` 하나뿐):** 이 핸들러는 `Initialize`에서 `runner.AddListener(this)`도 하고 `Dispose`에서 `runner.RemoveListener(this)`도 한다. 리스너 등록은 `Subscribe()`에 두고, 해제는 `Dispose()` override로 처리한다:
+
+```csharp
+protected override void Subscribe()
+{
+    Track(gameInfoSubscriber.Subscribe(OnGameInfoToS));
+    runner.AddListener(this);
+}
+
+public override void Dispose()
+{
+    base.Dispose();               // 구독 해제
+    runner.RemoveListener(this);  // 추가 teardown
+}
+```
 
 ### 3. 마커 삭제 + rename 인벤토리
 

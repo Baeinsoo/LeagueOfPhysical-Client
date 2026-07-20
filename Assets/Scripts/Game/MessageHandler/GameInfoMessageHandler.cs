@@ -5,7 +5,7 @@ using VContainer;
 
 namespace LOP
 {
-    public class GameInfoMessageHandler : IGameMessageHandler
+    public class GameInfoMessageHandler : MessageHandlerBase
     {
         [Inject]
         private EntitySpawner entitySpawner;
@@ -19,17 +19,7 @@ namespace LOP
         [Inject]
         private ISubscriber<GameInfoToC> gameInfoSubscriber;
 
-        private System.IDisposable subscription;
-
-        public void Initialize()
-        {
-            subscription = gameInfoSubscriber.Subscribe(OnGameInfoToC);
-        }
-
-        public void Dispose()
-        {
-            subscription?.Dispose();
-        }
+        protected override void Subscribe() => Track(gameInfoSubscriber.Subscribe(OnGameInfoToC));
 
         private void OnGameInfoToC(GameInfoToC gameInfoToC)
         {

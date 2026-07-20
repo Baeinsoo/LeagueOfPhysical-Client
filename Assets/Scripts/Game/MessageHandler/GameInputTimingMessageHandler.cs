@@ -5,7 +5,7 @@ using GameFramework.Netcode;
 
 namespace LOP
 {
-    public class GameInputTimingMessageHandler : IGameMessageHandler
+    public class GameInputTimingMessageHandler : MessageHandlerBase
     {
         [Inject]
         private InputTimingStats inputTimingStats;
@@ -18,17 +18,7 @@ namespace LOP
 
         private readonly LeadController leadController = new LeadController();
 
-        private System.IDisposable subscription;
-
-        public void Initialize()
-        {
-            subscription = inputTimingSubscriber.Subscribe(OnInputTimingToC);
-        }
-
-        public void Dispose()
-        {
-            subscription?.Dispose();
-        }
+        protected override void Subscribe() => Track(inputTimingSubscriber.Subscribe(OnInputTimingToC));
 
         private void OnInputTimingToC(InputTimingToC message)
         {

@@ -6,7 +6,7 @@ using VContainer;
 
 namespace LOP
 {
-    public class GameEntityMessageHandler : IGameMessageHandler
+    public class GameEntityMessageHandler : MessageHandlerBase
     {
         [Inject] private IPlayerContext playerContext;
         [Inject] private IGameDataStore gameDataStore;
@@ -35,22 +35,13 @@ namespace LOP
         // 스냅이 틱당 여러 메시지로 청킹돼 온다 → 도착 기록을 틱당 1회로 dedupe(간격 기반 추정기 왜곡 방지).
         private long lastRecordedArrivalTick = long.MinValue;
 
-        private System.IDisposable subscriptions;
-
-        public void Initialize()
+        protected override void Subscribe()
         {
-            var bag = DisposableBag.CreateBuilder();
-            snapsSubscriber.Subscribe(OnEntitySnapsToC).AddTo(bag);
-            spawnSubscriber.Subscribe(OnEntitySpawnToC).AddTo(bag);
-            despawnSubscriber.Subscribe(OnEntityDespawnToC).AddTo(bag);
-            userSnapSubscriber.Subscribe(OnUserEntitySnapToC).AddTo(bag);
-            statAllocationSubscriber.Subscribe(OnStatAllocationToC).AddTo(bag);
-            subscriptions = bag.Build();
-        }
-
-        public void Dispose()
-        {
-            subscriptions?.Dispose();
+            Track(snapsSubscriber.Subscribe(OnEntitySnapsToC));
+            Track(spawnSubscriber.Subscribe(OnEntitySpawnToC));
+            Track(despawnSubscriber.Subscribe(OnEntityDespawnToC));
+            Track(userSnapSubscriber.Subscribe(OnUserEntitySnapToC));
+            Track(statAllocationSubscriber.Subscribe(OnStatAllocationToC));
         }
 
         private void OnEntitySnapsToC(EntitySnapsToC entitySnapsToC)

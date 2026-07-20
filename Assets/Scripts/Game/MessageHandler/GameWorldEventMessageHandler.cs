@@ -9,7 +9,7 @@ namespace LOP
     /// oneof 레코드를 WorldEventWire.FromWire로 되돌려 WorldEventBuffer에 append.
     /// 개념별 핸들러(Damage/Ability)를 통합 — 새 WorldEvent 타입이 새 핸들러를 요구하지 않음.
     /// </summary>
-    public class GameWorldEventMessageHandler : IGameMessageHandler
+    public class GameWorldEventMessageHandler : MessageHandlerBase
     {
         [Inject]
         private GameFramework.World.WorldEventBuffer worldEventBuffer;
@@ -20,17 +20,7 @@ namespace LOP
         [Inject]
         private ISubscriber<WorldEventBatchToC> batchSubscriber;
 
-        private System.IDisposable subscription;
-
-        public void Initialize()
-        {
-            subscription = batchSubscriber.Subscribe(OnWorldEventBatchToC);
-        }
-
-        public void Dispose()
-        {
-            subscription?.Dispose();
-        }
+        protected override void Subscribe() => Track(batchSubscriber.Subscribe(OnWorldEventBatchToC));
 
         private void OnWorldEventBatchToC(WorldEventBatchToC msg)
         {

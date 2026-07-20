@@ -6,6 +6,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 using VContainer;
 using VContainer.Unity;
+using GameFramework.Netcode;
 
 namespace LOP
 {
@@ -47,11 +48,11 @@ namespace LOP
                 c.Resolve<StatusEffectSystem>(),
                 id => c.Resolve<StatusEffectDataProvider>().Get(id)), Lifetime.Singleton);
             builder.Register<GameFramework.World.IEventSink, WorldEventSink>(Lifetime.Singleton);
-            builder.Register<GameFramework.IPhysicsSimulator, GameFramework.UnityPhysicsSimulator>(Lifetime.Singleton);
-            builder.Register<GameFramework.ICollisionQuery, GameFramework.UnityCollisionQuery>(Lifetime.Singleton);
+            builder.Register<GameFramework.Physics.IPhysicsSimulator, GameFramework.Physics.UnityPhysicsSimulator>(Lifetime.Singleton);
+            builder.Register<GameFramework.Physics.ICollisionQuery, GameFramework.Physics.UnityCollisionQuery>(Lifetime.Singleton);
             // sweep이 캐릭터도 막는다(Character 포함) — 캐릭터는 서로 통과 못 하는 단단한 벽. 서버와 동일 설정.
             builder.Register<KinematicMoveSystem>(c => new KinematicMoveSystem(
-                c.Resolve<GameFramework.ICollisionQuery>(), LayerMask.GetMask("Default", "Character")), Lifetime.Singleton);
+                c.Resolve<GameFramework.Physics.ICollisionQuery>(), LayerMask.GetMask("Default", "Character")), Lifetime.Singleton);
             // 클라: 내 캐릭만 움직인다(남은 벽). 겹치면 내가 전부 빠져나옴(1.0) — sweep 벽이 주로 막고
             // 밀어내기는 슬쩍 들어간 겹침만 복구. 남은 서버 스냅대로 보간해 따라옴.
             builder.Register<GameFramework.World.IMotionBridge>(_ => new MotionBridge(
@@ -67,14 +68,16 @@ namespace LOP
             builder.RegisterEntryPoint<GameEntityMessageHandler>();
             builder.RegisterEntryPoint<GameInputMessageHandler>();
             builder.RegisterEntryPoint<GameInputTimingMessageHandler>();
-            builder.RegisterEntryPoint<GameDamageMessageHandler>();
-            builder.RegisterEntryPoint<GameAbilityMessageHandler>();
-            builder.RegisterEntryPoint<PlayerHudCoordinator>();
+            builder.RegisterEntryPoint<GameWorldEventMessageHandler>();
+            // 순서 중요: EntityBinder가 먼저 구독해야 EntityCreated 시 actor를 만들고 playerContext.actor를 세팅한다.
+            // PlayerHudCoordinator(및 actor를 읽는 후속 구독자)는 그 뒤에 와야 한다 — 재정렬 금지.
             builder.RegisterEntryPoint<EntityBinder>();
+            builder.RegisterEntryPoint<PlayerHudCoordinator>();
             builder.Register<PlayerInputManager>(Lifetime.Singleton).AsSelf();
-            builder.Register<IEntityCreator, CharacterCreator>(Lifetime.Singleton);
-            builder.Register<IEntityCreator, ItemCreator>(Lifetime.Singleton);
-            builder.Register<IEntityFactory, EntityFactory>(Lifetime.Singleton);
+            builder.Register<CharacterCreator>(Lifetime.Singleton);
+            builder.Register<ItemCreator>(Lifetime.Singleton);
+            builder.Register<EntitySpawner>(Lifetime.Singleton);
+            builder.Register<ActorRegistry>(Lifetime.Singleton);
 
             builder.Register<StatsViewModel>(Lifetime.Transient);
             builder.Register<StatsView>(Lifetime.Transient);
@@ -94,8 +97,8 @@ namespace LOP
             builder.Register<InputTimingStats>(Lifetime.Singleton);
             builder.Register<LeadState>(Lifetime.Singleton);
             builder.Register(_ => new GameFramework.Netcode.SnapshotHistory(128), Lifetime.Singleton);
-            builder.Register(_ => new PredictedAbilityStateHistory(128), Lifetime.Singleton);
-            builder.Register(_ => new InputHistory(128), Lifetime.Singleton);
+            builder.Register(_ => new GameFramework.Netcode.SequenceBuffer<PredictedAbilityState>(128), Lifetime.Singleton);
+            builder.Register(_ => new GameFramework.Netcode.SequenceBuffer<InputCommand>(128), Lifetime.Singleton);
             builder.Register<Reconciler>(Lifetime.Singleton);
             builder.Register<RemoteInterpolationClock>(Lifetime.Singleton);
 

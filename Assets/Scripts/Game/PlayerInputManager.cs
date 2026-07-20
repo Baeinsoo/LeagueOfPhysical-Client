@@ -17,11 +17,11 @@ namespace LOP
         private AbilityActivator abilityActivator;
         private GameFramework.World.EntityRegistry entityRegistry;
         private InputBufferSystem inputBufferSystem;
-        private InputHistory inputHistory;
+        private GameFramework.Netcode.SequenceBuffer<InputCommand> inputHistory;
 
         public PlayerInputManager(IRunner runner, IPlayerContext playerContext, AbilityActivator abilityActivator,
             GameFramework.World.EntityRegistry entityRegistry, InputBufferSystem inputBufferSystem,
-            InputHistory inputHistory)
+            GameFramework.Netcode.SequenceBuffer<InputCommand> inputHistory)
         {
             this.runner = runner;
             this.playerContext = playerContext;
@@ -46,12 +46,12 @@ namespace LOP
         [RunnerListen(typeof(ProcessInput))]
         private void ProcessInput()
         {
-            if (playerContext.entity == null)
+            if (playerContext.entityId == null)
             {
                 return;
             }
 
-            var worldEntity = entityRegistry.Get(playerContext.entity.entityId);
+            var worldEntity = entityRegistry.Get(playerContext.entityId);
             var buffer = worldEntity.Get<InputBuffer>();
             long tick = Runner.Time.tick;
 
@@ -86,7 +86,7 @@ namespace LOP
                 // 어빌리티 예측 발동(연출 cue는 AbilityActivator가 내부에서 append).
                 if (command.AbilityId != 0)
                 {
-                    abilityActivator.TryActivate(playerContext.entity.entityId, command.AbilityId, tick);
+                    abilityActivator.TryActivate(playerContext.entityId, command.AbilityId, tick);
                 }
 
                 inputHistory.Record(tick, command);
@@ -121,13 +121,17 @@ namespace LOP
             {
                 inputCommandToS.InputCommand = ToProto(current);
 
-                EntityTransform entityTransform = new EntityTransform
+                var worldEntity = entityRegistry.Get(playerContext.entityId);
+                if (worldEntity != null)
                 {
-                    position = playerContext.entity.position,
-                    rotation = playerContext.entity.rotation,
-                    velocity = playerContext.entity.velocity,
-                };
-                inputCommandToS.EntityTransform = MapperConfig.mapper.Map<ProtoTransform>(entityTransform);
+                    EntityTransform entityTransform = new EntityTransform
+                    {
+                        position = GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity),
+                        rotation = GameFramework.World.EntityMotionExtensions.GetRotation(worldEntity),
+                        velocity = GameFramework.World.EntityMotionExtensions.GetVelocity(worldEntity),
+                    };
+                    inputCommandToS.EntityTransform = MapperConfig.mapper.Map<ProtoTransform>(entityTransform);
+                }
             }
 
             // sliding-window redundancy: 스트림의 최근 N틱을 함께 실어 패킷 유실에 대비.

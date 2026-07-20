@@ -1,6 +1,7 @@
 using System;
 using GameFramework;
 using LOP.Event.Entity;
+using MessagePipe;
 using R3;
 using UnityEngine;
 
@@ -13,7 +14,7 @@ namespace LOP.UI
     public class StatsViewModel : IDisposable
     {
         private readonly IPlayerContext _playerContext;
-        private readonly LOPEntity _entity;
+        private readonly string _entityId;
         private readonly GameFramework.World.EntityRegistry _entityRegistry;
         private readonly GameFramework.World.StatsSystem _statsSystem;
 
@@ -31,23 +32,32 @@ namespace LOP.UI
         public ReadOnlyReactiveProperty<int> StatPoints => _statPoints;
         public ReadOnlyReactiveProperty<bool> CanAllocate => _canAllocate;
 
-        public StatsViewModel(IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry, GameFramework.World.StatsSystem statsSystem)
+        private IDisposable _subscriptions;
+
+        public StatsViewModel(
+            IPlayerContext playerContext,
+            GameFramework.World.EntityRegistry entityRegistry,
+            GameFramework.World.StatsSystem statsSystem,
+            ISubscriber<string, EntityStatChanged> statChangedSubscriber,
+            ISubscriber<string, EntityStatPointsChanged> statPointsChangedSubscriber)
         {
             _playerContext = playerContext;
             _entityRegistry = entityRegistry;
             _statsSystem = statsSystem;
             _canAllocate = _statPoints.Select(p => p > 0).ToReadOnlyReactiveProperty(false);
 
-            _entity = playerContext.entity;
-            if (_entity == null)
+            _entityId = playerContext.entityId;
+            if (_entityId == null)
             {
-                Debug.LogWarning("[StatsViewModel] playerContext.entity가 null입니다. 유저 엔티티 생성 후 열어야 합니다.");
+                Debug.LogWarning("[StatsViewModel] playerContext.entityId가 null입니다. 유저 엔티티 생성 후 열어야 합니다.");
                 return;
             }
 
             PushAll();
-            EventBus.Default.Subscribe<EntityStatChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityStatChanged);
-            EventBus.Default.Subscribe<EntityStatPointsChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityStatPointsChanged);
+            var bag = MessagePipe.DisposableBag.CreateBuilder();
+            statChangedSubscriber.Subscribe(_entityId, OnEntityStatChanged).AddTo(bag);
+            statPointsChangedSubscriber.Subscribe(_entityId, OnEntityStatPointsChanged).AddTo(bag);
+            _subscriptions = bag.Build();
         }
 
         public void Allocate(string statName)
@@ -82,7 +92,7 @@ namespace LOP.UI
 
         private void PushAll()
         {
-            GameFramework.World.Stats stats = _entityRegistry.Get(_entity.entityId)?.Get<GameFramework.World.Stats>();
+            GameFramework.World.Stats stats = _entityRegistry.Get(_entityId)?.Get<GameFramework.World.Stats>();
             if (stats != null)
             {
                 _strength.Value = Mathf.RoundToInt(_statsSystem.GetValue(stats, (int)GameFramework.World.EntityStatType.Strength));
@@ -95,11 +105,7 @@ namespace LOP.UI
 
         public void Dispose()
         {
-            if (_entity != null)
-            {
-                EventBus.Default.Unsubscribe<EntityStatChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityStatChanged);
-                EventBus.Default.Unsubscribe<EntityStatPointsChanged>(EventTopic.EntityId<LOPEntity>(_entity.entityId), OnEntityStatPointsChanged);
-            }
+            _subscriptions?.Dispose();
 
             _strength.Dispose();
             _dexterity.Dispose();

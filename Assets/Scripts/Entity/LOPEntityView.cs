@@ -1,20 +1,24 @@
 using Cysharp.Threading.Tasks;
 using GameFramework;
 using LOP.Event.Entity;
+using MessagePipe;
 using UniRx;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using VContainer;
 
 namespace LOP
 {
     public class LOPEntityView : MonoBehaviour, ICleanup
     {
-        public LOPEntity entity { get; private set; }
+        public string entityId { get; private set; }
 
-        public void SetEntity(LOPEntity entity)
+        [Inject] private GameFramework.World.EntityRegistry entityRegistry;
+
+        public void SetEntityId(string entityId)
         {
-            this.entity = entity;
+            this.entityId = entityId;
         }
 
         private GameObject _visualGameObject;
@@ -35,23 +39,25 @@ namespace LOP
         private string visualId;
         private AsyncOperationHandle<GameObject> asyncOperationHandle;
 
+        private System.IDisposable subscriptions;
+
         protected virtual void Start()
         {
-            EventBus.Default.Subscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
-            EventBus.Default.Subscribe<AbilityActivated>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnAbilityActivated);
-            EventBus.Default.Subscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
+            var bag = DisposableBag.CreateBuilder();
+            GlobalMessagePipe.GetSubscriber<string, AbilityActivated>().Subscribe(entityId, OnAbilityActivated).AddTo(bag);
+            GlobalMessagePipe.GetSubscriber<string, EntityDamage>().Subscribe(entityId, OnEntityDamage).AddTo(bag);
+            subscriptions = bag.Build();
 
-            if (entity.TryGetEntityComponent<AppearanceComponent>(out var appearanceComponent))
+            var appearance = entityRegistry.Get(entityId)?.Get<Appearance>();
+            if (appearance != null)
             {
-                UpdateVisual(appearanceComponent.visualId);
+                UpdateVisual(appearance.VisualId);
             }
         }
 
         public void Cleanup()
         {
-            EventBus.Default.Unsubscribe<PropertyChange>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnPropertyChange);
-            EventBus.Default.Unsubscribe<AbilityActivated>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnAbilityActivated);
-            EventBus.Default.Unsubscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
+            subscriptions?.Dispose();
 
             if (asyncOperationHandle.IsValid())
             {
@@ -63,17 +69,7 @@ namespace LOP
                 Destroy(_visualGameObject);
             }
 
-            entity = null;
-        }
-
-        private void OnPropertyChange(PropertyChange propertyChange)
-        {
-            switch (propertyChange.propertyName)
-            {
-                case nameof(AppearanceComponent.visualId):
-                    UpdateVisual(entity.GetEntityComponent<AppearanceComponent>().visualId);
-                    break;
-            }
+            entityId = null;
         }
 
         private void Update()
@@ -85,7 +81,7 @@ namespace LOP
         // 변경 알림(PropertyChange)에 기대면 이동이 World에 직접 쓴 변화(제동→0 등)를 놓쳐 애니가 옛 상태에 머문다.
         private void UpdateRunAnimation()
         {
-            if (entity == null || visualGameObject == null)
+            if (entityId == null || visualGameObject == null)
             {
                 return;
             }
@@ -97,8 +93,19 @@ namespace LOP
             }
 
             const float walkThreshold = 0.01f;
-            float horizontalSpeedSquared = entity.velocity.x * entity.velocity.x + entity.velocity.z * entity.velocity.z;
-            animator.SetBool("Run", horizontalSpeedSquared > walkThreshold * walkThreshold && entity.IsGrounded());
+            var worldEntity = entityRegistry.Get(entityId);
+            Vector3 v = worldEntity != null ? GameFramework.World.EntityMotionExtensions.GetVelocity(worldEntity) : Vector3.zero;
+            float horizontalSpeedSquared = v.x * v.x + v.z * v.z;
+            bool grounded = worldEntity != null && IsGrounded(GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity));
+            animator.SetBool("Run", horizontalSpeedSquared > walkThreshold * walkThreshold && grounded);
+        }
+
+        // TODO: 고도화 필요! (접지 판정 — 구 LOPActor에서 이전)
+        private static bool IsGrounded(Vector3 position)
+        {
+            Vector3 checkPosition = position + Vector3.down * 0.2f;
+            Collider[] colliders = Physics.OverlapSphere(checkPosition, 0.4f);
+            return System.Linq.Enumerable.Any(colliders, col => col.gameObject.name == "Plane");
         }
 
         // 어빌리티 발동 연출 cue → 애니 트리거. 한 곳에서 매핑(cue 늘면 dict에 추가, if 누적 없음).
@@ -157,11 +164,13 @@ namespace LOP
             asyncOperationHandle = Addressables.LoadAssetAsync<GameObject>(visualId);
             await asyncOperationHandle.Task;
 
-            GameObject visual = transform.parent.Find("Visual").gameObject;
-
-            visualGameObject = Instantiate(asyncOperationHandle.Task.Result, visual.transform);
-            visualGameObject.transform.position = entity.position;
-            visualGameObject.transform.rotation = Quaternion.Euler(entity.rotation);
+            visualGameObject = Instantiate(asyncOperationHandle.Task.Result, transform);
+            var worldEntity = entityRegistry.Get(entityId);
+            if (worldEntity != null)
+            {
+                visualGameObject.transform.position = GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity);
+                visualGameObject.transform.rotation = Quaternion.Euler(GameFramework.World.EntityMotionExtensions.GetRotation(worldEntity));
+            }
         }
     }
 }

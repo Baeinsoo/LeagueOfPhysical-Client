@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 using GameFramework;
+using GameFramework.Physics;
 using LOP.Event.LOPRunner.Update;
 using VContainer;
+using GameFramework.Netcode;
 
 namespace LOP
 {
@@ -16,18 +18,18 @@ namespace LOP
         [Inject] private IPhysicsSimulator physicsSimulator;
         [Inject] private GameFramework.World.IWorld world;
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
+        [Inject] private GameFramework.World.IMotionBridge motionBridge;
 
         [Inject] private IMapLoader mapLoader;
         [Inject] private IPlayerContext playerContext;
         [Inject] private GameFramework.Netcode.SnapshotHistory snapshotHistory;
-        [Inject] private PredictedAbilityStateHistory predictedAbilityStateHistory;
+        [Inject] private GameFramework.Netcode.SequenceBuffer<PredictedAbilityState> predictedAbilityStateHistory;
         [Inject] private Reconciler reconciler;
+        [Inject] private EntitySpawner entitySpawner;
 
         private const string MapId = "Assets/Art/Scenes/FlapWangMap.unity";
 
         private readonly Restorer restorer = new Restorer();
-
-        public new LOPEntityManager entityManager => base.entityManager as LOPEntityManager;
 
         protected override INetworkTime CreateNetworkTime() => new MirrorNetworkTime();
 
@@ -131,8 +133,6 @@ namespace LOP
         {
             DispatchEvent<BeforeEntityUpdate>();
 
-            entityManager.UpdateEntities();
-
             DispatchEvent<AfterEntityUpdate>();
         }
 
@@ -143,6 +143,13 @@ namespace LOP
         private void SimulatePhysics()
         {
             DispatchEvent<BeforePhysicsSimulation>();
+
+            // World.Transform → rb 팔로우: PhysicsBody 가진 모든 엔티티(내 캐릭=예측, 남·아이템=보간).
+            // Simulated는 world.Tick서 이미 밀렸으나 idempotent. per-entity LOPEntityController 대체.
+            foreach (var entity in entityRegistry.All)
+            {
+                motionBridge.PushMotion(entity);
+            }
 
             physicsSimulator.Simulate((float)tickUpdater.interval);
 
@@ -170,7 +177,7 @@ namespace LOP
 
             DispatchEvent<End>();
 
-            entityManager.DestroyMarkedEntities();
+            entitySpawner.FlushDespawns();
         }
 
         // 내 캐릭의 이번 틱 최종 시뮬 상태를 스냅샷에 남긴다. End 디스패치(=LocalEntityInterpolator의
@@ -178,13 +185,13 @@ namespace LOP
         // 되돌리기(하드 복원+재생)는 Reconciler.Reconcile이 다음 틱 앞에서 수행.
         private void RecordLocalSnapshot()
         {
-            LOPEntity local = playerContext.entity;
-            if (local == null)
+            string entityId = playerContext.entityId;
+            if (entityId == null)
             {
                 return;
             }
 
-            GameFramework.World.Entity worldEntity = entityRegistry.Get(local.entityId);
+            GameFramework.World.Entity worldEntity = entityRegistry.Get(entityId);
             if (worldEntity == null)
             {
                 return;

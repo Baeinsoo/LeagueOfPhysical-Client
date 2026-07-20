@@ -1,5 +1,6 @@
 using GameFramework;
 using LOP.Event.Entity;
+using MessagePipe;
 using UnityEngine;
 using UnityEngine.UIElements;
 using VContainer;
@@ -23,11 +24,11 @@ namespace LOP
         [Inject]
         private GameFramework.World.EntityRegistry entityRegistry;
 
-        public LOPEntity entity { get; private set; }
+        public LOPActor actor { get; private set; }
 
-        public void SetEntity(LOPEntity entity)
+        public void SetEntity(LOPActor actor)
         {
-            this.entity = entity;
+            this.actor = actor;
         }
 
         private const string PanelSettingsResource = "UI/WorldSpaceNameplatePanelSettings";
@@ -40,15 +41,13 @@ namespace LOP
         private Camera _camera;
         private GameObject _panelGameObject;
         private VisualElement _hpFill;
-        private LOPEntityView _entityView;
         private int _maxHp;
         private int _currentHp;
+        private System.IDisposable _subscription;
 
         protected void Start()
         {
-            _entityView = transform.parent.GetComponentInChildren<LOPEntityView>();
-
-            GameFramework.World.Entity worldEntity = entityRegistry.Get(entity.entityId);
+            GameFramework.World.Entity worldEntity = entityRegistry.Get(actor.entityId);
             GameFramework.World.Health health = worldEntity?.Get<GameFramework.World.Health>();
             _maxHp = health != null ? health.Max : 1;
             _currentHp = health != null ? health.Current : _maxHp;
@@ -62,7 +61,7 @@ namespace LOP
             }
 
             // 패널 값이 세팅된 뒤 OnEnable이 패널을 빌드하도록 inactive로 구성 → 활성화.
-            _panelGameObject = new GameObject($"Nameplate_{entity.entityId}");
+            _panelGameObject = new GameObject($"Nameplate_{actor.entityId}");
             _panelGameObject.SetActive(false);
 
             var document = _panelGameObject.AddComponent<UIDocument>();
@@ -75,12 +74,12 @@ namespace LOP
             _hpFill = document.rootVisualElement.Q<VisualElement>("hp-bar-fill");
             UpdateHpBar();
 
-            EventBus.Default.Subscribe<EntityHealthChanged>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityHealthChanged);
+            _subscription = GlobalMessagePipe.GetSubscriber<string, EntityHealthChanged>().Subscribe(actor.entityId, OnEntityHealthChanged);
         }
 
         public void Cleanup()
         {
-            EventBus.Default.Unsubscribe<EntityHealthChanged>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityHealthChanged);
+            _subscription?.Dispose();
 
             if (_panelGameObject != null)
             {
@@ -88,7 +87,7 @@ namespace LOP
                 _panelGameObject = null;
             }
 
-            entity = null;
+            actor = null;
         }
 
         private void OnEntityHealthChanged(EntityHealthChanged e)
@@ -126,9 +125,10 @@ namespace LOP
                 return;
             }
 
-            Vector3 basePosition = (_entityView != null && _entityView.visualGameObject != null)
-                ? _entityView.visualGameObject.transform.position
-                : entity.position;
+            var worldEntity = entityRegistry.Get(actor.entityId);
+            Vector3 basePosition = (actor.visualGameObject != null)
+                ? actor.visualGameObject.transform.position
+                : worldEntity != null ? GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity) : Vector3.zero;
 
             Vector3 worldPosition = basePosition + HeadOffset;
             _panelGameObject.transform.position = worldPosition;

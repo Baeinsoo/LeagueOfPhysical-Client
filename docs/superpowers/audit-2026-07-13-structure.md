@@ -34,10 +34,8 @@
 - **위배:** connection-arch "와이어 추상" — 단일 폴리모픽 `WorldEventBatch`가 여러 `WorldEvent` 운반, "개념별 패킷 신설 안 함" 명시. 지금은 정반대(새 이벤트마다 패킷+MessageId 증식).
 - **수정:** `WorldEventBatch` 도입, 레거시 `ToC`는 수신 어댑터에서 `WorldEvent`로 변환 격리.
 
-### #8 (DI Med-High, L) static `EventBus.Default` 글로벌 버스 — DI/R3 밖
-- **위치:** `GameFramework/EventBus/EventBus.cs:7`(`static IEventBus Default`). 모든 메시지 핸들러·뷰가 여기 구독(`LOPRoom.cs:80`). topic+Type-keyed Dictionary, R3 아님.
-- **위배:** architecture-guidelines "R3 통일" + VContainer DI(이벤트 소스만 static 글로벌). 룸 재입장 시 leak 위험(`GameDataStore.cs:11-21` 주석이 경고).
-- **수정:** R3 MessageBroker + DI 등록으로. (큰 작업 — 메시징·연출 fan-out 연결조직.)
+### ✅ #8 static `EventBus.Default` 글로벌 버스 — 완료 (07-16, Cysharp MessagePipe 이전)
+- **해소:** 전역 static 커스텀 버스를 **MessagePipe**(타입·keyed pub/sub + DI 스코프 브로커)로 이전 후 삭제(클·서·GameFramework). 문자열 토픽·리플렉션 디스패치·전역 static 제거. **①구독 IDisposable(AddTo) + Root 싱글턴 브로커**로 룸 재입장 leak 구조적 해소(②스코프 브로커=redundant 드롭). 네트워크 수신은 `NetworkMessageDispatcher`(리플렉션 없는 타입 라우팅, IL2CPP 안전), 엔티티별은 keyed(키=entityId). 정적/엔티티 컴포넌트=`GlobalMessagePipe`, DI 서비스/VM=주입. 5슬라이스, 종합 플레이 검증 통과, EditMode 269 green. spec/plan `2026-07-16-eventbus-messagepipe-migration*`. 리서치: 패턴=표준 / 전역-static 형태=비표준 / MessagePipe=R3 생태계 표준 답.
 
 ### ✅ #3-WC (Med, M) `ctx.EntityManager` 레거시 탈출구 제거 — 완료 (07-13)
 - **위치(였음):** `Shared/Ability/AbilityEffectContext.cs`(`IEntityManager EntityManager`, 구 `GameFramework/Entity/IEntityManager` = UnityEngine 의존). 소비 `AbilityEffectExecutor.cs`.
@@ -52,7 +50,7 @@
   - ⚠️ **아키텍처 부채(임시 배치):** 이상적 자리는 서버 분기가 아니라 **공통 루프 `LOPWorld.Tick`(Mutation)에서 플레이어·AI 일괄**. 지금 못 하는 이유 = 클라 공통 루프가 원격(스냅 팔로워) 엔티티까지 훑어서 게이트 밖으로 빼면 스냅샷 권위 충돌 → "클라 sim 대상 = 내 캐릭만" 정리(Stage④ 4e 흡수)가 선행. 로직은 `ApplyToVelocity` 공통 함수로 이미 추출 → 이전 비용 최소. ROADMAP 파킹 "외력 처리 공통 루프 이전" + connection-arch 4e 노트 참고.
 - **#5-AC (Low→High-if-unnoticed, M) `ctx.Target` 항상 자기자신** — 실 타게팅 없음. `AbilityActivator.cs:37`/`Reconciler.cs:137`/`EnemyBrain.cs:47` 전부 target==caster. `StatusEffectApplyEffectHandler`가 `ctx.Target`에 적용 → 미래 비-자기 status(디버프/힐)가 조용히 시전자에 적용될 함정. GAS `TargetData` 대응 없음.
 - **#4-AC (Low-Med, S) 크리/회피 상수 하드코딩** — `LOPCombatSystem.cs:99`(dodge clamp 0.05~0.95), `:107`(crit 0.05~0.50), `:71`(crit mult 1.25~1.75). MasterData(`TbCombatConfig` 등)로 승격 여지.
-- **#4-NC (Low-Med, S) 링버퍼 3벌 중복** — `GameFramework/Netcode/SnapshotHistory.cs`, `Shared/InputHistory.cs`, `Shared/PredictedAbilityStateHistory.cs` 동일 `tick%capacity` 슬롯팅. 공유 제네릭 `RingBuffer<T>` 없음.
+- ✅ **#4-NC 링버퍼 3벌 중복 — 완료 (07-16)** — 동일 `tick%capacity` 슬롯팅 + 병렬 tick 배열 stale 판별을 `GameFramework.Netcode.SequenceBuffer<T>` 하나로 추출(Fiedler "sequence buffer" 표준명 — `RingBuffer`=FIFO큐라 부정확). 순수 별칭 `InputHistory`/`PredictedAbilityStateHistory` 삭제(호출처가 `SequenceBuffer<InputCommand>`/`<PredictedAbilityState>` 직접), `SnapshotHistory`는 `Latest`/`Count`/tick-내장 `Record` 편의로 얇은 어댑터 유지. GameFramework EditMode +10(269 green). feature 브랜치 `sequence-buffer-extract`(GameFramework/LOP-Shared/Client 3레포).
 - ✅ **#6-NC 죽은 레거시 `Status` 매틱 제거 — 완료 (07-13)** — 구체 `Status` 서브클래스 0 재확인 → `Component/Status.cs` 삭제 + `LOPEntity.UpdateStatuses` 제거(`UpdateEntity`는 `MonoEntity` abstract 계약이라 빈 override 잔류). 클·서 클린 컴파일. Client `cleanup/dead-status-matic`.
 - ✅ **#5-DM `MessageHandler<T>` 죽은 코드 제거 — 완료 (07-13)** — 4레포 전수 사용처 0 재확인 → `Shared/Network/Message/MessageHandler.cs` 삭제. 실 라우팅은 `MessageFactory`+`LOPRoom.cs:80`+`EventBus`. Shared `cleanup/dead-message-handler`.
 - **#6-DM (Med-Low, S) `LoginService` MonoSingleton+`[DIMonoBehaviour]` 혼종** — `Client/Login/LoginService.cs:13`. static accessor + `[Inject]` 동시 → 수명 모호.

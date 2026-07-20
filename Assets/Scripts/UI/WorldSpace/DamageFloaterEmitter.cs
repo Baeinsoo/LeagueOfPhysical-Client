@@ -1,8 +1,10 @@
 using GameFramework;
 using LOP.Event.Entity;
+using MessagePipe;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
+using VContainer;
 
 namespace LOP
 {
@@ -13,11 +15,14 @@ namespace LOP
     /// </summary>
     public class DamageFloaterEmitter : MonoBehaviour, ICleanup
     {
-        public LOPEntity entity { get; private set; }
+        [Inject]
+        private GameFramework.World.EntityRegistry entityRegistry;
 
-        public void SetEntity(LOPEntity entity)
+        public LOPActor actor { get; private set; }
+
+        public void SetEntity(LOPActor actor)
         {
-            this.entity = entity;
+            this.actor = actor;
         }
 
         private const int MAX_FLOATERS = 4;
@@ -30,8 +35,8 @@ namespace LOP
         private const float JitterScreenFactor = 0.015f;
 
         private readonly List<DamageFloater> _floaters = new List<DamageFloater>();
-        private LOPEntityView _entityView;
         private Camera _camera;
+        private System.IDisposable _subscription;
 
         private void Awake()
         {
@@ -64,13 +69,12 @@ namespace LOP
 
         protected void Start()
         {
-            _entityView = transform.parent.GetComponentInChildren<LOPEntityView>();
-            EventBus.Default.Subscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
+            _subscription = GlobalMessagePipe.GetSubscriber<string, EntityDamage>().Subscribe(actor.entityId, OnEntityDamage);
         }
 
         public void Cleanup()
         {
-            EventBus.Default.Unsubscribe<EntityDamage>(EventTopic.EntityId<LOPEntity>(entity.entityId), OnEntityDamage);
+            _subscription?.Dispose();
 
             foreach (var floater in _floaters)
             {
@@ -81,7 +85,7 @@ namespace LOP
             }
             _floaters.Clear();
 
-            entity = null;
+            actor = null;
         }
 
         private void OnEntityDamage(EntityDamage entityDamage)
@@ -96,9 +100,10 @@ namespace LOP
                 return;
             }
 
-            Vector3 headPosition = (_entityView != null && _entityView.visualGameObject != null)
-                ? _entityView.visualGameObject.transform.position
-                : entity.position;
+            var worldEntity = entityRegistry.Get(actor.entityId);
+            Vector3 headPosition = (actor.visualGameObject != null)
+                ? actor.visualGameObject.transform.position
+                : worldEntity != null ? GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity) : Vector3.zero;
 
             // 활성 플로터 수에 따라 중앙→좌우로 부채꼴 분산(단일은 중앙, 동시 타격은 겹치지 않게).
             int activeBefore = 0;

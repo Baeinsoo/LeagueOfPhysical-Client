@@ -3,15 +3,6 @@ using UnityEngine;
 
 namespace LOP.Event.Entity
 {
-    public struct PropertyChange
-    {
-        public string propertyName;
-        public PropertyChange(string propertyName)
-        {
-            this.propertyName = propertyName;
-        }
-    }
-
     public struct EntityDeath
     {
         public string victimId;
@@ -111,10 +102,10 @@ namespace LOP.Event.Entity
 
     public struct EntityCreated
     {
-        public IEntity entity;
-        public EntityCreated(IEntity entity)
+        public string entityId;
+        public EntityCreated(string entityId)
         {
-            this.entity = entity;
+            this.entityId = entityId;
         }
     }
 

@@ -10,7 +10,7 @@ using GameFramework.Netcode;
 
 namespace LOP
 {
-    [DIMonoBehaviour]
+    [SceneInjectMonoBehaviour]
     public class LOPRunner : RunnerBase
     {
         [Inject] private GameFramework.World.WorldEventBuffer worldEventBuffer;

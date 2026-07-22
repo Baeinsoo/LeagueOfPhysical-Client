@@ -7,7 +7,7 @@ using VContainer;
 
 namespace LOP
 {
-    [DIMonoBehaviour]
+    [SceneInjectMonoBehaviour]
     public class LOPGamePresenter : MonoGamePresenter<LOPRunner>
     {
         [Inject]

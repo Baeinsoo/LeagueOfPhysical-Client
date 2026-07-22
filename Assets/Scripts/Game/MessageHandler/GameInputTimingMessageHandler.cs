@@ -1,22 +1,23 @@
 using GameFramework;
 using MessagePipe;
-using VContainer;
 using GameFramework.Netcode;
 
 namespace LOP
 {
     public class GameInputTimingMessageHandler : MessageHandlerBase
     {
-        [Inject]
-        private InputTimingStats inputTimingStats;
-
-        [Inject]
-        private LeadState leadState;
-
-        [Inject]
-        private ISubscriber<InputTimingToC> inputTimingSubscriber;
+        private readonly InputTimingStats inputTimingStats;
+        private readonly LeadState leadState;
+        private readonly ISubscriber<InputTimingToC> inputTimingSubscriber;
 
         private readonly LeadController leadController = new LeadController();
+
+        public GameInputTimingMessageHandler(InputTimingStats inputTimingStats, LeadState leadState, ISubscriber<InputTimingToC> inputTimingSubscriber)
+        {
+            this.inputTimingStats = inputTimingStats;
+            this.leadState = leadState;
+            this.inputTimingSubscriber = inputTimingSubscriber;
+        }
 
         protected override void Subscribe() => Track(inputTimingSubscriber.Subscribe(OnInputTimingToC));
 

@@ -1,13 +1,16 @@
 using GameFramework;
 using MessagePipe;
-using VContainer;
 
 namespace LOP
 {
     public class GameInputMessageHandler : MessageHandlerBase
     {
-        [Inject]
-        private ISubscriber<InputSequenceToC> inputSequenceSubscriber;
+        private readonly ISubscriber<InputSequenceToC> inputSequenceSubscriber;
+
+        public GameInputMessageHandler(ISubscriber<InputSequenceToC> inputSequenceSubscriber)
+        {
+            this.inputSequenceSubscriber = inputSequenceSubscriber;
+        }
 
         protected override void Subscribe() => Track(inputSequenceSubscriber.Subscribe(OnInputSequenceToC));
 

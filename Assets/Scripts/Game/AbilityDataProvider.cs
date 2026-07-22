@@ -1,5 +1,3 @@
-using VContainer;
-
 namespace LOP
 {
     /// <summary>
@@ -8,8 +6,12 @@ namespace LOP
     /// </summary>
     public class AbilityDataProvider
     {
-        [Inject]
-        private LOP.MasterData.LOPMasterData md;
+        private readonly LOP.MasterData.LOPMasterData md;
+
+        public AbilityDataProvider(LOP.MasterData.LOPMasterData md)
+        {
+            this.md = md;
+        }
 
         /// <summary>어빌리티 id로 설정을 조회(런타임 식별=int id). 없으면 false.</summary>
         public bool TryGet(int abilityId, out AbilityData data)

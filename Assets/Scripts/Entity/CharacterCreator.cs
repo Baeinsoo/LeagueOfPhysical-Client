@@ -1,17 +1,30 @@
 using GameFramework;
 using UnityEngine;
-using VContainer;
 
 namespace LOP
 {
     // 데이터 전용 creator — World.Entity 조립 + registry.Add + 어빌리티 Grant. actor(뷰 앵커)는 EntityBinder가 만든다.
     public class CharacterCreator
     {
-        [Inject] private IGameDataStore gameDataStore;
-        [Inject] private IPlayerContext playerContext;
-        [Inject] private GameFramework.World.EntityRegistry entityRegistry;
-        [Inject] private AbilitySystem abilitySystem;
-        [Inject] private LOP.MasterData.LOPMasterData md;
+        private readonly IGameDataStore gameDataStore;
+        private readonly IPlayerContext playerContext;
+        private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly AbilitySystem abilitySystem;
+        private readonly LOP.MasterData.LOPMasterData md;
+
+        public CharacterCreator(
+            IGameDataStore gameDataStore,
+            IPlayerContext playerContext,
+            GameFramework.World.EntityRegistry entityRegistry,
+            AbilitySystem abilitySystem,
+            LOP.MasterData.LOPMasterData md)
+        {
+            this.gameDataStore = gameDataStore;
+            this.playerContext = playerContext;
+            this.entityRegistry = entityRegistry;
+            this.abilitySystem = abilitySystem;
+            this.md = md;
+        }
 
         public void Create(CharacterCreationData creationData)
         {

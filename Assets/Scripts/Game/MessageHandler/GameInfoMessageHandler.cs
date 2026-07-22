@@ -1,23 +1,23 @@
 using GameFramework;
 using MessagePipe;
 using UnityEngine;
-using VContainer;
 
 namespace LOP
 {
     public class GameInfoMessageHandler : MessageHandlerBase
     {
-        [Inject]
-        private EntitySpawner entitySpawner;
+        private readonly EntitySpawner entitySpawner;
+        private readonly PlayerInputManager playerInputManager;
+        private readonly MatchSeed matchSeed;
+        private readonly ISubscriber<GameInfoToC> gameInfoSubscriber;
 
-        [Inject]
-        private PlayerInputManager playerInputManager;
-
-        [Inject]
-        private MatchSeed matchSeed;
-
-        [Inject]
-        private ISubscriber<GameInfoToC> gameInfoSubscriber;
+        public GameInfoMessageHandler(EntitySpawner entitySpawner, PlayerInputManager playerInputManager, MatchSeed matchSeed, ISubscriber<GameInfoToC> gameInfoSubscriber)
+        {
+            this.entitySpawner = entitySpawner;
+            this.playerInputManager = playerInputManager;
+            this.matchSeed = matchSeed;
+            this.gameInfoSubscriber = gameInfoSubscriber;
+        }
 
         protected override void Subscribe() => Track(gameInfoSubscriber.Subscribe(OnGameInfoToC));
 

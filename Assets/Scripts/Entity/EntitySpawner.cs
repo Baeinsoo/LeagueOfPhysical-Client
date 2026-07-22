@@ -2,7 +2,6 @@ using LOP.Event.Entity;
 using MessagePipe;
 using System.Collections.Generic;
 using UnityEngine;
-using VContainer;
 
 namespace LOP
 {
@@ -13,13 +12,27 @@ namespace LOP
     /// </summary>
     public class EntitySpawner
     {
-        [Inject] private GameFramework.World.EntityRegistry entityRegistry;
-        [Inject] private CharacterCreator characterCreator;
-        [Inject] private ItemCreator itemCreator;
-        [Inject] private IPublisher<EntityCreated> entityCreatedPublisher;
-        [Inject] private IPublisher<EntityDestroyed> entityDestroyedPublisher;
+        private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly CharacterCreator characterCreator;
+        private readonly ItemCreator itemCreator;
+        private readonly IPublisher<EntityCreated> entityCreatedPublisher;
+        private readonly IPublisher<EntityDestroyed> entityDestroyedPublisher;
 
         private readonly HashSet<string> entitiesToDestroy = new HashSet<string>();
+
+        public EntitySpawner(
+            GameFramework.World.EntityRegistry entityRegistry,
+            CharacterCreator characterCreator,
+            ItemCreator itemCreator,
+            IPublisher<EntityCreated> entityCreatedPublisher,
+            IPublisher<EntityDestroyed> entityDestroyedPublisher)
+        {
+            this.entityRegistry = entityRegistry;
+            this.characterCreator = characterCreator;
+            this.itemCreator = itemCreator;
+            this.entityCreatedPublisher = entityCreatedPublisher;
+            this.entityDestroyedPublisher = entityDestroyedPublisher;
+        }
 
         public void Spawn(CharacterCreationData creationData)
         {

@@ -1,6 +1,5 @@
 using GameFramework;
 using MessagePipe;
-using VContainer;
 
 namespace LOP
 {
@@ -11,14 +10,16 @@ namespace LOP
     /// </summary>
     public class GameWorldEventMessageHandler : MessageHandlerBase
     {
-        [Inject]
-        private GameFramework.World.WorldEventBuffer worldEventBuffer;
+        private readonly GameFramework.World.WorldEventBuffer worldEventBuffer;
+        private readonly IPlayerContext playerContext;
+        private readonly ISubscriber<WorldEventBatchToC> batchSubscriber;
 
-        [Inject]
-        private IPlayerContext playerContext;
-
-        [Inject]
-        private ISubscriber<WorldEventBatchToC> batchSubscriber;
+        public GameWorldEventMessageHandler(GameFramework.World.WorldEventBuffer worldEventBuffer, IPlayerContext playerContext, ISubscriber<WorldEventBatchToC> batchSubscriber)
+        {
+            this.worldEventBuffer = worldEventBuffer;
+            this.playerContext = playerContext;
+            this.batchSubscriber = batchSubscriber;
+        }
 
         protected override void Subscribe() => Track(batchSubscriber.Subscribe(OnWorldEventBatchToC));
 

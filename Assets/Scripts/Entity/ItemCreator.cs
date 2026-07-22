@@ -1,12 +1,16 @@
 using GameFramework;
 using UnityEngine;
-using VContainer;
 
 namespace LOP
 {
     public class ItemCreator
     {
-        [Inject] private GameFramework.World.EntityRegistry entityRegistry;
+        private readonly GameFramework.World.EntityRegistry entityRegistry;
+
+        public ItemCreator(GameFramework.World.EntityRegistry entityRegistry)
+        {
+            this.entityRegistry = entityRegistry;
+        }
 
         public void Create(ItemCreationData creationData)
         {

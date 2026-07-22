@@ -1,5 +1,4 @@
 using GameFramework;
-using VContainer;
 
 namespace LOP.UI
 {
@@ -10,14 +9,19 @@ namespace LOP.UI
     /// </summary>
     public class DebugHudViewModel
     {
-        [Inject]
-        private ReconciliationStats reconciliationStats;
+        private readonly ReconciliationStats reconciliationStats;
+        private readonly InputTimingStats inputTimingStats;
+        private readonly GameFramework.Netcode.SnapshotHistory snapshotHistory;
 
-        [Inject]
-        private InputTimingStats inputTimingStats;
-
-        [Inject]
-        private GameFramework.Netcode.SnapshotHistory snapshotHistory;
+        public DebugHudViewModel(
+            ReconciliationStats reconciliationStats,
+            InputTimingStats inputTimingStats,
+            GameFramework.Netcode.SnapshotHistory snapshotHistory)
+        {
+            this.reconciliationStats = reconciliationStats;
+            this.inputTimingStats = inputTimingStats;
+            this.snapshotHistory = snapshotHistory;
+        }
 
         public bool IsRunning => Runner.current != null;
 

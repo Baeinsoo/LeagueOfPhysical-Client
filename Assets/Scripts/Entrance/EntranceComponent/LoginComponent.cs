@@ -3,13 +3,17 @@ using GameFramework;
 using LOP.UI;
 using System;
 using System.Threading.Tasks;
-using VContainer;
 
 namespace LOP
 {
     public class LoginComponent : IEntranceComponent
     {
-        [Inject] private IWindowManager windowManager;
+        private readonly IWindowManager windowManager;
+
+        public LoginComponent(IWindowManager windowManager)
+        {
+            this.windowManager = windowManager;
+        }
 
         public async Task Execute()
         {

@@ -1,3 +1,4 @@
+using GameFramework;
 using LOP.UI;
 using System;
 using VContainer;
@@ -5,7 +6,7 @@ using VContainer.Unity;
 
 namespace LOP
 {
-    public class LobbyLifetimeScope : SceneLifetimeScope
+    public class LobbyLifetimeScope : LifetimeScope
     {
         // 전역 WindowManager에 로비 스코프 View 팩토리를 기여한 핸들(OnDestroy에서 해제).
         private IDisposable _matchMakingViewRegistration;
@@ -26,6 +27,8 @@ namespace LOP
 
             builder.RegisterBuildCallback(container =>
             {
+                container.InjectSceneObjects(gameObject.scene);
+
                 // 전역 WindowManager에 MatchMakingView 팩토리 기여: Open<MatchMakingView>가 이 스코프 resolver로
                 // 생성 → MatchStateMachine/IMatchMakingDataStore 주입. 로비 진입 시 화면을 연다.
                 var windowManager = container.Resolve<IWindowManager>();

@@ -9,7 +9,7 @@ namespace LOP.UI
     /// 대기 오버레이(MatchingWaitingView)를 열고/닫고, 취소 버튼을 VM의 Cancel 커맨드에 배선한다.
     /// VM은 신호만 노출하고 화면 교체는 여기서 한다(아키텍처: 작은 흐름=VM / 큰 흐름=코디네이터).
     /// </summary>
-    public class MatchmakingCoordinator : IStartable, IDisposable
+    public class MatchMakingCoordinator : IStartable, IDisposable
     {
         private readonly IWindowManager _windowManager;
         private readonly MatchMakingViewModel _viewModel;
@@ -17,7 +17,7 @@ namespace LOP.UI
         private IDisposable _subscription;
         private MatchingWaitingView _waitingView;
 
-        public MatchmakingCoordinator(IWindowManager windowManager, MatchMakingViewModel viewModel)
+        public MatchMakingCoordinator(IWindowManager windowManager, MatchMakingViewModel viewModel)
         {
             _windowManager = windowManager;
             _viewModel = viewModel;

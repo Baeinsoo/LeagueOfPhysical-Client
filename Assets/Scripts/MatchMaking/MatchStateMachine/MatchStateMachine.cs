@@ -1,17 +1,17 @@
 using GameFramework;
-using VContainer;
+using System;
 
 namespace LOP
 {
     public class MatchStateMachine : StateMachine<MatchEvent>
     {
-        private readonly IObjectResolver resolver;
+        private readonly Func<CheckMatch> checkMatch;
 
-        public MatchStateMachine(IObjectResolver resolver)
+        public MatchStateMachine(Func<CheckMatch> checkMatch)
         {
-            this.resolver = resolver;
+            this.checkMatch = checkMatch;
         }
 
-        public override IState<MatchEvent> initState => resolver.Resolve<CheckMatch>();
+        public override IState<MatchEvent> initState => checkMatch();
     }
 }

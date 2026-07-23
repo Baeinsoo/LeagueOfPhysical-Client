@@ -7,7 +7,7 @@ namespace LOP.UI
     /// <summary>
     /// 매칭 기능의 프레젠테이션 어댑터. Model인 MatchStateMachine(FSM)을 주시해 매칭 진행 상태를
     /// R3 신호(IsMatching)로 노출하고, Play/Cancel 커맨드를 FSM 이벤트로 전달한다.
-    /// 대기 오버레이 열고/닫기(네비게이션)는 이 VM이 아니라 MatchmakingCoordinator가 담당한다
+    /// 대기 오버레이 열고/닫기(네비게이션)는 이 VM이 아니라 MatchMakingCoordinator가 담당한다
     /// — VM은 도메인 신호만 노출한다(아키텍처: 작은 흐름=VM / 큰 흐름=코디네이터).
     /// </summary>
     public class MatchMakingViewModel : IDisposable

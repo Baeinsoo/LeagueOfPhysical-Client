@@ -5,15 +5,13 @@ using VContainer.Unity;
 
 namespace LOP
 {
-    public class RoomLifetimeScope : SceneLifetimeScope
+    public class RoomLifetimeScope : LifetimeScope
     {
         [SerializeField] private LOPRoom room;
         [SerializeField] private LOPNetworkManager networkManager;
 
         protected override void Configure(IContainerBuilder builder)
         {
-            base.Configure(builder);
-
             builder.RegisterComponent(room);
             builder.RegisterComponent(networkManager);
 
@@ -29,6 +27,7 @@ namespace LOP
             #region RegisterBuildCallback
             builder.RegisterBuildCallback(container =>
             {
+                container.InjectSceneObjects(gameObject.scene);
             });
             #endregion
         }

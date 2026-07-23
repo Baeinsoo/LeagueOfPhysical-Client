@@ -2,38 +2,83 @@ using GameFramework;
 using LOP.Event.Entity;
 using MessagePipe;
 using UnityEngine;
-using VContainer;
 
 namespace LOP
 {
     public class GameEntityMessageHandler : MessageHandlerBase
     {
-        [Inject] private IPlayerContext playerContext;
-        [Inject] private IGameDataStore gameDataStore;
-        [Inject] private EntitySpawner entitySpawner;
-        [Inject] private ActorRegistry actorRegistry;
-        [Inject] private GameFramework.World.EntityRegistry entityRegistry;
-        [Inject] private GameFramework.World.HealthSystem healthSystem;
-        [Inject] private GameFramework.World.ManaSystem manaSystem;
-        [Inject] private GameFramework.World.LevelSystem levelSystem;
-        [Inject] private GameFramework.World.StatsSystem statsSystem;
-        [Inject] private Reconciler reconciler;
-        [Inject] private RemoteInterpolationClock remoteInterpolationClock;
+        private readonly IPlayerContext playerContext;
+        private readonly IGameDataStore gameDataStore;
+        private readonly EntitySpawner entitySpawner;
+        private readonly ActorRegistry actorRegistry;
+        private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly GameFramework.World.HealthSystem healthSystem;
+        private readonly GameFramework.World.ManaSystem manaSystem;
+        private readonly GameFramework.World.LevelSystem levelSystem;
+        private readonly GameFramework.World.StatsSystem statsSystem;
+        private readonly Reconciler reconciler;
+        private readonly RemoteInterpolationClock remoteInterpolationClock;
 
-        [Inject] private ISubscriber<EntitySnapsToC> snapsSubscriber;
-        [Inject] private ISubscriber<EntitySpawnToC> spawnSubscriber;
-        [Inject] private ISubscriber<EntityDespawnToC> despawnSubscriber;
-        [Inject] private ISubscriber<UserEntitySnapToC> userSnapSubscriber;
-        [Inject] private ISubscriber<StatAllocationToC> statAllocationSubscriber;
+        private readonly ISubscriber<EntitySnapsToC> snapsSubscriber;
+        private readonly ISubscriber<EntitySpawnToC> spawnSubscriber;
+        private readonly ISubscriber<EntityDespawnToC> despawnSubscriber;
+        private readonly ISubscriber<UserEntitySnapToC> userSnapSubscriber;
+        private readonly ISubscriber<StatAllocationToC> statAllocationSubscriber;
 
-        [Inject] private IPublisher<string, EntityHealthChanged> healthChangedPublisher;
-        [Inject] private IPublisher<string, EntityManaChanged> manaChangedPublisher;
-        [Inject] private IPublisher<string, EntityLevelChanged> levelChangedPublisher;
-        [Inject] private IPublisher<string, EntityStatPointsChanged> statPointsChangedPublisher;
-        [Inject] private IPublisher<string, EntityStatChanged> statChangedPublisher;
+        private readonly IPublisher<string, EntityHealthChanged> healthChangedPublisher;
+        private readonly IPublisher<string, EntityManaChanged> manaChangedPublisher;
+        private readonly IPublisher<string, EntityLevelChanged> levelChangedPublisher;
+        private readonly IPublisher<string, EntityStatPointsChanged> statPointsChangedPublisher;
+        private readonly IPublisher<string, EntityStatChanged> statChangedPublisher;
 
         // 스냅이 틱당 여러 메시지로 청킹돼 온다 → 도착 기록을 틱당 1회로 dedupe(간격 기반 추정기 왜곡 방지).
         private long lastRecordedArrivalTick = long.MinValue;
+
+        public GameEntityMessageHandler(
+            IPlayerContext playerContext,
+            IGameDataStore gameDataStore,
+            EntitySpawner entitySpawner,
+            ActorRegistry actorRegistry,
+            GameFramework.World.EntityRegistry entityRegistry,
+            GameFramework.World.HealthSystem healthSystem,
+            GameFramework.World.ManaSystem manaSystem,
+            GameFramework.World.LevelSystem levelSystem,
+            GameFramework.World.StatsSystem statsSystem,
+            Reconciler reconciler,
+            RemoteInterpolationClock remoteInterpolationClock,
+            ISubscriber<EntitySnapsToC> snapsSubscriber,
+            ISubscriber<EntitySpawnToC> spawnSubscriber,
+            ISubscriber<EntityDespawnToC> despawnSubscriber,
+            ISubscriber<UserEntitySnapToC> userSnapSubscriber,
+            ISubscriber<StatAllocationToC> statAllocationSubscriber,
+            IPublisher<string, EntityHealthChanged> healthChangedPublisher,
+            IPublisher<string, EntityManaChanged> manaChangedPublisher,
+            IPublisher<string, EntityLevelChanged> levelChangedPublisher,
+            IPublisher<string, EntityStatPointsChanged> statPointsChangedPublisher,
+            IPublisher<string, EntityStatChanged> statChangedPublisher)
+        {
+            this.playerContext = playerContext;
+            this.gameDataStore = gameDataStore;
+            this.entitySpawner = entitySpawner;
+            this.actorRegistry = actorRegistry;
+            this.entityRegistry = entityRegistry;
+            this.healthSystem = healthSystem;
+            this.manaSystem = manaSystem;
+            this.levelSystem = levelSystem;
+            this.statsSystem = statsSystem;
+            this.reconciler = reconciler;
+            this.remoteInterpolationClock = remoteInterpolationClock;
+            this.snapsSubscriber = snapsSubscriber;
+            this.spawnSubscriber = spawnSubscriber;
+            this.despawnSubscriber = despawnSubscriber;
+            this.userSnapSubscriber = userSnapSubscriber;
+            this.statAllocationSubscriber = statAllocationSubscriber;
+            this.healthChangedPublisher = healthChangedPublisher;
+            this.manaChangedPublisher = manaChangedPublisher;
+            this.levelChangedPublisher = levelChangedPublisher;
+            this.statPointsChangedPublisher = statPointsChangedPublisher;
+            this.statChangedPublisher = statChangedPublisher;
+        }
 
         protected override void Subscribe()
         {

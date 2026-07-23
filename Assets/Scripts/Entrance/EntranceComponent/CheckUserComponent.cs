@@ -5,14 +5,17 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using UniRx;
 using UnityEngine;
-using VContainer;
 
 namespace LOP
 {
     public class CheckUserComponent : IEntranceComponent
     {
-        [Inject]
-        private IUserDataStore userDataStore;
+        private readonly IUserDataStore userDataStore;
+
+        public CheckUserComponent(IUserDataStore userDataStore)
+        {
+            this.userDataStore = userDataStore;
+        }
 
         public async Task Execute()
         {

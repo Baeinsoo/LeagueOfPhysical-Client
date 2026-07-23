@@ -9,7 +9,7 @@ using VContainer;
 namespace LOP
 {
     [DontDestroyMonoSingleton]
-    [DIMonoBehaviour]
+    [SceneInjectMonoBehaviour]
     public class LoginService : MonoSingleton<LoginService>
     {
         private const string LOGIN_TYPE_KEY = "LOGIN_TYPE_KEY";

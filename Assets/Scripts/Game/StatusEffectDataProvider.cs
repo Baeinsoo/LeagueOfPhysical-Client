@@ -1,5 +1,3 @@
-using VContainer;
-
 namespace LOP
 {
     /// <summary>
@@ -8,8 +6,12 @@ namespace LOP
     /// </summary>
     public class StatusEffectDataProvider
     {
-        [Inject]
-        private LOP.MasterData.LOPMasterData md;
+        private readonly LOP.MasterData.LOPMasterData md;
+
+        public StatusEffectDataProvider(LOP.MasterData.LOPMasterData md)
+        {
+            this.md = md;
+        }
 
         public StatusEffectData Get(int effectId)
         {

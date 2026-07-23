@@ -4,14 +4,17 @@ using System.Threading.Tasks;
 using UnityEngine;
 using System;
 using GameFramework;
-using VContainer;
 
 namespace LOP
 {
     public class JoinLobbyComponent : IEntranceComponent
     {
-        [Inject]
-        private IUserDataStore userDataStore;
+        private readonly IUserDataStore userDataStore;
+
+        public JoinLobbyComponent(IUserDataStore userDataStore)
+        {
+            this.userDataStore = userDataStore;
+        }
 
         public async Task Execute()
         {

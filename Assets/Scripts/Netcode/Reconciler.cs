@@ -1,6 +1,5 @@
 using GameFramework;
 using UnityEngine;
-using VContainer;
 
 namespace LOP
 {
@@ -15,20 +14,46 @@ namespace LOP
         private const long MaxReplayTicks = 128;   // 격차가 이보다 크면 텔레포트 폴백(재생 생략)
         // 렌더 보정 임계(minCorrection/teleport)는 RenderCorrectionSmoother가 소유 — 여기선 seed만 한다.
 
-        [Inject] private IPlayerContext playerContext;
-        [Inject] private GameFramework.World.EntityRegistry entityRegistry;
-        [Inject] private GameFramework.World.WorldEventBuffer worldEventBuffer;
-        [Inject] private AbilityActivator abilityActivator;
-        [Inject] private GameFramework.Netcode.SnapshotHistory snapshotHistory;
-        [Inject] private GameFramework.Netcode.SequenceBuffer<PredictedAbilityState> predictedAbilityStateHistory;
-        [Inject] private GameFramework.Netcode.SequenceBuffer<InputCommand> inputHistory;
-        [Inject] private GameFramework.World.IWorld world;   // 재생 = 라이브와 같은 단일 진입점 world.Tick
-        [Inject] private GameFramework.World.IMotionBridge motionBridge;
-        [Inject] private ReconciliationStats reconciliationStats;
-        [Inject] private GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
+        private readonly IPlayerContext playerContext;
+        private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly GameFramework.World.WorldEventBuffer worldEventBuffer;
+        private readonly AbilityActivator abilityActivator;
+        private readonly GameFramework.Netcode.SnapshotHistory snapshotHistory;
+        private readonly GameFramework.Netcode.SequenceBuffer<PredictedAbilityState> predictedAbilityStateHistory;
+        private readonly GameFramework.Netcode.SequenceBuffer<InputCommand> inputHistory;
+        private readonly GameFramework.World.IWorld world;   // 재생 = 라이브와 같은 단일 진입점 world.Tick
+        private readonly GameFramework.World.IMotionBridge motionBridge;
+        private readonly ReconciliationStats reconciliationStats;
+        private readonly GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
 
         private EntitySnap latestSnap;
         private bool hasPending;
+
+        public Reconciler(
+            IPlayerContext playerContext,
+            GameFramework.World.EntityRegistry entityRegistry,
+            GameFramework.World.WorldEventBuffer worldEventBuffer,
+            AbilityActivator abilityActivator,
+            GameFramework.Netcode.SnapshotHistory snapshotHistory,
+            GameFramework.Netcode.SequenceBuffer<PredictedAbilityState> predictedAbilityStateHistory,
+            GameFramework.Netcode.SequenceBuffer<InputCommand> inputHistory,
+            GameFramework.World.IWorld world,
+            GameFramework.World.IMotionBridge motionBridge,
+            ReconciliationStats reconciliationStats,
+            GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother)
+        {
+            this.playerContext = playerContext;
+            this.entityRegistry = entityRegistry;
+            this.worldEventBuffer = worldEventBuffer;
+            this.abilityActivator = abilityActivator;
+            this.snapshotHistory = snapshotHistory;
+            this.predictedAbilityStateHistory = predictedAbilityStateHistory;
+            this.inputHistory = inputHistory;
+            this.world = world;
+            this.motionBridge = motionBridge;
+            this.reconciliationStats = reconciliationStats;
+            this.renderCorrectionSmoother = renderCorrectionSmoother;
+        }
 
         /// <summary>서버 스냅 수신(내 캐릭). 가장 최신 틱만 남긴다.</summary>
         public void AddServerSnap(EntitySnap snap)

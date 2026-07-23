@@ -1,5 +1,3 @@
-using VContainer;
-
 namespace LOP
 {
     /// <summary>
@@ -8,17 +6,22 @@ namespace LOP
     /// </summary>
     public class AbilityActivator
     {
-        [Inject]
-        private AbilitySystem abilitySystem;
+        private readonly AbilitySystem abilitySystem;
+        private readonly AbilityDataProvider abilityDataProvider;
+        private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly GameFramework.World.WorldEventBuffer worldEventBuffer;
 
-        [Inject]
-        private AbilityDataProvider abilityDataProvider;
-
-        [Inject]
-        private GameFramework.World.EntityRegistry entityRegistry;
-
-        [Inject]
-        private GameFramework.World.WorldEventBuffer worldEventBuffer;
+        public AbilityActivator(
+            AbilitySystem abilitySystem,
+            AbilityDataProvider abilityDataProvider,
+            GameFramework.World.EntityRegistry entityRegistry,
+            GameFramework.World.WorldEventBuffer worldEventBuffer)
+        {
+            this.abilitySystem = abilitySystem;
+            this.abilityDataProvider = abilityDataProvider;
+            this.entityRegistry = entityRegistry;
+            this.worldEventBuffer = worldEventBuffer;
+        }
 
         public bool TryActivate(string casterEntityId, int abilityId, long currentTick)
         {

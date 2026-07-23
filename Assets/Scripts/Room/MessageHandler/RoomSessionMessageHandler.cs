@@ -1,20 +1,21 @@
 using GameFramework;
 using MessagePipe;
 using Mirror;
-using VContainer;
 
 namespace LOP
 {
     public class RoomSessionMessageHandler : MessageHandlerBase
     {
-        [Inject]
-        private IUserDataStore userDataStore;
+        private readonly IUserDataStore userDataStore;
+        private readonly IPlayerContext playerContext;
+        private readonly ISubscriber<GameInfoToC> gameInfoSubscriber;
 
-        [Inject]
-        private IPlayerContext playerContext;
-
-        [Inject]
-        private ISubscriber<GameInfoToC> gameInfoSubscriber;
+        public RoomSessionMessageHandler(IUserDataStore userDataStore, IPlayerContext playerContext, ISubscriber<GameInfoToC> gameInfoSubscriber)
+        {
+            this.userDataStore = userDataStore;
+            this.playerContext = playerContext;
+            this.gameInfoSubscriber = gameInfoSubscriber;
+        }
 
         protected override void Subscribe() => Track(gameInfoSubscriber.Subscribe(OnGameInfoToC));
 

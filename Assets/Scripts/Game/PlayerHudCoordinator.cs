@@ -2,7 +2,6 @@ using GameFramework;
 using LOP.Event.Entity;
 using LOP.UI;
 using MessagePipe;
-using VContainer;
 
 namespace LOP
 {
@@ -15,11 +14,18 @@ namespace LOP
     /// </summary>
     public class PlayerHudCoordinator : MessageHandlerBase
     {
-        [Inject] private IGameDataStore gameDataStore;
-        [Inject] private IWindowManager windowManager;
-        [Inject] private ISubscriber<EntityCreated> entityCreatedSubscriber;
+        private readonly IGameDataStore gameDataStore;
+        private readonly IWindowManager windowManager;
+        private readonly ISubscriber<EntityCreated> entityCreatedSubscriber;
 
         private bool _opened;
+
+        public PlayerHudCoordinator(IGameDataStore gameDataStore, IWindowManager windowManager, ISubscriber<EntityCreated> entityCreatedSubscriber)
+        {
+            this.gameDataStore = gameDataStore;
+            this.windowManager = windowManager;
+            this.entityCreatedSubscriber = entityCreatedSubscriber;
+        }
 
         protected override void Subscribe() => Track(entityCreatedSubscriber.Subscribe(OnEntityCreated));
 

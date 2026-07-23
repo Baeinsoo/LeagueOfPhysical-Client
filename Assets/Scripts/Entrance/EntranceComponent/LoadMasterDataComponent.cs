@@ -2,14 +2,17 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using VContainer;
 
 namespace LOP
 {
     public class LoadMasterDataComponent : IEntranceComponent
     {
-        [Inject]
-        private LOP.MasterData.LOPMasterData masterData;
+        private readonly LOP.MasterData.LOPMasterData masterData;
+
+        public LoadMasterDataComponent(LOP.MasterData.LOPMasterData masterData)
+        {
+            this.masterData = masterData;
+        }
 
         public async Task Execute()
         {

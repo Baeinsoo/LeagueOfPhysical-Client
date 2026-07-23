@@ -2,7 +2,6 @@ using GameFramework;
 using LOP.Event.Entity;
 using MessagePipe;
 using System.Collections.Generic;
-using VContainer;
 
 namespace LOP
 {
@@ -13,14 +12,16 @@ namespace LOP
     /// </summary>
     public class WorldEventSink : GameFramework.World.IEventSink
     {
-        [Inject]
-        private LOP.MasterData.LOPMasterData md;
+        private readonly LOP.MasterData.LOPMasterData md;
+        private readonly IPublisher<string, EntityDamage> entityDamagePublisher;
+        private readonly IPublisher<string, AbilityActivated> abilityActivatedPublisher;
 
-        [Inject]
-        private IPublisher<string, EntityDamage> entityDamagePublisher;
-
-        [Inject]
-        private IPublisher<string, AbilityActivated> abilityActivatedPublisher;
+        public WorldEventSink(LOP.MasterData.LOPMasterData md, IPublisher<string, EntityDamage> entityDamagePublisher, IPublisher<string, AbilityActivated> abilityActivatedPublisher)
+        {
+            this.md = md;
+            this.entityDamagePublisher = entityDamagePublisher;
+            this.abilityActivatedPublisher = abilityActivatedPublisher;
+        }
 
         public void Emit(IReadOnlyList<GameFramework.World.WorldEvent> events)
         {

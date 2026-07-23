@@ -4,7 +4,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-using VContainer;
 
 namespace LOP
 {
@@ -13,13 +12,13 @@ namespace LOP
         private const int CHECK_INTERVAL = 1;   //  sec
         private const int MAX_ATTEMPTS = 10;
 
-        private readonly IObjectResolver resolver;
+        private readonly Func<CheckMatch> checkMatch;
         private readonly IUserDataStore userDataStore;
         private readonly RoomConnector roomConnector;
 
-        public InGameRoom(IObjectResolver resolver, IUserDataStore userDataStore, RoomConnector roomConnector)
+        public InGameRoom(Func<CheckMatch> checkMatch, IUserDataStore userDataStore, RoomConnector roomConnector)
         {
-            this.resolver = resolver;
+            this.checkMatch = checkMatch;
             this.userDataStore = userDataStore;
             this.roomConnector = roomConnector;
         }
@@ -28,7 +27,7 @@ namespace LOP
         {
             return ev switch
             {
-                MatchEvent.RecheckRequested => resolver.Resolve<CheckMatch>(),
+                MatchEvent.RecheckRequested => checkMatch(),
                 _ => this,
             };
         }

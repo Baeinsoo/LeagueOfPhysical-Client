@@ -3,18 +3,19 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-using VContainer;
 
 namespace LOP
 {
     public class CancelMatchmaking : State<MatchEvent>
     {
-        private readonly IObjectResolver resolver;
+        private readonly Func<InGameRoom> inGameRoom;
+        private readonly Func<CheckMatch> checkMatch;
         private readonly IUserDataStore userDataStore;
 
-        public CancelMatchmaking(IObjectResolver resolver, IUserDataStore userDataStore)
+        public CancelMatchmaking(Func<InGameRoom> inGameRoom, Func<CheckMatch> checkMatch, IUserDataStore userDataStore)
         {
-            this.resolver = resolver;
+            this.inGameRoom = inGameRoom;
+            this.checkMatch = checkMatch;
             this.userDataStore = userDataStore;
         }
 
@@ -22,8 +23,8 @@ namespace LOP
         {
             return ev switch
             {
-                MatchEvent.LocationIsGameRoom => resolver.Resolve<InGameRoom>(),
-                MatchEvent.RecheckRequested => resolver.Resolve<CheckMatch>(),
+                MatchEvent.LocationIsGameRoom => inGameRoom(),
+                MatchEvent.RecheckRequested => checkMatch(),
                 _ => this,
             };
         }

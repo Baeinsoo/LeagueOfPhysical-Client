@@ -1,22 +1,22 @@
 using GameFramework;
-using VContainer;
+using System;
 
 namespace LOP
 {
     public class Idle : State<MatchEvent>
     {
-        private readonly IObjectResolver resolver;
+        private readonly Func<RequestMatchmaking> requestMatchmaking;
 
-        public Idle(IObjectResolver resolver)
+        public Idle(Func<RequestMatchmaking> requestMatchmaking)
         {
-            this.resolver = resolver;
+            this.requestMatchmaking = requestMatchmaking;
         }
 
         public override IState<MatchEvent> GetNextState(MatchEvent ev)
         {
             return ev switch
             {
-                MatchEvent.PlayClicked => resolver.Resolve<RequestMatchmaking>(),
+                MatchEvent.PlayClicked => requestMatchmaking(),
                 _ => this,
             };
         }

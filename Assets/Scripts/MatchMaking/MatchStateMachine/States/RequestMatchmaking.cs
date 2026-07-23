@@ -3,19 +3,20 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-using VContainer;
 
 namespace LOP
 {
     public class RequestMatchmaking : State<MatchEvent>
     {
-        private readonly IObjectResolver resolver;
+        private readonly Func<InWaitingRoom> inWaitingRoom;
+        private readonly Func<CheckMatch> checkMatch;
         private readonly IUserDataStore userDataStore;
         private readonly IMatchMakingDataStore matchMakingDataStore;
 
-        public RequestMatchmaking(IObjectResolver resolver, IUserDataStore userDataStore, IMatchMakingDataStore matchMakingDataStore)
+        public RequestMatchmaking(Func<InWaitingRoom> inWaitingRoom, Func<CheckMatch> checkMatch, IUserDataStore userDataStore, IMatchMakingDataStore matchMakingDataStore)
         {
-            this.resolver = resolver;
+            this.inWaitingRoom = inWaitingRoom;
+            this.checkMatch = checkMatch;
             this.userDataStore = userDataStore;
             this.matchMakingDataStore = matchMakingDataStore;
         }
@@ -24,8 +25,8 @@ namespace LOP
         {
             return ev switch
             {
-                MatchEvent.MatchRequestSucceeded => resolver.Resolve<InWaitingRoom>(),
-                MatchEvent.MatchRequestFailed => resolver.Resolve<CheckMatch>(),
+                MatchEvent.MatchRequestSucceeded => inWaitingRoom(),
+                MatchEvent.MatchRequestFailed => checkMatch(),
                 _ => this,
             };
         }

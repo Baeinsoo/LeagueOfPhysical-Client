@@ -4,7 +4,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-using VContainer;
 
 namespace LOP
 {
@@ -13,12 +12,16 @@ namespace LOP
         private const int MAX_ATTEMPTS = 3;
         private static readonly TimeSpan RetryInterval = TimeSpan.FromSeconds(1);
 
-        private readonly IObjectResolver resolver;
+        private readonly Func<InGameRoom> inGameRoom;
+        private readonly Func<InWaitingRoom> inWaitingRoom;
+        private readonly Func<Idle> idle;
         private readonly IUserDataStore userDataStore;
 
-        public CheckMatch(IObjectResolver resolver, IUserDataStore userDataStore)
+        public CheckMatch(Func<InGameRoom> inGameRoom, Func<InWaitingRoom> inWaitingRoom, Func<Idle> idle, IUserDataStore userDataStore)
         {
-            this.resolver = resolver;
+            this.inGameRoom = inGameRoom;
+            this.inWaitingRoom = inWaitingRoom;
+            this.idle = idle;
             this.userDataStore = userDataStore;
         }
 
@@ -26,9 +29,9 @@ namespace LOP
         {
             return ev switch
             {
-                MatchEvent.LocationIsGameRoom => resolver.Resolve<InGameRoom>(),
-                MatchEvent.LocationIsWaitingRoom => resolver.Resolve<InWaitingRoom>(),
-                MatchEvent.LocationIsNone => resolver.Resolve<Idle>(),
+                MatchEvent.LocationIsGameRoom => inGameRoom(),
+                MatchEvent.LocationIsWaitingRoom => inWaitingRoom(),
+                MatchEvent.LocationIsNone => idle(),
                 _ => this,
             };
         }

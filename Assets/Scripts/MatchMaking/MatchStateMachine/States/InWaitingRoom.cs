@@ -4,7 +4,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-using VContainer;
 
 namespace LOP
 {
@@ -13,12 +12,16 @@ namespace LOP
         private const int CHECK_INTERVAL = 1;     //  sec
         private const int MAX_CONSECUTIVE_FAILURES = 5;
 
-        private readonly IObjectResolver resolver;
+        private readonly Func<CancelMatchmaking> cancelMatchmaking;
+        private readonly Func<InGameRoom> inGameRoom;
+        private readonly Func<Idle> idle;
         private readonly IUserDataStore userDataStore;
 
-        public InWaitingRoom(IObjectResolver resolver, IUserDataStore userDataStore)
+        public InWaitingRoom(Func<CancelMatchmaking> cancelMatchmaking, Func<InGameRoom> inGameRoom, Func<Idle> idle, IUserDataStore userDataStore)
         {
-            this.resolver = resolver;
+            this.cancelMatchmaking = cancelMatchmaking;
+            this.inGameRoom = inGameRoom;
+            this.idle = idle;
             this.userDataStore = userDataStore;
         }
 
@@ -26,9 +29,9 @@ namespace LOP
         {
             return ev switch
             {
-                MatchEvent.CancelClicked => resolver.Resolve<CancelMatchmaking>(),
-                MatchEvent.LocationIsGameRoom => resolver.Resolve<InGameRoom>(),
-                MatchEvent.LocationIsNone => resolver.Resolve<Idle>(),
+                MatchEvent.CancelClicked => cancelMatchmaking(),
+                MatchEvent.LocationIsGameRoom => inGameRoom(),
+                MatchEvent.LocationIsNone => idle(),
                 _ => this,
             };
         }

@@ -15,12 +15,15 @@ namespace LOP
         {
             builder.Register<MatchStateMachine>(Lifetime.Transient);
 
-            builder.Register<CheckMatch>(Lifetime.Transient);
-            builder.Register<Idle>(Lifetime.Transient);
-            builder.Register<RequestMatchmaking>(Lifetime.Transient);
-            builder.Register<InWaitingRoom>(Lifetime.Transient);
-            builder.Register<InGameRoom>(Lifetime.Transient);
-            builder.Register<CancelMatchmaking>(Lifetime.Transient);
+            // 각 상태를 Transient로 + 그 Func<T> 팩토리를 함께 등록한다. 상태 생성자가 IObjectResolver(서비스
+            // 로케이터) 대신 Func<다음상태>로 전이 대상을 명시할 수 있게 함 — VContainer는 암묵적 Func<T>를
+            // 제공하지 않아 팩토리를 명시 등록해야 한다.
+            RegisterState<CheckMatch>(builder);
+            RegisterState<Idle>(builder);
+            RegisterState<RequestMatchmaking>(builder);
+            RegisterState<InWaitingRoom>(builder);
+            RegisterState<InGameRoom>(builder);
+            RegisterState<CancelMatchmaking>(builder);
 
             builder.Register<MatchMakingViewModel>(Lifetime.Transient);
             builder.Register<MatchMakingView>(Lifetime.Transient);
@@ -42,6 +45,13 @@ namespace LOP
             // 팩토리 해제 + 열린 MatchMakingView Close → VM.Dispose → FSM.Stop (base가 컨테이너 dispose하기 전).
             _matchMakingViewRegistration?.Dispose();
             base.OnDestroy();
+        }
+
+        // 상태를 Transient로 등록하고 그 Func<T> 팩토리도 함께 등록한다(전이를 Func<다음상태>로 명시하기 위해).
+        private static void RegisterState<T>(IContainerBuilder builder) where T : class
+        {
+            builder.Register<T>(Lifetime.Transient);
+            builder.RegisterFactory<T>(resolver => () => resolver.Resolve<T>(), Lifetime.Singleton);
         }
     }
 }

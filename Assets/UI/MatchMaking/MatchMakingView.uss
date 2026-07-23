@@ -3,6 +3,8 @@
     align-items: center;
     justify-content: center;
     background-color: rgb(18, 18, 24);
+    background-image: url("../Lobby/lobby_screen.png");
+    -unity-background-scale-mode: scale-and-crop;
 }
 
 .matchmaking-panel {

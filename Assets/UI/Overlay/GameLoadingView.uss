@@ -1,12 +1,16 @@
 .loading-root {
     flex-grow: 1;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-end;
     background-color: rgba(10, 10, 14, 0.96);
+    background-image: url("loading_screen.png");
+    -unity-background-scale-mode: scale-and-crop;
 }
 
 .loading-text {
     font-size: 32px;
-    color: rgb(235, 235, 245);
+    color: rgb(255, 255, 255);
     -unity-text-align: middle-center;
+    margin-bottom: 48px;
+    -unity-font-style: bold;
 }

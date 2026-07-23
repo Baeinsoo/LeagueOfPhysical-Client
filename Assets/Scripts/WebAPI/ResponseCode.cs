@@ -8,7 +8,7 @@ namespace LOP
     {
         public const int SUCCESS = 200;
 
-        #region MatchMaking
+        #region Matchmaking
         public const int INVALID_TO_MATCH_MAKING = 10000;
         public const int ALREADY_IN_GAME = 10001;
 

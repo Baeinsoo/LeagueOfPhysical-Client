@@ -11,14 +11,14 @@ namespace LOP
         private readonly Func<InWaitingRoom> inWaitingRoom;
         private readonly Func<CheckMatch> checkMatch;
         private readonly IUserDataStore userDataStore;
-        private readonly IMatchMakingDataStore matchMakingDataStore;
+        private readonly IMatchmakingDataStore matchmakingDataStore;
 
-        public RequestMatchmaking(Func<InWaitingRoom> inWaitingRoom, Func<CheckMatch> checkMatch, IUserDataStore userDataStore, IMatchMakingDataStore matchMakingDataStore)
+        public RequestMatchmaking(Func<InWaitingRoom> inWaitingRoom, Func<CheckMatch> checkMatch, IUserDataStore userDataStore, IMatchmakingDataStore matchmakingDataStore)
         {
             this.inWaitingRoom = inWaitingRoom;
             this.checkMatch = checkMatch;
             this.userDataStore = userDataStore;
-            this.matchMakingDataStore = matchMakingDataStore;
+            this.matchmakingDataStore = matchmakingDataStore;
         }
 
         public override IState<MatchEvent> GetNextState(MatchEvent ev)
@@ -36,9 +36,9 @@ namespace LOP
             var matchmakingRequest = new MatchmakingRequest
             {
                 userId = userDataStore.user.id,
-                matchType = matchMakingDataStore.matchType,
-                subGameId = matchMakingDataStore.subGameId,
-                mapId = matchMakingDataStore.mapId,
+                matchType = matchmakingDataStore.matchType,
+                subGameId = matchmakingDataStore.subGameId,
+                mapId = matchmakingDataStore.mapId,
             };
 
             var requestMatchmaking = await WebAPI.RequestMatchmaking(matchmakingRequest);

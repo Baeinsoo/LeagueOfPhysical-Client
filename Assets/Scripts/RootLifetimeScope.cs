@@ -56,8 +56,8 @@ namespace LOP
                 .As<IDataStore>()
                 .AsSelf();
 
-            builder.Register<MatchMakingDataStore>(Lifetime.Singleton)
-                .As<IMatchMakingDataStore>()
+            builder.Register<MatchmakingDataStore>(Lifetime.Singleton)
+                .As<IMatchmakingDataStore>()
                 .As<IDataStore>()
                 .AsSelf();
 

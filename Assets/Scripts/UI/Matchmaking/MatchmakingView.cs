@@ -4,15 +4,15 @@ namespace LOP.UI
 {
     /// <summary>
     /// 로비 매치메이킹 화면 View. Play 버튼 클릭을 ViewModel 커맨드로 전달하는 얇은 바인더.
-    /// 흐름 시작과 대기 오버레이 제어는 MatchMakingCoordinator가 담당하므로 여기선 다루지 않는다.
+    /// 흐름 시작과 대기 오버레이 제어는 MatchmakingCoordinator가 담당하므로 여기선 다루지 않는다.
     /// </summary>
-    public class MatchMakingView : UIView
+    public class MatchmakingView : UIView
     {
-        private readonly MatchMakingViewModel _viewModel;
+        private readonly MatchmakingViewModel _viewModel;
 
         private Button _playButton;
 
-        public MatchMakingView(MatchMakingViewModel viewModel)
+        public MatchmakingView(MatchmakingViewModel viewModel)
         {
             _viewModel = viewModel;
         }

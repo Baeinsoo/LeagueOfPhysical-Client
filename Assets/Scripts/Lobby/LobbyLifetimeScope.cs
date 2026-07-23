@@ -9,7 +9,7 @@ namespace LOP
     public class LobbyLifetimeScope : LifetimeScope
     {
         // 전역 WindowManager에 로비 스코프 View 팩토리를 기여한 핸들(OnDestroy에서 해제).
-        private IDisposable _matchMakingViewRegistration;
+        private IDisposable _matchmakingViewRegistration;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -26,27 +26,27 @@ namespace LOP
             RegisterState<CancelMatchmaking>(builder);
 
             // VM은 Scoped — View와 Coordinator가 같은 인스턴스를 공유해야 신호가 이어진다.
-            builder.Register<MatchMakingViewModel>(Lifetime.Scoped);
-            builder.Register<MatchMakingView>(Lifetime.Transient);
-            builder.RegisterEntryPoint<MatchMakingCoordinator>();
+            builder.Register<MatchmakingViewModel>(Lifetime.Scoped);
+            builder.Register<MatchmakingView>(Lifetime.Transient);
+            builder.RegisterEntryPoint<MatchmakingCoordinator>();
 
             builder.RegisterBuildCallback(container =>
             {
                 container.InjectSceneObjects(gameObject.scene);
 
-                // 전역 WindowManager에 MatchMakingView 팩토리 기여: Open<MatchMakingView>가 이 스코프 resolver로
-                // 생성 → MatchStateMachine/IMatchMakingDataStore 주입. 로비 진입 시 화면을 연다.
+                // 전역 WindowManager에 MatchmakingView 팩토리 기여: Open<MatchmakingView>가 이 스코프 resolver로
+                // 생성 → MatchStateMachine/IMatchmakingDataStore 주입. 로비 진입 시 화면을 연다.
                 var windowManager = container.Resolve<IWindowManager>();
-                _matchMakingViewRegistration = windowManager.RegisterViewFactory<MatchMakingView>(() => container.Resolve<MatchMakingView>());
-                windowManager.Open<MatchMakingView>();
+                _matchmakingViewRegistration = windowManager.RegisterViewFactory<MatchmakingView>(() => container.Resolve<MatchmakingView>());
+                windowManager.Open<MatchmakingView>();
             });
         }
 
         protected override void OnDestroy()
         {
-            // 팩토리 해제(열린 MatchMakingView 닫힘) 후 컨테이너 dispose — VM(Scoped)·Coordinator(EntryPoint)
+            // 팩토리 해제(열린 MatchmakingView 닫힘) 후 컨테이너 dispose — VM(Scoped)·Coordinator(EntryPoint)
             // 정리는 그 컨테이너 dispose에서 함께 일어난다.
-            _matchMakingViewRegistration?.Dispose();
+            _matchmakingViewRegistration?.Dispose();
             base.OnDestroy();
         }
 

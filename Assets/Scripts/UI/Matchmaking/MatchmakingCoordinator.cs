@@ -5,19 +5,19 @@ using VContainer.Unity;
 namespace LOP.UI
 {
     /// <summary>
-    /// 매칭 흐름의 화면 전환(네비게이션) 담당. MatchMakingViewModel의 IsMatching 신호를 구독해
+    /// 매칭 흐름의 화면 전환(네비게이션) 담당. MatchmakingViewModel의 IsMatching 신호를 구독해
     /// 대기 오버레이(MatchingWaitingView)를 열고/닫고, 취소 버튼을 VM의 Cancel 커맨드에 배선한다.
     /// VM은 신호만 노출하고 화면 교체는 여기서 한다(아키텍처: 작은 흐름=VM / 큰 흐름=코디네이터).
     /// </summary>
-    public class MatchMakingCoordinator : IStartable, IDisposable
+    public class MatchmakingCoordinator : IStartable, IDisposable
     {
         private readonly IWindowManager _windowManager;
-        private readonly MatchMakingViewModel _viewModel;
+        private readonly MatchmakingViewModel _viewModel;
 
         private IDisposable _subscription;
         private MatchingWaitingView _waitingView;
 
-        public MatchMakingCoordinator(IWindowManager windowManager, MatchMakingViewModel viewModel)
+        public MatchmakingCoordinator(IWindowManager windowManager, MatchmakingViewModel viewModel)
         {
             _windowManager = windowManager;
             _viewModel = viewModel;

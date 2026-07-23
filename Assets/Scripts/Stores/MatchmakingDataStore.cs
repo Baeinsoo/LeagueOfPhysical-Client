@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace LOP
 {
-    public class MatchMakingDataStore : IMatchMakingDataStore
+    public class MatchmakingDataStore : IMatchmakingDataStore
     {
         public GameMode matchType { get; set; }
         public string subGameId { get; set; }

@@ -25,8 +25,10 @@ namespace LOP
             RegisterState<InGameRoom>(builder);
             RegisterState<CancelMatchmaking>(builder);
 
-            builder.Register<MatchMakingViewModel>(Lifetime.Transient);
+            // VM은 Scoped — View와 Coordinator가 같은 인스턴스를 공유해야 신호가 이어진다.
+            builder.Register<MatchMakingViewModel>(Lifetime.Scoped);
             builder.Register<MatchMakingView>(Lifetime.Transient);
+            builder.RegisterEntryPoint<MatchMakingCoordinator>();
 
             builder.RegisterBuildCallback(container =>
             {
@@ -42,7 +44,8 @@ namespace LOP
 
         protected override void OnDestroy()
         {
-            // 팩토리 해제 + 열린 MatchMakingView Close → VM.Dispose → FSM.Stop (base가 컨테이너 dispose하기 전).
+            // 팩토리 해제(열린 MatchMakingView 닫힘) 후 컨테이너 dispose — VM(Scoped)·Coordinator(EntryPoint)
+            // 정리는 그 컨테이너 dispose에서 함께 일어난다.
             _matchMakingViewRegistration?.Dispose();
             base.OnDestroy();
         }

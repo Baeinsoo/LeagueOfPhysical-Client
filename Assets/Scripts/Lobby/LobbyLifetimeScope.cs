@@ -9,7 +9,7 @@ namespace LOP
     public class LobbyLifetimeScope : LifetimeScope
     {
         // 전역 WindowManager에 로비 스코프 View 팩토리를 기여한 핸들(OnDestroy에서 해제).
-        private IDisposable _matchmakingViewRegistration;
+        private IDisposable _lobbyHomeViewRegistration;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -25,28 +25,28 @@ namespace LOP
             RegisterState<InGameRoom>(builder);
             RegisterState<CancelMatchmaking>(builder);
 
-            // VM은 Scoped — View와 Coordinator가 같은 인스턴스를 공유해야 신호가 이어진다.
+            // VM은 Scoped — LobbyHomeView(Play)와 Coordinator가 같은 인스턴스를 공유해야 신호가 이어진다.
             builder.Register<MatchmakingViewModel>(Lifetime.Scoped);
-            builder.Register<MatchmakingView>(Lifetime.Transient);
+            builder.Register<LobbyHomeView>(Lifetime.Transient);
             builder.RegisterEntryPoint<MatchmakingCoordinator>();
 
             builder.RegisterBuildCallback(container =>
             {
                 container.InjectSceneObjects(gameObject.scene);
 
-                // 전역 WindowManager에 MatchmakingView 팩토리 기여: Open<MatchmakingView>가 이 스코프 resolver로
-                // 생성 → MatchStateMachine/IMatchmakingDataStore 주입. 로비 진입 시 화면을 연다.
+                // 전역 WindowManager에 LobbyHomeView 팩토리 기여: Open<LobbyHomeView>가 이 스코프 resolver로
+                // 생성 → MatchmakingViewModel 주입. 로비 진입 시 허브 화면을 연다.
                 var windowManager = container.Resolve<IWindowManager>();
-                _matchmakingViewRegistration = windowManager.RegisterViewFactory<MatchmakingView>(() => container.Resolve<MatchmakingView>());
-                windowManager.Open<MatchmakingView>();
+                _lobbyHomeViewRegistration = windowManager.RegisterViewFactory<LobbyHomeView>(() => container.Resolve<LobbyHomeView>());
+                windowManager.Open<LobbyHomeView>();
             });
         }
 
         protected override void OnDestroy()
         {
-            // 팩토리 해제(열린 MatchmakingView 닫힘) 후 컨테이너 dispose — VM(Scoped)·Coordinator(EntryPoint)
+            // 팩토리 해제(열린 LobbyHomeView 닫힘) 후 컨테이너 dispose — VM(Scoped)·Coordinator(EntryPoint)
             // 정리는 그 컨테이너 dispose에서 함께 일어난다.
-            _matchmakingViewRegistration?.Dispose();
+            _lobbyHomeViewRegistration?.Dispose();
             base.OnDestroy();
         }
 

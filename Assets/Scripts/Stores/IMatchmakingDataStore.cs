@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace LOP
 {
-    public interface IMatchMakingDataStore : IDataStore
+    public interface IMatchmakingDataStore : IDataStore
     {
         GameMode matchType { get; set; }
         string subGameId { get; set; }

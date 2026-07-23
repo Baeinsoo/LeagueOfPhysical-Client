@@ -25,8 +25,10 @@ namespace LOP
             RegisterState<InGameRoom>(builder);
             RegisterState<CancelMatchmaking>(builder);
 
-            builder.Register<MatchMakingViewModel>(Lifetime.Transient);
+            // VM은 Scoped — View와 Coordinator가 같은 인스턴스를 공유해야 신호가 이어진다.
+            builder.Register<MatchMakingViewModel>(Lifetime.Scoped);
             builder.Register<MatchMakingView>(Lifetime.Transient);
+            builder.RegisterEntryPoint<MatchmakingCoordinator>();
 
             builder.RegisterBuildCallback(container =>
             {

@@ -65,13 +65,13 @@
 
 ## ▶ 다음 (Next — 순서 있음)
 
-### 프론트엔드 플로우 골격 (Slice A~D) — **현재 활성 트랙**
-로그인 이후 화면 흐름(로비 홈 → 매칭 → 게임 → 결과)을 **3층 전환 모델**(씬=앱 FSM / 윈도우=코디네이터 / 화면 안 상태=VM)로 정리하는 트랙. spec `docs/superpowers/specs/2026-07-23-front-end-flow-skeleton-design.md`.
+### 프론트엔드 플로우 골격 (Slice A~D) — ✅ **트랙 종결(07-24)**
+로그인 이후 화면 흐름(로비 홈 → 매칭 → 게임 → 결과)을 **3층 전환 모델**(씬=앱 FSM / 윈도우=코디네이터 / 화면 안 상태=VM)로 정리하는 트랙. spec `docs/superpowers/specs/2026-07-23-front-end-flow-skeleton-design.md`. **B·C·D·A 전부 완료·머지 — 트랙 종결.**
 
 - ✅ **Slice B — 로비 홈 허브 (완료·머지 07-23)**: 로비 베이스 화면을 `LobbyHomeView`(Play + 하단 네비바 레이아웃)로 교체, `MatchmakingView` 은퇴(Play 역할 흡수), 매칭 대기 오버레이는 `MatchmakingCoordinator`가 담당. plan `2026-07-23-flow-slice-b-lobby-home.md`.
 - ✅ **Slice C — 프론트엔드 네비(상점/설정/프로필 셸) (완료·머지 07-24)**: 네비바 버튼 배선. `LobbyHomeViewModel`이 네비 신호(`Observable<FrontEndDestination>`)만 노출 → 신규 `FrontEndCoordinator`가 구독해 셸 윈도우 push/pop(한 번에 하나). 셸 3종은 공유 `ShellView` 베이스 + 공유 UXML(제목만 다른 플레이스홀더). plan `2026-07-24-flow-slice-c-frontend-nav.md`. **셸 내용(상점 품목/설정 항목/프로필 데이터)은 화면별 후속 스펙.**
 - ✅ **Slice D — 결과 화면 (완료·머지 07-24, 3레포)**: 매치 종료 통보 경로. 서버 `LOPRunner.EndMatch()` → `LOPRoom`이 전 세션에 신규 `MatchEndedToC`(빈 메시지) 브로드캐스트 → 클라 `MatchEndedMessageHandler`가 결과를 Root 스코프 `MatchResultDataStore`에 남기고 클라 `LOPRunner.EndMatch()` → 기존 `case GameOver`가 로비 씬 로드 → `FrontEndCoordinator`가 대기 결과를 보고 `MatchResultView`(플레이스홀더)를 한 번 띄우고 [확인] 시 Clear. 어휘 규약 확정(새 LOP 도메인 이름=match / 러너 상태 family=game 유지, 언리얼 `AGameMode`↔`EndMatch` 정합). spec `2026-07-24-flow-slice-d-match-result-design.md`, plan `2026-07-24-flow-slice-d-match-result.md`. **결과 내용(점수·순위)은 게임 모드 확정 후 후속.**
-- ▶ **Slice A — 앱 FSM 씬 전환 일원화**: `AppStateMachine`이 씬 페이즈를 소유하고 `MatchStateMachine`은 신호만(LoadScene 제거).
+- ✅ **Slice A — 앱 FSM 씬 전환 일원화 (완료·머지 07-24)**: 흩어진 `LoadScene` 4곳을 Root 스코프 `AppStateMachine`(신규, GameFramework `StateMachine<AppEvent>` 위) 한 곳으로 일원화. 씬 페이즈 `Boot/FrontEnd/InMatch` + 신호 `BootCompleted`/`MatchFound`/`MatchEnded`, 씬 로드는 `ISceneLoader` 포트 뒤로(씬 이름 중앙화). 각 소스는 씬을 직접 로드하지 않고 신호만 Fire: `EntranceScene`→`BootCompleted`, 매칭 `InGameRoom`→`MatchFound`(+`RoomConnector` 로드 제거·이중 재시도 루프 정리), `LOPRoom` GameOver·에러→`MatchEnded`. 역할이 매칭 FSM에 흡수된 죽은 `CheckLocationComponent` 삭제. `AppStateMachine`은 `IStartable`(상속 `Start()`)로 앱 시작 시 기동+`AsSelf`로 자식 스코프 주입. spec `2026-07-24-flow-slice-a-app-fsm-design.md`, plan `2026-07-24-flow-slice-a-app-fsm.md`. **매치 자동 종료 트리거는 서버 `LOPRunner`의 경과 5분(`60*5`) 타이머(20초 아님).**
 
 > 화면 아트(타이틀/로비/로딩 배경)는 별도 `feature/ui-screen-art`로 들어옴 — 로비 배경은 은퇴한 `MatchMakingView.uss` 대신 `LobbyHomeView.uss`가 참조(07-24 머지 시 재배선).
 

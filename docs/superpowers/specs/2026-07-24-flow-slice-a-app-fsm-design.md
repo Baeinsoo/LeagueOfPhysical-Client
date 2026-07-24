@@ -72,10 +72,12 @@ Root 싱글턴. 앱 시작 시 작은 Root 엔트리포인트(`IStartable`)가 `
 씬 로드를 `ISceneLoader`(메서드 `void Load(string sceneName)`, non-additive) 포트 뒤에 둔다. Unity 구현
 `SceneLoader`가 `SceneManager.LoadScene(sceneName)`을 감싼다.
 
-**근거 3가지**:
+**근거 2가지**:
 1. 흩어진 씬 이름 리터럴을 한 곳에 모은다 — Slice A의 목적 자체.
 2. FSM을 `UnityEngine.SceneManagement` static에서 분리한다.
-3. 페이크 `ISceneLoader`로 "각 상태 진입 시 올바른 씬을 로드하는지" 테스트 가능.
+
+(원칙적으로 페이크로 테스트 가능하지만, 클라 test asmdef가 Assembly-CSharp를 참조할 수 없어 페이크
+`ISceneLoader`를 만들 수 없다 — 아래 "테스트" 참고. 그래서 테스트는 이 포트의 도입 근거가 아니다.)
 
 아키텍처 문서의 `Infrastructure/SceneManagement`(`SceneLoader`, `SceneTransition`) 네이밍과 정합.
 
@@ -145,12 +147,14 @@ Root 싱글턴. 앱 시작 시 작은 Root 엔트리포인트(`IStartable`)가 `
 
 - **FSM 메커니즘**(Fire/재진입 큐/전이): GameFramework EditMode `StateMachineTests`(7개)에 **이미 있음**.
   `AppStateMachine`이 그 위에 얹히므로 재사용 — 새로 검증할 필요 없음.
-- **`AppStateMachine`의 3-엣지 전이표 + 씬 로드 배선**: 페이크 `ISceneLoader`로 "각 상태에서 올바른
-  이벤트에 올바른 씬을 로드하는지 / 잘못된 이벤트는 무시되는지" 검증. 클라는 Assembly-CSharp라 EditMode
-  불가 → PlayMode + 리플렉션 관용(`client-test-infra-constraint`). 그래프가 작아(3 상태·3 엣지) 가볍다.
+- **`AppStateMachine`의 3-엣지 전이표 + 씬 로드 배선**: 클라 test 인프라 제약으로 **유닛 테스트 불가**.
+  클라는 전부 Assembly-CSharp라 test asmdef가 참조할 수 없고(`client-test-infra-constraint`), 따라서 페이크
+  `ISceneLoader`(인터페이스가 Assembly-CSharp에 있음)를 구현할 수도 없다. 이는 프론트엔드 플로우 트랙
+  전체(Slice B/C/D)가 유닛 테스트 없이 플레이테스트로 검증돼 온 것과 같은 제약이다. 전이표가 작고
+  (3 상태·3 엣지) 저위험이라 아래 엔드투엔드 루프 플레이테스트로 충분히 커버된다.
 - **엔드투엔드 루프**: 플레이테스트(로컬 서버) — Boot→로비→Play→매칭→인게임→GameOver→결과→로비 고리가
   도는지. ⚠️ 파킹된 백엔드 desync로 결과→로비 구간은 백엔드 위치 정리 전까진 자동 재접속이 낄 수 있음
-  (예상된 제약, 위 "범위" 참고).
+  (예상된 제약, 위 "범위" 참고). + 컴파일 검증은 UnityMCP(클라 인스턴스 대상).
 
 ## 죽은 `CheckLocationComponent` 삭제 (범위 포함)
 

@@ -25,7 +25,8 @@ namespace LOP
             IPublisher<UserEntitySnapToC> userSnap,
             IPublisher<StatAllocationToC> statAllocation,
             IPublisher<InputSequenceToC> inputSequence,
-            IPublisher<InputTimingToC> inputTiming)
+            IPublisher<InputTimingToC> inputTiming,
+            IPublisher<MatchEndedToC> matchEnded)
         {
             Register(gameInfo);
             Register(worldEventBatch);
@@ -36,6 +37,7 @@ namespace LOP
             Register(statAllocation);
             Register(inputSequence);
             Register(inputTiming);
+            Register(matchEnded);
         }
 
         private void Register<T>(IPublisher<T> publisher) where T : IMessage

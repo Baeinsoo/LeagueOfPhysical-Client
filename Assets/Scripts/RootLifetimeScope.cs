@@ -74,6 +74,11 @@ namespace LOP
 
             builder.Register<RoomConnector>(Lifetime.Transient);
 
+            // 앱-플로우 씬 페이즈 FSM(Root). IStartable로 앱 시작 시 Start()되어 Boot 진입.
+            // AsSelf로 자식 스코프(Entrance/Lobby/Room)가 주입받아 신호를 Fire할 수 있게 한다.
+            builder.Register<ISceneLoader, SceneLoader>(Lifetime.Singleton);
+            builder.RegisterEntryPoint<AppStateMachine>().AsSelf();
+
             new UIInstaller().Install(builder);
 
             #region RegisterBuildCallback

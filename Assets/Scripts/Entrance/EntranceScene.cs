@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using VContainer;
 
 namespace LOP
@@ -15,11 +14,14 @@ namespace LOP
         [Inject]
         private IEnumerable<IEntranceComponent> entranceComponents;
 
+        [Inject]
+        private AppStateMachine appStateMachine;
+
         private async void Start()
         {
             if (await ExecuteEntranceComponents())
             {
-                SceneManager.LoadScene("Lobby");
+                appStateMachine.Fire(AppEvent.BootCompleted);
             }
         }
 

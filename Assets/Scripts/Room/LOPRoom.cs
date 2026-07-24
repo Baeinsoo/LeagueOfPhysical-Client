@@ -6,7 +6,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using VContainer;
 
 namespace LOP
@@ -19,6 +18,7 @@ namespace LOP
         [Inject] private IGameDataStore gameDataStore;
         [Inject] private IUserDataStore userDataStore;
         [Inject] private NetworkMessageDispatcher dispatcher;
+        [Inject] private AppStateMachine appStateMachine;
 
         public IRunner runner { get; private set; }
 
@@ -36,7 +36,7 @@ namespace LOP
             catch (Exception e)
             {
                 Debug.LogError(e);
-                SceneManager.LoadScene("Lobby");
+                appStateMachine.Fire(AppEvent.MatchEnded);
             }
         }
 
@@ -141,7 +141,7 @@ namespace LOP
             {
                 case GameOver:
                     Debug.Log("Game Over");
-                    SceneManager.LoadScene("Lobby");
+                    appStateMachine.Fire(AppEvent.MatchEnded);
                     break;
             }
         }

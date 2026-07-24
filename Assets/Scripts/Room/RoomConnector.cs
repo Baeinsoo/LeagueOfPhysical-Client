@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using GameFramework;
 using System;
 
@@ -20,6 +19,9 @@ namespace LOP
             this.roomDataStore = roomDataStore;
         }
 
+        //  방 배정 확인(성공 시 RoomJoinableResponse 구독이 RoomDataStore.room을 채움).
+        //  씬 로드는 하지 않는다 — 호출자가 성공을 받아 AppStateMachine에 MatchFound를 발행하고,
+        //  실제 Room 씬 로드는 AppStateMachine의 InMatch 진입이 담당한다.
         public async Task<bool> TryToEnterRoomById(string roomId, int retryCount = DEFAULT_RETRY_COUNT)
         {
             for (int attempt = 0; attempt < retryCount; attempt++)
@@ -30,7 +32,6 @@ namespace LOP
 
                     if (checkRoomJoinable.response.code == ResponseCode.SUCCESS)
                     {
-                        SceneManager.LoadScene("Room");
                         return true;
                     }
                 }

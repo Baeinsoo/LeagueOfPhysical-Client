@@ -60,11 +60,11 @@ namespace LOP
             }
             samples.Add(new RenderSample
             {
-                time = Runner.Time.tick * Runner.Time.tickInterval,
+                time = runner.tickUpdater.tick * runner.tickUpdater.interval,
                 position = renderCorrectionSmoother.Target(GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity).ToNumerics()).ToUnity(),
                 rotation = GameFramework.World.EntityMotionExtensions.GetRotation(worldEntity),
             });
-            renderCorrectionSmoother.DecayTick((float)Runner.Time.tickInterval);
+            renderCorrectionSmoother.DecayTick((float)runner.tickUpdater.interval);
         }
 
         private void LateUpdate()
@@ -75,7 +75,7 @@ namespace LOP
             }
 
             // 한 틱 뒤 연속 시각에서 그린다(외삽 대신 과거 두 샘플 사이 보간).
-            double renderTime = Runner.Time.elapsedTime - Runner.Time.tickInterval;
+            double renderTime = runner.tickUpdater.elapsedTime - runner.tickUpdater.interval;
 
             sampleTimes.Clear();
             for (int i = 0; i < samples.Count; i++)

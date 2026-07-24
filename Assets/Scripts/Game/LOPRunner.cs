@@ -95,7 +95,7 @@ namespace LOP
 
             ProcessNetworkMessage();
 
-            reconciler.Reconcile(Runner.Time.tick, (float)tickUpdater.interval);
+            reconciler.Reconcile(tickUpdater.tick, (float)tickUpdater.interval);
 
             ProcessInput();
 
@@ -105,7 +105,7 @@ namespace LOP
 
             UpdateAI();
 
-            world.Tick(Runner.Time.tick, (float)tickUpdater.interval);
+            world.Tick(tickUpdater.tick, (float)tickUpdater.interval);
 
             SimulatePhysics();
 
@@ -211,12 +211,12 @@ namespace LOP
             }
 
             snapshotHistory.Record(new GameFramework.Netcode.EntitySnapshot(
-                Runner.Time.tick,
+                tickUpdater.tick,
                 transform.Position,
                 transform.Rotation,
                 velocity.Linear));
 
-            predictedAbilityStateHistory.Record(Runner.Time.tick, PredictedAbilityState.Capture(worldEntity));
+            predictedAbilityStateHistory.Record(tickUpdater.tick, PredictedAbilityState.Capture(worldEntity));
         }
     }
 }

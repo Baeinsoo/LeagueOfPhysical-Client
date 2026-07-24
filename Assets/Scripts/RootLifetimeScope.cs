@@ -38,6 +38,7 @@ namespace LOP
             builder.RegisterMessageBroker<StatAllocationToC>(options);
             builder.RegisterMessageBroker<InputSequenceToC>(options);
             builder.RegisterMessageBroker<InputTimingToC>(options);
+            builder.RegisterMessageBroker<MatchEndedToC>(options);
             builder.Register<NetworkMessageDispatcher>(Lifetime.Singleton);
 
             // 엔티티별 이벤트(keyed, 키=entityId)
@@ -63,6 +64,11 @@ namespace LOP
 
             builder.Register<RoomDataStore>(Lifetime.Singleton)
                 .As<IRoomDataStore>()
+                .As<IDataStore>()
+                .AsSelf();
+
+            builder.Register<MatchResultDataStore>(Lifetime.Singleton)
+                .As<IMatchResultDataStore>()
                 .As<IDataStore>()
                 .AsSelf();
 

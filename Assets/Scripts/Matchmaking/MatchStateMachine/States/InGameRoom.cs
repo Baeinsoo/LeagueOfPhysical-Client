@@ -1,4 +1,3 @@
-using Cysharp.Threading.Tasks;
 using GameFramework;
 using System;
 using System.Threading;
@@ -9,18 +8,17 @@ namespace LOP
 {
     public class InGameRoom : State<MatchEvent>
     {
-        private const int CHECK_INTERVAL = 1;   //  sec
-        private const int MAX_ATTEMPTS = 10;
-
         private readonly Func<CheckMatch> checkMatch;
         private readonly IUserDataStore userDataStore;
         private readonly RoomConnector roomConnector;
+        private readonly AppStateMachine appStateMachine;
 
-        public InGameRoom(Func<CheckMatch> checkMatch, IUserDataStore userDataStore, RoomConnector roomConnector)
+        public InGameRoom(Func<CheckMatch> checkMatch, IUserDataStore userDataStore, RoomConnector roomConnector, AppStateMachine appStateMachine)
         {
             this.checkMatch = checkMatch;
             this.userDataStore = userDataStore;
             this.roomConnector = roomConnector;
+            this.appStateMachine = appStateMachine;
         }
 
         public override IState<MatchEvent> GetNextState(MatchEvent ev)
@@ -40,14 +38,15 @@ namespace LOP
                 return MatchEvent.RecheckRequested;
             }
 
-            for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)
+            if (await roomConnector.TryToEnterRoomById(gameRoomLocationDetail.gameRoomId))
             {
-                await roomConnector.TryToEnterRoomById(gameRoomLocationDetail.gameRoomId);
-                await UniTask.Delay(TimeSpan.FromSeconds(CHECK_INTERVAL), cancellationToken: ct);
+                //  매치 진입 확정 → 앱 FSM이 Room 씬을 로드(InMatch). 씬 언로드로 이 매칭 FSM은
+                //  LobbyLifetimeScope.OnDestroy에서 정리되므로 자기 전이는 하지 않는다(null 반환).
+                appStateMachine.Fire(AppEvent.MatchFound);
+                return null;
             }
 
-            //  여러 번 시도해도 입장 실패 → 위치 재확인.
-            Debug.LogError($"Failed to enter game room after {MAX_ATTEMPTS} attempts.");
+            //  입장 실패 → 위치 재확인.
             return MatchEvent.RecheckRequested;
         }
 

@@ -65,7 +65,17 @@
 
 ## ▶ 다음 (Next — 순서 있음)
 
-### 엔티티 Unity 레이어 재구조화 — **현재 활성 트랙**
+### 프론트엔드 플로우 골격 (Slice A~D) — **현재 활성 트랙**
+로그인 이후 화면 흐름(로비 홈 → 매칭 → 게임 → 결과)을 **3층 전환 모델**(씬=앱 FSM / 윈도우=코디네이터 / 화면 안 상태=VM)로 정리하는 트랙. spec `docs/superpowers/specs/2026-07-23-front-end-flow-skeleton-design.md`.
+
+- ✅ **Slice B — 로비 홈 허브 (완료·머지 07-23)**: 로비 베이스 화면을 `LobbyHomeView`(Play + 하단 네비바 레이아웃)로 교체, `MatchmakingView` 은퇴(Play 역할 흡수), 매칭 대기 오버레이는 `MatchmakingCoordinator`가 담당. plan `2026-07-23-flow-slice-b-lobby-home.md`.
+- ✅ **Slice C — 프론트엔드 네비(상점/설정/프로필 셸) (완료·머지 07-24)**: 네비바 버튼 배선. `LobbyHomeViewModel`이 네비 신호(`Observable<FrontEndDestination>`)만 노출 → 신규 `FrontEndCoordinator`가 구독해 셸 윈도우 push/pop(한 번에 하나). 셸 3종은 공유 `ShellView` 베이스 + 공유 UXML(제목만 다른 플레이스홀더). plan `2026-07-24-flow-slice-c-frontend-nav.md`. **셸 내용(상점 품목/설정 항목/프로필 데이터)은 화면별 후속 스펙.**
+- ▶ **Slice D — 결과 화면**: 게임 종료 → 결과 → 로비 복귀.
+- ▶ **Slice A — 앱 FSM 씬 전환 일원화**: `AppStateMachine`이 씬 페이즈를 소유하고 `MatchStateMachine`은 신호만(LoadScene 제거).
+
+> 화면 아트(타이틀/로비/로딩 배경)는 별도 `feature/ui-screen-art`로 들어옴 — 로비 배경은 은퇴한 `MatchMakingView.uss` 대신 `LobbyHomeView.uss`가 참조(07-24 머지 시 재배선).
+
+### 엔티티 Unity 레이어 재구조화 — **트랙 종결(07-19)**, 파킹된 후속만 남음
 World Core(순수 C# Entity/Component) 위 Unity 프레젠테이션을 **얇은 뷰/컴패니언 + Actor식 앵커**로 수렴하는 S1~S5 리팩터. **S1(설정 컴포넌트→World)·S2(PhysicsComponent→PhysicsFollower)·S3(레거시 substrate machinery 삭제)·③물리통합·S4(Unity 트리 표준화: LOPActor 루트 앵커+rb 루트+컴포넌트 co-location) 완료** → 엔티티=`Actor_{id}` 단일 루트(모든 behavior 컴포넌트, 모델=렌더 바디 자식), 문자열/구조 배선 소멸.
 
 **S1~S5 완료 + 로직 분리 완료 + Actor 뷰 파사드 완료 + 엔티티 매니저 분리(ActorRegistry+EntitySpawner) 완료.** 엔티티 = 순수 C# `World.Entity`(데이터+시뮬), Unity = 얇은 프레젠테이션(Creator=데이터 직원 / 반응형 뷰 스포너=뷰 직원). 로직/시뮬도 `World.Entity`로 분리(LOPActor는 뷰 레이어 ~6곳만). 문자열/구조 배선·병렬 컴포넌트 시스템·파사드·레거시 과참조·뚱뚱한 매니저 소멸(아래 Done 원장).

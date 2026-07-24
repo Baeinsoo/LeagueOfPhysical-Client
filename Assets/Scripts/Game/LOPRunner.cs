@@ -93,8 +93,6 @@ namespace LOP
 
         public override void UpdateRunner()
         {
-            BeginUpdate();
-
             ProcessNetworkMessage();
 
             reconciler.Reconcile(tickUpdater.tick, (float)tickUpdater.interval);
@@ -102,8 +100,6 @@ namespace LOP
             ProcessInput();
 
             InterpolateEntity();
-
-            UpdateEntity();
 
             UpdateAI();
 
@@ -118,11 +114,6 @@ namespace LOP
             EndUpdate();
         }
 
-        private void BeginUpdate()
-        {
-            DispatchEvent<Begin>();
-        }
-
         private void ProcessNetworkMessage()
         {
 
@@ -130,18 +121,11 @@ namespace LOP
 
         private void ProcessInput()
         {
-            DispatchEvent<ProcessInput>();
+            RunPhase<ProcessInput>(tickUpdater.tick, (float)tickUpdater.deltaTime);
         }
 
         private void InterpolateEntity()
         {
-        }
-
-        private void UpdateEntity()
-        {
-            DispatchEvent<BeforeEntityUpdate>();
-
-            DispatchEvent<AfterEntityUpdate>();
         }
 
         private void UpdateAI()
@@ -150,8 +134,6 @@ namespace LOP
 
         private void SimulatePhysics()
         {
-            DispatchEvent<BeforePhysicsSimulation>();
-
             // World.Transform → rb 팔로우: PhysicsBody 가진 모든 엔티티(내 캐릭=예측, 남·아이템=보간).
             // Simulated는 world.Tick서 이미 밀렸으나 idempotent. per-entity LOPEntityController 대체.
             foreach (var entity in entityRegistry.All)
@@ -160,8 +142,6 @@ namespace LOP
             }
 
             physicsSimulator.Simulate((float)tickUpdater.interval);
-
-            DispatchEvent<AfterPhysicsSimulation>();
         }
 
         private void UpdateVisualEffect()
@@ -183,7 +163,7 @@ namespace LOP
         {
             RecordLocalSnapshot();
 
-            DispatchEvent<End>();
+            RunPhase<End>(tickUpdater.tick, (float)tickUpdater.deltaTime);
 
             entitySpawner.FlushDespawns();
         }

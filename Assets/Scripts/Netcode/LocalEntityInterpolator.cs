@@ -14,7 +14,7 @@ namespace LOP
     /// <para>연속 renderTime을 감싸는 두 스냅을 <see cref="SnapshotInterpolation"/>으로 브래킷 탐색해 보간
     /// (Fiedler snapshot interpolation). 절대 틱 키 조회가 아니라 브래킷이라 "그 틱이 없어서 스킵"이 불가능.</para>
     /// </summary>
-    public class LocalEntityInterpolator : MonoBehaviour, ICleanup
+    public class LocalEntityInterpolator : MonoBehaviour, ICleanup, ITickSystem
     {
         [Inject] private IRunner runner;
         [Inject] private GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
@@ -39,17 +39,16 @@ namespace LOP
 
         private void Start()
         {
-            runner.AddListener(this);
+            runner.RegisterSystem<End>(this);
         }
 
         public void Cleanup()
         {
-            runner.RemoveListener(this);
+            runner.UnregisterSystem(this);
             renderCorrectionSmoother.Reset();
         }
 
-        [RunnerListen(typeof(End))]
-        private void OnEnd()
+        public void Tick(long tick, float deltaTime)
         {
             // renderTarget = 시뮬 위치 + 감쇠 중인 보정 offset. offset이 시뮬 스텝과 상쇄되어
             // 이 스트림은 보정 순간에도 연속 → 아래 LateUpdate 보간이 튀지 않는다(걷기 지연도 없음).
@@ -60,11 +59,11 @@ namespace LOP
             }
             samples.Add(new RenderSample
             {
-                time = runner.tickUpdater.tick * runner.tickUpdater.interval,
+                time = tick * runner.tickUpdater.interval,
                 position = renderCorrectionSmoother.Target(GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity).ToNumerics()).ToUnity(),
                 rotation = GameFramework.World.EntityMotionExtensions.GetRotation(worldEntity),
             });
-            renderCorrectionSmoother.DecayTick((float)runner.tickUpdater.interval);
+            renderCorrectionSmoother.DecayTick(deltaTime);
         }
 
         private void LateUpdate()

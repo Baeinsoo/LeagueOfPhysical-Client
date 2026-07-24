@@ -83,6 +83,12 @@ namespace LOP
             gameState = Paused.State;
         }
 
+        /// <summary>서버의 MatchEndedToC를 받아 매치 종료 상태로 들어간다 — 판정은 서버 권위, 클라는 통보받을 뿐이다.</summary>
+        public void EndMatch()
+        {
+            gameState = GameOver.State;
+        }
+
         public override void UpdateRunner()
         {
             BeginUpdate();

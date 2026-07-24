@@ -60,7 +60,8 @@ namespace LOP
             builder.Register<GameFramework.IMapLoader, AddressablesMapLoader>(Lifetime.Singleton);
 
             // runner은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.
-            builder.RegisterComponent(runner).As<IRunner>();
+            // AsSelf는 LOP 전용 진입점(EndMatch 등)을 쓰는 소비자를 위한 것 — IRunner에는 없는 API다.
+            builder.RegisterComponent(runner).As<IRunner>().AsSelf();
             builder.RegisterComponent(cameraController);
 
             // 메시지 핸들러: 컨테이너 엔트리포인트로 자기 구독 생명주기를 스스로 관리(스코프가 Initialize/Dispose 구동).
@@ -69,6 +70,7 @@ namespace LOP
             builder.RegisterEntryPoint<GameInputMessageHandler>();
             builder.RegisterEntryPoint<GameInputTimingMessageHandler>();
             builder.RegisterEntryPoint<GameWorldEventMessageHandler>();
+            builder.RegisterEntryPoint<MatchEndedMessageHandler>();
             // EntityBinder가 EntityCreated 때 로컬 유저 actor를 만들어 playerContext.actor에 세팅한다.
             // 이 둘의 등록 순서는 무관하다: HUD 뷰모델이 읽는 entityId는 EntityCreated 발행 전에 세팅되고,
             // actor의 유일한 소비자(LOPGamePresenter)는 폴링이라 순서를 타지 않는다.

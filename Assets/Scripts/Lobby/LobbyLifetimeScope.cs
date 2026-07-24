@@ -10,6 +10,9 @@ namespace LOP
     {
         // 전역 WindowManager에 로비 스코프 View 팩토리를 기여한 핸들(OnDestroy에서 해제).
         private IDisposable _lobbyHomeViewRegistration;
+        private IDisposable _shopViewRegistration;
+        private IDisposable _settingsViewRegistration;
+        private IDisposable _profileViewRegistration;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -30,6 +33,13 @@ namespace LOP
             builder.Register<LobbyHomeView>(Lifetime.Transient);
             builder.RegisterEntryPoint<MatchmakingCoordinator>();
 
+            // 프론트엔드 네비(상점/설정/프로필). VM은 Scoped — LobbyHomeView와 FrontEndCoordinator가 공유한다.
+            builder.Register<LobbyHomeViewModel>(Lifetime.Scoped);
+            builder.Register<ShopView>(Lifetime.Transient);
+            builder.Register<SettingsView>(Lifetime.Transient);
+            builder.Register<ProfileView>(Lifetime.Transient);
+            builder.RegisterEntryPoint<FrontEndCoordinator>();
+
             builder.RegisterBuildCallback(container =>
             {
                 container.InjectSceneObjects(gameObject.scene);
@@ -38,6 +48,12 @@ namespace LOP
                 // 생성 → MatchmakingViewModel 주입. 로비 진입 시 허브 화면을 연다.
                 var windowManager = container.Resolve<IWindowManager>();
                 _lobbyHomeViewRegistration = windowManager.RegisterViewFactory<LobbyHomeView>(() => container.Resolve<LobbyHomeView>());
+
+                // 셸도 같은 방식으로 기여: FrontEndCoordinator의 Open<T>가 이 스코프 resolver로 셸을 만든다.
+                _shopViewRegistration = windowManager.RegisterViewFactory<ShopView>(() => container.Resolve<ShopView>());
+                _settingsViewRegistration = windowManager.RegisterViewFactory<SettingsView>(() => container.Resolve<SettingsView>());
+                _profileViewRegistration = windowManager.RegisterViewFactory<ProfileView>(() => container.Resolve<ProfileView>());
+
                 windowManager.Open<LobbyHomeView>();
             });
         }
@@ -47,6 +63,9 @@ namespace LOP
             // 팩토리 해제(열린 LobbyHomeView 닫힘) 후 컨테이너 dispose — VM(Scoped)·Coordinator(EntryPoint)
             // 정리는 그 컨테이너 dispose에서 함께 일어난다.
             _lobbyHomeViewRegistration?.Dispose();
+            _shopViewRegistration?.Dispose();
+            _settingsViewRegistration?.Dispose();
+            _profileViewRegistration?.Dispose();
             base.OnDestroy();
         }
 

@@ -1,0 +1,6 @@
+.shell-root { flex-grow: 1; background-color: rgb(30, 30, 38); }
+.shell-header { flex-direction: row; align-items: center; height: 72px; padding: 12px; }
+.shell-back { width: 96px; height: 48px; }
+.shell-title { flex-grow: 1; font-size: 28px; -unity-font-style: bold; -unity-text-align: middle-center; color: white; }
+.shell-body { flex-grow: 1; justify-content: center; align-items: center; }
+.shell-placeholder { font-size: 22px; color: rgb(150, 150, 160); }

@@ -1,0 +1,11 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="shell-root" class="shell-root">
+        <ui:VisualElement name="shell-header" class="shell-header">
+            <ui:Button name="back-button" text="◀ 뒤로" class="shell-back" />
+            <ui:Label name="shell-title" text="" class="shell-title" />
+        </ui:VisualElement>
+        <ui:VisualElement name="shell-body" class="shell-body">
+            <ui:Label text="(준비 중)" class="shell-placeholder" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

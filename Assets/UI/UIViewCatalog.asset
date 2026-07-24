@@ -37,3 +37,12 @@ MonoBehaviour:
   - viewName: LobbyHomeView
     uxml: {fileID: 9197481963319205126, guid: d24ad9e23a6352e40a2ae924694e8f69, type: 3}
     uss: {fileID: 7433441132597879392, guid: 9b31d962954b67143b62bb847b36a790, type: 3}
+  - viewName: ShopView
+    uxml: {fileID: 9197481963319205126, guid: 795ad2e2a2e5bc6449f49df672905dc1, type: 3}
+    uss: {fileID: 7433441132597879392, guid: 64b5309e1b6199948be0ee42192e8d22, type: 3}
+  - viewName: SettingsView
+    uxml: {fileID: 9197481963319205126, guid: 795ad2e2a2e5bc6449f49df672905dc1, type: 3}
+    uss: {fileID: 7433441132597879392, guid: 64b5309e1b6199948be0ee42192e8d22, type: 3}
+  - viewName: ProfileView
+    uxml: {fileID: 9197481963319205126, guid: 795ad2e2a2e5bc6449f49df672905dc1, type: 3}
+    uss: {fileID: 7433441132597879392, guid: 64b5309e1b6199948be0ee42192e8d22, type: 3}

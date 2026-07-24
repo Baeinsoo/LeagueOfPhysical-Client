@@ -40,15 +40,15 @@ namespace LOP
             gameInfoSubscription?.Dispose();
         }
 
-        private void OnGameStateChanged(IGameState gameState)
+        private void OnGameStateChanged(RunnerState gameState)
         {
             switch (gameState)
             {
-                case Initialized:
+                case RunnerState.Initialized:
                     gameLoadingView = windowManager.Open<GameLoadingView>();
                     break;
 
-                case Playing:
+                case RunnerState.Playing:
                     if (gameLoadingView != null)
                     {
                         windowManager.Close(gameLoadingView);

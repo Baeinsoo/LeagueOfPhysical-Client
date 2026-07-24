@@ -135,11 +135,11 @@ namespace LOP
             runner.Run(gameInfo.Tick + 1, gameInfo.Interval, gameInfo.ElapsedTime);
         }
 
-        private void OnGameStateChanged(IGameState gameState)
+        private void OnGameStateChanged(RunnerState gameState)
         {
             switch (gameState)
             {
-                case GameOver:
+                case RunnerState.GameOver:
                     Debug.Log("Game Over");
                     appStateMachine.Fire(AppEvent.MatchEnded);
                     break;

@@ -13,6 +13,7 @@ namespace LOP
         private IDisposable _shopViewRegistration;
         private IDisposable _settingsViewRegistration;
         private IDisposable _profileViewRegistration;
+        private IDisposable _matchResultViewRegistration;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -38,6 +39,7 @@ namespace LOP
             builder.Register<ShopView>(Lifetime.Transient);
             builder.Register<SettingsView>(Lifetime.Transient);
             builder.Register<ProfileView>(Lifetime.Transient);
+            builder.Register<MatchResultView>(Lifetime.Transient);
             builder.RegisterEntryPoint<FrontEndCoordinator>();
 
             builder.RegisterBuildCallback(container =>
@@ -53,6 +55,7 @@ namespace LOP
                 _shopViewRegistration = windowManager.RegisterViewFactory<ShopView>(() => container.Resolve<ShopView>());
                 _settingsViewRegistration = windowManager.RegisterViewFactory<SettingsView>(() => container.Resolve<SettingsView>());
                 _profileViewRegistration = windowManager.RegisterViewFactory<ProfileView>(() => container.Resolve<ProfileView>());
+                _matchResultViewRegistration = windowManager.RegisterViewFactory<MatchResultView>(() => container.Resolve<MatchResultView>());
 
                 windowManager.Open<LobbyHomeView>();
             });
@@ -66,6 +69,7 @@ namespace LOP
             _shopViewRegistration?.Dispose();
             _settingsViewRegistration?.Dispose();
             _profileViewRegistration?.Dispose();
+            _matchResultViewRegistration?.Dispose();
             base.OnDestroy();
         }
 

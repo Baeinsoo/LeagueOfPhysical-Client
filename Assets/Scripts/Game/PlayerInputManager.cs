@@ -3,7 +3,7 @@ using LOP.Event.LOPRunner.Update;
 
 namespace LOP
 {
-    public class PlayerInputManager
+    public class PlayerInputManager : ITickSystem
     {
         private const int RedundancyWindow = 3;  // 패킷당 최근 N틱 입력(현재 포함) — sliding-window redundancy
 
@@ -30,7 +30,7 @@ namespace LOP
             this.inputBufferSystem = inputBufferSystem;
             this.inputHistory = inputHistory;
 
-            this.runner.AddListener(this);
+            this.runner.RegisterSystem<ProcessInput>(this);
         }
 
         public long GenerateSequenceNumber()
@@ -43,8 +43,7 @@ namespace LOP
             this.sequenceNumber = sequenceNumber;
         }
 
-        [RunnerListen(typeof(ProcessInput))]
-        private void ProcessInput()
+        public void Tick(long tick, float deltaTime)
         {
             if (playerContext.entityId == null)
             {
@@ -53,7 +52,6 @@ namespace LOP
 
             var worldEntity = entityRegistry.Get(playerContext.entityId);
             var buffer = worldEntity.Get<InputBuffer>();
-            long tick = runner.tickUpdater.tick;
 
             bool hasMovement = heldHorizontal != 0f || heldVertical != 0f;
             bool hasAction = pendingJump || pendingAbilityId != 0;

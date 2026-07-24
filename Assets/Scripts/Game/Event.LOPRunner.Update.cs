@@ -4,11 +4,6 @@ using UnityEngine;
 
 namespace LOP.Event.LOPRunner.Update
 {
-    public struct Begin { }
     public struct ProcessInput { }
-    public struct BeforeEntityUpdate { }
-    public struct AfterEntityUpdate { }
-    public struct BeforePhysicsSimulation { }
-    public struct AfterPhysicsSimulation { }
     public struct End { }
 }

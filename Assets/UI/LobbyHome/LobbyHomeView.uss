@@ -3,6 +3,9 @@
     justify-content: space-between;
     align-items: center;
     padding: 24px;
+    background-color: rgb(18, 18, 24);
+    background-image: url("../Lobby/lobby_screen.png");
+    -unity-background-scale-mode: scale-and-crop;
 }
 .lobbyhome-top { align-items: center; margin-top: 24px; }
 .lobbyhome-title { font-size: 32px; -unity-font-style: bold; color: white; }

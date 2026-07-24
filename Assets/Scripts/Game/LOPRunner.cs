@@ -121,7 +121,7 @@ namespace LOP
 
         private void ProcessInput()
         {
-            RunPhase<ProcessInput>(tickUpdater.tick, (float)tickUpdater.interval);
+            RunPhase<ProcessInput>(tickUpdater.tick, (float)tickUpdater.deltaTime);
         }
 
         private void InterpolateEntity()
@@ -163,7 +163,7 @@ namespace LOP
         {
             RecordLocalSnapshot();
 
-            RunPhase<End>(tickUpdater.tick, (float)tickUpdater.interval);
+            RunPhase<End>(tickUpdater.tick, (float)tickUpdater.deltaTime);
 
             entitySpawner.FlushDespawns();
         }

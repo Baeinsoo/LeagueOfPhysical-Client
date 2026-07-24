@@ -1,0 +1,18 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="lobbyhome-root" class="lobbyhome-root">
+        <ui:VisualElement name="lobbyhome-top" class="lobbyhome-top">
+            <ui:Label text="LEAGUE OF PHYSICAL" class="lobbyhome-title" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="lobbyhome-center" class="lobbyhome-center">
+            <ui:Button name="play-button" text="PLAY" class="lobbyhome-play" />
+        </ui:VisualElement>
+
+        <!-- 하단 네비바: 레이아웃만. 실제 동작은 Slice C에서 배선. -->
+        <ui:VisualElement name="nav-bar" class="lobbyhome-navbar">
+            <ui:Button name="nav-shop" text="상점" class="lobbyhome-nav" />
+            <ui:Button name="nav-profile" text="프로필" class="lobbyhome-nav" />
+            <ui:Button name="nav-settings" text="설정" class="lobbyhome-nav" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

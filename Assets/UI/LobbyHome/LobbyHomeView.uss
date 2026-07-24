@@ -1,0 +1,17 @@
+.lobbyhome-root {
+    flex-grow: 1;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px;
+}
+.lobbyhome-top { align-items: center; margin-top: 24px; }
+.lobbyhome-title { font-size: 32px; -unity-font-style: bold; color: white; }
+.lobbyhome-center { flex-grow: 1; justify-content: center; align-items: center; }
+.lobbyhome-play {
+    width: 240px; height: 96px; font-size: 36px; -unity-font-style: bold;
+}
+.lobbyhome-navbar {
+    flex-direction: row; justify-content: space-around;
+    width: 100%; margin-bottom: 16px;
+}
+.lobbyhome-nav { width: 120px; height: 64px; font-size: 20px; }

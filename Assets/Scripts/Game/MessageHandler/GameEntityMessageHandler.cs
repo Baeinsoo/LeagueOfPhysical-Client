@@ -94,7 +94,8 @@ namespace LOP
 
         private void OnEntitySnapsToC(EntitySnapsToC entitySnapsToC)
         {
-            if (runner.gameState < RunnerState.Playing)
+            // 실행 중일 때만 처리 — 종료(Deinitialize로 tickUpdater null) 후 늦게 온 스냅도 무시.
+            if (runner.tickUpdater == null || runner.gameState < RunnerState.Playing)
             {
                 return;
             }

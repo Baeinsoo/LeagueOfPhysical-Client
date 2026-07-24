@@ -70,7 +70,7 @@
 
 - ✅ **Slice B — 로비 홈 허브 (완료·머지 07-23)**: 로비 베이스 화면을 `LobbyHomeView`(Play + 하단 네비바 레이아웃)로 교체, `MatchmakingView` 은퇴(Play 역할 흡수), 매칭 대기 오버레이는 `MatchmakingCoordinator`가 담당. plan `2026-07-23-flow-slice-b-lobby-home.md`.
 - ✅ **Slice C — 프론트엔드 네비(상점/설정/프로필 셸) (완료·머지 07-24)**: 네비바 버튼 배선. `LobbyHomeViewModel`이 네비 신호(`Observable<FrontEndDestination>`)만 노출 → 신규 `FrontEndCoordinator`가 구독해 셸 윈도우 push/pop(한 번에 하나). 셸 3종은 공유 `ShellView` 베이스 + 공유 UXML(제목만 다른 플레이스홀더). plan `2026-07-24-flow-slice-c-frontend-nav.md`. **셸 내용(상점 품목/설정 항목/프로필 데이터)은 화면별 후속 스펙.**
-- ▶ **Slice D — 결과 화면**: 게임 종료 → 결과 → 로비 복귀.
+- ✅ **Slice D — 결과 화면 (완료·머지 07-24, 3레포)**: 매치 종료 통보 경로. 서버 `LOPRunner.EndMatch()` → `LOPRoom`이 전 세션에 신규 `MatchEndedToC`(빈 메시지) 브로드캐스트 → 클라 `MatchEndedMessageHandler`가 결과를 Root 스코프 `MatchResultDataStore`에 남기고 클라 `LOPRunner.EndMatch()` → 기존 `case GameOver`가 로비 씬 로드 → `FrontEndCoordinator`가 대기 결과를 보고 `MatchResultView`(플레이스홀더)를 한 번 띄우고 [확인] 시 Clear. 어휘 규약 확정(새 LOP 도메인 이름=match / 러너 상태 family=game 유지, 언리얼 `AGameMode`↔`EndMatch` 정합). spec `2026-07-24-flow-slice-d-match-result-design.md`, plan `2026-07-24-flow-slice-d-match-result.md`. **결과 내용(점수·순위)은 게임 모드 확정 후 후속.**
 - ▶ **Slice A — 앱 FSM 씬 전환 일원화**: `AppStateMachine`이 씬 페이즈를 소유하고 `MatchStateMachine`은 신호만(LoadScene 제거).
 
 > 화면 아트(타이틀/로비/로딩 배경)는 별도 `feature/ui-screen-art`로 들어옴 — 로비 배경은 은퇴한 `MatchMakingView.uss` 대신 `LobbyHomeView.uss`가 참조(07-24 머지 시 재배선).
@@ -149,6 +149,7 @@ umbrella `docs/superpowers/specs/2026-07-18-entity-view-rearchitecture-umbrella-
 
 | 항목 | 왜 미뤘나 | 재개 조건 |
 |---|---|---|
+| **매치 종료 시 유저 위치 백엔드 정리 (Slice D 후속)** | Slice D로 클라는 매치 종료 시 로비로 복귀하지만, 로비 진입 즉시 `CheckMatch`가 `WebAPI.GetUserLocation`으로 위치를 물어 아직 "GameRoom"이면 **같은 게임에 자동 재접속**해 결과 창을 부순다. 정상 흐름은 매치 종료 시 서버가 룸을 닫아(`UpdateRoomStatus(Closed)`) 백엔드가 유저 위치를 비우는 것 — 그런데 이 호출이 서버 `LOPRoom`에서 **`if (!Standalone)` 가드로 로컬 테스트 시 스킵**된다. 플레이테스트는 임시 스캐폴드(결과 대기 중이면 자동 매칭 skip)로 확인했고 그 스캐폴드는 원복함(미머지). **재접속 루프 자체는 프로덕션에도 잠재**(서버가 룸 close→백엔드 위치 정리를 실제로 하는지 + 클라 GetUserLocation과의 레이스) → 백엔드/RoomServer 쪽과 함께 봐야 함. `[[flow-slice-d-match-result]]` | 백엔드(RoomServer/WebAPI)에서 매치 종료→유저 위치 정리 흐름을 짤 때. 또는 Slice A(앱 FSM 씬 전환 일원화)에서 씬 전환을 손볼 때 함께 |
 | ~~**외력(넉백) 처리를 공통 엔티티 루프로 이전** (부채)~~ ✅ **정산(07-13)** — 통합 World Tick Sub-slice A에서 외력 resolve를 공유 `MovementSystem.Tick`(=`world.Tick` 이동 페이즈)로 흡수, 서버 `MoveCharacters` 임시분기 제거. 입력 없는 Simulated(서버 AI)도 resolve. `Simulated` 마커가 클라 원격 문제를 자연 해소(원격은 마킹 안 돼 클라가 안 틱). `[[velocity-motor-contribution-slice]]` | — |
 | **`PhysicsFollower` 접기 (공유 팩토리화)** | `PhysicsFollower`(클·서 2벌 MonoBehaviour)는 **런타임 behavior 0**(스폰 시 rb/CapsuleCollider 셋업 + 트랜스폼 배치만), 소비자=`EntityBinder` 한 곳뿐(rb/collider 뽑아 `new UnityPhysicsBody` 후 버림), 아무도 `GetComponent<PhysicsFollower>()` 안 함 → **죽은 껍데기**. PhysicsBody 포트화로 공유 `UnityPhysicsBody`가 "Unity 물리 몸"의 집이 된 지금, 셋업을 **공유 팩토리**(예: LOP-Shared `PhysicsBodyFactory.Create(root, World.Entity, isKinematic, isTrigger) → UnityPhysicsBody`)로 접어 **2벌 삭제 + 클·서 중복 제거** 가능. 값 동치(동작 무변화). 하지만 **동작 무해라 급하지 않음** → 지금 제거 안 함(사용자 결정 07-20). 변경 규모: 클·서 `EntityBinder` 1줄씩 + 팩토리 신설 + PhysicsFollower 2개 삭제. `[[physicsbody-port-purity-deferred]]` | 근처(스폰/물리/EntityBinder) 손댈 때 기회 있으면. 또는 죽은 껍데기 정리 패스 돌 때 |
 | **Recon 엔티티-로드 러버밴딩** | 엔티티 많을 때 빈 곳 점프에도 recon 러버밴딩 관찰. 진단틀(A 서버틱밀림 vs B 클라FPS) 프로토타입 후 롤백 | 각 잡고 재개. `[[recon-entity-load-parked]]` |

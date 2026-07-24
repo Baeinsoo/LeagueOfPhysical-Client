@@ -53,7 +53,7 @@ namespace LOP
 
             var worldEntity = entityRegistry.Get(playerContext.entityId);
             var buffer = worldEntity.Get<InputBuffer>();
-            long tick = Runner.Time.tick;
+            long tick = runner.tickUpdater.tick;
 
             bool hasMovement = heldHorizontal != 0f || heldVertical != 0f;
             bool hasAction = pendingJump || pendingAbilityId != 0;

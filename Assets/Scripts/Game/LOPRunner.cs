@@ -35,7 +35,7 @@ namespace LOP
 
         public override async Task InitializeAsync()
         {
-            gameState = Initializing.State;
+            gameState = RunnerState.Initializing;
 
             var oldSimulationMode = Physics.simulationMode;
             var oldAutoSyncTransforms = Physics.autoSyncTransforms;
@@ -57,7 +57,7 @@ namespace LOP
 
             await mapLoadTask;
 
-            gameState = Initialized.State;
+            gameState = RunnerState.Initialized;
         }
 
         public override async Task DeinitializeAsync()
@@ -73,20 +73,20 @@ namespace LOP
         {
             base.Run(tick, interval, elapsedTime);
 
-            gameState = Playing.State;
+            gameState = RunnerState.Playing;
         }
 
         public override void Stop()
         {
             base.Stop();
 
-            gameState = Paused.State;
+            gameState = RunnerState.Paused;
         }
 
         /// <summary>서버의 MatchEndedToC를 받아 매치 종료 상태로 들어간다 — 판정은 서버 권위, 클라는 통보받을 뿐이다.</summary>
         public void EndMatch()
         {
-            gameState = GameOver.State;
+            gameState = RunnerState.GameOver;
         }
 
         public override void UpdateRunner()

@@ -152,10 +152,25 @@ Root 싱글턴. 앱 시작 시 작은 Root 엔트리포인트(`IStartable`)가 `
   도는지. ⚠️ 파킹된 백엔드 desync로 결과→로비 구간은 백엔드 위치 정리 전까진 자동 재접속이 낄 수 있음
   (예상된 제약, 위 "범위" 참고).
 
-## 선택적 정리 (필수 아님)
+## 죽은 `CheckLocationComponent` 삭제 (범위 포함)
 
-죽은 `CheckLocationComponent`(`EntranceLifetimeScope`에서 이미 주석 처리)는 이 참에 삭제 가능하나 Slice A
-필수는 아니다. 계획에서 포함 여부 결정.
+`CheckLocationComponent`는 부트 시 `GetUserLocation`으로 유저 위치를 물어 `GameRoom`이면 그 방으로 재접속,
+아니면 로비로 보내던 컴포넌트다. 이미 `EntranceLifetimeScope`에서 등록이 주석 처리돼 **비활성(죽은 코드)**
+이고, 라이브 참조가 0이다(클래스 파일 + 주석 처리된 등록 줄뿐).
+
+이 역할은 **매칭 FSM에 완전히 흡수**됐다:
+
+| CheckLocationComponent 분기 | 지금 담당 |
+|---|---|
+| `GameRoom` → 그 방으로 재접속 | 매칭 `CheckMatch` → `InGameRoom` |
+| `WaitingRoom`/그 외 → 로비 | 로비 진입 + `CheckMatch` → `InWaitingRoom`/`Idle`(대기 중이면 폴링 재개 — 더 풍부) |
+
+유일한 차이는 재접속이 한 단계 늦게(부트 직행이 아니라 `Boot → FrontEnd → CheckMatch → MatchFound → InMatch`
+경유) 일어난다는 것뿐이며, 이는 이 슬라이스의 `AppStateMachine` 모델과 정확히 일치한다.
+
+→ **Slice A에서 `CheckLocationComponent.cs`(+ `.meta`)와 `EntranceLifetimeScope`의 주석 처리된 등록 줄을
+삭제**한다. `RoomConnector`를 부트 경로에서 쓰던 유일한(비활성) 소비자가 사라지므로, 삭제 후에도
+`RoomConnector`의 라이브 소비자는 매칭 `InGameRoom` 하나만 남는다.
 
 ## 산업 표준 매핑
 
@@ -175,4 +190,4 @@ Root 싱글턴. 앱 시작 시 작은 Root 엔트리포인트(`IStartable`)가 `
 | 매칭 `InGameRoom` | 변경 | 로드 제거 → 조인 확인 후 `Fire(MatchFound)` | Lobby 씬 |
 | `RoomConnector` | 변경 | `LoadScene` 한 줄 제거(조인 확인·스토어 채움 유지) | Root(Transient) |
 | `LOPRoom` | 변경 | `GameOver`·에러 → `Fire(MatchEnded)` (2곳) | Room 씬 |
-| `CheckLocationComponent` | (선택) 삭제 | 이미 죽은 코드 | — |
+| `CheckLocationComponent` | 삭제 | 죽은 코드(역할은 매칭 FSM에 흡수됨) | — |

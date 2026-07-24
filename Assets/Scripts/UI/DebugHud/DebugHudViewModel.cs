@@ -9,32 +9,35 @@ namespace LOP.UI
     /// </summary>
     public class DebugHudViewModel
     {
+        private readonly IRunner runner;
         private readonly ReconciliationStats reconciliationStats;
         private readonly InputTimingStats inputTimingStats;
         private readonly GameFramework.Netcode.SnapshotHistory snapshotHistory;
 
         public DebugHudViewModel(
+            IRunner runner,
             ReconciliationStats reconciliationStats,
             InputTimingStats inputTimingStats,
             GameFramework.Netcode.SnapshotHistory snapshotHistory)
         {
+            this.runner = runner;
             this.reconciliationStats = reconciliationStats;
             this.inputTimingStats = inputTimingStats;
             this.snapshotHistory = snapshotHistory;
         }
 
-        public bool IsRunning => Runner.current != null;
+        public bool IsRunning => runner.gameState >= RunnerState.Playing;
 
-        public long Tick => Runner.Time.tick;
+        public long Tick => runner.tickUpdater.tick;
 
-        public double ElapsedTime => Runner.Time.elapsedTime;
+        public double ElapsedTime => runner.tickUpdater.elapsedTime;
 
-        public double RttMs => Runner.NetworkTime.rtt * 1000;
+        public double RttMs => runner.networkTime.Rtt * 1000;
 
         // 서버 현재 tick 추정 ≈ (predictedTime − 편도지연)/interval. Lead = Tick − 이것 = (AheadMargin + 편도지연)/interval = 진짜 lead.
-        public long ServerTickEstimate => (long)(Runner.NetworkTime.serverNow / Runner.Time.tickInterval);
+        public long ServerTickEstimate => (long)(runner.networkTime.ServerNow / runner.tickUpdater.interval);
 
-        public long Lead => Runner.Time.tick - ServerTickEstimate;
+        public long Lead => runner.tickUpdater.tick - ServerTickEstimate;
 
         public float ReconLast => reconciliationStats.Last;
 

@@ -7,6 +7,7 @@ namespace LOP
 {
     public class GameEntityMessageHandler : MessageHandlerBase
     {
+        private readonly IRunner runner;
         private readonly IPlayerContext playerContext;
         private readonly IGameDataStore gameDataStore;
         private readonly EntitySpawner entitySpawner;
@@ -35,6 +36,7 @@ namespace LOP
         private long lastRecordedArrivalTick = long.MinValue;
 
         public GameEntityMessageHandler(
+            IRunner runner,
             IPlayerContext playerContext,
             IGameDataStore gameDataStore,
             EntitySpawner entitySpawner,
@@ -57,6 +59,7 @@ namespace LOP
             IPublisher<string, EntityStatPointsChanged> statPointsChangedPublisher,
             IPublisher<string, EntityStatChanged> statChangedPublisher)
         {
+            this.runner = runner;
             this.playerContext = playerContext;
             this.gameDataStore = gameDataStore;
             this.entitySpawner = entitySpawner;
@@ -91,7 +94,7 @@ namespace LOP
 
         private void OnEntitySnapsToC(EntitySnapsToC entitySnapsToC)
         {
-            if (Runner.current == null)
+            if (runner.gameState < RunnerState.Playing)
             {
                 return;
             }

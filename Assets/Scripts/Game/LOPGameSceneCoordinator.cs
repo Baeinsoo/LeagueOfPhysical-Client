@@ -8,7 +8,7 @@ using VContainer;
 namespace LOP
 {
     [SceneInjectMonoBehaviour]
-    public class LOPGamePresenter : MonoGamePresenter<LOPRunner>
+    public class LOPGameSceneCoordinator : MonoBehaviour
     {
         [Inject]
         private CameraController cameraController;
@@ -19,12 +19,14 @@ namespace LOP
         [Inject]
         private IWindowManager windowManager;
 
+        private LOPRunner runner;
+
         private UIView gameLoadingView;
         private System.IDisposable gameInfoSubscription;
 
         private void Awake()
         {
-            // LOPRunner은 이 프레젠터 GameObject의 자식("LOPGameEngine")에 있다.
+            // LOPRunner은 이 코디네이터 GameObject의 자식("LOPGameEngine")에 있다.
             runner = GetComponentInChildren<LOPRunner>();
             runner.onGameStateChanged += OnGameStateChanged;
 

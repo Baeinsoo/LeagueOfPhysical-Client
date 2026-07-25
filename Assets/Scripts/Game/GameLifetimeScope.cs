@@ -1,4 +1,5 @@
 using GameFramework;
+using GameFramework.Runner;
 using LOP.UI;
 using System;
 using UnityEngine;
@@ -57,7 +58,7 @@ namespace LOP
             // 밀어내기는 슬쩍 들어간 겹침만 복구. 남은 서버 스냅대로 보간해 따라옴.
             builder.Register<GameFramework.World.IMotionBridge>(_ => new MotionBridge(
                 LayerMask.GetMask("Default"), LayerMask.GetMask("Character"), 1f), Lifetime.Singleton);
-            builder.Register<GameFramework.IMapLoader, AddressablesMapLoader>(Lifetime.Singleton);
+            builder.Register<GameFramework.Runner.IMapLoader, AddressablesMapLoader>(Lifetime.Singleton);
 
             // runner은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.
             // AsSelf는 LOP 전용 진입점(EndMatch 등)을 쓰는 소비자를 위한 것 — IRunner에는 없는 API다.

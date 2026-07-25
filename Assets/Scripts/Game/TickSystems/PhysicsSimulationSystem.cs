@@ -1,7 +1,7 @@
 namespace LOP
 {
     /// <summary>구 LOPRunner.SimulatePhysics 이동. World.Transform → rb 팔로우 후 PhysX 스텝.</summary>
-    public class PhysicsSimulationSystem : GameFramework.ITickSystem
+    public class PhysicsSimulationSystem : GameFramework.Runner.ITickSystem
     {
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly GameFramework.World.IMotionBridge motionBridge;

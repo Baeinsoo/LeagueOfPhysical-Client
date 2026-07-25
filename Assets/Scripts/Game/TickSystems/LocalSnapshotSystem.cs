@@ -5,7 +5,7 @@ namespace LOP
     /// End 디스패치(=LocalEntityInterpolator의 지연 렌더링용 틱 기록) 전에 찍어, 뷰 보간이 얹히기 전
     /// 원본 예측 상태를 포착한다. 되돌리기(하드 복원+재생)는 Reconciler.Reconcile이 다음 틱 앞에서 수행.
     /// </summary>
-    public class LocalSnapshotSystem : GameFramework.ITickSystem
+    public class LocalSnapshotSystem : GameFramework.Runner.ITickSystem
     {
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;

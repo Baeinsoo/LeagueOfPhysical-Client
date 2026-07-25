@@ -88,7 +88,7 @@ namespace LOP
             gameState = RunnerState.GameOver;
         }
 
-        public override void UpdateRunner()
+        protected override void UpdateRunner()
         {
             reconcileSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
             RunPhase<ProcessInput>(tickUpdater.tick, (float)tickUpdater.deltaTime);

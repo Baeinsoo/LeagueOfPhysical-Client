@@ -19,7 +19,23 @@
 - **`.meta` 파일은 반드시 함께 커밋한다.** 새 `.cs`를 만든 뒤 Unity가 생성한 `.meta`를 같이 add.
 - **proto 재생성은 `Scripts/generate_protos.sh`를 쓰되, 이 계획의 신규 메시지는 top-level 패킷이 아니다**(`@auto_generate` 주석 없음) → `MessageIds.cs`가 바뀌지 않아야 한다. 재생성 후 `git diff Runtime.Generated/Scripts/MessageIds.cs`가 **비어 있는지 반드시 확인**한다. 바뀌었으면 wire 계약이 깨진 것이므로 되돌린다.
 - **UnityMCP 호출에는 항상 `unity_instance`를 명시**한다. 클라 인스턴스 id는 `mcpforunity://instances`에서 `name == "LeagueOfPhysical-Client"`인 항목의 `id`.
-- **Luban 데이터 파일(`.xlsx`)은 바이너리**라 Excel로 직접 편집해야 한다. 편집 후 `infrastructure/table/gen.sh`를 실행해 `.cs`+`.bytes`를 재생성한다.
+- **Luban 데이터 파일(`.xlsx`)은 `openpyxl`(설치돼 있음, 3.1.5)로 편집한다.** Excel 수작업 불필요. 편집 후 `infrastructure/table/gen.sh`를 실행해 `.cs`+`.bytes`를 재생성한다.
+- **Luban Excel-embedded 형식** (모든 `#*.xlsx` 공통, 1행부터):
+
+  | 행 | 내용 |
+  |---|---|
+  | 1 | `##var` + 컬럼명들 (리스트 컬럼은 `effects#sep=,` 처럼 구분자 지정) |
+  | 2 | `##type` + 타입들 (`int`/`string`/`long`/`float`/`bool`/`list,AbilityEffect`) |
+  | 3 | `##group` + 컬럼별 그룹 (`c`=클라 전용, `s`=서버 전용, 빈칸=양쪽) |
+  | 4 | `##` + 표시용 이름들 |
+  | 5~ | 데이터 (**첫 칸은 항상 빈 문자열**, 그 다음부터 값) |
+
+  `__tables__.xlsx`는 헤더가 1행뿐이고(`##var full_name value_type read_schema_from_file input index mode group comment tags output`) 2행부터 데이터다. 테이블 단위 그룹은 여기 `group` 칸으로 준다(예: `TbSkinAsset`=`c`, `TbCombatConfig`=`s`).
+
+  다형 effect 리스트는 `TypeName,인자,인자,...`를 이어 붙인 한 문자열이다. 실제 예:
+  - haste(id 1): `StatusEffectApplyEffect,1`
+  - dash(id 2): `MotionEffect,15`
+  - attack(id 3): `DamageEffect,10,2,90,KnockbackEffect,5,12,0.8`
 - 진행도(`normalizedTime`)는 `0.0`~`1.0` float. 페이즈는 `LOP.AbilityPhase` (`Ready`/`Startup`/`Active`/`Recovery`).
 
 ---
@@ -434,7 +450,13 @@ git commit -m "refactor(view): 접지를 GroundState에서 읽고 'Plane' 이름
 
 # 슬라이스 2 — 어빌리티 시전 상태
 
-## Task 6: `AbilityPlayback` 진행도 커널 (LOP-Shared)
+## Task 6–7: `AbilityPlayback` 커널 + `ForPresentation` 팩토리 (LOP-Shared)
+
+> **Task 6과 7은 한 단위로 구현·리뷰한다.** Task 6의 테스트가 Task 7이 만드는
+> `ActiveAbility.ForPresentation`을 쓰기 때문에 6만으로는 컴파일되지 않는다. 한 번에 구현하고
+> 한 번 커밋한다.
+
+### Task 6: `AbilityPlayback` 진행도 커널
 
 시전 진행도·페이즈를 절대 틱에서 환산하는 순수 함수. 이 작업에서 **틀리기 쉬운 유일한 계산**이라 테스트로 덮는다.
 
@@ -598,7 +620,7 @@ namespace LOP
 
 ---
 
-## Task 7: `ActiveAbility.ForPresentation` 팩토리 (LOP-Shared)
+### Task 7: `ActiveAbility.ForPresentation` 팩토리
 
 원격 엔티티의 시전 상태를 연출용으로만 부분 복원하는 생성 경로.
 
@@ -805,16 +827,26 @@ git commit -m "feat(snapshot): 원격 시전 상태 복원 — 종료 틱에서 
 **Interfaces:**
 - Produces: `LOP.MasterData.Tables.TbAbilityView` — `GetOrDefault(int)` → `AbilityView { int Id; string AnimState; int AnimLayer; }`
 
-- [ ] **Step 1: `#AbilityView.xlsx` 생성 (Excel)**
+- [ ] **Step 1: `#AbilityView.xlsx` 생성**
 
-기존 `#StatusEffect.xlsx`의 헤더 형식(Luban Excel-embedded)을 그대로 따라 만든다.
+어빌리티 id는 `#Ability.xlsx`에서 확인된다 — **1 = haste, 2 = dash, 3 = attack, 4 = global_attack**
+(`CharacterCreator`가 1·2·3을 `Grant`한다). 연출이 필요한 것은 공격 계열뿐이다:
 
-어빌리티 id는 `CharacterCreator`의 `abilitySystem.Grant(worldEntity, N)` 호출로 확인된다 —
-**1 = haste, 2 = dash, 3 = attack**. 연출이 필요한 것은 attack 하나뿐이므로 행 하나로 시작한다:
-
-| id (int, PK) | anim_state (string) | anim_layer (int) |
-|---|---|---|
-| 3 | `Attack01` | 1 |
+```python
+import openpyxl
+wb = openpyxl.Workbook()
+ws = wb.active
+for r in [
+    ['##var',   'id',  'anim_state', 'anim_layer'],
+    ['##type',  'int', 'string',     'int'],
+    ['##group', '',    '',           ''],
+    ['##',      'id',  'anim_state', 'anim_layer'],
+    ['',        '3',   'Attack01',   '1'],   # attack
+    ['',        '4',   'Attack01',   '1'],   # global_attack (테스트용)
+]:
+    ws.append(r)
+wb.save('Datas/#AbilityView.xlsx')
+```
 
 haste·dash는 행을 넣지 않는다 — `GetOrDefault`가 `null`을 돌려주면 연출 없음으로 취급한다
 (`anim_state`가 빈 문자열이어도 동일).
@@ -824,19 +856,23 @@ haste·dash는 행을 넣지 않는다 — `GetOrDefault`가 `null`을 돌려주
 > `"Attack 01"` / `"Attack"` / `"Melee Attack"` 셋이었으므로 캐릭터마다 다를 수 있다 — 다르면
 > 스펙 §6의 미결(키를 `(캐릭터, 어빌리티)`로 확장) 판단이 필요하니 그 시점에 보고한다.
 
-- [ ] **Step 2: `__tables__.xlsx`에 테이블 등록 (Excel)**
+- [ ] **Step 2: `__tables__.xlsx`에 테이블 등록**
 
-기존 `TbStatusEffect` 행을 참고해 한 줄 추가:
+기존 `TbStatusEffect` 행과 같은 형태로 한 줄 추가한다(컬럼 순서:
+`##var, full_name, value_type, read_schema_from_file, input, index, mode, group, comment, tags, output`):
 
-| full_name | value_type | input | group |
-|---|---|---|---|
-| `TbAbilityView` | `AbilityView` | `#AbilityView.xlsx` | `c` |
+```
+['', 'TbAbilityView', 'AbilityView', 'TRUE', '#AbilityView.xlsx', 'id', 'map', 'c', 'AbilityView', '', '']
+```
 
-**`group`을 반드시 `c`로 지정**한다 — 클라 전용이라 서버 타깃 생성에서 제외되어야 한다.
+**`group`(8번째 칸)을 반드시 `c`로 지정**한다 — 클라 전용이라 서버 타깃 생성에서 제외되어야 한다
+(`TbSkinAsset` 행이 같은 방식의 선례).
 
-- [ ] **Step 3: `#Ability.xlsx`에서 `cue` 컬럼 제거 (Excel)**
+- [ ] **Step 3: `#Ability.xlsx`에서 `cue` 컬럼 제거**
 
-`TbAbilityView`가 그 역할을 대신하므로 제거한다.
+`cue`는 11번째 컬럼이며 `##group`이 `c`다. `TbAbilityView`가 역할을 대신하므로
+`##var`/`##type`/`##group`/`##` 4개 헤더 행과 데이터 행(5~8행)에서 해당 열을 통째로 삭제한다
+(`openpyxl`의 `ws.delete_cols(11)`).
 
 - [ ] **Step 4: 재생성**
 
@@ -1330,19 +1366,37 @@ git commit -m "feat(ability): 상태효과 부여 대상을 TargetMode로 데이
 - Consumes: `LOP.TargetMode` (Task 12)
 - Produces: `LOP.MasterData.StatusEffectApplyEffect.TargetMode` (string 컬럼)
 
-- [ ] **Step 1: bean에 컬럼 추가 (Excel)**
+- [ ] **Step 1: bean에 컬럼 추가**
 
-`__beans__.xlsx`의 `StatusEffectApplyEffect` bean에 컬럼 추가:
+`__beans__.xlsx`에서 `StatusEffectApplyEffect` bean 정의를 찾아 `status_effect_id` 다음에
+`target_mode` (타입 `string`) 컬럼을 추가한다. 먼저 파일 구조를 덤프해 정확한 행·열을 확인한다:
 
-| name | type | 기본값 |
-|---|---|---|
-| `target_mode` | `string` | `Self` |
+```python
+import openpyxl
+wb = openpyxl.load_workbook('Datas/__beans__.xlsx')
+for name in wb.sheetnames:
+    ws = wb[name]
+    print('===', name)
+    for i, r in enumerate(ws.iter_rows(values_only=True), 1):
+        cells = [('' if c is None else str(c)) for c in r]
+        while cells and cells[-1] == '':
+            cells.pop()
+        if cells:
+            print(i, cells)
+```
 
-기존 `DurationPolicy`/`StackPolicy`가 string 컬럼 + 런타임 `Enum.Parse` 방식이므로 동일하게 간다.
+기존 `duration_policy`/`stack_policy`가 string 컬럼 + 런타임 `Enum.Parse` 방식이므로 동일하게 간다
+(enum 타입을 새로 만들지 않는다).
 
-- [ ] **Step 2: 기존 haste 데이터에 `Self` 명시 (Excel)**
+- [ ] **Step 2: 기존 haste 데이터에 `Self` 명시**
 
-`#Ability.xlsx`의 haste 행에 있는 `StatusEffectApplyEffect` 항목의 `target_mode`에 `Self`를 채운다.
+`#Ability.xlsx`의 haste 행(5행) `effects` 칸(12번째 컬럼)을 바꾼다. bean에 컬럼이 하나 늘었으므로
+값도 하나 늘어야 한다:
+
+```
+현재: StatusEffectApplyEffect,1
+변경: StatusEffectApplyEffect,1,Self
+```
 
 - [ ] **Step 3: 재생성**
 
@@ -1408,25 +1462,39 @@ git commit -m "feat(masterdata): target_mode 매핑"
 **Interfaces:**
 - Produces: `TbStatusEffect`에 슬로우 행, `attack` 어빌리티의 effect 목록에 `StatusEffectApplyEffect(slow, HitTargets)`
 
-- [ ] **Step 1: 슬로우 상태이상 행 추가 (Excel)**
+- [ ] **Step 1: 슬로우 상태이상 행 추가**
 
-`#StatusEffect.xlsx`에 기존 haste 행과 같은 형식으로 한 줄:
+`#StatusEffect.xlsx`의 haste 행(현재 5행) 아래 6행에 추가한다. 현재 haste 행은
+`['', '1', 'haste', '이동속도 +30% 증가', 'Duration', '100', 'MoveSpeed', '0.3', 'PercentAdd', 'Refresh', '1']`
+이므로 같은 형태로:
 
-| id | name | description | duration_policy | duration_ticks | mod_stat_type | mod_value | mod_type | stack_policy | max_stacks |
-|---|---|---|---|---|---|---|---|---|---|
-| (haste 다음 번호) | `slow` | 이동 속도 −5% | `Duration` | 30 | `MoveSpeed` | `-0.05` | `PercentAdd` | `Refresh` | 1 |
+```python
+import openpyxl
+wb = openpyxl.load_workbook('Datas/#StatusEffect.xlsx')
+ws = wb[wb.sheetnames[0]]
+row = ['', '2', 'slow', '이동속도 -5% 감소', 'Duration', '30',
+       'MoveSpeed', '-0.05', 'PercentAdd', 'Refresh', '1']
+for col, value in enumerate(row, start=1):
+    ws.cell(row=6, column=col, value=value)
+wb.save('Datas/#StatusEffect.xlsx')
+```
 
-검증용이므로 약하게 시작한다(−5%, 30틱 ≈ 1초). 밸런스는 나중에 조정.
+검증용이라 약하게 시작한다(−5%, 30틱 ≈ 1초). 밸런스는 나중에 조정.
 
-- [ ] **Step 2: `attack` 어빌리티에 부여 효과 추가 (Excel)**
+- [ ] **Step 2: `attack` 어빌리티에 부여 효과 추가**
 
-`#Ability.xlsx`의 `attack` 행 effect 목록에 항목 추가. haste 행의 `StatusEffectApplyEffect` 항목
-형식을 그대로 따르되:
-- `status_effect_id` = Step 1에서 만든 슬로우 id
-- `target_mode` = `HitTargets`
+`#Ability.xlsx`의 `attack` 행(7행)의 `effects` 칸(12번째 컬럼)을 바꾼다.
 
-**효과 순서 주의**: `DamageEffect`가 명중자를 정하므로 **데미지 항목보다 뒤에** 놓아야 한다
-(넉백과 같은 규칙 — on-hit 라이더는 히트 정의자 다음).
+```
+현재: DamageEffect,10,2,90,KnockbackEffect,5,12,0.8
+변경: DamageEffect,10,2,90,KnockbackEffect,5,12,0.8,StatusEffectApplyEffect,2,HitTargets
+```
+
+**효과 순서 주의**: `DamageEffect`가 명중자를 정하므로 **데미지 항목보다 뒤**에 와야 한다
+(넉백과 같은 규칙 — on-hit 라이더는 히트 정의자 다음). 위 문자열이 그 순서를 지킨다.
+
+`StatusEffectApplyEffect,2,HitTargets`의 `2`는 Step 1에서 만든 슬로우 id, `HitTargets`는
+Task 13에서 추가한 `target_mode` 컬럼 값이다.
 
 - [ ] **Step 3: 재생성 + 커밋**
 
@@ -1574,17 +1642,31 @@ git commit -m "feat(snapshot): 원격 상태이상 반영"
 - Consumes: `LOP.StatusEffects.Effects`, `LOP.MasterData.Tables.TbStatusEffectView`
 - Produces: `TbStatusEffectView` — `StatusEffectView { int Id; string VfxAddress; }`
 
-- [ ] **Step 1: 테이블 생성 + 등록 (Excel)**
+- [ ] **Step 1: 테이블 생성 + 등록**
 
-`#StatusEffectView.xlsx`:
+`#StatusEffectView.xlsx`를 Luban Excel-embedded 형식(Global Constraints의 헤더 4행)으로 만든다:
 
-| id (int, PK) | vfx_address (string) |
-|---|---|
-| (haste id) | (빈 문자열) |
-| (slow id) | (빈 문자열) |
+```python
+import openpyxl
+wb = openpyxl.Workbook()
+ws = wb.active
+for r in [
+    ['##var',   'id',  'vfx_address'],
+    ['##type',  'int', 'string'],
+    ['##group', '',    ''],
+    ['##',      'id',  'vfx_address'],
+    ['',        '1',   ''],          # haste — 아트 미도착
+    ['',        '2',   ''],          # slow  — 아트 미도착
+]:
+    ws.append(r)
+wb.save('Datas/#StatusEffectView.xlsx')
+```
 
-`__tables__.xlsx`에 등록 — `full_name` = `TbStatusEffectView`, `value_type` = `StatusEffectView`,
-`input` = `#StatusEffectView.xlsx`, **`group` = `c`**.
+`__tables__.xlsx`에 한 줄 추가 (**`group`은 `c`**):
+
+```
+['', 'TbStatusEffectView', 'StatusEffectView', 'TRUE', '#StatusEffectView.xlsx', 'id', 'map', 'c', 'StatusEffectView', '', '']
+```
 
 - [ ] **Step 2: 재생성 + 클라 전용인지 확인**
 

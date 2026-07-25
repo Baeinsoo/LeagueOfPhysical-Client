@@ -106,6 +106,13 @@ namespace LOP
             builder.Register<Reconciler>(Lifetime.Singleton);
             builder.Register<RemoteInterpolationClock>(Lifetime.Singleton);
 
+            // Slice 5-B: LOPRunner.UpdateRunner 인라인 파이프라인 스텝 → ITickSystem 추출(god-object 해체).
+            builder.Register<ReconcileSystem>(Lifetime.Singleton);
+            builder.Register<PhysicsSimulationSystem>(Lifetime.Singleton);
+            builder.Register<WorldEventDrainSystem>(Lifetime.Singleton);
+            builder.Register<LocalSnapshotSystem>(Lifetime.Singleton);
+            builder.Register<DespawnFlushSystem>(Lifetime.Singleton);
+
             builder.RegisterBuildCallback(container =>
             {
                 container.InjectSceneObjects(gameObject.scene);

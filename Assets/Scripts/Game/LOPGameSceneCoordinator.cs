@@ -18,11 +18,9 @@ namespace LOP
         private IPlayerContext playerContext;
 
         [Inject]
-        private IWindowManager windowManager;
+        private MatchLoadingViewModel matchLoadingViewModel;
 
         private LOPRunner runner;
-
-        private UIView gameLoadingView;
         private System.IDisposable gameInfoSubscription;
 
         private void Awake()
@@ -45,19 +43,11 @@ namespace LOP
 
         private void OnGameStateChanged(RunnerState gameState)
         {
-            switch (gameState)
+            // 로딩 화면은 룸 연결 시점(위치=GameRoom)부터 이미 떠 있다.
+            // 게임이 실제로 시작되면 그 사실만 보고하고, 창을 내리는 판단은 VM/코디네이터가 한다.
+            if (gameState == RunnerState.Playing)
             {
-                case RunnerState.Initialized:
-                    gameLoadingView = windowManager.Open<GameLoadingView>();
-                    break;
-
-                case RunnerState.Playing:
-                    if (gameLoadingView != null)
-                    {
-                        windowManager.Close(gameLoadingView);
-                        gameLoadingView = null;
-                    }
-                    break;
+                matchLoadingViewModel.NotifyGameLive();
             }
         }
 

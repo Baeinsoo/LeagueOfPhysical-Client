@@ -81,6 +81,12 @@ namespace LOP
 
             new UIInstaller().Install(builder);
 
+            // 매치 진입 로딩 화면(룸 연결~게임 준비 구간을 연속으로 덮음).
+            // VM은 유저 위치(GetUserLocationResponse)를 관찰해 IsLoading을 파생하고,
+            // 코디네이터가 그 신호로 로딩 창을 여닫는다(씬 경계를 넘어 뷰를 소유).
+            builder.Register<MatchLoadingViewModel>(Lifetime.Singleton);
+            builder.RegisterEntryPoint<MatchLoadingCoordinator>();
+
             #region RegisterBuildCallback
             builder.RegisterBuildCallback(container =>
             {

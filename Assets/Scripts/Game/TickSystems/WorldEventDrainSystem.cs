@@ -1,7 +1,7 @@
 namespace LOP
 {
     /// <summary>구 LOPRunner.ProcessEvent 이동. 확정된 이벤트 버퍼를 드레인해 연출용으로 송출하고 비운다.</summary>
-    public class WorldEventDrainSystem : GameFramework.ITickSystem
+    public class WorldEventDrainSystem : GameFramework.Runner.ITickSystem
     {
         private readonly GameFramework.World.WorldEventBuffer worldEventBuffer;
         private readonly GameFramework.World.IEventSink eventSink;

@@ -53,6 +53,7 @@ namespace LOP
             worldStats.BaseStats[(int)GameFramework.World.EntityStatType.JumpPower] = characterMasterData.JumpPower;
             worldEntity.Add(worldStats);
             worldEntity.Add(new Abilities());
+            worldEntity.Add(new GameFramework.World.GroundState());
             worldEntity.Add(new StatusEffects());
             worldEntity.Add(new MotionContributions());
 

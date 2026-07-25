@@ -11,6 +11,7 @@ namespace LOP
         public UnityEngine.Vector3 position { get; set; }
         public UnityEngine.Vector3 rotation { get; set; }
         public UnityEngine.Vector3 velocity { get; set; }
+        public bool grounded { get; set; }
         public double timestamp { get; set; }
 
         // 서버 권위 외부 이동 기여(넉백 등). AutoMapper 대상 아님 — 핸들러가 수동으로 채운다.

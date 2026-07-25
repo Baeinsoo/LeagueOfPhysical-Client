@@ -145,6 +145,13 @@ namespace LOP
                         }
                     }
 
+                    GameFramework.World.GroundState groundState =
+                        entityRegistry.Get(serverEntitySnap.EntityId)?.Get<GameFramework.World.GroundState>();
+                    if (groundState != null)
+                    {
+                        groundState.IsGrounded = serverEntitySnap.Grounded;
+                    }
+
                     actor.GetComponent<RemoteEntityInterpolator>().AddServerEntitySnap(entitySnap);
                 }
             }

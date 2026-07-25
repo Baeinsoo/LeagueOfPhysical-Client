@@ -13,20 +13,17 @@ namespace LOP
     [SceneInjectMonoBehaviour]
     public class LOPRunner : RunnerBase
     {
-        [Inject] private GameFramework.World.WorldEventBuffer worldEventBuffer;
-        [Inject] private GameFramework.World.IEventSink eventSink;
-        [Inject] private IPhysicsSimulator physicsSimulator;
         [Inject] private GameFramework.World.IWorld world;
-        [Inject] private GameFramework.World.EntityRegistry entityRegistry;
-        [Inject] private GameFramework.World.IMotionBridge motionBridge;
 
         [Inject] private IMapLoader mapLoader;
-        [Inject] private IPlayerContext playerContext;
-        [Inject] private GameFramework.Netcode.SnapshotHistory snapshotHistory;
-        [Inject] private GameFramework.Netcode.SequenceBuffer<PredictedAbilityState> predictedAbilityStateHistory;
-        [Inject] private Reconciler reconciler;
-        [Inject] private EntitySpawner entitySpawner;
         [Inject] private INetworkTime networkTimeSource;
+
+        // Slice 5-B: 파이프라인 스텝 — 순서대로 직접 호출(넷코드 순서 불변식이 코드에 명시).
+        [Inject] private ReconcileSystem reconcileSystem;
+        [Inject] private PhysicsSimulationSystem physicsSimulationSystem;
+        [Inject] private WorldEventDrainSystem worldEventDrainSystem;
+        [Inject] private LocalSnapshotSystem localSnapshotSystem;
+        [Inject] private DespawnFlushSystem despawnFlushSystem;
 
         private const string MapId = "Assets/Art/Scenes/FlapWangMap.unity";
 
@@ -93,112 +90,14 @@ namespace LOP
 
         public override void UpdateRunner()
         {
-            ProcessNetworkMessage();
-
-            reconciler.Reconcile(tickUpdater.tick, (float)tickUpdater.interval);
-
-            ProcessInput();
-
-            InterpolateEntity();
-
-            UpdateAI();
-
-            world.Tick(tickUpdater.tick, (float)tickUpdater.interval);
-
-            SimulatePhysics();
-
-            UpdateVisualEffect();
-
-            ProcessEvent();
-
-            EndUpdate();
-        }
-
-        private void ProcessNetworkMessage()
-        {
-
-        }
-
-        private void ProcessInput()
-        {
+            reconcileSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
             RunPhase<ProcessInput>(tickUpdater.tick, (float)tickUpdater.deltaTime);
-        }
-
-        private void InterpolateEntity()
-        {
-        }
-
-        private void UpdateAI()
-        {
-        }
-
-        private void SimulatePhysics()
-        {
-            // World.Transform → rb 팔로우: PhysicsBody 가진 모든 엔티티(내 캐릭=예측, 남·아이템=보간).
-            // Simulated는 world.Tick서 이미 밀렸으나 idempotent. per-entity LOPEntityController 대체.
-            foreach (var entity in entityRegistry.All)
-            {
-                motionBridge.PushMotion(entity);
-            }
-
-            physicsSimulator.Simulate((float)tickUpdater.interval);
-        }
-
-        private void UpdateVisualEffect()
-        {
-        }
-
-        private void ProcessEvent()
-        {
-            // --- World Core — 슬라이스 3: 이벤트 버퍼 드레인 ---
-            var snapshot = worldEventBuffer.Snapshot;
-            if (snapshot.Count == 0) return;
-
-            eventSink.Emit(snapshot);
-            worldEventBuffer.Clear();
-            // --- end World Core slice 3 ---
-        }
-
-        private void EndUpdate()
-        {
-            RecordLocalSnapshot();
-
+            world.Tick(tickUpdater.tick, (float)tickUpdater.interval);
+            physicsSimulationSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
+            worldEventDrainSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
+            localSnapshotSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
             RunPhase<End>(tickUpdater.tick, (float)tickUpdater.deltaTime);
-
-            entitySpawner.FlushDespawns();
-        }
-
-        // 내 캐릭의 이번 틱 최종 시뮬 상태를 스냅샷에 남긴다. End 디스패치(=LocalEntityInterpolator의
-        // 지연 렌더링용 틱 기록) 전에 찍어, 뷰 보간이 얹히기 전 원본 예측 상태를 포착한다.
-        // 되돌리기(하드 복원+재생)는 Reconciler.Reconcile이 다음 틱 앞에서 수행.
-        private void RecordLocalSnapshot()
-        {
-            string entityId = playerContext.entityId;
-            if (entityId == null)
-            {
-                return;
-            }
-
-            GameFramework.World.Entity worldEntity = entityRegistry.Get(entityId);
-            if (worldEntity == null)
-            {
-                return;
-            }
-
-            var transform = worldEntity.Get<GameFramework.World.Transform>();
-            var velocity = worldEntity.Get<GameFramework.World.Velocity>();
-            if (transform == null || velocity == null)
-            {
-                return;
-            }
-
-            snapshotHistory.Record(new GameFramework.Netcode.EntitySnapshot(
-                tickUpdater.tick,
-                transform.Position,
-                transform.Rotation,
-                velocity.Linear));
-
-            predictedAbilityStateHistory.Record(tickUpdater.tick, PredictedAbilityState.Capture(worldEntity));
+            despawnFlushSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
         }
     }
 }

@@ -8,6 +8,9 @@ namespace LOP
     {
         private readonly LOP.MasterData.LOPMasterData md;
 
+        // 마스터데이터는 로드 후 불변이라 무효화가 필요 없다 — 한 번 매핑한 값을 계속 재사용해도 안전하다.
+        private readonly System.Collections.Generic.Dictionary<int, AbilityData> cache = new System.Collections.Generic.Dictionary<int, AbilityData>();
+
         public AbilityDataProvider(LOP.MasterData.LOPMasterData md)
         {
             this.md = md;
@@ -16,6 +19,11 @@ namespace LOP
         /// <summary>어빌리티 id로 설정을 조회(런타임 식별=int id). 없으면 false.</summary>
         public bool TryGet(int abilityId, out AbilityData data)
         {
+            if (cache.TryGetValue(abilityId, out data))
+            {
+                return true;
+            }
+
             var row = md.Tables.TbAbility.GetOrDefault(abilityId);
             if (row == null)
             {
@@ -24,6 +32,7 @@ namespace LOP
             }
 
             data = Map(row);
+            cache[abilityId] = data;
             return true;
         }
 

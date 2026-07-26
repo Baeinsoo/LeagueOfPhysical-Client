@@ -25,6 +25,8 @@ namespace LOP
         private readonly GameFramework.World.IMotionBridge motionBridge;
         private readonly ReconciliationStats reconciliationStats;
         private readonly GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
+        private readonly StatusEffectSystem statusEffectSystem;
+        private readonly StatusEffectDataProvider statusEffectDataProvider;
 
         private EntitySnap latestSnap;
         private bool hasPending;
@@ -40,7 +42,9 @@ namespace LOP
             GameFramework.World.IWorld world,
             GameFramework.World.IMotionBridge motionBridge,
             ReconciliationStats reconciliationStats,
-            GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother)
+            GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother,
+            StatusEffectSystem statusEffectSystem,
+            StatusEffectDataProvider statusEffectDataProvider)
         {
             this.playerContext = playerContext;
             this.entityRegistry = entityRegistry;
@@ -53,6 +57,8 @@ namespace LOP
             this.motionBridge = motionBridge;
             this.reconciliationStats = reconciliationStats;
             this.renderCorrectionSmoother = renderCorrectionSmoother;
+            this.statusEffectSystem = statusEffectSystem;
+            this.statusEffectDataProvider = statusEffectDataProvider;
         }
 
         /// <summary>서버 스냅 수신(내 캐릭). 가장 최신 틱만 남긴다.</summary>
@@ -130,6 +136,11 @@ namespace LOP
                 return;
             }
             abilityState.RestoreTo(worldEntity);
+
+            // 남이 나에게 건 효과(슬로우 등)는 내가 예측할 수 없다 → 서버 목록이 진실.
+            // 위 RestoreTo가 되돌린 예측값 위에 덮는다(넉백 기여를 스냅에서 복원하는 것과 같은 축).
+            // 앵커에서 맞춰두면 이어지는 재생이 현재 틱까지 밀어 올린다.
+            statusEffectSystem.ApplyAuthoritativeState(worldEntity, snap.statusEffects, statusEffectDataProvider.Get);
 
             // 격차가 과도하면 재생 생략(텔레포트) — 입력/스냅 히스토리 밖이라 재생 불가.
             if (currentTick - anchorTick > MaxReplayTicks)

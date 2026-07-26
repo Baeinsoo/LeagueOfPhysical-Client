@@ -38,26 +38,17 @@ namespace LOP
 #endif
         }
 
-        [Serializable]
-        public class BaseURLSetting
-        {
-            public string scheme;
-            public string host;
-
-            public string baseUrl => $"{scheme}://{host}";
-        }
-
-        [SerializeField] private BaseURLSetting lobbyServerSetting;
-        [SerializeField] private BaseURLSetting matchmakingServerSetting;
-        [SerializeField] private BaseURLSetting roomServerSetting;
+        [SerializeField] private string lobbyServerBaseUrl;
+        [SerializeField] private string matchmakingServerBaseUrl;
+        [SerializeField] private string roomServerBaseUrl;
 
         [SerializeField] private bool useLocalRoomInstance;
         [SerializeField] private string localRoomHost = "localhost";
         [SerializeField] private ushort localRoomPort = 7777;
 
-        public string lobbyBaseURL => lobbyServerSetting.baseUrl;
-        public string matchmakingBaseURL => matchmakingServerSetting.baseUrl;
-        public string roomBaseURL => roomServerSetting.baseUrl;
+        public string lobbyBaseURL => lobbyServerBaseUrl;
+        public string matchmakingBaseURL => matchmakingServerBaseUrl;
+        public string roomBaseURL => roomServerBaseUrl;
 
         public bool UseLocalRoomInstance => useLocalRoomInstance;
         public string LocalRoomHost => localRoomHost;

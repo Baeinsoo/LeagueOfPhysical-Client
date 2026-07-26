@@ -12,15 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 147fb5da6469b4f41b874a256827f349, type: 3}
   m_Name: EnvironmentSettings.local
   m_EditorClassIdentifier: 
-  lobbyServerSetting:
-    scheme: http
-    host: localhost/lobby
-  matchmakingServerSetting:
-    scheme: http
-    host: localhost/matchmaking
-  roomServerSetting:
-    scheme: http
-    host: localhost/room
+  lobbyServerBaseUrl: http://localhost/lobby
+  matchmakingServerBaseUrl: http://localhost/matchmaking
+  roomServerBaseUrl: http://localhost/room
   useLocalRoomInstance: 1
   localRoomHost: localhost
   localRoomPort: 7777

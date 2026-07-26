@@ -135,7 +135,7 @@ namespace LOP
                 {
                     entitySnap.statusEffects.Add(new ActiveEffect(
                         pe.EffectId, pe.ExpireTick, pe.StackCount,
-                        sourceEntityId: null, sourceId: $"se:{pe.EffectId}"));
+                        sourceEntityId: null, sourceId: StatusEffectSystem.SourceIdFor(pe.EffectId)));
                 }
 
                 if (playerContext.entityId == actor.entityId)

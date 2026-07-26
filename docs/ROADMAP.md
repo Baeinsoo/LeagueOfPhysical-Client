@@ -245,7 +245,40 @@ spec `2026-07-25-animation-state-sync-design.md`.
   **위치 곡선의 미분**(`Hermite.Velocity`, GF 신규 + EditMode 6케이스)으로 산출해 반영.
   GF `7b26974` / Client `baad313`.
 
-EditMode 332/332. **다음 = 애니 동기화 슬라이스 3(상태이상, Task 12~16).** 슬라이스 1·2는 완료.
+### ✅ 상태이상 — 명중자 부여 + 복제 + 몸에 붙는 VFX (슬라이스 3)
+상태이상이 **자기 자신에게만** 걸렸고, 클라는 그 존재를 **아예 몰랐다**. 그래서 헤이스트는 걸려도
+화면에 아무 표시가 없었고 슬로우는 만들 수단 자체가 없었다. 7태스크로 끝-끝 해소.
+
+- **`TargetType { Self, HitTargets }`** — 효과를 누구에게 걸지 데이터로 선언. 명중 대상은 데미지가
+  이미 기록하므로(`AttackHitContext`) 넉백과 같은 on-hit 라이더 규칙을 따른다. 마스터데이터는
+  `target_type` string 컬럼(`duration_policy`/`stack_policy`와 같은 방식, 새 Luban enum 안 만듦).
+- **슬로우**(id 2, MoveSpeed −30%, 60틱) + **캐릭터별 공격 3·5·6 전부**에 라이더 부착.
+  효과 순서 = 데미지 뒤(명중자를 데미지가 정하므로).
+- **와이어**: `EntitySnap.status_effects`(11) + `ProtoActiveEffect`. MessageId 무변경.
+- **⭐ 소유자 동기화** — 클라는 *내 캐릭만* 시뮬하므로 **남이 나에게 건 효과를 예측할 수 없다.**
+  모르면 서버만 나를 70%로 움직여 매 틱 위치가 어긋난다(러버밴딩) — 연출을 빼도 발생하는
+  넷코드 문제. `StatusEffectSystem.ApplyAuthoritativeState`(HealthSystem과 같은 이름·역할) +
+  `Reconciler`가 `RestoreTo` **직후** 호출. 넉백(`MotionContributions`)이 이미 쓰던 규칙과 같은 축.
+  **재조정 게이트도 확장** — 위치만 보면 가만히 서서 맞은 슬로우는 오차 0이라 영영 안 들어오고,
+  이동 무관 효과(스턴·도트)는 구조적으로 도달 불가였다. 비교는 **앵커 틱끼리**(시점 정합),
+  클라가 해석 못 하는 id는 제외(안 그러면 불일치 영구 미해소 → 롤백 무한 반복).
+- **연출**: `TbStatusEffectView`(클라 전용, id → VFX 주소) + `StatusEffectVfxView`(매 프레임 상태
+  목록을 읽어 맞춤, 루트에 부착). 에셋은 **더미**(`Assets/Art_Placeholder/`, 유니티 기본 파티클 +
+  URP 셰이더, 외부 의존 0). **교체 = Excel 주소 한 줄 + 폴더 삭제, 코드 0줄.**
+- 브랜치 `feature/status-effect-vfx`(6 저장소). 클·서 컴파일 클린, 전체 브랜치 리뷰 통과
+  (Ready with follow-ups). **인게임 검증 후 머지** — 머지 SHA는 그때 기록.
+- EditMode **345/345**(332 → +13). spec `2026-07-26-status-effect-vfx-design.md`,
+  plan `2026-07-26-status-effect-vfx.md`.
+- **후속(머지 차단 아님)**: 마스터데이터 검증 EditMode 테스트(모든 `StatusEffectApplyEffect` id가
+  `TbStatusEffect`에 존재 + `target_type`이 유효 `TargetType`) — 클·서 provider가 unknown id에
+  다르게 반응하는 것(클=null·서=throw)의 정석 해법 / 와이어에서 만드는 죽은 `sourceId` 제거 또는
+  `SourceIdFor` 단일화 / `AbilityDataProvider` 매핑 캐시(원격 시전 중 매 스냅 `Enum.Parse`) /
+  게이트가 id 집합만 봐 스택·만료틱 차이 미감지(이동 시 자동 해소) / 원격은 모디파이어 미적용이라
+  원격 `Stats`를 읽는 코드가 생기면 함정.
+- **범위 밖 발견**: `LOPEntityView.UpdateVisual`은 `await` 중 `Cleanup`이 핸들을 해제하면 해제된
+  결과로 `Instantiate`한다(이번에 만든 `StatusEffectVfxView`는 같은 함정을 `ownsHandle`로 막았다).
+
+EditMode 345/345. **다음 = 위 후속 항목 또는 새 트랙.** 애니 동기화 트랙(슬라이스 1·2·3)은 종결.
 
 ---
 

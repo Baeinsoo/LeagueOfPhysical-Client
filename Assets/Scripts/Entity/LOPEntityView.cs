@@ -41,6 +41,8 @@ namespace LOP
 
         private string visualId;
         private AsyncOperationHandle<GameObject> asyncOperationHandle;
+        // UpdateVisual 요청마다 하나씩 올라간다 — await 이후 "내가 아직 최신 요청인가"를 판단하는 표.
+        private int visualRequestId;
 
         private System.IDisposable subscriptions;
 
@@ -60,6 +62,10 @@ namespace LOP
         public void Cleanup()
         {
             subscriptions?.Dispose();
+
+            // 먼저 카운터부터 올린다 — 로딩 중인 UpdateVisual이 있다면 await에서 깨어났을 때
+            // "더 이상 최신 요청이 아님"을 보고 자기 handle을 스스로 놓게 만들기 위함(이중 해제 방지).
+            visualRequestId++;
 
             if (asyncOperationHandle.IsValid())
             {
@@ -190,10 +196,29 @@ namespace LOP
                 Addressables.Release(asyncOperationHandle);
             }
 
-            asyncOperationHandle = Addressables.LoadAssetAsync<GameObject>(visualId);
-            await asyncOperationHandle.Task;
+            // 로컬 변수로 들고 있다가, await 이후 아직 유효한 요청일 때만 필드로 소유권을 넘긴다.
+            int requestId = ++visualRequestId;
+            var handle = Addressables.LoadAssetAsync<GameObject>(visualId);
+            await handle.Task;
 
-            visualGameObject = Instantiate(asyncOperationHandle.Task.Result, transform);
+            // 로딩 도중 Cleanup(파괴)되었거나 더 새 visualId 요청이 들어와 밀렸으면, 이 handle은
+            // 아무도 쓰지 않으므로 여기서 직접 놓는다 — handle 하나당 해제는 정확히 한 번.
+            bool stillCurrent = this != null && requestId == visualRequestId;
+            if (stillCurrent == false)
+            {
+                Addressables.Release(handle);
+                return;
+            }
+
+            if (handle.Status != AsyncOperationStatus.Succeeded || handle.Result == null)
+            {
+                Addressables.Release(handle);
+                return;
+            }
+
+            // 여기부터가 실제 소유권 이전 지점 — 필드는 항상 completed + 유효한 handle만 들고 있다.
+            asyncOperationHandle = handle;
+            visualGameObject = Instantiate(handle.Result, transform);
             var worldEntity = entityRegistry.Get(entityId);
             if (worldEntity != null)
             {

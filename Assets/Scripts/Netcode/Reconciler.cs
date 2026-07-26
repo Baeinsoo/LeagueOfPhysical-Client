@@ -103,9 +103,11 @@ namespace LOP
             {
                 var authoritative = snap.position.ToNumerics();
                 reconciliationStats.Record(System.Numerics.Vector3.Distance(predicted.Position, authoritative));
-                // 게이트는 위치만 본다(의도적): 어빌리티/상태이상은 서버 권위 wire 값이 없고 입력으로
-                // 결정론적 재생되므로 별도 게이트 불필요.
-                if (!GameFramework.Netcode.ReconcileGate.ShouldReconcile(predicted.Position, authoritative, Threshold))
+                // 위치가 가까워도 서버 상태이상 목록이 다르면 게이트를 연다: 남이 나에게 건 효과(슬로우 등)는
+                // 내가 예측할 수 없어서, 가만히 서 있다 슬로우가 걸려도 위치 오차는 0으로 남기 때문이다.
+                bool positionClose = !GameFramework.Netcode.ReconcileGate.ShouldReconcile(predicted.Position, authoritative, Threshold);
+                bool statusMatches = !HasStatusEffectMismatch(worldEntity, snap.statusEffects);
+                if (positionClose && statusMatches)
                 {
                     return;
                 }
@@ -184,6 +186,36 @@ namespace LOP
             // 하드 보정으로 시뮬 위치가 튄 것을 렌더 스무더에 알린다. 스무더가 보이는 위치를
             // (보정 전 예측 → 보정 후 권위)만큼 부드럽게 흡수한다(시뮬 무영향). 크기별 스냅/무시는 스무더가 판단.
             renderCorrectionSmoother.OnCorrection(preCorrectionPos.ToNumerics(), GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity).ToNumerics());
+        }
+
+        /// <summary>서버 상태이상 목록이 현재 예측 목록과 다른 효과 id를 갖고 있는지(집합 비교, 개수 0~3 가정).</summary>
+        private static bool HasStatusEffectMismatch(GameFramework.World.Entity worldEntity, System.Collections.Generic.List<ActiveEffect> serverEffects)
+        {
+            var statusEffects = worldEntity.Get<StatusEffects>();
+            var localEffects = statusEffects != null ? statusEffects.Effects : null;
+            int localCount = localEffects != null ? localEffects.Count : 0;
+            int serverCount = serverEffects != null ? serverEffects.Count : 0;
+            if (localCount != serverCount)
+            {
+                return true;
+            }
+            for (int i = 0; i < serverCount; i++)
+            {
+                bool found = false;
+                for (int j = 0; j < localCount; j++)
+                {
+                    if (localEffects[j].EffectId == serverEffects[i].EffectId)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

@@ -5,27 +5,27 @@ namespace LOP.EditorTools
     public static class EnvironmentSwitcher
     {
         private const string MenuRoot = "LOP/Environment/";
-        private const string LocalMenu = MenuRoot + "Local";
+        private const string LocalMenu = MenuRoot + "local";
         private const string LocalK8sMenu = MenuRoot + "local-k8s";
-        private const string DevMenu = MenuRoot + "Dev";
+        private const string DevMenu = MenuRoot + "dev";
 
         [MenuItem(LocalMenu)]
-        private static void SetLocal() => Set("Local");
+        private static void SetLocal() => Set("local");
 
         [MenuItem(LocalK8sMenu)]
         private static void SetLocalK8s() => Set("local-k8s");
 
         [MenuItem(DevMenu)]
-        private static void SetDev() => Set("Dev");
+        private static void SetDev() => Set("dev");
 
         [MenuItem(LocalMenu, true)]
-        private static bool ValidateLocal() => Validate(LocalMenu, "Local");
+        private static bool ValidateLocal() => Validate(LocalMenu, "local");
 
         [MenuItem(LocalK8sMenu, true)]
         private static bool ValidateLocalK8s() => Validate(LocalK8sMenu, "local-k8s");
 
         [MenuItem(DevMenu, true)]
-        private static bool ValidateDev() => Validate(DevMenu, "Dev");
+        private static bool ValidateDev() => Validate(DevMenu, "dev");
 
         private static void Set(string environment)
         {

@@ -17,12 +17,13 @@ namespace LOP.Event.Entity
         }
     }
 
+    /// <summary>어빌리티가 발동된 순간(일회성). 지속되는 시전 모션은 이 이벤트가 아니라 스냅샷 상태에서 파생한다.</summary>
     public struct AbilityActivated
     {
-        public string cue;
-        public AbilityActivated(string cue)
+        public int abilityId;
+        public AbilityActivated(int abilityId)
         {
-            this.cue = cue;
+            this.abilityId = abilityId;
         }
     }
 

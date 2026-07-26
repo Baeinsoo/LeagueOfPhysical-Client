@@ -23,6 +23,9 @@ namespace LOP
         {
             public GameObject instance;                     // 아직 로딩 중이면 null
             public AsyncOperationHandle<GameObject> handle;
+            // "로딩이 끝남"과 "완료 콜백이 이미 실행됨"은 다른 사건이다(콜백이 지연될 수 있음).
+            // 그래서 handle 해제 권한을 상태로 추론하지 않고 여기에 직접 기록한다.
+            public bool ownsHandle;
         }
 
         private readonly Dictionary<int, Vfx> vfxByEffectId = new Dictionary<int, Vfx>();
@@ -93,12 +96,22 @@ namespace LOP
                 bool stillWanted = this != null
                     && vfxByEffectId.TryGetValue(effectId, out Vfx current)
                     && ReferenceEquals(current, vfx);
-                if (stillWanted == false || handle.Status != AsyncOperationStatus.Succeeded)
+                if (stillWanted == false)
                 {
                     Addressables.Release(handle);
                     return;
                 }
+                if (handle.Status != AsyncOperationStatus.Succeeded)
+                {
+                    // 아직 원하는 상태지만 로딩 자체가 실패한 경우 — 다시 시도하지 않으므로
+                    // 아무것도 소유하지 않는 죽은 항목을 남기지 말고 자리도 함께 치운다.
+                    vfxByEffectId.Remove(effectId);
+                    Addressables.Release(handle);
+                    return;
+                }
 
+                // 여기서부터가 실제 소유권 이전 지점 — Despawn은 이 플래그만 보고 해제 여부를 판단한다.
+                vfx.ownsHandle = true;
                 // 모델(스킨) 밑이 아니라 루트에 붙인다 — 스킨이 갈릴 때 딸려 파괴되지 않게.
                 vfx.instance = Instantiate(handle.Result, transform);
             };
@@ -116,8 +129,9 @@ namespace LOP
             {
                 Destroy(vfx.instance);
             }
-            // 아직 로딩 중이면 여기서 놓지 않는다 — 위 완료 콜백이 "이미 풀렸다"를 보고 대신 놓는다(이중 해제 방지).
-            if (vfx.handle.IsValid() && vfx.handle.IsDone)
+            // 아직 콜백이 소유권을 넘겨받지 않았으면(로딩 중이거나, 완료됐지만 콜백이 이번 프레임
+            // LateUpdate로 지연된 상태) 여기서 놓지 않는다 — 콜백이 "이미 풀렸다"를 보고 대신 놓는다(이중 해제 방지).
+            if (vfx.ownsHandle)
             {
                 Addressables.Release(vfx.handle);
             }

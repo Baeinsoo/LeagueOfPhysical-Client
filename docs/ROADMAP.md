@@ -187,14 +187,29 @@ GF `GroundState` 신설 — `KinematicMover`가 계산해 **버리던** 접지�
 머지: GF `e32469a` / Shared `ed910dd` / Server `ebc0f0b` / Client `6b921e9`.
 spec `2026-07-25-animation-state-sync-design.md`.
 
-### ⏸ 시전 상태 스냅샷 복제 (슬라이스 2, 배관만 머지)
+### ✅ 시전 상태 스냅샷 복제 (슬라이스 2, 완료)
 스킬 시전 모션이 **일회성 이벤트**로만 전달돼 늦게 접속하거나 패킷을 놓친 클라에선 시전 중인
-캐릭터가 서 있는 걸로 보이던 문제. 지속 상태로 복제하도록 전환 중.
-완료·머지: 진행도 커널 `AbilityPlayback.Solve` + 연출용 `AbilityActivation.ForPresentation`,
-와이어 `active_ability_id`(9)/`ability_end_tick`(10), 클라 원격 복원(종료 틱에서 페이즈 경계 역산).
-Shared `2b9e578` / Server `e41791d` / Client `e645a9d`.
-**남은 것**: `TbAbilityView` 뷰 테이블 + 뷰를 `Animator.Play(state, layer, 진행도)` 상태 기반으로 전환.
-`SetTrigger`로는 "중간부터 재생"이 불가능한 것이 이 전환의 이유.
+캐릭터가 서 있는 걸로 보이던 문제. 지속 상태로 복제해 해소.
+- **배관**(선행 머지): 진행도 커널 `AbilityPlayback.Solve` + 연출용 `AbilityActivation.ForPresentation`,
+  와이어 `active_ability_id`(9)/`ability_end_tick`(10), 클라 원격 복원(종료 틱에서 페이즈 경계 역산).
+  Shared `2b9e578` / Server `e41791d` / Client `e645a9d`.
+- **뷰 전환**(Task 10·11): `TbAbilityView`(클라 전용, 어빌리티 id → 애니 스테이트/레이어) 신설 +
+  `TbAbility.cue` 제거, 클라 `EntityRenderClock`(내 캐릭=예측 틱 / 남=보간 재생 시계 — 위치와 애니가
+  같은 시점을 보게), `LOPEntityView`가 트리거 대신 지속 상태에서 파생.
+  infra `89ec221` / MD-C `8c150b6` / Client `327f7e6`+`4e5cb54`.
+- **플랜 대비 교정 3건**: ① 애니 이름은 트리거 파라미터가 아니라 **스테이트 이름**
+  (3=`Attack 01` / 5=`melee attack with wand` / 6=`Attack`, 셋 다 Base Layer 0 — 컨트롤러 파싱으로 확인).
+  ② 진행도 드리프트 재동기 **삭제** — 클립 길이 ≠ 어빌리티 길이라 끝에서 되감겨 덜덜거림. 발동마다 한 번만.
+  ③ 새 발동 판별 키에 **종료 틱** 포함 — `abilityId`만으로는 같은 스킬 연타 시 두 번째가 안 걸림.
+- **재생 방식**(사용자 논의 후 확정): `Play`(하드컷) → **`CrossFadeInFixedTime(state, 0.1s, layer, 경과 초)`**.
+  `CrossFade`(정규화)는 섞는 시간이 *출발 동작 길이의 비율*이라 Idle/Run에서 시작할 때 길이가 달라짐 →
+  초 단위 쪽. 시작 지점도 진행도(0~1)가 아니라 **발동 후 경과 초** — 비율로 넣으면 클립 길이가
+  어빌리티 길이와 다를 때 발동을 본 클라와 놓친 클라가 다른 포즈를 그린다.
+  언리얼 몽타주 `InTimeToStartMontageAt`(초) + 애셋 Blend In과 같은 매핑. 블렌드 시간은 상수 1개라
+  데이터 컬럼화는 보류(스킬별로 달라져야 할 때 `TbAbilityView`에 추가).
+- **미포함**: `global_attack`(4, G키 테스트용)은 세 캐릭터가 공유해 애니 이름이 하나로 안 정해지고
+  지속 1틱이라 상태 기반으로 못 그림 → 뷰 행 없음(모션 없음, 데미지·넉백은 그대로).
+- 검증: 클·서 컴파일 클린, EditMode 332/332, 인게임(3캐릭터 모션 + 손실 20~30% 모션 누락 0 + 블렌딩).
 
 ### ✅ 캐릭터별 어빌리티 로드아웃 + 슬롯 장착 (트랙 B, 전량 완료)
 슬라이스 2가 막힌 원인 해소 — 캐릭터 3종이 같은 `attack`(id 3)을 쓰는데 공격 애니 스테이트
@@ -230,8 +245,7 @@ Shared `2b9e578` / Server `e41791d` / Client `e645a9d`.
   **위치 곡선의 미분**(`Hermite.Velocity`, GF 신규 + EditMode 6케이스)으로 산출해 반영.
   GF `7b26974` / Client `baad313`.
 
-EditMode 332/332. **다음 = 애니 동기화 Task 10(TbAbilityView) → Task 11(뷰 상태 기반) → 슬라이스 3(상태이상 5태스크).**
-`TbAbilityView`는 이제 어빌리티 id 단일 키로 성립: 3→Attack 01 / 5→Melee Attack / 6→Attack.
+EditMode 332/332. **다음 = 애니 동기화 슬라이스 3(상태이상, Task 12~16).** 슬라이스 1·2는 완료.
 
 ---
 

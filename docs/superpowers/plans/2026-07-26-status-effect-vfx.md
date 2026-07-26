@@ -113,7 +113,7 @@ namespace LOP.Tests.EditMode
         }
 
         [Test]
-        public void SelfModeAppliesToCasterOnly()
+        public void SelfAppliesToCasterOnly()
         {
             var (handler, registry) = Build();
             var caster = MakeActor("caster");
@@ -132,7 +132,7 @@ namespace LOP.Tests.EditMode
         }
 
         [Test]
-        public void HitTargetsModeAppliesToLandedOnly()
+        public void HitTargetsAppliesToLandedOnly()
         {
             var (handler, registry) = Build();
             var caster = MakeActor("caster");
@@ -154,7 +154,7 @@ namespace LOP.Tests.EditMode
         }
 
         [Test]
-        public void HitTargetsModeWithNoLandedTargetsDoesNothing()
+        public void HitTargetsWithNoLandedTargetsDoesNothing()
         {
             var (handler, registry) = Build();
             var caster = MakeActor("caster");
@@ -168,7 +168,7 @@ namespace LOP.Tests.EditMode
         }
 
         [Test]
-        public void DefaultModeIsSelf()
+        public void DefaultTargetIsSelf()
         {
             Assert.AreEqual(TargetType.Self, new StatusEffectApplyEffect(SlowId).Target);
         }
@@ -662,9 +662,26 @@ git diff --stat Runtime.Generated/Scripts/MessageIds.cs
         public List<ActiveEffect> statusEffects { get; set; } = new List<ActiveEffect>();
 ```
 
-- [ ] **Step 6: 클라가 원격 엔티티에 반영**
+- [ ] **Step 6: 수신한 목록을 DTO에 채운다 (내 캐릭·원격 공통 경로)**
 
-`GameEntityMessageHandler`의 `remoteAbilities` 블록(시전 상태 복원) **아래**에:
+`GameEntityMessageHandler`에서 `entitySnap.contributions`를 채우는 블록 **바로 아래**,
+**내 캐릭/원격으로 갈라지는 `if` 앞**에 넣는다. 내 캐릭터 분기는 이 DTO를 그대로 `Reconciler`에
+넘기므로(Task 5가 여기서 읽는다), 갈라진 뒤에 채우면 내 캐릭터 쪽이 영영 빈 목록이 된다:
+
+```csharp
+                entitySnap.statusEffects.Clear();
+                foreach (var pe in serverEntitySnap.StatusEffects.OrEmpty())
+                {
+                    entitySnap.statusEffects.Add(new ActiveEffect(
+                        pe.EffectId, pe.ExpireTick, pe.StackCount,
+                        sourceEntityId: null, sourceId: $"se:{pe.EffectId}"));
+                }
+```
+
+- [ ] **Step 7: 클라가 원격 엔티티에 반영**
+
+`GameEntityMessageHandler`의 `remoteAbilities` 블록(시전 상태 복원) **아래**에 —
+위에서 채운 DTO를 그대로 쓴다(같은 변환을 두 번 하지 않는다):
 
 ```csharp
                     StatusEffects remoteEffects = remoteEntity?.Get<StatusEffects>();
@@ -672,23 +689,19 @@ git diff --stat Runtime.Generated/Scripts/MessageIds.cs
                     {
                         // 스냅샷이 전량 권위 — 통째로 교체한다(HP와 같은 규칙).
                         remoteEffects.Effects.Clear();
-                        foreach (var pe in serverEntitySnap.StatusEffects.OrEmpty())
-                        {
-                            remoteEffects.Effects.Add(new ActiveEffect(
-                                pe.EffectId, pe.ExpireTick, pe.StackCount,
-                                sourceEntityId: null, sourceId: $"se:{pe.EffectId}"));
-                        }
+                        remoteEffects.Effects.AddRange(entitySnap.statusEffects);
                     }
 ```
 
 > 원격 엔티티는 클라가 시뮬하지 않으므로 **스탯 모디파이어를 다시 적용하지 않는다** — 느려진 결과는
 > 이미 서버가 보낸 위치·속도 스냅샷에 들어 있다. 클라는 "무엇이 걸렸는지"만 알면 그림을 그릴 수 있다.
+> (내 캐릭터는 직접 움직이므로 모디파이어까지 맞춰야 한다 — Task 5.)
 
-- [ ] **Step 7: 컴파일 검증**
+- [ ] **Step 8: 컴파일 검증**
 
 클·서 `refresh_unity` → `read_console(types=["error"])` **0건**.
 
-- [ ] **Step 8: 커밋**
+- [ ] **Step 9: 커밋**
 
 ```bash
 cd /c/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared

@@ -4,7 +4,7 @@
 
 **Goal:** 상태이상을 "때린 상대"에게도 걸 수 있게 만들고, 클라로 복제해, 몸에 붙는 이펙트로 보이게 한다.
 
-**Architecture:** 효과의 대상을 데이터(`TargetMode`)로 구분 → 슬로우 데이터 추가 → 상태이상 목록을 스냅샷에 실어 복제 → 클라 뷰가 그 목록을 매 프레임 읽어 VFX를 켜고 끈다. 이펙트 에셋은 더미(유니티 기본 파티클)이고, 진짜 아트가 오면 Excel의 주소 한 줄만 바꾼다.
+**Architecture:** 효과의 대상을 데이터(`TargetType`)로 구분 → 슬로우 데이터 추가 → 상태이상 목록을 스냅샷에 실어 복제(**남의 캐릭터는 연출용, 내 캐릭터는 예측이 맞도록 스탯까지**) → 클라 뷰가 그 목록을 매 프레임 읽어 VFX를 켜고 끈다. 이펙트 에셋은 더미(유니티 기본 파티클)이고, 진짜 아트가 오면 Excel의 주소 한 줄만 바꾼다.
 
 **Tech Stack:** C#(순수 코어=LOP-Shared / GameFramework), Unity 6000.3(URP, Addressables), Luban 마스터데이터, Protobuf 와이어, VContainer DI, UnityMCP(컴파일·테스트 구동).
 
@@ -31,37 +31,39 @@ spec: `docs/superpowers/specs/2026-07-26-status-effect-vfx-design.md`
 
 | 파일 | 책임 | Task |
 |---|---|---|
-| `LOP-Shared/Runtime/Scripts/Game/Ability/AbilityEffect.cs` | `TargetMode` enum + `StatusEffectApplyEffect.Target` 필드 | 1 |
+| `LOP-Shared/Runtime/Scripts/Game/Ability/AbilityEffect.cs` | `TargetType` enum + `StatusEffectApplyEffect.Target` 필드 | 1 |
 | `LOP-Shared/Runtime/Scripts/Game/Ability/StatusEffectApplyEffectHandler.cs` | 대상 분기(자기 / 명중자 전원) | 1 |
-| `LOP-Shared/Tests/EditMode/StatusEffectApplyTargetModeTests.cs` | 위 분기의 회귀 테스트 | 1 |
-| `infrastructure/table/Datas/__beans__.xlsx` | `target_mode` 컬럼 | 2 |
+| `LOP-Shared/Tests/EditMode/StatusEffectApplyTargetTypeTests.cs` | 위 분기의 회귀 테스트 | 1 |
+| `infrastructure/table/Datas/__beans__.xlsx` | `target_type` 컬럼 | 2 |
 | 클·서 `AbilityDataProvider.cs` | Luban 행 → 코어 effect 매핑 | 2 |
 | 클·서 `GameLifetimeScope.cs` | 핸들러에 `EntityRegistry` 주입 | 2 |
 | `infrastructure/table/Datas/#StatusEffect.xlsx`, `#Ability.xlsx` | 슬로우 정의 + attack에 부여 | 3 |
 | `LOP-Shared/Protos/ProtoActiveEffect.proto`, `EntitySnap.proto` | 와이어 표현 | 4 |
 | 서버 `EntitySnapshotBroadcastSystem.cs` | 스냅샷에 상태이상 채우기 | 4 |
 | 클라 `Netcode/EntitySnap.cs`, `GameEntityMessageHandler.cs` | 수신·원격 반영 | 4 |
-| `클라 Assets/Art_Placeholder/Vfx/*` | 더미 이펙트 프리팹 2개 + 머티리얼 | 5 |
-| `infrastructure/table/Datas/#StatusEffectView.xlsx` | 상태이상 id → 이펙트 주소 | 6 |
-| `클라 Assets/Scripts/Entity/StatusEffectVfxView.cs` | 상태 목록을 읽어 VFX를 켜고 끈다 | 6 |
-| `클라 Assets/Scripts/Entity/EntityBinder.cs` | 캐릭터 스폰 시 위 컴포넌트 부착 | 6 |
+| `LOP-Shared/.../StatusEffectSystem.cs` | `ApplyAuthoritativeState` — 서버 목록으로 맞추기 | 5 |
+| 클라 `Netcode/Reconciler.cs` | 내 캐릭 상태이상을 앵커에서 서버 값으로 덮기 | 5 |
+| `클라 Assets/Art_Placeholder/Vfx/*` | 더미 이펙트 프리팹 2개 + 머티리얼 | 6 |
+| `infrastructure/table/Datas/#StatusEffectView.xlsx` | 상태이상 id → 이펙트 주소 | 7 |
+| `클라 Assets/Scripts/Entity/StatusEffectVfxView.cs` | 상태 목록을 읽어 VFX를 켜고 끈다 | 7 |
+| `클라 Assets/Scripts/Entity/EntityBinder.cs` | 캐릭터 스폰 시 위 컴포넌트 부착 | 7 |
 
 ---
 
-## Task 1: `TargetMode` + 핸들러 대상 분기 (LOP-Shared)
+## Task 1: `TargetType` + 핸들러 대상 분기 (LOP-Shared)
 
 지금 상태이상은 **시전자 자신에게만** 걸린다. "때린 상대를 느리게"가 불가능하다. 대상을 데이터로 정하게 만든다. 넉백이 이미 같은 모양(히트 정의자=데미지가 명중자를 기록 → on-hit 라이더가 읽음)이라 그 규칙을 그대로 따른다.
 
 **Files:**
 - Modify: `LeagueOfPhysical-Shared/Runtime/Scripts/Game/Ability/AbilityEffect.cs` (`StatusEffectApplyEffect` 클래스)
 - Modify: `LeagueOfPhysical-Shared/Runtime/Scripts/Game/Ability/StatusEffectApplyEffectHandler.cs` (전체 교체)
-- Test: `LeagueOfPhysical-Shared/Tests/EditMode/StatusEffectApplyTargetModeTests.cs` (신규)
+- Test: `LeagueOfPhysical-Shared/Tests/EditMode/StatusEffectApplyTargetTypeTests.cs` (신규)
 
 **Interfaces:**
 - Consumes: `LOP.AttackHitContext.LandedTargets`(`IReadOnlyCollection<string>`), `GameFramework.World.EntityRegistry`, `LOP.StatusEffectSystem.Apply(Entity, StatusEffectData, string sourceEntityId, long tick)`
 - Produces:
-  - `public enum LOP.TargetMode { Self, HitTargets }`
-  - `LOP.StatusEffectApplyEffect(int statusEffectId, TargetMode target = TargetMode.Self)` — 읽기 전용 필드 `int StatusEffectId`, `TargetMode Target`
+  - `public enum LOP.TargetType { Self, HitTargets }`
+  - `LOP.StatusEffectApplyEffect(int statusEffectId, TargetType target = TargetType.Self)` — 읽기 전용 필드 `int StatusEffectId`, `TargetType Target`
   - `LOP.StatusEffectApplyEffectHandler(StatusEffectSystem, Func<int, StatusEffectData?>, GameFramework.World.EntityRegistry)` — **생성자에 레지스트리 추가**(기존 2인자 → 3인자)
 
 - [ ] **Step 1: 브랜치 생성**
@@ -73,7 +75,7 @@ git checkout -b feature/status-effect-vfx
 
 - [ ] **Step 2: 실패하는 테스트 작성**
 
-`LeagueOfPhysical-Shared/Tests/EditMode/StatusEffectApplyTargetModeTests.cs`:
+`LeagueOfPhysical-Shared/Tests/EditMode/StatusEffectApplyTargetTypeTests.cs`:
 
 ```csharp
 using System;
@@ -82,7 +84,7 @@ using GameFramework.World;
 
 namespace LOP.Tests.EditMode
 {
-    public class StatusEffectApplyTargetModeTests
+    public class StatusEffectApplyTargetTypeTests
     {
         private const int SlowId = 100;
 
@@ -123,7 +125,7 @@ namespace LOP.Tests.EditMode
             hit.MarkLanded("victim");
             var ctx = new AbilityEffectContext(caster, caster, 10, 0, hit);
 
-            handler.OnActiveEnter(ctx, new StatusEffectApplyEffect(SlowId, TargetMode.Self));
+            handler.OnActiveEnter(ctx, new StatusEffectApplyEffect(SlowId, TargetType.Self));
 
             Assert.IsTrue(HasSlow(caster));
             Assert.IsFalse(HasSlow(victim));
@@ -144,7 +146,7 @@ namespace LOP.Tests.EditMode
             hit.MarkLanded("hit");
             var ctx = new AbilityEffectContext(caster, caster, 10, 0, hit);
 
-            handler.OnActiveEnter(ctx, new StatusEffectApplyEffect(SlowId, TargetMode.HitTargets));
+            handler.OnActiveEnter(ctx, new StatusEffectApplyEffect(SlowId, TargetType.HitTargets));
 
             Assert.IsTrue(HasSlow(hitVictim));
             Assert.IsFalse(HasSlow(missedVictim));
@@ -161,14 +163,14 @@ namespace LOP.Tests.EditMode
             var ctx = new AbilityEffectContext(caster, caster, 10, 0, new AttackHitContext());
 
             Assert.DoesNotThrow(() =>
-                handler.OnActiveEnter(ctx, new StatusEffectApplyEffect(SlowId, TargetMode.HitTargets)));
+                handler.OnActiveEnter(ctx, new StatusEffectApplyEffect(SlowId, TargetType.HitTargets)));
             Assert.IsFalse(HasSlow(caster));
         }
 
         [Test]
         public void DefaultModeIsSelf()
         {
-            Assert.AreEqual(TargetMode.Self, new StatusEffectApplyEffect(SlowId).Target);
+            Assert.AreEqual(TargetType.Self, new StatusEffectApplyEffect(SlowId).Target);
         }
     }
 }
@@ -184,16 +186,16 @@ namespace LOP.Tests.EditMode
 
 - [ ] **Step 3: 테스트가 실패하는지 확인**
 
-UnityMCP `run_tests`(EditMode, `test_names=["StatusEffectApplyTargetModeTests"]`, 클라 인스턴스).
-기대: **컴파일 실패** — `TargetMode` 없음 + 핸들러 생성자 인자 수 불일치.
+UnityMCP `run_tests`(EditMode, `test_names=["StatusEffectApplyTargetTypeTests"]`, 클라 인스턴스).
+기대: **컴파일 실패** — `TargetType` 없음 + 핸들러 생성자 인자 수 불일치.
 
-- [ ] **Step 4: `TargetMode` + effect 필드 추가**
+- [ ] **Step 4: `TargetType` + effect 필드 추가**
 
 `AbilityEffect.cs`의 `StatusEffectApplyEffect`를 교체한다:
 
 ```csharp
     /// <summary>상태효과를 누구에게 걸지. 발동 전에 지목하는 대상(AbilityActivation.Target)과는 다른 축이다.</summary>
-    public enum TargetMode
+    public enum TargetType
     {
         /// <summary>시전자 자신.</summary>
         Self,
@@ -205,9 +207,9 @@ UnityMCP `run_tests`(EditMode, `test_names=["StatusEffectApplyTargetModeTests"]`
     public sealed class StatusEffectApplyEffect : AbilityEffect
     {
         public readonly int StatusEffectId;     // TbStatusEffect 참조(런타임 데이터는 핸들러가 resolve)
-        public readonly TargetMode Target;
+        public readonly TargetType Target;
 
-        public StatusEffectApplyEffect(int statusEffectId, TargetMode target = TargetMode.Self)
+        public StatusEffectApplyEffect(int statusEffectId, TargetType target = TargetType.Self)
         {
             StatusEffectId = statusEffectId;
             Target = target;
@@ -227,7 +229,7 @@ namespace LOP
     /// <summary>
     /// <see cref="StatusEffectApplyEffect"/> 핸들러(코어). Active 진입 시 효과 id를 설정으로 resolve해
     /// <see cref="StatusEffectSystem.Apply"/>. 적용된 효과는 독립 <see cref="StatusEffects"/>로 살아간다(수명 분리).
-    /// <para>대상은 effect의 <see cref="TargetMode"/>가 정한다 — Self는 시전자, HitTargets는 이번 발동에서
+    /// <para>대상은 effect의 <see cref="TargetType"/>가 정한다 — Self는 시전자, HitTargets는 이번 발동에서
     /// 명중한 대상 전원(넉백과 같은 on-hit 라이더).</para>
     /// <para>resolve(MasterData)는 <c>resolver</c> 델리게이트 심으로 주입 — 코어는 MasterData를 직접 참조하지 않는다.</para>
     /// </summary>
@@ -254,7 +256,7 @@ namespace LOP
                 return;
             }
 
-            if (effect.Target == TargetMode.Self)
+            if (effect.Target == TargetType.Self)
             {
                 if (ctx.Caster != null)
                 {
@@ -293,12 +295,12 @@ namespace LOP
             var statusHandler = new StatusEffectApplyEffectHandler(_statusEffects, Resolve, new EntityRegistry());
 ```
 
-> 두 테스트 모두 `TargetMode.Self`(기본값) 경로만 쓰므로 레지스트리 내용은 비어 있어도 된다 —
+> 두 테스트 모두 `TargetType.Self`(기본값) 경로만 쓰므로 레지스트리 내용은 비어 있어도 된다 —
 > Self 분기는 레지스트리를 보지 않는다.
 
 - [ ] **Step 7: 테스트 통과 확인 + 회귀**
 
-UnityMCP `run_tests`(EditMode, `test_names=["StatusEffectApplyTargetModeTests"]`). 기대: **4/4 PASS**.
+UnityMCP `run_tests`(EditMode, `test_names=["StatusEffectApplyTargetTypeTests"]`). 기대: **4/4 PASS**.
 이어서 필터 없이 EditMode 전체를 돌려 회귀 0을 확인한다(직전 기준선 332/332 + 신규 4 = 336).
 
 - [ ] **Step 8: 커밋**
@@ -307,10 +309,10 @@ UnityMCP `run_tests`(EditMode, `test_names=["StatusEffectApplyTargetModeTests"]`
 cd /c/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared
 git add Runtime/Scripts/Game/Ability/AbilityEffect.cs \
         Runtime/Scripts/Game/Ability/StatusEffectApplyEffectHandler.cs \
-        Tests/EditMode/StatusEffectApplyTargetModeTests.cs Tests/EditMode/StatusEffectApplyTargetModeTests.cs.meta \
+        Tests/EditMode/StatusEffectApplyTargetTypeTests.cs Tests/EditMode/StatusEffectApplyTargetTypeTests.cs.meta \
         Tests/EditMode/AbilityReplayDeterminismTests.cs Tests/EditMode/AbilitySystemTests.cs
 git commit -m "$(cat <<'EOF'
-feat(ability): 상태효과 부여 대상을 TargetMode로 데이터화
+feat(ability): 상태효과 부여 대상을 TargetType로 데이터화
 
 지금까지 상태효과는 시전자 자신에게만 걸려 "때린 상대를 느리게"가 불가능했다.
 대상을 데이터로 정하게 해 명중자 디버프를 연다 — 명중 판정은 데미지가 이미
@@ -325,7 +327,7 @@ EOF
 
 ---
 
-## Task 2: `target_mode` 마스터데이터 컬럼 + provider 매핑 (5 저장소)
+## Task 2: `target_type` 마스터데이터 컬럼 + provider 매핑 (5 저장소)
 
 Task 1이 코드에 연 자리를 데이터로 채운다. 기존 `duration_policy`/`stack_policy`가 string 컬럼 + 런타임 `Enum.Parse` 방식이므로 **동일하게 간다**(Luban enum 타입을 새로 만들지 않는다).
 
@@ -338,8 +340,8 @@ Task 1이 코드에 연 자리를 데이터로 채운다. 기존 `duration_polic
 - Modify: `LeagueOfPhysical-Server/Assets/Scripts/Game/GameLifetimeScope.cs` (같은 블록)
 
 **Interfaces:**
-- Consumes: `LOP.TargetMode`, `LOP.StatusEffectApplyEffect(int, TargetMode)` (Task 1)
-- Produces: `LOP.MasterData.StatusEffectApplyEffect.TargetMode` (string 프로퍼티)
+- Consumes: `LOP.TargetType`, `LOP.StatusEffectApplyEffect(int, TargetType)` (Task 1)
+- Produces: `LOP.MasterData.StatusEffectApplyEffect.TargetType` (string 프로퍼티)
 
 - [ ] **Step 1: bean 파일 구조 이해**
 
@@ -358,7 +360,7 @@ Task 1이 코드에 연 자리를 데이터로 채운다. 기존 `duration_polic
 
 즉 **필드를 하나 더 주려면 그 bean 아래에 빈 행을 끼워** 10·12열만 채운다(DamageEffect의 `range`/`angle`이 그 예).
 
-- [ ] **Step 2: `target_mode` 필드 행 삽입**
+- [ ] **Step 2: `target_type` 필드 행 삽입**
 
 ```bash
 cd /c/Users/re5na/workspace/LOP/infrastructure/table
@@ -369,7 +371,7 @@ ws = wb['Sheet']
 assert ws.cell(row=4, column=2).value == 'StatusEffectApplyEffect', ws.cell(row=4, column=2).value
 assert ws.cell(row=4, column=10).value == 'status_effect_id', ws.cell(row=4, column=10).value
 ws.insert_rows(5)
-ws.cell(row=5, column=10, value='target_mode')
+ws.cell(row=5, column=10, value='target_type')
 ws.cell(row=5, column=12, value='string')
 wb.save('Datas/__beans__.xlsx')
 for i, r in enumerate(ws.iter_rows(values_only=True), 1):
@@ -381,7 +383,7 @@ for i, r in enumerate(ws.iter_rows(values_only=True), 1):
 "
 ```
 
-기대: 4행이 `StatusEffectApplyEffect`/`status_effect_id`, **5행이 빈 bean 칸 + `target_mode`/`string`**,
+기대: 4행이 `StatusEffectApplyEffect`/`status_effect_id`, **5행이 빈 bean 칸 + `target_type`/`string`**,
 6행부터 `MotionEffect`가 밀려 내려감.
 
 > `assert`가 실패하면 파일 구조가 바뀐 것이다 — 덤프를 다시 떠서 행 번호를 맞춘 뒤 진행한다.
@@ -427,7 +429,7 @@ cd /c/Users/re5na/workspace/LOP/infrastructure/table && ./gen.sh
                     case LOP.MasterData.StatusEffectApplyEffect s:
                         result.Add(new StatusEffectApplyEffect(
                             s.StatusEffectId,
-                            (TargetMode)System.Enum.Parse(typeof(TargetMode), s.TargetMode)));
+                            (TargetType)System.Enum.Parse(typeof(TargetType), s.TargetType)));
                         break;
 ```
 
@@ -452,31 +454,31 @@ cd /c/Users/re5na/workspace/LOP/infrastructure/table && ./gen.sh
 
 ```bash
 cd /c/Users/re5na/workspace/LOP/infrastructure && git checkout -b feature/status-effect-vfx
-git add table/Datas/ && git commit -m "feat(masterdata): StatusEffectApplyEffect.target_mode 컬럼
+git add table/Datas/ && git commit -m "feat(masterdata): StatusEffectApplyEffect.target_type 컬럼
 
 효과를 자기에게 걸지 명중자에게 걸지를 데이터로 정한다. 기존 haste는 Self 명시.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 cd /c/Users/re5na/workspace/LOP/LeagueOfPhysical-MasterData-Client && git checkout -b feature/status-effect-vfx
-git add -A && git commit -m "chore(gen): target_mode 반영
+git add -A && git commit -m "chore(gen): target_type 반영
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 cd /c/Users/re5na/workspace/LOP/LeagueOfPhysical-MasterData-Server && git checkout -b feature/status-effect-vfx
-git add -A && git commit -m "chore(gen): target_mode 반영
+git add -A && git commit -m "chore(gen): target_type 반영
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 cd /c/Users/re5na/workspace/LOP/LeagueOfPhysical-Client
 git add Assets/Scripts/Game/AbilityDataProvider.cs Assets/Scripts/Game/GameLifetimeScope.cs
-git commit -m "feat(ability): target_mode 매핑 + 핸들러에 레지스트리 주입
+git commit -m "feat(ability): target_type 매핑 + 핸들러에 레지스트리 주입
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 cd /c/Users/re5na/workspace/LOP/LeagueOfPhysical-Server && git checkout -b feature/status-effect-vfx
 git add Assets/Scripts/Game/AbilityDataProvider.cs Assets/Scripts/Game/GameLifetimeScope.cs
-git commit -m "feat(ability): target_mode 매핑 + 핸들러에 레지스트리 주입
+git commit -m "feat(ability): target_type 매핑 + 핸들러에 레지스트리 주입
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
@@ -712,7 +714,299 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-## Task 5: 더미 이펙트 프리팹 + Addressables 등록 (클라)
+## Task 5: 소유자(내 캐릭터) 상태이상 권위 동기화
+
+내 클라는 **내 캐릭터만** 시뮬레이션하므로, 내가 건 헤이스트는 예측해서 알지만 **남이 나에게 건 슬로우는
+계산조차 하지 않아 모른다.** 서버 AI가 플레이어를 공격하므로(`EnemyBrain`) 바로 밟히는 경로다.
+모르면 이펙트가 안 뜨는 것보다 **서버만 −30%로 나를 움직여 매 틱 위치가 어긋나는 것**이 더 크다(러버밴딩).
+
+**넉백과 같은 축**으로 푼다 — 넉백(`MotionContributions`)도 서버가 가한 것이라 클라가 예측하지 않고,
+`Reconciler`가 서버 스냅에서 복원한다. 상태이상도 같은 부류다. **와이어는 추가하지 않는다** — Task 4가
+넣은 `EntitySnap.status_effects`를 내 캐릭터 분기도 쓰는 것뿐이다.
+
+**Files:**
+- Modify: `LeagueOfPhysical-Shared/Runtime/Scripts/Game/StatusEffect/StatusEffectSystem.cs`
+- Test: `LeagueOfPhysical-Shared/Tests/EditMode/StatusEffectAuthoritativeStateTests.cs` (신규)
+- Modify: `LeagueOfPhysical-Client/Assets/Scripts/Netcode/Reconciler.cs`
+- Modify: `LeagueOfPhysical-Client/Assets/Scripts/Game/GameLifetimeScope.cs` (필요 시 — `Reconciler` 의존 추가)
+
+**Interfaces:**
+- Consumes: `LOP.ActiveEffect`, `LOP.StatusEffectData`, `LOP.StatsSystem.RemoveModifiersBySourceId`, 클라 `StatusEffectDataProvider.Get(int) → StatusEffectData?`
+- Produces: `LOP.StatusEffectSystem.ApplyAuthoritativeState(GameFramework.World.Entity, IReadOnlyList<ActiveEffect>, Func<int, StatusEffectData?>)`
+
+- [ ] **Step 1: 실패하는 테스트 작성**
+
+`LeagueOfPhysical-Shared/Tests/EditMode/StatusEffectAuthoritativeStateTests.cs`:
+
+```csharp
+using System.Collections.Generic;
+using NUnit.Framework;
+using GameFramework.World;
+
+namespace LOP.Tests.EditMode
+{
+    public class StatusEffectAuthoritativeStateTests
+    {
+        private const int SlowId = 100;
+        private const int HasteId = 101;
+
+        private static StatusEffectData Data(int id, float value) => new StatusEffectData(
+            id, DurationPolicy.Duration, 60,
+            new[] { new StatusModifierSpec((int)EntityStatType.MoveSpeed, value, ModifierType.PercentAdd) },
+            StatusStackPolicy.Refresh, 1);
+
+        private static StatusEffectData? Resolve(int id)
+        {
+            if (id == SlowId) { return Data(SlowId, -0.3f); }
+            if (id == HasteId) { return Data(HasteId, 0.3f); }
+            return null;
+        }
+
+        private static Entity MakeActor()
+        {
+            var e = new Entity("me");
+            e.Add(new StatusEffects());
+            var stats = new Stats();
+            stats.BaseStats[(int)EntityStatType.MoveSpeed] = 10f;
+            e.Add(stats);
+            return e;
+        }
+
+        private static (StatusEffectSystem sys, StatsSystem stats) Build()
+        {
+            var statsSystem = new StatsSystem();
+            return (new StatusEffectSystem(statsSystem), statsSystem);
+        }
+
+        private static List<ActiveEffect> Server(params int[] ids)
+        {
+            var list = new List<ActiveEffect>();
+            foreach (int id in ids)
+            {
+                list.Add(new ActiveEffect(id, 200, 1, "server", "se:" + id));
+            }
+            return list;
+        }
+
+        [Test]
+        public void AddsEffectTheClientDidNotPredict()
+        {
+            var (sys, statsSystem) = Build();
+            var me = MakeActor();
+
+            sys.ApplyAuthoritativeState(me, Server(SlowId), Resolve);
+
+            Assert.IsTrue(me.Get<StatusEffects>().Effects.Exists(e => e.EffectId == SlowId));
+            Assert.AreEqual(7f, statsSystem.GetValue(me.Get<Stats>(), (int)EntityStatType.MoveSpeed), 0.001f);
+        }
+
+        [Test]
+        public void RemovesEffectTheServerNoLongerHas()
+        {
+            var (sys, statsSystem) = Build();
+            var me = MakeActor();
+            sys.Apply(me, Data(SlowId, -0.3f), "server", 0);
+
+            sys.ApplyAuthoritativeState(me, Server(), Resolve);
+
+            Assert.IsFalse(me.Get<StatusEffects>().Effects.Exists(e => e.EffectId == SlowId));
+            // 모디파이어까지 떨어져 이동속도가 원래대로 돌아와야 한다.
+            Assert.AreEqual(10f, statsSystem.GetValue(me.Get<Stats>(), (int)EntityStatType.MoveSpeed), 0.001f);
+        }
+
+        [Test]
+        public void KeepsEffectBothSidesAgreeOnWithoutDoublingModifier()
+        {
+            var (sys, statsSystem) = Build();
+            var me = MakeActor();
+            sys.Apply(me, Data(HasteId, 0.3f), "me", 0);      // 클라가 예측해둔 헤이스트
+
+            sys.ApplyAuthoritativeState(me, Server(HasteId), Resolve);
+
+            Assert.AreEqual(1, me.Get<StatusEffects>().Effects.Count);
+            // 13f — 모디파이어가 두 번 붙었다면 16f가 된다.
+            Assert.AreEqual(13f, statsSystem.GetValue(me.Get<Stats>(), (int)EntityStatType.MoveSpeed), 0.001f);
+        }
+
+        [Test]
+        public void AddsAndRemovesInOneCall()
+        {
+            var (sys, _) = Build();
+            var me = MakeActor();
+            sys.Apply(me, Data(HasteId, 0.3f), "me", 0);
+
+            sys.ApplyAuthoritativeState(me, Server(SlowId), Resolve);
+
+            var effects = me.Get<StatusEffects>().Effects;
+            Assert.IsTrue(effects.Exists(e => e.EffectId == SlowId));
+            Assert.IsFalse(effects.Exists(e => e.EffectId == HasteId));
+        }
+
+        [Test]
+        public void UnknownEffectIdIsSkipped()
+        {
+            var (sys, _) = Build();
+            var me = MakeActor();
+
+            Assert.DoesNotThrow(() => sys.ApplyAuthoritativeState(me, Server(999), Resolve));
+            Assert.AreEqual(0, me.Get<StatusEffects>().Effects.Count);
+        }
+    }
+}
+```
+
+> `StatsSystem.GetValue`의 계산은 `(Base + ΣFlat) × (1 + ΣPercentAdd) × Π(1 + PercentMult)`이므로
+> base 10 · PercentAdd −0.3 → 7, +0.3 → 13이다. 기대값이 다르면 실제 계산식을 먼저 확인한다.
+
+- [ ] **Step 2: 테스트가 실패하는지 확인**
+
+UnityMCP `run_tests`(EditMode, `test_names=["StatusEffectAuthoritativeStateTests"]`).
+기대: **컴파일 실패** — `ApplyAuthoritativeState` 없음.
+
+- [ ] **Step 3: `ApplyAuthoritativeState` 구현**
+
+`StatusEffectSystem.cs`의 `Remove` 아래에 추가한다:
+
+```csharp
+        /// <summary>
+        /// 서버가 보낸 효과 목록으로 이 엔티티의 상태이상을 맞춘다(스냅샷이 권위).
+        /// 없는 건 걸고, 사라진 건 떼고, 스택이 다르면 다시 계산한다 — 스탯 모디파이어까지 함께 맞춘다.
+        /// <para>내 캐릭 예측은 *내가 건* 효과만 안다. 남이 건 것(슬로우 등)은 계산조차 하지 않으므로
+        /// 서버가 알려줘야 하고, 안 그러면 서버만 나를 느리게 움직여 위치가 어긋난다.
+        /// 넉백 기여를 스냅에서 복원하는 것과 같은 축이다.</para>
+        /// <para><paramref name="resolver"/>로 설정을 찾는다 — 와이어엔 id·만료틱·스택만 실리고
+        /// 모디파이어 명세는 마스터데이터에 있다(코어는 MasterData를 직접 참조하지 않는다).</para>
+        /// </summary>
+        public void ApplyAuthoritativeState(Entity entity,
+                                            System.Collections.Generic.IReadOnlyList<ActiveEffect> authoritative,
+                                            System.Func<int, StatusEffectData?> resolver)
+        {
+            var effects = entity.Get<StatusEffects>();
+            if (effects == null)
+            {
+                return;
+            }
+            var stats = entity.Get<Stats>();
+
+            // 1) 서버에 없는 것 제거(모디파이어도 함께)
+            for (int i = effects.Effects.Count - 1; i >= 0; i--)
+            {
+                var local = effects.Effects[i];
+                bool stillActive = false;
+                for (int j = 0; j < authoritative.Count; j++)
+                {
+                    if (authoritative[j].EffectId == local.EffectId)
+                    {
+                        stillActive = true;
+                        break;
+                    }
+                }
+                if (stillActive == false)
+                {
+                    if (stats != null)
+                    {
+                        _statsSystem.RemoveModifiersBySourceId(stats, local.SourceId);
+                    }
+                    effects.Effects.RemoveAt(i);
+                }
+            }
+
+            // 2) 서버에 있는 것 추가/갱신
+            for (int a = 0; a < authoritative.Count; a++)
+            {
+                var server = authoritative[a];
+                string sourceId = SourceIdFor(server.EffectId);
+                int idx = effects.Effects.FindIndex(e => e.EffectId == server.EffectId);
+
+                if (idx < 0)
+                {
+                    var data = resolver(server.EffectId);
+                    if (data == null)
+                    {
+                        continue;   // 설정을 모르는 효과 — 무시(구버전 데이터 등)
+                    }
+                    effects.Effects.Add(new ActiveEffect(
+                        server.EffectId, server.ExpireTick, server.StackCount, server.SourceEntityId, sourceId));
+                    AddModifiers(stats, data.Value, sourceId, server.StackCount);
+                    continue;
+                }
+
+                var current = effects.Effects[idx];
+                if (current.StackCount != server.StackCount)
+                {
+                    var data = resolver(server.EffectId);
+                    if (data != null && stats != null)
+                    {
+                        _statsSystem.RemoveModifiersBySourceId(stats, current.SourceId);
+                        AddModifiers(stats, data.Value, current.SourceId, server.StackCount);
+                    }
+                }
+                // 만료 틱은 서버 값으로 덮는다(리프레시된 지속시간을 내가 모를 수 있다).
+                effects.Effects[idx] = new ActiveEffect(
+                    server.EffectId, server.ExpireTick, server.StackCount, current.SourceEntityId, current.SourceId);
+            }
+        }
+```
+
+- [ ] **Step 4: 테스트 통과 확인**
+
+UnityMCP `run_tests`(EditMode, `test_names=["StatusEffectAuthoritativeStateTests"]`). 기대: **5/5 PASS**.
+이어서 LOP-Shared EditMode 전체를 돌려 회귀 0.
+
+- [ ] **Step 5: `Reconciler`가 복원 시 호출**
+
+`Reconciler.cs`에서 `abilityState.RestoreTo(worldEntity);` **바로 다음**에 넣는다.
+**순서가 중요하다** — `RestoreTo`가 예측 상태를 되돌리므로, 그 위에 서버 값을 덮어야 한다.
+
+```csharp
+            // 남이 나에게 건 효과(슬로우 등)는 내가 예측할 수 없다 → 서버 목록이 진실.
+            // 위 RestoreTo가 되돌린 예측값 위에 덮는다(넉백 기여를 스냅에서 복원하는 것과 같은 축).
+            // 앵커에서 맞춰두면 이어지는 재생이 현재 틱까지 밀어 올린다.
+            statusEffectSystem.ApplyAuthoritativeState(worldEntity, snap.statusEffects, statusEffectDataProvider.Get);
+```
+
+필드·생성자에 두 의존을 추가한다(기존 주입 스타일을 그대로 따른다):
+
+```csharp
+        private readonly StatusEffectSystem statusEffectSystem;
+        private readonly StatusEffectDataProvider statusEffectDataProvider;
+```
+
+> `StatusEffectSystem`·`StatusEffectDataProvider`는 이미 `GameLifetimeScope`에 등록돼 있다
+> (어빌리티 효과 핸들러가 쓴다). 등록이 없으면 그때 추가한다.
+> `statusEffectDataProvider.Get`의 시그니처가 `Func<int, StatusEffectData?>`와 안 맞으면
+> 람다로 감싼다: `id => statusEffectDataProvider.Get(id)`.
+
+- [ ] **Step 6: 컴파일 검증**
+
+클라 `refresh_unity` → `read_console(types=["error"])` **0건**.
+
+- [ ] **Step 7: 커밋**
+
+```bash
+cd /c/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared
+git add Runtime/Scripts/Game/StatusEffect/StatusEffectSystem.cs \
+        Tests/EditMode/StatusEffectAuthoritativeStateTests.cs Tests/EditMode/StatusEffectAuthoritativeStateTests.cs.meta
+git commit -m "feat(status): 서버 목록으로 상태이상을 맞추는 ApplyAuthoritativeState
+
+내 캐릭 예측은 내가 건 효과만 안다 — 남이 건 슬로우는 계산조차 하지 않아 모른다.
+모르면 서버만 나를 느리게 움직여 위치가 어긋난다(러버밴딩). HealthSystem과 같은 이름·역할.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
+
+cd /c/Users/re5na/workspace/LOP/LeagueOfPhysical-Client
+git add Assets/Scripts/Netcode/Reconciler.cs Assets/Scripts/Game/GameLifetimeScope.cs
+git commit -m "feat(netcode): 재조정 시 내 캐릭 상태이상을 서버 값으로 맞춘다
+
+넉백 기여를 스냅에서 복원하는 것과 같은 축. RestoreTo(예측 복원) 다음에 덮어야
+다음 재조정에 지워지지 않는다.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+## Task 6: 더미 이펙트 프리팹 + Addressables 등록 (클라)
 
 진짜 아트가 오기 전까지 쓸 **더미**를 만든다. 유니티 기본 파티클만 써서 외부 의존·라이선스가 없다.
 `Assets/Art`(디자이너 소유 서브모듈)와 **폴더를 분리**해, 교체 시 폴더째 지우면 끝나게 한다.
@@ -849,7 +1143,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-## Task 6: `TbStatusEffectView` + `StatusEffectVfxView`
+## Task 7: `TbStatusEffectView` + `StatusEffectVfxView`
 
 마지막 조각. 상태이상 id → 이펙트 주소 테이블을 만들고, 그것을 읽어 VFX를 켜고 끄는 뷰 컴포넌트를 붙인다.
 
@@ -1125,12 +1419,15 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ## 인게임 검증 (사용자, 2에디터)
 
 - [ ] **1. 헤이스트** — 발동 → **내 몸에 노란 이펙트**, 100틱(≈3초) 뒤 사라짐
-- [ ] **2. 슬로우(핵심)** — 상대를 때림 → **상대 몸에 파란 이펙트**, **내 몸엔 안 뜸**
-      (= `TargetMode`가 동작한다는 증거). 상대가 눈에 띄게 느려짐
-- [ ] **3. 동시** — 헤이스트 중에 맞음 → **두 이펙트가 같이** 보임
-- [ ] **4. 정리** — 슬로우가 풀리기 전에 캐릭터가 죽음 → 이펙트가 화면에 남지 않음
-- [ ] **5. 원격** — 다른 클라 화면에서도 1~3이 동일하게 보임
-- [ ] **6. 회귀** — 이동·공격 모션·넉백·데미지 숫자가 이전과 같음
+- [ ] **2. 슬로우 걸기** — 상대를 때림 → **상대 몸에 파란 이펙트**, **내 몸엔 안 뜸**
+      (= `TargetType`이 동작한다는 증거). 상대가 눈에 띄게 느려짐
+- [ ] **3. 슬로우 당하기(가장 깨지기 쉬움)** — 몬스터에게 맞음 → **내 몸에 파란 이펙트 + 내가 느려짐**,
+      그리고 **캐릭터가 뒤로 끌리지 않음**(= 소유자 동기화가 동작한다는 증거).
+      끌린다면 Task 5의 `ApplyAuthoritativeState` 호출 위치를 먼저 의심한다(`RestoreTo` 다음이어야 함)
+- [ ] **4. 동시** — 헤이스트 중에 맞음 → **두 이펙트가 같이** 보임
+- [ ] **5. 정리** — 슬로우가 풀리기 전에 캐릭터가 죽음 → 이펙트가 화면에 남지 않음
+- [ ] **6. 원격** — 다른 클라 화면에서도 1~4가 동일하게 보임
+- [ ] **7. 회귀** — 이동·공격 모션·넉백·데미지 숫자가 이전과 같음
 
 ## 머지
 

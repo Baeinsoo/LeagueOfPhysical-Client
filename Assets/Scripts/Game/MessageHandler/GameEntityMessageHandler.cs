@@ -19,6 +19,7 @@ namespace LOP
         private readonly GameFramework.World.LevelSystem levelSystem;
         private readonly GameFramework.World.StatsSystem statsSystem;
         private readonly Reconciler reconciler;
+        private readonly AbilityDataProvider abilityDataProvider;
         private readonly RemoteInterpolationClock remoteInterpolationClock;
 
         private readonly ISubscriber<EntitySnapsToC> snapsSubscriber;
@@ -48,6 +49,7 @@ namespace LOP
             GameFramework.World.LevelSystem levelSystem,
             GameFramework.World.StatsSystem statsSystem,
             Reconciler reconciler,
+            AbilityDataProvider abilityDataProvider,
             RemoteInterpolationClock remoteInterpolationClock,
             ISubscriber<EntitySnapsToC> snapsSubscriber,
             ISubscriber<EntitySpawnToC> spawnSubscriber,
@@ -71,6 +73,7 @@ namespace LOP
             this.levelSystem = levelSystem;
             this.statsSystem = statsSystem;
             this.reconciler = reconciler;
+            this.abilityDataProvider = abilityDataProvider;
             this.remoteInterpolationClock = remoteInterpolationClock;
             this.snapsSubscriber = snapsSubscriber;
             this.spawnSubscriber = spawnSubscriber;
@@ -133,7 +136,9 @@ namespace LOP
                 }
                 else
                 {
-                    GameFramework.World.Health health = entityRegistry.Get(serverEntitySnap.EntityId)?.Get<GameFramework.World.Health>();
+                    GameFramework.World.Entity remoteEntity = entityRegistry.Get(serverEntitySnap.EntityId);
+
+                    GameFramework.World.Health health = remoteEntity?.Get<GameFramework.World.Health>();
                     if (health != null)
                     {
                         int prevCurrent = health.Current;
@@ -145,11 +150,28 @@ namespace LOP
                         }
                     }
 
-                    GameFramework.World.GroundState groundState =
-                        entityRegistry.Get(serverEntitySnap.EntityId)?.Get<GameFramework.World.GroundState>();
+                    GameFramework.World.GroundState groundState = remoteEntity?.Get<GameFramework.World.GroundState>();
                     if (groundState != null)
                     {
                         groundState.IsGrounded = serverEntitySnap.Grounded;
+                    }
+
+                    Abilities remoteAbilities = remoteEntity?.Get<Abilities>();
+                    if (remoteAbilities != null)
+                    {
+                        if (serverEntitySnap.ActiveAbilityId == 0)
+                        {
+                            remoteAbilities.ActiveAbility = null;
+                        }
+                        else if (abilityDataProvider.TryGet(serverEntitySnap.ActiveAbilityId, out AbilityData abilityData))
+                        {
+                            // 종료 틱 하나에서 경계를 역산 — 클·서가 같은 마스터데이터를 보므로 값이 일치한다.
+                            long recoveryEnd = serverEntitySnap.AbilityEndTick;
+                            long activeEnd = recoveryEnd - abilityData.RecoveryTicks;
+                            long startupEnd = activeEnd - abilityData.ActiveTicks;
+                            remoteAbilities.ActiveAbility = ActiveAbility.ForPresentation(
+                                serverEntitySnap.ActiveAbilityId, startupEnd, activeEnd, recoveryEnd);
+                        }
                     }
 
                     actor.GetComponent<RemoteEntityInterpolator>().AddServerEntitySnap(entitySnap);

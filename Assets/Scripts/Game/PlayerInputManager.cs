@@ -171,9 +171,14 @@ namespace LOP
             pendingJump = jump;
         }
 
-        public void SetAbilityId(int abilityId)
+        /// <summary>슬롯으로 어빌리티 입력을 예약한다. 슬롯을 내 부여 기록으로 풀어 id를 와이어에 싣는다
+        /// (서버도 같은 로드아웃을 부여했으므로 같은 id로 해소된다 — 예측 정합).</summary>
+        public void SetAbilitySlot(int slot)
         {
-            pendingAbilityId = abilityId;
+            if (abilityActivator.TryGetAbilityIdBySlot(playerContext.entityId, slot, out int abilityId))
+            {
+                pendingAbilityId = abilityId;
+            }
         }
     }
 }

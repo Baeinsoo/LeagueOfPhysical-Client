@@ -51,8 +51,11 @@ namespace LOP
                         newer.position.ToNumerics(), newer.velocity.ToNumerics(), dt, u).ToUnity();
                     Quaternion rot = Quaternion.Slerp(
                         Quaternion.Euler(older.rotation), Quaternion.Euler(newer.rotation), u);
-                    // 속도도 같은 알파로 섞어 위치와 같은 시점을 가리키게 한다 — 뷰가 걷기 애니를 여기서 파생한다.
-                    Vector3 vel = Vector3.Lerp(older.velocity, newer.velocity, u);
+                    // 속도는 위치 곡선을 미분해 얻는다 — 화면에 보이는 움직임과 정확히 일치.
+                    // 뷰가 걷기 애니를 이 값에서 파생하고, 발 미끄러짐 보정도 여기 붙는다.
+                    Vector3 vel = GameFramework.Netcode.Hermite.Velocity(
+                        older.position.ToNumerics(), older.velocity.ToNumerics(),
+                        newer.position.ToNumerics(), newer.velocity.ToNumerics(), dt, u).ToUnity();
 
                     Apply(pos, rot, vel);
                     return;

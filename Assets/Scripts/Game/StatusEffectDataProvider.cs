@@ -13,9 +13,15 @@ namespace LOP
             this.md = md;
         }
 
-        public StatusEffectData Get(int effectId)
+        // 재조정 등 넷코드 경로는 서버가 보낸 id를 그대로 조회한다 — 구버전 데이터 등으로 없는 id가 와도
+        // 던지면 안 되므로(호출부가 "모르면 무시"를 전제) GetOrDefault로 null 반환.
+        public StatusEffectData? Get(int effectId)
         {
-            var r = md.Tables.TbStatusEffect.Get(effectId);
+            var r = md.Tables.TbStatusEffect.GetOrDefault(effectId);
+            if (r == null)
+            {
+                return null;
+            }
 
             StatusModifierSpec[] modifiers;
             if (string.IsNullOrEmpty(r.ModStatType))

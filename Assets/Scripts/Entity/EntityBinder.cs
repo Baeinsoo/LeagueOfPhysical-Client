@@ -111,6 +111,10 @@ namespace LOP
                 CharacterNameplate nameplate = root.AddComponent<CharacterNameplate>();
                 objectResolver.Inject(nameplate);
                 nameplate.SetEntity(actor);
+
+                StatusEffectVfxView statusEffectVfx = root.AddComponent<StatusEffectVfxView>();
+                objectResolver.Inject(statusEffectVfx);
+                statusEffectVfx.SetEntityId(entityCreated.entityId);
             }
             else
             {

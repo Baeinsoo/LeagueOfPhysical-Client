@@ -25,6 +25,8 @@ namespace LOP
         private readonly GameFramework.World.IMotionBridge motionBridge;
         private readonly ReconciliationStats reconciliationStats;
         private readonly GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
+        private readonly StatusEffectSystem statusEffectSystem;
+        private readonly StatusEffectDataProvider statusEffectDataProvider;
 
         private EntitySnap latestSnap;
         private bool hasPending;
@@ -40,7 +42,9 @@ namespace LOP
             GameFramework.World.IWorld world,
             GameFramework.World.IMotionBridge motionBridge,
             ReconciliationStats reconciliationStats,
-            GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother)
+            GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother,
+            StatusEffectSystem statusEffectSystem,
+            StatusEffectDataProvider statusEffectDataProvider)
         {
             this.playerContext = playerContext;
             this.entityRegistry = entityRegistry;
@@ -53,6 +57,8 @@ namespace LOP
             this.motionBridge = motionBridge;
             this.reconciliationStats = reconciliationStats;
             this.renderCorrectionSmoother = renderCorrectionSmoother;
+            this.statusEffectSystem = statusEffectSystem;
+            this.statusEffectDataProvider = statusEffectDataProvider;
         }
 
         /// <summary>서버 스냅 수신(내 캐릭). 가장 최신 틱만 남긴다.</summary>
@@ -97,9 +103,23 @@ namespace LOP
             {
                 var authoritative = snap.position.ToNumerics();
                 reconciliationStats.Record(System.Numerics.Vector3.Distance(predicted.Position, authoritative));
-                // 게이트는 위치만 본다(의도적): 어빌리티/상태이상은 서버 권위 wire 값이 없고 입력으로
-                // 결정론적 재생되므로 별도 게이트 불필요.
-                if (!GameFramework.Netcode.ReconcileGate.ShouldReconcile(predicted.Position, authoritative, Threshold))
+                bool positionClose = !GameFramework.Netcode.ReconcileGate.ShouldReconcile(predicted.Position, authoritative, Threshold);
+
+                // 위치가 가까워도 서버 상태이상 목록이 다르면 게이트를 연다: 남이 나에게 건 효과(슬로우 등)는
+                // 내가 예측할 수 없어서, 가만히 서 있다 슬로우가 걸려도 위치 오차는 0으로 남기 때문이다.
+                // 비교는 반드시 같은 시점끼리 해야 한다 — 앵커 틱에 "내가 그때 예측했던" 목록 vs 서버가 앵커
+                // 틱에 갖고 있던 목록. (지금 살아있는 목록과 비교하면 클라가 서버보다 앞서 달리는 리드 구간
+                // 내내 시점이 어긋나 보여, 효과가 걸리거나 끝날 때마다 매 스냅에서 불필요한 롤백이 발생한다.)
+                // id 집합뿐 아니라 만료틱도 봐야 한다 — 몬스터가 쿨다운 없이 계속 때리면 서버가 슬로우를
+                // 계속 재적용해 만료틱만 밀리는데, id 집합은 그대로라 id만 비교하면 이 발산을 놓친다.
+                bool statusMatches = true;
+                if (predictedAbilityStateHistory.TryGet(anchorTick, out var predictedAtAnchor))
+                {
+                    statusMatches = !StatusEffectReconcileGate.ShouldReconcile(predictedAtAnchor.StatusEffects, snap.statusEffects, statusEffectDataProvider.Get);
+                }
+                // 앵커 틱 예측 기록이 없으면(정상 경로엔 없는 엣지) 비교 불가 — 불일치로 단정하지 않고
+                // 위치 판정에만 맡긴다(statusMatches=true 기본값).
+                if (positionClose && statusMatches)
                 {
                     return;
                 }
@@ -130,6 +150,11 @@ namespace LOP
                 return;
             }
             abilityState.RestoreTo(worldEntity);
+
+            // 남이 나에게 건 효과(슬로우 등)는 내가 예측할 수 없다 → 서버 목록이 진실.
+            // 위 RestoreTo가 되돌린 예측값 위에 덮는다(넉백 기여를 스냅에서 복원하는 것과 같은 축).
+            // 앵커에서 맞춰두면 이어지는 재생이 현재 틱까지 밀어 올린다.
+            statusEffectSystem.ApplyAuthoritativeState(worldEntity, snap.statusEffects, statusEffectDataProvider.Get);
 
             // 격차가 과도하면 재생 생략(텔레포트) — 입력/스냅 히스토리 밖이라 재생 불가.
             if (currentTick - anchorTick > MaxReplayTicks)

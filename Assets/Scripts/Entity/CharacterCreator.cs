@@ -11,19 +11,22 @@ namespace LOP
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly AbilitySystem abilitySystem;
         private readonly LOP.MasterData.LOPMasterData md;
+        private readonly CharacterLoadoutProvider characterLoadoutProvider;
 
         public CharacterCreator(
             IGameDataStore gameDataStore,
             IPlayerContext playerContext,
             GameFramework.World.EntityRegistry entityRegistry,
             AbilitySystem abilitySystem,
-            LOP.MasterData.LOPMasterData md)
+            LOP.MasterData.LOPMasterData md,
+            CharacterLoadoutProvider characterLoadoutProvider)
         {
             this.gameDataStore = gameDataStore;
             this.playerContext = playerContext;
             this.entityRegistry = entityRegistry;
             this.abilitySystem = abilitySystem;
             this.md = md;
+            this.characterLoadoutProvider = characterLoadoutProvider;
         }
 
         public void Create(CharacterCreationData creationData)
@@ -66,12 +69,17 @@ namespace LOP
             }
             entityRegistry.Add(worldEntity);
 
-            abilitySystem.Grant(worldEntity, 1, slot: 3);   // haste
-            abilitySystem.Grant(worldEntity, 2, slot: 2);   // dash
-            abilitySystem.Grant(worldEntity, 3, slot: 1);   // attack
+            var loadout = characterLoadoutProvider.Get(creationData.characterCode);
+            if (loadout.Count == 0)
+            {
+                Debug.LogWarning($"[Ability] 로드아웃이 비었다 — characterCode={creationData.characterCode}. TbCharacterLoadout에 행이 있는지 확인.");
+            }
+            foreach (var (slot, abilityId) in loadout)
+            {
+                abilitySystem.Grant(worldEntity, abilityId, slot);
+            }
             if (isUserEntity)
             {
-                abilitySystem.Grant(worldEntity, 4, slot: 4);   // 내 캐릭 전용 테스트 툴(G키)
                 playerContext.entityId = creationData.entityId;   // .actor는 EntityBinder가 뷰 생성 후 세팅
             }
 

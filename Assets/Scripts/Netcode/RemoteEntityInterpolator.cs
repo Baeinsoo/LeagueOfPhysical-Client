@@ -51,23 +51,27 @@ namespace LOP
                         newer.position.ToNumerics(), newer.velocity.ToNumerics(), dt, u).ToUnity();
                     Quaternion rot = Quaternion.Slerp(
                         Quaternion.Euler(older.rotation), Quaternion.Euler(newer.rotation), u);
+                    // 속도도 같은 알파로 섞어 위치와 같은 시점을 가리키게 한다 — 뷰가 걷기 애니를 여기서 파생한다.
+                    Vector3 vel = Vector3.Lerp(older.velocity, newer.velocity, u);
 
-                    Apply(pos, rot);
+                    Apply(pos, rot, vel);
                     return;
                 }
             }
 
             // 언더런(renderTime이 최신 스냅보다 앞 or 감쌀 쌍 없음) → 최신 스냅 hold.
             EntitySnap newest = snaps[snaps.Count - 1];
-            Apply(newest.position, Quaternion.Euler(newest.rotation));
+            Apply(newest.position, Quaternion.Euler(newest.rotation), newest.velocity);
         }
 
         // 엔티티(월드 Transform → reactive로 kinematic 콜라이더 + 네임플레이트)는 항상 갱신 —
         // 비주얼 애셋이 async 로드 중이어도 콜라이더/위치가 얼어붙지 않게. 비주얼 메시는 로드된 뒤에만.
-        private void Apply(Vector3 pos, Quaternion rot)
+        private void Apply(Vector3 pos, Quaternion rot, Vector3 velocity)
         {
             GameFramework.World.EntityMotionExtensions.SetPosition(worldEntity, pos);
             GameFramework.World.EntityMotionExtensions.SetRotation(worldEntity, rot.eulerAngles);
+            // 원격은 클라 시뮬 대상이 아니라(Simulated 미부여) 이 값을 물리에 쓰는 코드가 없다 — 연출 전용.
+            GameFramework.World.EntityMotionExtensions.SetVelocity(worldEntity, velocity);
             if (actor.visualGameObject != null)
             {
                 actor.visualGameObject.transform.position = pos;

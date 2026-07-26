@@ -41,6 +41,7 @@ namespace LOP
             builder.Register<AbilitySystem>(Lifetime.Singleton);
             builder.Register<StatusEffectDataProvider>(Lifetime.Singleton);
             builder.Register<AbilityDataProvider>(Lifetime.Singleton);
+            builder.Register<CharacterLoadoutProvider>(Lifetime.Singleton);
             builder.Register<AbilityActivator>(Lifetime.Singleton);
 
             // effect 실행 — executor가 타입별 핸들러로 디스패치. AbilitySystem이 Active 창에서 구동.

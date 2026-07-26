@@ -300,7 +300,22 @@ Art 저장소 `0e136e0`(푸시됨), 클라 서브모듈 포인터 갱신. 사용
 > ⚠️ Art 저장소는 **작업 사본이 두 벌**이다(`LOP/LeagueOfPhysical-Art` 별도 클론 + 클라
 > `Assets/Art` 서브모듈). 한쪽에서 커밋하면 다른 쪽엔 안 보인다 — 원격을 거쳐야 만난다.
 
-EditMode 353/353. **다음 = 위 후속 항목 또는 새 트랙.** 애니 동기화 트랙(슬라이스 1·2·3)은 종결.
+### ✅ 후속 정리 4건 (같은 날, 트랙 종결 직후)
+- **`LOPEntityView.UpdateVisual` 비동기 로딩 레이스** (진짜 결함) — `await` 뒤에 아무 검사가 없어,
+  모델 로딩 중 `Cleanup`이 돌면 **해제된 에셋으로 파괴된 부모 밑에** 인스턴스를 만들었다.
+  요청 카운터로 소유권을 명시(`Cleanup`이 카운터부터 올려 진행 중 로딩이 자기 handle을 스스로 놓게)
+  → handle 하나당 해제 정확히 1회. 같은 슬라이스에서 만든 `StatusEffectVfxView`의 검증된 패턴.
+- **`"se:{id}"` 규약 단일화** — 와이어 변환이 `StatusEffectSystem.SourceIdFor`의 문자열 규약을
+  손으로 복제하고 있었다. public static으로 노출해 정의를 한 곳으로.
+- **`AbilityDataProvider` 매핑 캐시** (클·서 동일) — 호출마다 Luban 행을 재매핑 + `Enum.Parse`(리플렉션)
+  하던 것을 메모이즈. 클라는 원격이 시전 중인 동안 매 스냅 호출한다.
+- **`AbilityDataIntegrityTests`** (MD-Client EditMode) — 모든 `StatusEffectApplyEffect`의
+  상태이상 id가 `TbStatusEffect`에 존재하고 `target_type`이 유효한지 검증. **클라가 런타임에
+  모르는 id를 조용히 건너뛰어도 되는 근거**가 이 테스트다(예외가 시뮬 틱 한복판에서 터지면 크래시).
+  ⚠️ 어셈블리 경계 때문에 `TargetType` 멤버 이름을 하드코딩 — enum이 바뀌면 같이 갱신해야 한다.
+- 머지: Shared `49abdf8` / Client `43f170d` / Server `a2eabb7` / MD-C `8f8642d`. EditMode 354/354.
+
+EditMode 354/354. **다음 = 새 트랙.** 애니 동기화 트랙(슬라이스 1·2·3) + 후속 정리까지 종결.
 
 ---
 

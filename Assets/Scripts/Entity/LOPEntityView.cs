@@ -106,6 +106,9 @@ namespace LOP
         // 이미 그리기 시작한 발동. 같은 스킬을 연타해도 발동마다 값이 달라지도록 종료 틱까지 함께 본다.
         private (int abilityId, long endTick) playingActivation;
 
+        // 직전 동작(서 있기·달리기)에서 시전 동작으로 넘어가며 섞는 시간. 초 단위라 출발 동작이 뭐든 일정하다.
+        private const float AbilityBlendSeconds = 0.1f;
+
         // 시전 애니는 "지금 시전 중"이라는 지속 상태에서 파생한다. 발동 순간의 이벤트를 놓쳤거나
         // 늦게 접속한 클라도 스냅샷만 보고 애니를 *중간부터* 이어 붙일 수 있다(트리거로는 불가능).
         private void UpdateAbilityAnimation()
@@ -124,7 +127,7 @@ namespace LOP
 
             long totalTicks = data.StartupTicks + data.ActiveTicks + data.RecoveryTicks;
             long tick = renderClock.TickFor(entityId);
-            if (AbilityPlayback.Solve(activation.Value, tick, totalTicks, out _, out float normalizedTime) == false)
+            if (AbilityPlayback.Solve(activation.Value, tick, totalTicks, out _, out _) == false)
             {
                 playingActivation = default;
                 return;
@@ -151,7 +154,11 @@ namespace LOP
                 return;
             }
 
-            animator.Play(abilityView.AnimState, abilityView.AnimLayer, normalizedTime);
+            // 발동 뒤 "몇 초 지났나"에서 이어 붙인다 — 비율(진행도)로 넣으면 클립 길이가 어빌리티
+            // 길이와 다를 때, 발동을 본 클라와 놓친 클라가 서로 다른 포즈를 그리게 된다.
+            long elapsedTicks = tick - (activation.Value.RecoveryEndTick - totalTicks);
+            float elapsedSeconds = (float)(elapsedTicks * renderClock.SecondsPerTick);
+            animator.CrossFadeInFixedTime(abilityView.AnimState, AbilityBlendSeconds, abilityView.AnimLayer, elapsedSeconds);
             playingActivation = current;
         }
 

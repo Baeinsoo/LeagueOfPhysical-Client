@@ -130,6 +130,14 @@ namespace LOP
                         (MotionContributionMode)pc.Mode, pc.Priority, pc.StartTick, pc.EndTick, pc.DecayPerTick));
                 }
 
+                entitySnap.statusEffects.Clear();
+                foreach (var pe in serverEntitySnap.StatusEffects.OrEmpty())
+                {
+                    entitySnap.statusEffects.Add(new ActiveEffect(
+                        pe.EffectId, pe.ExpireTick, pe.StackCount,
+                        sourceEntityId: null, sourceId: $"se:{pe.EffectId}"));
+                }
+
                 if (playerContext.entityId == actor.entityId)
                 {
                     reconciler.AddServerSnap(entitySnap);
@@ -172,6 +180,14 @@ namespace LOP
                             remoteAbilities.Activation = AbilityActivation.ForPresentation(
                                 serverEntitySnap.ActiveAbilityId, startupEnd, activeEnd, recoveryEnd);
                         }
+                    }
+
+                    StatusEffects remoteEffects = remoteEntity?.Get<StatusEffects>();
+                    if (remoteEffects != null)
+                    {
+                        // 스냅샷이 전량 권위 — 통째로 교체한다(HP와 같은 규칙).
+                        remoteEffects.Effects.Clear();
+                        remoteEffects.Effects.AddRange(entitySnap.statusEffects);
                     }
 
                     actor.GetComponent<RemoteEntityInterpolator>().AddServerEntitySnap(entitySnap);

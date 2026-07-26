@@ -110,10 +110,12 @@ namespace LOP
                 // 비교는 반드시 같은 시점끼리 해야 한다 — 앵커 틱에 "내가 그때 예측했던" 목록 vs 서버가 앵커
                 // 틱에 갖고 있던 목록. (지금 살아있는 목록과 비교하면 클라가 서버보다 앞서 달리는 리드 구간
                 // 내내 시점이 어긋나 보여, 효과가 걸리거나 끝날 때마다 매 스냅에서 불필요한 롤백이 발생한다.)
+                // id 집합뿐 아니라 만료틱도 봐야 한다 — 몬스터가 쿨다운 없이 계속 때리면 서버가 슬로우를
+                // 계속 재적용해 만료틱만 밀리는데, id 집합은 그대로라 id만 비교하면 이 발산을 놓친다.
                 bool statusMatches = true;
                 if (predictedAbilityStateHistory.TryGet(anchorTick, out var predictedAtAnchor))
                 {
-                    statusMatches = !HasStatusEffectMismatch(predictedAtAnchor.StatusEffects, snap.statusEffects, statusEffectDataProvider.Get);
+                    statusMatches = !StatusEffectReconcileGate.ShouldReconcile(predictedAtAnchor.StatusEffects, snap.statusEffects, statusEffectDataProvider.Get);
                 }
                 // 앵커 틱 예측 기록이 없으면(정상 경로엔 없는 엣지) 비교 불가 — 불일치로 단정하지 않고
                 // 위치 판정에만 맡긴다(statusMatches=true 기본값).
@@ -196,65 +198,6 @@ namespace LOP
             // 하드 보정으로 시뮬 위치가 튄 것을 렌더 스무더에 알린다. 스무더가 보이는 위치를
             // (보정 전 예측 → 보정 후 권위)만큼 부드럽게 흡수한다(시뮬 무영향). 크기별 스냅/무시는 스무더가 판단.
             renderCorrectionSmoother.OnCorrection(preCorrectionPos.ToNumerics(), GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity).ToNumerics());
-        }
-
-        /// <summary>
-        /// 같은 시점의 두 상태이상 목록이 다른 효과 id를 갖고 있는지(집합 비교, 개수 0~3 가정).
-        /// <paramref name="resolver"/>가 모르는(null 반환) 서버 효과 id는 비교에서 뺀다 — 그런 id는
-        /// <see cref="StatusEffectSystem.ApplyAuthoritativeState"/>도 애초에 걸지 않으므로(구버전 데이터 등),
-        /// 불일치로 치면 절대 해소되지 않아 매 스냅마다 롤백+재생이 영구 반복된다.
-        /// </summary>
-        private static bool HasStatusEffectMismatch(
-            System.Collections.Generic.List<ActiveEffect> predictedEffects,
-            System.Collections.Generic.List<ActiveEffect> serverEffects,
-            System.Func<int, StatusEffectData?> resolver)
-        {
-            int predictedCount = predictedEffects != null ? predictedEffects.Count : 0;
-            int serverCount = serverEffects != null ? serverEffects.Count : 0;
-
-            for (int i = 0; i < serverCount; i++)
-            {
-                int serverEffectId = serverEffects[i].EffectId;
-                bool foundLocally = false;
-                for (int j = 0; j < predictedCount; j++)
-                {
-                    if (predictedEffects[j].EffectId == serverEffectId)
-                    {
-                        foundLocally = true;
-                        break;
-                    }
-                }
-                if (foundLocally)
-                {
-                    continue;
-                }
-                if (resolver(serverEffectId) == null)
-                {
-                    continue;   // 클라 마스터데이터에 없는 id — 어차피 안 걸리므로 불일치로 안 침
-                }
-                return true;
-            }
-
-            // 예측 쪽에만 남은 효과(서버가 이미 뗀 것 등)는 그대로 불일치로 본다.
-            for (int i = 0; i < predictedCount; i++)
-            {
-                int predictedEffectId = predictedEffects[i].EffectId;
-                bool foundInServer = false;
-                for (int j = 0; j < serverCount; j++)
-                {
-                    if (serverEffects[j].EffectId == predictedEffectId)
-                    {
-                        foundInServer = true;
-                        break;
-                    }
-                }
-                if (!foundInServer)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
     }
 }

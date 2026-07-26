@@ -216,6 +216,23 @@ Shared `2b9e578` / Server `e41791d` / Client `e645a9d`.
   상시형은 `StatusEffects` + `DurationPolicy.Infinite`로 이미 가능), 동시 발동 규칙(확장 시 표준은
   GAS 태그 규칙), 보유 풀과 장착의 분리(현재 보유=장착이라 구분할 데이터 없음).
 
+### ✅ 후속 정리 + 버그 4건 (같은 날)
+- **어휘 마감**: `Abilities.Current` → **`.Activation`** (`mana.Current`와 한 화면 충돌 + 스냅샷
+  `PredictedAbilityState.Activation`과 이름 불일치 해소). 자동로드 문서 `entity-system-design.md`가
+  삭제된 타입명을 가리키던 것도 수정. Shared `71ec791` / Client `01261bd` / Server `1e13182`.
+- **마스터데이터 로더 목록 누락** — `LOPMasterData.TableFiles`(손 유지 배열)에 새 테이블을 안 넣어
+  게임이 Entrance에서 `KeyNotFoundException`. **EditMode 테스트로 봉인**(`TableFileManifestTests`,
+  클·서 양방향). MD-C `02ad2c0` / MD-S `6fd2ce5`.
+- **전역 공격(G키) 사망** — `character_001`을 "플레이어"로 착각. `GameRuleSystem`이 플레이어에게
+  세 캐릭터를 무작위 배정하므로 Knight를 안 뽑으면 슬롯 4가 없었다. 세 코드 전부에 행 추가.
+  infra `8377686`.
+- **원격 걷기 애니 부재**(기존 구멍, 이번 회귀 아님) — 보간이 velocity를 World에 안 썼다.
+  **위치 곡선의 미분**(`Hermite.Velocity`, GF 신규 + EditMode 6케이스)으로 산출해 반영.
+  GF `7b26974` / Client `baad313`.
+
+EditMode 332/332. **다음 = 애니 동기화 Task 10(TbAbilityView) → Task 11(뷰 상태 기반) → 슬라이스 3(상태이상 5태스크).**
+`TbAbilityView`는 이제 어빌리티 id 단일 키로 성립: 3→Attack 01 / 5→Melee Attack / 6→Attack.
+
 ---
 
 ## 상태

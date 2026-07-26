@@ -103,10 +103,20 @@ namespace LOP
             {
                 var authoritative = snap.position.ToNumerics();
                 reconciliationStats.Record(System.Numerics.Vector3.Distance(predicted.Position, authoritative));
+                bool positionClose = !GameFramework.Netcode.ReconcileGate.ShouldReconcile(predicted.Position, authoritative, Threshold);
+
                 // 위치가 가까워도 서버 상태이상 목록이 다르면 게이트를 연다: 남이 나에게 건 효과(슬로우 등)는
                 // 내가 예측할 수 없어서, 가만히 서 있다 슬로우가 걸려도 위치 오차는 0으로 남기 때문이다.
-                bool positionClose = !GameFramework.Netcode.ReconcileGate.ShouldReconcile(predicted.Position, authoritative, Threshold);
-                bool statusMatches = !HasStatusEffectMismatch(worldEntity, snap.statusEffects);
+                // 비교는 반드시 같은 시점끼리 해야 한다 — 앵커 틱에 "내가 그때 예측했던" 목록 vs 서버가 앵커
+                // 틱에 갖고 있던 목록. (지금 살아있는 목록과 비교하면 클라가 서버보다 앞서 달리는 리드 구간
+                // 내내 시점이 어긋나 보여, 효과가 걸리거나 끝날 때마다 매 스냅에서 불필요한 롤백이 발생한다.)
+                bool statusMatches = true;
+                if (predictedAbilityStateHistory.TryGet(anchorTick, out var predictedAtAnchor))
+                {
+                    statusMatches = !HasStatusEffectMismatch(predictedAtAnchor.StatusEffects, snap.statusEffects, statusEffectDataProvider.Get);
+                }
+                // 앵커 틱 예측 기록이 없으면(정상 경로엔 없는 엣지) 비교 불가 — 불일치로 단정하지 않고
+                // 위치 판정에만 맡긴다(statusMatches=true 기본값).
                 if (positionClose && statusMatches)
                 {
                     return;
@@ -188,33 +198,62 @@ namespace LOP
             renderCorrectionSmoother.OnCorrection(preCorrectionPos.ToNumerics(), GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity).ToNumerics());
         }
 
-        /// <summary>서버 상태이상 목록이 현재 예측 목록과 다른 효과 id를 갖고 있는지(집합 비교, 개수 0~3 가정).</summary>
-        private static bool HasStatusEffectMismatch(GameFramework.World.Entity worldEntity, System.Collections.Generic.List<ActiveEffect> serverEffects)
+        /// <summary>
+        /// 같은 시점의 두 상태이상 목록이 다른 효과 id를 갖고 있는지(집합 비교, 개수 0~3 가정).
+        /// <paramref name="resolver"/>가 모르는(null 반환) 서버 효과 id는 비교에서 뺀다 — 그런 id는
+        /// <see cref="StatusEffectSystem.ApplyAuthoritativeState"/>도 애초에 걸지 않으므로(구버전 데이터 등),
+        /// 불일치로 치면 절대 해소되지 않아 매 스냅마다 롤백+재생이 영구 반복된다.
+        /// </summary>
+        private static bool HasStatusEffectMismatch(
+            System.Collections.Generic.List<ActiveEffect> predictedEffects,
+            System.Collections.Generic.List<ActiveEffect> serverEffects,
+            System.Func<int, StatusEffectData?> resolver)
         {
-            var statusEffects = worldEntity.Get<StatusEffects>();
-            var localEffects = statusEffects != null ? statusEffects.Effects : null;
-            int localCount = localEffects != null ? localEffects.Count : 0;
+            int predictedCount = predictedEffects != null ? predictedEffects.Count : 0;
             int serverCount = serverEffects != null ? serverEffects.Count : 0;
-            if (localCount != serverCount)
-            {
-                return true;
-            }
+
             for (int i = 0; i < serverCount; i++)
             {
-                bool found = false;
-                for (int j = 0; j < localCount; j++)
+                int serverEffectId = serverEffects[i].EffectId;
+                bool foundLocally = false;
+                for (int j = 0; j < predictedCount; j++)
                 {
-                    if (localEffects[j].EffectId == serverEffects[i].EffectId)
+                    if (predictedEffects[j].EffectId == serverEffectId)
                     {
-                        found = true;
+                        foundLocally = true;
                         break;
                     }
                 }
-                if (!found)
+                if (foundLocally)
+                {
+                    continue;
+                }
+                if (resolver(serverEffectId) == null)
+                {
+                    continue;   // 클라 마스터데이터에 없는 id — 어차피 안 걸리므로 불일치로 안 침
+                }
+                return true;
+            }
+
+            // 예측 쪽에만 남은 효과(서버가 이미 뗀 것 등)는 그대로 불일치로 본다.
+            for (int i = 0; i < predictedCount; i++)
+            {
+                int predictedEffectId = predictedEffects[i].EffectId;
+                bool foundInServer = false;
+                for (int j = 0; j < serverCount; j++)
+                {
+                    if (serverEffects[j].EffectId == predictedEffectId)
+                    {
+                        foundInServer = true;
+                        break;
+                    }
+                }
+                if (!foundInServer)
                 {
                     return true;
                 }
             }
+
             return false;
         }
     }

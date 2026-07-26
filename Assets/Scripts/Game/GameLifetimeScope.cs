@@ -107,6 +107,7 @@ namespace LOP
             builder.Register(_ => new GameFramework.Netcode.SequenceBuffer<InputCommand>(128), Lifetime.Singleton);
             builder.Register<Reconciler>(Lifetime.Singleton);
             builder.Register<RemoteInterpolationClock>(Lifetime.Singleton);
+            builder.Register<EntityRenderClock>(Lifetime.Singleton);
 
             // Slice 5-B: LOPRunner.UpdateRunner 인라인 파이프라인 스텝 → ITickSystem 추출(god-object 해체).
             builder.Register<ReconcileSystem>(Lifetime.Singleton);

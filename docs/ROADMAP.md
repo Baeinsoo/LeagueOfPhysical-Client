@@ -265,9 +265,17 @@ spec `2026-07-25-animation-state-sync-design.md`.
 - **연출**: `TbStatusEffectView`(클라 전용, id → VFX 주소) + `StatusEffectVfxView`(매 프레임 상태
   목록을 읽어 맞춤, 루트에 부착). 에셋은 **더미**(`Assets/Art_Placeholder/`, 유니티 기본 파티클 +
   URP 셰이더, 외부 의존 0). **교체 = Excel 주소 한 줄 + 폴더 삭제, 코드 0줄.**
-- 브랜치 `feature/status-effect-vfx`(6 저장소). 클·서 컴파일 클린, 전체 브랜치 리뷰 통과
-  (Ready with follow-ups). **인게임 검증 후 머지** — 머지 SHA는 그때 기록.
-- EditMode **345/345**(332 → +13). spec `2026-07-26-status-effect-vfx-design.md`,
+- **머지 완료(6 저장소)**: infra `7fed22b` / MD-C `0461058` / MD-S `d9b80c1` / Shared `aac5be7` /
+  Server `8153535` / Client `686c164`. 머지 후 main에서 클·서 컴파일 클린 + EditMode 353/353 재확인.
+- **인게임 검증 통과**(사용자): 헤이스트·슬로우 이펙트, 명중자에게만 부여(내 몸엔 안 뜸),
+  **몬스터에게 맞았을 때 내 몸에 이펙트 + 느려짐 + 러버밴딩 없음**(핵심), 동시 적용, 정리, 회귀.
+- **검증 중 배운 것(오진 주의)**: recon이 걷기만 해도 0이 아니어서 회귀를 의심했으나, 원인은
+  이전 테스트에서 켜둔 **패킷 손실 30%** 설정이 남아 있던 것. 넉백 피격 시 recon이 한 번 튀고
+  0으로 복귀하는 것도 정상 — 재조정이 위치뿐 아니라 **넉백 레시피(방향·세기·시작/종료 틱·감쇠)**
+  까지 스냅에서 복원해 클라가 남은 밀림을 같은 코드로 재현하기 때문. 첫 튐 크기가 들쭉날쭉한 것은
+  "서버가 몇 틱 밀어낸 뒤 알았나"(스냅 유실·합쳐짐)에 비례하며, HUD가 소수점 2자리라 5mm 미만은
+  `0.00`으로 보인다. `Recon max`는 게임 시작 후 최댓값이라 내려가지 않는다.
+- EditMode **353/353**(332 → +21). spec `2026-07-26-status-effect-vfx-design.md`,
   plan `2026-07-26-status-effect-vfx.md`.
 - **후속(머지 차단 아님)**: 마스터데이터 검증 EditMode 테스트(모든 `StatusEffectApplyEffect` id가
   `TbStatusEffect`에 존재 + `target_type`이 유효 `TargetType`) — 클·서 provider가 unknown id에
@@ -278,7 +286,21 @@ spec `2026-07-25-animation-state-sync-design.md`.
 - **범위 밖 발견**: `LOPEntityView.UpdateVisual`은 `await` 중 `Cleanup`이 핸들을 해제하면 해제된
   결과로 `Instantiate`한다(이번에 만든 `StatusEffectVfxView`는 같은 함정을 `ownsHandle`로 막았다).
 
-EditMode 345/345. **다음 = 위 후속 항목 또는 새 트랙.** 애니 동기화 트랙(슬라이스 1·2·3)은 종결.
+### ✅ Knight 피격 애니 정렬 (별건, 같은 날 발견)
+상태이상 검증 중 발견 — Knight만 맞고 나면 한참 서 있었다. **Knight만 피격 경로가 두 개**였다:
+다른 둘처럼 Hit Layer에도 있고, Base Layer에도 있었다. Base Layer 쪽은 `Idle`에서만 진입 가능하고
+나오는 길이 `Hit → Idle`(전이 0.54초)뿐이라 걷기가 밀려났다(다른 둘은 별도 레이어라 아래층이 계속 걷는다).
+Base Layer의 `Hit` 상태와 `Idle → Hit` 전이를 제거해 구조를 맞췄고, **Hit Layer가 Archer 클립을
+가리키던 것**도 Knight 자기 클립으로 정정. 반복 피격을 위해 `Hit → Empty State` 복귀 전이 추가.
+Art 저장소 `0e136e0`(푸시됨), 클라 서브모듈 포인터 갱신. 사용자 인게임 확인 완료.
+
+> 남은 것(사용자 결정으로 보류): **넉백 중 리액션 모션 없음** — 밀려나는 동안 재생할 애니가 없어
+> 선 자세로 미끄러진다. 콘텐츠 구멍이라 별건.
+>
+> ⚠️ Art 저장소는 **작업 사본이 두 벌**이다(`LOP/LeagueOfPhysical-Art` 별도 클론 + 클라
+> `Assets/Art` 서브모듈). 한쪽에서 커밋하면 다른 쪽엔 안 보인다 — 원격을 거쳐야 만난다.
+
+EditMode 353/353. **다음 = 위 후속 항목 또는 새 트랙.** 애니 동기화 트랙(슬라이스 1·2·3)은 종결.
 
 ---
 

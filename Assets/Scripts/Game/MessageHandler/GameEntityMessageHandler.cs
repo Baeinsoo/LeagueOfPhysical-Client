@@ -161,7 +161,7 @@ namespace LOP
                     {
                         if (serverEntitySnap.ActiveAbilityId == 0)
                         {
-                            remoteAbilities.Current = null;
+                            remoteAbilities.Activation = null;
                         }
                         else if (abilityDataProvider.TryGet(serverEntitySnap.ActiveAbilityId, out AbilityData abilityData))
                         {
@@ -169,7 +169,7 @@ namespace LOP
                             long recoveryEnd = serverEntitySnap.AbilityEndTick;
                             long activeEnd = recoveryEnd - abilityData.RecoveryTicks;
                             long startupEnd = activeEnd - abilityData.ActiveTicks;
-                            remoteAbilities.Current = AbilityActivation.ForPresentation(
+                            remoteAbilities.Activation = AbilityActivation.ForPresentation(
                                 serverEntitySnap.ActiveAbilityId, startupEnd, activeEnd, recoveryEnd);
                         }
                     }

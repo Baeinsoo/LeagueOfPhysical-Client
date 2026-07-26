@@ -179,6 +179,45 @@ umbrella `docs/superpowers/specs/2026-07-18-entity-view-rearchitecture-umbrella-
 
 ---
 
+## 2026-07-26 — 애니메이션 동기화 트랙 (진행 중) + 캐릭터별 어빌리티 로드아웃 (완료)
+
+### ✅ 접지를 World 상태로 승격 + 스냅샷 복제 (슬라이스 1)
+GF `GroundState` 신설 — `KinematicMover`가 계산해 **버리던** 접지를 `KinematicMoveSystem`이 기록.
+`EntitySnap.grounded`(8)로 복제, 클라 뷰가 발밑 콜라이더 **이름(`"Plane"`)을 뒤지던 임시 판정을 삭제**.
+머지: GF `e32469a` / Shared `ed910dd` / Server `ebc0f0b` / Client `6b921e9`.
+spec `2026-07-25-animation-state-sync-design.md`.
+
+### ⏸ 시전 상태 스냅샷 복제 (슬라이스 2, 배관만 머지)
+스킬 시전 모션이 **일회성 이벤트**로만 전달돼 늦게 접속하거나 패킷을 놓친 클라에선 시전 중인
+캐릭터가 서 있는 걸로 보이던 문제. 지속 상태로 복제하도록 전환 중.
+완료·머지: 진행도 커널 `AbilityPlayback.Solve` + 연출용 `AbilityActivation.ForPresentation`,
+와이어 `active_ability_id`(9)/`ability_end_tick`(10), 클라 원격 복원(종료 틱에서 페이즈 경계 역산).
+Shared `2b9e578` / Server `e41791d` / Client `e645a9d`.
+**남은 것**: `TbAbilityView` 뷰 테이블 + 뷰를 `Animator.Play(state, layer, 진행도)` 상태 기반으로 전환.
+`SetTrigger`로는 "중간부터 재생"이 불가능한 것이 이 전환의 이유.
+
+### ✅ 캐릭터별 어빌리티 로드아웃 + 슬롯 장착 (트랙 B, 전량 완료)
+슬라이스 2가 막힌 원인 해소 — 캐릭터 3종이 같은 `attack`(id 3)을 쓰는데 공격 애니 스테이트
+이름이 각각 달라(`Attack 01`/`Melee Attack`/`Attack`) "어빌리티 id → 애니 이름" 매핑이 성립하지
+않았다. **어빌리티를 캐릭터별로 갈라** id가 캐릭터를 구분하게 만들어 단일 키로 해소.
+
+- **어휘 정정 3층**: `AbilityData`(정의) / **`GrantedAbility`**(부여 기록 + 슬롯 + 쿨다운, 구 `AbilitySlot`) /
+  **`AbilityActivation`**(진행 중 발동, 구 `ActiveAbility`). GAS `FGameplayAbilitySpec`·인스턴스 대응.
+  "슬롯"이 부여 기록을 잘못 가리키던 것을 **장착 자리**라는 표준 의미로 되찾음(GAS `InputID` 대응).
+- **슬롯 도입**: `Grant(entity, abilityId, slot)` + 코어 순수 조회 `TryGetAbilityIdBySlot` /
+  side-local `AbilityActivator.TryActivateSlot`. 버튼·AI가 id 대신 자리를 가리킨다.
+- **`TbCharacterLoadout`**(캐릭터→슬롯→어빌리티, 클·서 공용) + 캐릭터별 공격 행(5=necro, 6=archer).
+  `CharacterCreator`의 `Grant` 하드코딩 전멸.
+- **함정 박제**: `TryActivate`의 쿨다운 갱신이 부여 기록을 통째로 덮어써 **발동할 때마다 슬롯이
+  0으로 지워지는** 버그 — 컴파일·기존 테스트를 다 통과하는 종류. 보존 코드 + 회귀 테스트로 고정.
+- 머지: infra `ff69782` / MD-C `e687273` / MD-S `bdb9626` / Shared `5ad33c9` / Server `e27e35d` / Client `668ae79`.
+  EditMode 324/324. spec `2026-07-26-character-ability-loadout-design.md`.
+- **미채택(범위 밖)**: 반응형 패시브(현 구조는 동시 발동 1개라 자리를 영구 점유하면 전부 막힘 —
+  상시형은 `StatusEffects` + `DurationPolicy.Infinite`로 이미 가능), 동시 발동 규칙(확장 시 표준은
+  GAS 태그 규칙), 보유 풀과 장착의 분리(현재 보유=장착이라 구분할 데이터 없음).
+
+---
+
 ## 상태
 
 이 파일은 **2026-07-09 생성**, Stage④ 프론티어 + 최근 넷코드/이동 워크스트림을 시드했다. 나머지 워크스트림 상태는 각 메모리에 남아 있으며, **손댈 때 기회 있을 때** 이리로 점진 이관한다(일괄 이관 안 함).

@@ -59,13 +59,13 @@ namespace LOP.UI
             // 데스크톱 편의: H 키로 헤이스트 발동(온스크린 버튼은 Haste() 커맨드 사용).
             if (Keyboard.current.hKey.wasPressedThisFrame)
             {
-                _playerInputManager.SetAbilityId(HasteAbilityId);
+                _playerInputManager.SetAbilitySlot(HasteSlot);
             }
 
             // 테스트 편의: G 키로 전역 공격(플레이어 전용 부여) — 넓은 범위 다수 적 타격.
             if (Keyboard.current.gKey.wasPressedThisFrame)
             {
-                _playerInputManager.SetAbilityId(GlobalAttackAbilityId);
+                _playerInputManager.SetAbilitySlot(GlobalAttackSlot);
             }
         }
 
@@ -87,22 +87,22 @@ namespace LOP.UI
 
         public void Jump() => _playerInputManager.SetJump(true);
 
-        public void Dash() => _playerInputManager.SetAbilityId(DashAbilityId);
+        public void Dash() => _playerInputManager.SetAbilitySlot(DashSlot);
 
-        // 어빌리티는 int id로 발동(런타임 식별=id; string code는 데이터/에디터용). 버튼=어빌리티 슬롯 설정.
-        private const int HasteAbilityId = 1;
-        private const int DashAbilityId = 2;
-        private const int AttackAbilityId = 3;
-        private const int GlobalAttackAbilityId = 4;   // 테스트용 광역 공격(플레이어 전용)
+        // 버튼은 어빌리티 id가 아니라 장착 자리(슬롯)를 가리킨다 — 캐릭터마다 그 자리의 어빌리티가 다르다.
+        private const int AttackSlot = 1;
+        private const int DashSlot = 2;
+        private const int HasteSlot = 3;
+        private const int GlobalAttackSlot = 4;   // 테스트용 광역 공격(플레이어 전용)
 
-        /// <summary>헤이스트 어빌리티 발동(이동속도 +30%, 한시). 온스크린 버튼/단축키(H)에서 호출.</summary>
-        public void Haste() => _playerInputManager.SetAbilityId(HasteAbilityId);
+        /// <summary>헤이스트 발동(이동속도 +30%, 한시). 온스크린 버튼/단축키(H)에서 호출.</summary>
+        public void Haste() => _playerInputManager.SetAbilitySlot(HasteSlot);
 
-        // 공격 = DamageEffect 어빌리티(서버권위 판정). 캐릭터별 단일 대표 어빌리티 — 로드아웃은 후속.
-        public void Attack() => _playerInputManager.SetAbilityId(AttackAbilityId);
+        // 공격 = DamageEffect 어빌리티(서버권위 판정). 슬롯 1에 장착된 것이 캐릭터마다 다르다.
+        public void Attack() => _playerInputManager.SetAbilitySlot(AttackSlot);
 
-        // 테스트용 광역 공격(플레이어 전용 부여). 온스크린 버튼/단축키(G)에서 호출.
-        public void GlobalAttack() => _playerInputManager.SetAbilityId(GlobalAttackAbilityId);
+        // 테스트용 광역 공격(플레이어 로드아웃에만 있음). 온스크린 버튼/단축키(G)에서 호출.
+        public void GlobalAttack() => _playerInputManager.SetAbilitySlot(GlobalAttackSlot);
 
         public void CameraLook(Vector2 delta) => _cameraController.ProcessTouchInput(delta);
     }

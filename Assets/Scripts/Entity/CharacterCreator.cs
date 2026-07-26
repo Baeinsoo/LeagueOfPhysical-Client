@@ -66,12 +66,12 @@ namespace LOP
             }
             entityRegistry.Add(worldEntity);
 
-            abilitySystem.Grant(worldEntity, 1);
-            abilitySystem.Grant(worldEntity, 2);   // dash
-            abilitySystem.Grant(worldEntity, 3);   // attack
+            abilitySystem.Grant(worldEntity, 1, slot: 3);   // haste
+            abilitySystem.Grant(worldEntity, 2, slot: 2);   // dash
+            abilitySystem.Grant(worldEntity, 3, slot: 1);   // attack
             if (isUserEntity)
             {
-                abilitySystem.Grant(worldEntity, 4);   // 내 캐릭 전용 테스트 툴(G키)
+                abilitySystem.Grant(worldEntity, 4, slot: 4);   // 내 캐릭 전용 테스트 툴(G키)
                 playerContext.entityId = creationData.entityId;   // .actor는 EntityBinder가 뷰 생성 후 세팅
             }
 

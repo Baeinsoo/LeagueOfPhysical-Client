@@ -45,5 +45,27 @@ namespace LOP
             }
             return activated;
         }
+
+        /// <summary>슬롯에 장착된 어빌리티 id를 찾는다. 입력 캡처가 슬롯을 id로 풀 때 쓴다.</summary>
+        public bool TryGetAbilityIdBySlot(string casterEntityId, int slot, out int abilityId)
+        {
+            abilityId = 0;
+            var caster = entityRegistry.Get(casterEntityId);
+            if (caster == null)
+            {
+                return false;
+            }
+            return abilitySystem.TryGetAbilityIdBySlot(caster, slot, out abilityId);
+        }
+
+        /// <summary>슬롯으로 발동. id를 푼 뒤 기존 <see cref="TryActivate"/> 경로로 합류한다.</summary>
+        public bool TryActivateSlot(string casterEntityId, int slot, long currentTick)
+        {
+            if (TryGetAbilityIdBySlot(casterEntityId, slot, out int abilityId) == false)
+            {
+                return false;
+            }
+            return TryActivate(casterEntityId, abilityId, currentTick);
+        }
     }
 }

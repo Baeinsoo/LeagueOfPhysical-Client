@@ -120,7 +120,7 @@ World Core는 순수 C#(`noEngineReferences`)이며 `GameFramework.World`에 있
 ### LOP 도메인 (`namespace LOP`, LeagueOfPhysical-Shared `Runtime/Scripts/Game/`)
 
 - `StatusEffects` — `List<ActiveEffect> Effects` (상태이상 목록)
-- `Abilities` — 어빌리티 슬롯/활성 상태(`AbilitySlot`/`ActiveAbility`/`AbilityPhase`)
+- `Abilities` — 부여 기록/진행 중 발동(`GrantedAbility`/`AbilityActivation`/`AbilityPhase`). 슬롯(장착 자리)은 `GrantedAbility.Slot`
 - `InputBuffer` — 서버 입력 버퍼(구 `EntityInputComponent`, 입력-as-데이터로 rename)
 - `MotionContributions` — 외력(넉백 등) 기여 채널 (Additive)
 - `PredictedAbilityState` — 클라 예측/롤백용 어빌리티 상태 스냅샷

@@ -48,7 +48,8 @@ namespace LOP
             builder.Register<AbilityEffectExecutor>(Lifetime.Singleton);
             builder.Register<IAbilityEffectHandler>(c => new StatusEffectApplyEffectHandler(
                 c.Resolve<StatusEffectSystem>(),
-                id => c.Resolve<StatusEffectDataProvider>().Get(id)), Lifetime.Singleton);
+                id => c.Resolve<StatusEffectDataProvider>().Get(id),
+                c.Resolve<GameFramework.World.EntityRegistry>()), Lifetime.Singleton);
             builder.Register<GameFramework.World.IEventSink, WorldEventSink>(Lifetime.Singleton);
             builder.Register<GameFramework.Physics.IPhysicsSimulator, GameFramework.Physics.UnityPhysicsSimulator>(Lifetime.Singleton);
             builder.Register<GameFramework.Physics.ICollisionQuery, GameFramework.Physics.UnityCollisionQuery>(Lifetime.Singleton);

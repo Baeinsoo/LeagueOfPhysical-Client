@@ -48,7 +48,9 @@ namespace LOP
                 switch (e)
                 {
                     case LOP.MasterData.StatusEffectApplyEffect s:
-                        result.Add(new StatusEffectApplyEffect(s.StatusEffectId));
+                        result.Add(new StatusEffectApplyEffect(
+                            s.StatusEffectId,
+                            (TargetType)System.Enum.Parse(typeof(TargetType), s.TargetType)));
                         break;
                     case LOP.MasterData.MotionEffect m:
                         result.Add(new MotionEffect(m.Speed));

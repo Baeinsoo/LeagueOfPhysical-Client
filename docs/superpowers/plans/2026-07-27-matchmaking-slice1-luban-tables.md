@@ -847,10 +847,14 @@ spec `docs/superpowers/specs/2026-07-27-matchmaking-standardization-design.md`
 
 - [ ] **Step 2: 4개 저장소 main에 `--no-ff` 머지**
 
+> ⚠️ **`LeagueOfPhysical-MatchmakingServer`의 기본 브랜치는 `main`이 아니라 `master`다.** 나머지 셋은 `main`.
+
 ```bash
-for r in infrastructure LeagueOfPhysical-MasterData-Client LeagueOfPhysical-MasterData-Server LeagueOfPhysical-MatchmakingServer; do
-  cd "/c/Users/re5na/workspace/LOP/$r" && git checkout main && git merge --no-ff feature/matchmaking-slice1-luban-tables -m "Merge feature/matchmaking-slice1-luban-tables: Luban 게임/맵/큐 테이블 신설"
+MSG="Merge feature/matchmaking-slice1-luban-tables: Luban 게임/맵/큐 테이블 신설"
+for r in infrastructure LeagueOfPhysical-MasterData-Client LeagueOfPhysical-MasterData-Server; do
+  cd "/c/Users/re5na/workspace/LOP/$r" && git checkout main && git merge --no-ff feature/matchmaking-slice1-luban-tables -m "$MSG"
 done
+cd /c/Users/re5na/workspace/LOP/LeagueOfPhysical-MatchmakingServer && git checkout master && git merge --no-ff feature/matchmaking-slice1-luban-tables -m "$MSG"
 ```
 
 - [ ] **Step 3: 머지 후 최종 확인**

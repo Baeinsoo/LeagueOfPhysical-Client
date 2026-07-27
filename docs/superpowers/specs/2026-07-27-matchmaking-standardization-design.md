@@ -46,7 +46,7 @@ LOP는 **여러 미니게임을 경쟁하는 게임**이다. 코어(캐릭터·�
 ```
 Queue          친선전 / 랭킹전 — 무엇을 고를 수 있는지를 스스로 선언
   └ Match      한 판 = 최종 결과 1개
-       └ Round  1..N  (지금은 항상 1, 자리만 비워둠)
+       └ Round  1..N  (목록으로 짓되 지금은 항상 원소 1개)
             ├ GameMode   닷지볼, 타겟슈팅 — "이 판의 규칙", 정원(min/max) 소유
             └ Map        게임에 종속
 ```
@@ -57,14 +57,31 @@ Queue          친선전 / 랭킹전 — 무엇을 고를 수 있는지를 스�
 | `GameMode` | 무슨 규칙으로 노는가. 코어는 공유하고 규칙만 다름. **정원(min/max)을 소유** |
 | `Map` | 어디서. `GameMode`에 종속 |
 | `Match` | 한 판. 결과 1개 |
-| `Round` | 판 안의 한 게임. **이번에 만들지 않음** — 자리만 |
+| `Round` | 판 안의 한 게임. **목록으로 짓고 원소 1개로 시작** (§2 하단) |
 | `MatchmakingTicket` | 매칭 요청 1건. **이미 표준 어휘라 유지** |
 | `WaitingRoom` | — **삭제** (§7) |
 
-**`Round`를 지금 안 만드는 이유:** 현재는 한 매치 = 한 게임이라 항상 1개다. 다만 나중에
-*"여러 독립 게임을 연속하되 최종 결과는 하나"*(철인 3종식)로 갈 계획이 있으므로,
-`Match`가 게임·맵을 **직접 소유하지 않고 라운드 목록을 통해 소유하는 모양**을 유지해
-그때 스키마를 뒤집지 않게 한다. 구현은 라운드 1개 고정.
+### `Round` — 원소 1개짜리 목록으로 짓는다 (확정)
+
+현재는 한 매치 = 한 게임이라 라운드가 항상 1개다. 다만 *"여러 독립 게임을 연속하되 최종 결과는
+하나"*(철인 3종식)가 계획에 있으므로, **`Match`는 게임·맵을 직접 들지 않고 라운드 목록을 통해서만
+가진다.**
+
+```
+Match {
+    id, queueId, playerList, createdAt
+    rounds: [ { index: 0, gameModeId, mapId } ]     // 지금은 항상 원소 1개
+}
+```
+
+**컬럼으로 직접 박지 않는 이유:** 이건 DB 스키마라 나중에 바꾸는 비용이 코드와 다르다. 컬럼으로
+두면 확장 시 마이그레이션 + 3개 DB + 읽는 쪽(클라·게임서버·매칭서버)을 전부 손봐야 한다. 지금
+목록으로 두는 비용은 테이블 하나와 조인 한 번이고, 확장할 때 하는 일은 **배열에 원소를 더 넣는
+것뿐**이다 — 스키마도 읽는 쪽도 그대로다.
+
+C(매치 결과)에서도 이 자리가 쓰인다: 라운드별 점수는 각 원소에, 최종 결과 하나는 `Match`에 붙는다.
+
+**게임 서버는 `rounds[0]`을 읽어** 맵을 로드한다(현재 `LOPRunner.MapId` 하드코딩을 대체).
 
 ## 3. 이름 변경 대응표
 
@@ -321,7 +338,7 @@ Shared                                                              해당 없�
 | | 슬라이스 | 내용 | 검증 |
 |---|---|---|---|
 | **1** | **Luban 테이블 신설** | `TbGameMode`/`TbMap`/`TbQueue` Excel 저작 + gen + 매칭서버 JSON 로더(XML 대체). **런타임 동작 변경 0** | 클·서 컴파일, 매칭서버가 JSON으로 같은 값 로드 |
-| **2** | **필드 어휘 리네임** | `matchType`→`queueId`, `subGameId`→`gameModeId`, `SubGameData`→`TbGameMode`, `UserStats.gameMode`→`queueId`. 백엔드 → 클라 순. **`WaitingRoom` 관련 이름은 건드리지 않음**(4·5에서) | 매칭 기존과 동일 동작 |
+| **2** | **필드 어휘 리네임 + `Match` 라운드화** | `matchType`→`queueId`, `subGameId`→`gameModeId`, `SubGameData`→`TbGameMode`, `UserStats.gameMode`→`queueId`. **`Match`의 게임·맵을 `rounds[]`(원소 1개)로 이전**하고 게임 서버는 `rounds[0]`을 읽음. 백엔드 → 클라 순. **`WaitingRoom` 관련 이름은 건드리지 않음**(4·5에서) | 매칭 기존과 동일 동작, 게임이 정상 진입 |
 | **3** | **티켓 모델 확장** | `creator`→`userIds[]`, `gameModeIds[]`/`mapIds[]` 후보 목록. 아직 매칭 로직은 기존 | 티켓 생성·조회 |
 | **4** | **Director 전환 (백엔드)** | `Updater`/`WaitingRoom` 삭제, Director+MatchFunction+Evaluator 신설, 별도 배포. §7의 **MatchmakingServer·LobbyServer·RoomServer** 항목 소진 | 1인·다인 매칭, 재시작 중 매칭, 랜덤/지정 혼합 |
 | **5** | **클라 잔재 정리** | §7의 **Client·게임 Server** 항목 소진 — `Location`/FSM 상태 개명, `MatchmakingLocationDetail`, `MatchmakingViewModel` 하드코딩 제거 | 매칭 전 구간 |
@@ -357,7 +374,7 @@ Shared                                                              해당 없�
 | `GameMode` | Riot `gameMode`(CLASSIC/ARAM), 언리얼 `AGameMode`, Mediatonic 사내 어휘 | 규칙 정의자. 언리얼 `AGameMode`↔`EndMatch`는 Slice D에서 이미 채택한 매핑과 동일 축 |
 | `Queue` | Riot `queueId`/`queues.json`, Halo·Destiny 플레이리스트 | 매칭 풀 + 정책 선언 |
 | `Map` | Riot `mapId` | |
-| `Round` | Fall Guys의 Round, 철인 3종의 leg | 이번엔 자리만 |
+| `Round` | Fall Guys의 Round, 철인 3종의 leg | 목록으로 짓고 원소 1개로 시작 |
 | `MatchmakingTicket` | Open Match `Ticket`, GameLift FlexMatch matchmaking ticket | **이미 정합** |
 | Director / MatchFunction / Evaluator | Open Match 동명 컴포넌트 | 역할 분리 그대로 |
 | 후보 목록 매칭 | Open Match `Pool` 필터, Halo 플레이리스트 다중선택 | |
@@ -401,5 +418,5 @@ UI를 구성하므로 이 spec이 선행돼야 한다.
 - [ ] **`ResponseCode` 5중 복제 정리** — 이번 범위 밖. 별도 슬라이스
 - [ ] **매치 종료 시 유저 위치 백엔드 정리** — 기존 파킹 항목(`flow-slice-d-match-result`)이
       이 트랙과 같은 영역을 건드림. 슬라이스 4~5 시점에 함께 볼지 판단
-- [ ] **`Match`의 라운드 표현** — 라운드 1개 고정을 "컬럼 직접 소유"로 둘지 "목록 1개"로 둘지.
-      전자가 지금 단순하고 후자가 나중에 안 뒤집힘. 슬라이스 2에서 결정
+- [x] ~~**`Match`의 라운드 표현**~~ — **목록으로 확정**(§2). DB 스키마라 나중 변경 비용이 크고,
+      확장이 추측이 아니라 계획된 것이라 지금 열어둔다

@@ -129,9 +129,14 @@ p='Datas/__tables__.xlsx'
 wb=openpyxl.load_workbook(p); ws=wb.worksheets[0]
 hdr=[c.value for c in ws[1]]
 def col(n): return hdr.index(n)+1
+# TbMap의 value_type이 'Map'이 아니라 'GameMap'인 이유:
+# 생성 TypeScript가 모든 테이블에서 getDataMap(): Map<number, T> 를 쓴다.
+# 빈 클래스 이름을 'Map'으로 두면 그 제네릭이 TS 내장 Map<K,V> 대신 우리 클래스로
+# 해석돼 schema.ts 전체가 컴파일되지 않는다. 테이블명(TbMap)·stem(tbmap)·필드명은
+# full_name과 컬럼명에서 나오므로 영향 없다.
 for full,vt,inp,cmt in [
     ('TbGameMode','GameMode','#GameMode.xlsx','GameMode'),
-    ('TbMap','Map','#Map.xlsx','Map'),
+    ('TbMap','GameMap','#Map.xlsx','Map'),
     ('TbQueue','Queue','#Queue.xlsx','Queue'),
 ]:
     r=ws.max_row+1

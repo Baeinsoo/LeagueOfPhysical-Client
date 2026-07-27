@@ -685,8 +685,16 @@ Expected: **4 passed**.
 
 - [ ] **Step 8: 커밋**
 
+> ⚠️ **`git add -A`를 쓰지 말 것.** Task 1의 `gen.sh`가 이미 이 저장소에 생성물(`src/loaders/generated/`,
+> `master_data/*.json`)을 만들고 옛 XML을 지워 둔 상태다. 그것들은 **Task 5에서 XML 삭제와 함께**
+> 커밋하기로 되어 있으므로, 여기서는 **이 태스크가 만든 파일만 명시적으로 스테이징**한다.
+
 ```bash
-cd /c/Users/re5na/workspace/LOP/LeagueOfPhysical-MatchmakingServer && git add -A && git commit -m "$(cat <<'EOF'
+cd /c/Users/re5na/workspace/LOP/LeagueOfPhysical-MatchmakingServer/MatchmakingServer
+git add jest.config.js package.json package-lock.json \
+        src/loaders/__tests__/masterdata.loader.test.ts \
+        src/loaders/masterdata.loader.ts
+git commit -m "$(cat <<'EOF'
 feat(masterdata): 매칭 서버 로더를 Luban JSON으로 전환 + jest 도입
 
 자체 XML 스캔 대신 Luban 생성 Tables를 구성한다. 타입도 생성물이라

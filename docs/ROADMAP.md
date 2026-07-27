@@ -61,6 +61,37 @@
 - **UI Toolkit 마이그레이션 M1~M5a** — `[[uitoolkit-migration-status]]`
 - **MasterData Luban 전환** (α/β/γ) — `[[masterdata-slice-2b-2c-roadmap]]`, `[[masterdata-key-convention]]`
 
+### 매치메이킹 표준화 트랙 (2026-07-27~)
+
+개념 어휘를 업계 표준으로 바로잡고 매칭을 풀 기반 표준 배치로 전환하는 트랙.
+spec `docs/superpowers/specs/2026-07-27-matchmaking-standardization-design.md`
+(§7에 `WaitingRoom` 폐기 대상 5레포 41파일 체크리스트).
+
+- ✅ **슬라이스 1 — Luban 테이블 신설** (07-27, 4레포) — `TbGameMode`/`TbMap`/`TbQueue` 신설 +
+  매칭 서버 전용 비기본 그룹 `m` + `matchmaking` 타깃(`typescript-json` + `json`) 추가.
+  매칭 서버의 자체 XML 로더를 Luban 생성 `Tables`로 교체(타입도 생성물이라 수기 인터페이스 소멸),
+  `fast-xml-parser`·`util.xml`·`subGameData.interface` 제거. 매칭 서버에 **jest 최소 구성 도입**
+  (슬라이스 4의 MatchFunction/Evaluator 테스트 토대) — **6개 테스트**(정상 로드 4종 + 미로드 호출 +
+  깨진 JSON 실패 케이스). 기존 서브게임 5종을 값 그대로 이관해
+  **동작 무변화**. plan `2026-07-27-matchmaking-slice1-luban-tables`.
+- ▶ 다음 = 슬라이스 2(필드 어휘 리네임 + `Match` 라운드화)
+
+**후속(슬라이스 2/4/5에서 챙길 것):**
+- **큐 대기시간 배선 시 동작 변경 주의** — `waitingRoom.service`는 아직 최대 대기 `5`초를 하드코딩하고,
+  신설 `tbqueue.json`은 `max_wait_seconds` 30/60을 들고 있다. 이 30/60은 **spec이 새로 설계한 값이지
+  기존 XML에서 이관한 값이 아니다.** 배선하는 사람은 대기창이 6~12배 길어지는데, 이는 의도된 것이지
+  회귀가 아니니 버그로 되돌리지 말고 수동 확인할 것.
+- **마스터데이터 그룹 좁히기** — 신설 3테이블이 전부 `c,s,m`으로 뭉뚱그려져 있어 클라가 절대 안 읽는
+  매칭 전용 컬럼(`TbQueue.rating_range_start`/`rating_range_max`/`rating_relax_per_sec`/
+  `max_wait_seconds`/`allowed_game_mode_ids`, `TbMap.scene_path`)까지 클라 빌드에 실린다. spec은 친선전
+  실력 폭을 유저에게 **숨은** 값으로 설계했으니 클라 노출은 그 의도에 반한다. 슬라이스 4/5가 누가
+  무엇을 읽는지 확정하면 컬럼별 `##group`으로 좁힐 것.
+- **gen 스크립트가 Unity `.meta`를 지운다** — `gen.sh`/`gen.bat`이 출력 폴더를 `rm -rf`/`rmdir /s /q`로
+  통째로 지우는데, 그 안의 Unity `.meta`는 Luban이 다시 만들어 주지 않는다. 지금 이 머신은 Unity
+  Library 캐시가 기존 GUID를 복원해 문제가 안 보이지만, 클린 체크아웃·CI·다른 개발자 PC는 GUID가
+  새로 발급돼 `.meta` 약 78개가 흔들린다. 폴더째 지우지 말고 `*.cs`/`*.bytes`만 지우도록 고칠 것 —
+  기존부터 있던 조건이라 파이프라인 위생 정리 슬라이스에서 함께 처리.
+
 ---
 
 ## ▶ 다음 (Next — 순서 있음)

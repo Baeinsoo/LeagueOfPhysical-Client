@@ -1,5 +1,14 @@
 # 매치메이킹 슬라이스 1 — Luban 테이블 신설 구현 계획
 
+> ⚠️ **Task 4·5는 잘못된 저장소에 적용됐다 (07-28 발견).** 대상으로 삼은
+> `re5nardo/LeagueOfPhysical-MatchmakingServer`는 **2025-08-31 아카이브**된 저장소이고, 실제 배포
+> 소스는 **`Baeinsoo/lop-backend` 모노레포**의 `apps/matchmaking-server`다. 그 두 태스크의 결과물은
+> 배포 파이프라인이 보지 않으므로 프로덕션에 도달하지 못한다.
+>
+> **Task 1·2·3은 유효하다**(infrastructure + MasterData 패키지 = 살아있는 저장소).
+> Task 4·5는 `plans/2026-07-28-matchmaking-slice1b-monorepo-port.md`로 재작업한다 — 코드는 그대로
+> 쓰되 위치와 도구 체계(pnpm/turbo)만 맞춘다. Task 1의 `gen.sh`/`gen.bat` 출력 경로도 거기서 교정한다.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 게임·맵·큐 마스터데이터를 Luban 단일 진실원본으로 신설하고, 매치메이킹 서버의 자체 XML 로더를 Luban 생성 TypeScript + JSON으로 대체한다. **런타임 동작 변경 0.**

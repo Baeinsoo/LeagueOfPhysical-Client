@@ -67,14 +67,21 @@
 spec `docs/superpowers/specs/2026-07-27-matchmaking-standardization-design.md`
 (§7에 `WaitingRoom` 폐기 대상 5레포 41파일 체크리스트).
 
-- ✅ **슬라이스 1 — Luban 테이블 신설** (07-27, 4레포) — `TbGameMode`/`TbMap`/`TbQueue` 신설 +
+- ✅ **슬라이스 1 — Luban 테이블 신설** (07-27) — `TbGameMode`/`TbMap`/`TbQueue` 신설 +
   매칭 서버 전용 비기본 그룹 `m` + `matchmaking` 타깃(`typescript-json` + `json`) 추가.
-  매칭 서버의 자체 XML 로더를 Luban 생성 `Tables`로 교체(타입도 생성물이라 수기 인터페이스 소멸),
-  `fast-xml-parser`·`util.xml`·`subGameData.interface` 제거. 매칭 서버에 **jest 최소 구성 도입**
-  (슬라이스 4의 MatchFunction/Evaluator 테스트 토대) — **6개 테스트**(정상 로드 4종 + 미로드 호출 +
-  깨진 JSON 실패 케이스). 기존 서브게임 5종을 값 그대로 이관해
-  **동작 무변화**. plan `2026-07-27-matchmaking-slice1-luban-tables`.
-- ▶ 다음 = 슬라이스 2(필드 어휘 리네임 + `Match` 라운드화)
+  클·서 MasterData 패키지에 생성물 반영 + `TableFiles` 등록 + 참조 무결성 EditMode 테스트.
+  기존 서브게임 5종을 값 그대로 이관해 **동작 무변화**.
+  plan `2026-07-27-matchmaking-slice1-luban-tables`.
+- ⚠️ **슬라이스 1의 매칭 서버 절반은 죽은 저장소에 적용됐다 → 1b로 재작업**
+  (07-28 배포 시도 중 발견). 로더 교체·jest·XML 제거를 `re5nardo/LeagueOfPhysical-MatchmakingServer`에
+  적용했는데 그 저장소는 **2025-08-31 아카이브**됐다. 실제 배포 소스는 **`Baeinsoo/lop-backend`
+  모노레포**의 `apps/matchmaking-server`다(infrastructure README가 명시; 배포 이미지 태그
+  `matchmaking-server:e08245e`의 sha가 아카이브 저장소에 없음으로 실증). 코드·설계는 유효하고
+  모노레포 소스가 줄바꿈 빼고 0줄 차이라 이식은 기계적.
+  **교훈: 계획 수립 전 대상 저장소가 살아있는지 확인할 것** — 태스크 리뷰 5회와 최종 whole-branch
+  리뷰도 "이 저장소가 맞는가"는 묻지 않았다.
+- ▶ **다음 = 슬라이스 1b**(매칭 서버를 모노레포로 이식) → 그다음 슬라이스 2(필드 어휘 리네임 + `Match` 라운드화).
+  plan `2026-07-28-matchmaking-slice1b-monorepo-port`.
 
 **후속(슬라이스 2/4/5에서 챙길 것):**
 - **큐 대기시간 배선 시 동작 변경 주의** — `waitingRoom.service`는 아직 최대 대기 `5`초를 하드코딩하고,

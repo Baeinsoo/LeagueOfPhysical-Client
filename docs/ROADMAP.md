@@ -80,8 +80,49 @@ spec `docs/superpowers/specs/2026-07-27-matchmaking-standardization-design.md`
   모노레포 소스가 줄바꿈 빼고 0줄 차이라 이식은 기계적.
   **교훈: 계획 수립 전 대상 저장소가 살아있는지 확인할 것** — 태스크 리뷰 5회와 최종 whole-branch
   리뷰도 "이 저장소가 맞는가"는 묻지 않았다.
-- ▶ **다음 = 슬라이스 1b**(매칭 서버를 모노레포로 이식) → 그다음 슬라이스 2(필드 어휘 리네임 + `Match` 라운드화).
+- ✅ **슬라이스 1b — 매칭 서버를 모노레포로 이식 + 배포 (07-28~29)** — Task 4·5를 `lop-backend`
+  (`apps/matchmaking-server`)에 재적용. 모노레포 소스가 아카이브본과 줄바꿈 빼고 0줄 차이라 이식은
+  기계적이었고, 도구 체계만 pnpm/turbo로 맞췄다. 빌드 4/4, 테스트 6/6.
+  **중간 교정**: Luban TS 출력을 `src/loaders/generated/` → **`src/masterdata/`** 로 이동 — 루트
+  `.dockerignore`의 `**/generated`가 도커 컨텍스트에서 제외해 **CI 이미지 빌드가 깨졌을** 것이고,
+  이 레포에서 `generated/`는 "빌드 때 생성, 커밋 안 함"(Prisma) 규약이라 의미가 반대였다.
+  **CI에 테스트 단계 추가**(빌드 뒤·이미지 푸시 앞) — 그전엔 새 스위트를 아무도 안 돌렸다.
   plan `2026-07-28-matchmaking-slice1b-monorepo-port`.
+- ✅ **클러스터 재구축 + 실제 배포 (07-29)** — Docker Desktop이 클러스터를 재생성해 전부 소멸 →
+  문서대로 ingress-nginx → ArgoCD v2.13.2 → `root-app` → platform(wave0) → backend(wave1) 복구.
+  `backend-deploy` 워크플로 실행 → 이미지 `e5bd5b6` → infrastructure 태그 자동 bump → ArgoCD 롤아웃.
+  **실측 확인**: 파드가 새 이미지로 기동, 컨테이너 안 `master_data`에 Luban json 3개만(XML 없음),
+  `MasterData loaded!` 로그, 엔드포인트 200. **매칭도 실제로 성사** — Luban 테이블 조회→정원→매치까지
+  동작 확인. GitOps 고리 전체가 한 바퀴 돌았다.
+- ▶ **다음 = 슬라이스 2**(필드 어휘 리네임 + `Match` 라운드화).
+
+### 🔴 신규 트랙 — 로컬 E2E(게임 진입)가 막혀 있다 (07-29 발견, 미착수)
+
+매칭 검증 중 **매치 성사 이후 경로가 한 번도 끝까지 동작한 적이 없음**이 드러났다. infrastructure
+README도 *"매치 오케스트레이션 E2E는 실제 매칭 필요 — 별도"* 라고 적어 미검증임을 예고하고 있었다.
+아래는 그날 실측으로 확인한 것들이며, **1번이 프로덕션 차단 요인**이다.
+
+1. 🔴 **게임서버 빌드에 마스터데이터가 안 실린다** — 이미지 `re5nardo/game-server:be8203d` 안
+   `StreamingAssets`에 Addressables(`aa/`)만 있고 **`MasterData/` 폴더가 없다**(docker로 직접 확인).
+   그래서 부팅이 `LOPMasterData.LoadBytes`에서 예외로 죽고, 하트비트를 못 보내 룸이 Error가 된다.
+   원인: 패키지가 `.bytes`를 **`Runtime.Generated/StreamingAssets/`** 에 두는데 Unity가 빌드에 복사하는
+   건 `Assets/StreamingAssets`와 패키지 루트다. 에디터는 다른 분기(`Packages/...` 직접 경로)를 타서
+   지금껏 안 드러났다. `LOPMasterData.cs`의 *"플레이어 빌드에선 Unity가 복사한다"* 주석은 **사실이 아니다.**
+   고치면 게임서버 이미지 재빌드 필요(맥 셀프호스트 러너).
+2. 🟠 **`useLocalRoomInstance`가 반만 우회한다** — 이 플래그는 `LOPRoom.cs:87`에서 Mirror 접속
+   주소만 바꿀 뿐, 그 앞의 `RoomConnector`→`CheckRoomJoinable`(room-server) 게이트는 그대로 탄다.
+   그래서 에디터 룸으로 테스트하려 해도 k8s 룸이 건강해야 한다(=1번에 막힘). 단순히 게이트를 건너뛰면
+   `LOPRoom.cs:52`가 쓰는 `roomDataStore.room`이 비어 NRE — 룸 정보를 따로 채우는 경로가 필요하다.
+3. 🟡 **하트비트/폴링 60초는 임시값** — 10초로는 콜드 스타트가 매번 실패해 양쪽 다 60초로 올렸다
+   (room-server `HEARTBEAT_THRESHOLD`, 클라 `RoomConnector.DEFAULT_RETRY_COUNT`). 정석은 **기동 유예**와
+   **생존 판정**을 분리하는 것 — 지금은 같은 상수를 둘 다에 쓴다(`room.service.ts:74`, `:322`).
+4. 🟡 **`GetUserByUsername`이 username을 URL 인코딩하지 않는다**(`WebAPI.cs:73`, 경로 세그먼트에 직접
+   삽입). `#`을 넣었다가 조회가 조용히 잘려 "없음 → 생성 → unique 충돌 500"을 겪었다. 닉네임 조회 등이
+   생기면 공백·`/`·`?`에서 같은 종류로 깨진다.
+5. 🟡 **MPPM 인스턴스 이름에 공백이 있다**(`Player 2`) — `DeviceIdentifier`가 그대로 붙여 username에
+   공백이 들어간다. 지금은 통과하지만 접미사에서 걸러내는 게 안전하다.
+6. 🟡 **서버 에디터 룸의 `playerList` uuid 하드코딩** — DB가 초기화될 때마다(클러스터 재구축 등) 무효가
+   되어 매번 손으로 갱신해야 한다(`ConfigureRoomComponent`, 커밋 금지 픽스처). 구조적 해결 필요.
 
 **후속(슬라이스 2/4/5에서 챙길 것):**
 - **큐 대기시간 배선 시 동작 변경 주의** — `waitingRoom.service`는 아직 최대 대기 `5`초를 하드코딩하고,

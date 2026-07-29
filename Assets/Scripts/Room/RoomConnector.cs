@@ -9,7 +9,10 @@ namespace LOP
 {
     public class RoomConnector
     {
-        private const int DEFAULT_RETRY_COUNT = 10;
+        //  게임서버 파드가 뜨는 데 걸리는 시간을 기다려야 한다(스케줄링 + 이미지 pull + 유니티 부팅).
+        //  서버의 하트비트 임계값(room-server HEARTBEAT_THRESHOLD)과 같은 60초로 맞춘다 —
+        //  한쪽만 짧으면 그쪽이 먼저 포기해서 다른 쪽을 늘린 의미가 없다.
+        private const int DEFAULT_RETRY_COUNT = 60;
         private const int RETRY_INTERVAL_MILLISECONDS = 1000;
 
         private IRoomDataStore roomDataStore;

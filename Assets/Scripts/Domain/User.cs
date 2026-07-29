@@ -12,7 +12,7 @@ namespace LOP
 
         public User()
         {
-            username = SystemInfo.deviceUniqueIdentifier;
+            username = DeviceIdentifier.Current;
             email = $"{username}@email";
         }
     }

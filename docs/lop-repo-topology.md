@@ -17,7 +17,17 @@ LOP는 8개의 git 저장소로 나뉘어 있다. 이 문서는 *어떤 코드�
 | **LeagueOfPhysical-Art** (`github.com/Baeinsoo/LeagueOfPhysical-Art.git`) | git submodule | 디자이너 asset — 클라/서버 양쪽 `Assets/Art/`에 mount. |
 | **infrastructure** | Node.js + Python | RoomServer 인프라(`k8s/`) + **MasterData 파이프라인**(`table/`): Excel(Excel-embedded `Datas/`) → **Luban**(`tools/Luban/`, `luban.conf`, `gen.sh`) → `.cs` + `.bytes` → MasterData-Client/Server 패키지로 출력. group `c`/`s`로 클·서 분기. |
 
-> **LeagueOfPhysical-RoomServer**는 Node.js 프로젝트(prisma/k8s)라 이 토폴로지의 범위 밖.
+> ⚠️ **백엔드 3종은 모노레포로 통합됐다 (확인 2026-07-29).** 로비·매치메이킹·룸 서버는 이제
+> **`github.com/Baeinsoo/lop-backend`**(private, pnpm + turbo 모노레포)의 `apps/lobby-server`,
+> `apps/matchmaking-server`, `apps/room-server`에 있고, 공용 코드는 `packages/`(예: `@lop/database` = Prisma)에 있다.
+> 옛 개별 저장소 **`re5nardo/LeagueOfPhysical-{LobbyServer,MatchmakingServer,RoomServer}`는 2025-08-31
+> 아카이브**됐다 — 읽기 전용 히스토리이며 **배포 파이프라인이 쳐다보지 않는다.** 로컬에 그 클론이
+> 남아 있을 수 있으니, 백엔드를 고칠 때는 **반드시 `lop-backend`인지 확인할 것.**
+>
+> **배포 경로**: `lop-backend` push → GitHub Actions `backend-deploy`(수동 실행, 대상 앱 선택) →
+> 이미지 `re5nardo/<app>:<git-sha>` 빌드·푸시 → **infrastructure의 `k8s/apps/backend/<app>/kustomization.yaml`
+> 태그를 자동 bump·커밋** → ArgoCD가 감지해 롤아웃. 즉 **infrastructure가 GitOps 진실원본**이고,
+> 클러스터에 직접 `kubectl apply`한 변경은 selfHeal로 되돌아간다.
 
 > ⚠️ **MasterData 도구 PIVOT (2026-06-03)**: 당초 Protobuf(`.proto`+protoc, 계획 2b/2c)로 가려던 MasterData를 **Luban**(focus-creative-games/luban)으로 전환. 클·서 분기는 Luban group `c`/`s`(테이블·필드 단위)로, 런타임은 Luban 생성 `Tables` 매니저를 얇은 `LOPMasterData` 래퍼로 사용. 상세·슬라이스는 `docs/superpowers/specs/2026-06-03-master-data-luban-migration-design.md`. 아래 "MasterData 패키지 구조" 절의 protoc/Google.Protobuf 기반 asmdef 세부는 *전환 전(2a)* 기준이며, 패키지 실제 배선은 Luban 전환(Slice β/γ)에서 `com.code-philosophy.luban` 참조로 정정됨. **마이그레이션 완료(α/β/γ, 2026-06-03)**: 양쪽 패키지가 Luban 생성 `.cs`+`.bytes`를 host, 클·서 런타임이 `LOPMasterData.Tables`로 동작, CSV·수기 POCO·GameFramework `IMasterData*` 모두 제거됨.
 

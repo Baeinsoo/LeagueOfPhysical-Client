@@ -9,7 +9,7 @@ namespace LOP
     {
         public LoginResult Login()
         {
-            return new LoginResult(true, "always success", SystemInfo.deviceUniqueIdentifier);
+            return new LoginResult(true, "always success", DeviceIdentifier.Current);
         }
 
         public LogoutResult Logout()

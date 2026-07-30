@@ -102,13 +102,25 @@ spec `docs/superpowers/specs/2026-07-27-matchmaking-standardization-design.md`
 README도 *"매치 오케스트레이션 E2E는 실제 매칭 필요 — 별도"* 라고 적어 미검증임을 예고하고 있었다.
 아래는 그날 실측으로 확인한 것들이며, **1번이 프로덕션 차단 요인**이다.
 
-1. 🔴 **게임서버 빌드에 마스터데이터가 안 실린다** — 이미지 `re5nardo/game-server:be8203d` 안
-   `StreamingAssets`에 Addressables(`aa/`)만 있고 **`MasterData/` 폴더가 없다**(docker로 직접 확인).
-   그래서 부팅이 `LOPMasterData.LoadBytes`에서 예외로 죽고, 하트비트를 못 보내 룸이 Error가 된다.
-   원인: 패키지가 `.bytes`를 **`Runtime.Generated/StreamingAssets/`** 에 두는데 Unity가 빌드에 복사하는
-   건 `Assets/StreamingAssets`와 패키지 루트다. 에디터는 다른 분기(`Packages/...` 직접 경로)를 타서
-   지금껏 안 드러났다. `LOPMasterData.cs`의 *"플레이어 빌드에선 Unity가 복사한다"* 주석은 **사실이 아니다.**
-   고치면 게임서버 이미지 재빌드 필요(맥 셀프호스트 러너).
+1. ✅ **게임서버 빌드에 마스터데이터가 안 실린다 → 코드 수정 완료 (07-30). 이미지 재빌드 대기.**
+   이미지 `re5nardo/game-server:be8203d` 안 `StreamingAssets`에 Addressables(`aa/`)만 있고
+   **`MasterData/` 폴더가 없었다**(docker로 직접 확인). 부팅이 마스터데이터 로딩에서 죽어 하트비트를
+   못 보내고 룸이 Error가 된다. 원인: Unity가 빌드로 자동 복사하는 StreamingAssets는
+   **`Assets/StreamingAssets` 하나뿐**이고 패키지 안의 것은 복사되지 않는다(초기 진단의 "패키지 루트도
+   복사된다"는 서술은 오류였다). 에디터에서는 `Path.GetFullPath("Packages/<pkg>/…")`를 Unity가 **실제
+   패키지 폴더로 되돌려주기 때문에** 되던 것이라, 이 누락이 *플레이어 빌드에서만* 드러났다.
+   `LOPMasterData.cs`의 *"플레이어 빌드에선 Unity가 복사한다"* 주석은 **거짓이었고 교정됐다.**
+   **수정**: 클·서 MasterData 패키지 각각에 `Editor/Scripts/MasterDataPlayerBuildProcessor.cs` —
+   Unity가 이 용도로 문서화한 `BuildPlayerProcessor.PrepareForBuild` +
+   `AddAdditionalPathToStreamingAssets`(Unity 자신의 `AddressablesPlayerBuildProcessor`와 동일 방식).
+   기존 이미지의 `aa/`가 바로 그 API로 실린 것이라 **Dedicated Server IL2CPP 빌드에서 동작함이
+   실증돼 있다**(소스 `aa/Linux/catalog.bin` → 이미지 `aa/catalog.bin`, 즉 소스 폴더의 *내용*이
+   목적지에 놓임). 원본 폴더가 없으면 **빌드를 실패시킨다** — 조용히 넘어가면 원래 증상(빌드 성공 →
+   실행 중 사망)이 재발한다. EditMode 테스트 3개(원본 존재 / 로더 목록 전 테이블 존재 / **에디터가
+   읽는 경로 == 빌드가 싣는 경로**), 서버 패키지 5/5·클라 10/10 green.
+   브랜치 `fix/masterdata-player-build-streamingassets` (`e9af4c3` / `64c5358`).
+   **남은 것 = 게임서버 이미지 재빌드(맥 셀프호스트 러너) 후 이미지 안 `MasterData/` 확인** — EditMode
+   테스트는 "원본 경로"까지만 증명한다. `[[masterdata-build-ship-path]]`
 2. 🟠 **`useLocalRoomInstance`가 반만 우회한다** — 이 플래그는 `LOPRoom.cs:87`에서 Mirror 접속
    주소만 바꿀 뿐, 그 앞의 `RoomConnector`→`CheckRoomJoinable`(room-server) 게이트는 그대로 탄다.
    그래서 에디터 룸으로 테스트하려 해도 k8s 룸이 건강해야 한다(=1번에 막힘). 단순히 게이트를 건너뛰면
@@ -123,6 +135,19 @@ README도 *"매치 오케스트레이션 E2E는 실제 매칭 필요 — 별도"
    공백이 들어간다. 지금은 통과하지만 접미사에서 걸러내는 게 안전하다.
 6. 🟡 **서버 에디터 룸의 `playerList` uuid 하드코딩** — DB가 초기화될 때마다(클러스터 재구축 등) 무효가
    되어 매번 손으로 갱신해야 한다(`ConfigureRoomComponent`, 커밋 금지 픽스처). 구조적 해결 필요.
+
+**⏸ 마스터데이터 값 핫업데이트 — 보류 결정 (07-30).** 1번을 고치면서 "데이터를 패키지에 싣지 말고
+동적으로 받으면 어떠냐"를 검토했고, **현 StreamingAssets 구조 유지로 결정**했다. 재개할 때 다시
+도출하지 않도록 확정된 사실만 박아 둔다: ① **스키마(`.cs`)는 컴파일 대상이라 동적화 불가** — 유연해질
+수 있는 건 값뿐이고, 새 컬럼은 그것을 *읽는 코드*가 있어야 의미를 가진다(그래서 유연성의 답은 "스키마를
+동적으로"가 아니라 "스키마를 조립 언어로 설계" — LOP는 `TbAbility`의 `AbilityEffect` 조합으로 이미
+그렇게 하고 있다). ② UPM 패키지는 **에디터·빌드 시점 의존성**이라 "패키지를 런타임에 받는다"는 개념이
+없다 — 이미지 안에 패키지 폴더·소스·데이터가 존재하지 않고 DLL만 있다. ③ 지으려면 **파일 출처(CDN/S3)
+와 버전 권위(백엔드가 응답에 버전을 박아 내림)를 분리**하고, 빌드에 베이스라인을 계속 실은 뒤 원격이
+새로우면 덮는다(네트워크 전용 금지 — 콜드 스타트가 이미 아픈 지점). ④ **클라↔게임서버 버전 일치는 하드
+요구**(같은 시뮬 코드라 값이 다르면 예측 발산), 매칭서버는 정원만 보므로 느슨해도 된다. ⑤ 통일하려면
+`.bytes`를 Addressables TextAsset으로 — 클라는 이미 Character·Item·Scene을 S3(dev 프로필)에서 받으므로
+새 배관이 아니다. `[[masterdata-build-ship-path]]`
 
 **후속(슬라이스 2/4/5에서 챙길 것):**
 - **큐 대기시간 배선 시 동작 변경 주의** — `waitingRoom.service`는 아직 최대 대기 `5`초를 하드코딩하고,

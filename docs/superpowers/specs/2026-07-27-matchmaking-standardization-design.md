@@ -353,6 +353,60 @@ Shared                                                              해당 없�
 
 슬라이스 1·2는 **동작을 바꾸지 않는 준비 작업**이라 안전하고, 4가 실제 전환이다.
 
+### 슬라이스 2 확정 사항 (착수 시점 2026-07-30에 코드를 열어 보고 정한 것)
+
+**타입은 전면 정수 id로 간다.** 이름만 바꾸는 게 아니라 `matchType`(enum)·`subGameId`(string)·
+`mapId`(string)가 각각 `queueId`/`gameModeId`/`mapId`(전부 `int`, 슬라이스 1의 Luban 테이블 기본키)가
+된다. `enum GameMode { Normal, Ranked }`는 다섯 곳(백엔드 3앱 `enums.ts`, 클라 `Enums.cs`, 게임서버)에서
+**삭제**되고 Casual=1 / Ranked=2는 `TbQueue` 행이 된다. 슬라이스 1이 남긴 임시 헬퍼
+`findGameModeByCode`도 함께 사라진다(그 코드의 주석이 예고한 대로).
+
+**`MatchRound`는 별도 테이블이되 surrogate `id`를 둔다.** 복합 PK(`@@id([matchId, index])`)가
+자연스러워 보이지만, 기존 제네릭 DAO가 `T extends { id: any }` + `where: { id }`를 요구해서 들어가지
+않는다. 그래서 `id String @id @default(uuid())` + `@@unique([matchId, index])`로 두며, 이는 스키마의
+다른 모든 모델과도 일관된다.
+
+**라운드 I/O는 `MatchRepository`(애그리게잇 루트)가 감춘다.** `save(match)`가 match와 rounds를 함께
+쓰고 `findById`가 rounds를 채워 돌려준다. 호출부(`MatchService`·room-server)는 라운드가 별도 테이블인
+것을 몰라도 되고, 제네릭 DAO·매퍼 구조와 쓰이지 않는 mongoose/redis DAO 변형도 그대로다.
+
+**매치 행과 그 라운드는 한 트랜잭션으로 쓴다** — *라운드 없는 매치는 유효한 매치가 아니기* 때문이다.
+(착수 시점엔 "현 코드에 트랜잭션 보장이 없으니 같은 수준을 유지한다"고 적었으나, Task 2 리뷰에서
+`라운드 전부 삭제 → 새로 삽입` 사이가 끊기면 매치가 **라운드 0개로 영구 저장**된다는 구체적 유실
+경로가 드러나 뒤집었다. 애그리게잇 하나를 한 DB 안에서 묶는 것뿐이라 값이 싸다.)
+**여전히 미루는 것은 그 바깥의 넓은 경로다** — 매치 생성 → 룸 생성 → 유저 위치 갱신 → 티켓 삭제는
+다른 서비스로 나가는 HTTP 호출을 포함해 DB 트랜잭션으로 묶을 수 없다. 슬라이스 4의 Director 소관.
+
+**마이그레이션은 데이터를 보존하지 않는다.** 로컬 개발 DB뿐이고 실유저가 없다. 부작용으로 DB가
+비면 에디터 픽스처의 게스트 uuid(`ConfigureRoomComponent.playerList`)가 무효가 된다 — 알려진 반복
+함정이라 재생성이 필요하다.
+
+**게임 서버에서 실제 동작이 하나 바뀐다.** `LOPRunner.MapId` 하드코딩이 `rounds[0].mapId` →
+`TbMap.scene_path`로 대체된다. (`ConfigureRoomComponent`의 프로덕션 경로는 `GetMatch`의 반환값을
+쓰지 않지만 `RoomDataStore`가 `GetMatchResponse`를 구독해 `match`를 채우므로 문제가 없다 — 07-30
+E2E에서 `playerList` 기반 인증이 동작한 것이 그 증거다.) 다만 **맵 로딩이 이제 매치 조회에 의존하므로**
+매치가 없을 때의 실패가 "맵이 안 뜬다"로 나타난다 — 그 경우 룸을 `Error`로 보고하고 죽는 경로가
+필요하다.
+
+**죽은 코드 `MatchSetting`/`NotifyStartServer`는 지운다.** 삭제되는 `GameMode` enum을 참조하는데
+`WebAPI.NotifyStartServer`를 부르는 곳이 0곳이고 룸 서버에 대응 핸들러도 없다. 부르는 데가 없는
+코드를 기계적으로 리네임하는 것보다 지우는 쪽이 정직하다.
+
+**클라 `UserDataStore`의 `normalUserStats`/`rankedUserStats`는 `Dictionary<int, UserStats>`(queueId
+키)가 된다.** 두 프로퍼티를 바깥에서 읽는 코드가 0곳이라 안전하고, "큐가 enum이 아니라 데이터"라는
+이번 변경의 요지와 맞는다. 반면 `MatchmakingViewModel`의 하드코딩은 **값만 정수로** 바꾸고 제거는
+슬라이스 5에 남긴다(§8의 슬라이스 경계).
+
+**큐 목록을 데이터로 순회하는 것은 이번 슬라이스가 아니다.** 클라 `CheckUserComponent`(전적 2건 조회)와
+로비 서버 `createUser`(전적 2행 시딩)는 큐를 리터럴 1·2로 둔다. 클라는 `LoadMasterDataComponent`가
+`CheckUserComponent`보다 **뒤에** 실행돼 그 시점에 `TbQueue`가 없고, 로비 서버는 아직 마스터데이터를
+아예 싣지 않는다. 둘 다 큐를 실제로 화면에 그리는 E(로비 선택 UI)에서 자연스럽게 해소된다 — 리네임
+슬라이스에서 진입 순서와 서버 부팅 경로까지 건드리지 않는다.
+
+**작업 순서**: DB 스키마 → 매칭서버 → 로비/룸서버 → 게임서버 → 클라. 클라를 마지막에 두는 이유는
+Unity 에디터가 main 체크아웃에 묶여 있어 **워크트리의 클라 코드는 머지 전 컴파일 검증이 안 되기**
+때문이다 — 진짜 게이트는 머지 후 에디터 리프레시다.
+
 ## 9. 검증
 
 ### 자동 테스트

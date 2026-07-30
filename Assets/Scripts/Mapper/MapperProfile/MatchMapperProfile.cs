@@ -9,6 +9,8 @@ namespace LOP
         {
             CreateMap<Match, MatchDto>();
             CreateMap<MatchDto, Match>();
+            CreateMap<MatchRound, MatchRoundDto>();
+            CreateMap<MatchRoundDto, MatchRound>();
         }
     }
 }

@@ -6,7 +6,7 @@ namespace LOP
     public class UserStatsDto
     {
         public string userId;
-        public GameMode gameMode;
+        public int queueId;
         public int gamesPlayed;
         public int wins;
         public int losses;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MessagePipe;
 
 namespace LOP
@@ -8,8 +9,9 @@ namespace LOP
         public User user { get; set; } = new User();
         public UserProfile userProfile { get; set; } = new UserProfile();
         public UserLocation userLocation { get; set; } = new UserLocation();
-        public UserStats normalUserStats { get; set; }
-        public UserStats rankedUserStats { get; set; }
+        // 큐가 enum이 아니라 데이터(TbQueue 행)라서 전적도 큐 id로 담는다.
+        private readonly Dictionary<int, UserStats> statsByQueueId = new();
+        public IReadOnlyDictionary<int, UserStats> userStatsByQueueId => statsByQueueId;
 
         private readonly IDisposable subscriptions;
 
@@ -58,14 +60,7 @@ namespace LOP
         {
             UserStats userStats = MapperConfig.mapper.Map<UserStats>(response.userStats);
 
-            if (userStats.gameMode == GameMode.Normal)
-            {
-                normalUserStats = userStats;
-            }
-            else if (userStats.gameMode == GameMode.Ranked)
-            {
-                rankedUserStats = userStats;
-            }
+            statsByQueueId[userStats.queueId] = userStats;
         }
 
         private void HandleUpdateUserProfile(UpdateUserProfileResponse response)
@@ -78,8 +73,7 @@ namespace LOP
             user = new User();
             userProfile = new UserProfile();
             userLocation = new UserLocation();
-            normalUserStats = null;
-            rankedUserStats = null;
+            statsByQueueId.Clear();
         }
     }
 }

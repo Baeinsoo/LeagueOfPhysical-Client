@@ -38,9 +38,10 @@ namespace LOP.UI
         /// <summary>Play 버튼 커맨드. 매칭 파라미터 세팅 후 FSM에 PlayClicked 발행.</summary>
         public void Play()
         {
-            _matchmakingDataStore.matchType = GameMode.Normal;
-            _matchmakingDataStore.subGameId = "FlapWang";
-            _matchmakingDataStore.mapId = "FlapWangMap";
+            // 하드코딩 제거는 로비 선택 UI 슬라이스 몫이다. 지금은 값만 정수 id로.
+            _matchmakingDataStore.queueId = 1;      // TbQueue: Casual
+            _matchmakingDataStore.gameModeId = 1;   // TbGameMode: FlapWang
+            _matchmakingDataStore.mapId = 1;        // TbMap: FlapWangMap
 
             _matchStateMachine.Fire(MatchEvent.PlayClicked);
         }

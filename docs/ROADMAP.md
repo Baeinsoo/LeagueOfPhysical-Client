@@ -96,19 +96,119 @@ spec `docs/superpowers/specs/2026-07-27-matchmaking-standardization-design.md`
   동작 확인. GitOps 고리 전체가 한 바퀴 돌았다.
 - ▶ **다음 = 슬라이스 2**(필드 어휘 리네임 + `Match` 라운드화).
 
-### 🔴 신규 트랙 — 로컬 E2E(게임 진입)가 막혀 있다 (07-29 발견, 미착수)
+### ✅ 로컬 E2E(게임 진입) — 뚫렸다 (07-29 발견 → 07-30 해결)
+
+**클라 2개로 매칭 → 실제 입장 → 게임 진행 성공(07-30).** 서버 로그 증거:
+`Server listening on port 7000` → `KcpServerConnection:OnAuthenticated()` →
+`[KCP] Server: OnConnected(...)`, 룸 `ip=127.0.0.1 port=7000 status=4`.
+
+원인이 **다섯 겹**이었고 하나씩 벗겨야 다음 것이 보였다. 공통 성격: **"에디터에선 되고 빌드/로컬
+클러스터에서만 깨지는" 미검증 경로에 쌓여 있었다.**
+
+| # | 원인 | 성격 |
+|---|---|---|
+| 1 | 게임서버 빌드에 마스터데이터가 안 실림 | 패키지 StreamingAssets는 빌드에 복사되지 않음 |
+| 2 | 게임서버 CI가 07-12부터 깨져 있었음(배포본은 손 빌드) | Library 삭제 → Linux IL2CPP sysroot 등록 불가 |
+| 3 | 플레이어 빌드에서 평문 http 차단 | `insecureHttpOption=DevelopmentOnly` |
+| 4 | NodePort가 로컬 호스트에서 안 닿음 | Docker Desktop 내장 k8s → **kind + hostPort 포트 풀**로 전환 |
+| 5 | 클라에게 준 주소가 `localhost` | Windows는 `::1` 우선, kind 공개는 IPv4뿐 → `127.0.0.1`로 교정 |
+
+아래 항목별 상세는 그대로 둔다(재발 시 참조). 남은 🟡 항목들은 여전히 유효한 후속 과제다.
+
+#### (원문) 발견 당시 기록 — 07-29
 
 매칭 검증 중 **매치 성사 이후 경로가 한 번도 끝까지 동작한 적이 없음**이 드러났다. infrastructure
 README도 *"매치 오케스트레이션 E2E는 실제 매칭 필요 — 별도"* 라고 적어 미검증임을 예고하고 있었다.
 아래는 그날 실측으로 확인한 것들이며, **1번이 프로덕션 차단 요인**이다.
 
-1. 🔴 **게임서버 빌드에 마스터데이터가 안 실린다** — 이미지 `re5nardo/game-server:be8203d` 안
-   `StreamingAssets`에 Addressables(`aa/`)만 있고 **`MasterData/` 폴더가 없다**(docker로 직접 확인).
-   그래서 부팅이 `LOPMasterData.LoadBytes`에서 예외로 죽고, 하트비트를 못 보내 룸이 Error가 된다.
-   원인: 패키지가 `.bytes`를 **`Runtime.Generated/StreamingAssets/`** 에 두는데 Unity가 빌드에 복사하는
-   건 `Assets/StreamingAssets`와 패키지 루트다. 에디터는 다른 분기(`Packages/...` 직접 경로)를 타서
-   지금껏 안 드러났다. `LOPMasterData.cs`의 *"플레이어 빌드에선 Unity가 복사한다"* 주석은 **사실이 아니다.**
-   고치면 게임서버 이미지 재빌드 필요(맥 셀프호스트 러너).
+1. ✅ **게임서버 빌드에 마스터데이터가 안 실린다 → 코드 수정 완료 (07-30). 이미지 재빌드 대기.**
+   이미지 `re5nardo/game-server:be8203d` 안 `StreamingAssets`에 Addressables(`aa/`)만 있고
+   **`MasterData/` 폴더가 없었다**(docker로 직접 확인). 부팅이 마스터데이터 로딩에서 죽어 하트비트를
+   못 보내고 룸이 Error가 된다. 원인: Unity가 빌드로 자동 복사하는 StreamingAssets는
+   **`Assets/StreamingAssets` 하나뿐**이고 패키지 안의 것은 복사되지 않는다(초기 진단의 "패키지 루트도
+   복사된다"는 서술은 오류였다). 에디터에서는 `Path.GetFullPath("Packages/<pkg>/…")`를 Unity가 **실제
+   패키지 폴더로 되돌려주기 때문에** 되던 것이라, 이 누락이 *플레이어 빌드에서만* 드러났다.
+   `LOPMasterData.cs`의 *"플레이어 빌드에선 Unity가 복사한다"* 주석은 **거짓이었고 교정됐다.**
+   **수정**: 클·서 MasterData 패키지 각각에 `Editor/Scripts/MasterDataPlayerBuildProcessor.cs` —
+   Unity가 이 용도로 문서화한 `BuildPlayerProcessor.PrepareForBuild` +
+   `AddAdditionalPathToStreamingAssets`(Unity 자신의 `AddressablesPlayerBuildProcessor`와 동일 방식).
+   기존 이미지의 `aa/`가 바로 그 API로 실린 것이라 **Dedicated Server IL2CPP 빌드에서 동작함이
+   실증돼 있다**(소스 `aa/Linux/catalog.bin` → 이미지 `aa/catalog.bin`, 즉 소스 폴더의 *내용*이
+   목적지에 놓임). 원본 폴더가 없으면 **빌드를 실패시킨다** — 조용히 넘어가면 원래 증상(빌드 성공 →
+   실행 중 사망)이 재발한다. EditMode 테스트 3개(원본 존재 / 로더 목록 전 테이블 존재 / **에디터가
+   읽는 경로 == 빌드가 싣는 경로**), 서버 패키지 5/5·클라 10/10 green.
+   양 패키지 main 머지·push 완료. **이미지 검증 완료(07-30)**: 새 이미지
+   `re5nardo/game-server:ba13f8e`의 `StreamingAssets/MasterData/`에 `.bytes` **10개 전부** 존재하고,
+   빌드 로그의 `CopyFiles …/StreamingAssets/MasterData/*.bytes`가 x86_64·arm64 양쪽에서 10개씩
+   확인됐다(경로 중첩 없음). ArgoCD Synced, 클러스터 configmap `GAME_SERVER_IMAGE`도 새 태그.
+   **아직 안 된 것 = 런타임 경로 확인** — 로컬 `docker run`은 엔트런스 1단계
+   `ConfigureRoomComponent`(룸 env 필요)에서 죽어 `LoadMasterDataComponent`까지 가지 않으므로
+   마스터데이터 로딩 자체는 실제 룸 스폰(=아래 E2E)에서만 확인된다. 바이너리 실행 자체
+   (glibc·PhysX·IL2CPP)는 정상 확인됨. `[[masterdata-build-ship-path]]`
+
+   **덤으로 드러난 것 — 게임서버 CI가 IL2CPP 전환 후 한 번도 성공한 적이 없었다.** 마지막 CI 성공은
+   07-06(당시 Mono)이고 `847a18b` IL2CPP 전환(07-12) 이후 6회 연속 실패였다. 즉 **배포되던 이미지는
+   CI 산물이 아니라 맥에서 손으로 빌드한 것**이었다. 원인이 로그에 안 보인 이유는 워크플로가
+   `tail -80`만 찍는데 Unity는 요약을 마지막에 써서 *원인 줄*이 잘려 나갔기 때문. 세 가지를 고쳐
+   처음으로 끝까지 초록이 됐다(서버 레포 `3c5c24e`, `e60c541`):
+   ① **`checkout`에 `clean: false`** — 기본 clean이 무시 파일까지 지워 `Library/`가 매번 사라지는데,
+   Linux sysroot·툴체인은 스텁 패키지의 에디터 코드가 실물을 내려받아 등록하는 구조라 콜드 실행에서는
+   `Unable to find an Linux Sysroot`로 반드시 실패한다(그 대가로 남는 직전 산출물은 빌드 전에 지움 —
+   `test -f` 가드가 낡은 바이너리로 통과해 실패를 성공으로 오인할 수 있다).
+   ② **임시 `DOCKER_CONFIG`가 buildx를 가린다** — CLI 플러그인은 `$DOCKER_CONFIG/cli-plugins`에서
+   찾으므로 keychain 우회용 빈 디렉터리로 갈아타면 `unknown command: docker buildx`가 난다.
+   ③ **레거시 도커 빌더는 크로스 아치 불가** — `--platform`을 무시해 호스트(arm64) 베이스를 당긴다.
+   `docker buildx build --push`로 전환. 진단 장비도 추가(에러 줄 추출 + `unity-*.log` 아티팩트).
+   `[[gameserver-ci-pipeline-gotchas]]`
+1-b. ✅ **게임서버가 룸 정보를 못 받아 엔트런스 1단계에서 죽었다 (07-30 수정)** — 마스터데이터를
+   고친 뒤에도 매칭이 여전히 "로딩만 하다 끝남"이었다. 파드 로그를 잡아 보니
+   `ConfigureRoomComponent` → `UnityWebRequest` → **`InvalidOperationException: Insecure connection
+   not allowed`**. Unity는 **플레이어 빌드에서 평문 http를 막는다**(`insecureHttpOption` 기본값
+   `DevelopmentOnly` = 개발빌드만 허용)이고 CI 빌드는 릴리스다. 게임서버는 클러스터 안 형제 서비스를
+   `http://room-server-service` 등으로 부르므로 `BuildScript`에서 `AlwaysAllowed`로 명시했다.
+   **마스터데이터와 정확히 같은 유형**("에디터에선 되고 플레이어 빌드에서만 깨짐")이며, 이 때문에
+   마스터데이터 로딩은 실행조차 되지 않고 있었다(엔트런스 순서가 룸 설정 → 마스터데이터).
+   함께 고침: `catch`의 Error 보고 조건이 **반대**였다 — `roomId`를 아는데 실패한 경우엔 보고를
+   건너뛰고, 모를 때 빈 `roomId`로 요청했다. 그래서 실패가 룸 서버에 전달되지 않고 하트비트
+   타임아웃으로만 정리됐다. 서버 레포 `428d4c8`.
+
+   **✅ 서버 사이드 E2E 검증 완료(07-30)** — 룸을 직접 생성해(`POST /room {matchId}`) 파드 로그를
+   끝까지 캡처: 에러 0건, `[World] Registered entity … Health=100/100`·`GameRuleSystem.SpawnEnemy`·
+   틱 루프 정상, **하트비트가 2초마다 200**, `Game Over` 후 `PUT /room/status`로 룸이
+   **`9 = Closed`** 로 종료(직전까지는 전부 `10 = Error`). 즉 부팅 → 룸/매치 조회 → 마스터데이터 →
+   게임 진행 → 정상 종료가 처음으로 끝까지 돌았다. **남은 것 = 클라 2개로 실제 입장 확인.**
+
+   **운영 함정 2건(반복 재발하니 배포 때마다 확인할 것):**
+   - **ConfigMap을 env로 주입하면 파드 시작 시점 스냅샷이다.** 게임서버 이미지 태그를 bump해도
+     **룸 서버를 재시작하지 않으면 옛 이미지로 계속 파드를 띄운다**(ArgoCD는 ConfigMap만 갱신하고
+     Deployment 매니페스트가 안 바뀌니 롤아웃하지 않는다). 실제로 이것 때문에 한 사이클을 날렸다.
+     정석 해결 = kustomize `configMapGenerator`(이름에 내용 해시가 붙어 자동 롤아웃) 또는 파드
+     템플릿 체크섬 애노테이션. **미착수 — 다음 배포에서 또 밟는다.**
+   - **kind 노드에 이미지를 미리 넣어야 한다.** 이미지가 ~3GB(압축 663MB)라 노드가 콜드 pull하면
+     룸 서버의 하트비트 임계값 60초를 넘겨 **다운로드 도중 파드가 삭제된다.**
+     `docker save | ctr -n k8s.io images import`로 미리 밀어넣으면 즉시 뜬다.
+
+1-c. ✅ **클라가 룸에 접속할 수 없었다 — 로컬 클러스터가 노드 포트를 호스트에 열지 않았다 (07-30 해결)**
+   `1-b`를 고쳐 서버가 정상 기동한 뒤에도 클라는 접속 즉시 끊겼다. 클라 콘솔이
+   `connect to localhost:7777` → *"the other end has closed the connection"* 이었는데, 두 가지가
+   겹쳐 있었다. ① **클라 환경이 `local`** 이라 `useLocalRoomInstance: 1` → 에디터 호스팅 서버(7777)로
+   접속(에디터 기본 환경이 `local`이다. `local-k8s`로 전환해 해결). ② 전환 후 올바른 NodePort로 갔지만
+   **NodePort가 호스트에서 아예 닿지 않았다** — Docker Desktop 내장 k8s의 노드는 숨은 컨테이너이고
+   호스트로 공개된 포트가 `6443` 하나뿐이었다(같은 ingress를 LB `localhost:80`→200 /
+   NodePort `localhost:31000`→실패로 실증).
+   **해결 = Agones 표준으로 전환** — spec `2026-07-30-room-port-exposure-design`.
+   룸마다 만들던 NodePort Service를 없애고 파드 `hostPort` + 고정 포트 풀로 바꿨다
+   (`lop-backend b36657c`: `roomPort.ts` 순수 할당 로직 + 테스트 11개, 파드
+   `containerPort=hostPort=PORT env` = Agones `Passthrough`). 로컬 클러스터를 **Docker Desktop 내장
+   k8s → 자체 `kind` 클러스터**로 교체하고 그 포트 풀을 호스트에 매핑했다
+   (`infrastructure c3325fc`: `k8s/local-k8s/kind-cluster.yaml` 신설 — 로컬 클러스터 생성 설정이 여태
+   **아예 없었다**. HTTP는 기존 ingress NodePort 31000/32000을 호스트 80/443으로 넘겨 ingress 매니페스트
+   무변경).
+   **실측 검증(07-30)**: 룸이 풀에서 `7000` 배정 → 파드 `container=7000 host=7000 UDP`,
+   `PORT=7000` → **호스트에 `0.0.0.0:7000` UDP 리스너 생성**(여태 없던 경로) → `room-service-*` 미생성 →
+   **하트비트 15건 수신**. ArgoCD `root/platform/backend` 전부 Synced/Healthy, `localhost/lobby` 200.
+   `[[gameserver-ci-pipeline-gotchas]]`
+
 2. 🟠 **`useLocalRoomInstance`가 반만 우회한다** — 이 플래그는 `LOPRoom.cs:87`에서 Mirror 접속
    주소만 바꿀 뿐, 그 앞의 `RoomConnector`→`CheckRoomJoinable`(room-server) 게이트는 그대로 탄다.
    그래서 에디터 룸으로 테스트하려 해도 k8s 룸이 건강해야 한다(=1번에 막힘). 단순히 게이트를 건너뛰면
@@ -123,6 +223,19 @@ README도 *"매치 오케스트레이션 E2E는 실제 매칭 필요 — 별도"
    공백이 들어간다. 지금은 통과하지만 접미사에서 걸러내는 게 안전하다.
 6. 🟡 **서버 에디터 룸의 `playerList` uuid 하드코딩** — DB가 초기화될 때마다(클러스터 재구축 등) 무효가
    되어 매번 손으로 갱신해야 한다(`ConfigureRoomComponent`, 커밋 금지 픽스처). 구조적 해결 필요.
+
+**⏸ 마스터데이터 값 핫업데이트 — 보류 결정 (07-30).** 1번을 고치면서 "데이터를 패키지에 싣지 말고
+동적으로 받으면 어떠냐"를 검토했고, **현 StreamingAssets 구조 유지로 결정**했다. 재개할 때 다시
+도출하지 않도록 확정된 사실만 박아 둔다: ① **스키마(`.cs`)는 컴파일 대상이라 동적화 불가** — 유연해질
+수 있는 건 값뿐이고, 새 컬럼은 그것을 *읽는 코드*가 있어야 의미를 가진다(그래서 유연성의 답은 "스키마를
+동적으로"가 아니라 "스키마를 조립 언어로 설계" — LOP는 `TbAbility`의 `AbilityEffect` 조합으로 이미
+그렇게 하고 있다). ② UPM 패키지는 **에디터·빌드 시점 의존성**이라 "패키지를 런타임에 받는다"는 개념이
+없다 — 이미지 안에 패키지 폴더·소스·데이터가 존재하지 않고 DLL만 있다. ③ 지으려면 **파일 출처(CDN/S3)
+와 버전 권위(백엔드가 응답에 버전을 박아 내림)를 분리**하고, 빌드에 베이스라인을 계속 실은 뒤 원격이
+새로우면 덮는다(네트워크 전용 금지 — 콜드 스타트가 이미 아픈 지점). ④ **클라↔게임서버 버전 일치는 하드
+요구**(같은 시뮬 코드라 값이 다르면 예측 발산), 매칭서버는 정원만 보므로 느슨해도 된다. ⑤ 통일하려면
+`.bytes`를 Addressables TextAsset으로 — 클라는 이미 Character·Item·Scene을 S3(dev 프로필)에서 받으므로
+새 배관이 아니다. `[[masterdata-build-ship-path]]`
 
 **후속(슬라이스 2/4/5에서 챙길 것):**
 - **큐 대기시간 배선 시 동작 변경 주의** — `waitingRoom.service`는 아직 최대 대기 `5`초를 하드코딩하고,

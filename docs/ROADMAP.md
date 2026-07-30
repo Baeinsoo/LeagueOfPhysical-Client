@@ -96,7 +96,26 @@ spec `docs/superpowers/specs/2026-07-27-matchmaking-standardization-design.md`
   동작 확인. GitOps 고리 전체가 한 바퀴 돌았다.
 - ▶ **다음 = 슬라이스 2**(필드 어휘 리네임 + `Match` 라운드화).
 
-### 🔴 신규 트랙 — 로컬 E2E(게임 진입)가 막혀 있다 (07-29 발견, 미착수)
+### ✅ 로컬 E2E(게임 진입) — 뚫렸다 (07-29 발견 → 07-30 해결)
+
+**클라 2개로 매칭 → 실제 입장 → 게임 진행 성공(07-30).** 서버 로그 증거:
+`Server listening on port 7000` → `KcpServerConnection:OnAuthenticated()` →
+`[KCP] Server: OnConnected(...)`, 룸 `ip=127.0.0.1 port=7000 status=4`.
+
+원인이 **다섯 겹**이었고 하나씩 벗겨야 다음 것이 보였다. 공통 성격: **"에디터에선 되고 빌드/로컬
+클러스터에서만 깨지는" 미검증 경로에 쌓여 있었다.**
+
+| # | 원인 | 성격 |
+|---|---|---|
+| 1 | 게임서버 빌드에 마스터데이터가 안 실림 | 패키지 StreamingAssets는 빌드에 복사되지 않음 |
+| 2 | 게임서버 CI가 07-12부터 깨져 있었음(배포본은 손 빌드) | Library 삭제 → Linux IL2CPP sysroot 등록 불가 |
+| 3 | 플레이어 빌드에서 평문 http 차단 | `insecureHttpOption=DevelopmentOnly` |
+| 4 | NodePort가 로컬 호스트에서 안 닿음 | Docker Desktop 내장 k8s → **kind + hostPort 포트 풀**로 전환 |
+| 5 | 클라에게 준 주소가 `localhost` | Windows는 `::1` 우선, kind 공개는 IPv4뿐 → `127.0.0.1`로 교정 |
+
+아래 항목별 상세는 그대로 둔다(재발 시 참조). 남은 🟡 항목들은 여전히 유효한 후속 과제다.
+
+#### (원문) 발견 당시 기록 — 07-29
 
 매칭 검증 중 **매치 성사 이후 경로가 한 번도 끝까지 동작한 적이 없음**이 드러났다. infrastructure
 README도 *"매치 오케스트레이션 E2E는 실제 매칭 필요 — 별도"* 라고 적어 미검증임을 예고하고 있었다.

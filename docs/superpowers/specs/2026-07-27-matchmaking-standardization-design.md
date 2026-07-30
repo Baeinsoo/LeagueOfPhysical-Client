@@ -353,6 +353,44 @@ Shared                                                              해당 없�
 
 슬라이스 1·2는 **동작을 바꾸지 않는 준비 작업**이라 안전하고, 4가 실제 전환이다.
 
+### 슬라이스 2 확정 사항 (착수 시점 2026-07-30에 코드를 열어 보고 정한 것)
+
+**타입은 전면 정수 id로 간다.** 이름만 바꾸는 게 아니라 `matchType`(enum)·`subGameId`(string)·
+`mapId`(string)가 각각 `queueId`/`gameModeId`/`mapId`(전부 `int`, 슬라이스 1의 Luban 테이블 기본키)가
+된다. `enum GameMode { Normal, Ranked }`는 다섯 곳(백엔드 3앱 `enums.ts`, 클라 `Enums.cs`, 게임서버)에서
+**삭제**되고 Casual=1 / Ranked=2는 `TbQueue` 행이 된다. 슬라이스 1이 남긴 임시 헬퍼
+`findGameModeByCode`도 함께 사라진다(그 코드의 주석이 예고한 대로).
+
+**`MatchRound`는 별도 테이블이되 surrogate `id`를 둔다.** 복합 PK(`@@id([matchId, index])`)가
+자연스러워 보이지만, 기존 제네릭 DAO가 `T extends { id: any }` + `where: { id }`를 요구해서 들어가지
+않는다. 그래서 `id String @id @default(uuid())` + `@@unique([matchId, index])`로 두며, 이는 스키마의
+다른 모든 모델과도 일관된다.
+
+**라운드 I/O는 `MatchRepository`(애그리게잇 루트)가 감춘다.** `save(match)`가 match와 rounds를 함께
+쓰고 `findById`가 rounds를 채워 돌려준다. 호출부(`MatchService`·room-server)는 라운드가 별도 테이블인
+것을 몰라도 되고, 제네릭 DAO·매퍼 구조와 쓰이지 않는 mongoose/redis DAO 변형도 그대로다.
+**트랜잭션은 걸지 않는다** — 현 코드 어디에도 트랜잭션 보장이 없고(`matchmaking.service.ts`의
+"트랜잭션으로 묶어서 처리해야 할 것 같은데..." 주석) 같은 수준을 유지한다. 원자성은 슬라이스 4의
+Director에서 매치 생성 경로 전체와 함께 본다.
+
+**마이그레이션은 데이터를 보존하지 않는다.** 로컬 개발 DB뿐이고 실유저가 없다. 부작용으로 DB가
+비면 에디터 픽스처의 게스트 uuid(`ConfigureRoomComponent.playerList`)가 무효가 된다 — 알려진 반복
+함정이라 재생성이 필요하다.
+
+**게임 서버에서 실제 동작이 하나 바뀐다.** `LOPRunner.MapId` 하드코딩이 `rounds[0].mapId` →
+`TbMap.scene_path`로 대체된다. 이때 **함께 고쳐야 하는 기존 버그**: `ConfigureRoomComponent`의
+프로덕션 경로가 `GetMatch` 결과를 `roomDataStore`에 넣지 않는다(에디터 경로만 넣는다). 지금까지는
+맵이 하드코딩이라 드러나지 않았다.
+
+**클라 `UserDataStore`의 `normalUserStats`/`rankedUserStats`는 `Dictionary<int, UserStats>`(queueId
+키)가 된다.** 두 프로퍼티를 바깥에서 읽는 코드가 0곳이라 안전하고, "큐가 enum이 아니라 데이터"라는
+이번 변경의 요지와 맞는다. 반면 `MatchmakingViewModel`의 하드코딩은 **값만 정수로** 바꾸고 제거는
+슬라이스 5에 남긴다(§8의 슬라이스 경계).
+
+**작업 순서**: DB 스키마 → 매칭서버 → 로비/룸서버 → 게임서버 → 클라. 클라를 마지막에 두는 이유는
+Unity 에디터가 main 체크아웃에 묶여 있어 **워크트리의 클라 코드는 머지 전 컴파일 검증이 안 되기**
+때문이다 — 진짜 게이트는 머지 후 에디터 리프레시다.
+
 ## 9. 검증
 
 ### 자동 테스트

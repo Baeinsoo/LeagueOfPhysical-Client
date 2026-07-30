@@ -378,14 +378,26 @@ Director에서 매치 생성 경로 전체와 함께 본다.
 함정이라 재생성이 필요하다.
 
 **게임 서버에서 실제 동작이 하나 바뀐다.** `LOPRunner.MapId` 하드코딩이 `rounds[0].mapId` →
-`TbMap.scene_path`로 대체된다. 이때 **함께 고쳐야 하는 기존 버그**: `ConfigureRoomComponent`의
-프로덕션 경로가 `GetMatch` 결과를 `roomDataStore`에 넣지 않는다(에디터 경로만 넣는다). 지금까지는
-맵이 하드코딩이라 드러나지 않았다.
+`TbMap.scene_path`로 대체된다. (`ConfigureRoomComponent`의 프로덕션 경로는 `GetMatch`의 반환값을
+쓰지 않지만 `RoomDataStore`가 `GetMatchResponse`를 구독해 `match`를 채우므로 문제가 없다 — 07-30
+E2E에서 `playerList` 기반 인증이 동작한 것이 그 증거다.) 다만 **맵 로딩이 이제 매치 조회에 의존하므로**
+매치가 없을 때의 실패가 "맵이 안 뜬다"로 나타난다 — 그 경우 룸을 `Error`로 보고하고 죽는 경로가
+필요하다.
+
+**죽은 코드 `MatchSetting`/`NotifyStartServer`는 지운다.** 삭제되는 `GameMode` enum을 참조하는데
+`WebAPI.NotifyStartServer`를 부르는 곳이 0곳이고 룸 서버에 대응 핸들러도 없다. 부르는 데가 없는
+코드를 기계적으로 리네임하는 것보다 지우는 쪽이 정직하다.
 
 **클라 `UserDataStore`의 `normalUserStats`/`rankedUserStats`는 `Dictionary<int, UserStats>`(queueId
 키)가 된다.** 두 프로퍼티를 바깥에서 읽는 코드가 0곳이라 안전하고, "큐가 enum이 아니라 데이터"라는
 이번 변경의 요지와 맞는다. 반면 `MatchmakingViewModel`의 하드코딩은 **값만 정수로** 바꾸고 제거는
 슬라이스 5에 남긴다(§8의 슬라이스 경계).
+
+**큐 목록을 데이터로 순회하는 것은 이번 슬라이스가 아니다.** 클라 `CheckUserComponent`(전적 2건 조회)와
+로비 서버 `createUser`(전적 2행 시딩)는 큐를 리터럴 1·2로 둔다. 클라는 `LoadMasterDataComponent`가
+`CheckUserComponent`보다 **뒤에** 실행돼 그 시점에 `TbQueue`가 없고, 로비 서버는 아직 마스터데이터를
+아예 싣지 않는다. 둘 다 큐를 실제로 화면에 그리는 E(로비 선택 UI)에서 자연스럽게 해소된다 — 리네임
+슬라이스에서 진입 순서와 서버 부팅 경로까지 건드리지 않는다.
 
 **작업 순서**: DB 스키마 → 매칭서버 → 로비/룸서버 → 게임서버 → 클라. 클라를 마지막에 두는 이유는
 Unity 에디터가 main 체크아웃에 묶여 있어 **워크트리의 클라 코드는 머지 전 컴파일 검증이 안 되기**

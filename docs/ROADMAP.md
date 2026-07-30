@@ -113,7 +113,30 @@ spec `docs/superpowers/specs/2026-07-27-matchmaking-standardization-design.md`
 | 4 | NodePort가 로컬 호스트에서 안 닿음 | Docker Desktop 내장 k8s → **kind + hostPort 포트 풀**로 전환 |
 | 5 | 클라에게 준 주소가 `localhost` | Windows는 `::1` 우선, kind 공개는 IPv4뿐 → `127.0.0.1`로 교정 |
 
-아래 항목별 상세는 그대로 둔다(재발 시 참조). 남은 🟡 항목들은 여전히 유효한 후속 과제다.
+**마무리 정리(07-30, 위 표 이후 추가 작업):**
+- **2번을 증상 회피에서 근본 수정으로** — `clean:false`(Library 보존)만으로는 러너를 새로 깔거나
+  워크스페이스가 지워지면 첫 실행이 또 죽는다. 그래서 **빌드 앞에 임포트만 하는 Unity 세션**을 한 번
+  두는 단계를 추가했다(`-batchmode -quit`만, `-executeMethod` 없이). 그 세션이 sysroot 패키지 임포트를
+  끝내고 다음 세션이 그것을 찾는다. 서버 레포 `9e0b73b`. *콜드 상태 실측은 러너 초기화 때 확인 예정.*
+- **3번을 빌드 스크립트 → 프로젝트 세팅으로** — `insecureHttpOption`은 "이 앱이 평문 http로 통신한다"는
+  **프로젝트 속성**이지 빌드 절차가 아니다. `ProjectSettings.asset`에 `1`→`2`(`AlwaysAllowed`),
+  BuildScript의 그 줄 제거. 값은 `PlayerSettings` API로 Unity가 직접 쓰게 해 숫자를 추측하지 않았다.
+  **클라는 `DevelopmentOnly` 유지**(유저 트래픽이므로 정답은 HTTPS — 클라 플레이어 빌드 시 결정 필요).
+- **4번(Agones) 방향 확정** — 지금 것은 "Agones의 애플리케이션 측"이 아니라 **자체 오케스트레이터**다.
+  Agones SDK는 Agones가 주입하는 **사이드카와 통신**하므로 "앱 측만 먼저 표준으로"는 원리적으로 불가능.
+  **다음에 Agones를 도입할 때 이번 작업을 표준 대비 재감사해 지울 건 지우고 맞지 않는 건 고친다**(사용자
+  지시). 재감사 대상: `roomPort.ts` · room-server의 파드 직접 생성 · **HTTP 하트비트(→ SDK `Health()`)** ·
+  단일 노드 전제 DB 전역 풀. 빠진 핵심은 `Fleet`(사전 기동 풀) — 입장 지연 30초가 거기서 사라진다.
+
+**후속(미착수) — 다음 세션이 알아야 할 것:**
+| | 항목 | 왜 |
+|---|---|---|
+| 🟠 | **ConfigMap 자동 롤아웃** (kustomize `configMapGenerator`) | env 주입은 파드 시작 시점 스냅샷이라, 값만 바꾸면 **돌고 있는 파드는 옛 값을 쓴다.** 07-30에 두 번 밟아 사이클을 날렸다. 당장은 `kubectl rollout restart deploy/room-server` |
+| 🟠 | **환경별 overlay 분리** | `k8s/apps/backend` 한 벌에 **로컬 전용 값이 하드코딩**돼 있다(`127.0.0.1`, `ROOM_PORT_MAX: 7009`). dev/prod를 같은 GitOps에 넣는 순간 충돌 |
+| 🟠 | **kind 노드 이미지 사전 로드 자동화** | 3GB라 콜드 pull이 하트비트 60초를 넘겨 파드가 삭제된다. 지금은 수동(`docker save \| ctr images import`, 약 100초) |
+| 🟡 | **Agones 정식 도입** (`Fleet` 포함) | 위 4번 |
+| 🟡 | dev 방화벽 UDP `7000-7999` + 그쪽 `ROOM_PORT_MAX=7999` | dev는 아직 미검증 |
+| 🟡 | 하트비트 상수 분리 · URL 인코딩 · playerList 픽스처 | 아래 원문 3·4·6번 |
 
 #### (원문) 발견 당시 기록 — 07-29
 

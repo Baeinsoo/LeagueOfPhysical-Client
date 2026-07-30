@@ -173,8 +173,15 @@ dev는 자기 범위(`7000`–`7999`)를 **방화벽에서 UDP로 개방**한다
 
 - **멀티 노드** — hostPort 풀은 노드별로 독립이므로 스케줄된 노드를 알아야 한다(Agones는 컨트롤러가
   노드별로 추적). 단일 노드를 벗어날 때.
-- **Agones 도입 자체** — 어휘와 구조만 따르고 제품은 쓰지 않는다(매치메이킹에서 Open Match에 대해
-  내린 것과 같은 판단).
+- **Agones 도입 자체 — 지금은 안 하지만 *정식 도입을 지향*한다(방향 확정).** 이 슬라이스가 만든 것은
+  Agones의 **부분집합**이며 짬뽕이 아니다: `hostPort`·포트 범위 동적 할당·GameServer당 Service 없음·
+  오케스트레이터가 접속 주소 반환이 모두 1:1 대응한다. **빠진 핵심은 `Fleet`(사전 기동 서버 풀)** 이고,
+  그래서 매치마다 이미지 pull + Unity 부팅 ~30초를 기다리며 하트비트 임계값을 60초로 올려야 했다 —
+  Agones의 주된 가치가 바로 "준 서버를 즉시 배정"이다. 도입 시 순서: ① Agones 설치
+  (`gameservers.minPort/maxPort` = 이 spec의 범위) ② 게임서버에 Agones SDK(`Ready`/`Health`/`Shutdown`)
+  통합 ③ `Fleet`으로 사전 기동 ④ room-server가 파드 생성 대신 `GameServerAllocation` 호출.
+  그때 **삭제**되는 것은 `roomPort.ts`·파드 생성 코드·HTTP 하트비트 배관이고, **유지**되는 것은
+  hostPort 방식·포트 범위 개념·kind 포트 매핑(로컬)·방화벽(dev)이다.
 - **dev 방화벽 자동화** — 수동 개방.
 - **`GAME_SERVER_PUBLIC_IP` 자동 조회**(downward API/노드 IP) — 기존 spec에서 이미 범위 밖.
 

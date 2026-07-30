@@ -1983,7 +1983,20 @@ read_console(unity_instance="LeagueOfPhysical-Client@<hash>", types=["error"])
 
 - [ ] **Step 4: 백엔드 배포**
 
-GitHub Actions `backend-deploy` 워크플로를 **대상 앱 3개(matchmaking-server, lobby-server, room-server)와 db-migrate**에 대해 실행한다. 워크플로가 이미지를 빌드·푸시하고 `infrastructure`의 태그를 자동 bump하며 ArgoCD가 롤아웃한다.
+GitHub Actions `backend-deploy` 워크플로를 **반드시 한 번, `app: all`로** 실행한다. 워크플로가 이미지를 빌드·푸시하고 `infrastructure`의 태그를 자동 bump하며 ArgoCD가 롤아웃한다.
+
+> ⚠️ **앱별로 따로 돌리면 깨진다.** 마이그레이션 SQL은 **db-migrate 이미지 안에** 들어 있고 그 Job은
+> ArgoCD **PreSync 훅**이다. 앱을 따로 배포하면 태그 bump 커밋이 따로 나가서, 예컨대
+> matchmaking-server만 bump된 sync에서도 PreSync는 돌지만 **옛 db-migrate 이미지**라 새 마이그레이션이
+> 없다 → 새 코드가 `queueId`를 쿼리하는데 DB엔 `gameMode`뿐 → 전 요청 500.
+> `app: all`은 네 태그를 **한 커밋에** bump해서 sync 1회 = 마이그레이션 먼저 → 롤아웃이 된다.
+>
+> **무중단이 아니다**: PreSync가 도는 동안 옛 파드가 아직 살아서 새 스키마를 본다 — 롤아웃이 끝날
+> 때까지 수십 초간 전적·티켓·매치 쿼리가 깨진다. 로컬 개발 클러스터라 수용한다.
+>
+> **게임 서버는 백엔드 뒤에** 배포한다(Step 7). 옛 게임서버 + 새 백엔드는 안전하지만(없는 필드는
+> 기본값이 되고 맵은 어차피 하드코딩이었다), **새 게임서버 + 옛 백엔드는 즉시 깨진다**(`rounds`가
+> 없어 예외).
 
 ```bash
 gh workflow list --repo Baeinsoo/lop-backend
@@ -2075,6 +2088,12 @@ git push origin main
 | `Location.WaitingRoom`→`Matchmaking`, FSM 상태 개명 | 슬라이스 5 |
 | `MatchmakingViewModel`의 하드코딩 **제거**(값만 정수로 바꾼다) | 슬라이스 5 |
 | 큐 목록을 `TbQueue`에서 순회(클라 진입 순서·로비 서버 마스터데이터) | E(로비 선택 UI) |
+| **클라의 맵 로딩** — 클라 `LOPRunner`는 여전히 씬 경로를 상수로 들고 있다(게임 서버만 데이터 기반이 됨) | 슬라이스 5 |
+
+> ⚠️ **클라 맵 하드코딩은 지금 무해하지만 시한부다.** `TbMap`에 행이 하나뿐이라 클라 상수와
+> 게임 서버가 고르는 씬이 우연히 같을 뿐이다. **두 번째 맵이 생기는 순간**(슬라이스 4에서 큐가
+> 게임·맵을 뽑기 시작하면) 클라와 서버가 서로 다른 씬을 로드한다. 클라는 `RoomDataStore.match`를
+> 채워 놓고도 그 필드를 읽는 코드가 0곳이라 이 분기가 조용하다 — 그래서 여기 적어 둔다.
 | `UserStats` 스키마 구조 개선·레이팅 알고리즘 | D(레이팅) |
 | 매치 결과·승패 판정 | C(매치 결과) |
 | 매치 생성 **경로 전체**의 원자성(룸 생성·유저 위치·티켓 삭제 — HTTP라 DB 트랜잭션 불가) | 슬라이스 4 |

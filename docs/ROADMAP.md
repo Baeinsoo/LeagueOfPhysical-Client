@@ -118,9 +118,29 @@ README도 *"매치 오케스트레이션 E2E는 실제 매칭 필요 — 별도"
    목적지에 놓임). 원본 폴더가 없으면 **빌드를 실패시킨다** — 조용히 넘어가면 원래 증상(빌드 성공 →
    실행 중 사망)이 재발한다. EditMode 테스트 3개(원본 존재 / 로더 목록 전 테이블 존재 / **에디터가
    읽는 경로 == 빌드가 싣는 경로**), 서버 패키지 5/5·클라 10/10 green.
-   브랜치 `fix/masterdata-player-build-streamingassets` (`e9af4c3` / `64c5358`).
-   **남은 것 = 게임서버 이미지 재빌드(맥 셀프호스트 러너) 후 이미지 안 `MasterData/` 확인** — EditMode
-   테스트는 "원본 경로"까지만 증명한다. `[[masterdata-build-ship-path]]`
+   양 패키지 main 머지·push 완료. **이미지 검증 완료(07-30)**: 새 이미지
+   `re5nardo/game-server:ba13f8e`의 `StreamingAssets/MasterData/`에 `.bytes` **10개 전부** 존재하고,
+   빌드 로그의 `CopyFiles …/StreamingAssets/MasterData/*.bytes`가 x86_64·arm64 양쪽에서 10개씩
+   확인됐다(경로 중첩 없음). ArgoCD Synced, 클러스터 configmap `GAME_SERVER_IMAGE`도 새 태그.
+   **아직 안 된 것 = 런타임 경로 확인** — 로컬 `docker run`은 엔트런스 1단계
+   `ConfigureRoomComponent`(룸 env 필요)에서 죽어 `LoadMasterDataComponent`까지 가지 않으므로
+   마스터데이터 로딩 자체는 실제 룸 스폰(=아래 E2E)에서만 확인된다. 바이너리 실행 자체
+   (glibc·PhysX·IL2CPP)는 정상 확인됨. `[[masterdata-build-ship-path]]`
+
+   **덤으로 드러난 것 — 게임서버 CI가 IL2CPP 전환 후 한 번도 성공한 적이 없었다.** 마지막 CI 성공은
+   07-06(당시 Mono)이고 `847a18b` IL2CPP 전환(07-12) 이후 6회 연속 실패였다. 즉 **배포되던 이미지는
+   CI 산물이 아니라 맥에서 손으로 빌드한 것**이었다. 원인이 로그에 안 보인 이유는 워크플로가
+   `tail -80`만 찍는데 Unity는 요약을 마지막에 써서 *원인 줄*이 잘려 나갔기 때문. 세 가지를 고쳐
+   처음으로 끝까지 초록이 됐다(서버 레포 `3c5c24e`, `e60c541`):
+   ① **`checkout`에 `clean: false`** — 기본 clean이 무시 파일까지 지워 `Library/`가 매번 사라지는데,
+   Linux sysroot·툴체인은 스텁 패키지의 에디터 코드가 실물을 내려받아 등록하는 구조라 콜드 실행에서는
+   `Unable to find an Linux Sysroot`로 반드시 실패한다(그 대가로 남는 직전 산출물은 빌드 전에 지움 —
+   `test -f` 가드가 낡은 바이너리로 통과해 실패를 성공으로 오인할 수 있다).
+   ② **임시 `DOCKER_CONFIG`가 buildx를 가린다** — CLI 플러그인은 `$DOCKER_CONFIG/cli-plugins`에서
+   찾으므로 keychain 우회용 빈 디렉터리로 갈아타면 `unknown command: docker buildx`가 난다.
+   ③ **레거시 도커 빌더는 크로스 아치 불가** — `--platform`을 무시해 호스트(arm64) 베이스를 당긴다.
+   `docker buildx build --push`로 전환. 진단 장비도 추가(에러 줄 추출 + `unity-*.log` 아티팩트).
+   `[[gameserver-ci-pipeline-gotchas]]`
 2. 🟠 **`useLocalRoomInstance`가 반만 우회한다** — 이 플래그는 `LOPRoom.cs:87`에서 Mirror 접속
    주소만 바꿀 뿐, 그 앞의 `RoomConnector`→`CheckRoomJoinable`(room-server) 게이트는 그대로 탄다.
    그래서 에디터 룸으로 테스트하려 해도 k8s 룸이 건강해야 한다(=1번에 막힘). 단순히 게이트를 건너뛰면

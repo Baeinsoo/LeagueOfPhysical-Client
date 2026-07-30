@@ -169,6 +169,27 @@ README도 *"매치 오케스트레이션 E2E는 실제 매칭 필요 — 별도"
      룸 서버의 하트비트 임계값 60초를 넘겨 **다운로드 도중 파드가 삭제된다.**
      `docker save | ctr -n k8s.io images import`로 미리 밀어넣으면 즉시 뜬다.
 
+1-c. ✅ **클라가 룸에 접속할 수 없었다 — 로컬 클러스터가 노드 포트를 호스트에 열지 않았다 (07-30 해결)**
+   `1-b`를 고쳐 서버가 정상 기동한 뒤에도 클라는 접속 즉시 끊겼다. 클라 콘솔이
+   `connect to localhost:7777` → *"the other end has closed the connection"* 이었는데, 두 가지가
+   겹쳐 있었다. ① **클라 환경이 `local`** 이라 `useLocalRoomInstance: 1` → 에디터 호스팅 서버(7777)로
+   접속(에디터 기본 환경이 `local`이다. `local-k8s`로 전환해 해결). ② 전환 후 올바른 NodePort로 갔지만
+   **NodePort가 호스트에서 아예 닿지 않았다** — Docker Desktop 내장 k8s의 노드는 숨은 컨테이너이고
+   호스트로 공개된 포트가 `6443` 하나뿐이었다(같은 ingress를 LB `localhost:80`→200 /
+   NodePort `localhost:31000`→실패로 실증).
+   **해결 = Agones 표준으로 전환** — spec `2026-07-30-room-port-exposure-design`.
+   룸마다 만들던 NodePort Service를 없애고 파드 `hostPort` + 고정 포트 풀로 바꿨다
+   (`lop-backend b36657c`: `roomPort.ts` 순수 할당 로직 + 테스트 11개, 파드
+   `containerPort=hostPort=PORT env` = Agones `Passthrough`). 로컬 클러스터를 **Docker Desktop 내장
+   k8s → 자체 `kind` 클러스터**로 교체하고 그 포트 풀을 호스트에 매핑했다
+   (`infrastructure c3325fc`: `k8s/local-k8s/kind-cluster.yaml` 신설 — 로컬 클러스터 생성 설정이 여태
+   **아예 없었다**. HTTP는 기존 ingress NodePort 31000/32000을 호스트 80/443으로 넘겨 ingress 매니페스트
+   무변경).
+   **실측 검증(07-30)**: 룸이 풀에서 `7000` 배정 → 파드 `container=7000 host=7000 UDP`,
+   `PORT=7000` → **호스트에 `0.0.0.0:7000` UDP 리스너 생성**(여태 없던 경로) → `room-service-*` 미생성 →
+   **하트비트 15건 수신**. ArgoCD `root/platform/backend` 전부 Synced/Healthy, `localhost/lobby` 200.
+   `[[gameserver-ci-pipeline-gotchas]]`
+
 2. 🟠 **`useLocalRoomInstance`가 반만 우회한다** — 이 플래그는 `LOPRoom.cs:87`에서 Mirror 접속
    주소만 바꿀 뿐, 그 앞의 `RoomConnector`→`CheckRoomJoinable`(room-server) 게이트는 그대로 탄다.
    그래서 에디터 룸으로 테스트하려 해도 k8s 룸이 건강해야 한다(=1번에 막힘). 단순히 게이트를 건너뛰면

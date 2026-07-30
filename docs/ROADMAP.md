@@ -141,6 +141,34 @@ README도 *"매치 오케스트레이션 E2E는 실제 매칭 필요 — 별도"
    ③ **레거시 도커 빌더는 크로스 아치 불가** — `--platform`을 무시해 호스트(arm64) 베이스를 당긴다.
    `docker buildx build --push`로 전환. 진단 장비도 추가(에러 줄 추출 + `unity-*.log` 아티팩트).
    `[[gameserver-ci-pipeline-gotchas]]`
+1-b. ✅ **게임서버가 룸 정보를 못 받아 엔트런스 1단계에서 죽었다 (07-30 수정)** — 마스터데이터를
+   고친 뒤에도 매칭이 여전히 "로딩만 하다 끝남"이었다. 파드 로그를 잡아 보니
+   `ConfigureRoomComponent` → `UnityWebRequest` → **`InvalidOperationException: Insecure connection
+   not allowed`**. Unity는 **플레이어 빌드에서 평문 http를 막는다**(`insecureHttpOption` 기본값
+   `DevelopmentOnly` = 개발빌드만 허용)이고 CI 빌드는 릴리스다. 게임서버는 클러스터 안 형제 서비스를
+   `http://room-server-service` 등으로 부르므로 `BuildScript`에서 `AlwaysAllowed`로 명시했다.
+   **마스터데이터와 정확히 같은 유형**("에디터에선 되고 플레이어 빌드에서만 깨짐")이며, 이 때문에
+   마스터데이터 로딩은 실행조차 되지 않고 있었다(엔트런스 순서가 룸 설정 → 마스터데이터).
+   함께 고침: `catch`의 Error 보고 조건이 **반대**였다 — `roomId`를 아는데 실패한 경우엔 보고를
+   건너뛰고, 모를 때 빈 `roomId`로 요청했다. 그래서 실패가 룸 서버에 전달되지 않고 하트비트
+   타임아웃으로만 정리됐다. 서버 레포 `428d4c8`.
+
+   **✅ 서버 사이드 E2E 검증 완료(07-30)** — 룸을 직접 생성해(`POST /room {matchId}`) 파드 로그를
+   끝까지 캡처: 에러 0건, `[World] Registered entity … Health=100/100`·`GameRuleSystem.SpawnEnemy`·
+   틱 루프 정상, **하트비트가 2초마다 200**, `Game Over` 후 `PUT /room/status`로 룸이
+   **`9 = Closed`** 로 종료(직전까지는 전부 `10 = Error`). 즉 부팅 → 룸/매치 조회 → 마스터데이터 →
+   게임 진행 → 정상 종료가 처음으로 끝까지 돌았다. **남은 것 = 클라 2개로 실제 입장 확인.**
+
+   **운영 함정 2건(반복 재발하니 배포 때마다 확인할 것):**
+   - **ConfigMap을 env로 주입하면 파드 시작 시점 스냅샷이다.** 게임서버 이미지 태그를 bump해도
+     **룸 서버를 재시작하지 않으면 옛 이미지로 계속 파드를 띄운다**(ArgoCD는 ConfigMap만 갱신하고
+     Deployment 매니페스트가 안 바뀌니 롤아웃하지 않는다). 실제로 이것 때문에 한 사이클을 날렸다.
+     정석 해결 = kustomize `configMapGenerator`(이름에 내용 해시가 붙어 자동 롤아웃) 또는 파드
+     템플릿 체크섬 애노테이션. **미착수 — 다음 배포에서 또 밟는다.**
+   - **kind 노드에 이미지를 미리 넣어야 한다.** 이미지가 ~3GB(압축 663MB)라 노드가 콜드 pull하면
+     룸 서버의 하트비트 임계값 60초를 넘겨 **다운로드 도중 파드가 삭제된다.**
+     `docker save | ctr -n k8s.io images import`로 미리 밀어넣으면 즉시 뜬다.
+
 2. 🟠 **`useLocalRoomInstance`가 반만 우회한다** — 이 플래그는 `LOPRoom.cs:87`에서 Mirror 접속
    주소만 바꿀 뿐, 그 앞의 `RoomConnector`→`CheckRoomJoinable`(room-server) 게이트는 그대로 탄다.
    그래서 에디터 룸으로 테스트하려 해도 k8s 룸이 건강해야 한다(=1번에 막힘). 단순히 게이트를 건너뛰면

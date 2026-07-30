@@ -603,8 +603,8 @@ import { MatchRoundMapper } from '@mappers/entities/matchRound.mapper'
  * 라운드는 별도 테이블이지만 매치의 일부다 — 바깥에서는 match.rounds로만 보이고
  * 테이블이 둘이라는 사실이 새어 나가지 않게 여기서 함께 읽고 쓴다.
  *
- * 두 테이블 쓰기를 트랜잭션으로 묶지 않는 것은 이 코드베이스의 현재 수준을 따른 것이다
- * (매치 생성 경로 전체가 트랜잭션 밖에 있다). 원자성은 Director 전환에서 함께 본다.
+ * 매치 행과 라운드는 한 트랜잭션으로 쓴다 — 라운드 없는 매치는 유효한 매치가 아니라서다.
+ * 그 바깥(룸 생성·유저 위치·티켓 삭제)은 다른 서비스로 나가는 HTTP라 묶을 수 없다.
  */
 export class MatchRepository extends CrudRepositoryBase<Match, MatchEntity> {
     private readonly roundDao = new MatchRoundDaoPostgres();
@@ -1649,6 +1649,7 @@ EOF
 - Create: `Assets/Scripts/WebAPI/Dto/MatchRoundDto.cs`
 - Modify: `Assets/Scripts/WebAPI/Dto/MatchDto.cs`, `.../Dto/UserStatsDto.cs`, `.../Dto/Request/MatchmakingRequest.cs`
 - Modify: `Assets/Scripts/WebAPI/WebAPI.cs`
+- Modify: `Assets/Scripts/Mapper/MapperProfile/MatchMapperProfile.cs`
 - Modify: `Assets/Scripts/Stores/IMatchmakingDataStore.cs`, `MatchmakingDataStore.cs`, `IUserDataStore.cs`, `UserDataStore.cs`
 - Modify: `Assets/Scripts/Matchmaking/MatchStateMachine/States/RequestMatchmaking.cs`
 - Modify: `Assets/Scripts/UI/Matchmaking/MatchmakingViewModel.cs`
@@ -1745,6 +1746,22 @@ namespace LOP
         public int mapId;
     }
 }
+```
+
+- [ ] **Step 1b: AutoMapper에 `MatchRound` 매핑 등록 (빠뜨리면 조용히 멈춘다)**
+
+`Match`에 처음으로 **복합 타입 배열**(`MatchRound[]`)이 생겼다. AutoMapper는 중첩 복합 타입에 대해
+매핑을 자동으로 만들어 주지 않는다 — `playerList` 같은 원시 타입 배열은 등록 없이도 되지만
+사용자 정의 클래스 배열은 안 된다(이 코드베이스의 `ProtoMapperProfile`이 `ProtoVector3`를 따로
+등록하는 이유가 같다). 등록을 빠뜨리면 `MapperConfig.mapper.Map<Match>(...)`가
+`AutoMapperMappingException`을 던지는데, 그게 웹 응답 콜백 안에서 터지면 `await`가 영영 안 돌아와
+**아무 에러 없이 멈춘 것처럼 보인다.**
+
+`Assets/Scripts/Mapper/MapperProfile/MatchMapperProfile.cs`의 `CreateMap<Match, MatchDto>();` 아래에
+두 줄을 추가한다:
+```csharp
+            CreateMap<MatchRound, MatchRoundDto>();
+            CreateMap<MatchRoundDto, MatchRound>();
 ```
 
 - [ ] **Step 2: WebAPI 쿼리 파라미터 교체**
@@ -2060,4 +2077,9 @@ git push origin main
 | 큐 목록을 `TbQueue`에서 순회(클라 진입 순서·로비 서버 마스터데이터) | E(로비 선택 UI) |
 | `UserStats` 스키마 구조 개선·레이팅 알고리즘 | D(레이팅) |
 | 매치 결과·승패 판정 | C(매치 결과) |
-| 두 테이블 쓰기의 트랜잭션 원자성 | 슬라이스 4 |
+| 매치 생성 **경로 전체**의 원자성(룸 생성·유저 위치·티켓 삭제 — HTTP라 DB 트랜잭션 불가) | 슬라이스 4 |
+
+> **정정(Task 2 리뷰 후):** 매치 행 + 그 라운드는 이 슬라이스에서 **한 트랜잭션으로 묶는다.**
+> 착수 시점엔 미루려 했으나, `라운드 삭제 → 삽입` 사이가 끊기면 매치가 라운드 0개로 영구 저장되는
+> 유실 경로가 리뷰에서 드러났다. 애그리게잇 하나를 한 DB 안에서 묶는 것이라 값이 싸고, 위 표의
+> "경로 전체"와는 다른 범위다. Task 2 Step 7의 코드 블록은 그 수정 전 모습이다.

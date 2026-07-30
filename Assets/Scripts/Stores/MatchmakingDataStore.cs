@@ -7,14 +7,14 @@ namespace LOP
 {
     public class MatchmakingDataStore : IMatchmakingDataStore
     {
-        public GameMode matchType { get; set; }
-        public string subGameId { get; set; }
-        public string mapId { get; set; }
+        public int queueId { get; set; }
+        public int gameModeId { get; set; }
+        public int mapId { get; set; }
 
         public void Clear()
         {
-            matchType = default;
-            subGameId = default;
+            queueId = default;
+            gameModeId = default;
             mapId = default;
         }
     }

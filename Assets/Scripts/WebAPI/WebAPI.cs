@@ -96,10 +96,10 @@ namespace LOP
                 .Build();
         }
 
-        public static WebRequest<GetUserStatsResponse> GetUserStats(string userId, GameMode gameMode)
+        public static WebRequest<GetUserStatsResponse> GetUserStats(string userId, int queueId)
         {
             return new WebRequestBuilder<GetUserStatsResponse>()
-                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/stats?gameMode={gameMode}")
+                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/stats?queueId={queueId}")
                 .SetMethod(HttpMethod.GET)
                 .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
                 .Build();

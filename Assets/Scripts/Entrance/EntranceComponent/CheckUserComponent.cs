@@ -46,8 +46,10 @@ namespace LOP
                         throw new Exception($"유저 정보를 가져오는데 실패하였습니다. GetUserResponse code: {getUser.response.code}");
                 }
 
-                var getNormalUserStats = await WebAPI.GetUserStats(userDataStore.user.id, GameMode.Normal);
-                var getRankedUserStats = await WebAPI.GetUserStats(userDataStore.user.id, GameMode.Ranked);
+                // 큐 목록을 TbQueue에서 읽는 것은 로비 선택 UI 슬라이스 몫이다 —
+                // 마스터데이터가 이 컴포넌트보다 뒤에 로드돼서 지금은 값을 안다고 칠 수 없다.
+                await WebAPI.GetUserStats(userDataStore.user.id, 1);   // TbQueue: Casual
+                await WebAPI.GetUserStats(userDataStore.user.id, 2);   // TbQueue: Ranked
             }
             catch (WebRequestException e)
             {

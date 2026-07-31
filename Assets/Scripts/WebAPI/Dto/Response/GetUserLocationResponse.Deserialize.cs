@@ -20,8 +20,8 @@ namespace LOP
 
                 switch (getUserLocationResponse.userLocation.location)
                 {
-                    case Location.WaitingRoom:
-                        getUserLocationResponse.userLocation.locationDetail = locationDetail.ToObject<WaitingRoomLocationDetail>();
+                    case Location.Matchmaking:
+                        getUserLocationResponse.userLocation.locationDetail = locationDetail.ToObject<MatchmakingLocationDetail>();
                         break;
 
                     case Location.GameRoom:

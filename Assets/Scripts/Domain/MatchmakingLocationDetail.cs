@@ -6,9 +6,8 @@ using UnityEngine;
 namespace LOP
 {
     [Serializable]
-    public class WaitingRoomLocationDetail : LocationDetail
+    public class MatchmakingLocationDetail : LocationDetail
     {
-        public string waitingRoomId;
         public string matchmakingTicketId;
     }
 }

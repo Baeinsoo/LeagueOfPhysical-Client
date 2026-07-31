@@ -9,7 +9,7 @@ namespace LOP
     public enum Location
     {
         None = 0,
-        WaitingRoom = 1,
+        Matchmaking = 1,
         GameRoom = 2,
     }
 }

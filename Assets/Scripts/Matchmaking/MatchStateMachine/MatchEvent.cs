@@ -13,7 +13,7 @@ namespace LOP
 
         //  Internal — resolved user location (shared by several states)
         LocationIsGameRoom,
-        LocationIsWaitingRoom,
+        LocationIsMatchmaking,
         LocationIsNone,
 
         //  Internal — need to re-resolve location (after an error / cancel)

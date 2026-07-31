@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace LOP
 {
-    public class InWaitingRoom : State<MatchEvent>
+    public class InMatchmaking : State<MatchEvent>
     {
         private const int CHECK_INTERVAL = 1;     //  sec
         private const int MAX_CONSECUTIVE_FAILURES = 5;
@@ -17,7 +17,7 @@ namespace LOP
         private readonly Func<Idle> idle;
         private readonly IUserDataStore userDataStore;
 
-        public InWaitingRoom(Func<CancelMatchmaking> cancelMatchmaking, Func<InGameRoom> inGameRoom, Func<Idle> idle, IUserDataStore userDataStore)
+        public InMatchmaking(Func<CancelMatchmaking> cancelMatchmaking, Func<InGameRoom> inGameRoom, Func<Idle> idle, IUserDataStore userDataStore)
         {
             this.cancelMatchmaking = cancelMatchmaking;
             this.inGameRoom = inGameRoom;
@@ -53,7 +53,7 @@ namespace LOP
                         case Location.GameRoom:
                             return MatchEvent.LocationIsGameRoom;
 
-                        case Location.WaitingRoom:
+                        case Location.Matchmaking:
                             break;   //  아직 대기 중 — 계속 폴링.
 
                         default:

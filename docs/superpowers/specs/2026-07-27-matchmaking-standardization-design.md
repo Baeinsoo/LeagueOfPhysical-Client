@@ -614,6 +614,48 @@ Director가 매 틱 조용히 도는 것만으로는 "아무도 매칭이 안 �
 - 주기적(예: 30틱마다): 큐별 풀 크기와 가장 오래 기다린 티켓의 대기 초
 - 경고: `maxWaitSeconds`의 2배를 넘겨 기다리는 티켓 — 4a 최종 리뷰가 남긴 "영원히 못 맞는 티켓" 신호
 
+### 슬라이스 5 확정 사항 (착수 시점 2026-07-31에 코드를 열어 보고 정한 것)
+
+#### `MatchmakingViewModel` 하드코딩 제거는 슬라이스 5가 아니다 — §7 정정
+
+§7의 Client 목록은 `MatchmakingViewModel.cs`에 "하드코딩 제거"라고 적었지만, **이는 §11-E(로비 선택 UI,
+별도 spec)와 모순이다.** 하드코딩된 것은 `queueId`/`gameModeId`/`mapId`이고, 이 값을 코드에서 빼려면
+*사용자가 고르는 화면*이 있어야 한다 — 그것이 §11-E다. 코드 주석도 이미 그렇게 적혀 있다
+("하드코딩 제거는 로비 선택 UI 슬라이스 몫이다").
+
+**슬라이스 5는 순수 개명 슬라이스로 한정한다.** `MatchmakingViewModel`은 `InWaitingRoom` →
+`InMatchmaking` 참조만 따라 바뀐다.
+
+#### 상태 이름은 `Matchmaking`이 아니라 `InMatchmaking`
+
+§7은 `InWaitingRoom.cs` → `Matchmaking.cs`로 적었으나, 형제 상태가 `InGameRoom`이고 인접에
+`RequestMatchmaking`/`CancelMatchmaking`이 있어 맨 `Matchmaking`은 *무엇을 하는 상태인지* 흐려진다.
+"어디에 있음"을 뜻하는 `In*` 관용을 따라 **`InMatchmaking`** 으로 한다.
+
+#### 개명 대응표
+
+| 지금 | 바뀔 이름 | 비고 |
+|---|---|---|
+| `Location.WaitingRoom` | `Location.Matchmaking` | **값 1 유지 → 와이어 호환** |
+| `WaitingRoomLocationDetail` | `MatchmakingLocationDetail` | 죽은 `waitingRoomId` 필드 제거(4b에서 백엔드가 이미 안 보낸다) |
+| `InWaitingRoom` (FSM 상태) | `InMatchmaking` | |
+| `MatchEvent.LocationIsWaitingRoom` | `LocationIsMatchmaking` | |
+| `WAITING_ROOM_NOT_EXIST` / `FAIL_TO_LEAVE_WAITING_ROOM` | 삭제 | 클라 + 게임 서버 (백엔드는 4b에서 삭제됨) |
+
+#### 범위 — 5개 저장소
+
+클라 11파일 + 게임 서버 1파일 + 백엔드 3앱(`user-location.interface.ts` 등) + **DB enum 마이그레이션**
+(`ALTER TYPE "Location" RENAME VALUE`). 4b에서 "개명은 슬라이스 5"로 미룬 것이 이 DB 항목이다.
+
+**동작 변화 0** — enum 정수값이 그대로라 와이어 포맷이 안 바뀐다. 순수 개명이다.
+
+#### 착수 시점에 확인한 안전 조건
+
+- **씬·프리팹이 이 타입들을 참조하지 않는다**(`.unity`/`.prefab`/`.asset` 전수 grep 결과 0) — 클래스
+  개명이 에셋 참조를 깨뜨리지 않는다. 단 `.cs`와 `.meta`는 **함께 `git mv`** 해야 GUID가 보존된다.
+- 배포 시 **DB enum 개명과 앱 롤아웃 사이의 창**에 옛 파드가 `'WaitingRoom'`을 쓰면 실패한다.
+  대기 중인 유저가 0명일 때 배포하면 무해하다(4b와 같은 사전 조건).
+
 ## 9. 검증
 
 ### 자동 테스트

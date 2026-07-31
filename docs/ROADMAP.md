@@ -167,8 +167,51 @@ spec `docs/superpowers/specs/2026-07-27-matchmaking-standardization-design.md`
   배포 순서가 강제된다 — **인프라(Director Deployment)를 먼저 push**해야 한다. 반대로 하면
   새 매칭 서버가 티켓만 만들고 Director가 없어 **조용한 전면 장애**가 된다.
 
-- ▶ **다음 = 슬라이스 5**(클라 잔재 정리 — `Location.WaitingRoom` → `Matchmaking` 개명, FSM 상태·
-  `MatchmakingLocationDetail` 개명, `MatchmakingViewModel` 하드코딩 제거. spec §7의 Client 11 + 게임 Server 1).
+- ✅ **슬라이스 5 — 개명 (07-31, 3레포, 배포·E2E 통과)** — 대기방 시절의 *이름*을 걷어냈다.
+  `Location.WaitingRoom` → `Matchmaking`(**정수값 1 유지 → 와이어 불변**), `WaitingRoomLocationDetail` →
+  `MatchmakingLocationDetail`(죽은 `waitingRoomId` 제거), FSM 상태 `InWaitingRoom` → `InMatchmaking`,
+  `MatchEvent.LocationIsWaitingRoom` → `LocationIsMatchmaking`, 죽은 응답 코드 삭제(클라·게임서버).
+  DB는 `ALTER TYPE "Location" RENAME VALUE`로 라벨만 바꿔 **행 재작성 0**.
+  plan `2026-07-31-matchmaking-slice5-rename`, spec §8 "슬라이스 5 확정 사항".
+
+  **spec 자기모순을 정정하고 시작했다.** §7은 `MatchmakingViewModel` 하드코딩 제거를 이 슬라이스에
+  넣어 뒀는데, 같은 spec §11-E가 큐·게임·맵 **선택 UI를 별도 프로젝트**로 빼 뒀다. 하드코딩을 없앤다는
+  건 곧 그 UI를 만든다는 뜻이라 개명 슬라이스에 들어올 수 없다 — 순수 개명으로 한정했다.
+  상태 이름도 §7의 `Matchmaking` 대신 **`InMatchmaking`**(형제 `InGameRoom`과 `In*` 관용).
+
+  **Unity 컴파일 검증이 이 슬라이스의 진짜 관문이었다** — 에디터가 워크트리가 아니라 main 체크아웃을
+  보기 때문에 작업 중에는 컴파일러가 없고 grep이 유일한 안전망이다. 머지 후 UnityMCP로 클·서 각각
+  force refresh + compile → **양쪽 에러 0** 확인.
+
+  **최종 교차 저장소 리뷰가 내 인식을 하나 정정했다**: 같은 개념이 "5곳에 복제"라고 봤으나 게임 서버는
+  `Location`을 **아예 정의하지 않는다**(가진 건 죽은 응답 코드뿐). 실제로는 4곳 + DB다. 그리고 백엔드
+  3앱의 `user-location.interface.ts`는 **blob 해시가 동일**(byte-identical)이라 drift가 *없어 보이는* 게
+  아니라 **없음이 증명**됐다.
+
+  배포는 **`app: all` 필수** — `db-migrate`가 빠지면 DB는 옛 라벨인데 새 코드가 새 라벨을 써서
+  유저 위치 갱신이 전부 실패한다(4b의 "인프라 먼저"와 같은, 순서 하나로 전면 장애가 되는 지점).
+
+---
+
+## 🏁 매치메이킹 표준화 트랙 종결 (슬라이스 1~5, 2026-07-27 ~ 07-31)
+
+먼저 온 사람이 조건을 정하던 **대기방 방식**에서 전체 풀을 보고 결정하는 **Director 방식**으로 옮겼고,
+어휘·데이터 모델·마스터데이터 진실원본까지 함께 정리했다. spec `2026-07-27-matchmaking-standardization-design.md`.
+
+**이 트랙이 남긴 방법론적 교훈 — 세 번 반복됐다.** 슬라이스 4a·4b(두 번)에서, **태스크 단위 리뷰가 전부
+통과한 뒤 최종 whole-branch 리뷰가 Critical을 잡았다.** 세 번 다 개별 파일은 옳은데 *합쳐 놓으면* 깨지는
+종류였다(큐 영구 봉쇄 / 룸 생성 창에 유저 이탈 / 취소·확정 경합으로 이중 배치). 그리고 그중 두 번은
+**앞선 수정이 만든 결함**이었다 — 하나를 막으면서 다른 하나를 열었다. 이 프로젝트에서 최종 리뷰 단계는
+형식이 아니라 실제로 값을 한다.
+
+**트랙이 남긴 후속 (슬라이스 4b 표 + 아래):**
+
+| | 항목 | 왜 |
+|---|---|---|
+| 🟠 | **DB 통합 테스트가 하나도 없다** | 매치 확정의 CAS 정확성이 Postgres 격리 수준 의미론에 기대는데 실행으로 확인된 적이 없다. 커넥션 두 개(확정 vs 취소) 동시 실행 테스트 하나면 이 트랙 최고 위험 주장이 논증에서 증거가 된다 |
+| 🟡 | **`user-location.interface.ts` 3중 복제** | 백엔드 3앱이 같은 파일을 손으로 복제한다. 이번엔 완벽히 맞췄지만 구조가 drift를 부른다. 공용 `packages/` 모듈로 빼면 이 부류 버그가 불가능해진다 |
+| 🟡 | **`ResponseCode` 5중 복제** | 위와 같은 문제(spec §12에 이미 별도 항목) |
+| 🟡 | **로비 선택 UI** | 큐·게임·맵 선택 화면(spec §11-E). `MatchmakingViewModel` 하드코딩은 이때 사라진다 |
 
 **슬라이스 4b가 남긴 것 (다음 사람이 알아야 할 것):**
 

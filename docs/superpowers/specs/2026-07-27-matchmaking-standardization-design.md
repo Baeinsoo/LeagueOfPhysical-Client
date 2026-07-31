@@ -502,6 +502,47 @@ FlexMatch의 `expansions`**(대기 시간에 따라 요구 팀 인원을 단계�
 > 참고: [FlexMatch — Allow requirements to relax over time](https://docs.aws.amazon.com/gameliftservers/latest/flexmatchguide/match-rulesets-components-expansion.html) ·
 > [Open Match — Matchmaking guide](https://open-match.dev/site/docs/guides/matchmaker/)
 
+### §6-2 재정정 — 제안은 게임당 하나가 아니라 **여러 개** 만든다 (4a 최종 리뷰 후)
+
+§6-2의 의사코드는 게임마다 제안을 **하나만** 만들도록 적혀 있었다. 이것이 **큐 전체를 영구히 막는
+결함**을 낳는다는 것이 4a의 최종 리뷰에서 실행으로 드러났다.
+
+**재현:** 랭크 큐에 2500점 한 명(10분 대기)과 1000점 여덟 명(5분 대기, 서로 완벽히 맞음)이 있으면
+**제안이 0개**다. 그 한 명을 빼면 8명 매치가 성사된다. 묶음은 *가장 오래 기다린 티켓*을 기준점으로
+잡고 실력 구간을 좁혀 가는데, 아무와도 안 맞는 티켓은 시간이 갈수록 가장 오래된 티켓이 되어 기준점을
+영구 점유한다. 기준점을 바꿔 재시도하는 단계가 없고, 폭 완화에는 상한(`ratingRangeMax`)이 있어
+900점 차이는 아무리 기다려도 좁혀지지 않는다. **랭크전 티켓은 `gameModeIds`가 비어 있으므로(§5)
+큐의 모든 게임이 동시에 막힌다.**
+
+이는 **대체하려는 현행 대기방 방식보다 나쁘다** — 대기방은 맞는 방이 없으면 그 사람이 자기 방을
+새로 만들고 나머지는 자기들끼리 방을 만들어, 이런 head-of-line blocking이 없다.
+
+**정정된 규칙:**
+
+```
+각 게임 g ∈ 큐.허용게임:
+    남은 = g를 허용하는 티켓 전부 (오래된 순)
+    while 남은이 g.minPlayers를 채울 여지가 있는 동안:
+        묶음 = 남은의 첫 티켓을 기준점으로 담을 수 있는 만큼 담기
+        if 묶음 인원 ≥ 필요인원(g, 큐, 기준점 대기초):
+            제안 추가 → 묶음에 담긴 티켓을 남은에서 제거
+        else:
+            기준점만 남은에서 제거   ← 아무와도 못 맞는 티켓이 뒤를 막지 못하게
+```
+
+**이것이 업계 표준 모양이다.** Open Match의 MatchFunction은 풀에서 **매치들(복수)** 을 만들어
+제안으로 내놓고, 여러 제안이 같은 티켓을 담는 충돌은 **정상**이며, Evaluator가 그 충돌을 정리해
+각 티켓이 최종적으로 하나의 매치에만 들어가게 한다. 원래 §6-2가 제안을 게임당 하나로 좁힌 것이
+비표준이었고, 그 탓에 Evaluator가 할 일이 거의 없어 대안 제안이 존재하지 않았다.
+
+**함께 해소되는 것:**
+- **1v1 지정 티켓의 기아** — 랜덤 티켓들이 1v1 제안의 앞자리를 차지했다가 그 제안이 탈락하면, 남은
+  1v1 티켓으로 다시 제안하는 단계가 없어 계속 굶었다.
+- **틱당 처리량 상한** — 24명이 대기해도 게임당 제안이 하나뿐이라 한 틱에 8명만 매칭됐다.
+
+> 참고: [Open Match — Evaluator and Synchronizer](https://open-match.dev/site/docs/guides/evaluator/) ·
+> [Open Match — Matchmaking guide](https://open-match.dev/site/docs/guides/matchmaker/)
+
 ### 맵 결정 — 후보 교집합
 
 제안은 게임까지만 확정하고, 맵은 `selectMap(gameModeId, tickets, maps)`가 정한다: 묶인 티켓들의

@@ -54,7 +54,7 @@ namespace LOP.UI
 
         private void OnStateChange(IState<MatchEvent> previous, IState<MatchEvent> current)
         {
-            _isMatching.Value = current is InWaitingRoom;
+            _isMatching.Value = current is InMatchmaking;
         }
 
         public void Dispose()

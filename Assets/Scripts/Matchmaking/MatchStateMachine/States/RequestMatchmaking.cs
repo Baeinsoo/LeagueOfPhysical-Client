@@ -8,14 +8,14 @@ namespace LOP
 {
     public class RequestMatchmaking : State<MatchEvent>
     {
-        private readonly Func<InWaitingRoom> inWaitingRoom;
+        private readonly Func<InMatchmaking> inMatchmaking;
         private readonly Func<CheckMatch> checkMatch;
         private readonly IUserDataStore userDataStore;
         private readonly IMatchmakingDataStore matchmakingDataStore;
 
-        public RequestMatchmaking(Func<InWaitingRoom> inWaitingRoom, Func<CheckMatch> checkMatch, IUserDataStore userDataStore, IMatchmakingDataStore matchmakingDataStore)
+        public RequestMatchmaking(Func<InMatchmaking> inMatchmaking, Func<CheckMatch> checkMatch, IUserDataStore userDataStore, IMatchmakingDataStore matchmakingDataStore)
         {
-            this.inWaitingRoom = inWaitingRoom;
+            this.inMatchmaking = inMatchmaking;
             this.checkMatch = checkMatch;
             this.userDataStore = userDataStore;
             this.matchmakingDataStore = matchmakingDataStore;
@@ -25,7 +25,7 @@ namespace LOP
         {
             return ev switch
             {
-                MatchEvent.MatchRequestSucceeded => inWaitingRoom(),
+                MatchEvent.MatchRequestSucceeded => inMatchmaking(),
                 MatchEvent.MatchRequestFailed => checkMatch(),
                 _ => this,
             };

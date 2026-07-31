@@ -31,13 +31,13 @@ namespace LOP
 
         protected override async Task<MatchEvent?> OnExecuteAsync(CancellationToken ct)
         {
-            if (userDataStore.userLocation.locationDetail is not WaitingRoomLocationDetail waitingRoomLocationDetail)
+            if (userDataStore.userLocation.locationDetail is not MatchmakingLocationDetail matchmakingLocationDetail)
             {
-                Debug.LogError("User is not in a waiting room.");
+                Debug.LogError("User is not in matchmaking.");
                 return MatchEvent.RecheckRequested;
             }
 
-            var cancelMatchmaking = await WebAPI.CancelMatchmaking(waitingRoomLocationDetail.matchmakingTicketId);
+            var cancelMatchmaking = await WebAPI.CancelMatchmaking(matchmakingLocationDetail.matchmakingTicketId);
 
             switch (cancelMatchmaking.response.code)
             {

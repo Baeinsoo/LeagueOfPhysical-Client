@@ -24,11 +24,6 @@ namespace LOP
         public const int USER_NOT_EXIST = 30000;
         #endregion
 
-        #region WaitingRoom
-        public const int WAITING_ROOM_NOT_EXIST = 40000;
-        public const int FAIL_TO_LEAVE_WAITING_ROOM = 40001;
-        #endregion
-
         #region Room
         public const int ROOM_NOT_EXIST = 50000;
         public const int ROOM_NOT_JOINABLE = 50001;

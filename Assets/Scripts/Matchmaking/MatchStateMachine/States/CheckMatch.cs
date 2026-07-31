@@ -13,14 +13,14 @@ namespace LOP
         private static readonly TimeSpan RetryInterval = TimeSpan.FromSeconds(1);
 
         private readonly Func<InGameRoom> inGameRoom;
-        private readonly Func<InWaitingRoom> inWaitingRoom;
+        private readonly Func<InMatchmaking> inMatchmaking;
         private readonly Func<Idle> idle;
         private readonly IUserDataStore userDataStore;
 
-        public CheckMatch(Func<InGameRoom> inGameRoom, Func<InWaitingRoom> inWaitingRoom, Func<Idle> idle, IUserDataStore userDataStore)
+        public CheckMatch(Func<InGameRoom> inGameRoom, Func<InMatchmaking> inMatchmaking, Func<Idle> idle, IUserDataStore userDataStore)
         {
             this.inGameRoom = inGameRoom;
-            this.inWaitingRoom = inWaitingRoom;
+            this.inMatchmaking = inMatchmaking;
             this.idle = idle;
             this.userDataStore = userDataStore;
         }
@@ -30,7 +30,7 @@ namespace LOP
             return ev switch
             {
                 MatchEvent.LocationIsGameRoom => inGameRoom(),
-                MatchEvent.LocationIsWaitingRoom => inWaitingRoom(),
+                MatchEvent.LocationIsMatchmaking => inMatchmaking(),
                 MatchEvent.LocationIsNone => idle(),
                 _ => this,
             };
@@ -65,7 +65,7 @@ namespace LOP
         {
             return location switch
             {
-                Location.WaitingRoom => MatchEvent.LocationIsWaitingRoom,
+                Location.Matchmaking => MatchEvent.LocationIsMatchmaking,
                 Location.GameRoom => MatchEvent.LocationIsGameRoom,
                 _ => MatchEvent.LocationIsNone,
             };

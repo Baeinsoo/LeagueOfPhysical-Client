@@ -25,7 +25,7 @@ namespace LOP
             RegisterState<CheckMatch>(builder);
             RegisterState<Idle>(builder);
             RegisterState<RequestMatchmaking>(builder);
-            RegisterState<InWaitingRoom>(builder);
+            RegisterState<InMatchmaking>(builder);
             RegisterState<InGameRoom>(builder);
             RegisterState<CancelMatchmaking>(builder);
 

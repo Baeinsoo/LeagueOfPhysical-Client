@@ -538,8 +538,12 @@ export async function assignProposal(
 ): Promise<AssignmentResult> {
     const ticketIds = new Set(proposal.ticketIds);
     const picked = tickets.filter(ticket => ticketIds.has(ticket.id));
-    if (picked.length === 0) {
-        throw new Error(`No tickets for proposal. gameModeId: ${proposal.gameModeId}`);
+
+    //  제안이 이름 붙인 티켓이 하나라도 사라졌다면 그 사이 유저가 매칭을 취소한 것이다.
+    //  빼고 만들면 최소 인원을 밑돌 수 있고, 그대로 소비하면 남의 티켓을 지운다.
+    //  이 제안만 버리면 나머지 티켓은 풀에 남아 다음 틱에 다시 묶인다.
+    if (picked.length !== proposal.ticketIds.length) {
+        throw new Error(`Proposal tickets are gone. gameModeId: ${proposal.gameModeId}, expected: ${proposal.ticketIds.length}, found: ${picked.length}`);
     }
 
     const playerIds = picked.flatMap(ticket => ticket.userIds);
@@ -1297,16 +1301,26 @@ git rm apps/matchmaking-server/src/controllers/waitingRoom.controller.ts \
 
 `packages/database/prisma/schema.prisma`에서 `model WaitingRoom { ... }`과 `enum WaitingRoomStatus { ... }` 블록을 삭제한다.
 
-- [ ] **Step 6: 마이그레이션을 만든다**
+- [ ] **Step 6: 마이그레이션을 손으로 만든다**
 
-Run (repo 루트에서):
-```bash
-pnpm --filter @lop/database exec prisma migrate dev --name drop_waiting_room --create-only
+이 저장소는 마이그레이션을 **손으로 쓴다** — `prisma migrate dev`를 쓰지 않는다(로컬 `.env`도 셰도 DB도 없고,
+기존 마이그레이션 폴더명이 `20260730000000_…`처럼 사람이 정한 고정 타임스탬프다). 같은 방식을 따른다.
+
+새 폴더 `packages/database/prisma/migrations/20260731100000_drop_waiting_room/`를 만들고
+그 안에 `migration.sql`을 아래 내용으로 쓴다:
+
+```sql
+-- 대기방은 풀 기반 매칭(Director)으로 대체됐다.
+-- 매칭 중에만 존재하는 일시 데이터라 옮기거나 보존할 것이 없다.
+DROP TABLE "WaitingRoom";
+
+DROP TYPE "WaitingRoomStatus";
 ```
-Expected: `packages/database/prisma/migrations/<timestamp>_drop_waiting_room/migration.sql` 생성. 내용이 `DROP TABLE "WaitingRoom"` + `DROP TYPE "WaitingRoomStatus"`인지 확인한다.
 
-> `--create-only`로 만들고 **적용은 하지 않는다.** 실제 적용은 배포 시 ArgoCD PreSync Job이 한다.
+> 폴더 이름의 타임스탬프는 직전 마이그레이션(`20260731000000_matchmaking_ticket_lists`)보다 **커야** 순서가 맞는다.
+> `enum Location`의 `WaitingRoom` 값은 **건드리지 않는다** — 개명은 슬라이스 5다.
 > 이 마이그레이션은 되돌릴 수 없다(`DROP`에 down이 없다) — 앞으로만 롤한다.
+> 적용은 배포 시 ArgoCD PreSync Job이 한다. **여기서 DB에 적용하지 않는다.**
 
 - [ ] **Step 7: 빌드 + 테스트**
 

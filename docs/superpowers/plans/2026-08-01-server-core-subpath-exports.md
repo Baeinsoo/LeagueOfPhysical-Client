@@ -106,9 +106,11 @@ export { default as IndexRoute } from '../routes/index.route';
 
 `packages/server-core/package.json`에서 `"types": "./dist/index.d.ts",` 바로 다음 줄에 아래를 삽입한다. **`main`/`types`는 지우지 않는다.**
 
+> ⚠️ **주석은 `exports` 밖에 둔다.** Node는 `exports` 안의 키가 하나라도 `.`로 시작하면 **전부** 그래야 한다고 검증한다 — `"//"` 같은 주석 키를 넣으면 `ERR_INVALID_PACKAGE_CONFIG`로 패키지 자체가 로드 불가가 된다(`turbo.json`에서 쓰는 `"//"` 관습이 여기선 안 통한다). 그래서 최상위 형제 키 `"//exports"`로 뺀다.
+
 ```json
+    "//exports": "항목마다 types를 갖고 맨 앞에 둔다 — exports가 있으면 최상위 types 필드가 이 경로엔 적용되지 않고, 조건은 적힌 순서대로 매칭된다.",
     "exports": {
-        "//": "항목마다 types를 갖고 맨 앞에 둔다 — exports가 있으면 최상위 types 필드가 이 경로엔 적용되지 않고, 조건은 적힌 순서대로 매칭된다.",
         ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
         "./logger": { "types": "./dist/entries/logger.d.ts", "default": "./dist/entries/logger.js" },
         "./postgres": { "types": "./dist/entries/postgres.d.ts", "default": "./dist/entries/postgres.js" },

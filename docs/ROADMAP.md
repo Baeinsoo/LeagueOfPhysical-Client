@@ -286,10 +286,36 @@ spec §8 "후속 정정", plan `2026-08-01-server-core-self-contained`.
 **남은 것:** postgres/mongo 접속 URL은 여전히 로드 시점에 env 없이 조립된다(Prisma가 지연 연결이라
 터지진 않는다). redis·logger와 대칭이 안 맞을 뿐 고장은 아니다.
 
-### 새 Open Decision
+### ✅ `moduleResolution` node10 → node16 (2026-08-01, 배포·E2E 통과)
 
-- [ ] **`moduleResolution` node10 → node16/bundler** — `exports` 맵(=배럴 정식 분해)의 전제이고,
-      **node10은 TS 7.0에서 제거**되므로 어차피 해야 한다. 세 앱의 import 의미론에 영향이 있어 별도 계획.
+배럴 정식 분해(`exports` 맵)의 **전제**를 깔았다. spec `2026-08-01-module-resolution-node16-design.md`.
+
+**위험해 보였는데 실제로는 거의 공짜였다.** 착수 전에 그냥 바꿔서 재 봤더니 타입체크는 5개 프로젝트
+전부 통과했고 **막는 것은 `dotenv@10`(2021) 하나**뿐이었다 — 그 버전의 `exports` 맵에 `types` 조건이
+없어 node16이 타입을 못 찾는다. `^16.5.0`으로 올렸다(`packages/database`가 이미 16.5.0이라 통일 방향).
+산출물은 CJS 그대로다(`"type": "module"`이 어디에도 없다).
+
+**리뷰가 확인 수준을 한 단계 올렸다:**
+- **산출물을 양쪽 설정으로 각각 컴파일해 바이트 비교** — 5개 프로젝트 전부 동일. `__importDefault`/
+  `__importStar`/`exports.default` 같은 interop 표면까지 같다. "CJS 모양이더라"가 아니라 같음의 증명
+- **모듈 해석 4600여 쌍 전수 대조** — 차이는 `csv-parse` 하나이고, 그것도 node10이 *타입은 ESM 선언,
+  런타임은 CJS*를 보던 불일치를 **교정한** 것이다(두 선언 파일 내용은 동일)
+- **`dotenv` v10 파서를 재현해 커밋된 `.env` 6개를 v16과 대조** — 전부 동일하게 파싱
+
+**함께 닫은 함정:** turbo가 `tsconfig.base.json`을 추적하지 않아 **컴파일러 옵션만 바꾸면 캐시가
+무효화되지 않고 낡은 산출물이 조용히 재생**됐다(이번에도 첫 빌드에서 패키지 둘이 옛 캐시를 재생했고,
+락파일이 같이 바뀐 덕에 우연히 리빌드됐다). `globalDependencies`에 등록하고 실증했다.
+
+### 다음 = 배럴 분해 (`exports` 맵)
+
+이제 막혀 있던 정석이 열렸다. `@lop/server-core`의 부수효과 있는 것들(`App`, 로더 3종, `logger`,
+`redisClient`/`prismaClient`)을 서브패스로 분리해, 타입만 가져갈 때 그것들이 딸려오지 않게 한다.
+
+> ⚠️ **`exports` 항목마다 `types` 조건을 반드시, 그리고 먼저 넣을 것.** 이번 조사에서 그 함정의
+> 실물을 둘 봤다 — `dotenv@10`이 정확히 그것 때문에 깨졌고, `packages/database/generated/client/package.json`도
+> `types` 조건 없이 `require`/`import`/`default`만 갖고 있다(지금은 `exports`를 안 써서 무사할 뿐).
+
+어디까지 쪼갤지는 실제 맵을 그려 보며 정한다 — 소비처가 적어 생각보다 단순할 수 있다.
 
 **슬라이스 4b가 남긴 것 (다음 사람이 알아야 할 것):**
 

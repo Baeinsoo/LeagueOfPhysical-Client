@@ -119,3 +119,64 @@
 - [ ] **`httpService.ts` 타임아웃 비대칭** — 매치메이킹 슬라이스 4b에서 HTTP 타임아웃 5초를 매칭 서버에만
       넣었다(당시 Director만 문제였다). 로비·룸에는 여전히 없다. 이 파일이 공용으로 올라오면 자연히
       통일되는데, **세 앱에 같은 타임아웃이 옳은지**는 별도 판단이 필요하다(슬라이스 2에서 결정).
+
+---
+
+## 8. 후속 정정 — 배럴 부수효과를 표준 형태로 해소 (2026-08-01)
+
+슬라이스 1·2를 마친 뒤 "배럴에 부수효과가 생겼다"를 후속으로 남겼는데, **업계 표준을 조사한 결과
+우리가 표준에서 벗어난 지점이 어디인지가 분명해졌다.** 네 가지 모두 이 프로젝트 고유 문제가 아니다.
+
+### 조사 결과 — 전부 교과서에 있는 문제다
+
+| 우리가 겪은 것 | 업계에서 부르는 이름 | 표준 해법 |
+|---|---|---|
+| 배럴에서 타입 하나만 가져와도 부수효과 실행 | *barrel file* 문제 | `exports` 맵으로 서브패스 제공, 배럴은 순수 re-export만. `"sideEffects": false`는 **번들러 힌트라 Node CJS 백엔드인 우리에겐 안 먹는다** |
+| 같은 라이브러리가 두 물리 실체로 | React의 "두 사본이 보인다"와 같은 부류 | `peerDependencies`로 소비자가 제공. 단 **pnpm에선 이게 알려진 함정**이라 사본이 늘기도 한다 |
+| 공용 패키지가 dotenv를 부른다 | **안티패턴** | dotenv는 **앱 진입점에서 한 번**. 라이브러리는 env가 이미 로드됐다고 가정하고 `process.env`만 읽는다 |
+| `exports` 맵이 안 먹는다 | `moduleResolution: node10` 제약 | `node16`/`nodenext`/`bundler`로. **node10은 deprecated이고 TS 7.0에서 동작을 멈춘다** |
+
+### 정정 — dotenv를 패키지에 넣은 것이 비표준이었다
+
+슬라이스 2에서 "인프라 설정(dotenv 포함)은 공용, 이웃 주소는 앱별"로 나눴다. **dotenv를 공용에 넣은 부분이
+표준과 어긋난다.** 그 선택의 대가가 지금 문제의 절반이다:
+
+- 앱 설정이 `import '@lop/server-core';`라는 **부수효과 import**로 로딩 순서를 맞춰야 했고,
+- 배럴이 무거워지자 그 한 줄이 express·winston·redis·lua 읽기를 전부 끌고 오게 됐다.
+
+**표준 형태로 되돌린다:** 각 앱의 `config/index.ts`가 dotenv를 부르고(이 프로젝트 이전 모습),
+**진입점(`main.ts`/`director.ts`)이 그 설정을 가장 먼저 import** 해 순서를 명시적으로 강제한다.
+공용 패키지의 config는 `process.env`를 **읽기만** 한다.
+
+### 부수효과를 없애는 대신 *자기완결*로 만든다
+
+배럴을 쪼개는 정석은 `exports` 맵인데 `moduleResolution` 때문에 지금 불가능하다. 그런데 실제로 아픈 것은
+"부수효과가 있다"가 아니라 **"부수효과가 자기 발로 서지 못한다"** 였다:
+
+- `redis.loader`가 lua 4개를 **CWD 기준**으로 읽는데 패키지엔 `lua/`가 없다 → 이 패키지에 테스트를
+  추가하는 순간 ENOENT. (부수 발견: **lua도 3앱에 복제**돼 있다 — 옮기면 그것도 한 벌이 된다.)
+- `logger`가 `LOG_DIR` 없으면 터지고 `mkdirSync`가 비재귀다.
+
+둘을 고치면 "누가 언제 import 하든 알아서 선다"가 되어 `jest.setup.js` 임시 봉합을 걷어낼 수 있다.
+
+### 범위
+
+| | 내용 | 표준 근거 |
+|---|---|---|
+| **1** | dotenv를 앱 진입점으로 되돌린다 (패키지 config는 읽기만) | 라이브러리는 env를 로드하지 않는다 |
+| **2** | lua를 패키지 안으로(`__dirname` 기준) + `mkdirSync` 재귀 + `LOG_DIR` 기본값 | 패키지는 자기완결이어야 한다 |
+| ~~3~~ | ~~`exports` 맵으로 배럴 분해~~ | **범위 밖** — `moduleResolution` 업그레이드가 선행돼야 한다 |
+
+1·2 이후에도 "타입 하나 가져오면 Prisma/Redis **객체**가 만들어진다"는 순수성 문제는 남는다.
+연결은 명시 호출이라 **동작상 해는 없고**, 해소는 `moduleResolution` 업그레이드와 묶어 판단한다.
+
+### 새 Open Decision
+
+- [ ] **`moduleResolution` node10 → node16/bundler 업그레이드** — `exports` 맵의 전제이고,
+      node10은 **TS 7.0에서 제거**되므로 어차피 해야 한다. 세 앱의 import 의미론에 영향이 있어 별도 계획.
+
+> 출처: [Barrel Exports considered harmful](https://blog.coderspirit.xyz/blog/2022/11/06/export-barrels-considered-harmful/) ·
+> [Turborepo — Structuring a repository](https://turborepo.dev/docs/crafting-your-repository/structuring-a-repository) ·
+> [pnpm — Monorepo peer dependency hell](https://github.com/orgs/pnpm/discussions/5431) ·
+> [dotenv](https://github.com/motdotla/dotenv) ·
+> [TypeScript — moduleResolution](https://www.typescriptlang.org/tsconfig/moduleResolution.html)

@@ -121,6 +121,33 @@ export { default as IndexRoute } from '../routes/index.route';
     },
 ```
 
+- [ ] **Step 2b: `typesVersions`도 함께 추가 (ts-jest용)**
+
+**`exports`만으로는 부족하다 — ts-jest는 `exports` 맵을 아예 읽지 않는다.** 실측으로 확인했다:
+`exports["."].types`를 없는 파일로 바꿔도 기존 테스트가 그대로 통과한다(= 최상위 `types` 필드로 폴백,
+즉 node10 방식 해석). 루트는 최상위 `types` 덕에 우연히 살아 있지만 **서브패스는 node10 대응물이 없어**
+`TS2307: Cannot find module '@lop/server-core/logger'`가 난다.
+
+`typesVersions`가 바로 그 node10 해석용 서브패스 타입 매핑 기구다. `exports` 바로 아래에 넣는다:
+
+```json
+    "//typesVersions": "ts-jest는 exports 맵을 읽지 않고 node10 방식으로 해석한다 — 서브패스 타입을 여기로도 알려 준다. node16 tsc는 exports가 우선이라 이 항목을 보지 않는다.",
+    "typesVersions": {
+        "*": {
+            "logger": ["dist/entries/logger.d.ts"],
+            "postgres": ["dist/entries/postgres.d.ts"],
+            "redis": ["dist/entries/redis.d.ts"],
+            "mongoose": ["dist/entries/mongoose.d.ts"],
+            "express": ["dist/entries/express.d.ts"]
+        }
+    },
+```
+
+> ⛔ **`isolatedModules: true`를 쓰지 말 것.** ts-jest가 `TS151002` 경고로 그것을 권하고, 실제로 그걸
+> 켜면 이 에러가 사라진다. 하지만 그건 고치는 게 아니라 **타입 검사를 통째로 끄는 것**이다 — 명백한
+> 타입 오류(`const x: number = "문자열"`)가 그대로 통과함을 실측했다. 게다가 앱 tsconfig가
+> `src/**/__tests__/**`를 exclude하므로, 그러면 **테스트 파일은 어디서도 타입 검사를 못 받는다.**
+
 - [ ] **Step 3: 빌드해서 진입점이 나오는지 확인**
 
 Run: `cd /c/Users/re5na/workspace/LOP/lop-backend && pnpm exec turbo run build --filter=@lop/server-core --force`

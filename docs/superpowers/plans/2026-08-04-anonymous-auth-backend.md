@@ -849,6 +849,13 @@ export default async function globalSetup(): Promise<void> {
 `apps/lobby-server/test/integration/globalTeardown.ts`:
 
 ```ts
+import { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+
+//  globalSetup과 별개 파일이라 같은 선언이 필요하다.
+declare global {
+    var __PG_CONTAINER__: StartedPostgreSqlContainer | undefined;
+}
+
 export default async function globalTeardown(): Promise<void> {
     await globalThis.__PG_CONTAINER__?.stop();
 }

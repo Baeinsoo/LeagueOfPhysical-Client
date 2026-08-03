@@ -214,6 +214,34 @@ spec `docs/superpowers/specs/2026-07-27-matchmaking-standardization-design.md`
 | 🟡 | **MongoDB를 연결만 하고 안 쓴다** | 세 앱 모두 시작 시 `mongooseLoader.load()`로 MongoDB에 접속하지만(`✌️ mongoose loaded and connected!`), `*.dao.mongoose.ts` 5종과 `models/` 정의를 **어느 리포지토리도 참조하지 않는다**(소비처 전부 0 — 실측). Postgres 이행 후 남은 잔재로 보인다. 걷어내면 앱 3개에서 mongoose 의존 + MongoDB 파드가 통째로 빠진다. 위험 낮고 이득이 눈에 보이는 정리 |
 | 🟡 | **`ResponseCode` 5중 복제** | 백엔드 3앱은 공용 패키지로 합칠 수 있으나 클라·게임서버(C#)는 못 합친다(spec §12에 별도 항목) |
 | 🟡 | **로비 선택 UI** | 큐·게임·맵 선택 화면(spec §11-E). `MatchmakingViewModel` 하드코딩은 이때 사라진다 |
+| 🟠 | **유저 위치 전반 재정비 (백엔드+클라)** | 아래 별도 항목 — 사용자 지시로 추가(08-04) |
+
+### 🟠 유저 위치(UserLocation) 전반 재정비 — 백엔드 + Unity 클라
+
+**왜 트랙으로 묶나:** 유저 위치는 사실상 **세션 상태**(이 사람이 지금 어디 있나)인데, 그 진실을
+**아무도 소유하지 않고 여러 곳이 폴링해서 각자 해석**하고 있다. 경합·재접속 루프·쓰기 부하가 전부
+같은 뿌리에서 나온다. B 슬라이스(`verifyUserLocation` 읽기/쓰기 분리)는 그중 한 조각만 건드린다.
+
+**백엔드 쪽 문제:**
+
+| | |
+|---|---|
+| 정리 책임이 없다 | 매치가 끝나도 위치가 `GameRoom`으로 남는다 → 로비 진입 즉시 같은 게임에 자동 재접속(파킹 항목). 룸 close→위치 정리 경로가 로컬에선 `Standalone` 가드로 스킵되고 **프로덕션에도 잠재** |
+| 만료가 없다 | 위치도 티켓도 TTL이 없다. 클라가 죽으면 그 상태로 영원히 남는다 |
+| 폴링마다 쓴다 | 조회할 때마다 행 전체를 갱신(B ①에서 해소 예정). 동접이 늘면 쓰기 핫스팟 — presence는 원래 Redis+TTL이 표준인 영역 |
+| 타입이 약하다 | `Location` enum + `locationDetail` **JSON**. 어느 detail이 오는지는 코드 규약일 뿐이고 클·서가 각자 정의한다 |
+
+**Unity 클라 쪽 문제:**
+
+| | |
+|---|---|
+| 폴링이 흩어져 있다 | `CheckMatch`·`InMatchmaking`·`InGameRoom`·`CheckUserComponent`·`MatchLoadingViewModel`이 **각자** `WebAPI.GetUserLocation`을 돌린다 |
+| 해석도 흩어져 있다 | 위치→다음 행동 분기(`switch`)가 상태마다 따로 있다. 규칙이 바뀌면 여러 곳을 같이 고쳐야 한다 |
+| 밀어주는 경로가 없다 | 전부 pull. 서버가 "너 이제 게임방이야"를 **알려줄 수단이 없어서** 1초 폴링으로 때운다 |
+
+**방향(정하지 않음, 착수 시 브레인스토밍):** 위치 해석을 클라 한 곳(스토어)으로 모으고 나머지는
+구독만 하기 / 정리 책임을 writer에게 주기(룸 close→위치 클리어) / presence를 TTL 있는 저장소로 /
+`locationDetail`을 타입 있는 표현으로. **B 슬라이스를 먼저 끝내고, 거기서 드러난 것을 재료로 시작한다.**
 
 ---
 

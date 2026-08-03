@@ -74,9 +74,11 @@ model MatchmakingTicketUser {
 ```sql
 --  기존 데이터에 같은 유저의 열린 티켓이 둘 이상 있으면 새 기본키를 만들 수 없다.
 --  대기표는 잠깐 살다 가는 데이터이므로, 유저별로 가장 오래된 티켓만 남기고 나머지는 지운다.
+--  DISTINCT가 꼭 필요하다: 한 티켓의 userIds 안에 같은 유저가 두 번 들어 있으면 아래 순번 매기기가
+--  그걸 "티켓 두 장"으로 착각해, 그 유저의 유일한 티켓인데도 지워 버린다.
 WITH expanded AS (
-    SELECT id, "createdAt", unnest("userIds") AS "userId"
-    FROM "MatchmakingTicket"
+    SELECT DISTINCT id, "createdAt", u AS "userId"
+    FROM "MatchmakingTicket", unnest("userIds") AS u
 ),
 ranked AS (
     SELECT id, "userId",

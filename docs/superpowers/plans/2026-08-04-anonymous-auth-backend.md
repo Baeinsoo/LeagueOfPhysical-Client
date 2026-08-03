@@ -838,6 +838,11 @@ export default async function globalSetup(): Promise<void> {
 
     //  인증 테스트가 토큰을 발급·검증하려면 비밀키가 있어야 한다.
     process.env.AUTH_JWT_SECRET = 'integration-test-secret';
+
+    //  App이 morgan(LOG_FORMAT)으로 요청 로거를 붙인다 — main.ts와 달리 테스트는 .env를 읽지 않으므로
+    //  여기서 채워 주지 않으면 포맷이 undefined인 채로 들어간다.
+    process.env.LOG_FORMAT = 'dev';
+    process.env.NODE_ENV = process.env.NODE_ENV || 'test';
 }
 ```
 

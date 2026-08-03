@@ -210,6 +210,8 @@ spec `docs/superpowers/specs/2026-07-27-matchmaking-standardization-design.md`
 |---|---|---|
 | 🟠 | **DB 통합 테스트가 하나도 없다** | 매치 확정의 CAS 정확성이 Postgres 격리 수준 의미론에 기대는데 실행으로 확인된 적이 없다. 커넥션 두 개(확정 vs 취소) 동시 실행 테스트 하나면 이 트랙 최고 위험 주장이 논증에서 증거가 된다 |
 | ✅ | ~~**`user-location.interface.ts` 3중 복제**~~ | **해소(08-01)** — 아래 `@lop/server-core` 항목 |
+| 🟠 | **버려진 티켓이 영원히 남는다** | 티켓을 지우는 경로는 *명시적 취소*와 *매치 확정 후 정리* 둘뿐이고, matchmaking-server에는 **스케줄러도 만료도 없다**(Redis DAO의 TTL은 캐시 전용). 큐에 선 채로 클라가 죽거나 네트워크가 끊기면 그 티켓은 계속 매칭 대상으로 남아 **유령 플레이어가 낀 매치**를 만든다. Open Match는 티켓에 TTL을 둔다 — 우리에겐 그 개념 자체가 없다. `createdAt`은 대기시간 기반 레이팅 완화에만 쓰인다 |
+| 🟡 | **MongoDB를 연결만 하고 안 쓴다** | 세 앱 모두 시작 시 `mongooseLoader.load()`로 MongoDB에 접속하지만(`✌️ mongoose loaded and connected!`), `*.dao.mongoose.ts` 5종과 `models/` 정의를 **어느 리포지토리도 참조하지 않는다**(소비처 전부 0 — 실측). Postgres 이행 후 남은 잔재로 보인다. 걷어내면 앱 3개에서 mongoose 의존 + MongoDB 파드가 통째로 빠진다. 위험 낮고 이득이 눈에 보이는 정리 |
 | 🟡 | **`ResponseCode` 5중 복제** | 백엔드 3앱은 공용 패키지로 합칠 수 있으나 클라·게임서버(C#)는 못 합친다(spec §12에 별도 항목) |
 | 🟡 | **로비 선택 UI** | 큐·게임·맵 선택 화면(spec §11-E). `MatchmakingViewModel` 하드코딩은 이때 사라진다 |
 

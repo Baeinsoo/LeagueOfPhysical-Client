@@ -306,16 +306,55 @@ spec §8 "후속 정정", plan `2026-08-01-server-core-self-contained`.
 무효화되지 않고 낡은 산출물이 조용히 재생**됐다(이번에도 첫 빌드에서 패키지 둘이 옛 캐시를 재생했고,
 락파일이 같이 바뀐 덕에 우연히 리빌드됐다). `globalDependencies`에 등록하고 실증했다.
 
-### 다음 = 배럴 분해 (`exports` 맵)
+### ✅ 배럴 분해 — 서브패스 `exports` (2026-08-03, 배포·E2E 통과)
 
-이제 막혀 있던 정석이 열렸다. `@lop/server-core`의 부수효과 있는 것들(`App`, 로더 3종, `logger`,
-`redisClient`/`prismaClient`)을 서브패스로 분리해, 타입만 가져갈 때 그것들이 딸려오지 않게 한다.
+`@lop/server-core`의 진입점을 배럴 하나에서 서브패스 다섯(`/logger` `/postgres` `/redis` `/mongoose`
+`/express`)으로 나누고, **루트에는 외부 자원을 잡지 않는 순수 계약만** 남겼다.
+spec `2026-08-01-server-core-subpath-exports-design.md`, plan 동명, 백엔드 머지 `f97ba7e`.
 
-> ⚠️ **`exports` 항목마다 `types` 조건을 반드시, 그리고 먼저 넣을 것.** 이번 조사에서 그 함정의
-> 실물을 둘 봤다 — `dotenv@10`이 정확히 그것 때문에 깨졌고, `packages/database/generated/client/package.json`도
-> `types` 조건 없이 `require`/`import`/`default`만 갖고 있다(지금은 `exports`를 안 써서 무사할 뿐).
+**성적표 — 루트 import: 1975ms / 1517모듈 → 40ms / 24모듈.** 남은 24개는 `envalid`(순수 검증
+라이브러리, `validateEnv`가 씀)와 `tslib`뿐이다.
 
-어디까지 쪼갤지는 실제 맵을 그려 보며 정한다 — 소비처가 적어 생각보다 단순할 수 있다.
+**방향을 뒤집은 게 핵심이었다.** 처음 구상은 "무거운 걸 루트에 두고 가벼운 걸 서브패스로"였는데,
+세어 보니 **소비 파일 82개 중 52개(63%)가 가벼운 것만** 쓰고 있었다 — 5ms어치 받으려고 1.65초를
+내던 셈. 루트를 가벼운 쪽으로 두니 **52개는 무변경, 30개만** 고치면 됐다. `firebase`(`./app` vs
+`./firestore`)·`@sentry/node`(`./init` 분리)가 쓰는 표준 모양이기도 하다.
+
+**가른 기준은 잰 무게가 아니라 "외부 자원을 잡는가"다.** `prismaClient`는 36ms로 싸지만 살아 있는
+DB 클라이언트를 만들어 서브패스로 보냈다. 무게는 의존성 업그레이드 한 번에 바뀌지만 자원을 잡느냐는
+안 바뀐다.
+
+**함정 셋 — 전부 "그냥 넘어갔으면 조용히 나빠졌을" 종류:**
+
+| | 함정 | 실측 |
+|---|---|---|
+| 1 | **`exports` 안에 `"//"` 주석 키** | `ERR_INVALID_PACKAGE_CONFIG`로 **패키지 자체가 로드 불가**. 키가 하나라도 `.`로 시작하면 전부 그래야 한다는 Node 검증. `turbo.json`의 주석 관습을 잘못 옮긴 것 → 최상위 형제 키 `"//exports"`로 뺀다 |
+| 2 | **ts-jest는 `exports`를 안 읽는다** | `exports["."].types`를 없는 파일로 바꿔도 테스트가 통과 = 최상위 `types`로 폴백(node10 방식). 루트는 그 필드 덕에 살지만 서브패스는 대응물이 없어 `TS2307` → **`typesVersions`** 로 해결 |
+| 3 | ⭐ **`isolatedModules: true`는 해법이 아니다** | ts-jest가 `TS151002`로 권하고 실제로 에러가 사라지지만, **타입 검사를 통째로 끄는 것**이다(`const x: number = "문자열"`이 통과함을 실측). 앱 tsconfig가 `__tests__`를 exclude하므로 켜면 테스트는 어디서도 타입 검사를 못 받는다 |
+
+③은 서브에이전트가 "회귀 0"이라며 정식 해법으로 제안한 것이다. **받았으면 조용히 검사가 사라졌다.**
+
+**해석기가 셋이 됐다 (이후 작업 시 반드시 함께 볼 것):** Node 런타임·`tsc` → `exports` /
+ts-jest 타입검사 → `typesVersions` / jest 런타임 → `moduleNameMapper`(→ `src`). 즉 테스트는
+`dist`의 타입으로 검사받으며 `src`를 실행한다. **새 서브패스를 추가하면 세 곳 모두** 갱신해야 한다.
+
+**최종 리뷰(차단 결함 0)가 실행으로 검증한 것:** 캐시 전삭제 후 빌드 5/5 · `docker build` 3종 ·
+**이미지 내부**에서 서브패스 해석·진입점 4개 기동·루트 24모듈 재현 · `pnpm deploy --prod` 산출물에
+`dist/entries`·`lua` 포함 및 deep import 차단 · `typesVersions`를 지워 보고 실제로 load-bearing임
+확인 · `requireActual` 제거 안전성(두 테스트 그래프에 `/postgres`의 다른 소비자 없음, 오히려
+**예전엔 진짜 `PrismaClient`를 만들고 있었다**).
+
+**리뷰 지적 하나를 조치했다** — 이 작업의 존재 이유인 성질("루트를 import해도 자원이 안 생긴다")을
+지켜 주는 테스트가 없었다. 그 성질은 `dao.postgres.base`·`dao.mongoose.base`가 prisma/mongoose를
+*타입으로만* 쓰는 데 걸려 있어 값으로 한 번만 써도 조용히 깨진다. 회귀 가드를 넣고 **일부러 깨뜨려
+실제로 잡는지 확인**했다(`apps/matchmaking-server/src/__tests__/server-core-root-is-light.test.ts`).
+
+**남은 주의사항(결함 아님):** jest 매퍼가 "모든 서브패스는 `src/entries/` 아래"를 가정한다 ·
+lobby-server엔 테스트가 없어 `typesVersions` 누락이 테스트로 안 잡힐 수 있다(단 빌드·런타임은
+정상이라 fail-safe) · 로컬 jest transform 캐시가 stale `dist`를 가릴 수 있다(CI는 무관).
+
+**후속:** `DaoRedisBase`가 모듈 최상단에서 `redisClient` 싱글턴을 잡는 결합 — 주입식으로 바꾸면
+루트로 올라올 수 있다. 이번엔 **서브패스가 그 결합을 드러내게** 두었다.
 
 **슬라이스 4b가 남긴 것 (다음 사람이 알아야 할 것):**
 

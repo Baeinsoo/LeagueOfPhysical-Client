@@ -7,6 +7,28 @@ namespace LOP
 {
     public class WebAPI
     {
+        #region Auth
+        // /auth 응답은 code 필드가 없어 ResponseBase 규약을 안 따름 — 성공 여부는 HTTP 상태 코드(isSuccess)로 판단
+        public static WebRequest<AnonymousSignInResponse> SignInAnonymous()
+        {
+            return new WebRequestBuilder<AnonymousSignInResponse>()
+                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/auth/anonymous")
+                .SetMethod(HttpMethod.POST)
+                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
+                .Build();
+        }
+
+        public static WebRequest<LoginResponse> Login(LoginRequest request)
+        {
+            return new WebRequestBuilder<LoginResponse>()
+                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/auth/login")
+                .SetMethod(HttpMethod.POST)
+                .SetRequestBody(request)
+                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
+                .Build();
+        }
+        #endregion
+
         #region Lobby
         public static WebRequest<JoinLobbyResponse> JoinLobby(string userId)
         {

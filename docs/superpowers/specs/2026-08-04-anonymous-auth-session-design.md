@@ -375,7 +375,76 @@ apps/lobby-server/
 | Google Play Games v2 서버 auth code | 클라 `requestServerSideAccess` → 서버가 OAuth 교환 (stub 자리) |
 | Game Center 서명 검증 | `fetchItems(forIdentityVerificationSignature:)` → 서버가 애플 공개키로 검증 (stub 자리) |
 
-## 12. Open Decisions
+## 12. 백엔드 구현 후 남은 이월 항목 (2026-08-04 기록)
+
+백엔드 슬라이스(lop-backend `feature/auth-anonymous-session`, 16커밋)를 끝내며 **의도적으로 미룬**
+것들. 코드 리뷰에서 실제로 지적됐고 고치지 않기로 판단한 것이므로, 근거와 "언제 다시 봐야 하는가"를
+함께 남긴다. 심각도 순.
+
+### 반드시 처리 — 공개 배포 전
+
+**`/auth/*`에 레이트리밋이 없다.** `POST /auth/anonymous`는 아무 자격증명 없이 누구나 호출할 수
+있고, 한 번에 DB 4행 + bcrypt 해시 1회를 소비한다. 계정 테이블 무한 증식보다 **bcrypt 쪽이 더
+아프다** — bcrypt는 무차별 대입을 막으려 일부러 느리게 설계됐고 Node에서는 스레드풀(기본 4개)에서
+돈다. 초당 40회 수준의 반복 호출만으로 스레드풀이 포화되어 **그 프로세스의 다른 비동기 작업 전체가
+밀린다**(로비 서버 전체가 느려짐). 공격이 아니라 단순 반복으로도 도달한다. `/auth/login`도 기존
+신원에 대해 같은 bcrypt 비용을 진다. per-IP 리미터가 표준 해법이며, 미들웨어 cutover 작업과 함께
+넣는 것이 자연스럽다.
+
+**배포 전 확인 2건** (이 브랜치 밖):
+- `infrastructure` 리포의 k8s 매니페스트에 `AUTH_JWT_SECRET` 추가. 없으면 lobby-server가 기동을
+  거부한다(의도된 fail-fast) → 크래시 루프.
+- lobby-server Docker 이미지 빌드 1회. bcrypt 네이티브 바인딩이 `pnpm deploy --prod --legacy`를
+  거친 런타임 이미지에서 로드되는지 **미확인**이다(로컬 빌드 2회 시도 모두 시간 초과로 중단).
+  CI는 러너에서 빌드하므로 초록이지만, 이미지 경로는 어떤 CI 잡도 만들지 않는다.
+
+### 플랫폼 로그인(구글/애플) 도입 시 반드시 재검토
+
+**로그인 실패의 타이밍 부채널.** 실패 응답 *내용*은 두 경우("없는 신원" / "틀린 secret")를 완전히
+동일하게 만들었고 회귀 테스트로 고정했다. 그러나 *소요 시간*이 다르다 — 신원이 존재할 때만 bcrypt
+비교를 수행하므로 ~100ms 차이가 난다. 응답 시간만 재도 신원 존재 여부를 알 수 있다.
+
+지금 무의미한 이유는 익명 `providerUserId`가 랜덤 uuid라 **찍어볼 대상이 없기** 때문이다. 구글/애플
+player id는 추측하거나 다른 경로로 알아낼 수 있으므로, 그때는 "이 사람이 우리 게임에 가입했는가"가
+노출된다. 대응은 표준적이다 — 신원이 없을 때도 더미 bcrypt 비교를 수행해 시간을 맞춘다.
+
+### 낮은 우선순위
+
+**계정 생성이 트랜잭션으로 묶여 있지 않다.** 익명 가입은 `User` 1행 + `UserStats` 2행 +
+`UserIdentity` 1행을 각각 쓴다. 마지막이 실패하면 **로그인 수단이 없는 계정**이 남는다. 유저 피해는
+없다(자격증명을 못 받았으므로 재호출 시 새 계정을 받는다) — DB에 못 쓰는 행이 남을 뿐이다. 최종 리뷰
+fix wave에서 서명키 확인을 DB 쓰기 앞으로 옮겨, 실제로 터질 확률이 가장 높던 경로는 이미 행을 쓰지
+않는다. 남은 트리거는 DB 순간 장애뿐.
+
+> **정정 (중요)**: 한때 "리포에 `$transaction` 사용처가 없어 구조적으로 불가"로 기록했으나 **사실이
+> 아니다.** `apps/matchmaking-server/src/daos/match.dao.postgres.ts`가 인터랙티브 트랜잭션을 이미
+> 쓰고 있고, 공유 `DaoPostgresBase.saveAll`도 배열형 `$transaction`을 쓴다. 실제 장애물은 제네릭
+> DAO 베이스가 모듈 수준 `prismaClient`에 고정돼 트랜잭션 클라이언트를 주입할 수 없다는 것뿐이다.
+> 우리 경우 해법은 `match.dao.postgres.ts`의 선례대로 **그 한 곳만 리포지토리를 우회해 `$transaction`
+> 안에서 직접 쓰는 것**이며 30줄 규모다. 캐시 문제도 없다 — `CacheCrudRepository.save`는
+> write-through가 아니라 **무효화(delete) 방식**이고, 신규 생성에는 무효화할 캐시 항목이 없다.
+
+**`getVerifier`가 컴파일 타임 보장을 주지 않는다.** `Partial<Record<AuthProvider, ...>>` + `?? null`
+이라 새 `AuthProvider` enum 멤버를 추가해도 컴파일 에러 없이 런타임 501이 된다. fail-closed라 현
+단계에서는 적절한 트레이드오프로 판단했다. 남은 멤버가 2개뿐이라 실수 여지도 작다.
+
+**`DaoPostgresBase<T>`가 읽기 행 모양과 삽입 입력 모양을 한 타입으로 취급한다.** 그래서 삽입 시
+DB 생성 필드까지 요구되어 캐스트를 부른다(`UserIdentity` 생성에서 실제로 문제가 됐고, 그 한 곳은
+Prisma 생성 입력 타입으로 우회해 해결했다). 리포 전체 DAO가 공유하는 선재 설계 이슈.
+
+**형제 앱의 낡은 타입.** `apps/matchmaking-server`와 `apps/room-server`의 `user.dto.ts`가 아직
+`email: string`으로 선언하지만, 익명 계정은 이제 `null`을 반환한다. 역참조하는 코드가 없고 컴파일
+결합도 없어 "타입이 거짓말하는" 상태일 뿐 동작은 깨지지 않는다.
+
+**표시명이 42자다.** 충돌 위험을 없애려 `Guest-<full-uuid>`로 바꾼 결과, UI에 그대로 쓸 만한 이름이
+없다. `UserProfile.nickname`이 그 자리이며 현재 비어 있다. 제품 결정 사항.
+
+**테스트 위생 2건.** `auth.middleware.test.ts`가 변경한 `AUTH_JWT_SECRET`을 원복하지 않는다
+(`token.test.ts`는 원복한다) — 현재 이로 인해 잘못 통과/실패하는 테스트는 없음. secret 무작위성
+테스트가 Set 20개 비교라 카운터 같은 약한 생성기도 통과시킨다 — 실제 구현은 `randomBytes(32)`이고
+인코딩은 별도 테스트가 고정한다.
+
+## 13. Open Decisions
 
 - [ ] 플랫폼 verifier 실제 구현 시점 — 출시 준비 단계. 그때 외부 인증 서비스 채택을 재검토
 - [ ] 계정 연동(link) 플로우 — 익명 계정에 구글/애플을 붙이는 UI와 충돌 규칙(이미 다른 계정에

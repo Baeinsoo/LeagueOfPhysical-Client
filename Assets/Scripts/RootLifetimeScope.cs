@@ -52,6 +52,11 @@ namespace LOP
 
             builder.Register<LOP.MasterData.LOPMasterData>(Lifetime.Singleton);
 
+            //  자격증명 보관소는 프로필(인스턴스)마다 키가 달라야 해서 인스턴스로 등록한다.
+            builder.RegisterInstance<GameFramework.Auth.IAuthCredentialStore>(
+                new GameFramework.Auth.PlayerPrefsAuthCredentialStore("LOP.Auth", GameFramework.Auth.AuthProfile.Current));
+            builder.Register<AuthenticationService>(Lifetime.Singleton);
+
             builder.Register<UserDataStore>(Lifetime.Singleton)
                 .As<IUserDataStore>()
                 .As<IDataStore>()

@@ -242,6 +242,15 @@ describe('대기표 유일성 — 한 유저는 열린 티켓 하나', () => {
         expect((await dao.findOpenByUserId('U2'))?.id).toBe('T1');
         expect(await dao.findOpenByUserId('U9')).toBeNull();
     });
+
+    //  한 티켓 안의 중복은 조용히 걷어내지 않고 터뜨린다 — 잘못된 데이터를 정상인 척 만들면
+    //  매칭 함수가 userIds.length로 인원을 세어 혼자서 2인 매치를 만든다.
+    it('한 티켓에 같은 유저가 두 번 들어오면 에러로 거부한다', async () => {
+        await expect(dao.createWithMembers(티켓('T1', ['U1', 'U1']))).rejects.toThrow(/Duplicate userIds/);
+
+        //  터졌으면 아무것도 남지 않아야 한다.
+        expect(await rawPrisma.matchmakingTicket.count()).toBe(0);
+    });
 });
 ```
 
@@ -267,11 +276,18 @@ import { PrismaClient, Prisma, MatchmakingTicket as MatchmakingTicketEntity } fr
      */
     public async createWithMembers(entity: MatchmakingTicketEntity): Promise<MatchmakingTicketEntity | null> {
         try {
+            //  중복을 조용히 걷어내지 않는다 — 한 티켓에 같은 유저가 두 번 들어 있는 것 자체가
+            //  잘못된 데이터이고, 매칭 함수가 userIds.length로 인원을 세므로 그대로 두면 혼자서
+            //  2인 매치가 만들어진다. null로 돌려주면 안 된다: null은 "이미 대기 중"이라는 뜻이라
+            //  호출자가 정상 상황으로 오해한다.
+            if (new Set(entity.userIds).size !== entity.userIds.length) {
+                throw new Error(`Duplicate userIds in one ticket. ticketId: ${entity.id}, userIds: ${entity.userIds.join(',')}`);
+            }
+
             return await this.prismaClient.$transaction(async (tx: Prisma.TransactionClient) => {
                 const created = await tx.matchmakingTicket.create({ data: entity });
-                //  한 티켓 안에 같은 유저가 중복으로 들어와도 행은 하나만 만든다.
                 await tx.matchmakingTicketUser.createMany({
-                    data: Array.from(new Set(entity.userIds)).map(userId => ({ userId, ticketId: created.id })),
+                    data: entity.userIds.map(userId => ({ userId, ticketId: created.id })),
                 });
                 return created;
             });

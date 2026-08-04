@@ -21,6 +21,11 @@ namespace LOP.UI
 
         public event Action ErrorMessageChanged;
 
+        /// <summary>로그인 요청이 진행 중인지. 진행 중일 때 View는 버튼을 비활성화해 중복 클릭을 막는다.</summary>
+        public bool IsBusy { get; private set; }
+
+        public event Action IsBusyChanged;
+
         public LoginViewModel(AuthenticationService authenticationService)
         {
             this.authenticationService = authenticationService;
@@ -36,6 +41,15 @@ namespace LOP.UI
 
         public async void RequestLogin(AuthProvider provider)
         {
+            if (IsBusy)
+            {
+                //  이미 로그인 중이면 무시한다(큐잉·재시작 안 함) — 두 번째 클릭이 두 번째
+                //  SignInAsync를 띄우면 서버 계정이 두 개 생기고, 나중 응답이 저장된 자격증명을
+                //  덮어써서 실행 중 세션과 다음 실행 로그인 계정이 어긋나는 계정 유실로 이어진다.
+                return;
+            }
+
+            SetBusy(true);
             SetError(string.Empty);
 
             try
@@ -53,12 +67,24 @@ namespace LOP.UI
                 SetError("로그인에 실패했습니다. 다시 시도해 주세요.");
                 UnityEngine.Debug.LogError(exception);
             }
+            finally
+            {
+                //  finally라 성공/실패/예외 어느 경로든 반드시 풀린다 — 여기서 안 풀리면 사용자가
+                //  다시는 로그인을 시도할 수 없다.
+                SetBusy(false);
+            }
         }
 
         private void SetError(string message)
         {
             ErrorMessage = message;
             ErrorMessageChanged?.Invoke();
+        }
+
+        private void SetBusy(bool busy)
+        {
+            IsBusy = busy;
+            IsBusyChanged?.Invoke();
         }
 
         public void Dispose()

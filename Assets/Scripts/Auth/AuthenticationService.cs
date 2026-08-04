@@ -114,7 +114,21 @@ namespace LOP
                 secret = credential.Secret,
             });
 
-            await request;
+            //  이 await가 실패 시 예외를 던지는지 여부는 어떤 GetAwaiter가 바인딩되느냐에 달려
+            //  있고, 그건 이 파일에 "using GameFramework;"가 있는지(IDE 자동 임포트만으로도
+            //  충분)로 조용히 갈린다 — 있으면 GameFramework.HttpExtensions.GetAwaiter가 더
+            //  구체적이라 이겨서 WebRequestException을 던지고, 없으면(지금 상태) UniTask의
+            //  IEnumerator 확장이 이겨서 던지지 않는다. 아래는 어느 쪽이 이기든 같은 결론(바로
+            //  다음의 request.isSuccess/responseCode 판정)에 도달하도록 예외를 흡수한다 — using
+            //  하나가 이 메서드의 동작을 조용히 바꿔서는 안 된다.
+            try
+            {
+                await request;
+            }
+            catch (GameFramework.WebRequestException)
+            {
+                // request.isSuccess == false 상태이므로 아래 판정 로직을 그대로 탄다.
+            }
 
             if (request.isSuccess)
             {
@@ -141,7 +155,16 @@ namespace LOP
         private async UniTask<AuthSession> RegisterAnonymousAsync()
         {
             var request = WebAPI.SignInAnonymous();
-            await request;
+
+            //  TryLoginAsync와 같은 이유(위 주석 참고) — 어떤 GetAwaiter가 바인딩되든 아래
+            //  request.isSuccess 판정에 도달하도록 예외를 흡수한다.
+            try
+            {
+                await request;
+            }
+            catch (GameFramework.WebRequestException)
+            {
+            }
 
             if (request.isSuccess == false)
             {

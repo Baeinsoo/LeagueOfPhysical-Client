@@ -42,9 +42,11 @@ namespace LOP
             {
                 return await authenticationService.SignInAsync(AuthProvider.Anonymous);
             }
-            catch (Exception)
+            catch (Exception exception)
             {
-                //  네트워크 실패 등 — 팝업으로 넘겨 사용자가 재시도할 수 있게 한다.
+                //  네트워크 실패 등 — 팝업으로 넘겨 사용자가 재시도할 수 있게 한다. 원인이
+                //  오프라인/서버다운/진짜 거부 중 무엇인지 콘솔에 남겨 나중에 구분할 수 있게 한다.
+                UnityEngine.Debug.LogWarning($"[Auth] 조용한 자동 로그인 실패, 로그인 팝업으로 넘어갑니다: {exception}");
                 return null;
             }
         }

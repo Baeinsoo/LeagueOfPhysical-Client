@@ -11,7 +11,7 @@ namespace LOP
         protected override void Configure(IContainerBuilder builder)
         {
             builder.Register<IEntranceComponent, LoginComponent>(Lifetime.Transient);
-            builder.Register<IEntranceComponent, CheckUserComponent>(Lifetime.Transient);
+            builder.Register<IEntranceComponent, LoadUserComponent>(Lifetime.Transient);
             builder.Register<IEntranceComponent, JoinLobbyComponent>(Lifetime.Transient);
             builder.Register<IEntranceComponent, LoadMasterDataComponent>(Lifetime.Transient);
 

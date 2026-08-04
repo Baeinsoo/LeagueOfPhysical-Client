@@ -5,6 +5,7 @@
             <ui:Button name="guest-login" text="Guest Login" class="login-button" />
             <ui:Button name="gpgs-login" text="Google Play" class="login-button" />
             <ui:Button name="gamecenter-login" text="Game Center" class="login-button" />
+            <ui:Label name="login-error" text="" class="login-error" style="display: none;" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

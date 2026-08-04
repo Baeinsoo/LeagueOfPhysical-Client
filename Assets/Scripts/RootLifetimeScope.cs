@@ -97,6 +97,10 @@ namespace LOP
             {
                 // 정적/비-DI 코드(웹 인터셉터)가 GlobalMessagePipe.GetPublisher<T>로 발행할 수 있도록 provider 설정.
                 GlobalMessagePipe.SetProvider(container.AsServiceProvider());
+
+                //  모든 REST 요청이 현재 세션 토큰을 싣도록 인터셉터에 공급자를 꽂는다.
+                var authenticationService = container.Resolve<AuthenticationService>();
+                LOPWebRequestInterceptor.SetAccessTokenProvider(() => authenticationService.AccessToken);
             });
             #endregion
         }

@@ -1,7 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-
 namespace LOP
 {
     public class User
@@ -9,11 +5,5 @@ namespace LOP
         public string id;
         public string username;
         public string email;
-
-        public User()
-        {
-            username = DeviceIdentifier.Current;
-            email = $"{username}@email";
-        }
     }
 }

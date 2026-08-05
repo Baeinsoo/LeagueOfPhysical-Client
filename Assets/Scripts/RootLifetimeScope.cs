@@ -52,6 +52,11 @@ namespace LOP
 
             builder.Register<LOP.MasterData.LOPMasterData>(Lifetime.Singleton);
 
+            //  자격증명 보관소는 프로필(인스턴스)마다 키가 달라야 해서 인스턴스로 등록한다.
+            builder.RegisterInstance<GameFramework.Auth.IAuthCredentialStore>(
+                new GameFramework.Auth.PlayerPrefsAuthCredentialStore("LOP.Auth", GameFramework.Auth.AuthProfile.Current));
+            builder.Register<AuthenticationService>(Lifetime.Singleton);
+
             builder.Register<UserDataStore>(Lifetime.Singleton)
                 .As<IUserDataStore>()
                 .As<IDataStore>()
@@ -92,6 +97,10 @@ namespace LOP
             {
                 // 정적/비-DI 코드(웹 인터셉터)가 GlobalMessagePipe.GetPublisher<T>로 발행할 수 있도록 provider 설정.
                 GlobalMessagePipe.SetProvider(container.AsServiceProvider());
+
+                //  모든 REST 요청이 현재 세션 토큰을 싣도록 인터셉터에 공급자를 꽂는다.
+                var authenticationService = container.Resolve<AuthenticationService>();
+                LOPWebRequestInterceptor.SetAccessTokenProvider(() => authenticationService.AccessToken);
             });
             #endregion
         }

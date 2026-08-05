@@ -25,3 +25,11 @@
     font-size: 18px;
     border-radius: 8px;
 }
+
+.login-error {
+    margin-top: 16px;
+    font-size: 14px;
+    color: rgb(255, 120, 120);
+    -unity-text-align: middle-center;
+    white-space: normal;
+}

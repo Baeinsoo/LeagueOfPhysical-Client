@@ -3,19 +3,20 @@
     {
       "name": "Unity NuGet",
       "url": "https://unitynuget-registry.openupm.com",
-      "scopes": ["org.nuget"]
+      "scopes": [
+        "org.nuget"
+      ]
     }
   ],
   "dependencies": {
     "com.baegames.gameframework": "file:../../GameFramework",
-    "com.baegames.lop.shared":    "file:../../LeagueOfPhysical-Shared",
     "com.baegames.lop.masterdata.client": "file:../../LeagueOfPhysical-MasterData-Client",
+    "com.baegames.lop.shared": "file:../../LeagueOfPhysical-Shared",
     "com.code-philosophy.luban": "https://github.com/focus-creative-games/luban_unity.git#v1.2.0",
-    "org.nuget.google.protobuf":  "3.28.2",
     "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
-    "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#2.5.4",
     "com.cysharp.messagepipe": "https://github.com/Cysharp/MessagePipe.git?path=src/MessagePipe.Unity/Assets/Plugins/MessagePipe",
     "com.cysharp.messagepipe.vcontainer": "https://github.com/Cysharp/MessagePipe.git?path=src/MessagePipe.Unity/Assets/Plugins/MessagePipe.VContainer",
+    "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#2.5.4",
     "com.github-glitchenzo.nugetforunity": "https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity",
     "com.neuecc.unirx": "https://github.com/neuecc/UniRx.git?path=Assets/Plugins/UniRx/Scripts",
     "com.unity.2d.sprite": "1.0.0",
@@ -25,12 +26,14 @@
     "com.unity.feature.development": "1.0.2",
     "com.unity.inputsystem": "1.19.0",
     "com.unity.multiplayer.center": "1.0.1",
+    "com.unity.multiplayer.playmode": "2.0.2",
     "com.unity.nuget.newtonsoft-json": "3.2.2",
     "com.unity.render-pipelines.universal": "17.3.0",
     "com.unity.timeline": "1.8.12",
     "com.unity.ugui": "2.0.0",
     "com.unity.visualscripting": "1.9.11",
     "jp.hadashikick.vcontainer": "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer#1.16.2",
+    "org.nuget.google.protobuf": "3.28.2",
     "com.unity.modules.accessibility": "1.0.0",
     "com.unity.modules.adaptiveperformance": "1.0.0",
     "com.unity.modules.ai": "1.0.0",

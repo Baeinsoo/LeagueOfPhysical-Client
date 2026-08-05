@@ -4,6 +4,8 @@ using UnityEngine;
 
 namespace LOP
 {
+    //  값은 백엔드 @lop/server-core의 responseCode.interface.ts와 **같아야 한다** —
+    //  같은 와이어 계약을 두 언어로 적어 둔 것이라 한쪽만 고치면 조용히 어긋난다.
     public class ResponseCode
     {
         public const int SUCCESS = 200;
@@ -14,6 +16,10 @@ namespace LOP
 
         public const int MATCH_MAKING_TICKET_NOT_EXIST = 10100;
         public const int NOT_MATCH_MAKING_STATE = 10101;
+        public const int INVALID_QUEUE = 10102;
+        public const int INVALID_GAME_MODE = 10103;
+        public const int INVALID_MAP = 10104;
+        public const int PARTY_TOO_LARGE = 10105;
         #endregion
 
         #region Match

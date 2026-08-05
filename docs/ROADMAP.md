@@ -211,7 +211,7 @@ spec `docs/superpowers/specs/2026-07-27-matchmaking-standardization-design.md`
 | ✅ | ~~**DB 통합 테스트가 하나도 없다**~~ | **해소(08-03)** — 아래 "확정·취소 경합 DB 통합 테스트" 항목 |
 | ✅ | ~~**`user-location.interface.ts` 3중 복제**~~ | **해소(08-01)** — 아래 `@lop/server-core` 항목 |
 | 🟠 | **버려진 티켓이 영원히 남는다** | 티켓을 지우는 경로는 *명시적 취소*와 *매치 확정 후 정리* 둘뿐이고, matchmaking-server에는 **스케줄러도 만료도 없다**(Redis DAO의 TTL은 캐시 전용). 큐에 선 채로 클라가 죽거나 네트워크가 끊기면 그 티켓은 계속 매칭 대상으로 남아 **유령 플레이어가 낀 매치**를 만든다. Open Match는 티켓에 TTL을 둔다 — 우리에겐 그 개념 자체가 없다. `createdAt`은 대기시간 기반 레이팅 완화에만 쓰인다 |
-| 🟡 | **MongoDB를 연결만 하고 안 쓴다** | 세 앱 모두 시작 시 `mongooseLoader.load()`로 MongoDB에 접속하지만(`✌️ mongoose loaded and connected!`), `*.dao.mongoose.ts` 5종과 `models/` 정의를 **어느 리포지토리도 참조하지 않는다**(소비처 전부 0 — 실측). Postgres 이행 후 남은 잔재로 보인다. 걷어내면 앱 3개에서 mongoose 의존 + MongoDB 파드가 통째로 빠진다. 위험 낮고 이득이 눈에 보이는 정리 |
+| ✅ | ~~**MongoDB를 연결만 하고 안 쓴다**~~ | **해소(08-05)** — 아래 "MongoDB 제거" 항목 |
 | 🟡 | **`ResponseCode` 5중 복제** | 백엔드 3앱은 공용 패키지로 합칠 수 있으나 클라·게임서버(C#)는 못 합친다(spec §12에 별도 항목) |
 | 🟡 | **로비 선택 UI** | 큐·게임·맵 선택 화면(spec §11-E). `MatchmakingViewModel` 하드코딩은 이때 사라진다 |
 | 🟠 | **유저 위치 전반 재정비 (백엔드+클라)** | 아래 별도 항목 — 사용자 지시로 추가(08-04) |
@@ -762,6 +762,30 @@ README도 *"매치 오케스트레이션 E2E는 실제 매칭 필요 — 별도"
   Library 캐시가 기존 GUID를 복원해 문제가 안 보이지만, 클린 체크아웃·CI·다른 개발자 PC는 GUID가
   새로 발급돼 `.meta` 약 78개가 흔들린다. 폴더째 지우지 말고 `*.cs`/`*.bytes`만 지우도록 고칠 것 —
   기존부터 있던 조건이라 파이프라인 위생 정리 슬라이스에서 함께 처리.
+
+---
+
+## ✅ MongoDB 제거 (2026-08-05, 배포·프루닝 완료)
+
+세 앱이 **시작할 때 접속만 하고 아무도 안 쓰던** MongoDB를 코드와 클러스터에서 통째로 걷어냈다.
+매치메이킹 표준화 트랙이 남긴 후속 항목. 백엔드 머지 `fb10048`, 인프라 머지 `f176699`.
+
+**32개 파일 / 583줄 삭제, 동작 변화 0.** 지운 것: 앱의 mongoose DAO 5 + 모델 5,
+`@lop/server-core`의 `DaoMongooseBase`·접속 설정·`/mongoose` 서브패스·로더,
+앱 로더 호출 3곳, `mongoose`/`mongodb` 의존(3앱 + 패키지), 루트 `pnpm.overrides`,
+`.env` 6개와 패키지 `config`의 `MONGODB_*`. 인프라에선 deployment·service·**PVC**.
+
+**순서가 유일한 위험이었다 — 백엔드를 먼저 배포해 의존을 끊고, 그다음 파드를 내렸다.**
+반대로 했으면 아직 접속을 시도하는 파드가 재시작할 때 깨진다. 끊긴 것을 두 가지로 확인했다:
+새 파드 기동 로그에서 `✌️ mongoose loaded and connected!` **줄이 사라진 것**과,
+런타임 도커 이미지 안에 **mongoose 흔적 0**(코드가 물리적으로 접속할 수 없는 상태).
+
+**검증:** 빌드 5/5 · 유닛 22+11+159+10 · 통합 lobby 21 + matchmaking 14 · `docker build` ·
+배포 후 에러 로그 0 · ArgoCD 프루닝 후 최종 파드 목록에 mongodb 없음.
+
+> 위 "배럴 분해" 항목이 서브패스 다섯(`/mongoose` 포함)과 `dao.mongoose.base`를 언급하는데,
+> **그건 그 시점의 기록**이다. 현재 서브패스는 넷(`/logger` `/postgres` `/redis` `/express`)이고
+> 루트 경량 가드 테스트가 기대하는 목록도 `['redis', 'express', 'winston']`로 줄었다.
 
 ---
 

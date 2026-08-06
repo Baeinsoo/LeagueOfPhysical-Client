@@ -1008,7 +1008,18 @@ select 해 티켓 조회가 전부 실패한다 — 매칭이 잠깐 죽고 대�
 `2026-08-04-anonymous-auth-session-design.md`.
 **단 아직 아무도 토큰을 검사하지 않는다 — 인증이 절반만 켜진 상태다.**
 
-**🟠 슬라이스 0 — HTTP 클라이언트 계층 표준화 (다음)**. cutover의 토큰 갱신·401 재시도를 넣을
+**✅ 슬라이스 0 — HTTP 클라이언트 계층 표준화 (2026-08-06, 3레포 머지)**.
+GameFramework `8c3661f` · 클라 `c4455f4` · 서버 `e30f2e1`. EditMode 412/0(신규 22), 양쪽 컴파일 0.
+수동 검증: 로그인→로비 ✅ / 매치 경로 HTTP 전 구간 ✅ / **오프라인 계정 보존 ✅**(백엔드 차단 후
+재기동 시 자격증명 보존, 복구 후 동일 userId 재로그인 확인 — 이 리팩터의 존재 이유).
+**미검증 이월**: 게임 씬 진입(이 머신이 kind가 아니라 docker-desktop이라 룸 UDP 포트 미공개 —
+Mirror transport는 이 브랜치가 한 줄도 안 건드림) / 서버 런타임 전반(배포 게임서버가 핀된 이미지라
+새 이미지 빌드 전엔 실행 안 됨). **첫 이미지 빌드 시 스모크 3건 필수**: 서버 런타임, `#if UNITY_EDITOR`
+의 `#else` 경로(배치 컴파일이 안 덮음), 하트비트 cadence·룸 상태 전이.
+후속: 죽은 seam 정리(`UserDataStore.HandleCreateUser`·`CreateUserResponse` 등록·고아 DTO 3종) /
+클라 브로커 5종 미등록(첫 모바일 IL2CPP 빌드 전) / `HttpJson`의 `TypeNameHandling.Auto` 결정.
+
+> (원 계획) 아래는 착수 시점 기록. cutover의 토큰 갱신·401 재시도를 넣을
 자리가 **구조적으로 없어서** 먼저 한다. `WebRequest<T>`가 생성자에서 전송하고 인터셉터가 동기라
 `await`도 재전송도 불가능. 겸사겸사 같은 자리의 결함들을 정리한다 — 연결실패와 4xx가 한 덩어리로
 뭉개진 것(**계정 유실 버그의 뿌리**), awaiter 3종이 `using GameFramework;` 유무로 갈리는 landmine,

@@ -89,7 +89,9 @@ namespace GameFramework.Tests.Threading
             UniTask<int> third = flight.RunAsync(Operation);
 
             gate.TrySetResult(42);
-            int[] results = await UniTask.WhenAll(first, second, third);
+            //  타입 인자를 명시해야 배열 오버로드로 잡힌다 — 생략하면 UniTask<int> 3개가
+            //  3-튜플 오버로드 (int,int,int)로 바인딩돼 컴파일이 깨진다.
+            int[] results = await UniTask.WhenAll<int>(first, second, third);
 
             Assert.That(executions, Is.EqualTo(1));
             Assert.That(results, Is.EqualTo(new[] { 42, 42, 42 }));

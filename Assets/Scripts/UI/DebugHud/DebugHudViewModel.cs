@@ -81,10 +81,17 @@ namespace LOP.UI
 
         // 벽시계로 추정한 서버 tick − 실제로 받은 최신 스냅의 tick. 절대값엔 편도지연이 상수로
         // 깔려 있으니 보는 건 "자라는가"다. 자라면 서버가 자기 틱을 못 따라가고 있다는 뜻.
-        public long ServerTickLag => ServerTickEstimate - snapshotArrivalStats.LatestTick;
+        // 아직 아무것도 안 받았을 때(LatestTick=-1, 리셋 직후 포함) 큰 값이 튀지 않도록 0으로.
+        public long ServerTickLag => snapshotArrivalStats.LatestTick < 0 ? 0 : ServerTickEstimate - snapshotArrivalStats.LatestTick;
 
         public double SnapIntervalAvgMs => snapshotArrivalStats.AverageInterval * 1000;
 
         public double SnapIntervalMaxMs => snapshotArrivalStats.MaxInterval * 1000;
+
+        public void ResetStats()
+        {
+            reconciliationStats.Reset();
+            snapshotArrivalStats.Reset();
+        }
     }
 }

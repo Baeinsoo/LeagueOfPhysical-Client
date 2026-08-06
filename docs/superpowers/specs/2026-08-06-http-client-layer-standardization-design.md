@@ -155,9 +155,22 @@ public class HttpRequestException : Exception
 > (`LOP.HttpResponse`는 앱 레벨 응답 베이스인데 전송 계층 같은 이름을 쓰고 있다 — 백엔드의
 > `ResponseBase`에 맞춰 리네임하는 것이 옳지만 이번 범위 밖. §12 후속 과제.)
 
-> **`BearerTokenHandler`를 GameFramework에 두는 이유.** 토큰 부착은 앱 종속이 아니고, **클라 본체엔
-> 테스트 어셈블리가 없다.** GameFramework에 두면 "토큰 있으면 붙임 / 없으면 안 붙임"을 EditMode
-> 테스트로 고정할 수 있다. 슬라이스 1의 갱신·재시도도 같은 이유로 여기에 얹는다.
+> **`BearerTokenHandler`를 GameFramework에 두는 이유 — 개념이 먼저다.**
+> `lop-repo-topology.md`의 코드 분배 결정 트리 첫 질문은 "앱 비종속 인프라인가(다른 게임에도 그대로
+> 쓸 만한가)"이고, 이 핸들러는 거기 깨끗하게 걸린다. 하는 일이 **`Authorization: Bearer <토큰>`
+> 헤더를 붙인다**가 전부이며 이는 RFC 6750이 정한 표준 동작이지 LOP가 만든 규칙이 아니다.
+> **LOP 타입을 하나도 모른다** — 생성자가 받는 것은 `Func<string>` 하나다. 모든 HTTP 클라이언트
+> 라이브러리가 이걸 기본 제공한다(.NET `AuthenticationHeaderValue`, Refit
+> `AuthenticatedHttpClientHandler`, OkHttp `Authenticator`). 선례도 있다 — `GameFramework.Auth`에
+> `Jwt`·`AccessTokenInfo`·`IAuthCredentialStore`가 이미 있다.
+> "지금은 클라만 쓴다"는 반대 근거가 아니다. 기준은 소비자 수가 아니라 앱 종속성이다.
+>
+> 부수 효과로 EditMode 테스트가 가능해진다("토큰 있으면 붙임 / 없으면 안 붙임"). 이는 배치가
+> 옳다는 **뒷받침이지 이유가 아니다** — 클라 본체에는 테스트 어셈블리가 없다.
+>
+> **슬라이스 1까지 봐도 같은 경계다.** "401이면 갱신 후 1회 재시도"와 single-flight는 앱 비종속
+> 정책(OkHttp `Authenticator`가 정확히 그것)이라 GameFramework, "갱신 = 저장된 익명 secret으로
+> `/auth/login`을 친다"는 LOP 도메인이라 델리게이트로 주입된다. **정책은 프레임워크, 내용물은 앱.**
 
 ### 삭제하는 것
 
@@ -244,9 +257,14 @@ UnityWebRequestHandler → HttpResponseMessage(문자열)
 
 ### `WebAPI`는 static으로 둔다
 
-DI 인스턴스로 바꾸지 않는다. DI의 이득은 테스트 가능성인데 클라 본체엔 테스트 어셈블리가 없다.
-**테스트가 필요한 로직은 전부 GameFramework 쪽 핸들러 체인에 있고 거기서 실제로 테스트된다.**
-22곳 생성자를 고치는 것은 지금 값을 하지 못한다 — §12 후속 과제로 기록.
+DI 인스턴스로 바꾸지 않는다. **개념적으로는 DI가 더 맞다** — 타입드 API 클라이언트를 주입되는
+서비스로 두는 것이 표준이다(Refit, .NET typed `HttpClient`). 하지만 **이번 슬라이스의 목적은 전송
+계층 재정리**이고, 22곳 호출부의 생성자·주입을 고치는 것은 그 목적과 무관한 churn이다. 한 슬라이스에
+두 종류의 변경을 섞으면 회귀가 났을 때 원인을 가릴 수 없다. **범위 때문에 미루는 것이지 옳지 않아서가
+아니다** — §12 후속 과제로 기록.
+
+(부수적으로, 지금 바꿔도 클라 본체엔 테스트 어셈블리가 없어 DI의 주 이득인 테스트 가능성이 나오지
+않는다. 테스트가 필요한 로직은 GameFramework 쪽 핸들러 체인에 있고 거기서 실제로 테스트된다.)
 
 ### 서버의 fire-and-forget 2곳
 

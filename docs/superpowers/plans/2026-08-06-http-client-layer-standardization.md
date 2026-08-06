@@ -988,8 +988,10 @@ cd /Users/insoobae/workspace/LOP/GameFramework
 git add Runtime/Scripts/Http Tests/Runtime/Http
 git commit -m "feat(http): BearerTokenHandler
 
-토큰 부착은 앱 종속이 아니라 GameFramework에 둔다 — 클라 본체엔
-테스트 어셈블리가 없어 거기 두면 검증할 방법이 없다."
+Authorization: Bearer 부착은 RFC 6750이 정한 표준 동작이고 LOP 타입을
+하나도 모른다(생성자 인자가 Func<string> 하나) — 앱 비종속 인프라라
+GameFramework에 둔다. 모든 HTTP 클라이언트 라이브러리가 기본 제공하는
+것이기도 하다."
 ```
 
 ---

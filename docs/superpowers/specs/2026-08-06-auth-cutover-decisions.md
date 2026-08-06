@@ -173,8 +173,10 @@ PlayFab이 정확히 이 모델이다(세션 티켓 + 저장된 device/custom ID
 슬라이스 0 이후 이것은 **`AuthorizationHandler` 안에서 끝난다** — 보내기 전 갱신 확인, 보냄,
 401이면 갱신 후 재전송. 핸들러 체인이 그걸 할 수 있게 만드는 것이 슬라이스 0의 목적이다.
 
-순수 로직(single-flight)은 **GameFramework에 두어 EditMode에서 테스트한다.** 클라 본체에는 테스트
-어셈블리가 없다.
+**경계는 "정책은 프레임워크, 내용물은 앱"이다.** "401이면 갱신 후 1회 재시도"와 single-flight는
+앱 비종속 정책(OkHttp `Authenticator`가 정확히 그것)이라 **GameFramework**에 둔다. "갱신 = 저장된
+익명 secret으로 `/auth/login`을 친다"는 LOP 도메인이라 델리게이트로 주입한다.
+(부수적으로 GameFramework 쪽은 EditMode 테스트가 가능하다 — 클라 본체엔 테스트 어셈블리가 없다.)
 
 **방 접속은 401이 아니라 그냥 연결 거부**라 재시도 훅이 없다. 접속 직전에 미리 갱신 확인을 태운다.
 

@@ -1,6 +1,7 @@
 using System;
 using Cysharp.Threading.Tasks;
 using GameFramework.Auth;
+using GameFramework.Http;
 using UnityEngine;
 
 namespace LOP
@@ -107,71 +108,30 @@ namespace LOP
 
         private async UniTask<AuthSession> TryLoginAsync(AuthCredential credential)
         {
-            var request = WebAPI.Login(new LoginRequest
-            {
-                provider = credential.Provider,
-                providerUserId = credential.ProviderUserId,
-                secret = credential.Secret,
-            });
-
-            //  이 await가 실패 시 예외를 던지는지 여부는 어떤 GetAwaiter가 바인딩되느냐에 달려
-            //  있고, 그건 이 파일에 "using GameFramework;"가 있는지(IDE 자동 임포트만으로도
-            //  충분)로 조용히 갈린다 — 있으면 GameFramework.HttpExtensions.GetAwaiter가 더
-            //  구체적이라 이겨서 WebRequestException을 던지고, 없으면(지금 상태) UniTask의
-            //  IEnumerator 확장이 이겨서 던지지 않는다. 아래는 어느 쪽이 이기든 같은 결론(바로
-            //  다음의 request.isSuccess/responseCode 판정)에 도달하도록 예외를 흡수한다 — using
-            //  하나가 이 메서드의 동작을 조용히 바꿔서는 안 된다.
             try
             {
-                await request;
-            }
-            catch (GameFramework.WebRequestException)
-            {
-                // request.isSuccess == false 상태이므로 아래 판정 로직을 그대로 탄다.
-            }
+                LoginResponse response = await WebAPI.Login(new LoginRequest
+                {
+                    provider = credential.Provider,
+                    providerUserId = credential.ProviderUserId,
+                    secret = credential.Secret,
+                });
 
-            if (request.isSuccess)
-            {
-                LoginResponse response = request.response;
                 return new AuthSession(
                     response.userId,
                     AccessTokenInfo.FromExpiresIn(response.accessToken, response.expiresIn, DateTimeOffset.UtcNow));
             }
-
-            //  401만 "이 자격증명은 더 이상 못 쓴다"는 확답이다 — 호출자가 거부로 취급해 계정을
-            //  새로 만들 수 있도록 null을 돌려준다.
-            if (request.responseCode == HttpStatusUnauthorized)
+            catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusUnauthorized)
             {
+                //  401만 "이 자격증명은 더 이상 못 쓴다"는 확답이다 — 호출자가 거부로 취급해
+                //  계정을 새로 만들 수 있도록 null을 돌려준다.
                 return null;
             }
-
-            //  그 외(연결 실패로 responseCode=0, 타임아웃, 400, 500, 501 등)는 서버 응답을 못
-            //  받았거나 서버가 일시적으로 이상한 것뿐이다. null을 돌려주면 호출자가 이걸 "거부"로
-            //  착각해 멀쩡한 계정을 지워버리므로, 예외로 올려 "지금은 확인 못 함"을 분명히 한다.
-            throw new Exception(
-                $"로그인 확인에 실패했습니다(재시도 가능). httpStatus: {request.responseCode}, error: {request.error}");
         }
 
         private async UniTask<AuthSession> RegisterAnonymousAsync()
         {
-            var request = WebAPI.SignInAnonymous();
-
-            //  TryLoginAsync와 같은 이유(위 주석 참고) — 어떤 GetAwaiter가 바인딩되든 아래
-            //  request.isSuccess 판정에 도달하도록 예외를 흡수한다.
-            try
-            {
-                await request;
-            }
-            catch (GameFramework.WebRequestException)
-            {
-            }
-
-            if (request.isSuccess == false)
-            {
-                throw new Exception($"익명 계정 생성에 실패했습니다. error: {request.error}");
-            }
-
-            AnonymousSignInResponse response = request.response;
+            AnonymousSignInResponse response = await WebAPI.SignInAnonymous();
 
             credentialStore.Save(new AuthCredential
             {

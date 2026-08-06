@@ -48,7 +48,7 @@ namespace LOP
 
                     consecutiveFailures = 0;
 
-                    switch (getUserLocation.response.userLocation.location)
+                    switch (getUserLocation.userLocation.location)
                     {
                         case Location.GameRoom:
                             return MatchEvent.LocationIsGameRoom;
@@ -60,7 +60,7 @@ namespace LOP
                             return MatchEvent.LocationIsNone;
                     }
                 }
-                catch (WebRequestException e)
+                catch (GameFramework.Http.HttpRequestException e)
                 {
                     //  일시 오류는 몇 번까지 넘어가고, 계속되면 초기 화면으로.
                     if (++consecutiveFailures >= MAX_CONSECUTIVE_FAILURES)

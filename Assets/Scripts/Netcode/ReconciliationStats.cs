@@ -32,5 +32,15 @@ namespace LOP
             }
             Average = _sum / _window.Count;
         }
+
+        /// <summary>실험 조건을 바꿀 때 부른다. Max는 누적이라 리셋하지 않으면 이전 조건 값이 남는다.</summary>
+        public void Reset()
+        {
+            _window.Clear();
+            _sum = 0;
+            Last = 0;
+            Max = 0;
+            Average = 0;
+        }
     }
 }

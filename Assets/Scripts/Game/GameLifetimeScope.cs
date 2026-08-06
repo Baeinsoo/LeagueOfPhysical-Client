@@ -101,6 +101,7 @@ namespace LOP
             builder.Register<ReconciliationStats>(Lifetime.Singleton);
             builder.Register(_ => new GameFramework.Netcode.RenderCorrectionSmoother(0.1f, 0.025f, 3f), Lifetime.Singleton);
             builder.Register<InputTimingStats>(Lifetime.Singleton);
+            builder.Register<GameFramework.Netcode.SnapshotArrivalStats>(Lifetime.Singleton);
             builder.Register<LeadState>(Lifetime.Singleton);
             builder.Register<GameFramework.Netcode.INetworkTime, MirrorNetworkTime>(Lifetime.Singleton);
             builder.Register(_ => new GameFramework.Netcode.SnapshotHistory(128), Lifetime.Singleton);

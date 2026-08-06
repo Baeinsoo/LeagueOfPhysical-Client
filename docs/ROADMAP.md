@@ -996,6 +996,93 @@ select 해 티켓 조회가 전부 실패한다 — 매칭이 잠깐 죽고 대�
 
 ---
 
+## ✅ Recon 러버밴딩 원인 규명 (2026-08-06) — 06-24 가설은 틀렸고, 진짜 원인을 찾았다
+
+계측기를 깔고 통제 실험을 돌려 원인을 확정한 트랙. **대응은 하지 않았다** — 별도 슬라이스다.
+spec `2026-08-06-recon-entity-load-diagnostics-design.md`, plan `2026-08-06-recon-entity-load-diagnostics.md`.
+
+### 06-24의 "엔티티가 많아서" 가설은 반증됐다
+
+같은 세션 안에서 엔티티만 2 ↔ 52로 바꿔 가며 3조건(기준선 → 부하 → 되돌리기)을 측정했다.
+Knight 고정(점프력이 곧 측정 감도), 자동 스폰 off(부하 드리프트 제거), 지연 150ms.
+
+| | 기준선(2) | 부하(52) | 되돌리기(2) |
+|---|---|---|---|
+| 클라 FPS | 59 | 57 | 60 |
+| Recon max | 0.000 | 0.000 | 0.000 |
+| Snap gap avg/max | 20.3 / 101.3 | 19.9 / **348.4** | 20.0 / 68.2 |
+| 서버 lag | −1 | **−1** | −1 |
+
+**원인 A(서버 틱 밀림)·B(클라 프레임 저하) 모두 탈락.** 부하가 실제로 움직인 유일한 값은
+`Snap gap max`(101 → 348 → 68)인데 recon으로 번지지 않았고, 되돌리기에서 제자리로 왔다.
+
+### 진짜 원인 — 입력 한 틱 누락이 만든 오차가 문턱 아래라 영원히 안 고쳐진다
+
+부하와 무관하게 **걷기에서만** 어긋난다는 사용자 관찰을 좇아 스파이크 정황 로그를 붙였고,
+28건 연속 관측으로 사슬이 확정됐다:
+
+```
+입력이 한 틱 비어 서버가 1틱 제동 → 위치 4cm 차 → 문턱(0.06) 미만 → 보정 스킵 → 영구 잔류
+```
+
+**산술이 정확히 맞는다:** 속도 차 `2.00 m/s` = `maxAcceleration × dt` (100 × 0.02),
+위치 차 `0.040 m` = `2.00 × 0.02`. 즉 서버가 정확히 한 틱 동안 입력 없이 돌았다.
+
+**영구 잔류는 관측으로 증명됐다:** `delta=(0.039, 0, -0.008)`이 45틱 동안 **완전히 고정**됐고,
+플레이어가 **가만히 서 있는 동안에도**(양쪽 속도 0) 그대로였으며, 네트워크가 정상으로
+돌아온 뒤(`prune=0 seqGap=0`)에도 사라지지 않았다. `Reconciler`는 문턱 미만 오차를
+"예측 정확"으로 보고 롤백을 건너뛰는데, **그 아래 오차를 서서히 줄이는 경로가 없다.**
+
+> **눈에 보이는 튐은 2차 효과다.** 4cm 자체는 안 보인다. 이런 사건이 쌓여 0.06을 넘는 순간
+> 스냅 보정이 걸리고 그게 러버밴딩으로 보인다(관측 중 `err=0.063` 건이 실제로 있었다).
+>
+> **더 큰 함의:** 서버는 플레이어가 보는 곳과 다른 자리에 그가 있다고 믿는다. 히트 판정·충돌·
+> 어빌리티 범위가 전부 그 어긋난 위치로 해소된다. 이동에서는 안 보여도 전투에서 드러날 수 있다.
+
+**한 틱이 빈 이유는 정황까지만 확정됐다.** 같은 창에 `prune=1 dMax=+1 seqGap=1`이 잡혔다 —
+유실이 아니라 **지각**이다. 중복 전송(`RedundancyWindow=3`)은 유실을 막지만 복구본은 1틱 늦게
+오고, 그때 여유가 `dAvg=-1.8`로 얇아져 있었다(평소 -3.0). **적응형 lead가 복구본이 쓰려던
+쿠션을 미리 깎았을 가능성**이 있다. 이 인과는 창 단위 요약이라 특정 틱과 1:1 대응은 미확정.
+
+> `netcode-redesign.md` Phase 3의 **"고손실 강건성(옵션 A = miss 시 마지막 인풋 반복) — 드롭.
+> 실환경 prune율이 유의미해지면 재개"** 조건이 충족됐다.
+
+### 대응 후보 (별도 슬라이스, 미착수)
+
+| 후보 | 성격 |
+|---|---|
+| 입력 miss 시 마지막 입력 반복 (옵션 A) | 원인 제거. 문서가 지목해 둔 경로 |
+| 문턱 미만 잔류 오차 처리 (서서히 수렴) | 지금 완전히 비어 있는 구멍. 문턱만 낮추면 롤백이 잦아짐 |
+| lead 마진 하한을 복구본 지연(1틱) 이상으로 보장 | 지각 자체를 줄임 |
+
+### 남긴 계측기 (상시)
+
+- 클라 HUD: FPS·엔티티 수·`Snap lag`·`Snap gap`·`Cushion` + **`Reset stats`** + **`Dump`**(전 값을 한 줄 로그로)
+- 클라 `[ReconSpike]` 로그 — 오차 0.02m 초과 시 예측/권위 위치·속도, 그 틱 입력, 접지,
+  입력 타이밍, `snapAge`를 함께 기록. **오차가 지속되면 매 틱 찍혀 시끄럽다**(그 반복이
+  영구 잔류를 증명한 근거이기도 하다). 임계값은 `Reconciler.SpikeLogThreshold` 상수
+- 서버 `[TickHealth]` 로그(기본 꺼짐) + `DebugEnemySpawner`(부하 즉시 생성·제거)
+- GameFramework `SnapshotArrivalStats`(EditMode 8 테스트)
+
+### 실험 프로토콜에서 배운 것 (다음에 또 쓴다)
+
+- **`Recon avg`로 판정하면 안 된다** — 1.2초 이동평균이라 자극이 끝나면 0으로 수렴한다. **`Recon max`**(리셋 이후 누적)로 읽을 것
+- **측정 전 유효성 확인 필수** — `Snap gap avg`가 20ms 근처인지, `Entities`가 서버와 같은지.
+  둘 중 하나라도 틀리면 그 측정은 버린다. 1회차에서 클라가 끊긴 줄 모르고 무효 데이터를 냈다
+- **서버 `lag`의 건강한 기준선은 0이 아니라 −1**이고, `frameMaxMs > budgetMs`는 원인의 증거가 아니다(캐치업 여유가 `8 × interval`)
+- 자극 선택이 결정적이다 — 점프는 값을 덮어쓰는 이벤트라 어긋나지 않는다. **걷기(적분)** 여야 드러난다
+
+### 부수 발견 (전부 별건, 미수정)
+
+| | |
+|---|---|
+| `EntitySpawner.FlushDespawns`가 **세션 0개일 때 NRE** | `GetAllSessions().DefaultIfEmpty()`가 null 하나를 낸다. 예외가 틱 코루틴 안에서 터져 **서버 틱이 통째로 멈춘다.** 디스폰 경로 전체(아이템·사망) 해당 |
+| 인증 거절이 **NRE로 번진다** | `LOPRoom.OnPlayerDisconnect`가 인증 통과 전 연결을 가정하지 않음. 깨끗한 거절이 예외로 보여 원인 파악을 방해했다 |
+| 클라가 **끊겨도 조용히 혼자 돌아간다** | 재접속도 알림도 없다. 서버와 완전히 분리된 채 게임이 멀쩡해 보인다 — 이번 진단에서 실제로 무효 데이터를 만들었다 |
+| **50마리 동시 스폰이 클라를 끊는다** | 10초 무통신 → KCP 타임아웃. 서버도 그 순간 `frameMaxMs=2109ms`. 10마리씩 나눠 넣으면 버틴다 |
+
+---
+
 ## ▶ 다음 (Next — 순서 있음)
 
 ### 프론트엔드 플로우 골격 (Slice A~D) — ✅ **트랙 종결(07-24)**
@@ -1099,7 +1186,7 @@ umbrella `docs/superpowers/specs/2026-07-18-entity-view-rearchitecture-umbrella-
 | **매치 종료 시 유저 위치 백엔드 정리 (Slice D 후속)** | Slice D로 클라는 매치 종료 시 로비로 복귀하지만, 로비 진입 즉시 `CheckMatch`가 `WebAPI.GetUserLocation`으로 위치를 물어 아직 "GameRoom"이면 **같은 게임에 자동 재접속**해 결과 창을 부순다. 정상 흐름은 매치 종료 시 서버가 룸을 닫아(`UpdateRoomStatus(Closed)`) 백엔드가 유저 위치를 비우는 것 — 그런데 이 호출이 서버 `LOPRoom`에서 **`if (!Standalone)` 가드로 로컬 테스트 시 스킵**된다. 플레이테스트는 임시 스캐폴드(결과 대기 중이면 자동 매칭 skip)로 확인했고 그 스캐폴드는 원복함(미머지). **재접속 루프 자체는 프로덕션에도 잠재**(서버가 룸 close→백엔드 위치 정리를 실제로 하는지 + 클라 GetUserLocation과의 레이스) → 백엔드/RoomServer 쪽과 함께 봐야 함. `[[flow-slice-d-match-result]]` | 백엔드(RoomServer/WebAPI)에서 매치 종료→유저 위치 정리 흐름을 짤 때. 또는 Slice A(앱 FSM 씬 전환 일원화)에서 씬 전환을 손볼 때 함께 |
 | ~~**외력(넉백) 처리를 공통 엔티티 루프로 이전** (부채)~~ ✅ **정산(07-13)** — 통합 World Tick Sub-slice A에서 외력 resolve를 공유 `MovementSystem.Tick`(=`world.Tick` 이동 페이즈)로 흡수, 서버 `MoveCharacters` 임시분기 제거. 입력 없는 Simulated(서버 AI)도 resolve. `Simulated` 마커가 클라 원격 문제를 자연 해소(원격은 마킹 안 돼 클라가 안 틱). `[[velocity-motor-contribution-slice]]` | — |
 | **`PhysicsFollower` 접기 (공유 팩토리화)** | `PhysicsFollower`(클·서 2벌 MonoBehaviour)는 **런타임 behavior 0**(스폰 시 rb/CapsuleCollider 셋업 + 트랜스폼 배치만), 소비자=`EntityBinder` 한 곳뿐(rb/collider 뽑아 `new UnityPhysicsBody` 후 버림), 아무도 `GetComponent<PhysicsFollower>()` 안 함 → **죽은 껍데기**. PhysicsBody 포트화로 공유 `UnityPhysicsBody`가 "Unity 물리 몸"의 집이 된 지금, 셋업을 **공유 팩토리**(예: LOP-Shared `PhysicsBodyFactory.Create(root, World.Entity, isKinematic, isTrigger) → UnityPhysicsBody`)로 접어 **2벌 삭제 + 클·서 중복 제거** 가능. 값 동치(동작 무변화). 하지만 **동작 무해라 급하지 않음** → 지금 제거 안 함(사용자 결정 07-20). 변경 규모: 클·서 `EntityBinder` 1줄씩 + 팩토리 신설 + PhysicsFollower 2개 삭제. `[[physicsbody-port-purity-deferred]]` | 근처(스폰/물리/EntityBinder) 손댈 때 기회 있으면. 또는 죽은 껍데기 정리 패스 돌 때 |
-| **Recon 엔티티-로드 러버밴딩** | 엔티티 많을 때 빈 곳 점프에도 recon 러버밴딩 관찰. 진단틀(A 서버틱밀림 vs B 클라FPS) 프로토타입 후 롤백 | 각 잡고 재개. `[[recon-entity-load-parked]]` |
+| ~~**Recon 엔티티-로드 러버밴딩**~~ ✅ **원인 규명 완료(08-06)** — 엔티티 부하 가설은 **반증**됐고(2 vs 52 차이 없음), 진짜 원인은 **입력 한 틱 누락 → 1틱 제동 → 4cm → 문턱 미만이라 영구 잔류**. 위 "Recon 러버밴딩 원인 규명" 절 참조. **대응은 미착수** | — |
 | ~~**캐릭터끼리 충돌 wedge** (몹 뭉침)~~ ✅ **결론(07-16) — "단단한 벽" 확정** | 소프트 분리(BOTW식)를 시도했다 폐기: 클라 예측(현재 틱) vs 원격 보간(과거 틱) **타임라인 불일치** 때문에 클라가 분리를 밀면 덜덜(recon 폭발) / 안 밀면 관통 → config로 "안 겹침+안 덜덜" 동시 불가(predict-all이나 통과만 가능, 범위 밖). **클·서 동일 벽 모델**(sweep에 Character 포함 + 디펜 full)로 확정 → 겹침·덜덜·recon 다 해소, 8마리 군집 정상. wedge는 실전 비문제(비스듬 접근=곡면 슬라이드). 동작상 원래와 사실상 동일 + 전용 레이어·명시 디펜·측정지식 추가. spec `2026-07-16-character-soft-separation-design`, `[[kinematic-controller-migration]]` | — |
 | **서버 뷰 NRE** (`LOPEntity.get_position`/`LOPEntityView.LateUpdate`) | 뷰 `LateUpdate`가 `worldTransform` 링크 전/해제 후 `position`을 읽는 수명 타이밍. 도메인 리로드(재시작) 시 발현. 이동 버그와 무관(07-15 확인) | 서버 뷰 수명 손댈 때 |
 | **EventSystem 2개** (additive 씬 중복) | GamePlay + Room/베이스 씬이 각각 하나씩 → "only one active EventSystem" 경고. 키보드 폴링(디바이스 직접)엔 영향 없으나 UI 이벤트 위생 이슈 | 씬 구성 정리 시(하나만 남기기) |

@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using GameFramework.Http;
+using UnityEngine;
 
 namespace LOP
 {
@@ -21,10 +22,15 @@ namespace LOP
         {
             IAccessTokenProvider provider = resolve.Invoke();
 
-            //  배선 전이면 토큰이 없다 — 헤더를 안 붙이는 것이 기존 동작이다.
-            return provider == null
-                ? UniTask.FromResult<string>(null)
-                : provider.GetAccessTokenAsync(forceRefresh, cancellationToken);
+            if (provider == null)
+            {
+                //  배선 전이면 토큰이 없다 — 헤더를 안 붙이는 것이 기존 동작이다. 이 요청은 로그인 DI가
+                //  아직 끝나기 전에 나간 것이라, 서버가 토큰을 강제하면 401로 되돌아온다(드물게 발생 예상).
+                Debug.LogWarning("[Auth] 로그인 배선이 끝나기 전에 나간 요청이라 토큰을 붙이지 못했습니다.");
+                return UniTask.FromResult<string>(null);
+            }
+
+            return provider.GetAccessTokenAsync(forceRefresh, cancellationToken);
         }
     }
 }

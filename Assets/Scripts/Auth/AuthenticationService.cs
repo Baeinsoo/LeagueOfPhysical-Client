@@ -95,6 +95,9 @@ namespace LOP
             AuthCredential stored = credentialStore.Load();
             if (stored == null)
             {
+                //  로그인된 상태인데 저장된 자격증명을 못 읽었다는 뜻이다 — 이후 갱신도 계속 이 분기를
+                //  타 조용한 무동작이 반복되고, 서버가 토큰을 검사하기 시작하면 "언젠가 로그아웃됨"으로 보인다.
+                Debug.LogWarning("[Auth] 저장된 자격증명을 읽지 못해 토큰을 갱신하지 못했습니다(다음 기회에 재시도).");
                 return AccessToken;
             }
 

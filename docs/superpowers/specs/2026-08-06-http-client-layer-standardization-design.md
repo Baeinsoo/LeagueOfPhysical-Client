@@ -73,20 +73,20 @@ HttpClient                요청 진입점. 타임아웃 보유
 | `HttpMessageHandler` | `HttpMessageHandler` | `SendAsync(request, ct)` 추상 |
 | `DelegatingHandler` | `DelegatingHandler` | 다음 핸들러를 들고 감싸는 베이스 |
 | `SocketsHttpHandler` | **`UnityWebRequestHandler`** | 체인의 끝. **가짜로 갈아끼우면 테스트 가능** |
-| `HttpRequestMessage` | `HttpRequest` | 메서드·URI·헤더·본문 |
-| `HttpResponseMessage` | `HttpResponse` | 상태코드·헤더·본문(문자열) |
+| `HttpRequestMessage` | `HttpRequestMessage` | 메서드·URI·헤더·본문 |
+| `HttpResponseMessage` | `HttpResponseMessage` | 상태코드·헤더·본문(문자열) |
 | `HttpRequestException` | `HttpRequestException` | `StatusCode`(nullable) 보유 |
 | `IHttpClientFactory` named client | 두 개의 `HttpClient` 인스턴스 | 인증 붙임/안 붙임 |
-| `EnsureSuccessStatusCode()` | `HttpResponse.EnsureSuccessStatusCode()` | 2xx 아니면 예외 |
+| `EnsureSuccessStatusCode()` | `HttpResponseMessage.EnsureSuccessStatusCode()` | 2xx 아니면 예외 |
 
 ### 역직렬화를 체인 밖에 둔다
 
-.NET이 그렇듯 **핸들러 체인은 제네릭이 아니다.** `HttpResponse`는 본문을 문자열로만 들고, `T`로
+.NET이 그렇듯 **핸들러 체인은 제네릭이 아니다.** `HttpResponseMessage`는 본문을 문자열로만 들고, `T`로
 바꾸는 일은 그 위 계층이 한다.
 
 ```
-체인 안 :  HttpRequest → HttpResponse         (상태코드 + 문자열 본문)
-체인 위 :  HttpResponse → T                    (역직렬화 + MessagePipe 발행)
+체인 안 :  HttpRequestMessage → HttpResponseMessage         (상태코드 + 문자열 본문)
+체인 위 :  HttpResponseMessage → T                    (역직렬화 + MessagePipe 발행)
 ```
 
 핸들러가 제네릭 지옥을 피하고 체인 조립이 단순해진다. MessagePipe 발행도 자연스럽게 `T`를 아는
@@ -113,7 +113,7 @@ public class HttpRequestException : Exception
 | 계층 | 동작 |
 |---|---|
 | `UnityWebRequestHandler` | 전송 실패 시 `HttpRequestException(StatusCode: null)` 을 던진다 |
-| `HttpClient.SendAsync` / 핸들러 체인 | 4xx·5xx여도 **던지지 않고 `HttpResponse`를 그대로 반환** |
+| `HttpClient.SendAsync` / 핸들러 체인 | 4xx·5xx여도 **던지지 않고 `HttpResponseMessage`를 그대로 반환** |
 | 타입드 `SendAsync<T>` | `EnsureSuccessStatusCode()` → 2xx 아니면 `HttpRequestException(StatusCode: 401 등)` |
 
 체인 안에서 던지면 **슬라이스 1의 401 재시도 핸들러가 401을 볼 수 없다.** 핸들러가 응답을 보고
@@ -137,15 +137,27 @@ public class HttpRequestException : Exception
 
 | 타입 | 내용 |
 |---|---|
-| `HttpRequest` | `Method`, `Uri`, `Headers`, `Body`(object → JSON). 정적 팩토리 `Get/Post/Put/Delete` |
-| `HttpResponse` | `StatusCode`(long), `Body`(string), `Headers`, `IsSuccessStatusCode`, `EnsureSuccessStatusCode()` |
-| `HttpMessageHandler` | 추상. `UniTask<HttpResponse> SendAsync(HttpRequest, CancellationToken)` |
+| `HttpRequestMessage` | `Method`, `Uri`, `Headers`, `Body`(object → JSON). 정적 팩토리 `Get/Post/Put/Delete` |
+| `HttpResponseMessage` | `StatusCode`(long), `Body`(string), `Headers`, `IsSuccessStatusCode`, `EnsureSuccessStatusCode()` |
+| `HttpMessageHandler` | 추상. `UniTask<HttpResponseMessage> SendAsync(HttpRequestMessage, CancellationToken)` |
 | `DelegatingHandler` | `HttpMessageHandler` 상속 + `InnerHandler` 보유 |
 | `UnityWebRequestHandler` | 체인의 끝. `UnityWebRequest` 전송. 전송 실패 시 `StatusCode: null` 예외 |
 | `HttpClient` | 체인 진입점 + `Timeout`(linked CTS로 적용) |
 | `HttpRequestException` | `long? StatusCode`, `string ResponseBody` |
-| `HttpClientJsonExtensions` | `SendAsync<T>(this HttpClient, HttpRequest, ct)` — 전송 → `EnsureSuccessStatusCode()` → 역직렬화 |
+| `HttpClientJsonExtensions` | `SendAsync<T>(this HttpClient, HttpRequestMessage, ct)` — 전송 → `EnsureSuccessStatusCode()` → 역직렬화 |
 | `HttpJson` | Newtonsoft 래퍼 (`WebRequestJson` 이름만 이동) |
+| `BearerTokenHandler` | `DelegatingHandler`. 공급자가 준 토큰이 있으면 `Authorization: Bearer` 부착 |
+
+> **왜 `HttpRequest`/`HttpResponse`가 아니라 `...Message`인가.** `LOP.HttpResponse`가 이미 있다 —
+> 클·서 양쪽에서 **모든 API 응답 DTO의 베이스 클래스**(`public class HttpResponse { public int code; }`)
+> 다. 짧은 이름을 쓰면 WebAPI 파일마다 충돌한다. .NET의 정식 이름이 애초에
+> `HttpRequestMessage`/`HttpResponseMessage`이므로 그쪽이 표준에도 더 가깝다.
+> (`LOP.HttpResponse`는 앱 레벨 응답 베이스인데 전송 계층 같은 이름을 쓰고 있다 — 백엔드의
+> `ResponseBase`에 맞춰 리네임하는 것이 옳지만 이번 범위 밖. §12 후속 과제.)
+
+> **`BearerTokenHandler`를 GameFramework에 두는 이유.** 토큰 부착은 앱 종속이 아니고, **클라 본체엔
+> 테스트 어셈블리가 없다.** GameFramework에 두면 "토큰 있으면 붙임 / 없으면 안 붙임"을 EditMode
+> 테스트로 고정할 수 있다. 슬라이스 1의 갱신·재시도도 같은 이유로 여기에 얹는다.
 
 ### 삭제하는 것
 
@@ -164,8 +176,7 @@ public class HttpRequestException : Exception
 
 | 리포 | 타입 |
 |---|---|
-| 클라 `LOP` | `AuthorizationHandler : DelegatingHandler` — 토큰이 있으면 `Authorization: Bearer` 부착 |
-| 클라 `LOP` | `WebAPI`가 보유하는 `HttpClient` 2개 + 타입드 전송 래퍼(역직렬화 후 MessagePipe 발행) |
+| 클라 `LOP` | `WebAPI`가 보유하는 `HttpClient` 2개(`BearerTokenHandler` 있음/없음) + 사설 전송 헬퍼(역직렬화 후 MessagePipe 발행) |
 | 서버 `LOP` | `WebAPI`가 보유하는 `HttpClient` 1개 (서버는 토큰을 안 붙인다) |
 | 양쪽 | 기존 `LOPWebRequestInterceptor.cs` 삭제 |
 
@@ -182,7 +193,7 @@ public static WebRequest<JoinLobbyResponse> JoinLobby(string userId)
 
 // 바뀐 후
 public static UniTask<JoinLobbyResponse> JoinLobby(string userId, CancellationToken ct = default)
-    => authorized.SendAsync<JoinLobbyResponse>(HttpRequest.Put($"{...}/lobby/join/{userId}"), ct);
+    => authorized.SendAsync<JoinLobbyResponse>(HttpRequestMessage.Put($"{...}/lobby/join/{userId}"), ct);
 ```
 
 호출부는 한 겹이 벗겨진다.
@@ -209,7 +220,7 @@ catch (HttpRequestException e)                              // 그 외(오프라
 ### 인증 붙이기 / 안 붙이기 — 클라이언트 두 개
 
 ```csharp
-authorized = new HttpClient(new AuthorizationHandler(new UnityWebRequestHandler()));
+authorized = new HttpClient(new BearerTokenHandler(new UnityWebRequestHandler(), () => accessToken));
 anonymous  = new HttpClient(new UnityWebRequestHandler());
 ```
 
@@ -225,7 +236,7 @@ anonymous  = new HttpClient(new UnityWebRequestHandler());
 `RoomJoinableResponse`를 구독해 자기 상태를 채운다. **끊기면 유저 데이터가 아예 안 들어온다.**
 
 ```
-UnityWebRequestHandler → HttpResponse(문자열)
+UnityWebRequestHandler → HttpResponseMessage(문자열)
   → 역직렬화 T
     → GlobalMessagePipe.GetPublisher<T>().Publish(dto)   ← 여기 (타입드 계층)
       → UserDataStore / RoomDataStore 구독 (기존 그대로)
@@ -335,6 +346,8 @@ GameFramework EditMode 테스트는 **별도 어셈블리라 `Assembly-CSharp`�
 ## 12. 후속 과제
 
 - **`WebAPI`를 DI 인스턴스로** — 클라 본체에 테스트 어셈블리가 생기면 값을 한다. 지금은 아니다.
+- **`LOP.HttpResponse` 리네임** — 앱 레벨 응답 베이스인데 전송 계층 같은 이름이다. 백엔드가 쓰는
+  `ResponseBase`에 맞추는 것이 옳다. 클·서 DTO 다수가 상속하므로 별도 건.
 - **재시도 정책** — 5xx·일시 장애에 지수 백오프. 실제로 겪은 뒤에 넣는다.
 - **`ResponseBase.code` 규약** — `/auth/*`가 이 규약을 안 따른다(HTTP 상태로만 판단). 규약을
   통일할지, 예외를 명문화할지는 별도 건.

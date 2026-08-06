@@ -17,8 +17,13 @@ namespace LOP
         //  잘못됐다는 근거가 아니다.
         private const long HttpStatusUnauthorized = 401;
 
+        //  401을 맞을 때마다 재로그인하면, 서버가 우리 토큰을 계속 거부하는 상황에서 재시도 루프가
+        //  그대로 로그인 폭주가 된다. 방금 받아온 참이면 다시 받아봐야 같은 결과다.
+        private static readonly TimeSpan ForcedRefreshInterval = TimeSpan.FromSeconds(30);
+
         private readonly IAuthCredentialStore credentialStore;
         private readonly SingleFlight<string> refreshFlight = new SingleFlight<string>();
+        private readonly Throttle forcedRefreshThrottle = new Throttle(ForcedRefreshInterval);
 
         public AuthSession Current { get; private set; }
         public bool IsSignedIn => Current != null;
@@ -78,8 +83,16 @@ namespace LOP
                 return null;
             }
 
-            if (forceRefresh == false &&
-                Current.Token.NeedsRefresh(DateTimeOffset.UtcNow, AccessTokenInfo.DefaultRefreshMargin) == false)
+            if (forceRefresh)
+            {
+                //  막히면 현재 토큰을 그대로 돌려준다 — 호출자가 보낸 것과 같아지므로,
+                //  BearerTokenHandler의 "토큰이 그대로면 재전송하지 않는다" 가드가 발동한다.
+                if (forcedRefreshThrottle.TryAcquire(DateTimeOffset.UtcNow) == false)
+                {
+                    return AccessToken;
+                }
+            }
+            else if (Current.Token.NeedsRefresh(DateTimeOffset.UtcNow, AccessTokenInfo.DefaultRefreshMargin) == false)
             {
                 return AccessToken;
             }

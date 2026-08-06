@@ -39,7 +39,7 @@ namespace LOP
 
             var cancelMatchmaking = await WebAPI.CancelMatchmaking(matchmakingLocationDetail.matchmakingTicketId);
 
-            switch (cancelMatchmaking.response.code)
+            switch (cancelMatchmaking.code)
             {
                 case ResponseCode.ALREADY_IN_GAME:
                     return MatchEvent.LocationIsGameRoom;

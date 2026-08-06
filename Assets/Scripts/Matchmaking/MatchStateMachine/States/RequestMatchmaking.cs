@@ -43,9 +43,9 @@ namespace LOP
 
             var requestMatchmaking = await WebAPI.RequestMatchmaking(matchmakingRequest);
 
-            if (requestMatchmaking.response.code != ResponseCode.SUCCESS)
+            if (requestMatchmaking.code != ResponseCode.SUCCESS)
             {
-                Debug.LogError($"Matchmaking request failed. Response code: {requestMatchmaking.response.code}");
+                Debug.LogError($"Matchmaking request failed. Response code: {requestMatchmaking.code}");
                 return MatchEvent.MatchRequestFailed;
             }
 

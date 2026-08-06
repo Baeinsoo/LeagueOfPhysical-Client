@@ -50,9 +50,9 @@ namespace LOP
         public async Task InitializeAsync()
         {
             var getMatch = await WebAPI.GetMatch(roomDataStore.room.matchId);
-            if (getMatch.response.code != ResponseCode.SUCCESS)
+            if (getMatch.code != ResponseCode.SUCCESS)
             {
-                throw new Exception($"GetMatch Error. code: {getMatch.response.code}");
+                throw new Exception($"GetMatch Error. code: {getMatch.code}");
             }
 
             // 초기 엔티티 생성(GameInfoToC)이 JoinRoomServer에서 처리되기 전에 게임이 준비돼야 하므로 여기서 생성한다.

@@ -17,8 +17,10 @@ namespace LOP
         //  잘못됐다는 근거가 아니다.
         private const long HttpStatusUnauthorized = 401;
 
-        //  401을 맞을 때마다 재로그인하면, 서버가 우리 토큰을 계속 거부하는 상황에서 재시도 루프가
-        //  그대로 로그인 폭주가 된다. 방금 받아온 참이면 다시 받아봐야 같은 결과다.
+        //  30초 근거: RoomConnector는 1초 간격으로 최대 60회 재시도한다 — 이 하한이 없으면 방 진입
+        //  한 번이 재로그인 최대 60회로 번진다. 30초 바닥을 두면 최악의 경우도 최대 2회로 줄어든다.
+        //  토큰 수명은 1시간, 정상 갱신은 만료 5분 전 마진에서만 도니까 30초 바닥이 그 주기를
+        //  건드리지 않는다. 정말로 무효화된 토큰이라도 30초 안에는 다시 시도해 복구된다.
         private static readonly TimeSpan ForcedRefreshInterval = TimeSpan.FromSeconds(30);
 
         private readonly IAuthCredentialStore credentialStore;
@@ -83,16 +85,8 @@ namespace LOP
                 return null;
             }
 
-            if (forceRefresh)
-            {
-                //  막히면 현재 토큰을 그대로 돌려준다 — 호출자가 보낸 것과 같아지므로,
-                //  BearerTokenHandler의 "토큰이 그대로면 재전송하지 않는다" 가드가 발동한다.
-                if (forcedRefreshThrottle.TryAcquire(DateTimeOffset.UtcNow) == false)
-                {
-                    return AccessToken;
-                }
-            }
-            else if (Current.Token.NeedsRefresh(DateTimeOffset.UtcNow, AccessTokenInfo.DefaultRefreshMargin) == false)
+            if (forceRefresh == false &&
+                Current.Token.NeedsRefresh(DateTimeOffset.UtcNow, AccessTokenInfo.DefaultRefreshMargin) == false)
             {
                 return AccessToken;
             }
@@ -100,11 +94,20 @@ namespace LOP
             //  동시에 들어온 요청들이 각자 로그인하지 않도록 한 번으로 접는다.
             //  cancellationToken을 갱신에 넘기지 않는 이유: 갱신은 여러 요청이 함께 기다리는 작업이라,
             //  한 요청이 취소됐다고 죽이면 나머지가 말려든다. 시간 상한은 로그인 호출의 HTTP 타임아웃이 준다.
-            return await refreshFlight.RunAsync(RefreshAsync);
+            //  스로틀은 SingleFlight 바깥이 아니라 안쪽(RefreshAsync)에서 본다 — 바깥에서 막으면, 이미
+            //  돌고 있는 갱신에 합류했어야 할 요청까지 옛 토큰을 받아 그냥 실패한다.
+            return await refreshFlight.RunAsync(() => RefreshAsync(forceRefresh));
         }
 
-        private async UniTask<string> RefreshAsync()
+        private async UniTask<string> RefreshAsync(bool forceRefresh)
         {
+            //  방금 강제로 갱신한 참이면 다시 받아봐야 같은 결과다. 현재 토큰을 그대로 돌려주면
+            //  호출자가 보낸 것과 같아져 BearerTokenHandler가 재전송을 접는다.
+            if (forceRefresh && forcedRefreshThrottle.TryAcquire(DateTimeOffset.UtcNow) == false)
+            {
+                return AccessToken;
+            }
+
             AuthCredential stored = credentialStore.Load();
             if (stored == null)
             {

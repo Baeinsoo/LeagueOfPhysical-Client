@@ -74,8 +74,9 @@ C를 고르면 **상한만으로는 부족하다.** 상한을 길게 잡을수�
 ```prisma
 model MatchmakingTicket {
   ...
-  createdAt   DateTime @default(now())   //  이미 있음 — 상한 판정
-  lastSeenAt  DateTime @default(now())   //  신규 — 신호 판정
+  createdAt      DateTime @default(now())   //  이미 있음 — 상한 판정
+  lastHeartbeat  DateTime @default(now())   //  신규 — 신호 판정
+                                            //  이름은 Room.lastHeartbeat 와 같게 맞춘다
 }
 ```
 
@@ -89,12 +90,12 @@ model MatchmakingTicket {
 **저장소의 모든 조회가 아니다.** Director가 매칭하려고 티켓을 읽는 것까지 신호로 치면 *자기가 읽고
 자기가 살아있다고 판단하는* 꼴이라 아무도 죽지 않는다. 신호는 **바깥에서 들어온 것**이어야 한다.
 
-조회와 갱신을 **한 쿼리**로 처리한다 — `lastSeenAt`을 갱신하면서 그 행을 돌려받고, 행이 없으면
+조회와 갱신을 **한 쿼리**로 처리한다 — `lastHeartbeat`을 갱신하면서 그 행을 돌려받고, 행이 없으면
 "없음"으로 응답한다.
 
 **이 갱신을 기존 `findMatchmakingTicketById`에 넣지 않는다.** 그 메서드는 취소 판정 등 매칭서버
 내부에서도 쓰이므로, 거기에 넣으면 "바깥에서 들어온 신호"라는 구분이 무너진다. **컨트롤러가 부르는
-전용 메서드**를 따로 두고, 그 메서드만 `lastSeenAt`을 갱신한다.
+전용 메서드**를 따로 두고, 그 메서드만 `lastHeartbeat`을 갱신한다.
 
 명명은 방(Room)의 어휘에 맞춘다 — 방이 `heartbeat` / `lastHeartbeat`을 쓰므로 같은 개념에 다른
 단어를 만들지 않는다.
@@ -194,7 +195,7 @@ infrastructure/table/Datas/#Queue.xlsx   ← ticket_ttl_seconds 열 추가 (그�
 | 무엇 | 어떻게 |
 |---|---|
 | 판정 규칙 | 순수 함수 유닛 — 신호끊김 / 상한초과 / 멀쩡 / 가드 발동 |
-| 조회가 신호를 찍는가 | 통합 — 조회 후 `lastSeenAt`이 올라간다 |
+| 조회가 신호를 찍는가 | 통합 — 조회 후 `lastHeartbeat`이 올라간다 |
 | 조용한 티켓이 지워지는가 | 통합 |
 | **방금 본 티켓은 안 지워지는가** | 통합 — **반대 방향도 봐야 진짜 테스트다** |
 | `matchId` 있는 티켓은 안 지워지는가 | 통합 |
@@ -209,7 +210,7 @@ infrastructure/table/Datas/#Queue.xlsx   ← ticket_ttl_seconds 열 추가 (그�
 | `ticket_ttl_seconds` (대기표 제한 시간, 설정값) | **AWS GameLift FlexMatch `RequestTimeoutSeconds`** — *"대기표가 처리 중으로 남을 수 있는 최대 시간"*, 유효 범위 1초~43,200초(12시간). 상용 매치메이커의 1급 파라미터 |
 | 10분 시작값 | **Open Match `assignedDeleteTimeout: 10m`** 과 같은 눈금 |
 | 60초 신호 임계값 | **Open Match `pendingReleaseTimeout: 1m`** 과 같은 눈금 + **우리 `Room.HEARTBEAT_THRESHOLD`(60초)** |
-| `lastSeenAt` + 임계값 + 주기적 청소 | **우리 `Room.lastHeartbeat` 패턴** 그대로. 새 개념을 만들지 않았다 |
+| `lastHeartbeat` + 임계값 + 주기적 청소 | **우리 `Room.lastHeartbeat` 패턴** 그대로. 새 개념을 만들지 않았다 |
 
 **의도적으로 다르게 간 것 — 유령 플레이어의 주된 방어선.** LoL·도타·오버워치는 **매치 수락 팝업**
 ("수락하시겠습니까? 10초")으로 잡는다. 큐에서 미리 거르는 게 아니라 **매치 성사 시점에** 잡는 방식이다.

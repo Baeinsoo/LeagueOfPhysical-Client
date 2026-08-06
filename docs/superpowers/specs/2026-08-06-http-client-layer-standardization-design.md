@@ -346,7 +346,7 @@ GameFramework EditMode 테스트는 **별도 어셈블리라 `Assembly-CSharp`�
 
 ## 10. 이번에 하지 않는 것
 
-- **인증 갱신·재시도** — 슬라이스 1. 이 슬라이스의 `AuthorizationHandler`는 **현행 동작 그대로**
+- **인증 갱신·재시도** — 슬라이스 1. 이 슬라이스의 `BearerTokenHandler`는 **현행 동작 그대로**
   (토큰이 있으면 붙임)만 한다. 구조 정리에 기능 변경을 섞지 않는다.
 - **`WebAPI`를 DI 인스턴스로** — §12 후속 과제
 - **재시도 정책**(지수 백오프·서킷브레이커) — 쓸 데가 없다
@@ -359,7 +359,7 @@ GameFramework EditMode 테스트는 **별도 어셈블리라 `Assembly-CSharp`�
 - 클라·서버 컴파일 에러 0 (배치모드로 직접 확인)
 - 수동 검증 시나리오 전부 통과 — 특히 **서버 꺼진 채 재기동 시 계정 보존**
 - `WebRequest<T>` 및 awaiter 3종이 코드베이스에서 사라짐 — `grep`으로 잔여 참조 0 확인
-- 슬라이스 1이 `AuthorizationHandler` 안에서 갱신·재시도를 구현할 수 있는 상태
+- 슬라이스 1이 `BearerTokenHandler` 안에서 갱신·재시도를 구현할 수 있는 상태
 
 ## 12. 후속 과제
 

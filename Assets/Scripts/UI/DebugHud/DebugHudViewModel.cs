@@ -93,5 +93,15 @@ namespace LOP.UI
             reconciliationStats.Reset();
             snapshotArrivalStats.Reset();
         }
+
+        // HUD 값이 많아 눈으로 옮겨 적기 어렵다. 한 줄로 찍어 두면 콘솔에서 그대로 가져갈 수 있다.
+        public void DumpStats()
+        {
+            Debug.Log($"[HudDump] elapsed={ElapsedTime:F1} tick={Tick} fps={Fps:F0} frameMs={FrameMs:F1}" +
+                      $" entities={EntityCount} reconMax={ReconMax:F3} reconAvg={ReconAverage:F3} reconLast={ReconLast:F3}" +
+                      $" snapLag={ServerTickLag} snapGapAvg={SnapIntervalAvgMs:F1} snapGapMax={SnapIntervalMaxMs:F1}" +
+                      $" cushion={CushionMs:F1} rtt={RttMs:F0} lead={Lead}" +
+                      $" dAvg={TimingAvgD:F1} dMax={TimingMaxD} prune={TimingPrune} seqGap={TimingSeqGap}");
+        }
     }
 }

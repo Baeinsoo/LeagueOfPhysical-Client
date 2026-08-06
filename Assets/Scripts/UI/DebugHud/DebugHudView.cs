@@ -25,6 +25,11 @@ namespace LOP.UI
         private Label _timingSeqGapText;
         private Label _snapshotCountText;
         private Label _snapshotTickText;
+        private Label _fpsText;
+        private Label _entityCountText;
+        private Label _snapLagText;
+        private Label _snapIntervalText;
+        private Label _cushionText;
 
         private IVisualElementScheduledItem _tick;
 
@@ -53,6 +58,11 @@ namespace LOP.UI
             _timingSeqGapText = Root.Q<Label>("timing-seqgap-text");
             _snapshotCountText = Root.Q<Label>("snapshot-count-text");
             _snapshotTickText = Root.Q<Label>("snapshot-tick-text");
+            _fpsText = Root.Q<Label>("fps-text");
+            _entityCountText = Root.Q<Label>("entity-count-text");
+            _snapLagText = Root.Q<Label>("snap-lag-text");
+            _snapIntervalText = Root.Q<Label>("snap-interval-text");
+            _cushionText = Root.Q<Label>("cushion-text");
 
             _tick = Root.schedule.Execute(Refresh).Every(0);
         }
@@ -78,6 +88,11 @@ namespace LOP.UI
             _timingSeqGapText.text = $"SeqGap: {_viewModel.TimingSeqGap}";
             _snapshotCountText.text = $"Snap count: {_viewModel.SnapshotCount}";
             _snapshotTickText.text = $"Snap tick: {_viewModel.SnapshotLatestTick}";
+            _fpsText.text = $"FPS: {_viewModel.Fps:F0} ({_viewModel.FrameMs:F1} ms)";
+            _entityCountText.text = $"Entities: {_viewModel.EntityCount}";
+            _snapLagText.text = $"Snap lag: {_viewModel.ServerTickLag} tick";
+            _snapIntervalText.text = $"Snap gap: {_viewModel.SnapIntervalAvgMs:F1} / {_viewModel.SnapIntervalMaxMs:F1} ms";
+            _cushionText.text = $"Cushion: {_viewModel.CushionMs:F1} ms";
         }
 
         public override void Dispose()

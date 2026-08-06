@@ -1,5 +1,6 @@
 using GameFramework;
 using GameFramework.Runner;
+using UnityEngine;
 
 namespace LOP.UI
 {
@@ -14,17 +15,26 @@ namespace LOP.UI
         private readonly ReconciliationStats reconciliationStats;
         private readonly InputTimingStats inputTimingStats;
         private readonly GameFramework.Netcode.SnapshotHistory snapshotHistory;
+        private readonly GameFramework.Netcode.SnapshotArrivalStats snapshotArrivalStats;
+        private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly RemoteInterpolationClock remoteInterpolationClock;
 
         public DebugHudViewModel(
             IRunner runner,
             ReconciliationStats reconciliationStats,
             InputTimingStats inputTimingStats,
-            GameFramework.Netcode.SnapshotHistory snapshotHistory)
+            GameFramework.Netcode.SnapshotHistory snapshotHistory,
+            GameFramework.Netcode.SnapshotArrivalStats snapshotArrivalStats,
+            GameFramework.World.EntityRegistry entityRegistry,
+            RemoteInterpolationClock remoteInterpolationClock)
         {
             this.runner = runner;
             this.reconciliationStats = reconciliationStats;
             this.inputTimingStats = inputTimingStats;
             this.snapshotHistory = snapshotHistory;
+            this.snapshotArrivalStats = snapshotArrivalStats;
+            this.entityRegistry = entityRegistry;
+            this.remoteInterpolationClock = remoteInterpolationClock;
         }
 
         // tickUpdater 체크가 결합의 핵심: Deinitialize가 tickUpdater/networkTime를 null로 만들 때
@@ -59,5 +69,22 @@ namespace LOP.UI
         public int SnapshotCount => snapshotHistory.Count;
 
         public long SnapshotLatestTick => snapshotHistory.Latest?.Tick ?? -1;
+
+        // Time.smoothDeltaTime = Unity가 평활한 프레임 간격. 한 프레임 튄 값에 숫자가 요동치지 않는다.
+        public float Fps => Time.smoothDeltaTime > 0f ? 1f / Time.smoothDeltaTime : 0f;
+
+        public float FrameMs => Time.smoothDeltaTime * 1000f;
+
+        public int EntityCount => entityRegistry.Count;
+
+        public double CushionMs => remoteInterpolationClock.Cushion * 1000;
+
+        // 벽시계로 추정한 서버 tick − 실제로 받은 최신 스냅의 tick. 절대값엔 편도지연이 상수로
+        // 깔려 있으니 보는 건 "자라는가"다. 자라면 서버가 자기 틱을 못 따라가고 있다는 뜻.
+        public long ServerTickLag => ServerTickEstimate - snapshotArrivalStats.LatestTick;
+
+        public double SnapIntervalAvgMs => snapshotArrivalStats.AverageInterval * 1000;
+
+        public double SnapIntervalMaxMs => snapshotArrivalStats.MaxInterval * 1000;
     }
 }

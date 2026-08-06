@@ -21,6 +21,7 @@ namespace LOP
         private readonly Reconciler reconciler;
         private readonly AbilityDataProvider abilityDataProvider;
         private readonly RemoteInterpolationClock remoteInterpolationClock;
+        private readonly GameFramework.Netcode.SnapshotArrivalStats snapshotArrivalStats;
 
         private readonly ISubscriber<EntitySnapsToC> snapsSubscriber;
         private readonly ISubscriber<EntitySpawnToC> spawnSubscriber;
@@ -51,6 +52,7 @@ namespace LOP
             Reconciler reconciler,
             AbilityDataProvider abilityDataProvider,
             RemoteInterpolationClock remoteInterpolationClock,
+            GameFramework.Netcode.SnapshotArrivalStats snapshotArrivalStats,
             ISubscriber<EntitySnapsToC> snapsSubscriber,
             ISubscriber<EntitySpawnToC> spawnSubscriber,
             ISubscriber<EntityDespawnToC> despawnSubscriber,
@@ -75,6 +77,7 @@ namespace LOP
             this.reconciler = reconciler;
             this.abilityDataProvider = abilityDataProvider;
             this.remoteInterpolationClock = remoteInterpolationClock;
+            this.snapshotArrivalStats = snapshotArrivalStats;
             this.snapsSubscriber = snapsSubscriber;
             this.spawnSubscriber = spawnSubscriber;
             this.despawnSubscriber = despawnSubscriber;
@@ -107,6 +110,7 @@ namespace LOP
             if (entitySnapsToC.Tick > lastRecordedArrivalTick)
             {
                 remoteInterpolationClock.RecordArrival(entitySnapsToC.Tick, UnityEngine.Time.timeAsDouble);
+                snapshotArrivalStats.Record(entitySnapsToC.Tick, UnityEngine.Time.timeAsDouble);
                 lastRecordedArrivalTick = entitySnapsToC.Tick;
             }
 

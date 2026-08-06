@@ -45,6 +45,9 @@ namespace LOP
 
         public bool HasSnapshot => hasSnapshot;
 
+        /// <summary>지금 쓰고 있는 보간 쿠션(초). 스냅 도착이 들쭉날쭉할수록 커진다 — 진단 표시용.</summary>
+        public double Cushion => initialized ? estimator.Cushion : 0;
+
         public void RecordArrival(long serverTick, double clientTime)
         {
             EnsureInitialized();

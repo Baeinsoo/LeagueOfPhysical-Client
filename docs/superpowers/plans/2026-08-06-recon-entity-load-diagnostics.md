@@ -430,7 +430,10 @@ using UnityEngine;
 
         // 벽시계로 추정한 서버 tick − 실제로 받은 최신 스냅의 tick. 절대값엔 편도지연이 상수로
         // 깔려 있으니 보는 건 "자라는가"다. 자라면 서버가 자기 틱을 못 따라가고 있다는 뜻.
-        public long ServerTickLag => ServerTickEstimate - snapshotArrivalStats.LatestTick;
+        // 스냅을 아직 못 받았으면(LatestTick=-1, 리셋 직후 포함) 0으로. 안 그러면 거대한 수가 잠깐 뜬다.
+        public long ServerTickLag => snapshotArrivalStats.LatestTick < 0
+            ? 0
+            : ServerTickEstimate - snapshotArrivalStats.LatestTick;
 
         public double SnapIntervalAvgMs => snapshotArrivalStats.AverageInterval * 1000;
 
@@ -993,8 +996,23 @@ Expected: 전부 green.
 
 | 기록 항목 | 어디서 |
 |---|---|
-| FPS · Entities · Snap lag · Snap gap avg/max · Cushion · Recon avg/max · Prune · SeqGap | 클라 HUD 스크린샷 |
-| tick · expected · lag · frameMaxMs · budgetMs · entities | 서버 `[TickHealth]` 로그 한 줄 |
+| FPS · Entities · Snap lag · Snap gap avg/max · Cushion · **Recon max**(+avg) · Prune · SeqGap | 클라 HUD 스크린샷 |
+| tick · expected · lag · frameMaxMs · budgetMs · entities | 서버 `[TickHealth]` **연속 5줄 이상**(≈10초) |
+| `[TickUpdater] catch-up capped` 경고 유무 | 서버 콘솔 |
+
+> **스크린샷 타이밍이 중요하다** — `Recon avg`는 1.2초 이동평균이라 점프가 끝나고 한참 뒤에 찍으면
+> 0으로 수렴한다. **점프 도중이나 마지막 착지 직후 1초 안에** 찍을 것. `Recon max`는 리셋 이후
+> 누적이라 타이밍에 덜 민감하지만, 두 값을 같이 남기려면 이 타이밍이 필요하다.
+>
+> **서버 로그는 한 줄이 아니라 여러 줄로 읽는다** — `lag`은 프레임 위상에 따라 `-1`/`0`을 오가고
+> `frameMaxMs`도 창마다 흔들린다. 한 줄만 옮기면 그 위상을 뽑는 셈이다. **`lag`의 최대값과 추세**로 볼 것.
+
+> ⏱ **5분 제한을 의식할 것.** 서버가 경과 5분에 매치를 자동 종료한다. 3조건(기준선 + 부하 30초 안정
+> + 되돌리기 30초 안정)이 3~5분 걸리므로, HUD의 `Elapsed`를 보며 진행하고 여유가 없으면 방을 새로
+> 만들고 시작한다. **3단계(되돌리기)가 잘리면 실험 자체가 무효**다 — 귀속 판정이 거기 걸려 있다.
+
+> ⚠️ **디스폰은 반드시 클라가 접속한 상태에서만 누른다.** 접속 세션이 0개일 때 디스폰하면 기존 버그로
+> 서버 틱 코루틴이 통째로 죽는다(아래 "알려진 버그"). 실험을 끝낼 때는 디스폰을 먼저 하고 클라를 내린다.
 
 - [ ] **Step 2: 부하 측정**
 
@@ -1019,13 +1037,32 @@ Expected: 전부 green.
 
 세 조건의 값을 표로 정리하고 아래 판정표에 대입한다.
 
-| FPS | Snap lag / Snap gap · Cushion | Recon avg | 판정 |
+**결론 열은 `Recon max`(리셋 이후 누적)로 읽는다. `avg`는 보조다.**
+
+> **⚠️ 왜 avg로 판정하면 안 되나 (최종 리뷰가 잡음).** `Recon avg`는 **최근 60샘플 ≈ 1.2초 이동평균**이다
+> (`Reconciler`가 클라 틱당 1회 기록, 50Hz). 점프 10회는 15~25초가 걸리므로 **스크린샷 시점에 창에
+> 남는 건 마지막 1.2초 — 대개 착지 후 정지 구간**이고, 세 조건 전부 `avg ≈ 0`이 나올 수 있다.
+> 그러면 표가 "재현 안 됨" 행으로 떨어져 **실제로 러버밴딩이 있어도 파킹 항목을 닫아 버린다.**
+> `Recon max`는 리셋 이후 누적이라 점프 구간을 붙잡는다.
+
+| FPS | Snap lag / Snap gap · Cushion | **Recon max** | 판정 |
 |---|---|---|---|
 | 급락 | 정상 | 증가 | **B — 클라 프레임 저하** |
-| 정상 | 증가·요동 | 증가 | **A — 서버 틱 밀림.** 확증은 서버 로그의 **`lag`이 `-1`에서 양수로 자라는 것**. ⚠️ `frameMaxMs > budgetMs`는 확증이 **아니다** — 유휴에도 그렇다(아래 참고) |
+| 정상 | 증가·요동 | 증가 | **A — 서버 틱 밀림.** 확증 = 서버 콘솔의 **`[TickUpdater] catch-up capped` 경고**(아래) |
 | 급락 | 증가·요동 | 증가 | **A+B 동시** — 서버부터 |
-| 정상 | 정상 | 증가 | **제3의 원인** — Prune·SeqGap·Snap gap max를 먼저 본다 |
+| 정상 | 정상 | 증가 | **제3의 원인** — `Prune`·`SeqGap`을 먼저 본다(`Snap gap`은 부하에서 둔감해진다, 아래) |
 | 정상 | 정상 | 정상 | **재현 안 됨** |
+
+**원인 A의 확증은 `lag > 0`이 아니라 `catch-up capped` 경고다.** `lag`은 서버 프레임이 느려지기만 해도
+(상한에 안 걸리고 정상적으로 몰아 처리해도) 양수로 자란다 — "못 따라가 영구히 밀림"과 "뭉쳐서 처리함"은
+대응 슬라이스가 다르다. 상한에 실제로 걸릴 때만 뜨는
+`[TickUpdater] catch-up capped at 8 ticks/frame (behind by N)` 경고가 깨끗한 판별자다.
+
+> **`Snap gap`은 부하에서 오히려 둔감해진다.** 스냅이 청크로 쪼개져 오는데 **한 틱의 청크 중 하나만
+> 도착해도** 최신 tick이 전진한다. 부하로 청크 수가 늘수록 "틱을 통째로 놓칠" 확률은 낮아진다.
+> 대역폭 의심은 `Prune`·`SeqGap`으로 판단할 것.
+>
+> **`Cushion`은 100.0ms에서 포화**한다(상한 = 송신간격 × 5). `100.0`이 찍히면 측정값이 아니라 천장이다.
 
 **되돌리기 판정이 우선한다:** 3단계에서 값이 기준선으로 **안 돌아오면** 원인은 엔티티가 아니라 시간 경과·세션 누적이다. 이 경우 위 표의 결론을 쓰지 말고 그 사실을 기록한다.
 

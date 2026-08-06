@@ -77,7 +77,7 @@ grep -c "error CS" /tmp/compile.log   # 0 이어야 한다
 
 | 파일 | 변경 | 태스크 |
 |---|---|---|
-| `Assets/Scripts/WebAPI/WebAPI.cs` | 전면 교체 — `UniTask<T>` 반환, 클라이언트 2개 보유 | 6 |
+| `Assets/Scripts/WebAPI/WebAPI.cs` | 전면 교체 — `UniTask<T>` 반환, 클라이언트 2개 보유, 죽은 메서드 4개 삭제 | 6 |
 | `Assets/Scripts/WebAPI/LOPWebRequestInterceptor.cs` | **삭제** | 6 |
 | `Assets/Scripts/RootLifetimeScope.cs` | 토큰 공급자 주입 대상을 `WebAPI`로 | 6 |
 | `Assets/Scripts/Auth/AuthenticationService.cs` | awaiter 흡수 코드 제거, `HttpRequestException.StatusCode`로 분기 | 6 |
@@ -87,7 +87,7 @@ grep -c "error CS" /tmp/compile.log   # 0 이어야 한다
 
 | 파일 | 변경 | 태스크 |
 |---|---|---|
-| `Assets/Scripts/WebAPI/WebAPI.cs` | 전면 교체 | 7 |
+| `Assets/Scripts/WebAPI/WebAPI.cs` | 전면 교체 — 죽은 메서드 1개 삭제 | 7 |
 | `Assets/Scripts/WebAPI/LOPWebRequestInterceptor.cs` | **삭제** | 7 |
 | `Assets/Scripts/Room/LOPRoom.cs` | 호출 5곳 (fire-and-forget 2곳은 `.Forget()`) | 7 |
 | `Assets/Scripts/Entrance/EntranceComponent/ConfigureRoomComponent.cs` | 호출 3곳 | 7 |
@@ -1105,9 +1105,11 @@ UniTask가 4xx·5xx에 던지는 예외는 여기서 삼키고 result로 다시 
 
 **Interfaces:**
 - Consumes: `GameFramework.Http.HttpClient`, `BearerTokenHandler`, `UnityWebRequestHandler`, `HttpRequestMessage`, `HttpClientJsonExtensions.SendAsync<T>`, `HttpRequestException`
-- Produces: `WebAPI.SetAccessTokenProvider(Func<string>)`; 14개 메서드가 전부 `UniTask<TResponse>` 를 반환
+- Produces: `WebAPI.SetAccessTokenProvider(Func<string>)`; 10개 메서드가 전부 `UniTask<TResponse>` 를 반환
 
 - [ ] **Step 1: `WebAPI.cs` 를 전면 교체한다**
+
+> **호출부가 없는 메서드 4개(`LeaveLobby`·`GetUserByUsername`·`CreateUser`·`GetRoom`)는 옮기지 않고 삭제한다** — 사용자 결정. 파일을 통째로 다시 쓰는 지금이 지울 적기다. `UserDataStore`가 `CreateUserResponse`를 구독하는 코드는 그대로 두어도 컴파일에 문제 없다(발행자만 사라진다). 아래 코드가 최종 형태이며, 여기 없는 메서드는 만들지 않는다.
 
 ```csharp
 using Cysharp.Threading.Tasks;
@@ -1171,9 +1173,6 @@ namespace LOP
             => SendAsync<JoinLobbyResponse>(authorized,
                 HttpRequestMessage.Put($"{EnvironmentSettings.active.lobbyBaseURL}/lobby/join/{userId}"), cancellationToken);
 
-        public static UniTask<LeaveLobbyResponse> LeaveLobby(string userId, CancellationToken cancellationToken = default)
-            => SendAsync<LeaveLobbyResponse>(authorized,
-                HttpRequestMessage.Put($"{EnvironmentSettings.active.lobbyBaseURL}/lobby/leave/{userId}"), cancellationToken);
         #endregion
 
         #region MatchmakingTicket
@@ -1195,13 +1194,7 @@ namespace LOP
             => SendAsync<GetUserResponse>(authorized,
                 HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}"), cancellationToken);
 
-        public static UniTask<GetUserResponse> GetUserByUsername(string username, CancellationToken cancellationToken = default)
-            => SendAsync<GetUserResponse>(authorized,
-                HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/username/{username}"), cancellationToken);
 
-        public static UniTask<CreateUserResponse> CreateUser(CreateUserRequest request, CancellationToken cancellationToken = default)
-            => SendAsync<CreateUserResponse>(authorized,
-                HttpRequestMessage.Post($"{EnvironmentSettings.active.lobbyBaseURL}/user", request), cancellationToken);
 
         public static UniTask<GetUserLocationResponse> GetUserLocation(string userId, CancellationToken cancellationToken = default)
             => SendAsync(authorized,
@@ -1214,9 +1207,6 @@ namespace LOP
         #endregion
 
         #region Room
-        public static UniTask<GetRoomResponse> GetRoom(string roomId, CancellationToken cancellationToken = default)
-            => SendAsync<GetRoomResponse>(authorized,
-                HttpRequestMessage.Get($"{EnvironmentSettings.active.roomBaseURL}/room/{roomId}"), cancellationToken);
 
         public static UniTask<RoomJoinableResponse> CheckRoomJoinable(string roomId, CancellationToken cancellationToken = default)
             => SendAsync<RoomJoinableResponse>(authorized,
@@ -1394,11 +1384,13 @@ GetAwaiter가 잡히느냐에 따라 401 처리가 뒤집히던 문제가 구조
 
 **Interfaces:**
 - Consumes: `GameFramework.Http.HttpClient`, `UnityWebRequestHandler`, `HttpRequestMessage`, `HttpClientJsonExtensions.SendAsync<T>`
-- Produces: 서버 `WebAPI` 5개 메서드가 `UniTask<TResponse>` 반환
+- Produces: 서버 `WebAPI` 4개 메서드가 `UniTask<TResponse>` 반환
 
 > 서버는 토큰을 붙이지 않으므로 클라이언트가 하나뿐이고 `BearerTokenHandler`가 없다.
 
 - [ ] **Step 1: `WebAPI.cs` 를 전면 교체한다**
+
+> **호출부가 없는 `NotifyStopServer`는 옮기지 않고 삭제한다** — 사용자 결정. 아래 코드가 최종 형태이며, 여기 없는 메서드는 만들지 않는다.
 
 ```csharp
 using Cysharp.Threading.Tasks;
@@ -1425,9 +1417,6 @@ namespace LOP
             => SendAsync<HttpResponse>(
                 HttpRequestMessage.Put($"{EnvironmentSettings.active.roomBaseURL}/room/heartbeat/{roomId}"), cancellationToken);
 
-        public static UniTask<string> NotifyStopServer(string roomId, CancellationToken cancellationToken = default)
-            => SendAsync<string>(
-                HttpRequestMessage.Delete($"{EnvironmentSettings.active.roomBaseURL}/room/{roomId}"), cancellationToken);
 
         public static UniTask<UpdateRoomStatusResponse> UpdateRoomStatus(UpdateRoomStatusRequest request, CancellationToken cancellationToken = default)
             => SendAsync<UpdateRoomStatusResponse>(

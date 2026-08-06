@@ -982,6 +982,32 @@ select 해 티켓 조회가 전부 실패한다 — 매칭이 잠깐 죽고 대�
 
 ## ▶ 다음 (Next — 순서 있음)
 
+### 인증 트랙 (2026-08-04~) — 익명 로그인 ✅ / cutover는 HTTP 계층 정리 뒤
+
+**✅ 익명 로그인 + 세션 토큰 (2026-08-04, 3레포 머지)** — 게스트 계정을 서버가 발급하고
+액세스 토큰(HS256, 1시간)을 내려준다. `User` 1:N `UserIdentity`(provider + providerUserId),
+자격증명은 기기에 저장해 재로그인에 쓴다(리프레시 토큰 없음 — PlayFab 모델). 백엔드
+`lop-backend@58d813e`, `GameFramework@1c8184d`(Jwt·AccessTokenInfo·자격증명 저장소, 테스트 29건),
+클라 `@efdf140`(로그인 팝업·`AuthenticationService`). spec
+`2026-08-04-anonymous-auth-session-design.md`.
+**단 아직 아무도 토큰을 검사하지 않는다 — 인증이 절반만 켜진 상태다.**
+
+**🟠 슬라이스 0 — HTTP 클라이언트 계층 표준화 (다음)**. cutover의 토큰 갱신·401 재시도를 넣을
+자리가 **구조적으로 없어서** 먼저 한다. `WebRequest<T>`가 생성자에서 전송하고 인터셉터가 동기라
+`await`도 재전송도 불가능. 겸사겸사 같은 자리의 결함들을 정리한다 — 연결실패와 4xx가 한 덩어리로
+뭉개진 것(**계정 유실 버그의 뿌리**), awaiter 3종이 `using GameFramework;` 유무로 갈리는 landmine,
+취소·타임아웃·테스트 부재. **.NET `HttpClient` + `DelegatingHandler` 구조를 1:1로 옮긴다.**
+3레포(GameFramework → 클라 → 서버), 호출부 22곳, GameFramework EditMode 테스트 9건.
+spec `2026-08-06-http-client-layer-standardization-design.md`.
+
+**⏸ 슬라이스 1 — 인증 cutover** (슬라이스 0 뒤). 결정은 전부 확정, 스펙만 남았다 —
+`2026-08-06-auth-cutover-decisions.md`. 요지: 플레이어 전용 변경 동작 3개(`로비 입장`·`매칭 요청`·
+`매칭 취소`) + 방 접속만 닫는다(조회는 내부 서비스가 같은 경로를 써서 범위 밖). 백엔드는 직접
+검증, **게임서버는 로비에 물어본다**(RFC 7662 `/auth/introspect`) — 방마다 뜨고 지는 파드에
+서명키를 뿌리지 않는다. 갱신은 5분 전 미리 + 401 재시도 + single-flight. `/auth/*` 레이트리밋
+(+`trust proxy 1` 필수). **서명키가 지금 git에 평문으로 커밋돼 이미지에 구워지고 있다** →
+k8s Secret으로 이전.
+
 ### 프론트엔드 플로우 골격 (Slice A~D) — ✅ **트랙 종결(07-24)**
 로그인 이후 화면 흐름(로비 홈 → 매칭 → 게임 → 결과)을 **3층 전환 모델**(씬=앱 FSM / 윈도우=코디네이터 / 화면 안 상태=VM)로 정리하는 트랙. spec `docs/superpowers/specs/2026-07-23-front-end-flow-skeleton-design.md`. **B·C·D·A 전부 완료·머지 — 트랙 종결.**
 

@@ -22,6 +22,7 @@
             <ui:Label name="snap-interval-text" class="debug-text" text="Snap gap: 0.0 / 0.0 ms" />
             <ui:Label name="cushion-text" class="debug-text" text="Cushion: 0.0 ms" />
             <ui:Button name="reset-button" class="debug-text" text="Reset stats" />
+            <ui:Button name="dump-button" class="debug-text" text="Dump" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

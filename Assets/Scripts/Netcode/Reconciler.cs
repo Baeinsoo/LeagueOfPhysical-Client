@@ -11,6 +11,7 @@ namespace LOP
     public class Reconciler
     {
         private const float Threshold = 0.06f;     // 이 이하 오차는 롤백 스킵(예측 정확)
+        private const float SpikeLogThreshold = 0.02f;   // [진단용 임시] 이 이상 어긋나면 정황을 로그로 남긴다
         private const long MaxReplayTicks = 128;   // 격차가 이보다 크면 텔레포트 폴백(재생 생략)
         // 렌더 보정 임계(minCorrection/teleport)는 RenderCorrectionSmoother가 소유 — 여기선 seed만 한다.
 
@@ -24,6 +25,7 @@ namespace LOP
         private readonly GameFramework.World.IWorld world;   // 재생 = 라이브와 같은 단일 진입점 world.Tick
         private readonly GameFramework.World.IMotionBridge motionBridge;
         private readonly ReconciliationStats reconciliationStats;
+        private readonly InputTimingStats inputTimingStats;   // [진단용 임시] 스파이크 순간의 입력 도착 상태
         private readonly GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
         private readonly StatusEffectSystem statusEffectSystem;
         private readonly StatusEffectDataProvider statusEffectDataProvider;
@@ -42,6 +44,7 @@ namespace LOP
             GameFramework.World.IWorld world,
             GameFramework.World.IMotionBridge motionBridge,
             ReconciliationStats reconciliationStats,
+            InputTimingStats inputTimingStats,
             GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother,
             StatusEffectSystem statusEffectSystem,
             StatusEffectDataProvider statusEffectDataProvider)
@@ -56,6 +59,7 @@ namespace LOP
             this.world = world;
             this.motionBridge = motionBridge;
             this.reconciliationStats = reconciliationStats;
+            this.inputTimingStats = inputTimingStats;
             this.renderCorrectionSmoother = renderCorrectionSmoother;
             this.statusEffectSystem = statusEffectSystem;
             this.statusEffectDataProvider = statusEffectDataProvider;
@@ -102,7 +106,34 @@ namespace LOP
             if (snapshotHistory.TryGet(anchorTick, out var predicted))
             {
                 var authoritative = snap.position.ToNumerics();
-                reconciliationStats.Record(System.Numerics.Vector3.Distance(predicted.Position, authoritative));
+                float error = System.Numerics.Vector3.Distance(predicted.Position, authoritative);
+                reconciliationStats.Record(error);
+
+                // [진단용 임시] 예측이 크게 어긋난 순간의 정황을 통째로 남긴다.
+                // 얼마나 어긋났는지(통계)만으로는 원인을 못 가른다 — 그 틱의 입력·속도·접지가 필요하다.
+                if (error > SpikeLogThreshold)
+                {
+                    string inputText = inputHistory.TryGet(anchorTick, out var spikeInput) && spikeInput != null
+                        ? $"h={spikeInput.Horizontal:F2} v={spikeInput.Vertical:F2} jump={spikeInput.Jump} ability={spikeInput.AbilityId}"
+                        : "(없음)";
+                    var delta = authoritative - predicted.Position;
+                    Debug.LogWarning(
+                        $"[ReconSpike] tick={anchorTick} cur={currentTick} err={error:F3}" +
+                        $" delta=({delta.X:F3},{delta.Y:F3},{delta.Z:F3})" +
+                        $" predPos=({predicted.Position.X:F2},{predicted.Position.Y:F2},{predicted.Position.Z:F2})" +
+                        $" srvPos=({authoritative.X:F2},{authoritative.Y:F2},{authoritative.Z:F2})" +
+                        $" predVel=({predicted.Velocity.X:F2},{predicted.Velocity.Y:F2},{predicted.Velocity.Z:F2})" +
+                        $" srvVel=({snap.velocity.x:F2},{snap.velocity.y:F2},{snap.velocity.z:F2})" +
+                        $" srvGrounded={snap.grounded} input[{inputText}]" +
+                        // 입력이 서버에 늦게 닿았는지 — d가 음수면 미리 도착(정상), 0 이상이면 아슬아슬하거나 지각.
+                        // 서버 피드백이 아직 한 번도 안 왔을 때 0을 실제 값으로 오해하지 않도록 구분해 찍는다.
+                        (inputTimingStats.HasData
+                            ? $" timing[dAvg={inputTimingStats.AvgD:F1} dMax={inputTimingStats.MaxD}" +
+                              $" prune={inputTimingStats.PruneCount} seqGap={inputTimingStats.SeqGapCount}]"
+                            : " timing[아직 서버 피드백 없음]") +
+                        // 스냅이 얼마나 뒤처져 왔는지. 이 값이 계속 커지면 서버가 밀리는 중이라 비교 자체가 무의미하다.
+                        $" snapAge={currentTick - anchorTick}");
+                }
                 bool positionClose = !GameFramework.Netcode.ReconcileGate.ShouldReconcile(predicted.Position, authoritative, Threshold);
 
                 // 위치가 가까워도 서버 상태이상 목록이 다르면 게이트를 연다: 남이 나에게 건 효과(슬로우 등)는

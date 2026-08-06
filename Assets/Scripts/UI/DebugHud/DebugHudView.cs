@@ -31,6 +31,7 @@ namespace LOP.UI
         private Label _snapIntervalText;
         private Label _cushionText;
         private Button _resetButton;
+        private Button _dumpButton;
 
         private IVisualElementScheduledItem _tick;
 
@@ -68,6 +69,9 @@ namespace LOP.UI
             _resetButton = Root.Q<Button>("reset-button");
             _resetButton.clicked += _viewModel.ResetStats;
 
+            _dumpButton = Root.Q<Button>("dump-button");
+            _dumpButton.clicked += _viewModel.DumpStats;
+
             _tick = Root.schedule.Execute(Refresh).Every(0);
         }
 
@@ -104,6 +108,10 @@ namespace LOP.UI
             if (_resetButton != null)
             {
                 _resetButton.clicked -= _viewModel.ResetStats;
+            }
+            if (_dumpButton != null)
+            {
+                _dumpButton.clicked -= _viewModel.DumpStats;
             }
             _tick?.Pause();
             base.Dispose();

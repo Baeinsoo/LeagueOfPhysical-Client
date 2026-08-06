@@ -702,3 +702,169 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - [ ] 클라 컴파일 `error CS` 0
 - [ ] 수동 검증 2건 통과
 - [ ] 양쪽 저장소 커밋이 `feature/auth-cutover-1a-token-refresh`에 있고, 다른 작업의 미추적 파일이 섞이지 않았다 (`git show --stat`으로 확인)
+
+---
+
+## Task 4: 강제 갱신 최소 간격 (최종 리뷰 후속)
+
+**Files:**
+- Create: `GameFramework/Runtime/Scripts/Threading/Throttle.cs`
+- Test: `GameFramework/Tests/Runtime/Threading/ThrottleTests.cs`
+- Modify: `LeagueOfPhysical-Client/Assets/Scripts/Auth/AuthenticationService.cs`
+
+**Interfaces:**
+- Consumes: (없음)
+- Produces: `GameFramework.Threading.Throttle` — `bool TryAcquire(DateTimeOffset now)`
+
+**배경 — `refreshed == accessToken` 가드가 못 막는 경우**
+
+가드는 갱신이 **실패**했을 때만 걸린다. 갱신은 계속 **성공**하는데 서버가 계속 401인 경우(예: 로비와
+룸 서버의 `AUTH_JWT_SECRET` 불일치)에는 매번 새 토큰이 나와 가드가 안 걸린다. `RoomConnector`가
+1초 간격 60회 재시도하며 예외를 삼키므로, 매치 진입 1회가 **재로그인 60회 + 요청 120회**가 된다.
+그것도 1b가 레이트리밋을 걸려는 그 엔드포인트에. (1a만으로는 서버가 401을 안 줘 발현하지 않지만,
+1b를 켜는 순간 무장된다.)
+
+**처방**: 방금 갱신했다면 강제 갱신 요청을 건너뛰고 **현재 토큰을 그대로** 돌려준다. 그러면 반환값이
+호출자가 보낸 것과 같아져 **기존 가드가 정상 발동**해 재전송이 멈춘다. MSAL도 반복되는 토큰 요청에
+클라이언트측 스로틀링을 건다.
+
+> 토큰 비교(Azure.Core/MSAL)는 이 문제를 못 고친다 — 그건 *다른 요청이 이미 갱신해 놨을 때* 중복을
+> 막는 장치이고(우리는 `SingleFlight`가 처리), 여기서는 매번 진짜로 새 토큰이 나오기 때문이다.
+
+- [ ] **Step 1: 실패하는 테스트 작성**
+
+`GameFramework/Tests/Runtime/Threading/ThrottleTests.cs`:
+
+```csharp
+using System;
+using GameFramework.Threading;
+using NUnit.Framework;
+
+namespace GameFramework.Tests.Threading
+{
+    public class ThrottleTests
+    {
+        private static readonly DateTimeOffset Origin = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+        [Test]
+        public void 처음에는_통과시킨다()
+        {
+            var throttle = new Throttle(TimeSpan.FromSeconds(30));
+
+            Assert.That(throttle.TryAcquire(Origin), Is.True);
+        }
+
+        [Test]
+        public void 간격_안에_다시_물으면_막는다()
+        {
+            var throttle = new Throttle(TimeSpan.FromSeconds(30));
+            throttle.TryAcquire(Origin);
+
+            Assert.That(throttle.TryAcquire(Origin.AddSeconds(29)), Is.False);
+        }
+
+        [Test]
+        public void 간격이_지나면_다시_통과시킨다()
+        {
+            var throttle = new Throttle(TimeSpan.FromSeconds(30));
+            throttle.TryAcquire(Origin);
+
+            Assert.That(throttle.TryAcquire(Origin.AddSeconds(30)), Is.True);
+        }
+
+        [Test]
+        public void 막힌_호출은_시각을_밀지_않는다()
+        {
+            //  막을 때마다 시각이 밀리면, 1초 간격으로 두드리는 재시도 루프가 창을 영원히 연장해
+            //  정상 복구까지 막아버린다.
+            var throttle = new Throttle(TimeSpan.FromSeconds(30));
+            throttle.TryAcquire(Origin);
+            throttle.TryAcquire(Origin.AddSeconds(20));
+
+            Assert.That(throttle.TryAcquire(Origin.AddSeconds(30)), Is.True);
+        }
+    }
+}
+```
+
+- [ ] **Step 2: 실패 확인** — `Throttle` 타입 없음(`CS0246`).
+
+- [ ] **Step 3: 구현**
+
+`GameFramework/Runtime/Scripts/Threading/Throttle.cs`:
+
+```csharp
+using System;
+
+namespace GameFramework.Threading
+{
+    /// <summary>정해진 간격 안에 다시 물으면 막는다. 실패가 반복될 때 같은 요청을 계속
+    /// 내보내는 것을 방지한다.</summary>
+    /// <remarks>시각을 인자로 받는다 — 테스트가 시간을 앞당길 수 있어야 하고, 게임 클럭과
+    /// 무관하게 실제 경과 시간으로 판단해야 하기 때문.</remarks>
+    public class Throttle
+    {
+        private readonly TimeSpan interval;
+
+        private DateTimeOffset? lastAcquiredAt;
+
+        public Throttle(TimeSpan interval)
+        {
+            this.interval = interval;
+        }
+
+        public bool TryAcquire(DateTimeOffset now)
+        {
+            if (lastAcquiredAt.HasValue && now - lastAcquiredAt.Value < interval)
+            {
+                return false;
+            }
+
+            //  통과한 호출만 시각을 갱신한다 — 막힌 호출까지 밀면 창이 무한히 연장된다.
+            lastAcquiredAt = now;
+            return true;
+        }
+    }
+}
+```
+
+- [ ] **Step 4: 통과 확인** — EditMode **426 통과 / 0 실패** (422 + 4).
+
+- [ ] **Step 5: `AuthenticationService`에 적용**
+
+using에 `GameFramework.Threading`은 이미 있다. 필드와 상수를 추가한다:
+
+```csharp
+        //  401을 맞을 때마다 재로그인하면, 서버가 우리 토큰을 계속 거부하는 상황에서 재시도 루프가
+        //  그대로 로그인 폭주가 된다. 방금 받아온 참이면 다시 받아봐야 같은 결과다.
+        private static readonly TimeSpan ForcedRefreshInterval = TimeSpan.FromSeconds(30);
+
+        private readonly Throttle forcedRefreshThrottle = new Throttle(ForcedRefreshInterval);
+```
+
+`GetAccessTokenAsync`의 판단부를 아래로 교체한다:
+
+```csharp
+            if (forceRefresh)
+            {
+                //  막히면 현재 토큰을 그대로 돌려준다 — 호출자가 보낸 것과 같아지므로,
+                //  BearerTokenHandler의 "토큰이 그대로면 재전송하지 않는다" 가드가 발동한다.
+                if (forcedRefreshThrottle.TryAcquire(DateTimeOffset.UtcNow) == false)
+                {
+                    return AccessToken;
+                }
+            }
+            else if (Current.Token.NeedsRefresh(DateTimeOffset.UtcNow, AccessTokenInfo.DefaultRefreshMargin) == false)
+            {
+                return AccessToken;
+            }
+
+            return await refreshFlight.RunAsync(RefreshAsync);
+```
+
+> 미리 갱신(`forceRefresh == false`) 경로는 스로틀을 지나지 않는다. 그쪽은 만료 5분 전에만 도는
+> 자연스러운 주기라 폭주하지 않고, 막으면 정상 갱신이 지연된다.
+
+- [ ] **Step 6: 컴파일 + 테스트** — `error CS` 0, EditMode 426 통과.
+
+- [ ] **Step 7: 커밋** (두 저장소 각각, 경로 명시)

@@ -1,4 +1,5 @@
 using GameFramework;
+using GameFramework.Http;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using System.Collections;
@@ -33,7 +34,7 @@ namespace LOP
             }
             catch
             {
-                return WebRequestJson.DeserializeObject<GetUserLocationResponse>(json);
+                return HttpJson.DeserializeObject<GetUserLocationResponse>(json);
             }
         }
     }

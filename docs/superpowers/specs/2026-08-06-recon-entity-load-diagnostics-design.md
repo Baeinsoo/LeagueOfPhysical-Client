@@ -63,14 +63,20 @@ recon 갭 ≈ 타이밍 오차 × 그 순간의 속도
 | **FPS / 프레임 ms** | 원인 B의 직접 증거 | `Time.smoothDeltaTime` | 신규 (getter) |
 | **엔티티 수** | 실험 조건 그 자체 | `EntityRegistry.Count` | 신규 (주입 + getter) |
 | **원격 보간 쿠션** | 스냅 도착이 얼마나 들쭉날쭉한가 | `InterpolationDelayEstimator.Cushion` | **이미 계산 중** — 노출만 |
-| **서버틱 지연** | 서버가 벽시계 대비 밀렸나 = 원인 A | `ServerTickEstimate − 최신 내 캐릭 스냅 tick` | 신규 |
-| **스냅 도착 간격 avg/max** | 송신 케이던스 건강도 | 내 캐릭 스냅 수신 시각 | 신규 |
+| **서버틱 지연** | 서버가 벽시계 대비 밀렸나 = 원인 A | `ServerTickEstimate − 최신 수신 스냅 tick` | 신규 |
+| **스냅 도착 간격 avg/max** | 송신 케이던스 건강도 | 스냅 배치 수신 시각 | 신규 |
 | Recon last/avg/max · Lead · RTT · 입력타이밍(d·prune·seqGap) · 스냅샷 수 | 판정의 대조군 | 기존 | 있음 |
 
-**측정 원천을 내 캐릭 스냅(`UserEntitySnapToC`)으로 고정한다.** 원격 스냅(`EntitySnapsToC`)은
-엔티티가 없으면 아예 안 오고, 있으면 MTU 서브셋 청킹으로 한 틱에 여러 개가 온다. 반면 내 캐릭
-스냅은 **틱당 하나씩 reliable로 항상** 온다 — 기준선(엔티티 최소) 조건에서도 값이 살아 있어야
-비교가 성립한다.
+**측정 원천 = `EntitySnapsToC.Tick`, 기록 지점 = 기존 틱당-1회 dedupe 자리.**
+
+- `UserEntitySnapToC`는 **tick 필드가 없다**(HP·MP·레벨·스탯만). 여기서 tick을 얻으려면 proto에
+  필드를 새로 박아야 하는데, 그건 5절에서 기각한 경로다.
+- `EntitySnapsToC`는 **내 캐릭터를 포함한 전 엔티티**를 담는다(내 것은 `reconciler.AddServerSnap`으로
+  분기). 따라서 적이 0마리인 기준선 조건에서도 내 캐릭터 때문에 **매 틱 도착한다** — 원래 우려했던
+  "엔티티가 없으면 값이 죽는다"는 성립하지 않는다.
+- MTU 서브셋 청킹으로 한 틱에 여러 메시지가 오는 문제는 이미 해결돼 있다.
+  `GameEntityMessageHandler`가 `entitySnapsToC.Tick > lastRecordedArrivalTick` 가드로 **틱당 1회만**
+  기록해 보간 시계를 먹인다. 우리 통계도 **같은 가드 안**에 넣는다.
 
 ## 5. 구조 — 어디에 무엇이 사는가
 
@@ -87,7 +93,7 @@ recon 갭 ≈ 타이밍 오차 × 그 순간의 속도
 
 | 파일 | 변경 |
 |---|---|
-| `GameEntityMessageHandler` | 내 캐릭 스냅 수신부에서 `SnapshotArrivalStats.Record(tick, now)` 호출 |
+| `GameEntityMessageHandler` | 스냅 배치 수신부의 **기존 틱당-1회 dedupe 블록 안**에서 `SnapshotArrivalStats.Record(tick, now)` 호출 (보간 시계 기록 바로 옆) |
 | `DebugHudViewModel` | FPS · 엔티티수 · 쿠션 · 서버틱지연 · 도착간격 getter 추가 (+ `EntityRegistry`·`SnapshotArrivalStats`·`RemoteInterpolationClock` 주입) |
 | `RemoteInterpolationClock` | 쿠션 읽기 프로퍼티 노출 (내부 estimator 값) |
 | `DebugHud.uxml` / `DebugHudView` | 줄 추가 + **[리셋] 버튼** |
@@ -167,7 +173,7 @@ recon 갭 ≈ 타이밍 오차 × 그 순간의 속도
 
 | | 위험 | 대응 |
 |---|---|---|
-| 1 | **서버 MonoBehaviour의 DI 경로.** 07-24에 서버 DebugHud가 부모 Room 스코프에 있어 자식 Game 스코프의 `IRunner`를 못 보는 문제가 있었고 GameObject를 씬 이동시켜 해결했다. 두 신규 컴포넌트도 같은 것(runner·tickUpdater·entityRegistry·EntitySpawner)이 필요하다 | 이미 해결된 자리(같은 GameObject)를 재사용한다. 주입 경로는 계획 단계에서 실제로 확인 |
+| 1 | ~~**서버 MonoBehaviour의 DI 경로**~~ — **확인 완료(계획 단계).** 서버 `DebugHudHost`가 `[SceneInjectMonoBehaviour]` + `[Inject]` 필드 주입으로 이미 게임 스코프의 `IRunner`를 받고 있다. 신규 두 컴포넌트도 같은 GameObject·같은 방식이면 그대로 성립 | 위험 해소. 같은 속성·같은 GameObject를 쓴다 |
 | 2 | 스폰 50마리가 서버·클라 어느 쪽도 흔들지 못해 **아무 신호도 안 나올 수 있다** | 마릿수를 인자로 받게 해 100·200까지 올려 본다. 상한(현재 100)도 디버그 스폰에는 적용하지 않는다 |
 | 3 | 지표가 전부 정상인데 **육안으로는 튄다**고 느껴질 수 있다 | 그 자체가 결과다 — "제3의 원인"으로 분류하고 렌더 보정(`RenderCorrectionSmoother`) 쪽을 다음 후보로 남긴다 |
 | 4 | 서버 씬 변경(컴포넌트 추가)이 커밋에 포함된다 | 서버 `LOPGame.unity` 변경은 의도된 것으로 커밋. 로컬 픽스처(`GameRuleSystem` 스폰 수 등)와 섞이지 않게 분리 |

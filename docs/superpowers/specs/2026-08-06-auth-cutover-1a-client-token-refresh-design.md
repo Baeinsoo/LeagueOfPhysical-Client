@@ -40,7 +40,7 @@
 | GameFramework | `Runtime/Scripts/Http/BearerTokenHandler.cs` | 수정 |
 | GameFramework | `Runtime/Scripts/Threading/SingleFlight.cs` | 신규 (폴더째 신규) |
 | GameFramework | `Tests/Runtime/Http/BearerTokenHandlerTests.cs` | 수정 |
-| GameFramework | `Tests/Runtime/Http/FakeHttpMessageHandler.cs` | 수정 (호출 카운터) |
+| GameFramework | `Tests/Runtime/Http/FakeAccessTokenProvider.cs` | 신규 |
 | GameFramework | `Tests/Runtime/Threading/SingleFlightTests.cs` | 신규 |
 | 클라 | `Assets/Scripts/Auth/AuthenticationService.cs` | 수정 |
 | 클라 | `Assets/Scripts/Auth/DeferredAccessTokenProvider.cs` | 신규 |
@@ -260,8 +260,12 @@ GameFramework EditMode에 **10건 추가**. 기준선: GameFramework 어셈블�
 | 재전송도 401이면 그대로 반환한다 | 안쪽 호출이 정확히 2회 (3회 아님) |
 | 보내기 전 공급자를 forceRefresh=false로 부른다 | 미리 갱신 경로 |
 
-기존 테스트(헤더 부착/미부착, 매 요청마다 공급자 호출)는 공급자 타입 변경에 맞춰 갱신한다.
-`FakeHttpMessageHandler`에 **호출 횟수 카운터**가 없으면 추가한다 — 위 테스트 절반이 그걸로 판정한다.
+기존 테스트 2건(헤더 부착/미부착)은 공급자 타입 변경에 맞춰 갱신한다.
+
+`FakeHttpMessageHandler`는 **손대지 않는다** — 이미 있는 `Requests` 리스트로 호출 횟수를 센다. 다만
+재전송 검증은 그것만으로 안 된다: 재전송은 **같은 `HttpRequestMessage` 인스턴스**를 다시 보내므로
+`Requests[0]`과 `Requests[1]`이 같은 객체이고 헤더도 최종값 하나만 보인다. 따라서 **보낼 때의 헤더 값을
+그 자리에서 기록**하는 방식으로 검증한다(테스트의 `onSend` 람다 안에서).
 
 **`SingleFlightTests`** (신규)
 

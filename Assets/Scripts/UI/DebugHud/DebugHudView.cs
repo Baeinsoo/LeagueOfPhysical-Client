@@ -89,7 +89,7 @@ namespace LOP.UI
             _rttText.text = $"RTT: {_viewModel.RttMs:F0} ms";
             _reconLastText.text = $"Recon last: {_viewModel.ReconLast:F2} m";
             _reconAvgText.text = $"Recon avg: {_viewModel.ReconAverage:F2} m";
-            _reconMaxText.text = $"Recon max: {_viewModel.ReconMax:F2} m";
+            _reconMaxText.text = $"Recon max: {_viewModel.ReconMax:F2} m (corr {_viewModel.CorrectionCount})";
             _timingAvgDText.text = $"d avg: {_viewModel.TimingAvgD:F1}";
             _timingMaxDText.text = $"d max: {_viewModel.TimingMaxD}";
             _timingPruneText.text = $"Prune: {_viewModel.TimingPrune}";

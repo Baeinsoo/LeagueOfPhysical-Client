@@ -16,6 +16,9 @@ namespace LOP
         public float Max { get; private set; }
         public float Average { get; private set; }
 
+        /// <summary>서버 권위로 되돌린(롤백+재생) 횟수. 문턱을 낮출 때 늘어나는 비용을 재려고 센다.</summary>
+        public int CorrectionCount { get; private set; }
+
         public void Record(float distance)
         {
             Last = distance;
@@ -33,6 +36,11 @@ namespace LOP
             Average = _sum / _window.Count;
         }
 
+        public void RecordCorrection()
+        {
+            CorrectionCount++;
+        }
+
         /// <summary>실험 조건을 바꿀 때 부른다. Max는 누적이라 리셋하지 않으면 이전 조건 값이 남는다.</summary>
         public void Reset()
         {
@@ -41,6 +49,7 @@ namespace LOP
             Last = 0;
             Max = 0;
             Average = 0;
+            CorrectionCount = 0;
         }
     }
 }

@@ -10,7 +10,11 @@ namespace LOP
     /// </summary>
     public class Reconciler
     {
-        private const float Threshold = 0.06f;     // 이 이하 오차는 롤백 스킵(예측 정확)
+        // 이 이하 오차는 롤백 스킵. 문턱은 "스냅이냐 점진이냐"가 아니라 "고치느냐 마느냐"를 가르므로
+        // 그 아래는 영원히 안 고쳐진다 — 잡음을 거를 만큼만 작게 잡는다.
+        // 6cm였을 때, 입력 한 틱 누락이 만든 4cm 오차가 정지 중에도 45틱 넘게 그대로 남는 것이 관측됐다.
+        // 클·서가 같은 코드를 돌아 정상 구간 오차는 정확히 0이므로 거를 잡음 자체가 거의 없다.
+        private const float Threshold = 0.01f;
         private const float SpikeLogThreshold = 0.02f;   // [진단용 임시] 이 이상 어긋나면 정황을 로그로 남긴다
         private const long MaxReplayTicks = 128;   // 격차가 이보다 크면 텔레포트 폴백(재생 생략)
         // 렌더 보정 임계(minCorrection/teleport)는 RenderCorrectionSmoother가 소유 — 여기선 seed만 한다.
@@ -155,6 +159,9 @@ namespace LOP
                     return;
                 }
             }
+
+            // 게이트를 통과했다 = 실제로 되돌린다. 여기서 세야 "스킵"과 "보정"이 정확히 갈린다.
+            reconciliationStats.RecordCorrection();
 
             // 하드 복원: 내 캐릭을 서버 스냅(anchorTick) 상태로. World에 쓴 포즈를 MotionBridge가 rb에 밀고,
             // PhysX가 새 포즈를 보도록 수동 SyncTransforms(autoSyncTransforms=false).

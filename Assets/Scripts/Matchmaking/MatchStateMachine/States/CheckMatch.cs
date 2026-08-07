@@ -42,12 +42,12 @@ namespace LOP
             {
                 var getUserLocation = await WebAPI.GetUserLocation(userDataStore.user.id);
 
-                if (getUserLocation.response.code == ResponseCode.SUCCESS)
+                if (getUserLocation.code == ResponseCode.SUCCESS)
                 {
-                    return ToEvent(getUserLocation.response.userLocation.location);
+                    return ToEvent(getUserLocation.userLocation.location);
                 }
 
-                Debug.LogError($"Failed to retrieve user information. code: {getUserLocation.response.code} (attempt {attempt}/{MAX_ATTEMPTS})");
+                Debug.LogError($"Failed to retrieve user information. code: {getUserLocation.code} (attempt {attempt}/{MAX_ATTEMPTS})");
                 await UniTask.Delay(RetryInterval, cancellationToken: ct);
             }
 

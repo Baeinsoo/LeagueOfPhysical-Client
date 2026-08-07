@@ -1,156 +1,103 @@
-using GameFramework;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+using Cysharp.Threading.Tasks;
+using GameFramework.Http;
+using MessagePipe;
+using System;
+using System.Threading;
 
 namespace LOP
 {
     public class WebAPI
     {
+        //  static이라 DI가 안 된다 — RootLifetimeScope가 기동 시 공급자를 꽂아 준다.
+        private static IAccessTokenProvider accessTokenProvider;
+
+        //  인증을 붙이는 클라이언트와 절대 안 붙이는 클라이언트를 따로 둔다. 어느 쪽을 쓸지는
+        //  호출부가 스스로 고른다 — URL 문자열로 판단하면 경로 접두사가 바뀔 때 조용히 깨진다
+        //  (실제로 /lobby 접두사 때문에 죽은 검사가 된 적이 있다).
+        private static readonly HttpClient authorized =
+            new HttpClient(new BearerTokenHandler(new UnityWebRequestHandler(),
+                new DeferredAccessTokenProvider(() => accessTokenProvider)));
+
+        private static readonly HttpClient anonymous = new HttpClient(new UnityWebRequestHandler());
+
+        public static void SetAccessTokenProvider(IAccessTokenProvider provider)
+        {
+            accessTokenProvider = provider;
+        }
+
+        //  응답을 역직렬화한 뒤 전역 발행까지 한다 — UserDataStore/RoomDataStore가 이걸 구독해
+        //  자기 상태를 채운다. 이 발행이 끊기면 유저 데이터가 아예 안 들어온다.
+        private static async UniTask<T> SendAsync<T>(HttpClient client, HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            T response = await client.SendAsync<T>(request, cancellationToken);
+            GlobalMessagePipe.GetPublisher<T>().Publish(response);
+            return response;
+        }
+
+        private static async UniTask<T> SendAsync<T>(HttpClient client, HttpRequestMessage request, Func<string, T> deserialize, CancellationToken cancellationToken)
+        {
+            T response = await client.SendAsync(request, deserialize, cancellationToken);
+            GlobalMessagePipe.GetPublisher<T>().Publish(response);
+            return response;
+        }
+
         #region Auth
-        // /auth 응답은 code 필드가 없어 ResponseBase 규약을 안 따름 — 성공 여부는 HTTP 상태 코드(isSuccess)로 판단
-
-        //  이 두 호출은 반드시 NoAuth를 쓴다 — 로그인/가입 자체에 Bearer를 실으면, 갱신이 밀린
+        //  이 두 호출은 반드시 anonymous를 쓴다 — 로그인/가입 자체에 Bearer를 실으면, 갱신이 밀린
         //  상태에서 만료 임박/구 토큰이 얹혀 나가 서버가 401을 줄 수 있다. 그 401을
-        //  AuthenticationService가 "자격증명이 거부됐다"로 오판하면 멀쩡한 계정을 지우고
-        //  새로 가입해버린다(계정 유실). 자세한 이유는 LOPWebRequestInterceptor.NoAuth 참고.
-        public static WebRequest<AnonymousSignInResponse> SignInAnonymous()
-        {
-            return new WebRequestBuilder<AnonymousSignInResponse>()
-                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/auth/anonymous")
-                .SetMethod(HttpMethod.POST)
-                .SetWebRequestInterceptor(LOPWebRequestInterceptor.NoAuth)
-                .Build();
-        }
+        //  AuthenticationService가 "자격증명이 거부됐다"로 오판하면 멀쩡한 계정을 지우고 새로
+        //  가입해버린다(계정 유실).
+        public static UniTask<AnonymousSignInResponse> SignInAnonymous(CancellationToken cancellationToken = default)
+            => SendAsync<AnonymousSignInResponse>(anonymous,
+                HttpRequestMessage.Post($"{EnvironmentSettings.active.lobbyBaseURL}/auth/anonymous"), cancellationToken);
 
-        public static WebRequest<LoginResponse> Login(LoginRequest request)
-        {
-            return new WebRequestBuilder<LoginResponse>()
-                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/auth/login")
-                .SetMethod(HttpMethod.POST)
-                .SetRequestBody(request)
-                .SetWebRequestInterceptor(LOPWebRequestInterceptor.NoAuth)
-                .Build();
-        }
+        public static UniTask<LoginResponse> Login(LoginRequest request, CancellationToken cancellationToken = default)
+            => SendAsync<LoginResponse>(anonymous,
+                HttpRequestMessage.Post($"{EnvironmentSettings.active.lobbyBaseURL}/auth/login", request), cancellationToken);
         #endregion
 
         #region Lobby
-        public static WebRequest<JoinLobbyResponse> JoinLobby(string userId)
-        {
-            return new WebRequestBuilder<JoinLobbyResponse>()
-                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/lobby/join/{userId}")
-                .SetMethod(HttpMethod.PUT)
-                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
-                .Build();
-        }
+        public static UniTask<JoinLobbyResponse> JoinLobby(string userId, CancellationToken cancellationToken = default)
+            => SendAsync<JoinLobbyResponse>(authorized,
+                HttpRequestMessage.Put($"{EnvironmentSettings.active.lobbyBaseURL}/lobby/join/{userId}"), cancellationToken);
 
-        public static WebRequest<LeaveLobbyResponse> LeaveLobby(string userId)
-        {
-            return new WebRequestBuilder<LeaveLobbyResponse>()
-                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/lobby/leave/{userId}")
-                .SetMethod(HttpMethod.PUT)
-                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
-                .Build();
-        }
         #endregion
 
         #region MatchmakingTicket
-        public static WebRequest<MatchmakingResponse> RequestMatchmaking(MatchmakingRequest request)
-        {
-            return new WebRequestBuilder<MatchmakingResponse>()
-                .SetUri($"{EnvironmentSettings.active.matchmakingBaseURL}/matchmaking")
-                .SetMethod(HttpMethod.POST)
-                .SetRequestBody(request)
-                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
-                .Build();
-        }
+        public static UniTask<MatchmakingResponse> RequestMatchmaking(MatchmakingRequest request, CancellationToken cancellationToken = default)
+            => SendAsync<MatchmakingResponse>(authorized,
+                HttpRequestMessage.Post($"{EnvironmentSettings.active.matchmakingBaseURL}/matchmaking", request), cancellationToken);
 
-        public static WebRequest<CancelMatchmakingResponse> CancelMatchmaking(string ticketId)
-        {
-            return new WebRequestBuilder<CancelMatchmakingResponse>()
-                .SetUri($"{EnvironmentSettings.active.matchmakingBaseURL}/matchmaking/{ticketId}")
-                .SetMethod(HttpMethod.DELETE)
-                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
-                .Build();
-        }
+        public static UniTask<CancelMatchmakingResponse> CancelMatchmaking(string ticketId, CancellationToken cancellationToken = default)
+            => SendAsync<CancelMatchmakingResponse>(authorized,
+                HttpRequestMessage.Delete($"{EnvironmentSettings.active.matchmakingBaseURL}/matchmaking/{ticketId}"), cancellationToken);
 
-        public static WebRequest<GetMatchResponse> GetMatch(string matchId)
-        {
-            return new WebRequestBuilder<GetMatchResponse>()
-                .SetUri($"{EnvironmentSettings.active.matchmakingBaseURL}/match/{matchId}")
-                .SetMethod(HttpMethod.GET)
-                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
-                .Build();
-        }
+        public static UniTask<GetMatchResponse> GetMatch(string matchId, CancellationToken cancellationToken = default)
+            => SendAsync<GetMatchResponse>(authorized,
+                HttpRequestMessage.Get($"{EnvironmentSettings.active.matchmakingBaseURL}/match/{matchId}"), cancellationToken);
         #endregion
 
         #region User
-        public static WebRequest<GetUserResponse> GetUser(string userId)
-        {
-            return new WebRequestBuilder<GetUserResponse>()
-                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}")
-                .SetMethod(HttpMethod.GET)
-                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
-                .Build();
-        }
+        public static UniTask<GetUserResponse> GetUser(string userId, CancellationToken cancellationToken = default)
+            => SendAsync<GetUserResponse>(authorized,
+                HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}"), cancellationToken);
 
-        public static WebRequest<GetUserResponse> GetUserByUsername(string username)
-        {
-            return new WebRequestBuilder<GetUserResponse>()
-                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user/username/{username}")
-                .SetMethod(HttpMethod.GET)
-                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
-                .Build();
-        }
 
-        public static WebRequest<CreateUserResponse> CreateUser(CreateUserRequest request)
-        {
-            return new WebRequestBuilder<CreateUserResponse>()
-                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user")
-                .SetMethod(HttpMethod.POST)
-                .SetRequestBody(request)
-                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
-                .Build();
-        }
 
-        public static WebRequest<GetUserLocationResponse> GetUserLocation(string userId)
-        {
-            return new WebRequestBuilder<GetUserLocationResponse>()
-                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/location/")
-                .SetMethod(HttpMethod.GET)
-                .SetDeserialize(GetUserLocationResponse.Deserialize)
-                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
-                .Build();
-        }
+        public static UniTask<GetUserLocationResponse> GetUserLocation(string userId, CancellationToken cancellationToken = default)
+            => SendAsync(authorized,
+                HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/location/"),
+                GetUserLocationResponse.Deserialize, cancellationToken);
 
-        public static WebRequest<GetUserStatsResponse> GetUserStats(string userId, int queueId)
-        {
-            return new WebRequestBuilder<GetUserStatsResponse>()
-                .SetUri($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/stats?queueId={queueId}")
-                .SetMethod(HttpMethod.GET)
-                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
-                .Build();
-        }
+        public static UniTask<GetUserStatsResponse> GetUserStats(string userId, int queueId, CancellationToken cancellationToken = default)
+            => SendAsync<GetUserStatsResponse>(authorized,
+                HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/stats?queueId={queueId}"), cancellationToken);
         #endregion
 
         #region Room
-        public static WebRequest<GetRoomResponse> GetRoom(string roomId)
-        {
-            return new WebRequestBuilder<GetRoomResponse>()
-                .SetUri($"{EnvironmentSettings.active.roomBaseURL}/room/{roomId}")
-                .SetMethod(HttpMethod.GET)
-                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
-                .Build();
-        }
 
-        public static WebRequest<RoomJoinableResponse> CheckRoomJoinable(string roomId)
-        {
-            return new WebRequestBuilder<RoomJoinableResponse>()
-                .SetUri($"{EnvironmentSettings.active.roomBaseURL}/room/{roomId}/joinable")
-                .SetMethod(HttpMethod.GET)
-                .SetWebRequestInterceptor(LOPWebRequestInterceptor.Default)
-                .Build();
-        }
+        public static UniTask<RoomJoinableResponse> CheckRoomJoinable(string roomId, CancellationToken cancellationToken = default)
+            => SendAsync<RoomJoinableResponse>(authorized,
+                HttpRequestMessage.Get($"{EnvironmentSettings.active.roomBaseURL}/room/{roomId}/joinable"), cancellationToken);
         #endregion
     }
 }

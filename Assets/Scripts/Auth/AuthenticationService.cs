@@ -1,20 +1,31 @@
 using System;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using GameFramework.Auth;
+using GameFramework.Http;
+using GameFramework.Threading;
 using UnityEngine;
 
 namespace LOP
 {
     /// <summary>익명 계정 로그인과 세션 보관. 저장된 자격증명이 있으면 그것으로 로그인하고,
     /// 없으면 새 익명 계정을 만든다.</summary>
-    public class AuthenticationService
+    public class AuthenticationService : IAccessTokenProvider
     {
         //  서버가 자격증명을 "거부"했다고 확신할 수 있는 유일한 HTTP 상태. 그 외(연결 실패·타임아웃·
         //  400·500·501 등)는 서버에 물어보지 못했거나 서버가 일시적으로 이상한 것뿐이라, 계정이
         //  잘못됐다는 근거가 아니다.
         private const long HttpStatusUnauthorized = 401;
 
+        //  30초 근거: RoomConnector는 1초 간격으로 최대 60회 재시도한다 — 이 하한이 없으면 방 진입
+        //  한 번이 재로그인 최대 60회로 번진다. 30초 바닥을 두면 최악의 경우도 최대 2회로 줄어든다.
+        //  토큰 수명은 1시간, 정상 갱신은 만료 5분 전 마진에서만 도니까 30초 바닥이 그 주기를
+        //  건드리지 않는다. 정말로 무효화된 토큰이라도 30초 안에는 다시 시도해 복구된다.
+        private static readonly TimeSpan ForcedRefreshInterval = TimeSpan.FromSeconds(30);
+
         private readonly IAuthCredentialStore credentialStore;
+        private readonly SingleFlight<string> refreshFlight = new SingleFlight<string>();
+        private readonly Throttle forcedRefreshThrottle = new Throttle(ForcedRefreshInterval);
 
         public AuthSession Current { get; private set; }
         public bool IsSignedIn => Current != null;
@@ -65,113 +76,91 @@ namespace LOP
             Current = null;
         }
 
-        /// <summary>만료가 임박했으면 저장된 자격증명으로 다시 로그인해 토큰을 갈아끼운다.</summary>
-        public async UniTask RefreshIfNeededAsync()
+        /// <summary>요청에 실을 토큰을 준다. 만료가 임박했거나 강제 갱신이면 저장된 자격증명으로 다시
+        /// 로그인해 갈아끼운다.</summary>
+        public async UniTask<string> GetAccessTokenAsync(bool forceRefresh, CancellationToken cancellationToken)
         {
             if (IsSignedIn == false)
             {
-                return;
+                return null;
             }
 
-            if (Current.Token.NeedsRefresh(DateTimeOffset.UtcNow, AccessTokenInfo.DefaultRefreshMargin) == false)
+            if (forceRefresh == false &&
+                Current.Token.NeedsRefresh(DateTimeOffset.UtcNow, AccessTokenInfo.DefaultRefreshMargin) == false)
             {
-                return;
+                return AccessToken;
+            }
+
+            //  동시에 들어온 요청들이 각자 로그인하지 않도록 한 번으로 접는다.
+            //  cancellationToken을 갱신에 넘기지 않는 이유: 갱신은 여러 요청이 함께 기다리는 작업이라,
+            //  한 요청이 취소됐다고 죽이면 나머지가 말려든다. 시간 상한은 로그인 호출의 HTTP 타임아웃이 준다.
+            //  스로틀은 SingleFlight 바깥이 아니라 안쪽(RefreshAsync)에서 본다 — 바깥에서 막으면, 이미
+            //  돌고 있는 갱신에 합류했어야 할 요청까지 옛 토큰을 받아 그냥 실패한다.
+            return await refreshFlight.RunAsync(() => RefreshAsync(forceRefresh));
+        }
+
+        private async UniTask<string> RefreshAsync(bool forceRefresh)
+        {
+            //  방금 강제로 갱신한 참이면 다시 받아봐야 같은 결과다. 현재 토큰을 그대로 돌려주면
+            //  호출자가 보낸 것과 같아져 BearerTokenHandler가 재전송을 접는다.
+            if (forceRefresh && forcedRefreshThrottle.TryAcquire(DateTimeOffset.UtcNow) == false)
+            {
+                return AccessToken;
             }
 
             AuthCredential stored = credentialStore.Load();
             if (stored == null)
             {
-                return;
+                //  로그인된 상태인데 저장된 자격증명을 못 읽었다는 뜻이다 — 이후 갱신도 계속 이 분기를
+                //  타 조용한 무동작이 반복되고, 서버가 토큰을 검사하기 시작하면 "언젠가 로그아웃됨"으로 보인다.
+                Debug.LogWarning("[Auth] 저장된 자격증명을 읽지 못해 토큰을 갱신하지 못했습니다(다음 기회에 재시도).");
+                return AccessToken;
             }
 
-            AuthSession refreshed;
             try
             {
-                refreshed = await TryLoginAsync(stored);
+                AuthSession refreshed = await TryLoginAsync(stored);
+                if (refreshed != null)
+                {
+                    Current = refreshed;
+                }
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
-                //  TryLoginAsync와 같은 기준(401만 거부)을 그대로 쓴다 — 여기선 거부든 일시
-                //  실패든 아무것도 건드리지 않고 조용히 넘어간다. 갱신이 실패해도 지금 가진
-                //  토큰이 당장 만료된 건 아니라서, 다음 요청이 실제로 401을 맞으면 그때
-                //  SignInAsync 경로로 다시 로그인하면 된다. 계정을 여기서 지우지 않는다.
-                Debug.LogWarning($"[Auth] 토큰 갱신 확인에 실패했습니다(다음 기회에 재시도): {ex.Message}");
-                return;
+                //  갱신 실패는 자격증명이 죽었다는 뜻이 아니다(오프라인일 수도 있다). 계정을 건드리지 않고
+                //  지금 토큰을 그대로 돌려준다 — 부르는 쪽은 토큰이 안 바뀐 것을 보고 재시도를 접는다.
+                Debug.LogWarning($"[Auth] 토큰 갱신에 실패했습니다(다음 기회에 재시도): {exception.Message}");
             }
 
-            if (refreshed != null)
-            {
-                Current = refreshed;
-            }
+            return AccessToken;
         }
 
         private async UniTask<AuthSession> TryLoginAsync(AuthCredential credential)
         {
-            var request = WebAPI.Login(new LoginRequest
-            {
-                provider = credential.Provider,
-                providerUserId = credential.ProviderUserId,
-                secret = credential.Secret,
-            });
-
-            //  이 await가 실패 시 예외를 던지는지 여부는 어떤 GetAwaiter가 바인딩되느냐에 달려
-            //  있고, 그건 이 파일에 "using GameFramework;"가 있는지(IDE 자동 임포트만으로도
-            //  충분)로 조용히 갈린다 — 있으면 GameFramework.HttpExtensions.GetAwaiter가 더
-            //  구체적이라 이겨서 WebRequestException을 던지고, 없으면(지금 상태) UniTask의
-            //  IEnumerator 확장이 이겨서 던지지 않는다. 아래는 어느 쪽이 이기든 같은 결론(바로
-            //  다음의 request.isSuccess/responseCode 판정)에 도달하도록 예외를 흡수한다 — using
-            //  하나가 이 메서드의 동작을 조용히 바꿔서는 안 된다.
             try
             {
-                await request;
-            }
-            catch (GameFramework.WebRequestException)
-            {
-                // request.isSuccess == false 상태이므로 아래 판정 로직을 그대로 탄다.
-            }
+                LoginResponse response = await WebAPI.Login(new LoginRequest
+                {
+                    provider = credential.Provider,
+                    providerUserId = credential.ProviderUserId,
+                    secret = credential.Secret,
+                });
 
-            if (request.isSuccess)
-            {
-                LoginResponse response = request.response;
                 return new AuthSession(
                     response.userId,
                     AccessTokenInfo.FromExpiresIn(response.accessToken, response.expiresIn, DateTimeOffset.UtcNow));
             }
-
-            //  401만 "이 자격증명은 더 이상 못 쓴다"는 확답이다 — 호출자가 거부로 취급해 계정을
-            //  새로 만들 수 있도록 null을 돌려준다.
-            if (request.responseCode == HttpStatusUnauthorized)
+            catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusUnauthorized)
             {
+                //  401만 "이 자격증명은 더 이상 못 쓴다"는 확답이다 — 호출자가 거부로 취급해
+                //  계정을 새로 만들 수 있도록 null을 돌려준다.
                 return null;
             }
-
-            //  그 외(연결 실패로 responseCode=0, 타임아웃, 400, 500, 501 등)는 서버 응답을 못
-            //  받았거나 서버가 일시적으로 이상한 것뿐이다. null을 돌려주면 호출자가 이걸 "거부"로
-            //  착각해 멀쩡한 계정을 지워버리므로, 예외로 올려 "지금은 확인 못 함"을 분명히 한다.
-            throw new Exception(
-                $"로그인 확인에 실패했습니다(재시도 가능). httpStatus: {request.responseCode}, error: {request.error}");
         }
 
         private async UniTask<AuthSession> RegisterAnonymousAsync()
         {
-            var request = WebAPI.SignInAnonymous();
-
-            //  TryLoginAsync와 같은 이유(위 주석 참고) — 어떤 GetAwaiter가 바인딩되든 아래
-            //  request.isSuccess 판정에 도달하도록 예외를 흡수한다.
-            try
-            {
-                await request;
-            }
-            catch (GameFramework.WebRequestException)
-            {
-            }
-
-            if (request.isSuccess == false)
-            {
-                throw new Exception($"익명 계정 생성에 실패했습니다. error: {request.error}");
-            }
-
-            AnonymousSignInResponse response = request.response;
+            AnonymousSignInResponse response = await WebAPI.SignInAnonymous();
 
             credentialStore.Save(new AuthCredential
             {

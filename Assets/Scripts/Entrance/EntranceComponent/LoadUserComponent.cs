@@ -18,9 +18,9 @@ namespace LOP
             string userId = userDataStore.user.id;
 
             var getUser = await WebAPI.GetUser(userId);
-            if (getUser.response.code != ResponseCode.SUCCESS)
+            if (getUser.code != ResponseCode.SUCCESS)
             {
-                throw new System.Exception($"유저 정보를 가져오는데 실패했습니다. code: {getUser.response.code}");
+                throw new System.Exception($"유저 정보를 가져오는데 실패했습니다. code: {getUser.code}");
             }
 
             await WebAPI.GetUserLocation(userId);

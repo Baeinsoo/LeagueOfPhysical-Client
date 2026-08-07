@@ -1153,6 +1153,77 @@ plan `2026-08-07-reconcile-threshold-residual-error.md`. 클라 단독.
 
 ## ▶ 다음 (Next — 순서 있음)
 
+### 인증 트랙 (2026-08-04~) — 익명 로그인 ✅ / cutover는 HTTP 계층 정리 뒤
+
+**✅ 익명 로그인 + 세션 토큰 (2026-08-04, 3레포 머지)** — 게스트 계정을 서버가 발급하고
+액세스 토큰(HS256, 1시간)을 내려준다. `User` 1:N `UserIdentity`(provider + providerUserId),
+자격증명은 기기에 저장해 재로그인에 쓴다(리프레시 토큰 없음 — PlayFab 모델). 백엔드
+`lop-backend@58d813e`, `GameFramework@1c8184d`(Jwt·AccessTokenInfo·자격증명 저장소, 테스트 29건),
+클라 `@efdf140`(로그인 팝업·`AuthenticationService`). spec
+`2026-08-04-anonymous-auth-session-design.md`.
+**단 아직 아무도 토큰을 검사하지 않는다 — 인증이 절반만 켜진 상태다.**
+
+**✅ 슬라이스 0 — HTTP 클라이언트 계층 표준화 (2026-08-06, 3레포 머지)**.
+GameFramework `8c3661f` · 클라 `c4455f4` · 서버 `e30f2e1`. EditMode 412/0(신규 22), 양쪽 컴파일 0.
+수동 검증: 로그인→로비 ✅ / 매치 경로 HTTP 전 구간 ✅ / **오프라인 계정 보존 ✅**(백엔드 차단 후
+재기동 시 자격증명 보존, 복구 후 동일 userId 재로그인 확인 — 이 리팩터의 존재 이유).
+**미검증 이월**: 게임 씬 진입(이 머신이 kind가 아니라 docker-desktop이라 룸 UDP 포트 미공개 —
+Mirror transport는 이 브랜치가 한 줄도 안 건드림) / 서버 런타임 전반(배포 게임서버가 핀된 이미지라
+새 이미지 빌드 전엔 실행 안 됨). **첫 이미지 빌드 시 스모크 3건 필수**: 서버 런타임, `#if UNITY_EDITOR`
+의 `#else` 경로(배치 컴파일이 안 덮음), 하트비트 cadence·룸 상태 전이.
+후속: 죽은 seam 정리(`UserDataStore.HandleCreateUser`·`CreateUserResponse` 등록·고아 DTO 3종) /
+클라 브로커 5종 미등록(첫 모바일 IL2CPP 빌드 전) / `HttpJson`의 `TypeNameHandling.Auto` 결정.
+
+> (원 계획) 아래는 착수 시점 기록. cutover의 토큰 갱신·401 재시도를 넣을
+자리가 **구조적으로 없어서** 먼저 한다. `WebRequest<T>`가 생성자에서 전송하고 인터셉터가 동기라
+`await`도 재전송도 불가능. 겸사겸사 같은 자리의 결함들을 정리한다 — 연결실패와 4xx가 한 덩어리로
+뭉개진 것(**계정 유실 버그의 뿌리**), awaiter 3종이 `using GameFramework;` 유무로 갈리는 landmine,
+취소·타임아웃·테스트 부재. **.NET `HttpClient` + `DelegatingHandler` 구조를 1:1로 옮긴다.**
+3레포(GameFramework → 클라 → 서버), 호출부 22곳, GameFramework EditMode 테스트 9건.
+spec `2026-08-06-http-client-layer-standardization-design.md`.
+
+**슬라이스 1은 1a/1b/1c로 쪼갰다.** 갱신(1a)이 강제(1b)보다 먼저다 — 검사를 켜는 순간 1시간 넘는
+세션이 전부 깨지기 때문. 결정 원본은 `2026-08-06-auth-cutover-decisions.md`(§8에 1a 구현에서
+확정된 1b/1c 요구사항 추가).
+
+**✅ 1a — 클라 토큰 갱신 (2026-08-06, 2레포 머지)**. GameFramework `4ea47f1` · 클라 `4a186d9`.
+EditMode 426/0(신규 14). `IAccessTokenProvider` 포트 + `BearerTokenHandler`의 미리 갱신·401 재시도
+1회·"토큰 그대로면 재전송 안 함" 가드 + `SingleFlight`(동시 갱신 접기) + `Throttle`(강제 갱신 최소
+간격 30초). 갱신은 원래 **호출자가 0곳인 죽은 코드**였다.
+수동 검증: 회귀 없음 ✅ / 실서버 갱신 13회 전부 200에 뒤따르는 요청도 전부 200, userId 동일 ✅.
+**미검증 이월**: 401 재시도 경로(서버가 아직 401을 안 줌) → **1b 배포 시 필수 확인**.
+spec `2026-08-06-auth-cutover-1a-client-token-refresh-design.md`.
+
+**✅ 1b — 서버 강제 + 인프라 (2026-08-07, 3레포 머지)**. infrastructure `cd71127` · lop-backend `22be359`
+· 클라 `44f7fdc`. 빌드 5/5, 로비 10단위/36통합, 매칭 168단위/22통합.
+`로비 입장`·`매칭 요청`(본문 `userId` 제거→토큰 신원)·`매칭 취소`(대기표 주인 대조 403)를 닫았고,
+`/auth/*` 레이트리밋(anonymous 30 / login 200, 엔드포인트별 분리) + `trust proxy 1` + 서명키를
+k8s Secret으로 옮겼다. spec `2026-08-07-auth-cutover-1b-server-enforcement-design.md`.
+
+**최종 리뷰가 Critical을 잡았다 — 대표 주장이 거짓이었다.** `DELETE /user/:id`가 **인증 없이** 열려
+있었고, `GET /user/all`이 전체 계정 목록을 주므로 userId를 알 필요도 없었다. 지워진 유저는 재실행 시
+로그인이 401 → 클라가 자격증명을 지우고 새로 가입 = **전 플레이어 영구 계정 유실**. 호출자 0곳인
+`DELETE /user/:id`·`POST /user`·`PUT /user/profile`을 `PUT /lobby/leave/:id`와 함께 삭제해 닫았다.
+
+**교훈(원장 박제): 코드를 지우는 작업은 테스트 통과로 컴파일이 보장되지 않는다.** 삭제된 DTO를
+import하는 파일이 남아 `lobby-server`가 컴파일 안 됐는데 4개 스위트가 전부 통과했다 — 아무도 그
+파일을 import하지 않아 ts-jest가 타입 검사를 건너뛰기 때문. CI는 테스트보다 **먼저** `turbo run build`를
+돌린다. 검증 명령 맨 앞에 빌드를 넣을 것.
+
+**🔴 배포가 아직 안 됐다.** 클러스터는 CI가 빌드한 핀된 이미지를 돌고 `backend-deploy`는
+**`workflow_dispatch`(수동)** 다. 남은 순서: **GitHub Actions에서 `backend-deploy` 수동 실행 →
+ArgoCD 동기화 → 클라를 이 브랜치 빌드로 실행 → 수동 검증 4건**(스펙 §10). 그 검증에 **1a에서 못 밟은
+401 재시도 경로**가 포함된다.
+
+후속(스펙 §13): `GET /user/all` 삭제(**받아들인 조회 라우트가 아니라 아직 안 지운 고아** — 호출자 0곳) /
+내부 전용 변경 라우트 차단(`PUT /user/location` 등) / 레이트리밋 키를 계정 단위로 / 커밋된 `.env`에서
+키 완전 제거 + `.dockerignore` / 죽은 UserProfile 배관 정리 / 통합 테스트 앱 조립을 `main.ts`와 공유.
+
+**⏸ 1c — 방 접속 인증**. **게임서버는 로비에 물어본다**(RFC 7662 `POST /auth/introspect`) — 방마다
+뜨고 지는 파드에 서명키를 뿌리지 않는다. `CustomProperties.token` → `accessToken` 리네임,
+`GameFramework.Auth.Jwt` 삭제(사용처 소멸). **제약**: `OnClientAuthenticate()`는 동기 Mirror 콜백이라
+`await`할 수 없다 → `StartClient()` **이전에** 갱신을 끝내고 토큰을 넘겨야 한다(decisions §8).
+
 ### 프론트엔드 플로우 골격 (Slice A~D) — ✅ **트랙 종결(07-24)**
 로그인 이후 화면 흐름(로비 홈 → 매칭 → 게임 → 결과)을 **3층 전환 모델**(씬=앱 FSM / 윈도우=코디네이터 / 화면 안 상태=VM)로 정리하는 트랙. spec `docs/superpowers/specs/2026-07-23-front-end-flow-skeleton-design.md`. **B·C·D·A 전부 완료·머지 — 트랙 종결.**
 

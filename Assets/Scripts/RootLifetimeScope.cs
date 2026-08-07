@@ -15,7 +15,7 @@ namespace LOP
             // RegisterMessageBroker<T>로 명시 등록한다(IL2CPP open-generic 미지원 대비).
             var options = builder.RegisterMessagePipe();
 
-            // WebResponse — 정적 인터셉터(LOPWebRequestInterceptor)가 GlobalMessagePipe로 발행하므로 SetProvider 필요.
+            // WebResponse — 정적 코드(WebAPI)가 GlobalMessagePipe로 발행하므로 SetProvider 필요.
             builder.RegisterMessageBroker<CreateUserResponse>(options);
             builder.RegisterMessageBroker<GetUserResponse>(options);
             builder.RegisterMessageBroker<GetUserLocationResponse>(options);
@@ -95,12 +95,11 @@ namespace LOP
             #region RegisterBuildCallback
             builder.RegisterBuildCallback(container =>
             {
-                // 정적/비-DI 코드(웹 인터셉터)가 GlobalMessagePipe.GetPublisher<T>로 발행할 수 있도록 provider 설정.
+                // 정적/비-DI 코드(WebAPI)가 GlobalMessagePipe.GetPublisher<T>로 발행할 수 있도록 provider 설정.
                 GlobalMessagePipe.SetProvider(container.AsServiceProvider());
 
-                //  모든 REST 요청이 현재 세션 토큰을 싣도록 인터셉터에 공급자를 꽂는다.
-                var authenticationService = container.Resolve<AuthenticationService>();
-                LOPWebRequestInterceptor.SetAccessTokenProvider(() => authenticationService.AccessToken);
+                //  모든 REST 요청이 현재 세션 토큰을 싣도록 WebAPI에 공급자를 꽂는다.
+                WebAPI.SetAccessTokenProvider(container.Resolve<AuthenticationService>());
             });
             #endregion
         }

@@ -33,7 +33,7 @@ namespace LOP
                 {
                     var checkRoomJoinable = await WebAPI.CheckRoomJoinable(roomId);
 
-                    if (checkRoomJoinable.response.code == ResponseCode.SUCCESS)
+                    if (checkRoomJoinable.code == ResponseCode.SUCCESS)
                     {
                         return true;
                     }

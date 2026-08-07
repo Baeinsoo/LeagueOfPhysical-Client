@@ -22,12 +22,12 @@ namespace LOP
             {
                 var joinLobby = await WebAPI.JoinLobby(userDataStore.user.id);
 
-                if (joinLobby.response.code != ResponseCode.SUCCESS)
+                if (joinLobby.code != ResponseCode.SUCCESS)
                 {
-                    throw new Exception($"로비 접속에 실패하였습니다. JoinLobbyResponse code: {joinLobby.response.code}");
+                    throw new Exception($"로비 접속에 실패하였습니다. JoinLobbyResponse code: {joinLobby.code}");
                 }
             }
-            catch (WebRequestException e)
+            catch (GameFramework.Http.HttpRequestException e)
             {
                 Debug.LogError(e);
             }

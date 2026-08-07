@@ -149,6 +149,21 @@ Expected: **에러 0.** 타임아웃이 나면 인스턴스 목록을 다시 읽
 
 이 수치가 Task 3의 비교 대상이다. **반드시 기록하고 넘어간다.**
 
+**측정 결과 (2026-08-07, 문턱 6cm):**
+
+```
+[HudDump] elapsed=124.3 fps=60 frameMs=16.7 entities=13
+          reconMax=0.400 reconAvg=0.000 reconLast=0.000 corrections=5
+          snapLag=5 snapGapAvg=20.0 snapGapMax=333.3 cushion=72.3
+          rtt=207 lead=8 dAvg=-3.6 dMax=-2 prune=0 seqGap=0
+```
+
+`[ReconSpike]`: **`delta=(0.040, 0.000, -0.002)`가 12건 연속 동일** — 4cm 잔류가 그대로 재현됐다.
+첫 건에서 `predVel=(-3.00, 0.15)` vs `srvVel=(-1.00, 0.05)`, 차이가 정확히 `2.00 m/s`
+(= `maxAcceleration × dt`)로 한 틱 제동이 확인됨.
+
+조건: 환경 `local`, `latency: 150` / `unreliableLoss: 2`, 60초 걷기, Snap gap avg 20.0(유효).
+
 - [ ] **Step 7: 커밋**
 
 ```bash

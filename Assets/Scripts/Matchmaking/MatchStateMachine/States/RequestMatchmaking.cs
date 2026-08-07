@@ -35,7 +35,6 @@ namespace LOP
         {
             var matchmakingRequest = new MatchmakingRequest
             {
-                userId = userDataStore.user.id,
                 queueId = matchmakingDataStore.queueId,
                 gameModeId = matchmakingDataStore.gameModeId,
                 mapId = matchmakingDataStore.mapId,

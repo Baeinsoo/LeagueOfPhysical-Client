@@ -1039,12 +1039,30 @@ EditMode 426/0(신규 14). `IAccessTokenProvider` 포트 + `BearerTokenHandler`�
 **미검증 이월**: 401 재시도 경로(서버가 아직 401을 안 줌) → **1b 배포 시 필수 확인**.
 spec `2026-08-06-auth-cutover-1a-client-token-refresh-design.md`.
 
-**⏸ 1b — 백엔드 강제 + 인프라**. 플레이어 전용 변경 동작 3개(`로비 입장`·`매칭 요청`·`매칭 취소`)를
-`authMiddleware`+`requireSelf`로 닫는다(조회는 내부 서비스가 같은 경로를 써서 범위 밖).
-`authMiddleware`/`requireSelf`는 **이미 server-core에 테스트까지 있고 아무 라우트도 안 쓴다** — 배선
-작업이다. `/auth/*` 레이트리밋(+`trust proxy 1` 필수) + **서명키를 k8s Secret으로**(지금 git에 평문).
-고아 라우트 `PUT /lobby/leave/:id` 삭제(호출자 0). **차단 요구사항 3건은 decisions §8 참조** —
-특히 레이트리밋은 **429여야 하고 401이면 안 된다**(401이면 다음 앱 시작 시 자격증명이 지워진다).
+**✅ 1b — 서버 강제 + 인프라 (2026-08-07, 3레포 머지)**. infrastructure `cd71127` · lop-backend `22be359`
+· 클라 `44f7fdc`. 빌드 5/5, 로비 10단위/36통합, 매칭 168단위/22통합.
+`로비 입장`·`매칭 요청`(본문 `userId` 제거→토큰 신원)·`매칭 취소`(대기표 주인 대조 403)를 닫았고,
+`/auth/*` 레이트리밋(anonymous 30 / login 200, 엔드포인트별 분리) + `trust proxy 1` + 서명키를
+k8s Secret으로 옮겼다. spec `2026-08-07-auth-cutover-1b-server-enforcement-design.md`.
+
+**최종 리뷰가 Critical을 잡았다 — 대표 주장이 거짓이었다.** `DELETE /user/:id`가 **인증 없이** 열려
+있었고, `GET /user/all`이 전체 계정 목록을 주므로 userId를 알 필요도 없었다. 지워진 유저는 재실행 시
+로그인이 401 → 클라가 자격증명을 지우고 새로 가입 = **전 플레이어 영구 계정 유실**. 호출자 0곳인
+`DELETE /user/:id`·`POST /user`·`PUT /user/profile`을 `PUT /lobby/leave/:id`와 함께 삭제해 닫았다.
+
+**교훈(원장 박제): 코드를 지우는 작업은 테스트 통과로 컴파일이 보장되지 않는다.** 삭제된 DTO를
+import하는 파일이 남아 `lobby-server`가 컴파일 안 됐는데 4개 스위트가 전부 통과했다 — 아무도 그
+파일을 import하지 않아 ts-jest가 타입 검사를 건너뛰기 때문. CI는 테스트보다 **먼저** `turbo run build`를
+돌린다. 검증 명령 맨 앞에 빌드를 넣을 것.
+
+**🔴 배포가 아직 안 됐다.** 클러스터는 CI가 빌드한 핀된 이미지를 돌고 `backend-deploy`는
+**`workflow_dispatch`(수동)** 다. 남은 순서: **GitHub Actions에서 `backend-deploy` 수동 실행 →
+ArgoCD 동기화 → 클라를 이 브랜치 빌드로 실행 → 수동 검증 4건**(스펙 §10). 그 검증에 **1a에서 못 밟은
+401 재시도 경로**가 포함된다.
+
+후속(스펙 §13): `GET /user/all` 삭제(**받아들인 조회 라우트가 아니라 아직 안 지운 고아** — 호출자 0곳) /
+내부 전용 변경 라우트 차단(`PUT /user/location` 등) / 레이트리밋 키를 계정 단위로 / 커밋된 `.env`에서
+키 완전 제거 + `.dockerignore` / 죽은 UserProfile 배관 정리 / 통합 테스트 앱 조립을 `main.ts`와 공유.
 
 **⏸ 1c — 방 접속 인증**. **게임서버는 로비에 물어본다**(RFC 7662 `POST /auth/introspect`) — 방마다
 뜨고 지는 파드에 서명키를 뿌리지 않는다. `CustomProperties.token` → `accessToken` 리네임,

@@ -766,3 +766,184 @@ chore(k8s): AUTH_JWT_SECRET을 이미지에서 Secret으로
 - [ ] 클라 컴파일 `error CS` 0
 - [ ] 수동 검증 4건 통과
 - [ ] 세 저장소 커밋에 다른 작업의 파일이 섞이지 않았다 (`git show --stat`으로 확인)
+
+---
+
+## Task 7: 고아 유저 변경 라우트 삭제 + 레이트리밋 분리 (최종 리뷰 후속)
+
+**Files:**
+- Modify: `apps/lobby-server/src/routes/user.route.ts`, `src/controllers/user.controller.ts`, `src/services/user.service.ts`, `src/dtos/user.dto.ts`
+- Delete: `apps/lobby-server/src/routes/user-profile.route.ts` + 그 컨트롤러·서비스·DTO
+- Modify: `apps/lobby-server/src/main.ts` (`UserProfileRoute` 등록 제거)
+- Modify: `apps/lobby-server/src/middlewares/authRateLimit.ts`, `src/routes/auth.route.ts`
+- Modify: `apps/matchmaking-server/src/dtos/matchmaking.dto.ts` (미사용 import)
+- Test: `apps/lobby-server/test/integration/orphanRoutes.integration.test.ts` (신규)
+
+**배경 — 최종 리뷰가 찾은 Critical**
+
+경계 전체를 훑으니 `DELETE /user/:id`가 **인증 없이 인터넷에서 도달 가능**했다(리뷰어가 돌아가는
+클러스터에서 없는 id로 500을 받아 핸들러 진입을 실증). `GET /user/all`이 전체 계정 목록을 그대로
+주므로 userId를 미리 알 필요도 없다.
+
+계정을 지우면 `UserIdentity`에 FK가 없어 깔끔히 지워지고, 피해자가 재실행하면 남은 신원으로 로그인이
+401 → 클라가 "자격증명 거부"로 읽고 **저장된 계정을 지우고 새로 가입**한다. 인증 없는 루프 하나로
+**DB의 모든 플레이어가 영구 계정 유실**이다.
+
+`POST /user`(무제한 계정 생성, 새 레이트리밋 **우회**)와 `PUT /user/profile`(본문 userId로 남의
+닉네임 변경)도 같은 부류다.
+
+셋 다 **호출자가 0곳**이다 — 라우트 자신 말고는 참조가 없다(grep 확인). 우리가 §7에서 `leave`를
+지운 논리가 그대로 적용된다: 쓰지 않는 변경 라우트를 인터넷에 열어둘 이유가 없다. **인증을 붙이는
+대신 지운다** — 필요해지면 그때 인증을 갖춰 다시 만든다.
+
+- [ ] **Step 1: 실패하는 테스트 작성**
+
+`apps/lobby-server/test/integration/orphanRoutes.integration.test.ts`:
+
+```ts
+import request from 'supertest';
+import { App } from '@lop/server-core/express';
+import AuthRoute from '@routes/auth.route';
+import UserRoute from '@routes/user.route';
+import { rawPrisma, resetTables } from './db';
+
+const app = new App([new AuthRoute(), new UserRoute()]).getServer();
+
+let testIp = 0;
+function 다른_ip로() {
+    testIp += 1;
+    return `198.51.100.${testIp}`;
+}
+
+//  호출자가 0곳인 변경 라우트가 인터넷에 열려 있으면, 인증 없이 남의 계정을 지우거나 만들 수 있다.
+//  실제로 DELETE /user/:id가 그런 상태였다.
+describe('고아 유저 변경 라우트', () => {
+    beforeEach(async () => { await resetTables(); });
+    afterAll(async () => { await rawPrisma.$disconnect(); });
+
+    it('DELETE /user/:id 는 존재하지 않는다', async () => {
+        const 계정 = await request(app).post('/auth/anonymous').set('X-Forwarded-For', 다른_ip로()).send();
+
+        const response = await request(app).delete(`/user/${계정.body.userId}`).send();
+
+        expect(response.status).toBe(404);
+        //  라우트가 사라졌어도 계정은 멀쩡해야 한다.
+        expect(await rawPrisma.user.count()).toBe(1);
+    });
+
+    it('POST /user 는 존재하지 않는다', async () => {
+        const response = await request(app).post('/user').send({ username: 'someone' });
+
+        expect(response.status).toBe(404);
+        expect(await rawPrisma.user.count()).toBe(0);
+    });
+
+    it('PUT /user/profile 은 존재하지 않는다', async () => {
+        const response = await request(app).put('/user/profile').send({ userId: 'someone', nickname: '남의닉' });
+
+        expect(response.status).toBe(404);
+    });
+});
+```
+
+> `PUT /user/profile`은 `UserProfileRoute`가 통째로 사라지므로 위 `App`에 등록하지 않아도 404가 맞다.
+
+- [ ] **Step 2: 실패 확인**
+
+```bash
+pnpm --filter lobby-server test:integration -- orphanRoutes
+```
+
+Expected: `DELETE`는 200/500, `POST`는 201/400 등 404가 아닌 응답으로 실패.
+
+- [ ] **Step 3: 삭제**
+
+지울 것 — 각각 라우트 → 컨트롤러 메서드 → 서비스 메서드 → 전용 DTO 순으로:
+
+| 라우트 | 컨트롤러 | 서비스 |
+|---|---|---|
+| `POST /user` | `UserController.createUser` | `UserService.createUser`(+ 쓰이지 않으면 `createUsers`) |
+| `DELETE /user/:id` | `UserController.deleteUser` | `UserService.deleteUser`/`deleteUserById` |
+| `PUT /user/profile` | `UserProfileController` 전체 | `UserProfileService`의 해당 메서드 |
+
+`main.ts`에서 `UserProfileRoute` import·등록을 제거한다. `CreateUserDto`·`UpdateUserProfileDto`와
+`UserMapper.CreateUserDto`도 참조가 사라지면 함께 지운다.
+
+**남기는 것**: 조회 라우트는 전부 그대로 둔다(스펙 §1의 범위 밖 — 내부 서비스가 쓴다).
+`GET /user/username/:username`도 호출자가 없지만 조회라 이번 범위에 넣지 않는다.
+
+삭제 후 확인:
+
+```bash
+grep -rn "createUser\|deleteUser\|updateUserProfile\|CreateUserDto\|UpdateUserProfileDto" apps/lobby-server/src
+```
+
+- [ ] **Step 4: 레이트리밋 분리 + 재조정**
+
+현재 리미터 **인스턴스 하나**를 `/auth/anonymous`와 `/auth/login`이 공유해, 스펙 표의 "각각 20회"와
+달리 **합쳐서 20회**다. 그리고 갱신이 `/auth/login`을 반복 호출하므로 공유 NAT 뒤에서는 정상
+사용자가 잠긴다.
+
+`authRateLimit.ts`를 둘로 나눈다:
+
+```ts
+import rateLimit from 'express-rate-limit';
+
+//  bcrypt가 libuv 스레드풀(기본 4개)에서 도는 탓에, 로그인이 몰리면 같은 풀을 쓰는 파일 I/O·DNS·gzip이
+//  전부 밀려 서버 전체가 느려진다. 포화는 초당 40회쯤부터 — 15분으로 환산하면 36,000회다. 아래 한도는
+//  거기서 한참 아래라 보호는 충분하고, 정상 사용자를 막지 않는 쪽에 여유를 뒀다.
+
+//  계정 생성은 남용 통로(신규 계정 보상이 생기면 특히)라 더 조인다.
+export const anonymousRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 30,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+});
+
+//  로그인은 앱 시작마다 + 토큰 갱신마다 불린다. 갱신 최소 간격이 30초라 클라 한 대만도 15분에
+//  30회까지 나올 수 있고, 공유 NAT(모바일 캐리어·사무실) 뒤에는 그런 클라가 여럿이다.
+export const loginRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 200,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+});
+```
+
+`auth.route.ts`에서 각각 해당 라우트에 붙인다.
+
+> **알려진 한계**: IP로 세는 한 CGNAT 뒤 대규모 공유는 근본적으로 못 가른다. 로그인은 본문에
+> `provider`+`providerUserId`가 있으므로 **계정 단위 키**로 바꾸는 것이 정공법이다 — 별도 후속.
+
+기존 레이트리밋 테스트의 `LIMIT` 상수와 대상 엔드포인트를 새 값에 맞춘다. **429가 나오는지와
+401이 아닌지를 확인하는 단언은 그대로 둔다.**
+
+- [ ] **Step 5: 미사용 import 정리**
+
+`apps/matchmaking-server/src/dtos/matchmaking.dto.ts`의 첫 줄을 `import { IsNumber } from 'class-validator';`로.
+(`IsString`은 이번 브랜치가 미사용으로 만들었고, `IsEnum`/`IsObject`는 그 전부터 미사용이었다.)
+
+- [ ] **Step 6: 통과 확인**
+
+```bash
+pnpm --filter lobby-server test && pnpm --filter lobby-server test:integration
+pnpm --filter matchmaking-server test && pnpm --filter matchmaking-server test:integration
+```
+
+- [ ] **Step 7: 커밋** (경로 명시)
+
+```
+fix(lobby): 인증 없이 계정을 지울 수 있던 고아 라우트 3종 삭제
+
+DELETE /user/:id가 인증 없이 인터넷에서 도달 가능했다. GET /user/all이 전체 계정
+목록을 주므로 userId를 미리 알 필요도 없고, 계정을 지우면 피해자는 재실행 시 로그인이
+401 → 클라가 자격증명을 지우고 새로 가입한다. 인증 없는 루프 하나로 전 플레이어
+영구 계정 유실이다.
+
+POST /user(무제한 계정 생성, 레이트리밋 우회)와 PUT /user/profile(본문 userId로 남의
+닉네임 변경)도 같은 부류다. 셋 다 호출자가 0곳이라 인증을 붙이는 대신 지운다.
+
+레이트리밋도 분리했다 — 인스턴스 하나를 두 엔드포인트가 공유해 합쳐서 20회였고,
+갱신이 로그인을 반복 호출하므로 공유 NAT 뒤 정상 사용자가 잠겼다.
+```

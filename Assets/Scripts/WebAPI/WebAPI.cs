@@ -9,17 +9,18 @@ namespace LOP
     public class WebAPI
     {
         //  static이라 DI가 안 된다 — RootLifetimeScope가 기동 시 공급자를 꽂아 준다.
-        private static Func<string> accessTokenProvider;
+        private static IAccessTokenProvider accessTokenProvider;
 
         //  인증을 붙이는 클라이언트와 절대 안 붙이는 클라이언트를 따로 둔다. 어느 쪽을 쓸지는
         //  호출부가 스스로 고른다 — URL 문자열로 판단하면 경로 접두사가 바뀔 때 조용히 깨진다
         //  (실제로 /lobby 접두사 때문에 죽은 검사가 된 적이 있다).
         private static readonly HttpClient authorized =
-            new HttpClient(new BearerTokenHandler(new UnityWebRequestHandler(), () => accessTokenProvider?.Invoke()));
+            new HttpClient(new BearerTokenHandler(new UnityWebRequestHandler(),
+                new DeferredAccessTokenProvider(() => accessTokenProvider)));
 
         private static readonly HttpClient anonymous = new HttpClient(new UnityWebRequestHandler());
 
-        public static void SetAccessTokenProvider(Func<string> provider)
+        public static void SetAccessTokenProvider(IAccessTokenProvider provider)
         {
             accessTokenProvider = provider;
         }

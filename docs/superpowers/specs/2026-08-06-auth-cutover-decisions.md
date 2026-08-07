@@ -250,3 +250,46 @@ DB 스키마 변경은 **없다.**
 - `/auth/introspect` 레이트리밋 구체 한도
 - 대기표 주인 불일치 시 403 vs 404 (ticketId가 uuid라 열거 위험은 없다 → 403으로 충분해 보임)
 - 게임서버가 introspect를 부를 때의 타임아웃·실패 시 재시도 여부
+
+## 8. 1a 구현 후 확정된 후속 요구사항 (2026-08-06)
+
+슬라이스 1a(클라 토큰 갱신)를 구현하며 최종 리뷰가 찾아낸 것들. **1b/1c 스펙 작성 시 여기서 출발한다.**
+
+### 1b — 차단 요구사항 (지키지 않으면 계정 유실로 되돌아간다)
+
+- **레이트리밋은 제한 시 429를 준다. 401은 절대 안 된다.** 갱신이 이제 `POST /auth/login`을
+  백그라운드에서 반복 호출한다. 리미터나 프록시가 그걸 401로 막으면, 갱신 자체는 안전하지만
+  (옛 토큰 반환, `Clear()` 없음) **다음 앱 시작 시** `SignInAsync`가 같은 리미터에 걸려 401을 받고
+  자격증명을 지운 뒤 새 계정을 만든다. 이 코드베이스가 이미 겪은 그 버그다.
+- **인증 미들웨어가 라우트 핸들러보다 먼저 돌아야 한다.** 401 재시도는 같은 요청을 본문째 다시
+  보낸다(`POST /matchmaking`, `DELETE /matchmaking/:ticketId` 포함). 핸들러가 부분 처리한 뒤 401이
+  나오면 매칭 대기표가 중복 생성된다.
+- **`AUTH_JWT_SECRET`은 서명하는 쪽과 검증하는 쪽이 반드시 같아야 한다.** 프로세스별 env라
+  (`packages/server-core/src/auth/token.ts`) lobby와 matchmaking의 k8s Secret이 어긋나면 영구 401이
+  난다. 1a의 스로틀이 로그인 폭주는 막지만 사용자 경험은 그대로 깨진다.
+
+### 1b — 확인 항목
+
+- 401 재시도 경로를 **처음으로 실제 검증할 수 있는 시점**이다(1a에서는 서버가 401을 안 줘 못 밟았다).
+- 기동 순서: `RegisterEntryPoint`가 `RegisterBuildCallback`보다 먼저 등록돼, **모든 엔트리포인트의
+  `Start()`가 `WebAPI.SetAccessTokenProvider`보다 먼저 돈다.** 지금은 첫 네트워크 호출이 anonymous
+  로그인이라 무해하지만, authorized 엔드포인트를 `Start()`에서 건드리는 엔트리포인트가 추가되면
+  조용한 무인증 요청이 된다(1a에서 경고 로그는 넣어 뒀다).
+
+### 1c — 설계 제약
+
+- **`LOPNetworkAuthenticator.OnClientAuthenticate()`는 동기 Mirror 콜백이라 `await`할 수 없다.**
+  그 자리에서 `NetworkClient.Send`를 해야 한다. 따라서 1c는 **`StartClient()` 이전에** 갱신을 끝내고
+  토큰을 넘겨주는 모양이어야 한다. (1a 스펙 §5가 single-flight 위치의 근거로 "1c에서 소비자가
+  둘이 된다"를 들었는데, 그 소비자는 콜백이 아니라 접속 *전* 단계다.)
+- 소켓으로 나갈 토큰은 `GetAccessTokenAsync(false, ct)`로는 55분 된 것도 그대로 나온다(마진 5분).
+  방 입장에 더 빡빡한 신선도가 필요한지 판단할 것.
+
+### 첫 모바일 IL2CPP 빌드 전 (speculative, 2줄로 예방 가능)
+
+`WebAPI.SendAsync`가 모든 호출 결과를 `GlobalMessagePipe`에 발행하므로, 이제 **백그라운드 갱신마다**
+`GetPublisher<LoginResponse>().Publish(...)`가 돈다. `LoginResponse`는 구독자도 없고
+`RootLifetimeScope`의 명시 등록 목록에도 없다(`AnonymousSignInResponse`/`JoinLobbyResponse`/
+`MatchmakingResponse`/`CancelMatchmakingResponse`도 같음). IL2CPP는 open generic을 지원하지 않으므로
+거기서 던지면 `RefreshAsync`의 `catch (Exception)`이 삼켜 **토큰이 영영 갱신되지 않는다 — 조용히.**
+`LoginResponse`/`AnonymousSignInResponse` 브로커 등록 2줄로 제거된다.

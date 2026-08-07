@@ -99,8 +99,7 @@ namespace LOP
                 GlobalMessagePipe.SetProvider(container.AsServiceProvider());
 
                 //  모든 REST 요청이 현재 세션 토큰을 싣도록 WebAPI에 공급자를 꽂는다.
-                var authenticationService = container.Resolve<AuthenticationService>();
-                WebAPI.SetAccessTokenProvider(() => authenticationService.AccessToken);
+                WebAPI.SetAccessTokenProvider(container.Resolve<AuthenticationService>());
             });
             #endregion
         }

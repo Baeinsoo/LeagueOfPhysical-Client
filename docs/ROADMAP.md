@@ -1027,13 +1027,29 @@ Mirror transport는 이 브랜치가 한 줄도 안 건드림) / 서버 런타�
 3레포(GameFramework → 클라 → 서버), 호출부 22곳, GameFramework EditMode 테스트 9건.
 spec `2026-08-06-http-client-layer-standardization-design.md`.
 
-**⏸ 슬라이스 1 — 인증 cutover** (슬라이스 0 뒤). 결정은 전부 확정, 스펙만 남았다 —
-`2026-08-06-auth-cutover-decisions.md`. 요지: 플레이어 전용 변경 동작 3개(`로비 입장`·`매칭 요청`·
-`매칭 취소`) + 방 접속만 닫는다(조회는 내부 서비스가 같은 경로를 써서 범위 밖). 백엔드는 직접
-검증, **게임서버는 로비에 물어본다**(RFC 7662 `/auth/introspect`) — 방마다 뜨고 지는 파드에
-서명키를 뿌리지 않는다. 갱신은 5분 전 미리 + 401 재시도 + single-flight. `/auth/*` 레이트리밋
-(+`trust proxy 1` 필수). **서명키가 지금 git에 평문으로 커밋돼 이미지에 구워지고 있다** →
-k8s Secret으로 이전.
+**슬라이스 1은 1a/1b/1c로 쪼갰다.** 갱신(1a)이 강제(1b)보다 먼저다 — 검사를 켜는 순간 1시간 넘는
+세션이 전부 깨지기 때문. 결정 원본은 `2026-08-06-auth-cutover-decisions.md`(§8에 1a 구현에서
+확정된 1b/1c 요구사항 추가).
+
+**✅ 1a — 클라 토큰 갱신 (2026-08-06, 2레포 머지)**. GameFramework `4ea47f1` · 클라 `4a186d9`.
+EditMode 426/0(신규 14). `IAccessTokenProvider` 포트 + `BearerTokenHandler`의 미리 갱신·401 재시도
+1회·"토큰 그대로면 재전송 안 함" 가드 + `SingleFlight`(동시 갱신 접기) + `Throttle`(강제 갱신 최소
+간격 30초). 갱신은 원래 **호출자가 0곳인 죽은 코드**였다.
+수동 검증: 회귀 없음 ✅ / 실서버 갱신 13회 전부 200에 뒤따르는 요청도 전부 200, userId 동일 ✅.
+**미검증 이월**: 401 재시도 경로(서버가 아직 401을 안 줌) → **1b 배포 시 필수 확인**.
+spec `2026-08-06-auth-cutover-1a-client-token-refresh-design.md`.
+
+**⏸ 1b — 백엔드 강제 + 인프라**. 플레이어 전용 변경 동작 3개(`로비 입장`·`매칭 요청`·`매칭 취소`)를
+`authMiddleware`+`requireSelf`로 닫는다(조회는 내부 서비스가 같은 경로를 써서 범위 밖).
+`authMiddleware`/`requireSelf`는 **이미 server-core에 테스트까지 있고 아무 라우트도 안 쓴다** — 배선
+작업이다. `/auth/*` 레이트리밋(+`trust proxy 1` 필수) + **서명키를 k8s Secret으로**(지금 git에 평문).
+고아 라우트 `PUT /lobby/leave/:id` 삭제(호출자 0). **차단 요구사항 3건은 decisions §8 참조** —
+특히 레이트리밋은 **429여야 하고 401이면 안 된다**(401이면 다음 앱 시작 시 자격증명이 지워진다).
+
+**⏸ 1c — 방 접속 인증**. **게임서버는 로비에 물어본다**(RFC 7662 `POST /auth/introspect`) — 방마다
+뜨고 지는 파드에 서명키를 뿌리지 않는다. `CustomProperties.token` → `accessToken` 리네임,
+`GameFramework.Auth.Jwt` 삭제(사용처 소멸). **제약**: `OnClientAuthenticate()`는 동기 Mirror 콜백이라
+`await`할 수 없다 → `StartClient()` **이전에** 갱신을 끝내고 토큰을 넘겨야 한다(decisions §8).
 
 ### 프론트엔드 플로우 골격 (Slice A~D) — ✅ **트랙 종결(07-24)**
 로그인 이후 화면 흐름(로비 홈 → 매칭 → 게임 → 결과)을 **3층 전환 모델**(씬=앱 FSM / 윈도우=코디네이터 / 화면 안 상태=VM)로 정리하는 트랙. spec `docs/superpowers/specs/2026-07-23-front-end-flow-skeleton-design.md`. **B·C·D·A 전부 완료·머지 — 트랙 종결.**

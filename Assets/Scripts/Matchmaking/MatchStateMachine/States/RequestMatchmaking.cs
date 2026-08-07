@@ -10,14 +10,12 @@ namespace LOP
     {
         private readonly Func<InMatchmaking> inMatchmaking;
         private readonly Func<CheckMatch> checkMatch;
-        private readonly IUserDataStore userDataStore;
         private readonly IMatchmakingDataStore matchmakingDataStore;
 
-        public RequestMatchmaking(Func<InMatchmaking> inMatchmaking, Func<CheckMatch> checkMatch, IUserDataStore userDataStore, IMatchmakingDataStore matchmakingDataStore)
+        public RequestMatchmaking(Func<InMatchmaking> inMatchmaking, Func<CheckMatch> checkMatch, IMatchmakingDataStore matchmakingDataStore)
         {
             this.inMatchmaking = inMatchmaking;
             this.checkMatch = checkMatch;
-            this.userDataStore = userDataStore;
             this.matchmakingDataStore = matchmakingDataStore;
         }
 
@@ -35,7 +33,6 @@ namespace LOP
         {
             var matchmakingRequest = new MatchmakingRequest
             {
-                userId = userDataStore.user.id,
                 queueId = matchmakingDataStore.queueId,
                 gameModeId = matchmakingDataStore.gameModeId,
                 mapId = matchmakingDataStore.mapId,

@@ -58,6 +58,8 @@ namespace LOP.UI
 
         public float ReconMax => reconciliationStats.Max;
 
+        public int CorrectionCount => reconciliationStats.CorrectionCount;
+
         public double TimingAvgD => inputTimingStats.AvgD;
 
         public int TimingMaxD => inputTimingStats.MaxD;
@@ -99,6 +101,7 @@ namespace LOP.UI
         {
             Debug.Log($"[HudDump] elapsed={ElapsedTime:F1} tick={Tick} fps={Fps:F0} frameMs={FrameMs:F1}" +
                       $" entities={EntityCount} reconMax={ReconMax:F3} reconAvg={ReconAverage:F3} reconLast={ReconLast:F3}" +
+                      $" corrections={CorrectionCount}" +
                       $" snapLag={ServerTickLag} snapGapAvg={SnapIntervalAvgMs:F1} snapGapMax={SnapIntervalMaxMs:F1}" +
                       $" cushion={CushionMs:F1} rtt={RttMs:F0} lead={Lead}" +
                       $" dAvg={TimingAvgD:F1} dMax={TimingMaxD} prune={TimingPrune} seqGap={TimingSeqGap}");

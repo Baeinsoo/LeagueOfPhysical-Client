@@ -156,6 +156,9 @@ namespace LOP
                 }
             }
 
+            // 게이트를 통과했다 = 실제로 되돌린다. 여기서 세야 "스킵"과 "보정"이 정확히 갈린다.
+            reconciliationStats.RecordCorrection();
+
             // 하드 복원: 내 캐릭을 서버 스냅(anchorTick) 상태로. World에 쓴 포즈를 MotionBridge가 rb에 밀고,
             // PhysX가 새 포즈를 보도록 수동 SyncTransforms(autoSyncTransforms=false).
             GameFramework.World.EntityMotionExtensions.SetPosition(worldEntity, snap.position);

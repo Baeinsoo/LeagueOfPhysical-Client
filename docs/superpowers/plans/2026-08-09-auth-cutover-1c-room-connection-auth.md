@@ -501,10 +501,15 @@ INTERNAL_API_KEY = local-dev-only-CHANGE-ME-not-a-real-key
 
 ```bash
 cd lop-backend && npx turbo run build
-cd apps/lobby-server && npx jest -c jest.integration.config.js introspect
+cd apps/lobby-server && npx jest -c jest.integration.config.js
 cd ../../packages/server-core && npx jest
 ```
-기대: 통합 6건 PASS, server-core 유닛 전부 PASS.
+기대: lobby-server 통합 **전체** PASS(새 introspect 6건 포함), server-core 유닛 전부 PASS.
+
+> **`introspect`로 필터링해서 돌리지 말 것.** 이 태스크는 `verifyAccessToken`의 반환값에 필드를
+> 하나 더한다 — 그 반환값을 `toEqual`로 통째 비교하는 기존 테스트가 있으면 조용히 깨진다.
+> 실제로 `test/integration/auth.integration.test.ts:44`와 `:113`이 그렇다. 두 곳에
+> `exp: expect.any(Number)`를 더해 함께 고칠 것(`token.test.ts`에 적용한 것과 같은 패턴).
 
 - [ ] **Step 12: 커밋**
 
@@ -518,7 +523,8 @@ git add packages/server-core/src/auth/token.ts \
         apps/lobby-server/src/routes/auth.route.ts \
         apps/lobby-server/src/main.ts \
         apps/lobby-server/.env.development.local apps/lobby-server/.env.development.local-k8s \
-        apps/lobby-server/test/integration/introspect.integration.test.ts
+        apps/lobby-server/test/integration/introspect.integration.test.ts \
+        apps/lobby-server/test/integration/auth.integration.test.ts
 git commit -m "feat(lobby): RFC 7662 토큰 introspection 엔드포인트"
 ```
 

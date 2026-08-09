@@ -1490,15 +1490,32 @@ git commit -m "chore(auth): 사용처가 없어진 Jwt 검증기 삭제"
 
 머지·배포는 **반드시 이 순서**다. `backend-deploy`의 `bump-tags` 잡이 infrastructure의 `main`을 체크아웃하므로 인프라가 먼저 가야 한다.
 
-1. **클러스터에 Secret을 먼저 만든다** (README의 새 5번 항목). 없으면 새 로비 파드가 크래시 루프에 빠진다.
+1. **클러스터에 Secret을 먼저 만든다** (README의 새 5번 항목). 없으면 새 로비 파드가 크래시 루프에 빠져
+   로그인·매칭이 통째로 멈춘다 — 이 순서에서 가장 위험한 단계다.
 2. `infrastructure` 머지 → push
 3. `lop-backend` 머지 → push → `gh workflow run backend-deploy.yml -f app=all`
 4. `GameFramework`, `LeagueOfPhysical-Shared` 머지 → push
-5. **게임서버 이미지와 클라를 함께** 내보낸다 — 게임서버만 나가면 아직 `"token"`을 보내는 구 클라가 전부 입장 거부된다.
+5. **게임서버 이미지와 클라를 함께** 내보낸다 — 게임서버만 나가면 아직 `"token"`을 보내는 구 클라가 전부
+   입장 거부되고, 반대로 클라만 나가면 구 서버가 빈 `SessionId`로 NRE를 낸다. **양방향 하드 컷오버라
+   ④가 나간 뒤에는 ③만 되돌릴 수 없다.**
+   - `gameserver-deploy.yml`은 **자기가 infrastructure `main`을 체크아웃해 `GAME_SERVER_IMAGE`를 올린다.**
+     그러니 반드시 ②·③ 다음에 돌려야 하고, 아니면 낡은 인프라 위에 얹힌다.
+   - ⚠️ **워크플로가 끝나도 전환은 아직 안 일어난다.** `room-server`는 `game-server-config`를
+     `envFrom: configMapRef`로 읽는데 리로더도 checksum 애노테이션도 없어서(`room-server-deployment.yaml`)
+     ConfigMap이 바뀌어도 재시작하지 않는다. 새 방은 계속 옛 이미지로 뜬다.
+     **실제 전환 순간은 이것이다:**
+     ```bash
+     kubectl rollout restart deployment/room-server
+     ```
+   - 진행 중인 매치는 끊기지 않는다 — 이미 떠 있는 방 파드는 자기 이미지를 그대로 유지하고, 새로 만들어지는
+     방부터 바뀐다.
 
 ## 수동 검증 (배포 후)
 
 1. 정상 매칭 → 방 입장 성공. 로비 로그에 `POST /auth/introspect 200`
 2. 게임서버 파드 env 확인: `kubectl exec <room-pod> -- printenv INTERNAL_API_KEY` → 값이 나오고, `printenv AUTH_JWT_SECRET` → **비어 있어야 한다**
 3. 밖에서 키 없이 호출: `curl -X POST <ingress>/lobby/auth/introspect -d '{"token":"x"}' -H 'Content-Type: application/json'` → **401**
-4. 클라에 임시 코드로 토큰을 훼손 → 방 입장 거부 확인 → 임시 코드 되돌림 (1b의 401 검증과 같은 방식)
+4. **방 파드가 Secret을 못 받는 조용한 실패를 확인한다.** 로비는 Secret이 없으면 크래시 루프로 시끄럽게
+   실패하지만, 방 파드는 `CreateContainerConfigError`로 죽어 겉으로는 "매칭은 됐는데 60초 뒤 하트비트
+   타임아웃"으로만 보인다: `kubectl get pods -l app=room-pod` 로 상태를 직접 볼 것.
+5. 클라에 임시 코드로 토큰을 훼손 → 방 입장 거부 확인 → 임시 코드 되돌림 (1b의 401 검증과 같은 방식)

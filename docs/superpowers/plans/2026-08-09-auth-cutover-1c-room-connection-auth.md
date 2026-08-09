@@ -842,7 +842,7 @@ git commit -m "feat(server): introspect 호출부 + CustomProperties.accessToken
 
 - [ ] **Step 1: 판정 로직을 비동기로 바꾼다**
 
-`Assets/Scripts/Room/LOPNetworkAuthenticator.cs`의 `#region Server` 안을 아래로 교체한다. `OnStartServer`/`OnStopServer`/`OnServerAuthenticate`는 그대로 두되 `OnStopServer`에 `handledConnectionIds.Clear();`를 더한다.
+`Assets/Scripts/Room/LOPNetworkAuthenticator.cs`의 `#region Server` 안을 아래로 교체한다. `OnStartServer`/`OnStopServer`/`OnServerAuthenticate`는 그대로 두되 `OnStopServer`에 `handledConnections.Clear();`를 더한다.
 
 ```csharp
         //  로비가 죽었을 때 30초(HttpClient 기본 타임아웃)를 기다리지 않는다 — 접속은 사람이 기다리는 경로다.
@@ -850,11 +850,16 @@ git commit -m "feat(server): introspect 호출부 + CustomProperties.accessToken
 
         //  같은 연결이 인증 요청을 반복해 보내면 그때마다 로비를 부르게 된다(소켓 1회 → HTTP N회 증폭).
         //  첫 요청만 처리한다. 방 수명이 짧고 연결 수는 참가자 수로 묶이므로 OnStopServer에서 통째로 비운다.
-        private readonly HashSet<int> handledConnectionIds = new HashSet<int>();
+        //
+        //  키가 connectionId(int)가 아니라 연결 객체인 이유: kcp2k는 connectionId를 클라 IP:포트의
+        //  해시로 만든다(고정 카운터가 아니다). 끊었다 같은 포트로 다시 붙으면 id가 그대로라, id로
+        //  기억하면 재접속 요청이 "중복"으로 버려져 응답조차 못 받고 영영 매달린다. 재접속 때는
+        //  연결 객체가 새로 생기므로 객체로 기억하면 그 문제가 없다.
+        private readonly HashSet<NetworkConnectionToClient> handledConnections = new HashSet<NetworkConnectionToClient>();
 
         public void OnAuthRequestMessage(NetworkConnectionToClient conn, AuthRequestMessage msg)
         {
-            if (handledConnectionIds.Add(conn.connectionId) == false)
+            if (handledConnections.Add(conn) == false)
             {
                 return;
             }
@@ -863,6 +868,21 @@ git commit -m "feat(server): introspect 호출부 + CustomProperties.accessToken
         }
 
         private async UniTaskVoid AuthenticateAsync(NetworkConnectionToClient conn, AuthRequestMessage msg)
+        {
+            //  이 메서드는 async UniTaskVoid라 밖으로 나간 예외를 아무도 받지 않는다 — 그러면 수락도
+            //  거부도 못 한 채 연결이 영영 매달린다(중복 가드 때문에 클라의 재시도도 버려진다).
+            //  그래서 본문 전체를 감싼다. 확인하지 못한 접속은 거부가 원칙이다.
+            try
+            {
+                await DecideAsync(conn, msg);
+            }
+            catch (Exception exception)
+            {
+                Reject(conn, $"인증 처리 중 예외: {exception.Message}");
+            }
+        }
+
+        private async UniTask DecideAsync(NetworkConnectionToClient conn, AuthRequestMessage msg)
         {
             string claimedUserId = msg.customProperties?.userId;
 
@@ -900,7 +920,9 @@ git commit -m "feat(server): introspect 호출부 + CustomProperties.accessToken
                 return;
             }
 
-            if (introspect.active == false)
+            //  본문이 비어 있으면(게이트웨이 이상, 204 등) 역직렬화가 null을 돌려준다 — 2xx라도
+            //  확인된 게 아니므로 거부한다.
+            if (introspect == null || introspect.active == false)
             {
                 Reject(conn, "토큰이 유효하지 않음");
                 return;

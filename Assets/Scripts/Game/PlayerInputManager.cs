@@ -78,7 +78,7 @@ namespace LOP
             inputBufferSystem.SetCurrent(buffer, command);
             inputBufferSystem.TrimToWindow(buffer, RedundancyWindow);
 
-            SendToServer(buffer, tick, command);
+            SendToServer(buffer, tick);
 
             // 어빌리티 예측 발동(연출 cue는 AbilityActivator가 내부에서 append).
             if (command.AbilityId != 0)
@@ -94,24 +94,16 @@ namespace LOP
         }
 
         // 와이어(proto) 변환은 여기(송신 어댑터)부터 — 도메인은 InputCommand만 다룬다.
-        private void SendToServer(InputBuffer buffer, long tick, InputCommand current)
+        //
+        // 이번 틱 커맨드는 아래 RecentInputs 윈도우에 이미 들어 있다(항상 그 첫/마지막 원소).
+        // proto의 input_command·entity_transform 필드는 서버가 읽지 않으므로 채우지 않는다 —
+        // entity_transform은 클라가 보고한 위치라 애초에 서버가 쓰면 안 되는 값이다(치팅).
+        // 필드 정의 자체를 지우는 건 proto 정리 슬라이스에서.
+        private void SendToServer(InputBuffer buffer, long tick)
         {
             InputCommandToS inputCommandToS = new InputCommandToS();
             inputCommandToS.Tick = tick;
             inputCommandToS.SessionId = playerContext.session.sessionId;
-            inputCommandToS.InputCommand = ToProto(current);
-
-            var worldEntity = entityRegistry.Get(playerContext.entityId);
-            if (worldEntity != null)
-            {
-                EntityTransform entityTransform = new EntityTransform
-                {
-                    position = GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity),
-                    rotation = GameFramework.World.EntityMotionExtensions.GetRotation(worldEntity),
-                    velocity = GameFramework.World.EntityMotionExtensions.GetVelocity(worldEntity),
-                };
-                inputCommandToS.EntityTransform = MapperConfig.mapper.Map<ProtoTransform>(entityTransform);
-            }
 
             // sliding-window redundancy: 스트림의 최근 N틱을 함께 실어 패킷 유실에 대비.
             foreach (var pair in buffer.Commands)

@@ -386,23 +386,22 @@ ISession session = sessionManager.GetSessionByUserId(received.UserId);
 경계가 유지된다. (Mirror 자신은 `(conn, msg)` 두 인자로 넘기고, 메시징 프레임워크의 통용 모양도
 "메시지 + 발신자 메타"의 짝이다 — MassTransit `ConsumeContext<T>`의 `.Message` + 발신 정보.)
 
-### 8.3 필드 자체를 제거한다
+### 8.3 클라가 채우지 않는다
 
-가장 확실한 방어는 **보내지 않는 것**이다. 안 보내면 위조할 대상이 없다.
+서버가 §8.2로 이미 읽지 않게 되므로, 클라 송신부 3곳에서 대입을 지운다:
+`LOPRoom.cs:115`, `PlayerInputManager.cs:117`, `StatsViewModel.cs:72`.
+proto3은 빈 문자열을 아예 인코딩하지 않으므로 와이어에서도 사라진다.
 
-| proto | 변경 |
-|---|---|
-| `GameInfoToS` | `user_id` 삭제 → 빈 메시지("준비됐다" 신호) |
-| `InputCommandToS` | `session_id` 삭제 |
-| `StatAllocationToS` | `session_id` 삭제 |
+**proto에서 필드를 물리적으로 삭제하는 것은 이번에 하지 않는다.** 이 저장소의 protoc은
+`Tools/Protobuf/protoc-28.2-win64` 하나뿐이라 **macOS에서 실행되지 않고**, 재생성 없이 `.proto`만
+고치면 생성 코드와 어긋난다. 필드는 남기되 `.proto`에 "서버가 읽지 않는다 / 클라도 채우지 않는다 /
+다음 재생성 때 삭제" 주석을 달아 둔다. 보안 효과는 동일하다 — 서버가 그 값을 신원으로 쓰지 않기
+때문이지, 필드가 없기 때문이 아니다.
 
-클라 송신부 3곳만 손대면 된다: `LOPRoom.cs:115`, `PlayerInputManager.cs:117`, `StatsViewModel.cs:72`.
+물리 삭제는 §13(후속)의 "macOS protoc 확보" 항목에 묶는다.
 
 **서버→클라 방향의 `GameInfoToC.SessionId`는 유지한다** — 클라가 자기 세션을 아는 것은 정상이며
 위조 문제와 무관하다. (클라가 로컬에서 쓰는 `playerContext.session`도 그대로 둔다.)
-
-proto 필드 번호는 재사용하지 않고 남은 필드의 번호도 바꾸지 않는다. 클·서가 함께 배포되므로
-`reserved` 선언까지는 두지 않는다.
 
 ---
 
@@ -433,19 +432,26 @@ proto 필드 번호는 재사용하지 않고 남은 필드의 번호도 바꾸�
 | 조회 키 정상 + `token` 필드 누락 | 400 |
 | `active: false` 응답에 `sub`/`exp` 없음 | 정보 누출 없음 확인 |
 
-### 10.2 게임서버 EditMode
+### 10.2 게임서버 — 자동 테스트를 붙일 수 없다
 
-introspect는 가짜 구현으로 대체하고(포트를 인터페이스로 뽑지 않고 델리게이트 주입 수준으로 최소화),
-판정 로직만 검증한다.
+**Unity 앱 프로젝트(클라·서버) 어느 쪽에도 asmdef가 없다.** 모든 앱 코드가 `Assembly-CSharp`에 있고,
+테스트 어셈블리(asmdef)는 `Assembly-CSharp`을 참조할 수 없다(Unity의 미리 정의된 어셈블리는 참조
+방향이 반대다). 현재 클라에서 도는 434건은 전부 *패키지*(GameFramework / LOP-Shared /
+MasterData-Client)의 테스트가 `testables`로 실행되는 것이다.
+
+따라서 게임서버 판정 로직에 유닛 테스트를 붙이려면 서버 프로젝트에 asmdef 구조를 도입해야 하고,
+그것은 이 슬라이스의 범위를 넘는 별도 작업이다. **1c에서 게임서버 측 검증은 컴파일 클린 + §10.3
+수동 검증이다.** 아래 판정 케이스는 그 수동 검증에서 확인할 목록으로 남긴다.
 
 | 케이스 | 기대 |
 |---|---|
-| 명단 밖 userId | 거부 + **introspect 호출 0회** |
-| `active: false` | 거부 |
+| 명단 밖 userId | 거부 |
+| 위조/만료 토큰(`active: false`) | 거부 |
 | `sub != 주장한 userId` | 거부 |
-| introspect 예외/타임아웃 | 거부 |
-| 정상 | 수락 + `authenticationData.userId == sub` |
-| 같은 연결의 2번째 인증 요청 | 무시(호출 0회) |
+| 로비 무응답 | 거부 |
+| 정상 | 수락 |
+
+**Unity 앱 프로젝트의 테스트 가능성 확보(asmdef 도입)는 §13 후속으로 올린다.**
 
 ### 10.3 수동 검증 (배포 환경)
 
@@ -506,6 +512,12 @@ introspect는 가짜 구현으로 대체하고(포트를 인터페이스로 뽑�
   (1a의 `BearerTokenHandler`와 같은 모양)로 승격한다. 지금은 introspect 한 곳이라 호출부에서 직접 붙인다.
 - **에디터 introspect 경로 실행**: 로컬 시크릿 관리 방식(SealedSecrets/SOPS 등)을 도입하면 에디터
   예외를 없앨 수 있다. 그 트랙과 함께 재검토한다.
+- **macOS protoc 확보 + ToS 신원 필드 물리 삭제**: 현재 `Tools/Protobuf`에 win64 바이너리만 있어
+  macOS에서 재생성이 불가능하다. 같은 버전(28.2)의 osx 바이너리를 넣고 `compile_protos.sh`가
+  플랫폼을 분기하게 한 뒤, §8.3의 주석 처리된 필드를 실제로 지운다.
+- **Unity 앱 프로젝트 테스트 가능성(asmdef 도입)**: 클라·서버 모두 앱 코드가 `Assembly-CSharp`에 있어
+  유닛 테스트를 붙일 수 없다(§10.2). 피처 단위 asmdef 분리는 `architecture-guidelines.md`가 이미
+  목표 구조로 정의해 두었으므로, 그 작업의 일부로 다룬다.
 - **인증 대기 연결의 상한**: 현재 미인증 연결은 introspect 3초 안에 정리되지만, 연결 자체의 개수 제한은
   Mirror 기본값에 맡긴다. 방 하나가 소수 인원이라 지금은 문제가 아니다.
 

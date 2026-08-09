@@ -90,6 +90,9 @@ namespace LOP.UI
         // 세션 전체 기준 최대 뒤처짐(리셋으로 안 지워진다). 크기만 참고하고, "이 창에 있었나"는 CatchUpCapped로 본다.
         public long MaxTicksBehind => runner.tickUpdater == null ? 0 : runner.tickUpdater.maxTicksBehind;
 
+        // 갈아서 따라잡는 대신 번호만 옮긴 횟수. 멈춤이 여기로 흡수되면 CatchUpCapped는 0으로 보이므로 함께 봐야 한다.
+        public int SnapForward => runner.tickUpdater == null ? 0 : runner.tickUpdater.snapForwardCount;
+
         public int SnapshotCount => snapshotHistory.Count;
 
         public long SnapshotLatestTick => snapshotHistory.Latest?.Tick ?? -1;
@@ -132,7 +135,7 @@ namespace LOP.UI
                       $" corrections={CorrectionCount}" +
                       $" snapLag={ServerTickLag} snapGapAvg={SnapIntervalAvgMs:F1} snapGapMax={SnapIntervalMaxMs:F1}" +
                       $" cushion={CushionMs:F1} rtt={RttMs:F0} lead={Lead} margin={AheadMarginMs:F0}" +
-                      $" stalls={CatchUpCapped} behindMax={MaxTicksBehind}" +
+                      $" stalls={CatchUpCapped} snaps={SnapForward} behindMax={MaxTicksBehind}" +
                       $" dAvg={TimingAvgD:F1} dMax={TimingMaxD} prune={TimingPrune} seqGap={TimingSeqGap}" +
                       $" | worstD={TimingWorstD} pruneTot={TimingTotalPrune} seqGapTot={TimingTotalSeqGap}");
         }

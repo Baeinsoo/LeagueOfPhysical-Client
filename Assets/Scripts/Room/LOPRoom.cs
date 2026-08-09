@@ -103,6 +103,9 @@ namespace LOP
             //    SceneManager.LoadScene("Lobby");
             //};
 
+            //  토큰 갱신을 여기서 끝낸다 — 접속 인증 콜백은 동기라 그 안에서는 기다릴 수 없다.
+            await ((LOPNetworkAuthenticator)networkManager.authenticator).PrepareCredentialAsync(destroyCancellationToken);
+
             networkManager.StartClient();
 
             await UniTask.WaitUntil(() => NetworkClient.ready);

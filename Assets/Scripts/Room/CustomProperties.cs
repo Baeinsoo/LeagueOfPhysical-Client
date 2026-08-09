@@ -9,7 +9,7 @@ namespace LOP
     public class CustomProperties
     {
         public string userId;
-        public string token;
+        public string accessToken;
         public int characterId;
     }
 }

@@ -31,8 +31,13 @@ namespace LOP
             {
                 await InitializeAsync();
                 await ConnectRoomServerAsync();
+
+                // 시계는 접속하는 순간부터 수렴하기 시작한다 — join 왕복을 기다리는 동안 같이 굴려서
+                // 대기를 겹친다(순서대로 하면 그 시간이 그대로 로딩에 더해진다).
+                var clockSync = WaitForClockSyncAsync();
                 await JoinRoomServerAsync();
-                await WaitForClockSyncAsync();
+                await clockSync;
+
                 await StartGameAsync();
             }
             catch (Exception e)
@@ -160,6 +165,11 @@ namespace LOP
             {
                 //  못 기다렸어도 시작은 한다 — 여기서 막으면 매치가 영영 안 열린다.
                 Debug.LogWarning($"[Room] 네트워크 시계가 {CLOCK_SYNC_TIMEOUT_MS}ms 안에 수렴하지 않았다. 그대로 시작한다.");
+            }
+            else
+            {
+                //  이 대기가 로딩 체감에 얼마나 얹히는지 실측으로 알기 위한 것.
+                Debug.Log($"[Room] 시계 수렴 대기 {waited}ms");
             }
         }
 

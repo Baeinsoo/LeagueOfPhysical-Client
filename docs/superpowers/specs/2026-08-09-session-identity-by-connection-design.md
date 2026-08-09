@@ -63,6 +63,81 @@ private readonly Dictionary<string, ISession> sessionsByUserId;
 
 계정 id는 *누가* 에는 답하지만 *어느 연결이* 에는 답하지 못한다.
 
+## 3.5 접속 핸드셰이크에도 "주장한 이름"이 남아 있다
+
+인게임 메시지의 신원 필드는 1c에서 물리 삭제했다. 그러나 접속 순간에는 아직 클라가 이름을 신고한다.
+
+```csharp
+new CustomProperties { userId = ..., accessToken = ..., characterId = 0 }
+```
+
+사칭은 불가능하다 — 서버가 `sub == 주장한 userId`를 대조해 다르면 거부한다(1c, 라이브 검증 완료).
+그러나 **토큰 안에 이미 `sub`로 들어 있는 값을 한 번 더 받는 중복**이고, "클라가 자기 신원을 신고하는
+구조"가 마지막으로 남아 있는 자리다.
+
+### Mirror 기본 인증기는 자격증명만 보낸다
+
+저장소에 들어 있는 Mirror 인증기 두 개를 확인했다.
+
+```csharp
+// Authenticators/BasicAuthenticator.cs
+public struct AuthRequestMessage : NetworkMessage
+{
+    // use whatever credentials make sense for your game
+    // for example, you might want to pass the accessToken if using oauth
+    public string authUsername;
+    public string authPassword;
+}
+
+// Authenticators/DeviceAuthenticator.cs
+public struct AuthRequestMessage : NetworkMessage
+{
+    public string clientDeviceID;
+}
+```
+
+**둘 다 자격증명만 싣고, 별도의 "나는 누구다"를 보내지 않는다.** 주석은 OAuth를 쓸 경우 이 자리에
+accessToken을 넘기라고 명시한다 — 우리가 하려는 바로 그 모양이다.
+
+같은 파일에서 Mirror가 중복 처리를 `HashSet<NetworkConnectionToClient>`(연결 **객체**)로 관리하는 것도
+확인했다. 1c에서 `connectionId`가 kcp2k에서 재사용되는 문제로 연결 객체 키로 바꾼 것이 원래 표준이었다.
+
+### 결정 — 주장한 userId를 제거한다
+
+`CustomProperties`에서 `userId`를 뺀다. 신원은 오직 토큰의 `sub`에서 나온다.
+
+```
+전:  중복가드 → 명단 대조 → introspect → sub == 주장한 userId
+후:  중복가드 → introspect → sub가 명단에 있나
+```
+
+세 단계가 두 단계로 줄고, **"주장한 이름"이라는 개념이 사라진다.**
+
+**받아들이는 비용(정직하게 기록)**: 명단 선검사가 사라지므로 소켓 하나가 로비 호출 하나를 유발한다.
+중복 가드가 연결당 1회로 묶지만, 소켓을 여는 것은 싸다. 그리고 이 호출은 introspect의 레이트리밋에
+걸리지 않는다 — 가짜 토큰도 응답이 200(`active:false`)이고 리미터는 실패(4xx)만 세기 때문이다.
+방은 참가자 몇 명짜리 단명 대상이고 주소는 매칭이 참가자에게만 알려주므로 지금은 수용한다.
+실환경에서 문제가 되면 게임서버 측 호출 빈도 제한을 얹는다.
+
+### 미인증 연결이 남는 문제 — Mirror가 이미 도구를 준다
+
+접속만 하고 인증 요청을 보내지 않는 연결은 영원히 남는다(1c 최종 리뷰의 잔여 항목).
+Mirror에 `TimeoutAuthenticator` 데코레이터가 기본 제공되며(기본 60초), 제한 시간 안에 인증하지 않은
+연결을 끊는다. **이번에 함께 붙인다** — 위에서 늘어난 미인증 연결의 체류 시간을 묶는 짝이기도 하다.
+
+### 에디터 경로 — `sub`를 어디서 얻나
+
+에디터의 게임서버는 introspect를 건너뛴다(조회 키를 커밋하지 않기 위해, 1c 결정). 주장한 userId까지
+없애면 **에디터에서는 신원을 알 방법이 사라진다.**
+
+**결정**: 에디터 경로에 한해 토큰 페이로드에서 `sub`만 읽는다. **서명을 검증하지 않는다** — 검증은
+introspect의 몫이고 에디터는 그것을 건너뛰기로 이미 결정했다. base64url 디코드 후 `sub` 한 필드만
+꺼내는 짧은 코드이며 `#if UNITY_EDITOR`로 묶어 플레이어 빌드에는 들어가지 않는다.
+
+> 1c에서 지운 `GameFramework.Auth.Jwt`는 **HMAC 서명 검증기**였고 파드에 서명키를 두지 않기로 해서
+> 사용처가 사라진 것이다. 여기서 추가하는 것은 검증기가 아니라 *에디터 전용 클레임 리더*로, 목적과
+> 신뢰 수준이 다르다. 이름과 주석으로 그 차이를 분명히 한다.
+
 ## 4. 결정 — 연결이 자기 세션을 들고 있게 한다
 
 `ISessionManager`에 연결 기준 조회를 추가하지 **않는다.** GameFramework는 Mirror를 모르고(`ISession`에 연결 필드가 없는 것도 그래서다), 거기에 전송 계층 개념을 넣으면 앱 비종속 계약이 깨진다.
@@ -129,8 +204,8 @@ if (ReferenceEquals(session.networkConnection, conn) == false)
 
 | 저장소 | 변경 |
 |---|---|
-| LeagueOfPhysical-Server | `ConnectionIdentity` 신설, 인증기·`LOPRoom`·디스패처·핸들러 3종 |
-| LeagueOfPhysical-Client | `CustomProperties`에서 서버 전용 필드 정리 여부 확인(와이어 타입은 유지) |
+| LeagueOfPhysical-Server | `ConnectionIdentity` 신설, 인증기(판정 순서·에디터 클레임 리더)·`LOPRoom`·디스패처·핸들러 3종, `CustomProperties.userId` 제거, `TimeoutAuthenticator` 배선 |
+| LeagueOfPhysical-Client | `CustomProperties.userId` 제거(전송 중단), 인증기에서 대입 제거 |
 
 **제외**
 
@@ -149,6 +224,9 @@ Unity 앱 프로젝트에는 asmdef가 없어 유닛 테스트를 붙일 수 없
 | 재접속(§2의 순서 재현) | 새 연결이 살아남는다. 옛 연결의 해제가 세션을 끄지 않는다 |
 | 미인증 연결이 끊김 | 아무 일도 없음(예외 없음) |
 | 입력·스탯 배분 | 세션 경유로 정상 처리 |
+| 훼손된 토큰으로 접속 | 거부(1c 검증과 동일. 단 이제 명단 선검사 없이 introspect가 먼저 돈다) |
+| 명단 밖 계정의 정상 토큰 | 거부 — `sub`가 참가자 명단에 없음 |
+| 접속만 하고 인증 요청 안 보냄 | `TimeoutAuthenticator`가 제한 시간 뒤 끊음 |
 
 재접속 재현 방법: 클라를 두 번 연속 실행하거나, 방 접속 후 프로세스를 강제 종료하고 즉시 다시 접속한다(해제 감지 타임아웃 안에 재접속해야 ③ 순서가 성립).
 
@@ -157,14 +235,22 @@ Unity 앱 프로젝트에는 asmdef가 없어 유닛 테스트를 붙일 수 없
 | 우리 것 | 대응 |
 |---|---|
 | `conn.authenticationData`에 서버 확정 신원 | Mirror의 per-connection auth data 관용 |
+| 접속 메시지에 자격증명(토큰)만 싣는다 | Mirror `BasicAuthenticator`(username/password), `DeviceAuthenticator`(deviceID) — 둘 다 주장한 신원을 따로 보내지 않는다. 주석이 OAuth면 accessToken을 넘기라고 명시 |
+| 연결 **객체**로 중복/상태 관리 | Mirror `BasicAuthenticator`의 `HashSet<NetworkConnectionToClient>` |
+| 미인증 연결 제한 시간 | Mirror `TimeoutAuthenticator` |
 | 연결 → 세션 → (속성으로서의) userId | Unreal `UNetConnection`→`PlayerController`→`PlayerState.UniqueNetId` |
 | 세션 id ≠ 계정 id | Photon `ActorNr` ≠ `UserId`, 웹 세션 id ≠ 유저 id |
 | 늦은 해제 이벤트에 대한 연결 동일성 확인 | 일반적인 stale-handle 방어 |
 
 ## 8. 결정 요약
 
-1. **연결이 자기 세션 id를 들고 있다** — `ConnectionIdentity`를 `conn.authenticationData`에 싣는다.
-2. **`ISessionManager`는 그대로 둔다** — 전송 계층 개념을 앱 비종속 계층에 넣지 않는다.
-3. **`ClientMessage<T>`가 세션을 나른다** — 핸들러의 계정 기준 조회를 없앤다.
-4. **해제는 연결 동일성을 확인한 뒤에만 정리한다** — 늦게 온 옛 해제가 산 세션을 끄지 못한다.
-5. **재접속 정책·동시 접속 정책은 건드리지 않는다** — 별도 결정 사항.
+1. **접속 메시지에서 주장한 `userId`를 제거한다** — 자격증명(토큰)만 보낸다. Mirror 기본 인증기가
+   그 모양이고, 신원은 `sub` 하나에서만 나온다. 판정은 `중복가드 → introspect → sub가 명단에 있나`.
+2. **연결이 자기 세션 id를 들고 있다** — `ConnectionIdentity`를 `conn.authenticationData`에 싣는다.
+3. **`ISessionManager`는 그대로 둔다** — 전송 계층 개념을 앱 비종속 계층에 넣지 않는다.
+4. **`ClientMessage<T>`가 세션을 나른다** — 핸들러의 계정 기준 조회를 없앤다.
+5. **해제는 연결 동일성을 확인한 뒤에만 정리한다** — 늦게 온 옛 해제가 산 세션을 끄지 못한다.
+6. **`TimeoutAuthenticator`를 붙인다** — 인증하지 않는 연결이 무한정 남지 않게.
+7. **에디터는 토큰 페이로드에서 `sub`만 읽는다**(서명 검증 없음, 에디터 전용) — introspect를 건너뛰는
+   경계 안에서 신원을 얻기 위해서다.
+8. **재접속 정책·동시 접속 정책은 건드리지 않는다** — 별도 결정 사항.

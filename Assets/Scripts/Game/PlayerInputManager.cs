@@ -114,7 +114,6 @@ namespace LOP
         {
             InputCommandToS inputCommandToS = new InputCommandToS();
             inputCommandToS.Tick = tick;
-            inputCommandToS.SessionId = playerContext.session.sessionId;
 
             if (current != null)
             {

@@ -115,10 +115,7 @@ namespace LOP
         {
             CustomMirrorMessage message = new CustomMirrorMessage
             {
-                payload = new GameInfoToS
-                {
-                    UserId = userDataStore.user.id
-                },
+                payload = new GameInfoToS(),
             };
             NetworkClient.Send(message);
 

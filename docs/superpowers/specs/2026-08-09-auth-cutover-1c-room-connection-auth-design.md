@@ -441,7 +441,7 @@ ISession session = sessionManager.GetSessionByUserId(received.UserId);
 | 조회 키 틀림 | 401 |
 | 조회 키 정상 + 진짜 토큰 | 200, `active: true`, `sub == userId` |
 | 조회 키 정상 + 위조 토큰 | 200, `active: false` |
-| 조회 키 정상 + 만료 토큰 | 200, `active: false` |
+| (만료 토큰은 유닛에서 — `token.test.ts:36`) | 가짜 타이머와 실제 HTTP를 섞지 않는다 |
 | 조회 키 정상 + `token` 필드 누락 | 400 |
 | `active: false` 응답에 `sub`/`exp` 없음 | 정보 누출 없음 확인 |
 

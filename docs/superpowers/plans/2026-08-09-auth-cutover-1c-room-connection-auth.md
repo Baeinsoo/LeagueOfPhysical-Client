@@ -517,7 +517,7 @@ git add packages/server-core/src/auth/token.ts \
         apps/lobby-server/src/controllers/auth.controller.ts \
         apps/lobby-server/src/routes/auth.route.ts \
         apps/lobby-server/src/main.ts \
-        apps/lobby-server/.env.development.local \
+        apps/lobby-server/.env.development.local apps/lobby-server/.env.development.local-k8s \
         apps/lobby-server/test/integration/introspect.integration.test.ts
 git commit -m "feat(lobby): RFC 7662 토큰 introspection 엔드포인트"
 ```

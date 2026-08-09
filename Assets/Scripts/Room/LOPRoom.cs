@@ -31,13 +31,7 @@ namespace LOP
             {
                 await InitializeAsync();
                 await ConnectRoomServerAsync();
-
-                // 시계는 접속하는 순간부터 수렴하기 시작한다 — join 왕복을 기다리는 동안 같이 굴려서
-                // 대기를 겹친다(순서대로 하면 그 시간이 그대로 로딩에 더해진다).
-                var clockSync = WaitForClockSyncAsync();
                 await JoinRoomServerAsync();
-                await clockSync;
-
                 await StartGameAsync();
             }
             catch (Exception e)
@@ -135,51 +129,17 @@ namespace LOP
             await UniTask.WaitUntil(() => NetworkClient.ready == false);
         }
 
-        //  시계가 맞기 전에는 시뮬을 시작하지 않는다.
-        //  Mirror의 predictedTime은 "내 시계 + 서버가 알려준 오차"인데, 그 오차가 20샘플(≈2초)에 걸쳐
-        //  수렴한다. 접속 직후엔 아직 내 에디터 가동 시간에 가까워서, 그대로 출발하면 시계가 뒤늦게
-        //  제자리를 찾으면서 그만큼 틱이 질주한다(실측 284틱 = 5.7초를 8배속으로 갈아 넘김).
-        //  DOTS도 시계가 동기되기 전에는 시뮬을 돌리지 않는다.
-        private const double CLOCK_SYNC_STABLE_THRESHOLD = 0.010;   //  sec. 수렴 후 잔떨림(수 ms)보다 크고 초기 전이(수 초)보다 훨씬 작다
-        private const int CLOCK_SYNC_STABLE_SAMPLES = 3;
-        private const int CLOCK_SYNC_SAMPLE_INTERVAL_MS = 100;      //  Mirror ping 간격과 같게
-        private const int CLOCK_SYNC_TIMEOUT_MS = 5000;
-
-        private async Task WaitForClockSyncAsync()
-        {
-            double previous = NetworkTime.predictionErrorUnadjusted;
-            int stable = 0;
-            int waited = 0;
-
-            while (stable < CLOCK_SYNC_STABLE_SAMPLES && waited < CLOCK_SYNC_TIMEOUT_MS)
-            {
-                await UniTask.Delay(CLOCK_SYNC_SAMPLE_INTERVAL_MS);
-                waited += CLOCK_SYNC_SAMPLE_INTERVAL_MS;
-
-                double current = NetworkTime.predictionErrorUnadjusted;
-                stable = Math.Abs(current - previous) < CLOCK_SYNC_STABLE_THRESHOLD ? stable + 1 : 0;
-                previous = current;
-            }
-
-            if (stable < CLOCK_SYNC_STABLE_SAMPLES)
-            {
-                //  못 기다렸어도 시작은 한다 — 여기서 막으면 매치가 영영 안 열린다.
-                Debug.LogWarning($"[Room] 네트워크 시계가 {CLOCK_SYNC_TIMEOUT_MS}ms 안에 수렴하지 않았다. 그대로 시작한다.");
-            }
-            else
-            {
-                //  이 대기가 로딩 체감에 얼마나 얹히는지 실측으로 알기 위한 것.
-                Debug.Log($"[Room] 시계 수렴 대기 {waited}ms");
-            }
-        }
-
         public async Task StartGameAsync()
         {
             var gameInfo = gameDataStore.gameInfo;
 
             // 출발선을 제 위치(서버보다 앞)에 놓는다. gameInfo.Tick/ElapsedTime은 보낸 순간의 값이라
-            // 받았을 땐 이미 과거다. 속도 보정(ClockDilator)은 달리는 중 드리프트를 잡는 장치이지
-            // 잘못된 출발점을 메우는 장치가 아니다 — 0.5초 미만 오차는 5%씩만 좁혀 수 초가 걸린다.
+            // 받았을 땐 이미 과거다.
+            //
+            // 접속 직후라 Mirror의 시각 추정(predictedTime)은 아직 수렴 전이다 — 여기서 잡은 출발선은
+            // 몇 초 뒤 제자리를 찾으며 크게 움직인다. 그 격차는 기다려서 없애지 않고(로딩 2.8초를
+            // 물어야 했다) 틱 쪽 snap-forward가 건너뛴다(LOPTickUpdater.MaxCatchUpTicks).
+            // Mirror의 방식 자체가 "추정치를 계속 따라가되 크게 틀리면 점프"다.
             double target = ((LOPTickUpdater)runner.tickUpdater).TargetTime;
             runner.Run((long)(target / gameInfo.Interval), gameInfo.Interval, target);
         }

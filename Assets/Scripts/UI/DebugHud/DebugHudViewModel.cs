@@ -18,6 +18,11 @@ namespace LOP.UI
         private readonly GameFramework.Netcode.SnapshotArrivalStats snapshotArrivalStats;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly RemoteInterpolationClock remoteInterpolationClock;
+        private readonly LeadState leadState;
+
+        // 멈춤 횟수는 틱 업데이터가 세션 내내 누적한다. 측정 창의 답("이 창에 멈춤이 있었나")을
+        // 얻으려면 리셋 시점 값을 기억해 두고 차이를 본다.
+        private int catchUpBaseline;
 
         public DebugHudViewModel(
             IRunner runner,
@@ -26,8 +31,10 @@ namespace LOP.UI
             GameFramework.Netcode.SnapshotHistory snapshotHistory,
             GameFramework.Netcode.SnapshotArrivalStats snapshotArrivalStats,
             GameFramework.World.EntityRegistry entityRegistry,
-            RemoteInterpolationClock remoteInterpolationClock)
+            RemoteInterpolationClock remoteInterpolationClock,
+            LeadState leadState)
         {
+            this.leadState = leadState;
             this.runner = runner;
             this.reconciliationStats = reconciliationStats;
             this.inputTimingStats = inputTimingStats;
@@ -68,6 +75,21 @@ namespace LOP.UI
 
         public int TimingSeqGap => inputTimingStats.SeqGapCount;
 
+        // 위 네 값은 최신 0.5초 창이라 사건이 지나가면 0으로 돌아간다. 판정은 아래 누적치로 한다.
+        public int TimingTotalPrune => inputTimingStats.TotalPruneCount;
+
+        public int TimingTotalSeqGap => inputTimingStats.TotalSeqGapCount;
+
+        public int TimingWorstD => inputTimingStats.WorstMaxD == InputTimingStats.NoWorstMaxD ? 0 : inputTimingStats.WorstMaxD;
+
+        // 동적 lead가 실제로 쥐고 있는 여유(ms). 이 값이 바닥에 붙어 있는지가 lead 정책의 진단점이다.
+        public double AheadMarginMs => leadState.AheadMargin * 1000;
+
+        public int CatchUpCapped => runner.tickUpdater == null ? 0 : runner.tickUpdater.catchUpCappedCount - catchUpBaseline;
+
+        // 세션 전체 기준 최대 뒤처짐(리셋으로 안 지워진다). 크기만 참고하고, "이 창에 있었나"는 CatchUpCapped로 본다.
+        public long MaxTicksBehind => runner.tickUpdater == null ? 0 : runner.tickUpdater.maxTicksBehind;
+
         public int SnapshotCount => snapshotHistory.Count;
 
         public long SnapshotLatestTick => snapshotHistory.Latest?.Tick ?? -1;
@@ -94,6 +116,12 @@ namespace LOP.UI
         {
             reconciliationStats.Reset();
             snapshotArrivalStats.Reset();
+            inputTimingStats.Reset();
+
+            if (runner.tickUpdater != null)
+            {
+                catchUpBaseline = runner.tickUpdater.catchUpCappedCount;
+            }
         }
 
         // HUD 값이 많아 눈으로 옮겨 적기 어렵다. 한 줄로 찍어 두면 콘솔에서 그대로 가져갈 수 있다.
@@ -103,8 +131,10 @@ namespace LOP.UI
                       $" entities={EntityCount} reconMax={ReconMax:F3} reconAvg={ReconAverage:F3} reconLast={ReconLast:F3}" +
                       $" corrections={CorrectionCount}" +
                       $" snapLag={ServerTickLag} snapGapAvg={SnapIntervalAvgMs:F1} snapGapMax={SnapIntervalMaxMs:F1}" +
-                      $" cushion={CushionMs:F1} rtt={RttMs:F0} lead={Lead}" +
-                      $" dAvg={TimingAvgD:F1} dMax={TimingMaxD} prune={TimingPrune} seqGap={TimingSeqGap}");
+                      $" cushion={CushionMs:F1} rtt={RttMs:F0} lead={Lead} margin={AheadMarginMs:F0}" +
+                      $" stalls={CatchUpCapped} behindMax={MaxTicksBehind}" +
+                      $" dAvg={TimingAvgD:F1} dMax={TimingMaxD} prune={TimingPrune} seqGap={TimingSeqGap}" +
+                      $" | worstD={TimingWorstD} pruneTot={TimingTotalPrune} seqGapTot={TimingTotalSeqGap}");
         }
     }
 }

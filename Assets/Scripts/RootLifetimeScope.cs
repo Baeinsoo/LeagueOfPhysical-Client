@@ -36,7 +36,6 @@ namespace LOP
             builder.RegisterMessageBroker<EntityDespawnToC>(options);
             builder.RegisterMessageBroker<UserEntitySnapToC>(options);
             builder.RegisterMessageBroker<StatAllocationToC>(options);
-            builder.RegisterMessageBroker<InputSequenceToC>(options);
             builder.RegisterMessageBroker<InputTimingToC>(options);
             builder.RegisterMessageBroker<MatchEndedToC>(options);
             builder.Register<NetworkMessageDispatcher>(Lifetime.Singleton);

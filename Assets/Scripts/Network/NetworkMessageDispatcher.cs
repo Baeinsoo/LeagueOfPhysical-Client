@@ -24,7 +24,6 @@ namespace LOP
             IPublisher<EntityDespawnToC> despawn,
             IPublisher<UserEntitySnapToC> userSnap,
             IPublisher<StatAllocationToC> statAllocation,
-            IPublisher<InputSequenceToC> inputSequence,
             IPublisher<InputTimingToC> inputTiming,
             IPublisher<MatchEndedToC> matchEnded)
         {
@@ -35,7 +34,6 @@ namespace LOP
             Register(despawn);
             Register(userSnap);
             Register(statAllocation);
-            Register(inputSequence);
             Register(inputTiming);
             Register(matchEnded);
         }

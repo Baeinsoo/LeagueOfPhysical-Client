@@ -386,19 +386,32 @@ ISession session = sessionManager.GetSessionByUserId(received.UserId);
 경계가 유지된다. (Mirror 자신은 `(conn, msg)` 두 인자로 넘기고, 메시징 프레임워크의 통용 모양도
 "메시지 + 발신자 메타"의 짝이다 — MassTransit `ConsumeContext<T>`의 `.Message` + 발신 정보.)
 
-### 8.3 클라가 채우지 않는다
+### 8.3 필드 자체를 제거한다
 
-서버가 §8.2로 이미 읽지 않게 되므로, 클라 송신부 3곳에서 대입을 지운다:
-`LOPRoom.cs:115`, `PlayerInputManager.cs:117`, `StatsViewModel.cs:72`.
-proto3은 빈 문자열을 아예 인코딩하지 않으므로 와이어에서도 사라진다.
+가장 확실한 방어는 **보내지 않는 것**이다. 안 보내면 위조할 대상이 없다.
 
-**proto에서 필드를 물리적으로 삭제하는 것은 이번에 하지 않는다.** 이 저장소의 protoc은
-`Tools/Protobuf/protoc-28.2-win64` 하나뿐이라 **macOS에서 실행되지 않고**, 재생성 없이 `.proto`만
-고치면 생성 코드와 어긋난다. 필드는 남기되 `.proto`에 "서버가 읽지 않는다 / 클라도 채우지 않는다 /
-다음 재생성 때 삭제" 주석을 달아 둔다. 보안 효과는 동일하다 — 서버가 그 값을 신원으로 쓰지 않기
-때문이지, 필드가 없기 때문이 아니다.
+| proto | 변경 |
+|---|---|
+| `GameInfoToS` | `user_id` 삭제 → 빈 메시지("준비됐다" 신호) |
+| `InputCommandToS` | `session_id` 삭제 |
+| `StatAllocationToS` | `session_id` 삭제 |
 
-물리 삭제는 §13(후속)의 "macOS protoc 확보" 항목에 묶는다.
+지운 자리에는 **`reserved 1;`** 을 남긴다 — 나중에 다른 필드가 같은 번호를 재사용하면, 배포 시점이
+어긋난 구버전이 옛 값을 새 필드로 읽는다.
+
+클라 송신부 3곳만 손대면 된다: `LOPRoom.cs:115`, `PlayerInputManager.cs:117`, `StatsViewModel.cs:72`.
+
+**재생성 도구**: 이 저장소는 `Tools/Protobuf/protoc-28.2-win64`만 갖고 있어 macOS에서 돌지 않는다.
+같은 버전(28.2)의 macOS universal 바이너리를 `Tools/Protobuf/protoc-28.2-osx-universal`로 함께
+넣고 `compile_protos.sh`가 플랫폼을 분기하게 한다. **동일 출력은 실측으로 확인했다** — `.proto`를
+고치지 않은 채 28개를 전부 재생성해 커밋본과 비교한 결과 내용이 다른 파일 0개(바이트 동일).
+
+**`generate_protos.sh`가 아니라 `compile_protos.sh`만 돌린다.** 전자는 `Runtime.Generated/Scripts/Protobuf`를
+`rm -rf`로 지우고 시작해 `.meta` 파일이 전부 새 GUID로 재생성되며, 3개 필드 변경에 수십 개 파일이
+흔들린다. 후자는 기존 폴더에 덮어쓰므로 실제로 바뀐 `.cs` 3개만 diff에 남는다.
+
+**서버→클라 방향의 `GameInfoToC.SessionId`는 유지한다** — 클라가 자기 세션을 아는 것은 정상이며
+위조 문제와 무관하다. (클라가 로컬에서 쓰는 `playerContext.session`도 그대로 둔다.)
 
 **서버→클라 방향의 `GameInfoToC.SessionId`는 유지한다** — 클라가 자기 세션을 아는 것은 정상이며
 위조 문제와 무관하다. (클라가 로컬에서 쓰는 `playerContext.session`도 그대로 둔다.)
@@ -512,9 +525,6 @@ MasterData-Client)의 테스트가 `testables`로 실행되는 것이다.
   (1a의 `BearerTokenHandler`와 같은 모양)로 승격한다. 지금은 introspect 한 곳이라 호출부에서 직접 붙인다.
 - **에디터 introspect 경로 실행**: 로컬 시크릿 관리 방식(SealedSecrets/SOPS 등)을 도입하면 에디터
   예외를 없앨 수 있다. 그 트랙과 함께 재검토한다.
-- **macOS protoc 확보 + ToS 신원 필드 물리 삭제**: 현재 `Tools/Protobuf`에 win64 바이너리만 있어
-  macOS에서 재생성이 불가능하다. 같은 버전(28.2)의 osx 바이너리를 넣고 `compile_protos.sh`가
-  플랫폼을 분기하게 한 뒤, §8.3의 주석 처리된 필드를 실제로 지운다.
 - **Unity 앱 프로젝트 테스트 가능성(asmdef 도입)**: 클라·서버 모두 앱 코드가 `Assembly-CSharp`에 있어
   유닛 테스트를 붙일 수 없다(§10.2). 피처 단위 asmdef 분리는 `architecture-guidelines.md`가 이미
   목표 구조로 정의해 두었으므로, 그 작업의 일부로 다룬다.

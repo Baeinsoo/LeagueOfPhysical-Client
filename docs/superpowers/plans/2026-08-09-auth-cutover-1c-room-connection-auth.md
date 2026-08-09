@@ -21,7 +21,7 @@
 - 서버는 `conn.authenticationData`의 `userId`에 **introspect가 돌려준 `sub`** 을 저장한다(클라 주장값 아님). 에디터 경로에서만 주장값을 쓴다.
 - 클라는 **`StartClient()` 호출 전에** 토큰 갱신을 끝낸다. `GetAccessTokenAsync(forceRefresh: **false**, ...)` — 강제 갱신을 쓰지 않는다.
 - 필드명은 `CustomProperties.token` → **`accessToken`** (클·서 양쪽 동일).
-- **proto 파일을 재생성하지 않는다.** 이 저장소의 protoc은 win64 전용이라 macOS에서 돌지 않는다. 신원 필드는 *물리 삭제하지 않고* 클라가 채우지 않고 서버가 읽지 않게만 한다(주석으로 명시).
+- proto 재생성은 **`compile_protos.sh`만** 돌린다. `generate_protos.sh`는 출력 폴더를 `rm -rf`로 지워 `.meta`가 전부 새 GUID로 재생성되므로 쓰지 않는다.
 - Unity 프로젝트(클·서)에는 **asmdef가 없어 유닛 테스트를 붙일 수 없다** — 모든 앱 코드가 `Assembly-CSharp`에 있고 테스트 asmdef는 이를 참조할 수 없다. Unity 측 검증은 **컴파일 클린 + 수동 검증**이다. 없는 테스트를 지어내지 말 것.
 - 새 `.cs`/`.asset` 파일을 만들거나 지우면 Unity가 만든 **`.meta` 파일을 반드시 함께 커밋**한다.
 - UnityMCP 호출은 **매 호출에 `unity_instance`를 명시**한다(`mcpforunity://instances`에서 이름으로 id 해석). 서버 인스턴스를 임의로 건드리지 않는다.
@@ -1285,34 +1285,87 @@ git commit -m "feat(client): 방 접속 전 토큰 갱신 + 진짜 토큰 전송
 **Repos:** `LeagueOfPhysical-Client`, `LeagueOfPhysical-Shared`
 
 **Files:**
+- Create: `LeagueOfPhysical-Shared/Tools/Protobuf/protoc-28.2-osx-universal/` (내려받은 바이너리)
+- Modify: `LeagueOfPhysical-Shared/Scripts/compile_protos.sh:3-8`
+- Modify: `LeagueOfPhysical-Shared/Protos/{GameInfoToS,InputCommandToS,StatAllocationToS}.proto`
+- Regenerate: `LeagueOfPhysical-Shared/Runtime.Generated/Scripts/Protobuf/{GameInfoToS,InputCommandToS,StatAllocationToS}.cs`
 - Modify: `LeagueOfPhysical-Client/Assets/Scripts/Room/LOPRoom.cs:113-120`
 - Modify: `LeagueOfPhysical-Client/Assets/Scripts/Game/PlayerInputManager.cs:117`
 - Modify: `LeagueOfPhysical-Client/Assets/Scripts/UI/Stats/StatsViewModel.cs:72`
-- Modify: `LeagueOfPhysical-Shared/Protos/GameInfoToS.proto`
-- Modify: `LeagueOfPhysical-Shared/Protos/InputCommandToS.proto`
-- Modify: `LeagueOfPhysical-Shared/Protos/StatAllocationToS.proto`
 
 **Interfaces:**
 - Consumes: Task 7이 이미 서버에서 이 필드들을 읽지 않게 만들었다. 순서를 지켜야 한다(9가 7보다 먼저 배포되면 서버가 신원을 못 찾는다).
 
-- [ ] **Step 1: proto에 주석으로 못 박는다**
+- [ ] **Step 1: macOS용 protoc을 넣는다**
 
-**재생성하지 않는다** — 이 저장소의 protoc은 win64 전용이라 macOS에서 돌지 않는다. 주석은 다음 재생성 때 생성 코드에 반영된다.
+이 저장소는 win64 바이너리만 갖고 있다. **같은 버전(28.2)** 의 macOS universal 바이너리를 받아 나란히 둔다.
+
+```bash
+cd LeagueOfPhysical-Shared/Tools/Protobuf
+curl -sL -o protoc-osx.zip https://github.com/protocolbuffers/protobuf/releases/download/v28.2/protoc-28.2-osx-universal_binary.zip
+unzip -q protoc-osx.zip -d protoc-28.2-osx-universal
+rm protoc-osx.zip
+chmod +x protoc-28.2-osx-universal/bin/protoc
+./protoc-28.2-osx-universal/bin/protoc --version
+```
+기대: `libprotoc 28.2`
+
+- [ ] **Step 2: `compile_protos.sh`가 플랫폼을 분기하게 한다**
+
+`Scripts/compile_protos.sh`의 3~6행(변수 설정)을 바꾼다. 나머지는 손대지 않는다.
+
+```bash
+# 변수 설정
+# protoc은 플랫폼별 바이너리다 — 같은 버전(28.2)이면 어느 쪽으로 만들어도 출력이 바이트 단위로 같다.
+case "$(uname -s)" in
+    Darwin) PROTOC_HOME="../Tools/Protobuf/protoc-28.2-osx-universal" ;;
+    *)      PROTOC_HOME="../Tools/Protobuf/protoc-28.2-win64" ;;
+esac
+
+PROTOC="$PROTOC_HOME/bin/protoc"
+PROTO_PATH="../Protos"
+INCLUDE_PATH="$PROTOC_HOME/include"
+OUT_PATH="../Runtime.Generated/Scripts/Protobuf"
+FILE_COUNT=0
+```
+
+- [ ] **Step 3: 아무것도 안 고친 상태로 재생성해 출력이 같은지 확인한다**
+
+`.proto`를 건드리기 **전에** 돌려서, 도구 교체 자체로는 아무 변화가 없음을 확인한다.
+
+```bash
+cd LeagueOfPhysical-Shared/Scripts && ./compile_protos.sh
+cd .. && git status --short Runtime.Generated/
+```
+기대: **출력 없음**(변경된 파일 0개). 여기서 파일이 바뀌면 도구가 다른 것이므로 멈추고 보고할 것.
+
+- [ ] **Step 4: proto에서 신원 필드를 지운다**
+
+지운 자리에 `reserved`를 남긴다 — 나중에 다른 필드가 같은 번호를 재사용하면, 배포 시점이 어긋난 구버전이 옛 값을 새 필드로 읽는다.
 
 `Protos/GameInfoToS.proto`:
 
 ```protobuf
 // @auto_generate
 message GameInfoToS {
-	// 서버가 읽지 않는다 — 신원은 연결에서 도출한다(1c). 클라도 채우지 않는다.
-	// 다음 재생성 때 삭제할 것.
-	string user_id = 1;
+	// 신원은 연결에서 도출한다(1c) — 클라가 적어 보내지 않는다.
+	reserved 1;
 }
 ```
 
-`Protos/InputCommandToS.proto`의 `session_id`, `Protos/StatAllocationToS.proto`의 `session_id`에도 같은 3줄 주석을 붙인다.
+`Protos/InputCommandToS.proto`의 `message InputCommandToS`에서 `string session_id = 1;`을 지우고 같은 주석 + `reserved 1;`을 넣는다. 나머지 필드 번호(2~5)는 **바꾸지 않는다**.
 
-- [ ] **Step 2: 클라 송신부 세 곳에서 대입을 지운다**
+`Protos/StatAllocationToS.proto`에서도 `string session_id = 1;`을 지우고 같은 주석 + `reserved 1;`을 넣는다. `stat = 2`는 그대로 둔다.
+
+- [ ] **Step 5: 재생성하고 diff를 확인한다**
+
+```bash
+cd LeagueOfPhysical-Shared/Scripts && ./compile_protos.sh
+cd .. && git status --short Runtime.Generated/
+```
+기대: `GameInfoToS.cs`, `InputCommandToS.cs`, `StatAllocationToS.cs` **딱 3개만** 수정됨. `.meta`가 함께 뜨면 `generate_protos.sh`를 잘못 돌린 것이다.
+
+- [ ] **Step 6: 클라 송신부 세 곳에서 대입을 지운다**
 
 `LeagueOfPhysical-Client/Assets/Scripts/Game/PlayerInputManager.cs`에서 이 줄을 삭제한다:
 
@@ -1338,23 +1391,29 @@ message GameInfoToS {
             };
 ```
 
-- [ ] **Step 3: 남은 참조가 없는지 확인한다**
+- [ ] **Step 7: 남은 참조가 없는지 확인한다**
 
 ```bash
 cd LeagueOfPhysical-Client && grep -rn "inputCommandToS.SessionId\|SessionId = _playerContext\|UserId = userDataStore" Assets/Scripts
 ```
-기대: 출력 없음.
+기대: 출력 없음. (필드가 사라졌으므로 남아 있으면 컴파일도 깨진다.)
 
-- [ ] **Step 4: 컴파일과 테스트를 확인한다**
+- [ ] **Step 8: 컴파일과 테스트를 확인한다**
 
 UnityMCP `read_console`(클라 인스턴스 명시)로 에러 0, `run_tests`(EditMode)로 434건 PASS.
+서버 인스턴스도 `read_console`로 에러 0을 확인한다 — Task 7이 이미 이 필드들을 안 읽게 만들었으므로 깨질 곳이 없어야 한다.
 
-- [ ] **Step 5: 커밋 (두 저장소)**
+- [ ] **Step 9: 커밋 (두 저장소)**
 
 ```bash
 cd LeagueOfPhysical-Shared
-git add Protos/GameInfoToS.proto Protos/InputCommandToS.proto Protos/StatAllocationToS.proto
-git commit -m "docs(proto): ToS 메시지의 신원 필드를 사용 중지로 표시"
+git add Tools/Protobuf/protoc-28.2-osx-universal \
+        Scripts/compile_protos.sh \
+        Protos/GameInfoToS.proto Protos/InputCommandToS.proto Protos/StatAllocationToS.proto \
+        Runtime.Generated/Scripts/Protobuf/GameInfoToS.cs \
+        Runtime.Generated/Scripts/Protobuf/InputCommandToS.cs \
+        Runtime.Generated/Scripts/Protobuf/StatAllocationToS.cs
+git commit -m "feat(proto): ToS 메시지에서 신원 필드 제거 + macOS protoc 추가"
 
 cd ../LeagueOfPhysical-Client
 git add Assets/Scripts/Game/PlayerInputManager.cs \

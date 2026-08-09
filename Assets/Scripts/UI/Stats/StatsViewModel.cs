@@ -69,7 +69,6 @@ namespace LOP.UI
 
             _playerContext.session.Send(new StatAllocationToS
             {
-                SessionId = _playerContext.session.sessionId,
                 Stat = statName,
             });
         }

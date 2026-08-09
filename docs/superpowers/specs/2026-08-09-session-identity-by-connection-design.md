@@ -173,7 +173,7 @@ public class ConnectionIdentity
 인증 성공   : conn.authenticationData = new ConnectionIdentity(sub)
 세션 생성   : identity.SessionId = session.sessionId          ← 연결과 세션이 여기서 묶인다
 메시지 수신 : conn → identity.SessionId → GetSessionById      ← userId를 경유하지 않는다
-연결 해제   : conn → 그 연결의 세션만 정리                     ← §2의 ③이 구조적으로 불가능
+연결 해제   : conn → 세션 → 그 세션이 이 연결의 것일 때만 정리  ← §2의 ③을 막는 자리
 ```
 
 ### 4.3 봉투가 나르는 것 — userId → 세션
@@ -196,7 +196,14 @@ public readonly struct ClientMessage<T> where T : IMessage
 
 같은 userId가 다시 붙으면 기존 세션의 연결을 새 연결로 갈아끼운다. 엔티티가 `GetEntityIdByUserId`로 계정에 묶여 있어, 세션을 새로 만들면 그 매핑을 다시 이어야 한다. **이 슬라이스는 재접속 정책을 바꾸지 않는다.**
 
-바뀌는 것은 해제 처리다. 세션이 지금 들고 있는 연결이 **이 연결일 때만** 정리한다:
+바뀌는 것은 해제 처리다. 세션이 지금 들고 있는 연결이 **이 연결일 때만** 정리한다.
+
+> **인과를 정확히**: 조회 키를 계정에서 세션으로 바꾼 것만으로는 §2의 ③이 닫히지 않는다. 세션은 한 번
+> 만들어지면 지워지지 않아(`RemoveSession` 호출부 0곳) 한 계정의 **모든 연결이 같은 세션 id를 들고**,
+> 늦게 온 옛 해제도 같은 세션을 찾아낸다. 실제로 막는 것은 아래 참조 동일성 검사다. 조회 키 변경의
+> 몫은 따로다 — 수신 경로가 계정을 경유하지 않게 되고, 잘못된 캐스트가 사라진다.
+> **같은 이유로 수신 경로에도 같은 검사가 필요하다**(최종 리뷰 지적): 안 하면 좀비 연결의 요청이 산
+> 연결로 응답을 보내게 만든다.
 
 ```csharp
 if (ReferenceEquals(session.networkConnection, conn) == false)

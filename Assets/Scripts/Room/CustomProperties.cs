@@ -8,7 +8,6 @@ namespace LOP
     [Serializable]
     public class CustomProperties
     {
-        public string userId;
         public string accessToken;
         public int characterId;
     }

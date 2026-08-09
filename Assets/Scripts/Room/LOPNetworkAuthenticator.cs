@@ -14,9 +14,6 @@ namespace LOP
     public class LOPNetworkAuthenticator : NetworkAuthenticator
     {
         [Inject]
-        private IUserDataStore userDataStore;
-
-        [Inject]
         private GameFramework.Http.IAccessTokenProvider accessTokenProvider;
 
         private string preparedAccessToken;
@@ -69,9 +66,9 @@ namespace LOP
         /// </summary>
         public override void OnClientAuthenticate()
         {
+            //  이름을 신고하지 않는다 — 서버가 토큰의 sub로 신원을 확정한다.
             var customProperties = new CustomProperties
             {
-                userId = userDataStore.user.id,
                 accessToken = preparedAccessToken,
                 characterId = 0,
             };

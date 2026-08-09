@@ -122,8 +122,16 @@ accessToken을 넘기라고 명시한다 — 우리가 하려는 바로 그 모�
 ### 미인증 연결이 남는 문제 — Mirror가 이미 도구를 준다
 
 접속만 하고 인증 요청을 보내지 않는 연결은 영원히 남는다(1c 최종 리뷰의 잔여 항목).
-Mirror에 `TimeoutAuthenticator` 데코레이터가 기본 제공되며(기본 60초), 제한 시간 안에 인증하지 않은
-연결을 끊는다. **이번에 함께 붙인다** — 위에서 늘어난 미인증 연결의 체류 시간을 묶는 짝이기도 하다.
+Mirror에 `TimeoutAuthenticator`가 기본 제공되며(기본 60초), 제한 시간 안에 인증하지 않은 연결을 끊는다.
+**같은 동작을 이번에 넣는다** — 위에서 늘어난 미인증 연결의 체류 시간을 묶는 짝이기도 하다.
+
+**단, 그 컴포넌트를 끼우지 않고 우리 인증기 안에 구현한다.** `TimeoutAuthenticator`는 다른 인증기를
+감싸는 데코레이터 MonoBehaviour라, 쓰려면 NetworkManager의 `authenticator`를 그것으로 바꾸고 내부
+인증기를 인스펙터로 연결해야 한다 — 씬 편집이 따라오고, 클라에는 `networkManager.authenticator`를
+`LOPNetworkAuthenticator`로 캐스트하는 자리가 있어(`LOPRoom.cs:107`) 잘못 끼우면 그 캐스트가 깨진다.
+동작 자체는 "제한 시간 뒤 `conn.isAuthenticated`가 false면 끊는다"는 코루틴 10줄이므로,
+**Mirror 구현을 참조 삼아 서버 인증기의 `OnServerAuthenticate`에 직접 넣는다.** 씬 변경이 없고
+클라 경로도 건드리지 않는다.
 
 ### 에디터 경로 — `sub`를 어디서 얻나
 

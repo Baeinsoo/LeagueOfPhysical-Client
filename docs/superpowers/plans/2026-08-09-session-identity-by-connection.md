@@ -267,13 +267,28 @@ namespace LOP
         {
             yield return new WaitForSecondsRealtime(AuthenticationTimeoutSeconds);
 
-            if (conn.isAuthenticated == false)
+            if (conn.isAuthenticated)
             {
-                Debug.LogWarning($"[Auth] 제한 시간 안에 인증하지 않아 연결을 끊습니다. connectionId: {conn.connectionId}");
-                conn.Disconnect();
+                yield break;
             }
+
+            //  Disconnect()는 connectionId로 끊는데 kcp2k는 그 id를 클라 주소로 만들어 재사용한다.
+            //  60초 사이에 이 연결이 사라지고 같은 주소의 *다른* 연결이 그 자리를 차지했다면, 그냥
+            //  끊어버리는 순간 애먼 연결이 죽는다. 지금 등록된 것이 바로 이 객체인지 확인한다.
+            //  (Mirror의 TimeoutAuthenticator에는 이 확인이 없다 — kcp2k의 id 재사용과 겹치면
+            //  같은 사고가 난다.)
+            if (NetworkServer.connections.TryGetValue(conn.connectionId, out var current) == false || ReferenceEquals(current, conn) == false)
+            {
+                yield break;
+            }
+
+            Debug.LogWarning($"[Auth] 제한 시간 안에 인증하지 않아 연결을 끊습니다. connectionId: {conn.connectionId}");
+            conn.Disconnect();
         }
 ```
+
+`OnStopServer`에 `StopAllCoroutines();`를 더한다 — 방이 닫힌 뒤에도 남아 있던 코루틴이 깨어나
+끊기를 시도하지 않게, 그리고 죽은 연결 객체를 최대 60초간 붙들고 있지 않게.
 
 파일 상단 `using`에 `System.Collections`가 있는지 확인하고 없으면 추가한다.
 

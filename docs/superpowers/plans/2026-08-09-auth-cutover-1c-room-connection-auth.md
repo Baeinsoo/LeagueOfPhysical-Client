@@ -158,7 +158,7 @@ describe('internalApiKeyMiddleware', () => {
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-cd lop-backend && npx jest packages/server-core/src/middlewares/__tests__/internalApiKey.middleware.test.ts
+cd lop-backend/packages/server-core && npx jest src/middlewares/__tests__/internalApiKey.middleware.test.ts
 ```
 기대: `Cannot find module '../internalApiKey.middleware'`로 실패.
 
@@ -219,7 +219,7 @@ export { internalApiKeyMiddleware } from '../middlewares/internalApiKey.middlewa
 - [ ] **Step 5: 테스트가 통과하는지 확인한다**
 
 ```bash
-cd lop-backend && npx jest packages/server-core/src/middlewares/__tests__/internalApiKey.middleware.test.ts
+cd lop-backend/packages/server-core && npx jest src/middlewares/__tests__/internalApiKey.middleware.test.ts
 ```
 기대: 5개 PASS.
 
@@ -500,7 +500,7 @@ INTERNAL_API_KEY = local-dev-only-CHANGE-ME-not-a-real-key
 ```bash
 cd lop-backend && npx turbo run build
 cd apps/lobby-server && npx jest -c jest.integration.config.js introspect
-cd ../.. && npx jest packages/server-core
+cd ../../packages/server-core && npx jest
 ```
 기대: 통합 6건 PASS, server-core 유닛 전부 PASS.
 
@@ -579,7 +579,7 @@ describe('buildGameServerPodManifest', () => {
 - [ ] **Step 2: 실패를 확인한다**
 
 ```bash
-cd lop-backend && npx jest apps/room-server/src/services/__tests__/gameServerPod.test.ts
+cd lop-backend/apps/room-server && npx jest src/services/__tests__/gameServerPod.test.ts
 ```
 기대: `Cannot find module '../gameServerPod'`.
 
@@ -644,7 +644,8 @@ import { buildGameServerPodManifest } from './gameServerPod';
 - [ ] **Step 5: 테스트와 빌드를 확인한다**
 
 ```bash
-cd lop-backend && npx turbo run build && npx jest apps/room-server
+cd lop-backend && npx turbo run build
+cd apps/room-server && npx jest
 ```
 기대: 새 4건 포함 전부 PASS, 빌드 성공.
 

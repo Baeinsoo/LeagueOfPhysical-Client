@@ -70,7 +70,6 @@ namespace LOP
             // 메시지 핸들러: 컨테이너 엔트리포인트로 자기 구독 생명주기를 스스로 관리(스코프가 Initialize/Dispose 구동).
             builder.RegisterEntryPoint<GameInfoMessageHandler>();
             builder.RegisterEntryPoint<GameEntityMessageHandler>();
-            builder.RegisterEntryPoint<GameInputMessageHandler>();
             builder.RegisterEntryPoint<GameInputTimingMessageHandler>();
             builder.RegisterEntryPoint<GameWorldEventMessageHandler>();
             builder.RegisterEntryPoint<MatchEndedMessageHandler>();

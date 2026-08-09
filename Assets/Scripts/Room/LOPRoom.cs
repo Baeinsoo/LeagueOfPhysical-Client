@@ -133,7 +133,10 @@ namespace LOP
         {
             var gameInfo = gameDataStore.gameInfo;
 
-            runner.Run(gameInfo.Tick + 1, gameInfo.Interval, gameInfo.ElapsedTime);
+            // 출발선을 제 위치(서버보다 앞)에 놓는다. gameInfo.Tick/ElapsedTime은 보낸 순간의 값이라
+            // 받았을 땐 이미 과거다 — 지금 시계에서 유도한다.
+            double target = ((LOPTickUpdater)runner.tickUpdater).TargetTime;
+            runner.Run((long)(target / gameInfo.Interval), gameInfo.Interval, target);
         }
 
         private void OnGameStateChanged(RunnerState gameState)

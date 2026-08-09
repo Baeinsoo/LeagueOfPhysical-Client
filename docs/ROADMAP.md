@@ -1292,10 +1292,27 @@ import하는 파일이 남아 `lobby-server`가 컴파일 안 됐는데 4개 스
 파일을 import하지 않아 ts-jest가 타입 검사를 건너뛰기 때문. CI는 테스트보다 **먼저** `turbo run build`를
 돌린다. 검증 명령 맨 앞에 빌드를 넣을 것.
 
-**🔴 배포가 아직 안 됐다.** 클러스터는 CI가 빌드한 핀된 이미지를 돌고 `backend-deploy`는
-**`workflow_dispatch`(수동)** 다. 남은 순서: **GitHub Actions에서 `backend-deploy` 수동 실행 →
-ArgoCD 동기화 → 클라를 이 브랜치 빌드로 실행 → 수동 검증 4건**(스펙 §10). 그 검증에 **1a에서 못 밟은
-401 재시도 경로**가 포함된다.
+**✅ 배포·검증 완료 (2026-08-09)**. `gh workflow run backend-deploy.yml -f app=all`로 배포
+(`workflow_dispatch`지만 `gh`로 실행 가능 — 이전 배포들도 전부 그렇게 했다) → 이미지
+`re5nardo/*:22be359` → ArgoCD 동기화 → 파드 3개 Running. 8개 레포 전부 main 최신, EditMode 434/0.
+
+검증 4건 전부 통과:
+1. **정상 플레이** — 로그인→로비→매칭 요청→취소 전 구간 200, Unity 콘솔 에러 0.
+2. **401 재시도** — **1a에서 만들고 한 번도 못 밟았던 경로를 여기서 처음 실증.** 임시로 서명이 깨진
+   토큰을 실어 보내니 `PUT /lobby/join 401 → POST /auth/login 200 → PUT /lobby/join 200`이 **같은 1초
+   안에** 돌았고 **사용자는 아무것도 못 느꼈다.** 임시 코드 제거·되돌림 확인.
+   - *설계 함정*: 처음엔 "첫 인증 요청 1회만 망가뜨리기"로 했더니 `GET /user/{id}`(조회라 검사 안 함)가
+     그 1회를 먹어치워 헛돌았다. 401이 실제로 날 때까지 망가뜨리도록 고쳐 잡음 — 스펙 §1의
+     "조회는 안 닫는다"가 실물로 드러난 셈.
+3. **레이트리밋** — 두 리미터가 각자 살아 있음(`RateLimit-Policy: 30;w=900` / `200;w=900`).
+   **XFF 위조가 안 통한다**(다른 값으로 보내도 같은 버킷에서 카운터가 줄어듦 — nginx가 덮어씀) →
+   `trust proxy 1`이 의도대로 동작. 한도 소진 429는 통합 테스트가 고정(라이브 소진은 계정 30개를
+   만들어야 해 생략).
+4. **서명키 일치** — `POST /matchmaking 200`이 곧 증거(로비가 서명한 걸 매칭이 검증).
+
+**라이브 경계 확인**(배포 후 밖에서 직접 찔러봄): `DELETE /lobby/user/__probe__`·`POST /lobby/user`·
+`PUT /lobby/user/profile` → **전부 404**(이전엔 500/400 = 핸들러 도달). 토큰 없는
+`PUT /lobby/join`·`POST /matchmaking`·`DELETE /matchmaking/:id` → **전부 401**.
 
 후속(스펙 §13): `GET /user/all` 삭제(**받아들인 조회 라우트가 아니라 아직 안 지운 고아** — 호출자 0곳) /
 내부 전용 변경 라우트 차단(`PUT /user/location` 등) / 레이트리밋 키를 계정 단위로 / 커밋된 `.env`에서

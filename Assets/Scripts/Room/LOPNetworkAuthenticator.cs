@@ -1,8 +1,10 @@
+using Cysharp.Threading.Tasks;
 using GameFramework;
 using Mirror;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 using VContainer;
 
@@ -13,6 +15,11 @@ namespace LOP
     {
         [Inject]
         private IUserDataStore userDataStore;
+
+        [Inject]
+        private GameFramework.Http.IAccessTokenProvider accessTokenProvider;
+
+        private string preparedAccessToken;
 
         #region Messages
         public struct AuthRequestMessage : NetworkMessage
@@ -48,6 +55,15 @@ namespace LOP
             NetworkClient.UnregisterHandler<AuthResponseMessage>();
         }
 
+        /// <summary>접속 직전에 토큰을 준비한다. OnClientAuthenticate는 동기 Mirror 콜백이라
+        /// 그 안에서 갱신을 기다릴 수 없으므로, StartClient() 전에 반드시 이것을 await해야 한다.</summary>
+        public async UniTask PrepareCredentialAsync(CancellationToken cancellationToken)
+        {
+            //  강제 갱신(true)을 쓰지 않는다 — 게임서버는 접속 시점에 한 번만 검사하므로 남은 수명이
+            //  짧아도 문제가 없고, 강제로 부르면 1a의 30초 스로틀과 얽혀 접속만 늦어진다.
+            preparedAccessToken = await accessTokenProvider.GetAccessTokenAsync(false, cancellationToken);
+        }
+
         /// <summary>
         /// Called on client from OnClientAuthenticateInternal when a client needs to authenticate
         /// </summary>
@@ -56,7 +72,7 @@ namespace LOP
             var customProperties = new CustomProperties
             {
                 userId = userDataStore.user.id,
-                token = "token",
+                accessToken = preparedAccessToken,
                 characterId = 0,
             };
 

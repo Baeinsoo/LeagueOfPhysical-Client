@@ -103,7 +103,6 @@ namespace LOP
         {
             InputCommandToS inputCommandToS = new InputCommandToS();
             inputCommandToS.Tick = tick;
-            inputCommandToS.SessionId = playerContext.session.sessionId;
 
             // sliding-window redundancy: 스트림의 최근 N틱을 함께 실어 패킷 유실에 대비.
             foreach (var pair in buffer.Commands)

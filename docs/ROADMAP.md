@@ -1376,10 +1376,49 @@ import하는 파일이 남아 `lobby-server`가 컴파일 안 됐는데 4개 스
 내부 전용 변경 라우트 차단(`PUT /user/location` 등) / 레이트리밋 키를 계정 단위로 / 커밋된 `.env`에서
 키 완전 제거 + `.dockerignore` / 죽은 UserProfile 배관 정리 / 통합 테스트 앱 조립을 `main.ts`와 공유.
 
-**⏸ 1c — 방 접속 인증**. **게임서버는 로비에 물어본다**(RFC 7662 `POST /auth/introspect`) — 방마다
-뜨고 지는 파드에 서명키를 뿌리지 않는다. `CustomProperties.token` → `accessToken` 리네임,
-`GameFramework.Auth.Jwt` 삭제(사용처 소멸). **제약**: `OnClientAuthenticate()`는 동기 Mirror 콜백이라
-`await`할 수 없다 → `StartClient()` **이전에** 갱신을 끝내고 토큰을 넘겨야 한다(decisions §8).
+**✅ 1c — 방 접속 인증 (08-09, 6레포 main 머지·배포·검증 완료)**. 이전엔 참가자 명단에 있는 userId만
+주장하면 누구나 그 사람 자리로 들어갈 수 있었고(토큰 자리에 문자열 `"token"`이 들어가 검사 자체가 없었다),
+접속 후에도 모든 인게임 메시지가 신원을 스스로 적어 보내 **한 참가자가 다른 참가자를 조종**할 수 있었다.
+
+- **접속 인증**: 게임서버가 로비에 물어본다(RFC 7662 `POST /auth/introspect`). 판정 순서 **명단 → introspect
+  → `sub` == 주장한 userId**. 명단이 먼저인 이유는 소켓 1회가 HTTP 1회로 증폭되는 걸 막기 위해서고,
+  `sub` 비교가 사슬을 닫는다. 실패는 **전부 거부**(fail closed) — 로비 무응답·타임아웃(3초)·401·빈 본문·
+  깨진 JSON·`active:false`·`sub` 불일치. `conn.authenticationData`에는 클라 주장값이 아니라 **`sub`** 을 저장.
+- **열쇠 등급 분리**: 서명키(`auth-secret`)는 로비·매칭만, **조회 전용 키(`internal-api-secret`)** 만 게임서버
+  파드에 `secretKeyRef`로 한 개. `envFrom` 금지를 **테스트로 강제**(`gameServerPod.test.ts`) — 서명키가
+  방마다 뜨는 파드로 새는 걸 막는 자동 방어선.
+- **인게임 메시지 신원**: 수신부가 이미 받아놓고 버리던 연결을 살려 `ClientMessage<T>{UserId, Message}` 봉투로
+  핸들러에 전달. ToS proto 3종에서 신원 필드를 **물리 삭제**(+`reserved`) — 안 보내면 위조할 게 없다.
+  Mirror 타입은 핸들러까지 번지지 않게 확인된 userId만 넘긴다.
+- **`GameFramework.Auth.Jwt` 삭제** (파드에서 로컬 서명 검증을 하지 않으므로 사용처 소멸).
+- **라이브 검증**: 정상 입장 → `introspect 200` 응답 **77B**(`{active,sub,exp}`) → `Accept`. 토큰을 일부러
+  훼손 → 같은 엔드포인트가 **200 + 16B**(`{"active":false}`) → `[Auth] 접속 거부`. 이 16B/77B 대비가
+  "가짜 토큰은 401이 아니라 200"과 "`active:false`엔 sub/exp 없음"을 동시에 증명한다. 외부에서 키 없이
+  호출 → 401. IL2CPP AOT(`ClientMessage<T>` 브로커)도 실접속으로 해소.
+
+spec/plan `docs/superpowers/specs|plans/2026-08-09-auth-cutover-1c-room-connection-auth*`.
+
+> **계획이 틀렸던 지점들** (리뷰가 잡아 계획을 고친 것): ① 조회 키 오답 픽스처가 정답과 길이가 달라
+> 상수시간 비교를 빼도 테스트가 통과 ② 검증을 `introspect`로 필터링해 돌려 `verifyAccessToken` 반환값에
+> `exp`를 더한 게 옆 파일 테스트를 깨뜨린 걸 못 잡음 ③ `match`가 null이면 `try` 밖에서 NRE → `async
+> UniTaskVoid`라 예외가 삼켜져 **연결이 수락도 거부도 아닌 채 매달림** ④ 빈 응답 본문이면 역직렬화가 null
+> → 같은 매달림 ⑤ 중복 가드를 `connectionId`로 걸면 kcp2k가 id를 IP:포트 해시로 만들어 **재접속이
+> 블랙홀에 빠짐**(키를 연결 객체로 교체).
+>
+> **배포에서 배운 것**: `room-server`가 `game-server-config`를 `envFrom`으로 읽는데 리로더가 없어
+> ConfigMap 갱신으로 재시작되지 않는다. 실측 결과 재시작 전 값이 **7월 말 태그(`bbc4bc1`)** 였다 — 즉
+> 그동안 태그 bump가 한 번도 반영된 적이 없었다. **실제 전환점은 `kubectl rollout restart
+> deployment/room-server`** 이며, 워크플로 완료가 아니다. 계획서 배포 절차에 박제.
+>
+> **로컬 환경**: 이 맥은 Docker Desktop 내장 k8s를 쓰고 있어 방 포트(hostPort)가 맥으로 열리지 않아
+> 접속이 불가능했다(웹 요청은 인그레스라 정상이라 "매칭은 되는데 로딩에서 멈춤"으로 보였다). 저장소에
+> 이미 문서화돼 있던 대로 **kind `lop` 클러스터로 이행**(`k8s/local-k8s/kind-cluster.yaml`,
+> `extraPortMappings` 7000~7009/UDP). ArgoCD·시크릿 재부트스트랩 포함 약 13분.
+
+후속(스펙 §13): `characterId` 소유 검증 / 토큰 즉시 무효화 / 내부 전용 라우트 전반에
+`internalApiKeyMiddleware` 확대(1b 후속과 합류) / 게임서버 HTTP 전반에 조회 키를 붙이는 `DelegatingHandler`
+승격 / 에디터 introspect 예외 제거(로컬 시크릿 관리 도입 시) / Unity 앱 프로젝트 asmdef 도입(현재 앱 코드가
+`Assembly-CSharp`에 있어 유닛 테스트를 붙일 수 없다) / introspect 엔드포인트의 인그레스 노출 차단.
 
 ### 프론트엔드 플로우 골격 (Slice A~D) — ✅ **트랙 종결(07-24)**
 로그인 이후 화면 흐름(로비 홈 → 매칭 → 게임 → 결과)을 **3층 전환 모델**(씬=앱 FSM / 윈도우=코디네이터 / 화면 안 상태=VM)로 정리하는 트랙. spec `docs/superpowers/specs/2026-07-23-front-end-flow-skeleton-design.md`. **B·C·D·A 전부 완료·머지 — 트랙 종결.**

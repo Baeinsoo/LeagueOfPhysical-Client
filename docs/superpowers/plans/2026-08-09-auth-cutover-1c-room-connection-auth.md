@@ -132,8 +132,10 @@ describe('internalApiKeyMiddleware', () => {
         expect(next).not.toHaveBeenCalled();
     });
 
+    //  KEY와 "같은 길이, 다른 내용"이어야 한다 — 길이가 다르면 timingSafeEqual에 닿기 전에
+    //  길이 가드에서 걸러져, 상수시간 비교가 통째로 빠져도 이 테스트가 통과해 버린다.
     it('키가 틀리면 401', () => {
-        const { res, next } = run({ 'x-internal-api-key': 'wrong-key-0123456789' });
+        const { res, next } = run({ 'x-internal-api-key': 'internal-key-9999999999' });
         expect(res.statusCode).toBe(401);
         expect(next).not.toHaveBeenCalled();
     });

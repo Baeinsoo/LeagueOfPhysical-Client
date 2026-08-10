@@ -1376,6 +1376,62 @@ import하는 파일이 남아 `lobby-server`가 컴파일 안 됐는데 4개 스
 내부 전용 변경 라우트 차단(`PUT /user/location` 등) / 레이트리밋 키를 계정 단위로 / 커밋된 `.env`에서
 키 완전 제거 + `.dockerignore` / 죽은 UserProfile 배관 정리 / 통합 테스트 앱 조립을 `main.ts`와 공유.
 
+**✅ 2b — 내부 전용 라우트 차단 (08-10, 4레포 main 머지·배포·라이브 검증 완료)**. 인증이 걸린 라우트가
+`PUT /lobby/join`·`POST/DELETE /matchmaking`(1b)·`POST /auth/introspect`(1c) **네 개뿐**이었다. 나머지는
+전부 무인증으로 인터넷에 열려 있었고, 배포 전 실측이 `PUT /room/heartbeat/probe` → **200(성공)**,
+`GET /lobby/user/all` → **200**, `PUT /lobby/user/location` → 500(= 인증 통과, 핸들러 도달)이었다.
+아무나 남의 위치를 바꾸고 방을 만들고 지울 수 있었다(OWASP API #5 BFLA, #1 BOLA).
+
+- **가른 축 = "동작이 다른가, 권한만 다른가"**. 처음엔 경로 문제로 보고 `/internal` 일괄 분리를 검토했는데,
+  M2M 표준(Auth0·Cognito 등)은 **서비스도 유저와 같은 엔드포인트를 부르고 스코프가 범위를 정한다**고
+  권고하고, BeyondProd는 **신뢰를 네트워크 위치가 아니라 서비스 신원에서** 판단하라 한다. 그래서
+  *같은 동작, 권한만 넓음*(조회 4개)은 경로를 유지하고 주체별 인가만 붙였고, *유저가 부를 일이 없는 동작*
+  (9개)만 `/internal`로 옮겼다. 후자는 클라가 안 부르니 **중복이 안 생기고**, 덤으로 엣지에서 한 번에 막힌다.
+- **신원 확인과 인가 분리** — `authenticatePrincipal`이 주체를 `service`/`user`로 정하고,
+  `requireSelfOrService`가 "서비스면 전체, 유저면 본인만"을 판단(server-core). 규칙 셋이 load-bearing:
+  ① 키가 틀리면 유저 토큰으로 **강등하지 않는다**(강등하면 키를 떠보면서도 정상 응답을 받는다),
+  ② 키 헤더가 없으면 `INTERNAL_API_KEY`를 **아예 읽지 않는다**(읽으면 그 값이 빠진 서비스에서 클라 조회가
+  전부 500), ③ 둘 다 있으면 키가 이긴다.
+- **`GET /match/:id`는 "볼 수 없음"과 "없음"의 응답이 바이트 단위로 같다** — 다르면 매치 id를 넣어보는
+  것만으로 실재 여부를 알아낼 수 있다. 둘이 같은 `if` 블록이라 구조적으로 갈라질 수 없다.
+- **`router.use`는 반드시 경로 지정형** — `App`이 모든 라우터를 `/`에 마운트하므로 `router.use(mw)`는
+  **앱 전체**에 걸린다. 등록 순서 = 실행 순서라 `use`가 라우트보다 뒤면 아무것도 안 막고 **조용히** 통과한다.
+  introspect만 `use`보다 앞에 둔다(레이트리밋이 "키가 틀린 시도"를 세야 하는데 `use`가 먼저면 못 센다).
+- **인그레스에서 `/internal` 차단** — 내부 호출은 클러스터 DNS로 직행해 인그레스를 안 거치므로 공짜다.
+  키가 새도 인터넷에서는 못 쓴다. 경로 정규식에 부정 전방탐색, **전방탐색 안쪽은 비캡처 `(?:...)`**
+  (캡처면 그게 nginx의 `$2`가 되어 `rewrite-target`이 깨진다).
+- **게임서버는 `ApiKeyHandler`(GameFramework)로 자동 부착** — `BearerTokenHandler`의 형제. introspect에만
+  손으로 박아둔 헤더가 사라졌다. 키는 **보낼 때마다 다시 읽는다**(환경변수가 프로세스 시작 뒤 채워질 수 있음).
+- **삭제**: `GET /user/all`·`/user/username/:x`·`/room/all` (호출자 0곳, 컨트롤러·서비스 메서드까지).
+
+spec/plan `docs/superpowers/specs|plans/2026-08-10-auth-cutover-2b-internal-route-lockdown*`.
+
+**라이브 검증**(배포 후 밖에서): `/internal/*` 4종 → **전부 404**(인그레스), 대소문자 우회
+(`/Internal`·`/INTERNAL`) → **404**, 옛 무인증 쓰기 5종 → **전부 404**, `GET /user/<남>` (내 토큰) → **403**,
+`GET /user/<나>` → 200, 토큰 없음 → 401. 서비스 간 401/404 로그 **0건**.
+
+> **최종 리뷰가 막은 것**: 계획의 구멍으로 **룸 서버가 부팅 불가**한 상태로 머지될 뻔했다. Task 5가
+> `joinable`에 로그인 검사를 붙이며 `AUTH_JWT_SECRET` 요구를 추가했는데 Task 9는 `INTERNAL_API_KEY`만
+> 전달했다. envalid는 던지지 않고 `process.exit(1)`이라 `try/catch`로도 못 막고 CrashLoopBackOff → 게임 전체
+> 정지였다. **태스크별 리뷰가 구조적으로 볼 수 없는 종류**(요구는 A태스크, 공급은 B태스크)라 전체 리뷰가 잡았다.
+> 유인은 `validateEnv.ts`의 낡은 주석("AUTH_JWT_SECRET은 lobby만 필요 — 넣으면 room/matchmaking이 부팅 즉사").
+>
+> **오탐이었던 것**: 인그레스 정규식이 대소문자를 구분해 `/Internal`로 우회된다는 지적. ingress-nginx가
+> `use-regex`에서 `location ~*` + `rewrite "(?i)..."`를 **무조건** 생성해 전방탐색까지 대소문자 무시다.
+> 파이썬 `re`의 기본값이 만든 착시였고, 배포 후 라이브 프로브로 확정했다.
+>
+> **검증 한계(정직하게)**: 무력한 테스트를 **두 번** 잡았다 — ① `/user/all`의 대체 단언이 옛 열린 라우트에
+> 대해서도 통과(200도, `body.user` undefined도, `count()===0`도 전부 픽스처를 잰 것), ② 매치 비공개 속성이
+> 정책 함수 단위 테스트만 있고 배선 레벨엔 없었다. 둘 다 실제 회귀 모양을 심어 빨개지는 걸 확인한 뒤 닫았다.
+> Unity 앱 코드(`WebAPI.cs`)는 여전히 asmdef가 없어 유닛 테스트 불가 — 컴파일 클린 + 리뷰로만 확인했다.
+> **끝-끝 게임 루프(로그인→매칭→입장)는 클라 실행이 필요해 이 검증에 포함되지 않았다.**
+
+후속: **`validateEnv.ts`의 낡은 주석 수정**(이번 Critical을 유도한 breadcrumb — 지금은 세 앱 다 요구) /
+서비스별 키 분리·순환·감사 추적(지금은 키 하나라 호출자 구분 불가) / `GET /internal/user/findAll?ids=<단일>`이
+빈 목록(`Array.from(문자열)`이 글자 단위 — 실호출자는 axios가 `ids[]=`로 직렬화해 정상, 머지 차단 아님) /
+룸 서버 라우트 테스트에 양성 대조 추가 / `ApiKeyHandler`·`BearerTokenHandler` 빈 키 테스트가 `""`를 안 봄 /
+커밋된 `.env`에서 서명키 제거 + `.dockerignore` / **Unity 앱 asmdef 도입**(2a에서 이월).
+
 **✅ 2a — 세션 신원을 연결 기준으로 (08-09, 2레포 main 머지·배포)**. 1c는 신원의 *출처*를 연결로 옮겼지만
 그 값으로 다시 **계정 단위 세션 조회**를 했다. 그래서 재접속 중 실제 버그가 있었다 — connA가 죽은 걸
 서버가 알아채기 전(kcp 타임아웃 10초) connB로 재접속하면 세션이 connB로 갈아타는데, 뒤늦게 도착한

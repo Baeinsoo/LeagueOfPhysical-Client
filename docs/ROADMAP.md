@@ -1314,6 +1314,55 @@ spec `2026-08-09-tick-origin-alignment-design.md`, plan `2026-08-09-tick-origin-
 
 ---
 
+## ✅ 플레이어 빌드 환경 선택 (2026-08-10, main 머지)
+
+CI가 만든 APK가 **항상 `local-k8s`(= `http://localhost`)를 봤다.** 폰에서는 자기 자신이라 아무것도
+안 됐고, 고를 방법 자체가 없었다(`#else` 분기가 상수 하나로 고정).
+
+**두 겹이 막고 있었다.** 환경 고정이 하나, 그리고 `insecureHttpOption=DevelopmentOnly` — 릴리스
+APK는 dev의 평문 http를 통째로 차단한다. **빌드는 성공하고 실행하면 죽는** 그 실패 모양이다
+(07-30 게임서버와 동일). 그래서 개발 빌드로 뽑기로 했다. 프로젝트 세팅을 안 건드리니
+`DevelopmentOnly`가 뜻 그대로 남고, 로그·프로파일러가 살아 **빌드에서 넷코드를 재보려던 미검증
+항목**도 이 빌드로 처리할 수 있다.
+
+**방식**: 선택한 `EnvironmentSettings.<env>.asset`을 빌드 직전 `.active`로 복사하고 후에 지운다.
+검토한 셋 중 **커밋된 파일을 하나도 안 건드리는 유일한 길**이라 골랐다 — Preloaded Assets는 유니티가
+이 용도로 둔 공식 API지만 `ProjectSettings.asset`에 저장돼, 실수로 커밋되면 모든 빌드가 조용히 그
+환경으로 나간다(실제로 이 프로젝트는 **이미 그 항목을 쓰고 있어** 남의 항목과 섞일 뻔했다).
+⚠️ "커밋된 SO를 메모리에서 수정"은 **동작 자체를 안 한다** — 빌드 중 도메인 리로드가 디스크 상태로
+되돌린다.
+
+- `-buildEnv <이름>` 필수 + `-development` 플래그. 누락 시 **빌드 실패**
+- 굽기/치우기는 `EnvironmentBaker` 하나가 소유. CLI는 `BuildScript`가 `BuildPlayer` **호출 전**에,
+  GUI 빌드는 훅이 부른다. 훅을 CI에 안 맡긴 이유 = `OnPreprocessBuild`에서 만든 Resources 자산이
+  빌드에 포함된다는 보장을 유니티가 하지 않는다("timing may be tight")
+- S3 경로를 환경별로 갈랐다 — 안 가르면 dev 아닌 APK 한 번에 **콘텐츠 baseline이 조용히 덮인다**
+- 빌드 결과를 **QR로 잡 요약에 게시**(폰으로 찍어 설치). `data:` URI는 GitHub이 걷어내므로 PNG를
+  S3에 올려 참조하고, 이미지가 안 떠도 되도록 링크를 함께 남긴다
+
+**최종 리뷰가 잡은 진짜 버그**: 훅이 "이미 구워져 있으면 건너뛴다"를 **파일 존재**로 판단했다.
+GUI 빌드가 실패하면 후처리가 안 돌아 `.active`가 남고, 그 다음 빌드가 환경을 바꿔도 낡은 것을
+그대로 쓴다(gitignore돼 `git status`에도 안 보인다). 판단 기준을 **CLI 인자 유무**로 교체.
+이 브랜치가 막으려던 실패 모양이 브랜치 자신에게 있었다.
+
+**검증(실측)**: 인자 누락 → exit 2 · 없는 환경 → exit 2 + 잔여물 0 · `-buildEnv dev -development`
+→ `구움 → APK OK(env=dev, development=True) → 치움`, exit 0, APK 69MB. 머지 후 main에서 컴파일
+클린을 **리플렉션으로 실물 확인**(콘솔 0건은 도메인 리로드가 비운 것일 수 있어 신뢰 안 함).
+프로세스를 강제 종료했을 때 `.active`가 남는 것도 확인 — 설계대로이고 다음 `Bake()`가 먼저 지운다.
+
+**아직 안 한 것**: CI 1회 실행(맥 러너에 `brew install qrencode` 선행 필요) · 폰 설치 후
+`adb logcat`의 `lobby=` URL 확인. **dev 백엔드가 인증 cutover 1b/1c 이전 버전**이라
+(`POST /lobby/auth/introspect` → 404 실측) 게임 진입까지는 어차피 안 된다 — dev 최신화는 별건.
+
+**범위 밖(의도)**: Addressables 프로파일은 `dev` 고정 · 환경별 번들 ID/앱 이름 · 나머지 환경 자산을
+`Resources/` 밖으로 · iOS(맥 러너는 이미 있고 `-buildEnv` 배관도 재사용되지만, Apple Developer
+가입·서명·TestFlight가 별건이고 QR 대신 `itms-services://` 매니페스트가 필요).
+
+spec `2026-08-10-player-build-environment-selection-design.md`,
+plan `2026-08-10-player-build-environment-selection.md`.
+
+---
+
 ## ▶ 다음 (Next — 순서 있음)
 
 ### 인증 트랙 (2026-08-04~) — 익명 로그인 ✅ / cutover는 HTTP 계층 정리 뒤

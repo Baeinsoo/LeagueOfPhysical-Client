@@ -4,6 +4,7 @@ using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Build;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
+using LOP.EditorTools;
 
 // CI 호출 예: Unity -batchmode -quit -nographics -buildTarget Android -projectPath . \
 //   -executeMethod BuildScript.<Method> -logFile -
@@ -34,31 +35,87 @@ public static class BuildScript
     }
 
     // ── APK 빌드 (③a). 디버그 서명(프로젝트 기본). 콘텐츠는 별도 스텝에서 이미 빌드했으므로 재빌드 안 함.
+    //    -buildEnv <이름> 필수. -development면 개발 빌드로(평문 http가 개발 빌드에서만 통한다).
     public static void BuildAndroidApk()
     {
-        var settings = EnsureSettings();
-        settings.BuildAddressablesWithPlayerBuild =
-            AddressableAssetSettings.PlayerBuildOption.DoNotBuildWithPlayer;
-
-        var scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray();
-        var options = new BuildPlayerOptions
+        var environment = EnvironmentBaker.EnvironmentFromCommandLine();
+        if (string.IsNullOrEmpty(environment))
         {
-            scenes = scenes,
-            locationPathName = "Build/lop.apk",
-            target = BuildTarget.Android,
-            targetGroup = BuildTargetGroup.Android,
-            options = BuildOptions.None,
-        };
-        var report = BuildPipeline.BuildPlayer(options);
-        var summary = report.summary;
-        if (summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
-        {
-            Debug.LogError($"APK build FAILED: {summary.result}, errors={summary.totalErrors}");
-            EditorApplication.Exit(1);
+            Debug.LogError("-buildEnv <환경> 인자가 필요하다. 예: -buildEnv dev");
+            EditorApplication.Exit(2);
             return;
         }
-        Debug.Log($"APK OK: {summary.outputPath}, size={summary.totalSize} bytes");
-        EditorApplication.Exit(0);
+
+        //  EnsureSettings가 실패 시 스스로 Exit하므로 굽기 전에 불러야 `.active`가 안 남는다.
+        var settings = EnsureSettings();
+
+        try
+        {
+            EnvironmentBaker.Bake(environment);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"활성 환경 굽기 실패: {e.Message}");
+            EditorApplication.Exit(2);
+            return;
+        }
+
+        var development = HasFlag("-development");
+        if (!development)
+        {
+            //  insecureHttpOption=DevelopmentOnly라 개발 빌드가 아니면 평문 http가 막혀
+            //  백엔드 호출이 전부 실패한다. 빌드는 그대로 진행하고 경고만 남긴다.
+            Debug.LogWarning("-development 없이 빌드한다: insecureHttpOption=DevelopmentOnly라 " +
+                              "평문 http가 막혀 런타임에 백엔드 호출이 실패할 수 있다.");
+        }
+
+        int exitCode;
+        try
+        {
+            settings.BuildAddressablesWithPlayerBuild =
+                AddressableAssetSettings.PlayerBuildOption.DoNotBuildWithPlayer;
+
+            var buildOptions = BuildOptions.None;
+            if (development)
+            {
+                buildOptions |= BuildOptions.Development;
+            }
+
+            var scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray();
+            var options = new BuildPlayerOptions
+            {
+                scenes = scenes,
+                locationPathName = "Build/lop.apk",
+                target = BuildTarget.Android,
+                targetGroup = BuildTargetGroup.Android,
+                options = buildOptions,
+            };
+            var report = BuildPipeline.BuildPlayer(options);
+            var summary = report.summary;
+            if (summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
+            {
+                Debug.LogError($"APK build FAILED: {summary.result}, errors={summary.totalErrors}");
+                exitCode = 1;
+            }
+            else
+            {
+                Debug.Log($"APK OK: {summary.outputPath}, size={summary.totalSize} bytes, " +
+                          $"env={environment}, development={development}");
+                exitCode = 0;
+            }
+        }
+        finally
+        {
+            //  빌드가 실패하면 후처리 훅이 돌지 않는다.
+            EnvironmentBaker.Clear();
+        }
+
+        EditorApplication.Exit(exitCode);
+    }
+
+    static bool HasFlag(string name)
+    {
+        return System.Array.IndexOf(System.Environment.GetCommandLineArgs(), name) >= 0;
     }
 
     static AddressableAssetSettings EnsureSettings()

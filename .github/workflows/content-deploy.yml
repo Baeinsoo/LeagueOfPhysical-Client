@@ -42,8 +42,8 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           set -e
-          if ! aws s3 cp "s3://lop-client/builds/latest.json" latest.json 2>/dev/null; then
-            echo "::error::latest.json 없음 — ③a(client-app-deploy)를 먼저 실행해 baseline을 만드세요."; exit 1
+          if ! aws s3 cp "s3://lop-client/builds/dev/latest.json" latest.json 2>/dev/null; then
+            echo "::error::builds/dev/latest.json 없음 — ③a(client-app-deploy)를 dev로 먼저 실행해 baseline을 만드세요."; exit 1
           fi
           STATE_KEY=$(python3 -c "import json;print(json.load(open('latest.json'))['content_state'])")
           echo "baseline: $STATE_KEY"

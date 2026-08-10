@@ -1,6 +1,19 @@
 name: client-app-deploy
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: '대상 백엔드 환경'
+        type: choice
+        options:
+          - dev
+          - local-k8s
+          - local
+        default: dev
+      development:
+        description: '개발 빌드 (평문 http 허용 · 로그/프로파일러 유지)'
+        type: boolean
+        default: true
 
 concurrency:
   group: client-app-deploy
@@ -63,11 +76,17 @@ jobs:
           echo "콘텐츠 업로드 완료: s3://lop-assets/dev/Android/"
 
       - name: APK 빌드 (Android, 디버그 서명)
+        env:
+          BUILD_ENV: ${{ inputs.environment }}
+          DEVELOPMENT: ${{ inputs.development }}
         run: |
           set -eo pipefail
           UNITY="/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity"
+          DEV_FLAG=""
+          if [ "$DEVELOPMENT" = "true" ]; then DEV_FLAG="-development"; fi
           if ! "$UNITY" -batchmode -quit -nographics -buildTarget Android -projectPath . \
-                -executeMethod BuildScript.BuildAndroidApk -logFile - > unity-apk.log 2>&1; then
+                -executeMethod BuildScript.BuildAndroidApk \
+                -buildEnv "$BUILD_ENV" $DEV_FLAG -logFile - > unity-apk.log 2>&1; then
             echo "::error::APK build failed"; tail -80 unity-apk.log; exit 1
           fi
           tail -15 unity-apk.log
@@ -77,17 +96,44 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          BUILD_ENV: ${{ inputs.environment }}
         run: |
           set -e
           SHA="${{ steps.tag.outputs.sha }}"
-          DEST="s3://lop-client/builds/$SHA"
+          DEST="s3://lop-client/builds/$BUILD_ENV/$SHA"
           aws s3 cp Build/lop.apk "$DEST/lop.apk"
           aws s3 cp Assets/AddressableAssetsData/Android/addressables_content_state.bin \
             "$DEST/addressables_content_state.bin"
-          # latest 포인터 (③b가 읽음)
-          printf '{"sha":"%s","apk":"%s/lop.apk","content_state":"%s/addressables_content_state.bin"}\n' \
-            "$SHA" "$DEST" "$DEST" > latest.json
-          aws s3 cp latest.json "s3://lop-client/builds/latest.json"
-          echo "보존: $DEST/ , latest.json -> $SHA"
-          # 공유용 presigned URL (7일)
-          aws s3 presign "$DEST/lop.apk" --expires-in 604800
+          # latest 포인터 (③b가 읽음) — 환경별로 따로 둔다. 한 개면 dev 아닌 빌드가 baseline을 덮는다.
+          printf '{"sha":"%s","environment":"%s","apk":"%s/lop.apk","content_state":"%s/addressables_content_state.bin"}\n' \
+            "$SHA" "$BUILD_ENV" "$DEST" "$DEST" > latest.json
+          aws s3 cp latest.json "s3://lop-client/builds/$BUILD_ENV/latest.json"
+          echo "보존: $DEST/ , builds/$BUILD_ENV/latest.json -> $SHA"
+
+      - name: QR + 다운로드 링크 게시
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          BUILD_ENV: ${{ inputs.environment }}
+        run: |
+          set -eo pipefail
+          if ! command -v qrencode >/dev/null; then
+            echo "::error::러너에 qrencode가 없다. 맥 러너에서 'brew install qrencode' 1회 실행할 것."
+            exit 1
+          fi
+          SHA="${{ steps.tag.outputs.sha }}"
+          DEST="s3://lop-client/builds/$BUILD_ENV/$SHA"
+          APK_URL=$(aws s3 presign "$DEST/lop.apk" --expires-in 604800)
+          # GitHub 요약은 data: URI 이미지를 걷어낸다 — PNG를 올려서 URL로 참조해야 한다.
+          qrencode -o qr.png -s 8 "$APK_URL"
+          aws s3 cp qr.png "$DEST/qr.png"
+          QR_URL=$(aws s3 presign "$DEST/qr.png" --expires-in 604800)
+          {
+            echo "## $BUILD_ENV 빌드 \`$SHA\`"
+            echo
+            echo "![QR]($QR_URL)"
+            echo
+            echo "[APK 직접 다운로드]($APK_URL)"
+            echo
+            echo "링크는 7일 후 만료된다."
+          } >> "$GITHUB_STEP_SUMMARY"

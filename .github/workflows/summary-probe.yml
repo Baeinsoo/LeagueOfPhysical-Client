@@ -1,0 +1,27 @@
+name: summary-probe
+# 일회성 진단용. 잡 요약이 렌더링되는지 / 쿼리스트링 이미지가 살아남는지 가른다. 확인 후 삭제.
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 요약 세 종류 써보기
+        run: |
+          set -eo pipefail
+          {
+            echo "## PROBE-A 평문"
+            echo
+            echo "이 줄이 보이면 잡 요약 자체는 동작한다."
+            echo
+            echo "## PROBE-B 쿼리스트링 링크"
+            echo
+            echo "[쿼리스트링 링크](https://example.com/a.apk?X-Amz-Signature=abc123&X-Amz-Expires=604800)"
+            echo
+            echo "## PROBE-C 쿼리스트링 이미지"
+            echo
+            echo "![img](https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png?foo=bar&baz=qux)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "written bytes: $(wc -c < "$GITHUB_STEP_SUMMARY")"
+          echo "path: $GITHUB_STEP_SUMMARY"

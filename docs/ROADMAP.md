@@ -1392,7 +1392,27 @@ plan `2026-08-10-player-build-environment-selection.md`.
 
 ## ▶ 다음 (Next — 순서 있음)
 
-### 인증 트랙 (2026-08-04~) — 익명 로그인 ✅ / cutover는 HTTP 계층 정리 뒤
+### 🏁 인증 트랙 종결 (2026-08-04 ~ 08-10) — 익명 로그인 → cutover 1a~2b 전부 완료
+
+> **여기부터 읽으면 된다.** 트랙 전체가 끝났다. 슬라이스 0(HTTP 계층) → 1a(토큰 갱신) →
+> 1b(유저 JWT 강제) → 1c(방 접속 인증) → 2a(세션 신원을 연결 기준으로) → 2b(내부 전용 라우트 차단).
+> **지금 백엔드에 무인증으로 열린 라우트는 없다** — 익명 가입·로그인·헬스체크뿐이다. 상세는 아래
+> 각 슬라이스 항목(시간순, 2b가 가장 아래에서 두 번째).
+>
+> **인증 트랙에서 이월된 후속** (값어치 순):
+> 1. **서비스별 내부 키 분리 + 순환 + 감사 추적** — 지금은 키가 하나라 어느 서비스가 불렀는지 모르고,
+>    새면 클러스터 안의 내부 동작이 전부 열린다(인그레스는 바깥만 막는다).
+> 2. **Unity 앱 asmdef 도입** — 두 앱 프로젝트에 asmdef가 없어 앱 코드에 유닛 테스트를 못 붙인다.
+>    2a·2b 두 슬라이스가 연속으로 이 한계를 안고 갔다(리뷰와 라이브 검증으로만 확인).
+> 3. 커밋된 `.env`에서 서명키 제거 + `.dockerignore`
+> 4. 세션 인수 시 옛 연결을 명시적으로 끊기(동시 접속 정책 = 게임 디자인 결정)
+> 5. `characterId` 소유권 검증 / 토큰 폐기(revocation)
+> 6. 잔챙이: 룸 라우트 테스트 양성 대조, `ApiKeyHandler`·`BearerTokenHandler`의 빈 키 테스트가
+>    `""`를 안 봄, `GET /internal/user/findAll?ids=<단일>`이 빈 목록(실호출자는 axios가 `ids[]=`로
+>    직렬화해 정상이라 머지 차단은 아니었음)
+>
+> **다음 트랙은 이 아래 다른 `###` 섹션에서 고른다** — 인증 때문에 막힌 건 더 없다.
+
 
 **✅ 익명 로그인 + 세션 토큰 (2026-08-04, 3레포 머지)** — 게스트 계정을 서버가 발급하고
 액세스 토큰(HS256, 1시간)을 내려준다. `User` 1:N `UserIdentity`(provider + providerUserId),
@@ -1507,7 +1527,16 @@ spec/plan `docs/superpowers/specs|plans/2026-08-10-auth-cutover-2b-internal-rout
 
 **라이브 검증**(배포 후 밖에서): `/internal/*` 4종 → **전부 404**(인그레스), 대소문자 우회
 (`/Internal`·`/INTERNAL`) → **404**, 옛 무인증 쓰기 5종 → **전부 404**, `GET /user/<남>` (내 토큰) → **403**,
-`GET /user/<나>` → 200, 토큰 없음 → 401. 서비스 간 401/404 로그 **0건**.
+`GET /user/<나>` → 200, 토큰 없음 → 401.
+
+**끝-끝 게임 루프도 확인 완료**(로그인 → 매칭 → 방 입장, 2인). 로그로 전 경로가 추적된다 —
+`PUT /internal/user/location` 200 → **`POST /internal/room` 201**(디렉터) → `GET /internal/room/<id>` 200 →
+`PUT /internal/room/status` 200 → **`POST /internal/auth/introspect` 200 ×2**(게임서버가 두 명 검증) →
+`PUT /internal/room/heartbeat/<id>` 200 (2초 주기). 게임서버 파드 이미지 `game-server:6b4bb35` 확인.
+**네 서비스 전부 비-2xx 응답 0건.** 응답 크기가 증거를 더 준다: introspect 77B(성공 shape,
+실패는 16B) / `GET /match/<id>` 239B(거부였다면 `{code}`만 담긴 15B대). 클라 대면
+`GET /user/<id>/location/`이 서로 다른 두 userId로 각각 200 = 두 클라가 각자 본인 것을 읽었다
+(남의 것이면 403) → **주체별 인가가 실사용에서 동작 확인**.
 
 > **최종 리뷰가 막은 것**: 계획의 구멍으로 **룸 서버가 부팅 불가**한 상태로 머지될 뻔했다. Task 5가
 > `joinable`에 로그인 검사를 붙이며 `AUTH_JWT_SECRET` 요구를 추가했는데 Task 9는 `INTERNAL_API_KEY`만
@@ -1522,11 +1551,14 @@ spec/plan `docs/superpowers/specs|plans/2026-08-10-auth-cutover-2b-internal-rout
 > **검증 한계(정직하게)**: 무력한 테스트를 **두 번** 잡았다 — ① `/user/all`의 대체 단언이 옛 열린 라우트에
 > 대해서도 통과(200도, `body.user` undefined도, `count()===0`도 전부 픽스처를 잰 것), ② 매치 비공개 속성이
 > 정책 함수 단위 테스트만 있고 배선 레벨엔 없었다. 둘 다 실제 회귀 모양을 심어 빨개지는 걸 확인한 뒤 닫았다.
-> Unity 앱 코드(`WebAPI.cs`)는 여전히 asmdef가 없어 유닛 테스트 불가 — 컴파일 클린 + 리뷰로만 확인했다.
-> **끝-끝 게임 루프(로그인→매칭→입장)는 클라 실행이 필요해 이 검증에 포함되지 않았다.**
+> Unity 앱 코드(`WebAPI.cs`)는 여전히 asmdef가 없어 유닛 테스트 불가 — 컴파일 클린 + 리뷰 + 위의
+> 끝-끝 루프로만 확인했다.
 
-후속: **`validateEnv.ts`의 낡은 주석 수정**(이번 Critical을 유도한 breadcrumb — 지금은 세 앱 다 요구) /
-서비스별 키 분리·순환·감사 추적(지금은 키 하나라 호출자 구분 불가) / `GET /internal/user/findAll?ids=<단일>`이
+(`validateEnv.ts`의 낡은 주석은 **정리 완료** — 이번 Critical을 유도한 breadcrumb이었다. 예시를 현재
+사실[디렉터]로 바꾸고, envalid가 `process.exit(1)`이라는 점과 "요구를 늘리면 k8s·로컬 공급도 늘려야
+한다"를 남겼다.)
+
+후속: 서비스별 키 분리·순환·감사 추적(지금은 키 하나라 호출자 구분 불가·유출 시 내부 전부 열림) / `GET /internal/user/findAll?ids=<단일>`이
 빈 목록(`Array.from(문자열)`이 글자 단위 — 실호출자는 axios가 `ids[]=`로 직렬화해 정상, 머지 차단 아님) /
 룸 서버 라우트 테스트에 양성 대조 추가 / `ApiKeyHandler`·`BearerTokenHandler` 빈 키 테스트가 `""`를 안 봄 /
 커밋된 `.env`에서 서명키 제거 + `.dockerignore` / **Unity 앱 asmdef 도입**(2a에서 이월).

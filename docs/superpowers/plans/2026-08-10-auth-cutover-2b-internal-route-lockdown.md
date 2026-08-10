@@ -1831,68 +1831,47 @@ Expected: 세 줄이 모두 같은 값
 
 - [ ] **Step 4: 인그레스에서 /internal을 막는다**
 
-`infrastructure/k8s/platform/ingress/ingress.yaml`의 세 `path`를 아래로 바꾼다:
+`infrastructure/k8s/platform/ingress/ingress.yaml`의 세 `path`를 아래로 바꾼다. 전방탐색 안쪽은
+**반드시 비캡처 `(?:...)`** 로 쓴다 — 캡처로 두면 그것이 nginx의 `$2`가 되어
+`rewrite-target: /$2`가 엉뚱한 값을 집는다.
 
 ```yaml
-      - path: /lobby(/|$)(?!internal(/|$))(.*)
+      - path: /lobby(/|$)(?!internal(?:/|$))(.*)
 ```
 ```yaml
-      - path: /matchmaking(/|$)(?!internal(/|$))(.*)
+      - path: /matchmaking(/|$)(?!internal(?:/|$))(.*)
 ```
 ```yaml
-      - path: /room(/|$)(?!internal(/|$))(.*)
+      - path: /room(/|$)(?!internal(?:/|$))(.*)
 ```
 
-그리고 `spec:` 위 `metadata.annotations` 아래에 이유를 남긴다:
+그리고 `metadata.annotations` 아래에 이유를 남긴다:
 
 ```yaml
     # 내부 호출은 클러스터 DNS(http://lobby-server-service)로 직접 가고 인그레스를 안 거친다.
     # 그래서 /internal을 여기서 막아도 깨질 호출이 없고, 내부 키가 새도 인터넷에서는 쓸 수 없다.
-    # (?!...)는 캡처하지 않으므로 rewrite-target의 $2가 그대로 동작한다.
+    # 전방탐색 (?!...)은 캡처하지 않으므로 rewrite-target의 $2는 여전히 마지막 (.*)이다.
 ```
 
-- [ ] **Step 5: 인그레스 정규식이 유효한지 확인한다**
+- [ ] **Step 5: 정규식의 캡처 그룹과 차단 동작을 확인한다**
 
-nginx는 PCRE를 쓰므로 전방탐색을 지원한다. 배포 전에 정규식 자체를 확인한다:
+nginx는 PCRE를 쓰므로 전방탐색을 지원한다. 배포 전에 `$2`가 rewrite 대상인지부터 확인한다:
 
 ```bash
 python3 -c "
 import re
 for prefix in ['lobby', 'matchmaking', 'room']:
-    p = re.compile(r'/' + prefix + r'(/|\$)(?!internal(/|\$))(.*)')
+    p = re.compile(r'/' + prefix + r'(/|\$)(?!internal(?:/|\$))(.*)')
     통과 = p.fullmatch('/' + prefix + '/user/abc')
     차단 = p.fullmatch('/' + prefix + '/internal/user/findAll')
     유사 = p.fullmatch('/' + prefix + '/internalize')
-    print(prefix, '정상통과=', bool(통과), '내부차단=', 차단 is None, '유사경로통과=', bool(유사))
-    if 통과: print('   rewrite \$2 =', 통과.group(3))
+    print(prefix, '정상통과=', bool(통과), '내부차단=', 차단 is None, '유사경로통과=', bool(유사),
+          'rewrite \$2 =', 통과.group(2) if 통과 else None)
 "
 ```
 
-Expected: 세 줄 모두 `정상통과= True 내부차단= True 유사경로통과= True`, rewrite 값이 `user/abc`
-
-> 캡처 그룹 번호에 주의한다. 전방탐색 안의 `(/|$)`가 그룹 2를 차지하므로 파이썬에서는 `group(3)`이지만, **nginx의 `$2`는 캡처 그룹 2**다. 전방탐색 안의 그룹이 nginx에서 `$2`가 되어 rewrite가 깨질 수 있으므로, Step 6에서 실제 배포로 확인하기 전까지 이 변경을 신뢰하지 않는다. 파이썬 확인에서 `group(2)`가 `internal(/|$)`의 캡처라면, 전방탐색 안쪽을 비캡처로 바꾼다: `(?!internal(?:/|$))`.
-
-**위 주의사항을 반영해 최종 형태는 아래로 한다** (전방탐색 안쪽을 비캡처 `(?:...)`로):
-
-```yaml
-      - path: /lobby(/|$)(?!internal(?:/|$))(.*)
-      - path: /matchmaking(/|$)(?!internal(?:/|$))(.*)
-      - path: /room(/|$)(?!internal(?:/|$))(.*)
-```
-
-이 형태로 Step 5의 파이썬 확인을 다시 돌려 `group(2)`가 rewrite 대상(`user/abc`)인지 확인한다:
-
-```bash
-python3 -c "
-import re
-p = re.compile(r'/lobby(/|\$)(?!internal(?:/|\$))(.*)')
-m = p.fullmatch('/lobby/user/abc')
-print('group(2) =', m.group(2))
-print('내부차단 =', p.fullmatch('/lobby/internal/user/findAll') is None)
-"
-```
-
-Expected: `group(2) = user/abc`, `내부차단 = True`
+Expected: 세 줄 모두 `정상통과= True 내부차단= True 유사경로통과= True`, `rewrite $2 = user/abc`.
+`$2`가 `user/abc`가 아니면 전방탐색 안쪽이 캡처로 남아 있는 것이다 — `(?:` 로 고친다.
 
 - [ ] **Step 6: 커밋한다**
 

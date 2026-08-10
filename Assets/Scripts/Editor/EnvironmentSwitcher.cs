@@ -36,7 +36,7 @@ namespace LOP.EditorTools
 
         private static bool Validate(string menuPath, string environment)
         {
-            var current = EditorPrefs.GetString(EnvironmentSettings.EditorPrefsKey, EnvironmentSettings.DefaultEnvironment);
+            var current = EditorPrefs.GetString(EnvironmentSettings.EditorPrefsKey, EnvironmentSettings.EditorDefaultEnvironment);
             Menu.SetChecked(menuPath, current == environment);
             return true;
         }

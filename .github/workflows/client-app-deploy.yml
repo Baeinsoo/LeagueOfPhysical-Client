@@ -1,4 +1,10 @@
 name: client-app-deploy
+#
+# ⚠️ AWS_ACCESS_KEY_ID는 secrets가 아니라 vars다 — 되돌리지 말 것.
+#    프리사인 URL은 SigV4 구조상 액세스 키 ID를 X-Amz-Credential에 담는다. 그 값이 시크릿으로
+#    등록돼 있으면 GitHub이 잡 요약에서 *** 로 가려버리고, 서명이 깨져 링크·QR이 전부 접근 거부가
+#    된다(2026-08-10 실측). 서명을 만드는 AWS_SECRET_ACCESS_KEY는 그대로 시크릿이다.
+#
 on:
   workflow_dispatch:
     inputs:
@@ -68,7 +74,7 @@ jobs:
 
       - name: 콘텐츠 업로드 (additive, --delete 금지)
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID: ${{ vars.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           set -e
@@ -94,7 +100,7 @@ jobs:
 
       - name: APK + content_state 보존 (버전드) + latest 갱신
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID: ${{ vars.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           BUILD_ENV: ${{ inputs.environment }}
         run: |
@@ -112,7 +118,7 @@ jobs:
 
       - name: QR + 다운로드 링크 게시
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID: ${{ vars.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           BUILD_ENV: ${{ inputs.environment }}
         run: |

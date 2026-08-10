@@ -151,34 +151,49 @@ private static EnvironmentSettings Resolve()
 
 `DefaultEnvironment` → `EditorDefaultEnvironment` 참조 갱신. 동작 변화 없음.
 
-### 3. `Assets/Editor/EnvironmentBuildProcessor.cs` (신규)
+### 3. 굽기의 소유자 — `EnvironmentBaker` + 훅
+
+굽기·치우기·CLI 인자 파싱은 **`Assets/Editor/EnvironmentBaker.cs` 한 곳이 소유**하고, 두 진입점이
+그것을 부른다.
+
+| 진입점 | 언제 굽나 | 왜 |
+|---|---|---|
+| **`BuildScript` (CLI/CI)** | `BuildPipeline.BuildPlayer` **호출 전** | 빌드가 시작하기 전이라 포함 여부에 의문이 없다 |
+| **`EnvironmentBuildProcessor` (훅)** | `OnPreprocessBuild`에서, **아직 안 구워져 있을 때만** | 에디터 GUI 빌드 보조 |
 
 ```
 IPreprocessBuildWithReport.OnPreprocessBuild
-    환경 이름 결정
-        CLI에 -buildEnv <name>이 있으면 그 값
-        없으면 EditorPrefs (GUI 빌드도 정상 동작)
-    원본 자산 존재 확인 → 없으면 BuildFailedException
-    이미 있는 .active 삭제 후 AssetDatabase.CopyAsset
-    AssetDatabase.SaveAssets / Refresh
+    이미 .active가 있으면 (= CLI 빌드가 구워 둠) 아무것도 안 함
+    없으면 EditorPrefs 값으로 굽는다 → 실패 시 BuildFailedException
 
 IPostprocessBuildWithReport.OnPostprocessBuild
-    .active 삭제
+    이 훅이 구운 경우에만 .active 삭제
 ```
 
 `callbackOrder = 0`. CLI 인자는 `System.Environment.GetCommandLineArgs()`로 읽는다.
 
-> **GUI 빌드도 커버하는 이유**: 훅에 두지 않고 `BuildScript`에만 두면, 유니티 Build Settings
-> 창으로 빌드한 사람은 `.active` 없는 APK를 얻고 실행 즉시 예외를 본다. 훅이 EditorPrefs로
-> 대체하면 그 경로도 자연스럽게 맞는다.
+> **왜 CI 경로를 훅에 맡기지 않는가**: 유니티 문서·커뮤니티가 `OnPreprocessBuild`에서 만든
+> Resources 자산이 **확실히 빌드에 포함된다고 보장하지 않는다**("timing may be tight — 빌드가
+> 시작하기 전에 만들고 refresh 하는 편이 확실하다"). 여러 SDK가 실제로 그렇게 쓰고 있어 아마
+> 동작하겠지만, **CI가 뽑는 산출물을 '아마'에 걸지 않는다.** 그래서 CI 경로는 `BuildPlayer` 호출
+> 전으로 확정하고, 훅은 GUI 빌드 보조로만 둔다.
+>
+> **그래도 훅을 두는 이유**: 없으면 유니티 Build Settings 창으로 빌드한 사람이 `.active` 없는
+> APK를 얻고 실행 즉시 예외를 본다. 훅이 EditorPrefs로 대신 구우면 그 경로도 맞는다. 이 경로의
+> 신뢰성은 구현 후 GUI 빌드 1회로 실증한다(검증 1번).
 
 ### 4. `Assets/Editor/BuildScript.cs`
 
 - **CLI 경로에서 `-buildEnv` 필수.** 없으면 오류 로그 + `EditorApplication.Exit(2)`.
   CI가 빼먹을 수 없게 하는 방어선이다(훅의 EditorPrefs 대체는 GUI 빌드용이지, CI가 조용히
   로컬 환경으로 나가는 것을 허용하려는 것이 아니다).
+- `EnvironmentBaker.Bake(env)`를 **`BuildPipeline.BuildPlayer` 호출 전에** 부른다.
 - `-development`가 있으면 `BuildPlayerOptions.options |= BuildOptions.Development`.
 - `try/finally`로 `.active`를 정리한다 — **빌드가 실패하면 후처리 훅이 돌지 않기 때문.**
+- ⚠️ **`EditorApplication.Exit`을 `try` 안에서 부르지 않는다.** 프로세스가 즉시 끝나 `finally`가
+  돌지 않고 `.active`가 남는다. 종료 코드를 담아 두고 `finally` 뒤에 한 번만 부른다.
+- 콘텐츠 빌드 메서드(`BuildAndroidContentFull` / `BuildAndroidContentUpdate`)는 **손대지 않는다.**
+  Addressables 빌드는 플레이어 빌드 콜백을 타지 않고 `-buildEnv`도 필요 없다.
 
 ### 5. `.gitignore`
 

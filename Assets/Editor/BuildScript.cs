@@ -46,6 +46,9 @@ public static class BuildScript
             return;
         }
 
+        //  EnsureSettings가 실패 시 스스로 Exit하므로 굽기 전에 불러야 `.active`가 안 남는다.
+        var settings = EnsureSettings();
+
         try
         {
             EnvironmentBaker.Bake(environment);
@@ -61,7 +64,6 @@ public static class BuildScript
         int exitCode;
         try
         {
-            var settings = EnsureSettings();
             settings.BuildAddressablesWithPlayerBuild =
                 AddressableAssetSettings.PlayerBuildOption.DoNotBuildWithPlayer;
 

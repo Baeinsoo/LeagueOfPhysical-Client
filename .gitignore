@@ -78,3 +78,7 @@ ServerData/
 # macOS / IDE
 .DS_Store
 *.slnx
+
+# 빌드 때 생성되는 활성 환경 자산 (EnvironmentBaker가 굽고 지운다)
+/Assets/Resources/EnvironmentSettings/EnvironmentSettings.active.asset
+/Assets/Resources/EnvironmentSettings/EnvironmentSettings.active.asset.meta

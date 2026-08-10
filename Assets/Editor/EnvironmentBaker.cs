@@ -39,11 +39,6 @@ namespace LOP.EditorTools
                 EnvironmentSettings.EditorPrefsKey, EnvironmentSettings.EditorDefaultEnvironment);
         }
 
-        public static bool IsBaked()
-        {
-            return File.Exists(ActiveAssetPath);
-        }
-
         public static void Bake(string environment)
         {
             if (string.IsNullOrWhiteSpace(environment))

@@ -94,13 +94,14 @@ GitHub Actions  [environment: dev, development: true]
   │
   └─ Unity -executeMethod BuildScript.BuildAndroidApk -buildEnv dev -development
        │
-       ├─ EnvironmentBuildProcessor.OnPreprocessBuild
-       │     환경 결정: CLI -buildEnv → 없으면 EditorPrefs
+       ├─ BuildScript.BuildAndroidApk (BuildPlayer 호출 전)
        │     EnvironmentSettings.dev.asset ──복사──▶ EnvironmentSettings.active.asset
        │
        ├─ BuildPipeline.BuildPlayer (BuildOptions.Development)
+       │     EnvironmentBuildProcessor.OnPreprocessBuild
+       │       CLI 인자(-buildEnv)가 있으므로 건너뜀
        │
-       └─ EnvironmentBuildProcessor.OnPostprocessBuild
+       └─ BuildScript.BuildAndroidApk의 finally
              EnvironmentSettings.active.asset ──삭제
   │
   ├─ s3://lop-client/builds/dev/<sha>/lop.apk
@@ -118,7 +119,7 @@ GitHub Actions  [environment: dev, development: true]
 에디터는 지금처럼 이름으로 찾고, 플레이어는 구워진 `.active`를 찾는다.
 
 ```csharp
-public const string ActiveAssetName = "active";
+public const string ActiveEnvironment = "active";
 public const string ResourceDirectory = "EnvironmentSettings";
 public const string EditorDefaultEnvironment = "local-k8s";
 public const string EditorPrefsKey = "LOP.Environment";
@@ -129,7 +130,7 @@ private static EnvironmentSettings Resolve()
     var name = UnityEditor.EditorPrefs.GetString(EditorPrefsKey, EditorDefaultEnvironment);
 #else
     // 빌드 때 구워진 것. 이름 대조 없음.
-    var name = ActiveAssetName;
+    var name = ActiveEnvironment;
 #endif
     var loaded = Resources.Load<EnvironmentSettings>($"{ResourceDirectory}/EnvironmentSettings.{name}");
     if (loaded == null)
@@ -159,11 +160,11 @@ private static EnvironmentSettings Resolve()
 | 진입점 | 언제 굽나 | 왜 |
 |---|---|---|
 | **`BuildScript` (CLI/CI)** | `BuildPipeline.BuildPlayer` **호출 전** | 빌드가 시작하기 전이라 포함 여부에 의문이 없다 |
-| **`EnvironmentBuildProcessor` (훅)** | `OnPreprocessBuild`에서, **아직 안 구워져 있을 때만** | 에디터 GUI 빌드 보조 |
+| **`EnvironmentBuildProcessor` (훅)** | `OnPreprocessBuild`에서, **CLI 인자가 없을 때만** | 에디터 GUI 빌드 보조 |
 
 ```
 IPreprocessBuildWithReport.OnPreprocessBuild
-    이미 .active가 있으면 (= CLI 빌드가 구워 둠) 아무것도 안 함
+    CLI 인자(-buildEnv)가 있으면 (= CLI 빌드가 이미 구웠거나 구울 것) 아무것도 안 함
     없으면 EditorPrefs 값으로 굽는다 → 실패 시 BuildFailedException
 
 IPostprocessBuildWithReport.OnPostprocessBuild

@@ -20,7 +20,10 @@ namespace LOP.EditorTools
         {
             bakedHere = false;
 
-            if (EnvironmentBaker.IsBaked())
+            //  파일 존재 여부가 아니라 CLI 인자 유무로 판단한다. 실패한 빌드는 후처리가 안 돌아
+            //  .active가 남을 수 있어, 파일이 있다고 "CLI가 구웠다"고 믿으면 그 낡은 파일을 그대로
+            //  쓰게 된다.
+            if (EnvironmentBaker.EnvironmentFromCommandLine() != null)
             {
                 return;
             }

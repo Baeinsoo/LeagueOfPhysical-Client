@@ -61,6 +61,14 @@ public static class BuildScript
         }
 
         var development = HasFlag("-development");
+        if (!development)
+        {
+            //  insecureHttpOption=DevelopmentOnly라 개발 빌드가 아니면 평문 http가 막혀
+            //  백엔드 호출이 전부 실패한다. 빌드는 그대로 진행하고 경고만 남긴다.
+            Debug.LogWarning("-development 없이 빌드한다: insecureHttpOption=DevelopmentOnly라 " +
+                              "평문 http가 막혀 런타임에 백엔드 호출이 실패할 수 있다.");
+        }
+
         int exitCode;
         try
         {

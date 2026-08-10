@@ -38,12 +38,12 @@ jobs:
 
       - name: baseline content_state 다운로드 (S3 latest)
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID: ${{ vars.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           set -e
-          if ! aws s3 cp "s3://lop-client/builds/latest.json" latest.json 2>/dev/null; then
-            echo "::error::latest.json 없음 — ③a(client-app-deploy)를 먼저 실행해 baseline을 만드세요."; exit 1
+          if ! aws s3 cp "s3://lop-client/builds/dev/latest.json" latest.json 2>/dev/null; then
+            echo "::error::builds/dev/latest.json 없음 — ③a(client-app-deploy)를 dev로 먼저 실행해 baseline을 만드세요."; exit 1
           fi
           STATE_KEY=$(python3 -c "import json;print(json.load(open('latest.json'))['content_state'])")
           echo "baseline: $STATE_KEY"
@@ -63,7 +63,7 @@ jobs:
 
       - name: 콘텐츠 업로드 (additive, --delete 금지)
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID: ${{ vars.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           set -e

@@ -135,8 +135,21 @@ namespace LOP
 
             // 출발선을 제 위치(서버보다 앞)에 놓는다. gameInfo.Tick/ElapsedTime은 보낸 순간의 값이라
             // 받았을 땐 이미 과거다 — 지금 시계에서 유도한다.
-            double target = ((LOPTickUpdater)runner.tickUpdater).TargetTime;
+            var tickUpdater = (LOPTickUpdater)runner.tickUpdater;
+            double target = tickUpdater.TargetTime;
+
+            // [진단용 임시] 시드가 어떤 추정값 위에서 만들어졌는지 남긴다. 접속 직후엔 씬 로딩·스폰
+            // 부하로 pong 처리가 밀려 rtt가 부풀 수 있고, 그러면 출발선이 너무 앞에 놓인다.
+            // 원인 확정 후 이 로그와 BeginClockTrace 호출은 지운다.
+            var networkTime = runner.networkTime;
+            Debug.Log(
+                $"[ClockSeed] target={target:F3} tick={(long)(target / gameInfo.Interval)}" +
+                $" rtt={networkTime.Rtt * 1000:F0} predicted={networkTime.PredictedTime:F3}" +
+                $" serverNow={networkTime.ServerNow:F3} margin={(target - networkTime.PredictedTime) * 1000:F0}" +
+                $" gameInfo[tick={gameInfo.Tick} elapsed={gameInfo.ElapsedTime:F3}]");
+
             runner.Run((long)(target / gameInfo.Interval), gameInfo.Interval, target);
+            tickUpdater.BeginClockTrace();
         }
 
         private void OnGameStateChanged(RunnerState gameState)

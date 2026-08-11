@@ -56,3 +56,106 @@
     --lop-radius-l: 44px;
     --lop-radius-m: 36px;
 }
+
+/* ────────────────────────────────────────────────────────────
+ * 공통 부품
+ *
+ * 입체감 규칙: USS에는 box-shadow가 없다. 그래서
+ *   - 기본   = 아래쪽 테두리만 두껍게 (border-bottom-width)
+ *   - 주 CTA = 버튼 뒤에 바닥면 요소(.btn__base)를 한 겹 깐다
+ * ──────────────────────────────────────────────────────────── */
+
+.btn {
+    color: var(--lop-text-on-fill);
+    border-color: var(--lop-outline);
+    border-width: var(--lop-border-s);
+    border-bottom-width: var(--lop-bevel-s);
+    border-radius: var(--lop-radius-l);
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 2px;
+    padding-left: 28px;
+    padding-right: 28px;
+
+    /* 눌렀을 때 내려가는 움직임. 짧아야 조작이 굼떠 보이지 않는다 */
+    transition-property: translate, border-bottom-width;
+    transition-duration: 70ms;
+}
+
+/* PC 테스트용. 모바일에선 보이지 않는다 */
+.btn:hover {
+    border-color: #FFF6E0;
+}
+
+/* 눌리면 버튼이 아래로 내려가고 바닥 두께가 같은 만큼 줄어든다.
+ * 두 값을 같이 움직여야 버튼의 바닥 위치가 제자리에 있는 것처럼 보인다. */
+.btn:active {
+    translate: 0 8px;
+    border-bottom-width: 8px;
+}
+
+.btn--primary {
+    background-color: var(--lop-primary);
+    -unity-text-outline-color: var(--lop-primary-shade);
+    border-radius: var(--lop-radius-pill);
+}
+
+.btn--secondary {
+    background-color: var(--lop-secondary);
+    -unity-text-outline-color: var(--lop-secondary-shade);
+}
+
+.btn--nav1 {
+    background-color: var(--lop-secondary);
+    -unity-text-outline-color: var(--lop-secondary-shade);
+}
+
+.btn--nav2 {
+    background-color: var(--lop-nav2);
+    -unity-text-outline-color: var(--lop-nav2-shade);
+}
+
+.btn--nav3 {
+    background-color: var(--lop-nav3);
+    -unity-text-outline-color: var(--lop-nav3-shade);
+}
+
+/* 주 CTA 뒤에 까는 바닥면. 버튼보다 아래로 내려 깔아 두께처럼 보이게 한다.
+ * 남용하지 말 것 — PLAY 같은 주 행동 버튼에만. */
+.btn__base {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -10px;
+    height: 40px;
+    background-color: var(--lop-primary-shade);
+    border-radius: var(--lop-radius-pill);
+}
+
+.card {
+    background-color: var(--lop-surface);
+    border-color: var(--lop-surface-line);
+    border-width: var(--lop-border-s);
+    border-bottom-width: var(--lop-bevel-s);
+    border-radius: var(--lop-radius-m);
+    padding: 48px;
+    align-items: stretch;
+}
+
+.title {
+    color: var(--lop-title);
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 6px;
+    -unity-text-outline-color: var(--lop-title-outline);
+    text-shadow: 0 6px 0 rgba(90, 40, 8, 0.45);
+}
+
+/* 모달 뒤에 까는 어두운 막 */
+.scrim {
+    background-color: var(--lop-scrim);
+}
+
+/* 카드 안의 본문 글자 — 크림 배경 위라 어두운 색 */
+.card-text {
+    color: var(--lop-text);
+    -unity-text-align: middle-center;
+}

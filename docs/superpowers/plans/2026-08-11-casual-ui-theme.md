@@ -23,6 +23,8 @@
 - **`DebugHud`는 손대지 않는다.** 개발용이라 꾸미면 가독성이 나빠진다.
 - **버튼·라벨 문구를 바꾸지 않는다.** 이 작업은 스타일 작업이다.
 - **UXML의 `name` 속성을 바꾸지 않는다.** View 코드가 `Root.Q<Button>("play-button")` 식으로 name을 찾는다. `class`만 추가·수정한다.
+- **`git add -A` / `git add .` 를 쓰지 않는다. 반드시 경로를 명시해 add 한다.** 이 작업트리에는 **이 작업과 무관한 진행 중인 변경 18개**(`Assets/Scripts/FlappyRaceSlice/`, `Assets/Scenes/DungeonPreview.unity`, `Assets/Editor/CatacombKnightWeaponSocket.cs`, `Assets/Screenshots/`, `ProjectSettings/*` 등)가 함께 있다. 통째로 add 하면 남의 작업이 이 브랜치 커밋에 섞여 들어간다.
+- **커밋 전에 `git status --short`로 스테이징 내용을 눈으로 확인한다.** 의도한 파일만 올라갔는지 본 뒤 커밋한다.
 
 ## 검증 방식에 대하여 — 읽고 시작할 것
 
@@ -1199,7 +1201,8 @@ Game 뷰 해상도를 세로로 긴 비율(예: 2340×1080)로 바꾸고 로비�
 - [ ] **Step 5: 커밋**
 
 ```bash
-git add -A
+# 경로를 반드시 명시한다 (Global Constraints 참고)
+git add Assets/UI Assets/Resources/UI docs/superpowers/specs/2026-08-11-casual-ui-theme-design.md
 git commit -m "chore(ui): 테마 마무리 스윕 — 잔여 하드코딩 색 정리 + 설계 문서 정정
 
 설계 문서 §11 검증 항목 확인. 스크롤바 검증 항목은 프로젝트에

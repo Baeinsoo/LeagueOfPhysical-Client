@@ -7,6 +7,11 @@
  * 시작값이며 눈으로 보고 조정한다.
  */
 :root {
+    /* 폰트 — 주아체 SDF.
+     * SDF여야 하는 이유: 글자 테두리(-unity-text-outline-*)와 그림자(text-shadow)가
+     * SDF 폰트에서만 동작한다. 비트맵으로 만들면 테두리가 안 나온다. */
+    -unity-font-definition: url("project://database/Assets/UI/Theme/Fonts/Jua-Regular%20SDF.asset?fileID=11400000&guid=46d7e0e3247f143dfa116d3ad236b4ff&type=2#Jua-Regular SDF");
+
     /* 주 행동 — PLAY, 로그인, 확인 */
     --lop-primary: #F5931E;
     --lop-primary-shade: #B4510F;

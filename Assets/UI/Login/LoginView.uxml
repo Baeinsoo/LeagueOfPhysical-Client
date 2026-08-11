@@ -1,10 +1,10 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:VisualElement name="login-root" class="login-root">
-        <ui:VisualElement name="login-card" class="login-card">
-            <ui:Label text="LEAGUE OF PHYSICAL" class="login-title" />
-            <ui:Button name="guest-login" text="Guest Login" class="login-button" />
-            <ui:Button name="gpgs-login" text="Google Play" class="login-button" />
-            <ui:Button name="gamecenter-login" text="Game Center" class="login-button" />
+        <ui:VisualElement name="login-card" class="card login-card">
+            <ui:Label text="LEAGUE OF PHYSICAL" class="title login-title" />
+            <ui:Button name="guest-login" text="Guest Login" class="btn btn--primary login-button" />
+            <ui:Button name="gpgs-login" text="Google Play" class="btn btn--secondary login-button" />
+            <ui:Button name="gamecenter-login" text="Game Center" class="btn btn--secondary login-button" />
             <ui:Label name="login-error" text="" class="login-error" style="display: none;" />
         </ui:VisualElement>
     </ui:VisualElement>

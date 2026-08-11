@@ -1,29 +1,28 @@
+/* 색·테두리·라운드는 Theme.uss의 .card/.btn/.title이 담당한다.
+ * 여기엔 이 화면에서만 다른 위치·크기만 둔다. */
 .login-root {
     flex-grow: 1;
     align-items: center;
     justify-content: center;
+
+    /* 쓰이지 않고 있던 타이틀 아트를 로그인 배경으로 쓴다 */
+    background-image: url("../Title/title_screen.png");
+    -unity-background-scale-mode: scale-and-crop;
 }
 
 .login-card {
-    width: 480px;
-    padding: 32px;
-    border-radius: 12px;
-    background-color: rgba(20, 20, 28, 0.92);
-    align-items: stretch;
+    width: 760px;
 }
 
 .login-title {
-    font-size: 28px;
-    color: rgb(235, 235, 245);
-    -unity-text-align: middle-center;
-    margin-bottom: 24px;
+    font-size: 52px;
+    margin-bottom: 40px;
 }
 
 .login-button {
-    height: 56px;
-    margin-top: 12px;
-    font-size: 18px;
-    border-radius: 8px;
+    height: 108px;
+    margin-top: 20px;
+    font-size: 38px;
 }
 
 .login-error {

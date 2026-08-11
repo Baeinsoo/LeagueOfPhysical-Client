@@ -1,18 +1,22 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:VisualElement name="lobbyhome-root" class="lobbyhome-root">
         <ui:VisualElement name="lobbyhome-top" class="lobbyhome-top">
-            <ui:Label text="LEAGUE OF PHYSICAL" class="lobbyhome-title" />
+            <ui:Label text="LEAGUE OF PHYSICAL" class="title lobbyhome-title" />
         </ui:VisualElement>
 
         <ui:VisualElement name="lobbyhome-center" class="lobbyhome-center">
-            <ui:Button name="play-button" text="PLAY" class="lobbyhome-play" />
+            <!-- 바닥면(.btn__base)을 버튼 뒤에 깔기 위한 래퍼. 버튼이 아니라 이 래퍼가 위치를 잡는다. -->
+            <ui:VisualElement name="play-slot" class="lobbyhome-play-slot" picking-mode="Ignore">
+                <ui:VisualElement class="btn__base" picking-mode="Ignore" />
+                <ui:Button name="play-button" text="PLAY" class="btn btn--primary lobbyhome-play" />
+            </ui:VisualElement>
         </ui:VisualElement>
 
         <!-- 하단 네비바: 레이아웃만. 실제 동작은 Slice C에서 배선. -->
         <ui:VisualElement name="nav-bar" class="lobbyhome-navbar">
-            <ui:Button name="nav-shop" text="상점" class="lobbyhome-nav" />
-            <ui:Button name="nav-profile" text="프로필" class="lobbyhome-nav" />
-            <ui:Button name="nav-settings" text="설정" class="lobbyhome-nav" />
+            <ui:Button name="nav-shop" text="상점" class="btn btn--nav1 lobbyhome-nav" />
+            <ui:Button name="nav-profile" text="프로필" class="btn btn--nav2 lobbyhome-nav" />
+            <ui:Button name="nav-settings" text="설정" class="btn btn--nav3 lobbyhome-nav" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

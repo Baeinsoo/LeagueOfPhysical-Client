@@ -1,9 +1,9 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="matchresult-root" class="matchresult-root">
-        <ui:VisualElement name="matchresult-card" class="matchresult-card">
-            <ui:Label text="결과" class="matchresult-title" />
-            <ui:Label text="매치 종료" class="matchresult-message" />
-            <ui:Button name="confirm-button" text="확인" class="matchresult-confirm" />
+    <ui:VisualElement name="matchresult-root" class="scrim matchresult-root">
+        <ui:VisualElement name="matchresult-card" class="card matchresult-card">
+            <ui:Label text="결과" class="title matchresult-title" />
+            <ui:Label text="매치 종료" class="card-text matchresult-message" />
+            <ui:Button name="confirm-button" text="확인" class="btn btn--primary matchresult-confirm" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

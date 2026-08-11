@@ -1,0 +1,53 @@
+/* LOP 캐주얼 UI 테마 — 토큰
+ *
+ * 색은 Assets/UI/Title/title_screen.png(타이틀 로고)에서 뽑았다.
+ * 로고와 UI가 같은 색을 쓰게 해서 "로고 따로 UI 따로"인 상태를 없애는 게 목적.
+ *
+ * 치수는 1920x1080 기준이다 (PanelSettings가 이 해상도 기준으로 스케일).
+ * 시작값이며 눈으로 보고 조정한다.
+ */
+:root {
+    /* 주 행동 — PLAY, 로그인, 확인 */
+    --lop-primary: #F5931E;
+    --lop-primary-shade: #B4510F;
+
+    /* 보조 — 취소, 뒤로 */
+    --lop-secondary: #4A9FE0;
+    --lop-secondary-shade: #2C6FA8;
+
+    /* 하단 네비 2·3번째 */
+    --lop-nav2: #5FC94A;
+    --lop-nav2-shade: #389030;
+    --lop-nav3: #A87BD8;
+    --lop-nav3-shade: #6F51B8;
+
+    /* 카드·패널 */
+    --lop-surface: #FDF6EA;
+    --lop-surface-sunken: #E6D8C4;   /* 게이지 홈처럼 파인 자리 */
+    --lop-surface-line: #C25A12;
+
+    /* 글자 */
+    --lop-text: #5A3A1E;
+    --lop-text-on-fill: #FFFFFF;
+    --lop-title: #FFC93C;
+    --lop-title-outline: #B4510F;
+
+    /* 모든 요소를 감싸는 흰 테두리 — 이 톤의 핵심 */
+    --lop-outline: #FFFFFF;
+
+    /* 모달 뒤에 까는 어두운 막 */
+    --lop-scrim: rgba(20, 12, 6, 0.45);
+
+    /* 테두리 두께 */
+    --lop-border: 12px;
+    --lop-border-s: 8px;
+
+    /* 아래쪽만 두껍게 해서 입체감을 낸다 (box-shadow가 USS에 없음) */
+    --lop-bevel: 24px;
+    --lop-bevel-s: 16px;
+
+    /* 모서리 둥글기 */
+    --lop-radius-pill: 999px;
+    --lop-radius-l: 44px;
+    --lop-radius-m: 36px;
+}

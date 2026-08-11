@@ -31,7 +31,13 @@ namespace LOP
             {
                 await InitializeAsync();
                 await ConnectRoomServerAsync();
+
+                // 접속하자마자 시계 안정 대기를 시작해 gameInfo 왕복과 겹쳐 돌린다. 순차로 두면
+                // 겹치지 않아 오히려 늦다 — 시작만 앞당기고 합류는 시드 직전에 한다.
+                var clockSettle = WaitForClockSettleAsync();
                 await JoinRoomServerAsync();
+                await clockSettle;
+
                 await StartGameAsync();
             }
             catch (Exception e)
@@ -127,6 +133,109 @@ namespace LOP
             networkManager.StopClient();
 
             await UniTask.WaitUntil(() => NetworkClient.ready == false);
+        }
+
+        // 서버 시간 추정이 자리를 잡을 때까지 기다린다.
+        //
+        // 왜 필요한가: Mirror는 접속 즉시 첫 핑을 보내는데 그 순간이 인증·씬·스폰으로 가장 바쁘다.
+        // 실측상 첫 표본만 왕복 1052ms(이후 180~200ms)로 부풀고, Mirror의 평균은 첫 표본을 그대로
+        // 채택한 뒤 한 번에 9.5%씩만 교정한다. 그 상태에서 출발선을 그으면 0.7초(35틱) 어긋난 채
+        // 시작하고 시계는 초당 5%씩만 따라잡아 10초 넘게 어긋나 있다 — 입장 직후 러버밴딩의 원인.
+        //
+        // 판정: drift(예측시간 − 실시간)가 창 안에서 거의 안 변하면 추정이 멈춘 것 = 안정.
+        // 진폭 5ms는 Mirror의 평균 계수(PredictionErrorWindowSize=20 → 표본당 9.5%)에서 유도했다 —
+        // 0.5초(퐁 5개) 동안의 변화량이 남은 오차의 약 39%이므로, 진폭 5ms면 남은 오차는 13ms
+        // 미만(1틱 미만)이다. Mirror가 그 상수를 바꾸면 임계값을 다시 유도해야 한다.
+        private async Task WaitForClockSettleAsync()
+        {
+            const double WindowSeconds = 0.5;         // 퐁이 0.1초 간격이라 표본 5개가 들어간다
+            const int MinSamples = 5;                 // 프레임이 느릴 때 진폭이 우연히 작게 나오는 것 방지
+            const double AmplitudeThreshold = 0.005;  // 5ms
+            const double TimeoutSeconds = 7;
+
+            var times = new Queue<double>();
+            var drifts = new Queue<double>();
+            double start = Time.unscaledTimeAsDouble;
+            double amplitude = 0;
+            double drift = 0;
+            bool settled = false;
+            bool disconnected = false;
+
+            try
+            {
+                while (true)
+                {
+                    // 연결이 끊기면 7초를 헛되이 기다리지 않는다. 끊김 자체의 처리는 기존 흐름 소관.
+                    if (NetworkClient.ready == false)
+                    {
+                        disconnected = true;
+                        break;
+                    }
+
+                    double now = Time.unscaledTimeAsDouble;
+                    double elapsed = now - start;
+
+                    // 실시간 기준은 반드시 unscaledTime — Mirror의 localTime과 같아야 실시간 항이
+                    // 상쇄돼 drift가 곧 "서버와의 시차"가 된다.
+                    drift = runner.networkTime.PredictedTime - now;
+                    times.Enqueue(now);
+                    drifts.Enqueue(drift);
+
+                    // 창 밖으로 나간 표본을 버린다. 방금 넣은 표본은 나이가 0이라 큐가 비지 않는다.
+                    while (now - times.Peek() > WindowSeconds)
+                    {
+                        times.Dequeue();
+                        drifts.Dequeue();
+                    }
+
+                    if (elapsed >= WindowSeconds && drifts.Count >= MinSamples)
+                    {
+                        double min = double.MaxValue;
+                        double max = double.MinValue;
+                        foreach (double d in drifts)
+                        {
+                            if (d < min) min = d;
+                            if (d > max) max = d;
+                        }
+                        amplitude = max - min;
+
+                        if (amplitude < AmplitudeThreshold)
+                        {
+                            settled = true;
+                            break;
+                        }
+                    }
+
+                    if (elapsed >= TimeoutSeconds)
+                    {
+                        break;
+                    }
+
+                    await UniTask.Yield(destroyCancellationToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return;   // 오브젝트가 사라지는 중 — 조용히 끝낸다
+            }
+
+            double total = Time.unscaledTimeAsDouble - start;
+            if (disconnected)
+            {
+                Debug.Log($"[ClockSettle] 연결 끊김 elapsed={total:F2}s");
+            }
+            else if (settled)
+            {
+                Debug.Log(
+                    $"[ClockSettle] settled elapsed={total:F2}s amplitude={amplitude:F4}" +
+                    $" drift={drift:F3} window={drifts.Count}");
+            }
+            else
+            {
+                Debug.LogWarning(
+                    $"[ClockSettle] TIMEOUT elapsed={total:F2}s amplitude={amplitude:F4}" +
+                    $" drift={drift:F3} window={drifts.Count} — 최선값으로 시작");
+            }
         }
 
         public async Task StartGameAsync()

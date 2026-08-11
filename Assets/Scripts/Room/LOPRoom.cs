@@ -146,6 +146,7 @@ namespace LOP
                 $"[ClockSeed] target={target:F3} tick={(long)(target / gameInfo.Interval)}" +
                 $" rtt={networkTime.Rtt * 1000:F0} predicted={networkTime.PredictedTime:F3}" +
                 $" serverNow={networkTime.ServerNow:F3} margin={(target - networkTime.PredictedTime) * 1000:F0}" +
+                $" pongs={Mirror.NetworkTime.LopPongCount}" +
                 $" gameInfo[tick={gameInfo.Tick} elapsed={gameInfo.ElapsedTime:F3}]");
 
             runner.Run((long)(target / gameInfo.Interval), gameInfo.Interval, target);

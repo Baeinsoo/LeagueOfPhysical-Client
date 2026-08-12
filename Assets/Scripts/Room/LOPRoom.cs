@@ -31,7 +31,13 @@ namespace LOP
             {
                 await InitializeAsync();
                 await ConnectRoomServerAsync();
+
+                // 접속하자마자 시계 안정 대기를 시작해 gameInfo 왕복과 겹쳐 돌린다. 순차로 두면
+                // 겹치지 않아 오히려 늦다 — 시작만 앞당기고 합류는 시드 직전에 한다.
+                var clockSettle = WaitForClockSettleAsync();
                 await JoinRoomServerAsync();
+                await clockSettle;
+
                 await StartGameAsync();
             }
             catch (Exception e)
@@ -127,6 +133,92 @@ namespace LOP
             networkManager.StopClient();
 
             await UniTask.WaitUntil(() => NetworkClient.ready == false);
+        }
+
+        // 서버 시간 추정이 자리를 잡을 때까지 기다린다.
+        //
+        // 왜 필요한가: Mirror는 접속 즉시 첫 핑을 보내는데 그 순간이 인증·씬·스폰으로 가장 바쁘다.
+        // 실측상 첫 표본만 왕복 1052ms(이후 180~200ms)로 부풀고, Mirror의 평균은 첫 표본을 그대로
+        // 채택한 뒤 한 번에 9.5%씩만 교정한다. 그 상태에서 출발선을 그으면 0.7초(35틱) 어긋난 채
+        // 시작하고 시계는 초당 5%씩만 따라잡아 10초 넘게 어긋나 있다 — 입장 직후 러버밴딩의 원인.
+        //
+        // 판정: drift(예측시간 − 실시간)가 창 안에서 거의 안 변하면 추정이 멈춘 것 = 안정.
+        // 진폭 5ms는 Mirror의 평균 계수(PredictionErrorWindowSize=20 → 표본당 9.5%)에서 유도했다 —
+        // 0.5초(퐁 5개) 동안의 변화량이 남은 오차의 약 39%이므로, 진폭 5ms면 남은 오차는 13ms
+        // 미만(1틱 미만)이다. Mirror가 그 상수를 바꾸면 임계값을 다시 유도해야 한다.
+        private async Task WaitForClockSettleAsync()
+        {
+            // 창·최소표본·임계는 Mirror의 평균 계수에서 유도했다(PredictionErrorWindowSize=20 →
+            // 표본당 9.5%). 0.5초(퐁 약 5개) 동안의 변화량이 남은 오차의 약 39%이므로, 진폭 5ms면
+            // 남은 오차는 13ms 미만 = 1틱 미만이다. Mirror가 그 상수를 바꾸면 다시 유도해야 한다.
+            var detector = new GameFramework.Netcode.ClockSettleDetector(
+                windowSeconds: 0.5, minSamples: 5, amplitudeThreshold: 0.005);
+            const double TimeoutSeconds = 7;
+
+            double start = Time.unscaledTimeAsDouble;
+            double drift = 0;
+            bool disconnected = false;
+
+            try
+            {
+                while (true)
+                {
+                    // 연결이 끊기면 7초를 헛되이 기다리지 않는다. 끊김 자체의 처리는 기존 흐름 소관.
+                    if (NetworkClient.ready == false)
+                    {
+                        disconnected = true;
+                        break;
+                    }
+
+                    double now = Time.unscaledTimeAsDouble;
+
+                    // 실시간 기준은 반드시 unscaledTime — Mirror의 localTime과 같아야 실시간 항이
+                    // 상쇄돼 drift가 곧 "서버와의 시차"가 된다.
+                    drift = runner.networkTime.PredictedTime - now;
+
+                    // RTT가 0이면 아직 퐁을 한 번도 못 받은 상태다. 그때는 predictedTime이 곧
+                    // localTime이라 drift가 정확히 0으로 고정돼, 판정기가 보기엔 완벽히 안정이다 —
+                    // 실제로는 아무것도 측정되지 않은 것이라 아예 넣지 않는다.
+                    if (runner.networkTime.Rtt > 0)
+                    {
+                        detector.Feed(now, drift);
+                        if (detector.IsSettled)
+                        {
+                            break;
+                        }
+                    }
+
+                    if (now - start >= TimeoutSeconds)
+                    {
+                        break;
+                    }
+
+                    await UniTask.Yield(destroyCancellationToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return;   // 오브젝트가 사라지는 중 — 조용히 끝낸다
+            }
+
+            double total = Time.unscaledTimeAsDouble - start;
+            string amplitudeText = double.IsNaN(detector.Amplitude) ? "미측정" : $"{detector.Amplitude:F4}";
+            if (disconnected)
+            {
+                Debug.Log($"[ClockSettle] 연결 끊김 elapsed={total:F2}s");
+            }
+            else if (detector.IsSettled)
+            {
+                Debug.Log(
+                    $"[ClockSettle] settled elapsed={total:F2}s amplitude={amplitudeText}" +
+                    $" drift={drift:F3} window={detector.SampleCount}");
+            }
+            else
+            {
+                Debug.LogWarning(
+                    $"[ClockSettle] TIMEOUT elapsed={total:F2}s amplitude={amplitudeText}" +
+                    $" drift={drift:F3} window={detector.SampleCount} — 최선값으로 시작");
+            }
         }
 
         public async Task StartGameAsync()

@@ -47,14 +47,12 @@
     --lop-border: 12px;
     --lop-border-s: 8px;
 
-    /* 아래쪽만 두껍게 해서 입체감을 낸다 (box-shadow가 USS에 없음) */
-    --lop-bevel: 24px;
-    --lop-bevel-s: 16px;
-
     /* 모서리 둥글기 */
-    --lop-radius-pill: 999px;
     --lop-radius-l: 40px;
     --lop-radius-m: 36px;
+
+    /* 위험/경고 — 로그인 에러 등 */
+    --lop-danger: #FF7878;
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -98,11 +96,6 @@
 }
 
 .btn--secondary {
-    background-color: var(--lop-secondary);
-    -unity-text-outline-color: var(--lop-secondary-shade);
-}
-
-.btn--nav1 {
     background-color: var(--lop-secondary);
     -unity-text-outline-color: var(--lop-secondary-shade);
 }

@@ -28,7 +28,7 @@
 .login-error {
     margin-top: 16px;
     font-size: 14px;
-    color: rgb(255, 120, 120);
+    color: var(--lop-danger);
     -unity-text-align: middle-center;
     white-space: normal;
 }

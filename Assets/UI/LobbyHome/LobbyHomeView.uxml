@@ -6,7 +6,7 @@
 
         <!-- 하단 네비바: 레이아웃만. 실제 동작은 Slice C에서 배선. -->
         <ui:VisualElement name="nav-bar" class="lobbyhome-navbar">
-            <ui:Button name="nav-shop" text="상점" class="btn btn--nav1 lobbyhome-nav" />
+            <ui:Button name="nav-shop" text="상점" class="btn btn--secondary lobbyhome-nav" />
             <ui:Button name="nav-profile" text="프로필" class="btn btn--nav2 lobbyhome-nav" />
             <ui:Button name="nav-settings" text="설정" class="btn btn--nav3 lobbyhome-nav" />
         </ui:VisualElement>

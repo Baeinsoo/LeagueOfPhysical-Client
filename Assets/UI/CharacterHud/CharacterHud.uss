@@ -4,26 +4,33 @@
 
 .hud-panel {
     position: absolute;
-    bottom: 16px;
-    left: 16px;
-    width: 300px;
-    padding: 10px;
-    background-color: rgba(10, 10, 14, 0.55);
-    border-radius: 8px;
+    bottom: 24px;
+    left: 24px;
+    width: 460px;
+    padding: 18px;
+
+    /* 검정 반투명 → 크림 카드 */
+    background-color: var(--lop-surface);
+    border-color: var(--lop-surface-line);
+    border-width: 6px;
+    border-radius: var(--lop-radius-m);
 }
 
 .level-text {
-    color: rgb(235, 235, 245);
-    font-size: 18px;
-    -unity-font-style: bold;
-    margin-bottom: 8px;
+    color: var(--lop-text);
+    font-size: 28px;
+    margin-bottom: 12px;
 }
 
 .bar {
-    height: 22px;
-    margin-bottom: 6px;
-    background-color: rgb(28, 28, 34);
-    border-radius: 4px;
+    height: 34px;
+    margin-bottom: 10px;
+
+    /* 게이지 홈. 흰 테두리를 둘러 톤을 맞춘다 */
+    background-color: var(--lop-surface-sunken);
+    border-color: var(--lop-outline);
+    border-width: 4px;
+    border-radius: 999px;
     justify-content: center;
     overflow: hidden;
 }
@@ -34,7 +41,7 @@
     top: 0;
     bottom: 0;
     width: 100%;
-    border-radius: 4px;
+    border-radius: 999px;
 }
 
 .hp-fill {
@@ -49,9 +56,11 @@
     background-color: rgb(220, 190, 60);
 }
 
+/* 채움 색 위에 얹히는 글자라 테두리로 읽히게 한다 */
 .bar-text {
     -unity-text-align: middle-center;
-    color: rgb(245, 245, 250);
-    font-size: 12px;
-    -unity-font-style: bold;
+    color: #FFFFFF;
+    font-size: 20px;
+    -unity-text-outline-width: 2px;
+    -unity-text-outline-color: rgba(60, 30, 10, 0.9);
 }

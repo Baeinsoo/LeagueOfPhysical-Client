@@ -4,9 +4,12 @@
     align-items: center;
 }
 
+/* 월드 위에 뜨는 글자라 배경 판 대신 테두리로 배경과 분리한다.
+ * 노랑은 데미지 표시 관습색이라 유지. */
 .damage-text {
-    font-size: 40px;
+    font-size: 52px;
     color: rgb(255, 230, 120);
     -unity-text-align: middle-center;
-    -unity-font-style: bold;
+    -unity-text-outline-width: 3px;
+    -unity-text-outline-color: rgba(40, 20, 5, 0.95);
 }

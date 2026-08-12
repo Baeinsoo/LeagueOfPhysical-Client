@@ -20,22 +20,24 @@
 
 .joystick-bg {
     position: absolute;
-    width: 160px;
-    height: 160px;
-    border-radius: 80px;
-    background-color: rgba(255, 255, 255, 0.12);
-    border-width: 2px;
-    border-color: rgba(255, 255, 255, 0.3);
+    width: 200px;
+    height: 200px;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.18);
+    border-width: 6px;
+    border-color: var(--lop-outline);
 }
 
 .joystick-handle {
     position: absolute;
-    left: 45px;
-    top: 45px;
-    width: 70px;
-    height: 70px;
-    border-radius: 35px;
-    background-color: rgba(255, 255, 255, 0.45);
+    left: 55px;
+    top: 55px;
+    width: 90px;
+    height: 90px;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.6);
+    border-width: 5px;
+    border-color: var(--lop-outline);
 }
 
 .action-buttons {
@@ -45,27 +47,14 @@
     flex-direction: row;
 }
 
+/* 원형 버튼이라 공통 .btn의 좌우 여백을 지우고 라운드를 원으로 고정한다 */
 .action-button {
-    width: 78px;
-    height: 78px;
-    border-radius: 39px;
-    margin-left: 12px;
-    font-size: 18px;
-    -unity-font-style: bold;
-    color: rgb(245, 245, 250);
-    background-color: rgba(40, 40, 50, 0.7);
-    border-width: 2px;
-    border-color: rgba(255, 255, 255, 0.3);
-}
-
-.attack-button {
-    background-color: rgba(150, 50, 50, 0.7);
-}
-
-.haste-button {
-    background-color: rgba(50, 110, 150, 0.7);
-}
-
-.global-attack-button {
-    background-color: rgba(170, 100, 40, 0.7);
+    width: 120px;
+    height: 120px;
+    border-radius: 999px;
+    margin-left: 18px;
+    font-size: 26px;
+    padding-left: 0;
+    padding-right: 0;
+    border-width: 6px;
 }

@@ -57,5 +57,4 @@
     padding-left: 0;
     padding-right: 0;
     border-width: 5px;
-    border-bottom-width: 10px;
 }

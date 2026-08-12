@@ -132,7 +132,6 @@ namespace Mirror
             PingInterval = DefaultPingInterval;
             lastPingTime = 0;
             _rtt = new ExponentialMovingAverage(PingWindowSize);
-            LopResetPongTrace();   // [LOP 진단용 임시] 접속마다 샘플 번호를 1부터 다시 센다
 #if !UNITY_2020_3_OR_NEWER
             stopwatch.Restart();
 #endif
@@ -204,31 +203,6 @@ namespace Mirror
             _predictionErrorUnadjusted.Add(message.predictionErrorUnadjusted);
             predictionErrorAdjusted = message.predictionErrorAdjusted;
             // Debug.Log($"[Client] predictionError avg={(_predictionErrorUnadjusted.Value*1000):F1} ms");
-
-            // [LOP 진단용 임시] 접속 직후 시계 추정이 왜 틀리는지 가르려고 원본 샘플을 남긴다.
-            // 지금까지 본 값은 전부 평균 뒤의 것이라 "샘플이 오염됐나 / 평균이 이상한가"를 못 갈랐다.
-            // raw = 이번에 실제로 잰 값, avg = 평균 낸 뒤. 원인 확정 후 이 블록만 지운다(LOP 변경).
-            LopPongSampleTrace(newRtt, message.predictionErrorUnadjusted);
-        }
-
-        // [LOP 진단용 임시] 접속 후 처음 LopTraceSamples개만 찍는다(0.1초 간격이라 약 8초).
-        const int LopTraceSamples = 80;
-        static int lopPongCount;
-
-        /// <summary>[LOP 진단용 임시] 이번 연결에서 지금까지 받은 퐁 개수 — 시드가 몇 번째 샘플 위에서 일어났는지 보려고.</summary>
-        public static int LopPongCount => lopPongCount;
-
-        internal static void LopResetPongTrace() => lopPongCount = 0;
-
-        static void LopPongSampleTrace(double rawRtt, double rawOffset)
-        {
-            if (lopPongCount >= LopTraceSamples) return;
-            lopPongCount++;
-            Debug.Log(
-                $"[PongSample] n={lopPongCount} local={localTime:F3}" +
-                $" rawRtt={rawRtt * 1000:F0} rawOffset={rawOffset:F3}" +
-                $" rttAvg={_rtt.Value * 1000:F0} offsetAvg={_predictionErrorUnadjusted.Value:F3}" +
-                $" predicted={predictedTime:F3}");
         }
 
         // server rtt calculation //////////////////////////////////////////////

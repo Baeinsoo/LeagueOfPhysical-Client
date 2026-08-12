@@ -156,7 +156,7 @@ namespace LOP
             var times = new Queue<double>();
             var drifts = new Queue<double>();
             double start = Time.unscaledTimeAsDouble;
-            double amplitude = 0;
+            double amplitude = double.NaN;   // 창을 한 번도 못 채우면(극단적 프레임 정체) 측정된 적 없음을 값 자체로 표시
             double drift = 0;
             bool settled = false;
             bool disconnected = false;
@@ -220,6 +220,7 @@ namespace LOP
             }
 
             double total = Time.unscaledTimeAsDouble - start;
+            string amplitudeText = double.IsNaN(amplitude) ? "미측정" : $"{amplitude:F4}";
             if (disconnected)
             {
                 Debug.Log($"[ClockSettle] 연결 끊김 elapsed={total:F2}s");
@@ -227,13 +228,13 @@ namespace LOP
             else if (settled)
             {
                 Debug.Log(
-                    $"[ClockSettle] settled elapsed={total:F2}s amplitude={amplitude:F4}" +
+                    $"[ClockSettle] settled elapsed={total:F2}s amplitude={amplitudeText}" +
                     $" drift={drift:F3} window={drifts.Count}");
             }
             else
             {
                 Debug.LogWarning(
-                    $"[ClockSettle] TIMEOUT elapsed={total:F2}s amplitude={amplitude:F4}" +
+                    $"[ClockSettle] TIMEOUT elapsed={total:F2}s amplitude={amplitudeText}" +
                     $" drift={drift:F3} window={drifts.Count} — 최선값으로 시작");
             }
         }
@@ -244,22 +245,8 @@ namespace LOP
 
             // 출발선을 제 위치(서버보다 앞)에 놓는다. gameInfo.Tick/ElapsedTime은 보낸 순간의 값이라
             // 받았을 땐 이미 과거다 — 지금 시계에서 유도한다.
-            var tickUpdater = (LOPTickUpdater)runner.tickUpdater;
-            double target = tickUpdater.TargetTime;
-
-            // [진단용 임시] 시드가 어떤 추정값 위에서 만들어졌는지 남긴다. 접속 직후엔 씬 로딩·스폰
-            // 부하로 pong 처리가 밀려 rtt가 부풀 수 있고, 그러면 출발선이 너무 앞에 놓인다.
-            // 원인 확정 후 이 로그와 BeginClockTrace 호출은 지운다.
-            var networkTime = runner.networkTime;
-            Debug.Log(
-                $"[ClockSeed] target={target:F3} tick={(long)(target / gameInfo.Interval)}" +
-                $" rtt={networkTime.Rtt * 1000:F0} predicted={networkTime.PredictedTime:F3}" +
-                $" serverNow={networkTime.ServerNow:F3} margin={(target - networkTime.PredictedTime) * 1000:F0}" +
-                $" pongs={Mirror.NetworkTime.LopPongCount}" +
-                $" gameInfo[tick={gameInfo.Tick} elapsed={gameInfo.ElapsedTime:F3}]");
-
+            double target = ((LOPTickUpdater)runner.tickUpdater).TargetTime;
             runner.Run((long)(target / gameInfo.Interval), gameInfo.Interval, target);
-            tickUpdater.BeginClockTrace();
         }
 
         private void OnGameStateChanged(RunnerState gameState)

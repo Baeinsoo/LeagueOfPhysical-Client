@@ -45,13 +45,20 @@
 
     /* 테두리 두께 */
     --lop-border-s: 8px;
+    --lop-border-m: 6px;    /* HUD 패널·원형 버튼 */
+    --lop-border-xs: 4px;   /* 게이지 홈 */
+    --lop-border-world: 3px; /* 월드스페이스 — 캐릭터 위에 뜨므로 가늘게 */
 
     /* 모서리 둥글기 */
     --lop-radius-l: 40px;
     --lop-radius-m: 36px;
+    --lop-radius-pill: 999px;
 
     /* 위험/경고 — 로그인 에러 등 */
-    --lop-danger: #FF7878;
+    --lop-danger: #C62828;
+
+    /* 성공/사용 가능 — 스탯 포인트 등. nav2와 값은 같지만 의미가 달라 별도 토큰으로 둔다 */
+    --lop-success: #389030;
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -91,7 +98,6 @@
 .btn--primary {
     background-color: var(--lop-primary);
     -unity-text-outline-color: var(--lop-primary-shade);
-    border-radius: var(--lop-radius-l);
 }
 
 .btn--secondary {
@@ -108,6 +114,12 @@
     background-color: var(--lop-nav3);
     -unity-text-outline-color: var(--lop-nav3-shade);
 }
+
+/* 유니티 기본 테마의 .unity-button:hover 가 특이도로 이겨 회색이 비치는 것을 막는다 */
+.btn--primary:hover, .btn--primary:active { background-color: var(--lop-primary); }
+.btn--secondary:hover, .btn--secondary:active { background-color: var(--lop-secondary); }
+.btn--nav2:hover, .btn--nav2:active { background-color: var(--lop-nav2); }
+.btn--nav3:hover, .btn--nav3:active { background-color: var(--lop-nav3); }
 
 .card {
     background-color: var(--lop-surface);

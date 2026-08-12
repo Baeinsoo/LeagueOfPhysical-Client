@@ -2,18 +2,14 @@
     flex-grow: 1;
 }
 
+/* 배경·테두리색·라운드는 .card(Theme.uss)가 담당한다. 여기엔 위치·크기만 남긴다 */
 .hud-panel {
     position: absolute;
     bottom: 24px;
     left: 24px;
     width: 460px;
     padding: 18px;
-
-    /* 검정 반투명 → 크림 카드 */
-    background-color: var(--lop-surface);
-    border-color: var(--lop-surface-line);
-    border-width: 6px;
-    border-radius: var(--lop-radius-m);
+    border-width: var(--lop-border-m);
 }
 
 .level-text {
@@ -29,8 +25,8 @@
     /* 게이지 홈. 흰 테두리를 둘러 톤을 맞춘다 */
     background-color: var(--lop-surface-sunken);
     border-color: var(--lop-outline);
-    border-width: 4px;
-    border-radius: 999px;
+    border-width: var(--lop-border-xs);
+    border-radius: var(--lop-radius-pill);
     justify-content: center;
     overflow: hidden;
 }
@@ -41,7 +37,7 @@
     top: 0;
     bottom: 0;
     width: 100%;
-    border-radius: 999px;
+    border-radius: var(--lop-radius-pill);
 }
 
 .hp-fill {
@@ -59,7 +55,7 @@
 /* 채움 색 위에 얹히는 글자라 테두리로 읽히게 한다 */
 .bar-text {
     -unity-text-align: middle-center;
-    color: #FFFFFF;
+    color: var(--lop-text-on-fill);
     font-size: 20px;
     -unity-text-outline-width: 2px;
     -unity-text-outline-color: rgba(60, 30, 10, 0.9);

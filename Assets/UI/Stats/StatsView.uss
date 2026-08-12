@@ -44,7 +44,7 @@
 .stats-points-value {
     flex-grow: 1;
     font-size: 30px;
-    color: var(--lop-nav2-shade);
+    color: var(--lop-success);
     -unity-text-align: middle-right;
     margin-right: 20px;
 }
@@ -56,5 +56,5 @@
     font-size: 30px;
     padding-left: 0;
     padding-right: 0;
-    border-width: 5px;
+    border-width: var(--lop-border-xs);
 }

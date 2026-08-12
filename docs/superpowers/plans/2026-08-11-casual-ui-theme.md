@@ -1,5 +1,10 @@
 # 캐주얼 UI 테마 구현 계획
 
+> ⚠️ **이 계획은 실행 전 스냅샷입니다.** 실행 중 입체감 설계(`.btn__base`, `--lop-bevel*`,
+> 아래쪽만 두꺼운 테두리)가 사용자 피드백으로 폐기됐고, 아래 본문에는 그 폐기된 코드가 남아
+> 있습니다. **현재 기준 문서는 `docs/superpowers/specs/2026-08-11-casual-ui-theme-design.md`
+> 입니다.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 프론트엔드·인게임 UI 전반에 폴가이즈 톤 공통 테마를 입혀 "덜 만든 티"를 걷어낸다. 새 이미지 에셋 0장.

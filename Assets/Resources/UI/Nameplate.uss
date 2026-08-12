@@ -10,8 +10,8 @@
     height: 55%;
     background-color: rgba(60, 40, 20, 0.75);
     border-color: var(--lop-outline);
-    border-width: 3px;
-    border-radius: 999px;
+    border-width: var(--lop-border-world);
+    border-radius: var(--lop-radius-pill);
     padding: 2px;
 }
 
@@ -20,5 +20,5 @@
     height: 100%;
     width: 100%;
     background-color: rgb(60, 200, 90);
-    border-radius: 999px;
+    border-radius: var(--lop-radius-pill);
 }

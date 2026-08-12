@@ -22,9 +22,9 @@
     position: absolute;
     width: 200px;
     height: 200px;
-    border-radius: 999px;
+    border-radius: var(--lop-radius-pill);
     background-color: rgba(255, 255, 255, 0.18);
-    border-width: 6px;
+    border-width: var(--lop-border-m);
     border-color: var(--lop-outline);
 }
 
@@ -34,9 +34,9 @@
     top: 55px;
     width: 90px;
     height: 90px;
-    border-radius: 999px;
+    border-radius: var(--lop-radius-pill);
     background-color: rgba(255, 255, 255, 0.6);
-    border-width: 5px;
+    border-width: var(--lop-border-xs);
     border-color: var(--lop-outline);
 }
 
@@ -51,10 +51,10 @@
 .action-button {
     width: 120px;
     height: 120px;
-    border-radius: 999px;
+    border-radius: var(--lop-radius-pill);
     margin-left: 18px;
     font-size: 26px;
     padding-left: 0;
     padding-right: 0;
-    border-width: 6px;
+    border-width: var(--lop-border-m);
 }

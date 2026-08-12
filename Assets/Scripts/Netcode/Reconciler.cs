@@ -105,18 +105,6 @@ namespace LOP
             // 예측된 현재 위치 — 하드 보정 전. 재생 후와의 차이로 보정 크기를 판정(시각 신호용).
             Vector3 preCorrectionPos = GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity);
 
-            // 내가 살지 않은 틱(매치에 들어오기 전)의 서버 상태는 내 예측을 반증하지 못한다 — 비교할
-            // 내 예측이 애초에 없기 때문이다. 그런데도 아래 보정 경로로 흘러가면 그 옛 상태(스폰 지점)로
-            // 되돌려 놓고, 재생에 필요한 기록도 없어 되감지도 못해 클라가 예측한 진행이 통째로 버려진다.
-            // 시드 직후엔 스냅이 snapAge만큼 과거를 가리키며 계속 도착하므로 매 매치 초반이 이 상태였다.
-            //
-            // 기록이 없는 다른 이유(살긴 했는데 링 밖으로 밀려남 = 내가 크게 뒤처짐)는 여전히 복원해야
-            // 하므로, "내가 기록을 시작한 틱"으로 둘을 가른다.
-            if (snapshotHistory.FirstRecordedTick is long firstPredictedTick && anchorTick < firstPredictedTick)
-            {
-                return;
-            }
-
             // errorGate: 예측이 서버와 충분히 가까우면 아무것도 안 함.
             // 그 전에 예측-서버 거리를 항상 기록해 Recon HUD(ReconciliationStats)가 계속 갱신되게 한다.
             if (snapshotHistory.TryGet(anchorTick, out var predicted))
@@ -192,14 +180,23 @@ namespace LOP
                 motionContributions.Items.AddRange(snap.contributions);
             }
 
-            // 어빌리티/상태이상/스탯/마나도 앵커 틱 상태로 복원 — 재생이 대시 등을 정확히 재현하려면 필요.
-            // 두 히스토리가 어긋나면(정상 경로엔 없음 — 엔티티 일시 null 등 엣지) 재생을 생략한다.
-            // 위치는 이미 서버 스냅으로 복원됐고, stale 어빌리티 기준으로 재생하지 않기 위함(두 링 대칭 복원).
-            if (!predictedAbilityStateHistory.TryGet(anchorTick, out var abilityState))
+            // 어빌리티/상태이상/스탯/마나도 앵커 틱 상태로 복원 — 재생이 대시 등을 정확히 재현하려면
+            // 필요하다. 지금 상태로 재생하면 그때 없던 대시가 켜진 채 굴러 위치가 틀어진다.
+            //
+            // 기록이 없을 때가 문제인데, 이유가 둘이고 대응이 다르다:
+            //  · 앵커가 내 첫 기록보다 과거 = 내가 아직 매치에 없던 틱. 그 뒤로 내가 굴린 틱이 없으니
+            //    지금 상태가 곧 그때 상태다 — 복원할 게 없을 뿐, 재생은 정상으로 해야 한다.
+            //    (시드 직후엔 스냅이 snapAge만큼 과거를 가리키며 계속 오므로 매 매치 초반이 이 경우다.)
+            //  · 그 외 = 살았던 틱인데 링 밖으로 밀려남. 그때 상태를 알 수 없어 재생하면 위험하므로
+            //    생략한다. 다만 이 경우 위치는 서버 스냅에 남으니, 재생 생략은 최후 수단이다.
+            if (predictedAbilityStateHistory.TryGet(anchorTick, out var abilityState))
+            {
+                abilityState.RestoreTo(worldEntity);
+            }
+            else if (snapshotHistory.FirstRecordedTick is not long first || anchorTick >= first)
             {
                 return;
             }
-            abilityState.RestoreTo(worldEntity);
 
             // 남이 나에게 건 효과(슬로우 등)는 내가 예측할 수 없다 → 서버 목록이 진실.
             // 위 RestoreTo가 되돌린 예측값 위에 덮는다(넉백 기여를 스냅에서 복원하는 것과 같은 축).

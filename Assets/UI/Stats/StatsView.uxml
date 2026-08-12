@@ -1,29 +1,29 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:VisualElement name="stats-root" class="stats-root" picking-mode="Ignore">
-        <ui:VisualElement name="stats-card" class="stats-card">
-            <ui:Label text="STATS" class="stats-title" />
+        <ui:VisualElement name="stats-card" class="card stats-card">
+            <ui:Label text="STATS" class="title stats-title" />
             <ui:VisualElement class="stats-row">
-                <ui:Label text="STR" class="stats-name" />
-                <ui:Label name="strength-value" text="0" class="stats-value" />
-                <ui:Button name="strength-button" text="+" class="stats-button" />
+                <ui:Label text="STR" class="card-text stats-name" />
+                <ui:Label name="strength-value" text="0" class="card-text stats-value" />
+                <ui:Button name="strength-button" text="+" class="btn btn--primary stats-button" />
             </ui:VisualElement>
             <ui:VisualElement class="stats-row">
-                <ui:Label text="DEX" class="stats-name" />
-                <ui:Label name="dexterity-value" text="0" class="stats-value" />
-                <ui:Button name="dexterity-button" text="+" class="stats-button" />
+                <ui:Label text="DEX" class="card-text stats-name" />
+                <ui:Label name="dexterity-value" text="0" class="card-text stats-value" />
+                <ui:Button name="dexterity-button" text="+" class="btn btn--primary stats-button" />
             </ui:VisualElement>
             <ui:VisualElement class="stats-row">
-                <ui:Label text="INT" class="stats-name" />
-                <ui:Label name="intelligence-value" text="0" class="stats-value" />
-                <ui:Button name="intelligence-button" text="+" class="stats-button" />
+                <ui:Label text="INT" class="card-text stats-name" />
+                <ui:Label name="intelligence-value" text="0" class="card-text stats-value" />
+                <ui:Button name="intelligence-button" text="+" class="btn btn--primary stats-button" />
             </ui:VisualElement>
             <ui:VisualElement class="stats-row">
-                <ui:Label text="VIT" class="stats-name" />
-                <ui:Label name="vitality-value" text="0" class="stats-value" />
-                <ui:Button name="vitality-button" text="+" class="stats-button" />
+                <ui:Label text="VIT" class="card-text stats-name" />
+                <ui:Label name="vitality-value" text="0" class="card-text stats-value" />
+                <ui:Button name="vitality-button" text="+" class="btn btn--primary stats-button" />
             </ui:VisualElement>
             <ui:VisualElement class="stats-points-row">
-                <ui:Label text="Points" class="stats-name" />
+                <ui:Label text="Points" class="card-text stats-name" />
                 <ui:Label name="statpoints-value" text="0" class="stats-points-value" />
             </ui:VisualElement>
         </ui:VisualElement>

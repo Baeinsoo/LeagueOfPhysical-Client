@@ -1,0 +1,7 @@
+/* 이 파일이 프로젝트 전체 UI 테마의 진입점이다.
+ * 두 PanelSettings(화면 UI / 월드스페이스)가 이 파일을 참조한다.
+ *
+ * 아래 기본 테마 import를 지우면 유니티 기본 컨트롤이 깨진다. 지우지 말 것.
+ */
+@import url("unity-theme://default");
+@import url("Theme.uss");

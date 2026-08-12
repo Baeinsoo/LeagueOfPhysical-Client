@@ -5,58 +5,56 @@
 }
 
 .stats-card {
-    margin: 24px;
-    padding: 16px;
-    width: 220px;
-    border-radius: 12px;
-    background-color: rgba(20, 20, 28, 0.85);
-    align-items: stretch;
+    margin: 32px;
+    padding: 28px;
+    width: 460px;
 }
 
 .stats-title {
-    font-size: 20px;
-    color: rgb(235, 235, 245);
-    -unity-text-align: middle-center;
-    margin-bottom: 12px;
+    font-size: 36px;
+    margin-bottom: 20px;
 }
 
 .stats-row {
     flex-direction: row;
     align-items: center;
-    margin-top: 6px;
+    margin-top: 12px;
 }
 
 .stats-points-row {
     flex-direction: row;
     align-items: center;
-    margin-top: 12px;
+    margin-top: 24px;
 }
 
 .stats-name {
-    width: 64px;
-    font-size: 16px;
-    color: rgb(180, 180, 195);
+    width: 120px;
+    font-size: 28px;
+    -unity-text-align: middle-left;
 }
 
 .stats-value {
     flex-grow: 1;
-    font-size: 18px;
-    color: rgb(235, 235, 245);
+    font-size: 30px;
     -unity-text-align: middle-right;
-    margin-right: 12px;
+    margin-right: 20px;
 }
 
+/* 남은 포인트 — 초록으로 "쓸 수 있다"를 표시한다 */
 .stats-points-value {
     flex-grow: 1;
-    font-size: 18px;
-    color: rgb(120, 220, 140);
+    font-size: 30px;
+    color: var(--lop-success);
     -unity-text-align: middle-right;
-    margin-right: 12px;
+    margin-right: 20px;
 }
 
+/* + 버튼은 작은 정사각이라 공통 .btn의 좌우 여백을 지운다 */
 .stats-button {
-    width: 36px;
-    height: 36px;
-    font-size: 18px;
-    border-radius: 6px;
+    width: 64px;
+    height: 64px;
+    font-size: 30px;
+    padding-left: 0;
+    padding-right: 0;
+    border-width: var(--lop-border-xs);
 }

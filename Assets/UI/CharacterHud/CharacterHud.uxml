@@ -1,7 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="CharacterHud.uss" />
     <ui:VisualElement name="hud-root" class="hud-root" picking-mode="Ignore">
-        <ui:VisualElement name="hud-panel" class="hud-panel">
+        <ui:VisualElement name="hud-panel" class="card hud-panel">
             <ui:Label name="level-text" class="level-text" text="Lv 1" />
             <ui:VisualElement class="bar">
                 <ui:VisualElement name="hp-fill" class="bar-fill hp-fill" />

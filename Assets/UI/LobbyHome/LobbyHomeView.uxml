@@ -5,11 +5,7 @@
         </ui:VisualElement>
 
         <ui:VisualElement name="lobbyhome-center" class="lobbyhome-center">
-            <!-- 바닥면(.btn__base)을 버튼 뒤에 깔기 위한 래퍼. 버튼이 아니라 이 래퍼가 위치를 잡는다. -->
-            <ui:VisualElement name="play-slot" class="lobbyhome-play-slot" picking-mode="Ignore">
-                <ui:VisualElement class="btn__base" picking-mode="Ignore" />
-                <ui:Button name="play-button" text="PLAY" class="btn btn--primary lobbyhome-play" />
-            </ui:VisualElement>
+            <ui:Button name="play-button" text="PLAY" class="btn btn--primary lobbyhome-play" />
         </ui:VisualElement>
 
         <!-- 하단 네비바: 레이아웃만. 실제 동작은 Slice C에서 배선. -->

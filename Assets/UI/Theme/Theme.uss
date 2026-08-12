@@ -60,16 +60,16 @@
 /* ────────────────────────────────────────────────────────────
  * 공통 부품
  *
- * 입체감 규칙: USS에는 box-shadow가 없다. 그래서
- * 아래쪽 테두리만 두껍고(border-bottom-width) 진한 색으로(border-bottom-color)
- * 깔아 두께처럼 보이게 한다.
+ * 테두리는 네 방향 모두 동일한 두께·색(흰색)으로 균일하게 둔다.
+ * USS에는 box-shadow가 없어 아래쪽만 두껍게/진하게 해 입체감을 내려던
+ * 시도가 있었으나, 흰-흰-흰-어두움으로 오히려 불균일하게 보여 포기했다.
+ * 눌림 반응은 순수 translate(버튼이 아래로 내려가는 움직임)만으로 표현한다.
  * ──────────────────────────────────────────────────────────── */
 
 .btn {
     color: var(--lop-text-on-fill);
     border-color: var(--lop-outline);
     border-width: var(--lop-border-s);
-    border-bottom-width: var(--lop-bevel-s);
     border-radius: var(--lop-radius-l);
     -unity-text-align: middle-center;
     -unity-text-outline-width: 3px;
@@ -77,7 +77,7 @@
     padding-right: 28px;
 
     /* 눌렀을 때 내려가는 움직임. 짧아야 조작이 굼떠 보이지 않는다 */
-    transition-property: translate, border-bottom-width;
+    transition-property: translate;
     transition-duration: 70ms;
 }
 
@@ -86,49 +86,41 @@
     border-color: #FFF6E0;
 }
 
-/* 눌리면 버튼이 아래로 내려가고 바닥 두께가 같은 만큼 줄어든다.
- * 두 값을 같이 움직여야 버튼의 바닥 위치가 제자리에 있는 것처럼 보인다. */
+/* 눌리면 버튼이 아래로 내려간다 */
 .btn:active {
-    translate: 0 8px;
-    border-bottom-width: 8px;
+    translate: 0 4px;
 }
 
 .btn--primary {
     background-color: var(--lop-primary);
     -unity-text-outline-color: var(--lop-primary-shade);
     border-radius: var(--lop-radius-l);
-    border-bottom-color: var(--lop-primary-shade);
 }
 
 .btn--secondary {
     background-color: var(--lop-secondary);
     -unity-text-outline-color: var(--lop-secondary-shade);
-    border-bottom-color: var(--lop-secondary-shade);
 }
 
 .btn--nav1 {
     background-color: var(--lop-secondary);
     -unity-text-outline-color: var(--lop-secondary-shade);
-    border-bottom-color: var(--lop-secondary-shade);
 }
 
 .btn--nav2 {
     background-color: var(--lop-nav2);
     -unity-text-outline-color: var(--lop-nav2-shade);
-    border-bottom-color: var(--lop-nav2-shade);
 }
 
 .btn--nav3 {
     background-color: var(--lop-nav3);
     -unity-text-outline-color: var(--lop-nav3-shade);
-    border-bottom-color: var(--lop-nav3-shade);
 }
 
 .card {
     background-color: var(--lop-surface);
     border-color: var(--lop-surface-line);
     border-width: var(--lop-border-s);
-    border-bottom-width: var(--lop-bevel-s);
     border-radius: var(--lop-radius-m);
     padding: 48px;
     align-items: stretch;

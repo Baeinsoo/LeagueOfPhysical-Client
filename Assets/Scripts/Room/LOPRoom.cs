@@ -148,17 +148,15 @@ namespace LOP
         // 미만(1틱 미만)이다. Mirror가 그 상수를 바꾸면 임계값을 다시 유도해야 한다.
         private async Task WaitForClockSettleAsync()
         {
-            const double WindowSeconds = 0.5;         // 창 0.5초 = 퐁 약 5개분 변화량(그래서 5ms 임계값이 1틱 미만 오차에 대응)
-            const int MinSamples = 5;                 // 프레임이 정체돼 창 안 표본이 너무 적으면 진폭이 우연히 작게 나올 수 있어 막는다
-            const double AmplitudeThreshold = 0.005;  // 5ms
+            // 창·최소표본·임계는 Mirror의 평균 계수에서 유도했다(PredictionErrorWindowSize=20 →
+            // 표본당 9.5%). 0.5초(퐁 약 5개) 동안의 변화량이 남은 오차의 약 39%이므로, 진폭 5ms면
+            // 남은 오차는 13ms 미만 = 1틱 미만이다. Mirror가 그 상수를 바꾸면 다시 유도해야 한다.
+            var detector = new GameFramework.Netcode.ClockSettleDetector(
+                windowSeconds: 0.5, minSamples: 5, amplitudeThreshold: 0.005);
             const double TimeoutSeconds = 7;
 
-            var times = new Queue<double>();
-            var drifts = new Queue<double>();
             double start = Time.unscaledTimeAsDouble;
-            double amplitude = double.NaN;   // 창을 한 번도 못 채우면(극단적 프레임 정체) 측정된 적 없음을 값 자체로 표시
             double drift = 0;
-            bool settled = false;
             bool disconnected = false;
 
             try
@@ -173,43 +171,24 @@ namespace LOP
                     }
 
                     double now = Time.unscaledTimeAsDouble;
-                    double elapsed = now - start;
 
                     // 실시간 기준은 반드시 unscaledTime — Mirror의 localTime과 같아야 실시간 항이
                     // 상쇄돼 drift가 곧 "서버와의 시차"가 된다.
                     drift = runner.networkTime.PredictedTime - now;
-                    times.Enqueue(now);
-                    drifts.Enqueue(drift);
-
-                    // 창 밖으로 나간 표본을 버린다. 방금 넣은 표본은 나이가 0이라 큐가 비지 않는다.
-                    while (now - times.Peek() > WindowSeconds)
-                    {
-                        times.Dequeue();
-                        drifts.Dequeue();
-                    }
 
                     // RTT가 0이면 아직 퐁을 한 번도 못 받은 상태다. 그때는 predictedTime이 곧
-                    // localTime이라 drift가 정확히 0으로 완벽하게 안 변해, 진폭만 보면 "안정"으로
-                    // 오판한다 — 실제로는 아무것도 측정되지 않은 것이다.
-                    if (elapsed >= WindowSeconds && drifts.Count >= MinSamples && runner.networkTime.Rtt > 0)
+                    // localTime이라 drift가 정확히 0으로 고정돼, 판정기가 보기엔 완벽히 안정이다 —
+                    // 실제로는 아무것도 측정되지 않은 것이라 아예 넣지 않는다.
+                    if (runner.networkTime.Rtt > 0)
                     {
-                        double min = double.MaxValue;
-                        double max = double.MinValue;
-                        foreach (double d in drifts)
+                        detector.Feed(now, drift);
+                        if (detector.IsSettled)
                         {
-                            if (d < min) min = d;
-                            if (d > max) max = d;
-                        }
-                        amplitude = max - min;
-
-                        if (amplitude < AmplitudeThreshold)
-                        {
-                            settled = true;
                             break;
                         }
                     }
 
-                    if (elapsed >= TimeoutSeconds)
+                    if (now - start >= TimeoutSeconds)
                     {
                         break;
                     }
@@ -223,22 +202,22 @@ namespace LOP
             }
 
             double total = Time.unscaledTimeAsDouble - start;
-            string amplitudeText = double.IsNaN(amplitude) ? "미측정" : $"{amplitude:F4}";
+            string amplitudeText = double.IsNaN(detector.Amplitude) ? "미측정" : $"{detector.Amplitude:F4}";
             if (disconnected)
             {
                 Debug.Log($"[ClockSettle] 연결 끊김 elapsed={total:F2}s");
             }
-            else if (settled)
+            else if (detector.IsSettled)
             {
                 Debug.Log(
                     $"[ClockSettle] settled elapsed={total:F2}s amplitude={amplitudeText}" +
-                    $" drift={drift:F3} window={drifts.Count}");
+                    $" drift={drift:F3} window={detector.SampleCount}");
             }
             else
             {
                 Debug.LogWarning(
                     $"[ClockSettle] TIMEOUT elapsed={total:F2}s amplitude={amplitudeText}" +
-                    $" drift={drift:F3} window={drifts.Count} — 최선값으로 시작");
+                    $" drift={drift:F3} window={detector.SampleCount} — 최선값으로 시작");
             }
         }
 

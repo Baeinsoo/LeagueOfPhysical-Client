@@ -44,7 +44,6 @@
     --lop-scrim: rgba(20, 12, 6, 0.45);
 
     /* 테두리 두께 */
-    --lop-border: 12px;
     --lop-border-s: 8px;
 
     /* 모서리 둥글기 */

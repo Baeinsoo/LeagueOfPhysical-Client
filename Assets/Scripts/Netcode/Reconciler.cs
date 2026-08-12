@@ -105,6 +105,18 @@ namespace LOP
             // 예측된 현재 위치 — 하드 보정 전. 재생 후와의 차이로 보정 크기를 판정(시각 신호용).
             Vector3 preCorrectionPos = GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity);
 
+            // 내가 살지 않은 틱(매치에 들어오기 전)의 서버 상태는 내 예측을 반증하지 못한다 — 비교할
+            // 내 예측이 애초에 없기 때문이다. 그런데도 아래 보정 경로로 흘러가면 그 옛 상태(스폰 지점)로
+            // 되돌려 놓고, 재생에 필요한 기록도 없어 되감지도 못해 클라가 예측한 진행이 통째로 버려진다.
+            // 시드 직후엔 스냅이 snapAge만큼 과거를 가리키며 계속 도착하므로 매 매치 초반이 이 상태였다.
+            //
+            // 기록이 없는 다른 이유(살긴 했는데 링 밖으로 밀려남 = 내가 크게 뒤처짐)는 여전히 복원해야
+            // 하므로, "내가 기록을 시작한 틱"으로 둘을 가른다.
+            if (snapshotHistory.FirstRecordedTick is long firstPredictedTick && anchorTick < firstPredictedTick)
+            {
+                return;
+            }
+
             // errorGate: 예측이 서버와 충분히 가까우면 아무것도 안 함.
             // 그 전에 예측-서버 거리를 항상 기록해 Recon HUD(ReconciliationStats)가 계속 갱신되게 한다.
             if (snapshotHistory.TryGet(anchorTick, out var predicted))

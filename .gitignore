@@ -82,3 +82,6 @@ ServerData/
 # 빌드 때 생성되는 활성 환경 자산 (EnvironmentBaker가 굽고 지운다)
 /Assets/Resources/EnvironmentSettings/EnvironmentSettings.active.asset
 /Assets/Resources/EnvironmentSettings/EnvironmentSettings.active.asset.meta
+
+# Claude Code 워크트리 (작업용 체크아웃 사본 — .claude 아래 나머지는 공유 대상일 수 있다)
+.claude/worktrees/

@@ -1,0 +1,150 @@
+/* LOP 캐주얼 UI 테마 — 토큰
+ *
+ * 색은 Assets/UI/Title/title_screen.png(타이틀 로고)에서 뽑았다.
+ * 로고와 UI가 같은 색을 쓰게 해서 "로고 따로 UI 따로"인 상태를 없애는 게 목적.
+ *
+ * 치수는 1920x1080 기준이다 (PanelSettings가 이 해상도 기준으로 스케일).
+ * 시작값이며 눈으로 보고 조정한다.
+ */
+:root {
+    /* 폰트 — 주아체 SDF.
+     * SDF여야 하는 이유: 글자 테두리(-unity-text-outline-*)와 그림자(text-shadow)가
+     * SDF 폰트에서만 동작한다. 비트맵으로 만들면 테두리가 안 나온다. */
+    -unity-font-definition: url("project://database/Assets/UI/Theme/Fonts/Jua-Regular%20SDF.asset?fileID=11400000&guid=46d7e0e3247f143dfa116d3ad236b4ff&type=2#Jua-Regular SDF");
+
+    /* 주 행동 — PLAY, 로그인, 확인 */
+    --lop-primary: #F5931E;
+    --lop-primary-shade: #B4510F;
+
+    /* 보조 — 취소, 뒤로 */
+    --lop-secondary: #4A9FE0;
+    --lop-secondary-shade: #2C6FA8;
+
+    /* 하단 네비 2·3번째 */
+    --lop-nav2: #5FC94A;
+    --lop-nav2-shade: #389030;
+    --lop-nav3: #A87BD8;
+    --lop-nav3-shade: #6F51B8;
+
+    /* 카드·패널 */
+    --lop-surface: #FDF6EA;
+    --lop-surface-sunken: #E6D8C4;   /* 게이지 홈처럼 파인 자리 */
+    --lop-surface-line: #C25A12;
+
+    /* 글자 */
+    --lop-text: #5A3A1E;
+    --lop-text-on-fill: #FFFFFF;
+    --lop-title: #FFC93C;
+    --lop-title-outline: #B4510F;
+
+    /* 모든 요소를 감싸는 흰 테두리 — 이 톤의 핵심 */
+    --lop-outline: #FFFFFF;
+
+    /* 모달 뒤에 까는 어두운 막 */
+    --lop-scrim: rgba(20, 12, 6, 0.45);
+
+    /* 테두리 두께 */
+    --lop-border-s: 8px;
+    --lop-border-m: 6px;    /* HUD 패널·원형 버튼 */
+    --lop-border-xs: 4px;   /* 게이지 홈 */
+    --lop-border-world: 3px; /* 월드스페이스 — 캐릭터 위에 뜨므로 가늘게 */
+
+    /* 모서리 둥글기 */
+    --lop-radius-l: 40px;
+    --lop-radius-m: 36px;
+    --lop-radius-pill: 999px;
+
+    /* 위험/경고 — 로그인 에러 등 */
+    --lop-danger: #C62828;
+
+    /* 성공/사용 가능 — 스탯 포인트 등. nav2와 값은 같지만 의미가 달라 별도 토큰으로 둔다 */
+    --lop-success: #389030;
+}
+
+/* ────────────────────────────────────────────────────────────
+ * 공통 부품
+ *
+ * 테두리는 네 방향 모두 동일한 두께·색(흰색)으로 균일하게 둔다.
+ * USS에는 box-shadow가 없어 아래쪽만 두껍게/진하게 해 입체감을 내려던
+ * 시도가 있었으나, 흰-흰-흰-어두움으로 오히려 불균일하게 보여 포기했다.
+ * 눌림 반응은 순수 translate(버튼이 아래로 내려가는 움직임)만으로 표현한다.
+ * ──────────────────────────────────────────────────────────── */
+
+.btn {
+    color: var(--lop-text-on-fill);
+    border-color: var(--lop-outline);
+    border-width: var(--lop-border-s);
+    border-radius: var(--lop-radius-l);
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 3px;
+    padding-left: 28px;
+    padding-right: 28px;
+
+    /* 눌렀을 때 내려가는 움직임. 짧아야 조작이 굼떠 보이지 않는다 */
+    transition-property: translate;
+    transition-duration: 70ms;
+}
+
+/* PC 테스트용. 모바일에선 보이지 않는다 */
+.btn:hover {
+    border-color: #FFF6E0;
+}
+
+/* 눌리면 버튼이 아래로 내려간다 */
+.btn:active {
+    translate: 0 4px;
+}
+
+.btn--primary {
+    background-color: var(--lop-primary);
+    -unity-text-outline-color: var(--lop-primary-shade);
+}
+
+.btn--secondary {
+    background-color: var(--lop-secondary);
+    -unity-text-outline-color: var(--lop-secondary-shade);
+}
+
+.btn--nav2 {
+    background-color: var(--lop-nav2);
+    -unity-text-outline-color: var(--lop-nav2-shade);
+}
+
+.btn--nav3 {
+    background-color: var(--lop-nav3);
+    -unity-text-outline-color: var(--lop-nav3-shade);
+}
+
+/* 유니티 기본 테마의 .unity-button:hover 가 특이도로 이겨 회색이 비치는 것을 막는다 */
+.btn--primary:hover, .btn--primary:active { background-color: var(--lop-primary); }
+.btn--secondary:hover, .btn--secondary:active { background-color: var(--lop-secondary); }
+.btn--nav2:hover, .btn--nav2:active { background-color: var(--lop-nav2); }
+.btn--nav3:hover, .btn--nav3:active { background-color: var(--lop-nav3); }
+
+.card {
+    background-color: var(--lop-surface);
+    border-color: var(--lop-surface-line);
+    border-width: var(--lop-border-s);
+    border-radius: var(--lop-radius-m);
+    padding: 48px;
+    align-items: stretch;
+}
+
+.title {
+    color: var(--lop-title);
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 4px;
+    -unity-text-outline-color: var(--lop-title-outline);
+    text-shadow: 0 6px 0 rgba(90, 40, 8, 0.45);
+}
+
+/* 모달 뒤에 까는 어두운 막 */
+.scrim {
+    background-color: var(--lop-scrim);
+}
+
+/* 카드 안의 본문 글자 — 크림 배경 위라 어두운 색 */
+.card-text {
+    color: var(--lop-text);
+    -unity-text-align: middle-center;
+}

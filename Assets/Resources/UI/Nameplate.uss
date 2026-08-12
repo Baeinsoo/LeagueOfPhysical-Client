@@ -4,17 +4,21 @@
     align-items: center;
 }
 
+/* 검정 판 → 흰 테두리를 두른 게이지 홈. 월드 위에 뜨는 것이라 얇게 유지한다 */
 .hp-bar-bg {
     width: 92%;
     height: 55%;
-    background-color: rgba(15, 15, 18, 0.85);
-    border-radius: 5px;
+    background-color: rgba(60, 40, 20, 0.75);
+    border-color: var(--lop-outline);
+    border-width: var(--lop-border-world);
+    border-radius: var(--lop-radius-pill);
     padding: 2px;
 }
 
+/* 초록은 "적/타인의 남은 체력"이라는 의미를 가진 색이라 유지한다 */
 .hp-bar-fill {
     height: 100%;
     width: 100%;
     background-color: rgb(60, 200, 90);
-    border-radius: 3px;
+    border-radius: var(--lop-radius-pill);
 }

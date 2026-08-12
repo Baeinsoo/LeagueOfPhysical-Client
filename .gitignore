@@ -85,3 +85,6 @@ ServerData/
 
 # Claude Code 워크트리 (작업용 체크아웃 사본 — .claude 아래 나머지는 공유 대상일 수 있다)
 .claude/worktrees/
+
+# Superpowers brainstorm 목업 (로컬 전용)
+.superpowers/

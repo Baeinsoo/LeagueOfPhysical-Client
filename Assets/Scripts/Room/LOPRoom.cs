@@ -148,8 +148,8 @@ namespace LOP
         // 미만(1틱 미만)이다. Mirror가 그 상수를 바꾸면 임계값을 다시 유도해야 한다.
         private async Task WaitForClockSettleAsync()
         {
-            const double WindowSeconds = 0.5;         // 퐁이 0.1초 간격이라 표본 5개가 들어간다
-            const int MinSamples = 5;                 // 프레임이 느릴 때 진폭이 우연히 작게 나오는 것 방지
+            const double WindowSeconds = 0.5;         // 창 0.5초 = 퐁 약 5개분 변화량(그래서 5ms 임계값이 1틱 미만 오차에 대응)
+            const int MinSamples = 5;                 // 프레임이 정체돼 창 안 표본이 너무 적으면 진폭이 우연히 작게 나올 수 있어 막는다
             const double AmplitudeThreshold = 0.005;  // 5ms
             const double TimeoutSeconds = 7;
 
@@ -188,7 +188,10 @@ namespace LOP
                         drifts.Dequeue();
                     }
 
-                    if (elapsed >= WindowSeconds && drifts.Count >= MinSamples)
+                    // RTT가 0이면 아직 퐁을 한 번도 못 받은 상태다. 그때는 predictedTime이 곧
+                    // localTime이라 drift가 정확히 0으로 완벽하게 안 변해, 진폭만 보면 "안정"으로
+                    // 오판한다 — 실제로는 아무것도 측정되지 않은 것이다.
+                    if (elapsed >= WindowSeconds && drifts.Count >= MinSamples && runner.networkTime.Rtt > 0)
                     {
                         double min = double.MaxValue;
                         double max = double.MinValue;

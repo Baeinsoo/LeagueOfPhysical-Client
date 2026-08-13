@@ -29,8 +29,21 @@ namespace LOP
             }
         }
 
+        // [진단용 임시] 측정 창 안에서 가장 오래 걸린 프레임(ms). 읽는 쪽이 가져가면서 비운다.
+        // 이 루프는 프레임당 정확히 한 번 돈다.
+        private float diagMaxFrameMs;
+
+        public float TakeDiagMaxFrameMs()
+        {
+            float value = diagMaxFrameMs;
+            diagMaxFrameMs = 0f;
+            return value;
+        }
+
         protected override void OnElapsedTimeUpdate()
         {
+            diagMaxFrameMs = Mathf.Max(diagMaxFrameMs, Time.deltaTime * 1000f);
+
             elapsedTime = clockDilator.Advance(elapsedTime, TargetTime, Time.deltaTime);
         }
     }

@@ -27,23 +27,9 @@ namespace LOP
 
         protected override void Subscribe() => Track(inputTimingSubscriber.Subscribe(OnInputTimingToC));
 
-        // [진단용 임시] 실기기에서 폐기가 재현되는지 보기 위한 창별 원본. 확인 후 제거.
-        private int diagFeedbackCount;
-
         private void OnInputTimingToC(InputTimingToC message)
         {
             inputTimingStats.Update(message.AvgD, message.MaxD, message.PruneCount, message.SeqGapCount);
-
-            if (diagFeedbackCount < 400)
-            {
-                diagFeedbackCount++;
-                float frameMax = runner.tickUpdater is LOPTickUpdater lopTickUpdater ? lopTickUpdater.TakeDiagMaxFrameMs() : 0f;
-                UnityEngine.Debug.Log(
-                    $"[InputTiming#{diagFeedbackCount}] tick={runner.tickUpdater?.tick}" +
-                    $" avgD={message.AvgD:F2} maxD={message.MaxD} prune={message.PruneCount}" +
-                    $" seqGap={message.SeqGapCount} n={message.SampleCount}" +
-                    $" margin={leadState.AheadMargin * 1000:F0}ms frameMax={frameMax:F0}ms");
-            }
 
             if (!leadState.Enabled)
             {

@@ -58,6 +58,20 @@ public class FlappyPlayer : MonoBehaviour
     /// <summary>스타트 부스트 — 대시를 발동(전진 버스트 + 고도 유지 + 대시 연출). 충전 무관.</summary>
     public void StartBoost(float dur) { dashCharge = 0f; dashT = dur; vy = 0f; }
 
+    /// <summary>낙마 시 발행. 연출(FlappyDismountFx)이 구독한다.</summary>
+    public event System.Action Dismounted;
+
+    /// <summary>
+    /// 낙마 — 그 자리에서 ghostTime초 정지 후 복귀. 맵 장애물 충돌과 대시 박치기, 이 둘만 호출한다.
+    /// 무적 중이거나 이미 낙마 중이면 무시(벽에 얹혀 무한 낙마하는 것 방지).
+    /// </summary>
+    public void Dismount()
+    {
+        if (ghostT > 0f || invuln > 0f) return;
+        ghostT = ghostTime;
+        Dismounted?.Invoke();
+    }
+
     void Update()
     {
         if (FlappyRaceStart.RaceFrozen) return;   // 카운트다운 중 정지
@@ -94,7 +108,7 @@ public class FlappyPlayer : MonoBehaviour
         if (p.y < fy) { p.y = fy; vy = 0f; }
         transform.position = p;
         bool touching = ResolveObstacles();   // 밀어내기(관통 방지) + 겹침 여부
-        if (touching && !_wasTouching && invuln <= 0f) ghostT = ghostTime;  // 새 충돌(상승엣지)에만 0.5s 정지
+        if (touching && !_wasTouching) Dismount();   // 새 충돌(상승엣지)에만 낙마. 무적 체크는 Dismount 안에서
         _wasTouching = touching;
 
         float vpush = FlappyBird.ResolveBirdCollisions(SelfCol);   // 새끼리 몸싸움(유령정지 없음)

@@ -46,6 +46,17 @@ public class FlappyPacer : MonoBehaviour
     /// <summary>스타트 부스트 — dur초 동안 전진 배속 + 고도 유지(플레이어 대시와 동일 감각).</summary>
     public void StartBoost(float dur) { boostT = dur; vy = 0f; }
 
+    /// <summary>낙마 시 발행. 연출이 구독한다.</summary>
+    public event System.Action Dismounted;
+
+    /// <summary>낙마 — 플레이어와 동일 규칙. 무적/낙마 중이면 무시.</summary>
+    public void Dismount()
+    {
+        if (ghostT > 0f || invuln > 0f) return;
+        ghostT = ghostTime;
+        Dismounted?.Invoke();
+    }
+
     void Update()
     {
         if (FlappyRaceStart.RaceFrozen) return;   // 카운트다운 중 정지
@@ -86,7 +97,7 @@ public class FlappyPacer : MonoBehaviour
 
         // 장애물 충돌 — 플레이어와 동일: 밀어내기 + 새 충돌(상승엣지)에 0.5초 경직
         bool touching = ResolveObstacles(); curY = transform.position.y;
-        if (touching && !_wasTouching && invuln <= 0f) ghostT = ghostTime;
+        if (touching && !_wasTouching) Dismount();
 
         // 트랩 방지(봇 전용): 2초 넘게 계속 끼면 코리도 중심으로 스냅해 탈출
         if (touching) { stuckT += dt; if (stuckT > 2f) { curY = (hi > lo) ? (lo + hi) * 0.5f : center; transform.position = new Vector3(p.x, curY, 0f); vy = 0f; stuckT = 0f; ghostT = 0f; touching = false; } }

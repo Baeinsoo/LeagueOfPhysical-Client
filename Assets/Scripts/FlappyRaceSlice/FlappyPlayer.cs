@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 /// FlappyRace 3D 버티컬 슬라이스용 플레이어. 정식 아키텍처(World Core/VContainer) 미통합 — 손맛 확인용 독립 스크립트.
 /// 고정 전진 + 플랩/중력 + 다이브 충전 대시 + 충돌 시 유령 정지. 프로토타입(dive-flappy) 튜닝값 이식.
 /// </summary>
-public class FlappyPlayer : MonoBehaviour
+public class FlappyPlayer : MonoBehaviour, IFlappyRacer
 {
     [Header("이동")]
     public float forwardSpeed = 7f;
@@ -58,6 +58,20 @@ public class FlappyPlayer : MonoBehaviour
     /// <summary>스타트 부스트 — 대시를 발동(전진 버스트 + 고도 유지 + 대시 연출). 충전 무관.</summary>
     public void StartBoost(float dur) { dashCharge = 0f; dashT = dur; vy = 0f; }
 
+    [Header("충돌 튕김")]
+    public float knockDecay = 5f;      // 밀림이 사그라드는 속도(클수록 짧게 튕김)
+    public float maxKnock = 22f;       // 폭발 방지 상한
+    Vector2 knock;
+
+    public bool IsDashing => dashT > 0f;
+    public Vector2 Velocity => new Vector2(forwardSpeed * (dashT > 0f ? dashMult : 1f), vy);
+
+    /// <summary>부딪힌 순간의 밀림을 얹는다. 코어 속도는 그대로 두고 이 값만 따로 감쇠시킨다.</summary>
+    public void AddKnockback(Vector2 impulse)
+    {
+        knock = Vector2.ClampMagnitude(knock + impulse, maxKnock);
+    }
+
     /// <summary>낙마 시 발행. 연출(FlappyDismountFx)이 구독한다.</summary>
     public event System.Action Dismounted;
 
@@ -100,6 +114,14 @@ public class FlappyPlayer : MonoBehaviour
         if (dashT > 0f) dashT -= dt;
         if (boostT > 0f) boostT -= dt;
         p.x += spd * dt;
+
+        // 충돌 밀림 — 코어 물리와 분리해 따로 얹고 감쇠(엔진 물리에 넘기면 손맛이 흔들린다)
+        if (knock.sqrMagnitude > 0.0001f)
+        {
+            p.x += knock.x * dt;
+            p.y += knock.y * dt;
+            knock *= Mathf.Exp(-knockDecay * dt);
+        }
 
         // 천장/바닥 (둘 다 고도를 따라감; 클램프는 무조건, 바닥 유령은 무적 아닐 때만)
         float cy = CeilAt(p.x);

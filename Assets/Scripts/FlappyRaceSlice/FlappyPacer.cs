@@ -6,7 +6,7 @@ using UnityEngine;
 /// 0.5초 경직(유령 정지)+반투명 깜빡. 겨냥 대상(코리도 중심)만 스캔으로 구하고 회피는 완벽하지 않아
 /// skill 낮을수록 자주 부딪혀 경직 → 공정한 레이스. 사람이 못 구하니 트랩 방지 복구망만 봇 전용.
 /// </summary>
-public class FlappyPacer : MonoBehaviour
+public class FlappyPacer : MonoBehaviour, IFlappyRacer
 {
     [Header("이동(플레이어와 맞춤)")]
     public float forwardSpeed = 10.5f;
@@ -45,6 +45,22 @@ public class FlappyPacer : MonoBehaviour
 
     /// <summary>스타트 부스트 — dur초 동안 전진 배속 + 고도 유지(플레이어 대시와 동일 감각).</summary>
     public void StartBoost(float dur) { boostT = dur; vy = 0f; }
+
+    [Header("충돌 튕김(플레이어와 동일)")]
+    public float knockDecay = 5f;
+    public float maxKnock = 22f;
+    Vector2 knock;
+
+    /// <summary>낙마(경직) 중인지 — FlappyPlayer.Ghost와 대칭.</summary>
+    public bool Ghost => ghostT > 0f;
+
+    public bool IsDashing => boostT > 0f;   // 봇은 스타트 부스트가 대시에 해당
+    public Vector2 Velocity => new Vector2(forwardSpeed * (boostT > 0f ? startBoostMult : 1f), vy);
+
+    public void AddKnockback(Vector2 impulse)
+    {
+        knock = Vector2.ClampMagnitude(knock + impulse, maxKnock);
+    }
 
     /// <summary>낙마 시 발행. 연출이 구독한다.</summary>
     public event System.Action Dismounted;
@@ -91,6 +107,15 @@ public class FlappyPacer : MonoBehaviour
             if (curY < center - aim && Time.time - lastFlap >= cd) { vy = flapImpulse; lastFlap = Time.time; }
         }
         curY += vy * dt;
+
+        // 충돌 밀림 — 플레이어와 동일하게 코어 속도와 분리해 얹고 감쇠
+        if (knock.sqrMagnitude > 0.0001f)
+        {
+            p.x += knock.x * dt;
+            curY += knock.y * dt;
+            knock *= Mathf.Exp(-knockDecay * dt);
+        }
+
         curY = Mathf.Clamp(curY, scanLo + 2f, scanHi - 2f);   // 맵 밖 완전 이탈만 방지(장애물 회피 아님)
         p.y = curY;
         transform.position = p;

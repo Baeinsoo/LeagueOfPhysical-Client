@@ -27,9 +27,25 @@ namespace LOP
 
         protected override void Subscribe() => Track(inputTimingSubscriber.Subscribe(OnInputTimingToC));
 
+        // [진단용 임시] 시작 구간 입력 폐기 조사 — 확인 후 제거
+        private int diagFeedbackCount;
+
         private void OnInputTimingToC(InputTimingToC message)
         {
             inputTimingStats.Update(message.AvgD, message.MaxD, message.PruneCount, message.SeqGapCount);
+
+            // [진단용 임시] 첫 30회(약 9초) 피드백을 마진 전이와 함께 그대로 남긴다.
+            if (diagFeedbackCount < 30)
+            {
+                diagFeedbackCount++;
+                var lopTickUpdater = runner.tickUpdater as LOPTickUpdater;
+                double gap = lopTickUpdater != null ? lopTickUpdater.TargetTime - lopTickUpdater.elapsedTime : double.NaN;
+                UnityEngine.Debug.Log(
+                    $"[InputTiming#{diagFeedbackCount}] tick={runner.tickUpdater?.tick}" +
+                    $" avgD={message.AvgD:F2} maxD={message.MaxD} prune={message.PruneCount}" +
+                    $" seqGap={message.SeqGapCount} n={message.SampleCount}" +
+                    $" margin={leadState.AheadMargin * 1000:F0}ms clockGap={gap * 1000:F0}ms");
+            }
 
             if (!leadState.Enabled)
             {

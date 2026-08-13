@@ -156,11 +156,12 @@ public class FlappyPlayer : MonoBehaviour
         {
             var o = _pen[i];
             if (o == col || o.GetComponentInParent<FlappyObstacle>() == null) continue;
+            bool isBoundary = o.GetComponentInParent<FlappyBoundary>() != null;
             if (Physics.ComputePenetration(col, col.transform.position, col.transform.rotation,
                                            o, o.transform.position, o.transform.rotation,
                                            out Vector3 dir, out float dist))
             {
-                touching = true;
+                if (!isBoundary) touching = true;   // 경계는 막기만 — 낙마 없음
                 transform.position += dir * dist;                 // 밖으로 밀어냄(관통 방지)
                 if (dir.y > 0.5f && vy < 0f) vy = 0f;
                 else if (dir.y < -0.5f && vy > 0f) vy = 0f;

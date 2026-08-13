@@ -9,6 +9,10 @@ public class FlappyCameraFollow : MonoBehaviour
     public float fixedZ = -30f;
     public float lerp = 6f;
 
+    [Header("선두 추종 — 추격자가 뒤를 자르므로 카메라는 선두를 잡아야 전원이 화면에 담긴다")]
+    public bool followLeader = true;
+    public float leaderOffsetX = -14f;   // 선두를 화면 오른쪽에 두려고 카메라를 그만큼 왼쪽으로 당김
+
     [Header("세로 추적 (고도 맵)")]
     public bool followY = true;
     public float yLerp = 2f;      // 느리게 = 플랩 흔들림 무시하고 지형 높이를 따라감
@@ -22,7 +26,9 @@ public class FlappyCameraFollow : MonoBehaviour
     {
         if (target == null) return;
         var p = transform.position;
-        p.x = Mathf.Lerp(p.x, target.position.x + offsetX, Time.deltaTime * lerp);
+        float focusX = followLeader ? LeaderX() : target.position.x;
+        float wantX = followLeader ? focusX + leaderOffsetX : focusX + offsetX;
+        p.x = Mathf.Lerp(p.x, wantX, Time.deltaTime * lerp);
         p.y = followY ? Mathf.Lerp(p.y, target.position.y, Time.deltaTime * yLerp) : fixedY;
         p.z = fixedZ;
 
@@ -35,5 +41,14 @@ public class FlappyCameraFollow : MonoBehaviour
             p.x += o.x; p.y += o.y;
         }
         transform.position = p;
+    }
+
+    // 선두 = 활성 레이서 중 가장 앞선 X. 아무도 없으면 target으로 되돌아간다.
+    float LeaderX()
+    {
+        float best = float.NegativeInfinity;
+        foreach (var b in FlappyBird.All)
+            if (b != null && b.transform.position.x > best) best = b.transform.position.x;
+        return float.IsNegativeInfinity(best) ? target.position.x : best;
     }
 }

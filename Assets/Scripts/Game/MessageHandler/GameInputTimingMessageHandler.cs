@@ -27,30 +27,9 @@ namespace LOP
 
         protected override void Subscribe() => Track(inputTimingSubscriber.Subscribe(OnInputTimingToC));
 
-        // [진단용 임시] 시작 구간 입력 폐기 조사 — 확인 후 제거
-        private int diagFeedbackCount;
-
         private void OnInputTimingToC(InputTimingToC message)
         {
             inputTimingStats.Update(message.AvgD, message.MaxD, message.PruneCount, message.SeqGapCount);
-
-            // [진단용 임시] 피드백 창마다 도착 상태 + 그 창에서 가장 오래 걸린 프레임을 같이 남긴다.
-            // 폐기가 클라 히칭 때문인지(frameMax가 같이 튐) 아닌지를 한 줄에서 가르기 위한 것.
-            if (diagFeedbackCount < 400)
-            {
-                diagFeedbackCount++;
-                var lopTickUpdater = runner.tickUpdater as LOPTickUpdater;
-                double gap = lopTickUpdater != null ? lopTickUpdater.TargetTime - lopTickUpdater.elapsedTime : double.NaN;
-                float frameMax = lopTickUpdater != null ? lopTickUpdater.TakeDiagMaxFrameMs() : 0f;
-                UnityEngine.Debug.Log(
-                    $"[InputTiming#{diagFeedbackCount}] tick={runner.tickUpdater?.tick}" +
-                    $" avgD={message.AvgD:F2} maxD={message.MaxD} prune={message.PruneCount}" +
-                    $" seqGap={message.SeqGapCount} n={message.SampleCount}" +
-                    $" margin={leadState.AheadMargin * 1000:F0}ms clockGap={gap * 1000:F0}ms" +
-                    $" drift={(runner.networkTime.PredictedTime - UnityEngine.Time.unscaledTimeAsDouble) * 1000:F0}ms" +
-                    $" rtt={runner.networkTime.Rtt * 1000:F0}ms" +
-                    $" frameMax={frameMax:F0}ms behindMax={runner.tickUpdater?.maxTicksBehind}");
-            }
 
             if (!leadState.Enabled)
             {

@@ -17,6 +17,9 @@ public class FlappyHUD : MonoBehaviour
     Image dashBg, dashFill; Text dashLabel;
     Text rankText, timerText;
     RectTransform trackRect;
+    Image lifeBg, lifeFill; Text lifeLabel;
+    /// <summary>이 거리 이하로 좁혀지면 게이지가 붉게 경고한다.</summary>
+    public float dangerDistance = 18f;
 
     class Racer { public Transform t; public bool isPlayer; public Color col; public string label; public RectTransform marker; public Text tag; }
     readonly List<Racer> racers = new List<Racer>();
@@ -68,6 +71,14 @@ public class FlappyHUD : MonoBehaviour
         SetRect(dashFill, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(5, 0), new Vector2(0, 44));
         dashLabel = MakeText(dashBg.rectTransform, "DashLbl", 26, TextAnchor.MiddleCenter, Color.white);
         SetRect(dashLabel, new Vector2(0, 0), new Vector2(1, 1), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+
+        // ── 목숨 게이지 = 추격자까지 남은 거리 (우측 하단) ──
+        lifeBg = MakeImage(root, "LifeBg", new Color(0f, 0f, 0f, 0.55f));
+        SetRect(lifeBg, new Vector2(1, 0), new Vector2(1, 0), new Vector2(1, 0), new Vector2(-40, 40), new Vector2(400, 54));
+        lifeFill = MakeImage(lifeBg.rectTransform, "LifeFill", new Color(0.45f, 1f, 0.55f, 1f));
+        SetRect(lifeFill, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(5, 0), new Vector2(0, 44));
+        lifeLabel = MakeText(lifeBg.rectTransform, "LifeLbl", 26, TextAnchor.MiddleCenter, Color.white);
+        SetRect(lifeLabel, new Vector2(0, 0), new Vector2(1, 1), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
     }
 
     void CollectRacers()
@@ -139,6 +150,19 @@ public class FlappyHUD : MonoBehaviour
             bool ready = c >= 1f;
             dashFill.color = ready ? new Color(1f, 0.8f, 0.2f, 1f) : new Color(0.30f, 0.75f, 1f, 1f);
             dashLabel.text = ready ? "⚡ DASH READY (Shift/D)" : "DASH  " + Mathf.RoundToInt(c * 100) + "%";
+        }
+
+        // 목숨 게이지 — 추격자까지 남은 거리. 화면 한 폭이 만땅.
+        var chaser = FlappyChaser.Instance;
+        if (chaser != null && player != null && lifeFill != null)
+        {
+            float full = Mathf.Max(1f, chaser.ScreenWidthWorld());
+            float gap = Mathf.Max(0f, player.transform.position.x - chaser.X);
+            float k = Mathf.Clamp01(gap / full);
+            lifeFill.rectTransform.sizeDelta = new Vector2(5f + k * 390f - 10f, 44f);
+            bool danger = gap <= dangerDistance;
+            lifeFill.color = danger ? new Color(1f, 0.3f, 0.25f, 1f) : new Color(0.45f, 1f, 0.55f, 1f);
+            lifeLabel.text = danger ? "⚠ 잡힌다!  " + Mathf.RoundToInt(gap) + "m" : Mathf.RoundToInt(gap) + "m";
         }
     }
 

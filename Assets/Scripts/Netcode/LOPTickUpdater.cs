@@ -40,9 +40,24 @@ namespace LOP
             return value;
         }
 
+        // [진단용 임시] 시작 직후엔 폐기가 첫 1초에 몰리는데 피드백은 0.3초에 한 번뿐이라 뭉개진다.
+        // 그 구간만 프레임 단위로 남긴다(60fps 기준 약 2초).
+        private int diagTraceFrames;
+
         protected override void OnElapsedTimeUpdate()
         {
             diagMaxFrameMs = Mathf.Max(diagMaxFrameMs, Time.deltaTime * 1000f);
+
+            if (diagTraceFrames < 120)
+            {
+                diagTraceFrames++;
+                double target = TargetTime;
+                Debug.Log(
+                    $"[ClockTrace#{diagTraceFrames}] tick={tick}" +
+                    $" gap={(target - elapsedTime) * 1000:F0}ms" +
+                    $" drift={(networkTime.PredictedTime - Time.unscaledTimeAsDouble) * 1000:F0}ms" +
+                    $" rtt={networkTime.Rtt * 1000:F0}ms frame={Time.deltaTime * 1000:F0}ms");
+            }
 
             elapsedTime = clockDilator.Advance(elapsedTime, TargetTime, Time.deltaTime);
         }

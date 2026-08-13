@@ -47,6 +47,8 @@ namespace LOP
                     $" avgD={message.AvgD:F2} maxD={message.MaxD} prune={message.PruneCount}" +
                     $" seqGap={message.SeqGapCount} n={message.SampleCount}" +
                     $" margin={leadState.AheadMargin * 1000:F0}ms clockGap={gap * 1000:F0}ms" +
+                    $" drift={(runner.networkTime.PredictedTime - UnityEngine.Time.unscaledTimeAsDouble) * 1000:F0}ms" +
+                    $" rtt={runner.networkTime.Rtt * 1000:F0}ms" +
                     $" frameMax={frameMax:F0}ms behindMax={runner.tickUpdater?.maxTicksBehind}");
             }
 

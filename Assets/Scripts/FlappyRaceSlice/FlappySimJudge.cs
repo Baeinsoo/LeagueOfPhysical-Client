@@ -466,4 +466,108 @@ public class FlappySimJudge : MonoBehaviour
         float bot = ProxyScore(); int w = WallCount();
         sb.AppendLine($"── 예측(변환곡선) ── 프록시봇 {bot:F2}(벽{w}) → 예상 너 {(a * (bot / w) + c) * w:F2}회");
     }
+
+    // ===== 추격자 튜닝 =====
+
+    [Header("추격자 튜닝")]
+    public float chaserInitialSpeed = 7f;
+    public float chaserAcceleration = 0.075f;
+    public float chaserMaxSpeed = 10f;
+    public float chaserStartX = -60f;
+
+    /// <summary>
+    /// 실력대별로 추격자에게 잡히는지 계산한다.
+    /// 통과 조건: 고수 완주율 100%(완주가 기본이라는 원칙) + 초보 탈락이 실제로 발생(추격자가 장식이 아님).
+    /// 전진속도와 낙마시간은 씬의 FlappyPlayer에서 읽는다 — 시뮬과 게임이 어긋나면 튜닝이 무의미하다.
+    /// </summary>
+    [ContextMenu("Run Chaser Tuning")]
+    public void RunChaserTuning()
+    {
+        if (!Prepare()) return;   // fwd/startX/endX/birdR 등을 씬에서 읽어 채운다
+
+        var curve = new FlappyRace.FlappyChaserCurve
+        {
+            InitialSpeed = chaserInitialSpeed,
+            Acceleration = chaserAcceleration,
+            MaxSpeed = chaserMaxSpeed
+        };
+
+        if (curve.MaxSpeed >= fwd)
+        {
+            Debug.LogError($"[Chaser] 상한 {curve.MaxSpeed}이 전진속도 {fwd} 이상이다 — " +
+                           "완벽한 플레이도 잡히므로 스펙 위반이다.");
+            return;
+        }
+
+        float dismount = player.ghostTime;   // 낙마 1회당 잃는 시간
+        int nBucket = NBucket;
+        var heat = new int[nBucket];
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"=== 추격자 튜닝 (초기{curve.InitialSpeed} 가속{curve.Acceleration} 상한{curve.MaxSpeed} " +
+                      $"전환점{curve.PressureOnsetTime():F0}s | 전진{fwd} 낙마{dismount}s 코스 x[{startX}..{endX:F0}]) ===");
+
+        for (int tier = 0; tier < 3; tier++)
+        {
+            int clean;
+            float mean = SimTier(reactDelay[tier], timingJitter[tier], samplesPerTier, heat, out clean);
+
+            var clips = new float[nBucket];
+            for (int b = 0; b < nBucket; b++) clips[b] = (float)heat[b] / samplesPerTier;
+
+            bool ok = FlappyRace.FlappyChaserOutcome.Survives(
+                clips, 10f, startX, endX, fwd, dismount,
+                curve, chaserStartX, out float caught);
+
+            sb.AppendLine($"  [{TierNames[tier]}] 평균충돌 {mean:F2}회 | " +
+                          (ok ? "완주" : $"탈락 (t={caught:F1}s)"));
+        }
+        Debug.Log(sb.ToString());
+    }
+
+    /// <summary>
+    /// 시뮬을 실력대당 한 번만 돌리고, 그 충돌 분포로 여러 추격자 곡선을 한꺼번에 평가한다.
+    /// 통과 조건(고수 완주)을 만족하는 상한을 찾는 용도.
+    /// </summary>
+    [ContextMenu("Sweep Chaser Curve")]
+    public void SweepChaserCurve()
+    {
+        if (!Prepare()) return;
+        float dismount = player.ghostTime;
+        int nBucket = NBucket;
+        var heat = new int[nBucket];
+
+        var clipsPerTier = new float[3][];
+        var means = new float[3];
+        for (int tier = 0; tier < 3; tier++)
+        {
+            int clean;
+            means[tier] = SimTier(reactDelay[tier], timingJitter[tier], samplesPerTier, heat, out clean);
+            var c = new float[nBucket];
+            for (int b = 0; b < nBucket; b++) c[b] = (float)heat[b] / samplesPerTier;
+            clipsPerTier[tier] = c;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"=== 추격자 곡선 스윕 (전진{fwd} 낙마{dismount}s 코스 x[{startX}..{endX:F0}]) ===");
+        sb.AppendLine($"  평균충돌: 초보{means[0]:F1} 중수{means[1]:F1} 고수{means[2]:F1}");
+        float[] maxes = { 6f, 6.5f, 7f, 7.5f, 8f, 8.5f, 9f, 10f };
+        float[] starts = { -60f, -120f };
+        foreach (float st in starts)
+        {
+            foreach (float mx in maxes)
+            {
+                var curve = new FlappyRace.FlappyChaserCurve
+                { InitialSpeed = Mathf.Min(chaserInitialSpeed, mx), Acceleration = chaserAcceleration, MaxSpeed = mx };
+                var line = new System.Text.StringBuilder($"  시작{st,6:F0} 상한{mx,5:F1} → ");
+                for (int tier = 0; tier < 3; tier++)
+                {
+                    bool ok = FlappyRace.FlappyChaserOutcome.Survives(
+                        clipsPerTier[tier], 10f, startX, endX, fwd, dismount, curve, st, out float caught);
+                    line.Append($"{TierNames[tier]}:{(ok ? "완주" : $"탈락{caught:F0}s")}  ");
+                }
+                sb.AppendLine(line.ToString());
+            }
+        }
+        Debug.Log(sb.ToString());
+    }
 }

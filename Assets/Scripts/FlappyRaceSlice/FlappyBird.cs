@@ -7,6 +7,12 @@ using UnityEngine;
 /// </summary>
 public class FlappyBird : MonoBehaviour
 {
+    /// <summary>활성 레이서 전원. 추격자·카메라·HUD가 선두를 찾는 데 쓴다.</summary>
+    public static readonly System.Collections.Generic.List<FlappyBird> All = new System.Collections.Generic.List<FlappyBird>();
+
+    void OnEnable() { if (!All.Contains(this)) All.Add(this); }
+    void OnDisable() { All.Remove(this); }
+
     static readonly Collider[] _buf = new Collider[16];
 
     /// <summary>self 새를 겹친 다른 새들 밖으로 절반씩 밀어냄. 수직 밀림(dir.y) 합을 반환(호출부가 vy 상쇄에 사용).</summary>

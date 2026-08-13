@@ -89,8 +89,13 @@ namespace LOP
             gameState = RunnerState.GameOver;
         }
 
+        // [진단용 임시] 긴 프레임의 정체를 가르기 위해 우리 시뮬이 쓴 시간만 따로 잰다.
+        private readonly System.Diagnostics.Stopwatch diagWatch = new System.Diagnostics.Stopwatch();
+
         protected override void UpdateRunner()
         {
+            diagWatch.Restart();
+
             reconcileSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
             RunPhase<ProcessInput>(tickUpdater.tick, (float)tickUpdater.deltaTime);
             world.Tick(tickUpdater.tick, (float)tickUpdater.interval);
@@ -99,6 +104,9 @@ namespace LOP
             localSnapshotSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
             RunPhase<End>(tickUpdater.tick, (float)tickUpdater.deltaTime);
             despawnFlushSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
+
+            diagWatch.Stop();
+            ((LOPTickUpdater)tickUpdater).diagSimMs += (float)diagWatch.Elapsed.TotalMilliseconds;
         }
     }
 }

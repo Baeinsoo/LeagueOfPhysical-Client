@@ -34,8 +34,6 @@
     /* 글자 */
     --lop-text: #5A3A1E;
     --lop-text-on-fill: #FFFFFF;
-    --lop-title: #FFC93C;
-    --lop-title-outline: #B4510F;
 
     /* 모든 요소를 감싸는 흰 테두리 — 이 톤의 핵심 */
     --lop-outline: #FFFFFF;
@@ -53,6 +51,8 @@
     --lop-radius-l: 40px;
     --lop-radius-m: 36px;
     --lop-radius-pill: 999px;
+    --lop-radius-s: 10px;       /* 게이지처럼 낮고 넓은 요소 */
+    --lop-radius-world: 4px;    /* 월드스페이스 — 캐릭터 위에 작게 뜨는 것 */
 
     /* 위험/경고 — 로그인 에러 등 */
     --lop-danger: #C62828;
@@ -131,11 +131,12 @@
 }
 
 .title {
-    color: var(--lop-title);
+    /* 제목은 전부 크림 카드 위에 놓인다(로그인·매칭·결과·셸·스탯). 예전엔 배경 아트 위에
+       올리려고 노란색 + 두꺼운 아웃라인이었는데, 크림 위에선 노랑 대비가 1.4:1 이라
+       아웃라인이 없으면 안 읽히고 두껍게 하면 SDF 여백을 넘겨 외곽이 깨졌다.
+       카드 테두리와 같은 진한 주황으로 바꿔 효과 없이도 읽히게 한다. */
+    color: var(--lop-surface-line);
     -unity-text-align: middle-center;
-    -unity-text-outline-width: 4px;
-    -unity-text-outline-color: var(--lop-title-outline);
-    text-shadow: 0 6px 0 rgba(90, 40, 8, 0.45);
 }
 
 /* 모달 뒤에 까는 어두운 막 */

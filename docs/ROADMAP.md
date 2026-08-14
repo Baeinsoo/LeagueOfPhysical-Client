@@ -2012,7 +2012,49 @@ umbrella `docs/superpowers/specs/2026-07-18-entity-view-rearchitecture-umbrella-
 
 3. **`IInputSource` 표준 provider (4d)** — ⏸ A(예측 확장)에 묶여 함께 보류. 독립 wrap-only는 거부됨(2026-07-01, `specs/2026-06-30-slice4-input-source-port-design`).
 
+4. ~~**통합 fan-out**(모든 World 상태 변경 → 이산 버퍼 → 한 곳에서 fan-out)~~ ✅ **종결 — 짓지 않는다 (2026-08-14).** 아래 참조.
+
 > ~~독립 정리: reconciler-tick-guard `[임시]` 틱 가드 제거~~ ✅ **완료(07-13)** — 위 Done 원장 참조(브래킷 탐색 교체).
+
+#### ✅ 통합 fan-out — 동기 소멸로 종결 (2026-08-14, 코드 확인)
+
+**막던 위험이 후속 슬라이스들에 이미 닫혔다.** 이 항목은 2026-06-18 Mana 이행 spec의 durable 메모에서
+태어났고, 걱정은 **"writer가 여럿인데 일부만 UI에 알린다"** 였다 — 당시 `World.Health` writer가
+전투 / 이벤트 적용 / 스냅샷 셋인데 UI 신호(`EntityDamage`)는 전투 경로에서만 나가서, 서버 권위 보정으로
+HP가 바뀌면 화면이 못 따라갔다.
+
+그 전제가 두 결정으로 사라졌다:
+
+| 없앤 것 | 언제 |
+|---|---|
+| 이벤트 적용(`WorldEventApplicator`) 삭제 + **HP 권위 = 스냅샷 단일화** | 06-22 (connection-arch backlog #1·#3) |
+| **클라 데미지 예측 안 짓기로 결정** → 클라에 전투 writer 자체가 없음 | 07-12 `[[damage-prediction-dropped]]` |
+
+**현재 실측**: 클라에서 `World.Health/Mana/Level/Stats`를 쓰는 곳은 **`GameEntityMessageHandler.cs`
+한 파일 6곳이 전부**이고(`healthSystem.`/`manaSystem.`/`levelSystem.`/`statsSystem.` 전수 검색),
+**전부 알림을 발행한다.** 누락 위험 0.
+
+**남은 실체 = 그 한 파일 안의 국소 중복뿐** — `prev 저장 → Apply → 비교 → Publish` 4줄이 5~6번.
+헬퍼 하나로 접으면 끝나는 정리이고, 아키텍처 일감이 아니다. 필요해지면 근처 손댈 때 같이 한다.
+
+**같이 확인된 것 (구조는 이미 규칙대로다)**: 위치·회전·접지·시전 상태 = 매 프레임 pull /
+HP·MP·레벨·스탯 = 스냅샷 적용 + UI엔 이산 알림 / 데미지 숫자·어빌리티 발동 = 이산 알림.
+`EntityDamage`에는 **HP 값이 없다**(피격·크리·데미지량뿐) — connection-arch backlog #3의 "HP UI가
+연출 이벤트에서 값을 읽는 잔여"도 이미 해소돼 있었다.
+
+> **왜 이 항목이 오래 살아남았나 (박제):** spec에 *"정답은 X이며 Stage④의 일"* 이라고 적어두면, 그
+> **동기가 후속 작업으로 사라져도 문장은 그대로 남는다.** 이번에 "다음 할 일"로 꺼낼 때 그 문장만 보고
+> 유효하다고 단정했고, 없는 문제를 풀려고 *변경 감지 시스템 신설*(= Mana spec 결정 ③이 이미 YAGNI로
+> 기각한 제네릭 옵저버와 사실상 같은 물건)까지 제안했다. 사용자가 **"그거 이미 다 되어 있잖아"** 로
+> 잡았다. **미뤄둔 항목을 꺼낼 땐 결론이 아니라 그 항목이 막으려던 위험이 아직 있는지를 먼저 코드로
+> 확인할 것.**
+
+**업계 표준 대조(이번에 확인, 결론과 별개로 유효)**: 값 복제형(Unreal GAS `GetGameplayAttributeValueChangeDelegate`,
+Mirror `SyncVar hook`)은 *값이 도착하는 단일 관문*에서 알리고, ECS형(Bevy `Changed<T>`, DOTS 청크 버전
+필터, Photon Quantum)은 *알림 없이 훑는다(polling)*. Quantum은 **자주 바뀌는 시각 데이터엔 polling**을
+권하는데(이벤트는 fire-and-forget이라 늦게 들어온 참가자가 못 받음) — 우리가 "스폰 때 1회 pull + 이후
+알림" 두 겹을 쓰는 이유가 정확히 그것이다. 어느 진영도 *값 쓰는 자리마다 손으로 알림을 쏘지는* 않으므로,
+위 국소 중복을 나중에 접을 때는 **단일 관문(GAS·Mirror식)** 모양이 맞다.
 
 ### 넷코드 잔여 (Stage④ 밖)
 

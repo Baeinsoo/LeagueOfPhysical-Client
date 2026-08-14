@@ -116,8 +116,12 @@ public void ApplyAuthoritativeState(Health health, int max, int current)
 
 ## Out of scope (defer)
 
-- **라이브 일관성 개선(접근 B)** — 스냅샷 발 비데미지 HP 변화(힐/리젠)를 HUD/Nameplate에 라이브 반영. 현재도 없는 동작이라 범위 밖.
-- **진실원본 완전 승격(접근 C)** — `EntityDamage` 표시까지 `World.Health` pull로 재구성. Stage ④ 영역.
+- ~~**라이브 일관성 개선(접근 B)**~~ ✅ **이후 슬라이스에서 됐다** — 스냅샷 적용 시 `EntityHealthChanged`를
+  발행하므로 비데미지 HP 변화도 HUD/Nameplate에 라이브 반영된다(로컬=`UserEntitySnap`, 원격=`EntitySnap`).
+- ~~**진실원본 완전 승격(접근 C)** — `EntityDamage` 표시까지 `World.Health` pull로 재구성. Stage ④ 영역.~~
+  ⚠️ **2026-08-14 종결 — 안 한다.** `EntityDamage`에는 이제 **HP 값이 없고**(피격·크리·데미지량뿐)
+  HP 표시는 스냅샷 발 `EntityHealthChanged`가 담당하므로, 이 항목이 고치려던 것이 이미 없다.
+  같은 날 종결된 "통합 fan-out"과 한 묶음 — `docs/ROADMAP.md`의 "통합 fan-out — 동기 소멸로 종결" 참조.
 - **서버 측 `HealthComponent` 이행** — 별개 작업(CLAUDE.md — 서버는 명시 요청 시).
 - **Mana/Level/Stats/User 등 나머지 레거시 컴포넌트** — 각자 별도 슬라이스.
 

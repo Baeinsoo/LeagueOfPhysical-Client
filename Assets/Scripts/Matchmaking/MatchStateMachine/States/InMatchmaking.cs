@@ -42,8 +42,18 @@ namespace LOP
 
             using var cancellation = ct.Register(() => completion.TrySetCanceled());
 
+            //  구독 즉시 흘러오는 첫 값은 "요청 직전에 읽은 캐시"라 아직 서버 반영 전일 수 있다.
+            //  옛 구현이 진입 후 새로 조회했던 것과 맞추려면 이 값으로 판단하면 안 된다.
+            bool replayedCurrentValue = true;
+
             using var locationSubscription = userLocationService.UserLocation.Subscribe(userLocation =>
             {
+                if (replayedCurrentValue)
+                {
+                    replayedCurrentValue = false;
+                    return;
+                }
+
                 switch (userLocation.location)
                 {
                     case Location.GameRoom:

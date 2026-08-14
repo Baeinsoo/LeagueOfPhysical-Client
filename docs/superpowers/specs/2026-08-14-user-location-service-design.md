@@ -83,13 +83,22 @@
 ```csharp
 public interface IUserLocationService
 {
-    ReadOnlyReactiveProperty<UserLocation> Location { get; }   // 현재 위치 + 변화 알림
-    string TicketId { get; }                                   // 매칭 중이면 티켓 id (없으면 null)
+    ReadOnlyReactiveProperty<UserLocation> UserLocation { get; }  // 현재 위치 + 변화 알림
+    string TicketId { get; }                                      // 매칭 중이면 티켓 id (없으면 null)
+    Observable<Unit> Faulted { get; }                             // 조회를 연속 실패해 폴링을 포기했다
 
-    UniTask<bool> RefreshAsync(CancellationToken ct);          // 1회 조회 + 재시도. 성공 여부
-    void OnMatchmakingRequested(string ticketId);              // 요청 응답의 티켓 id 보관 + 폴링 시작
+    UniTask<bool> RefreshAsync(CancellationToken ct);             // 1회 조회 + 재시도. 성공 여부
+    void OnMatchmakingRequested(string ticketId);                 // 요청 응답의 티켓 id 보관 + 폴링 시작
 }
 ```
+
+> **이름:** 프로퍼티를 `Location`으로 두면 클래스 안에서 `Location.Matchmaking`이 enum이 아니라 이
+> 프로퍼티로 해석돼 컴파일이 깨진다. 그래서 `UserLocation`이다.
+>
+> **`Faulted`가 필요한 이유:** 지금 `InMatchmaking`은 조회가 5번 내리 실패하면 `LocationIsNone`으로
+> 빠진다. 폴링을 서비스로 옮기면 그 판단도 서비스로 가는데, **서비스는 FSM 이벤트를 모른다.**
+> 그렇다고 위치를 억지로 `None`으로 밀면 "모른다"를 "없다"로 거짓 보고하는 것이다. 그래서 *"조회를
+> 포기했다"* 는 사실만 신호로 내보내고, 전이 결정은 `InMatchmaking`이 한다.
 
 **폴링 시작·중단은 서비스가 스스로 판단한다** — `Location.Matchmaking`이면 1초 간격으로 돌고, 그
 밖이면 멈춘다. 호출자가 켜고 끄면 정책이 다시 상태로 새어나간다.

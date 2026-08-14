@@ -1719,6 +1719,62 @@ plan `2026-08-10-player-build-environment-selection.md`.
 
 ---
 
+## ✅ 유저 위치 조회를 서비스 하나로 (2026-08-15, main 머지 `f6a27f0`)
+
+매치메이킹 FSM과 UI가 **각자** 유저 위치를 조회·해석하던 것을 `UserLocationService` 하나가 조회하고
+나머지는 구독하는 형태로 정리했다. **위치 컨셉·FSM 구조·상태 이름은 그대로** — 배선만 바꿨다.
+
+| 닫은 것 | 그 전 |
+|---|---|
+| 스토어가 값 변화를 안 알림 | `UserDataStore.userLocation`이 평범한 필드 → 소비자가 스토어를 못 쓰고 우회 |
+| UI가 전송 객체(DTO)를 구독 | `MatchLoadingViewModel(ISubscriber<GetUserLocationResponse>)` |
+| 폴링 주인이 없음 | `CheckMatch`(3회 재시도)·`InMatchmaking`(1초 루프+5회 포기)이 각자 HTTP·각자 정책 |
+| 티켓 id를 받아놓고 버림 | 취소가 마지막 폴링 결과에 의존 → 요청 직후 취소 시 헛바퀴 |
+
+**하지 않은 것(검토 후 명시적 제외)**: FSM 제거·티켓 축 재설계(Unity 공식 샘플 Boss Room의
+`ConnectionManager`가 같은 구조[상태 6개]이고, 우리 위치 축은 PlayFab
+`ListMatchmakingTicketsForPlayer`[복구 경로]를 상시 경로로 쓰는 변형이라 표준에서 벗어난 게 아니다) /
+`locationDetail` 타입 강화·push·TTL·매치 종료 시 위치 정리(백엔드 몫).
+
+spec `2026-08-14-user-location-service-design.md`(§8에 구현하며 드러난 것),
+plan `2026-08-14-user-location-service.md`. 6태스크 subagent-driven + 태스크별 리뷰 + 최종
+whole-branch 리뷰(opus).
+
+### ⚠️ 최종 리뷰가 지목했는데 "ship"으로 넘겼다가 인게임에서 터진 회귀
+
+`InMatchmaking`이 구독 즉시 받는 **캐시된 위치**로 판단해 대기 화면에서 곧바로 이탈했다. 그 캐시는
+**요청 직전에 읽은 `None`** 이다 — 매칭 요청 응답은 위치를 갱신하지 않고, 서버 반영은 *다음* 조회에서야
+보인다. 사용자에겐 **매칭이 스스로 취소되는 것**처럼 보였고, 다시 누르면 서버가 중복 티켓으로 거절
+(`INVALID_TO_MATCH_MAKING` 10000)했다. 옛 코드는 캐시를 안 보고 1초 뒤 **새로 조회**해서 무사했다.
+
+**수정**: 구독 즉시 replay되는 첫 값을 건너뛴다(`bdc438c`). **최종 리뷰가 이 위험을 M4로 정확히
+지목했는데 "ship, 인게임에서 실증"으로 넘긴 것** — 그 판정이 틀렸고 인게임 게이트가 잡았다.
+**교훈: "백엔드 타이밍에 걸려 있다"는 리뷰 지적은 ship 판정 대상이 아니다.**
+
+### 검증 (서버 로그 실측)
+
+| | |
+|---|---|
+| 매치 성사 | `[director] match created … players: 2` ✅ |
+| 대기 중 취소 | ✅ |
+| **게임 진입 후 폴링 0회** | ✅ 응답이 Matchmaking→GameRoom으로 바뀐 직후 조회 멎음. spec 위험 항목 종결 |
+| 요청 직후 즉시 취소(의도된 유일한 동작 변화) | ⬜ 미확인 |
+| 매치 종료→로비 복귀 | ⬜ 미확인(백엔드 파킹 항목과 겹침) |
+
+### 이 트랙에서 얻은 도구·함정 (durable)
+
+- **클라 컴파일 게이트를 에디터 없이 돌리는 법** — UnityMCP가 안 붙는 환경에서, Unity가 `Library/Bee`에
+  남긴 응답 파일(defines·참조·소스 목록)을 Unity 번들 Roslyn(`DotNetSdkRoslyn/csc.dll`)에 그대로
+  먹이면 된다. 6태스크 내내 이 게이트의 판정이 **Unity 실제 컴파일과 일치**했다. `dotnet build`는
+  SDK 미설치라 불가. ⚠️ "응답 파일에 없는 `.cs`를 덧붙이는" 로직을 `Assets` 전체에 걸면 **자기 asmdef를
+  가진 다른 어셈블리(Mirror 등)** 까지 끌어와 컴파일이 통째로 깨진다 — `Assets/Scripts`로 한정할 것.
+- **MPPM 가상 플레이어는 메인 에디터와 다른 환경을 들고 있을 수 있다.** 메인만 `local-k8s`로 바꾸자
+  클론은 `dev`에 남아 두 클라가 **다른 백엔드**에 붙었고 매칭이 성립하지 않았다(director `players: 1`).
+  EditorPrefs는 이미 바뀌어 있었는데 클론이 못 집어갔다 — **클론 재시작으로 해소.**
+  판별법: 각 인스턴스 콘솔의 `[LOP] environment=… lobby=…`.
+
+---
+
 ## ▶ 다음 (Next — 순서 있음)
 
 ### 🏁 인증 트랙 종결 (2026-08-04 ~ 08-10) — 익명 로그인 → cutover 1a~2b 전부 완료

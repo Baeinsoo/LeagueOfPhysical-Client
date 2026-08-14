@@ -26,7 +26,14 @@
 | ④ | 라이브 이벤트 발행 위치/시점 | 클라 스냅샷 핸들러(`OnUserEntitySnapToC`)가 `World.Mana` 적용 후 **값이 바뀌었을 때만** `EntityManaChanged(current, max)` 발행 | 옛 `ManaComponent.PropertyChange`(값 변경 시 발행) 시맨틱을 World 위에서 복원. 정적 MP라 사실상 거의 안 터짐(스팸 없음), 마나 소비 생기면 즉시 동작(future-proof) |
 | ⑤ | 범위 | **Mana만.** Level/Stats/User는 각자 별도 슬라이스 | Level=Player/statPoints 결합, Stats=형태 불일치+combat 결합, User=World 등가물 부재 |
 
-> **누락 위험에 대한 메모(durable):** 브레인스토밍에서 "World.Health writer가 여럿(combat/applicator/스냅샷)인데 UI 신호(`EntityDamage`)는 combat만 fan-out → 권위 보정 시 라이브 누락" 위험을 식별했다. 정답은 *per-property 옵저버*가 아니라 **모든 상태 변경을 이산 버퍼로 흘려보내고 Bridge 한 곳에서 fan-out**(Generation/Application/Bridge, SnapNet의 "state로 추적 후 트리거"와 동형)이며, 이는 **Stage ④**(commit gate/통합 fan-out)의 일이다. 이 슬라이스 밖.
+> ⚠️ **이 메모는 2026-08-14에 종결됐다 — 통합 fan-out은 짓지 않는다.** 아래가 걱정한 전제("Health
+> writer가 여럿인데 일부만 fan-out")가 후속 슬라이스로 사라졌다: HP 권위 = 스냅샷 단일화(06-22)로
+> 이벤트 적용 경로가 삭제됐고, 클라 데미지 예측을 안 짓기로 결정(07-12)해 클라엔 전투 writer가 없다.
+> 현재 클라의 Health/Mana/Level/Stats writer는 `GameEntityMessageHandler` 한 파일 6곳이 전부이고
+> 전부 알림을 발행한다(누락 위험 0). 상세·업계 표준 대조는 `docs/ROADMAP.md`의 "통합 fan-out —
+> 동기 소멸로 종결". **아래 문장을 근거로 새 일감을 만들지 말 것.**
+>
+> **누락 위험에 대한 메모(durable, 2026-06-18 작성 — 위 종결 참조):** 브레인스토밍에서 "World.Health writer가 여럿(combat/applicator/스냅샷)인데 UI 신호(`EntityDamage`)는 combat만 fan-out → 권위 보정 시 라이브 누락" 위험을 식별했다. 정답은 *per-property 옵저버*가 아니라 **모든 상태 변경을 이산 버퍼로 흘려보내고 Bridge 한 곳에서 fan-out**(Generation/Application/Bridge, SnapNet의 "state로 추적 후 트리거"와 동형)이며, 이는 **Stage ④**(commit gate/통합 fan-out)의 일이다. 이 슬라이스 밖.
 
 ## Scope (In) — 3개 영역
 

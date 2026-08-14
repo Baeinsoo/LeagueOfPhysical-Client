@@ -221,7 +221,7 @@ LOP는 PhysX 기반(비결정적)이고 strict server-authoritative를 원하므
 - **Phase 3 고손실 강건성(옵션 A = miss 시 마지막 인풋 반복) — 드롭.** 발산 근본원인은 입력 정책이 아니라 redundancy 스트림 끊김(Phase 3c에서 해결)이었고, 측정에서 현 miss=no-input이 수용 가능함이 확인됨. 실환경 prune율이 유의미해지면 재개.
 - **Phase 5 (점프 임펄스 vy) — 보류.** clock sync가 처리 시점 차이를 이미 줄여 netcode 측 동기가 약해짐 → 남은 건 순수 게임 디자인 콜(낙하 중 점프 세기). 게임플레이상 필요해지면 재개.
 
-**Stage④ 진행 (2026-07-09 갱신):** 큰 트랙의 상당수가 완료됐다 — 공유 시뮬 추출(`LOPWorld`, Slice 4), 하드 롤백 Snapshot/Restore + 입력 replay(`Reconciler`), **velocity·위치 권위 이전 + 클·서 공유 키네마틱 컨트롤러**(2026-07-09, `world-core-connection-architecture.md`의 "이동 substrate" 참조 — 예측=권위로 지면 recon 소멸). **남은 것 = 확정 게이트 본격(틱 스탬프 + 롤백 폐기), 통합 fan-out, 완전 결정론 RNG, `IInputSource` 표준 provider.** 별도 brainstorm→spec→plan.
+**Stage④ 진행 (2026-07-09 갱신):** 큰 트랙의 상당수가 완료됐다 — 공유 시뮬 추출(`LOPWorld`, Slice 4), 하드 롤백 Snapshot/Restore + 입력 replay(`Reconciler`), **velocity·위치 권위 이전 + 클·서 공유 키네마틱 컨트롤러**(2026-07-09, `world-core-connection-architecture.md`의 "이동 substrate" 참조 — 예측=권위로 지면 recon 소멸). **남은 것 = 확정 게이트 본격(틱 스탬프 + 롤백 폐기), 완전 결정론 RNG, `IInputSource` 표준 provider.** 별도 brainstorm→spec→plan. *(통합 fan-out은 2026-08-14 종결 — 막던 위험[writer 여럿 중 일부만 알림]이 HP 스냅샷 단일권위·클라 데미지 예측 드롭으로 사라졌다. `docs/ROADMAP.md`의 "통합 fan-out — 동기 소멸로 종결" 참조.)*
 
 ---
 

@@ -78,6 +78,12 @@ namespace LOP
                 .As<IDataStore>()
                 .AsSelf();
 
+            //  유저 위치를 물어보는 유일한 곳. 로딩 VM이 Root 싱글턴이고 씬 경계(로비→룸)를 넘으므로
+            //  이것도 Root에 둔다. 로비 스코프의 FSM 상태들이 이 인스턴스를 주입받는다.
+            builder.Register<UserLocationService>(Lifetime.Singleton)
+                .As<IUserLocationService>()
+                .AsSelf();
+
             builder.Register<RoomConnector>(Lifetime.Transient);
 
             // 앱-플로우 씬 페이즈 FSM(Root). IStartable로 앱 시작 시 Start()되어 Boot 진입.

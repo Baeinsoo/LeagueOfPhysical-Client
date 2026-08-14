@@ -9,14 +9,14 @@ namespace LOP
     public class InGameRoom : State<MatchEvent>
     {
         private readonly Func<CheckMatch> checkMatch;
-        private readonly IUserDataStore userDataStore;
+        private readonly IUserLocationService userLocationService;
         private readonly RoomConnector roomConnector;
         private readonly AppStateMachine appStateMachine;
 
-        public InGameRoom(Func<CheckMatch> checkMatch, IUserDataStore userDataStore, RoomConnector roomConnector, AppStateMachine appStateMachine)
+        public InGameRoom(Func<CheckMatch> checkMatch, IUserLocationService userLocationService, RoomConnector roomConnector, AppStateMachine appStateMachine)
         {
             this.checkMatch = checkMatch;
-            this.userDataStore = userDataStore;
+            this.userLocationService = userLocationService;
             this.roomConnector = roomConnector;
             this.appStateMachine = appStateMachine;
         }
@@ -32,7 +32,7 @@ namespace LOP
 
         protected override async Task<MatchEvent?> OnExecuteAsync(CancellationToken ct)
         {
-            if (userDataStore.userLocation.CurrentValue.locationDetail is not GameRoomLocationDetail gameRoomLocationDetail)
+            if (userLocationService.UserLocation.CurrentValue.locationDetail is not GameRoomLocationDetail gameRoomLocationDetail)
             {
                 Debug.LogError("User is not in a game room.");
                 return MatchEvent.RecheckRequested;

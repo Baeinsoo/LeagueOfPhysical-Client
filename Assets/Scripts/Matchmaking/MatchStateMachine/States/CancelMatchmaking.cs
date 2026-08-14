@@ -10,13 +10,13 @@ namespace LOP
     {
         private readonly Func<InGameRoom> inGameRoom;
         private readonly Func<CheckMatch> checkMatch;
-        private readonly IUserDataStore userDataStore;
+        private readonly IUserLocationService userLocationService;
 
-        public CancelMatchmaking(Func<InGameRoom> inGameRoom, Func<CheckMatch> checkMatch, IUserDataStore userDataStore)
+        public CancelMatchmaking(Func<InGameRoom> inGameRoom, Func<CheckMatch> checkMatch, IUserLocationService userLocationService)
         {
             this.inGameRoom = inGameRoom;
             this.checkMatch = checkMatch;
-            this.userDataStore = userDataStore;
+            this.userLocationService = userLocationService;
         }
 
         public override IState<MatchEvent> GetNextState(MatchEvent ev)
@@ -31,13 +31,14 @@ namespace LOP
 
         protected override async Task<MatchEvent?> OnExecuteAsync(CancellationToken ct)
         {
-            if (userDataStore.userLocation.CurrentValue.locationDetail is not MatchmakingLocationDetail matchmakingLocationDetail)
+            string ticketId = userLocationService.TicketId;
+            if (string.IsNullOrEmpty(ticketId))
             {
                 Debug.LogError("User is not in matchmaking.");
                 return MatchEvent.RecheckRequested;
             }
 
-            var cancelMatchmaking = await WebAPI.CancelMatchmaking(matchmakingLocationDetail.matchmakingTicketId);
+            var cancelMatchmaking = await WebAPI.CancelMatchmaking(ticketId);
 
             switch (cancelMatchmaking.code)
             {

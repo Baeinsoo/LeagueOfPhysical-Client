@@ -84,7 +84,13 @@ namespace LOP
             try
             {
                 var getUserLocation = await WebAPI.GetUserLocation(userDataStore.user.id, ct);
-                return getUserLocation.code == ResponseCode.SUCCESS;
+                if (getUserLocation.code != ResponseCode.SUCCESS)
+                {
+                    Debug.LogError($"Failed to retrieve user location. code: {getUserLocation.code}");
+                    return false;
+                }
+
+                return true;
             }
             catch (GameFramework.Http.HttpRequestException e)
             {

@@ -46,7 +46,18 @@ namespace LOP
 
         private void HandleGetUserLocation(GetUserLocationResponse response)
         {
-            _userLocation.Value = MapperConfig.mapper.Map<UserLocation>(response.userLocation);
+            UserLocation mapped = response.userLocation == null
+                ? null
+                : MapperConfig.mapper.Map<UserLocation>(response.userLocation);
+
+            //  위치 없는 응답은 무시한다 — null을 발행하면 구독자가 역참조하다 터진다.
+            if (mapped == null)
+            {
+                UnityEngine.Debug.LogWarning("[Location] 응답에 유저 위치가 없어 무시한다.");
+                return;
+            }
+
+            _userLocation.Value = mapped;
         }
 
         private void HandleGetUser(GetUserResponse response)

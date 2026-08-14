@@ -137,26 +137,38 @@ namespace LOP
             {
                 while (ct.IsCancellationRequested == false)
                 {
-                    await UniTask.Delay(TimeSpan.FromSeconds(PollIntervalSeconds), cancellationToken: ct);
-
                     if (await TryFetchAsync(ct))
                     {
                         consecutiveFailures = 0;
-                        continue;
                     }
-
-                    if (++consecutiveFailures >= MaxConsecutivePollFailures)
+                    else if (++consecutiveFailures >= MaxConsecutivePollFailures)
                     {
                         Debug.LogError($"Giving up user location polling after {consecutiveFailures} failures.");
-                        StopPolling();
                         faulted.OnNext(Unit.Default);
                         return;
                     }
+
+                    await UniTask.Delay(TimeSpan.FromSeconds(PollIntervalSeconds), cancellationToken: ct);
                 }
             }
             catch (OperationCanceledException)
             {
                 //  폴링이 멈춰서 취소됨 — 정상.
+            }
+            catch (Exception e)
+            {
+                //  예상 못 한 예외로 루프가 죽으면 위치를 더는 못 믿는다 — 포기 신호를 낸다.
+                Debug.LogError($"User location polling stopped by an unexpected error. Error: {e.Message}");
+                faulted.OnNext(Unit.Default);
+            }
+            finally
+            {
+                //  어떤 경로로 빠져나가든 폴링 상태를 되돌린다. 안 그러면 pollCts가 남아
+                //  이후 StartPolling이 전부 조용히 무시된다.
+                if (pollCts != null && pollCts.Token == ct)
+                {
+                    StopPolling();
+                }
             }
         }
     }

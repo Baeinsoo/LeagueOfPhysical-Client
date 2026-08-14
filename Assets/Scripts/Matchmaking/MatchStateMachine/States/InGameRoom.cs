@@ -32,7 +32,7 @@ namespace LOP
 
         protected override async Task<MatchEvent?> OnExecuteAsync(CancellationToken ct)
         {
-            if (userDataStore.userLocation.locationDetail is not GameRoomLocationDetail gameRoomLocationDetail)
+            if (userDataStore.userLocation.CurrentValue.locationDetail is not GameRoomLocationDetail gameRoomLocationDetail)
             {
                 Debug.LogError("User is not in a game room.");
                 return MatchEvent.RecheckRequested;

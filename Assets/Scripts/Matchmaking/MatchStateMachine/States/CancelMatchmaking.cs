@@ -31,7 +31,7 @@ namespace LOP
 
         protected override async Task<MatchEvent?> OnExecuteAsync(CancellationToken ct)
         {
-            if (userDataStore.userLocation.locationDetail is not MatchmakingLocationDetail matchmakingLocationDetail)
+            if (userDataStore.userLocation.CurrentValue.locationDetail is not MatchmakingLocationDetail matchmakingLocationDetail)
             {
                 Debug.LogError("User is not in matchmaking.");
                 return MatchEvent.RecheckRequested;

@@ -11,12 +11,14 @@ namespace LOP
         private readonly Func<InMatchmaking> inMatchmaking;
         private readonly Func<CheckMatch> checkMatch;
         private readonly IMatchmakingDataStore matchmakingDataStore;
+        private readonly IUserLocationService userLocationService;
 
-        public RequestMatchmaking(Func<InMatchmaking> inMatchmaking, Func<CheckMatch> checkMatch, IMatchmakingDataStore matchmakingDataStore)
+        public RequestMatchmaking(Func<InMatchmaking> inMatchmaking, Func<CheckMatch> checkMatch, IMatchmakingDataStore matchmakingDataStore, IUserLocationService userLocationService)
         {
             this.inMatchmaking = inMatchmaking;
             this.checkMatch = checkMatch;
             this.matchmakingDataStore = matchmakingDataStore;
+            this.userLocationService = userLocationService;
         }
 
         public override IState<MatchEvent> GetNextState(MatchEvent ev)
@@ -45,6 +47,9 @@ namespace LOP
                 Debug.LogError($"Matchmaking request failed. Response code: {requestMatchmaking.code}");
                 return MatchEvent.MatchRequestFailed;
             }
+
+            //  받은 티켓 id를 서비스에 넘긴다 — 취소가 위치 폴링을 기다리지 않게.
+            userLocationService.OnMatchmakingRequested(requestMatchmaking.ticketId);
 
             return MatchEvent.MatchRequestSucceeded;
         }

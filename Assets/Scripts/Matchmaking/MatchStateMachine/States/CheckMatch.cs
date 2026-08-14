@@ -1,28 +1,23 @@
-using Cysharp.Threading.Tasks;
 using GameFramework;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using UnityEngine;
 
 namespace LOP
 {
     public class CheckMatch : State<MatchEvent>
     {
-        private const int MAX_ATTEMPTS = 3;
-        private static readonly TimeSpan RetryInterval = TimeSpan.FromSeconds(1);
-
         private readonly Func<InGameRoom> inGameRoom;
         private readonly Func<InMatchmaking> inMatchmaking;
         private readonly Func<Idle> idle;
-        private readonly IUserDataStore userDataStore;
+        private readonly IUserLocationService userLocationService;
 
-        public CheckMatch(Func<InGameRoom> inGameRoom, Func<InMatchmaking> inMatchmaking, Func<Idle> idle, IUserDataStore userDataStore)
+        public CheckMatch(Func<InGameRoom> inGameRoom, Func<InMatchmaking> inMatchmaking, Func<Idle> idle, IUserLocationService userLocationService)
         {
             this.inGameRoom = inGameRoom;
             this.inMatchmaking = inMatchmaking;
             this.idle = idle;
-            this.userDataStore = userDataStore;
+            this.userLocationService = userLocationService;
         }
 
         public override IState<MatchEvent> GetNextState(MatchEvent ev)
@@ -38,17 +33,10 @@ namespace LOP
 
         protected override async Task<MatchEvent?> OnExecuteAsync(CancellationToken ct)
         {
-            for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)
+            //  재시도는 서비스가 한다. 여기서는 결과를 전이로만 옮긴다.
+            if (await userLocationService.RefreshAsync(ct))
             {
-                var getUserLocation = await WebAPI.GetUserLocation(userDataStore.user.id);
-
-                if (getUserLocation.code == ResponseCode.SUCCESS)
-                {
-                    return ToEvent(getUserLocation.userLocation.location);
-                }
-
-                Debug.LogError($"Failed to retrieve user information. code: {getUserLocation.code} (attempt {attempt}/{MAX_ATTEMPTS})");
-                await UniTask.Delay(RetryInterval, cancellationToken: ct);
+                return ToEvent(userLocationService.UserLocation.CurrentValue.location);
             }
 
             //  반복 실패 → 초기 화면(Idle)으로 안전 복귀.
@@ -57,7 +45,7 @@ namespace LOP
 
         protected override MatchEvent? OnError(Exception e)
         {
-            Debug.LogError($"Failed to retrieve user information. Error: {e.Message}");
+            UnityEngine.Debug.LogError($"Failed to retrieve user information. Error: {e.Message}");
             return MatchEvent.LocationIsNone;
         }
 

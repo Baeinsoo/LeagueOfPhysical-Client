@@ -7,10 +7,12 @@ namespace LOP
     public class LoadUserComponent : IEntranceComponent
     {
         private readonly IUserDataStore userDataStore;
+        private readonly IUserLocationService userLocationService;
 
-        public LoadUserComponent(IUserDataStore userDataStore)
+        public LoadUserComponent(IUserDataStore userDataStore, IUserLocationService userLocationService)
         {
             this.userDataStore = userDataStore;
+            this.userLocationService = userLocationService;
         }
 
         public async Task Execute()
@@ -23,7 +25,7 @@ namespace LOP
                 throw new System.Exception($"유저 정보를 가져오는데 실패했습니다. code: {getUser.code}");
             }
 
-            await WebAPI.GetUserLocation(userId);
+            await userLocationService.RefreshAsync();
 
             //  큐 목록을 TbQueue에서 읽는 것은 로비 선택 UI 슬라이스 몫이다 —
             //  마스터데이터가 이 컴포넌트보다 뒤에 로드돼서 지금은 값을 안다고 칠 수 없다.

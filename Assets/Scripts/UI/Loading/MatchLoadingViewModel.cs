@@ -1,4 +1,3 @@
-using MessagePipe;
 using R3;
 using System;
 
@@ -20,14 +19,14 @@ namespace LOP.UI
         /// <summary>로딩 창을 여닫는 근거. 코디네이터가 구독한다.</summary>
         public ReadOnlyReactiveProperty<bool> IsLoading => _isLoading;
 
-        public MatchLoadingViewModel(ISubscriber<GetUserLocationResponse> locationSubscriber)
+        public MatchLoadingViewModel(IUserLocationService userLocationService)
         {
-            _subscription = locationSubscriber.Subscribe(OnLocation);
+            _subscription = userLocationService.UserLocation.Subscribe(OnUserLocation);
         }
 
-        private void OnLocation(GetUserLocationResponse response)
+        private void OnUserLocation(UserLocation userLocation)
         {
-            _inGameRoom = response.userLocation.location == Location.GameRoom;
+            _inGameRoom = userLocation.location == Location.GameRoom;
             // 룸을 벗어나면(연결 실패로 로비 복귀 등) 다음 매치를 위해 gameLive를 리셋한다.
             if (!_inGameRoom) _gameLive = false;
             Recompute();

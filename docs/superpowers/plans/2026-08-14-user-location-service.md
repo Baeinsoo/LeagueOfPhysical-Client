@@ -13,7 +13,18 @@
 ## Global Constraints
 
 - **유닛 테스트 없음.** 클라에는 `Assets/Tests`도 asmdef도 없어 EditMode를 붙일 수 없다. **테스트를 위해 코드를 GameFramework로 쪼개지 않는다**(배치는 성격으로 정한다 — 사용자 결정). 각 태스크의 검증은 **컴파일 확인**이고, 마지막에 인게임 시나리오를 돈다.
-- **컴파일 확인 방법:** UnityMCP는 이 프로젝트에서 **매 호출에 `unity_instance`를 명시**해야 한다. `mcpforunity://instances`를 읽어 `name`이 `LeagueOfPhysical-Client`인 인스턴스의 전체 `id`(`Name@hash`)를 얻고, 그 id로 콘솔을 읽어 **에러 0건**을 확인한다. 서버 인스턴스를 대상으로 조작하지 않는다.
+- **컴파일 확인 방법 (2026-08-14 정정):** 원래는 UnityMCP로 클라 콘솔을 읽으려 했으나 **이 환경에서 UnityMCP가 연결되지 않는다.** 대신 Unity가 생성해 둔 응답 파일(defines·참조·소스 목록)을 Unity 번들 Roslyn에 그대로 먹여 **에디터 없이 타입 체크**한다. PowerShell로 실행:
+
+  ```
+  & "C:\Users\re5na\.claude\jobs\35a93231\tmp\compile-check.ps1"
+  ```
+
+  `ERRORS: n  WARNINGS: n`을 출력한다. **`ERRORS: 0`이어야 커밋한다.** 경고 4건은 기존 것이니 무시한다.
+  스크립트를 수정하지 말 것. (`dotnet build`는 SDK 미설치로 불가. 실행 중인 Unity 에디터는 포커스를
+  받아야 리프레시되어 자동화 불가.)
+
+  > 한계: 응답 파일은 Unity가 마지막으로 컴파일한 시점의 것이라 패키지가 바뀌면 stale해질 수 있다.
+  > **최종 게이트는 여전히 머지 후 main 에디터 리프레시**다 — 이건 태스크별 조기 검출용이다.
 - **브랜치:** `feature/user-location-service`. main에 직접 커밋 금지. 워크트리는 만들지 않는다(연결된 Unity 에디터가 main 체크아웃을 보므로, 여기서 편집해야 컴파일 검증이 된다).
 - **World 타입 풀 한정 규칙은 이 슬라이스와 무관**(World Core를 안 건드림).
 - **값 동치가 목표.** Task 5가 고치는 "요청 직후 취소" 하나를 빼면 겉보기 동작이 달라지면 안 된다.
@@ -125,7 +136,7 @@ using R3;
 
 - [ ] **Step 4: 컴파일 확인**
 
-`mcpforunity://instances`에서 `LeagueOfPhysical-Client`의 id를 얻고, 그 `unity_instance`로 콘솔을 읽어 **컴파일 에러 0건**을 확인한다.
+Global Constraints의 `compile-check.ps1`을 실행해 **`ERRORS: 0`**을 확인한다.
 
 기대: 에러 없음. `userLocation`을 값으로 읽던 다른 곳이 남아 있으면 여기서 드러난다 — 드러나면 `.CurrentValue`를 붙여 고친다.
 
@@ -375,7 +386,7 @@ namespace LOP
 
 - [ ] **Step 4: 컴파일 확인**
 
-`unity_instance`를 클라로 지정해 콘솔 읽기 → **에러 0건**.
+Global Constraints의 `compile-check.ps1` 실행 → **`ERRORS: 0`**.
 
 기대: 에러 없음. 아직 아무도 이 서비스를 안 쓰므로 동작 변화도 없다.
 
@@ -496,7 +507,7 @@ namespace LOP
 
 - [ ] **Step 3: 컴파일 확인**
 
-`unity_instance`를 클라로 지정해 콘솔 읽기 → **에러 0건**.
+Global Constraints의 `compile-check.ps1` 실행 → **`ERRORS: 0`**.
 
 - [ ] **Step 4: 커밋**
 
@@ -608,7 +619,7 @@ namespace LOP
 
 - [ ] **Step 2: 컴파일 확인**
 
-`unity_instance`를 클라로 지정해 콘솔 읽기 → **에러 0건**.
+Global Constraints의 `compile-check.ps1` 실행 → **`ERRORS: 0`**.
 
 특히 확인할 것: `ct.Register(...)`의 반환형은 `CancellationTokenRegistration`(구조체)이고 `using`이 가능하다. `Subscribe`의 반환형은 `IDisposable`이다.
 
@@ -727,7 +738,7 @@ git commit -m "refactor(matchmaking): InMatchmaking 폴링을 서비스 구독�
 
 - [ ] **Step 4: 컴파일 확인**
 
-`unity_instance`를 클라로 지정해 콘솔 읽기 → **에러 0건**.
+Global Constraints의 `compile-check.ps1` 실행 → **`ERRORS: 0`**.
 
 - [ ] **Step 5: 커밋**
 
@@ -778,7 +789,7 @@ git commit -m "fix(matchmaking): 요청 응답의 티켓 id를 보관해 취소�
 
 - [ ] **Step 2: 컴파일 확인**
 
-`unity_instance`를 클라로 지정해 콘솔 읽기 → **에러 0건**.
+Global Constraints의 `compile-check.ps1` 실행 → **`ERRORS: 0`**.
 
 - [ ] **Step 3: 죽은 배선이 남았는지 확인한다**
 

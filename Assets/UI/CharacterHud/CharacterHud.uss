@@ -5,7 +5,7 @@
 /* 배경·테두리색·라운드는 .card(Theme.uss)가 담당한다. 여기엔 위치·크기만 남긴다 */
 .hud-panel {
     position: absolute;
-    bottom: 24px;
+    top: 24px;
     left: 24px;
     width: 460px;
     padding: 18px;
@@ -26,7 +26,7 @@
     background-color: var(--lop-surface-sunken);
     border-color: var(--lop-outline);
     border-width: var(--lop-border-xs);
-    border-radius: var(--lop-radius-pill);
+    border-radius: var(--lop-radius-s);
     justify-content: center;
     overflow: hidden;
 }
@@ -37,7 +37,7 @@
     top: 0;
     bottom: 0;
     width: 100%;
-    border-radius: var(--lop-radius-pill);
+    border-radius: var(--lop-radius-s);
 }
 
 .hp-fill {

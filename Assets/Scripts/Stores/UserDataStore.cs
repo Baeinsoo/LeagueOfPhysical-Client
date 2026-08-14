@@ -24,7 +24,7 @@ namespace LOP
             ISubscriber<GetUserStatsResponse> getUserStatsSubscriber,
             ISubscriber<UpdateUserProfileResponse> updateUserProfileSubscriber)
         {
-            var bag = DisposableBag.CreateBuilder();
+            var bag = MessagePipe.DisposableBag.CreateBuilder();
             createUserSubscriber.Subscribe(HandleCreateUser).AddTo(bag);
             getUserLocationSubscriber.Subscribe(HandleGetUserLocation).AddTo(bag);
             getUserSubscriber.Subscribe(HandleGetUser).AddTo(bag);

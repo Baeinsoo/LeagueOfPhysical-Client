@@ -15,6 +15,10 @@ namespace LOP.UI
         private readonly MatchStateMachine _matchStateMachine;
         private readonly IMatchmakingDataStore _matchmakingDataStore;
 
+        // 로비에서 게임을 고르는 화면이 생기기 전까지의 임시값(TbGameMode.id).
+        // 1 = FlapWang, 6 = FlappyRace.
+        private const int TemporaryGameModeId = 1;
+
         private readonly ReactiveProperty<bool> _isMatching = new(false);
 
         /// <summary>매칭 진행 중 여부. 코디네이터가 구독해 대기 오버레이를 열고/닫는다.</summary>
@@ -39,8 +43,8 @@ namespace LOP.UI
         public void Play()
         {
             // 하드코딩 제거는 로비 선택 UI 슬라이스 몫이다. 지금은 값만 정수 id로.
-            _matchmakingDataStore.queueId = 1;      // TbQueue: Casual
-            _matchmakingDataStore.gameModeId = 1;   // TbGameMode: FlapWang
+            _matchmakingDataStore.queueId = 1;
+            _matchmakingDataStore.gameModeId = TemporaryGameModeId;
             _matchmakingDataStore.mapId = 1;        // TbMap: FlapWangMap
 
             _matchStateMachine.Fire(MatchEvent.PlayClicked);

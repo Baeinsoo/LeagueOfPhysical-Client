@@ -59,19 +59,32 @@ namespace LOP.UI
             }
 
             _failedView = _windowManager.Open<MatchmakingFailedView>();
-            _failedView.Confirmed += CloseFailed;
+            _failedView.Confirmed += OnFailedConfirmed;
+            _failedView.Closed += OnFailedViewClosed;
         }
 
-        private void CloseFailed()
+        // 확인 버튼은 닫기 "요청"만 한다. 참조 정리는 OnFailedViewClosed에서 한다 —
+        // 그래야 백드롭 클릭·Back()/ESC처럼 코디네이터를 거치지 않는 경로로 닫혀도
+        // 같은 정리 로직을 탄다(안 그러면 _failedView가 죽은 View를 계속 참조해서
+        // 다음 매칭 실패 때 ShowFailed의 중복 방지 가드가 계속 참이 되어버린다).
+        private void OnFailedConfirmed()
+        {
+            _windowManager.Close(_failedView);
+        }
+
+        // Closed는 Close() 안에서 View.OnClose()가 호출하는 시점에 발화하므로,
+        // 여기서 다시 _windowManager.Close(...)를 부르면 재귀가 된다 — 부르지 않는다.
+        private void OnFailedViewClosed()
         {
             if (_failedView == null)
             {
                 return;
             }
 
-            _failedView.Confirmed -= CloseFailed;
-            _windowManager.Close(_failedView);
+            var view = _failedView;
             _failedView = null;
+            view.Confirmed -= OnFailedConfirmed;
+            view.Closed -= OnFailedViewClosed;
         }
 
         public void Dispose()
@@ -79,7 +92,10 @@ namespace LOP.UI
             _matchingSubscription?.Dispose();
             _failedSubscription?.Dispose();
 
-            CloseFailed();
+            if (_failedView != null)
+            {
+                _windowManager.Close(_failedView);
+            }
 
             if (_waitingView != null)
             {

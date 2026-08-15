@@ -43,7 +43,7 @@ namespace LOP.UI
         public void Play()
         {
             // 하드코딩 제거는 로비 선택 UI 슬라이스 몫이다. 지금은 값만 정수 id로.
-            _matchmakingDataStore.queueId = 1;
+            _matchmakingDataStore.queueId = 1;      // TbQueue: Casual
             _matchmakingDataStore.gameModeId = TemporaryGameModeId;
             _matchmakingDataStore.mapId = 1;        // TbMap: FlapWangMap
 

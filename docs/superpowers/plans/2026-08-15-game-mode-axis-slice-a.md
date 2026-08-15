@@ -20,9 +20,11 @@
 - **주석은 최소로, 비자명한 *의도(왜)* 만.** 코드로 자명한 것은 주석 없이 둔다. 전문용어를 설명 없이 던지지 않는다.
 - **클라와 서버를 같이 고친다.** 두 저장소에 같은 개념의 코드가 있으므로 한쪽만 고치면 깨진다.
 - **이 슬라이스는 동작을 바꾸지 않는다.** 끝났을 때 게임은 지금과 똑같이 돌아야 한다. 화면에 보이는 변화가 없는 것이 정상이다.
+- **이 슬라이스는 저장소 5개를 건드린다.** 각 저장소는 **자기 브랜치에서** 작업하고 **각자 커밋**한다. `main`에 직접 커밋하지 않는다 — LOP-Shared는 지금 `main`이므로 Task 1에서 `feature/game-mode-axis`를 판다.
 - 저장소 경로:
-  - 클라 `/Users/insoobae/workspace/LOP/LeagueOfPhysical-Client`
+  - 클라 `/Users/insoobae/workspace/LOP/LeagueOfPhysical-Client` (브랜치 `feature/game-mode-axis`, 이미 준비됨)
   - 서버 `/Users/insoobae/workspace/LOP/LeagueOfPhysical-Server`
+  - 공유 `/Users/insoobae/workspace/LOP/LeagueOfPhysical-Shared` (Task 1에서 브랜치 생성)
   - 마스터데이터 파이프라인 `/Users/insoobae/workspace/LOP/infrastructure/table`
   - 생성물 패키지 `/Users/insoobae/workspace/LOP/LeagueOfPhysical-MasterData-Client`, `-Server`
 
@@ -30,32 +32,31 @@
 
 | 파일 | 책임 |
 |---|---|
-| **생성** 클라 `Assets/Scripts/Game/Logic/MatchSceneResolver.cs` | 라운드/씬경로 검증 규칙. 순수 C#, 엔진·DI 비의존 |
-| **생성** 클라 `Assets/Scripts/Game/Logic/LOP.Game.Logic.asmdef` | 위 순수 로직을 테스트 가능한 어셈블리로 분리 |
-| **생성** 클라 `Assets/Tests/EditMode/MatchSceneResolverTests.cs` | 위 규칙의 단위 테스트 |
-| **생성** 클라 `Assets/Tests/EditMode/LOP.Game.Logic.Tests.EditMode.asmdef` | 테스트 어셈블리 |
-| **생성** 서버 `Assets/Scripts/Game/MatchSceneResolver.cs` | 클라와 동일 내용 사본 (서버엔 테스트 어셈블리가 없다) |
+| **생성** Shared `Runtime/Scripts/Game/MatchSceneResolver.cs` | 라운드/씬경로 검증 규칙. 순수 C#. 클·서가 **같은 구체 코드**를 쓴다 |
+| **생성** Shared `Tests/EditMode/MatchSceneResolverTests.cs` | 위 규칙의 단위 테스트 |
 | **수정** `infrastructure/table/Datas/#GameMode.xlsx` | `scene_path` 컬럼 추가 + FlapWang 행 값 |
 | **수정** 클라·서버 `Assets/Scripts/Game/LOPGameFactory.cs` | 씬 이름 상수 → 마스터데이터 조회 |
 | **수정** 클라 `Assets/Scripts/Game/LOPRunner.cs` | `MapId` 상수 제거 → 서버와 동일한 마스터데이터 조회 |
 | **수정** 서버 `Assets/Scripts/Game/LOPRunner.cs` | `ResolveScenePath`를 `MatchSceneResolver`로 통일 |
 | **이름변경** 클라·서버 `Assets/Scenes/LOPGame.unity` → `FlapWang.unity` | "게임은 하나" 전제를 담은 이름 정리 |
 
-> **어셈블리 이름 근거**: 기존에 `FlappyRaceSlice.Logic`(순수 로직) + `FlappyRaceSlice.Tests.EditMode`(테스트) 쌍이 이미 있다. 같은 패턴을 따라 `LOP.Game.Logic` + `LOP.Game.Logic.Tests.EditMode`로 짝을 맞춘다. 슬라이스 D의 순위 산정·종료 판정 순수 로직도 이 어셈블리에 들어갈 예정이라 `Game`으로 잡는다.
+> **왜 LOP-Shared인가**: 클·서가 똑같이 동작해야 하는 시뮬·도메인 로직은 **구체 클래스를 공유**하는 것이 이 프로젝트의 규칙이다(`world-core-connection-architecture.md`의 "시뮬 코드 형태"). 사본을 두면 한쪽만 고쳐도 모른다. GameFramework가 아니라 LOP-Shared인 이유는, 매치/라운드가 **LOP 매치메이킹 도메인 개념**이고 GameFramework는 Luban 전환 때 마스터데이터 추상을 의도적으로 걷어냈기 때문이다 — 씬 경로를 알 이유가 없다.
+>
+> 새 asmdef는 만들지 않는다. `Runtime/Scripts/Game/`은 이미 `baegames.LOP.Shared.Runtime`(`autoReferenced: true`)에 속해 클·서 양쪽 `Assembly-CSharp`이 그대로 쓸 수 있고, 테스트는 기존 `baegames.LOP.Shared.Tests.EditMode`에 넣으면 된다. 두 프로젝트 `manifest.json`의 `testables`에 `com.baegames.lop.shared`가 있어 양쪽 Test Runner에 그대로 뜬다.
 
 > **DI 스코프 분해(`NetcodeInstaller`/`WorldCoreInstaller`)는 이 슬라이스에 없다.** 게임이 하나뿐인 지금은 무엇이 공통이고 무엇이 게임별인지 판단할 근거가 없다. 두 번째 게임이 생기는 **슬라이스 B**에서 실제 차이를 보고 가른다.
 
 ---
 
-## Task 1: `MatchSceneResolver` 순수 로직 + 테스트 (클라)
+## Task 1: `MatchSceneResolver` 순수 로직 + 테스트 (LOP-Shared)
 
 씬을 고를 때의 두 가지 검증 규칙을 엔진·DI 비의존 순수 함수로 만든다. 이후 태스크의 클라·서버 코드가 모두 이걸 쓴다.
 
 **Files:**
-- Create: `LeagueOfPhysical-Client/Assets/Scripts/Game/Logic/LOP.Game.Logic.asmdef`
-- Create: `LeagueOfPhysical-Client/Assets/Scripts/Game/Logic/MatchSceneResolver.cs`
-- Create: `LeagueOfPhysical-Client/Assets/Tests/EditMode/LOP.Game.Logic.Tests.EditMode.asmdef`
-- Create: `LeagueOfPhysical-Client/Assets/Tests/EditMode/MatchSceneResolverTests.cs`
+- Create: `LeagueOfPhysical-Shared/Runtime/Scripts/Game/MatchSceneResolver.cs`
+- Create: `LeagueOfPhysical-Shared/Tests/EditMode/MatchSceneResolverTests.cs`
+
+**작업 저장소:** `/Users/insoobae/workspace/LOP/LeagueOfPhysical-Shared` (클·서와 **다른 git 저장소**다)
 
 **Interfaces:**
 - Consumes: (없음 — 첫 태스크)
@@ -63,63 +64,34 @@
   - `public static int CurrentRoundIndex(int roundCount)` — 이번 판이 쓸 라운드 인덱스. `roundCount <= 0`이면 `InvalidOperationException`. 그 외 항상 `0`.
   - `public static string RequireScenePath(string tableName, int id, string scenePath)` — `scenePath`가 null이거나 공백뿐이면 `InvalidOperationException`, 아니면 `scenePath` 그대로 반환.
 
-- [ ] **Step 1: 순수 로직 어셈블리 정의 파일 생성**
+- [ ] **Step 1: LOP-Shared에 작업 브랜치 생성**
 
-`LeagueOfPhysical-Client/Assets/Scripts/Game/Logic/LOP.Game.Logic.asmdef`:
+LOP-Shared는 지금 `main`에 클린 상태로 있다. **main에 직접 커밋하지 않는다.**
 
-```json
-{
-    "name": "LOP.Game.Logic",
-    "rootNamespace": "",
-    "references": [],
-    "includePlatforms": [],
-    "excludePlatforms": [],
-    "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
-    "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": [],
-    "noEngineReferences": true
-}
+```bash
+cd /Users/insoobae/workspace/LOP/LeagueOfPhysical-Shared
+git status --short
+git switch -c feature/game-mode-axis
+git rev-parse --abbrev-ref HEAD
 ```
 
-> `autoReferenced: true`라 기본 어셈블리(`Assembly-CSharp`)가 그대로 이 타입을 쓸 수 있다. `noEngineReferences: true`는 이 어셈블리에 UnityEngine 의존이 없다는 뜻이다 — 순수 C#만 넣는다.
+Expected: `git status --short`가 비어 있고, 브랜치가 `feature/game-mode-axis`로 바뀐다. 변경사항이 있으면 **멈추고 보고한다** — 남의 작업일 수 있다.
 
-- [ ] **Step 2: 테스트 어셈블리 정의 파일 생성**
+- [ ] **Step 2: 어셈블리가 이미 준비돼 있는지 확인 (새로 만들지 않는다)**
 
-`LeagueOfPhysical-Client/Assets/Tests/EditMode/LOP.Game.Logic.Tests.EditMode.asmdef`:
-
-```json
-{
-    "name": "LOP.Game.Logic.Tests.EditMode",
-    "rootNamespace": "",
-    "references": [
-        "LOP.Game.Logic",
-        "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner"
-    ],
-    "includePlatforms": [
-        "Editor"
-    ],
-    "excludePlatforms": [],
-    "allowUnsafeCode": false,
-    "overrideReferences": true,
-    "precompiledReferences": [
-        "nunit.framework.dll"
-    ],
-    "autoReferenced": false,
-    "defineConstraints": [
-        "UNITY_INCLUDE_TESTS"
-    ],
-    "versionDefines": [],
-    "noEngineReferences": false
-}
+```bash
+cd /Users/insoobae/workspace/LOP/LeagueOfPhysical-Shared
+grep -n 'autoReferenced' Runtime/baegames.LOP.Shared.Runtime.asmdef
+grep -n 'baegames.LOP.Shared.Runtime' Tests/EditMode/baegames.LOP.Shared.Tests.EditMode.asmdef
 ```
+
+Expected: Runtime이 `"autoReferenced": true`(클·서 `Assembly-CSharp`이 그대로 쓸 수 있다는 뜻)이고, EditMode 테스트 어셈블리가 Runtime을 참조한다.
+
+**새 asmdef를 만들지 않는다.** 이 두 개로 충분하다.
 
 - [ ] **Step 3: 실패하는 테스트 작성**
 
-`LeagueOfPhysical-Client/Assets/Tests/EditMode/MatchSceneResolverTests.cs`:
+`LeagueOfPhysical-Shared/Tests/EditMode/MatchSceneResolverTests.cs`:
 
 ```csharp
 using System;
@@ -191,7 +163,7 @@ Expected: `MatchSceneResolverTests`가 컴파일 오류로 실패한다 — `Mat
 
 - [ ] **Step 5: 최소 구현 작성**
 
-`LeagueOfPhysical-Client/Assets/Scripts/Game/Logic/MatchSceneResolver.cs`:
+`LeagueOfPhysical-Shared/Runtime/Scripts/Game/MatchSceneResolver.cs`:
 
 ```csharp
 using System;
@@ -238,9 +210,9 @@ namespace LOP
 
 - [ ] **Step 6: 테스트가 통과하는지 확인**
 
-Unity Editor에서 **Test Runner > EditMode > Run All**.
+클라 프로젝트 Unity Editor에서 **Test Runner > EditMode > Run All**. (LOP-Shared가 `manifest.json`의 `testables`에 있어 패키지 테스트가 여기 뜬다.)
 
-Expected: `MatchSceneResolverTests`의 7개 테스트가 모두 PASS. 기존 `FlappyRaceSlice.Tests.EditMode` 테스트들도 그대로 PASS.
+Expected: `MatchSceneResolverTests`의 7개 테스트가 모두 PASS. 기존 `baegames.LOP.Shared.Tests.EditMode`와 `FlappyRaceSlice.Tests.EditMode` 테스트들도 그대로 PASS.
 
 - [ ] **Step 7: 테스트가 진짜로 실패할 수 있는지 확인**
 
@@ -252,18 +224,15 @@ Expected: `RequireScenePath_null이면_예외`, `RequireScenePath_공백뿐이�
 
 - [ ] **Step 8: 커밋**
 
+**커밋은 LOP-Shared 저장소에서 한다** (클·서와 다른 저장소다).
+
 ```bash
-cd /Users/insoobae/workspace/LOP/LeagueOfPhysical-Client
+cd /Users/insoobae/workspace/LOP/LeagueOfPhysical-Shared
 git add \
-  Assets/Scripts/Game/Logic/LOP.Game.Logic.asmdef \
-  Assets/Scripts/Game/Logic/LOP.Game.Logic.asmdef.meta \
-  Assets/Scripts/Game/Logic/MatchSceneResolver.cs \
-  Assets/Scripts/Game/Logic/MatchSceneResolver.cs.meta \
-  Assets/Scripts/Game/Logic.meta \
-  Assets/Tests/EditMode/LOP.Game.Logic.Tests.EditMode.asmdef \
-  Assets/Tests/EditMode/LOP.Game.Logic.Tests.EditMode.asmdef.meta \
-  Assets/Tests/EditMode/MatchSceneResolverTests.cs \
-  Assets/Tests/EditMode/MatchSceneResolverTests.cs.meta
+  Runtime/Scripts/Game/MatchSceneResolver.cs \
+  Runtime/Scripts/Game/MatchSceneResolver.cs.meta \
+  Tests/EditMode/MatchSceneResolverTests.cs \
+  Tests/EditMode/MatchSceneResolverTests.cs.meta
 ```
 
 **커밋 전에 반드시 별도 명령으로 확인한다:**
@@ -272,16 +241,19 @@ git add \
 git diff --cached --name-only
 ```
 
-위 9개 경로만 있는지 눈으로 확인한 뒤에 커밋한다. `Assets/Scripts/FlappyRaceSlice/`나 `ProjectSettings/`가 섞여 있으면 **커밋하지 말고** 잘못 스테이징된 것을 `git restore --staged <경로>`로 뺀다.
+위 4개 경로만 있는지 눈으로 확인한 뒤에 커밋한다. 다른 것이 섞여 있으면 **커밋하지 말고** `git restore --staged <경로>`로 뺀다.
 
 ```bash
-git commit -m "feat(game-mode): 씬 경로 검증 규칙을 순수 로직으로 분리
+git commit -m "feat(game-mode): 씬 경로 검증 규칙을 클·서 공유 로직으로 추가
 
 게임 씬을 마스터데이터에서 고르기 위한 첫 조각. 라운드 유무와 씬 경로 누락을
-검증하는 규칙을 엔진·DI 비의존 static 클래스로 뽑아 EditMode에서 단위 테스트한다.
+검증하는 규칙을 엔진·DI 비의존 static 클래스로 만든다.
 
-기존 FlappyRaceSlice.Logic + Tests.EditMode 쌍과 같은 패턴이며, 슬라이스 D의
-순위 산정·종료 판정 순수 로직도 이 어셈블리에 들어올 예정이다."
+클·서가 같은 구체 코드를 쓴다 — 사본을 두면 한쪽만 고쳐도 모른다. 매치/라운드는
+LOP 매치메이킹 도메인 개념이라 GameFramework가 아니라 여기가 맞다(GameFramework는
+Luban 전환 때 마스터데이터 추상을 걷어냈다).
+
+슬라이스 D의 순위 산정·종료 판정 순수 로직도 같은 자리에 들어올 예정이다."
 ```
 
 ---
@@ -663,35 +635,30 @@ git commit -m "fix(game-mode): 클라도 맵을 마스터데이터에서 고른�
 ## Task 5: 서버 — 동일 배선
 
 **Files:**
-- Create: `LeagueOfPhysical-Server/Assets/Scripts/Game/MatchSceneResolver.cs`
 - Rename: `LeagueOfPhysical-Server/Assets/Scenes/LOPGame.unity` → `FlapWang.unity` (`.meta` 포함)
 - Modify: `LeagueOfPhysical-Server/Assets/Scripts/Game/LOPGameFactory.cs`
 - Modify: `LeagueOfPhysical-Server/Assets/Scripts/Game/LOPRunner.cs`
 - Modify: `LeagueOfPhysical-Server/ProjectSettings/EditorBuildSettings.asset`
 
 **Interfaces:**
-- Consumes: `LOP.MasterData.GameMode.ScenePath` (Task 2)
-- Produces: 서버 쪽 `LOP.MatchSceneResolver` (클라와 동일 API)
+- Consumes: `LOP.MatchSceneResolver` (Task 1 — LOP-Shared 패키지에 있고 `autoReferenced: true`라 서버 `Assembly-CSharp`이 그대로 쓴다. **파일을 복사하지 않는다**), `LOP.MasterData.GameMode.ScenePath` (Task 2)
+- Produces: (없음 — 서버 내부 배선)
 
-> **왜 사본인가**: 서버 저장소에는 테스트 어셈블리가 하나도 없고, `Match`/`MatchRound` 도메인 클래스도 이미 클라·서버에 각각 복제돼 있다. 지금 이 로직을 LOP-Shared로 올리려면 도메인 타입까지 함께 옮겨야 해서 슬라이스 A의 "동작 불변" 원칙을 넘어선다. **공유 저장소로 올리는 것은 별도 후속 작업**으로 남긴다. 내용은 클라 파일과 한 글자도 다르지 않아야 한다.
+- [ ] **Step 1: 공유 로직이 서버에서 보이는지 확인**
 
-- [ ] **Step 1: `MatchSceneResolver` 사본 생성**
-
-`LeagueOfPhysical-Server/Assets/Scripts/Game/MatchSceneResolver.cs` — Task 1 Step 5의 코드를 **그대로** 복사한다 (namespace `LOP`, 클래스명·메서드명·메시지 동일).
+Task 1에서 LOP-Shared에 추가한 `MatchSceneResolver`를 서버가 참조 없이 쓸 수 있는지 먼저 확인한다.
 
 ```bash
-cp /Users/insoobae/workspace/LOP/LeagueOfPhysical-Client/Assets/Scripts/Game/Logic/MatchSceneResolver.cs \
-   /Users/insoobae/workspace/LOP/LeagueOfPhysical-Server/Assets/Scripts/Game/MatchSceneResolver.cs
+ls /Users/insoobae/workspace/LOP/LeagueOfPhysical-Shared/Runtime/Scripts/Game/MatchSceneResolver.cs
+python3 -c "
+import json
+m = json.load(open('/Users/insoobae/workspace/LOP/LeagueOfPhysical-Server/Packages/manifest.json'))
+print('lop.shared:', m['dependencies'].get('com.baegames.lop.shared'))"
 ```
 
-내용이 같은지 확인:
+Expected: 파일이 존재하고, 서버 manifest가 `file:../../LeagueOfPhysical-Shared`로 그 패키지를 본다.
 
-```bash
-diff /Users/insoobae/workspace/LOP/LeagueOfPhysical-Client/Assets/Scripts/Game/Logic/MatchSceneResolver.cs \
-     /Users/insoobae/workspace/LOP/LeagueOfPhysical-Server/Assets/Scripts/Game/MatchSceneResolver.cs && echo "동일"
-```
-
-Expected: `동일`
+**서버에 사본을 만들지 않는다.** 클·서가 같은 구체 코드를 쓰는 것이 이 프로젝트의 규칙이다.
 
 - [ ] **Step 2: 씬 파일 이름 변경**
 
@@ -855,8 +822,6 @@ Expected: 컴파일 오류 없음.
 cd /Users/insoobae/workspace/LOP/LeagueOfPhysical-Server
 git status --short
 git add \
-  Assets/Scripts/Game/MatchSceneResolver.cs \
-  Assets/Scripts/Game/MatchSceneResolver.cs.meta \
   Assets/Scenes/FlapWang.unity \
   Assets/Scenes/FlapWang.unity.meta \
   Assets/Scripts/Game/LOPGameFactory.cs \
@@ -871,11 +836,12 @@ git diff --cached --name-only
 git commit -m "feat(game-mode): 서버가 게임 씬을 마스터데이터에서 고른다
 
 클라와 동일하게 match.rounds[0].gameModeId → TbGameMode.ScenePath로 게임 씬을
-고른다. 맵 경로 해석도 클라와 같은 MatchSceneResolver 규칙으로 통일했다.
+고른다. 맵 경로 해석도 LOP-Shared의 MatchSceneResolver로 통일했다 — 클·서가
+같은 구체 코드를 쓰므로 검증 규칙이 갈라질 수 없다.
 
-MatchSceneResolver는 클라 파일의 사본이다. Match/MatchRound 도메인 타입이
-이미 클·서에 복제돼 있어, 공유 저장소로 올리려면 그것까지 함께 옮겨야 한다 —
-동작을 바꾸지 않는 이번 슬라이스의 범위를 넘어서므로 후속 작업으로 남긴다."
+기존 ResolveScenePath는 예외를 bare Exception으로 던졌는데, 공유 규칙이
+InvalidOperationException을 쓴다. 상위에서 catch (Exception)으로 받고 있어
+잡히는 범위는 그대로다."
 ```
 
 ---
@@ -966,6 +932,5 @@ Expected: 이 슬라이스의 커밋들이 보이고, 미커밋 개수가 **31�
 | `FlappyRace` 게임 씬·월드·룰 | **슬라이스 B** |
 | 로비 게임 선택 UI, `MatchmakingViewModel`의 `gameModeId = 1` 하드코딩 제거 | **슬라이스 C** |
 | 게임별 종료 조건, `MatchEndedToC`에 순위 싣기, 결과 화면 | **슬라이스 D** |
-| `MatchSceneResolver`를 LOP-Shared로 올려 클·서 사본 제거 | 후속 (도메인 타입 이전이 함께 필요) |
 | `rounds[1..]` 로테이션 | 미니게임이 3개 이상 생긴 뒤 |
 | FlapWang 제거 | Flappy가 넷코드 검증 베드를 넘겨받은 뒤 |

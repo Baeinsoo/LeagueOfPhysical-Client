@@ -510,7 +510,8 @@ namespace LOP
         private string ResolveGameScenePath()
         {
             var rounds = roomDataStore.match?.rounds;
-            var round = rounds[MatchSceneResolver.CurrentRoundIndex(rounds?.Length ?? 0)];
+            var roundIndex = MatchSceneResolver.CurrentRoundIndex(rounds?.Length ?? 0);
+            var round = rounds[roundIndex];
             var gameMode = masterData.Tables.TbGameMode.GetOrDefault(round.gameModeId);
 
             return MatchSceneResolver.RequireScenePath("TbGameMode", round.gameModeId, gameMode?.ScenePath);
@@ -589,7 +590,8 @@ git commit -m "feat(game-mode): 클라가 게임 씬을 마스터데이터에서
         private string ResolveMapScenePath()
         {
             var rounds = roomDataStore.match?.rounds;
-            var round = rounds[MatchSceneResolver.CurrentRoundIndex(rounds?.Length ?? 0)];
+            var roundIndex = MatchSceneResolver.CurrentRoundIndex(rounds?.Length ?? 0);
+            var round = rounds[roundIndex];
             var map = masterData.Tables.TbMap.GetOrDefault(round.mapId);
 
             return MatchSceneResolver.RequireScenePath("TbMap", round.mapId, map?.ScenePath);
@@ -737,7 +739,8 @@ namespace LOP
         private string ResolveGameScenePath()
         {
             var rounds = roomDataStore.match?.rounds;
-            var round = rounds[MatchSceneResolver.CurrentRoundIndex(rounds?.Length ?? 0)];
+            var roundIndex = MatchSceneResolver.CurrentRoundIndex(rounds?.Length ?? 0);
+            var round = rounds[roundIndex];
             var gameMode = masterData.Tables.TbGameMode.GetOrDefault(round.gameModeId);
 
             return MatchSceneResolver.RequireScenePath("TbGameMode", round.gameModeId, gameMode?.ScenePath);
@@ -780,7 +783,8 @@ namespace LOP
         private string ResolveMapScenePath()
         {
             var rounds = roomDataStore.match?.rounds;
-            var round = rounds[MatchSceneResolver.CurrentRoundIndex(rounds?.Length ?? 0)];
+            var roundIndex = MatchSceneResolver.CurrentRoundIndex(rounds?.Length ?? 0);
+            var round = rounds[roundIndex];
             var map = masterData.Tables.TbMap.GetOrDefault(round.mapId);
 
             return MatchSceneResolver.RequireScenePath("TbMap", round.mapId, map?.ScenePath);

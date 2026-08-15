@@ -14,8 +14,10 @@ namespace LOP.UI
         private readonly IWindowManager _windowManager;
         private readonly MatchmakingViewModel _viewModel;
 
-        private IDisposable _subscription;
+        private IDisposable _matchingSubscription;
+        private IDisposable _failedSubscription;
         private MatchingWaitingView _waitingView;
+        private MatchmakingFailedView _failedView;
 
         public MatchmakingCoordinator(IWindowManager windowManager, MatchmakingViewModel viewModel)
         {
@@ -26,7 +28,8 @@ namespace LOP.UI
         public void Start()
         {
             // ReactiveProperty는 구독 즉시 현재값을 replay하므로 StartFlow 전에 구독해도 안전.
-            _subscription = _viewModel.IsMatching.Subscribe(OnMatchingChanged);
+            _matchingSubscription = _viewModel.IsMatching.Subscribe(OnMatchingChanged);
+            _failedSubscription = _viewModel.MatchmakingFailed.Subscribe(_ => ShowFailed());
             _viewModel.StartFlow();
         }
 
@@ -47,9 +50,36 @@ namespace LOP.UI
             }
         }
 
+        private void ShowFailed()
+        {
+            //  연달아 실패해도 안내는 하나만 띄운다.
+            if (_failedView != null)
+            {
+                return;
+            }
+
+            _failedView = _windowManager.Open<MatchmakingFailedView>();
+            _failedView.Confirmed += CloseFailed;
+        }
+
+        private void CloseFailed()
+        {
+            if (_failedView == null)
+            {
+                return;
+            }
+
+            _failedView.Confirmed -= CloseFailed;
+            _windowManager.Close(_failedView);
+            _failedView = null;
+        }
+
         public void Dispose()
         {
-            _subscription?.Dispose();
+            _matchingSubscription?.Dispose();
+            _failedSubscription?.Dispose();
+
+            CloseFailed();
 
             if (_waitingView != null)
             {

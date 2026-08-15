@@ -51,8 +51,11 @@ Agones(게임서버 오케스트레이션 사실상 표준)는 **게임서버가
 `LOPNetworkManager.OnDestroy`가 `StopClient()`를 불러 스스로 나간다. 즉 **"다 나갔다" = "다 받았다"**
 라서 이게 전달을 확인하는 가장 정확한 신호다.
 
-**"빠졌다"의 정의**: `sessionManager.GetAllSessions()`의 모든 세션이 `networkConnection == null`
-(해제 경로가 그렇게 만든다 — `LOPRoom.OnPlayerDisconnect`). 세션이 애초에 0이면 즉시 종료한다.
+**"빠졌다"의 정의**: `sessionManager.GetAllSessions()`의 모든 세션이 `isConnected == false`
+(`LOPSession.isConnected`는 `networkConnection != null && networkConnection.isReady` — 연결은
+있지만 아직 준비 안 된 상태도 "안 빠진 것"으로 본다). 세션이 애초에 0이면 즉시 종료한다.
+매치 종료 시점의 세션은 이미 매치를 플레이 중이었으니 전부 `isReady`라, 이 차이가 실제로
+드레인 판정을 바꾸는 경우는 없다.
 
 **에디터에서는 종료되지 않는다** — `Application.Quit()`은 에디터에서 no-op다. 서버를 에디터로 띄워
 테스트할 때 플레이 모드가 안 꺼지는 게 정상이고, **`EditorApplication.isPlaying = false`로 대체하지
@@ -82,14 +85,19 @@ Agones(게임서버 오케스트레이션 사실상 표준)는 **게임서버가
 `Never`는 크래시 시 동작도 바꾼다(지금은 재시작, 앞으로는 안 함). 이는 의도된 선택이다 —
 게임서버가 죽으면 그 판의 상태는 복구 불가라, 재시작해도 빈 월드로 다시 시작할 뿐이다.
 
-### 변경 3 — 백엔드: 끝난 파드 치우기
+### 변경 3 — 백엔드: 끝난 파드를 더 빨리 치우기
 
 파드가 스스로 끝나면 쿠버네티스에 **`Succeeded` 상태로 객체가 남는다**(포트·메모리는 이미 반납).
-지금 파드 GC는 *룸이 종단인* 파드만 지우므로, **룸이 종단이 아닌 채 파드만 끝난 경우**(백엔드가
-죽어 있던 동안 매치가 끝난 경우)에 객체가 남는다.
+이 객체는 원래도 영원히 안 남는다 — 룸이 아직 종단이 아니어도(백엔드가 죽어 있던 동안 매치가
+끝난 경우) 하트비트가 60초 뒤 끊긴 것으로 처리돼 `markExpiredRoomsAsError`가 룸을 `Error`로
+박고, 같은 스윕에서 `shouldTerminateRoomRunner`가 그 파드를 잡아 지운다. 그래서 이 변경은
+**정확성 수정이 아니라 지연시간 개선**이다 — 자가 종료(정상 종료)로 남은 `Succeeded` 껍데기를
+60초가 아니라 다음 2초 스윕에서 바로 치운다.
 
 `deleteRunnersOfTerminatedRooms`의 삭제 조건에 **"파드가 이미 끝났다"**(`status.phase`가
-`Succeeded`/`Failed`)를 더한다. 객체만 치우는 일이라 부작용이 없다.
+`Succeeded`)를 더한다. `Failed`(크래시)는 일부러 뺀다 — 크래시는 원인 조사가 필요한 경우가
+많아 파드를 남겨 로그를 보존하고, 60초짜리 하트비트 만료 경로가 결국 치워준다(아래 §4 "기동
+실패는 파드를 남긴다"와 같은 원칙).
 
 ## 4. 바꾸지 않는 것 (범위 밖 — 의도)
 

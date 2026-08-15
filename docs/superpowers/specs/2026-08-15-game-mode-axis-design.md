@@ -378,6 +378,24 @@ Unity `.meta` 파일은 반드시 함께 커밋한다 (rename은 GUID 유지가 
   무해하지만 `lop-repo-topology.md`의 DTO 격리 원칙과 어긋난다. `c,s`로 맞추는 게 맞으나 셀 하나에
   4개 저장소 커밋이 걸려 별도 슬라이스로 둔다.
 
+### 슬라이스 A 리뷰에서 미뤄둔 후속 (병합 블로커 아님)
+
+- [ ] **`LOPRoom.DeinitializeAsync`의 null `runner` 가드** — `CreateAsync`가 `runner` 대입 전에 던지면
+  이후 `OnDestroy` → `DeinitializeAsync`가 첫 줄에서 NRE로 죽고, 그 아래 `gameFactory.DestroyAsync()`와
+  `roomDataStore.Clear()`가 건너뛰어져 **로비로 돌아간 뒤 스토어에 지난 매치가 남는다.** 선행 결함이지만
+  슬라이스 A가 그 경로를 결정론적으로 도달 가능하게 만들었다(잘못된 `gameModeId`). `if (runner != null)` 한 줄.
+- [ ] **씬 언로드를 경로 대신 `Scene` 핸들로** — `LOPGameFactory.DestroyAsync`가 `GetSceneByPath`로 다시
+  찾는데, 이건 정확 일치라 마스터데이터의 대소문자가 하나만 달라도 **로드는 되고 언로드는 no-op**이 된다.
+  매치를 거듭할수록 씬이 쌓인다. 로드 직후 `Scene` 핸들을 붙잡아 두면 없어지는 문제.
+- [ ] **`FlapWang.unity`의 루트 GameObject 이름이 아직 `LOPGame`** — 코드는 이름으로 찾지 않아 기능 영향은
+  없다. 슬라이스 B에서 이 씬을 어차피 열게 되므로 그때 함께.
+- [ ] **`MatchSceneResolver` 이름 재고** — 지금은 아무것도 resolve하지 않고(조회는 호출자 몫) 검증 가드만
+  갖고 있다. `MatchSceneRules` 쪽이 정직하나, 슬라이스 D의 순위·종료 순수 로직이 같은 자리에 들어올
+  예정이라 그때 전체 이름을 다시 보는 게 낫다 — 지금 rename은 churn.
+- [ ] **클·서 `LOPGameFactory.cs` 두 벌의 동일성을 지켜줄 장치 없음** — 지금 md5까지 같지만 이를 강제하는
+  테스트나 도구가 없다. `RoomLifetimeScope`/`GameLifetimeScope` 같은 사이드 전용 타입을 참조해 공유로
+  옮길 수도 없다. **슬라이스 B에서 게임별 스코프를 가를 때가 두 파일이 갈라질 첫 지점**이다.
+
 ---
 
 ## 15. 관련 문서

@@ -37,7 +37,6 @@ namespace LOP
             worldEntity.Add(new Appearance(creationData.visualId));
             worldEntity.Add(new MotionContributions());
 
-            // 클라의 CharacterCreationData엔 userId가 없다 — "내 몸인가"는 gameDataStore.userEntityId로만 판단한다(기존 CharacterCreator와 동일 관례). Ownership은 서버에서만 붙인다.
             bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
             if (isUserEntity)
             {

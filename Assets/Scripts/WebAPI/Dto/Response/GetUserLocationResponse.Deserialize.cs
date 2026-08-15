@@ -28,6 +28,10 @@ namespace LOP
                     case Location.GameRoom:
                         getUserLocationResponse.userLocation.locationDetail = locationDetail.ToObject<GameRoomLocationDetail>();
                         break;
+
+                    case Location.None:
+                        getUserLocationResponse.userLocation.locationDetail = locationDetail.ToObject<NoneLocationDetail>();
+                        break;
                 }
 
                 return getUserLocationResponse;

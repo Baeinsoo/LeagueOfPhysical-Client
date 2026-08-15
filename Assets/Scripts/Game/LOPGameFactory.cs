@@ -59,7 +59,8 @@ namespace LOP
         private string ResolveGameScenePath()
         {
             var rounds = roomDataStore.match?.rounds;
-            var round = rounds[MatchSceneResolver.CurrentRoundIndex(rounds?.Length ?? 0)];
+            var roundIndex = MatchSceneResolver.CurrentRoundIndex(rounds?.Length ?? 0);
+            var round = rounds[roundIndex];
             var gameMode = masterData.Tables.TbGameMode.GetOrDefault(round.gameModeId);
 
             return MatchSceneResolver.RequireScenePath("TbGameMode", round.gameModeId, gameMode?.ScenePath);

@@ -1,0 +1,42 @@
+using LOP.UI;
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using VContainer;
+using VContainer.Unity;
+
+namespace LOP
+{
+    /// <summary>FlapWang 덩어리 — 캐릭터 월드와 캐릭터 HUD·게임패드를 쓴다.</summary>
+    public class FlapWangLifetimeScope : GameLifetimeScope
+    {
+        [SerializeField] private CameraController cameraController;
+
+        protected override void ConfigureGame(IContainerBuilder builder)
+        {
+            builder.RegisterComponent(cameraController);
+
+            builder.Register<GameFramework.World.IWorld, LOPWorld>(Lifetime.Singleton);
+            builder.Register<ICharacterCreator, CharacterCreator>(Lifetime.Singleton);
+
+            builder.RegisterEntryPoint<PlayerHudCoordinator>();
+
+            builder.Register<StatsViewModel>(Lifetime.Transient);
+            builder.Register<StatsView>(Lifetime.Transient);
+
+            builder.Register<CharacterHudViewModel>(Lifetime.Transient);
+            builder.Register<CharacterHudView>(Lifetime.Transient);
+
+            builder.Register<GamePadViewModel>(Lifetime.Transient);
+            builder.Register<GamePadView>(Lifetime.Transient);
+        }
+
+        protected override void RegisterViewFactories(
+            IObjectResolver container, IWindowManager windowManager, List<IDisposable> sink)
+        {
+            sink.Add(windowManager.RegisterViewFactory<StatsView>(() => container.Resolve<StatsView>()));
+            sink.Add(windowManager.RegisterViewFactory<CharacterHudView>(() => container.Resolve<CharacterHudView>()));
+            sink.Add(windowManager.RegisterViewFactory<GamePadView>(() => container.Resolve<GamePadView>()));
+        }
+    }
+}

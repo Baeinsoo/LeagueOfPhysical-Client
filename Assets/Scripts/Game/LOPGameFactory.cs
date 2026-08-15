@@ -61,9 +61,10 @@ namespace LOP
             var rounds = roomDataStore.match?.rounds;
             var roundIndex = MatchSceneResolver.CurrentRoundIndex(rounds?.Length ?? 0);
             var round = rounds[roundIndex];
-            var gameMode = masterData.Tables.TbGameMode.GetOrDefault(round.gameModeId);
+            var gameMode = MatchSceneResolver.RequireRow(
+                "TbGameMode", round.gameModeId, masterData.Tables.TbGameMode.GetOrDefault(round.gameModeId));
 
-            return MatchSceneResolver.RequireScenePath("TbGameMode", round.gameModeId, gameMode?.ScenePath);
+            return MatchSceneResolver.RequireScenePath("TbGameMode", round.gameModeId, gameMode.ScenePath);
         }
     }
 }

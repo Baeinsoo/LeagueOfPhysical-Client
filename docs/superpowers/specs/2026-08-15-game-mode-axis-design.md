@@ -167,6 +167,17 @@ FlappyRaceLifetimeScope : builder.Install(공통 2종) + FlappyWorld, 새 스폰
 | `GameLifetimeScope` (클·서) | 공통 → Installer 2종, 게임별 → 각 게임 씬 스코프 |
 | 클라 `MatchmakingViewModel.Play()` | 하드코딩 `1` → 로비에서 고른 값 |
 
+> **두 `ScenePath`는 이름이 같지만 해석하는 쪽이 다르다.**
+>
+> | 컬럼 | 로더 | 새로 추가할 때 필요한 것 |
+> |---|---|---|
+> | `TbGameMode.ScenePath` | `SceneManager.LoadSceneAsync` | **EditorBuildSettings에 씬 등록** |
+> | `TbMap.ScenePath` | `AddressablesMapLoader` | **Addressable로 마킹** |
+>
+> 지금은 둘 다 `Assets/...` 꼴이라 같아 보이지만(Addressables 기본 주소가 에셋 경로다) 등록 요건이
+> 다르다. 데이터만 채우고 등록을 빠뜨리면 유니티의 씬 로드 실패 메시지가 나오고, 그건 데이터를
+> 가리키지 않아 원인을 찾기 어렵다. 새 게임·맵을 추가할 때 이 표를 먼저 볼 것.
+
 **`gameModeId`가 지금 아무도 읽지 않는 값이라, 읽기 시작하는 것만으로 축이 생긴다.**
 
 ### 오류 처리
@@ -363,6 +374,9 @@ Unity `.meta` 파일은 반드시 함께 커밋한다 (rename은 GUID 유지가 
 - [ ] **레거시 string 키 테이블 정리** — `TbGameMode`/`TbMap`은 이미 int `id` 기본키라 규약에 맞다.
   `TbCharacter`/`TbAction` 등 string `code` 키는 이 슬라이스 범위 밖 (`lop-repo-topology.md`의
   "마스터데이터 키 규약" 참고).
+- [ ] **`TbMap.scene_path` 그룹 정규화** — `##group`이 빈 칸이라 매치메이킹 생성물에도 들어가 있다.
+  무해하지만 `lop-repo-topology.md`의 DTO 격리 원칙과 어긋난다. `c,s`로 맞추는 게 맞으나 셀 하나에
+  4개 저장소 커밋이 걸려 별도 슬라이스로 둔다.
 
 ---
 

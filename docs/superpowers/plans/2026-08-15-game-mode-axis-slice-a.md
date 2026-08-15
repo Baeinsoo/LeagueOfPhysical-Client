@@ -285,7 +285,9 @@ r8               4    RememberGame   기억력 게임                    2      
 r9               5    TargetShooting 타겟 슈팅                     2            8
 ```
 
-`##group`이 빈 칸이면 `luban.conf`에서 `default: true`인 그룹(`c`, `s`)에만 들어가고 `m`(matchmaking)에는 안 들어간다. 씬 경로는 유니티만 쓰므로 **빈 칸으로 둔다.**
+`##group`이 빈 칸이면 **모든** 타깃(`c`/`s`/`m`)에 들어간다 — "default 그룹만"이 아니다(예:
+`min_players`는 빈 칸인데도 matchmaking 생성물에 들어가 있다). 씬 경로는 유니티 전용이라
+매치메이킹에 새지 않게 하려면 `c,s`로 **명시**해야 한다 — `c`만 쓰면 서버가 못 읽는다.
 
 - [ ] **Step 1: xlsx 편집 도구 준비**
 
@@ -308,7 +310,8 @@ ws = wb.worksheets[0]
 
 ws['H1'] = 'scene_path'
 ws['H2'] = 'string'
-# H3(##group)은 비워 둔다 — c/s에만 들어가고 matchmaking에는 안 들어간다.
+# H3(##group)은 'c,s'로 명시한다 — 빈 칸이면 모든 타깃에 들어가 matchmaking까지 샌다.
+ws['H3'] = 'c,s'
 ws['H4'] = 'scene_path'
 ws['H5'] = 'Assets/Scenes/FlapWang.unity'   # id 1 = FlapWang
 # id 2~5(닷지볼·관찰자 피하기·기억력 게임·타겟 슈팅)는 아직 씬이 없어 빈 값으로 둔다.

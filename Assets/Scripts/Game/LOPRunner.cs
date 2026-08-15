@@ -67,9 +67,10 @@ namespace LOP
             var rounds = roomDataStore.match?.rounds;
             var roundIndex = MatchSceneResolver.CurrentRoundIndex(rounds?.Length ?? 0);
             var round = rounds[roundIndex];
-            var map = masterData.Tables.TbMap.GetOrDefault(round.mapId);
+            var map = MatchSceneResolver.RequireRow(
+                "TbMap", round.mapId, masterData.Tables.TbMap.GetOrDefault(round.mapId));
 
-            return MatchSceneResolver.RequireScenePath("TbMap", round.mapId, map?.ScenePath);
+            return MatchSceneResolver.RequireScenePath("TbMap", round.mapId, map.ScenePath);
         }
 
         public override async Task DeinitializeAsync()

@@ -26,7 +26,8 @@ namespace LOP
         [Inject] private LocalSnapshotSystem localSnapshotSystem;
         [Inject] private DespawnFlushSystem despawnFlushSystem;
 
-        private const string MapId = "Assets/Art/Scenes/FlapWangMap.unity";
+        [Inject] private IRoomDataStore roomDataStore;
+        [Inject] private LOP.MasterData.LOPMasterData masterData;
 
         private readonly Restorer restorer = new Restorer();
 
@@ -48,7 +49,7 @@ namespace LOP
             Physics.gravity = new Vector3(0, -9.81f * 2, 0);
 
             // 맵 로딩과 베이스 초기화를 병렬로 — 둘 다 끝나길 기다린다.
-            var mapLoadTask = mapLoader.LoadAsync(MapId);
+            var mapLoadTask = mapLoader.LoadAsync(ResolveMapScenePath());
 
             await base.InitializeAsync();
 
@@ -58,6 +59,18 @@ namespace LOP
             await mapLoadTask;
 
             gameState = RunnerState.Initialized;
+        }
+
+        /// <summary>이 판에서 로드할 맵 씬. 매치의 이번 라운드가 가리키는 맵에서 온다.</summary>
+        private string ResolveMapScenePath()
+        {
+            var rounds = roomDataStore.match?.rounds;
+            var roundIndex = MatchSceneResolver.CurrentRoundIndex(rounds?.Length ?? 0);
+            var round = rounds[roundIndex];
+            var map = MatchSceneResolver.RequireRow(
+                "TbMap", round.mapId, masterData.Tables.TbMap.GetOrDefault(round.mapId));
+
+            return MatchSceneResolver.RequireScenePath("TbMap", round.mapId, map.ScenePath);
         }
 
         public override async Task DeinitializeAsync()

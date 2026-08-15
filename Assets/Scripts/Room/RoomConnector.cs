@@ -37,6 +37,15 @@ namespace LOP
                     {
                         return true;
                     }
+
+                    //  방이 닫혔거나 터진 건 확정된 대답이다 — 60초를 더 물어봐도 답이 바뀌지 않는다.
+                    //  아직 부팅 중이라 거절당한 경우와 구분해야 해서, 응답 코드가 아니라 방 상태로 가른다.
+                    if (checkRoomJoinable.room != null &&
+                        (checkRoomJoinable.room.status == RoomStatus.Closed || checkRoomJoinable.room.status == RoomStatus.Error))
+                    {
+                        Debug.Log($"Room {roomId} is already closed (status: {checkRoomJoinable.room.status}). Stop retrying.");
+                        return false;
+                    }
                 }
                 catch (Exception e)
                 {

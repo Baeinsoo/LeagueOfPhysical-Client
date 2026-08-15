@@ -30,6 +30,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ed4f7466c94b144b4ae4d2862145b798
+    m_Address: Assets/Art/Characters/FlappyBird/Bird.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 853e27bf3e281af488214b7f6b35dfdf, type: 2}
   m_SchemaSet:

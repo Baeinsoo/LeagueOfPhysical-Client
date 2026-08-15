@@ -318,11 +318,12 @@ Unity `.meta` 파일은 반드시 함께 커밋한다 (rename은 GUID 유지가 
 | | 무엇 | 어디 | 끝났다는 기준 |
 |---|---|---|---|
 | **A** | 게임 씬을 데이터로 고른다 | 클·서 + 마스터데이터 | **지금과 똑같이 동작한다.** 단 씬 이름이 상수가 아니라 `TbGameMode`에서 온다 |
-| **B** | Flappy Race 최소 껍데기 | 클·서 + 마스터데이터 | `gameModeId`를 2로 바꾸면 완전히 다른 게임이 뜨고, 여러 명이 예측 위에서 난다 |
+| **B1** | 축 배선 — 게임 씬·맵·월드·엔티티가 게임모드로 갈린다 | 클·서 + 마스터데이터 | ✅ **완료.** `gameModeId`를 6으로 바꾸면 FlappyRace 씬 + 맵이 뜨고 새가 스폰돼 보인다 |
+| **B2** | 게임플레이 — 고정 전진 + 플랩 + 중력, 입력 배선, 클라 예측/롤백, 새끼리 몸싸움 | 클·서 + 마스터데이터 | 여러 명이 예측 위에서 실제로 난다 |
 | **C** | 로비 게임 선택 | 클라 UI | 로비에서 고른 게임으로 실제 입장한다 |
 | **D** | 게임별 종료 + 순위 전달 | 클·서 + proto | 게임마다 다른 조건으로 끝나고 순위가 화면에 뜬다 |
 
-순서: **A → B → (C, D는 서로 독립) → E(별도 spec)**
+순서: **A → B1 → B2 → (C, D는 서로 독립) → E(별도 spec)**
 
 **A가 가장 중요하다.** 화면은 그대로고 씬 이름만 데이터에서 온다 — 순수 리팩터라 **회귀가 없다는
 걸 확실히 검증할 수 있는 유일한 시점**이다. B부터는 새 코드가 섞여 원인을 가리기 어려워진다.
@@ -395,6 +396,53 @@ Unity `.meta` 파일은 반드시 함께 커밋한다 (rename은 GUID 유지가 
 - [ ] **클·서 `LOPGameFactory.cs` 두 벌의 동일성을 지켜줄 장치 없음** — 지금 md5까지 같지만 이를 강제하는
   테스트나 도구가 없다. `RoomLifetimeScope`/`GameLifetimeScope` 같은 사이드 전용 타입을 참조해 공유로
   옮길 수도 없다. **슬라이스 B에서 게임별 스코프를 가를 때가 두 파일이 갈라질 첫 지점**이다.
+
+---
+
+## 슬라이스 B1에서 실제로 겪은 것
+
+B1은 "축이 실제로 갈리는가"를 증명하는 슬라이스였다. 코드로 짜기 전엔 안 보이던 것들이 몇 개
+나왔다. 다음에 이 문서를 읽는 사람이 같은 함정을 다시 밟지 않도록, **추측 없이 실제로 확인한 것만**
+적는다.
+
+### 스펙과 달라진 것 (그리고 왜)
+
+| 스펙이 말한 것 | 실제로 한 것 | 왜 |
+|---|---|---|
+| `TbGameMode` 새 id = 2 | **id = 6** | id 1~5가 이미 다른 용도로 차 있고, 2는 `Dodgeball`이 쓰고 있었다. `TbMap`은 id 2, `game_mode_id=6`으로 FlappyRace에 연결했다 |
+| §5의 `NetcodeInstaller` + `WorldCoreInstaller` 둘로 분리 | **`GameplayInstaller` 한 벌** | `Reconciler`가 생성자에서 `AbilityActivator`·`StatusEffectSystem`·`StatusEffectDataProvider`·`SequenceBuffer<PredictedAbilityState>`를 요구한다 — 넷코드가 이미 어빌리티 스택에 물려 있어서, 지금 둘로 쪼개면 어빌리티가 없는 게임(Flappy)이 아예 못 뜬다. **그 얽힘을 푸는 것 자체가 B2 몫**(§11 표, "다음 슬라이스로 넘기는 것" 참고)이라 이번엔 한 벌로 갔다 |
+| 새 엔티티에 `Ownership` 부착 | **클라 `FlappyBirdCreator`는 안 붙인다** | 클라 `CharacterCreationData`엔 `userId` 필드가 아예 없다(서버 전용). 클라 `CharacterCreator`도 같은 이유로 안 붙인다 — 클라는 `Ownership` 대신 `gameDataStore.userEntityId`를 비교해 "내 몸"을 가린다 |
+| 새 엔티티에 `Simulated` 부착 | **클라 `FlappyBirdCreator`는 안 붙인다** | `Simulated`는 클라가 예측(시뮬)하는 대상을 표시하는 마커인데, B1엔 예측할 움직임 자체가 없다(새가 안 움직인다). **B2에서 이동이 붙을 때 함께 붙인다** |
+
+### 실제로 걸린 함정
+
+전부 컴파일 또는 런타임에서 드러난 것이다.
+
+- **`InjectSceneObjects`는 VContainer가 아니라 `GameFramework` 네임스페이스의 확장 메서드다.**
+  스코프 파일을 통째로 다시 쓰면서 `using GameFramework;`가 빠져 클·서 양쪽에서 컴파일이 깨졌다.
+- **`builder.Install(IInstaller)` 확장은 이 VContainer 버전(1.16.2)엔 없다.** 이 코드베이스 관례는
+  `new XInstaller().Install(builder)`다(`RootLifetimeScope.cs`가 이미 그렇게 쓰고 있다).
+- **씬 검증은 메모리가 아니라 디스크 YAML을 봐야 한다.** 베이스 클래스가 `abstract`가 되면 유니티는
+  씬을 *열 때* 옛 컴포넌트 슬롯을 널로 만들어 보여준다. 그래서 씬을 열어서 세면 "정확히 1개"로
+  보이고 `GetMonoBehavioursWithMissingScriptCount`도 0을 준다 — 그런데 **저장된 파일에는 옛
+  컴포넌트 블록이 그대로 남아** 그대로 커밋될 뻔했다. 서버 두 씬에서 실제로 이 상태를 발견했다.
+- **씬에 이미 있는 공통 오브젝트의 `[Inject]` 의존을, 새 게임 스코프가 계속 해결해주는지 반드시
+  확인해야 한다.** `LOPGameSceneCoordinator`가 `CameraController`를 주입받는다(로딩 화면 내리기 +
+  카메라 타깃 설정). 계획 단계에선 이걸 FlapWang 전용으로 오해해 Flappy 씬에서 빼라고 적혀 있었는데,
+  그대로 갔으면 런타임 주입 실패였다.
+- **게임모드만 바꾸면 매치메이킹 티켓이 거절된다.** 매치메이킹 서버가 "맵은 그 게임에 속해야 한다"를
+  검증하는데(`INVALID_MAP`), 클라가 `mapId`를 FlapWangMap으로 하드코딩하고 있었다. **증상이 "화면에
+  아무 일도 안 일어남"이라 추적이 어렵다.** 지금은 `TemporaryGameModeId`/`TemporaryMapId`가 짝으로
+  묶여 있다 — **둘을 함께 바꿔야 한다**(1·1 = FlapWang, 6·2 = FlappyRace).
+
+### 남겨둔 것 — B2 이전에 확인할 것
+
+- 승격된 맵 씬(`Assets/Art/Scenes/FlappyRaceMap.unity`)의 `PlayerSpawn_1`~`4` 마커가 비활성
+  상태다. 지금은 아무도 참조하지 않지만, **B2에서 스폰 지점을 실제로 쓰게 되면 먼저 확인해야 한다.**
+- **서버 프로젝트에는 아트 에셋이 없다**(`Assets/Art` 서브모듈이 클라에만 있다). 서버는 맵 지오메트리를
+  로드하지 못한다 — FlapWang도 같은 상태라 B1이 만든 문제는 아니지만, **B2에서 새가 바닥·파이프와
+  부딪히려면 반드시 다뤄야 한다**(§11 표, "다음 슬라이스로 넘기는 것" 참고).
+- 플레이 검증(런타임)은 아직 안 했다. 유니티 두 대 + 매치메이킹 서버 재배포가 필요하다.
 
 ---
 

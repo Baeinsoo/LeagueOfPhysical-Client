@@ -4,7 +4,7 @@ using UnityEngine;
 namespace LOP
 {
     // 데이터 전용 creator — World.Entity 조립 + registry.Add + 어빌리티 Grant. actor(뷰 앵커)는 EntityBinder가 만든다.
-    public class CharacterCreator
+    public class CharacterCreator : ICharacterCreator
     {
         private readonly IGameDataStore gameDataStore;
         private readonly IPlayerContext playerContext;

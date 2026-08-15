@@ -53,6 +53,8 @@ namespace LOP
             builder.RegisterEntryPoint<GameInputTimingMessageHandler>();
             builder.RegisterEntryPoint<GameWorldEventMessageHandler>();
             builder.RegisterEntryPoint<MatchEndedMessageHandler>();
+            // EntityBinder가 EntityCreated 때 로컬 유저 actor를 만들어 playerContext.actor에 세팅한다.
+            // 게임별 PlayerHudCoordinator(각 게임 스코프가 등록)와 등록 순서가 무관하다 — 이유는 그쪽 주석 참고.
             builder.RegisterEntryPoint<EntityBinder>();
             builder.Register<PlayerInputManager>(Lifetime.Singleton).AsSelf();
             builder.Register<ItemCreator>(Lifetime.Singleton);

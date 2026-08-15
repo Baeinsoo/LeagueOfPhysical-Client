@@ -19,6 +19,8 @@ namespace LOP
             builder.Register<GameFramework.World.IWorld, LOPWorld>(Lifetime.Singleton);
             builder.Register<ICharacterCreator, CharacterCreator>(Lifetime.Singleton);
 
+            // 공통 Installer의 EntityBinder와 등록 순서가 무관하다: HUD 뷰모델이 읽는 entityId는
+            // EntityCreated 발행 전에 세팅되고, actor의 유일한 소비자는 폴링이라 순서를 타지 않는다.
             builder.RegisterEntryPoint<PlayerHudCoordinator>();
 
             builder.Register<StatsViewModel>(Lifetime.Transient);

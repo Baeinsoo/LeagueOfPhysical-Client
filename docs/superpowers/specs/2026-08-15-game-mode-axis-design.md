@@ -76,7 +76,6 @@ private const string GameSceneName = "LOPGame";   // ← 축이 막혀 있는 �
 | `TbGameMode` | 씬 경로 컬럼 없음 | 고를 대상을 데이터로 표현할 수 없다 |
 | `gameModeId` | **아무도 읽지 않는다** | 값은 흐르는데 아무것도 분기하지 않는다 |
 | 클라 `LOPRunner.MapId` | 하드코딩 상수 | 서버는 데이터 주도인데 클라만 상수 (비대칭) |
-| 클라 `LOPRoom.InitializeAsync` | `GetMatch` 결과를 에러 체크만 하고 버린다 | `rounds`를 알 수 없다 |
 | 클라 `MatchmakingViewModel.Play()` | `gameModeId = 1` 하드코딩 | 유저가 고를 수 없다 (코드 주석에 이미 "로비 선택 UI 슬라이스 몫"으로 표시됨) |
 | 서버 `GameRuleSystem` | 단일 하드코딩 | 게임별 룰이 없다. 자기 주석에 *"⚠️ 임시 위치"* 로 이미 표시됨 |
 | 서버 종료 조건 | `LateUpdate`에서 `elapsedTime > 60*5` | 게임마다 다른 종료 조건이 불가능 |
@@ -148,7 +147,7 @@ FlappyRaceLifetimeScope : builder.Install(공통 2종) + FlappyWorld, 새 스폰
 ```
 룸 진입
  └ WebAPI.GetMatch → match.rounds[]
-    │    서버: 이미 저장함 / 클라: 호출은 하는데 결과를 버림 → 저장만 추가
+    │    클·서 모두 이미 IRoomDataStore.match에 저장돼 있다 (변경 불필요 — 아래 정정 참고)
     └ IGameFactory.CreateAsync()
        └ rounds[0].gameModeId → TbGameMode.ScenePath → 게임 씬 additive 로드     ← 이번에 추가
           └ 게임 씬 스코프 Configure — 그 게임의 월드·룰·UI 등록
@@ -163,7 +162,7 @@ FlappyRaceLifetimeScope : builder.Install(공통 2종) + FlappyWorld, 새 스폰
 |---|---|
 | `infrastructure/table/Datas/#GameMode.xlsx` | **`scene_path` 컬럼 추가** (→ `TbGameMode.ScenePath`). `TbMap.ScenePath`와 같은 이름을 쓴다 — 다른 테이블이라 충돌이 없고, "이 행이 가리키는 씬"이라는 뜻이 양쪽에서 동일하다 |
 | `LOPGameFactory` (클·서) | 상수 → `rounds[0].gameModeId` → `TbGameMode.ScenePath` |
-| 클라 `LOPRoom.InitializeAsync` | `GetMatch` 결과를 `IRoomDataStore`에 저장 (서버는 이미 함) |
+| ~~클라 `LOPRoom.InitializeAsync`~~ | **정정 — 변경 불필요.** 착수 시 확인해보니 클라도 이미 저장하고 있다: `WebAPI.SendAsync`가 모든 응답을 메시지 파이프에 발행하고 `RoomDataStore.HandleGetMatch`가 받아 `match`에 넣는다. `RoomDataStore`는 RootLifetimeScope 싱글턴이라 앱 시작부터 살아 있고, `GetMatch` 호출은 `gameFactory.CreateAsync()` **직전**이다 |
 | 클라 `LOPRunner` | `MapId` 상수 삭제 → 서버와 동일한 `ResolveScenePath()` |
 | `GameLifetimeScope` (클·서) | 공통 → Installer 2종, 게임별 → 각 게임 씬 스코프 |
 | 클라 `MatchmakingViewModel.Play()` | 하드코딩 `1` → 로비에서 고른 값 |

@@ -276,6 +276,12 @@ namespace LOP
             }
 
             GameFramework.World.Entity worldEntity = entityRegistry.Get(playerContext.entityId);
+
+            //  스냅이 매 틱 오는 자리라 "없다"를 그냥 찍으면 콘솔이 그 경고로만 채워진다.
+            //  마스터데이터로 스탯을 받는 몸만 이 값들을 갖는다 — Flappy의 새는 체력·마나 개념이
+            //  없어서 없는 게 정상이고, 그건 알릴 일이 아니다.
+            bool expectsStats = worldEntity?.Has<MasterDataRef>() ?? false;
+
             GameFramework.World.Health health = worldEntity?.Get<GameFramework.World.Health>();
             if (health != null)
             {
@@ -287,7 +293,7 @@ namespace LOP
                     healthChangedPublisher.Publish(playerContext.entityId, new EntityHealthChanged(health.Current, health.Max));
                 }
             }
-            else
+            else if (expectsStats)
             {
                 Debug.LogWarning($"[World] UserEntitySnap: Health not found for entity {playerContext.entityId}");
             }
@@ -302,7 +308,7 @@ namespace LOP
                     manaChangedPublisher.Publish(playerContext.entityId, new EntityManaChanged(mana.Current, mana.Max));
                 }
             }
-            else
+            else if (expectsStats)
             {
                 Debug.LogWarning($"[World] UserEntitySnap: Mana not found for entity {playerContext.entityId}");
             }
@@ -317,7 +323,7 @@ namespace LOP
                     levelChangedPublisher.Publish(playerContext.entityId, new EntityLevelChanged(level.Value, level.Exp, level.ExpToNext));
                 }
             }
-            else
+            else if (expectsStats)
             {
                 Debug.LogWarning($"[World] UserEntitySnap: Level not found for entity {playerContext.entityId}");
             }
@@ -331,7 +337,7 @@ namespace LOP
                     statPointsChangedPublisher.Publish(playerContext.entityId, new EntityStatPointsChanged(stats.UnspentPoints));
                 }
             }
-            else
+            else if (expectsStats)
             {
                 Debug.LogWarning($"[World] UserEntitySnap: Stats not found for entity {playerContext.entityId}");
             }

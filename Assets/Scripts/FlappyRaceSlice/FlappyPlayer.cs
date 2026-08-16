@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 /// FlappyRace 3D 버티컬 슬라이스용 플레이어. 정식 아키텍처(World Core/VContainer) 미통합 — 손맛 확인용 독립 스크립트.
 /// 고정 전진 + 플랩/중력 + 다이브 충전 대시 + 충돌 시 유령 정지. 프로토타입(dive-flappy) 튜닝값 이식.
 /// </summary>
-public class FlappyPlayer : MonoBehaviour, IFlappyRacer
+public class FlappyPlayer : MonoBehaviour
 {
     [Header("이동")]
     public float forwardSpeed = 7f;
@@ -58,41 +58,13 @@ public class FlappyPlayer : MonoBehaviour, IFlappyRacer
     /// <summary>스타트 부스트 — 대시를 발동(전진 버스트 + 고도 유지 + 대시 연출). 충전 무관.</summary>
     public void StartBoost(float dur) { dashCharge = 0f; dashT = dur; vy = 0f; }
 
-    [Header("충돌 튕김")]
-    public float knockDecay = 5f;      // 밀림이 사그라드는 속도(클수록 짧게 튕김)
-    public float maxKnock = 22f;       // 폭발 방지 상한
-    Vector2 knock;
-
-    public bool IsDashing => dashT > 0f;
-    public Vector2 Velocity => new Vector2(forwardSpeed * (dashT > 0f ? dashMult : 1f), vy);
-
-    /// <summary>부딪힌 순간의 밀림을 얹는다. 코어 속도는 그대로 두고 이 값만 따로 감쇠시킨다.</summary>
-    public void AddKnockback(Vector2 impulse)
-    {
-        knock = Vector2.ClampMagnitude(knock + impulse, maxKnock);
-    }
-
-    /// <summary>낙마 시 발행. 연출(FlappyDismountFx)이 구독한다.</summary>
-    public event System.Action Dismounted;
-
-    /// <summary>
-    /// 낙마 — 그 자리에서 ghostTime초 정지 후 복귀. 맵 장애물 충돌과 대시 박치기, 이 둘만 호출한다.
-    /// 무적 중이거나 이미 낙마 중이면 무시(벽에 얹혀 무한 낙마하는 것 방지).
-    /// </summary>
-    public void Dismount()
-    {
-        if (ghostT > 0f || invuln > 0f) return;
-        ghostT = ghostTime;
-        Dismounted?.Invoke();
-    }
-
     void Update()
     {
         if (FlappyRaceStart.RaceFrozen) return;   // 카운트다운 중 정지
         float dt = Time.deltaTime;
         if (invuln > 0f) invuln -= dt;
         UpdateFlash();   // 정지/무적 동안 반투명 깜빡
-        if (ghostT > 0f) { ghostT -= dt; _wasTouching = ResolveObstacles(); FlappyBird.ResolveBirdCollisions(SelfCol); if (ghostT <= 0f) invuln = invulnTime; return; }  // 그 자리 정지(그동안도 벽/새 밖으로)
+        if (ghostT > 0f) { ghostT -= dt; _wasTouching = ResolveObstacles(); vy = FlappyBird.ResolveBirdCollisions(SelfCol, vy); if (ghostT <= 0f) invuln = invulnTime; return; }  // 그 자리 정지(그동안도 벽/새 밖으로)
 
         var kb = Keyboard.current;
         bool flap = (kb != null && (kb.spaceKey.wasPressedThisFrame || kb.upArrowKey.wasPressedThisFrame))
@@ -115,14 +87,6 @@ public class FlappyPlayer : MonoBehaviour, IFlappyRacer
         if (boostT > 0f) boostT -= dt;
         p.x += spd * dt;
 
-        // 충돌 밀림 — 코어 물리와 분리해 따로 얹고 감쇠(엔진 물리에 넘기면 손맛이 흔들린다)
-        if (knock.sqrMagnitude > 0.0001f)
-        {
-            p.x += knock.x * dt;
-            p.y += knock.y * dt;
-            knock *= Mathf.Exp(-knockDecay * dt);
-        }
-
         // 천장/바닥 (둘 다 고도를 따라감; 클램프는 무조건, 바닥 유령은 무적 아닐 때만)
         float cy = CeilAt(p.x);
         if (p.y > cy) { p.y = cy; vy = 0f; }
@@ -130,11 +94,10 @@ public class FlappyPlayer : MonoBehaviour, IFlappyRacer
         if (p.y < fy) { p.y = fy; vy = 0f; }
         transform.position = p;
         bool touching = ResolveObstacles();   // 밀어내기(관통 방지) + 겹침 여부
-        if (touching && !_wasTouching) Dismount();   // 새 충돌(상승엣지)에만 낙마. 무적 체크는 Dismount 안에서
+        if (touching && !_wasTouching && invuln <= 0f) ghostT = ghostTime;  // 새 충돌(상승엣지)에만 0.5s 정지
         _wasTouching = touching;
 
-        float vpush = FlappyBird.ResolveBirdCollisions(SelfCol);   // 새끼리 몸싸움(유령정지 없음)
-        if (vpush > 0.5f && vy < 0f) vy = 0f; else if (vpush < -0.5f && vy > 0f) vy = 0f;
+        vy = FlappyBird.ResolveBirdCollisions(SelfCol, vy);   // 새끼리 몸싸움(유령정지 없음) — 부딪힌 세로 속도를 주고받는다
 
         // 틸트: 상승(vy>0)=코 위로, 낙하(vy<0)=코 아래로
         float tt = Mathf.Clamp(-vy * tiltPerVy, -tiltUp, tiltDown);
@@ -192,12 +155,11 @@ public class FlappyPlayer : MonoBehaviour, IFlappyRacer
         {
             var o = _pen[i];
             if (o == col || o.GetComponentInParent<FlappyObstacle>() == null) continue;
-            bool isBoundary = o.GetComponentInParent<FlappyBoundary>() != null;
             if (Physics.ComputePenetration(col, col.transform.position, col.transform.rotation,
                                            o, o.transform.position, o.transform.rotation,
                                            out Vector3 dir, out float dist))
             {
-                if (!isBoundary) touching = true;   // 경계는 막기만 — 낙마 없음
+                touching = true;
                 transform.position += dir * dist;                 // 밖으로 밀어냄(관통 방지)
                 if (dir.y > 0.5f && vy < 0f) vy = 0f;
                 else if (dir.y < -0.5f && vy > 0f) vy = 0f;

@@ -11,9 +11,9 @@ namespace LOP
         public UserProfile userProfile { get; set; } = new UserProfile();
         private readonly ReactiveProperty<UserLocation> _userLocation = new(new UserLocation());
         public ReadOnlyReactiveProperty<UserLocation> userLocation => _userLocation;
-        // 큐가 enum이 아니라 데이터(TbQueue 행)라서 전적도 큐 id로 담는다.
-        private readonly Dictionary<int, UserStats> statsByQueueId = new();
-        public IReadOnlyDictionary<int, UserStats> userStatsByQueueId => statsByQueueId;
+        // 큐가 enum이 아니라 데이터(TbQueue 행)라서 레이팅도 큐 id로 담는다.
+        private readonly Dictionary<int, UserRating> ratingByQueueId = new();
+        public IReadOnlyDictionary<int, UserRating> userRatingByQueueId => ratingByQueueId;
 
         private readonly IDisposable subscriptions;
 
@@ -21,14 +21,14 @@ namespace LOP
             ISubscriber<CreateUserResponse> createUserSubscriber,
             ISubscriber<GetUserLocationResponse> getUserLocationSubscriber,
             ISubscriber<GetUserResponse> getUserSubscriber,
-            ISubscriber<GetUserStatsResponse> getUserStatsSubscriber,
+            ISubscriber<GetUserRatingResponse> getUserRatingSubscriber,
             ISubscriber<UpdateUserProfileResponse> updateUserProfileSubscriber)
         {
             var bag = MessagePipe.DisposableBag.CreateBuilder();
             createUserSubscriber.Subscribe(HandleCreateUser).AddTo(bag);
             getUserLocationSubscriber.Subscribe(HandleGetUserLocation).AddTo(bag);
             getUserSubscriber.Subscribe(HandleGetUser).AddTo(bag);
-            getUserStatsSubscriber.Subscribe(HandleGetUserStats).AddTo(bag);
+            getUserRatingSubscriber.Subscribe(HandleGetUserRating).AddTo(bag);
             updateUserProfileSubscriber.Subscribe(HandleUpdateUserProfile).AddTo(bag);
             subscriptions = bag.Build();
         }
@@ -70,11 +70,19 @@ namespace LOP
             user = MapperConfig.mapper.Map<User>(response.user);
         }
 
-        private void HandleGetUserStats(GetUserStatsResponse response)
+        private void HandleGetUserRating(GetUserRatingResponse response)
         {
-            UserStats userStats = MapperConfig.mapper.Map<UserStats>(response.userStats);
+            //  레이팅 행이 없으면 응답 본문에 userRating이 안 실려 온다. 그대로 매핑하면 null이 되고
+            //  바로 아래 큐 id를 읽다 터진다 — 위치 응답과 같은 방식으로 무시한다.
+            if (response.userRating == null)
+            {
+                UnityEngine.Debug.LogWarning($"[Rating] 응답에 레이팅이 없어 무시한다. code: {response.code}");
+                return;
+            }
 
-            statsByQueueId[userStats.queueId] = userStats;
+            UserRating userRating = MapperConfig.mapper.Map<UserRating>(response.userRating);
+
+            ratingByQueueId[userRating.queueId] = userRating;
         }
 
         private void HandleUpdateUserProfile(UpdateUserProfileResponse response)
@@ -87,7 +95,7 @@ namespace LOP
             user = new User();
             userProfile = new UserProfile();
             _userLocation.Value = new UserLocation();
-            statsByQueueId.Clear();
+            ratingByQueueId.Clear();
         }
     }
 }

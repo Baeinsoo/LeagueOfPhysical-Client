@@ -88,9 +88,9 @@ namespace LOP
                 HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/location/"),
                 GetUserLocationResponse.Deserialize, cancellationToken);
 
-        public static UniTask<GetUserStatsResponse> GetUserStats(string userId, int queueId, CancellationToken cancellationToken = default)
-            => SendAsync<GetUserStatsResponse>(authorized,
-                HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/stats?queueId={queueId}"), cancellationToken);
+        public static UniTask<GetUserRatingResponse> GetUserRating(string userId, int queueId, CancellationToken cancellationToken = default)
+            => SendAsync<GetUserRatingResponse>(authorized,
+                HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/rating?queueId={queueId}"), cancellationToken);
         #endregion
 
         #region Room

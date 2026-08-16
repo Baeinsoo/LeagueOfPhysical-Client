@@ -4,8 +4,8 @@ using UnityEngine;
 
 namespace LOP
 {
-    public class GetUserStatsResponse : HttpResponse
+    public class GetUserRatingResponse : HttpResponse
     {
-        public UserStatsDto userStats;
+        public UserRatingDto userRating;
     }
 }

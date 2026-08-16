@@ -29,6 +29,9 @@ namespace LOP
             RegisterState<InGameRoom>(builder);
             RegisterState<CancelMatchmaking>(builder);
 
+            // 고를 수 있는 게임 목록. 마스터데이터를 한 번 훑어 만들어 두므로 Scoped면 충분하다.
+            builder.Register<PlayableGameProvider>(Lifetime.Scoped);
+
             // VM은 Scoped — LobbyHomeView(Play)와 Coordinator가 같은 인스턴스를 공유해야 신호가 이어진다.
             builder.Register<MatchmakingViewModel>(Lifetime.Scoped);
             builder.Register<LobbyHomeView>(Lifetime.Transient);

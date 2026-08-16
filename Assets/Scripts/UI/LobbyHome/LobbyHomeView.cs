@@ -1,3 +1,6 @@
+using R3;
+using System;
+using System.Collections.Generic;
 using UnityEngine.UIElements;
 
 namespace LOP.UI
@@ -15,6 +18,9 @@ namespace LOP.UI
         private Button _shopButton;
         private Button _settingsButton;
         private Button _profileButton;
+
+        private readonly Dictionary<int, Button> _gameCards = new Dictionary<int, Button>();
+        private IDisposable _selectionSubscription;
 
         public LobbyHomeView(MatchmakingViewModel matchmaking, LobbyHomeViewModel viewModel)
         {
@@ -37,10 +43,55 @@ namespace LOP.UI
             _shopButton.clicked += OnShopClicked;
             _settingsButton.clicked += OnSettingsClicked;
             _profileButton.clicked += OnProfileClicked;
+
+            BuildGameCards();
+            _selectionSubscription = _matchmaking.SelectedGameModeId.Subscribe(ShowSelection);
+        }
+
+        //  카드 수는 마스터데이터가 정하므로 UXML에 박지 않고 여기서 만든다.
+        private void BuildGameCards()
+        {
+            var container = Root.Q<VisualElement>("game-cards");
+            container.Clear();
+            _gameCards.Clear();
+
+            foreach (var game in _matchmaking.Games)
+            {
+                var gameModeId = game.GameModeId;
+                var card = new Button(() => _matchmaking.Select(gameModeId));
+                card.AddToClassList("game-card");
+
+                var name = new Label(game.Name);
+                name.AddToClassList("game-card__name");
+                card.Add(name);
+
+                //  설명이 아직 없는 게임이 있다 — 빈 줄을 남기지 않고 아예 안 만든다.
+                if (string.IsNullOrEmpty(game.Description) == false)
+                {
+                    var description = new Label(game.Description);
+                    description.AddToClassList("game-card__description");
+                    card.Add(description);
+                }
+
+                container.Add(card);
+                _gameCards[gameModeId] = card;
+            }
+        }
+
+        private void ShowSelection(int selectedGameModeId)
+        {
+            foreach (var pair in _gameCards)
+            {
+                pair.Value.EnableInClassList("game-card--selected", pair.Key == selectedGameModeId);
+            }
         }
 
         public override void OnClose()
         {
+            _selectionSubscription?.Dispose();
+            _selectionSubscription = null;
+            _gameCards.Clear();
+
             if (_playButton != null) _playButton.clicked -= OnPlayClicked;
             if (_shopButton != null) _shopButton.clicked -= OnShopClicked;
             if (_settingsButton != null) _settingsButton.clicked -= OnSettingsClicked;

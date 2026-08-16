@@ -7,7 +7,7 @@ namespace LOP
     {
         public string id;
         public int queueId;
-        public int targetRating;
+        public int targetMmr;
         public string[] playerList;
         public MatchRoundDto[] rounds;
     }

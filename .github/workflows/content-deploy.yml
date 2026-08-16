@@ -1,6 +1,13 @@
 name: content-deploy
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: "빌드·업로드 대상"
+        required: true
+        default: gameserver
+        type: choice
+        options: [gameserver, client-app, both]
 
 concurrency:
   group: content-deploy
@@ -11,6 +18,7 @@ env:
 
 jobs:
   build-deploy:
+    if: inputs.target == 'client-app' || inputs.target == 'both'
     runs-on: [self-hosted, client]
     steps:
       - uses: actions/checkout@v4
@@ -73,6 +81,7 @@ jobs:
   # 게임서버(Linux)용 콘텐츠. 서버 이미지는 빈 카탈로그로 빌드되고 부팅 시 이 경로의
   # catalog_0.1.hash를 보고 원격 카탈로그를 받는다. 로컬 번들이 없으므로 증분이 아니라 full로 굽는다.
   build-deploy-gameserver:
+    if: inputs.target == 'gameserver' || inputs.target == 'both'
     runs-on: [self-hosted, client]
     steps:
       - uses: actions/checkout@v4

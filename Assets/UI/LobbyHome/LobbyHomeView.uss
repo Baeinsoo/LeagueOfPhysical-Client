@@ -13,10 +13,76 @@
     align-items: center;
 }
 
+/* 시작 버튼 — 선택 칩을 품고 있어 예전보다 크고, 안에서 좌우로 나뉜다 */
 .lobbyhome-play {
-    width: 460px;
-    height: 150px;
-    font-size: 64px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    width: 900px;
+    height: 260px;
+    padding-left: 40px;
+    padding-right: 40px;
+}
+
+.lobbyhome-play__text {
+    font-size: 96px;
+    color: var(--lop-text-on-fill);
+    -unity-text-outline-width: 3px;
+    -unity-text-outline-color: var(--lop-primary-shade);
+    -unity-text-align: middle-center;
+    margin-right: 40px;
+}
+
+.lobbyhome-picks {
+    justify-content: center;
+}
+
+/* 버튼 면 위에 얹힌 흰 필. 배경이 주황이라 반투명 흰색으로 띄운다.
+ *
+ * 모서리는 --lop-radius-pill(999px)을 쓰지 않고 높이의 절반을 직접 적는다.
+ * 유니티는 반지름이 요소보다 크면 가로·세로를 *각각* 줄여서 모서리가 타원으로 늘어난다
+ * (CSS 표준은 한 비율로 함께 줄여 알약이 된다). 높이의 절반이면 그 보정이 아예 안 걸린다.
+ *
+ * 글자 외곽선은 상속되는 속성이라 부모(.btn)의 3px 주황 외곽선이 그대로 내려온다.
+ * 흰 바탕에 갈색 글자라 외곽선이 있으면 지저분해져서 여기서 끈다. */
+.lobbyhome-pick {
+    min-width: 420px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+/* 라벨 없이 값만 쓰는 드롭다운이라 라벨 칸을 지운다(안 지우면 왼쪽에 빈 자리가 남는다) */
+.lobbyhome-pick .unity-base-field__label {
+    display: none;
+}
+
+/* 실제로 보이는 필은 드롭다운의 input 부분이다 */
+.lobbyhome-pick .unity-base-popup-field__input {
+    height: 84px;
+    padding-left: 30px;
+    padding-right: 22px;
+    background-color: rgba(255, 255, 255, 0.88);
+    border-color: rgba(255, 255, 255, 0.95);
+    border-width: var(--lop-border-xs);
+    border-radius: 42px;
+}
+
+.lobbyhome-pick:hover .unity-base-popup-field__input {
+    background-color: rgb(255, 255, 255);
+    border-color: rgb(255, 255, 255);
+}
+
+.lobbyhome-pick .unity-base-popup-field__text {
+    font-size: 34px;
+    color: var(--lop-text);
+    -unity-text-outline-width: 0;
+    -unity-text-align: middle-left;
+}
+
+.lobbyhome-pick .unity-base-popup-field__arrow {
+    -unity-background-image-tint-color: var(--lop-text);
+    width: 26px;
+    height: 26px;
 }
 
 .lobbyhome-navbar {

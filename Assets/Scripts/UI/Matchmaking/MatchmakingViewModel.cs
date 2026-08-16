@@ -1,6 +1,7 @@
 using GameFramework;
 using R3;
 using System;
+using System.Collections.Generic;
 
 namespace LOP.UI
 {
@@ -16,15 +17,10 @@ namespace LOP.UI
         private readonly IMatchmakingDataStore _matchmakingDataStore;
         private readonly IUserLocationService _userLocationService;
 
-        // 로비에서 게임을 고르는 화면이 생기기 전까지의 임시값. 게임모드(TbGameMode.id)와
-        // 맵(TbMap.id)은 서버가 "이 맵이 이 게임모드 소속인지" 검사하므로 반드시 짝을 맞춰야
-        // 한다 — 짝이 안 맞으면 티켓이 INVALID_MAP으로 조용히 거절되고 화면엔 아무 반응도 없다.
-        // 1·1 = FlapWang/FlapWangMap, 6·2 = FlappyRace/FlappyRaceMap.
-        private const int TemporaryGameModeId = 1;
-        private const int TemporaryMapId = 1;
-
         private readonly ReactiveProperty<bool> _isMatching = new(false);
         private readonly Subject<CancellationReason> _matchmakingFailed = new();
+        private readonly ReactiveProperty<int> _selectedGameIndex = new(0);
+        private readonly ReactiveProperty<int> _selectedMapIndex = new(0);
 
         /// <summary>매칭 진행 중 여부. 코디네이터가 구독해 대기 오버레이를 열고/닫는다.</summary>
         public ReadOnlyReactiveProperty<bool> IsMatching => _isMatching;
@@ -32,14 +28,69 @@ namespace LOP.UI
         /// <summary>매칭이 실패로 끝났다. 코디네이터가 구독해 안내를 띄운다(목적지는 VM이 모른다).</summary>
         public Observable<CancellationReason> MatchmakingFailed => _matchmakingFailed;
 
+        /// <summary>고를 수 있는 게임 목록. 마스터데이터에서 오며 런타임에 변하지 않는다.</summary>
+        public IReadOnlyList<GameChoice> Games { get; }
+
+        /// <summary>지금 고른 게임의 <see cref="Games"/> 안 위치. View의 드롭다운이 이 값을 따라간다.</summary>
+        public ReadOnlyReactiveProperty<int> SelectedGameIndex => _selectedGameIndex;
+
+        /// <summary>지금 고른 맵의 <see cref="CurrentMaps"/> 안 위치.</summary>
+        public ReadOnlyReactiveProperty<int> SelectedMapIndex => _selectedMapIndex;
+
+        /// <summary>지금 고른 게임의 맵들. 게임이 바뀌면 내용이 바뀌므로 View가 목록을 다시 채운다.</summary>
+        public IReadOnlyList<MapChoice> CurrentMaps => CurrentGame().Maps ?? System.Array.Empty<MapChoice>();
+
         public MatchmakingViewModel(
             MatchStateMachine matchStateMachine,
             IMatchmakingDataStore matchmakingDataStore,
-            IUserLocationService userLocationService)
+            IUserLocationService userLocationService,
+            PlayableGameProvider playableGameProvider)
         {
             _matchStateMachine = matchStateMachine;
             _matchmakingDataStore = matchmakingDataStore;
             _userLocationService = userLocationService;
+
+            Games = playableGameProvider.Games;
+        }
+
+        /// <summary>게임 드롭다운 커맨드. 맵은 그 게임의 첫 맵으로 돌아간다.</summary>
+        public void SelectGame(int index)
+        {
+            if (index < 0 || index >= Games.Count)
+            {
+                return;
+            }
+
+            _selectedGameIndex.Value = index;
+
+            //  게임이 바뀌면 이전 게임의 맵 번호를 그대로 쓸 수 없다 — 맵 개수가 달라 범위를 벗어난다.
+            _selectedMapIndex.Value = 0;
+        }
+
+        /// <summary>맵 드롭다운 커맨드. 지금 고른 게임의 맵 중에서만 고른다.</summary>
+        public void SelectMap(int index)
+        {
+            if (index < 0 || index >= CurrentMaps.Count)
+            {
+                return;
+            }
+
+            _selectedMapIndex.Value = index;
+        }
+
+        private GameChoice CurrentGame()
+        {
+            return Games.Count > 0 && _selectedGameIndex.Value < Games.Count
+                ? Games[_selectedGameIndex.Value]
+                : default;
+        }
+
+        private MapChoice CurrentMap()
+        {
+            var maps = CurrentMaps;
+            return maps.Count > 0 && _selectedMapIndex.Value < maps.Count
+                ? maps[_selectedMapIndex.Value]
+                : default;
         }
 
         /// <summary>흐름 시작. FSM 구독 + 시작(현재 위치 확인 → 적절한 상태로 진입). 코디네이터가 호출한다.</summary>
@@ -52,10 +103,19 @@ namespace LOP.UI
         /// <summary>Play 버튼 커맨드. 매칭 파라미터 세팅 후 FSM에 PlayClicked 발행.</summary>
         public void Play()
         {
-            // 하드코딩 제거는 로비 선택 UI 슬라이스 몫이다. 지금은 값만 정수 id로.
+            //  게임과 맵은 짝으로 보내야 한다 — 서버가 "이 맵이 이 게임 소속인지"를 검사하고,
+            //  어긋나면 티켓이 INVALID_MAP으로 거절된다. 그래서 목록이 게임에 맵을 붙여 두고,
+            //  맵 선택도 그 게임 안에서만 넘어간다.
+            if (Games.Count == 0)
+            {
+                //  고를 수 있는 게임이 하나도 없다는 뜻 — 마스터데이터가 잘못된 것이라 조용히 넘기지 않는다.
+                UnityEngine.Debug.LogError("입장 가능한 게임이 없다. TbGameMode의 씬 경로와 TbMap 연결을 확인할 것.");
+                return;
+            }
+
             _matchmakingDataStore.queueId = 1;      // TbQueue: Casual
-            _matchmakingDataStore.gameModeId = TemporaryGameModeId;
-            _matchmakingDataStore.mapId = TemporaryMapId;
+            _matchmakingDataStore.gameModeId = CurrentGame().GameModeId;
+            _matchmakingDataStore.mapId = CurrentMap().MapId;
 
             _matchStateMachine.Fire(MatchEvent.PlayClicked);
         }
@@ -88,6 +148,8 @@ namespace LOP.UI
             _matchStateMachine.Stop();
             _isMatching.Dispose();
             _matchmakingFailed.Dispose();
+            _selectedGameIndex.Dispose();
+            _selectedMapIndex.Dispose();
         }
     }
 }

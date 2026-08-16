@@ -14,6 +14,7 @@ namespace LOP.UI
     {
         private readonly MatchStateMachine _matchStateMachine;
         private readonly IMatchmakingDataStore _matchmakingDataStore;
+        private readonly IUserLocationService _userLocationService;
 
         // 로비에서 게임을 고르는 화면이 생기기 전까지의 임시값. 게임모드(TbGameMode.id)와
         // 맵(TbMap.id)은 서버가 "이 맵이 이 게임모드 소속인지" 검사하므로 반드시 짝을 맞춰야
@@ -23,16 +24,22 @@ namespace LOP.UI
         private const int TemporaryMapId = 1;
 
         private readonly ReactiveProperty<bool> _isMatching = new(false);
+        private readonly Subject<CancellationReason> _matchmakingFailed = new();
 
         /// <summary>매칭 진행 중 여부. 코디네이터가 구독해 대기 오버레이를 열고/닫는다.</summary>
         public ReadOnlyReactiveProperty<bool> IsMatching => _isMatching;
 
+        /// <summary>매칭이 실패로 끝났다. 코디네이터가 구독해 안내를 띄운다(목적지는 VM이 모른다).</summary>
+        public Observable<CancellationReason> MatchmakingFailed => _matchmakingFailed;
+
         public MatchmakingViewModel(
             MatchStateMachine matchStateMachine,
-            IMatchmakingDataStore matchmakingDataStore)
+            IMatchmakingDataStore matchmakingDataStore,
+            IUserLocationService userLocationService)
         {
             _matchStateMachine = matchStateMachine;
             _matchmakingDataStore = matchmakingDataStore;
+            _userLocationService = userLocationService;
         }
 
         /// <summary>흐름 시작. FSM 구독 + 시작(현재 위치 확인 → 적절한 상태로 진입). 코디네이터가 호출한다.</summary>
@@ -62,6 +69,17 @@ namespace LOP.UI
         private void OnStateChange(IState<MatchEvent> previous, IState<MatchEvent> current)
         {
             _isMatching.Value = current is InMatchmaking;
+
+            //  대기를 벗어나는 순간에만 본다. FSM이 벗어나는 계기가 위치 변화 구독이므로,
+            //  여기 도달했을 때 위치 값은 이미 새것(None + 사유)이다.
+            if (previous is InMatchmaking && current is not InMatchmaking)
+            {
+                if (_userLocationService.UserLocation.CurrentValue.locationDetail is NoneLocationDetail detail
+                    && detail.cancellationReason == CancellationReason.Timeout)
+                {
+                    _matchmakingFailed.OnNext(detail.cancellationReason);
+                }
+            }
         }
 
         public void Dispose()
@@ -69,6 +87,7 @@ namespace LOP.UI
             _matchStateMachine.onStateChange -= OnStateChange;
             _matchStateMachine.Stop();
             _isMatching.Dispose();
+            _matchmakingFailed.Dispose();
         }
     }
 }

@@ -19,6 +19,7 @@ namespace LOP.UI
 
             builder.Register<GameLoadingView>(Lifetime.Transient);
             builder.Register<MatchingWaitingView>(Lifetime.Transient);
+            builder.Register<MatchmakingFailedView>(Lifetime.Transient);
         }
     }
 }

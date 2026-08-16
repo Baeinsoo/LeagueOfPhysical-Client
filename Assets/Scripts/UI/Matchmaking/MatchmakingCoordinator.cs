@@ -14,8 +14,10 @@ namespace LOP.UI
         private readonly IWindowManager _windowManager;
         private readonly MatchmakingViewModel _viewModel;
 
-        private IDisposable _subscription;
+        private IDisposable _matchingSubscription;
+        private IDisposable _failedSubscription;
         private MatchingWaitingView _waitingView;
+        private MatchmakingFailedView _failedView;
 
         public MatchmakingCoordinator(IWindowManager windowManager, MatchmakingViewModel viewModel)
         {
@@ -26,7 +28,8 @@ namespace LOP.UI
         public void Start()
         {
             // ReactiveProperty는 구독 즉시 현재값을 replay하므로 StartFlow 전에 구독해도 안전.
-            _subscription = _viewModel.IsMatching.Subscribe(OnMatchingChanged);
+            _matchingSubscription = _viewModel.IsMatching.Subscribe(OnMatchingChanged);
+            _failedSubscription = _viewModel.MatchmakingFailed.Subscribe(_ => ShowFailed());
             _viewModel.StartFlow();
         }
 
@@ -47,9 +50,52 @@ namespace LOP.UI
             }
         }
 
+        private void ShowFailed()
+        {
+            //  연달아 실패해도 안내는 하나만 띄운다.
+            if (_failedView != null)
+            {
+                return;
+            }
+
+            _failedView = _windowManager.Open<MatchmakingFailedView>();
+            _failedView.Confirmed += OnFailedConfirmed;
+            _failedView.Closed += OnFailedViewClosed;
+        }
+
+        // 확인 버튼은 닫기 "요청"만 한다. 참조 정리는 OnFailedViewClosed에서 한다 —
+        // 그래야 백드롭 클릭·Back()/ESC처럼 코디네이터를 거치지 않는 경로로 닫혀도
+        // 같은 정리 로직을 탄다(안 그러면 _failedView가 죽은 View를 계속 참조해서
+        // 다음 매칭 실패 때 ShowFailed의 중복 방지 가드가 계속 참이 되어버린다).
+        private void OnFailedConfirmed()
+        {
+            _windowManager.Close(_failedView);
+        }
+
+        // Closed는 Close() 안에서 View.OnClose()가 호출하는 시점에 발화하므로,
+        // 여기서 다시 _windowManager.Close(...)를 부르면 재귀가 된다 — 부르지 않는다.
+        private void OnFailedViewClosed()
+        {
+            if (_failedView == null)
+            {
+                return;
+            }
+
+            var view = _failedView;
+            _failedView = null;
+            view.Confirmed -= OnFailedConfirmed;
+            view.Closed -= OnFailedViewClosed;
+        }
+
         public void Dispose()
         {
-            _subscription?.Dispose();
+            _matchingSubscription?.Dispose();
+            _failedSubscription?.Dispose();
+
+            if (_failedView != null)
+            {
+                _windowManager.Close(_failedView);
+            }
 
             if (_waitingView != null)
             {

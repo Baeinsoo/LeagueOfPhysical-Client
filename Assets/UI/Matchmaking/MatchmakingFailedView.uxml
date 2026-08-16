@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="mmf-root" class="scrim mmf-root">
+        <ui:VisualElement name="mmf-card" class="card mmf-card">
+            <ui:Label text="안내" class="title mmf-title" />
+            <ui:Label text="상대를 찾지 못했습니다." class="card-text mmf-message" />
+            <ui:Button name="mmf-confirm" text="확인" class="btn btn--primary mmf-confirm" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

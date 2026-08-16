@@ -1,6 +1,8 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:VisualElement name="lobbyhome-root" class="lobbyhome-root">
         <ui:VisualElement name="lobbyhome-center" class="lobbyhome-center">
+            <!-- 카드는 마스터데이터의 게임 수만큼 View가 만들어 넣는다. -->
+            <ui:VisualElement name="game-cards" class="lobbyhome-cards" />
             <ui:Button name="play-button" text="PLAY" class="btn btn--primary lobbyhome-play" />
         </ui:VisualElement>
 

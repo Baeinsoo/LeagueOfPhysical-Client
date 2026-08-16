@@ -19,6 +19,58 @@
     font-size: 64px;
 }
 
+.lobbyhome-cards {
+    flex-direction: row;
+    justify-content: center;
+    margin-bottom: 56px;
+}
+
+/* 게임 카드 — 고르는 것이라 버튼이지만, 채워진 버튼(.btn)이 아니라 밝은 패널로 보인다 */
+.game-card {
+    width: 420px;
+    height: 260px;
+    margin-left: 20px;
+    margin-right: 20px;
+    padding: 24px;
+    justify-content: center;
+    background-color: var(--lop-surface);
+    color: var(--lop-text);
+    border-color: var(--lop-outline);
+    border-width: var(--lop-border-s);
+    border-radius: var(--lop-radius-m);
+    transition-property: translate;
+    transition-duration: 70ms;
+}
+
+.game-card:hover {
+    border-color: #FFF6E0;
+}
+
+.game-card:active {
+    translate: 0 4px;
+}
+
+/* 고른 카드만 테두리가 주 색으로 바뀐다 — 배경까지 바꾸면 글자 대비가 무너진다 */
+.game-card--selected {
+    border-color: var(--lop-primary);
+}
+
+.game-card__name {
+    font-size: 48px;
+    color: var(--lop-text);
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
+.game-card__description {
+    font-size: 28px;
+    color: var(--lop-text);
+    -unity-text-align: middle-center;
+    white-space: normal;
+    margin-top: 16px;
+    opacity: 0.75;
+}
+
 .lobbyhome-navbar {
     flex-direction: row;
     justify-content: center;

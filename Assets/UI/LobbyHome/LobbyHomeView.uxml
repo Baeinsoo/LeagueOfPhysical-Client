@@ -1,9 +1,15 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:VisualElement name="lobbyhome-root" class="lobbyhome-root">
         <ui:VisualElement name="lobbyhome-center" class="lobbyhome-center">
-            <!-- 카드는 마스터데이터의 게임 수만큼 View가 만들어 넣는다. -->
-            <ui:VisualElement name="game-cards" class="lobbyhome-cards" />
-            <ui:Button name="play-button" text="PLAY" class="btn btn--primary lobbyhome-play" />
+            <!-- 선택은 시작 버튼 안에 들어 있다. 칩을 누르면 그 클릭은 칩이 먹고(전파 차단),
+                 그 밖의 면적은 전부 시작이다. -->
+            <ui:Button name="play-button" class="btn btn--primary lobbyhome-play">
+                <ui:Label name="play-label" text="PLAY" class="lobbyhome-play__text" />
+                <ui:VisualElement name="play-picks" class="lobbyhome-picks">
+                    <ui:Button name="game-pick" class="lobbyhome-pick" />
+                    <ui:Button name="map-pick" class="lobbyhome-pick" />
+                </ui:VisualElement>
+            </ui:Button>
         </ui:VisualElement>
 
         <!-- 하단 네비바: 레이아웃만. 실제 동작은 Slice C에서 배선. -->

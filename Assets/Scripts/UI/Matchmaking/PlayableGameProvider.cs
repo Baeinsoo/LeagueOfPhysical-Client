@@ -16,14 +16,22 @@ namespace LOP.UI
 
         public PlayableGameProvider(LOP.MasterData.LOPMasterData md)
         {
-            //  게임별 기본 맵 = id가 가장 작은 맵. 지금은 게임당 맵이 하나뿐이라 사실상 그 맵이다.
-            var defaultMaps = new Dictionary<int, LOP.MasterData.GameMap>();
+            var mapsByGameMode = new Dictionary<int, List<MapChoice>>();
             foreach (var map in md.Tables.TbMap.DataList)
             {
-                if (defaultMaps.TryGetValue(map.GameModeId, out var current) == false || map.Id < current.Id)
+                if (mapsByGameMode.TryGetValue(map.GameModeId, out var maps) == false)
                 {
-                    defaultMaps[map.GameModeId] = map;
+                    maps = new List<MapChoice>();
+                    mapsByGameMode[map.GameModeId] = maps;
                 }
+
+                maps.Add(new MapChoice(map.Id, map.Name));
+            }
+
+            //  화면에 뜨는 순서가 실행 때마다 달라지지 않도록 id로 정렬해 둔다.
+            foreach (var maps in mapsByGameMode.Values)
+            {
+                maps.Sort((left, right) => left.MapId.CompareTo(right.MapId));
             }
 
             foreach (var gameMode in md.Tables.TbGameMode.DataList)
@@ -33,12 +41,12 @@ namespace LOP.UI
                     continue;
                 }
 
-                if (defaultMaps.TryGetValue(gameMode.Id, out var map) == false)
+                if (mapsByGameMode.TryGetValue(gameMode.Id, out var maps) == false)
                 {
                     continue;
                 }
 
-                _games.Add(new GameChoice(gameMode.Id, map.Id, gameMode.Name, gameMode.Description));
+                _games.Add(new GameChoice(gameMode.Id, gameMode.Name, gameMode.Description, maps));
             }
         }
 

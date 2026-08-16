@@ -19,7 +19,11 @@ namespace LOP.UI
 
         private readonly ReactiveProperty<bool> _isMatching = new(false);
         private readonly Subject<CancellationReason> _matchmakingFailed = new();
-        private readonly ReactiveProperty<int> _selectedGameModeId = new(0);
+        private readonly ReactiveProperty<string> _selectedGameName = new(string.Empty);
+        private readonly ReactiveProperty<string> _selectedMapName = new(string.Empty);
+
+        private int _gameIndex;
+        private int _mapIndex;
 
         /// <summary>매칭 진행 중 여부. 코디네이터가 구독해 대기 오버레이를 열고/닫는다.</summary>
         public ReadOnlyReactiveProperty<bool> IsMatching => _isMatching;
@@ -30,8 +34,11 @@ namespace LOP.UI
         /// <summary>고를 수 있는 게임 목록. 마스터데이터에서 오며 런타임에 변하지 않는다.</summary>
         public IReadOnlyList<GameChoice> Games { get; }
 
-        /// <summary>지금 고른 게임(TbGameMode.id). View가 구독해 카드 강조를 갱신한다.</summary>
-        public ReadOnlyReactiveProperty<int> SelectedGameModeId => _selectedGameModeId;
+        /// <summary>지금 고른 게임 이름. View가 구독해 PLAY 버튼 안 칩 글자를 갱신한다.</summary>
+        public ReadOnlyReactiveProperty<string> SelectedGameName => _selectedGameName;
+
+        /// <summary>지금 고른 맵 이름. 게임을 넘기면 그 게임의 첫 맵으로 함께 바뀐다.</summary>
+        public ReadOnlyReactiveProperty<string> SelectedMapName => _selectedMapName;
 
         public MatchmakingViewModel(
             MatchStateMachine matchStateMachine,
@@ -44,21 +51,54 @@ namespace LOP.UI
             _userLocationService = userLocationService;
 
             Games = playableGameProvider.Games;
-            if (Games.Count > 0)
-            {
-                _selectedGameModeId.Value = Games[0].GameModeId;
-            }
+            RefreshSelectionNames();
         }
 
-        /// <summary>게임 선택 커맨드(카드 클릭). 목록에 없는 값은 무시한다.</summary>
-        public void Select(int gameModeId)
+        /// <summary>게임 칩 커맨드 — 다음 게임으로 넘긴다. 맵은 그 게임의 첫 맵으로 돌아간다.</summary>
+        public void NextGame()
         {
-            if (TryFindGame(gameModeId, out _) == false)
+            if (Games.Count == 0)
             {
                 return;
             }
 
-            _selectedGameModeId.Value = gameModeId;
+            _gameIndex = (_gameIndex + 1) % Games.Count;
+
+            //  게임이 바뀌면 이전 게임의 맵 번호를 그대로 쓸 수 없다 — 맵 개수가 달라 범위를 벗어난다.
+            _mapIndex = 0;
+
+            RefreshSelectionNames();
+        }
+
+        /// <summary>맵 칩 커맨드 — 지금 게임의 다음 맵으로 넘긴다. 맵이 하나뿐이면 제자리다.</summary>
+        public void NextMap()
+        {
+            var maps = CurrentGame().Maps;
+            if (maps == null || maps.Count == 0)
+            {
+                return;
+            }
+
+            _mapIndex = (_mapIndex + 1) % maps.Count;
+
+            RefreshSelectionNames();
+        }
+
+        private void RefreshSelectionNames()
+        {
+            _selectedGameName.Value = CurrentGame().Name ?? string.Empty;
+            _selectedMapName.Value = CurrentMap().Name ?? string.Empty;
+        }
+
+        private GameChoice CurrentGame()
+        {
+            return Games.Count > 0 ? Games[_gameIndex] : default;
+        }
+
+        private MapChoice CurrentMap()
+        {
+            var maps = CurrentGame().Maps;
+            return maps != null && maps.Count > 0 ? maps[_mapIndex] : default;
         }
 
         /// <summary>흐름 시작. FSM 구독 + 시작(현재 위치 확인 → 적절한 상태로 진입). 코디네이터가 호출한다.</summary>
@@ -72,8 +112,9 @@ namespace LOP.UI
         public void Play()
         {
             //  게임과 맵은 짝으로 보내야 한다 — 서버가 "이 맵이 이 게임 소속인지"를 검사하고,
-            //  어긋나면 티켓이 INVALID_MAP으로 거절된다. 그래서 목록이 게임에 맵을 미리 붙여 둔다.
-            if (TryFindGame(_selectedGameModeId.Value, out var game) == false)
+            //  어긋나면 티켓이 INVALID_MAP으로 거절된다. 그래서 목록이 게임에 맵을 붙여 두고,
+            //  맵 선택도 그 게임 안에서만 넘어간다.
+            if (Games.Count == 0)
             {
                 //  고를 수 있는 게임이 하나도 없다는 뜻 — 마스터데이터가 잘못된 것이라 조용히 넘기지 않는다.
                 UnityEngine.Debug.LogError("입장 가능한 게임이 없다. TbGameMode의 씬 경로와 TbMap 연결을 확인할 것.");
@@ -81,25 +122,10 @@ namespace LOP.UI
             }
 
             _matchmakingDataStore.queueId = 1;      // TbQueue: Casual
-            _matchmakingDataStore.gameModeId = game.GameModeId;
-            _matchmakingDataStore.mapId = game.MapId;
+            _matchmakingDataStore.gameModeId = CurrentGame().GameModeId;
+            _matchmakingDataStore.mapId = CurrentMap().MapId;
 
             _matchStateMachine.Fire(MatchEvent.PlayClicked);
-        }
-
-        private bool TryFindGame(int gameModeId, out GameChoice found)
-        {
-            foreach (var game in Games)
-            {
-                if (game.GameModeId == gameModeId)
-                {
-                    found = game;
-                    return true;
-                }
-            }
-
-            found = default;
-            return false;
         }
 
         /// <summary>취소 커맨드(대기 화면 취소 버튼). FSM에 CancelClicked 발행.</summary>
@@ -130,7 +156,8 @@ namespace LOP.UI
             _matchStateMachine.Stop();
             _isMatching.Dispose();
             _matchmakingFailed.Dispose();
-            _selectedGameModeId.Dispose();
+            _selectedGameName.Dispose();
+            _selectedMapName.Dispose();
         }
     }
 }

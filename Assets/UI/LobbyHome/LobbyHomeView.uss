@@ -13,62 +13,59 @@
     align-items: center;
 }
 
+/* 시작 버튼 — 선택 칩을 품고 있어 예전보다 크고, 안에서 좌우로 나뉜다 */
 .lobbyhome-play {
-    width: 460px;
-    height: 150px;
-    font-size: 64px;
-}
-
-.lobbyhome-cards {
     flex-direction: row;
+    align-items: center;
     justify-content: center;
-    margin-bottom: 56px;
+    width: 900px;
+    height: 260px;
+    padding-left: 40px;
+    padding-right: 40px;
 }
 
-/* 게임 카드 — 고르는 것이라 버튼이지만, 채워진 버튼(.btn)이 아니라 밝은 패널로 보인다 */
-.game-card {
-    width: 420px;
-    height: 260px;
-    margin-left: 20px;
-    margin-right: 20px;
-    padding: 24px;
+.lobbyhome-play__text {
+    font-size: 96px;
+    color: var(--lop-text-on-fill);
+    -unity-text-outline-width: 3px;
+    -unity-text-outline-color: var(--lop-primary-shade);
+    -unity-text-align: middle-center;
+    margin-right: 40px;
+}
+
+.lobbyhome-picks {
     justify-content: center;
-    background-color: var(--lop-surface);
+}
+
+/* 버튼 면 위에 얹힌 흰 필. 배경이 주황이라 반투명 흰색으로 띄운다 */
+.lobbyhome-pick {
+    min-width: 400px;
+    height: 84px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    padding-left: 32px;
+    padding-right: 32px;
+    font-size: 34px;
     color: var(--lop-text);
-    border-color: var(--lop-outline);
-    border-width: var(--lop-border-s);
-    border-radius: var(--lop-radius-m);
-    transition-property: translate;
+    background-color: rgba(255, 255, 255, 0.88);
+    border-color: rgba(255, 255, 255, 0.95);
+    border-width: var(--lop-border-xs);
+    border-radius: var(--lop-radius-pill);
+    -unity-text-align: middle-center;
+    transition-property: scale;
     transition-duration: 70ms;
 }
 
-.game-card:hover {
-    border-color: #FFF6E0;
+/* 유니티 기본 버튼 스타일이 특이도로 이기는 것을 막는다 */
+.lobbyhome-pick:hover {
+    background-color: rgb(255, 255, 255);
+    border-color: rgb(255, 255, 255);
 }
 
-.game-card:active {
-    translate: 0 4px;
-}
-
-/* 고른 카드만 테두리가 주 색으로 바뀐다 — 배경까지 바꾸면 글자 대비가 무너진다 */
-.game-card--selected {
-    border-color: var(--lop-primary);
-}
-
-.game-card__name {
-    font-size: 48px;
-    color: var(--lop-text);
-    -unity-text-align: middle-center;
-    white-space: normal;
-}
-
-.game-card__description {
-    font-size: 28px;
-    color: var(--lop-text);
-    -unity-text-align: middle-center;
-    white-space: normal;
-    margin-top: 16px;
-    opacity: 0.75;
+/* 칩은 눌러도 버튼처럼 내려가지 않는다 — 내려가면 시작 버튼이 눌린 것처럼 보인다 */
+.lobbyhome-pick:active {
+    background-color: var(--lop-surface-sunken);
+    scale: 0.97;
 }
 
 .lobbyhome-navbar {

@@ -442,7 +442,66 @@ B1은 "축이 실제로 갈리는가"를 증명하는 슬라이스였다. 코드
 - **서버 프로젝트에는 아트 에셋이 없다**(`Assets/Art` 서브모듈이 클라에만 있다). 서버는 맵 지오메트리를
   로드하지 못한다 — FlapWang도 같은 상태라 B1이 만든 문제는 아니지만, **B2에서 새가 바닥·파이프와
   부딪히려면 반드시 다뤄야 한다**(§11 표, "다음 슬라이스로 넘기는 것" 참고).
-- 플레이 검증(런타임)은 아직 안 했다. 유니티 두 대 + 매치메이킹 서버 재배포가 필요하다.
+- ~~플레이 검증(런타임)은 아직 안 했다.~~ **완료 — 아래 절 참고.**
+
+---
+
+## 슬라이스 B1 런타임 검증 (2026-08-16)
+
+**결과: 통과.** 클라 `TemporaryGameModeId/TemporaryMapId`를 `6/2`로 바꾸자 FlappyRace가 실제로 떴고
+새가 스폰돼 화면에 보였다.
+
+### 어떻게 돌렸나
+
+에디터 환경 `local-k8s`(게임서버를 k8s 파드로 띄우는 실제 경로), 클라 에디터 하나.
+`TbGameMode` id 6의 `min_players`가 1이라 **혼자서도 매치가 성립**한다 — 두 번째 클라가 필요 없다.
+
+**재배포는 필요 없었다.** 스펙 착수 시점 메모("매치메이킹 서버 재배포가 필요하다")와 달리, 확인해 보니
+로컬 클러스터에 이미 B1이 반영된 것들이 떠 있었다:
+
+| | 실행 중인 것 | B1 |
+|---|---|---|
+| matchmaking / room / lobby-server | `fb1173a` | 포함 (파드 안 `tbgamemode.json`에 FlappyRace, 큐 허용 `[1..6]`) |
+| game-server 이미지 | `9418e2c` (서버 레포 HEAD) | 포함 |
+| MasterData 패키지 클·서 | `c3db650` / `44892b3` | 포함 |
+
+> ⚠️ **배포 상태는 로컬 git 체크아웃이 아니라 클러스터에서 확인할 것.** 이때 로컬 `infrastructure`가
+> 5커밋, `lop-backend`가 10커밋 뒤처져 있어서 파일만 보고 "재배포 필요"라고 잘못 판단했다.
+> `kubectl get deploy <app> -o jsonpath='{...image}'`가 진실이다.
+
+### 확인된 것
+
+- **클라에 씬 3개 로드**: `Room` + `FlappyRace`(게임 덩어리) + `FlappyRaceMap`(맵) — 게임모드 id
+  하나로 축이 갈라진다는 B1의 기준 그대로.
+- **서버**: `[GameLifetimeScope] Skip re-injecting own scene 'FlappyRace'` → 게임 씬 로드,
+  `[World] Registered flappy bird 1` → 새 엔티티 등록, `[OnPlayerEnter]` → 접속 수락.
+- **클라**: 콘솔 에러 0건. `EntityRegistry.Count=1`, `LOPEntityView×1`, `[MatchSeed] received`,
+  `[ClockSettle] settled`.
+- 매치메이킹이 티켓(게임모드 6 + 맵 2)을 받아들이고 room-server가 `room-pod-<roomId>`를 띄웠다.
+
+### 검증에서 새로 드러난 것 — B2 계획에 넣을 것
+
+1. **서버가 엔티티 비주얼을 인스턴스화하지 못한다** (B2 블로커). 서버 파드 로그:
+   `OperationException: ChainOperation failed` + `ArgumentException: The Object you want to
+   instantiate is null.` at `LOPEntityView.UpdateVisual`. 서버에 Art가 없어 Addressables 로드가
+   실패한다 — 위 "아트 에셋 없음" 항목의 *실제 증상*이다. **콜라이더가 그 프리팹에 달려 있다면
+   B2의 충돌 자체가 성립하지 않는다.** 무엇이 어디에 붙어 있는지부터 확인해야 한다.
+2. **FlappyRace 매치는 스스로 끝나지 않는다.** 게임서버 자가 종료는 `EndMatch` 트리거인데
+   FlappyRace엔 종료 조건이 없다(슬라이스 D 몫). 클라가 나가도 파드가 계속 돈다 — 테스트를
+   반복하면 좀비 파드가 쌓이므로 수동으로 지워야 한다.
+3. **맵 씬에서 프로토타입 스크립트가 여전히 돈다.** 런타임에 `FlappyCourseGenerator`,
+   `FlappyObstacle×118`, `FlappyWindmill×8`, `FlappyBoostZone`, `FlappyIris×2`가 살아 있다.
+   프로토타입 `Player`/`Pacer_*` 오브젝트는 비활성이라 지금은 부딪히지 않지만, B2에서 코스를
+   실제로 쓰려면 정리 대상이다.
+4. **화면 오른쪽 배경이 잘려 보인다.** 카메라 위치와 맵 배치가 어긋난 듯하다. 사소하지만 B2에서
+   카메라를 손볼 때 함께 본다.
+
+### 아트 저장소에서 같이 고친 것
+
+검증 준비 중 **커밋된 맵 씬이 미커밋 애셋을 참조**하고 있는 것을 발견했다 —
+`FlappyRaceMap.unity`가 쓰는 `Environment/FlappyRace/`(파이프·바닥·구름·덤불·코인·결승선·플레이어
+머티리얼·새 스프라이트) 14종이 아트 저장소에 올라가 있지 않아, **이 작업 머신 밖에서는 맵이 전부
+missing으로 뜨는 상태**였다. 아트 `87f119b`로 커밋·푸시하고 클라 서브모듈 포인터를 올렸다.
 
 ---
 

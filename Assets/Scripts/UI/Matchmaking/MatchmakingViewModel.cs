@@ -19,11 +19,8 @@ namespace LOP.UI
 
         private readonly ReactiveProperty<bool> _isMatching = new(false);
         private readonly Subject<CancellationReason> _matchmakingFailed = new();
-        private readonly ReactiveProperty<string> _selectedGameName = new(string.Empty);
-        private readonly ReactiveProperty<string> _selectedMapName = new(string.Empty);
-
-        private int _gameIndex;
-        private int _mapIndex;
+        private readonly ReactiveProperty<int> _selectedGameIndex = new(0);
+        private readonly ReactiveProperty<int> _selectedMapIndex = new(0);
 
         /// <summary>매칭 진행 중 여부. 코디네이터가 구독해 대기 오버레이를 열고/닫는다.</summary>
         public ReadOnlyReactiveProperty<bool> IsMatching => _isMatching;
@@ -34,11 +31,14 @@ namespace LOP.UI
         /// <summary>고를 수 있는 게임 목록. 마스터데이터에서 오며 런타임에 변하지 않는다.</summary>
         public IReadOnlyList<GameChoice> Games { get; }
 
-        /// <summary>지금 고른 게임 이름. View가 구독해 PLAY 버튼 안 칩 글자를 갱신한다.</summary>
-        public ReadOnlyReactiveProperty<string> SelectedGameName => _selectedGameName;
+        /// <summary>지금 고른 게임의 <see cref="Games"/> 안 위치. View의 드롭다운이 이 값을 따라간다.</summary>
+        public ReadOnlyReactiveProperty<int> SelectedGameIndex => _selectedGameIndex;
 
-        /// <summary>지금 고른 맵 이름. 게임을 넘기면 그 게임의 첫 맵으로 함께 바뀐다.</summary>
-        public ReadOnlyReactiveProperty<string> SelectedMapName => _selectedMapName;
+        /// <summary>지금 고른 맵의 <see cref="CurrentMaps"/> 안 위치.</summary>
+        public ReadOnlyReactiveProperty<int> SelectedMapIndex => _selectedMapIndex;
+
+        /// <summary>지금 고른 게임의 맵들. 게임이 바뀌면 내용이 바뀌므로 View가 목록을 다시 채운다.</summary>
+        public IReadOnlyList<MapChoice> CurrentMaps => CurrentGame().Maps ?? System.Array.Empty<MapChoice>();
 
         public MatchmakingViewModel(
             MatchStateMachine matchStateMachine,
@@ -51,54 +51,46 @@ namespace LOP.UI
             _userLocationService = userLocationService;
 
             Games = playableGameProvider.Games;
-            RefreshSelectionNames();
         }
 
-        /// <summary>게임 칩 커맨드 — 다음 게임으로 넘긴다. 맵은 그 게임의 첫 맵으로 돌아간다.</summary>
-        public void NextGame()
+        /// <summary>게임 드롭다운 커맨드. 맵은 그 게임의 첫 맵으로 돌아간다.</summary>
+        public void SelectGame(int index)
         {
-            if (Games.Count == 0)
+            if (index < 0 || index >= Games.Count)
             {
                 return;
             }
 
-            _gameIndex = (_gameIndex + 1) % Games.Count;
+            _selectedGameIndex.Value = index;
 
             //  게임이 바뀌면 이전 게임의 맵 번호를 그대로 쓸 수 없다 — 맵 개수가 달라 범위를 벗어난다.
-            _mapIndex = 0;
-
-            RefreshSelectionNames();
+            _selectedMapIndex.Value = 0;
         }
 
-        /// <summary>맵 칩 커맨드 — 지금 게임의 다음 맵으로 넘긴다. 맵이 하나뿐이면 제자리다.</summary>
-        public void NextMap()
+        /// <summary>맵 드롭다운 커맨드. 지금 고른 게임의 맵 중에서만 고른다.</summary>
+        public void SelectMap(int index)
         {
-            var maps = CurrentGame().Maps;
-            if (maps == null || maps.Count == 0)
+            if (index < 0 || index >= CurrentMaps.Count)
             {
                 return;
             }
 
-            _mapIndex = (_mapIndex + 1) % maps.Count;
-
-            RefreshSelectionNames();
-        }
-
-        private void RefreshSelectionNames()
-        {
-            _selectedGameName.Value = CurrentGame().Name ?? string.Empty;
-            _selectedMapName.Value = CurrentMap().Name ?? string.Empty;
+            _selectedMapIndex.Value = index;
         }
 
         private GameChoice CurrentGame()
         {
-            return Games.Count > 0 ? Games[_gameIndex] : default;
+            return Games.Count > 0 && _selectedGameIndex.Value < Games.Count
+                ? Games[_selectedGameIndex.Value]
+                : default;
         }
 
         private MapChoice CurrentMap()
         {
-            var maps = CurrentGame().Maps;
-            return maps != null && maps.Count > 0 ? maps[_mapIndex] : default;
+            var maps = CurrentMaps;
+            return maps.Count > 0 && _selectedMapIndex.Value < maps.Count
+                ? maps[_selectedMapIndex.Value]
+                : default;
         }
 
         /// <summary>흐름 시작. FSM 구독 + 시작(현재 위치 확인 → 적절한 상태로 진입). 코디네이터가 호출한다.</summary>
@@ -156,8 +148,8 @@ namespace LOP.UI
             _matchStateMachine.Stop();
             _isMatching.Dispose();
             _matchmakingFailed.Dispose();
-            _selectedGameName.Dispose();
-            _selectedMapName.Dispose();
+            _selectedGameIndex.Dispose();
+            _selectedMapIndex.Dispose();
         }
     }
 }

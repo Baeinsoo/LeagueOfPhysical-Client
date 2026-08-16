@@ -6,8 +6,8 @@
             <ui:Button name="play-button" class="btn btn--primary lobbyhome-play">
                 <ui:Label name="play-label" text="PLAY" class="lobbyhome-play__text" />
                 <ui:VisualElement name="play-picks" class="lobbyhome-picks">
-                    <ui:Button name="game-pick" class="lobbyhome-pick" />
-                    <ui:Button name="map-pick" class="lobbyhome-pick" />
+                    <ui:DropdownField name="game-pick" class="lobbyhome-pick" />
+                    <ui:DropdownField name="map-pick" class="lobbyhome-pick" />
                 </ui:VisualElement>
             </ui:Button>
         </ui:VisualElement>

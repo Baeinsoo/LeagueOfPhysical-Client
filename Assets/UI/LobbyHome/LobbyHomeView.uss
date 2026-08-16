@@ -37,35 +37,52 @@
     justify-content: center;
 }
 
-/* 버튼 면 위에 얹힌 흰 필. 배경이 주황이라 반투명 흰색으로 띄운다 */
+/* 버튼 면 위에 얹힌 흰 필. 배경이 주황이라 반투명 흰색으로 띄운다.
+ *
+ * 모서리는 --lop-radius-pill(999px)을 쓰지 않고 높이의 절반을 직접 적는다.
+ * 유니티는 반지름이 요소보다 크면 가로·세로를 *각각* 줄여서 모서리가 타원으로 늘어난다
+ * (CSS 표준은 한 비율로 함께 줄여 알약이 된다). 높이의 절반이면 그 보정이 아예 안 걸린다.
+ *
+ * 글자 외곽선은 상속되는 속성이라 부모(.btn)의 3px 주황 외곽선이 그대로 내려온다.
+ * 흰 바탕에 갈색 글자라 외곽선이 있으면 지저분해져서 여기서 끈다. */
 .lobbyhome-pick {
-    min-width: 400px;
-    height: 84px;
+    min-width: 420px;
     margin-top: 8px;
     margin-bottom: 8px;
-    padding-left: 32px;
-    padding-right: 32px;
-    font-size: 34px;
-    color: var(--lop-text);
+}
+
+/* 라벨 없이 값만 쓰는 드롭다운이라 라벨 칸을 지운다(안 지우면 왼쪽에 빈 자리가 남는다) */
+.lobbyhome-pick .unity-base-field__label {
+    display: none;
+}
+
+/* 실제로 보이는 필은 드롭다운의 input 부분이다 */
+.lobbyhome-pick .unity-base-popup-field__input {
+    height: 84px;
+    padding-left: 30px;
+    padding-right: 22px;
     background-color: rgba(255, 255, 255, 0.88);
     border-color: rgba(255, 255, 255, 0.95);
     border-width: var(--lop-border-xs);
-    border-radius: var(--lop-radius-pill);
-    -unity-text-align: middle-center;
-    transition-property: scale;
-    transition-duration: 70ms;
+    border-radius: 42px;
 }
 
-/* 유니티 기본 버튼 스타일이 특이도로 이기는 것을 막는다 */
-.lobbyhome-pick:hover {
+.lobbyhome-pick:hover .unity-base-popup-field__input {
     background-color: rgb(255, 255, 255);
     border-color: rgb(255, 255, 255);
 }
 
-/* 칩은 눌러도 버튼처럼 내려가지 않는다 — 내려가면 시작 버튼이 눌린 것처럼 보인다 */
-.lobbyhome-pick:active {
-    background-color: var(--lop-surface-sunken);
-    scale: 0.97;
+.lobbyhome-pick .unity-base-popup-field__text {
+    font-size: 34px;
+    color: var(--lop-text);
+    -unity-text-outline-width: 0;
+    -unity-text-align: middle-left;
+}
+
+.lobbyhome-pick .unity-base-popup-field__arrow {
+    -unity-background-image-tint-color: var(--lop-text);
+    width: 26px;
+    height: 26px;
 }
 
 .lobbyhome-navbar {

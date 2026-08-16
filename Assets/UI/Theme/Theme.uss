@@ -121,6 +121,64 @@
 .btn--nav2:hover, .btn--nav2:active { background-color: var(--lop-nav2); }
 .btn--nav3:hover, .btn--nav3:active { background-color: var(--lop-nav3); }
 
+/* ────────────────────────────────────────────────────────────
+ * 드롭다운 펼침 목록
+ *
+ * 이 목록은 우리 화면(UIDocument) 안이 아니라 **패널 루트**에 떠서 붙는다.
+ * 그래서 화면별 USS로는 절대 안 잡히고, 패널 전역인 이 테마 파일에 둬야 한다.
+ * 아래 클래스 이름은 유니티 내부 구조라 실행 중인 에디터에서 직접 확인해 적었다.
+ *
+ * 선택된 항목은 유니티가 클래스로 알려주지 않고 체크마크의 visibility로만 표시한다.
+ * 그래서 "선택=주황 알약"은 코드가 lop-dropdown-item--selected를 붙여 준다.
+ * ──────────────────────────────────────────────────────────── */
+
+.unity-base-dropdown__container-outer {
+    min-width: 420px;
+    padding: 10px;
+    background-color: var(--lop-surface);
+    border-color: var(--lop-outline);
+    border-width: var(--lop-border-m);
+    border-radius: var(--lop-radius-m);
+}
+
+.unity-base-dropdown__container-inner {
+    background-color: rgba(0, 0, 0, 0);
+}
+
+/* 높이를 정해 두고 그 절반을 반지름으로 준다 — 999px을 주면 가로로 긴 항목의 모서리가 타원이 된다 */
+.unity-base-dropdown__item {
+    height: 64px;
+    padding-left: 20px;
+    padding-right: 20px;
+    border-radius: 32px;
+    justify-content: center;
+}
+
+.unity-base-dropdown__item:hover {
+    background-color: rgba(245, 147, 30, 0.18);
+}
+
+.lop-dropdown-item--selected {
+    background-color: var(--lop-primary);
+}
+
+.unity-base-dropdown__label {
+    font-size: 30px;
+    color: var(--lop-text);
+    -unity-text-outline-width: 0;
+}
+
+.lop-dropdown-item--selected .unity-base-dropdown__label {
+    color: var(--lop-text-on-fill);
+}
+
+/* 선택은 알약으로 보여주므로 기본 체크 표시는 자리만 차지한다 */
+.unity-base-dropdown__checkmark {
+    width: 0;
+    margin-left: 0;
+    margin-right: 0;
+}
+
 .card {
     background-color: var(--lop-surface);
     border-color: var(--lop-surface-line);

@@ -484,9 +484,16 @@ B1은 "축이 실제로 갈리는가"를 증명하는 슬라이스였다. 코드
 
 1. **서버가 엔티티 비주얼을 인스턴스화하지 못한다** (B2 블로커). 서버 파드 로그:
    `OperationException: ChainOperation failed` + `ArgumentException: The Object you want to
-   instantiate is null.` at `LOPEntityView.UpdateVisual`. 서버에 Art가 없어 Addressables 로드가
-   실패한다 — 위 "아트 에셋 없음" 항목의 *실제 증상*이다. **콜라이더가 그 프리팹에 달려 있다면
-   B2의 충돌 자체가 성립하지 않는다.** 무엇이 어디에 붙어 있는지부터 확인해야 한다.
+   instantiate is null.` at `LOPEntityView.UpdateVisual`.
+
+   > **정정 (2026-08-17).** 처음엔 "서버에 Art가 없어서"라고 적었는데 **틀렸다.** 서버는
+   > Addressables **원격 번들**로 아트를 이미 받고 있다(이미지의 `settings.json`이
+   > `https://lop-assets.s3.../dev/StandaloneLinux64/catalog_0.1.hash`를 가리키고, 그 경로에
+   > 콘텐츠도 실재한다 — 그래서 FlapWang은 서버에서도 맵·캐릭터가 정상 로드된다).
+   > 진짜 원인은 **그 카탈로그가 2026-06-22자라 8월에 승격한 Flappy 자산이 없는 것**이다.
+   > `content-deploy.yml`이 Android만 굽고 올려서 게임서버가 쓰는 StandaloneLinux64 경로가
+   > 6월 이후 갱신되지 않았다. 서버에 Art 서브모듈을 붙일 필요는 없다.
+   > 상세와 대응은 `2026-08-17-flappy-race-gameplay-b2-design.md` §3.
 2. **FlappyRace 매치는 스스로 끝나지 않는다.** 게임서버 자가 종료는 `EndMatch` 트리거인데
    FlappyRace엔 종료 조건이 없다(슬라이스 D 몫). 클라가 나가도 파드가 계속 돈다 — 테스트를
    반복하면 좀비 파드가 쌓이므로 수동으로 지워야 한다.

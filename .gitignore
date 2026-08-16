@@ -93,3 +93,7 @@ ServerData/
 
 # Superpowers brainstorm 목업 (로컬 전용)
 .superpowers/
+
+# 개발 중 화면 캡처 — 프로젝트가 참조하지 않는데 Assets 안이라 텍스처로 임포트된다
+/[Aa]ssets/[Ss]creenshots/
+/[Aa]ssets/[Ss]creenshots.meta

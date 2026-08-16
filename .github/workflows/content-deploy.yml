@@ -7,7 +7,7 @@ on:
         required: true
         default: gameserver
         type: choice
-        options: [gameserver, client-app, both]
+        options: [gameserver, standalone, client-app, all]
 
 concurrency:
   group: content-deploy
@@ -17,8 +17,26 @@ env:
   AWS_DEFAULT_REGION: ap-northeast-2
 
 jobs:
+  # 어떤 플랫폼을 구울지 고른다. 매트릭스는 정적이라 입력에 따라 바꾸려면 이렇게 JSON으로 넘겨야 한다.
+  plan:
+    runs-on: [self-hosted, client]
+    outputs:
+      targets: ${{ steps.pick.outputs.targets }}
+    steps:
+      - id: pick
+        run: |
+          set -e
+          case "${{ inputs.target }}" in
+            gameserver)        T='["StandaloneLinux64"]' ;;
+            standalone|all)    T='["StandaloneLinux64","StandaloneOSX","StandaloneWindows64"]' ;;
+            client-app)        T='[]' ;;
+            *) echo "::error::알 수 없는 target: ${{ inputs.target }}"; exit 1 ;;
+          esac
+          echo "targets=$T" >> "$GITHUB_OUTPUT"
+          echo "구울 플랫폼: $T"
+
   build-deploy:
-    if: inputs.target == 'client-app' || inputs.target == 'both'
+    if: inputs.target == 'client-app' || inputs.target == 'all'
     runs-on: [self-hosted, client]
     steps:
       - uses: actions/checkout@v4
@@ -78,11 +96,19 @@ jobs:
           aws s3 sync ServerData/Android "s3://lop-assets/dev/Android"
           echo "콘텐츠 갱신 완료: s3://lop-assets/dev/Android/"
 
-  # 게임서버(Linux)용 콘텐츠. 서버 이미지는 빈 카탈로그로 빌드되고 부팅 시 이 경로의
-  # catalog_0.1.hash를 보고 원격 카탈로그를 받는다. 로컬 번들이 없으므로 증분이 아니라 full로 굽는다.
-  build-deploy-gameserver:
-    if: inputs.target == 'gameserver' || inputs.target == 'both'
+  # 스탠드얼론 플랫폼 콘텐츠(게임서버 Linux + 데스크톱 macOS/Windows).
+  # 이 플랫폼들은 플레이어를 매번 새로 빌드하므로 이미 깔린 설치본과의 호환을 지킬 필요가 없다 —
+  # 그래서 증분이 아니라 full로 굽는다. 안드로이드는 배포된 앱이 있어 증분(build-deploy)으로 남는다.
+  build-deploy-standalone:
+    needs: plan
+    if: needs.plan.outputs.targets != '[]'
     runs-on: [self-hosted, client]
+    strategy:
+      # 러너가 1대고 같은 프로젝트 체크아웃을 쓰므로 유니티를 동시에 두 개 돌릴 수 없다.
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.plan.outputs.targets) }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -107,21 +133,21 @@ jobs:
           dotnet tool run nugetforunity restore .
           test -f Assets/NuGetForUnity/Packages/R3.1.3.1/lib/netstandard2.1/R3.dll
 
-      - name: 어드레서블 콘텐츠 full 빌드 (StandaloneLinux64)
+      - name: 어드레서블 콘텐츠 full 빌드 (${{ matrix.target }})
         run: |
           set -eo pipefail
           UNITY="/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity"
-          if ! "$UNITY" -batchmode -quit -nographics -buildTarget StandaloneLinux64 -projectPath . \
-                -executeMethod BuildScript.BuildContentFull -logFile - > unity-linux-content.log 2>&1; then
-            echo "::error::linux content build failed"; tail -80 unity-linux-content.log; exit 1
+          if ! "$UNITY" -batchmode -quit -nographics -buildTarget ${{ matrix.target }} -projectPath . \
+                -executeMethod BuildScript.BuildContentFull -logFile - > unity-content-${{ matrix.target }}.log 2>&1; then
+            echo "::error::${{ matrix.target }} content build failed"; tail -80 unity-content-${{ matrix.target }}.log; exit 1
           fi
 
       - name: 산출물 확인
         run: |
           set -e
-          test -f ServerData/StandaloneLinux64/catalog_0.1.bin
-          grep -qa FlappyRaceMap ServerData/StandaloneLinux64/catalog_0.1.bin
-          grep -qa Bird.prefab ServerData/StandaloneLinux64/catalog_0.1.bin
+          test -f ServerData/${{ matrix.target }}/catalog_0.1.bin
+          grep -qa FlappyRaceMap ServerData/${{ matrix.target }}/catalog_0.1.bin
+          grep -qa Bird.prefab ServerData/${{ matrix.target }}/catalog_0.1.bin
 
       - name: S3 업로드
         env:
@@ -129,5 +155,5 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           set -e
-          aws s3 sync ServerData/StandaloneLinux64 "s3://lop-assets/dev/StandaloneLinux64"
-          echo "게임서버 콘텐츠 갱신 완료: s3://lop-assets/dev/StandaloneLinux64/"
+          aws s3 sync ServerData/${{ matrix.target }} "s3://lop-assets/dev/${{ matrix.target }}"
+          echo "콘텐츠 갱신 완료: s3://lop-assets/dev/${{ matrix.target }}/"

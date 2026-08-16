@@ -10,12 +10,20 @@ using LOP.EditorTools;
 //   -executeMethod BuildScript.<Method> -logFile -
 public static class BuildScript
 {
-    // ── 어드레서블: full 빌드 (③a / 최초 baseline). ServerData/Android + content_state.bin 생성.
-    public static void BuildAndroidContentFull()
+    // ── 어드레서블: full 빌드. BuildPlayerContent는 **활성 빌드 타깃**으로 굽는다.
+    //    타깃은 CI가 -buildTarget 으로 정한다(Android=클라 앱, StandaloneLinux64=게임서버).
+    public static void BuildContentFull()
     {
-        var settings = EnsureSettings();
+        EnsureSettings();
+        Debug.Log($"content full build target: {EditorUserBuildSettings.activeBuildTarget}");
         AddressableAssetSettings.BuildPlayerContent(out AddressablesPlayerBuildResult result);
         FinishContent(result, "FULL");
+    }
+
+    // ── 기존 이름 유지(호출하는 CI가 있다). 하는 일은 위와 같다.
+    public static void BuildAndroidContentFull()
+    {
+        BuildContentFull();
     }
 
     // ── 어드레서블: 증분 빌드 (③b). CI가 S3 baseline을 아래 경로에 미리 배치해야 함.

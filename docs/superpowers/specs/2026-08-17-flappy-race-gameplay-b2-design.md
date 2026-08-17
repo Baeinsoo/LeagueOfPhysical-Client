@@ -22,7 +22,7 @@
 ## 2. 슬라이스 순서
 
 ```
-B2-a  콘텐츠 경로 뚫기      서버가 맵·새 프리팹을 받는다
+B2-a  콘텐츠 경로 뚫기      서버가 맵·새 프리팹을 받는다          ✅ 완료 (2026-08-17, §3 결과)
 B2-c  넷코드 게임 비종속화   되감기가 게임 규칙을 모르게 한다 (FlapWang만으로 검증 가능)
 B2-b  시뮬 코어             전진·플랩·중력·몸싸움
 B2-d  엔티티·뷰 + 런타임 검증
@@ -75,6 +75,94 @@ instantiate is null`은 여기서 온다.
 
 **끝났다는 기준**: 서버 파드 로그에서 맵 로드 성공 + 새 비주얼 인스턴스화 성공. 즉 B1에서 본
 `ChainOperation failed`가 사라진다.
+
+### 결과 (2026-08-17, 완료)
+
+머지 `7e02a74` (`feature/flappy-b2a-server-content`). 커밋 4개:
+
+| 커밋 | 내용 |
+|---|---|
+| `f06e432` | `BuildScript.BuildContentFull()` — 타깃을 코드에 박지 않고 **에디터의 활성 빌드 타깃**을 그대로 쓴다. 기존 `BuildAndroidContentFull`은 이 메서드를 부르는 껍데기로 남겼다 |
+| `3d43dd3` | `content-deploy.yml`에 게임서버(Linux) full 콘텐츠 잡 추가 |
+| `795b45a` | 실행 시 대상을 고르는 `target` 입력 추가 |
+| `cd993e4` | 스탠드얼론 3플랫폼 매트릭스로 확장 |
+
+CI `content-deploy` run **31982225461**, `target=all`. S3 네 경로가 모두 갱신됐고 각 카탈로그에서
+`FlappyRaceMap`·`Bird.prefab`을 확인했다:
+
+| 경로 | 방식 | 갱신 |
+|---|---|---|
+| `dev/StandaloneLinux64` | full | 00:34 |
+| `dev/StandaloneOSX` | full | 00:35 |
+| `dev/StandaloneWindows64` | full | 00:37 |
+| `dev/Android` | **증분(update)** | 00:32 |
+
+**런타임 검증** — 로비에서 플래피 레이스를 골라 입장, 파드 `room-pod-0fc71969…`:
+
+| 확인 | 결과 |
+|---|---|
+| `ChainOperation failed` | **0건** (B1에선 발생) |
+| `The Object you want to instantiate is null` | **0건** |
+| `[World] Registered flappy bird` | 있음 |
+| 파드 이미지 | `9418e2c` — **B1 때와 같은 이미지** |
+
+마지막 줄이 진단의 증명이다. 서버 코드를 한 줄도 바꾸지 않고 **콘텐츠만 갱신해서** 해결됐으므로,
+원인이 "서버에 아트가 없어서"가 아니라 "S3 콘텐츠가 6월에 멈춰 있어서"였음이 확정됐다.
+
+#### 새로 드러난 것 — 서버가 맵을 진짜로 읽기 시작하면서
+
+같은 로그에 전에 없던 신호가 나왔다:
+
+```
+The referenced script (Unknown) on this Behaviour is missing!   ← 588건
+NullReferenceException
+  at GameFramework.Extensions.InjectSceneObjects → FindGameObjectsWithAttribute
+  (LOP.GameLifetimeScope:OnSceneLoaded 에서 호출)
+```
+
+맵 씬에 **클라에만 있는 프로토타입 스크립트**(`Assets/Scripts/FlappyRaceSlice/`의 `FlappyPlayer`·
+`FlappyPacer`·`FlappyObstacle`·`FlappyCourseGenerator` 등)가 붙어 있는데 서버 프로젝트엔 그 타입이
+없다. 예전엔 맵 자체를 못 받아 안 보이던 것이 이제 드러난 것이다. 그리고 씬 주입 코드가 그 null
+컴포넌트에서 NRE를 던져 **주입이 중간에 끊긴다.**
+
+지금은 치명적이지 않다(주입 뒤 새는 스폰됐고 서버는 계속 대기). 다만 맵에 주입이 필요한 오브젝트
+(스폰 마커 등)를 쓰기 시작하면 즉시 문제가 된다 → **B2-b/d의 선결 과제**(§6의 "맵 씬 프로토타입
+오브젝트 정리"에 포함).
+
+#### 개발 머신에 남는 부작용 — 콘텐츠 빌드가 활성 빌드 타깃을 바꾼다
+
+`BuildContentFull`은 에디터의 활성 타깃을 쓰므로, `-buildTarget StandaloneLinux64`로 돌리면
+**그 전환이 프로젝트에 남는다**(실측: `EditorUserBuildSettings.activeBuildTarget=StandaloneLinux64`).
+그 뒤 에디터를 열면 유니티가 Linux 툴체인(`com.unity.sdk.linux-*`, `com.unity.toolchain.macos-arm64-linux`)과
+실험판 `com.unity.pipeline`을 manifest에 자동 추가하고 URP 퀄리티 에셋의 셰이더 스트리핑 설정을 지운다.
+
+**이 변경들은 커밋하지 않는다.** 되돌려도 에디터가 즉시 재생성하므로, 타깃이 Linux인 동안은
+`git status`가 지저분한 채로 두고 커밋 시 경로를 명시한다. 작업 타깃(클라 앱은 Android)으로
+되돌린 뒤 한 번에 정리한다.
+
+#### `target` 기본값이 `gameserver`인 진짜 이유
+
+커밋 메시지에는 "클라 앱 잡은 baseline이 있어야 성공하는 증분 빌드라 실수 실행이 위험"이라고 적었는데,
+그건 부차적이다. **진짜 이유는 운영 중인 dev 클라 콘텐츠(`dev/Android`)를 의도치 않게 덮어쓰는 것**이다.
+예전엔 수동 실행이 두 잡을 모두 돌려, 게임서버 자산만 갱신하려 해도 클라 콘텐츠가 함께 바뀌었다.
+
+#### 안드로이드를 매트릭스에 넣지 않은 이유
+
+스탠드얼론 셋은 플레이어를 매번 새로 빌드하므로 이미 깔린 설치본과의 호환을 지킬 필요가 없다 → full.
+안드로이드는 **배포된 APK가 로컬 번들을 들고 있어서**, full로 다시 구우면 그 번들과 카탈로그가 어긋나
+기존 설치본이 콘텐츠를 못 받는다. 그래서 `build-deploy`(증분) 잡으로 남겼다. (근거: `Vfx` 그룹이
+Local — `pathPairIndex=0`. Character/Item/Scene은 Remote.)
+
+#### 계획 문서 정정
+
+플랜의 `.gitignore` `ServerData` 규칙 위치가 75줄이 아니라 **80줄**이다(앞서 다른 규칙을 추가해 밀렸다).
+기능 영향 없음.
+
+#### 남은 후속 (deferred)
+
+- 워크플로 레벨 `concurrency`는 런(run)만 직렬화하고 잡 사이는 아니다. 지금은 `client` 라벨 러너가
+  1대라 안전하지만, 러너가 늘면 두 잡이 같은 체크아웃·형제 UPM 레포에서 경합한다 → `needs:` 또는
+  잡 스코프 concurrency로 굳힐 것.
 
 ---
 
@@ -198,6 +286,10 @@ EditMode 테스트 8개도 함께 옮긴다. 지금은 클라 프로토타입 �
   크기는 `TbFlappyConfig`의 `body_radius`/`body_height`와 **일치해야 한다**(어긋나면 클·서가
   다른 몸으로 밀어내 예측이 깨진다)
 - 스폰 지점: 맵 씬의 `PlayerSpawn_1~4` 마커가 **비활성**이다. 켜고 서버 룰이 읽게 한다(B1 숙제)
+- **맵 씬의 클라 전용 프로토타입 스크립트를 걷어낸다** — `Assets/Scripts/FlappyRaceSlice/`의
+  `FlappyPlayer`/`FlappyPacer`/`FlappyObstacle`/`FlappyCourseGenerator` 등은 서버 프로젝트에 없어
+  서버에서 missing script가 되고, 그 null 컴포넌트가 씬 주입을 NRE로 끊는다(B2-a에서 실측, §3).
+  위 스폰 마커를 서버가 읽게 하려면 **이것부터 고쳐야 한다** — 주입이 끊기면 마커도 못 읽는다
 
 **입력은 새로 만들 게 없다.** 플랩 = 기존 `InputCommand.Jump`. 와이어 포맷·서버 입력 버퍼·유실
 대비 재전송이 전부 그대로 재사용된다.

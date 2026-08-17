@@ -18,6 +18,47 @@ cascade, egress, CQRS 등)을 그대로 나열하지 말고, 일상어로 풀고
   사람이 한 줄로 이해되게.
 - 아직 없는 미래 기능을 현재 주석에 섞지 않는다(혼동 유발). 상세 컨벤션은 `docs/architecture-guidelines.md`의 "주석 컨벤션" 참고.
 
+## 푸시 규약 (필수) — 원격 main 리베이스 → `--no-ff` 머지
+
+**모든 저장소(8개 전부)에서 main 푸시는 아래 순서로만 한다. 다른 방식으로 푸시하지 않는다.**
+
+```bash
+git fetch origin
+git rebase origin/main            # 피처 브랜치를 원격 main 최신 위로
+git checkout main
+git merge --ff-only origin/main   # 로컬 main을 원격에 맞춤
+git merge --no-ff <feature>       # 머지 커밋 생성
+git push origin main
+```
+
+**왜 이 순서인가**
+
+- **리베이스가 먼저**여야 피처 커밋이 *원격 최신* 위에서 검증된 상태가 된다. 로컬 main 기준으로
+  머지하면 원격에만 있는 변경과 처음 만나는 지점이 main이 된다.
+- **`--no-ff`** 로 머지 커밋을 남겨 "어느 커밋들이 한 슬라이스였는지"가 히스토리에 보존된다.
+- **`--ff-only`** 로 로컬 main을 맞춘다 — 여기서 실패하면 로컬 main에 직접 커밋한 것이 있다는 뜻이니
+  멈추고 확인한다(main 직접 커밋 금지 위반의 탐지기).
+
+**반드시 지킬 것**
+
+- **`git push --force` / `--force-with-lease` 금지.** 푸시가 거절되면 힘으로 밀지 말고
+  **다시 `fetch` → 리베이스 → 재시도**한다. 이 프로젝트는 머신이 둘이라 그 사이 원격이 움직이는 일이
+  실제로 잦다(`[[two-machines-check-origin-first]]`).
+- **로컬 main을 기준으로 브랜치를 파지 말 것.** 로컬 main이 원격보다 뒤처져 있을 수 있다 — 브랜치
+  생성 직후 `git fetch && git rev-list --left-right --count origin/main...HEAD`로 확인한다.
+- **여러 레포가 걸린 변경은 레포마다 각각** 이 순서를 밟는다. 한 레포만 올라가면 계약이 어긋난다.
+
+**Unity 레포(클라·서버) 추가 주의**
+
+- 워킹트리에 **의도적으로 커밋하지 않는 로컬 픽스처**가 늘 있다(에디터 부팅 설정, 스폰 개수,
+  볼륨 프로파일 재직렬화, 아트 서브모듈 포인터, 폰트 에셋). 리베이스 전에 `git stash push -u -m ...`로
+  빼두고 끝나면 `pop`한다. **`git add -A` / `git commit -a` 금지** — 반드시 바꾼 파일만 경로로 지정하고,
+  커밋 전에 `git status --short`로 스테이지된 것이 의도한 파일뿐인지 확인한다.
+- 그 픽스처가 **upstream에서 개명된 파일** 위에 있을 수 있다. stash → 리베이스 → pop이면 git이 rename을
+  추적해 새 파일로 옮겨 붙인다(실증됨). 충돌이 나면 픽스처는 사용자 것이니 임의 판단하지 말고 보고한다.
+- 파일 이름을 바꿀 때는 **`.cs`와 짝 `.meta`를 함께 `git mv`** 한다 — GUID가 보존돼 씬·프리팹 참조가
+  안 끊기고, 에디터가 안 떠 있어도 안전하다.
+
 ## UnityMCP instance targeting
 
 This project is the **client**. The UnityMCP server may have both the server and

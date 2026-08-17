@@ -29,8 +29,8 @@ namespace LOP
 
             //  큐 목록을 TbQueue에서 읽는 것은 로비 선택 UI 슬라이스 몫이다 —
             //  마스터데이터가 이 컴포넌트보다 뒤에 로드돼서 지금은 값을 안다고 칠 수 없다.
-            await WebAPI.GetUserStats(userId, 1);   // TbQueue: Casual
-            await WebAPI.GetUserStats(userId, 2);   // TbQueue: Ranked
+            await WebAPI.GetUserRating(userId, 1);   // TbQueue: Casual
+            await WebAPI.GetUserRating(userId, 2);   // TbQueue: Ranked
         }
     }
 }

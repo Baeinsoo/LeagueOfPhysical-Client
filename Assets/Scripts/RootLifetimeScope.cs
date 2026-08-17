@@ -19,7 +19,7 @@ namespace LOP
             builder.RegisterMessageBroker<CreateUserResponse>(options);
             builder.RegisterMessageBroker<GetUserResponse>(options);
             builder.RegisterMessageBroker<GetUserLocationResponse>(options);
-            builder.RegisterMessageBroker<GetUserStatsResponse>(options);
+            builder.RegisterMessageBroker<GetUserRatingResponse>(options);
             builder.RegisterMessageBroker<UpdateUserProfileResponse>(options);
             builder.RegisterMessageBroker<GetMatchResponse>(options);
             builder.RegisterMessageBroker<RoomJoinableResponse>(options);

@@ -2029,6 +2029,72 @@ whole-branch 리뷰(opus).
 
 ---
 
+## 🟠 매치 결과 + 레이팅 — 슬라이스 A 완료 (2026-08-17), B/C/D 남음
+
+**한 문장:** 한 판이 끝나면 등수를 남기고 그 결과로 실력 점수를 갱신해, 다음 매칭이 그 점수로 사람을
+붙이는 고리를 닫는다. **지금은 그 고리의 마지막 칸(결과 → 점수)이 비어 있어 모두가 영원히 1000점**이고,
+실력 기반 매칭이 배선만 완성된 채 사실상 무작위로 붙는다.
+
+spec `docs/superpowers/specs/2026-08-17-match-result-rating-design.md`,
+plan(A) `docs/superpowers/plans/2026-08-17-match-result-rating-slice-a.md`.
+
+### 잠긴 결정 (다시 논의하지 말 것)
+
+| 결정 | 근거 |
+|---|---|
+| **레이팅 엔진 = OpenSkill (Weng‑Lin)**, npm `openskill` MIT | 2~8명 FFA가 1급 시민(Elo·Glicko는 28쌍으로 쪼개야 함) · 실력을 `μ+σ` 두 값으로 봐 신규 수렴이 빠름 · TrueSkill은 같은 계열이지만 **MS 특허·비상업 라이선스**라 못 씀 |
+| **결과 보고 = 게임서버 → lobby-server 직접** | PlayFab이 "통계는 서버 권위 경로로만"이라 못 박은 자리. Open Match는 **끝난 경기가 명시적으로 범위 밖** → 매치메이킹·룸서버는 결과 흐름에서 빠진다 |
+| **3층 분리** `μ/σ`(엔진만) ↔ `mmr`(매칭이 읽는 정수) ↔ 표시값(티어, 범위 밖) | 디렉터가 정수 하나만 읽으므로 **매칭 코드 무변경** |
+| **캐주얼도 점수를 갱신한다** | `has_visible_rank`는 *보여주느냐*의 플래그일 뿐 — 숨은 MMR을 굴려야 캐주얼 매칭 품질이 생긴다 |
+| **결과 확정은 조건부 갱신(CAS)으로 정확히 한 번** | 조회-후-확인은 원리적으로 못 막는다(대기표 유일성에서 겪은 그것) → `[[invariant-as-primary-key]]` |
+
+### ✅ 슬라이스 A — 스키마·어휘 재정비 (완료·배포·실플레이 검증)
+
+머지: backend `0957efa` / Server `9d83ade` / Client `d033672`. 스트랭글러 7태스크(새 표 추가 → 소비처
+이전 → 옛 것 삭제)로 **동작 무변화**를 유지하며 진행.
+
+- `UserStats` → **`UserRating`**(`mu`/`sigma`/`mmr`/`gamesPlayed`/`firstPlaces`/`placementSum`).
+  `eloRating`·`mmr` 중복과 안 쓰던 `tier` 제거, **FFA에 맞지 않던 승/무/패를 등수 지표로** 교체
+- `Match`에 생애(`state`/`startedAt`/`endedAt`)와 `targetMmr`, 참가자별 **`MatchParticipant`** 신설
+- **명단 진실원본이 `MatchParticipant`로 이전** — `Match.playerList` 컬럼 삭제, 응답 DTO의
+  `playerList`는 참가자에서 파생(게임서버 방 접속 인증 계약 유지)
+- 참가자 행은 매치 생성 시 `placement=null`로 **미리 깔린다** → 슬라이스 C의 결과 보고가
+  *명단을 만드는 게 아니라 빈 칸을 채우는 일*이 되어, 게임서버가 남의 userId를 끼워 넣을 수 없다
+
+**실검증(로컬 k8s, 클라 2인스턴스):** 로그인 → 매칭 → **룸 진입 성공.** 드리프트 점검
+`prisma migrate diff` → "No difference detected". 레거시 백필 정확(유저 × 2 = 레이팅 행). 라이브 매치의
+참가자 2행이 `placement` NULL로 생성됨(마이그레이션 백필이 아니라 새 코드 경로).
+
+> ⚠️ **조용히 달라진 것 하나:** 명단 순서가 티켓 순서 → `userId` 오름차순으로 바뀌었다. 게임서버가
+> 인덱스로 스폰 위치를 뽑으므로(`position = Vector3.right * i * 5`) **누가 어디서 시작하는지가 달라진다.**
+> 실질 영향은 없지만 "무변화"라고 말할 때 빼놓으면 안 되는 항목.
+
+### 남은 슬라이스
+
+| | 무엇 | 비고 |
+|---|---|---|
+| **B** | `@lop/rating` 순수 패키지 (`rateMatch`/`toMmr`/`initialRating`) | **독립 — 지금 바로 가능.** `mmr = round(40×(μ−3σ)) + 1000` 앵커가 팩토리·스키마 기본값 **두 곳에 복제**돼 있으니 한 상수로 묶고 테스트로 못박을 것 |
+| **C** | 결과 보고 + 멱등 확정 + 점수 갱신 | 끝나면 **DB의 `mmr`이 실제로 움직인다** |
+| **D** | 클라 표시 (결과 화면 등수·변화 + 프로필 전적) | 빈 자리 둘(`MatchResultView`, 프로필 셸)을 채운다 |
+
+**⚠️ C 착수 전에 반드시 정리할 것 —** `MatchDaoPostgres.saveWithRounds`의 `tx.match.upsert({ update: match })`가
+`state`/`startedAt`/`endedAt`을 **매번 덮는다.** 같은 매치를 다시 저장하면 `state`가 `Created`로 되돌아가는데,
+**그 컬럼이 바로 C의 결과 확정 자물쇠(CAS)** 다. 슬라이스 A에선 재저장이 없어 무해해서 주석만 남겼다.
+
+기타 C/D 메모: `MatchParticipant`엔 `Match` FK·`onDelete`가 없다(매치 삭제 시 고아 행) / 참가자 조회
+인덱스는 `@@unique([matchId, userId])` 선두 컬럼으로 커버됨 / "명단에 없으면 거절"의 기준 명단은
+`findParticipantUserIds`이며 이미 정렬돼 있다 / D 전에 `queueId` 누락 시 400으로 가를 것.
+
+### 미뤄둔 Minor
+
+`targetMmr`의 `DEFAULT 1000` 제거(빼먹은 코드가 조용히 1000을 얻는다 — 세 번째 마이그레이션 필요) ·
+`saveWithRounds`의 뒤 세 인자가 전부 `string[]`이라 위치가 밀려도 컴파일이 통과(옵션 객체로 묶으면 타입이 막는다) ·
+`participantCreateMany` 목이 단언 없이 배선만 됨.
+
+**이 트랙에서 배운 것:** `[[build-gate-claims-need-cache-bypass]]` · `[[deletion-slices-verify-backwards]]`
+
+---
+
 ## ▶ 다음 (Next — 순서 있음)
 
 ### 🏁 인증 트랙 종결 (2026-08-04 ~ 08-10) — 익명 로그인 → cutover 1a~2b 전부 완료

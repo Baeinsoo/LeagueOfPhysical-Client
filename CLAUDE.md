@@ -24,12 +24,18 @@ cascade, egress, CQRS 등)을 그대로 나열하지 말고, 일상어로 풀고
 
 ```bash
 git fetch origin
-git rebase origin/main            # 피처 브랜치를 원격 main 최신 위로
+git rebase --autostash origin/main   # 피처 브랜치를 원격 main 최신 위로
 git checkout main
-git merge --ff-only origin/main   # 로컬 main을 원격에 맞춤
-git merge --no-ff <feature>       # 머지 커밋 생성
+git merge --ff-only origin/main      # 로컬 main을 원격에 맞춤
+git merge --no-ff <feature>          # 머지 커밋 생성
 git push origin main
 ```
+
+**한 줄씩 결과를 확인하고 넘어간다. `&&`로 길게 이어 붙이지 말 것** — 실패한 단계를 지나쳐도 뒤
+단계가 성공해 버려서 *푸시는 됐는데 절차는 안 밟은* 상태가 된다(이 규약을 처음 적용한 날 실제로
+그랬다: Unity 워킹트리가 dirty라 리베이스가 거부됐는데 그대로 머지·푸시까지 갔다. 마침 원격이 안
+움직여 결과만 맞았을 뿐이다). **`--autostash`가 그 사고의 재발 방지책**이다 — 그래도 리베이스가
+실패하면 거기서 멈춘다.
 
 **왜 이 순서인가**
 

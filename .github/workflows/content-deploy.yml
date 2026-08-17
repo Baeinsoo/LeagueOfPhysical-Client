@@ -18,6 +18,7 @@ env:
 
 jobs:
   # 어떤 플랫폼을 구울지 고른다. 매트릭스는 정적이라 입력에 따라 바꾸려면 이렇게 JSON으로 넘겨야 한다.
+  # 몇 초짜리라 러너 종류를 가리지 않지만, 이 레포는 모든 잡을 자체 맥 러너에서 돌린다(깃허브 호스티드 미사용).
   plan:
     runs-on: [self-hosted, client]
     outputs:
@@ -35,7 +36,9 @@ jobs:
           echo "targets=$T" >> "$GITHUB_OUTPUT"
           echo "구울 플랫폼: $T"
 
-  build-deploy:
+  # 클라 앱(안드로이드) 콘텐츠. 이미 배포된 앱이 로컬 번들을 들고 있어서 full로 다시 구우면
+  # 그 번들과 카탈로그가 어긋난다 — 그래서 여기만 증분(Update a Previous Build)이다.
+  build-deploy-client-app:
     if: inputs.target == 'client-app' || inputs.target == 'all'
     runs-on: [self-hosted, client]
     steps:
@@ -98,7 +101,7 @@ jobs:
 
   # 스탠드얼론 플랫폼 콘텐츠(게임서버 Linux + 데스크톱 macOS/Windows).
   # 이 플랫폼들은 플레이어를 매번 새로 빌드하므로 이미 깔린 설치본과의 호환을 지킬 필요가 없다 —
-  # 그래서 증분이 아니라 full로 굽는다. 안드로이드는 배포된 앱이 있어 증분(build-deploy)으로 남는다.
+  # 그래서 증분이 아니라 full로 굽는다. 안드로이드는 위 build-deploy-client-app이 증분으로 맡는다.
   build-deploy-standalone:
     needs: plan
     if: needs.plan.outputs.targets != '[]'
@@ -144,10 +147,15 @@ jobs:
 
       - name: 산출물 확인
         run: |
-          set -e
-          test -f ServerData/${{ matrix.target }}/catalog_0.1.bin
-          grep -qa FlappyRaceMap ServerData/${{ matrix.target }}/catalog_0.1.bin
-          grep -qa Bird.prefab ServerData/${{ matrix.target }}/catalog_0.1.bin
+          set -eo pipefail
+          # 빌드 서포트 모듈이 빠지면 -buildTarget이 조용히 무시되고 엉뚱한 플랫폼 것이 구워진다.
+          # BuildScript가 찍는 실제 타깃을 대조해 그 경우를 여기서 잡는다.
+          grep -q "content full build target: ${{ matrix.target }}" unity-content-${{ matrix.target }}.log
+          # 카탈로그 파일명의 숫자는 앱 버전(bundleVersion)에서 온다 — 버전이 오르면 이름도 바뀌므로 찾아서 쓴다.
+          CAT=$(ls ServerData/${{ matrix.target }}/catalog_*.bin)
+          echo "카탈로그: $CAT"
+          grep -qa FlappyRaceMap "$CAT"
+          grep -qa Bird.prefab "$CAT"
 
       - name: S3 업로드
         env:

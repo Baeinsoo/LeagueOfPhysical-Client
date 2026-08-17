@@ -87,6 +87,9 @@ instantiate is null`은 여기서 온다.
 | `795b45a` | 실행 시 대상을 고르는 `target` 입력 추가 |
 | `cd993e4` | 스탠드얼론 3플랫폼 매트릭스로 확장 |
 
+위 "할 일" 3번(`FlappyRaceMap`·`Bird.prefab`을 Addressable 엔트리로 등록)은 **B1(`8d10d76`)에서 이미
+돼 있었다** — 이번엔 작업이 없다. 이것이 "빠진 건 굽는 경로뿐"이라는 진단의 전제이기도 하다.
+
 CI `content-deploy` run **31982225461**, `target=all`. S3 네 경로가 모두 갱신됐고 각 카탈로그에서
 `FlappyRaceMap`·`Bird.prefab`을 확인했다:
 
@@ -163,6 +166,11 @@ Local — `pathPairIndex=0`. Character/Item/Scene은 Remote.)
 - 워크플로 레벨 `concurrency`는 런(run)만 직렬화하고 잡 사이는 아니다. 지금은 `client` 라벨 러너가
   1대라 안전하지만, 러너가 늘면 두 잡이 같은 체크아웃·형제 UPM 레포에서 경합한다 → `needs:` 또는
   잡 스코프 concurrency로 굳힐 것.
+- **`target`의 네 갈래 중 실제로 돈 것은 `all` 하나뿐이다.** 기본값 `gameserver`를 포함한 나머지
+  셋은 아직 실행 이력이 없다(로직은 리뷰에서 추적해 확인). 다음에 기본값으로 돌리는 사람이 첫 실행이 된다.
+- full 업로드는 `--delete` 없는 additive라 다시 구울 때마다 옛 번들이 S3에 쌓인다. 서버는 현재
+  카탈로그만 보므로 동작 문제는 없고, `--delete`는 로딩 중인 파드를 깰 수 있다 → 지우려면 S3
+  라이프사이클 규칙 쪽이 맞다.
 
 ---
 

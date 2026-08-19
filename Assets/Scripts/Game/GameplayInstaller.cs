@@ -72,7 +72,7 @@ namespace LOP
             builder.Register<LeadState>(Lifetime.Singleton);
             builder.Register<GameFramework.Netcode.INetworkTime, MirrorNetworkTime>(Lifetime.Singleton);
             builder.Register(_ => new GameFramework.Netcode.SnapshotHistory(128), Lifetime.Singleton);
-            builder.Register(_ => new GameFramework.Netcode.SequenceBuffer<PredictedAbilityState>(128), Lifetime.Singleton);
+            builder.Register(_ => new GameFramework.Netcode.SequenceBuffer<LOPSavedState>(128), Lifetime.Singleton);
             builder.Register(_ => new GameFramework.Netcode.SequenceBuffer<InputCommand>(128), Lifetime.Singleton);
             builder.Register<Reconciler>(Lifetime.Singleton);
             builder.Register<RemoteInterpolationClock>(Lifetime.Singleton);

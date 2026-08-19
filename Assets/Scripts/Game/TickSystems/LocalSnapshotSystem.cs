@@ -10,13 +10,13 @@ namespace LOP
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly GameFramework.Netcode.SnapshotHistory snapshotHistory;
-        private readonly GameFramework.Netcode.SequenceBuffer<PredictedAbilityState> predictedAbilityStateHistory;
+        private readonly GameFramework.Netcode.SequenceBuffer<LOPSavedState> predictedAbilityStateHistory;
 
         public LocalSnapshotSystem(
             IPlayerContext playerContext,
             GameFramework.World.EntityRegistry entityRegistry,
             GameFramework.Netcode.SnapshotHistory snapshotHistory,
-            GameFramework.Netcode.SequenceBuffer<PredictedAbilityState> predictedAbilityStateHistory)
+            GameFramework.Netcode.SequenceBuffer<LOPSavedState> predictedAbilityStateHistory)
         {
             this.playerContext = playerContext;
             this.entityRegistry = entityRegistry;
@@ -51,7 +51,7 @@ namespace LOP
                 transform.Rotation,
                 velocity.Linear));
 
-            predictedAbilityStateHistory.Record(tick, PredictedAbilityState.Capture(worldEntity));
+            predictedAbilityStateHistory.Record(tick, LOPSavedState.Capture(worldEntity));
         }
     }
 }

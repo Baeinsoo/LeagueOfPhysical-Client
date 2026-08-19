@@ -24,7 +24,7 @@ namespace LOP
         private readonly GameFramework.World.WorldEventBuffer worldEventBuffer;
         private readonly AbilityActivator abilityActivator;
         private readonly GameFramework.Netcode.SnapshotHistory snapshotHistory;
-        private readonly GameFramework.Netcode.SequenceBuffer<PredictedAbilityState> predictedAbilityStateHistory;
+        private readonly GameFramework.Netcode.SequenceBuffer<LOPSavedState> predictedAbilityStateHistory;
         private readonly GameFramework.Netcode.SequenceBuffer<InputCommand> inputHistory;
         private readonly GameFramework.World.IWorld world;   // 재생 = 라이브와 같은 단일 진입점 world.Tick
         private readonly GameFramework.World.IMotionBridge motionBridge;
@@ -43,7 +43,7 @@ namespace LOP
             GameFramework.World.WorldEventBuffer worldEventBuffer,
             AbilityActivator abilityActivator,
             GameFramework.Netcode.SnapshotHistory snapshotHistory,
-            GameFramework.Netcode.SequenceBuffer<PredictedAbilityState> predictedAbilityStateHistory,
+            GameFramework.Netcode.SequenceBuffer<LOPSavedState> predictedAbilityStateHistory,
             GameFramework.Netcode.SequenceBuffer<InputCommand> inputHistory,
             GameFramework.World.IWorld world,
             GameFramework.World.IMotionBridge motionBridge,
@@ -171,7 +171,7 @@ namespace LOP
             motionBridge.PushMotion(worldEntity);
             Physics.SyncTransforms();
 
-            // 넉백 등 외부 이동 기여는 서버 권위 → 스냅에서 복원한다. 내 예측 히스토리(PredictedAbilityState)엔
+            // 넉백 등 외부 이동 기여는 서버 권위 → 스냅에서 복원한다. 내 예측 히스토리(LOPSavedState)엔
             // 없다: 서버가 가한 것이라 클라가 예측·생성하지 않기 때문. position/velocity와 같은 권위 축.
             var motionContributions = worldEntity.Get<MotionContributions>();
             if (motionContributions != null)
@@ -238,7 +238,7 @@ namespace LOP
                     var velocity = worldEntity.Get<GameFramework.World.Velocity>();
                     snapshotHistory.Record(new GameFramework.Netcode.EntitySnapshot(
                         t, transform.Position, transform.Rotation, velocity.Linear));
-                    predictedAbilityStateHistory.Record(t, PredictedAbilityState.Capture(worldEntity));
+                    predictedAbilityStateHistory.Record(t, LOPSavedState.Capture(worldEntity));
                 }
             }
 

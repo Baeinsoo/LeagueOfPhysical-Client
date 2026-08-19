@@ -94,6 +94,16 @@ namespace LOP
             // 예측된 현재 위치 — 하드 보정 전. 재생 후와의 차이로 보정 크기를 판정(시각 신호용).
             Vector3 preCorrectionPos = GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity);
 
+            // 하드 보정으로 시뮬 위치가 튄 것을 렌더 스무더에 알린다. 스무더가 보이는 위치를
+            // (보정 전 예측 → 보정 후 권위)만큼 부드럽게 흡수한다(시뮬 무영향). 크기별 스냅/무시는 스무더가 판단.
+            // 권위 값을 덮은 뒤 빠져나가는 길은 재생을 하든 말든 전부 이걸 부른다 — 안 부르면 화면이 순간이동한다.
+            void NotifyRenderCorrection()
+            {
+                renderCorrectionSmoother.OnCorrection(
+                    preCorrectionPos.ToNumerics(),
+                    GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity).ToNumerics());
+            }
+
             // errorGate: 예측이 서버와 충분히 가까우면 아무것도 안 함.
             // 그 전에 예측-서버 거리를 항상 기록해 Recon HUD(ReconciliationStats)가 계속 갱신되게 한다.
             if (world.TryGetSavedMotion(anchorTick, entityId, out var predicted))
@@ -106,8 +116,9 @@ namespace LOP
                 // 얼마나 어긋났는지(통계)만으로는 원인을 못 가른다 — 그 틱의 입력·속도·접지가 필요하다.
                 if (error > SpikeLogThreshold)
                 {
+                    // 무엇이 실렸는지는 커맨드가 스스로 찍는다 — 여기서 필드를 나열하면 넷코드가 게임 내용을 알게 된다.
                     string inputText = inputHistory.TryGet(anchorTick, out var spikeInput) && spikeInput != null
-                        ? $"h={spikeInput.Horizontal:F2} v={spikeInput.Vertical:F2} jump={spikeInput.Jump}"
+                        ? spikeInput.ToString()
                         : "(없음)";
                     var delta = authoritative - predicted.Position;
                     Debug.LogWarning(
@@ -168,9 +179,7 @@ namespace LOP
 
             if (tooOld || currentTick - anchorTick > MaxReplayTicks)
             {
-                renderCorrectionSmoother.OnCorrection(
-                    preCorrectionPos.ToNumerics(),
-                    GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity).ToNumerics());
+                NotifyRenderCorrection();
                 return;
             }
 
@@ -178,6 +187,7 @@ namespace LOP
             var inputBuffer = worldEntity.Get<InputBuffer>();   // 입력 버퍼 (WorldEventBuffer 아님 — 이름 구분)
             if (inputBuffer == null)
             {
+                NotifyRenderCorrection();
                 return;
             }
             // 재생이 만든 연출 이벤트(cue 등)는 이미 라이브 때 방출됐으므로 버린다.
@@ -195,9 +205,7 @@ namespace LOP
                 }
             }
 
-            // 하드 보정으로 시뮬 위치가 튄 것을 렌더 스무더에 알린다. 스무더가 보이는 위치를
-            // (보정 전 예측 → 보정 후 권위)만큼 부드럽게 흡수한다(시뮬 무영향). 크기별 스냅/무시는 스무더가 판단.
-            renderCorrectionSmoother.OnCorrection(preCorrectionPos.ToNumerics(), GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity).ToNumerics());
+            NotifyRenderCorrection();
         }
     }
 }

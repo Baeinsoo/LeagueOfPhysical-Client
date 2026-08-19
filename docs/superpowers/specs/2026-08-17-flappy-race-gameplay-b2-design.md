@@ -178,56 +178,153 @@ Local — `pathPairIndex=0`. Character/Item/Scene은 Remote.)
 
 ### 문제
 
-되감기(`Reconciler`)가 **게임 규칙을 알고 있다.** 두 군데다:
+되감기(`Reconciler`)가 **게임 규칙을 알고 있다.** 실측으로 두 군데다:
 
 ```
 Reconciler
  ├─ 상태 저장/복원
  │    snapshotHistory               위치·속도 — 게임 무관, 정상
- │    predictedAbilityStateHistory  스킬 상태 — 게임 고유가 넷코드에 박힘  ❌
+ │    predictedAbilityStateHistory  스킬·상태이상·스탯·마나가 넷코드에 박힘   ❌
  └─ 재생 중 입력 적용
       world.Tick(t, dt)             정상
-      abilityActivator.TryActivate  넷코드가 스킬을 직접 발동          ❌
+      abilityActivator.TryActivate  넷코드가 스킬을 직접 발동              ❌
 ```
 
 그래서 스킬이 없는 게임(Flappy)은 `Reconciler`를 만들 수조차 없다 — 생성자가 `AbilityActivator`와
 `SequenceBuffer<PredictedAbilityState>`를 반드시 요구한다. B1이 게임별 DI 분리를 포기하고
 `GameplayInstaller` 한 벌로 간 이유가 이것이다.
 
-### 정석 모양
+### 정석 모양 — 저장·복원은 시뮬레이션의 일
 
-되감기는 **무엇을 저장할지 몰라야 한다.** 월드에게 "네 상태를 저장해라 / 그 시점으로 되돌려라"만
-시키고, 무엇이 담기는지는 각 게임이 정한다.
+세 엔진이 같은 말을 한다: **롤백 기계는 상태의 내용을 모른다. 시뮬이 자기 상태를 저장·복원한다.**
 
-| 지금 | 바꾼 뒤 |
+| 표준 | 어떻게 |
 |---|---|
-| 넷코드가 위치·속도 + 스킬 상태를 각각 저장 | 넷코드는 `world.Capture(tick)` / `world.RestoreTo(tick)`만 부른다 |
-| 재생 중 넷코드가 `TryActivate`로 스킬 발동 | 입력을 **입력 버퍼에 되돌려 놓고** `world.Tick` 한 번. 그 입력으로 무엇을 하는지는 월드가 안다 |
+| **GGPO** (격투게임 롤백의 사실상 표준) | `save_game_state` / `load_game_state` — 엔진은 불투명한 바이트 덩어리로만 받는다 |
+| **Photon Quantum** | 프레임 전체를 통짜 스냅샷. 시뮬(`Frame`)이 자기 상태를 소유 |
+| **Unreal** `FSavedMove_Character` | 베이스가 위치·속도를 담고, **게임이 서브클래스로 자기 데이터를 얹는다.** 네트워크 코드는 재생만 |
 
-결과: `FlappyWorld`는 위치·속도만 담고 `LOPWorld`는 거기에 스킬 상태를 더 담는다.
-**넷코드 코드에서 "스킬"이라는 단어가 사라진다.**
+Unreal의 모양을 그대로 가져온다 — 베이스가 엔진이 아는 부분(위치·회전·속도)을 담고,
+각 게임 월드가 자기 것을 덧붙인다. **호출자에겐 저장이 한 번, 복원이 한 번이다.**
 
-### 산업 표준 매핑
+```csharp
+// GameFramework.World — GGPO save_game_state / load_game_state 대응
+public interface IWorld
+{
+    EntityRegistry EntityRegistry { get; }
+    WorldEventBuffer EventBuffer { get; }
+    void Tick(long tick, float deltaTime);
 
-| 표준 | 대응 |
+    void SaveState(long tick);                    // Simulated 엔티티의 이번 틱 상태를 보관
+    bool LoadState(long tick);                    // 그 틱으로 되돌린다. 기록 없으면 false
+    long? OldestSavedTick { get; }                // "아직 안 살았던 틱"과 "밀려난 틱"을 가르는 데 쓴다
+    bool TryGetSavedMotion(long tick, string entityId, out Netcode.EntitySnapshot motion);
+}
+```
+
+`TryGetSavedMotion`이 인터페이스에 있는 이유: 되감기는 **예측이 서버와 얼마나 어긋났는지** 재야
+하는데 그 값은 위치다. 위치는 게임과 무관하므로 이걸 노출해도 넷코드가 게임을 아는 게 아니다.
+(Unreal도 `SavedMove->SavedLocation`을 보정 코드가 읽는다.)
+
+`WorldBase`가 위치·속도 부분을 구현하고, 게임별 추가분은 훅으로 연다:
+
+```csharp
+protected virtual void SaveGameState(long tick) { }
+protected virtual bool LoadGameState(long tick) => true;
+```
+
+- `LOPWorld` — 여기서 스킬·상태이상·스탯·마나를 담는다. 지금의 `PredictedAbilityState`가 이 안으로 흡수된다
+- `FlappyWorld` — **아무것도 덧붙이지 않는다.** 위치·속도만으로 충분하다
+
+### 정석 모양 — 입력은 데이터, 해석은 시뮬
+
+| 표준 | 어떻게 |
 |---|---|
-| **GGPO** `save_game_state` / `load_game_state` — 롤백 엔진은 상태의 내용을 모르고 게임이 저장·복원한다 | `world.Capture` / `world.RestoreTo` |
-| **Photon Quantum** frame snapshot — 프레임 전체를 통짜로 스냅샷 | 월드가 자기 스냅샷을 소유 |
-| **입력-as-데이터** (Quantum `PollInput`, Unity NetCode for Entities `ICommandData`) — 입력은 데이터로 버퍼에 놓이고 시뮬이 소비 | 재생 = 입력 버퍼 되돌리고 `world.Tick` |
+| **Photon Quantum** `PollInput` | 입력은 프레임에 실리는 데이터. 시뮬이 읽어 해석 |
+| **Unity NetCode for Entities** `ICommandData` | 같음 — 입력은 버퍼에 놓이는 데이터 |
+| **Unreal** SavedMove의 compressed flags | 네트워크 코드는 플래그를 되돌려 놓기만, 해석은 이동 컴포넌트가 |
 
-세 번째는 `netcode-redesign.md` §4d가 "Stage④ 몫"으로 예고해둔 표준 `IInputSource` 방향과 같다.
-B2가 그 절반(재생 경로에서의 입력 소비)을 앞당긴다.
+**롤백 기계가 게임플레이 함수를 직접 부르는 엔진은 없다.** 그러므로 재생 루프는 이렇게 된다:
+
+```
+지금:  inputBuffer.Current = cmd;  if (cmd.AbilityId != 0) abilityActivator.TryActivate(...);  world.Tick(t)
+바꾼 뒤: inputBuffer.Current = cmd;  world.Tick(t)
+```
+
+발동은 `LOPWorld.Mutation`의 **첫 페이즈**로 들어간다(라이브에서 `PlayerInputManager`가 이동 계산보다
+먼저 발동시키고 있으므로 순서가 같아야 한다 — 대시 발동 틱의 입력 게이트 타이밍이 이 순서에 걸려 있다).
+
+이걸 하려면 `AbilityActivator`가 클·서 공용이어야 하는데, **지금 그 파일은 클라와 서버에 주석 한 줄만
+다른 채로 복제돼 있다**(실측). LOP-Shared로 올리면 사본 하나가 사라진다. 서버 AI(`EnemyBrain`)의
+슬롯 발동은 입력이 아니라 의도이므로 그대로 둔다.
+
+### 서버 보정의 게임 고유 부분 — 클라 훅
+
+되감기에는 세 번째 게임 의존이 남는다: 서버 스냅의 **상태이상 목록**이다.
+
+- 게이트 — 위치가 맞아도 서버 상태이상 목록이 다르면 되돌려야 한다(남이 건 슬로우는 내가 예측 못 함)
+- 적용 — 서버 목록이 진실이므로 복원 후 덮어쓴다
+
+`EntitySnap`은 클라 전용 타입이라 LOP-Shared의 월드가 볼 수 없다(서버는 이 타입을 쓰지 않으므로
+토폴로지상 Shared로 올려서도 안 된다). 그래서 이 부분만 **클라 쪽 게임별 훅**으로 뺀다 —
+Unreal의 `ServerMoveHandleClientError` / `OnClientCorrectionReceived`가 게임의 이동 컴포넌트에
+있는 것과 같은 모양이다.
+
+```csharp
+// 클라 Assets/Scripts/Netcode/
+public interface IServerCorrectionHandler
+{
+    bool Matches(long tick, EntitySnap snap);              // 위치 말고 게임 고유 값이 맞는가
+    void ApplyAuthoritative(Entity entity, EntitySnap snap); // 서버가 진실인 부분을 덮어쓴다
+}
+```
+
+- `LOPServerCorrectionHandler` — 상태이상 비교·적용. `LOPWorld`(구체)를 직접 참조해 앵커 틱의
+  예측 상태이상을 읽는다. 같은 게임 안이므로 구체 참조가 맞다
+- `FlappyRace` — 비교할 것도 덮어쓸 것도 없다. 아무 일도 안 하는 구현체를 등록
+
+### 바꾼 뒤 되감기의 전체 모습
+
+```
+스냅 도착
+ ├ world.TryGetSavedMotion(anchor, id) → 오차 기록 + 위치 게이트
+ ├ correction.Matches(anchor, snap)    → 게임 고유 게이트
+ └ 어긋났으면:
+      world.LoadState(anchor)                  ← 위치·속도·스킬·상태이상 전부 한 번에
+      (스냅의 권위 값 덮어쓰기: 위치·회전·속도·외력)
+      correction.ApplyAuthoritative(entity, snap)
+      for t in anchor+1 .. now-1:
+          inputBuffer.Current = inputHistory[t]
+          world.Tick(t, dt)
+          world.SaveState(t)
+```
+
+**넷코드 코드에서 "스킬"·"상태이상"이라는 단어가 사라진다.**
+
+### ⚠️ 이 슬라이스는 기존 결정을 뒤집는다
+
+`netcode-redesign.md` §6.5와 `world-core-connection-architecture.md`가 이렇게 못박아 두었다:
+
+> `Snapshot()`/`Restore(snap)` 메서드는 **코어에 두지 않는다** — 보관·복원 정책은 클라 외각의 책임
+
+당시 근거는 "서버는 전체 롤백을 안 하니 YAGNI"였다. 그런데 **그 결정이 지금 문제의 원인**이다.
+외각이 상태의 모양을 소유하니, 외각(=넷코드)이 "LOP엔 스킬이 있다"를 알아야만 했다.
+
+뒤집는 근거는 위 세 엔진 전부다. YAGNI 우려도 실체가 없다 — 서버는 `SaveState`를 부르지 않으면
+그만이고, 인터페이스에 메서드가 있다고 비용이 생기지 않는다. **두 문서를 이 슬라이스에서 함께 고친다.**
 
 ### 건드리는 곳과 위험
 
-- **GameFramework** — 되감기 인터페이스(`IWorld` 확장 또는 별도 포트)
-- **클라 `Reconciler`** — 스킬 의존 제거
-- **LOP-Shared `LOPWorld`** — 스킬 입력을 월드가 소비하도록
-- **신규 `FlappyWorld`** — 자기 상태만 담는 구현
+| 레포 | 무엇 |
+|---|---|
+| GameFramework | `IWorld`에 저장/복원 추가, `WorldBase`가 위치·속도 부분 구현 |
+| LOP-Shared | `LOPWorld`가 게임 상태 저장/복원 + 입력에서 발동, `AbilityActivator` 이전, `FlappyWorld`는 그대로 |
+| LOP-Client | `Reconciler` 슬림화, `IServerCorrectionHandler` 2종, `LocalSnapshotSystem`이 `world.SaveState` 호출 |
+| LOP-Server | `ServerInputSystem`의 발동 호출 제거, 중복 `AbilityActivator` 삭제 |
 
 가장 큰 위험은 **FlapWang 회귀**다. 지금 잘 도는 예측·롤백을 건드린다.
 → **완료 기준에 "FlapWang이 이전과 똑같이 동작한다"를 명시적으로 넣는다**(공중 점프 시나리오 +
-`DebugHud`의 reconciliation distance가 개편 전 수준).
+`DebugHud`의 reconciliation distance가 개편 전 수준). 서버까지 켜서 확인한다.
 
 ---
 
@@ -326,15 +423,18 @@ EditMode 테스트 8개도 함께 옮긴다. 지금은 클라 프로토타입 �
 | 몸싸움 | **프로토타입 규칙 이식** | 순수 함수 + 테스트가 이미 있고 손맛이 검증됨 |
 | 예측 범위 | 서버=모든 새 / 클라=내 새만 | 기존 `Simulated` 마커 규약 그대로 |
 | 서버 콘텐츠 | **Addressables 원격 번들**(이미 동작) | 서버에 아트 소스를 붙일 필요가 없다 |
+| 되감기 상태 | **월드가 저장·복원**(`SaveState`/`LoadState`) | GGPO·Quantum·Unreal 모두 시뮬이 자기 상태를 소유한다. 사진첩을 둘로 나누는 건 우리만의 변형이었다 |
+| 재생 중 발동 | **입력을 놓고 `world.Tick` 한 번** | 롤백 기계가 게임플레이 함수를 부르는 엔진은 없다(Quantum `PollInput`, NetCode `ICommandData`) |
 
 ---
 
 ## 9. Open Decisions
 
-- [ ] **`world.Capture`/`RestoreTo`의 정확한 시그니처** — `IWorld`에 직접 붙일지, 별도 포트
-  (`IRollbackState` 등)로 뺄지. `netcode-redesign.md` §6.5는 "Snapshot/Restore를 시뮬 코어에 두지
-  않는다"고 적었는데, 그 취지는 *보관 정책*을 코어에 두지 말라는 것이다. 상태를 **뜨고 넣는 것**은
-  월드만 할 수 있으므로 이 결정과 충돌하지 않는다 — 구현 시 문구를 함께 정리한다.
+- [x] ~~`world.Capture`/`RestoreTo`의 정확한 시그니처~~ → **해소(§4)**. `IWorld`에 직접
+  `SaveState`/`LoadState`로 붙인다(GGPO `save_game_state`/`load_game_state` 대응). 별도 포트로 빼지
+  않는 이유: 예측하는 클라만 쓰는 능력이지만, 안 부르면 그만이라 서버에 비용이 없다.
+  이는 `netcode-redesign.md` §6.5의 "시뮬 코어에 두지 않는다"를 **뒤집는 것**이다 — 그 결정이
+  넷코드가 게임을 알게 만든 원인이었다. 두 아키텍처 문서를 이 슬라이스에서 함께 고친다.
 - [ ] **맵 콜라이더 레이어** — 새 sweep이 쓸 레이어마스크. 프로토타입은 `~0`(전부)였다.
 - [ ] **`TbFlappyConfig` 이름** — 게임이 늘면 `TbGameConfig`+게임모드 키가 나을 수 있다. 지금은
   게임이 둘뿐이라 단순한 쪽으로 간다.

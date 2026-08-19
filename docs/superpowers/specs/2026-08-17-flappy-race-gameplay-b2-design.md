@@ -258,6 +258,20 @@ protected virtual bool LoadGameState(long tick) => true;
 다른 채로 복제돼 있다**(실측). LOP-Shared로 올리면 사본 하나가 사라진다. 서버 AI(`EnemyBrain`)의
 슬롯 발동은 입력이 아니라 의도이므로 그대로 둔다.
 
+단 그냥 옮길 수는 없다 — `AbilityActivator`가 쓰는 `AbilityDataProvider`는 **사이드별 마스터데이터
+패키지**(클·서 상호 비참조)를 읽으므로 공용이 될 수 없다. 그래서 조회를 **델리게이트로 받는다**:
+
+```csharp
+public AbilityActivator(AbilitySystem abilitySystem,
+                        Func<int, AbilityData?> resolveAbility,   // 사이드별 마스터데이터 어댑터
+                        EntityRegistry entityRegistry,
+                        WorldEventBuffer worldEventBuffer)
+```
+
+이는 새 발명이 아니라 **이 코드베이스가 이미 쓰는 방식**이다 — `StatusEffectApplyEffectHandler`가
+`id => provider.Get(id)`를 받는 것과 같다. "시뮬은 구체 공유, 인터페이스는 사이드가 달라야 하는
+I/O 어댑터에만"이라는 규약에도 맞는다: 마스터데이터 projection은 설계상 사이드가 다르다.
+
 ### 서버 보정의 게임 고유 부분 — 클라 훅
 
 되감기에는 세 번째 게임 의존이 남는다: 서버 스냅의 **상태이상 목록**이다.

@@ -292,8 +292,12 @@ namespace GameFramework.World
 {
     public abstract class WorldBase : IWorld
     {
-        // 되감기 보관 길이. 128틱 ≈ 2.5초 — 이보다 오래된 서버 스냅은 재생 대신 텔레포트로 처리한다.
-        private const int SaveCapacity = 128;
+        /// <summary>
+        /// 되감기 보관 길이. 128틱 ≈ 2.5초 — 이보다 오래된 서버 스냅은 재생 대신 텔레포트로 처리한다.
+        /// 게임이 자기 상태를 담을 때도 <b>같은 길이</b>를 써야 한다. 한쪽만 짧으면 되돌리기가 반쪽이 되는데,
+        /// 컴파일도 테스트도 그걸 잡아주지 못한다.
+        /// </summary>
+        protected const int SaveCapacity = 128;
 
         // 틱 → (엔티티 id → 위치·회전·속도).
         private readonly Netcode.SequenceBuffer<Dictionary<string, Netcode.EntitySnapshot>> _motionFrames
@@ -626,9 +630,8 @@ namespace LOP.Tests
 
 ```csharp
         // 스킬·상태이상·스탯·마나의 틱별 사진. 위치·속도는 WorldBase가 담는다.
-        // 길이는 WorldBase의 보관 길이와 같아야 한다 — 한쪽만 남으면 되돌리기가 반쪽이 된다.
         private readonly GameFramework.Netcode.SequenceBuffer<System.Collections.Generic.Dictionary<string, LOPSavedState>> _gameFrames
-            = new GameFramework.Netcode.SequenceBuffer<System.Collections.Generic.Dictionary<string, LOPSavedState>>(128);
+            = new GameFramework.Netcode.SequenceBuffer<System.Collections.Generic.Dictionary<string, LOPSavedState>>(SaveCapacity);
 
         protected override void SaveGameState(long tick)
         {
@@ -677,7 +680,7 @@ namespace LOP.Tests
         }
 ```
 
-> 보관 길이 `128`이 `WorldBase.SaveCapacity`와 같은 값이라는 점이 중요하다. Task 1에서 그 상수를 `protected const int SaveCapacity`로 바꿔 여기서 참조하게 해도 좋다 — 그 편이 두 값이 어긋날 여지를 없앤다. 그렇게 했다면 Task 1의 커밋도 함께 수정한다.
+> 보관 길이는 리터럴 `128`이 아니라 베이스의 `SaveCapacity`를 그대로 쓴다(Task 1에서 `protected const`로 열어 뒀다). 두 값이 어긋나면 되돌리기가 반쪽이 되는데 컴파일도 테스트도 그걸 잡아주지 못한다.
 
 - [ ] **Step 7: 테스트를 돌리고 일부러 깨뜨려 본다**
 
@@ -705,7 +708,18 @@ EOF
 )"
 ```
 
-> 클·서의 `LOPSavedState` 치환분은 각 레포에서 따로 커밋한다(Task 4·6).
+- [ ] **Step 9: 클·서의 rename 치환분을 각 레포에 바로 커밋한다**
+
+Step 3의 `sed`가 클라·서버 파일도 고쳤다. 그 변경을 **여기서 커밋한다** — 다음 태스크까지 미루면 그 태스크의 리뷰 패키지에 남의 변경이 섞여 리뷰어가 범위를 가릴 수 없다.
+
+```bash
+cd /Users/insoobae/workspace/LOP/LeagueOfPhysical-Client
+git checkout -b feature/flappy-b2c-netcode-agnostic 2>/dev/null || git checkout feature/flappy-b2c-netcode-agnostic
+git add -u Assets/Scripts
+git commit -m "refactor: PredictedAbilityState를 LOPSavedState로 따라 바꾼다"
+```
+
+서버도 같은 방식으로(브랜치 `feature/flappy-b2c-netcode-agnostic`). **경로를 명시해** 커밋한다 — 서버 레포에는 빌드 타깃 때문에 생긴 URP 에셋 노이즈가 미커밋으로 남아 있고, 그건 절대 커밋하지 않는다.
 
 ---
 

@@ -76,8 +76,6 @@ namespace LOP
             builder.Register<GameFramework.Netcode.SnapshotArrivalStats>(Lifetime.Singleton);
             builder.Register<LeadState>(Lifetime.Singleton);
             builder.Register<GameFramework.Netcode.INetworkTime, MirrorNetworkTime>(Lifetime.Singleton);
-            builder.Register(_ => new GameFramework.Netcode.SnapshotHistory(128), Lifetime.Singleton);
-            builder.Register(_ => new GameFramework.Netcode.SequenceBuffer<LOPSavedState>(128), Lifetime.Singleton);
             builder.Register(_ => new GameFramework.Netcode.SequenceBuffer<InputCommand>(128), Lifetime.Singleton);
             builder.Register<Reconciler>(Lifetime.Singleton);
             builder.Register<RemoteInterpolationClock>(Lifetime.Singleton);
@@ -87,7 +85,7 @@ namespace LOP
             builder.Register<ReconcileSystem>(Lifetime.Singleton);
             builder.Register<PhysicsSimulationSystem>(Lifetime.Singleton);
             builder.Register<WorldEventDrainSystem>(Lifetime.Singleton);
-            builder.Register<LocalSnapshotSystem>(Lifetime.Singleton);
+            builder.Register<WorldStateSaveSystem>(Lifetime.Singleton);
             builder.Register<DespawnFlushSystem>(Lifetime.Singleton);
         }
     }

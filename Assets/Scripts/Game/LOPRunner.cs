@@ -23,7 +23,7 @@ namespace LOP
         [Inject] private ReconcileSystem reconcileSystem;
         [Inject] private PhysicsSimulationSystem physicsSimulationSystem;
         [Inject] private WorldEventDrainSystem worldEventDrainSystem;
-        [Inject] private LocalSnapshotSystem localSnapshotSystem;
+        [Inject] private WorldStateSaveSystem worldStateSaveSystem;
         [Inject] private DespawnFlushSystem despawnFlushSystem;
 
         [Inject] private IRoomDataStore roomDataStore;
@@ -109,7 +109,7 @@ namespace LOP
             world.Tick(tickUpdater.tick, (float)tickUpdater.interval);
             physicsSimulationSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
             worldEventDrainSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
-            localSnapshotSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
+            worldStateSaveSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
             RunPhase<End>(tickUpdater.tick, (float)tickUpdater.deltaTime);
             despawnFlushSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
         }

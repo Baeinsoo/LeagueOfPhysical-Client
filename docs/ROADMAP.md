@@ -2073,9 +2073,39 @@ plan(A) `docs/superpowers/plans/2026-08-17-match-result-rating-slice-a.md`.
 
 | | 무엇 | 비고 |
 |---|---|---|
-| **B** | `@lop/rating` 순수 패키지 (`rateMatch`/`toMmr`/`initialRating`) | **독립 — 지금 바로 가능.** `mmr = round(40×(μ−3σ)) + 1000` 앵커가 팩토리·스키마 기본값 **두 곳에 복제**돼 있으니 한 상수로 묶고 테스트로 못박을 것 |
+| ~~**B**~~ | ~~`@lop/rating` 순수 패키지~~ | ✅ **완료(2026-08-19, `030fb24`)** — 아래 절 참조 |
 | **C** | 결과 보고 + 멱등 확정 + 점수 갱신 | 끝나면 **DB의 `mmr`이 실제로 움직인다** |
 | **D** | 클라 표시 (결과 화면 등수·변화 + 프로필 전적) | 빈 자리 둘(`MatchResultView`, 프로필 셸)을 채운다 |
+
+### ✅ 슬라이스 B — `@lop/rating` (완료, 2026-08-19)
+
+OpenSkill(Weng‑Lin)을 감싸 **`initialRating` / `rateMatch` / `toMmr`** 셋만 노출하는 순수 패키지.
+DB도 HTTP도 모르므로 엔진을 갈아도 이 파일만 바뀐다. **아직 부르는 곳은 없다**(배선은 C).
+단위 테스트 10건 — 1등↑/꼴등↓, 등수 순 정렬, 판수가 쌓이면 σ 감소, 동점=무승부, 1명 이하는 무변화,
+입력 객체 불변, 그리고 **신규 유저 = 정확히 1000**(앵커).
+
+- `mmr = round(40×(μ−3σ)) + 1000`. openskill `ordinal(r, {z:3, alpha:40, target:1000})`이 이 수식을
+  **인자로 그대로** 표현한다 — 우리가 산수를 복제하지 않는다.
+- 빌드 산출물(CJS)을 순수 node로 직접 밟아 확인했다: `mu 25 / sigma 8.333333333333334` → `toMmr 1000`,
+  1승 후 1138 / 1패 후 927. **ts-jest는 TS 소스를 돌리므로 그것만으로는 배포되는 경로를 안 지난다.**
+
+> ⚠️ **openskill 패키징 함정(박제).** CJS 산출물(`index.cjs`)과 CJS 선언(`index.d.cts`)을 둘 다 담고도
+> `exports`가 `types`를 **조건 밖 맨 앞**에 둬서, `require`로 들어와도 타입은 ESM 선언으로 해석된다
+> → `moduleResolution: node16`에서 **TS1479**. v4도 같아 다운그레이드는 답이 아니다. 런타임은 멀쩡하고
+> 타입 라벨만 틀린 경우라 `tsconfig.paths`로 타입 해석만 `.d.cts`로 돌렸다(이유는 그 자리에 주석).
+> **ts-jest는 이걸 통과시키고 `tsc`만 잡는다** — 테스트 초록을 빌드 통과로 읽으면 안 되는 사례.
+
+**앵커 중복은 아직 남아 있다(의도).** `UserRatingFactory`(lobby-server)와 Prisma 기본값이 `mu 25 /
+sigma 25/3 / mmr 1000`을 각자 들고 있다. 묶으려면 lobby-server가 `@lop/rating`을 의존해야 하는데,
+**도커파일이 패키지를 선택적으로 복사**해서(`packages/{database,server-core}`만) 다음이 함께 필요하다:
+
+```dockerfile
+COPY packages/rating ./packages/rating          # lobby-server Dockerfile
+RUN pnpm --filter @lop/rating run build         # lobby-server build 앞에
+```
+
+값이 이미 동일해 지금 옮겨도 기능 이득이 0이고, **C가 어차피 그 의존을 필요로 한다**(`rateMatch` 호출).
+그래서 도커 빌드 검증과 함께 C에서 한 번에 한다. `[[unbuilt-image-hidden-breakage]]`
 
 **⚠️ C 착수 전에 반드시 정리할 것 —** `MatchDaoPostgres.saveWithRounds`의 `tx.match.upsert({ update: match })`가
 `state`/`startedAt`/`endedAt`을 **매번 덮는다.** 같은 매치를 다시 저장하면 `state`가 `Created`로 되돌아가는데,

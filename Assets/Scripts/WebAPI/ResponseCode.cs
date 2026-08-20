@@ -24,6 +24,7 @@ namespace LOP
 
         #region Match
         public const int MATCH_NOT_EXIST = 20000;
+        public const int INVALID_MATCH_RESULT = 20001;
         #endregion
 
         #region User

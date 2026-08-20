@@ -42,6 +42,8 @@ namespace LOP
             builder.Register<ShopView>(Lifetime.Transient);
             builder.Register<SettingsView>(Lifetime.Transient);
             builder.Register<ProfileView>(Lifetime.Transient);
+            //  View와 함께 Transient — 결과 화면을 열 때마다 그 시점의 스토어 값을 읽어야 한다.
+            builder.Register<MatchResultViewModel>(Lifetime.Transient);
             builder.Register<MatchResultView>(Lifetime.Transient);
             builder.RegisterEntryPoint<FrontEndCoordinator>();
 

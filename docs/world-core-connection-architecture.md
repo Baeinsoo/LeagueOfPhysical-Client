@@ -201,7 +201,7 @@ World 상태가 네트워크를 건널 때 *값을 snapshot(상태)으로 보낼
 
 - 보유: `EntityRegistry`, `WorldEventBuffer`
 - 진입점: `Tick(int tick, float dt)` — Collection → Mutation → Detection → Application 흐름
-- 외부 노출: 상태 access(`EntityRegistry`, `EventBuffer`)만. 정책(Snapshot/Restore/예측/롤백/보간/fan-out)은 *외부 책임*.
+- 외부 노출: 상태 access(`EntityRegistry`, `EventBuffer`) + 상태 저장/복원(`SaveState`/`LoadState`, **월드가 직접 구현** — 아래 "상태 저장/복원 책임" 참고). 예측/롤백 타이밍·보간·fan-out *정책*은 *외부 책임*.
 - **갖지 않는 것**: View, 네트워크 송수신, 예측 정책, 보정 정책, fan-out 정책.
 
 ### 외각 (`LOPGameEngine`, LOP-Client / LOP-Server 각자)
@@ -225,7 +225,11 @@ World 상태가 네트워크를 건널 때 *값을 snapshot(상태)으로 보낼
 | `IOverlapQuery` | 범위(구) 오버랩 쿼리 추상 (`ICollisionQuery` 짝) — `string[] OverlapSphere(numerics center, radius)`. **구체는 사이드별**(`LOPOverlapQuery` 클·서): `Physics.OverlapSphere` + collider→엔티티 매핑이 사이드 타입(`LOPEntity`)을 알아야 하므로 `UnityCollisionQuery`처럼 공통 구체가 아니라 각 레포 보유. 공유 히트 판정(`DamageEffectHandler`)의 엔진 broad-phase 포트. |
 | `INetworkSession` | 네트워크 송수신 추상 (Mirror NetworkClient/Server 어댑터로 구현) |
 
-> **`IGameSimulation`의 책임 경계**: Snapshot/Restore *메서드*는 두지 않는다. *상태 access*만 노출하고, 보관·복원 정책은 외각의 책임. 자세한 위치는 [netcode-redesign.md](netcode-redesign.md) 참조.
+> **`IGameSimulation`(현 `IWorld`)의 책임 경계 — 2026-08-19 정정**: ~~Snapshot/Restore *메서드*는 두지 않는다~~ 는
+> **뒤집힌 결정**이다. 지금은 반대로 **`SaveState`/`LoadState` 메서드가 코어(`IWorld`)에 있다** — 상태의
+> *모양*(어빌리티 유무 등)을 아는 쪽이 그 상태를 저장/복원해야 게임마다 다른 넷코드를 안 짜도 되기 때문.
+> 외각(클라)은 *언제* 저장/복원을 호출할지(타이밍 정책)만 정한다. 자세한 이유는
+> [netcode-redesign.md](netcode-redesign.md) §6.5 참조.
 
 ### 호스트 코드 스케치
 
@@ -233,19 +237,18 @@ World 상태가 네트워크를 건널 때 *값을 snapshot(상태)으로 보낼
 // LOP-Client
 public class LOPGameEngine : GameEngineBase
 {
-    [Inject] LOPGameSimulation simulation;
+    [Inject] LOPGameSimulation simulation;  // 현재 실체: LOPWorld (IWorld 구현)
     [Inject] IEventSink eventSink;          // WorldEventSink (클)
-    [Inject] SnapshotHistory history;       // 클라 전용 (Stage ④)
 
     public override void UpdateEngine() {
         ProcessNetworkMessage();              // 클·서 다름
-        if (snapReceived) {                   // 클라 전용
-            history.RestoreSimulationTo(simulation, snap.tick);
+        if (snapReceived) {                   // 클라 전용 — *언제* 되돌릴지는 여전히 외각(클라)이 정한다
+            simulation.LoadState(snap.tick);  // 저장/복원 자체는 월드(IWorld)가 구현 — §6.5 참고
             ReplayInputs(snap.tick + 1, currentTick);
         }
         ProcessInput();                       // 클·서 다름
         simulation.Tick(currentTick, dt);     // *공통*
-        history.Record(simulation, currentTick);   // 클라 전용
+        simulation.SaveState(currentTick);    // 클라 전용 — 서버는 이 줄을 호출하지 않는다
         eventSink.Emit(simulation.EventBuffer.Snapshot);
         simulation.EventBuffer.Clear();
     }
@@ -296,7 +299,7 @@ LOP 매핑: `LOPGameSimulation`(Shared) ↔ `LOPGameEngine`(각 사이드).
 ## 코어에 요구되는 능력 (이 모델을 받치기 위해)
 
 - 결정론적 `Tick(int tick, float dt)` 진입점 (`IGameSimulation`).
-- 외부에 *상태 access* 노출 (`EntityRegistry`, `WorldEventBuffer`). **`Snapshot()`/`Restore(snap)` 메서드는 코어에 두지 않는다** — 보관·복원 정책은 클라 외각의 책임([netcode-redesign.md](netcode-redesign.md) 참조).
+- 외부에 *상태 access* 노출 (`EntityRegistry`, `WorldEventBuffer`). **`SaveState`/`LoadState` 메서드는 코어(`IWorld`)에 있다** (2026-08-19 정정 — 예전엔 "코어에 두지 않는다"였다. 상태의 모양을 아는 쪽이 저장/복원해야 게임마다 다른 넷코드를 안 짜게 된다. 자세한 이유는 [netcode-redesign.md](netcode-redesign.md) §6.5 참조). *언제* 호출할지(타이밍 정책)만 클라 외각의 책임.
 - 이벤트는 **데이터로 출력**(버퍼). 코어는 이벤트 없이 순수·결정론 유지.
 - **Generation/Application 시그니처 컨벤션**: 시스템은 Generation 측 메서드(`TakeDamage(Health, int amount)` 같은 의도/결정 로직)와 Application 측 메서드(`ApplyDamageDealt(Health, DamageDealtEvent)`, `ApplyDeath(Entity, DeathEvent)` 같은 쓰기 전용)를 별도 시그니처로 노출. 의도 메서드는 룰 적용·이벤트 발행, 적용 메서드는 데이터 그대로 반영.
 - I/O 어댑터 추상 — `IInputSource`, `IEventSink`, `ITickUpdater`, `IPhysicsSimulator`, `ICollisionQuery`(캡슐 sweep 충돌 쿼리 — 키네마틱 이동용), `INetworkSession`. 각 어댑터의 구체는 클라/서버 각자 보유. 시뮬은 어댑터를 *알 수 있어도(의존 주입)* 구체 타입을 알지 않는다.
@@ -353,4 +356,4 @@ LOP 매핑: `LOPGameSimulation`(Shared) ↔ `LOPGameEngine`(각 사이드).
   - **✅ 4e keystone 해소 — velocity·위치 권위 이전 (2026-07-09).** 4e를 막던 keystone(**velocity 권위 Rigidbody → `World.Entity`**)이 키네마틱 컨트롤러 이행으로 달성됐다: 이동이 **클·서 공유 키네마틱 컨트롤러**로 바뀌어(`KinematicMoveSystem`이 `World.Velocity`/`World.Transform`에 직접 쓰고, velocity 단일 writer는 이미 `MovementSystem` — `MotionEffectHandler` 제거됨) velocity·위치 **진실원본이 `World.Entity`**다. Rigidbody는 우리가 `rb.position`을 밀어넣는 **kinematic follower**, PhysX는 다이나믹 물체·충돌쿼리 전용. 남은 4e 정리(②`DriveAbilityEffects`·③ 물리 페이즈를 `LOPWorld.Tick`으로 흡수)는 **✅ 완료(2026-07-13, 통합 World Tick 슬라이스)** — `LOPWorld.Tick`이 이동→어빌리티→상태→효과구동→키네마틱 **5페이즈 단일 진입점**이 됐다(`DriveAbilityEffects`·`MoveCharacters`/`MoveLocalPlayer` 흡수, 키네마틱은 `IMotionBridge` 포트+공유 `MotionBridge`/`PhysicsBody`). `Simulated` 마커로 시뮬 대상을 사이드별 정책화(서버=전 캐릭 / 클라=예측하는 내 캐릭만 — 남·NPC는 보간 표준)했고, `Reconciler` 재생도 `world.Tick` 하나로 = 라이브==재생(audit `#6` 종결). spec `docs/superpowers/specs/2026-07-13-unified-world-tick-client-sim-scope-design.md`. 아래 "동기화 모델"의 키네마틱 이동 참조.
   - **요지:** Slice 4의 분리 가능한 작업 + keystone(velocity 권위)까지 완료. 남은 큰 트랙 = Stage④(확정 게이트·완전 결정론 등).
 - **✅ 키네마틱 컨트롤러 이행 (2026-07-09, 4레포 main 머지)**: 캐릭터 이동을 다이나믹 PhysX → **공유 키네마틱 컨트롤러**로 전환(예측=권위). 상세는 아래 "동기화 모델 — 키네마틱 이동" + `docs/superpowers/specs/2026-07-09-shared-kinematic-character-controller-design.md`·plans `2026-07-09-kinematic-*`.
-- **Stage ④ (다음 — brainstorm 예정)**: 확정 게이트 본격(틱 스탬프 + 롤백 폐기), Snapshot/Restore(클라 외각 책임 — `netcode-redesign.md` 참조), 클라 측 Generation(예측 액션/공격), 결정론적 RNG, `IInputSource` 표준 provider(4d). *(velocity 권위 이전 = 키네마틱 이행으로 완료. 위치 예측·하드 롤백 재생[Snapshot/Restore + input replay]은 이미 `Reconciler`로 구현됨 — Stage④ rollback 슬라이스.)*
+- **Stage ④ (다음 — brainstorm 예정)**: 확정 게이트 본격(틱 스탬프 + 롤백 폐기), 클라 측 Generation(예측 액션/공격), 결정론적 RNG, `IInputSource` 표준 provider(4d). *(velocity 권위 이전 = 키네마틱 이행으로 완료. 위치 예측·하드 롤백 재생[Snapshot/Restore + input replay]은 이미 `Reconciler`로 구현됨 — Stage④ rollback 슬라이스. Snapshot/Restore의 메서드 위치는 2026-08-19 B2-c에서 클라 외각 → **월드(`IWorld.SaveState`/`LoadState`)**로 정정됐다 — `netcode-redesign.md` §6.5 참조.)*

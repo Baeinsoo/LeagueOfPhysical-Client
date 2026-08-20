@@ -80,12 +80,6 @@ namespace LOP
 
             SendToServer(buffer, tick);
 
-            // 어빌리티 예측 발동(연출 cue는 AbilityActivator가 내부에서 append).
-            if (command.AbilityId != 0)
-            {
-                abilityActivator.TryActivate(playerContext.entityId, command.AbilityId, tick);
-            }
-
             inputHistory.Record(tick, command);
 
             // 이산 액션만 소비 — held 이동은 다음 틱까지 유지(연속).

@@ -16,7 +16,9 @@ namespace LOP
         {
             builder.RegisterComponent(cameraController);
 
-            builder.Register<GameFramework.World.IWorld, LOPWorld>(Lifetime.Singleton);
+            // LOPWorld를 구체로도 해석할 수 있어야 보정 핸들러가 자기 게임 월드를 직접 본다.
+            builder.Register<LOPWorld>(Lifetime.Singleton).As<GameFramework.World.IWorld>().AsSelf();
+            builder.Register<IServerCorrectionHandler, LOPServerCorrectionHandler>(Lifetime.Singleton);
             builder.Register<ICharacterCreator, CharacterCreator>(Lifetime.Singleton);
 
             // 공통 Installer의 EntityBinder와 등록 순서가 무관하다: HUD 뷰모델이 읽는 entityId는

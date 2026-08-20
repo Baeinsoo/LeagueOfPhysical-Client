@@ -14,7 +14,7 @@ namespace LOP.UI
         private readonly IRunner runner;
         private readonly ReconciliationStats reconciliationStats;
         private readonly InputTimingStats inputTimingStats;
-        private readonly GameFramework.Netcode.SnapshotHistory snapshotHistory;
+        private readonly GameFramework.World.IWorld world;
         private readonly GameFramework.Netcode.SnapshotArrivalStats snapshotArrivalStats;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly RemoteInterpolationClock remoteInterpolationClock;
@@ -28,7 +28,7 @@ namespace LOP.UI
             IRunner runner,
             ReconciliationStats reconciliationStats,
             InputTimingStats inputTimingStats,
-            GameFramework.Netcode.SnapshotHistory snapshotHistory,
+            GameFramework.World.IWorld world,
             GameFramework.Netcode.SnapshotArrivalStats snapshotArrivalStats,
             GameFramework.World.EntityRegistry entityRegistry,
             RemoteInterpolationClock remoteInterpolationClock,
@@ -38,7 +38,7 @@ namespace LOP.UI
             this.runner = runner;
             this.reconciliationStats = reconciliationStats;
             this.inputTimingStats = inputTimingStats;
-            this.snapshotHistory = snapshotHistory;
+            this.world = world;
             this.snapshotArrivalStats = snapshotArrivalStats;
             this.entityRegistry = entityRegistry;
             this.remoteInterpolationClock = remoteInterpolationClock;
@@ -90,9 +90,9 @@ namespace LOP.UI
         // 세션 전체 기준 최대 뒤처짐(리셋으로 안 지워진다). 크기만 참고하고, "이 창에 있었나"는 CatchUpCapped로 본다.
         public long MaxTicksBehind => runner.tickUpdater == null ? 0 : runner.tickUpdater.maxTicksBehind;
 
-        public int SnapshotCount => snapshotHistory.Count;
+        public long SnapshotFirstTick => world.FirstSavedTick ?? -1;
 
-        public long SnapshotLatestTick => snapshotHistory.Latest?.Tick ?? -1;
+        public long SnapshotLatestTick => world.LatestSavedTick ?? -1;
 
         // Time.smoothDeltaTime = Unity가 평활한 프레임 간격. 한 프레임 튄 값에 숫자가 요동치지 않는다.
         public float Fps => Time.smoothDeltaTime > 0f ? 1f / Time.smoothDeltaTime : 0f;

@@ -15,6 +15,7 @@ namespace LOP
 
             builder.Register<GameFramework.World.IWorld, FlappyWorld>(Lifetime.Singleton);
             builder.Register<ICharacterCreator, FlappyBirdCreator>(Lifetime.Singleton);
+            builder.Register<IServerCorrectionHandler, NoServerCorrection>(Lifetime.Singleton);
         }
     }
 }

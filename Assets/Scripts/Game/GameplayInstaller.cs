@@ -27,7 +27,12 @@ namespace LOP
             builder.Register<StatusEffectDataProvider>(Lifetime.Singleton);
             builder.Register<AbilityDataProvider>(Lifetime.Singleton);
             builder.Register<CharacterLoadoutProvider>(Lifetime.Singleton);
-            builder.Register<AbilityActivator>(Lifetime.Singleton);
+            // 마스터데이터 조회만 사이드에서 넣어 준다(클·서 패키지가 서로 다름).
+            builder.Register(c => new AbilityActivator(
+                c.Resolve<AbilitySystem>(),
+                id => c.Resolve<AbilityDataProvider>().TryGet(id, out var data) ? data : (AbilityData?)null,
+                c.Resolve<GameFramework.World.EntityRegistry>(),
+                c.Resolve<GameFramework.World.WorldEventBuffer>()), Lifetime.Singleton);
 
             // effect 실행 — executor가 타입별 핸들러로 디스패치. AbilitySystem이 Active 창에서 구동.
             builder.Register<AbilityEffectExecutor>(Lifetime.Singleton);
@@ -71,8 +76,6 @@ namespace LOP
             builder.Register<GameFramework.Netcode.SnapshotArrivalStats>(Lifetime.Singleton);
             builder.Register<LeadState>(Lifetime.Singleton);
             builder.Register<GameFramework.Netcode.INetworkTime, MirrorNetworkTime>(Lifetime.Singleton);
-            builder.Register(_ => new GameFramework.Netcode.SnapshotHistory(128), Lifetime.Singleton);
-            builder.Register(_ => new GameFramework.Netcode.SequenceBuffer<PredictedAbilityState>(128), Lifetime.Singleton);
             builder.Register(_ => new GameFramework.Netcode.SequenceBuffer<InputCommand>(128), Lifetime.Singleton);
             builder.Register<Reconciler>(Lifetime.Singleton);
             builder.Register<RemoteInterpolationClock>(Lifetime.Singleton);
@@ -82,7 +85,7 @@ namespace LOP
             builder.Register<ReconcileSystem>(Lifetime.Singleton);
             builder.Register<PhysicsSimulationSystem>(Lifetime.Singleton);
             builder.Register<WorldEventDrainSystem>(Lifetime.Singleton);
-            builder.Register<LocalSnapshotSystem>(Lifetime.Singleton);
+            builder.Register<WorldStateSaveSystem>(Lifetime.Singleton);
             builder.Register<DespawnFlushSystem>(Lifetime.Singleton);
         }
     }

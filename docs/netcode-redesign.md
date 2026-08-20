@@ -243,28 +243,39 @@ Clock sync가 완벽해도 FP 오차 / 패킷 손실로 인한 미세 갭은 여
 
 이 모델은 여전히 server-authoritative이므로 cheating 대비는 별도. 단, `PlayerInputToS.EntityTransform` 같은 클라 보고 값을 *그대로 사용*하면 안 됨 (현재 서버가 안 쓰고 있는데, 쓰는 방향으로 갈 일 있으면 검증 필요).
 
-### 6.5 Snapshot/Restore 책임 위치 (Stage ④)
+### 6.5 상태 저장/복원 책임 위치 — **월드** (2026-08-19 정정)
 
-예측·롤백에서 *전체 시뮬 상태를 되돌리는* `Snapshot/Restore` 능력은 **클라 외각(`LOPGameEngine`)의 책임**이고, **시뮬 코어(`LOPGameSimulation`)에는 두지 않는다**. 근거:
+> ⚠️ **뒤집힌 결정.** 이 절은 원래 "`Snapshot()`/`Restore(snap)`를 시뮬 코어에 두지 않는다 —
+> 보관·복원은 클라 외각의 책임"이었다. Flappy Race B2-c(넷코드를 게임 비종속으로 만드는 슬라이스)에서
+> **반대로 정정한다.** 아래는 새 결론이고, 뒤집힌 이유는 바로 다음 문단에 남겨둔다 — 조용히
+> 지우면 다음에 이 문서를 읽는 사람이 "원래 이랬나?"로 헷갈리기 때문이다.
 
-- **시뮬 = "인풋 → 이벤트 생성" 그 자체** — 책임을 최소로. 결정론·계산만.
-- **롤백 정책은 클라 특화** — server-authoritative LOP에서 *전체 World Snapshot/Restore*는 클라만 사용 (서버는 *전체* 롤백 안 함, lag compensation은 *부분 historical state*로 별도).
-- **서버 코드에 안 쓰는 능력을 코어에 두지 않음** — YAGNI.
+**왜 뒤집었나.** "보관·복원은 외각(클라) 책임"으로 두면, 그 외각이 *상태의 모양*까지 알아야
+한다. 실제로 그렇게 됐다 — 클라 `Reconciler`가 어빌리티 되감기용 상태(`SequenceBuffer<LOPSavedState>`,
+구 `PredictedAbilityState`)를 직접 들고 `AbilityActivator`를 불러야 했다. 그 결과 스킬이 없는
+게임(Flappy Race)은 롤백 자체를 만들 수 없었다 — 넷코드 코드가 "이 게임엔 어빌리티가 있다"는
+걸 알아버렸기 때문. 이게 이 슬라이스가 고치는 "게임에 종속된 넷코드" 문제의 근원이었다.
 
-### 구조
+**표준은 시뮬(월드)이 스스로 상태를 소유하는 쪽이다** — 업계 대응:
+- GGPO `save_game_state`/`load_game_state` — 엔진(넷코드)은 게임이 건네는 바이트를 불투명하게만 다룬다.
+- Photon Quantum — 프레임 스냅샷을 시뮬(`Frame`) 스스로 만든다.
+- Unreal `FSavedMove_Character` — 베이스가 공통 이동 데이터를 갖고, 게임이 서브클래싱해 자기 데이터(예: 스태미나)를 얹는다.
 
-- 시뮬은 *상태 access* 만 외부에 노출 (`EntityRegistry`, `WorldEventBuffer`, 물리 상태 등)
-- 클라 LOP-Client 측 클래스(`SnapshotHistory`, `ReplayController` 같은 신규 클래스)가 매 틱 상태를 보관하고 서버 snap 도착 시 시뮬에 *덮어쓰기*
-- GameFramework 추상(`IGameSimulation`/`GameSimulationBase`)에 `Snapshot()`/`Restore(snap)` 메서드는 **없음**
+당시 근거였던 YAGNI("서버는 전체 롤백을 안 한다")는 실체가 없었다 — 서버는 그냥 `SaveState`를
+부르지 않으면 그만이고, 인터페이스에 메서드가 있다고 비용이 생기는 게 아니다.
 
-### Stage ④에서 결정될 디테일
+**현재 모양** (`GameFramework.World.IWorld` + `WorldBase`):
 
-- `SnapshotHistory`의 보관 형태 (slot/ring buffer, 압축 여부)
-- 시뮬 상태의 *deep clone* 비용 vs *증분 변경 추적* 비용 trade-off
-- 물리 상태(`Rigidbody.position/velocity`)를 어떻게 캡처/복원할지 (PhysX는 직접 set 가능)
-- 예측 vs 확정 fan-out commit gate와의 연동
+- `IWorld.SaveState(long tick)` / `LoadState(long tick)` — GGPO의 두 함수에 대응.
+- `IWorld.FirstSavedTick` / `LatestSavedTick` — 보관 범위 조회(진단·경계 판정용).
+- `IWorld.TryGetSavedMotion(tick, entityId, out Netcode.EntitySnapshot)` — 위치·속도만 읽는 별도 API.
+  위치는 게임 종류와 무관한 값이라, 이걸 노출해도 부르는 쪽이 게임 내용을 알게 되지 않는다.
+- `WorldBase`가 `Simulated` 엔티티의 위치·회전·속도를 스스로 보관/복원하고,
+  `protected virtual SaveGameState(long)` / `LoadGameState(long)` 훅으로 게임별 데이터를 얹을 자리를 낸다.
+- `LOPWorld`가 이 훅을 오버라이드해 어빌리티/상태이상/스탯/마나(`LOPSavedState`)를 추가로 저장·복원한다.
+  `FlappyWorld`는 이 훅을 오버라이드하지 않는다 — 위치·속도만으로 충분해서다(스킬이 없으므로).
 
-→ Stage ④ 시작 시 `docs/superpowers/specs/`에 별도 spec.
+상세 설계는 `docs/superpowers/specs/2026-08-17-flappy-race-gameplay-b2-design.md` §4 참고.
 
 ---
 

@@ -2029,11 +2029,11 @@ whole-branch 리뷰(opus).
 
 ---
 
-## 🟠 매치 결과 + 레이팅 — 슬라이스 A 완료 (2026-08-17), B/C/D 남음
+## 🟠 매치 결과 + 레이팅 — A·B·C 완료 (2026-08-20), D 남음
 
 **한 문장:** 한 판이 끝나면 등수를 남기고 그 결과로 실력 점수를 갱신해, 다음 매칭이 그 점수로 사람을
-붙이는 고리를 닫는다. **지금은 그 고리의 마지막 칸(결과 → 점수)이 비어 있어 모두가 영원히 1000점**이고,
-실력 기반 매칭이 배선만 완성된 채 사실상 무작위로 붙는다.
+붙이는 고리를 닫는다. **슬라이스 C로 그 고리가 닫혔다** — 실플레이에서
+mmr이 1000에서 1138/927로 움직였고, 다음 매칭이 그 값을 읽는다. 남은 것은 그걸 유저에게 *보여주는* D뿐.
 
 spec `docs/superpowers/specs/2026-08-17-match-result-rating-design.md`,
 plan(A) `docs/superpowers/plans/2026-08-17-match-result-rating-slice-a.md`.
@@ -2074,7 +2074,7 @@ plan(A) `docs/superpowers/plans/2026-08-17-match-result-rating-slice-a.md`.
 | | 무엇 | 비고 |
 |---|---|---|
 | ~~**B**~~ | ~~`@lop/rating` 순수 패키지~~ | ✅ **완료(2026-08-19, `030fb24`)** — 아래 절 참조 |
-| **C** | 결과 보고 + 멱등 확정 + 점수 갱신 | 끝나면 **DB의 `mmr`이 실제로 움직인다** |
+| ~~**C**~~ | ~~결과 보고 + 멱등 확정 + 점수 갱신~~ | ✅ **완료(2026-08-20)** — 아래 절 참조 |
 | **D** | 클라 표시 (결과 화면 등수·변화 + 프로필 전적) | 빈 자리 둘(`MatchResultView`, 프로필 셸)을 채운다 |
 
 ### ✅ 슬라이스 B — `@lop/rating` (완료, 2026-08-19)
@@ -2114,6 +2114,45 @@ RUN pnpm --filter @lop/rating run build         # lobby-server build 앞에
 기타 C/D 메모: `MatchParticipant`엔 `Match` FK·`onDelete`가 없다(매치 삭제 시 고아 행) / 참가자 조회
 인덱스는 `@@unique([matchId, userId])` 선두 컬럼으로 커버됨 / "명단에 없으면 거절"의 기준 명단은
 `findParticipantUserIds`이며 이미 정렬돼 있다 / D 전에 `queueId` 누락 시 400으로 가를 것.
+
+### ✅ 슬라이스 C — 결과 보고 + 멱등 확정 + 점수 갱신 (완료, 2026-08-20)
+
+머지: backend `5e9fcd1` / Server `fd8f585`. plan `docs/superpowers/plans/2026-08-19-match-result-rating-slice-c.md`.
+
+게임서버가 방을 닫기 직전에 등수를 로비로 보고하고, 로비가 **한 트랜잭션에서** 매치 확정 · 참가자
+기록 · `UserRating` 갱신을 같이 한다. 확정은 정확히 한 번 — 재보고는 계산을 다시 하지 않고 저장된 결과를
+그대로 돌려준다.
+
+**실검증(local-k8s, 클라 2인스턴스 1:1 한 판):**
+
+| userId | 등수 | mmr | μ | σ |
+|---|---|---|---|---|
+| 3e53c0c1… | 1 | 1000 → **1138** | 25 → 27.635 | 8.333 → 8.066 |
+| 4d7ff8f3… | 2 | 1000 → **927** | 25 → 22.365 | 8.333 → 8.066 |
+
+손으로 검산해 수식과 일치함을 확인했다(`(μ−3σ)×40+1000` → 1137.5→1138, 926.7→927). μ 이동이 ±2.635로
+대칭이고 σ가 양쪽 똑같이 줄었다 — 동일 사전분포 1:1의 OpenSkill 정답 형태라 우연히 맞은 값이 아니다.
+
+**멱등성은 등수를 뒤집어 재보고해 증명했다** — 패자를 1등으로 보냈는데도 응답은 저장된 원래 결과를
+돌려줬고, `gamesPlayed`도 `updatedAt`도 안 움직였다. 고리가 닫혔는지는 **매칭이 실제로 부르는 그
+엔드포인트**(`GET /user/{id}/rating?queueId=1`)를 매칭 파드 안에서 직접 쳤다 — 1138/927 반환, `μ`/`σ`는
+응답에 없음(3층 분리 유지).
+
+> ⚠️ **배포가 아니었으면 몰랐을 버그 하나.** 게임서버 CI 빌드가 `ConfigureRoomComponent.cs(49): 'Match' does
+> not contain a definition for 'targetRating'`로 즉사했다. 슬라이스 A의 개명에서 이 호출부 하나가 빠졌는데,
+> 그 파일이 **로컬 픽스처(테스트 uuid)와 같은 파일**이라 항상 unstaged였고, 내 워킹트리엔 고쳐진 상태가
+> 섞여 에디터에선 멀쩡히 컴파일됐다. 게다가 A 이후 게임서버 이미지를 **한 번도 굽지 않아** CI가 볼 기회가
+> 없었다. 수정 라인만 떼어 커밋(`c6c7e5f`)하고 uuid는 unstaged로 되돌렸다. 픽스처와 진짜 수정이 한 파일에
+> 섞이면 이렇게 숨는다. `[[unbuilt-image-hidden-breakage]]` `[[deletion-slices-verify-backwards]]`
+
+**배포 순서 주의(재발 방지).** 인프라 태그가 올라간 뒤에도 **클러스터는 잠시 옛 것을 그대로 들고 있다.**
+이번에도 로비 파드가 `0957efa`로 돌고 있었고, 게임서버 ConfigMap은 `9418e2c`에 멈춰 있었다. 그 상태로
+플레이하면 **옛 게임서버가 떠서 보고 자체가 안 나간다.** 판정은 `kubectl exec deploy/room-server -- printenv
+GAME_SERVER_IMAGE`로 하고, 뒤에 kind 노드 프리풀(`crictl pull`)까지 해 두면 첫 매치가 이미지 받다 지체하지
+않는다. `[[argocd-gitops-cluster-rebuild]]`
+
+> ⚠️ **D 착수 전 필수:** `ResponseCode.INVALID_MATCH_RESULT = 20001`이 **백엔드에만** 있다. 클라의
+> `ResponseCode.cs`에 같은 번호를 추가해야 양쪽 어휘가 맞는다.
 
 ### 미뤄둔 Minor
 

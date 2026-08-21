@@ -80,7 +80,8 @@ namespace LOP.UI
             return rows;
         }
 
-        private static string FormatDelta(int before, int after)
+        /// <summary>점수 증감을 부호가 보이게. 결과 화면과 프로필 전적이 같은 표기를 쓴다.</summary>
+        public static string FormatDelta(int before, int after)
         {
             int delta = after - before;
 

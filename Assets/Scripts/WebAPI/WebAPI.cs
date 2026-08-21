@@ -91,6 +91,13 @@ namespace LOP
         public static UniTask<GetUserRatingResponse> GetUserRating(string userId, int queueId, CancellationToken cancellationToken = default)
             => SendAsync<GetUserRatingResponse>(authorized,
                 HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/rating?queueId={queueId}"), cancellationToken);
+
+        //  전역 발행(SendAsync)을 쓰지 않는다 — 이 응답을 구독해 상태를 채우는 스토어가 없고,
+        //  브로커가 등록 안 된 타입을 발행하면 조회 자체는 성공했는데 그 뒤에 예외가 난다.
+        //  부르는 쪽(프로필 ViewModel)이 반환값을 그대로 쓴다.
+        public static UniTask<GetMatchHistoryResponse> GetMatchHistory(string userId, int limit, CancellationToken cancellationToken = default)
+            => authorized.SendAsync<GetMatchHistoryResponse>(
+                HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/matches?limit={limit}"), cancellationToken);
         #endregion
 
         #region Room

@@ -28,6 +28,28 @@ namespace LOP.UI
         }
     }
 
+    /// <summary>전적 목록의 한 판. 카드 하나에 그려진다.</summary>
+    public readonly struct ProfileMatchEntry
+    {
+        public readonly string GameModeName;
+        /// <summary>"캐주얼 · 첫번째 맵" — 어느 큐에서 어느 맵으로 했는지. 없으면 빈 문자열.</summary>
+        public readonly string Subtitle;
+        public readonly string EndedAt;
+        public readonly string MyResult;
+        public readonly bool HasMyResult;
+        public readonly IReadOnlyList<MatchResultRow> Rows;
+
+        public ProfileMatchEntry(string gameModeName, string subtitle, string endedAt, string myResult, bool hasMyResult, IReadOnlyList<MatchResultRow> rows)
+        {
+            GameModeName = gameModeName;
+            Subtitle = subtitle;
+            EndedAt = endedAt;
+            MyResult = myResult;
+            HasMyResult = hasMyResult;
+            Rows = rows;
+        }
+    }
+
     /// <summary>
     /// 프로필 ViewModel. 열릴 때 레이팅을 다시 받아온다 — 스토어는 로그인 때 한 번만 채워져,
     /// 그대로 읽으면 판을 하고 와도 로그인 시점의 낡은 값이 뜬다.
@@ -35,6 +57,9 @@ namespace LOP.UI
     /// </summary>
     public class ProfileViewModel : IDisposable
     {
+        //  한 화면에 보여줄 판 수. 서버도 상한(50)을 갖고 있어 이 값이 그대로 쓰인다.
+        private const int HistoryLimit = 20;
+
         //  큐를 TbQueue에서 읽는 것은 로비 선택 UI 슬라이스 몫이다 — 여기도 호출부 관례대로 id를 박는다.
         private static readonly (int id, string name)[] Queues =
         {
@@ -43,10 +68,12 @@ namespace LOP.UI
         };
 
         private readonly IUserDataStore _userDataStore;
+        private readonly LOP.MasterData.LOPMasterData _masterData;
         private readonly CancellationTokenSource _cts = new();
 
         private readonly ReactiveProperty<IReadOnlyList<ProfileQueueStats>> _stats = new(null);
         private readonly ReactiveProperty<string> _status = new("불러오는 중…");
+        private readonly ReactiveProperty<IReadOnlyList<ProfileMatchEntry>> _matches = new(null);
 
         /// <summary>도착 전에는 null.</summary>
         public ReadOnlyReactiveProperty<IReadOnlyList<ProfileQueueStats>> Stats => _stats;
@@ -54,9 +81,13 @@ namespace LOP.UI
         /// <summary>비어 있으면 숨긴다. 로딩·실패 안내에 쓴다.</summary>
         public ReadOnlyReactiveProperty<string> Status => _status;
 
-        public ProfileViewModel(IUserDataStore userDataStore)
+        /// <summary>최근 판 목록. 도착 전에는 null.</summary>
+        public ReadOnlyReactiveProperty<IReadOnlyList<ProfileMatchEntry>> Matches => _matches;
+
+        public ProfileViewModel(IUserDataStore userDataStore, LOP.MasterData.LOPMasterData masterData)
         {
             _userDataStore = userDataStore;
+            _masterData = masterData;
 
             LoadAsync().Forget();
         }
@@ -70,6 +101,7 @@ namespace LOP.UI
 
             _stats.Dispose();
             _status.Dispose();
+            _matches.Dispose();
         }
 
         private async UniTaskVoid LoadAsync()
@@ -108,6 +140,130 @@ namespace LOP.UI
 
             _status.Value = string.Empty;
             _stats.Value = Build(_userDataStore.userRatingByQueueId);
+
+            //  전적은 요약보다 늦게 와도 된다. 실패해도 위 요약은 이미 떠 있으므로 화면 전체를
+            //  실패로 되돌리지 않는다 — 목록만 비워 둔다.
+            try
+            {
+                var response = await WebAPI.GetMatchHistory(userId, HistoryLimit, _cts.Token);
+                if (_cts.IsCancellationRequested) return;
+
+                _matches.Value = BuildMatches(response.matches, userId);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to load match history. Error: {e.Message}");
+                if (_cts.IsCancellationRequested) return;
+
+                _matches.Value = new List<ProfileMatchEntry>();
+            }
+        }
+
+        private IReadOnlyList<ProfileMatchEntry> BuildMatches(MatchHistoryEntryDto[] matches, string myUserId)
+        {
+            var entries = new List<ProfileMatchEntry>();
+            if (matches == null) return entries;
+
+            foreach (var match in matches)
+            {
+                var rows = BuildHistoryRows(match.participants, myUserId);
+                var mine = FindMine(match.participants, myUserId);
+
+                entries.Add(new ProfileMatchEntry(
+                    GameModeName(match.rounds),
+                    Subtitle(match.queueId, match.rounds),
+                    FormatEndedAt(match.endedAt),
+                    mine == null ? string.Empty : $"{mine.placement}등  {MatchResultViewModel.FormatDelta(mine.mmrBefore, mine.mmrAfter)}",
+                    mine != null,
+                    rows));
+            }
+
+            return entries;
+        }
+
+        private string GameModeName(MatchHistoryRoundDto[] rounds)
+        {
+            //  지금은 판당 라운드가 하나뿐이라 첫 라운드의 모드가 곧 그 판의 모드다.
+            if (rounds == null || rounds.Length == 0) return "알 수 없음";
+
+            var mode = _masterData.Tables.TbGameMode.GetOrDefault(rounds[0].gameModeId);
+            return mode == null ? $"모드 {rounds[0].gameModeId}" : mode.Name;
+        }
+
+        /// <summary>
+        /// 큐와 맵을 한 줄로. 모드 이름만으로는 "어느 판이었나"가 안 드러난다 — 같은 게임을
+        /// 캐주얼로 했는지 랭크로 했는지, 어느 맵이었는지가 전적에서 구분점이 된다.
+        /// </summary>
+        private string Subtitle(int queueId, MatchHistoryRoundDto[] rounds)
+        {
+            var parts = new List<string>(2);
+
+            var queue = _masterData.Tables.TbQueue.GetOrDefault(queueId);
+            if (queue != null) parts.Add(queue.Name);
+
+            if (rounds != null && rounds.Length > 0)
+            {
+                var map = _masterData.Tables.TbMap.GetOrDefault(rounds[0].mapId);
+                if (map != null) parts.Add(map.Name);
+            }
+
+            return string.Join(" · ", parts);
+        }
+
+        private static MatchHistoryParticipantDto FindMine(MatchHistoryParticipantDto[] participants, string myUserId)
+        {
+            if (participants == null) return null;
+
+            foreach (var participant in participants)
+            {
+                if (participant.userId == myUserId) return participant;
+            }
+
+            return null;
+        }
+
+        /// <summary>서버가 준 ISO 시각을 로컬 날짜로. 못 읽으면 빈 문자열(날짜 없다고 화면이 죽지 않게).</summary>
+        private static string FormatEndedAt(string endedAt)
+        {
+            return DateTime.TryParse(endedAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsed)
+                ? parsed.ToLocalTime().ToString("MM/dd HH:mm", System.Globalization.CultureInfo.InvariantCulture)
+                : string.Empty;
+        }
+
+        /// <summary>
+        /// 결과 화면과 같은 줄 모양을 쓰되 이름은 실제 값을 쓴다 — 전적엔 확정 시점 이름이 담겨 있다
+        /// (결과 화면은 그게 없어서 "플레이어 N"으로 매긴다).
+        /// </summary>
+        private static IReadOnlyList<MatchResultRow> BuildHistoryRows(MatchHistoryParticipantDto[] participants, string myUserId)
+        {
+            var rows = new List<MatchResultRow>();
+            if (participants == null) return rows;
+
+            var sorted = new List<MatchHistoryParticipantDto>(participants);
+            sorted.Sort((left, right) =>
+            {
+                int byPlacement = left.placement.CompareTo(right.placement);
+                return byPlacement != 0 ? byPlacement : string.CompareOrdinal(left.userId, right.userId);
+            });
+
+            foreach (var participant in sorted)
+            {
+                bool isMe = participant.userId == myUserId;
+                rows.Add(new MatchResultRow(participant.placement, isMe ? "나" : ShortName(participant.displayName), isMe));
+            }
+
+            return rows;
+        }
+
+        /// <summary>게스트 이름이 "Guest-&lt;uuid&gt;"라 그대로 두면 화면을 채운다. 닉네임이 생기면 그대로 나온다.</summary>
+        private static string ShortName(string displayName)
+        {
+            if (string.IsNullOrEmpty(displayName)) return "알 수 없음";
+
+            return displayName.Length <= 12 ? displayName : displayName.Substring(0, 12);
         }
 
         private static IReadOnlyList<ProfileQueueStats> Build(IReadOnlyDictionary<int, UserRating> ratingByQueueId)

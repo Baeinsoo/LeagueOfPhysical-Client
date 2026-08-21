@@ -73,3 +73,34 @@
 .profile-stat-value {
     font-size: 30px;
 }
+
+.profile-history {
+    flex-grow: 1;
+}
+
+.profile-match {
+    flex-direction: column;
+    padding: 12px;
+    margin-bottom: 12px;
+    background-color: var(--lop-surface-sunken);
+}
+
+.profile-match-header {
+    flex-direction: row;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.profile-match-mode {
+    font-size: 32px;
+    -unity-font-style: bold;
+}
+
+.profile-match-date {
+    font-size: 26px;
+}
+
+.profile-match-mine {
+    font-size: 30px;
+    margin-bottom: 6px;
+}

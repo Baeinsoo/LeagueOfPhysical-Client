@@ -7,6 +7,8 @@
         <ui:VisualElement name="shell-body" class="shell-body profile-body">
             <ui:Label name="profile-status" text="불러오는 중…" class="card-text profile-status" />
             <ui:VisualElement name="profile-queues" class="profile-queues" />
+            <ui:Label name="profile-history-title" text="최근 전적" class="card-text profile-queue-name" />
+            <ui:ScrollView name="profile-history" class="profile-history" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

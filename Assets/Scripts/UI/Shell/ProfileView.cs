@@ -28,6 +28,25 @@ namespace LOP.UI
                 status.style.display = string.IsNullOrEmpty(text) ? DisplayStyle.None : DisplayStyle.Flex;
             }));
 
+            var historyTitle = Root.Q<Label>("profile-history-title");
+            var history = Root.Q<ScrollView>("profile-history");
+
+            Disposables.Add(_viewModel.Matches.Subscribe(matches =>
+            {
+                history.Clear();
+
+                //  전적이 없거나 못 불러온 판은 제목까지 숨긴다 — 빈 상자만 남기지 않는다.
+                bool has = matches != null && matches.Count > 0;
+                historyTitle.style.display = has ? DisplayStyle.Flex : DisplayStyle.None;
+                history.style.display = has ? DisplayStyle.Flex : DisplayStyle.None;
+                if (!has) return;
+
+                foreach (var match in matches)
+                {
+                    history.Add(BuildMatchCard(match));
+                }
+            }));
+
             Disposables.Add(_viewModel.Stats.Subscribe(stats =>
             {
                 queues.Clear();
@@ -46,6 +65,51 @@ namespace LOP.UI
             //  WindowManager.Close가 View를 dispose하므로 VM 정리는 여기서 한다(StatsView와 같은 방식).
             _viewModel.Dispose();
             base.Dispose();
+        }
+
+        private static VisualElement BuildMatchCard(ProfileMatchEntry match)
+        {
+            var card = new VisualElement();
+            card.AddToClassList("profile-match");
+
+            var header = new VisualElement();
+            header.AddToClassList("profile-match-header");
+
+            var mode = new Label(match.GameModeName);
+            mode.AddToClassList("profile-match-mode");
+
+            var date = new Label(match.EndedAt);
+            date.AddToClassList("profile-match-date");
+
+            header.Add(mode);
+            header.Add(date);
+            card.Add(header);
+
+            if (match.HasMyResult)
+            {
+                var mine = new Label(match.MyResult);
+                mine.AddToClassList("profile-match-mine");
+                card.Add(mine);
+            }
+
+            foreach (var row in match.Rows)
+            {
+                var line = new VisualElement();
+                line.AddToClassList("profile-stat");
+                if (row.IsMe) line.AddToClassList("matchresult-row--me");
+
+                var placement = new Label($"{row.Placement}등");
+                placement.AddToClassList("profile-stat-label");
+
+                var name = new Label(row.DisplayName);
+                name.AddToClassList("profile-stat-value");
+
+                line.Add(placement);
+                line.Add(name);
+                card.Add(line);
+            }
+
+            return card;
         }
 
         private static VisualElement BuildQueue(ProfileQueueStats stats)

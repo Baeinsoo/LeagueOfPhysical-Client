@@ -12,6 +12,8 @@ namespace LOP
         protected override void ConfigureGame(IContainerBuilder builder)
         {
             builder.RegisterComponent(cameraController);
+            builder.Register<FlappyConfigProvider>(Lifetime.Singleton);
+            builder.Register<FlappyConfig>(c => c.Resolve<FlappyConfigProvider>().Get(), Lifetime.Singleton);
 
             builder.Register<GameFramework.World.IWorld, FlappyWorld>(Lifetime.Singleton);
             builder.Register<ICharacterCreator, FlappyBirdCreator>(Lifetime.Singleton);

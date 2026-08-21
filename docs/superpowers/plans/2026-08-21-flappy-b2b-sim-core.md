@@ -273,7 +273,7 @@ unity cmd eval_file --file /private/tmp/claude-501/-Users-insoobae-workspace-LOP
 에디터가 없거나 `unity`가 안 붙으면 batchmode로 임포트한다:
 
 ```bash
-/Applications/Unity/Hub/Editor/*/Unity.app/Contents/MacOS/Unity \
+/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity \
   -batchmode -nographics -quit \
   -projectPath /Users/insoobae/workspace/LOP/LeagueOfPhysical-Client \
   -logFile /private/tmp/claude-501/-Users-insoobae-workspace-LOP-LeagueOfPhysical-Client/5a5f749e-5f0e-4c69-9489-a8c0eff09e74/scratchpad/import-client.log
@@ -309,7 +309,7 @@ unity cmd run_tests
 서버 패키지의 같은 테스트는 서버 프로젝트에서 돈다. 서버 에디터를 쓸 수 있으면 그쪽에서도 `run_tests`를 돌리고, 못 쓰면 batchmode로:
 
 ```bash
-/Applications/Unity/Hub/Editor/*/Unity.app/Contents/MacOS/Unity \
+/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity \
   -batchmode -nographics -runTests -testPlatform EditMode \
   -projectPath /Users/insoobae/workspace/LOP/LeagueOfPhysical-Server \
   -logFile /private/tmp/claude-501/-Users-insoobae-workspace-LOP-LeagueOfPhysical-Client/5a5f749e-5f0e-4c69-9489-a8c0eff09e74/scratchpad/server-tests.log \
@@ -497,7 +497,40 @@ ls -l /Users/insoobae/workspace/LOP/LeagueOfPhysical-Shared/Runtime/Scripts/Game
 
 셋 다 있어야 한다. (Shared는 패키지라 클라 임포트에서 생긴다. 서버 쪽은 서버 프로젝트 임포트가 필요하다.)
 
-- [ ] **Step 7: 커밋 (3개 저장소)**
+- [ ] **Step 7: 튜닝값이 제자리에 실렸는지 눈으로 확인한다**
+
+컴파일만으로는 **열 순서가 어긋난 실수**(예: `gravity` 칸에 `flap_impulse` 값)를 못 잡는다.
+숫자가 뒤바뀐 채로 넘어가면 B2-b가 끝나도 안 드러나고 B2-d 런타임에서야 이상하게 난다.
+
+생성된 `.bytes`를 직접 열어 값을 찍어 본다. (`LOPMasterData.LoadAsync`는 `UnityWebRequest`
+비동기라 eval의 5초 메인스레드 제한에 맞지 않는다 — Luban `Tables`를 파일에서 바로 만든다.)
+
+```bash
+cat > /private/tmp/claude-501/-Users-insoobae-workspace-LOP-LeagueOfPhysical-Client/5a5f749e-5f0e-4c69-9489-a8c0eff09e74/scratchpad/read-flappy-config.cs <<'EOF'
+var dir = System.IO.Path.GetFullPath(
+    "Packages/com.baegames.lop.masterdata.client/Runtime.Generated/StreamingAssets/MasterData");
+var tables = new LOP.MasterData.Tables(
+    file => new Luban.ByteBuf(System.IO.File.ReadAllBytes(System.IO.Path.Combine(dir, file + ".bytes"))));
+var row = tables.TbFlappyConfig.GetOrDefault(1);
+if (row == null) return "FAIL: TbFlappyConfig id=1 없음";
+var config = new LOP.FlappyConfig(row.ForwardSpeed, row.FlapImpulse, row.Gravity, row.MaxFallSpeed,
+                                  row.BodyRadius, row.BodyHeight, row.Restitution);
+return $"forward={config.ForwardSpeed} flap={config.FlapImpulse} gravity={config.Gravity} "
+     + $"maxFall={config.MaxFallSpeed} radius={config.BodyRadius} height={config.BodyHeight} "
+     + $"restitution={config.Restitution}";
+EOF
+export PATH="$HOME/.unity/bin:$PATH"
+cd /Users/insoobae/workspace/LOP/LeagueOfPhysical-Client
+unity cmd eval_file --file /private/tmp/claude-501/-Users-insoobae-workspace-LOP-LeagueOfPhysical-Client/5a5f749e-5f0e-4c69-9489-a8c0eff09e74/scratchpad/read-flappy-config.cs
+```
+
+기대: `forward=11 flap=23 gravity=70 maxFall=30 radius=0.45 height=0.9 restitution=0.35`
+
+**하나라도 다르면 멈추고 보고한다** — Task 1의 엑셀 열 순서가 틀렸다는 뜻이다.
+
+`unity`가 안 붙으면 이 스텝은 건너뛰되, 건너뛰었다는 사실을 보고에 반드시 적는다.
+
+- [ ] **Step 8: 커밋 (3개 저장소)**
 
 ```bash
 cd /Users/insoobae/workspace/LOP/LeagueOfPhysical-Shared

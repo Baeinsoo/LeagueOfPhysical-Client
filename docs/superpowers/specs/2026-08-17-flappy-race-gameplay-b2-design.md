@@ -327,6 +327,61 @@ public interface IServerCorrectionHandler
 뒤집는 근거는 위 세 엔진 전부다. YAGNI 우려도 실체가 없다 — 서버는 `SaveState`를 부르지 않으면
 그만이고, 인터페이스에 메서드가 있다고 비용이 생기지 않는다. **두 문서를 이 슬라이스에서 함께 고친다.**
 
+### 결과 (2026-08-21, 완료)
+
+4개 레포에 머지·푸시 완료. 계획: `docs/superpowers/plans/2026-08-19-flappy-b2c-netcode-agnostic.md`.
+
+| 레포 | main 머지 |
+|---|---|
+| GameFramework | `9169de7` — `IWorld.SaveState`/`LoadState` + `WorldBase`가 위치·속도 보관 |
+| LOP-Shared | `31e6ba6` — `LOPWorld`가 게임 상태 보관, 입력에서 발동, `AbilityActivator` 공용화 |
+| LOP-Client | `8c1644b` — `Reconciler` 슬림화, `IServerCorrectionHandler` 도입 |
+| LOP-Server | `a6ad515` — 입력 처리에서 발동 호출 제거, 사본 삭제 |
+
+**목표 달성의 기계적 증거** — `Reconciler.cs`에서 다음 grep이 아무것도 출력하지 않는다:
+
+```bash
+grep -nE "Ability|StatusEffect|LOPSavedState" Assets/Scripts/Netcode/Reconciler.cs
+```
+
+#### 검증
+
+| 층위 | 결과 |
+|---|---|
+| 단위 테스트 | LOP-Shared EditMode **497/497**, GameFramework **275/275**. 새 테스트마다 *일부러 깨뜨려* 실패를 확인 |
+| 회귀 가드 | `AbilityReplayDeterminismTests`(재생==라이브를 못 박은 테스트) 통과, 수정 없음 |
+| 런타임 — Flappy | 서버 이미지 `a6ad515`. `FlappyWorld` + `NoServerCorrection` 배선, `SaveState` 매 틱, 클라 에러 0 |
+| 런타임 — FlapWang(2인) | `LOPWorld` + `LOPServerCorrectionHandler` 배선, `SaveState` 매 틱, 게임 에러 0 |
+| **체감 회귀** | **사용자가 직접 플레이해 "이전 경험과 거의 비슷하다" 확인** — 이 슬라이스에 존재하는 유일한 baseline |
+| `[ReconSpike]` 진단 | `input[h=… v=… jump=… ability=…]` 정상 출력 — `InputCommand.ToString()`으로 되살린 필드가 런타임에서 확인됨 |
+
+#### 검증의 한계 (정직하게)
+
+- **개편 전 수치가 없다.** "reconciliation distance가 개편 전 수준"이라는 완료 기준은 *숫자로* 대조할 수 없었다. 진짜 baseline을 재려면 4개 레포를 모두 이전 커밋으로 되돌려야 한다(클라만 되돌리면 새 패키지와 안 맞아 컴파일 실패). 그래서 **사람의 체감**이 그 자리를 대신했다.
+- 계측한 리컨 수치(정지 20초에 스파이크 61건, 평균 0.166 m)는 **회귀 판정에 쓸 수 없다** — 플랩왕 맵은 넉백이 돌고, 넉백은 설계상 클라가 예측하지 않으므로(`Reconciler`가 스냅에서 복원) 정지 중에도 오차가 난다. 수치로 회귀를 가리려면 *넉백 없는 조건*을 먼저 만들어야 한다.
+- FlapWang 2인 검증은 서버 이미지 `cb6f1e4`(우리 커밋 + 매치 결과 트랙 2커밋)에서 돌았다. 우리 변경은 모두 포함돼 있으나 **단독 통제 실험은 아니었다.**
+
+#### 새로 드러난 것 — 클라의 Flappy 새에 `Simulated`가 없다
+
+`FlappyBirdCreator`(클라)가 `InputBuffer`는 붙이면서 `Simulated`는 붙이지 않는다. 그 결과:
+
+1. `WorldBase.SaveState`가 `Simulated`만 저장 → 내 새가 한 번도 저장되지 않는다
+2. `Reconciler.TryGetSavedMotion`이 항상 실패 → **오차 게이트 블록 전체를 건너뛴다**
+3. `reconciliationStats.Record`가 아예 안 불려 **`Average=0`이 "예측이 완벽"이 아니라 "기록이 없음"** 을 뜻하게 된다(실측: `CorrectionCount=7361`인데 `Average=0`)
+
+이는 이 슬라이스가 만든 차이다 — 옛 `LocalSnapshotSystem`은 `Simulated`와 무관하게 *내 엔티티*를 무조건 기록했다. FlapWang은 내 캐릭이 `Simulated`라 무영향이고 **Flappy만 해당**된다.
+
+**B2-d에서 해소한다**(§6이 이미 새에 `Simulated` 추가를 계획). 함께 결정할 것: *시뮬하지 않는 엔티티는 되감기 대상에서 제외할 것인가* — 지금은 예측도 안 하면서 매 스냅 하드 보정이 돈다.
+
+#### 환경에서 배운 것 (다음 검증자를 위해)
+
+- **검증 중 매치 파드를 지우지 말 것.** 클라는 같은 방으로 재입장하므로 서버가 사라지면 붙지 못한다.
+- **플랩왕은 `MinPlayers=2`**(플래피는 1). 혼자서는 매칭이 안 잡힌다. 2번째 클라는 MPPM으로 띄운다 — 유니티 6.3에서 MPPM은 에디터 내장이고(`Unity.Multiplayer.PlayMode.Editor.MultiplayerPlaymode.PlayerTwo.Activate(out error)`), 가상 플레이어는 CLI로 조작할 수 없어 자동 큐잉용 임시 스크립트가 필요했다.
+- **`kubectl logs --timestamps`의 시각을 근거로 쓰지 말 것.** 유니티 서버 로그는 1900여 줄이 같은 마이크로초대로 찍힌다 — 수집 시각이지 발생 시각이 아니다.
+- 로컬에서 클라가 서버에 못 붙으면 **도커의 UDP 포트 바인딩**을 먼저 의심한다. 실제로 도커가 7001~7009만 잡고 7000을 빠뜨린 적이 있었고, `docker restart lop-control-plane`으로 해소됐다. hostPort DNAT 룰은 *파드가 있을 때만* 존재하므로, 파드를 지운 뒤 iptables를 보고 배선 문제로 오진하지 말 것.
+
+---
+
 ### 건드리는 곳과 위험
 
 | 레포 | 무엇 |

@@ -49,6 +49,11 @@ namespace LOP.UI
 
             _matchResultView = _windowManager.Open<MatchResultView>();
             _matchResultView.SetConfirmCallback(CloseMatchResult);
+
+            // 띄우는 순간 소비한다. ViewModel이 Open 안에서 값을 이미 복사해 갔으므로 화면에는 영향이 없다.
+            // [확인]을 누를 때 비우면, 그 전에 창이 닫히는 경로(로비 스코프가 내려가는 등)에서 결과가
+            // 남아 다음 판 결과 화면에 지난 판 등수와 점수가 뜬다.
+            _matchResultDataStore.Clear();
         }
 
         private void CloseMatchResult()
@@ -58,9 +63,6 @@ namespace LOP.UI
                 _windowManager.Close(_matchResultView);
                 _matchResultView = null;
             }
-
-            // 소비했으니 비운다 — 안 비우면 로비를 오갈 때마다 다시 뜬다.
-            _matchResultDataStore.Clear();
         }
 
         private void OnNavigationRequested(FrontEndDestination destination)

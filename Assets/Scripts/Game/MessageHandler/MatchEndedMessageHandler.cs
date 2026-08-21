@@ -30,7 +30,24 @@ namespace LOP
 
         private void OnMatchEnded(MatchEndedToC message)
         {
-            matchResultDataStore.result = new MatchResult { matchId = roomDataStore.room?.matchId };
+            var participants = new MatchParticipantResult[message.Placements.Count];
+            for (int i = 0; i < message.Placements.Count; i++)
+            {
+                participants[i] = new MatchParticipantResult
+                {
+                    userId = message.Placements[i].UserId,
+                    placement = message.Placements[i].Placement,
+                };
+            }
+
+            matchResultDataStore.result = new MatchResult
+            {
+                matchId = roomDataStore.room?.matchId,
+                participants = participants,
+                hasRatingChange = message.HasRatingChange,
+                myMmrBefore = message.MyMmrBefore,
+                myMmrAfter = message.MyMmrAfter,
+            };
 
             runner.EndMatch();
         }

@@ -2,7 +2,12 @@
     <ui:VisualElement name="matchresult-root" class="scrim matchresult-root">
         <ui:VisualElement name="matchresult-card" class="card matchresult-card">
             <ui:Label text="결과" class="title matchresult-title" />
-            <ui:Label text="매치 종료" class="card-text matchresult-message" />
+            <ui:Label name="matchresult-message" text="매치 종료" class="card-text matchresult-message" />
+            <ui:VisualElement name="matchresult-rows" class="matchresult-rows" />
+            <ui:VisualElement name="matchresult-rating" class="matchresult-rating">
+                <ui:Label text="점수" class="card-text matchresult-rating-label" />
+                <ui:Label name="matchresult-rating-value" class="card-text matchresult-rating-value" />
+            </ui:VisualElement>
             <ui:Button name="confirm-button" text="확인" class="btn btn--primary matchresult-confirm" />
         </ui:VisualElement>
     </ui:VisualElement>

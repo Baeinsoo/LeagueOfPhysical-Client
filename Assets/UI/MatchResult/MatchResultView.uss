@@ -22,3 +22,26 @@
     height: 100px;
     font-size: 34px;
 }
+
+.matchresult-rows {
+    flex-direction: column;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.matchresult-row {
+    flex-direction: row;
+    justify-content: space-between;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+.matchresult-row--me {
+    -unity-font-style: bold;
+}
+
+.matchresult-rating {
+    flex-direction: row;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}

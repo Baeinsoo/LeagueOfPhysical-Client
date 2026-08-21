@@ -119,7 +119,9 @@ namespace LOP.UI
                 if (ratingByQueueId.TryGetValue(queue.id, out var rating) && rating.gamesPlayed > 0)
                 {
                     //  평균 등수는 판수로 나눈다 — 판수 0이면 0으로 나누므로 위 가드가 필수다.
-                    string average = ((double)rating.placementSum / rating.gamesPlayed).ToString("0.0");
+                    //  로캘이 쉼표 소수점이면 "3,5등"이 된다 — 표기를 고정한다.
+                    string average = ((double)rating.placementSum / rating.gamesPlayed)
+                        .ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
 
                     stats.Add(new ProfileQueueStats(
                         queue.name, true, rating.mmr, rating.gamesPlayed, rating.firstPlaces, average));

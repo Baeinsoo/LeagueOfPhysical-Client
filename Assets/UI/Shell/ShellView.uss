@@ -33,7 +33,10 @@
 
 /* 프로필 셸 본문. 다른 셸은 이 클래스를 안 쓰므로 규칙만 있고 대상이 없다. */
 .profile-body {
+    /* .shell-body의 가운데 정렬을 되돌린다 — 안 그러면 자식이 내용 너비로 쭈그러들어
+       아래 space-between이 무의미해지고 라벨과 값이 붙어 버린다. */
     justify-content: flex-start;
+    align-items: stretch;
     padding: 20px;
 }
 

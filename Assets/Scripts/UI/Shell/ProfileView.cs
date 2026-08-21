@@ -85,6 +85,14 @@ namespace LOP.UI
             header.Add(date);
             card.Add(header);
 
+            //  큐·맵을 못 찾으면(마스터데이터가 옛 판의 id를 더 이상 안 갖는 경우) 줄 자체를 안 넣는다.
+            if (!string.IsNullOrEmpty(match.Subtitle))
+            {
+                var subtitle = new Label(match.Subtitle);
+                subtitle.AddToClassList("profile-match-subtitle");
+                card.Add(subtitle);
+            }
+
             if (match.HasMyResult)
             {
                 var mine = new Label(match.MyResult);

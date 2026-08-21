@@ -104,3 +104,9 @@
     font-size: 30px;
     margin-bottom: 6px;
 }
+
+.profile-match-subtitle {
+    font-size: 26px;
+    margin-bottom: 6px;
+    opacity: 0.75;
+}

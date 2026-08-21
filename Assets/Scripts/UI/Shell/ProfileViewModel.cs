@@ -32,14 +32,17 @@ namespace LOP.UI
     public readonly struct ProfileMatchEntry
     {
         public readonly string GameModeName;
+        /// <summary>"캐주얼 · 첫번째 맵" — 어느 큐에서 어느 맵으로 했는지. 없으면 빈 문자열.</summary>
+        public readonly string Subtitle;
         public readonly string EndedAt;
         public readonly string MyResult;
         public readonly bool HasMyResult;
         public readonly IReadOnlyList<MatchResultRow> Rows;
 
-        public ProfileMatchEntry(string gameModeName, string endedAt, string myResult, bool hasMyResult, IReadOnlyList<MatchResultRow> rows)
+        public ProfileMatchEntry(string gameModeName, string subtitle, string endedAt, string myResult, bool hasMyResult, IReadOnlyList<MatchResultRow> rows)
         {
             GameModeName = gameModeName;
+            Subtitle = subtitle;
             EndedAt = endedAt;
             MyResult = myResult;
             HasMyResult = hasMyResult;
@@ -171,6 +174,7 @@ namespace LOP.UI
 
                 entries.Add(new ProfileMatchEntry(
                     GameModeName(match.rounds),
+                    Subtitle(match.queueId, match.rounds),
                     FormatEndedAt(match.endedAt),
                     mine == null ? string.Empty : $"{mine.placement}등  {MatchResultViewModel.FormatDelta(mine.mmrBefore, mine.mmrAfter)}",
                     mine != null,
@@ -187,6 +191,26 @@ namespace LOP.UI
 
             var mode = _masterData.Tables.TbGameMode.GetOrDefault(rounds[0].gameModeId);
             return mode == null ? $"모드 {rounds[0].gameModeId}" : mode.Name;
+        }
+
+        /// <summary>
+        /// 큐와 맵을 한 줄로. 모드 이름만으로는 "어느 판이었나"가 안 드러난다 — 같은 게임을
+        /// 캐주얼로 했는지 랭크로 했는지, 어느 맵이었는지가 전적에서 구분점이 된다.
+        /// </summary>
+        private string Subtitle(int queueId, MatchHistoryRoundDto[] rounds)
+        {
+            var parts = new List<string>(2);
+
+            var queue = _masterData.Tables.TbQueue.GetOrDefault(queueId);
+            if (queue != null) parts.Add(queue.Name);
+
+            if (rounds != null && rounds.Length > 0)
+            {
+                var map = _masterData.Tables.TbMap.GetOrDefault(rounds[0].mapId);
+                if (map != null) parts.Add(map.Name);
+            }
+
+            return string.Join(" · ", parts);
         }
 
         private static MatchHistoryParticipantDto FindMine(MatchHistoryParticipantDto[] participants, string myUserId)

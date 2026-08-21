@@ -30,3 +30,43 @@
 .shell-placeholder {
     font-size: 34px;
 }
+
+/* 프로필 셸 본문. 다른 셸은 이 클래스를 안 쓰므로 규칙만 있고 대상이 없다. */
+.profile-body {
+    justify-content: flex-start;
+    padding: 20px;
+}
+
+.profile-status {
+    font-size: 34px;
+    margin-bottom: 16px;
+}
+
+.profile-queues {
+    flex-direction: column;
+}
+
+.profile-queue {
+    flex-direction: column;
+    margin-bottom: 28px;
+}
+
+.profile-queue-name {
+    font-size: 40px;
+    margin-bottom: 8px;
+}
+
+.profile-stat {
+    flex-direction: row;
+    justify-content: space-between;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+.profile-stat-label {
+    font-size: 30px;
+}
+
+.profile-stat-value {
+    font-size: 30px;
+}

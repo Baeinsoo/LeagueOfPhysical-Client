@@ -258,12 +258,19 @@ namespace LOP.UI
             return rows;
         }
 
-        /// <summary>게스트 이름이 "Guest-&lt;uuid&gt;"라 그대로 두면 화면을 채운다. 닉네임이 생기면 그대로 나온다.</summary>
+        //  전적에 박히는 값은 "이름#태그"다 — 이름 최대 12자 + '#' + 태그 6자 = 19자.
+        //  그보다 짧게 자르면 태그가 잘려 **그럴듯하지만 틀린 신원**이 화면에 뜬다
+        //  (예: 김철수김철수#K7QM2X → 김철수김철수#K7QM). 신원을 보여주려고 만든 화면이니
+        //  자르더라도 태그는 온전해야 한다.
+        private const int IdentityMaxLength = 12 + 1 + 6;
+
         private static string ShortName(string displayName)
         {
             if (string.IsNullOrEmpty(displayName)) return "알 수 없음";
 
-            return displayName.Length <= 12 ? displayName : displayName.Substring(0, 12);
+            return displayName.Length <= IdentityMaxLength
+                ? displayName
+                : displayName.Substring(0, IdentityMaxLength);
         }
 
         private static IReadOnlyList<ProfileQueueStats> Build(IReadOnlyDictionary<int, UserRating> ratingByQueueId)

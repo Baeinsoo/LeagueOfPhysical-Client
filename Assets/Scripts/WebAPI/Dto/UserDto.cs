@@ -9,7 +9,8 @@ namespace LOP
     public class UserDto
     {
         public string id;
-        public string username;
+        public string displayName;
+        public string tag;
         public string email;
     }
 }

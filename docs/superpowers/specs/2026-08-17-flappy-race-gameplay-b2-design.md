@@ -449,10 +449,37 @@ EditMode 테스트 8개도 함께 옮긴다. 지금은 클라 프로토타입 �
 `KinematicMover.Move(in KinematicMoveInput, ICollisionQuery)`는 위치·속도·반지름·높이·dt·
 레이어마스크를 전부 인자로 받는 순수 static 커널이라, 그대로 재사용하면 **FlapWang 회귀 위험이 0**이다.
 
+**몸싸움 스케줄링은 프로토타입과 다르다.** 프로토타입은 부딪히기 전 모든 새의 세로 속도를
+먼저 얼려 두고, 그 얼어붙은 값으로 이웃 전부를 동시에 풀었다. `FlappyBodyCollisionSystem.Resolve`는
+쌍을 **순차로** 푼다 — 새가 3마리 이상이면 나중 쌍이 앞선 쌍이 이미 바꾼 값을 보고 계산한다.
+결정론은 유지된다(쌍 안은 순서 무관, 쌍 사이는 id 정렬로 고정돼 클·서가 항상 같은 순서로 품).
+다만 "프로토타입 규칙을 그대로 이식한다"는 위 §8의 결정은 *셈법*(반발계수 공식)에 한정되고
+*스케줄링*(동시 vs 순차)까지 이식한 것은 아니다.
+
 ---
 
 ## 6. B2-d — 엔티티와 뷰
 
+**선결 과제(B2-b가 남긴 것) — 안 하면 새가 파이프를 그냥 뚫고 지나간다:**
+
+- **맵 콜라이더를 트리거에서 솔리드로 바꾼다.** `FlappyRaceMap.unity`의 `BoxCollider` 119개가
+  전부 `m_IsTrigger: 1`이다(프로토타입이 `OnTrigger`로 유령정지를 만들던 시절의 흔적 —
+  `FlappyObstacle.cs`도 "트리거 콜라이더 동반"이라고 적어 두고 있다). 그런데
+  `UnityCollisionQuery.CapsuleCast`는 `QueryTriggerInteraction.Ignore`로 트리거를 걸러 버리므로,
+  지금 씬 그대로면 `KinematicMover.Move`(§5 phase ③)가 **영영 아무것도 맞지 않는다.** 서버 새는
+  이미 `Simulated`를 달고 있어(`FlappyBirdCreator.cs`) 머지 즉시 이 상태로 돈다 — 새가 무한히
+  떨어지거나 파이프를 그냥 통과하는 증상으로 나타난다. `m_IsTrigger`를 0으로 바꾼다.
+- **새를 `Default` 레이어에서 빼내 전용 레이어(예: `Character`)로 옮긴다.** 양쪽
+  `FlappyRaceLifetimeScope`가 sweep 레이어마스크로 `LayerMask.GetMask("Default")`를 넘기며
+  "sweep이 볼 것은 맵 지오메트리뿐"이라 가정한다. 그런데 `Bird.prefab`에 `m_Layer` 지정이 없어
+  기본값 0(Default)이고, 맵도 전부 레이어 0이다 — 즉 지금 이 가정을 지키는 건 우연이다. 새가
+  캡슐 콜라이더를 달고도 여전히 Default에 남으면: 다른 새가 sweep 벽이 되어 몸싸움이 PhysX와
+  §5의 계산 양쪽에서 이중으로 돌고, `PhysicsBody`가 붙는 순간 `MotionBridge.Depenetrate`도 다른
+  새를 밀기 시작한다 — 둘 다 **살아 있는 GameObject 위치**를 보는데 `WorldBase.LoadState`는
+  `Simulated`가 아닌 엔티티를 복원하지 않으므로, 재조정 재생이 라이브와 어긋난다("두 곳이
+  어긋나면 깨진다"는 이번 슬라이스가 콜라이더 *크기* 쪽에서 없앤 문제인데, 콜라이더 *레이어*
+  쪽으로 그대로 옮겨 간 것). 새 프리팹을 전용 레이어로 옮기고 sweep 마스크는 그 레이어를
+  **제외**해야 한다.
 - 클·서 `FlappyBirdCreator`에 **`Simulated`** 추가 — 서버는 모든 새, 클라는 **내 새만**.
   남의 새는 예측하지 않고 스냅샷 보간(`RemoteEntityInterpolator`)에 맡긴다. 나머지 컴포넌트
   조합은 B1 그대로(`Transform`/`Velocity`/`EntityKind`/`Appearance`/`MotionContributions`/`InputBuffer`)
@@ -504,7 +531,11 @@ EditMode 테스트 8개도 함께 옮긴다. 지금은 클라 프로토타입 �
   않는 이유: 예측하는 클라만 쓰는 능력이지만, 안 부르면 그만이라 서버에 비용이 없다.
   이는 `netcode-redesign.md` §6.5의 "시뮬 코어에 두지 않는다"를 **뒤집는 것**이다 — 그 결정이
   넷코드가 게임을 알게 만든 원인이었다. 두 아키텍처 문서를 이 슬라이스에서 함께 고친다.
-- [ ] **맵 콜라이더 레이어** — 새 sweep이 쓸 레이어마스크. 프로토타입은 `~0`(전부)였다.
+- [x] ~~**맵 콜라이더 레이어** — 새 sweep이 쓸 레이어마스크. 프로토타입은 `~0`(전부)였다.~~ →
+  **해소.** `LayerMask.GetMask("Default")`로 정했다. 근거: `FlappyRaceMap.unity`의 `m_Layer`가
+  228개 전부 0(Default) — 지금 맵엔 새를 걸러낼 다른 레이어가 없어 `~0`과 `Default` 사이에
+  차이가 없다. 단 이 결정은 **새가 계속 Default 밖에 있어야** 유효하다 — B2-d가 새를 전용
+  레이어로 옮기지 않으면 이 마스크가 새 자신도 맞혀 버린다(§6 선결 과제 참고).
 - [ ] **`TbFlappyConfig` 이름** — 게임이 늘면 `TbGameConfig`+게임모드 키가 나을 수 있다. 지금은
   게임이 둘뿐이라 단순한 쪽으로 간다.
 - [ ] **콘텐츠 빌드 주기** — Linux 콘텐츠를 매 배포마다 굽을지, 자산이 바뀔 때만 수동으로 굽을지.

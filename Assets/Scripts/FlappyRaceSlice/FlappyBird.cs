@@ -1,5 +1,4 @@
 using UnityEngine;
-using FlappyRace;
 
 /// <summary>
 /// 새(플레이어/페이서) 마커 + 새끼리 몸싸움 충돌 공용 헬퍼.
@@ -50,7 +49,7 @@ public class FlappyBird : MonoBehaviour
                                            out Vector3 dir, out float dist))
             {
                 self.transform.position += dir * (Mathf.Max(0f, dist - Slop) * 0.5f);   // 절반만(상대도 절반 밀어냄)
-                newVy = FlappyBounce.ResolveVy(newVy, otherBird.Vy, dir.y, Restitution);
+                newVy = LOP.FlappyBounce.ResolveVy(newVy, otherBird.Vy, dir.y, Restitution);
             }
         }
         return newVy;

@@ -545,7 +545,7 @@ Photon Quantum이 자체 결정론 물리를 따로 두는 이유, 격투게임�
 | 씬 | MonoBehaviour | 카메라 | 라이트 |
 |---|---|---|---|
 | `FlapWangMap.unity` (정상) | 0 | 0 | 0 |
-| `FlappyRaceMap.unity` (지금) | **146** | 1 | 1 |
+| `FlappyRaceMap.unity` (지금) | **147** | 1 | 1 |
 
 Flappy 맵만 프로토타입 씬에서 그대로 승격돼 정리가 안 됐다. 게임 씬(`FlappyRace.unity`)이 이미
 카메라·라이트·오디오리스너를 갖고 있으므로 맵 쪽 것은 중복이자 충돌이다.

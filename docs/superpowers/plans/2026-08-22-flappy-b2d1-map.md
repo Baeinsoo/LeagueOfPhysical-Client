@@ -4,7 +4,7 @@
 
 **Goal:** Flappy 맵 씬을 "기하와 콜라이더만" 남는 정상 맵으로 정리해, 서버가 씬을 읽어도 깨지지 않고 새가 파이프에 실제로 막히게 만든다.
 
-**Architecture:** 맵 씬에서 클라 전용 프로토타입 스크립트를 걷어내고(146개), 통과 가능(트리거)이던 콜라이더 119개를 막히게 바꾸고, 게임 씬과 중복되는 카메라·라이트를 지운다. 플레이어 시작 지점은 **양쪽 프로젝트가 참조하는 패키지**에 마커 컴포넌트를 두어(GUID가 같아야 missing script가 안 된다) 서버 룰이 찾아 쓴다.
+**Architecture:** 맵 씬에서 클라 전용 프로토타입 스크립트를 걷어내고(147개), 통과 가능(트리거)이던 콜라이더 119개를 막히게 바꾸고, 게임 씬과 중복되는 카메라·라이트를 지운다. 플레이어 시작 지점은 **양쪽 프로젝트가 참조하는 패키지**에 마커 컴포넌트를 두어(GUID가 같아야 missing script가 안 된다) 서버 룰이 찾아 쓴다.
 
 **Tech Stack:** Unity 6 (6000.3.16f1) · C# · NUnit EditMode · git 서브모듈(아트) · Addressables 원격 번들
 
@@ -171,11 +171,12 @@ namespace LOP.Tests
         [Test]
         public void 찾은_순서와_무관하게_Order_순으로_세운다()
         {
-            // 씬에서 찾아오는 순서는 보장되지 않는다 — 일부러 뒤섞어 넣는다
+            // 이름 순서를 Order와 **거꾸로** 매긴다 — 이름으로 정렬하는 구현이 통과해 버리면
+            // 이 테스트는 아무것도 지키지 못한다. 찾아오는 순서도 일부러 뒤섞는다.
             var points = new List<SpawnPoint>
             {
-                Marker("C", 3, new Vector3(0f, 4f, 0f)),
-                Marker("A", 1, new Vector3(0f, -6f, 0f)),
+                Marker("A", 3, new Vector3(0f, 4f, 0f)),
+                Marker("C", 1, new Vector3(0f, -6f, 0f)),
                 Marker("B", 2, new Vector3(0f, -1f, 0f)),
             };
 
@@ -188,24 +189,33 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void Order가_같으면_이름으로_갈라_순서가_흔들리지_않는다()
+        public void Order가_같으면_이름을_바이트_순서로_갈라_순서가_흔들리지_않는다()
         {
-            var forward = new List<SpawnPoint>
+            // 대문자 'B'(66)가 소문자 'a'(97)보다 앞인 것은 **바이트 순서**로 볼 때뿐이다.
+            // 언어권 규칙으로 비교하면 'a'가 먼저 온다 — 그래서 이 쌍이라야 둘을 구분한다.
+            // (언어권 비교는 실행 환경의 지역 설정에 따라 달라질 수 있어 시뮬에는 못 쓴다.)
+            var points = new List<SpawnPoint>
             {
-                Marker("beta", 1, new Vector3(0f, 2f, 0f)),
-                Marker("alpha", 1, new Vector3(0f, 1f, 0f)),
+                Marker("a", 1, new Vector3(0f, 1f, 0f)),
+                Marker("B", 1, new Vector3(0f, 2f, 0f)),
             };
 
-            var slots = SpawnPlacement.Arrange(forward);
+            var slots = SpawnPlacement.Arrange(points);
 
-            Assert.AreEqual(1f, slots[0].y, 1e-4f);   // alpha
-            Assert.AreEqual(2f, slots[1].y, 1e-4f);   // beta
+            Assert.AreEqual(2f, slots[0].y, 1e-4f);   // B
+            Assert.AreEqual(1f, slots[1].y, 1e-4f);   // a
         }
 
         [Test]
         public void 마커가_없으면_빈_목록을_돌려준다()
         {
             Assert.IsEmpty(SpawnPlacement.Arrange(new List<SpawnPoint>()));
+        }
+
+        [Test]
+        public void 목록_자체가_null이어도_빈_목록을_돌려준다()
+        {
+            Assert.IsEmpty(SpawnPlacement.Arrange(null));
         }
 
         [Test]
@@ -309,7 +319,10 @@ unity cmd run_tests
 
 - [ ] **Step 7: 테스트가 진짜로 실패할 수 있는지 확인한다**
 
-`SpawnPlacement.Arrange`에서 `.OrderBy(point => point.Order)` 줄을 잠깐 지운다. `찾은_순서와_무관하게_Order_순으로_세운다`가 **실패해야 한다**. 확인했으면 되돌린다.
+`SpawnPlacement.Arrange`의 `.OrderBy(point => point.Order)`를 `.OrderByDescending(point => point.Order)`로 잠깐 바꾼다. `찾은_순서와_무관하게_Order_순으로_세운다`가 **실패해야 한다**. 확인했으면 되돌린다.
+
+(줄을 아예 지우면 안 된다 — 뒤따르는 `ThenBy`가 `OrderBy`를 요구해서 컴파일이 깨지고, 그러면
+"테스트가 실패하는지"가 아니라 "빌드가 깨지는지"를 본 것이 된다.)
 
 통과만 보고 "검증됐다"고 하지 않는다 — 일부러 깨뜨려 본다.
 
@@ -392,7 +405,7 @@ echo "Camera:        $(grep -c -- '--- !u!20 &' $S)"
 echo "Light:         $(grep -c -- '--- !u!108 &' $S)"
 ```
 
-기대: `146 / 119 / 1 / 1`. 숫자가 다르면 씬이 그 사이 바뀐 것이니 멈추고 보고한다.
+기대: `147 / 119 / 1 / 1`. 숫자가 다르면 씬이 그 사이 바뀐 것이니 멈추고 보고한다.
 
 - [ ] **Step 3: 수술 도구를 만든다**
 

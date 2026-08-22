@@ -146,18 +146,24 @@ namespace LOP.UI
         {
             if (view == null) return;
 
-            view.OnClose();
-
-            var layer = view.Layer;
+            // 같은 뷰에 두 번 불릴 수 있다 — 스코프가 내려가며 뷰 팩토리를 해제하는 쪽과 화면을 닫는
+            // 코디네이터가 서로 상대가 이미 닫았는지 모른 채 각각 부른다. 아래 정리는 한 번만 돌아야
+            // 한다: OnClose에서 이벤트를 쏘는 뷰가 있어(MatchmakingFailedView.Closed) 두 번 돌면
+            // 구독자가 "닫혔다"를 두 번 받는다.
             if (_roots.TryGetValue(view, out var viewRoot))
             {
+                view.OnClose();
+
+                var layer = view.Layer;
                 viewRoot.RemoveFromHierarchy();
                 _roots.Remove(view);
+                if (_stacks.TryGetValue(layer, out var stack)) stack.Remove(view);
+
+                if (view.IsModal) PositionBackdrop(layer);
             }
-            if (_stacks.TryGetValue(layer, out var stack)) stack.Remove(view);
 
-            if (view.IsModal) PositionBackdrop(layer);
-
+            // UXML 매핑이 없어 열리다 만 뷰는 위 목록에 없다 — 그래도 정리는 해야 한다.
+            // 두 번 불려도 UIView.Dispose가 멱등이라 안전하다.
             view.Dispose();
         }
 

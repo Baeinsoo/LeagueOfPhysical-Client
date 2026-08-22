@@ -55,7 +55,7 @@ namespace LOP.UI
     /// 그대로 읽으면 판을 하고 와도 로그인 시점의 낡은 값이 뜬다.
     /// 도착 전/후가 시간에 따라 바뀌는 라이브 상태라 R3로 노출한다(결과 화면과 다른 점).
     /// </summary>
-    public class ProfileViewModel : IDisposable
+    public sealed class ProfileViewModel : IDisposable
     {
         //  한 화면에 보여줄 판 수. 서버도 상한(50)을 갖고 있어 이 값이 그대로 쓰인다.
         private const int HistoryLimit = 20;
@@ -92,8 +92,16 @@ namespace LOP.UI
             LoadAsync().Forget();
         }
 
+        private bool _disposed;
+
         public void Dispose()
         {
+            //  IDisposable은 여러 번 불려도 안전해야 한다. CancellationTokenSource는 dispose된 뒤
+            //  Cancel하면 ObjectDisposedException을 던지므로 가드가 필요하다.
+            //  (sealed라 파생이 없어 Dispose(bool) 없이 이 형태가 표준이다.)
+            if (_disposed) return;
+            _disposed = true;
+
             //  받아오는 도중에 화면이 사라질 수 있다. 먼저 끊어야 아래에서 dispose한 프로퍼티에
             //  값을 쓰려다 터지지 않는다.
             _cts.Cancel();
@@ -258,12 +266,19 @@ namespace LOP.UI
             return rows;
         }
 
-        /// <summary>게스트 이름이 "Guest-&lt;uuid&gt;"라 그대로 두면 화면을 채운다. 닉네임이 생기면 그대로 나온다.</summary>
+        //  전적에 박히는 값은 "이름#태그"다 — 이름 최대 12자 + '#' + 태그 6자 = 19자.
+        //  그보다 짧게 자르면 태그가 잘려 **그럴듯하지만 틀린 신원**이 화면에 뜬다
+        //  (예: 김철수김철수#K7QM2X → 김철수김철수#K7QM). 신원을 보여주려고 만든 화면이니
+        //  자르더라도 태그는 온전해야 한다.
+        private const int IdentityMaxLength = 12 + 1 + 6;
+
         private static string ShortName(string displayName)
         {
             if (string.IsNullOrEmpty(displayName)) return "알 수 없음";
 
-            return displayName.Length <= 12 ? displayName : displayName.Substring(0, 12);
+            return displayName.Length <= IdentityMaxLength
+                ? displayName
+                : displayName.Substring(0, IdentityMaxLength);
         }
 
         private static IReadOnlyList<ProfileQueueStats> Build(IReadOnlyDictionary<int, UserRating> ratingByQueueId)

@@ -179,10 +179,21 @@ namespace LOP.UI
             _cameraPointerId = -1;
         }
 
-        public override void Dispose()
+        private bool _disposed;
+
+        protected override void Dispose(bool disposing)
         {
-            _tick?.Pause();
-            base.Dispose();
+            if (!_disposed)
+            {
+                _disposed = true;
+
+                if (disposing)
+                {
+                    _tick?.Pause();
+                }
+            }
+
+            base.Dispose(disposing);
         }
     }
 }

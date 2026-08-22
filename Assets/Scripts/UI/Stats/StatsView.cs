@@ -83,10 +83,21 @@ namespace LOP.UI
             _vitalityButton.style.display = display;
         }
 
-        public override void Dispose()
+        private bool _disposed;
+
+        protected override void Dispose(bool disposing)
         {
-            _viewModel.Dispose();
-            base.Dispose();
+            if (!_disposed)
+            {
+                _disposed = true;
+
+                if (disposing)
+                {
+                    _viewModel.Dispose();
+                }
+            }
+
+            base.Dispose(disposing);
         }
     }
 }

@@ -39,9 +39,32 @@ namespace LOP.UI
         /// <summary>(M1 no-op 훅) 닫기 연출.</summary>
         protected virtual UniTask PlayCloseAsync() => UniTask.CompletedTask;
 
-        public virtual void Dispose()
+        private bool _disposed;
+
+        /// <summary>파생은 이 메서드가 아니라 <see cref="Dispose(bool)"/>를 오버라이드한다.</summary>
+        public void Dispose()
         {
-            Disposables.Dispose();
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
+        /// 파생이 자기 자원을 정리하는 자리. 지켜야 할 두 가지:
+        /// 여러 번 불려도 안전할 것(자기 플래그로 가드), 그리고 끝에 base를 부를 것.
+        /// </summary>
+        /// <param name="disposing">
+        /// Dispose()에서 왔으면 true, 종료자에서 왔으면 false. 종료자는 다른 관리 객체가 이미
+        /// 정리됐을 수 있어 건드리면 안 되므로, 관리 객체 정리는 true일 때만 한다.
+        /// </param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed) return;
+            _disposed = true;
+
+            if (disposing)
+            {
+                Disposables.Dispose();
+            }
         }
     }
 }

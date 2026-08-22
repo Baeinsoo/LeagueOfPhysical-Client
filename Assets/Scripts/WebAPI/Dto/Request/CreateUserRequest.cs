@@ -6,7 +6,7 @@ namespace LOP
 {
     public class CreateUserRequest
     {
-        public string username;
+        public string displayName;
         public string email;
     }
 }

@@ -92,8 +92,17 @@ namespace LOP.UI
             LoadAsync().Forget();
         }
 
+        private bool _disposed;
+
         public void Dispose()
         {
+            //  Dispose는 여러 번 불릴 수 있다 — 화면을 닫는 경로(코디네이터)와 스코프가 내려가며
+            //  뷰 팩토리를 해제하는 경로가 각각 부른다. 두 번째 호출에서 이미 dispose된
+            //  CancellationTokenSource.Cancel()이 ObjectDisposedException을 던지고 있었다.
+            //  IDisposable은 여러 번 불려도 안전해야 한다.
+            if (_disposed) return;
+            _disposed = true;
+
             //  받아오는 도중에 화면이 사라질 수 있다. 먼저 끊어야 아래에서 dispose한 프로퍼티에
             //  값을 쓰려다 터지지 않는다.
             _cts.Cancel();

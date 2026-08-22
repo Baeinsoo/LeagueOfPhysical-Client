@@ -59,12 +59,12 @@ namespace LOP.UI
             }));
         }
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
             //  VContainer는 Transient를 추적하지 않아 스코프가 죽어도 dispose하지 않는다.
             //  WindowManager.Close가 View를 dispose하므로 VM 정리는 여기서 한다(StatsView와 같은 방식).
             _viewModel.Dispose();
-            base.Dispose();
+            base.Dispose(disposing);
         }
 
         private static VisualElement BuildMatchCard(ProfileMatchEntry match)

@@ -102,10 +102,10 @@ namespace LOP.UI
             element.SetEnabled(enabled);
         }
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
             _viewModel.Dispose();
-            base.Dispose();
+            base.Dispose(disposing);
         }
     }
 }

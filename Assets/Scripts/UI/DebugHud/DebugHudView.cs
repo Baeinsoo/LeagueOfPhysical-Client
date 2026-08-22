@@ -103,7 +103,7 @@ namespace LOP.UI
             _cushionText.text = $"Cushion: {_viewModel.CushionMs:F1} ms";
         }
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
             if (_resetButton != null)
             {
@@ -114,7 +114,7 @@ namespace LOP.UI
                 _dumpButton.clicked -= _viewModel.DumpStats;
             }
             _tick?.Pause();
-            base.Dispose();
+            base.Dispose(disposing);
         }
     }
 }

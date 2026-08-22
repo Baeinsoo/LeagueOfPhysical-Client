@@ -62,10 +62,10 @@ namespace LOP.UI
             if (text != null) text.text = $"{current} / {max}";
         }
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
             _viewModel.Dispose();
-            base.Dispose();
+            base.Dispose(disposing);
         }
     }
 }

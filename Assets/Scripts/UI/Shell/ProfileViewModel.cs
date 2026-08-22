@@ -96,10 +96,9 @@ namespace LOP.UI
 
         public void Dispose()
         {
-            //  Dispose는 여러 번 불릴 수 있다 — 화면을 닫는 경로(코디네이터)와 스코프가 내려가며
-            //  뷰 팩토리를 해제하는 경로가 각각 부른다. 두 번째 호출에서 이미 dispose된
-            //  CancellationTokenSource.Cancel()이 ObjectDisposedException을 던지고 있었다.
-            //  IDisposable은 여러 번 불려도 안전해야 한다.
+            //  IDisposable은 여러 번 불려도 안전해야 한다. 이 클래스는 UIView가 아니라 뷰가 직접
+            //  들고 부르는 객체라 UIView의 가드를 못 받고, CancellationTokenSource는 두 번
+            //  Cancel하면 ObjectDisposedException을 던진다 — 그래서 여기에도 가드가 필요하다.
             if (_disposed) return;
             _disposed = true;
 

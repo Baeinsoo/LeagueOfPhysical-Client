@@ -29,6 +29,7 @@ namespace LOP
 
         #region User
         public const int USER_NOT_EXIST = 30000;
+        public const int INVALID_DISPLAY_NAME = 30001;
         #endregion
 
         #region Room

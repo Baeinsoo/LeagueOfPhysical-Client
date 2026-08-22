@@ -40,6 +40,27 @@
     padding: 20px;
 }
 
+/* 신원 줄 — 이름#태그와 [이름 바꾸기]를 한 줄에 양끝으로. */
+.profile-identity {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.profile-name {
+    font-size: 42px;
+    flex-shrink: 1;
+}
+
+.profile-rename {
+    height: 72px;
+    font-size: 26px;
+    padding-left: 20px;
+    padding-right: 20px;
+    flex-shrink: 0;
+}
+
 .profile-status {
     font-size: 34px;
     margin-bottom: 16px;

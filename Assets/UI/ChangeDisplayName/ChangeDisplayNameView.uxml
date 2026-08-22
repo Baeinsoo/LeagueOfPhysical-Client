@@ -1,0 +1,14 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="cdn-root" class="scrim cdn-root">
+        <ui:VisualElement name="cdn-card" class="card cdn-card">
+            <ui:Label text="이름 바꾸기" class="title cdn-title" />
+            <ui:TextField name="cdn-input" class="cdn-input" />
+            <ui:Label text="2~12자, 공백 없이. 이름은 다른 사람과 겹쳐도 됩니다." class="card-text cdn-hint" />
+            <ui:Label name="cdn-message" text="" class="cdn-message" style="display: none;" />
+            <ui:VisualElement name="cdn-actions" class="cdn-actions">
+                <ui:Button name="cdn-cancel" text="취소" class="btn btn--secondary cdn-button" />
+                <ui:Button name="cdn-confirm" text="확인" class="btn btn--primary cdn-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

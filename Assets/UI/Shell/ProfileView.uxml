@@ -5,6 +5,10 @@
             <ui:Label name="shell-title" text="" class="title shell-title" />
         </ui:VisualElement>
         <ui:VisualElement name="shell-body" class="shell-body profile-body">
+            <ui:VisualElement name="profile-identity" class="profile-identity">
+                <ui:Label name="profile-name" text="" class="title profile-name" />
+                <ui:Button name="profile-rename" text="이름 바꾸기" class="btn btn--secondary profile-rename" />
+            </ui:VisualElement>
             <ui:Label name="profile-status" text="불러오는 중…" class="card-text profile-status" />
             <ui:VisualElement name="profile-queues" class="profile-queues" />
             <ui:Label name="profile-history-title" text="최근 전적" class="card-text profile-queue-name" />

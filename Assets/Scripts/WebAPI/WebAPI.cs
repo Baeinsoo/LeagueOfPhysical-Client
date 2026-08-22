@@ -88,6 +88,13 @@ namespace LOP
                 HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/location/"),
                 GetUserLocationResponse.Deserialize, cancellationToken);
 
+        //  전역 발행을 쓴다 — UserDataStore가 이 응답을 구독해 user를 갱신한다(GetUser와 같은 경로).
+        //  RootLifetimeScope에 브로커를 등록해 둬야 한다. 안 하면 호출은 성공하고 그 뒤 발행에서 터진다.
+        public static UniTask<ChangeDisplayNameResponse> ChangeDisplayName(string userId, string displayName, CancellationToken cancellationToken = default)
+            => SendAsync<ChangeDisplayNameResponse>(authorized,
+                HttpRequestMessage.Put($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/display-name",
+                    new ChangeDisplayNameRequest { displayName = displayName }), cancellationToken);
+
         public static UniTask<GetUserRatingResponse> GetUserRating(string userId, int queueId, CancellationToken cancellationToken = default)
             => SendAsync<GetUserRatingResponse>(authorized,
                 HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/rating?queueId={queueId}"), cancellationToken);

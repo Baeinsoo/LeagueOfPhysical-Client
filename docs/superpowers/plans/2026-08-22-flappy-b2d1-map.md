@@ -605,6 +605,12 @@ PY
 
 여섯 숫자와 네 마커가 전부 기대와 같아야 한다. **하나라도 다르면 멈추고 보고한다.**
 
+> **정정 (최종 리뷰 Finding A, 2026-08-22).** 위에서 마커를 켠(`active=1`) 것이 문제였다 —
+> 마커 자식(Halo, `Bird_PN` 프리팹 인스턴스)까지 함께 켜져 출발선에 가짜 새 네 마리가 보였다.
+> 서버 룰은 `FindObjectsInactive.Include`로 찾으므로 마커는 꺼둬도 된다. 이 문제를 고치는
+> 수정 웨이브에서 네 마커를 다시 `m_IsActive: 0`으로 되돌렸다(`SpawnPoint`/`Order`는 그대로).
+> 최종 완료 기준은 위 "완료 기준" 절의 정정된 문구를 따른다.
+
 - [ ] **Step 6: 수술 도구를 지운다**
 
 ```bash
@@ -821,7 +827,7 @@ git commit -m "docs(flappy): sweep 레이어마스크 주석을 사실에 맞게
 
 ## 완료 기준
 
-- [ ] 저장된 `FlappyRaceMap.unity`에서: MonoBehaviour 4개(전부 `SpawnPoint`) · 트리거 콜라이더 0 · 카메라 0 · 라이트 0 · `PlayerSpawn_1~4` 전부 활성
+- [ ] 저장된 `FlappyRaceMap.unity`에서: MonoBehaviour 4개(전부 `SpawnPoint`) · 트리거 콜라이더 0 · 카메라 0 · 라이트 0 · `PlayerSpawn_1~4` 전부 **비활성**(자식 장식이 출발선에 그려지지 않게 — 서버 룰은 `FindObjectsInactive.Include`로 찾으므로 꺼둬도 된다. 최종 리뷰 Finding A로 되돌림)
 - [ ] `SpawnPlacementTests` 4개 통과, 일부러 깨뜨렸을 때 실패하는 것 확인
 - [ ] 클라 EditMode 522/522, 서버 EditMode 통과
 - [ ] 씬을 열어 조회했을 때 마커 4개가 y 오름차순으로 나옴
@@ -832,7 +838,24 @@ git commit -m "docs(flappy): sweep 레이어마스크 주석을 사실에 맞게
 
 ## 태스크가 끝난 뒤 (컨트롤러가 사용자와 함께)
 
-1. 4개 저장소를 `CLAUDE.md`의 푸시 규약대로 머지·푸시. **아트를 먼저 푸시하고 클라 포인터를 그다음에** — 순서가 뒤바뀌면 원격 클라가 존재하지 않는 아트 커밋을 가리킨다.
-2. `gh workflow run content-deploy -f target=gameserver` — **유니티 에디터를 닫고 돌린다**(CI가 이 맥의 self-hosted 러너에서 돌고, 에디터가 떠 있으면 Burst 단계가 네이티브 크래시를 낸다).
-3. 로비에서 FlappyRace 입장 → 파드 로그에서 missing script 0건 · `InjectSceneObjects` NRE 0건 확인, 새가 x≈-2에서 출발해 파이프에 막히는지 확인.
-4. 스펙 §6에 결과 절 추가.
+> **정정 (최종 리뷰 Finding C, 2026-08-22).** 아래 원래 절차는 `content-deploy`만 돌렸는데,
+> **Task 3은 서버 C#(`FlappyRaceRuleSystem.cs`)을 바꿨다.** `content-deploy`는 Addressables
+> 콘텐츠를 구워 S3에 올릴 뿐 서버 바이너리는 만들지 않는다 — 서버 바이너리는
+> `LeagueOfPhysical-Server/.github/workflows/gameserver-deploy.yml`이 만든다. 그것만 돌리면
+> **맵은 깨끗한데 새는 여전히 원점에 스폰되고**, 그 증상은 "`SpawnPlacement`가 마커를 못 찾았다"처럼
+> 보여 원인을 엉뚱한 데서 찾게 된다. 또한 두 워크플로 모두 `LeagueOfPhysical-Shared`를
+> **원격에서** 클론하므로, `SpawnPoint.cs`가 푸시되기 전에 CI가 돌면 구워진 맵 번들 안의
+> `SpawnPoint` 네 개가 missing script가 되어 서버 조회 결과 0 → 조용히 원점 폴백(지금 고치고
+> 있는 그 버그의 축소판). 아래 순서는 이 두 가지를 반영해 고쳤다.
+
+1. 4개 저장소를 `CLAUDE.md`의 푸시 규약대로 **이 순서로** 머지·푸시: **Shared → Art → Client → Server.**
+   (Art가 Client보다 먼저여야 원격 Client가 없는 아트 커밋을 가리키지 않는다. Shared가 두 CI 중
+   어느 쪽보다도 먼저여야 `SpawnPoint` missing script가 안 난다.) 한 저장소씩 결과를 확인하고 다음으로 넘어간다.
+2. `gh workflow run gameserver-deploy` (`LeagueOfPhysical-Server` 레포) — 서버 코드 변경분을 실제로 배포한다.
+3. `gh workflow run content-deploy -f target=gameserver` — 맵 콘텐츠를 구워 올린다.
+4. 2·3 둘 다 이 맥의 self-hosted 러너에서 도니 **먼저 유니티 에디터를 닫고** 돌린다(에디터가 떠 있으면 Burst 단계가 네이티브 크래시를 낸다).
+5. 로비에서 FlappyRace 입장 → 파드 로그에서 missing script 0건(전 588건) · `InjectSceneObjects` NRE 0건 확인, 새가 x≈-2(마커 자리)에서 스폰되는지 확인.
+   **"파이프에 막히는지"는 이 슬라이스에서 채점하지 않는다** — 첫 콜라이더가 x=16인데 스폰은
+   x=-2, 그 사이 1.64초 동안 플랩 수단이 없어 40m 넘게 떨어져 코스를 아래로 통과한다(최종 리뷰
+   Finding D). 플랩 수단이 생기는 B2-d2에서 확인한다.
+6. 스펙 §6에 결과 절 추가.

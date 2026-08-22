@@ -22,11 +22,17 @@
 ## 2. 슬라이스 순서
 
 ```
-B2-a  콘텐츠 경로 뚫기      서버가 맵·새 프리팹을 받는다          ✅ 완료 (2026-08-17, §3 결과)
-B2-c  넷코드 게임 비종속화   되감기가 게임 규칙을 모르게 한다 (FlapWang만으로 검증 가능)
-B2-b  시뮬 코어             전진·플랩·중력·몸싸움
-B2-d  엔티티·뷰 + 런타임 검증
+B2-a   콘텐츠 경로 뚫기      서버가 맵·새 프리팹을 받는다          ✅ 완료 (2026-08-17, §3 결과)
+B2-c   넷코드 게임 비종속화   되감기가 게임 규칙을 모르게 한다        ✅ 완료 (2026-08-21, §4 결과)
+B2-b   시뮬 코어             전진·플랩·중력·몸싸움                  ✅ 완료 (2026-08-22, §5 결과)
+B2-d1  맵을 진짜 코스로       씬 정리 + 콜라이더 솔리드화 + 스폰 지점
+B2-d2  클라가 자기 새를 난다   예측 켜기 + 몸 규격 통일 + 플랩 UI + 런타임 검증
 ```
+
+**B2-d를 둘로 나눈 이유 (2026-08-22).** 원래 한 덩어리였는데 조사해 보니 7번째 저장소(아트
+서브모듈)의 씬 수술과, 클라 예측·입력 UI가 한 계획에 들어가야 했다. 중간에 검증 지점이 없어
+뭔가 틀렸을 때 "씬 탓인지 예측 탓인지"를 가릴 수 없다. **d1이 끝나면 "서버에서 새가 파이프에
+실제로 막힌다"로 확인**되고, d2는 그 위에서 클라를 켠다.
 
 **B2-c를 게임플레이보다 앞에 둔다.** 넷코드 구조를 건드리므로 회귀 위험이 있는데, Flappy
 게임플레이가 아직 없는 상태에서 하면 **FlapWang만으로 회귀를 검증**할 수 있어 원인 분리가 깔끔하다.
@@ -527,45 +533,109 @@ Photon Quantum이 자체 결정론 물리를 따로 두는 이유, 격투게임�
 
 ---
 
-## 6. B2-d — 엔티티와 뷰
+## 6. B2-d1 — 맵을 진짜 코스로
 
-**선결 과제(B2-b가 남긴 것) — 안 하면 새가 파이프를 그냥 뚫고 지나간다:**
+> **2026-08-22 조사로 §6의 전제 두 개가 틀렸다는 게 드러났다.** 아래 "정정" 절에 남긴다.
+> 원래 한 덩어리였던 B2-d는 d1/d2로 나뉘었다(§2).
 
-- **맵 콜라이더를 트리거에서 솔리드로 바꾼다.** `FlappyRaceMap.unity`의 `BoxCollider` 119개가
-  전부 `m_IsTrigger: 1`이다(프로토타입이 `OnTrigger`로 유령정지를 만들던 시절의 흔적 —
-  `FlappyObstacle.cs`도 "트리거 콜라이더 동반"이라고 적어 두고 있다). 그런데
-  `UnityCollisionQuery.CapsuleCast`는 `QueryTriggerInteraction.Ignore`로 트리거를 걸러 버리므로,
-  지금 씬 그대로면 `KinematicMover.Move`(§5 phase ③)가 **영영 아무것도 맞지 않는다.** 서버 새는
-  이미 `Simulated`를 달고 있어(`FlappyBirdCreator.cs`) 머지 즉시 이 상태로 돈다 — 새가 무한히
-  떨어지거나 파이프를 그냥 통과하는 증상으로 나타난다. `m_IsTrigger`를 0으로 바꾼다.
-- **새를 `Default` 레이어에서 빼내 전용 레이어(예: `Character`)로 옮긴다.** 양쪽
-  `FlappyRaceLifetimeScope`가 sweep 레이어마스크로 `LayerMask.GetMask("Default")`를 넘기며
-  "sweep이 볼 것은 맵 지오메트리뿐"이라 가정한다. 그런데 `Bird.prefab`에 `m_Layer` 지정이 없어
-  기본값 0(Default)이고, 맵도 전부 레이어 0이다 — 즉 지금 이 가정을 지키는 건 우연이다. 새가
-  캡슐 콜라이더를 달고도 여전히 Default에 남으면: 다른 새가 sweep 벽이 되어 몸싸움이 PhysX와
-  §5의 계산 양쪽에서 이중으로 돌고, `PhysicsBody`가 붙는 순간 `MotionBridge.Depenetrate`도 다른
-  새를 밀기 시작한다 — 둘 다 **살아 있는 GameObject 위치**를 보는데 `WorldBase.LoadState`는
-  `Simulated`가 아닌 엔티티를 복원하지 않으므로, 재조정 재생이 라이브와 어긋난다("두 곳이
-  어긋나면 깨진다"는 이번 슬라이스가 콜라이더 *크기* 쪽에서 없앤 문제인데, 콜라이더 *레이어*
-  쪽으로 그대로 옮겨 간 것). 새 프리팹을 전용 레이어로 옮기고 sweep 마스크는 그 레이어를
-  **제외**해야 한다.
-- 클·서 `FlappyBirdCreator`에 **`Simulated`** 추가 — 서버는 모든 새, 클라는 **내 새만**.
-  남의 새는 예측하지 않고 스냅샷 보간(`RemoteEntityInterpolator`)에 맡긴다. 나머지 컴포넌트
-  조합은 B1 그대로(`Transform`/`Velocity`/`EntityKind`/`Appearance`/`MotionContributions`/`InputBuffer`)
-- 새 프리팹에 **캡슐 콜라이더** — 서버 sweep 대상이자 몸싸움 분리 기준.
-  크기는 `TbFlappyConfig`의 `body_radius`/`body_height`와 **일치해야 한다**(어긋나면 클·서가
-  다른 몸으로 밀어내 예측이 깨진다)
-- 스폰 지점: 맵 씬의 `PlayerSpawn_1~4` 마커가 **비활성**이다. 켜고 서버 룰이 읽게 한다(B1 숙제)
-- **맵 씬의 클라 전용 프로토타입 스크립트를 걷어낸다** — `Assets/Scripts/FlappyRaceSlice/`의
-  `FlappyPlayer`/`FlappyPacer`/`FlappyObstacle`/`FlappyCourseGenerator` 등은 서버 프로젝트에 없어
-  서버에서 missing script가 되고, 그 null 컴포넌트가 씬 주입을 NRE로 끊는다(B2-a에서 실측, §3).
-  위 스폰 마커를 서버가 읽게 하려면 **이것부터 고쳐야 한다** — 주입이 끊기면 마커도 못 읽는다
+### 목표 상태 — FlapWang 맵과 같은 모양
 
-**입력은 새로 만들 게 없다.** 플랩 = 기존 `InputCommand.Jump`. 와이어 포맷·서버 입력 버퍼·유실
-대비 재전송이 전부 그대로 재사용된다.
+맵 씬은 **기하와 콜라이더만** 담는 것이 이 프로젝트의 규약이다. 실측:
+
+| 씬 | MonoBehaviour | 카메라 | 라이트 |
+|---|---|---|---|
+| `FlapWangMap.unity` (정상) | 0 | 0 | 0 |
+| `FlappyRaceMap.unity` (지금) | **146** | 1 | 1 |
+
+Flappy 맵만 프로토타입 씬에서 그대로 승격돼 정리가 안 됐다. 게임 씬(`FlappyRace.unity`)이 이미
+카메라·라이트·오디오리스너를 갖고 있으므로 맵 쪽 것은 중복이자 충돌이다.
+
+### 할 일
+
+- **프로토타입 스크립트를 씬에서 걷어낸다.** 클라에만 있는 스크립트라 서버에서 missing script가
+  되고, 그 null 컴포넌트가 씬 주입을 NRE로 끊는다(B2-a 실측, §3). 실측 내역:
+
+  | 스크립트 | 개수 | 붙은 곳 | 처리 |
+  |---|---|---|---|
+  | `FlappyObstacle` | 118 | `Cube`×72, `ArmN/S/E/W_marker` 등 | **스크립트만 제거**(빈 마커 클래스, 기하는 남긴다) |
+  | `FlappyWindmill` | 8 | `Windmill`, `FillWindmill` | 스크립트만 제거 → 정적 장애물이 된다 |
+  | `FlappyBird` | 4 | `Player`, `Pacer_*` | 오브젝트째 삭제 |
+  | `FlappyPacer` | 3 | `Pacer_Cyan/Red/Yellow` | 오브젝트째 삭제 |
+  | `FlappyIris` | 2 | `Iris`, `FillIris` | 스크립트만 제거 → 정적 |
+  | `FlappyPlayer`·`FlappyAutoPilot`·`FlappyPlayRecorder`·`FlappyDashFx` | 4 | 전부 `Player` | 오브젝트째 삭제 |
+  | `FlappyCameraFollow` | 1 | `Main Camera` | 오브젝트째 삭제(게임 씬에 카메라가 있다) |
+  | `FlappyHUD`·`FlappyRaceManager`·`FlappySimJudge`·`FlappyRaceStart`·`FlappyChaser` | 5 | 각자 동명 오브젝트 | 오브젝트째 삭제 |
+  | `FlappyCourseGenerator` | 1 | `---Course---` | **스크립트만 제거**(코스 루트라 오브젝트는 남긴다) |
+  | `FlappyBoostZone` | 1 | `BoostHole` | 스크립트만 제거 |
+
+  `FlappyCourseGenerator`는 `ContextMenu`로 도는 **에디터 전용 도구**이고 코스 기하는 이미 씬에
+  구워져 있다 — 지워도 런타임에 잃는 것이 없다. 인스펙터에 넣어 둔 생성 설정(구간 리스트·고도·
+  틈 크기)은 **git 히스토리에 남아** 있으므로 나중에 코스를 다시 굽고 싶으면 옛 커밋의 씬에서
+  값을 꺼내 오면 된다.
+
+- **맵 콜라이더를 트리거에서 솔리드로 바꾼다.** `BoxCollider` 119개가 전부 `m_IsTrigger: 1`이다
+  (프로토타입이 `OnTrigger`로 유령정지를 만들던 시절의 흔적). 그런데
+  `UnityCollisionQuery.CapsuleCast`가 `QueryTriggerInteraction.Ignore`로 트리거를 걸러 버리므로,
+  지금 씬 그대로면 §5 phase ③의 sweep이 **영영 아무것도 맞지 않는다.**
+
+- **맵 씬의 카메라·라이트를 지운다.** 게임 씬이 이미 갖고 있다(FlapWang 맵도 안 갖고 있다).
+
+- **스폰 지점을 서버가 읽게 한다.** `PlayerSpawn_1~4`가 있으나 **비활성**(`m_IsActive: 0`)이고
+  서버 룰은 무시한 채 x=0에 세로 2칸 간격으로 세운다. 이 프로젝트엔 스폰 지점 규약이 아직 없다
+  (FlapWang은 스폰 마커를 안 쓴다).
+  - **마커 컴포넌트를 LOP-Shared에 둔다.** 이름으로 찾는 방식(`GameObject.Find`)은 비활성
+    오브젝트를 못 찾고 오타에 약하다. 마커를 **양쪽 프로젝트가 참조하는 패키지**에 두면 GUID가
+    같아 missing script가 되지 않는다 — 지금 고치고 있는 그 문제를 다시 만들지 않는 유일한 방법이다.
+    (문제는 "맵 씬에 MonoBehaviour가 있는 것"이 아니라 "**한쪽에만 있는** 스크립트가 있는 것"이다.)
+  - 산업 표준 매핑: Unreal `APlayerStart`(스폰 지점을 액터 클래스로 두고 게임모드가 찾아 쓴다).
+
+### 정정 — §6의 원래 전제 두 개가 틀렸다 (2026-08-22 실측)
+
+1. ~~"새 프리팹에 캡슐 콜라이더를 붙인다"~~ → **붙일 곳이 아니다.** 콜라이더는 아트 프리팹이
+   아니라 코드가 만든다 — `PhysicsFollower.Initialize`가 엔티티마다 액터 루트에 `Rigidbody` +
+   `CapsuleCollider`를 붙인다. `Bird.prefab`에는 콜라이더가 **0개**이고, 그것은 액터의 자식으로
+   붙는 겉모습일 뿐이다(`LOPEntityView`가 `Instantiate(prefab, transform)`).
+
+2. ~~"새를 `Default` 레이어에서 빼내라"~~ → **이미 나와 있다.** `PhysicsFollower`가
+   `gameObject.layer = LayerMask.NameToLayer("Character")`를 무조건 건다. 즉 §5가 넘기는 sweep
+   마스크 `Default`는 지금 이미 맞고, 새끼리 sweep으로 막는 일도 없다. B2-b 최종 리뷰가 이걸
+   위험으로 지적했는데, 그 판단은 *겉모습 프리팹*의 레이어를 본 것이었고 그 프리팹은 콜라이더가
+   없어 물리에 존재하지 않는다. **양쪽 `FlappyRaceLifetimeScope`에 달린 "B2-d 숙제" 주석도 이
+   사실에 맞게 고쳐야 한다.**
+
+3. **대신 진짜 어긋난 곳이 있다 — 몸 규격이 두 곳에 다른 값으로 있다.** (→ B2-d2)
+
+   | | 반지름 | 높이 |
+   |---|---|---|
+   | `FlappyConfig`(시뮬: sweep·몸싸움) | 0.45 | 0.9 |
+   | `PhysicsFollower`(물리 팔로워가 만드는 몸) | **0.35** | **1.5** |
+
+   `PhysicsFollower`는 FlapWang 캐릭터 치수를 하드코딩하고 있다. 스펙이 경고했던 "두 곳이
+   어긋나면 깨진다"가 프리팹이 아니라 **코드**에 실재한다. 지금은 `Depenetrate`(지형에 박힌 것
+   빼내기)와 *남의* sweep이 이 몸을 볼 때만 영향이 있어 급하지 않지만, d2에서 통일한다.
 
 ---
 
+## 6-2. B2-d2 — 클라가 자기 새를 난다
+
+- 클·서 `FlappyBirdCreator`에 **`Simulated`** 추가 — 서버는 모든 새, 클라는 **내 새만**.
+  남의 새는 예측하지 않고 스냅샷 보간(`RemoteEntityInterpolator`)에 맡긴다. 나머지 컴포넌트
+  조합은 B1 그대로(`Transform`/`Velocity`/`EntityKind`/`Appearance`/`MotionContributions`/`InputBuffer`)
+  - **선결 확인**: 지금 클라 새에 `Simulated`가 없어서 `WorldBase.SaveState`가 새를 기록하지
+    않는다 → 되감기 통계의 `Average=0`은 "예측이 완벽"이 아니라 **"기록이 없음"** 을 뜻한다
+    (B2-c 결과, §4). 켜고 나서야 그 숫자가 의미를 갖는다. 함께 결정할 것: *시뮬하지 않는
+    엔티티는 되감기 대상에서 제외할 것인가* — 지금은 예측도 안 하면서 매 스냅 하드 보정이 돈다.
+- **몸 규격을 한 곳으로 통일한다** — 위 §6 "정정 3". `PhysicsFollower`가 게임별 캡슐 치수를
+  받게 하고, Flappy는 `TbFlappyConfig`의 `body_radius`/`body_height`를 넘긴다.
+- **플랩을 누를 수단을 만든다.** `PlayerInputManager`에 입력을 넣어 주는 것은 FlapWang 스코프가
+  등록하는 화면 게임패드 UI뿐이고, FlappyRace 스코프엔 게임 UI 등록이 하나도 없다 — 즉 지금은
+  **사람이 플랩을 시킬 방법이 자체가 없다.** 스펙 §6의 "입력은 새로 만들 게 없다"는 *와이어와
+  서버 버퍼*에 대한 말이었고, 누를 것이 없다는 문제는 빠져 있었다.
+  - **결정(2026-08-22): Flappy 전용 플랩 UI를 새로 만든다.** 버튼 하나짜리 작은 화면.
+    FlapWang 게임패드를 재사용하면 배선은 짧지만 이 게임이 안 쓰는 이동 스틱이 화면에 남는다.
+  - 플랩 = 기존 `InputCommand.Jump`. 와이어 포맷·서버 입력 버퍼·유실 대비 재전송은 그대로 재사용.
+
+**런타임 검증**(§7): 로비에서 FlappyRace 선택 → 날고 파이프에 막히는지, MPPM 2인으로 몸싸움.
 ## 7. 테스트와 검증
 
 | 대상 | 방법 |
@@ -590,6 +660,9 @@ Photon Quantum이 자체 결정론 물리를 따로 두는 이유, 격투게임�
 | 서버 콘텐츠 | **Addressables 원격 번들**(이미 동작) | 서버에 아트 소스를 붙일 필요가 없다 |
 | 되감기 상태 | **월드가 저장·복원**(`SaveState`/`LoadState`) | GGPO·Quantum·Unreal 모두 시뮬이 자기 상태를 소유한다. 사진첩을 둘로 나누는 건 우리만의 변형이었다 |
 | 재생 중 발동 | **입력을 놓고 `world.Tick` 한 번** | 롤백 기계가 게임플레이 함수를 부르는 엔진은 없다(Quantum `PollInput`, NetCode `ICommandData`) |
+| 몸싸움 겹침 계산 | **해석적(캡슐 산수)** — 물리엔진 미사용 | 되감기는 `Simulated` 엔티티만 복원하므로, 물리에 물으면 재생 때 남의 새의 *현재* 위치를 본다 → 재생≠라이브. 맵(임의 메시)만 sweep (§5 결과) |
+| 스폰 지점 | **마커 컴포넌트를 LOP-Shared에** | 양쪽이 참조하는 패키지라 GUID가 같아 missing script가 안 된다. Unreal `APlayerStart` 대응 (§6) |
+| 플랩 입력 | **Flappy 전용 플랩 UI 신규** | FlapWang 게임패드 재사용은 배선이 짧지만 안 쓰는 이동 스틱이 남는다 (§6-2) |
 
 ---
 

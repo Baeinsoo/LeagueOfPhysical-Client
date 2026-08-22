@@ -8,6 +8,8 @@ namespace LOP.UI
     {
         private readonly ProfileViewModel _viewModel;
 
+        private Button _renameButton;
+
         public ProfileView(ProfileViewModel viewModel)
         {
             _viewModel = viewModel;
@@ -21,6 +23,12 @@ namespace LOP.UI
 
             var status = Root.Q<Label>("profile-status");
             var queues = Root.Q<VisualElement>("profile-queues");
+
+            var name = Root.Q<Label>("profile-name");
+            _renameButton = Root.Q<Button>("profile-rename");
+            _renameButton.clicked += OnRenameClicked;
+
+            Disposables.Add(_viewModel.Identity.Subscribe(text => name.text = text));
 
             Disposables.Add(_viewModel.Status.Subscribe(text =>
             {
@@ -58,6 +66,15 @@ namespace LOP.UI
                 }
             }));
         }
+
+        public override void OnClose()
+        {
+            if (_renameButton != null) _renameButton.clicked -= OnRenameClicked;
+
+            base.OnClose();
+        }
+
+        private void OnRenameClicked() => _viewModel.RequestRename();
 
         private bool _disposed;
 

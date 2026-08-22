@@ -69,11 +69,13 @@ namespace LOP.UI
 
         private readonly IUserDataStore _userDataStore;
         private readonly LOP.MasterData.LOPMasterData _masterData;
+        private readonly IWindowManager _windowManager;
         private readonly CancellationTokenSource _cts = new();
 
         private readonly ReactiveProperty<IReadOnlyList<ProfileQueueStats>> _stats = new(null);
         private readonly ReactiveProperty<string> _status = new("불러오는 중…");
         private readonly ReactiveProperty<IReadOnlyList<ProfileMatchEntry>> _matches = new(null);
+        private readonly ReactiveProperty<string> _identity = new(string.Empty);
 
         /// <summary>도착 전에는 null.</summary>
         public ReadOnlyReactiveProperty<IReadOnlyList<ProfileQueueStats>> Stats => _stats;
@@ -84,12 +86,40 @@ namespace LOP.UI
         /// <summary>최근 판 목록. 도착 전에는 null.</summary>
         public ReadOnlyReactiveProperty<IReadOnlyList<ProfileMatchEntry>> Matches => _matches;
 
-        public ProfileViewModel(IUserDataStore userDataStore, LOP.MasterData.LOPMasterData masterData)
+        /// <summary>화면 상단의 `이름#태그`. 개명하면 바뀌므로 라이브 상태다.</summary>
+        public ReadOnlyReactiveProperty<string> Identity => _identity;
+
+        public ProfileViewModel(IUserDataStore userDataStore, LOP.MasterData.LOPMasterData masterData, IWindowManager windowManager)
         {
             _userDataStore = userDataStore;
             _masterData = masterData;
+            _windowManager = windowManager;
 
+            RefreshIdentity();
             LoadAsync().Forget();
+        }
+
+        /// <summary>
+        /// 이름 바꾸기 모달을 띄운다. 바뀌었으면 스토어를 다시 읽어 상단을 갱신한다 —
+        /// 스토어는 응답 발행을 구독해 이미 채워져 있다(UserDataStore.HandleChangeDisplayName).
+        /// </summary>
+        public async void RequestRename()
+        {
+            bool changed = await _windowManager.OpenModalAsync<ChangeDisplayNameView, bool>();
+            if (changed == false || _cts.IsCancellationRequested)
+            {
+                return;
+            }
+
+            RefreshIdentity();
+        }
+
+        private void RefreshIdentity()
+        {
+            var user = _userDataStore.user;
+            _identity.Value = user == null || string.IsNullOrEmpty(user.displayName)
+                ? string.Empty
+                : $"{user.displayName}#{user.tag}";
         }
 
         private bool _disposed;
@@ -110,6 +140,7 @@ namespace LOP.UI
             _stats.Dispose();
             _status.Dispose();
             _matches.Dispose();
+            _identity.Dispose();
         }
 
         private async UniTaskVoid LoadAsync()

@@ -49,6 +49,9 @@ MonoBehaviour:
   - viewName: MatchResultView
     uxml: {fileID: 9197481963319205126, guid: c5e0d14cf3f7c6b449a0c3b77fa93450, type: 3}
     uss: {fileID: 7433441132597879392, guid: b95f47a0db25cfa4d890a9a07fb7141f, type: 3}
+  - viewName: ChangeDisplayNameView
+    uxml: {fileID: 9197481963319205126, guid: 413ad198f3e17b04793a25b5158a6199, type: 3}
+    uss: {fileID: 7433441132597879392, guid: c7760721e9ec6c043af9c1e7456736c1, type: 3}
   - viewName: MatchmakingFailedView
     uxml: {fileID: 9197481963319205126, guid: c52c3f5bc3125544589d66c45ca705c1, type: 3}
     uss: {fileID: 7433441132597879392, guid: 7e91446bf0105b844bfc4a7c40fa1e6b, type: 3}

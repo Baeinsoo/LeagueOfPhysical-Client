@@ -14,6 +14,7 @@ namespace LOP
         private IDisposable _settingsViewRegistration;
         private IDisposable _profileViewRegistration;
         private IDisposable _matchResultViewRegistration;
+        private IDisposable _changeDisplayNameViewRegistration;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -47,6 +48,9 @@ namespace LOP
             //  View와 함께 Transient — 결과 화면을 열 때마다 그 시점의 스토어 값을 읽어야 한다.
             builder.Register<MatchResultViewModel>(Lifetime.Transient);
             builder.Register<MatchResultView>(Lifetime.Transient);
+            //  View와 함께 Transient — 열 때마다 그 시점의 이름을 입력란 시작값으로 읽어야 한다.
+            builder.Register<ChangeDisplayNameViewModel>(Lifetime.Transient);
+            builder.Register<ChangeDisplayNameView>(Lifetime.Transient);
             builder.RegisterEntryPoint<FrontEndCoordinator>();
 
             builder.RegisterBuildCallback(container =>
@@ -63,6 +67,7 @@ namespace LOP
                 _settingsViewRegistration = windowManager.RegisterViewFactory<SettingsView>(() => container.Resolve<SettingsView>());
                 _profileViewRegistration = windowManager.RegisterViewFactory<ProfileView>(() => container.Resolve<ProfileView>());
                 _matchResultViewRegistration = windowManager.RegisterViewFactory<MatchResultView>(() => container.Resolve<MatchResultView>());
+                _changeDisplayNameViewRegistration = windowManager.RegisterViewFactory<ChangeDisplayNameView>(() => container.Resolve<ChangeDisplayNameView>());
 
                 windowManager.Open<LobbyHomeView>();
             });
@@ -77,6 +82,7 @@ namespace LOP
             _settingsViewRegistration?.Dispose();
             _profileViewRegistration?.Dispose();
             _matchResultViewRegistration?.Dispose();
+            _changeDisplayNameViewRegistration?.Dispose();
             base.OnDestroy();
         }
 

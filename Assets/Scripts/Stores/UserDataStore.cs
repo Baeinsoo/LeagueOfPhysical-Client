@@ -22,7 +22,8 @@ namespace LOP
             ISubscriber<GetUserLocationResponse> getUserLocationSubscriber,
             ISubscriber<GetUserResponse> getUserSubscriber,
             ISubscriber<GetUserRatingResponse> getUserRatingSubscriber,
-            ISubscriber<UpdateUserProfileResponse> updateUserProfileSubscriber)
+            ISubscriber<UpdateUserProfileResponse> updateUserProfileSubscriber,
+            ISubscriber<ChangeDisplayNameResponse> changeDisplayNameSubscriber)
         {
             var bag = MessagePipe.DisposableBag.CreateBuilder();
             createUserSubscriber.Subscribe(HandleCreateUser).AddTo(bag);
@@ -30,6 +31,7 @@ namespace LOP
             getUserSubscriber.Subscribe(HandleGetUser).AddTo(bag);
             getUserRatingSubscriber.Subscribe(HandleGetUserRating).AddTo(bag);
             updateUserProfileSubscriber.Subscribe(HandleUpdateUserProfile).AddTo(bag);
+            changeDisplayNameSubscriber.Subscribe(HandleChangeDisplayName).AddTo(bag);
             subscriptions = bag.Build();
         }
 
@@ -62,6 +64,17 @@ namespace LOP
 
         private void HandleGetUser(GetUserResponse response)
         {
+            if (response.user == null)
+            {
+                return;
+            }
+
+            user = MapperConfig.mapper.Map<User>(response.user);
+        }
+
+        private void HandleChangeDisplayName(ChangeDisplayNameResponse response)
+        {
+            //  형식 위반으로 거절되면 user가 안 실려 온다. 그때 매핑하면 유저가 통째로 비워진다.
             if (response.user == null)
             {
                 return;

@@ -41,24 +41,30 @@ namespace LOP.UI
 
         private bool _disposed;
 
-        /// <summary>
-        /// 여러 번 불려도 안전하다. 파생은 이 메서드가 아니라 <see cref="Dispose(bool)"/>를 채운다 —
-        /// 그래야 중복 호출 가드가 한 곳에만 있고 파생이 잊을 수 없다.
-        /// </summary>
+        /// <summary>파생은 이 메서드가 아니라 <see cref="Dispose(bool)"/>를 오버라이드한다.</summary>
         public void Dispose()
         {
-            if (_disposed) return;
-            _disposed = true;
-
             Dispose(true);
             GC.SuppressFinalize(this);
         }
 
-        /// <summary>파생이 자기 자원을 정리하는 자리. base 호출을 잊지 말 것.</summary>
-        /// <param name="disposing">종료자가 아니라 Dispose()에서 왔으면 true. 이 계층엔 종료자가 없어 늘 true다.</param>
+        /// <summary>
+        /// 파생이 자기 자원을 정리하는 자리. 지켜야 할 두 가지:
+        /// 여러 번 불려도 안전할 것(자기 플래그로 가드), 그리고 끝에 base를 부를 것.
+        /// </summary>
+        /// <param name="disposing">
+        /// Dispose()에서 왔으면 true, 종료자에서 왔으면 false. 종료자는 다른 관리 객체가 이미
+        /// 정리됐을 수 있어 건드리면 안 되므로, 관리 객체 정리는 true일 때만 한다.
+        /// </param>
         protected virtual void Dispose(bool disposing)
         {
-            Disposables.Dispose();
+            if (_disposed) return;
+            _disposed = true;
+
+            if (disposing)
+            {
+                Disposables.Dispose();
+            }
         }
     }
 }

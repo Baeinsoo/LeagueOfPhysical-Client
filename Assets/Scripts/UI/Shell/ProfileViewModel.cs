@@ -55,7 +55,7 @@ namespace LOP.UI
     /// 그대로 읽으면 판을 하고 와도 로그인 시점의 낡은 값이 뜬다.
     /// 도착 전/후가 시간에 따라 바뀌는 라이브 상태라 R3로 노출한다(결과 화면과 다른 점).
     /// </summary>
-    public class ProfileViewModel : IDisposable
+    public sealed class ProfileViewModel : IDisposable
     {
         //  한 화면에 보여줄 판 수. 서버도 상한(50)을 갖고 있어 이 값이 그대로 쓰인다.
         private const int HistoryLimit = 20;
@@ -96,9 +96,9 @@ namespace LOP.UI
 
         public void Dispose()
         {
-            //  IDisposable은 여러 번 불려도 안전해야 한다. 이 클래스는 UIView가 아니라 뷰가 직접
-            //  들고 부르는 객체라 UIView의 가드를 못 받고, CancellationTokenSource는 두 번
-            //  Cancel하면 ObjectDisposedException을 던진다 — 그래서 여기에도 가드가 필요하다.
+            //  IDisposable은 여러 번 불려도 안전해야 한다. CancellationTokenSource는 dispose된 뒤
+            //  Cancel하면 ObjectDisposedException을 던지므로 가드가 필요하다.
+            //  (sealed라 파생이 없어 Dispose(bool) 없이 이 형태가 표준이다.)
             if (_disposed) return;
             _disposed = true;
 

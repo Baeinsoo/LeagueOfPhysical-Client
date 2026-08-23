@@ -19,7 +19,6 @@ namespace LOP
         private readonly GameFramework.World.LevelSystem levelSystem;
         private readonly GameFramework.World.StatsSystem statsSystem;
         private readonly Reconciler reconciler;
-        private readonly IEntitySyncPolicy syncPolicy;
         private readonly AbilityDataProvider abilityDataProvider;
         private readonly RemoteInterpolationClock remoteInterpolationClock;
         private readonly GameFramework.Netcode.SnapshotArrivalStats snapshotArrivalStats;
@@ -51,7 +50,6 @@ namespace LOP
             GameFramework.World.LevelSystem levelSystem,
             GameFramework.World.StatsSystem statsSystem,
             Reconciler reconciler,
-            IEntitySyncPolicy syncPolicy,
             AbilityDataProvider abilityDataProvider,
             RemoteInterpolationClock remoteInterpolationClock,
             GameFramework.Netcode.SnapshotArrivalStats snapshotArrivalStats,
@@ -77,7 +75,6 @@ namespace LOP
             this.levelSystem = levelSystem;
             this.statsSystem = statsSystem;
             this.reconciler = reconciler;
-            this.syncPolicy = syncPolicy;
             this.abilityDataProvider = abilityDataProvider;
             this.remoteInterpolationClock = remoteInterpolationClock;
             this.snapshotArrivalStats = snapshotArrivalStats;
@@ -146,7 +143,10 @@ namespace LOP
                 }
 
                 GameFramework.World.Entity targetEntity = entityRegistry.Get(serverEntitySnap.EntityId);
-                bool predicted = targetEntity != null && syncPolicy.For(targetEntity) == EntitySyncMode.Predicted;
+                // 모드는 엔티티가 생길 때 한 번 정해졌다(EntityBinder). 여기서 정책에 다시 물으면 그 사이
+                // 정책의 답이 바뀐 경우(예: 로컬 id가 늦게 도착) 붙어 있는 팔로워와 어긋난다 — 그때 이
+                // 엔티티는 보정을 하나도 못 받는다. 그래서 그때의 판정 결과(Simulated 마커)를 읽는다.
+                bool predicted = targetEntity != null && targetEntity.Has<GameFramework.World.Simulated>();
 
                 if (predicted)
                 {
@@ -154,9 +154,7 @@ namespace LOP
                 }
                 else
                 {
-                    GameFramework.World.Entity remoteEntity = entityRegistry.Get(serverEntitySnap.EntityId);
-
-                    GameFramework.World.Health health = remoteEntity?.Get<GameFramework.World.Health>();
+                    GameFramework.World.Health health = targetEntity?.Get<GameFramework.World.Health>();
                     if (health != null)
                     {
                         int prevCurrent = health.Current;
@@ -168,13 +166,13 @@ namespace LOP
                         }
                     }
 
-                    GameFramework.World.GroundState groundState = remoteEntity?.Get<GameFramework.World.GroundState>();
+                    GameFramework.World.GroundState groundState = targetEntity?.Get<GameFramework.World.GroundState>();
                     if (groundState != null)
                     {
                         groundState.IsGrounded = serverEntitySnap.Grounded;
                     }
 
-                    Abilities remoteAbilities = remoteEntity?.Get<Abilities>();
+                    Abilities remoteAbilities = targetEntity?.Get<Abilities>();
                     if (remoteAbilities != null)
                     {
                         if (serverEntitySnap.ActiveAbilityId == 0)
@@ -192,7 +190,7 @@ namespace LOP
                         }
                     }
 
-                    StatusEffects remoteEffects = remoteEntity?.Get<StatusEffects>();
+                    StatusEffects remoteEffects = targetEntity?.Get<StatusEffects>();
                     if (remoteEffects != null)
                     {
                         // 스냅샷이 전량 권위 — 통째로 교체한다(HP와 같은 규칙).
@@ -200,7 +198,7 @@ namespace LOP
                         remoteEffects.Effects.AddRange(entitySnap.statusEffects);
                     }
 
-                    actor.GetComponent<SnapshotEntityInterpolator>().AddServerEntitySnap(entitySnap);
+                    actor.GetComponent<SnapshotEntityInterpolator>()?.AddServerEntitySnap(entitySnap);
                 }
             }
         }

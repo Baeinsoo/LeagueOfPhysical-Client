@@ -5,8 +5,9 @@ using UnityEngine;
 namespace LOP
 {
     /// <summary>
-    /// 내 캐릭 롤백 재조정(호스트 서비스). 서버 스냅이 도착하면 그 틱 상태로 하드 복원하고, 저장된 입력을
-    /// 되먹이며 현재 직전 틱까지 <see cref="GameFramework.World.IWorld.Tick"/>를 재생해 예측 오차를 보정한다 —
+    /// 서버 스냅 한 틱 배치 전체(예측 대상 엔티티들)를 롤백 재조정하는 호스트 서비스. 서버 스냅이 도착하면
+    /// 그 틱 상태로 하드 복원하고, 저장된 입력을 되먹이며 현재 직전 틱까지
+    /// <see cref="GameFramework.World.IWorld.Tick"/>를 재생해 예측 오차를 보정한다 —
     /// 재생이 곧 라이브와 같은 단일 진입점(수기 시퀀스 복제 없음). 무엇을 되돌릴지는 월드가 알고,
     /// 스냅 중 게임마다 다른 부분은 <see cref="IServerCorrectionHandler"/>가 맡는다.
     /// </summary>
@@ -39,6 +40,14 @@ namespace LOP
         private readonly Dictionary<string, EntitySnap> pendingSnaps = new Dictionary<string, EntitySnap>();
         private long pendingTick = long.MinValue;
 
+        // 이미 처리(Reconcile 완료)한 가장 최신 틱. unreliable 중복 등으로 같은 틱 스냅이 한 번 더 오면
+        // 그때 다시 쌓인 배치는 원래 있어야 할 다른 엔티티 없이 반쪽짜리라, 그걸로 또 롤백하면 그 엔티티들이
+        // 보정 전 값으로 되돌아간다 — 그래서 이미 처리한 틱은 애초에 pendingSnaps에 넣지 않는다.
+        private long lastReconciledTick = long.MinValue;
+
+        // Reconcile마다 새로 만들지 않고 재사용(매 틱 도는 경로의 할당을 줄인다 — 실측상 약 44%의 틱에서 열린다).
+        private readonly Dictionary<string, System.Numerics.Vector3> preCorrectionPositions = new Dictionary<string, System.Numerics.Vector3>();
+
         public Reconciler(
             IPlayerContext playerContext,
             GameFramework.World.EntityRegistry entityRegistry,
@@ -66,6 +75,10 @@ namespace LOP
         /// <summary>서버 스냅 수신(예측 대상 전부). 가장 새 틱의 배치만 남긴다.</summary>
         public void AddServerSnap(EntitySnap snap)
         {
+            if (snap.tick <= lastReconciledTick)
+            {
+                return;
+            }
             if (snap.tick < pendingTick)
             {
                 return;
@@ -101,7 +114,7 @@ namespace LOP
             }
 
             // 보정 전 예측 위치를 엔티티마다 기억해 둔다(렌더 보정 통지가 "전→후" 차이를 알아야 한다).
-            var preCorrectionPositions = new Dictionary<string, System.Numerics.Vector3>();
+            preCorrectionPositions.Clear();
 
             // 하드 보정으로 시뮬 위치가 튄 것을 렌더 스무더에 알린다. 스무더가 보이는 위치를
             // (보정 전 예측 → 보정 후 권위)만큼 부드럽게 흡수한다(시뮬 무영향). 크기별 스냅/무시는 스무더가 판단.
@@ -141,7 +154,9 @@ namespace LOP
                 if (pair.Key == entityId)
                 {
                     EntitySnap snap = pair.Value;
-                    reconciliationStats.Record(error);   // HUD가 읽는 값은 내 것 하나뿐
+                    // HUD가 읽는 값은 내 엔티티 하나뿐이지만, 아래 RecordCorrection()은 배치 전체 기준(엔티티
+                    // 하나라도 어긋나면 카운트)이라 같은 HUD 줄의 "평균 오차"와 "보정 횟수"가 서로 다른 대상을 센다.
+                    reconciliationStats.Record(error);
 
                     // [진단용 임시] 예측이 크게 어긋난 순간의 정황을 통째로 남긴다.
                     // 얼마나 어긋났는지(통계)만으로는 원인을 못 가른다 — 그 틱의 입력·속도·접지가 필요하다.
@@ -182,12 +197,16 @@ namespace LOP
             bool statusMatches = pendingSnaps.TryGetValue(entityId, out var mySnap) && correction.Matches(anchorTick, mySnap);
             if (allClose && statusMatches)
             {
+                lastReconciledTick = anchorTick;
                 pendingSnaps.Clear();
                 return;
             }
 
             // 게이트를 통과했다 = 실제로 되돌린다. 여기서 세야 "스킵"과 "보정"이 정확히 갈린다.
             reconciliationStats.RecordCorrection();
+            // 이 배치(anchorTick)는 여기서부터 끝까지 확정 처리된다(아래에서 무조건 권위 값을 덮음) —
+            // 이후 같은 틱 스냅이 중복 도착해도 AddServerSnap이 걸러낸다.
+            lastReconciledTick = anchorTick;
 
             foreach (var pair in pendingSnaps)
             {

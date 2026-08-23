@@ -24,6 +24,8 @@ namespace LOP
             worldEntity.Add(new EntityKind(EntityType.Item));
             worldEntity.Add(new MasterDataRef(creationData.itemCode));
             worldEntity.Add(new Appearance(creationData.visualId));
+            worldEntity.Add(new GameFramework.World.CapsuleShape(
+                BodySizes.ItemRadius, BodySizes.ItemHeight));
             entityRegistry.Add(worldEntity);
         }
     }

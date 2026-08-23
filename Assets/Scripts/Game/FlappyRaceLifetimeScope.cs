@@ -28,7 +28,6 @@ namespace LOP
                 c.Resolve<FlappyBodyCollisionSystem>(),
                 c.Resolve<GameFramework.Physics.ICollisionQuery>(),
                 c.Resolve<GameFramework.World.IMotionBridge>(),
-                c.Resolve<FlappyConfig>(),
                 LayerMask.GetMask("Default")), Lifetime.Singleton);
             builder.Register<ICharacterCreator, FlappyBirdCreator>(Lifetime.Singleton);
             builder.Register<IServerCorrectionHandler, NoServerCorrection>(Lifetime.Singleton);

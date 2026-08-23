@@ -2427,9 +2427,13 @@ asmdef 도입"(인증 트랙 이월 후속 2번)이며, **그 항목의 동기�
 
 ### 미뤄둔 Minor
 
-`targetMmr`의 `DEFAULT 1000` 제거(빼먹은 코드가 조용히 1000을 얻는다 — 세 번째 마이그레이션 필요) ·
-`saveWithRounds`의 뒤 세 인자가 전부 `string[]`이라 위치가 밀려도 컴파일이 통과(옵션 객체로 묶으면 타입이 막는다) ·
-`participantCreateMany` 목이 단언 없이 배선만 됨.
+~~`targetMmr`의 `DEFAULT 1000` 제거~~ ✅ **완료(2026-08-23)** — 기본값이 **두 겹**이었다(`MatchFactory`의 1000 + DB `@default(1000)`).
+디렉터는 HTTP 라우트를 안 거치고 서비스를 직접 부르므로 `CreateMatchDto`의 `@IsNumber()`도 그 경로엔 안 걸려,
+**막는 곳이 실질적으로 없었다.** 팩토리는 타입으로 강제(`Partial<Match> & Pick<Match,'targetMmr'>` — 빼먹으면 컴파일 에러),
+DB는 default 제거. 기존 행은 값이 있어 데이터 변경 없음.
+
+~~`saveWithRounds` 인자 묶기~~ · ~~`participantCreateMany` 목~~ — **소멸(확인 2026-08-23).** 둘 다
+매치 기록 통합(08-21)이 그 함수·테이블을 없애면서 사라졌는데 이 줄만 남아 있었다.
 
 **이 트랙에서 배운 것:** `[[build-gate-claims-need-cache-bypass]]` · `[[deletion-slices-verify-backwards]]`
 

@@ -10,7 +10,6 @@ namespace LOP.UI
     {
         private readonly FlapPadViewModel _viewModel;
 
-        private VisualElement _surface;
         private IVisualElementScheduledItem _tick;
 
         public FlapPadView(FlapPadViewModel viewModel)
@@ -24,16 +23,11 @@ namespace LOP.UI
         {
             base.OnOpen();
 
-            _surface = Root.Q<VisualElement>("flap-surface");
-            _surface.RegisterCallback<PointerDownEvent>(OnPointerDown);
+            var surface = Root.Q<VisualElement>("flap-surface");
+            surface.RegisterCallback<PointerDownEvent>(_ => _viewModel.Flap());
 
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 키보드를 본다.
             _tick = Root.schedule.Execute(_ => _viewModel.PollKeyboard()).Every(0);
-        }
-
-        private void OnPointerDown(PointerDownEvent evt)
-        {
-            _viewModel.Flap();
         }
 
         private bool _disposed;

@@ -33,6 +33,8 @@
 | ✅ | `PhysicsFollower` 접기 + 줍기 판정을 규칙으로 |
 | ✅ | EventSystem 하나로(`UIRoot` 프리팹) |
 | ✅ | `targetMmr` 조용한 기본값 제거 |
+| ✅ | **디스폰 플러시 NRE** — 세션 0개면 서버 틱이 통째로 멈추던 것 (08-06 부수 발견) |
+| ✅ | `OrEmpty` 확장 제거 — 4레포 14곳을 표준 C#으로 |
 | 🔵 | 매치 생성 원자성 · 클라 해석 일원화 → **강등**(서술이 낡았음) |
 
 ### ▶ 다음에 할 것 (값어치 순)
@@ -94,6 +96,7 @@
 - **NetworkTime 추상화** (`GameEngine.NetworkTime` facade, 클·서) — `[[netcode-migration-status]]`
 - **UI Toolkit 마이그레이션 M1~M5a** — `[[uitoolkit-migration-status]]`
 - **MasterData Luban 전환** (α/β/γ) — `[[masterdata-slice-2b-2c-roadmap]]`, `[[masterdata-key-convention]]`
+- **`OrEmpty` 확장 제거** (2026-08-23, 3레포 머지: GF `c3c9c83` · Server `8e81123` · Client `97048c3`) — `self ?? Enumerable.Empty<T>()`를 감싼 자체 확장을 4레포 14곳에서 걷어내고 정의도 삭제. 확인해보니 **소스가 null이 될 수 있는 곳이 하나도 없었다**(LINQ 체인 · protobuf `RepeatedField` · VContainer 주입 · 우리 자신의 컬렉션 반환). 표준 지침이 *"컬렉션 반환 멤버는 null 대신 빈 컬렉션을 반환하라"* 이므로 방향이 "호출부마다 가드"가 아니라 "반환하는 쪽이 null을 안 냄"이어야 했다
 
 ### 매치메이킹 표준화 트랙 (2026-07-27~)
 
@@ -1468,11 +1471,11 @@ Knight 고정(점프력이 곧 측정 감도), 자동 스폰 off(부하 드리�
 - **서버 `lag`의 건강한 기준선은 0이 아니라 −1**이고, `frameMaxMs > budgetMs`는 원인의 증거가 아니다(캐치업 여유가 `8 × interval`)
 - 자극 선택이 결정적이다 — 점프는 값을 덮어쓰는 이벤트라 어긋나지 않는다. **걷기(적분)** 여야 드러난다
 
-### 부수 발견 (전부 별건, 미수정)
+### 부수 발견 (전부 별건 — 1건 해소, 3건 미수정)
 
 | | |
 |---|---|
-| `EntitySpawner.FlushDespawns`가 **세션 0개일 때 NRE** | `GetAllSessions().DefaultIfEmpty()`가 null 하나를 낸다. 예외가 틱 코루틴 안에서 터져 **서버 틱이 통째로 멈춘다.** 디스폰 경로 전체(아이템·사망) 해당 |
+| ~~`EntitySpawner.FlushDespawns`가 **세션 0개일 때 NRE**~~ | ✅ **해소(2026-08-23, Server `8e81123`).** `GetAllSessions().DefaultIfEmpty()`가 null 하나를 냈다 — 예외가 틱 코루틴(`TickUpdaterBase.TickUpdateLoop`) 안에서 터지고 `RunnerBase.RunPhase`에 try/catch가 없어 **서버 틱이 영구히 멈춘다.** 디스폰 경로 전체(아이템·사망) 해당. **원인은 오타로 보인다** — 형제 호출부는 전부 자체 확장 `OrEmpty()`(=null 컬렉션 가드)를 쓰는데 여기만 이름이 비슷한 LINQ `DefaultIfEmpty()`(=빈 컬렉션에 **null 원소 하나를 채워 넣는다**)였다. **정반대 동작.** 고친 방식은 헬퍼 교체가 아니라 **제거** — `GetAllSessions()`는 `sessionsById.Values`를 그대로 돌려주므로 null이 불가능하고, 빈 컬렉션은 `foreach`가 0번 도는 게 정상이라 애초에 가드가 필요 없었다 |
 | 인증 거절이 **NRE로 번진다** | `LOPRoom.OnPlayerDisconnect`가 인증 통과 전 연결을 가정하지 않음. 깨끗한 거절이 예외로 보여 원인 파악을 방해했다 |
 | 클라가 **끊겨도 조용히 혼자 돌아간다** | 재접속도 알림도 없다. 서버와 완전히 분리된 채 게임이 멀쩡해 보인다 — 이번 진단에서 실제로 무효 데이터를 만들었다 |
 | **50마리 동시 스폰이 클라를 끊는다** | 10초 무통신 → KCP 타임아웃. 서버도 그 순간 `frameMaxMs=2109ms`. 10마리씩 나눠 넣으면 버틴다 |

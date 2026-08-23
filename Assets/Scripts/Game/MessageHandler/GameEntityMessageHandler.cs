@@ -194,7 +194,7 @@ namespace LOP
                         remoteEffects.Effects.AddRange(entitySnap.statusEffects);
                     }
 
-                    actor.GetComponent<RemoteEntityInterpolator>().AddServerEntitySnap(entitySnap);
+                    actor.GetComponent<SnapshotEntityInterpolator>().AddServerEntitySnap(entitySnap);
                 }
             }
         }

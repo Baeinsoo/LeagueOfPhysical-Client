@@ -88,13 +88,13 @@ namespace LOP
                 {
                     playerContext.actor = actor;
 
-                    LocalEntityInterpolator interpolator = root.AddComponent<LocalEntityInterpolator>();
+                    PredictedEntityInterpolator interpolator = root.AddComponent<PredictedEntityInterpolator>();
                     objectResolver.Inject(interpolator);
                     interpolator.actor = actor;
                 }
                 else
                 {
-                    RemoteEntityInterpolator interpolator = root.AddComponent<RemoteEntityInterpolator>();
+                    SnapshotEntityInterpolator interpolator = root.AddComponent<SnapshotEntityInterpolator>();
                     objectResolver.Inject(interpolator);
                     interpolator.worldEntity = worldEntity;
                     interpolator.actor = actor;
@@ -115,8 +115,8 @@ namespace LOP
             }
             else
             {
-                // 아이템: 원격 보간만(내 예측 대상 아님).
-                RemoteEntityInterpolator interpolator = root.AddComponent<RemoteEntityInterpolator>();
+                // 아이템: 스냅샷 보간만(내 예측 대상 아님).
+                SnapshotEntityInterpolator interpolator = root.AddComponent<SnapshotEntityInterpolator>();
                 objectResolver.Inject(interpolator);
                 interpolator.worldEntity = worldEntity;
                 interpolator.actor = actor;

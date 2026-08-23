@@ -29,7 +29,7 @@ namespace LOP
         {
             try
             {
-                foreach (var entranceComponent in entranceComponents.OrEmpty())
+                foreach (var entranceComponent in entranceComponents)
                 {
                     await entranceComponent.Execute();
                 }

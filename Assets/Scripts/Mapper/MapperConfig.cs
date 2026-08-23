@@ -16,7 +16,7 @@ namespace LOP
         {
             var config = new MapperConfiguration(cfg =>
             {
-                foreach (var profileType in GetMapperProfileTypes().OrEmpty())
+                foreach (var profileType in GetMapperProfileTypes())
                 {
                     cfg.AddProfile(profileType);
                 }

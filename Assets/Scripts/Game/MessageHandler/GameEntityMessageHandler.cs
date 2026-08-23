@@ -114,7 +114,7 @@ namespace LOP
                 lastRecordedArrivalTick = entitySnapsToC.Tick;
             }
 
-            foreach (var serverEntitySnap in entitySnapsToC.EntitySnaps.OrEmpty())
+            foreach (var serverEntitySnap in entitySnapsToC.EntitySnaps)
             {
                 if (actorRegistry.TryGet(serverEntitySnap.EntityId, out var actor) == false)
                 {
@@ -127,7 +127,7 @@ namespace LOP
                 entitySnap.timestamp = entitySnapsToC.Tick * gameDataStore.gameInfo.Interval;
 
                 entitySnap.contributions.Clear();
-                foreach (var pc in serverEntitySnap.MotionContributions.OrEmpty())
+                foreach (var pc in serverEntitySnap.MotionContributions)
                 {
                     entitySnap.contributions.Add(new MotionContribution(
                         new System.Numerics.Vector3(pc.Horizontal.X, pc.Horizontal.Y, pc.Horizontal.Z),
@@ -135,7 +135,7 @@ namespace LOP
                 }
 
                 entitySnap.statusEffects.Clear();
-                foreach (var pe in serverEntitySnap.StatusEffects.OrEmpty())
+                foreach (var pe in serverEntitySnap.StatusEffects)
                 {
                     entitySnap.statusEffects.Add(new ActiveEffect(
                         pe.EffectId, pe.ExpireTick, pe.StackCount,

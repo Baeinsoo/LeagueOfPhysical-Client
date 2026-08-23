@@ -28,7 +28,7 @@ namespace LOP
         private readonly GameFramework.World.IMotionBridge motionBridge;
         private readonly ReconciliationStats reconciliationStats;
         private readonly InputTimingStats inputTimingStats;   // [진단용 임시] 스파이크 순간의 입력 도착 상태
-        private readonly GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
+        private readonly ActorRegistry actorRegistry;
         private readonly IServerCorrectionHandler correction;
 
         private EntitySnap latestSnap;
@@ -43,7 +43,7 @@ namespace LOP
             GameFramework.World.IMotionBridge motionBridge,
             ReconciliationStats reconciliationStats,
             InputTimingStats inputTimingStats,
-            GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother,
+            ActorRegistry actorRegistry,
             IServerCorrectionHandler correction)
         {
             this.playerContext = playerContext;
@@ -54,7 +54,7 @@ namespace LOP
             this.motionBridge = motionBridge;
             this.reconciliationStats = reconciliationStats;
             this.inputTimingStats = inputTimingStats;
-            this.renderCorrectionSmoother = renderCorrectionSmoother;
+            this.actorRegistry = actorRegistry;
             this.correction = correction;
         }
 
@@ -99,7 +99,11 @@ namespace LOP
             // 권위 값을 덮은 뒤 빠져나가는 길은 재생을 하든 말든 전부 이걸 부른다 — 안 부르면 화면이 순간이동한다.
             void NotifyRenderCorrection()
             {
-                renderCorrectionSmoother.OnCorrection(
+                if (actorRegistry.TryGet(entityId, out var actor) == false)
+                {
+                    return;
+                }
+                actor.GetComponent<PredictedEntityInterpolator>()?.OnCorrection(
                     preCorrectionPos.ToNumerics(),
                     GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity).ToNumerics());
             }

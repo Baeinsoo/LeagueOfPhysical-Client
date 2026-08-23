@@ -67,6 +67,15 @@ namespace LOP
             renderCorrectionSmoother.DecayTick(deltaTime);
         }
 
+        /// <summary>
+        /// 시뮬 위치가 하드 보정으로 튀었음을 알린다. 보이는 메시가 그 차이를 부드럽게 흡수한다
+        /// (시뮬에는 영향 없음). 크기별로 스냅/무시를 판단하는 것은 스무더 몫이다.
+        /// </summary>
+        public void OnCorrection(System.Numerics.Vector3 before, System.Numerics.Vector3 after)
+        {
+            renderCorrectionSmoother.OnCorrection(before, after);
+        }
+
         private void LateUpdate()
         {
             if (actor.visualGameObject == null || samples.Count == 0)

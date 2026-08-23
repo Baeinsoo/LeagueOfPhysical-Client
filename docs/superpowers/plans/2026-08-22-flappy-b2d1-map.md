@@ -4,7 +4,7 @@
 
 **Goal:** Flappy 맵 씬을 "기하와 콜라이더만" 남는 정상 맵으로 정리해, 서버가 씬을 읽어도 깨지지 않고 새가 파이프에 실제로 막히게 만든다.
 
-**Architecture:** 맵 씬에서 클라 전용 프로토타입 스크립트를 걷어내고(146개), 통과 가능(트리거)이던 콜라이더 119개를 막히게 바꾸고, 게임 씬과 중복되는 카메라·라이트를 지운다. 플레이어 시작 지점은 **양쪽 프로젝트가 참조하는 패키지**에 마커 컴포넌트를 두어(GUID가 같아야 missing script가 안 된다) 서버 룰이 찾아 쓴다.
+**Architecture:** 맵 씬에서 클라 전용 프로토타입 스크립트를 걷어내고(147개), 통과 가능(트리거)이던 콜라이더 119개를 막히게 바꾸고, 게임 씬과 중복되는 카메라·라이트를 지운다. 플레이어 시작 지점은 **양쪽 프로젝트가 참조하는 패키지**에 마커 컴포넌트를 두어(GUID가 같아야 missing script가 안 된다) 서버 룰이 찾아 쓴다.
 
 **Tech Stack:** Unity 6 (6000.3.16f1) · C# · NUnit EditMode · git 서브모듈(아트) · Addressables 원격 번들
 
@@ -171,11 +171,12 @@ namespace LOP.Tests
         [Test]
         public void 찾은_순서와_무관하게_Order_순으로_세운다()
         {
-            // 씬에서 찾아오는 순서는 보장되지 않는다 — 일부러 뒤섞어 넣는다
+            // 이름 순서를 Order와 **거꾸로** 매긴다 — 이름으로 정렬하는 구현이 통과해 버리면
+            // 이 테스트는 아무것도 지키지 못한다. 찾아오는 순서도 일부러 뒤섞는다.
             var points = new List<SpawnPoint>
             {
-                Marker("C", 3, new Vector3(0f, 4f, 0f)),
-                Marker("A", 1, new Vector3(0f, -6f, 0f)),
+                Marker("A", 3, new Vector3(0f, 4f, 0f)),
+                Marker("C", 1, new Vector3(0f, -6f, 0f)),
                 Marker("B", 2, new Vector3(0f, -1f, 0f)),
             };
 
@@ -188,24 +189,33 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void Order가_같으면_이름으로_갈라_순서가_흔들리지_않는다()
+        public void Order가_같으면_이름을_바이트_순서로_갈라_순서가_흔들리지_않는다()
         {
-            var forward = new List<SpawnPoint>
+            // 대문자 'B'(66)가 소문자 'a'(97)보다 앞인 것은 **바이트 순서**로 볼 때뿐이다.
+            // 언어권 규칙으로 비교하면 'a'가 먼저 온다 — 그래서 이 쌍이라야 둘을 구분한다.
+            // (언어권 비교는 실행 환경의 지역 설정에 따라 달라질 수 있어 시뮬에는 못 쓴다.)
+            var points = new List<SpawnPoint>
             {
-                Marker("beta", 1, new Vector3(0f, 2f, 0f)),
-                Marker("alpha", 1, new Vector3(0f, 1f, 0f)),
+                Marker("a", 1, new Vector3(0f, 1f, 0f)),
+                Marker("B", 1, new Vector3(0f, 2f, 0f)),
             };
 
-            var slots = SpawnPlacement.Arrange(forward);
+            var slots = SpawnPlacement.Arrange(points);
 
-            Assert.AreEqual(1f, slots[0].y, 1e-4f);   // alpha
-            Assert.AreEqual(2f, slots[1].y, 1e-4f);   // beta
+            Assert.AreEqual(2f, slots[0].y, 1e-4f);   // B
+            Assert.AreEqual(1f, slots[1].y, 1e-4f);   // a
         }
 
         [Test]
         public void 마커가_없으면_빈_목록을_돌려준다()
         {
             Assert.IsEmpty(SpawnPlacement.Arrange(new List<SpawnPoint>()));
+        }
+
+        [Test]
+        public void 목록_자체가_null이어도_빈_목록을_돌려준다()
+        {
+            Assert.IsEmpty(SpawnPlacement.Arrange(null));
         }
 
         [Test]
@@ -309,7 +319,10 @@ unity cmd run_tests
 
 - [ ] **Step 7: 테스트가 진짜로 실패할 수 있는지 확인한다**
 
-`SpawnPlacement.Arrange`에서 `.OrderBy(point => point.Order)` 줄을 잠깐 지운다. `찾은_순서와_무관하게_Order_순으로_세운다`가 **실패해야 한다**. 확인했으면 되돌린다.
+`SpawnPlacement.Arrange`의 `.OrderBy(point => point.Order)`를 `.OrderByDescending(point => point.Order)`로 잠깐 바꾼다. `찾은_순서와_무관하게_Order_순으로_세운다`가 **실패해야 한다**. 확인했으면 되돌린다.
+
+(줄을 아예 지우면 안 된다 — 뒤따르는 `ThenBy`가 `OrderBy`를 요구해서 컴파일이 깨지고, 그러면
+"테스트가 실패하는지"가 아니라 "빌드가 깨지는지"를 본 것이 된다.)
 
 통과만 보고 "검증됐다"고 하지 않는다 — 일부러 깨뜨려 본다.
 
@@ -392,7 +405,7 @@ echo "Camera:        $(grep -c -- '--- !u!20 &' $S)"
 echo "Light:         $(grep -c -- '--- !u!108 &' $S)"
 ```
 
-기대: `146 / 119 / 1 / 1`. 숫자가 다르면 씬이 그 사이 바뀐 것이니 멈추고 보고한다.
+기대: `147 / 119 / 1 / 1`. 숫자가 다르면 씬이 그 사이 바뀐 것이니 멈추고 보고한다.
 
 - [ ] **Step 3: 수술 도구를 만든다**
 
@@ -591,6 +604,12 @@ PY
 ```
 
 여섯 숫자와 네 마커가 전부 기대와 같아야 한다. **하나라도 다르면 멈추고 보고한다.**
+
+> **정정 (최종 리뷰 Finding A, 2026-08-22).** 위에서 마커를 켠(`active=1`) 것이 문제였다 —
+> 마커 자식(Halo, `Bird_PN` 프리팹 인스턴스)까지 함께 켜져 출발선에 가짜 새 네 마리가 보였다.
+> 서버 룰은 `FindObjectsInactive.Include`로 찾으므로 마커는 꺼둬도 된다. 이 문제를 고치는
+> 수정 웨이브에서 네 마커를 다시 `m_IsActive: 0`으로 되돌렸다(`SpawnPoint`/`Order`는 그대로).
+> 최종 완료 기준은 위 "완료 기준" 절의 정정된 문구를 따른다.
 
 - [ ] **Step 6: 수술 도구를 지운다**
 
@@ -808,7 +827,7 @@ git commit -m "docs(flappy): sweep 레이어마스크 주석을 사실에 맞게
 
 ## 완료 기준
 
-- [ ] 저장된 `FlappyRaceMap.unity`에서: MonoBehaviour 4개(전부 `SpawnPoint`) · 트리거 콜라이더 0 · 카메라 0 · 라이트 0 · `PlayerSpawn_1~4` 전부 활성
+- [ ] 저장된 `FlappyRaceMap.unity`에서: MonoBehaviour 4개(전부 `SpawnPoint`) · 트리거 콜라이더 0 · 카메라 0 · 라이트 0 · `PlayerSpawn_1~4` 전부 **비활성**(자식 장식이 출발선에 그려지지 않게 — 서버 룰은 `FindObjectsInactive.Include`로 찾으므로 꺼둬도 된다. 최종 리뷰 Finding A로 되돌림)
 - [ ] `SpawnPlacementTests` 4개 통과, 일부러 깨뜨렸을 때 실패하는 것 확인
 - [ ] 클라 EditMode 522/522, 서버 EditMode 통과
 - [ ] 씬을 열어 조회했을 때 마커 4개가 y 오름차순으로 나옴
@@ -819,7 +838,24 @@ git commit -m "docs(flappy): sweep 레이어마스크 주석을 사실에 맞게
 
 ## 태스크가 끝난 뒤 (컨트롤러가 사용자와 함께)
 
-1. 4개 저장소를 `CLAUDE.md`의 푸시 규약대로 머지·푸시. **아트를 먼저 푸시하고 클라 포인터를 그다음에** — 순서가 뒤바뀌면 원격 클라가 존재하지 않는 아트 커밋을 가리킨다.
-2. `gh workflow run content-deploy -f target=gameserver` — **유니티 에디터를 닫고 돌린다**(CI가 이 맥의 self-hosted 러너에서 돌고, 에디터가 떠 있으면 Burst 단계가 네이티브 크래시를 낸다).
-3. 로비에서 FlappyRace 입장 → 파드 로그에서 missing script 0건 · `InjectSceneObjects` NRE 0건 확인, 새가 x≈-2에서 출발해 파이프에 막히는지 확인.
-4. 스펙 §6에 결과 절 추가.
+> **정정 (최종 리뷰 Finding C, 2026-08-22).** 아래 원래 절차는 `content-deploy`만 돌렸는데,
+> **Task 3은 서버 C#(`FlappyRaceRuleSystem.cs`)을 바꿨다.** `content-deploy`는 Addressables
+> 콘텐츠를 구워 S3에 올릴 뿐 서버 바이너리는 만들지 않는다 — 서버 바이너리는
+> `LeagueOfPhysical-Server/.github/workflows/gameserver-deploy.yml`이 만든다. 그것만 돌리면
+> **맵은 깨끗한데 새는 여전히 원점에 스폰되고**, 그 증상은 "`SpawnPlacement`가 마커를 못 찾았다"처럼
+> 보여 원인을 엉뚱한 데서 찾게 된다. 또한 두 워크플로 모두 `LeagueOfPhysical-Shared`를
+> **원격에서** 클론하므로, `SpawnPoint.cs`가 푸시되기 전에 CI가 돌면 구워진 맵 번들 안의
+> `SpawnPoint` 네 개가 missing script가 되어 서버 조회 결과 0 → 조용히 원점 폴백(지금 고치고
+> 있는 그 버그의 축소판). 아래 순서는 이 두 가지를 반영해 고쳤다.
+
+1. 4개 저장소를 `CLAUDE.md`의 푸시 규약대로 **이 순서로** 머지·푸시: **Shared → Art → Client → Server.**
+   (Art가 Client보다 먼저여야 원격 Client가 없는 아트 커밋을 가리키지 않는다. Shared가 두 CI 중
+   어느 쪽보다도 먼저여야 `SpawnPoint` missing script가 안 난다.) 한 저장소씩 결과를 확인하고 다음으로 넘어간다.
+2. `gh workflow run gameserver-deploy` (`LeagueOfPhysical-Server` 레포) — 서버 코드 변경분을 실제로 배포한다.
+3. `gh workflow run content-deploy -f target=gameserver` — 맵 콘텐츠를 구워 올린다.
+4. 2·3 둘 다 이 맥의 self-hosted 러너에서 도니 **먼저 유니티 에디터를 닫고** 돌린다(에디터가 떠 있으면 Burst 단계가 네이티브 크래시를 낸다).
+5. 로비에서 FlappyRace 입장 → 파드 로그에서 missing script 0건(전 588건) · `InjectSceneObjects` NRE 0건 확인, 새가 x≈-2(마커 자리)에서 스폰되는지 확인.
+   **"파이프에 막히는지"는 이 슬라이스에서 채점하지 않는다** — 첫 콜라이더가 x=16인데 스폰은
+   x=-2, 그 사이 1.64초 동안 플랩 수단이 없어 40m 넘게 떨어져 코스를 아래로 통과한다(최종 리뷰
+   Finding D). 플랩 수단이 생기는 B2-d2에서 확인한다.
+6. 스펙 §6에 결과 절 추가.

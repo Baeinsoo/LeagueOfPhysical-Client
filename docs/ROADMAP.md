@@ -39,7 +39,6 @@
 | | 항목 | 크기 | 유저가 겪나 |
 |---|---|---|---|
 | 🟠 | **장시간 플레이 성능 저하** — 1차 측정 완료, **에디터에선 누수 없음**. 다음은 **실기기 dev 빌드에 같은 방법** 또는 **초반 스폰 스파이크** | 큼 | 예(실기기) |
-| 🟡 | Recon 잔류 오차 대응 | 중 | 미세 |
 | ⏸ | **서버 뷰 NRE** — `LOPEntityView.LateUpdate`가 `entityRegistry.Get()` 결과에 null 가드가 없다 | **작음** | 아니오(콘솔만) |
 | ⏸ | MasterData `file:` → git URL + tag | 작음 | 아니오 |
 | ⬜ | 서버 push — 1초 폴링 제거(WebSocket/SSE 신설) | 큼 | 아니오 |
@@ -1438,13 +1437,19 @@ Knight 고정(점프력이 곧 측정 감도), 자동 스폰 off(부하 드리�
 > `netcode-redesign.md` Phase 3의 **"고손실 강건성(옵션 A = miss 시 마지막 인풋 반복) — 드롭.
 > 실환경 prune율이 유의미해지면 재개"** 조건이 충족됐다.
 
-### 대응 후보 (별도 슬라이스, 미착수)
+### ✅ 대응 후보 — 셋 다 완료 (정산 2026-08-23)
 
-| 후보 | 성격 |
+| 후보 | 어디서 닫혔나 |
 |---|---|
-| 입력 miss 시 마지막 입력 반복 (옵션 A) | 원인 제거. 문서가 지목해 둔 경로 |
-| 문턱 미만 잔류 오차 처리 (서서히 수렴) | 지금 완전히 비어 있는 구멍. 문턱만 낮추면 롤백이 잦아짐 |
-| lead 마진 하한을 복구본 지연(1틱) 이상으로 보장 | 지각 자체를 줄임 |
+| 입력 miss 시 마지막 입력 반복 (옵션 A) | ✅ 08-09 **슬라이스 2 / 3층** — 유실 틱을 마지막 이동 입력으로 |
+| 문턱 미만 잔류 오차 처리 (서서히 수렴) | ✅ 08-07 **슬라이스 1** — 재조정 문턱 `0.06` → `0.01`(점진은 렌더가 이미 맡음) |
+| lead 마진 하한을 복구본 지연(1틱) 이상으로 보장 | ✅ 08-09 **슬라이스 2 / 1층** — 마진 바닥 0 → 1틱 + 평형점 `[-3,-1]` |
+
+**따라서 "Recon 잔류 오차 대응"은 더 이상 할 일이 아니다.** 08-11 MPPM 클론 실측에서
+`reconMax=0.004`(4mm) · `corrections=0` — 규명 당시 4cm의 1/10이고 하드 롤백이 한 번도 없었다.
+남은 4mm는 **상수 오프셋일 수 있으나 쫓지 않기로 한 것**이고(아래 08-11 절), 이 표의 미착수 항목이
+아니다. *(로드맵 "다음에 할 것"에 이 줄이 08-23까지 남아 있었다 — 완료 절이 이미 아래에 있는데도.
+`[[verify-backlog-claims-before-working]]`)*
 
 ### 남긴 계측기 (상시)
 
@@ -3002,6 +3007,7 @@ Mirror `SyncVar hook`)은 *값이 도착하는 단일 관문*에서 알리고, E
 | ~~**캐릭터끼리 충돌 wedge** (몹 뭉침)~~ ✅ **결론(07-16) — "단단한 벽" 확정** | 소프트 분리(BOTW식)를 시도했다 폐기: 클라 예측(현재 틱) vs 원격 보간(과거 틱) **타임라인 불일치** 때문에 클라가 분리를 밀면 덜덜(recon 폭발) / 안 밀면 관통 → config로 "안 겹침+안 덜덜" 동시 불가(predict-all이나 통과만 가능, 범위 밖). **클·서 동일 벽 모델**(sweep에 Character 포함 + 디펜 full)로 확정 → 겹침·덜덜·recon 다 해소, 8마리 군집 정상. wedge는 실전 비문제(비스듬 접근=곡면 슬라이드). 동작상 원래와 사실상 동일 + 전용 레이어·명시 디펜·측정지식 추가. spec `2026-07-16-character-soft-separation-design`, `[[kinematic-controller-migration]]` | — |
 | **서버 뷰 NRE** (`LOPEntity.get_position`/`LOPEntityView.LateUpdate`) | 뷰 `LateUpdate`가 `worldTransform` 링크 전/해제 후 `position`을 읽는 수명 타이밍. 도메인 리로드(재시작) 시 발현. 이동 버그와 무관(07-15 확인) | 서버 뷰 수명 손댈 때 |
 | ~~**EventSystem 2개** (additive 씬 중복)~~ | ✅ **완료(2026-08-23, Client `ff2246c`)** — 씬 4개(Entrance·Lobby·FlapWang·FlappyRace)가 각자 하나씩 갖고 있었고 Room엔 없었다. **`UIRoot` 프리팹**(`DontDestroyOnLoad` 싱글턴)에 하나 얹고 씬에서 전부 제거. **⚠️ "게임 씬에만 두기"는 오답이다** — 로그인·로비·게임 HUD가 전부 같은 전역 `UIRoot`에서 뜨므로 게임 씬에만 두면 로비 버튼이 안 눌린다. **기준: EventSystem 수명 = UI 수명.** `IngameDebugConsole` 프리팹의 EventSystem은 **비활성**이라 경고를 안 내므로 손대지 않았다. 표준: 하나만·전역, additive 씬에서는 제거([Unity Multi-Scene editing](https://docs.unity3d.com/2020.1/Documentation/Manual/MultiSceneEditing.html)) | — |
+| **`LeadController` 나머지 경계값 하드코딩** | 08-09에 마진 *바닥*만 런타임 틱 간격에서 유도했고 `maxMargin`(0.1s)·step(10/2ms)·`DefaultMargin`은 아직 상수다. 틱 간격이 바뀌면 정책 의미가 조용히 달라진다. 동작 무변경 정리라 급하지 않음 | lead 정책을 손댈 때 (틱 배수로 유도) |
 | **입력 포커스** (에디터 Play Mode Input Behavior) | **게임 버그 아님** — Game 뷰 포커스 잃으면 Input System이 키를 0으로 봄(`kbNull=False`인데 전 키 false). brake-to-desired 모터가 입력 0→즉시 정지시켜 "낀 것처럼" 드러남(옛 관성 모터는 덮여 안 보였음). 빌드 무관, 2에디터 테스트 artifact | 테스트 편의 시 InputSettings에 `All Device Input Always Goes To Game View` 설정, 또는 Game 뷰 포커스 유지 |
 | **네이티브 clock sync (방향 B)** | Mirror transport=메인스레드라 ping/pong 정확도 이득 미미; 순수측정=전용소켓+스레드 큰 작업 | **Mirror 제거가 실제 안건이 될 때.** `[[netcode-migration-status]]` §9.8 |
 | **M5b — LOP.UI 인프라 GameFramework 승격** | 단일 클라라 YAGNI | 서버도 같은 UI 인프라가 필요해질 때. `[[uitoolkit-migration-status]]` |

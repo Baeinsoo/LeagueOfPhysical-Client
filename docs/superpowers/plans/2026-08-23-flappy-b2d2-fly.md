@@ -37,8 +37,15 @@
   에디터를 닫을 필요 없이 떠 있는 에디터에 붙는다(`unity cmd ...`, 프로젝트는 cwd로 감지).
   **에디터가 Play 모드면 재컴파일이 끝나지 않는다** — 먼저 `EditorApplication.isPlaying`을 확인하고
   켜져 있으면 사용자에게 정지를 요청한다(임의로 끄면 편집분이 날아간다).
-- **테스트 실행은 `unity test`** — 프로젝트 디렉터리에서. `filter=` 인자는 먹지 않아 **EditMode 전량**이
-  돈다. 기준선(B2-d1 종료 시점): 클라 **527개**, 서버 **506개** 전부 통과. 두 프로젝트가 도는 테스트
+  - **실제로 있는 명령**(2026-08-23 실행 중 확인): 임포트·컴파일은 `unity cmd import_asset` +
+    `unity cmd recompile` → `unity cmd recompile_status`, 테스트는 `unity cmd run_tests` →
+    `unity cmd test_status`. (`refresh_unity`는 이 CLI 버전에 없다.)
+  - **`unity test`(배치모드)는 그 프로젝트의 에디터가 떠 있으면 못 쓴다** — 프로젝트를 단독
+    점유해야 하기 때문. 에디터가 떠 있는 프로젝트는 `unity cmd run_tests`를 쓴다.
+  - **⚠️ 조용한 오라우팅**: 대상 프로젝트의 에디터가 안 떠 있으면 그 디렉터리에서 `unity cmd`를
+    돌려도 **에러 없이 다른(떠 있는) 인스턴스로 라우팅된다.** 서버 쪽을 확인할 때는 서버 에디터가
+    실제로 떠 있는지 보거나(`unity status`), 배치모드 `unity test`로 돌린다.
+- **테스트는 EditMode 전량이 돈다**(`filter` 인자가 먹지 않는다) — 몇 분 걸린다. 기준선(B2-d1 종료 시점): 클라 **527개**, 서버 **506개** 전부 통과. 두 프로젝트가 도는 테스트
   집합이 다르므로(각자 자기 테스트 + 패키지 테스트) **개수를 외우지 말고 시작 전에 한 번 재 두고
   그 수와 비교한다** — 판정 기준은 "실패 0건 + 새로 넣은 테스트가 목록에 있음"이다.
 - **새 테스트는 반드시 일부러 깨뜨려 실패를 본 뒤 되돌린다.** 통과만으로 검증됐다고 말하지 않는다.
@@ -124,8 +131,8 @@ done
 
 ```bash
 export PATH="$HOME/.unity/bin:$PATH"
-cd ~/workspace/LOP/LeagueOfPhysical-Client && unity test    # 통과 수를 적어 둔다 (예상 527)
-cd ~/workspace/LOP/LeagueOfPhysical-Server && unity test    # 통과 수를 적어 둔다 (예상 506)
+cd ~/workspace/LOP/LeagueOfPhysical-Client && unity cmd run_tests   # 에디터가 떠 있으면 이쪽 (예상 527)
+cd ~/workspace/LOP/LeagueOfPhysical-Server && unity test            # 에디터가 없으면 배치모드 (예상 506)
 ```
 
 - [ ] **Step 2: 실패하는 테스트를 쓴다**
@@ -166,8 +173,9 @@ namespace GameFramework.World.Tests
 ```bash
 export PATH="$HOME/.unity/bin:$PATH"
 cd ~/workspace/LOP/LeagueOfPhysical-Client
-unity cmd refresh_unity --mode force --compile request    # .meta 생성 + 컴파일
-unity test
+unity cmd import_asset --path <새 파일 경로>    # 새 파일이면 .meta 생성
+unity cmd recompile && unity cmd recompile_status
+unity cmd run_tests && unity cmd test_status   # 에디터가 떠 있는 프로젝트
 ```
 
 기대: `CapsuleShape` 타입이 없어 **컴파일 실패**(`CS0246: CapsuleShape을 찾을 수 없습니다`).
@@ -215,15 +223,15 @@ namespace GameFramework.World
 
 ```bash
 cd ~/workspace/LOP/LeagueOfPhysical-Client
-unity cmd refresh_unity --mode force --compile request
-unity test
+unity cmd recompile && unity cmd recompile_status
+unity cmd run_tests && unity cmd test_status
 ```
 
 기대: 실패 0건, 목록에 `CapsuleShapeTests` 2개가 새로 보인다(기준선 + 2).
 
 - [ ] **Step 6: 테스트가 진짜 실패할 수 있는지 확인한다**
 
-`CapsuleShape` 생성자의 `radius <= 0f` 검사를 잠시 지우고 `unity test`를 돌려
+`CapsuleShape` 생성자의 `radius <= 0f` 검사를 잠시 지우고 테스트를 다시 돌려
 `RejectsNonPositiveSize`가 **실패**하는지 본다. 확인했으면 되돌린다.
 
 - [ ] **Step 7: 커밋**
@@ -338,8 +346,8 @@ EOF
 ```bash
 export PATH="$HOME/.unity/bin:$PATH"
 cd ~/workspace/LOP/LeagueOfPhysical-Client
-unity cmd refresh_unity --mode force --compile request
-unity test
+unity cmd recompile && unity cmd recompile_status
+unity cmd run_tests && unity cmd test_status
 ```
 
 기대: **컴파일 실패** — `FlappyWorld` 생성자가 아직 `FlappyConfig`를 요구한다(`CS1729`).
@@ -468,8 +476,8 @@ namespace LOP
 
 ```bash
 cd ~/workspace/LOP/LeagueOfPhysical-Client
-unity cmd refresh_unity --mode force --compile request
-unity test
+unity cmd recompile && unity cmd recompile_status
+unity cmd run_tests && unity cmd test_status
 ```
 
 기대: 실패 0건(기준선 + 4). 컴파일 에러가 남아 있으면 Task 3에서 고칠 크리에이터·팔로워
@@ -478,7 +486,7 @@ unity test
 
 - [ ] **Step 9: 테스트가 진짜 실패할 수 있는지 확인한다**
 
-`FlappyWorld.MoveThroughMap`에서 `body.Radius`를 `0.45f`로 잠깐 되돌려 놓고 `unity test`를 돌려
+`FlappyWorld.MoveThroughMap`에서 `body.Radius`를 `0.45f`로 잠깐 되돌려 놓고 테스트를 다시 돌려
 `맵_sweep은_엔티티가_들고_있는_몸_치수를_쓴다`가 **실패**하는지 본다. 확인했으면 되돌린다.
 
 - [ ] **Step 10: 커밋**
@@ -598,8 +606,9 @@ EOF
 
 ```bash
 export PATH="$HOME/.unity/bin:$PATH"
-cd ~/workspace/LOP/LeagueOfPhysical-Client && unity cmd refresh_unity --mode force --compile request && unity test
-cd ~/workspace/LOP/LeagueOfPhysical-Server && unity cmd refresh_unity --mode force --compile request && unity test
+cd ~/workspace/LOP/LeagueOfPhysical-Client && unity cmd recompile && unity cmd recompile_status && unity cmd run_tests
+# 서버는 에디터가 안 떠 있으면 `unity cmd`가 조용히 클라로 라우팅된다 — 배치모드로 돈다
+cd ~/workspace/LOP/LeagueOfPhysical-Server && unity test
 ```
 
 기대: 양쪽 다 **실패 0건**. 개수는 기준선 + 이번에 넣은 테스트 수만큼 늘어 있어야 한다
@@ -668,7 +677,7 @@ EOF
 ```bash
 export PATH="$HOME/.unity/bin:$PATH"
 cd ~/workspace/LOP/LeagueOfPhysical-Client
-unity cmd refresh_unity --mode force --compile request && unity test
+unity cmd recompile && unity cmd recompile_status && unity cmd run_tests
 ```
 
 기대: 실패 0건, 개수 변화 없음(크리에이터는 테스트 밖이다).
@@ -905,8 +914,9 @@ namespace LOP.UI
 ```bash
 export PATH="$HOME/.unity/bin:$PATH"
 cd ~/workspace/LOP/LeagueOfPhysical-Client
-unity cmd refresh_unity --mode force --compile request
-sleep 10
+unity cmd import_asset --path Assets/UI/FlapPad/FlapPad.uxml
+unity cmd import_asset --path Assets/UI/FlapPad/FlapPad.uss
+sleep 5
 grep guid Assets/UI/FlapPad/FlapPad.uxml.meta Assets/UI/FlapPad/FlapPad.uss.meta
 ```
 
@@ -998,7 +1008,7 @@ namespace LOP
 ```bash
 export PATH="$HOME/.unity/bin:$PATH"
 cd ~/workspace/LOP/LeagueOfPhysical-Client
-unity cmd refresh_unity --mode force --compile request && unity test
+unity cmd recompile && unity cmd recompile_status && unity cmd run_tests
 ```
 
 기대: 실패 0건, 개수 변화 없음.

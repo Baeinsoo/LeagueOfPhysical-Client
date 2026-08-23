@@ -158,10 +158,46 @@ Flappy 정책이 남의 새까지 `Predicted`로 정하면, 그 새들도 `Simul
   구현하지 않는다. 실제로 지원하려면 입력 경로(`PlayerInputManager`의 로컬 예측 트리거)까지 손대야 하고,
   두 게임 다 원하지 않는 값이다(Flappy에서 켜면 플랩이 RTT만큼 늦게 뜬다). **고르면 조용히 반쪽으로
   동작하지 않고 크게 실패시킨다.**
-- **세 번째 모드(시뮬 없이 선형 외삽)** — 업계엔 있지만 우리는 시뮬을 클·서가 공유하므로 굴리는 쪽이 더
-  정확하고 코드도 재사용된다. 필요해지면 그때 추가한다.
+- **세 번째 모드 — 단순 외삽(dead reckoning)**. 검토했고 접었다. 근거는 아래 §7-1.
 - **아이템 예측** — 서버가 몰아주는 물건이라 클라가 굴릴 규칙이 없다.
 - **남의 플랩 예측**(입력 추정) — 미지수를 줄이려는 시도. 지금은 스냅 교정으로 충분한지 먼저 본다.
+
+### 7-1. 단순 외삽(dead reckoning)을 왜 안 쓰나
+
+"마지막 속도(+중력)로 위치만 늘린다"는 방식은 즉흥적인 대안이 아니라 **IEEE 1278 DIS가 9종 알고리즘으로
+규격화한 정통 기법**이다(1차=속도, 2차=+가속도, 오차가 임계값을 넘으면 갱신 빈도를 올림). 실제 게임에서도
+널리 쓰인다 — Source(CS)는 스냅이 유실되면 **0.25초까지만** 외삽하고 그 이상은 "예측 오차가 너무 커진다"며
+자른다. Photon Bolt도 외삽 옵션을 제공한다.
+
+**다만 쓰이는 자리가 다르다: 외삽은 "보여주기"의 표준이고, 예측은 "부딪히기"의 표준이다.** Photon Fusion은
+프록시를 기본 보간으로 두어 상호작용을 막고, 상호작용이 필요하면 *Forecast Physics*로 프록시도 예측
+시간에 시뮬하라고 안내한다. 로켓 리그는 아예 전부 예측·재시뮬한다.
+
+우리 새에 대입하면 2차 외삽(속도 + 중력 + 낙하 상한)의 탄도는 시뮬과 거의 같다. 갈리는 곳은 셋뿐이다:
+
+1. 파이프·바닥에 막히는 순간 — 스냅 사이에 일어나면 외삽은 뚫고 간다(다음 스냅이 복구)
+2. **새끼리 밀림 — 외삽은 모른다**
+3. 낙하 상한 — 외삽에 넣으면 된다
+
+**2번이 이 슬라이스의 목적이다.** 상대를 외삽으로 두면 "내가 밀면 나만 밀리고 상대는 제자리"가 된다.
+상대가 비켜 주지 않으니 내 새는 계속 밀려나고, 서버 스냅이 올 때 한꺼번에 어긋난다 — 상호작용의 절반만
+예측하는 셈이다.
+
+비용도 직관과 반대다. 외삽으로 가면 **공유 시뮬에 새 개념**이 필요하다 — *"충돌에는 참여하지만 내가
+굴리지는 않는 엔티티"*. 지금은 `Simulated` 하나로 "굴린다 = 참여한다"가 맞아떨어지는데 그 둘을 갈라야
+한다. 예측으로 가면 공유 시뮬은 한 줄도 바뀌지 않는다.
+
+| | 단순 외삽(DR) | 시뮬 예측 |
+|---|---|---|
+| 공유 시뮬 변경 | "참여자 ≠ 작성자" 개념 신설 | **없음** |
+| 클라 코드 | 외삽 컴포넌트 신설 | 기존 되감기 확장 |
+| 상대가 밀리는 것 | 서버 확인 후에야 보임 | 즉시 보임 |
+| 파이프 관통 | 스냅 사이에 생길 수 있음 | 없음 |
+| CPU | 거의 0 | 상시 재생(새 몇 마리라 작음) |
+
+부딪히는 것이 목적이 아니었다면 외삽이 더 나은 선택이었을 것이다. 그래서 이 결정은 **"외삽이 열등해서"가
+아니라 "이 게임의 목적이 접촉이라서"** 다 — 접촉이 없는 게임 모드가 생기면 외삽 모드를 세 번째로 넣는 것이
+맞다.
 
 ## 8. 테스트와 검증
 
@@ -214,3 +250,5 @@ Flappy 정책이 남의 새까지 `Predicted`로 정하면, 그 새들도 `Simul
 - [Photon Bolt — Interpolation vs Extrapolation](https://doc.photonengine.com/bolt/current/in-depth/interpolation-vs-extrapolation)
 - [Rocket League 넷코드 — 전체 재시뮬·input decay 논의](https://www.gamedev.net/forums/topic/713082-rollbacks-and-simulation-replay-performance/5452777/)
 - [Gamasutra — Dead Reckoning: Latency Hiding for Networked Games](https://www.gamedeveloper.com/programming/dead-reckoning-latency-hiding-for-networked-games)
+- [IEEE 1278 DIS — Dead Reckoning 알고리즘 9종(1차/2차)](https://github.com/open-dis/dis-tutorial/wiki/Dead-Reckoning)
+- [Valve — Source Multiplayer Networking(`cl_extrapolate_amount` 0.25초 상한)](https://developer.valvesoftware.com/wiki/Source_Multiplayer_Networking)

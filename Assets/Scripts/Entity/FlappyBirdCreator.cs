@@ -46,9 +46,8 @@ namespace LOP
             bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
             if (isUserEntity)
             {
-                // 내 새만 예측한다 — 남의 새는 서버 스냅샷 보간에 맡긴다(원격 표준).
+                // 입력은 내 새만 갖는다 — Simulated는 이제 EntityBinder가 동기화 정책을 보고 붙인다.
                 worldEntity.Add(new InputBuffer());
-                worldEntity.Add(new GameFramework.World.Simulated());
             }
             entityRegistry.Add(worldEntity);
 

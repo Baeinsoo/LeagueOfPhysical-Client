@@ -21,6 +21,10 @@ namespace LOP
             builder.Register<IServerCorrectionHandler, LOPServerCorrectionHandler>(Lifetime.Singleton);
             builder.Register<ICharacterCreator, CharacterCreator>(Lifetime.Singleton);
 
+            // 내 캐릭터만 예측한다 — 남을 밀어내는 것이 게임성이 아니라서 보간으로 충분하다.
+            builder.Register<IEntitySyncPolicy>(c =>
+                new OwnerPredictedSyncPolicy(() => c.Resolve<IGameDataStore>().userEntityId), Lifetime.Singleton);
+
             // 공통 Installer의 EntityBinder와 등록 순서가 무관하다: HUD 뷰모델이 읽는 entityId는
             // EntityCreated 발행 전에 세팅되고, actor의 유일한 소비자는 폴링이라 순서를 타지 않는다.
             builder.RegisterEntryPoint<PlayerHudCoordinator>();

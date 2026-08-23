@@ -19,6 +19,7 @@ namespace LOP
         private readonly GameFramework.World.LevelSystem levelSystem;
         private readonly GameFramework.World.StatsSystem statsSystem;
         private readonly Reconciler reconciler;
+        private readonly IEntitySyncPolicy syncPolicy;
         private readonly AbilityDataProvider abilityDataProvider;
         private readonly RemoteInterpolationClock remoteInterpolationClock;
         private readonly GameFramework.Netcode.SnapshotArrivalStats snapshotArrivalStats;
@@ -50,6 +51,7 @@ namespace LOP
             GameFramework.World.LevelSystem levelSystem,
             GameFramework.World.StatsSystem statsSystem,
             Reconciler reconciler,
+            IEntitySyncPolicy syncPolicy,
             AbilityDataProvider abilityDataProvider,
             RemoteInterpolationClock remoteInterpolationClock,
             GameFramework.Netcode.SnapshotArrivalStats snapshotArrivalStats,
@@ -75,6 +77,7 @@ namespace LOP
             this.levelSystem = levelSystem;
             this.statsSystem = statsSystem;
             this.reconciler = reconciler;
+            this.syncPolicy = syncPolicy;
             this.abilityDataProvider = abilityDataProvider;
             this.remoteInterpolationClock = remoteInterpolationClock;
             this.snapshotArrivalStats = snapshotArrivalStats;
@@ -142,7 +145,10 @@ namespace LOP
                         sourceEntityId: null, sourceId: StatusEffectSystem.SourceIdFor(pe.EffectId)));
                 }
 
-                if (playerContext.entityId == actor.entityId)
+                GameFramework.World.Entity targetEntity = entityRegistry.Get(serverEntitySnap.EntityId);
+                bool predicted = targetEntity != null && syncPolicy.For(targetEntity) == EntitySyncMode.Predicted;
+
+                if (predicted)
                 {
                     reconciler.AddServerSnap(entitySnap);
                 }

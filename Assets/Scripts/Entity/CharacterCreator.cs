@@ -65,9 +65,8 @@ namespace LOP
             bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
             if (isUserEntity)
             {
-                // 입력으로 조종되는 엔티티(내 캐릭)만. 클라 시뮬 대상=예측하는 내 캐릭만(Simulated).
+                // 입력으로 조종되는 엔티티(내 캐릭)만 — Simulated는 이제 EntityBinder가 동기화 정책을 보고 붙인다.
                 worldEntity.Add(new InputBuffer());
-                worldEntity.Add(new GameFramework.World.Simulated());
             }
             entityRegistry.Add(worldEntity);
 

@@ -22,6 +22,7 @@ namespace LOP
         private readonly ActorRegistry actorRegistry;
         private readonly IGameDataStore gameDataStore;
         private readonly IPlayerContext playerContext;
+        private readonly IEntitySyncPolicy syncPolicy;
 
         public EntityBinder(
             IObjectResolver objectResolver,
@@ -30,7 +31,8 @@ namespace LOP
             GameFramework.World.EntityRegistry entityRegistry,
             ActorRegistry actorRegistry,
             IGameDataStore gameDataStore,
-            IPlayerContext playerContext)
+            IPlayerContext playerContext,
+            IEntitySyncPolicy syncPolicy)
         {
             this.objectResolver = objectResolver;
             this.entityCreatedSubscriber = entityCreatedSubscriber;
@@ -39,6 +41,7 @@ namespace LOP
             this.actorRegistry = actorRegistry;
             this.gameDataStore = gameDataStore;
             this.playerContext = playerContext;
+            this.syncPolicy = syncPolicy;
         }
 
         protected override void Subscribe()
@@ -76,6 +79,14 @@ namespace LOP
             // 생략하면 UnityPhysicsBody 키로 저장돼 나중에 Get<PhysicsBody>()가 못 찾는다.
             worldEntity.Add<GameFramework.World.PhysicsBody>(PhysicsBodyFactory.Create(root, worldEntity, true, isItem));
 
+            EntitySyncMode syncMode = syncPolicy.For(worldEntity);
+            if (syncMode == EntitySyncMode.Predicted)
+            {
+                // 예측 대상 = 클라가 직접 굴리는 엔티티. 시뮬은 이 표식만 보고 누구를 굴릴지 정한다.
+                worldEntity.Add(new GameFramework.World.Simulated());
+            }
+            Debug.Log($"[Sync] {entityCreated.entityId} → {syncMode}");
+
             LOPEntityView view = root.AddComponent<LOPEntityView>();
             objectResolver.Inject(view);
             view.SetEntityId(entityCreated.entityId);
@@ -87,7 +98,10 @@ namespace LOP
                 if (isUserEntity)
                 {
                     playerContext.actor = actor;
+                }
 
+                if (syncMode == EntitySyncMode.Predicted)
+                {
                     PredictedEntityInterpolator interpolator = root.AddComponent<PredictedEntityInterpolator>();
                     objectResolver.Inject(interpolator);
                     interpolator.actor = actor;
@@ -115,11 +129,20 @@ namespace LOP
             }
             else
             {
-                // 아이템: 스냅샷 보간만(내 예측 대상 아님).
-                SnapshotEntityInterpolator interpolator = root.AddComponent<SnapshotEntityInterpolator>();
-                objectResolver.Inject(interpolator);
-                interpolator.worldEntity = worldEntity;
-                interpolator.actor = actor;
+                // 아이템: 정책이 Interpolated를 준다(예측 대상 아님) — 캐릭터와 같은 모드 분기.
+                if (syncMode == EntitySyncMode.Predicted)
+                {
+                    PredictedEntityInterpolator interpolator = root.AddComponent<PredictedEntityInterpolator>();
+                    objectResolver.Inject(interpolator);
+                    interpolator.actor = actor;
+                }
+                else
+                {
+                    SnapshotEntityInterpolator interpolator = root.AddComponent<SnapshotEntityInterpolator>();
+                    objectResolver.Inject(interpolator);
+                    interpolator.worldEntity = worldEntity;
+                    interpolator.actor = actor;
+                }
             }
         }
 

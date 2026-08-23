@@ -85,7 +85,6 @@ namespace LOP
                 // 예측 대상 = 클라가 직접 굴리는 엔티티. 시뮬은 이 표식만 보고 누구를 굴릴지 정한다.
                 worldEntity.Add(new GameFramework.World.Simulated());
             }
-            Debug.Log($"[Sync] {entityCreated.entityId} → {syncMode}");
 
             LOPEntityView view = root.AddComponent<LOPEntityView>();
             objectResolver.Inject(view);

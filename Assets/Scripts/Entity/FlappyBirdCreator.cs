@@ -12,15 +12,18 @@ namespace LOP
         private readonly IGameDataStore gameDataStore;
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly FlappyConfig config;
 
         public FlappyBirdCreator(
             IGameDataStore gameDataStore,
             IPlayerContext playerContext,
-            GameFramework.World.EntityRegistry entityRegistry)
+            GameFramework.World.EntityRegistry entityRegistry,
+            FlappyConfig config)
         {
             this.gameDataStore = gameDataStore;
             this.playerContext = playerContext;
             this.entityRegistry = entityRegistry;
+            this.config = config;
         }
 
         public void Create(CharacterCreationData creationData)
@@ -36,11 +39,16 @@ namespace LOP
             worldEntity.Add(new EntityKind(EntityType.Character));
             worldEntity.Add(new Appearance(creationData.visualId));
             worldEntity.Add(new MotionContributions());
+            // 새 몸은 시뮬이 쓰는 그 값(TbFlappyConfig)에서 온다 — 물리 팔로워가 다른 몸을 세우면
+            // 겹침 밀어내기가 시뮬이 모르는 위치 점프를 만든다.
+            worldEntity.Add(new GameFramework.World.CapsuleShape(config.BodyRadius, config.BodyHeight));
 
             bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
             if (isUserEntity)
             {
+                // 내 새만 예측한다 — 남의 새는 서버 스냅샷 보간에 맡긴다(원격 표준).
                 worldEntity.Add(new InputBuffer());
+                worldEntity.Add(new GameFramework.World.Simulated());
             }
             entityRegistry.Add(worldEntity);
 

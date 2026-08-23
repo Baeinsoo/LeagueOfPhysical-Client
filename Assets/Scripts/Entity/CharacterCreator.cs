@@ -59,6 +59,8 @@ namespace LOP
             worldEntity.Add(new GameFramework.World.GroundState());
             worldEntity.Add(new StatusEffects());
             worldEntity.Add(new MotionContributions());
+            worldEntity.Add(new GameFramework.World.CapsuleShape(
+                BodySizes.CharacterRadius, BodySizes.CharacterHeight));
 
             bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
             if (isUserEntity)

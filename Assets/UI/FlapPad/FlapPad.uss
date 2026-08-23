@@ -1,0 +1,22 @@
+.flap-root {
+    flex-grow: 1;
+}
+
+/* 화면 전체가 입력면 — 위 밴드(팝업 등)가 먼저 입력을 가져간다 */
+.flap-surface {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.flap-hint {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 40px;
+    -unity-text-align: middle-center;
+    font-size: 28px;
+    color: rgba(255, 255, 255, 0.55);
+}

@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="FlapPad.uss" />
+    <ui:VisualElement name="flap-root" class="flap-root" picking-mode="Ignore">
+        <ui:VisualElement name="flap-surface" class="flap-surface" />
+        <ui:Label name="flap-hint" class="flap-hint" text="화면을 누르면 날갯짓 (Space)" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

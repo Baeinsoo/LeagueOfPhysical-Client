@@ -1,10 +1,13 @@
+using LOP.UI;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
 
 namespace LOP
 {
-    /// <summary>Flappy Race 덩어리 — 새 월드와 새 생성기를 쓴다. 게임 UI는 다음 슬라이스.</summary>
+    /// <summary>Flappy Race 덩어리 — 새 월드와 새 생성기를 쓴다.</summary>
     public class FlappyRaceLifetimeScope : GameLifetimeScope
     {
         [SerializeField] private CameraController cameraController;
@@ -31,6 +34,16 @@ namespace LOP
                 LayerMask.GetMask("Default")), Lifetime.Singleton);
             builder.Register<ICharacterCreator, FlappyBirdCreator>(Lifetime.Singleton);
             builder.Register<IServerCorrectionHandler, NoServerCorrection>(Lifetime.Singleton);
+
+            builder.RegisterEntryPoint<FlappyHudCoordinator>();
+            builder.Register<FlapPadViewModel>(Lifetime.Transient);
+            builder.Register<FlapPadView>(Lifetime.Transient);
+        }
+
+        protected override void RegisterViewFactories(
+            IObjectResolver container, IWindowManager windowManager, List<IDisposable> sink)
+        {
+            sink.Add(windowManager.RegisterViewFactory<FlapPadView>(() => container.Resolve<FlapPadView>()));
         }
     }
 }

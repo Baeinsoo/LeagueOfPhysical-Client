@@ -12,5 +12,6 @@ namespace LOP
         None = 0,
         User = 1,
         Timeout = 2,
+        Internal = 3,
     }
 }

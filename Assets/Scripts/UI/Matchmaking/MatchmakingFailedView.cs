@@ -7,6 +7,11 @@ namespace LOP.UI
     public class MatchmakingFailedView : UIPopup
     {
         private Button _confirmButton;
+        private Label _messageLabel;
+
+        //  WindowManager.Open이 OnOpen까지 마치고 돌아오므로 SetMessage는 보통 그 *뒤*에 불린다.
+        //  그래서 여기 담아 두고, 라벨이 이미 잡혀 있으면 바로 갈아 끼운다.
+        private string _message;
 
         /// <summary>확인 클릭. 코디네이터가 닫기를 배선한다(화면 교체는 View 책임이 아니다).</summary>
         public event Action Confirmed;
@@ -16,12 +21,30 @@ namespace LOP.UI
         /// 거치지 않는 닫기 경로가 생겨도 "닫힌 View를 계속 들고 있는" 상태가 안 남는다.</summary>
         public event Action Closed;
 
+        /// <summary>안내 문구. 열기 전에 코디네이터가 사유에 맞춰 정한다.</summary>
+        public void SetMessage(string message)
+        {
+            _message = message;
+
+            //  이미 열려 있으면 바로 반영한다(열기 전에 부르는 게 정상이지만 순서에 안 기대게).
+            if (_messageLabel != null && string.IsNullOrEmpty(message) == false)
+            {
+                _messageLabel.text = message;
+            }
+        }
+
         public override void OnOpen()
         {
             base.OnOpen();
 
             _confirmButton = Root.Q<Button>("mmf-confirm");
             _confirmButton.clicked += OnConfirmClicked;
+
+            _messageLabel = Root.Q<Label>("mmf-message");
+            if (string.IsNullOrEmpty(_message) == false)
+            {
+                _messageLabel.text = _message;
+            }
         }
 
         public override void OnClose()

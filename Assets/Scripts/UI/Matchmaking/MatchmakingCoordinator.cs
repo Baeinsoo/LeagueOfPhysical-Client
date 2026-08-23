@@ -29,7 +29,7 @@ namespace LOP.UI
         {
             // ReactiveProperty는 구독 즉시 현재값을 replay하므로 StartFlow 전에 구독해도 안전.
             _matchingSubscription = _viewModel.IsMatching.Subscribe(OnMatchingChanged);
-            _failedSubscription = _viewModel.MatchmakingFailed.Subscribe(_ => ShowFailed());
+            _failedSubscription = _viewModel.MatchmakingFailed.Subscribe(ShowFailed);
             _viewModel.StartFlow();
         }
 
@@ -50,7 +50,7 @@ namespace LOP.UI
             }
         }
 
-        private void ShowFailed()
+        private void ShowFailed(CancellationReason reason)
         {
             //  연달아 실패해도 안내는 하나만 띄운다.
             if (_failedView != null)
@@ -59,8 +59,21 @@ namespace LOP.UI
             }
 
             _failedView = _windowManager.Open<MatchmakingFailedView>();
+            _failedView.SetMessage(MessageFor(reason));
             _failedView.Confirmed += OnFailedConfirmed;
             _failedView.Closed += OnFailedViewClosed;
+        }
+
+        //  사유마다 다르게 말한다. 확정 실패에 "상대를 찾지 못했습니다"라고 하면 거짓말이다 —
+        //  상대는 찾았고 게임 방을 못 만든 것이다.
+        private static string MessageFor(CancellationReason reason)
+        {
+            return reason switch
+            {
+                CancellationReason.Timeout => "상대를 찾지 못했습니다.",
+                CancellationReason.Internal => "게임 준비에 실패했습니다. 다시 시도해 주세요.",
+                _ => "매칭이 종료되었습니다.",
+            };
         }
 
         // 확인 버튼은 닫기 "요청"만 한다. 참조 정리는 OnFailedViewClosed에서 한다 —

@@ -134,8 +134,11 @@ namespace LOP.UI
             //  여기 도달했을 때 위치 값은 이미 새것(None + 사유)이다.
             if (previous is InMatchmaking && current is not InMatchmaking)
             {
+                //  사유가 붙어 있으면 안내한다. 유저가 직접 취소한 것(User)은 자기가 아는 일이라 뺀다.
+                //  사유가 없는 것(None)은 자가치유로 풀린 경우다 — 서버도 왜인지 모르니 할 말이 없다.
                 if (_userLocationService.UserLocation.CurrentValue.locationDetail is NoneLocationDetail detail
-                    && detail.cancellationReason == CancellationReason.Timeout)
+                    && detail.cancellationReason != CancellationReason.None
+                    && detail.cancellationReason != CancellationReason.User)
                 {
                     _matchmakingFailed.OnNext(detail.cancellationReason);
                 }

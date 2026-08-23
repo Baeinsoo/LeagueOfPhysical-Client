@@ -16,6 +16,8 @@
 .mmf-message {
     font-size: 30px;
     margin-bottom: 36px;
+    /* 사유에 따라 문구 길이가 다르다 — 안 감싸면 긴 문구가 카드 밖으로 잘려 나간다. */
+    white-space: normal;
 }
 
 .mmf-confirm {

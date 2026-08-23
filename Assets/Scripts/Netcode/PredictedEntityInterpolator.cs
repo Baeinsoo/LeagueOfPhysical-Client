@@ -9,13 +9,13 @@ using VContainer;
 namespace LOP
 {
     /// <summary>
-    /// 내 캐릭터의 지연 렌더링. 진짜 위치(sim)는 <see cref="Reconciler"/>가 하드 보정하고,
+    /// 예측된 엔티티의 지연 렌더링(내 것이든 남의 것이든). 진짜 위치(sim)는 <see cref="Reconciler"/>가 하드 보정하고,
     /// 이 컴포넌트는 보이는 메시(visualGameObject)만 저장된 틱 스냅 사이를 보간해 부드럽게 그린다
     /// (틱/프레임 주기차 흡수). 게임 로직·물리는 건드리지 않는다.
     /// <para>연속 renderTime을 감싸는 두 스냅을 <see cref="SnapshotInterpolation"/>으로 브래킷 탐색해 보간
     /// (Fiedler snapshot interpolation). 절대 틱 키 조회가 아니라 브래킷이라 "그 틱이 없어서 스킵"이 불가능.</para>
     /// </summary>
-    public class LocalEntityInterpolator : MonoBehaviour, ICleanup, ITickSystem
+    public class PredictedEntityInterpolator : MonoBehaviour, ICleanup, ITickSystem
     {
         [Inject] private IRunner runner;
         [Inject] private GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
@@ -65,6 +65,15 @@ namespace LOP
                 rotation = GameFramework.World.EntityMotionExtensions.GetRotation(worldEntity),
             });
             renderCorrectionSmoother.DecayTick(deltaTime);
+        }
+
+        /// <summary>
+        /// 시뮬 위치가 하드 보정으로 튀었음을 알린다. 보이는 메시가 그 차이를 부드럽게 흡수한다
+        /// (시뮬에는 영향 없음). 크기별로 스냅/무시를 판단하는 것은 스무더 몫이다.
+        /// </summary>
+        public void OnCorrection(System.Numerics.Vector3 before, System.Numerics.Vector3 after)
+        {
+            renderCorrectionSmoother.OnCorrection(before, after);
         }
 
         private void LateUpdate()

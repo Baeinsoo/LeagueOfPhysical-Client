@@ -5,11 +5,11 @@ using VContainer;
 namespace LOP
 {
     /// <summary>
-    /// 원격 엔티티(남 캐릭·아이템)의 표준 스냅샷 보간. 공유 재생 시계의 renderTime을 감싸는 두 스냅 사이를
+    /// 보간 모드 엔티티의 표준 스냅샷 보간. 공유 재생 시계의 renderTime을 감싸는 두 스냅 사이를
     /// Hermite(위치)+Slerp(회전)로 블렌드해 엔티티(월드 위치·kinematic 콜라이더)와 비주얼 메시에 쓴다.
     /// 예측·스프링 없음. 감쌀 쌍이 없으면 최신 스냅 hold(외삽 안 함).
     /// </summary>
-    public class RemoteEntityInterpolator : MonoBehaviour
+    public class SnapshotEntityInterpolator : MonoBehaviour
     {
         [Inject] private RemoteInterpolationClock clock;
 

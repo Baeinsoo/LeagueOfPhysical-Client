@@ -1,11 +1,13 @@
+using System.Collections.Generic;
 using GameFramework;
 using UnityEngine;
 
 namespace LOP
 {
     /// <summary>
-    /// 내 캐릭 롤백 재조정(호스트 서비스). 서버 스냅이 도착하면 그 틱 상태로 하드 복원하고, 저장된 입력을
-    /// 되먹이며 현재 직전 틱까지 <see cref="GameFramework.World.IWorld.Tick"/>를 재생해 예측 오차를 보정한다 —
+    /// 서버 스냅 한 틱 배치 전체(예측 대상 엔티티들)를 롤백 재조정하는 호스트 서비스. 서버 스냅이 도착하면
+    /// 그 틱 상태로 하드 복원하고, 저장된 입력을 되먹이며 현재 직전 틱까지
+    /// <see cref="GameFramework.World.IWorld.Tick"/>를 재생해 예측 오차를 보정한다 —
     /// 재생이 곧 라이브와 같은 단일 진입점(수기 시퀀스 복제 없음). 무엇을 되돌릴지는 월드가 알고,
     /// 스냅 중 게임마다 다른 부분은 <see cref="IServerCorrectionHandler"/>가 맡는다.
     /// </summary>
@@ -28,11 +30,23 @@ namespace LOP
         private readonly GameFramework.World.IMotionBridge motionBridge;
         private readonly ReconciliationStats reconciliationStats;
         private readonly InputTimingStats inputTimingStats;   // [진단용 임시] 스파이크 순간의 입력 도착 상태
-        private readonly GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother;
+        private readonly ActorRegistry actorRegistry;
         private readonly IServerCorrectionHandler correction;
 
-        private EntitySnap latestSnap;
-        private bool hasPending;
+        // 가장 새 틱의 스냅 배치(엔티티 id → 스냅). 서버가 한 틱 분을 한 메시지로 보내므로
+        // 틱이 올라가면 앞 배치는 이미 처리됐거나 낡은 것이다.
+        // 전제: 서버가 한 틱의 스냅을 EntitySnapsToC 한 메시지로 함께 보낸다. 엔티티마다 다른 틱으로
+        // 온다면 이 전제가 깨져 오래된 스냅이 버려지므로, 그때는 틱별 큐로 바꿔야 한다.
+        private readonly Dictionary<string, EntitySnap> pendingSnaps = new Dictionary<string, EntitySnap>();
+        private long pendingTick = long.MinValue;
+
+        // 이미 처리(Reconcile 완료)한 가장 최신 틱. unreliable 중복 등으로 같은 틱 스냅이 한 번 더 오면
+        // 그때 다시 쌓인 배치는 원래 있어야 할 다른 엔티티 없이 반쪽짜리라, 그걸로 또 롤백하면 그 엔티티들이
+        // 보정 전 값으로 되돌아간다 — 그래서 이미 처리한 틱은 애초에 pendingSnaps에 넣지 않는다.
+        private long lastReconciledTick = long.MinValue;
+
+        // Reconcile마다 새로 만들지 않고 재사용(매 틱 도는 경로의 할당을 줄인다 — 실측상 약 44%의 틱에서 열린다).
+        private readonly Dictionary<string, System.Numerics.Vector3> preCorrectionPositions = new Dictionary<string, System.Numerics.Vector3>();
 
         public Reconciler(
             IPlayerContext playerContext,
@@ -43,7 +57,7 @@ namespace LOP
             GameFramework.World.IMotionBridge motionBridge,
             ReconciliationStats reconciliationStats,
             InputTimingStats inputTimingStats,
-            GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother,
+            ActorRegistry actorRegistry,
             IServerCorrectionHandler correction)
         {
             this.playerContext = playerContext;
@@ -54,102 +68,156 @@ namespace LOP
             this.motionBridge = motionBridge;
             this.reconciliationStats = reconciliationStats;
             this.inputTimingStats = inputTimingStats;
-            this.renderCorrectionSmoother = renderCorrectionSmoother;
+            this.actorRegistry = actorRegistry;
             this.correction = correction;
         }
 
-        /// <summary>서버 스냅 수신(내 캐릭). 가장 최신 틱만 남긴다.</summary>
+        /// <summary>서버 스냅 수신(예측 대상 전부). 가장 새 틱의 배치만 남긴다.</summary>
         public void AddServerSnap(EntitySnap snap)
         {
-            if (!hasPending || snap.tick > latestSnap.tick)
-            {
-                latestSnap = snap;
-                hasPending = true;
-            }
-        }
-
-        /// <summary>틱 앞에서 호출. 대기 스냅이 있고 예측이 어긋났으면 복원+재생.</summary>
-        public void Reconcile(long currentTick, float deltaTime)
-        {
-            if (!hasPending)
+            if (snap.tick <= lastReconciledTick)
             {
                 return;
             }
-            hasPending = false;
+            if (snap.tick < pendingTick)
+            {
+                return;
+            }
+            if (snap.tick > pendingTick)
+            {
+                pendingSnaps.Clear();
+                pendingTick = snap.tick;
+            }
+            pendingSnaps[snap.entityId] = snap;
+        }
 
-            EntitySnap snap = latestSnap;
-            long anchorTick = snap.tick;
+        /// <summary>틱 앞에서 호출. 대기 스냅 배치가 있고 예측이 어긋났으면 복원+재생.</summary>
+        public void Reconcile(long currentTick, float deltaTime)
+        {
+            if (pendingSnaps.Count == 0)
+            {
+                return;
+            }
+            long anchorTick = pendingTick;
 
             string entityId = playerContext.entityId;
             if (entityId == null)
             {
+                pendingSnaps.Clear();
                 return;
             }
             GameFramework.World.Entity worldEntity = entityRegistry.Get(entityId);
             if (worldEntity == null)
             {
+                pendingSnaps.Clear();
                 return;
             }
 
-            // 예측된 현재 위치 — 하드 보정 전. 재생 후와의 차이로 보정 크기를 판정(시각 신호용).
-            Vector3 preCorrectionPos = GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity);
+            // 보정 전 예측 위치를 엔티티마다 기억해 둔다(렌더 보정 통지가 "전→후" 차이를 알아야 한다).
+            preCorrectionPositions.Clear();
 
             // 하드 보정으로 시뮬 위치가 튄 것을 렌더 스무더에 알린다. 스무더가 보이는 위치를
             // (보정 전 예측 → 보정 후 권위)만큼 부드럽게 흡수한다(시뮬 무영향). 크기별 스냅/무시는 스무더가 판단.
             // 권위 값을 덮은 뒤 빠져나가는 길은 재생을 하든 말든 전부 이걸 부른다 — 안 부르면 화면이 순간이동한다.
-            void NotifyRenderCorrection()
+            void NotifyRenderCorrections()
             {
-                renderCorrectionSmoother.OnCorrection(
-                    preCorrectionPos.ToNumerics(),
-                    GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity).ToNumerics());
+                foreach (var pair in preCorrectionPositions)
+                {
+                    if (actorRegistry.TryGet(pair.Key, out var actor) == false)
+                    {
+                        continue;
+                    }
+                    var target = entityRegistry.Get(pair.Key);
+                    if (target == null)
+                    {
+                        continue;
+                    }
+                    actor.GetComponent<PredictedEntityInterpolator>()?.OnCorrection(
+                        pair.Value,
+                        GameFramework.World.EntityMotionExtensions.GetPosition(target).ToNumerics());
+                }
             }
 
-            // errorGate: 예측이 서버와 충분히 가까우면 아무것도 안 함.
-            // 그 전에 예측-서버 거리를 항상 기록해 Recon HUD(ReconciliationStats)가 계속 갱신되게 한다.
-            if (world.TryGetSavedMotion(anchorTick, entityId, out var predicted))
+            // errorGate: 배치의 모든 엔티티가 서버와 충분히 가까우면 아무것도 안 함(아무도 어긋나지 않은 틱은
+            // 여전히 건너뛴다). 그 전에 내 엔티티의 예측-서버 거리를 항상 기록해 Recon HUD가 계속 갱신되게 한다.
+            bool allClose = true;
+            foreach (var pair in pendingSnaps)
             {
-                var authoritative = snap.position.ToNumerics();
+                if (!world.TryGetSavedMotion(anchorTick, pair.Key, out var predicted))
+                {
+                    allClose = false;   // 기록이 없으면 비교할 수 없다 — 되돌린다
+                    continue;
+                }
+                var authoritative = pair.Value.position.ToNumerics();
                 float error = System.Numerics.Vector3.Distance(predicted.Position, authoritative);
-                reconciliationStats.Record(error);
 
-                // [진단용 임시] 예측이 크게 어긋난 순간의 정황을 통째로 남긴다.
-                // 얼마나 어긋났는지(통계)만으로는 원인을 못 가른다 — 그 틱의 입력·속도·접지가 필요하다.
-                if (error > SpikeLogThreshold)
+                if (pair.Key == entityId)
                 {
-                    // 무엇이 실렸는지는 커맨드가 스스로 찍는다 — 여기서 필드를 나열하면 넷코드가 게임 내용을 알게 된다.
-                    string inputText = inputHistory.TryGet(anchorTick, out var spikeInput) && spikeInput != null
-                        ? spikeInput.ToString()
-                        : "(없음)";
-                    var delta = authoritative - predicted.Position;
-                    Debug.LogWarning(
-                        $"[ReconSpike] tick={anchorTick} cur={currentTick} err={error:F3}" +
-                        $" delta=({delta.X:F3},{delta.Y:F3},{delta.Z:F3})" +
-                        $" predPos=({predicted.Position.X:F2},{predicted.Position.Y:F2},{predicted.Position.Z:F2})" +
-                        $" srvPos=({authoritative.X:F2},{authoritative.Y:F2},{authoritative.Z:F2})" +
-                        $" predVel=({predicted.Velocity.X:F2},{predicted.Velocity.Y:F2},{predicted.Velocity.Z:F2})" +
-                        $" srvVel=({snap.velocity.x:F2},{snap.velocity.y:F2},{snap.velocity.z:F2})" +
-                        $" srvGrounded={snap.grounded} input[{inputText}]" +
-                        // 입력이 서버에 늦게 닿았는지 — d가 음수면 미리 도착(정상), 0 이상이면 아슬아슬하거나 지각.
-                        // 서버 피드백이 아직 한 번도 안 왔을 때 0을 실제 값으로 오해하지 않도록 구분해 찍는다.
-                        (inputTimingStats.HasData
-                            ? $" timing[dAvg={inputTimingStats.AvgD:F1} dMax={inputTimingStats.MaxD}" +
-                              $" prune={inputTimingStats.PruneCount} seqGap={inputTimingStats.SeqGapCount}]"
-                            : " timing[아직 서버 피드백 없음]") +
-                        // 스냅이 얼마나 뒤처져 왔는지. 이 값이 계속 커지면 서버가 밀리는 중이라 비교 자체가 무의미하다.
-                        $" snapAge={currentTick - anchorTick}");
-                }
-                bool positionClose = !GameFramework.Netcode.ReconcileGate.ShouldReconcile(predicted.Position, authoritative, Threshold);
+                    EntitySnap snap = pair.Value;
+                    // HUD가 읽는 값은 내 엔티티 하나뿐이지만, 아래 RecordCorrection()은 배치 전체 기준(엔티티
+                    // 하나라도 어긋나면 카운트)이라 같은 HUD 줄의 "평균 오차"와 "보정 횟수"가 서로 다른 대상을 센다.
+                    reconciliationStats.Record(error);
 
-                // 위치가 가까워도 게임 고유 상태가 서버와 다르면 게이트를 연다(무엇을 보는지는 게임이 안다).
-                bool statusMatches = correction.Matches(anchorTick, snap);
-                if (positionClose && statusMatches)
-                {
-                    return;
+                    // [진단용 임시] 예측이 크게 어긋난 순간의 정황을 통째로 남긴다.
+                    // 얼마나 어긋났는지(통계)만으로는 원인을 못 가른다 — 그 틱의 입력·속도·접지가 필요하다.
+                    if (error > SpikeLogThreshold)
+                    {
+                        // 무엇이 실렸는지는 커맨드가 스스로 찍는다 — 여기서 필드를 나열하면 넷코드가 게임 내용을 알게 된다.
+                        string inputText = inputHistory.TryGet(anchorTick, out var spikeInput) && spikeInput != null
+                            ? spikeInput.ToString()
+                            : "(없음)";
+                        var delta = authoritative - predicted.Position;
+                        Debug.LogWarning(
+                            $"[ReconSpike] tick={anchorTick} cur={currentTick} err={error:F3}" +
+                            $" delta=({delta.X:F3},{delta.Y:F3},{delta.Z:F3})" +
+                            $" predPos=({predicted.Position.X:F2},{predicted.Position.Y:F2},{predicted.Position.Z:F2})" +
+                            $" srvPos=({authoritative.X:F2},{authoritative.Y:F2},{authoritative.Z:F2})" +
+                            $" predVel=({predicted.Velocity.X:F2},{predicted.Velocity.Y:F2},{predicted.Velocity.Z:F2})" +
+                            $" srvVel=({snap.velocity.x:F2},{snap.velocity.y:F2},{snap.velocity.z:F2})" +
+                            $" srvGrounded={snap.grounded} input[{inputText}]" +
+                            // 입력이 서버에 늦게 닿았는지 — d가 음수면 미리 도착(정상), 0 이상이면 아슬아슬하거나 지각.
+                            // 서버 피드백이 아직 한 번도 안 왔을 때 0을 실제 값으로 오해하지 않도록 구분해 찍는다.
+                            (inputTimingStats.HasData
+                                ? $" timing[dAvg={inputTimingStats.AvgD:F1} dMax={inputTimingStats.MaxD}" +
+                                  $" prune={inputTimingStats.PruneCount} seqGap={inputTimingStats.SeqGapCount}]"
+                                : " timing[아직 서버 피드백 없음]") +
+                            // 스냅이 얼마나 뒤처져 왔는지. 이 값이 계속 커지면 서버가 밀리는 중이라 비교 자체가 무의미하다.
+                            $" snapAge={currentTick - anchorTick}");
+                    }
                 }
+
+                if (GameFramework.Netcode.ReconcileGate.ShouldReconcile(predicted.Position, authoritative, Threshold))
+                {
+                    allClose = false;
+                }
+            }
+
+            // 위치가 다 가까워도 게임 고유 상태가 다르면 되돌린다(무엇을 보는지는 게임이 안다).
+            // 내 엔티티 스냅이 배치에 없으면 비교할 수 없으니 안전한 쪽(되돌림)으로 간다.
+            bool statusMatches = pendingSnaps.TryGetValue(entityId, out var mySnap) && correction.Matches(anchorTick, mySnap);
+            if (allClose && statusMatches)
+            {
+                lastReconciledTick = anchorTick;
+                pendingSnaps.Clear();
+                return;
             }
 
             // 게이트를 통과했다 = 실제로 되돌린다. 여기서 세야 "스킵"과 "보정"이 정확히 갈린다.
             reconciliationStats.RecordCorrection();
+            // 이 배치(anchorTick)는 여기서부터 끝까지 확정 처리된다(아래에서 무조건 권위 값을 덮음) —
+            // 이후 같은 틱 스냅이 중복 도착해도 AddServerSnap이 걸러낸다.
+            lastReconciledTick = anchorTick;
+
+            foreach (var pair in pendingSnaps)
+            {
+                var target = entityRegistry.Get(pair.Key);
+                if (target == null)
+                {
+                    continue;
+                }
+                preCorrectionPositions[pair.Key] =
+                    GameFramework.World.EntityMotionExtensions.GetPosition(target).ToNumerics();
+            }
 
             // 예측 상태로 되돌린다(위치·속도·게임 상태 전부). 기록이 없는 두 경우를 가른다:
             //  · 앵커가 내 첫 기록보다 과거 = 내가 아직 매치에 없던 틱. 되돌릴 게 없을 뿐 재생은 정상으로 한다.
@@ -158,36 +226,49 @@ namespace LOP
             bool tooOld = !restored
                 && (world.FirstSavedTick is not long first || anchorTick >= first);
 
-            // 권위 값을 그 위에 덮는다 — 서버가 진실인 축(위치·회전·속도·외력·게임 고유분).
-            GameFramework.World.EntityMotionExtensions.SetPosition(worldEntity, snap.position);
-            GameFramework.World.EntityMotionExtensions.SetRotation(worldEntity, snap.rotation);
-            GameFramework.World.EntityMotionExtensions.SetVelocity(worldEntity, snap.velocity);
-
-            var motionContributions = worldEntity.Get<MotionContributions>();
-            if (motionContributions != null)
+            // 권위 값을 배치의 각 엔티티에 덮는다 — 서버가 진실인 축(위치·회전·속도·외력·게임 고유분).
+            foreach (var pair in pendingSnaps)
             {
-                motionContributions.Items.Clear();
-                motionContributions.Items.AddRange(snap.contributions);
+                var target = entityRegistry.Get(pair.Key);
+                if (target == null)
+                {
+                    continue;
+                }
+                EntitySnap snap = pair.Value;
+                GameFramework.World.EntityMotionExtensions.SetPosition(target, snap.position);
+                GameFramework.World.EntityMotionExtensions.SetRotation(target, snap.rotation);
+                GameFramework.World.EntityMotionExtensions.SetVelocity(target, snap.velocity);
+
+                var motionContributions = target.Get<MotionContributions>();
+                if (motionContributions != null)
+                {
+                    motionContributions.Items.Clear();
+                    motionContributions.Items.AddRange(snap.contributions);
+                }
+
+                correction.ApplyAuthoritative(target, snap);
+
+                // World에 쓴 포즈를 MotionBridge가 rb에 밀고, PhysX가 새 포즈를 보도록 수동
+                // SyncTransforms(autoSyncTransforms=false).
+                motionBridge.PushMotion(target);
             }
-
-            correction.ApplyAuthoritative(worldEntity, snap);
-
-            // World에 쓴 포즈를 MotionBridge가 rb에 밀고, PhysX가 새 포즈를 보도록 수동
-            // SyncTransforms(autoSyncTransforms=false).
-            motionBridge.PushMotion(worldEntity);
             Physics.SyncTransforms();
 
             if (tooOld || currentTick - anchorTick > MaxReplayTicks)
             {
-                NotifyRenderCorrection();
+                NotifyRenderCorrections();
+                pendingSnaps.Clear();
                 return;
             }
 
             // 재생: 이미 예측했던 과거 틱(anchor+1 ~ currentTick-1)을 이동+물리로 재구성.
+            // world.Tick이 예측 대상 전부를 굴리지만, 입력을 넣는 건 내 엔티티뿐이다 — 남의 엔티티는
+            // InputBuffer가 없어 자동으로 "안 누른 것"이 된다.
             var inputBuffer = worldEntity.Get<InputBuffer>();   // 입력 버퍼 (WorldEventBuffer 아님 — 이름 구분)
             if (inputBuffer == null)
             {
-                NotifyRenderCorrection();
+                NotifyRenderCorrections();
+                pendingSnaps.Clear();
                 return;
             }
             // 재생이 만든 연출 이벤트(cue 등)는 이미 라이브 때 방출됐으므로 버린다.
@@ -205,7 +286,8 @@ namespace LOP
                 }
             }
 
-            NotifyRenderCorrection();
+            NotifyRenderCorrections();
+            pendingSnaps.Clear();
         }
     }
 }

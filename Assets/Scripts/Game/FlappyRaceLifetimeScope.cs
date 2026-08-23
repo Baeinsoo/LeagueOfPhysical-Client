@@ -35,6 +35,9 @@ namespace LOP
             builder.Register<ICharacterCreator, FlappyBirdCreator>(Lifetime.Singleton);
             builder.Register<IServerCorrectionHandler, NoServerCorrection>(Lifetime.Singleton);
 
+            // 새끼리 몸싸움이 게임성이라 남의 새도 내 시간선에서 같이 굴린다.
+            builder.Register<IEntitySyncPolicy, CharactersPredictedSyncPolicy>(Lifetime.Singleton);
+
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             builder.Register<FlapPadViewModel>(Lifetime.Transient);
             builder.Register<FlapPadView>(Lifetime.Transient);

@@ -713,7 +713,7 @@ T4에서 패키지가 mongoose를 **런타임에** 쓰게 되자 같은 조치�
 | ✅ | ~~**배럴에 부수효과가 생겼다**~~ | **대부분 해소(08-01)** — 아래 "자기완결화" 항목 |
 | ✅ | ~~`packages/server-core`에 `lua/`가 없다~~ | **해소(08-01)** — lua가 패키지 안으로 들어왔다(덤으로 3앱 복제도 한 벌이 됐다) |
 | 🟡 | `skipLibCheck`는 이제 불필요 | 버전 통일 후 꺼도 빌드가 통과함을 확인했다. 일반 안전장치로만 남겨 뒀고 주석에 그렇게 적혀 있다 |
-| 🟡 | 갈라진 계약 정리 미착수 | 응답 코드 3앱 통합, `UserLocationResponseDto`의 `timestamp` 거짓말 해소(spec §7 Open Decisions) |
+| ✅ | ~~갈라진 계약 정리~~ | **완료(2026-08-23, 배포·실매칭 검증)** — 응답 코드 3앱 통합은 **이미 끝나 있었다**(`ResponseCode`가 앱별 `interfaces/`에 하나도 없다 — 이 줄이 낡았던 것). `timestamp` 거짓말은 **필드만 지운 게 아니라 DTO 자체를 한 벌로 합쳐** 해소했다 — 3벌로 두면 내일 또 갈라지고, 이 유령 필드가 정확히 그렇게 생긴 것이다. `user-location.dto`가 `@lop/server-core/dtos`로 이사(Backend `8cbc95c`). **⚠️ 루트 배럴에 넣었다가 가드 테스트(`server-core-root-is-light`)가 잡았다**: class-transformer의 `@Type`이 데코레이션 시점에 `Reflect.getMetadata`를 불러, 루트에 두면 `@lop/server-core` import만으로 `reflect-metadata`가 강제된다 → **서브패스를 가르는 기준은 "자원을 잡는가"가 아니라 "import가 공짜인가"**. `[[server-core-subpath-exports]]` · 남은 DTO 가족(`user`·`user-rating`·`match`)은 같은 방식이 통함이 증명됐으니 필요할 때 |
 
 ### ✅ 자기완결화 후속 (2026-08-01, 배포·E2E 통과)
 

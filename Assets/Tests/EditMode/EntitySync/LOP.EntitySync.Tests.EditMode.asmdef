@@ -3,7 +3,6 @@
     "rootNamespace": "",
     "references": [
         "LOP.EntitySync",
-        "baegames.GameFramework.Runtime",
         "baegames.GameFramework.World",
         "baegames.LOP.Shared.Runtime",
         "UnityEngine.TestRunner",

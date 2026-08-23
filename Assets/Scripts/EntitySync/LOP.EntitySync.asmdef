@@ -2,7 +2,6 @@
     "name": "LOP.EntitySync",
     "rootNamespace": "LOP",
     "references": [
-        "baegames.GameFramework.Runtime",
         "baegames.GameFramework.World",
         "baegames.LOP.Shared.Runtime"
     ],

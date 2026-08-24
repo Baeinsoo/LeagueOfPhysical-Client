@@ -63,6 +63,7 @@ namespace LOP
             builder.RegisterEntryPoint<EntityBinder>();
             builder.Register<PlayerInputManager>(Lifetime.Singleton).AsSelf();
             builder.Register<ItemCreator>(Lifetime.Singleton);
+            builder.Register<CoinCreator>(Lifetime.Singleton);
             builder.Register<EntitySpawner>(Lifetime.Singleton);
             builder.Register<ActorRegistry>(Lifetime.Singleton);
 

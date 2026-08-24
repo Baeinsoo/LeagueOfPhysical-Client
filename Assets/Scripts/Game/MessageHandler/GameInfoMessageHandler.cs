@@ -63,6 +63,20 @@ namespace LOP
                             visualId = entityCreationData.ItemCreationData.VisualId,
                         });
                         break;
+
+                    // 판치기 동전은 매치 시작(Initialize)에 한 번 스폰된다 — 클라가 이 시점의 전체 상태를
+                    // 받는 경로는 이 GameInfoToC뿐이다(EntitySpawnToC는 도중 스폰 전용). 이 케이스가
+                    // 없으면 동전이 서버 레지스트리엔 있지만 클라 화면엔 영영 나타나지 않는다.
+                    case EntityCreationData.CreationDataOneofCase.CoinCreationData:
+                        entitySpawner.Spawn(new CoinCreationData
+                        {
+                            entityId = entityCreationData.CoinCreationData.BaseEntityCreationData.EntityId,
+                            position = MapperConfig.mapper.Map<Vector3>(entityCreationData.CoinCreationData.BaseEntityCreationData.Position),
+                            rotation = MapperConfig.mapper.Map<Vector3>(entityCreationData.CoinCreationData.BaseEntityCreationData.Rotation),
+                            velocity = MapperConfig.mapper.Map<Vector3>(entityCreationData.CoinCreationData.BaseEntityCreationData.Velocity),
+                            visualId = entityCreationData.CoinCreationData.VisualId,
+                        });
+                        break;
                 }
             }
 

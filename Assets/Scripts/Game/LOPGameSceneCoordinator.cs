@@ -53,7 +53,16 @@ namespace LOP
 
         private async void OnGameInfoToC(GameInfoToC gameInfoToC)
         {
-            await UniTask.WaitUntil(() => playerContext.actor != null && playerContext.actor.visualGameObject != null);
+            // 판치기처럼 아바타가 없는 모드는 visualGameObject가 끝내 생기지 않는다 —
+            // 취소 토큰 없이 기다리면 씬이 사라진 뒤에도 매 프레임 계속 도는 델리게이트가 남는다.
+            try
+            {
+                await UniTask.WaitUntil(() => playerContext.actor != null && playerContext.actor.visualGameObject != null, cancellationToken: destroyCancellationToken);
+            }
+            catch (System.OperationCanceledException)
+            {
+                return;   // 오브젝트가 사라지는 중 — 조용히 끝낸다
+            }
 
             cameraController.SetTarget(playerContext.actor.visualGameObject.transform);
         }

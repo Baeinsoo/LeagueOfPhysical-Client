@@ -79,6 +79,13 @@ namespace LOP
             // 생략하면 UnityPhysicsBody 키로 저장돼 나중에 Get<PhysicsBody>()가 못 찾는다.
             worldEntity.Add<GameFramework.World.PhysicsBody>(PhysicsBodyFactory.Create(root, worldEntity, true, isItem));
 
+            // 내 캐릭터 판정(아래 isUserEntity)과 예측 대상 판정이 둘 다 이 값에 달려 있다.
+            // 비어 있으면 내 캐릭터를 못 알아보고 조작이 안 되므로, 조용히 넘어가지 않고 알린다.
+            if (kind.Kind == EntityType.Character && string.IsNullOrEmpty(gameDataStore.userEntityId))
+            {
+                Debug.LogError($"userEntityId가 비어 있는 채로 캐릭터 {entityCreated.entityId}를 바인딩한다 — 내 캐릭터를 인식하지 못한다.");
+            }
+
             EntitySyncMode syncMode = syncPolicy.For(worldEntity);
             if (syncMode == EntitySyncMode.Predicted)
             {

@@ -34,6 +34,14 @@ namespace LOP
             SetAimLineVisible(false);
         }
 
+        private void OnDisable()
+        {
+            //  조준 중에 꺼지면 조준선이 화면에 남고, 다음 켜질 때 절반쯤 조준된 상태로
+            //  시작한다 — 꺼질 때 확실히 리셋한다.
+            aiming = false;
+            SetAimLineVisible(false);
+        }
+
         private void Update()
         {
             Pointer pointer = Pointer.current;
@@ -46,13 +54,16 @@ namespace LOP
             {
                 BeginAim(pointer.position.ReadValue());
             }
+
+            //  release를 held보다 먼저 본다 — 뗀 그 프레임엔 isPressed가 아직 true일 수 있어서,
+            //  순서를 바꾸면 release가 held 분기에 먹혀 버린다(누르고 뗀 게 같은 프레임이면 탭이 씹힘).
+            if (aiming && pointer.press.wasReleasedThisFrame)
+            {
+                EndAim(pointer.position.ReadValue());
+            }
             else if (aiming && pointer.press.isPressed)
             {
                 UpdateAim(pointer.position.ReadValue());
-            }
-            else if (aiming && pointer.press.wasReleasedThisFrame)
-            {
-                EndAim(pointer.position.ReadValue());
             }
         }
 

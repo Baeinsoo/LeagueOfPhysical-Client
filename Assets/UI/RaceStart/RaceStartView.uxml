@@ -1,0 +1,5 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="race-start-root" class="race-start-root" picking-mode="Ignore">
+        <ui:Label name="race-start-text" class="race-start-text" text="" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

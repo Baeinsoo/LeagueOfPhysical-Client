@@ -26,7 +26,8 @@ namespace LOP
             IPublisher<StatAllocationToC> statAllocation,
             IPublisher<InputTimingToC> inputTiming,
             IPublisher<PanchigiStateToC> panchigiState,
-            IPublisher<MatchEndedToC> matchEnded)
+            IPublisher<MatchEndedToC> matchEnded,
+            IPublisher<MatchStartToC> matchStart)
         {
             Register(gameInfo);
             Register(worldEventBatch);
@@ -38,6 +39,7 @@ namespace LOP
             Register(inputTiming);
             Register(panchigiState);
             Register(matchEnded);
+            Register(matchStart);
         }
 
         private void Register<T>(IPublisher<T> publisher) where T : IMessage

@@ -502,6 +502,15 @@ raceStartState.Update(msg.StartTick, msg.ReadyCount, msg.TotalCount);   // 화�
 | 카운트다운 중 접속 종료 | 아무것도 되돌리지 않는다. 그 새는 그냥 안 움직인다 |
 | 예상 인원 0 (빈 명단) | 즉시 카운트다운 — 서버가 대기에서 영원히 멈추지 않는다 |
 
+### 11.1 Panchigi가 이 슬라이스의 영향을 받는다 (범위 밖, 무해)
+
+`MatchStartSystem`은 서버 공용 `GameplayInstaller`에 등록돼 있고, `LOPRunner.LateUpdate`가 5분 매치
+타이머를 `Phase == InProgress`에 걸었다. 그래서 이 슬라이스 대상이 아닌 Panchigi(스텁 모드)도 매치
+타이머 시작이 부팅 시점에서 `waitCap + 3초`만큼 늦춰졌다. 지금은 무해하다 — `PanchigiWorld.Mutation`이
+비어 있어 얼릴 시뮬 자체가 없고, 게임플레이 결과가 달라지지 않는다. Panchigi가 실제 시뮬레이션(새
+이동·판정 등)을 갖추는 순간부터는 이 지연이 진짜 게임플레이 영향을 만들 수 있으므로, 그때는 Panchigi를
+게이트 대상에서 뺄지 자체 게이트를 둘지 결정해야 한다.
+
 ---
 
 ## 12. 산업 표준 매핑

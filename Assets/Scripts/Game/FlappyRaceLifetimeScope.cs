@@ -53,12 +53,15 @@ namespace LOP
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             builder.Register<FlapPadViewModel>(Lifetime.Transient);
             builder.Register<FlapPadView>(Lifetime.Transient);
+            builder.Register<RaceStartViewModel>(Lifetime.Transient);
+            builder.Register<RaceStartView>(Lifetime.Transient);
         }
 
         protected override void RegisterViewFactories(
             IObjectResolver container, IWindowManager windowManager, List<IDisposable> sink)
         {
             sink.Add(windowManager.RegisterViewFactory<FlapPadView>(() => container.Resolve<FlapPadView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceStartView>(() => container.Resolve<RaceStartView>()));
         }
     }
 }

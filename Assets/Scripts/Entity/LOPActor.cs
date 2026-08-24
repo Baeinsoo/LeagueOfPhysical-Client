@@ -2,17 +2,10 @@ using UnityEngine;
 
 namespace LOP
 {
-    public class LOPActor : MonoBehaviour
+    /// <summary>클라 쪽 엔티티 몸의 신원 + 그 몸이 쓰는 뷰로 가는 길.</summary>
+    public class LOPActor : EntityActor
     {
-        public string entityId { get; private set; }
-
         private LOPEntityView view;
-
-        // 스포너(EntityBinder)가 actor를 만든 직후 id를 세팅한다.
-        public void SetEntityId(string entityId)
-        {
-            this.entityId = entityId;
-        }
 
         // 스포너가 뷰를 만든 뒤 등록한다(Actor 생성 시점엔 뷰가 아직 없음).
         public void SetView(LOPEntityView view)

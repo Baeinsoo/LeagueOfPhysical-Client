@@ -383,18 +383,16 @@ raceStartState.Update(msg.StartTick, msg.ReadyCount, msg.TotalCount);   // 화�
 여는 것은 이미 있는 `FlappyHudCoordinator`가 맡는다. 내 새가 생기면 `FlapPadView`·`DebugHudView`를
 여는 그 자리에 한 줄 더한다.
 
-**표시 계산은 순수 함수로 뺀다** (§9의 검증 공백 완화):
+표시 규칙:
 
-```csharp
-public static string DisplayText(long startTick, long tick, double interval, int ready, int total)
-```
-
-| 입력 | 출력 |
+| 상태 | 문구 |
 |---|---|
-| `startTick = -1`, ready 2, total 4 | `"2 / 4 대기 중"` |
-| `startTick = 150`, `tick = 60` | `"2"` (남은 1.8초 올림) |
-| `startTick = 150`, `tick = 149` | `"1"` |
-| `startTick = 150`, `tick = 150` | `"GO!"` (1초 뒤 닫힘) |
+| 출발틱 미정 | `"2 / 4 대기 중"` |
+| 남은 1.8초 | `"2"` — 올림이라야 3·2·1이 각각 1초씩 보인다 |
+| 남은 1틱 | `"1"` |
+| 출발틱 도달 | `"GO!"` (1초 뒤 닫힘) |
+
+이 계산은 **ViewModel 안에 그대로 둔다.** 테스트하려고 다른 어셈블리로 옮기지 않는다 — 이유는 §9.
 
 페이즈·준비 인원은 R3(이벤트로 오는 값), **카운트다운 숫자는 매 프레임 틱에서 유도**한다.
 후자를 R3로 두지 않는 것은 `DebugHudView`가 폴링을 쓰는 것과 같은 이유 — 변경 이벤트가 없는
@@ -438,18 +436,23 @@ public static string DisplayText(long startTick, long tick, double interval, int
 - `tick == 출발틱` → 그 틱부터 움직임
 - 출발 경계를 가로지르는 구간을 두 번 굴려 같은 결과 (기존 `FlappyWorldDeterminismTests` 패턴)
 
-### `RaceStartViewModelTests` (클라, EditMode)
-
-위 §8의 표 그대로.
-
 ### 자동 검증이 안 되는 것 — 정직한 공백
 
-`RaceStartView`(UI Toolkit)와 `MatchStartSystem`의 배선은 EditMode로 못 잡는다. **직전 슬라이스에서
-574개 테스트를 전부 통과하고도 유령 연출이 런타임에 통째로 무효였던 그 공백이다.**
+`RaceStartView`·`RaceStartViewModel`(클라 `Assembly-CSharp`)과 `MatchStartSystem`의 배선은 EditMode로
+못 잡는다. 테스트 asmdef가 `Assembly-CSharp`를 참조할 수 없기 때문이다. **직전 슬라이스에서 574개
+테스트를 전부 통과하고도 유령 연출이 런타임에 통째로 무효였던 그 공백이다.**
 
-완화책은 **판단을 전부 순수 C#으로 빼서 View와 System을 비우는 것**이다. View에 남는 일은
-`label.text = DisplayText(...)` 한 줄이고, 거기서 틀릴 수 있는 건 "라벨을 못 찾았다" 하나뿐이며
-화면을 켜면 즉시 보인다.
+**그렇다고 테스트를 위해 코드를 다른 어셈블리로 옮기지 않는다.** 대신 무엇이 어디 있는지를 가른다:
+
+| 무엇 | 틀리면 | 어디서 지키나 |
+|---|---|---|
+| `tick >= GameplayStartTick` | 클·서가 다른 틱에 출발 = **시뮬이 갈린다** | 월드 안. `FlappyWorldStartGateTests` |
+| 준비 집계·상한·출발틱 결정 | 출발이 안 하거나 엉뚱한 틱에 한다 | `MatchStartGate`. `MatchStartGateTests` |
+| 카운트다운 숫자(올림) | 화면에 "2, 1, 0"이 뜬다 | §10의 눈 검증 |
+| 라벨 이름 오타 | 아무것도 안 보인다 | §10의 눈 검증 |
+
+**위험한 두 개는 순수 C#에 있고 이미 테스트된다.** 아래 두 개는 연출이고, 화면을 켜는 순간
+드러난다 — 그 정도 위험에 어셈블리 경계를 건널 이유가 없다.
 
 ---
 

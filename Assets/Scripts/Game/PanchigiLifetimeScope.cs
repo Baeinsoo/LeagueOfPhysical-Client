@@ -8,10 +8,12 @@ namespace LOP
     public class PanchigiLifetimeScope : GameLifetimeScope
     {
         [SerializeField] private CameraController cameraController;
+        [SerializeField] private PanchigiStrikeInput strikeInput;
 
         protected override void ConfigureGame(IContainerBuilder builder)
         {
             builder.RegisterComponent(cameraController);
+            builder.RegisterComponent(strikeInput);
 
             builder.Register<GameFramework.World.IWorld>(c => new PanchigiWorld(
                 c.Resolve<GameFramework.World.EntityRegistry>(),

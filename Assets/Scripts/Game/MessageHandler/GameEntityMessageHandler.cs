@@ -257,6 +257,25 @@ namespace LOP
                         visualId = entitySpawnToC.EntityCreationData.ItemCreationData.VisualId,
                     });
                     break;
+
+                case EntityCreationData.CreationDataOneofCase.CoinCreationData:
+                    string coinEntityId = entitySpawnToC.EntityCreationData.CoinCreationData.BaseEntityCreationData.EntityId;
+
+                    if (entityRegistry.Contains(coinEntityId))
+                    {
+                        Debug.LogWarning($"Entity {coinEntityId} already exists");
+                        return;
+                    }
+
+                    entitySpawner.Spawn(new CoinCreationData
+                    {
+                        entityId = coinEntityId,
+                        position = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.CoinCreationData.BaseEntityCreationData.Position),
+                        rotation = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.CoinCreationData.BaseEntityCreationData.Rotation),
+                        velocity = MapperConfig.mapper.Map<Vector3>(entitySpawnToC.EntityCreationData.CoinCreationData.BaseEntityCreationData.Velocity),
+                        visualId = entitySpawnToC.EntityCreationData.CoinCreationData.VisualId,
+                    });
+                    break;
             }
         }
 

@@ -97,18 +97,22 @@ namespace LOP
             actor.SetView(view);
 
             // 팔로워 부착은 kind와 무관 — 모드(Predicted/Interpolated)만 본다. 캐릭터·아이템 둘 다 여기 하나로 처리.
+            // 유령 반투명(GhostAppearance)은 아래 캐릭터 분기에서 만들어지므로, 두 인터폴레이터 중
+            // 어느 쪽이 붙었는지 여기서 들고 있다가 그때 이어 준다.
+            PredictedEntityInterpolator predictedInterpolator = null;
+            SnapshotEntityInterpolator snapshotInterpolator = null;
             if (syncMode == EntitySyncMode.Predicted)
             {
-                PredictedEntityInterpolator interpolator = root.AddComponent<PredictedEntityInterpolator>();
-                objectResolver.Inject(interpolator);
-                interpolator.actor = actor;
+                predictedInterpolator = root.AddComponent<PredictedEntityInterpolator>();
+                objectResolver.Inject(predictedInterpolator);
+                predictedInterpolator.actor = actor;
             }
             else
             {
-                SnapshotEntityInterpolator interpolator = root.AddComponent<SnapshotEntityInterpolator>();
-                objectResolver.Inject(interpolator);
-                interpolator.worldEntity = worldEntity;
-                interpolator.actor = actor;
+                snapshotInterpolator = root.AddComponent<SnapshotEntityInterpolator>();
+                objectResolver.Inject(snapshotInterpolator);
+                snapshotInterpolator.worldEntity = worldEntity;
+                snapshotInterpolator.actor = actor;
             }
 
             if (kind.Kind == EntityType.Character)
@@ -131,6 +135,18 @@ namespace LOP
                 StatusEffectVfxView statusEffectVfx = root.AddComponent<StatusEffectVfxView>();
                 objectResolver.Inject(statusEffectVfx);
                 statusEffectVfx.SetEntityId(entityCreated.entityId);
+
+                GhostAppearance ghostAppearance = root.AddComponent<GhostAppearance>();
+                objectResolver.Inject(ghostAppearance);
+                ghostAppearance.SetEntity(actor);
+                if (predictedInterpolator != null)
+                {
+                    predictedInterpolator.ghostAppearance = ghostAppearance;
+                }
+                if (snapshotInterpolator != null)
+                {
+                    snapshotInterpolator.ghostAppearance = ghostAppearance;
+                }
             }
         }
 

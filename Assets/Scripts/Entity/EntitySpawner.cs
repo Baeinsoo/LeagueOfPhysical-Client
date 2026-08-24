@@ -15,7 +15,7 @@ namespace LOP
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly ICharacterCreator characterCreator;
         private readonly ItemCreator itemCreator;
-        private readonly PanchigiCoinCreator coinCreator;
+        private readonly CoinCreator coinCreator;
         private readonly IPublisher<EntityCreated> entityCreatedPublisher;
         private readonly IPublisher<EntityDestroyed> entityDestroyedPublisher;
 
@@ -25,7 +25,7 @@ namespace LOP
             GameFramework.World.EntityRegistry entityRegistry,
             ICharacterCreator characterCreator,
             ItemCreator itemCreator,
-            PanchigiCoinCreator coinCreator,
+            CoinCreator coinCreator,
             IPublisher<EntityCreated> entityCreatedPublisher,
             IPublisher<EntityDestroyed> entityDestroyedPublisher)
         {

@@ -196,6 +196,14 @@ namespace LOP
                 Addressables.Release(asyncOperationHandle);
             }
 
+            //  빈 id는 "보여줄 몸이 없다"는 정당한 상태다(예: 아바타 없는 판치기 플레이어) —
+            //  에러가 아니므로 로드를 시도하지 않고 조용히 끝낸다. id가 있는데 못 찾는 것과는 다르다:
+            //  그건 진짜 에셋 누락 버그라 아래처럼 그대로 실패시켜 드러나게 둔다.
+            if (string.IsNullOrEmpty(visualId))
+            {
+                return;
+            }
+
             // 로컬 변수로 들고 있다가, await 이후 아직 유효한 요청일 때만 필드로 소유권을 넘긴다.
             int requestId = ++visualRequestId;
             var handle = Addressables.LoadAssetAsync<GameObject>(visualId);

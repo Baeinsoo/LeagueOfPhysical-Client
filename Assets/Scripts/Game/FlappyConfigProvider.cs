@@ -24,7 +24,8 @@ namespace LOP
             }
             return new FlappyConfig(
                 r.ForwardSpeed, r.FlapImpulse, r.Gravity, r.MaxFallSpeed,
-                r.BodyRadius, r.BodyHeight, r.Restitution);
+                r.BodyRadius, r.BodyHeight, r.Restitution,
+                r.GhostTime, r.InvulnTime);
         }
     }
 }

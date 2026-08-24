@@ -53,6 +53,10 @@ namespace LOP
 
             var worldEntity = entityRegistry.Get(playerContext.entityId);
             var buffer = worldEntity.Get<InputBuffer>();
+            if (buffer == null)
+            {
+                return;   // 입력 비조종(판치기 등) — 버퍼 없음
+            }
 
             // 무입력도 값이 0인 입력이지 입력의 부재가 아니다 — 틱마다 프레임을 하나씩 보낸다(표준
             // command-frame). 안 보내면 서버가 보는 "빈칸"이 *안 눌렀다*와 *유실됐다* 두 뜻이 되고,

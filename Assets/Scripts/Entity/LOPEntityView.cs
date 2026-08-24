@@ -201,6 +201,9 @@ namespace LOP
             //  그건 진짜 에셋 누락 버그라 아래처럼 그대로 실패시켜 드러나게 둔다.
             if (string.IsNullOrEmpty(visualId))
             {
+                // 지금은 아무도 비id→빈id로 갈아타지 않지만, 나중에 그런 전환이 생겨도
+                // 이전 오브젝트가 참조를 잃고 떠돌지 않도록 미리 비워둔다.
+                visualGameObject = null;
                 return;
             }
 

@@ -1577,17 +1577,22 @@ namespace LOP
                 return;   // 마우스도 터치도 없는 환경
             }
 
+            //  누름과 뗌이 한 프레임에 몰릴 수 있다(빠른 탭·낮은 프레임율). else로 묶으면
+            //  그 프레임의 뗌이 평가조차 안 돼 타격이 조용히 사라지고 조준 상태가 남는다.
             if (pointer.press.wasPressedThisFrame)
             {
                 BeginAim(pointer.position.ReadValue());
             }
+
+            //  뗌을 눌림보다 먼저 본다 — 떼는 프레임에도 isPressed가 아직 참일 수 있어,
+            //  순서가 반대면 그 프레임의 뗌을 또 놓친다.
+            if (aiming && pointer.press.wasReleasedThisFrame)
+            {
+                EndAim(pointer.position.ReadValue());
+            }
             else if (aiming && pointer.press.isPressed)
             {
                 UpdateAim(pointer.position.ReadValue());
-            }
-            else if (aiming && pointer.press.wasReleasedThisFrame)
-            {
-                EndAim(pointer.position.ReadValue());
             }
         }
 

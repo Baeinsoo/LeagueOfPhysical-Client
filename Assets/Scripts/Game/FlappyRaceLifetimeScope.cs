@@ -20,6 +20,7 @@ namespace LOP
 
             builder.Register<FlappyMoveSystem>(Lifetime.Singleton);
             builder.Register<FlappyBodyCollisionSystem>(Lifetime.Singleton);
+            builder.Register<FlappyGhostSystem>(Lifetime.Singleton);
             // sweep이 볼 것은 맵 지오메트리뿐이다 — 새끼리는 물리엔진이 아니라 우리 계산으로 민다.
             // 새의 물리 몸은 PhysicsBodyFactory가 만들면서 무조건 Character 레이어에 둔다. 그래서 이
             // 마스크에 Character가 없는 한 새끼리는 sweep에 걸리지 않는다.
@@ -29,6 +30,7 @@ namespace LOP
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
                 c.Resolve<FlappyMoveSystem>(),
                 c.Resolve<FlappyBodyCollisionSystem>(),
+                c.Resolve<FlappyGhostSystem>(),
                 c.Resolve<GameFramework.Physics.ICollisionQuery>(),
                 c.Resolve<GameFramework.World.IMotionBridge>(),
                 LayerMask.GetMask("Default")), Lifetime.Singleton);

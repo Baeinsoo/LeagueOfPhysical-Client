@@ -18,7 +18,9 @@ namespace LOP
         [Inject] private LOP.MasterData.LOPMasterData masterData;
 
         //  판만 맞힌다 — 동전을 눌러도 "판의 그 자리를 쳤다"로 읽어야 조작이 자연스럽다.
-        private static readonly int BoardLayerMask = LayerMask.GetMask("Default");
+        //  static 필드 초기화자에서 LayerMask.GetMask를 부르면 Unity가 예외를 던진다
+        //  (MonoBehaviour 생성자/필드 초기화자에서 금지) — Awake에서 인스턴스 필드로 채운다.
+        private int BoardLayerMask;
 
         private bool aiming;
         private float pressTime;
@@ -27,6 +29,7 @@ namespace LOP
 
         private void Awake()
         {
+            BoardLayerMask = LayerMask.GetMask("Default");
             if (aimCamera == null)
             {
                 aimCamera = Camera.main;

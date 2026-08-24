@@ -144,9 +144,12 @@ namespace LOP
             {
                 return;
             }
+            //  두 점은 판 윗면 바로 위에 찍힌다 — 그대로 그리면 깊이 테스트에 절반이 잘려 나간다.
+            //  띄우는 건 그림뿐이고, 서버로 보내는 점은 건드리지 않는다.
+            var lift = new Vector3(0f, 0.01f, 0f);
             aimLine.positionCount = 2;
-            aimLine.SetPosition(0, pressPoint);
-            aimLine.SetPosition(1, currentPoint);
+            aimLine.SetPosition(0, pressPoint + lift);
+            aimLine.SetPosition(1, currentPoint + lift);
         }
 
         private void SetAimLineVisible(bool visible)

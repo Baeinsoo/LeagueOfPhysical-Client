@@ -22,13 +22,18 @@
 
 ## 📍 지금 어디 (2026-08-24 세션 끝)
 
-**메시지 버스가 이제 구독 순서를 지킨다.** "내 캐릭터를 못 알아본다"의 진범이 pub/sub 호출 순서였고,
-버스를 GameFramework 공통으로 교체해 클·서 양쪽에서 같은 클래스를 쓴다. 유저 위치 트랙은 그 전에
-사실상 닫혔다 — 남은 건 서버 push 하나뿐이고 그건 인프라 신설(별도 트랙 크기)이다.
+**판치기가 세 번째 게임 모드로 들어왔고, 실제로 입장이 된다.** 8레포에 걸친 슬라이스 1~2를 머지·배포하고
+두 클라로 끝-끝 확인했다 — 플레이어 2 + 동전 4가 클·서 양쪽 월드에 같은 모양으로 앉는다. 화면 연출은
+아직 없다(슬라이스 3~).
+
+그 전에 **메시지 버스가 구독 순서를 지키게** 됐다 — "내 캐릭터를 못 알아본다"의 진범이 pub/sub 호출
+순서였고, 버스를 GameFramework 공통으로 교체해 클·서가 같은 클래스를 쓴다. 유저 위치 트랙은 사실상
+닫혔다 — 남은 건 서버 push 하나뿐이고 그건 인프라 신설(별도 트랙 크기)이다.
 
 ### 이번 세션에 닫힌 것
 | | 항목 |
 |---|---|
+| ✅ | **판치기 게임 모드 슬라이스 1~2** — 8레포 머지 + 백엔드/게임서버 배포 + 두 클라 입장 검증 |
 | ✅ | **메시지 버스 순서 보장** — MessagePipe 기본 브로커가 해제된 자리를 재사용해 3회차부터 순서가 뒤집혔다. 3레포 머지 + local 배포 + 실플레이 검증 |
 | ✅ | **Flappy Race B2-d2** — 몸통 캡슐 통일 + 클라가 자기 새를 예측 + 날갯짓 UI |
 | ✅ | **엔티티 동기화 모드 선택 구조** — 게임마다 보간/예측을 DI로 고른다 |
@@ -49,6 +54,7 @@
 ### ▶ 다음에 할 것 (값어치 순)
 | | 항목 | 크기 | 유저가 겪나 |
 |---|---|---|---|
+| 🟢 | **판치기 슬라이스 3~ — 보이게 만들기** | 중간 | 예 |
 | 🟠 | **장시간 플레이 성능 저하** — 1차 측정 완료, **에디터에선 누수 없음**. 다음은 **실기기 dev 빌드에 같은 방법** 또는 **초반 스폰 스파이크** | 큼 | 예(실기기) |
 | ⏸ | **서버 뷰 NRE** — `LOPEntityView.LateUpdate`가 `entityRegistry.Get()` 결과에 null 가드가 없다 | **작음** | 아니오(콘솔만) |
 | ⏸ | MasterData `file:` → git URL + tag | 작음 | 아니오 |
@@ -59,6 +65,17 @@
 끝까지 검증했다. `[[driving-both-clients-via-unity-cli]]`
 
 ### ⚠️ 이 세션의 교훈
+
+**배포는 두 갈래다 — 백엔드를 올려도 게임서버는 안 올라간다.** 판치기를 머지·푸시하고
+`backend-deploy`만 돌렸더니 매칭서버는 게임모드 7을 아는데 **게임서버 이미지는 판치기 직전
+커밋에 멈춰** 있었다. 증상이 헷갈렸다 — 큐도 잡히고 매칭도 성사되는데 방 파드가 4초 만에
+`Error`로 죽었다. 서버 코드는 이미 main에 있었으니 *코드를 아무리 읽어도 안 보인다.*
+`[[deploy-has-two-pipelines]]`
+
+**안전 모드는 `recompile_status`로 안 잡힌다.** 에디터가 안전 모드로 갇혀 있는데도 CLI는
+`failed:false`를 보고했다. 컴파일 상태를 판정할 땐 *테스트가 실제로 도는지*까지 볼 것.
+`[[client-compile-gate-without-editor]]`
+
 백로그 항목 **여섯 개를 확인했는데 정확했던 건 하나뿐**이었다. 착수 전에 코드로 확인할 것.
 `[[verify-backlog-claims-before-working]]`
 
@@ -67,6 +84,58 @@
 ## ✅ 한 일 (Done ledger)
 
 최근 활성 워크스트림(넷코드 / 이동 / Stage④) 중심. 오래된 완료 워크스트림은 맨 아래 요약 + 메모리 링크.
+
+### ✅ 판치기 게임 모드 — 슬라이스 1~2 (2026-08-24, 8레포 머지 + 배포·두 클라 입장 검증)
+
+**무엇**: 별도 프로젝트였던 판치기를 FlapWang·Flappy Race에 이어 **세 번째 게임 모드**로 흡수했다.
+슬라이스 1~2의 목표는 *연출이 아니라 "입장이 된다"* — 판이 차려지고 클·서 월드가 같은 모양이 되는 것까지다.
+
+**룰(잠긴 결정)**: 모든 동전이 뒤집히면 종료, **마지막에 친 사람이 승자**. 뒤집힌 동전은 *제자리(초기
+세팅)* 로 되돌린다. 동전 개수는 **참가 인원에 따라 달라지게 배선**만 해두고 실제 수치는 나중에 튜닝한다
+(2인 → 4개). 낙(落) n회면 탈락이고 n은 컨피그에 있다. 탈락자 순위는 **승자 1등 / 나머지 공동 꼴등**.
+
+**구조에서 바뀐 것 — 몸(物理) 설정을 데이터로 뺐다.** 이게 이 슬라이스의 진짜 무게다.
+동전은 Unity 물리가 굴리는 **다이나믹 바디**인데, 기존 바디 생성은 "캐릭터는 캡슐 + 키네마틱"이 코드에
+박혀 있었다. 새로 만든 것:
+
+- `PhysicsConfig`(World Core 컴포넌트) — `BodyKind {Static, Kinematic, Dynamic}` + `FreezeRotation` + `IsTrigger`.
+  **필수다**(없으면 팩토리가 던진다) — 없을 때 조용히 예전 동작을 하면 빠뜨린 걸 아무도 모른다.
+- `DiscShape` — 반지름·두께. 모양은 `PhysicsConfig`와 **따로** 둔다. 순수 코어의 sweep이 모양을 읽기 때문.
+- `PhysicsBodyFactory`가 `Create(root, worldEntity)` 하나로 줄고, 컴포넌트를 보고 분기한다.
+
+> ⚠️ **`Simulated`와 헷갈리지 말 것.** `Simulated`는 *우리 시뮬이 이 엔티티의 틱을 소유하는가*이고
+> `PhysicsConfig.Kind`는 *Unity 물리 엔진이 이 몸을 어떻게 취급하는가*다. 동전은 **`Simulated`가 아니다** —
+> 우리 코어가 굴리는 게 아니라 PhysX가 굴리고, 우리는 결과를 읽어 온다.
+
+**배포에서 걸린 것**: `backend-deploy`만 돌리고 **게임서버를 빠뜨렸다.** 매칭은 성사되는데 방 파드가
+4초 만에 `Error`로 죽었다 — 게임서버 이미지가 판치기 직전 커밋(`b7113ea`)이라 모드 7을 몰랐다.
+`gameserver-deploy`(local)를 돌려 `7ea507c`로 올리고서야 방이 살았다. `[[deploy-has-two-pipelines]]`
+
+**검증**: 두 클라(메인 + MPPM 클론)를 `unity` CLI `eval`로 몰아 판치기를 골라 PLAY.
+- 서버 방 파드 `Running` 유지 — `Registered panchigi player 1·2`, `Registered coin 3·4·5·6`, 예외 0
+- 클라 **양쪽 모두 엔티티 6개** — 플레이어 2(`PhysicsConfig`) + 동전 4(`PhysicsConfig`+`DiscShape`), 서버와 일치
+- 입장 시각 이후 클라 에러 0
+
+머지: GF `5be12cc` / Shared `fffaee3` / Client `f68f975` / Server `7ea507c` /
+MD-Client `2ba9da8` / MD-Server `203d8fa` / infra `308d4be` / backend `1876494`.
+배포: `matchmaking-server:1876494`, `game-server:7ea507c`.
+spec `docs/superpowers/specs/2026-08-24-panchigi-game-mode-design.md`,
+plan `docs/superpowers/plans/2026-08-24-panchigi-slices-1-2.md`.
+
+#### 남은 것 — 슬라이스 3~ (보이게 만들기)
+지금은 **입장만 되고 화면은 비어 있다.** 아래는 슬라이스 1~2에서 *의도적으로* 미룬 것들이다.
+
+| | 항목 |
+|---|---|
+| 🟢 | 전용 `Assets/Art/Scenes/PanchigiMap.unity` + Addressables 등록 (지금은 FlappyRace 패턴을 베껴 없는 씬을 가리킴 — 그 패턴 자체가 이미 깨져 있었다) |
+| 🟢 | 동전 아트 + `formation`(초기 배치) 해석 |
+| 🟢 | 플레이어 스폰 좌표 — 지금은 판 아래 `(0,-10,0)` 임시값 |
+| 🟡 | `DiscShape.Thickness`가 콜라이더에 안 닿는다 — Unity가 구로 뭉갠다 |
+| 🟡 | `PhysicsBodyFactory`의 레이어가 아직 `Character` 하드코딩 |
+
+작은 정리(급하지 않음): `PhysicsBodyFactory`/`UnityPhysicsBody`의 낡은 클래스 주석,
+서버 `EntityBinder`의 무방비 `PhysicsConfig` 읽기, Item 분기에만 없는 중복 엔티티 가드,
+아무도 안 쓰는 `PhysicsConfig.PhysicsOwnsMotion`(틱 시스템은 `PhysicsBody.IsKinematic`으로 분기한다).
 
 ### ✅ 메시지 버스 순서 보장 — `OrderedMessageBroker` (2026-08-24, 3레포 머지 + local 배포·실플레이 검증)
 

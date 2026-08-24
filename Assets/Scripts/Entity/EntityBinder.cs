@@ -23,6 +23,7 @@ namespace LOP
         private readonly IGameDataStore gameDataStore;
         private readonly IPlayerContext playerContext;
         private readonly IEntitySyncPolicy syncPolicy;
+        private readonly IExtrapolationAcceleration extrapolationAcceleration;
 
         public EntityBinder(
             IObjectResolver objectResolver,
@@ -32,7 +33,8 @@ namespace LOP
             ActorRegistry actorRegistry,
             IGameDataStore gameDataStore,
             IPlayerContext playerContext,
-            IEntitySyncPolicy syncPolicy)
+            IEntitySyncPolicy syncPolicy,
+            IExtrapolationAcceleration extrapolationAcceleration)
         {
             this.objectResolver = objectResolver;
             this.entityCreatedSubscriber = entityCreatedSubscriber;
@@ -42,6 +44,7 @@ namespace LOP
             this.gameDataStore = gameDataStore;
             this.playerContext = playerContext;
             this.syncPolicy = syncPolicy;
+            this.extrapolationAcceleration = extrapolationAcceleration;
         }
 
         protected override void Subscribe()
@@ -96,23 +99,40 @@ namespace LOP
             view.SetEntityId(entityCreated.entityId);
             actor.SetView(view);
 
-            // 팔로워 부착은 kind와 무관 — 모드(Predicted/Interpolated)만 본다. 캐릭터·아이템 둘 다 여기 하나로 처리.
-            // 유령 반투명(GhostAppearance)은 아래 캐릭터 분기에서 만들어지므로, 두 인터폴레이터 중
+            // 팔로워 부착은 kind와 무관 — 모드(Predicted/Extrapolated/Interpolated)만 본다. 캐릭터·아이템 둘 다 여기 하나로 처리.
+            // 유령 반투명(GhostAppearance)은 아래 캐릭터 분기에서 만들어지므로, 셋 중
             // 어느 쪽이 붙었는지 여기서 들고 있다가 그때 이어 준다.
             PredictedEntityInterpolator predictedInterpolator = null;
+            ExtrapolatedEntityInterpolator extrapolatedInterpolator = null;
             SnapshotEntityInterpolator snapshotInterpolator = null;
-            if (syncMode == EntitySyncMode.Predicted)
+            switch (syncMode)
             {
-                predictedInterpolator = root.AddComponent<PredictedEntityInterpolator>();
-                objectResolver.Inject(predictedInterpolator);
-                predictedInterpolator.actor = actor;
-            }
-            else
-            {
-                snapshotInterpolator = root.AddComponent<SnapshotEntityInterpolator>();
-                objectResolver.Inject(snapshotInterpolator);
-                snapshotInterpolator.worldEntity = worldEntity;
-                snapshotInterpolator.actor = actor;
+                case EntitySyncMode.Predicted:
+                {
+                    predictedInterpolator = root.AddComponent<PredictedEntityInterpolator>();
+                    objectResolver.Inject(predictedInterpolator);
+                    predictedInterpolator.actor = actor;
+                    break;
+                }
+                case EntitySyncMode.Extrapolated:
+                {
+                    extrapolatedInterpolator = root.AddComponent<ExtrapolatedEntityInterpolator>();
+                    objectResolver.Inject(extrapolatedInterpolator);
+                    extrapolatedInterpolator.worldEntity = worldEntity;
+                    extrapolatedInterpolator.actor = actor;
+                    // flappyConfig는 게임 스코프에만 있으므로 여기서 직접 참조하지 않는다 — 게임 스코프가
+                    // 등록한 공급자에서 값만 꺼낸다(EntityBinder는 어떤 게임인지 모른다).
+                    extrapolatedInterpolator.acceleration = extrapolationAcceleration.Acceleration;
+                    break;
+                }
+                default:
+                {
+                    snapshotInterpolator = root.AddComponent<SnapshotEntityInterpolator>();
+                    objectResolver.Inject(snapshotInterpolator);
+                    snapshotInterpolator.worldEntity = worldEntity;
+                    snapshotInterpolator.actor = actor;
+                    break;
+                }
             }
 
             if (kind.Kind == EntityType.Character)
@@ -142,6 +162,10 @@ namespace LOP
                 if (predictedInterpolator != null)
                 {
                     predictedInterpolator.ghostAppearance = ghostAppearance;
+                }
+                if (extrapolatedInterpolator != null)
+                {
+                    extrapolatedInterpolator.ghostAppearance = ghostAppearance;
                 }
                 if (snapshotInterpolator != null)
                 {

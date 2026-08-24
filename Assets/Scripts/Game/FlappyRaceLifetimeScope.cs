@@ -17,6 +17,9 @@ namespace LOP
             builder.RegisterComponent(cameraController);
             builder.Register<FlappyConfigProvider>(Lifetime.Singleton);
             builder.Register<FlappyConfig>(c => c.Resolve<FlappyConfigProvider>().Get(), Lifetime.Singleton);
+            // 남을 외삽으로 그릴 때 쓸 가속도(중력) — EntityBinder는 이 인터페이스만 안다.
+            builder.Register<IExtrapolationAcceleration>(
+                c => new FlappyExtrapolationAcceleration(c.Resolve<FlappyConfig>()), Lifetime.Singleton);
 
             builder.Register<FlappyMoveSystem>(Lifetime.Singleton);
             builder.Register<FlappyBodyCollisionSystem>(Lifetime.Singleton);

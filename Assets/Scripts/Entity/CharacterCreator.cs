@@ -61,6 +61,9 @@ namespace LOP
             worldEntity.Add(new MotionContributions());
             worldEntity.Add(new GameFramework.World.CapsuleShape(
                 BodySizes.CharacterRadius, BodySizes.CharacterHeight));
+            // 지금까지 EntityBinder가 하드코딩하던 값을 그대로 옮긴 것 — 거동 변화 없음.
+            worldEntity.Add(new GameFramework.World.PhysicsConfig(
+                GameFramework.World.BodyKind.Kinematic, freezeRotation: true, isTrigger: false));
 
             bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
             if (isUserEntity)

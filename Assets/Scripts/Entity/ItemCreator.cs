@@ -26,6 +26,9 @@ namespace LOP
             worldEntity.Add(new Appearance(creationData.visualId));
             worldEntity.Add(new GameFramework.World.CapsuleShape(
                 BodySizes.ItemRadius, BodySizes.ItemHeight));
+            // 아이템만 트리거다 — 줍기 감지가 접촉으로 이뤄진다.
+            worldEntity.Add(new GameFramework.World.PhysicsConfig(
+                GameFramework.World.BodyKind.Kinematic, freezeRotation: true, isTrigger: true));
             entityRegistry.Add(worldEntity);
         }
     }

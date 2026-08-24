@@ -11,44 +11,52 @@ namespace LOP
     {
         protected override void Configure(IContainerBuilder builder)
         {
-            // 앱 전역 메시지 버스(MessagePipe). 메시지 타입별 브로커는 각 마이그레이션 슬라이스에서
-            // RegisterMessageBroker<T>로 명시 등록한다(IL2CPP open-generic 미지원 대비).
-            var options = builder.RegisterMessagePipe();
+            // 앱 전역 메시지 버스. 메시지 타입별 브로커는 RegisterOrderedMessageBroker<T>로 명시
+            // 등록한다(IL2CPP open-generic 미지원 대비).
+            //
+            // MessagePipe 기본 브로커(RegisterMessageBroker)를 쓰지 않는 이유: 그쪽은 핸들러를 부르는
+            // 순서가 구독 순서와 어긋날 수 있다 — 구독 해제된 자리를 재사용하기 때문에, 매치를 몇 판
+            // 반복하면 나중에 구독한 쪽이 먼저 불린다. 우리는 한 메시지를 여러 구독자가 나눠 받으므로
+            // (예: GameInfoToC를 넷이 받는다) 그 순서가 곧 동작이다. OrderedMessageBroker는 구독 순서를
+            // 보장한다. 발행·구독 인터페이스(IPublisher/ISubscriber)는 MessagePipe 것 그대로다.
+            //
+            // RegisterMessagePipe 자체는 남긴다 — GlobalMessagePipe가 쓰는 IServiceProvider 등록이 여기 있다.
+            builder.RegisterMessagePipe();
 
             // WebResponse — 정적 코드(WebAPI)가 GlobalMessagePipe로 발행하므로 SetProvider 필요.
-            builder.RegisterMessageBroker<CreateUserResponse>(options);
-            builder.RegisterMessageBroker<GetUserResponse>(options);
-            builder.RegisterMessageBroker<GetUserLocationResponse>(options);
-            builder.RegisterMessageBroker<GetUserRatingResponse>(options);
-            builder.RegisterMessageBroker<UpdateUserProfileResponse>(options);
-            builder.RegisterMessageBroker<ChangeDisplayNameResponse>(options);
-            builder.RegisterMessageBroker<GetMatchResponse>(options);
-            builder.RegisterMessageBroker<RoomJoinableResponse>(options);
+            builder.RegisterOrderedMessageBroker<CreateUserResponse>();
+            builder.RegisterOrderedMessageBroker<GetUserResponse>();
+            builder.RegisterOrderedMessageBroker<GetUserLocationResponse>();
+            builder.RegisterOrderedMessageBroker<GetUserRatingResponse>();
+            builder.RegisterOrderedMessageBroker<UpdateUserProfileResponse>();
+            builder.RegisterOrderedMessageBroker<ChangeDisplayNameResponse>();
+            builder.RegisterOrderedMessageBroker<GetMatchResponse>();
+            builder.RegisterOrderedMessageBroker<RoomJoinableResponse>();
 
             // 엔티티 라이프사이클
-            builder.RegisterMessageBroker<Event.Entity.EntityCreated>(options);
-            builder.RegisterMessageBroker<Event.Entity.EntityDestroyed>(options);
+            builder.RegisterOrderedMessageBroker<Event.Entity.EntityCreated>();
+            builder.RegisterOrderedMessageBroker<Event.Entity.EntityDestroyed>();
 
             // 네트워크 수신(NetworkMessageDispatcher가 발행 → MessageHandler가 구독)
-            builder.RegisterMessageBroker<GameInfoToC>(options);
-            builder.RegisterMessageBroker<WorldEventBatchToC>(options);
-            builder.RegisterMessageBroker<EntitySnapsToC>(options);
-            builder.RegisterMessageBroker<EntitySpawnToC>(options);
-            builder.RegisterMessageBroker<EntityDespawnToC>(options);
-            builder.RegisterMessageBroker<UserEntitySnapToC>(options);
-            builder.RegisterMessageBroker<StatAllocationToC>(options);
-            builder.RegisterMessageBroker<InputTimingToC>(options);
-            builder.RegisterMessageBroker<MatchEndedToC>(options);
+            builder.RegisterOrderedMessageBroker<GameInfoToC>();
+            builder.RegisterOrderedMessageBroker<WorldEventBatchToC>();
+            builder.RegisterOrderedMessageBroker<EntitySnapsToC>();
+            builder.RegisterOrderedMessageBroker<EntitySpawnToC>();
+            builder.RegisterOrderedMessageBroker<EntityDespawnToC>();
+            builder.RegisterOrderedMessageBroker<UserEntitySnapToC>();
+            builder.RegisterOrderedMessageBroker<StatAllocationToC>();
+            builder.RegisterOrderedMessageBroker<InputTimingToC>();
+            builder.RegisterOrderedMessageBroker<MatchEndedToC>();
             builder.Register<NetworkMessageDispatcher>(Lifetime.Singleton);
 
             // 엔티티별 이벤트(keyed, 키=entityId)
-            builder.RegisterMessageBroker<string, Event.Entity.EntityDamage>(options);
-            builder.RegisterMessageBroker<string, Event.Entity.AbilityActivated>(options);
-            builder.RegisterMessageBroker<string, Event.Entity.EntityHealthChanged>(options);
-            builder.RegisterMessageBroker<string, Event.Entity.EntityManaChanged>(options);
-            builder.RegisterMessageBroker<string, Event.Entity.EntityLevelChanged>(options);
-            builder.RegisterMessageBroker<string, Event.Entity.EntityStatPointsChanged>(options);
-            builder.RegisterMessageBroker<string, Event.Entity.EntityStatChanged>(options);
+            builder.RegisterOrderedMessageBroker<string, Event.Entity.EntityDamage>();
+            builder.RegisterOrderedMessageBroker<string, Event.Entity.AbilityActivated>();
+            builder.RegisterOrderedMessageBroker<string, Event.Entity.EntityHealthChanged>();
+            builder.RegisterOrderedMessageBroker<string, Event.Entity.EntityManaChanged>();
+            builder.RegisterOrderedMessageBroker<string, Event.Entity.EntityLevelChanged>();
+            builder.RegisterOrderedMessageBroker<string, Event.Entity.EntityStatPointsChanged>();
+            builder.RegisterOrderedMessageBroker<string, Event.Entity.EntityStatChanged>();
 
             builder.Register<LOP.MasterData.LOPMasterData>(Lifetime.Singleton);
 

@@ -263,14 +263,20 @@ AddForceAtPosition(force * multiplier * Sum(falloff),  forcePos)
 동전마다:
     발자국 원(반지름 DiscShape.Radius) 위에 고정 K개 샘플         K = CoverageSamples
     각 샘플 p:
-        p가 판 사각형 밖이면                       탈락      (끄트머리 걸침)
-        p에서 위로 Raycast, 맞은 엔티티 != 이 동전  탈락      (포개짐 — 원본 버그 수정)
+        p가 판 사각형 밖이면                        탈락      (끄트머리 걸침)
+        p 위에서 아래로 Raycast, 첫 히트 != 이 동전  탈락      (포개짐 — 원본 버그 수정)
         살아남으면 falloff = 1 / (1 + FalloffRate * |p.xz - strikePoint.xz|^2)
-    덮임 = Sum(falloff) / K                                   0 ~ 1
+    덮임 = Sum(falloff) / K                                    0 ~ 1
 
     임펄스 = F * 덮임
-    적용 지점 = strikePoint                                    원본 그대로
+    적용 지점 = strikePoint                                     원본 그대로
 ```
+
+> **레이 방향이 원본과 반대인 이유.** 원본은 *판 윗면 살짝 아래*에서 **위로** 쐈다 — 판이 두꺼운
+> Box라 그 시작점이 성립했다. 우리는 **동전 위에서 아래로** 쏜다. 시작점이 항상 모든 동전보다
+> 위라 "판 표면의 어느 쪽에서 시작했나"라는 부동소수점 애매함이 없고, 첫 히트가 곧 *"이 자리에
+> 제일 위에 놓인 것"* 이라 포개짐 판정이 더 직접적이다. 판도 마스크에 포함한다 — 동전이 없는
+> 자리에서는 판을 맞고 `GetEntityId()`가 `null`을 돌려줘 그 샘플이 자연히 탈락한다.
 
 **얻는 것 세 가지:**
 

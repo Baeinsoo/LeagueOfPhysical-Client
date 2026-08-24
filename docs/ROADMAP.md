@@ -20,11 +20,20 @@
 
 ---
 
-## 📍 지금 어디 (2026-08-23 세션 끝)
+## 📍 지금 어디 (2026-08-24 세션 끝)
 
-**유저 위치 트랙이 사실상 닫혔다.** 남은 건 서버 push 하나뿐이고 그건 인프라 신설(별도 트랙 크기)이다.
+**메시지 버스가 이제 구독 순서를 지킨다.** "내 캐릭터를 못 알아본다"의 진범이 pub/sub 호출 순서였고,
+버스를 GameFramework 공통으로 교체해 클·서 양쪽에서 같은 클래스를 쓴다. 유저 위치 트랙은 그 전에
+사실상 닫혔다 — 남은 건 서버 push 하나뿐이고 그건 인프라 신설(별도 트랙 크기)이다.
 
-### 오늘 닫힌 것
+### 이번 세션에 닫힌 것
+| | 항목 |
+|---|---|
+| ✅ | **메시지 버스 순서 보장** — MessagePipe 기본 브로커가 해제된 자리를 재사용해 3회차부터 순서가 뒤집혔다. 3레포 머지 + local 배포 + 실플레이 검증 |
+| ✅ | **Flappy Race B2-d2** — 몸통 캡슐 통일 + 클라가 자기 새를 예측 + 날갯짓 UI |
+| ✅ | **엔티티 동기화 모드 선택 구조** — 게임마다 보간/예측을 DI로 고른다 |
+
+### 2026-08-23에 닫힌 것
 | | 항목 |
 |---|---|
 | ✅ | 매칭 종료 사유별 안내 — 확정 실패를 말없이 넘기던 구멍 |
@@ -44,7 +53,6 @@
 | ⏸ | **서버 뷰 NRE** — `LOPEntityView.LateUpdate`가 `entityRegistry.Get()` 결과에 null 가드가 없다 | **작음** | 아니오(콘솔만) |
 | ⏸ | MasterData `file:` → git URL + tag | 작음 | 아니오 |
 | ⬜ | 서버 push — 1초 폴링 제거(WebSocket/SSE 신설) | 큼 | 아니오 |
-| — | Flappy Race B2-d2 | 중 | 맥 트랙 |
 
 ### 이 세션에서 새로 생긴 능력
 **두 클라(메인 + MPPM 클론)를 `unity` CLI로 직접 몰 수 있다** — 매칭·UI 클릭·성능 샘플링을 사람 손 없이
@@ -59,6 +67,71 @@
 ## ✅ 한 일 (Done ledger)
 
 최근 활성 워크스트림(넷코드 / 이동 / Stage④) 중심. 오래된 완료 워크스트림은 맨 아래 요약 + 메모리 링크.
+
+### ✅ 메시지 버스 순서 보장 — `OrderedMessageBroker` (2026-08-24, 3레포 머지 + local 배포·실플레이 검증)
+
+**증상**: 매치에 들어가도 내 캐릭터를 못 알아봐 조작이 안 된다. 한 세션에서 매치를 반복하면 나오고,
+새로 켜면 재현이 안 돼 "가끔 난다"로 보였다.
+
+**진범은 pub/sub 호출 순서였다.** `GameInfoToC` 한 통에 "네 캐릭터는 누구"(`EntityId`)와 "이 엔티티들을
+만들어라"(`EntityCreationDatas`)가 같이 오는데, 둘을 **서로 다른 구독자**가 나눠 먹는다 —
+`GameDataStore`가 id를 칠판에 적고, `GameInfoMessageHandler`가 스폰하며 `EntityBinder`를 통해 그
+칠판을 읽는다. 스포너가 먼저 불리면 칠판이 비어 있어 예측 대상 지정과 `playerContext.actor`가 둘 다 실패한다.
+
+**MessagePipe 기본 브로커는 호출 순서를 보장하지 않는다.** `MessageBrokerCore.Publish`는 핸들러 배열을
+**인덱스 순서**로 돌고, `FreeList.Add`는 해제된 자리를 큐에서 꺼내 **재사용**한다. `freeIndex`는 FIFO 큐가
+맞지만 그 FIFO는 *구독자*가 아니라 **반환된 빈 자리 번호**에 대한 것이다. 패키지의 `FreeList.cs`를 그대로
+컴파일해 매치 구독/해제 사이클을 돌리면 **3회차부터 뒤집힌다** — 실제 증상도 세 번째 판에서 났다.
+브로커가 `RootLifetimeScope` 등록이라 빈 자리 큐가 앱 수명 내내 살아 있어, 반복할수록 어긋난다.
+
+**고침**: `GameFramework`에 `OrderedMessageBroker<T>`(+키 버전)를 만들고 등록만
+`RegisterMessageBroker` → `RegisterOrderedMessageBroker`로 바꿨다. 자리를 재사용하지 않고 항상 뒤에
+붙이므로 배열 순서 = 구독 순서다. 해제한 자리는 비워만 두고 절반 넘게 비면 앞으로 당기되(앞뒤 유지),
+**발행 중에는 당기지 않는다** — 순회 중 칸이 밀리면 건너뛰거나 두 번 부른다.
+`IPublisher`/`ISubscriber`는 MessagePipe 것을 그대로 구현해 **호출부는 한 줄도 안 바뀌었다.**
+
+**왜 GameFramework인가**: 버스는 게임 무관 인프라고(결정 트리 #1), 목적지 폴더에 이미
+`MessageHandlerBase`가 살고 있었다. 서버도 같은 것을 쓴다 — 서버는 지금 메시지당 구독자가 하나라 증상이
+없었지만 둘째를 붙이는 순간 조용히 깨지는 잠복 상태였다. LOP-Shared는 오답(도메인 아님).
+
+**잠긴 결정**: 안 쓰는 변형(Async/Buffered)은 등록하지 않는다. 필터는 미구현이라 넘기면
+`NotSupportedException` — 조용히 무시하지 않는다. `RegisterMessagePipe` 자체는 남긴다
+(`GlobalMessagePipe`가 쓰는 `IServiceProvider` 등록이 거기 있다).
+
+**검증**: 브로커 EditMode 11개(클 548 / 서 522 green) — 그중 "구독·해제 10사이클 순서 유지"는 옛 구현으로
+돌리면 3회차에서 깨지는 테스트다. 런타임은 ① 등록된 메시지 11/11 + 키 브로커가 새 클래스로 해석됨,
+② **실행 중인 앱의 진짜 브로커로 6사이클 순서 유지**(3·4회차 포함), ③ 실매치 2판 + 배포 후 1판
+(`userEntityId`/`actor`/`simulated=1`, Recon 0.00m, 새 가드 미발동).
+
+머지: GF `fce77b5` / Server `b7113ea` / Client `c8e0cb2`. 배포: `re5nardo/game-server:b7113ea`,
+infra `993b9c0`, 매치 pod이 그 이미지로 Running 확인. `[[messagepipe-handler-order-not-fifo]]`
+
+> ⚠️ **검증 중 관찰(미확정)**: 매치 종료가 두 번째부터 안 먹는 것처럼 보였다. 단 서버 대신
+> `MatchEndedToC`를 로컬에서 흘려 넣은 **비정상 경로**라 진짜 버그인지는 확인하지 못했다.
+> 실제 종료 상황에서 로비 복귀가 이상하면 그때 파볼 것.
+
+### ✅ Flappy Race B2-d2 — 새가 난다 (2026-08-24, 4레포 머지)
+
+몸통 캡슐 치수를 엔티티 컴포넌트로 통일(`CapsuleShape`, GF) + 공유 `BodySizes`(Shared), 클라가 자기 새를
+`Simulated`로 예측, 전체화면 탭 = 날갯짓 UI(`FlapPadView`). 카메라 드래그는 이 게임에 불필요해 제거.
+검증: 날갯짓으로 떠오르고 파이프 틈을 통과 — B2-d1이 채점 못 했던 그 항목. 머지: GF `24f6d11` /
+Shared `abfd08c` / Client `1dd49e5` / Server `3ae33c9`.
+
+### ✅ 엔티티 동기화 모드를 게임이 고른다 (2026-08-24, 2레포 머지)
+
+원격 엔티티를 **보간할지 예측할지**를 게임별 정책으로 뺐다. `IEntitySyncPolicy` + `EntitySyncMode`
+{Interpolated, Predicted} (클라 `LOP.EntitySync` asmdef). FlapWang = `OwnerPredictedSyncPolicy`(내 것만
+예측 — 남을 밀어내는 게 게임성이 아니다), Flappy Race = `CharactersPredictedSyncPolicy`(새끼리 몸싸움이
+게임성이라 전부 예측). `Simulated` 마커는 유지하되 **정책에서 파생**되고, `EntityBinder`가 유일한 부착
+지점이다. 내 캐릭터 자체의 모드 선택은 **자리만 열어둠**(미구현).
+
+**리서치 근거**: 원격 예측은 업계 표준(Rocket League는 모든 차·공을 예측, Photon Fusion은 Forecast
+Physics로 로컬 시각까지 외삽). "최종 속도로 위치만 외삽"하는 dead reckoning(IEEE 1278)은 **채택 안 함** —
+파이프 충돌이 있는 우리 게임엔 물리 없는 외삽이 벽을 뚫는다.
+
+**검증**: 클라 측 몸싸움 실측 — bird2가 (364.73, −49.80)에 서 있고 접촉 순간 메인 (365.09, −50.24) /
+클론 (367.74, −49.88)로 **각자 독립 예측**한 뒤 둘 다 (369.53, −49.92)로 수렴. FlapWang은 무변
+(`simulated=1`). 머지: Shared `ceb4013` / Client `dc3c3c8`.
 
 ### Stage④ + 넷코드 + 이동 (2026-07, 시간순)
 

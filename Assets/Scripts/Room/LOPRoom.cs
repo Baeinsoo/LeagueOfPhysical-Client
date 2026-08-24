@@ -39,6 +39,10 @@ namespace LOP
                 await clockSettle;
 
                 await StartGameAsync();
+
+                // 여기서 보내는 이유: 맵이 떴고, 내 새가 있고, 시계가 안정됐고, 러너가 돌고 있다.
+                // 더 일찍 보내면 시계가 어긋난 채 출발선을 긋게 된다(WaitForClockSettleAsync 주석 참고).
+                NetworkClient.Send(new CustomMirrorMessage { payload = new MatchReadyToS() });
             }
             catch (Exception e)
             {

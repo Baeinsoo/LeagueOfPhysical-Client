@@ -1853,6 +1853,7 @@ git -C C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Server rev-parse --short ma
 | 5 | 타격점에서 **먼 동전이 덜 움직인다** |
 | 6 | 동전 위에 얹힌 동전은 **직접 힘을 안 받는다**(아래 동전에 밀려서만 움직인다) |
 | 7 | 양쪽 콘솔에 **새 예외가 없다** |
+| 8 | **FlapWang 근접 공격이 전과 같다** — 3-0이 그 경로를 건드렸다. 데미지 숫자가 뜨고, **한 번에 한 대만** 맞고, HP가 예상대로 준다. (3-0에서 확인하려 했으나 그때는 배포된 게임서버가 옛 이미지라 검증이 성립하지 않았다 — 배포 후인 여기가 진짜 경로다) |
 
 ```bash
 "$U" command get_console_logs --severity error --limit 20 --project-path "$CLIENT"

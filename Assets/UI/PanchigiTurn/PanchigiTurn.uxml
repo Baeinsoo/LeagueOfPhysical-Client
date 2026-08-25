@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="PanchigiTurn.uss" />
+    <ui:VisualElement name="panchigi-turn" class="panchigi-turn">
+        <ui:Label name="turn-label" class="turn-label" text="" />
+    </ui:VisualElement>
+</ui:UXML>

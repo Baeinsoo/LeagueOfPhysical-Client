@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using LOP.UI;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -24,6 +27,17 @@ namespace LOP
 
             builder.Register<PanchigiStateStore>(Lifetime.Singleton);
             builder.RegisterEntryPoint<PanchigiStateMessageHandler>();
+
+            builder.Register<LOP.UI.PanchigiTurnViewModel>(Lifetime.Transient);
+            builder.Register<LOP.UI.PanchigiTurnView>(Lifetime.Transient);
+            builder.RegisterEntryPoint<PanchigiHudCoordinator>();
+        }
+
+        protected override void RegisterViewFactories(
+            IObjectResolver container, IWindowManager windowManager, List<IDisposable> sink)
+        {
+            sink.Add(windowManager.RegisterViewFactory<LOP.UI.PanchigiTurnView>(
+                () => container.Resolve<LOP.UI.PanchigiTurnView>()));
         }
     }
 }

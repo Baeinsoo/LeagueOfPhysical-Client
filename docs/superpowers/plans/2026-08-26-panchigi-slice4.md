@@ -63,7 +63,7 @@
 - Modify: `Assets/Scripts/RootLifetimeScope.cs` · `Assets/Scripts/Network/NetworkMessageDispatcher.cs`
 
 **infrastructure / MasterData**
-- Modify: `table/Datas/#PanchigiSetup.xlsx` — `coin_count` 제거 + 4인 행
+- Modify: `table/Datas/#PanchigiSetup.xlsx` — `coin_count` 컬럼 제거
 - 재생성 산출물: MasterData-Client/Server의 `PanchigiSetup.cs` · `tbpanchigisetup.bytes`
 
 ---
@@ -560,9 +560,11 @@ git -C ~/workspace/LOP/LeagueOfPhysical-Client commit -m "feat(panchigi): 턴 �
 
 ---
 
-### Task 6: 마스터데이터 — `coin_count` 제거 + 4인 행
+### Task 6: 마스터데이터 — `coin_count` 컬럼 제거
 
-`coin_count`는 대형의 점 개수와 같은 것을 두 번 말한다(4개짜리 `FourInLine`). 그리고 규칙은 2~4명인데 **4인 행이 없어** 4인 매치가 잡히면 방이 죽는다.
+`coin_count`는 대형의 점 개수와 같은 것을 두 번 말한다(4개짜리 `FourInLine`). 개수는 이제 씬의 자리 목록에서 나오므로 컬럼을 지운다.
+
+> ⚠️ **이 계획의 초판은 "4인 행이 없다"고 적었는데 틀렸다.** 표 확인 스크립트에 행 제한을 걸어 7번째 행을 잘라내고 낸 결론이었다. 4인 행은 `id=4, coin_count=8, formation=FourByTwo`로 이미 있다 — **대형 이름을 바꾸지 말 것.**
 
 **Files:**
 - Modify: `infrastructure/table/Datas/#PanchigiSetup.xlsx`
@@ -587,7 +589,7 @@ for row in re.findall(r'<row[^>]*>.*?</row>', s, re.S):
 
 - [ ] **Step 2: 엑셀을 고친다**
 
-`C` 열(`coin_count`)을 삭제해 `formation`이 `C` 열로 오게 하고, 4인 행(`4`, `EightInLine`)을 7행에 더한다. 결과:
+`C` 열(`coin_count`)을 삭제해 `formation`이 `C` 열로 오게 한다. **행은 이미 셋 다 있으므로 더하지 않는다.** 결과:
 
 ```
 ##var   id      formation
@@ -596,7 +598,7 @@ for row in re.findall(r'<row[^>]*>.*?</row>', s, re.S):
 ##      id      formation
         2       FourInLine
         3       SixInLine
-        4       EightInLine
+        4       FourByTwo
 ```
 
 파이썬으로 sheet1.xml을 직접 편집하거나 엑셀에서 연다. 어느 쪽이든 **`##var`/`##type`/`##group`/`##` 네 줄 머리**를 유지해야 Luban이 읽는다.
@@ -709,20 +711,23 @@ $U cmd open_scene --project-path $S -- --path "Assets/Scenes/Panchigi.unity"
 $U cmd add_component --project-path $S -- --target "Board" --component "LOP.PanchigiBoard"
 ```
 
-자리는 `Board` 아래 빈 오브젝트로 만든다. **8개**(4인 대형이 가장 크다)를 만들고, 판(10×10) 안에 겹치지 않게 둔다. 동전 반지름 0.3이므로 간격은 0.7 이상.
+**대형마다 자기 자리 목록을 만든다.** 한 줄로 8개를 깔아 놓고 앞에서부터 잘라 쓰면 `SixInLine`이 "4개 줄 + 2개"가 되어 이름이 거짓말을 한다. 이름이 곧 모양이다.
 
-권장 배치(모두 `y = 1.5` — 떨어뜨려 놓는다):
+`Board` 아래에 대형별 빈 부모를 두고 그 아래에 자리를 만든다. 판은 10×10이고 동전 반지름이 0.3이라 간격은 0.7 이상. 모두 `y = 1.5`(떨어뜨려 놓는다).
 
 ```
-Slot0 (-1.05, 1.5, 0)   Slot1 (-0.35, 1.5, 0)   Slot2 (0.35, 1.5, 0)   Slot3 (1.05, 1.5, 0)
-Slot4 (-1.05, 1.5, 0.7) Slot5 (-0.35, 1.5, 0.7) Slot6 (0.35, 1.5, 0.7) Slot7 (1.05, 1.5, 0.7)
+FourInLine  (2인, 4개 — 한 줄)
+  (-1.05, 1.5, 0)  (-0.35, 1.5, 0)  (0.35, 1.5, 0)  (1.05, 1.5, 0)
+
+SixInLine   (3인, 6개 — 한 줄)
+  (-1.75, 1.5, 0)  (-1.05, 1.5, 0)  (-0.35, 1.5, 0)  (0.35, 1.5, 0)  (1.05, 1.5, 0)  (1.75, 1.5, 0)
+
+FourByTwo   (4인, 8개 — 4×2 격자)
+  (-1.05, 1.5, -0.35)  (-0.35, 1.5, -0.35)  (0.35, 1.5, -0.35)  (1.05, 1.5, -0.35)
+  (-1.05, 1.5,  0.35)  (-0.35, 1.5,  0.35)  (0.35, 1.5,  0.35)  (1.05, 1.5,  0.35)
 ```
 
-`create_gameobject`/`set_transform`/`set_parent`로 만들고, `set_component_properties`로 `PanchigiBoard`의 `formations`를 채운다:
-
-- `FourInLine` → Slot0~3
-- `SixInLine` → Slot0~5
-- `EightInLine` → Slot0~7
+`create_gameobject`/`set_transform`/`set_parent`로 만들고, `set_component_properties`로 `PanchigiBoard`의 `formations` 세 벌을 채운다. **자리 순서가 곧 동전 순서**이므로 위에 적힌 차례대로 넣는다.
 
 `boardCollider`는 `Board`의 `BoxCollider`.
 

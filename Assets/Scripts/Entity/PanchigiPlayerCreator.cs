@@ -9,10 +9,17 @@ namespace LOP
     /// </summary>
     public class PanchigiPlayerCreator : ICharacterCreator
     {
+        private readonly IGameDataStore gameDataStore;
+        private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
 
-        public PanchigiPlayerCreator(GameFramework.World.EntityRegistry entityRegistry)
+        public PanchigiPlayerCreator(
+            IGameDataStore gameDataStore,
+            IPlayerContext playerContext,
+            GameFramework.World.EntityRegistry entityRegistry)
         {
+            this.gameDataStore = gameDataStore;
+            this.playerContext = playerContext;
             this.entityRegistry = entityRegistry;
         }
 
@@ -32,11 +39,16 @@ namespace LOP
             worldEntity.Add(new GameFramework.World.PhysicsConfig(
                 GameFramework.World.BodyKind.Kinematic, freezeRotation: true, isTrigger: false));
 
-            //  클라 CharacterCreationData엔 userId가 없다(다른 클라 creator들과 동일 — "내 것"은
-            //  gameDataStore.userEntityId 비교로 가린다). Ownership은 서버 전용 개념이라 여기선 안 붙인다.
+            //  Ownership은 서버 전용 개념이라 여기선 안 붙인다.
 
             //  Simulated을 붙이지 않는다 — 우리 시뮬이 굴릴 것이 없다(아바타가 안 움직인다).
             entityRegistry.Add(worldEntity);
+
+            bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
+            if (isUserEntity)
+            {
+                playerContext.entityId = creationData.entityId;
+            }
 
             Debug.Log($"[World] Registered panchigi player (client) {worldEntity.Id}");
         }

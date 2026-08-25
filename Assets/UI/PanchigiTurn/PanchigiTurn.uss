@@ -1,0 +1,13 @@
+.panchigi-turn {
+    position: absolute;
+    top: 24px;
+    left: 0;
+    right: 0;
+    align-items: center;
+}
+
+.turn-label {
+    font-size: 28px;
+    color: rgb(255, 255, 255);
+    -unity-text-align: middle-center;
+}

@@ -16,6 +16,9 @@ namespace LOP
 
         [Inject] private IPlayerContext playerContext;
         [Inject] private LOP.MasterData.LOPMasterData masterData;
+        [Inject] private PanchigiStateStore stateStore;
+
+        private const int AimingPhase = 1;
 
         //  판만 맞힌다 — 동전을 눌러도 "판의 그 자리를 쳤다"로 읽어야 조작이 자연스럽다.
         //  static 필드 초기화자에서 LayerMask.GetMask를 부르면 Unity가 예외를 던진다
@@ -53,6 +56,15 @@ namespace LOP
                 return;   // 마우스도 터치도 없는 환경
             }
 
+            if (aiming
+                && (stateStore.Phase.CurrentValue != AimingPhase
+                    || stateStore.CurrentEntityId.CurrentValue != playerContext.entityId))
+            {
+                //  조준하는 중에 차례가 넘어갔다 — 조준선이 화면에 남으면 안 된다.
+                aiming = false;
+                SetAimLineVisible(false);
+            }
+
             if (pointer.press.wasPressedThisFrame)
             {
                 BeginAim(pointer.position.ReadValue());
@@ -72,6 +84,13 @@ namespace LOP
 
         private void BeginAim(Vector2 screenPosition)
         {
+            //  내 차례가 아니면 조준을 시작하지 않는다 — 조준선이 안 뜨는 것이 곧 안내다.
+            if (stateStore.Phase.CurrentValue != AimingPhase
+                || stateStore.CurrentEntityId.CurrentValue != playerContext.entityId)
+            {
+                return;
+            }
+
             if (TryBoardPoint(screenPosition, out Vector3 point) == false)
             {
                 return;   // 판 밖을 눌렀다 — 조준을 시작하지 않는다

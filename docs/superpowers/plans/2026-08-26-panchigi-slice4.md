@@ -393,7 +393,7 @@ namespace LOP
                 return;
             }
 
-            if (TurnCount > turnLimit)
+            if (TurnCount >= turnLimit)
             {
                 Phase = PanchigiPhase.Over;     // 무승부 — WinnerEntityId는 null
                 return;
@@ -419,7 +419,7 @@ namespace LOP
 
             TurnCount++;
 
-            if (TurnCount > turnLimit)
+            if (TurnCount >= turnLimit)
             {
                 CurrentEntityId = null;
                 Phase = PanchigiPhase.Over;

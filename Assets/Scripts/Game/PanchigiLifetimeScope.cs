@@ -21,6 +21,9 @@ namespace LOP
             builder.Register<ICharacterCreator, PanchigiPlayerCreator>(Lifetime.Singleton);
             builder.Register<IEntitySyncPolicy, AllInterpolatedSyncPolicy>(Lifetime.Singleton);
             builder.Register<IServerCorrectionHandler, NoServerCorrection>(Lifetime.Singleton);
+
+            builder.Register<PanchigiStateStore>(Lifetime.Singleton);
+            builder.RegisterEntryPoint<PanchigiStateMessageHandler>();
         }
     }
 }

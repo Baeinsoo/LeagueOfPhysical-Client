@@ -65,6 +65,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 28216a03bc583ed499e79a1994f6b520, type: 2}
   - {fileID: 11400000, guid: 58f00872b522aca4a95926a98109e9c5, type: 2}
   - {fileID: 11400000, guid: c1f7fb8bd5ed0a14baeb605ecdc36a83, type: 2}
+  - {fileID: 11400000, guid: e1619b7e357fa434ea78962d5b345238, type: 2}
   m_BuildSettings:
     m_LogResourceManagerExceptions: 1
     m_BundleBuildPath: Temp/com.unity.addressables/AssetBundles

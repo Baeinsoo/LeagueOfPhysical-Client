@@ -3532,6 +3532,34 @@ B의 진짜 비용은 와이어가 아니라 타이밍이다: 남의 입력은 �
 서버보다 앞서 달린다. → 입력 지연(락스텝)이거나, 도착 전 외삽 + 도착 시 롤백 재생(GGPO/Quantum).
 후자의 뼈대는 `Reconciler`(스냅샷+재생)에 이미 있다.
 
+### 실측 (2026-08-25, 2인 라이브)
+
+같은 새의 수직 속도를 서버와 클라에서 동시에 읽었다:
+
+| | 새2의 수직 속도 |
+|---|---|
+| 서버(시뮬) | **−30** — `FlappyMoveSystem`이 `MaxFallSpeed`에서 자른다 |
+| 클라(외삽) | **−35.67** — 안 자른다 |
+
+```csharp
+// FlappyMoveSystem — 게임 규칙을 안다
+if (velocity.y < -config.MaxFallSpeed) velocity.y = -config.MaxFallSpeed;
+
+// GameFramework SnapshotExtrapolation.Velocity — 그냥 적분한다
+return velocity + acceleration * t;
+```
+
+외삽 커널은 게임 비종속이라 `MaxFallSpeed` 같은 규칙을 모른다. 그래서 스냅 사이 시간이 길수록
+어긋나고, 이 순간 19% 차이였다.
+
+**이게 몸싸움에 직접 들어간다.** `FlappyBounce`는 부딪힐 때 **세로 속도를 주고받으므로**,
+내 새가 남의 새를 들이받으면 서버가 계산할 값보다 19% 센 힘을 교환하게 된다. `NoServerCorrection`이라
+그 차이는 영영 안 고쳐진다.
+
+즉 A(외삽)를 유지하더라도 **최소한 외삽이 게임의 속도 상한을 알아야 한다** — 지금은 그 통로가 없다
+(`IExtrapolationAcceleration`은 가속도만 준다). B로 가면 이 문제는 통째로 사라진다(남도 같은
+`FlappyMoveSystem`을 돌리므로).
+
 ### 상태
 
 미해결. 시작 게이트 슬라이스의 눈 검증에서 **"남의 새가 실제로 얼마나 어색한가"** 를 보고 나서

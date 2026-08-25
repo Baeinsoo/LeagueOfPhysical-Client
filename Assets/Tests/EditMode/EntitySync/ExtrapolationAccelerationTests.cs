@@ -8,7 +8,7 @@ namespace LOP.Tests
         private static FlappyConfig Config(float gravity)
             => new FlappyConfig(forwardSpeed: 11f, flapImpulse: 23f, gravity: gravity, maxFallSpeed: 30f,
                                  bodyRadius: 0.35f, bodyHeight: 1.5f, restitution: 0.5f,
-                                 ghostTime: 0.8f, invulnTime: 0.6f);
+                                 stunTime: 0.8f, invulnTime: 0.6f);
 
         [Test]
         public void Flappy_가속도는_중력을_아래_방향으로_준다()

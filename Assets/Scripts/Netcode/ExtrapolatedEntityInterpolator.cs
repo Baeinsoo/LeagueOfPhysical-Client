@@ -19,8 +19,8 @@ namespace LOP
         public GameFramework.World.Entity worldEntity { get; set; }
         public LOPActor actor { get; set; }
 
-        // 캐릭터가 아니면(아이템 등) null — GhostAppearance는 캐릭터에만 붙는다.
-        public GhostAppearance ghostAppearance { get; set; }
+        // 캐릭터가 아니면(아이템 등) null — StunAppearance는 캐릭터에만 붙는다.
+        public StunAppearance stunAppearance { get; set; }
 
         /// <summary>중력 등 가속도. EntityBinder가 <see cref="IExtrapolationAcceleration"/>에서 꺼내 건넨다.</summary>
         public Vector3 acceleration { get; set; }
@@ -52,7 +52,7 @@ namespace LOP
             }
             latest = snap;
             hasSnap = true;
-            ghostAppearance?.SetGhost(snap.ghost);
+            stunAppearance?.SetStun(snap.ghost);
         }
 
         // ServerNow = 서버의 "지금"을 클라가 추정한 값(지연 없음, INetworkTime 계약) — 보간(RenderTime, 일부러
@@ -63,7 +63,7 @@ namespace LOP
         private void CurrentState(out Vector3 position, out Vector3 velocity)
         {
             float elapsed = (float)(networkTime.ServerNow - latest.timestamp);
-            // 유령 상태(맵에 부딪혀 멈춘 새)는 서버에서 위치가 얼어붙어 있고 속도도 0이다 — 그 0.8초
+            // 스턴 상태(맵에 부딪혀 멈춘 새)는 서버에서 위치가 얼어붙어 있고 속도도 0이다 — 그 0.8초
             // 동안의 실제 가속도는 0인데 여기에 중력까지 계속 넣으면, 패킷 손실로 오래 못 받을수록
             // (최대 0.25초) 서 있어야 할 새가 수 m 아래로 꺼지고 가짜 낙하속도까지 생긴다.
             System.Numerics.Vector3 accel = latest.ghost ? System.Numerics.Vector3.Zero : acceleration.ToNumerics();

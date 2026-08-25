@@ -100,7 +100,7 @@ namespace LOP
             actor.SetView(view);
 
             // 팔로워 부착은 kind와 무관 — 모드(Predicted/Extrapolated/Interpolated)만 본다. 캐릭터·아이템 둘 다 여기 하나로 처리.
-            // 유령 반투명(GhostAppearance)은 아래 캐릭터 분기에서 만들어지므로, 셋 중
+            // 스턴 반투명(StunAppearance)은 아래 캐릭터 분기에서 만들어지므로, 셋 중
             // 어느 쪽이 붙었는지 여기서 들고 있다가 그때 이어 준다.
             PredictedEntityInterpolator predictedInterpolator = null;
             ExtrapolatedEntityInterpolator extrapolatedInterpolator = null;
@@ -156,20 +156,20 @@ namespace LOP
                 objectResolver.Inject(statusEffectVfx);
                 statusEffectVfx.SetEntityId(entityCreated.entityId);
 
-                GhostAppearance ghostAppearance = root.AddComponent<GhostAppearance>();
-                objectResolver.Inject(ghostAppearance);
-                ghostAppearance.SetEntity(actor);
+                StunAppearance stunAppearance = root.AddComponent<StunAppearance>();
+                objectResolver.Inject(stunAppearance);
+                stunAppearance.SetEntity(actor);
                 if (predictedInterpolator != null)
                 {
-                    predictedInterpolator.ghostAppearance = ghostAppearance;
+                    predictedInterpolator.stunAppearance = stunAppearance;
                 }
                 if (extrapolatedInterpolator != null)
                 {
-                    extrapolatedInterpolator.ghostAppearance = ghostAppearance;
+                    extrapolatedInterpolator.stunAppearance = stunAppearance;
                 }
                 if (snapshotInterpolator != null)
                 {
-                    snapshotInterpolator.ghostAppearance = ghostAppearance;
+                    snapshotInterpolator.stunAppearance = stunAppearance;
                 }
             }
         }

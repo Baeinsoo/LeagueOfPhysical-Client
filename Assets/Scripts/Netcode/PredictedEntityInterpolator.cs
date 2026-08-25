@@ -23,8 +23,8 @@ namespace LOP
 
         public LOPActor actor { get; set; }
 
-        // 캐릭터가 아니면(아이템 등) null — GhostAppearance는 캐릭터에만 붙는다.
-        public GhostAppearance ghostAppearance { get; set; }
+        // 캐릭터가 아니면(아이템 등) null — StunAppearance는 캐릭터에만 붙는다.
+        public StunAppearance stunAppearance { get; set; }
 
         private struct RenderSample
         {
@@ -62,9 +62,9 @@ namespace LOP
                 return;
             }
 
-            // 예측 대상은 스냅을 기다리지 않고 시뮬 결과를 그 자리에서 읽는다 — FlappyGhost가 없는
-            // 엔티티(FlapWang 등)는 항상 null이라 자연히 유령 표시가 안 켜진다.
-            ghostAppearance?.SetGhost(worldEntity.Get<FlappyGhost>()?.Remaining > 0f);
+            // 예측 대상은 스냅을 기다리지 않고 시뮬 결과를 그 자리에서 읽는다 — FlappyStun이 없는
+            // 엔티티(FlapWang 등)는 항상 null이라 자연히 스턴 표시가 안 켜진다.
+            stunAppearance?.SetStun(worldEntity.Get<FlappyStun>()?.StunRemaining > 0f);
 
             samples.Add(new RenderSample
             {

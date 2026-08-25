@@ -16,8 +16,8 @@ namespace LOP
         public GameFramework.World.Entity worldEntity { get; set; }
         public LOPActor actor { get; set; }
 
-        // 캐릭터가 아니면(아이템 등) null — GhostAppearance는 캐릭터에만 붙는다.
-        public GhostAppearance ghostAppearance { get; set; }
+        // 캐릭터가 아니면(아이템 등) null — StunAppearance는 캐릭터에만 붙는다.
+        public StunAppearance stunAppearance { get; set; }
 
         private readonly BoundedList<EntitySnap> snaps = new BoundedList<EntitySnap>(32);
 
@@ -29,7 +29,7 @@ namespace LOP
                 return;
             }
             snaps.Add(snap);
-            ghostAppearance?.SetGhost(snap.ghost);
+            stunAppearance?.SetStun(snap.ghost);
         }
 
         private void LateUpdate()

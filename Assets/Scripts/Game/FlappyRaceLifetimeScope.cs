@@ -23,7 +23,7 @@ namespace LOP
 
             builder.Register<FlappyMoveSystem>(Lifetime.Singleton);
             builder.Register<FlappyBodyCollisionSystem>(Lifetime.Singleton);
-            builder.Register<FlappyGhostSystem>(Lifetime.Singleton);
+            builder.Register<FlappyStunSystem>(Lifetime.Singleton);
             // sweep이 볼 것은 맵 지오메트리뿐이다 — 새끼리는 물리엔진이 아니라 우리 계산으로 민다.
             // 새의 물리 몸은 PhysicsBodyFactory가 만들면서 무조건 Character 레이어에 둔다. 그래서 이
             // 마스크에 Character가 없는 한 새끼리는 sweep에 걸리지 않는다.
@@ -33,15 +33,15 @@ namespace LOP
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
                 c.Resolve<FlappyMoveSystem>(),
                 c.Resolve<FlappyBodyCollisionSystem>(),
-                c.Resolve<FlappyGhostSystem>(),
+                c.Resolve<FlappyStunSystem>(),
                 c.Resolve<GameFramework.Physics.ICollisionQuery>(),
                 c.Resolve<GameFramework.World.IMotionBridge>(),
                 LayerMask.GetMask("Default")), Lifetime.Singleton);
             builder.Register<ICharacterCreator, FlappyBirdCreator>(Lifetime.Singleton);
             // 알려진 한계: NoServerCorrection이라 내 새의 snap.ghost는 서버로 되먹임되지 않는다 —
-            // 클라·서버가 "부딪혔다/안 부딪혔다"를 다르게 판단하면 유령정지(0.8초) 여부가 서로 갈리고,
+            // 클라·서버가 "부딪혔다/안 부딪혔다"를 다르게 판단하면 스턴(0.8초) 여부가 서로 갈리고,
             // 위치 보정이 없으니 그 어긋남을 고칠 방법이 없다. 지금은 판정이 결정론적(같은 입력·같은
-            // 충돌질의)이라 실전에서 갈릴 일이 드물어 감수한 것 — 유령정지 판정에 비결정 요소(예: 서버만
+            // 충돌질의)이라 실전에서 갈릴 일이 드물어 감수한 것 — 스턴 판정에 비결정 요소(예: 서버만
             // 아는 지연 보상)가 들어가는 순간 재검토해야 한다.
             builder.Register<IServerCorrectionHandler, NoServerCorrection>(Lifetime.Singleton);
 

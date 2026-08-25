@@ -25,7 +25,8 @@ namespace LOP
             return new FlappyConfig(
                 r.ForwardSpeed, r.FlapImpulse, r.Gravity, r.MaxFallSpeed,
                 r.BodyRadius, r.BodyHeight, r.Restitution,
-                r.GhostTime, r.InvulnTime);
+                stunTime: r.GhostTime,   // 컬럼명은 아직 ghost_time — Task 3에서 stun_time으로 바꾼다
+                invulnTime: r.InvulnTime);
         }
     }
 }

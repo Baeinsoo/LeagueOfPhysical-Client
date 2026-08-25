@@ -4,10 +4,10 @@ using UnityEngine;
 namespace LOP
 {
     /// <summary>
-    /// 유령(맵에 부딪혀 멈춘) 상태를 눈에 띄는 색으로 보여 준다. 남이 이유 없이 멈춘 것처럼 보이지 않게
+    /// 스턴(맵에 부딪혀 멈춘) 상태를 눈에 띄는 색으로 보여 준다. 남이 이유 없이 멈춘 것처럼 보이지 않게
     /// 하는 최소한의 연출이라, 상태 판단은 하지 않고 받은 값을 그대로 그린다.
     /// </summary>
-    public class GhostAppearance : MonoBehaviour, ICleanup
+    public class StunAppearance : MonoBehaviour, ICleanup
     {
         // 원래는 반투명(알파)을 노렸다. 하지만 URP + 새(bird) FBX에 딸려 온 머티리얼은 기본값이
         // Surface Type = Opaque라, 그 상태에서는 알파 값이 통째로 무시돼 색만 있는 그대로 불투명하게
@@ -20,7 +20,7 @@ namespace LOP
         // 쓰지 않는다 — Unity에서 마젠타는 "머티리얼/셰이더 유실" 에러 색으로 굳어 있어서, 새가 그
         // 색으로 번쩍이면 "경기에서 빠졌다"가 아니라 "이 에셋이 고장났다"로 읽힌다(서버 에디터가
         // 아트 파이프라인이 없어 씬 전체를 이 마젠타로 그리는 게 실제 사례).
-        private static readonly Color GhostColor = new Color(0.6f, 0.6f, 0.7f);
+        private static readonly Color StunColor = new Color(0.6f, 0.6f, 0.7f);
 
         private LOPActor actor;
 
@@ -32,13 +32,13 @@ namespace LOP
         private Renderer[] renderers;
 
         // 원본 = 공유 에셋 그대로(복제 아님). sharedMaterial은 읽어도 인스턴스를 만들지 않으므로,
-        // 한 번도 유령이 안 되는 캐릭터(FlapWang 등)는 이 컴포넌트를 달고 있어도 머티리얼 복제가
+        // 한 번도 스턴이 안 되는 캐릭터(FlapWang 등)는 이 컴포넌트를 달고 있어도 머티리얼 복제가
         // 전혀 안 생긴다.
         private Material[] originalMaterials;
 
-        // 유령 전용 복제본. 실제로 유령이 되는 첫 순간에만 만들고, 그 뒤로는 재사용한다 —
+        // 스턴 전용 복제본. 실제로 스턴이 되는 첫 순간에만 만들고, 그 뒤로는 재사용한다 —
         // 새는 레이스에서 여러 번 부딪히므로 매번 새로 만들면 계속 새는(leak) 셈이 된다.
-        private Material[] ghostMaterials;
+        private Material[] stunMaterials;
 
         private bool applied;
 
@@ -60,9 +60,9 @@ namespace LOP
             }
 
             // 모델이 바뀌었다(처음 로드됐거나, visualId가 바뀌어 통째로 교체됐거나) — 옛 렌더러가
-            // 가리키던 머티리얼은 더 이상 화면에 없으므로 유령 복제본부터 정리하고 새 모델 기준으로
+            // 가리키던 머티리얼은 더 이상 화면에 없으므로 스턴 복제본부터 정리하고 새 모델 기준으로
             // 다시 뽑는다.
-            ReleaseGhostMaterials();
+            ReleaseStunMaterials();
             capturedVisual = visual;
             applied = false;
 
@@ -82,24 +82,24 @@ namespace LOP
             return renderers.Length > 0;
         }
 
-        public void SetGhost(bool ghost)
+        public void SetStun(bool stun)
         {
-            if (TryResolveRenderers() == false || ghost == applied)
+            if (TryResolveRenderers() == false || stun == applied)
             {
                 return;
             }
-            applied = ghost;
+            applied = stun;
 
-            if (ghost && ghostMaterials == null)
+            if (stun && stunMaterials == null)
             {
-                ghostMaterials = new Material[renderers.Length];
+                stunMaterials = new Material[renderers.Length];
                 for (int i = 0; i < renderers.Length; i++)
                 {
-                    ghostMaterials[i] = new Material(originalMaterials[i]) { color = GhostColor };
+                    stunMaterials[i] = new Material(originalMaterials[i]) { color = StunColor };
                 }
             }
 
-            Material[] target = ghost ? ghostMaterials : originalMaterials;
+            Material[] target = stun ? stunMaterials : originalMaterials;
             for (int i = 0; i < renderers.Length; i++)
             {
                 // sharedMaterial "쓰기"는 그 렌더러가 참조할 에셋을 바꿀 뿐 복제를 유발하지 않는다
@@ -109,23 +109,23 @@ namespace LOP
             }
         }
 
-        private void ReleaseGhostMaterials()
+        private void ReleaseStunMaterials()
         {
-            if (ghostMaterials == null)
+            if (stunMaterials == null)
             {
                 return;
             }
-            for (int i = 0; i < ghostMaterials.Length; i++)
+            for (int i = 0; i < stunMaterials.Length; i++)
             {
-                Destroy(ghostMaterials[i]);
+                Destroy(stunMaterials[i]);
             }
-            ghostMaterials = null;
+            stunMaterials = null;
         }
 
         public void Cleanup()
         {
-            SetGhost(false);
-            ReleaseGhostMaterials();
+            SetStun(false);
+            ReleaseStunMaterials();
         }
     }
 }

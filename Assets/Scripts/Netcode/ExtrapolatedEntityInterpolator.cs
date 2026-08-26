@@ -52,7 +52,7 @@ namespace LOP
             }
             latest = snap;
             hasSnap = true;
-            stunAppearance?.SetStun(snap.stunned);
+            stunAppearance?.SetState(StunVisuals.Of(snap));
         }
 
         // ServerNow = 서버의 "지금"을 클라가 추정한 값(지연 없음, INetworkTime 계약) — 보간(RenderTime, 일부러

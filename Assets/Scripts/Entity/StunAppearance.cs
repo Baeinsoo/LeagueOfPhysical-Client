@@ -3,9 +3,22 @@ using UnityEngine;
 
 namespace LOP
 {
+    /// <summary>새가 지금 어떤 상태인지 화면에 보여 줄 때 쓰는 세 단계.</summary>
+    public enum StunVisual
+    {
+        /// <summary>평소.</summary>
+        None,
+
+        /// <summary>부딪혀서 멈춰 있는 중(페널티).</summary>
+        Stunned,
+
+        /// <summary>멈춤이 풀린 뒤, 잠시 다시 안 걸리는 중.</summary>
+        Invulnerable,
+    }
+
     /// <summary>
-    /// 스턴(맵에 부딪혀 멈춘) 상태를 눈에 띄는 색으로 보여 준다. 남이 이유 없이 멈춘 것처럼 보이지 않게
-    /// 하는 최소한의 연출이라, 상태 판단은 하지 않고 받은 값을 그대로 그린다.
+    /// 스턴(맵에 부딪혀 멈춘) 상태와 그 뒤의 짧은 무적을 눈에 띄게 보여 준다. 남이 이유 없이 멈춘 것처럼
+    /// 보이지 않게 하는 최소한의 연출이라, 상태 판단은 하지 않고 받은 값을 그대로 그린다.
     /// </summary>
     public class StunAppearance : MonoBehaviour, ICleanup
     {
@@ -22,6 +35,15 @@ namespace LOP
         // 아트 파이프라인이 없어 씬 전체를 이 마젠타로 그리는 게 실제 사례).
         private static readonly Color StunColor = new Color(0.6f, 0.6f, 0.7f);
 
+        // 무적은 "멈춤"과 반대로 *움직일 수 있는* 상태라, 정지색이 아니라 깜빡임으로 보여 준다 —
+        // 피격 후 무적을 깜빡임으로 알리는 건 오래된 관용이라(마리오·소닉 등) 설명 없이 읽힌다.
+        // 밝은 쪽 색은 원본을 살짝 띄운 따뜻한 흰색이다.
+        private static readonly Color InvulnFlashColor = new Color(1f, 1f, 0.85f);
+
+        // 켜짐/꺼짐 한 번에 이만큼. 무적이 0.6초라 세 번쯤 깜빡인다 — 더 빠르면 정신없고,
+        // 더 느리면 "깜빡인다"로 안 읽히고 그냥 색이 변한 것처럼 보인다.
+        private const float FlashInterval = 0.1f;
+
         private LOPActor actor;
 
         // 지금 renderers/originalMaterials를 뽑아 온 모델. actor.visualGameObject가 이 값과
@@ -36,11 +58,18 @@ namespace LOP
         // 전혀 안 생긴다.
         private Material[] originalMaterials;
 
-        // 스턴 전용 복제본. 실제로 스턴이 되는 첫 순간에만 만들고, 그 뒤로는 재사용한다 —
+        // 상태 전용 복제본. 그 상태가 실제로 처음 필요할 때만 만들고 그 뒤로는 재사용한다 —
         // 새는 레이스에서 여러 번 부딪히므로 매번 새로 만들면 계속 새는(leak) 셈이 된다.
         private Material[] stunMaterials;
+        private Material[] flashMaterials;
 
-        private bool applied;
+        private StunVisual state = StunVisual.None;
+
+        // 지금 렌더러에 물려 있는 배열. 무적 깜빡임이 매 프레임 이 값을 오가므로,
+        // 상태 하나로는 "지금 밝은 쪽인가"를 알 수 없어 따로 들고 있는다.
+        private Material[] shown;
+
+        private float flashTimer;
 
         public void SetEntity(LOPActor actor)
         {
@@ -60,11 +89,12 @@ namespace LOP
             }
 
             // 모델이 바뀌었다(처음 로드됐거나, visualId가 바뀌어 통째로 교체됐거나) — 옛 렌더러가
-            // 가리키던 머티리얼은 더 이상 화면에 없으므로 스턴 복제본부터 정리하고 새 모델 기준으로
+            // 가리키던 머티리얼은 더 이상 화면에 없으므로 복제본부터 정리하고 새 모델 기준으로
             // 다시 뽑는다.
-            ReleaseStunMaterials();
+            ReleaseDerivedMaterials();
             capturedVisual = visual;
-            applied = false;
+            state = StunVisual.None;
+            shown = null;
 
             if (visual == null)
             {
@@ -82,50 +112,106 @@ namespace LOP
             return renderers.Length > 0;
         }
 
-        public void SetStun(bool stun)
+        /// <summary>지금 그릴 상태. 같은 값을 매 틱 다시 넣어도 된다.</summary>
+        public void SetState(StunVisual next)
         {
-            if (TryResolveRenderers() == false || stun == applied)
+            if (TryResolveRenderers() == false || next == state)
             {
                 return;
             }
-            applied = stun;
+            state = next;
 
-            if (stun && stunMaterials == null)
+            switch (state)
             {
-                stunMaterials = new Material[renderers.Length];
-                for (int i = 0; i < renderers.Length; i++)
-                {
-                    stunMaterials[i] = new Material(originalMaterials[i]) { color = StunColor };
-                }
+                case StunVisual.Stunned:
+                    Show(StunMaterials());
+                    break;
+
+                case StunVisual.Invulnerable:
+                    // 항상 밝은 쪽부터 — 멈춤이 풀린 순간이 눈에 확 띄어야 한다.
+                    flashTimer = 0f;
+                    Show(FlashMaterials());
+                    break;
+
+                default:
+                    Show(originalMaterials);
+                    break;
+            }
+        }
+
+        private void Update()
+        {
+            if (state != StunVisual.Invulnerable)
+            {
+                return;
             }
 
-            Material[] target = stun ? stunMaterials : originalMaterials;
+            flashTimer += Time.deltaTime;
+            if (flashTimer < FlashInterval)
+            {
+                return;
+            }
+            flashTimer -= FlashInterval;
+            Show(shown == originalMaterials ? FlashMaterials() : originalMaterials);
+        }
+
+        private Material[] StunMaterials()
+        {
+            stunMaterials = stunMaterials ?? Tinted(StunColor);
+            return stunMaterials;
+        }
+
+        private Material[] FlashMaterials()
+        {
+            flashMaterials = flashMaterials ?? Tinted(InvulnFlashColor);
+            return flashMaterials;
+        }
+
+        private Material[] Tinted(Color color)
+        {
+            var tinted = new Material[renderers.Length];
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                tinted[i] = new Material(originalMaterials[i]) { color = color };
+            }
+            return tinted;
+        }
+
+        private void Show(Material[] materials)
+        {
+            shown = materials;
             for (int i = 0; i < renderers.Length; i++)
             {
                 // sharedMaterial "쓰기"는 그 렌더러가 참조할 에셋을 바꿀 뿐 복제를 유발하지 않는다
                 // (복제는 오직 .material을 "읽을" 때만 일어난다) — 원래대로 되돌릴 때도 복사본이
                 // 아니라 진짜 원본 레퍼런스로 되돌아간다.
-                renderers[i].sharedMaterial = target[i];
+                renderers[i].sharedMaterial = materials[i];
             }
         }
 
-        private void ReleaseStunMaterials()
+        private void ReleaseDerivedMaterials()
         {
-            if (stunMaterials == null)
+            Release(ref stunMaterials);
+            Release(ref flashMaterials);
+        }
+
+        private void Release(ref Material[] materials)
+        {
+            if (materials == null)
             {
                 return;
             }
-            for (int i = 0; i < stunMaterials.Length; i++)
+            for (int i = 0; i < materials.Length; i++)
             {
-                Destroy(stunMaterials[i]);
+                Destroy(materials[i]);
             }
-            stunMaterials = null;
+            materials = null;
         }
 
         public void Cleanup()
         {
-            SetStun(false);
-            ReleaseStunMaterials();
+            SetState(StunVisual.None);
+            ReleaseDerivedMaterials();
         }
     }
 }

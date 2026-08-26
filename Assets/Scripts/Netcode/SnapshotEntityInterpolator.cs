@@ -29,7 +29,7 @@ namespace LOP
                 return;
             }
             snaps.Add(snap);
-            stunAppearance?.SetStun(snap.stunned);
+            stunAppearance?.SetState(StunVisuals.Of(snap));
         }
 
         private void LateUpdate()

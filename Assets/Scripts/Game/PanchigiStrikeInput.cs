@@ -134,7 +134,9 @@ namespace LOP
                     {
                         collector.Begin(touchId, begin, Time.time);
                     }
-                    continue;
+                    //  여기서 다음 손가락으로 건너뛰면 안 된다 — 누름과 뗌이 같은 프레임에
+                    //  같이 true인 짧은 탭에서 뗌 검사를 아예 못 보게 된다(수집기가 영구히
+                    //  물림). 아래 뗌 검사로 그대로 흘러가게 둔다.
                 }
 
                 //  뗀 그 프레임엔 isPressed가 아직 true일 수 있다 — release를 먼저 본다.
@@ -163,7 +165,8 @@ namespace LOP
                 {
                     collector.Begin(MouseTouchId, begin, Time.time);
                 }
-                return;
+                //  여기서 돌아가면 안 된다 — 누름과 뗌이 같은 프레임에 같이 true인 짧은
+                //  클릭에서 뗌 검사를 못 보게 된다. 아래 뗌 검사로 그대로 흘러가게 둔다.
             }
 
             if (Mouse.current.leftButton.wasReleasedThisFrame)
@@ -251,7 +254,9 @@ namespace LOP
         //  치기마다 만들고 지우면 GC가 돈다 — 한 번만 만들고 계속 재사용한다.
         private void EnsureAimLines(int count)
         {
-            if (aimLine == null || aimLines != null)
+            //  count가 0 이하면(컨피그 실수 등) 풀을 만들지 않는다 — 접촉점을 애초에
+            //  못 모으는 설정이니 조준선이 안 그려지는 게 맞다.
+            if (aimLine == null || aimLines != null || count <= 0)
             {
                 return;
             }

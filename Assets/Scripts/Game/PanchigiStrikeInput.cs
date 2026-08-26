@@ -299,7 +299,10 @@ namespace LOP
             //  떨어진 손가락의 선은 즉시 숨긴다 — 남아 있으면 아직 조준 중인 것으로 읽힌다.
             for (int i = drawn; i < aimLines.Length; i++)
             {
-                aimLines[i].enabled = false;
+                if (aimLines[i] != null)
+                {
+                    aimLines[i].enabled = false;
+                }
             }
         }
 

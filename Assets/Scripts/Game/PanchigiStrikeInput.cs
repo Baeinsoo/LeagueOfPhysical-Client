@@ -56,6 +56,24 @@ namespace LOP
             HideAllAimLines();
         }
 
+        private void OnDestroy()
+        {
+            //  풀은 씬에 배선된 aimLine을 복제해 만든 것이고, 그 복제본은 부모가 없어
+            //  씬 최상위에 놓인다 — 내가 죽을 때 같이 치우지 않으면 씬에 남는다.
+            //  0번은 씬에 원래 있던 것이라 건드리지 않는다.
+            if (aimLines == null)
+            {
+                return;
+            }
+            for (int i = 1; i < aimLines.Length; i++)
+            {
+                if (aimLines[i] != null)
+                {
+                    Destroy(aimLines[i].gameObject);
+                }
+            }
+        }
+
         private void Update()
         {
             var config = masterData.Tables.TbPanchigiConfig.GetOrDefault(1);
@@ -268,6 +286,10 @@ namespace LOP
                     break;
                 }
                 LineRenderer line = aimLines[drawn++];
+                if (line == null)
+                {
+                    continue;
+                }
                 line.enabled = true;
                 line.positionCount = 2;
                 line.SetPosition(0, aim.Start + lift);

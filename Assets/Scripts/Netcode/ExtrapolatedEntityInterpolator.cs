@@ -15,6 +15,7 @@ namespace LOP
         private const float BlendDuration = 0.1f;        // 새 스냅으로 옮겨 타는 시간
 
         [Inject] private GameFramework.Netcode.INetworkTime networkTime;
+        [Inject] private GameFramework.Runner.IRunner runner;
 
         public GameFramework.World.Entity worldEntity { get; set; }
         public LOPActor actor { get; set; }
@@ -52,7 +53,7 @@ namespace LOP
             }
             latest = snap;
             hasSnap = true;
-            stunAppearance?.SetState(StunVisuals.Of(snap));
+            stunAppearance?.SetState(StunVisuals.Of(snap, runner.tickUpdater.tick));
         }
 
         // ServerNow = 서버의 "지금"을 클라가 추정한 값(지연 없음, INetworkTime 계약) — 보간(RenderTime, 일부러
@@ -66,7 +67,8 @@ namespace LOP
             // 스턴 상태(맵에 부딪혀 멈춘 새)는 서버에서 위치가 얼어붙어 있고 속도도 0이다 — 그 0.8초
             // 동안의 실제 가속도는 0인데 여기에 중력까지 계속 넣으면, 패킷 손실로 오래 못 받을수록
             // (최대 0.25초) 서 있어야 할 새가 수 m 아래로 꺼지고 가짜 낙하속도까지 생긴다.
-            System.Numerics.Vector3 accel = latest.stunned ? System.Numerics.Vector3.Zero : acceleration.ToNumerics();
+            bool isStunned = latest.stunEndTick > runner.tickUpdater.tick;
+            System.Numerics.Vector3 accel = isStunned ? System.Numerics.Vector3.Zero : acceleration.ToNumerics();
             position = GameFramework.Netcode.SnapshotExtrapolation.Position(
                 latest.position.ToNumerics(), latest.velocity.ToNumerics(), accel, elapsed, MaxExtrapolation).ToUnity();
             velocity = GameFramework.Netcode.SnapshotExtrapolation.Velocity(

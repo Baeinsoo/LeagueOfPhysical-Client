@@ -6,14 +6,14 @@ namespace LOP
     /// </summary>
     public static class StunVisuals
     {
-        /// <summary>남의 새 — 서버 스냅샷이 진실원본이다.</summary>
-        public static StunVisual Of(EntitySnap snap)
+        /// <summary>남의 새 — 서버 스냅샷이 진실원본이다. 종료 틱을 현재 틱과 비교한다.</summary>
+        public static StunVisual Of(EntitySnap snap, long currentTick)
         {
             if (snap == null)
             {
                 return StunVisual.None;
             }
-            return Resolve(snap.stunned, snap.invulnerable);
+            return Resolve(snap.stunEndTick > currentTick, snap.invulnEndTick > currentTick);
         }
 
         /// <summary>내 새 — 스냅을 기다리지 않고 예측 결과를 그 자리에서 읽는다.</summary>

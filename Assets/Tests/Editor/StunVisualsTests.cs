@@ -11,27 +11,33 @@ namespace LOP.Tests
         [Test]
         public void 스냅에_아무것도_없으면_평소다()
         {
-            Assert.AreEqual(StunVisual.None, StunVisuals.Of(new EntitySnap()));
+            Assert.AreEqual(StunVisual.None, StunVisuals.Of(new EntitySnap(), 0));
         }
 
         [Test]
-        public void 스냅의_스턴은_멈춤으로_보인다()
+        public void 스냅의_멈춤은_정지로_보인다()
         {
-            Assert.AreEqual(StunVisual.Stunned, StunVisuals.Of(new EntitySnap { stunned = true }));
+            Assert.AreEqual(StunVisual.Stunned, StunVisuals.Of(new EntitySnap { stunEndTick = 100 }, 50));
+        }
+
+        [Test]
+        public void 종료틱이_지났으면_평소다()
+        {
+            Assert.AreEqual(StunVisual.None, StunVisuals.Of(new EntitySnap { stunEndTick = 100 }, 100));
         }
 
         [Test]
         public void 스냅의_무적은_깜빡임으로_보인다()
         {
-            Assert.AreEqual(StunVisual.Invulnerable, StunVisuals.Of(new EntitySnap { invulnerable = true }));
+            Assert.AreEqual(StunVisual.Invulnerable, StunVisuals.Of(new EntitySnap { invulnEndTick = 100 }, 50));
         }
 
         [Test]
-        public void 둘_다_켜져_있으면_멈춤이_이긴다()
+        public void 둘_다_남아_있으면_멈춤이_이긴다()
         {
-            var snap = new EntitySnap { stunned = true, invulnerable = true };
+            var snap = new EntitySnap { stunEndTick = 100, invulnEndTick = 120 };
 
-            Assert.AreEqual(StunVisual.Stunned, StunVisuals.Of(snap));
+            Assert.AreEqual(StunVisual.Stunned, StunVisuals.Of(snap, 50));
         }
 
         [Test]
@@ -42,9 +48,9 @@ namespace LOP.Tests
             var stunned = new FlappyStun { StunRemaining = 0.5f };
             var invuln = new FlappyStun { InvulnRemaining = 0.5f };
 
-            Assert.AreEqual(StunVisuals.Of(new EntitySnap { stunned = true }), StunVisuals.Of(stunned));
-            Assert.AreEqual(StunVisuals.Of(new EntitySnap { invulnerable = true }), StunVisuals.Of(invuln));
-            Assert.AreEqual(StunVisuals.Of(new EntitySnap()), StunVisuals.Of(new FlappyStun()));
+            Assert.AreEqual(StunVisuals.Of(new EntitySnap { stunEndTick = 100 }, 0), StunVisuals.Of(stunned));
+            Assert.AreEqual(StunVisuals.Of(new EntitySnap { invulnEndTick = 100 }, 0), StunVisuals.Of(invuln));
+            Assert.AreEqual(StunVisuals.Of(new EntitySnap(), 0), StunVisuals.Of(new FlappyStun()));
         }
 
         [Test]

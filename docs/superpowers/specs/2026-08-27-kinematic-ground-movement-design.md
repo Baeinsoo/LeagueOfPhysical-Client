@@ -80,7 +80,7 @@ Move(input, query):
   hit = Cast(pos, lift: SkinWidth, dir: down, dist: SkinWidth + GroundProbe)   # GroundProbe = 0.05
   if hit and hit.Normal.y >= GroundNormalY:
       groundNormal = hit.Normal
-      pos.y += SkinWidth - hit.Distance      # 바닥에서 정확히 SkinWidth 띄운다
+      pos.y += 2*SkinWidth - hit.Distance     # 바닥에서 정확히 SkinWidth 띄운다
 
   # (1) 수평 — 지면 위면 지면 평면을 따라
   move = (vx, 0, vz) * dt
@@ -90,6 +90,12 @@ Move(input, query):
 
   # (2) 수직 — 지금과 같음 (중력/점프)
 ```
+
+> **계수가 2인 이유** (한 번 틀렸던 곳이다): 탐침은 발밑이 아니라 `pos + up*SkinWidth`에서 쏜다.
+> 그래서 `hit.Distance = (pos.y + SkinWidth) − 지면y` 이고, 목표는 `새pos.y − 지면y = SkinWidth`다.
+> 둘을 연립하면 `새pos.y = pos.y + 2·SkinWidth − hit.Distance`. 계수를 1로 두면 몸이 지면에
+> **딱 붙어(간격 0)** 버려서, 이 단계가 막으려던 바로 그 상황(붙은 채로 수평 sweep → 거리 0 →
+> 한 발도 못 감)이 그대로 남는다.
 
 ### 4.2 잠긴 결정
 

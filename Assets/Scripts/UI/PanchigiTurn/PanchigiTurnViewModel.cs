@@ -3,8 +3,9 @@ using GameFramework.Runner;
 namespace LOP.UI
 {
     /// <summary>
-    /// 내 차례인지와 남은 시간. 남은 시간은 서버가 보내 준 *마감 틱*에서 매 프레임 계산한다 —
-    /// 초마다 메시지를 받을 필요가 없다.
+    /// 내 차례인지와 남은 시간, 그리고 판이 몇 대 몇인지. 남은 시간은 서버가 보내 준 *마감 틱*에서
+    /// 매 프레임 계산한다 — 초마다 메시지를 받을 필요가 없다. 뒤집힌 개수도 마찬가지로 매 프레임
+    /// 동전 자세에서 직접 센다 — 동전 회전은 이미 스냅샷으로 들어오므로 따로 받을 것이 없다.
     /// </summary>
     public class PanchigiTurnViewModel
     {
@@ -13,12 +14,15 @@ namespace LOP.UI
         private readonly PanchigiStateStore store;
         private readonly IPlayerContext playerContext;
         private readonly IRunner runner;
+        private readonly GameFramework.World.EntityRegistry entityRegistry;
 
-        public PanchigiTurnViewModel(PanchigiStateStore store, IPlayerContext playerContext, IRunner runner)
+        public PanchigiTurnViewModel(PanchigiStateStore store, IPlayerContext playerContext, IRunner runner,
+            GameFramework.World.EntityRegistry entityRegistry)
         {
             this.store = store;
             this.playerContext = playerContext;
             this.runner = runner;
+            this.entityRegistry = entityRegistry;
         }
 
         public string Label()
@@ -34,6 +38,14 @@ namespace LOP.UI
             }
 
             return $"내 차례 · {RemainingSeconds()}";
+        }
+
+        /// <summary>몇 개를 뒤집었나. 동전이 아직 안 왔으면 빈 줄로 둔다.</summary>
+        public string FlipLabel()
+        {
+            PanchigiCoin.CountFlipped(entityRegistry.All, out int flipped, out int total);
+
+            return total == 0 ? string.Empty : $"뒤집힘 {flipped} / {total}";
         }
 
         private int RemainingSeconds()

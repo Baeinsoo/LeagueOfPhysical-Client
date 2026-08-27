@@ -143,63 +143,75 @@ namespace LOP
                 }
 
                 GameFramework.World.Entity targetEntity = entityRegistry.Get(serverEntitySnap.EntityId);
-                // 모드는 엔티티가 생길 때 한 번 정해졌다(EntityBinder). 여기서 정책에 다시 물으면 그 사이
-                // 정책의 답이 바뀐 경우(예: 로컬 id가 늦게 도착) 붙어 있는 팔로워와 어긋난다 — 그때 이
-                // 엔티티는 보정을 하나도 못 받는다. 그래서 그때의 판정 결과(Simulated 마커)를 읽는다.
-                bool predicted = targetEntity != null && targetEntity.Has<GameFramework.World.Simulated>();
 
-                if (predicted)
+                // 모드는 엔티티가 생길 때 한 번 정해졌다(EntityBinder) — 그때 붙인 팔로워 컴포넌트가 곧
+                // 그 판정 결과다. 여기서 정책에 다시 물으면 그 사이 정책의 답이 바뀐 경우(예: 로컬 id가
+                // 늦게 도착) 붙어 있는 팔로워와 어긋난다. 외삽·보간 둘 다 스냅을 받아야 한다(둘 다
+                // 서버 권위 상태를 그대로 반영) — 예측만 롤백·재생을 위해 Reconciler로 간다.
+                if (actor.TryGetComponent(out ExtrapolatedEntityInterpolator extrapolated))
                 {
-                    reconciler.AddServerSnap(entitySnap);
+                    ApplyRemoteSnapState(targetEntity, serverEntitySnap, entitySnap);
+                    extrapolated.AddServerEntitySnap(entitySnap);
+                }
+                else if (actor.TryGetComponent(out SnapshotEntityInterpolator interpolated))
+                {
+                    ApplyRemoteSnapState(targetEntity, serverEntitySnap, entitySnap);
+                    interpolated.AddServerEntitySnap(entitySnap);
                 }
                 else
                 {
-                    GameFramework.World.Health health = targetEntity?.Get<GameFramework.World.Health>();
-                    if (health != null)
-                    {
-                        int prevCurrent = health.Current;
-                        int prevMax = health.Max;
-                        healthSystem.ApplyAuthoritativeState(health, serverEntitySnap.MaxHP, serverEntitySnap.CurrentHP);
-                        if (health.Current != prevCurrent || health.Max != prevMax)
-                        {
-                            healthChangedPublisher.Publish(serverEntitySnap.EntityId, new EntityHealthChanged(health.Current, health.Max));
-                        }
-                    }
-
-                    GameFramework.World.GroundState groundState = targetEntity?.Get<GameFramework.World.GroundState>();
-                    if (groundState != null)
-                    {
-                        groundState.IsGrounded = serverEntitySnap.Grounded;
-                    }
-
-                    Abilities remoteAbilities = targetEntity?.Get<Abilities>();
-                    if (remoteAbilities != null)
-                    {
-                        if (serverEntitySnap.ActiveAbilityId == 0)
-                        {
-                            remoteAbilities.Activation = null;
-                        }
-                        else if (abilityDataProvider.TryGet(serverEntitySnap.ActiveAbilityId, out AbilityData abilityData))
-                        {
-                            // 종료 틱 하나에서 경계를 역산 — 클·서가 같은 마스터데이터를 보므로 값이 일치한다.
-                            long recoveryEnd = serverEntitySnap.AbilityEndTick;
-                            long activeEnd = recoveryEnd - abilityData.RecoveryTicks;
-                            long startupEnd = activeEnd - abilityData.ActiveTicks;
-                            remoteAbilities.Activation = AbilityActivation.ForPresentation(
-                                serverEntitySnap.ActiveAbilityId, startupEnd, activeEnd, recoveryEnd);
-                        }
-                    }
-
-                    StatusEffects remoteEffects = targetEntity?.Get<StatusEffects>();
-                    if (remoteEffects != null)
-                    {
-                        // 스냅샷이 전량 권위 — 통째로 교체한다(HP와 같은 규칙).
-                        remoteEffects.Effects.Clear();
-                        remoteEffects.Effects.AddRange(entitySnap.statusEffects);
-                    }
-
-                    actor.GetComponent<SnapshotEntityInterpolator>()?.AddServerEntitySnap(entitySnap);
+                    reconciler.AddServerSnap(entitySnap);
                 }
+            }
+        }
+
+        // 외삽·보간 둘 다 "서버 권위 상태를 그대로 반영"은 동일하다(굴리지 않으니 예측이 틀릴 일도 없다) —
+        // 위치/회전만 각자 다른 방식으로 잇는다. HP·접지·어빌리티·상태이상은 이 공통 부분.
+        private void ApplyRemoteSnapState(
+            GameFramework.World.Entity targetEntity, global::EntitySnap serverEntitySnap, EntitySnap entitySnap)
+        {
+            GameFramework.World.Health health = targetEntity?.Get<GameFramework.World.Health>();
+            if (health != null)
+            {
+                int prevCurrent = health.Current;
+                int prevMax = health.Max;
+                healthSystem.ApplyAuthoritativeState(health, serverEntitySnap.MaxHP, serverEntitySnap.CurrentHP);
+                if (health.Current != prevCurrent || health.Max != prevMax)
+                {
+                    healthChangedPublisher.Publish(serverEntitySnap.EntityId, new EntityHealthChanged(health.Current, health.Max));
+                }
+            }
+
+            GameFramework.World.GroundState groundState = targetEntity?.Get<GameFramework.World.GroundState>();
+            if (groundState != null)
+            {
+                groundState.IsGrounded = serverEntitySnap.Grounded;
+            }
+
+            Abilities remoteAbilities = targetEntity?.Get<Abilities>();
+            if (remoteAbilities != null)
+            {
+                if (serverEntitySnap.ActiveAbilityId == 0)
+                {
+                    remoteAbilities.Activation = null;
+                }
+                else if (abilityDataProvider.TryGet(serverEntitySnap.ActiveAbilityId, out AbilityData abilityData))
+                {
+                    // 종료 틱 하나에서 경계를 역산 — 클·서가 같은 마스터데이터를 보므로 값이 일치한다.
+                    long recoveryEnd = serverEntitySnap.AbilityEndTick;
+                    long activeEnd = recoveryEnd - abilityData.RecoveryTicks;
+                    long startupEnd = activeEnd - abilityData.ActiveTicks;
+                    remoteAbilities.Activation = AbilityActivation.ForPresentation(
+                        serverEntitySnap.ActiveAbilityId, startupEnd, activeEnd, recoveryEnd);
+                }
+            }
+
+            StatusEffects remoteEffects = targetEntity?.Get<StatusEffects>();
+            if (remoteEffects != null)
+            {
+                // 스냅샷이 전량 권위 — 통째로 교체한다(HP와 같은 규칙).
+                remoteEffects.Effects.Clear();
+                remoteEffects.Effects.AddRange(entitySnap.statusEffects);
             }
         }
 

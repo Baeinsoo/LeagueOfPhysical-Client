@@ -16,6 +16,9 @@ namespace LOP
         public GameFramework.World.Entity worldEntity { get; set; }
         public LOPActor actor { get; set; }
 
+        // 캐릭터가 아니면(아이템 등) null — StunAppearance는 캐릭터에만 붙는다.
+        public StunAppearance stunAppearance { get; set; }
+
         private readonly BoundedList<EntitySnap> snaps = new BoundedList<EntitySnap>(32);
 
         /// <summary>서버 스냅 수신. 타임스탬프 순으로만 추가, 최신보다 오래되거나 같은 건 무시(unreliable 순서역전 방지).</summary>
@@ -26,6 +29,7 @@ namespace LOP
                 return;
             }
             snaps.Add(snap);
+            stunAppearance?.SetState(StunVisuals.Of(snap));
         }
 
         private void LateUpdate()

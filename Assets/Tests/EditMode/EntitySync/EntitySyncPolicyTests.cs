@@ -39,30 +39,34 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 캐릭터_예측_정책은_캐릭터를_전부_예측한다()
+        public void 내_캐릭터는_예측하고_남은_외삽한다()
         {
-            var policy = new CharactersPredictedSyncPolicy();
+            var policy = new OwnerPredictedRemotesExtrapolatedSyncPolicy(() => "me");
 
             Assert.AreEqual(EntitySyncMode.Predicted, policy.For(Character("me")));
-            Assert.AreEqual(EntitySyncMode.Predicted, policy.For(Character("other")));
+            Assert.AreEqual(EntitySyncMode.Extrapolated, policy.For(Character("other")));
         }
 
         [Test]
-        public void 캐릭터가_아닌_것은_보간이다()
+        public void 아이템은_보간한다()
         {
             // 아이템은 서버가 몰아주는 물건이라 클라가 굴릴 규칙이 없다.
-            var policy = new CharactersPredictedSyncPolicy();
+            var policy = new OwnerPredictedRemotesExtrapolatedSyncPolicy(() => "me");
 
             Assert.AreEqual(EntitySyncMode.Interpolated, policy.For(Item("item-1")));
         }
 
         [Test]
-        public void 종류를_모르는_엔티티는_보간이다()
+        public void 내_id를_아직_모르면_전부_외삽이다()
         {
-            // 안전한 기본값 — 모르는 것을 굴리면 서버와 갈린다.
-            var policy = new CharactersPredictedSyncPolicy();
+            // 입장 직후엔 내 엔티티 id가 정해지기 전이다 — 그때 예측으로 새면 남의 몸을 내 것으로 굴린다.
+            // id 공급자가 빈 문자열이든 null이든 둘 다 "아직 모름"으로 취급해야 한다.
+            var emptyIdPolicy = new OwnerPredictedRemotesExtrapolatedSyncPolicy(() => "");
+            var nullIdPolicy = new OwnerPredictedRemotesExtrapolatedSyncPolicy(() => null);
+            var bird = Character("bird");
 
-            Assert.AreEqual(EntitySyncMode.Interpolated, policy.For(new Entity("bare")));
+            Assert.AreEqual(EntitySyncMode.Extrapolated, emptyIdPolicy.For(bird));
+            Assert.AreEqual(EntitySyncMode.Extrapolated, nullIdPolicy.For(bird));
         }
     }
 }

@@ -25,6 +25,10 @@ namespace LOP
             builder.Register<IEntitySyncPolicy>(c =>
                 new OwnerPredictedSyncPolicy(() => c.Resolve<IGameDataStore>().userEntityId), Lifetime.Singleton);
 
+            // 이 게임엔 외삽 대상이 없다(정책이 Extrapolated를 절대 안 준다) — 그래도 EntityBinder의
+            // 생성자 의존이라 등록은 필요하다. 값은 쓰이지 않는다.
+            builder.Register<IExtrapolationAcceleration, ZeroExtrapolationAcceleration>(Lifetime.Singleton);
+
             // 공통 Installer의 EntityBinder와 등록 순서가 무관하다: HUD 뷰모델이 읽는 entityId는
             // EntityCreated 발행 전에 세팅되고, actor의 유일한 소비자는 폴링이라 순서를 타지 않는다.
             builder.RegisterEntryPoint<PlayerHudCoordinator>();

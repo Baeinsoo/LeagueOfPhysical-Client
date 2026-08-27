@@ -48,6 +48,7 @@ namespace LOP
             builder.RegisterOrderedMessageBroker<InputTimingToC>();
             builder.RegisterOrderedMessageBroker<PanchigiStateToC>();
             builder.RegisterOrderedMessageBroker<MatchEndedToC>();
+            builder.RegisterOrderedMessageBroker<MatchStartToC>();
             builder.Register<NetworkMessageDispatcher>(Lifetime.Singleton);
 
             // 엔티티별 이벤트(keyed, 키=entityId)

@@ -12,6 +12,8 @@ namespace LOP
         public UnityEngine.Vector3 rotation { get; set; }
         public UnityEngine.Vector3 velocity { get; set; }
         public bool grounded { get; set; }
+        public bool stunned { get; set; }        // Flappy: 맵에 부딪혀 멈춰 있는 중
+        public bool invulnerable { get; set; }   // Flappy: 스턴이 풀린 뒤 잠시 다시 안 걸리는 중
         public int activeAbilityId { get; set; }
         public long abilityEndTick { get; set; }
 

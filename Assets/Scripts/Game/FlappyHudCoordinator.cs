@@ -38,6 +38,7 @@ namespace LOP
             // 입력면을 먼저 열어 Window 밴드 최하단에 깐다(전체화면이라 위 위젯 입력을 막지 않도록).
             windowManager.Open<FlapPadView>();
             windowManager.Open<DebugHudView>();
+            windowManager.Open<RaceStartView>();
             _opened = true;
         }
     }

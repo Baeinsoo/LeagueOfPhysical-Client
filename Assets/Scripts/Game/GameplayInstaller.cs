@@ -58,6 +58,7 @@ namespace LOP
             builder.RegisterEntryPoint<GameInputTimingMessageHandler>();
             builder.RegisterEntryPoint<GameWorldEventMessageHandler>();
             builder.RegisterEntryPoint<MatchEndedMessageHandler>();
+            builder.RegisterEntryPoint<MatchStartMessageHandler>();
             // EntityBinder가 EntityCreated 때 로컬 유저 actor를 만들어 playerContext.actor에 세팅한다.
             // 게임별 PlayerHudCoordinator(각 게임 스코프가 등록)와 등록 순서가 무관하다 — 이유는 그쪽 주석 참고.
             builder.RegisterEntryPoint<EntityBinder>();
@@ -72,6 +73,7 @@ namespace LOP
 
             builder.Register<MatchSeed>(Lifetime.Singleton);
             builder.Register<ReconciliationStats>(Lifetime.Singleton);
+            builder.Register<MatchStartState>(Lifetime.Singleton);
             // 예측 대상마다 자기 것을 갖는다 — 튄 양이 엔티티마다 다르다.
             builder.Register(_ => new GameFramework.Netcode.RenderCorrectionSmoother(0.1f, 0.025f, 3f), Lifetime.Transient);
             builder.Register<InputTimingStats>(Lifetime.Singleton);

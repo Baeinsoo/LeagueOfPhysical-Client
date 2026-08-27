@@ -61,3 +61,6 @@ MonoBehaviour:
   - viewName: PanchigiTurnView
     uxml: {fileID: 9197481963319205126, guid: 73a030a46621c5f4ca7226b6234c2b4f, type: 3}
     uss: {fileID: 7433441132597879392, guid: a3a8dfcd02501a04cb556652ccde64a6, type: 3}
+  - viewName: RaceStartView
+    uxml: {fileID: 9197481963319205126, guid: 6fe0741d7ae5c4fa1b2724b2f4227009, type: 3}
+    uss: {fileID: 7433441132597879392, guid: f8bf08ecb1f1d4dbe969b9d707b25599, type: 3}

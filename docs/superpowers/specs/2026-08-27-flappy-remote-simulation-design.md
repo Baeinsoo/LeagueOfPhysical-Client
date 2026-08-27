@@ -128,15 +128,22 @@ entity.Get<EntityKind>()?.Kind == EntityType.Character
 
 ### 6.2 입력 — 손댈 것이 없다
 
-클라에서 `InputBuffer.Current`를 세우는 것은 **내 새뿐**이다(`PlayerInputManager`). 남의 새
-버퍼는 아무도 건드리지 않아 계속 `null`이고, `FlappyMoveSystem`이 그것을 "이번 틱 입력 없음"으로
-읽는다. **`Simulated`를 붙이는 순간 "안 눌렀다"가 저절로 성립한다.**
+클라에서 `InputBuffer` 컴포넌트 자체를 갖는 것은 **내 새뿐**이다. `CharacterCreator.cs`(및
+`FlappyBirdCreator.cs`)는 `worldEntity.Add(new InputBuffer())`를 `isUserEntity`일 때만 호출한다
+— 남의 새는 그 컴포넌트가 아예 붙지 않는다. `FlappyMoveSystem`은 `entity.Get<InputBuffer>()
+?.Current`로 null-조건부 읽기를 하므로, 컴포넌트가 없으면 `Current`를 볼 것도 없이 그냥
+"이번 틱 입력 없음"이 된다. **`Simulated`를 붙이는 순간 "안 눌렀다"가 저절로, 구조적으로
+성립한다** — 이건 "아무도 안 세워서 우연히 null"보다 강한 보장이다: 세울 자리(컴포넌트)
+자체가 없으므로 stale한 값이 남아 재적용될 길도 없다.
 
-> ⚠️ `Reconciler`의 재생 루프 주석이 *"남의 엔티티는 InputBuffer가 없어 자동으로 안 누른 것이
-> 된다"* 고 적고 있는데 **근거가 틀렸다.** 남의 새도 `InputBuffer`를 갖는다(`CharacterCreator`가
-> 클·서 양쪽에서 모든 캐릭터에 붙인다). 안 눌린 것처럼 되는 진짜 이유는 재생 루프가
-> **내 엔티티의 버퍼만** 집어 `Current`를 세우기 때문이다. 주석을 이 사실로 고친다 —
-> 안 그러면 다음 사람이 "남도 버퍼가 있는데?" 하고 저 주석을 믿고 잘못 고친다.
+> 이 스펙의 이전 초안은 여기서 반대로 적었었다 — "남의 새도 `InputBuffer`를 갖는다
+> (`CharacterCreator`가 클·서 양쪽에서 모든 캐릭터에 붙인다)"고 주장하며, `Reconciler`의
+> 재생 루프 주석("남의 엔티티는 InputBuffer가 없어 자동으로 안 누른 것이 된다")이 근거가
+> 틀렸다고 지적했다. **그 지적이 거꾸로였다.** 실제로 `CharacterCreator.cs:68-73`을 확인한
+> 결과 클라이언트 쪽은 `isUserEntity` 가드가 있어 남의 새는 `InputBuffer`를 갖지 않는다
+> (서버 쪽 크리에이터는 `userId`가 있는 모든 캐릭터에 붙이므로 그것과 혼동한 것으로 보인다).
+> `Reconciler`의 원래 주석이 맞았고, 이 스펙이 그걸 틀린 방향으로 "고치라"고 지시한 것이
+> 실수였다 — Task 4 fix round 1에서 발견·정정.
 
 ### 6.3 스냅샷 도착 경로
 

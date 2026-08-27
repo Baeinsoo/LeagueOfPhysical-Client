@@ -262,10 +262,9 @@ namespace LOP
             }
 
             // 재생: 이미 예측했던 과거 틱(anchor+1 ~ currentTick-1)을 이동+물리로 재구성.
-            // world.Tick이 예측 대상 전부를 굴리지만, 입력을 넣는 건 내 엔티티뿐이다 — 아래에서
-            // 내 엔티티의 버퍼만 집어 Current를 세우므로, 남의 새는 Current가 null인 채로 굴러
-            // "안 누른 것"이 된다. (남의 새도 InputBuffer는 갖고 있다 — CharacterCreator가 클·서
-            // 양쪽에서 모든 캐릭터에 붙인다. "버퍼가 없어서"가 아니다.)
+            // world.Tick이 예측 대상 전부를 굴리지만, 입력을 넣는 건 내 엔티티뿐이다 — 남의 새는
+            // InputBuffer 자체가 없어(CharacterCreator가 isUserEntity일 때만 붙인다) 자동으로
+            // "안 누른 것"이 된다.
             var inputBuffer = worldEntity.Get<InputBuffer>();   // 입력 버퍼 (WorldEventBuffer 아님 — 이름 구분)
             if (inputBuffer == null)
             {

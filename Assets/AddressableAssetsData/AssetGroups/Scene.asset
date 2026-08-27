@@ -15,13 +15,18 @@ MonoBehaviour:
   m_GroupName: Scene
   m_GUID: 2fa5c6aaf6db14641a0a98c82fff8ade
   m_SerializeEntries:
-  - m_GUID: c1b2508f6022cdc48b5ded5103099530
-    m_Address: Assets/Art/Scenes/FlapWangMap.unity
+  - m_GUID: 2095d101c7476d34b8a0effb3d122f67
+    m_Address: Assets/Art/Scenes/PanchigiMap.unity
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 2095d101c7476d34b8a0effb3d122f67
-    m_Address: Assets/Art/Scenes/PanchigiMap.unity
+  - m_GUID: a0b90f9e61ce545baaa467db2f7fa010
+    m_Address: Assets/Art/Scenes/FlappyRaceMap.unity
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c1b2508f6022cdc48b5ded5103099530
+    m_Address: Assets/Art/Scenes/FlapWangMap.unity
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

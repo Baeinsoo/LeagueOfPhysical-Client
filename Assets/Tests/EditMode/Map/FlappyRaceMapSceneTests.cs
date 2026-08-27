@@ -89,7 +89,9 @@ namespace LOP.Map.Tests
         public void SpawnPointsHaveDistinctOrder()
         {
             var sceneText = ReadSceneText();
-            var orders = Regex.Matches(sceneText, @"(?m)^  Order: (-?\d+)$")
+            //  줄 끝을 \s*로 받는다 - 같은 씬이 체크아웃 설정에 따라 LF로도 CRLF로도 놓이는데,
+            //  $는  앞에서 안 맞아 "SpawnPoint가 하나도 없다"는 엉뚱한 실패가 난다(실제로 겪었다).
+            var orders = Regex.Matches(sceneText, @"(?m)^  Order: (-?\d+)\s*$")
                 .Cast<Match>()
                 .Select(m => int.Parse(m.Groups[1].Value))
                 .ToList();

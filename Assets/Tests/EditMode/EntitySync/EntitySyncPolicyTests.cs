@@ -39,12 +39,20 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 내_캐릭터는_예측하고_남은_외삽한다()
+        public void 캐릭터는_내_것이든_남의_것이든_예측한다()
         {
-            var policy = new OwnerPredictedRemotesExtrapolatedSyncPolicy(() => "me");
+            var policy = new CharactersPredictedSyncPolicy();
 
             Assert.AreEqual(EntitySyncMode.Predicted, policy.For(Character("me")));
-            Assert.AreEqual(EntitySyncMode.Extrapolated, policy.For(Character("other")));
+            Assert.AreEqual(EntitySyncMode.Predicted, policy.For(Character("other")));
+        }
+
+        [Test]
+        public void 캐릭터가_아니면_보간한다()
+        {
+            var policy = new CharactersPredictedSyncPolicy();
+
+            Assert.AreEqual(EntitySyncMode.Interpolated, policy.For(Item("coin")));
         }
 
         [Test]

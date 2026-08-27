@@ -44,10 +44,9 @@ namespace LOP
             //  그 판정이 갈리면 0.8초 얼음이 통째로 어긋난다.
             builder.Register<IServerCorrectionHandler, FlappyServerCorrectionHandler>(Lifetime.Singleton);
 
-            // 남의 플랩 입력이 클라로 안 오므로 남을 굴리면 "계속 추락"이 된다 — 내 새만 예측하고 남은 외삽한다.
-            builder.Register<IEntitySyncPolicy>(c =>
-                new OwnerPredictedRemotesExtrapolatedSyncPolicy(
-                    () => c.Resolve<IGameDataStore>().userEntityId), Lifetime.Singleton);
+            //  캐릭터는 전부 예측한다. 남을 외삽으로 그리면 게임 규칙 밖에서 움직여
+            //  낙하 상한을 모르고 맵을 뚫는다 — 실측은 스펙 §2 참고.
+            builder.Register<IEntitySyncPolicy, CharactersPredictedSyncPolicy>(Lifetime.Singleton);
 
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             builder.Register<FlapPadViewModel>(Lifetime.Transient);

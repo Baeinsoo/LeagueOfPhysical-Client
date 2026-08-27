@@ -15,18 +15,25 @@ namespace LOP.UI
         private readonly IPlayerContext playerContext;
         private readonly IRunner runner;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly LOP.MasterData.LOPMasterData masterData;
 
         public PanchigiTurnViewModel(PanchigiStateStore store, IPlayerContext playerContext, IRunner runner,
-            GameFramework.World.EntityRegistry entityRegistry)
+            GameFramework.World.EntityRegistry entityRegistry, LOP.MasterData.LOPMasterData masterData)
         {
             this.store = store;
             this.playerContext = playerContext;
             this.runner = runner;
             this.entityRegistry = entityRegistry;
+            this.masterData = masterData;
         }
 
         public string Label()
         {
+            if (store.IsEliminated(playerContext.entityId))
+            {
+                return "탈락 · 구경 중";
+            }
+
             if (store.Phase.CurrentValue != AimingPhase)
             {
                 return "동전이 멈추는 중";
@@ -46,6 +53,18 @@ namespace LOP.UI
             PanchigiCoin.CountFlipped(entityRegistry.All, out int flipped, out int total);
 
             return total == 0 ? string.Empty : $"뒤집힘 {flipped} / {total}";
+        }
+
+        /// <summary>내가 몇 번 떨어뜨렸나. 벌칙이 꺼져 있으면(한도 0) 아예 안 보여준다.</summary>
+        public string DropOutLabel()
+        {
+            int limit = masterData.Tables.TbPanchigiConfig.GetOrDefault(1)?.DropOutLimit ?? 0;
+            if (limit <= 0)
+            {
+                return string.Empty;
+            }
+
+            return $"낙 {store.GetDropOutCount(playerContext.entityId)} / {limit}";
         }
 
         private int RemainingSeconds()

@@ -3,5 +3,6 @@
     <ui:VisualElement name="panchigi-turn" class="panchigi-turn">
         <ui:Label name="turn-label" class="turn-label" text="" />
         <ui:Label name="flip-label" class="flip-label" text="" />
+        <ui:Label name="dropout-label" class="dropout-label" text="" />
     </ui:VisualElement>
 </ui:UXML>

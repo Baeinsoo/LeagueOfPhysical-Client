@@ -22,10 +22,12 @@ namespace LOP.UI
 
             var turnLabel = Root.Q<Label>("turn-label");
             var flipLabel = Root.Q<Label>("flip-label");
+            var dropOutLabel = Root.Q<Label>("dropout-label");
             _tick = Root.schedule.Execute(_ =>
             {
                 turnLabel.text = _viewModel.Label();
                 flipLabel.text = _viewModel.FlipLabel();
+                dropOutLabel.text = _viewModel.DropOutLabel();
             }).Every(0);
         }
 

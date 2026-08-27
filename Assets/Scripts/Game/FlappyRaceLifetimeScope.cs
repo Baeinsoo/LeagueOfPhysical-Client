@@ -28,7 +28,8 @@ namespace LOP
             // 새의 물리 몸은 PhysicsBodyFactory가 만들면서 무조건 Character 레이어에 둔다. 그래서 이
             // 마스크에 Character가 없는 한 새끼리는 sweep에 걸리지 않는다.
             // (겉모습 프리팹 Bird.prefab에는 콜라이더가 없어 물리에는 아예 존재하지 않는다.)
-            builder.Register<GameFramework.World.IWorld>(c => new FlappyWorld(
+            // FlappyWorld를 구체로도 해석할 수 있어야 보정 핸들러가 자기 게임 월드를 직접 본다.
+            builder.Register<FlappyWorld>(c => new FlappyWorld(
                 c.Resolve<GameFramework.World.EntityRegistry>(),
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
                 c.Resolve<FlappyMoveSystem>(),
@@ -36,14 +37,12 @@ namespace LOP
                 c.Resolve<FlappyStunSystem>(),
                 c.Resolve<GameFramework.Physics.ICollisionQuery>(),
                 c.Resolve<GameFramework.World.IMotionBridge>(),
-                LayerMask.GetMask("Default")), Lifetime.Singleton);
+                LayerMask.GetMask("Default")), Lifetime.Singleton)
+                .As<GameFramework.World.IWorld>().AsSelf();
             builder.Register<ICharacterCreator, FlappyBirdCreator>(Lifetime.Singleton);
-            // 알려진 한계: NoServerCorrection이라 내 새의 snap.stunned는 서버로 되먹임되지 않는다 —
-            // 클라·서버가 "부딪혔다/안 부딪혔다"를 다르게 판단하면 스턴(0.8초) 여부가 서로 갈리고,
-            // 위치 보정이 없으니 그 어긋남을 고칠 방법이 없다. 지금은 판정이 결정론적(같은 입력·같은
-            // 충돌질의)이라 실전에서 갈릴 일이 드물어 감수한 것 — 스턴 판정에 비결정 요소(예: 서버만
-            // 아는 지연 보상)가 들어가는 순간 재검토해야 한다.
-            builder.Register<IServerCorrectionHandler, NoServerCorrection>(Lifetime.Singleton);
+            //  스턴은 서버 권위다. 남의 새까지 클라가 굴리면서 "남이 부딪혔나"도 예측하게 됐고,
+            //  그 판정이 갈리면 0.8초 얼음이 통째로 어긋난다.
+            builder.Register<IServerCorrectionHandler, FlappyServerCorrectionHandler>(Lifetime.Singleton);
 
             // 남의 플랩 입력이 클라로 안 오므로 남을 굴리면 "계속 추락"이 된다 — 내 새만 예측하고 남은 외삽한다.
             builder.Register<IEntitySyncPolicy>(c =>

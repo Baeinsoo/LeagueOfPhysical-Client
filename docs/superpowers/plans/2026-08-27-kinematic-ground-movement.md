@@ -610,7 +610,11 @@ git commit -m "feat(kinematic): 매 틱 지면을 찾고 바닥에서 살짝 띄
 
 `const float StepOffset = 0.1f;` 줄은 **삭제**한다.
 
-- [ ] **Step 3: 수평 스텝을 지면 투영 + 실제 몸 자리 sweep으로 바꾼다**
+- [ ] **Step 3: 수평 스텝을 지면 따라 이동 + 실제 몸 자리 sweep으로 바꾼다**
+
+> ⚠️ **초안 정정**: 이 자리에 원래 `Vector3.ProjectOnPlane(remaining, groundNormal)`이 적혀 있었다.
+> 그건 수평 성분을 cos²θ만큼 깎아 언덕을 감속 구간으로 만든다(실측: 내리막 40틱에 x=7.80 → 5.39).
+> 아래 코드가 정정된 형태다. 되돌리지 마라.
 
 `Move`의 (1) 블록을 교체:
 
@@ -623,7 +627,11 @@ git commit -m "feat(kinematic): 매 틱 지면을 찾고 바닥에서 살짝 띄
             Vector3 remaining = horizVel * input.deltaTime;
             if (onGround)
             {
-                remaining = Vector3.ProjectOnPlane(remaining, groundNormal);
+                //  경사를 "따라" 가되 수평 진행은 깎지 않는다. 평면에 그냥 투영하면 수평 성분이
+                //  cos²θ만큼 줄어 언덕이 감속 구간이 되고, 내리막이 평지보다 느려진다(32°에서 -28%).
+                //  수평 성분은 그대로 두고 세로만 램프에 얹는다 — 언리얼 CMC의 기본값
+                //  (bMaintainHorizontalGroundVelocity)이 하는 것과 같다.
+                remaining.y = -(remaining.x * groundNormal.x + remaining.z * groundNormal.z) / groundNormal.y;
             }
             for (int i = 0; i < MaxSlides; i++)
             {

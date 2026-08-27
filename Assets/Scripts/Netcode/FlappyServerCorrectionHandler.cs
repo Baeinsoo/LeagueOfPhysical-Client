@@ -49,12 +49,15 @@ namespace LOP
             }
             //  끝나는 틱에서 남은 시간을 되계산한다. 불리언이었다면 여기서 전체 시간을 새로 채울
             //  수밖에 없어, 서버가 이미 절반쯤 지난 스턴을 처음부터 다시 시작하게 만든다.
+            //  snap.tick을 기준 시점으로 쓴다 — 한 배치의 스냅은 전부 같은 틱이라고 Reconciler가
+            //  보장해 주므로(위 Matches의 tick과 같은 값), 여기서 따로 받지 않아도 된다.
             float interval = (float)runner.tickUpdater.interval;
             stun.StunRemaining = RemainingSeconds(snap.stunEndTick, tick: snap.tick, interval);
             stun.InvulnRemaining = RemainingSeconds(snap.invulnEndTick, tick: snap.tick, interval);
         }
 
-        private static float RemainingSeconds(long endTick, long tick, float interval)
+        /// <summary>끝나는 절대 틱에서 지금 틱을 빼 남은 시간(초)으로 바꾼다. 이미 지났거나(0 포함) 같으면 0.</summary>
+        public static float RemainingSeconds(long endTick, long tick, float interval)
         {
             long remainingTicks = endTick - tick;
             return remainingTicks > 0 ? remainingTicks * interval : 0f;

@@ -82,14 +82,24 @@ Move(input, query):
       groundNormal = hit.Normal
       pos.y += 2*SkinWidth - hit.Distance     # 바닥에서 정확히 SkinWidth 띄운다
 
-  # (1) 수평 — 지면 위면 지면 평면을 따라
+  # (1) 수평 — 지면 위면 경사를 따라. 단 수평 진행은 깎지 않는다.
   move = (vx, 0, vz) * dt
-  if groundNormal: move = ProjectOnPlane(move, groundNormal)
+  if groundNormal:
+      move.y = -(move.x*n.x + move.z*n.z) / n.y    # 수평은 그대로, 세로만 램프에 얹는다
   collide-and-slide(pos, move, lift: 0)      # 실제 몸 자리에서 검사
       막혔는데 그 면이 걸을 수 없고(stepOffset > 0)이면 → 턱 오르기 시도
 
   # (2) 수직 — 지금과 같음 (중력/점프)
 ```
+
+> **`ProjectOnPlane`을 쓰지 않는 이유** (초안에서 틀렸던 곳이다): 이동 벡터를 지면 평면에
+> 그냥 투영하면 **수평 성분이 cos²θ만큼 줄어든다.** 32° 경사에서 전진이 11 → 7.91 m/s가 되고,
+> 오르막뿐 아니라 **내리막도 평지보다 28% 느려진다**(실측: 내리막 40틱에 옛 코드 x=7.80 →
+> 단순 투영 x=5.39). 전진 속도가 상수인 레이스 게임에서 언덕만 감속 구간이 되는 건 규칙 위반이고,
+> 내리막이 평지보다 느린 건 말이 안 된다. 게다가 반환 속도는 안 깎이므로 *보고하는 속도와 실제
+> 변위가 어긋나* 외삽을 켜는 순간 경사에서 과예측이 된다.
+> 수평 성분을 보존하고 세로만 얹으면 이동 벡터는 여전히 지면과 평행이라(`d·n = 0`) 파묻힘이 없고,
+> 반환 속도가 실제 진행과 일치한다.
 
 > **계수가 2인 이유** (한 번 틀렸던 곳이다): 탐침은 발밑이 아니라 `pos + up*SkinWidth`에서 쏜다.
 > 그래서 `hit.Distance = (pos.y + SkinWidth) − 지면y` 이고, 목표는 `새pos.y − 지면y = SkinWidth`다.
@@ -117,8 +127,11 @@ Move(input, query):
 ## 5. 산업 표준 매핑
 
 - **언리얼 CMC** — `FindFloor`로 매 틱 바닥을 찾고, `AdjustFloorHeight`로 캡슐을 바닥에서
-  일정 간격 띄워 유지하며, `ComputeGroundMovementDelta`로 이동을 램프 평면에 투영한다.
+  일정 간격 띄워 유지하며, `ComputeGroundMovementDelta`로 이동을 램프에 맞춰 얹는다.
   통짜 들어올리기가 아니라 `StepUp`을 *막혔을 때만* 부른다.
+  **주의 — 초안이 이 항목을 잘못 인용했다**: CMC의 기본값(`bMaintainHorizontalGroundVelocity = true`)은
+  램프에서 **수평 속도를 보존**한다. 초안은 같은 함수를 근거로 들면서 정작 수평을 깎는
+  단순 투영을 지시했다. §4.1이 그에 맞춰 정정됐다.
 - **Photon Quantum KCC** — 접지 법선을 구해 이동을 그 평면에 투영(ground projection).
 - 즉 이 설계는 새 발명이 아니라 **표준 컨트롤러 구조로 되돌리는 것**이다.
 
@@ -181,3 +194,9 @@ EditMode(LOP-Shared). 반평면(바닥/벽/경사)을 주는 해석 쿼리로 �
   D5("경사는 세로 속도를 안 늘린다")와 규칙이 다르다. 통일할지, 통일한다면 어느 쪽으로 할지는
   이 슬라이스가 끝나 발동 빈도를 본 뒤 정한다.
 - **O2 — 접촉 반복 해석기**(새끼리 얹힘). `ROADMAP.md` 항목 그대로.
+- **O3 — `TryStepUp`에 접지 조건이 없다.** 언리얼 CMC는 `StepUp`을 접지 이동(`MoveAlongFloor`)에서만
+  부르는데, 여기선 공중에서 벽을 스쳐도 최대 `stepOffset`만큼 턱 위로 올라탄다(FlapWang에서
+  점프·낙하 중 선반에 달라붙는 무료 등반). **이번 슬라이스에서 고치지 않았다** — 옛 코드도 모든
+  수평 sweep을 통짜로 들어올려 공중에서 같은 높이를 무시했으므로 *새로 생긴 문제가 아니고*,
+  공중 이동을 바꾸는 것은 경사 떨림의 범위 밖이다. 라이브에서 실제로 거슬리면 그때 `&& onGround`
+  한 줄로 표준에 맞춘다.

@@ -18,3 +18,10 @@
     -unity-text-align: middle-center;
     margin-top: 4px;
 }
+
+.dropout-label {
+    font-size: 20px;
+    color: rgb(255, 176, 140);
+    -unity-text-align: middle-center;
+    margin-top: 2px;
+}

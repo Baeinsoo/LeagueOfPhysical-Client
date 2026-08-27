@@ -25,6 +25,10 @@ namespace LOP
             builder.Register<IEntitySyncPolicy, AllInterpolatedSyncPolicy>(Lifetime.Singleton);
             builder.Register<IServerCorrectionHandler, NoServerCorrection>(Lifetime.Singleton);
 
+            // 이 게임엔 외삽 대상이 없다(정책이 Extrapolated를 절대 안 준다) — 그래도 EntityBinder의
+            // 생성자 의존이라 등록은 필요하다. 값은 쓰이지 않는다.
+            builder.Register<IExtrapolationAcceleration, ZeroExtrapolationAcceleration>(Lifetime.Singleton);
+
             builder.Register<PanchigiStateStore>(Lifetime.Singleton);
             builder.RegisterEntryPoint<PanchigiStateMessageHandler>();
 

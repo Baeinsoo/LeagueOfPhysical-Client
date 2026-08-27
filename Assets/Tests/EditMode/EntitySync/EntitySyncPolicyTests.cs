@@ -59,7 +59,9 @@ namespace LOP.Tests
         {
             var policy = new CharactersPredictedSyncPolicy();
 
-            // Flappy의 코인은 EntityType.Coin이다 — Item이 아니라 실제로 쓰는 종류로 검증한다.
+            // 캐릭터가 아닌 종류면 무엇이든 보간이라는 성질을 고정한다. 코인은 판치기 것이고
+            // Flappy는 캐릭터만 스폰하므로, 이 정책의 이 갈래는 Flappy 안에선 실제로 안 밟힌다 —
+            // 그래도 "캐릭터만 예측"이라는 성질 자체는 종류를 안 가리고 지켜져야 한다.
             Assert.AreEqual(EntitySyncMode.Interpolated, policy.For(Coin("coin")));
         }
 

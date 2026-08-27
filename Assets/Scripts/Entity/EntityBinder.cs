@@ -24,6 +24,7 @@ namespace LOP
         private readonly IPlayerContext playerContext;
         private readonly IEntitySyncPolicy syncPolicy;
         private readonly IExtrapolationAcceleration extrapolationAcceleration;
+        private readonly RenderCorrectionSmootherFactory renderCorrectionSmootherFactory;
 
         public EntityBinder(
             IObjectResolver objectResolver,
@@ -34,7 +35,8 @@ namespace LOP
             IGameDataStore gameDataStore,
             IPlayerContext playerContext,
             IEntitySyncPolicy syncPolicy,
-            IExtrapolationAcceleration extrapolationAcceleration)
+            IExtrapolationAcceleration extrapolationAcceleration,
+            RenderCorrectionSmootherFactory renderCorrectionSmootherFactory)
         {
             this.objectResolver = objectResolver;
             this.entityCreatedSubscriber = entityCreatedSubscriber;
@@ -45,6 +47,7 @@ namespace LOP
             this.playerContext = playerContext;
             this.syncPolicy = syncPolicy;
             this.extrapolationAcceleration = extrapolationAcceleration;
+            this.renderCorrectionSmootherFactory = renderCorrectionSmootherFactory;
         }
 
         protected override void Subscribe()
@@ -87,6 +90,9 @@ namespace LOP
                 Debug.LogError($"userEntityId가 비어 있는 채로 캐릭터 {entityCreated.entityId}를 바인딩한다 — 내 캐릭터를 인식하지 못한다.");
             }
 
+            // 내 엔티티인지 여기서 한 번 정한다 — 아래 렌더 보정 설정과 playerContext 세팅이 같은 답을 써야 한다.
+            bool isUserEntity = gameDataStore.userEntityId == entityCreated.entityId;
+
             EntitySyncMode syncMode = syncPolicy.For(worldEntity);
             if (syncMode == EntitySyncMode.Predicted)
             {
@@ -112,6 +118,8 @@ namespace LOP
                     predictedInterpolator = root.AddComponent<PredictedEntityInterpolator>();
                     objectResolver.Inject(predictedInterpolator);
                     predictedInterpolator.actor = actor;
+                    // 내 것과 남의 것은 "정상적인 보정 크기"가 달라 스무더 설정도 다르다 — 근거는 팩토리 주석.
+                    predictedInterpolator.renderCorrectionSmoother = renderCorrectionSmootherFactory.Create(isUserEntity);
                     break;
                 }
                 case EntitySyncMode.Extrapolated:
@@ -137,7 +145,6 @@ namespace LOP
 
             if (kind.Kind == EntityType.Character)
             {
-                bool isUserEntity = gameDataStore.userEntityId == entityCreated.entityId;
                 if (isUserEntity)
                 {
                     playerContext.actor = actor;

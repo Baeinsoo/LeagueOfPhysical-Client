@@ -12,7 +12,6 @@ namespace LOP
     public class SnapshotEntityInterpolator : MonoBehaviour
     {
         [Inject] private RemoteInterpolationClock clock;
-        [Inject] private GameFramework.Runner.IRunner runner;
 
         public GameFramework.World.Entity worldEntity { get; set; }
         public LOPActor actor { get; set; }
@@ -30,7 +29,7 @@ namespace LOP
                 return;
             }
             snaps.Add(snap);
-            stunAppearance?.SetState(StunVisuals.Of(snap, runner.tickUpdater.tick));
+            stunAppearance?.SetState(StunVisuals.Of(snap));
         }
 
         private void LateUpdate()

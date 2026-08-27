@@ -22,6 +22,8 @@ namespace LOP
         private const int AimingPhase = 1;
 
         //  판만 맞힌다 — 동전을 눌러도 "판의 그 자리를 쳤다"로 읽어야 조작이 자연스럽다.
+        //  그래서 판에 전용 레이어를 준다. Default를 쓰면 레이가 동전에도 맞아, 판 끝에 걸친
+        //  동전을 짚었을 때 "판을 못 맞혔다"가 되어 치기가 통째로 거절된다.
         //  static 필드 초기화자에서 LayerMask.GetMask를 부르면 Unity가 예외를 던진다
         //  (MonoBehaviour 생성자/필드 초기화자에서 금지) — Awake에서 인스턴스 필드로 채운다.
         private int BoardLayerMask;
@@ -37,7 +39,7 @@ namespace LOP
 
         private void Awake()
         {
-            BoardLayerMask = LayerMask.GetMask("Default");
+            BoardLayerMask = LayerMask.GetMask("Board");
             if (aimCamera == null)
             {
                 aimCamera = Camera.main;

@@ -19,6 +19,13 @@ namespace LOP.Tests
             return entity;
         }
 
+        static Entity Coin(string id)
+        {
+            var entity = new Entity(id);
+            entity.Add(new EntityKind(EntityType.Coin));
+            return entity;
+        }
+
         [Test]
         public void 주인_예측_정책은_내_엔티티만_예측한다()
         {
@@ -52,7 +59,8 @@ namespace LOP.Tests
         {
             var policy = new CharactersPredictedSyncPolicy();
 
-            Assert.AreEqual(EntitySyncMode.Interpolated, policy.For(Item("coin")));
+            // Flappy의 코인은 EntityType.Coin이다 — Item이 아니라 실제로 쓰는 종류로 검증한다.
+            Assert.AreEqual(EntitySyncMode.Interpolated, policy.For(Coin("coin")));
         }
 
         [Test]

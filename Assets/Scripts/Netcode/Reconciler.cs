@@ -262,9 +262,9 @@ namespace LOP
             }
 
             // 재생: 이미 예측했던 과거 틱(anchor+1 ~ currentTick-1)을 이동+물리로 재구성.
-            // world.Tick이 예측 대상 전부를 굴리지만, 입력을 넣는 건 내 엔티티뿐이다 — 남의 새는
-            // InputBuffer 자체가 없어(CharacterCreator가 isUserEntity일 때만 붙인다) 자동으로
-            // "안 누른 것"이 된다.
+            // world.Tick이 예측 대상 전부를 굴리지만, 입력을 넣는 건 내 엔티티뿐이다 — 남의 엔티티는
+            // InputBuffer 자체가 없어(CharacterCreator/FlappyBirdCreator가 isUserEntity일 때만
+            // 붙인다) 자동으로 "안 누른 것"이 된다.
             var inputBuffer = worldEntity.Get<InputBuffer>();   // 입력 버퍼 (WorldEventBuffer 아님 — 이름 구분)
             if (inputBuffer == null)
             {

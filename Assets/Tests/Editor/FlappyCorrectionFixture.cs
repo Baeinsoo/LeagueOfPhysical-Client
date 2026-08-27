@@ -1,21 +1,21 @@
-using System.Threading.Tasks;
 using GameFramework.Physics;
 
 namespace LOP.Tests
 {
     /// <summary>
     /// <see cref="FlappyServerCorrectionHandler"/>를 EditMode에서 진짜로 돌리기 위한 조립 도구.
-    /// 핸들러가 필요로 하는 건 "그 틱에 뭘 예측했나"(FlappyWorld)와 틱 간격(러너) 둘뿐이라,
-    /// 월드는 실물을 쓰고 러너만 스텁으로 세운다 — 실물 월드를 써야 저장된 예측이 진짜 시뮬 결과가 된다.
+    /// 핸들러가 필요로 하는 건 "그 틱에 뭘 예측했나"(FlappyWorld) 하나뿐이다 — 실물 월드를 써야
+    /// 저장된 예측이 진짜 시뮬 결과가 된다. 틱 간격은 되감기를 구동하는 쪽이 넘기는 값이라
+    /// 테스트가 <see cref="TickInterval"/>을 직접 준다.
     /// </summary>
     internal static class FlappyCorrectionFixture
     {
         public const float TickInterval = 0.02f;
 
-        //  스냅이 말하는 틱(서버가 그 사진을 찍은 틱)과 클라의 현재 틱은 다르다 — 클라가 앞서 달린다.
-        //  그 차이를 테스트가 재현해야, 기준 틱을 잘못 고른 코드가 실제로 빨간불이 된다.
+        //  스냅이 말하는 틱(서버가 그 사진을 찍은 틱). 클라의 현재 틱은 이보다 ~9틱 앞서지만,
+        //  핸들러는 이제 그 값에 손이 닿지 않는다(러너를 안 받는다) — 기준 틱을 잘못 고르는
+        //  실수 자체가 구조적으로 불가능해졌다.
         public const long SnapTick = 100;
-        public const long ClientLeadTicks = 9;
 
         public static ICollisionQuery NeverHit => new NeverHitQuery();
         public static ICollisionQuery AlwaysHit => new AlwaysHitQuery();
@@ -36,7 +36,7 @@ namespace LOP.Tests
                 new FlappyMoveSystem(Config()), new FlappyBodyCollisionSystem(Config()),
                 new FlappyStunSystem(Config()), collisionQuery, new NoopMotionBridge(), layerMask: ~0);
             world.GameplayStartTick = 0;   // 출발 게이트는 이 파일의 관심사가 아니다
-            return new FlappyServerCorrectionHandler(world, new StubRunner(TickInterval));
+            return new FlappyServerCorrectionHandler(world);
         }
 
         public static EntitySnap Snap(string entityId, long tick, long stunEndTick = 0, long invulnEndTick = 0)
@@ -90,54 +90,5 @@ namespace LOP.Tests
             public void Separate(GameFramework.World.Entity entity) { }
             public void PushMotion(GameFramework.World.Entity entity) { }
         }
-
-#pragma warning disable 0067   // 스텁이라 이벤트를 발생시키지 않는다
-        private class StubTickUpdater : GameFramework.Runner.ITickUpdater
-        {
-            public StubTickUpdater(double interval, long tick)
-            {
-                this.interval = interval;
-                this.tick = tick;
-            }
-
-            public event System.Action<long> onTick;
-
-            public long tick { get; }
-            public double interval { get; }
-            public double elapsedTime => tick * interval;
-            public long processibleTick => tick;
-            public double deltaTime => interval;
-            public int catchUpCappedCount => 0;
-            public long maxTicksBehind => 0;
-
-            public void Run(long tick, double interval, double elapsedTime) { }
-            public void Stop() { }
-        }
-
-        /// <summary>핸들러가 실제로 읽는 건 tickUpdater.interval 하나뿐이라 나머지는 비워 둔다.</summary>
-        private class StubRunner : GameFramework.Runner.IRunner
-        {
-            public StubRunner(double interval)
-            {
-                //  현재 틱을 일부러 스냅 틱보다 앞에 둔다 — 핸들러가 이 값을 기준으로 삼기 시작하면
-                //  테스트가 즉시 빨간불이 되도록.
-                tickUpdater = new StubTickUpdater(interval, SnapTick + ClientLeadTicks);
-            }
-
-            public event System.Action<GameFramework.Runner.RunnerState> onGameStateChanged;
-
-            public GameFramework.Runner.RunnerState gameState => GameFramework.Runner.RunnerState.Playing;
-            public GameFramework.Runner.ITickUpdater tickUpdater { get; }
-            public GameFramework.Netcode.INetworkTime networkTime => null;
-            public bool initialized => true;
-
-            public void Run(long tick, double interval, double elapsedTime) { }
-            public void Stop() { }
-            public void RegisterSystem<TPhase>(GameFramework.Runner.ITickSystem system) { }
-            public void UnregisterSystem(GameFramework.Runner.ITickSystem system) { }
-            public Task InitializeAsync() => Task.CompletedTask;
-            public Task DeinitializeAsync() => Task.CompletedTask;
-        }
-#pragma warning restore 0067
     }
 }

@@ -9,12 +9,10 @@ namespace LOP
     public class FlappyServerCorrectionHandler : IServerCorrectionHandler
     {
         private readonly FlappyWorld world;       // 같은 게임 안이므로 구체를 직접 본다
-        private readonly GameFramework.Runner.IRunner runner;
 
-        public FlappyServerCorrectionHandler(FlappyWorld world, GameFramework.Runner.IRunner runner)
+        public FlappyServerCorrectionHandler(FlappyWorld world)
         {
             this.world = world;
-            this.runner = runner;
         }
 
         //  비교는 반드시 같은 시점끼리 한다 — 앵커 틱에 "내가 그때 예측했던" 스턴 vs 서버가 그 틱에
@@ -40,7 +38,7 @@ namespace LOP
                 && (predictedInvuln > 0f) == (snapInvulnEnd > tick);
         }
 
-        public void ApplyAuthoritative(GameFramework.World.Entity entity, EntitySnap snap)
+        public void ApplyAuthoritative(GameFramework.World.Entity entity, EntitySnap snap, float deltaTime)
         {
             var stun = entity.Get<FlappyStun>();
             if (stun == null)
@@ -51,9 +49,9 @@ namespace LOP
             //  수밖에 없어, 서버가 이미 절반쯤 지난 스턴을 처음부터 다시 시작하게 만든다.
             //  snap.tick을 기준 시점으로 쓴다 — 한 배치의 스냅은 전부 같은 틱이라고 Reconciler가
             //  보장해 주므로(위 Matches의 tick과 같은 값), 여기서 따로 받지 않아도 된다.
-            float interval = (float)runner.tickUpdater.interval;
-            stun.StunRemaining = RemainingSeconds(snap.stunEndTick, tick: snap.tick, interval);
-            stun.InvulnRemaining = RemainingSeconds(snap.invulnEndTick, tick: snap.tick, interval);
+            //  틱 간격은 되감기를 구동하는 쪽이 넘겨 준다(러너에서 직접 꺼내면 DI에 고리가 생긴다).
+            stun.StunRemaining = RemainingSeconds(snap.stunEndTick, tick: snap.tick, deltaTime);
+            stun.InvulnRemaining = RemainingSeconds(snap.invulnEndTick, tick: snap.tick, deltaTime);
         }
 
         /// <summary>끝나는 절대 틱에서 지금 틱을 빼 남은 시간(초)으로 바꾼다. 이미 지났거나(0 포함) 같으면 0.</summary>

@@ -255,7 +255,7 @@ namespace LOP
                     motionContributions.Items.AddRange(snap.contributions);
                 }
 
-                correction.ApplyAuthoritative(target, snap);
+                correction.ApplyAuthoritative(target, snap, deltaTime);
 
                 // World에 쓴 포즈를 MotionBridge가 rb에 밀고, PhysX가 새 포즈를 보도록 수동
                 // SyncTransforms(autoSyncTransforms=false).

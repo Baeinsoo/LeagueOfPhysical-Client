@@ -83,6 +83,8 @@ namespace LOP.Tests
         //  헬퍼만 검사하면 "계산은 맞는데 부르는 쪽이 엉뚱한 값을 넘긴다"를 못 잡는다. 실제로
         //  ApplyAuthoritative가 기준 틱을 snap.tick 대신 클라의 현재 틱으로 바꿔도 이 파일은
         //  통째로 초록이었다 — 아래 테스트들이 그 구멍을 막는다.
+        //  (그 실수 자체는 이제 구조적으로 불가능하다: 핸들러가 러너를 안 받아 클라의 현재 틱에
+        //   손이 닿지 않는다. 그래도 "스냅의 틱을 기준으로 쓴다"는 계약은 여기서 계속 지킨다.)
 
         [Test]
         public void 저장이_없는_틱은_비교하지_않고_통과시킨다()
@@ -130,18 +132,16 @@ namespace LOP.Tests
         [Test]
         public void 남은_시간은_스냅_자신의_틱에서_되계산한다()
         {
-            //  이 브랜치에서 가장 조용하고 가장 위험한 줄이다. 클라 시계는 서버보다 ~9틱 앞서
-            //  달리므로, 기준을 snap.tick(=100) 대신 클라의 현재 틱(=109)으로 잡으면 같은 스냅이
-            //  0.8초가 아니라 0.62초로 읽힌다 — 스턴이 매번 0.18초씩 짧아지는데 화면상으론
-            //  "가끔 덜 멈춘다" 정도로만 보여 눈으로는 못 잡는다.
-            //  그래서 스텁 러너의 현재 틱을 일부러 109로 둔다: 기준을 바꾸면 이 값이 틀어진다.
+            //  기준 시점은 스냅이 찍힌 틱이어야 한다. 클라 시계는 서버보다 ~9틱 앞서 달리므로,
+            //  기준을 클라의 현재 틱(=109)으로 잡으면 같은 스냅이 0.8초가 아니라 0.62초로 읽힌다
+            //  — 스턴이 매번 0.18초씩 짧아지는데 화면상으론 "가끔 덜 멈춘다" 정도로만 보인다.
             var handler = Fixture.Handler(Fixture.NeverHit, out _, out var bird);
 
-            handler.ApplyAuthoritative(bird, Fixture.Snap(bird.Id, tick: FlappyCorrectionFixture.SnapTick, stunEndTick: 140, invulnEndTick: 170));
+            handler.ApplyAuthoritative(bird, Fixture.Snap(bird.Id, tick: FlappyCorrectionFixture.SnapTick, stunEndTick: 140, invulnEndTick: 170), FlappyCorrectionFixture.TickInterval);
 
-            //  (140 − 100) × 0.02 = 0.8초. 클라 현재 틱(109) 기준이면 0.62초가 나온다.
+            //  (140 − 100) × 0.02 = 0.8초.
             Assert.AreEqual(0.8f, bird.Get<FlappyStun>().StunRemaining, 1e-4f);
-            //  (170 − 100) × 0.02 = 1.4초. 클라 현재 틱 기준이면 1.22초.
+            //  (170 − 100) × 0.02 = 1.4초.
             Assert.AreEqual(1.4f, bird.Get<FlappyStun>().InvulnRemaining, 1e-4f);
         }
 
@@ -153,7 +153,7 @@ namespace LOP.Tests
             bird.Get<FlappyStun>().StunRemaining = 0.5f;
             bird.Get<FlappyStun>().InvulnRemaining = 0.5f;
 
-            handler.ApplyAuthoritative(bird, Fixture.Snap(bird.Id, tick: FlappyCorrectionFixture.SnapTick, stunEndTick: 0, invulnEndTick: 0));
+            handler.ApplyAuthoritative(bird, Fixture.Snap(bird.Id, tick: FlappyCorrectionFixture.SnapTick, stunEndTick: 0, invulnEndTick: 0), FlappyCorrectionFixture.TickInterval);
 
             Assert.AreEqual(0f, bird.Get<FlappyStun>().StunRemaining, 1e-4f);
             Assert.AreEqual(0f, bird.Get<FlappyStun>().InvulnRemaining, 1e-4f);
@@ -166,7 +166,7 @@ namespace LOP.Tests
             var handler = Fixture.Handler(Fixture.NeverHit, out _, out _);
             var plain = new GameFramework.World.Entity("no-stun");
 
-            Assert.DoesNotThrow(() => handler.ApplyAuthoritative(plain, Fixture.Snap("no-stun", tick: FlappyCorrectionFixture.SnapTick, stunEndTick: 140)));
+            Assert.DoesNotThrow(() => handler.ApplyAuthoritative(plain, Fixture.Snap("no-stun", tick: FlappyCorrectionFixture.SnapTick, stunEndTick: 140), FlappyCorrectionFixture.TickInterval));
         }
     }
 }

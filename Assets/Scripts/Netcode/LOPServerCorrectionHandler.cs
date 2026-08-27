@@ -35,7 +35,7 @@ namespace LOP
                 predicted, snap.statusEffects, statusEffectDataProvider.Get);
         }
 
-        public void ApplyAuthoritative(GameFramework.World.Entity entity, EntitySnap snap)
+        public void ApplyAuthoritative(GameFramework.World.Entity entity, EntitySnap snap, float deltaTime)
         {
             statusEffectSystem.ApplyAuthoritativeState(entity, snap.statusEffects, statusEffectDataProvider.Get);
         }

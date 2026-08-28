@@ -6,14 +6,20 @@ namespace LOP
     /// </summary>
     public static class StunVisuals
     {
-        /// <summary>남의 새 — 서버 스냅샷이 진실원본이다.</summary>
+        /// <summary>
+        /// 남의 새 — 서버 스냅샷이 진실원본이다. 종료 틱을 <b>그 스냅이 찍힌 틱</b>과 비교한다.
+        /// </summary>
+        //  기준 시점을 스냅이 스스로 들고 있는 tick으로 잡는 이유: 클라 시계는 서버보다 ~9틱
+        //  앞서 달린다. 그 앞선 틱과 비교하면 스냅이 "아직 멈춰 있다"고 말하는데도 화면에서는
+        //  ~180ms 먼저 풀린 것처럼 보인다. 스냅은 과거 한 순간의 사진이므로, 그 사진 안의 값끼리
+        //  비교해야 사진이 말하는 그대로가 나온다.
         public static StunVisual Of(EntitySnap snap)
         {
             if (snap == null)
             {
                 return StunVisual.None;
             }
-            return Resolve(snap.stunned, snap.invulnerable);
+            return Resolve(snap.stunEndTick > snap.tick, snap.invulnEndTick > snap.tick);
         }
 
         /// <summary>내 새 — 스냅을 기다리지 않고 예측 결과를 그 자리에서 읽는다.</summary>

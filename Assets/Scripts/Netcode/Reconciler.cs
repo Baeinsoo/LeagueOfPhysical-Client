@@ -194,6 +194,15 @@ namespace LOP
 
             // 위치가 다 가까워도 게임 고유 상태가 다르면 되돌린다(무엇을 보는지는 게임이 안다).
             // 내 엔티티 스냅이 배치에 없으면 비교할 수 없으니 안전한 쪽(되돌림)으로 간다.
+            //
+            // 여기서 보는 건 내 엔티티 하나뿐이다 — 남의 게임 고유 상태를 잘못 예측해도 이 문은
+            // 그것만으로는 열리지 않는다. 그런데도 남이 제때 고쳐지는 이유는 Flappy에서 그 상태
+            // (스턴)가 곧 몸의 움직임이기 때문이다: 서버는 멈춘 새의 속도를 0으로 고정하는데 내
+            // 예측은 그 새를 전속 전진시키므로, 위치 차이가 한 틱 만에 위 문턱(1cm)을 넘어 위치
+            // 게이트가 대신 열린다.
+            // 그러니 이건 이 게임에서만 성립하는 우연한 안전망이다. 몸을 안 움직이는 게임 고유
+            // 상태(예: 자원·쿨다운만 바뀌는 것)를 가진 게임이 오면, 그 게임의 남의 새는 조용히
+            // 안 고쳐진다 — 그때는 배치 전체를 correction.Matches에 물어야 한다.
             bool statusMatches = pendingSnaps.TryGetValue(entityId, out var mySnap) && correction.Matches(anchorTick, mySnap);
             if (allClose && statusMatches)
             {
@@ -246,7 +255,7 @@ namespace LOP
                     motionContributions.Items.AddRange(snap.contributions);
                 }
 
-                correction.ApplyAuthoritative(target, snap);
+                correction.ApplyAuthoritative(target, snap, deltaTime);
 
                 // World에 쓴 포즈를 MotionBridge가 rb에 밀고, PhysX가 새 포즈를 보도록 수동
                 // SyncTransforms(autoSyncTransforms=false).
@@ -263,7 +272,8 @@ namespace LOP
 
             // 재생: 이미 예측했던 과거 틱(anchor+1 ~ currentTick-1)을 이동+물리로 재구성.
             // world.Tick이 예측 대상 전부를 굴리지만, 입력을 넣는 건 내 엔티티뿐이다 — 남의 엔티티는
-            // InputBuffer가 없어 자동으로 "안 누른 것"이 된다.
+            // InputBuffer 자체가 없어(CharacterCreator/FlappyBirdCreator가 isUserEntity일 때만
+            // 붙인다) 자동으로 "안 누른 것"이 된다.
             var inputBuffer = worldEntity.Get<InputBuffer>();   // 입력 버퍼 (WorldEventBuffer 아님 — 이름 구분)
             if (inputBuffer == null)
             {

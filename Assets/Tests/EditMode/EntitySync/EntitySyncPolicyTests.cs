@@ -19,6 +19,13 @@ namespace LOP.Tests
             return entity;
         }
 
+        static Entity Coin(string id)
+        {
+            var entity = new Entity(id);
+            entity.Add(new EntityKind(EntityType.Coin));
+            return entity;
+        }
+
         [Test]
         public void 주인_예측_정책은_내_엔티티만_예측한다()
         {
@@ -39,12 +46,23 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 내_캐릭터는_예측하고_남은_외삽한다()
+        public void 캐릭터는_내_것이든_남의_것이든_예측한다()
         {
-            var policy = new OwnerPredictedRemotesExtrapolatedSyncPolicy(() => "me");
+            var policy = new CharactersPredictedSyncPolicy();
 
             Assert.AreEqual(EntitySyncMode.Predicted, policy.For(Character("me")));
-            Assert.AreEqual(EntitySyncMode.Extrapolated, policy.For(Character("other")));
+            Assert.AreEqual(EntitySyncMode.Predicted, policy.For(Character("other")));
+        }
+
+        [Test]
+        public void 캐릭터가_아니면_보간한다()
+        {
+            var policy = new CharactersPredictedSyncPolicy();
+
+            // 캐릭터가 아닌 종류면 무엇이든 보간이라는 성질을 고정한다. 코인은 판치기 것이고
+            // Flappy는 캐릭터만 스폰하므로, 이 정책의 이 갈래는 Flappy 안에선 실제로 안 밟힌다 —
+            // 그래도 "캐릭터만 예측"이라는 성질 자체는 종류를 안 가리고 지켜져야 한다.
+            Assert.AreEqual(EntitySyncMode.Interpolated, policy.For(Coin("coin")));
         }
 
         [Test]

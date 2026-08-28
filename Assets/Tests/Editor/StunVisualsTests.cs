@@ -15,21 +15,27 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 스냅의_스턴은_멈춤으로_보인다()
+        public void 스냅의_멈춤은_정지로_보인다()
         {
-            Assert.AreEqual(StunVisual.Stunned, StunVisuals.Of(new EntitySnap { stunned = true }));
+            Assert.AreEqual(StunVisual.Stunned, StunVisuals.Of(new EntitySnap { tick = 50, stunEndTick = 100 }));
+        }
+
+        [Test]
+        public void 종료틱이_지났으면_평소다()
+        {
+            Assert.AreEqual(StunVisual.None, StunVisuals.Of(new EntitySnap { tick = 100, stunEndTick = 100 }));
         }
 
         [Test]
         public void 스냅의_무적은_깜빡임으로_보인다()
         {
-            Assert.AreEqual(StunVisual.Invulnerable, StunVisuals.Of(new EntitySnap { invulnerable = true }));
+            Assert.AreEqual(StunVisual.Invulnerable, StunVisuals.Of(new EntitySnap { tick = 50, invulnEndTick = 100 }));
         }
 
         [Test]
-        public void 둘_다_켜져_있으면_멈춤이_이긴다()
+        public void 둘_다_남아_있으면_멈춤이_이긴다()
         {
-            var snap = new EntitySnap { stunned = true, invulnerable = true };
+            var snap = new EntitySnap { tick = 50, stunEndTick = 100, invulnEndTick = 120 };
 
             Assert.AreEqual(StunVisual.Stunned, StunVisuals.Of(snap));
         }
@@ -42,9 +48,19 @@ namespace LOP.Tests
             var stunned = new FlappyStun { StunRemaining = 0.5f };
             var invuln = new FlappyStun { InvulnRemaining = 0.5f };
 
-            Assert.AreEqual(StunVisuals.Of(new EntitySnap { stunned = true }), StunVisuals.Of(stunned));
-            Assert.AreEqual(StunVisuals.Of(new EntitySnap { invulnerable = true }), StunVisuals.Of(invuln));
+            Assert.AreEqual(StunVisuals.Of(new EntitySnap { stunEndTick = 100 }), StunVisuals.Of(stunned));
+            Assert.AreEqual(StunVisuals.Of(new EntitySnap { invulnEndTick = 100 }), StunVisuals.Of(invuln));
             Assert.AreEqual(StunVisuals.Of(new EntitySnap()), StunVisuals.Of(new FlappyStun()));
+        }
+
+        [Test]
+        public void 기준_시점은_스냅_자신의_틱이다()
+        {
+            //  종료 틱이 같아도 스냅이 찍힌 시점이 다르면 답이 달라져야 한다 — 이게 성립해야
+            //  "부르는 쪽이 어떤 틱을 넘기느냐"에 결과가 흔들리지 않는다. 클라 시계는 서버보다
+            //  ~9틱 앞서 달리므로, 기준이 스냅 밖에서 오면 스턴이 그만큼 일찍 풀린 것처럼 보인다.
+            Assert.AreEqual(StunVisual.Stunned, StunVisuals.Of(new EntitySnap { tick = 91, stunEndTick = 100 }));
+            Assert.AreEqual(StunVisual.None, StunVisuals.Of(new EntitySnap { tick = 100, stunEndTick = 100 }));
         }
 
         [Test]

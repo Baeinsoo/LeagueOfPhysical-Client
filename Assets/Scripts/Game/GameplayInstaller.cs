@@ -74,8 +74,9 @@ namespace LOP
             builder.Register<MatchSeed>(Lifetime.Singleton);
             builder.Register<ReconciliationStats>(Lifetime.Singleton);
             builder.Register<MatchStartState>(Lifetime.Singleton);
-            // 예측 대상마다 자기 것을 갖는다 — 튄 양이 엔티티마다 다르다.
-            builder.Register(_ => new GameFramework.Netcode.RenderCorrectionSmoother(0.1f, 0.025f, 3f), Lifetime.Transient);
+            // 예측 대상마다 자기 것을 갖는다 — 튄 양이 엔티티마다 다르다. 내 것/남의 것이
+            // 설정이 달라서 EntityBinder가 이 팩토리로 만들어 붙인다.
+            builder.Register<RenderCorrectionSmootherFactory>(Lifetime.Singleton);
             builder.Register<InputTimingStats>(Lifetime.Singleton);
             builder.Register<GameFramework.Netcode.SnapshotArrivalStats>(Lifetime.Singleton);
             builder.Register<LeadState>(Lifetime.Singleton);

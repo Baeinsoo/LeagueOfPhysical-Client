@@ -75,16 +75,18 @@ namespace LOP
                 position = renderCorrectionSmoother.Target(GameFramework.World.EntityMotionExtensions.GetPosition(worldEntity).ToNumerics()).ToUnity(),
                 rotation = GameFramework.World.EntityMotionExtensions.GetRotation(worldEntity),
             });
-            renderCorrectionSmoother.DecayTick(deltaTime);
+            renderCorrectionSmoother.Advance(deltaTime);
         }
 
         /// <summary>
         /// 시뮬 위치가 하드 보정으로 튀었음을 알린다. 보이는 메시가 그 차이를 부드럽게 흡수한다
         /// (시뮬에는 영향 없음). 크기별로 스냅/무시를 판단하는 것은 스무더 몫이다.
+        /// <paramref name="authoritativeVelocity"/>는 이음매에서 렌더 속도를 잇는 데 쓴다.
         /// </summary>
-        public void OnCorrection(System.Numerics.Vector3 before, System.Numerics.Vector3 after)
+        public void OnCorrection(System.Numerics.Vector3 before, System.Numerics.Vector3 after,
+                                 System.Numerics.Vector3 authoritativeVelocity)
         {
-            renderCorrectionSmoother.OnCorrection(before, after);
+            renderCorrectionSmoother.OnCorrection(before, after, authoritativeVelocity);
         }
 
         private void LateUpdate()

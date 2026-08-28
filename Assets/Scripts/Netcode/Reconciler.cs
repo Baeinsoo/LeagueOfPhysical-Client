@@ -134,7 +134,8 @@ namespace LOP
                     }
                     actor.GetComponent<PredictedEntityInterpolator>()?.OnCorrection(
                         pair.Value,
-                        GameFramework.World.EntityMotionExtensions.GetPosition(target).ToNumerics());
+                        GameFramework.World.EntityMotionExtensions.GetPosition(target).ToNumerics(),
+                        GameFramework.World.EntityMotionExtensions.GetVelocity(target).ToNumerics());
                 }
             }
 

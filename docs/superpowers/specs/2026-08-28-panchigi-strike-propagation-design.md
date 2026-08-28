@@ -101,18 +101,24 @@ sum += MathF.Exp(-MathF.Sqrt(dx * dx + dz * dz) / tuning.InfluenceRadius);
 |---|---|
 | infrastructure | `table/Datas/#PanchigiConfig.xlsx` 컬럼명·값, Luban 재생성 |
 | MasterData-Client / -Server | 생성 산출물(`.cs`·`.bytes`) |
-| LOP-Server → LOP-Shared | **`PanchigiStrike` 커널을 옮긴다**(아래 참고) + EditMode 테스트 |
+| LOP-Server | `PanchigiStrike` 커널(제자리) + **`Assets/Tests/Editor/` 신설** + EditMode 테스트 |
 | LOP-Server | `StrikeTuning` 조립부(`PanchigiStrikeMessageHandler`), 수기 검증에서 커널 부분 제거 |
 
-### 커널을 공용 패키지로 옮긴다
+### 커널은 서버에 둔다 — 테스트 자리를 서버에 만든다
 
-`PanchigiStrike`는 지금 **서버 레포**(`Assets/Scripts/Game/`)에 있다. 거기는 `Assembly-CSharp`이라
-**EditMode 테스트를 붙일 수 없고**, 그 빈자리를 서버의 수기 검증 스크립트가 메우고 있다
-(`PanchigiVerification.StrikeKernel` — 주석에 "잃어버린 EditMode 테스트 13개를 대신한다"고 적혀 있다).
+`PanchigiStrike`는 **서버만 쓴다**(클라는 타격을 예측하지 않고 결과를 스냅샷으로 받는다). 토폴로지
+기준대로 서버가 제자리다 — "클·서가 반드시 동일하게 보아야 하는 것"만 공용 패키지로 간다.
 
-커널은 `System`·`System.Numerics`만 쓰는 순수 C#이라 그대로 옮겨진다. 오늘 `PanchigiTurn`을 같은
-이유로 옮겼고, 그때 **수기 검증이 옛 시그니처를 붙들고 있어 게임서버 배포가 깨진** 전례가 있다 —
-규칙을 두 벌 두면 한쪽만 고쳐진다. 옮기면서 수기 검증의 커널 부분은 걷어낸다.
+처음에는 "서버 `Assets/Scripts`는 `Assembly-CSharp`이라 테스트를 못 붙인다"고 보고 공용 패키지로
+옮기려 했으나, **그 전제가 틀렸다.** 클라가 `Assets/Tests/Editor/`에 asmdef 없이 테스트를 두고
+`Assembly-CSharp-Editor`에서 돌리고 있다 — 그 어셈블리는 `Assembly-CSharp`을 참조하므로 런타임
+클래스를 그대로 시험할 수 있다. 서버 레포는 그 폴더가 아직 없을 뿐이다.
+
+그래서 **커널을 옮기지 않고 서버에 `Assets/Tests/Editor/`를 만든다.** 서버 레포에 처음 생기는
+테스트 자리이고, 431줄짜리 수기 검증 스크립트가 대신하던 역할을 앞으로 여기가 받는다.
+
+같은 이유로 **`PanchigiTurn`도 서버로 되돌린다.** 오늘 테스트를 붙이려고 공용 패키지로 옮겼는데,
+그것도 서버 전용 규칙이라 같은 잘못이었다. 테스트 자리가 서버에 생기면 옮길 이유가 사라진다.
 
 클라 런타임은 이 값을 읽지 않는다(타격 판정은 서버 전담). 조준선은 로컬로만 그린다.
 

@@ -4,7 +4,7 @@
 
 **Goal:** 타격의 영향이 친 자리 근처로 좁혀져, 손바닥을 벌려 넓게 쳐야 판 전체가 움직이게 만든다.
 
-**Architecture:** 힘 커널의 거리 가중치를 멱함수 `1/(1+k·d²)`에서 지수 `e^(−d/ℓ)`로 바꾼다. 커널은 지금 서버 레포에 있어 EditMode 테스트를 못 붙이므로 먼저 공용 패키지로 옮긴다. 마스터데이터 노브도 뜻이 달라지므로 `falloff_rate` → `influence_radius`로 함께 바꾼다.
+**Architecture:** 힘 커널의 거리 가중치를 멱함수 `1/(1+k·d²)`에서 지수 `e^(−d/ℓ)`로 바꾼다. 커널은 서버 전용이라 서버에 두고, 서버 레포에 `Assets/Tests/Editor/`를 만들어 테스트를 붙인다(predefined `Assembly-CSharp-Editor`라 asmdef 없이 표준 Test Runner가 잡는다). 마스터데이터 노브도 뜻이 달라지므로 `falloff_rate` → `influence_radius`로 함께 바꾼다.
 
 **Tech Stack:** C# (Unity 6000.3.16f1), LOP-Shared 패키지(순수 C#), NUnit EditMode, Luban 마스터데이터 파이프라인
 
@@ -21,40 +21,27 @@
 
 ---
 
-### Task 1: 힘 커널을 공용 패키지로 옮기고 지금 동작을 고정한다
+### Task 1: 서버에 테스트 자리를 만들고 커널의 지금 동작을 고정한다
 
-커널이 서버 레포(`Assembly-CSharp`)에 있어 EditMode 테스트를 못 붙인다. 곡선을 바꾸기 전에 옮겨서, **바꾸기 전 동작**을 테스트로 먼저 묶는다. 그래야 다음 태스크에서 무엇이 달라졌는지가 테스트로 드러난다.
+커널(`PanchigiStrike`)은 **서버만 쓴다** — 클라는 타격을 예측하지 않는다. 토폴로지 기준대로 서버가 제자리다. 문제는 서버 레포에 테스트 자리가 없다는 것뿐이라, **옮기지 않고 자리를 만든다.**
+
+`Assets/Tests/Editor/`에 asmdef 없이 `.cs`를 두면 predefined `Assembly-CSharp-Editor`에 들어가고, 그건 `Assembly-CSharp`을 참조하므로 런타임 클래스를 그대로 시험할 수 있다. 클라에서 이미 38개가 그렇게 돌고 있다(실측: `list_tests`에 `"Assembly": "Assembly-CSharp-Editor"`).
+
+곡선을 바꾸기 전에 **지금 동작**을 먼저 묶는다. 그래야 다음 태스크에서 무엇이 달라졌는지가 테스트로 드러난다.
 
 **Files:**
-- Move: `LeagueOfPhysical-Server/Assets/Scripts/Game/PanchigiStrike.cs` → `LeagueOfPhysical-Shared/Runtime/Scripts/Game/PanchigiStrike.cs` (`.cs.meta`도 함께 — GUID가 보존돼야 참조가 안 끊긴다)
-- Create: `LeagueOfPhysical-Shared/Tests/EditMode/PanchigiStrikeTests.cs`
+- Create: `LeagueOfPhysical-Server/Assets/Tests/Editor/PanchigiStrikeTests.cs` (폴더도 새로 — 서버 레포 첫 테스트)
 - Modify: `LeagueOfPhysical-Server/Assets/Editor/PanchigiVerification.cs` — `StrikeKernel`·`ContactSpread`·`SampleLayout` 세 메서드와 `Run()`의 호출부 삭제
+- Move back: `LeagueOfPhysical-Shared/Runtime/Scripts/Game/PanchigiTurn.cs`(+`.meta`) → `LeagueOfPhysical-Server/Assets/Scripts/Game/`
+- Move back: `LeagueOfPhysical-Shared/Tests/EditMode/PanchigiTurnTests.cs`(+`.meta`) → `LeagueOfPhysical-Server/Assets/Tests/Editor/`
 
 **Interfaces:**
-- Consumes: 없음 (기존 코드 이동)
-- Produces: `LOP.PanchigiStrike`가 `baegames.LOP.Shared.Runtime` 어셈블리에 존재. 공개 API는 그대로 —
-  `PanchigiStrike.StrikeInput(Vector3 strikePoint, Vector3 dragDelta, float holdTime)`,
-  `PanchigiStrike.StrikeTuning(float forceMultiplier, float horizontalForceMultiplier, float falloffRate)`,
-  `Vector3 ComputeImpulse(in StrikeInput, in StrikeTuning, Vector3[] liveSamples, int liveCount, int totalSamples)`,
-  `void BuildSamples(Vector3 coinCenter, float radius, Vector3[] buffer)`
-  (`Vector3`는 `System.Numerics.Vector3`)
+- Consumes: 기존 `LOP.PanchigiStrike` (서버 `Assets/Scripts/Game/PanchigiStrike.cs`, 그대로 둔다)
+- Produces: 서버 레포에 EditMode 테스트가 도는 자리. 다음 태스크가 여기에 새 곡선 테스트를 더한다.
 
-- [ ] **Step 1: 커널 파일을 옮긴다**
+- [ ] **Step 1: 서버에 테스트 폴더를 만들고 지금 동작을 고정하는 테스트를 쓴다**
 
-```bash
-cd /c/Users/re5na/workspace/LOP
-S=LeagueOfPhysical-Server/Assets/Scripts/Game
-H=LeagueOfPhysical-Shared/Runtime/Scripts/Game
-mv "$S/PanchigiStrike.cs"      "$H/PanchigiStrike.cs"
-mv "$S/PanchigiStrike.cs.meta" "$H/PanchigiStrike.cs.meta"
-ls "$H" | grep PanchigiStrike
-```
-
-`.meta`를 함께 옮기는 이유: GUID가 보존돼야 씬·프리팹 참조가 안 끊긴다. 커널은 참조되는 에셋이 아니지만 규칙은 동일하게 지킨다.
-
-- [ ] **Step 2: 지금 동작을 고정하는 테스트를 쓴다**
-
-`LeagueOfPhysical-Shared/Tests/EditMode/PanchigiStrikeTests.cs`:
+`LeagueOfPhysical-Server/Assets/Tests/Editor/PanchigiStrikeTests.cs`:
 
 ```csharp
 using System.Numerics;
@@ -65,10 +52,13 @@ namespace LOP.Tests
     /// <summary>
     /// 타격 힘 커널. 거리에 따라 얼마나 약해지는가가 이 게임의 손맛을 정한다 —
     /// 곡선을 건드릴 때 무엇이 달라졌는지 여기서 드러나야 한다.
+    ///
+    /// asmdef 없이 Assets/Tests/Editor에 둔다. 그러면 predefined Assembly-CSharp-Editor에
+    /// 들어가고, 그건 Assembly-CSharp을 참조하므로 서버 런타임 클래스를 그대로 시험할 수 있다.
     /// </summary>
     public class PanchigiStrikeTests
     {
-        //  세기 노브는 1로 두고 거리 효과만 본다. 수직 세기만 1이면 홀드 1초가 곧 임펄스 크기다.
+        //  세기 노브는 1로 두고 거리 효과만 본다. 수직 세기가 1이면 홀드 1초가 곧 임펄스 크기다.
         private static PanchigiStrike.StrikeTuning Tuning(float falloffRate)
             => new PanchigiStrike.StrikeTuning(1f, 1f, falloffRate);
 
@@ -148,59 +138,88 @@ namespace LOP.Tests
 }
 ```
 
-- [ ] **Step 3: 테스트를 돌려 통과하는지 본다**
-
-에디터가 응답하면:
+- [ ] **Step 2: Test Runner가 잡는지 확인한다**
 
 ```bash
 export MSYS_NO_PATHCONV=1
-CP="C:\Users\re5na\workspace\LOP\LeagueOfPhysical-Client"
-unity cmd --project-path "$CP" eval 'UnityEditor.AssetDatabase.Refresh(UnityEditor.ImportAssetOptions.ForceUpdate); return "r";'
-unity cmd --project-path "$CP" run_tests mode=EditMode
+SP="C:\Users\re5na\workspace\LOP\LeagueOfPhysical-Server"
+unity cmd --project-path "$SP" eval 'UnityEditor.AssetDatabase.Refresh(UnityEditor.ImportAssetOptions.ForceUpdate); return "r";'
+unity cmd --project-path "$SP" list_tests mode=EditMode
 ```
 
-기대: 전부 PASS. 이 태스크는 **동작을 안 바꾸므로** 처음부터 통과해야 한다 — 실패하면 이동 과정에서 무언가 깨진 것이다.
+기대: `PanchigiStrikeTests`의 5개가 `"Assembly": "Assembly-CSharp-Editor"`로 목록에 나온다.
+**여기서 안 나오면 다음 스텝으로 가지 말 것** — 폴더 위치나 네임스페이스가 틀린 것이다.
 
-에디터가 막혀 있으면(`file:` 패키지 재임포트 대기) 사용자에게 창 포커스를 요청한다. 그동안 컴파일 게이트로 선검증할 수 있다.
+- [ ] **Step 3: 돌려서 전부 통과하는지 본다**
+
+```bash
+unity cmd --project-path "$SP" run_tests mode=EditMode
+```
+
+기대: 5개 PASS. 이 태스크는 **동작을 안 바꾸므로** 처음부터 통과해야 한다 — 실패하면 테스트가 커널을 잘못 부르고 있는 것이다.
+
+서버 에디터가 막혀 있으면(`file:` 패키지 재임포트 대기) 사용자에게 창 포커스를 요청한다.
 
 - [ ] **Step 4: 수기 검증에서 커널 부분을 걷어낸다**
 
 `PanchigiVerification.cs`에서 `StrikeKernel`·`ContactSpread`·`SampleLayout` 세 메서드와 `Run()` 안의 호출 세 줄을 지운다. 지운 자리에 남길 주석:
 
 ```csharp
-        //  PanchigiStrike 커널 검증은 공용 패키지의 EditMode 테스트(PanchigiStrikeTests)로 옮겼다.
+        //  PanchigiStrike 커널 검증은 Assets/Tests/Editor의 EditMode 테스트로 옮겼다.
         //  여기 한 벌 더 두면 시그니처가 바뀔 때 한쪽만 고쳐져 조용히 어긋난다 - 실제로 그렇게
         //  게임서버 배포가 깨진 적이 있다.
 ```
 
-- [ ] **Step 5: 컴파일 게이트를 돌린다**
+- [ ] **Step 5: `PanchigiTurn`을 서버로 되돌린다**
 
-클라·서버 × 런타임·에디터 네 어셈블리를 전부 통과해야 한다. 특히 **서버 Editor 어셈블리** — 수기 검증을 지웠으므로 여기가 깨지기 쉽다.
-
-- [ ] **Step 6: 커밋**
+같은 오해로 공용 패키지에 가 있다. 서버에 테스트 자리가 생겼으니 제자리로 돌린다.
 
 ```bash
-cd /c/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared
-git add Runtime/Scripts/Game/PanchigiStrike.cs Runtime/Scripts/Game/PanchigiStrike.cs.meta Tests/EditMode/PanchigiStrikeTests.cs Tests/EditMode/PanchigiStrikeTests.cs.meta
-git status --short
-git commit -m "refactor(panchigi): 힘 커널을 공용 패키지로 옮기고 테스트를 붙인다
-
-커널이 서버 Assets에 있어 EditMode 테스트를 못 붙였고, 그 자리를 수기 검증 스크립트가
-메우고 있었다. 순수 C#이라 그대로 옮겨진다.
-
-곡선을 바꾸기 전에 지금 동작을 먼저 묶는다 - 다음 변경에서 무엇이 달라졌는지가 테스트로
-드러나야 한다."
-
-cd ../LeagueOfPhysical-Server
-git add Assets/Scripts/Game/PanchigiStrike.cs Assets/Scripts/Game/PanchigiStrike.cs.meta Assets/Editor/PanchigiVerification.cs
-git status --short
-git commit -m "refactor(panchigi): 힘 커널 이동에 맞춰 수기 검증을 걷어낸다
-
-커널은 공용 패키지로 갔고 EditMode 테스트가 붙었다. 여기 한 벌 더 두면 시그니처가 바뀔 때
-한쪽만 고쳐진다."
+cd /c/Users/re5na/workspace/LOP
+H=LeagueOfPhysical-Shared
+S=LeagueOfPhysical-Server
+mv "$H/Runtime/Scripts/Game/PanchigiTurn.cs"       "$S/Assets/Scripts/Game/PanchigiTurn.cs"
+mv "$H/Runtime/Scripts/Game/PanchigiTurn.cs.meta"  "$S/Assets/Scripts/Game/PanchigiTurn.cs.meta"
+mv "$H/Tests/EditMode/PanchigiTurnTests.cs"        "$S/Assets/Tests/Editor/PanchigiTurnTests.cs"
+mv "$H/Tests/EditMode/PanchigiTurnTests.cs.meta"   "$S/Assets/Tests/Editor/PanchigiTurnTests.cs.meta"
 ```
 
-`.cs.meta`가 없으면 유니티가 아직 안 만든 것이다 — 에디터 창을 포커스해 생성되게 한 뒤 커밋한다. meta 없이 커밋하면 다른 머신에서 GUID가 새로 생겨 참조가 갈린다.
+테스트 파일은 내용을 안 바꿔도 된다 — `LOP.Tests` 네임스페이스에서 `LOP.PanchigiTurn`을 쓰는 형태 그대로 `Assembly-CSharp-Editor`에서 컴파일된다.
+
+- [ ] **Step 6: 컴파일 게이트 + 테스트 전체**
+
+클라·서버 × 런타임·에디터 네 어셈블리를 전부 통과해야 한다. 특히:
+- **서버 Editor** — 수기 검증을 지웠고 테스트가 새로 들어왔다
+- **Shared** — `PanchigiTurn`이 빠졌다. 이걸 참조하던 곳이 있으면 컴파일이 깨지는데, **깨지지 않아야 정상**이다(서버만 썼다)
+
+그다음 서버에서 EditMode 전체를 돌린다. `PanchigiStrike` 5개 + `PanchigiTurn` 14개 = **19개**가 잡혀야 한다.
+
+- [ ] **Step 7: 커밋**
+
+```bash
+cd /c/Users/re5na/workspace/LOP/LeagueOfPhysical-Server
+git add Assets/Tests/Editor Assets/Scripts/Game/PanchigiTurn.cs Assets/Scripts/Game/PanchigiTurn.cs.meta Assets/Editor/PanchigiVerification.cs
+git status --short
+git commit -m "test(panchigi): 서버에 EditMode 테스트 자리를 만든다
+
+Assets/Tests/Editor에 asmdef 없이 두면 predefined Assembly-CSharp-Editor에 들어가고, 그건
+Assembly-CSharp을 참조하므로 서버 런타임 클래스를 표준 Test Runner로 시험할 수 있다.
+서버 레포의 첫 테스트다.
+
+힘 커널의 지금 동작을 5개로 묶는다 - 곡선을 바꿀 때 무엇이 달라졌는지 여기서 드러나야 한다.
+같은 규칙을 들고 있던 수기 검증(StrikeKernel/ContactSpread/SampleLayout)은 걷어낸다.
+
+PanchigiTurn도 되돌린다. 서버 전용 규칙인데 '테스트하려면 공용 패키지로 가야 한다'는 잘못된
+전제로 옮겼던 것이다 - 토폴로지 기준은 '클·서가 반드시 동일하게 보는 것'만 Shared다."
+
+cd ../LeagueOfPhysical-Shared
+git add -u Runtime/Scripts/Game Tests/EditMode
+git status --short
+git commit -m "refactor(panchigi): 서버 전용 턴 규칙을 서버로 되돌린다
+
+테스트를 붙이려고 옮겼던 것인데, 서버 Assets/Tests/Editor로도 테스트가 붙는다는 것이
+확인됐다. 공용 패키지는 클·서가 반드시 동일하게 보는 것만 든다."
+```
 
 ---
 
@@ -209,14 +228,14 @@ git commit -m "refactor(panchigi): 힘 커널 이동에 맞춰 수기 검증을 
 곡선·컬럼명·조립부는 **한 덩어리**다. 쪼개면 중간에 컴파일이 안 되거나(컬럼만 바꿈) 값의 뜻이 안 맞는 상태(곡선만 바꿈 — 반경 4 m가 되어 판 전체가 움직인다)가 생긴다.
 
 **Files:**
-- Modify: `LeagueOfPhysical-Shared/Runtime/Scripts/Game/PanchigiStrike.cs` — `StrikeTuning.FalloffRate` → `InfluenceRadius`, `ComputeImpulse`의 가중치 한 줄
-- Modify: `LeagueOfPhysical-Shared/Tests/EditMode/PanchigiStrikeTests.cs` — 새 곡선의 성질을 잡는 테스트 추가
+- Modify: `LeagueOfPhysical-Server/Assets/Scripts/Game/PanchigiStrike.cs` — `StrikeTuning.FalloffRate` → `InfluenceRadius`, `ComputeImpulse`의 가중치 한 줄
+- Modify: `LeagueOfPhysical-Server/Assets/Tests/Editor/PanchigiStrikeTests.cs` — 새 곡선의 성질을 잡는 테스트 추가
 - Modify: `infrastructure/table/Datas/#PanchigiConfig.xlsx` — `L` 열 이름 `falloff_rate` → `influence_radius`, 값 `4` → `0.4`; `J`(force_multiplier) `8` → `10`; `K`(horizontal_force_multiplier) `2` → `2.5`
 - Modify: `LeagueOfPhysical-Server/Assets/Scripts/Game/MessageHandler/PanchigiStrikeMessageHandler.cs:132-133` — `config.FalloffRate` → `config.InfluenceRadius`
 - Regenerate: `LeagueOfPhysical-MasterData-Client`, `LeagueOfPhysical-MasterData-Server`, `lop-backend`(Luban 출력)
 
 **Interfaces:**
-- Consumes: Task 1이 옮겨 둔 `LOP.PanchigiStrike`
+- Consumes: Task 1이 테스트로 묶어 둔 `LOP.PanchigiStrike`(서버 제자리)
 - Produces: `PanchigiStrike.StrikeTuning(float forceMultiplier, float horizontalForceMultiplier, float influenceRadius)` — 셋째 인자의 **이름과 뜻**이 바뀐다(계수 → 미터 단위 반경). 마스터데이터 `PanchigiConfig.InfluenceRadius`(float).
 
 - [ ] **Step 1: 새 곡선의 성질을 잡는 실패 테스트를 쓴다**
@@ -429,7 +448,7 @@ falloff_rate(거리제곱 계수)는 지수 감쇠에서 뜻이 안 통한다. i
 # MasterData-Client / -Server / lop-backend: 생성물
 git commit -m "chore(masterdata): 판치기 노브 재생성"
 
-# LOP-Shared
+# LOP-Server (커널 + 테스트 + 조립부를 한 커밋으로)
 git commit -m "feat(panchigi): 타격 전파를 지수 감쇠로 바꾼다
 
 한 지점만 쳐도 판 전체가 움직여, 손바닥을 벌려 넓게 치는 조작이 결과를 바꾸지 못했다.
@@ -437,9 +456,6 @@ git commit -m "feat(panchigi): 타격 전파를 지수 감쇠로 바꾼다
 
 책이 매트 위에 놓여 있으므로 타격은 국소적이다(탄성 지지 위의 판 - 변형이 거리에 따라
 지수로 준다). 옆 동전이 50% → 29%, 반대편이 10% → 2%로 준다."
-
-# LOP-Server
-git commit -m "feat(panchigi): 타격 조립부를 영향 반경으로 맞춘다"
 ```
 
 ---
@@ -454,7 +470,7 @@ git commit -m "feat(panchigi): 타격 조립부를 영향 반경으로 맞춘다
 
 - [ ] **Step 1: 5레포를 푸시 규약대로 머지·푸시한다**
 
-infrastructure, MasterData-Client, MasterData-Server, lop-backend, LOP-Shared, LOP-Server. 레포마다 한 줄씩 확인하며 진행한다.
+infrastructure, MasterData-Client, MasterData-Server, lop-backend, LOP-Shared(PanchigiTurn 제거), LOP-Server. 레포마다 한 줄씩 확인하며 진행한다.
 
 - [ ] **Step 2: 게임서버를 배포한다**
 
@@ -497,8 +513,8 @@ unity cmd --project-path "$P" eval 'return LOP.EditorTools.PanchigiPlayProbe.Str
 |---|---|
 | §3 바꾸는 것 (공식) | Task 2 Step 3 |
 | §4 마스터데이터 (컬럼·값) | Task 2 Step 6–8 |
-| §5 만지는 곳 + 커널 이동 | Task 1, Task 2 |
-| §6 테스트 5가지 | Task 1 Step 2(3개: 단조·0·정규화 + 높이·배치), Task 2 Step 1(2개: e⁻¹·꼬리) |
+| §5 만지는 곳 + 테스트 자리 | Task 1, Task 2 |
+| §6 테스트 5가지 | Task 1 Step 1(5개: 단조·0·정규화·높이·배치), Task 2 Step 1(3개: e⁻¹·꼬리·옆 동전) |
 | §7 검증 (프로브 비교) | Task 3 Step 3 |
 | §8 범위 밖 | 태스크 없음 — 의도적 |
 

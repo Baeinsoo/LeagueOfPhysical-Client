@@ -193,9 +193,17 @@ E(u) = e0·(2u³ − 3u² + 1) + d0·(u³ − 2u² + u)
 |---|---|
 | `GameFramework/Runtime/Scripts/Netcode/RenderCorrectionSmoother.cs` | 지수 감쇠 → §5.3의 3차 에르미트 오차 보간. 문턱 이름을 언리얼에 맞춤. 권위 속도를 받도록 `OnCorrection` 시그니처 확장(`V0`는 스무더가 스스로 구한다) |
 | `LOP-Client/Assets/Scripts/Netcode/RenderCorrectionSmootherFactory.cs` | 내 새용 스무더를 만들지 않는다. 남의 새 상수를 새 값으로 |
-| `LOP-Client/Assets/Scripts/Entity/EntityBinder.cs:122` | 내 새면 스무더를 붙이지 않음 |
-| `LOP-Client/Assets/Scripts/Netcode/PredictedEntityInterpolator.cs` | 스무더가 없을 때(내 새) 시뮬 위치를 그대로 쓰는 경로 |
+| `LOP-Client/Assets/Scripts/Entity/EntityBinder.cs:122` | (실제로는 손대지 않음 — 아래 "실제 구현과의 차이" 참고) |
+| `LOP-Client/Assets/Scripts/Netcode/PredictedEntityInterpolator.cs` | `OnCorrection`/`Tick`이 `deltaTime`을 받아 스무더로 넘기도록만 확장("스무더가 없을 때" 분기는 만들지 않음) |
 | `LOP-Client/Assets/Scripts/Netcode/Reconciler.cs` | `NotifyRenderCorrections`가 위치와 함께 **속도**도 넘김 |
+
+**실제 구현과의 차이.** 위 표는 계획 시점 기준이고, 실제로는 "내 새엔 스무더를 안 붙인다"가 아니라
+**`RenderCorrectionSmootherFactory.Create(local: true)`가 `smoothTime = 0`을 주는 쪽**으로 갔다.
+`EntityBinder`는 손대지 않았고, `PredictedEntityInterpolator`에 "스무더가 없을 때" 분기도 만들지
+않았다 — 이유: `PredictedEntityInterpolator.Cleanup()`이 조건 없이 `renderCorrectionSmoother.Reset()`을
+부르므로, 스무더 자체가 null이었다면 내 새를 정리할 때마다 널 참조 예외가 났을 것이다.
+`smoothTime = 0`은 `RenderCorrectionSmoother.OnCorrection`의 `_smoothTime <= 0f` 가드에서 항상 즉시
+스냅으로 처리되어(§5.3) "스무더 없음"과 같은 결과(블렌드 없음)를 널 분기 없이 더 단순하게 낸다.
 
 **시뮬은 한 줄도 안 바꾼다.** `FlappyWorld`·`FlappyBodyCollisionSystem`·`Reconciler`의 롤백/재생
 로직은 그대로다.
@@ -239,6 +247,25 @@ E(u) = e0·(2u³ − 3u² + 1) + d0·(u³ − 2u² + u)
   | 0.2초 | 39 m/s |
   | 0.3초 | 26 m/s |
 
+  **위 두 문단의 "0.2초→62.5/0.3초→49"와 이 표의 "0.2초→39/0.3초→26"은 둘 다 계산이 맞지만
+  서로 다른 걸 재고 있다 — 모순이 아니다.** 위 문단(62.5/49)은 **위치 갭(G)과 플랩 속도(ΔV=23)를
+  각 T에서 다시 정확히 합성**한 최고값이다. 에르미트의 속도항(`h10'·ΔV`) 기여분은 애초에 T로
+  나뉘지 않고 `[0,1]` 구간에서 거의 고정폭이라 — **T를 늘려도 줄지 않는다.** 반면 이 표(39/26)는
+  T=0.1의 총합(79)을 **위치항처럼 1/T로 단순 비례 축소**한 값이라, 줄지 않는 속도항 기여분까지
+  같이 줄여 버려 **실제보다 낙관적으로(작게) 나온다.** 즉 T를 늘려 최고 속도를 낮추려는 대책은
+  이 표(39/26)가 아니라 위 문단(62.5/49) 쪽을 기준으로 판단해야 한다.
+
+- **⚠️ 연속 보정(back-to-back correction)에서는 에르미트가 지수 감쇠보다 잔여 오차를 더 천천히
+  지운다 — 구현 리뷰의 새 지적.** 20ms 틱 한 번 지나는 동안 남는 오차 비율이 `h00(u=0.2) = 0.896`
+  (에르미트, u=Δt/T=0.02/0.1)인데 옛 지수 감쇠는 `exp(-0.2) = 0.819`였다. **한 틱에 남기는 몫이
+  0.896/0.819 ≈ 1.7배** — 남의 새가 연달아 보정받는 상황(활공 없이 계속 미세 보정이 오는 경우)
+  에서는 정상상태 렌더 지연이 지수 감쇠 때보다 대략 1.7배 커진다는 뜻이다. 그 지연의 상한은
+  `MaxSmoothDistance = 5m`(목줄)이 잡아 주지만, 그 상한 자체가 이번 라운드까지 5m로 유지됐다.
+  **이건 §10 첫 항목(최고 속도)과 반대 방향으로 당기는 레버다** — `SmoothTime`을 늘려 최고 속도를
+  낮추면(같은 원리로 `h00`이 더 1에 가까워져) 이 정상상태 지연은 더 나빠진다. 즉 "최고 속도가
+  문제냐, 잔여 지연이 문제냐"를 먼저 라이브에서 가려야 어느 레버를 당길지 정할 수 있다 — 곡선
+  자체를 바꾸는 결정이 아니라 **`SmoothTime` 하나로 두 증상을 동시에 만족시킬 수 없다는 사실**이
+  이번 라운드의 결론이다.
 
 - **`NetworkMaxSmoothUpdateDistance`가 실제로 발동하는지** — 보간이 0.1초로 짧아 목줄이 한 번도
   안 당겨질 수 있다. 그러면 값이 아니라 존재 자체가 죽은 코드다. 라이브에서 발동 횟수를 세어 보고,

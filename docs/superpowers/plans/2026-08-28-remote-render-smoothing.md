@@ -19,7 +19,10 @@
   - `NetworkMaxSmoothUpdateDistance = 5f` (m)
   - `NetworkNoSmoothUpdateDistance = 8f` (m)
 - **네이밍은 언리얼 `UCharacterMovementComponent`를 따른다** — 임의 명명 금지(`architecture-guidelines.md`의 "업계 표준 구조·네이밍").
-- **`RenderCorrectionSmoother`는 `noEngineReferences` 어셈블리에 있다** — `UnityEngine` 타입을 쓰지 말고 `System.Numerics.Vector3`만 쓴다.
+- **`RenderCorrectionSmoother`는 순수 `System.Numerics.Vector3`만 쓴다** — `UnityEngine` 타입을 들이지
+  않는다. 이 순수성은 어셈블리가 강제하는 게 아니다(`baegames.GameFramework.Runtime.asmdef`는
+  실제로 `noEngineReferences: false`다 — 이 문서의 원래 서술은 틀린 전제였다). 이 클래스
+  하나만의 규칙으로 지킨다(프레임독립·유닛 테스트 가능성 때문).
 - **주석은 비자명한 "왜"만.** 코드로 자명한 것은 쓰지 않는다.
 
 ## File Structure

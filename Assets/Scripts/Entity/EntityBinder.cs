@@ -118,7 +118,8 @@ namespace LOP
                     predictedInterpolator = root.AddComponent<PredictedEntityInterpolator>();
                     objectResolver.Inject(predictedInterpolator);
                     predictedInterpolator.actor = actor;
-                    // 내 것과 남의 것은 "정상적인 보정 크기"가 달라 스무더 설정도 다르다 — 근거는 팩토리 주석.
+                    // 내 것과 남의 것은 스무딩 자체를 켜고 끄는 게 다르다(누가 조종하느냐) — 크기가
+                    // 다른 게 아니라 on/off다. 근거는 팩토리 주석.
                     predictedInterpolator.renderCorrectionSmoother = renderCorrectionSmootherFactory.Create(isUserEntity);
                     break;
                 }

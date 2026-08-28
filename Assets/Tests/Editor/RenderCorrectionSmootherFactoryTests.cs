@@ -12,7 +12,7 @@ namespace LOP.Tests
         {
             var smoother = new RenderCorrectionSmootherFactory().Create(local: true);
             smoother.Target(new Vector3(0, 0, 0));
-            smoother.OnCorrection(new Vector3(0, 0, 0), new Vector3(2f, 0, 0), new Vector3(0f, 23f, 0));
+            smoother.OnCorrection(new Vector3(0, 0, 0), new Vector3(2f, 0, 0), new Vector3(0f, 23f, 0), 0f);
 
             Assert.AreEqual(new Vector3(2f, 0, 0), smoother.Target(new Vector3(2f, 0, 0)),
                 "내 새는 보정 즉시 그 자리여야 한다");
@@ -24,7 +24,7 @@ namespace LOP.Tests
         {
             var smoother = new RenderCorrectionSmootherFactory().Create(local: false);
             smoother.Target(new Vector3(0, 0, 0));
-            smoother.OnCorrection(new Vector3(0, 0, 0), new Vector3(0f, 4.788f, 0), Vector3.Zero);
+            smoother.OnCorrection(new Vector3(0, 0, 0), new Vector3(0f, 4.788f, 0), Vector3.Zero, 0f);
 
             var rendered = smoother.Target(new Vector3(0f, 4.788f, 0));
             Assert.Less(rendered.Y, 4.788f - 0.5f,
@@ -37,7 +37,7 @@ namespace LOP.Tests
         {
             var smoother = new RenderCorrectionSmootherFactory().Create(local: false);
             smoother.Target(new Vector3(0, 0, 0));
-            smoother.OnCorrection(new Vector3(0, 0, 0), new Vector3(0f, 20f, 0), Vector3.Zero);
+            smoother.OnCorrection(new Vector3(0, 0, 0), new Vector3(0f, 20f, 0), Vector3.Zero, 0f);
 
             Assert.AreEqual(20f, smoother.Target(new Vector3(0f, 20f, 0)).Y, 1e-4f);
         }

@@ -20,7 +20,7 @@ namespace LOP
         private const float Threshold = 0.01f;
         private const float SpikeLogThreshold = 0.02f;   // [진단용 임시] 이 이상 어긋나면 정황을 로그로 남긴다
         private const long MaxReplayTicks = 128;   // 격차가 이보다 크면 텔레포트 폴백(재생 생략)
-        // 렌더 보정 임계(minCorrection/teleport)는 RenderCorrectionSmoother가 소유 — 여기선 seed만 한다.
+        // 렌더 보정 임계(minCorrection/noSmoothDistance)는 RenderCorrectionSmoother가 소유 — 여기선 seed만 한다.
 
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
@@ -135,7 +135,8 @@ namespace LOP
                     actor.GetComponent<PredictedEntityInterpolator>()?.OnCorrection(
                         pair.Value,
                         GameFramework.World.EntityMotionExtensions.GetPosition(target).ToNumerics(),
-                        GameFramework.World.EntityMotionExtensions.GetVelocity(target).ToNumerics());
+                        GameFramework.World.EntityMotionExtensions.GetVelocity(target).ToNumerics(),
+                        deltaTime);
                 }
             }
 

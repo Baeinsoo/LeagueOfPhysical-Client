@@ -57,8 +57,9 @@ namespace LOP
 
         public void Tick(long tick, float deltaTime)
         {
-            // renderTarget = 시뮬 위치 + 감쇠 중인 보정 offset. offset이 시뮬 스텝과 상쇄되어
-            // 이 스트림은 보정 순간에도 연속 → 아래 LateUpdate 보간이 튀지 않는다(걷기 지연도 없음).
+            // renderTarget = 시뮬 위치 + 0으로 수렴 중인 보정 offset(3차 에르미트 블렌드, 감쇠 아님).
+            // offset이 시뮬 스텝과 상쇄되어 이 스트림은 보정 순간에도 연속
+            // → 아래 LateUpdate 보간이 튀지 않는다(걷기 지연도 없음).
             var worldEntity = entityRegistry.Get(actor.entityId);
             if (worldEntity == null)
             {
@@ -82,11 +83,14 @@ namespace LOP
         /// 시뮬 위치가 하드 보정으로 튀었음을 알린다. 보이는 메시가 그 차이를 부드럽게 흡수한다
         /// (시뮬에는 영향 없음). 크기별로 스냅/무시를 판단하는 것은 스무더 몫이다.
         /// <paramref name="authoritativeVelocity"/>는 이음매에서 렌더 속도를 잇는 데 쓴다.
+        /// <paramref name="deltaTime"/>는 이 보정 직후 곧바로 이어질 이번 틱의 시간폭이다 — 호출
+        /// 순서상(Reconcile→world.Tick→여기 Target) sim이 이미 한 틱 더 진행된 뒤에 첫 Target이
+        /// 불리므로, 그만큼을 스무더가 미리 셈해 두게 한다(안 그러면 이음매가 한 틱 늦게 체결된다).
         /// </summary>
         public void OnCorrection(System.Numerics.Vector3 before, System.Numerics.Vector3 after,
-                                 System.Numerics.Vector3 authoritativeVelocity)
+                                 System.Numerics.Vector3 authoritativeVelocity, float deltaTime)
         {
-            renderCorrectionSmoother.OnCorrection(before, after, authoritativeVelocity);
+            renderCorrectionSmoother.OnCorrection(before, after, authoritativeVelocity, deltaTime);
         }
 
         private void LateUpdate()

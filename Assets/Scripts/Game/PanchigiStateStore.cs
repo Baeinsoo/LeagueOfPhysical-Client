@@ -12,6 +12,7 @@ namespace LOP
         private readonly ReactiveProperty<int> phase = new(0);
         private readonly ReactiveProperty<string> currentEntityId = new(string.Empty);
         private readonly ReactiveProperty<long> aimDeadlineTick = new(0);
+        private readonly ReactiveProperty<int> turnCount = new(0);
 
         //  낙 횟수와 탈락자는 매 프레임 읽히기만 하므로(구독 없음) 평범한 컬렉션으로 둔다.
         private readonly Dictionary<string, int> dropOutCounts = new();
@@ -20,6 +21,9 @@ namespace LOP
         public ReadOnlyReactiveProperty<int> Phase => phase;
         public ReadOnlyReactiveProperty<string> CurrentEntityId => currentEntityId;
         public ReadOnlyReactiveProperty<long> AimDeadlineTick => aimDeadlineTick;
+
+        /// <summary>지금까지 지나간 턴 수. 판치기는 시간이 아니라 이 수로 끝난다.</summary>
+        public ReadOnlyReactiveProperty<int> TurnCount => turnCount;
 
         public int GetDropOutCount(string entityId)
         {
@@ -31,12 +35,13 @@ namespace LOP
             return entityId != null && eliminated.Contains(entityId);
         }
 
-        public void Set(int phase, string currentEntityId, long aimDeadlineTick,
+        public void Set(int phase, string currentEntityId, long aimDeadlineTick, int turnCount,
             IReadOnlyDictionary<string, int> dropOutCounts, IEnumerable<string> eliminated)
         {
             this.phase.Value = phase;
             this.currentEntityId.Value = currentEntityId;
             this.aimDeadlineTick.Value = aimDeadlineTick;
+            this.turnCount.Value = turnCount;
 
             //  서버가 매번 전부 보내므로 통째로 갈아 끼운다 — 지운 뒤 채우지 않으면 옛 값이 남는다.
             this.dropOutCounts.Clear();

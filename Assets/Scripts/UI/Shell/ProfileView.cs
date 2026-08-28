@@ -134,7 +134,7 @@ namespace LOP.UI
                 line.AddToClassList("profile-stat");
                 if (row.IsMe) line.AddToClassList("matchresult-row--me");
 
-                var placement = new Label(row.PlacementText);
+                var placement = new Label(MatchResultViewModel.FormatPlacement(row.Placement, row.IsDraw));
                 placement.AddToClassList("profile-stat-label");
 
                 var name = new Label(row.DisplayName);

@@ -211,7 +211,7 @@ namespace LOP.UI
                 var rows = BuildHistoryRows(match.participants, myUserId);
                 var mine = FindMine(match.participants, myUserId);
                 //  줄이 이미 무승부인지 알고 있다. 여기서 다시 세면 둘이 어긋날 수 있다.
-                bool isDraw = rows.Count > 0 && rows[0].PlacementText == "-";
+                bool isDraw = rows.Count > 0 && rows[0].IsDraw;
 
                 entries.Add(new ProfileMatchEntry(
                     GameModeName(match.rounds),

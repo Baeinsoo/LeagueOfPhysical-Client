@@ -68,7 +68,7 @@ namespace LOP.UI
                 line.AddToClassList("matchresult-row");
                 if (row.IsMe) line.AddToClassList("matchresult-row--me");
 
-                var placement = new Label(row.PlacementText);
+                var placement = new Label(MatchResultViewModel.FormatPlacement(row.Placement, row.IsDraw));
                 placement.AddToClassList("card-text");
 
                 var name = new Label(row.DisplayName);

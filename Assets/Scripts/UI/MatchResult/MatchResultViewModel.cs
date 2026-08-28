@@ -9,16 +9,16 @@ namespace LOP.UI
         public readonly string DisplayName;
         public readonly bool IsMe;
 
-        //  화면에 그대로 찍는 등수 표기. 무승부면 "-"다 — 표기를 행이 들고 있어야
-        //  결과 화면과 전적이 서로 다른 말을 하지 않는다(실제로 갈라진 적이 있다).
-        public readonly string PlacementText;
+        //  이 판이 무승부였나. 화면에 어떻게 적을지는 여기서 정하지 않는다 —
+        //  그리는 쪽이 공용 표기 함수를 거쳐 정한다.
+        public readonly bool IsDraw;
 
         public MatchResultRow(int placement, string displayName, bool isMe, bool isDraw = false)
         {
             Placement = placement;
             DisplayName = displayName;
             IsMe = isMe;
-            PlacementText = MatchResultViewModel.FormatPlacement(placement, isDraw);
+            IsDraw = isDraw;
         }
     }
 
@@ -44,7 +44,7 @@ namespace LOP.UI
             var result = matchResultDataStore.result;
 
             Rows = BuildRows(result?.participants, userDataStore.user?.id);
-            IsDraw = Rows.Count > 0 && Rows[0].PlacementText == "-";
+            IsDraw = Rows.Count > 0 && Rows[0].IsDraw;
 
             HasRatingChange = result?.hasRatingChange ?? false;
             RatingText = HasRatingChange

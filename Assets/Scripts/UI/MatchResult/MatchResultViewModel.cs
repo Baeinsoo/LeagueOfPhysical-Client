@@ -2,18 +2,23 @@ using System.Collections.Generic;
 
 namespace LOP.UI
 {
-    /// <summary>결과 화면 등수표의 한 줄.</summary>
+    /// <summary>등수표의 한 줄. 결과 화면과 프로필 전적이 같은 줄 구조를 쓴다.</summary>
     public readonly struct MatchResultRow
     {
         public readonly int Placement;
         public readonly string DisplayName;
         public readonly bool IsMe;
 
-        public MatchResultRow(int placement, string displayName, bool isMe)
+        //  화면에 그대로 찍는 등수 표기. 무승부면 "-"다 — 표기를 행이 들고 있어야
+        //  결과 화면과 전적이 서로 다른 말을 하지 않는다(실제로 갈라진 적이 있다).
+        public readonly string PlacementText;
+
+        public MatchResultRow(int placement, string displayName, bool isMe, bool isDraw = false)
         {
             Placement = placement;
             DisplayName = displayName;
             IsMe = isMe;
+            PlacementText = MatchResultViewModel.FormatPlacement(placement, isDraw);
         }
     }
 
@@ -39,7 +44,7 @@ namespace LOP.UI
             var result = matchResultDataStore.result;
 
             Rows = BuildRows(result?.participants, userDataStore.user?.id);
-            IsDraw = IsDrawn(Rows);
+            IsDraw = Rows.Count > 0 && Rows[0].PlacementText == "-";
 
             HasRatingChange = result?.hasRatingChange ?? false;
             RatingText = HasRatingChange
@@ -72,27 +77,39 @@ namespace LOP.UI
                     : string.CompareOrdinal(left.userId, right.userId);
             });
 
+            var placements = new List<int>(sorted.Count);
+            foreach (var participant in sorted) { placements.Add(participant.placement); }
+            bool isDraw = IsDrawn(placements);
+
             int otherNumber = 0;
             foreach (var participant in sorted)
             {
                 bool isMe = participant.userId == myUserId;
                 string displayName = isMe ? MyName : $"플레이어 {++otherNumber}";
 
-                rows.Add(new MatchResultRow(participant.placement, displayName, isMe));
+                rows.Add(new MatchResultRow(participant.placement, displayName, isMe, isDraw));
             }
 
             return rows;
         }
 
-        //  1등이 둘 이상이면 승자가 없다. 판치기가 턴 상한에 닿으면 이렇게 끝난다.
-        private static bool IsDrawn(IReadOnlyList<MatchResultRow> rows)
+        /// <summary>
+        /// 1등이 여럿이면 아무도 이긴 게 아니다(무승부). 승자 없이 끝난 판은 전원 공동 1등으로 온다.
+        /// </summary>
+        public static bool IsDrawn(IReadOnlyList<int> placements)
         {
             int firstPlaces = 0;
-            foreach (var row in rows)
+            foreach (int placement in placements)
             {
-                if (row.Placement == 1) { firstPlaces++; }
+                if (placement == 1) { firstPlaces++; }
             }
             return firstPlaces > 1;
+        }
+
+        /// <summary>무승부면 등수 자리를 비운다 — 공동 1등을 "1등"이라 적으면 이긴 것처럼 읽힌다.</summary>
+        public static string FormatPlacement(int placement, bool isDraw)
+        {
+            return isDraw ? "-" : $"{placement}등";
         }
 
         /// <summary>점수 증감을 부호가 보이게. 결과 화면과 프로필 전적이 같은 표기를 쓴다.</summary>

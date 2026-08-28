@@ -31,11 +31,15 @@ namespace LOP.UI
         /// <summary>"1138 (+138)" 형태. 변화가 없으면 빈 문자열.</summary>
         public string RatingText { get; }
 
+        /// <summary>1등이 여럿이면 아무도 이긴 게 아니다 — 화면이 등수 대신 그렇게 말해야 한다.</summary>
+        public bool IsDraw { get; }
+
         public MatchResultViewModel(IMatchResultDataStore matchResultDataStore, IUserDataStore userDataStore)
         {
             var result = matchResultDataStore.result;
 
             Rows = BuildRows(result?.participants, userDataStore.user?.id);
+            IsDraw = IsDrawn(Rows);
 
             HasRatingChange = result?.hasRatingChange ?? false;
             RatingText = HasRatingChange
@@ -78,6 +82,17 @@ namespace LOP.UI
             }
 
             return rows;
+        }
+
+        //  1등이 둘 이상이면 승자가 없다. 판치기가 턴 상한에 닿으면 이렇게 끝난다.
+        private static bool IsDrawn(IReadOnlyList<MatchResultRow> rows)
+        {
+            int firstPlaces = 0;
+            foreach (var row in rows)
+            {
+                if (row.Placement == 1) { firstPlaces++; }
+            }
+            return firstPlaces > 1;
         }
 
         /// <summary>점수 증감을 부호가 보이게. 결과 화면과 프로필 전적이 같은 표기를 쓴다.</summary>

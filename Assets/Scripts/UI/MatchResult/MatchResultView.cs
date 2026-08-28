@@ -51,7 +51,16 @@ namespace LOP.UI
                 return;
             }
 
-            Root.Q<Label>("matchresult-message").style.display = DisplayStyle.None;
+            //  무승부면 "매치 종료" 자리에 그렇게 적는다 — 등수만 보면 공동 1등이 이긴 것처럼 읽힌다.
+            var message = Root.Q<Label>("matchresult-message");
+            if (_viewModel.IsDraw)
+            {
+                message.text = "무승부";
+            }
+            else
+            {
+                message.style.display = DisplayStyle.None;
+            }
 
             foreach (var row in _viewModel.Rows)
             {
@@ -59,7 +68,7 @@ namespace LOP.UI
                 line.AddToClassList("matchresult-row");
                 if (row.IsMe) line.AddToClassList("matchresult-row--me");
 
-                var placement = new Label($"{row.Placement}등");
+                var placement = new Label(_viewModel.IsDraw ? "-" : $"{row.Placement}등");
                 placement.AddToClassList("card-text");
 
                 var name = new Label(row.DisplayName);

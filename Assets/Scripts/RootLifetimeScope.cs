@@ -62,9 +62,15 @@ namespace LOP
 
             builder.Register<LOP.MasterData.LOPMasterData>(Lifetime.Singleton);
 
-            //  자격증명 보관소는 프로필(인스턴스)마다 키가 달라야 해서 인스턴스로 등록한다.
+            //  자격증명 보관소는 프로필(인스턴스)마다, 그리고 환경마다 칸이 달라야 해서 인스턴스로
+            //  등록한다. 환경이 빠지면 dev 계정과 local 계정이 한 칸을 나눠 쓰고, 환경을 바꿔
+            //  접속할 때마다 서버가 "그런 계정 없다"(401)고 해서 앞 환경 계정이 지워진다.
+            string credentialPrefix = $"LOP.Auth.{EnvironmentSettings.ActiveEnvironmentName}";
+            AuthCredentialKeyMigration.MigrateIfNeeded(
+                legacyKey: $"LOP.Auth.{GameFramework.Auth.AuthProfile.Current}.Credential",
+                currentKey: $"{credentialPrefix}.{GameFramework.Auth.AuthProfile.Current}.Credential");
             builder.RegisterInstance<GameFramework.Auth.IAuthCredentialStore>(
-                new GameFramework.Auth.PlayerPrefsAuthCredentialStore("LOP.Auth", GameFramework.Auth.AuthProfile.Current));
+                new GameFramework.Auth.PlayerPrefsAuthCredentialStore(credentialPrefix, GameFramework.Auth.AuthProfile.Current));
             builder.Register<AuthenticationService>(Lifetime.Singleton)
                 .As<GameFramework.Http.IAccessTokenProvider>()
                 .AsSelf();

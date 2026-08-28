@@ -40,14 +40,28 @@ namespace LOP
             return $"{ResourceDirectory}/EnvironmentSettings.{environment}";
         }
 
+        /// <summary>
+        /// 지금 어느 환경으로 도는가("dev"·"local-k8s"…). 플레이어 빌드는 환경이 하나로 구워져
+        /// 있어 늘 같은 값이고, 에디터에서만 고른 값을 따라 바뀐다.
+        /// <para>계정 저장 칸을 환경별로 나누는 데 쓴다 — 환경마다 계정 DB가 달라서, 한 칸을
+        /// 나눠 쓰면 환경을 오갈 때 앞 환경 계정이 지워진다.</para>
+        /// </summary>
+        public static string ActiveEnvironmentName
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return UnityEditor.EditorPrefs.GetString(EditorPrefsKey, EditorDefaultEnvironment);
+#else
+                return ActiveEnvironment;
+#endif
+            }
+        }
+
         private static EnvironmentSettings Load()
         {
-#if UNITY_EDITOR
-            var environment = UnityEditor.EditorPrefs.GetString(EditorPrefsKey, EditorDefaultEnvironment);
-#else
-            // 플레이어 빌드에는 빌드 시점에 고른 환경 하나가 이 이름으로 구워져 있다.
-            var environment = ActiveEnvironment;
-#endif
+            //  플레이어 빌드에는 빌드 시점에 고른 환경 하나가 ActiveEnvironment 이름으로 구워져 있다.
+            var environment = ActiveEnvironmentName;
             var path = ResourcePathFor(environment);
             var loaded = Resources.Load<EnvironmentSettings>(path);
             if (loaded == null)

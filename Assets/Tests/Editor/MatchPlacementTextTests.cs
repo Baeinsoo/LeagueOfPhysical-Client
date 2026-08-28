@@ -43,14 +43,20 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 줄이_표기를_들고_있어_두_화면이_갈라지지_않는다()
+        public void 줄은_표기가_아니라_사실을_든다()
         {
-            //  화면이 각자 `{Placement}등`을 만들면 한쪽만 고쳐지는 일이 다시 생긴다.
+            //  줄에 "-" 같은 표기를 박아 두면 데이터가 표현을 정해 버린다. 줄은 "무승부였다"만
+            //  들고, 그걸 어떻게 적을지는 그리는 쪽이 공용 표기 함수로 정한다.
             var drawn = new MatchResultRow(1, "나", isMe: true, isDraw: true);
             var won = new MatchResultRow(1, "나", isMe: true, isDraw: false);
 
-            Assert.AreEqual("-", drawn.PlacementText);
-            Assert.AreEqual("1등", won.PlacementText);
+            Assert.IsTrue(drawn.IsDraw);
+            Assert.IsFalse(won.IsDraw);
+            Assert.AreEqual(1, drawn.Placement, "등수 자체는 서버가 준 값 그대로 남는다");
+
+            //  그리는 쪽이 같은 함수를 거치므로 두 화면이 갈라질 수 없다.
+            Assert.AreEqual("-", MatchResultViewModel.FormatPlacement(drawn.Placement, drawn.IsDraw));
+            Assert.AreEqual("1등", MatchResultViewModel.FormatPlacement(won.Placement, won.IsDraw));
         }
     }
 }

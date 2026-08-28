@@ -64,7 +64,11 @@ namespace LOP.UI
                 return string.Empty;
             }
 
-            return $"낙 {store.GetDropOutCount(playerContext.entityId)} / {limit}";
+            //  판이 언제 끝나는지도 같이 보여준다 — 판치기는 시간이 아니라 턴 수로 끝난다.
+            int turnLimit = masterData.Tables.TbPanchigiConfig.GetOrDefault(1)?.MatchTurnLimit ?? 0;
+            string turns = turnLimit > 0 ? $" · 턴 {store.TurnCount.CurrentValue} / {turnLimit}" : string.Empty;
+
+            return $"낙 {store.GetDropOutCount(playerContext.entityId)} / {limit}{turns}";
         }
 
         private int RemainingSeconds()

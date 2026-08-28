@@ -101,8 +101,18 @@ sum += MathF.Exp(-MathF.Sqrt(dx * dx + dz * dz) / tuning.InfluenceRadius);
 |---|---|
 | infrastructure | `table/Datas/#PanchigiConfig.xlsx` 컬럼명·값, Luban 재생성 |
 | MasterData-Client / -Server | 생성 산출물(`.cs`·`.bytes`) |
-| LOP-Shared | `PanchigiStrike` 커널 + EditMode 테스트 |
-| LOP-Server | `StrikeTuning` 조립부(`PanchigiStrikeMessageHandler`) |
+| LOP-Server → LOP-Shared | **`PanchigiStrike` 커널을 옮긴다**(아래 참고) + EditMode 테스트 |
+| LOP-Server | `StrikeTuning` 조립부(`PanchigiStrikeMessageHandler`), 수기 검증에서 커널 부분 제거 |
+
+### 커널을 공용 패키지로 옮긴다
+
+`PanchigiStrike`는 지금 **서버 레포**(`Assets/Scripts/Game/`)에 있다. 거기는 `Assembly-CSharp`이라
+**EditMode 테스트를 붙일 수 없고**, 그 빈자리를 서버의 수기 검증 스크립트가 메우고 있다
+(`PanchigiVerification.StrikeKernel` — 주석에 "잃어버린 EditMode 테스트 13개를 대신한다"고 적혀 있다).
+
+커널은 `System`·`System.Numerics`만 쓰는 순수 C#이라 그대로 옮겨진다. 오늘 `PanchigiTurn`을 같은
+이유로 옮겼고, 그때 **수기 검증이 옛 시그니처를 붙들고 있어 게임서버 배포가 깨진** 전례가 있다 —
+규칙을 두 벌 두면 한쪽만 고쳐진다. 옮기면서 수기 검증의 커널 부분은 걷어낸다.
 
 클라 런타임은 이 값을 읽지 않는다(타격 판정은 서버 전담). 조준선은 로컬로만 그린다.
 

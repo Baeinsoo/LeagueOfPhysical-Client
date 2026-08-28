@@ -68,7 +68,7 @@ namespace LOP.UI
                 line.AddToClassList("matchresult-row");
                 if (row.IsMe) line.AddToClassList("matchresult-row--me");
 
-                var placement = new Label(_viewModel.IsDraw ? "-" : $"{row.Placement}등");
+                var placement = new Label(row.PlacementText);
                 placement.AddToClassList("card-text");
 
                 var name = new Label(row.DisplayName);

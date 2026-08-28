@@ -134,7 +134,7 @@ namespace LOP.UI
                 line.AddToClassList("profile-stat");
                 if (row.IsMe) line.AddToClassList("matchresult-row--me");
 
-                var placement = new Label($"{row.Placement}등");
+                var placement = new Label(row.PlacementText);
                 placement.AddToClassList("profile-stat-label");
 
                 var name = new Label(row.DisplayName);

@@ -210,12 +210,16 @@ namespace LOP.UI
             {
                 var rows = BuildHistoryRows(match.participants, myUserId);
                 var mine = FindMine(match.participants, myUserId);
+                //  줄이 이미 무승부인지 알고 있다. 여기서 다시 세면 둘이 어긋날 수 있다.
+                bool isDraw = rows.Count > 0 && rows[0].PlacementText == "-";
 
                 entries.Add(new ProfileMatchEntry(
                     GameModeName(match.rounds),
                     Subtitle(match.queueId, match.rounds),
                     FormatEndedAt(match.endedAt),
-                    mine == null ? string.Empty : $"{mine.placement}등  {MatchResultViewModel.FormatDelta(mine.mmrBefore, mine.mmrAfter)}",
+                    mine == null
+                        ? string.Empty
+                        : $"{(isDraw ? "무승부" : $"{mine.placement}등")}  {MatchResultViewModel.FormatDelta(mine.mmrBefore, mine.mmrAfter)}",
                     mine != null,
                     rows));
             }
@@ -288,10 +292,15 @@ namespace LOP.UI
                 return byPlacement != 0 ? byPlacement : string.CompareOrdinal(left.userId, right.userId);
             });
 
+            var placements = new List<int>(sorted.Count);
+            foreach (var participant in sorted) { placements.Add(participant.placement); }
+            bool isDraw = MatchResultViewModel.IsDrawn(placements);
+
             foreach (var participant in sorted)
             {
                 bool isMe = participant.userId == myUserId;
-                rows.Add(new MatchResultRow(participant.placement, isMe ? "나" : ShortName(participant.displayName), isMe));
+                rows.Add(new MatchResultRow(participant.placement,
+                    isMe ? "나" : ShortName(participant.displayName), isMe, isDraw));
             }
 
             return rows;

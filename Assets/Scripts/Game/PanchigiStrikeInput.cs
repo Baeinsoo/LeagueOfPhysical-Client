@@ -33,6 +33,13 @@ namespace LOP
 
         private PanchigiContactCollector collector;
 
+        //  ViewModel이 매 프레임 읽어 간다. Time.time을 순수 C# 쪽으로 넘기지 않으려고
+        //  여기서 재 둔다.
+        private float charge;
+
+        /// <summary>지금 얼마나 눌렀나 — 0~1. 아무도 안 누르고 있으면 0.</summary>
+        public float Charge => charge;
+
         //  씬에 배선된 aimLine을 틀로 삼아 복제한다. 손가락마다 별도 LineRenderer를 써야 한다 —
         //  하나를 세그먼트로 나눠 쓰면 선들이 이어져 보인다.
         private LineRenderer[] aimLines;
@@ -83,6 +90,8 @@ namespace LOP
             {
                 return;
             }
+
+            charge = collector?.ChargeNormalized(Time.time, config.HoldTimeMax) ?? 0f;
 
             if (IsMyTurn() == false)
             {

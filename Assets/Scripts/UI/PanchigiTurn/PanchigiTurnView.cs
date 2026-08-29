@@ -1,3 +1,4 @@
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace LOP.UI
@@ -5,6 +6,10 @@ namespace LOP.UI
     /// <summary>내 차례와 판 상황 두 줄. 남은 시간·뒤집힌 개수가 매 프레임 변하므로 스케줄러로 갱신한다.</summary>
     public class PanchigiTurnView : UIView
     {
+        //  약할 땐 차분한 파랑, 셀수록 더운 노랑 — 높이만으로는 곁눈질에 잘 안 읽힌다.
+        private static readonly Color Calm = new Color(0.36f, 0.58f, 0.78f);
+        private static readonly Color Hot = new Color(0.85f, 0.64f, 0.25f);
+
         private readonly PanchigiTurnViewModel _viewModel;
 
         private IVisualElementScheduledItem _tick;
@@ -23,11 +28,22 @@ namespace LOP.UI
             var turnLabel = Root.Q<Label>("turn-label");
             var flipLabel = Root.Q<Label>("flip-label");
             var dropOutLabel = Root.Q<Label>("dropout-label");
+            var chargeTrack = Root.Q<VisualElement>("charge-track");
+            var chargeFill = Root.Q<VisualElement>("charge-fill");
             _tick = Root.schedule.Execute(_ =>
             {
                 turnLabel.text = _viewModel.Label();
                 flipLabel.text = _viewModel.FlipLabel();
                 dropOutLabel.text = _viewModel.DropOutLabel();
+
+                bool charging = _viewModel.IsCharging();
+                chargeTrack.style.display = charging ? DisplayStyle.Flex : DisplayStyle.None;
+                if (charging)
+                {
+                    float t = _viewModel.Charge();
+                    chargeFill.style.height = Length.Percent(t * 100f);
+                    chargeFill.style.backgroundColor = Color.Lerp(Calm, Hot, t);
+                }
             }).Every(0);
         }
 

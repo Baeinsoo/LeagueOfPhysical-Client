@@ -16,15 +16,18 @@ namespace LOP.UI
         private readonly IRunner runner;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly LOP.MasterData.LOPMasterData masterData;
+        private readonly PanchigiStrikeInput strikeInput;
 
         public PanchigiTurnViewModel(PanchigiStateStore store, IPlayerContext playerContext, IRunner runner,
-            GameFramework.World.EntityRegistry entityRegistry, LOP.MasterData.LOPMasterData masterData)
+            GameFramework.World.EntityRegistry entityRegistry, LOP.MasterData.LOPMasterData masterData,
+            PanchigiStrikeInput strikeInput)
         {
             this.store = store;
             this.playerContext = playerContext;
             this.runner = runner;
             this.entityRegistry = entityRegistry;
             this.masterData = masterData;
+            this.strikeInput = strikeInput;
         }
 
         public string Label()
@@ -70,6 +73,17 @@ namespace LOP.UI
 
             return $"낙 {store.GetDropOutCount(playerContext.entityId)} / {limit}{turns}";
         }
+
+        /// <summary>게이지를 띄울 때인가 — 내 조준 차례일 때만.</summary>
+        public bool IsCharging()
+        {
+            return store.IsEliminated(playerContext.entityId) == false
+                && store.Phase.CurrentValue == AimingPhase
+                && store.CurrentEntityId.CurrentValue == playerContext.entityId;
+        }
+
+        /// <summary>막대가 얼마나 찼나 — 0~1.</summary>
+        public float Charge() => IsCharging() ? strikeInput.Charge : 0f;
 
         private int RemainingSeconds()
         {

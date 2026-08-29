@@ -10,9 +10,11 @@ namespace LOP.UI
         private static readonly Color Calm = new Color(0.36f, 0.58f, 0.78f);
         private static readonly Color Hot = new Color(0.85f, 0.64f, 0.25f);
 
-        //  판과 게이지 사이 틈, 그리고 화면 왼쪽 끝에서 최소한 띄울 거리.
-        private const float BoardGap = 12f;
+        //  판과 게이지 사이 틈, 화면 왼쪽 끝에서 최소한 띄울 거리, 그리고 판 높이 대비 막대 길이.
+        //  막대는 판만큼 길 필요가 없다 — 짧아야 눈이 한 번에 담는다.
+        private const float BoardGap = 32f;
         private const float EdgeMargin = 8f;
+        private const float HeightRatio = 2f / 3f;
 
         private readonly PanchigiTurnViewModel _viewModel;
 
@@ -82,15 +84,19 @@ namespace LOP.UI
             float boardBottom = (1f - board.yMin / Screen.height) * panelHeight;
 
             float left = boardLeft - trackWidth - BoardGap;
-            float height = boardBottom - boardTop;
-            if (float.IsNaN(left) || float.IsNaN(boardTop) || height <= 0f)
+            float boardSpan = boardBottom - boardTop;
+            if (float.IsNaN(left) || float.IsNaN(boardTop) || boardSpan <= 0f)
             {
                 return;
             }
 
+            //  짧게 만들되 판 한가운데에 맞춰 세운다 — 위쪽만 남기면 판과 어긋나 보인다.
+            float height = boardSpan * HeightRatio;
+            float top = boardTop + (boardSpan - height) * 0.5f;
+
             //  판이 화면 왼쪽에 바짝 붙어 자리가 없으면 가장자리에서 멈춘다.
             track.style.left = Mathf.Max(EdgeMargin, left);
-            track.style.top = Mathf.Clamp(boardTop, 0f, panelHeight - 1f);
+            track.style.top = Mathf.Clamp(top, 0f, panelHeight - 1f);
             track.style.height = Mathf.Min(height, panelHeight);
         }
 

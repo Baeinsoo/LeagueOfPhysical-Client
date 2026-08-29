@@ -5,4 +5,7 @@
         <ui:Label name="flip-label" class="flip-label" text="" />
         <ui:Label name="dropout-label" class="dropout-label" text="" />
     </ui:VisualElement>
+    <ui:VisualElement name="charge-track" class="charge-track">
+        <ui:VisualElement name="charge-fill" class="charge-fill" />
+    </ui:VisualElement>
 </ui:UXML>

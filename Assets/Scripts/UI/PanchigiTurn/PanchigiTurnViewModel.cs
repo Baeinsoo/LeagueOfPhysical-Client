@@ -9,22 +9,23 @@ namespace LOP.UI
     /// </summary>
     public class PanchigiTurnViewModel
     {
-        private const int AimingPhase = 1;
-
         private readonly PanchigiStateStore store;
         private readonly IPlayerContext playerContext;
         private readonly IRunner runner;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly LOP.MasterData.LOPMasterData masterData;
+        private readonly PanchigiStrikeInput strikeInput;
 
         public PanchigiTurnViewModel(PanchigiStateStore store, IPlayerContext playerContext, IRunner runner,
-            GameFramework.World.EntityRegistry entityRegistry, LOP.MasterData.LOPMasterData masterData)
+            GameFramework.World.EntityRegistry entityRegistry, LOP.MasterData.LOPMasterData masterData,
+            PanchigiStrikeInput strikeInput)
         {
             this.store = store;
             this.playerContext = playerContext;
             this.runner = runner;
             this.entityRegistry = entityRegistry;
             this.masterData = masterData;
+            this.strikeInput = strikeInput;
         }
 
         public string Label()
@@ -34,7 +35,7 @@ namespace LOP.UI
                 return "탈락 · 구경 중";
             }
 
-            if (store.Phase.CurrentValue != AimingPhase)
+            if (store.IsAiming == false)
             {
                 return "동전이 멈추는 중";
             }
@@ -70,6 +71,15 @@ namespace LOP.UI
 
             return $"낙 {store.GetDropOutCount(playerContext.entityId)} / {limit}{turns}";
         }
+
+        /// <summary>게이지를 띄울 때인가 — 내 조준 차례일 때만.</summary>
+        public bool IsCharging() => store.IsAimingTurnOf(playerContext.entityId);
+
+        /// <summary>판이 화면에서 차지하는 네모 — 게이지를 그 옆에 붙이는 데 쓴다.</summary>
+        public bool TryGetBoardScreenRect(out UnityEngine.Rect rect) => strikeInput.TryGetBoardScreenRect(out rect);
+
+        /// <summary>막대가 얼마나 찼나 — 0~1.</summary>
+        public float Charge() => IsCharging() ? strikeInput.Charge : 0f;
 
         private int RemainingSeconds()
         {

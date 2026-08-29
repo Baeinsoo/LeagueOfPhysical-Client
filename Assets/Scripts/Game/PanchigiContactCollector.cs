@@ -27,7 +27,10 @@ namespace LOP
             }
         }
 
-        /// <summary>아직 눌려 있는 손가락 하나 — 조준선을 그리는 데 쓴다.</summary>
+        /// <summary>
+        /// 아직 눌려 있는 손가락 하나 — 세기(charge) 계산과, 손가락이 판 밖으로 나가며
+        /// 뗐을 때 마지막으로 판 위에 있던 위치를 찾는 데 쓴다.
+        /// </summary>
         public readonly struct Aim
         {
             public readonly int TouchId;
@@ -61,6 +64,38 @@ namespace LOP
 
         /// <summary>손가락이 전부 떨어졌고 모인 접촉점이 있다 = 한 번의 치기가 끝났다.</summary>
         public bool IsComplete => pressed.Count == 0 && done.Count > 0;
+
+        /// <summary>
+        /// 지금 얼마나 눌렀나 — 0~1. <b>가장 오래 눌린 손가락</b> 기준이다. 늦게 닿은 쪽을
+        /// 보면 손가락을 하나씩 드르륵 댈 때마다 눈금이 뒤로 밀린다.
+        /// </summary>
+        public float ChargeNormalized(float now, float holdTimeMax)
+        {
+            if (holdTimeMax <= 0f || pressed.Count == 0)
+            {
+                return 0f;
+            }
+
+            //  이미 뗀 손가락도 함께 센다 — 손바닥은 한꺼번에 떨어지지 않아서, 남아 있는
+            //  손가락만 보면 먼저 뗀 순간 눈금이 뚝 떨어진다. 다 떼면 위에서 0으로 빠진다.
+            float longest = 0f;
+            for (int i = 0; i < done.Count; i++)
+            {
+                if (done[i].HoldTime > longest)
+                {
+                    longest = done[i].HoldTime;
+                }
+            }
+            for (int i = 0; i < pressed.Count; i++)
+            {
+                float held = now - pressed[i].PressTime;
+                if (held > longest)
+                {
+                    longest = held;
+                }
+            }
+            return Mathf.Clamp01(longest / holdTimeMax);
+        }
 
         /// <summary>손가락이 판에 닿았다. 상한을 넘었으면 접수하지 않고 false를 준다.</summary>
         public bool Begin(int touchId, Vector3 boardPoint, float now)

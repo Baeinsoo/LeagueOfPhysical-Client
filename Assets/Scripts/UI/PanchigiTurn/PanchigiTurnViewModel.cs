@@ -75,6 +75,9 @@ namespace LOP.UI
         /// <summary>게이지를 띄울 때인가 — 내 조준 차례일 때만.</summary>
         public bool IsCharging() => store.IsAimingTurnOf(playerContext.entityId);
 
+        /// <summary>판이 화면에서 차지하는 네모 — 게이지를 그 옆에 붙이는 데 쓴다.</summary>
+        public bool TryGetBoardScreenRect(out UnityEngine.Rect rect) => strikeInput.TryGetBoardScreenRect(out rect);
+
         /// <summary>막대가 얼마나 찼나 — 0~1.</summary>
         public float Charge() => IsCharging() ? strikeInput.Charge : 0f;
 

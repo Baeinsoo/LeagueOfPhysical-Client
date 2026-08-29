@@ -37,6 +37,54 @@ namespace LOP
         /// <summary>지금 얼마나 눌렀나 — 0~1. 아무도 안 누르고 있으면 0.</summary>
         public float Charge => charge;
 
+        //  매 프레임 씬을 뒤지지 않으려고 잡아 둔다. 판은 한 판에 하나뿐이고 안 바뀐다.
+        private PanchigiBoard board;
+
+        /// <summary>
+        /// 판이 화면에서 차지하는 네모. 게이지를 <b>판 옆</b>에 붙이는 데 쓴다 — 화면 가장자리에
+        /// 붙이면 폰이 길수록 판에서 멀어져 곁눈질로 안 읽힌다. 화면 비율이 달라져도 판을 따라간다.
+        /// </summary>
+        public bool TryGetBoardScreenRect(out Rect rect)
+        {
+            rect = default;
+            if (aimCamera == null)
+            {
+                return false;
+            }
+            if (board == null)
+            {
+                board = FindFirstObjectByType<PanchigiBoard>();
+                if (board == null)
+                {
+                    return false;
+                }
+            }
+
+            Bounds bounds = board.Bounds;
+            //  판이 기울어 보이므로 어느 한 모서리가 아니라 여덟 꼭짓점을 다 투영해 감싸는 네모를 낸다.
+            float minX = float.MaxValue, maxX = float.MinValue;
+            float minY = float.MaxValue, maxY = float.MinValue;
+            for (int i = 0; i < 8; i++)
+            {
+                var corner = new Vector3(
+                    (i & 1) == 0 ? bounds.min.x : bounds.max.x,
+                    (i & 2) == 0 ? bounds.min.y : bounds.max.y,
+                    (i & 4) == 0 ? bounds.min.z : bounds.max.z);
+                Vector3 p = aimCamera.WorldToScreenPoint(corner);
+                if (p.z <= 0f)
+                {
+                    return false;   // 카메라 뒤 — 이 프레임은 자리를 못 정한다
+                }
+                if (p.x < minX) { minX = p.x; }
+                if (p.x > maxX) { maxX = p.x; }
+                if (p.y < minY) { minY = p.y; }
+                if (p.y > maxY) { maxY = p.y; }
+            }
+
+            rect = Rect.MinMaxRect(minX, minY, maxX, maxY);
+            return true;
+        }
+
         private void Awake()
         {
             BoardLayerMask = LayerMask.GetMask("Board");

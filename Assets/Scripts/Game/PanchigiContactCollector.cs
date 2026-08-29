@@ -73,7 +73,16 @@ namespace LOP
                 return 0f;
             }
 
+            //  이미 뗀 손가락도 함께 센다 — 손바닥은 한꺼번에 떨어지지 않아서, 남아 있는
+            //  손가락만 보면 먼저 뗀 순간 눈금이 뚝 떨어진다. 다 떼면 위에서 0으로 빠진다.
             float longest = 0f;
+            for (int i = 0; i < done.Count; i++)
+            {
+                if (done[i].HoldTime > longest)
+                {
+                    longest = done[i].HoldTime;
+                }
+            }
             for (int i = 0; i < pressed.Count; i++)
             {
                 float held = now - pressed[i].PressTime;

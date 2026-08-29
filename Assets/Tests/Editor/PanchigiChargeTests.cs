@@ -52,6 +52,19 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 먼저_닿은_손가락을_떼도_눈금이_안_준다()
+        {
+            //  손바닥은 손가락이 한꺼번에 떨어지지 않는다. 먼저 닿은 것이 먼저 떨어지는데,
+            //  남은 손가락만 보면 그쪽이 더 짧게 눌렸으므로 눈금이 뚝 떨어진다.
+            var c = Collector();
+            c.Begin(1, Vector3.zero, 10f);
+            c.Begin(2, Vector3.zero, 10.4f);
+            c.End(1, Vector3.zero, 10.6f, HoldMax, 3f);
+
+            Assert.AreEqual(0.6f, c.ChargeNormalized(10.6f, HoldMax), 1e-5f);
+        }
+
+        [Test]
         public void 손을_다_떼면_0으로_돌아간다()
         {
             //  다음 조준이 반쯤 찬 채로 시작하면 안 된다.

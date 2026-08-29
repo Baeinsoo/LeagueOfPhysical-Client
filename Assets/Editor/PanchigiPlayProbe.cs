@@ -29,6 +29,12 @@ namespace LOP.EditorTools
         //  자기 자신을 비교하게 되어 늘 "멎었다"가 된다 — 판정은 한 번만 하고 나눠 쓴다.
         private static bool lastStill;
 
+        //  PressAndHold가 눌러 둔 자리 — Release가 이 자리로 뗀다. Strike처럼 한 호출 안에서
+        //  Begin·End를 다 끝내면 그 사이에 프레임이 지나가지 않아 게이지가 절대 안 보인다.
+        //  그래서 뗄 자리만 기억해 두고, 실제로 손을 떼는 시점(Release)은 호출부가 정하게 둔다.
+        private static bool hasPendingHold;
+        private static Vector3 pendingEnd;
+
         /// <summary>지금 판이 어떤 상태인지 한 줄로. 호출부(CLI)가 이걸 보고 다음 행동을 정한다.</summary>
         public static string Status()
         {
@@ -54,6 +60,7 @@ namespace LOP.EditorTools
             sb.Append(" 멎음=").Append(still);
             sb.Append(" 낙=").Append(store.GetDropOutCount(myEntityId));
             sb.Append(" 탈락=").Append(store.IsEliminated(myEntityId));
+            sb.Append(" 게이지=").Append(input.Charge.ToString("F2"));
             sb.Append(" z=[").Append(string.Join(",", positions.Select(v => v.z.ToString("F2")))).Append("]");
             return sb.ToString();
         }
@@ -127,11 +134,87 @@ namespace LOP.EditorTools
             return $"쳤다 z={targetZ} 세기={clampedPower} 누름={clampedHold}";
         }
 
+        /// <summary>
+        /// 판을 누르고 <b>계속</b> 누르고 있는다(뗴지 않는다) — <see cref="Strike"/>는 한 호출
+        /// 안에서 눌렀다 떼버려 게이지가 절대 안 보인다. 이 사이 <see cref="Status"/>를 여러
+        /// 번 불러 게이지가 오르는 것을 눈으로 확인한 뒤 <see cref="Release"/>로 뗀다.
+        /// </summary>
+        /// <param name="targetZ">뗄 때 판 세로축 자리. 시작점은 여기서 <paramref name="power"/>만큼 당겨 잡는다.</param>
+        /// <param name="power">끌 세기. 뗄 때 상한에서 잘린다.</param>
+        public static string PressAndHold(float targetZ = 0.75f, float power = 3f)
+        {
+            if (TryGetStrikeInput(out var input, out var store, out string myEntityId) == false)
+            {
+                return "타격 입력 없음";
+            }
+            if (store.IsAimingTurnOf(myEntityId) == false)
+            {
+                return "내 차례가 아니다";
+            }
+
+            var config = MasterDataOf(input);
+            if (config == null)
+            {
+                return "TbPanchigiConfig(1)이 없다";
+            }
+
+            var collector = CollectorOf(input);
+            if (collector == null)
+            {
+                return "수집기가 아직 없다";
+            }
+
+            float surfaceY = BoardSurfaceY();
+            var start = new Vector3(0f, surfaceY, targetZ - power);
+            var end = new Vector3(0f, surfaceY, targetZ);
+
+            collector.Clear();
+            collector.Begin(-1, start, Time.time);
+            collector.Update(-1, end);
+
+            hasPendingHold = true;
+            pendingEnd = end;
+
+            return $"눌렀다 z={targetZ} 세기={power} — Status로 게이지를 지켜본 뒤 Release로 뗄 것";
+        }
+
+        /// <summary>
+        /// <see cref="PressAndHold"/>가 눌러 둔 손가락을 뗀다. 다음 프레임의 기존 입력 경로가
+        /// 그대로 타격을 내보낸다 — 사람이 손을 뗐을 때와 같은 길이다.
+        /// </summary>
+        public static string Release()
+        {
+            if (hasPendingHold == false)
+            {
+                return "누르고 있는 것이 없다 (PressAndHold를 먼저 부를 것)";
+            }
+            if (TryGetStrikeInput(out var input, out var store, out string myEntityId) == false)
+            {
+                hasPendingHold = false;
+                return "타격 입력 없음";
+            }
+
+            var config = MasterDataOf(input);
+            var collector = CollectorOf(input);
+            if (config == null || collector == null)
+            {
+                hasPendingHold = false;
+                return "TbPanchigiConfig(1) 또는 수집기가 없다";
+            }
+
+            float charge = input.Charge;
+            collector.End(-1, pendingEnd, Time.time, config.HoldTimeMax, config.StrikePowerMax);
+            hasPendingHold = false;
+
+            return $"뗐다 (누르고 있던 동안 게이지={charge:F2})";
+        }
+
         /// <summary>연속 호출로 "멎었나"를 보려면 직전 위치가 필요하다. 새 판을 시작할 때 지운다.</summary>
         public static string Reset()
         {
             lastPositions = null;
             lastStill = false;
+            hasPendingHold = false;
             return "직전 위치 지움";
         }
 

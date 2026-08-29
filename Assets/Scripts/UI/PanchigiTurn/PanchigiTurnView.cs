@@ -53,29 +53,45 @@ namespace LOP.UI
             }).Every(0);
         }
 
-        //  판 왼쪽 옆에 붙인다. USS에 적힌 자리는 판을 못 찾았을 때의 대비책으로만 남는다.
+        //  판 왼쪽 옆에 붙인다. 값이 하나라도 수상하면 아무것도 안 쓰고 USS에 적힌 자리를 그대로 둔다 —
+        //  잘못 쓰면 막대가 화면 밖으로 나가 아예 안 보인다.
         private void PlaceBesideBoard(VisualElement track)
         {
-            if (_viewModel.TryGetBoardScreenRect(out Rect board) == false || track.panel == null)
+            if (_viewModel.TryGetBoardScreenRect(out Rect board) == false)
             {
                 return;
             }
 
-            //  화면 좌표는 원점이 왼쪽 *아래*, 패널 좌표는 왼쪽 *위*다 — 위아래가 뒤집힌다.
-            Vector2 top = RuntimePanelUtils.ScreenToPanel(track.panel, new Vector2(board.xMin, board.yMax));
-            Vector2 bottom = RuntimePanelUtils.ScreenToPanel(track.panel, new Vector2(board.xMin, board.yMin));
+            //  이 View의 루트는 화면을 꽉 채우게 깔린다(WindowManager가 absolute 0,0,0,0으로 세운다).
+            //  그래서 화면 비율을 그대로 곱하면 패널 좌표가 된다 — 좌표 변환 API의 y 방향에 기대지 않는다.
+            VisualElement panel = track.parent;
+            if (panel == null) { return; }
 
-            float width = track.resolvedStyle.width;
-            if (float.IsNaN(width) || width <= 0f)
+            float panelWidth = panel.resolvedStyle.width;
+            float panelHeight = panel.resolvedStyle.height;
+            float trackWidth = track.resolvedStyle.width;
+            if (panelWidth <= 0f || panelHeight <= 0f || trackWidth <= 0f
+                || Screen.width <= 0 || Screen.height <= 0)
             {
                 return;   // 아직 레이아웃 전 — 다음 프레임에 자리를 잡는다
             }
 
-            //  판에 딱 붙으면 동전과 겹쳐 보인다. 화면이 좁아 왼쪽으로 넘치면 가장자리에서 멈춘다.
-            float left = Mathf.Max(EdgeMargin, board.xMin > 0f ? top.x - width - BoardGap : EdgeMargin);
-            track.style.left = left;
-            track.style.top = top.y;
-            track.style.height = Mathf.Max(1f, bottom.y - top.y);
+            float boardLeft = board.xMin / Screen.width * panelWidth;
+            //  화면 좌표는 원점이 왼쪽 *아래*, 패널 좌표는 왼쪽 *위*다 — 위아래가 뒤집힌다.
+            float boardTop = (1f - board.yMax / Screen.height) * panelHeight;
+            float boardBottom = (1f - board.yMin / Screen.height) * panelHeight;
+
+            float left = boardLeft - trackWidth - BoardGap;
+            float height = boardBottom - boardTop;
+            if (float.IsNaN(left) || float.IsNaN(boardTop) || height <= 0f)
+            {
+                return;
+            }
+
+            //  판이 화면 왼쪽에 바짝 붙어 자리가 없으면 가장자리에서 멈춘다.
+            track.style.left = Mathf.Max(EdgeMargin, left);
+            track.style.top = Mathf.Clamp(boardTop, 0f, panelHeight - 1f);
+            track.style.height = Mathf.Min(height, panelHeight);
         }
 
         private bool _disposed;

@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Text;
 using UnityEditor;
+using UnityEngine.UIElements;
 using UnityEngine;
 
 namespace LOP.EditorTools
@@ -207,6 +208,49 @@ namespace LOP.EditorTools
             hasPendingHold = false;
 
             return $"뗐다 (누르고 있던 동안 게이지={charge:F2})";
+        }
+
+        /// <summary>
+        /// 세기 막대가 실제로 어디에 놓였나 — 판 옆에 제대로 붙었는지 눈 대신 숫자로 본다.
+        /// 막대는 조준 차례에만 뜨므로 <see cref="PressAndHold"/> 뒤에 부르는 것이 확실하다.
+        /// </summary>
+        public static string GaugeLayout()
+        {
+            if (TryGetStrikeInput(out var input, out _, out _) == false)
+            {
+                return "타격 입력 없음";
+            }
+
+            var sb = new StringBuilder();
+            sb.Append("화면=").Append(Screen.width).Append("x").Append(Screen.height);
+            if (input.TryGetBoardScreenRect(out Rect board))
+            {
+                sb.Append(" 판=(x ").Append(board.xMin.ToString("F0")).Append("~").Append(board.xMax.ToString("F0"))
+                  .Append(", y ").Append(board.yMin.ToString("F0")).Append("~").Append(board.yMax.ToString("F0")).Append(")");
+            }
+            else
+            {
+                sb.Append(" 판=투영실패");
+            }
+
+            VisualElement track = null;
+            foreach (var doc in Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None))
+            {
+                track = doc.rootVisualElement?.Q<VisualElement>("charge-track");
+                if (track != null) { break; }
+            }
+            if (track == null)
+            {
+                sb.Append(" 막대=화면에 없음");
+                return sb.ToString();
+            }
+
+            Rect layout = track.worldBound;
+            sb.Append(" 막대=(x ").Append(layout.xMin.ToString("F0"))
+              .Append(", y ").Append(layout.yMin.ToString("F0")).Append("~").Append(layout.yMax.ToString("F0"))
+              .Append(", 너비 ").Append(layout.width.ToString("F0")).Append(")");
+            sb.Append(" 보임=").Append(track.resolvedStyle.display == DisplayStyle.Flex);
+            return sb.ToString();
         }
 
         /// <summary>연속 호출로 "멎었나"를 보려면 직전 위치가 필요하다. 새 판을 시작할 때 지운다.</summary>

@@ -9,6 +9,8 @@ namespace LOP
     /// </summary>
     public class PanchigiStateStore
     {
+        private const int AimingPhase = 1;
+
         private readonly ReactiveProperty<int> phase = new(0);
         private readonly ReactiveProperty<string> currentEntityId = new(string.Empty);
         private readonly ReactiveProperty<long> aimDeadlineTick = new(0);
@@ -33,6 +35,17 @@ namespace LOP
         public bool IsEliminated(string entityId)
         {
             return entityId != null && eliminated.Contains(entityId);
+        }
+
+        /// <summary>지금 조준을 받는 국면인가.</summary>
+        public bool IsAiming => phase.CurrentValue == AimingPhase;
+
+        /// <summary>이 사람이 지금 칠 차례인가 — 입력을 열지, 게이지를 띄울지가 같은 판단이어야 한다.</summary>
+        public bool IsAimingTurnOf(string entityId)
+        {
+            return IsAiming
+                && currentEntityId.CurrentValue == entityId
+                && IsEliminated(entityId) == false;
         }
 
         public void Set(int phase, string currentEntityId, long aimDeadlineTick, int turnCount,

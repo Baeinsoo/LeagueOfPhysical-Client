@@ -9,8 +9,6 @@ namespace LOP.UI
     /// </summary>
     public class PanchigiTurnViewModel
     {
-        private const int AimingPhase = 1;
-
         private readonly PanchigiStateStore store;
         private readonly IPlayerContext playerContext;
         private readonly IRunner runner;
@@ -37,7 +35,7 @@ namespace LOP.UI
                 return "탈락 · 구경 중";
             }
 
-            if (store.Phase.CurrentValue != AimingPhase)
+            if (store.IsAiming == false)
             {
                 return "동전이 멈추는 중";
             }
@@ -75,12 +73,7 @@ namespace LOP.UI
         }
 
         /// <summary>게이지를 띄울 때인가 — 내 조준 차례일 때만.</summary>
-        public bool IsCharging()
-        {
-            return store.IsEliminated(playerContext.entityId) == false
-                && store.Phase.CurrentValue == AimingPhase
-                && store.CurrentEntityId.CurrentValue == playerContext.entityId;
-        }
+        public bool IsCharging() => store.IsAimingTurnOf(playerContext.entityId);
 
         /// <summary>막대가 얼마나 찼나 — 0~1.</summary>
         public float Charge() => IsCharging() ? strikeInput.Charge : 0f;

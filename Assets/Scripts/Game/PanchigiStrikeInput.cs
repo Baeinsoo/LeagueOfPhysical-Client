@@ -18,8 +18,6 @@ namespace LOP
         [Inject] private LOP.MasterData.LOPMasterData masterData;
         [Inject] private PanchigiStateStore stateStore;
 
-        private const int AimingPhase = 1;
-
         //  판만 맞힌다 — 동전을 눌러도 "판의 그 자리를 쳤다"로 읽어야 조작이 자연스럽다.
         //  그래서 판에 전용 레이어를 준다. Default를 쓰면 레이가 동전에도 맞아, 판 끝에 걸친
         //  동전을 짚었을 때 "판을 못 맞혔다"가 되어 치기가 통째로 거절된다.
@@ -94,9 +92,7 @@ namespace LOP
             }
         }
 
-        private bool IsMyTurn()
-            => stateStore.Phase.CurrentValue == AimingPhase
-            && stateStore.CurrentEntityId.CurrentValue == playerContext.entityId;
+        private bool IsMyTurn() => stateStore.IsAimingTurnOf(playerContext.entityId);
 
         private void PollTouches(LOP.MasterData.PanchigiConfig config)
         {

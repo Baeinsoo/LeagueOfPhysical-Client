@@ -1,37 +1,39 @@
 namespace LOP
 {
     /// <summary>
-    /// 예측 엔티티마다 자기 렌더 보정 스무더를 하나씩 만들어 준다(튄 양이 엔티티마다 다르다).
-    /// 내 것과 남의 것은 "보정이 이만큼 나는 게 정상인가"의 기준 자체가 달라, 텔레포트 컷오프를
-    /// 따로 준다 — 그 근거는 아래 상수 옆에 적어 둔다.
+    /// 예측 엔티티마다 자기 렌더 보정 스무더를 하나씩 만들어 준다.
+    ///
+    /// 내 것과 남의 것을 다르게 만든다 — 언리얼이 스무딩을 simulated proxy에만 거는 것과 같은 이유다.
+    /// 내가 조종하는 몸을 녹이면 그 시간 동안 입력과 화면이 어긋나 조작감이 무너진다. 남의 몸은
+    /// 아무도 조종하지 않으니 그 대가가 없다.
+    /// 상수 근거는 docs/superpowers/specs/2026-08-28-remote-render-smoothing-design.md §6.
     /// </summary>
     public class RenderCorrectionSmootherFactory
     {
-        private const float Tau = 0.1f;              // 보정 오프셋이 녹는 시간상수(초)
-        private const float MinCorrection = 0.025f;  // 2.5cm 미만은 녹일 것도 없다 — 그냥 새 위치를 따른다
+        //  2.5cm는 눈에 안 보인다. 숨길 튐이 없는데 녹이면 그동안 계속 조금씩 틀린 자리에 있게 돼
+        //  오히려 오차가 는다.
+        private const float MinCorrection = 0.025f;
 
-        //  내 새 — 이보다 큰 보정은 녹이지 않고 그 자리에 붙인다. 내가 직접 굴리는 몸이 3m나
-        //  틀렸다면 리스폰·순간이동처럼 "미끄러져 가는 쪽이 오히려 이상한" 사건이다.
-        private const float LocalTeleport = 3f;
+        //  언리얼 NetworkSimulatedSmoothLocationTime.
+        private const float SmoothTime = 0.1f;
 
-        //  남의 새 — 컷오프를 끈다(어떤 크기든 녹인다).
-        //  남의 입력은 클라에 오지 않아 "안 눌렀다"로 가정하고 굴리는데, 클라는 서버보다 ~9틱
-        //  (0.02초 × 9 = 0.18초) 앞서 달린다. 그 사이 남이 한 번이라도 날갯짓하면 세로 속도가
-        //  +23으로 튀므로, 가정과의 차이는 (23 − 지금속도) × 0.18초가 된다:
-        //    · 속도 0에서 날갯짓  → (23 − 0)   × 0.18 ≈ 4.1m
-        //    · 최대 낙하속도에서  → (23 − −30) × 0.18 ≈ 9.5m
-        //  즉 남의 날갯짓은 매번 3m를 훌쩍 넘긴다 — 컷오프를 두면 날갯짓마다 순간이동으로 보인다
-        //  (이전에 같은 전환을 되돌리게 만든 바로 그 증상).
-        //  값의 근거는 직전까지 이 새들을 그리던 ExtrapolatedEntityInterpolator다 — 크기 제한 없이
-        //  0.1초에 걸쳐 무조건 섞었고(BlendDuration), 그 화면을 순간이동이라고 한 사람은 없었다.
-        //  그래서 새 숫자를 지어내지 않고 그 동작(=컷오프 없음 + 같은 시간상수)에 맞춘다.
-        private const float RemoteTeleport = float.PositiveInfinity;
+        //  언리얼 NetworkMaxSmoothUpdateDistance. 남의 새 정상 오차 최대가 4.788m(실측)이라
+        //  그 위로 잡아 정상 구간에서는 목줄이 당겨지지 않게 한다.
+        private const float MaxSmoothUpdateDistance = 5f;
+
+        //  언리얼 NetworkNoSmoothUpdateDistance. 이 위로 벌어지는 것은 날갯짓으로 설명되지 않는다
+        //  (리스폰·스폰 직후·큰 랙) — 녹이면 맵을 가로질러 미끄러지므로 즉시 간다.
+        private const float NoSmoothUpdateDistance = 8f;
+
+        //  0 = 스무딩 끔(언리얼 NetworkSmoothingMode.Disabled).
+        private const float LocalSmoothTime = 0f;
 
         /// <param name="local">내가 조작하는 엔티티인가.</param>
         public GameFramework.Netcode.RenderCorrectionSmoother Create(bool local)
         {
             return new GameFramework.Netcode.RenderCorrectionSmoother(
-                Tau, MinCorrection, local ? LocalTeleport : RemoteTeleport);
+                local ? LocalSmoothTime : SmoothTime,
+                MinCorrection, MaxSmoothUpdateDistance, NoSmoothUpdateDistance);
         }
     }
 }

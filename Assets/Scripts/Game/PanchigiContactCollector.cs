@@ -62,6 +62,29 @@ namespace LOP
         /// <summary>손가락이 전부 떨어졌고 모인 접촉점이 있다 = 한 번의 치기가 끝났다.</summary>
         public bool IsComplete => pressed.Count == 0 && done.Count > 0;
 
+        /// <summary>
+        /// 지금 얼마나 눌렀나 — 0~1. <b>가장 오래 눌린 손가락</b> 기준이다. 늦게 닿은 쪽을
+        /// 보면 손가락을 하나씩 드르륵 댈 때마다 눈금이 뒤로 밀린다.
+        /// </summary>
+        public float ChargeNormalized(float now, float holdTimeMax)
+        {
+            if (holdTimeMax <= 0f || pressed.Count == 0)
+            {
+                return 0f;
+            }
+
+            float longest = 0f;
+            for (int i = 0; i < pressed.Count; i++)
+            {
+                float held = now - pressed[i].PressTime;
+                if (held > longest)
+                {
+                    longest = held;
+                }
+            }
+            return Mathf.Clamp01(longest / holdTimeMax);
+        }
+
         /// <summary>손가락이 판에 닿았다. 상한을 넘었으면 접수하지 않고 false를 준다.</summary>
         public bool Begin(int touchId, Vector3 boardPoint, float now)
         {

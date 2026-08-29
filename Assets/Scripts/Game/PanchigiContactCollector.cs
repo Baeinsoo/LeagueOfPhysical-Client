@@ -27,7 +27,10 @@ namespace LOP
             }
         }
 
-        /// <summary>아직 눌려 있는 손가락 하나 — 조준선을 그리는 데 쓴다.</summary>
+        /// <summary>
+        /// 아직 눌려 있는 손가락 하나 — 세기(charge) 계산과, 손가락이 판 밖으로 나가며
+        /// 뗐을 때 마지막으로 판 위에 있던 위치를 찾는 데 쓴다.
+        /// </summary>
         public readonly struct Aim
         {
             public readonly int TouchId;

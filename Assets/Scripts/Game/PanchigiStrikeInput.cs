@@ -8,12 +8,11 @@ namespace LOP
     /// <summary>
     /// 판치기 조준·타격(클라). 판 위 한 점을 누르고, 끌고, 뗀다 — 끈 방향이 수평 힘이고
     /// 누른 시간이 수직 힘이다. 예측은 하지 않는다(판치기는 서버가 굴린 물리를 보기만 한다).
-    /// 조준선은 서버 왕복 없이 로컬로만 그린다.
+    /// 누른 세기는 <see cref="Charge"/>로 내보내 화면의 세기 막대가 읽어 간다.
     /// </summary>
     public class PanchigiStrikeInput : MonoBehaviour
     {
         [SerializeField] private Camera aimCamera;
-        [SerializeField] private LineRenderer aimLine;
 
         [Inject] private IPlayerContext playerContext;
         [Inject] private LOP.MasterData.LOPMasterData masterData;
@@ -40,10 +39,6 @@ namespace LOP
         /// <summary>지금 얼마나 눌렀나 — 0~1. 아무도 안 누르고 있으면 0.</summary>
         public float Charge => charge;
 
-        //  씬에 배선된 aimLine을 틀로 삼아 복제한다. 손가락마다 별도 LineRenderer를 써야 한다 —
-        //  하나를 세그먼트로 나눠 쓰면 선들이 이어져 보인다.
-        private LineRenderer[] aimLines;
-
         private void Awake()
         {
             BoardLayerMask = LayerMask.GetMask("Board");
@@ -51,36 +46,13 @@ namespace LOP
             {
                 aimCamera = Camera.main;
             }
-            if (aimLine != null)
-            {
-                aimLine.enabled = false;
-            }
         }
 
         private void OnDisable()
         {
-            //  조준 중에 꺼지면 조준선이 화면에 남고, 다음 켜질 때 절반쯤 조준된 상태로
-            //  시작한다 — 꺼질 때 확실히 리셋한다.
+            //  조준 중에 꺼지면 다음 켜질 때 절반쯤 조준된 상태로 시작한다 — 꺼질 때
+            //  확실히 리셋한다.
             collector?.Clear();
-            HideAllAimLines();
-        }
-
-        private void OnDestroy()
-        {
-            //  풀은 씬에 배선된 aimLine을 복제해 만든 것이고, 그 복제본은 부모가 없어
-            //  씬 최상위에 놓인다 — 내가 죽을 때 같이 치우지 않으면 씬에 남는다.
-            //  0번은 씬에 원래 있던 것이라 건드리지 않는다.
-            if (aimLines == null)
-            {
-                return;
-            }
-            for (int i = 1; i < aimLines.Length; i++)
-            {
-                if (aimLines[i] != null)
-                {
-                    Destroy(aimLines[i].gameObject);
-                }
-            }
         }
 
         private void Update()
@@ -95,17 +67,15 @@ namespace LOP
 
             if (IsMyTurn() == false)
             {
-                //  조준하는 중에 차례가 넘어갔다 — 모은 것도 조준선도 남으면 안 된다.
+                //  조준하는 중에 차례가 넘어갔다 — 모은 것도 남으면 안 된다.
                 if (collector != null && (collector.Pressed.Count > 0 || collector.Contacts.Count > 0))
                 {
                     collector.Clear();
-                    HideAllAimLines();
                 }
                 return;
             }
 
             collector ??= new PanchigiContactCollector(config.ContactMax);
-            EnsureAimLines(config.ContactMax);
 
             if (Touchscreen.current != null)
             {
@@ -116,14 +86,11 @@ namespace LOP
                 PollMouse(config);
             }
 
-            DrawAimLines();
-
             //  손가락이 전부 떨어졌다 = 한 번의 치기가 끝났다.
             if (collector.IsComplete)
             {
                 SendStrike();
                 collector.Clear();
-                HideAllAimLines();
             }
         }
 
@@ -259,82 +226,6 @@ namespace LOP
             }
             point = default;
             return false;
-        }
-
-        //  씬에 배선된 aimLine 하나를 틀로 삼아 contactMax개까지 복제해 풀을 채운다.
-        //  치기마다 만들고 지우면 GC가 돈다 — 한 번만 만들고 계속 재사용한다.
-        private void EnsureAimLines(int count)
-        {
-            //  count가 0 이하면(컨피그 실수 등) 풀을 만들지 않는다 — 접촉점을 애초에
-            //  못 모으는 설정이니 조준선이 안 그려지는 게 맞다.
-            if (aimLine == null || aimLines != null || count <= 0)
-            {
-                return;
-            }
-
-            aimLines = new LineRenderer[count];
-            aimLines[0] = aimLine;
-            for (int i = 1; i < count; i++)
-            {
-                LineRenderer clone = Instantiate(aimLine, aimLine.transform.parent);
-                clone.name = $"{aimLine.name}_{i}";
-                aimLines[i] = clone;
-            }
-            HideAllAimLines();
-        }
-
-        private void DrawAimLines()
-        {
-            if (aimLines == null)
-            {
-                return;
-            }
-
-            //  두 점은 판 윗면 바로 위에 찍힌다 — 그대로 그리면 깊이 테스트에 절반이 잘려 나간다.
-            //  띄우는 건 그림뿐이고, 서버로 보내는 점은 건드리지 않는다.
-            var lift = new Vector3(0f, 0.01f, 0f);
-
-            int drawn = 0;
-            foreach (PanchigiContactCollector.Aim aim in collector.Pressed)
-            {
-                if (drawn >= aimLines.Length)
-                {
-                    break;
-                }
-                LineRenderer line = aimLines[drawn++];
-                if (line == null)
-                {
-                    continue;
-                }
-                line.enabled = true;
-                line.positionCount = 2;
-                line.SetPosition(0, aim.Start + lift);
-                line.SetPosition(1, aim.Current + lift);
-            }
-
-            //  떨어진 손가락의 선은 즉시 숨긴다 — 남아 있으면 아직 조준 중인 것으로 읽힌다.
-            for (int i = drawn; i < aimLines.Length; i++)
-            {
-                if (aimLines[i] != null)
-                {
-                    aimLines[i].enabled = false;
-                }
-            }
-        }
-
-        private void HideAllAimLines()
-        {
-            if (aimLines == null)
-            {
-                return;
-            }
-            for (int i = 0; i < aimLines.Length; i++)
-            {
-                if (aimLines[i] != null)
-                {
-                    aimLines[i].enabled = false;
-                }
-            }
         }
     }
 }

@@ -32,6 +32,7 @@ namespace LOP
         private readonly InputTimingStats inputTimingStats;   // [진단용 임시] 스파이크 순간의 입력 도착 상태
         private readonly ActorRegistry actorRegistry;
         private readonly IServerCorrectionHandler correction;
+        private readonly RemoteInputSystem remoteInput;
 
         // 가장 새 틱의 스냅 배치(엔티티 id → 스냅). 서버가 한 틱 분을 한 메시지로 보내므로
         // 틱이 올라가면 앞 배치는 이미 처리됐거나 낡은 것이다.
@@ -58,7 +59,8 @@ namespace LOP
             ReconciliationStats reconciliationStats,
             InputTimingStats inputTimingStats,
             ActorRegistry actorRegistry,
-            IServerCorrectionHandler correction)
+            IServerCorrectionHandler correction,
+            RemoteInputSystem remoteInput)
         {
             this.playerContext = playerContext;
             this.entityRegistry = entityRegistry;
@@ -70,6 +72,7 @@ namespace LOP
             this.inputTimingStats = inputTimingStats;
             this.actorRegistry = actorRegistry;
             this.correction = correction;
+            this.remoteInput = remoteInput;
         }
 
         /// <summary>서버 스냅 수신(예측 대상 전부). 가장 새 틱의 배치만 남긴다.</summary>
@@ -132,9 +135,15 @@ namespace LOP
                     {
                         continue;
                     }
+                    var after = GameFramework.World.EntityMotionExtensions.GetPosition(target).ToNumerics();
+                    if (pair.Key != entityId)
+                    {
+                        // [진단용 임시] 되감기 재생이 "지금 화면 자리"를 얼마나 옮겼나 = 눈에 보이는 튐.
+                        // 앵커 틱의 오차와는 다른 값이다 — 거긴 입력이 다 도착해 늘 0에 가깝다.
+                        RemoteSyncProbe.Corrected(pair.Key, System.Numerics.Vector3.Distance(pair.Value, after));
+                    }
                     actor.GetComponent<PredictedEntityInterpolator>()?.OnCorrection(
-                        pair.Value,
-                        GameFramework.World.EntityMotionExtensions.GetPosition(target).ToNumerics(),
+                        pair.Value, after,
                         GameFramework.World.EntityMotionExtensions.GetVelocity(target).ToNumerics(),
                         deltaTime);
                 }
@@ -152,6 +161,11 @@ namespace LOP
                 }
                 var authoritative = pair.Value.position.ToNumerics();
                 float error = System.Numerics.Vector3.Distance(predicted.Position, authoritative);
+
+                if (pair.Key != entityId)
+                {
+                    RemoteSyncProbe.RemoteError(error);   // [진단용 임시]
+                }
 
                 if (pair.Key == entityId)
                 {
@@ -273,9 +287,9 @@ namespace LOP
             }
 
             // 재생: 이미 예측했던 과거 틱(anchor+1 ~ currentTick-1)을 이동+물리로 재구성.
-            // world.Tick이 예측 대상 전부를 굴리지만, 입력을 넣는 건 내 엔티티뿐이다 — 남의 엔티티는
-            // InputBuffer 자체가 없어(CharacterCreator/FlappyBirdCreator가 isUserEntity일 때만
-            // 붙인다) 자동으로 "안 누른 것"이 된다.
+            // 내 입력은 inputHistory에서, 남의 입력은 서버가 되뿌려 준 것에서 꺼내 매 틱 다시
+            // 먹인다 — 라이브와 재생이 같은 입력을 봐야 같은 답이 나온다. 남의 입력이 늦게
+            // 도착하면 바로 이 재생이 그 구간을 정확한 궤적으로 고쳐 준다.
             var inputBuffer = worldEntity.Get<InputBuffer>();   // 입력 버퍼 (WorldEventBuffer 아님 — 이름 구분)
             if (inputBuffer == null)
             {
@@ -289,6 +303,7 @@ namespace LOP
                 for (long t = anchorTick + 1; t < currentTick; t++)
                 {
                     inputBuffer.Current = inputHistory.TryGet(t, out var recorded) ? recorded : null;
+                    remoteInput.ApplyAll(t);
 
                     // 재생 = 라이브와 같은 단일 진입점. 입력에 실린 발동도 월드가 알아서 한다.
                     world.Tick(t, deltaTime);

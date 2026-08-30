@@ -56,6 +56,8 @@ namespace LOP
             builder.RegisterEntryPoint<GameInfoMessageHandler>();
             builder.RegisterEntryPoint<GameEntityMessageHandler>();
             builder.RegisterEntryPoint<GameInputTimingMessageHandler>();
+            builder.RegisterEntryPoint<RemoteInputMessageHandler>();
+            builder.Register<RemoteInputSystem>(Lifetime.Singleton);
             builder.RegisterEntryPoint<GameWorldEventMessageHandler>();
             builder.RegisterEntryPoint<MatchEndedMessageHandler>();
             builder.RegisterEntryPoint<MatchStartMessageHandler>();

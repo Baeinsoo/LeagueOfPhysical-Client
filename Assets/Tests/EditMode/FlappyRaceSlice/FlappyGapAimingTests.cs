@@ -155,11 +155,15 @@ namespace FlappyRace.Tests
         }
 
         [Test]
-        public void 안_치면_바닥_아래로_떨어질_때는_천장을_넘더라도_친다()
+        public void 치면_틈_위로_넘길_때는_바닥_아래로_샐_상황이어도_치지_않는다()
         {
-            //  둘 다 나쁘면 떨어져 죽는 쪽보다 천장을 택한다.
-            Assert.IsTrue(FlappyGapAiming.ShouldFlap(
-                y: 0.2f, verticalSpeed: -30f, low: 0f, high: 4f,
+            //  둘 다 나빠 보이지만 덜 나쁜 쪽은 안 치는 쪽이다. 안 치면 조금 낮아질 뿐이고,
+            //  치면 틈 위 기둥에 박아 0.8초 얼고 떨어지며 같은 판단을 반복한다 — 그 자리에서
+            //  영영 못 지나간다. (예전엔 여기서 쳤고, 그래서 봇이 기둥마다 멈췄다.)
+            //  틈을 0~3m로 좁게 잡아야 이 갈래를 밟는다. 0~4m면 20틱 뒤 3.52m가 천장 여유(3.55m)
+            //  안에 들어와 버려서, 규칙을 되돌려도 같은 답이 나온다.
+            Assert.IsFalse(FlappyGapAiming.ShouldFlap(
+                y: 0.2f, verticalSpeed: -30f, low: 0f, high: 3f,
                 ticks: 20, deltaTime: 0.02f, gravity: 70f, maxFallSpeed: 30f,
                 flapImpulse: 23f, margin: 0.45f));
         }

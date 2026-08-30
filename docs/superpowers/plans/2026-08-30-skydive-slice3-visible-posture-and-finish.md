@@ -439,7 +439,11 @@ unity command recompile_status --project-path C:/Users/re5na/workspace/LOP/Leagu
 
 - [ ] **Step 2: `FinishLine` 마커를 바닥에 찍는다**
 
-빈 GameObject를 만들고 `FinishLine` 컴포넌트를 붙인 뒤 **y = 2** 정도에 둔다. 바닥(y=0)에 정확히 두지 않는 이유: 판정이 발밑이 아니라 **몸 원점**의 y를 보므로, 원점이 바닥에 닿기 전에 캡슐이 이미 지면에 서 버린다. 몸 높이의 절반쯤 위에 두면 "닿았다"와 "통과했다"가 어긋나지 않는다. `SkydiveConfig.BodyHeight`를 보고 맞춰라.
+빈 GameObject를 만들고 `FinishLine` 컴포넌트를 붙인 뒤 **`GroundY`보다 살짝 위**(현재 `groundY = 0`이므로 y = 1)에 둔다.
+
+**절대로 `GroundY`보다 아래에 두지 마라.** `SkydiveMoveSystem`이 몸의 y를 `GroundY`에서 정확히 잘라내므로 `y < GroundY`인 상태는 **구조적으로 발생하지 않는다.** 마커를 바닥 아래에 두면 아무도 통과하지 못해 판이 시간 상한으로만 끝나고, 그것도 에러 하나 없이 그렇게 된다.
+
+`GroundY`에 정확히 놓아도 동작은 한다(착지한 몸의 y가 정확히 `GroundY`이고 판정이 `<=`이므로). 그래도 1m 여유를 두는 이유는 경계에 딱 붙이지 않기 위해서다 — 낙하 속도가 25~45m/s라 이 여유는 0.03초도 안 되어 눈에 띄지 않는다.
 
 - [ ] **Step 3: 아트 레포에 커밋하고 main에 올린다**
 

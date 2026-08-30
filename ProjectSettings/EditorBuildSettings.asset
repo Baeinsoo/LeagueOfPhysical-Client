@@ -23,6 +23,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Panchigi.unity
     guid: 09cdc0edeaa3f7f45826132accdc4a53
+  - enabled: 1
+    path: Assets/Scenes/Skydive.unity
+    guid: 3f5bc8e1d1a33fa48b711439f42a0947
   m_configObjects:
     com.unity.addressableassets: {fileID: 11400000, guid: 07e2b666ab95bb945a7a4be82df0ab07, type: 2}
   m_UseUCBPForAssetBundles: 0

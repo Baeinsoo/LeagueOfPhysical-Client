@@ -84,6 +84,7 @@ namespace LOP
         {
             UpdateRunAnimation();
             UpdateAbilityAnimation();
+            UpdatePostureTilt();
         }
 
         // 걷기 애니는 연속 상태(속도)라 매 프레임 읽어 갱신한다(pull).
@@ -168,6 +169,41 @@ namespace LOP
             playingActivation = current;
         }
 
+        // 자세는 속도만 바꿔서는 눈에 안 보인다 — 실루엣으로 읽히게 몸을 기울인다.
+        // 젤다의 세 자세를 각도로 옮긴 것: 대자는 배를 살짝 아래로, 다이브는 머리부터 수직,
+        // 패러세일은 매달린 것처럼 뒤로 눕는다. 셋이 서로 확실히 다른 각도여야 구분된다.
+        private const float SpreadPitch = 25f;
+        private const float DivePitch = 85f;
+        private const float GlidePitch = -15f;
+
+        // 기울기가 붙는 속도(초당 도). 자세는 즉시 바뀌어도 몸은 따라가는 데 시간이 걸리는 게
+        // 자연스럽고, 입력이 튈 때 몸이 덜덜거리는 것도 막는다.
+        private const float PitchDegreesPerSecond = 360f;
+
+        // 지금 적용 중인 기울기. 트랜스폼에서 되읽지 않는 이유: localEulerAngles는 0~360으로
+        // 정규화돼서 음수 각(GlidePitch=-15)이 345로 튀어나와 몸이 한 바퀴 돈다.
+        private float currentPitch = SpreadPitch;
+
+        // 자세(대자/다이브/패러세일)는 값만 바꿔서는 안 보인다 — 몸을 기울여야 실루엣으로 읽힌다.
+        // Posture가 없는 엔티티(다른 게임 모드)는 조용히 아무 일도 안 한다.
+        private void UpdatePostureTilt()
+        {
+            if (entityId == null || visualGameObject == null)
+            {
+                return;
+            }
+
+            var posture = entityRegistry.Get(entityId)?.Get<Posture>();
+            if (posture == null)
+            {
+                return;
+            }
+
+            float targetPitch = posture.Gliding ? GlidePitch : Mathf.Lerp(SpreadPitch, DivePitch, posture.Axis);
+            currentPitch = Mathf.MoveTowards(currentPitch, targetPitch, PitchDegreesPerSecond * Time.deltaTime);
+            visualGameObject.transform.localRotation = Quaternion.Euler(currentPitch, 0f, 0f);
+        }
+
         private void OnEntityDamage(EntityDamage entityDamage)
         {
             if (visualGameObject == null || entityDamage.isDodged)
@@ -230,6 +266,8 @@ namespace LOP
             // 여기부터가 실제 소유권 이전 지점 — 필드는 항상 completed + 유효한 handle만 들고 있다.
             asyncOperationHandle = handle;
             visualGameObject = Instantiate(handle.Result, transform);
+            // 옛 모델의 기울기를 새 모델이 물려받으면 한 프레임 동안 엉뚱한 자세로 보인다.
+            currentPitch = SpreadPitch;
             var worldEntity = entityRegistry.Get(entityId);
             if (worldEntity != null)
             {

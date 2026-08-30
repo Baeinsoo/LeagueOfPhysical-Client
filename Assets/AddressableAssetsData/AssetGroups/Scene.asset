@@ -30,6 +30,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fa6f4c66f2c86d4499dbb17ebd320c0d
+    m_Address: Assets/Art/Scenes/SkydiveMap.unity
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 853e27bf3e281af488214b7f6b35dfdf, type: 2}
   m_SchemaSet:

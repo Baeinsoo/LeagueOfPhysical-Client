@@ -9,7 +9,9 @@ namespace LOP
     /// </summary>
     public class SkydivePlayerCreator : ICharacterCreator
     {
-        // 몸 크기. 슬라이스 2에서 TbSkydiveConfig로 옮긴다.
+        // 몸 크기. 서버(SkydivePlayerCreator)도 같은 값을 상수로 든다 — 슬라이스 2에서
+        // TbSkydiveConfig로 옮길 때 한쪽만 옮기면 클·서 캡슐 크기가 갈라진다(컴파일도 테스트도
+        // 못 잡는다). 옮길 땐 반드시 같이 옮길 것.
         private const float BodyRadius = 0.4f;
         private const float BodyHeight = 1.8f;
 

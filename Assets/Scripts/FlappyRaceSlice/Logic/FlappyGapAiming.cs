@@ -132,11 +132,16 @@ namespace FlappyRace
                 return false;   // 가만히 둬도 바닥을 넘겨 통과한다
             }
 
-            //  천장에 처박는 것도 정지다 — 이미 위쪽에 붙어 있으면 치지 않는다.
+            //  치면 틈 위로 넘겨 버리는가. 넘길 것 같으면 <b>치지 않는다</b> — 둘 다 나빠 보여도
+            //  덜 나쁜 쪽이 안 치는 쪽이다. 안 치면 조금 낮아질 뿐이고 다음 틱에 다시 판단하면
+            //  되지만, 치면 3.5m를 솟아 틈 위 기둥에 박는다. 박으면 0.8초 얼고, 떨어지면서 같은
+            //  판단을 반복해 그 자리에서 영영 못 지나간다.
+            //  (예전엔 "안 쳐도 어차피 바닥 밑으로 샌다"면 치게 두는 예외가 있었다. 그 예외가 바로
+            //  이 고리를 만들었다 — 그 규칙으로는 코스 완주가 10번 중 0번, 빼니 10번 중 10번이다.)
             float flapped = PredictHeight(y, flapImpulse, ticks, deltaTime, gravity, maxFallSpeed);
-            if (flapped > high - margin && coasting > low)
+            if (flapped > high - margin)
             {
-                return false;   // 치면 천장, 안 쳐도 아직 바닥 위 → 그대로 둔다
+                return false;
             }
             return true;
         }

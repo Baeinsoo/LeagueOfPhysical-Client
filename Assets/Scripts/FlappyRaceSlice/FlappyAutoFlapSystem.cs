@@ -25,9 +25,15 @@ namespace LOP
 
         //  앞을 보는 시간. 거리가 아니라 시간으로 잡는다 — 날갯짓은 정점까지 0.32초가 걸리므로,
         //  그보다 가까운 것만 보면 보고 나서 쳐도 이미 늦는다(1.5m=0.14초로 보다가 계속 박았다).
-        //  세 지점을 보고 그 틈들이 겹치는 구간을 목표로 삼는다 — 앞이 뚫렸어도 그다음이 막혔으면
+        //  여러 지점을 보고 그 틈들이 겹치는 구간을 목표로 삼는다 — 앞이 뚫렸어도 그다음이 막혔으면
         //  거기로 가면 안 되기 때문이다.
-        private static readonly float[] LookAheadSeconds = { 0.20f, 0.40f, 0.60f };
+        //  맨 앞 0.05초(0.55m)는 "코앞"이다. 나머지가 2.2m 앞부터라 <b>이미 몸이 닿아 있는 벽은
+        //  아예 안 보였고</b>, 그래서 기둥에 붙은 채 계속 눌러 그 자리에 서 있었다(x=16·48·82·166에서
+        //  재현). 코앞을 겹침 계산에 넣으면 "그 벽의 어느 틈으로 지나갈지"가 목표에 들어온다.
+        private static readonly float[] LookAheadSeconds = { 0.05f, 0.20f, 0.40f, 0.60f };
+        //  겨냥은 "이만큼 뒤에 어디 있을까"로 계산한다. 코앞 열이 생겼다고 이 시점까지 당기면
+        //  안 된다 — 당기면 먼 기둥에 늦게 반응해 도로 박는다. 코앞은 목표를 좁힐 뿐이다.
+        private const float PlanAheadSeconds = 0.20f;
         //  훑는 간격. 새 몸(0.9m)보다 훨씬 작아 틈을 놓치지 않는다.
         private const float ScanStep = 0.25f;
         //  훑는 범위(현재 높이 기준 위아래). 코스의 통로 높이(약 18m)를 덮는다.
@@ -92,7 +98,7 @@ namespace LOP
             bool hasGap = false;
             float low = 0f;
             float high = 0f;
-            int ticksToGap = 0;
+            int ticksToGap = Mathf.RoundToInt(PlanAheadSeconds / deltaTime);
             for (int s = 0; s < LookAheadSeconds.Length; s++)
             {
                 float aheadX = position.x + config.ForwardSpeed * LookAheadSeconds[s];
@@ -114,7 +120,6 @@ namespace LOP
                     low = columnLow;
                     high = columnHigh;
                     hasGap = true;
-                    ticksToGap = Mathf.RoundToInt(LookAheadSeconds[s] / deltaTime);
                     continue;
                 }
                 if (FlappyGapAiming.TryIntersect(low, high, columnLow, columnHigh,

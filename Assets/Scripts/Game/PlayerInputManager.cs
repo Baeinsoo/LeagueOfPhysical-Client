@@ -13,6 +13,8 @@ namespace LOP
         private float heldVertical;
         private bool pendingJump;        // 이산 액션 — 소비 후 리셋
         private int pendingAbilityId;
+        private float heldPosture;   // 연속 — 슬라이더가 매 프레임 갱신(떼면 0=대자), 틱마다 샘플
+        private bool heldGlide;      // 연속 — 슬라이더가 문턱을 넘고 있는 동안 참
         private IRunner runner;
         private IPlayerContext playerContext;
         private AbilityActivator abilityActivator;
@@ -67,6 +69,8 @@ namespace LOP
                 Vertical = heldVertical,
                 Jump = pendingJump,
                 AbilityId = pendingAbilityId,
+                Posture = heldPosture,
+                Glide = heldGlide,
             };
 
             // 대시 등 조작 불가 상태에선 이동 입력을 무시한다(전송·예측 모두 0 → 보정 간섭 방지).
@@ -125,6 +129,8 @@ namespace LOP
                 Vertical = command.Vertical,
                 Jump = command.Jump,
                 AbilityId = command.AbilityId,
+                Posture = command.Posture,
+                Glide = command.Glide,
             };
         }
 
@@ -138,6 +144,18 @@ namespace LOP
         public void SetJump(bool jump)
         {
             pendingJump = jump;
+        }
+
+        /// <summary>자세 축(0=대자, 1=다이브). 슬라이더가 매 프레임 갱신한다.</summary>
+        public void SetPosture(float axis)
+        {
+            heldPosture = axis < 0f ? 0f : (axis > 1f ? 1f : axis);
+        }
+
+        /// <summary>패러세일을 펴고 있나. 슬라이더가 문턱을 넘고 있는 동안 참.</summary>
+        public void SetGlide(bool glide)
+        {
+            heldGlide = glide;
         }
 
         /// <summary>슬롯으로 어빌리티 입력을 예약한다. 슬롯을 내 부여 기록으로 풀어 id를 와이어에 싣는다

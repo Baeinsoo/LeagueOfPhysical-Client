@@ -184,7 +184,6 @@ namespace LOP
         // 정규화돼서 음수 각(GlidePitch=-15)이 345로 튀어나와 몸이 한 바퀴 돈다.
         private float currentPitch = SpreadPitch;
 
-        // 자세(대자/다이브/패러세일)는 값만 바꿔서는 안 보인다 — 몸을 기울여야 실루엣으로 읽힌다.
         // Posture가 없는 엔티티(다른 게임 모드)는 조용히 아무 일도 안 한다.
         private void UpdatePostureTilt()
         {

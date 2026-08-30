@@ -17,6 +17,7 @@ namespace LOP
         public float postureAxis { get; set; }    // Skydive: 0 = 대자, 1 = 다이브
         public bool gliding { get; set; }         // Skydive: 패러세일을 폈나
         public float stamina { get; set; }        // Skydive: 남은 활공 자원
+        public float emergencyRemaining { get; set; } // Skydive: 잔고 0에서 쓴 구제 창의 남은 초
         public int activeAbilityId { get; set; }
         public long abilityEndTick { get; set; }
 

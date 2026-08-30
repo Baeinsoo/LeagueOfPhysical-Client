@@ -2213,7 +2213,142 @@ git commit -m "feat(skydive): 방향 스틱과 자세 슬라이더로 떨어지�
 
 ---
 
-## Task 8: 머지·배포·실플레이
+## Task 8: 남의 자세를 스냅샷 권위로
+
+> **이 태스크는 사용자 지시로 추가됐다.** 최종 리뷰가 "남의 캐릭터가 영원히 대자로 예측된다"를
+> 잡았을 때 컨트롤러는 *동기화 정책을 되돌려 남을 보간으로 그리는* 쪽으로 판정했는데, 사용자가
+> **"외부 캐릭터도 롤백 시뮬레이션 동일하게 해서 외삽 형태로 진행되도록"** 을 지시했다.
+> 즉 정책을 되돌리는 게 아니라 **근본(권위 채널 부재)을 고친다.**
+
+**Files:**
+- Modify: `LeagueOfPhysical-Shared/Protos/EntitySnap.proto`
+- Modify: `LeagueOfPhysical-Shared/Runtime/Scripts/Game/SkydiveWorld.cs` (되감기 조회 API 추가)
+- Create: `LeagueOfPhysical-Client/Assets/Scripts/Netcode/SkydiveServerCorrectionHandler.cs`
+- Modify: `LeagueOfPhysical-Client/Assets/Scripts/Game/SkydiveLifetimeScope.cs`
+- Modify: `LeagueOfPhysical-Server/Assets/Scripts/Game/TickSystems/EntitySnapshotBroadcastSystem.cs`
+- Modify: `LeagueOfPhysical-Client/docs/superpowers/specs/2026-08-30-skydive-game-mode-design.md`
+- Test: `LeagueOfPhysical-Shared/Tests/EditMode/SkydiveWorldTests.cs` (조회 API)
+
+**Interfaces:**
+- Consumes: `LOP.Posture`, `LOP.Stamina`, `LOP.SkydiveWorld`, `LOP.IServerCorrectionHandler`,
+  `EntitySnap`(proto), `LOP.CharactersPredictedSyncPolicy`
+- Produces:
+  - proto `EntitySnap`에 `float posture_axis = 16;`, `bool gliding = 17;`, `float stamina = 18;`
+  - `LOP.SkydiveWorld` — `bool TryGetSavedPosture(long tick, string entityId, out SkydiveSavedState state)`
+  - `LOP.SkydiveServerCorrectionHandler : IServerCorrectionHandler`
+
+### 왜 이 모양인가
+
+남의 몸에는 클라에 `InputBuffer`가 없다(내 몸에만 붙인다). 그래서 `SkydiveWorld.ApplyPostureInput`이
+남에 대해 조기 반환하고, **`Posture` 컴포넌트는 마지막 값을 그대로 유지**한다. 이것이 곧
+스펙 §4.2가 말한 *"남이 마지막에 하던 자세를 계속 하고 있다고 두고 굴린다"* = **외삽**이다.
+빠진 것은 그 "마지막 값"을 진짜 값으로 맞춰 주는 **권위 채널** 하나뿐이다.
+
+`Posture`/`Stamina`는 이 프로젝트 규약의 **durable 상태**("잃으면 영구 desync 되나? → 예")이므로
+스냅샷에 실리는 것이 맞다. Flappy가 같은 자리에서 스턴을 `stun_end_tick`/`invuln_end_tick`(필드 14·15)로
+싣고 `FlappyServerCorrectionHandler`로 적용하는 것이 **정확한 선례**다.
+
+- [ ] **Step 1: proto에 필드 셋을 더한다**
+
+`Protos/EntitySnap.proto`의 `invuln_end_tick = 15;` 아래에:
+
+```proto
+	float posture_axis = 16;        // Skydive: 0 = 대자, 1 = 다이브
+	bool gliding = 17;              // Skydive: 패러세일을 폈나
+	float stamina = 18;             // Skydive: 남은 활공 자원
+```
+
+번호 16·17·18이 다음 빈 번호다(기존 1~15, 12·13은 reserved).
+
+- [ ] **Step 2: proto를 재생성하고 MessageId가 안 밀렸는지 확인한다**
+
+Task 3과 같은 절차다. **부모 스크립트를 통째로 돌리지 말고 서브스크립트를 개별 실행하라.**
+
+```bash
+cd C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared
+cp Runtime.Generated/Scripts/MessageIds.cs /tmp/MessageIds.before2.cs
+# ... 재생성 ...
+diff /tmp/MessageIds.before2.cs Runtime.Generated/Scripts/MessageIds.cs && echo "ID 변화 없음 — 정상"
+```
+
+`EntitySnap`은 `@auto_generate` 마커가 없는 필드 타입이라 ID를 갖지 않는다 — **차이가 있으면 멈춰라.**
+
+- [ ] **Step 3: `SkydiveWorld`에 되감기 조회 API를 더한다**
+
+`FlappyWorld.TryGetSavedStun`과 같은 자리다. `_gameFrames`에서 그 틱의 사진을 꺼낸다:
+
+```csharp
+        /// <summary>
+        /// 그 틱에 내가 예측했던 자세·스태미나. 서버 스냅과 <b>같은 시점끼리</b> 비교하려면 필요하다 —
+        /// 지금 살아 있는 값과 비교하면 클라가 앞서 달리는 구간 내내 시점이 어긋나 보인다.
+        /// </summary>
+        public bool TryGetSavedPosture(long tick, string entityId, out SkydiveSavedState state)
+        {
+            if (_gameFrames.TryGet(tick, out var frame) && frame.TryGetValue(entityId, out state))
+            {
+                return true;
+            }
+            state = default;
+            return false;
+        }
+```
+
+- [ ] **Step 4: 서버가 스냅에 세 값을 싣는다**
+
+`Assets/Scripts/Game/TickSystems/EntitySnapshotBroadcastSystem.cs:64`의 `new EntitySnap { ... }`에
+세 필드를 더한다. **없는 게임(FlapWang·Flappy·판치기)에서는 컴포넌트가 없으므로 기본값 0/false가
+나가고, 그 게임들은 그 필드를 읽지 않는다** — 기존 모드에 영향 0.
+
+```csharp
+                    PostureAxis = entity.Get<Posture>()?.Axis ?? 0f,
+                    Gliding = entity.Get<Posture>()?.Gliding ?? false,
+                    Stamina = entity.Get<Stamina>()?.Current ?? 0f,
+```
+
+(실제 필드명은 protoc 생성 결과를 보고 맞춰라 — `posture_axis` → `PostureAxis` 형태.)
+
+- [ ] **Step 5: 클라 보정 핸들러를 만든다**
+
+`Assets/Scripts/Netcode/SkydiveServerCorrectionHandler.cs`. `FlappyServerCorrectionHandler`를 본떠라
+(같은 폴더에 있다).
+
+- `Matches(tick, snap)`: `world.TryGetSavedPosture(tick, snap.entityId, out var predicted)`로 앵커 틱의
+  예측을 꺼내 **`Gliding`이 서로 같은지**와 **`Axis` 차이가 작은지**(예: 0.1 이내)를 본다.
+  기록이 없으면 `true`(위치 판정에 맡긴다 — Flappy와 같은 처리).
+  **스태미나는 `Matches`에서 보지 마라** — 연속값이라 미세한 차이로 매 틱 되돌리기가 난다.
+  `ApplyAuthoritative`에서 덮는 것으로 충분하다.
+- `ApplyAuthoritative(entity, snap, deltaTime)`: `Posture.Axis`/`Posture.Gliding`/`Stamina.Current`를
+  스냅 값으로 덮는다. 컴포넌트가 없으면 조용히 반환.
+
+- [ ] **Step 6: 스코프를 되돌리고 핸들러를 등록한다**
+
+`Assets/Scripts/Game/SkydiveLifetimeScope.cs`:
+- `IEntitySyncPolicy`를 **`CharactersPredictedSyncPolicy`로 되돌린다**(남도 예측·되감기 대상).
+- `IServerCorrectionHandler`를 `NoServerCorrection` → **`SkydiveServerCorrectionHandler`** 로 바꾼다.
+- 되돌린 이유 주석: 남의 자세가 이제 스냅샷 권위로 오므로, 남을 굴려도 마지막 알려진 자세로
+  이어져(외삽) 서버와 어긋나지 않는다.
+
+- [ ] **Step 7: 스펙 §4를 다시 고친다**
+
+직전 수정에서 §4.1에 넣은 "슬라이스 2 시점에는 남의 자세 권위 채널이 없다…" 블록은 **이제 거짓**이다.
+**그 블록을 지우고** 대신 실제 구조를 적어라: 자세·활공·스태미나가 `EntitySnap`으로 오고, 클라는
+남을 예측하되 마지막 권위값에서 이어 굴린다는 것. §11의 낙하 카메라 항목은 그대로 둔다.
+
+- [ ] **Step 8: 테스트를 더한다**
+
+`SkydiveWorldTests`에 `TryGetSavedPosture`를 재는 테스트:
+- 저장한 틱을 조회하면 그때 값이 나온다
+- 저장 안 한 틱은 `false`
+- 없는 엔티티 id는 `false`
+
+- [ ] **Step 9: 컴파일·테스트·커밋**
+
+클·서 양쪽 컴파일 확인 → **`recompile_status`의 `errors`가 빈 것을 확인한 뒤에만** `run_tests` →
+이름 대조 → 레포 셋(Shared/Client/Server)에 각각 커밋.
+
+---
+
+## Task 9: 머지·배포·실플레이
 
 **Files:** (코드 변경 없음)
 

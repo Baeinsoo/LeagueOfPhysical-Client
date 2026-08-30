@@ -1,0 +1,26 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="SkydivePad.uss" />
+    <ui:VisualElement name="skydive-pad-root" class="skydive-pad-root" picking-mode="Ignore">
+        <!-- 지금 자세와 스태미나. 엄지가 슬라이더를 덮으므로 상태는 다른 곳에 보여야 한다. -->
+        <ui:VisualElement name="status" class="status" picking-mode="Ignore">
+            <ui:Label name="posture-label" class="posture-label" text="대자" />
+            <ui:VisualElement name="stamina-track" class="stamina-track" picking-mode="Ignore">
+                <ui:VisualElement name="stamina-fill" class="stamina-fill" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- 왼손: 방향 -->
+        <ui:VisualElement name="joystick-area" class="joystick-area">
+            <ui:VisualElement name="joystick-bg" class="joystick-bg" picking-mode="Ignore">
+                <ui:VisualElement name="joystick-handle" class="joystick-handle" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- 오른손: 자세. 누른 자리가 중립(대자)이 되는 떠 있는 슬라이더다. -->
+        <ui:VisualElement name="posture-area" class="posture-area">
+            <ui:VisualElement name="posture-track" class="posture-track" picking-mode="Ignore">
+                <ui:VisualElement name="posture-handle" class="posture-handle" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

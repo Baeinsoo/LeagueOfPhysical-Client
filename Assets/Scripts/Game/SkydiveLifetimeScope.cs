@@ -1,10 +1,13 @@
+using LOP.UI;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
 
 namespace LOP
 {
-    /// <summary>Skydive 덩어리(클라) — 떨어지는 월드, 캐릭터 전원 예측.</summary>
+    /// <summary>Skydive 덩어리(클라) — 떨어지는 월드, 남도 예측하되 스냅샷 권위로 자세를 맞춘다.</summary>
     public class SkydiveLifetimeScope : GameLifetimeScope
     {
         [SerializeField] private CameraController cameraController;
@@ -13,23 +16,42 @@ namespace LOP
         {
             builder.RegisterComponent(cameraController);
 
+            builder.Register<SkydiveConfigProvider>(Lifetime.Singleton);
+            builder.Register<SkydiveConfig>(c => c.Resolve<SkydiveConfigProvider>().Get(), Lifetime.Singleton);
+
             builder.Register<SkydiveMoveSystem>(Lifetime.Singleton);
+            builder.Register<StaminaSystem>(Lifetime.Singleton);
             builder.Register<SkydiveWorld>(c => new SkydiveWorld(
                 c.Resolve<GameFramework.World.EntityRegistry>(),
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
-                c.Resolve<SkydiveMoveSystem>()), Lifetime.Singleton)
+                c.Resolve<SkydiveMoveSystem>(),
+                c.Resolve<StaminaSystem>(),
+                c.Resolve<SkydiveConfig>()), Lifetime.Singleton)
                 .As<GameFramework.World.IWorld>().AsSelf();
 
             builder.Register<ICharacterCreator, SkydivePlayerCreator>(Lifetime.Singleton);
 
-            // 플레이어끼리 부딪히기로 했으므로 남도 예측한다(스펙 §4.1). 충돌 자체는 슬라이스 6이
-            // 켜지만, 정책을 지금 맞춰 두면 그때 이 줄을 고칠 일이 없다.
+            // 남의 자세가 이제 EntitySnap(PostureAxis/Gliding/Stamina)으로 스냅샷 권위 채널을
+            // 타고 온다 — 남을 예측하며 굴려도(InputBuffer가 없어 마지막 값을 유지하는 것 자체가
+            // 곧 외삽) 그 "마지막 값"을 매 스냅마다 서버로 눌러 주므로 서버와 어긋나지 않는다.
+            // 그래서 플레이어끼리 부딪히는 충돌(스펙 §4.1)을 위해 남도 예측 대상으로 되돌린다.
             builder.Register<IEntitySyncPolicy, CharactersPredictedSyncPolicy>(Lifetime.Singleton);
-            builder.Register<IServerCorrectionHandler, NoServerCorrection>(Lifetime.Singleton);
+            builder.Register<IServerCorrectionHandler, SkydiveServerCorrectionHandler>(Lifetime.Singleton);
 
             // 이 게임엔 외삽 대상이 없다(정책이 Extrapolated를 절대 안 준다) — 그래도 EntityBinder의
             // 생성자 의존이라 등록은 필요하다. 값은 쓰이지 않는다.
             builder.Register<IExtrapolationAcceleration, ZeroExtrapolationAcceleration>(Lifetime.Singleton);
+
+            builder.RegisterEntryPoint<SkydiveHudCoordinator>();
+            builder.Register<LOP.UI.SkydivePadViewModel>(Lifetime.Transient);
+            builder.Register<LOP.UI.SkydivePadView>(Lifetime.Transient);
+        }
+
+        protected override void RegisterViewFactories(
+            IObjectResolver container, IWindowManager windowManager, List<IDisposable> sink)
+        {
+            sink.Add(windowManager.RegisterViewFactory<LOP.UI.SkydivePadView>(
+                () => container.Resolve<LOP.UI.SkydivePadView>()));
         }
     }
 }

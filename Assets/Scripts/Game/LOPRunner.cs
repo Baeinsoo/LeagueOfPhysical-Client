@@ -24,6 +24,7 @@ namespace LOP
         [Inject] private PhysicsSimulationSystem physicsSimulationSystem;
         [Inject] private WorldEventDrainSystem worldEventDrainSystem;
         [Inject] private WorldStateSaveSystem worldStateSaveSystem;
+        [Inject] private RemoteInputSystem remoteInputSystem;
         [Inject] private DespawnFlushSystem despawnFlushSystem;
 
         [Inject] private IRoomDataStore roomDataStore;
@@ -106,6 +107,9 @@ namespace LOP
         {
             reconcileSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
             RunPhase<ProcessInput>(tickUpdater.tick, (float)tickUpdater.deltaTime);
+            //  남의 새 입력을 이번 틱 값으로 맞춘 뒤 굴린다 — 안 맞추면 "안 눌렀다"로 굴러
+            //  상대가 날갯짓할 때마다 궤적이 틀린다.
+            remoteInputSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
             world.Tick(tickUpdater.tick, (float)tickUpdater.interval);
             physicsSimulationSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);
             worldEventDrainSystem.Tick(tickUpdater.tick, (float)tickUpdater.interval);

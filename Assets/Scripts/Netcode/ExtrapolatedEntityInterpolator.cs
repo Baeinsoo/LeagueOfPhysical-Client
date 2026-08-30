@@ -7,12 +7,18 @@ namespace LOP
     /// <summary>
     /// 외삽 모드 엔티티. 남의 입력을 모르니 굴리지 않고, 마지막 스냅의 위치·속도에서 지금(추정 서버시각)까지
     /// 이어 그린다(중력 등 가속도 포함 — <see cref="GameFramework.Netcode.SnapshotExtrapolation"/>).
-    /// 새 스냅이 오면 궤적이 바뀌어도 위치가 끊기지 않게 짧게 섞는다.
+    /// 새 스냅이 오면 궤적이 바뀌는데, 그 튐은 <see cref="renderCorrectionSmoother"/>가 흡수한다 —
+    /// <b>화면 = 궤적 + 남은 오차</b>이고 그 오차만 0으로 몰아가므로, 화면이 궤적에 올라탄 채 같은
+    /// 속도로 간다.
+    ///
+    /// <para>(예전엔 "붙잡아 둔 옛 자리에서 목표 쪽으로 0.1초에 걸쳐 Lerp"였다. 목표가 계속
+    /// 도망가는데 0.02초마다 스냅이 와서 그 0.1초가 매번 리셋돼, 격차의 20%만 좁히다 다시
+    /// 시작하기를 반복했다. 그래서 화면이 <b>항상 0.1초어치(약 1.1m) 뒤에서 끌려왔다</b> — 실측:
+    /// 전진 11m/s에서 1.1m, 종단낙하 32m/s에서 3.0m로 둘 다 정확히 0.1초어치였다.)</para>
     /// </summary>
     public class ExtrapolatedEntityInterpolator : MonoBehaviour, ICleanup
     {
         private const float MaxExtrapolation = 0.25f;   // Source cl_extrapolate_amount 기본값과 같은 값 — 오래 못 받으면 그 자리에 세운다
-        private const float BlendDuration = 0.1f;        // 새 스냅으로 옮겨 타는 시간
 
         [Inject] private GameFramework.Netcode.INetworkTime networkTime;
 
@@ -25,15 +31,14 @@ namespace LOP
         /// <summary>중력 등 가속도. EntityBinder가 <see cref="IExtrapolationAcceleration"/>에서 꺼내 건넨다.</summary>
         public Vector3 acceleration { get; set; }
 
+        /// <summary>궤적이 바뀔 때의 튐을 흡수한다. EntityBinder가 붙여 준다.</summary>
+        public GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother { get; set; }
+
         private EntitySnap latest;
         private bool hasSnap;
-        private Vector3 blendFrom;
-        private float blendRemaining;
 
-        // 이번 프레임에 실제로 화면/월드에 찍은 위치. 서버는 ~50Hz(20ms)로 스냅을 보내는데 블렌드는
-        // 0.1초 걸리므로, 블렌드가 끝나기 전에 다음 스냅이 오는 게 정상 상황이다 — 그럴 때 새 블렌드의
-        // 시작점은 "원래 궤적을 다시 계산한 값"이 아니라 "방금 화면에 그렸던 값"이어야 한다. 안 그러면
-        // 화면에 없던 자리에서 출발해 오히려 튄다.
+        // 이번 프레임에 실제로 화면/월드에 찍은 위치. 새 궤적으로 갈아탈 때의 "이음매 시작점"이
+        // 이 값이어야 한다 — 궤적을 다시 계산한 값에서 출발하면 화면에 없던 자리에서 시작해 튄다.
         private Vector3 lastRendered;
         private bool hasRendered;
 
@@ -44,14 +49,21 @@ namespace LOP
             {
                 return;
             }
-            if (hasSnap && hasRendered)
-            {
-                // 지금 실제로 그려지고 있던 자리(lastRendered)에서 새 궤적으로 갈아탄다.
-                blendFrom = lastRendered;
-                blendRemaining = BlendDuration;
-            }
+            bool switching = hasSnap && hasRendered;
             latest = snap;
             hasSnap = true;
+            RemoteSyncProbe.Arrived(worldEntity?.Id ?? name, Time.unscaledTimeAsDouble);   // [진단용 임시]
+
+            if (switching)
+            {
+                //  새 궤적의 "지금" 자리와, 화면에 그리고 있던 자리의 차이 = 흡수할 튐.
+                //  스무더는 이걸 오차로 잡아 0으로 몰아간다 — 화면은 새 궤적 위에 그 오차를
+                //  얹어 그리므로, 궤적과 같은 속도로 가면서 오차만 줄어든다.
+                CurrentState(out Vector3 fresh, out Vector3 freshVelocity);
+                RemoteSyncProbe.Corrected(worldEntity?.Id ?? name, (fresh - lastRendered).magnitude);   // [진단용 임시]
+                renderCorrectionSmoother?.OnCorrection(
+                    lastRendered.ToNumerics(), fresh.ToNumerics(), freshVelocity.ToNumerics(), Time.deltaTime);
+            }
             stunAppearance?.SetState(StunVisuals.Of(snap));
         }
 
@@ -85,23 +97,22 @@ namespace LOP
 
             CurrentState(out Vector3 rawPosition, out Vector3 velocity);
 
-            Vector3 target = rawPosition;
-            if (blendRemaining > 0f)
-            {
-                blendRemaining -= Time.deltaTime;
-                float u = Mathf.Clamp01(1f - blendRemaining / BlendDuration);
-                target = Vector3.Lerp(blendFrom, rawPosition, u);
-            }
+            //  화면 = 궤적 + 남은 오차. 오차가 0이면 궤적 그 자리다(뒤처지지 않는다).
+            Vector3 target = renderCorrectionSmoother != null
+                ? renderCorrectionSmoother.Target(rawPosition.ToNumerics()).ToUnity()
+                : rawPosition;
+            renderCorrectionSmoother?.Advance(Time.deltaTime);
 
             // 월드 엔티티에도 쓴다 — 몸싸움(bird-vs-bird collision)이 이 값을 읽어 로컬 새와 부딪힌다.
             // 원격은 클라 시뮬 대상이 아니라(Simulated 미부여) 시뮬이 이 값을 덮어쓰지 않는다.
             if (worldEntity != null)
             {
-                // 위치는 블렌드된 target을 쓴다 — 몸싸움은 "화면에 보이는 자리"에서 일어나야 플레이어가
-                // 납득한다. blend 도중엔 실제 궤적(rawPosition)과 다르지만, 그 차이가 바로 눈에 보이는 값이다.
+                // 위치는 오차를 얹은 target을 쓴다 — 판정은 "화면에 보이는 자리"에서 일어나야
+                // 플레이어가 납득한다. 흡수 중엔 순수 궤적(rawPosition)과 다르지만, 그 차이가
+                // 바로 눈에 보이는 값이다.
                 GameFramework.World.EntityMotionExtensions.SetPosition(worldEntity, target);
-                // 속도는 블렌드하지 않은 값을 쓴다 — blend는 "그리는 자리"를 부드럽게 잇기 위한 연출용
-                // 보정일 뿐 실제 움직임이 아니다. 여기에 블렌드 오프셋을 섞으면 FlappyBounce.ResolveVy가
+                // 속도는 오차를 안 섞은 값을 쓴다 — 흡수는 "그리는 자리"를 부드럽게 잇기 위한 연출용
+                // 보정일 뿐 실제 움직임이 아니다. 여기에 블렌드 오프셋을 섞으면 VerticalBounce.ResolveVy가
                 // 읽는 속도가 물리적으로 말이 안 되는 값이 된다.
                 GameFramework.World.EntityMotionExtensions.SetVelocity(worldEntity, velocity);
             }
@@ -111,6 +122,10 @@ namespace LOP
                 actor.visualGameObject.transform.rotation = Quaternion.Euler(latest.rotation);
             }
 
+            // [진단용 임시] 외삽은 "지금"을 그리므로 시각 오프셋은 음수(미래)로 기록한다.
+            RemoteSyncProbe.Rendered(worldEntity?.Id ?? name, target, velocity, bracketed: true,
+                                     behind: -(networkTime.ServerNow - latest.timestamp));
+
             lastRendered = target;
             hasRendered = true;
         }
@@ -119,6 +134,7 @@ namespace LOP
         {
             hasSnap = false;
             hasRendered = false;
+            renderCorrectionSmoother?.Reset();
         }
     }
 }

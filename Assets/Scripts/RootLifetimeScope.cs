@@ -46,6 +46,7 @@ namespace LOP
             builder.RegisterOrderedMessageBroker<UserEntitySnapToC>();
             builder.RegisterOrderedMessageBroker<StatAllocationToC>();
             builder.RegisterOrderedMessageBroker<InputTimingToC>();
+            builder.RegisterOrderedMessageBroker<EntityInputsToC>();
             builder.RegisterOrderedMessageBroker<PanchigiStateToC>();
             builder.RegisterOrderedMessageBroker<MatchEndedToC>();
             builder.RegisterOrderedMessageBroker<MatchStartToC>();

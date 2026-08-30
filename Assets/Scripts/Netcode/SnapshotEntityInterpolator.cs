@@ -29,6 +29,7 @@ namespace LOP
                 return;
             }
             snaps.Add(snap);
+            RemoteSyncProbe.Arrived(worldEntity?.Id ?? name, Time.unscaledTimeAsDouble);   // [진단용 임시]
             stunAppearance?.SetState(StunVisuals.Of(snap));
         }
 
@@ -62,6 +63,8 @@ namespace LOP
                         newer.position.ToNumerics(), newer.velocity.ToNumerics(), dt, u).ToUnity();
 
                     Apply(pos, rot, vel);
+                    RemoteSyncProbe.Rendered(worldEntity.Id, pos, vel, bracketed: true,      // [진단용 임시]
+                                             behind: snaps[snaps.Count - 1].timestamp - renderTime);
                     return;
                 }
             }
@@ -69,6 +72,8 @@ namespace LOP
             // 언더런(renderTime이 최신 스냅보다 앞 or 감쌀 쌍 없음) → 최신 스냅 hold.
             EntitySnap newest = snaps[snaps.Count - 1];
             Apply(newest.position, Quaternion.Euler(newest.rotation), newest.velocity);
+            RemoteSyncProbe.Rendered(worldEntity.Id, newest.position, newest.velocity,        // [진단용 임시]
+                                     bracketed: false, behind: newest.timestamp - renderTime);
         }
 
         // 엔티티(월드 Transform → reactive로 kinematic 콜라이더 + 네임플레이트)는 항상 갱신 —

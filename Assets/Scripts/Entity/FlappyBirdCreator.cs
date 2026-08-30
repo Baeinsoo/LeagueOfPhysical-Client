@@ -48,11 +48,11 @@ namespace LOP
             worldEntity.Add(new FlappyStun());
 
             bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
-            if (isUserEntity)
-            {
-                // 입력은 내 새만 갖는다 — Simulated는 이제 EntityBinder가 동기화 정책을 보고 붙인다.
-                worldEntity.Add(new InputBuffer());
-            }
+            //  입력 버퍼는 모든 새가 갖는다. 내 것은 PlayerInputManager가 채우고 시뮬이 소비한다.
+            //  남의 것도 서버가 되뿌린 입력으로 채워지지만 이 게임에선 읽히지 않는다 — 남의 새는
+            //  굴리지 않고 보간으로 그리기 때문이다(동기화 정책은 FlappyRaceLifetimeScope 참고).
+            //  Simulated는 EntityBinder가 그 정책을 보고 붙인다.
+            worldEntity.Add(new InputBuffer());
             entityRegistry.Add(worldEntity);
 
             if (isUserEntity)

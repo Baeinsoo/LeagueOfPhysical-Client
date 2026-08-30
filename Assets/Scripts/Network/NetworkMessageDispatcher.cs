@@ -25,6 +25,7 @@ namespace LOP
             IPublisher<UserEntitySnapToC> userSnap,
             IPublisher<StatAllocationToC> statAllocation,
             IPublisher<InputTimingToC> inputTiming,
+            IPublisher<EntityInputsToC> entityInputs,
             IPublisher<PanchigiStateToC> panchigiState,
             IPublisher<MatchEndedToC> matchEnded,
             IPublisher<MatchStartToC> matchStart)
@@ -37,6 +38,7 @@ namespace LOP
             Register(userSnap);
             Register(statAllocation);
             Register(inputTiming);
+            Register(entityInputs);
             Register(panchigiState);
             Register(matchEnded);
             Register(matchStart);

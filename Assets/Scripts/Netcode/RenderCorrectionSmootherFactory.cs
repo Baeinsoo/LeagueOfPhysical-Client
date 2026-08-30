@@ -15,10 +15,16 @@ namespace LOP
         private const float MinCorrection = 0.025f;
 
         //  언리얼 NetworkSimulatedSmoothLocationTime.
+        //  (Flappy에서 0.35초까지 늘려 봤다가 되돌렸다 — 그때 남의 새 보정이 5m였는데, 짧게 녹이면
+        //  순간이동으로 보이고 길게 녹이면 그 틀린 자리를 오래 그려 벽을 통과해 보였다. 스무딩은
+        //  튐을 없애는 게 아니라 거짓말을 길게 늘일 뿐이라 큰 오차엔 답이 못 된다.)
         private const float SmoothTime = 0.1f;
 
-        //  언리얼 NetworkMaxSmoothUpdateDistance. 남의 새 정상 오차 최대가 4.788m(실측)이라
-        //  그 위로 잡아 정상 구간에서는 목줄이 당겨지지 않게 한다.
+        //  언리얼 NetworkMaxSmoothUpdateDistance. 녹이는 내내 "화면이 시뮬에서 이보다 멀어지지
+        //  않게" 잡아당기는 목줄이다 — 아래 NoSmooth(한 번의 판단)와 다른 물건이다.
+        //  Flappy에서 잰 남의 새 정상 오차 최대 4.788m 위로 잡아, 정상 구간에선 안 당겨지게 했다.
+        //  Flappy는 그 뒤 남을 예측하지 않게 됐으므로(스냅샷 보간) 지금 이 값이 걸리는 곳은 남을
+        //  예측하는 게임(Skydive)뿐이다 — 거기서 오차 분포를 재 보고 다시 정할 값이다.
         private const float MaxSmoothUpdateDistance = 5f;
 
         //  언리얼 NetworkNoSmoothUpdateDistance. 이 위로 벌어지는 것은 날갯짓으로 설명되지 않는다

@@ -49,7 +49,7 @@ public class FlappyBird : MonoBehaviour
                                            out Vector3 dir, out float dist))
             {
                 self.transform.position += dir * (Mathf.Max(0f, dist - Slop) * 0.5f);   // 절반만(상대도 절반 밀어냄)
-                newVy = LOP.FlappyBounce.ResolveVy(newVy, otherBird.Vy, dir.y, Restitution);
+                newVy = LOP.VerticalBounce.ResolveVy(newVy, otherBird.Vy, dir.y, Restitution);
             }
         }
         return newVy;

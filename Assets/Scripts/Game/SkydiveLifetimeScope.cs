@@ -7,7 +7,7 @@ using VContainer.Unity;
 
 namespace LOP
 {
-    /// <summary>Skydive 덩어리(클라) — 떨어지는 월드, 캐릭터 전원 예측.</summary>
+    /// <summary>Skydive 덩어리(클라) — 떨어지는 월드, 내 몸만 예측하고 남은 보간.</summary>
     public class SkydiveLifetimeScope : GameLifetimeScope
     {
         [SerializeField] private CameraController cameraController;
@@ -31,9 +31,12 @@ namespace LOP
 
             builder.Register<ICharacterCreator, SkydivePlayerCreator>(Lifetime.Singleton);
 
-            // 플레이어끼리 부딪히기로 했으므로 남도 예측한다(스펙 §4.1). 충돌 자체는 슬라이스 6이
-            // 켜지만, 정책을 지금 맞춰 두면 그때 이 줄을 고칠 일이 없다.
-            builder.Register<IEntitySyncPolicy, CharactersPredictedSyncPolicy>(Lifetime.Singleton);
+            // 남의 자세를 실어 오는 권위 채널이 아직 없다 — 남을 예측하면 InputBuffer가 없어
+            // ApplyPostureInput이 조기 반환해 영원히 대자로 굴러간다. 플레이어끼리 부딪히는
+            // 충돌(스펙 §4.1)을 켜려면 자세를 스냅샷 권위로 올리는 게 먼저다. 그때까지 내 몸만
+            // 예측하고 남은 보간한다.
+            builder.Register<IEntitySyncPolicy>(c =>
+                new OwnerPredictedSyncPolicy(() => c.Resolve<IGameDataStore>().userEntityId), Lifetime.Singleton);
             builder.Register<IServerCorrectionHandler, NoServerCorrection>(Lifetime.Singleton);
 
             // 이 게임엔 외삽 대상이 없다(정책이 Extrapolated를 절대 안 준다) — 그래도 EntityBinder의

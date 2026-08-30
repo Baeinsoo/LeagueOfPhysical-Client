@@ -61,8 +61,6 @@ namespace LOP.UI
             input.SetPosture(0f);
         }
 
-        public void CameraLook(UnityEngine.Vector2 delta) => cameraController.ProcessTouchInput(delta);
-
         /// <summary>매 프레임 월드에서 읽어 화면 값을 갱신한다(연속 상태는 pull).</summary>
         public void Refresh()
         {

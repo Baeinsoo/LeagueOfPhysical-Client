@@ -180,12 +180,15 @@
 (남도 예측)를 재사용한다 — 남을 외삽으로 그리면 게임 규칙 밖에서 움직여 충돌이 클·서에서
 달라진다.
 
-> **슬라이스 2 시점에는 아직 켜지 않았다.** 남의 자세를 실어 오는 권위 채널이 없다 — 남을
-> 예측하면 남 엔티티에 `InputBuffer`가 없어 `ApplyPostureInput`이 조기 반환해 영원히 대자로
-> 굴러간다. 그래서 지금 `SkydiveLifetimeScope`는 `CharactersPredictedSyncPolicy`가 아니라
-> **`OwnerPredictedSyncPolicy`(내 몸만 예측, 남은 보간)** 를 쓴다. **이 §4.1의 충돌을 켜려면
-> 자세를 스냅샷 권위로 올리는 것이 선행 조건**이고, §4.2·§7.3의 예측 오차 측정도 그 전에는
-> 잘못된 모델(남을 대자로 고정한 채 재는 것)을 재게 된다.
+> **남의 자세는 `EntitySnap`으로 오는 스냅샷 권위다.** `EntitySnap`에 `posture_axis`/`gliding`/
+> `stamina` 세 필드가 실려 매 틱 서버가 방송한다(`EntitySnapshotBroadcastSystem`). 남 엔티티에는
+> 여전히 `InputBuffer`가 없어 `ApplyPostureInput`이 조기 반환하지만, 이제 그게 문제가 아니다 —
+> `Posture`가 유지하는 "마지막 값"을 그 스냅샷이 매 틱 진짜 값으로 덮어써 주기 때문이다(§4.2가
+> 말하는 외삽이 성립하는 이유가 바로 이거다: 마지막 값이 항상 최신이면 그 사이를 굴려도 어긋남이
+> 작다). 클라 쪽은 `SkydiveServerCorrectionHandler`(`IServerCorrectionHandler`)가 앵커 틱에 저장해
+> 둔 예측(`SkydiveWorld.TryGetSavedPosture`)과 서버 스냅을 같은 시점끼리 비교해, `Gliding`이
+> 다르거나 `Axis` 차이가 크면 되돌리고, 스태미나는 판정 없이 항상 스냅 값으로 덮는다. 이 채널이
+> 갖춰졌으므로 `SkydiveLifetimeScope`는 `CharactersPredictedSyncPolicy`(남도 예측)를 쓴다.
 
 ### 4.2 왜 이 게임에서는 예측이 통할 것으로 보는가
 

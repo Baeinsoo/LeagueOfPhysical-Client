@@ -16,6 +16,11 @@ namespace LOP.EditorTools
     ///
     /// 정지 상태 검사로는 못 잡는다 — 주머니가 격자보다 작고, 새는 여러 틱에 걸쳐 미끄러져
     /// 들어간다. 그래서 <b>게임의 실제 이동 커널로 굴려 보고</b> 앞으로 못 나가면 낌으로 본다.
+    ///
+    /// <para>두 단계로 거른다. <b>1단계</b>는 아무 입력 없이 굴려 못 나가는 자리를 싸게 추린다.
+    /// <b>2단계</b>는 그 자리마다 <b>날갯짓을 넣어</b> 다시 굴린다 — 벽에 막힌 것은 눌러서 넘으면
+    /// 그만이라 낌이 아니고, <b>어떻게 눌러도 못 나가는 자리만</b> 진짜 낌이다.
+    /// (2단계가 없으면 기둥 앞 바닥처럼 정상적인 벽이 전부 낌으로 잡힌다 — 실제로 그랬다.)</para>
     /// </summary>
     public static class FlappyMapTrapScanner
     {
@@ -30,6 +35,16 @@ namespace LOP.EditorTools
         private const float ClusterDistance = 3f;
         //  지형에 닿지 않는 자리는 굴려 볼 것도 없다.
         private const float ContactDistance = 0.3f;
+
+        //  2단계(날갯짓 포함) — 여기서 못 나가야 진짜 낌이다.
+        private const int FlapSearchTicks = 150;
+        //  1단계보다 멀리 잡는다. 주머니 안에서 조금 흔들린 것을 탈출로 세지 않기 위해서다.
+        private const float FlapEscapeDistance = 3f;
+        //  탐색이 이만큼 퍼지면 주머니가 아니다 — 좁은 틈은 상태가 몇십 개로 닫힌다.
+        private const int MaxSearchStates = 4000;
+        //  탐색에서 같은 상태로 볼 눈금. 너무 촘촘하면 안 닫히고, 너무 굵으면 다른 상태를 뭉갠다.
+        private const float StateGrid = 0.02f;
+        private const float StateSpeedGrid = 0.25f;
 
         [MenuItem("LOP/Debug/맵 낌 지점 스캔")]
         public static void Scan()
@@ -50,6 +65,7 @@ namespace LOP.EditorTools
                 return;
             }
 
+            var candidates = new List<(float X, float Y)>();
             var stuck = new List<(float X, float Y)>();
             var query = new GameFramework.Physics.UnityCollisionQuery();
             int contacts = 0;
@@ -60,7 +76,8 @@ namespace LOP.EditorTools
                 for (float x = bounds.min.x; x <= bounds.max.x; x += GridStep, column++)
                 {
                     if (EditorUtility.DisplayCancelableProgressBar(
-                            "맵 낌 지점 스캔", $"x = {x:F0} / {bounds.max.x:F0} · 지금까지 {stuck.Count}곳",
+                            "맵 낌 지점 스캔 (1/2 아무 입력 없이)",
+                            $"x = {x:F0} / {bounds.max.x:F0} · 후보 {candidates.Count}곳",
                             column / (float)columns))
                     {
                         Debug.LogWarning("[맵 스캔] 취소됨 — 결과가 불완전하다.");
@@ -75,8 +92,26 @@ namespace LOP.EditorTools
                         contacts++;
                         if (Escapes(new Vector3(x, y, 0f), shape, mapMask, query) == false)
                         {
-                            stuck.Add((x, y));
+                            candidates.Add((x, y));
                         }
+                    }
+                }
+
+                //  2단계 — 눌러서 넘을 수 있는 벽을 걸러낸다. 여기까지 온 자리만 진짜 낌이다.
+                for (int i = 0; i < candidates.Count; i++)
+                {
+                    if (EditorUtility.DisplayCancelableProgressBar(
+                            "맵 낌 지점 스캔 (2/2 날갯짓을 넣어)",
+                            $"{i + 1} / {candidates.Count} · 지금까지 {stuck.Count}곳",
+                            i / (float)candidates.Count))
+                    {
+                        Debug.LogWarning("[맵 스캔] 취소됨 — 결과가 불완전하다.");
+                        break;
+                    }
+                    var point = new Vector3(candidates[i].X, candidates[i].Y, 0f);
+                    if (EscapesWithFlap(point, shape, mapMask, query) == false)
+                    {
+                        stuck.Add(candidates[i]);
                     }
                 }
             }
@@ -86,7 +121,7 @@ namespace LOP.EditorTools
             }
 
             var regions = TrapClustering.Cluster(stuck, ClusterDistance);
-            string report = BuildReport(shape, bounds, contacts, stuck.Count, regions, mapMask);
+            string report = BuildReport(shape, bounds, contacts, candidates.Count, stuck.Count, regions, mapMask);
             Debug.Log(report);
             EditorGUIUtility.systemCopyBuffer = report;
         }
@@ -99,14 +134,21 @@ namespace LOP.EditorTools
             public readonly float ForwardSpeed;
             public readonly float Gravity;
             public readonly float MaxFallSpeed;
+            public readonly float FlapImpulse;
+            public readonly float StunTime;
+            public readonly float InvulnTime;
 
-            public FlappyShape(float radius, float height, float forwardSpeed, float gravity, float maxFallSpeed)
+            public FlappyShape(float radius, float height, float forwardSpeed, float gravity, float maxFallSpeed,
+                               float flapImpulse, float stunTime, float invulnTime)
             {
                 Radius = radius;
                 Height = height;
                 ForwardSpeed = forwardSpeed;
                 Gravity = gravity;
                 MaxFallSpeed = maxFallSpeed;
+                FlapImpulse = flapImpulse;
+                StunTime = stunTime;
+                InvulnTime = invulnTime;
             }
 
             //  커널(KinematicMover.Cast)과 같은 규약 — 위치는 발밑이고 몸은 그 위로 선다.
@@ -129,7 +171,8 @@ namespace LOP.EditorTools
             {
                 return false;
             }
-            shape = new FlappyShape(row.BodyRadius, row.BodyHeight, row.ForwardSpeed, row.Gravity, row.MaxFallSpeed);
+            shape = new FlappyShape(row.BodyRadius, row.BodyHeight, row.ForwardSpeed, row.Gravity, row.MaxFallSpeed,
+                                    row.FlapImpulse, row.StunTime, row.InvulnTime);
             return true;
         }
 
@@ -194,14 +237,191 @@ namespace LOP.EditorTools
             return position.x - start.x >= EscapeDistance;
         }
 
-        private static string BuildReport(in FlappyShape shape, in Bounds bounds, int contacts, int stuckCount,
+        /// <summary>새의 한 틱 상태 — 자리, 세로 속도, 스턴·무적 남은 시간.</summary>
+        private struct BirdState
+        {
+            public Vector3 Position;
+            public float VerticalSpeed;
+            public float Stun;
+            public float Invuln;
+        }
+
+        //  게임 한 틱 그대로 굴린다(FlappyWorld.Mutation): 스턴 시간 감소 → 스턴이면 멈춤,
+        //  아니면 중력·플랩·고정 전진 → 맵에 막히며 이동 → 닿았으면 스턴 진입.
+        //  새끼리 몸싸움은 넣지 않는다 — 혼자 낀 자리를 찾는 검사다.
+        private static BirdState Step(BirdState state, bool flap, in FlappyShape shape, int mapMask,
+                                      HitWatcher query)
+        {
+            const float Epsilon = 1e-5f;
+            if (state.Stun > 0f)
+            {
+                state.Stun -= TickSeconds;
+                if (state.Stun <= Epsilon)
+                {
+                    state.Stun = 0f;
+                    state.Invuln = shape.InvulnTime;
+                }
+            }
+            else if (state.Invuln > 0f)
+            {
+                state.Invuln -= TickSeconds;
+                if (state.Invuln <= Epsilon)
+                {
+                    state.Invuln = 0f;
+                }
+            }
+
+            Vector3 velocity;
+            if (state.Stun > 0f)
+            {
+                velocity = Vector3.zero;   // 스턴 중엔 전진도 없다
+            }
+            else
+            {
+                float vy = state.VerticalSpeed - shape.Gravity * TickSeconds;
+                if (vy < -shape.MaxFallSpeed)
+                {
+                    vy = -shape.MaxFallSpeed;
+                }
+                if (flap)
+                {
+                    vy = shape.FlapImpulse;   // 플랩은 그때까지의 세로 속도를 덮어쓴다
+                }
+                velocity = new Vector3(shape.ForwardSpeed, vy, 0f);
+            }
+
+            query.Reset();
+            var result = KinematicMover.Move(new KinematicMoveInput(
+                state.Position, velocity, shape.Radius, shape.Height, TickSeconds, mapMask, stepOffset: 0f), query);
+
+            state.Position = result.position;
+            state.VerticalSpeed = result.velocity.y;
+            if (query.SawHit && state.Stun <= 0f && state.Invuln <= 0f)
+            {
+                state.Stun = shape.StunTime;
+            }
+            return state;
+        }
+
+        //  날갯짓을 마음대로 넣어도 못 빠져나오는가. 매 틱 "누른다/안 누른다" 두 갈래를 넓이
+        //  우선으로 펼친다 — 한 갈래라도 앞으로 빠져나가면 낌이 아니다.
+        //  먼저 정해진 몇 가지(계속 누르기 등)를 싸게 시험하고, 그것들이 다 막힐 때만 펼친다.
+        private static bool EscapesWithFlap(Vector3 start, in FlappyShape shape, int mapMask,
+                                            GameFramework.Physics.ICollisionQuery inner)
+        {
+            var query = new HitWatcher(inner);
+            //  계속 누르기 / 안 누르기 / 두 틱에 한 번 / 네 틱에 한 번. 정상적인 벽은 여기서 끝난다.
+            int[] periods = { 1, 0, 2, 4 };
+            for (int i = 0; i < periods.Length; i++)
+            {
+                if (EscapesWithPeriod(start, periods[i], shape, mapMask, query))
+                {
+                    return true;
+                }
+            }
+            return EscapesBySearch(start, shape, mapMask, query);
+        }
+
+        private static bool EscapesWithPeriod(Vector3 start, int period, in FlappyShape shape, int mapMask,
+                                              HitWatcher query)
+        {
+            var state = new BirdState { Position = start };
+            for (int tick = 0; tick < FlapSearchTicks; tick++)
+            {
+                state = Step(state, period > 0 && tick % period == 0, shape, mapMask, query);
+                if (state.Position.x - start.x >= FlapEscapeDistance)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool EscapesBySearch(Vector3 start, in FlappyShape shape, int mapMask, HitWatcher query)
+        {
+            var seen = new HashSet<long>();
+            var frontier = new Queue<(BirdState State, int Depth)>();
+            frontier.Enqueue((new BirdState { Position = start }, 0));
+            int expanded = 0;
+            while (frontier.Count > 0)
+            {
+                var (state, depth) = frontier.Dequeue();
+                if (depth >= FlapSearchTicks)
+                {
+                    continue;
+                }
+                if (++expanded > MaxSearchStates)
+                {
+                    return true;   // 이만큼 퍼졌으면 좁은 주머니가 아니다
+                }
+                for (int i = 0; i < 2; i++)
+                {
+                    var next = Step(state, i == 0, shape, mapMask, query);
+                    if (next.Position.x - start.x >= FlapEscapeDistance)
+                    {
+                        return true;
+                    }
+                    if (seen.Add(StateKey(next, start)))
+                    {
+                        frontier.Enqueue((next, depth + 1));
+                    }
+                }
+            }
+            return false;
+        }
+
+        private static long StateKey(in BirdState state, Vector3 start)
+        {
+            long x = Mathf.RoundToInt((state.Position.x - start.x) / StateGrid);
+            long y = Mathf.RoundToInt((state.Position.y - start.y) / StateGrid);
+            long vy = Mathf.RoundToInt(state.VerticalSpeed / StateSpeedGrid);
+            long stun = Mathf.RoundToInt(state.Stun / TickSeconds);
+            long invuln = Mathf.RoundToInt(state.Invuln / TickSeconds);
+            return (((((x & 0xFFFF) << 16 | (y & 0xFFFF)) << 12) | (vy & 0xFFF)) << 12
+                   | (stun & 0x3F) << 6 | (invuln & 0x3F));
+        }
+
+        /// <summary>sweep 도중 한 번이라도 닿았는지만 기록한다(FlappyWorld의 HitTrackingQuery와 같은 역할).</summary>
+        private sealed class HitWatcher : GameFramework.Physics.ICollisionQuery
+        {
+            private readonly GameFramework.Physics.ICollisionQuery _inner;
+            public bool SawHit { get; private set; }
+
+            public HitWatcher(GameFramework.Physics.ICollisionQuery inner) => _inner = inner;
+
+            public void Reset() => SawHit = false;
+
+            public GameFramework.Physics.CollisionHit CapsuleCast(Vector3 point1, Vector3 point2, float radius,
+                Vector3 direction, float distance, int layerMask)
+            {
+                var hit = _inner.CapsuleCast(point1, point2, radius, direction, distance, layerMask);
+                if (hit.HasHit)
+                {
+                    SawHit = true;
+                }
+                return hit;
+            }
+
+            public GameFramework.Physics.CollisionHit Raycast(Vector3 origin, Vector3 direction,
+                float distance, int layerMask)
+                => _inner.Raycast(origin, direction, distance, layerMask);
+
+            public GameFramework.Physics.CollisionHit[] OverlapSphere(Vector3 center, float radius, int layerMask)
+                => _inner.OverlapSphere(center, radius, layerMask);
+        }
+
+        private static string BuildReport(in FlappyShape shape, in Bounds bounds, int contacts,
+                                          int candidateCount, int stuckCount,
                                           List<TrapRegion> regions, int mapMask)
         {
             var text = new StringBuilder();
-            text.AppendLine($"[맵 낌 지점 스캔] 구역 {regions.Count}개 (낌점 {stuckCount} / 지형에 닿는 자리 {contacts})");
+            text.AppendLine($"[맵 낌 지점 스캔] 구역 {regions.Count}개"
+                          + $" (낌점 {stuckCount} / 무입력 후보 {candidateCount} / 지형에 닿는 자리 {contacts})");
             text.AppendLine($"  코스 x[{bounds.min.x:F1}~{bounds.max.x:F1}] y[{bounds.min.y:F1}~{bounds.max.y:F1}]"
-                          + $" · 새 반지름 {shape.Radius:F2} 높이 {shape.Height:F2} 전진 {shape.ForwardSpeed:F0}"
-                          + $" · {SimulationTicks * TickSeconds:F1}초 굴려 {EscapeDistance:F0}m 미만이면 낌");
+                          + $" · 새 반지름 {shape.Radius:F2} 높이 {shape.Height:F2} 전진 {shape.ForwardSpeed:F0}");
+            text.AppendLine($"  1단계: 무입력 {SimulationTicks * TickSeconds:F1}초에 {EscapeDistance:F0}m 미만"
+                          + $" → 2단계: 날갯짓을 어떻게 넣어도 {FlapSearchTicks * TickSeconds:F1}초에"
+                          + $" {FlapEscapeDistance:F0}m 미만이면 낌");
             if (regions.Count == 0)
             {
                 text.AppendLine("  낀 자리 없음.");

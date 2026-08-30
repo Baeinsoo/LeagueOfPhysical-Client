@@ -1,3 +1,6 @@
+using LOP.UI;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -36,6 +39,17 @@ namespace LOP
             // 이 게임엔 외삽 대상이 없다(정책이 Extrapolated를 절대 안 준다) — 그래도 EntityBinder의
             // 생성자 의존이라 등록은 필요하다. 값은 쓰이지 않는다.
             builder.Register<IExtrapolationAcceleration, ZeroExtrapolationAcceleration>(Lifetime.Singleton);
+
+            builder.RegisterEntryPoint<SkydiveHudCoordinator>();
+            builder.Register<LOP.UI.SkydivePadViewModel>(Lifetime.Transient);
+            builder.Register<LOP.UI.SkydivePadView>(Lifetime.Transient);
+        }
+
+        protected override void RegisterViewFactories(
+            IObjectResolver container, IWindowManager windowManager, List<IDisposable> sink)
+        {
+            sink.Add(windowManager.RegisterViewFactory<LOP.UI.SkydivePadView>(
+                () => container.Resolve<LOP.UI.SkydivePadView>()));
         }
     }
 }

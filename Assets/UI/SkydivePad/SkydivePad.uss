@@ -1,0 +1,36 @@
+.skydive-pad-root {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+
+/* 장애물이 화면 아래에서 올라오므로 하단 중앙은 비운다. */
+.joystick-area { position: absolute; left: 0; bottom: 0; width: 35%; height: 45%; }
+.posture-area  { position: absolute; right: 0; bottom: 0; width: 35%; height: 45%; }
+
+.joystick-bg {
+    position: absolute; width: 160px; height: 160px;
+    border-radius: 80px; background-color: rgba(255, 255, 255, 0.12);
+}
+.joystick-handle {
+    position: absolute; width: 64px; height: 64px;
+    border-radius: 32px; background-color: rgba(255, 255, 255, 0.45);
+}
+
+.posture-track {
+    position: absolute; width: 220px; height: 44px;
+    border-radius: 22px; background-color: rgba(0, 0, 0, 0.35);
+}
+.posture-handle {
+    position: absolute; width: 44px; height: 44px;
+    border-radius: 22px; background-color: rgba(255, 255, 255, 0.85);
+}
+
+.status { position: absolute; left: 16px; top: 16px; width: 240px; }
+.posture-label { color: rgb(230, 236, 245); font-size: 18px; margin-bottom: 6px; }
+.stamina-track {
+    height: 14px; border-radius: 7px; background-color: rgba(0, 0, 0, 0.4);
+}
+.stamina-fill {
+    height: 14px; border-radius: 7px; width: 100%;
+    background-color: rgb(52, 211, 153);
+}

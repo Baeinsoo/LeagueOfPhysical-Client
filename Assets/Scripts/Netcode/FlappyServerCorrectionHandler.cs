@@ -50,15 +50,10 @@ namespace LOP
             //  snap.tick을 기준 시점으로 쓴다 — 한 배치의 스냅은 전부 같은 틱이라고 Reconciler가
             //  보장해 주므로(위 Matches의 tick과 같은 값), 여기서 따로 받지 않아도 된다.
             //  틱 간격은 되감기를 구동하는 쪽이 넘겨 준다(러너에서 직접 꺼내면 DI에 고리가 생긴다).
-            stun.StunRemaining = RemainingSeconds(snap.stunEndTick, tick: snap.tick, deltaTime);
-            stun.InvulnRemaining = RemainingSeconds(snap.invulnEndTick, tick: snap.tick, deltaTime);
-        }
-
-        /// <summary>끝나는 절대 틱에서 지금 틱을 빼 남은 시간(초)으로 바꾼다. 이미 지났거나(0 포함) 같으면 0.</summary>
-        public static float RemainingSeconds(long endTick, long tick, float interval)
-        {
-            long remainingTicks = endTick - tick;
-            return remainingTicks > 0 ? remainingTicks * interval : 0f;
+            //  변환은 "끝났다"를 아는 곳(FlappyStunSystem)에 있다. 여기에 따로 두면 시뮬이 끝으로
+            //  보는 기준과 와이어가 세는 기준이 갈려, 클라의 새만 한 틱 더 얼어 있게 된다(실측).
+            stun.StunRemaining = FlappyStunSystem.RemainingSeconds(snap.stunEndTick, snap.tick, deltaTime);
+            stun.InvulnRemaining = FlappyStunSystem.RemainingSeconds(snap.invulnEndTick, snap.tick, deltaTime);
         }
     }
 }

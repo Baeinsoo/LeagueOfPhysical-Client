@@ -26,7 +26,12 @@ namespace LOP
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
                 c.Resolve<SkydiveMoveSystem>(),
                 c.Resolve<StaminaSystem>(),
-                c.Resolve<SkydiveConfig>()), Lifetime.Singleton)
+                c.Resolve<SkydiveConfig>(),
+                c.Resolve<GameFramework.Physics.ICollisionQuery>(),
+                // sweep이 볼 것은 맵 지오메트리뿐이다. 몸의 물리 콜라이더는 Character 레이어에
+                // 있으므로(PhysicsBodyFactory), 이 마스크에 Character가 없는 한 사람끼리는 안 걸린다.
+                // 사람끼리 부딪히는 것은 별도 단계로 들어온다(슬라이스 6, 스펙 §4.1).
+                LayerMask.GetMask("Default")), Lifetime.Singleton)
                 .As<GameFramework.World.IWorld>().AsSelf();
 
             builder.Register<ICharacterCreator, SkydivePlayerCreator>(Lifetime.Singleton);

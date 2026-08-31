@@ -40,11 +40,13 @@ namespace LOP
                 GameFramework.World.BodyKind.Kinematic, freezeRotation: true, isTrigger: false));
 
             bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
-            if (isUserEntity)
-            {
-                // 입력은 내 몸만 갖는다. Simulated는 EntityBinder가 동기화 정책을 보고 붙인다.
-                worldEntity.Add(new InputBuffer());
-            }
+
+            //  남의 몸도 입력 버퍼를 갖는다 — 서버가 남의 입력을 되뿌려 주고(EntityInputBroadcastSystem)
+            //  RemoteInputSystem이 여기에 채운다. 이 게임은 남도 굴리므로(CharactersPredictedSyncPolicy)
+            //  그 입력이 실제로 읽힌다: 남의 자세와 좌우 이동이 내 화면에서도 서버와 같은 규칙으로 나온다.
+            //  버퍼가 없으면 RemoteInputSystem이 그 몸을 건너뛰어, 남이 아무 입력도 안 넣은 것처럼 굴러간다.
+            //  Simulated는 EntityBinder가 동기화 정책을 보고 붙인다.
+            worldEntity.Add(new InputBuffer());
             worldEntity.Add(new Posture());
             worldEntity.Add(new Stamina { Current = config.StaminaMax });
             entityRegistry.Add(worldEntity);

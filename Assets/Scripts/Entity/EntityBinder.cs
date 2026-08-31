@@ -164,6 +164,11 @@ namespace LOP
                 objectResolver.Inject(statusEffectVfx);
                 statusEffectVfx.SetEntityId(entityCreated.entityId);
 
+                // 자세 기울기(Skydive). 자세가 없는 모드에서는 스스로 아무 일도 하지 않는다.
+                PostureTiltView postureTilt = root.AddComponent<PostureTiltView>();
+                objectResolver.Inject(postureTilt);
+                postureTilt.SetEntityId(entityCreated.entityId);
+
                 StunAppearance stunAppearance = root.AddComponent<StunAppearance>();
                 objectResolver.Inject(stunAppearance);
                 stunAppearance.SetEntity(actor);

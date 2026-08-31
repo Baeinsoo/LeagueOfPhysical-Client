@@ -31,7 +31,8 @@ namespace LOP.Tests
             diver = Diver("diver-1");
             registry.Add(diver);
             world = new SkydiveWorld(registry, new GameFramework.World.WorldEventBuffer(),
-                new SkydiveMoveSystem(), new StaminaSystem(), Config());
+                new SkydiveMoveSystem(), new StaminaSystem(), Config(),
+                new EmptySky(), layerMask: ~0);
             world.GameplayStartTick = 0;   // 출발 게이트는 이 파일의 관심사가 아니다
             return new SkydiveServerCorrectionHandler(world);
         }
@@ -59,6 +60,24 @@ namespace LOP.Tests
             entity.Add(new InputBuffer());
             entity.Add(new GameFramework.World.Simulated());   // 이게 있어야 SaveState가 이 다이버를 담는다
             return entity;
+        }
+
+        //  이 파일이 재는 것은 자세·스태미나 보정뿐이라 맵이 필요 없다. 아무것도 없는 하늘로 두면
+        //  다이버가 그냥 떨어지고, 지형 때문에 예측이 흔들리는 일이 생기지 않는다.
+        private sealed class EmptySky : GameFramework.Physics.ICollisionQuery
+        {
+            public GameFramework.Physics.CollisionHit CapsuleCast(UnityEngine.Vector3 point1,
+                UnityEngine.Vector3 point2, float radius, UnityEngine.Vector3 direction,
+                float distance, int layerMask)
+                => GameFramework.Physics.CollisionHit.None;
+
+            public GameFramework.Physics.CollisionHit Raycast(UnityEngine.Vector3 origin,
+                UnityEngine.Vector3 direction, float distance, int layerMask)
+                => GameFramework.Physics.CollisionHit.None;
+
+            public GameFramework.Physics.CollisionHit[] OverlapSphere(UnityEngine.Vector3 center,
+                float radius, int layerMask)
+                => System.Array.Empty<GameFramework.Physics.CollisionHit>();
         }
     }
 }

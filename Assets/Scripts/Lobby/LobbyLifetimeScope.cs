@@ -33,6 +33,9 @@ namespace LOP
             // 고를 수 있는 게임 목록. 마스터데이터를 한 번 훑어 만들어 두므로 Scoped면 충분하다.
             builder.Register<PlayableGameProvider>(Lifetime.Scoped);
 
+            // 마지막으로 플레이한 게임·맵 기억(기기 로컬). VM이 생성될 때 복원해 쓴다.
+            builder.Register<LastPlayedSelectionStore>(Lifetime.Scoped);
+
             // VM은 Scoped — LobbyHomeView(Play)와 Coordinator가 같은 인스턴스를 공유해야 신호가 이어진다.
             builder.Register<MatchmakingViewModel>(Lifetime.Scoped);
             builder.Register<LobbyHomeView>(Lifetime.Transient);

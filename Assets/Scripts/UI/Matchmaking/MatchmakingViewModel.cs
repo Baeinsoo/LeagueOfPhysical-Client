@@ -16,6 +16,7 @@ namespace LOP.UI
         private readonly MatchStateMachine _matchStateMachine;
         private readonly IMatchmakingDataStore _matchmakingDataStore;
         private readonly IUserLocationService _userLocationService;
+        private readonly LastPlayedSelectionStore _lastPlayed;
 
         private readonly ReactiveProperty<bool> _isMatching = new(false);
         private readonly Subject<CancellationReason> _matchmakingFailed = new();
@@ -44,13 +45,53 @@ namespace LOP.UI
             MatchStateMachine matchStateMachine,
             IMatchmakingDataStore matchmakingDataStore,
             IUserLocationService userLocationService,
-            PlayableGameProvider playableGameProvider)
+            PlayableGameProvider playableGameProvider,
+            LastPlayedSelectionStore lastPlayed)
         {
             _matchStateMachine = matchStateMachine;
             _matchmakingDataStore = matchmakingDataStore;
             _userLocationService = userLocationService;
+            _lastPlayed = lastPlayed;
 
             Games = playableGameProvider.Games;
+
+            RestoreLastPlayed();
+        }
+
+        /// <summary>
+        /// 마지막으로 플레이한 게임·맵을 골라 둔다. 저장된 것이 없거나 그 사이 마스터데이터에서
+        /// 사라졌으면 아무 일도 하지 않는다 — 기본값(첫 항목)이 그대로 남는다.
+        /// </summary>
+        private void RestoreLastPlayed()
+        {
+            if (_lastPlayed.TryLoad(out int gameModeId, out int mapId) == false)
+            {
+                return;
+            }
+
+            for (int g = 0; g < Games.Count; g++)
+            {
+                if (Games[g].GameModeId != gameModeId)
+                {
+                    continue;
+                }
+
+                var maps = Games[g].Maps;
+                for (int m = 0; m < maps.Count; m++)
+                {
+                    if (maps[m].MapId != mapId)
+                    {
+                        continue;
+                    }
+
+                    //  맵까지 찾은 뒤에야 게임을 바꾼다. 게임만 먼저 정하고 맵을 못 찾으면
+                    //  "저장해 둔 게임 + 엉뚱한 첫 맵"이라는 어중간한 조합이 남는다.
+                    _selectedGameIndex.Value = g;
+                    _selectedMapIndex.Value = m;
+                    return;
+                }
+                return;   // 그 게임에 그 맵이 없다 — 조합이 깨졌으므로 통째로 기본값을 쓴다
+            }
         }
 
         /// <summary>게임 드롭다운 커맨드. 맵은 그 게임의 첫 맵으로 돌아간다.</summary>
@@ -116,6 +157,10 @@ namespace LOP.UI
             _matchmakingDataStore.queueId = 1;      // TbQueue: Casual
             _matchmakingDataStore.gameModeId = CurrentGame().GameModeId;
             _matchmakingDataStore.mapId = CurrentMap().MapId;
+
+            //  고른 순간이 아니라 실제로 플레이한 것만 기억한다 — 드롭다운을 뒤적이다 만 것까지
+            //  남으면 "마지막에 한 게임"이 아니게 된다.
+            _lastPlayed.Save(_matchmakingDataStore.gameModeId, _matchmakingDataStore.mapId);
 
             _matchStateMachine.Fire(MatchEvent.PlayClicked);
         }

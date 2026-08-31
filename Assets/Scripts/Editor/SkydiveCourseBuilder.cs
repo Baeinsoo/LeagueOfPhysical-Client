@@ -69,9 +69,11 @@ namespace LOP.EditorTools
         [MenuItem("LOP/Skydive/코스 굽기")]
         public static void Build()
         {
+            //  결과는 대화상자가 아니라 콘솔로 낸다. 모달 대화상자는 메인 스레드를 잡아서,
+            //  자동화(CLI)로 이 메뉴를 부르면 에디터가 통째로 멈춘다 — 실제로 한 번 겪었다.
             if (Verify(out string report) == false)
             {
-                EditorUtility.DisplayDialog("코스 굽기", report, "취소");
+                Debug.LogError($"[Skydive] 코스를 굽지 않았다 — 통과 불가능하다.\n{report}");
                 return;
             }
 
@@ -93,9 +95,7 @@ namespace LOP.EditorTools
             }
 
             EditorSceneManager.MarkSceneDirty(scene);
-            Debug.Log($"[Skydive] 코스를 구웠다 — 선반 {Shelves.Length}개\n{report}");
-            EditorUtility.DisplayDialog("코스 굽기",
-                $"선반 {Shelves.Length}개를 만들었다. 씬을 저장해라.\n\n{report}", "확인");
+            Debug.Log($"[Skydive] 코스를 구웠다 — 선반 {Shelves.Length}개. 씬을 저장해라.\n{report}");
         }
 
         // 선반 = 구멍을 둘러싼 판 네 장. 하나의 큰 판에 구멍을 뚫을 수는 없어서(상자 콜라이더는
@@ -168,9 +168,14 @@ namespace LOP.EditorTools
         [MenuItem("LOP/Skydive/코스 검사")]
         public static void VerifyMenu()
         {
-            Verify(out string report);
-            EditorUtility.DisplayDialog("코스 검사", report, "확인");
-            Debug.Log($"[Skydive] 코스 검사\n{report}");
+            if (Verify(out string report))
+            {
+                Debug.Log($"[Skydive] 코스 검사\n{report}");
+            }
+            else
+            {
+                Debug.LogError($"[Skydive] 코스 검사\n{report}");
+            }
         }
 
         private static bool Verify(out string report)

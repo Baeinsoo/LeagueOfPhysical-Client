@@ -73,8 +73,19 @@ namespace LOP.UI
                 .Subscribe(name => _postureLabel.text = name)
                 .AddTo(Disposables);
 
-            // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 월드를 읽는다.
-            _tick = Root.schedule.Execute(_ => _viewModel.Refresh()).Every(0);
+            // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.
+            _tick = Root.schedule.Execute(_ => Tick()).Every(0);
+        }
+
+        private void Tick()
+        {
+            _viewModel.Refresh();
+
+            // 스틱을 잡고 있는 동안은 키보드를 읽지 않는다 — 둘 다 밀면 나중 것이 앞의 것을 지운다.
+            if (_stickPointer == -1)
+            {
+                _viewModel.MoveByKeyboard();
+            }
         }
 
         private void OnStickDown(PointerDownEvent evt)

@@ -46,6 +46,28 @@ namespace LOP.UI
         }
 
         /// <summary>
+        /// WASD로도 같은 방향 이동을 준다. 마우스가 하나뿐인 데스크톱에서는 스틱과 자세 슬라이더를
+        /// 동시에 잡을 수 없어서, 이동을 키보드로 빼면 마우스가 슬라이더 전용이 된다.
+        /// 안 누르고 있으면 0을 밀어야 몸이 멈춘다(스틱과 같은 held 모델).
+        /// 선례: <see cref="GamePadViewModel"/>.FeedKeyboardMove.
+        /// </summary>
+        public void MoveByKeyboard()
+        {
+            var dir = UnityEngine.Vector2.zero;
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard != null)
+            {
+                if (keyboard.wKey.isPressed) { dir.y += 1f; }
+                if (keyboard.sKey.isPressed) { dir.y -= 1f; }
+                if (keyboard.dKey.isPressed) { dir.x += 1f; }
+                if (keyboard.aKey.isPressed) { dir.x -= 1f; }
+            }
+
+            // 대각선으로 눌러도 빨라지지 않게 정규화한다 — 스틱은 반지름으로 클램프돼 이미 그렇다.
+            Move(dir == UnityEngine.Vector2.zero ? UnityEngine.Vector2.zero : dir.normalized);
+        }
+
+        /// <summary>
         /// 자세 슬라이더. −1(완전히 왼쪽)~+1(완전히 오른쪽). 오른쪽이 다이브, 왼쪽이 패러세일이다.
         /// </summary>
         public void Posture(float slider)

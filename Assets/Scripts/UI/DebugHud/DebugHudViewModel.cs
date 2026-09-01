@@ -19,6 +19,7 @@ namespace LOP.UI
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly RemoteInterpolationClock remoteInterpolationClock;
         private readonly LeadState leadState;
+        private readonly IPlayerContext playerContext;
 
         // 멈춤 횟수는 틱 업데이터가 세션 내내 누적한다. 측정 창의 답("이 창에 멈춤이 있었나")을
         // 얻으려면 리셋 시점 값을 기억해 두고 차이를 본다.
@@ -32,9 +33,11 @@ namespace LOP.UI
             GameFramework.Netcode.SnapshotArrivalStats snapshotArrivalStats,
             GameFramework.World.EntityRegistry entityRegistry,
             RemoteInterpolationClock remoteInterpolationClock,
-            LeadState leadState)
+            LeadState leadState,
+            IPlayerContext playerContext)
         {
             this.leadState = leadState;
+            this.playerContext = playerContext;
             this.runner = runner;
             this.reconciliationStats = reconciliationStats;
             this.inputTimingStats = inputTimingStats;
@@ -100,6 +103,32 @@ namespace LOP.UI
         public float FrameMs => Time.smoothDeltaTime * 1000f;
 
         public int EntityCount => entityRegistry.Count;
+
+        /// <summary>
+        /// Skydive 이동 상태 한 줄. 상태가 다섯 갈래인데 화면에 드러나는 건 몸 기울기뿐이라
+        /// 눈으로는 어느 상태인지 못 가른다 — 특히 "선 채로 낙하"와 "활공 + 대자"는 겉이 비슷하다.
+        /// 그 게임이 아니면(MotionState가 없으면) "-"를 낸다.
+        /// </summary>
+        public string MotionSummary
+        {
+            get
+            {
+                var entity = string.IsNullOrEmpty(playerContext.entityId)
+                    ? null
+                    : entityRegistry.Get(playerContext.entityId);
+                var motion = entity?.Get<MotionState>();
+                if (motion == null)
+                {
+                    return "-";
+                }
+
+                var posture = entity.Get<Posture>();
+                float axis = posture == null ? 0f : posture.Axis;
+                bool gliding = posture != null && posture.Gliding;
+                float fall = -GameFramework.World.EntityMotionExtensions.GetVelocity(entity).y;
+                return $"{motion.Value} fall {fall:F1} axis {axis:F2} glide {(gliding ? "T" : "F")}";
+            }
+        }
 
         public double CushionMs => remoteInterpolationClock.Cushion * 1000;
 

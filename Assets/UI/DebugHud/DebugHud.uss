@@ -6,15 +6,16 @@
     position: absolute;
     top: 12px;
     right: 12px;
-    width: 200px;
-    padding: 6px 10px;
-    background-color: rgba(10, 10, 14, 0.5);
+    width: 380px;
+    padding: 8px 12px;
+    /* 하늘 배경이 밝아서 반투명하면 글자가 묻힌다 — 진하게 깐다. */
+    background-color: rgba(10, 10, 14, 0.78);
     border-radius: 6px;
 }
 
 .debug-text {
     color: rgb(180, 230, 180);
-    font-size: 13px;
+    font-size: 17px;
     -unity-font-style: bold;
     -unity-text-align: middle-left;
 }

@@ -1,9 +1,9 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="SkydivePad.uss" />
     <ui:VisualElement name="skydive-pad-root" class="skydive-pad-root" picking-mode="Ignore">
-        <!-- 지금 자세와 스태미나. 엄지가 슬라이더를 덮으므로 상태는 다른 곳에 보여야 한다. -->
+        <!-- 지금 상태와 스태미나. 엄지가 슬라이더를 덮으므로 상태는 다른 곳에 보여야 한다. -->
         <ui:VisualElement name="status" class="status" picking-mode="Ignore">
-            <ui:Label name="posture-label" class="posture-label" text="대자" />
+            <ui:Label name="status-label" class="status-label" text="-" />
             <ui:VisualElement name="stamina-track" class="stamina-track" picking-mode="Ignore">
                 <ui:VisualElement name="stamina-fill" class="stamina-fill" picking-mode="Ignore" />
             </ui:VisualElement>

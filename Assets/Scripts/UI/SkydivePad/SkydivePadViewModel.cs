@@ -18,11 +18,16 @@ namespace LOP.UI
         private readonly SkydiveConfig config;
 
         private readonly ReactiveProperty<float> staminaRatio = new ReactiveProperty<float>(1f);
-        private readonly ReactiveProperty<string> postureName = new ReactiveProperty<string>("대자");
         private readonly ReactiveProperty<bool> grounded = new ReactiveProperty<bool>(false);
+        private readonly ReactiveProperty<string> statusText = new ReactiveProperty<string>("-");
 
         public ReadOnlyReactiveProperty<float> StaminaRatio => staminaRatio;
-        public ReadOnlyReactiveProperty<string> PostureName => postureName;
+
+        /// <summary>
+        /// 지금 상태 한 줄. 몸 기울기만으로는 "선 채로 낙하"와 "활공 중 대자"가 구분되지 않아
+        /// 상태 이름을 직접 띄우고, 공중일 때만 낙하 속도를 붙인다(자세별 종단 속도 확인용).
+        /// </summary>
+        public ReadOnlyReactiveProperty<string> StatusText => statusText;
 
         /// <summary>발 딛고 있나. 점프 버튼은 이때만 보인다 — 낙하 중엔 뜰 곳이 없다.</summary>
         public ReadOnlyReactiveProperty<bool> Grounded => grounded;
@@ -106,13 +111,42 @@ namespace LOP.UI
                 staminaRatio.Value = stamina.Current / config.StaminaMax;
             }
 
-            var posture = entity.Get<LOP.Posture>();
-            if (posture != null)
+            grounded.Value = entity.Get<GameFramework.World.GroundState>()?.IsGrounded ?? false;
+
+            statusText.Value = Describe(entity.Get<LOP.MotionState>(),
+                                        entity.Get<LOP.Posture>(),
+                                        entity.Get<GameFramework.World.Velocity>());
+        }
+
+        private static string Describe(LOP.MotionState motion, LOP.Posture posture,
+                                       GameFramework.World.Velocity velocity)
+        {
+            if (motion == null)
             {
-                postureName.Value = posture.Gliding ? "패러세일" : (posture.Axis > 0.5f ? "다이브" : "대자");
+                return "-";
             }
 
-            grounded.Value = entity.Get<GameFramework.World.GroundState>()?.IsGrounded ?? false;
+            // 아래로 갈수록 커 보이는 편이 읽기 쉬워 부호를 뒤집는다.
+            float fall = velocity == null ? 0f : -velocity.Linear.Y;
+
+            switch (motion.Value)
+            {
+                case LOP.SkydiveMotionState.Walking:
+                    return "걷기";
+                case LOP.SkydiveMotionState.Falling:
+                    return $"낙하  {fall:F0}";
+                default:
+                    return $"{PoseName(posture)}  {fall:F0}";
+            }
+        }
+
+        private static string PoseName(LOP.Posture posture)
+        {
+            if (posture == null)
+            {
+                return "대자";
+            }
+            return posture.Gliding ? "패러세일" : (posture.Axis > 0.5f ? "다이브" : "대자");
         }
 
         /// <summary>점프. 발 딛고 있을 때만 실제로 뛴다 — 그 판정은 시뮬이 한다.</summary>
@@ -131,8 +165,8 @@ namespace LOP.UI
         public void Dispose()
         {
             staminaRatio.Dispose();
-            postureName.Dispose();
             grounded.Dispose();
+            statusText.Dispose();
         }
     }
 }

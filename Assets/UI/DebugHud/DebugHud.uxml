@@ -2,7 +2,6 @@
     <Style src="DebugHud.uss" />
     <ui:VisualElement name="debug-hud-root" class="debug-hud-root" picking-mode="Ignore">
         <ui:VisualElement name="debug-panel" class="debug-panel" picking-mode="Ignore">
-            <ui:Label name="motion-text" class="debug-text" text="Motion: -" />
             <ui:Label name="tick-text" class="debug-text" text="Client tick: 0" />
             <ui:Label name="server-tick-text" class="debug-text" text="Server tick: 0" />
             <ui:Label name="lead-text" class="debug-text" text="Lead: 0 tick" />

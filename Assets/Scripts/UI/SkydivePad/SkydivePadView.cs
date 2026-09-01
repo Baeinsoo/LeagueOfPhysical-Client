@@ -17,6 +17,7 @@ namespace LOP.UI
 
         private readonly SkydivePadViewModel _viewModel;
 
+        private VisualElement _cameraDrag;
         private VisualElement _joystickBg;
         private VisualElement _joystickHandle;
         private VisualElement _postureTrack;
@@ -29,6 +30,8 @@ namespace LOP.UI
         private Vector2 _stickOrigin;
         private int _sliderPointer = -1;
         private Vector2 _sliderOrigin;
+        private int _cameraPointer = -1;
+        private Vector2 _lastCameraPosition;
 
         private IVisualElementScheduledItem _tick;
 
@@ -43,6 +46,7 @@ namespace LOP.UI
         {
             base.OnOpen();
 
+            _cameraDrag = Root.Q<VisualElement>("camera-drag");
             _joystickBg = Root.Q<VisualElement>("joystick-bg");
             _joystickHandle = Root.Q<VisualElement>("joystick-handle");
             _postureTrack = Root.Q<VisualElement>("posture-track");
@@ -53,6 +57,11 @@ namespace LOP.UI
             // 누르기 전에는 떠 있는 컨트롤을 감춰 둔다.
             Hide(_joystickBg);
             Hide(_postureTrack);
+
+            _cameraDrag.RegisterCallback<PointerDownEvent>(OnCameraDown);
+            _cameraDrag.RegisterCallback<PointerMoveEvent>(OnCameraMove);
+            _cameraDrag.RegisterCallback<PointerUpEvent>(OnCameraUp);
+            _cameraDrag.RegisterCallback<PointerCaptureOutEvent>(_ => _cameraPointer = -1);
 
             var stickArea = Root.Q<VisualElement>("joystick-area");
             stickArea.RegisterCallback<PointerDownEvent>(OnStickDown);
@@ -95,6 +104,43 @@ namespace LOP.UI
             if (_stickPointer == -1)
             {
                 _viewModel.MoveByKeyboard();
+            }
+        }
+
+        // 카메라는 화면 좌표 기준이라 스틱·슬라이더와 달리 panel 좌표(evt.position)를 쓴다.
+        private void OnCameraDown(PointerDownEvent evt)
+        {
+            if (_cameraPointer != -1)
+            {
+                return;
+            }
+
+            _cameraPointer = evt.pointerId;
+            _lastCameraPosition = evt.position;
+            _cameraDrag.CapturePointer(evt.pointerId);
+        }
+
+        private void OnCameraMove(PointerMoveEvent evt)
+        {
+            if (evt.pointerId != _cameraPointer)
+            {
+                return;
+            }
+
+            Vector2 current = evt.position;
+            Vector2 delta = current - _lastCameraPosition;
+            _lastCameraPosition = current;
+
+            // UI의 y는 아래가 양수라 뒤집어야 "위로 끌면 위를 본다"가 된다.
+            _viewModel.CameraLook(new Vector2(delta.x, -delta.y));
+        }
+
+        private void OnCameraUp(PointerUpEvent evt)
+        {
+            if (evt.pointerId == _cameraPointer)
+            {
+                _cameraDrag.ReleasePointer(evt.pointerId);
+                _cameraPointer = -1;
             }
         }
 

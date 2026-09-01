@@ -19,9 +19,13 @@ namespace LOP.UI
 
         private readonly ReactiveProperty<float> staminaRatio = new ReactiveProperty<float>(1f);
         private readonly ReactiveProperty<string> postureName = new ReactiveProperty<string>("대자");
+        private readonly ReactiveProperty<bool> grounded = new ReactiveProperty<bool>(false);
 
         public ReadOnlyReactiveProperty<float> StaminaRatio => staminaRatio;
         public ReadOnlyReactiveProperty<string> PostureName => postureName;
+
+        /// <summary>발 딛고 있나. 점프 버튼은 이때만 보인다 — 낙하 중엔 뜰 곳이 없다.</summary>
+        public ReadOnlyReactiveProperty<bool> Grounded => grounded;
 
         public SkydivePadViewModel(PlayerInputManager input, CameraController cameraController,
                                    IPlayerContext playerContext,
@@ -105,12 +109,28 @@ namespace LOP.UI
             {
                 postureName.Value = posture.Gliding ? "패러세일" : (posture.Axis > 0.5f ? "다이브" : "대자");
             }
+
+            grounded.Value = entity.Get<GameFramework.World.GroundState>()?.IsGrounded ?? false;
+        }
+
+        /// <summary>점프. 발 딛고 있을 때만 실제로 뛴다 — 그 판정은 시뮬이 한다.</summary>
+        public void Jump() => input.SetJump(true);
+
+        /// <summary>데스크톱 편의: Space로도 뛴다. 매 프레임 호출된다.</summary>
+        public void PollKeyboard()
+        {
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
+            {
+                Jump();
+            }
         }
 
         public void Dispose()
         {
             staminaRatio.Dispose();
             postureName.Dispose();
+            grounded.Dispose();
         }
     }
 }

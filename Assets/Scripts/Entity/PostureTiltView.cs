@@ -71,12 +71,13 @@ namespace LOP
                 return;   // 자세 개념이 없는 게임 모드
             }
 
-            // 발 딛고 있으면 똑바로 선다. 자세 기울기는 *떨어지는* 몸의 연출이라, 서 있는 몸에
-            // 그대로 걸면 대자(25°)로 앞으로 기운 채 서 있게 된다.
-            bool grounded = worldEntity.Get<GameFramework.World.GroundState>()?.IsGrounded ?? false;
-            float targetPitch = grounded
-                ? 0f
-                : (posture.Gliding ? GlidePitch : Mathf.Lerp(SpreadPitch, DivePitch, posture.Axis));
+            // 자세 기울기는 *활공 중인* 몸의 연출이다. 걷거나(서 있음) 그냥 떨어지는 중이면
+            // 똑바로 선다 — 접지만 보면, 뛰어오른 몸이나 선반에서 막 벗어난 몸이 대자(25°)로
+            // 기운 채 그려진다. 젤다의 "선 채로 내려간다"가 이 자리다.
+            bool posing = worldEntity.Get<MotionState>()?.Value == SkydiveMotionState.Skydiving;
+            float targetPitch = posing
+                ? (posture.Gliding ? GlidePitch : Mathf.Lerp(SpreadPitch, DivePitch, posture.Axis))
+                : 0f;
             currentPitch = Mathf.MoveTowards(currentPitch, targetPitch, PitchDegreesPerSecond * Time.deltaTime);
 
             // 보간기가 이미 써 놓은 이 프레임의 방향(yaw)만 뽑아내고 그 위에 기울기를 얹는다.

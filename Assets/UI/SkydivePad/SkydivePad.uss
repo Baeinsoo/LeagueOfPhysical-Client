@@ -25,6 +25,14 @@
     border-radius: 22px; background-color: rgba(255, 255, 255, 0.85);
 }
 
+/* 좌우 조작 영역이 각각 35%라 가운데 30%가 빈다 — 점프 버튼은 그 사이에 둔다. */
+.jump-button {
+    position: absolute; bottom: 40px; left: 42%; width: 16%; height: 72px;
+    border-radius: 36px; border-width: 0;
+    background-color: rgba(255, 255, 255, 0.28);
+    color: rgb(240, 244, 250); font-size: 20px;
+}
+
 .status { position: absolute; left: 16px; top: 16px; width: 240px; }
 .posture-label { color: rgb(230, 236, 245); font-size: 18px; margin-bottom: 6px; }
 .stamina-track {

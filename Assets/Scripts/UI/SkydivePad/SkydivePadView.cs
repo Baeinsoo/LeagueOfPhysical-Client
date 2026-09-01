@@ -23,6 +23,7 @@ namespace LOP.UI
         private VisualElement _postureHandle;
         private VisualElement _staminaFill;
         private Label _postureLabel;
+        private Button _jumpButton;
 
         private int _stickPointer = -1;
         private Vector2 _stickOrigin;
@@ -73,6 +74,14 @@ namespace LOP.UI
                 .Subscribe(name => _postureLabel.text = name)
                 .AddTo(Disposables);
 
+            _jumpButton = Root.Q<Button>("jump-button");
+            _jumpButton.clicked += _viewModel.Jump;
+            // 떠 있는 컨트롤(visibility)과 달리 display를 쓴다 — 숨긴 동안 레이아웃에서 빠져
+            // 터치도 아예 안 받는다. 이 버튼은 resolvedStyle을 읽지 않아 0폭 문제가 없다.
+            _viewModel.Grounded
+                .Subscribe(on => _jumpButton.style.display = on ? DisplayStyle.Flex : DisplayStyle.None)
+                .AddTo(Disposables);
+
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.
             _tick = Root.schedule.Execute(_ => Tick()).Every(0);
         }
@@ -80,6 +89,7 @@ namespace LOP.UI
         private void Tick()
         {
             _viewModel.Refresh();
+            _viewModel.PollKeyboard();   // Space 점프 — 버튼과 무관하게 늘 받는다
 
             // 스틱을 잡고 있는 동안은 키보드를 읽지 않는다 — 둘 다 밀면 나중 것이 앞의 것을 지운다.
             if (_stickPointer == -1)

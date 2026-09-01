@@ -16,6 +16,10 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
+        <!-- 발판에 내려섰을 때만 나타난다. 좌우 조작 영역(각 35%)이 안 쓰는 하단 중앙에 둬서
+             스틱·슬라이더의 터치를 가로채지 않는다. -->
+        <ui:Button name="jump-button" class="jump-button" text="점프" />
+
         <!-- 오른손: 자세. 누른 자리가 중립(대자)이 되는 떠 있는 슬라이더다. -->
         <ui:VisualElement name="posture-area" class="posture-area">
             <ui:VisualElement name="posture-track" class="posture-track" picking-mode="Ignore">

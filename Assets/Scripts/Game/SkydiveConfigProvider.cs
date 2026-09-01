@@ -27,7 +27,8 @@ namespace LOP
                 r.SpreadTurnAccel, r.DiveTurnAccel, r.GlideTurnAccel,
                 r.FallApproach, r.PostureRate,
                 r.BodyRadius, r.BodyHeight, r.GroundY,
-                r.StaminaMax, r.GlideDrain, r.GroundRecover, r.EmergencyGlideTime);
+                r.StaminaMax, r.GlideDrain, r.GroundRecover, r.EmergencyGlideTime,
+                r.GroundMoveSpeed, r.GroundAccel, r.JumpPower);
         }
     }
 }

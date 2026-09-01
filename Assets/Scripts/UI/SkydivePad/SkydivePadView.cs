@@ -22,7 +22,7 @@ namespace LOP.UI
         private VisualElement _postureTrack;
         private VisualElement _postureHandle;
         private VisualElement _staminaFill;
-        private Label _postureLabel;
+        private Label _statusLabel;
         private Button _jumpButton;
 
         private int _stickPointer = -1;
@@ -48,7 +48,7 @@ namespace LOP.UI
             _postureTrack = Root.Q<VisualElement>("posture-track");
             _postureHandle = Root.Q<VisualElement>("posture-handle");
             _staminaFill = Root.Q<VisualElement>("stamina-fill");
-            _postureLabel = Root.Q<Label>("posture-label");
+            _statusLabel = Root.Q<Label>("status-label");
 
             // 누르기 전에는 떠 있는 컨트롤을 감춰 둔다.
             Hide(_joystickBg);
@@ -70,8 +70,8 @@ namespace LOP.UI
                 .Subscribe(ratio => _staminaFill.style.width = Length.Percent(Mathf.Clamp01(ratio) * 100f))
                 .AddTo(Disposables);
 
-            _viewModel.PostureName
-                .Subscribe(name => _postureLabel.text = name)
+            _viewModel.StatusText
+                .Subscribe(text => _statusLabel.text = text)
                 .AddTo(Disposables);
 
             _jumpButton = Root.Q<Button>("jump-button");

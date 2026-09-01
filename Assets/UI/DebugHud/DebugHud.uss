@@ -19,10 +19,3 @@
     -unity-font-style: bold;
     -unity-text-align: middle-left;
 }
-
-/* 지금 손맛을 보는 줄이라 나머지보다 크고 밝게. 한 줄에 다 들어가야 해서 패널도 넓혔다. */
-.debug-motion {
-    color: rgb(255, 224, 130);
-    font-size: 22px;
-    margin-bottom: 4px;
-}

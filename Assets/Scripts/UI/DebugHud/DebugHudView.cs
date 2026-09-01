@@ -11,7 +11,6 @@ namespace LOP.UI
     {
         private readonly DebugHudViewModel _viewModel;
 
-        private Label _motionText;
         private Label _tickText;
         private Label _serverTickText;
         private Label _leadText;
@@ -47,7 +46,6 @@ namespace LOP.UI
         {
             base.OnOpen();
 
-            _motionText = Root.Q<Label>("motion-text");
             _tickText = Root.Q<Label>("tick-text");
             _serverTickText = Root.Q<Label>("server-tick-text");
             _leadText = Root.Q<Label>("lead-text");
@@ -84,7 +82,6 @@ namespace LOP.UI
                 return;
             }
 
-            _motionText.text = $"Motion: {_viewModel.MotionSummary}";
             _tickText.text = $"Client tick: {_viewModel.Tick}";
             _serverTickText.text = $"Server tick: {_viewModel.ServerTickEstimate}";
             _leadText.text = $"Lead: {_viewModel.Lead} tick";

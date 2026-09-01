@@ -57,6 +57,7 @@ namespace LOP.Tests
             entity.Add(new GameFramework.World.Velocity());
             entity.Add(new EntityKind(EntityType.Character));
             entity.Add(new Posture());
+            entity.Add(new JumpState());
             entity.Add(new Stamina { Current = 100f });
             entity.Add(new InputBuffer());
             entity.Add(new GameFramework.World.Simulated());   // 이게 있어야 SaveState가 이 다이버를 담는다

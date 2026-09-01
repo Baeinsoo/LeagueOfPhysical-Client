@@ -50,6 +50,7 @@ namespace LOP
             //  Simulated는 EntityBinder가 동기화 정책을 보고 붙인다.
             worldEntity.Add(new InputBuffer());
             worldEntity.Add(new Posture());
+            worldEntity.Add(new JumpState());
             worldEntity.Add(new Stamina { Current = config.StaminaMax });
             entityRegistry.Add(worldEntity);
 

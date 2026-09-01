@@ -22,7 +22,7 @@ namespace LOP.Tests
                 fallApproach: 29f, postureRate: 4f,
                 bodyRadius: 0.4f, bodyHeight: 1.8f, groundY: 0f,
                 staminaMax: 100f, glideDrain: 20f, groundRecover: 40f, emergencyGlideTime: 1f,
-                groundMoveSpeed: 4f, groundAccel: 100f, jumpPower: 11f, poseClearance: 5f);
+                groundMoveSpeed: 4f, groundAccel: 100f, jumpPower: 11f, poseClearance: 5f, fallBrake: 150f);
 
         /// <summary>다이버 한 명이 든 월드 + 그 월드를 보는 핸들러.</summary>
         public static SkydiveServerCorrectionHandler Handler(
@@ -57,7 +57,7 @@ namespace LOP.Tests
             entity.Add(new GameFramework.World.Velocity());
             entity.Add(new EntityKind(EntityType.Character));
             entity.Add(new Posture());
-            entity.Add(new JumpState());
+            entity.Add(new MotionState());
             entity.Add(new Stamina { Current = 100f });
             entity.Add(new InputBuffer());
             entity.Add(new GameFramework.World.Simulated());   // 이게 있어야 SaveState가 이 다이버를 담는다

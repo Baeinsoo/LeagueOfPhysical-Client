@@ -28,7 +28,7 @@ namespace LOP
                 r.FallApproach, r.PostureRate,
                 r.BodyRadius, r.BodyHeight, r.GroundY,
                 r.StaminaMax, r.GlideDrain, r.GroundRecover, r.EmergencyGlideTime,
-                r.GroundMoveSpeed, r.GroundAccel, r.JumpPower, r.PoseClearance);
+                r.GroundMoveSpeed, r.GroundAccel, r.JumpPower, r.PoseClearance, r.FallBrake);
         }
     }
 }

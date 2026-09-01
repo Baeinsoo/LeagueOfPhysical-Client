@@ -78,6 +78,12 @@ namespace LOP
                 Vertical = inputCommand.Vertical,
                 Jump = inputCommand.Jump,
                 AbilityId = inputCommand.AbilityId,
+                // 자세 값도 옮긴다. 예전엔 안 옮겨도 스냅샷이 남의 자세를 눌러 줘서 안 드러났는데,
+                // 이제 Posing이 이동 상태를 정하므로 이게 없으면 남의 몸이 영영 '선 채로 낙하'로
+                // 남는다 — 서버는 활공인데 내 화면의 예측만 아니라서 매 스냅마다 어긋난다.
+                Posture = inputCommand.Posture,
+                Glide = inputCommand.Glide,
+                Posing = inputCommand.Posing,
             };
         }
     }

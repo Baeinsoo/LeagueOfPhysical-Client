@@ -15,6 +15,7 @@ namespace LOP
         private int pendingAbilityId;
         private float heldPosture;   // 연속 — 슬라이더가 매 프레임 갱신(떼면 0=대자), 틱마다 샘플
         private bool heldGlide;      // 연속 — 슬라이더가 문턱을 넘고 있는 동안 참
+        private bool heldPosing;     // 연속 — 자세 슬라이더를 잡고 있는 동안 참
         private IRunner runner;
         private IPlayerContext playerContext;
         private AbilityActivator abilityActivator;
@@ -71,6 +72,7 @@ namespace LOP
                 AbilityId = pendingAbilityId,
                 Posture = heldPosture,
                 Glide = heldGlide,
+                Posing = heldPosing,
             };
 
             // 대시 등 조작 불가 상태에선 이동 입력을 무시한다(전송·예측 모두 0 → 보정 간섭 방지).
@@ -131,6 +133,7 @@ namespace LOP
                 AbilityId = command.AbilityId,
                 Posture = command.Posture,
                 Glide = command.Glide,
+                Posing = command.Posing,
             };
         }
 
@@ -153,6 +156,11 @@ namespace LOP
         }
 
         /// <summary>패러세일을 펴고 있나. 슬라이더가 문턱을 넘고 있는 동안 참.</summary>
+        public void SetPosing(bool posing)
+        {
+            heldPosing = posing;
+        }
+
         public void SetGlide(bool glide)
         {
             heldGlide = glide;

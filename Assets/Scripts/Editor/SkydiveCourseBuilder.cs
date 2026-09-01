@@ -29,15 +29,16 @@ namespace LOP.EditorTools
 
         // 검사 기준값. 마스터데이터에서 읽지 않는다 — 기준이 데이터를 따라 조용히 움직이면
         // 검사가 아니게 된다. TbSkydiveConfig를 바꿨다면 여기도 같이 고친다.
-        private const float SpreadFallSpeed = 25f;
+        private const float SpreadFallSpeed = 60f;
         private const float SpreadMoveSpeed = 12f;
         private const float SpreadTurnAccel = 22f;
-        private const float DiveFallSpeed = 45f;
-        private const float DiveMoveSpeed = 18f;
+        private const float DiveFallSpeed = 90f;
+        private const float DiveMoveSpeed = 9f;
         private const float DiveTurnAccel = 6f;
 
         // 스폰 고도. 첫 선반까지의 거리를 검사할 때 쓴다.
-        private const float SpawnY = 1000f;
+        // 젤다와 같은 종단속도(60)로 올리면서 코스도 3000m로 늘렸다 — 1000m는 17초면 끝난다.
+        private const float SpawnY = 3000f;
 
         private readonly struct Shelf
         {
@@ -58,12 +59,13 @@ namespace LOP.EditorTools
         // 코스 설계 그 자체. 위에서 아래 순서로 적는다.
         private static readonly Shelf[] Shelves =
         {
-            new Shelf(850f, 0f, 0f, 30f),      // 스폰 바로 아래 — 아무것도 안 해도 지나간다
-            new Shelf(700f, 25f, 0f, 24f),     // 옆으로 가는 걸 가르치는 구간(25m, 다이브로도 닿는다)
-            new Shelf(550f, 25f, 25f, 20f),
-            new Shelf(400f, -20f, 25f, 20f),   // 여기부터 셋은 다이브로 곧장 가면 못 닿는다
-            new Shelf(250f, -20f, -25f, 16f),
-            new Shelf(100f, 25f, -20f, 16f),
+            new Shelf(2600f, 0f, 0f, 30f),      // 스폰 바로 아래 — 아무것도 안 해도 지나간다
+            new Shelf(2200f, 30f, 0f, 24f),     // 옆으로 가는 걸 가르치는 구간(다이브로도 닿는다)
+            new Shelf(1800f, 30f, 30f, 20f),
+            new Shelf(1400f, -25f, 30f, 20f),   // 여기부터 넷은 다이브로 곧장 가면 못 닿는다
+            new Shelf(1000f, -25f, -30f, 16f),
+            new Shelf(600f, 30f, -25f, 16f),
+            new Shelf(200f, 0f, 25f, 16f),
         };
 
         [MenuItem("LOP/Skydive/코스 굽기")]

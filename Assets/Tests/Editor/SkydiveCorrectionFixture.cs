@@ -16,10 +16,10 @@ namespace LOP.Tests
 
         public static SkydiveConfig Config()
             => new SkydiveConfig(
-                spreadFallSpeed: 25f, diveFallSpeed: 45f, glideFallSpeed: 6f,
-                spreadMoveSpeed: 12f, diveMoveSpeed: 18f, glideMoveSpeed: 14f,
+                spreadFallSpeed: 60f, diveFallSpeed: 90f, glideFallSpeed: 6f,
+                spreadMoveSpeed: 12f, diveMoveSpeed: 9f, glideMoveSpeed: 14f,
                 spreadTurnAccel: 22f, diveTurnAccel: 6f, glideTurnAccel: 18f,
-                fallApproach: 30f, postureRate: 4f,
+                fallApproach: 29f, postureRate: 4f,
                 bodyRadius: 0.4f, bodyHeight: 1.8f, groundY: 0f,
                 staminaMax: 100f, glideDrain: 20f, groundRecover: 40f, emergencyGlideTime: 1f,
                 groundMoveSpeed: 4f, groundAccel: 100f, jumpPower: 11f);

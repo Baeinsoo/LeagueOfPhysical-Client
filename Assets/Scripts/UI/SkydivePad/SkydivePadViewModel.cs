@@ -76,13 +76,15 @@ namespace LOP.UI
         /// </summary>
         public void Posture(float slider)
         {
+            input.SetPosing(true);
             input.SetGlide(slider <= -GlideThreshold);
             input.SetPosture(slider > 0f ? slider : 0f);
         }
 
-        /// <summary>손을 떼면 대자로 돌아온다.</summary>
+        /// <summary>손을 떼면 대자로 돌아온다. 스카이다이빙 상태 자체는 착지 전까지 유지된다.</summary>
         public void ReleasePosture()
         {
+            input.SetPosing(false);
             input.SetGlide(false);
             input.SetPosture(0f);
         }

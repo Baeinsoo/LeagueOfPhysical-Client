@@ -146,6 +146,9 @@ namespace LOP.UI
             Show(_postureTrack);
             Place(_postureTrack, _sliderOrigin);
             CenterInParent(_postureHandle, _postureTrack, Vector2.zero);
+            // 누른 그 자리가 중립(대자)이다. 움직이기 전에도 "잡았다"를 보내야 한다 —
+            // 그게 스카이다이빙 진입 신호이고, 안 보내면 몇 픽셀 밀 때까지 선 채로 떨어진다.
+            _viewModel.Posture(0f);
             ((VisualElement)evt.currentTarget).CapturePointer(evt.pointerId);
         }
 

@@ -160,7 +160,8 @@ World Core는 순수 C#(`noEngineReferences`)이며 `GameFramework.World`에 있
 
 - **`LOPCombatSystem`** — `Attack(Entity attacker, Entity target, int baseDamage, long tick, int effectIndex, ulong matchSeed)`,
   `IsDodge`/`IsCritical`(결정론 RNG). Strength/Dexterity를 `statsSystem.GetValue`로 읽음
-- **`MovementSystem`** — `Tick(Entity, long, float)` + `static MovementResult ProcessMovement(in MovementInput)`
+- **`MovementSystem`** — `Tick(Entity, long, float)`. 스탯·어빌리티·외력을 읽어 공유 커널
+  `MovementMotor.CalcVelocity(in MovementInput)`에 넣어 주고 결과를 World에 쓴다
   (공유 순수 커널). velocity 단일 writer. MoveSpeed/JumpPower 읽음
 - **`KinematicMoveSystem`** — `Tick(Entity, float)`: 중력(분리된 수직 스텝) + collide-and-slide.
   Transform/Velocity에 직접 씀 (`ICollisionQuery` 포트로 sweep)

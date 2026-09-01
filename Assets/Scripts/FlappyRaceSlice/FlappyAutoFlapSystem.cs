@@ -40,7 +40,10 @@ namespace LOP
         private const float ScanRange = 20f;
         //  연속 탭 방지. 없으면 봇이 틈 바닥에서 매 프레임 눌러 호버링하는데, 그러면 사람이 나는
         //  모양이 아니라서 정작 관찰하려는 "남의 새가 어떻게 보이나"가 실제 플레이와 달라진다.
-        private const float FlapCooldown = 0.12f;
+        //  세는 단위는 틱이다 — 벽시계(Time.time)로 재면 그 에디터가 그 순간 몇 프레임을 뽑았느냐에
+        //  따라 날갯짓이 허용되기도, 막히기도 한다. 그러면 두 클라가 같은 높이에서 출발해도 갈리고
+        //  같은 판을 두 번 돌려도 달라져, 이 도구의 존재 이유인 "같은 장면 반복"이 무너진다.
+        private const float FlapCooldownSeconds = 0.12f;
 
         private readonly IRunner runner;
         private readonly IPlayerContext playerContext;
@@ -50,7 +53,7 @@ namespace LOP
         private readonly int mapLayerMask;
 
         private readonly bool[] blocked = new bool[(int)(ScanRange * 2f / ScanStep) + 1];
-        private float lastFlapTime = float.NegativeInfinity;
+        private long lastFlapTick = long.MinValue;
 
         public FlappyAutoFlapSystem(IRunner runner, IPlayerContext playerContext,
                                     GameFramework.World.EntityRegistry entityRegistry,
@@ -143,12 +146,13 @@ namespace LOP
             {
                 return;
             }
-            if (Time.time - lastFlapTime < FlapCooldown)
+            //  long.MinValue에 쿨다운을 더해도 넘치지 않으므로 첫 날갯짓은 그냥 통과한다.
+            if (tick < lastFlapTick + Mathf.RoundToInt(FlapCooldownSeconds / deltaTime))
             {
                 return;
             }
 
-            lastFlapTime = Time.time;
+            lastFlapTick = tick;
             playerInputManager.SetJump(true);
 #endif
         }

@@ -16,7 +16,6 @@ namespace LOP.UI
 
         private readonly GamePadViewModel _viewModel;
 
-        private VisualElement _cameraDrag;
         private VisualElement _joystickArea;
         private VisualElement _joystickBg;
         private VisualElement _joystickHandle;
@@ -25,9 +24,6 @@ namespace LOP.UI
 
         private int _joystickPointerId = -1;
         private Vector2 _joystickCenter; // joystick-area 로컬 좌표 기준 중심
-
-        private int _cameraPointerId = -1;
-        private Vector2 _lastCameraPosition; // panel 좌표
 
         public GamePadView(GamePadViewModel viewModel)
         {
@@ -40,16 +36,14 @@ namespace LOP.UI
         {
             base.OnOpen();
 
-            _cameraDrag = Root.Q<VisualElement>("camera-drag");
             _joystickArea = Root.Q<VisualElement>("joystick-area");
             _joystickBg = Root.Q<VisualElement>("joystick-bg");
             _joystickHandle = Root.Q<VisualElement>("joystick-handle");
 
             _joystickBg.style.display = DisplayStyle.None;
 
-            _cameraDrag.RegisterCallback<PointerDownEvent>(OnCameraPointerDown);
-            _cameraDrag.RegisterCallback<PointerMoveEvent>(OnCameraPointerMove);
-            _cameraDrag.RegisterCallback<PointerUpEvent>(OnCameraPointerUp);
+            Root.Q<VisualElement>("camera-drag")
+                .AddManipulator(new TouchZoneManipulator(_viewModel.CameraLook));
 
             _joystickArea.RegisterCallback<PointerDownEvent>(OnJoystickPointerDown);
             _joystickArea.RegisterCallback<PointerMoveEvent>(OnJoystickPointerMove);
@@ -139,44 +133,6 @@ namespace LOP.UI
             // 원본은 단위 방향(거리 무관 일정 속도). UI Toolkit Y는 아래로 증가 → 위로 드래그 = 전진이 되도록 Y 반전.
             Vector2 dir = delta.sqrMagnitude > 0.0001f ? delta.normalized : Vector2.zero;
             _viewModel.SetMove(new Vector2(dir.x, -dir.y));
-        }
-
-        private void OnCameraPointerDown(PointerDownEvent evt)
-        {
-            if (_cameraPointerId != -1)
-            {
-                return;
-            }
-
-            _cameraPointerId = evt.pointerId;
-            _cameraDrag.CapturePointer(evt.pointerId);
-            _lastCameraPosition = (Vector2)evt.position;
-        }
-
-        private void OnCameraPointerMove(PointerMoveEvent evt)
-        {
-            if (evt.pointerId != _cameraPointerId)
-            {
-                return;
-            }
-
-            Vector2 current = (Vector2)evt.position;
-            Vector2 delta = current - _lastCameraPosition;
-            _lastCameraPosition = current;
-
-            // panel Y는 아래로 증가 → UGUI(위로 증가) 기준 부호와 맞추려 Y 반전.
-            _viewModel.CameraLook(new Vector2(delta.x, -delta.y));
-        }
-
-        private void OnCameraPointerUp(PointerUpEvent evt)
-        {
-            if (evt.pointerId != _cameraPointerId)
-            {
-                return;
-            }
-
-            _cameraDrag.ReleasePointer(evt.pointerId);
-            _cameraPointerId = -1;
         }
 
         private bool _disposed;

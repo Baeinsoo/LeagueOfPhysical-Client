@@ -52,10 +52,11 @@ namespace LOP.UI
         public void Move(UnityEngine.Vector2 stick)
         {
             // 카메라가 보는 방향 기준으로 돌린다 — 화면에서 위로 밀면 화면 위쪽으로 간다.
-            float yaw = cameraController.MainCamera.transform.eulerAngles.y * UnityEngine.Mathf.Deg2Rad;
-            float cos = UnityEngine.Mathf.Cos(yaw);
-            float sin = UnityEngine.Mathf.Sin(yaw);
-            input.SetMovement(stick.x * cos + stick.y * sin, -stick.x * sin + stick.y * cos);
+            // 식은 GamePadViewModel.PushMovement와 같게 쓴다(같은 개념을 두 어휘로 적지 않는다).
+            float yAngle = cameraController.MainCamera.transform.eulerAngles.y;
+            var cameraRotation = UnityEngine.Quaternion.Euler(0, yAngle, 0);
+            UnityEngine.Vector3 transformed = cameraRotation * new UnityEngine.Vector3(stick.x, 0, stick.y);
+            input.SetMovement(transformed.x, transformed.z);
         }
 
         /// <summary>

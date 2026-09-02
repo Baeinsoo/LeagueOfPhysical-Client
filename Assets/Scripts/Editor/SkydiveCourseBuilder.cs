@@ -43,6 +43,9 @@ namespace LOP.EditorTools
         // 구름 층 머티리얼. 아직 없을 수 있다(후속 태스크가 만든다) — 없으면 판만 굽고 경고만 낸다.
         private const string CloudMaterialPath = "Assets/Art/Materials/SkydiveCloud.mat";
 
+        // 선반 머티리얼. 없으면 유니티 기본 머티리얼로 굽되 경고를 낸다.
+        private const string StoneMaterialPath = "Assets/Art/Materials/SkydiveStone.mat";
+
         private readonly struct Shelf
         {
             public readonly float Y;
@@ -83,7 +86,11 @@ namespace LOP.EditorTools
             }
 
             var scene = EditorSceneManager.GetActiveScene();
-            Material material = AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Scenes/floor.mat");
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(StoneMaterialPath);
+            if (material == null)
+            {
+                Debug.LogWarning($"[Skydive] 선반 머티리얼이 없다 — {StoneMaterialPath}. 기본색으로 굽는다.");
+            }
 
             GameObject root = GameObject.Find(CourseRootName);
             if (root != null)

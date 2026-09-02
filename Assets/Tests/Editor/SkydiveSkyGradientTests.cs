@@ -40,4 +40,27 @@ public class SkydiveSkyGradientTests
         Assert.That(SkydiveSkyGradient.Evaluate(-500f).fog.r,
                     Is.EqualTo(SkydiveSkyGradient.Evaluate(0f).fog.r).Within(Tol));
     }
+
+    [Test]
+    public void 지면에서_하늘은_안개보다_적게_변한다()
+    {
+        var top = SkydiveSkyGradient.Evaluate(3000f);
+        var ground = SkydiveSkyGradient.Evaluate(0f);
+
+        // 하늘은 0.55배만 이동해야 하므로 안개(완전히 따뜻해짐)보다 덜 따뜻해야 하고,
+        // 그렇다고 꼭대기 색 그대로(기본값 버그 포함) 머물러도 안 된다.
+        Assert.That(ground.skyTint.r, Is.GreaterThan(top.skyTint.r), "하늘도 고도에 따라 변해야 한다");
+        Assert.That(ground.skyTint.r, Is.LessThan(ground.fog.r), "하늘은 안개보다 덜 변해야 한다(0.55 배율)");
+    }
+
+    [Test]
+    public void 꼭대기에서는_하늘과_안개가_같은_색이다()
+    {
+        var top = SkydiveSkyGradient.Evaluate(3000f);
+
+        // t=0이면 두 배율(1과 0.55) 모두 0이 곱해져 결과가 같아야 한다.
+        Assert.That(top.skyTint.r, Is.EqualTo(top.fog.r).Within(Tol));
+        Assert.That(top.skyTint.g, Is.EqualTo(top.fog.g).Within(Tol));
+        Assert.That(top.skyTint.b, Is.EqualTo(top.fog.b).Within(Tol));
+    }
 }

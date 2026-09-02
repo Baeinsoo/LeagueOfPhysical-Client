@@ -23,7 +23,8 @@ namespace LOP.Tests
         public static FlappyConfig Config()
             => new FlappyConfig(forwardSpeed: 11f, flapImpulse: 23f, gravity: 70f, maxFallSpeed: 30f,
                                 bodyRadius: 0.45f, bodyHeight: 0.9f, restitution: 0.35f,
-                                stunTime: 0.8f, invulnTime: 0.6f);
+                                stunTime: 0.8f, invulnTime: 0.6f,
+                                dashMult: 2f, dashDuration: 0.2f, dashChargeBase: 0.13f, dashChargeDive: 1.2f);
 
         /// <summary>새 한 마리가 든 월드 + 그 월드를 보는 핸들러.</summary>
         public static FlappyServerCorrectionHandler Handler(

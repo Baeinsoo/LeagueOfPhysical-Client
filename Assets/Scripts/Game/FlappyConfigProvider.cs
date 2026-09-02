@@ -26,7 +26,11 @@ namespace LOP
                 r.ForwardSpeed, r.FlapImpulse, r.Gravity, r.MaxFallSpeed,
                 r.BodyRadius, r.BodyHeight, r.Restitution,
                 stunTime: r.StunTime,
-                invulnTime: r.InvulnTime);
+                invulnTime: r.InvulnTime,
+                dashMult: r.DashMult,
+                dashDuration: r.DashDuration,
+                dashChargeBase: r.DashChargeBase,
+                dashChargeDive: r.DashChargeDive);
         }
     }
 }

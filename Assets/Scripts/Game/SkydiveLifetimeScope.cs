@@ -48,6 +48,7 @@ namespace LOP
             builder.Register<IExtrapolationAcceleration, ZeroExtrapolationAcceleration>(Lifetime.Singleton);
 
             builder.RegisterEntryPoint<SkydiveHudCoordinator>();
+            builder.RegisterEntryPoint<SkydiveAtmosphere>();
             builder.Register<LOP.UI.SkydivePadViewModel>(Lifetime.Transient);
             builder.Register<LOP.UI.SkydivePadView>(Lifetime.Transient);
         }

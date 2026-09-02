@@ -521,8 +521,8 @@ MonoBehaviour:
   zoomAcceleration: 1000
   zoomDamping: 10
   zoomMaxSpeed: 100
-  minPitch: -20
-  maxPitch: 80
+  minPitch: -90
+  maxPitch: 90
   minDistance: 2
   maxDistance: 20
 --- !u!1660057539 &9223372036854775807

@@ -194,9 +194,12 @@ namespace LOP.UI
         // 손잡이는 트랙(배경)의 <b>자식</b>이다. 그래서 누른 지점(영역 좌표)을 그대로 주면 안 된다 —
         // 트랙이 이미 그 지점으로 옮겨져 있어서 좌표가 두 번 더해져 엉뚱한 데로 날아간다.
         // 손잡이는 항상 트랙 한가운데를 기준으로, 민 만큼만 벗어난다.
+        // 부모의 <b>테두리 안쪽</b>(contentRect)을 쓴다. 자식은 테두리 안을 기준으로 놓이므로,
+        // 바깥 크기(resolvedStyle)로 재면 테두리 두께만큼 오른쪽·아래로 쏠린다.
         private static void CenterInParent(VisualElement handle, VisualElement parent, Vector2 offset)
         {
-            var center = new Vector2(parent.resolvedStyle.width * 0.5f, parent.resolvedStyle.height * 0.5f);
+            var inner = parent.contentRect;
+            var center = new Vector2(inner.width * 0.5f, inner.height * 0.5f);
             Place(handle, center + offset);
         }
 

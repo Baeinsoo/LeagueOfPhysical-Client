@@ -29,10 +29,14 @@ namespace LOP.UI
         public override UILayer Layer => UILayer.Window;
 
         // 크기를 코드에 적어 두지 않고 그려진 것을 잰다 — 예전엔 상수(160/70)가 USS(200/90)와
-        // 어긋나 스틱이 엄지에서 20px 밀려 뜨고 손잡이가 테두리에 못 닿았다.
-        private float BackgroundSize => _joystickBg.resolvedStyle.width;
+        // 어긋나 스틱이 엄지에서 20px 밀려 떴다.
+        //
+        // 바깥과 안쪽을 구분해야 한다. 배경에 6px 테두리가 있는데, 자식(손잡이)은 그 테두리
+        // *안쪽* 을 기준으로 놓인다. 둘을 섞으면 손잡이가 테두리 두께만큼 오른쪽·아래로 쏠린다.
+        private float BackgroundOuter => _joystickBg.resolvedStyle.width;   // 손가락에 맞출 때
+        private float BackgroundInner => _joystickBg.contentRect.width;     // 손잡이를 담는 칸
         private float HandleSize => _joystickHandle.resolvedStyle.width;
-        private float MaxRadius => (BackgroundSize - HandleSize) / 2f;
+        private float MaxRadius => (BackgroundInner - HandleSize) / 2f;
 
         public override void OnOpen()
         {
@@ -89,8 +93,8 @@ namespace LOP.UI
             // 누른 위치에 조이스틱 배경을 띄운다(플로팅 조이스틱).
             _joystickCenter = (Vector2)evt.localPosition;
             _joystickBg.style.visibility = Visibility.Visible;
-            _joystickBg.style.left = _joystickCenter.x - BackgroundSize / 2f;
-            _joystickBg.style.top = _joystickCenter.y - BackgroundSize / 2f;
+            _joystickBg.style.left = _joystickCenter.x - BackgroundOuter / 2f;
+            _joystickBg.style.top = _joystickCenter.y - BackgroundOuter / 2f;
 
             UpdateJoystick((Vector2)evt.localPosition);
             evt.StopPropagation();
@@ -138,12 +142,12 @@ namespace LOP.UI
             _viewModel.SetMove(new Vector2(push.x, -push.y));
         }
 
-        // 손잡이는 배경(joystick-bg)의 자식이라 배경 로컬 좌표를 쓴다. 배경 한가운데에서
-        // 민 만큼만 벗어난다.
+        // 손잡이는 배경(joystick-bg)의 자식이라 테두리 안쪽 좌표를 쓴다. 그 한가운데(=MaxRadius)
+        // 에서 민 만큼만 벗어난다.
         private void PlaceHandle(Vector2 offset)
         {
-            _joystickHandle.style.left = (BackgroundSize - HandleSize) / 2f + offset.x;
-            _joystickHandle.style.top = (BackgroundSize - HandleSize) / 2f + offset.y;
+            _joystickHandle.style.left = MaxRadius + offset.x;
+            _joystickHandle.style.top = MaxRadius + offset.y;
         }
 
         private bool _disposed;

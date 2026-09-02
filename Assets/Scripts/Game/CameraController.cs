@@ -45,7 +45,10 @@ namespace LOP
                 Vector3 offset = mainCamera.transform.position - target.position;
                 distance = Mathf.Clamp(offset.magnitude, minDistance, maxDistance);
                 yaw = mainCamera.transform.eulerAngles.y;
-                pitch = mainCamera.transform.eulerAngles.x;
+
+                // eulerAngles는 0~360으로 돌려준다 — 위를 보는 각(-10도)이 350으로 읽힌다.
+                // 그대로 두면 제한 범위 밖이라 시작하자마자 카메라가 아래로 꺾인다.
+                pitch = Mathf.DeltaAngle(0f, mainCamera.transform.eulerAngles.x);
             }
         }
 

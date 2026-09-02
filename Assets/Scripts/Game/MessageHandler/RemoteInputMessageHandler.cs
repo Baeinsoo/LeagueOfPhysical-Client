@@ -84,6 +84,7 @@ namespace LOP
                 Posture = inputCommand.Posture,
                 Glide = inputCommand.Glide,
                 Posing = inputCommand.Posing,
+                Dash = inputCommand.Dash,
             };
         }
     }

@@ -23,7 +23,7 @@ namespace LOP
         {
             //  앵커 틱 기록이 없으면(정상 경로엔 없는 엣지) 비교 불가 — 불일치로 단정하지 않고
             //  위치 판정에 맡긴다.
-            if (!world.TryGetSavedStun(tick, snap.entityId, out var predicted))
+            if (!world.TryGetSavedState(tick, snap.entityId, out var predicted))
             {
                 return true;
             }

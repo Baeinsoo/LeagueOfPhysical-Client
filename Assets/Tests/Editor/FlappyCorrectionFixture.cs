@@ -35,7 +35,8 @@ namespace LOP.Tests
             registry.Add(bird);
             world = new FlappyWorld(registry, new GameFramework.World.WorldEventBuffer(),
                 new FlappyMoveSystem(Config()),
-                new FlappyStunSystem(Config()), collisionQuery, new NoopMotionBridge(), layerMask: ~0);
+                new FlappyStunSystem(Config()),
+                new FlappyDashSystem(Config()), collisionQuery, new NoopMotionBridge(), layerMask: ~0);
             world.GameplayStartTick = 0;   // 출발 게이트는 이 파일의 관심사가 아니다
             return new FlappyServerCorrectionHandler(world);
         }

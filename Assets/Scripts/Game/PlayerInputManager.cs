@@ -12,6 +12,7 @@ namespace LOP
         private float heldHorizontal;   // 연속 이동 — 입력 소스가 매 프레임 갱신(뗄 때 0), 틱마다 샘플
         private float heldVertical;
         private bool pendingJump;        // 이산 액션 — 소비 후 리셋
+        private bool pendingDash;        // 이산 액션 — 소비 후 리셋
         private int pendingAbilityId;
         private float heldPosture;   // 연속 — 슬라이더가 매 프레임 갱신(떼면 0=대자), 틱마다 샘플
         private bool heldGlide;      // 연속 — 슬라이더가 문턱을 넘고 있는 동안 참
@@ -73,6 +74,7 @@ namespace LOP
                 Posture = heldPosture,
                 Glide = heldGlide,
                 Posing = heldPosing,
+                Dash = pendingDash,
             };
 
             // 대시 등 조작 불가 상태에선 이동 입력을 무시한다(전송·예측 모두 0 → 보정 간섭 방지).
@@ -94,6 +96,7 @@ namespace LOP
 
             // 이산 액션만 소비 — held 이동은 다음 틱까지 유지(연속).
             pendingJump = false;
+            pendingDash = false;
             pendingAbilityId = 0;
         }
 
@@ -134,6 +137,7 @@ namespace LOP
                 Posture = command.Posture,
                 Glide = command.Glide,
                 Posing = command.Posing,
+                Dash = command.Dash,
             };
         }
 
@@ -147,6 +151,12 @@ namespace LOP
         public void SetJump(bool jump)
         {
             pendingJump = jump;
+        }
+
+        /// <summary>대시. 게이지가 가득 찼는지는 시뮬이 판정하므로 여기서 막지 않는다.</summary>
+        public void SetDash(bool dash)
+        {
+            pendingDash = dash;
         }
 
         /// <summary>자세 축(0=대자, 1=다이브). 슬라이더가 매 프레임 갱신한다.</summary>

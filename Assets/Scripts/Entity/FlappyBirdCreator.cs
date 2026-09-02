@@ -46,6 +46,7 @@ namespace LOP
             worldEntity.Add(new GameFramework.World.PhysicsConfig(
                 GameFramework.World.BodyKind.Kinematic, freezeRotation: true, isTrigger: false));
             worldEntity.Add(new FlappyStun());
+            worldEntity.Add(new FlappyDash());
 
             bool isUserEntity = gameDataStore.userEntityId == creationData.entityId;
             //  입력 버퍼는 모든 새가 갖는다. 내 것은 PlayerInputManager가 채우고 시뮬이 소비한다.

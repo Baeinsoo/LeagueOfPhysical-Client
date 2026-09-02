@@ -54,6 +54,9 @@ namespace LOP.UI
             Hide(_joystickBg);
             Hide(_postureTrack);
 
+            Root.Q<VisualElement>("camera-drag")
+                .AddManipulator(new TouchZoneManipulator(_viewModel.CameraLook));
+
             var stickArea = Root.Q<VisualElement>("joystick-area");
             stickArea.RegisterCallback<PointerDownEvent>(OnStickDown);
             stickArea.RegisterCallback<PointerMoveEvent>(OnStickMove);

@@ -10,13 +10,8 @@ namespace LOP.UI
     /// </summary>
     public class GamePadView : UIView
     {
-        private const float BackgroundSize = 160f;
-        private const float HandleSize = 70f;
-        private const float MaxRadius = (BackgroundSize - HandleSize) / 2f;
-
         private readonly GamePadViewModel _viewModel;
 
-        private VisualElement _cameraDrag;
         private VisualElement _joystickArea;
         private VisualElement _joystickBg;
         private VisualElement _joystickHandle;
@@ -26,9 +21,6 @@ namespace LOP.UI
         private int _joystickPointerId = -1;
         private Vector2 _joystickCenter; // joystick-area 로컬 좌표 기준 중심
 
-        private int _cameraPointerId = -1;
-        private Vector2 _lastCameraPosition; // panel 좌표
-
         public GamePadView(GamePadViewModel viewModel)
         {
             _viewModel = viewModel;
@@ -36,20 +28,26 @@ namespace LOP.UI
 
         public override UILayer Layer => UILayer.Window;
 
+        // 크기를 코드에 적어 두지 않고 그려진 것을 잰다 — 예전엔 상수(160/70)가 USS(200/90)와
+        // 어긋나 스틱이 엄지에서 20px 밀려 뜨고 손잡이가 테두리에 못 닿았다.
+        private float BackgroundSize => _joystickBg.resolvedStyle.width;
+        private float HandleSize => _joystickHandle.resolvedStyle.width;
+        private float MaxRadius => (BackgroundSize - HandleSize) / 2f;
+
         public override void OnOpen()
         {
             base.OnOpen();
 
-            _cameraDrag = Root.Q<VisualElement>("camera-drag");
             _joystickArea = Root.Q<VisualElement>("joystick-area");
             _joystickBg = Root.Q<VisualElement>("joystick-bg");
             _joystickHandle = Root.Q<VisualElement>("joystick-handle");
 
-            _joystickBg.style.display = DisplayStyle.None;
+            // display가 아니라 visibility로 숨긴다: display:none이면 레이아웃에서 빠져
+            // 폭이 0이 되고, 다시 켠 그 프레임에 위 실측이 0을 물어 손잡이가 구석으로 튄다.
+            _joystickBg.style.visibility = Visibility.Hidden;
 
-            _cameraDrag.RegisterCallback<PointerDownEvent>(OnCameraPointerDown);
-            _cameraDrag.RegisterCallback<PointerMoveEvent>(OnCameraPointerMove);
-            _cameraDrag.RegisterCallback<PointerUpEvent>(OnCameraPointerUp);
+            Root.Q<VisualElement>("camera-drag")
+                .AddManipulator(new TouchZoneManipulator(_viewModel.CameraLook));
 
             _joystickArea.RegisterCallback<PointerDownEvent>(OnJoystickPointerDown);
             _joystickArea.RegisterCallback<PointerMoveEvent>(OnJoystickPointerMove);
@@ -90,7 +88,7 @@ namespace LOP.UI
 
             // 누른 위치에 조이스틱 배경을 띄운다(플로팅 조이스틱).
             _joystickCenter = (Vector2)evt.localPosition;
-            _joystickBg.style.display = DisplayStyle.Flex;
+            _joystickBg.style.visibility = Visibility.Visible;
             _joystickBg.style.left = _joystickCenter.x - BackgroundSize / 2f;
             _joystickBg.style.top = _joystickCenter.y - BackgroundSize / 2f;
 
@@ -119,9 +117,8 @@ namespace LOP.UI
             _joystickPointerId = -1;
             _viewModel.ClearMove();
 
-            _joystickBg.style.display = DisplayStyle.None;
-            _joystickHandle.style.left = (BackgroundSize - HandleSize) / 2f;
-            _joystickHandle.style.top = (BackgroundSize - HandleSize) / 2f;
+            _joystickBg.style.visibility = Visibility.Hidden;
+            PlaceHandle(Vector2.zero);
         }
 
         private void UpdateJoystick(Vector2 localPosition)
@@ -132,51 +129,21 @@ namespace LOP.UI
                 delta = delta.normalized * MaxRadius;
             }
 
-            // handle은 배경(joystick-bg) 로컬 좌표 기준. 배경 중심(BackgroundSize/2)에서 delta만큼 이동.
-            _joystickHandle.style.left = BackgroundSize / 2f + delta.x - HandleSize / 2f;
-            _joystickHandle.style.top = BackgroundSize / 2f + delta.y - HandleSize / 2f;
+            PlaceHandle(delta);
 
-            // 원본은 단위 방향(거리 무관 일정 속도). UI Toolkit Y는 아래로 증가 → 위로 드래그 = 전진이 되도록 Y 반전.
-            Vector2 dir = delta.sqrMagnitude > 0.0001f ? delta.normalized : Vector2.zero;
-            _viewModel.SetMove(new Vector2(dir.x, -dir.y));
+            // 중심에서 얼마나 벗어났나를 0~1로 넘긴다 — 살짝 밀면 걷고 끝까지 밀면 뛴다.
+            // (예전엔 normalized라 1mm를 밀어도 최고 속도였다.)
+            // UI Toolkit Y는 아래로 증가 → 위로 드래그 = 전진이 되도록 Y 반전.
+            Vector2 push = delta / MaxRadius;
+            _viewModel.SetMove(new Vector2(push.x, -push.y));
         }
 
-        private void OnCameraPointerDown(PointerDownEvent evt)
+        // 손잡이는 배경(joystick-bg)의 자식이라 배경 로컬 좌표를 쓴다. 배경 한가운데에서
+        // 민 만큼만 벗어난다.
+        private void PlaceHandle(Vector2 offset)
         {
-            if (_cameraPointerId != -1)
-            {
-                return;
-            }
-
-            _cameraPointerId = evt.pointerId;
-            _cameraDrag.CapturePointer(evt.pointerId);
-            _lastCameraPosition = (Vector2)evt.position;
-        }
-
-        private void OnCameraPointerMove(PointerMoveEvent evt)
-        {
-            if (evt.pointerId != _cameraPointerId)
-            {
-                return;
-            }
-
-            Vector2 current = (Vector2)evt.position;
-            Vector2 delta = current - _lastCameraPosition;
-            _lastCameraPosition = current;
-
-            // panel Y는 아래로 증가 → UGUI(위로 증가) 기준 부호와 맞추려 Y 반전.
-            _viewModel.CameraLook(new Vector2(delta.x, -delta.y));
-        }
-
-        private void OnCameraPointerUp(PointerUpEvent evt)
-        {
-            if (evt.pointerId != _cameraPointerId)
-            {
-                return;
-            }
-
-            _cameraDrag.ReleasePointer(evt.pointerId);
-            _cameraPointerId = -1;
+            _joystickHandle.style.left = (BackgroundSize - HandleSize) / 2f + offset.x;
+            _joystickHandle.style.top = (BackgroundSize - HandleSize) / 2f + offset.y;
         }
 
         private bool _disposed;

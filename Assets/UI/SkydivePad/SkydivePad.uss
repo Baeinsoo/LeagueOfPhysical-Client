@@ -3,6 +3,11 @@
     left: 0; right: 0; top: 0; bottom: 0;
 }
 
+.camera-drag {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+
 /* 장애물이 화면 아래에서 올라오므로 하단 중앙은 비운다. */
 .joystick-area { position: absolute; left: 0; bottom: 0; width: 35%; height: 45%; }
 .posture-area  { position: absolute; right: 0; bottom: 0; width: 35%; height: 45%; }

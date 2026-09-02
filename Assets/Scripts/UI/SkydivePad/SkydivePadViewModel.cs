@@ -11,6 +11,10 @@ namespace LOP.UI
         // 슬라이더를 이만큼 왼쪽으로 밀면 패러세일이 펴진다. 도구라 반쯤 펼칠 수 없다.
         private const float GlideThreshold = 0.45f;
 
+        // 방향키 한 프레임이 손가락을 이만큼 끈 것과 같다(px). 드래그와 같은 경로로 넣어
+        // 감속·한계각이 저절로 같아진다.
+        private const float KeyLookSpeed = 8f;
+
         private readonly PlayerInputManager input;
         private readonly CameraController cameraController;
         private readonly IPlayerContext playerContext;
@@ -48,10 +52,11 @@ namespace LOP.UI
         public void Move(UnityEngine.Vector2 stick)
         {
             // 카메라가 보는 방향 기준으로 돌린다 — 화면에서 위로 밀면 화면 위쪽으로 간다.
-            float yaw = cameraController.MainCamera.transform.eulerAngles.y * UnityEngine.Mathf.Deg2Rad;
-            float cos = UnityEngine.Mathf.Cos(yaw);
-            float sin = UnityEngine.Mathf.Sin(yaw);
-            input.SetMovement(stick.x * cos + stick.y * sin, -stick.x * sin + stick.y * cos);
+            // 식은 GamePadViewModel.PushMovement와 같게 쓴다(같은 개념을 두 어휘로 적지 않는다).
+            float yAngle = cameraController.MainCamera.transform.eulerAngles.y;
+            var cameraRotation = UnityEngine.Quaternion.Euler(0, yAngle, 0);
+            UnityEngine.Vector3 transformed = cameraRotation * new UnityEngine.Vector3(stick.x, 0, stick.y);
+            input.SetMovement(transformed.x, transformed.z);
         }
 
         /// <summary>
@@ -149,16 +154,38 @@ namespace LOP.UI
             return posture.Gliding ? "패러세일" : (posture.Axis > 0.5f ? "다이브" : "대자");
         }
 
+        /// <summary>카메라 드래그. 화면에서 끈 거리를 그대로 넘긴다.</summary>
+        public void CameraLook(UnityEngine.Vector2 delta) => cameraController.ProcessTouchInput(delta);
+
         /// <summary>점프. 발 딛고 있을 때만 실제로 뛴다 — 그 판정은 시뮬이 한다.</summary>
         public void Jump() => input.SetJump(true);
 
-        /// <summary>데스크톱 편의: Space로도 뛴다. 매 프레임 호출된다.</summary>
+        /// <summary>
+        /// 데스크톱 편의: Space로 점프, 방향키로 카메라. 매 프레임 호출된다.
+        /// 카메라를 키로도 받는 이유 — 마우스가 하나뿐인데 패러세일이 홀드라, 활공 중에는
+        /// 마우스가 슬라이더에 묶여 화면을 끌 손이 없다.
+        /// </summary>
         public void PollKeyboard()
         {
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
-            if (keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
+            if (keyboard == null)
+            {
+                return;
+            }
+
+            if (keyboard.spaceKey.wasPressedThisFrame)
             {
                 Jump();
+            }
+
+            var look = UnityEngine.Vector2.zero;
+            if (keyboard.rightArrowKey.isPressed) { look.x += 1f; }
+            if (keyboard.leftArrowKey.isPressed) { look.x -= 1f; }
+            if (keyboard.upArrowKey.isPressed) { look.y += 1f; }
+            if (keyboard.downArrowKey.isPressed) { look.y -= 1f; }
+            if (look != UnityEngine.Vector2.zero)
+            {
+                CameraLook(look.normalized * KeyLookSpeed);
             }
         }
 

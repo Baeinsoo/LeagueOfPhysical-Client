@@ -20,3 +20,49 @@
     font-size: 28px;
     color: rgba(255, 255, 255, 0.55);
 }
+
+/* 대시 버튼 — 버튼 자신이 게이지다. 차오르는 것과 누를 수 있는지를 한 곳에서 보여준다. */
+.dash-button {
+    position: absolute;
+    right: 48px;
+    bottom: 120px;
+    width: 160px;
+    height: 160px;
+    border-radius: 80px;
+    overflow: hidden;                       /* 채움이 둥근 테두리를 넘지 않게 */
+    background-color: rgba(0, 0, 0, 0.35);
+    border-width: 3px;
+    border-color: rgba(255, 255, 255, 0.25);
+    justify-content: center;
+    align-items: center;
+}
+
+/* 아래에서 위로 차오른다. 높이는 게이지 값에 따라 코드가 정한다. */
+.dash-fill {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 0;
+    background-color: rgba(255, 214, 92, 0.45);
+}
+
+.dash-label {
+    font-size: 30px;
+    color: rgba(255, 255, 255, 0.45);
+    -unity-text-align: middle-center;
+}
+
+/* 가득 찼을 때만 밝아진다 — "지금 쓸 수 있다"가 눈에 띄어야 한다. */
+.dash-button--ready {
+    border-color: rgb(255, 214, 92);
+    background-color: rgba(255, 214, 92, 0.25);
+}
+
+.dash-button--ready .dash-fill {
+    background-color: rgba(255, 214, 92, 0.75);
+}
+
+.dash-button--ready .dash-label {
+    color: rgb(255, 255, 255);
+}

@@ -40,7 +40,8 @@ namespace LOP.EditorTools
         // 젤다와 같은 종단속도(60)로 올리면서 코스도 3000m로 늘렸다 — 1000m는 17초면 끝난다.
         private const float SpawnY = 3000f;
 
-        // 구름 층 머티리얼. 아직 없을 수 있다(후속 태스크가 만든다) — 없으면 판만 굽고 경고만 낸다.
+        // 구름 층 머티리얼. 없으면 기본 불투명 머티리얼로 51장이 통째로 시야를 막아버리므로
+        // 구름 자체를 굽지 않는다(경고만 낸다).
         private const string CloudMaterialPath = "Assets/Art/Materials/SkydiveCloud.mat";
 
         // 선반 머티리얼. 없으면 유니티 기본 머티리얼로 굽되 경고를 낸다.
@@ -109,21 +110,25 @@ namespace LOP.EditorTools
             Material cloud = AssetDatabase.LoadAssetAtPath<Material>(CloudMaterialPath);
             if (cloud == null)
             {
-                Debug.LogWarning($"[Skydive] 구름 머티리얼이 없다 — {CloudMaterialPath}. 판만 굽는다.");
+                // 기본 머티리얼은 불투명이라, 그대로 구우면 460m짜리 판 51장이 시야를 통째로
+                // 가려버린다("판만 굽는다"가 아니라 완전 블랙아웃) — 아예 굽지 않는다.
+                Debug.LogWarning($"[Skydive] 구름 머티리얼이 없다 — {CloudMaterialPath}. 구름을 굽지 않는다.");
             }
-
-            var clouds = new GameObject("Clouds");
-            clouds.transform.SetParent(root.transform, worldPositionStays: false);
-            for (int i = 0; i < SkydiveCloudLayers.Altitudes.Length; i++)
+            else
             {
-                float y = SkydiveCloudLayers.Altitudes[i];
-
-                // 한 층을 판 세 장으로 겹쳐 놓는다 — 한 장이면 옆에서 볼 때 종잇장이라 층이 안 된다.
-                for (int k = 0; k < 3; k++)
+                var clouds = new GameObject("Clouds");
+                clouds.transform.SetParent(root.transform, worldPositionStays: false);
+                for (int i = 0; i < SkydiveCloudLayers.Altitudes.Length; i++)
                 {
-                    float dy = (k - 1) * SkydiveCloudLayers.HalfThickness * 0.6f;
-                    CreateCloudQuad(clouds.transform, $"Cloud_{y:0}_{k}",
-                                    new Vector3(0f, y + dy, 0f), 460f, cloud);
+                    float y = SkydiveCloudLayers.Altitudes[i];
+
+                    // 한 층을 판 세 장으로 겹쳐 놓는다 — 한 장이면 옆에서 볼 때 종잇장이라 층이 안 된다.
+                    for (int k = 0; k < 3; k++)
+                    {
+                        float dy = (k - 1) * SkydiveCloudLayers.HalfThickness * 0.6f;
+                        CreateCloudQuad(clouds.transform, $"Cloud_{y:0}_{k}",
+                                        new Vector3(0f, y + dy, 0f), 460f, cloud);
+                    }
                 }
             }
 

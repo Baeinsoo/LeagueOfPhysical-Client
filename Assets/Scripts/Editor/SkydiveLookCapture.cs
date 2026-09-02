@@ -12,7 +12,7 @@ namespace LOP.EditorTools
         // 코스 옆 위쪽 — 구름 층(2900/2730) 사이 빈 틈에서 찍는다. 원래 230/-230은 구름이
         // 생기기 전 스파이크에서 잰 값이라 밴드 안에 들어가 있었다(흰 벽만 찍힘) — 85m 위로
         // 옮기고, XZ도 안쪽으로 당겨 시선이 실제로 맨 위 선반(y=2600, X·Z ±100) 위를 지나가게
-        // 했다(계산: task-5-6-report.md 참고).
+        // 했다(e=130일 때 y=2600 지점 x=z≈84.55, ±100 안).
         private static readonly Vector3 Eye = new Vector3(130f, 2815f, -130f);
         private static readonly Vector3 Look = new Vector3(0f, 2200f, 0f);
 
@@ -27,6 +27,7 @@ namespace LOP.EditorTools
         {
             var go = new GameObject("__LookCam");
             Light tempSun = null;
+            Light previousSun = RenderSettings.sun;
             try
             {
                 var cam = go.AddComponent<Camera>();
@@ -74,7 +75,7 @@ namespace LOP.EditorTools
             {
                 if (tempSun != null)
                 {
-                    RenderSettings.sun = null;
+                    RenderSettings.sun = previousSun;   // 없애기가 아니라 원래 태양으로 되돌린다
                     Object.DestroyImmediate(tempSun.gameObject);
                 }
                 Object.DestroyImmediate(go);

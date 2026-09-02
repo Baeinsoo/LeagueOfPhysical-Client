@@ -127,4 +127,56 @@ public class SkydiveAtmosphereTests
 
         Assert.That(RenderSettings.skybox, Is.SameAs(afterFirst), "두 번째부터는 복사가 다시 일어나면 안 된다");
     }
+
+    // ── Finding 1 — 안개는 씬 파일이 아니라 이 드라이버가 켠다 ──
+
+    [Test]
+    public void Apply는_안개를_직접_켠다()
+    {
+        RenderSettings.fog = false;
+        var sut = new SkydiveAtmosphere(new FakeContext { entityId = null }, new EntityRegistry());
+
+        sut.Apply(1500f);
+
+        Assert.That(RenderSettings.fog, Is.True, "activeScene 설정에 기대지 않고 직접 켜야 한다");
+        Assert.That(RenderSettings.fogMode, Is.EqualTo(FogMode.ExponentialSquared));
+    }
+
+    // ── Finding 2 — 하늘 틴트도 값이 실제로 바뀌는지 읽어서 확인한다 ──
+
+    [Test]
+    public void Apply는_고도에_따라_하늘_틴트를_바꾼다()
+    {
+        RenderSettings.skybox = new Material(Shader.Find("Skybox/Procedural"));
+        var sut = new SkydiveAtmosphere(new FakeContext { entityId = null }, new EntityRegistry());
+
+        sut.Apply(3000f);
+        float tintAtTop = ((Material)RenderSettings.skybox).GetColor("_SkyTint").r;
+
+        sut.Apply(0f);
+        float tintAtBottom = ((Material)RenderSettings.skybox).GetColor("_SkyTint").r;
+
+        Assert.That(tintAtBottom, Is.GreaterThan(tintAtTop), "지면 쪽이 더 따뜻해야(붉은기 상승) 한다");
+        Assert.That(tintAtBottom, Is.LessThan(RenderSettings.fogColor.r),
+                    "하늘은 안개보다 덜 변한다(0.55배 보간)");
+    }
+
+    // ── Finding 3 — Dispose가 원래 값으로 되돌리고 복사본을 정리한다 ──
+
+    [Test]
+    public void Dispose는_안개와_스카이박스를_원래대로_되돌린다()
+    {
+        RenderSettings.fog = false;
+        RenderSettings.fogDensity = 0.02f;
+        var original = new Material(Shader.Find("Skybox/Procedural"));
+        RenderSettings.skybox = original;
+
+        var sut = new SkydiveAtmosphere(new FakeContext { entityId = null }, new EntityRegistry());
+        sut.Apply(1500f);
+
+        sut.Dispose();
+
+        Assert.That(RenderSettings.fogDensity, Is.EqualTo(0.02f).Within(1e-6f));
+        Assert.That(RenderSettings.skybox, Is.SameAs(original));
+    }
 }

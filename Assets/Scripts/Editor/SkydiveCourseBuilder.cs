@@ -36,6 +36,10 @@ namespace LOP.EditorTools
         private const float DiveMoveSpeed = 9f;
         private const float DiveTurnAccel = 6f;
 
+        // internal — TbSkydiveConfig와 값이 같은지 EditMode 테스트가 대조한다(SkydiveWindLagConsistencyTests).
+        internal const float SpreadWindLag = 2.06f;
+        internal const float DiveWindLag = 3.10f;
+
         // 스폰 고도. 첫 선반까지의 거리를 검사할 때 쓴다.
         // 젤다와 같은 종단속도(60)로 올리면서 코스도 3000m로 늘렸다 — 1000m는 17초면 끝난다.
         private const float SpawnY = 3000f;
@@ -46,6 +50,17 @@ namespace LOP.EditorTools
 
         // 선반 머티리얼. 없으면 유니티 기본 머티리얼로 굽되 경고를 낸다.
         private const string StoneMaterialPath = "Assets/Art/Materials/SkydiveStone.mat";
+
+        // 바람 시각물 머티리얼.
+        private const string WindMaterialPath = "Assets/Art/Materials/SkydiveWind.mat";
+
+        // 바람 막대 밀도 — 개수는 (반지름×높이)에 비례, 길이는 반지름에 비례해서 키운다.
+        // 반지름25×높이120(작은 기둥)에서 14개/14m로 나오게 골랐다 — 지금 밀도를 그대로 유지.
+        private const float BarCountDivisor = 250f;
+        private const int BarCountMin = 14;
+        private const int BarCountMax = 200;
+        private const float BarLengthMin = 14f;
+        private const float BarLengthRadiusFactor = 0.4f;
 
         private readonly struct Shelf
         {
@@ -75,6 +90,52 @@ namespace LOP.EditorTools
             new Shelf(200f, 0f, 25f, 16f),
         };
 
+        internal readonly struct WindSpec
+        {
+            public readonly string Name;
+            public readonly Vector3 Center;
+            public readonly float Radius;
+            public readonly float Height;
+            public readonly Vector3 Wind;
+
+            public WindSpec(string name, Vector3 center, float radius, float height, Vector3 wind)
+            {
+                Name = name;
+                Center = center;
+                Radius = radius;
+                Height = height;
+                Wind = wind;
+            }
+        }
+
+        // 반지름 150은 코스 폭(±100)을 다 덮는다 — 옆으로 피해 갈 수 있으면 그 구간이 아무것도
+        // 안 묻게 된다. 피할 수 있어야 하는 것은 기둥(반지름 25)뿐이다.
+        internal static readonly WindSpec[] Winds =
+        {
+            // 2600→2200 가르치기 ①: 짧은 순풍. 펴면 실려 가는데, 순풍이라 손해는 없다.
+            new WindSpec("Wind_2400_Tail", new Vector3(0f, 2400f, 0f), 150f, 40f, new Vector3(10f, 0f, 0f)),
+
+            // 2200→1800 가르치기 ②: 구멍(30,30) 위의 기둥. 펴면 위로 밀려 못 내려간다.
+            new WindSpec("Wind_1900_Updraft", new Vector3(30f, 1900f, 30f), 25f, 120f, new Vector3(0f, 14f, 0f)),
+
+            // 1800→1400: 역풍. 구멍은 −X 쪽인데 바람은 +X다. 구간 전체로 깔면 55m 이동에
+            //            68m 역풍이 더해져 아무도 못 지나가므로 높이를 150으로 잘라 둔다.
+            new WindSpec("Wind_1600_Head", new Vector3(0f, 1600f, 0f), 150f, 150f, new Vector3(10f, 0f, 0f)),
+
+            // 1400→1000 ★ 이 코스의 요점: 구간 전체를 덮는 강한 순풍. 타면 다이브로도 60m를 간다.
+            new WindSpec("Wind_1200_Strong", new Vector3(0f, 1200f, 0f), 150f, 400f, new Vector3(0f, 0f, -20f)),
+
+            // 1000→600: 길 좌우의 기둥 둘. 가운데 15m 통로만 천을 펴고 지날 수 있다.
+            new WindSpec("Wind_800_UpdraftL", new Vector3(-30f, 800f, -27f), 25f, 120f, new Vector3(0f, 14f, 0f)),
+            new WindSpec("Wind_800_UpdraftR", new Vector3(35f, 800f, -27f), 25f, 120f, new Vector3(0f, 14f, 0f)),
+
+            // 600→200: +Z 순풍이 50m 이동을 절반쯤 대신해 준다.
+            new WindSpec("Wind_400_Tail", new Vector3(0f, 400f, 0f), 150f, 250f, new Vector3(0f, 0f, 12f)),
+
+            // 마지막 구멍(0,25) 위의 기둥 — 착지를 패러세일로 때우지 못하게 한다.
+            new WindSpec("Wind_300_Updraft", new Vector3(0f, 300f, 25f), 25f, 120f, new Vector3(0f, 14f, 0f)),
+        };
+
         [MenuItem("LOP/Skydive/코스 굽기")]
         public static void Build()
         {
@@ -83,6 +144,14 @@ namespace LOP.EditorTools
             if (Verify(out string report) == false)
             {
                 Debug.LogError($"[Skydive] 코스를 굽지 않았다 — 통과 불가능하다.\n{report}");
+                return;
+            }
+
+            // 옛 코스를 지우기 전에 검사한다 — 여기서 걸리면 씬은 손대지 않은 그대로다.
+            string impassable = FindImpassableSection();
+            if (impassable != null)
+            {
+                Debug.LogError($"[Skydive] 굽지 않는다 — {impassable}. 씬은 바뀌지 않았다.");
                 return;
             }
 
@@ -130,6 +199,22 @@ namespace LOP.EditorTools
                                         new Vector3(0f, y + dy, 0f), 460f, cloud);
                     }
                 }
+            }
+
+            Material windMaterial = AssetDatabase.LoadAssetAtPath<Material>(WindMaterialPath);
+            if (windMaterial == null)
+            {
+                // 기본 머티리얼은 불투명이라 막대가 시야를 가린다. 마커는 그대로 굽고 막대만 생략한다.
+                Debug.LogWarning($"[Skydive] 바람 머티리얼이 없다 — {WindMaterialPath}. 막대 없이 마커만 굽는다.");
+            }
+
+            var winds = new GameObject("Winds");
+            winds.transform.SetParent(root.transform, worldPositionStays: false);
+            for (int i = 0; i < Winds.Length; i++)
+            {
+                var spec = Winds[i];
+                CreateWindVolume(winds.transform, spec.Name, spec.Center,
+                                 spec.Radius, spec.Height, spec.Wind, windMaterial);
             }
 
             EditorSceneManager.MarkSceneDirty(scene);
@@ -228,6 +313,144 @@ namespace LOP.EditorTools
                 quad.GetComponent<MeshRenderer>().sharedMaterial = material;
             }
             return quad;
+        }
+
+        internal static GameObject CreateWindVolume(Transform parent, string name, Vector3 center,
+                                                    float radius, float height, Vector3 wind,
+                                                    Material material)
+        {
+            var go = new GameObject(name);
+            if (parent != null)
+            {
+                go.transform.SetParent(parent, worldPositionStays: false);
+            }
+            go.transform.localPosition = center;
+
+            var marker = go.AddComponent<LOP.WindVolume>();
+            marker.Radius = radius;
+            marker.Height = height;
+            marker.Wind = wind;
+
+            if (material == null)
+            {
+                return go;
+            }
+
+            // 안 보이는 바람은 왜 밀렸는지 못 읽는 장치가 된다. 바람 방향으로 늘인 막대를
+            // 흩뿌려 방향이 눈에 보이게 한다 — 지나가며 스치는 것 자체가 속도감이기도 하다.
+            //
+            // 개수·길이를 부피에 맞춰 키운다 — 고정 개수(14)면 반지름150×높이400짜리 큰 볼륨은
+            // 막대 사이가 너무 벌어져 지나가도 하나도 안 스친다. 작은 기둥(반지름25×높이120)은
+            // 지금 밀도(14개, 길이14)를 그대로 유지한다.
+            int barCount = Mathf.Clamp(Mathf.RoundToInt(radius * height / BarCountDivisor), BarCountMin, BarCountMax);
+            float barLength = Mathf.Max(BarLengthMin, radius * BarLengthRadiusFactor);
+            const float BarThickness = 0.5f;
+            var rotation = wind.sqrMagnitude > 1e-6f
+                ? Quaternion.LookRotation(wind.normalized)
+                : Quaternion.identity;
+
+            for (int k = 0; k < barCount; k++)
+            {
+                // 황금각 나선 — 난수 없이 고르게 흩어진다. 다시 구워도 같은 자리에 나온다.
+                float t = (k + 0.5f) / barCount;
+                float angle = k * 2.39996f;
+                float r = radius * Mathf.Sqrt(t);
+
+                var bar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                bar.name = $"{name}_Bar{k}";
+                bar.transform.SetParent(go.transform, worldPositionStays: false);
+                bar.transform.localPosition = new Vector3(
+                    Mathf.Cos(angle) * r, (t - 0.5f) * height, Mathf.Sin(angle) * r);
+                bar.transform.localRotation = rotation;
+                bar.transform.localScale = new Vector3(BarThickness, BarThickness, barLength);
+
+                var collider = bar.GetComponent<Collider>();
+                if (collider != null)
+                {
+                    Object.DestroyImmediate(collider);
+                }
+                bar.GetComponent<MeshRenderer>().sharedMaterial = material;
+            }
+
+            return go;
+        }
+
+        /// <summary>
+        /// 바람 때문에 아무 자세로도 못 지나가는 구간이 있으면 그 설명을, 없으면 null을 준다.
+        /// 역풍은 밀린 거리와 필요 이동이 더해져 구간을 막을 수 있는데, 그러면 에러 없이
+        /// 판이 안 끝나는 것으로만 보인다. 표(<see cref="Winds"/>)를 굽기 전에 검사할 때 쓴다.
+        /// </summary>
+        internal static string FindImpassableSection() => FindImpassableSection(Winds);
+
+        /// <summary>
+        /// 위와 같지만 볼륨을 표 대신 <paramref name="winds"/>로 받는다. 볼륨은 씬에서 디자이너가
+        /// 손으로 만지므로, 구운 맵을 읽어 이 검사를 돌리려면 표가 아니라 데이터가 필요하다.
+        /// </summary>
+        internal static string FindImpassableSection(IReadOnlyList<WindSpec> winds)
+        {
+            for (int i = 1; i < Shelves.Length; i++)
+            {
+                float upperY = Shelves[i - 1].Y;
+                float lowerY = Shelves[i].Y;
+                float drop = upperY - lowerY;
+                float requiredX = Shelves[i].HoleX - Shelves[i - 1].HoleX;
+                float requiredZ = Shelves[i].HoleZ - Shelves[i - 1].HoleZ;
+                float holeHalf = Shelves[i].HoleHalf;
+
+                if (PosturePasses(winds, upperY, lowerY, drop, requiredX, requiredZ, holeHalf,
+                                  SpreadFallSpeed, SpreadMoveSpeed, SpreadTurnAccel, SpreadWindLag) ||
+                    PosturePasses(winds, upperY, lowerY, drop, requiredX, requiredZ, holeHalf,
+                                  DiveFallSpeed, DiveMoveSpeed, DiveTurnAccel, DiveWindLag))
+                {
+                    continue;
+                }
+
+                return $"{upperY:0} → {lowerY:0} 구간을 대자로도 다이브로도 못 지나간다. 바람 표를 고쳐라.";
+            }
+            return null;
+        }
+
+        private static bool PosturePasses(IReadOnlyList<WindSpec> winds,
+                                          float upperY, float lowerY, float drop,
+                                          float requiredX, float requiredZ, float holeHalf,
+                                          float fallSpeed, float moveSpeed, float turnAccel, float lag)
+        {
+            float driftX = 0f;
+            float driftZ = 0f;
+            for (int w = 0; w < winds.Count; w++)
+            {
+                var spec = winds[w];
+                float overlap = Overlap(upperY, lowerY, spec);
+                if (overlap <= 0f)
+                {
+                    continue;
+                }
+                float tailHeight = TailHeight(lowerY, spec);
+                // 세로 바람은 옆으로 안 민다 — 낙하 속도를 바꾸지만 그 영향은 작아 여기선 안 본다.
+                driftX += SkydiveWindReach.DriftDistance(spec.Wind.x, overlap, fallSpeed, lag, tailHeight);
+                driftZ += SkydiveWindReach.DriftDistance(spec.Wind.z, overlap, fallSpeed, lag, tailHeight);
+            }
+
+            // 구멍 반쪽만큼은 덤이다 — Verify()와 같은 셈(§7.4). 중심까지 안 가도 가장자리로
+            // 들어가면 통과다.
+            float reach = SkydiveWindReach.SelfReach(moveSpeed, turnAccel, drop, fallSpeed) + holeHalf;
+            return SkydiveWindReach.CanReach(requiredX, requiredZ, driftX, driftZ, reach);
+        }
+
+        // 볼륨이 이 구간과 겹치는 세로 길이.
+        private static float Overlap(float upperY, float lowerY, in WindSpec spec)
+        {
+            float top = Mathf.Min(upperY, spec.Center.y + spec.Height * 0.5f);
+            float bottom = Mathf.Max(lowerY, spec.Center.y - spec.Height * 0.5f);
+            return Mathf.Max(0f, top - bottom);
+        }
+
+        // 밴드 바닥에서 구간 바닥까지 — 볼륨을 벗어난 뒤 바람이 빠지는 동안 밀 수 있는 여유.
+        // 다음 구간으로 넘어가는 몫은 Overlap과 같은 방식으로 이 구간 경계에서 잘린다.
+        private static float TailHeight(float lowerY, in WindSpec spec)
+        {
+            float bandBottom = Mathf.Max(lowerY, spec.Center.y - spec.Height * 0.5f);
+            return bandBottom - lowerY;
         }
 
         /// <summary>구멍과 구멍 사이가 실제로 닿는 거리인지 검사한다(스펙 §7.4).</summary>

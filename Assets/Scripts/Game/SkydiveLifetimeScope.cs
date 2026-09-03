@@ -21,11 +21,16 @@ namespace LOP
 
             builder.Register<SkydiveMoveSystem>(Lifetime.Singleton);
             builder.Register<StaminaSystem>(Lifetime.Singleton);
+            // 맵 씬의 WindVolume 마커가 맵 로드 시 여기에 자기를 넣는다.
+            builder.Register<WindField>(Lifetime.Singleton);
+            builder.Register<WindDriftSystem>(Lifetime.Singleton);
             builder.Register<SkydiveWorld>(c => new SkydiveWorld(
                 c.Resolve<GameFramework.World.EntityRegistry>(),
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
                 c.Resolve<SkydiveMoveSystem>(),
                 c.Resolve<StaminaSystem>(),
+                c.Resolve<WindDriftSystem>(),
+                c.Resolve<WindField>(),
                 c.Resolve<SkydiveConfig>(),
                 c.Resolve<GameFramework.Physics.ICollisionQuery>(),
                 // sweep이 볼 것은 맵 지오메트리뿐이다. 몸의 물리 콜라이더는 Character 레이어에

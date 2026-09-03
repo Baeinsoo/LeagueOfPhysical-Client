@@ -174,10 +174,14 @@ namespace LOP
         /// </summary>
         private void TryDash(GameFramework.World.Entity entity, Vector3 position)
         {
+            // 이 스위치는 에디터에만 있다(EditorPrefs). 가드를 빼면 에디터에서는 멀쩡한데
+            // 플레이어 빌드에서 UnityEditor를 못 찾아 어드레서블 콘텐츠 빌드가 통째로 깨진다.
+#if UNITY_EDITOR
             if (UnityEditor.EditorPrefs.GetBool(DashEditorPrefsKey, true) == false)
             {
                 return;
             }
+#endif
 
             if ((entity.Get<FlappyDash>()?.Charge ?? 0f) < 1f)
             {

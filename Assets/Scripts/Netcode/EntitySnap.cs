@@ -14,6 +14,8 @@ namespace LOP
         public bool grounded { get; set; }
         public long stunEndTick { get; set; }     // Flappy: 멈춤이 풀리는 절대 틱. 0 = 안 멈춤
         public long invulnEndTick { get; set; }   // Flappy: 다시 안 걸리는 구간이 끝나는 절대 틱
+        public long dashEndTick { get; set; }     // Flappy: 대시가 끝나는 절대 틱. 0 = 대시 중 아님
+        public float dashCharge { get; set; }     // Flappy: 대시 게이지 0~1. 발동 자격의 권위다
         public float postureAxis { get; set; }    // Skydive: 0 = 대자, 1 = 다이브
         public bool gliding { get; set; }         // Skydive: 패러세일을 폈나
         public float stamina { get; set; }        // Skydive: 남은 활공 자원

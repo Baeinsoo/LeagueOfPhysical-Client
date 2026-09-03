@@ -45,6 +45,12 @@ namespace LOP
         //  같은 판을 두 번 돌려도 달라져, 이 도구의 존재 이유인 "같은 장면 반복"이 무너진다.
         private const float FlapCooldownSeconds = 0.12f;
 
+        //  대시로 나아가는 거리(전진 2배 × 0.2초). 이만큼 앞이 뚫려 있을 때만 지른다 —
+        //  대시 중엔 날갯짓이 안 먹어 궤도를 못 고치므로, 막힌 데로 지르면 그대로 박는다.
+        private const float DashReachSeconds = 0.2f;
+        //  대시 경로를 훑는 간격. 몸 지름보다 촘촘해야 사이로 빠지는 기둥을 놓치지 않는다.
+        private const float DashProbeStep = 0.4f;
+
         private readonly IRunner runner;
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
@@ -139,6 +145,8 @@ namespace LOP
                 return;   // 앞이 온통 막혔다 — 날갯짓해도 소용없으니 그냥 둔다
             }
 
+            TryDash(entity, position);
+
             //  몸 반지름만큼은 가장자리에서 떨어져 지나간다.
             if (FlappyGapAiming.ShouldFlap(position.y, velocity.y, low, high, ticksToGap, deltaTime,
                                            config.Gravity, config.MaxFallSpeed, config.FlapImpulse,
@@ -155,6 +163,30 @@ namespace LOP
             lastFlapTick = tick;
             playerInputManager.SetJump(true);
 #endif
+        }
+
+        /// <summary>
+        /// 게이지가 가득이고 대시 거리만큼 앞이 뚫려 있으면 지른다. 아끼지 않는 이유는 게이지가
+        /// 다시 차기 때문이다 — 쓸 수 있을 때 쓰는 것이 곧 최선이고, 사람도 그렇게 친다.
+        /// </summary>
+        private void TryDash(GameFramework.World.Entity entity, Vector3 position)
+        {
+            if ((entity.Get<FlappyDash>()?.Charge ?? 0f) < 1f)
+            {
+                return;
+            }
+
+            float reach = config.ForwardSpeed * config.DashMult * DashReachSeconds;
+            for (float ahead = DashProbeStep; ahead <= reach; ahead += DashProbeStep)
+            {
+                var probe = new Vector3(position.x + ahead, position.y, position.z);
+                if (Physics.CheckSphere(probe, config.BodyRadius, mapLayerMask, QueryTriggerInteraction.Ignore))
+                {
+                    return;   // 대시 경로가 막혔다 — 지르면 2배 속도로 박는다
+                }
+            }
+
+            playerInputManager.SetDash(true);
         }
     }
 }

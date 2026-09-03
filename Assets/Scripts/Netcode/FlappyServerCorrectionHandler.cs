@@ -28,7 +28,8 @@ namespace LOP
                 return true;
             }
             return StunMatches(predicted.StunRemaining, predicted.InvulnRemaining,
-                               snap.stunEndTick, snap.invulnEndTick, tick);
+                               snap.stunEndTick, snap.invulnEndTick, tick)
+                && DashMatches(predicted.DashRemaining, snap.dashEndTick, tick);
         }
 
         /// <summary>켜짐/꺼짐만 본다. 남은 시간의 미세한 차이는 다음 틱 시뮬이 알아서 좁힌다.</summary>
@@ -39,22 +40,41 @@ namespace LOP
                 && (predictedInvuln > 0f) == (snapInvulnEnd > tick);
         }
 
+        /// <summary>
+        /// 대시가 켜져 있나만 본다. 남은 시간의 미세한 차이는 다음 틱 시뮬이 좁히므로,
+        /// 그것까지 비교하면 리드 구간 내내 불필요한 되돌리기가 난다(스턴과 같은 관례).
+        /// </summary>
+        public static bool DashMatches(float predictedDashRemaining, long snapDashEndTick, long tick)
+        {
+            return (predictedDashRemaining > 0f) == (snapDashEndTick > tick);
+        }
+
         public void ApplyAuthoritative(GameFramework.World.Entity entity, EntitySnap snap, float deltaTime)
         {
+            //  스턴과 대시를 따로 확인한다 — 한쪽만 달린 엔티티가 있어도 나머지는 되돌아간다.
+            //  (예전엔 스턴이 없으면 여기서 바로 나갔다.)
             var stun = entity.Get<FlappyStun>();
-            if (stun == null)
+            if (stun != null)
             {
-                return;
+                //  끝나는 틱에서 남은 시간을 되계산한다. 불리언이었다면 여기서 전체 시간을 새로 채울
+                //  수밖에 없어, 서버가 이미 절반쯤 지난 스턴을 처음부터 다시 시작하게 만든다.
+                //  snap.tick을 기준 시점으로 쓴다 — 한 배치의 스냅은 전부 같은 틱이라고 Reconciler가
+                //  보장해 주므로(위 Matches의 tick과 같은 값), 여기서 따로 받지 않아도 된다.
+                //  틱 간격은 되감기를 구동하는 쪽이 넘겨 준다(러너에서 직접 꺼내면 DI에 고리가 생긴다).
+                //  변환은 FlappyTickDuration 한 곳에만 있다. 여기에 따로 두면 시뮬이 끝으로 보는
+                //  기준과 와이어가 세는 기준이 갈려, 클라의 새만 한 틱 더 얼어 있게 된다(실측).
+                stun.StunRemaining = FlappyTickDuration.RemainingSeconds(snap.stunEndTick, snap.tick, deltaTime);
+                stun.InvulnRemaining = FlappyTickDuration.RemainingSeconds(snap.invulnEndTick, snap.tick, deltaTime);
             }
-            //  끝나는 틱에서 남은 시간을 되계산한다. 불리언이었다면 여기서 전체 시간을 새로 채울
-            //  수밖에 없어, 서버가 이미 절반쯤 지난 스턴을 처음부터 다시 시작하게 만든다.
-            //  snap.tick을 기준 시점으로 쓴다 — 한 배치의 스냅은 전부 같은 틱이라고 Reconciler가
-            //  보장해 주므로(위 Matches의 tick과 같은 값), 여기서 따로 받지 않아도 된다.
-            //  틱 간격은 되감기를 구동하는 쪽이 넘겨 준다(러너에서 직접 꺼내면 DI에 고리가 생긴다).
-            //  변환은 FlappyTickDuration 한 곳에만 있다. 여기에 따로 두면 시뮬이 끝으로 보는
-            //  기준과 와이어가 세는 기준이 갈려, 클라의 새만 한 틱 더 얼어 있게 된다(실측).
-            stun.StunRemaining = FlappyTickDuration.RemainingSeconds(snap.stunEndTick, snap.tick, deltaTime);
-            stun.InvulnRemaining = FlappyTickDuration.RemainingSeconds(snap.invulnEndTick, snap.tick, deltaTime);
+
+            //  게이지도 서버 것으로 덮는다 — 이것이 자격의 권위다. 클라만 가득 찼다고 믿으면
+            //  눌러도 안 나가는 상태가 되는데, 그 원인이 화면에 전혀 안 보인다.
+            var dash = entity.Get<FlappyDash>();
+            if (dash != null)
+            {
+                dash.DashRemaining = FlappyTickDuration.RemainingSeconds(snap.dashEndTick, snap.tick, deltaTime);
+                dash.Charge = snap.dashCharge;
+            }
         }
     }
 }

@@ -72,7 +72,9 @@ namespace LOP
             {
                 return 0f;   // 아직 출발 정보가 없다 — 벽은 시작점에 서 있는다
             }
-            return (float)((renderClock.TickFor(watchedEntityId) - world.GameplayStartTick) * secondsPerTick);
+            //  틱이 아니라 연속 시각으로 묻는다. 틱으로 자르면 벽이 0.02초 단위로만 움직여
+            //  0.2m씩 점프하고, 60fps 화면에서는 여섯 프레임 중 하나가 제자리에 선다.
+            return (float)(renderClock.TimeFor(watchedEntityId) - world.GameplayStartTick * secondsPerTick);
         }
 
         private void EnsureWall()

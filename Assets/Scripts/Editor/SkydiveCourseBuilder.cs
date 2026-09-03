@@ -138,6 +138,14 @@ namespace LOP.EditorTools
                 return;
             }
 
+            // 옛 코스를 지우기 전에 검사한다 — 여기서 걸리면 씬은 손대지 않은 그대로다.
+            string impassable = FindImpassableSection();
+            if (impassable != null)
+            {
+                Debug.LogError($"[Skydive] 굽지 않는다 — {impassable}. 씬은 바뀌지 않았다.");
+                return;
+            }
+
             var scene = EditorSceneManager.GetActiveScene();
             Material material = AssetDatabase.LoadAssetAtPath<Material>(StoneMaterialPath);
             if (material == null)
@@ -151,13 +159,6 @@ namespace LOP.EditorTools
                 Object.DestroyImmediate(root);   // 다시 구울 때 옛 코스가 겹쳐 남지 않게
             }
             root = new GameObject(CourseRootName);
-
-            string impassable = FindImpassableSection();
-            if (impassable != null)
-            {
-                Debug.LogError($"[Skydive] 굽지 않는다 — {impassable}");
-                return;
-            }
 
             for (int i = 0; i < Shelves.Length; i++)
             {

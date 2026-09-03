@@ -13,9 +13,11 @@ namespace LOP.UI
         private readonly PlayerInputManager _playerInputManager;
         private readonly IPlayerContext _playerContext;
         private readonly GameFramework.World.EntityRegistry _entityRegistry;
+        private readonly FlappyChaserView _chaserView;
 
         private readonly ReactiveProperty<float> _dashCharge = new ReactiveProperty<float>(0f);
         private readonly ReactiveProperty<bool> _canDash = new ReactiveProperty<bool>(false);
+        private readonly ReactiveProperty<float> _chaserGap = new ReactiveProperty<float>(0f);
 
         /// <summary>대시 게이지 0~1. 버튼이 이만큼 차오른다.</summary>
         public ReadOnlyReactiveProperty<float> DashCharge => _dashCharge;
@@ -23,13 +25,19 @@ namespace LOP.UI
         /// <summary>지금 대시를 쓸 수 있나. 버튼의 밝기와 반응이 이 값을 따른다.</summary>
         public ReadOnlyReactiveProperty<bool> CanDash => _canDash;
 
+        /// <summary>추격자까지 남은 거리(m). 벽을 그리는 쪽과 <b>같은 값</b>을 읽는다 —
+        /// 각자 계산하면 숫자와 화면 속 벽이 어긋난다.</summary>
+        public ReadOnlyReactiveProperty<float> ChaserGap => _chaserGap;
+
         public FlapPadViewModel(PlayerInputManager playerInputManager,
                                 IPlayerContext playerContext,
-                                GameFramework.World.EntityRegistry entityRegistry)
+                                GameFramework.World.EntityRegistry entityRegistry,
+                                FlappyChaserView chaserView)
         {
             _playerInputManager = playerInputManager;
             _playerContext = playerContext;
             _entityRegistry = entityRegistry;
+            _chaserView = chaserView;
         }
 
         /// <summary>날갯짓. 와이어에는 기존 Jump 입력으로 실린다 — 서버 입력 버퍼는 그대로 쓴다.</summary>
@@ -58,6 +66,10 @@ namespace LOP.UI
             float charge = entity?.Get<FlappyDash>()?.Charge ?? 0f;
             _dashCharge.Value = charge;
             _canDash.Value = charge >= 1f;
+
+            _chaserGap.Value = entity == null
+                ? 0f
+                : (entity.Get<GameFramework.World.Transform>()?.Position.X ?? 0f) - _chaserView.X;
         }
 
         /// <summary>데스크톱 편의: Space는 날갯짓, Shift/D는 대시. View가 매 프레임 부른다.</summary>

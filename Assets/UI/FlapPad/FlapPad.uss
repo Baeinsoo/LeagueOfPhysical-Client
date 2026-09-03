@@ -66,3 +66,12 @@
 .dash-button--ready .dash-label {
     color: rgb(255, 255, 255);
 }
+
+/* 추격자까지 남은 거리 — 곡선을 튜닝하려면 이 숫자를 봐야 한다 */
+.chaser-gap {
+    position: absolute;
+    left: 32px;
+    top: 32px;
+    font-size: 30px;
+    color: rgba(255, 255, 255, 0.7);
+}

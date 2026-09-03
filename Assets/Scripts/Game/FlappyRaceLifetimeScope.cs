@@ -72,11 +72,16 @@ namespace LOP
             builder.RegisterEntryPoint<FlappyAutoFlapSystem>();
 #endif
 
+            //  AsSelf로도 등록한다 — FlapPad가 "추격자까지 몇 m"를 그리려면 벽 위치를 읽어야 하고,
+            //  같은 값을 읽어야 숫자와 그림이 어긋나지 않는다.
+            builder.RegisterEntryPoint<FlappyChaserView>().AsSelf();
+
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             builder.Register<FlapPadViewModel>(Lifetime.Transient);
             builder.Register<FlapPadView>(Lifetime.Transient);
             builder.Register<RaceStartViewModel>(Lifetime.Transient);
             builder.Register<RaceStartView>(Lifetime.Transient);
+            builder.Register<RaceEliminatedView>(Lifetime.Transient);
         }
 
         protected override void RegisterViewFactories(
@@ -84,6 +89,7 @@ namespace LOP
         {
             sink.Add(windowManager.RegisterViewFactory<FlapPadView>(() => container.Resolve<FlapPadView>()));
             sink.Add(windowManager.RegisterViewFactory<RaceStartView>(() => container.Resolve<RaceStartView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceEliminatedView>(() => container.Resolve<RaceEliminatedView>()));
         }
     }
 }

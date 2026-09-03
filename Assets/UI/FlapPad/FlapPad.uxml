@@ -2,6 +2,7 @@
     <Style src="FlapPad.uss" />
     <ui:VisualElement name="flap-root" class="flap-root" picking-mode="Ignore">
         <ui:VisualElement name="flap-surface" class="flap-surface" />
+        <ui:Label name="chaser-gap" class="chaser-gap" text="" picking-mode="Ignore" />
         <ui:VisualElement name="dash-button" class="dash-button">
             <ui:VisualElement name="dash-fill" class="dash-fill" picking-mode="Ignore" />
             <ui:Label name="dash-label" class="dash-label" text="대시" picking-mode="Ignore" />

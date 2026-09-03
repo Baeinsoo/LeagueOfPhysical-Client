@@ -33,7 +33,7 @@ namespace LOP.Tests
             diver = Diver("diver-1");
             registry.Add(diver);
             world = new SkydiveWorld(registry, new GameFramework.World.WorldEventBuffer(),
-                new SkydiveMoveSystem(), new StaminaSystem(), Config(),
+                new SkydiveMoveSystem(), new StaminaSystem(), new WindDriftSystem(), new WindField(), Config(),
                 new EmptySky(), layerMask: ~0);
             world.GameplayStartTick = 0;   // 출발 게이트는 이 파일의 관심사가 아니다
             return new SkydiveServerCorrectionHandler(world);
@@ -61,6 +61,7 @@ namespace LOP.Tests
             entity.Add(new MotionState());
             entity.Add(new Stamina { Current = 100f });
             entity.Add(new InputBuffer());
+            entity.Add(new WindDrift());
             entity.Add(new GameFramework.World.Simulated());   // 이게 있어야 SaveState가 이 다이버를 담는다
             return entity;
         }

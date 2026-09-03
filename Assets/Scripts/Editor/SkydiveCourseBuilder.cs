@@ -40,6 +40,13 @@ namespace LOP.EditorTools
         // 젤다와 같은 종단속도(60)로 올리면서 코스도 3000m로 늘렸다 — 1000m는 17초면 끝난다.
         private const float SpawnY = 3000f;
 
+        // 구름 층 머티리얼. 없으면 기본 불투명 머티리얼로 51장이 통째로 시야를 막아버리므로
+        // 구름 자체를 굽지 않는다(경고만 낸다).
+        private const string CloudMaterialPath = "Assets/Art/Materials/SkydiveCloud.mat";
+
+        // 선반 머티리얼. 없으면 유니티 기본 머티리얼로 굽되 경고를 낸다.
+        private const string StoneMaterialPath = "Assets/Art/Materials/SkydiveStone.mat";
+
         private readonly struct Shelf
         {
             public readonly float Y;
@@ -80,7 +87,11 @@ namespace LOP.EditorTools
             }
 
             var scene = EditorSceneManager.GetActiveScene();
-            Material material = AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Scenes/floor.mat");
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(StoneMaterialPath);
+            if (material == null)
+            {
+                Debug.LogWarning($"[Skydive] 선반 머티리얼이 없다 — {StoneMaterialPath}. 기본색으로 굽는다.");
+            }
 
             GameObject root = GameObject.Find(CourseRootName);
             if (root != null)
@@ -94,6 +105,31 @@ namespace LOP.EditorTools
                 BuildShelf(root.transform, Shelves[i], material);
                 float upperY = i == 0 ? SpawnY : Shelves[i - 1].Y;
                 BuildPillars(root.transform, Shelves[i].Y, upperY, material);
+            }
+
+            Material cloud = AssetDatabase.LoadAssetAtPath<Material>(CloudMaterialPath);
+            if (cloud == null)
+            {
+                // 기본 머티리얼은 불투명이라, 그대로 구우면 460m짜리 판 51장이 시야를 통째로
+                // 가려버린다("판만 굽는다"가 아니라 완전 블랙아웃) — 아예 굽지 않는다.
+                Debug.LogWarning($"[Skydive] 구름 머티리얼이 없다 — {CloudMaterialPath}. 구름을 굽지 않는다.");
+            }
+            else
+            {
+                var clouds = new GameObject("Clouds");
+                clouds.transform.SetParent(root.transform, worldPositionStays: false);
+                for (int i = 0; i < SkydiveCloudLayers.Altitudes.Length; i++)
+                {
+                    float y = SkydiveCloudLayers.Altitudes[i];
+
+                    // 한 층을 판 세 장으로 겹쳐 놓는다 — 한 장이면 옆에서 볼 때 종잇장이라 층이 안 된다.
+                    for (int k = 0; k < 3; k++)
+                    {
+                        float dy = (k - 1) * SkydiveCloudLayers.HalfThickness * 0.6f;
+                        CreateCloudQuad(clouds.transform, $"Cloud_{y:0}_{k}",
+                                        new Vector3(0f, y + dy, 0f), 460f, cloud);
+                    }
+                }
             }
 
             EditorSceneManager.MarkSceneDirty(scene);
@@ -164,6 +200,34 @@ namespace LOP.EditorTools
             {
                 box.GetComponent<MeshRenderer>().sharedMaterial = material;
             }
+        }
+
+        // 구름 판. 콜라이더를 반드시 지운다 — 남으면 키네마틱 이동이 벽으로 보고
+        // 그 위에 착지한다.
+        internal static GameObject CreateCloudQuad(Transform parent, string name,
+                                                   Vector3 center, float size, Material material)
+        {
+            var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            quad.name = name;
+            if (parent != null)
+            {
+                quad.transform.SetParent(parent, worldPositionStays: false);
+            }
+            quad.transform.localPosition = center;
+            quad.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);   // 수평으로 눕힌다
+            quad.transform.localScale = new Vector3(size, size, 1f);
+
+            var collider = quad.GetComponent<Collider>();
+            if (collider != null)
+            {
+                Object.DestroyImmediate(collider);
+            }
+
+            if (material != null)
+            {
+                quad.GetComponent<MeshRenderer>().sharedMaterial = material;
+            }
+            return quad;
         }
 
         /// <summary>구멍과 구멍 사이가 실제로 닿는 거리인지 검사한다(스펙 §7.4).</summary>

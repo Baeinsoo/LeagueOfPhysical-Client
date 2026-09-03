@@ -142,8 +142,28 @@ jobs:
           UNITY="/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity"
           if ! "$UNITY" -batchmode -quit -nographics -buildTarget ${{ matrix.target }} -projectPath . \
                 -executeMethod BuildScript.BuildContentFull -logFile - > unity-content-${{ matrix.target }}.log 2>&1; then
-            echo "::error::${{ matrix.target }} content build failed"; tail -80 unity-content-${{ matrix.target }}.log; exit 1
+            echo "::error::${{ matrix.target }} content build failed"
+            # tail만 찍으면 유니티가 요약을 마지막에 쓰기 때문에 *원인* 줄이 잘려 나간다.
+            # 실제 에러(SBP 실패 사유 등)는 로그 중간에 있으므로 따로 골라 찍고, 전문은 아티팩트로 올린다.
+            # (게임서버 워크플로가 같은 이유로 이미 이 모양이다.)
+            echo "::group::error/exception lines"
+            grep -inE "error CS[0-9]+|BuildFailedException|SBP Error|^Error|Exception:|Failed to|not found|missing|Addressable"                  unity-content-${{ matrix.target }}.log | tail -80 || echo "(매칭 없음)"
+            echo "::endgroup::"
+            echo "::group::last 120 lines"
+            tail -120 unity-content-${{ matrix.target }}.log
+            echo "::endgroup::"
+            exit 1
           fi
+
+      # 성공/실패 무관하게 올린다 — 성공한 빌드의 로그도 다음 실패와 비교할 기준선이 된다.
+      - name: 콘텐츠 빌드 로그 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: content-build-log-${{ matrix.target }}
+          path: unity-content-${{ matrix.target }}.log
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: 산출물 확인
         run: |

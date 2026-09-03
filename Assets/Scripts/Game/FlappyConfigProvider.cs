@@ -30,7 +30,11 @@ namespace LOP
                 dashMult: r.DashMult,
                 dashDuration: r.DashDuration,
                 dashChargeBase: r.DashChargeBase,
-                dashChargeDive: r.DashChargeDive);
+                dashChargeDive: r.DashChargeDive,
+                chaserStartX: r.ChaserStartX,
+                chaserInitialSpeed: r.ChaserInitialSpeed,
+                chaserAcceleration: r.ChaserAcceleration,
+                chaserMaxSpeed: r.ChaserMaxSpeed);
         }
     }
 }

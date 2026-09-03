@@ -6,6 +6,43 @@ namespace LOP.Tests
     public class FlappyServerCorrectionHandlerTests
     {
         [Test]
+        public void 예측은_대시_중인데_서버는_아니면_틀리다()
+        {
+            Assert.IsFalse(FlappyServerCorrectionHandler.DashMatches(
+                predictedDashRemaining: 0.1f, snapDashEndTick: 0, tick: 1000));
+        }
+
+        [Test]
+        public void 서버는_대시_중인데_예측은_아니면_틀리다()
+        {
+            Assert.IsFalse(FlappyServerCorrectionHandler.DashMatches(
+                predictedDashRemaining: 0f, snapDashEndTick: 1008, tick: 1000));
+        }
+
+        [Test]
+        public void 둘_다_대시_중이면_남은_시간이_달라도_맞는다()
+        {
+            //  켜짐꺼짐만 본다 — 남은 시간의 미세한 차이는 다음 틱 시뮬이 좁힌다(스턴과 같은 관례).
+            Assert.IsTrue(FlappyServerCorrectionHandler.DashMatches(
+                predictedDashRemaining: 0.02f, snapDashEndTick: 1008, tick: 1000));
+        }
+
+        [Test]
+        public void 둘_다_대시가_아니면_맞는다()
+        {
+            Assert.IsTrue(FlappyServerCorrectionHandler.DashMatches(
+                predictedDashRemaining: 0f, snapDashEndTick: 0, tick: 1000));
+        }
+
+        [Test]
+        public void 이미_지난_끝틱은_대시가_아닌_것으로_본다()
+        {
+            //  스냅이 늦게 도착하면 끝틱이 이미 지나 있다 — 그때는 대시가 끝난 것이다.
+            Assert.IsTrue(FlappyServerCorrectionHandler.DashMatches(
+                predictedDashRemaining: 0f, snapDashEndTick: 990, tick: 1000));
+        }
+
+        [Test]
         public void 둘_다_안_멈췄으면_맞는다()
         {
             Assert.IsTrue(FlappyServerCorrectionHandler.StunMatches(

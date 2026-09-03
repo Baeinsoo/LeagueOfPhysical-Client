@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using LOP;
 using LOP.EditorTools;
 using NUnit.Framework;
@@ -82,5 +83,51 @@ public class SkydiveWindBuildTests
         string failure = SkydiveCourseBuilder.FindImpassableSection();
 
         Assert.IsNull(failure, failure);
+    }
+
+    // 볼륨은 씬에서 디자이너가 손으로 만진다 — 표(SkydiveCourseBuilder.Winds)만 검사하면 씬을
+    // 고친 것은 아무 검사도 안 거치고 통과한다. 구운 맵을 그대로 읽어서 검사한다.
+    [Test]
+    public void 구운_맵의_바람으로도_모든_구간을_지날_수_있다()
+    {
+        Scene scene = EditorSceneManager.OpenScene(SkydiveMapPath, OpenSceneMode.Additive);
+        try
+        {
+            var winds = new List<SkydiveCourseBuilder.WindSpec>();
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                foreach (WindVolume marker in root.GetComponentsInChildren<WindVolume>(true))
+                {
+                    winds.Add(new SkydiveCourseBuilder.WindSpec(
+                        marker.name, marker.transform.position, marker.Radius, marker.Height, marker.Wind));
+                }
+            }
+
+            string failure = SkydiveCourseBuilder.FindImpassableSection(winds);
+
+            Assert.IsNull(failure, failure);
+        }
+        finally
+        {
+            EditorSceneManager.CloseScene(scene, removeScene: true);
+        }
+    }
+
+    // 위 두 테스트는 통과하는 배치만 본다 — 진짜로 막는 배치를 던져도 걸리는지는 아무것도
+    // 검증하지 않았다. 구간 전체를 덮는 강한 역풍 하나로 확인한다.
+    [Test]
+    public void 구간_전체를_덮는_강한_역풍은_걸린다()
+    {
+        var winds = new[]
+        {
+            new SkydiveCourseBuilder.WindSpec(
+                "Test_Block", new Vector3(0f, 2400f, 0f), 150f, 400f, new Vector3(-40f, 0f, 0f)),
+        };
+
+        string failure = SkydiveCourseBuilder.FindImpassableSection(winds);
+
+        Assert.IsNotNull(failure);
+        StringAssert.Contains("2600", failure);
+        StringAssert.Contains("2200", failure);
     }
 }

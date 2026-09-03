@@ -23,6 +23,9 @@ namespace LOP
     {
         public const string EditorPrefsKey = "LOP.Debug.AutoFlap";
 
+        //  [진단용 임시] 대시를 켜고 끈 채로 같은 조건을 재 보려고 둔 스위치. 기본은 켜짐.
+        public const string DashEditorPrefsKey = "LOP.Debug.AutoDash";
+
         //  앞을 보는 시간. 거리가 아니라 시간으로 잡는다 — 날갯짓은 정점까지 0.32초가 걸리므로,
         //  그보다 가까운 것만 보면 보고 나서 쳐도 이미 늦는다(1.5m=0.14초로 보다가 계속 박았다).
         //  여러 지점을 보고 그 틈들이 겹치는 구간을 목표로 삼는다 — 앞이 뚫렸어도 그다음이 막혔으면
@@ -171,6 +174,11 @@ namespace LOP
         /// </summary>
         private void TryDash(GameFramework.World.Entity entity, Vector3 position)
         {
+            if (UnityEditor.EditorPrefs.GetBool(DashEditorPrefsKey, true) == false)
+            {
+                return;
+            }
+
             if ((entity.Get<FlappyDash>()?.Charge ?? 0f) < 1f)
             {
                 return;

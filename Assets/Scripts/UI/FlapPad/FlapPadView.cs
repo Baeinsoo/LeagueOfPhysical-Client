@@ -49,6 +49,11 @@ namespace LOP.UI
                 .Subscribe(ready => dashButton.EnableInClassList(ReadyClass, ready))
                 .AddTo(_subscriptions);
 
+            var chaserGap = Root.Q<Label>("chaser-gap");
+            _viewModel.ChaserGap
+                .Subscribe(gap => chaserGap.text = $"추격자 {gap:F0}m")
+                .AddTo(_subscriptions);
+
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.
             _tick = Root.schedule.Execute(_ =>
             {

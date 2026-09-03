@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="race-eliminated-root" class="race-eliminated-root" picking-mode="Ignore">
+        <ui:Label name="race-eliminated-title" class="race-eliminated-title" text="탈락" picking-mode="Ignore" />
+        <ui:Label name="race-eliminated-note" class="race-eliminated-note" text="남은 주자를 지켜봅니다" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

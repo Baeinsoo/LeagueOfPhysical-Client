@@ -1,0 +1,19 @@
+/* 아래 화면을 가리지 않는다 — 관전 중이라 월드가 계속 보여야 한다 */
+.race-eliminated-root {
+    flex-grow: 1;
+    justify-content: flex-start;
+    align-items: center;
+    padding-top: 80px;
+}
+
+.race-eliminated-title {
+    font-size: 72px;
+    color: rgb(255, 92, 92);
+    -unity-text-align: middle-center;
+}
+
+.race-eliminated-note {
+    font-size: 26px;
+    color: rgba(255, 255, 255, 0.6);
+    -unity-text-align: middle-center;
+}

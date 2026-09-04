@@ -626,7 +626,10 @@ namespace LOP.EditorTools
             for (int i = 0; i < Shelves.Length; i++)
             {
                 Shelf shelf = Shelves[i];
-                if (GateEverOpens(shelf, lasers) == false)
+                // 이 구멍으로 내려오는 길목 — 바로 위 선반(맨 위는 스폰)부터 이 선반까지.
+                // Build()가 기둥을 세울 때 쓰는 것과 같은 관계다(위→아래로 적힌 Shelves 순서에 의존).
+                float upperY = i == 0 ? LOP.SkydiveCourseLayout.SpawnY : Shelves[i - 1].Y;
+                if (GateEverOpens(shelf, upperY, lasers) == false)
                 {
                     return $"선반 {shelf.Y:0}의 구멍이 한 번도 열리지 않는다";
                 }
@@ -634,11 +637,18 @@ namespace LOP.EditorTools
             return null;
         }
 
-        private static bool GateEverOpens(in Shelf shelf, IReadOnlyList<LaserSpec> lasers)
+        private static bool GateEverOpens(in Shelf shelf, float upperY, IReadOnlyList<LaserSpec> lasers)
         {
             var beams = new List<LOP.Laser>();
             for (int i = 0; i < lasers.Count; i++)
             {
+                // 이 구간(선반~바로 위 선반) 안에 피벗이 있는 레이저만 이 구멍의 문지기다 —
+                // 다른 구간의 빔은 여기까지 닿지 않으니 막는지 안 막는지와 무관하다.
+                float pivotY = lasers[i].Pivot.y;
+                if (pivotY <= shelf.Y || pivotY > upperY)
+                {
+                    continue;
+                }
                 beams.Add(lasers[i].ToLaser());
             }
 
@@ -674,7 +684,12 @@ namespace LOP.EditorTools
                             continue;
                         }
                         LOP.LaserGeometry.SegmentAt(beam, tick, out var a, out var bb);
-                        float d = LOP.LaserSweep.SegmentDistance(point, point, a, bb);
+                        //  빔은 수평이고 낙하는 수직이라, 구멍의 기둥이 막혔는지는 XZ 평면에서
+                        //  정해진다. Y를 지우고 재면 3D 루틴을 그대로 다시 쓸 수 있다.
+                        var flatPoint = new System.Numerics.Vector3(point.X, 0f, point.Z);
+                        var flatA = new System.Numerics.Vector3(a.X, 0f, a.Z);
+                        var flatB = new System.Numerics.Vector3(bb.X, 0f, bb.Z);
+                        float d = LOP.LaserSweep.SegmentDistance(flatPoint, flatPoint, flatA, flatB);
                         if (d <= BodyRadiusForGateCheck + beam.Radius)
                         {
                             clear = false;

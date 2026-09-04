@@ -49,6 +49,11 @@ namespace LOP
         // Reconcile마다 새로 만들지 않고 재사용(매 틱 도는 경로의 할당을 줄인다 — 실측상 약 44%의 틱에서 열린다).
         private readonly Dictionary<string, System.Numerics.Vector3> preCorrectionPositions = new Dictionary<string, System.Numerics.Vector3>();
 
+        // 카운터가 바뀐 엔티티를 추적해 텔레포트를 판별한다(거리 기반 errorGate로는 짧은 텔레포트를 못 잡음).
+        private readonly GameFramework.Netcode.TeleportTracker teleportTracker
+            = new GameFramework.Netcode.TeleportTracker();
+        private readonly HashSet<string> teleportedThisBatch = new HashSet<string>();
+
         public Reconciler(
             IPlayerContext playerContext,
             GameFramework.World.EntityRegistry entityRegistry,
@@ -145,7 +150,20 @@ namespace LOP
                     actor.GetComponent<PredictedEntityInterpolator>()?.OnCorrection(
                         pair.Value, after,
                         GameFramework.World.EntityMotionExtensions.GetVelocity(target).ToNumerics(),
-                        deltaTime);
+                        deltaTime,
+                        teleportedThisBatch.Contains(pair.Key));
+                }
+            }
+
+            // 텔레포트 관측은 아래 errorGate보다 먼저다. 게이트는 "예측이 서버와 얼마나 먼가"로
+            // 판단하는데, 짧은 텔레포트는 그 문턱 아래라 게이트가 닫히고 스냅을 적용하는 루프가
+            // 통째로 안 돈다 — 그러면 신호가 사라진다.
+            teleportedThisBatch.Clear();
+            foreach (var pair in pendingSnaps)
+            {
+                if (teleportTracker.Observe(pair.Key, pair.Value.teleportCount))
+                {
+                    teleportedThisBatch.Add(pair.Key);
                 }
             }
 
@@ -220,7 +238,8 @@ namespace LOP
             // 상태(예: 자원·쿨다운만 바뀌는 것)를 가진 게임이 오면, 그 게임의 남의 새는 조용히
             // 안 고쳐진다 — 그때는 배치 전체를 correction.Matches에 물어야 한다.
             bool statusMatches = pendingSnaps.TryGetValue(entityId, out var mySnap) && correction.Matches(anchorTick, mySnap);
-            if (allClose && statusMatches)
+            //  텔레포트는 정의상 이어지지 않는 이동이라, 거리가 작아도 그대로 채택해야 한다.
+            if (allClose && statusMatches && teleportedThisBatch.Count == 0)
             {
                 lastReconciledTick = anchorTick;
                 pendingSnaps.Clear();
@@ -263,6 +282,14 @@ namespace LOP
                 GameFramework.World.EntityMotionExtensions.SetPosition(target, snap.position);
                 GameFramework.World.EntityMotionExtensions.SetRotation(target, snap.rotation);
                 GameFramework.World.EntityMotionExtensions.SetVelocity(target, snap.velocity);
+
+                //  판단은 teleportTracker가 이미 했다 — 여기선 클라 쪽 카운터를 서버 값에 맞춰
+                //  두 사이드가 같은 값을 들고 있게만 한다(안 맞추면 나중에 읽는 쪽이 헷갈린다).
+                var targetTransform = target.Get<GameFramework.World.Transform>();
+                if (targetTransform != null)
+                {
+                    targetTransform.TeleportCount = snap.teleportCount;
+                }
 
                 var motionContributions = target.Get<MotionContributions>();
                 if (motionContributions != null)

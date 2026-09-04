@@ -88,8 +88,14 @@ namespace LOP
         /// 불리므로, 그만큼을 스무더가 미리 셈해 두게 한다(안 그러면 이음매가 한 틱 늦게 체결된다).
         /// </summary>
         public void OnCorrection(System.Numerics.Vector3 before, System.Numerics.Vector3 after,
-                                 System.Numerics.Vector3 authoritativeVelocity, float deltaTime)
+                                 System.Numerics.Vector3 authoritativeVelocity, float deltaTime, bool teleported)
         {
+            if (teleported)
+            {
+                // 텔레포트는 이어진 이동이 아니므로 블렌드하지 않고 그 자리에서 바로 보이게 한다.
+                renderCorrectionSmoother.OnTeleport();
+                return;
+            }
             renderCorrectionSmoother.OnCorrection(before, after, authoritativeVelocity, deltaTime);
         }
 

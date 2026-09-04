@@ -145,14 +145,33 @@ t = 0
 
 **왜 새지 않는가.** 움직이는 두 도형 사이 거리 함수는 *각 도형 위 점들의 최대 속도의 합*을 기울기
 상한으로 갖는다. 캡슐은 이 틱 동안 **평행이동만** 하므로 모든 점의 속도가 `Dc`이고, Pivot을 도는
-선분은 가장 빠른 점이 끝점이며 그 속도는 **호의 길이 `ω × Length`** 다. 둘 다 상한이 아니라
-*정확한* 값이므로 `v = Dc + Dl`은 유효한 상한이고, 건너뛴 구간은 "닿을 수 없음이 계산으로 증명된"
-구간이다.
+선분은 가장 빠른 점이 끝점이며 그 속도는 **호의 길이 `ω × Length`** 다.
+
+이것은 새로 만든 논증이 아니라 **Mirtich 원식 그대로**다 — CA의 표준 상한은 선속도에 *각속도 ×
+바운딩 스피어 반지름*을 더해 만든다. 우리 빔은 Pivot을 중심으로 반지름이 `Length`이므로 그 항이
+`ω × Length`가 된다.
 
 > **Box2D의 회전 한계가 우리에겐 적용되지 않는 이유.** Box2D 문서는 *"회전이 충분히 크면 놓칠 수
-> 있다"* 고 경고한다. 임의 볼록 도형을 다루느라 sweep을 선형 근사하기 때문이다. 우리는 도형이
-> **선분 대 선분**이라 호의 길이로 정확한 상한을 잡을 수 있어 그 근사를 하지 않는다. 이 문단은
-> *인용이 아니라 우리 쪽 논증*이므로, 구현 시 §9의 "회전 훑기" 테스트로 실증한다.
+> 있다"* 고 경고한다. 임의 볼록 도형의 sweep을 선형 근사하기 때문이다. 우리는 도형이 **선분 대
+> 선분**이고 회전이 **Y축 고정 1자유도**라 그 근사를 하지 않는다. 그래도 구현 시 §9의 "회전 훑기"
+> 테스트로 실증한다.
+
+### 4.3.1 2D 엔진을 근거로 삼은 것이 아니다
+
+CA의 안전 시간은 `거리 ÷ 최대 접근 속도`이고, 이는 거리 공간 논증이라 **차원을 가리지 않는다.**
+근거도 3D 쪽이 더 두껍다 — Mirtich 원논문이 3D 강체이고, **우리가 실제로 쓰는 PhysX가 자기 CCD를
+*best-effort conservative advancement scheme*이라고 문서에 적어 두었다.** Bullet도 3D다. Box2D는
+같은 알고리즘을 쓰는 곁다리 확인일 뿐이다.
+
+3D라서 실제로 달라지는 곳은 둘이고, 둘 다 우리에게 유리하다.
+
+| | 일반적인 3D | 우리 경우 |
+|---|---|---|
+| 회전 자유도 | 3자유도라 일반 각(角)CCD가 어렵다 | 레이저는 **Y축 고정 1자유도**, 캐릭터 캡슐은 회전조차 없다 |
+| 두 선분의 관계 | 대개 **꼬인 위치(skew)** — 2D엔 없는 경우 | 그래서 2D 거리 루틴을 못 쓰고 **3D 선분-선분 최단거리**를 쓴다 |
+
+두 번째가 §4.3 의사코드의 `SegmentDistance`가 반드시 3D 판이어야 하는 이유다(수직 캡슐 축과 수평
+빔은 거의 항상 어긋나 있다).
 
 ### 4.4 반복 상한과 관대한 처리
 
@@ -377,7 +396,8 @@ LOP-Shared  EntitySnap
 | 우리 것 | 대응 |
 |---|---|
 | `Teleport` / `TeleportCount` | Unity NGO `NetworkTransform.Teleport()`, Photon Fusion `NetworkTransform.Teleport()` — 둘 다 상태에 텔레포트 표시를 실어 보낸다 |
-| `LaserSweep.TimeOfImpact` | Bullet `btContinuousConvexCollision`(Mirtich의 Conservative Advancement, Coumans가 회전까지 확장), Box2D `b2TimeOfImpact`(용도가 문서에 *tunnel prevention*으로 명시) |
+| `LaserSweep.TimeOfImpact` | **Mirtich 박사논문 §2.3.2**(3D 강체, CA 원전) · **PhysX**(문서가 자기 CCD를 *best-effort conservative advancement scheme*이라 명시) · Bullet `btContinuousConvexCollision`(Coumans가 회전까지 확장) · Box2D `b2TimeOfImpact`(용도가 *tunnel prevention*으로 명시) |
+| 회전 위험을 따로 다루는 것 | PhysX가 *sweep 기반 CCD*(직선)와 *speculative CCD*(빠른 회전)를 나누고 5부터 병용을 허용한다 — 업계도 빠른 회전을 sweep이 못 잡는 별도 위험으로 취급한다 |
 | `LaserField` / `LaserVolume` | `WindField` / `WindVolume`과 같은 자리. 볼륨이 그 안의 규칙을 정하는 Unreal `APhysicsVolume` 계열 |
 | 상태 없는 위험물 = `f(tick)` | 결정론 시뮬의 표준 — 상태가 없으면 롤백할 것도 없다 |
 

@@ -14,16 +14,109 @@ public class SkydiveWindBuildTests
     [Test]
     public void 바람_시각물에는_콜라이더가_없다()
     {
+        WindVisualAssets assets = SkydiveWindAssets.CreateInMemory();
         GameObject volume = SkydiveCourseBuilder.CreateWindVolume(
-            null, "wind-test", new Vector3(0f, 1000f, 0f), 25f, 120f, new Vector3(0f, 14f, 0f), null);
+            null, "wind-test", new Vector3(0f, 1000f, 0f), 25f, 120f, new Vector3(0f, 14f, 0f), assets);
 
         try
         {
+            Assert.That(volume.GetComponentsInChildren<MeshRenderer>(true), Is.Not.Empty,
+                        "시각물이 아예 안 생겼으면 이 검사는 아무것도 검증하지 않는다");
             Assert.That(volume.GetComponentsInChildren<Collider>(true), Is.Empty);
         }
         finally
         {
             Object.DestroyImmediate(volume);
+            DestroyAssets(assets);
+        }
+    }
+
+    // 나중에 범위 표시를 옵션으로 끌 수 있어야 한다. 끄고 나면 화살표와 흐름만 남아야 한다.
+    [Test]
+    public void 범위_표시만_따로_끌_수_있다()
+    {
+        WindVisualAssets assets = SkydiveWindAssets.CreateInMemory();
+        GameObject volume = SkydiveCourseBuilder.CreateWindVolume(
+            null, "wind-test", Vector3.zero, 150f, 400f, new Vector3(0f, 0f, -20f), assets);
+
+        try
+        {
+            var visualizer = volume.GetComponent<WindVolumeVisualizer>();
+            Assert.IsNotNull(visualizer);
+            Assert.IsNotNull(visualizer.ArrowsRoot, "화살표 부모를 안 이어 두면 흐름이 안 돈다");
+            Assert.IsNotNull(visualizer.BoundsRoot);
+            Assert.IsTrue(visualizer.ShowBounds);
+
+            int arrowCount = visualizer.ArrowsRoot.childCount;
+
+            visualizer.ShowBounds = false;
+
+            Assert.IsFalse(visualizer.BoundsRoot.activeSelf);
+            Assert.AreEqual(arrowCount, visualizer.ArrowsRoot.childCount,
+                            "범위를 껐는데 화살표까지 사라지면 분리가 안 된 것이다");
+            Assert.IsTrue(visualizer.ArrowsRoot.gameObject.activeSelf);
+        }
+        finally
+        {
+            Object.DestroyImmediate(volume);
+            DestroyAssets(assets);
+        }
+    }
+
+    // 길이가 세기를 나타내지 않으면 14 m/s와 20 m/s가 똑같이 생긴다 — 고치려던 문제 그 자체.
+    [Test]
+    public void 화살표_길이는_바람_세기다()
+    {
+        WindVisualAssets assets = SkydiveWindAssets.CreateInMemory();
+        GameObject slow = SkydiveCourseBuilder.CreateWindVolume(
+            null, "slow", Vector3.zero, 25f, 120f, new Vector3(0f, 10f, 0f), assets);
+        GameObject fast = SkydiveCourseBuilder.CreateWindVolume(
+            null, "fast", Vector3.zero, 25f, 120f, new Vector3(0f, 20f, 0f), assets);
+
+        try
+        {
+            Assert.AreEqual(10f, ArrowOf(slow).localScale.z, 0.001f);
+            Assert.AreEqual(20f, ArrowOf(fast).localScale.z, 0.001f);
+        }
+        finally
+        {
+            Object.DestroyImmediate(slow);
+            Object.DestroyImmediate(fast);
+            DestroyAssets(assets);
+        }
+    }
+
+    [Test]
+    public void 세기_단계가_다르면_색도_다르다()
+    {
+        WindVisualAssets assets = SkydiveWindAssets.CreateInMemory();
+
+        try
+        {
+            Assert.AreEqual(0, SkydiveWindAssets.StrengthBand(10f));
+            Assert.AreEqual(1, SkydiveWindAssets.StrengthBand(14f));
+            Assert.AreEqual(2, SkydiveWindAssets.StrengthBand(20f));
+
+            Assert.AreNotEqual(assets.ArrowFor(10f).GetColor("_BaseColor"),
+                               assets.ArrowFor(20f).GetColor("_BaseColor"));
+        }
+        finally
+        {
+            DestroyAssets(assets);
+        }
+    }
+
+    private static Transform ArrowOf(GameObject volume)
+        => volume.GetComponent<WindVolumeVisualizer>().ArrowsRoot.GetChild(0);
+
+    private static void DestroyAssets(WindVisualAssets assets)
+    {
+        Object.DestroyImmediate(assets.Arrow);
+        Object.DestroyImmediate(assets.Shell);
+        for (int i = 0; i < assets.ArrowMaterials.Length; i++)
+        {
+            Object.DestroyImmediate(assets.ArrowMaterials[i]);
+            Object.DestroyImmediate(assets.ShellMaterials[i]);
         }
     }
 

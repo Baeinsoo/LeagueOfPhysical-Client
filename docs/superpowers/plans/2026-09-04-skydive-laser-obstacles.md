@@ -535,34 +535,33 @@ snap.TeleportCount = entity.Get<GameFramework.World.Transform>()?.TeleportCount 
 ```csharp
         private readonly GameFramework.Netcode.TeleportTracker teleportTracker
             = new GameFramework.Netcode.TeleportTracker();
-```
-
-권위 값을 덮는 루프(`GameFramework.World.EntityMotionExtensions.SetPosition(target, snap.position);`가
-있는 `foreach (var pair in pendingSnaps)`) 안에서, 그 `SetPosition` 줄 **앞에** 관측을 넣는다:
-
-```csharp
-                // 이 보정이 의도된 순간이동인가. 관측은 여기서 딱 한 번 한다 — 아래
-                // NotifyRenderCorrections가 재생을 하든 말든 반드시 불리기 때문이다.
-                bool teleported = teleportTracker.Observe(pair.Key, snap.TeleportCount);
-                if (teleported)
-                {
-                    teleportedThisBatch.Add(pair.Key);
-                }
-```
-
-그 위 지역 변수 선언부에 담을 곳을 만든다(`preCorrectionPositions.Clear();` 근처):
-
-```csharp
-            teleportedThisBatch.Clear();
-```
-
-그리고 필드로:
-
-```csharp
         private readonly HashSet<string> teleportedThisBatch = new HashSet<string>();
 ```
 
-`NotifyRenderCorrections()` 안의 호출을 고친다:
+**관측은 게이트보다 먼저 한다.** `bool allClose = true;` 줄 **앞에** 넣는다:
+
+```csharp
+            // 텔레포트 관측은 아래 errorGate보다 먼저다. 게이트는 "예측이 서버와 얼마나 먼가"로
+            // 판단하는데, 짧은 텔레포트는 그 문턱 아래라 게이트가 닫히고 스냅을 적용하는 루프가
+            // 통째로 안 돈다 — 그러면 신호가 사라진다.
+            teleportedThisBatch.Clear();
+            foreach (var pair in pendingSnaps)
+            {
+                if (teleportTracker.Observe(pair.Key, pair.Value.TeleportCount))
+                {
+                    teleportedThisBatch.Add(pair.Key);
+                }
+            }
+```
+
+**텔레포트가 있으면 게이트를 연다.** `if (allClose && statusMatches)`를 이렇게 고친다:
+
+```csharp
+            //  텔레포트는 정의상 이어지지 않는 이동이라, 거리가 작아도 그대로 채택해야 한다.
+            if (allClose && statusMatches && teleportedThisBatch.Count == 0)
+```
+
+그리고 `NotifyRenderCorrections()` 안의 호출을 고친다:
 
 ```csharp
                     actor.GetComponent<PredictedEntityInterpolator>()?.OnCorrection(
@@ -586,12 +585,22 @@ snap.TeleportCount = entity.Get<GameFramework.World.Transform>()?.TeleportCount 
                 }
 ```
 
-- [ ] **Step 5: 컴파일과 기존 테스트를 확인한다**
+- [ ] **Step 5: 짧은 텔레포트가 게이트를 연다는 것을 확인한다**
+
+`Reconciler`는 Assembly-CSharp이라 단위 테스트가 어렵다. 대신 **관측이 게이트보다 앞이라는 것이
+코드에서 보이는지** 를 눈으로 확인한다:
+
+- `teleportedThisBatch.Clear()`가 `bool allClose = true;` **위**에 있다
+- `if (allClose && statusMatches && teleportedThisBatch.Count == 0)`로 되어 있다
+
+둘 중 하나라도 어긋나면 짧은 텔레포트가 조용히 무시된다 — 이 슬라이스가 막으려는 실패다.
+
+- [ ] **Step 6: 컴파일과 기존 테스트를 확인한다**
 
 클라 에디터에서 재컴파일 → 콘솔 에러 0 → EditMode 전체 실행.
 Expected: 기존 테스트 전부 PASS(회귀 없음).
 
-- [ ] **Step 6: 커밋 (레포 두 개)**
+- [ ] **Step 7: 커밋 (레포 두 개)**
 
 ```bash
 cd C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Server

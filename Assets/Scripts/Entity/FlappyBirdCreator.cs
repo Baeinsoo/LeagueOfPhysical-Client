@@ -42,6 +42,7 @@ namespace LOP
             // 새 몸은 시뮬이 쓰는 그 값(TbFlappyConfig)에서 온다 — 물리 팔로워가 다른 몸을 세우면
             // 겹침 밀어내기가 시뮬이 모르는 위치 점프를 만든다.
             worldEntity.Add(new GameFramework.World.CapsuleShape(config.BodyRadius, config.BodyHeight));
+            worldEntity.Add(new FinishState());
             // 지금까지 EntityBinder가 하드코딩하던 값을 그대로 옮긴 것 — 거동 변화 없음.
             worldEntity.Add(new GameFramework.World.PhysicsConfig(
                 GameFramework.World.BodyKind.Kinematic, freezeRotation: true, isTrigger: false));

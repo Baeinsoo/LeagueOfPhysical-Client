@@ -24,12 +24,18 @@ namespace LOP
             // 맵 씬의 WindVolume 마커가 맵 로드 시 여기에 자기를 넣는다.
             builder.Register<WindField>(Lifetime.Singleton);
             builder.Register<WindDriftSystem>(Lifetime.Singleton);
+            //  아래로 떨어지므로 y가 작아지는 방향이다. 마커가 없는 맵을 위해 지면 높이를 폴백으로 준다.
+            builder.Register(c => new FinishLineBounds(
+                FinishAxis.Y, c.Resolve<SkydiveConfig>().GroundY), Lifetime.Singleton);
+            builder.Register(c => new FinishSystem(
+                c.Resolve<FinishLineBounds>(), FinishAxis.Y, increasing: false), Lifetime.Singleton);
             builder.Register<SkydiveWorld>(c => new SkydiveWorld(
                 c.Resolve<GameFramework.World.EntityRegistry>(),
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
                 c.Resolve<SkydiveMoveSystem>(),
                 c.Resolve<StaminaSystem>(),
                 c.Resolve<WindDriftSystem>(),
+                c.Resolve<FinishSystem>(),
                 c.Resolve<WindField>(),
                 c.Resolve<SkydiveConfig>(),
                 c.Resolve<GameFramework.Physics.ICollisionQuery>(),

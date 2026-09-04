@@ -907,6 +907,7 @@ git commit -m "feat(skydive): 레이저를 틱의 함수로 정의한다"
 - Consumes: `LOP.Laser`, `LOP.LaserGeometry` (Task 5)
 - Produces:
   - `LOP.LaserSweep.MaxIterations` (const int = 16)
+  - `LOP.LaserSweep.HitTolerance` (const float = 0.01f)
   - `LOP.LaserSweep.SegmentDistance(Vector3 p1, Vector3 q1, Vector3 p2, Vector3 q2) → float`
   - `LOP.LaserSweep.Hit(in Laser laser, long tick, Vector3 bottomFrom, Vector3 topFrom, Vector3 bottomTo, Vector3 topTo, float capsuleRadius, out float timeOfImpact) → bool`
   - `LOP.LaserSweep.Hit(..., out float timeOfImpact, out int iterations) → bool` (오버로드 — 반복 상한에 걸린 횟수를 세려고 쓴다)
@@ -953,6 +954,8 @@ public class LaserSweepTests
     }
 
     // 원 스펙의 서브스텝(캐릭터만 쪼개기)이 못 잡던 경우. 캐릭터는 멈춰 있고 빔이 훑고 지나간다.
+    // 이 경우가 HitTolerance의 존재 이유이기도 하다 — 안전 전진 폭이 남은 거리에 비례해
+    // 접촉 시각에 점점 가까워지기만 하므로, 허용 오차가 없으면 상한까지 돌다 놓친다.
     [Test]
     public void 정지한_캐릭터를_회전_빔이_훑으면_잡힌다()
     {
@@ -1080,6 +1083,14 @@ namespace LOP
         public const int MaxIterations = 16;
 
         /// <summary>
+        /// 이만큼 가까워지면 닿은 것으로 본다. <b>없으면 안 된다</b> — 안전 전진 폭이 남은 거리에
+        /// 비례해서, 빔이 가로질러 오는 정상적인 경우에도 <c>d</c>가 허용 거리에 **점점 가까워지기만
+        /// 하고 절대 닿지 않아** 상한까지 돌다 통과로 처리된다. Box2D도 같은 이유로 target에
+        /// tolerance를 더해 멈춘다.
+        /// </summary>
+        public const float HitTolerance = 0.01f;
+
+        /// <summary>
         /// 이 틱에 닿았나. <paramref name="timeOfImpact"/>는 틱 안에서의 시각(0~1)이다.
         /// </summary>
         public static bool Hit(in Laser laser, long tick,
@@ -1119,7 +1130,7 @@ namespace LOP
                 LaserGeometry.SegmentAt(laser, tick + t, out Vector3 a, out Vector3 b);
 
                 float d = SegmentDistance(bottom, top, a, b);
-                if (d <= allowed)
+                if (d <= allowed + HitTolerance)
                 {
                     timeOfImpact = t;
                     return true;
@@ -1841,7 +1852,8 @@ git commit -m "feat(skydive): 레이저에 맞으면 체크포인트로 되돌�
   - `SkydiveCourseBuilder.LaserSpec` (internal readonly struct) — `Name`, `Pivot`(Vector3), `Length`, `Radius`, `StartAngleDegrees`, `AngularSpeedDegreesPerTick`, `SweepHalfRangeDegrees`, `Period`, `OnTicks`, `Phase`
   - `SkydiveCourseBuilder.Lasers` (internal static readonly LaserSpec[])
   - `SkydiveCourseBuilder.FindBlockedGate() → string` / `FindBlockedGate(IReadOnlyList<LaserSpec>) → string`
-  - `SkydiveCourseBuilder.FindInvalidRespawn() → string`
+  - `SkydiveCourseBuilder.FindInvalidRespawn() → string` (검사 대상은 `LOP.SkydiveCourseLayout.RespawnPoints`)
+  - `SkydiveCourseBuilder.FindShelfLayoutDrift() → string`
   - `SkydiveCourseBuilder.FindTooFastLaser(IReadOnlyList<LaserSpec>) → string`
 
 - [ ] **Step 1: 실패하는 테스트를 쓴다**
@@ -1888,6 +1900,15 @@ public class SkydiveLaserBuildTests
     public void 부활_지점은_모두_판_위이고_구멍_밖이다()
     {
         string failure = SkydiveCourseBuilder.FindInvalidRespawn();
+
+        Assert.IsNull(failure, failure);
+    }
+
+    // 굽는 쪽(빌더)과 판정하는 쪽(서버)이 다른 선반 표를 보면 부활이 허공에 사람을 세운다.
+    [Test]
+    public void 빌더와_서버가_같은_선반_표를_본다()
+    {
+        string failure = SkydiveCourseBuilder.FindShelfLayoutDrift();
 
         Assert.IsNull(failure, failure);
     }
@@ -2056,33 +2077,28 @@ Expected: FAIL — `LaserSpec`·`Lasers`·검사 함수들이 없다.
             public readonly float HoleX;
             public readonly float HoleZ;
             public readonly float HoleHalf;
-            /// <summary>죽었을 때 이 선반 위 어디에 세울지. 판 위이고 구멍 밖이어야 한다.</summary>
-            public readonly float RespawnX;
-            public readonly float RespawnZ;
 
-            public Shelf(float y, float holeX, float holeZ, float holeSide,
-                         float respawnX, float respawnZ)
+            public Shelf(float y, float holeX, float holeZ, float holeSide)
             {
                 Y = y;
                 HoleX = holeX;
                 HoleZ = holeZ;
                 HoleHalf = holeSide * 0.5f;
-                RespawnX = respawnX;
-                RespawnZ = respawnZ;
             }
         }
 
         // 코스 설계 그 자체. 위에서 아래 순서로 적는다.
-        // 부활 지점은 전부 구멍에서 40m 떨어져 있다 — 판(±100) 안이고 기둥(±60)과도 안 겹친다.
+        // 부활 지점은 여기 없다 — 서버가 그 값으로 사람을 세우므로 LOP.SkydiveCourseLayout이
+        // 진실원본이고, 여기서 또 적으면 두 곳이 조용히 어긋난다.
         private static readonly Shelf[] Shelves =
         {
-            new Shelf(2600f, 0f, 0f, 30f, 0f, 40f),        // 스폰 바로 아래 — 아무것도 안 해도 지나간다
-            new Shelf(2200f, 30f, 0f, 24f, 30f, 40f),      // 옆으로 가는 걸 가르치는 구간(다이브로도 닿는다)
-            new Shelf(1800f, 30f, 30f, 20f, 30f, -10f),
-            new Shelf(1400f, -25f, 30f, 20f, -25f, -10f),  // 여기부터 넷은 다이브로 곧장 가면 못 닿는다
-            new Shelf(1000f, -25f, -30f, 16f, -25f, 10f),
-            new Shelf(600f, 30f, -25f, 16f, 30f, 15f),
-            new Shelf(200f, 0f, 25f, 16f, 0f, -15f),
+            new Shelf(2600f, 0f, 0f, 30f),      // 스폰 바로 아래 — 아무것도 안 해도 지나간다
+            new Shelf(2200f, 30f, 0f, 24f),     // 옆으로 가는 걸 가르치는 구간(다이브로도 닿는다)
+            new Shelf(1800f, 30f, 30f, 20f),
+            new Shelf(1400f, -25f, 30f, 20f),   // 여기부터 넷은 다이브로 곧장 가면 못 닿는다
+            new Shelf(1000f, -25f, -30f, 16f),
+            new Shelf(600f, 30f, -25f, 16f),
+            new Shelf(200f, 0f, 25f, 16f),
         };
 ```
 
@@ -2173,31 +2189,75 @@ Expected: FAIL — `LaserSpec`·`Lasers`·검사 함수들이 없다.
             return false;
         }
 
-        /// <summary>부활 지점이 판 밖이거나 구멍 안이면 그 설명을, 다 멀쩡하면 null을 준다.</summary>
+        /// <summary>
+        /// 부활 지점이 판 밖이거나 구멍 안이면 그 설명을, 다 멀쩡하면 null을 준다.
+        /// 검사 대상은 <b>서버가 실제로 쓰는 표</b>(<c>LOP.SkydiveCourseLayout.RespawnPoints</c>)다 —
+        /// 빌더 안에 사본을 두고 그걸 검사하면, 정작 사람을 세우는 값은 아무도 안 본 것이 된다.
+        /// </summary>
         internal static string FindInvalidRespawn()
         {
             for (int i = 0; i < Shelves.Length; i++)
             {
                 Shelf shelf = Shelves[i];
 
-                if (Mathf.Abs(shelf.RespawnX) > SlabHalf || Mathf.Abs(shelf.RespawnZ) > SlabHalf)
+                if (LOP.SkydiveCourseLayout.RespawnPoints.TryGetValue(shelf.Y, out Vector3 point) == false)
+                {
+                    return $"선반 {shelf.Y:0}의 부활 지점이 SkydiveCourseLayout에 없다";
+                }
+
+                if (Mathf.Abs(point.x) > SlabHalf || Mathf.Abs(point.z) > SlabHalf)
                 {
                     return $"선반 {shelf.Y:0}의 부활 지점이 판 밖이다";
                 }
 
-                bool insideHole = Mathf.Abs(shelf.RespawnX - shelf.HoleX) <= shelf.HoleHalf
-                               && Mathf.Abs(shelf.RespawnZ - shelf.HoleZ) <= shelf.HoleHalf;
+                if (Mathf.Abs(point.y - shelf.Y) > 0.001f)
+                {
+                    return $"선반 {shelf.Y:0}의 부활 지점 고도가 선반과 다르다";
+                }
+
+                bool insideHole = Mathf.Abs(point.x - shelf.HoleX) <= shelf.HoleHalf
+                               && Mathf.Abs(point.z - shelf.HoleZ) <= shelf.HoleHalf;
                 if (insideHole)
                 {
                     return $"선반 {shelf.Y:0}의 부활 지점이 구멍 안이다 — 세우자마자 빠진다";
                 }
 
                 //  기둥에 겹치면 부활한 몸이 기둥에 박힌다.
-                bool onPillar = Mathf.Abs(Mathf.Abs(shelf.RespawnX) - PillarOffset) < PillarSide
-                             && Mathf.Abs(Mathf.Abs(shelf.RespawnZ) - PillarOffset) < PillarSide;
+                bool onPillar = Mathf.Abs(Mathf.Abs(point.x) - PillarOffset) < PillarSide
+                             && Mathf.Abs(Mathf.Abs(point.z) - PillarOffset) < PillarSide;
                 if (onPillar)
                 {
                     return $"선반 {shelf.Y:0}의 부활 지점이 기둥과 겹친다";
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 빌더의 선반 고도와 <c>LOP.SkydiveCourseLayout.ShelfYs</c>가 어긋나면 그 설명을 준다.
+        /// 굽는 쪽과 판정하는 쪽이 다른 코스를 보면 부활이 허공에 사람을 세운다.
+        /// </summary>
+        internal static string FindShelfLayoutDrift()
+        {
+            var layout = LOP.SkydiveCourseLayout.ShelfYs;
+            if (layout.Count != Shelves.Length)
+            {
+                return $"선반 개수가 다르다 — 빌더 {Shelves.Length}, SkydiveCourseLayout {layout.Count}";
+            }
+            for (int i = 0; i < Shelves.Length; i++)
+            {
+                bool found = false;
+                for (int j = 0; j < layout.Count; j++)
+                {
+                    if (Mathf.Abs(layout[j] - Shelves[i].Y) < 0.001f)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                if (found == false)
+                {
+                    return $"선반 {Shelves[i].Y:0}이 SkydiveCourseLayout에 없다";
                 }
             }
             return null;
@@ -2228,6 +2288,13 @@ Expected: FAIL — `LaserSpec`·`Lasers`·검사 함수들이 없다.
             if (blockedGate != null)
             {
                 Debug.LogError($"[Skydive] 굽지 않는다 — {blockedGate}. 씬은 바뀌지 않았다.");
+                return;
+            }
+
+            string drift = FindShelfLayoutDrift();
+            if (drift != null)
+            {
+                Debug.LogError($"[Skydive] 굽지 않는다 — {drift}. 씬은 바뀌지 않았다.");
                 return;
             }
 

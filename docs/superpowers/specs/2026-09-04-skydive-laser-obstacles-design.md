@@ -201,6 +201,28 @@ CA의 안전 시간은 `거리 ÷ 최대 접근 속도`이고, 이는 거리 공
 아니다. 나중에 클라가 죽음을 예측하고 싶어지면 **그때 각도 룩업 테이블을 넣는다** — 지금은 짓지
 않는다.
 
+### 4.7 틱 규약 — `SegmentAt(k)`와 캐시된 위치가 가리키는 시점
+
+스윕은 캐릭터의 지나온 경로 `P(N−1) → P(N)`(§8.1의 캐시)를 빔의 `[N, N+1]` 구간과 맞대어 본다.
+이게 맞아떨어지는 이유는 **암묵적인 약속** 하나 때문이다 — 코드 어디에도 안 적혀 있으면 나중에
+뷰를 만드는 사람이 틀리게 읽을 수 있어 여기 명시한다.
+
+- **`LaserGeometry.SegmentAt(laser, k)`는 틱 `k`가 "시작할 때"의 자세를 낸다.** `Angle`이
+  `StartAngle + AngularSpeed × k`이므로, k가 정수 틱 번호면 그 틱에 아직 아무 회전도 더해지기 전의
+  자세다.
+- **캐시된 `P(k)`는 틱 `k`가 "끝난" 위치다** — 서버 틱 시스템이 `world.Tick`(이동) 뒤에 돌면서
+  그 결과 위치를 캐시하기 때문이다(§8.1).
+
+그래서 `P(N−1)`은 틱 `N`이 시작할 때의 위치이고, `P(N)`은 틱 `N`이 끝난(=틱 `N+1`이 시작하는) 위치다
+— 스윕 `P(N−1)→P(N)`이 `SegmentAt(N)`~`SegmentAt(N+1)`과 정확히 짝이 맞는다.
+
+**이 약속이 깨지면 무슨 일이 생기나.** 클라 뷰가 나중에 "지금 이 순간의 빔"을 그리려고
+`SegmentAt(currentTick)`을 부른다면 그건 *현재 틱이 시작할 때*의 자세이지 지금 화면에 보여야 할
+"막 끝난" 자세가 아니다 — 한 틱만큼 어긋나 보인다. 가장 빠른 문지기 빔(끝점 각속도가 가장 큰
+`Laser_200_Gate`, 12°/틱 × 22m 길이 반경)에서 그 어긋남은 약 **4.6 m**(빔 끝의 한 틱 이동거리)에
+달한다. 뷰를 붙일 때는 캐시가 "끝난" 시점을 그린다는 것을 기준으로, 렌더링 타깃 시점에 맞는 `t`를
+넘겨야 한다.
+
 ---
 
 ## 5. 맞으면 — 체크포인트 복귀
@@ -339,16 +361,21 @@ LOP-Shared  EntitySnap
 없이 켜지면 운이 된다** — 켜지기 **0.4초** 전부터 **가는 선**을 그려 예고한다. 예고는 그림일
 뿐이고 판정에는 들어가지 않는다.
 
+> **⚠️ 이 슬라이스에서 만들지 않는다.** 위 점멸 예고선(그리고 빔을 그리는 뷰 자체)은 **다른
+> 슬라이스**의 일이다. 이번 슬라이스는 §7.2 굽기 전 검사와 판정(§4)까지만 다루고, 씬 뷰 기즈모
+> (`LaserVolume.OnDrawGizmos`)를 넘어서는 실제 런타임 렌더링은 아직 없다. 여기 남겨 둔 이유는
+> 뷰를 짤 사람이 요구사항을 다시 찾지 않게 하기 위해서다 — **완료된 것으로 읽지 말 것.**
+
 ---
 
 ## 8. 코드가 어디에 사는가
 
 | 레포 | 무엇 |
 |---|---|
-| **GameFramework** | `Transform.TeleportCount` · `EntityMotionExtensions.Teleport` · `RenderCorrectionSmoother.OnTeleport` · `WorldBase`의 저장·복원에 카운터 포함 |
-| **LOP-Shared** | `Laser`(설정) · `LaserField` · `LaserGeometry.At(laser, t)`(순수) · `LaserSweep.TimeOfImpact(...)`(순수) · `SkydiveCheckpoints`(순수) · `LaserVolume`(맵 마커) · `EntitySnap.teleport_count` |
+| **GameFramework** | `Transform.TeleportCount` · `EntityMotionExtensions.Teleport` · `RenderCorrectionSmoother.OnTeleport` — `WorldBase`의 저장·복원(`SaveState`/`LoadState`)은 **이 카운터를 다루지 않는다**(아래 참고) |
+| **LOP-Shared** | `Laser`(설정) · `LaserField` · `LaserGeometry.SegmentAt(laser, t)`/`Angle(laser, t)`(순수) · `LaserSweep.Hit(...)`(순수) · `SkydiveCheckpoints`(순수) · `LaserVolume`(맵 마커) · `EntitySnap.teleport_count` |
 | **서버** | `SkydiveLaserSystem` — 판정하고 부활시킨다 |
-| **클라** | `LaserView` — 같은 `At()`으로 그린다 · `Reconciler`에 카운터 비교 |
+| **클라** | `LaserView` — 같은 `SegmentAt()`으로 그린다 · `Reconciler`에 카운터 비교 |
 | **클라 에디터** | `SkydiveCourseBuilder`의 `Lasers` 표 · 검사 셋 · 시각물 굽기 |
 
 `LaserVolume`이 **공용 패키지**에 있어야 하는 이유는 `WindVolume`·`SpawnPoint`와 같다: 맵 씬은 클라에서
@@ -357,6 +384,14 @@ LOP-Shared  EntitySnap
 
 `LaserGeometry`·`LaserSweep`은 컨텍스트 없는 순수 커널이므로 **static**이고 `*System` 이름을 붙이지
 않는다. `SkydiveLaserSystem`은 월드를 조작하므로 무상태 DI 인스턴스다.
+
+**`TeleportCount`는 저장·복원 대상이 아니다 — 의도적으로.** `WorldBase.SaveState`/`LoadState`는
+위치·속도 같은 게임 상태를 스냅샷으로 저장·복원하지만, `TeleportCount`는 거기 실리지 않는다. 이유는
+둘이다. ① **스냅샷 적용이 그 값을 덮어쓴다** — 클라가 서버 스냅샷을 받을 때 `TeleportCount`도 서버
+값으로 그대로 갱신되므로, 로컬에 따로 저장·복원할 이유가 없다. ② **되감으면(롤백) 단조성이 깨진다**
+— 이 카운터는 "지금까지 텔레포트가 몇 번 있었는가"를 셀 뿐 되돌아가면 안 되는 값인데, 저장된 과거
+틱으로 `LoadState`가 되감으면서 카운터까지 되돌리면 그 사이 실제로 일어난 텔레포트가 없던 일이 되어
+클라가 스냅(불연속 이동)이 아니라 보간(연속 이동)으로 잘못 그리게 된다.
 
 ### 8.1 틱에서의 자리 — 공유 월드가 아니라 서버 시스템
 
@@ -406,7 +441,7 @@ LOP-Shared  EntitySnap
 | 우리 것 | 대응 |
 |---|---|
 | `Teleport` / `TeleportCount` | Unity NGO `NetworkTransform.Teleport()`, Photon Fusion `NetworkTransform.Teleport()` — 둘 다 상태에 텔레포트 표시를 실어 보낸다 |
-| `LaserSweep.TimeOfImpact` | **Mirtich 박사논문 §2.3.2**(3D 강체, CA 원전) · **PhysX**(문서가 자기 CCD를 *best-effort conservative advancement scheme*이라 명시) · Bullet `btContinuousConvexCollision`(Coumans가 회전까지 확장) · Box2D `b2TimeOfImpact`(용도가 *tunnel prevention*으로 명시) |
+| `LaserSweep.Hit`(TOI 스타일 CA) | **Mirtich 박사논문 §2.3.2**(3D 강체, CA 원전) · **PhysX**(문서가 자기 CCD를 *best-effort conservative advancement scheme*이라 명시) · Bullet `btContinuousConvexCollision`(Coumans가 회전까지 확장) · Box2D `b2TimeOfImpact`(용도가 *tunnel prevention*으로 명시) |
 | 회전 위험을 따로 다루는 것 | PhysX가 *sweep 기반 CCD*(직선)와 *speculative CCD*(빠른 회전)를 나누고 5부터 병용을 허용한다 — 업계도 빠른 회전을 sweep이 못 잡는 별도 위험으로 취급한다 |
 | `LaserField` / `LaserVolume` | `WindField` / `WindVolume`과 같은 자리. 볼륨이 그 안의 규칙을 정하는 Unreal `APhysicsVolume` 계열 |
 | 상태 없는 위험물 = `f(tick)` | 결정론 시뮬의 표준 — 상태가 없으면 롤백할 것도 없다 |

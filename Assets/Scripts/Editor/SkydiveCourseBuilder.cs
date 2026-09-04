@@ -642,7 +642,8 @@ namespace LOP.EditorTools
         // 몇 틱까지 봐야 "언젠가 열린다"를 말할 수 있나. 표의 가장 긴 주기보다 넉넉히 크게.
         private const int GateSampleTicks = 240;
         // 통과하려면 몸이 들어갈 자리가 있어야 한다.
-        private const float BodyRadiusForGateCheck = 0.4f;
+        // internal — TbSkydiveConfig와 값이 같은지 EditMode 테스트가 대조한다(SkydiveWindLagConsistencyTests).
+        internal const float BodyRadiusForGateCheck = 0.4f;
 
         /// <summary>
         /// 어느 선반의 구멍이 <b>한 번도 안 열리면</b> 그 설명을, 다 열리면 null을 준다.

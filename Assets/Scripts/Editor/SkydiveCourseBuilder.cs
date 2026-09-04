@@ -40,10 +40,6 @@ namespace LOP.EditorTools
         internal const float SpreadWindLag = 2.06f;
         internal const float DiveWindLag = 3.10f;
 
-        // 스폰 고도. 첫 선반까지의 거리를 검사할 때 쓴다.
-        // 젤다와 같은 종단속도(60)로 올리면서 코스도 3000m로 늘렸다 — 1000m는 17초면 끝난다.
-        private const float SpawnY = 3000f;
-
         // 구름 층 머티리얼. 없으면 기본 불투명 머티리얼로 51장이 통째로 시야를 막아버리므로
         // 구름 자체를 굽지 않는다(경고만 낸다).
         private const string CloudMaterialPath = "Assets/Art/Materials/SkydiveCloud.mat";
@@ -74,6 +70,8 @@ namespace LOP.EditorTools
         }
 
         // 코스 설계 그 자체. 위에서 아래 순서로 적는다.
+        // 부활 지점은 여기 없다 — 서버가 그 값으로 사람을 세우므로 LOP.SkydiveCourseLayout이
+        // 진실원본이고, 여기서 또 적으면 두 곳이 조용히 어긋난다.
         private static readonly Shelf[] Shelves =
         {
             new Shelf(2600f, 0f, 0f, 30f),      // 스폰 바로 아래 — 아무것도 안 해도 지나간다
@@ -131,6 +129,121 @@ namespace LOP.EditorTools
             new WindSpec("Wind_300_Updraft", new Vector3(0f, 300f, 25f), 25f, 120f, new Vector3(0f, 14f, 0f)),
         };
 
+        internal readonly struct LaserSpec
+        {
+            public readonly string Name;
+            public readonly Vector3 Pivot;
+            public readonly float Length;
+            public readonly float Radius;
+            public readonly float StartAngleDegrees;
+            public readonly float AngularSpeedDegreesPerTick;
+            public readonly float SweepHalfRangeDegrees;
+            public readonly int Period;
+            public readonly int OnTicks;
+            public readonly int Phase;
+
+            public LaserSpec(string name, Vector3 pivot, float length, float radius,
+                             float startAngleDegrees, float angularSpeedDegreesPerTick,
+                             float sweepHalfRangeDegrees, int period, int onTicks, int phase)
+            {
+                Name = name;
+                Pivot = pivot;
+                Length = length;
+                Radius = radius;
+                StartAngleDegrees = startAngleDegrees;
+                AngularSpeedDegreesPerTick = angularSpeedDegreesPerTick;
+                SweepHalfRangeDegrees = sweepHalfRangeDegrees;
+                Period = period;
+                OnTicks = onTicks;
+                Phase = phase;
+            }
+
+            public LOP.Laser ToLaser() => new LOP.Laser(
+                new System.Numerics.Vector3(Pivot.x, Pivot.y, Pivot.z),
+                Length, Radius,
+                StartAngleDegrees * Mathf.Deg2Rad,
+                AngularSpeedDegreesPerTick * Mathf.Deg2Rad,
+                SweepHalfRangeDegrees * Mathf.Deg2Rad,
+                Period, OnTicks, Phase);
+        }
+
+        // 한 틱에 이보다 크게 돌면 다음 자리를 눈으로 예측할 수 없다 — 피할 수 없는 것은
+        // 장애물이 아니라 주사위다.
+        private const float MaxAngularSpeedDegreesPerTick = 15f;
+
+        // 코스 설계 그 자체. 구간마다 어법이 다르다: 문지기 → 격자 → 합침.
+        // 문지기는 구멍 중심을 피벗으로 삼아 구멍 위를 쓸고, 격자는 통로를 가로지른다.
+        internal static readonly LaserSpec[] Lasers =
+        {
+            // 2600 위: 없음 — 조작을 익히는 자리
+
+            // 2200 구멍(30,0) 문지기 — 느린 회전. 반대편으로 들어가면 된다.
+            new LaserSpec("Laser_2200_Gate", new Vector3(30f, 2215f, 0f),
+                          length: 26f, radius: 0.6f,
+                          startAngleDegrees: 0f, angularSpeedDegreesPerTick: 4f,
+                          sweepHalfRangeDegrees: 0f, period: 0, onTicks: 0, phase: 0),
+
+            // 1800 구멍(30,30) 문지기 — 왕복. 오는 것이 보인다.
+            new LaserSpec("Laser_1800_Gate", new Vector3(30f, 1815f, 30f),
+                          length: 24f, radius: 0.6f,
+                          startAngleDegrees: 90f, angularSpeedDegreesPerTick: 6f,
+                          sweepHalfRangeDegrees: 70f, period: 0, onTicks: 0, phase: 0),
+
+            // 1400~1800 통로: 격자 연습 — 벽에서 뻗은 고정 빔 두 층
+            new LaserSpec("Laser_1650_Bar", new Vector3(-100f, 1650f, 0f),
+                          length: 150f, radius: 0.6f,
+                          startAngleDegrees: 0f, angularSpeedDegreesPerTick: 0f,
+                          sweepHalfRangeDegrees: 0f, period: 0, onTicks: 0, phase: 0),
+            new LaserSpec("Laser_1500_Bar", new Vector3(100f, 1500f, 40f),
+                          length: 150f, radius: 0.6f,
+                          startAngleDegrees: 180f, angularSpeedDegreesPerTick: 0f,
+                          sweepHalfRangeDegrees: 0f, period: 0, onTicks: 0, phase: 0),
+
+            // 1400 구멍(-25,30) 문지기 + 통로 격자
+            new LaserSpec("Laser_1400_Gate", new Vector3(-25f, 1415f, 30f),
+                          length: 22f, radius: 0.6f,
+                          startAngleDegrees: 45f, angularSpeedDegreesPerTick: 7f,
+                          sweepHalfRangeDegrees: 0f, period: 0, onTicks: 0, phase: 0),
+            new LaserSpec("Laser_1250_Bar", new Vector3(-100f, 1250f, -20f),
+                          length: 150f, radius: 0.6f,
+                          startAngleDegrees: 0f, angularSpeedDegreesPerTick: 0f,
+                          sweepHalfRangeDegrees: 0f, period: 0, onTicks: 0, phase: 0),
+
+            // 1000 구멍(-25,-30) 문지기 + 점멸 격자(리듬)
+            new LaserSpec("Laser_1000_Gate", new Vector3(-25f, 1015f, -30f),
+                          length: 22f, radius: 0.6f,
+                          startAngleDegrees: 200f, angularSpeedDegreesPerTick: 8f,
+                          sweepHalfRangeDegrees: 0f, period: 0, onTicks: 0, phase: 0),
+            new LaserSpec("Laser_900_Blink", new Vector3(100f, 900f, 0f),
+                          length: 150f, radius: 0.6f,
+                          startAngleDegrees: 180f, angularSpeedDegreesPerTick: 0f,
+                          sweepHalfRangeDegrees: 0f, period: 40, onTicks: 20, phase: 0),
+            new LaserSpec("Laser_800_Blink", new Vector3(-100f, 800f, 30f),
+                          length: 150f, radius: 0.6f,
+                          startAngleDegrees: 0f, angularSpeedDegreesPerTick: 0f,
+                          sweepHalfRangeDegrees: 0f, period: 40, onTicks: 20, phase: 20),
+
+            // 600 구멍(30,-25) 문지기 — 빠르게
+            new LaserSpec("Laser_600_Gate", new Vector3(30f, 615f, -25f),
+                          length: 22f, radius: 0.6f,
+                          startAngleDegrees: 0f, angularSpeedDegreesPerTick: 11f,
+                          sweepHalfRangeDegrees: 0f, period: 0, onTicks: 0, phase: 0),
+            new LaserSpec("Laser_450_Blink", new Vector3(100f, 450f, -40f),
+                          length: 150f, radius: 0.6f,
+                          startAngleDegrees: 180f, angularSpeedDegreesPerTick: 0f,
+                          sweepHalfRangeDegrees: 0f, period: 30, onTicks: 15, phase: 0),
+
+            // 200 구멍(0,25) — 셋을 합친다
+            new LaserSpec("Laser_200_Gate", new Vector3(0f, 215f, 25f),
+                          length: 22f, radius: 0.6f,
+                          startAngleDegrees: 120f, angularSpeedDegreesPerTick: 12f,
+                          sweepHalfRangeDegrees: 0f, period: 0, onTicks: 0, phase: 0),
+            new LaserSpec("Laser_320_Sweep", new Vector3(-100f, 320f, 0f),
+                          length: 150f, radius: 0.6f,
+                          startAngleDegrees: 0f, angularSpeedDegreesPerTick: 5f,
+                          sweepHalfRangeDegrees: 40f, period: 0, onTicks: 0, phase: 0),
+        };
+
         [MenuItem("LOP/Skydive/코스 굽기")]
         public static void Build()
         {
@@ -147,6 +260,34 @@ namespace LOP.EditorTools
             if (impassable != null)
             {
                 Debug.LogError($"[Skydive] 굽지 않는다 — {impassable}. 씬은 바뀌지 않았다.");
+                return;
+            }
+
+            string blockedGate = FindBlockedGate();
+            if (blockedGate != null)
+            {
+                Debug.LogError($"[Skydive] 굽지 않는다 — {blockedGate}. 씬은 바뀌지 않았다.");
+                return;
+            }
+
+            string drift = FindShelfLayoutDrift();
+            if (drift != null)
+            {
+                Debug.LogError($"[Skydive] 굽지 않는다 — {drift}. 씬은 바뀌지 않았다.");
+                return;
+            }
+
+            string invalidRespawn = FindInvalidRespawn();
+            if (invalidRespawn != null)
+            {
+                Debug.LogError($"[Skydive] 굽지 않는다 — {invalidRespawn}. 씬은 바뀌지 않았다.");
+                return;
+            }
+
+            string tooFast = FindTooFastLaser(Lasers);
+            if (tooFast != null)
+            {
+                Debug.LogError($"[Skydive] 굽지 않는다 — {tooFast}. 씬은 바뀌지 않았다.");
                 return;
             }
 
@@ -167,7 +308,7 @@ namespace LOP.EditorTools
             for (int i = 0; i < Shelves.Length; i++)
             {
                 BuildShelf(root.transform, Shelves[i], material);
-                float upperY = i == 0 ? SpawnY : Shelves[i - 1].Y;
+                float upperY = i == 0 ? LOP.SkydiveCourseLayout.SpawnY : Shelves[i - 1].Y;
                 BuildPillars(root.transform, Shelves[i].Y, upperY, material);
             }
 
@@ -467,6 +608,185 @@ namespace LOP.EditorTools
             return bandBottom - lowerY;
         }
 
+        // 구멍을 얼마나 촘촘히 훑을지. 한 변을 이만큼 나눈다.
+        private const int GateGridSteps = 12;
+        // 몇 틱까지 봐야 "언젠가 열린다"를 말할 수 있나. 표의 가장 긴 주기보다 넉넉히 크게.
+        private const int GateSampleTicks = 240;
+        // 통과하려면 몸이 들어갈 자리가 있어야 한다.
+        private const float BodyRadiusForGateCheck = 0.4f;
+
+        /// <summary>
+        /// 어느 선반의 구멍이 <b>한 번도 안 열리면</b> 그 설명을, 다 열리면 null을 준다.
+        /// 이걸 놓치면 에러 하나 없이 판이 안 끝난다.
+        /// </summary>
+        internal static string FindBlockedGate() => FindBlockedGate(Lasers);
+
+        internal static string FindBlockedGate(IReadOnlyList<LaserSpec> lasers)
+        {
+            for (int i = 0; i < Shelves.Length; i++)
+            {
+                Shelf shelf = Shelves[i];
+                if (GateEverOpens(shelf, lasers) == false)
+                {
+                    return $"선반 {shelf.Y:0}의 구멍이 한 번도 열리지 않는다";
+                }
+            }
+            return null;
+        }
+
+        private static bool GateEverOpens(in Shelf shelf, IReadOnlyList<LaserSpec> lasers)
+        {
+            var beams = new List<LOP.Laser>();
+            for (int i = 0; i < lasers.Count; i++)
+            {
+                beams.Add(lasers[i].ToLaser());
+            }
+
+            for (int tick = 0; tick < GateSampleTicks; tick++)
+            {
+                if (HoleHasClearPoint(shelf, beams, tick))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 구멍 안을 격자로 훑어, 켜져 있는 모든 빔에서 충분히 떨어진 점이 하나라도 있으면 열린 것이다.
+        private static bool HoleHasClearPoint(in Shelf shelf, List<LOP.Laser> beams, int tick)
+        {
+            float step = shelf.HoleHalf * 2f / GateGridSteps;
+
+            for (int ix = 0; ix <= GateGridSteps; ix++)
+            {
+                for (int iz = 0; iz <= GateGridSteps; iz++)
+                {
+                    float x = shelf.HoleX - shelf.HoleHalf + ix * step;
+                    float z = shelf.HoleZ - shelf.HoleHalf + iz * step;
+                    var point = new System.Numerics.Vector3(x, shelf.Y, z);
+
+                    bool clear = true;
+                    for (int b = 0; b < beams.Count; b++)
+                    {
+                        LOP.Laser beam = beams[b];
+                        if (LOP.LaserGeometry.Lit(beam, tick) == false)
+                        {
+                            continue;
+                        }
+                        LOP.LaserGeometry.SegmentAt(beam, tick, out var a, out var bb);
+                        float d = LOP.LaserSweep.SegmentDistance(point, point, a, bb);
+                        if (d <= BodyRadiusForGateCheck + beam.Radius)
+                        {
+                            clear = false;
+                            break;
+                        }
+                    }
+                    if (clear)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 부활 지점이 판 밖이거나 구멍 안이면 그 설명을, 다 멀쩡하면 null을 준다.
+        /// 검사 대상은 <b>서버가 실제로 쓰는 표</b>(<c>LOP.SkydiveCourseLayout.RespawnPoints</c>)다 —
+        /// 빌더 안에 사본을 두고 그걸 검사하면, 정작 사람을 세우는 값은 아무도 안 본 것이 된다.
+        /// </summary>
+        internal static string FindInvalidRespawn()
+        {
+            for (int i = 0; i < Shelves.Length; i++)
+            {
+                Shelf shelf = Shelves[i];
+
+                if (LOP.SkydiveCourseLayout.RespawnPoints.TryGetValue(shelf.Y, out Vector3 point) == false)
+                {
+                    return $"선반 {shelf.Y:0}의 부활 지점이 SkydiveCourseLayout에 없다";
+                }
+
+                if (Mathf.Abs(point.x) > SlabHalf || Mathf.Abs(point.z) > SlabHalf)
+                {
+                    return $"선반 {shelf.Y:0}의 부활 지점이 판 밖이다";
+                }
+
+                if (Mathf.Abs(point.y - shelf.Y) > 0.001f)
+                {
+                    return $"선반 {shelf.Y:0}의 부활 지점 고도가 선반과 다르다";
+                }
+
+                bool insideHole = Mathf.Abs(point.x - shelf.HoleX) <= shelf.HoleHalf
+                               && Mathf.Abs(point.z - shelf.HoleZ) <= shelf.HoleHalf;
+                if (insideHole)
+                {
+                    return $"선반 {shelf.Y:0}의 부활 지점이 구멍 안이다 — 세우자마자 빠진다";
+                }
+
+                //  기둥에 겹치면 부활한 몸이 기둥에 박힌다.
+                bool onPillar = Mathf.Abs(Mathf.Abs(point.x) - PillarOffset) < PillarSide
+                             && Mathf.Abs(Mathf.Abs(point.z) - PillarOffset) < PillarSide;
+                if (onPillar)
+                {
+                    return $"선반 {shelf.Y:0}의 부활 지점이 기둥과 겹친다";
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 빌더의 선반 고도·스폰 고도가 <c>LOP.SkydiveCourseLayout</c>과 어긋나면 그 설명을 준다.
+        /// 굽는 쪽과 판정하는 쪽이 다른 코스를 보면 부활이 허공에 사람을 세운다.
+        /// 스폰 고도는 이제 빌더가 사본을 갖지 않고 <c>LOP.SkydiveCourseLayout.SpawnY</c>를 직접
+        /// 쓰므로(값 자체는 어긋날 수 없다), 여기서는 그 스폰이 첫 선반보다 높은지를 본다 —
+        /// 아니면 첫 낙하 구간 자체가 성립하지 않는다.
+        /// </summary>
+        internal static string FindShelfLayoutDrift()
+        {
+            var layout = LOP.SkydiveCourseLayout.ShelfYs;
+            if (layout.Count != Shelves.Length)
+            {
+                return $"선반 개수가 다르다 — 빌더 {Shelves.Length}, SkydiveCourseLayout {layout.Count}";
+            }
+            for (int i = 0; i < Shelves.Length; i++)
+            {
+                bool found = false;
+                for (int j = 0; j < layout.Count; j++)
+                {
+                    if (Mathf.Abs(layout[j] - Shelves[i].Y) < 0.001f)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                if (found == false)
+                {
+                    return $"선반 {Shelves[i].Y:0}이 SkydiveCourseLayout에 없다";
+                }
+            }
+
+            if (Shelves.Length > 0 && LOP.SkydiveCourseLayout.SpawnY <= Shelves[0].Y)
+            {
+                return $"스폰 고도({LOP.SkydiveCourseLayout.SpawnY:0})가 첫 선반({Shelves[0].Y:0})보다 낮거나 같다";
+            }
+            return null;
+        }
+
+        /// <summary>한 틱에 너무 크게 도는 레이저가 있으면 그 설명을, 없으면 null을 준다.</summary>
+        internal static string FindTooFastLaser(IReadOnlyList<LaserSpec> lasers)
+        {
+            for (int i = 0; i < lasers.Count; i++)
+            {
+                float speed = Mathf.Abs(lasers[i].AngularSpeedDegreesPerTick);
+                if (speed > MaxAngularSpeedDegreesPerTick)
+                {
+                    return $"{lasers[i].Name}가 한 틱에 {speed:0.#}° 돈다 — " +
+                           $"{MaxAngularSpeedDegreesPerTick:0.#}°를 넘으면 눈으로 못 읽는다";
+                }
+            }
+            return null;
+        }
+
         /// <summary>구멍과 구멍 사이가 실제로 닿는 거리인지 검사한다(스펙 §7.4).</summary>
         [MenuItem("LOP/Skydive/코스 검사")]
         public static void VerifyMenu()
@@ -488,7 +808,7 @@ namespace LOP.EditorTools
 
             float previousX = 0f;
             float previousZ = 0f;
-            float previousY = SpawnY;
+            float previousY = LOP.SkydiveCourseLayout.SpawnY;
 
             foreach (var shelf in Shelves)
             {

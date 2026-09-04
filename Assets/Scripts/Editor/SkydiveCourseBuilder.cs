@@ -51,16 +51,11 @@ namespace LOP.EditorTools
         // 선반 머티리얼. 없으면 유니티 기본 머티리얼로 굽되 경고를 낸다.
         private const string StoneMaterialPath = "Assets/Art/Materials/SkydiveStone.mat";
 
-        // 바람 시각물 머티리얼.
-        private const string WindMaterialPath = "Assets/Art/Materials/SkydiveWind.mat";
-
-        // 바람 막대 밀도 — 개수는 (반지름×높이)에 비례, 길이는 반지름에 비례해서 키운다.
-        // 반지름25×높이120(작은 기둥)에서 14개/14m로 나오게 골랐다 — 지금 밀도를 그대로 유지.
-        private const float BarCountDivisor = 250f;
-        private const int BarCountMin = 14;
-        private const int BarCountMax = 200;
-        private const float BarLengthMin = 14f;
-        private const float BarLengthRadiusFactor = 0.4f;
+        // 화살표 밀도. 개수는 부피(반지름×높이)에 비례한다 — 세기가 아니라 "큰 볼륨에서
+        // 성기지 않게"를 위한 값이다. 반지름25×높이120(작은 기둥)에서 14개가 나오게 골랐다.
+        private const float ArrowCountDivisor = 250f;
+        private const int ArrowCountMin = 14;
+        private const int ArrowCountMax = 200;
 
         private readonly struct Shelf
         {
@@ -201,11 +196,11 @@ namespace LOP.EditorTools
                 }
             }
 
-            Material windMaterial = AssetDatabase.LoadAssetAtPath<Material>(WindMaterialPath);
-            if (windMaterial == null)
+            WindVisualAssets windAssets = SkydiveWindAssets.EnsureAssets();
+            if (windAssets.IsComplete == false)
             {
-                // 기본 머티리얼은 불투명이라 막대가 시야를 가린다. 마커는 그대로 굽고 막대만 생략한다.
-                Debug.LogWarning($"[Skydive] 바람 머티리얼이 없다 — {WindMaterialPath}. 막대 없이 마커만 굽는다.");
+                // 기본 머티리얼은 불투명이라 원기둥 면이 시야를 통째로 막는다. 마커만 굽는다.
+                Debug.LogWarning("[Skydive] 바람 시각물 에셋을 만들지 못했다. 시각물 없이 마커만 굽는다.");
             }
 
             var winds = new GameObject("Winds");
@@ -214,7 +209,7 @@ namespace LOP.EditorTools
             {
                 var spec = Winds[i];
                 CreateWindVolume(winds.transform, spec.Name, spec.Center,
-                                 spec.Radius, spec.Height, spec.Wind, windMaterial);
+                                 spec.Radius, spec.Height, spec.Wind, windAssets);
             }
 
             EditorSceneManager.MarkSceneDirty(scene);
@@ -317,7 +312,7 @@ namespace LOP.EditorTools
 
         internal static GameObject CreateWindVolume(Transform parent, string name, Vector3 center,
                                                     float radius, float height, Vector3 wind,
-                                                    Material material)
+                                                    WindVisualAssets assets)
         {
             var go = new GameObject(name);
             if (parent != null)
@@ -331,48 +326,67 @@ namespace LOP.EditorTools
             marker.Height = height;
             marker.Wind = wind;
 
-            if (material == null)
+            float speed = wind.magnitude;
+            if (assets == null || assets.IsComplete == false || speed <= 0.001f)
             {
                 return go;
             }
 
-            // 안 보이는 바람은 왜 밀렸는지 못 읽는 장치가 된다. 바람 방향으로 늘인 막대를
-            // 흩뿌려 방향이 눈에 보이게 한다 — 지나가며 스치는 것 자체가 속도감이기도 하다.
-            //
-            // 개수·길이를 부피에 맞춰 키운다 — 고정 개수(14)면 반지름150×높이400짜리 큰 볼륨은
-            // 막대 사이가 너무 벌어져 지나가도 하나도 안 스친다. 작은 기둥(반지름25×높이120)은
-            // 지금 밀도(14개, 길이14)를 그대로 유지한다.
-            int barCount = Mathf.Clamp(Mathf.RoundToInt(radius * height / BarCountDivisor), BarCountMin, BarCountMax);
-            float barLength = Mathf.Max(BarLengthMin, radius * BarLengthRadiusFactor);
-            const float BarThickness = 0.5f;
-            var rotation = wind.sqrMagnitude > 1e-6f
-                ? Quaternion.LookRotation(wind.normalized)
-                : Quaternion.identity;
+            var arrows = new GameObject("Arrows");
+            arrows.transform.SetParent(go.transform, worldPositionStays: false);
+            CreateWindArrows(arrows.transform, name, radius, height, wind, speed, assets);
 
-            for (int k = 0; k < barCount; k++)
+            // 범위 표시는 한 부모 아래에 통째로 모은다 — 나중에 옵션으로 끌 때 이 하나만 끄면
+            // 화살표와 흐름만 남는다.
+            var bounds = new GameObject("Bounds");
+            bounds.transform.SetParent(go.transform, worldPositionStays: false);
+            CreateWindBounds(bounds.transform, radius, height, speed, assets);
+
+            var visualizer = go.AddComponent<LOP.WindVolumeVisualizer>();
+            visualizer.ArrowsRoot = arrows.transform;
+            visualizer.BoundsRoot = bounds;
+
+            return go;
+        }
+
+        private static void CreateWindArrows(Transform parent, string name, float radius, float height,
+                                             Vector3 wind, float speed, WindVisualAssets assets)
+        {
+            int count = Mathf.Clamp(Mathf.RoundToInt(radius * height / ArrowCountDivisor),
+                                    ArrowCountMin, ArrowCountMax);
+            Material material = assets.ArrowFor(speed);
+            Quaternion rotation = Quaternion.LookRotation(wind / speed);
+
+            for (int k = 0; k < count; k++)
             {
                 // 황금각 나선 — 난수 없이 고르게 흩어진다. 다시 구워도 같은 자리에 나온다.
-                float t = (k + 0.5f) / barCount;
+                float t = (k + 0.5f) / count;
                 float angle = k * 2.39996f;
                 float r = radius * Mathf.Sqrt(t);
 
-                var bar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                bar.name = $"{name}_Bar{k}";
-                bar.transform.SetParent(go.transform, worldPositionStays: false);
-                bar.transform.localPosition = new Vector3(
+                var arrow = new GameObject($"{name}_Arrow{k}");
+                arrow.transform.SetParent(parent, worldPositionStays: false);
+                arrow.transform.localPosition = new Vector3(
                     Mathf.Cos(angle) * r, (t - 0.5f) * height, Mathf.Sin(angle) * r);
-                bar.transform.localRotation = rotation;
-                bar.transform.localScale = new Vector3(BarThickness, BarThickness, barLength);
+                arrow.transform.localRotation = rotation;
+                // 길이 = 바람이 1초에 미는 거리. 세기가 곧 화살표 크기라 범례가 필요 없다.
+                arrow.transform.localScale = Vector3.one * speed;
 
-                var collider = bar.GetComponent<Collider>();
-                if (collider != null)
-                {
-                    Object.DestroyImmediate(collider);
-                }
-                bar.GetComponent<MeshRenderer>().sharedMaterial = material;
+                arrow.AddComponent<MeshFilter>().sharedMesh = assets.Arrow;
+                arrow.AddComponent<MeshRenderer>().sharedMaterial = material;
             }
+        }
 
-            return go;
+        private static void CreateWindBounds(Transform parent, float radius, float height,
+                                             float speed, WindVisualAssets assets)
+        {
+            var shell = new GameObject("Shell");
+            shell.transform.SetParent(parent, worldPositionStays: false);
+            // 원본은 반지름 0.5·높이 1이라 지름과 높이를 그대로 스케일로 준다.
+            shell.transform.localScale = new Vector3(radius * 2f, height, radius * 2f);
+
+            shell.AddComponent<MeshFilter>().sharedMesh = assets.Shell;
+            shell.AddComponent<MeshRenderer>().sharedMaterial = assets.ShellFor(speed);
         }
 
         /// <summary>

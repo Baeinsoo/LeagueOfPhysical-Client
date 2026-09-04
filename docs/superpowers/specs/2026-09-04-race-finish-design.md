@@ -71,13 +71,13 @@
 Shared (게임을 안 가림)
 ├─ FinishLineBounds   결승선 바운드 홀더. 맵 마커가 스스로 등록
 ├─ FinishState        컴포넌트 — 처음 넘은 틱 + 그때의 깊이 (틱 −1 = 아직)
-├─ FinishSystem       축·방향을 받아 판정. 안에서 FinishLineOverlap.Past를 부른다
-└─ FinishOrder        기록들을 등수 순으로 정렬 (순수 함수)
+└─ FinishSystem       축·방향을 받아 판정. 안에서 FinishLineOverlap.Past를 부른다
 
 FlappyWorld.Detection   → FinishSystem.Tick   (X, 커지는 방향)
 SkydiveWorld.Detection  → FinishSystem.Tick   (Y, 작아지는 방향)
 
-서버 룰   FinishState를 모아 FinishOrder로 정렬 → 기존 FinishPlacements 그대로
+서버      FinishTrackingSystem이 FinishState를 FinishOrderTracker로 옮겨 담는다
+서버 룰   그 순서를 기존 FinishPlacements에 그대로 넘긴다
 ```
 
 **몸 바운드는 `Transform` + `CapsuleShape`로 조립한다.** 콜라이더가 원래 그 둘로 만들어지므로
@@ -110,15 +110,21 @@ Detection  : 통과 판정          ← 이동이 끝난 자리
 ### 3.6 사라지는 것 / 남는 것
 
 **사라진다**
-- `FinishLineTrackingSystem` — 매 틱 씬을 훑고 `ActorRegistry`를 뒤지던 서버 시스템
-- `FinishOrderTracker` — 누가 언제 넘었는지를 따로 들고 있던 상태. 이제 그 정보가 `FinishState`에
-  있으므로, 남는 일은 정렬뿐이다(`FinishOrder`). 두 곳이 같은 사실을 들고 있지 않게 한다
+- `FinishLineTrackingSystem` — 매 틱 씬을 훑고 `ActorRegistry`를 뒤지던 서버 시스템.
+  `FinishTrackingSystem`으로 대체되는데, 새 것은 `FinishState`를 추적기로 옮겨 담기만 하는
+  몇 줄이다(씬 스캔·콜라이더·폴백 없음). 룰이 쓰는 표면(`Watch`/`Reset`/`HasFinished`/
+  `Ordered`/`AllWatchedFinished`)은 그대로라 룰은 타입 이름만 바뀐다
 - `FlappyRaceProgress` / `SkydiveProgress` — 중심 기준 좌표 비교. **이미 사용처가 없고**,
   바운드 규칙으로 대체된다
 
 **그대로 남는다**
 - `FinishLineOverlap` — 판정식. 이미 축을 받는 순수 계산이다
 - `FinishRecord` + `SameRankAs` — 기록과 동률 규칙
+- **`FinishOrderTracker` — 남긴다.** 처음엔 "기록이 `FinishState`에 있으니 필요 없다"고 봤는데
+  틀렸다: **완주한 사람이 나가면 그 몸이 사라지면서 컴포넌트의 기록도 같이 사라진다.** 등수를
+  매길 때 그 사람이 "나간 사람"(최하위)으로 둔갑한다. 그래서 통과를 한 번 관측하면 몸과 무관하게
+  들고 있는 자리가 계속 필요하다. 바뀌는 것은 **무엇이 그것을 먹이느냐**뿐이다 —
+  콜라이더 계산 대신 `FinishState`를 옮겨 담는다
 - `FinishPlacements` — 등수. 먹이는 쪽만 바뀐다
 
 ### 3.7 덤으로 고쳐지는 것
@@ -213,7 +219,7 @@ bounds = new Bounds(GetPosition(entity), Vector3.zero);   // 중심 기준
 | 무엇 | 어디 | 무엇을 지키나 |
 |---|---|---|
 | `FinishSystem` | LOP-Shared EditMode | 부리가 닿으면 통과 / 중심만 넘은 건 아직 / **처음 넘은 틱만 기록**(뒤 틱이 덮어쓰지 않는다) / 아직이면 틱이 −1 / 두 축(X 증가·Y 감소) 모두 |
-| `FinishOrder` | LOP-Shared EditMode | 먼저 닿은 순 / 같은 틱이면 깊이 / 완전 동률은 순서를 만들지 않는다 (기존 `FinishOrderTracker` 테스트를 옮긴다) |
+| `FinishOrderTracker` | LOP-Shared EditMode | **변경 없음** — 먹이는 쪽만 바뀌므로 기존 테스트가 그대로 통과해야 한다 |
 | `FinishLineBounds` | LOP-Shared EditMode | 마커가 등록되면 그 바운드 / 없으면 폴백 좌표로 두께 0인 선 |
 | `FlappyMoveSystem` | LOP-Shared EditMode | 통과 뒤엔 중력이 안 실린다 / 세로 속도 0 / 날갯짓이 안 먹는다 / 감속해 0에서 멈추고 음수로 안 간다 |
 | `FinishPlacements` | 서버 EditMode | **변경 없음** — 그대로 통과해야 한다(먹이는 쪽만 바뀌었다는 증거) |
@@ -246,6 +252,10 @@ bounds = new Bounds(GetPosition(entity), Vector3.zero);   // 중심 기준
 
 **③ 판정 시점을 이동 *앞*에 두려 했다 — 틀렸다.** 한 틱 전 자리를 보게 되어 통과를 한 틱 늦게
 잡는다. 서버는 이미 이동이 끝난 뒤에 본다.
+
+**⑤ "`FinishOrderTracker`도 지운다" — 계획을 짜다 되돌렸다.** 기록이 `FinishState`에 있으니
+필요 없다고 봤는데, **완주한 사람이 나가면 몸과 함께 기록도 사라진다** — 등수에서 최하위로
+둔갑한다. 통과를 한 번 관측하면 몸과 무관하게 들고 있는 자리가 계속 필요하다.
 
 **④ "판정 둘을 같은 자리에서 읽게 맞추자" → "하나로 합치자".** 둘을 남기면 계속 맞는지 지켜봐야
 한다. 시뮬이 판정하고 서버가 그 기록을 읽으면 검사가 하나가 되고, 콜라이더냐 진실원본이냐 하는

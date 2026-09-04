@@ -353,6 +353,13 @@ namespace LOP.EditorTools
                                  spec.Radius, spec.Height, spec.Wind, windAssets);
             }
 
+            var lasers = new GameObject("Lasers");
+            lasers.transform.SetParent(root.transform, worldPositionStays: false);
+            for (int i = 0; i < Lasers.Length; i++)
+            {
+                CreateLaserVolume(lasers.transform, Lasers[i]);
+            }
+
             EditorSceneManager.MarkSceneDirty(scene);
             Debug.Log($"[Skydive] 코스를 구웠다 — 선반 {Shelves.Length}개. 씬을 저장해라.\n{report}");
         }
@@ -487,6 +494,28 @@ namespace LOP.EditorTools
             visualizer.ArrowsRoot = arrows.transform;
             visualizer.BoundsRoot = bounds;
 
+            return go;
+        }
+
+        // 레이저는 그리지 않는다(뷰는 별도 작업) — 여기서는 판정 마커만 굽는다.
+        internal static GameObject CreateLaserVolume(Transform parent, in LaserSpec spec)
+        {
+            var go = new GameObject(spec.Name);
+            if (parent != null)
+            {
+                go.transform.SetParent(parent, worldPositionStays: false);
+            }
+            go.transform.localPosition = spec.Pivot;
+
+            var marker = go.AddComponent<LOP.LaserVolume>();
+            marker.Length = spec.Length;
+            marker.Radius = spec.Radius;
+            marker.StartAngleDegrees = spec.StartAngleDegrees;
+            marker.AngularSpeedDegreesPerTick = spec.AngularSpeedDegreesPerTick;
+            marker.SweepHalfRangeDegrees = spec.SweepHalfRangeDegrees;
+            marker.Period = spec.Period;
+            marker.OnTicks = spec.OnTicks;
+            marker.Phase = spec.Phase;
             return go;
         }
 

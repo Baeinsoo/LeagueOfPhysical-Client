@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="race-finish-root" class="race-finish-root" picking-mode="Ignore">
+        <ui:Label name="race-finish-place" class="race-finish-place" text="" picking-mode="Ignore" />
+        <ui:Label name="race-finish-note" class="race-finish-note" text="완주" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

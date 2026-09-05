@@ -34,7 +34,8 @@ namespace LOP
                 chaserStartX: r.ChaserStartX,
                 chaserInitialSpeed: r.ChaserInitialSpeed,
                 chaserAcceleration: r.ChaserAcceleration,
-                chaserMaxSpeed: r.ChaserMaxSpeed);
+                chaserMaxSpeed: r.ChaserMaxSpeed,
+                finishBrake: r.FinishBrake);
         }
     }
 }

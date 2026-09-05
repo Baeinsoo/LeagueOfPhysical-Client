@@ -29,6 +29,7 @@ namespace LOP
         private bool _opened;
         private bool _matchEnded;
         private FlapPadView _flapPad;
+        private RaceSpectateView _spectateView;
         private string _cameraTargetId;
 
         public FlappyHudCoordinator(IGameDataStore gameDataStore, IWindowManager windowManager,
@@ -104,6 +105,7 @@ namespace LOP
             windowManager.Close(_flapPad);   // 대시 버튼도 함께 사라진다
             _flapPad = null;
             windowManager.Open<RaceFinishView>();
+            OpenSpectate();
         }
 
         private void OnEntityCreated(EntityCreated entityCreated)
@@ -138,7 +140,19 @@ namespace LOP
                     _flapPad = null;
                 }
                 windowManager.Open<RaceEliminatedView>();
+                OpenSpectate();
             }
+        }
+
+        //  완주했든 탈락했든 같은 조작면을 연다. 두 번 열리지 않게 자기 인스턴스를 본다.
+        private void OpenSpectate()
+        {
+            if (_spectateView != null)
+            {
+                return;
+            }
+
+            _spectateView = windowManager.Open<RaceSpectateView>();
         }
     }
 }

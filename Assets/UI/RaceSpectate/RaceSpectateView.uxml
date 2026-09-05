@@ -1,0 +1,10 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="spectate-root" class="spectate-root" picking-mode="Ignore">
+        <ui:Button name="spectate-leave" text="나가기" class="btn btn--secondary spectate-leave" />
+        <ui:VisualElement name="spectate-bar" class="spectate-bar">
+            <ui:Button name="spectate-prev" text="◀" class="btn spectate-arrow" />
+            <ui:Label name="spectate-status" text="" class="spectate-status" picking-mode="Ignore" />
+            <ui:Button name="spectate-next" text="▶" class="btn spectate-arrow" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

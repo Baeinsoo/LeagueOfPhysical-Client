@@ -1,0 +1,33 @@
+.spectate-root {
+    flex-grow: 1;
+}
+
+/* 오른쪽 위 — ◀ ▶ 와 멀리 떼어 오탭을 줄인다 */
+.spectate-leave {
+    position: absolute;
+    right: 24px;
+    top: 24px;
+}
+
+.spectate-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 48px;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+
+.spectate-arrow {
+    width: 88px;
+    height: 72px;
+    font-size: 32px;
+}
+
+.spectate-status {
+    width: 180px;
+    font-size: 28px;
+    color: rgba(255, 255, 255, 0.85);
+    -unity-text-align: middle-center;
+}

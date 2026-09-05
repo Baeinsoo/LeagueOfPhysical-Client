@@ -92,6 +92,8 @@ namespace LOP
             builder.Register<RaceEliminatedView>(Lifetime.Transient);
             builder.Register<RaceFinishViewModel>(Lifetime.Transient);
             builder.Register<RaceFinishView>(Lifetime.Transient);
+            builder.Register<RaceSpectateViewModel>(Lifetime.Transient);
+            builder.Register<RaceSpectateView>(Lifetime.Transient);
         }
 
         protected override void RegisterViewFactories(
@@ -101,6 +103,7 @@ namespace LOP
             sink.Add(windowManager.RegisterViewFactory<RaceStartView>(() => container.Resolve<RaceStartView>()));
             sink.Add(windowManager.RegisterViewFactory<RaceEliminatedView>(() => container.Resolve<RaceEliminatedView>()));
             sink.Add(windowManager.RegisterViewFactory<RaceFinishView>(() => container.Resolve<RaceFinishView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceSpectateView>(() => container.Resolve<RaceSpectateView>()));
         }
     }
 }

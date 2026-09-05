@@ -144,6 +144,14 @@ namespace LOP
 
                 GameFramework.World.Entity targetEntity = entityRegistry.Get(serverEntitySnap.EntityId);
 
+                //  등수는 서버가 정한 값 하나뿐이라 내 새든 남의 새든 같다 — 예측·보간 갈래로
+                //  나뉘기 전에 적는다. 시뮬이 안 쓰는 표시값이라 되돌리기 대상도 아니다.
+                var finishPlacement = targetEntity?.Get<FinishPlacement>();
+                if (finishPlacement != null)
+                {
+                    finishPlacement.Value = entitySnap.finishPlacement;
+                }
+
                 // 모드는 엔티티가 생길 때 한 번 정해졌다(EntityBinder) — 그때 붙인 팔로워 컴포넌트가 곧
                 // 그 판정 결과다. 여기서 정책에 다시 물으면 그 사이 정책의 답이 바뀐 경우(예: 로컬 id가
                 // 늦게 도착) 붙어 있는 팔로워와 어긋난다. 외삽·보간 둘 다 스냅을 받아야 한다(둘 다

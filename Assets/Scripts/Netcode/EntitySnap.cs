@@ -12,6 +12,7 @@ namespace LOP
         public UnityEngine.Vector3 rotation { get; set; }
         public UnityEngine.Vector3 velocity { get; set; }
         public bool grounded { get; set; }
+        public int teleportCount { get; set; }    // 이어지지 않는 이동(레이저 피격 등)이 일어날 때마다 늘어난다
         public long stunEndTick { get; set; }     // Flappy: 멈춤이 풀리는 절대 틱. 0 = 안 멈춤
         public long invulnEndTick { get; set; }   // Flappy: 다시 안 걸리는 구간이 끝나는 절대 틱
         public long dashEndTick { get; set; }     // Flappy: 대시가 끝나는 절대 틱. 0 = 대시 중 아님

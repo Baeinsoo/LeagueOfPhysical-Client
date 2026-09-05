@@ -2,6 +2,7 @@ using GameFramework;
 using LOP.Event.Entity;
 using LOP.UI;
 using MessagePipe;
+using VContainer.Unity;
 
 namespace LOP
 {
@@ -13,7 +14,7 @@ namespace LOP
     /// 카메라 타깃도 같은 흐름이라 여기서 함께 다룬다 — 입력면 인스턴스를 이 클래스가 들고 있어야
     /// 닫을 수 있는 것도 이유다.</para>
     /// </summary>
-    public class FlappyHudCoordinator : MessageHandlerBase
+    public class FlappyHudCoordinator : MessageHandlerBase, ITickable
     {
         private readonly IGameDataStore gameDataStore;
         private readonly IWindowManager windowManager;
@@ -52,6 +53,32 @@ namespace LOP
             Track(entityCreatedSubscriber.Subscribe(OnEntityCreated));
             Track(entityDestroyedSubscriber.Subscribe(OnEntityDestroyed));
             Track(matchEndedSubscriber.Subscribe(_ => _matchEnded = true));
+        }
+
+        //  완주는 알림이 오지 않는다 — 매 틱 바뀌는 상태(FinishState)라 여기서 확인한다.
+        public void Tick()
+        {
+            UpdateFinish();
+        }
+
+        //  내 새가 결승선을 넘었는지는 시뮬이 안다. 등수는 서버가 정해 스냅샷으로 오는데
+        //  통과보다 0.2초쯤 늦으므로, 화면을 먼저 띄우고 숫자는 뷰가 오는 대로 채운다.
+        private void UpdateFinish()
+        {
+            if (_matchEnded || _flapPad == null)
+            {
+                return;
+            }
+
+            var mine = entityRegistry.Get(gameDataStore.userEntityId);
+            if (mine?.Get<FinishState>()?.Finished != true)
+            {
+                return;
+            }
+
+            windowManager.Close(_flapPad);   // 대시 버튼도 함께 사라진다
+            _flapPad = null;
+            windowManager.Open<RaceFinishView>();
         }
 
         private void OnEntityCreated(EntityCreated entityCreated)

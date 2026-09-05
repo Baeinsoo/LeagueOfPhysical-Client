@@ -26,6 +26,7 @@ namespace LOP
         private readonly EntityRenderClock renderClock;
         private readonly IPlayerContext playerContext;
         private readonly CameraController cameraController;
+        private readonly FinishLineBounds finishLine;
         private readonly FlappyConfig config;
 
         private GameObject wall;
@@ -38,6 +39,7 @@ namespace LOP
                                 EntityRenderClock renderClock,
                                 IPlayerContext playerContext,
                                 CameraController cameraController,
+                                FinishLineBounds finishLine,
                                 FlappyConfig config)
         {
             this.entityRegistry = entityRegistry;
@@ -45,6 +47,7 @@ namespace LOP
             this.renderClock = renderClock;
             this.playerContext = playerContext;
             this.cameraController = cameraController;
+            this.finishLine = finishLine;
             this.config = config;
         }
 
@@ -52,8 +55,11 @@ namespace LOP
         {
             EnsureWall();
 
+            //  벽은 결승선에서 멈춘다 — 서버의 잡는 판정과 같은 상한을 써야 화면이 맞는다.
+            float stopAtX = finishLine.TryGet(out var bounds) ? bounds.min.x : float.MaxValue;
             X = FlappyChaserCurve.XAt(
-                config, ElapsedSeconds(FlappyWatchTarget.Resolve(entityRegistry, playerContext.entityId)));
+                config, ElapsedSeconds(FlappyWatchTarget.Resolve(entityRegistry, playerContext.entityId)),
+                stopAtX);
 
             Vector3 position = wall.transform.position;
             position.x = X;

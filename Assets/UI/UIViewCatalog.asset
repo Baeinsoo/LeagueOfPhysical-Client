@@ -67,6 +67,9 @@ MonoBehaviour:
   - viewName: RaceEliminatedView
     uxml: {fileID: 9197481963319205126, guid: dd05955699ed94794b1a51e7d30d155a, type: 3}
     uss: {fileID: 7433441132597879392, guid: 5bc26ff89617e4729be64454f424c201, type: 3}
+  - viewName: RaceFinishView
+    uxml: {fileID: 9197481963319205126, guid: 32d4147c6636842248ef1d5ed0b04486, type: 3}
+    uss: {fileID: 7433441132597879392, guid: 6d1cdabec8fa34656a99c69a88342480, type: 3}
   - viewName: SkydivePadView
     uxml: {fileID: 9197481963319205126, guid: 7f7999a09cef5f448afb7bec274e44b8, type: 3}
     uss: {fileID: 7433441132597879392, guid: da3666f8ac5db28489ab3a5af9feaf44, type: 3}

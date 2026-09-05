@@ -1,0 +1,19 @@
+/* 아래 화면을 가리지 않는다 — 남은 사람들이 계속 보여야 한다 */
+.race-finish-root {
+    flex-grow: 1;
+    justify-content: flex-start;
+    align-items: center;
+    padding-top: 80px;
+}
+
+.race-finish-place {
+    font-size: 88px;
+    color: rgb(255, 214, 92);
+    -unity-text-align: middle-center;
+}
+
+.race-finish-note {
+    font-size: 26px;
+    color: rgba(255, 255, 255, 0.6);
+    -unity-text-align: middle-center;
+}

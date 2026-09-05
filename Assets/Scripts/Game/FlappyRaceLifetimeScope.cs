@@ -87,6 +87,8 @@ namespace LOP
             builder.Register<RaceStartViewModel>(Lifetime.Transient);
             builder.Register<RaceStartView>(Lifetime.Transient);
             builder.Register<RaceEliminatedView>(Lifetime.Transient);
+            builder.Register<RaceFinishViewModel>(Lifetime.Transient);
+            builder.Register<RaceFinishView>(Lifetime.Transient);
         }
 
         protected override void RegisterViewFactories(
@@ -95,6 +97,7 @@ namespace LOP
             sink.Add(windowManager.RegisterViewFactory<FlapPadView>(() => container.Resolve<FlapPadView>()));
             sink.Add(windowManager.RegisterViewFactory<RaceStartView>(() => container.Resolve<RaceStartView>()));
             sink.Add(windowManager.RegisterViewFactory<RaceEliminatedView>(() => container.Resolve<RaceEliminatedView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceFinishView>(() => container.Resolve<RaceFinishView>()));
         }
     }
 }

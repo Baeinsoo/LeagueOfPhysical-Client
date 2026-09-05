@@ -185,6 +185,27 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 내가_완주한_뒤_고른_사람이_유지된다()
+        {
+            //  이 기능의 핵심 약속이다. 완주하면 나는 후보에서 빠지지만 레지스트리에는 남아 있는데,
+            //  "내가 후보에 있으면 나" 가드가 그 상태까지 잡아채면 ◀ ▶ 가 매 틱 무효가 된다.
+            var mine = Bird("me", 90f);
+            mine.Add(new FinishState { FinishedTick = 100 });
+            var registry = Registry(mine, Bird("a", 50f), Bird("b", 10f));
+            var spectate = new FlappySpectate(registry, new FakeGameDataStore { userEntityId = "me" });
+            spectate.Refresh();
+            Assert.AreEqual("b", spectate.Current, "완주한 나는 후보에서 빠지고 꼴찌부터 본다");
+
+            spectate.Next();
+            Assert.AreEqual("a", spectate.Current);
+
+            spectate.Refresh();
+            spectate.Refresh();
+
+            Assert.AreEqual("a", spectate.Current);
+        }
+
+        [Test]
         public void 내_새가_나중에_등록되면_나에게_돌아온다()
         {
             //  스폰 순서는 보장되지 않는다. 내 새가 등록되기 전에 한 틱이라도 돌면 남을 고르는데,

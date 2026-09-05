@@ -124,7 +124,8 @@ namespace LOP
             windowManager.Open<DebugHudView>();
             windowManager.Open<RaceStartView>();
             _opened = true;
-            _cameraTargetId = gameDataStore.userEntityId;
+            //  카메라는 UpdateCamera가 매 틱 스스로 잡는다. 여기서 기록만 해 두면, 그 전에
+            //  카메라가 남에게 가 있었을 때 "이미 나를 본다"고 거짓 기록이 남아 영영 안 돌아온다.
         }
 
         private void OnEntityDestroyed(EntityDestroyed entityDestroyed)

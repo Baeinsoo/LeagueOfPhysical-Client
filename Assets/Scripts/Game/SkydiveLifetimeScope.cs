@@ -49,6 +49,9 @@ namespace LOP
                 LayerMask.GetMask("Default")), Lifetime.Singleton)
                 .As<GameFramework.World.IWorld>().AsSelf();
 
+            //  레이저를 그린다. 판정과 같은 식에 같은 틱을 넣으므로 그림과 판정이 어긋나지 않는다.
+            builder.RegisterEntryPoint<SkydiveLaserView>().AsSelf();
+
             builder.Register<ICharacterCreator, SkydivePlayerCreator>(Lifetime.Singleton);
 
             // 남의 자세가 이제 EntitySnap(PostureAxis/Gliding/Stamina)으로 스냅샷 권위 채널을

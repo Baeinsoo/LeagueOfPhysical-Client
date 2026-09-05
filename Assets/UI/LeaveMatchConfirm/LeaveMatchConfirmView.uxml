@@ -1,0 +1,12 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="leave-root" class="scrim leave-root">
+        <ui:VisualElement name="leave-card" class="card leave-card">
+            <ui:Label text="판을 떠납니다" class="title leave-title" />
+            <ui:Label text="다시 들어올 수 없고, 결과 화면도 볼 수 없습니다." class="card-text leave-message" />
+            <ui:VisualElement name="leave-actions" class="leave-actions">
+                <ui:Button name="leave-cancel" text="취소" class="btn btn--secondary leave-button" />
+                <ui:Button name="leave-confirm" text="나가기" class="btn btn--primary leave-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

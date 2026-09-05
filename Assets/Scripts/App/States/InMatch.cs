@@ -24,6 +24,7 @@ namespace LOP
             return ev switch
             {
                 AppEvent.MatchEnded => frontEnd(),
+                AppEvent.MatchLeft => frontEnd(),
                 _ => this,
             };
         }

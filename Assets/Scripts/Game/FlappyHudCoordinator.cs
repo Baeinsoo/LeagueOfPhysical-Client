@@ -1,3 +1,4 @@
+using Cysharp.Threading.Tasks;
 using GameFramework;
 using LOP.Event.Entity;
 using LOP.UI;
@@ -22,6 +23,7 @@ namespace LOP
         private readonly ActorRegistry actorRegistry;
         private readonly CameraController cameraController;
         private readonly FlappySpectate spectate;
+        private readonly AppStateMachine appStateMachine;
         private readonly ISubscriber<EntityCreated> entityCreatedSubscriber;
         private readonly ISubscriber<EntityDestroyed> entityDestroyedSubscriber;
         private readonly ISubscriber<MatchEndedToC> matchEndedSubscriber;
@@ -37,6 +39,7 @@ namespace LOP
             ActorRegistry actorRegistry,
             CameraController cameraController,
             FlappySpectate spectate,
+            AppStateMachine appStateMachine,
             ISubscriber<EntityCreated> entityCreatedSubscriber,
             ISubscriber<EntityDestroyed> entityDestroyedSubscriber,
             ISubscriber<MatchEndedToC> matchEndedSubscriber)
@@ -47,6 +50,7 @@ namespace LOP
             this.actorRegistry = actorRegistry;
             this.cameraController = cameraController;
             this.spectate = spectate;
+            this.appStateMachine = appStateMachine;
             this.entityCreatedSubscriber = entityCreatedSubscriber;
             this.entityDestroyedSubscriber = entityDestroyedSubscriber;
             this.matchEndedSubscriber = matchEndedSubscriber;
@@ -153,6 +157,23 @@ namespace LOP
             }
 
             _spectateView = windowManager.Open<RaceSpectateView>();
+            _spectateView.SetLeaveCallback(OnLeaveRequested);
+        }
+
+        //  나가기는 화면 교체(큰 흐름)라 View가 아니라 여기서 처리한다.
+        private void OnLeaveRequested() => AskAndLeaveAsync().Forget();
+
+        private async UniTaskVoid AskAndLeaveAsync()
+        {
+            bool leave = await windowManager.OpenModalAsync<LeaveMatchConfirmView, bool>();
+            if (leave == false)
+            {
+                return;
+            }
+
+            //  서버에는 아무것도 안 보낸다. 씬이 내려가며 연결이 끊기고, 서버는 이미 나간 사람을
+            //  제대로 처리한다 — 완주 기록은 FinishOrderTracker가, 탈락 기록은 추격자 시스템이 들고 있다.
+            appStateMachine.Fire(AppEvent.MatchLeft);
         }
     }
 }

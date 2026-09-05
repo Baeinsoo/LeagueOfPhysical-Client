@@ -62,8 +62,8 @@ public class FlappySpectate
     /// 지금 보는 사람. 볼 사람이 없으면 null.
     public string Current { get; }
 
-    public void Next();      // 앞사람 쪽으로 한 칸. 끝에서 되돌아온다
-    public void Prev();      // 뒷사람 쪽으로 한 칸. 끝에서 되돌아온다
+    public void Next();      // 목록에서 한 칸 뒤로(= 화면 숫자가 하나 는다). 끝에서 되돌아온다
+    public void Prev();      // 목록에서 한 칸 앞으로. 끝에서 되돌아온다
 
     /// 매 틱. 후보를 다시 만들고, 보던 사람이 사라졌으면 다시 고른다.
     public void Refresh();
@@ -81,10 +81,15 @@ public class FlappySpectate
 | 항목 | 규칙 | 왜 |
 |---|---|---|
 | 후보 | 레지스트리에 있는 `EntityKind == Character` 중 **아직 결승선을 안 넘은** 것 | 결승선 너머에 멈춰 선 새를 보는 건 의미가 없다 |
-| 순서 | **x 내림차순**(앞선 사람 먼저), 같으면 `string.CompareOrdinal(id)` | `▶`가 "앞사람 쪽"으로 읽힌다. 동률 처리는 결정론을 위해 |
-| 초기값 | 내가 후보에 있으면 **나**, 아니면 **x가 가장 작은 후보**(= 다음에 잡힐 사람) | 기존 규칙 그대로. 꼴찌를 봐야 추격자 벽이 같은 화면에 있다 |
+| 순서 | **x 내림차순**(선두가 0번), 같으면 **id 내림차순** | 화면의 `관전 1 / 3`이 선두를 뜻한다. 동률 처리는 결정론을 위해 |
+| 초기값 | 내가 후보에 있으면 **나**, 아니면 **목록의 마지막**(= 꼴찌) | 기존 규칙 그대로. 꼴찌를 봐야 추격자 벽이 같은 화면에 있다 |
 | 재선택 | `Current`가 후보에서 사라졌을 때만 | 수동 선택이 무효가 되는 **유일한** 경우 |
 | 후보 0 | `Current = null`, 카메라를 그대로 둔다 | 판이 곧 끝나는 상황이라 화면을 흔들 이유가 없다 |
+
+> **동률을 id 내림차순으로 하는 이유.** 기존 규칙(`FlappyWatchTarget`)은 폴백을
+> "x가 가장 작고, 같으면 **id가 작은** 새"로 정했다. 목록을 x 내림차순 + id 내림차순으로 두면
+> **마지막 원소가 정확히 그 새**가 되어, 폴백이 `Candidates[^1]` 한 줄이 된다. 정렬 기준을
+> 둘로 나누면 "목록 순서"와 "폴백 규칙"이 따로 놀아 어긋날 수 있다.
 
 ### 4.3 "완주했나"를 클라가 아는 법 — 두 갈래다
 
@@ -178,9 +183,11 @@ AppEvent.MatchLeft  => frontEnd(),
 > 다시 들어올 수 없고, 결과 화면도 볼 수 없습니다.
 > `[나가기]` `[취소]`
 
-**백드롭을 눌러도 취소**로 처리한다(안전한 쪽이 기본값). 구현 시 `AutoClose = true`로 닫혔을 때
-`ResultAsync`가 `false`로 완결되는지 확인해야 하며, 그렇지 않으면 `AutoClose = false` + 명시적
-취소 버튼으로 간다.
+**백드롭을 눌러도 취소**로 처리한다(안전한 쪽이 기본값). `AutoClose = true`(팝업 기본값)면 백드롭
+클릭이 `Close`를 부르고, `Close`가 View → ViewModel을 Dispose한다. **ViewModel의 `Dispose()`가
+결과를 `false`로 확정하면** 어떤 경로로 닫히든 `OpenModalAsync`의 대기가 풀린다 —
+`ChangeDisplayNameViewModel.Dispose()`가 이미 그렇게 한다(`_result.TrySetResult(false)`).
+이 규약을 안 지키면 대기가 영영 안 풀린다.
 
 ### 5.5 나간 뒤 결과 화면은 안 뜬다 — 의도된 것이다
 
@@ -262,7 +269,5 @@ AppEvent.MatchLeft  => frontEnd(),
 
 ## 11. 열린 결정
 
-- [ ] `AutoClose = true`인 팝업이 백드롭으로 닫힐 때 `ResultAsync`가 `false`로 완결되는지 —
-      구현 시 확인, 아니면 §5.4의 대안으로.
 - [ ] `LeaveMatchConfirmView`를 어느 스코프에 등록할지 — 지금은 Flappy 스코프.
       Skydive에도 나가기가 생기면 전역(`UIInstaller`)으로 옮긴다.

@@ -183,5 +183,22 @@ namespace LOP.Tests
 
             Assert.AreEqual("a", spectate.Current);
         }
+
+        [Test]
+        public void 내_새가_나중에_등록되면_나에게_돌아온다()
+        {
+            //  스폰 순서는 보장되지 않는다. 내 새가 등록되기 전에 한 틱이라도 돌면 남을 고르는데,
+            //  그 선택이 굳어 버리면 내가 달리는 내내 남을 보게 된다.
+            var registry = Registry(Bird("other", 10f));
+            var spectate = new FlappySpectate(registry, new FakeGameDataStore { userEntityId = "me" });
+            spectate.Refresh();
+            Assert.AreEqual("other", spectate.Current);
+
+            //  내 새는 선두다 — 꼴찌 폴백이 아니라 "나" 규칙이 골랐음을 가른다.
+            registry.Add(Bird("me", 50f));
+            spectate.Refresh();
+
+            Assert.AreEqual("me", spectate.Current);
+        }
     }
 }

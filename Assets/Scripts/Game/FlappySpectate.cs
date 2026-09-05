@@ -52,16 +52,23 @@ namespace LOP
                 return;
             }
 
+            //  내가 아직 달리고 있으면 무조건 나를 본다. 관전 조작은 내가 빠진 뒤에만 열리므로
+            //  이때 붙잡아 둘 수동 선택이란 것이 없고, 이 가드가 없으면 내 새가 등록되기 전에
+            //  한 틱이라도 돌았을 때 남을 고른 채로 굳어 버린다(스폰 순서는 보장되지 않는다).
+            string mine = gameDataStore.userEntityId;
+            if (string.IsNullOrEmpty(mine) == false && candidates.Contains(mine))
+            {
+                Current = mine;
+                return;
+            }
+
             //  보던 사람이 그대로면 손대지 않는다 — 수동 선택이 살아남는 자리가 여기다.
             if (Current != null && candidates.Contains(Current))
             {
                 return;
             }
 
-            string mine = gameDataStore.userEntityId;
-            Current = string.IsNullOrEmpty(mine) == false && candidates.Contains(mine)
-                ? mine
-                : candidates[candidates.Count - 1];   // 꼴찌 — 정렬 규칙 덕에 마지막이 곧 그 사람이다
+            Current = candidates[candidates.Count - 1];   // 꼴찌 — 정렬 규칙 덕에 마지막이 곧 그 사람이다
         }
 
         public void Next() => Step(1);

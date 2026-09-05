@@ -111,9 +111,16 @@ namespace LOP.EditorTools
         }
 
         // 새로 CreateAsset을 부르면 GUID가 바뀌어 씬 참조가 통째로 끊긴다. 이미 있으면 내용만 덮는다.
-        private static T EnsureAsset<T>(string path, System.Func<T> factory) where T : Object
+        internal static T EnsureAsset<T>(string path, System.Func<T> factory) where T : Object
         {
             T generated = factory();
+
+            //  CopySerialized는 "내용만"이 아니라 이름까지 통째로 덮는다. 갓 만든 것은 이름이
+            //  셰이더 이름이라, 미리 파일 이름으로 맞춰 두지 않으면 두 번째 굽기부터 에셋
+            //  이름이 뭉개진다. 덮은 뒤에 되돌리지 않는 이유는 그러면 순서에 기대는 코드가 되어
+            //  줄을 옮기는 순간 조용히 다시 깨지기 때문이다.
+            generated.name = System.IO.Path.GetFileNameWithoutExtension(path);
+
             var existing = AssetDatabase.LoadAssetAtPath<T>(path);
             if (existing == null)
             {

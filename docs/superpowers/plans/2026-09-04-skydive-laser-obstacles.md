@@ -910,7 +910,7 @@ git commit -m "feat(skydive): 레이저를 틱의 함수로 정의한다"
   - `LOP.LaserSweep.HitTolerance` (const float = 0.01f)
   - `LOP.LaserSweep.SegmentDistance(Vector3 p1, Vector3 q1, Vector3 p2, Vector3 q2) → float`
   - `LOP.LaserSweep.Hit(in Laser laser, long tick, Vector3 bottomFrom, Vector3 topFrom, Vector3 bottomTo, Vector3 topTo, float capsuleRadius, out float timeOfImpact) → bool`
-  - `LOP.LaserSweep.Hit(..., out float timeOfImpact, out int iterations) → bool` (오버로드 — 반복 상한에 걸린 횟수를 세려고 쓴다)
+  - `LOP.LaserSweep.Hit(..., out float timeOfImpact, out bool exhausted) → bool` (오버로드 — 반복 상한까지 돌고도 결론을 못 내 관대하게 통과시켰는지)
 
 - [ ] **Step 1: 실패하는 테스트를 쓴다**
 
@@ -1236,7 +1236,7 @@ git commit -m "feat(skydive): 터널링 없는 레이저 판정(Conservative Adv
 **Interfaces:**
 - Consumes: `LOP.Laser` (Task 5)
 - Produces:
-  - `LOP.LaserField` — `void Add(Laser laser)`, `bool Remove(...)`는 두지 않는다(아래 참고), `IReadOnlyList<Laser> All`
+  - `LOP.LaserField` — `void Add(Laser laser)`, `bool Remove(in Laser laser)`, `void Clear()`, `IReadOnlyList<Laser> All`
   - `LOP.LaserVolume` (MonoBehaviour) — public `Length`, `Radius`, `StartAngleDegrees`, `AngularSpeedDegreesPerTick`, `SweepHalfRangeDegrees`, `Period`, `OnTicks`, `Phase`
 
 **참고 — `WindField`와 다른 점:** 바람은 겹친 볼륨의 합을 매 틱 계산해야 해서 정렬이 필요했지만,
@@ -1319,6 +1319,12 @@ namespace LOP
 
         public void Add(Laser laser) => _lasers.Add(laser);
 
+        /// <summary>
+        /// 등록했던 레이저 하나를 뺀다. <see cref="Laser"/>가 값이라 참조가 아니라 <b>값으로</b>
+        /// 찾는데, 완전히 같은 레이저가 둘이면 어느 쪽을 빼도 결과가 같아 문제되지 않는다.
+        /// </summary>
+        public bool Remove(in Laser laser) => _lasers.Remove(laser);
+
         public void Clear() => _lasers.Clear();
     }
 }
@@ -1379,18 +1385,36 @@ namespace LOP
             SweepHalfRangeDegrees * Mathf.Deg2Rad,
             Period, OnTicks, Phase);
 
+        private LaserField field;
+        private Laser registered;
+        private bool hasRegistered;
+
         [Inject]
         public void Construct(LaserField field)
         {
-            field.Add(ToLaser());
+            this.field = field;
+            registered = ToLaser();
+            hasRegistered = true;
+            field.Add(registered);
+        }
+
+        private void OnDestroy()
+        {
+            // 라운드가 여러 판이면 맵을 다시 로드한다 — 안 빼면 레이저가 두 배가 된다.
+            // 등록할 때의 값을 그대로 들고 있다가 뺀다(그 사이 필드가 바뀌어도 짝이 맞게).
+            if (hasRegistered && field != null)
+            {
+                field.Remove(registered);
+            }
         }
     }
 }
 ```
 
-> `WindVolume`과 달리 `OnDestroy`에서 빼지 않는다 — `LaserField`는 `Laser`(값 struct)를 담아
-> 동일성으로 지울 수 없다. 대신 **맵 로드 때 `LaserField.Clear()`를 부르는 쪽**이 라운드 사이를
-> 책임진다(Task 9에서 시스템이 첫 등록 전에 비운다).
+> `WindVolume`과 **같은 방식**으로 라운드 사이를 책임진다: 등록한 값을 캐시해 두었다가 `OnDestroy`에서
+> 그것을 뺀다. 시스템이 첫 틱에 `Clear()`를 부르는 방식은 쓸 수 없다 — 등록은 맵 로드 시
+> `InjectSceneObjects`에서 일어나고 그건 첫 틱보다 **앞서므로**, 첫 틱에 비우면 방금 등록한 것을
+> 통째로 지운다.
 
 - [ ] **Step 6: 컴파일을 확인한다**
 
@@ -1653,9 +1677,10 @@ namespace LOP
             for (int i = 0; i < lasers.Count; i++)
             {
                 bool hit = LaserSweep.Hit(lasers[i], tick, bottomFrom, topFrom, bottomTo, topTo,
-                                          radius, out _, out int iterations);
-                //  상한까지 돌면 관대하게 통과시킨다. 잦으면 레이저가 조용히 약해지므로 센다.
-                if (hit == false && iterations >= LaserSweep.MaxIterations)
+                                          radius, out _, out bool exhausted);
+                //  상한까지 돌고도 결론이 안 나면 관대하게 통과시킨다. 잦으면 레이저가 조용히
+                //  약해지므로 센다.
+                if (exhausted)
                 {
                     cappedIterations++;
                     if (cappedIterations % 100 == 1)
@@ -2331,7 +2356,15 @@ git commit -m "feat(skydive): 코스에 레이저를 놓고 막힌 배치를 거
 
 ---
 
-## Task 11: 레이저를 그리고 씬을 다시 굽는다
+## Task 11: 씬에 레이저를 굽는다
+
+> **실행 중 분할(Ruling 16).** 원래 이 태스크는 그림까지 포함했으나, 뷰가 **권위 틱**을 알아야
+> 한다는 것이 실행 중에 드러났다(그린 빔과 판정된 빔이 다른 자리면 플레이어가 엉뚱한 것을 피한다).
+> 정적 틱 통로가 없어 DI가 필요하고, 그러면 뷰를 어디에 둘지가 설계 결정이 된다 — 계획서가 쓴
+> "맵 씬에 클라 전용 컴포넌트를 붙인다"는 **틀렸다**(서버도 그 씬을 읽어 missing script가 난다).
+> 그래서 이 태스크는 **마커를 굽는 것까지만** 하고, 그림은 별도 슬라이스로 뺀다.
+> ⚠ 그림이 없으면 레이저가 보이지 않는다 — 그 상태로 플레이테스트하면 바람 슬라이스의 실패를
+> 그대로 반복한다. 플레이 전에 반드시 그림이 들어와야 한다.
 
 **Files:**
 - Create: `C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client/Assets/Scripts/Game/LaserView.cs`

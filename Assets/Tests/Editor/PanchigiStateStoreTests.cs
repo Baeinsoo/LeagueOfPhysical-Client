@@ -20,6 +20,39 @@ namespace LOP.Tests
 
         private static PanchigiStateStore Store() => new PanchigiStateStore();
 
+        //  아래 셋은 "조용히 false·0을 돌려주던 것"이 이제 터지는지 지킨다. 그 침묵이 실제로
+        //  버그를 감췄다 — 부르는 쪽이 정체(userEntityId) 대신 생존(playerContext.entityId)을
+        //  넘기고 있었는데, 두 값이 우연히 같아서 아무도 몰랐다.
+        [Test]
+        public void 조준_차례를_id_없이_물으면_터진다()
+        {
+            var store = Store();
+            store.Set(AimingPhase, Me, 0, 0, NoDropOuts, NoEliminated);
+
+            Assert.Throws<System.ArgumentException>(() => store.IsAimingTurnOf(null));
+            Assert.Throws<System.ArgumentException>(() => store.IsAimingTurnOf(string.Empty));
+        }
+
+        [Test]
+        public void 조준_국면이_아니어도_id_없는_질문은_터진다()
+        {
+            //  단축평가로 빠져나가던 자리다 — 국면이 아니면 검사까지 못 갔다.
+            var store = Store();
+            store.Set(SettlingPhase, Me, 0, 0, NoDropOuts, NoEliminated);
+
+            Assert.Throws<System.ArgumentException>(() => store.IsAimingTurnOf(null));
+        }
+
+        [Test]
+        public void 탈락_여부와_낙하_횟수도_id_없이_물으면_터진다()
+        {
+            var store = Store();
+            store.Set(AimingPhase, Me, 0, 0, NoDropOuts, NoEliminated);
+
+            Assert.Throws<System.ArgumentException>(() => store.IsEliminated(null));
+            Assert.Throws<System.ArgumentException>(() => store.GetDropOutCount(string.Empty));
+        }
+
         [Test]
         public void 조준_국면에서_내_차례면_참이다()
         {

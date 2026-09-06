@@ -14,7 +14,8 @@ namespace LOP
     {
         [SerializeField] private Camera aimCamera;
 
-        [Inject] private IPlayerContext playerContext;
+        [Inject] private IPlayerContext playerContext;   // session 전송용
+        [Inject] private IGameDataStore gameDataStore;   // "내가 누구인가" — 몸이 없어도 답이 있어야 한다
         [Inject] private LOP.MasterData.LOPMasterData masterData;
         [Inject] private PanchigiStateStore stateStore;
 
@@ -140,7 +141,13 @@ namespace LOP
             }
         }
 
-        private bool IsMyTurn() => stateStore.IsAimingTurnOf(playerContext.entityId);
+        //  아직 내가 누구인지 모르면(GameInfoToC 전) 물어볼 것이 없다. 이 확인을 여기서 하는 이유는
+        //  스토어가 이제 id 없는 질문에 답하지 않고 터뜨리기 때문이다 — 물을 자격은 부르는 쪽이 갖춘다.
+        private bool IsMyTurn()
+        {
+            string mine = gameDataStore.userEntityId;
+            return string.IsNullOrEmpty(mine) == false && stateStore.IsAimingTurnOf(mine);
+        }
 
         private void PollTouches(LOP.MasterData.PanchigiConfig config)
         {

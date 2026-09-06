@@ -29,12 +29,27 @@ namespace LOP
 
         public int GetDropOutCount(string entityId)
         {
-            return entityId != null && dropOutCounts.TryGetValue(entityId, out int count) ? count : 0;
+            RequireEntityId(entityId);
+            return dropOutCounts.TryGetValue(entityId, out int count) ? count : 0;
         }
 
         public bool IsEliminated(string entityId)
         {
-            return entityId != null && eliminated.Contains(entityId);
+            RequireEntityId(entityId);
+            return eliminated.Contains(entityId);
+        }
+
+        //  id 없이 물으면 조용히 false·0이 나오던 자리다. 그 침묵이 실제로 버그를 감췄다 —
+        //  부르는 쪽이 "정체" 대신 "지금 몸이 있나"를 넘기고 있었는데 두 값이 우연히 같아서
+        //  아무도 몰랐다. 이제 터뜨린다: 이 질문은 참가자를 아는 쪽만 할 수 있다.
+        private static void RequireEntityId(string entityId)
+        {
+            if (string.IsNullOrEmpty(entityId))
+            {
+                throw new System.ArgumentException(
+                    "엔티티 id 없이 판치기 상태를 물었다 — 내가 누구인지 안 뒤에 물어야 한다.",
+                    nameof(entityId));
+            }
         }
 
         /// <summary>지금 조준을 받는 국면인가.</summary>
@@ -43,6 +58,10 @@ namespace LOP
         /// <summary>이 사람이 지금 칠 차례인가 — 입력을 열지, 게이지를 띄울지가 같은 판단이어야 한다.</summary>
         public bool IsAimingTurnOf(string entityId)
         {
+            //  IsEliminated가 검사하지만 여기서 먼저 한다 — 조준 국면이 아니면 단축평가로
+            //  거기까지 안 가서, id 없는 질문이 조용히 false로 빠져나간다.
+            RequireEntityId(entityId);
+
             return IsAiming
                 && currentEntityId.CurrentValue == entityId
                 && IsEliminated(entityId) == false;

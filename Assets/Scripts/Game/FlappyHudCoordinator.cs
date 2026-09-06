@@ -1,3 +1,4 @@
+using Cysharp.Threading.Tasks;
 using GameFramework;
 using LOP.Event.Entity;
 using LOP.UI;
@@ -21,6 +22,8 @@ namespace LOP
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly ActorRegistry actorRegistry;
         private readonly CameraController cameraController;
+        private readonly FlappySpectate spectate;
+        private readonly AppStateMachine appStateMachine;
         private readonly ISubscriber<EntityCreated> entityCreatedSubscriber;
         private readonly ISubscriber<EntityDestroyed> entityDestroyedSubscriber;
         private readonly ISubscriber<MatchEndedToC> matchEndedSubscriber;
@@ -28,12 +31,15 @@ namespace LOP
         private bool _opened;
         private bool _matchEnded;
         private FlapPadView _flapPad;
+        private RaceSpectateView _spectateView;
         private string _cameraTargetId;
 
         public FlappyHudCoordinator(IGameDataStore gameDataStore, IWindowManager windowManager,
             GameFramework.World.EntityRegistry entityRegistry,
             ActorRegistry actorRegistry,
             CameraController cameraController,
+            FlappySpectate spectate,
+            AppStateMachine appStateMachine,
             ISubscriber<EntityCreated> entityCreatedSubscriber,
             ISubscriber<EntityDestroyed> entityDestroyedSubscriber,
             ISubscriber<MatchEndedToC> matchEndedSubscriber)
@@ -43,6 +49,8 @@ namespace LOP
             this.entityRegistry = entityRegistry;
             this.actorRegistry = actorRegistry;
             this.cameraController = cameraController;
+            this.spectate = spectate;
+            this.appStateMachine = appStateMachine;
             this.entityCreatedSubscriber = entityCreatedSubscriber;
             this.entityDestroyedSubscriber = entityDestroyedSubscriber;
             this.matchEndedSubscriber = matchEndedSubscriber;
@@ -59,6 +67,28 @@ namespace LOP
         public void Tick()
         {
             UpdateFinish();
+            UpdateCamera();
+        }
+
+        //  보는 대상이 바뀌었을 때만 카메라를 옮긴다. SetTarget은 현재 카메라 위치로부터
+        //  거리·각도를 다시 잡으므로 매 틱 부르면 조작감이 망가진다.
+        private void UpdateCamera()
+        {
+            spectate.Refresh();
+
+            if (spectate.Current == null || spectate.Current == _cameraTargetId)
+            {
+                return;
+            }
+
+            var visual = actorRegistry.Get(spectate.Current)?.visualGameObject;
+            if (visual == null)
+            {
+                return;   // 아직 몸이 안 붙었다 — 다음 틱에 다시 본다
+            }
+
+            _cameraTargetId = spectate.Current;
+            cameraController.SetTarget(visual.transform);
         }
 
         //  내 새가 결승선을 넘었는지는 시뮬이 안다. 등수는 서버가 정해 스냅샷으로 오는데
@@ -79,6 +109,7 @@ namespace LOP
             windowManager.Close(_flapPad);   // 대시 버튼도 함께 사라진다
             _flapPad = null;
             windowManager.Open<RaceFinishView>();
+            OpenSpectate();
         }
 
         private void OnEntityCreated(EntityCreated entityCreated)
@@ -93,7 +124,8 @@ namespace LOP
             windowManager.Open<DebugHudView>();
             windowManager.Open<RaceStartView>();
             _opened = true;
-            _cameraTargetId = gameDataStore.userEntityId;
+            //  카메라는 UpdateCamera가 매 틱 스스로 잡는다. 여기서 기록만 해 두면, 그 전에
+            //  카메라가 남에게 가 있었을 때 "이미 나를 본다"고 거짓 기록이 남아 영영 안 돌아온다.
         }
 
         private void OnEntityDestroyed(EntityDestroyed entityDestroyed)
@@ -113,29 +145,36 @@ namespace LOP
                     _flapPad = null;
                 }
                 windowManager.Open<RaceEliminatedView>();
+                OpenSpectate();
             }
-
-            FollowNextRunner();
         }
 
-        //  보고 있던 새가 사라졌으면 다음 사람에게 넘긴다. 규칙은 벽을 그리는 쪽과 같은 것을 쓴다
-        //  — 둘이 다른 새를 고르면 벽이 화면 속 새와 다른 시각으로 그려진다.
-        private void FollowNextRunner()
+        //  완주했든 탈락했든 같은 조작면을 연다. 두 번 열리지 않게 자기 인스턴스를 본다.
+        private void OpenSpectate()
         {
-            string next = FlappyWatchTarget.Resolve(entityRegistry, gameDataStore.userEntityId);
-            if (next == null || next == _cameraTargetId)
+            if (_spectateView != null)
             {
                 return;
             }
 
-            var visual = actorRegistry.Get(next)?.visualGameObject;
-            if (visual == null)
+            _spectateView = windowManager.Open<RaceSpectateView>();
+            _spectateView.SetLeaveCallback(OnLeaveRequested);
+        }
+
+        //  나가기는 화면 교체(큰 흐름)라 View가 아니라 여기서 처리한다.
+        private void OnLeaveRequested() => AskAndLeaveAsync().Forget();
+
+        private async UniTaskVoid AskAndLeaveAsync()
+        {
+            bool leave = await windowManager.OpenModalAsync<LeaveMatchConfirmView, bool>();
+            if (leave == false)
             {
-                return;   // 아직 몸이 안 붙었다 — 다음 소멸 때 다시 본다
+                return;
             }
 
-            _cameraTargetId = next;
-            cameraController.SetTarget(visual.transform);
+            //  서버에는 아무것도 안 보낸다. 씬이 내려가며 연결이 끊기고, 서버는 이미 나간 사람을
+            //  제대로 처리한다 — 완주 기록은 FinishOrderTracker가, 탈락 기록은 추격자 시스템이 들고 있다.
+            appStateMachine.Fire(AppEvent.MatchLeft);
         }
     }
 }

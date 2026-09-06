@@ -21,10 +21,9 @@ namespace LOP
         private const float WallHeight = 300f;
         private const float WallThickness = 2f;
 
-        private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly GameFramework.World.IWorld world;
         private readonly EntityRenderClock renderClock;
-        private readonly IPlayerContext playerContext;
+        private readonly FlappySpectate spectate;
         private readonly CameraController cameraController;
         private readonly FinishLineBounds finishLine;
         private readonly FlappyConfig config;
@@ -34,18 +33,16 @@ namespace LOP
         /// <summary>지금 그려진 벽의 x. HUD가 이 값을 읽어야 숫자와 그림이 어긋나지 않는다.</summary>
         public float X { get; private set; }
 
-        public FlappyChaserView(GameFramework.World.EntityRegistry entityRegistry,
-                                GameFramework.World.IWorld world,
+        public FlappyChaserView(GameFramework.World.IWorld world,
                                 EntityRenderClock renderClock,
-                                IPlayerContext playerContext,
+                                FlappySpectate spectate,
                                 CameraController cameraController,
                                 FinishLineBounds finishLine,
                                 FlappyConfig config)
         {
-            this.entityRegistry = entityRegistry;
             this.world = world;
             this.renderClock = renderClock;
-            this.playerContext = playerContext;
+            this.spectate = spectate;
             this.cameraController = cameraController;
             this.finishLine = finishLine;
             this.config = config;
@@ -57,9 +54,8 @@ namespace LOP
 
             //  벽은 결승선에서 멈춘다 — 서버의 잡는 판정과 같은 상한을 써야 화면이 맞는다.
             float stopAtX = finishLine.TryGet(out var bounds) ? bounds.min.x : float.MaxValue;
-            X = FlappyChaserCurve.XAt(
-                config, ElapsedSeconds(FlappyWatchTarget.Resolve(entityRegistry, playerContext.entityId)),
-                stopAtX);
+            //  코디네이터가 ITickable에서 Refresh를 이미 돌렸다(Tick이 LateTick보다 먼저다).
+            X = FlappyChaserCurve.XAt(config, ElapsedSeconds(spectate.Current), stopAtX);
 
             Vector3 position = wall.transform.position;
             position.x = X;

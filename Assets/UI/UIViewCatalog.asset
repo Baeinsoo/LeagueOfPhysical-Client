@@ -70,6 +70,12 @@ MonoBehaviour:
   - viewName: RaceFinishView
     uxml: {fileID: 9197481963319205126, guid: 32d4147c6636842248ef1d5ed0b04486, type: 3}
     uss: {fileID: 7433441132597879392, guid: 6d1cdabec8fa34656a99c69a88342480, type: 3}
+  - viewName: RaceSpectateView
+    uxml: {fileID: 9197481963319205126, guid: 850bfee15ba794919bc6a328445921eb, type: 3}
+    uss: {fileID: 7433441132597879392, guid: 2565cd46ebe89495ea220bc93b2740db, type: 3}
+  - viewName: LeaveMatchConfirmView
+    uxml: {fileID: 9197481963319205126, guid: f10589ba2219941679744bb9aedae31e, type: 3}
+    uss: {fileID: 7433441132597879392, guid: 9c85c350d19d7446981256d488d68002, type: 3}
   - viewName: SkydivePadView
     uxml: {fileID: 9197481963319205126, guid: 7f7999a09cef5f448afb7bec274e44b8, type: 3}
     uss: {fileID: 7433441132597879392, guid: da3666f8ac5db28489ab3a5af9feaf44, type: 3}

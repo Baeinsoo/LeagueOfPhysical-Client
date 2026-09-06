@@ -8,6 +8,11 @@ on:
         default: gameserver
         type: choice
         options: [gameserver, standalone, client-app, all]
+      package_ref:
+        description: "형제 패키지 레포(GameFramework/Shared/MasterData)를 어느 ref로 가져올지. 기본 main — 여러 레포에 걸친 브랜치를 배포할 때만 그 브랜치명을 준다."
+        required: false
+        default: main
+        type: string
 
 concurrency:
   group: content-deploy
@@ -47,15 +52,25 @@ jobs:
           submodules: recursive
 
       - name: 의존 UPM 패키지 레포 체크아웃
+        env:
+          PACKAGE_REF: ${{ inputs.package_ref }}
         run: |
           set -e
           cd "$GITHUB_WORKSPACE/.."
           for r in GameFramework LeagueOfPhysical-Shared LeagueOfPhysical-MasterData-Client; do
-            if [ -d "$r/.git" ]; then
-              git -C "$r" fetch --depth 1 origin && git -C "$r" reset --hard @{u}
-            else
+            if [ ! -d "$r/.git" ]; then
               git clone --depth 1 "https://github.com/Baeinsoo/$r" "$r"
             fi
+            #  받아둔 폴더를 재사용하므로 "지금 어느 브랜치에 있나"에 기대면 안 된다 — 러너에
+            #  남은 브랜치가 빌드 결과를 정하게 되고, 그 브랜치가 지워지면 갱신 자체가 실패한다
+            #  (실제로 겪었다). 항상 원하는 ref를 명시해 가져오고 고정 이름으로 붙인다.
+            TARGET="$PACKAGE_REF"
+            if ! git -C "$r" fetch --depth 1 origin "$TARGET" 2>/dev/null; then
+              echo "::warning::$r 에 '$PACKAGE_REF' 가 없다 — main으로 받는다"
+              TARGET=main
+              git -C "$r" fetch --depth 1 origin "$TARGET"
+            fi
+            git -C "$r" checkout -q -B ci-build FETCH_HEAD
           done
 
       - name: NuGet 패키지 복원 (NuGetForUnity CLI, packages.config 기반)
@@ -118,15 +133,25 @@ jobs:
           submodules: recursive
 
       - name: 의존 UPM 패키지 레포 체크아웃
+        env:
+          PACKAGE_REF: ${{ inputs.package_ref }}
         run: |
           set -e
           cd "$GITHUB_WORKSPACE/.."
           for r in GameFramework LeagueOfPhysical-Shared LeagueOfPhysical-MasterData-Client; do
-            if [ -d "$r/.git" ]; then
-              git -C "$r" fetch --depth 1 origin && git -C "$r" reset --hard @{u}
-            else
+            if [ ! -d "$r/.git" ]; then
               git clone --depth 1 "https://github.com/Baeinsoo/$r" "$r"
             fi
+            #  받아둔 폴더를 재사용하므로 "지금 어느 브랜치에 있나"에 기대면 안 된다 — 러너에
+            #  남은 브랜치가 빌드 결과를 정하게 되고, 그 브랜치가 지워지면 갱신 자체가 실패한다
+            #  (실제로 겪었다). 항상 원하는 ref를 명시해 가져오고 고정 이름으로 붙인다.
+            TARGET="$PACKAGE_REF"
+            if ! git -C "$r" fetch --depth 1 origin "$TARGET" 2>/dev/null; then
+              echo "::warning::$r 에 '$PACKAGE_REF' 가 없다 — main으로 받는다"
+              TARGET=main
+              git -C "$r" fetch --depth 1 origin "$TARGET"
+            fi
+            git -C "$r" checkout -q -B ci-build FETCH_HEAD
           done
 
       - name: NuGet 패키지 복원 (NuGetForUnity CLI, packages.config 기반)

@@ -85,6 +85,11 @@ namespace LOP.UI
         // 동적 lead가 실제로 쥐고 있는 여유(ms). 이 값이 바닥에 붙어 있는지가 lead 정책의 진단점이다.
         public double AheadMarginMs => leadState.AheadMargin * 1000;
 
+        //  시뮬이 예외로 멈췄나. 다른 값들과 달리 "숫자를 본다"가 아니라 "떠 있으면 큰일"이다.
+        public bool IsFaulted => runner.tickUpdater != null && runner.tickUpdater.isFaulted;
+
+        public long FaultedTick => runner.tickUpdater == null ? 0 : runner.tickUpdater.faultedTick;
+
         public int CatchUpCapped => runner.tickUpdater == null ? 0 : runner.tickUpdater.catchUpCappedCount - catchUpBaseline;
 
         // 세션 전체 기준 최대 뒤처짐(리셋으로 안 지워진다). 크기만 참고하고, "이 창에 있었나"는 CatchUpCapped로 본다.

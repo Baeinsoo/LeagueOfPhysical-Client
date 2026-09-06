@@ -11,6 +11,7 @@ namespace LOP.UI
     {
         private readonly DebugHudViewModel _viewModel;
 
+        private Label _faultedText;
         private Label _tickText;
         private Label _serverTickText;
         private Label _leadText;
@@ -46,6 +47,7 @@ namespace LOP.UI
         {
             base.OnOpen();
 
+            _faultedText = Root.Q<Label>("faulted-text");
             _tickText = Root.Q<Label>("tick-text");
             _serverTickText = Root.Q<Label>("server-tick-text");
             _leadText = Root.Q<Label>("lead-text");
@@ -80,6 +82,13 @@ namespace LOP.UI
             if (!_viewModel.IsRunning)
             {
                 return;
+            }
+
+            //  멈췄을 때만 보인다 — 평소에 자리를 차지하면 다른 줄들과 섞여 놓친다.
+            _faultedText.style.display = _viewModel.IsFaulted ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_viewModel.IsFaulted)
+            {
+                _faultedText.text = $"시뮬 정지 — tick {_viewModel.FaultedTick}에서 예외. 콘솔 확인";
             }
 
             _tickText.text = $"Client tick: {_viewModel.Tick}";

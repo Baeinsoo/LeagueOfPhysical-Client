@@ -25,6 +25,16 @@ namespace LOP.Tests
                 groundMoveSpeed: 4f, groundAccel: 100f, jumpPower: 11f, poseClearance: 5f, fallBrake: 150f,
                 glideWindLag: 0.2f, spreadWindLag: 2.06f, diveWindLag: 3.1f);
 
+        /// <summary>물리 바디가 없는 EditMode 테스트라 아무 일도 하지 않는 빈 구현.</summary>
+        private class NoopMotionBridge : GameFramework.World.IMotionBridge
+        {
+            public void SyncTransforms() { }
+            public System.Numerics.Vector3 Depenetrate(GameFramework.World.Entity entity)
+                => System.Numerics.Vector3.Zero;
+            public void Separate(GameFramework.World.Entity entity) { }
+            public void PushMotion(GameFramework.World.Entity entity) { }
+        }
+
         /// <summary>다이버 한 명이 든 월드 + 그 월드를 보는 핸들러.</summary>
         public static SkydiveServerCorrectionHandler Handler(
             out SkydiveWorld world, out GameFramework.World.Entity diver)
@@ -38,7 +48,7 @@ namespace LOP.Tests
                 new FinishSystem(new FinishLineBounds(FinishAxis.Y, Config().GroundY),
                                  FinishAxis.Y, increasing: false),
                 new WindField(), Config(),
-                new EmptySky(), layerMask: ~0);
+                new EmptySky(), new NoopMotionBridge(), layerMask: ~0);
             world.GameplayStartTick = 0;   // 출발 게이트는 이 파일의 관심사가 아니다
             return new SkydiveServerCorrectionHandler(world);
         }

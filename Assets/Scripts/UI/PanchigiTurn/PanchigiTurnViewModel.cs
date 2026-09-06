@@ -10,18 +10,18 @@ namespace LOP.UI
     public class PanchigiTurnViewModel
     {
         private readonly PanchigiStateStore store;
-        private readonly IPlayerContext playerContext;
+        private readonly IGameDataStore gameDataStore;
         private readonly IRunner runner;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly LOP.MasterData.LOPMasterData masterData;
         private readonly PanchigiStrikeInput strikeInput;
 
-        public PanchigiTurnViewModel(PanchigiStateStore store, IPlayerContext playerContext, IRunner runner,
+        public PanchigiTurnViewModel(PanchigiStateStore store, IGameDataStore gameDataStore, IRunner runner,
             GameFramework.World.EntityRegistry entityRegistry, LOP.MasterData.LOPMasterData masterData,
             PanchigiStrikeInput strikeInput)
         {
             this.store = store;
-            this.playerContext = playerContext;
+            this.gameDataStore = gameDataStore;
             this.runner = runner;
             this.entityRegistry = entityRegistry;
             this.masterData = masterData;
@@ -30,7 +30,7 @@ namespace LOP.UI
 
         public string Label()
         {
-            if (store.IsEliminated(playerContext.entityId))
+            if (store.IsEliminated(gameDataStore.userEntityId))
             {
                 return "탈락 · 구경 중";
             }
@@ -40,7 +40,7 @@ namespace LOP.UI
                 return "동전이 멈추는 중";
             }
 
-            if (store.CurrentEntityId.CurrentValue != playerContext.entityId)
+            if (store.CurrentEntityId.CurrentValue != gameDataStore.userEntityId)
             {
                 return "다른 사람 차례";
             }
@@ -69,11 +69,11 @@ namespace LOP.UI
             int turnLimit = masterData.Tables.TbPanchigiConfig.GetOrDefault(1)?.MatchTurnLimit ?? 0;
             string turns = turnLimit > 0 ? $" · 턴 {store.TurnCount.CurrentValue} / {turnLimit}" : string.Empty;
 
-            return $"낙 {store.GetDropOutCount(playerContext.entityId)} / {limit}{turns}";
+            return $"낙 {store.GetDropOutCount(gameDataStore.userEntityId)} / {limit}{turns}";
         }
 
         /// <summary>게이지를 띄울 때인가 — 내 조준 차례일 때만.</summary>
-        public bool IsCharging() => store.IsAimingTurnOf(playerContext.entityId);
+        public bool IsCharging() => store.IsAimingTurnOf(gameDataStore.userEntityId);
 
         /// <summary>판이 화면에서 차지하는 네모 — 게이지를 그 옆에 붙이는 데 쓴다.</summary>
         public bool TryGetBoardScreenRect(out UnityEngine.Rect rect) => strikeInput.TryGetBoardScreenRect(out rect);

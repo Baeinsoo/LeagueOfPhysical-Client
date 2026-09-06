@@ -33,8 +33,6 @@ namespace LOP
             // 맵 씬의 LaserVolume 마커가 맵 로드 시 여기에 자기를 넣는다. 클라는 레이저를 판정하지
             // 않지만, 마커의 [Inject]가 이걸 요구하므로 등록이 없으면 씬 주입이 그 자리에서 끊긴다.
             builder.Register<LaserField>(Lifetime.Singleton);
-            //  ⚠ 실험용(스파이크) — 맵 씨의 SpinningBlade 마커가 여기에 자기를 넣는다.
-            builder.Register<BladeField>(Lifetime.Singleton);
             builder.Register<SkydiveWorld>(c => new SkydiveWorld(
                 c.Resolve<GameFramework.World.EntityRegistry>(),
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
@@ -46,7 +44,6 @@ namespace LOP
                 c.Resolve<SkydiveConfig>(),
                 c.Resolve<GameFramework.Physics.ICollisionQuery>(),
                 c.Resolve<GameFramework.World.IMotionBridge>(),
-                c.Resolve<BladeField>(),
                 // sweep이 볼 것은 맵 지오메트리뿐이다. 몸의 물리 콜라이더는 Character 레이어에
                 // 있으므로(PhysicsBodyFactory), 이 마스크에 Character가 없는 한 사람끼리는 안 걸린다.
                 // 사람끼리 부딪히는 것은 별도 단계로 들어온다(슬라이스 6, 스펙 §4.1).
@@ -56,8 +53,6 @@ namespace LOP
             //  레이저를 그린다. 판정과 같은 식에 같은 틱을 넣으므로 그림과 판정이 어긋나지 않는다.
             builder.RegisterEntryPoint<SkydiveLaserView>().AsSelf();
 
-            //  ⚠ 실험용(스파이크) — 시뮬은 50Hz인데 화면은 더 빨라, 틱 자세만 쓰면 날개가 계단처럼 례다.
-            builder.RegisterEntryPoint<SkydiveBladeView>().AsSelf();
 
             builder.Register<ICharacterCreator, SkydivePlayerCreator>(Lifetime.Singleton);
 

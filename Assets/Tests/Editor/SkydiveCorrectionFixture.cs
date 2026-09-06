@@ -48,7 +48,7 @@ namespace LOP.Tests
                 new FinishSystem(new FinishLineBounds(FinishAxis.Y, Config().GroundY),
                                  FinishAxis.Y, increasing: false),
                 new WindField(), Config(),
-                new EmptySky(), new NoopMotionBridge(), new BladeField(), layerMask: ~0);
+                new EmptySky(), new NoopMotionBridge(), layerMask: ~0);
             world.GameplayStartTick = 0;   // 출발 게이트는 이 파일의 관심사가 아니다
             return new SkydiveServerCorrectionHandler(world);
         }

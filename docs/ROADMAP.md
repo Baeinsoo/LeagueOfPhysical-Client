@@ -3696,6 +3696,32 @@ EditMode 354/354. **다음 = 새 트랙.** 애니 동기화 트랙(슬라이스 
 - **Skydive 관전·나가기** — `FlappySpectate`가 x축을 읽어 Flappy 전용이다
 - `LeaveMatchConfirmView` 스코프 — Skydive에도 나가기가 생기면 전역으로 옮긴다
 
+### 코드 축 — 문서엔 없고 코드에만 있던 것 (2026-09-06)
+
+문서만 훑으면 안 나오는 축을 따로 봤다. TODO·FIXME 표식은 플래피 코드에 **하나도 없고**
+꺼진 테스트(`[Ignore]`/`[Explicit]`)도 **없다**. 나온 것은 둘이다.
+
+**① `FlappyWorld`의 주석이 거짓 근거로 죽은 코드를 지키고 있다.**
+
+```
+FlappyWorld.cs:20  "몸싸움 코드(BodyCollisionSystem·BodyOverlap·VerticalBounce)는
+                    지우지 않았다 — 다른 게임이 쓴다."
+```
+
+**쓰는 다른 게임이 없다.** `SkydiveWorld` 0회, `PanchigiWorld` 0회, `FlapWangWorld`는 존재하지 않는다.
+`BodyOverlap`은 `BodyCollisionSystem`과 자기 자신 말고 참조가 없고, `VerticalBounce`의 유일한
+비-플래피 소비자는 `ExtrapolatedEntityInterpolator`인데 **그것도 어느 게임도 고르지 않는 옛 경로**다
+(08-27에서 Flappy가 떠났고 다른 게임은 원래 안 썼다).
+
+거짓 근거가 없는 것보다 나쁘다 — 다음 사람이 그 줄을 읽고 의심하지 않는다. **주석을 사실대로
+고치거나(“지금은 아무도 안 쓴다. 몸싸움이 돌아올 때를 위해 남긴다”) 코드를 지우거나** 둘 중 하나다.
+
+**② 죽은 코드를 먹여 살리는 마스터데이터 열이 있다 — `Restitution`.**
+
+엑셀 → Luban → 클·서 패키지 → `FlappyConfig` 생성자까지 흐르는데 **읽는 곳이
+`BodyCollisionSystem`(위 ①)뿐이다.** 열을 지우려면 엑셀·재생성·양쪽 패키지·`FlappyConfig`
+생성자·테스트 픽스처가 함께 움직여야 하므로, ①의 결정이 먼저다.
+
 ### 소멸에 가까운 것
 
 - `08-26` §6 **낙사·리스폰** ("필요해지면 그때") — 맵이 막고 추격자가 바닥에 오래 있는 사람을

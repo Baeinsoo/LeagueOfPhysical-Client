@@ -7,11 +7,12 @@ using UnityEngine;
 namespace LOP.EditorTools
 {
     /// <summary>
-    /// 열려 있는 <c>SkydiveMap</c> 씬에 낙하 코스를 굽는다 — 구멍 하나씩 뚫린 선반과, 속도감을
-    /// 보여 주는 모서리 기둥.
+    /// 열려 있는 <c>SkydiveMap</c> 씬에 낙하 코스를 굽는다 — 선반마다 구멍 둘(빠른 구멍·안전한
+    /// 구멍)이 뚫리고, 속도감을 보여 주는 모서리 기둥이 선다.
     ///
     /// 표(<c>Shelves</c>)가 곧 코스 설계다. 숫자를 고치고 다시 구우면 되고, 리뷰어는 표만 보면 된다.
-    /// 굽기 전에 <see cref="SkydiveReach"/>로 구멍 사이가 실제로 닿는 거리인지 검사한다.
+    /// 굽기 전에 <see cref="SkydiveReach"/>로 구멍 사이가 실제로 닿는 거리인지, 빠른/안전 구멍이
+    /// 요구하는 자세가 실제로 갈리는지 검사한다.
     /// </summary>
     public static class SkydiveCourseBuilder
     {
@@ -53,34 +54,92 @@ namespace LOP.EditorTools
         private const int ArrowCountMin = 14;
         private const int ArrowCountMax = 200;
 
-        private readonly struct Shelf
+        // 선반 하나의 구멍 하나. HasDoor=true는 "가까운 구멍"(문이 여닫혀 다이브로 달려들어야
+        // 타이밍이 맞는다), false는 "먼 구멍"(문이 없어 항상 열려 있지만 대자로만 닿는다) —
+        // 스펙 §1·§3.1(2026-09-06-skydive-doors-and-branching-design). 실제 여닫이 문 오브젝트는
+        // Task 7이 별도 표(DoorSpec)로 붙인다 — 여기 HasDoor는 굽기 전 검사가 자세를 가르는 데만 쓴다.
+        internal readonly struct Hole
+        {
+            public readonly float X;
+            public readonly float Z;
+            public readonly float Half;
+            public readonly bool HasDoor;
+
+            public Hole(float x, float z, float side, bool hasDoor)
+            {
+                X = x;
+                Z = z;
+                Half = side * 0.5f;
+                HasDoor = hasDoor;
+            }
+        }
+
+        internal readonly struct Shelf
         {
             public readonly float Y;
-            public readonly float HoleX;
-            public readonly float HoleZ;
-            public readonly float HoleHalf;
+            public readonly Hole[] Holes;
 
-            public Shelf(float y, float holeX, float holeZ, float holeSide)
+            public Shelf(float y, Hole[] holes)
             {
                 Y = y;
-                HoleX = holeX;
-                HoleZ = holeZ;
-                HoleHalf = holeSide * 0.5f;
+                Holes = holes;
             }
         }
 
         // 코스 설계 그 자체. 위에서 아래 순서로 적는다.
         // 부활 지점은 여기 없다 — 서버가 그 값으로 사람을 세우므로 LOP.SkydiveCourseLayout이
         // 진실원본이고, 여기서 또 적으면 두 곳이 조용히 어긋난다.
+        //
+        // ── 구멍 목록으로 바뀐 내력 ──────────────────────────────────────────────────
+        // 옛 표(문 슬라이스 이전)는 선반마다 구멍이 하나였다. 그 값을 전부 그대로 남기고
+        // (좌표·크기 어느 것도 바꾸지 않았다) 부족한 쪽 구멍을 하나씩 새로 추가했다.
+        // 어느 쪽에 새 구멍을 추가할지는 물리로 갈랐다 — 낙하 400m당 대자 도달 76.7m,
+        // 다이브 도달 33.25m(SkydiveReach.MaxHorizontal, SkydiveReach 헤더의 실측표와 동일)이므로:
+        //   · 2600·2200·1800의 옛 값은 이미 다이브로 닿는 거리였다(옛 주석 "다이브로도 닿는다").
+        //     그래서 그대로 FastHole(문 있음)로 승격하고, 대자로만 닿는 새 SafeHole을 추가했다.
+        //   · 1400·1000·600·200의 옛 값은 원래 다이브로 안 닿았다(옛 주석 "여기부터 넷은
+        //     다이브로 곧장 가면 못 닿는다"). 그래서 그대로 SafeHole(문 없음)로 남기고,
+        //     다이브로 닿는 새 FastHole을 추가했다.
+        // 이렇게 하면 옛 좌표는 한 글자도 안 바뀌고(리뷰가 대조하기 쉽다), 새 구멍의 자리만
+        // ReachableChain/FindRouteNotSplit(§7.2 검사)이 요구하는 조건에 맞춰 골랐다 — 각 값의
+        // 산수는 task-6-report.md에 남긴다.
         private static readonly Shelf[] Shelves =
         {
-            new Shelf(2600f, 0f, 0f, 30f),      // 스폰 바로 아래 — 아무것도 안 해도 지나간다
-            new Shelf(2200f, 30f, 0f, 24f),     // 옆으로 가는 걸 가르치는 구간(다이브로도 닿는다)
-            new Shelf(1800f, 30f, 30f, 20f),
-            new Shelf(1400f, -25f, 30f, 20f),   // 여기부터 넷은 다이브로 곧장 가면 못 닿는다
-            new Shelf(1000f, -25f, -30f, 16f),
-            new Shelf(600f, 30f, -25f, 16f),
-            new Shelf(200f, 0f, 25f, 16f),
+            new Shelf(2600f, new[]
+            {
+                new Hole(0f, 0f, 30f, hasDoor: true),     // 옛 값 — 스폰 바로 아래, 아무것도 안 해도 지나간다
+                new Hole(0f, 60f, 20f, hasDoor: false),   // 신규 — 대자로만 닿는 먼 구멍
+            }),
+            new Shelf(2200f, new[]
+            {
+                new Hole(30f, 0f, 24f, hasDoor: true),    // 옛 값 — 옆으로 가는 걸 가르치는 구간
+                new Hole(55f, 30f, 20f, hasDoor: false),  // 신규
+            }),
+            new Shelf(1800f, new[]
+            {
+                new Hole(30f, 30f, 20f, hasDoor: true),   // 옛 값
+                new Hole(15f, 70f, 20f, hasDoor: false),  // 신규
+            }),
+            new Shelf(1400f, new[]
+            {
+                new Hole(0f, 20f, 16f, hasDoor: true),    // 신규 — 여기부터 옛 값은 SafeHole
+                new Hole(-25f, 30f, 20f, hasDoor: false), // 옛 값
+            }),
+            new Shelf(1000f, new[]
+            {
+                new Hole(-20f, -10f, 16f, hasDoor: true), // 신규
+                new Hole(-25f, -30f, 16f, hasDoor: false),// 옛 값
+            }),
+            new Shelf(600f, new[]
+            {
+                new Hole(0f, -30f, 16f, hasDoor: true),   // 신규
+                new Hole(30f, -25f, 16f, hasDoor: false), // 옛 값
+            }),
+            new Shelf(200f, new[]
+            {
+                new Hole(0f, 0f, 16f, hasDoor: true),     // 신규
+                new Hole(0f, 25f, 16f, hasDoor: false),   // 옛 값
+            }),
         };
 
         internal readonly struct WindSpec
@@ -364,28 +423,79 @@ namespace LOP.EditorTools
             Debug.Log($"[Skydive] 코스를 구웠다 — 선반 {Shelves.Length}개. 씬을 저장해라.\n{report}");
         }
 
-        // 선반 = 구멍을 둘러싼 판 네 장. 하나의 큰 판에 구멍을 뚫을 수는 없어서(상자 콜라이더는
-        // 볼록한 덩어리뿐) 테두리로 만든다.
+        // 사각형 한 조각(XZ 평면). 판을 이 조각들의 목록으로 표현해 구멍마다 깎아 나간다.
+        private readonly struct Rect
+        {
+            public readonly float XMin, XMax, ZMin, ZMax;
+
+            public Rect(float xMin, float xMax, float zMin, float zMax)
+            {
+                XMin = xMin;
+                XMax = xMax;
+                ZMin = zMin;
+                ZMax = zMax;
+            }
+        }
+
+        // 선반 = 구멍들을 뺀 나머지 판. 하나의 큰 판에 구멍을 뚫을 수는 없어서(상자 콜라이더는
+        // 볼록한 덩어리뿐) 조각으로 쪼갠다. 구멍이 하나면 북/남/동/서 네 조각이 나오던 것과
+        // 같은 식을, 구멍마다 그때까지 남은 조각들에 반복 적용한다 — 두 구멍이 겹치지 않는 한
+        // 몇 개가 되든 안전하게 tiling된다.
         private static void BuildShelf(Transform parent, in Shelf shelf, Material material)
         {
-            float northStart = shelf.HoleZ + shelf.HoleHalf;
-            float southEnd = shelf.HoleZ - shelf.HoleHalf;
-            float eastStart = shelf.HoleX + shelf.HoleHalf;
-            float westEnd = shelf.HoleX - shelf.HoleHalf;
+            var plates = new List<Rect> { new Rect(-SlabHalf, SlabHalf, -SlabHalf, SlabHalf) };
+
+            foreach (Hole hole in shelf.Holes)
+            {
+                float holeXMin = hole.X - hole.Half;
+                float holeXMax = hole.X + hole.Half;
+                float holeZMin = hole.Z - hole.Half;
+                float holeZMax = hole.Z + hole.Half;
+
+                var next = new List<Rect>();
+                foreach (Rect plate in plates)
+                {
+                    //  이 구멍과 이 조각이 겹치는 부분만 도려낸다 — 조각이 이미 이전 구멍으로
+                    //  좁아져 있을 수 있으므로 구멍 범위를 조각 범위로 한 번 더 자른다.
+                    float xLo = Mathf.Max(plate.XMin, holeXMin);
+                    float xHi = Mathf.Min(plate.XMax, holeXMax);
+                    float zLo = Mathf.Max(plate.ZMin, holeZMin);
+                    float zHi = Mathf.Min(plate.ZMax, holeZMax);
+
+                    if (xLo >= xHi || zLo >= zHi)
+                    {
+                        next.Add(plate);   // 안 겹치는 조각은 그대로 둔다
+                        continue;
+                    }
+
+                    if (plate.ZMax > zHi)
+                    {
+                        next.Add(new Rect(plate.XMin, plate.XMax, zHi, plate.ZMax));   // N
+                    }
+                    if (zLo > plate.ZMin)
+                    {
+                        next.Add(new Rect(plate.XMin, plate.XMax, plate.ZMin, zLo));   // S
+                    }
+                    if (plate.XMax > xHi)
+                    {
+                        next.Add(new Rect(xHi, plate.XMax, zLo, zHi));                 // E
+                    }
+                    if (xLo > plate.XMin)
+                    {
+                        next.Add(new Rect(plate.XMin, xLo, zLo, zHi));                 // W
+                    }
+                }
+                plates = next;
+            }
 
             string prefix = $"Shelf_{shelf.Y:0}";
-            AddBox(parent, $"{prefix}_N", material,
-                new Vector3(0f, shelf.Y, (northStart + SlabHalf) * 0.5f),
-                new Vector3(SlabHalf * 2f, SlabThickness, SlabHalf - northStart));
-            AddBox(parent, $"{prefix}_S", material,
-                new Vector3(0f, shelf.Y, (southEnd - SlabHalf) * 0.5f),
-                new Vector3(SlabHalf * 2f, SlabThickness, southEnd + SlabHalf));
-            AddBox(parent, $"{prefix}_E", material,
-                new Vector3((eastStart + SlabHalf) * 0.5f, shelf.Y, shelf.HoleZ),
-                new Vector3(SlabHalf - eastStart, SlabThickness, shelf.HoleHalf * 2f));
-            AddBox(parent, $"{prefix}_W", material,
-                new Vector3((westEnd - SlabHalf) * 0.5f, shelf.Y, shelf.HoleZ),
-                new Vector3(westEnd + SlabHalf, SlabThickness, shelf.HoleHalf * 2f));
+            for (int i = 0; i < plates.Count; i++)
+            {
+                Rect r = plates[i];
+                AddBox(parent, $"{prefix}_{i}", material,
+                    new Vector3((r.XMin + r.XMax) * 0.5f, shelf.Y, (r.ZMin + r.ZMax) * 0.5f),
+                    new Vector3(r.XMax - r.XMin, SlabThickness, r.ZMax - r.ZMin));
+            }
         }
 
         // 떨어지는 동안 옆에 뭔가 지나가야 속도가 보인다. 길에서 멀리 떨어뜨려 놓는다.
@@ -577,19 +687,38 @@ namespace LOP.EditorTools
                 float upperY = Shelves[i - 1].Y;
                 float lowerY = Shelves[i].Y;
                 float drop = upperY - lowerY;
-                float requiredX = Shelves[i].HoleX - Shelves[i - 1].HoleX;
-                float requiredZ = Shelves[i].HoleZ - Shelves[i - 1].HoleZ;
-                float holeHalf = Shelves[i].HoleHalf;
 
-                if (PosturePasses(winds, upperY, lowerY, drop, requiredX, requiredZ, holeHalf,
-                                  SpreadFallSpeed, SpreadMoveSpeed, SpreadTurnAccel, SpreadWindLag) ||
-                    PosturePasses(winds, upperY, lowerY, drop, requiredX, requiredZ, holeHalf,
-                                  DiveFallSpeed, DiveMoveSpeed, DiveTurnAccel, DiveWindLag))
+                //  구멍이 둘이라 "이전 구멍 → 이번 구멍"의 조합도 넷이다. 그중 하나라도
+                //  대자나 다이브로 바람을 뚫으면 이 구간은 막힌 게 아니다 — Verify()·
+                //  ReachableChain과 같은 "어딘가 한 길만 있으면 된다" 철학.
+                bool anyPasses = false;
+                foreach (Hole prevHole in Shelves[i - 1].Holes)
                 {
-                    continue;
+                    foreach (Hole hole in Shelves[i].Holes)
+                    {
+                        float requiredX = hole.X - prevHole.X;
+                        float requiredZ = hole.Z - prevHole.Z;
+                        float holeHalf = hole.Half;
+
+                        if (PosturePasses(winds, upperY, lowerY, drop, requiredX, requiredZ, holeHalf,
+                                          SpreadFallSpeed, SpreadMoveSpeed, SpreadTurnAccel, SpreadWindLag) ||
+                            PosturePasses(winds, upperY, lowerY, drop, requiredX, requiredZ, holeHalf,
+                                          DiveFallSpeed, DiveMoveSpeed, DiveTurnAccel, DiveWindLag))
+                        {
+                            anyPasses = true;
+                            break;
+                        }
+                    }
+                    if (anyPasses)
+                    {
+                        break;
+                    }
                 }
 
-                return $"{upperY:0} → {lowerY:0} 구간을 대자로도 다이브로도 못 지나간다. 바람 표를 고쳐라.";
+                if (anyPasses == false)
+                {
+                    return $"{upperY:0} → {lowerY:0} 구간을 대자로도 다이브로도 못 지나간다. 바람 표를 고쳐라.";
+                }
             }
             return null;
         }
@@ -615,7 +744,7 @@ namespace LOP.EditorTools
                 driftZ += SkydiveWindReach.DriftDistance(spec.Wind.z, overlap, fallSpeed, lag, tailHeight);
             }
 
-            // 구멍 반쪽만큼은 덤이다 — Verify()와 같은 셈(§7.4). 중심까지 안 가도 가장자리로
+            // 구멍 반쪽만큼은 덤이다 — ReachableChain과 같은 셈. 중심까지 안 가도 가장자리로
             // 들어가면 통과다.
             float reach = SkydiveWindReach.SelfReach(moveSpeed, turnAccel, drop, fallSpeed) + holeHalf;
             return SkydiveWindReach.CanReach(requiredX, requiredZ, driftX, driftZ, reach);
@@ -659,15 +788,23 @@ namespace LOP.EditorTools
                 // 이 구멍으로 내려오는 길목 — 바로 위 선반(맨 위는 스폰)부터 이 선반까지.
                 // Build()가 기둥을 세울 때 쓰는 것과 같은 관계다(위→아래로 적힌 Shelves 순서에 의존).
                 float upperY = i == 0 ? LOP.SkydiveCourseLayout.SpawnY : Shelves[i - 1].Y;
-                if (GateEverOpens(shelf, upperY, lasers) == false)
+
+                //  구멍이 둘이라 각자 따로 본다 — 한쪽이 레이저에 영원히 막혀도 다른 쪽이
+                //  열려 있으면 그 자체로는 "판이 안 끝난다"가 아니지만, 각 구멍은 자기 몫의
+                //  검사(다이브 vs 대자 자세, 도달 가능성)를 이미 따로 받으므로 여기서도
+                //  개별로 확인해야 어느 쪽이 막혔는지 리포트가 정확하다.
+                foreach (Hole hole in shelf.Holes)
                 {
-                    return $"선반 {shelf.Y:0}의 구멍이 한 번도 열리지 않는다";
+                    if (GateEverOpens(shelf.Y, hole, upperY, lasers) == false)
+                    {
+                        return $"선반 {shelf.Y:0}의 구멍({hole.X:0},{hole.Z:0})이 한 번도 열리지 않는다";
+                    }
                 }
             }
             return null;
         }
 
-        private static bool GateEverOpens(in Shelf shelf, float upperY, IReadOnlyList<LaserSpec> lasers)
+        private static bool GateEverOpens(float shelfY, in Hole hole, float upperY, IReadOnlyList<LaserSpec> lasers)
         {
             var beams = new List<LOP.Laser>();
             for (int i = 0; i < lasers.Count; i++)
@@ -675,7 +812,7 @@ namespace LOP.EditorTools
                 // 이 구간(선반~바로 위 선반) 안에 피벗이 있는 레이저만 이 구멍의 문지기다 —
                 // 다른 구간의 빔은 여기까지 닿지 않으니 막는지 안 막는지와 무관하다.
                 float pivotY = lasers[i].Pivot.y;
-                if (pivotY <= shelf.Y || pivotY > upperY)
+                if (pivotY <= shelfY || pivotY > upperY)
                 {
                     continue;
                 }
@@ -684,7 +821,7 @@ namespace LOP.EditorTools
 
             for (int tick = 0; tick < GateSampleTicks; tick++)
             {
-                if (HoleHasClearPoint(shelf, beams, tick))
+                if (HoleHasClearPoint(shelfY, hole, beams, tick))
                 {
                     return true;
                 }
@@ -693,17 +830,17 @@ namespace LOP.EditorTools
         }
 
         // 구멍 안을 격자로 훑어, 켜져 있는 모든 빔에서 충분히 떨어진 점이 하나라도 있으면 열린 것이다.
-        private static bool HoleHasClearPoint(in Shelf shelf, List<LOP.Laser> beams, int tick)
+        private static bool HoleHasClearPoint(float shelfY, in Hole hole, List<LOP.Laser> beams, int tick)
         {
-            float step = shelf.HoleHalf * 2f / GateGridSteps;
+            float step = hole.Half * 2f / GateGridSteps;
 
             for (int ix = 0; ix <= GateGridSteps; ix++)
             {
                 for (int iz = 0; iz <= GateGridSteps; iz++)
                 {
-                    float x = shelf.HoleX - shelf.HoleHalf + ix * step;
-                    float z = shelf.HoleZ - shelf.HoleHalf + iz * step;
-                    var point = new System.Numerics.Vector3(x, shelf.Y, z);
+                    float x = hole.X - hole.Half + ix * step;
+                    float z = hole.Z - hole.Half + iz * step;
+                    var point = new System.Numerics.Vector3(x, shelfY, z);
 
                     bool clear = true;
                     for (int b = 0; b < beams.Count; b++)
@@ -740,11 +877,13 @@ namespace LOP.EditorTools
         /// 검사 대상은 <b>서버가 실제로 쓰는 표</b>(<c>LOP.SkydiveCourseLayout.RespawnPoints</c>)다 —
         /// 빌더 안에 사본을 두고 그걸 검사하면, 정작 사람을 세우는 값은 아무도 안 본 것이 된다.
         /// </summary>
-        internal static string FindInvalidRespawn()
+        internal static string FindInvalidRespawn() => FindInvalidRespawn(Shelves);
+
+        internal static string FindInvalidRespawn(IReadOnlyList<Shelf> shelves)
         {
-            for (int i = 0; i < Shelves.Length; i++)
+            for (int i = 0; i < shelves.Count; i++)
             {
-                Shelf shelf = Shelves[i];
+                Shelf shelf = shelves[i];
 
                 if (LOP.SkydiveCourseLayout.RespawnPoints.TryGetValue(shelf.Y, out Vector3 point) == false)
                 {
@@ -761,11 +900,16 @@ namespace LOP.EditorTools
                     return $"선반 {shelf.Y:0}의 부활 지점 고도가 선반과 다르다";
                 }
 
-                bool insideHole = Mathf.Abs(point.x - shelf.HoleX) <= shelf.HoleHalf
-                               && Mathf.Abs(point.z - shelf.HoleZ) <= shelf.HoleHalf;
-                if (insideHole)
+                //  구멍이 둘이니 어느 쪽 구멍과도 안 겹쳐야 한다 — 하나만 보고 통과시키면
+                //  부활 지점이 다른 쪽 구멍 안에 세워질 수 있다.
+                foreach (Hole hole in shelf.Holes)
                 {
-                    return $"선반 {shelf.Y:0}의 부활 지점이 구멍 안이다 — 세우자마자 빠진다";
+                    bool insideHole = Mathf.Abs(point.x - hole.X) <= hole.Half
+                                   && Mathf.Abs(point.z - hole.Z) <= hole.Half;
+                    if (insideHole)
+                    {
+                        return $"선반 {shelf.Y:0}의 부활 지점이 구멍({hole.X:0},{hole.Z:0}) 안이다 — 세우자마자 빠진다";
+                    }
                 }
 
                 //  기둥에 겹치면 부활한 몸이 기둥에 박힌다.
@@ -832,7 +976,10 @@ namespace LOP.EditorTools
             return null;
         }
 
-        /// <summary>구멍과 구멍 사이가 실제로 닿는 거리인지 검사한다(스펙 §7.4).</summary>
+        /// <summary>
+        /// 구멍과 구멍 사이가 실제로 닿는 거리인지, 빠른/안전 구멍이 요구하는 자세가 실제로
+        /// 갈리는지 검사한다(2026-09-06-skydive-doors-and-branching-design §3.2).
+        /// </summary>
         [MenuItem("LOP/Skydive/코스 검사")]
         public static void VerifyMenu()
         {
@@ -846,34 +993,33 @@ namespace LOP.EditorTools
             }
         }
 
+        // 구멍이 둘이 되면서 굽기 전 검사가 하나에서 셋으로 늘었다(스펙 §3.2) —
+        // ① 각 선반에 도달 가능한 구멍이 있는가(전체 경로) ② 안전한 구멍만으로 완주 가능한가
+        // ③ 빠른 구멍은 다이브로만, 안전한 구멍은 다이브로는 안 닿는가.
         private static bool Verify(out string report)
         {
             var lines = new List<string>();
             bool ok = true;
 
-            float previousX = 0f;
-            float previousZ = 0f;
-            float previousY = LOP.SkydiveCourseLayout.SpawnY;
+            bool generalOk = ReachableChain(safeOnly: false, out string generalReport);
+            ok &= generalOk;
+            lines.Add("① 전체 경로(빠른/안전 구멍 아무거나):");
+            lines.Add(generalReport);
 
-            foreach (var shelf in Shelves)
+            bool safeOk = ReachableChain(safeOnly: true, out string safeReport);
+            ok &= safeOk;
+            lines.Add("② 안전 경로만(문을 하나도 못 뚫어도 끝까지):");
+            lines.Add(safeReport);
+
+            string splitIssue = FindRouteNotSplit();
+            if (splitIssue != null)
             {
-                float fall = previousY - shelf.Y;
-                float gap = new Vector2(shelf.HoleX - previousX, shelf.HoleZ - previousZ).magnitude;
-                float spread = SkydiveReach.MaxHorizontal(fall, SpreadFallSpeed, SpreadMoveSpeed, SpreadTurnAccel);
-                float dive = SkydiveReach.MaxHorizontal(fall, DiveFallSpeed, DiveMoveSpeed, DiveTurnAccel);
-
-                //  구멍 반쪽만큼은 덤이다 — 중심까지 안 가도 가장자리로 들어가면 통과다.
-                bool reachable = gap <= spread + shelf.HoleHalf;
-                ok &= reachable;
-
-                string note = reachable
-                    ? (gap > dive + shelf.HoleHalf ? "  (다이브로는 못 닿음 — 의도)" : "")
-                    : "  [X] 대자로도 못 닿는다";
-                lines.Add($"y={shelf.Y:0}: 이동 {gap:0.0}m / 대자 {spread:0.0}m / 다이브 {dive:0.0}m{note}");
-
-                previousX = shelf.HoleX;
-                previousZ = shelf.HoleZ;
-                previousY = shelf.Y;
+                ok = false;
+                lines.Add($"③  [X] {splitIssue}");
+            }
+            else
+            {
+                lines.Add("③  빠른 구멍은 다이브로만, 안전한 구멍은 다이브로 안 닿는다 — 통과.");
             }
 
             var sb = new StringBuilder();
@@ -884,6 +1030,102 @@ namespace LOP.EditorTools
             }
             report = sb.ToString();
             return ok;
+        }
+
+        //  구멍이 둘이 되면 기존 검사가 "어느 하나엔 닿는가"로 느슨해진다. 느슨해진 만큼
+        //  검사로 되잡는다. 앞 선반에서 도달 가능했던 구멍들만 다음 칸의 출발점이 된다 —
+        //  "어딘가에서 닿으면 됨"이 아니라 "실제로 갈 수 있었던 자리에서 닿아야 함"이다.
+        internal static bool ReachableChain(bool safeOnly, out string report)
+            => ReachableChain(safeOnly, Shelves, out report);
+
+        internal static bool ReachableChain(bool safeOnly, IReadOnlyList<Shelf> shelves, out string report)
+        {
+            var lines = new List<string>();
+            bool ok = true;
+
+            //  출발은 스폰 한 점이다.
+            var from = new List<Vector2> { new Vector2(0f, 0f) };
+            float previousY = LOP.SkydiveCourseLayout.SpawnY;
+
+            foreach (Shelf shelf in shelves)
+            {
+                float fall = previousY - shelf.Y;
+                float spread = SkydiveReach.MaxHorizontal(fall, SpreadFallSpeed, SpreadMoveSpeed, SpreadTurnAccel);
+                float dive = SkydiveReach.MaxHorizontal(fall, DiveFallSpeed, DiveMoveSpeed, DiveTurnAccel);
+
+                var next = new List<Vector2>();
+                foreach (Hole hole in shelf.Holes)
+                {
+                    if (safeOnly && hole.HasDoor)
+                    {
+                        continue;   // ② 문을 하나도 못 뚫는 사람의 경로
+                    }
+                    //  구멍 반쪽만큼은 덤이다 — 중심까지 안 가도 가장자리로 들어가면 통과다.
+                    float best = float.MaxValue;
+                    foreach (Vector2 p in from)
+                    {
+                        best = Mathf.Min(best, Vector2.Distance(p, new Vector2(hole.X, hole.Z)));
+                    }
+                    if (best <= spread + hole.Half)
+                    {
+                        next.Add(new Vector2(hole.X, hole.Z));
+                    }
+                    lines.Add($"y={shelf.Y:0} {(hole.HasDoor ? "빠른" : "안전")}: 이동 {best:0.0}m " +
+                              $"/ 대자 {spread:0.0}m / 다이브 {dive:0.0}m");
+                }
+
+                if (next.Count == 0)
+                {
+                    lines.Add($"  [X] y={shelf.Y:0}에 닿는 구멍이 없다{(safeOnly ? " (안전 경로)" : "")}");
+                    ok = false;
+                    break;
+                }
+                from = next;
+                previousY = shelf.Y;
+            }
+
+            report = string.Join("\n", lines);
+            return ok;
+        }
+
+        //  ③ 두 길이 실제로 다른 자세를 요구하는가. 이 조건이 성립하면 "빠른 길이 진짜 빠른가"를
+        //  따로 증명할 필요가 없다 — 다이브로 갈 수 있다는 것 자체가 더 빠르다는 뜻이다.
+        internal static string FindRouteNotSplit() => FindRouteNotSplit(Shelves);
+
+        internal static string FindRouteNotSplit(IReadOnlyList<Shelf> shelves)
+        {
+            var from = new List<Vector2> { new Vector2(0f, 0f) };
+            float previousY = LOP.SkydiveCourseLayout.SpawnY;
+
+            foreach (Shelf shelf in shelves)
+            {
+                float fall = previousY - shelf.Y;
+                float dive = SkydiveReach.MaxHorizontal(fall, DiveFallSpeed, DiveMoveSpeed, DiveTurnAccel);
+
+                var next = new List<Vector2>();
+                foreach (Hole hole in shelf.Holes)
+                {
+                    float best = float.MaxValue;
+                    foreach (Vector2 p in from)
+                    {
+                        best = Mathf.Min(best, Vector2.Distance(p, new Vector2(hole.X, hole.Z)));
+                    }
+                    float reach = best - hole.Half;
+
+                    if (hole.HasDoor && reach > dive)
+                    {
+                        return $"y={shelf.Y:0}의 빠른 구멍이 다이브로 안 닿는다({reach:0.0} > {dive:0.0})";
+                    }
+                    if (hole.HasDoor == false && reach <= dive)
+                    {
+                        return $"y={shelf.Y:0}의 안전한 구멍이 다이브로도 닿는다({reach:0.0} ≤ {dive:0.0}) — 문이 무의미해진다";
+                    }
+                    next.Add(new Vector2(hole.X, hole.Z));
+                }
+                from = next;
+                previousY = shelf.Y;
+            }
+            return null;
         }
     }
 }

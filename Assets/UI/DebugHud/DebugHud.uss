@@ -19,3 +19,9 @@
     -unity-font-style: bold;
     -unity-text-align: middle-left;
 }
+
+/* 시뮬 정지 — 놓치면 안 되는 한 줄이라 다른 값들과 다르게 보인다 */
+.debug-text--faulted {
+    color: rgb(255, 92, 92);
+    -unity-font-style: bold;
+}

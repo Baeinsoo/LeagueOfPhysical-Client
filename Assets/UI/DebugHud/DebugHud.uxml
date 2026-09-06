@@ -2,6 +2,8 @@
     <Style src="DebugHud.uss" />
     <ui:VisualElement name="debug-hud-root" class="debug-hud-root" picking-mode="Ignore">
         <ui:VisualElement name="debug-panel" class="debug-panel" picking-mode="Ignore">
+            <!-- 시뮬이 멈췄을 때만 뜬다. 회색 줄 스무 개 사이에 섞이면 놓치므로 맨 위·빨강. -->
+            <ui:Label name="faulted-text" class="debug-text debug-text--faulted" text="" style="display: none;" />
             <ui:Label name="tick-text" class="debug-text" text="Client tick: 0" />
             <ui:Label name="server-tick-text" class="debug-text" text="Server tick: 0" />
             <ui:Label name="lead-text" class="debug-text" text="Lead: 0 tick" />

@@ -47,6 +47,35 @@ namespace LOP.EditorTools
         // 선반 머티리얼. 없으면 유니티 기본 머티리얼로 굽되 경고를 낸다.
         private const string StoneMaterialPath = "Assets/Art/Materials/SkydiveStone.mat";
 
+        //  ⚠ 실험용(스파이크) — 도는 날개. 눈에 잘 띄는 주황 재질을 빌려 쓴다(새 에셋을 늘리지 않으려고).
+        private const string BladeMeshPath = "Assets/Art/Models/SkydiveFanBlade.asset";
+        private const string BladeMaterialPath = "Assets/Art/Materials/SkydiveWindArrow_Strong.mat";
+        private const int BladesPerFan = 3;
+
+        private readonly struct FanSpec
+        {
+            public readonly string Name;
+            public readonly Vector3 Hub;
+            public readonly float SpeedDegreesPerTick;
+
+            public FanSpec(string name, Vector3 hub, float speedDegreesPerTick)
+            {
+                Name = name;
+                Hub = hub;
+                SpeedDegreesPerTick = speedDegreesPerTick;
+            }
+        }
+
+        //  둘만 둔다: 떨어지다 맞는 것 하나, 걸어가서 부딪혀 볼 수 있는 것 하나.
+        //  위치는 임의다 — 맵은 나중에 제대로 손볼 것이다.
+        private static readonly FanSpec[] Fans =
+        {
+            //  2200→1800 내려가는 길목 한가운데. 구멍(30,0)에서 (30,30)으로 가는 경로 위다.
+            new FanSpec("Fan_2000_Air", new Vector3(30f, 2000f, 15f), 3f),
+            //  2200 선반 위. 부활 지점(30,2200,40)에서 서쪽으로 30m — 걸어가서 부딪친다.
+            new FanSpec("Fan_2200_Shelf", new Vector3(0f, 2202.5f, 40f), 2f),
+        };
+
         // 화살표 밀도. 개수는 부피(반지름×높이)에 비례한다 — 세기가 아니라 "큰 볼륨에서
         // 성기지 않게"를 위한 값이다. 반지름25×높이120(작은 기둥)에서 14개가 나오게 골랐다.
         private const float ArrowCountDivisor = 250f;
@@ -360,6 +389,13 @@ namespace LOP.EditorTools
                 CreateLaserVolume(lasers.transform, Lasers[i]);
             }
 
+            var fans = new GameObject("Fans");
+            fans.transform.SetParent(root.transform, worldPositionStays: false);
+            for (int i = 0; i < Fans.Length; i++)
+            {
+                CreateFan(fans.transform, Fans[i]);
+            }
+
             EditorSceneManager.MarkSceneDirty(scene);
             Debug.Log($"[Skydive] 코스를 구웠다 — 선반 {Shelves.Length}개. 씬을 저장해라.\n{report}");
         }
@@ -517,6 +553,66 @@ namespace LOP.EditorTools
             marker.OnTicks = spec.OnTicks;
             marker.Phase = spec.Phase;
             return go;
+        }
+
+        //  ⚠ 실험용(스파이크). 허브에 SpinningBlade를 달고 날개를 자식으로 붙인다 —
+        //  시뮬이 허브를 돌리면 콜라이더도 같이 돌아 "그 틱의 날개"와 겹침을 재게 된다.
+        //  메시 에셋은 팬 개수와 무관하게 하나다. 팬마다 CreateAsset을 부르면 두 번째가
+        //  앞의 것을 덮어 첫 팬의 참조가 끊긴다.
+        private static Mesh EnsureBladeMesh()
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<Mesh>(BladeMeshPath);
+            Mesh generated = SkydiveBladeMeshes.CreateBlade();
+            if (existing == null)
+            {
+                AssetDatabase.CreateAsset(generated, BladeMeshPath);
+                return generated;
+            }
+
+            //  이미 있으면 내용만 덮는다 — 새로 만들면 고유번호가 바뀌어 씬 참조가 끊긴다.
+            //  이름을 먼저 맞추는 이유는 SkydiveWindAssets.EnsureAsset과 같다(덮기가 이름까지 덮는다).
+            generated.name = System.IO.Path.GetFileNameWithoutExtension(BladeMeshPath);
+            EditorUtility.CopySerialized(generated, existing);
+            Object.DestroyImmediate(generated);
+            EditorUtility.SetDirty(existing);
+            return existing;
+        }
+
+        private static void CreateFan(Transform parent, in FanSpec spec)
+        {
+            var hub = new GameObject(spec.Name);
+            hub.transform.SetParent(parent, worldPositionStays: false);
+            hub.transform.localPosition = spec.Hub;
+
+            var blade = hub.AddComponent<LOP.SpinningBlade>();
+            blade.AngularSpeedDegreesPerTick = spec.SpeedDegreesPerTick;
+            blade.StartAngleDegrees = 0f;
+
+            Mesh mesh = EnsureBladeMesh();
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(BladeMaterialPath);
+            if (material == null)
+            {
+                Debug.LogWarning($"[Skydive] 날개 머티리얼이 없다 — {BladeMaterialPath}. 기본색으로 굽는다.");
+            }
+
+            for (int i = 0; i < BladesPerFan; i++)
+            {
+                var go = new GameObject($"Blade{i}");
+                go.transform.SetParent(hub.transform, worldPositionStays: false);
+                go.transform.localRotation = Quaternion.Euler(0f, i * 360f / BladesPerFan, 0f);
+
+                go.AddComponent<MeshFilter>().sharedMesh = mesh;
+                var renderer = go.AddComponent<MeshRenderer>();
+                if (material != null)
+                {
+                    renderer.sharedMaterial = material;
+                }
+
+                //  겹침을 밀어내는 계산은 볼록한 형상만 답한다. 날개 한 장씩이라 볼록이 된다.
+                var collider = go.AddComponent<MeshCollider>();
+                collider.sharedMesh = mesh;
+                collider.convex = true;
+            }
         }
 
         private static void CreateWindArrows(Transform parent, string name, float radius, float height,

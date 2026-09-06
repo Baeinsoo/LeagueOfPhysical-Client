@@ -52,9 +52,17 @@ jobs:
           cd "$GITHUB_WORKSPACE/.."
           for r in GameFramework LeagueOfPhysical-Shared LeagueOfPhysical-MasterData-Client; do
             if [ -d "$r/.git" ]; then
-              git -C "$r" fetch --depth 1 origin && git -C "$r" reset --hard @{u}
+              git -C "$r" fetch --depth 1 origin
             else
               git clone --depth 1 "https://github.com/Baeinsoo/$r" "$r"
+            fi
+            #  스파이크용: 같은 이름의 브랜치가 형제 레포에도 있으면 그것을 쓴다.
+            #  없으면 기본 브랜치 그대로 — 평소 동작이 바뀌지 않는다.
+            if git -C "$r" ls-remote --exit-code --heads origin "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+              git -C "$r" fetch --depth 1 origin "$GITHUB_REF_NAME"
+              git -C "$r" checkout -B "$GITHUB_REF_NAME" FETCH_HEAD
+            else
+              git -C "$r" reset --hard "@{u}"
             fi
           done
 
@@ -123,9 +131,17 @@ jobs:
           cd "$GITHUB_WORKSPACE/.."
           for r in GameFramework LeagueOfPhysical-Shared LeagueOfPhysical-MasterData-Client; do
             if [ -d "$r/.git" ]; then
-              git -C "$r" fetch --depth 1 origin && git -C "$r" reset --hard @{u}
+              git -C "$r" fetch --depth 1 origin
             else
               git clone --depth 1 "https://github.com/Baeinsoo/$r" "$r"
+            fi
+            #  스파이크용: 같은 이름의 브랜치가 형제 레포에도 있으면 그것을 쓴다.
+            #  없으면 기본 브랜치 그대로 — 평소 동작이 바뀌지 않는다.
+            if git -C "$r" ls-remote --exit-code --heads origin "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+              git -C "$r" fetch --depth 1 origin "$GITHUB_REF_NAME"
+              git -C "$r" checkout -B "$GITHUB_REF_NAME" FETCH_HEAD
+            else
+              git -C "$r" reset --hard "@{u}"
             fi
           done
 

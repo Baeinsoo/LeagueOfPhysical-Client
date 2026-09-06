@@ -189,6 +189,19 @@ namespace LOP
 
         private void OnEntityDestroyed(EntityDestroyed entityDestroyed)
         {
+            //  내 것이라는 표시를 먼저 내린다 — 세우는 쪽이 이 클래스라(아래 OnEntityCreated의
+            //  playerContext.actor 대입) 내리는 쪽도 여기다. 아래 early return보다 앞이어야 한다:
+            //  액터가 이미 없어도 표시는 내려야 하기 때문이다.
+            //
+            //  안 내리면 죽은 id와 파괴된 액터를 계속 들고 있게 되고, 그걸 믿고 읽는 쪽이 터진다 —
+            //  실제로 추격자에게 잡히는 순간 PlayerInputManager가 없는 엔티티를 읽어 NRE를 냈고,
+            //  틱 루프가 코루틴이라 그 예외 하나에 클라 시뮬 전체가 멈췄다.
+            if (entityDestroyed.entityId == playerContext.entityId)
+            {
+                playerContext.entityId = null;
+                playerContext.actor = null;
+            }
+
             if (actorRegistry.TryGet(entityDestroyed.entityId, out var actor) == false)
             {
                 return;

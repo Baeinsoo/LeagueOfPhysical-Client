@@ -705,6 +705,71 @@ namespace LOP.EditorTools
                 => _inner.OverlapSphere(center, radius, layerMask);
         }
 
+        //  표면을 훑는 격자. 낌 스캔의 격자(0.2m)보다 촘촘히 본다 — 격자에 안 걸리는 자리를
+        //  찾는 것이 이 훑기의 목적이라, 같은 간격으로 보면 아무것도 더 못 찾는다.
+        private const float ShapeScanStep = 0.1f;
+        //  표면을 찾으려고 쏘는 레이의 길이. 격자 한 칸보다 조금 길게 잡아 사이가 비지 않게 한다.
+        private const float ShapeRayLength = 0.15f;
+        //  규칙에 걸린 면에서 이만큼 떨어진 자리를 씨앗으로 낸다. 표면 안쪽은 새가 못 있는 자리다.
+        private const float ShapeSeedOffset = 0.5f;
+
+        //  콜라이더 종류를 가리지 않고 표면 법선을 모은다 — 지금은 BoxCollider뿐이지만 메시가
+        //  와도 같은 코드가 돈다. 규칙에 걸린 자리를 낌 스캔의 씨앗으로 낸다(확정하지 않는다).
+        private static List<(float X, float Y)> ShapeSeeds(in Bounds bounds, in FlappyShape shape,
+                                                           int mapMask, out int sampleCount,
+                                                           out int suspectCount)
+        {
+            var seeds = new List<(float, float)>();
+            var directions = new[] { Vector3.up, Vector3.down, Vector3.right, Vector3.left };
+            var rules = LOP.MapTools.TrapShapeRules.Default;
+            sampleCount = 0;
+            suspectCount = 0;
+
+            for (float x = bounds.min.x; x <= bounds.max.x; x += ShapeScanStep)
+            {
+                for (float y = bounds.min.y; y <= bounds.max.y; y += ShapeScanStep)
+                {
+                    var origin = new Vector3(x, y, 0f);
+                    for (int d = 0; d < directions.Length; d++)
+                    {
+                        if (Physics.Raycast(origin, directions[d], out RaycastHit hit, ShapeRayLength,
+                                            mapMask, QueryTriggerInteraction.Ignore) == false)
+                        {
+                            continue;
+                        }
+                        sampleCount++;
+                        var sample = new LOP.MapTools.SurfaceSample(hit.point, hit.normal);
+                        for (int r = 0; r < rules.Count; r++)
+                        {
+                            if (rules[r].IsSuspect(sample) == false)
+                            {
+                                continue;
+                            }
+                            suspectCount++;
+                            //  덮개 아래쪽 — 새가 실제로 갇히는 자리다.
+                            var seed = hit.point + hit.normal * ShapeSeedOffset;
+                            seeds.Add((seed.x, seed.y));
+                            break;
+                        }
+                    }
+                }
+            }
+            return seeds;
+        }
+
+        //  이미 잡힌 후보 옆에 또 씨앗을 뿌리면 같은 주머니를 여러 번 굴리게 된다.
+        private static bool AlreadyNear(List<(float X, float Y)> taken, (float X, float Y) seed, float within)
+        {
+            for (int i = 0; i < taken.Count; i++)
+            {
+                if (Mathf.Abs(taken[i].X - seed.X) <= within && Mathf.Abs(taken[i].Y - seed.Y) <= within)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         //  ② 기존 낌 스캔 — 판정 로직(IsContactPoint/Escapes/EscapesWithFlap 등)은 그대로다.
         //  진행률 문구만 (2/3 낌 지점)으로 바꾸고, Debug.Log 대신 문자열을 돌려준다.
         //  ClearProgressBar는 Check()의 바깥 finally가 맡는다 — 여기선 안 건다.
@@ -746,6 +811,24 @@ namespace LOP.EditorTools
                 }
             }
 
+            //  격자에 안 걸린 자리를 형상으로 찾아 씨앗에 더한다. 판정은 아래 2단계가 그대로 한다 —
+            //  여기서 하는 일은 "어디서부터 굴려 볼까"를 늘리는 것뿐이다.
+            var shapeSeeds = ShapeSeeds(bounds, shape, mapMask, out int shapeSamples, out int shapeSuspects);
+            int shapeAdded = 0;
+            for (int i = 0; i < shapeSeeds.Count; i++)
+            {
+                if (AlreadyNear(candidates, shapeSeeds[i], GridStep))
+                {
+                    continue;
+                }
+                if (Escapes(new Vector3(shapeSeeds[i].X, shapeSeeds[i].Y, 0f), shape, mapMask, query))
+                {
+                    continue;   // 무입력으로 빠져나가면 후보가 아니다 — 격자 씨앗과 같은 기준이다
+                }
+                candidates.Add(shapeSeeds[i]);
+                shapeAdded++;
+            }
+
             //  2단계 — 눌러서 넘을 수 있는 벽을 걸러낸다. 여기까지 온 자리만 진짜 낌이다.
             for (int i = 0; i < candidates.Count; i++)
             {
@@ -766,14 +849,16 @@ namespace LOP.EditorTools
             }
 
             var regions = TrapClustering.Cluster(stuck, ClusterDistance);
-            return BuildTrapSection(shape, contacts, candidates.Count, stuck.Count, regions, mapMask, cancelNotes);
+            return BuildTrapSection(shape, contacts, candidates.Count, stuck.Count, regions, mapMask, cancelNotes,
+                                    shapeSamples, shapeSuspects, shapeAdded);
         }
 
         //  ② 절만 만든다 — 코스 범위·물리·탐색 y대역은 PlayabilityReport의 머리말이 이미 찍으므로 뺐다.
         private static string BuildTrapSection(in FlappyShape shape, int contacts,
                                                int candidateCount, int stuckCount,
                                                List<TrapRegion> regions, int mapMask,
-                                               List<string> cancelNotes)
+                                               List<string> cancelNotes,
+                                               int shapeSamples, int shapeSuspects, int shapeAdded)
         {
             var text = new StringBuilder();
             //  취소됐으면 절 맨 위, 요약 줄보다도 먼저 찍는다 — 스킴하는 사람이 숫자부터 보고
@@ -785,6 +870,8 @@ namespace LOP.EditorTools
             text.AppendLine($"낌 지점 스캔: 구역 {regions.Count}개"
                           + $" (낌점 {stuckCount} / 무입력 후보 {candidateCount} / 지형에 닿는 자리 {contacts})"
                           + (cancelNotes.Count > 0 ? "  ⚠️ 취소됨" : ""));
+            text.AppendLine($"  형상 훑기: 표면 {shapeSamples}곳 중 {shapeSuspects}곳이 규칙에 걸렸고"
+                          + $" {shapeAdded}곳을 씨앗으로 더했다");
             //  R16 — y대역(탐색 상/하한) 안내는 PlayabilityReport 머리말로 옮겼다 — ①(클린런)도
             //  같은 대역을 쓰는데 ②의 절에만 있으면 ①만 읽는 사람이 못 본다.
             text.AppendLine($"  1단계: 무입력 {SimulationTicks * TickSeconds:F1}초에 {EscapeDistance:F0}m 미만"

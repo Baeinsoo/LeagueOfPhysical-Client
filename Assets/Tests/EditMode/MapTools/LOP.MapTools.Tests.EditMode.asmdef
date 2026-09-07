@@ -4,7 +4,6 @@
     "references": [
         "LOP.MapTools",
         "baegames.LOP.Shared.Runtime",
-        "FlappyRaceSlice.Logic",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

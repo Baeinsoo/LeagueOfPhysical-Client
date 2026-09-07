@@ -29,7 +29,8 @@ namespace LOP
                 r.BodyRadius, r.BodyHeight, r.GroundY,
                 r.StaminaMax, r.GlideDrain, r.GroundRecover, r.EmergencyGlideTime,
                 r.GroundMoveSpeed, r.GroundAccel, r.JumpPower, r.PoseClearance, r.FallBrake,
-                r.GlideWindLag, r.SpreadWindLag, r.DiveWindLag);
+                r.GlideWindLag, r.SpreadWindLag, r.DiveWindLag,
+                r.LandingLethalSpeed);
         }
     }
 }

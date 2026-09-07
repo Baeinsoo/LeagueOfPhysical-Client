@@ -614,12 +614,14 @@ public class SkydiveDoorSpecTests
     public void 닫힌_패널이_안전한_구멍을_막으면_거절된다()
     {
         //  두 구멍이 겹치게 적힌 표. 닫힌 패널은 빠른 구멍을 그대로 채우므로 안전한 구멍의
-        //  일부가 벽이 된다 — 물러난 자세만 보는 구현은 이걸 놓친다.
+        //  일부(x 6~8)가 벽이 된다. 축을 90°로 두어 물러난 패널은 z 8~16과 −16~−8로 빠지게
+        //  했다 — 안전한 구멍(z −4~4)에서 z로 4m 떨어져 있으므로, 닫힌 자세를 안 보는 구현은
+        //  이 표에서 아무것도 못 찾아 null을 준다.
         var shelves = new[]
         {
             Shelf(200f, Hole(0f, 0f, 16f, hasDoor: true), Hole(10f, 0f, 8f, hasDoor: false)),
         };
-        var doors = new[] { Door("Door_200", new Vector3(0f, 200f, 0f), 8f, axisAngleDegrees: 0f) };
+        var doors = new[] { Door("Door_200", new Vector3(0f, 200f, 0f), 8f, axisAngleDegrees: 90f) };
 
         string failure = SkydiveCourseBuilder.FindDoorPanelOnSafeHole(shelves, doors);
 

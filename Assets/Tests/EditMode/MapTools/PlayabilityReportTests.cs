@@ -97,6 +97,19 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 증명되지_않은_안내는_눈금_처방을_주지_않는다()
+        {
+            //  🟡의 원인은 반올림 편향의 누적이지 눈금 굵기가 아니다 — docs/ROADMAP.md가
+            //  이미 "눈금을 좁혀도 소용없다"고 결론 냈다. 옛 합쳐진 문장(❌/🟡 공용 처방)으로
+            //  되돌아가면 이 안 맞는 처방이 다시 붙는다 — 그 회귀를 여기서 잡는다.
+            string report = Build(
+                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), false));
+
+            StringAssert.Contains("ROADMAP", report);
+            StringAssert.DoesNotContain("줄여", report);
+        }
+
+        [Test]
         public void 증명되지_않은_성공은_증명된_성공의_글자를_쓰지_않는다()
         {
             //  ✅는 spec §3.7이 "재생으로 증명됨"으로 정의한 글자다. 재생이 어긋난 성공까지

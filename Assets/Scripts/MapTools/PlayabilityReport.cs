@@ -99,16 +99,22 @@ namespace LOP.MapTools
             {
                 text.AppendLine("  ⚠️ 일부 자리만 증명됨 — 자리마다 안전 확신의 정도가 다르다");
             }
-            if (anyFail || anyUnproven)
+            //  ❌와 🟡은 원인이 다른 두 실패다 — 한 문장·한 처방으로 묶으면 처방이 안 맞는
+            //  쪽까지 같이 받는다. 실제로 나온 글자에만, 그 글자에 맞는 처방으로 각각 찍는다.
+            if (anyFail)
             {
-                //  실제로 나온 글자만 언급한다 — 안 나온 쪽(예: 실패 없이 🟡만 있는 경우의 ❌)까지
-                //  적으면 그 보고서에 없는 글자를 안내문이 스스로 찍어 버린다.
-                var glyphs = new List<string>();
-                if (anyFail) { glyphs.Add("❌"); }
-                if (anyUnproven) { glyphs.Add("🟡"); }
                 float suggestedGrid = heightGrid * 0.5f;
-                text.AppendLine($"  ({string.Join("/", glyphs)}는 높이 눈금 {heightGrid:F2}가 굵어 생긴 결과일 수 있다"
+                text.AppendLine($"  (❌는 높이 눈금(HeightGrid) {heightGrid:F2}가 굵어 생긴 결과일 수 있다"
                               + $" — 눈금을 {suggestedGrid:F2}로 줄여 다시 눌러 볼 것)");
+            }
+            if (anyUnproven)
+            {
+                //  🟡의 원인은 눈금이 굵어서가 아니라 반올림 편향이 틱마다 누적된 것이다 —
+                //  눈금을 좁혀도 비례해서 나아지지 않는다(docs/ROADMAP.md에 원인 기록).
+                //  통하지 않는 처방을 안내하지 않는다.
+                text.AppendLine("  (🟡는 탐색이 경로를 찾았지만 진짜 커널 재생이 어긋난 결과다 —"
+                              + " 원인은 파악돼 있으며, 높이 눈금을 좁히는 것은 안정적인 해법이"
+                              + " 아니다. 자세한 내용은 docs/ROADMAP.md 참고)");
             }
             text.AppendLine();
 

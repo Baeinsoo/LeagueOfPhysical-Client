@@ -2,7 +2,8 @@
     "name": "LOP.MapTools",
     "rootNamespace": "LOP.MapTools",
     "references": [
-        "baegames.LOP.Shared.Runtime"
+        "baegames.LOP.Shared.Runtime",
+        "FlappyRaceSlice.Logic"
     ],
     "includePlatforms": [
         "Editor"

@@ -45,9 +45,20 @@ namespace LOP
 
             EnsureBeams(lasers);
 
-            long tick = runner.tickUpdater.tick;
+            double interval = runner.tickUpdater.interval;
+            if (interval <= 0d)
+            {
+                return;   // 아직 Run 전이라 틱 간격이 없다 — 나누면 각도가 NaN이 된다
+            }
+
+            //  내 캐릭터를 그리는 시각과 같은 값(한 틱 뒤). 예전엔 tickUpdater.tick을 썼는데
+            //  그건 "다음에 계산할" 틱이라 몸보다 한 틱 앞이었다 — 빔이 몸보다 먼저 움직여 보였다.
+            double renderTick = (runner.tickUpdater.elapsedTime - interval) / interval;
+
+            //  켜짐/꺼짐은 틱 단위 사실이라 소수로 물을 것이 없다. 자세(각도)만 틱 사이를 담는다.
+            long tick = (long)System.Math.Floor(renderTick);
             int ahead = Mathf.Max(1, Mathf.RoundToInt(
-                TelegraphSeconds / Mathf.Max(0.001f, (float)runner.tickUpdater.interval)));
+                TelegraphSeconds / Mathf.Max(0.001f, (float)interval)));
 
             for (int i = 0; i < lasers.Count; i++)
             {
@@ -62,7 +73,7 @@ namespace LOP
                 }
                 renderers[i].sharedMaterial = lit ? litMaterial : telegraphMaterial;
 
-                float angle = LaserGeometry.Angle(laser, tick);
+                float angle = LaserGeometry.Angle(laser, (float)renderTick);
                 var direction = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
                 var pivot = new Vector3(laser.Pivot.X, laser.Pivot.Y, laser.Pivot.Z);
 

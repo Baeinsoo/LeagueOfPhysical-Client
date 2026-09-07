@@ -100,6 +100,11 @@ namespace LOP.EditorTools
             var grid = new FreeSpaceGrid(shape, mapMask);
             var cleanRuns = new List<LOP.MapTools.SpawnCleanRun>();
             string trapSection;
+            //  null/빈 리스트면 취소 안 됨. 취소되면 "몇 개 중 몇 개만" 문구를 담아 report 맨
+            //  앞에 붙인다 — 콘솔 경고는 화면을 떠나면 안 남지만 report 문자열은 붙여넣기로
+            //  돌아다니기 때문이다.
+            string cleanRunCancelNote = null;
+            List<string> trapCancelNotes = new List<string>();
             try
             {
                 //  ① 자리마다 따로 — 넷 중 하나라도 되면 통과로 뭉치면 공정성 문제가 안 보인다.
@@ -110,6 +115,10 @@ namespace LOP.EditorTools
                             $"{spawns[i].Name}", i / (float)spawns.Count))
                     {
                         Debug.LogWarning("[맵 검사] 취소됨 — 결과가 불완전하다.");
+                        //  콘솔 경고만으로는 부족하다 — 리포트 문자열 자체가 나중에 화면을 떠나
+                        //  붙여넣기로 돌아다니므로, "빠진 스폰"과 "애초에 없는 스폰"을 구분할 표시를
+                        //  그 문자열 안에 남긴다(아래 report 조립부의 취소 배너).
+                        cleanRunCancelNote = $"클린런 — 스폰 {i}/{spawns.Count}개만 검사됨";
                         break;
                     }
 
@@ -127,7 +136,8 @@ namespace LOP.EditorTools
                 }
 
                 //  ② 기존 낌 스캔 — 본문은 그대로다.
-                trapSection = ScanTraps(shape, bounds, mapMask, query);
+                trapSection = ScanTraps(shape, bounds, mapMask, query, out var trapScanCancelNotes);
+                trapCancelNotes = trapScanCancelNotes;
             }
             finally
             {
@@ -141,6 +151,24 @@ namespace LOP.EditorTools
             string report = LOP.MapTools.PlayabilityReport.Build(
                 UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
                 spawns[0].Position.x, finishX, config, cleanRuns, trapSection, budget, earliest);
+            //  취소됐으면 report 맨 앞에 못 보고 지나칠 수 없게 배너를 붙인다 — ②는 이미 자기
+            //  절 안에 취소 문구를 갖고 있지만(BuildTrapSection), ①은 PlayabilityReport의 절이라
+            //  거기 손대지 않고 여기서 요약해 알린다.
+            if (cleanRunCancelNote != null || trapCancelNotes.Count > 0)
+            {
+                var banner = new StringBuilder();
+                banner.AppendLine("⚠️⚠️⚠️ 이 검사는 도중에 취소됐다 — 아래 결과는 불완전하다 ⚠️⚠️⚠️");
+                if (cleanRunCancelNote != null)
+                {
+                    banner.AppendLine($"  ① {cleanRunCancelNote}");
+                }
+                foreach (var note in trapCancelNotes)
+                {
+                    banner.AppendLine($"  ② {note}");
+                }
+                banner.AppendLine();
+                report = banner.ToString() + report;
+            }
             Debug.Log(report);
             EditorGUIUtility.systemCopyBuffer = report;
         }
@@ -565,12 +593,16 @@ namespace LOP.EditorTools
         //  ② 기존 낌 스캔 — 판정 로직(IsContactPoint/Escapes/EscapesWithFlap 등)은 그대로다.
         //  진행률 문구만 (2/3 낌 지점)으로 바꾸고, Debug.Log 대신 문자열을 돌려준다.
         //  ClearProgressBar는 Check()의 바깥 finally가 맡는다 — 여기선 안 건다.
+        //  cancelNotes: 두 단계 중 취소된 게 있으면 "몇 단계에서 몇/몇개만" 문구가 담긴다(둘 다
+        //  취소될 수도 있어 리스트다) — 콘솔 경고와 별개로, report 문자열에 실어 보내기 위해서다.
         private static string ScanTraps(in FlappyShape shape, in Bounds bounds, int mapMask,
-                                        GameFramework.Physics.ICollisionQuery query)
+                                        GameFramework.Physics.ICollisionQuery query,
+                                        out List<string> cancelNotes)
         {
             var candidates = new List<(float X, float Y)>();
             var stuck = new List<(float X, float Y)>();
             int contacts = 0;
+            cancelNotes = new List<string>();
 
             int columns = Mathf.Max(1, Mathf.CeilToInt((bounds.max.x - bounds.min.x) / GridStep));
             int column = 0;
@@ -582,6 +614,7 @@ namespace LOP.EditorTools
                         column / (float)columns))
                 {
                     Debug.LogWarning("[맵 스캔] 취소됨 — 결과가 불완전하다.");
+                    cancelNotes.Add($"1단계(무입력) — 열 {column}/{columns}개만 스캔됨");
                     break;
                 }
                 for (float y = bounds.min.y; y <= bounds.max.y; y += GridStep)
@@ -607,6 +640,7 @@ namespace LOP.EditorTools
                         i / (float)candidates.Count))
                 {
                     Debug.LogWarning("[맵 스캔] 취소됨 — 결과가 불완전하다.");
+                    cancelNotes.Add($"2단계(날갯짓) — 후보 {i}/{candidates.Count}개만 검사됨");
                     break;
                 }
                 var point = new Vector3(candidates[i].X, candidates[i].Y, 0f);
@@ -618,17 +652,25 @@ namespace LOP.EditorTools
 
             var regions = TrapClustering.Cluster(stuck, ClusterDistance);
             return BuildTrapSection(shape, bounds.min.y, bounds.max.y,
-                                    contacts, candidates.Count, stuck.Count, regions, mapMask);
+                                    contacts, candidates.Count, stuck.Count, regions, mapMask, cancelNotes);
         }
 
         //  ② 절만 만든다 — 코스 범위·물리 두 줄은 PlayabilityReport의 머리말이 이미 찍으므로 뺐다.
         private static string BuildTrapSection(in FlappyShape shape, float minY, float maxY, int contacts,
                                                int candidateCount, int stuckCount,
-                                               List<TrapRegion> regions, int mapMask)
+                                               List<TrapRegion> regions, int mapMask,
+                                               List<string> cancelNotes)
         {
             var text = new StringBuilder();
+            //  취소됐으면 절 맨 위, 요약 줄보다도 먼저 찍는다 — 스킴하는 사람이 숫자부터 보고
+            //  넘어가기 전에 "이건 불완전하다"가 먼저 눈에 들어와야 한다.
+            if (cancelNotes.Count > 0)
+            {
+                text.AppendLine($"  ⚠️ 취소됨 — {string.Join(" / ", cancelNotes)} (아래 수치는 불완전)");
+            }
             text.AppendLine($"[맵 낌 지점 스캔] 구역 {regions.Count}개"
-                          + $" (낌점 {stuckCount} / 무입력 후보 {candidateCount} / 지형에 닿는 자리 {contacts})");
+                          + $" (낌점 {stuckCount} / 무입력 후보 {candidateCount} / 지형에 닿는 자리 {contacts})"
+                          + (cancelNotes.Count > 0 ? "  ⚠️ 취소됨" : ""));
             //  R16 — 이 y대역이 ①(CleanRunSearch)·②(여기) 둘 다의 탐색 상/하한이다(Default 콜라이더
             //  최고~최저점). 넓히지 않고 사실만 찍는다 — 천장 없는 맵이면 이 위로 날아 넘는, 실제로는
             //  되는 경로를 탐색이 못 보고도 ❌를 찍을 수 있어서다.

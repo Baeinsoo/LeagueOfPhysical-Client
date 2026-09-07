@@ -1,4 +1,9 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+
+//  SearchGrid(사다리·상태 눌러담기 규칙)를 테스트가 직접 짚어 볼 수 있게 열어 준다 —
+//  Run() 바깥에서 관찰되는 값만으로는 사다리 경계(ClampRung)가 안 갈리는 자리가 있다.
+[assembly: InternalsVisibleTo("LOP.MapTools.Tests.EditMode")]
 
 namespace LOP.MapTools
 {
@@ -31,7 +36,14 @@ namespace LOP.MapTools
         /// <summary>열마다 "이 틱에 날갯짓했나". 도달 가능할 때만 채워진다.</summary>
         public readonly IReadOnlyList<bool> Flaps;
         public readonly float BlockedX;
+        /// <summary>
+        /// 막혔을 때만 의미 있는 진단값 — "고칠 자리는 여기"를 가리킨다. 아래 세 필드 모두
+        /// <c>NarrowestCount == 0</c>이면 "측정 안 함"이다: 도달 가능했거나(회랑 통계 자체가
+        /// 필요 없음), 상태 수가 늘어나길 멈추기도 전에(출발 직후 과도기 중) 막혀서 진짜
+        /// 병목을 아직 못 본 경우다.
+        /// </summary>
         public readonly float NarrowestX;
+        /// <summary>0이면 "측정 안 함". 위 <see cref="NarrowestX"/> 요약 참고.</summary>
         public readonly int NarrowestCount;
         public readonly float NarrowestHeightSpan;
 
@@ -63,6 +75,13 @@ namespace LOP.MapTools
             var grid = new SearchGrid(options);
 
             var current = new System.Collections.BitArray(grid.StateCount);
+            //  출발 높이 자체가 허용 범위 밖이면 그대로 실패 — HeightBucket이 조용히 경계로
+            //  밀어 넣어 버리면 "다른 자리에서 시드해 놓고 진짜 출발지는 자유공간이라 통과"라는
+            //  거짓 결과가 나온다.
+            if (options.StartY < options.MinY || options.StartY > options.MaxY)
+            {
+                return new CleanRunResult(false, System.Array.Empty<bool>(), options.StartX, 0f, 0, 0f);
+            }
             //  출발: 아직 날갯짓 안 한 사다리의 첫 칸.
             if (isFree(options.StartX, options.StartY) == false)
             {
@@ -72,6 +91,11 @@ namespace LOP.MapTools
 
             float narrowestX = 0f, narrowestSpan = 0f;
             int narrowestCount = int.MaxValue;
+            //  회랑 폭은 "고칠 자리"를 가리키는 진단값이라, 아직 상태 수가 불어나는
+            //  출발 직후 과도기에는 재지 않는다 — 그 구간의 최솟값은 항상 시드 근처일
+            //  뿐 진짜 병목이 아니다. 늘어나길 멈춘(=정체되거나 줄어든) 첫 열부터 잰다.
+            int previousLiveCount = 1;
+            bool measuringNarrowest = false;
 
             for (int column = 0; column < grid.ColumnCount; column++)
             {
@@ -108,24 +132,25 @@ namespace LOP.MapTools
                                               narrowestSpan);
                 }
 
-                //  최협 회랑 — 출발 직후 과도기(앞 60열)는 시드가 하나뿐이라 제외한다.
-                if (column > 60)
+                grid.Measure(next, out int liveCount, out float liveSpan);
+                if (measuringNarrowest == false && liveCount <= previousLiveCount)
                 {
-                    grid.Measure(next, out int count, out float span);
-                    if (count < narrowestCount)
-                    {
-                        narrowestCount = count;
-                        narrowestSpan = span;
-                        narrowestX = nextX;
-                    }
+                    measuringNarrowest = true;
                 }
+                if (measuringNarrowest && liveCount < narrowestCount)
+                {
+                    narrowestCount = liveCount;
+                    narrowestSpan = liveSpan;
+                    narrowestX = nextX;
+                }
+                previousLiveCount = liveCount;
 
                 current = next;
             }
 
-            return new CleanRunResult(true, System.Array.Empty<bool>(), 0f,
-                                      narrowestX, narrowestCount == int.MaxValue ? 0 : narrowestCount,
-                                      narrowestSpan);
+            //  도달 가능하면 회랑 진단은 의미가 없다 — "막힌 이유"를 보여주는 값이지 성공
+            //  경로의 성질이 아니다.
+            return new CleanRunResult(true, System.Array.Empty<bool>(), 0f, 0f, 0, 0f);
         }
 
         //  한 스텝 나아가 본다. 몸이 스치면 그 갈래를 버린다.

@@ -89,6 +89,70 @@ namespace LOP.MapTools.Tests
             //  좁은 목이 있었다는 사실이 남아야 고칠 자리를 찾는다.
             Assert.Greater(result.NarrowestCount, 0);
             Assert.LessOrEqual(result.NarrowestHeightSpan, 1f);
+            //  회랑은 x ∈ [20, 30] 안에서 좁아진다 — 그 바깥 값(0이나 출발 직후 과도기의
+            //  아무 값)이 나오면 "고칠 자리"를 엉뚱한 곳으로 가리키는 것이다.
+            Assert.GreaterOrEqual(result.NarrowestX, 20f);
+            Assert.LessOrEqual(result.NarrowestX, 30f);
+        }
+
+        [Test]
+        public void 출발_높이가_범위_밖이면_거짓을_보고한다()
+        {
+            //  y ≥ 35만 비어 있는 하늘. startY=50은 maxY(40)보다 위라 "그런 시작점은 아예
+            //  없다"고 답해야 한다. HeightBucket이 범위 밖 높이를 조용히 경계(40)로 밀어
+            //  넣어 버리면, 그 밀린 자리는 자유공간이라 통과한 것처럼 보이는 거짓
+            //  reachable=true가 나온다.
+            bool IsFree(float x, float y) => y >= 35f;
+
+            CleanRunResult result = CleanRunSearch.Run(Options(startY: 50f, finishX: 50f), IsFree);
+
+            Assert.IsFalse(result.Reachable);
+        }
+
+        [Test]
+        public void 빈_하늘에서_첫_틱에_사다리를_올바른_칸에서_밟는다()
+        {
+            //  단 한 틱만 진행해, 실제로 검사된 모든 y값 중 가장 높은/낮은 값을 기록한다
+            //  (딱 한 틱이라 높이 눈금 반올림이 다음 틱으로 누적될 일이 없어 숫자가 깔끔하다).
+            //  그 틱에 날갯짓하면 flapImpulse×tickSeconds=23×0.02=0.46만큼 뜨고(가장 높은 값),
+            //  안 하면 사다리 1의 첫 칸(−gravity×tickSeconds=−1.4)만큼 진행해
+            //  −1.4×0.02=−0.028만큼 떨어진다(가장 낮은 값) — 칸을 건너뛰거나(사다리를
+            //  두 칸씩 밟거나) 시작 사다리를 잘못 고르거나(0에서 시작 — 이미 날갯짓한
+            //  것처럼) 두 사다리를 맞바꾸면 이 두 값 중 하나 또는 둘 다 어긋난다.
+            float minY = float.MaxValue, maxY = float.MinValue;
+            bool RecordingProbe(float x, float y)
+            {
+                if (y < minY) { minY = y; }
+                if (y > maxY) { maxY = y; }
+                return true;
+            }
+
+            var options = new CleanRunOptions(startX: 0f, startY: 0f, finishX: 0.1f,
+                                              minY: -100f, maxY: 100f,
+                                              forwardSpeed: 11f, flapImpulse: 23f, gravity: 70f, maxFallSpeed: 30f,
+                                              tickSeconds: 0.02f, heightGrid: 0.1f);
+
+            CleanRunSearch.Run(options, RecordingProbe);
+
+            Assert.AreEqual(0.46f, maxY, 0.005f);
+            Assert.AreEqual(-0.028f, minY, 0.005f);
+        }
+
+        [Test]
+        public void 사다리_경계와_정체성이_올바르다()
+        {
+            var grid = new SearchGrid(Options(startY: 0f, finishX: 50f));
+
+            //  사다리 0 = 날갯짓 직후(위로 튐), 사다리 1 = 아직 한 번도 안 함(가만히
+            //  있으면 0에서 시작). 이 둘이 뒤바뀌면 날갯짓이 아무 효과가 없어지거나
+            //  가만히 있어도 떠오르게 된다.
+            Assert.AreEqual(23f, grid.Speed(ladder: 0, rung: 0));
+            Assert.AreEqual(0f, grid.Speed(ladder: 1, rung: 0));
+
+            //  칸(rung) 번호가 사다리 길이를 넘어가면 "마지막 칸"으로 눌러야 한다 — 하나
+            //  모자라게 누르면 그 칸을 상태로 저장할 때마다 매번 다른 정수로 기록돼
+            //  같은 물리 상태가 둘로 쪼개진다.
+            Assert.AreEqual(grid.RungCount - 1, grid.ClampRung(grid.RungCount));
         }
     }
 }

@@ -63,7 +63,12 @@ namespace LOP.MapTools.Tests
                 new SpawnCleanRun("PlayerSpawn_4", 9f, new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f), false));
 
             StringAssert.Contains("38.2", report);
-            StringAssert.Contains("최협 회랑", report);
+            //  세 필드(x/생존/높이 폭)가 서로 바뀌어도 위 "최협 회랑" 한 줄 존재 검사는 못
+            //  잡는다 — 세 값이 서로 다르므로(31.0 / 34 / 0.6), 라벨+값을 붙여 확인하면
+            //  둘 중 어느 자리가 뒤바뀌어도 반드시 하나는 어긋난다.
+            StringAssert.Contains("x=31.0", report);
+            StringAssert.Contains("생존 34", report);
+            StringAssert.Contains("높이 폭 0.6m", report);
             //  spec §8 — 실패는 눈금 탓일 수도 있어 되짚어 볼 안내를 같이 준다.
             StringAssert.Contains("눈금", report);
         }

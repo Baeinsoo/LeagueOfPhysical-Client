@@ -65,7 +65,7 @@ namespace LOP.MapTools
                     }
                     else
                     {
-                        text.AppendLine($"                             최협 회랑 x={run.Result.NarrowestX:F0}"
+                        text.AppendLine($"                             최협 회랑 x={run.Result.NarrowestX:F1}"
                                       + $"  생존 {run.Result.NarrowestCount}"
                                       + $"  높이 폭 {run.Result.NarrowestHeightSpan:F1}m");
                     }

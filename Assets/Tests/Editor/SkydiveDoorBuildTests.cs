@@ -94,7 +94,7 @@ public class SkydiveDoorBuildTests
             Shelf(2200f, Hole(200f, 0f, 10f, hasDoor: false)),
         };
 
-        bool ok = SkydiveCourseBuilder.ReachableChain(safeOnly: false, shelves, out string report);
+        bool ok = SkydiveCourseBuilder.ReachableChain(safeOnly: false, shelves, NoWind, out string report);
 
         Assert.IsFalse(ok, report);
         StringAssert.Contains("닿는 구멍이 없다", report);
@@ -115,10 +115,36 @@ public class SkydiveDoorBuildTests
             Shelf(2200f, Hole(-20f, 0f, 20f, hasDoor: false)),
         };
 
-        bool ok = SkydiveCourseBuilder.ReachableChain(safeOnly: false, shelves, out string report);
+        bool ok = SkydiveCourseBuilder.ReachableChain(safeOnly: false, shelves, NoWind, out string report);
 
         Assert.IsFalse(ok, report);
         StringAssert.Contains("막다른 길", report);
+    }
+
+    [Test]
+    public void 역풍이_다음_구멍을_사거리_밖으로_밀면_전체_경로가_거절된다()
+    {
+        //  검사 ①도 바람을 본다. 무풍이면 스폰에서 70m 구멍은 대자 도달(76.7m)+반폭 10m 안이라
+        //  닿지만, 구간 전체를 덮는 -X 역풍은 대자를 56m 뒤로 밀어 126m를 가게 만든다(사거리 86.7m).
+        //  다이브는 29m 밀리는데 사거리가 43m뿐이라 더 못 간다 — 어느 자세로도 못 닿는다.
+        //  ①이 무풍으로만 재면 이런 코스를 초록으로 통과시킨다.
+        var shelves = new[]
+        {
+            Shelf(2600f, Hole(70f, 0f, 20f, hasDoor: true)),
+        };
+        var headwind = new[]
+        {
+            new SkydiveCourseBuilder.WindSpec("Test_Head",
+                new Vector3(0f, 2800f, 0f), 150f, 400f, new Vector3(-10f, 0f, 0f)),
+        };
+
+        Assert.IsTrue(SkydiveCourseBuilder.ReachableChain(safeOnly: false, shelves, NoWind, out _),
+                      "이 테스트 전제가 깨졌다 — 무풍에서는 닿아야 한다");
+
+        bool ok = SkydiveCourseBuilder.ReachableChain(safeOnly: false, shelves, headwind, out string report);
+
+        Assert.IsFalse(ok, "바람을 안 보는 구현은 여기서 통과한다");
+        StringAssert.Contains("닿는 구멍이 없다", report);
     }
 
     // ── 거절 ② — 안전한 구멍만으로는 완주가 안 될 수 있다 ────────────────────
@@ -142,10 +168,10 @@ public class SkydiveDoorBuildTests
                 Hole(120f, 0f, 10f, hasDoor: false)),
         };
 
-        bool generalOk = SkydiveCourseBuilder.ReachableChain(safeOnly: false, shelves, out string generalReport);
+        bool generalOk = SkydiveCourseBuilder.ReachableChain(safeOnly: false, shelves, NoWind, out string generalReport);
         Assert.IsTrue(generalOk, "이 테스트 전제가 깨졌다 — 전체 경로부터 안 닿는다: " + generalReport);
 
-        bool safeOk = SkydiveCourseBuilder.ReachableChain(safeOnly: true, shelves, out string safeReport);
+        bool safeOk = SkydiveCourseBuilder.ReachableChain(safeOnly: true, shelves, NoWind, out string safeReport);
 
         Assert.IsFalse(safeOk, safeReport);
         StringAssert.Contains("안전 경로", safeReport);
@@ -325,6 +351,24 @@ public class SkydiveDoorBuildTests
         Assert.IsNotNull(failure);
         StringAssert.Contains("기둥", failure);
     }
+
+    [Test]
+    public void 두_번째_구멍이_기둥_위여도_거절된다()
+    {
+        //  구멍이 하나짜리인 코스로만 재면 첫 구멍만 보는 구현도 통과한다 — 이번 슬라이스의
+        //  핵심 변경(구멍이 둘)을 실제로 겨눈다.
+        var shelves = new[]
+        {
+            Shelf(2600f,
+                Hole(0f, 0f, 20f, hasDoor: true),      // 기둥(±60,±60)과 안 겹친다
+                Hole(-60f, 60f, 20f, hasDoor: false)), // 여기가 기둥 위다
+        };
+
+        string failure = SkydiveCourseBuilder.FindHoleOnPillar(shelves);
+
+        Assert.IsNotNull(failure);
+        StringAssert.Contains("구멍(-60,60)", failure);
+    }
 }
 
 /// <summary>
@@ -370,6 +414,40 @@ public class SkydiveShelfCarveTests
         }
 
         Assert.AreEqual(200f * 200f - 16f * 16f - 16f * 16f, sum, 0.01f);
+    }
+
+    [Test]
+    public void 한_축이_겹치는_구멍_둘은_일곱_조각이_된다()
+    {
+        //  실제 표의 2600 선반 모양: x가 둘 다 0이라 두 구멍이 같은 세로줄에 선다. 앞선 두-구멍
+        //  테스트의 픽스처는 x·z가 둘 다 서로소라 "구멍끼리 축이 겹치는" 갈래를 안 지났는데,
+        //  실제 표의 2600/1800/600/200이 전부 이 모양이다.
+        //  첫 구멍이 판을 N/S/E/W 넷으로 가르고, 둘째 구멍은 그중 N 조각 하나만 다시 넷으로
+        //  가르므로 3 + 4 = 7이다.
+        var holes = new[] { Hole(0f, 0f, 30f), Hole(0f, 60f, 20f) };
+
+        List<SkydiveCourseBuilder.Plate> plates = SkydiveCourseBuilder.Carve(Slab(), holes);
+
+        Assert.AreEqual(7, plates.Count);
+
+        float sum = 0f;
+        foreach (SkydiveCourseBuilder.Plate p in plates)
+        {
+            sum += p.Area;
+        }
+        Assert.AreEqual(38700f, sum, 0.01f, "200×200 판에서 30×30과 20×20을 뺀 값");
+
+        for (int i = 0; i < plates.Count; i++)
+        {
+            for (int j = i + 1; j < plates.Count; j++)
+            {
+                SkydiveCourseBuilder.Plate a = plates[i];
+                SkydiveCourseBuilder.Plate b = plates[j];
+                bool overlap = a.XMin < b.XMax && b.XMin < a.XMax
+                            && a.ZMin < b.ZMax && b.ZMin < a.ZMax;
+                Assert.IsFalse(overlap, $"{a.Name}와 {b.Name}가 겹친다");
+            }
+        }
     }
 
     [Test]

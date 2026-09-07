@@ -64,6 +64,69 @@ public class SkydiveLaserBuildTests
         StringAssert.Contains("(55,30)", failure);
     }
 
+    // 안전한 길의 존재 이유는 "문 타이밍을 못 맞춰도 느리게나마 끝낼 수 있다"(스펙 §3.2 ②)다.
+    // 그 구멍 위로 문지기 빔이 지나가면 안전한 길이 도로 타이밍을 요구한다.
+    [Test]
+    public void 표의_문지기는_안전한_구멍을_쓸지_않는다()
+    {
+        string failure = SkydiveCourseBuilder.FindLaserOnSafeHole();
+
+        Assert.IsNull(failure, failure);
+    }
+
+    [Test]
+    public void 안전한_구멍_위의_문지기는_걸린다()
+    {
+        //  선반 200의 안전한 구멍은 (0,45). 그 위에 도는 빔을 세우면 안전한 길에도 타이밍이 생긴다.
+        //  FindBlockedGate는 "언젠가 열리나"만 보므로 이걸 초록으로 통과시킨다.
+        var onSafeHole = new[]
+        {
+            new SkydiveCourseBuilder.LaserSpec(
+                "Test_OnSafeHole", new Vector3(0f, 215f, 45f),
+                length: 22f, radius: 0.6f,
+                startAngleDegrees: 0f, angularSpeedDegreesPerTick: 7f, sweepHalfRangeDegrees: 0f,
+                period: 0, onTicks: 0, phase: 0),
+        };
+
+        Assert.IsNull(SkydiveCourseBuilder.FindBlockedGate(onSafeHole),
+                      "이 테스트 전제가 깨졌다 — 이 빔은 구멍을 막지는 않는다");
+
+        string failure = SkydiveCourseBuilder.FindLaserOnSafeHole(onSafeHole);
+
+        Assert.IsNotNull(failure);
+        StringAssert.Contains("Test_OnSafeHole", failure);
+        StringAssert.Contains("(0,45)", failure);
+    }
+
+    [Test]
+    public void 벽에서_뻗는_빔은_이_검사의_대상이_아니다()
+    {
+        //  같은 구멍을 덮어도 벽(±100)에서 뻗는 빔은 구간을 통째로 가로질러 두 구멍을 비슷하게
+        //  덮으므로 갈림길을 기울이지 않는다 — 문지기(판 위에 세운 빔)만 잰다는 결정을 여기에
+        //  박아 둔다. 피벗을 판 안으로 1m만 들여도 잡힌다는 것까지 함께 재서, 이 테스트가
+        //  "검사가 아무것도 안 잡는다"로도 통과하지 않게 한다.
+        var fromWall = new[]
+        {
+            new SkydiveCourseBuilder.LaserSpec(
+                "Test_WallBar", new Vector3(-100f, 215f, 45f),
+                length: 150f, radius: 0.6f,
+                startAngleDegrees: 0f, angularSpeedDegreesPerTick: 0f, sweepHalfRangeDegrees: 0f,
+                period: 0, onTicks: 0, phase: 0),
+        };
+        var fromSlab = new[]
+        {
+            new SkydiveCourseBuilder.LaserSpec(
+                "Test_SlabBar", new Vector3(-99f, 215f, 45f),
+                length: 150f, radius: 0.6f,
+                startAngleDegrees: 0f, angularSpeedDegreesPerTick: 0f, sweepHalfRangeDegrees: 0f,
+                period: 0, onTicks: 0, phase: 0),
+        };
+
+        Assert.IsNull(SkydiveCourseBuilder.FindLaserOnSafeHole(fromWall));
+        Assert.IsNotNull(SkydiveCourseBuilder.FindLaserOnSafeHole(fromSlab),
+                         "판 위에 세운 같은 빔은 잡혀야 한다");
+    }
+
     [Test]
     public void 부활_지점은_모두_판_위이고_구멍_밖이다()
     {

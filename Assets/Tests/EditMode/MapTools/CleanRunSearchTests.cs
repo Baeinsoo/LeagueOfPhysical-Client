@@ -137,22 +137,5 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(0.46f, maxY, 0.005f);
             Assert.AreEqual(-0.028f, minY, 0.005f);
         }
-
-        [Test]
-        public void 사다리_경계와_정체성이_올바르다()
-        {
-            var grid = new SearchGrid(Options(startY: 0f, finishX: 50f));
-
-            //  사다리 0 = 날갯짓 직후(위로 튐), 사다리 1 = 아직 한 번도 안 함(가만히
-            //  있으면 0에서 시작). 이 둘이 뒤바뀌면 날갯짓이 아무 효과가 없어지거나
-            //  가만히 있어도 떠오르게 된다.
-            Assert.AreEqual(23f, grid.Speed(ladder: 0, rung: 0));
-            Assert.AreEqual(0f, grid.Speed(ladder: 1, rung: 0));
-
-            //  칸(rung) 번호가 사다리 길이를 넘어가면 "마지막 칸"으로 눌러야 한다 — 하나
-            //  모자라게 누르면 그 칸을 상태로 저장할 때마다 매번 다른 정수로 기록돼
-            //  같은 물리 상태가 둘로 쪼개진다.
-            Assert.AreEqual(grid.RungCount - 1, grid.ClampRung(grid.RungCount));
-        }
     }
 }

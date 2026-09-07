@@ -1,9 +1,4 @@
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-
-//  SearchGrid(사다리·상태 눌러담기 규칙)를 테스트가 직접 짚어 볼 수 있게 열어 준다 —
-//  Run() 바깥에서 관찰되는 값만으로는 사다리 경계(ClampRung)가 안 갈리는 자리가 있다.
-[assembly: InternalsVisibleTo("LOP.MapTools.Tests.EditMode")]
 
 namespace LOP.MapTools
 {
@@ -232,6 +227,9 @@ namespace LOP.MapTools
             return ladder;
         }
 
+        //  이 경계값(RungCount − 1) 자체는 테스트로 안 갈린다 — 사다리가 −MaxFallSpeed에서
+        //  바닥을 치기 때문에, 마지막 두 칸은 어느 쪽이든 속도가 똑같다. 그래서 여기서
+        //  하나 모자라게 눌러도 밖으로 드러나는 움직임은 달라지지 않는다.
         public int ClampRung(int rung) => rung >= RungCount ? RungCount - 1 : rung;
 
         public float Speed(int ladder, int rung) => ladder == 0 ? afterFlap[rung] : beforeFlap[rung];

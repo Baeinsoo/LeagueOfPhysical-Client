@@ -4,8 +4,11 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// 문 패널을 <b>프레임마다</b> 그 순간 자세로 옮긴다. 시뮬은 초당 50번인데 화면은 그보다
-    /// 자주 그려져, 시뮬이 잡아 준 정수 틱 자세만 쓰면 몇 프레임에 한 번은 제자리라 계단처럼 떤다.
+    /// 문 패널을 <b>프레임마다</b> 옮긴다. 시뮬은 초당 50번인데 화면은 그보다 자주 그려져,
+    /// 시뮬이 잡아 준 정수 틱 자세만 쓰면 몇 프레임에 한 번은 제자리라 계단처럼 떤다.
+    ///
+    /// <para>쓰는 시각은 <b>내 캐릭터를 그리는 시각과 같다</b>(한 틱 뒤). 화면 안의 것들이
+    /// 서로 다른 시각에 그려지면 몸과 장애물의 간격이 실제와 달라 보인다.</para>
     ///
     /// <para>판정이 쓰는 <b>같은 식</b>(<see cref="DoorGeometry.Openness"/>)에 틱 사이를 담은
     /// 소수 틱을 넣을 뿐이라, 보이는 자세와 맞는 자세가 같은 곡선 위에 있다.</para>
@@ -43,7 +46,10 @@ namespace LOP
                 return;   // 아직 Run 전이라 틱 간격이 없다 — 나누면 자세가 NaN이 된다
             }
 
-            double renderTick = runner.tickUpdater.elapsedTime / interval;
+            //  한 틱 뒤로 미룬 시각을 쓴다 — 내 캐릭터를 그리는 시각과 같은 값이다
+            //  (PredictedEntityInterpolator). 장애물만 "지금"으로 그리면 화면에서 문이 몸보다
+            //  한 틱 앞서 움직여, 닫히는 문을 아슬아슬하게 지날 때 실제보다 더 닫혀 보인다.
+            double renderTick = (runner.tickUpdater.elapsedTime - interval) / interval;
             for (int i = 0; i < doors.Count; i++)
             {
                 doors[i].Pose(renderTick);

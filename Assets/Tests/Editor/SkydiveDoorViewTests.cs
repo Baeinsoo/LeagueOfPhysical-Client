@@ -53,10 +53,39 @@ public class SkydiveDoorViewTests
         }
     }
 
+    //  뷰가 한 틱 뒤 시각을 그리므로(내 캐릭터와 같은 시각), 그 자세를 보고 싶으면
+    //  시계를 한 틱 앞에 둬야 한다. 그 관계 자체를 재는 것은 아래 전용 테스트다.
     private void Render(double renderTick)
     {
-        ticker.elapsedTime = ticker.interval * renderTick;
+        ticker.elapsedTime = ticker.interval * (renderTick + 1d);
         view.LateTick();
+    }
+
+    /// <summary>
+    /// 문은 <b>내 캐릭터와 같은 시각</b>으로 그린다 — 화면 안의 것들이 서로 다른 시각에 그려지면
+    /// 몸과 장애물의 간격이 실제와 달라 보인다. "지금"으로 그리던 옛 구현은 여기서 한 틱 앞선다.
+    /// </summary>
+    [Test]
+    public void 내_캐릭터를_그리는_시각과_같은_자세로_그린다()
+    {
+        //  PredictedEntityInterpolator가 쓰는 식과 같은 값을 손으로 만든다. 12.5를 고른 이유는
+        //  캐릭터 시각(11.5)과 "지금"(12.5)이 둘 다 <b>닫히는 중</b>(10~14)이라 자세가 실제로
+        //  다르기 때문이다. 완전히 열렸거나 닫힌 구간을 고르면 두 시각의 자세가 같아 못 잰다.
+        const double elapsed = 0.02d * 12.5d;
+        ticker.elapsedTime = elapsed;
+        view.LateTick();
+        Vector3 drawn = panelB.localPosition;
+
+        double characterRenderTick = (elapsed - ticker.interval) / ticker.interval;   // = 11.5
+        volume.Pose(characterRenderTick);
+        Assert.That(Vector3.Distance(drawn, panelB.localPosition), Is.LessThan(1e-4f),
+                    "캐릭터를 그리는 시각의 자세와 달랐다");
+
+        //  "지금"(12.5)으로 그리던 옛 구현이라면 한 틱치(열림 0.2 = 1.6m)만큼 어긋난다.
+        //  이 단언이 없으면 두 시각의 자세가 같은 구간을 골라도 위 단언이 통과해 버린다.
+        volume.Pose(elapsed / ticker.interval);
+        Assert.That(Vector3.Distance(drawn, panelB.localPosition), Is.GreaterThan(0.1f),
+                    "두 시각의 자세가 사실상 같아 이 테스트가 아무것도 못 잰다");
     }
 
     /// <summary>그림과 판정이 같은 곡선 위에 있다는 증거의 절반 — 정수 틱에서 두 자세가 같은 자리다.</summary>

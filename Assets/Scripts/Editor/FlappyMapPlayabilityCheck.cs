@@ -436,15 +436,22 @@ namespace LOP.EditorTools
         //  봇을 진짜 커널로 날린다. 궤적이 하나뿐이라 상태를 묶을 이유가 없고, 그래서 반올림도
         //  표류도 생기지 않는다 — 전수 탐색이 못 하는 "증명"이 여기서 나온다.
         //  한 번이라도 닿으면(스턴이 걸리면) 무충돌이 아니므로 즉시 멈춘다.
+        //  minY/maxY는 호출부가 넘긴다 — 정적 필드에 기대면 Check() 밖에서 부를 때(테스트 등)
+        //  0f로 조용히 굴러 garbage 조준을 하게 된다. Check()는 SearchMinY/SearchMaxY를
+        //  그대로 넘겨 "탐색과 같은 대역" 보장은 그대로 유지한다.
+        //  isFree는 탐색(CleanRunSearch.Run)과 같은 이름 있는 델리게이트·같은 극성이다 —
+        //  "막힘 여부를 뒤집어 쓴다"를 문장이 아니라 타입으로 강제해, grid.IsFree를 실수로
+        //  그대로 넘기는 사고(막힌 곳을 뚫린 곳으로 읽어 봇이 바위로 날아드는 것)를 막는다.
         private static BotFlight FlyBot(Vector3 start, float finishX, in FlappyShape shape, int mapMask,
                                         GameFramework.Physics.ICollisionQuery inner,
-                                        System.Func<float, float, bool> isBlocked)
+                                        float minY, float maxY,
+                                        LOP.MapTools.FreeSpaceProbe isFree)
         {
             var query = new HitWatcher(inner);
             var state = new BirdState { Position = new Vector3(start.x, start.y, 0f) };
             float flapArc = LOP.MapTools.BotPilot.FlapArc(shape.FlapImpulse, shape.Gravity, TickSeconds);
             float lookahead = shape.ForwardSpeed * BotLookaheadSeconds;
-            int buckets = Mathf.CeilToInt((SearchMaxY - SearchMinY) / HeightGrid) + 1;
+            int buckets = Mathf.CeilToInt((maxY - minY) / HeightGrid) + 1;
             var blocked = new bool[buckets];
             float farthest = start.x;
             int flaps = 0;
@@ -456,10 +463,10 @@ namespace LOP.EditorTools
                 float scanX = state.Position.x + lookahead;
                 for (int i = 0; i < buckets; i++)
                 {
-                    blocked[i] = isBlocked(scanX, SearchMinY + i * HeightGrid);
+                    blocked[i] = isFree(scanX, minY + i * HeightGrid) == false;
                 }
 
-                var decision = LOP.MapTools.BotPilot.Decide(blocked, SearchMinY, HeightGrid,
+                var decision = LOP.MapTools.BotPilot.Decide(blocked, minY, HeightGrid,
                                                             state.Position.y, state.VerticalSpeed,
                                                             shape.Radius, flapArc, TickSeconds);
                 if (decision.Flap)
@@ -476,7 +483,10 @@ namespace LOP.EditorTools
                 {
                     return new BotFlight(false, true, farthest, flaps, tick + 1);
                 }
-                if (state.Position.x + shape.Radius >= finishX)
+                //  ①(클린런)과 같은 질문이어야 한다 — 탐색은 발(x)이 마커 중심에 닿으면 골인으로
+                //  본다(TryReadFinishX 참고, 몸 반지름만큼 더 엄격한 게 의도적인 보수). +radius로
+                //  코를 기준 삼으면 그만큼 일찍 끝나 마지막 구간을 안 본다. 발 기준으로 맞춘다.
+                if (state.Position.x >= finishX)
                 {
                     return new BotFlight(true, false, farthest, flaps, tick + 1);
                 }

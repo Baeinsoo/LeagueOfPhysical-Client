@@ -189,6 +189,11 @@ namespace LOP.MapTools
                         float ny = y + grid.Speed(nextLadder, nextRung) * options.TickSeconds;
                         if (ny < options.MinY || ny > options.MaxY) { continue; }
                         if (grid.StateIndex(grid.HeightBucket(ny), nextLadder, nextRung) != target) { continue; }
+                        //  이 검사는 지금 규칙에선 절대 못 걸린다 — 같은 target에 도달하는
+                        //  후보는 전부 같은 높이(=같은 y, 같은 선분)를 거치므로 정방향이 이미
+                        //  자유롭다고 확인한 선분을 다시 확인할 뿐이다. 그래도 남겨 두는 건,
+                        //  되짚기 후보 선택 규칙(지금은 최소마진 우선)이 나중에 바뀌면 이
+                        //  전제가 깨져 검사가 다시 의미를 가질 수 있어서다.
                         if (SegmentIsFree(isFree, previousX, y, previousX + grid.StepX, ny,
                                           options.HeightGrid) == false) { continue; }
 

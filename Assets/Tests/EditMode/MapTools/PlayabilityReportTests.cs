@@ -22,7 +22,8 @@ namespace LOP.MapTools.Tests
                                        {
                                            new StunBudgetPoint(10f, 108f, 10, 7),
                                        },
-                                       earliest: new EarliestCatch(true, 19.0f, 14));
+                                       earliest: new EarliestCatch(true, 19.0f, 14),
+                                       heightGrid: 0.1f, minY: -40f, maxY: 40f);
 
         [Test]
         public void 자리마다_한_줄씩_찍는다()
@@ -93,6 +94,42 @@ namespace LOP.MapTools.Tests
                 new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), false));
 
             StringAssert.Contains("재생이 어긋", report);
+        }
+
+        [Test]
+        public void 증명되지_않은_성공은_증명된_성공의_글자를_쓰지_않는다()
+        {
+            //  ✅는 spec §3.7이 "재생으로 증명됨"으로 정의한 글자다. 재생이 어긋난 성공까지
+            //  ✅를 찍으면 읽는 사람이 증명된 것과 증명 안 된 것을 구분할 수 없다 — 실제 맵의
+            //  네 자리가 전부 이 경우였다(탐색은 찾았지만 재생 전부 실패).
+            string proven = Build(
+                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true));
+            string unproven = Build(
+                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), false));
+
+            //  이모지 하나만 담긴 검색어는 NUnit의 StringAssert.Contains(문화권 비교)가 오탐한다
+            //  — 이 환경에서 실측: 어떤 문자열에도 "✅"가 "있다"고 나온다(약한 콜레이션이
+            //  기호를 사실상 와일드카드로 만든다). 그래서 순서(ordinal) 비교로 직접 확인한다.
+            Assert.IsTrue(Contains(proven, "✅"));
+            Assert.IsFalse(Contains(unproven, "✅"));
+            //  증명 안 된 성공은 실패(❌)와도 다른 제 글자를 가져야 한다.
+            Assert.IsFalse(Contains(unproven, "❌"));
+            Assert.IsTrue(Contains(unproven, "🟡"));
+        }
+
+        static bool Contains(string haystack, string needle)
+            => haystack.Contains(needle, System.StringComparison.Ordinal);
+
+        [Test]
+        public void 통과여부는_같아도_증명_여부가_갈리면_공정성_경고를_찍는다()
+        {
+            //  둘 다 클린런은 "된다"이지만 하나는 증명됐고 하나는 안 됐다 — 자리마다 안전을
+            //  확신할 수 있는 정도가 다르다는 뜻이라, 이것도 공정성 문제로 알려야 한다.
+            string report = Build(
+                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true),
+                new SpawnCleanRun("PlayerSpawn_2", -1f, new CleanRunResult(true, new bool[209], 0f, 0f, 0, 0f), false));
+
+            StringAssert.Contains("증명", report);
         }
 
         [Test]

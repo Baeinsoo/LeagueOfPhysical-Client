@@ -62,11 +62,27 @@ namespace LOP.MapTools
     /// ③ 세로 속도가 연속값이 아니라 사다리라(날갯짓 뒤 몇 틱 지났나로 완전히 결정) 근사가 필요 없다.</para>
     ///
     /// <para>높이만 눈금으로 뭉개므로, 찾은 경로는 부르는 쪽이 진짜 커널로 재생해 증명해야 한다.</para>
+    ///
+    /// <para><b>이 재생 증명이 실제로 걸린 적이 있다(2026-09-07, 실측 맵).</b> 네 스폰 전부
+    /// 탐색은 경로를 찾았지만 진짜 커널 재생에서 전부 어긋났다 — 높이 반올림이 틱마다 새
+    /// 쪽으로 유리하게 쏠려 187~191틱에 걸쳐 누적되면 허공에 뜬 높이가 약 7m가 된다.
+    /// 정직히 "찾았으나 증명 못 함"으로 보고됐을 뿐 도구가 고장 난 건 아니다. 전체 경위는
+    /// <c>docs/ROADMAP.md</c>의 "Flappy 맵 플레이 가능성 검사" 항목 참고.</para>
     /// </summary>
     public static class CleanRunSearch
     {
         public static CleanRunResult Run(in CleanRunOptions options, FreeSpaceProbe isFree)
         {
+            //  결승선이 출발점보다 앞이거나 같으면 코스 길이가 0 이하다 — 그러면 아래 열
+            //  순회가 한 번도 안 돌아 그대로 "도달 가능"으로 떨어진다(빈 Flaps와 함께).
+            //  부르는 쪽이 이 전제를 지킨다고 믿지 않고 여기서 직접 막는다 — 순수 계층이
+            //  자기 전제를 스스로 지켜야, 호출부가 실수해도 "거꾸로 된 코스가 통과했다"는
+            //  거짓 결과가 나오지 않는다.
+            if (options.FinishX <= options.StartX)
+            {
+                return new CleanRunResult(false, System.Array.Empty<bool>(), options.StartX, 0f, 0, 0f);
+            }
+
             var grid = new SearchGrid(options);
 
             var current = new System.Collections.BitArray(grid.StateCount);
@@ -192,8 +208,10 @@ namespace LOP.MapTools
                         //  이 검사는 지금 규칙에선 절대 못 걸린다 — 같은 target에 도달하는
                         //  후보는 전부 같은 높이(=같은 y, 같은 선분)를 거치므로 정방향이 이미
                         //  자유롭다고 확인한 선분을 다시 확인할 뿐이다. 그래도 남겨 두는 건,
-                        //  되짚기 후보 선택 규칙(지금은 최소마진 우선)이 나중에 바뀌면 이
-                        //  전제가 깨져 검사가 다시 의미를 가질 수 있어서다.
+                        //  되짚기 후보 선택 규칙(지금은 가장 낮은 상태, 즉 가장 낮은 높이버킷
+                        //  우선 — for문이 state를 0부터 오름차순으로 훑다 처음 맞는 것을
+                        //  고른다)이 나중에 바뀌면 이 전제가 깨져 검사가 다시 의미를 가질 수
+                        //  있어서다.
                         if (SegmentIsFree(isFree, previousX, y, previousX + grid.StepX, ny,
                                           options.HeightGrid) == false) { continue; }
 

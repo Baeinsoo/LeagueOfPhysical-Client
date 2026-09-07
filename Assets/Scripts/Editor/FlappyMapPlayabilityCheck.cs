@@ -69,18 +69,15 @@ namespace LOP.EditorTools
                     "예: Assets/Art/Scenes/FlappyRaceMap.unity", "확인");
                 return;
             }
-            if (TryReadFlappyConfig(out FlappyShape shape) == false)
+            //  ①③이 같은 행(TbFlappyConfig)에서 몸/이동 값과 추격자 값을 모두 쓰므로 한 번만
+            //  읽는다 — 예전엔 FlappyShape용·추격자용으로 같은 .bytes를 두 번 읽고 파싱했다.
+            if (TryReadFullConfig(out LOP.FlappyConfig config) == false)
             {
                 EditorUtility.DisplayDialog("Flappy 맵 검사",
                     "MasterData에서 FlappyConfig를 못 읽었다 — 패키지 StreamingAssets를 확인하라.", "확인");
                 return;
             }
-            if (TryReadFullConfig(out LOP.FlappyConfig config) == false)
-            {
-                EditorUtility.DisplayDialog("Flappy 맵 검사",
-                    "추격자 값을 못 읽었다 — MasterData의 FlappyConfig를 확인하라.", "확인");
-                return;
-            }
+            var shape = ShapeFrom(config);
             var spawns = ReadSpawns();
             if (spawns.Count == 0)
             {
@@ -93,6 +90,24 @@ namespace LOP.EditorTools
                 EditorUtility.DisplayDialog("Flappy 맵 검사",
                     $"맵에 FinishLine 마커가 정확히 하나 있어야 한다 (발견: {finishMarkerCount}개)."
                     + "\n서버 룰(FlappyRaceRuleSystem)이 이 조건이면 매치 시작 시 죽는다.", "확인");
+                return;
+            }
+            //  결승선이 스폰보다 앞이거나 같으면 코스가 거꾸로거나 길이 0이다 — CleanRunSearch가
+            //  이런 코스를 스스로 거부하긴 하지만(순수 계층의 방어), 그 전에 여기서 잡아야
+            //  "검사해 보니 통과"가 아니라 "이 맵은 애초에 검사할 수 없다"고 바로 알린다.
+            var backwardSpawns = new List<string>();
+            foreach (var spawn in spawns)
+            {
+                if (spawn.Position.x >= finishX)
+                {
+                    backwardSpawns.Add($"{spawn.Name}(x={spawn.Position.x:F1})");
+                }
+            }
+            if (backwardSpawns.Count > 0)
+            {
+                EditorUtility.DisplayDialog("Flappy 맵 검사",
+                    $"결승선(x={finishX:F1})이 스폰보다 앞이거나 같다 — 코스가 거꾸로거나 길이가 0이다.\n"
+                    + $"문제 스폰: {string.Join(", ", backwardSpawns)}", "확인");
                 return;
             }
 
@@ -144,13 +159,33 @@ namespace LOP.EditorTools
                 EditorUtility.ClearProgressBar();
             }
 
-            //  ③ 산수라 진행률이 필요 없다.
+            //  ③ 산수라 진행률이 필요 없다. spawns[0] 하나만 놓고 계산한다 — 이 맵은 넷 다
+            //  x=−2로 같아 무해하지만, 스폰이 x축으로 어긋난 맵에서는 이 예산이 "그 자리 하나의
+            //  것"이지 전원 것이 아니다. 아래에서 그 전제가 깨졌는지 확인해 경고를 붙인다.
             var budget = LOP.MapTools.StunBudget.Curve(config, spawns[0].Position.x, finishX, stepSeconds: 10f);
             var earliest = LOP.MapTools.StunBudget.FindEarliestCatch(config, spawns[0].Position.x, finishX);
 
             string report = LOP.MapTools.PlayabilityReport.Build(
                 UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
-                spawns[0].Position.x, finishX, config, cleanRuns, trapSection, budget, earliest);
+                spawns[0].Position.x, finishX, config, cleanRuns, trapSection, budget, earliest,
+                HeightGrid, bounds.min.y, bounds.max.y);
+
+            //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
+            bool spawnXMismatch = false;
+            for (int i = 1; i < spawns.Count; i++)
+            {
+                if (Mathf.Approximately(spawns[i].Position.x, spawns[0].Position.x) == false)
+                {
+                    spawnXMismatch = true;
+                    break;
+                }
+            }
+            if (spawnXMismatch)
+            {
+                report = "⚠️ 스폰들의 x가 서로 다르다 — ③ 스턴 예산은 "
+                    + $"{spawns[0].Name}(x={spawns[0].Position.x:F1}) 하나로만 계산됐다."
+                    + " 다른 자리의 예산은 다를 수 있다.\n\n" + report;
+            }
             //  취소됐으면 report 맨 앞에 못 보고 지나칠 수 없게 배너를 붙인다 — ②는 이미 자기
             //  절 안에 취소 문구를 갖고 있지만(BuildTrapSection), ①은 PlayabilityReport의 절이라
             //  거기 손대지 않고 여기서 요약해 알린다.
@@ -217,7 +252,12 @@ namespace LOP.EditorTools
             {
                 return false;
             }
-            //  형상이 있으면 그 자리, 없으면 트랜스폼. FinishLine이 스스로 등록할 때와 같은 규칙이다.
+            //  형상이 있으면 그 자리, 없으면 트랜스폼 — 이 바운드 조회 규칙만 FinishLine이 스스로
+            //  등록할 때와 같다. **통과 판정 자체는 다르다**: 실제 게임은 몸의 선두 끝이 결승선의
+            //  가까운 끝을 넘는 순간 골인이고, 이 도구는 발 위치(x)가 마커 중심에 닿아야 클린런이
+            //  끝난 걸로 본다 — 몸 반지름만큼(약 1m) 더 엄격하다. 의도적으로 보수적으로 둔 것이다
+            //  — ③(스턴 예산)이 스펙의 손계산과 자릿수까지 일치하는 건 지금 코스 길이를 그대로
+            //  쓰기 때문이라, 여기 숫자를 게임 판정과 맞추려 건드리면 그 일치가 깨진다.
             var renderer = markers[0].GetComponentInChildren<Renderer>();
             finishX = renderer != null ? renderer.bounds.center.x : markers[0].transform.position.x;
             return true;
@@ -253,29 +293,13 @@ namespace LOP.EditorTools
             public Vector3 Upper(Vector3 position) => position + Vector3.up * (Height - Radius);
         }
 
-        private static bool TryReadFlappyConfig(out FlappyShape shape)
-        {
-            shape = default;
-            string path = Path.GetFullPath(
-                "Packages/com.baegames.lop.masterdata.client/Runtime.Generated/StreamingAssets/MasterData/tbflappyconfig.bytes");
-            if (File.Exists(path) == false)
-            {
-                return false;
-            }
-            var table = new LOP.MasterData.TbFlappyConfig(new Luban.ByteBuf(File.ReadAllBytes(path)));
-            var row = table.GetOrDefault(1);
-            if (row == null)
-            {
-                return false;
-            }
-            shape = new FlappyShape(row.BodyRadius, row.BodyHeight, row.ForwardSpeed, row.Gravity, row.MaxFallSpeed,
-                                    row.FlapImpulse, row.StunTime, row.InvulnTime);
-            return true;
-        }
+        //  ①②가 쓰는 몸/이동 모양은 ③이 읽는 LOP.FlappyConfig 안에 이미 다 있다 — 예전엔 같은
+        //  .bytes를 FlappyShape용으로 한 번 더 읽고 파싱했는데(TryReadFlappyConfig), 그 값들이
+        //  전부 FlappyConfig의 필드이므로 다시 읽지 않고 여기서 골라 담기만 한다.
+        private static FlappyShape ShapeFrom(in LOP.FlappyConfig config)
+            => new FlappyShape(config.BodyRadius, config.BodyHeight, config.ForwardSpeed, config.Gravity,
+                               config.MaxFallSpeed, config.FlapImpulse, config.StunTime, config.InvulnTime);
 
-        //  ③은 추격자 값이 필요하고 그건 공유 FlappyConfig에만 있다. 같은 행을 두 번 읽는 셈이지만,
-        //  FlappyShape는 낌 스캔이 쓰던 모양이라 그대로 두고 여기만 더한다.
-        //
         //  이 TbFlappyConfig→FlappyConfig 매핑의 정본은 Assets/Scripts/Game/FlappyConfigProvider.cs다.
         //  거긴 재사용하지 않았다 — LOPMasterData.LoadAsync()가 UnityWebRequest로 테이블 16개를
         //  전부 비동기로 읽어야만 Provider를 쓸 수 있는데, 에디터 메뉴 한 번을 위해 그걸 두르는
@@ -651,12 +675,11 @@ namespace LOP.EditorTools
             }
 
             var regions = TrapClustering.Cluster(stuck, ClusterDistance);
-            return BuildTrapSection(shape, bounds.min.y, bounds.max.y,
-                                    contacts, candidates.Count, stuck.Count, regions, mapMask, cancelNotes);
+            return BuildTrapSection(shape, contacts, candidates.Count, stuck.Count, regions, mapMask, cancelNotes);
         }
 
-        //  ② 절만 만든다 — 코스 범위·물리 두 줄은 PlayabilityReport의 머리말이 이미 찍으므로 뺐다.
-        private static string BuildTrapSection(in FlappyShape shape, float minY, float maxY, int contacts,
+        //  ② 절만 만든다 — 코스 범위·물리·탐색 y대역은 PlayabilityReport의 머리말이 이미 찍으므로 뺐다.
+        private static string BuildTrapSection(in FlappyShape shape, int contacts,
                                                int candidateCount, int stuckCount,
                                                List<TrapRegion> regions, int mapMask,
                                                List<string> cancelNotes)
@@ -668,13 +691,11 @@ namespace LOP.EditorTools
             {
                 text.AppendLine($"  ⚠️ 취소됨 — {string.Join(" / ", cancelNotes)} (아래 수치는 불완전)");
             }
-            text.AppendLine($"[맵 낌 지점 스캔] 구역 {regions.Count}개"
+            text.AppendLine($"낌 지점 스캔: 구역 {regions.Count}개"
                           + $" (낌점 {stuckCount} / 무입력 후보 {candidateCount} / 지형에 닿는 자리 {contacts})"
                           + (cancelNotes.Count > 0 ? "  ⚠️ 취소됨" : ""));
-            //  R16 — 이 y대역이 ①(CleanRunSearch)·②(여기) 둘 다의 탐색 상/하한이다(Default 콜라이더
-            //  최고~최저점). 넓히지 않고 사실만 찍는다 — 천장 없는 맵이면 이 위로 날아 넘는, 실제로는
-            //  되는 경로를 탐색이 못 보고도 ❌를 찍을 수 있어서다.
-            text.AppendLine($"  탐색 대역 y[{minY:F1}~{maxY:F1}] (천장 없으면 그 위 경로는 검색 밖)");
+            //  R16 — y대역(탐색 상/하한) 안내는 PlayabilityReport 머리말로 옮겼다 — ①(클린런)도
+            //  같은 대역을 쓰는데 ②의 절에만 있으면 ①만 읽는 사람이 못 본다.
             text.AppendLine($"  1단계: 무입력 {SimulationTicks * TickSeconds:F1}초에 {EscapeDistance:F0}m 미만"
                           + $" → 2단계: 날갯짓을 어떻게 넣어도 {FlapSearchTicks * TickSeconds:F1}초에"
                           + $" {FlapEscapeDistance:F0}m 미만이면 낌");

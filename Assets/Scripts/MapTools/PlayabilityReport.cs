@@ -24,7 +24,8 @@ namespace LOP.MapTools
     {
         public static string Build(string mapName, float startX, float finishX, in FlappyConfig config,
                                    IReadOnlyList<SpawnCleanRun> cleanRuns, string trapSection,
-                                   IReadOnlyList<StunBudgetPoint> budget, EarliestCatch earliest)
+                                   IReadOnlyList<StunBudgetPoint> budget, EarliestCatch earliest,
+                                   float heightGrid, float minY, float maxY)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
@@ -34,22 +35,37 @@ namespace LOP.MapTools
                           + $" ({finishX - startX:F0}m)   클린런 {cleanRunSeconds:F1}초");
             text.AppendLine($"물리: 전진 {config.ForwardSpeed:F0}  날갯짓 {config.FlapImpulse:F0}"
                           + $"  중력 {config.Gravity:F0}  최대낙하 {config.MaxFallSpeed:F0}"
-                          + $"  몸 r{config.BodyRadius:F2} h{config.BodyHeight:F2}");
+                          + $"  몸 r{config.BodyRadius:F2} h{config.BodyHeight:F2}  높이눈금 {heightGrid:F2}");
             text.AppendLine($"추격자: 시작 {config.ChaserStartX:F0}  초기 {config.ChaserInitialSpeed:F0}"
                           + $"  가속 {config.ChaserAcceleration}  상한 {config.ChaserMaxSpeed:F0}"
                           + $"      스턴 {config.StunTime} + 무적 {config.InvulnTime}");
+            //  이 y대역이 ①(클린런)·②(낌 지점) 둘 다의 탐색 상/하한이다(Default 콜라이더
+            //  최고~최저점). ①만 읽는 사람도 봐야 한다 — 천장 없는 맵이면 이 위로 날아 넘는,
+            //  실제로는 되는 경로를 탐색이 못 보고도 ❌를 찍을 수 있어서다.
+            text.AppendLine($"탐색 대역 y[{minY:F1}~{maxY:F1}] (천장 없으면 그 위 경로는 검색 밖)");
             text.AppendLine();
 
             text.AppendLine("── ① 클린런 (자리별) ──────────────────");
-            bool anyPass = false, anyFail = false;
+            bool anyFail = false, anyProven = false, anyUnproven = false;
             for (int i = 0; i < cleanRuns.Count; i++)
             {
                 SpawnCleanRun run = cleanRuns[i];
                 if (run.Result.Reachable)
                 {
-                    anyPass = true;
-                    text.AppendLine($"  {run.Name} (y={run.Y:F0})   ✅  날갯짓 {CountFlaps(run.Result)}회"
-                                  + (run.VerifiedByReplay ? "" : "   ⚠️ 탐색은 찾았으나 재생이 어긋남"));
+                    if (run.VerifiedByReplay)
+                    {
+                        anyProven = true;
+                        text.AppendLine($"  {run.Name} (y={run.Y:F0})   ✅  날갯짓 {CountFlaps(run.Result)}회");
+                    }
+                    else
+                    {
+                        //  ✅와 같은 글자를 쓰면 "재생으로 증명됨"과 "탐색만 찾았고 증명 못 함"이
+                        //  구분 안 된다 — spec §3.7이 재생을 증명으로 정의하므로, 증명 안 된
+                        //  성공은 ✅도 ❌도 아닌 제 글자(🟡)를 가져야 한다.
+                        anyUnproven = true;
+                        text.AppendLine($"  {run.Name} (y={run.Y:F0})   🟡  날갯짓 {CountFlaps(run.Result)}회"
+                                      + "   ⚠️ 탐색은 찾았으나 재생이 어긋남");
+                    }
                 }
                 else
                 {
@@ -71,13 +87,28 @@ namespace LOP.MapTools
                     }
                 }
             }
+            bool anyPass = anyProven || anyUnproven;
             if (anyPass && anyFail)
             {
                 text.AppendLine("  ⚠️ 일부 자리만 불가 — 자리 배정이 곧 불이익이다");
             }
-            if (anyFail)
+            //  통과/실패는 갈리지 않아도 "증명됐다"와 "증명 못 했다"가 자리마다 갈리는 것도
+            //  같은 종류의 불공정이다 — 어떤 자리는 확실히 안전하다고 보장할 수 있고 어떤
+            //  자리는 못 한다면, 그 확신의 차이도 자리 배정에 달렸다.
+            else if (anyProven && anyUnproven)
             {
-                text.AppendLine("  (❌는 높이 눈금이 굵어 생긴 오탐일 수 있다 — 눈금을 0.05로 줄여 다시 눌러 볼 것)");
+                text.AppendLine("  ⚠️ 일부 자리만 증명됨 — 자리마다 안전 확신의 정도가 다르다");
+            }
+            if (anyFail || anyUnproven)
+            {
+                //  실제로 나온 글자만 언급한다 — 안 나온 쪽(예: 실패 없이 🟡만 있는 경우의 ❌)까지
+                //  적으면 그 보고서에 없는 글자를 안내문이 스스로 찍어 버린다.
+                var glyphs = new List<string>();
+                if (anyFail) { glyphs.Add("❌"); }
+                if (anyUnproven) { glyphs.Add("🟡"); }
+                float suggestedGrid = heightGrid * 0.5f;
+                text.AppendLine($"  ({string.Join("/", glyphs)}는 높이 눈금 {heightGrid:F2}가 굵어 생긴 결과일 수 있다"
+                              + $" — 눈금을 {suggestedGrid:F2}로 줄여 다시 눌러 볼 것)");
             }
             text.AppendLine();
 

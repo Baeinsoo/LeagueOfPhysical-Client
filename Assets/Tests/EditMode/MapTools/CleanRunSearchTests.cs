@@ -262,6 +262,27 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 결승선이_출발점보다_뒤면_거짓을_보고한다()
+        {
+            //  코스가 거꾸로(길이 음수) — 열 순회가 한 번도 안 돌아 그대로 "도달 가능"으로
+            //  떨어지는 버그가 있었다. 자유공간은 항상 참이어도 이건 통과하면 안 된다.
+            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: -5f), OpenSky);
+
+            Assert.IsFalse(result.Reachable);
+            Assert.AreEqual(0, result.Flaps.Count);
+        }
+
+        [Test]
+        public void 결승선이_출발점과_같으면_거짓을_보고한다()
+        {
+            //  코스 길이가 정확히 0인 경계값. 위와 같은 이유로 실패해야 한다.
+            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 0f), OpenSky);
+
+            Assert.IsFalse(result.Reachable);
+            Assert.AreEqual(0, result.Flaps.Count);
+        }
+
+        [Test]
         public void 못_가면_날갯짓_순서는_비어_있다()
         {
             bool IsFree(float x, float y) => x < 20f;

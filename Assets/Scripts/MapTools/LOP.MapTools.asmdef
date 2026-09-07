@@ -1,0 +1,16 @@
+{
+    "name": "LOP.MapTools",
+    "rootNamespace": "LOP.MapTools",
+    "references": [
+        "baegames.LOP.Shared.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

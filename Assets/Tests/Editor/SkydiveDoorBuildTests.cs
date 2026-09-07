@@ -423,12 +423,17 @@ public class SkydiveDoorSpecTests
     [Test]
     public void 표의_문은_모두_완전히_닫히는_구간을_갖는다()
     {
-        //  ClosedTicks가 0 이하면 openness가 0에 닿지 않아 크러시 판정이 영영 안 걸린다 —
-        //  문이 장식이 되고 갈림길이 사라지는데 아무 에러도 안 난다.
-        foreach (SkydiveCourseBuilder.DoorSpec spec in SkydiveCourseBuilder.Doors)
-        {
-            Assert.Greater(spec.ClosedTicks, 0, spec.Name);
-        }
+        string failure = SkydiveCourseBuilder.FindDoorNeverCloses();
+
+        Assert.IsNull(failure, failure);
+    }
+
+    [Test]
+    public void 표의_문_패널은_어느_안전한_구멍도_막지_않는다()
+    {
+        string failure = SkydiveCourseBuilder.FindDoorPanelOnSafeHole();
+
+        Assert.IsNull(failure, failure);
     }
 
     // ── 거절 C1 — 문과 구멍이 1:1 ────────────────────────────────────────
@@ -570,7 +575,8 @@ public class SkydiveDoorSpecTests
     public void 닫힌_패널이_부활_지점을_덮으면_거절된다()
     {
         //  부활 지점(0,200,−15) 한복판에 문을 놓는다. 닫힌 패널은 거기를 채우고, 물러난 패널은
-        //  12m 옆이라 안 닿는다 — 물러난 자세만 보는 구현은 이걸 놓친다.
+        //  가장 가까운 면까지 8m 떨어져 있다(중심 12m − 패널 반치수 4m. 유효 반지름 2.4m
+        //  대비 여유 5.6m) — 물러난 자세만 보는 구현은 이걸 놓친다.
         var shelves = new[] { Shelf(200f, Hole(0f, -15f, 16f, hasDoor: true)) };
         var doors = new[] { Door("Door_OnRespawn", new Vector3(0f, 200f, -15f), 8f) };
 
@@ -578,6 +584,67 @@ public class SkydiveDoorSpecTests
 
         Assert.IsNotNull(failure);
         StringAssert.Contains("닫힌", failure);
+    }
+
+    // ── 거절 C5 — 패널이 안전한 구멍을 막는다 ─────────────────────────────
+
+    [Test]
+    public void 물러난_패널이_안전한_구멍을_막으면_거절된다()
+    {
+        //  빠른 구멍(0,0) 반폭 8에 문을 달면 물러난 패널은 로컬 x 8~16 띠를 차지한다.
+        //  안전한 구멍을 반폭 4로 (14,0)에 두면 그 띠(x 10~18)와 겹친다.
+        //  ±Z로 물러나면(90°) 그 띠가 z로 나가므로 x에서 2m 떨어져 안 겹친다 — 축이 결과를 가른다.
+        var shelves = new[]
+        {
+            Shelf(200f, Hole(0f, 0f, 16f, hasDoor: true), Hole(14f, 0f, 8f, hasDoor: false)),
+        };
+        var alongZ = new[] { Door("Door_200", new Vector3(0f, 200f, 0f), 8f, axisAngleDegrees: 90f) };
+        var alongX = new[] { Door("Door_200", new Vector3(0f, 200f, 0f), 8f, axisAngleDegrees: 0f) };
+
+        Assert.IsNull(SkydiveCourseBuilder.FindDoorPanelOnSafeHole(shelves, alongZ),
+                      "이 테스트 전제가 깨졌다 — ±Z로 물러나면 안전한 구멍과 안 겹친다");
+
+        string failure = SkydiveCourseBuilder.FindDoorPanelOnSafeHole(shelves, alongX);
+
+        Assert.IsNotNull(failure, "닫힌 자세만 보는 구현은 여기서 null을 준다");
+        StringAssert.Contains("물러난", failure);
+    }
+
+    [Test]
+    public void 닫힌_패널이_안전한_구멍을_막으면_거절된다()
+    {
+        //  두 구멍이 겹치게 적힌 표. 닫힌 패널은 빠른 구멍을 그대로 채우므로 안전한 구멍의
+        //  일부가 벽이 된다 — 물러난 자세만 보는 구현은 이걸 놓친다.
+        var shelves = new[]
+        {
+            Shelf(200f, Hole(0f, 0f, 16f, hasDoor: true), Hole(10f, 0f, 8f, hasDoor: false)),
+        };
+        var doors = new[] { Door("Door_200", new Vector3(0f, 200f, 0f), 8f, axisAngleDegrees: 0f) };
+
+        string failure = SkydiveCourseBuilder.FindDoorPanelOnSafeHole(shelves, doors);
+
+        Assert.IsNotNull(failure);
+        StringAssert.Contains("닫힌", failure);
+    }
+
+    // ── 거절 C6 — 완전히 닫히는 구간이 없다 ───────────────────────────────
+
+    [Test]
+    public void 닫히는_구간이_없는_문은_거절된다()
+    {
+        //  열림 80 + 여닫이 20×2 = 주기 120이라 닫힘이 0틱이다. 문이 계속 여닫히기만 하고
+        //  완전히 닫히는 순간이 없어 크러시가 영영 안 걸린다.
+        var doors = new[]
+        {
+            new SkydiveCourseBuilder.DoorSpec("Door_Deco", new Vector3(0f, 200f, 0f),
+                                              halfWidth: 8f, halfDepth: 8f, axisAngleDegrees: 0f,
+                                              period: 120, openTicks: 80, moveTicks: 20, phase: 0),
+        };
+
+        string failure = SkydiveCourseBuilder.FindDoorNeverCloses(doors);
+
+        Assert.IsNotNull(failure);
+        StringAssert.Contains("완전히 닫히는 구간이 없다", failure);
     }
 }
 
@@ -618,7 +685,64 @@ public class SkydiveDoorBakeTests
                 Assert.AreEqual(expected.z, size.z, 0.001f, panel.name + " z");
             }
 
-            Assert.IsNull(SkydiveCourseBuilder.FindDoorPanelMismatch(volume));
+            Assert.IsNull(SkydiveCourseBuilder.FindDoorPanelMismatch(volume, Spec(0f)));
+        }
+        finally
+        {
+            Object.DestroyImmediate(go);
+        }
+    }
+
+    //  90도의 배수에서는 상자가 자기 자신으로 겹쳐서, 미끄러지는 축의 부호가 반대여도 부피가
+    //  똑같다 — 쿼터니언을 비교하면 기하가 아니라 규약을 재는 셈이 된다. 그래서 45도를 함께
+    //  넣고, 축 방향을 DoorGeometry가 패널을 실제로 미는 방향에서 뽑아 맞춰 본다.
+    [TestCase(0f)]
+    [TestCase(45f)]
+    [TestCase(90f)]
+    public void 구운_패널은_판정이_미는_방향으로_돌아_있다(float axisAngleDegrees)
+    {
+        GameObject go = Bake(axisAngleDegrees);
+        try
+        {
+            var volume = go.GetComponent<LOP.DoorVolume>();
+            LOP.Door door = volume.ToDoor();
+            System.Numerics.Vector3 offset = LOP.DoorGeometry.PanelCenter(door, 1, 1f) - door.Center;
+            Vector3 slide = new Vector3(offset.X, offset.Y, offset.Z).normalized;
+
+            Assert.AreEqual(0f, Quaternion.Angle(volume.transform.rotation, Quaternion.identity), 0.01f,
+                            "허브는 절대 안 돈다");
+            foreach (Transform panel in new[] { volume.PanelA, volume.PanelB })
+            {
+                //  상자는 중심 대칭이라 앞뒤가 같은 부피다 — 절댓값으로 잰다.
+                Assert.AreEqual(1f, Mathf.Abs(Vector3.Dot(panel.right, slide)), 0.001f, panel.name + " 긴 축");
+                Assert.AreEqual(1f, Vector3.Dot(panel.up, Vector3.up), 0.001f, panel.name + " 두께 방향");
+            }
+
+            Assert.IsNull(SkydiveCourseBuilder.FindDoorPanelMismatch(volume, Spec(axisAngleDegrees)));
+        }
+        finally
+        {
+            Object.DestroyImmediate(go);
+        }
+    }
+
+    // ── 거절 — 구운 문이 표와 다르다 ──────────────────────────────────────
+
+    [Test]
+    public void 구운_문이_표의_자리에서_벗어나면_걸린다()
+    {
+        //  DoorVolume.ToDoor는 transform.position을 중심으로 삼는다. 굽기가 자리를 잘못 넣으면
+        //  판정도 그 잘못된 자리를 따라가므로, 표를 재는 검사 셋은 전부 초록인 채로 남는다.
+        GameObject go = Bake(0f);
+        try
+        {
+            var volume = go.GetComponent<LOP.DoorVolume>();
+            volume.transform.position += new Vector3(0.5f, 0f, 0f);
+
+            string failure = SkydiveCourseBuilder.FindDoorPanelMismatch(volume, Spec(0f));
+
+            Assert.IsNotNull(failure);
+            StringAssert.Contains("벗어나 있다", failure);
         }
         finally
         {
@@ -627,24 +751,40 @@ public class SkydiveDoorBakeTests
     }
 
     [Test]
-    public void 각진_문은_패널까지_같은_각으로_돌아_있다()
+    public void 구운_문의_치수가_표와_다르면_걸린다()
     {
-        //  판정 상자는 AxisAngle만큼 돌아간 상자다. 패널을 안 돌리고 크기만 맞추면
-        //  90도 문에서 보이는 상자와 죽이는 상자가 직각으로 갈린다.
-        GameObject go = Bake(90f);
+        GameObject go = Bake(0f);
         try
         {
             var volume = go.GetComponent<LOP.DoorVolume>();
+            volume.HalfWidth = 9f;   // 마커에 표 아닌 값을 넣은 실수
 
-            Assert.AreEqual(0f, Quaternion.Angle(volume.transform.rotation, Quaternion.identity), 0.01f,
-                            "허브는 절대 안 돈다");
-            foreach (Transform panel in new[] { volume.PanelA, volume.PanelB })
-            {
-                Assert.AreEqual(0f, Quaternion.Angle(panel.rotation, Quaternion.Euler(0f, 90f, 0f)), 0.01f,
-                                panel.name);
-            }
+            string failure = SkydiveCourseBuilder.FindDoorPanelMismatch(volume, Spec(0f));
 
-            Assert.IsNull(SkydiveCourseBuilder.FindDoorPanelMismatch(volume));
+            Assert.IsNotNull(failure);
+            StringAssert.Contains("HalfWidth", failure);
+        }
+        finally
+        {
+            Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void 구운_문의_여닫이_리듬이_표와_다르면_걸린다()
+    {
+        //  Phase를 안 옮기면 크기·회전은 다 맞는데 문이 표와 다른 박자로 돈다 — 치수만 재는
+        //  검사는 이것을 통과시킨다.
+        GameObject go = Bake(0f);
+        try
+        {
+            var volume = go.GetComponent<LOP.DoorVolume>();
+            volume.Phase = 5;
+
+            string failure = SkydiveCourseBuilder.FindDoorPanelMismatch(volume, Spec(0f));
+
+            Assert.IsNotNull(failure);
+            StringAssert.Contains("Phase", failure);
         }
         finally
         {
@@ -660,7 +800,7 @@ public class SkydiveDoorBakeTests
         {
             go.transform.rotation = Quaternion.Euler(0f, 30f, 0f);
 
-            string failure = SkydiveCourseBuilder.FindDoorPanelMismatch(go.GetComponent<LOP.DoorVolume>());
+            string failure = SkydiveCourseBuilder.FindDoorPanelMismatch(go.GetComponent<LOP.DoorVolume>(), Spec(0f));
 
             Assert.IsNotNull(failure);
             StringAssert.Contains("허브가 돌아가 있다", failure);
@@ -680,7 +820,7 @@ public class SkydiveDoorBakeTests
             var volume = go.GetComponent<LOP.DoorVolume>();
             volume.PanelA.localScale = new Vector3(8f, 2.8f, 8f);   // HalfDepth를 두 배 안 한 실수
 
-            string failure = SkydiveCourseBuilder.FindDoorPanelMismatch(volume);
+            string failure = SkydiveCourseBuilder.FindDoorPanelMismatch(volume, Spec(0f));
 
             Assert.IsNotNull(failure);
             StringAssert.Contains("콜라이더 크기", failure);
@@ -700,7 +840,7 @@ public class SkydiveDoorBakeTests
             var volume = go.GetComponent<LOP.DoorVolume>();
             volume.PanelA.localRotation = Quaternion.identity;   // 축을 안 반영한 실수
 
-            string failure = SkydiveCourseBuilder.FindDoorPanelMismatch(volume);
+            string failure = SkydiveCourseBuilder.FindDoorPanelMismatch(volume, Spec(90f));
 
             Assert.IsNotNull(failure);
             StringAssert.Contains("회전이 미끄러지는 축", failure);
@@ -722,7 +862,7 @@ public class SkydiveDoorBakeTests
             var volume = go.GetComponent<LOP.DoorVolume>();
             Object.DestroyImmediate(volume.PanelA.GetComponent<BoxCollider>());
 
-            string failure = SkydiveCourseBuilder.FindDoorPanelMismatch(volume);
+            string failure = SkydiveCourseBuilder.FindDoorPanelMismatch(volume, Spec(0f));
 
             Assert.IsNotNull(failure);
             StringAssert.Contains("콜라이더가 없다", failure);
@@ -743,7 +883,7 @@ public class SkydiveDoorBakeTests
             var volume = go.GetComponent<LOP.DoorVolume>();
             volume.PanelB.GetComponent<BoxCollider>().isTrigger = true;
 
-            string failure = SkydiveCourseBuilder.FindDoorPanelMismatch(volume);
+            string failure = SkydiveCourseBuilder.FindDoorPanelMismatch(volume, Spec(0f));
 
             Assert.IsNotNull(failure);
             StringAssert.Contains("트리거", failure);
@@ -765,7 +905,7 @@ public class SkydiveDoorBakeTests
             var volume = go.GetComponent<LOP.DoorVolume>();
             volume.PanelB = volume.PanelA;
 
-            string failure = SkydiveCourseBuilder.FindDoorPanelMismatch(volume);
+            string failure = SkydiveCourseBuilder.FindDoorPanelMismatch(volume, Spec(0f));
 
             Assert.IsNotNull(failure);
             StringAssert.Contains("같은 오브젝트", failure);

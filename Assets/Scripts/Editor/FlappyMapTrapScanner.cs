@@ -230,7 +230,7 @@ namespace LOP.EditorTools
                 velocity.x = shape.ForwardSpeed;
 
                 var result = KinematicMover.Move(new KinematicMoveInput(
-                    position, velocity, shape.Radius, shape.Height, TickSeconds, mapMask, stepOffset: 0f), query);
+                    position, velocity, shape.Radius, shape.Height, TickSeconds, mapMask, stepOffset: 0f, groundProbe: 0f), query);
                 position = result.position;
                 velocity = result.velocity;
             }
@@ -292,7 +292,7 @@ namespace LOP.EditorTools
 
             query.Reset();
             var result = KinematicMover.Move(new KinematicMoveInput(
-                state.Position, velocity, shape.Radius, shape.Height, TickSeconds, mapMask, stepOffset: 0f), query);
+                state.Position, velocity, shape.Radius, shape.Height, TickSeconds, mapMask, stepOffset: 0f, groundProbe: 0f), query);
 
             state.Position = result.position;
             state.VerticalSpeed = result.velocity.y;

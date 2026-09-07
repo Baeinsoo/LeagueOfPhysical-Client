@@ -10,7 +10,10 @@ namespace LOP.EditorTools
     /// 열려 있는 <c>SkydiveMap</c> 씬에 낙하 코스를 굽는다 — 선반마다 구멍 둘(빠른 구멍·안전한
     /// 구멍)이 뚫리고, 속도감을 보여 주는 모서리 기둥이 선다.
     ///
-    /// 표(<c>Shelves</c>)가 곧 코스 설계다. 숫자를 고치고 다시 구우면 되고, 리뷰어는 표만 보면 된다.
+    /// 빠른 구멍에는 여닫이 문(<c>Doors</c>)이 달린다 — 콜라이더가 있는 벽이라 닫히는 동안 사람을
+    /// 밀어내고, 완전히 닫힌 패널과 몸이 겹치면 죽는다(판정은 서버).
+    ///
+    /// 표(<c>Shelves</c>·<c>Doors</c>)가 곧 코스 설계다. 숫자를 고치고 다시 구우면 되고, 리뷰어는 표만 보면 된다.
     /// 굽기 전에 <see cref="SkydiveWindReach"/>로 — 바람까지 넣어 — 구멍 사이가 실제로 닿는 거리인지,
     /// 빠른/안전 구멍이 요구하는 자세가 실제로 갈리는지 검사한다.
     /// </summary>
@@ -49,6 +52,11 @@ namespace LOP.EditorTools
 
         // 선반 머티리얼. 없으면 유니티 기본 머티리얼로 굽되 경고를 낸다.
         private const string StoneMaterialPath = "Assets/Art/Materials/SkydiveStone.mat";
+
+        // 문 패널 두께. 선반 두께에서 위아래로 조금씩 물려 둔다 — 판과 면이 정확히 겹치면
+        // 물러난 패널이 판 표면과 같은 평면에 놓여 바닥이 깜빡인다(z-파이팅).
+        private const float PanelRecess = 0.1f;
+        private const float PanelThickness = SlabThickness - 2f * PanelRecess;
 
         // 화살표 밀도. 개수는 부피(반지름×높이)에 비례한다 — 세기가 아니라 "큰 볼륨에서
         // 성기지 않게"를 위한 값이다. 반지름25×높이120(작은 기둥)에서 14개가 나오게 골랐다.
@@ -185,8 +193,9 @@ namespace LOP.EditorTools
 
             // 마지막 선반의 안전한 구멍 위 기둥 — 착지를 패러세일로 때우지 못하게 한다.
             //  구멍이 (0,25)에서 (0,45)로 올라가면서 원기둥(중심 z=25, 반지름 25 → z ≤ 50)이
-            //  구멍(z 37~53)의 위쪽 4분의 1을 덮지 못한다. 세로 바람은 자리 검사(PostureShortfall)가
-            //  일부러 안 보므로 이 약화는 검사에 안 잡힌다 — 알고 두는 것이다.
+            //  구멍(x −8~8, z 37~53) 넓이의 78.5%만 덮는다(격자 적분으로 실측). 세로 바람은
+            //  자리 검사(PostureShortfall)가 일부러 안 보므로 이 약화는 검사에 안 잡힌다 —
+            //  알고 두는 것이다.
             new WindSpec("Wind_300_Updraft", new Vector3(0f, 300f, 25f), 25f, 120f, new Vector3(0f, 14f, 0f)),
         };
 
@@ -309,6 +318,90 @@ namespace LOP.EditorTools
                           sweepHalfRangeDegrees: 40f, period: 0, onTicks: 0, phase: 0),
         };
 
+        internal readonly struct DoorSpec
+        {
+            public readonly string Name;
+
+            /// <summary>구멍 중심. 문 허브가 놓이는 자리다.</summary>
+            public readonly Vector3 Center;
+
+            /// <summary>덮는 폭의 절반(=구멍 반폭). 패널 하나는 이 값의 절반 길이다.</summary>
+            public readonly float HalfWidth;
+
+            /// <summary>미끄러지는 방향과 직교하는 쪽 절반.</summary>
+            public readonly float HalfDepth;
+
+            /// <summary>패널이 미끄러지는 방향(XZ 평면 각, 도).</summary>
+            public readonly float AxisAngleDegrees;
+
+            public readonly int Period;
+            public readonly int OpenTicks;
+            public readonly int MoveTicks;
+            public readonly int Phase;
+
+            public DoorSpec(string name, Vector3 center, float halfWidth, float halfDepth,
+                            float axisAngleDegrees, int period, int openTicks, int moveTicks, int phase)
+            {
+                Name = name;
+                Center = center;
+                HalfWidth = halfWidth;
+                HalfDepth = halfDepth;
+                AxisAngleDegrees = axisAngleDegrees;
+                Period = period;
+                OpenTicks = openTicks;
+                MoveTicks = moveTicks;
+                Phase = phase;
+            }
+
+            /// <summary>닫혀 있는 틱 수. 나머지 셋에서 나온다.</summary>
+            public int ClosedTicks => Period - OpenTicks - 2 * MoveTicks;
+
+            public LOP.Door ToDoor() => new LOP.Door(
+                new System.Numerics.Vector3(Center.x, Center.y, Center.z),
+                HalfWidth, HalfDepth, PanelThickness,
+                AxisAngleDegrees * Mathf.Deg2Rad,
+                Period, OpenTicks, MoveTicks, Phase);
+        }
+
+        // 코스 설계 그 자체 — 문은 빠른 구멍에만, 구멍 하나에 하나씩 붙는다(스펙 §1).
+        // 표 둘이 조용히 어긋나는 것은 FindDoorHoleMismatch/FindDoorSizeMismatch가 굽기 전에 잡는다.
+        //
+        // 틱은 50Hz다(주기 200틱 = 4초). 위에서 아래로 갈수록 주기가 짧아지고 닫혀 있는 비율이
+        // 커진다(15% → 33%) — 코스가 가르치는 순서다. 닫힘은 아무리 길어도 40틱(0.8초)이라
+        // 문을 놓쳐도 벌은 "선반 위에서 잠깐 기다리기"로 끝난다.
+        // 주기 일곱의 최소공배수가 655,200틱(≈3.6시간)이라 한 판 안에서 같은 리듬이 되풀이되지 않는다.
+        //
+        // 미끄러지는 축은 90°의 배수만 쓴다 — 구멍이 정사각이라 그 외의 각도로 닫으면 네 모서리가
+        // 뚫린 채로 "닫힘"이 된다. 축을 고를 때 더 좁히는 조건이 하나 더 있다: 물러난 패널은
+        // 구멍 밖 판 위에 콜라이더로 남으므로 부활 지점을 덮으면 안 된다(FindRespawnInDoorPanel).
+        // 200 선반이 그 예다 — 부활 지점(0,−15)이 구멍 가장자리에서 7m뿐이라 90°로 두면
+        // 물러난 패널이 그 자리를 정통으로 덮는다.
+        internal static readonly DoorSpec[] Doors =
+        {
+            //  스폰 바로 아래. 문이 무엇인지 보여 주기만 한다 — 열려 있는 시간이 가장 길다.
+            new DoorSpec("Door_2600", new Vector3(0f, 2600f, 0f), halfWidth: 15f, halfDepth: 15f,
+                         axisAngleDegrees: 0f, period: 200, openTicks: 120, moveTicks: 25, phase: 0),
+
+            new DoorSpec("Door_2200", new Vector3(30f, 2200f, 0f), halfWidth: 12f, halfDepth: 12f,
+                         axisAngleDegrees: 90f, period: 180, openTicks: 100, moveTicks: 22, phase: 40),
+
+            new DoorSpec("Door_1800", new Vector3(30f, 1800f, 30f), halfWidth: 10f, halfDepth: 10f,
+                         axisAngleDegrees: 90f, period: 160, openTicks: 84, moveTicks: 20, phase: 90),
+
+            new DoorSpec("Door_1400", new Vector3(0f, 1400f, 20f), halfWidth: 8f, halfDepth: 8f,
+                         axisAngleDegrees: 90f, period: 150, openTicks: 70, moveTicks: 20, phase: 25),
+
+            new DoorSpec("Door_1000", new Vector3(-20f, 1000f, -10f), halfWidth: 8f, halfDepth: 8f,
+                         axisAngleDegrees: 0f, period: 140, openTicks: 60, moveTicks: 20, phase: 70),
+
+            new DoorSpec("Door_600", new Vector3(0f, 600f, -30f), halfWidth: 8f, halfDepth: 8f,
+                         axisAngleDegrees: 90f, period: 130, openTicks: 50, moveTicks: 20, phase: 15),
+
+            //  0°가 강제된다 — 위 표 머리 주석 참고.
+            new DoorSpec("Door_200", new Vector3(0f, 200f, 0f), halfWidth: 8f, halfDepth: 8f,
+                         axisAngleDegrees: 0f, period: 120, openTicks: 40, moveTicks: 20, phase: 60),
+        };
+
         [MenuItem("LOP/Skydive/코스 굽기")]
         public static void Build()
         {
@@ -367,6 +460,27 @@ namespace LOP.EditorTools
             if (invalidRespawn != null)
             {
                 Debug.LogError($"[Skydive] 굽지 않는다 — {invalidRespawn}. 씬은 바뀌지 않았다.");
+                return;
+            }
+
+            string doorHole = FindDoorHoleMismatch();
+            if (doorHole != null)
+            {
+                Debug.LogError($"[Skydive] 굽지 않는다 — {doorHole}. 씬은 바뀌지 않았다.");
+                return;
+            }
+
+            string doorSize = FindDoorSizeMismatch();
+            if (doorSize != null)
+            {
+                Debug.LogError($"[Skydive] 굽지 않는다 — {doorSize}. 씬은 바뀌지 않았다.");
+                return;
+            }
+
+            string respawnInDoor = FindRespawnInDoorPanel();
+            if (respawnInDoor != null)
+            {
+                Debug.LogError($"[Skydive] 굽지 않는다 — {respawnInDoor}. 씬은 바뀌지 않았다.");
                 return;
             }
 
@@ -446,8 +560,23 @@ namespace LOP.EditorTools
                 CreateLaserVolume(lasers.transform, Lasers[i]);
             }
 
+            var doors = new GameObject("Doors");
+            doors.transform.SetParent(root.transform, worldPositionStays: false);
+            for (int i = 0; i < Doors.Length; i++)
+            {
+                GameObject door = CreateDoorVolume(doors.transform, Doors[i], material);
+
+                //  구운 패널이 판정 상자와 같은지 여기서 되읽어 본다. 표가 아니라 굽는 코드를
+                //  재는 검사라 씬을 지운 뒤에야 돌 수 있다 — 걸리면 씬이 이미 새로 구워진 상태다.
+                string mismatch = FindDoorPanelMismatch(door.GetComponent<LOP.DoorVolume>());
+                if (mismatch != null)
+                {
+                    Debug.LogError($"[Skydive] 구운 문이 판정과 어긋난다 — {mismatch}. 굽는 코드를 고쳐라.");
+                }
+            }
+
             EditorSceneManager.MarkSceneDirty(scene);
-            Debug.Log($"[Skydive] 코스를 구웠다 — 선반 {Shelves.Length}개. 씬을 저장해라.\n{report}");
+            Debug.Log($"[Skydive] 코스를 구웠다 — 선반 {Shelves.Length}개, 문 {Doors.Length}개. 씬을 저장해라.\n{report}");
         }
 
         // 판의 사각형 한 조각(XZ 평면). Name은 이 조각이 어느 구멍의 어느 쪽에서 떨어져 나왔는지
@@ -675,6 +804,61 @@ namespace LOP.EditorTools
             return go;
         }
 
+        /// <summary>
+        /// 문 하나 — 허브(<see cref="LOP.DoorVolume"/>) 밑에 패널 둘.
+        ///
+        /// <para><b>레이저와 달리 콜라이더를 남긴다.</b> 문은 닫히는 동안 사람을 밀어내는 <b>벽</b>이라,
+        /// 레이저 마커처럼 콜라이더를 지우면 밀려나지도 않고 그냥 통과해 버린다.</para>
+        ///
+        /// <para>허브에는 회전을 넣지 않는다 — 패널 오프셋이 이미 <c>AxisAngle</c>로 월드 축 기준
+        /// 방향을 잡으므로 부모가 또 돌면 자식 로컬 좌표가 두 번 꺾인다.</para>
+        /// </summary>
+        internal static GameObject CreateDoorVolume(Transform parent, in DoorSpec spec, Material material)
+        {
+            var go = new GameObject(spec.Name);
+            if (parent != null)
+            {
+                go.transform.SetParent(parent, worldPositionStays: false);
+            }
+            go.transform.localPosition = spec.Center;
+            go.transform.localRotation = Quaternion.identity;
+
+            var marker = go.AddComponent<LOP.DoorVolume>();
+            marker.HalfWidth = spec.HalfWidth;
+            marker.HalfDepth = spec.HalfDepth;
+            marker.Thickness = PanelThickness;
+            marker.AxisAngleDegrees = spec.AxisAngleDegrees;
+            marker.Period = spec.Period;
+            marker.OpenTicks = spec.OpenTicks;
+            marker.MoveTicks = spec.MoveTicks;
+            marker.Phase = spec.Phase;
+
+            marker.PanelA = CreateDoorPanel(go.transform, spec.Name + "_A", spec, material);
+            marker.PanelB = CreateDoorPanel(go.transform, spec.Name + "_B", spec, material);
+
+            //  씬에 저장되는 자세 하나는 있어야 한다. 런타임에는 매 틱 다시 잡힌다.
+            marker.Pose(0d);
+            return go;
+        }
+
+        private static Transform CreateDoorPanel(Transform parent, string name,
+                                                 in DoorSpec spec, Material material)
+        {
+            var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            box.name = name;
+            box.transform.SetParent(parent, worldPositionStays: false);
+            box.transform.localRotation = Quaternion.Euler(0f, spec.AxisAngleDegrees, 0f);
+            //  판정 상자(DoorGeometry)의 반치수는 (HalfWidth/2, Thickness/2, HalfDepth)다 —
+            //  크기는 그 두 배. 여기가 어긋나면 보이는 도형과 죽이는 도형이 갈린다.
+            box.transform.localScale = new Vector3(spec.HalfWidth, PanelThickness, spec.HalfDepth * 2f);
+            box.layer = LayerMask.NameToLayer("Default");   // sweep 마스크가 보는 레이어
+            if (material != null)
+            {
+                box.GetComponent<MeshRenderer>().sharedMaterial = material;
+            }
+            return box.transform;
+        }
+
         private static void CreateWindArrows(Transform parent, string name, float radius, float height,
                                              Vector3 wind, float speed, WindVisualAssets assets)
         {
@@ -857,6 +1041,9 @@ namespace LOP.EditorTools
         // 통과하려면 몸이 들어갈 자리가 있어야 한다.
         // internal — TbSkydiveConfig와 값이 같은지 EditMode 테스트가 대조한다(SkydiveWindLagConsistencyTests).
         internal const float BodyRadiusForGateCheck = 0.4f;
+        // 문 크러시 판정은 몸을 선 캡슐로 본다 — 키를 알아야 세로 겹침을 잰다.
+        // internal — TbSkydiveConfig와 값이 같은지 EditMode 테스트가 대조한다(SkydiveWindLagConsistencyTests).
+        internal const float BodyHeightForCrushCheck = 1.8f;
 
         /// <summary>
         /// 어느 선반의 구멍이 <b>한 번도 안 열리면</b> 그 설명을, 다 열리면 null을 준다.
@@ -1017,6 +1204,236 @@ namespace LOP.EditorTools
                             }
                         }
                     }
+                }
+            }
+            return null;
+        }
+
+        // 표 두 개(구멍·문)가 같은 자리를 가리키는지 잴 때의 허용 오차. 좌표는 사람이 손으로
+        // 적는 정수라 이보다 가까우면 같은 자리를 뜻한 것이다.
+        private const float DoorMatchEpsilon = 0.001f;
+
+        private static bool SameSpot(in DoorSpec door, float shelfY, in Hole hole)
+            => Mathf.Abs(door.Center.y - shelfY) < DoorMatchEpsilon
+            && Mathf.Abs(door.Center.x - hole.X) < DoorMatchEpsilon
+            && Mathf.Abs(door.Center.z - hole.Z) < DoorMatchEpsilon;
+
+        private static bool TryFindHole(IReadOnlyList<Shelf> shelves, in DoorSpec door,
+                                        out float shelfY, out Hole hole)
+        {
+            for (int i = 0; i < shelves.Count; i++)
+            {
+                foreach (Hole candidate in shelves[i].Holes)
+                {
+                    if (SameSpot(door, shelves[i].Y, candidate))
+                    {
+                        shelfY = shelves[i].Y;
+                        hole = candidate;
+                        return true;
+                    }
+                }
+            }
+            shelfY = 0f;
+            hole = default;
+            return false;
+        }
+
+        /// <summary>
+        /// 문과 구멍이 1:1로 맞지 않으면 그 설명을, 맞으면 null을 준다. 구멍 표와 문 표가 따로
+        /// 있어서 한쪽만 고치면 조용히 어긋나는데, 그러면 <b>빠른 구멍인데 문이 없어</b> 갈림길이
+        /// 사라지거나(스펙 §1) <b>안전한 구멍에 문이 붙어</b> 안전한 길이 도로 타이밍을 요구한다
+        /// (스펙 §3.2 ②). 둘 다 에러 없이 게임만 달라진다.
+        /// </summary>
+        internal static string FindDoorHoleMismatch() => FindDoorHoleMismatch(Shelves, Doors);
+
+        internal static string FindDoorHoleMismatch(IReadOnlyList<Shelf> shelves, IReadOnlyList<DoorSpec> doors)
+        {
+            for (int i = 0; i < shelves.Count; i++)
+            {
+                Shelf shelf = shelves[i];
+                foreach (Hole hole in shelf.Holes)
+                {
+                    int count = 0;
+                    for (int d = 0; d < doors.Count; d++)
+                    {
+                        if (SameSpot(doors[d], shelf.Y, hole))
+                        {
+                            count++;
+                        }
+                    }
+
+                    if (hole.HasDoor && count != 1)
+                    {
+                        return $"선반 {shelf.Y:0}의 빠른 구멍({hole.X:0},{hole.Z:0})에 문이 {count}개다 — 정확히 하나여야 한다";
+                    }
+                    if (hole.HasDoor == false && count != 0)
+                    {
+                        return $"선반 {shelf.Y:0}의 안전한 구멍({hole.X:0},{hole.Z:0})에 문이 있다 — " +
+                               "안전한 길은 타이밍 없이 갈 수 있어야 한다";
+                    }
+                }
+            }
+
+            for (int d = 0; d < doors.Count; d++)
+            {
+                if (TryFindHole(shelves, doors[d], out _, out _) == false)
+                {
+                    return $"{doors[d].Name}가 어떤 구멍 자리에도 없다 — 판 한복판에 벽만 서게 된다";
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 문 치수가 자기 구멍과 안 맞으면 그 설명을, 맞으면 null을 준다.
+        ///
+        /// <para>닫혔을 때 두 패널이 채우는 것은 문 로컬 x <c>[-HalfWidth, +HalfWidth]</c> ×
+        /// z <c>[-HalfDepth, +HalfDepth]</c>다. 구멍은 반폭 <c>Half</c>의 정사각형이므로
+        /// <b>둘 다 <c>Half</c>와 같아야</b> 딱 덮인다 — 크면 판을 침범하고, 작으면 닫혀 있는데
+        /// 옆으로 빠져나갈 수 있다.</para>
+        ///
+        /// <para>같은 이유로 미끄러지는 축은 <b>90°의 배수</b>여야 한다. 정사각형은 90° 회전에만
+        /// 자기 자신으로 돌아오므로, 45°짜리 문은 닫아도 구멍 네 모서리가 뚫린 채로 남는다.</para>
+        /// </summary>
+        internal static string FindDoorSizeMismatch() => FindDoorSizeMismatch(Shelves, Doors);
+
+        internal static string FindDoorSizeMismatch(IReadOnlyList<Shelf> shelves, IReadOnlyList<DoorSpec> doors)
+        {
+            for (int d = 0; d < doors.Count; d++)
+            {
+                DoorSpec door = doors[d];
+                if (TryFindHole(shelves, door, out _, out Hole hole) == false)
+                {
+                    continue;   // 짝이 없는 문은 FindDoorHoleMismatch의 몫이다
+                }
+
+                if (Mathf.Abs(door.HalfWidth - hole.Half) > DoorMatchEpsilon)
+                {
+                    return $"{door.Name}의 HalfWidth({door.HalfWidth:0.##})가 구멍 반폭({hole.Half:0.##})과 다르다 — " +
+                           "닫혀도 구멍을 못 덮거나 판을 침범한다";
+                }
+                if (Mathf.Abs(door.HalfDepth - hole.Half) > DoorMatchEpsilon)
+                {
+                    return $"{door.Name}의 HalfDepth({door.HalfDepth:0.##})가 구멍 반폭({hole.Half:0.##})과 다르다 — " +
+                           "닫혀도 구멍을 못 덮거나 판을 침범한다";
+                }
+
+                float turns = door.AxisAngleDegrees / 90f;
+                if (Mathf.Abs(turns - Mathf.Round(turns)) > DoorMatchEpsilon)
+                {
+                    return $"{door.Name}의 미끄러지는 축이 {door.AxisAngleDegrees:0.##}°다 — " +
+                           "정사각 구멍이라 90의 배수가 아니면 닫혀도 네 모서리가 뚫린다";
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 부활 지점이 어느 문의 패널 부피와 겹치면 그 설명을, 다 비켜 있으면 null을 준다.
+        ///
+        /// <para><b>닫힌 자세와 물러난 자세를 둘 다</b> 본다. 닫힌 패널은 구멍을 채우므로
+        /// <see cref="FindInvalidRespawn()"/>이 이미 걸러 주지만, <b>물러난</b> 패널은 구멍 밖 판 위에
+        /// 콜라이더로 남는다 — 그 자리에 사람을 세우면 벽 속에서 부활한다. 스펙 §3.6이 "체크포인트는
+        /// 안전 구역이고 맵이 그것을 보장한다"로 정해 뒀으므로 무적 같은 장치가 아니라 이 검사로 막는다.
+        /// </para>
+        ///
+        /// <para>규격은 <c>SkydiveDoorSystem</c>이 쓰는 캡슐 그대로다(축을 반지름만큼 안으로 당김).
+        /// 여러 명이 같이 죽으면 부활 지점 둘레로 흩뿌려지므로 그 반경까지 몸을 부풀려 잰다.</para>
+        /// </summary>
+        internal static string FindRespawnInDoorPanel() => FindRespawnInDoorPanel(Shelves, Doors);
+
+        internal static string FindRespawnInDoorPanel(IReadOnlyList<Shelf> shelves, IReadOnlyList<DoorSpec> doors)
+        {
+            float radius = BodyRadiusForGateCheck + LOP.SkydiveRespawn.SpreadRadius;
+
+            for (int i = 0; i < shelves.Count; i++)
+            {
+                if (LOP.SkydiveCourseLayout.RespawnPoints.TryGetValue(shelves[i].Y, out Vector3 point) == false)
+                {
+                    continue;   // 표에 아예 없는 것은 FindInvalidRespawn이 잡는다
+                }
+
+                var bottom = new System.Numerics.Vector3(
+                    point.x, point.y + BodyRadiusForGateCheck, point.z);
+                var top = new System.Numerics.Vector3(
+                    point.x, point.y + BodyHeightForCrushCheck - BodyRadiusForGateCheck, point.z);
+
+                for (int d = 0; d < doors.Count; d++)
+                {
+                    LOP.Door door = doors[d].ToDoor();
+                    for (int k = 0; k < 2; k++)
+                    {
+                        float openness = k;   // 0 = 닫힘, 1 = 완전히 물러남
+                        if (LOP.DoorGeometry.PanelOverlaps(door, openness, bottom, top, radius) == false)
+                        {
+                            continue;
+                        }
+                        return $"{doors[d].Name}의 {(k == 0 ? "닫힌" : "물러난")} 패널이 " +
+                               $"선반 {shelves[i].Y:0}의 부활 지점({point.x:0},{point.z:0})과 겹친다 — " +
+                               "벽 속에서 부활한다";
+                    }
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 구운 문 패널이 <b>판정이 보는 상자</b>와 어긋나면 그 설명을, 같으면 null을 준다.
+        /// 이 프로젝트는 이미 한 번 "그린 도형과 판정 도형이 달라" 사고를 냈다 — 주석으로 지키지
+        /// 않고 구운 결과를 되읽어 대조한다.
+        ///
+        /// <para>재는 것은 <b>움직이지 않는 것들</b>이다 — 허브 회전, 콜라이더의 유무·크기·회전.
+        /// 패널이 매 틱 놓이는 <i>자리</i>는 <c>DoorVolume.Pose</c>가 판정과 같은 식으로 계산하므로
+        /// 여기서 또 재면 자기 자신과 비교하는 셈이라 아무것도 못 잡는다.</para>
+        ///
+        /// <para>표가 아니라 <b>만들어진 오브젝트</b>를 재므로 옛 코스를 지우기 전에는 돌 수 없다.
+        /// 잡는 것도 표의 실수가 아니라 굽는 코드의 실수다.</para>
+        /// </summary>
+        internal static string FindDoorPanelMismatch(LOP.DoorVolume volume)
+        {
+            if (volume == null)
+            {
+                return "문이 없다";
+            }
+            if (Quaternion.Angle(volume.transform.rotation, Quaternion.identity) > 0.01f)
+            {
+                return $"{volume.name}의 허브가 돌아가 있다 — 패널 오프셋이 이미 월드 축 기준이라 두 번 꺾인다";
+            }
+
+            if (volume.PanelA != null && ReferenceEquals(volume.PanelA, volume.PanelB))
+            {
+                return $"{volume.name}의 두 패널이 같은 오브젝트다 — 한쪽만 움직여 구멍 절반이 영영 열린 채로 남는다";
+            }
+
+            var expectedSize = new Vector3(volume.HalfWidth, volume.Thickness, volume.HalfDepth * 2f);
+            Quaternion expectedRotation = Quaternion.Euler(0f, volume.AxisAngleDegrees, 0f);
+
+            for (int index = 0; index < 2; index++)
+            {
+                Transform panel = index == 0 ? volume.PanelA : volume.PanelB;
+                if (panel == null)
+                {
+                    return $"{volume.name}의 패널 {index}가 비어 있다";
+                }
+
+                var box = panel.GetComponent<BoxCollider>();
+                if (box == null)
+                {
+                    return $"{panel.name}에 콜라이더가 없다 — 문은 벽이라 닫히는 동안 밀어내지 못한다";
+                }
+                if (box.isTrigger)
+                {
+                    return $"{panel.name}의 콜라이더가 트리거다 — 벽이 아니게 된다";
+                }
+
+                Vector3 size = Vector3.Scale(box.size, panel.lossyScale);
+                if ((size - expectedSize).magnitude > 0.001f)
+                {
+                    return $"{panel.name}의 콜라이더 크기 {size}가 판정 상자 {expectedSize}와 다르다";
+                }
+                if (Quaternion.Angle(panel.rotation, expectedRotation) > 0.01f)
+                {
+                    return $"{panel.name}의 회전이 미끄러지는 축({volume.AxisAngleDegrees:0.##}도)과 다르다";
                 }
             }
             return null;

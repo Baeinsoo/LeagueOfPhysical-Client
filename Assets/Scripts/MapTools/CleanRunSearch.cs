@@ -83,6 +83,9 @@ namespace LOP.MapTools
                 return new CleanRunResult(false, System.Array.Empty<bool>(), options.StartX, 0f, 0, 0f);
             }
             current.Set(grid.StateIndex(grid.HeightBucket(options.StartY), ladder: 1, rung: 0), true);
+            //  열마다 살아남은 상태를 쌓아 둔다 — 되짚기(ExtractFlaps)가 이걸 뒤에서부터
+            //  앞으로 훑으며 직전 상태를 계산해 낸다. 시드(출발) 열도 포함.
+            var columns = new List<System.Collections.BitArray> { current };
 
             float narrowestX = 0f, narrowestSpan = 0f;
             int narrowestCount = int.MaxValue;
@@ -127,6 +130,7 @@ namespace LOP.MapTools
                                               narrowestSpan);
                 }
 
+                columns.Add(next);
                 grid.Measure(next, out int liveCount, out float liveSpan);
                 if (measuringNarrowest == false && liveCount <= previousLiveCount)
                 {
@@ -145,7 +149,61 @@ namespace LOP.MapTools
 
             //  도달 가능하면 회랑 진단은 의미가 없다 — "막힌 이유"를 보여주는 값이지 성공
             //  경로의 성질이 아니다.
-            return new CleanRunResult(true, System.Array.Empty<bool>(), 0f, 0f, 0, 0f);
+            bool[] flaps = ExtractFlaps(grid, isFree, columns, options);
+            return new CleanRunResult(true, flaps, 0f, 0f, 0, 0f);
+        }
+
+        //  뒤에서 앞으로 한 경로를 뽑는다. 사다리 덕에 직전 상태가 계산으로 나와 부모 포인터가 필요 없다.
+        //  마지막 열의 아무 생존 상태에서 시작해, 매 단계 직전 열의 후보를 앞으로 굴려 맞는 것을 고른다.
+        static bool[] ExtractFlaps(SearchGrid grid, FreeSpaceProbe isFree,
+                                   List<System.Collections.BitArray> columns, in CleanRunOptions options)
+        {
+            int last = columns.Count - 1;
+            int target = -1;
+            for (int state = 0; state < grid.StateCount; state++)
+            {
+                if (columns[last].Get(state)) { target = state; break; }
+            }
+            if (target < 0)
+            {
+                return System.Array.Empty<bool>();
+            }
+
+            var flaps = new bool[last];
+            for (int column = last; column > 0; column--)
+            {
+                float previousX = options.StartX + grid.StepX * (column - 1);
+                bool found = false;
+                for (int state = 0; state < grid.StateCount && found == false; state++)
+                {
+                    if (columns[column - 1].Get(state) == false) { continue; }
+                    grid.Decode(state, out int heightBucket, out int ladder, out int rung);
+                    float y = grid.HeightOf(heightBucket);
+
+                    //  두 갈래를 그대로 굴려 목표 상태에 떨어지는지 본다 — 정방향과 같은 규칙이라
+                    //  둘이 어긋날 수 없다.
+                    for (int flap = 0; flap < 2 && found == false; flap++)
+                    {
+                        int nextLadder = flap == 1 ? 0 : ladder;
+                        int nextRung = grid.ClampRung(flap == 1 ? 0 : rung + 1);
+                        float ny = y + grid.Speed(nextLadder, nextRung) * options.TickSeconds;
+                        if (ny < options.MinY || ny > options.MaxY) { continue; }
+                        if (grid.StateIndex(grid.HeightBucket(ny), nextLadder, nextRung) != target) { continue; }
+                        if (SegmentIsFree(isFree, previousX, y, previousX + grid.StepX, ny,
+                                          options.HeightGrid) == false) { continue; }
+
+                        flaps[column - 1] = flap == 1;
+                        target = state;
+                        found = true;
+                    }
+                }
+                if (found == false)
+                {
+                    //  일어나면 정방향과 역방향이 다른 규칙을 쓴다는 뜻이다 — 조용히 넘기지 않는다.
+                    return System.Array.Empty<bool>();
+                }
+            }
+            return flaps;
         }
 
         //  한 스텝 나아가 본다. 몸이 스치면 그 갈래를 버린다.

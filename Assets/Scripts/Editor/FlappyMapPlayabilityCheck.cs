@@ -121,6 +121,11 @@ namespace LOP.EditorTools
 
             var query = new GameFramework.Physics.UnityCollisionQuery();
             var grid = new FreeSpaceGrid(shape, mapMask);
+            //  봇은 자기만의 자유공간 격자를 쓴다 — grid를 같이 쓰면 봇이 격자 칸 밖(비정렬
+            //  x)에서 찍은 샘플이 탐색이 나중에 읽는 칸을 채워 버려, 탐색의 답이 "봇을
+            //  먼저 돌렸는가"에 좌우되는 결정론 문제가 생긴다. 콜라이더는 같은 것을 보되
+            //  캐시는 따로 둔다 — 물리 질의가 일부 중복되는 대신 결정론을 산다.
+            var botGrid = new FreeSpaceGrid(shape, mapMask);
             var cleanRuns = new List<LOP.MapTools.SpawnCleanRun>();
             string trapSection;
             //  null/빈 리스트면 취소 안 됨. 취소되면 "몇 개 중 몇 개만" 문구를 담아 report 맨
@@ -131,11 +136,15 @@ namespace LOP.EditorTools
             try
             {
                 //  ① 자리마다 따로 — 넷 중 하나라도 되면 통과로 뭉치면 공정성 문제가 안 보인다.
-                //  가장 오래 걸리는 단계(자리당 약 2억 회 내부 반복)라 취소 가능해야 한다.
+                //  자리마다 봇을 먼저 날린다: 통과하면 진짜 물리로 끝까지 간 궤적이 있으므로
+                //  그 자리는 증명된 것이다 — 가장 오래 걸리는 단계(자리당 약 2억 회 내부
+                //  반복)인 전수 탐색을 아예 안 돌려도 된다. 실패한 자리에만 탐색을 돌려
+                //  "맵이 불가능"인지 "봇이 못 간 것"인지 가른다. 정상적인 맵에서는 탐색이
+                //  아예 안 돌아 검사가 몇 분에서 몇 초가 된다.
                 for (int i = 0; i < spawns.Count; i++)
                 {
                     if (EditorUtility.DisplayCancelableProgressBar("Flappy 맵 검사 (1/3 클린런)",
-                            $"{spawns[i].Name}", i / (float)spawns.Count))
+                            $"{spawns[i].Name} — 봇 비행", i / (float)spawns.Count))
                     {
                         Debug.LogWarning("[맵 검사] 취소됨 — 결과가 불완전하다.");
                         //  콘솔 경고만으로는 부족하다 — 리포트 문자열 자체가 나중에 화면을 떠나
@@ -145,6 +154,26 @@ namespace LOP.EditorTools
                         break;
                     }
 
+                    //  봇이 통과하면 진짜 물리로 끝까지 간 궤적이 있으므로 증명이다 — 탐색을
+                    //  안 돌린다. SearchMinY/SearchMaxY를 그대로 넘겨 탐색과 같은 대역을 보게
+                    //  한다(다른 대역을 보면 "같은 질문에 답했다"고 할 수 없다).
+                    BotFlight flight = FlyBot(spawns[i].Position, finishX, shape, mapMask, query,
+                                              SearchMinY, SearchMaxY, botGrid.IsFree);
+                    if (flight.Reached)
+                    {
+                        cleanRuns.Add(new LOP.MapTools.SpawnCleanRun(
+                            spawns[i].Name, spawns[i].Position.y,
+                            //  탐색을 안 돌렸으므로 채울 값이 없다 — 빈 CleanRunResult. 최협
+                            //  회랑 세 자리가 0인 것은 이미 "측정 안 됨"의 신호이고(R11),
+                            //  리포트는 BotReached가 참이면 이 필드를 아예 안 본다.
+                            new LOP.MapTools.CleanRunResult(true, System.Array.Empty<bool>(), 0f, 0f, 0, 0f),
+                            verifiedByReplay: true, botReached: true, botFlaps: flight.FlapCount));
+                        continue;
+                    }
+
+                    //  봇이 못 갔다. 맵이 불가능한 건지 봇이 못 한 건지는 전수 탐색만 가른다.
+                    EditorUtility.DisplayProgressBar("Flappy 맵 검사 (1/3 클린런)",
+                        $"{spawns[i].Name} — 봇 실패, 전수 탐색", i / (float)spawns.Count);
                     var options = new LOP.MapTools.CleanRunOptions(
                         startX: spawns[i].Position.x, startY: spawns[i].Position.y, finishX: finishX,
                         minY: SearchMinY, maxY: SearchMaxY,
@@ -155,7 +184,8 @@ namespace LOP.EditorTools
                     bool verified = result.Reachable
                         && VerifyByReplay(spawns[i].Position, result.Flaps, shape, mapMask, query);
                     cleanRuns.Add(new LOP.MapTools.SpawnCleanRun(
-                        spawns[i].Name, spawns[i].Position.y, result, verified));
+                        spawns[i].Name, spawns[i].Position.y, result, verified,
+                        botReached: false, botFlaps: flight.FlapCount));
                 }
 
                 //  ② 기존 낌 스캔 — 본문은 그대로다.

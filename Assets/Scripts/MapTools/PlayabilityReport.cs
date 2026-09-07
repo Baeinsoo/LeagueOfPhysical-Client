@@ -10,13 +10,19 @@ namespace LOP.MapTools
         public readonly float Y;
         public readonly CleanRunResult Result;
         public readonly bool VerifiedByReplay;
+        /// <summary>봇이 진짜 커널로 끝까지 갔는가. true면 이 자리는 증명된 것이다.</summary>
+        public readonly bool BotReached;
+        public readonly int BotFlaps;
 
-        public SpawnCleanRun(string name, float y, CleanRunResult result, bool verifiedByReplay)
+        public SpawnCleanRun(string name, float y, CleanRunResult result, bool verifiedByReplay,
+                             bool botReached, int botFlaps)
         {
             Name = name;
             Y = y;
             Result = result;
             VerifiedByReplay = verifiedByReplay;
+            BotReached = botReached;
+            BotFlaps = botFlaps;
         }
     }
 
@@ -50,7 +56,15 @@ namespace LOP.MapTools
             for (int i = 0; i < cleanRuns.Count; i++)
             {
                 SpawnCleanRun run = cleanRuns[i];
-                if (run.Result.Reachable)
+                //  봇이 진짜 커널로 끝까지 갔으면 그 궤적 자체가 증명이다 — 탐색 결과가 뭐든
+                //  (심지어 안 돌았어도) 이 자리는 끝이다. 봇이 못 갔을 때만 Result/VerifiedByReplay로
+                //  갈라 "맵이 불가능"과 "탐색은 찾았지만 증명 못 함"을 구분한다.
+                if (run.BotReached)
+                {
+                    anyProven = true;
+                    text.AppendLine($"  {run.Name} (y={run.Y:F0})   ✅  봇 통과 · 날갯짓 {run.BotFlaps}회");
+                }
+                else if (run.Result.Reachable)
                 {
                     if (run.VerifiedByReplay)
                     {
@@ -64,7 +78,7 @@ namespace LOP.MapTools
                         //  성공은 ✅도 ❌도 아닌 제 글자(🟡)를 가져야 한다.
                         anyUnproven = true;
                         text.AppendLine($"  {run.Name} (y={run.Y:F0})   🟡  날갯짓 {CountFlaps(run.Result)}회"
-                                      + "   ⚠️ 탐색은 찾았으나 재생이 어긋남");
+                                      + "   ⚠️ 봇은 못 갔고 탐색은 찾았으나 재생이 어긋남");
                     }
                 }
                 else
@@ -109,12 +123,16 @@ namespace LOP.MapTools
             }
             if (anyUnproven)
             {
-                //  🟡의 원인은 눈금이 굵어서가 아니라 반올림 편향이 틱마다 누적된 것이다 —
-                //  눈금을 좁혀도 비례해서 나아지지 않는다(docs/ROADMAP.md에 원인 기록).
-                //  통하지 않는 처방을 안내하지 않는다.
-                text.AppendLine("  (🟡는 탐색이 경로를 찾았지만 진짜 커널 재생이 어긋난 결과다 —"
-                              + " 원인은 파악돼 있으며, 높이 눈금을 좁히는 것은 안정적인 해법이"
-                              + " 아니다. 자세한 내용은 docs/ROADMAP.md 참고)");
+                //  🟡는 이제 "봇이 못 갔다"는 사실을 담는다 — 그것이 곧 맵이 불가능하다는
+                //  뜻은 아니다(봇의 한계일 수 있다). 탐색이 찾은 경로가 있다는 것과, 그
+                //  경로가 진짜 커널 재생에서 어긋나 증명은 못 했다는 것은 별개다. 재생
+                //  불일치의 원인은 눈금이 굵어서가 아니라 반올림 편향이 틱마다 누적된
+                //  것이다 — 눈금을 좁혀도 비례해서 나아지지 않는다(docs/ROADMAP.md에
+                //  원인 기록). 통하지 않는 처방을 안내하지 않는다.
+                text.AppendLine("  (🟡는 봇이 못 갔지만 탐색은 경로를 찾은 결과다 — 맵이 불가능하다는"
+                              + " 뜻이 아니라 봇이 못 간 것일 수 있다. 탐색이 찾은 경로는 진짜 커널"
+                              + " 재생에서 어긋나 증명하지 못했다 — 원인은 파악돼 있으며, 높이 눈금을"
+                              + " 좁히는 것은 안정적인 해법이 아니다. 자세한 내용은 docs/ROADMAP.md 참고)");
             }
             text.AppendLine();
 

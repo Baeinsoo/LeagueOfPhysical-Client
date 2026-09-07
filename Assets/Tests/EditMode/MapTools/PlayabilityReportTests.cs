@@ -29,8 +29,8 @@ namespace LOP.MapTools.Tests
         public void 자리마다_한_줄씩_찍는다()
         {
             string report = Build(
-                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true),
-                new SpawnCleanRun("PlayerSpawn_4", 9f, new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f), false));
+                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true, botReached: false, botFlaps: 0),
+                new SpawnCleanRun("PlayerSpawn_4", 9f, new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f), false, botReached: false, botFlaps: 0));
 
             StringAssert.Contains("PlayerSpawn_1", report);
             StringAssert.Contains("PlayerSpawn_4", report);
@@ -40,8 +40,8 @@ namespace LOP.MapTools.Tests
         public void 자리마다_답이_다르면_공정성_경고를_찍는다()
         {
             string report = Build(
-                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true),
-                new SpawnCleanRun("PlayerSpawn_4", 9f, new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f), false));
+                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true, botReached: false, botFlaps: 0),
+                new SpawnCleanRun("PlayerSpawn_4", 9f, new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f), false, botReached: false, botFlaps: 0));
 
             //  "넷 중 하나라도 되면 통과"로 읽히면 안 된다 — 자리 배정이 곧 불이익이다.
             StringAssert.Contains("자리 배정", report);
@@ -51,8 +51,8 @@ namespace LOP.MapTools.Tests
         public void 모두_같으면_공정성_경고가_없다()
         {
             string report = Build(
-                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true),
-                new SpawnCleanRun("PlayerSpawn_2", -1f, new CleanRunResult(true, new bool[209], 0f, 0f, 0, 0f), true));
+                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true, botReached: false, botFlaps: 0),
+                new SpawnCleanRun("PlayerSpawn_2", -1f, new CleanRunResult(true, new bool[209], 0f, 0f, 0, 0f), true, botReached: false, botFlaps: 0));
 
             StringAssert.DoesNotContain("자리 배정", report);
         }
@@ -61,7 +61,7 @@ namespace LOP.MapTools.Tests
         public void 막힌_자리는_어디서_끊겼는지와_최협_회랑을_같이_찍는다()
         {
             string report = Build(
-                new SpawnCleanRun("PlayerSpawn_4", 9f, new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f), false));
+                new SpawnCleanRun("PlayerSpawn_4", 9f, new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f), false, botReached: false, botFlaps: 0));
 
             StringAssert.Contains("38.2", report);
             //  세 필드(x/생존/높이 폭)가 서로 바뀌어도 위 "최협 회랑" 한 줄 존재 검사는 못
@@ -81,7 +81,7 @@ namespace LOP.MapTools.Tests
             //  막혀 회랑 측정 자체를 못 했다"는 뜻이다. 숫자를 그대로 찍으면 사람이 없는
             //  좌표를 고치러 간다.
             string report = Build(
-                new SpawnCleanRun("PlayerSpawn_4", 9f, new CleanRunResult(false, new bool[0], 3.1f, 0f, 0, 0f), false));
+                new SpawnCleanRun("PlayerSpawn_4", 9f, new CleanRunResult(false, new bool[0], 3.1f, 0f, 0, 0f), false, botReached: false, botFlaps: 0));
 
             StringAssert.Contains("측정 안", report);
             StringAssert.DoesNotContain("최협 회랑 x=0", report);
@@ -91,7 +91,7 @@ namespace LOP.MapTools.Tests
         public void 재생으로_증명되지_않은_성공은_그렇다고_적는다()
         {
             string report = Build(
-                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), false));
+                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), false, botReached: false, botFlaps: 0));
 
             StringAssert.Contains("재생이 어긋", report);
         }
@@ -103,7 +103,7 @@ namespace LOP.MapTools.Tests
             //  이미 "눈금을 좁혀도 소용없다"고 결론 냈다. 옛 합쳐진 문장(❌/🟡 공용 처방)으로
             //  되돌아가면 이 안 맞는 처방이 다시 붙는다 — 그 회귀를 여기서 잡는다.
             string report = Build(
-                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), false));
+                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), false, botReached: false, botFlaps: 0));
 
             StringAssert.Contains("ROADMAP", report);
             StringAssert.DoesNotContain("줄여", report);
@@ -116,9 +116,9 @@ namespace LOP.MapTools.Tests
             //  ✅를 찍으면 읽는 사람이 증명된 것과 증명 안 된 것을 구분할 수 없다 — 실제 맵의
             //  네 자리가 전부 이 경우였다(탐색은 찾았지만 재생 전부 실패).
             string proven = Build(
-                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true));
+                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true, botReached: false, botFlaps: 0));
             string unproven = Build(
-                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), false));
+                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), false, botReached: false, botFlaps: 0));
 
             //  이모지 하나만 담긴 검색어는 NUnit의 StringAssert.Contains(문화권 비교)가 오탐한다
             //  — 이 환경에서 실측: 어떤 문자열에도 "✅"가 "있다"고 나온다(약한 콜레이션이
@@ -139,8 +139,8 @@ namespace LOP.MapTools.Tests
             //  둘 다 클린런은 "된다"이지만 하나는 증명됐고 하나는 안 됐다 — 자리마다 안전을
             //  확신할 수 있는 정도가 다르다는 뜻이라, 이것도 공정성 문제로 알려야 한다.
             string report = Build(
-                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true),
-                new SpawnCleanRun("PlayerSpawn_2", -1f, new CleanRunResult(true, new bool[209], 0f, 0f, 0, 0f), false));
+                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true, botReached: false, botFlaps: 0),
+                new SpawnCleanRun("PlayerSpawn_2", -1f, new CleanRunResult(true, new bool[209], 0f, 0f, 0, 0f), false, botReached: false, botFlaps: 0));
 
             StringAssert.Contains("증명", report);
         }
@@ -149,12 +149,50 @@ namespace LOP.MapTools.Tests
         public void 예산에_상한_가정을_함께_적는다()
         {
             string report = Build(
-                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true));
+                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true, botReached: false, botFlaps: 0));
 
             StringAssert.Contains("19.0", report);
             StringAssert.Contains("14", report);
             //  이 숫자가 상한이라는 사실을 안 적으면 읽는 사람이 안전선으로 오해한다.
             StringAssert.Contains("실제는 이보다 나쁘다", report);
+        }
+
+        [Test]
+        public void 봇이_통과한_자리는_증명된_것으로_찍는다()
+        {
+            string report = Build(new SpawnCleanRun("PlayerSpawn_1", -6f,
+                new CleanRunResult(true, new bool[0], 0f, 0f, 0, 0f),
+                verifiedByReplay: false, botReached: true, botFlaps: 176));
+
+            Assert.IsTrue(report.Contains("✅", System.StringComparison.Ordinal));
+            Assert.IsFalse(report.Contains("🟡", System.StringComparison.Ordinal));
+            //  봇이 통과했으면 그 자리엔 탐색을 돌리지 않았다는 사실이 읽혀야 한다.
+            StringAssert.Contains("봇 통과", report);
+            StringAssert.Contains("176", report);
+        }
+
+        [Test]
+        public void 봇도_탐색도_실패하면_불가능으로_찍는다()
+        {
+            string report = Build(new SpawnCleanRun("PlayerSpawn_4", 9f,
+                new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f),
+                verifiedByReplay: false, botReached: false, botFlaps: 51));
+
+            Assert.IsTrue(report.Contains("❌", System.StringComparison.Ordinal));
+            Assert.IsFalse(report.Contains("✅", System.StringComparison.Ordinal));
+        }
+
+        [Test]
+        public void 봇은_실패했는데_탐색이_찾으면_모름으로_찍는다()
+        {
+            string report = Build(new SpawnCleanRun("PlayerSpawn_2", -1f,
+                new CleanRunResult(true, new bool[191], 0f, 0f, 0, 0f),
+                verifiedByReplay: false, botReached: false, botFlaps: 51));
+
+            Assert.IsTrue(report.Contains("🟡", System.StringComparison.Ordinal));
+            Assert.IsFalse(report.Contains("✅", System.StringComparison.Ordinal));
+            //  이 상태의 뜻이 "봇 한계일 수 있다"라는 것이 글로 남아야 한다.
+            StringAssert.Contains("봇이 못 간 것", report);
         }
     }
 }

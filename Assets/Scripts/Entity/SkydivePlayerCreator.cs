@@ -39,6 +39,7 @@ namespace LOP
             worldEntity.Add(new FinishState());
             // 발 딛고 있는지는 이동 커널이 매 틱 다시 계산해 여기 적는다 — 스태미나 회복이 이 값을 읽는다.
             worldEntity.Add(new GameFramework.World.GroundState());
+            worldEntity.Add(new LandingImpact());
             worldEntity.Add(new GameFramework.World.PhysicsConfig(
                 GameFramework.World.BodyKind.Kinematic, freezeRotation: true, isTrigger: false));
 

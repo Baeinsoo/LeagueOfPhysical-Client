@@ -57,6 +57,9 @@ namespace LOP
             //  레이저를 그린다. 판정과 같은 식에 같은 틱을 넣으므로 그림과 판정이 어긋나지 않는다.
             builder.RegisterEntryPoint<SkydiveLaserView>().AsSelf();
 
+            //  시뮬은 50Hz인데 화면은 더 빨라, 틱 자세만 쓰면 문이 계단처럼 떤다.
+            builder.RegisterEntryPoint<SkydiveDoorView>().AsSelf();
+
 
             builder.Register<ICharacterCreator, SkydivePlayerCreator>(Lifetime.Singleton);
 

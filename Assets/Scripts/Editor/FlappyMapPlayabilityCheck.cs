@@ -53,6 +53,11 @@ namespace LOP.EditorTools
         private const float StateGrid = 0.02f;
         private const float StateSpeedGrid = 0.25f;
 
+        //  ①의 세그먼트 샘플링(CleanRunOptions.HeightGrid)과 자유공간 캐시(FreeSpaceGrid) 칸 크기가
+        //  같은 상수 하나여야 한다 — 따로 두면 한쪽만 촘촘히 줄여도 실제 해상도는 굵은 쪽에 묶인다.
+        //  (예: PlayabilityReport가 "눈금을 0.05로 줄여 보라"고 하면, 여기 하나만 고치면 된다.)
+        private const float HeightGrid = 0.1f;
+
         [MenuItem("LOP/Debug/Flappy 맵 검사")]
         public static void Check()
         {
@@ -77,10 +82,17 @@ namespace LOP.EditorTools
                 return;
             }
             var spawns = ReadSpawns();
-            if (spawns.Count == 0 || TryReadFinishX(out float finishX) == false)
+            if (spawns.Count == 0)
             {
                 EditorUtility.DisplayDialog("Flappy 맵 검사",
-                    "맵에 SpawnPoint 또는 FinishLine 마커가 없다 — 게임과 같은 마커를 읽는다.", "확인");
+                    "맵에 SpawnPoint 마커가 없다 — 게임과 같은 마커를 읽는다.", "확인");
+                return;
+            }
+            if (TryReadFinishX(out float finishX, out int finishMarkerCount) == false)
+            {
+                EditorUtility.DisplayDialog("Flappy 맵 검사",
+                    $"맵에 FinishLine 마커가 정확히 하나 있어야 한다 (발견: {finishMarkerCount}개)."
+                    + "\n서버 룰(FlappyRaceRuleSystem)이 이 조건이면 매치 시작 시 죽는다.", "확인");
                 return;
             }
 
@@ -91,17 +103,22 @@ namespace LOP.EditorTools
             try
             {
                 //  ① 자리마다 따로 — 넷 중 하나라도 되면 통과로 뭉치면 공정성 문제가 안 보인다.
+                //  가장 오래 걸리는 단계(자리당 약 2억 회 내부 반복)라 취소 가능해야 한다.
                 for (int i = 0; i < spawns.Count; i++)
                 {
-                    EditorUtility.DisplayProgressBar("Flappy 맵 검사 (1/3 클린런)",
-                        $"{spawns[i].Name}", i / (float)spawns.Count);
+                    if (EditorUtility.DisplayCancelableProgressBar("Flappy 맵 검사 (1/3 클린런)",
+                            $"{spawns[i].Name}", i / (float)spawns.Count))
+                    {
+                        Debug.LogWarning("[맵 검사] 취소됨 — 결과가 불완전하다.");
+                        break;
+                    }
 
                     var options = new LOP.MapTools.CleanRunOptions(
                         startX: spawns[i].Position.x, startY: spawns[i].Position.y, finishX: finishX,
                         minY: bounds.min.y, maxY: bounds.max.y,
                         forwardSpeed: shape.ForwardSpeed, flapImpulse: shape.FlapImpulse,
                         gravity: shape.Gravity, maxFallSpeed: shape.MaxFallSpeed,
-                        tickSeconds: TickSeconds, heightGrid: 0.1f);
+                        tickSeconds: TickSeconds, heightGrid: HeightGrid);
                     var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFree);
                     bool verified = result.Reachable
                         && VerifyByReplay(spawns[i].Position, result.Flaps, shape, mapMask, query);
@@ -130,28 +147,45 @@ namespace LOP.EditorTools
 
         //  출발점과 결승선은 맵이 정한다 — 서버 룰(FlappyRaceRuleSystem)이 읽는 것과 같은 마커를
         //  같은 방법으로 읽는다. 비활성 마커까지 찾는 것도 같다: 마커는 보일 필요가 없어 꺼 둘 수 있다.
+        //  순서도 게임(SpawnPlacement.Arrange)과 같게 맞춘다 — Order 오름차순, 같으면 이름순.
+        //  Arrange는 좌표만 돌려주고 여기는 리포트에 쓸 이름도 필요해서, 같은 규칙을 그대로 베꼈다.
         private static List<(string Name, Vector3 Position)> ReadSpawns()
         {
             var points = Object.FindObjectsByType<LOP.SpawnPoint>(
                 FindObjectsInactive.Include, FindObjectsSortMode.None);
-            var list = new List<(string, Vector3)>();
+            var ordered = new List<LOP.SpawnPoint>();
             foreach (var point in points)
             {
                 if (point != null)
                 {
-                    list.Add((point.name, point.transform.position));
+                    ordered.Add(point);
                 }
             }
-            list.Sort((left, right) => string.CompareOrdinal(left.Item1, right.Item1));
+            ordered.Sort((left, right) =>
+            {
+                int byOrder = left.Order.CompareTo(right.Order);
+                return byOrder != 0 ? byOrder : string.CompareOrdinal(left.name, right.name);
+            });
+
+            var list = new List<(string, Vector3)>();
+            foreach (var point in ordered)
+            {
+                list.Add((point.name, point.transform.position));
+            }
             return list;
         }
 
-        private static bool TryReadFinishX(out float finishX)
+        //  서버 룰(FlappyRaceRuleSystem.RequireFinishLineMarker)은 마커가 정확히 하나가 아니면
+        //  매치 시작 시 그대로 죽는다. 여기서 하나가 아닌 걸 통과시키면 "플레이 가능"이라고 찍어
+        //  놓고 실제로는 서버가 못 뜨는 맵이 나온다 — 그리고 둘 이상이면 FindObjectsSortMode.None이라
+        //  markers[0]이 매번 다른 것일 수도 있다.
+        private static bool TryReadFinishX(out float finishX, out int markerCount)
         {
             finishX = 0f;
             var markers = Object.FindObjectsByType<LOP.FinishLine>(
                 FindObjectsInactive.Include, FindObjectsSortMode.None);
-            if (markers.Length == 0)
+            markerCount = markers.Length;
+            if (markerCount != 1)
             {
                 return false;
             }
@@ -213,6 +247,12 @@ namespace LOP.EditorTools
 
         //  ③은 추격자 값이 필요하고 그건 공유 FlappyConfig에만 있다. 같은 행을 두 번 읽는 셈이지만,
         //  FlappyShape는 낌 스캔이 쓰던 모양이라 그대로 두고 여기만 더한다.
+        //
+        //  이 TbFlappyConfig→FlappyConfig 매핑의 정본은 Assets/Scripts/Game/FlappyConfigProvider.cs다.
+        //  거긴 재사용하지 않았다 — LOPMasterData.LoadAsync()가 UnityWebRequest로 테이블 16개를
+        //  전부 비동기로 읽어야만 Provider를 쓸 수 있는데, 에디터 메뉴 한 번을 위해 그걸 두르는
+        //  비용이 이 18줄 복사보다 크다. 대신 이 사실을 여기 남긴다: MasterData에 열이 하나 추가되면
+        //  Provider와 이 함수를 **같이** 고쳐야 한다 — 하나만 고치면 다른 쪽이 조용히 기본값에 멈춘다.
         private static bool TryReadFullConfig(out LOP.FlappyConfig config)
         {
             config = default;
@@ -264,13 +304,9 @@ namespace LOP.EditorTools
         //  전체를 미리 채우면 코스 전체가 570만 칸이라, 탐색이 실제로 밟는 칸만 채운다.
         private sealed class FreeSpaceGrid
         {
-            const float Cell = 0.1f;
-
             private readonly Dictionary<long, bool> cache = new Dictionary<long, bool>();
             private readonly FlappyShape shape;
             private readonly int mapMask;
-
-            public int Queries;
 
             public FreeSpaceGrid(in FlappyShape shape, int mapMask)
             {
@@ -280,12 +316,12 @@ namespace LOP.EditorTools
 
             public bool IsFree(float x, float y)
             {
-                long key = ((long)Mathf.RoundToInt(x / Cell) << 32) ^ (uint)Mathf.RoundToInt(y / Cell);
+                //  HeightGrid — ①의 세그먼트 샘플링과 같은 칸 크기를 써야 해상도가 실제로 맞는다.
+                long key = ((long)Mathf.RoundToInt(x / HeightGrid) << 32) ^ (uint)Mathf.RoundToInt(y / HeightGrid);
                 if (cache.TryGetValue(key, out bool free))
                 {
                     return free;
                 }
-                Queries++;
                 var p = new Vector3(x, y, 0f);
                 free = Physics.CheckCapsule(shape.Lower(p), shape.Upper(p), shape.Radius,
                                             mapMask, QueryTriggerInteraction.Ignore) == false;
@@ -301,7 +337,9 @@ namespace LOP.EditorTools
                                            GameFramework.Physics.ICollisionQuery inner)
         {
             var query = new HitWatcher(inner);
-            var state = new BirdState { Position = start };
+            //  다른 모든 탐색·판정 지점처럼 z=0으로 고정한다 — FlappyWorld가 매 틱 새를 z=0에
+            //  붙이는 것과 같다. 마커의 z를 그대로 쓰면 그 값이 0이 아닐 때만 슬쩍 어긋난다.
+            var state = new BirdState { Position = new Vector3(start.x, start.y, 0f) };
             for (int i = 0; i < flaps.Count; i++)
             {
                 state = Step(state, flaps[i], shape, mapMask, query);
@@ -579,17 +617,22 @@ namespace LOP.EditorTools
             }
 
             var regions = TrapClustering.Cluster(stuck, ClusterDistance);
-            return BuildTrapSection(shape, contacts, candidates.Count, stuck.Count, regions, mapMask);
+            return BuildTrapSection(shape, bounds.min.y, bounds.max.y,
+                                    contacts, candidates.Count, stuck.Count, regions, mapMask);
         }
 
         //  ② 절만 만든다 — 코스 범위·물리 두 줄은 PlayabilityReport의 머리말이 이미 찍으므로 뺐다.
-        private static string BuildTrapSection(in FlappyShape shape, int contacts,
+        private static string BuildTrapSection(in FlappyShape shape, float minY, float maxY, int contacts,
                                                int candidateCount, int stuckCount,
                                                List<TrapRegion> regions, int mapMask)
         {
             var text = new StringBuilder();
             text.AppendLine($"[맵 낌 지점 스캔] 구역 {regions.Count}개"
                           + $" (낌점 {stuckCount} / 무입력 후보 {candidateCount} / 지형에 닿는 자리 {contacts})");
+            //  R16 — 이 y대역이 ①(CleanRunSearch)·②(여기) 둘 다의 탐색 상/하한이다(Default 콜라이더
+            //  최고~최저점). 넓히지 않고 사실만 찍는다 — 천장 없는 맵이면 이 위로 날아 넘는, 실제로는
+            //  되는 경로를 탐색이 못 보고도 ❌를 찍을 수 있어서다.
+            text.AppendLine($"  탐색 대역 y[{minY:F1}~{maxY:F1}] (천장 없으면 그 위 경로는 검색 밖)");
             text.AppendLine($"  1단계: 무입력 {SimulationTicks * TickSeconds:F1}초에 {EscapeDistance:F0}m 미만"
                           + $" → 2단계: 날갯짓을 어떻게 넣어도 {FlapSearchTicks * TickSeconds:F1}초에"
                           + $" {FlapEscapeDistance:F0}m 미만이면 낌");

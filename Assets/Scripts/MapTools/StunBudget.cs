@@ -70,22 +70,24 @@ namespace LOP.MapTools
         /// </summary>
         public static int PossibleStuns(in FlappyConfig config, float elapsedSeconds)
         {
-            float cycle = config.StunTime + config.InvulnTime;
-            if (cycle <= 0f)
+            if (config.StunTime + config.InvulnTime <= 0f)
             {
                 return 0;
             }
-            int count = (int)((elapsedSeconds + config.InvulnTime) / cycle);
-            return count < 0 ? 0 : count;
+            int n = 0;
+            while (n < 10000 && MinTimeForStuns(config, n + 1) <= elapsedSeconds)
+            {
+                n++;
+            }
+            return n;
         }
 
         public static EarliestCatch FindEarliestCatch(in FlappyConfig config, float startX, float finishX)
         {
-            float cycle = config.StunTime + config.InvulnTime;
             for (int n = 1; n <= 10000; n++)
             {
                 //  n번째 스턴이 끝나는 가장 이른 시각. 그 순간 총 정지시간은 스턴×n이다.
-                float t = cycle * n - config.InvulnTime;
+                float t = MinTimeForStuns(config, n);
                 float stalled = config.StunTime * n;
 
                 //  그 시각에 이미 골인했으면 더 볼 것이 없다 — 완주자는 판정에서 빠진다.
@@ -100,6 +102,13 @@ namespace LOP.MapTools
                 }
             }
             return new EarliestCatch(false, 0f, 0);
+        }
+
+        //  n번 맞는 데 필요한 최소 시간. PossibleStuns(위)와 FindEarliestCatch(아래)가 이 관계식을
+        //  각자 따로 베껴 쓰면 나중에 한쪽만 고치고 한쪽을 놓쳐 둘이 어긋날 수 있어 한 곳에 모았다.
+        static float MinTimeForStuns(in FlappyConfig config, int n)
+        {
+            return (config.StunTime + config.InvulnTime) * n - config.InvulnTime;
         }
 
         /// <summary>출발부터 클린런 골인 시각까지 <paramref name="stepSeconds"/> 간격으로 훑는다.</summary>

@@ -1,0 +1,251 @@
+using System.Collections.Generic;
+
+namespace LOP.MapTools
+{
+    /// <summary>발밑이 (x, y)일 때 몸이 아무데도 안 닿고 들어가는가.</summary>
+    public delegate bool FreeSpaceProbe(float x, float y);
+
+    public readonly struct CleanRunOptions
+    {
+        public readonly float StartX, StartY, FinishX;
+        public readonly float MinY, MaxY;
+        public readonly float ForwardSpeed, FlapImpulse, Gravity, MaxFallSpeed;
+        public readonly float TickSeconds;
+        public readonly float HeightGrid;
+
+        public CleanRunOptions(float startX, float startY, float finishX, float minY, float maxY,
+                               float forwardSpeed, float flapImpulse, float gravity, float maxFallSpeed,
+                               float tickSeconds, float heightGrid)
+        {
+            StartX = startX; StartY = startY; FinishX = finishX;
+            MinY = minY; MaxY = maxY;
+            ForwardSpeed = forwardSpeed; FlapImpulse = flapImpulse;
+            Gravity = gravity; MaxFallSpeed = maxFallSpeed;
+            TickSeconds = tickSeconds; HeightGrid = heightGrid;
+        }
+    }
+
+    public readonly struct CleanRunResult
+    {
+        public readonly bool Reachable;
+        /// <summary>열마다 "이 틱에 날갯짓했나". 도달 가능할 때만 채워진다.</summary>
+        public readonly IReadOnlyList<bool> Flaps;
+        public readonly float BlockedX;
+        public readonly float NarrowestX;
+        public readonly int NarrowestCount;
+        public readonly float NarrowestHeightSpan;
+
+        public CleanRunResult(bool reachable, IReadOnlyList<bool> flaps, float blockedX,
+                              float narrowestX, int narrowestCount, float narrowestHeightSpan)
+        {
+            Reachable = reachable;
+            Flaps = flaps;
+            BlockedX = blockedX;
+            NarrowestX = narrowestX;
+            NarrowestCount = narrowestCount;
+            NarrowestHeightSpan = narrowestHeightSpan;
+        }
+    }
+
+    /// <summary>
+    /// 한 번도 안 부딪히고 결승선까지 갈 경로가 있는가를 상태공간 탐색으로 답한다.
+    ///
+    /// <para>세 가지 덕에 문제가 작다. ① 안 닿는 동안 커널이 하는 일은 <c>위치 += 속도 × dt</c>뿐이라
+    /// 물리가 정확히 포물선이다. ② 전진이 상수라 x는 선택의 대상이 아니고 "열 = 틱"이다.
+    /// ③ 세로 속도가 연속값이 아니라 사다리라(날갯짓 뒤 몇 틱 지났나로 완전히 결정) 근사가 필요 없다.</para>
+    ///
+    /// <para>높이만 눈금으로 뭉개므로, 찾은 경로는 부르는 쪽이 진짜 커널로 재생해 증명해야 한다.</para>
+    /// </summary>
+    public static class CleanRunSearch
+    {
+        public static CleanRunResult Run(in CleanRunOptions options, FreeSpaceProbe isFree)
+        {
+            var grid = new SearchGrid(options);
+
+            var current = new System.Collections.BitArray(grid.StateCount);
+            //  출발: 아직 날갯짓 안 한 사다리의 첫 칸.
+            if (isFree(options.StartX, options.StartY) == false)
+            {
+                return new CleanRunResult(false, System.Array.Empty<bool>(), options.StartX, 0f, 0, 0f);
+            }
+            current.Set(grid.StateIndex(grid.HeightBucket(options.StartY), ladder: 1, rung: 0), true);
+
+            float narrowestX = 0f, narrowestSpan = 0f;
+            int narrowestCount = int.MaxValue;
+
+            for (int column = 0; column < grid.ColumnCount; column++)
+            {
+                float x = options.StartX + grid.StepX * column;
+                float nextX = x + grid.StepX;
+                var next = new System.Collections.BitArray(grid.StateCount);
+                bool any = false;
+
+                for (int state = 0; state < grid.StateCount; state++)
+                {
+                    if (current.Get(state) == false)
+                    {
+                        continue;
+                    }
+                    grid.Decode(state, out int heightBucket, out int ladder, out int rung);
+                    float y = grid.HeightOf(heightBucket);
+
+                    //  날갯짓 안 함 — 같은 사다리의 다음 칸.
+                    if (TryAdvance(grid, isFree, x, y, ladder, rung + 1, options, next))
+                    {
+                        any = true;
+                    }
+                    //  날갯짓 — 사다리 0의 첫 칸으로 갈아탄다.
+                    if (TryAdvance(grid, isFree, x, y, ladder: 0, rung: 0, options, next))
+                    {
+                        any = true;
+                    }
+                }
+
+                if (any == false)
+                {
+                    return new CleanRunResult(false, System.Array.Empty<bool>(), nextX,
+                                              narrowestX, narrowestCount == int.MaxValue ? 0 : narrowestCount,
+                                              narrowestSpan);
+                }
+
+                //  최협 회랑 — 출발 직후 과도기(앞 60열)는 시드가 하나뿐이라 제외한다.
+                if (column > 60)
+                {
+                    grid.Measure(next, out int count, out float span);
+                    if (count < narrowestCount)
+                    {
+                        narrowestCount = count;
+                        narrowestSpan = span;
+                        narrowestX = nextX;
+                    }
+                }
+
+                current = next;
+            }
+
+            return new CleanRunResult(true, System.Array.Empty<bool>(), 0f,
+                                      narrowestX, narrowestCount == int.MaxValue ? 0 : narrowestCount,
+                                      narrowestSpan);
+        }
+
+        //  한 스텝 나아가 본다. 몸이 스치면 그 갈래를 버린다.
+        static bool TryAdvance(SearchGrid grid, FreeSpaceProbe isFree, float x, float y,
+                               int ladder, int rung, in CleanRunOptions options,
+                               System.Collections.BitArray next)
+        {
+            int clamped = grid.ClampRung(rung);
+            float vy = grid.Speed(ladder, clamped);
+            float ny = y + vy * options.TickSeconds;
+            if (ny < options.MinY || ny > options.MaxY)
+            {
+                return false;
+            }
+            if (SegmentIsFree(isFree, x, y, x + grid.StepX, ny, options.HeightGrid) == false)
+            {
+                return false;
+            }
+            next.Set(grid.StateIndex(grid.HeightBucket(ny), ladder, clamped), true);
+            return true;
+        }
+
+        //  한 틱 사이 몸이 지나는 선분을 눈금 간격으로 찍어 본다. 끝점만 보면 얇은 벽을 통과한다.
+        static bool SegmentIsFree(FreeSpaceProbe isFree, float x0, float y0, float x1, float y1, float grid)
+        {
+            float dx = x1 - x0, dy = y1 - y0;
+            float length = UnityEngine.Mathf.Sqrt(dx * dx + dy * dy);
+            int samples = UnityEngine.Mathf.CeilToInt(length / grid) + 1;
+            for (int i = 0; i <= samples; i++)
+            {
+                float t = i / (float)samples;
+                if (isFree(x0 + dx * t, y0 + dy * t) == false)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    /// <summary>상태 (높이버킷, 사다리, 칸)을 정수 하나로 누르는 규칙과 세로 속도 사다리.</summary>
+    internal sealed class SearchGrid
+    {
+        readonly CleanRunOptions options;
+        readonly float[] afterFlap;
+        readonly float[] beforeFlap;
+
+        public readonly int HeightBucketCount;
+        public readonly int RungCount;
+        public readonly int StateCount;
+        public readonly int ColumnCount;
+        public readonly float StepX;
+
+        public SearchGrid(in CleanRunOptions options)
+        {
+            this.options = options;
+            StepX = options.ForwardSpeed * options.TickSeconds;
+            ColumnCount = UnityEngine.Mathf.CeilToInt((options.FinishX - options.StartX) / StepX);
+            HeightBucketCount = UnityEngine.Mathf.CeilToInt((options.MaxY - options.MinY) / options.HeightGrid) + 1;
+
+            //  사다리는 −MaxFallSpeed에 닿으면 더 안 변한다. 거기까지만 만들고 그 뒤는 흡수 상태다.
+            float drop = options.Gravity * options.TickSeconds;
+            RungCount = UnityEngine.Mathf.CeilToInt((options.FlapImpulse + options.MaxFallSpeed) / drop) + 2;
+            afterFlap = BuildLadder(options.FlapImpulse, drop, options.MaxFallSpeed, RungCount);
+            beforeFlap = BuildLadder(0f, drop, options.MaxFallSpeed, RungCount);
+
+            StateCount = HeightBucketCount * 2 * RungCount;
+        }
+
+        static float[] BuildLadder(float first, float drop, float maxFall, int count)
+        {
+            var ladder = new float[count];
+            ladder[0] = first;
+            for (int i = 1; i < count; i++)
+            {
+                float v = ladder[i - 1] - drop;
+                ladder[i] = v < -maxFall ? -maxFall : v;
+            }
+            return ladder;
+        }
+
+        public int ClampRung(int rung) => rung >= RungCount ? RungCount - 1 : rung;
+
+        public float Speed(int ladder, int rung) => ladder == 0 ? afterFlap[rung] : beforeFlap[rung];
+
+        public int HeightBucket(float y)
+        {
+            int bucket = UnityEngine.Mathf.RoundToInt((y - options.MinY) / options.HeightGrid);
+            if (bucket < 0) { return 0; }
+            if (bucket >= HeightBucketCount) { return HeightBucketCount - 1; }
+            return bucket;
+        }
+
+        public float HeightOf(int bucket) => options.MinY + bucket * options.HeightGrid;
+
+        public int StateIndex(int heightBucket, int ladder, int rung)
+            => (heightBucket * 2 + ladder) * RungCount + rung;
+
+        public void Decode(int state, out int heightBucket, out int ladder, out int rung)
+        {
+            rung = state % RungCount;
+            int rest = state / RungCount;
+            ladder = rest % 2;
+            heightBucket = rest / 2;
+        }
+
+        /// <summary>이 열에 살아남은 상태 수와, 그것들이 걸친 높이 폭.</summary>
+        public void Measure(System.Collections.BitArray column, out int count, out float span)
+        {
+            count = 0;
+            int lo = int.MaxValue, hi = int.MinValue;
+            for (int state = 0; state < StateCount; state++)
+            {
+                if (column.Get(state) == false) { continue; }
+                count++;
+                Decode(state, out int bucket, out _, out _);
+                if (bucket < lo) { lo = bucket; }
+                if (bucket > hi) { hi = bucket; }
+            }
+            span = count == 0 ? 0f : (hi - lo) * options.HeightGrid;
+        }
+    }
+}

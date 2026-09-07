@@ -122,7 +122,8 @@ public class SkydiveLaserBuildTests
                 period: 0, onTicks: 0, phase: 0),
         };
 
-        Assert.IsNull(SkydiveCourseBuilder.FindLaserOnSafeHole(fromWall));
+        Assert.IsNull(SkydiveCourseBuilder.FindLaserOnSafeHole(fromWall),
+                      "벽에서 뻗는 빔은 면제 대상이라 잡히면 안 된다");
         Assert.IsNotNull(SkydiveCourseBuilder.FindLaserOnSafeHole(fromSlab),
                          "판 위에 세운 같은 빔은 잡혀야 한다");
     }

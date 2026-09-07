@@ -233,7 +233,8 @@ namespace LOP.EditorTools
         private const float MaxAngularSpeedDegreesPerTick = 15f;
 
         // 코스 설계 그 자체. 구간마다 어법이 다르다: 문지기 → 격자 → 합침.
-        // 문지기는 구멍 중심을 피벗으로 삼아 구멍 위를 쓸고, 격자는 통로를 가로지른다.
+        // 문지기는 자기 선반의 빠른 구멍을 쓸도록 세운다(피벗이 구멍 안일 수도, 밖일 수도 있다).
+        // 안전한 구멍을 쓸면 안 되는데, 그건 주석이 아니라 FindLaserOnSafeHole이 막는다.
         internal static readonly LaserSpec[] Lasers =
         {
             // 2600 위: 없음 — 조작을 익히는 자리
@@ -972,8 +973,8 @@ namespace LOP.EditorTools
         /// <see cref="FindBlockedGate"/>는 "언젠가 열리나"만 보므로 이것을 못 본다.
         ///
         /// <para><b>대상은 판 위에 피벗을 둔 빔(문지기)뿐이다.</b> 벽(±<see cref="SlabHalf"/>)에서
-        /// 뻗는 격자·쓸기는 구간을 통째로 가로질러 두 구멍을 비슷하게 덮으므로(실측: Laser_320_Sweep은
-        /// 빠른 구멍 격자의 18%, 안전한 구멍의 21%를 쓴다) 갈림길을 기울이지 않는다. 반대로 벽에서
+        /// 뻗는 격자·쓸기는 구간을 통째로 가로질러 두 구멍을 비슷하게 덮으므로 갈림길을 기울이지
+        /// 않는다(재 본 값은 fix2 보고서에 있다 — 여기 적으면 표를 만질 때 같이 안 고쳐진다). 반대로 벽에서
         /// 뻗는 빔을 안전한 구멍에만 겨눠 세우면 이 검사는 못 잡는다 — 그런 표를 쓰게 되면 이 조건을
         /// 다시 볼 것.</para>
         /// </summary>
@@ -992,9 +993,9 @@ namespace LOP.EditorTools
                     {
                         continue;
                     }
-                    for (int L = 0; L < lasers.Count; L++)
+                    for (int li = 0; li < lasers.Count; li++)
                     {
-                        LaserSpec spec = lasers[L];
+                        LaserSpec spec = lasers[li];
                         float pivotY = spec.Pivot.y;
                         if (pivotY <= shelf.Y || pivotY > upperY)
                         {

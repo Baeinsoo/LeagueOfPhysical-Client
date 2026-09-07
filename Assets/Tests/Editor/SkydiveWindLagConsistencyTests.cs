@@ -49,4 +49,21 @@ public class SkydiveWindLagConsistencyTests
         Assert.AreEqual(row.BodyRadius, SkydiveCourseBuilder.BodyRadiusForGateCheck, 1e-4f,
             "SkydiveCourseBuilder.BodyRadiusForGateCheck가 TbSkydiveConfig와 어긋났다 — 구멍 열림 검사가 실제 몸 크기를 재지 않는다");
     }
+
+    [Test]
+    public void 코스_빌더의_몸_키_상수가_마스터데이터와_같다()
+    {
+        string path = Path.GetFullPath(
+            "Packages/com.baegames.lop.masterdata.client/Runtime.Generated/StreamingAssets/MasterData/tbskydiveconfig.bytes");
+        Assert.IsTrue(File.Exists(path), "tbskydiveconfig.bytes를 찾지 못했다: " + path);
+
+        var table = new LOP.MasterData.TbSkydiveConfig(new ByteBuf(File.ReadAllBytes(path)));
+        var row = table.GetOrDefault(1);
+        Assert.IsNotNull(row, "TbSkydiveConfig id=1 행이 없다");
+
+        // 부활 지점이 문 패널과 겹치는지 재는 검사는 몸을 선 캡슐로 본다 — 키가 어긋나면
+        // 서버(SkydiveDoorSystem)가 쓰는 캡슐과 다른 몸으로 재게 된다.
+        Assert.AreEqual(row.BodyHeight, SkydiveCourseBuilder.BodyHeightForCrushCheck, 1e-4f,
+            "SkydiveCourseBuilder.BodyHeightForCrushCheck가 TbSkydiveConfig와 어긋났다 — 부활 지점 검사가 실제 몸 크기를 재지 않는다");
+    }
 }

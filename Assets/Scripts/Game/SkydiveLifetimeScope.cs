@@ -33,6 +33,9 @@ namespace LOP
             // 맵 씬의 LaserVolume 마커가 맵 로드 시 여기에 자기를 넣는다. 클라는 레이저를 판정하지
             // 않지만, 마커의 [Inject]가 이걸 요구하므로 등록이 없으면 씬 주입이 그 자리에서 끊긴다.
             builder.Register<LaserField>(Lifetime.Singleton);
+            // 맵 씬의 DoorVolume 마커도 마찬가지다 — 클라는 문 판정을 하지 않지만, 마커의
+            // [Inject]가 이걸 요구하므로 등록이 없으면 씬 주입이 그 자리에서 끊긴다.
+            builder.Register<DoorField>(Lifetime.Singleton);
             builder.Register<SkydiveWorld>(c => new SkydiveWorld(
                 c.Resolve<GameFramework.World.EntityRegistry>(),
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
@@ -41,6 +44,7 @@ namespace LOP
                 c.Resolve<WindDriftSystem>(),
                 c.Resolve<FinishSystem>(),
                 c.Resolve<WindField>(),
+                c.Resolve<DoorField>(),
                 c.Resolve<SkydiveConfig>(),
                 c.Resolve<GameFramework.Physics.ICollisionQuery>(),
                 c.Resolve<GameFramework.World.IMotionBridge>(),
@@ -52,6 +56,9 @@ namespace LOP
 
             //  레이저를 그린다. 판정과 같은 식에 같은 틱을 넣으므로 그림과 판정이 어긋나지 않는다.
             builder.RegisterEntryPoint<SkydiveLaserView>().AsSelf();
+
+            //  시뮬은 50Hz인데 화면은 더 빨라, 틱 자세만 쓰면 문이 계단처럼 떤다.
+            builder.RegisterEntryPoint<SkydiveDoorView>().AsSelf();
 
 
             builder.Register<ICharacterCreator, SkydivePlayerCreator>(Lifetime.Singleton);

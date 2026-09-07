@@ -58,6 +58,12 @@ namespace LOP.EditorTools
         //  (예: PlayabilityReport가 "눈금을 0.05로 줄여 보라"고 하면, 여기 하나만 고치면 된다.)
         private const float HeightGrid = 0.1f;
 
+        //  ①의 탐색과 봇 비행이 같이 보는 y대역. bounds에서 한 번만 구해 여기 올려 둔다 —
+        //  둘이 서로 다른 대역을 보면 "같은 질문에 답했다"고 할 수 없다. Check()가 bounds를
+        //  읽은 직후에 대입한다.
+        private static float SearchMinY;
+        private static float SearchMaxY;
+
         [MenuItem("LOP/Debug/Flappy 맵 검사")]
         public static void Check()
         {
@@ -69,6 +75,8 @@ namespace LOP.EditorTools
                     "예: Assets/Art/Scenes/FlappyRaceMap.unity", "확인");
                 return;
             }
+            SearchMinY = bounds.min.y;
+            SearchMaxY = bounds.max.y;
             //  ①③이 같은 행(TbFlappyConfig)에서 몸/이동 값과 추격자 값을 모두 쓰므로 한 번만
             //  읽는다 — 예전엔 FlappyShape용·추격자용으로 같은 .bytes를 두 번 읽고 파싱했다.
             if (TryReadFullConfig(out LOP.FlappyConfig config) == false)
@@ -139,7 +147,7 @@ namespace LOP.EditorTools
 
                     var options = new LOP.MapTools.CleanRunOptions(
                         startX: spawns[i].Position.x, startY: spawns[i].Position.y, finishX: finishX,
-                        minY: bounds.min.y, maxY: bounds.max.y,
+                        minY: SearchMinY, maxY: SearchMaxY,
                         forwardSpeed: shape.ForwardSpeed, flapImpulse: shape.FlapImpulse,
                         gravity: shape.Gravity, maxFallSpeed: shape.MaxFallSpeed,
                         tickSeconds: TickSeconds, heightGrid: HeightGrid);
@@ -168,7 +176,7 @@ namespace LOP.EditorTools
             string report = LOP.MapTools.PlayabilityReport.Build(
                 UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
                 spawns[0].Position.x, finishX, config, cleanRuns, trapSection, budget, earliest,
-                HeightGrid, bounds.min.y, bounds.max.y);
+                HeightGrid, SearchMinY, SearchMaxY);
 
             //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
             bool spawnXMismatch = false;
@@ -401,6 +409,79 @@ namespace LOP.EditorTools
                 }
             }
             return true;
+        }
+
+        /// <summary>봇 한 마리를 진짜 커널로 날린 결과.</summary>
+        private readonly struct BotFlight
+        {
+            public readonly bool Reached;
+            public readonly bool Touched;
+            public readonly float FarthestX;
+            public readonly int FlapCount;
+            public readonly int Ticks;
+
+            public BotFlight(bool reached, bool touched, float farthestX, int flapCount, int ticks)
+            {
+                Reached = reached;
+                Touched = touched;
+                FarthestX = farthestX;
+                FlapCount = flapCount;
+                Ticks = ticks;
+            }
+        }
+
+        //  앞을 이만큼 내다본다. 전진 11에서 약 1.5m — 프로토타입이 쓰던 앞보기 거리와 같은 취지다.
+        private const float BotLookaheadSeconds = 0.14f;
+
+        //  봇을 진짜 커널로 날린다. 궤적이 하나뿐이라 상태를 묶을 이유가 없고, 그래서 반올림도
+        //  표류도 생기지 않는다 — 전수 탐색이 못 하는 "증명"이 여기서 나온다.
+        //  한 번이라도 닿으면(스턴이 걸리면) 무충돌이 아니므로 즉시 멈춘다.
+        private static BotFlight FlyBot(Vector3 start, float finishX, in FlappyShape shape, int mapMask,
+                                        GameFramework.Physics.ICollisionQuery inner,
+                                        System.Func<float, float, bool> isBlocked)
+        {
+            var query = new HitWatcher(inner);
+            var state = new BirdState { Position = new Vector3(start.x, start.y, 0f) };
+            float flapArc = LOP.MapTools.BotPilot.FlapArc(shape.FlapImpulse, shape.Gravity, TickSeconds);
+            float lookahead = shape.ForwardSpeed * BotLookaheadSeconds;
+            int buckets = Mathf.CeilToInt((SearchMaxY - SearchMinY) / HeightGrid) + 1;
+            var blocked = new bool[buckets];
+            float farthest = start.x;
+            int flaps = 0;
+
+            //  코스 길이보다 넉넉히 잡는다. 봇이 제자리에 갇히면 여기서 끝난다.
+            int limit = Mathf.CeilToInt((finishX - start.x) / (shape.ForwardSpeed * TickSeconds)) + 600;
+            for (int tick = 0; tick < limit; tick++)
+            {
+                float scanX = state.Position.x + lookahead;
+                for (int i = 0; i < buckets; i++)
+                {
+                    blocked[i] = isBlocked(scanX, SearchMinY + i * HeightGrid);
+                }
+
+                var decision = LOP.MapTools.BotPilot.Decide(blocked, SearchMinY, HeightGrid,
+                                                            state.Position.y, state.VerticalSpeed,
+                                                            shape.Radius, flapArc, TickSeconds);
+                if (decision.Flap)
+                {
+                    flaps++;
+                }
+
+                state = Step(state, decision.Flap, shape, mapMask, query);
+                if (state.Position.x > farthest)
+                {
+                    farthest = state.Position.x;
+                }
+                if (state.Stun > 0f)
+                {
+                    return new BotFlight(false, true, farthest, flaps, tick + 1);
+                }
+                if (state.Position.x + shape.Radius >= finishX)
+                {
+                    return new BotFlight(true, false, farthest, flaps, tick + 1);
+                }
+            }
+            return new BotFlight(false, false, farthest, flaps, limit);
         }
 
         //  지형 안이면 새가 있을 수 없고, 지형에서 멀면 낄 일이 없다. 그 사이만 본다.

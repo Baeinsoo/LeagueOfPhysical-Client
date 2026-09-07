@@ -8,21 +8,28 @@ using UnityEngine;
 namespace LOP.EditorTools
 {
     /// <summary>
-    /// 열려 있는 맵에서 <b>새가 끼어 못 빠져나오는 자리</b>를 찾는다.
+    /// 열려 있는 맵이 <b>플레이 가능한가</b>를 세 가지로 검사한다(구 <c>FlappyMapTrapScanner</c> —
+    /// 낌 스캔만 하던 것이 세 검사로 넓어졌다).
     ///
-    /// 앞·위·아래가 모두 몇 cm 안에서 막힌 V자 틈에 들어가면, 전진 속도가 상수라 계속 밀어붙이고
-    /// 미끄러짐이 0으로 수렴해 판이 끝날 때까지 그 자리에 멈춘다(라이브에서 두 번 재현).
-    /// 파묻힌 게 아니라 닿아 있기만 한 상태라 밀어내기도 할 일이 없다.
+    /// <para>① <b>클린런</b> — 스폰 자리마다 한 번도 안 부딪히고 결승선까지 가는 경로가 있는가
+    /// (<see cref="LOP.MapTools.CleanRunSearch"/>). 자리마다 따로 본다 — 스폰 넷의 높이가
+    /// 벌어져 있어 한 자리라도 통과하면 됐다고 뭉치면 공정성 문제가 안 보인다.</para>
     ///
+    /// <para>② <b>낌 지점</b> — 새가 끼어 못 빠져나오는 자리를 찾는다.
+    /// 앞·위·아래가 모두 몇 cm 안에서 막힌 V자 틈에 들어가면, 전진 속도가 상수라 계속
+    /// 밀어붙이고 미끄러짐이 0으로 수렴해 판이 끝날 때까지 그 자리에 멈춘다(라이브에서 두 번
+    /// 재현). 파묻힌 게 아니라 닿아 있기만 한 상태라 밀어내기도 할 일이 없다.
     /// 정지 상태 검사로는 못 잡는다 — 주머니가 격자보다 작고, 새는 여러 틱에 걸쳐 미끄러져
     /// 들어간다. 그래서 <b>게임의 실제 이동 커널로 굴려 보고</b> 앞으로 못 나가면 낌으로 본다.
-    ///
-    /// <para>두 단계로 거른다. <b>1단계</b>는 아무 입력 없이 굴려 못 나가는 자리를 싸게 추린다.
-    /// <b>2단계</b>는 그 자리마다 <b>날갯짓을 넣어</b> 다시 굴린다 — 벽에 막힌 것은 눌러서 넘으면
-    /// 그만이라 낌이 아니고, <b>어떻게 눌러도 못 나가는 자리만</b> 진짜 낌이다.
+    /// 두 단계로 거른다. <b>1단계</b>는 아무 입력 없이 굴려 못 나가는 자리를 싸게 추린다.
+    /// <b>2단계</b>는 그 자리마다 <b>날갯짓을 넣어</b> 다시 굴린다 — 벽에 막힌 것은 눌러서
+    /// 넘으면 그만이라 낌이 아니고, <b>어떻게 눌러도 못 나가는 자리만</b> 진짜 낌이다.
     /// (2단계가 없으면 기둥 앞 바닥처럼 정상적인 벽이 전부 낌으로 잡힌다 — 실제로 그랬다.)</para>
+    ///
+    /// <para>③ <b>스턴 예산</b> — 추격자에게 잡히기 전까지 몇 번이나 스턴을 먹어도 되는가
+    /// (<see cref="LOP.MapTools.StunBudget"/>). 산수라 시뮬레이션이 필요 없다.</para>
     /// </summary>
-    public static class FlappyMapTrapScanner
+    public static class FlappyMapPlayabilityCheck
     {
         //  훑는 격자. 촘촘할수록 작은 틈까지 잡지만 오래 걸린다(0.2m에서 코스 전체 약 3초).
         private const float GridStep = 0.2f;
@@ -46,84 +53,112 @@ namespace LOP.EditorTools
         private const float StateGrid = 0.02f;
         private const float StateSpeedGrid = 0.25f;
 
-        [MenuItem("LOP/Debug/맵 낌 지점 스캔")]
-        public static void Scan()
+        [MenuItem("LOP/Debug/Flappy 맵 검사")]
+        public static void Check()
         {
             int mapMask = LayerMask.GetMask("Default");
             if (TryReadBounds(mapMask, out Bounds bounds) == false)
             {
-                EditorUtility.DisplayDialog("맵 낌 지점 스캔",
+                EditorUtility.DisplayDialog("Flappy 맵 검사",
                     "Default 레이어에 콜라이더가 없다 — 맵 씬을 먼저 열어라.\n" +
                     "예: Assets/Art/Scenes/FlappyRaceMap.unity", "확인");
                 return;
             }
-
             if (TryReadFlappyConfig(out FlappyShape shape) == false)
             {
-                EditorUtility.DisplayDialog("맵 낌 지점 스캔",
+                EditorUtility.DisplayDialog("Flappy 맵 검사",
                     "MasterData에서 FlappyConfig를 못 읽었다 — 패키지 StreamingAssets를 확인하라.", "확인");
                 return;
             }
+            if (TryReadFullConfig(out LOP.FlappyConfig config) == false)
+            {
+                EditorUtility.DisplayDialog("Flappy 맵 검사",
+                    "추격자 값을 못 읽었다 — MasterData의 FlappyConfig를 확인하라.", "확인");
+                return;
+            }
+            var spawns = ReadSpawns();
+            if (spawns.Count == 0 || TryReadFinishX(out float finishX) == false)
+            {
+                EditorUtility.DisplayDialog("Flappy 맵 검사",
+                    "맵에 SpawnPoint 또는 FinishLine 마커가 없다 — 게임과 같은 마커를 읽는다.", "확인");
+                return;
+            }
 
-            var candidates = new List<(float X, float Y)>();
-            var stuck = new List<(float X, float Y)>();
             var query = new GameFramework.Physics.UnityCollisionQuery();
-            int contacts = 0;
+            var grid = new FreeSpaceGrid(shape, mapMask);
+            var cleanRuns = new List<LOP.MapTools.SpawnCleanRun>();
+            string trapSection;
             try
             {
-                int columns = Mathf.Max(1, Mathf.CeilToInt((bounds.max.x - bounds.min.x) / GridStep));
-                int column = 0;
-                for (float x = bounds.min.x; x <= bounds.max.x; x += GridStep, column++)
+                //  ① 자리마다 따로 — 넷 중 하나라도 되면 통과로 뭉치면 공정성 문제가 안 보인다.
+                for (int i = 0; i < spawns.Count; i++)
                 {
-                    if (EditorUtility.DisplayCancelableProgressBar(
-                            "맵 낌 지점 스캔 (1/2 아무 입력 없이)",
-                            $"x = {x:F0} / {bounds.max.x:F0} · 후보 {candidates.Count}곳",
-                            column / (float)columns))
-                    {
-                        Debug.LogWarning("[맵 스캔] 취소됨 — 결과가 불완전하다.");
-                        break;
-                    }
-                    for (float y = bounds.min.y; y <= bounds.max.y; y += GridStep)
-                    {
-                        if (IsContactPoint(x, y, shape, mapMask) == false)
-                        {
-                            continue;
-                        }
-                        contacts++;
-                        if (Escapes(new Vector3(x, y, 0f), shape, mapMask, query) == false)
-                        {
-                            candidates.Add((x, y));
-                        }
-                    }
+                    EditorUtility.DisplayProgressBar("Flappy 맵 검사 (1/3 클린런)",
+                        $"{spawns[i].Name}", i / (float)spawns.Count);
+
+                    var options = new LOP.MapTools.CleanRunOptions(
+                        startX: spawns[i].Position.x, startY: spawns[i].Position.y, finishX: finishX,
+                        minY: bounds.min.y, maxY: bounds.max.y,
+                        forwardSpeed: shape.ForwardSpeed, flapImpulse: shape.FlapImpulse,
+                        gravity: shape.Gravity, maxFallSpeed: shape.MaxFallSpeed,
+                        tickSeconds: TickSeconds, heightGrid: 0.1f);
+                    var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFree);
+                    bool verified = result.Reachable
+                        && VerifyByReplay(spawns[i].Position, result.Flaps, shape, mapMask, query);
+                    cleanRuns.Add(new LOP.MapTools.SpawnCleanRun(
+                        spawns[i].Name, spawns[i].Position.y, result, verified));
                 }
 
-                //  2단계 — 눌러서 넘을 수 있는 벽을 걸러낸다. 여기까지 온 자리만 진짜 낌이다.
-                for (int i = 0; i < candidates.Count; i++)
-                {
-                    if (EditorUtility.DisplayCancelableProgressBar(
-                            "맵 낌 지점 스캔 (2/2 날갯짓을 넣어)",
-                            $"{i + 1} / {candidates.Count} · 지금까지 {stuck.Count}곳",
-                            i / (float)candidates.Count))
-                    {
-                        Debug.LogWarning("[맵 스캔] 취소됨 — 결과가 불완전하다.");
-                        break;
-                    }
-                    var point = new Vector3(candidates[i].X, candidates[i].Y, 0f);
-                    if (EscapesWithFlap(point, shape, mapMask, query) == false)
-                    {
-                        stuck.Add(candidates[i]);
-                    }
-                }
+                //  ② 기존 낌 스캔 — 본문은 그대로다.
+                trapSection = ScanTraps(shape, bounds, mapMask, query);
             }
             finally
             {
                 EditorUtility.ClearProgressBar();
             }
 
-            var regions = TrapClustering.Cluster(stuck, ClusterDistance);
-            string report = BuildReport(shape, bounds, contacts, candidates.Count, stuck.Count, regions, mapMask);
+            //  ③ 산수라 진행률이 필요 없다.
+            var budget = LOP.MapTools.StunBudget.Curve(config, spawns[0].Position.x, finishX, stepSeconds: 10f);
+            var earliest = LOP.MapTools.StunBudget.FindEarliestCatch(config, spawns[0].Position.x, finishX);
+
+            string report = LOP.MapTools.PlayabilityReport.Build(
+                UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
+                spawns[0].Position.x, finishX, config, cleanRuns, trapSection, budget, earliest);
             Debug.Log(report);
             EditorGUIUtility.systemCopyBuffer = report;
+        }
+
+        //  출발점과 결승선은 맵이 정한다 — 서버 룰(FlappyRaceRuleSystem)이 읽는 것과 같은 마커를
+        //  같은 방법으로 읽는다. 비활성 마커까지 찾는 것도 같다: 마커는 보일 필요가 없어 꺼 둘 수 있다.
+        private static List<(string Name, Vector3 Position)> ReadSpawns()
+        {
+            var points = Object.FindObjectsByType<LOP.SpawnPoint>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var list = new List<(string, Vector3)>();
+            foreach (var point in points)
+            {
+                if (point != null)
+                {
+                    list.Add((point.name, point.transform.position));
+                }
+            }
+            list.Sort((left, right) => string.CompareOrdinal(left.Item1, right.Item1));
+            return list;
+        }
+
+        private static bool TryReadFinishX(out float finishX)
+        {
+            finishX = 0f;
+            var markers = Object.FindObjectsByType<LOP.FinishLine>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (markers.Length == 0)
+            {
+                return false;
+            }
+            //  형상이 있으면 그 자리, 없으면 트랜스폼. FinishLine이 스스로 등록할 때와 같은 규칙이다.
+            var renderer = markers[0].GetComponentInChildren<Renderer>();
+            finishX = renderer != null ? renderer.bounds.center.x : markers[0].transform.position.x;
+            return true;
         }
 
         /// <summary>새의 몸과 움직임 — 코드에 굳히지 않고 MasterData에서 읽는다.</summary>
@@ -176,6 +211,32 @@ namespace LOP.EditorTools
             return true;
         }
 
+        //  ③은 추격자 값이 필요하고 그건 공유 FlappyConfig에만 있다. 같은 행을 두 번 읽는 셈이지만,
+        //  FlappyShape는 낌 스캔이 쓰던 모양이라 그대로 두고 여기만 더한다.
+        private static bool TryReadFullConfig(out LOP.FlappyConfig config)
+        {
+            config = default;
+            string path = Path.GetFullPath(
+                "Packages/com.baegames.lop.masterdata.client/Runtime.Generated/StreamingAssets/MasterData/tbflappyconfig.bytes");
+            if (File.Exists(path) == false)
+            {
+                return false;
+            }
+            var row = new LOP.MasterData.TbFlappyConfig(new Luban.ByteBuf(File.ReadAllBytes(path))).GetOrDefault(1);
+            if (row == null)
+            {
+                return false;
+            }
+            config = new LOP.FlappyConfig(
+                row.ForwardSpeed, row.FlapImpulse, row.Gravity, row.MaxFallSpeed,
+                row.BodyRadius, row.BodyHeight, row.Restitution,
+                row.StunTime, row.InvulnTime,
+                row.DashMult, row.DashDuration, row.DashChargeBase, row.DashChargeDive,
+                row.ChaserStartX, row.ChaserInitialSpeed, row.ChaserAcceleration, row.ChaserMaxSpeed,
+                row.FinishBrake);
+            return true;
+        }
+
         private static bool TryReadBounds(int mapMask, out Bounds bounds)
         {
             bounds = default;
@@ -197,6 +258,59 @@ namespace LOP.EditorTools
                 }
             }
             return any;
+        }
+
+        //  "이 자리에 몸이 들어가나"를 매번 물리엔진에 묻지 않고 격자에 캐시한다.
+        //  전체를 미리 채우면 코스 전체가 570만 칸이라, 탐색이 실제로 밟는 칸만 채운다.
+        private sealed class FreeSpaceGrid
+        {
+            const float Cell = 0.1f;
+
+            private readonly Dictionary<long, bool> cache = new Dictionary<long, bool>();
+            private readonly FlappyShape shape;
+            private readonly int mapMask;
+
+            public int Queries;
+
+            public FreeSpaceGrid(in FlappyShape shape, int mapMask)
+            {
+                this.shape = shape;
+                this.mapMask = mapMask;
+            }
+
+            public bool IsFree(float x, float y)
+            {
+                long key = ((long)Mathf.RoundToInt(x / Cell) << 32) ^ (uint)Mathf.RoundToInt(y / Cell);
+                if (cache.TryGetValue(key, out bool free))
+                {
+                    return free;
+                }
+                Queries++;
+                var p = new Vector3(x, y, 0f);
+                free = Physics.CheckCapsule(shape.Lower(p), shape.Upper(p), shape.Radius,
+                                            mapMask, QueryTriggerInteraction.Ignore) == false;
+                cache[key] = free;
+                return free;
+            }
+        }
+
+        //  탐색이 준 날갯짓 순서를 게임의 진짜 커널로 그대로 굴린다. 한 번이라도 닿으면 증명 실패다.
+        //  탐색은 높이를 눈금으로 뭉개므로, 이 재생만이 "정말 무충돌인가"의 증거다.
+        private static bool VerifyByReplay(Vector3 start, IReadOnlyList<bool> flaps,
+                                           in FlappyShape shape, int mapMask,
+                                           GameFramework.Physics.ICollisionQuery inner)
+        {
+            var query = new HitWatcher(inner);
+            var state = new BirdState { Position = start };
+            for (int i = 0; i < flaps.Count; i++)
+            {
+                state = Step(state, flaps[i], shape, mapMask, query);
+                if (state.Stun > 0f)
+                {
+                    return false;   // 닿았다 = 무충돌이 아니다
+                }
+            }
+            return true;
         }
 
         //  지형 안이면 새가 있을 수 없고, 지형에서 멀면 낄 일이 없다. 그 사이만 본다.
@@ -410,15 +524,72 @@ namespace LOP.EditorTools
                 => _inner.OverlapSphere(center, radius, layerMask);
         }
 
-        private static string BuildReport(in FlappyShape shape, in Bounds bounds, int contacts,
-                                          int candidateCount, int stuckCount,
-                                          List<TrapRegion> regions, int mapMask)
+        //  ② 기존 낌 스캔 — 판정 로직(IsContactPoint/Escapes/EscapesWithFlap 등)은 그대로다.
+        //  진행률 문구만 (2/3 낌 지점)으로 바꾸고, Debug.Log 대신 문자열을 돌려준다.
+        //  ClearProgressBar는 Check()의 바깥 finally가 맡는다 — 여기선 안 건다.
+        private static string ScanTraps(in FlappyShape shape, in Bounds bounds, int mapMask,
+                                        GameFramework.Physics.ICollisionQuery query)
+        {
+            var candidates = new List<(float X, float Y)>();
+            var stuck = new List<(float X, float Y)>();
+            int contacts = 0;
+
+            int columns = Mathf.Max(1, Mathf.CeilToInt((bounds.max.x - bounds.min.x) / GridStep));
+            int column = 0;
+            for (float x = bounds.min.x; x <= bounds.max.x; x += GridStep, column++)
+            {
+                if (EditorUtility.DisplayCancelableProgressBar(
+                        "Flappy 맵 검사 (2/3 낌 지점 · 아무 입력 없이)",
+                        $"x = {x:F0} / {bounds.max.x:F0} · 후보 {candidates.Count}곳",
+                        column / (float)columns))
+                {
+                    Debug.LogWarning("[맵 스캔] 취소됨 — 결과가 불완전하다.");
+                    break;
+                }
+                for (float y = bounds.min.y; y <= bounds.max.y; y += GridStep)
+                {
+                    if (IsContactPoint(x, y, shape, mapMask) == false)
+                    {
+                        continue;
+                    }
+                    contacts++;
+                    if (Escapes(new Vector3(x, y, 0f), shape, mapMask, query) == false)
+                    {
+                        candidates.Add((x, y));
+                    }
+                }
+            }
+
+            //  2단계 — 눌러서 넘을 수 있는 벽을 걸러낸다. 여기까지 온 자리만 진짜 낌이다.
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                if (EditorUtility.DisplayCancelableProgressBar(
+                        "Flappy 맵 검사 (2/3 낌 지점 · 날갯짓을 넣어)",
+                        $"{i + 1} / {candidates.Count} · 지금까지 {stuck.Count}곳",
+                        i / (float)candidates.Count))
+                {
+                    Debug.LogWarning("[맵 스캔] 취소됨 — 결과가 불완전하다.");
+                    break;
+                }
+                var point = new Vector3(candidates[i].X, candidates[i].Y, 0f);
+                if (EscapesWithFlap(point, shape, mapMask, query) == false)
+                {
+                    stuck.Add(candidates[i]);
+                }
+            }
+
+            var regions = TrapClustering.Cluster(stuck, ClusterDistance);
+            return BuildTrapSection(shape, contacts, candidates.Count, stuck.Count, regions, mapMask);
+        }
+
+        //  ② 절만 만든다 — 코스 범위·물리 두 줄은 PlayabilityReport의 머리말이 이미 찍으므로 뺐다.
+        private static string BuildTrapSection(in FlappyShape shape, int contacts,
+                                               int candidateCount, int stuckCount,
+                                               List<TrapRegion> regions, int mapMask)
         {
             var text = new StringBuilder();
             text.AppendLine($"[맵 낌 지점 스캔] 구역 {regions.Count}개"
                           + $" (낌점 {stuckCount} / 무입력 후보 {candidateCount} / 지형에 닿는 자리 {contacts})");
-            text.AppendLine($"  코스 x[{bounds.min.x:F1}~{bounds.max.x:F1}] y[{bounds.min.y:F1}~{bounds.max.y:F1}]"
-                          + $" · 새 반지름 {shape.Radius:F2} 높이 {shape.Height:F2} 전진 {shape.ForwardSpeed:F0}");
             text.AppendLine($"  1단계: 무입력 {SimulationTicks * TickSeconds:F1}초에 {EscapeDistance:F0}m 미만"
                           + $" → 2단계: 날갯짓을 어떻게 넣어도 {FlapSearchTicks * TickSeconds:F1}초에"
                           + $" {FlapEscapeDistance:F0}m 미만이면 낌");

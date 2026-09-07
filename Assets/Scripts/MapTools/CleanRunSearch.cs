@@ -199,8 +199,13 @@ namespace LOP.MapTools
                 }
                 if (found == false)
                 {
-                    //  일어나면 정방향과 역방향이 다른 규칙을 쓴다는 뜻이다 — 조용히 넘기지 않는다.
-                    return System.Array.Empty<bool>();
+                    //  일어나면 정방향과 역방향이 다른 규칙을 쓴다는 뜻이다 — 여기서 조용히 빈
+                    //  배열을 돌려주면 Run()은 그대로 Reachable=true를 내면서 Flaps만 비게
+                    //  되어, 부르는 쪽이 "성공"과 "성공이라는데 되짚기는 깨졌다"를 구분할
+                    //  수 없다. 그래서 조용히 넘기지 않고 바로 터뜨린다.
+                    throw new System.InvalidOperationException(
+                        $"CleanRunSearch.ExtractFlaps: {column - 1}번째 열에서 되짚을 직전 상태를 " +
+                        "못 찾았다 — 정방향과 역방향이 다른 규칙을 쓴다는 뜻이다.");
                 }
             }
             return flaps;

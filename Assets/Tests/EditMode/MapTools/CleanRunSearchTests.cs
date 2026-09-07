@@ -159,6 +159,9 @@ namespace LOP.MapTools.Tests
 
             CleanRunResult result = CleanRunSearch.Run(options, IsFree);
             Assert.IsTrue(result.Reachable);
+            //  빈 배열이면 아래 for문이 0번 돌아 아무것도 검증하지 않고 통과해 버린다 —
+            //  "성공"과 "성공이라는데 되짚기가 깨졌다"를 갈라내는 길이 확인.
+            Assert.AreEqual(228, result.Flaps.Count);
 
             //  ExtractFlaps가 실제로 검증한 건 "연속 물리"가 아니라 탐색 자신의 눈금 모델이다
             //  (SearchGrid는 internal이라 여기서 다시 쓴다 — 사다리 속도 계산 → y += vy×dt →
@@ -188,19 +191,26 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
-        public void 여유_있는_턱이면_연속_재생도_막힌_자리를_안_지난다()
+        public void 턱이_일찍_오면_눈금_오차가_작아_연속_재생도_안_막힌다()
         {
             //  x ∈ [3, 5] 은 y ≥ −0.4 만 비어 있다 — 시작(y=0)에서 아무것도 안 하면 자유낙하로
             //  한참 못 미치지만(약 −5.9m), 몇 번만 날갯짓해도 넉넉히 위다. 앞선 x ∈ [20, 22],
             //  y ≥ 3 턱은 "칼날 위" 시나리오였다(되짚기가 고르는 최소마진 경로가 실측 진행폭
             //  0.22×90≈20 근처에서 눈금 반올림 오차가 90틱치 누적돼 최대 ~1.5m까지 벌어졌다
-            //  — 실측: 눈금 모델 y=3.4, 연속 재생 y=1.94). 이 턱은 문(x=3~5)이 훨씬 이른
-            //  지점이라 반올림 오차가 쌓일 시간(약 14~23틱)이 훨씬 짧다.
+            //  — 실측: 눈금 모델 y=3.4, 연속 재생 y=1.94).
+            //
+            //  여기서 마진을 넓히는 건 안 먹힌다 — 되짚기가 "가장 낮은 생존 상태"를 우선하므로
+            //  바닥을 낮추면 그만큼 더 낮은 경로를 다시 골라 마진이 도로 얇아진다(실측:
+            //  y≥−0.5→마진 0.9, y≥−1.0→마진 0.3, 요구를 낮춰도 마진이 안 커짐). 효과가 있는
+            //  건 문을 **일찍** 두는 것뿐이다 — 이 턱은 문(x=3~5, i=13~21)이 훨씬 이르고
+            //  그래서 필요한 날갯짓도 5회뿐이라(원래 턱은 10회 연속 몰아치기), 반올림 오차가
+            //  쌓일 기회 자체가 적다.
             bool IsFree(float x, float y) => (x < 3f || x > 5f) || y >= -0.4f;
             var options = Options(startY: 0f, finishX: 50f);
 
             CleanRunResult result = CleanRunSearch.Run(options, IsFree);
             Assert.IsTrue(result.Reachable);
+            Assert.AreEqual(228, result.Flaps.Count);
 
             //  탐색이 준 순서 그대로 포물선(연속 물리)을 굴린다. 한 번이라도 막힌 자리를
             //  지나면 안 된다. 실측: 눈금 모델 마진 0.50m, 연속 재생 마진 0.53m — 반올림
@@ -215,6 +225,39 @@ namespace LOP.MapTools.Tests
                 y += vy * options.TickSeconds;
                 Assert.IsTrue(IsFree(x + 0.22f, y),
                               $"{i}번째 틱에서 막힌 자리를 지났다 (x={x + 0.22f:F2} y={y:F2})");
+            }
+        }
+
+        [Test]
+        public void 천장이_있는_회랑도_연속_재생이_바닥과_천장_둘_다_안_지난다()
+        {
+            //  x ∈ [5, 7] 은 y ∈ [−0.4, 2.0] 만 비어 있다 — 바닥뿐 아니라 천장도 있는 "회랑".
+            //  앞선 턱 테스트 둘은 전부 바닥만 있고 하늘은 열려 있어서, 계획보다 너무 높이
+            //  날아오르는 corruption(예: 기록된 날갯짓을 뒤집는 버그)이 있어도 안 걸린다 —
+            //  실측: 뒤집기 corruption을 넣으면 42/5/8회였던 날갯짓이 186/223/220회로
+            //  치솟는데도 바닥만 있는 기존 테스트는 전부 초록이었다. 천장을 두면 그 초과분이
+            //  걸린다.
+            bool IsFree(float x, float y) => (x < 5f || x > 7f) || (y >= -0.4f && y <= 2.0f);
+            var options = Options(startY: 0f, finishX: 50f);
+
+            CleanRunResult result = CleanRunSearch.Run(options, IsFree);
+            Assert.IsTrue(result.Reachable);
+            Assert.AreEqual(228, result.Flaps.Count);
+
+            //  탐색이 준 순서 그대로 포물선(연속 물리)을 굴린다. 바닥도 천장도 넘으면 안 된다.
+            //  실측(문 구간 i=22..30): 눈금 모델 바닥마진 0.30m/천장마진 0.30m, 연속 재생
+            //  바닥마진 0.356m/천장마진 0.268m — 둘 다 반올림 오차(약 0.03~0.06m)보다
+            //  5배 이상 넉넉해 어느 쪽 벽도 칼날 위가 아니다.
+            float y = options.StartY, vy = 0f;
+            for (int i = 0; i < result.Flaps.Count; i++)
+            {
+                float x = options.StartX + 0.22f * i;
+                vy -= options.Gravity * options.TickSeconds;
+                if (vy < -options.MaxFallSpeed) { vy = -options.MaxFallSpeed; }
+                if (result.Flaps[i]) { vy = options.FlapImpulse; }
+                y += vy * options.TickSeconds;
+                Assert.IsTrue(IsFree(x + 0.22f, y),
+                              $"{i}번째 틱에서 (바닥 또는 천장) 막힌 자리를 지났다 (x={x + 0.22f:F2} y={y:F2})");
             }
         }
 

@@ -38,6 +38,32 @@ public class SkydiveLaserBuildTests
         StringAssert.Contains("2200", failure);
     }
 
+    // 위 테스트는 그 선반의 빠른 구멍(첫 번째)을 덮으므로, 구멍을 하나만 보는 검사기도
+    // 똑같이 통과한다. 안전한 구멍(두 번째)만 덮어서 "구멍마다 따로 본다"를 실제로 잰다 —
+    // 안전한 구멍이 영영 막히면 스펙 §3.2 ②(문을 못 뚫어도 완주)가 깨진다.
+    [Test]
+    public void 안전한_구멍만_덮는_문지기도_걸린다()
+    {
+        //  선반 2200의 안전한 구멍은 (55, 30), 한 변 20. 빠른 구멍(30, 0)은 건드리지 않도록
+        //  z=18 위쪽에만 빔을 깐다.
+        var blocking = new List<SkydiveCourseBuilder.LaserSpec>();
+        for (int i = 0; i < 7; i++)
+        {
+            float z = 18f + i * 4f;
+            blocking.Add(new SkydiveCourseBuilder.LaserSpec(
+                $"Test_SafeCover{i}", new Vector3(40f, 2215f, z),
+                length: 30f, radius: 2.0f,
+                startAngleDegrees: 0f, angularSpeedDegreesPerTick: 0f, sweepHalfRangeDegrees: 0f,
+                period: 0, onTicks: 0, phase: 0));
+        }
+
+        string failure = SkydiveCourseBuilder.FindBlockedGate(blocking);
+
+        Assert.IsNotNull(failure);
+        StringAssert.Contains("2200", failure);
+        StringAssert.Contains("(55,30)", failure);
+    }
+
     [Test]
     public void 부활_지점은_모두_판_위이고_구멍_밖이다()
     {

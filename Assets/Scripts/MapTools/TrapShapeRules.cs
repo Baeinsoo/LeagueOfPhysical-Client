@@ -3,7 +3,11 @@ using UnityEngine;
 
 namespace LOP.MapTools
 {
-    /// <summary>지형 표면의 한 점과 그 자리 법선. 콜라이더 종류를 모른다.</summary>
+    /// <summary>
+    /// 지형 표면의 한 점과 그 자리 법선. 콜라이더 종류를 모른다.
+    /// 각도 문턱값(<see cref="ForwardOverhangRule"/>)이 성분 비교로 성립하려면 법선 길이가
+    /// 1이어야 하므로, 생성자에서 항상 정규화해 저장한다 — 호출부가 정규화를 잊어도 안전하다.
+    /// </summary>
     public readonly struct SurfaceSample
     {
         public readonly Vector3 Point;
@@ -12,14 +16,23 @@ namespace LOP.MapTools
         public SurfaceSample(Vector3 point, Vector3 normal)
         {
             Point = point;
-            Normal = normal;
+            Normal = normal.normalized;
         }
     }
 
     /// <summary>
-    /// "이 모양은 덫이 될 만한가"를 표면 하나로 판단한다. <b>확정하지 않는다</b> — 여기서 걸린
-    /// 자리는 굴려 보기의 씨앗이 될 뿐이고, 낌인지 아닌지는 기존 판정이 정한다.
+    /// "이 모양은 덫이 될 만한가"를 표면 <b>하나</b>로 판단한다. <b>확정하지 않는다</b> — 여기서
+    /// 걸린 자리는 굴려 보기의 씨앗이 될 뿐이고, 낌인지 아닌지는 기존 판정이 정한다.
     /// 규칙을 더하려면 이 인터페이스를 구현해 <see cref="TrapShapeRules.Default"/>에 넣는다.
+    ///
+    /// <para><b>열려 있는 범위 — 단일 표면 규칙까지다.</b> <see cref="IsSuspect"/>가 보는 건
+    /// 표면 하나뿐이라, "이 면 혼자 어떤 모양인가"로 판단하는 새 규칙은 클래스 하나 추가 +
+    /// <see cref="TrapShapeRules.Default"/>에 등록만으로 끝난다(훑기·씨앗 합치기·판정 불변).
+    /// 반대로 <b>두 면 이상을 함께 봐야 하는 모양</b>(예: 바닥과 그 위로 기운 천장이 만드는
+    /// 쐐기꼴)은 이 인터페이스로 표현할 수 없다 — 이웃 표면을 볼 방법이 없다. 그런 규칙이
+    /// 필요해지면 이 인터페이스와, 이걸 호출하는 훑기 루프를 함께 바꿔야 한다. 다만 그 비용은
+    /// 크지 않다 — 증거가 있는 두-면 모양이 아직 없어 지금 넓히지 않을 뿐, 나오면 손볼 곳은
+    /// 이 파일과 훑기 루프 딱 둘이다.</para>
     /// </summary>
     public interface ITrapShapeRule
     {

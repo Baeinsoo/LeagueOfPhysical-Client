@@ -710,14 +710,18 @@ namespace LOP.EditorTools
         private const float ShapeScanStep = 0.1f;
         //  표면을 찾으려고 쏘는 레이의 길이. 격자 한 칸보다 조금 길게 잡아 사이가 비지 않게 한다.
         private const float ShapeRayLength = 0.15f;
-        //  규칙에 걸린 면에서 이만큼 떨어진 자리를 씨앗으로 낸다. 표면 안쪽은 새가 못 있는 자리다.
-        private const float ShapeSeedOffset = 0.5f;
+        //  덮개에 눌려 낀 새는 머리가 덮개에 붙고 발은 몸높이(shape.Height)만큼 아래에 있다 —
+        //  거기서 이만큼만 더 내려 여유를 둔다(정확히 표면에 붙이면 겹침 판정이 흔들린다).
+        private const float ShapeSeedClearance = 0.05f;
+        //  ~6,300열마다 매번 진행바를 그리면 그리기 자체가 느려진다 — 이 열 수마다만 그린다.
+        private const int ShapeScanProgressStride = 50;
 
         //  콜라이더 종류를 가리지 않고 표면 법선을 모은다 — 지금은 BoxCollider뿐이지만 메시가
         //  와도 같은 코드가 돈다. 규칙에 걸린 자리를 낌 스캔의 씨앗으로 낸다(확정하지 않는다).
+        //  cancelNotes: 취소되면 "형상 훑기 — 몇/몇열만" 문구를 여기에 얹는다(1·2단계와 같은 방식).
         private static List<(float X, float Y)> ShapeSeeds(in Bounds bounds, in FlappyShape shape,
-                                                           int mapMask, out int sampleCount,
-                                                           out int suspectCount)
+                                                           int mapMask, List<string> cancelNotes,
+                                                           out int sampleCount, out int suspectCount)
         {
             var seeds = new List<(float, float)>();
             var directions = new[] { Vector3.up, Vector3.down, Vector3.right, Vector3.left };
@@ -725,8 +729,20 @@ namespace LOP.EditorTools
             sampleCount = 0;
             suspectCount = 0;
 
-            for (float x = bounds.min.x; x <= bounds.max.x; x += ShapeScanStep)
+            int columns = Mathf.Max(1, Mathf.CeilToInt((bounds.max.x - bounds.min.x) / ShapeScanStep));
+            int column = 0;
+            for (float x = bounds.min.x; x <= bounds.max.x; x += ShapeScanStep, column++)
             {
+                if (column % ShapeScanProgressStride == 0
+                    && EditorUtility.DisplayCancelableProgressBar(
+                        "Flappy 맵 검사 (2/3 낌 지점 · 지형 모양 훑기)",
+                        $"x = {x:F0} / {bounds.max.x:F0} · 의심 {suspectCount}곳",
+                        column / (float)columns))
+                {
+                    Debug.LogWarning("[맵 스캔] 취소됨 — 형상 훑기 결과가 불완전하다.");
+                    cancelNotes.Add($"형상 훑기 — 열 {column}/{columns}개만 스캔됨");
+                    break;
+                }
                 for (float y = bounds.min.y; y <= bounds.max.y; y += ShapeScanStep)
                 {
                     var origin = new Vector3(x, y, 0f);
@@ -746,9 +762,10 @@ namespace LOP.EditorTools
                                 continue;
                             }
                             suspectCount++;
-                            //  덮개 아래쪽 — 새가 실제로 갇히는 자리다.
-                            var seed = hit.point + hit.normal * ShapeSeedOffset;
-                            seeds.Add((seed.x, seed.y));
+                            //  덮개에 눌려 낀 새의 자리 — 머리는 덮개 바로 아래, 발은 몸높이만큼
+                            //  더 아래(x는 부딪힌 지점 그대로, 법선 방향으로는 밀지 않는다).
+                            float seedY = hit.point.y - shape.Height - ShapeSeedClearance;
+                            seeds.Add((hit.point.x, seedY));
                             break;
                         }
                     }
@@ -783,6 +800,7 @@ namespace LOP.EditorTools
             var stuck = new List<(float X, float Y)>();
             int contacts = 0;
             cancelNotes = new List<string>();
+            bool stage1Cancelled = false;
 
             int columns = Mathf.Max(1, Mathf.CeilToInt((bounds.max.x - bounds.min.x) / GridStep));
             int column = 0;
@@ -795,6 +813,7 @@ namespace LOP.EditorTools
                 {
                     Debug.LogWarning("[맵 스캔] 취소됨 — 결과가 불완전하다.");
                     cancelNotes.Add($"1단계(무입력) — 열 {column}/{columns}개만 스캔됨");
+                    stage1Cancelled = true;
                     break;
                 }
                 for (float y = bounds.min.y; y <= bounds.max.y; y += GridStep)
@@ -813,20 +832,45 @@ namespace LOP.EditorTools
 
             //  격자에 안 걸린 자리를 형상으로 찾아 씨앗에 더한다. 판정은 아래 2단계가 그대로 한다 —
             //  여기서 하는 일은 "어디서부터 굴려 볼까"를 늘리는 것뿐이다.
-            var shapeSeeds = ShapeSeeds(bounds, shape, mapMask, out int shapeSamples, out int shapeSuspects);
-            int shapeAdded = 0;
-            for (int i = 0; i < shapeSeeds.Count; i++)
+            //  1단계가 이미 취소됐으면 훑지 않는다 — 취소한 사람을 가장 오래 걸리는 단계로
+            //  또 밀어 넣을 이유가 없다.
+            int shapeSamples = 0, shapeSuspects = 0;
+            int shapeDuplicates = 0, shapeOutOfBand = 0, shapeInsideGeometry = 0, shapeEscaped = 0, shapeAdded = 0;
+            if (stage1Cancelled == false)
             {
-                if (AlreadyNear(candidates, shapeSeeds[i], GridStep))
+                var shapeSeeds = ShapeSeeds(bounds, shape, mapMask, cancelNotes,
+                                            out shapeSamples, out shapeSuspects);
+                for (int i = 0; i < shapeSeeds.Count; i++)
                 {
-                    continue;
+                    if (AlreadyNear(candidates, shapeSeeds[i], GridStep))
+                    {
+                        shapeDuplicates++;
+                        continue;
+                    }
+                    //  -shape.Height만큼 내린 자리라 탐색 대역(맵 바닥 슬래브 등) 밖으로 나갈 수
+                    //  있다 — 대역 밖은 애초에 새가 다닐 자리가 아니다.
+                    if (shapeSeeds[i].Y < bounds.min.y || shapeSeeds[i].Y > bounds.max.y)
+                    {
+                        shapeOutOfBand++;
+                        continue;
+                    }
+                    var seedPoint = new Vector3(shapeSeeds[i].X, shapeSeeds[i].Y, 0f);
+                    //  IsContactPoint의 첫 관문과 같은 기준 — 지형 안이면 새가 있을 수 없는
+                    //  자리라 여기서 Escapes를 부르는 것 자체가 무의미하다(얼거나 뚫고 나간다).
+                    if (Physics.CheckCapsule(shape.Lower(seedPoint), shape.Upper(seedPoint), shape.Radius,
+                                             mapMask, QueryTriggerInteraction.Ignore))
+                    {
+                        shapeInsideGeometry++;
+                        continue;
+                    }
+                    if (Escapes(seedPoint, shape, mapMask, query))
+                    {
+                        shapeEscaped++;
+                        continue;   // 무입력으로 빠져나가면 후보가 아니다 — 격자 씨앗과 같은 기준이다
+                    }
+                    candidates.Add(shapeSeeds[i]);
+                    shapeAdded++;
                 }
-                if (Escapes(new Vector3(shapeSeeds[i].X, shapeSeeds[i].Y, 0f), shape, mapMask, query))
-                {
-                    continue;   // 무입력으로 빠져나가면 후보가 아니다 — 격자 씨앗과 같은 기준이다
-                }
-                candidates.Add(shapeSeeds[i]);
-                shapeAdded++;
             }
 
             //  2단계 — 눌러서 넘을 수 있는 벽을 걸러낸다. 여기까지 온 자리만 진짜 낌이다.
@@ -850,7 +894,8 @@ namespace LOP.EditorTools
 
             var regions = TrapClustering.Cluster(stuck, ClusterDistance);
             return BuildTrapSection(shape, contacts, candidates.Count, stuck.Count, regions, mapMask, cancelNotes,
-                                    shapeSamples, shapeSuspects, shapeAdded);
+                                    shapeSamples, shapeSuspects, shapeDuplicates, shapeOutOfBand,
+                                    shapeInsideGeometry, shapeEscaped, shapeAdded);
         }
 
         //  ② 절만 만든다 — 코스 범위·물리·탐색 y대역은 PlayabilityReport의 머리말이 이미 찍으므로 뺐다.
@@ -858,7 +903,9 @@ namespace LOP.EditorTools
                                                int candidateCount, int stuckCount,
                                                List<TrapRegion> regions, int mapMask,
                                                List<string> cancelNotes,
-                                               int shapeSamples, int shapeSuspects, int shapeAdded)
+                                               int shapeSamples, int shapeSuspects,
+                                               int shapeDuplicates, int shapeOutOfBand,
+                                               int shapeInsideGeometry, int shapeEscaped, int shapeAdded)
         {
             var text = new StringBuilder();
             //  취소됐으면 절 맨 위, 요약 줄보다도 먼저 찍는다 — 스킴하는 사람이 숫자부터 보고
@@ -870,8 +917,13 @@ namespace LOP.EditorTools
             text.AppendLine($"낌 지점 스캔: 구역 {regions.Count}개"
                           + $" (낌점 {stuckCount} / 무입력 후보 {candidateCount} / 지형에 닿는 자리 {contacts})"
                           + (cancelNotes.Count > 0 ? "  ⚠️ 취소됨" : ""));
-            text.AppendLine($"  형상 훑기: 표면 {shapeSamples}곳 중 {shapeSuspects}곳이 규칙에 걸렸고"
-                          + $" {shapeAdded}곳을 씨앗으로 더했다");
+            //  shapeSamples는 "표면 몇 곳"이 아니라 레이가 맞은 횟수다 — 0.1m 간격에 레이 4개라
+            //  같은 표면 1m에도 여러 번 잡힌다. 규칙에 걸린 뒤 갈리는 다섯 갈래를 다 보여줘야
+            //  "규칙이 아무것도 못 잡는 것"과 "잡았는데 전부 버려진 것"을 구분할 수 있다.
+            text.AppendLine($"  형상 훑기: 레이 히트 {shapeSamples}회 중 {shapeSuspects}곳이 규칙에 걸림"
+                          + $" — 중복 {shapeDuplicates} / 대역밖 {shapeOutOfBand}"
+                          + $" / 지형안 {shapeInsideGeometry} / 무입력탈출 {shapeEscaped}"
+                          + $" / 씨앗 {shapeAdded}곳");
             //  R16 — y대역(탐색 상/하한) 안내는 PlayabilityReport 머리말로 옮겼다 — ①(클린런)도
             //  같은 대역을 쓰는데 ②의 절에만 있으면 ①만 읽는 사람이 못 본다.
             text.AppendLine($"  1단계: 무입력 {SimulationTicks * TickSeconds:F1}초에 {EscapeDistance:F0}m 미만"

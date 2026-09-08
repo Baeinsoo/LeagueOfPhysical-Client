@@ -3,6 +3,29 @@ using System.Text;
 
 namespace LOP.MapTools
 {
+    /// <summary>봇이 멈춘 자리와 이유 — 봇이 실패한 자리(🟡/❌)를 진단하기 위한 것이다. 봇이
+    /// 통과했으면(✅) 이 값은 안 쓰인다 — 증명된 자리는 부검하지 않는다.</summary>
+    public readonly struct BotDiagnostics
+    {
+        public readonly float EndX;
+        public readonly float EndY;
+        /// <summary>무언가에 닿아 멈췄는가. false면 닿지 않고 제한 틱을 다 써서 멈춘 것이다.</summary>
+        public readonly bool Touched;
+        public readonly int Ticks;
+        /// <summary>겨냥할 틈을 못 찾아(BotPilot.Decide의 GapFound=false) 근거 없이 날갯짓한
+        /// 틱 수. 크면 "봇이 보고도 놓친 것"이 아니라 "봇이 애초에 못 본 것"이다.</summary>
+        public readonly int BlindTicks;
+
+        public BotDiagnostics(float endX, float endY, bool touched, int ticks, int blindTicks)
+        {
+            EndX = endX;
+            EndY = endY;
+            Touched = touched;
+            Ticks = ticks;
+            BlindTicks = blindTicks;
+        }
+    }
+
     /// <summary>스폰 한 자리의 클린런 결과. <see cref="VerifiedByReplay"/>는 진짜 커널로 재생해 확인했는가.</summary>
     public readonly struct SpawnCleanRun
     {
@@ -13,9 +36,10 @@ namespace LOP.MapTools
         /// <summary>봇이 진짜 커널로 끝까지 갔는가. true면 이 자리는 증명된 것이다.</summary>
         public readonly bool BotReached;
         public readonly int BotFlaps;
+        public readonly BotDiagnostics Bot;
 
         public SpawnCleanRun(string name, float y, CleanRunResult result, bool verifiedByReplay,
-                             bool botReached, int botFlaps)
+                             bool botReached, int botFlaps, BotDiagnostics bot)
         {
             Name = name;
             Y = y;
@@ -23,6 +47,7 @@ namespace LOP.MapTools
             VerifiedByReplay = verifiedByReplay;
             BotReached = botReached;
             BotFlaps = botFlaps;
+            Bot = bot;
         }
     }
 
@@ -79,6 +104,7 @@ namespace LOP.MapTools
                         anyUnproven = true;
                         text.AppendLine($"  {run.Name} (y={run.Y:F0})   🟡  날갯짓 {CountFlaps(run.Result)}회"
                                       + "   ⚠️ 봇은 못 갔고 탐색은 찾았으나 재생이 어긋남");
+                        AppendBotDiagnostics(text, run.Bot, run.BotFlaps, startX, finishX);
                     }
                 }
                 else
@@ -99,6 +125,7 @@ namespace LOP.MapTools
                                       + $"  생존 {run.Result.NarrowestCount}"
                                       + $"  높이 폭 {run.Result.NarrowestHeightSpan:F1}m");
                     }
+                    AppendBotDiagnostics(text, run.Bot, run.BotFlaps, startX, finishX);
                 }
             }
             bool anyPass = anyProven || anyUnproven;
@@ -172,6 +199,22 @@ namespace LOP.MapTools
                 if (result.Flaps[i]) { count++; }
             }
             return count;
+        }
+
+        //  봇이 못 간 자리(🟡/❌)마다 어디서 왜 멈췄는지를 같은 형식으로 찍는다 — 네 자리를
+        //  나란히 놓았을 때 x가 같은지 다른지가 한눈에 들어와야 한다: 같으면 장애물 하나가
+        //  전부를 막는 것이고, 다르면 파일럿(봇) 자체가 약한 것이다. 증명된 자리(✅)는 이
+        //  함수를 타지 않는다 — 부검할 실패가 없다.
+        static void AppendBotDiagnostics(StringBuilder text, in BotDiagnostics bot, int botFlaps,
+                                         float startX, float finishX)
+        {
+            float percent = (bot.EndX - startX) / (finishX - startX) * 100f;
+            //  닿아서(Touched) 멈춘 것과, 안 닿았는데 제한 틱을 다 써서 멈춘 것은 원인이
+            //  다르다 — 후자는 봇이 제자리 근처를 맴돌았다는 뜻이라 처방이 또 다르다.
+            string reason = bot.Touched ? "닿음" : "틱 소진(못 닿음)";
+            text.AppendLine($"                             봇: x={bot.EndX:F1} y={bot.EndY:F1}"
+                          + $" (코스 {percent:F0}%)  {reason} · {bot.Ticks}틱 · 날갯짓 {botFlaps}회"
+                          + $" · 목표 없음 {bot.BlindTicks}틱");
         }
     }
 }

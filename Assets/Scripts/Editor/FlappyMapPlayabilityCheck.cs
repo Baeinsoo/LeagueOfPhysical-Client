@@ -159,6 +159,11 @@ namespace LOP.EditorTools
                     //  한다(다른 대역을 보면 "같은 질문에 답했다"고 할 수 없다).
                     BotFlight flight = FlyBot(spawns[i].Position, finishX, shape, mapMask, query,
                                               SearchMinY, SearchMaxY, botGrid.IsFree);
+                    //  진단은 봇이 통과했든 실패했든 같은 값을 담아 둔다 — 리포트는 BotReached가
+                    //  참이면 이 값을 아예 안 읽는다("증명된 자리는 부검하지 않는다"), 그래서
+                    //  여기서 성공/실패로 갈라 만들 이유가 없다.
+                    var botDiagnostics = new LOP.MapTools.BotDiagnostics(
+                        flight.EndX, flight.EndY, flight.Touched, flight.Ticks, flight.BlindTicks);
                     if (flight.Reached)
                     {
                         cleanRuns.Add(new LOP.MapTools.SpawnCleanRun(
@@ -167,7 +172,8 @@ namespace LOP.EditorTools
                             //  회랑 세 자리가 0인 것은 이미 "측정 안 됨"의 신호이고(R11),
                             //  리포트는 BotReached가 참이면 이 필드를 아예 안 본다.
                             new LOP.MapTools.CleanRunResult(true, System.Array.Empty<bool>(), 0f, 0f, 0, 0f),
-                            verifiedByReplay: true, botReached: true, botFlaps: flight.FlapCount));
+                            verifiedByReplay: true, botReached: true, botFlaps: flight.FlapCount,
+                            bot: botDiagnostics));
                         continue;
                     }
 
@@ -185,7 +191,7 @@ namespace LOP.EditorTools
                         && VerifyByReplay(spawns[i].Position, result.Flaps, shape, mapMask, query);
                     cleanRuns.Add(new LOP.MapTools.SpawnCleanRun(
                         spawns[i].Name, spawns[i].Position.y, result, verified,
-                        botReached: false, botFlaps: flight.FlapCount));
+                        botReached: false, botFlaps: flight.FlapCount, bot: botDiagnostics));
                 }
 
                 //  ② 기존 낌 스캔 — 본문은 그대로다.
@@ -449,14 +455,27 @@ namespace LOP.EditorTools
             public readonly float FarthestX;
             public readonly int FlapCount;
             public readonly int Ticks;
+            /// <summary>멈춘 순간의 실제 자리. FarthestX와 다를 수 있다 — 부딪혀 뒤로 밀리면
+            /// 가장 멀리 간 지점(FarthestX)과 멈춘 지점(EndX)이 갈린다. "어디서 죽었나"를
+            /// 묻는 진단은 이 자리를 봐야 한다.</summary>
+            public readonly float EndX;
+            public readonly float EndY;
+            /// <summary>BotPilot.Decide가 GapFound=false를 낸 틱 수 — 앞에 겨냥할 틈을 못 찾아
+            /// 근거 없이 날갯짓한 틱이다. 이게 크면 "봇이 눈뜬 채 놓친 것"이 아니라
+            /// "봇이 애초에 못 봤다"는 뜻이라 처방이 달라진다.</summary>
+            public readonly int BlindTicks;
 
-            public BotFlight(bool reached, bool touched, float farthestX, int flapCount, int ticks)
+            public BotFlight(bool reached, bool touched, float farthestX, int flapCount, int ticks,
+                             float endX, float endY, int blindTicks)
             {
                 Reached = reached;
                 Touched = touched;
                 FarthestX = farthestX;
                 FlapCount = flapCount;
                 Ticks = ticks;
+                EndX = endX;
+                EndY = endY;
+                BlindTicks = blindTicks;
             }
         }
 
@@ -485,6 +504,7 @@ namespace LOP.EditorTools
             var blocked = new bool[buckets];
             float farthest = start.x;
             int flaps = 0;
+            int blindTicks = 0;
 
             //  코스 길이보다 넉넉히 잡는다. 봇이 제자리에 갇히면 여기서 끝난다.
             int limit = Mathf.CeilToInt((finishX - start.x) / (shape.ForwardSpeed * TickSeconds)) + 600;
@@ -503,6 +523,12 @@ namespace LOP.EditorTools
                 {
                     flaps++;
                 }
+                //  진단 전용 집계 — 판단 자체(decision)는 건드리지 않는다. 겨냥할 틈을 못 찾은
+                //  틱만 센다(BotPilot.Decide의 GapFound=false — "근거 없이 날갯짓" 신호).
+                if (decision.GapFound == false)
+                {
+                    blindTicks++;
+                }
 
                 state = Step(state, decision.Flap, shape, mapMask, query);
                 if (state.Position.x > farthest)
@@ -511,17 +537,20 @@ namespace LOP.EditorTools
                 }
                 if (state.Stun > 0f)
                 {
-                    return new BotFlight(false, true, farthest, flaps, tick + 1);
+                    return new BotFlight(false, true, farthest, flaps, tick + 1,
+                                         state.Position.x, state.Position.y, blindTicks);
                 }
                 //  ①(클린런)과 같은 질문이어야 한다 — 탐색은 발(x)이 마커 중심에 닿으면 골인으로
                 //  본다(TryReadFinishX 참고, 몸 반지름만큼 더 엄격한 게 의도적인 보수). +radius로
                 //  코를 기준 삼으면 그만큼 일찍 끝나 마지막 구간을 안 본다. 발 기준으로 맞춘다.
                 if (state.Position.x >= finishX)
                 {
-                    return new BotFlight(true, false, farthest, flaps, tick + 1);
+                    return new BotFlight(true, false, farthest, flaps, tick + 1,
+                                         state.Position.x, state.Position.y, blindTicks);
                 }
             }
-            return new BotFlight(false, false, farthest, flaps, limit);
+            return new BotFlight(false, false, farthest, flaps, limit,
+                                 state.Position.x, state.Position.y, blindTicks);
         }
 
         //  지형 안이면 새가 있을 수 없고, 지형에서 멀면 낄 일이 없다. 그 사이만 본다.

@@ -486,6 +486,10 @@ namespace LOP.EditorTools
 
         //  앞을 이만큼 내다본다. 전진 11에서 약 1.5m — 프로토타입이 쓰던 앞보기 거리와 같은 취지다.
         private const float BotLookaheadSeconds = 0.14f;
+        //  "다음" 틈은 이만큼 더 멀리 본다(근거리의 2배 — 지금 장애물 두께 너머 다음 틈이
+        //  드러날 만큼). 지금 틈만 보고 겨냥하면 그 틈을 다 지나기도 전에 다음 틈이 낮아져
+        //  있을 때 이미 너무 높은 채로 도착해 박는다(BotPilot.Decide가 둘을 함께 본다).
+        private const float BotFarLookaheadSeconds = BotLookaheadSeconds * 2f;
 
         //  봇을 진짜 커널로 날린다. 궤적이 하나뿐이라 상태를 묶을 이유가 없고, 그래서 반올림도
         //  표류도 생기지 않는다 — 전수 탐색이 못 하는 "증명"이 여기서 나온다.
@@ -505,8 +509,10 @@ namespace LOP.EditorTools
             var state = new BirdState { Position = new Vector3(start.x, start.y, 0f) };
             float flapArc = LOP.MapTools.BotPilot.FlapArc(shape.FlapImpulse, shape.Gravity, TickSeconds);
             float lookahead = shape.ForwardSpeed * BotLookaheadSeconds;
+            float farLookahead = shape.ForwardSpeed * BotFarLookaheadSeconds;
             int buckets = Mathf.CeilToInt((maxY - minY) / HeightGrid) + 1;
-            var blocked = new bool[buckets];
+            var blockedNear = new bool[buckets];
+            var blockedFar = new bool[buckets];
             float farthest = start.x;
             int flaps = 0;
             int blindTicks = 0;
@@ -516,14 +522,18 @@ namespace LOP.EditorTools
             for (int tick = 0; tick < limit; tick++)
             {
                 float scanX = state.Position.x + lookahead;
+                float scanXFar = state.Position.x + farLookahead;
                 for (int i = 0; i < buckets; i++)
                 {
-                    blocked[i] = isFree(scanX, minY + i * HeightGrid) == false;
+                    float y = minY + i * HeightGrid;
+                    blockedNear[i] = isFree(scanX, y) == false;
+                    blockedFar[i] = isFree(scanXFar, y) == false;
                 }
 
-                var decision = LOP.MapTools.BotPilot.Decide(blocked, minY, HeightGrid,
+                var decision = LOP.MapTools.BotPilot.Decide(blockedNear, blockedFar, minY, HeightGrid,
                                                             state.Position.y, state.VerticalSpeed,
-                                                            shape.Radius, flapArc, TickSeconds);
+                                                            shape.Radius, flapArc, shape.Gravity,
+                                                            shape.MaxFallSpeed, TickSeconds);
                 if (decision.Flap)
                 {
                     flaps++;

@@ -501,7 +501,8 @@ namespace LOP.EditorTools
         //  한 번이라도 닿으면(스턴이 걸리면) 무충돌이 아니므로 즉시 멈춘다.
         //  minY/maxY는 호출부가 넘긴다 — 정적 필드에 기대면 Check() 밖에서 부를 때(테스트 등)
         //  0f로 조용히 굴러 garbage 조준을 하게 된다. Check()는 SearchMinY/SearchMaxY를
-        //  그대로 넘겨 "탐색과 같은 대역" 보장은 그대로 유지한다.
+        //  그대로 넘겨 "탐색과 같은 대역" 보장은 그대로 유지한다(막힘 표만 그 위로 더 훑는다 —
+        //  아래 botMaxY 참고. 지형이 없는 하늘을 더 보는 것이라 대역 자체가 달라지는 게 아니다).
         //  isFree는 탐색(CleanRunSearch.Run)과 같은 이름 있는 델리게이트·같은 극성이다 —
         //  "막힘 여부를 뒤집어 쓴다"를 문장이 아니라 타입으로 강제해, grid.IsFree를 실수로
         //  그대로 넘기는 사고(막힌 곳을 뚫린 곳으로 읽어 봇이 바위로 날아드는 것)를 막는다.
@@ -524,7 +525,15 @@ namespace LOP.EditorTools
             //  이 열은 날갯짓 물리 자체에서 나오므로 초 상수가 아니라 틱수를 직접 계산한다.
             int ticksToApex = Mathf.CeilToInt(shape.FlapImpulse / (shape.Gravity * TickSeconds));
             float apexLookahead = shape.ForwardSpeed * ticksToApex * TickSeconds;
-            int buckets = Mathf.CeilToInt((maxY - minY) / HeightGrid) + 1;
+            //  봇 표만 위로 넓힌다(탐색 밴드는 그대로 — 같은 질문을 다른 대역에서 묻게 되면
+            //  ①과 비교할 수 없다). BotPilot.IsFree는 표 위를 "열린 하늘"로 보므로, 봇이 도달할
+            //  수 있는 높이는 반드시 표 안에 있어야 그 가정이 참이 된다. 도달 가능한 가장 높은
+            //  자리는 "지형 대역의 꼭대기(maxY)에 있는 새가 날갯짓 아치(FlapArc)만큼 오른 곳"이고,
+            //  몸 높이만큼 더 얹어 발이 아니라 머리까지 덮는다. 늘어난 칸(한 열당 수십 개)은
+            //  이 가정을 산술로 참으로 만드는 값이다 — 비용만 보고 되돌리지 말 것.
+            float botMaxY = maxY + LOP.MapTools.BotPilot.FlapArc(shape.FlapImpulse, shape.Gravity, TickSeconds)
+                            + shape.Height;
+            int buckets = Mathf.CeilToInt((botMaxY - minY) / HeightGrid) + 1;
             var blockedNear = new bool[buckets];
             var blockedApex = new bool[buckets];
             var blockedFar = new bool[buckets];

@@ -26,11 +26,13 @@ namespace LOP.MapTools.Tests
         //  아래에서 위로 0.1m 간격. true = 막힘.
         static bool[] Column(params bool[] cells) => cells;
 
-        //  이 파일의 어떤 테스트도 이 높이 위까지는 묻지 않는다 — Free/Band가 뚫린 구간
-        //  바로 위에 벽 하나만 세우고 표를 끝내면, BotPilot.IsFree의 "표 밖은 뚫린 하늘이다"
-        //  규칙이 회랑 훨씬 위쪽 높이를 우연히 열린 하늘로 오판한다(실제 FlyBot이 만드는 표는
-        //  맵 전체 스캔 밴드를 담아 이 문제가 없다 — 손으로 짧게 만드는 테스트 표에서만 생기는
-        //  인공물이다). 그래서 표를 이 높이까지 전부 채워(뚫린 구간 빼고는 막힘) 준다.
+        //  Free/Band/Pillar로 만든 표는 이 높이까지 전부 채운다(뚫린 구간 빼고는 막힘) —
+        //  뚫린 구간 바로 위에 벽 하나만 세우고 표를 끝내면, BotPilot.IsFree의 "표 밖은 뚫린
+        //  하늘이다" 규칙이 회랑 훨씬 위쪽 높이를 우연히 열린 하늘로 오판한다(실제 FlyBot이
+        //  만드는 표는 봇이 도달할 수 있는 높이를 다 덮어 이 문제가 없다 — 손으로 짧게 만드는
+        //  테스트 표에서만 생기는 인공물이다).
+        //  범위 밖 두 분기를 일부러 겨냥하는 테스트만 이 헬퍼들을 쓰지 않고 Column()으로 짧은
+        //  표를 직접 만든다 — 채워 버리면 그 분기에 도달할 수가 없어서다.
         const float TableTopHeight = 100f;
 
         static int TableCells(float step) => (int)Math.Round(TableTopHeight / step) + 1;
@@ -68,11 +70,14 @@ namespace LOP.MapTools.Tests
             return column;
         }
 
-        //  두 구간([low1,high1], [low2,high2])만 뚫리고 나머지(0부터 topY까지 전부)는 막힌
-        //  기둥 — 가운데 기둥(가운데 통로가 막힌 코스)을 재현한다.
+        //  두 구간([low1,high1], [low2,high2])만 뚫리고 나머지는 막힌 기둥 — 가운데 기둥(가운데
+        //  통로가 막힌 코스)을 재현한다. topY는 "뚫린 구간을 어디까지 그릴지"일 뿐이고, 표 자체는
+        //  Free/Band와 같은 관례로 TableTopHeight까지 채운다(그 위는 전부 막힘) — 표가 topY에서
+        //  끝나면 그보다 높은 높이를 묻는 테스트가 IsFree의 "표 밖은 열린 하늘" 규칙에 걸려
+        //  조용히 통과해 버린다.
         static bool[] Pillar(float low1, float high1, float low2, float high2, float bottomY, float step, float topY)
         {
-            int count = (int)Math.Round((topY - bottomY) / step) + 1;
+            int count = Math.Max(TableCells(step), (int)Math.Round((topY - bottomY) / step) + 1);
             var column = new bool[count];
             for (int i = 0; i < count; i++)
             {
@@ -414,11 +419,16 @@ namespace LOP.MapTools.Tests
         {
             //  통로가 하나뿐인 회랑에서는 이번 변경(틈 고르기 → IsFree로 직접 묻기) 전후로
             //  판단이 같아야 한다 — 폭을 4.0~5.2m로 훑으며, 회랑이 currentY+아치(4.012)를
-            //  담을 만큼 넓을 때만 누르는지 확인한다. 표 해상도(step) 한 칸 안의 폭은
-            //  반올림 방향에 따라 어느 쪽으로도 갈 수 있어 그 구간은 판단을 강제하지 않는다.
+            //  담을 만큼 넓을 때만 누르는지 확인한다.
+            //
+            //  기대값은 Free(cells)의 실제 자유 상단으로 세운다 — 마지막 자유 칸의 y는
+            //  (cells−1)×step이라 Free(46)의 자유 상단은 4.6이 아니라 4.5다. 예전엔 이 어긋남을
+            //  "경계 근처는 판단을 강제하지 않는다"는 스킵으로 덮었는데, 그 스킵 구간(4.5·4.6)이
+            //  하필 옛 구현과 새 구현이 갈리는 유일한 폭이라 이 테스트가 아무것도 지키지 못했다.
+            //  스킵을 없애 4.6(안 누름)/4.7(누름)이 살아 있는 경계가 되게 한다.
             const float currentY = 0.5f;
             const float verticalSpeed = -30f; // 강하 중 — 바닥 규칙은 늘 누르고 싶어 하게 만든다
-            float requiredWidth = currentY + BotPilot.FlapArc(FlapImpulse, Gravity, TickSeconds);
+            float reach = currentY + BotPilot.FlapArc(FlapImpulse, Gravity, TickSeconds);
 
             for (int i = 0; i <= 12; i++)
             {
@@ -429,14 +439,77 @@ namespace LOP.MapTools.Tests
                                                currentY, verticalSpeed, BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
                                                TicksToNear, TicksToApex, TicksToFar, TickSeconds);
 
-                if (Math.Abs(width - requiredWidth) <= Step)
-                {
-                    continue;
-                }
-
-                bool expectFlap = width >= requiredWidth;
-                Assert.AreEqual(expectFlap, decision.Flap, $"width={width}");
+                float freeTop = (cells - 1) * Step;
+                bool expectFlap = reach <= freeTop;
+                Assert.AreEqual(expectFlap, decision.Flap, $"width={width} (자유 상단 {freeTop}, 도달 {reach})");
             }
+        }
+
+        [Test]
+        public void 도달_높이가_마지막_자유_샘플을_조금이라도_넘으면_안_누른다()
+        {
+            //  칸 하나를 고르는 방향(올림 vs 최근접 반올림)이 갈리는 자리를 단일 틱으로 못박는다.
+            //  자유 상단이 6.0인 회랑에서 y=1.992면 도달 높이는 1.992+4.012001=6.004001 —
+            //  마지막으로 "재 본" 자유 높이(6.0)를 0.004m 넘는다. 그 0.004m는 아무도 재지 않은
+            //  자리이므로 뚫렸다고 볼 근거가 없다 → 누르지 않는다. 최근접 반올림이면 60번 칸
+            //  (=6.0)을 보고 "뚫렸다"고 읽어 눌러 버린다(= 물리가 허락하는 것보다 덜 조심스러운
+            //  봇). 부동소수 잡음이 아니라 step/2(0.05m)까지 벌어질 수 있는 계통 오차다.
+            //
+            //  돌연변이 검증(2026-09-09): BotPilot.IsFree의 Math.Ceiling을 Math.Round로 되돌리고
+            //  이 파일을 그대로(NUnit만 얇은 대역으로 바꿔) 컴파일·실행해 이 테스트가 빨강이 됨을
+            //  확인했다 — 판단이 "안 누름"에서 "누름"으로 뒤집힌다. 에디터 메인 스레드가 막혀
+            //  있어 Unity Test Runner로는 돌리지 못했다.
+            var corridor = Free(61); // 0~6.0m
+            var decision = BotPilot.Decide(corridor, corridor, corridor, BottomY, Step,
+                                           currentY: 1.992f, verticalSpeed: -30f, BodyRadius,
+                                           FlapImpulse, Gravity, MaxFallSpeed,
+                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+
+            Assert.IsTrue(decision.GapFound);
+            Assert.IsFalse(decision.Flap,
+                "도달 높이 6.004가 마지막 자유 샘플(6.0)을 넘는데 눌렀다 — 재 보지 않은 높이를 뚫린 것으로 읽었다.");
+        }
+
+        [Test]
+        public void 표_아래_높이는_막힘으로_본다()
+        {
+            //  표가 y=5.0에서 시작하는데(bottomY=5) 새는 그보다 한참 아래(0)에 있다 — 도달
+            //  높이(3.34/4.012)가 전부 표 아래라 그 높이를 재 본 적이 없다. 근거 없는 자리를
+            //  안전하다고 보면 봇이 스캔 밴드 밖의 지형으로 날아드므로 막힘으로 본다.
+            //  (헬퍼를 안 쓰고 Column으로 짧은 표를 직접 만든다 — Free/Band는 표를 100m까지
+            //  채워 모든 질의가 표 안으로 들어가 이 분기를 지나지 못한다.)
+            //
+            //  돌연변이 검증(2026-09-09): index<0을 "뚫림"으로 뒤집어 컴파일·실행하니 이 테스트
+            //  하나만 빨강이 됐다. (Unity Test Runner로는 미확인 — 에디터가 막혀 있다.)
+            const float bottomY = 5f;
+            var column = Column(false, false, false, false, false, false, false, false, false, false); // 5.0~5.9 뚫림
+            var decision = BotPilot.Decide(column, column, column, bottomY, Step,
+                                           currentY: 0f, verticalSpeed: -30f, BodyRadius,
+                                           FlapImpulse, Gravity, MaxFallSpeed,
+                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+
+            Assert.IsTrue(decision.GapFound);
+            Assert.IsFalse(decision.Flap, "표 아래(재 본 적 없는 높이)를 뚫린 것으로 읽었다.");
+        }
+
+        [Test]
+        public void 표_위_높이는_열린_하늘로_본다()
+        {
+            //  표가 0.9m에서 끝나고(열 개) 도달 높이는 3.54/4.212 — 전부 표 위다. 실제 도구가
+            //  만드는 표는 봇이 도달할 수 있는 높이까지 덮으므로(FlyBot이 밴드를 그만큼 넓힌다),
+            //  표 위는 지형이 아예 없는 열린 하늘이다 — 막힘으로 보면 봇이 아무 이유 없이
+            //  겁쟁이가 되어 통과 가능한 맵을 불가능으로 보고한다.
+            //
+            //  돌연변이 검증(2026-09-09): index>=Count를 "막힘"으로 뒤집어 컴파일·실행하니 이
+            //  테스트 하나만 빨강이 됐다. (Unity Test Runner로는 미확인 — 에디터가 막혀 있다.)
+            var column = Column(false, false, false, false, false, false, false, false, false, false); // 0~0.9 뚫림, 표 끝
+            var decision = BotPilot.Decide(column, column, column, BottomY, Step,
+                                           currentY: 0.2f, verticalSpeed: -30f, BodyRadius,
+                                           FlapImpulse, Gravity, MaxFallSpeed,
+                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+
+            Assert.IsTrue(decision.GapFound);
+            Assert.IsTrue(decision.Flap, "표 위(지형이 없는 하늘)를 막힘으로 읽어 누르지 않았다.");
         }
     }
 }

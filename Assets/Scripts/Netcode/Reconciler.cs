@@ -194,7 +194,7 @@ namespace LOP
                     EntitySnap snap = pair.Value;
                     // HUD가 읽는 값은 내 엔티티 하나뿐이지만, 아래 RecordCorrection()은 배치 전체 기준(엔티티
                     // 하나라도 어긋나면 카운트)이라 같은 HUD 줄의 "평균 오차"와 "보정 횟수"가 서로 다른 대상을 센다.
-                    reconciliationStats.Record(error, IsNearOtherCharacter(entityId, predicted.Position));
+                    reconciliationStats.Record(error, IsNearOtherCharacter(anchorTick, entityId, predicted.Position));
 
                     // [진단용 임시] 예측이 크게 어긋난 순간의 정황을 통째로 남긴다.
                     // 얼마나 어긋났는지(통계)만으로는 원인을 못 가른다 — 그 틱의 입력·속도·접지가 필요하다.
@@ -349,8 +349,11 @@ namespace LOP
         }
 
         /// <summary>주어진 위치 반경 <see cref="NearRadius"/> 안에 나 말고 캐릭터가 있나(몸싸움 근접도).</summary>
-        private bool IsNearOtherCharacter(string selfId, System.Numerics.Vector3 selfPosition)
+        private bool IsNearOtherCharacter(long anchorTick, string selfId, System.Numerics.Vector3 selfPosition)
         {
+            // selfPosition은 anchorTick 시점의 예측 위치다 — 상대도 같은 틱 위치로 봐야 "그때 옆에
+            // 있었나"가 맞다. 상대를 "지금" 위치로 보면, 오차가 가장 크게 벌어지는(=이 지표가 정작
+            // 설명해야 할) 렉 스파이크 구간일수록 그 사이 상대가 멀리 움직여 근접 라벨이 틀어진다.
             foreach (var other in entityRegistry.All)
             {
                 if (other.Id == selfId)
@@ -361,7 +364,11 @@ namespace LOP
                 {
                     continue;
                 }
-                var otherPosition = GameFramework.World.EntityMotionExtensions.GetPosition(other).ToNumerics();
+                // anchorTick 기록이 없으면(막 스폰됐거나 보관 창을 벗어난 오래된 앵커) 지금 위치로
+                // 대신한다 — 라벨을 아예 안 매기는 것보다, 어긋난 순간을 표시라도 하는 쪽이 낫다.
+                var otherPosition = world.TryGetSavedMotion(anchorTick, other.Id, out var motion)
+                    ? motion.Position
+                    : GameFramework.World.EntityMotionExtensions.GetPosition(other).ToNumerics();
                 if (System.Numerics.Vector3.DistanceSquared(selfPosition, otherPosition) < NearRadiusSquared)
                 {
                     return true;

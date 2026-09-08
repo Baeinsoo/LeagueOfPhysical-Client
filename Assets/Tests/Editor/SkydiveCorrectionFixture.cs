@@ -49,7 +49,8 @@ namespace LOP.Tests
                 //  이 파일은 보정만 본다 — 결승 판정은 관심사가 아니라 스코프와 같은 축·방향으로만 맞춘다.
                 new FinishSystem(new FinishLineBounds(FinishAxis.Y, Config().GroundY),
                                  FinishAxis.Y, increasing: false),
-                new WindField(), new DoorField(), Config(),
+                new WindField(), new DoorField(),
+                new BodyCollisionSystem(0.4f, 1.8f, 0.35f, UnityEngine.Vector3.one), Config(),
                 new EmptySky(), new NoopMotionBridge(), layerMask: ~0);
             world.GameplayStartTick = 0;   // 출발 게이트는 이 파일의 관심사가 아니다
             return new SkydiveServerCorrectionHandler(world);

@@ -36,6 +36,13 @@ namespace LOP
             // 맵 씬의 DoorVolume 마커도 마찬가지다 — 클라는 문 판정을 하지 않지만, 마커의
             // [Inject]가 이걸 요구하므로 등록이 없으면 씬 주입이 그 자리에서 끊긴다.
             builder.Register<DoorField>(Lifetime.Singleton);
+            //  전 축으로 밀린다 — 사람이 옆으로도 밀려나는 게임이다(Flappy는 세로만).
+            //  값은 서버와 반드시 같아야 한다. 다르면 예측이 권위와 갈려 러버밴딩이 난다.
+            builder.Register(c => new BodyCollisionSystem(
+                c.Resolve<SkydiveConfig>().BodyRadius,
+                c.Resolve<SkydiveConfig>().BodyHeight,
+                c.Resolve<SkydiveConfig>().Restitution,
+                Vector3.one), Lifetime.Singleton);
             builder.Register<SkydiveWorld>(c => new SkydiveWorld(
                 c.Resolve<GameFramework.World.EntityRegistry>(),
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
@@ -45,12 +52,13 @@ namespace LOP
                 c.Resolve<FinishSystem>(),
                 c.Resolve<WindField>(),
                 c.Resolve<DoorField>(),
+                c.Resolve<BodyCollisionSystem>(),
                 c.Resolve<SkydiveConfig>(),
                 c.Resolve<GameFramework.Physics.ICollisionQuery>(),
                 c.Resolve<GameFramework.World.IMotionBridge>(),
                 // sweep이 볼 것은 맵 지오메트리뿐이다. 몸의 물리 콜라이더는 Character 레이어에
                 // 있으므로(PhysicsBodyFactory), 이 마스크에 Character가 없는 한 사람끼리는 안 걸린다.
-                // 사람끼리 부딪히는 것은 별도 단계로 들어온다(슬라이스 6, 스펙 §4.1).
+                // 사람끼리 부딪히는 것은 위에서 등록한 BodyCollisionSystem이 이동 뒤 별도 단계로 처리한다.
                 LayerMask.GetMask("Default")), Lifetime.Singleton)
                 .As<GameFramework.World.IWorld>().AsSelf();
 

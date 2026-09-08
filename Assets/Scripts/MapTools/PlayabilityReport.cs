@@ -15,14 +15,23 @@ namespace LOP.MapTools
         /// <summary>겨냥할 틈을 못 찾아(BotPilot.Decide의 GapFound=false) 근거 없이 날갯짓한
         /// 틱 수. 크면 "봇이 보고도 놓친 것"이 아니라 "봇이 애초에 못 본 것"이다.</summary>
         public readonly int BlindTicks;
+        /// <summary>가장 멀리 갔던 자리. 부딪혀 뒤로 밀리면 EndX보다 앞이다 — 다르면 EndX만
+        /// 찍은 퍼센트가 "실제로 얼마나 갔었는지"를 과소평가한다.</summary>
+        public readonly float FarthestX;
+        /// <summary>이번 비행에 허용된 최대 틱 수. Ticks만 찍으면 분모가 없어 크고 작음을
+        /// 판단할 수 없다.</summary>
+        public readonly int TickLimit;
 
-        public BotDiagnostics(float endX, float endY, bool touched, int ticks, int blindTicks)
+        public BotDiagnostics(float endX, float endY, bool touched, int ticks, int blindTicks,
+                              float farthestX, int tickLimit)
         {
             EndX = endX;
             EndY = endY;
             Touched = touched;
             Ticks = ticks;
             BlindTicks = blindTicks;
+            FarthestX = farthestX;
+            TickLimit = tickLimit;
         }
     }
 
@@ -102,7 +111,10 @@ namespace LOP.MapTools
                         //  구분 안 된다 — spec §3.7이 재생을 증명으로 정의하므로, 증명 안 된
                         //  성공은 ✅도 ❌도 아닌 제 글자(🟡)를 가져야 한다.
                         anyUnproven = true;
-                        text.AppendLine($"  {run.Name} (y={run.Y:F0})   🟡  날갯짓 {CountFlaps(run.Result)}회"
+                        //  이 줄의 날갯짓 수는 탐색이 찾은 경로의 것이다 — 바로 아래 "봇:" 줄의
+                        //  것과는 다른 비행이다. 라벨 없이 숫자만 찍으면 봇이 실제로 낸 값과
+                        //  섞여 읽혀 "봇이 몇 번 날갯짓했나"를 잘못 짚게 된다.
+                        text.AppendLine($"  {run.Name} (y={run.Y:F0})   🟡  탐색 경로 날갯짓 {CountFlaps(run.Result)}회"
                                       + "   ⚠️ 봇은 못 갔고 탐색은 찾았으나 재생이 어긋남");
                         AppendBotDiagnostics(text, run.Bot, run.BotFlaps, startX, finishX);
                     }
@@ -110,7 +122,9 @@ namespace LOP.MapTools
                 else
                 {
                     anyFail = true;
-                    text.AppendLine($"  {run.Name} (y={run.Y:F0})   ❌  x={run.Result.BlockedX:F1}에서 막힘");
+                    //  이 x는 탐색이 막힌 지점이다 — 바로 아래 "봇:" 줄의 x(봇이 멈춘 지점)와는
+                    //  다른 값이다. 둘 다 "x="만 찍으면 어느 쪽인지 라벨로 구분할 수 없다.
+                    text.AppendLine($"  {run.Name} (y={run.Y:F0})   ❌  탐색 x={run.Result.BlockedX:F1}에서 막힘");
                     //  R11 — NarrowestCount == 0은 "0폭 회랑을 쟀다"가 아니라 "출발 직후
                     //  과도기(탐색 폭이 늘기를 멈추기 전)에 막혀 회랑 자체를 측정 못 했다"는
                     //  뜻이다. 그대로 숫자를 찍으면 사람이 없는 병목 좌표를 고치러 간다.
@@ -208,13 +222,39 @@ namespace LOP.MapTools
         static void AppendBotDiagnostics(StringBuilder text, in BotDiagnostics bot, int botFlaps,
                                          float startX, float finishX)
         {
+            //  Ticks==0은 실제로 봇을 날린 적이 없다는 뜻이다 — FlyBot은 무슨 일이 있어도
+            //  최소 1틱은 돌고서야 return한다(0틱 반환 경로가 없다). 여기서 0들을 그대로
+            //  찍으면 "x=0.0에서 죽었다"처럼 측정값으로 보인다 — 최협 회랑의 "측정 안 됨"과
+            //  같은 원칙: 재지 못했으면 쟀다고 말하지 않는다.
+            if (bot.Ticks == 0)
+            {
+                text.AppendLine("                             봇: 측정 안 됨 — 진단 데이터 없음");
+                return;
+            }
+
             float percent = (bot.EndX - startX) / (finishX - startX) * 100f;
             //  닿아서(Touched) 멈춘 것과, 안 닿았는데 제한 틱을 다 써서 멈춘 것은 원인이
             //  다르다 — 후자는 봇이 제자리 근처를 맴돌았다는 뜻이라 처방이 또 다르다.
             string reason = bot.Touched ? "닿음" : "틱 소진(못 닿음)";
-            text.AppendLine($"                             봇: x={bot.EndX:F1} y={bot.EndY:F1}"
-                          + $" (코스 {percent:F0}%)  {reason} · {bot.Ticks}틱 · 날갯짓 {botFlaps}회"
-                          + $" · 목표 없음 {bot.BlindTicks}틱");
+            //  틱 수 하나만 찍으면 분모가 없어 크고 작음을 판단할 수 없다 — 예산 대비 비율로
+            //  같이 찍는다("25%"면 예산의 1/4만에 죽었다는 뜻이 바로 읽힌다).
+            float tickPercent = (float)bot.Ticks / bot.TickLimit * 100f;
+            var line = new StringBuilder(
+                $"                             봇: x={bot.EndX:F1} y={bot.EndY:F1}"
+                + $" (코스 {percent:F0}%)  {reason} · {bot.Ticks}/{bot.TickLimit}틱({tickPercent:F0}%)"
+                //  "봇" 접두를 달아 바로 위 검증 줄의 "탐색 경로 날갯짓"과 다른 비행의
+                //  수치임을 라벨로 구분한다 — 값이 갈릴 때(현실적으로는 대부분) 어느 쪽이
+                //  어느 쪽인지 헷갈리지 않게.
+                + $" · 봇 날갯짓 {botFlaps}회 · 목표 없음 {bot.BlindTicks}틱");
+            //  부딪혀 뒤로 밀리면 멈춘 자리(EndX)가 가장 멀리 갔던 자리(FarthestX)보다 뒤다 —
+            //  퍼센트만 보면 "실제로 얼마나 갔었는지"를 과소평가한다. 갈릴 때만 덧붙인다
+            //  (같으면 군더더기라 안 찍는다). float 오차 대비 작은 여유(0.01)를 둔다.
+            if (bot.FarthestX > bot.EndX + 0.01f)
+            {
+                float farthestPercent = (bot.FarthestX - startX) / (finishX - startX) * 100f;
+                line.Append($" · 최고 도달 x={bot.FarthestX:F1} (코스 {farthestPercent:F0}%)");
+            }
+            text.AppendLine(line.ToString());
         }
     }
 }

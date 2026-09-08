@@ -163,7 +163,8 @@ namespace LOP.EditorTools
                     //  참이면 이 값을 아예 안 읽는다("증명된 자리는 부검하지 않는다"), 그래서
                     //  여기서 성공/실패로 갈라 만들 이유가 없다.
                     var botDiagnostics = new LOP.MapTools.BotDiagnostics(
-                        flight.EndX, flight.EndY, flight.Touched, flight.Ticks, flight.BlindTicks);
+                        flight.EndX, flight.EndY, flight.Touched, flight.Ticks, flight.BlindTicks,
+                        flight.FarthestX, flight.TickLimit);
                     if (flight.Reached)
                     {
                         cleanRuns.Add(new LOP.MapTools.SpawnCleanRun(
@@ -464,9 +465,12 @@ namespace LOP.EditorTools
             /// 근거 없이 날갯짓한 틱이다. 이게 크면 "봇이 눈뜬 채 놓친 것"이 아니라
             /// "봇이 애초에 못 봤다"는 뜻이라 처방이 달라진다.</summary>
             public readonly int BlindTicks;
+            /// <summary>이번 비행에 허용된 최대 틱 수. Ticks와 짝지어야 "812틱"이 얼마나 위험한
+            /// 수치인지(예산의 몇 %를 썼는지) 읽을 수 있다 — 분모 없는 분자는 뜻이 없다.</summary>
+            public readonly int TickLimit;
 
             public BotFlight(bool reached, bool touched, float farthestX, int flapCount, int ticks,
-                             float endX, float endY, int blindTicks)
+                             float endX, float endY, int blindTicks, int tickLimit)
             {
                 Reached = reached;
                 Touched = touched;
@@ -476,6 +480,7 @@ namespace LOP.EditorTools
                 EndX = endX;
                 EndY = endY;
                 BlindTicks = blindTicks;
+                TickLimit = tickLimit;
             }
         }
 
@@ -538,7 +543,7 @@ namespace LOP.EditorTools
                 if (state.Stun > 0f)
                 {
                     return new BotFlight(false, true, farthest, flaps, tick + 1,
-                                         state.Position.x, state.Position.y, blindTicks);
+                                         state.Position.x, state.Position.y, blindTicks, limit);
                 }
                 //  ①(클린런)과 같은 질문이어야 한다 — 탐색은 발(x)이 마커 중심에 닿으면 골인으로
                 //  본다(TryReadFinishX 참고, 몸 반지름만큼 더 엄격한 게 의도적인 보수). +radius로
@@ -546,11 +551,11 @@ namespace LOP.EditorTools
                 if (state.Position.x >= finishX)
                 {
                     return new BotFlight(true, false, farthest, flaps, tick + 1,
-                                         state.Position.x, state.Position.y, blindTicks);
+                                         state.Position.x, state.Position.y, blindTicks, limit);
                 }
             }
             return new BotFlight(false, false, farthest, flaps, limit,
-                                 state.Position.x, state.Position.y, blindTicks);
+                                 state.Position.x, state.Position.y, blindTicks, limit);
         }
 
         //  지형 안이면 새가 있을 수 없고, 지형에서 멀면 낄 일이 없다. 그 사이만 본다.

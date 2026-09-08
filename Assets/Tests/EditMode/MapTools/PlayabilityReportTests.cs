@@ -25,6 +25,14 @@ namespace LOP.MapTools.Tests
                                        earliest: new EarliestCatch(true, 19.0f, 14),
                                        heightGrid: 0.1f, minY: -40f, maxY: 40f);
 
+        //  이모지 하나만 담긴 검색어는 NUnit의 StringAssert.Contains(문화권 비교)가 오탐한다
+        //  — 이 환경에서 실측: 어떤 문자열에도 "✅"가 "있다"고 나온다(약한 콜레이션이
+        //  기호를 사실상 와일드카드로 만든다). 숫자·기호가 많은 검색어(x=, y=-, %, / 등)도
+        //  같은 위험이 있다 — 부호 하나 뒤집혀도 약한 콜레이션 아래서는 "있다"고 나올 수
+        //  있다. 그래서 값 검증은 전부 순서(ordinal) 비교로 한다.
+        static bool Contains(string haystack, string needle)
+            => haystack.Contains(needle, System.StringComparison.Ordinal);
+
         [Test]
         public void 자리마다_한_줄씩_찍는다()
         {
@@ -120,18 +128,12 @@ namespace LOP.MapTools.Tests
             string unproven = Build(
                 new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), false, botReached: false, botFlaps: 0, bot: default));
 
-            //  이모지 하나만 담긴 검색어는 NUnit의 StringAssert.Contains(문화권 비교)가 오탐한다
-            //  — 이 환경에서 실측: 어떤 문자열에도 "✅"가 "있다"고 나온다(약한 콜레이션이
-            //  기호를 사실상 와일드카드로 만든다). 그래서 순서(ordinal) 비교로 직접 확인한다.
             Assert.IsTrue(Contains(proven, "✅"));
             Assert.IsFalse(Contains(unproven, "✅"));
             //  증명 안 된 성공은 실패(❌)와도 다른 제 글자를 가져야 한다.
             Assert.IsFalse(Contains(unproven, "❌"));
             Assert.IsTrue(Contains(unproven, "🟡"));
         }
-
-        static bool Contains(string haystack, string needle)
-            => haystack.Contains(needle, System.StringComparison.Ordinal);
 
         [Test]
         public void 통과여부는_같아도_증명_여부가_갈리면_공정성_경고를_찍는다()
@@ -164,8 +166,8 @@ namespace LOP.MapTools.Tests
                 new CleanRunResult(true, new bool[0], 0f, 0f, 0, 0f),
                 verifiedByReplay: false, botReached: true, botFlaps: 176, bot: default));
 
-            Assert.IsTrue(report.Contains("✅", System.StringComparison.Ordinal));
-            Assert.IsFalse(report.Contains("🟡", System.StringComparison.Ordinal));
+            Assert.IsTrue(Contains(report, "✅"));
+            Assert.IsFalse(Contains(report, "🟡"));
             //  봇이 통과했으면 그 자리엔 탐색을 돌리지 않았다는 사실이 읽혀야 한다.
             StringAssert.Contains("봇 통과", report);
             StringAssert.Contains("176", report);
@@ -178,8 +180,11 @@ namespace LOP.MapTools.Tests
                 new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f),
                 verifiedByReplay: false, botReached: false, botFlaps: 51, bot: default));
 
-            Assert.IsTrue(report.Contains("❌", System.StringComparison.Ordinal));
-            Assert.IsFalse(report.Contains("✅", System.StringComparison.Ordinal));
+            Assert.IsTrue(Contains(report, "❌"));
+            Assert.IsFalse(Contains(report, "✅"));
+            //  ❌ 줄의 x는 탐색이 막힌 지점이다 — 라벨 없이 "x="만 찍으면 바로 아래 봇
+            //  자리의 x와 구분이 안 된다(Fix round 3, Important 1).
+            Assert.IsTrue(Contains(report, "탐색 x=38.2에서 막힘"));
         }
 
         [Test]
@@ -189,14 +194,18 @@ namespace LOP.MapTools.Tests
                 new CleanRunResult(true, new bool[191], 0f, 0f, 0, 0f),
                 verifiedByReplay: false, botReached: false, botFlaps: 51, bot: default));
 
-            Assert.IsTrue(report.Contains("🟡", System.StringComparison.Ordinal));
-            Assert.IsFalse(report.Contains("✅", System.StringComparison.Ordinal));
+            Assert.IsTrue(Contains(report, "🟡"));
+            Assert.IsFalse(Contains(report, "✅"));
             //  이 상태의 뜻이 "봇 한계일 수 있다"라는 것이 글로 남아야 한다.
             StringAssert.Contains("봇이 못 간 것", report);
+            //  🟡 줄의 날갯짓 수는 탐색 경로의 것이다 — 라벨 없이 찍으면 바로 아래 봇의
+            //  실제 날갯짓 수와 헷갈린다(Fix round 3, Important 1). 이 픽스처는 bool[191]이
+            //  전부 false라 CountFlaps==0.
+            Assert.IsTrue(Contains(report, "탐색 경로 날갯짓 0회"));
         }
 
         //  ── Fix round 2 — 진단 ──────────────────────────────────────
-        //  ① 봇이 실패했을 때 "어디서 왜 멈췄는지"가 리포트에 안 남으면, 네 자리가 전부
+        //  봇이 실패했을 때 "어디서 왜 멈췄는지"가 리포트에 안 남으면, 네 자리가 전부
         //  🟡/❌로 나와도 "장애물 하나가 문제인지 봇이 약한 것인지" 구분할 방법이 없다.
         //  아래 테스트들은 그 진단 수치(끝난 자리·이유·틱·목표 못 찾은 틱)가 실제로
         //  리포트 문자열에 박히는지 확인한다.
@@ -204,19 +213,31 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 실패한_자리는_봇이_멈춘_위치와_이유를_찍는다()
         {
-            //  코스는 Build()에서 x −2 → 632 (634m). endX=143.82면 (143.82−(−2))/634*100
-            //  ≈ 23.0%다 — 코디네이터가 요청한 예시(23%에서 충돌)와 같은 수를 쓴다.
+            //  코스는 Build()에서 x −2 → 632 (634m). endX=60이면 올바른 분모((finishX−startX))로는
+            //  (60−(−2))/634*100 ≈ 9.78% → "10%"인데, startX를 빼먹은 틀린 식(60/632*100
+            //  ≈ 9.49%)은 "9%"로 반올림된다 — 두 식이 화면에 다른 정수로 찍혀야 어느 식을
+            //  썼는지 테스트가 실제로 가려낼 수 있다(전 라운드의 endX=143.82는 두 식 다
+            //  "23%"로 같이 반올림돼 아무것도 못 가렸다 — 리뷰에서 지적됨).
             string report = Build(new SpawnCleanRun("PlayerSpawn_2", -1f,
                 new CleanRunResult(true, new bool[191], 0f, 0f, 0, 0f),
                 verifiedByReplay: false, botReached: false, botFlaps: 51,
-                bot: new BotDiagnostics(endX: 143.82f, endY: -57.6f, touched: true, ticks: 812, blindTicks: 40)));
+                bot: new BotDiagnostics(endX: 60f, endY: -57.6f, touched: true, ticks: 812, blindTicks: 40,
+                                        farthestX: 60f, tickLimit: 3248)));
 
-            StringAssert.Contains("x=143.8", report);
-            StringAssert.Contains("y=-57.6", report);
-            StringAssert.Contains("코스 23%", report);
-            StringAssert.Contains("닿음", report);
-            StringAssert.Contains("812틱", report);
-            StringAssert.Contains("목표 없음 40틱", report);
+            Assert.IsTrue(Contains(report, "x=60.0"));
+            Assert.IsTrue(Contains(report, "y=-57.6"));
+            Assert.IsTrue(Contains(report, "코스 10%"));
+            //  분모에서 startX를 빼먹으면 이 자리에 "9%"가 찍힌다 — 그 회귀를 여기서 잡는다.
+            Assert.IsFalse(Contains(report, "코스 9%"));
+            Assert.IsTrue(Contains(report, "닿음"));
+            //  틱 수는 예산(TickLimit) 대비 비율과 함께 찍혀야 한다 — 812라는 숫자만으로는
+            //  크고 작음을 판단할 수 없다.
+            Assert.IsTrue(Contains(report, "812/3248틱(25%)"));
+            //  이 값이 핵심이다 — 탐색 경로의 날갯짓(위 줄, 0회)과 봇 자신의 날갯짓(51회)이
+            //  섞이면 "봇이 몇 번 날갯짓했나"를 완전히 잘못 짚는다. 검색 카운트를 대신
+            //  찍어도(버그) 이 fixture는 CountFlaps==0이라 discriminable하다.
+            Assert.IsTrue(Contains(report, "봇 날갯짓 51회"));
+            Assert.IsTrue(Contains(report, "목표 없음 40틱"));
         }
 
         [Test]
@@ -224,27 +245,39 @@ namespace LOP.MapTools.Tests
         {
             //  Touched=false — 아무것도 안 닿았는데 제한 틱을 다 썼다는 뜻이라 "닿음"과는
             //  다른 처방(제자리를 맴돌았다 등)이 필요하다. 원인 글자가 갈려야 한다.
+            //  ticks==tickLimit로 예산을 정확히 다 썼다는 경우도 함께 확인한다.
             string report = Build(new SpawnCleanRun("PlayerSpawn_3", 2f,
                 new CleanRunResult(false, new bool[0], 5f, 0f, 0, 0f),
                 verifiedByReplay: false, botReached: false, botFlaps: 3,
-                bot: new BotDiagnostics(endX: -1f, endY: 0f, touched: false, ticks: 2000, blindTicks: 1990)));
+                bot: new BotDiagnostics(endX: -1f, endY: 0f, touched: false, ticks: 2000, blindTicks: 1990,
+                                        farthestX: -1f, tickLimit: 2000)));
 
-            StringAssert.Contains("틱 소진(못 닿음)", report);
+            Assert.IsTrue(Contains(report, "틱 소진(못 닿음)"));
+            Assert.IsTrue(Contains(report, "2000/2000틱(100%)"));
         }
 
         [Test]
         public void 실패한_자리의_진단은_불가능_줄에도_찍는다()
         {
             //  🟡뿐 아니라 ❌(탐색도 못 찾음)도 봇이 실제로 날았던 자리다 — 진단이 빠지면
-            //  안 된다.
+            //  안 된다. 이 픽스처는 부딪혀 뒤로 밀린 경우도 겸한다: FarthestX(41.5)가
+            //  EndX(38.0)보다 앞이다 — 최고 도달점도 함께 찍혀야 "실제로 얼마나 갔었는지"를
+            //  과소평가하지 않는다.
             string report = Build(new SpawnCleanRun("PlayerSpawn_4", 9f,
                 new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f),
                 verifiedByReplay: false, botReached: false, botFlaps: 51,
-                bot: new BotDiagnostics(endX: 38.0f, endY: 12.5f, touched: true, ticks: 950, blindTicks: 12)));
+                bot: new BotDiagnostics(endX: 38.0f, endY: 12.5f, touched: true, ticks: 950, blindTicks: 12,
+                                        farthestX: 41.5f, tickLimit: 1900)));
 
-            StringAssert.Contains("x=38.0", report);
-            StringAssert.Contains("y=12.5", report);
-            StringAssert.Contains("목표 없음 12틱", report);
+            Assert.IsTrue(Contains(report, "x=38.0"));
+            Assert.IsTrue(Contains(report, "y=12.5"));
+            Assert.IsTrue(Contains(report, "목표 없음 12틱"));
+            //  BlockedX(38.2, 탐색이 막힌 지점)와 EndX(38.0, 봇이 멈춘 지점)는 다른 값인데
+            //  둘 다 소수점 한 자리라 라벨 없이는 거의 안 갈린다 — 라벨이 있는지 확인한다.
+            Assert.IsTrue(Contains(report, "탐색 x=38.2에서 막힘"));
+            //  최고 도달점 — free data(FarthestX)가 실제로 찍혀야 한다.
+            Assert.IsTrue(Contains(report, "최고 도달 x=41.5"));
+            Assert.IsTrue(Contains(report, "코스 7%"));   // 최고 도달점의 퍼센트 — (41.5+2)/634*100 ≈ 6.86% → 7%
         }
 
         [Test]
@@ -255,10 +288,29 @@ namespace LOP.MapTools.Tests
             string report = Build(new SpawnCleanRun("PlayerSpawn_1", -6f,
                 new CleanRunResult(true, new bool[0], 0f, 0f, 0, 0f),
                 verifiedByReplay: false, botReached: true, botFlaps: 176,
-                bot: new BotDiagnostics(endX: 999f, endY: 999f, touched: true, ticks: 1, blindTicks: 1)));
+                bot: new BotDiagnostics(endX: 999f, endY: 999f, touched: true, ticks: 1, blindTicks: 1,
+                                        farthestX: 999f, tickLimit: 1)));
 
             StringAssert.DoesNotContain("목표 없음", report);
             StringAssert.DoesNotContain("x=999.0", report);
+            StringAssert.DoesNotContain("최고 도달", report);
+        }
+
+        //  ── Fix round 3 ─────────────────────────────────────────────
+
+        [Test]
+        public void 봇_진단이_없으면_0을_찍지_않고_없다고_적는다()
+        {
+            //  default(BotDiagnostics)의 Ticks는 0이다 — 실제로 봇을 날린 적이 없다는
+            //  뜻이다(FlyBot은 최소 1틱은 돌고서야 return한다). 0들을 그대로 찍으면
+            //  "x=0.0에서 죽었다"처럼 측정값으로 보인다 — 최협 회랑의 "측정 안 됨"과 같은
+            //  원칙으로, 재지 못했으면 쟀다고 말하면 안 된다.
+            string report = Build(new SpawnCleanRun("PlayerSpawn_4", 9f,
+                new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f),
+                verifiedByReplay: false, botReached: false, botFlaps: 0, bot: default));
+
+            Assert.IsFalse(Contains(report, "x=0.0"));
+            Assert.IsTrue(Contains(report, "봇: 측정 안 됨"));
         }
     }
 }

@@ -20,6 +20,7 @@ namespace LOP.UI
         private Label _reconLastText;
         private Label _reconAvgText;
         private Label _reconMaxText;
+        private Label _reconNearFarText;
         private Label _timingAvgDText;
         private Label _timingMaxDText;
         private Label _timingPruneText;
@@ -56,6 +57,7 @@ namespace LOP.UI
             _reconLastText = Root.Q<Label>("recon-last-text");
             _reconAvgText = Root.Q<Label>("recon-avg-text");
             _reconMaxText = Root.Q<Label>("recon-max-text");
+            _reconNearFarText = Root.Q<Label>("recon-near-far-text");
             _timingAvgDText = Root.Q<Label>("timing-avgd-text");
             _timingMaxDText = Root.Q<Label>("timing-maxd-text");
             _timingPruneText = Root.Q<Label>("timing-prune-text");
@@ -99,6 +101,7 @@ namespace LOP.UI
             _reconLastText.text = $"Recon last: {_viewModel.ReconLast:F2} m";
             _reconAvgText.text = $"Recon avg: {_viewModel.ReconAverage:F2} m";
             _reconMaxText.text = $"Recon max: {_viewModel.ReconMax:F2} m (corr {_viewModel.CorrectionCount})";
+            _reconNearFarText.text = $"Recon near/far max: {_viewModel.ReconNearMax:F2} / {_viewModel.ReconFarMax:F2}";
             _timingAvgDText.text = $"d avg: {_viewModel.TimingAvgD:F1}";
             _timingMaxDText.text = $"d max: {_viewModel.TimingMaxD}";
             _timingPruneText.text = $"Prune: {_viewModel.TimingPrune}";

@@ -484,12 +484,17 @@ namespace LOP.EditorTools
             }
         }
 
-        //  앞을 이만큼 내다본다. 전진 11에서 약 1.5m — 프로토타입이 쓰던 앞보기 거리와 같은 취지다.
-        private const float BotLookaheadSeconds = 0.14f;
-        //  "다음" 틈은 이만큼 더 멀리 본다(근거리의 2배 — 지금 장애물 두께 너머 다음 틈이
-        //  드러날 만큼). 지금 틈만 보고 겨냥하면 그 틈을 다 지나기도 전에 다음 틈이 낮아져
-        //  있을 때 이미 너무 높은 채로 도착해 박는다(BotPilot.Decide가 둘을 함께 본다).
-        private const float BotFarLookaheadSeconds = BotLookaheadSeconds * 2f;
+        //  앞을 이만큼 내다본다(초 단위 — 거리가 아니라 시간으로 잡는 이유는 FlappyAutoFlapSystem의
+        //  같은 주석 참고: 날갯짓은 정점까지 시간이 걸리므로 그보다 가까운 것만 보면 늦는다).
+        //  0.14초는 그 시스템이 "1.5m로 보다가 계속 박아서" 버린 값이라 여기서도 쓰지 않는다 —
+        //  같은 시스템이 지금 쓰는 사다리({0.05,0.20,0.40,0.60}초) 중 검증된 두 단(0.20·0.40초)을
+        //  그대로 가져온다.
+        private const float BotLookaheadSeconds = 0.20f;
+        //  "다음" 틈은 0.40초 앞을 본다 — 날갯짓의 자연 정점(23÷70÷0.02초 기준 17틱 ≈ 0.34초)보다
+        //  넉넉히 멀어서, 이 열에 도달할 때의 상승분(BotPilot.FlapRiseAfter)이 아치 전체
+        //  (BotPilot.FlapArc)로 자연히 수렴한다 — "지금 눌러서 끝까지 오르면 이 열의 천장을
+        //  넘는가"를 정확히 이 열에서 묻게 된다.
+        private const float BotFarLookaheadSeconds = 0.40f;
 
         //  봇을 진짜 커널로 날린다. 궤적이 하나뿐이라 상태를 묶을 이유가 없고, 그래서 반올림도
         //  표류도 생기지 않는다 — 전수 탐색이 못 하는 "증명"이 여기서 나온다.
@@ -507,9 +512,13 @@ namespace LOP.EditorTools
         {
             var query = new HitWatcher(inner);
             var state = new BirdState { Position = new Vector3(start.x, start.y, 0f) };
-            float flapArc = LOP.MapTools.BotPilot.FlapArc(shape.FlapImpulse, shape.Gravity, TickSeconds);
             float lookahead = shape.ForwardSpeed * BotLookaheadSeconds;
             float farLookahead = shape.ForwardSpeed * BotFarLookaheadSeconds;
+            //  "이 열까지 남은 틱"은 스캔 거리(초) 자체에서 그대로 나온다 — 두 값을 따로
+            //  손으로 맞출 필요가 없다(어긋나면 BotPilot.Decide의 도달-시점 판단이 엉뚱한
+            //  틱 수로 굴러간다).
+            int ticksToNear = Mathf.RoundToInt(BotLookaheadSeconds / TickSeconds);
+            int ticksToFar = Mathf.RoundToInt(BotFarLookaheadSeconds / TickSeconds);
             int buckets = Mathf.CeilToInt((maxY - minY) / HeightGrid) + 1;
             var blockedNear = new bool[buckets];
             var blockedFar = new bool[buckets];
@@ -532,8 +541,9 @@ namespace LOP.EditorTools
 
                 var decision = LOP.MapTools.BotPilot.Decide(blockedNear, blockedFar, minY, HeightGrid,
                                                             state.Position.y, state.VerticalSpeed,
-                                                            shape.Radius, flapArc, shape.Gravity,
-                                                            shape.MaxFallSpeed, TickSeconds);
+                                                            shape.Radius, shape.FlapImpulse, shape.Gravity,
+                                                            shape.MaxFallSpeed, ticksToNear, ticksToFar,
+                                                            TickSeconds);
                 if (decision.Flap)
                 {
                     flaps++;

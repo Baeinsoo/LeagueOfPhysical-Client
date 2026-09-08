@@ -66,7 +66,7 @@
 
 ---
 
-## 3. 커널 — `VerticalBounce` → `ContactImpulse`
+## 3. 커널 — `ContactImpulse`를 만들고 `VerticalBounce`는 그 위에 얹는다
 
 식은 이미 일반형의 y 제한이다. 스칼라를 벡터로 바꾸면 끝난다.
 
@@ -84,11 +84,30 @@
   때 미세하게 떠는 것을 막는 장치라, 사람 위에 서는 것을 허용하는 이번 결정에서 오히려 더 필요하다.
 - **이미 멀어지는 중이면(`closing >= 0`) 건드리지 않는다.** 안 그러면 떨어져 나가는 몸을 다시 붙인다.
 
-### 3.1 축 제한은 커널이 아니라 시스템에 둔다
+### 3.1 `VerticalBounce`는 지우지 않는다 — 래퍼로 남긴다
+
+클라 프로토타입 `Assets/Scripts/FlappyRaceSlice/FlappyBird.cs`가 `VerticalBounce.ResolveVy`를 직접
+부른다(단독 플레이 스파이크라 World Core를 쓰지 않는다). 지우면 그쪽이 깨진다.
+
+**`VerticalBounce.ResolveVy`를 `ContactImpulse` 위의 얇은 래퍼로 바꾼다.** 식이 한 벌만 남고,
+기존 `VerticalBounceTests`가 **그대로 일반형의 회귀 검사**가 된다.
+
+### 3.2 축 제한은 커널이 아니라 시스템에 둔다
 
 Flappy는 전진 속도가 상수라 가로로 밀리면 안 된다. 그 사정은 **게임의 사정**이지 물리식의 성질이
-아니므로, 커널은 순수한 3D로 두고 `BodyCollisionSystem`이 "어느 축으로 밀릴 수 있는가"를 인자로
-받아 제한된 축은 원래 값으로 되돌린다.
+아니므로, 커널은 순수한 3D로 두고 `BodyCollisionSystem`이 "어느 축으로 밀릴 수 있는가"를 인자로 받는다.
+
+**제한은 결과가 아니라 입력에 건다.** 마스크를 씌운 속도·법선을 커널에 넣고, 돌아온 값에서 허용된
+축만 쓴다.
+
+```
+masked(v) = v * axisMask        (성분별 곱, 정규화하지 않는다)
+결과 = ContactImpulse.Resolve( masked(vSelf), masked(vOther), masked(n), e )
+```
+
+**결과에만 마스크를 씌우면 안 된다.** 다가오는 속도(`dot(Δv, n)`)가 전 축으로 계산되어, 가로
+상대속도가 있을 때 세로 답이 달라진다. 입력에 씌우면 세로 마스크가 옛 `VerticalBounce`와
+**정확히 같은 식**으로 축약된다.
 
 - Flappy = 세로만 → **옛 `VerticalBounce`와 결과가 같아야 한다**(§8 회귀 테스트로 박는다)
 - Skydive = 전 축
@@ -211,7 +230,8 @@ impact.DownwardSpeed = (wasGrounded == false && result.grounded && ...) ? ... : 
 
 | 파일 | 무엇을 |
 |---|---|
-| `LOP-Shared/.../VerticalBounce.cs` → `ContactImpulse.cs` | 3D 일반화 (§3) |
+| `LOP-Shared/.../ContactImpulse.cs` (신규) | 3D 일반형 커널 (§3) |
+| `LOP-Shared/.../VerticalBounce.cs` | 위 커널의 얇은 래퍼로 축소 — 지우지 않는다 (§3.1) |
 | `LOP-Shared/.../BodyCollisionSystem.cs` | 축 제한 인자 + 아래쪽 접촉 여부 반환 |
 | `LOP-Shared/.../SkydiveWorld.cs` | 몸싸움 호출 + §5의 ①④ 단계 분리 |
 | `LOP-Shared/.../SkydiveConfig.cs` | `Restitution` 필드 |
@@ -221,6 +241,12 @@ impact.DownwardSpeed = (wasGrounded == false && result.grounded && ...) ? ... : 
 
 `BodyCollisionSystem`은 시뮬 구체 클래스이므로 `Register<Concrete>`로 등록한다(인터페이스 seam을
 두지 않는다 — 사이드가 다른 구현을 넣을 여지를 만들면 결정론이 깨진다).
+
+> **`SkydiveConfig`에 필드를 더하면 생성자 호출부가 10곳 따라온다.** 이 프로젝트는 인자를 늘릴 때
+> 호출부를 세지 않아 반복해서 걸렸다. 목록: Shared 테스트 4(`SkydiveMoveSystemTests`,
+> `SkydiveWorldTests`, `StaminaSystemTests`, `WindDriftSystemTests`) · 클라 2(`SkydiveConfigProvider`,
+> `SkydiveCorrectionFixture`) · 서버 4(`SkydiveConfigProvider`, `SkydiveDoorSystemTests`,
+> `SkydiveLandingSystemTests`, `SkydiveLaserSystemTests`).
 
 ### 6.1 측정용 토글
 

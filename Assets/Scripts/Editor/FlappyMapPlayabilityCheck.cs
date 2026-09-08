@@ -490,10 +490,8 @@ namespace LOP.EditorTools
         //  같은 시스템이 지금 쓰는 사다리({0.05,0.20,0.40,0.60}초) 중 검증된 두 단(0.20·0.40초)을
         //  그대로 가져온다.
         private const float BotLookaheadSeconds = 0.20f;
-        //  "다음" 틈은 0.40초 앞을 본다 — 날갯짓의 자연 정점(23÷70÷0.02초 기준 17틱 ≈ 0.34초)보다
-        //  넉넉히 멀어서, 이 열에 도달할 때의 상승분(BotPilot.FlapRiseAfter)이 아치 전체
-        //  (BotPilot.FlapArc)로 자연히 수렴한다 — "지금 눌러서 끝까지 오르면 이 열의 천장을
-        //  넘는가"를 정확히 이 열에서 묻게 된다.
+        //  천장 가드가 아치를 훑는 지평도 0.40초다 — 날갯짓의 자연 정점(23÷70÷0.02초 기준
+        //  17틱 ≈ 0.34초)보다 넉넉히 멀어서 상승 구간 전체가 훑기 안에 들어온다.
         private const float BotFarLookaheadSeconds = 0.40f;
 
         //  봇을 진짜 커널로 날린다. 궤적이 하나뿐이라 상태를 묶을 이유가 없고, 그래서 반올림도
@@ -501,8 +499,7 @@ namespace LOP.EditorTools
         //  한 번이라도 닿으면(스턴이 걸리면) 무충돌이 아니므로 즉시 멈춘다.
         //  minY/maxY는 호출부가 넘긴다 — 정적 필드에 기대면 Check() 밖에서 부를 때(테스트 등)
         //  0f로 조용히 굴러 garbage 조준을 하게 된다. Check()는 SearchMinY/SearchMaxY를
-        //  그대로 넘겨 "탐색과 같은 대역" 보장은 그대로 유지한다(막힘 표만 그 위로 더 훑는다 —
-        //  아래 botMaxY 참고. 지형이 없는 하늘을 더 보는 것이라 대역 자체가 달라지는 게 아니다).
+        //  그대로 넘겨 "탐색과 같은 대역" 보장을 지킨다.
         //  isFree는 탐색(CleanRunSearch.Run)과 같은 이름 있는 델리게이트·같은 극성이다 —
         //  "막힘 여부를 뒤집어 쓴다"를 문장이 아니라 타입으로 강제해, grid.IsFree를 실수로
         //  그대로 넘기는 사고(막힌 곳을 뚫린 곳으로 읽어 봇이 바위로 날아드는 것)를 막는다.
@@ -514,29 +511,13 @@ namespace LOP.EditorTools
             var query = new HitWatcher(inner);
             var state = new BirdState { Position = new Vector3(start.x, start.y, 0f) };
             float lookahead = shape.ForwardSpeed * BotLookaheadSeconds;
-            float farLookahead = shape.ForwardSpeed * BotFarLookaheadSeconds;
-            //  "이 열까지 남은 틱"은 스캔 거리(초) 자체에서 그대로 나온다 — 두 값을 따로
-            //  손으로 맞출 필요가 없다(어긋나면 BotPilot.Decide의 도달-시점 판단이 엉뚱한
-            //  틱 수로 굴러간다).
+            //  "이 열까지 남은 틱"·"아치를 몇 틱 훑을지"는 스캔 거리(초) 자체에서 그대로 나온다 —
+            //  두 값을 따로 손으로 맞출 필요가 없다(어긋나면 BotPilot.Decide가 엉뚱한 틱 수로
+            //  굴러간다).
             int ticksToNear = Mathf.RoundToInt(BotLookaheadSeconds / TickSeconds);
-            int ticksToFar = Mathf.RoundToInt(BotFarLookaheadSeconds / TickSeconds);
-            //  정점(세로 속도가 0이 되는 순간)에서 아치가 가장 높다. 그 자리를 안 보면 두 열
-            //  사이에 숨은 좁은 기둥에 그대로 박는다 — 근거리·원거리 사다리는 튜닝된 lookahead지
-            //  이 열은 날갯짓 물리 자체에서 나오므로 초 상수가 아니라 틱수를 직접 계산한다.
-            int ticksToApex = Mathf.CeilToInt(shape.FlapImpulse / (shape.Gravity * TickSeconds));
-            float apexLookahead = shape.ForwardSpeed * ticksToApex * TickSeconds;
-            //  봇 표만 위로 넓힌다(탐색 밴드는 그대로 — 같은 질문을 다른 대역에서 묻게 되면
-            //  ①과 비교할 수 없다). BotPilot.IsFree는 표 위를 "열린 하늘"로 보므로, 봇이 도달할
-            //  수 있는 높이는 반드시 표 안에 있어야 그 가정이 참이 된다. 도달 가능한 가장 높은
-            //  자리는 "지형 대역의 꼭대기(maxY)에 있는 새가 날갯짓 아치(FlapArc)만큼 오른 곳"이고,
-            //  몸 높이만큼 더 얹어 발이 아니라 머리까지 덮는다. 늘어난 칸(한 열당 수십 개)은
-            //  이 가정을 산술로 참으로 만드는 값이다 — 비용만 보고 되돌리지 말 것.
-            float botMaxY = maxY + LOP.MapTools.BotPilot.FlapArc(shape.FlapImpulse, shape.Gravity, TickSeconds)
-                            + shape.Height;
-            int buckets = Mathf.CeilToInt((botMaxY - minY) / HeightGrid) + 1;
+            int ticksToScan = Mathf.RoundToInt(BotFarLookaheadSeconds / TickSeconds);
+            int buckets = Mathf.CeilToInt((maxY - minY) / HeightGrid) + 1;
             var blockedNear = new bool[buckets];
-            var blockedApex = new bool[buckets];
-            var blockedFar = new bool[buckets];
             float farthest = start.x;
             int flaps = 0;
             int blindTicks = 0;
@@ -546,21 +527,17 @@ namespace LOP.EditorTools
             for (int tick = 0; tick < limit; tick++)
             {
                 float scanX = state.Position.x + lookahead;
-                float scanXApex = state.Position.x + apexLookahead;
-                float scanXFar = state.Position.x + farLookahead;
                 for (int i = 0; i < buckets; i++)
                 {
                     float y = minY + i * HeightGrid;
                     blockedNear[i] = isFree(scanX, y) == false;
-                    blockedApex[i] = isFree(scanXApex, y) == false;
-                    blockedFar[i] = isFree(scanXFar, y) == false;
                 }
 
-                var decision = LOP.MapTools.BotPilot.Decide(blockedNear, blockedApex, blockedFar, minY, HeightGrid,
-                                                            state.Position.y, state.VerticalSpeed,
+                var decision = LOP.MapTools.BotPilot.Decide(blockedNear, minY, HeightGrid,
+                                                            state.Position.x, state.Position.y, state.VerticalSpeed,
                                                             shape.Radius, shape.FlapImpulse, shape.Gravity,
-                                                            shape.MaxFallSpeed, ticksToNear, ticksToApex, ticksToFar,
-                                                            TickSeconds);
+                                                            shape.MaxFallSpeed, shape.ForwardSpeed,
+                                                            ticksToNear, ticksToScan, TickSeconds, isFree);
                 if (decision.Flap)
                 {
                     flaps++;

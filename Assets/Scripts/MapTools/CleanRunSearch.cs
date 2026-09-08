@@ -255,7 +255,9 @@ namespace LOP.MapTools
         }
 
         //  한 틱 사이 몸이 지나는 선분을 눈금 간격으로 찍어 본다. 끝점만 보면 얇은 벽을 통과한다.
-        static bool SegmentIsFree(FreeSpaceProbe isFree, float x0, float y0, float x1, float y1, float grid)
+        //  internal — BotPilot의 천장 가드도 아치를 틱마다 훑을 때 같은 스윕을 쓴다(같은 어셈블리라
+        //  이걸로 충분하다. 테스트를 위해 다른 어셈블리로 옮기지 않는다).
+        internal static bool SegmentIsFree(FreeSpaceProbe isFree, float x0, float y0, float x1, float y1, float grid)
         {
             float dx = x1 - x0, dy = y1 - y0;
             float length = UnityEngine.Mathf.Sqrt(dx * dx + dy * dy);

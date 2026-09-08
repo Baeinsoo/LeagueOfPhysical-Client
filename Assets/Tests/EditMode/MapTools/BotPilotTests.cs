@@ -7,32 +7,31 @@ namespace LOP.MapTools.Tests
     public class BotPilotTests
     {
         const float BodyRadius = 0.45f;
+        const float BodyHeight = 0.9f;
         const float Step = 0.1f;
         const float BottomY = 0f;
         const float TickSeconds = 0.02f;
         const float Gravity = 70f;
         const float MaxFallSpeed = 30f;
         const float FlapImpulse = 23f;
+        const float ForwardSpeed = 11f;
         //  실제 도구(FlappyMapPlayabilityCheck)가 쓰는 것과 같은 값 — 0.20초/0.40초 앞을
         //  본다(초당 틱수 1/0.02=50 기준 10틱/20틱). 20틱은 날갯짓의 자연 정점(17틱)보다
-        //  넉넉히 커서, 그 열에 도달할 때의 상승분이 아치 전체로 자연히 수렴한다.
+        //  넉넉히 커서, 아치의 상승 구간 전체가 훑기 안에 들어온다.
         const int TicksToNear = 10;
-        const int TicksToFar = 20;
-        //  정점 열까지 남은 틱 — 자연 정점 틱수와 같다(23÷70÷0.02초 기준 17틱, ceil(23/1.4)).
-        //  FlappyMapPlayabilityCheck.FlyBot도 같은 식(Mathf.CeilToInt(FlapImpulse/(Gravity*TickSeconds)))으로
-        //  구한다 — 숫자 17을 손으로 박는 게 아니라 그 식의 결과다.
-        const int TicksToApex = 17;
+        const int TicksToScan = 20;
+        //  근거리 열을 재는 x — 새의 자리에서 0.20초 앞(11 × 0.20 = 2.2m).
+        const float NearScanX = 2.2f;
+        //  상자를 "코스 끝까지"로 늘릴 때 쓰는 큰 값. 실제 좌표는 이보다 한참 작다.
+        const float FarAway = 1000f;
 
         //  아래에서 위로 0.1m 간격. true = 막힘.
         static bool[] Column(params bool[] cells) => cells;
 
-        //  Free/Band/Pillar로 만든 표는 이 높이까지 전부 채운다(뚫린 구간 빼고는 막힘) —
-        //  뚫린 구간 바로 위에 벽 하나만 세우고 표를 끝내면, BotPilot.IsFree의 "표 밖은 뚫린
-        //  하늘이다" 규칙이 회랑 훨씬 위쪽 높이를 우연히 열린 하늘로 오판한다(실제 FlyBot이
-        //  만드는 표는 봇이 도달할 수 있는 높이를 다 덮어 이 문제가 없다 — 손으로 짧게 만드는
-        //  테스트 표에서만 생기는 인공물이다).
-        //  범위 밖 두 분기를 일부러 겨냥하는 테스트만 이 헬퍼들을 쓰지 않고 Column()으로 짧은
-        //  표를 직접 만든다 — 채워 버리면 그 분기에 도달할 수가 없어서다.
+        //  Free/Band로 만든 표는 이 높이까지 전부 채운다(뚫린 구간 빼고는 막힘) — 뚫린 구간
+        //  바로 위에 벽 하나만 세우고 표를 끝내면, 표 밖 높이를 묻는 질의가 헬퍼마다 다르게
+        //  굴러 테스트가 재현하려던 상황이 아니게 된다. 실제 FlyBot이 만드는 표는 탐색 밴드
+        //  전체를 덮으므로 이 문제가 없다 — 손으로 짧게 만드는 표에서만 생기는 인공물이다.
         const float TableTopHeight = 100f;
 
         static int TableCells(float step) => (int)Math.Round(TableTopHeight / step) + 1;
@@ -70,23 +69,56 @@ namespace LOP.MapTools.Tests
             return column;
         }
 
-        //  두 구간([low1,high1], [low2,high2])만 뚫리고 나머지는 막힌 기둥 — 가운데 기둥(가운데
-        //  통로가 막힌 코스)을 재현한다. topY는 "뚫린 구간을 어디까지 그릴지"일 뿐이고, 표 자체는
-        //  Free/Band와 같은 관례로 TableTopHeight까지 채운다(그 위는 전부 막힘) — 표가 topY에서
-        //  끝나면 그보다 높은 높이를 묻는 테스트가 IsFree의 "표 밖은 열린 하늘" 규칙에 걸려
-        //  조용히 통과해 버린다.
-        static bool[] Pillar(float low1, float high1, float low2, float high2, float bottomY, float step, float topY)
+        //  실제 도구(FlappyMapPlayabilityCheck.FlyBot)가 하는 그대로 — 같은 프로브를 그 열의
+        //  x에서 눈금 간격으로 찍어 근거리 열을 만든다. 지형과 표가 따로 놀지 않게 한다.
+        static bool[] ColumnFrom(FreeSpaceProbe isFree, float scanX, int cells)
         {
-            int count = Math.Max(TableCells(step), (int)Math.Round((topY - bottomY) / step) + 1);
-            var column = new bool[count];
-            for (int i = 0; i < count; i++)
+            var column = new bool[cells];
+            for (int i = 0; i < cells; i++)
             {
-                float y = bottomY + i * step;
-                bool free = (y >= low1 && y <= high1) || (y >= low2 && y <= high2);
-                column[i] = free == false;
+                column[i] = isFree(scanX, BottomY + i * Step) == false;
             }
             return column;
         }
+
+        //  막힌 상자들의 목록으로 자유공간 프로브를 만든다. 상자 하나 = (xMin, xMax, yMin, yMax).
+        //  몸을 세는 방식은 실제 도구(FlappyMapPlayabilityCheck.FreeSpaceGrid)와 같다 — 자리
+        //  (x, y)는 발밑이고 몸은 그 위로 선 캡슐(아래 구 중심 y+반지름, 위 구 중심 y+높이−반지름)이다.
+        //  캡슐이 상자에 닿으면 막힘. 그래서 두께 t짜리 판 하나는 발 높이로는 t+0.9m 구간을 막는다.
+        static FreeSpaceProbe Blocks(params (float xMin, float xMax, float yMin, float yMax)[] boxes)
+        {
+            return (x, y) =>
+            {
+                float lower = y + BodyRadius;
+                float upper = y + BodyHeight - BodyRadius;
+                foreach (var box in boxes)
+                {
+                    float dx = Math.Max(Math.Max(box.xMin - x, x - box.xMax), 0f);
+                    float dy = Math.Max(Math.Max(box.yMin - upper, lower - box.yMax), 0f);
+                    if (dx * dx + dy * dy < BodyRadius * BodyRadius)
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            };
+        }
+
+        //  지형이 아예 없는 하늘. 천장 걱정이 없으니 판단은 바닥 규칙만으로 갈린다.
+        static FreeSpaceProbe OpenSky() => Blocks();
+
+        //  발 높이 freeTop까지만 뚫린 회랑(코스 전체 길이에 걸쳐). 상자 바닥을 freeTop+몸높이에
+        //  두어야 "발이 freeTop을 넘는 순간 막힘"이 된다 — 몸이 그 위로 서기 때문이다.
+        static FreeSpaceProbe Ceiling(float freeTop)
+            => Blocks((-FarAway, FarAway, freeTop + BodyHeight, FarAway));
+
+        //  발 높이 [low, high]만 뚫린 회랑.
+        static FreeSpaceProbe Corridor(float low, float high)
+            => Blocks((-FarAway, FarAway, -FarAway, low),
+                      (-FarAway, FarAway, high + BodyHeight, FarAway));
+
+        //  어디에도 몸이 못 들어가는 바위 덩어리.
+        static FreeSpaceProbe Solid() => Blocks((-FarAway, FarAway, -FarAway, FarAway));
 
         //  실제 게임 커널(FlappyMapPlayabilityCheck.Step)과 같은 순서로 한 틱 굴린다 —
         //  중력을 먼저 깎고, 날갯짓이면 그 값을 덮어쓴 뒤(그 틱은 감쇠가 적용 안 됨), 그
@@ -135,7 +167,8 @@ namespace LOP.MapTools.Tests
         {
             //  FlapArc와 같은 순서(현재 속도로 먼저 오르고 그다음 깎는다)로 10틱만 도는 값 —
             //  23,21.6,…,10.4(10개 항)를 0.02씩 곱해 더하면 3.34m. 자연 정점(4.012, 17틱)보다
-            //  작아야 한다 — 아직 정점에 도달하기 전이라서다.
+            //  작아야 한다 — 아직 정점에 도달하기 전이라서다. 천장 가드의 훑기 루프도 이
+            //  순서(누른 틱은 임펄스 그대로, 그다음부터 중력)를 그대로 쓴다.
             float rise = BotPilot.FlapRiseAfter(FlapImpulse, Gravity, TickSeconds, ticks: 10);
             Assert.AreEqual(3.34f, rise, 0.005f);
             Assert.Less(rise, BotPilot.FlapArc(FlapImpulse, Gravity, TickSeconds));
@@ -151,9 +184,9 @@ namespace LOP.MapTools.Tests
             //  "스캔 거리가 고정이니 상수도 고정"이라는 근거는 그 상수가 스캔 거리에서
             //  그대로 나올 때만 성립한다.
             var gap = Free(101); // 0~10m — 천장 걱정 없음
-            var decision = BotPilot.Decide(gap, gap, gap, BottomY, Step, currentY: 2.0f, verticalSpeed: -5f,
-                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
-                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+            var decision = BotPilot.Decide(gap, BottomY, Step, currentX: 0f, currentY: 2.0f, verticalSpeed: -5f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TicksToScan, TickSeconds, OpenSky());
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsTrue(decision.Flap);
@@ -162,12 +195,12 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 목표보다_아래로_떨어질_참이면_누른다()
         {
-            //  0~10m가 뚫린 넉넉한 틈(아치보다 한참 넓어 천장 걱정이 없다). 새는 0.5에 있고
-            //  세로 속도 −30 — 근거리 열(10틱)까지 굴려도 바닥 마진(0.45) 아래로 떨어진다.
+            //  천장이 없는 하늘. 새는 0.5에 있고 세로 속도 −30 — 근거리 열(10틱)까지 굴려도
+            //  바닥 마진(0.45) 아래로 떨어진다.
             var gap = Free(101);
-            var decision = BotPilot.Decide(gap, gap, gap, BottomY, Step, currentY: 0.5f, verticalSpeed: -30f,
-                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
-                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+            var decision = BotPilot.Decide(gap, BottomY, Step, currentX: 0f, currentY: 0.5f, verticalSpeed: -30f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TicksToScan, TickSeconds, OpenSky());
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsTrue(decision.Flap);
@@ -176,13 +209,12 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 목표_위에_충분히_있으면_안_누른다()
         {
-            //  Free(15)는 0~1.4m — 아치보다 좁다. 지금 눌러 근거리 열(10틱) 상승분(3.34m)만
-            //  더해도 0.9+3.34=4.24로 천장(1.4)을 넘는다 — 아직 위험하지 않은데도 누르면
-            //  스스로 천장을 뚫는 쪽이라 누르지 않는다.
+            //  회랑이 1.4m까지만 뚫려 있다 — 아치(4.012)보다 한참 좁다. 지금 누르면 두 틱 만에
+            //  1.792로 천장을 뚫는다 — 아직 위험하지 않은데도 누르면 스스로 박는 쪽이라 누르지 않는다.
             var gap = Free(15);
-            var decision = BotPilot.Decide(gap, gap, gap, BottomY, Step, currentY: 0.9f, verticalSpeed: 0f,
-                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
-                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+            var decision = BotPilot.Decide(gap, BottomY, Step, currentX: 0f, currentY: 0.9f, verticalSpeed: 0f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TicksToScan, TickSeconds, Ceiling(1.4f));
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsFalse(decision.Flap);
@@ -194,13 +226,12 @@ namespace LOP.MapTools.Tests
             //  자유 구간은 0.1~0.2m뿐이라 실제 폭은 0.1m — 몸 지름(0.9m)보다 한참 좁아 몸이
             //  통째로 들어갈 "틈"은 아니다. 그렇다고 근거 없이 무조건 날갯짓하지 않는다 —
             //  반지름 조건을 0으로 풀어 그 좁은 자리라도 찾아내고, 거기에도 같은 천장 가드를
-            //  건다. 지금 눌러 10틱 뒤 상승분(3.34m)을 더하면 그 좁은 자리의 천장(0.2)을
-            //  훨씬 넘으므로 누르지 않는다 — 옛 버그(가드 없이 무조건 날갯짓)라면 여기서 눌러
-            //  버렸을 것이다.
+            //  건다. 한 틱만 눌러도 0.61로 그 자리를 벗어나 박으므로 누르지 않는다 —
+            //  옛 버그(가드 없이 무조건 날갯짓)라면 여기서 눌러 버렸을 것이다.
             var column = Band(low: 0.1f, span: 0.1f, BottomY, Step);
-            var decision = BotPilot.Decide(column, column, column, BottomY, Step, currentY: 0.15f, verticalSpeed: 0f,
-                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
-                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+            var decision = BotPilot.Decide(column, BottomY, Step, currentX: 0f, currentY: 0.15f, verticalSpeed: 0f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TicksToScan, TickSeconds, Corridor(0.1f, 0.2f));
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsFalse(decision.Flap);
@@ -211,29 +242,29 @@ namespace LOP.MapTools.Tests
         {
             //  판단할 근거가 없을 때 떨어지게 두면 바닥에 부딪힌다 — 통과 가능성을 묻는 검사이므로
             //  아무 정보가 없을 땐 떠 있는 쪽을 고른다. 반지름을 0으로 풀어도 뚫린 자리가
-            //  아예 없다(전부 막힘).
+            //  아예 없다(전부 막힘). 이 결정은 천장 가드보다 앞서야 한다 — 프로브도 전부
+            //  막힌 바위로 줬으므로, 가드를 먼저 걸면 이 테스트가 빨강이 된다.
             var column = Column(true, true, true);
-            var decision = BotPilot.Decide(column, column, column, BottomY, Step,
-                                           currentY: 0.2f, verticalSpeed: -30f, BodyRadius,
-                                           FlapImpulse, Gravity, MaxFallSpeed,
-                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+            var decision = BotPilot.Decide(column, BottomY, Step, currentX: 0f, currentY: 0.2f, verticalSpeed: -30f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TicksToScan, TickSeconds, Solid());
 
             Assert.IsFalse(decision.GapFound);
             Assert.IsTrue(decision.Flap);
         }
 
         [Test]
-        public void 근거리_열은_정점이_아니라_그_열에_도달하는_시점의_높이로_천장을_잰다()
+        public void 앞쪽_천장이_낮아도_그_아래로_지나갈_수_있으면_누른다()
         {
-            //  근거리 틈은 0~3.7m — 10틱 뒤(도달 시점) 상승분(3.34m)은 들어가지만, 자연
-            //  정점까지 다 오른 값(4.012m)은 못 들어간다. "정점"이 아니라 "그 열에 도달하는
-            //  시점"으로 재야 이 열을 지나 눌러도 된다는 걸 안다 — 정점은 이 열을 이미 지나친
-            //  자리(정점·원거리 열 쪽)에서 일어난다. 정점·원거리 열은 0~20m로 넉넉해 방해하지 않는다.
-            var near = Band(low: 0f, span: 3.7f, BottomY, Step);
-            var far = Free(201);
-            var decision = BotPilot.Decide(near, far, far, BottomY, Step, currentY: 0f, verticalSpeed: 0f,
-                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
-                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+            //  천장이 3.7m로 낮지만 2.2m 앞에서 끝난다. 지금 누르면 그 구간을 3.34m까지만
+            //  오른 채로 빠져나가고(10틱), 천장이 끝난 뒤에야 정점(4.012)까지 오른다 — 실제로
+            //  지나갈 수 있으므로 눌러야 한다. 아치를 훑지 않고 "정점 높이가 앞 천장 아래인가"만
+            //  물으면 여기서 겁을 먹는다.
+            var isFree = Blocks((-FarAway, 2.2f, 3.7f + BodyHeight, FarAway));
+            var near = ColumnFrom(isFree, NearScanX, cells: 101);
+            var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 0f, verticalSpeed: 0f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TicksToScan, TickSeconds, isFree);
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsTrue(decision.Flap);
@@ -243,9 +274,9 @@ namespace LOP.MapTools.Tests
         public void 문턱_폭_이상이면_누른다()
         {
             //  "문턱 법칙" — 밴드 바닥에서 잰 자유 폭이 아치+마진 이상이면 누르고, 그보다
-            //  조금이라도 좁으면 안 누른다. 원거리 열(20틱)이 자연 정점(17틱)을 넘겨 아치
-            //  전체로 수렴하므로 그 값이 기준이 되고, 마진은 바닥 쪽(반지름)만 붙는다(천장
-            //  쪽은 막힘 표 자체가 이미 몸 반지름을 반영해 마진을 또 두지 않는다).
+            //  조금이라도 좁으면 안 누른다. 훑기가 정점(17틱)을 지나므로 아치 전체가 기준이
+            //  되고, 마진은 바닥 쪽(반지름)만 붙는다(천장 쪽은 몸이 지나는 자리를 프로브가
+            //  직접 재므로 마진을 또 두지 않는다).
             float flapArc = BotPilot.FlapArc(FlapImpulse, Gravity, TickSeconds);
             float threshold = BodyRadius + flapArc;
             const float fineStep = 0.001f;
@@ -256,9 +287,10 @@ namespace LOP.MapTools.Tests
 
             //  바닥 마진 경계(0+반지름)에 정확히 서서 강하게 떨어지는 참 — 근거리 열까지
             //  굴려도 확실히 마진 아래로 떨어져 "누를지 말지"는 오직 천장 여유로만 갈린다.
-            var decision = BotPilot.Decide(gap, gap, gap, BottomY, fineStep, currentY: BodyRadius,
+            var decision = BotPilot.Decide(gap, BottomY, fineStep, currentX: 0f, currentY: BodyRadius,
                                            verticalSpeed: -30f, BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
-                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+                                           ForwardSpeed, TicksToNear, TicksToScan, TickSeconds,
+                                           Ceiling(threshold + fineStep));
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsTrue(decision.Flap);
@@ -274,9 +306,10 @@ namespace LOP.MapTools.Tests
             const float fineStep = 0.001f;
             var gap = Band(low: 0f, span: threshold - 0.02f, BottomY, fineStep);
 
-            var decision = BotPilot.Decide(gap, gap, gap, BottomY, fineStep, currentY: BodyRadius,
+            var decision = BotPilot.Decide(gap, BottomY, fineStep, currentX: 0f, currentY: BodyRadius,
                                            verticalSpeed: -30f, BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
-                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+                                           ForwardSpeed, TicksToNear, TicksToScan, TickSeconds,
+                                           Ceiling(threshold - 0.02f));
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsFalse(decision.Flap);
@@ -289,13 +322,15 @@ namespace LOP.MapTools.Tests
             //  굴린다 — 단발 호출이 아니라 판단→적분→판단을 반복해도 바닥·천장 둘 다 어긴
             //  적이 없어야 한다("가둬 둘 수 있다"는 성질을 커널 적분으로 확인).
             var gap = Free(61); // 0~6m
+            var isFree = Ceiling(6f);
             float y = 3f, vy = 0f;
 
             for (int tick = 0; tick < 80; tick++)
             {
-                var decision = BotPilot.Decide(gap, gap, gap, BottomY, Step, y, vy, BodyRadius,
-                                               FlapImpulse, Gravity, MaxFallSpeed,
-                                               TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+                var decision = BotPilot.Decide(gap, BottomY, Step, currentX: tick * ForwardSpeed * TickSeconds,
+                                               currentY: y, verticalSpeed: vy, BodyRadius,
+                                               FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                               TicksToNear, TicksToScan, TickSeconds, isFree);
                 (y, vy) = StepPhysics(y, vy, decision.Flap);
 
                 Assert.GreaterOrEqual(y, 0f, $"tick {tick}: 바닥 아래로 내려갔다 (y={y})");
@@ -316,14 +351,16 @@ namespace LOP.MapTools.Tests
             //  일부러 깨뜨려 실행 → 이 테스트가 빨강이 됨을 확인했다(바닥 아래로 내려갔다는
             //  Assert.GreaterOrEqual 실패). 확인 후 원복.
             var gap = Free(61); // 0~6m
+            var isFree = Ceiling(6f);
             float y = 0.5f, vy = -30f;
             int flaps = 0;
 
             for (int tick = 0; tick < 150; tick++)
             {
-                var decision = BotPilot.Decide(gap, gap, gap, BottomY, Step, y, vy, BodyRadius,
-                                               FlapImpulse, Gravity, MaxFallSpeed,
-                                               TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+                var decision = BotPilot.Decide(gap, BottomY, Step, currentX: tick * ForwardSpeed * TickSeconds,
+                                               currentY: y, verticalSpeed: vy, BodyRadius,
+                                               FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                               TicksToNear, TicksToScan, TickSeconds, isFree);
                 if (decision.Flap)
                 {
                     flaps++;
@@ -339,76 +376,64 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
-        public void 정점_경계_뚫린_구간_위_끝이_아치_최고점보다_낮으면_안_누른다()
+        public void 아치_정점만_스치는_천장도_잡는다()
         {
-            //  정점 열의 뚫린 구간 위 끝이 4.4m. 아치 최고점은 0.5+4.012=4.512로 이 천장을
-            //  0.112m 넘는다 — 넘기면 누르지 않는다. 근거리·원거리는 넉넉히 뚫어 정점 열만
-            //  차이를 만들게 한다. (숫자 자체가 걸리는 경계쌍 — ticksToApex를 ticksToNear로
-            //  바꾸는 돌연변이[봇이 0.672m 더 용감해짐]가 이 쌍에서 빨강이 되는지로 검증한다.)
-            //
-            //  돌연변이 검증(2026-09-09): Decide를 파이썬으로 그대로 옮겨 놓고 ticksToApex를
-            //  ticksToNear로 바꿔 돌렸더니, riseAtApex가 4.012에서 3.34로 줄어 4.4 천장 안에
-            //  들어가 버려 판단이 "안 누름"에서 "누름"으로 뒤집혔다 — 이 테스트가 잡아내는
-            //  차이다. (에디터가 막혀 있어 NUnit 자체로는 아직 확인하지 못했다.)
-            var open = Free(101); // 0~10m
-            var apex = Band(low: 0f, span: 4.4f, BottomY, Step);
-            var decision = BotPilot.Decide(open, apex, open, BottomY, Step,
-                                           currentY: 0.5f, verticalSpeed: -30f, BodyRadius,
-                                           FlapImpulse, Gravity, MaxFallSpeed,
-                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+            //  천장이 낮은(4.4m) 구간이 x 3.5~4.0에만 있다 — 근거리 열(2.2m)에도 원거리
+            //  지평 끝(4.4m)에도 안 걸리고, 아치가 가장 높은 자리(정점 x=3.74, y=4.512)에만
+            //  걸린다. 두 열의 도착 높이만 재던 옛 가드는 이 기둥을 통과시켰다.
+            var isFree = Blocks((3.5f, 4.0f, 4.4f + BodyHeight, FarAway));
+            var near = ColumnFrom(isFree, NearScanX, cells: 101);
+            var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 0.5f, verticalSpeed: -30f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TicksToScan, TickSeconds, isFree);
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsFalse(decision.Flap);
         }
 
         [Test]
-        public void 정점_경계_뚫린_구간_위_끝이_아치_최고점보다_높으면_누른다()
+        public void 아치_정점이_들어가는_천장이면_누른다()
         {
-            //  위 테스트와 정확히 같은 자리, 정점 열 천장만 4.6m로 넓힌다 — 아치 최고점
-            //  (4.512)이 이번엔 안에 들어와 눌러도 안전하다.
-            var open = Free(101); // 0~10m
-            var apex = Band(low: 0f, span: 4.6f, BottomY, Step);
-            var decision = BotPilot.Decide(open, apex, open, BottomY, Step,
-                                           currentY: 0.5f, verticalSpeed: -30f, BodyRadius,
-                                           FlapImpulse, Gravity, MaxFallSpeed,
-                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+            //  위 테스트와 정확히 같은 자리, 그 구간 천장만 4.6m로 올린다 — 아치 최고점
+            //  (0.5+4.012=4.512)이 이번엔 안에 들어와 눌러도 안전하다. 가드가 무조건
+            //  막는 게 아님을 보이는 짝이다.
+            var isFree = Blocks((3.5f, 4.0f, 4.6f + BodyHeight, FarAway));
+            var near = ColumnFrom(isFree, NearScanX, cells: 101);
+            var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 0.5f, verticalSpeed: -30f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TicksToScan, TickSeconds, isFree);
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsTrue(decision.Flap);
         }
 
         [Test]
-        public void 가운데_기둥에서_위쪽_통로가_열려있으면_겁먹지_않고_누른다()
+        public void 머리_위로_지나갈_수_있는_기둥은_겁먹지_않고_누른다()
         {
-            //  플래피 코스의 가운데 기둥 재현 — 정점 열에 통로가 둘([0,1.0]과 [2.0,10]),
-            //  그 사이(기둥)가 막혀 있다. 틈을 골라 그 천장과 비교하는 옛 가드라면
-            //  currentY(0.2)에 가장 가까운 [0,1.0]을 골라 그 천장(1.0)과 비교해 "막혔다"고
-            //  오판한다 — 정작 아치 최고점(0.2+4.012=4.212)은 위쪽 통로 [2.0,10] 안에
-            //  멀쩡히 들어가는데도. BotPilot.IsFree는 "어느 틈을 골랐나"를 묻지 않고 그
-            //  높이 자체가 뚫려 있는지 직접 물으므로 이 오판이 없다.
-            var open = Free(101); // 근거리·원거리 — 넉넉히 뚫림
-            var apex = Pillar(low1: 0f, high1: 1.0f, low2: 2.0f, high2: 10f, BottomY, Step, topY: 10f);
-            var decision = BotPilot.Decide(open, apex, open, BottomY, Step,
-                                           currentY: 0.2f, verticalSpeed: -30f, BodyRadius,
-                                           FlapImpulse, Gravity, MaxFallSpeed,
-                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+            //  x 3.5~4.0에 판이 하나 떠 있어 그 자리에서는 발 높이 1.0~2.0m가 막힌다. 아치는
+            //  그 위(4.2m)로 지나가므로 눌러야 한다 — 열 하나를 통째로 "막혔다"고 읽거나
+            //  아래쪽 틈만 보고 겁먹으면 통과 가능한 맵을 불가능으로 보고하게 된다.
+            var isFree = Blocks((3.5f, 4.0f, 1.9f, 2.0f));
+            var near = ColumnFrom(isFree, NearScanX, cells: 101);
+            var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 0.2f, verticalSpeed: -30f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TicksToScan, TickSeconds, isFree);
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsTrue(decision.Flap,
-                "위쪽 통로가 뚫려 있는데도 누르지 않았다 — 아래쪽 틈만 보고 오판했다.");
+                "머리 위로 지나갈 수 있는데도 누르지 않았다.");
         }
 
         [Test]
-        public void 가운데_기둥에서_위쪽_통로까지_막히면_안_누른다()
+        public void 기둥_위까지_막히면_안_누른다()
         {
-            //  위 테스트의 짝 — 위쪽 통로([2.0,10])까지 막아 정점 열이 [0,1.0]만 뚫리면,
-            //  아치 최고점(4.212)이 갈 곳이 없으므로 누르지 않아야 한다.
-            var open = Free(101);
-            var apex = Band(low: 0f, span: 1.0f, BottomY, Step);
-            var decision = BotPilot.Decide(open, apex, open, BottomY, Step,
-                                           currentY: 0.2f, verticalSpeed: -30f, BodyRadius,
-                                           FlapImpulse, Gravity, MaxFallSpeed,
-                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+            //  위 테스트의 짝 — 같은 자리의 판을 위로 끝까지 늘려 발 높이 1.0m 위가 전부
+            //  막히면, 아치 최고점(4.212)이 갈 곳이 없으므로 누르지 않아야 한다.
+            var isFree = Blocks((3.5f, 4.0f, 1.9f, FarAway));
+            var near = ColumnFrom(isFree, NearScanX, cells: 101);
+            var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 0.2f, verticalSpeed: -30f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TicksToScan, TickSeconds, isFree);
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsFalse(decision.Flap);
@@ -417,15 +442,14 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 직선_회랑에서는_아치가_들어갈_만큼_넓을_때만_누른다()
         {
-            //  통로가 하나뿐인 회랑에서는 이번 변경(틈 고르기 → IsFree로 직접 묻기) 전후로
-            //  판단이 같아야 한다 — 폭을 4.0~5.2m로 훑으며, 회랑이 currentY+아치(4.012)를
-            //  담을 만큼 넓을 때만 누르는지 확인한다.
+            //  통로가 하나뿐인 회랑에서는 천장 가드를 어떻게 구현하든(틈 고르기 → 칸 조회 →
+            //  아치 훑기) 판단이 같아야 한다 — 폭을 4.0~5.2m로 훑으며, 회랑이 currentY+아치
+            //  (4.012)를 담을 만큼 넓을 때만 누르는지 확인한다. 기대값이 바뀌어야 통과한다면
+            //  봇이 요구하는 회랑 폭이 바뀐 것이니(= 보수성이 변했다) 멈추고 따져야 한다.
             //
             //  기대값은 Free(cells)의 실제 자유 상단으로 세운다 — 마지막 자유 칸의 y는
-            //  (cells−1)×step이라 Free(46)의 자유 상단은 4.6이 아니라 4.5다. 예전엔 이 어긋남을
-            //  "경계 근처는 판단을 강제하지 않는다"는 스킵으로 덮었는데, 그 스킵 구간(4.5·4.6)이
-            //  하필 옛 구현과 새 구현이 갈리는 유일한 폭이라 이 테스트가 아무것도 지키지 못했다.
-            //  스킵을 없애 4.6(안 누름)/4.7(누름)이 살아 있는 경계가 되게 한다.
+            //  (cells−1)×step이라 Free(46)의 자유 상단은 4.6이 아니라 4.5다. 4.6(안 누름)과
+            //  4.7(누름)이 살아 있는 경계다.
             const float currentY = 0.5f;
             const float verticalSpeed = -30f; // 강하 중 — 바닥 규칙은 늘 누르고 싶어 하게 만든다
             float reach = currentY + BotPilot.FlapArc(FlapImpulse, Gravity, TickSeconds);
@@ -435,81 +459,96 @@ namespace LOP.MapTools.Tests
                 float width = 4.0f + i * 0.1f; // 4.0, 4.1, …, 5.2
                 int cells = (int)Math.Round(width / Step);
                 var corridor = Free(cells);
-                var decision = BotPilot.Decide(corridor, corridor, corridor, BottomY, Step,
-                                               currentY, verticalSpeed, BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
-                                               TicksToNear, TicksToApex, TicksToFar, TickSeconds);
-
                 float freeTop = (cells - 1) * Step;
+                var decision = BotPilot.Decide(corridor, BottomY, Step, currentX: 0f, currentY: currentY,
+                                               verticalSpeed: verticalSpeed, BodyRadius, FlapImpulse, Gravity,
+                                               MaxFallSpeed, ForwardSpeed, TicksToNear, TicksToScan, TickSeconds,
+                                               Ceiling(freeTop));
+
                 bool expectFlap = reach <= freeTop;
                 Assert.AreEqual(expectFlap, decision.Flap, $"width={width} (자유 상단 {freeTop}, 도달 {reach})");
             }
         }
 
         [Test]
-        public void 도달_높이가_마지막_자유_샘플을_조금이라도_넘으면_안_누른다()
+        public void 도달_높이가_천장을_조금이라도_넘으면_안_누른다()
         {
-            //  칸 하나를 고르는 방향(올림 vs 최근접 반올림)이 갈리는 자리를 단일 틱으로 못박는다.
-            //  자유 상단이 6.0인 회랑에서 y=1.992면 도달 높이는 1.992+4.012001=6.004001 —
-            //  마지막으로 "재 본" 자유 높이(6.0)를 0.004m 넘는다. 그 0.004m는 아무도 재지 않은
-            //  자리이므로 뚫렸다고 볼 근거가 없다 → 누르지 않는다. 최근접 반올림이면 60번 칸
-            //  (=6.0)을 보고 "뚫렸다"고 읽어 눌러 버린다(= 물리가 허락하는 것보다 덜 조심스러운
-            //  봇). 부동소수 잡음이 아니라 step/2(0.05m)까지 벌어질 수 있는 계통 오차다.
-            //
-            //  돌연변이 검증(2026-09-09): BotPilot.IsFree의 Math.Ceiling을 Math.Round로 되돌리고
-            //  이 파일을 그대로(NUnit만 얇은 대역으로 바꿔) 컴파일·실행해 이 테스트가 빨강이 됨을
-            //  확인했다 — 판단이 "안 누름"에서 "누름"으로 뒤집힌다. 에디터 메인 스레드가 막혀
-            //  있어 Unity Test Runner로는 돌리지 못했다.
+            //  경계를 4mm 단위로 못박는다 — 자유 상단이 6.0인 회랑에서 y=1.992면 아치 최고점은
+            //  1.992+4.012001=6.004001로 천장을 0.004m 넘는다. 훑기는 몸이 실제로 지나는 자리를
+            //  묻기 때문에 이 4mm를 그대로 잡아내야 한다. 여기서 눌러 버리는 구현은 물리가
+            //  허락하는 것보다 덜 조심스러운 봇이고, 천장은 한 번 뚫으면 되돌릴 수 없다.
             var corridor = Free(61); // 0~6.0m
-            var decision = BotPilot.Decide(corridor, corridor, corridor, BottomY, Step,
-                                           currentY: 1.992f, verticalSpeed: -30f, BodyRadius,
-                                           FlapImpulse, Gravity, MaxFallSpeed,
-                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+            var decision = BotPilot.Decide(corridor, BottomY, Step, currentX: 0f, currentY: 1.992f,
+                                           verticalSpeed: -30f, BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
+                                           ForwardSpeed, TicksToNear, TicksToScan, TickSeconds, Ceiling(6f));
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsFalse(decision.Flap,
-                "도달 높이 6.004가 마지막 자유 샘플(6.0)을 넘는데 눌렀다 — 재 보지 않은 높이를 뚫린 것으로 읽었다.");
+                "아치 최고점 6.004가 천장(6.0)을 넘는데 눌렀다.");
         }
 
         [Test]
-        public void 표_아래_높이는_막힘으로_본다()
+        public void 올라가는_길이_막혔으면_도착_높이가_뚫려_있어도_안_누른다()
         {
-            //  표가 y=5.0에서 시작하는데(bottomY=5) 새는 그보다 한참 아래(0)에 있다 — 도달
-            //  높이(3.34/4.012)가 전부 표 아래라 그 높이를 재 본 적이 없다. 근거 없는 자리를
-            //  안전하다고 보면 봇이 스캔 밴드 밖의 지형으로 날아드므로 막힘으로 본다.
-            //  (헬퍼를 안 쓰고 Column으로 짧은 표를 직접 만든다 — Free/Band는 표를 100m까지
-            //  채워 모든 질의가 표 안으로 들어가 이 분기를 지나지 못한다.)
+            //  이 과제가 고친 결함 그 자체. 천장 슬래브가 3.56~4.06m를 채우고 있고 새는 y=1.0에
+            //  있다. 도착 높이만 재던 옛 가드가 보던 세 지점은 전부 슬래브 *위*의 진짜 빈
+            //  하늘이다 — 근거리 4.34, 정점·원거리 5.012. 그래서 옛 가드는 "뚫렸다"고 읽고 눌렀다.
+            //  그러나 새는 거기 못 간다: 몸이 슬래브 아래 끝(3.56)에 닿는 발 높이가 2.66이라,
+            //  올라가는 길에 4틱째(y=2.672)에서 박는다.
             //
-            //  돌연변이 검증(2026-09-09): index<0을 "뚫림"으로 뒤집어 컴파일·실행하니 이 테스트
-            //  하나만 빨강이 됐다. (Unity Test Runner로는 미확인 — 에디터가 막혀 있다.)
-            const float bottomY = 5f;
-            var column = Column(false, false, false, false, false, false, false, false, false, false); // 5.0~5.9 뚫림
-            var decision = BotPilot.Decide(column, column, column, bottomY, Step,
-                                           currentY: 0f, verticalSpeed: -30f, BodyRadius,
-                                           FlapImpulse, Gravity, MaxFallSpeed,
-                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+            //  돌연변이 검증(2026-09-09): 직전 커밋(714e64a3)의 세-열 가드를 그대로 돌려
+            //  같은 프로브에서 근거리·정점·원거리 열을 뽑아 넣으면 flap=true(=누른다)가 나온다 —
+            //  이 테스트는 그 코드에서 빨강이다. 자세한 절차는 task-10-report.md 참고.
+            var isFree = Blocks((-FarAway, FarAway, 3.56f, 4.06f));
+            var near = ColumnFrom(isFree, NearScanX, cells: 101);
+            var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 1.0f, verticalSpeed: -30f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TicksToScan, TickSeconds, isFree);
 
             Assert.IsTrue(decision.GapFound);
-            Assert.IsFalse(decision.Flap, "표 아래(재 본 적 없는 높이)를 뚫린 것으로 읽었다.");
+            Assert.IsFalse(decision.Flap,
+                "도착 높이가 슬래브 위로 뚫려 있다고 눌렀다 — 올라가는 길에 슬래브를 뚫는다.");
         }
 
         [Test]
-        public void 표_위_높이는_열린_하늘로_본다()
+        public void 슬래브를_치우면_같은_자리에서_누른다()
         {
-            //  표가 0.9m에서 끝나고(열 개) 도달 높이는 3.54/4.212 — 전부 표 위다. 실제 도구가
-            //  만드는 표는 봇이 도달할 수 있는 높이까지 덮으므로(FlyBot이 밴드를 그만큼 넓힌다),
-            //  표 위는 지형이 아예 없는 열린 하늘이다 — 막힘으로 보면 봇이 아무 이유 없이
-            //  겁쟁이가 되어 통과 가능한 맵을 불가능으로 보고한다.
-            //
-            //  돌연변이 검증(2026-09-09): index>=Count를 "막힘"으로 뒤집어 컴파일·실행하니 이
-            //  테스트 하나만 빨강이 됐다. (Unity Test Runner로는 미확인 — 에디터가 막혀 있다.)
-            var column = Column(false, false, false, false, false, false, false, false, false, false); // 0~0.9 뚫림, 표 끝
-            var decision = BotPilot.Decide(column, column, column, BottomY, Step,
-                                           currentY: 0.2f, verticalSpeed: -30f, BodyRadius,
-                                           FlapImpulse, Gravity, MaxFallSpeed,
-                                           TicksToNear, TicksToApex, TicksToFar, TickSeconds);
+            //  위 테스트의 짝 — 같은 자리·같은 속도인데 슬래브만 없앤다. 가드가 무조건 막는
+            //  게 아니라 "가는 길이 막혔을 때만" 막는다는 것을 보인다.
+            var isFree = OpenSky();
+            var near = ColumnFrom(isFree, NearScanX, cells: 101);
+            var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 1.0f, verticalSpeed: -30f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TicksToScan, TickSeconds, isFree);
 
             Assert.IsTrue(decision.GapFound);
-            Assert.IsTrue(decision.Flap, "표 위(지형이 없는 하늘)를 막힘으로 읽어 누르지 않았다.");
+            Assert.IsTrue(decision.Flap);
+        }
+
+        [Test]
+        public void 두_틱_표본_사이에_낀_얇은_판도_선분_훑기가_잡는다()
+        {
+            //  첫 틱은 x로 0.22m·y로 0.46m 움직여 표본 사이 거리가 0.51m다. 몸 반지름이
+            //  0.45m라 두 표본의 몸이 덮지 못하는 렌즈 모양 틈이 그 사이에 남는다 — 거기에
+            //  2cm짜리 판을 하나 두면, 양 끝점만 보는 구현은 판을 통과해 버린다.
+            //  (판의 자리: 첫 틱 선분의 중점에서 수직으로 0.41m 떨어진 곳. 끝점까지 거리는
+            //  0.469m로 반지름 밖이고, 선분까지 거리는 0.41m로 반지름 안이다.)
+            //
+            //  돌연변이 검증(2026-09-09): BotPilot.Decide의 훑기에서 CleanRunSearch.SegmentIsFree
+            //  호출을 빼고 끝점(isFree(nextX, nextY))만 보게 하면 이 테스트가 빨강이 된다
+            //  (판을 못 보고 눌러 버린다). 확인 후 원복.
+            const float plateX = 0.47995f;
+            const float plateY = 0.50307f;   // 월드 y — 발 높이로는 0.053 근처의 몸을 막는다
+            const float half = 0.01f;
+            var isFree = Blocks((plateX - half, plateX + half, plateY - half, plateY + half));
+            var near = ColumnFrom(isFree, NearScanX, cells: 101);
+            var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 0f, verticalSpeed: -30f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TicksToScan, TickSeconds, isFree);
+
+            Assert.IsTrue(decision.GapFound);
+            Assert.IsFalse(decision.Flap,
+                "틱 표본 사이에 낀 판을 못 봤다 — 끝점만 보고 통과시켰다.");
         }
     }
 }

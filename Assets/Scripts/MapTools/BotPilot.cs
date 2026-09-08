@@ -21,8 +21,8 @@ namespace LOP.MapTools
     }
 
     /// <summary>
-    /// 앞을 세로로 훑은 막힘 표를 보고 이번 틱에 날갯짓할지 정한다. 물리도 씬도 모른다 —
-    /// 표는 부르는 쪽이 실제 콜라이더로 재서 넘긴다.
+    /// 앞을 세로로 훑은 막힘 표와 자유공간 프로브를 보고 이번 틱에 날갯짓할지 정한다. 물리도
+    /// 씬도 모른다 — 표도 프로브도 부르는 쪽이 실제 콜라이더로 재서 넘긴다.
     ///
     /// <para>겨냥은 지연도 오차도 없이 완벽하다. 이 봇이 답하려는 질문이 "사람이 아주 잘하면
     /// 통과할 수 있는가"이기 때문이다. 반응 지연을 넣는 것은 난이도를 재는 다른 질문이다.
@@ -30,18 +30,15 @@ namespace LOP.MapTools
     /// "우리 봇이 겁쟁이다"로 뒤바뀌어 증명이 무의미해진다.</para>
     ///
     /// <para><b>언제 눌러야 안전한가</b>도 이 클래스가 정한다
-    /// (<see cref="FlappyGapAiming"/>은 "틈이 어디 있나"만 찾아 준다). 규칙은 근거리·정점·원거리
-    /// 세 열 각각에 <b>같은 모양의 천장 가드를 걸고, 셋을 AND로 묶는다</b> — 세 열 중
-    /// 하나라도 막히면 누르지 않는다:
+    /// (<see cref="FlappyGapAiming"/>은 "틈이 어디 있나"만 찾아 준다). 규칙은 셋이다:
     /// ① 바닥 쪽에서만 몸 반지름만큼 여유를 둔다 — 천장 쪽은 두지 않는다. 막힘 표 자체가
     ///    이미 몸(실제 반지름)으로 캡슐 검사를 한 결과라, 천장 쪽에 반지름을 또 빼면 몸
     ///    하나를 두 번 세는 꼴이라서다.
-    /// ② 지금 눌렀을 때 "그 열에 도달하는 시점"의 높이가 <b>그 열에서 뚫려 있는지</b>를
-    ///    그 높이의 칸 하나로 직접 묻는다(근거리·정점·원거리 열 각각). 천장을 찾지도, 틈을
-    ///    고르지도 않는다 — 막힘 표가 이미 실제 몸으로 캡슐 검사를 한 결과라 그 높이가 뚫려
-    ///    있으면 몸이 들어간다. 재는 높이는 아치의 최고점이 아니라 "그 열에 실제로 도달하는
-    ///    순간의 높이"다(정점 열에서만 그 둘이 같다). 막혀 있으면 절대 누르지 않는다 — 한 번
-    ///    뚫으면 되돌릴 수 없지만, 안 눌러 낮아지는 건 다음 틱에 다시 판단할 수 있다.
+    /// ② 지금 누르면 새가 그리는 아치를 <b>틱마다 따라가며</b>, 그 자리마다 몸이 들어가는지
+    ///    자유공간 프로브에 직접 묻는다. 도착 높이 몇 개만 재면 "가는 길"을 안 보게 된다 —
+    ///    천장 슬래브 <i>위</i>의 빈 하늘이 도착점으로는 뚫려 있어도, 올라가는 도중에 그
+    ///    슬래브에 박는다. 아치 위 한 자리라도 막혀 있으면 누르지 않는다 — 한 번 뚫으면
+    ///    되돌릴 수 없지만, 안 눌러 낮아지는 건 다음 틱에 다시 판단할 수 있다.
     /// ③ 한 틱이 아니라 근거리 열까지 남은 틱을 실제 중력으로 굴려 봐서 바닥 쪽을 판단한다.
     /// 몸이 다 들어가지 못할 만큼 좁은 자리라도 근거 없이 무조건 날갯짓하지 않는다 — 그
     /// 자리에도 같은 천장 가드를 건다.</para>
@@ -94,44 +91,21 @@ namespace LOP.MapTools
             return rise;
         }
 
-        /// <summary>그 열에서 발을 <paramref name="feetY"/>에 두었을 때 몸이 들어가는가.
-        /// 막힘 표는 이미 실제 몸으로 캡슐 검사를 한 결과라, 그 높이의 칸 하나만 보면 된다 —
-        /// "어느 틈으로 갈까"를 고를 필요가 없다. 한 열에 통로가 둘일 때(가운데 기둥) 틈을
-        /// 골라 그 천장과 비교하면, 고르지 않은 쪽 통로로 들어갈 수 있는데도 막혔다고 오판한다.</summary>
-        private static bool IsFree(IReadOnlyList<bool> blocked, float bottomY, float step, float feetY)
-        {
-            //  표를 만든 쪽(FlappyMapPlayabilityCheck.FlyBot)은 blocked[i]에 y = bottomY + i*step
-            //  "그 높이"를 실제로 재 본 결과만 담는다 — 칸과 칸 사이는 아무도 재지 않았다. 그래서
-            //  임의의 높이에서 칸을 정하는 건 역산이 아니라 선택이고(한 칸이 0.1m 구간을 대표하니
-            //  역이 없다), 우리는 안전한 쪽인 위 칸을 고른다(올림). 최근접 반올림은 발 높이 위쪽
-            //  step/2를 "재 보지도 않고 뚫렸다"고 읽어, 봇을 물리가 허락하는 것보다 덜 조심스럽게
-            //  만든다 — 천장은 한 번 뚫으면 되돌릴 수 없어 그 방향으로 틀리면 안 된다.
-            int index = (int)Math.Ceiling((feetY - bottomY) / step);
-            if (index < 0)
-            {
-                //  표 아래 — 스캔 밴드의 바닥보다 낮다. 판단 근거가 없는 자리를 안전하다고
-                //  보면 안 되므로 막힘으로 본다.
-                return false;
-            }
-            if (index >= blocked.Count)
-            {
-                //  표 위 — 스캔 밴드보다 높은, 열려 있는 하늘이다. 이게 참이려면 표가 봇이
-                //  도달할 수 있는 높이를 다 덮어야 한다 — FlappyMapPlayabilityCheck.FlyBot이
-                //  봇 표만 그만큼 넓혀 그 가정을 산술로 참으로 만든다.
-                return true;
-            }
-            return blocked[index] == false;
-        }
-
+        /// <param name="blockedNear">근거리 열의 막힘 표 — <b>바닥 규칙</b>이 쓴다(어느 높이로
+        /// 겨냥할지). 천장 판단은 이제 이 표가 아니라 <paramref name="isFree"/>가 한다.</param>
+        /// <param name="ticksToScan">지금 누르면 그리는 아치를 몇 틱까지 훑을지. 호출부는 원거리
+        /// 지평(20틱)을 그대로 넘긴다 — 아치 정점이 17틱이라 상승 구간 전체를 덮는다.</param>
+        /// <param name="isFree">발밑이 (x, y)일 때 몸이 들어가는가. 코스를 실제 콜라이더로 재는
+        /// 프로브를 호출부가 넘긴다.</param>
         public static BotDecision Decide(
-            IReadOnlyList<bool> blockedNear, IReadOnlyList<bool> blockedApex, IReadOnlyList<bool> blockedFar,
-            float bottomY, float step,
-            float currentY, float verticalSpeed, float bodyRadius,
+            IReadOnlyList<bool> blockedNear, float bottomY, float step,
+            float currentX, float currentY, float verticalSpeed, float bodyRadius,
             float flapImpulse, float gravity, float maxFallSpeed,
-            int ticksToNear, int ticksToApex, int ticksToFar, float tickSeconds)
+            float forwardSpeed, int ticksToNear, int ticksToScan, float tickSeconds,
+            FreeSpaceProbe isFree)
         {
-            //  highNear(틈의 위 끝)는 더 이상 안 쓴다 — 천장 가드는 IsFree로 직접 물으므로
-            //  "어느 틈을 골랐나"의 위 끝은 이 자리에서 의미가 없다. lowNear(바닥 규칙용)만 남긴다.
+            //  highNear(틈의 위 끝)는 안 쓴다 — 천장 가드는 아치를 직접 훑으므로 "어느 틈을
+            //  골랐나"의 위 끝은 이 자리에서 의미가 없다. lowNear(바닥 규칙용)만 남긴다.
             bool hasNear = FlappyGapAiming.TryFindGap(blockedNear, bottomY, step, currentY, bodyRadius,
                                                       out float lowNear, out _);
             if (hasNear == false)
@@ -162,25 +136,33 @@ namespace LOP.MapTools
                                                               tickSeconds, gravity, maxFallSpeed);
             bool wantsFlap = predictedY < safeFloor;
 
-            //  지금 눌렀을 때 "각 열에 도달하는 시점"의 높이가 그 열에서 뚫려 있는가를 직접
-            //  묻는다 — 아치의 정점이 아니라 그 열에 실제로 도달하는 순간의 높이다. 막힘 표는
-            //  이미 실제 몸으로 캡슐 검사를 한 결과이므로, "어느 틈으로 갈까"를 먼저 고르지
-            //  않고 그 높이의 칸 하나만 보면 된다(IsFree). 틈을 골라 그 천장과 비교하면, 한
-            //  열에 통로가 둘일 때(가운데 기둥) 고르지 않은 쪽 통로로 들어갈 수 있는데도 막힌
-            //  것으로 오판한다.
-            float riseAtNear = FlapRiseAfter(flapImpulse, gravity, tickSeconds, ticksToNear);
-            bool ceilingSafeNear = IsFree(blockedNear, bottomY, step, currentY + riseAtNear);
+            //  누르면 새가 그리는 아치를 틱마다 따라가며, 그 자리마다 몸이 들어가는지 묻는다.
+            //  도착 높이만 보면 "가는 길"을 안 보게 된다 — 천장 슬래브 위의 빈 하늘이 도착점으로
+            //  뚫려 있어도, 올라가는 도중에 그 슬래브에 박는다.
+            //  마진은 어디에도 더하지 않는다 — 훑기는 몸이 실제로 지나는 자리만 묻는다.
+            bool ceilingSafe = true;
+            float x = currentX;
+            float y = currentY;
+            //  누른 그 틱은 중력 감쇠 없이 임펄스 그대로 — 실제 커널(Step)이 그 틱의 감쇠를
+            //  덮어써 버리므로, FlapRiseAfter와 같은 순서다.
+            float speed = flapImpulse;
+            for (int t = 0; t < ticksToScan; t++)
+            {
+                float nextX = x + forwardSpeed * tickSeconds;
+                float nextY = y + speed * tickSeconds;
+                //  두 틱 표본 사이도 선분으로 훑는다 — 끝점만 보면 그 사이에 낀 얇은 판을 통과한다.
+                if (isFree(nextX, nextY) == false ||
+                    CleanRunSearch.SegmentIsFree(isFree, x, y, nextX, nextY, step) == false)
+                {
+                    ceilingSafe = false;
+                    break;
+                }
+                x = nextX;
+                y = nextY;
+                speed -= gravity * tickSeconds;
+            }
 
-            //  정점 열 — 날갯짓 아치가 가장 높이 오르는 자리(세로 속도가 0이 되는 순간)다.
-            //  근거리·원거리 열 사이에 숨은, 두 열 모두보다 좁은 위쪽 기둥은 그 두 가드를
-            //  통과해 버리므로 이 열을 따로 봐야 한다. 규칙은 근거리·원거리와 완전히 같다.
-            float riseAtApex = FlapRiseAfter(flapImpulse, gravity, tickSeconds, ticksToApex);
-            bool ceilingSafeApex = IsFree(blockedApex, bottomY, step, currentY + riseAtApex);
-
-            float riseAtFar = FlapRiseAfter(flapImpulse, gravity, tickSeconds, ticksToFar);
-            bool ceilingSafeFar = IsFree(blockedFar, bottomY, step, currentY + riseAtFar);
-
-            bool flap = wantsFlap && ceilingSafeNear && ceilingSafeApex && ceilingSafeFar;
+            bool flap = wantsFlap && ceilingSafe;
             return new BotDecision(flap, gapFound: true);
         }
     }

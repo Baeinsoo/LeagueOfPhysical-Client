@@ -834,30 +834,39 @@ git commit -m "refactor(skydive): 접지와 착지 충격을 이동 밖 한곳�
 
 `LeagueOfPhysical-Shared/Tests/EditMode/SkydiveWorldTests.cs`에 추가한다. 픽스처가 월드를 만드는 헬퍼를 쓰고 있으므로, 그 헬퍼에 `BodyCollisionSystem`을 넣어 준다(아래 Step 3에서 시그니처를 정한 뒤 맞춘다).
 
-> **먼저 읽을 것 — 좌표를 손으로 정하지 말고 유도해라.**
+> **먼저 읽을 것 — 두 가지 함정이 있다.**
 >
-> 몸 캡슐(r=0.4, h=1.8)의 심 선분은 길이 1.0이다. 두 몸의 **세로 간격이 1.0 이하**면 심 선분이
-> 겹쳐 `BodyOverlap`의 거리가 0이 되고, 기하 대신 *규칙으로* `Vector3.down`을 돌려주는 예외
-> 분기로 빠진다 — 아래쪽 접촉 판별을 시험하지 못한 채 통과한다. 진짜 세로 법선은 간격이
-> **(1.0, 1.8)** 구간일 때 나온다(1.8 = 몸 높이 = 머리 위에 선 정지 자세).
+> **① 접촉 기하.** 몸 캡슐(r=0.4, h=1.8)의 심 선분은 길이 1.0이다. 두 몸의 **세로 간격이 1.0
+> 이하**면 심 선분이 겹쳐 `BodyOverlap`의 거리가 0이 되고, 기하 대신 *규칙으로* `Vector3.down`을
+> 돌려주는 예외 분기로 빠진다 — 아래쪽 접촉 판별을 시험하지 못한 채 통과한다. 진짜 세로 법선은
+> 간격이 **(1.0, 1.8)** 구간일 때 나온다(1.8 = 몸 높이 = 머리 위에 선 정지 자세). 몸싸움은
+> **이동 뒤**에 도므로 "틱이 끝난 뒤" 간격이 그 구간이어야 한다. 아래 두 상수는 계산으로 잡은
+> 출발값이고, **가드 단언(`AssertVerticalContact`)이 빨강이면 픽스처를 돌려 다시 잡는다** —
+> 그 단언은 예외 분기로 통과하는 것을 막는 장치이므로 지우지 않는다.
 >
-> 그런데 몸싸움은 **이동 뒤**에 돌고, 그 틱에 두 몸 다 중력으로 떨어진다. 그래서 "틱이 끝난 뒤"
-> 간격이 그 구간에 들어오는 시작 좌표는 **픽스처에 대고 실제로 돌려서 찾아야 한다.**
-> 아래 두 상수는 계산으로 잡은 출발값이다. **가드 단언(`AssertVerticalContact`)이 빨강이면
-> 픽스처를 돌려 다시 잡는다** — 그 단언이 예외 분기로 통과하는 것을 막는 장치이므로 지우지 않는다.
+> **② 기존 픽스처를 따른다.** `SkydiveWorldTests`는 `World()`나 `AddDiver` 같은 헬퍼가 없다.
+> 실제 모양은 `Diver(id)`(위치를 늘 `(0, 1000, 0)`으로 만든다) + `registry.Add(...)` +
+> `World(registry, ...)` + `world.GameplayStartTick = 0`이고, 조회는 `HeightOf(registry, id)` ·
+> `ImpactOf(registry, id)`다. 아래 코드는 그 모양에 맞춰 놨다 — **새 픽스처를 만들지 말고 이대로
+> 얹는다.** 맵을 안 주면 `HalfSpaceQuery`가 면이 없는 하늘이라 맵 접지가 섞이지 않는다(원하는 바다).
 
 ```csharp
         //  "틱이 끝난 뒤" 세로 간격이 (1.0, 1.8)에 오게 하는 시작 간격. 떨어지는 속도가 다르면
         //  한 틱에 좁혀지는 양도 달라서 값이 둘이다 — 초속 60이면 1.2m, 6이면 0.12m를 간다.
-        //  아래는 계산으로 잡은 출발값이고, 가드 단언이 빨강이면 픽스처를 돌려 다시 잡는다.
-        const float HardSpawnGap = 2.6f;   // 1.2m 좁혀져 ≈1.4
-        const float SoftSpawnGap = 1.6f;   // 0.12m 좁혀져 ≈1.48
+        const float HardSpawnGap = 2.6f;   // 1.2m 좁혀져 ≈1.41
+        const float SoftSpawnGap = 1.6f;   // 0.12m 좁혀져 ≈1.49
+
+        static Entity DiverAt(string id, float x, float y)
+        {
+            var e = Diver(id);
+            e.Get<GameFramework.World.Transform>().Position = new Vector3(x, y, 0f).ToNumerics();
+            return e;
+        }
 
         //  예외 분기(간격 ≤ 1.0에서 거리 0 → 규칙으로 정한 법선)로 통과하지 않았음을 못 박는다.
-        static void AssertVerticalContact(Entity lower, Entity upper)
+        static void AssertVerticalContact(EntityRegistry r, string lowerId, string upperId)
         {
-            float gap = upper.Get<GameFramework.World.Transform>().Position.Y
-                      - lower.Get<GameFramework.World.Transform>().Position.Y;
+            float gap = HeightOf(r, upperId) - HeightOf(r, lowerId);
             Assert.Greater(gap, 1.0f,
                 $"세로 간격 {gap:F3}은 심 선분이 겹치는 구간이라 접촉 법선이 기하가 아니라 " +
                 "규칙으로 정해진다 — 이 테스트는 판별을 시험하지 못한다");
@@ -866,62 +875,76 @@ git commit -m "refactor(skydive): 접지와 착지 충격을 이동 밖 한곳�
         [Test]
         public void 남의_머리에_세게_떨어지면_죽을_속도가_기록된다()
         {
-            var world = World();
-            var lower = AddDiver(world, "diver-1", new Vector3(0f, 100f, 0f));
-            var upper = AddDiver(world, "diver-2", new Vector3(0f, 100f + HardSpawnGap, 0f));
-            upper.Get<GameFramework.World.Velocity>().Linear = new Vector3(0f, -60f, 0f).ToNumerics();
+            var registry = new EntityRegistry();
+            registry.Add(DiverAt("a", 0f, 1000f));
+            var upper = DiverAt("b", 0f, 1000f + HardSpawnGap);
+            upper.Get<Velocity>().Linear = new Vector3(0f, -60f, 0f).ToNumerics();
+            registry.Add(upper);
 
-            world.Tick(StartTick, 0.02f);
+            var world = World(registry);   // 면이 없는 하늘 — 맵 접지가 섞이지 않는다
+            world.GameplayStartTick = 0;
 
-            AssertVerticalContact(lower, upper);
-            Assert.Greater(upper.Get<LandingImpact>().DownwardSpeed, 15f);
+            world.Tick(0, 0.02f);
+
+            AssertVerticalContact(registry, "a", "b");
+            Assert.Greater(ImpactOf(registry, "b"), 15f);
         }
 
         [Test]
         public void 남의_머리에_살살_내려오면_서고_죽지_않는다()
         {
-            var world = World();
-            var lower = AddDiver(world, "diver-1", new Vector3(0f, 100f, 0f));
-            var upper = AddDiver(world, "diver-2", new Vector3(0f, 100f + SoftSpawnGap, 0f));
-            upper.Get<GameFramework.World.Velocity>().Linear = new Vector3(0f, -6f, 0f).ToNumerics();
+            var registry = new EntityRegistry();
+            registry.Add(DiverAt("a", 0f, 1000f));
+            var upper = DiverAt("b", 0f, 1000f + SoftSpawnGap);
+            upper.Get<Velocity>().Linear = new Vector3(0f, -6f, 0f).ToNumerics();
+            registry.Add(upper);
 
-            world.Tick(StartTick, 0.02f);
+            var world = World(registry);
+            world.GameplayStartTick = 0;
 
-            AssertVerticalContact(lower, upper);
-            Assert.IsTrue(upper.Get<GameFramework.World.GroundState>().IsGrounded);
-            Assert.LessOrEqual(upper.Get<LandingImpact>().DownwardSpeed, 15f);
+            world.Tick(0, 0.02f);
+
+            AssertVerticalContact(registry, "a", "b");
+            Assert.IsTrue(registry.Get("b").Get<GroundState>().IsGrounded);
+            Assert.LessOrEqual(ImpactOf(registry, "b"), 15f);
         }
 
         [Test]
         public void 옆으로_부딪히면_접지도_충격도_없다()
         {
-            var world = World();
-            var left = AddDiver(world, "diver-1", new Vector3(0f, 100f, 0f));
-            var right = AddDiver(world, "diver-2", new Vector3(0.5f, 100f, 0f));
+            var registry = new EntityRegistry();
+            registry.Add(DiverAt("a", 0f, 1000f));
+            registry.Add(DiverAt("b", 0.5f, 1000f));
 
-            world.Tick(StartTick, 0.02f);
+            var world = World(registry);
+            world.GameplayStartTick = 0;
 
-            Assert.IsFalse(left.Get<GameFramework.World.GroundState>().IsGrounded);
-            Assert.AreEqual(0f, left.Get<LandingImpact>().DownwardSpeed, 1e-4f);
+            world.Tick(0, 0.02f);
+
+            Assert.IsFalse(registry.Get("a").Get<GroundState>().IsGrounded);
+            Assert.IsFalse(registry.Get("b").Get<GroundState>().IsGrounded);
+            Assert.AreEqual(0f, ImpactOf(registry, "a"), 1e-4f);
+            Assert.AreEqual(0f, ImpactOf(registry, "b"), 1e-4f);
         }
 
         [Test]
         public void 몸이_서로_통과하지_않는다()
         {
-            var world = World();
-            var a = AddDiver(world, "diver-1", new Vector3(0f, 100f, 0f));
-            var b = AddDiver(world, "diver-2", new Vector3(0.3f, 100f, 0f));
+            var registry = new EntityRegistry();
+            registry.Add(DiverAt("a", 0f, 1000f));
+            registry.Add(DiverAt("b", 0.3f, 1000f));
 
-            world.Tick(StartTick, 0.02f);
+            var world = World(registry);
+            world.GameplayStartTick = 0;
 
-            Vector3 pa = a.Get<GameFramework.World.Transform>().Position.ToUnity();
-            Vector3 pb = b.Get<GameFramework.World.Transform>().Position.ToUnity();
+            world.Tick(0, 0.02f);
+
+            Vector3 pa = registry.Get("a").Get<GameFramework.World.Transform>().Position.ToUnity();
+            Vector3 pb = registry.Get("b").Get<GameFramework.World.Transform>().Position.ToUnity();
             float horizontal = new Vector2(pb.x - pa.x, pb.z - pa.z).magnitude;
             Assert.GreaterOrEqual(horizontal, 0.79f);   // 지름 0.8 − 허용 겹침 0.01
         }
 ```
-
-`StartTick`·`World()`·`AddDiver`는 기존 픽스처의 이름에 맞춘다. 없으면 파일 안 기존 테스트가 쓰는 방식을 그대로 따라 만든다.
 
 - [ ] **Step 2: 테스트가 실패하는지 확인한다**
 

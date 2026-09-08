@@ -1082,6 +1082,7 @@ git commit -m "feat(skydive): 몸싸움을 서버 시뮬에 등록한다"
 
 ```csharp
 using NUnit.Framework;
+using GameFramework.World;
 using UnityEngine;
 
 namespace LOP.Tests
@@ -1089,38 +1090,74 @@ namespace LOP.Tests
     /// <summary>
     /// 남을 "하던 자세를 계속한다"로 두고 굴렸을 때 9틱(≈180ms) 뒤에 얼마나 어긋나나.
     /// 자세를 바꾼 창이 이 설계의 진짜 위험이라 두 경우를 나눠 잰다.
+    ///
+    /// <para>왜 이 테스트가 있나: 몸싸움 설계 전체가 "남의 자세는 유지된다고 보고 굴려도 된다"는
+    /// 가정 위에 서 있다. 같은 자리에서 Flappy Race는 실패했다(날갯짓은 순간의 사건이라 예측할
+    /// 방법이 없다). 스카이다이브는 자세가 지속되는 값이라 성립한다는 것이 <b>근거이지 결론이
+    /// 아니라서</b> 숫자로 남긴다.</para>
     /// </summary>
     public class SkydiveRemotePredictionErrorTests
     {
-        const int LeadTicks = 9;
+        const int LeadTicks = 9;          // ≈180ms — 클라가 서버보다 앞서는 대략의 폭
+        const int PostureChangeTick = 4;  // 그 창 한가운데서 자세가 바뀐다
+        const float Dt = 0.02f;
 
         [Test]
         public void 자세를_안_바꾸면_9틱_예측이_거의_정확하다()
         {
             float error = PredictionError(changePostureMidway: false);
-            Assert.Less(error, 0.01f, $"자세 유지 창에서 {error:F4}m 어긋났다 — 굴리는 규칙이 갈렸다는 뜻");
+            Assert.Less(error, 1e-3f,
+                $"자세 유지 창에서 {error:F5}m 어긋났다 — 두 월드가 같은 규칙을 안 돌렸다는 뜻");
         }
 
         [Test]
-        public void 자세를_바꾼_창의_오차를_기록한다()
+        public void 자세를_바꾼_창의_오차가_물리가_허용하는_한계_안에_있다()
         {
             float error = PredictionError(changePostureMidway: true);
 
-            //  이 숫자가 곧 몸싸움 판정이 얼마나 어긋날 수 있는지다.
-            //  0.3m는 스펙 §7의 합격선 — 넘으면 입력 지연(원 스펙 §4.3)을 검토한다.
-            TestContext.WriteLine($"자세 변경 창 9틱 예측 오차: {error:F4} m");
-            Assert.Less(error, 0.3f);
+            //  천장은 물리에서 유도한다(스펙 §7②의 0.3m는 *라이브 보정량* 합격선이라 여기 쓰면
+            //  다른 축의 숫자를 빌려 쓰는 것이 된다). 두 월드가 갈리는 것은 낙하 가속뿐이고,
+            //  대자→다이브는 둘 다 "빨라지는" 쪽이라 차이가 FallApproach(29 m/s²)로 제한된다.
+            //  자세가 바뀐 뒤 남은 시간 t 동안 벌어질 수 있는 최대 거리 = ½ × 29 × t².
+            float divergedSeconds = (LeadTicks - PostureChangeTick) * Dt;
+            float ceiling = 0.5f * 29f * divergedSeconds * divergedSeconds;
+
+            TestContext.WriteLine(
+                $"자세 변경 창 {LeadTicks}틱 예측 오차: {error:F5} m (물리 천장 {ceiling:F5} m)");
+            Assert.Less(error, ceiling,
+                "자세 변경만으로 설명되지 않는 크기다 — 두 월드가 낙하 가속 말고 다른 데서도 갈렸다");
         }
 
-        //  진실 = 자세 입력을 그대로 받은 월드. 예측 = 그 입력을 못 받고 마지막 자세로 굴린 월드.
-        //  둘을 9틱 굴려 위치 차이를 잰다.
+        //  진실 = 자세 입력이 바뀐 월드. 예측 = 그 입력을 못 받아 "하던 자세"로 계속 구른 월드.
+        //  둘을 같은 틱 수만큼 굴려 위치 차이를 잰다.
         static float PredictionError(bool changePostureMidway)
         {
-            // 구현: SkydiveWorldTests의 월드 조립 헬퍼를 그대로 쓴다.
-            // truth  — 다이버 하나를 만들고, changePostureMidway면 4틱째에 자세 축을 대자→다이브로 바꾼다.
-            // predicted — 같은 초기 상태에서 자세 입력 없이 9틱 굴린다.
-            // return (truth 위치 − predicted 위치).magnitude
-            throw new System.NotImplementedException();
+            var truth = Spawn(out Entity truthDiver);
+            var predicted = Spawn(out Entity predictedDiver);
+
+            Vector3 start = truthDiver.Get<GameFramework.World.Transform>().Position.ToUnity();
+
+            for (int t = 0; t < LeadTicks; t++)
+            {
+                //  예측 월드는 입력을 못 받는다 — Current를 그대로 두는 것이 곧
+                //  "하던 자세를 계속한다"다(ApplyPostureInput이 마지막 명령을 계속 읽는다).
+                if (changePostureMidway && t == PostureChangeTick)
+                {
+                    truthDiver.Get<InputBuffer>().Current =
+                        new InputCommand { Posture = 1f, Posing = true };   // 대자 → 다이브
+                }
+                truth.Tick(t, Dt);
+                predicted.Tick(t, Dt);
+            }
+
+            Vector3 truthEnd = truthDiver.Get<GameFramework.World.Transform>().Position.ToUnity();
+            Vector3 predictedEnd = predictedDiver.Get<GameFramework.World.Transform>().Position.ToUnity();
+
+            //  스텁이 월드를 얼어붙게 만든 적이 있다(HalfSpaceQuery가 늘 None을 돌려주던 사고).
+            //  안 움직였는데 "오차 0"으로 통과하는 것을 막는다.
+            Assert.AreNotEqual(start, truthEnd, "월드가 움직이지 않았다 — 스텁이 막고 있다");
+
+            return Vector3.Distance(truthEnd, predictedEnd);
         }
     }
 }
@@ -1132,19 +1169,35 @@ namespace LOP.Tests
 unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode --filter SkydiveRemotePredictionErrorTests
 ```
 
-기대: `NotImplementedException`으로 둘 다 실패.
+기대: 컴파일 실패 — `Spawn` 헬퍼가 아직 없다.
 
-- [ ] **Step 3: `PredictionError`를 구현한다**
+- [ ] **Step 3: `Spawn` 헬퍼를 쓴다**
 
-`SkydiveWorldTests`가 월드를 만드는 방식을 그대로 따른다(같은 `SkydiveConfig` 픽스처, 같은 `HalfSpaceQuery`/모션 브리지 스텁). 두 월드를 각각 만들고, 다이버를 같은 위치·같은 자세로 넣고, 9틱을 `Tick`으로 굴린 뒤 위치 차이를 돌려준다.
+`SkydiveWorldTests`가 쓰는 것과 **같은 조립**을 이 파일에도 둔다(테스트 클래스끼리 헬퍼를 공유하지 않는 것이 이 프로젝트 관례다 — 그 파일의 `Config()` / `World(registry, ...)` / `Diver(id)`를 보고 같은 모양으로 옮겨 적는다).
 
-`changePostureMidway`가 참이면 truth 쪽만 4틱째에 `Posture` 축 목표를 바꾼다(`ApplyPostureInput`이 읽는 컴포넌트를 기존 테스트가 어떻게 세팅하는지 그대로 따른다).
-
-> **주의**: 스텁 `HalfSpaceQuery.Raycast`가 항상 `CollisionHit.None`을 돌려주던 전례가 있다. 이 테스트가 **0.0000m**를 내면 두 월드가 아예 안 움직인 것일 수 있으니, 9틱 뒤 위치가 시작 위치와 다른지도 함께 단언한다.
+`Spawn`은 **레지스트리 하나 + 다이버 하나 + 월드 하나**를 만들어 돌려준다:
 
 ```csharp
-            Assert.AreNotEqual(startPosition, truthPosition, "월드가 움직이지 않았다 — 스텁이 막고 있다");
+        //  두 월드를 완전히 같은 초기 상태로 세운다. 하늘(면 없는 HalfSpaceQuery)이라
+        //  맵 접지가 끼어들지 않고, 낙하 물리만 남아 오차의 출처가 하나가 된다.
+        static SkydiveWorld Spawn(out Entity diver)
+        {
+            var registry = new EntityRegistry();
+            diver = Diver("a");
+            //  활공 상태여야 자세 슬라이더가 먹는다(걷기·낙하에서는 대자로 되돌아간다).
+            //  Posing = true로 첫 틱에 Skydiving으로 들어가게 해 둔다.
+            diver.Get<InputBuffer>().Current = new InputCommand { Posture = 0f, Posing = true };
+            registry.Add(diver);
+
+            var world = World(registry);
+            world.GameplayStartTick = 0;
+            return world;
+        }
 ```
+
+`Config()` · `World(registry, ...)` · `Diver(id)`는 `SkydiveWorldTests`에 있는 것과 **같은 내용으로** 이 파일에 만든다. `Diver(id)`는 위치를 `(0, 1000, 0)`으로 두므로 지면과 멀어 접지가 안 걸린다 — 이 테스트가 원하는 바다.
+
+> **왜 첫 틱부터 `Posing = true`인가**: `ApplyPostureInput`은 `MotionState`가 `Skydiving`일 때만 자세 축을 움직인다. 그 상태로 들어가려면 슬라이더를 누른 상태(`Posing`)와 발밑 여유가 있어야 한다. 이걸 빼면 두 월드 다 대자로 고정돼 **자세를 바꿔도 오차가 0**이 나오고, 테스트가 아무것도 재지 못한 채 통과한다.
 
 - [ ] **Step 4: 테스트가 통과하는지 확인하고 숫자를 기록한다**
 

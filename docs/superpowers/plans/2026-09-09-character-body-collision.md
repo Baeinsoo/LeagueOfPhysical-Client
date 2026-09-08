@@ -479,8 +479,12 @@ git commit -m "feat: 접촉 충격량을 3D로 푼다"
         [Test]
         public void 위에_있는_쪽만_아래로_닿았다고_보고한다()
         {
+            //  세로 간격 1.6은 일부러 고른 값이다. 캡슐 심 선분이 길이 1.0이라 간격이 1.0 이하면
+            //  두 선분이 겹쳐 거리가 0이 되고, BodyOverlap이 기하 대신 "규칙으로" Vector3.down을
+            //  돌려주는 예외 분기로 빠진다 — 그러면 이 테스트가 판별을 시험하지 않고 통과한다.
+            //  진짜 세로 법선은 간격이 (1.0, 1.8)일 때 나온다(1.8 = 몸 높이 = 머리 위에 선 자세).
             var lower = Diver("diver-1", Vector3.zero, Vector3.zero);
-            var upper = Diver("diver-2", new Vector3(0f, 1.0f, 0f), new Vector3(0f, -10f, 0f));
+            var upper = Diver("diver-2", new Vector3(0f, 1.6f, 0f), new Vector3(0f, -10f, 0f));
 
             var groundedIds = FreeAxisSystem().Resolve(new List<Entity> { lower, upper });
 
@@ -824,17 +828,46 @@ git commit -m "refactor(skydive): 접지와 착지 충격을 이동 밖 한곳�
 
 `LeagueOfPhysical-Shared/Tests/EditMode/SkydiveWorldTests.cs`에 추가한다. 픽스처가 월드를 만드는 헬퍼를 쓰고 있으므로, 그 헬퍼에 `BodyCollisionSystem`을 넣어 준다(아래 Step 3에서 시그니처를 정한 뒤 맞춘다).
 
+> **먼저 읽을 것 — 좌표를 손으로 정하지 말고 유도해라.**
+>
+> 몸 캡슐(r=0.4, h=1.8)의 심 선분은 길이 1.0이다. 두 몸의 **세로 간격이 1.0 이하**면 심 선분이
+> 겹쳐 `BodyOverlap`의 거리가 0이 되고, 기하 대신 *규칙으로* `Vector3.down`을 돌려주는 예외
+> 분기로 빠진다 — 아래쪽 접촉 판별을 시험하지 못한 채 통과한다. 진짜 세로 법선은 간격이
+> **(1.0, 1.8)** 구간일 때 나온다(1.8 = 몸 높이 = 머리 위에 선 정지 자세).
+>
+> 그런데 몸싸움은 **이동 뒤**에 돌고, 그 틱에 두 몸 다 중력으로 떨어진다. 그래서 "틱이 끝난 뒤"
+> 간격이 그 구간에 들어오는 시작 좌표는 **픽스처에 대고 실제로 돌려서 찾아야 한다.**
+> 아래 두 상수는 계산으로 잡은 출발값이다. **가드 단언(`AssertVerticalContact`)이 빨강이면
+> 픽스처를 돌려 다시 잡는다** — 그 단언이 예외 분기로 통과하는 것을 막는 장치이므로 지우지 않는다.
+
 ```csharp
+        //  "틱이 끝난 뒤" 세로 간격이 (1.0, 1.8)에 오게 하는 시작 간격. 떨어지는 속도가 다르면
+        //  한 틱에 좁혀지는 양도 달라서 값이 둘이다 — 초속 60이면 1.2m, 6이면 0.12m를 간다.
+        //  아래는 계산으로 잡은 출발값이고, 가드 단언이 빨강이면 픽스처를 돌려 다시 잡는다.
+        const float HardSpawnGap = 2.6f;   // 1.2m 좁혀져 ≈1.4
+        const float SoftSpawnGap = 1.6f;   // 0.12m 좁혀져 ≈1.48
+
+        //  예외 분기(간격 ≤ 1.0에서 거리 0 → 규칙으로 정한 법선)로 통과하지 않았음을 못 박는다.
+        static void AssertVerticalContact(Entity lower, Entity upper)
+        {
+            float gap = upper.Get<GameFramework.World.Transform>().Position.Y
+                      - lower.Get<GameFramework.World.Transform>().Position.Y;
+            Assert.Greater(gap, 1.0f,
+                $"세로 간격 {gap:F3}은 심 선분이 겹치는 구간이라 접촉 법선이 기하가 아니라 " +
+                "규칙으로 정해진다 — 이 테스트는 판별을 시험하지 못한다");
+        }
+
         [Test]
         public void 남의_머리에_세게_떨어지면_죽을_속도가_기록된다()
         {
             var world = World();
             var lower = AddDiver(world, "diver-1", new Vector3(0f, 100f, 0f));
-            var upper = AddDiver(world, "diver-2", new Vector3(0f, 101.0f, 0f));
+            var upper = AddDiver(world, "diver-2", new Vector3(0f, 100f + HardSpawnGap, 0f));
             upper.Get<GameFramework.World.Velocity>().Linear = new Vector3(0f, -60f, 0f).ToNumerics();
 
             world.Tick(StartTick, 0.02f);
 
+            AssertVerticalContact(lower, upper);
             Assert.Greater(upper.Get<LandingImpact>().DownwardSpeed, 15f);
         }
 
@@ -843,11 +876,12 @@ git commit -m "refactor(skydive): 접지와 착지 충격을 이동 밖 한곳�
         {
             var world = World();
             var lower = AddDiver(world, "diver-1", new Vector3(0f, 100f, 0f));
-            var upper = AddDiver(world, "diver-2", new Vector3(0f, 101.0f, 0f));
+            var upper = AddDiver(world, "diver-2", new Vector3(0f, 100f + SoftSpawnGap, 0f));
             upper.Get<GameFramework.World.Velocity>().Linear = new Vector3(0f, -6f, 0f).ToNumerics();
 
             world.Tick(StartTick, 0.02f);
 
+            AssertVerticalContact(lower, upper);
             Assert.IsTrue(upper.Get<GameFramework.World.GroundState>().IsGrounded);
             Assert.LessOrEqual(upper.Get<LandingImpact>().DownwardSpeed, 15f);
         }

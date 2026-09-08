@@ -519,8 +519,14 @@ namespace LOP.EditorTools
             //  틱 수로 굴러간다).
             int ticksToNear = Mathf.RoundToInt(BotLookaheadSeconds / TickSeconds);
             int ticksToFar = Mathf.RoundToInt(BotFarLookaheadSeconds / TickSeconds);
+            //  정점(세로 속도가 0이 되는 순간)에서 아치가 가장 높다. 그 자리를 안 보면 두 열
+            //  사이에 숨은 좁은 기둥에 그대로 박는다 — 근거리·원거리 사다리는 튜닝된 lookahead지
+            //  이 열은 날갯짓 물리 자체에서 나오므로 초 상수가 아니라 틱수를 직접 계산한다.
+            int ticksToApex = Mathf.CeilToInt(shape.FlapImpulse / (shape.Gravity * TickSeconds));
+            float apexLookahead = shape.ForwardSpeed * ticksToApex * TickSeconds;
             int buckets = Mathf.CeilToInt((maxY - minY) / HeightGrid) + 1;
             var blockedNear = new bool[buckets];
+            var blockedApex = new bool[buckets];
             var blockedFar = new bool[buckets];
             float farthest = start.x;
             int flaps = 0;
@@ -531,18 +537,20 @@ namespace LOP.EditorTools
             for (int tick = 0; tick < limit; tick++)
             {
                 float scanX = state.Position.x + lookahead;
+                float scanXApex = state.Position.x + apexLookahead;
                 float scanXFar = state.Position.x + farLookahead;
                 for (int i = 0; i < buckets; i++)
                 {
                     float y = minY + i * HeightGrid;
                     blockedNear[i] = isFree(scanX, y) == false;
+                    blockedApex[i] = isFree(scanXApex, y) == false;
                     blockedFar[i] = isFree(scanXFar, y) == false;
                 }
 
-                var decision = LOP.MapTools.BotPilot.Decide(blockedNear, blockedFar, minY, HeightGrid,
+                var decision = LOP.MapTools.BotPilot.Decide(blockedNear, blockedApex, blockedFar, minY, HeightGrid,
                                                             state.Position.y, state.VerticalSpeed,
                                                             shape.Radius, shape.FlapImpulse, shape.Gravity,
-                                                            shape.MaxFallSpeed, ticksToNear, ticksToFar,
+                                                            shape.MaxFallSpeed, ticksToNear, ticksToApex, ticksToFar,
                                                             TickSeconds);
                 if (decision.Flap)
                 {

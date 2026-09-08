@@ -10,15 +10,13 @@ namespace LOP.MapTools
         public readonly bool Flap;
         /// <summary>앞을 훑어 지나갈 만한 자리를 찾았는가(몸이 다 들어가지 못하는 좁은 틈도
         /// 포함 — 그런 자리에도 천장 가드는 그대로 걸린다). 아예 아무 자리도 못 찾았을 때만
-        /// false이고, 그때는 <see cref="AimY"/>도 뜻이 없다.</summary>
+        /// false다.</summary>
         public readonly bool GapFound;
-        public readonly float AimY;
 
-        public BotDecision(bool flap, bool gapFound, float aimY)
+        public BotDecision(bool flap, bool gapFound)
         {
             Flap = flap;
             GapFound = gapFound;
-            AimY = aimY;
         }
     }
 
@@ -31,21 +29,19 @@ namespace LOP.MapTools
     /// 그렇다고 "물리가 허락하는 것보다 겁 많은" 봇이어서도 안 된다 — 그러면 "이 맵은 어렵다"가
     /// "우리 봇이 겁쟁이다"로 뒤바뀌어 증명이 무의미해진다.</para>
     ///
-    /// <para><b>틈 안 어디를 겨냥하고 언제 눌러야 안전한가</b>도 이 클래스가 정한다
-    /// (<see cref="FlappyGapAiming"/>은 "틈이 어디 있나"만 찾아 주고, 그 안 어디를 밟을지는
-    /// 다른 목적으로 바닥에 못박는다 — 여기서는 쓰지 않는다). 규칙:
+    /// <para><b>언제 눌러야 안전한가</b>도 이 클래스가 정한다
+    /// (<see cref="FlappyGapAiming"/>은 "틈이 어디 있나"만 찾아 준다). 규칙은 근거리·정점·원거리
+    /// 세 열 각각에 <b>같은 모양의 천장 가드를 걸고, 셋을 AND로 묶는다</b> — 세 열 중
+    /// 하나라도 막히면 누르지 않는다:
     /// ① 바닥 쪽에서만 몸 반지름만큼 여유를 둔다 — 천장 쪽은 두지 않는다. 막힘 표 자체가
     ///    이미 몸(실제 반지름)으로 캡슐 검사를 한 결과라, 천장 쪽에 반지름을 또 빼면 몸
     ///    하나를 두 번 세는 꼴이라서다.
     /// ② 지금 눌렀을 때 "그 열에 도달하는 시점"의 높이를 <b>그 열 자신의 천장</b>과 비교한다
-    ///    (근거리·원거리 열 각각) — 아치의 정점이 아니다. 정점은 그 열을 이미 지나친 자리에서
-    ///    일어나므로, 이미 지나친 기준으로 재면 아직 뚫려 있는 하늘을 막힌 것으로 오판한다.
-    ///    넘기면 절대 누르지 않는다 — 한 번 뚫으면 되돌릴 수 없지만, 안 눌러 낮아지는 건
-    ///    다음 틱에 다시 판단할 수 있다.
+    ///    (근거리·정점·원거리 열 각각) — 아치의 정점이 아니다. 정점은 대개 그 세 열 중
+    ///    하나(정점 열)에서 일어나지만, 규칙 자체는 "그 열에 실제로 도달하는 순간의 높이"이지
+    ///    "아치 전체의 최고점"이 아니다. 넘기면 절대 누르지 않는다 — 한 번 뚫으면 되돌릴 수
+    ///    없지만, 안 눌러 낮아지는 건 다음 틱에 다시 판단할 수 있다.
     /// ③ 한 틱이 아니라 근거리 열까지 남은 틱을 실제 중력으로 굴려 봐서 바닥 쪽을 판단한다.
-    /// 그리고 지금 틈만 보지 않고 <b>다음 틈도 함께</b> 본다 — 겹치면 두 틈을 동시에 만족하는
-    /// 자리를, 안 겹치면(높은 틈 뒤에 낮은 틈처럼) 다음 틈 쪽으로 미리, 하지만 한 번에 다
-    /// 옮기지 않고 근거리/원거리 비율만큼만 옮긴 자리를 겨냥한다.
     /// 몸이 다 들어가지 못할 만큼 좁은 자리라도 근거 없이 무조건 날갯짓하지 않는다 — 그
     /// 자리에도 같은 천장 가드를 건다.</para>
     /// </summary>
@@ -98,11 +94,11 @@ namespace LOP.MapTools
         }
 
         public static BotDecision Decide(
-            IReadOnlyList<bool> blockedNear, IReadOnlyList<bool> blockedFar,
+            IReadOnlyList<bool> blockedNear, IReadOnlyList<bool> blockedApex, IReadOnlyList<bool> blockedFar,
             float bottomY, float step,
             float currentY, float verticalSpeed, float bodyRadius,
             float flapImpulse, float gravity, float maxFallSpeed,
-            int ticksToNear, int ticksToFar, float tickSeconds)
+            int ticksToNear, int ticksToApex, int ticksToFar, float tickSeconds)
         {
             bool hasNear = FlappyGapAiming.TryFindGap(blockedNear, bottomY, step, currentY, bodyRadius,
                                                       out float lowNear, out float highNear);
@@ -119,61 +115,15 @@ namespace LOP.MapTools
                 {
                     //  그마저도 없다 — 근처에 뚫린 자리가 전혀 없다. 판단할 근거가 정말 없을
                     //  때만 뜨는 쪽을 고른다(떨어지면 확실히 바닥에 부딪힌다).
-                    return new BotDecision(flap: true, gapFound: false, aimY: currentY);
+                    return new BotDecision(flap: true, gapFound: false);
                 }
             }
 
-            float low = lowNear, high = highNear;
-            bool hasFar = FlappyGapAiming.TryFindGap(blockedFar, bottomY, step, currentY, bodyRadius,
-                                                     out float lowFar, out float highFar);
-            if (hasFar == false)
-            {
-                hasFar = FlappyGapAiming.TryFindGap(blockedFar, bottomY, step, currentY, 0f,
-                                                    out lowFar, out highFar);
-            }
-            if (hasFar)
-            {
-                //  다음 장애물의 틈도 미리 봐 둔다. 지금 틈만 보고 가운데 근처를 지키면, 그
-                //  틈을 다 지나기도 전에 다음 틈이 낮아져 있을 때 이미 너무 높은 채로 도착해
-                //  박는다(실측된 실패 패턴 — 높은 틈 다음에 낮은 틈).
-                if (FlappyGapAiming.TryIntersect(low, high, lowFar, highFar, out float bothLow, out float bothHigh))
-                {
-                    //  겹친다 — 두 틈을 동시에 만족하는 자리가 있다. FlappyGapAiming.TryIntersect는
-                    //  원래 "여러 기둥을 차례로 다 통과하는 자리"를 구하려고 있던 함수라 그대로 쓴다.
-                    low = bothLow;
-                    high = bothHigh;
-                }
-                else
-                {
-                    //  안 겹친다 — 지금 틈과 다음 틈이 이어지지 않는다(예: 지금은 높고 넓은데
-                    //  다음은 낮고 좁다). 어느 한쪽 가장자리만 다음 틈 쪽으로 당기면 반대쪽은
-                    //  그대로 남아, 정작 필요한 방향(내려가야/올라가야 함)을 오히려 막는다 —
-                    //  그래서 밴드 전체(위·아래 가장자리 다)를 다음 틈 쪽으로 옮기되, 한 번에
-                    //  다음 틈 자리로 스냅하지 않고 근거리/원거리 열 비율만큼만(가까운 열일수록
-                    //  적게, 먼 열에 가까워질수록 크게) 옮긴다 — 근거리·원거리 열의 실제 자리
-                    //  자체가 매 틱 앞으로 흘러가며 자연히 갱신되므로, 이 비율이 고정이어도
-                    //  결과는 갑자기 튀지 않고 매끄럽게 이어진다.
-                    float weight = ticksToFar > 0 ? Math.Min(1f, (float)ticksToNear / ticksToFar) : 1f;
-                    float pulledLow = low + (lowFar - low) * weight;
-                    float pulledHigh = high + (highFar - high) * weight;
-                    //  당기다 폭이 너무 좁아지면(둘이 정반대 방향으로 당겨져 역전되는 등)
-                    //  가운데를 축으로 최소폭만큼은 남긴다 — 완전히 한 점으로 무너뜨리지 않는다.
-                    float minBand = bodyRadius * 2f;
-                    if (pulledHigh - pulledLow < minBand)
-                    {
-                        float mid = (pulledLow + pulledHigh) * 0.5f;
-                        pulledLow = mid - minBand * 0.5f;
-                        pulledHigh = mid + minBand * 0.5f;
-                    }
-                    low = pulledLow;
-                    high = pulledHigh;
-                }
-            }
-
-            //  바닥 쪽에서만 몸 반지름만큼 여유를 둔다. blockedNear/Far 자체가 이미 몸(실제
-            //  반지름)으로 캡슐 검사를 한 결과라 high는 이미 "몸이 딱 맞게 들어가는" 자리다.
-            //  거기서 반지름을 또 빼면 몸 하나를 두 번 세는 꼴이라, 천장 쪽엔 마진을 더하지 않는다.
-            float safeFloor = low + bodyRadius;
+            //  바닥 쪽에서만 몸 반지름만큼 여유를 둔다. blockedNear 자체가 이미 몸(실제
+            //  반지름)으로 캡슐 검사를 한 결과라 highNear는 이미 "몸이 딱 맞게 들어가는"
+            //  자리다. 거기서 반지름을 또 빼면 몸 하나를 두 번 세는 꼴이라, 천장 쪽엔 마진을
+            //  더하지 않는다.
+            float safeFloor = lowNear + bodyRadius;
 
             //  "한 틱 뒤"가 아니라 근거리 열까지 남은 틱을 실제 중력으로 굴려 본 자리로
             //  바닥 쪽을 판단한다 — 한 틱만 보면 중력이 매 틱 더 세지는 걸 놓쳐 늦는다.
@@ -187,17 +137,40 @@ namespace LOP.MapTools
             //  기준으로 지금 판단하는 꼴이 되어 아직 뚫려 있는 하늘까지 막힌 것으로 오판한다.
             float riseAtNear = FlapRiseAfter(flapImpulse, gravity, tickSeconds, ticksToNear);
             bool ceilingSafeNear = currentY + riseAtNear <= highNear;
+
+            //  정점 열 — 날갯짓 아치가 가장 높이 오르는 자리(세로 속도가 0이 되는 순간)다.
+            //  근거리·원거리 열 사이에 숨은, 두 열 모두보다 좁은 위쪽 기둥은 그 두 가드를
+            //  통과해 버리므로 이 열을 따로 봐야 한다. 규칙은 근거리·원거리와 완전히 같다.
+            bool ceilingSafeApex = true;
+            bool hasApex = FlappyGapAiming.TryFindGap(blockedApex, bottomY, step, currentY, bodyRadius,
+                                                      out _, out float highApex);
+            if (hasApex == false)
+            {
+                hasApex = FlappyGapAiming.TryFindGap(blockedApex, bottomY, step, currentY, 0f,
+                                                     out _, out highApex);
+            }
+            if (hasApex)
+            {
+                float riseAtApex = FlapRiseAfter(flapImpulse, gravity, tickSeconds, ticksToApex);
+                ceilingSafeApex = currentY + riseAtApex <= highApex;
+            }
+
             bool ceilingSafeFar = true;
+            bool hasFar = FlappyGapAiming.TryFindGap(blockedFar, bottomY, step, currentY, bodyRadius,
+                                                     out _, out float highFar);
+            if (hasFar == false)
+            {
+                hasFar = FlappyGapAiming.TryFindGap(blockedFar, bottomY, step, currentY, 0f,
+                                                    out _, out highFar);
+            }
             if (hasFar)
             {
                 float riseAtFar = FlapRiseAfter(flapImpulse, gravity, tickSeconds, ticksToFar);
                 ceilingSafeFar = currentY + riseAtFar <= highFar;
             }
 
-            bool flap = wantsFlap && ceilingSafeNear && ceilingSafeFar;
-            float flapArc = FlapArc(flapImpulse, gravity, tickSeconds);
-            float aim = FlappyGapAiming.AimHeight(low, high, flapArc);
-            return new BotDecision(flap, gapFound: true, aimY: aim);
+            bool flap = wantsFlap && ceilingSafeNear && ceilingSafeApex && ceilingSafeFar;
+            return new BotDecision(flap, gapFound: true);
         }
     }
 }

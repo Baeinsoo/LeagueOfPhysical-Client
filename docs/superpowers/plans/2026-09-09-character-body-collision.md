@@ -21,6 +21,12 @@
 - **주석은 최소로, 일상어로, 왜만.** 코드로 자명한 것은 적지 않는다.
 - **테스트는 반드시 빨강을 먼저 본다.** 이 영역은 "검사하는 척만 하는 테스트" 사고가 두 번 났다.
 - 확정된 값: 반발계수 `e = 0.35`, 몸 반지름 `0.4`, 몸 높이 `1.8`, 착지 치명 속도 `15`, 허용 겹침 `Slop = 0.01`, `RestingSpeed = 1.5`.
+- **테스트는 떠 있는 에디터에 붙여서 돌린다**: `unity cmd run_tests --project-path <abs> --timeout 800 --mode EditMode [--filter <이름>]`. `unity test`(batchmode)는 에디터가 켜져 있으면 못 쓴다.
+  - **에디터가 Play Mode면 테스트가 영원히 `running`에 머문다.** 돌리기 전에 확인하고, 켜져 있으면 끈다:
+    `unity cmd eval --project-path <abs> 'return UnityEditor.EditorApplication.isPlaying;'` →
+    `unity cmd eval --project-path <abs> 'UnityEditor.EditorApplication.isPlaying = false; return "stop";'`
+  - 결과에서 `"Summary":{"Total":N,"Passed":N,"Failed":0,...}`를 확인한다. **기준선은 1164/1164**(Task 1 시점).
+- **생성자에 인자를 더할 때는 풀 한정 형태도 같이 찾는다** — `new Foo(`만 grep하면 `new LOP.Foo(`로 쓴 호출부를 놓친다. Task 1에서 실제로 한 곳(`SkydiveLandingTests.cs`)이 그렇게 빠졌다.
 
 ## File Structure
 
@@ -171,7 +177,7 @@ grep -rn "new SkydiveConfig(" --include=*.cs \
 - [ ] **Step 7: 클라 EditMode 테스트 전체를 돌려 초록을 확인한다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode
 ```
 
 기대: 전부 통과. 이 단계는 새 동작이 아니라 **인자 추가가 아무것도 안 깼다**를 확인하는 것이다. 실패하면 빠뜨린 호출부가 있다.
@@ -305,7 +311,7 @@ namespace LOP.Tests
 - [ ] **Step 2: 테스트가 실패하는지 확인한다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode --filter ContactImpulseTests
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode --filter ContactImpulseTests
 ```
 
 기대: 컴파일 실패 — `ContactImpulse`가 없다.
@@ -356,7 +362,7 @@ namespace LOP
 - [ ] **Step 4: 테스트가 통과하는지 확인한다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode --filter ContactImpulseTests
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode --filter ContactImpulseTests
 ```
 
 기대: 6개 전부 PASS.
@@ -408,7 +414,7 @@ namespace LOP
 - [ ] **Step 7: 옛 테스트가 그대로 초록인지 확인한다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode --filter VerticalBounceTests
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode --filter VerticalBounceTests
 ```
 
 기대: 전부 PASS. **이것이 일반형이 옛 식과 같음을 증명하는 회귀 검사다** — 손대지 않은 테스트가 새 구현 위에서 통과해야 한다.
@@ -526,7 +532,7 @@ git commit -m "feat: 접촉 충격량을 3D로 푼다"
 - [ ] **Step 2: 테스트가 실패하는지 확인한다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode --filter BodyCollisionSystemTests
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode --filter BodyCollisionSystemTests
 ```
 
 기대: 컴파일 실패 — 4인자 생성자가 없고 `Resolve`가 값을 안 돌려준다.
@@ -628,7 +634,7 @@ unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test
 - [ ] **Step 4: 테스트가 통과하는지 확인한다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode --filter BodyCollisionSystemTests
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode --filter BodyCollisionSystemTests
 ```
 
 기대: 기존 테스트 + 새 테스트 전부 PASS. **기존 테스트가 하나라도 깨지면 세로 마스크가 옛 동작과 달라진 것**이니 멈추고 `Exchange`의 마스크 적용을 다시 본다.
@@ -686,7 +692,7 @@ git commit -m "feat: 몸싸움에 축 마스크와 아래쪽 접촉 보고를 �
 - [ ] **Step 1: 지금 동작을 박는 테스트를 먼저 확인한다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode --filter SkydiveWorldTests
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode --filter SkydiveWorldTests
 ```
 
 기대: 전부 PASS. 이 목록과 개수를 적어 둔다 — Step 4에서 **같은 개수**가 나와야 한다.
@@ -796,7 +802,7 @@ unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test
 - [ ] **Step 4: 기존 테스트가 전부 초록인지 확인한다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode
 ```
 
 기대: Step 1과 **같은 개수**가 통과. 하나라도 줄거나 실패하면 리팩터가 동작을 바꾼 것이다 — 멈추고 되돌린다.
@@ -920,7 +926,7 @@ git commit -m "refactor(skydive): 접지와 착지 충격을 이동 밖 한곳�
 - [ ] **Step 2: 테스트가 실패하는지 확인한다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode --filter SkydiveWorldTests
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode --filter SkydiveWorldTests
 ```
 
 기대: 새 테스트 4개가 실패(몸싸움이 아직 없어 서로 통과한다).
@@ -964,7 +970,7 @@ unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test
 - [ ] **Step 4: 테스트가 통과하는지 확인한다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode --filter SkydiveWorldTests
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode --filter SkydiveWorldTests
 ```
 
 기대: 새 4개 + 기존 전부 PASS.
@@ -1004,7 +1010,7 @@ grep -n "new SkydiveWorld(" "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Clien
 - [ ] **Step 8: 클·서 컴파일과 전체 테스트를 확인한다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode
 ```
 
 기대: 전부 PASS.
@@ -1012,7 +1018,7 @@ unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test
 서버는 에디터가 안 떠 있을 수 있다. 그럴 때는 컴파일만 확인한다:
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Server" test --platform EditMode
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Server" --timeout 800 --mode EditMode
 ```
 
 에디터가 없어 실패하면 그 사실을 보고에 남긴다 — **"돌렸다"고 적지 않는다.**
@@ -1100,7 +1106,7 @@ namespace LOP.Tests
 - [ ] **Step 2: 테스트가 실패하는지 확인한다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode --filter SkydiveRemotePredictionErrorTests
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode --filter SkydiveRemotePredictionErrorTests
 ```
 
 기대: `NotImplementedException`으로 둘 다 실패.
@@ -1120,7 +1126,7 @@ unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test
 - [ ] **Step 4: 테스트가 통과하는지 확인하고 숫자를 기록한다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode --filter SkydiveRemotePredictionErrorTests
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode --filter SkydiveRemotePredictionErrorTests
 ```
 
 기대: 둘 다 PASS. **`TestContext.WriteLine`이 출력한 오차 값을 보고에 적는다** — 이 숫자가 Task 8의 판정 근거다.
@@ -1202,7 +1208,7 @@ namespace LOP.Tests
 - [ ] **Step 2: 테스트가 실패하는지 확인한다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode --filter ReconciliationStatsTests
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode --filter ReconciliationStatsTests
 ```
 
 기대: 컴파일 실패 — 2인자 `Record`와 새 프로퍼티가 없다.
@@ -1224,7 +1230,7 @@ unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test
 - [ ] **Step 4: 테스트가 통과하는지 확인한다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode --filter ReconciliationStatsTests
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode --filter ReconciliationStatsTests
 ```
 
 기대: 3개 PASS.
@@ -1258,7 +1264,7 @@ Recon near/far max: 0.42 / 0.06
 - [ ] **Step 7: 전체 테스트를 돌린다**
 
 ```bash
-unity --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" test --platform EditMode
+unity cmd run_tests --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Client" --timeout 800 --mode EditMode
 ```
 
 기대: 전부 PASS.

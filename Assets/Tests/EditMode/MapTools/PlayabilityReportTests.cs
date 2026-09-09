@@ -71,15 +71,18 @@ namespace LOP.MapTools.Tests
             string report = Build(
                 new SpawnCleanRun("PlayerSpawn_4", 9f, new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f), false, botReached: false, botFlaps: 0, bot: default));
 
-            StringAssert.Contains("38.2", report);
+            Assert.IsTrue(Contains(report, "38.2"));
             //  세 필드(x/생존/높이 폭)가 서로 바뀌어도 위 "최협 회랑" 한 줄 존재 검사는 못
             //  잡는다 — 세 값이 서로 다르므로(31.0 / 34 / 0.6), 라벨+값을 붙여 확인하면
             //  둘 중 어느 자리가 뒤바뀌어도 반드시 하나는 어긋난다.
-            StringAssert.Contains("x=31.0", report);
-            StringAssert.Contains("생존 34", report);
-            StringAssert.Contains("높이 폭 0.6m", report);
+            Assert.IsTrue(Contains(report, "x=31.0"));
+            Assert.IsTrue(Contains(report, "생존 34"));
+            Assert.IsTrue(Contains(report, "높이 폭 0.6m"));
             //  spec §8 — 실패는 눈금 탓일 수도 있어 되짚어 볼 안내를 같이 준다.
-            StringAssert.Contains("눈금", report);
+            //  "눈금"만 찾으면 공허하다 — 머리말이 늘 "높이눈금 0.10"을 찍으므로 ❌ 처방을
+            //  통째로 지워도 초록이었다(리뷰어가 돌연변이로 확인). 그 처방에만 있는
+            //  문자열로 짚는다.
+            Assert.IsTrue(Contains(report, "0.05로 줄여"));
         }
 
         [Test]
@@ -144,7 +147,11 @@ namespace LOP.MapTools.Tests
                 new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true, botReached: false, botFlaps: 0, bot: default),
                 new SpawnCleanRun("PlayerSpawn_2", -1f, new CleanRunResult(true, new bool[209], 0f, 0f, 0, 0f), false, botReached: false, botFlaps: 0, bot: default));
 
-            StringAssert.Contains("증명", report);
+            //  "증명"만 찾으면 공허하다 — 바로 옆 🟡 처방 문단이 "…재생에서 어긋나 증명하지
+            //  못했다…"로 그 낱말을 공짜로 주고, 그 문단은 이 경고가 뜰 수 있는 모든 상황에
+            //  함께 뜬다. 그래서 검사 대상 분기를 통째로 지워도 초록이었다(리뷰어가 돌연변이로
+            //  확인). 이 경고에만 있는 문자열로 짚는다.
+            Assert.IsTrue(Contains(report, "일부 자리만 증명됨"));
         }
 
         [Test]
@@ -153,8 +160,8 @@ namespace LOP.MapTools.Tests
             string report = Build(
                 new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), true, botReached: false, botFlaps: 0, bot: default));
 
-            StringAssert.Contains("19.0", report);
-            StringAssert.Contains("14", report);
+            Assert.IsTrue(Contains(report, "19.0"));
+            Assert.IsTrue(Contains(report, "14번째"));
             //  이 숫자가 상한이라는 사실을 안 적으면 읽는 사람이 안전선으로 오해한다.
             StringAssert.Contains("실제는 이보다 나쁘다", report);
         }
@@ -170,7 +177,45 @@ namespace LOP.MapTools.Tests
             Assert.IsFalse(Contains(report, "🟡"));
             //  봇이 통과했으면 그 자리엔 탐색을 돌리지 않았다는 사실이 읽혀야 한다.
             StringAssert.Contains("봇 통과", report);
-            StringAssert.Contains("176", report);
+            Assert.IsTrue(Contains(report, "176"));
+        }
+
+        [Test]
+        public void 지형에_파묻힌_스폰은_세_글자_어디에도_안_들어간다()
+        {
+            //  ①의 구멍: 스폰이 슬래브에 박혀 있으면 봇이 슬래브 안을 미끄러져 결승선에
+            //  닿아 ✅가 나왔다(캡슐 스윕은 출발 자리의 겹침을 보고하지 않는다). 그건
+            //  "통과"가 아니라 "검사 불가"다 — ✅·🟡·❌ 셋 중 아무것도 쓰면 안 된다.
+            string report = Build(new SpawnCleanRun("PlayerSpawn_3", 2f,
+                new CleanRunResult(false, new bool[0], 0f, 0f, 0, 0f),
+                verifiedByReplay: false, botReached: false, botFlaps: 0, bot: default,
+                spawnInsideTerrain: true));
+
+            Assert.IsFalse(Contains(report, "✅"));
+            Assert.IsFalse(Contains(report, "🟡"));
+            Assert.IsFalse(Contains(report, "❌"));
+            Assert.IsTrue(Contains(report, "스폰이 지형 안"));
+            //  눈에 띄게 — 자리 줄 하나로 끝내지 않고 요약 경고도 함께 찍는다.
+            Assert.IsTrue(Contains(report, "지형에 파묻힌 스폰이 있다"));
+        }
+
+        [Test]
+        public void 파묻힌_스폰은_통과로도_실패로도_세지_않는다()
+        {
+            //  파묻힌 자리를 "된다"나 "안 된다" 한쪽으로 세면 옆 자리와 짝지어 엉뚱한
+            //  공정성 경고가 뜨고(✅ 하나 + 파묻힘 하나 → "일부 자리만 불가"), ❌ 전용
+            //  눈금 처방까지 딸려 온다.
+            string report = Build(
+                new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[0], 0f, 0f, 0, 0f),
+                                  verifiedByReplay: false, botReached: true, botFlaps: 176, bot: default),
+                new SpawnCleanRun("PlayerSpawn_3", 2f, new CleanRunResult(false, new bool[0], 0f, 0f, 0, 0f),
+                                  verifiedByReplay: false, botReached: false, botFlaps: 0, bot: default,
+                                  spawnInsideTerrain: true));
+
+            Assert.IsFalse(Contains(report, "일부 자리만 불가"));
+            Assert.IsFalse(Contains(report, "0.05로 줄여"));
+            //  ✅ 자리는 그대로 ✅여야 한다 — 파묻힌 자리가 옆 자리의 판정을 지우면 안 된다.
+            Assert.IsTrue(Contains(report, "봇 통과"));
         }
 
         [Test]

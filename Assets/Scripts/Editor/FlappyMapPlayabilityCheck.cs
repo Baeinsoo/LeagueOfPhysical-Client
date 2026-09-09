@@ -168,6 +168,20 @@ namespace LOP.EditorTools
                     var botDiagnostics = new LOP.MapTools.BotDiagnostics(
                         flight.EndX, flight.EndY, flight.Touched, flight.Ticks, flight.BlindTicks,
                         flight.FarthestX, flight.TickLimit);
+                    //  스폰이 지형에 파묻혀 있다. 봇도 탐색도 이 자리엔 답할 것이 없으므로
+                    //  ✅/🟡/❌ 어디에도 섞지 않고 제 판정으로 낸다 — 특히 "봇이 통과했으니
+                    //  탐색 생략"이라는 단축평가에 걸리면 안 된다(그게 이 자리를 ✅로 만들던
+                    //  바로 그 경로다). 탐색도 돌리지 않는다: 출발점이 막혔다는 같은 사실을
+                    //  다시 확인해 ❌를 찍으면 "맵이 불가능"으로 읽혀 고칠 곳을 잘못 짚는다.
+                    if (flight.SpawnBlocked)
+                    {
+                        cleanRuns.Add(new LOP.MapTools.SpawnCleanRun(
+                            spawns[i].Name, spawns[i].Position.y,
+                            new LOP.MapTools.CleanRunResult(false, System.Array.Empty<bool>(), 0f, 0f, 0, 0f),
+                            verifiedByReplay: false, botReached: false, botFlaps: 0,
+                            bot: botDiagnostics, spawnInsideTerrain: true));
+                        continue;
+                    }
                     if (flight.Reached)
                     {
                         cleanRuns.Add(new LOP.MapTools.SpawnCleanRun(
@@ -499,9 +513,13 @@ namespace LOP.EditorTools
             /// <summary>이번 비행에 허용된 최대 틱 수. Ticks와 짝지어야 "812틱"이 얼마나 위험한
             /// 수치인지(예산의 몇 %를 썼는지) 읽을 수 있다 — 분모 없는 분자는 뜻이 없다.</summary>
             public readonly int TickLimit;
+            /// <summary>출발점이 이미 지형 안이라 날려 보지도 못했다. 성공도 실패도 아니다 —
+            /// 검사 자체가 성립하지 않는 자리다.</summary>
+            public readonly bool SpawnBlocked;
 
             public BotFlight(bool reached, bool touched, float farthestX, int flapCount, int ticks,
-                             float endX, float endY, int blindTicks, int tickLimit)
+                             float endX, float endY, int blindTicks, int tickLimit,
+                             bool spawnBlocked = false)
             {
                 Reached = reached;
                 Touched = touched;
@@ -512,6 +530,7 @@ namespace LOP.EditorTools
                 EndY = endY;
                 BlindTicks = blindTicks;
                 TickLimit = tickLimit;
+                SpawnBlocked = spawnBlocked;
             }
         }
 
@@ -543,6 +562,18 @@ namespace LOP.EditorTools
                                         LOP.MapTools.ExactFreeSpaceProbe isFreeExact)
         {
             var query = new HitWatcher(inner);
+            //  출발점이 이미 지형 안이면 날려 봐야 뜻이 없다 — 그런데 그냥 날리면 "통과"가
+            //  나온다. 비행이 쓰는 KinematicMover.Move는 전부 CapsuleCast인데, 유니티의 캡슐
+            //  스윕은 *출발 자리에 이미 겹쳐 있는* 콜라이더를 보고하지 않기 때문이다. 그래서
+            //  HitWatcher가 한 번도 안 켜진 채 새가 슬래브 안을 미끄러져 결승선에 닿는다.
+            //  (실제 게임은 FlappyWorld가 매 틱 Depenetrate로 밀어내지만 이 검사기의 Step엔
+            //  그게 없다.) 탐색(CleanRunSearch)에는 같은 이유로 같은 가드가 이미 있다.
+            if (Physics.CheckCapsule(shape.Lower(start), shape.Upper(start), shape.Radius, mapMask,
+                                     QueryTriggerInteraction.Ignore))
+            {
+                return new BotFlight(false, false, start.x, 0, 0, start.x, start.y, 0, 0,
+                                     spawnBlocked: true);
+            }
             var state = new BirdState { Position = new Vector3(start.x, start.y, 0f) };
             float lookahead = shape.ForwardSpeed * BotLookaheadSeconds;
             //  "이 열까지 남은 틱"은 스캔 거리(초) 자체에서 그대로 나온다 — 손으로 맞춘 상수를

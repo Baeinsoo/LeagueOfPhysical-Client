@@ -91,7 +91,11 @@ namespace LOP.MapTools
         }
 
         /// <summary>날갯짓 한 번으로 오르는 높이(자연 정점까지 전부). 세로 속도가 0이 될
-        /// 때까지 더한 값이다.</summary>
+        /// 때까지 더한 값이다.
+        /// <para><b>프로덕션은 이 메서드를 부르지 않는다</b>(Decide의 아치 훑기가 같은 계산을
+        /// 인라인으로 다시 한다). 사고로 남은 죽은 코드가 아니라 <b>일부러 남긴 독립 구현</b>이다 —
+        /// 훑기가 이것과 같은 아치를 그리는지 대조하는 차등 검사(differential test)의 기준으로
+        /// 테스트가 쓴다. 지우면 훑기를 견줄 대상이 사라진다.</para></summary>
         public static float FlapArc(float flapImpulse, float gravity, float tickSeconds)
         {
             int maxTicks = ArcTickLimit(flapImpulse, gravity, tickSeconds);
@@ -114,6 +118,8 @@ namespace LOP.MapTools
         /// 임펄스 그대로 움직이고(실제 Step()이 그 틱의 중력 감쇠 계산을 덮어써 버리므로),
         /// 그다음 틱부터 중력이 깎는다. <paramref name="ticks"/>가 자연 정점 틱수보다 크면
         /// 도중에 속도가 0 밑으로 내려가 자연히 <see cref="FlapArc"/>와 같은 값에서 멈춘다.
+        /// <para><b>프로덕션은 이 메서드를 부르지 않는다</b> — <see cref="FlapArc"/>와 같은
+        /// 이유로 남긴다: 훑기가 매 틱 그리는 아치와 대조하는 독립 구현이다.</para>
         /// </summary>
         public static float FlapRiseAfter(float flapImpulse, float gravity, float tickSeconds, int ticks)
         {

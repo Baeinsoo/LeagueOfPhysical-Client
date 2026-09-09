@@ -46,9 +46,14 @@ namespace LOP.MapTools
         public readonly bool BotReached;
         public readonly int BotFlaps;
         public readonly BotDiagnostics Bot;
+        /// <summary>스폰 자체가 지형 안에 파묻혀 있어 검사가 성립하지 않는다. ✅/🟡/❌ 어디에도
+        /// 속하지 않는 <b>넷째 상태</b>다 — 봇도 탐색도 이 자리엔 답할 것이 없고, 고칠 것은
+        /// 맵의 지형이 아니라 스폰 마커의 위치다.</summary>
+        public readonly bool SpawnInsideTerrain;
 
         public SpawnCleanRun(string name, float y, CleanRunResult result, bool verifiedByReplay,
-                             bool botReached, int botFlaps, BotDiagnostics bot)
+                             bool botReached, int botFlaps, BotDiagnostics bot,
+                             bool spawnInsideTerrain = false)
         {
             Name = name;
             Y = y;
@@ -57,6 +62,7 @@ namespace LOP.MapTools
             BotReached = botReached;
             BotFlaps = botFlaps;
             Bot = bot;
+            SpawnInsideTerrain = spawnInsideTerrain;
         }
     }
 
@@ -79,21 +85,37 @@ namespace LOP.MapTools
             text.AppendLine($"추격자: 시작 {config.ChaserStartX:F0}  초기 {config.ChaserInitialSpeed:F0}"
                           + $"  가속 {config.ChaserAcceleration}  상한 {config.ChaserMaxSpeed:F0}"
                           + $"      스턴 {config.StunTime} + 무적 {config.InvulnTime}");
-            //  이 y대역이 ①(클린런)·②(낌 지점) 둘 다의 탐색 상/하한이다(Default 콜라이더
+            //  이 y대역이 ①(클린런)·②(낌 지점) 둘 다의 *탐색* 상/하한이다(Default 콜라이더
             //  최고~최저점). ①만 읽는 사람도 봐야 한다 — 천장 없는 맵이면 이 위로 날아 넘는,
             //  실제로는 되는 경로를 탐색이 못 보고도 ❌를 찍을 수 있어서다.
-            text.AppendLine($"탐색 대역 y[{minY:F1}~{maxY:F1}] (천장 없으면 그 위 경로는 검색 밖)");
+            //  이 대역은 봇에게는 다른 뜻이다: 봇의 스캔 표 크기만 정할 뿐 비행 자체는 제약하지
+            //  않는다. 그래서 대역 위로 날아오른 봇도 통과 판정을 받는데, 탐색이었다면 같은
+            //  경로를 거부했을 것이다. 게임에 천장도 킬플레인도 없으니 그 통과가 옳은 답일 수
+            //  있다 — 다만 "봇과 탐색이 같은 대역을 본다"는 말은 정확하지 않다는 뜻이라
+            //  그렇게 적는다. (여기 글리프를 쓰지 않는 것은 의도적이다 — 머리말은 자리별
+            //  판정과 무관하게 늘 찍히므로, 글리프를 넣으면 "이 리포트에 ✅가 있다"가 언제나
+            //  참이 되어 자리별 판정을 확인하는 검사가 통째로 공허해진다.)
+            text.AppendLine($"탐색 대역 y[{minY:F1}~{maxY:F1}] (천장 없으면 그 위 경로는 탐색 밖 —"
+                          + " 단 봇의 비행은 이 대역에 갇히지 않는다: 대역은 봇의 스캔 표 크기만 정한다."
+                          + " 그래서 이 위로 올라간 봇은 통과로 찍히고, 탐색은 같은 경로를 거부한다)");
             text.AppendLine();
 
             text.AppendLine("── ① 클린런 (자리별) ──────────────────");
-            bool anyFail = false, anyProven = false, anyUnproven = false;
+            bool anyFail = false, anyProven = false, anyUnproven = false, anyBuried = false;
             for (int i = 0; i < cleanRuns.Count; i++)
             {
                 SpawnCleanRun run = cleanRuns[i];
+                //  파묻힌 스폰은 ✅/🟡/❌ 어느 쪽도 아니다 — 봇도 탐색도 이 자리엔 답할 것이
+                //  없다. 세 글자 중 하나를 빌려 쓰면 그 글자의 뜻이 흐려지므로 제 글자를 준다.
+                if (run.SpawnInsideTerrain)
+                {
+                    anyBuried = true;
+                    text.AppendLine($"  {run.Name} (y={run.Y:F0})   ⛔  스폰이 지형 안 — 검사 불가");
+                }
                 //  봇이 진짜 커널로 끝까지 갔으면 그 궤적 자체가 증명이다 — 탐색 결과가 뭐든
                 //  (심지어 안 돌았어도) 이 자리는 끝이다. 봇이 못 갔을 때만 Result/VerifiedByReplay로
                 //  갈라 "맵이 불가능"과 "탐색은 찾았지만 증명 못 함"을 구분한다.
-                if (run.BotReached)
+                else if (run.BotReached)
                 {
                     anyProven = true;
                     text.AppendLine($"  {run.Name} (y={run.Y:F0})   ✅  봇 통과 · 날갯짓 {run.BotFlaps}회");
@@ -142,7 +164,15 @@ namespace LOP.MapTools
                     AppendBotDiagnostics(text, run.Bot, run.BotFlaps, startX, finishX);
                 }
             }
+            //  파묻힌 스폰은 통과에도 실패에도 안 든다 — 아래 공정성/처방 문구들이 이 자리를
+            //  "된다"나 "안 된다" 어느 쪽으로도 세지 않게 한다.
             bool anyPass = anyProven || anyUnproven;
+            if (anyBuried)
+            {
+                text.AppendLine("  ⛔ 지형에 파묻힌 스폰이 있다 — 그 자리는 봇도 탐색도 돌리지 못했다."
+                              + " 스폰 마커를 지형 밖으로 옮기고 다시 검사할 것"
+                              + " (맵 지형이 아니라 마커 자리의 문제다).");
+            }
             if (anyPass && anyFail)
             {
                 text.AppendLine("  ⚠️ 일부 자리만 불가 — 자리 배정이 곧 불이익이다");
@@ -179,6 +209,14 @@ namespace LOP.MapTools
 
             text.AppendLine("── ② 낌 지점 ─────────────────────────");
             text.AppendLine(trapSection);
+            //  ②는 *일부러 지형 안에서* 출발시켜 빠져나오는지 보는 검사인데, 검사기의 한 틱
+            //  (Step)은 실제 게임(FlappyWorld)이 매 틱 하는 밀어내기·벽 방향 속도 지우기를
+            //  안 돌린다. 그래서 실제 게임이라면 밀려나 빠져나왔을 자리를 "낌"으로 보고할 수
+            //  있다. ①의 *증명된* 통과에는 무해하다(닿은 적 없는 새는 겹치지도 않는다) —
+            //  그러나 ②는 레벨 디자이너가 보고 실제로 손대는 출력이라 여기 적어 둔다.
+            text.AppendLine("  (주의: 이 검사는 실제 게임이 매 틱 하는 밀어내기를 안 돌린다 —"
+                          + " 게임에서는 밀려나 빠져나오는 자리도 낌으로 보고될 수 있다. 손대기 전에"
+                          + " 실제로 껴 보는지 한 번 확인할 것)");
             text.AppendLine();
 
             text.AppendLine("── ③ 스턴 예산 ───────────────────────");

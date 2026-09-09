@@ -282,6 +282,160 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(0, result.Flaps.Count);
         }
 
+        //  ── 사다리·격자의 도메인 상수를 지키는 검사들 ──────────────
+        //  아래 넷은 전부 "지워도 88개가 초록"이던 자리다(리뷰어 돌연변이 확인). 상수가
+        //  틀리면 탐색이 *게임과 다른 새*를 모형으로 삼아 ❌/🟡 답이 조용히 바뀐다.
+
+        [Test]
+        public void 탐색은_종단속도보다_빨리_떨어지지_않는다()
+        {
+            //  BuildLadder의 −MaxFallSpeed 클램프를 지우면 사다리가 끝없이 빨라진다. 22틱
+            //  (0.43초)만 떨어져도 갈리므로 634m 코스의 대부분 구간이 영향을 받는다.
+            //  천장을 출발 높이에 붙여 날갯짓을 아예 못 하게 하고(올라가는 선분이 전부
+            //  막힌다), 순수 자유낙하만 60틱 시켜 깊이를 잰다.
+            float deepest = float.MaxValue;
+            bool CeilingAtStart(float x, float y)
+            {
+                if (y > 0.0001f) { return false; }
+                if (y < deepest) { deepest = y; }
+                return true;
+            }
+
+            //  minY는 클램프 없는(=더 깊이 떨어지는) 경우도 안 걸릴 만큼 낮게 둔다 — 대역
+            //  경계에 걸려 죽으면 "클램프 때문"인지 "대역 때문"인지 구분이 안 된다.
+            var options = Options(startY: 0f, finishX: 13.2f, minY: -60f, maxY: 1f);
+            CleanRunResult result = CleanRunSearch.Run(options, CeilingAtStart);
+
+            Assert.IsTrue(result.Reachable);
+            int ticks = result.Flaps.Count;
+            float dropped = -deepest;
+            //  종단속도 30 × 걸린 시간 = 물리적으로 가능한 최대 낙하 거리. 클램프가 없으면
+            //  60틱째 속도가 54.6까지 올라 이 상한을 훌쩍 넘는다(실측 44.8m vs 상한 36m).
+            Assert.LessOrEqual(dropped, 30f * ticks * 0.02f + 0.2f);
+            //  그리고 실제로 종단속도 구간까지 몰아넣었는지 — 여기서 멈추면 상한 검사가
+            //  공허해진다(조금만 떨어져도 상한은 늘 만족한다).
+            Assert.Greater(dropped, 25f);
+        }
+
+        [Test]
+        public void 날갯짓_사다리도_종단속도까지_다_내려간다()
+        {
+            //  RungCount의 "+ 2"를 지우면 날갯짓 뒤 사다리가 −30이 아니라 −28.8에서 멈춘다
+            //  (마지막 칸이 모자라 ClampRung이 한 칸 앞에서 흡수해 버린다). 위 검사는
+            //  날갯짓 없는 사다리만 보므로 이걸 못 잡는다 — 여기서는 첫 틱에 날갯짓을
+            //  *강제*하고(안 누르면 바로 바닥) 그 뒤 자유낙하시켜 깊이를 잰다.
+            float deepest = float.MaxValue;
+            bool MustFlapThenOpen(float x, float y)
+            {
+                //  x < 0.3 구간엔 발밑 바로 아래 바닥이 있다 — 첫 틱에 안 누르면 (−0.028로)
+                //  거기 박히고, 누르면 위로 떠서 통과한다.
+                if (x < 0.3f && y < -0.02f) { return false; }
+                if (y < deepest) { deepest = y; }
+                return true;
+            }
+
+            //  높이 눈금은 0.02로 잡는다 — 기본 0.1에서는 이 결함이 반올림에 통째로 삼켜진다:
+            //  종단속도가 28.8이면 한 틱에 0.576m 떨어지는데, 0.1 격자에서는 그것도 0.6으로
+            //  반올림돼 정상(30 → 0.6)과 구분이 안 된다(실측: 120틱을 떨어뜨려도 차이 0.024m).
+            //  0.02 격자면 0.576이 0.58로 남아 틱마다 0.02씩 갈린다.
+            const int Ticks = 80;
+            var options = new CleanRunOptions(startX: 0f, startY: 0f, finishX: 0.22f * Ticks,
+                                              minY: -32f, maxY: 5f,
+                                              forwardSpeed: 11f, flapImpulse: 23f, gravity: 70f, maxFallSpeed: 30f,
+                                              tickSeconds: 0.02f, heightGrid: 0.02f);
+            CleanRunResult result = CleanRunSearch.Run(options, MustFlapThenOpen);
+            Assert.IsTrue(result.Reachable);
+
+            //  탐색의 눈금 모델을 여기서 다시 적어 기대값을 만든다(차등 검사) — 사다리 속도
+            //  계산 → y += vy×dt → 높이를 눈금에 반올림, 딱 세 단계다. 프로덕션의 RungCount가
+            //  모자라면 이 모델과 어긋난다.
+            float Snap(float y) => options.MinY
+                                 + UnityEngine.Mathf.Round((y - options.MinY) / options.HeightGrid) * options.HeightGrid;
+            float SpeedAfterFlap(int rung)
+            {
+                float v = options.FlapImpulse - options.Gravity * options.TickSeconds * rung;
+                return v < -options.MaxFallSpeed ? -options.MaxFallSpeed : v;
+            }
+            float modelY = Snap(options.StartY), expectedDeepest = float.MaxValue;
+            for (int tick = 0; tick < result.Flaps.Count; tick++)
+            {
+                float ny = modelY + SpeedAfterFlap(tick) * options.TickSeconds;
+                if (ny < expectedDeepest) { expectedDeepest = ny; }
+                modelY = Snap(ny);
+            }
+
+            //  종단속도가 1.2 낮아지면(−30 → −28.8) 80틱 뒤 깊이가 0.84m 얕아진다
+            //  (실측: −27.40 → −26.56) — 눈금 반올림(±0.01)보다 80배 크다.
+            Assert.AreEqual(expectedDeepest, deepest, 0.1f);
+        }
+
+        [Test]
+        public void 밴드_꼭대기_높이도_표에_자리가_있다()
+        {
+            //  HeightBucketCount의 "+ 1"을 지우면 표에서 맨 위 칸이 사라진다 — 그러면
+            //  꼭대기(maxY)에 있는 새가 HeightBucket의 경계 클램프에 걸려 조용히 한 칸
+            //  (0.1m) 아래로 눌린다. 여기서는 그 0.1m가 곧 생사다.
+            //  대역 꼭대기(y=1.0)에서 출발해 두 틱 자유낙하한다. 한 틱에 0.028·0.056만
+            //  떨어지므로 반올림이 새를 꼭대기 칸에 붙잡아 두고, x ≥ 0.3 의 좁은 문
+            //  (y ≥ 0.93)도 아슬아슬하게 지난다. 꼭대기 칸이 없으면 출발부터 0.9로 눌려
+            //  그 문에 걸린다.
+            bool HighGate(float x, float y) => x < 0.3f || y >= 0.93f;
+
+            //  두 열짜리 코스(0.4 ÷ 0.22 → 올림 2). 세 열이 되면 정상 코드도 문에 걸린다.
+            var options = new CleanRunOptions(startX: 0f, startY: 1f, finishX: 0.4f,
+                                              minY: 0f, maxY: 1f,
+                                              forwardSpeed: 11f, flapImpulse: 23f, gravity: 70f, maxFallSpeed: 30f,
+                                              tickSeconds: 0.02f, heightGrid: 0.1f);
+
+            Assert.IsTrue(CleanRunSearch.Run(options, HighGate).Reachable);
+        }
+
+        [Test]
+        public void 출발점이_막혀_있으면_막힌_자리는_출발점_자체다()
+        {
+            //  출발점 자유공간 가드(①의 짝)가 없으면, 첫 열의 선분 검사가 대신 걸려
+            //  실패하긴 한다 — 그런데 그때 보고되는 x는 출발점이 아니라 한 틱 앞(0.22)이다.
+            //  "새가 0.22m는 갔다"고 읽혀 고칠 자리를 잘못 짚게 된다.
+            bool IsFree(float x, float y) => x > 0.1f;
+
+            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), IsFree);
+
+            Assert.IsFalse(result.Reachable);
+            Assert.AreEqual(0f, result.BlockedX, 0.001f);
+        }
+
+        [Test]
+        public void 되짚기는_마지막_열의_가장_낮은_생존_상태에서_시작한다()
+        {
+            //  ExtractFlaps는 마지막 열을 낮은 상태부터 훑다 처음 만난 것에서 되짚기를
+            //  시작한다(break). 그 break를 지우면 *가장 높은* 상태에서 시작해 완전히 다른
+            //  경로가 나오는데, 어느 쪽이든 "막힌 자리를 안 지난다"는 성질은 그대로라
+            //  기존 재생 검사들이 전부 초록이다. 이 규칙 자체는 다른 검사들의 전제이기도
+            //  하다("되짚기가 가장 낮은 생존 상태를 우선하므로 바닥을 낮춰도 마진이 안
+            //  커진다" — 턱 테스트의 주석).
+            var options = Options(startY: 0f, finishX: 50f, minY: -3f, maxY: 3f);
+            CleanRunResult result = CleanRunSearch.Run(options, OpenSky);
+            Assert.IsTrue(result.Reachable);
+
+            //  탐색의 눈금 모델로 되짚은 순서를 재생해 끝 높이를 본다 — 가장 낮은 상태에서
+            //  시작했으면 대역 바닥 쪽, 가장 높은 상태였으면 대역 천장 쪽에서 끝난다.
+            float drop = options.Gravity * options.TickSeconds;
+            float Snap(float y) => options.MinY
+                                 + UnityEngine.Mathf.Round((y - options.MinY) / options.HeightGrid) * options.HeightGrid;
+            float y = Snap(options.StartY);
+            bool afterFlap = false;
+            int rung = 0;
+            for (int i = 0; i < result.Flaps.Count; i++)
+            {
+                if (result.Flaps[i]) { afterFlap = true; rung = 0; } else { rung += 1; }
+                float v = (afterFlap ? options.FlapImpulse : 0f) - drop * rung;
+                if (v < -options.MaxFallSpeed) { v = -options.MaxFallSpeed; }
+                y = Snap(y + v * options.TickSeconds);
+            }
+
+            Assert.Less(y, 0f);
+        }
+
         [Test]
         public void 못_가면_날갯짓_순서는_비어_있다()
         {

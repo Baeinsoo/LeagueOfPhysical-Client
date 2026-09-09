@@ -2,8 +2,15 @@ using System.Collections.Generic;
 
 namespace LOP.MapTools
 {
-    /// <summary>발밑이 (x, y)일 때 몸이 아무데도 안 닿고 들어가는가.</summary>
+    /// <summary>발밑이 (x, y)일 때 몸이 아무데도 안 닿고 들어가는가. 부르는 쪽은 질의 좌표를
+    /// 격자에 스냅해 <b>그 스냅된 자리에서</b> 재고 답을 칸에 캐시한다 — 그래서 누가 언제 묻든
+    /// 같은 칸이면 같은 답이 나온다(격자 위에서 잘 정의된 함수).</summary>
     public delegate bool FreeSpaceProbe(float x, float y);
+
+    /// <summary>캐시를 타지 않고 정확한 좌표에서 재는 자유공간 프로브. 격자에 스냅해 재는
+    /// <see cref="FreeSpaceProbe"/>와 섞이면 안 되므로 타입 자체를 가른다 — 둘 다 같은
+    /// (float, float) → bool 이라, 타입이 하나면 호출부가 뒤바꿔 넘겨도 컴파일러가 못 잡는다.</summary>
+    public delegate bool ExactFreeSpaceProbe(float x, float y);
 
     public readonly struct CleanRunOptions
     {

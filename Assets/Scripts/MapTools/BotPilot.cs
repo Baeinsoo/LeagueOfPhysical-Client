@@ -45,10 +45,20 @@ namespace LOP.MapTools
     /// </summary>
     public static class BotPilot
     {
+        //  아치를 정점까지 따라가는 데 이보다 많은 틱이 든다면 입력이 잘못된 것이다 — 실제
+        //  값(임펄스 23, 중력 70, 틱 0.02초)으로는 18틱이면 끝난다. 10만 틱은 그 5천 배라
+        //  정상 입력을 막을 일이 없다.
+        const int MaxArcTicks = 100000;
+
         //  아치를 끝까지 따라가는 코드(FlapArc와 Decide의 훑기)는 둘 다 "세로 속도가 0으로
-        //  떨어지면 끝"에 기대어 돈다. 중력이나 한 틱의 길이가 0 이하면 속도가 영영 안 줄어
-        //  무한 루프가 된다 — 에디터가 조용히 멎는 것보다 바로 터지는 게 낫다.
-        static void RequireArcEnds(float gravity, float tickSeconds)
+        //  떨어지면 끝"에 기대어 돈다. 그런데 부호만 봐서는 그 종료를 보장하지 못한다:
+        //  float은 자릿수가 유한해서, 한 틱에 깎는 양(gravity × tickSeconds)이 speed의 최소
+        //  단위보다 작으면 빼도 값이 비트 그대로여서 영영 안 줄어든다(중력 1e-5에서 실제로
+        //  그렇다). 그래서 부호 대신 "정점까지 몇 틱인가"를 입력에서 직접 계산해 루프 상한으로
+        //  쓰고, 그 수가 터무니없이 크거나 아예 계산이 안 되면 여기서 바로 터뜨린다 —
+        //  FlappyShape.Gravity는 MasterData에서 검증 없이 그대로 복사되므로, 값 하나가
+        //  잘못 들어오면 에디터가 조용히 멎는다.
+        static int ArcTickLimit(float flapImpulse, float gravity, float tickSeconds)
         {
             if (gravity <= 0f)
             {
@@ -60,17 +70,35 @@ namespace LOP.MapTools
                 throw new ArgumentOutOfRangeException(nameof(tickSeconds), tickSeconds,
                     "tickSeconds must be positive — otherwise speed never drops to 0 and the loop never terminates.");
             }
+            if (float.IsNaN(flapImpulse) || float.IsInfinity(flapImpulse))
+            {
+                throw new ArgumentOutOfRangeException(nameof(flapImpulse), flapImpulse,
+                    "flapImpulse must be finite — otherwise the arc never reaches its apex.");
+            }
+
+            //  double로 센다 — float으로 세면 이 계산 자체가 같은 자릿수 문제를 겪는다.
+            double ticks = Math.Ceiling(flapImpulse / ((double)gravity * tickSeconds)) + 1;
+            if (ticks > MaxArcTicks)
+            {
+                throw new ArgumentOutOfRangeException(nameof(gravity), gravity,
+                    $"the flap arc would take {ticks} ticks to reach its apex (limit {MaxArcTicks}) — " +
+                    $"flapImpulse={flapImpulse}, gravity={gravity}, tickSeconds={tickSeconds}.");
+            }
+            //  임펄스가 0 이하면 한 틱도 안 돈다(speed > 0f가 바로 거짓).
+            return ticks < 0d ? 0 : (int)ticks;
         }
 
         /// <summary>날갯짓 한 번으로 오르는 높이(자연 정점까지 전부). 세로 속도가 0이 될
         /// 때까지 더한 값이다.</summary>
         public static float FlapArc(float flapImpulse, float gravity, float tickSeconds)
         {
-            RequireArcEnds(gravity, tickSeconds);
+            int maxTicks = ArcTickLimit(flapImpulse, gravity, tickSeconds);
 
             float rise = 0f;
             float speed = flapImpulse;
-            while (speed > 0f)
+            //  정상 입력에서는 speed > 0f 쪽이 먼저 끝난다 — maxTicks는 그게 안 끝나는
+            //  퇴화 입력에서만 걸리는 안전망이다.
+            for (int t = 0; speed > 0f && t < maxTicks; t++)
             {
                 rise += speed * tickSeconds;
                 speed -= gravity * tickSeconds;
@@ -100,15 +128,17 @@ namespace LOP.MapTools
         /// <param name="blockedNear">근거리 열의 막힘 표 — <b>바닥 규칙</b>이 쓴다(어느 높이로
         /// 겨냥할지). 천장 판단은 이제 이 표가 아니라 <paramref name="isFree"/>가 한다.</param>
         /// <param name="isFree">발밑이 (x, y)일 때 몸이 들어가는가. 코스를 실제 콜라이더로 재는
-        /// 프로브를 호출부가 넘긴다.</param>
+        /// 프로브를 호출부가 넘긴다. <b>격자에 스냅하지 않고 물어본 그 좌표에서 재는</b>
+        /// 타입이다 — 훑기는 격자에 안 걸리는 연속 좌표를 묻기 때문이다. 근거리 열을 채우는
+        /// 캐시 프로브(<see cref="FreeSpaceProbe"/>)와 실수로 뒤바뀌지 않게 타입을 갈라 뒀다.</param>
         public static BotDecision Decide(
             IReadOnlyList<bool> blockedNear, float bottomY, float step,
             float currentX, float currentY, float verticalSpeed, float bodyRadius,
             float flapImpulse, float gravity, float maxFallSpeed,
             float forwardSpeed, int ticksToNear, float tickSeconds,
-            FreeSpaceProbe isFree)
+            ExactFreeSpaceProbe isFree)
         {
-            RequireArcEnds(gravity, tickSeconds);
+            int maxTicks = ArcTickLimit(flapImpulse, gravity, tickSeconds);
 
             //  highNear(틈의 위 끝)는 안 쓴다 — 천장 가드는 아치를 직접 훑으므로 "어느 틈을
             //  골랐나"의 위 끝은 이 자리에서 의미가 없다. lowNear(바닥 규칙용)만 남긴다.
@@ -150,20 +180,26 @@ namespace LOP.MapTools
             //  뚫려 있어도, 올라가는 도중에 그 슬래브에 박는다.
             //  마진은 어디에도 더하지 않는다 — 훑기는 몸이 실제로 지나는 자리만 묻는다.
             bool ceilingSafe = true;
+            //  선분 훑기는 프로브가 캐시를 타는지 마는지를 가리지 않는다 — 타입만 다르므로
+            //  여기서 한 번 얇게 감싼다. 타입을 가른 목적(호출부가 두 프로브를 뒤바꾸는 사고
+            //  방지)은 Decide의 인자 자리에서 이미 지켜졌다.
+            FreeSpaceProbe sweepProbe = isFree.Invoke;
             float x = currentX;
             float y = currentY;
             //  누른 그 틱은 중력 감쇠 없이 임펄스 그대로 — 실제 커널(Step)이 그 틱의 감쇠를
             //  덮어써 버리므로, FlapRiseAfter와 같은 순서다. 종료 조건도 FlapArc와 같은
-            //  while (speed > 0f)라, "정점이 몇 틱째냐"가 숫자로 박히지 않고 물리에서 나온다.
+            //  speed > 0f라, "정점이 몇 틱째냐"가 숫자로 박히지 않고 물리에서 나온다.
             float speed = flapImpulse;
-            while (speed > 0f)
+            //  maxTicks는 정상 입력에서는 안 걸린다 — speed > 0f 쪽이 먼저 끝난다.
+            //  퇴화 입력(중력이 너무 작아 속도가 안 줄어드는 경우)에서만 도는 안전망이다.
+            for (int t = 0; speed > 0f && t < maxTicks; t++)
             {
                 float nextX = x + forwardSpeed * tickSeconds;
                 float nextY = y + speed * tickSeconds;
                 //  한 틱 사이를 선분으로 훑는다 — 끝점만 보면 그 사이에 낀 얇은 판을 통과한다.
                 //  이 한 호출이 양 끝점까지 전부 본다(SegmentIsFree가 i=0..samples를 돌아
                 //  두 끝을 포함한다), 그래서 끝점을 따로 묻지 않는다.
-                if (CleanRunSearch.SegmentIsFree(isFree, x, y, nextX, nextY, step) == false)
+                if (CleanRunSearch.SegmentIsFree(sweepProbe, x, y, nextX, nextY, step) == false)
                 {
                     ceilingSafe = false;
                     break;

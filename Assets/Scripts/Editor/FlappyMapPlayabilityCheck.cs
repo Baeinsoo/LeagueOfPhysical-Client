@@ -121,10 +121,10 @@ namespace LOP.EditorTools
 
             var query = new GameFramework.Physics.UnityCollisionQuery();
             var grid = new FreeSpaceGrid(shape, mapMask);
-            //  봇은 자기만의 자유공간 격자를 쓴다 — grid를 같이 쓰면 봇이 격자 칸 밖(비정렬
-            //  x)에서 찍은 샘플이 탐색이 나중에 읽는 칸을 채워 버려, 탐색의 답이 "봇을
-            //  먼저 돌렸는가"에 좌우되는 결정론 문제가 생긴다. 콜라이더는 같은 것을 보되
-            //  캐시는 따로 둔다 — 물리 질의가 일부 중복되는 대신 결정론을 산다.
+            //  봇은 자기만의 자유공간 격자를 쓴다. 결정론 때문은 아니다 — 캐시를 타는 프로브가
+            //  질의 좌표를 격자에 스냅해 그 스냅된 자리에서 재므로(FreeSpaceGrid.IsFree 참고),
+            //  누가 먼저 어느 칸을 채우든 답이 같다. 따로 두는 건 두 캐시가 서로의 항목으로
+            //  부풀지 않게 하는 것뿐이라, 합쳐도 답은 달라지지 않는다.
             var botGrid = new FreeSpaceGrid(shape, mapMask);
             var cleanRuns = new List<LOP.MapTools.SpawnCleanRun>();
             string trapSection;
@@ -405,33 +405,43 @@ namespace LOP.EditorTools
             private readonly FlappyShape shape;
             private readonly int mapMask;
 
+            //  두 프로브를 <b>메서드가 아니라 델리게이트 필드</b>로 낸다. 메서드로 내면
+            //  호출부가 넘기는 것이 메서드 그룹이라 어느 델리게이트 타입으로든 변환되어,
+            //  둘을 뒤바꿔 넘겨도 컴파일러가 못 잡는다(실제로 그랬다 — 2026-09-10 실측).
+            //  필드로 내면 타입이 이미 박혀 있어 뒤바뀌면 컴파일 에러다.
+            public readonly LOP.MapTools.FreeSpaceProbe IsFree;
+            public readonly LOP.MapTools.ExactFreeSpaceProbe IsFreeExact;
+
             public FreeSpaceGrid(in FlappyShape shape, int mapMask)
             {
                 this.shape = shape;
                 this.mapMask = mapMask;
+                IsFree = MeasureSnapped;
+                IsFreeExact = Measure;
             }
 
-            //  캐시 키는 0.1m 격자로 반올림하는데 값은 "그 칸에 처음 들어온 정확한 좌표"에서
-            //  잰다. 그래서 격자에 맞춰 묻는 쪽(탐색, 봇의 근거리 열)은 캐시가 정확하지만,
-            //  연속 좌표를 묻는 쪽(봇의 아치 훑기)은 "잰 자리"가 최대 반 칸(0.05m) 떨어진
-            //  곳일 수 있다 — 그쪽은 아래 IsFreeExact로 캐시를 건너뛴다.
-            public bool IsFree(float x, float y)
+            //  묻는 쪽은 전부 연속 좌표를 준다 — 탐색은 두 축을 다 보간하고(SegmentIsFree),
+            //  봇의 근거리 열도 x가 틱마다 0.22씩 늘어 격자에 안 걸린다. 그래서 "칸에 처음
+            //  들어온 정확한 좌표"에서 재면 같은 칸이 누가 먼저 물었느냐에 따라 최대 0.1m
+            //  떨어진 자리의 답을 갖게 되어, 판정이 스폰 순서에 좌우된다. 그래서 재기 전에
+            //  좌표를 칸 중심으로 스냅해 그 자리에서 잰다 — 캐시가 격자 위에서 잘 정의된
+            //  함수가 되어, 누가 언제 묻든 같은 칸이면 같은 답이 나온다. 대신 답은 최대
+            //  반 칸(0.05m) 떨어진 자리의 것이므로, mm 단위 정밀도가 필요한 봇의 아치
+            //  훑기는 캐시를 건너뛰는 IsFreeExact(=Measure)를 쓴다.
+            private bool MeasureSnapped(float x, float y)
             {
                 //  HeightGrid — ①의 세그먼트 샘플링과 같은 칸 크기를 써야 해상도가 실제로 맞는다.
-                long key = ((long)Mathf.RoundToInt(x / HeightGrid) << 32) ^ (uint)Mathf.RoundToInt(y / HeightGrid);
+                int cellX = Mathf.RoundToInt(x / HeightGrid);
+                int cellY = Mathf.RoundToInt(y / HeightGrid);
+                long key = ((long)cellX << 32) ^ (uint)cellY;
                 if (cache.TryGetValue(key, out bool free))
                 {
                     return free;
                 }
-                free = Measure(x, y);
+                free = Measure(cellX * HeightGrid, cellY * HeightGrid);
                 cache[key] = free;
                 return free;
             }
-
-            //  캐시를 안 타고 물어본 그 좌표에서 바로 잰다. 봇의 아치 훑기는 격자에 안 걸리는
-            //  연속 좌표를 mm 단위로 묻기 때문에, 캐시를 태우면 최대 0.05m 떨어진 자리의 답을
-            //  받아 "정밀하게 맞춘 문턱"이 실제로는 없는 정밀도가 된다.
-            public bool IsFreeExact(float x, float y) => Measure(x, y);
 
             private bool Measure(float x, float y)
             {
@@ -513,14 +523,17 @@ namespace LOP.EditorTools
         //  isFree는 탐색(CleanRunSearch.Run)과 같은 이름 있는 델리게이트·같은 극성이다 —
         //  "막힘 여부를 뒤집어 쓴다"를 문장이 아니라 타입으로 강제해, grid.IsFree를 실수로
         //  그대로 넘기는 사고(막힌 곳을 뚫린 곳으로 읽어 봇이 바위로 날아드는 것)를 막는다.
-        //  프로브가 둘인 이유: isFree는 격자에 맞춰 묻는 근거리 열 채우기용(칸이 많아 캐시가
-        //  값을 한다), isFreeExact는 봇의 아치 훑기용이다 — 훑기는 격자에 안 걸리는 연속
-        //  좌표를 묻기 때문에 캐시를 태우면 "잰 자리"가 최대 0.05m 어긋난 답을 받는다.
+        //  프로브가 둘인 이유: isFree는 근거리 열 채우기용이다 — 칸이 많아(틱당 약 1150) 캐시가
+        //  값을 하고, 격자로 스냅해 재도 0.1m 격자로 훑는 표에는 충분하다. isFreeExact는 봇의
+        //  아치 훑기용이다 — 훑기는 mm 단위로 문턱을 가르므로 캐시(=반 칸까지 어긋난 자리의 답)를
+        //  태우면 그 정밀도가 사라진다. 둘의 타입이 다른 것도 그래서다(FreeSpaceProbe vs
+        //  ExactFreeSpaceProbe) — 같은 타입이면 뒤바꿔 넘겨도 컴파일러가 못 잡는데, 뒤바뀌면
+        //  훑기가 캐시를 타고 근거리 열이 틱당 1150번 캐시 없이 PhysX를 부른다.
         private static BotFlight FlyBot(Vector3 start, float finishX, in FlappyShape shape, int mapMask,
                                         GameFramework.Physics.ICollisionQuery inner,
                                         float minY, float maxY,
                                         LOP.MapTools.FreeSpaceProbe isFree,
-                                        LOP.MapTools.FreeSpaceProbe isFreeExact)
+                                        LOP.MapTools.ExactFreeSpaceProbe isFreeExact)
         {
             var query = new HitWatcher(inner);
             var state = new BirdState { Position = new Vector3(start.x, start.y, 0f) };

@@ -158,7 +158,7 @@ namespace LOP.EditorTools
                     //  안 돌린다. SearchMinY/SearchMaxY를 그대로 넘겨 탐색과 같은 대역을 보게
                     //  한다(다른 대역을 보면 "같은 질문에 답했다"고 할 수 없다).
                     BotFlight flight = FlyBot(spawns[i].Position, finishX, shape, mapMask, query,
-                                              SearchMinY, SearchMaxY, botGrid.IsFree);
+                                              SearchMinY, SearchMaxY, botGrid.IsFree, botGrid.IsFreeExact);
                     //  진단은 봇이 통과했든 실패했든 같은 값을 담아 둔다 — 리포트는 BotReached가
                     //  참이면 이 값을 아예 안 읽는다("증명된 자리는 부검하지 않는다"), 그래서
                     //  여기서 성공/실패로 갈라 만들 이유가 없다.
@@ -411,6 +411,10 @@ namespace LOP.EditorTools
                 this.mapMask = mapMask;
             }
 
+            //  캐시 키는 0.1m 격자로 반올림하는데 값은 "그 칸에 처음 들어온 정확한 좌표"에서
+            //  잰다. 그래서 격자에 맞춰 묻는 쪽(탐색, 봇의 근거리 열)은 캐시가 정확하지만,
+            //  연속 좌표를 묻는 쪽(봇의 아치 훑기)은 "잰 자리"가 최대 반 칸(0.05m) 떨어진
+            //  곳일 수 있다 — 그쪽은 아래 IsFreeExact로 캐시를 건너뛴다.
             public bool IsFree(float x, float y)
             {
                 //  HeightGrid — ①의 세그먼트 샘플링과 같은 칸 크기를 써야 해상도가 실제로 맞는다.
@@ -419,11 +423,21 @@ namespace LOP.EditorTools
                 {
                     return free;
                 }
-                var p = new Vector3(x, y, 0f);
-                free = Physics.CheckCapsule(shape.Lower(p), shape.Upper(p), shape.Radius,
-                                            mapMask, QueryTriggerInteraction.Ignore) == false;
+                free = Measure(x, y);
                 cache[key] = free;
                 return free;
+            }
+
+            //  캐시를 안 타고 물어본 그 좌표에서 바로 잰다. 봇의 아치 훑기는 격자에 안 걸리는
+            //  연속 좌표를 mm 단위로 묻기 때문에, 캐시를 태우면 최대 0.05m 떨어진 자리의 답을
+            //  받아 "정밀하게 맞춘 문턱"이 실제로는 없는 정밀도가 된다.
+            public bool IsFreeExact(float x, float y) => Measure(x, y);
+
+            private bool Measure(float x, float y)
+            {
+                var p = new Vector3(x, y, 0f);
+                return Physics.CheckCapsule(shape.Lower(p), shape.Upper(p), shape.Radius,
+                                            mapMask, QueryTriggerInteraction.Ignore) == false;
             }
         }
 
@@ -487,12 +501,8 @@ namespace LOP.EditorTools
         //  앞을 이만큼 내다본다(초 단위 — 거리가 아니라 시간으로 잡는 이유는 FlappyAutoFlapSystem의
         //  같은 주석 참고: 날갯짓은 정점까지 시간이 걸리므로 그보다 가까운 것만 보면 늦는다).
         //  0.14초는 그 시스템이 "1.5m로 보다가 계속 박아서" 버린 값이라 여기서도 쓰지 않는다 —
-        //  같은 시스템이 지금 쓰는 사다리({0.05,0.20,0.40,0.60}초) 중 검증된 두 단(0.20·0.40초)을
-        //  그대로 가져온다.
+        //  같은 시스템이 지금 쓰는 사다리({0.05,0.20,0.40,0.60}초) 중 검증된 0.20초 단을 가져온다.
         private const float BotLookaheadSeconds = 0.20f;
-        //  천장 가드가 아치를 훑는 지평도 0.40초다 — 날갯짓의 자연 정점(23÷70÷0.02초 기준
-        //  17틱 ≈ 0.34초)보다 넉넉히 멀어서 상승 구간 전체가 훑기 안에 들어온다.
-        private const float BotFarLookaheadSeconds = 0.40f;
 
         //  봇을 진짜 커널로 날린다. 궤적이 하나뿐이라 상태를 묶을 이유가 없고, 그래서 반올림도
         //  표류도 생기지 않는다 — 전수 탐색이 못 하는 "증명"이 여기서 나온다.
@@ -503,19 +513,22 @@ namespace LOP.EditorTools
         //  isFree는 탐색(CleanRunSearch.Run)과 같은 이름 있는 델리게이트·같은 극성이다 —
         //  "막힘 여부를 뒤집어 쓴다"를 문장이 아니라 타입으로 강제해, grid.IsFree를 실수로
         //  그대로 넘기는 사고(막힌 곳을 뚫린 곳으로 읽어 봇이 바위로 날아드는 것)를 막는다.
+        //  프로브가 둘인 이유: isFree는 격자에 맞춰 묻는 근거리 열 채우기용(칸이 많아 캐시가
+        //  값을 한다), isFreeExact는 봇의 아치 훑기용이다 — 훑기는 격자에 안 걸리는 연속
+        //  좌표를 묻기 때문에 캐시를 태우면 "잰 자리"가 최대 0.05m 어긋난 답을 받는다.
         private static BotFlight FlyBot(Vector3 start, float finishX, in FlappyShape shape, int mapMask,
                                         GameFramework.Physics.ICollisionQuery inner,
                                         float minY, float maxY,
-                                        LOP.MapTools.FreeSpaceProbe isFree)
+                                        LOP.MapTools.FreeSpaceProbe isFree,
+                                        LOP.MapTools.FreeSpaceProbe isFreeExact)
         {
             var query = new HitWatcher(inner);
             var state = new BirdState { Position = new Vector3(start.x, start.y, 0f) };
             float lookahead = shape.ForwardSpeed * BotLookaheadSeconds;
-            //  "이 열까지 남은 틱"·"아치를 몇 틱 훑을지"는 스캔 거리(초) 자체에서 그대로 나온다 —
-            //  두 값을 따로 손으로 맞출 필요가 없다(어긋나면 BotPilot.Decide가 엉뚱한 틱 수로
-            //  굴러간다).
+            //  "이 열까지 남은 틱"은 스캔 거리(초) 자체에서 그대로 나온다 — 손으로 맞춘 상수를
+            //  쓰면 어긋났을 때 BotPilot.Decide가 엉뚱한 틱 수로 굴러간다. 아치를 몇 틱 훑을지는
+            //  넘기지 않는다 — 훑기는 세로 속도가 0이 되는 자리(정점)에서 스스로 멈춘다.
             int ticksToNear = Mathf.RoundToInt(BotLookaheadSeconds / TickSeconds);
-            int ticksToScan = Mathf.RoundToInt(BotFarLookaheadSeconds / TickSeconds);
             int buckets = Mathf.CeilToInt((maxY - minY) / HeightGrid) + 1;
             var blockedNear = new bool[buckets];
             float farthest = start.x;
@@ -537,7 +550,7 @@ namespace LOP.EditorTools
                                                             state.Position.x, state.Position.y, state.VerticalSpeed,
                                                             shape.Radius, shape.FlapImpulse, shape.Gravity,
                                                             shape.MaxFallSpeed, shape.ForwardSpeed,
-                                                            ticksToNear, ticksToScan, TickSeconds, isFree);
+                                                            ticksToNear, TickSeconds, isFreeExact);
                 if (decision.Flap)
                 {
                     flaps++;

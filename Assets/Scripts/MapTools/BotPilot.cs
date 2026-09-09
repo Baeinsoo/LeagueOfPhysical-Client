@@ -34,23 +34,22 @@ namespace LOP.MapTools
     /// ① 바닥 쪽에서만 몸 반지름만큼 여유를 둔다 — 천장 쪽은 두지 않는다. 막힘 표 자체가
     ///    이미 몸(실제 반지름)으로 캡슐 검사를 한 결과라, 천장 쪽에 반지름을 또 빼면 몸
     ///    하나를 두 번 세는 꼴이라서다.
-    /// ② 지금 누르면 새가 그리는 아치를 <b>틱마다 따라가며</b>, 그 자리마다 몸이 들어가는지
-    ///    자유공간 프로브에 직접 묻는다. 도착 높이 몇 개만 재면 "가는 길"을 안 보게 된다 —
-    ///    천장 슬래브 <i>위</i>의 빈 하늘이 도착점으로는 뚫려 있어도, 올라가는 도중에 그
-    ///    슬래브에 박는다. 아치 위 한 자리라도 막혀 있으면 누르지 않는다 — 한 번 뚫으면
-    ///    되돌릴 수 없지만, 안 눌러 낮아지는 건 다음 틱에 다시 판단할 수 있다.
+    /// ② 지금 누르면 새가 그리는 아치를 <b>정점까지 틱마다 따라가며</b>, 그 자리마다 몸이
+    ///    들어가는지 자유공간 프로브에 직접 묻는다. 도착 높이 몇 개만 재면 "가는 길"을 안 보게
+    ///    된다 — 천장 슬래브 <i>위</i>의 빈 하늘이 도착점으로는 뚫려 있어도, 올라가는 도중에 그
+    ///    슬래브에 박는다. 올라가는 구간에서 한 자리라도 막혀 있으면 누르지 않는다 — 한 번
+    ///    뚫으면 되돌릴 수 없지만, 안 눌러 낮아지는 건 다음 틱에 다시 판단할 수 있다.
     /// ③ 한 틱이 아니라 근거리 열까지 남은 틱을 실제 중력으로 굴려 봐서 바닥 쪽을 판단한다.
     /// 몸이 다 들어가지 못할 만큼 좁은 자리라도 근거 없이 무조건 날갯짓하지 않는다 — 그
     /// 자리에도 같은 천장 가드를 건다.</para>
     /// </summary>
     public static class BotPilot
     {
-        /// <summary>날갯짓 한 번으로 오르는 높이(자연 정점까지 전부). 세로 속도가 0이 될
-        /// 때까지 더한 값이다.</summary>
-        public static float FlapArc(float flapImpulse, float gravity, float tickSeconds)
+        //  아치를 끝까지 따라가는 코드(FlapArc와 Decide의 훑기)는 둘 다 "세로 속도가 0으로
+        //  떨어지면 끝"에 기대어 돈다. 중력이나 한 틱의 길이가 0 이하면 속도가 영영 안 줄어
+        //  무한 루프가 된다 — 에디터가 조용히 멎는 것보다 바로 터지는 게 낫다.
+        static void RequireArcEnds(float gravity, float tickSeconds)
         {
-            //  gravity(중력)나 tickSeconds(한 틱의 길이)가 0 이하면 아래 루프에서 speed가 절대
-            //  0 밑으로 안 내려간다 — 무한 루프. 조용히 걸리는 것보다 바로 터지는 게 낫다.
             if (gravity <= 0f)
             {
                 throw new ArgumentOutOfRangeException(nameof(gravity), gravity,
@@ -61,6 +60,13 @@ namespace LOP.MapTools
                 throw new ArgumentOutOfRangeException(nameof(tickSeconds), tickSeconds,
                     "tickSeconds must be positive — otherwise speed never drops to 0 and the loop never terminates.");
             }
+        }
+
+        /// <summary>날갯짓 한 번으로 오르는 높이(자연 정점까지 전부). 세로 속도가 0이 될
+        /// 때까지 더한 값이다.</summary>
+        public static float FlapArc(float flapImpulse, float gravity, float tickSeconds)
+        {
+            RequireArcEnds(gravity, tickSeconds);
 
             float rise = 0f;
             float speed = flapImpulse;
@@ -93,17 +99,17 @@ namespace LOP.MapTools
 
         /// <param name="blockedNear">근거리 열의 막힘 표 — <b>바닥 규칙</b>이 쓴다(어느 높이로
         /// 겨냥할지). 천장 판단은 이제 이 표가 아니라 <paramref name="isFree"/>가 한다.</param>
-        /// <param name="ticksToScan">지금 누르면 그리는 아치를 몇 틱까지 훑을지. 호출부는 원거리
-        /// 지평(20틱)을 그대로 넘긴다 — 아치 정점이 17틱이라 상승 구간 전체를 덮는다.</param>
         /// <param name="isFree">발밑이 (x, y)일 때 몸이 들어가는가. 코스를 실제 콜라이더로 재는
         /// 프로브를 호출부가 넘긴다.</param>
         public static BotDecision Decide(
             IReadOnlyList<bool> blockedNear, float bottomY, float step,
             float currentX, float currentY, float verticalSpeed, float bodyRadius,
             float flapImpulse, float gravity, float maxFallSpeed,
-            float forwardSpeed, int ticksToNear, int ticksToScan, float tickSeconds,
+            float forwardSpeed, int ticksToNear, float tickSeconds,
             FreeSpaceProbe isFree)
         {
+            RequireArcEnds(gravity, tickSeconds);
+
             //  highNear(틈의 위 끝)는 안 쓴다 — 천장 가드는 아치를 직접 훑으므로 "어느 틈을
             //  골랐나"의 위 끝은 이 자리에서 의미가 없다. lowNear(바닥 규칙용)만 남긴다.
             bool hasNear = FlappyGapAiming.TryFindGap(blockedNear, bottomY, step, currentY, bodyRadius,
@@ -136,7 +142,10 @@ namespace LOP.MapTools
                                                               tickSeconds, gravity, maxFallSpeed);
             bool wantsFlap = predictedY < safeFloor;
 
-            //  누르면 새가 그리는 아치를 틱마다 따라가며, 그 자리마다 몸이 들어가는지 묻는다.
+            //  누르면 새가 그리는 아치를 정점까지 틱마다 따라가며, 그 자리마다 몸이 들어가는지 묻는다.
+            //  정점에서 멈추는 이유: 올라가는 동안은 "누르고 가만히 있는" 이 경로가 도달 가능한 가장 낮은
+            //  경로라 막혀 있으면 정말 못 피한다. 정점을 지나면 새는 내려가기 시작하고, 거기서 한 번 더
+            //  누르면 다시 오르므로 그 아래가 막혔다는 것이 지금 누르지 말아야 할 이유가 되지 않는다.
             //  도착 높이만 보면 "가는 길"을 안 보게 된다 — 천장 슬래브 위의 빈 하늘이 도착점으로
             //  뚫려 있어도, 올라가는 도중에 그 슬래브에 박는다.
             //  마진은 어디에도 더하지 않는다 — 훑기는 몸이 실제로 지나는 자리만 묻는다.
@@ -144,15 +153,17 @@ namespace LOP.MapTools
             float x = currentX;
             float y = currentY;
             //  누른 그 틱은 중력 감쇠 없이 임펄스 그대로 — 실제 커널(Step)이 그 틱의 감쇠를
-            //  덮어써 버리므로, FlapRiseAfter와 같은 순서다.
+            //  덮어써 버리므로, FlapRiseAfter와 같은 순서다. 종료 조건도 FlapArc와 같은
+            //  while (speed > 0f)라, "정점이 몇 틱째냐"가 숫자로 박히지 않고 물리에서 나온다.
             float speed = flapImpulse;
-            for (int t = 0; t < ticksToScan; t++)
+            while (speed > 0f)
             {
                 float nextX = x + forwardSpeed * tickSeconds;
                 float nextY = y + speed * tickSeconds;
-                //  두 틱 표본 사이도 선분으로 훑는다 — 끝점만 보면 그 사이에 낀 얇은 판을 통과한다.
-                if (isFree(nextX, nextY) == false ||
-                    CleanRunSearch.SegmentIsFree(isFree, x, y, nextX, nextY, step) == false)
+                //  한 틱 사이를 선분으로 훑는다 — 끝점만 보면 그 사이에 낀 얇은 판을 통과한다.
+                //  이 한 호출이 양 끝점까지 전부 본다(SegmentIsFree가 i=0..samples를 돌아
+                //  두 끝을 포함한다), 그래서 끝점을 따로 묻지 않는다.
+                if (CleanRunSearch.SegmentIsFree(isFree, x, y, nextX, nextY, step) == false)
                 {
                     ceilingSafe = false;
                     break;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using LOP.MapTools;
 using NUnit.Framework;
 
@@ -15,11 +16,10 @@ namespace LOP.MapTools.Tests
         const float MaxFallSpeed = 30f;
         const float FlapImpulse = 23f;
         const float ForwardSpeed = 11f;
-        //  실제 도구(FlappyMapPlayabilityCheck)가 쓰는 것과 같은 값 — 0.20초/0.40초 앞을
-        //  본다(초당 틱수 1/0.02=50 기준 10틱/20틱). 20틱은 날갯짓의 자연 정점(17틱)보다
-        //  넉넉히 커서, 아치의 상승 구간 전체가 훑기 안에 들어온다.
+        //  실제 도구(FlappyMapPlayabilityCheck)가 쓰는 것과 같은 값 — 근거리 열은 0.20초
+        //  앞(초당 틱수 1/0.02=50 기준 10틱)을 본다. 아치 훑기에는 지평 인자가 없다 —
+        //  세로 속도가 0이 되는 자리(정점, 17틱)에서 물리가 알아서 멈춘다.
         const int TicksToNear = 10;
-        const int TicksToScan = 20;
         //  근거리 열을 재는 x — 새의 자리에서 0.20초 앞(11 × 0.20 = 2.2m).
         const float NearScanX = 2.2f;
         //  상자를 "코스 끝까지"로 늘릴 때 쓰는 큰 값. 실제 좌표는 이보다 한참 작다.
@@ -120,6 +120,11 @@ namespace LOP.MapTools.Tests
         //  어디에도 몸이 못 들어가는 바위 덩어리.
         static FreeSpaceProbe Solid() => Blocks((-FarAway, FarAway, -FarAway, FarAway));
 
+        //  어디를 물어도 "뚫렸다"고 답하면서, 물어본 자리를 순서대로 적어 두는 프로브. 훑기
+        //  루프 안을 테스트가 직접 볼 수 없으므로 "어디를 물었나"로 아치를 되짚는다.
+        static FreeSpaceProbe Recording(List<(float x, float y)> log)
+            => (x, y) => { log.Add((x, y)); return true; };
+
         //  실제 게임 커널(FlappyMapPlayabilityCheck.Step)과 같은 순서로 한 틱 굴린다 —
         //  중력을 먼저 깎고, 날갯짓이면 그 값을 덮어쓴 뒤(그 틱은 감쇠가 적용 안 됨), 그
         //  속도로 움직인다. 여러 틱을 실제로 밟는 테스트(불변식·통과)가 봇의 판단만이 아니라
@@ -186,7 +191,7 @@ namespace LOP.MapTools.Tests
             var gap = Free(101); // 0~10m — 천장 걱정 없음
             var decision = BotPilot.Decide(gap, BottomY, Step, currentX: 0f, currentY: 2.0f, verticalSpeed: -5f,
                                            BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                           TicksToNear, TicksToScan, TickSeconds, OpenSky());
+                                           TicksToNear, TickSeconds, OpenSky());
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsTrue(decision.Flap);
@@ -200,7 +205,7 @@ namespace LOP.MapTools.Tests
             var gap = Free(101);
             var decision = BotPilot.Decide(gap, BottomY, Step, currentX: 0f, currentY: 0.5f, verticalSpeed: -30f,
                                            BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                           TicksToNear, TicksToScan, TickSeconds, OpenSky());
+                                           TicksToNear, TickSeconds, OpenSky());
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsTrue(decision.Flap);
@@ -214,7 +219,7 @@ namespace LOP.MapTools.Tests
             var gap = Free(15);
             var decision = BotPilot.Decide(gap, BottomY, Step, currentX: 0f, currentY: 0.9f, verticalSpeed: 0f,
                                            BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                           TicksToNear, TicksToScan, TickSeconds, Ceiling(1.4f));
+                                           TicksToNear, TickSeconds, Ceiling(1.4f));
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsFalse(decision.Flap);
@@ -231,7 +236,7 @@ namespace LOP.MapTools.Tests
             var column = Band(low: 0.1f, span: 0.1f, BottomY, Step);
             var decision = BotPilot.Decide(column, BottomY, Step, currentX: 0f, currentY: 0.15f, verticalSpeed: 0f,
                                            BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                           TicksToNear, TicksToScan, TickSeconds, Corridor(0.1f, 0.2f));
+                                           TicksToNear, TickSeconds, Corridor(0.1f, 0.2f));
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsFalse(decision.Flap);
@@ -247,7 +252,7 @@ namespace LOP.MapTools.Tests
             var column = Column(true, true, true);
             var decision = BotPilot.Decide(column, BottomY, Step, currentX: 0f, currentY: 0.2f, verticalSpeed: -30f,
                                            BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                           TicksToNear, TicksToScan, TickSeconds, Solid());
+                                           TicksToNear, TickSeconds, Solid());
 
             Assert.IsFalse(decision.GapFound);
             Assert.IsTrue(decision.Flap);
@@ -264,7 +269,7 @@ namespace LOP.MapTools.Tests
             var near = ColumnFrom(isFree, NearScanX, cells: 101);
             var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 0f, verticalSpeed: 0f,
                                            BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                           TicksToNear, TicksToScan, TickSeconds, isFree);
+                                           TicksToNear, TickSeconds, isFree);
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsTrue(decision.Flap);
@@ -289,7 +294,7 @@ namespace LOP.MapTools.Tests
             //  굴려도 확실히 마진 아래로 떨어져 "누를지 말지"는 오직 천장 여유로만 갈린다.
             var decision = BotPilot.Decide(gap, BottomY, fineStep, currentX: 0f, currentY: BodyRadius,
                                            verticalSpeed: -30f, BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
-                                           ForwardSpeed, TicksToNear, TicksToScan, TickSeconds,
+                                           ForwardSpeed, TicksToNear, TickSeconds,
                                            Ceiling(threshold + fineStep));
 
             Assert.IsTrue(decision.GapFound);
@@ -308,7 +313,7 @@ namespace LOP.MapTools.Tests
 
             var decision = BotPilot.Decide(gap, BottomY, fineStep, currentX: 0f, currentY: BodyRadius,
                                            verticalSpeed: -30f, BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
-                                           ForwardSpeed, TicksToNear, TicksToScan, TickSeconds,
+                                           ForwardSpeed, TicksToNear, TickSeconds,
                                            Ceiling(threshold - 0.02f));
 
             Assert.IsTrue(decision.GapFound);
@@ -330,7 +335,7 @@ namespace LOP.MapTools.Tests
                 var decision = BotPilot.Decide(gap, BottomY, Step, currentX: tick * ForwardSpeed * TickSeconds,
                                                currentY: y, verticalSpeed: vy, BodyRadius,
                                                FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                               TicksToNear, TicksToScan, TickSeconds, isFree);
+                                               TicksToNear, TickSeconds, isFree);
                 (y, vy) = StepPhysics(y, vy, decision.Flap);
 
                 Assert.GreaterOrEqual(y, 0f, $"tick {tick}: 바닥 아래로 내려갔다 (y={y})");
@@ -360,7 +365,7 @@ namespace LOP.MapTools.Tests
                 var decision = BotPilot.Decide(gap, BottomY, Step, currentX: tick * ForwardSpeed * TickSeconds,
                                                currentY: y, verticalSpeed: vy, BodyRadius,
                                                FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                               TicksToNear, TicksToScan, TickSeconds, isFree);
+                                               TicksToNear, TickSeconds, isFree);
                 if (decision.Flap)
                 {
                     flaps++;
@@ -385,7 +390,7 @@ namespace LOP.MapTools.Tests
             var near = ColumnFrom(isFree, NearScanX, cells: 101);
             var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 0.5f, verticalSpeed: -30f,
                                            BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                           TicksToNear, TicksToScan, TickSeconds, isFree);
+                                           TicksToNear, TickSeconds, isFree);
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsFalse(decision.Flap);
@@ -401,7 +406,7 @@ namespace LOP.MapTools.Tests
             var near = ColumnFrom(isFree, NearScanX, cells: 101);
             var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 0.5f, verticalSpeed: -30f,
                                            BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                           TicksToNear, TicksToScan, TickSeconds, isFree);
+                                           TicksToNear, TickSeconds, isFree);
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsTrue(decision.Flap);
@@ -417,7 +422,7 @@ namespace LOP.MapTools.Tests
             var near = ColumnFrom(isFree, NearScanX, cells: 101);
             var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 0.2f, verticalSpeed: -30f,
                                            BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                           TicksToNear, TicksToScan, TickSeconds, isFree);
+                                           TicksToNear, TickSeconds, isFree);
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsTrue(decision.Flap,
@@ -433,7 +438,7 @@ namespace LOP.MapTools.Tests
             var near = ColumnFrom(isFree, NearScanX, cells: 101);
             var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 0.2f, verticalSpeed: -30f,
                                            BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                           TicksToNear, TicksToScan, TickSeconds, isFree);
+                                           TicksToNear, TickSeconds, isFree);
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsFalse(decision.Flap);
@@ -462,7 +467,7 @@ namespace LOP.MapTools.Tests
                 float freeTop = (cells - 1) * Step;
                 var decision = BotPilot.Decide(corridor, BottomY, Step, currentX: 0f, currentY: currentY,
                                                verticalSpeed: verticalSpeed, BodyRadius, FlapImpulse, Gravity,
-                                               MaxFallSpeed, ForwardSpeed, TicksToNear, TicksToScan, TickSeconds,
+                                               MaxFallSpeed, ForwardSpeed, TicksToNear, TickSeconds,
                                                Ceiling(freeTop));
 
                 bool expectFlap = reach <= freeTop;
@@ -480,7 +485,7 @@ namespace LOP.MapTools.Tests
             var corridor = Free(61); // 0~6.0m
             var decision = BotPilot.Decide(corridor, BottomY, Step, currentX: 0f, currentY: 1.992f,
                                            verticalSpeed: -30f, BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
-                                           ForwardSpeed, TicksToNear, TicksToScan, TickSeconds, Ceiling(6f));
+                                           ForwardSpeed, TicksToNear, TickSeconds, Ceiling(6f));
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsFalse(decision.Flap,
@@ -503,7 +508,7 @@ namespace LOP.MapTools.Tests
             var near = ColumnFrom(isFree, NearScanX, cells: 101);
             var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 1.0f, verticalSpeed: -30f,
                                            BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                           TicksToNear, TicksToScan, TickSeconds, isFree);
+                                           TicksToNear, TickSeconds, isFree);
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsFalse(decision.Flap,
@@ -519,7 +524,7 @@ namespace LOP.MapTools.Tests
             var near = ColumnFrom(isFree, NearScanX, cells: 101);
             var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 1.0f, verticalSpeed: -30f,
                                            BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                           TicksToNear, TicksToScan, TickSeconds, isFree);
+                                           TicksToNear, TickSeconds, isFree);
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsTrue(decision.Flap);
@@ -544,11 +549,108 @@ namespace LOP.MapTools.Tests
             var near = ColumnFrom(isFree, NearScanX, cells: 101);
             var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 0f, verticalSpeed: -30f,
                                            BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                           TicksToNear, TicksToScan, TickSeconds, isFree);
+                                           TicksToNear, TickSeconds, isFree);
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsFalse(decision.Flap,
                 "틱 표본 사이에 낀 판을 못 봤다 — 끝점만 보고 통과시켰다.");
+        }
+
+        [Test]
+        public void 정점을_지난_뒤_아래가_막힌_것은_지금_안_누를_이유가_아니다()
+        {
+            //  이 과제가 고친 결함. x [3.84, 4.34] 구간에서 4.4820m 아래가 전부 선반이고
+            //  나머지는 뚫려 있다. 새는 y=0.5, vy=−30.
+            //  아치 정점(17틱, x=3.74, y=4.512001)까지는 선반을 안 스친다 — 지금 누르고 정점에서
+            //  한 번 더 누르면 선반을 건드리지 않고 지나간다(오프라인 재생으로 확인, x=6.16까지 무충돌).
+            //  정점 뒤까지 훑던 옛 코드는 19틱째(x=4.18, y=4.452 — 이미 내려오는 중)에서 선반에
+            //  걸려 거부했다. 그 자리는 "한 번 더 누르면 다시 오르는" 자리이므로 지금 안 누를
+            //  이유가 되지 못한다 — 통과 가능한 맵을 불가로 읽게 만든다.
+            //
+            //  돌연변이 검증(2026-09-09): 훑기 종료 조건을 다시 20틱 지평으로 되돌리면
+            //  이 테스트가 빨강이 된다(직전 커밋 ae07bc1a에서 flap=false임을 오프라인으로 확인).
+            var isFree = Blocks((3.84f, 4.34f, -FarAway, 4.482f));
+            var near = ColumnFrom(isFree, NearScanX, cells: 101);
+            var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 0.5f, verticalSpeed: -30f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TickSeconds, isFree);
+
+            Assert.IsTrue(decision.GapFound);
+            Assert.IsTrue(decision.Flap,
+                "정점을 지나 내려오는 구간까지 훑어서, 통과 가능한 맵을 불가로 읽었다.");
+        }
+
+        [Test]
+        public void 훑기가_지나는_자리는_FlapRiseAfter의_아치_그대로이고_정점에서_끝난다()
+        {
+            //  훑기는 FlapRiseAfter와 같은 산술을 다시 적는다 — 둘이 어긋나면 봇이 실제와 다른
+            //  궤적을 검사하게 된다. 훑기 루프 안은 못 보므로 "어디를 물었나"로 확인한다:
+            //  ① 모든 틱 t에서 (x = t×0.22, y = FlapRiseAfter(t))를 물었고,
+            //  ② 정점(속도가 0 이하가 되는 첫 틱) 너머는 아예 안 물었다.
+            //
+            //  돌연변이 검증(2026-09-09): 중력 적용을 한 틱 앞당기면(속도를 임펄스−중력×틱에서
+            //  시작) ①이 빨강, 종료 조건을 20틱 지평으로 되돌리면 ②가 빨강임을 확인했다.
+            var log = new List<(float x, float y)>();
+            BotPilot.Decide(Free(101), BottomY, Step, currentX: 0f, currentY: 0f, verticalSpeed: -30f,
+                            BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                            TicksToNear, TickSeconds, Recording(log));
+
+            //  정점 틱수를 상수로 적지 않는다 — 물리에서 그대로 뽑는다(FlapArc와 같은 종료 조건).
+            int apexTicks = 0;
+            for (float speed = FlapImpulse; speed > 0f; speed -= Gravity * TickSeconds)
+            {
+                apexTicks++;
+            }
+
+            for (int t = 0; t <= apexTicks; t++)
+            {
+                float x = t * ForwardSpeed * TickSeconds;
+                float y = BotPilot.FlapRiseAfter(FlapImpulse, Gravity, TickSeconds, t);
+                Assert.IsTrue(log.Exists(p => Math.Abs(p.x - x) < 1e-4f && Math.Abs(p.y - y) < 1e-4f),
+                    $"t={t}: 훑기가 (x={x}, y={y})를 묻지 않았다 — FlapRiseAfter와 다른 아치를 그린다.");
+            }
+
+            float apexX = apexTicks * ForwardSpeed * TickSeconds;
+            foreach (var point in log)
+            {
+                Assert.LessOrEqual(point.x, apexX + 1e-4f,
+                    $"정점({apexTicks}틱, x={apexX})을 지나서까지 훑었다 — x={point.x}를 물었다.");
+            }
+        }
+
+        [Test]
+        public void 격자에_안_걸리는_회랑도_문턱을_넘으면_누른다()
+        {
+            //  0.1m 격자 위의 폭만 훑는 테스트는 문턱이 움직여도 못 본다 — 실제 문턱(아치 정점
+            //  0.45 + 4.012001 = 4.462001)은 격자 사이에 살기 때문이다. 그래서 격자에 안 걸리는
+            //  자유 상단으로 양쪽에서 조인다. 위쪽은 4.47 — 문턱보다 8mm 넓으니 눌러야 한다.
+            //  (2026-09-09 실측: 자유 상단 4.4620에서 안 누름 → 4.4625에서 누름으로 뒤집힌다.
+            //   4.47/4.45는 그 문턱에서 각각 +8mm/−12mm, 즉 1cm 안쪽의 쌍이다.)
+            const float fineStep = 0.001f;
+            const float freeTop = 4.47f;
+            var gap = Band(low: 0f, span: freeTop, BottomY, fineStep);
+            var decision = BotPilot.Decide(gap, BottomY, fineStep, currentX: 0f, currentY: 0.45f,
+                                           verticalSpeed: -30f, BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
+                                           ForwardSpeed, TicksToNear, TickSeconds, Ceiling(freeTop));
+
+            Assert.IsTrue(decision.GapFound);
+            Assert.IsTrue(decision.Flap, "아치 정점 4.462001이 자유 상단 4.47 아래인데 안 눌렀다.");
+        }
+
+        [Test]
+        public void 격자에_안_걸리는_회랑에서_문턱에_못_미치면_안_누른다()
+        {
+            //  위 테스트의 짝 — 자유 상단만 4.45로 낮춘다. 아치 정점 4.462001이 12mm 넘치므로
+            //  누르면 안 된다. 이 쌍이 봇이 요구하는 회랑 폭을 격자 사이에서 못박는다.
+            const float fineStep = 0.001f;
+            const float freeTop = 4.45f;
+            var gap = Band(low: 0f, span: freeTop, BottomY, fineStep);
+            var decision = BotPilot.Decide(gap, BottomY, fineStep, currentX: 0f, currentY: 0.45f,
+                                           verticalSpeed: -30f, BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
+                                           ForwardSpeed, TicksToNear, TickSeconds, Ceiling(freeTop));
+
+            Assert.IsTrue(decision.GapFound);
+            Assert.IsFalse(decision.Flap, "아치 정점 4.462001이 자유 상단 4.45를 넘는데 눌렀다.");
         }
     }
 }

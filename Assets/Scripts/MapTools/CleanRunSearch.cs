@@ -12,6 +12,23 @@ namespace LOP.MapTools
     /// (float, float) → bool 이라, 타입이 하나면 호출부가 뒤바꿔 넘겨도 컴파일러가 못 잡는다.</summary>
     public delegate bool ExactFreeSpaceProbe(float x, float y);
 
+    /// <summary>
+    /// 자유공간 캐시(<see cref="FreeSpaceProbe"/>를 구현하는 쪽)가 쓰는 격자 산술. 캐시 본체는
+    /// 에디터 어셈블리에 있어 테스트가 닿지 않으므로, 그 답을 좌우하는 이 산술만 여기로 뺐다 —
+    /// 여기를 항등으로 되돌리면 캐시가 다시 "누가 먼저 물었나"에 흔들린다.
+    /// </summary>
+    public static class FreeSpaceGridMath
+    {
+        /// <summary>값이 속한 격자 칸의 번호. 칸 중심을 기준으로 가장 가까운 칸을 고른다.</summary>
+        public static int CellOf(float value, float grid)
+            => UnityEngine.Mathf.RoundToInt(value / grid);
+
+        /// <summary>자유공간 캐시가 실제로 재는 자리. 격자 점으로 스냅해 "누가 언제 묻든 같은
+        /// 칸이면 같은 답"을 만든다. 이미 격자 위에 있는 값에는 아무 일도 하지 않는다.</summary>
+        public static float SnapToGrid(float value, float grid)
+            => CellOf(value, grid) * grid;
+    }
+
     public readonly struct CleanRunOptions
     {
         public readonly float StartX, StartY, FinishX;
@@ -261,6 +278,11 @@ namespace LOP.MapTools
             return true;
         }
 
+        //  선분 하나를 이보다 잘게 찍어야 한다면 입력이 잘못된 것이다 — 실제 값(한 틱에
+        //  x로 0.22m·y로 최대 0.6m, 눈금 0.1m)으로는 8이면 끝나고, 테스트가 쓰는 가장
+        //  촘촘한 눈금(0.001m)으로도 512다. 1만은 그 20배라 정상 입력을 막을 일이 없다.
+        internal const int MaxSegmentSamples = 10000;
+
         //  한 틱 사이 몸이 지나는 선분을 눈금 간격으로 찍어 본다. 끝점만 보면 얇은 벽을 통과한다.
         //  internal — BotPilot의 천장 가드도 아치를 틱마다 훑을 때 같은 스윕을 쓴다(같은 어셈블리라
         //  이걸로 충분하다. 테스트를 위해 다른 어셈블리로 옮기지 않는다).
@@ -269,6 +291,18 @@ namespace LOP.MapTools
             float dx = x1 - x0, dy = y1 - y0;
             float length = UnityEngine.Mathf.Sqrt(dx * dx + dy * dy);
             int samples = UnityEngine.Mathf.CeilToInt(length / grid) + 1;
+            //  표본 수 상한을 아치 틱 상한(BotPilot.ArcTickLimit)과 같은 모양으로 여기에 둔다 —
+            //  입력에서 유도하고, 넘으면 던진다. 여기 두는 이유는 표본 수가 여기서 정해지기
+            //  때문이다: 부르는 쪽은 선분 길이만 알지 그것이 몇 번의 프로브가 되는지 모른다.
+            //  틱 수만 막아 두면 부족하다 — FlapImpulse도 Gravity처럼 MasterData에서 검증 없이
+            //  복사되므로(FlappyMapPlayabilityCheck), 임펄스가 크면 틱 수는 상한 안이면서
+            //  선분 하나가 수천 m로 늘어나 프로브가 억 단위로 터진다.
+            if (samples > MaxSegmentSamples || samples < 0)
+            {
+                throw new System.ArgumentOutOfRangeException(nameof(grid), grid,
+                    $"segment of length {length} would need {samples} samples at this grid " +
+                    $"(limit {MaxSegmentSamples}) — the segment is far too long for the grid.");
+            }
             for (int i = 0; i <= samples; i++)
             {
                 float t = i / (float)samples;

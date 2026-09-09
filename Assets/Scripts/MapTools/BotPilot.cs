@@ -84,8 +84,10 @@ namespace LOP.MapTools
                     $"the flap arc would take {ticks} ticks to reach its apex (limit {MaxArcTicks}) — " +
                     $"flapImpulse={flapImpulse}, gravity={gravity}, tickSeconds={tickSeconds}.");
             }
-            //  임펄스가 0 이하면 한 틱도 안 돈다(speed > 0f가 바로 거짓).
-            return ticks < 0d ? 0 : (int)ticks;
+            //  임펄스가 0 이하면 이 수가 0이나 음수로 나온다. 그래도 따로 0으로 눌러 줄
+            //  필요가 없다 — 아치 루프는 speed > 0f 조건이 첫 검사에서 이미 거짓이라
+            //  한 틱도 안 돌기 때문이다.
+            return (int)ticks;
         }
 
         /// <summary>날갯짓 한 번으로 오르는 높이(자연 정점까지 전부). 세로 속도가 0이 될

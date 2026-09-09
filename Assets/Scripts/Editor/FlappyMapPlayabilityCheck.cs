@@ -121,10 +121,13 @@ namespace LOP.EditorTools
 
             var query = new GameFramework.Physics.UnityCollisionQuery();
             var grid = new FreeSpaceGrid(shape, mapMask);
-            //  봇은 자기만의 자유공간 격자를 쓴다. 결정론 때문은 아니다 — 캐시를 타는 프로브가
-            //  질의 좌표를 격자에 스냅해 그 스냅된 자리에서 재므로(FreeSpaceGrid.IsFree 참고),
-            //  누가 먼저 어느 칸을 채우든 답이 같다. 따로 두는 건 두 캐시가 서로의 항목으로
-            //  부풀지 않게 하는 것뿐이라, 합쳐도 답은 달라지지 않는다.
+            //  봇은 자기만의 자유공간 격자를 쓴다. 지금은 그럴 이유가 없다 — 캐시를 타는
+            //  프로브가 질의 좌표를 격자에 스냅해 그 스냅된 자리에서 재므로(FreeSpaceGrid.IsFree
+            //  참고) 답이 칸만의 함수이고, 따라서 둘을 합쳐도 답이 달라지지 않는다. 오히려
+            //  따로 두면 같은 칸을 양쪽이 각각 재서 항목도 PhysX 질의도 두 배가 된다.
+            //  그래도 지금 합치지 않는 것은 실측 런타임에 영향이 큰 변경이라서다(탐색이 봇의
+            //  틱당 약 1150개 프로브를 그대로 재사용하게 된다) — 에디터가 살아난 뒤 실제
+            //  맵에서 재 보고 합친다.
             var botGrid = new FreeSpaceGrid(shape, mapMask);
             var cleanRuns = new List<LOP.MapTools.SpawnCleanRun>();
             string trapSection;
@@ -431,14 +434,18 @@ namespace LOP.EditorTools
             private bool MeasureSnapped(float x, float y)
             {
                 //  HeightGrid — ①의 세그먼트 샘플링과 같은 칸 크기를 써야 해상도가 실제로 맞는다.
-                int cellX = Mathf.RoundToInt(x / HeightGrid);
-                int cellY = Mathf.RoundToInt(y / HeightGrid);
+                //  칸 번호와 재는 자리를 둘 다 LOP.MapTools의 같은 함수로 구한다 — 그래야 이
+                //  산술을 테스트로 지킬 수 있다(캐시 자체는 이 어셈블리의 private 중첩 클래스라
+                //  테스트가 못 닿는다).
+                int cellX = LOP.MapTools.FreeSpaceGridMath.CellOf(x, HeightGrid);
+                int cellY = LOP.MapTools.FreeSpaceGridMath.CellOf(y, HeightGrid);
                 long key = ((long)cellX << 32) ^ (uint)cellY;
                 if (cache.TryGetValue(key, out bool free))
                 {
                     return free;
                 }
-                free = Measure(cellX * HeightGrid, cellY * HeightGrid);
+                free = Measure(LOP.MapTools.FreeSpaceGridMath.SnapToGrid(x, HeightGrid),
+                               LOP.MapTools.FreeSpaceGridMath.SnapToGrid(y, HeightGrid));
                 cache[key] = free;
                 return free;
             }
@@ -542,7 +549,14 @@ namespace LOP.EditorTools
             //  쓰면 어긋났을 때 BotPilot.Decide가 엉뚱한 틱 수로 굴러간다. 아치를 몇 틱 훑을지는
             //  넘기지 않는다 — 훑기는 세로 속도가 0이 되는 자리(정점)에서 스스로 멈춘다.
             int ticksToNear = Mathf.RoundToInt(BotLookaheadSeconds / TickSeconds);
-            int buckets = Mathf.CeilToInt((maxY - minY) / HeightGrid) + 1;
+            //  캐시는 격자 점에서 재므로(스폰 순서에 안 흔들리게), 표의 높이들도 격자 위에
+            //  있어야 한다. 안 그러면 표 전체가 같은 방향으로 최대 반 칸 어긋난 자리에서
+            //  측정된다 — minY는 맵 bounds에서 온 임의의 float이라, 그 어긋남이 맵마다
+            //  다른 상수 편향이 된다(봇이 맵에 따라 겁쟁이가 되거나 덜 조심스러워진다).
+            float bandBottom = Mathf.Round(minY / HeightGrid) * HeightGrid;
+            //  칸 수는 minY가 아니라 bandBottom에서 센다 — 밴드 바닥이 반 칸 내려갔을 때도
+            //  표가 maxY까지 덮어야 한다.
+            int buckets = Mathf.CeilToInt((maxY - bandBottom) / HeightGrid) + 1;
             var blockedNear = new bool[buckets];
             float farthest = start.x;
             int flaps = 0;
@@ -555,11 +569,11 @@ namespace LOP.EditorTools
                 float scanX = state.Position.x + lookahead;
                 for (int i = 0; i < buckets; i++)
                 {
-                    float y = minY + i * HeightGrid;
+                    float y = bandBottom + i * HeightGrid;
                     blockedNear[i] = isFree(scanX, y) == false;
                 }
 
-                var decision = LOP.MapTools.BotPilot.Decide(blockedNear, minY, HeightGrid,
+                var decision = LOP.MapTools.BotPilot.Decide(blockedNear, bandBottom, HeightGrid,
                                                             state.Position.x, state.Position.y, state.VerticalSpeed,
                                                             shape.Radius, shape.FlapImpulse, shape.Gravity,
                                                             shape.MaxFallSpeed, shape.ForwardSpeed,

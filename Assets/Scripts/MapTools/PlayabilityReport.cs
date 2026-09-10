@@ -29,10 +29,20 @@ namespace LOP.MapTools
         /// 걸렸나"다. 닿은 뒤 값이 아니라 <b>직전</b> 값이어야 한다 — 이동 커널이 벽 방향
         /// 속도를 지우고 나면 부호가 사라져 아무것도 못 읽는다.</summary>
         public readonly float HitVerticalSpeed;
+        /// <summary>누르고 싶었는데 아치 훑기가 막은 틱 수(BotPilot.Decide의 CeilingBlocked).
+        /// 이게 압도적이면 4m 아치가 좁은 통로에 안 들어가는 것이다 — 탐욕적 1아치 조종기로는
+        /// 못 푸는 문제라, 고칠 것은 겨냥 규칙이 아니라 <b>앞을 여러 번의 날갯짓만큼 계획하는
+        /// 봇</b>이다.</summary>
+        public readonly int VetoedTicks;
+        /// <summary>애초에 누를 뜻이 없던 틱 수(BotPilot.Decide의 WantsFlap=false). 이게
+        /// 압도적이면 바닥 규칙이 목표를 너무 아래로 잡고 있다는 뜻이라, 고칠 것은 봇의
+        /// 계획 깊이가 아니라 <b>겨냥 규칙</b>이다.</summary>
+        public readonly int UnwillingTicks;
 
         public BotDiagnostics(float endX, float endY, bool touched, int ticks, int blindTicks,
                               float farthestX, int tickLimit,
-                              string hitColliderPath = null, float hitVerticalSpeed = 0f)
+                              string hitColliderPath = null, float hitVerticalSpeed = 0f,
+                              int vetoedTicks = 0, int unwillingTicks = 0)
         {
             EndX = endX;
             EndY = endY;
@@ -43,6 +53,8 @@ namespace LOP.MapTools
             TickLimit = tickLimit;
             HitColliderPath = hitColliderPath;
             HitVerticalSpeed = hitVerticalSpeed;
+            VetoedTicks = vetoedTicks;
+            UnwillingTicks = unwillingTicks;
         }
     }
 
@@ -61,9 +73,15 @@ namespace LOP.MapTools
         /// <summary>닿기 직전의 세로 속도. <see cref="BotDiagnostics.HitVerticalSpeed"/>와 같은 뜻.</summary>
         public readonly float VerticalSpeed;
         public readonly string ColliderPath;
+        /// <summary>탐색이 <b>그 틱에</b> 새가 있다고 믿었던 높이. 재생이 실제로 간 <see cref="Y"/>와
+        /// 얼마나 벌어졌는지가 곧 격자 편향의 크기다.</summary>
+        public readonly float SearchY;
+        /// <summary><see cref="SearchY"/>를 실제로 구했는가. 못 구했으면(경로가 그 틱까지
+        /// 닿지 않는 등) 안 찍는다 — 0.0을 그대로 찍으면 "탐색은 0m로 봤다"는 측정값으로 읽힌다.</summary>
+        public readonly bool HasSearchY;
 
         public ReplayMismatch(bool detected, int tick, float x, float y, float verticalSpeed,
-                              string colliderPath)
+                              string colliderPath, float searchY = 0f, bool hasSearchY = false)
         {
             Detected = detected;
             Tick = tick;
@@ -71,6 +89,8 @@ namespace LOP.MapTools
             Y = y;
             VerticalSpeed = verticalSpeed;
             ColliderPath = colliderPath;
+            SearchY = searchY;
+            HasSearchY = hasSearchY;
         }
     }
 
@@ -367,7 +387,17 @@ namespace LOP.MapTools
                 text.AppendLine("                                  "
                               + ImpactPhrase(bot.HitVerticalSpeed, bot.HitColliderPath));
             }
+
+            //  봇이 못 간 이유가 "못 눌렀다"인지 "안 눌렀다"인지 — 이 두 숫자가 다음에 무엇을
+            //  고칠지 정한다(거부가 압도적이면 아치가 통로에 안 들어가는 것이라 계획하는 봇이
+            //  필요하고, 누를 뜻이 없던 쪽이 압도적이면 겨냥 규칙이 목표를 너무 아래로 잡는 것이다).
+            text.AppendLine($"                             {CounterPhrase(bot)}");
         }
+
+        //  두 숫자를 한 문장으로. 두 줄에 나눠 찍으면 "어느 쪽이 압도적인가"를 눈으로 비교하기
+        //  어려워진다 — 이 출력의 목적이 바로 그 비교다.
+        static string CounterPhrase(in BotDiagnostics bot)
+            => $"누르려다 막힘 {bot.VetoedTicks}틱 / 누를 뜻 없음 {bot.UnwillingTicks}틱";
 
         //  "무엇에·어느 쪽으로 가다 닿았나"를 한 문장으로. 세로 속도의 부호가 곧 방향이다.
         //  ("천장"·"바닥"이라 단정하지 않는 것은 의도적이다 — 닿은 면이 실제로 위인지 아래인지는
@@ -399,6 +429,14 @@ namespace LOP.MapTools
                 line.Append($" :: {replay.ColliderPath}");
             }
             text.AppendLine(line.ToString());
+
+            //  "탐색은 거기를 통과 가능하다고 믿었다" — 그 믿음을 적으면 격자 편향이 얼마나
+            //  벌어졌는지가 바로 읽힌다. 차이의 부호도 함께 찍는다(탐색이 위로 봤나 아래로 봤나).
+            if (replay.HasSearchY)
+            {
+                text.AppendLine($"                             탐색은 그 틱에 y={replay.SearchY:+0.0;-0.0;0.0}로 봤다"
+                              + $" (차이 {replay.SearchY - replay.Y:+0.0;-0.0;0.0}m)");
+            }
         }
 
         //  판정이 아니라 진단이다 — 스폰이 아닌 높이에서도 날려 봐서, 봇이 막히는 자리가 시작
@@ -425,9 +463,16 @@ namespace LOP.MapTools
                 //  값이 라벨 바로 뒤에 붙게 두고(정렬은 뒤에서 채운다) — 사이에 정렬 공백이
                 //  끼면 "시작 y=-8.0"이 한 덩어리로 안 남아 찾기가 어려워진다.
                 var line = new StringBuilder($"  시작 y={row.StartY:F1}".PadRight(18));
+                //  ①의 봇 줄과 같은 두 숫자를 여기도 붙인다 — 스폰은 넷뿐이지만 이 줄들은
+                //  수십 개라, "못 눌렀나 안 눌렀나"를 묻는 이 질문의 진짜 표본은 이쪽이다.
+                //  줄이 길어지지 않게 짧은 꼴로 쓴다.
+                string counters = $"  (막힘 {row.Bot.VetoedTicks}틱/뜻없음 {row.Bot.UnwillingTicks}틱)";
                 if (row.SpawnBlocked)
                 {
+                    //  못 날린 줄에는 안 붙인다 — 0/0을 찍으면 "날려 봤는데 둘 다 0이었다"로 읽힌다.
                     line.Append("그 높이가 지형 안 — 못 날림");
+                    text.AppendLine(line.ToString());
+                    continue;
                 }
                 else if (row.Reached)
                 {
@@ -446,6 +491,7 @@ namespace LOP.MapTools
                         line.Append("  틱 소진(못 닿음)");
                     }
                 }
+                line.Append(counters);
                 text.AppendLine(line.ToString());
             }
             text.AppendLine();

@@ -980,6 +980,11 @@ namespace LOP.MapTools.Tests
         {
             //  위 테스트의 짝 — 자유 상단만 4.45로 낮춘다. 아치 정점 4.462001이 12mm 넘치므로
             //  누르면 안 된다. 이 쌍이 봇이 요구하는 회랑 폭을 격자 사이에서 못박는다.
+            //
+            //  ⚠️ 여기 4.462001은 <b>한 틱 판단의 문턱</b>(이 높이에서 누르면 천장에 닿나)이지
+            //  <b>최소 생존 회랑</b>이 아니다. 후자는 여러 틱을 실제로 날려 재는 다른 숫자고
+            //  (4.4750m) BotCorridorGateTests가 재는 방식까지 통째로 못박는다. 두 숫자를
+            //  같은 것으로 읽지 말 것 — 13mm 차이가 곧 이 봇이 탐욕적이라 무는 손해다.
             const float fineStep = 0.001f;
             const float freeTop = 4.45f;
             var gap = Band(low: 0f, span: freeTop, BottomY, fineStep);
@@ -989,6 +994,104 @@ namespace LOP.MapTools.Tests
 
             Assert.IsTrue(decision.GapFound);
             Assert.IsFalse(decision.Flap, "아치 정점 4.462001이 자유 상단 4.45를 넘는데 눌렀다.");
+        }
+
+        //  ── 왜 그렇게 정했는가 (WantsFlap / CeilingBlocked) ──
+        //  판단(Flap)은 그대로 두고 근거만 더 노출한다. 최소 생존 회랑이 안 움직였는지는
+        //  BotCorridorGateTests가 지킨다 — 여기서는 두 깃발이 실제 근거를 가리키는지만 본다.
+
+        [Test]
+        public void 누르고_싶었는데_천장이_막으면_거부로_표시한다()
+        {
+            //  "아치_정점만_스치는_천장도_잡는다"와 같은 자리 — 바닥 규칙은 누르고 싶어 하고
+            //  (y=0.5에서 종단속도로 강하 중), 아치 정점(4.512)만 낮은 천장(4.4)에 걸린다.
+            var isFree = Blocks((3.5f, 4.0f, 4.4f + BodyHeight, FarAway));
+            var near = ColumnFrom(isFree, NearScanX, cells: 101);
+            var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 0.5f, verticalSpeed: -30f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TickSeconds, isFree);
+
+            Assert.IsFalse(decision.Flap);
+            Assert.IsTrue(decision.WantsFlap, "강하 중인데 바닥 규칙이 누르고 싶어 하지 않았다.");
+            Assert.IsTrue(decision.CeilingBlocked, "막은 것이 천장인데 거부로 표시되지 않았다.");
+        }
+
+        [Test]
+        public void 누를_뜻이_없던_틱은_천장이_막혀_있어도_거부로_세지_않는다()
+        {
+            //  회랑은 발 높이 0~3m만 뚫려 있어 아치(4.012)가 어차피 안 들어간다. 그런데 새는
+            //  y=2.2에 있고 세로속도가 0이라 근거리 열까지 굴려도 0.66m — 바닥 문턱(0.45)
+            //  위다. 즉 누를 뜻 자체가 없다. 이 틱을 "막혔다"로 세면 두 숫자의 합이 늘 전체
+            //  틱이 되어(누를 뜻 없음이 0이 되어) 진단이 한쪽으로만 답하게 된다.
+            var isFree = Corridor(0f, 3f);
+            var near = ColumnFrom(isFree, NearScanX, cells: 101);
+            var decision = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 2.2f, verticalSpeed: 0f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TickSeconds, isFree);
+
+            Assert.IsFalse(decision.Flap);
+            Assert.IsFalse(decision.WantsFlap, "굴려도 바닥 문턱 위인데 누르고 싶어 했다.");
+            Assert.IsFalse(decision.CeilingBlocked, "누를 뜻이 없던 틱을 천장이 막았다고 셌다.");
+
+            //  같은 회랑에서 낮은 자리로만 내려오면 뜻이 생기고, 그때는 천장이 실제로 막는다 —
+            //  위 단언이 "이 회랑에선 아무것도 안 막힌다"라는 이유로 초록인 게 아님을 보인다.
+            var wanting = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: 0.5f, verticalSpeed: -30f,
+                                          BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                          TicksToNear, TickSeconds, isFree);
+            Assert.IsTrue(wanting.WantsFlap);
+            Assert.IsTrue(wanting.CeilingBlocked);
+        }
+
+        [Test]
+        public void 겨냥할_틈이_아예_없으면_누를_뜻은_있고_막힌_것은_아니다()
+        {
+            //  판단할 근거가 정말 없어 뜨는 쪽을 고르는 경로(GapFound=false). 이 틱을
+            //  "누를 뜻 없음"으로 세면 실제로는 누른 틱을 안 누른 것으로 세게 되고,
+            //  "막힘"으로 세면 누른 틱을 못 누른 것으로 세게 된다.
+            var decision = BotPilot.Decide(Free(0), BottomY, Step, currentX: 0f, currentY: 1f, verticalSpeed: -5f,
+                                           BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                           TicksToNear, TickSeconds, Solid());
+
+            Assert.IsFalse(decision.GapFound);
+            Assert.IsTrue(decision.Flap);
+            Assert.IsTrue(decision.WantsFlap);
+            Assert.IsFalse(decision.CeilingBlocked);
+        }
+
+        [Test]
+        public void 판단은_늘_누를_뜻과_거부만으로_설명된다()
+        {
+            //  Flap == WantsFlap && !CeilingBlocked. 이 불변식이 깨지면 두 깃발이 판단과 다른
+            //  이야기를 하는 것이라 진단 숫자를 믿을 수 없게 된다. 회랑 폭과 시작 상태를
+            //  넓게 훑어 네 조합이 모두 나오는지까지 함께 확인한다.
+            bool sawFlap = false, sawVetoed = false, sawUnwilling = false, sawBlind = false;
+            foreach (float freeTop in new[] { 0f, 1.0f, 3.0f, 4.45f, 4.47f, 8.0f })
+            {
+                var isFree = freeTop <= 0f ? Solid() : Corridor(0f, freeTop);
+                var near = ColumnFrom(isFree, NearScanX, cells: 101);
+                foreach (float y in new[] { 0.1f, 0.5f, 2.2f, 3.9f })
+                {
+                    foreach (float vy in new[] { 23f, 0f, -30f })
+                    {
+                        var d = BotPilot.Decide(near, BottomY, Step, currentX: 0f, currentY: y, verticalSpeed: vy,
+                                                BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                                                TicksToNear, TickSeconds, isFree);
+                        Assert.AreEqual(d.WantsFlap && d.CeilingBlocked == false, d.Flap,
+                            $"freeTop={freeTop} y={y} vy={vy}: 판단이 두 깃발과 어긋난다.");
+                        sawFlap |= d.Flap;
+                        sawVetoed |= d.CeilingBlocked;
+                        sawUnwilling |= d.WantsFlap == false;
+                        sawBlind |= d.GapFound == false;
+                    }
+                }
+            }
+
+            //  네 경우가 실제로 나왔는지 — 안 나왔다면 위 불변식은 한두 갈래만 밟고 초록이 된
+            //  셈이라 아무것도 안 지킨다.
+            Assert.IsTrue(sawFlap, "누른 틱이 한 번도 안 나왔다.");
+            Assert.IsTrue(sawVetoed, "천장에 막힌 틱이 한 번도 안 나왔다.");
+            Assert.IsTrue(sawUnwilling, "누를 뜻이 없던 틱이 한 번도 안 나왔다.");
+            Assert.IsTrue(sawBlind, "겨냥할 틈을 못 찾은 틱이 한 번도 안 나왔다.");
         }
     }
 }

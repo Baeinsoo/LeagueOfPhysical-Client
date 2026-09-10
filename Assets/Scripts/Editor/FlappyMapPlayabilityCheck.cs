@@ -171,7 +171,8 @@ namespace LOP.EditorTools
                     var botDiagnostics = new LOP.MapTools.BotDiagnostics(
                         flight.EndX, flight.EndY, flight.Touched, flight.Ticks, flight.BlindTicks,
                         flight.FarthestX, flight.TickLimit,
-                        flight.HitColliderPath, flight.HitVerticalSpeed);
+                        flight.HitColliderPath, flight.HitVerticalSpeed,
+                        flight.VetoedTicks, flight.UnwillingTicks);
                     //  스폰이 지형에 파묻혀 있다. 봇도 탐색도 이 자리엔 답할 것이 없으므로
                     //  ✅/🟡/❌ 어디에도 섞지 않고 제 판정으로 낸다 — 특히 "봇이 통과했으니
                     //  탐색 생략"이라는 단축평가에 걸리면 안 된다(그게 이 자리를 ✅로 만들던
@@ -210,9 +211,15 @@ namespace LOP.EditorTools
                         tickSeconds: TickSeconds, heightGrid: HeightGrid);
                     var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFree);
                     var replay = default(LOP.MapTools.ReplayMismatch);
+                    //  탐색이 그 경로의 틱마다 "새가 여기 있다"고 믿었던 높이. 탐색은 경로만
+                    //  돌려주고 높이는 안 들고 있으므로, 같은 격자 모델로 날갯짓 순서를 다시
+                    //  굴려 얻는다(CleanRunSearch.GridPathHeights — 탐색 본체는 안 고쳤다).
+                    float[] searchHeights = result.Reachable
+                        ? LOP.MapTools.CleanRunSearch.GridPathHeights(options, result.Flaps)
+                        : System.Array.Empty<float>();
                     bool verified = result.Reachable
                         && VerifyByReplay(spawns[i].Position, result.Flaps, shape, mapMask, query,
-                                          out replay);
+                                          searchHeights, out replay);
                     cleanRuns.Add(new LOP.MapTools.SpawnCleanRun(
                         spawns[i].Name, spawns[i].Position.y, result, verified,
                         botReached: false, botFlaps: flight.FlapCount, bot: botDiagnostics,
@@ -522,9 +529,12 @@ namespace LOP.EditorTools
 
         //  탐색이 준 날갯짓 순서를 게임의 진짜 커널로 그대로 굴린다. 한 번이라도 닿으면 증명 실패다.
         //  탐색은 높이를 눈금으로 뭉개므로, 이 재생만이 "정말 무충돌인가"의 증거다.
+        //  searchHeights[t] = 탐색이 t번째 틱을 밟은 뒤 새가 있다고 믿은 높이([0]은 출발).
+        //  빈 배열이면 그 줄을 안 찍는다 — 모르는 것을 0.0으로 지어내지 않는다.
         private static bool VerifyByReplay(Vector3 start, IReadOnlyList<bool> flaps,
                                            in FlappyShape shape, int mapMask,
                                            GameFramework.Physics.ICollisionQuery inner,
+                                           IReadOnlyList<float> searchHeights,
                                            out LOP.MapTools.ReplayMismatch mismatch)
         {
             var query = new HitWatcher(inner);
@@ -538,9 +548,12 @@ namespace LOP.EditorTools
                 {
                     //  "어긋났다"만 남기면 사람이 원인을 못 짚는다 — 몇 번째 틱에 어디서
                     //  무엇에 닿았는지를 같이 낸다(틱은 1부터 센다: 0틱째는 없다).
+                    int tick = i + 1;
+                    bool hasSearchY = searchHeights != null && tick < searchHeights.Count;
                     mismatch = new LOP.MapTools.ReplayMismatch(
-                        detected: true, tick: i + 1, x: state.Position.x, y: state.Position.y,
-                        verticalSpeed: state.HitVerticalSpeed, colliderPath: PathOf(state.HitCollider));
+                        detected: true, tick: tick, x: state.Position.x, y: state.Position.y,
+                        verticalSpeed: state.HitVerticalSpeed, colliderPath: PathOf(state.HitCollider),
+                        searchY: hasSearchY ? searchHeights[tick] : 0f, hasSearchY: hasSearchY);
                     return false;   // 닿았다 = 무충돌이 아니다
                 }
             }
@@ -587,11 +600,17 @@ namespace LOP.EditorTools
             public readonly string HitColliderPath;
             /// <summary>닿기 직전의 세로 속도 — 부호가 곧 오르던 중이었나 떨어지던 중이었나다.</summary>
             public readonly float HitVerticalSpeed;
+            /// <summary>누르고 싶었는데 아치 훑기가 막은 틱 수.</summary>
+            public readonly int VetoedTicks;
+            /// <summary>애초에 누를 뜻이 없던 틱 수. 이 둘의 크기 비교가 "봇이 못 누른 것"과
+            /// "봇이 안 누른 것"을 가른다 — 다음에 무엇을 고칠지가 거기서 갈린다.</summary>
+            public readonly int UnwillingTicks;
 
             public BotFlight(bool reached, bool touched, float farthestX, int flapCount, int ticks,
                              float endX, float endY, int blindTicks, int tickLimit,
                              bool spawnBlocked = false,
-                             string hitColliderPath = null, float hitVerticalSpeed = 0f)
+                             string hitColliderPath = null, float hitVerticalSpeed = 0f,
+                             int vetoedTicks = 0, int unwillingTicks = 0)
             {
                 Reached = reached;
                 Touched = touched;
@@ -605,6 +624,8 @@ namespace LOP.EditorTools
                 SpawnBlocked = spawnBlocked;
                 HitColliderPath = hitColliderPath;
                 HitVerticalSpeed = hitVerticalSpeed;
+                VetoedTicks = vetoedTicks;
+                UnwillingTicks = unwillingTicks;
             }
         }
 
@@ -666,6 +687,10 @@ namespace LOP.EditorTools
             float farthest = start.x;
             int flaps = 0;
             int blindTicks = 0;
+            //  진단 전용 두 카운터 — 판단(decision.Flap)에는 쓰지 않는다. 봇이 못 간 이유가
+            //  "누르려 했는데 아치가 안 들어갔다"인지 "애초에 누를 뜻이 없었다"인지를 가른다.
+            int vetoedTicks = 0;
+            int unwillingTicks = 0;
 
             //  코스 길이보다 넉넉히 잡는다. 봇이 제자리에 갇히면 여기서 끝난다.
             int limit = Mathf.CeilToInt((finishX - start.x) / (shape.ForwardSpeed * TickSeconds)) + 600;
@@ -693,6 +718,14 @@ namespace LOP.EditorTools
                 {
                     blindTicks++;
                 }
+                if (decision.CeilingBlocked)
+                {
+                    vetoedTicks++;
+                }
+                if (decision.WantsFlap == false)
+                {
+                    unwillingTicks++;
+                }
 
                 state = Step(state, decision.Flap, shape, mapMask, query);
                 if (state.Position.x > farthest)
@@ -704,7 +737,8 @@ namespace LOP.EditorTools
                     return new BotFlight(false, true, farthest, flaps, tick + 1,
                                          state.Position.x, state.Position.y, blindTicks, limit,
                                          hitColliderPath: PathOf(state.HitCollider),
-                                         hitVerticalSpeed: state.HitVerticalSpeed);
+                                         hitVerticalSpeed: state.HitVerticalSpeed,
+                                         vetoedTicks: vetoedTicks, unwillingTicks: unwillingTicks);
                 }
                 //  ①(클린런)과 같은 질문이어야 한다 — 탐색은 발(x)이 마커 중심에 닿으면 골인으로
                 //  본다(TryReadFinishX 참고, 몸 반지름만큼 더 엄격한 게 의도적인 보수). +radius로
@@ -712,11 +746,13 @@ namespace LOP.EditorTools
                 if (state.Position.x >= finishX)
                 {
                     return new BotFlight(true, false, farthest, flaps, tick + 1,
-                                         state.Position.x, state.Position.y, blindTicks, limit);
+                                         state.Position.x, state.Position.y, blindTicks, limit,
+                                         vetoedTicks: vetoedTicks, unwillingTicks: unwillingTicks);
                 }
             }
             return new BotFlight(false, false, farthest, flaps, limit,
-                                 state.Position.x, state.Position.y, blindTicks, limit);
+                                 state.Position.x, state.Position.y, blindTicks, limit,
+                                 vetoedTicks: vetoedTicks, unwillingTicks: unwillingTicks);
         }
 
         //  훑는 높이 구간을 스폰 높이에서 유도할 때 위아래로 더 보는 여유. 상수로 박은 구간을
@@ -772,7 +808,8 @@ namespace LOP.EditorTools
                     new LOP.MapTools.BotDiagnostics(
                         flight.EndX, flight.EndY, flight.Touched, flight.Ticks, flight.BlindTicks,
                         flight.FarthestX, flight.TickLimit,
-                        flight.HitColliderPath, flight.HitVerticalSpeed)));
+                        flight.HitColliderPath, flight.HitVerticalSpeed,
+                        flight.VetoedTicks, flight.UnwillingTicks)));
             }
             return rows;
         }

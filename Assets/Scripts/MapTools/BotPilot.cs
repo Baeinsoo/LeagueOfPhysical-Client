@@ -12,11 +12,21 @@ namespace LOP.MapTools
         /// 포함 — 그런 자리에도 천장 가드는 그대로 걸린다). 아예 아무 자리도 못 찾았을 때만
         /// false다.</summary>
         public readonly bool GapFound;
+        /// <summary>바닥 규칙이 이번 틱에 누르고 싶어 했는가(가만두면 겨냥한 자리보다 아래로
+        /// 내려간다). 겨냥할 자리를 아예 못 찾은 틱(<see cref="GapFound"/>=false)에서는
+        /// "근거 없이라도 뜨는 쪽을 고른다"가 곧 누르고 싶다는 뜻이라 true다.</summary>
+        public readonly bool WantsFlap;
+        /// <summary>누르고 싶었는데 아치 훑기가 막았는가. 누를 뜻이 없던 틱에서는 막을 것도
+        /// 없으므로 false다 — 그래서 <see cref="Flap"/>은 늘
+        /// <c>WantsFlap &amp;&amp; !CeilingBlocked</c>와 같다.</summary>
+        public readonly bool CeilingBlocked;
 
-        public BotDecision(bool flap, bool gapFound)
+        public BotDecision(bool flap, bool gapFound, bool wantsFlap, bool ceilingBlocked)
         {
             Flap = flap;
             GapFound = gapFound;
+            WantsFlap = wantsFlap;
+            CeilingBlocked = ceilingBlocked;
         }
     }
 
@@ -165,7 +175,8 @@ namespace LOP.MapTools
                 {
                     //  그마저도 없다 — 근처에 뚫린 자리가 전혀 없다. 판단할 근거가 정말 없을
                     //  때만 뜨는 쪽을 고른다(떨어지면 확실히 바닥에 부딪힌다).
-                    return new BotDecision(flap: true, gapFound: false);
+                    return new BotDecision(flap: true, gapFound: false,
+                                           wantsFlap: true, ceilingBlocked: false);
                 }
             }
 
@@ -218,7 +229,11 @@ namespace LOP.MapTools
             }
 
             bool flap = wantsFlap && ceilingSafe;
-            return new BotDecision(flap, gapFound: true);
+            //  왜 그렇게 정했는지를 함께 돌려준다 — 판단(flap)은 위 두 줄 그대로다. 아치
+            //  훑기를 wantsFlap일 때만 돌도록 미루고 싶어질 수 있는데, 그러면 프로브 호출
+            //  횟수가 달라져 "훑기가 어디를 물었나"를 세는 테스트가 뜻을 잃는다.
+            return new BotDecision(flap, gapFound: true,
+                                   wantsFlap: wantsFlap, ceilingBlocked: wantsFlap && ceilingSafe == false);
         }
     }
 }

@@ -532,5 +532,91 @@ namespace LOP.MapTools.Tests
             Assert.IsFalse(Contains(report, "지형에 파묻힌 스폰이 있다"));
             Assert.IsTrue(Contains(report, "봇 통과"));
         }
+
+        [Test]
+        public void 봇_줄은_누르려다_막힌_틱과_누를_뜻이_없던_틱을_따로_찍는다()
+        {
+            //  이 두 숫자가 다음에 무엇을 고칠지 정한다 — 거부가 압도적이면 아치가 통로에
+            //  안 들어가는 것이고, "뜻 없음"이 압도적이면 겨냥 규칙이 목표를 너무 아래로
+            //  잡는 것이다. 둘을 서로 다른 값으로 둬서 한쪽을 두 번 찍는 구현을 잡는다.
+            string report = Build(Unproven(new BotDiagnostics(
+                endX: 81.6f, endY: -9.8f, touched: true, ticks: 818, blindTicks: 0,
+                farthestX: 81.6f, tickLimit: 3482,
+                hitColliderPath: "ComposedMap/Cube", hitVerticalSpeed: -26f,
+                vetoedTicks: 231, unwillingTicks: 138)));
+
+            Assert.IsTrue(Contains(report, "누르려다 막힘 231틱"));
+            Assert.IsTrue(Contains(report, "누를 뜻 없음 138틱"));
+        }
+
+        [Test]
+        public void 높이_훑기의_각_줄에도_두_숫자가_붙는다()
+        {
+            //  스폰은 넷뿐이지만 훑기 줄은 수십 개다 — "못 눌렀나 안 눌렀나"의 진짜 표본은
+            //  이쪽이라, 여기 안 붙으면 질문에 답할 데이터가 사실상 없다. 골인한 줄에도
+            //  붙어야 한다: 통과한 비행과 실패한 비행의 두 숫자를 견줘야 뜻이 생긴다.
+            var sweep = new List<HeightSweepRow>
+            {
+                new HeightSweepRow(-8f, reached: false, spawnBlocked: false,
+                                   bot: new BotDiagnostics(endX: 60f, endY: 3f, touched: true,
+                                       ticks: 500, blindTicks: 0, farthestX: 60f, tickLimit: 3482,
+                                       hitColliderPath: "ComposedMap/Cube", hitVerticalSpeed: -22f,
+                                       vetoedTicks: 311, unwillingTicks: 44)),
+                new HeightSweepRow(-7f, reached: true, spawnBlocked: false,
+                                   bot: new BotDiagnostics(endX: 632f, endY: 3f, touched: false,
+                                       ticks: 2900, blindTicks: 0, farthestX: 632f, tickLimit: 3482,
+                                       vetoedTicks: 77, unwillingTicks: 1802)),
+            };
+            string report = BuildWithSweep(sweep, Unproven(Hit("기둥/Cube_12", -30f)));
+
+            Assert.IsTrue(Contains(report, "(막힘 311틱/뜻없음 44틱)"));
+            Assert.IsTrue(Contains(report, "(막힘 77틱/뜻없음 1802틱)"));
+        }
+
+        [Test]
+        public void 못_날린_훑기_줄에는_두_숫자를_안_붙인다()
+        {
+            //  지형 안이라 날려 보지도 못한 줄에 0/0을 찍으면 "날려 봤는데 둘 다 0이었다"로
+            //  읽힌다 — 재지 못한 것을 쟀다고 말하지 않는다는 이 리포트의 규칙 그대로다.
+            var sweep = new List<HeightSweepRow>
+            {
+                new HeightSweepRow(-6f, reached: false, spawnBlocked: true, bot: default),
+            };
+            string report = BuildWithSweep(sweep, Unproven(Hit("기둥/Cube_12", -30f)));
+
+            Assert.IsTrue(Contains(report, "그 높이가 지형 안"));
+            //  괄호까지 포함해 훑기 줄의 꼴로만 찾는다 — ①의 봇 줄도 두 숫자를 찍으므로
+            //  ("누르려다 막힘 0틱") 괄호 없이 찾으면 그쪽에 걸려 늘 빨강이 된다.
+            Assert.IsFalse(Contains(report, "(막힘"));
+        }
+
+        [Test]
+        public void 재생_어긋남_줄은_탐색이_그_틱에_본_높이도_찍는다()
+        {
+            //  "탐색은 거기를 통과 가능하다고 믿었다"의 그 믿음. 재생의 y(−2.7)와 탐색의
+            //  y(+1.4)를 다르게 둬서, 차이(+4.1m)를 실제로 계산하는지까지 본다 — 한쪽 값을
+            //  베껴 찍으면 차이가 0.0으로 나와 잡힌다.
+            string report = Build(Unproven(
+                Hit("지붕슬래브/Cube_77", 12.4f),
+                new ReplayMismatch(detected: true, tick: 222, x: 46.7f, y: -2.7f,
+                                   verticalSpeed: 18.8f, colliderPath: "ComposedMap/Cube",
+                                   searchY: 1.4f, hasSearchY: true)));
+
+            Assert.IsTrue(Contains(report, "탐색은 그 틱에 y=+1.4로 봤다"));
+            Assert.IsTrue(Contains(report, "(차이 +4.1m)"));
+        }
+
+        [Test]
+        public void 탐색이_본_높이를_모르면_그_줄을_안_찍는다()
+        {
+            //  hasSearchY=false를 0.0으로 찍으면 "탐색은 0m로 봤다"는 측정값으로 읽힌다.
+            string report = Build(Unproven(
+                Hit("지붕슬래브/Cube_77", 12.4f),
+                new ReplayMismatch(detected: true, tick: 222, x: 46.7f, y: -2.7f,
+                                   verticalSpeed: 18.8f, colliderPath: "ComposedMap/Cube")));
+
+            Assert.IsTrue(Contains(report, "재생 어긋남: 222틱째"));
+            Assert.IsFalse(Contains(report, "탐색은 그 틱에"));
+        }
     }
 }

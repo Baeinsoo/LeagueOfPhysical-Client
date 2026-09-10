@@ -446,5 +446,54 @@ namespace LOP.MapTools.Tests
             Assert.IsFalse(result.Reachable);
             Assert.AreEqual(0, result.Flaps.Count);
         }
+
+        [Test]
+        public void 격자_경로_높이는_탐색이_밟은_그_모델과_같다()
+        {
+            //  재생이 어긋난 자리에 "탐색은 거기를 무엇이라고 믿었나"를 적으려면 틱별 높이가
+            //  있어야 하는데 탐색은 경로만 돌려준다. 그래서 같은 모델로 다시 굴리는데, 그
+            //  "같은 모델"이 정말 같은지를 여기서 못박는다 — 손으로 따로 적은 모델(매 틱
+            //  눈금에 반올림해 붙이는 그 규칙)과 값이 하나라도 갈리면 빨강이다.
+            bool IsFree(float x, float y) => (x < 20f || x > 22f) || y >= 3f;
+            CleanRunOptions options = Options(startY: 0f, finishX: 50f);
+            CleanRunResult result = CleanRunSearch.Run(options, IsFree);
+            Assert.IsTrue(result.Reachable);
+
+            float[] heights = CleanRunSearch.GridPathHeights(options, result.Flaps);
+
+            //  [0]은 출발, [t]는 t번째 틱을 밟은 뒤 — 재생이 틱을 1부터 세는 것과 짝이 맞아야
+            //  222틱째의 높이를 heights[222]에서 꺼내 쓸 수 있다.
+            Assert.AreEqual(result.Flaps.Count + 1, heights.Length);
+
+            float drop = options.Gravity * options.TickSeconds;
+            float Snap(float y) => options.MinY
+                                 + UnityEngine.Mathf.Round((y - options.MinY) / options.HeightGrid) * options.HeightGrid;
+            float expected = Snap(options.StartY);
+            Assert.AreEqual(expected, heights[0], 1e-4f, "출발 높이가 눈금에 붙은 값이 아니다.");
+
+            bool afterFlap = false;
+            int rung = 0;
+            bool anyOffContinuous = false;
+            float continuous = options.StartY;
+            float continuousSpeed = 0f;
+            for (int i = 0; i < result.Flaps.Count; i++)
+            {
+                if (result.Flaps[i]) { afterFlap = true; rung = 0; } else { rung += 1; }
+                float v = (afterFlap ? options.FlapImpulse : 0f) - drop * rung;
+                if (v < -options.MaxFallSpeed) { v = -options.MaxFallSpeed; }
+                expected = Snap(expected + v * options.TickSeconds);
+                Assert.AreEqual(expected, heights[i + 1], 1e-4f, $"{i + 1}틱째 높이가 다르다.");
+
+                //  눈금에 안 붙인 연속 모델과는 실제로 갈려야 한다 — 안 갈리면 이 테스트는
+                //  "반올림을 안 해도 통과"라는 뜻이라 격자 편향을 하나도 안 지킨다.
+                continuousSpeed = result.Flaps[i] ? options.FlapImpulse
+                                                  : continuousSpeed - drop;
+                if (continuousSpeed < -options.MaxFallSpeed) { continuousSpeed = -options.MaxFallSpeed; }
+                continuous += continuousSpeed * options.TickSeconds;
+                if (UnityEngine.Mathf.Abs(continuous - heights[i + 1]) > 1e-3f) { anyOffContinuous = true; }
+            }
+            Assert.IsTrue(anyOffContinuous,
+                "눈금에 안 붙인 연속 모델과 값이 한 번도 안 갈렸다 — 반올림을 지키는 단언이 아니다.");
+        }
     }
 }

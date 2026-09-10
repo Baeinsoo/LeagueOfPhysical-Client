@@ -193,6 +193,43 @@ namespace LOP.MapTools
             return new CleanRunResult(true, flaps, 0f, 0f, 0, 0f);
         }
 
+        /// <summary>
+        /// 탐색이 찾은 날갯짓 순서를 <b>탐색과 같은 격자 모델로</b> 다시 굴려, 틱마다 탐색이
+        /// 믿었던 높이를 낸다. 돌려주는 배열의 [0]은 출발 높이고 [t]는 t번째 틱을 밟은 뒤다
+        /// (<see cref="CleanRunResult.Flaps"/>의 i번째가 t=i+1 틱이다 — 재생이 틱을 1부터
+        /// 세는 것과 같다).
+        ///
+        /// <para>같은 순서를 진짜 커널로 재생했는데 어긋났을 때, "탐색은 거기를 무엇이라고
+        /// 믿었나"를 알아야 격자 편향이 얼마나 벌어졌는지 보인다. 탐색은 경로만 돌려주고
+        /// 틱별 높이는 안 들고 있으므로 여기서 같은 모델(<c>SearchGrid</c> — 매 틱 높이를
+        /// 눈금에 반올림해 붙이는 바로 그 규칙)로 다시 굴린다. 탐색 본체는 건드리지 않는다.</para>
+        /// </summary>
+        public static float[] GridPathHeights(in CleanRunOptions options, IReadOnlyList<bool> flaps)
+        {
+            var grid = new SearchGrid(options);
+            int count = flaps == null ? 0 : flaps.Count;
+            var heights = new float[count + 1];
+
+            //  Run()의 시드와 같다 — 아직 날갯짓 안 한 사다리(1)의 첫 칸, 높이는 눈금에 붙인 것.
+            int ladder = 1;
+            int rung = 0;
+            float y = grid.HeightOf(grid.HeightBucket(options.StartY));
+            heights[0] = y;
+
+            for (int i = 0; i < count; i++)
+            {
+                //  날갯짓이면 사다리 0의 첫 칸으로 갈아타고, 아니면 같은 사다리의 다음 칸.
+                //  TryAdvance가 하는 것과 같은 계산이다(자유공간 검사만 빠졌다 — 여기서는
+                //  이미 통과한 경로를 되짚는 것이라 다시 물을 것이 없다).
+                if (flaps[i]) { ladder = 0; rung = 0; }
+                else { rung = rung + 1; }
+                rung = grid.ClampRung(rung);
+                y = grid.HeightOf(grid.HeightBucket(y + grid.Speed(ladder, rung) * options.TickSeconds));
+                heights[i + 1] = y;
+            }
+            return heights;
+        }
+
         //  뒤에서 앞으로 한 경로를 뽑는다. 사다리 덕에 직전 상태가 계산으로 나와 부모 포인터가 필요 없다.
         //  마지막 열의 아무 생존 상태에서 시작해, 매 단계 직전 열의 후보를 앞으로 굴려 맞는 것을 고른다.
         static bool[] ExtractFlaps(SearchGrid grid, FreeSpaceProbe isFree,

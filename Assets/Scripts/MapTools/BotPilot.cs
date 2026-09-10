@@ -16,17 +16,22 @@ namespace LOP.MapTools
         /// 내려간다). 겨냥할 자리를 아예 못 찾은 틱(<see cref="GapFound"/>=false)에서는
         /// "근거 없이라도 뜨는 쪽을 고른다"가 곧 누르고 싶다는 뜻이라 true다.</summary>
         public readonly bool WantsFlap;
+        /// <summary>지금 누르면 올라가는 길이 안 막혀 있는가(아치 훑기의 답). <b>누를 뜻이
+        /// 있었는지와 무관하게</b> 늘 잰 값이다 — 그래야 "이번 틱에 누른다"를 후보로 삼아도
+        /// 되는지를 바깥에서 물을 수 있다(<see cref="BotRollout"/>). 겨냥할 자리를 아예 못
+        /// 찾은 틱에서는 훑기를 돌리지 않고 뜨는 쪽을 고르므로 true다.</summary>
+        public readonly bool CeilingSafe;
         /// <summary>누르고 싶었는데 아치 훑기가 막았는가. 누를 뜻이 없던 틱에서는 막을 것도
         /// 없으므로 false다 — 그래서 <see cref="Flap"/>은 늘
         /// <c>WantsFlap &amp;&amp; !CeilingBlocked</c>와 같다.</summary>
-        public readonly bool CeilingBlocked;
+        public bool CeilingBlocked => WantsFlap && CeilingSafe == false;
 
-        public BotDecision(bool flap, bool gapFound, bool wantsFlap, bool ceilingBlocked)
+        public BotDecision(bool flap, bool gapFound, bool wantsFlap, bool ceilingSafe)
         {
             Flap = flap;
             GapFound = gapFound;
             WantsFlap = wantsFlap;
-            CeilingBlocked = ceilingBlocked;
+            CeilingSafe = ceilingSafe;
         }
     }
 
@@ -40,7 +45,7 @@ namespace LOP.MapTools
     /// "우리 봇이 겁쟁이다"로 뒤바뀌어 증명이 무의미해진다.</para>
     ///
     /// <para><b>언제 눌러야 안전한가</b>도 이 클래스가 정한다
-    /// (<see cref="FlappyGapAiming"/>은 "틈이 어디 있나"만 찾아 준다). 규칙은 넷이다:
+    /// (<see cref="FlappyGapAiming"/>은 "틈이 어디 있나"만 찾아 준다). 규칙은 셋이다:
     /// ① 바닥 쪽에서만 몸 반지름만큼 여유를 둔다 — 천장 쪽은 두지 않는다. 막힘 표 자체가
     ///    이미 몸(실제 반지름)으로 캡슐 검사를 한 결과라, 천장 쪽에 반지름을 또 빼면 몸
     ///    하나를 두 번 세는 꼴이라서다.
@@ -50,12 +55,6 @@ namespace LOP.MapTools
     ///    슬래브에 박는다. 올라가는 구간에서 한 자리라도 막혀 있으면 누르지 않는다 — 한 번
     ///    뚫으면 되돌릴 수 없지만, 안 눌러 낮아지는 건 다음 틱에 다시 판단할 수 있다.
     /// ③ 한 틱이 아니라 근거리 열까지 남은 틱을 실제 중력으로 굴려 봐서 바닥 쪽을 판단한다.
-    /// ④ 근거리 열만이 아니라 <b>원거리 열까지</b> 같은 방법으로 굴려 본다. 플래피의 날갯짓은
-    ///    크기가 하나뿐이라(vy를 23으로 덮어써 4.012m 상승, 정점까지 17틱) 앞이 높으면 <b>미리</b>
-    ///    올라야 한다 — 도착해서 판단하면 이미 늦는다. 트인 곳이나 깊은 구덩이 위에서는 근거리
-    ///    열이 고른 틈의 바닥이 한참 아래라 "가만둬도 된다"가 수백 틱 동안 참이 되고, 그 사이
-    ///    새는 종단속도로 떨어져 죽는다. 두 항은 <b>OR</b>다 — ③은 "곧 바닥에 닿는다"를,
-    ///    ④는 "다음 장애물에 못 맞춘다"를 잡는다.
     /// 몸이 다 들어가지 못할 만큼 좁은 자리라도 근거 없이 무조건 날갯짓하지 않는다 — 그
     /// 자리에도 같은 천장 가드를 건다.</para>
     /// </summary>
@@ -149,89 +148,55 @@ namespace LOP.MapTools
             return rise;
         }
 
-        /// <summary>그 열에서 겨냥할 바닥(<c>low</c>)을 찾는다. 근거리 열과 원거리 열이
-        /// <b>똑같은 모양</b>으로 찾도록 한 자리에 모아 둔 것이다 — 몸이 통째로 들어가는 틈을
-        /// 먼저 찾고, 없으면 최소폭 문턱만 0으로 풀어 "그나마 가장 가까운 뚫린 자리"를 다시
-        /// 찾는다(TryFindGap 자체는 안 고치고 최소폭 인자만 0으로 준다). 둘 다 실패하면 false —
-        /// 그 열에는 뚫린 자리가 전혀 없다는 뜻이다.</summary>
-        static bool TryAimFloor(IReadOnlyList<bool> blocked, float bottomY, float step,
-                                float currentY, float bodyRadius, out float low)
-        {
-            if (FlappyGapAiming.TryFindGap(blocked, bottomY, step, currentY, bodyRadius, out low, out _))
-            {
-                return true;
-            }
-            return FlappyGapAiming.TryFindGap(blocked, bottomY, step, currentY, 0f, out low, out _);
-        }
-
         /// <param name="blockedNear">근거리 열의 막힘 표 — <b>바닥 규칙</b>이 쓴다(어느 높이로
         /// 겨냥할지). 천장 판단은 이제 이 표가 아니라 <paramref name="isFree"/>가 한다.</param>
-        /// <param name="blockedFar">원거리 열의 막힘 표 — 바닥 규칙의 둘째 항이 쓴다("가만두면
-        /// 다음 장애물에 너무 낮게 도착하는가"). <c>null</c>이면 원거리 열이 없다는 뜻이라 그
-        /// 항이 통째로 꺼지고 근거리 항만으로 판단한다.</param>
-        /// <param name="ticksToFar">원거리 열까지 남은 틱 수. <paramref name="blockedFar"/>가
-        /// null이면 안 쓴다.</param>
         /// <param name="isFree">발밑이 (x, y)일 때 몸이 들어가는가. 코스를 실제 콜라이더로 재는
         /// 프로브를 호출부가 넘긴다. <b>격자에 스냅하지 않고 물어본 그 좌표에서 재는</b>
         /// 타입이다 — 훑기는 격자에 안 걸리는 연속 좌표를 묻기 때문이다. 근거리 열을 채우는
         /// 캐시 프로브(<see cref="FreeSpaceProbe"/>)와 실수로 뒤바뀌지 않게 타입을 갈라 뒀다.</param>
         public static BotDecision Decide(
-            IReadOnlyList<bool> blockedNear, IReadOnlyList<bool> blockedFar,
-            float bottomY, float step,
+            IReadOnlyList<bool> blockedNear, float bottomY, float step,
             float currentX, float currentY, float verticalSpeed, float bodyRadius,
             float flapImpulse, float gravity, float maxFallSpeed,
-            float forwardSpeed, int ticksToNear, int ticksToFar, float tickSeconds,
+            float forwardSpeed, int ticksToNear, float tickSeconds,
             ExactFreeSpaceProbe isFree)
         {
             int maxTicks = ArcTickLimit(flapImpulse, gravity, tickSeconds);
 
             //  highNear(틈의 위 끝)는 안 쓴다 — 천장 가드는 아치를 직접 훑으므로 "어느 틈을
             //  골랐나"의 위 끝은 이 자리에서 의미가 없다. lowNear(바닥 규칙용)만 남긴다.
-            //
-            //  몸이 통째로 들어갈 만큼 넓은 자리를 못 찾았다고 근거 없이 무조건 누르지 않는다 —
-            //  TryAimFloor가 최소폭 문턱을 0으로 풀어 "그나마 가장 가까운 뚫린 자리"까지 찾아 본다.
-            //  그 자리에도 아래의 같은 천장 가드를 그대로 건다 — 여기서 무조건 눌러 버리면
-            //  가장 좁은 통로에서 정확히 옛날 버그(가드 없는 무조건 날갯짓)가 재발한다.
-            if (TryAimFloor(blockedNear, bottomY, step, currentY, bodyRadius, out float lowNear) == false)
+            bool hasNear = FlappyGapAiming.TryFindGap(blockedNear, bottomY, step, currentY, bodyRadius,
+                                                      out float lowNear, out _);
+            if (hasNear == false)
             {
-                //  뚫린 자리가 전혀 없다. 판단할 근거가 정말 없을 때만 뜨는 쪽을 고른다
-                //  (떨어지면 확실히 바닥에 부딪힌다).
-                return new BotDecision(flap: true, gapFound: false,
-                                       wantsFlap: true, ceilingBlocked: false);
+                //  몸이 통째로 들어갈 만큼 넓은 자리를 못 찾았다고 근거 없이 무조건 누르지
+                //  않는다 — 반지름 조건을 0으로 풀어 "그나마 가장 가까운 뚫린 자리"만 다시
+                //  찾는다(TryFindGap 자체는 안 고치고 최소폭 인자만 0으로 줘서 문턱을 없앤다).
+                //  그 자리에도 아래의 같은 천장 가드를 그대로 건다 — 여기서 무조건 눌러 버리면
+                //  가장 좁은 통로에서 정확히 옛날 버그(가드 없는 무조건 날갯짓)가 재발한다.
+                hasNear = FlappyGapAiming.TryFindGap(blockedNear, bottomY, step, currentY, 0f,
+                                                     out lowNear, out _);
+                if (hasNear == false)
+                {
+                    //  그마저도 없다 — 근처에 뚫린 자리가 전혀 없다. 판단할 근거가 정말 없을
+                    //  때만 뜨는 쪽을 고른다(떨어지면 확실히 바닥에 부딪힌다).
+                    //  훑기를 안 돌렸으니 "막혔다"고 말할 근거도 없다 — 이 desperate 날갯짓은
+                    //  가드를 통과한 것이 아니라 가드를 물어보지 않은 것이다. 후보로는 살려 둔다.
+                    return new BotDecision(flap: true, gapFound: false,
+                                           wantsFlap: true, ceilingSafe: true);
+                }
             }
 
-            //  바닥 쪽에서만 몸 반지름만큼 여유를 둔다. 막힘 표 자체가 이미 몸(실제 반지름)으로
-            //  캡슐 검사를 한 결과라 이 틈은 이미 "몸이 딱 맞게 들어가는" 자리다. 거기서 반지름을
-            //  또 빼면 몸 하나를 두 번 세는 꼴이라, 천장 쪽엔 마진을 더하지 않는다.
-            //  아래 두 항 모두 이 반지름 하나만 쓴다 — 원거리라고 마진을 더 얹지 않는다.
-            //
-            //  문턱은 <b>반드시 float 지역변수에 담고</b> 비교한다. C#은 부동소수 식을 선언된
-            //  타입보다 높은 정밀도로 계산해도 되므로, 식을 비교에 그대로 끼워 넣으면 마지막
-            //  비트가 달라져 "도달 높이가 문턱과 정확히 같을 때"의 판단이 뒤집힌다(실측:
-            //  인라인으로 바꿨더니 그 경계 테스트가 빨강).
+            //  바닥 쪽에서만 몸 반지름만큼 여유를 둔다. blockedNear 자체가 이미 몸(실제
+            //  반지름)으로 캡슐 검사를 한 결과라 이 틈은 이미 "몸이 딱 맞게 들어가는" 자리다.
+            //  거기서 반지름을 또 빼면 몸 하나를 두 번 세는 꼴이라, 천장 쪽엔 마진을 더하지 않는다.
             float safeFloor = lowNear + bodyRadius;
 
-            //  ① 가만두면 근거리 열에서 바닥에 닿는가. "한 틱 뒤"가 아니라 그 열까지 남은 틱을
-            //  실제 중력으로 굴려 본다 — 한 틱만 보면 중력이 매 틱 더 세지는 걸 놓쳐 늦는다.
+            //  "한 틱 뒤"가 아니라 근거리 열까지 남은 틱을 실제 중력으로 굴려 본 자리로
+            //  바닥 쪽을 판단한다 — 한 틱만 보면 중력이 매 틱 더 세지는 걸 놓쳐 늦는다.
             float predictedY = FlappyGapAiming.PredictHeight(currentY, verticalSpeed, ticksToNear,
                                                               tickSeconds, gravity, maxFallSpeed);
-            bool fallsShortNear = predictedY < safeFloor;
-
-            //  ② 가만두면 원거리 열에 <b>너무 낮게</b> 도착하는가. 날갯짓은 크기가 하나뿐이라
-            //  (작게 칠 수가 없다) 앞이 높으면 미리 올라야 한다 — 도착해서 판단하면 늦는다.
-            //  ①만 있으면 트인 곳·깊은 구덩이 위에서 근거리 틈의 바닥이 한참 아래라 "가만둬도
-            //  된다"가 수백 틱 참이 되고, 그 사이 종단속도로 떨어져 죽는다.
-            bool fallsShortFar = false;
-            if (blockedFar != null &&
-                TryAimFloor(blockedFar, bottomY, step, currentY, bodyRadius, out float lowFar))
-            {
-                float safeFloorFar = lowFar + bodyRadius;
-                float coastAtFar = FlappyGapAiming.PredictHeight(currentY, verticalSpeed, ticksToFar,
-                                                                 tickSeconds, gravity, maxFallSpeed);
-                fallsShortFar = coastAtFar < safeFloorFar;
-            }
-
-            bool wantsFlap = fallsShortNear || fallsShortFar;
+            bool wantsFlap = predictedY < safeFloor;
 
             //  누르면 새가 그리는 아치를 정점까지 틱마다 따라가며, 그 자리마다 몸이 들어가는지 묻는다.
             //  정점에서 멈추는 이유: 올라가는 동안은 "누르고 가만히 있는" 이 경로가 도달 가능한 가장 낮은
@@ -275,7 +240,7 @@ namespace LOP.MapTools
             //  훑기를 wantsFlap일 때만 돌도록 미루고 싶어질 수 있는데, 그러면 프로브 호출
             //  횟수가 달라져 "훑기가 어디를 물었나"를 세는 테스트가 뜻을 잃는다.
             return new BotDecision(flap, gapFound: true,
-                                   wantsFlap: wantsFlap, ceilingBlocked: wantsFlap && ceilingSafe == false);
+                                   wantsFlap: wantsFlap, ceilingSafe: ceilingSafe);
         }
     }
 }

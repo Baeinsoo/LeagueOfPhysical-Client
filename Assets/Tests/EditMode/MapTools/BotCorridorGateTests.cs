@@ -22,15 +22,9 @@ namespace LOP.MapTools.Tests
     /// <para><b>숫자가 둘인 이유</b>: 회랑 폭은 <i>천장 쪽</i> 보수성만 잡는다. 얼마나 그런지는
     /// 실측으로 확인됐다 — 바닥 문턱을 <b>−1.5 ~ +5.0m</b> 움직여도 회랑 숫자는 4.4750에서
     /// 안 변하고, 바닥 규칙을 <b>통째로 무시</b>해도(<c>flap = ceilingSafe</c>) 역시 4.4750이
-    /// 나온다. 즉 <b>회랑 숫자는 순수하게 천장 훑기의 눈금이고, 바닥 축은 아래 두 숫자가
+    /// 나온다. 즉 <b>회랑 숫자는 순수하게 천장 훑기의 눈금이고, 바닥 축은 1.99125가 혼자
     /// 진다.</b> 다음에 이 파일을 읽는 사람에게: "회랑 게이트가 대충 덮으니 바닥 테스트는
     /// 지워도 되겠지"는 <b>틀렸다</b> — 바닥 규칙을 완전히 없애도 회랑 게이트는 초록이다.</para>
-    ///
-    /// <para><b>바닥 축이 6.33125 / 1.99125 둘인 이유</b>(2026-09-11): 바닥 규칙에 "원거리 열에
-    /// 너무 낮게 도착하는가" 항이 OR로 붙으면서 바닥 문턱이 1.99125 → 6.33125로 올라갔다
-    /// (같은 지형이면 20틱 굴린 항이 10틱 굴린 항을 삼킨다). 근거리 항 혼자의 눈금 1.99125는
-    /// 원거리 열을 빼고 재는 짝 테스트로 남겨 뒀다 — 안 그러면 한 항을 지워도 초록이 된다.
-    /// <b>회랑 4.4750은 이 변경으로 움직이지 않았다</b>(천장 훑기는 손대지 않았다).</para>
     /// </summary>
     public class BotCorridorGateTests
     {
@@ -48,8 +42,6 @@ namespace LOP.MapTools.Tests
         const float BottomY = 0f;
         //  근거리 열은 0.20초 앞을 본다(도구와 같은 값). 초당 50틱이므로 10틱.
         const int TicksToNear = 10;
-        //  원거리 열은 그 두 배인 0.40초 앞(도구와 같은 값) — 20틱.
-        const int TicksToFar = 20;
 
         //  ── 측정 방식 (이 다섯이 곧 "무엇을 쟀나"의 정의다) ──
 
@@ -136,13 +128,10 @@ namespace LOP.MapTools.Tests
 
             for (int tick = 0; tick < SurviveTicks; tick++)
             {
-                //  직선 회랑이라 x가 어디든 열이 같다 — 근거리 열과 원거리 열에 같은 표를
-                //  준다. 지형이 x에 따라 변하지 않는다는 사실을 그대로 옮긴 것이지, 두 열을
-                //  같게 두려고 꾸민 것이 아니다.
                 BotDecision decision = BotPilot.Decide(
-                    column, column, BottomY, ScanStep, currentX: tick * ForwardSpeed * TickSeconds,
+                    column, BottomY, ScanStep, currentX: tick * ForwardSpeed * TickSeconds,
                     currentY: y, verticalSpeed: vy, BodyRadius, FlapImpulse, Gravity, MaxFallSpeed,
-                    ForwardSpeed, TicksToNear, TicksToFar, TickSeconds, free);
+                    ForwardSpeed, TicksToNear, TickSeconds, free);
 
                 //  실제 게임 커널(FlappyMapPlayabilityCheck.Step)과 같은 순서 — 중력을 먼저
                 //  깎고 종단속도로 자른 뒤, 날갯짓이면 그 값을 덮어쓰고(그 틱은 감쇠 없음),
@@ -246,69 +235,42 @@ namespace LOP.MapTools.Tests
         //  그래서 바닥 쪽을 잡는 숫자를 하나 더 못박는다. <b>이것 없이는 게이트가 반쪽이
         //  아니라 아예 없다</b> — 바닥 규칙을 통째로 지워도 회랑 게이트는 초록이니까.
 
-        //  천장이 아무 상관 없는 높은 회랑. 원거리 문턱(6.33125)에서 아치를 다 그려도 10.34라
-        //  표 꼭대기(12m)를 안 넘는다 — 천장 가드가 이 측정에 끼어들 여지가 없다.
+        //  천장이 아무 상관 없는 높은 회랑. 아래 문턱(≈1.99)에서 아치를 다 그려도 6.0이라
+        //  표 꼭대기(12m)에 한참 못 미친다 — 천장 가드가 이 측정에 끼어들 여지가 없다.
         const float OpenCorridorTop = TableTop;
 
         //  바닥 문턱을 훑는 간격과 <b>반 칸 어긋난 시작점</b>. 어긋나게 두는 이유: 참 문턱은
-        //  바닥 여유(0.45)에 자유낙하를 더한 값이라 딱 떨어진다(근거리 10틱이면 +1.54 = 1.99,
-        //  원거리 20틱이면 +5.88 = 6.33). 격자를 0에서 시작하면 문턱이 격자점 위에 정확히
-        //  놓이고, 그러면 마지막 비트 하나 차이로 답이 한 칸 튀어 기계마다 다른 값이 나온다.
-        //  반 칸 어긋나면 양쪽으로 1.25mm씩 여유가 생긴다.
+        //  바닥 여유(0.45) + 10틱 자유낙하(1.54) = 1.99로 딱 떨어지는 값이라, 격자를 0에서
+        //  시작하면 문턱이 격자점 위에 정확히 놓인다. 그러면 마지막 비트 하나 차이로 답이
+        //  한 칸 튀어 기계마다 다른 값이 나온다. 반 칸 어긋나면 양쪽으로 1.25mm씩 여유가 생긴다.
         //  이 1.25mm 여백은 세 방법으로 확인됐다 — <b>두 게이트 중 이쪽이 더 두껍다</b>.
         //  더 얇은 쪽(회랑 4.4750, 여백 0.99mm)의 걱정 메모는 위 WidthStep에 있다.
         const float FloorProbeStep = 0.0025f;
         const float FloorProbeOffset = 0.00125f;
 
-        //  훑기 상한. 아래 두 문턱(1.99125 / 6.33125)보다 위여야 한다 — 상한이 문턱보다 낮으면
-        //  훑기가 아무것도 못 찾고 held가 −1로 남아, 게이트가 "봇이 바뀌었다"가 아니라
-        //  "밴드가 짧다"로 빨강이 된다.
-        const float FloorProbeTop = 8f;
-
         //  가만히 있어도 바닥 규칙이 손을 대기 시작하는 높이 — 이보다 낮으면 누르고 높으면
-        //  안 누른다. 곧 "봇이 바닥에서 얼마나 일찍 겁내는가"의 크기다.
-        //
-        //  <b>숫자가 둘인 이유</b>: 바닥 규칙은 항이 둘(OR)이다 — 근거리 열까지 굴려 본 항과
-        //  원거리 열까지 굴려 본 항. 두 열이 같은 지형(직선 회랑)이면 원거리 항이 근거리 항을
-        //  <b>통째로 삼킨다</b>(더 오래 굴리니 더 낮게 도착한다). 그래서 열이 둘 다 있는 측정은
-        //  <i>원거리 항</i>의 눈금이고, 근거리 항은 원거리 열을 빼고(hasFar=false) 따로 재야
-        //  눈금이 보인다. 하나만 못박으면 나머지 한 항을 통째로 지워도 초록이 된다.
-
-        //  원거리 항의 문턱. 산술: 바닥 여유(몸 반지름 0.45) + 원거리 열까지 20틱 자유낙하
-        //  (0.02초 × (1.4+2.8+…+28.0) = 5.88) = 6.33. 격자가 반 칸 어긋나 있어 그 위 첫
-        //  표본인 6.33125가 잡힌다. 겁쟁이(+0.05)로 만들면 6.38125, 대담(−0.05)하게 만들면
-        //  6.28125로 그만큼 그대로 움직인다.
-        const float FloorHoldHeight = 6.33125f;
-
-        //  근거리 항만의 문턱(원거리 열 없음). 산술: 0.45 + 10틱 자유낙하(0.02 × (1.4+…+14.0)
-        //  = 1.54) = 1.99 → 반 칸 위 표본 1.99125. 원거리 항이 생기기 전 이 파일이 못박고
-        //  있던 바로 그 값이다.
-        const float NearOnlyFloorHoldHeight = 1.99125f;
-
-        //  아래에서 위로 훑어, 처음으로 "안 누른다"가 나오는 높이. 못 찾으면 −1.
-        //  세로속도 0(정지)으로 묻는 이유는 회랑 게이트와 같다 — 떨어지던 속도를 섞으면
-        //  다른 질문이 된다.
-        static float FirstHoldHeight(bool[] near, bool[] far, int ticksToFar, ExactFreeSpaceProbe free)
-        {
-            for (int i = 0; i * FloorProbeStep + FloorProbeOffset <= FloorProbeTop; i++)
-            {
-                float y = FloorProbeOffset + i * FloorProbeStep;
-                BotDecision decision = BotPilot.Decide(
-                    near, far, BottomY, ScanStep, currentX: 0f, currentY: y, verticalSpeed: 0f,
-                    BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                    TicksToNear, ticksToFar, TickSeconds, free);
-                if (decision.Flap == false) { return y; }
-            }
-            return -1f;
-        }
+        //  안 누른다. 곧 "봇이 바닥에서 얼마나 일찍 겁내는가"의 크기다. 겁쟁이(+0.05)로
+        //  만들면 2.04125, 대담(−0.05)하게 만들면 1.94125로 그만큼 그대로 움직인다.
+        const float FloorHoldHeight = 1.99125f;
 
         [Test]
-        public void 바닥_규칙이_손을_대기_시작하는_높이는_6_33125m다()
+        public void 바닥_규칙이_손을_대기_시작하는_높이는_1_99125m다()
         {
             var free = Corridor(OpenCorridorTop);
             bool[] column = ColumnOf(OpenCorridorTop);
 
-            float held = FirstHoldHeight(column, column, TicksToFar, free);
+            float held = -1f;
+            //  아래에서 위로 훑어, 처음으로 "안 누른다"가 나오는 높이를 찾는다. 세로속도 0
+            //  (정지)로 묻는 이유는 회랑 게이트와 같다 — 떨어지던 속도를 섞으면 다른 질문이 된다.
+            for (int i = 0; i * FloorProbeStep + FloorProbeOffset <= 6f; i++)
+            {
+                float y = FloorProbeOffset + i * FloorProbeStep;
+                BotDecision decision = BotPilot.Decide(
+                    column, BottomY, ScanStep, currentX: 0f, currentY: y, verticalSpeed: 0f,
+                    BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
+                    TicksToNear, TickSeconds, free);
+                if (decision.Flap == false) { held = y; break; }
+            }
 
             Assert.AreEqual(FloorHoldHeight, held, FloorProbeStep * 0.5f,
                 $"바닥 규칙의 문턱이 움직였다 — 봇이 바닥에서 겁내는 시점이 바뀌었다는 뜻이다. "
@@ -316,36 +278,12 @@ namespace LOP.MapTools.Tests
 
             //  바로 아래 칸에서는 정말 누르는지 — 위 값이 "훑기가 첫 성공을 돌려준다"는 사실에만
             //  기대지 않게 반대편도 확인한다.
-            var below = BotPilot.Decide(column, column, BottomY, ScanStep, currentX: 0f,
+            var below = BotPilot.Decide(column, BottomY, ScanStep, currentX: 0f,
                                         currentY: FloorHoldHeight - FloorProbeStep, verticalSpeed: 0f,
                                         BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                        TicksToNear, TicksToFar, TickSeconds, free);
+                                        TicksToNear, TickSeconds, free);
             Assert.IsTrue(below.Flap,
                 $"{FloorHoldHeight - FloorProbeStep:F5}m에서도 안 누른다 — 그럼 그쪽이 문턱이다.");
-        }
-
-        /// <summary>원거리 열이 없을 때(hasFar=false) 근거리 항 <b>혼자</b>의 문턱.
-        /// 위 게이트로는 이 항이 안 보인다 — 두 열이 같으면 원거리 항이 근거리 항을 삼키므로,
-        /// 근거리 항을 통째로 지워도 위 테스트는 초록이다. 그래서 따로 잰다.</summary>
-        [Test]
-        public void 원거리_열이_없으면_바닥_문턱은_1_99125m다()
-        {
-            var free = Corridor(OpenCorridorTop);
-            bool[] column = ColumnOf(OpenCorridorTop);
-
-            float held = FirstHoldHeight(column, far: null, ticksToFar: 0, free: free);
-
-            Assert.AreEqual(NearOnlyFloorHoldHeight, held, FloorProbeStep * 0.5f,
-                $"근거리 항의 문턱이 움직였다 — 원거리 열이 없을 때 봇이 겁내는 시점이 "
-                + $"바뀌었다는 뜻이다. (잰 값 {held:F5}m, 못박은 값 {NearOnlyFloorHoldHeight:F5}m)");
-
-            var below = BotPilot.Decide(column, null, BottomY, ScanStep, currentX: 0f,
-                                        currentY: NearOnlyFloorHoldHeight - FloorProbeStep,
-                                        verticalSpeed: 0f,
-                                        BodyRadius, FlapImpulse, Gravity, MaxFallSpeed, ForwardSpeed,
-                                        TicksToNear, ticksToFar: 0, tickSeconds: TickSeconds, isFree: free);
-            Assert.IsTrue(below.Flap,
-                $"{NearOnlyFloorHoldHeight - FloorProbeStep:F5}m에서도 안 누른다 — 그럼 그쪽이 문턱이다.");
         }
 
         /// <summary><b>하니스 자기검사 — 게이트가 아니다.</b>
@@ -354,7 +292,7 @@ namespace LOP.MapTools.Tests
         /// <c>BotPilot</c>이 아니라 <b>상수에 대한 정리</b>다 — 봇의 조종을 어떻게 바꿔도 참이다.
         /// 실제로 돌연변이 17개(항상 누름·항상 안 누름·가드 제거·완벽 오라클 포함) 전부에서
         /// 초록이었다. <b>봇이 바뀌었는지를 이 테스트에 기대지 말 것.</b> 그 일은 위의 두
-        /// 게이트(4.4750 / 6.33125 · 1.99125)가 한다.</para>
+        /// 게이트(4.4750 / 1.99125)가 한다.</para>
         ///
         /// <para>그래도 지우지 않는 이유: 하니스가 <i>죽음을 잴 줄 아는가</i>를 본다. 하니스가
         /// 무엇이든 초록으로 만드는 물건이 되면(예: 죽음 판정이 통째로 깨지면) 여기가 빨강이 된다.

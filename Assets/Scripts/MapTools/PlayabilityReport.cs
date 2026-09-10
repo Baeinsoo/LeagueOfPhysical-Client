@@ -77,6 +77,10 @@ namespace LOP.MapTools
         /// <summary>애초에 누를 뜻이 없던 틱 수(BotPilot.Decide의 WantsFlap=false).
         /// <see cref="VetoedTicks"/>와 짝이며, 같은 이유로 <b>둘의 비만으로는 결론을 못 낸다</b>.</summary>
         public readonly int UnwillingTicks;
+        /// <summary>굴려 보기(<see cref="BotRollout"/>)가 기반 정책의 답을 실제로 뒤집은 틱 수.
+        /// <para>0이면 전방탐색이 아무 일도 안 한 것이다 — 도달 거리가 그대로일 때 "정책이 사실상
+        /// 같았다"와 "정책은 달랐는데 그래도 소용없었다"를 가르는 유일한 숫자다.</para></summary>
+        public readonly int RolloutDeviations;
         /// <summary>죽기 직전으로 되돌려 "다르게 눌렀으면 살았나"를 직접 물어 본 결과.
         /// 위 두 계수기와 달리 <b>양쪽으로 열려 있다</b> — 자세한 이유는 <see cref="LOP.MapTools.Counterfactual"/>.</summary>
         public readonly Counterfactual Counterfactual;
@@ -85,8 +89,10 @@ namespace LOP.MapTools
                               float farthestX, int tickLimit,
                               string hitColliderPath = null, float hitVerticalSpeed = 0f,
                               int vetoedTicks = 0, int unwillingTicks = 0,
-                              Counterfactual counterfactual = default)
+                              Counterfactual counterfactual = default,
+                              int rolloutDeviations = 0)
         {
+            RolloutDeviations = rolloutDeviations;
             Counterfactual = counterfactual;
             EndX = endX;
             EndY = endY;
@@ -474,8 +480,12 @@ namespace LOP.MapTools
 
         //  두 숫자를 한 문장으로. 두 줄에 나눠 찍으면 "어느 쪽이 압도적인가"를 눈으로 비교하기
         //  어려워진다 — 이 출력의 목적이 바로 그 비교다.
+        //  셋째 숫자(굴려 보기가 뒤집은 틱)는 앞의 둘과 다른 것을 잰다 — 앞의 둘은 <b>기반
+        //  정책</b>이 무엇을 하려 했는가고, 이건 그 위의 전방탐색이 실제로 몇 번이나 다르게
+        //  골랐는가다. 도달 거리가 안 변했을 때 여기가 0인지 아닌지로 원인이 갈린다.
         static string CounterPhrase(in BotDiagnostics bot)
-            => $"누르려다 막힘 {bot.VetoedTicks}틱 / 누를 뜻 없음 {bot.UnwillingTicks}틱";
+            => $"누르려다 막힘 {bot.VetoedTicks}틱 / 누를 뜻 없음 {bot.UnwillingTicks}틱"
+             + $" / 굴려 보고 뒤집음 {bot.RolloutDeviations}틱";
 
         //  "죽기 직전으로 되돌려 다르게 눌렀으면 살았나". 살릴 수 있던 자리가 하나도 없다는 것도
         //  결론이므로 그 경우에도 문장을 낸다 — 침묵과 "0곳"은 다른 뜻이다.

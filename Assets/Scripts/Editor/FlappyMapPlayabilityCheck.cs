@@ -192,7 +192,8 @@ namespace LOP.EditorTools
                         flight.EndX, flight.EndY, flight.Touched, flight.Ticks, flight.BlindTicks,
                         flight.FarthestX, flight.TickLimit,
                         flight.HitColliderPath, flight.HitVerticalSpeed,
-                        flight.VetoedTicks, flight.UnwillingTicks, counterfactual);
+                        flight.VetoedTicks, flight.UnwillingTicks, counterfactual,
+                        flight.RolloutDeviations);
                     //  스폰이 지형에 파묻혀 있다. 봇도 탐색도 이 자리엔 답할 것이 없으므로
                     //  ✅/🟡/❌ 어디에도 섞지 않고 제 판정으로 낸다 — 특히 "봇이 통과했으니
                     //  탐색 생략"이라는 단축평가에 걸리면 안 된다(그게 이 자리를 ✅로 만들던
@@ -641,12 +642,18 @@ namespace LOP.EditorTools
             /// 고칠지는 되돌리기(<see cref="ProbeCounterfactual"/>)가 답한다.</summary>
             public readonly int UnwillingTicks;
 
+            /// <summary>굴려 보기가 기반 정책의 답을 뒤집은 틱 수. 0이면 전방탐색이 아무 일도
+            /// 안 한 것이다 — 결과가 안 변했을 때 "정책이 같았다"와 "정책은 달랐는데 소용없었다"를
+            /// 가른다.</summary>
+            public readonly int RolloutDeviations;
+
             public BotFlight(bool reached, bool touched, float farthestX, int flapCount, int ticks,
                              float endX, float endY, int blindTicks, int tickLimit,
                              bool spawnBlocked = false,
                              string hitColliderPath = null, float hitVerticalSpeed = 0f,
-                             int vetoedTicks = 0, int unwillingTicks = 0)
+                             int vetoedTicks = 0, int unwillingTicks = 0, int rolloutDeviations = 0)
             {
+                RolloutDeviations = rolloutDeviations;
                 Reached = reached;
                 Touched = touched;
                 FarthestX = farthestX;
@@ -679,14 +686,81 @@ namespace LOP.EditorTools
         //  같은 시스템이 지금 쓰는 사다리({0.05,0.20,0.40,0.60}초) 중 검증된 0.20초 단을 가져온다.
         private const float BotLookaheadSeconds = 0.20f;
 
-        //  <b>원거리</b> 열 — 근거리의 두 배(0.40초)를 본다. 근거리 하나만 보면 트인 곳이나
-        //  깊은 구덩이 위에서 "가만둬도 된다"가 수백 틱 참이 되어, 그 사이 새가 종단속도로
-        //  떨어져 죽는다(실측 충돌 vy −20~−26). 날갯짓은 크기가 하나뿐이라 앞이 높으면 미리
-        //  올라야 한다 — 정점까지 17틱(앞으로 3.74m)이 걸리므로 도착해서 판단하면 늦는다.
-        //  0.40초인 근거: 위 근거리와 같은 출처다 — FlappyAutoFlapSystem이 실제로 쓰는
-        //  검증된 사다리 {0.05, 0.20, 0.40, 0.60}초의 그다음 단이 0.40초(=20틱)이고,
-        //  그게 마침 근거리(0.20초)의 두 배다. 임의로 고른 수가 아니다.
-        private const float BotFarLookaheadSeconds = 0.40f;
+        //  ── 굴려 보기(rollout) ──────────────────────────────────────────────
+        //  매 틱 두 갈래(누른다 / 안 누른다)를 실제로 굴려 보고 더 나은 쪽을 고른다.
+        //  왜 규칙을 또 손보지 않고 이걸 쓰는지는 <see cref="LOP.MapTools.BotRollout"/> 참고.
+        //
+        //  <b>왜 60틱인가 — 실측에서 나온 수다.</b> 되돌리기 진단(아래 CounterfactualTicks)이
+        //  "여기서 다르게 눌렀으면 더 갔다"고 지목한 자리들은 <b>죽기 51~52틱 전</b>까지
+        //  있었다(PlayerSpawn_1/_4 실측). 즉 되돌아가 손쓸 수 있는 가장 이른 자리가 그쯤이라,
+        //  앞을 내다보는 창도 그보다 넉넉해야 그 자리에서 "이쪽이 죽는다"가 보인다. 30틱으로
+        //  줄이면 같은 자리가 안 보인다는 것도 같은 실측에서 확인됐다(그 창에서는 "0곳"이
+        //  나왔다). 그래서 되돌리기 창과 같은 60으로 맞춘다 — 두 창이 같은 현상을 앞뒤로
+        //  보는 것이라 값이 갈릴 이유가 없다.
+        private const int RolloutHorizon = 60;
+
+        //  봇이 보는 세계를 굴려 보기에 그대로 넘기는 어댑터. <b>실제 비행이 쓰는 바로 그
+        //  Decide와 그 Step</b>을 노출한다 — 굴려 보기가 자기 시뮬레이터를 갖지 않게 하는 것이
+        //  이 클래스의 존재 이유다(둘이 갈라지면 이 도구의 숫자 전체가 조용히 무효가 된다).
+        private sealed class BotWorld : LOP.MapTools.IRolloutWorld<BirdState>
+        {
+            private readonly FlappyShape shape;
+            private readonly int mapMask;
+            private readonly HitWatcher query;
+            private readonly LOP.MapTools.FreeSpaceProbe isFree;
+            private readonly LOP.MapTools.ExactFreeSpaceProbe isFreeExact;
+            private readonly float bandBottom;
+            private readonly float lookahead;
+            private readonly int ticksToNear;
+            private readonly float finishX;
+            //  막힘 표는 한 벌만 두고 매번 덮어쓴다. Decide는 이 표를 자기 호출 안에서 다 쓰고
+            //  끝내므로(들고 있지 않는다) 재사용해도 안전하다 — 틱마다 새로 할당하면 굴려 보기가
+            //  틱당 120벌씩 쓰레기를 만든다.
+            private readonly bool[] blockedNear;
+
+            public BotWorld(in FlappyShape shape, int mapMask, HitWatcher query,
+                            LOP.MapTools.FreeSpaceProbe isFree,
+                            LOP.MapTools.ExactFreeSpaceProbe isFreeExact,
+                            float bandBottom, int buckets, float lookahead, int ticksToNear, float finishX)
+            {
+                this.shape = shape;
+                this.mapMask = mapMask;
+                this.query = query;
+                this.isFree = isFree;
+                this.isFreeExact = isFreeExact;
+                this.bandBottom = bandBottom;
+                this.lookahead = lookahead;
+                this.ticksToNear = ticksToNear;
+                this.finishX = finishX;
+                blockedNear = new bool[buckets];
+            }
+
+            public LOP.MapTools.BotDecision Decide(in BirdState state)
+            {
+                float scanX = state.Position.x + lookahead;
+                for (int i = 0; i < blockedNear.Length; i++)
+                {
+                    float y = bandBottom + i * HeightGrid;
+                    blockedNear[i] = isFree(scanX, y) == false;
+                }
+                return LOP.MapTools.BotPilot.Decide(blockedNear, bandBottom, HeightGrid,
+                                                    state.Position.x, state.Position.y, state.VerticalSpeed,
+                                                    shape.Radius, shape.FlapImpulse, shape.Gravity,
+                                                    shape.MaxFallSpeed, shape.ForwardSpeed,
+                                                    ticksToNear, TickSeconds, isFreeExact);
+            }
+
+            public BirdState Advance(in BirdState state, bool flap)
+                => Step(state, flap, shape, mapMask, query);
+
+            public bool Touched(in BirdState state) => state.Stun > 0f;
+
+            //  ①(클린런)과 같은 골인 기준 — 발(x)이 마커 중심에 닿으면 끝이다. FlyBot의
+            //  본 루프와 같은 식을 써야 "굴려 본 결과"와 "실제로 간 결과"가 어긋나지 않는다.
+            public bool Finished(in BirdState state) => state.Position.x >= finishX;
+
+            public float ForwardX(in BirdState state) => state.Position.x;
+        }
 
         //  봇을 진짜 커널로 날린다. 궤적이 하나뿐이라 상태를 묶을 이유가 없고, 그래서 반올림도
         //  표류도 생기지 않는다 — 전수 탐색이 못 하는 "증명"이 여기서 나온다.
@@ -740,12 +814,10 @@ namespace LOP.EditorTools
                 state = resumeState;
             }
             float lookahead = shape.ForwardSpeed * BotLookaheadSeconds;
-            float farLookahead = shape.ForwardSpeed * BotFarLookaheadSeconds;
             //  "이 열까지 남은 틱"은 스캔 거리(초) 자체에서 그대로 나온다 — 손으로 맞춘 상수를
             //  쓰면 어긋났을 때 BotPilot.Decide가 엉뚱한 틱 수로 굴러간다. 아치를 몇 틱 훑을지는
             //  넘기지 않는다 — 훑기는 세로 속도가 0이 되는 자리(정점)에서 스스로 멈춘다.
             int ticksToNear = Mathf.RoundToInt(BotLookaheadSeconds / TickSeconds);
-            int ticksToFar = Mathf.RoundToInt(BotFarLookaheadSeconds / TickSeconds);
             //  캐시는 격자 점에서 재므로(스폰 순서에 안 흔들리게), 표의 높이들도 격자 위에
             //  있어야 한다. 안 그러면 표 전체가 같은 방향으로 최대 반 칸 어긋난 자리에서
             //  측정된다 — minY는 맵 bounds에서 온 임의의 float이라, 그 어긋남이 맵마다
@@ -754,45 +826,39 @@ namespace LOP.EditorTools
             //  칸 수는 minY가 아니라 bandBottom에서 센다 — 밴드 바닥이 반 칸 내려갔을 때도
             //  표가 maxY까지 덮어야 한다.
             int buckets = Mathf.CeilToInt((maxY - bandBottom) / HeightGrid) + 1;
-            var blockedNear = new bool[buckets];
-            var blockedFar = new bool[buckets];
+            var world = new BotWorld(shape, mapMask, query, isFree, isFreeExact,
+                                     bandBottom, buckets, lookahead, ticksToNear, finishX);
+            float sameReach = CounterfactualGain(shape);
             float farthest = state.Position.x;
             int flaps = 0;
             int blindTicks = 0;
-            //  진단 전용 두 카운터 — 판단(decision.Flap)에는 쓰지 않는다. 봇이 못 간 이유가
-            //  "누르려 했는데 아치가 안 들어갔다"인지 "애초에 누를 뜻이 없었다"인지를 가른다.
+            //  진단 전용 세 카운터 — 판단에는 쓰지 않는다. 앞의 둘은 <b>기반 정책</b>이 못 간
+            //  이유가 "누르려 했는데 아치가 안 들어갔다"인지 "애초에 누를 뜻이 없었다"인지를
+            //  가르고, 셋째는 굴려 보기가 그 기반 정책을 실제로 몇 번이나 뒤집었는지를 센다.
+            //  셋째가 0이면 전방탐색이 아무 일도 안 한 것이라, 결과가 안 변한 이유가 바로 읽힌다.
             int vetoedTicks = 0;
             int unwillingTicks = 0;
+            int rolloutDeviations = 0;
 
             //  코스 길이보다 넉넉히 잡는다. 봇이 제자리에 갇히면 여기서 끝난다.
             int limit = Mathf.CeilToInt((finishX - start.x) / (shape.ForwardSpeed * TickSeconds)) + 600;
             for (int tick = resumeTick; tick < limit; tick++)
             {
-                float scanX = state.Position.x + lookahead;
-                float farScanX = state.Position.x + farLookahead;
-                for (int i = 0; i < buckets; i++)
-                {
-                    float y = bandBottom + i * HeightGrid;
-                    blockedNear[i] = isFree(scanX, y) == false;
-                    //  같은 캐시 프로브를 쓴다 — 원거리 열이 먼저 물어 둔 칸을 열 틱 뒤 근거리
-                    //  열이 다시 물으므로, 열이 둘이 되어도 실제 PhysX 호출 수는 거의 안 는다.
-                    blockedFar[i] = isFree(farScanX, y) == false;
-                }
-
-                var decision = LOP.MapTools.BotPilot.Decide(blockedNear, blockedFar, bandBottom, HeightGrid,
-                                                            state.Position.x, state.Position.y, state.VerticalSpeed,
-                                                            shape.Radius, shape.FlapImpulse, shape.Gravity,
-                                                            shape.MaxFallSpeed, shape.ForwardSpeed,
-                                                            ticksToNear, ticksToFar, TickSeconds, isFreeExact);
+                //  기반 정책이 먼저 답하고, 굴려 보기가 그 답을 그대로 쓸지 뒤집을지 정한다.
+                //  굴려 보기는 바로 이 world의 Decide/Advance를 쓰므로 실제 비행과 같은 물리다.
+                var decision = world.Decide(state);
+                var choice = LOP.MapTools.BotRollout.Choose(world, state, decision,
+                                                            RolloutHorizon, sameReach);
                 //  되돌리기가 지정한 틱에서만 결정을 뒤집는다. 그 뒤부터는 원래 정책 그대로다 —
-                //  "다르게 눌렀으면"이지 "다른 봇이었으면"이 아니다.
-                bool flap = tick == flipTick ? decision.Flap == false : decision.Flap;
+                //  "다르게 눌렀으면"이지 "다른 봇이었으면"이 아니다. 뒤집는 대상은 <b>실제로
+                //  내린</b> 결정(굴려 보기의 결론)이다 — 기반 정책의 답이 아니다.
+                bool flap = tick == flipTick ? choice.Flap == false : choice.Flap;
                 trace?.Add(new FlightStep { State = state, Flap = flap });
                 if (flap)
                 {
                     flaps++;
                 }
-                //  진단 전용 집계 — 판단 자체(decision)는 건드리지 않는다. 겨냥할 틈을 못 찾은
+                //  진단 전용 집계 — 판단 자체는 건드리지 않는다. 겨냥할 틈을 못 찾은
                 //  틱만 센다(BotPilot.Decide의 GapFound=false — "근거 없이 날갯짓" 신호).
                 if (decision.GapFound == false)
                 {
@@ -806,6 +872,10 @@ namespace LOP.EditorTools
                 {
                     unwillingTicks++;
                 }
+                if (choice.Deviated)
+                {
+                    rolloutDeviations++;
+                }
 
                 state = Step(state, flap, shape, mapMask, query);
                 if (state.Position.x > farthest)
@@ -818,7 +888,8 @@ namespace LOP.EditorTools
                                          state.Position.x, state.Position.y, blindTicks, limit,
                                          hitColliderPath: PathOf(state.HitCollider),
                                          hitVerticalSpeed: state.HitVerticalSpeed,
-                                         vetoedTicks: vetoedTicks, unwillingTicks: unwillingTicks);
+                                         vetoedTicks: vetoedTicks, unwillingTicks: unwillingTicks,
+                                         rolloutDeviations: rolloutDeviations);
                 }
                 //  ①(클린런)과 같은 질문이어야 한다 — 탐색은 발(x)이 마커 중심에 닿으면 골인으로
                 //  본다(TryReadFinishX 참고, 몸 반지름만큼 더 엄격한 게 의도적인 보수). +radius로
@@ -827,12 +898,14 @@ namespace LOP.EditorTools
                 {
                     return new BotFlight(true, false, farthest, flaps, tick + 1,
                                          state.Position.x, state.Position.y, blindTicks, limit,
-                                         vetoedTicks: vetoedTicks, unwillingTicks: unwillingTicks);
+                                         vetoedTicks: vetoedTicks, unwillingTicks: unwillingTicks,
+                                         rolloutDeviations: rolloutDeviations);
                 }
             }
             return new BotFlight(false, false, farthest, flaps, limit,
                                  state.Position.x, state.Position.y, blindTicks, limit,
-                                 vetoedTicks: vetoedTicks, unwillingTicks: unwillingTicks);
+                                 vetoedTicks: vetoedTicks, unwillingTicks: unwillingTicks,
+                                 rolloutDeviations: rolloutDeviations);
         }
 
         //  ── 되돌리기 ────────────────────────────────────────────────────────
@@ -1006,7 +1079,8 @@ namespace LOP.EditorTools
                         flight.EndX, flight.EndY, flight.Touched, flight.Ticks, flight.BlindTicks,
                         flight.FarthestX, flight.TickLimit,
                         flight.HitColliderPath, flight.HitVerticalSpeed,
-                        flight.VetoedTicks, flight.UnwillingTicks, counterfactual)));
+                        flight.VetoedTicks, flight.UnwillingTicks, counterfactual,
+                        flight.RolloutDeviations)));
             }
             return rows;
         }

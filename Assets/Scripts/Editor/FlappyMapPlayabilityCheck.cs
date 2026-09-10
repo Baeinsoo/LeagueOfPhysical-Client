@@ -68,6 +68,11 @@ namespace LOP.EditorTools
         public static void Check()
         {
             var totalWatch = System.Diagnostics.Stopwatch.StartNew();
+            //  되돌리기가 검사 전체를 얼마나 무겁게 하는지는 재서 알아야 한다 — 되돌리는 틱 수
+            //  (CounterfactualTicks)를 줄일지 말지가 이 숫자로 갈린다. 리포트에는 안 넣는다:
+            //  리포트를 돌릴 때마다 달라지는 문자열로 만들지 않는다.
+            var counterfactualWatch = new System.Diagnostics.Stopwatch();
+            resumeShortcutVerified = false;
             int mapMask = LayerMask.GetMask("Default");
             if (TryReadBounds(mapMask, out Bounds bounds) == false)
             {
@@ -163,8 +168,23 @@ namespace LOP.EditorTools
                     //  봇이 통과하면 진짜 물리로 끝까지 간 궤적이 있으므로 증명이다 — 탐색을
                     //  안 돌린다. SearchMinY/SearchMaxY를 그대로 넘겨 탐색과 같은 대역을 보게
                     //  한다(다른 대역을 보면 "같은 질문에 답했다"고 할 수 없다).
+                    var trace = new List<FlightStep>();
                     BotFlight flight = FlyBot(spawns[i].Position, finishX, shape, mapMask, query,
-                                              SearchMinY, SearchMaxY, botGrid.IsFree, botGrid.IsFreeExact);
+                                              SearchMinY, SearchMaxY, botGrid.IsFree, botGrid.IsFreeExact,
+                                              trace: trace);
+                    //  되돌리기 — 봇이 못 간 자리에서만 묻는다. 통과한 자리엔 되돌릴 죽음이 없고,
+                    //  파묻힌 자리는 애초에 날지도 못했다.
+                    var counterfactual = default(LOP.MapTools.Counterfactual);
+                    if (flight.Reached == false && flight.SpawnBlocked == false)
+                    {
+                        EditorUtility.DisplayProgressBar("Flappy 맵 검사 (1/3 클린런)",
+                            $"{spawns[i].Name} — 되돌리기", i / (float)spawns.Count);
+                        counterfactualWatch.Start();
+                        counterfactual = ProbeCounterfactual(
+                            spawns[i].Position, finishX, shape, mapMask, query,
+                            SearchMinY, SearchMaxY, botGrid.IsFree, botGrid.IsFreeExact, flight, trace);
+                        counterfactualWatch.Stop();
+                    }
                     //  진단은 봇이 통과했든 실패했든 같은 값을 담아 둔다 — 리포트는 BotReached가
                     //  참이면 이 값을 아예 안 읽는다("증명된 자리는 부검하지 않는다"), 그래서
                     //  여기서 성공/실패로 갈라 만들 이유가 없다.
@@ -172,7 +192,7 @@ namespace LOP.EditorTools
                         flight.EndX, flight.EndY, flight.Touched, flight.Ticks, flight.BlindTicks,
                         flight.FarthestX, flight.TickLimit,
                         flight.HitColliderPath, flight.HitVerticalSpeed,
-                        flight.VetoedTicks, flight.UnwillingTicks);
+                        flight.VetoedTicks, flight.UnwillingTicks, counterfactual);
                     //  스폰이 지형에 파묻혀 있다. 봇도 탐색도 이 자리엔 답할 것이 없으므로
                     //  ✅/🟡/❌ 어디에도 섞지 않고 제 판정으로 낸다 — 특히 "봇이 통과했으니
                     //  탐색 생략"이라는 단축평가에 걸리면 안 된다(그게 이 자리를 ✅로 만들던
@@ -237,7 +257,8 @@ namespace LOP.EditorTools
                     //  넣지 않는 것은 리포트를 시간에 따라 달라지는 문자열로 만들지 않기 위해서다.
                     var sweepWatch = System.Diagnostics.Stopwatch.StartNew();
                     heightSweep = SweepStartHeights(spawns, finishX, shape, mapMask, query,
-                                                    botGrid, out heightSweepCancelNote);
+                                                    botGrid, counterfactualWatch,
+                                                    out heightSweepCancelNote);
                     sweepWatch.Stop();
                     Debug.Log($"[맵 검사] 진단 높이 훑기 {heightSweep.Count}줄 — {sweepWatch.ElapsedMilliseconds}ms");
                 }
@@ -322,6 +343,8 @@ namespace LOP.EditorTools
                 Debug.LogWarning($"[맵 검사] 리포트를 파일로 남기지 못했다: {e.Message}");
             }
             totalWatch.Stop();
+            Debug.Log($"[맵 검사] 되돌리기 {counterfactualWatch.ElapsedMilliseconds}ms"
+                    + $" (전체의 {(totalWatch.ElapsedMilliseconds > 0 ? counterfactualWatch.ElapsedMilliseconds * 100f / totalWatch.ElapsedMilliseconds : 0f):F0}%)");
             Debug.Log($"[맵 검사] 전체 {totalWatch.ElapsedMilliseconds}ms");
         }
 
@@ -543,6 +566,10 @@ namespace LOP.EditorTools
             var state = new BirdState { Position = new Vector3(start.x, start.y, 0f) };
             for (int i = 0; i < flaps.Count; i++)
             {
+                //  마지막으로 자유롭게 움직인 틱의 자리. 부딪힌 틱의 y는 이동 커널이 벽에
+                //  잘라낸 값이라, 그 차이는 실제 편향이 아니라 상한이다 — 직전 틱의 차이가
+                //  진짜 편향에 가깝다(ReplayMismatch.PrevDiff 주석 참고).
+                float freeY = state.Position.y;
                 state = Step(state, flaps[i], shape, mapMask, query);
                 if (state.Stun > 0f)
                 {
@@ -550,10 +577,16 @@ namespace LOP.EditorTools
                     //  무엇에 닿았는지를 같이 낸다(틱은 1부터 센다: 0틱째는 없다).
                     int tick = i + 1;
                     bool hasSearchY = searchHeights != null && tick < searchHeights.Count;
+                    //  직전 틱은 tick−1이다. 1틱째에 부딪혔으면(tick−1 == 0) 출발점이라
+                    //  차이가 늘 0이므로 안 찍는다 — 잰 것이 없는데 0을 찍으면 "편향이
+                    //  없다"는 측정값으로 읽힌다.
+                    bool hasPrevDiff = hasSearchY && tick >= 2 && tick - 1 < searchHeights.Count;
                     mismatch = new LOP.MapTools.ReplayMismatch(
                         detected: true, tick: tick, x: state.Position.x, y: state.Position.y,
                         verticalSpeed: state.HitVerticalSpeed, colliderPath: PathOf(state.HitCollider),
-                        searchY: hasSearchY ? searchHeights[tick] : 0f, hasSearchY: hasSearchY);
+                        searchY: hasSearchY ? searchHeights[tick] : 0f, hasSearchY: hasSearchY,
+                        prevDiff: hasPrevDiff ? searchHeights[tick - 1] - freeY : 0f,
+                        hasPrevDiff: hasPrevDiff);
                     return false;   // 닿았다 = 무충돌이 아니다
                 }
             }
@@ -602,8 +635,10 @@ namespace LOP.EditorTools
             public readonly float HitVerticalSpeed;
             /// <summary>누르고 싶었는데 아치 훑기가 막은 틱 수.</summary>
             public readonly int VetoedTicks;
-            /// <summary>애초에 누를 뜻이 없던 틱 수. 이 둘의 크기 비교가 "봇이 못 누른 것"과
-            /// "봇이 안 누른 것"을 가른다 — 다음에 무엇을 고칠지가 거기서 갈린다.</summary>
+            /// <summary>애초에 누를 뜻이 없던 틱 수. 위와의 비는 "봇이 못 누른 것"과 "봇이 안
+            /// 누른 것"을 정확히 세지만 <b>혼자서는 결론을 못 낸다</b> — 살아 있는 봇이면 어느
+            /// 가설에서도 늘 이쪽이 압도한다(완벽한 봇이 열린 하늘을 날면 1:∞). 다음에 무엇을
+            /// 고칠지는 되돌리기(<see cref="ProbeCounterfactual"/>)가 답한다.</summary>
             public readonly int UnwillingTicks;
 
             public BotFlight(bool reached, bool touched, float farthestX, int flapCount, int ticks,
@@ -629,6 +664,15 @@ namespace LOP.EditorTools
             }
         }
 
+        /// <summary>비행 한 틱의 기록 — 그 틱을 밟기 <b>전</b>의 상태와, 그 틱에 봇이 실제로 내린
+        /// 결정. 되돌리기(<see cref="ProbeCounterfactual"/>)가 "그 자리에서 반대로 눌렀으면"을
+        /// 물으려면 둘 다 필요하다.</summary>
+        private struct FlightStep
+        {
+            public BirdState State;
+            public bool Flap;
+        }
+
         //  앞을 이만큼 내다본다(초 단위 — 거리가 아니라 시간으로 잡는 이유는 FlappyAutoFlapSystem의
         //  같은 주석 참고: 날갯짓은 정점까지 시간이 걸리므로 그보다 가까운 것만 보면 늦는다).
         //  0.14초는 그 시스템이 "1.5m로 보다가 계속 박아서" 버린 값이라 여기서도 쓰지 않는다 —
@@ -650,11 +694,23 @@ namespace LOP.EditorTools
         //  태우면 그 정밀도가 사라진다. 둘의 타입이 다른 것도 그래서다(FreeSpaceProbe vs
         //  ExactFreeSpaceProbe) — 같은 타입이면 뒤바꿔 넘겨도 컴파일러가 못 잡는데, 뒤바뀌면
         //  훑기가 캐시를 타고 근거리 열이 틱당 1150번 캐시 없이 PhysX를 부른다.
+        //  trace/flipTick/resume은 되돌리기 전용이다. 기본값이면 예전과 완전히 같은 비행이다.
+        //  - trace: 틱마다의 상태·결정을 여기 담는다(null이면 안 담는다).
+        //  - flipTick: 그 틱에서만 봇의 결정을 뒤집는다(누르려 했으면 안 누르고, 아니면 누른다).
+        //  - resumeTick/resumeState: 처음부터가 아니라 그 틱의 상태에서 이어 난다.
+        //    비행은 결정론적이라(같은 상태 → 같은 결정 → 같은 이동) 0틱부터 다시 굴린 것과
+        //    같은 결과인데, 되돌릴 자리가 늘 죽기 직전이라 앞부분을 다시 굴리는 값이 순전히 낭비다.
+        //    <b>시뮬레이터를 하나 더 만들지 않는 것이 요점이다</b> — 두 개가 서로 어긋나면
+        //    되돌리기 결과 전체가 조용히 무효가 된다.
         private static BotFlight FlyBot(Vector3 start, float finishX, in FlappyShape shape, int mapMask,
                                         GameFramework.Physics.ICollisionQuery inner,
                                         float minY, float maxY,
                                         LOP.MapTools.FreeSpaceProbe isFree,
-                                        LOP.MapTools.ExactFreeSpaceProbe isFreeExact)
+                                        LOP.MapTools.ExactFreeSpaceProbe isFreeExact,
+                                        List<FlightStep> trace = null,
+                                        int flipTick = -1,
+                                        int resumeTick = 0,
+                                        BirdState resumeState = default)
         {
             var query = new HitWatcher(inner);
             //  출발점이 이미 지형 안이면 날려 봐야 뜻이 없다 — 그런데 그냥 날리면 "통과"가
@@ -670,6 +726,10 @@ namespace LOP.EditorTools
                                      spawnBlocked: true);
             }
             var state = new BirdState { Position = new Vector3(start.x, start.y, 0f) };
+            if (resumeTick > 0)
+            {
+                state = resumeState;
+            }
             float lookahead = shape.ForwardSpeed * BotLookaheadSeconds;
             //  "이 열까지 남은 틱"은 스캔 거리(초) 자체에서 그대로 나온다 — 손으로 맞춘 상수를
             //  쓰면 어긋났을 때 BotPilot.Decide가 엉뚱한 틱 수로 굴러간다. 아치를 몇 틱 훑을지는
@@ -684,7 +744,7 @@ namespace LOP.EditorTools
             //  표가 maxY까지 덮어야 한다.
             int buckets = Mathf.CeilToInt((maxY - bandBottom) / HeightGrid) + 1;
             var blockedNear = new bool[buckets];
-            float farthest = start.x;
+            float farthest = state.Position.x;
             int flaps = 0;
             int blindTicks = 0;
             //  진단 전용 두 카운터 — 판단(decision.Flap)에는 쓰지 않는다. 봇이 못 간 이유가
@@ -694,7 +754,7 @@ namespace LOP.EditorTools
 
             //  코스 길이보다 넉넉히 잡는다. 봇이 제자리에 갇히면 여기서 끝난다.
             int limit = Mathf.CeilToInt((finishX - start.x) / (shape.ForwardSpeed * TickSeconds)) + 600;
-            for (int tick = 0; tick < limit; tick++)
+            for (int tick = resumeTick; tick < limit; tick++)
             {
                 float scanX = state.Position.x + lookahead;
                 for (int i = 0; i < buckets; i++)
@@ -708,7 +768,11 @@ namespace LOP.EditorTools
                                                             shape.Radius, shape.FlapImpulse, shape.Gravity,
                                                             shape.MaxFallSpeed, shape.ForwardSpeed,
                                                             ticksToNear, TickSeconds, isFreeExact);
-                if (decision.Flap)
+                //  되돌리기가 지정한 틱에서만 결정을 뒤집는다. 그 뒤부터는 원래 정책 그대로다 —
+                //  "다르게 눌렀으면"이지 "다른 봇이었으면"이 아니다.
+                bool flap = tick == flipTick ? decision.Flap == false : decision.Flap;
+                trace?.Add(new FlightStep { State = state, Flap = flap });
+                if (flap)
                 {
                     flaps++;
                 }
@@ -727,7 +791,7 @@ namespace LOP.EditorTools
                     unwillingTicks++;
                 }
 
-                state = Step(state, decision.Flap, shape, mapMask, query);
+                state = Step(state, flap, shape, mapMask, query);
                 if (state.Position.x > farthest)
                 {
                     farthest = state.Position.x;
@@ -755,6 +819,108 @@ namespace LOP.EditorTools
                                  vetoedTicks: vetoedTicks, unwillingTicks: unwillingTicks);
         }
 
+        //  ── 되돌리기 ────────────────────────────────────────────────────────
+        //  죽기 직전 몇 틱을 되돌린다. 60틱 = 1.2초. 날갯짓 한 번의 아치가 17틱이니 서너 번의
+        //  날갯짓 만큼을 되짚는 셈이다 — 그보다 짧으면 "이미 손쓸 수 없게 된 뒤"만 보게 된다.
+        //
+        //  <b>60인가 30인가 — 둘 다 실제 맵에서 재 보고 60을 골랐다.</b>
+        //  값: 60틱이면 검사가 110초 → 264초(되돌리기 155초, 2.4배). 30틱이면 164초(되돌리기
+        //  53초, 1.5배). 비용만 보면 30이 낫다.
+        //  <b>그런데 30틱은 답을 뒤집는다.</b> PlayerSpawn_1과 _4는 살릴 수 있던 자리가 전부
+        //  죽기 51~52틱 전에 있어서, 30틱 창에서는 "0곳"이 나온다 — 즉 리포트가 네 자리 중
+        //  둘에 대해 <b>"지형이 막았다"</b>고 <b>틀린</b> 결론을 찍는다. 이 측정을 만든 이유가
+        //  바로 그런 한쪽으로 기운 답을 없애는 것이므로, 2.4배 느려지는 값을 치르고 60을 쓴다.
+        //  (줄이려면 창을 좁히지 말고 되돌리기 자체를 싸게 만들 것 — 예: 이득이 안 날 게
+        //  확실한 뒤집기를 미리 걸러내기.)
+        private const int CounterfactualTicks = 60;
+        //  "더 갔다"의 기준. 몸 지름(반지름 0.45 × 2 = 0.9m)보다 더 가야 센다. 이보다 작은
+        //  차이는 부동소수 잡음이거나 한 틱 어긋난 것이지 "살릴 수 있었다"가 아니다 —
+        //  기준이 없으면 잡음이 발견으로 둔갑한다.
+        private static float CounterfactualGain(in FlappyShape shape) => shape.Radius * 2f;
+
+        //  "이어 날기가 처음부터 다시 나는 것과 정말 같은가"를 검사 한 번에 딱 한 번 실제로
+        //  대조했는가. 이 지름길이 어긋나면 되돌리기 결과 전체가 조용히 무효가 되므로 —
+        //  그게 바로 "시뮬레이터를 하나 더 만들지 말라"가 막으려는 사고다 — 믿지 않고 잰다.
+        //  매번 재지 않는 이유는 값이 비싸서다(전 구간 비행 하나). Check()가 시작할 때 푼다.
+        private static bool resumeShortcutVerified;
+
+        /// <summary>죽기 직전으로 되돌아가 <b>그 틱에만</b> 반대로 눌러 보고, 더 갔는지 잰다.
+        ///
+        /// <para>이 측정이 양쪽으로 열려 있는 이유: 겨냥 규칙이 문제라면 되돌린 자리에서 더 가고,
+        /// 지형이 정말 못 지나가는 것이라면 어느 틱에 무엇을 해도 더 못 간다. 두 가설이 서로 다른
+        /// 숫자를 예측한다. (막힘:뜻없음 두 계수기는 두 가설에서 같은 답을 내므로 결론을 못 낸다.)</para></summary>
+        private static LOP.MapTools.Counterfactual ProbeCounterfactual(
+            Vector3 start, float finishX, in FlappyShape shape, int mapMask,
+            GameFramework.Physics.ICollisionQuery query, float minY, float maxY,
+            LOP.MapTools.FreeSpaceProbe isFree, LOP.MapTools.ExactFreeSpaceProbe isFreeExact,
+            in BotFlight baseline, List<FlightStep> trace)
+        {
+            //  날린 적이 없거나(파묻힌 스폰) 기록이 없으면 되돌릴 것도 없다.
+            if (baseline.Ticks <= 0 || trace == null || trace.Count == 0)
+            {
+                return default;
+            }
+            float threshold = CounterfactualGain(shape);
+            int tried = 0, savable = 0, savableByFlap = 0;
+            int earliestK = 0;
+            float earliestGain = 0f;
+            bool earliestForcedFlap = false;
+            for (int k = 1; k <= CounterfactualTicks; k++)
+            {
+                int flipTick = baseline.Ticks - k;
+                if (flipTick < 0 || flipTick >= trace.Count)
+                {
+                    break;
+                }
+                tried++;
+                BotFlight alt = FlyBot(start, finishX, shape, mapMask, query, minY, maxY,
+                                       isFree, isFreeExact,
+                                       flipTick: flipTick,
+                                       resumeTick: flipTick, resumeState: trace[flipTick].State);
+                if (resumeShortcutVerified == false)
+                {
+                    resumeShortcutVerified = true;
+                    //  같은 뒤집기를 0틱부터 통째로 다시 굴려 본다. 답이 다르면 이어 날기가
+                    //  깨진 것이므로 되돌리기 숫자를 믿으면 안 된다 — 조용히 넘어가지 않는다.
+                    BotFlight whole = FlyBot(start, finishX, shape, mapMask, query, minY, maxY,
+                                             isFree, isFreeExact, flipTick: flipTick);
+                    if (Mathf.Approximately(whole.FarthestX, alt.FarthestX) == false
+                        || whole.Ticks != alt.Ticks)
+                    {
+                        Debug.LogError("[맵 검사] 되돌리기의 '이어 날기'가 처음부터 다시 난 것과 다르다 —"
+                            + $" 이어: x={alt.FarthestX:F4}/{alt.Ticks}틱,"
+                            + $" 처음부터: x={whole.FarthestX:F4}/{whole.Ticks}틱."
+                            + " 되돌리기 숫자를 믿지 말 것.");
+                    }
+                    else
+                    {
+                        Debug.Log($"[맵 검사] 되돌리기 이어 날기 대조 통과 (x={alt.FarthestX:F4}, {alt.Ticks}틱)");
+                    }
+                }
+                float gain = alt.FarthestX - baseline.FarthestX;
+                if (gain <= threshold)
+                {
+                    continue;
+                }
+                savable++;
+                //  원래 안 누르려던 자리를 누르게 만든 것인가(= 겨냥이 소심했다),
+                //  아니면 누르려던 자리를 참게 만든 것인가(= 겨냥이 성급했다).
+                bool forcedFlap = trace[flipTick].Flap == false;
+                if (forcedFlap)
+                {
+                    savableByFlap++;
+                }
+                //  k가 커질수록 더 이른 자리다 — 오름차순으로 도니 마지막에 남는 것이 가장 이르다.
+                earliestK = k;
+                earliestGain = gain;
+                earliestForcedFlap = forcedFlap;
+            }
+            return new LOP.MapTools.Counterfactual(
+                measured: tried > 0, tried: tried, savable: savable, savableByFlap: savableByFlap,
+                earliestTicksBeforeDeath: earliestK, earliestGain: earliestGain,
+                earliestForcedFlap: earliestForcedFlap);
+        }
+
         //  훑는 높이 구간을 스폰 높이에서 유도할 때 위아래로 더 보는 여유. 상수로 박은 구간을
         //  쓰면 맵이 바뀔 때 조용히 엉뚱한 데를 훑는다.
         private const float HeightSweepMargin = 2f;
@@ -771,6 +937,7 @@ namespace LOP.EditorTools
         private static List<LOP.MapTools.HeightSweepRow> SweepStartHeights(
             List<(string Name, Vector3 Position)> spawns, float finishX, in FlappyShape shape,
             int mapMask, GameFramework.Physics.ICollisionQuery query, FreeSpaceGrid botGrid,
+            System.Diagnostics.Stopwatch counterfactualWatch,
             out string cancelNote)
         {
             cancelNote = null;
@@ -801,15 +968,29 @@ namespace LOP.EditorTools
                     cancelNote = $"진단 높이 훑기 — {i}/{count}줄만 훑음";
                     break;
                 }
-                BotFlight flight = FlyBot(new Vector3(startX, y, 0f), finishX, shape, mapMask, query,
-                                          SearchMinY, SearchMaxY, botGrid.IsFree, botGrid.IsFreeExact);
+                var start = new Vector3(startX, y, 0f);
+                var trace = new List<FlightStep>();
+                BotFlight flight = FlyBot(start, finishX, shape, mapMask, query,
+                                          SearchMinY, SearchMaxY, botGrid.IsFree, botGrid.IsFreeExact,
+                                          trace: trace);
+                //  훑기 줄에도 되돌리기를 건다 — 스폰은 넷뿐이라 "겨냥이냐 지형이냐"의 진짜
+                //  표본은 이쪽이다. 다만 표에는 요약 한 숫자만 붙인다(AppendHeightSweep 참고).
+                var counterfactual = default(LOP.MapTools.Counterfactual);
+                if (flight.Reached == false && flight.SpawnBlocked == false)
+                {
+                    counterfactualWatch.Start();
+                    counterfactual = ProbeCounterfactual(
+                        start, finishX, shape, mapMask, query, SearchMinY, SearchMaxY,
+                        botGrid.IsFree, botGrid.IsFreeExact, flight, trace);
+                    counterfactualWatch.Stop();
+                }
                 rows.Add(new LOP.MapTools.HeightSweepRow(
                     y, flight.Reached, flight.SpawnBlocked,
                     new LOP.MapTools.BotDiagnostics(
                         flight.EndX, flight.EndY, flight.Touched, flight.Ticks, flight.BlindTicks,
                         flight.FarthestX, flight.TickLimit,
                         flight.HitColliderPath, flight.HitVerticalSpeed,
-                        flight.VetoedTicks, flight.UnwillingTicks)));
+                        flight.VetoedTicks, flight.UnwillingTicks, counterfactual)));
             }
             return rows;
         }

@@ -585,9 +585,10 @@ namespace LOP.MapTools.Tests
             string report = BuildWithSweep(sweep, Unproven(Hit("기둥/Cube_12", -30f)));
 
             Assert.IsTrue(Contains(report, "그 높이가 지형 안"));
-            //  괄호까지 포함해 훑기 줄의 꼴로만 찾는다 — ①의 봇 줄도 두 숫자를 찍으므로
-            //  ("누르려다 막힘 0틱") 괄호 없이 찾으면 그쪽에 걸려 늘 빨강이 된다.
-            Assert.IsFalse(Contains(report, "(막힘"));
+            //  괄호와 뒤따르는 공백까지 포함해 훑기 줄의 꼴로만 찾는다. ①의 봇 줄도 두 숫자를
+            //  찍고("누르려다 막힘 0틱"), ①의 계수기 경고도 "(막힘:뜻없음 …"으로 시작하므로,
+            //  그보다 느슨하게 찾으면 그쪽에 걸려 늘 빨강이 된다.
+            Assert.IsFalse(Contains(report, "(막힘 "));
         }
 
         [Test]
@@ -603,7 +604,10 @@ namespace LOP.MapTools.Tests
                                    searchY: 1.4f, hasSearchY: true)));
 
             Assert.IsTrue(Contains(report, "탐색은 그 틱에 y=+1.4로 봤다"));
-            Assert.IsTrue(Contains(report, "(차이 +4.1m)"));
+            //  "충돌 후"라는 말이 붙어 있어야 한다 — 이 값은 이동 커널이 벽에 잘라낸 뒤의
+            //  차이라 실제 편향이 아니라 상한이다. 라벨 없이 "차이"라고만 쓰면 읽는 사람이
+            //  이것을 편향으로 읽는다.
+            Assert.IsTrue(Contains(report, "(충돌 후 차이 +4.1m)"));
         }
 
         [Test]
@@ -617,6 +621,195 @@ namespace LOP.MapTools.Tests
 
             Assert.IsTrue(Contains(report, "재생 어긋남: 222틱째"));
             Assert.IsFalse(Contains(report, "탐색은 그 틱에"));
+        }
+
+        //  ── Task 17 — 되돌리기 (양쪽으로 열린 측정) ──────────────────
+        //  막힘:뜻없음 두 계수기는 정확하지만 두 가설에서 같은 답을 낸다 — 살아 있는 봇이면
+        //  늘 "뜻 없음"이 압도한다. 되돌리기는 다르다: 겨냥이 놓친 것이면 살릴 자리가 나오고,
+        //  지형이 막은 것이면 하나도 안 나온다. 아래 테스트들은 그 답이 실제로 리포트에
+        //  박히는지, 그리고 재지 않은 것을 쟀다고 말하지 않는지 확인한다.
+
+        static Counterfactual Savable(int tried, int savable, int byFlap,
+                                      int earliestK, float gain, bool forcedFlap)
+            => new Counterfactual(measured: true, tried: tried, savable: savable,
+                                  savableByFlap: byFlap, earliestTicksBeforeDeath: earliestK,
+                                  earliestGain: gain, earliestForcedFlap: forcedFlap);
+
+        static BotDiagnostics WithCounterfactual(Counterfactual cf)
+            => new BotDiagnostics(endX: 177.9f, endY: 0.8f, touched: true, ticks: 818, blindTicks: 0,
+                                  farthestX: 177.9f, tickLimit: 3482,
+                                  hitColliderPath: "ComposedMap/Cube", hitVerticalSpeed: -26f,
+                                  vetoedTicks: 231, unwillingTicks: 138, counterfactual: cf);
+
+        [Test]
+        public void 되돌리기는_살릴_수_있던_자리_수와_가장_이른_자리를_찍는다()
+        {
+            //  네 숫자를 전부 다르게 둔다(60/17/15/41) — 하나를 다른 자리에 베껴 찍어도
+            //  반드시 어느 하나가 어긋나게.
+            string report = Build(Unproven(WithCounterfactual(
+                Savable(tried: 60, savable: 17, byFlap: 15, earliestK: 41, gain: 38.2f, forcedFlap: true))));
+
+            Assert.IsTrue(Contains(report, "죽기 전 60틱 중 17곳에서 다르게 눌렀으면 더 갔다"));
+            Assert.IsTrue(Contains(report, "누름 강제 15곳"));
+            Assert.IsTrue(Contains(report, "죽기 41틱 전"));
+            Assert.IsTrue(Contains(report, "눌렀으면 +38.2m"));
+        }
+
+        [Test]
+        public void 되돌리기의_뒤집기_방향이_문장에_드러난다()
+        {
+            //  "그 자리에서 눌렀으면"과 "안 눌렀으면"은 처방이 정반대다(겨냥이 소심한가
+            //  성급한가). 같은 값에 방향만 뒤집어, 문장이 실제로 그 플래그를 따라가는지 본다.
+            string flap = Build(Unproven(WithCounterfactual(
+                Savable(60, 17, 15, 41, 38.2f, forcedFlap: true))));
+            string hold = Build(Unproven(WithCounterfactual(
+                Savable(60, 17, 15, 41, 38.2f, forcedFlap: false))));
+
+            Assert.IsTrue(Contains(flap, "눌렀으면 +38.2m"));
+            Assert.IsFalse(Contains(flap, "안 눌렀으면 +38.2m"));
+            Assert.IsTrue(Contains(hold, "안 눌렀으면 +38.2m"));
+        }
+
+        [Test]
+        public void 되돌려도_못_갔으면_그것도_결론으로_적는다()
+        {
+            //  0곳은 침묵이 아니라 결론이다 — "지형이 막은 것"이라는 답이다. 이 줄이 없으면
+            //  두 가설 중 하나를 고를 수 없다.
+            string report = Build(Unproven(WithCounterfactual(
+                Savable(tried: 60, savable: 0, byFlap: 0, earliestK: 0, gain: 0f, forcedFlap: false))));
+
+            Assert.IsTrue(Contains(report, "죽기 전 60틱 어디서 다르게 눌러도 더 못 갔다"));
+            //  "이 창 안에서는"이 빠지면 이 줄이 "지형이 막았다"는 단정으로 읽힌다 —
+            //  실측으로 같은 자리가 창 30틱에서 0곳, 60틱에서 6곳이었다.
+            Assert.IsTrue(Contains(report, "이 창 안에서는"));
+            //  0곳일 때 "가장 이른 곳"을 찍으면 없는 자리를 있다고 말하는 셈이다.
+            Assert.IsFalse(Contains(report, "가장 이른 곳"));
+        }
+
+        [Test]
+        public void 되돌리기를_안_쟀으면_줄이_아예_없다()
+        {
+            //  default(Counterfactual)은 Measured=false — 안 돌렸다는 뜻이다. 0곳으로 찍으면
+            //  "되돌려 봤는데 하나도 못 살렸다"는 정반대 결론으로 읽힌다.
+            string report = Build(Unproven(Hit("지붕슬래브/Cube_77", 12.4f)));
+
+            //  줄머리 꼴로만 찾는다 — 바로 아래 계수기 경고 문단이 "되돌리기"라는 낱말을
+            //  공짜로 주므로, 낱말만 찾으면 이 테스트가 늘 빨강이 된다.
+            Assert.IsFalse(Contains(report, "되돌리기: 죽기"));
+        }
+
+        [Test]
+        public void 증명된_자리는_되돌리기도_안_찍는다()
+        {
+            //  ✅는 부검할 죽음이 없다 — 값이 들어 있어도 읽으면 안 된다.
+            string report = Build(new SpawnCleanRun("PlayerSpawn_1", -6f,
+                new CleanRunResult(true, new bool[0], 0f, 0f, 0, 0f),
+                verifiedByReplay: false, botReached: true, botFlaps: 176,
+                bot: WithCounterfactual(Savable(60, 17, 15, 41, 38.2f, true))));
+
+            Assert.IsFalse(Contains(report, "되돌리기: 죽기"));
+        }
+
+        [Test]
+        public void 훑기_줄에는_되돌리기_개수만_붙는다()
+        {
+            //  훑기 줄은 수십 개라 문장을 통째로 붙이면 표가 안 읽힌다 — 결론을 내는 한
+            //  숫자만 붙인다. 못 날린 줄에는 아무것도 안 붙어야 한다.
+            var sweep = new List<HeightSweepRow>
+            {
+                new HeightSweepRow(-8f, reached: false, spawnBlocked: false,
+                                   bot: WithCounterfactual(Savable(60, 23, 20, 41, 38.2f, true))),
+                //  날긴 했지만 되돌리기를 안 잰 줄(Measured=false). Measured 가드를 무시하는
+                //  구현이면 여기에 "되돌리기 0곳"이 붙어 잡힌다 — 지형 안이라 못 난 줄로는
+                //  그 회귀를 못 잡는다(그 줄은 애초에 두 숫자 자체를 안 붙인다).
+                new HeightSweepRow(-7f, reached: false, spawnBlocked: false,
+                                   bot: Hit("기둥/Cube_12", -30f)),
+            };
+            string report = BuildWithSweep(sweep, Unproven(Hit("기둥/Cube_12", -30f)));
+
+            Assert.IsTrue(Contains(report, "되돌리기 23곳"));
+            //  문장 꼴은 훑기 줄에 안 붙는다.
+            Assert.IsFalse(Contains(report, "죽기 전 60틱 중"));
+            //  안 잰 줄에는 0곳도 안 붙는다.
+            Assert.IsFalse(Contains(report, "되돌리기 0곳"));
+        }
+
+        [Test]
+        public void 두_계수기가_혼자서는_결론을_못_낸다고_적는다()
+        {
+            //  이 경고가 없으면 리포트가 그 비로 처방을 고르게 안내한다 — 이 프로젝트가 이미
+            //  두 번 밟은 함정이다. 기준선 숫자(1:∞ / 1:2.4)까지 함께 있어야 한다.
+            string report = Build(Unproven(Hit("지붕슬래브/Cube_77", 12.4f)));
+
+            Assert.IsTrue(Contains(report, "막힘:뜻없음 비는 혼자서는 결론을 못 낸다"));
+            Assert.IsTrue(Contains(report, "1:∞"));
+            Assert.IsTrue(Contains(report, "1:2.4"));
+        }
+
+        [Test]
+        public void 봇_부검이_없으면_그_경고도_없다()
+        {
+            //  계수기가 한 줄도 안 찍힌 리포트에 "그 비를 조심하라"만 뜨면 없는 숫자를
+            //  조심하라는 말이 된다.
+            string report = Build(new SpawnCleanRun("PlayerSpawn_1", -6f,
+                new CleanRunResult(true, new bool[0], 0f, 0f, 0, 0f),
+                verifiedByReplay: false, botReached: true, botFlaps: 176, bot: default));
+
+            Assert.IsFalse(Contains(report, "막힘:뜻없음 비는 혼자서는 결론을 못 낸다"));
+        }
+
+        [Test]
+        public void 재생_어긋남은_직전_틱_차이도_함께_찍는다()
+        {
+            //  충돌 후 차이(+4.1)와 직전 틱 차이(+0.45)를 다르게 둔다 — 한쪽을 베껴 찍으면
+            //  잡힌다. 직전 틱 값이 없으면 이 리포트는 상한을 편향으로 읽게 만든다.
+            string report = Build(Unproven(
+                Hit("지붕슬래브/Cube_77", 12.4f),
+                new ReplayMismatch(detected: true, tick: 222, x: 46.7f, y: -2.7f,
+                                   verticalSpeed: 18.8f, colliderPath: "ComposedMap/Cube",
+                                   searchY: 1.4f, hasSearchY: true,
+                                   prevDiff: 0.45f, hasPrevDiff: true)));
+
+            Assert.IsTrue(Contains(report, "충돌 후 차이 +4.1m / 직전 틱 차이 +0.45m"));
+        }
+
+        [Test]
+        public void 직전_틱_차이를_비율로도_읽어_준다()
+        {
+            //  "+0.45m"만 있으면 작아 보인다 — 올바른 독해는 반대다. 틱당 편향과 코스 진행률,
+            //  전 구간 외삽까지 있어야 "작다"로 읽히지 않는다.
+            string report = Build(Unproven(
+                Hit("지붕슬래브/Cube_77", 12.4f),
+                new ReplayMismatch(detected: true, tick: 222, x: 46.7f, y: -2.7f,
+                                   verticalSpeed: 18.8f, colliderPath: "ComposedMap/Cube",
+                                   searchY: 1.4f, hasSearchY: true,
+                                   prevDiff: 0.45f, hasPrevDiff: true)));
+
+            //  0.45 ÷ 222 = 0.002m/틱.
+            Assert.IsTrue(Contains(report, "÷ 222틱 = +0.002m/틱"));
+            //  (46.7−(−2)) ÷ 634 = 7.7%.
+            Assert.IsTrue(Contains(report, "코스의 7.7%"));
+            //  222 × (634 ÷ 48.7) ≈ 2890틱, × 0.002 ≈ 5.9m — ROADMAP의 7m와 같은 자릿수.
+            Assert.IsTrue(Contains(report, "약 2890틱"));
+            Assert.IsTrue(Contains(report, "약 5.9m"));
+            //  상한이라는 사실이 글로 남아야 한다.
+            Assert.IsTrue(Contains(report, "충돌 후 차이는 상한이다"));
+        }
+
+        [Test]
+        public void 직전_틱_차이를_모르면_그_줄을_안_찍는다()
+        {
+            //  1틱째에 부딪혔으면 직전 틱이 출발점이라 차이가 늘 0이다 — 0을 찍으면
+            //  "편향이 없다"는 측정값으로 읽힌다.
+            string report = Build(Unproven(
+                Hit("지붕슬래브/Cube_77", 12.4f),
+                new ReplayMismatch(detected: true, tick: 222, x: 46.7f, y: -2.7f,
+                                   verticalSpeed: 18.8f, colliderPath: "ComposedMap/Cube",
+                                   searchY: 1.4f, hasSearchY: true)));
+
+            Assert.IsTrue(Contains(report, "탐색은 그 틱에 y=+1.4로 봤다"));
+            Assert.IsFalse(Contains(report, "직전 틱 차이"));
+            Assert.IsFalse(Contains(report, "편향 읽기"));
         }
     }
 }

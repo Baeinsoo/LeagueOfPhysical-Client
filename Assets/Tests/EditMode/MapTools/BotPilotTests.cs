@@ -168,11 +168,22 @@ namespace LOP.MapTools.Tests
             while (lo < hi)
             {
                 int mid = lo + (hi - lo) / 2;
-                if (PredictCoasting(FloatFromBits(mid), verticalSpeed) < target) { lo = mid + 1; }
+                if (PredictAsProductionDoes(FloatFromBits(mid), verticalSpeed) < target) { lo = mid + 1; }
                 else { hi = mid; }
             }
             return FloatFromBits(lo);
         }
+
+        //  이 경계 테스트만은 프로덕션이 실제로 부르는 그 함수를 쓴다. 옆의 PredictCoasting은
+        //  같은 산술을 테스트가 따로 적은 것이라 보통은 그게 값을 한다(둘이 어긋나면 어느 한쪽이
+        //  틀렸다는 뜻이므로). 그런데 C#은 부동소수 연산을 선언된 타입보다 높은 정밀도로 해도
+        //  된다고 허용해서, 상수로 접히는 쪽과 인자로 받아 계산하는 쪽이 마지막 비트에서 정당하게
+        //  갈릴 수 있다 — 실제로 유니티에서 그렇게 갈렸다(0.45299998 vs 0.45299997).
+        //  "정확히 같을 때"를 묻는 테스트는 그 한 비트가 곧 질문 자체라, 여기서만 독립 구현을
+        //  포기하고 프로덕션과 같은 경로를 쓴다.
+        static float PredictAsProductionDoes(float currentY, float verticalSpeed) =>
+            FlappyRace.FlappyGapAiming.PredictHeight(currentY, verticalSpeed, TicksToNear,
+                                                     TickSeconds, Gravity, MaxFallSpeed);
 
         static int BitsOf(float value) => BitConverter.ToInt32(BitConverter.GetBytes(value), 0);
 
@@ -433,19 +444,34 @@ namespace LOP.MapTools.Tests
         {
             //  경계는 "미만"이다(predictedY < safeFloor) — 정확히 같으면 아직 문턱 위이므로
             //  누르지 않는다. <를 <=로 바꾸는 한 글자짜리 변화는 이 자리에서만 드러난다.
-            //  "정확히 같은" 시작 높이는 손으로 못 맞춘다(예측이 틱마다 누적된다) — 비트
-            //  이분 탐색으로 찾고, 정말 같은지 먼저 확인한 뒤 판단을 단언한다.
-            //  자유 하단을 0이 아니라 0.003m로 두는 이유: 자유 하단이 0이면 그 문턱(0.45)에
-            //  정확히 떨어지는 시작 높이가 float에 존재하지 않는다(예측값이 그 값을 건너뛴다).
+            //
+            //  "정확히 같은" 자리는 손으로 못 맞춘다. 예측이 틱마다 부동소수로 누적되므로
+            //  도달 높이는 float 위에서 **띄엄띄엄**하다 — 문턱을 하나 정해 놓고 시작 높이를
+            //  아무리 뒤져도 그 값이 아예 안 나오는 경우가 흔하다(예측이 그 값을 건너뛴다).
+            //  그래서 문턱도 함께 훑는다: 자유 하단을 한 칸씩 올려 가며 그때의 문턱을 정확히
+            //  내놓는 시작 높이가 있는지 비트 이분 탐색으로 보고, 처음 맞아떨어지는 짝을 쓴다.
+            //  (어느 짝을 쓰든 검사하는 성질은 같다 — 경계가 <인가 <=인가.)
+            //  하나도 못 찾으면 이 테스트는 경계를 못 짚은 것이므로 그 자리에서 빨강이 된다.
             const float fineStep = 0.001f;
-            const int lowCell = 3;
-            //  TryFindGap이 돌려주는 자유 하단과 같은 식으로 만든다(bottomY + 칸수 × 눈금).
-            float lowNear = BottomY + lowCell * fineStep;
-            float safeFloor = lowNear + BodyRadius;
-            float currentY = StartHeightWherePredictionEquals(safeFloor, 0f);
+            float lowNear = 0f, safeFloor = 0f, currentY = 0f;
+            bool found = false;
+            for (int lowCell = 1; lowCell <= 400 && found == false; lowCell++)
+            {
+                //  TryFindGap이 돌려주는 자유 하단과 같은 식으로 만든다(bottomY + 칸수 × 눈금).
+                float low = BottomY + lowCell * fineStep;
+                float floorAt = low + BodyRadius;
+                float start = StartHeightWherePredictionEquals(floorAt, 0f);
+                if (PredictAsProductionDoes(start, 0f) == floorAt)
+                {
+                    lowNear = low;
+                    safeFloor = floorAt;
+                    currentY = start;
+                    found = true;
+                }
+            }
 
-            Assert.AreEqual(safeFloor, PredictCoasting(currentY, 0f), 0f,
-                "경계를 정확히 못 짚었다 — 이 테스트는 <와 <=를 구분하지 못한다.");
+            Assert.IsTrue(found,
+                "도달 높이가 문턱과 정확히 같아지는 자리를 못 찾았다 — 이 테스트는 <와 <=를 구분하지 못한다.");
 
             var gap = Band(low: lowNear, span: 5f, BottomY, fineStep);
             var decision = BotPilot.Decide(gap, BottomY, fineStep, currentX: 0f, currentY: currentY,

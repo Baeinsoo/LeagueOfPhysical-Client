@@ -679,6 +679,15 @@ namespace LOP.EditorTools
         //  같은 시스템이 지금 쓰는 사다리({0.05,0.20,0.40,0.60}초) 중 검증된 0.20초 단을 가져온다.
         private const float BotLookaheadSeconds = 0.20f;
 
+        //  <b>원거리</b> 열 — 근거리의 두 배(0.40초)를 본다. 근거리 하나만 보면 트인 곳이나
+        //  깊은 구덩이 위에서 "가만둬도 된다"가 수백 틱 참이 되어, 그 사이 새가 종단속도로
+        //  떨어져 죽는다(실측 충돌 vy −20~−26). 날갯짓은 크기가 하나뿐이라 앞이 높으면 미리
+        //  올라야 한다 — 정점까지 17틱(앞으로 3.74m)이 걸리므로 도착해서 판단하면 늦는다.
+        //  0.40초인 근거: 위 근거리와 같은 출처다 — FlappyAutoFlapSystem이 실제로 쓰는
+        //  검증된 사다리 {0.05, 0.20, 0.40, 0.60}초의 그다음 단이 0.40초(=20틱)이고,
+        //  그게 마침 근거리(0.20초)의 두 배다. 임의로 고른 수가 아니다.
+        private const float BotFarLookaheadSeconds = 0.40f;
+
         //  봇을 진짜 커널로 날린다. 궤적이 하나뿐이라 상태를 묶을 이유가 없고, 그래서 반올림도
         //  표류도 생기지 않는다 — 전수 탐색이 못 하는 "증명"이 여기서 나온다.
         //  한 번이라도 닿으면(스턴이 걸리면) 무충돌이 아니므로 즉시 멈춘다.
@@ -731,10 +740,12 @@ namespace LOP.EditorTools
                 state = resumeState;
             }
             float lookahead = shape.ForwardSpeed * BotLookaheadSeconds;
+            float farLookahead = shape.ForwardSpeed * BotFarLookaheadSeconds;
             //  "이 열까지 남은 틱"은 스캔 거리(초) 자체에서 그대로 나온다 — 손으로 맞춘 상수를
             //  쓰면 어긋났을 때 BotPilot.Decide가 엉뚱한 틱 수로 굴러간다. 아치를 몇 틱 훑을지는
             //  넘기지 않는다 — 훑기는 세로 속도가 0이 되는 자리(정점)에서 스스로 멈춘다.
             int ticksToNear = Mathf.RoundToInt(BotLookaheadSeconds / TickSeconds);
+            int ticksToFar = Mathf.RoundToInt(BotFarLookaheadSeconds / TickSeconds);
             //  캐시는 격자 점에서 재므로(스폰 순서에 안 흔들리게), 표의 높이들도 격자 위에
             //  있어야 한다. 안 그러면 표 전체가 같은 방향으로 최대 반 칸 어긋난 자리에서
             //  측정된다 — minY는 맵 bounds에서 온 임의의 float이라, 그 어긋남이 맵마다
@@ -744,6 +755,7 @@ namespace LOP.EditorTools
             //  표가 maxY까지 덮어야 한다.
             int buckets = Mathf.CeilToInt((maxY - bandBottom) / HeightGrid) + 1;
             var blockedNear = new bool[buckets];
+            var blockedFar = new bool[buckets];
             float farthest = state.Position.x;
             int flaps = 0;
             int blindTicks = 0;
@@ -757,17 +769,21 @@ namespace LOP.EditorTools
             for (int tick = resumeTick; tick < limit; tick++)
             {
                 float scanX = state.Position.x + lookahead;
+                float farScanX = state.Position.x + farLookahead;
                 for (int i = 0; i < buckets; i++)
                 {
                     float y = bandBottom + i * HeightGrid;
                     blockedNear[i] = isFree(scanX, y) == false;
+                    //  같은 캐시 프로브를 쓴다 — 원거리 열이 먼저 물어 둔 칸을 열 틱 뒤 근거리
+                    //  열이 다시 물으므로, 열이 둘이 되어도 실제 PhysX 호출 수는 거의 안 는다.
+                    blockedFar[i] = isFree(farScanX, y) == false;
                 }
 
-                var decision = LOP.MapTools.BotPilot.Decide(blockedNear, bandBottom, HeightGrid,
+                var decision = LOP.MapTools.BotPilot.Decide(blockedNear, blockedFar, bandBottom, HeightGrid,
                                                             state.Position.x, state.Position.y, state.VerticalSpeed,
                                                             shape.Radius, shape.FlapImpulse, shape.Gravity,
                                                             shape.MaxFallSpeed, shape.ForwardSpeed,
-                                                            ticksToNear, TickSeconds, isFreeExact);
+                                                            ticksToNear, ticksToFar, TickSeconds, isFreeExact);
                 //  되돌리기가 지정한 틱에서만 결정을 뒤집는다. 그 뒤부터는 원래 정책 그대로다 —
                 //  "다르게 눌렀으면"이지 "다른 봇이었으면"이 아니다.
                 bool flap = tick == flipTick ? decision.Flap == false : decision.Flap;

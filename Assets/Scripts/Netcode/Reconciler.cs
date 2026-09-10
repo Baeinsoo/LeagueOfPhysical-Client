@@ -18,6 +18,10 @@ namespace LOP
         // 6cm였을 때, 입력 한 틱 누락이 만든 4cm 오차가 정지 중에도 45틱 넘게 그대로 남는 것이 관측됐다.
         // 클·서가 같은 코드를 돌아 정상 구간 오차는 정확히 0이므로 거를 잡음 자체가 거의 없다.
         private const float Threshold = 0.01f;
+        //  몸싸움이 보정을 키우는지 가리려면 "옆에 사람이 있었나"를 같이 기록해야 한다.
+        //  3m는 몸 지름 0.8m의 약 4배 — 이 안에 있으면 다음 몇 틱 안에 부딪힐 수 있다.
+        private const float NearRadius = 3f;
+        private const float NearRadiusSquared = NearRadius * NearRadius;
         private const float SpikeLogThreshold = 0.02f;   // [진단용 임시] 이 이상 어긋나면 정황을 로그로 남긴다
         private const long MaxReplayTicks = 128;   // 격차가 이보다 크면 텔레포트 폴백(재생 생략)
         // 렌더 보정 임계(minCorrection/noSmoothDistance)는 RenderCorrectionSmoother가 소유 — 여기선 seed만 한다.
@@ -190,7 +194,7 @@ namespace LOP
                     EntitySnap snap = pair.Value;
                     // HUD가 읽는 값은 내 엔티티 하나뿐이지만, 아래 RecordCorrection()은 배치 전체 기준(엔티티
                     // 하나라도 어긋나면 카운트)이라 같은 HUD 줄의 "평균 오차"와 "보정 횟수"가 서로 다른 대상을 센다.
-                    reconciliationStats.Record(error);
+                    reconciliationStats.Record(error, IsNearOtherCharacter(anchorTick, entityId, predicted.Position));
 
                     // [진단용 임시] 예측이 크게 어긋난 순간의 정황을 통째로 남긴다.
                     // 얼마나 어긋났는지(통계)만으로는 원인을 못 가른다 — 그 틱의 입력·속도·접지가 필요하다.
@@ -342,6 +346,35 @@ namespace LOP
 
             NotifyRenderCorrections();
             pendingSnaps.Clear();
+        }
+
+        /// <summary>주어진 위치 반경 <see cref="NearRadius"/> 안에 나 말고 캐릭터가 있나(몸싸움 근접도).</summary>
+        private bool IsNearOtherCharacter(long anchorTick, string selfId, System.Numerics.Vector3 selfPosition)
+        {
+            // selfPosition은 anchorTick 시점의 예측 위치다 — 상대도 같은 틱 위치로 봐야 "그때 옆에
+            // 있었나"가 맞다. 상대를 "지금" 위치로 보면, 오차가 가장 크게 벌어지는(=이 지표가 정작
+            // 설명해야 할) 렉 스파이크 구간일수록 그 사이 상대가 멀리 움직여 근접 라벨이 틀어진다.
+            foreach (var other in entityRegistry.All)
+            {
+                if (other.Id == selfId)
+                {
+                    continue;
+                }
+                if (other.Get<EntityKind>()?.Kind != EntityType.Character)
+                {
+                    continue;
+                }
+                // anchorTick 기록이 없으면(막 스폰됐거나 보관 창을 벗어난 오래된 앵커) 지금 위치로
+                // 대신한다 — 라벨을 아예 안 매기는 것보다, 어긋난 순간을 표시라도 하는 쪽이 낫다.
+                var otherPosition = world.TryGetSavedMotion(anchorTick, other.Id, out var motion)
+                    ? motion.Position
+                    : GameFramework.World.EntityMotionExtensions.GetPosition(other).ToNumerics();
+                if (System.Numerics.Vector3.DistanceSquared(selfPosition, otherPosition) < NearRadiusSquared)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

@@ -67,6 +67,11 @@ namespace LOP.UI
 
         public int CorrectionCount => reconciliationStats.CorrectionCount;
 
+        // 옆에 다른 캐릭터가 있던 순간만 따로 본 보정량 — 몸싸움이 예측을 망치는지 가리는 지표.
+        public float ReconNearMax => reconciliationStats.NearMax;
+
+        public float ReconFarMax => reconciliationStats.FarMax;
+
         public double TimingAvgD => inputTimingStats.AvgD;
 
         public int TimingMaxD => inputTimingStats.MaxD;
@@ -134,7 +139,7 @@ namespace LOP.UI
         {
             Debug.Log($"[HudDump] elapsed={ElapsedTime:F1} tick={Tick} fps={Fps:F0} frameMs={FrameMs:F1}" +
                       $" entities={EntityCount} reconMax={ReconMax:F3} reconAvg={ReconAverage:F3} reconLast={ReconLast:F3}" +
-                      $" corrections={CorrectionCount}" +
+                      $" corrections={CorrectionCount} reconNearMax={ReconNearMax:F3} reconFarMax={ReconFarMax:F3}" +
                       $" snapLag={ServerTickLag} snapGapAvg={SnapIntervalAvgMs:F1} snapGapMax={SnapIntervalMaxMs:F1}" +
                       $" cushion={CushionMs:F1} rtt={RttMs:F0} lead={Lead} margin={AheadMarginMs:F0}" +
                       $" stalls={CatchUpCapped} behindMax={MaxTicksBehind}" +

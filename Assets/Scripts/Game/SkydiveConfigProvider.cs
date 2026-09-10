@@ -30,7 +30,8 @@ namespace LOP
                 r.StaminaMax, r.GlideDrain, r.GroundRecover, r.EmergencyGlideTime,
                 r.GroundMoveSpeed, r.GroundAccel, r.JumpPower, r.PoseClearance, r.FallBrake,
                 r.GlideWindLag, r.SpreadWindLag, r.DiveWindLag,
-                r.LandingLethalSpeed);
+                r.LandingLethalSpeed,
+                r.Restitution);
         }
     }
 }

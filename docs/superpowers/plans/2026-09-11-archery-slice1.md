@@ -1315,8 +1315,9 @@ namespace LOP
                 unfinished.Add((pair.Value, 0f));
             }
 
+            // 첫 인자는 도착 기록 목록(FinishRecord)이다 — 문자열이 아니다. 이 게임엔 결승선이 없어 빈 목록.
             return FinishPlacements.Resolve(
-                System.Array.Empty<string>(), entityIdToUserId,
+                System.Array.Empty<FinishRecord>(), entityIdToUserId,
                 unfinished, System.Array.Empty<string>(), new List<string>());
         }
     }
@@ -1326,9 +1327,21 @@ namespace LOP
 > `FinishPlacements.Resolve`의 실제 시그니처를 먼저 확인한다:
 > ```bash
 > grep -n "public static MatchOutcome Resolve" -A 8 \
->   C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Server/Assets/Scripts/Game/FinishPlacements.cs
+>   C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Server/Assets/Scripts/Domain/FinishPlacements.cs
 > ```
-> `SkydiveRuleSystem.ResolveOutcome`이 부르는 형태가 정답지다. 다르면 그 형태에 맞춘다.
+> 위 grep은 **`Assets/Scripts/Domain/FinishPlacements.cs`** 를 본다(`Scripts/Game/`이 아니다).
+> 확인된 시그니처:
+>
+> ```csharp
+> public static MatchOutcome Resolve(
+>     IReadOnlyList<FinishRecord> finished,
+>     IReadOnlyDictionary<string, string> entityIdToUserId,
+>     IReadOnlyList<(string userId, float progress)> unfinished,
+>     IReadOnlyList<string> eliminated,
+>     IReadOnlyList<string> left)
+> ```
+>
+> 공동 순위는 다음 등수를 그만큼 건너뛴다(1,1,3 — 스포츠 표준). 전원 진행도가 0이면 전원 1위가 된다.
 
 - [ ] **Step 3: 서버 스코프를 쓴다**
 

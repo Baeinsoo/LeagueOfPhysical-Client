@@ -33,6 +33,40 @@ namespace LOP.MapTools.Tests
         static bool Contains(string haystack, string needle)
             => haystack.Contains(needle, System.StringComparison.Ordinal);
 
+        static string BuildWithSweep(IReadOnlyList<HeightSweepRow> sweep, params SpawnCleanRun[] runs)
+            => PlayabilityReport.Build("FlappyRaceMap", -2f, 632f, Config(), runs,
+                                       trapSection: "  낀 자리 없음.",
+                                       budget: new List<StunBudgetPoint>
+                                       {
+                                           new StunBudgetPoint(10f, 108f, 10, 7),
+                                       },
+                                       earliest: new EarliestCatch(true, 19.0f, 14),
+                                       heightGrid: 0.1f, minY: -40f, maxY: 40f, heightSweep: sweep);
+
+        static int Count(string haystack, string needle)
+        {
+            int count = 0;
+            for (int at = 0; ; count++)
+            {
+                at = haystack.IndexOf(needle, at, System.StringComparison.Ordinal);
+                if (at < 0) { return count; }
+                at += needle.Length;
+            }
+        }
+
+        //  🟡 한 자리 — 봇이 못 갔고 탐색은 찾은, 실제 맵의 네 자리가 전부 이랬던 그 상태.
+        //  진단 값은 인자로 받아 테스트마다 갈아 끼운다.
+        static SpawnCleanRun Unproven(BotDiagnostics bot, ReplayMismatch replay = default)
+            => new SpawnCleanRun("PlayerSpawn_2", -1f,
+                                 new CleanRunResult(true, new bool[191], 0f, 0f, 0, 0f),
+                                 verifiedByReplay: false, botReached: false, botFlaps: 51,
+                                 bot: bot, spawnInsideTerrain: false, replay: replay);
+
+        static BotDiagnostics Hit(string colliderPath, float verticalSpeed)
+            => new BotDiagnostics(endX: 177.9f, endY: 0.8f, touched: true, ticks: 818, blindTicks: 0,
+                                  farthestX: 177.9f, tickLimit: 3482,
+                                  hitColliderPath: colliderPath, hitVerticalSpeed: verticalSpeed);
+
         [Test]
         public void 자리마다_한_줄씩_찍는다()
         {
@@ -356,6 +390,147 @@ namespace LOP.MapTools.Tests
 
             Assert.IsFalse(Contains(report, "x=0.0"));
             Assert.IsTrue(Contains(report, "봇: 측정 안 됨"));
+        }
+        //  ── Task 15 — ①이 자기 결론의 근거를 보인다 ─────────────────
+        //  "봇이 못 갔다"만 있고 무엇이 막았는지가 없으면, 결과를 받아 든 사람이 *맵이 어려운
+        //  것*인지 *도구가 못 푸는 것*인지 가릴 수 없다. 아래 테스트들은 그 근거(무엇에·어느
+        //  방향으로 닿았나, 재생이 몇 틱째 어디서 갈렸나, 시작 높이를 바꾸면 어떻게 되나)가
+        //  실제로 리포트 문자열에 박히는지 확인한다.
+
+        [Test]
+        public void 닿은_원인은_콜라이더_이름과_방향과_세로속도까지_찍는다()
+        {
+            string report = Build(Unproven(Hit("지붕슬래브/Cube_77", 12.4f)));
+
+            //  세 정보가 다 있어야 한다 — 하나라도 빠지면 씬을 열어 눈으로 찾아야 한다.
+            Assert.IsTrue(Contains(report, "지붕슬래브/Cube_77"));
+            Assert.IsTrue(Contains(report, "오르다 부딪힘"));
+            Assert.IsTrue(Contains(report, "(vy=+12.4)"));
+        }
+
+        [Test]
+        public void 세로속도의_부호가_오르다와_떨어지다를_가른다()
+        {
+            //  부호가 이 줄의 전부다 — 부호를 잃으면 "천장에 박았나 바닥에 박았나"를 못 읽는다.
+            //  같은 콜라이더에 vy만 뒤집어, 방향 문구가 부호를 실제로 따라가는지 본다.
+            string rising = Build(Unproven(Hit("지붕슬래브/Cube_77", 12.4f)));
+            string falling = Build(Unproven(Hit("지붕슬래브/Cube_77", -30f)));
+
+            Assert.IsTrue(Contains(falling, "떨어지다 부딪힘"));
+            Assert.IsTrue(Contains(falling, "(vy=-30.0)"));
+            Assert.IsFalse(Contains(falling, "오르다 부딪힘"));
+            Assert.IsFalse(Contains(rising, "떨어지다 부딪힘"));
+        }
+
+        [Test]
+        public void 완주한_자리는_닿은_원인_줄을_안_찍는다()
+        {
+            //  ✅는 부검할 실패가 없다 — Bot에 값이 들어 있어도 읽으면 안 된다.
+            string report = Build(new SpawnCleanRun("PlayerSpawn_1", -6f,
+                new CleanRunResult(true, new bool[0], 0f, 0f, 0, 0f),
+                verifiedByReplay: false, botReached: true, botFlaps: 176,
+                bot: Hit("지붕슬래브/Cube_77", 12.4f)));
+
+            Assert.IsFalse(Contains(report, "지붕슬래브/Cube_77"));
+            Assert.IsFalse(Contains(report, "부딪힘"));
+        }
+
+        [Test]
+        public void 안_닿고_멈춘_비행은_닿은_원인_줄을_안_찍는다()
+        {
+            //  틱을 다 써서 멈춘 것은 "무엇에 닿았다"가 아니다 — 남아 있던 옛 콜라이더 이름을
+            //  그대로 찍으면 없는 충돌을 있다고 보고하는 셈이다.
+            string report = Build(Unproven(new BotDiagnostics(
+                endX: 60f, endY: 3f, touched: false, ticks: 2000, blindTicks: 1990,
+                farthestX: 60f, tickLimit: 2000,
+                hitColliderPath: "지붕슬래브/Cube_77", hitVerticalSpeed: 12.4f)));
+
+            Assert.IsFalse(Contains(report, "지붕슬래브/Cube_77"));
+            Assert.IsFalse(Contains(report, "부딪힘"));
+        }
+
+        [Test]
+        public void 재생이_어긋난_자리는_몇_틱째_어디서_갈렸는지_찍는다()
+        {
+            //  봇의 값(x=177.9 / 지붕슬래브)과 재생의 값(x=143.8 / 기둥)을 일부러 다르게 둔다 —
+            //  두 줄이 서로의 숫자를 베껴 찍어도 테스트가 알아채야 한다.
+            string report = Build(Unproven(
+                Hit("지붕슬래브/Cube_77", 12.4f),
+                new ReplayMismatch(detected: true, tick: 812, x: 143.8f, y: -6.3f,
+                                   verticalSpeed: -18.5f, colliderPath: "기둥/Cube_12")));
+
+            Assert.IsTrue(Contains(report, "재생 어긋남: 812틱째"));
+            Assert.IsTrue(Contains(report, "x=143.8"));
+            Assert.IsTrue(Contains(report, "y=-6.3"));
+            Assert.IsTrue(Contains(report, "(vy=-18.5)"));
+            Assert.IsTrue(Contains(report, "기둥/Cube_12"));
+        }
+
+        [Test]
+        public void 재생을_돌리지_않았으면_어긋남_줄이_없다()
+        {
+            //  default(ReplayMismatch)는 Detected=false — 재생을 안 돌렸다는 뜻이다.
+            //  0틱째 x=0.0에서 갈렸다고 찍으면 재지 않은 것을 쟀다고 말하는 셈이다.
+            string report = Build(Unproven(Hit("지붕슬래브/Cube_77", 12.4f)));
+
+            Assert.IsFalse(Contains(report, "재생 어긋남"));
+            Assert.IsFalse(Contains(report, "0틱째"));
+        }
+
+        [Test]
+        public void 높이_훑기는_준_줄_수만큼_찍고_각_줄의_결과를_구분한다()
+        {
+            var sweep = new List<HeightSweepRow>
+            {
+                new HeightSweepRow(-8f, reached: false, spawnBlocked: false,
+                                   bot: Hit("지붕슬래브/Cube_77", 12.4f)),
+                new HeightSweepRow(-7f, reached: true, spawnBlocked: false, bot: default),
+                new HeightSweepRow(-6f, reached: false, spawnBlocked: true, bot: default),
+            };
+            string report = BuildWithSweep(sweep, Unproven(Hit("기둥/Cube_12", -30f)));
+
+            Assert.IsTrue(Contains(report, "시작 높이 훑기"));
+            Assert.AreEqual(3, Count(report, "  시작 y="));
+            Assert.IsTrue(Contains(report, "시작 y=-8.0"));
+            Assert.IsTrue(Contains(report, "지붕슬래브/Cube_77"));
+            Assert.IsTrue(Contains(report, "시작 y=-7.0"));
+            Assert.IsTrue(Contains(report, "골인"));
+            Assert.IsTrue(Contains(report, "시작 y=-6.0"));
+            Assert.IsTrue(Contains(report, "그 높이가 지형 안"));
+        }
+
+        [Test]
+        public void 훑지_않았으면_높이_훑기_절이_아예_없다()
+        {
+            //  빈 표를 찍으면 "훑었는데 아무것도 없었다"로 읽힌다 — 안 훑은 것과 다르다.
+            string notSwept = Build(Unproven(Hit("지붕슬래브/Cube_77", 12.4f)));
+            string emptySweep = BuildWithSweep(new List<HeightSweepRow>(),
+                                               Unproven(Hit("지붕슬래브/Cube_77", 12.4f)));
+
+            Assert.IsFalse(Contains(notSwept, "시작 높이 훑기"));
+            Assert.IsFalse(Contains(emptySweep, "시작 높이 훑기"));
+        }
+
+        [Test]
+        public void 높이_훑기는_판정에_섞이지_않는다()
+        {
+            //  훑기는 맵의 스폰이 아닌 자리다 — 거기서 실패했다고 "이 맵은 일부 자리만 불가"가
+            //  되면 안 되고, ❌ 전용 눈금 처방도 딸려 오면 안 된다.
+            var sweep = new List<HeightSweepRow>
+            {
+                new HeightSweepRow(-8f, reached: false, spawnBlocked: false,
+                                   bot: Hit("지붕슬래브/Cube_77", 12.4f)),
+                new HeightSweepRow(-7f, reached: false, spawnBlocked: true, bot: default),
+            };
+            string report = BuildWithSweep(sweep, new SpawnCleanRun("PlayerSpawn_1", -6f,
+                new CleanRunResult(true, new bool[0], 0f, 0f, 0, 0f),
+                verifiedByReplay: false, botReached: true, botFlaps: 176, bot: default));
+
+            Assert.IsFalse(Contains(report, "일부 자리만 불가"));
+            Assert.IsFalse(Contains(report, "0.05로 줄여"));
+            Assert.IsFalse(Contains(report, "❌"));
+            Assert.IsFalse(Contains(report, "지형에 파묻힌 스폰이 있다"));
+            Assert.IsTrue(Contains(report, "봇 통과"));
         }
     }
 }

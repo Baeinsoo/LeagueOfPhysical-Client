@@ -67,6 +67,7 @@ namespace LOP.EditorTools
         [MenuItem("LOP/Debug/Flappy 맵 검사")]
         public static void Check()
         {
+            var totalWatch = System.Diagnostics.Stopwatch.StartNew();
             int mapMask = LayerMask.GetMask("Default");
             if (TryReadBounds(mapMask, out Bounds bounds) == false)
             {
@@ -135,6 +136,8 @@ namespace LOP.EditorTools
             //  앞에 붙인다 — 콘솔 경고는 화면을 떠나면 안 남지만 report 문자열은 붙여넣기로
             //  돌아다니기 때문이다.
             string cleanRunCancelNote = null;
+            string heightSweepCancelNote = null;
+            var heightSweep = new List<LOP.MapTools.HeightSweepRow>();
             List<string> trapCancelNotes = new List<string>();
             try
             {
@@ -167,7 +170,8 @@ namespace LOP.EditorTools
                     //  여기서 성공/실패로 갈라 만들 이유가 없다.
                     var botDiagnostics = new LOP.MapTools.BotDiagnostics(
                         flight.EndX, flight.EndY, flight.Touched, flight.Ticks, flight.BlindTicks,
-                        flight.FarthestX, flight.TickLimit);
+                        flight.FarthestX, flight.TickLimit,
+                        flight.HitColliderPath, flight.HitVerticalSpeed);
                     //  스폰이 지형에 파묻혀 있다. 봇도 탐색도 이 자리엔 답할 것이 없으므로
                     //  ✅/🟡/❌ 어디에도 섞지 않고 제 판정으로 낸다 — 특히 "봇이 통과했으니
                     //  탐색 생략"이라는 단축평가에 걸리면 안 된다(그게 이 자리를 ✅로 만들던
@@ -205,11 +209,30 @@ namespace LOP.EditorTools
                         gravity: shape.Gravity, maxFallSpeed: shape.MaxFallSpeed,
                         tickSeconds: TickSeconds, heightGrid: HeightGrid);
                     var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFree);
+                    var replay = default(LOP.MapTools.ReplayMismatch);
                     bool verified = result.Reachable
-                        && VerifyByReplay(spawns[i].Position, result.Flaps, shape, mapMask, query);
+                        && VerifyByReplay(spawns[i].Position, result.Flaps, shape, mapMask, query,
+                                          out replay);
                     cleanRuns.Add(new LOP.MapTools.SpawnCleanRun(
                         spawns[i].Name, spawns[i].Position.y, result, verified,
-                        botReached: false, botFlaps: flight.FlapCount, bot: botDiagnostics));
+                        botReached: false, botFlaps: flight.FlapCount, bot: botDiagnostics,
+                        replay: replay));
+                }
+
+                //  ① 진단 — 시작 높이 훑기. 판정이 아니다(위 cleanRuns에 안 들어간다).
+                //  스폰 넷이 서로 15m 벌어져 있는데도 봇이 같은 자리에서 멈추면, 그게 지형
+                //  때문인지 봇이 시작 높이를 흘려버리는 탓인지 스폰만 봐서는 못 가른다.
+                //  스폰이 아닌 높이에서도 날려 결과가 연속으로 변하는지 본다.
+                //  ①을 취소했으면 진단도 안 돌린다 — 그만하라는 뜻이지 "판정만 그만"이 아니다.
+                if (cleanRunCancelNote == null)
+                {
+                    //  이 진단이 검사 전체를 얼마나 무겁게 하는지는 재서 알아야 한다 — 리포트에
+                    //  넣지 않는 것은 리포트를 시간에 따라 달라지는 문자열로 만들지 않기 위해서다.
+                    var sweepWatch = System.Diagnostics.Stopwatch.StartNew();
+                    heightSweep = SweepStartHeights(spawns, finishX, shape, mapMask, query,
+                                                    botGrid, out heightSweepCancelNote);
+                    sweepWatch.Stop();
+                    Debug.Log($"[맵 검사] 진단 높이 훑기 {heightSweep.Count}줄 — {sweepWatch.ElapsedMilliseconds}ms");
                 }
 
                 //  ② 기존 낌 스캔 — 본문은 그대로다.
@@ -230,7 +253,7 @@ namespace LOP.EditorTools
             string report = LOP.MapTools.PlayabilityReport.Build(
                 UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
                 spawns[0].Position.x, finishX, config, cleanRuns, trapSection, budget, earliest,
-                HeightGrid, SearchMinY, SearchMaxY);
+                HeightGrid, SearchMinY, SearchMaxY, heightSweep);
 
             //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
             bool spawnXMismatch = false;
@@ -251,13 +274,17 @@ namespace LOP.EditorTools
             //  취소됐으면 report 맨 앞에 못 보고 지나칠 수 없게 배너를 붙인다 — ②는 이미 자기
             //  절 안에 취소 문구를 갖고 있지만(BuildTrapSection), ①은 PlayabilityReport의 절이라
             //  거기 손대지 않고 여기서 요약해 알린다.
-            if (cleanRunCancelNote != null || trapCancelNotes.Count > 0)
+            if (cleanRunCancelNote != null || heightSweepCancelNote != null || trapCancelNotes.Count > 0)
             {
                 var banner = new StringBuilder();
                 banner.AppendLine("⚠️⚠️⚠️ 이 검사는 도중에 취소됐다 — 아래 결과는 불완전하다 ⚠️⚠️⚠️");
                 if (cleanRunCancelNote != null)
                 {
                     banner.AppendLine($"  ① {cleanRunCancelNote}");
+                }
+                if (heightSweepCancelNote != null)
+                {
+                    banner.AppendLine($"  ① {heightSweepCancelNote}");
                 }
                 foreach (var note in trapCancelNotes)
                 {
@@ -268,6 +295,27 @@ namespace LOP.EditorTools
             }
             Debug.Log(report);
             EditorGUIUtility.systemCopyBuffer = report;
+
+            //  파일로도 남긴다. 콘솔은 도메인 리로드에 지워지고, 클립보드는 이 검사를 백그라운드
+            //  잡으로 돌리면 아예 안 채워진다(실측 — 30분 넘는 검사는 그렇게 돌려야 에디터가 안 멎는다).
+            //  그러면 30분을 돌리고도 결과를 못 읽는다.
+            //  Logs/에 두는 이유: git이 무시하면서 유니티가 안 비운다. Temp/는 안 된다 —
+            //  유니티가 도메인 리로드 때 통째로 지운다(리포트를 거기 뒀다가 실제로 잃었다).
+            try
+            {
+                string path = System.IO.Path.Combine(
+                    System.IO.Path.GetDirectoryName(UnityEngine.Application.dataPath), "Logs", "FlappyMapCheck.txt");
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+                System.IO.File.WriteAllText(path, report);
+                Debug.Log($"[맵 검사] 리포트를 파일로도 남겼다: {path}");
+            }
+            catch (System.Exception e)
+            {
+                //  파일을 못 써도 검사 자체는 끝났다 — 콘솔·클립보드가 남아 있으니 실패로 만들지 않는다.
+                Debug.LogWarning($"[맵 검사] 리포트를 파일로 남기지 못했다: {e.Message}");
+            }
+            totalWatch.Stop();
+            Debug.Log($"[맵 검사] 전체 {totalWatch.ElapsedMilliseconds}ms");
         }
 
         //  출발점과 결승선은 맵이 정한다 — 서버 룰(FlappyRaceRuleSystem)이 읽는 것과 같은 마커를
@@ -476,7 +524,8 @@ namespace LOP.EditorTools
         //  탐색은 높이를 눈금으로 뭉개므로, 이 재생만이 "정말 무충돌인가"의 증거다.
         private static bool VerifyByReplay(Vector3 start, IReadOnlyList<bool> flaps,
                                            in FlappyShape shape, int mapMask,
-                                           GameFramework.Physics.ICollisionQuery inner)
+                                           GameFramework.Physics.ICollisionQuery inner,
+                                           out LOP.MapTools.ReplayMismatch mismatch)
         {
             var query = new HitWatcher(inner);
             //  다른 모든 탐색·판정 지점처럼 z=0으로 고정한다 — FlappyWorld가 매 틱 새를 z=0에
@@ -487,10 +536,28 @@ namespace LOP.EditorTools
                 state = Step(state, flaps[i], shape, mapMask, query);
                 if (state.Stun > 0f)
                 {
+                    //  "어긋났다"만 남기면 사람이 원인을 못 짚는다 — 몇 번째 틱에 어디서
+                    //  무엇에 닿았는지를 같이 낸다(틱은 1부터 센다: 0틱째는 없다).
+                    mismatch = new LOP.MapTools.ReplayMismatch(
+                        detected: true, tick: i + 1, x: state.Position.x, y: state.Position.y,
+                        verticalSpeed: state.HitVerticalSpeed, colliderPath: PathOf(state.HitCollider));
                     return false;   // 닿았다 = 무충돌이 아니다
                 }
             }
+            mismatch = default;
             return true;
+        }
+
+        //  고칠 사람이 씬에서 찾아갈 수 있는 이름으로 바꾼다 — ②의 낌 지점이 쓰는 것과 같은
+        //  형식(부모/자식)이라, 두 절의 이름을 나란히 놓고 같은 물체인지 바로 알 수 있다.
+        private static string PathOf(Collider collider)
+        {
+            if (collider == null)
+            {
+                return null;
+            }
+            var parent = collider.transform.parent;
+            return parent != null ? parent.name + "/" + collider.name : collider.name;
         }
 
         /// <summary>봇 한 마리를 진짜 커널로 날린 결과.</summary>
@@ -516,10 +583,15 @@ namespace LOP.EditorTools
             /// <summary>출발점이 이미 지형 안이라 날려 보지도 못했다. 성공도 실패도 아니다 —
             /// 검사 자체가 성립하지 않는 자리다.</summary>
             public readonly bool SpawnBlocked;
+            /// <summary>무엇에 닿아 멈췄나(계층 경로). null이면 안 닿았거나 못 집어낸 것이다.</summary>
+            public readonly string HitColliderPath;
+            /// <summary>닿기 직전의 세로 속도 — 부호가 곧 오르던 중이었나 떨어지던 중이었나다.</summary>
+            public readonly float HitVerticalSpeed;
 
             public BotFlight(bool reached, bool touched, float farthestX, int flapCount, int ticks,
                              float endX, float endY, int blindTicks, int tickLimit,
-                             bool spawnBlocked = false)
+                             bool spawnBlocked = false,
+                             string hitColliderPath = null, float hitVerticalSpeed = 0f)
             {
                 Reached = reached;
                 Touched = touched;
@@ -531,6 +603,8 @@ namespace LOP.EditorTools
                 BlindTicks = blindTicks;
                 TickLimit = tickLimit;
                 SpawnBlocked = spawnBlocked;
+                HitColliderPath = hitColliderPath;
+                HitVerticalSpeed = hitVerticalSpeed;
             }
         }
 
@@ -628,7 +702,9 @@ namespace LOP.EditorTools
                 if (state.Stun > 0f)
                 {
                     return new BotFlight(false, true, farthest, flaps, tick + 1,
-                                         state.Position.x, state.Position.y, blindTicks, limit);
+                                         state.Position.x, state.Position.y, blindTicks, limit,
+                                         hitColliderPath: PathOf(state.HitCollider),
+                                         hitVerticalSpeed: state.HitVerticalSpeed);
                 }
                 //  ①(클린런)과 같은 질문이어야 한다 — 탐색은 발(x)이 마커 중심에 닿으면 골인으로
                 //  본다(TryReadFinishX 참고, 몸 반지름만큼 더 엄격한 게 의도적인 보수). +radius로
@@ -641,6 +717,64 @@ namespace LOP.EditorTools
             }
             return new BotFlight(false, false, farthest, flaps, limit,
                                  state.Position.x, state.Position.y, blindTicks, limit);
+        }
+
+        //  훑는 높이 구간을 스폰 높이에서 유도할 때 위아래로 더 보는 여유. 상수로 박은 구간을
+        //  쓰면 맵이 바뀔 때 조용히 엉뚱한 데를 훑는다.
+        private const float HeightSweepMargin = 2f;
+        private const float HeightSweepStep = 1f;
+        //  아무리 스폰이 벌어져 있어도 이만큼 넘게는 안 날린다 — 진단 하나가 검사 전체보다
+        //  오래 걸리면 아무도 안 돌린다. 넘치면 간격을 넓혀 줄 수를 맞춘다.
+        private const int HeightSweepMaxRows = 40;
+
+        //  ① 진단 — 스폰이 아닌 높이에서도 봇을 날려 본다. 판정이 아니라 진단이다: 결과는
+        //  cleanRuns에 안 들어가고 리포트의 별도 절에만 찍힌다.
+        //  묻는 것: "봇이 막히는 자리가 시작 높이에 따라 연속으로 움직이나?" 계단처럼 두세
+        //  값으로만 갈리면 지형이 아니라 봇(또는 그 입력)이 정보를 잃고 있다는 뜻이다.
+        //  x는 스폰의 x를 그대로 쓴다 — 높이 하나만 바꿔야 그 차이가 높이 탓이라 말할 수 있다.
+        private static List<LOP.MapTools.HeightSweepRow> SweepStartHeights(
+            List<(string Name, Vector3 Position)> spawns, float finishX, in FlappyShape shape,
+            int mapMask, GameFramework.Physics.ICollisionQuery query, FreeSpaceGrid botGrid,
+            out string cancelNote)
+        {
+            cancelNote = null;
+            var rows = new List<LOP.MapTools.HeightSweepRow>();
+            float low = spawns[0].Position.y;
+            float high = spawns[0].Position.y;
+            for (int i = 1; i < spawns.Count; i++)
+            {
+                low = Mathf.Min(low, spawns[i].Position.y);
+                high = Mathf.Max(high, spawns[i].Position.y);
+            }
+            low -= HeightSweepMargin;
+            high += HeightSweepMargin;
+            float step = HeightSweepStep;
+            int count = Mathf.FloorToInt((high - low) / step) + 1;
+            if (count > HeightSweepMaxRows)
+            {
+                count = HeightSweepMaxRows;
+                step = (high - low) / (count - 1);
+            }
+            float startX = spawns[0].Position.x;
+            for (int i = 0; i < count; i++)
+            {
+                float y = low + i * step;
+                if (EditorUtility.DisplayCancelableProgressBar("Flappy 맵 검사 (1/3 클린런)",
+                        $"진단 — 시작 높이 훑기 y={y:F1}", i / (float)count))
+                {
+                    cancelNote = $"진단 높이 훑기 — {i}/{count}줄만 훑음";
+                    break;
+                }
+                BotFlight flight = FlyBot(new Vector3(startX, y, 0f), finishX, shape, mapMask, query,
+                                          SearchMinY, SearchMaxY, botGrid.IsFree, botGrid.IsFreeExact);
+                rows.Add(new LOP.MapTools.HeightSweepRow(
+                    y, flight.Reached, flight.SpawnBlocked,
+                    new LOP.MapTools.BotDiagnostics(
+                        flight.EndX, flight.EndY, flight.Touched, flight.Ticks, flight.BlindTicks,
+                        flight.FarthestX, flight.TickLimit,
+                        flight.HitColliderPath, flight.HitVerticalSpeed)));
+            }
+            return rows;
         }
 
         //  지형 안이면 새가 있을 수 없고, 지형에서 멀면 낄 일이 없다. 그 사이만 본다.
@@ -688,6 +822,11 @@ namespace LOP.EditorTools
             public float VerticalSpeed;
             public float Stun;
             public float Invuln;
+            /// <summary>진단 전용 — 멈춰 세운 접촉 <b>직전</b>의 세로 속도. 이동 뒤 값
+            /// (<see cref="VerticalSpeed"/>)은 벽에 지워져 부호가 사라진다.</summary>
+            public float HitVerticalSpeed;
+            /// <summary>진단 전용 — 멈춰 세운 콜라이더.</summary>
+            public Collider HitCollider;
         }
 
         //  게임 한 틱 그대로 굴린다(FlappyWorld.Mutation): 스턴 시간 감소 → 스턴이면 멈춤,
@@ -743,6 +882,10 @@ namespace LOP.EditorTools
             if (query.SawHit && state.Stun <= 0f && state.Invuln <= 0f)
             {
                 state.Stun = shape.StunTime;
+                //  진단 전용 — 판단에는 안 쓴다. 넣어 준 세로 속도(velocity.y)를 남기는 것이
+                //  핵심이다: 이동 뒤 result.velocity.y는 벽 방향 성분이 지워져 부호가 없다.
+                state.HitVerticalSpeed = velocity.y;
+                state.HitCollider = query.FirstHit;
             }
             return state;
         }
@@ -830,10 +973,19 @@ namespace LOP.EditorTools
         {
             private readonly GameFramework.Physics.ICollisionQuery _inner;
             public bool SawHit { get; private set; }
+            /// <summary>이 틱에 처음 닿은 콜라이더. 한 틱에 여러 번 쓸리면(미끄러짐) 뒤엣것이
+            /// 아니라 <b>처음</b> 것을 남긴다 — 새를 멈춰 세운 것이 그 첫 접촉이기 때문이다.
+            /// 공유 커널(KinematicMover)은 이 값을 안 돌려주므로 호스트인 이 검사기가 포트
+            /// 구현(여기)에서 받아 둔다 — 커널은 건드리지 않는다.</summary>
+            public Collider FirstHit { get; private set; }
 
             public HitWatcher(GameFramework.Physics.ICollisionQuery inner) => _inner = inner;
 
-            public void Reset() => SawHit = false;
+            public void Reset()
+            {
+                SawHit = false;
+                FirstHit = null;
+            }
 
             public GameFramework.Physics.CollisionHit CapsuleCast(Vector3 point1, Vector3 point2, float radius,
                 Vector3 direction, float distance, int layerMask)
@@ -842,6 +994,10 @@ namespace LOP.EditorTools
                 if (hit.HasHit)
                 {
                     SawHit = true;
+                    if (FirstHit == null)
+                    {
+                        FirstHit = hit.Collider;
+                    }
                 }
                 return hit;
             }

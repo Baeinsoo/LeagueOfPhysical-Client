@@ -21,9 +21,18 @@ namespace LOP.MapTools
         /// <summary>이번 비행에 허용된 최대 틱 수. Ticks만 찍으면 분모가 없어 크고 작음을
         /// 판단할 수 없다.</summary>
         public readonly int TickLimit;
+        /// <summary>봇을 멈춰 세운 콜라이더의 이름(계층 경로). null이면 무엇에 닿았는지 못
+        /// 집어냈다는 뜻이다 — "닿았다"만 알고 무엇에 닿았는지는 모르는 상태라, 그럴 땐
+        /// 원인 줄을 아예 안 찍는다(모르는 것을 아는 척하지 않는다).</summary>
+        public readonly string HitColliderPath;
+        /// <summary>닿기 직전의 세로 속도. 부호가 곧 "올라가다 위에 걸렸나 / 떨어지다 아래에
+        /// 걸렸나"다. 닿은 뒤 값이 아니라 <b>직전</b> 값이어야 한다 — 이동 커널이 벽 방향
+        /// 속도를 지우고 나면 부호가 사라져 아무것도 못 읽는다.</summary>
+        public readonly float HitVerticalSpeed;
 
         public BotDiagnostics(float endX, float endY, bool touched, int ticks, int blindTicks,
-                              float farthestX, int tickLimit)
+                              float farthestX, int tickLimit,
+                              string hitColliderPath = null, float hitVerticalSpeed = 0f)
         {
             EndX = endX;
             EndY = endY;
@@ -32,6 +41,54 @@ namespace LOP.MapTools
             BlindTicks = blindTicks;
             FarthestX = farthestX;
             TickLimit = tickLimit;
+            HitColliderPath = hitColliderPath;
+            HitVerticalSpeed = hitVerticalSpeed;
+        }
+    }
+
+    /// <summary>탐색이 찾은 날갯짓 순서를 진짜 커널로 재생했을 때 어긋난 자리. "어긋났다"는
+    /// 사실만으로는 사람이 원인을 못 짚는다 — 몇 번째 틱에, 어디서, 무엇에 닿았는지가 있어야
+    /// 지형을 보러 갈지 탐색의 반올림을 보러 갈지 정할 수 있다.</summary>
+    public readonly struct ReplayMismatch
+    {
+        /// <summary>재생을 실제로 돌려 어긋난 자리를 집어냈는가. false면 재생을 안 돌렸거나
+        /// (봇이 통과해 탐색 자체를 생략) 끝까지 무충돌이었다는 뜻이다.</summary>
+        public readonly bool Detected;
+        /// <summary>몇 번째 틱에서 처음 닿았는가(1부터 센다 — 0틱째는 없다).</summary>
+        public readonly int Tick;
+        public readonly float X;
+        public readonly float Y;
+        /// <summary>닿기 직전의 세로 속도. <see cref="BotDiagnostics.HitVerticalSpeed"/>와 같은 뜻.</summary>
+        public readonly float VerticalSpeed;
+        public readonly string ColliderPath;
+
+        public ReplayMismatch(bool detected, int tick, float x, float y, float verticalSpeed,
+                              string colliderPath)
+        {
+            Detected = detected;
+            Tick = tick;
+            X = x;
+            Y = y;
+            VerticalSpeed = verticalSpeed;
+            ColliderPath = colliderPath;
+        }
+    }
+
+    /// <summary>진단용 한 줄 — 스폰이 아닌 높이에서 봇을 날려 본 결과. 판정에는 안 쓴다.</summary>
+    public readonly struct HeightSweepRow
+    {
+        public readonly float StartY;
+        public readonly bool Reached;
+        /// <summary>그 높이가 지형 안이라 날려 보지도 못했다. 실패가 아니라 측정 불가다.</summary>
+        public readonly bool SpawnBlocked;
+        public readonly BotDiagnostics Bot;
+
+        public HeightSweepRow(float startY, bool reached, bool spawnBlocked, in BotDiagnostics bot)
+        {
+            StartY = startY;
+            Reached = reached;
+            SpawnBlocked = spawnBlocked;
+            Bot = bot;
         }
     }
 
@@ -50,10 +107,13 @@ namespace LOP.MapTools
         /// 속하지 않는 <b>넷째 상태</b>다 — 봇도 탐색도 이 자리엔 답할 것이 없고, 고칠 것은
         /// 맵의 지형이 아니라 스폰 마커의 위치다.</summary>
         public readonly bool SpawnInsideTerrain;
+        /// <summary>재생이 어긋난 자리(🟡)의 부검 정보. <see cref="VerifiedByReplay"/>가
+        /// false일 때만 뜻이 있다.</summary>
+        public readonly ReplayMismatch Replay;
 
         public SpawnCleanRun(string name, float y, CleanRunResult result, bool verifiedByReplay,
                              bool botReached, int botFlaps, BotDiagnostics bot,
-                             bool spawnInsideTerrain = false)
+                             bool spawnInsideTerrain = false, ReplayMismatch replay = default)
         {
             Name = name;
             Y = y;
@@ -63,6 +123,7 @@ namespace LOP.MapTools
             BotFlaps = botFlaps;
             Bot = bot;
             SpawnInsideTerrain = spawnInsideTerrain;
+            Replay = replay;
         }
     }
 
@@ -71,7 +132,8 @@ namespace LOP.MapTools
         public static string Build(string mapName, float startX, float finishX, in FlappyConfig config,
                                    IReadOnlyList<SpawnCleanRun> cleanRuns, string trapSection,
                                    IReadOnlyList<StunBudgetPoint> budget, EarliestCatch earliest,
-                                   float heightGrid, float minY, float maxY)
+                                   float heightGrid, float minY, float maxY,
+                                   IReadOnlyList<HeightSweepRow> heightSweep = null)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
@@ -139,6 +201,7 @@ namespace LOP.MapTools
                         text.AppendLine($"  {run.Name} (y={run.Y:F0})   🟡  탐색 경로 날갯짓 {CountFlaps(run.Result)}회"
                                       + "   ⚠️ 봇은 못 갔고 탐색은 찾았으나 재생이 어긋남");
                         AppendBotDiagnostics(text, run.Bot, run.BotFlaps, startX, finishX);
+                        AppendReplayMismatch(text, run.Replay);
                     }
                 }
                 else
@@ -206,6 +269,8 @@ namespace LOP.MapTools
                               + " 좁히는 것은 안정적인 해법이 아니다. 자세한 내용은 docs/ROADMAP.md 참고)");
             }
             text.AppendLine();
+
+            AppendHeightSweep(text, heightSweep, startX, finishX);
 
             text.AppendLine("── ② 낌 지점 ─────────────────────────");
             text.AppendLine(trapSection);
@@ -293,6 +358,97 @@ namespace LOP.MapTools
                 line.Append($" · 최고 도달 x={bot.FarthestX:F1} (코스 {farthestPercent:F0}%)");
             }
             text.AppendLine(line.ToString());
+
+            //  무엇에 닿았는지까지 나와야 "맵이 어려운 것"과 "봇이 못 푸는 것"이 갈린다 —
+            //  "닿음"만으로는 읽는 사람이 씬을 열어 그 자리를 눈으로 찾아야 한다.
+            //  닿지 않았거나(틱 소진) 무엇에 닿았는지 못 집어냈으면 안 찍는다.
+            if (bot.Touched && string.IsNullOrEmpty(bot.HitColliderPath) == false)
+            {
+                text.AppendLine("                                  "
+                              + ImpactPhrase(bot.HitVerticalSpeed, bot.HitColliderPath));
+            }
+        }
+
+        //  "무엇에·어느 쪽으로 가다 닿았나"를 한 문장으로. 세로 속도의 부호가 곧 방향이다.
+        //  ("천장"·"바닥"이라 단정하지 않는 것은 의도적이다 — 닿은 면이 실제로 위인지 아래인지는
+        //   재지 않았고, 아는 것은 새가 어느 쪽으로 움직이던 중이었나뿐이다. 단정하면 아래에서
+        //   위로 솟은 기둥 옆구리를 "천장"이라 부르게 된다.)
+        static string ImpactPhrase(float verticalSpeed, string colliderPath)
+        {
+            string direction;
+            if (verticalSpeed > 0.5f) { direction = "↑ 오르다 부딪힘"; }
+            else if (verticalSpeed < -0.5f) { direction = "↓ 떨어지다 부딪힘"; }
+            else { direction = "→ 수평으로 부딪힘"; }
+            //  부호를 반드시 보이게 찍는다(+12.4 / -30.0) — 이 줄의 값은 부호가 전부다.
+            return $"{direction} (vy={verticalSpeed:+0.0;-0.0;0.0}) :: {colliderPath}";
+        }
+
+        //  재생이 어긋난 자리의 부검. "어긋났다"만으로는 지형을 보러 갈지 탐색의 반올림을
+        //  보러 갈지 정할 수 없다 — 틱·자리·닿은 것이 있어야 사람이 원인을 짚는다.
+        static void AppendReplayMismatch(StringBuilder text, in ReplayMismatch replay)
+        {
+            if (replay.Detected == false)
+            {
+                return;
+            }
+            var line = new StringBuilder(
+                $"                             재생 어긋남: {replay.Tick}틱째"
+                + $" x={replay.X:F1} y={replay.Y:F1} (vy={replay.VerticalSpeed:+0.0;-0.0;0.0})");
+            if (string.IsNullOrEmpty(replay.ColliderPath) == false)
+            {
+                line.Append($" :: {replay.ColliderPath}");
+            }
+            text.AppendLine(line.ToString());
+        }
+
+        //  판정이 아니라 진단이다 — 스폰이 아닌 높이에서도 날려 봐서, 봇이 막히는 자리가 시작
+        //  높이에 따라 연속적으로 움직이는지 본다. 계단처럼 두세 값으로만 갈리면 지형이 아니라
+        //  봇(또는 그 입력)이 정보를 잃고 있다는 신호다. 절을 따로 두는 이유: ①의 판정에 섞이면
+        //  "스폰도 아닌 자리가 실패했다"가 맵의 결함으로 읽힌다.
+        static void AppendHeightSweep(StringBuilder text, IReadOnlyList<HeightSweepRow> rows,
+                                      float startX, float finishX)
+        {
+            //  훑지 않았으면 절 자체를 안 찍는다 — 빈 표는 "훑었는데 아무것도 없었다"로 읽힌다.
+            if (rows == null || rows.Count == 0)
+            {
+                return;
+            }
+            text.AppendLine("── ① 진단 — 시작 높이 훑기 ────────────");
+            text.AppendLine("  (판정이 아니라 진단이다. 맵의 스폰이 아닌 높이에서도 날려 봐서, 봇이"
+                          + " 막히는 자리가");
+            text.AppendLine("   시작 높이에 따라 어떻게 움직이는지 본다. 결과가 계단처럼 두세 값으로만"
+                          + " 갈리면");
+            text.AppendLine("   지형이 아니라 봇이 정보를 잃고 있다는 뜻이다.)");
+            for (int i = 0; i < rows.Count; i++)
+            {
+                HeightSweepRow row = rows[i];
+                //  값이 라벨 바로 뒤에 붙게 두고(정렬은 뒤에서 채운다) — 사이에 정렬 공백이
+                //  끼면 "시작 y=-8.0"이 한 덩어리로 안 남아 찾기가 어려워진다.
+                var line = new StringBuilder($"  시작 y={row.StartY:F1}".PadRight(18));
+                if (row.SpawnBlocked)
+                {
+                    line.Append("그 높이가 지형 안 — 못 날림");
+                }
+                else if (row.Reached)
+                {
+                    line.Append("골인");
+                }
+                else
+                {
+                    float percent = (row.Bot.EndX - startX) / (finishX - startX) * 100f;
+                    line.Append($"x={row.Bot.EndX:F1} (코스 {percent:F0}%)");
+                    if (row.Bot.Touched && string.IsNullOrEmpty(row.Bot.HitColliderPath) == false)
+                    {
+                        line.Append("  " + ImpactPhrase(row.Bot.HitVerticalSpeed, row.Bot.HitColliderPath));
+                    }
+                    else if (row.Bot.Touched == false)
+                    {
+                        line.Append("  틱 소진(못 닿음)");
+                    }
+                }
+                text.AppendLine(line.ToString());
+            }
+            text.AppendLine();
         }
     }
 }

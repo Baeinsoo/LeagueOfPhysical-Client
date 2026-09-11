@@ -8,9 +8,9 @@
 
 **Architecture:** 과녁은 엔티티가 아니다 — 화살과 같은 취급이다. `(매치 씨앗, 웨이브 번호)`를 넣으면
 같은 과녁이 나오는 **순수 커널**(`ArcheryWaveGenerator`)을 LOP-Shared에 두고, 클·서가 그 *같은 구체
-코드*를 실행한다. 적중 판정만 **서버 권위**(`ArcheryHitSystem`)이고, 그 결과는 두 갈래로 내려온다 —
-**점수는 스냅샷**(durable), **"어느 과녁이 누구에게 먹혔다"는 사건**(연출·소멸). 클라는 적중을 예측하지
-않는다.
+코드*를 실행한다. 적중 판정만 **서버 권위**(`ArcheryHitSystem`)이고, 그 결과는 **세 갈래**로 내려온다 —
+**점수는 엔티티 스냅샷**, **어느 과녁이 남았나는 웨이브 상태**(둘 다 durable), **누가 몇 점을 먹었나는
+사건**(연출·귀속). 클라는 적중을 예측하지 않는다.
 
 **Tech Stack:** Unity 6 / VContainer / Mirror / Protobuf(wire) / Luban(MasterData) / NUnit(EditMode)
 
@@ -53,11 +53,15 @@
 - **World 타입 이름이 `UnityEngine`과 겹치면 풀 네임스페이스로 한정한다**
   (`GameFramework.World.Transform`, `GameFramework.World.Component`).
 - **틱 레이트는 50Hz** — 60초 = 3000틱. `TickInterval = 0.02f`.
-- **프로토는 기존 메시지에 필드를 더할 뿐 새 top-level 메시지를 만들지 않는다.**
-  `ArcheryHitToC`는 `WorldEventToC`의 oneof 안에 담기는 payload이고(`@auto_generate` 없음),
-  `EntitySnap.score`는 필드 추가다. **`MessageIds.cs`가 한 줄도 안 바뀌어야 한다** — 부모 스크립트
-  `generate_protos.sh`는 그 파일을 지우고 다시 만드는데 id가 밀리면 와이어가 조용히 깨진다.
-  반드시 `compile_protos.sh`만 돌리고 `git diff --stat ...MessageIds.cs`가 0줄인지 확인한다.
+- **프로토 — 기존 id는 한 칸도 밀리면 안 된다.** 이 슬라이스는 세 가지를 더한다:
+  `ArcheryHitToC`(`WorldEventToC` oneof 안의 payload, `@auto_generate` **없음** → id 없음),
+  `EntitySnap.score`(필드 추가), 그리고 **`ArcheryStateToC`(새 top-level 메시지 → 새 id 하나)**.
+  `generate_message_ids.sh`는 **기존 `MessageIds.cs`를 읽어 id를 보존**하고 새것만 뒤에 붙인다.
+  위험한 것은 그 파일이 **지워진 채로** 도는 경우다(부모 `generate_protos.sh`가 그렇게 한다) —
+  그러면 `find` 순서대로 전부 다시 매겨져 **와이어가 조용히 깨진다.**
+  → **`MessageIds.cs`를 지우지 말고** 서브스크립트를 개별 실행한 뒤,
+  `git diff Runtime.Generated/Scripts/MessageIds.cs`가 **`ArcheryStateToC = 19` 한 줄 추가뿐**이고
+  1~18번이 그대로인지 눈으로 확인한다. 한 줄이라도 값이 바뀌었으면 되돌리고 다시 한다.
 - **필드 번호를 재사용하지 않는다.** `EntitySnap`의 다음 빈 번호는 **24**(23까지 사용, 12·13은 reserved).
 - **결정론 불변식(이 슬라이스의 생명줄):** 같은 `(matchSeed, waveIndex, config, kinds)`면 클라와 서버가
   **완전히 같은 과녁 목록**을 만든다. 부동소수 연산 순서를 바꾸지 말고, `DeterministicRandom`을
@@ -78,7 +82,7 @@
 | `Runtime/Scripts/Game/ArcheryHitTest.cs` (신규) | **순수 커널** — 선분 대 구 교차 |
 | `Runtime/Scripts/Game/ArcheryScore.cs` (신규) | 점수(데이터만). 처리는 서버가 |
 | `Runtime/Scripts/Game/ArcheryTargetHitEvent.cs` (신규) | "어느 과녁이 누구에게 먹혔다"는 이산 사건 |
-| `Protos/ArcheryHitToC.proto` (신규) · `Protos/WorldEventToC.proto` (수정) · `Protos/EntitySnap.proto` (수정) | 와이어 |
+| `Protos/ArcheryHitToC.proto` · `Protos/ArcheryStateToC.proto` (신규) · `Protos/WorldEventToC.proto` · `Protos/EntitySnap.proto` (수정) | 와이어 — 사건 하나, **상태 하나**, 필드 하나 |
 | `Runtime.Generated/Scripts/WorldEventWire.cs` (수정) | 사건 ↔ 와이어 매핑(수기 파일) |
 | `Tests/EditMode/ArcheryWaveGeneratorTests.cs` · `ArcheryHitTestTests.cs` (신규) | 결정론·경계 |
 
@@ -87,7 +91,9 @@
 | 파일 | 책임 |
 |---|---|
 | `Assets/Scripts/Game/ArcheryConfigProvider.cs` (신규) | Luban 두 테이블 → `ArcheryConfig` |
+| `Assets/Scripts/Game/ArcheryWaveState.cs` (신규) | 지금 웨이브에서 먹힌 슬롯(비트마스크) |
 | `Assets/Scripts/Game/TickSystems/ArcheryHitSystem.cs` (신규) | **적중 판정 = 권위.** 점수 적립·사건 발행 |
+| `Assets/Scripts/Game/TickSystems/ArcheryStateBroadcastSystem.cs` (신규) | 남은 과녁을 **상태**로 송출(재접속 대비) |
 | `Assets/Scripts/Domain/ScorePlacements.cs` (신규) | 점수 → 등수(동점은 공동, 1·1·3) |
 | `Assets/Scripts/Game/ArcheryRuleSystem.cs` (수정) | 점수로 순위를 낸다 |
 | `Assets/Scripts/Game/ArcheryLifetimeScope.cs` (수정) | 배선 |
@@ -101,7 +107,8 @@
 |---|---|
 | `Assets/Scripts/Game/ArcheryConfigProvider.cs` (신규) | 서버와 **같은 값**을 읽는다(다르면 다른 과녁을 본다) |
 | `Assets/Scripts/Game/ArcheryTargetView.cs` (신규) | 떠 있는 과녁을 그린다 |
-| `Assets/Scripts/Game/MessageHandler/ArcheryHitHandler.cs` (신규) | 먹힌 과녁·화살을 치운다 |
+| `Assets/Scripts/Game/MessageHandler/ArcheryStateHandler.cs` (신규) | 사라진 **과녁**을 상태로 받는다 |
+| `Assets/Scripts/Game/MessageHandler/ArcheryHitHandler.cs` (신규) | 박힌 **화살**과 "+N" 연출을 사건으로 받는다 |
 | `Assets/Scripts/Netcode/EntitySnap.cs` (수정) · `MessageHandler/GameEntityMessageHandler.cs` (수정) | 점수 수신 |
 | `Assets/Scripts/Entity/ArcheryPlayerCreator.cs` (수정) · `Game/ArcheryLifetimeScope.cs` (수정) | 배선 |
 | `Assets/Scripts/UI/ArcheryPad/*` · `Assets/UI/ArcheryPad/*` (수정) | 점수 라벨 |
@@ -133,23 +140,52 @@ waveStartTick(i) = GameplayStartTick + i * WavePeriodTicks
 한 번으로 안 나오고 처음부터 훑어야 한다 — 매 프레임 도는 계산이라 그 대가가 크다. 주기를 흔들고
 싶어지면 그때 **누적 합 테이블**을 캐시하는 식으로 넓힌다.
 
-### 2. 과녁은 통신하지 않는다 — 먹혔다는 사실만 통신한다
+### 2. 과녁은 통신하지 않는다 — 그런데 "남은 과녁"은 **상태**로 보낸다
 
 | | 어떻게 | 왜 |
 |---|---|---|
 | 과녁이 **뜨는 것** | 양쪽이 씨앗으로 계산 | 핑 낮은 사람이 먼저 보면 안 된다(스펙 §7.1) |
-| 과녁이 **먹히는 것** | **서버 사건**(`ArcheryHitToC`) | 누가 먼저 맞혔나는 계산으로 알 수 없다 |
-| **점수** | **스냅샷**(`EntitySnap.score`) | durable — 유실돼도 다음 스냅이 고친다 |
+| **지금 어느 과녁이 남았나** | **상태**(`ArcheryStateToC` — 웨이브 번호 + 먹힌 슬롯 비트마스크) | 아래 |
+| **누가 몇 점을 먹었나** | **사건**(`ArcheryHitToC`) | 귀속·연출("+2")은 상태로 복원할 수 없다 |
+| **점수** | **엔티티 스냅샷**(`EntitySnap.score`) | durable — 유실돼도 다음 스냅이 덮는다 |
 
-### 3. "먹혔다"는 기록은 월드 밖에 둔다 (되감기와 안 엉키게)
+**왜 사건 하나로는 안 되나 (처음에 그렇게 썼다가 고친 자리).**
+사건은 실제로 **reliable로 간다**(`LOPSession.Send`의 기본값) — 그래서 *연결되어 있는 동안에는*
+아무도 안 놓친다. 구멍은 **끊겼다 돌아온 사람과 늦게 들어온 사람**이다. 미러는 새 연결에 지난
+reliable 메시지를 다시 틀어 주지 않으므로, 그 사람은 **이미 먹힌 과녁을 살아 있는 것으로 본다.**
+스스로는 틀렸다는 것조차 알 수 없고(사라진 것은 아무 흔적도 안 남긴다), 다음 웨이브가 올 때까지
+최대 1.76초 동안 헛화살을 쏜다. 이것이 아키텍처 문서가 묻는 *"잃으면 스스로 못 고치나?"* 다 —
+그러면 **상태**여야 한다.
 
-`ArcheryWorld`는 **한 줄도 고치지 않는다.** 먹힌 과녁·먹힌 화살 목록은 각 사이드가 자기 자리에 든다:
+**이 프로젝트가 같은 함정을 이미 한 번 밟았다.** `PanchigiTurnSystem.BroadcastIfChanged`의 주석이
+그 자리다 — *"나중에 접속(또는 재접속)한 세션도 다음 틱에 반드시 현재 상태를 받는다"*, 그리고
+*"재접속은 같은 sessionId를 그대로 다시 쓰기 때문에, 받은 기록을 지워 두지 않으면 돌아온
+플레이어가 자기 차례를 통째로 놓친다."* **그 패턴을 그대로 쓴다.**
 
-- **서버**: `ArcheryHitSystem` 안에. 서버는 되감지 않으므로 그냥 필드다.
-- **클라**: `ArcheryTargetView`/`ArcheryHitHandler`가 공유하는 작은 보관소(`ArcheryConsumed`)에.
+**값이 아주 작다.** 한 웨이브에 과녁이 최대 3개라 "먹힌 슬롯"은 **비트마스크 하나**다 —
+`wave_index`와 합쳐 8바이트. 게다가 **마스크가 0이 아닐 때만** 보낸다(0은 클라의 기본값이라 보낼
+것이 없다). 한 판에 많아야 웨이브 수만큼이다.
+
+> **HP와 정확히 같은 갈라짐이다** — HP도 *값*은 스냅샷이고 데미지 숫자·크리·회피는 연출 이벤트다.
+> 여기서는 *남은 과녁*이 값이고 *누가 먹었나*가 연출이다.
+
+### 3. 먹힌 기록은 월드 밖에 둔다 (되감기와 안 엉키게)
+
+`ArcheryWorld`는 **한 줄도 고치지 않는다.** 기록은 각 사이드가 자기 자리에 든다:
+
+- **서버**: `ArcheryWaveState`(작은 값 보관소). `ArcheryHitSystem`이 쓰고
+  `ArcheryStateBroadcastSystem`이 읽어 내보낸다. 서버는 되감지 않으므로 그냥 필드다.
+- **클라**: `ArcheryConsumed`. **과녁은 상태 메시지가 채우고**, 화살은 사건이 채운다.
 
 **월드의 `SaveGameState`/`LoadGameState`에 넣으면 안 된다.** 넣으면 되감을 때 *서버가 확정한 사실*이
 옛 값으로 되돌아가 먹힌 과녁이 되살아난다. 서버 확정 사실은 예측 대상이 아니므로 롤백 밖이 맞다.
+
+### 3-b. 화살은 왜 상태가 아니어도 되나
+
+"이 화살은 이미 박혔다"는 기록은 **사건으로 충분하다.** 화살은 3초면 사라지는 transient이고,
+재접속한 사람에게는 애초에 **날아가던 남의 화살이 하나도 없다** — 남의 발사도 사건으로 오므로,
+그가 없던 동안 떠난 화살은 그의 세계에 존재한 적이 없다. 없는 화살을 "지워야 할 목록"에 넣을 일이
+없다. 과녁과 갈리는 지점이 정확히 이것이다 — **과녁은 계산으로 되살아나지만 화살은 안 되살아난다.**
 
 ### 4. 같은 틱에 두 화살이 같은 과녁에 닿으면
 
@@ -931,6 +967,7 @@ git -C .../LeagueOfPhysical-Shared commit -m "feat(archery): 화살이 지나온
 - Create: `LeagueOfPhysical-Shared/Runtime/Scripts/Game/ArcheryScore.cs`
 - Create: `LeagueOfPhysical-Shared/Runtime/Scripts/Game/ArcheryTargetHitEvent.cs`
 - Create: `LeagueOfPhysical-Shared/Protos/ArcheryHitToC.proto`
+- Create: `LeagueOfPhysical-Shared/Protos/ArcheryStateToC.proto`
 - Modify: `LeagueOfPhysical-Shared/Protos/WorldEventToC.proto`
 - Modify: `LeagueOfPhysical-Shared/Protos/EntitySnap.proto`
 - Modify: `LeagueOfPhysical-Shared/Runtime.Generated/Scripts/WorldEventWire.cs`
@@ -940,7 +977,8 @@ git -C .../LeagueOfPhysical-Shared commit -m "feat(archery): 화살이 지나온
 - Produces:
   - `class ArcheryScore : GameFramework.World.Component { public int Value; }`
   - `sealed record ArcheryTargetHitEvent(string shooterId, long fireTick, int waveIndex, int slotIndex, int points) : WorldEvent`
-  - 와이어: `WorldEventToC.archery_hit`(oneof 필드 4), `EntitySnap.score`(필드 24)
+  - 와이어: `WorldEventToC.archery_hit`(oneof 필드 4), `EntitySnap.score`(필드 24),
+    **`ArcheryStateToC`(새 top-level 메시지, `MessageIds` 19)**
   - `WorldEventWire.ToWire`/`FromWire`가 위 사건을 다룬다
 
 - [ ] **Step 1: 점수 컴포넌트를 만든다**
@@ -1008,6 +1046,24 @@ import "ArcheryHitToC.proto";
 		ArcheryHitToC       archery_hit       = 4;
 ```
 
+`Protos/ArcheryStateToC.proto` (신규) — **이것만 top-level 패킷이다**:
+
+```proto
+syntax = "proto3";
+
+// 지금 웨이브에서 어느 과녁이 먹혔나(서버 → 클라). 바뀔 때만 reliable로 간다.
+// 과녁이 *뜨는* 것은 양쪽이 씨앗으로 계산하므로 보내지 않는다 — 보내는 것은 "사라진 것"뿐이다.
+// 사건으로 보내면 끊겼다 돌아온 사람이 이미 먹힌 과녁을 살아 있는 것으로 본다(PanchigiStateToC와 같은 사정).
+// @auto_generate
+message ArcheryStateToC
+{
+	// 이 마스크가 말하는 웨이브. 받는 쪽이 자기 웨이브와 다르면 버린다(늦게 도착한 낡은 소식).
+	int32 wave_index = 1;
+	// 먹힌 슬롯의 비트마스크 — 슬롯 0이 1비트. 한 웨이브에 과녁이 최대 3개라 세 비트면 족하다.
+	int32 consumed_mask = 2;
+}
+```
+
 `Protos/EntitySnap.proto` (수정) — 마지막에 한 줄:
 
 ```proto
@@ -1017,19 +1073,32 @@ import "ArcheryHitToC.proto";
 }
 ```
 
-- [ ] **Step 4: 프로토를 컴파일한다 — `MessageIds.cs`가 안 움직여야 한다**
+- [ ] **Step 4: 프로토를 컴파일한다 — 기존 id가 밀리지 않아야 한다**
+
+스크립트는 `LeagueOfPhysical-Shared/Scripts/`에 있다. **부모 `generate_protos.sh`를 쓰지 말 것** —
+그것은 `MessageIds.cs`를 지우고 다시 만들어 번호를 통째로 새로 매긴다.
 
 ```bash
-cd C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared
-./Tools/Protobuf/compile_protos.sh      # 부모 generate_protos.sh 를 쓰지 말 것
-git diff --stat Runtime.Generated/Scripts/MessageIds.cs
+cd C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared/Scripts
+./compile_protos.sh          # .proto → .cs
+./generate_message_ids.sh    # 기존 MessageIds.cs를 읽어 id를 보존하고 새것만 붙인다
+./generate_imessage.sh       # 새 top-level 메시지의 IMessage 구현
+cd .. && git diff Runtime.Generated/Scripts/MessageIds.cs
 ```
 
-기대: `MessageIds.cs`가 **diff에 없다**. 나오면 즉시 되돌리고(`git checkout --`) 이유를 찾는다 —
-id가 밀리면 와이어가 조용히 깨진다.
+기대하는 diff는 **정확히 한 줄 추가**다:
 
-*(스크립트 이름·위치는 슬라이스 1의 `2026-09-11-archery-shot-event.md` 계획에 적힌 것을 따른다.
-그 문서가 실제로 쓴 명령을 그대로 쓸 것.)*
+```
++        public const ushort ArcheryStateToC                = 19;
+```
+
+1~18번 중 하나라도 값이 바뀌었으면 **즉시 되돌린다**(`git checkout -- Runtime.Generated/Scripts/MessageIds.cs`)
+— 그 상태로 커밋하면 클라와 서버가 서로 다른 번호를 쓰게 되어 **에러 없이 메시지만 안 통한다.**
+
+`MessageInitializer.cs`에도 `ArcheryStateToC` 등록 한 줄이 들어갔는지 확인한다.
+
+*(스크립트 이름은 슬라이스 1의 `2026-09-11-archery-shot-event.md`가 실제로 쓴 것을 우선한다 —
+거기서 통한 명령이 있으면 그대로 쓸 것.)*
 
 - [ ] **Step 5: `WorldEventWire`에 매핑을 더한다**
 
@@ -1085,9 +1154,10 @@ public void 적중_사건은_와이어를_왕복해도_그대로다()
 - [ ] **Step 7: 커밋**
 
 ```bash
-git -C .../LeagueOfPhysical-Shared add Runtime/Scripts/Game/ArcheryScore.cs Runtime/Scripts/Game/ArcheryTargetHitEvent.cs Protos/ArcheryHitToC.proto Protos/WorldEventToC.proto Protos/EntitySnap.proto Runtime.Generated/Scripts/Protobuf/ Runtime.Generated/Scripts/WorldEventWire.cs Tests/EditMode/
-git -C .../LeagueOfPhysical-Shared status --short      # MessageIds.cs 가 없어야 한다
-git -C .../LeagueOfPhysical-Shared commit -m "feat(archery): 점수와 과녁 적중 사건을 와이어에 올린다"
+git -C .../LeagueOfPhysical-Shared add Runtime/Scripts/Game/ArcheryScore.cs Runtime/Scripts/Game/ArcheryTargetHitEvent.cs Protos/ArcheryHitToC.proto Protos/ArcheryStateToC.proto Protos/WorldEventToC.proto Protos/EntitySnap.proto Runtime.Generated/Scripts/Protobuf/ Runtime.Generated/Scripts/WorldEventWire.cs Runtime.Generated/Scripts/MessageIds.cs Runtime.Generated/Scripts/MessageInitializer.cs Tests/EditMode/
+git -C .../LeagueOfPhysical-Shared status --short
+git -C .../LeagueOfPhysical-Shared diff --cached Runtime.Generated/Scripts/MessageIds.cs   # 추가 한 줄뿐인가
+git -C .../LeagueOfPhysical-Shared commit -m "feat(archery): 점수·적중 사건·웨이브 상태를 와이어에 올린다"
 ```
 
 ---
@@ -1212,21 +1282,75 @@ git -C .../LeagueOfPhysical-Server commit -m "feat(archery): 서버가 웨이브
 
 ---
 
-## Task 6: Server — 적중 판정 시스템
+## Task 6: Server — 적중 판정과 웨이브 상태 송출
 
 **Files:**
+- Create: `LeagueOfPhysical-Server/Assets/Scripts/Game/ArcheryWaveState.cs`
 - Create: `LeagueOfPhysical-Server/Assets/Scripts/Game/TickSystems/ArcheryHitSystem.cs`
+- Create: `LeagueOfPhysical-Server/Assets/Scripts/Game/TickSystems/ArcheryStateBroadcastSystem.cs`
 - Modify: `LeagueOfPhysical-Server/Assets/Scripts/Game/ArcheryLifetimeScope.cs`
 - Test: `LeagueOfPhysical-Server/Assets/Tests/Editor/ArcheryHitSystemTests.cs`
+- Test: `LeagueOfPhysical-Server/Assets/Tests/Editor/ArcheryWaveStateTests.cs`
 
 **Interfaces:**
 - Consumes: `ArcheryWorld.Shots`, `ArcheryTrajectory`, `ArcheryHitTest`, `ArcheryWaveGenerator`,
   `ArcheryConfig`, `IMatchSeed`, `GameFramework.World.EntityRegistry`,
-  `GameFramework.World.WorldEventBuffer`.
-- Produces: `class ArcheryHitSystem : GameFramework.Runner.ITickSystem` —
-  생성자 `(ArcheryWorld world, EntityRegistry entityRegistry, WorldEventBuffer eventBuffer, ArcheryConfig config, IMatchSeed matchSeed, float tickInterval)`.
-  테스트가 볼 수 있게 `int ScoreOf(string entityId)`는 만들지 않는다 — 점수는 엔티티의
-  `ArcheryScore` 컴포넌트에 있으므로 테스트가 거기서 읽는다.
+  `GameFramework.World.WorldEventBuffer`, `ISessionManager`.
+- Produces:
+  - `class ArcheryWaveState` — `int WaveIndex`, `int ConsumedMask`,
+    `void BeginWave(int waveIndex)`, `bool IsConsumed(int slot)`, `bool TryConsume(int slot)`
+  - `class ArcheryHitSystem : GameFramework.Runner.ITickSystem` — 생성자
+    `(ArcheryWorld world, EntityRegistry entityRegistry, WorldEventBuffer eventBuffer, ArcheryConfig config, IMatchSeed matchSeed, ArcheryWaveState waveState, float tickInterval)`
+  - `class ArcheryStateBroadcastSystem : GameFramework.Runner.ITickSystem` — 생성자
+    `(ArcheryWaveState waveState, ISessionManager sessionManager)`
+
+> 테스트용 조회 메서드를 시스템에 따로 만들지 않는다 — 점수는 엔티티의 `ArcheryScore`에, 먹힌 슬롯은
+> `ArcheryWaveState`에 있으므로 테스트가 거기서 직접 읽는다.
+
+- [ ] **Step 0: 웨이브 상태 보관소를 만든다**
+
+```csharp
+namespace LOP
+{
+    /// <summary>
+    /// 지금 웨이브에서 어느 과녁이 먹혔나(서버 권위). <b>판정하는 쪽과 내보내는 쪽이 함께 보는 값</b>이라
+    /// 둘 중 어느 시스템에도 넣지 않고 따로 둔다 — 그래야 판정을 세션 없이 테스트할 수 있다.
+    ///
+    /// <para>과녁이 최대 세 개라 "먹힌 슬롯"은 비트마스크 하나면 된다.</para>
+    /// </summary>
+    public class ArcheryWaveState
+    {
+        /// <summary>이 마스크가 말하는 웨이브. 아직 시작 전이면 −1이다.</summary>
+        public int WaveIndex { get; private set; } = -1;
+
+        /// <summary>먹힌 슬롯의 비트마스크. 슬롯 0이 1비트.</summary>
+        public int ConsumedMask { get; private set; }
+
+        /// <summary>웨이브가 넘어가면 과녁도 통째로 새것이다 — 기록을 비운다.</summary>
+        public void BeginWave(int waveIndex)
+        {
+            WaveIndex = waveIndex;
+            ConsumedMask = 0;
+        }
+
+        public bool IsConsumed(int slot) => (ConsumedMask & (1 << slot)) != 0;
+
+        /// <summary>먹었다고 기록한다. 이미 먹힌 슬롯이면 거짓을 돌려준다.</summary>
+        public bool TryConsume(int slot)
+        {
+            if (IsConsumed(slot))
+            {
+                return false;
+            }
+            ConsumedMask |= 1 << slot;
+            return true;
+        }
+    }
+}
+```
+
+`ArcheryWaveStateTests.cs`는 네 가지만 본다: 처음엔 아무것도 안 먹혔다 / 먹으면 그 슬롯만 선다 /
+같은 슬롯을 두 번 먹을 수 없다 / 웨이브가 넘어가면 마스크가 0으로 돌아간다.
 
 - [ ] **Step 1: 실패하는 테스트를 쓴다**
 
@@ -1266,6 +1390,7 @@ namespace LOP.Tests
             public EntityRegistry Registry;
             public ArcheryWorld World;
             public ArcheryConfig Config;
+            public ArcheryWaveState WaveState;
 
             public Entity Archer(string id)
             {
@@ -1303,15 +1428,17 @@ namespace LOP.Tests
             var config = Config();
             var world = new ArcheryWorld(registry, new WorldEventBuffer(), new ArcheryAimSystem(), TickInterval);
             world.GameplayStartTick = startTick;
+            var waveState = new ArcheryWaveState();
 
             return new Fixture
             {
                 Registry = registry,
                 World = world,
                 Config = config,
+                WaveState = waveState,
                 System = new ArcheryHitSystem(
                     world, registry, world.EventBuffer, config,
-                    new FixedSeed { Value = Seed }, TickInterval),
+                    new FixedSeed { Value = Seed }, waveState, TickInterval),
             };
         }
 
@@ -1350,6 +1477,38 @@ namespace LOP.Tests
             f.System.Tick(StartTick + 1, TickInterval);
 
             Assert.AreEqual(1, f.HitEventCount());
+        }
+
+        [Test]
+        public void 먹힌_과녁은_웨이브_상태에_남는다()
+        {
+            //  이 마스크가 곧 클라에 나가는 값이다 — 사건을 놓친(재접속한) 사람은 이것만 보고
+            //  어느 과녁이 사라졌는지 안다.
+            var f = Build(StartTick);
+            f.Archer("a");
+            var target = f.TargetsOfWave(0)[0];
+
+            f.World.IngestRemoteShot(ShotThrough("a", StartTick, target, 1.0f));
+            f.System.Tick(StartTick + 1, TickInterval);
+
+            Assert.AreEqual(0, f.WaveState.WaveIndex);
+            Assert.IsTrue(f.WaveState.IsConsumed(target.SlotIndex));
+        }
+
+        [Test]
+        public void 웨이브가_넘어가면_먹힌_기록이_비워진다()
+        {
+            var f = Build(StartTick);
+            f.Archer("a");
+            var target = f.TargetsOfWave(0)[0];
+
+            f.World.IngestRemoteShot(ShotThrough("a", StartTick, target, 1.0f));
+            f.System.Tick(StartTick + 1, TickInterval);
+            //  다음 웨이브로 넘긴다(주기 88틱).
+            f.System.Tick(StartTick + 88, TickInterval);
+
+            Assert.AreEqual(1, f.WaveState.WaveIndex);
+            Assert.AreEqual(0, f.WaveState.ConsumedMask);
         }
 
         [Test]
@@ -1488,15 +1647,15 @@ namespace LOP
         private readonly IMatchSeed matchSeed;
         private readonly float tickInterval;
 
-        // 이미 먹힌 과녁과, 이미 무언가를 맞힌 화살. 서버는 되감지 않으므로 그냥 필드다
+        private readonly ArcheryWaveState waveState;
+
+        // 이미 무언가를 맞힌 화살. 서버는 되감지 않으므로 그냥 필드다
         // (월드의 저장/복원에 넣으면 서버가 확정한 사실이 되감기에 되살아난다).
-        private readonly HashSet<(int wave, int slot)> consumedTargets = new HashSet<(int, int)>();
         private readonly HashSet<(string shooterId, long fireTick)> spentArrows
             = new HashSet<(string, long)>();
 
         private readonly List<ArcheryTarget> targets = new List<ArcheryTarget>();
         private readonly List<Candidate> candidates = new List<Candidate>();
-        private int cachedWave = int.MinValue;
 
         private readonly struct Candidate
         {
@@ -1516,6 +1675,7 @@ namespace LOP
                                 GameFramework.World.WorldEventBuffer eventBuffer,
                                 ArcheryConfig config,
                                 IMatchSeed matchSeed,
+                                ArcheryWaveState waveState,
                                 float tickInterval)
         {
             this.world = world;
@@ -1523,6 +1683,7 @@ namespace LOP
             this.eventBuffer = eventBuffer;
             this.config = config;
             this.matchSeed = matchSeed;
+            this.waveState = waveState;
             this.tickInterval = tickInterval;
         }
 
@@ -1534,12 +1695,11 @@ namespace LOP
                 return;   // 아직 출발 전
             }
 
-            if (wave != cachedWave)
+            if (wave != waveState.WaveIndex)
             {
                 ArcheryWaveGenerator.Fill(targets, matchSeed.Value, wave, config);
-                cachedWave = wave;
                 // 지난 웨이브의 과녁은 이미 사라졌다 — 기록을 들고 있을 이유가 없다.
-                consumedTargets.Clear();
+                waveState.BeginWave(wave);
             }
 
             CollectCandidates(tick);
@@ -1574,7 +1734,7 @@ namespace LOP
 
                 for (int i = 0; i < targets.Count; i++)
                 {
-                    if (consumedTargets.Contains((targets[i].WaveIndex, targets[i].SlotIndex)))
+                    if (waveState.IsConsumed(targets[i].SlotIndex))
                     {
                         continue;
                     }
@@ -1604,18 +1764,17 @@ namespace LOP
             for (int i = 0; i < candidates.Count; i++)
             {
                 var candidate = candidates[i];
-                var key = (wave, candidate.Slot);
-                if (consumedTargets.Contains(key))
-                {
-                    continue;   // 이 틱에 더 먼저 닿은 화살이 이미 먹었다
-                }
                 if (spentArrows.Contains((candidate.ShooterId, candidate.FireTick)))
                 {
                     continue;   // 이 화살은 이 틱에 이미 다른 과녁을 먹었다
                 }
+                //  TryConsume이 거짓이면 이 틱에 더 먼저 닿은 화살이 이미 먹은 것이다.
+                if (waveState.TryConsume(candidate.Slot) == false)
+                {
+                    continue;
+                }
 
                 int points = PointsOfSlot(candidate.Slot);
-                consumedTargets.Add(key);
                 spentArrows.Add((candidate.ShooterId, candidate.FireTick));
 
                 var score = entityRegistry.Get(candidate.ShooterId)?.Get<ArcheryScore>();
@@ -1653,18 +1812,106 @@ namespace LOP
 
 - [ ] **Step 4: 테스트 통과 확인**
 
+- [ ] **Step 4-b: 상태 송출 시스템을 만든다**
+
+`PanchigiTurnSystem.BroadcastIfChanged`를 그대로 본뜬다 — **바뀔 때만** 보내되, "누가 받았는지"를
+세션별로 적어 두고 **아직 못 받은 세션에는 다음 틱에 또 보낸다.** 그래야 늦게 들어온 세션과
+끊겼다 돌아온 세션이 반드시 현재 상태를 받는다.
+
+```csharp
+using System.Collections.Generic;
+
+namespace LOP
+{
+    /// <summary>
+    /// 지금 웨이브에서 어느 과녁이 먹혔는지를 모두에게 알린다.
+    ///
+    /// <para><b>왜 사건이 아니라 상태인가.</b> 적중 사건은 reliable로 가서 연결된 사람은 안 놓치지만,
+    /// 미러는 <b>새 연결에 지난 메시지를 다시 틀어 주지 않는다</b> — 끊겼다 돌아온 사람은 이미 먹힌
+    /// 과녁을 살아 있는 것으로 보고, 스스로는 그게 틀렸다는 것조차 알 수 없다. 그래서 "지금 남은
+    /// 과녁"은 상태로 보낸다(<see cref="PanchigiStateToC"/>와 같은 사정·같은 방식).</para>
+    ///
+    /// <para>마스크가 0인 웨이브는 보내지 않는다 — 아무것도 안 먹힌 것이 클라의 기본값이라 보낼 것이
+    /// 없다. 웨이브가 넘어가 마스크가 0으로 돌아간 것도 보낼 필요가 없다: 메시지에 웨이브 번호가
+    /// 실려 있어 받는 쪽이 자기 웨이브와 다른 소식을 버린다.</para>
+    /// </summary>
+    public class ArcheryStateBroadcastSystem : GameFramework.Runner.ITickSystem
+    {
+        private readonly ArcheryWaveState waveState;
+        private readonly ISessionManager sessionManager;
+
+        private readonly HashSet<string> receivedSessionIds = new HashSet<string>();
+        private int sentWaveIndex = -1;
+        private int sentMask;
+
+        public ArcheryStateBroadcastSystem(ArcheryWaveState waveState, ISessionManager sessionManager)
+        {
+            this.waveState = waveState;
+            this.sessionManager = sessionManager;
+        }
+
+        public void Tick(long tick, float deltaTime)
+        {
+            if (waveState.ConsumedMask == 0)
+            {
+                return;   // 아무것도 안 먹혔다 = 클라의 기본값과 같다
+            }
+
+            if (waveState.WaveIndex != sentWaveIndex || waveState.ConsumedMask != sentMask)
+            {
+                sentWaveIndex = waveState.WaveIndex;
+                sentMask = waveState.ConsumedMask;
+                receivedSessionIds.Clear();   // 새 소식이다 — 모두 다시 받아야 한다
+            }
+
+            var message = new ArcheryStateToC
+            {
+                WaveIndex = waveState.WaveIndex,
+                ConsumedMask = waveState.ConsumedMask,
+            };
+
+            foreach (var session in sessionManager.GetAllSessions())
+            {
+                if (session.isConnected == false)
+                {
+                    //  끊긴 세션은 "받은 적 없음"으로 되돌린다 — 재접속은 같은 sessionId를 그대로
+                    //  다시 쓰므로(LOPRoom.OnPlayerEnter가 세션 객체를 재사용한다), 지워 두지 않으면
+                    //  돌아온 사람이 이 웨이브의 상태를 통째로 놓친다.
+                    receivedSessionIds.Remove(session.sessionId);
+                    continue;
+                }
+
+                if (receivedSessionIds.Contains(session.sessionId))
+                {
+                    continue;
+                }
+
+                session.Send(message);
+                receivedSessionIds.Add(session.sessionId);
+            }
+        }
+    }
+}
+```
+
+> `ISessionManager`/`session.sessionId`/`session.isConnected`의 정확한 이름은
+> `PanchigiTurnSystem`에서 확인해 맞춘다.
+
 - [ ] **Step 5: 스코프에 물린다 — `End` 페이즈**
 
 `ArcheryLifetimeScope.ConfigureGame` 끝:
 
 ```csharp
+            builder.Register<ArcheryWaveState>(Lifetime.Singleton);
             builder.Register(c => new ArcheryHitSystem(
                 c.Resolve<ArcheryWorld>(),
                 c.Resolve<GameFramework.World.EntityRegistry>(),
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
                 c.Resolve<ArcheryConfig>(),
                 c.Resolve<IMatchSeed>(),
+                c.Resolve<ArcheryWaveState>(),
                 TickInterval), Lifetime.Singleton);
+            builder.Register<ArcheryStateBroadcastSystem>(Lifetime.Singleton);
 
             // 화살이 생긴 *뒤*에 판정해야 하므로 world.Tick 다음인 End에 문다. 그러면 여기서 쌓은
             // 사건은 이번 틱 드레인을 놓쳐 다음 틱(20ms 뒤)에 나간다 — 점수 자체는 스냅샷으로
@@ -1673,6 +1920,9 @@ namespace LOP
             {
                 runner.RegisterSystem<LOP.Event.LOPRunner.Update.End>(
                     container.Resolve<ArcheryHitSystem>());
+                //  판정 다음에 내보낸다 — 같은 틱의 결과가 그 틱에 나간다.
+                runner.RegisterSystem<LOP.Event.LOPRunner.Update.End>(
+                    container.Resolve<ArcheryStateBroadcastSystem>());
             });
 ```
 
@@ -1684,8 +1934,8 @@ namespace LOP
 - [ ] **Step 6: 컴파일·테스트 후 커밋**
 
 ```bash
-git -C .../LeagueOfPhysical-Server add Assets/Scripts/Game/TickSystems/ArcheryHitSystem.cs Assets/Scripts/Game/TickSystems/ArcheryHitSystem.cs.meta Assets/Scripts/Game/ArcheryLifetimeScope.cs Assets/Tests/Editor/ArcheryHitSystemTests.cs Assets/Tests/Editor/ArcheryHitSystemTests.cs.meta
-git -C .../LeagueOfPhysical-Server commit -m "feat(archery): 서버가 화살과 과녁의 적중을 확정한다"
+git -C .../LeagueOfPhysical-Server add Assets/Scripts/Game/ArcheryWaveState.cs* Assets/Scripts/Game/TickSystems/ArcheryHitSystem.cs* Assets/Scripts/Game/TickSystems/ArcheryStateBroadcastSystem.cs* Assets/Scripts/Game/ArcheryLifetimeScope.cs Assets/Tests/Editor/ArcheryHitSystemTests.cs* Assets/Tests/Editor/ArcheryWaveStateTests.cs*
+git -C .../LeagueOfPhysical-Server commit -m "feat(archery): 적중을 확정하고 남은 과녁을 상태로 내보낸다"
 ```
 
 ---
@@ -1863,9 +2113,10 @@ git -C .../LeagueOfPhysical-Server commit -m "feat(archery): 점수를 내려보
 - Produces:
   - `class ArcheryConfigProvider { ArcheryConfig Get(); }` — 서버 쌍둥이와 **같은 값**을 낸다
   - `class ArcheryConsumed` — 먹힌 과녁·화살 보관소(뷰와 핸들러가 함께 본다):
-    - `void MarkTarget(int waveIndex, int slotIndex)` / `bool IsTargetGone(int waveIndex, int slotIndex)`
+    - `void ApplyState(int waveIndex, int consumedMask)` — **상태 메시지가 채운다**
+    - `bool IsTargetGone(int waveIndex, int slotIndex)` — 웨이브가 다르면 늘 거짓
     - `void MarkArrow(string shooterId, long fireTick)` / `bool IsArrowGone(string shooterId, long fireTick)`
-    - `void ForgetBefore(int waveIndex, long tick)` — 지난 웨이브·수명 다한 화살 정리
+    - `void ForgetArrowsBefore(long fireTick)` — 수명 다한 화살 정리
 
 - [ ] **Step 1: 클라에 브랜치를 판다**
 
@@ -1891,27 +2142,52 @@ using System.Collections.Generic;
 namespace LOP
 {
     /// <summary>
-    /// 서버가 "먹혔다"고 알려 준 과녁과 화살. <b>월드가 아니라 여기</b>에 둔다 — 월드의 저장/복원에
-    /// 넣으면 되감을 때 서버가 확정한 사실이 옛 값으로 되돌아가 먹힌 과녁이 되살아난다.
-    /// 서버 확정 사실은 애초에 예측 대상이 아니므로 되감기 밖이 맞다.
+    /// 서버가 알려 준 "사라진 것들". <b>월드가 아니라 여기</b>에 둔다 — 월드의 저장/복원에 넣으면
+    /// 되감을 때 서버가 확정한 사실이 옛 값으로 되돌아가 먹힌 과녁이 되살아난다. 서버 확정 사실은
+    /// 애초에 예측 대상이 아니므로 되감기 밖이 맞다.
+    ///
+    /// <para><b>과녁과 화살이 서로 다른 길로 온다.</b> 과녁은 <b>상태</b>(웨이브 번호 + 비트마스크)로
+    /// 와서, 끊겼다 돌아온 사람도 다음 소식 한 번이면 지금 남은 과녁을 정확히 안다. 화살은
+    /// <b>사건</b>으로 온다 — 3초면 사라지는 값이고, 재접속한 사람에게는 날아가던 남의 화살이
+    /// 애초에 하나도 없다(남의 발사도 사건이라 그가 없던 동안의 화살은 그의 세계에 존재한 적이 없다).</para>
     /// </summary>
     public class ArcheryConsumed
     {
-        private readonly HashSet<(int wave, int slot)> targets = new HashSet<(int, int)>();
+        private int stateWaveIndex = -1;
+        private int consumedMask;
+
         private readonly HashSet<(string shooterId, long fireTick)> arrows
             = new HashSet<(string, long)>();
 
-        public void MarkTarget(int waveIndex, int slotIndex) => targets.Add((waveIndex, slotIndex));
-        public bool IsTargetGone(int waveIndex, int slotIndex) => targets.Contains((waveIndex, slotIndex));
+        /// <summary>서버가 알려 준 "지금 웨이브에서 먹힌 슬롯들".</summary>
+        public void ApplyState(int waveIndex, int mask)
+        {
+            //  늦게 도착한 낡은 소식은 버린다. 새 웨이브의 과녁을 옛 마스크로 지우면
+            //  멀쩡한 과녁이 화면에서 사라진다.
+            if (waveIndex < stateWaveIndex)
+            {
+                return;
+            }
+            stateWaveIndex = waveIndex;
+            consumedMask = mask;
+        }
+
+        /// <summary>
+        /// 이 과녁이 사라졌나. <b>모르면 "살아 있다"로 답한다</b> — 소식이 아직 안 온 웨이브의 과녁을
+        /// 미리 지우면 안 된다. 마스크가 0인 웨이브는 서버가 아예 안 보내므로 이것이 정상 경로다.
+        /// </summary>
+        public bool IsTargetGone(int waveIndex, int slotIndex)
+        {
+            return waveIndex == stateWaveIndex && (consumedMask & (1 << slotIndex)) != 0;
+        }
 
         public void MarkArrow(string shooterId, long fireTick) => arrows.Add((shooterId, fireTick));
         public bool IsArrowGone(string shooterId, long fireTick) => arrows.Contains((shooterId, fireTick));
 
-        /// <summary>지나간 웨이브의 과녁과 수명이 다한 화살은 더 물어볼 일이 없다.</summary>
-        public void ForgetBefore(int waveIndex, long oldestFireTick)
+        /// <summary>수명이 다한 화살은 더 물어볼 일이 없다.</summary>
+        public void ForgetArrowsBefore(long fireTick)
         {
-            targets.RemoveWhere(t => t.wave < waveIndex);
-            arrows.RemoveWhere(a => a.fireTick < oldestFireTick);
+            arrows.RemoveWhere(a => a.fireTick < fireTick);
         }
     }
 }
@@ -2041,7 +2317,7 @@ namespace LOP
             {
                 ArcheryWaveGenerator.Fill(targets, matchSeed.Value, wave, config);
                 long oldestFireTick = renderTick - (long)(ArcheryTrajectory.LifetimeSeconds / interval) - 1;
-                consumed.ForgetBefore(wave, oldestFireTick);
+                consumed.ForgetArrowsBefore(oldestFireTick);
             }
 
             var alive = new HashSet<(int, int)>();
@@ -2139,6 +2415,7 @@ git -C .../LeagueOfPhysical-Client commit -m "feat(archery): 과녁을 각자 �
 
 **Files:**
 - Create: `LeagueOfPhysical-Client/Assets/Scripts/Game/MessageHandler/ArcheryHitHandler.cs`
+- Create: `LeagueOfPhysical-Client/Assets/Scripts/Game/MessageHandler/ArcheryStateHandler.cs`
 - Modify: `LeagueOfPhysical-Client/Assets/Scripts/Game/ArcheryArrowView.cs`
 - Modify: `LeagueOfPhysical-Client/Assets/Scripts/UI/ArcheryPad/ArcheryPadViewModel.cs`
 - Modify: `LeagueOfPhysical-Client/Assets/Scripts/UI/ArcheryPad/ArcheryPadView.cs`
@@ -2147,9 +2424,10 @@ git -C .../LeagueOfPhysical-Client commit -m "feat(archery): 과녁을 각자 �
 - Modify: `LeagueOfPhysical-Client/Assets/Scripts/Game/ArcheryLifetimeScope.cs`
 
 **Interfaces:**
-- Consumes: `ISubscriber<WorldEventBatchToC>`, `WorldEventWire`, `ArcheryConsumed`,
-  `IPlayerContext`, `GameFramework.World.EntityRegistry`.
-- Produces: `class ArcheryHitHandler : MessageHandlerBase`;
+- Consumes: `ISubscriber<WorldEventBatchToC>`, `ISubscriber<ArcheryStateToC>`, `WorldEventWire`,
+  `ArcheryConsumed`, `IPlayerContext`, `GameFramework.World.EntityRegistry`.
+- Produces: `class ArcheryHitHandler : MessageHandlerBase`(사건 → 박힌 화살),
+  `class ArcheryStateHandler : MessageHandlerBase`(상태 → 사라진 과녁),
   `ArcheryPadViewModel.Score { get; }`(매 프레임 pull하는 int 속성).
 
 - [ ] **Step 1: 적중 사건 핸들러를 만든다**
@@ -2193,13 +2471,57 @@ namespace LOP
                 }
 
                 var hit = (ArcheryTargetHitEvent)WorldEventWire.FromWire(rec);
-                consumed.MarkTarget(hit.waveIndex, hit.slotIndex);
+
+                //  과녁이 사라지는 것은 여기서 처리하지 않는다 — 그건 상태(ArcheryStateToC)의 몫이다.
+                //  이 사건은 "어느 화살이 박혔나"와 "누가 몇 점을 먹었나"만 말해 준다.
                 consumed.MarkArrow(hit.shooterId, hit.fireTick);
             }
         }
     }
 }
 ```
+
+- [ ] **Step 1-b: 상태 핸들러를 만든다**
+
+```csharp
+using GameFramework;
+using MessagePipe;
+
+namespace LOP
+{
+    /// <summary>
+    /// 지금 웨이브에서 어느 과녁이 사라졌는지를 서버에게서 받는다.
+    ///
+    /// <para><b>사건이 아니라 상태로 받는 이유:</b> 적중 사건은 reliable로 가지만 미러는 새 연결에
+    /// 지난 메시지를 다시 틀어 주지 않는다 — 끊겼다 돌아오면 이미 먹힌 과녁이 살아 있는 것으로
+    /// 보이고, 스스로는 그게 틀렸다는 것조차 알 수 없다. 상태는 서버가 "아직 못 받은 세션"에
+    /// 다시 보내 주므로 돌아온 사람도 한 번이면 맞춰진다.</para>
+    /// </summary>
+    public class ArcheryStateHandler : MessageHandlerBase
+    {
+        private readonly ArcheryConsumed consumed;
+        private readonly ISubscriber<ArcheryStateToC> subscriber;
+
+        public ArcheryStateHandler(ArcheryConsumed consumed, ISubscriber<ArcheryStateToC> subscriber)
+        {
+            this.consumed = consumed;
+            this.subscriber = subscriber;
+        }
+
+        protected override void Subscribe() => Track(subscriber.Subscribe(OnArcheryStateToC));
+
+        private void OnArcheryStateToC(ArcheryStateToC message)
+        {
+            consumed.ApplyState(message.WaveIndex, message.ConsumedMask);
+        }
+    }
+}
+```
+
+> `ISubscriber<T>`로 새 메시지를 받으려면 **MessagePipe 등록이 필요할 수 있다** —
+> `PanchigiStateToC`를 받는 쪽이 어디에 어떻게 등록돼 있는지(`GameplayInstaller` 또는
+> 메시지 브로커 등록 목록) 확인해 같은 자리에 `ArcheryStateToC`를 더한다.
+> IL2CPP에서는 `RegisterMessageBroker<T>` 명시 등록이 필요하다.
 
 - [ ] **Step 2: 화살 뷰가 먹힌 화살을 안 그리게 한다**
 
@@ -2261,12 +2583,13 @@ namespace LOP
 
 ```csharp
             builder.RegisterEntryPoint<ArcheryHitHandler>();
+            builder.RegisterEntryPoint<ArcheryStateHandler>();
 ```
 
 - [ ] **Step 5: 컴파일 확인 후 커밋**
 
 ```bash
-git -C .../LeagueOfPhysical-Client add Assets/Scripts/Game/MessageHandler/ArcheryHitHandler.cs* Assets/Scripts/Game/ArcheryArrowView.cs Assets/Scripts/UI/ArcheryPad/ Assets/UI/ArcheryPad/ Assets/Scripts/Game/ArcheryLifetimeScope.cs
+git -C .../LeagueOfPhysical-Client add Assets/Scripts/Game/MessageHandler/ArcheryHitHandler.cs* Assets/Scripts/Game/MessageHandler/ArcheryStateHandler.cs* Assets/Scripts/Game/ArcheryArrowView.cs Assets/Scripts/UI/ArcheryPad/ Assets/UI/ArcheryPad/ Assets/Scripts/Game/ArcheryLifetimeScope.cs
 git -C .../LeagueOfPhysical-Client commit -m "feat(archery): 먹힌 과녁과 화살을 치우고 점수를 띄운다"
 ```
 
@@ -2340,7 +2663,7 @@ git push origin main
 
 ## 확인 목록 (머지 전에 한 번 더)
 
-- [ ] `MessageIds.cs`가 **한 줄도** 안 바뀌었다
+- [ ] `MessageIds.cs`가 **추가 한 줄뿐**이고 1~18번 값이 그대로다
 - [ ] `EntitySnap`의 필드 번호를 재사용하지 않았다(새 번호 24)
 - [ ] 두 MasterData 패키지의 `TableFiles`에 새 테이블 둘이 들어 있다
       (`TableFileManifestTests`가 지켜 준다 — 그 테스트가 통과하는지 확인)
@@ -2348,6 +2671,8 @@ git push origin main
 - [ ] `ArcheryScore`가 **클·서 양쪽 크리에이터**에 붙어 있다
       (`grep -c 'ArcheryScore' Assets/Scripts/Entity/*Creator.cs`)
 - [ ] 먹힌 것 보관소가 월드의 저장/복원에 **안** 들어 있다
+- [ ] **판을 하던 중 한쪽 클라를 끊었다 다시 붙였을 때**, 이미 먹힌 과녁이 되살아나 보이지 않는다
+      (이 슬라이스에서 사건 → 상태로 바꾼 이유가 바로 이것이다)
 - [ ] 새로 만든 `.cs`마다 `.meta`가 함께 스테이지됐다
 - [ ] `git status --short`에 로컬 픽스처(`Assets/Art` 포인터를 제외한 `Jua-Regular SDF.asset`,
       `ProjectSettings/*`)가 **커밋에 섞이지 않았다**

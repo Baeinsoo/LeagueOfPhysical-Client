@@ -40,6 +40,14 @@ namespace LOP
                     continue;
                 }
 
+                // 내 발사도 마찬가지 — ArcheryWorld.Mutation이 클라 예측에서 이미 이 사건을 버퍼에
+                // 넣었으므로 서버 메아리를 또 넣으면 안 된다(중복 방지).
+                if (worldEvent is ArcheryShotFiredEvent shot &&
+                    playerContext.entityId != null && shot.shooterId == playerContext.entityId)
+                {
+                    continue;
+                }
+
                 worldEventBuffer.Append(worldEvent);
             }
         }

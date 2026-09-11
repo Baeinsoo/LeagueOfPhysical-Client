@@ -1402,8 +1402,11 @@ namespace LOP
 
 - [ ] **Step 4: 서버 게임 씬을 만든다**
 
-기존 `Skydive.unity`를 복제해 만든다. **`LOPGameSceneCoordinator`를 지우지 않는다** — 카메라를 내
-캐릭터에 물리는 코드가 공용 DI가 아니라 씬 컴포넌트다.
+기존 `Skydive.unity`를 복제해 만든다.
+
+> **카메라 코디네이터 경고는 서버 씬에는 해당 없다** — `LOPGameSceneCoordinator`는 **클라 전용**이라
+> 서버 레포엔 타입 자체가 없다(2026-09-11 확인). 그 주의는 Task 6(클라 씬)에서 지킬 것.
+> 서버 씬에서 지킬 규칙은 하나다: **타입 이름이 `Skydive`로 시작하는 컴포넌트만 교체**한다.
 
 ```bash
 unity command copy_asset --asset Assets/Scenes/Skydive.unity --destination Assets/Scenes/Archery.unity --project-path "$SERVER"

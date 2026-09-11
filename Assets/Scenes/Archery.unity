@@ -454,13 +454,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1625307423}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.38268346, y: 0, z: 0, w: 0.9238795}
-  m_LocalPosition: {x: 0, y: 4, z: -4}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 1.4, z: 0.4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 45, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!45 &1625307427
 Skybox:
   m_ObjectHideFlags: 0
@@ -521,10 +521,12 @@ MonoBehaviour:
   zoomAcceleration: 1000
   zoomDamping: 10
   zoomMaxSpeed: 100
-  minPitch: -90
-  maxPitch: 90
-  minDistance: 2
-  maxDistance: 20
+  pivotHeight: 1.4
+  alignYawToTarget: 1
+  minPitch: -80
+  maxPitch: 45
+  minDistance: -0.4
+  maxDistance: -0.4
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

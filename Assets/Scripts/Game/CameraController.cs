@@ -18,9 +18,21 @@ namespace LOP
         [SerializeField] private float zoomDamping = 10f;
         [SerializeField] private float zoomMaxSpeed = 100f;
 
+        [Header("Pivot")]
+        // 카메라가 도는 중심을 대상보다 이만큼 위로 올린다(m). 0이면 대상의 발밑을 돈다.
+        // 활쏘기처럼 보는 방향이 곧 겨눈 선인 게임은 이 중심이 눈높이여야 한다.
+        [SerializeField] private float pivotHeight = 0f;
+
+        // 켜면 대상이 보고 있는 쪽을 그대로 이어받아 시작한다. 끄면 씬에 놓인 카메라 방향에서
+        // 시작한다(걸어다니는 모드는 곧 돌리게 되므로 상관없다). 활쏘기처럼 세워 둔 방향이
+        // 곧 "겨누고 시작할 곳"인 게임은 켜야 한다 — 안 그러면 사대 반대편을 보고 시작한다.
+        [SerializeField] private bool alignYawToTarget = false;
+
         [Header("Limits")]
         [SerializeField] private float minPitch = -20f;
         [SerializeField] private float maxPitch = 80f;
+        // 중심에서 뒤로 얼마나 떨어질지(m). 음수면 중심보다 **앞**에 선다 — 눈에서 조금 앞으로
+        // 나와도 겨눈 선 위에 그대로 있으므로, 자기 몸에 시야가 가리지 않으면서 조준은 정직하다.
         [SerializeField] private float minDistance = 2f;
         [SerializeField] private float maxDistance = 20f;
 
@@ -42,9 +54,9 @@ namespace LOP
 
             if (target != null)
             {
-                Vector3 offset = mainCamera.transform.position - target.position;
+                Vector3 offset = mainCamera.transform.position - Pivot(target);
                 distance = Mathf.Clamp(offset.magnitude, minDistance, maxDistance);
-                yaw = mainCamera.transform.eulerAngles.y;
+                yaw = alignYawToTarget ? target.eulerAngles.y : mainCamera.transform.eulerAngles.y;
 
                 // eulerAngles는 0~360으로 돌려준다 — 위를 보는 각(-10도)이 350으로 읽힌다.
                 // 그대로 두면 제한 범위 밖이라 시작하자마자 카메라가 아래로 꺾인다.
@@ -84,10 +96,15 @@ namespace LOP
 
             // Apply transform
             Quaternion rotation = Quaternion.Euler(pitch, yaw, 0);
-            Vector3 position = Target.position - (rotation * Vector3.forward * distance);
+            Vector3 position = Pivot(Target) - (rotation * Vector3.forward * distance);
 
             mainCamera.transform.position = position;
             mainCamera.transform.rotation = rotation;
+        }
+
+        private Vector3 Pivot(Transform target)
+        {
+            return target.position + Vector3.up * pivotHeight;
         }
 
         private float SmoothDamp(float current, float target, float damping, float deltaTime)

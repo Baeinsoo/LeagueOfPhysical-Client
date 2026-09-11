@@ -146,7 +146,7 @@
 
 | 저장소 | 들어갈 것 |
 |---|---|
-| **LOP-Shared** | `ArcheryWorld`(`IWorld`), `ArcheryConfig`, `ArcheryWaveGenerator`, `ArrowTrajectory`, `ArcheryAimSystem` |
+| **LOP-Shared** | `ArcheryWorld`(`IWorld`), `ArcheryConfig`, `ArcheryWaveGenerator`, `ArcheryTrajectory`, `ArcheryAimSystem` |
 | **Server** | `ArcheryRuleSystem`(`IGameRuleSystem` — 스폰·점수·종료), `ArcheryHitSystem`(적중 판정 = 권위), `ArcheryLifetimeScope` |
 | **Client** | `ArcheryLifetimeScope`, 조준 UI(왼손 시점 / 오른손 당김), 화살·과녁 뷰, 카메라 줌 |
 | **infrastructure** | `#ArcheryConfig.xlsx`, `#ArcheryTarget.xlsx`, `#GameMode`·`#Map` 줄 |
@@ -200,10 +200,19 @@
 
 `release`는 `jump`/`dash`와 같은 짝이다 — 누른 틱에만 참인 이산 액션.
 
-**남의 발사는 새 메시지를 필요로 하지 않을 가능성이 높다** — 서버가 남의 입력을 중계하는
-`EntityInputsToC`가 이미 있고, 발사에 필요한 것(조준 방향·당김 정도·발사 틱)이 전부 `InputCommand`에
-들어가기 때문이다. 구현 첫 슬라이스에서 이 경로가 실제로 닿는지 확인하고, 닿지 않으면 그때
-전용 메시지를 판다.
+**남의 발사는 새 메시지를 필요로 하지 않는다 — 다만 서버가 그 필드를 채워야 한다.**
+서버가 남의 입력을 중계하는 `EntityInputsToC`가 이미 있고, 발사에 필요한 것(조준 방향·당김 정도·
+발사 틱)이 전부 `InputCommand`에 들어간다.
+
+**구현하며 확인한 결과(2026-09-11): 길은 있는데 서버가 안 채우고 있었다.**
+`EntityInputBroadcastSystem`이 `SequenceNumber`/`Horizontal`/`Vertical`/`Jump`/`AbilityId` 다섯만
+옮긴다. 받는 쪽만 이어 두면 남의 커맨드가 영원히 기본값이라 **에러 없이 남의 화살만 안 보인다.**
+그래서 조준·당김·발사 네 필드를 이 중계에 함께 싣는다.
+
+> **`Posture`/`Glide`/`Posing`/`Dash`는 그대로 둔다.** 그 넷이 이 경로에 없는 것은 결함이 아니라
+> 설계다 — Skydive·Flappy는 남의 자세·대시를 `EntitySnap`(`posture_axis`/`gliding`/`stamina`/
+> `dash_end_tick`/`dash_charge`)으로 받는다. 연속·durable 값이라 스냅샷이 맞다.
+> **발사는 다르다: 이산 사건이라 스냅샷으로 표본을 뜨면 그 사이의 발사를 통째로 놓친다.**
 
 ---
 

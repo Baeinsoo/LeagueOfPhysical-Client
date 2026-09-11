@@ -1036,6 +1036,7 @@ git commit -m "feat(archery): 화살을 엔티티 없이 들고 있는 시뮬 �
 - Modify: `LeagueOfPhysical-Shared/Protos/InputCommand.proto`
 - Modify: `LeagueOfPhysical-Client/Assets/Scripts/Game/PlayerInputManager.cs`
 - Modify: `LeagueOfPhysical-Server/Assets/Scripts/Game/MessageHandler/GameInputMessageHandler.cs`
+- Modify: `LeagueOfPhysical-Server/Assets/Scripts/Game/TickSystems/EntityInputBroadcastSystem.cs` — 남의 입력을 중계하는 **송신** 쪽. 여기를 안 채우면 남의 화살만 조용히 안 보인다
 
 **Interfaces:**
 - Consumes: `LOP.InputCommand`(Task 2에서 늘린 것), proto `global::InputCommand`

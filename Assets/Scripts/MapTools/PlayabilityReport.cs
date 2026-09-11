@@ -156,6 +156,62 @@ namespace LOP.MapTools
         }
     }
 
+    /// <summary>한 위상에서 봇을 한 번 날려 본 결과. 위상 = 출발 시점을 몇 틱 늦춰 잡았나이고,
+    /// 그만큼 풍차 날개가 다른 각도에 서 있다.</summary>
+    public readonly struct PhaseOutcome
+    {
+        /// <summary>몇 틱 늦춰 출발했나. 0이 기존 판정이 보는 그 위상이다.</summary>
+        public readonly int Phase;
+        public readonly bool Reached;
+        /// <summary>멈춘 자리. 골인했으면 결승선 언저리다.</summary>
+        public readonly float EndX;
+        /// <summary>그 위상에서는 출발점이 지형(도는 날개 포함) 안이라 날려 보지도 못했다.
+        /// 실패로 세면 "그 위상은 못 지나간다"로 읽히는데, 실제로는 <b>재지 못한</b> 것이다.</summary>
+        public readonly bool SpawnBlocked;
+
+        public PhaseOutcome(int phase, bool reached, float endX, bool spawnBlocked = false)
+        {
+            Phase = phase;
+            Reached = reached;
+            EndX = endX;
+            SpawnBlocked = spawnBlocked;
+        }
+    }
+
+    /// <summary>한 스폰을 위상 전체에 걸쳐 날려 본 결과.
+    ///
+    /// <para><b>왜 이 절이 필요한가.</b> 장애물이 돌기 시작하면서 "통과 가능한가"의 답이
+    /// <b>언제 도착하느냐</b>에 달리게 됐다. 한 위상만 보는 판정은 그중 한 장면일 뿐이라,
+    /// 같은 맵이 "불가능"으로도 "된다"로도 찍힐 수 있다. 위상을 전부 훑으면 그 두 답이
+    /// 각각 몇 번씩 나오는지가 보인다.</para>
+    ///
+    /// <para>요약(통과 수·최원거리·막힌 자리·통과 창)은 이 구조체가 아니라 리포트가 계산한다 —
+    /// 그래야 그 계산 자체를 테스트가 지킬 수 있다.</para></summary>
+    public readonly struct PhaseSweepRow
+    {
+        public readonly string Name;
+        /// <summary>위상 공간(틱). 같은 모양이 다시 나타나기까지의 틱 수 —
+        /// <see cref="WindmillPhase.SpaceTicks"/>가 씬에서 계산한 값이다.</summary>
+        public readonly int PhaseSpace;
+        /// <summary>몇 틱 간격으로 훑었나. 1이면 전수다. 2 이상이면 통과 창을 놓칠 수 있다.</summary>
+        public readonly int Stride;
+        /// <summary>한 틱이 몇 초인가. 통과 창의 크기를 초로 바꿔 적으려면 필요하다 —
+        /// "8틱"만으로는 사람에게 얼마나 가혹한지 안 읽힌다.</summary>
+        public readonly float TickSeconds;
+        /// <summary>위상 오름차순.</summary>
+        public readonly IReadOnlyList<PhaseOutcome> Outcomes;
+
+        public PhaseSweepRow(string name, int phaseSpace, int stride, float tickSeconds,
+                             IReadOnlyList<PhaseOutcome> outcomes)
+        {
+            Name = name;
+            PhaseSpace = phaseSpace;
+            Stride = stride < 1 ? 1 : stride;
+            TickSeconds = tickSeconds;
+            Outcomes = outcomes;
+        }
+    }
+
     /// <summary>진단용 한 줄 — 스폰이 아닌 높이에서 봇을 날려 본 결과. 판정에는 안 쓴다.</summary>
     public readonly struct HeightSweepRow
     {
@@ -215,7 +271,8 @@ namespace LOP.MapTools
                                    IReadOnlyList<SpawnCleanRun> cleanRuns, string trapSection,
                                    IReadOnlyList<StunBudgetPoint> budget, EarliestCatch earliest,
                                    float heightGrid, float minY, float maxY,
-                                   IReadOnlyList<HeightSweepRow> heightSweep = null)
+                                   IReadOnlyList<HeightSweepRow> heightSweep = null,
+                                   IReadOnlyList<PhaseSweepRow> phaseSweep = null)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
@@ -366,6 +423,8 @@ namespace LOP.MapTools
                               + " 좁히는 것은 안정적인 해법이 아니다. 자세한 내용은 docs/ROADMAP.md 참고)");
             }
             text.AppendLine();
+
+            AppendPhaseSweep(text, phaseSweep, startX, finishX);
 
             AppendHeightSweep(text, heightSweep, startX, finishX);
 
@@ -583,6 +642,233 @@ namespace LOP.MapTools
             text.AppendLine($"                                   여기는 코스의 {covered / course * 100f:F1}%인데 벌써 이만큼 벌어졌고,"
                           + $" 같은 비율로 끝(약 {courseTicks:F0}틱)까지 가면 약 {extrapolated:F1}m다"
                           + " — 작다는 뜻이 아니라 단조 증가한다는 뜻이다.");
+        }
+
+        //  ── ① 위상 훑기 ────────────────────────────────────────────────────
+        //  판정이 아니라 진단이다(위 ①의 ✅/🟡/❌는 여전히 틱 0 한 위상만 본다).
+        //  <b>왜 따로 보나.</b> 장애물이 돌기 시작하면서 "통과 가능한가"의 답이 <b>언제
+        //  도착하느냐</b>에 달리게 됐다. 한 위상만 보는 판정은 그중 한 장면일 뿐이라, 같은
+        //  맵이 "불가능"으로도 "된다"로도 찍힐 수 있다. 여기서 전 위상을 훑어 그 두 답이
+        //  각각 몇 번 나오는지를 센다.
+        //  <b>통과한 위상이 몇 개 있다고 해서 맵이 괜찮다는 뜻이 아니다</b> — 사람은 판이
+        //  언제 시작할지 못 고르므로, 몇 위상만 통과하는 자리는 "타이밍 관문"이지 자유 통과가
+        //  아니다. 그래서 통과 창의 크기(틱·초)를 반드시 같이 찍는다.
+        static void AppendPhaseSweep(StringBuilder text, IReadOnlyList<PhaseSweepRow> rows,
+                                     float startX, float finishX)
+        {
+            //  안 훑었으면 절 자체를 안 찍는다 — 빈 절은 "훑었는데 아무 위상도 없었다"로 읽힌다.
+            if (rows == null || rows.Count == 0)
+            {
+                return;
+            }
+            text.AppendLine("── ① 위상 훑기 (자리별) ────────────────");
+            text.AppendLine("  (장애물이 돌므로 \"통과 가능\"이 도착 시점에 달린다. " + Coverage(rows[0]) + ")");
+            for (int i = 0; i < rows.Count; i++)
+            {
+                AppendPhaseRow(text, rows[i], startX, finishX);
+            }
+            text.AppendLine();
+        }
+
+        //  얼마나 촘촘히 훑었는가. 성기게 훑었으면 <b>무엇을 놓칠 수 있는지</b>까지 적는다 —
+        //  "41개를 봤다"만으로는 읽는 사람이 0/41을 "전부 막혔다"로 읽는다.
+        static string Coverage(in PhaseSweepRow row)
+        {
+            if (row.Stride <= 1)
+            {
+                return $"위상 공간 {row.PhaseSpace}틱 전수.";
+            }
+            return $"위상 공간 {row.PhaseSpace}틱 중 {row.Outcomes.Count}개만 {row.Stride}틱 간격으로 훑었다"
+                 + $" — 통과 창이 좁으면 통째로 놓칠 수 있다(창이 1틱이면 {row.Stride}번에 한 번만 보인다).";
+        }
+
+        const string PhaseIndent = "                  ";
+
+        static void AppendPhaseRow(StringBuilder text, in PhaseSweepRow row, float startX, float finishX)
+        {
+            int sampled = row.Outcomes.Count;
+            int passed = 0, buried = 0;
+            for (int i = 0; i < sampled; i++)
+            {
+                if (row.Outcomes[i].Reached) { passed++; }
+                if (row.Outcomes[i].SpawnBlocked) { buried++; }
+            }
+            var head = new StringBuilder($"  {row.Name}".PadRight(18));
+            head.Append($"통과 {passed}/{sampled} 위상".PadRight(20));
+            head.Append(FarthestPhrase(row, startX, finishX));
+            text.AppendLine(head.ToString());
+
+            //  <b>통과 창</b>. 몇 위상이 통과하는지보다 그 위상들이 <i>붙어 있는지</i>가 난이도다 —
+            //  사람은 시작 시점을 못 고르므로, 창이 8틱이면 0.16초 안에 도착해야 한다는 뜻이다.
+            AppendPassWindow(text, row);
+
+            string blocked = BlockedPhrase(row.Outcomes);
+            if (blocked != null)
+            {
+                text.AppendLine(PhaseIndent + "막힌 곳: " + blocked);
+            }
+            //  파묻힌 위상은 실패가 아니라 <b>재지 못한</b> 것이다 — 안 적으면 위 "통과 n/N"의
+            //  분모에 섞여 "그 위상은 못 지나간다"로 읽힌다.
+            if (buried > 0)
+            {
+                text.AppendLine(PhaseIndent + $"그 위상엔 스폰이 지형 안이라 못 날렸다: {buried}위상"
+                              + " (실패가 아니라 측정 안 됨)");
+            }
+        }
+
+        //  가장 멀리 간 위상과 그 거리. 0/N이어도 — 오히려 그럴 때 — 이 값이 벽이 어디인지 말해 준다.
+        //  모든 위상이 같은 자리에서 멈췄으면 "@모든 위상"이라 적는다: 그건 <b>위상과 무관한</b>
+        //  정적 지형이 막았다는 뜻이라, 위상을 더 훑어 봐야 소용없다는 결론이 바로 나온다.
+        static string FarthestPhrase(in PhaseSweepRow row, float startX, float finishX)
+        {
+            if (row.Outcomes.Count == 0)
+            {
+                return "최원거리: 측정 안 됨";
+            }
+            float max = float.NegativeInfinity, min = float.PositiveInfinity;
+            for (int i = 0; i < row.Outcomes.Count; i++)
+            {
+                float x = row.Outcomes[i].EndX;
+                if (x > max) { max = x; }
+                if (x < min) { min = x; }
+            }
+            int tied = 0, first = row.Outcomes[0].Phase;
+            for (int i = 0; i < row.Outcomes.Count; i++)
+            {
+                if (row.Outcomes[i].EndX >= max - 0.05f)
+                {
+                    if (tied == 0) { first = row.Outcomes[i].Phase; }
+                    tied++;
+                }
+            }
+            string where = tied >= row.Outcomes.Count ? "모든 위상"
+                         : tied > 1 ? $"위상 {first} 외 {tied - 1}위상"
+                         : $"위상 {first}";
+            float course = finishX - startX;
+            float percent = course > 0f ? (max - startX) / course * 100f : 0f;
+            return $"최원거리 {max:F1} ({percent:F0}%) @{where}";
+        }
+
+        //  어느 x에서 몇 위상이 막혔나. 한두 곳에 몰리면 그 장애물이 범인이다 — 흩어져 있으면
+        //  봇이 위상마다 다른 데서 죽는 것이라 처방이 다르다.
+        //  가까운 값들은 한 덩어리로 묶는다: 같은 날개라도 위상마다 몇십 cm씩 다른 자리에서
+        //  멈추므로, 안 묶으면 한 장애물이 수십 줄로 흩어져 "몰렸다"가 안 보인다.
+        static string BlockedPhrase(IReadOnlyList<PhaseOutcome> outcomes)
+        {
+            var ends = new List<float>();
+            for (int i = 0; i < outcomes.Count; i++)
+            {
+                if (outcomes[i].Reached == false && outcomes[i].SpawnBlocked == false)
+                {
+                    ends.Add(outcomes[i].EndX);
+                }
+            }
+            if (ends.Count == 0)
+            {
+                return null;
+            }
+            ends.Sort();
+            //  이보다 멀리 떨어지면 다른 장애물로 본다. 전진 11m/s에서 2m는 약 0.18초다.
+            const float ClusterGap = 2f;
+            var clusters = new List<(float Min, float Max, int Count)>();
+            float lo = ends[0], hi = ends[0];
+            int count = 1;
+            for (int i = 1; i < ends.Count; i++)
+            {
+                if (ends[i] - hi <= ClusterGap)
+                {
+                    hi = ends[i];
+                    count++;
+                    continue;
+                }
+                clusters.Add((lo, hi, count));
+                lo = hi = ends[i];
+                count = 1;
+            }
+            clusters.Add((lo, hi, count));
+            clusters.Sort((a, b) => a.Count != b.Count ? b.Count.CompareTo(a.Count)
+                                                       : a.Min.CompareTo(b.Min));
+            var parts = new List<string>();
+            //  다 찍으면 줄이 안 읽힌다 — 많이 몰린 쪽 넷만 찍고 나머지는 수만 밝힌다.
+            const int MaxShown = 4;
+            int shown = clusters.Count < MaxShown ? clusters.Count : MaxShown;
+            for (int i = 0; i < shown; i++)
+            {
+                var c = clusters[i];
+                //  퍼져 있으면 한 점인 척하지 않고 범위로 적는다.
+                string at = c.Max - c.Min <= 1f
+                    ? $"x≈{(c.Min + c.Max) * 0.5f:F0}"
+                    : $"x≈{c.Min:F0}~{c.Max:F0}";
+                parts.Add($"{at} ({c.Count}위상)");
+            }
+            string line = string.Join(" · ", parts);
+            if (clusters.Count > shown)
+            {
+                line += $" · 그 외 {clusters.Count - shown}곳";
+            }
+            return line;
+        }
+
+        //  통과한 위상들이 어디에 붙어 있나. 창의 크기가 곧 난이도다.
+        //  위상 공간은 <b>고리</b>라 마지막 위상 다음이 0이다 — 양끝이 다 통과면 그 둘은 사실
+        //  한 창이므로 그렇게 적는다. 안 적으면 좁은 창 두 개로 읽혀 난이도를 과장한다.
+        static void AppendPassWindow(StringBuilder text, in PhaseSweepRow row)
+        {
+            var phases = new List<int>();
+            for (int i = 0; i < row.Outcomes.Count; i++)
+            {
+                if (row.Outcomes[i].Reached) { phases.Add(row.Outcomes[i].Phase); }
+            }
+            if (phases.Count == 0)
+            {
+                return;
+            }
+            int stride = row.Stride;
+            var runs = new List<(int Start, int End)>();
+            int start = phases[0], prev = phases[0];
+            for (int i = 1; i < phases.Count; i++)
+            {
+                if (phases[i] == prev + stride) { prev = phases[i]; continue; }
+                runs.Add((start, prev));
+                start = prev = phases[i];
+            }
+            runs.Add((start, prev));
+
+            int lowest = row.Outcomes[0].Phase;
+            int highest = row.Outcomes[row.Outcomes.Count - 1].Phase;
+            bool wraps = runs.Count >= 2 && runs[0].Start == lowest
+                      && runs[runs.Count - 1].End == highest;
+
+            var parts = new List<string>();
+            int widest = 0;
+            for (int i = 0; i < runs.Count; i++)
+            {
+                parts.Add(runs[i].Start == runs[i].End
+                    ? $"{runs[i].Start}"
+                    : $"{runs[i].Start}~{runs[i].End}");
+                int span = runs[i].End - runs[i].Start + stride;
+                if (span > widest) { widest = span; }
+            }
+            if (wraps)
+            {
+                int joined = (runs[0].End - runs[0].Start + stride)
+                           + (runs[runs.Count - 1].End - runs[runs.Count - 1].Start + stride);
+                if (joined > widest) { widest = joined; }
+            }
+            text.AppendLine(PhaseIndent + $"통과 위상: {string.Join(", ", parts)}"
+                          + $"   가장 긴 창 {widest}틱({widest * row.TickSeconds:F2}초)");
+            if (wraps)
+            {
+                text.AppendLine(PhaseIndent + $"(위상은 고리다 — {highest} 다음이 {lowest}이라"
+                              + " 양끝 두 창은 사실 하나다)");
+            }
+            //  통과가 있다는 것이 "이 자리는 된다"는 뜻이 아니다 — 사람은 판이 언제 시작할지
+            //  못 고른다. 그 사실을 여기 적지 않으면 위의 "통과 n/N"이 자유 통과로 읽힌다.
+            if (phases.Count < row.Outcomes.Count)
+            {
+                text.AppendLine(PhaseIndent + "→ 타이밍 관문이다: 시작 시점은 플레이어가 못 고르므로"
+                              + " 이 창에 맞춰 도착해야만 지나간다.");
+            }
         }
 
         //  판정이 아니라 진단이다 — 스폰이 아닌 높이에서도 날려 봐서, 봇이 막히는 자리가 시작

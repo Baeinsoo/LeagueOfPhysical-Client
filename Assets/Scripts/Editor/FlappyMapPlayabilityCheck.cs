@@ -90,6 +90,10 @@ namespace LOP.EditorTools
             BotGrid?.SetTick(tick);
         }
 
+        //  전수 탐색이 보는 "굳은 벽"의 자세. 재현 가능한 기준이어야 하므로 못박아 둔다 —
+        //  ②의 낌 스캔(RestWindmills)도 같은 틱 0을 기준으로 삼는다.
+        private const long SearchPoseTick = 0;
+
         private static void PoseWindmills(long tick)
         {
             if (Windmills == null || posedTick == tick)
@@ -190,7 +194,9 @@ namespace LOP.EditorTools
             //  돌아다니기 때문이다.
             string cleanRunCancelNote = null;
             string heightSweepCancelNote = null;
+            string phaseSweepCancelNote = null;
             var heightSweep = new List<LOP.MapTools.HeightSweepRow>();
+            var phaseSweep = new List<LOP.MapTools.PhaseSweepRow>();
             List<string> trapCancelNotes = new List<string>();
             try
             {
@@ -295,6 +301,18 @@ namespace LOP.EditorTools
                         replay: replay));
                 }
 
+                //  ① 진단 — 위상 훑기. 판정이 아니다(위 cleanRuns는 여전히 틱 0 한 위상만 본다).
+                //  스폰 넷만 훑는다 — 높이 훑기 18줄까지 훑으면 비용이 그대로 18배가 된다.
+                if (cleanRunCancelNote == null)
+                {
+                    var phaseWatch = System.Diagnostics.Stopwatch.StartNew();
+                    phaseSweep = SweepPhases(spawns, finishX, shape, mapMask, query, botGrid,
+                                             PhaseSpaceOf(windmillSpecs), PhaseSweepStride,
+                                             out phaseSweepCancelNote);
+                    phaseWatch.Stop();
+                    Debug.Log($"[맵 검사] 위상 훑기 {phaseSweep.Count}자리 — {phaseWatch.ElapsedMilliseconds}ms");
+                }
+
                 //  ① 진단 — 시작 높이 훑기. 판정이 아니다(위 cleanRuns에 안 들어간다).
                 //  스폰 넷이 서로 15m 벌어져 있는데도 봇이 같은 자리에서 멈추면, 그게 지형
                 //  때문인지 봇이 시작 높이를 흘려버리는 탓인지 스폰만 봐서는 못 가른다.
@@ -334,7 +352,7 @@ namespace LOP.EditorTools
             string report = LOP.MapTools.PlayabilityReport.Build(
                 UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
                 spawns[0].Position.x, finishX, config, cleanRuns, trapSection, budget, earliest,
-                HeightGrid, SearchMinY, SearchMaxY, heightSweep);
+                HeightGrid, SearchMinY, SearchMaxY, heightSweep, phaseSweep);
 
             //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
             bool spawnXMismatch = false;
@@ -355,13 +373,18 @@ namespace LOP.EditorTools
             //  취소됐으면 report 맨 앞에 못 보고 지나칠 수 없게 배너를 붙인다 — ②는 이미 자기
             //  절 안에 취소 문구를 갖고 있지만(BuildTrapSection), ①은 PlayabilityReport의 절이라
             //  거기 손대지 않고 여기서 요약해 알린다.
-            if (cleanRunCancelNote != null || heightSweepCancelNote != null || trapCancelNotes.Count > 0)
+            if (cleanRunCancelNote != null || heightSweepCancelNote != null
+                || phaseSweepCancelNote != null || trapCancelNotes.Count > 0)
             {
                 var banner = new StringBuilder();
                 banner.AppendLine("⚠️⚠️⚠️ 이 검사는 도중에 취소됐다 — 아래 결과는 불완전하다 ⚠️⚠️⚠️");
                 if (cleanRunCancelNote != null)
                 {
                     banner.AppendLine($"  ① {cleanRunCancelNote}");
+                }
+                if (phaseSweepCancelNote != null)
+                {
+                    banner.AppendLine($"  ① {phaseSweepCancelNote}");
                 }
                 if (heightSweepCancelNote != null)
                 {
@@ -384,12 +407,13 @@ namespace LOP.EditorTools
                               + "이 검사는 틱 0을 스폰으로 잡은 한 위상만 본다 —");
                 note.AppendLine($"             \"가능한 한 판\"이지 \"실제 그 판\"이 아니다"
                               + $"(실제 판의 틱 0은 GameplayStartTick이라 각도가 다르다). {DescribePhaseSpace(windmillSpecs)}");
+                note.AppendLine("             나머지 위상은 아래 \"① 위상 훑기\" 절이 보여 준다 — 판정(✅/🟡/❌)은 여전히 틱 0 하나다.");
                 note.AppendLine("ℹ️ 도는 장애물이 있으므로 이 리포트의 두 답은 정확도가 다르다.");
                 note.AppendLine("  · 봇 비행(①의 첫째 답 — ✅ '봇 통과')은 회전을 매 틱 반영한다: 겨냥에 쓰는 근거리 열도,");
                 note.AppendLine("    천장 아치 훑기도, 이동 커널도 전부 그 틱 각도로 세운 날개를 보고 잰다(게임과 같다).");
                 note.AppendLine("    되돌리기·재생도 같은 자리를 지난다. 그래서 ✅ 봇 통과는 회전을 반영한 진짜 증명이다.");
                 note.AppendLine("  · 전수 탐색(①의 둘째 답)은 아니다 — 자유공간 캐시(FreeSpaceGrid)가 칸마다 답을 한 번");
-                note.AppendLine("    재고 재사용해서, 도는 장애물을 '맨 처음 그 칸을 잰 때의 각도로 굳은 벽'으로 본다.");
+                note.AppendLine("    재고 재사용해서, 탐색은 도는 장애물을 '틱 0 자세로 굳은 벽'으로 본다(그 자세로 고정해 둔다).");
                 note.AppendLine("    탐색은 '몇 틱째에 그 자리에 닿는가'를 들고 있지 않아 물어볼 틱 자체가 없다.");
                 note.AppendLine("    ⚠️ 따라서 🟡·❌는 회전을 반영하지 않은 판정이다 — 실제로는 열려 있을 수 있다.");
                 note.AppendLine("  · ②의 낌 스캔도 각 씨앗을 틱 0부터 굴린다 — 실제 판의 위상과는 다르다.");
@@ -538,14 +562,26 @@ namespace LOP.EditorTools
             return Mathf.Approximately(min, max) ? $"{min:0.##}°/s" : $"{min:0.##}~{max:0.##}°/s";
         }
 
-        private static string DescribePhaseSpace(List<(float RotSpeed, int Arms)> specs)
+        //  훑어야 할 위상의 수. 씬에서 계산한다 — 숫자를 손으로 적으면 풍차 속도를 바꾼 날
+        //  훑기가 조용히 일부만 보게 된다. 속도·날개가 섞이면 <b>가장 긴</b> 것을 쓴다:
+        //  그보다 짧게 훑으면 다른 풍차의 못 본 각도가 남는다.
+        private static int PhaseSpaceOf(List<(float RotSpeed, int Arms)> specs)
         {
-            int longest = 0;
-            bool uniform = true;
+            int longest = 1;
             for (int i = 0; i < specs.Count; i++)
             {
                 longest = Mathf.Max(longest, LOP.MapTools.WindmillPhase.SpaceTicks(
                     specs[i].RotSpeed, specs[i].Arms, TickSeconds));
+            }
+            return longest;
+        }
+
+        private static string DescribePhaseSpace(List<(float RotSpeed, int Arms)> specs)
+        {
+            int longest = PhaseSpaceOf(specs);
+            bool uniform = true;
+            for (int i = 0; i < specs.Count; i++)
+            {
                 if (Mathf.Approximately(specs[i].RotSpeed, specs[0].RotSpeed) == false
                     || specs[i].Arms != specs[0].Arms)
                 {
@@ -760,6 +796,16 @@ namespace LOP.EditorTools
 
             private bool Measure(float x, float y)
             {
+                //  ④ 틱을 안 가리는 캐시(전수 탐색)는 <b>틱 0 자세에서만</b> 잰다.
+                //  안 고정하면 그 "정적 각도"가 <i>그 칸을 맨 처음 잰 때</i>의 각도라, 바로 앞에
+                //  어떤 비행이 돌았느냐에 따라 답이 달라진다 — 스폰 순서가 판정에 스며든다.
+                //  여기서 매번 되돌려 놓으므로 중간에 봇 비행이 다른 틱 자세를 세워도 캐시가
+                //  오염되지 않는다(같은 틱이면 PoseWindmills가 바로 돌아와 값이 거의 안 든다).
+                //  틱을 가리는 캐시(ring != null)는 부르는 쪽이 BeginBotTick으로 이미 세웠다.
+                if (ring == null)
+                {
+                    PoseWindmills(SearchPoseTick);
+                }
                 var p = new Vector3(x, y, 0f);
                 return Physics.CheckCapsule(shape.Lower(p), shape.Upper(p), shape.Radius,
                                             mapMask, QueryTriggerInteraction.Ignore) == false;
@@ -1013,13 +1059,14 @@ namespace LOP.EditorTools
                                         List<FlightStep> trace = null,
                                         int flipTick = -1,
                                         int resumeTick = 0,
-                                        BirdState resumeState = default)
+                                        BirdState resumeState = default,
+                                        int phase = 0)
         {
             var query = new HitWatcher(inner);
-            //  스폰은 틱 0의 자리다 — 그 틱 자세에서 봐야 답이 하나로 정해진다. 안 세우면 직전
-            //  비행이 남긴 아무 각도에서 재게 되어, 같은 스폰이 검사할 때마다 "지형 안"이
-            //  됐다 안 됐다 한다.
-            PoseWindmills(0);
+            //  스폰은 이 비행의 첫 틱(=위상) 자리다 — 그 틱 자세에서 봐야 답이 하나로 정해진다.
+            //  안 세우면 직전 비행이 남긴 아무 각도에서 재게 되어, 같은 스폰이 검사할 때마다
+            //  "지형 안"이 됐다 안 됐다 한다.
+            PoseWindmills(phase);
             //  출발점이 이미 지형 안이면 날려 봐야 뜻이 없다 — 그런데 그냥 날리면 "통과"가
             //  나온다. 비행이 쓰는 KinematicMover.Move는 전부 CapsuleCast인데, 유니티의 캡슐
             //  스윕은 *출발 자리에 이미 겹쳐 있는* 콜라이더를 보고하지 않기 때문이다. 그래서
@@ -1032,7 +1079,11 @@ namespace LOP.EditorTools
                 return new BotFlight(false, false, start.x, 0, 0, start.x, start.y, 0, 0,
                                      spawnBlocked: true);
             }
-            var state = new BirdState { Position = new Vector3(start.x, start.y, 0f) };
+            //  위상 = 출발을 몇 틱 늦춰 잡았나. 새의 틱을 거기서 시작시키면 풍차 자세도
+            //  이동 커널도 봇의 눈도 전부 그 각도를 본다 — 자세가 틱만의 함수라서다.
+            //  루프의 tick(아래)은 0부터 세는 <b>비행 안의 순번</b>이라 flipTick·limit의 뜻이
+            //  위상과 무관하게 그대로 유지된다.
+            var state = new BirdState { Position = new Vector3(start.x, start.y, 0f), Tick = phase };
             if (resumeTick > 0)
             {
                 state = resumeState;
@@ -1232,6 +1283,73 @@ namespace LOP.EditorTools
                 measured: tried > 0, tried: tried, savable: savable, savableByFlap: savableByFlap,
                 earliestTicksBeforeDeath: earliestK, earliestGain: earliestGain,
                 earliestForcedFlap: earliestForcedFlap);
+        }
+
+        //  위상을 몇 틱 간격으로 훑을 것인가. <b>비용을 재서 2로 정했다.</b>
+        //  전수(1틱 간격, 82회)로 한 번 돌려 봤더니 위상 훑기만 <b>27.2분</b>이고 검사 전체가
+        //  <b>31.1분</b>이었다 — 아무도 안 돌리는 도구가 된다. 2틱 간격(41회)이면 훑기가 절반,
+        //  검사 전체가 약 17분이라 돌릴 수 있다.
+        //  <b>무엇을 잃나:</b> 통과 창이 1틱이면 두 번에 한 번만 보인다. 그래서 이 값을 쓰면
+        //  리포트가 "성기게 훑었다"고 스스로 밝힌다(PlayabilityReport.Coverage).
+        //  <b>이 맵에서는 잃은 것이 없었다</b> — 전수 82회에서 네 자리 모두 <b>0/82</b>라
+        //  놓칠 통과 창 자체가 없었다(전수 리포트는 sdd 폴더에 남겨 뒀다).
+        //  맵을 고쳐 통과 위상이 생기면 그때는 1로 되돌려 창 폭을 정확히 재야 한다.
+        private const int PhaseSweepStride = 2;
+
+        //  ① 진단 — 위상 훑기. 판정이 아니다(cleanRuns에 안 들어간다).
+        //  묻는 것: "장애물이 도는데, 어느 위상에 도착해야 지나갈 수 있나?" 스폰마다 출발 틱을
+        //  0…위상공간−1로 밀어 가며 <b>같은 봇·같은 자리·같은 규칙</b>으로 날린다 — 바뀌는 것은
+        //  풍차 각도뿐이라, 결과 차이는 전부 위상 탓이라고 말할 수 있다.
+        //  되돌리기·전수 탐색은 안 돌린다: 이 절이 묻는 것은 "몇 위상이 통과하나"지 "왜 죽었나"가
+        //  아니고, 그 둘을 위상마다 돌리면 비용이 수십 배가 된다.
+        private static List<LOP.MapTools.PhaseSweepRow> SweepPhases(
+            List<(string Name, Vector3 Position)> spawns, float finishX, in FlappyShape shape,
+            int mapMask, GameFramework.Physics.ICollisionQuery query, FreeSpaceGrid botGrid,
+            int phaseSpace, int stride, out string cancelNote)
+        {
+            cancelNote = null;
+            var rows = new List<LOP.MapTools.PhaseSweepRow>();
+            //  안 도는 맵은 위상이 하나뿐이라 훑을 것이 없다 — 빈 절을 찍으면 "훑었는데 한
+            //  위상뿐이었다"가 아니라 "여긴 위상이 중요하다"로 잘못 읽힌다.
+            if (phaseSpace <= 1)
+            {
+                return rows;
+            }
+            if (stride < 1)
+            {
+                stride = 1;
+            }
+            int perSpawn = (phaseSpace + stride - 1) / stride;
+            int total = spawns.Count * perSpawn;
+            int done = 0;
+            for (int i = 0; i < spawns.Count; i++)
+            {
+                var outcomes = new List<LOP.MapTools.PhaseOutcome>(perSpawn);
+                var spawnWatch = System.Diagnostics.Stopwatch.StartNew();
+                for (int phase = 0; phase < phaseSpace; phase += stride, done++)
+                {
+                    if (EditorUtility.DisplayCancelableProgressBar("Flappy 맵 검사 (1/3 클린런)",
+                            $"진단 — 위상 훑기 {spawns[i].Name} 위상 {phase}/{phaseSpace}",
+                            done / (float)total))
+                    {
+                        //  훑다 만 자리는 <b>줄 자체를 안 남긴다</b> — 반쪽 표본으로 낸
+                        //  "통과 0/37"이 전수 결과로 읽히면 맵을 엉뚱하게 고치게 된다.
+                        cancelNote = $"진단 위상 훑기 — 스폰 {rows.Count}/{spawns.Count}자리만 훑음";
+                        return rows;
+                    }
+                    BotFlight flight = FlyBot(spawns[i].Position, finishX, shape, mapMask, query,
+                                              SearchMinY, SearchMaxY, botGrid.IsFree, botGrid.IsFreeExact,
+                                              phase: phase);
+                    outcomes.Add(new LOP.MapTools.PhaseOutcome(
+                        phase, flight.Reached, flight.EndX, flight.SpawnBlocked));
+                }
+                spawnWatch.Stop();
+                Debug.Log($"[맵 검사] 위상 훑기 {spawns[i].Name} {outcomes.Count}위상"
+                        + $" — {spawnWatch.ElapsedMilliseconds}ms");
+                rows.Add(new LOP.MapTools.PhaseSweepRow(
+                    spawns[i].Name, phaseSpace, stride, TickSeconds, outcomes));
+            }
+            return rows;
         }
 
         //  훑는 높이 구간을 스폰 높이에서 유도할 때 위아래로 더 보는 여유. 상수로 박은 구간을

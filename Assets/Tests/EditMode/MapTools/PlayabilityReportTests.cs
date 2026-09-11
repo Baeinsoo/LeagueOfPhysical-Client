@@ -811,5 +811,232 @@ namespace LOP.MapTools.Tests
             Assert.IsFalse(Contains(report, "직전 틱 차이"));
             Assert.IsFalse(Contains(report, "편향 읽기"));
         }
+
+        //  ── ① 위상 훑기 ───────────────────────────────────────────────────
+        //  장애물이 돌기 시작하면서 "통과 가능한가"의 답이 <b>언제 도착하느냐</b>에 달리게 됐다.
+        //  이 절이 없으면 리포트는 그중 한 장면(틱 0)만 보고 맵 전체를 판정한 것처럼 읽힌다.
+
+        static string BuildWithPhases(IReadOnlyList<PhaseSweepRow> phases, params SpawnCleanRun[] runs)
+            => PlayabilityReport.Build("FlappyRaceMap", -2f, 632f, Config(), runs,
+                                       trapSection: "  낀 자리 없음.",
+                                       budget: new List<StunBudgetPoint>
+                                       {
+                                           new StunBudgetPoint(10f, 108f, 10, 7),
+                                       },
+                                       earliest: new EarliestCatch(true, 19.0f, 14),
+                                       heightGrid: 0.1f, minY: -40f, maxY: 40f,
+                                       heightSweep: null, phaseSweep: phases);
+
+        //  위상 전부가 같은 자리에서 막힌 줄 — 정적 지형이 막았을 때의 모양.
+        static PhaseSweepRow AllBlocked(string name, int space, float endX)
+        {
+            var outcomes = new List<PhaseOutcome>();
+            for (int p = 0; p < space; p++)
+            {
+                outcomes.Add(new PhaseOutcome(p, reached: false, endX: endX));
+            }
+            return new PhaseSweepRow(name, space, stride: 1, tickSeconds: 0.02f, outcomes: outcomes);
+        }
+
+        [Test]
+        public void 위상_훑기는_통과한_위상_수와_전체를_찍는다()
+        {
+            string report = BuildWithPhases(
+                new List<PhaseSweepRow> { AllBlocked("PlayerSpawn_2", 82, 82.3f) },
+                Unproven(Hit("ComposedMap/Cube", -30f)));
+
+            //  절이 통째로 사라지는 돌연변이는 이 머리글로 잡힌다.
+            Assert.IsTrue(Contains(report, "── ① 위상 훑기 (자리별)"));
+            Assert.IsTrue(Contains(report, "위상 공간 82틱 전수"));
+            Assert.IsTrue(Contains(report, "통과 0/82 위상"));
+        }
+
+        [Test]
+        public void 한_위상도_통과_못_해도_가장_멀리_간_위상과_거리를_찍는다()
+        {
+            //  0/82여도 이 값이 벽이 어디인지 말해 준다 — 없으면 "전부 막혔다"만 남는다.
+            var outcomes = new List<PhaseOutcome>();
+            for (int p = 0; p < 82; p++)
+            {
+                float endX = p == 37 ? 291.4f : (p < 8 ? 82.3f : 276.0f);
+                outcomes.Add(new PhaseOutcome(p, reached: false, endX: endX));
+            }
+            string report = BuildWithPhases(
+                new List<PhaseSweepRow>
+                {
+                    new PhaseSweepRow("PlayerSpawn_1", 82, 1, 0.02f, outcomes),
+                },
+                Unproven(Hit("FillWindmill/ArmW", -17.6f)));
+
+            //  거리·퍼센트·위상 셋을 한 덩어리로 짚는다 — 하나만 어긋나도 빨강이 되게.
+            Assert.IsTrue(Contains(report, "최원거리 291.4 (46%) @위상 37"));
+            //  어느 x에서 몇 위상이 막혔나 — 한두 곳에 몰리면 그 장애물이 범인이다.
+            Assert.IsTrue(Contains(report, "x≈276 (73위상)"));
+            Assert.IsTrue(Contains(report, "x≈82 (8위상)"));
+        }
+
+        [Test]
+        public void 모든_위상이_같은_자리에서_멈추면_위상과_무관하다고_적는다()
+        {
+            //  정적 지형(ComposedMap/Cube)이 막은 자리의 모양이다. "@위상 0"이라 찍으면
+            //  다른 위상은 다를지 모른다는 헛된 기대를 남긴다.
+            string report = BuildWithPhases(
+                new List<PhaseSweepRow> { AllBlocked("PlayerSpawn_2", 82, 82.3f) },
+                Unproven(Hit("ComposedMap/Cube", -30f)));
+
+            Assert.IsTrue(Contains(report, "최원거리 82.3 (13%) @모든 위상"));
+            Assert.IsTrue(Contains(report, "막힌 곳: x≈82 (82위상)"));
+        }
+
+        [Test]
+        public void 통과한_위상이_있으면_그_범위와_창의_크기를_찍는다()
+        {
+            //  창의 크기가 곧 난이도다 — 4틱이면 0.08초 안에 도착해야 한다는 뜻이다.
+            var outcomes = new List<PhaseOutcome>();
+            for (int p = 0; p < 20; p++)
+            {
+                bool pass = (p >= 3 && p <= 5) || (p >= 12 && p <= 15);
+                outcomes.Add(new PhaseOutcome(p, reached: pass, endX: pass ? 632f : 100f));
+            }
+            string report = BuildWithPhases(
+                new List<PhaseSweepRow> { new PhaseSweepRow("PlayerSpawn_1", 20, 1, 0.02f, outcomes) },
+                Unproven(Hit("FillWindmill/ArmW", -17.6f)));
+
+            Assert.IsTrue(Contains(report, "통과 7/20 위상"));
+            Assert.IsTrue(Contains(report, "통과 위상: 3~5, 12~15"));
+            //  4틱 창(12~15)이 3틱 창(3~5)보다 넓다 — 최댓값을 안 고르면 여기서 어긋난다.
+            Assert.IsTrue(Contains(report, "가장 긴 창 4틱(0.08초)"));
+        }
+
+        [Test]
+        public void 일부_위상만_통과하면_타이밍_관문이라고_말한다()
+        {
+            //  사람은 판이 언제 시작할지 못 고른다 — 이 문장이 없으면 "통과 7/20"이
+            //  "이 자리는 된다"로 읽힌다.
+            var outcomes = new List<PhaseOutcome>();
+            for (int p = 0; p < 20; p++)
+            {
+                bool pass = p >= 12 && p <= 15;
+                outcomes.Add(new PhaseOutcome(p, reached: pass, endX: pass ? 632f : 100f));
+            }
+            string report = BuildWithPhases(
+                new List<PhaseSweepRow> { new PhaseSweepRow("PlayerSpawn_1", 20, 1, 0.02f, outcomes) },
+                Unproven(Hit("FillWindmill/ArmW", -17.6f)));
+
+            Assert.IsTrue(Contains(report, "타이밍 관문이다"));
+            Assert.IsTrue(Contains(report, "시작 시점은 플레이어가 못 고르므로"));
+        }
+
+        [Test]
+        public void 모든_위상이_통과하면_타이밍_관문이라고_하지_않는다()
+        {
+            var outcomes = new List<PhaseOutcome>();
+            for (int p = 0; p < 5; p++)
+            {
+                outcomes.Add(new PhaseOutcome(p, reached: true, endX: 632f));
+            }
+            string report = BuildWithPhases(
+                new List<PhaseSweepRow> { new PhaseSweepRow("PlayerSpawn_1", 5, 1, 0.02f, outcomes) },
+                Unproven(Hit("FillWindmill/ArmW", -17.6f)));
+
+            Assert.IsTrue(Contains(report, "통과 5/5 위상"));
+            Assert.IsFalse(Contains(report, "타이밍 관문이다"));
+            //  막힌 위상이 없으면 그 줄 자체가 없어야 한다 — 빈 "막힌 곳:"은 측정값으로 읽힌다.
+            Assert.IsFalse(Contains(report, "막힌 곳:"));
+        }
+
+        [Test]
+        public void 위상_고리의_양끝이_다_통과면_한_창이라고_적는다()
+        {
+            //  위상 공간은 고리다 — 9 다음이 0이다. 안 적으면 좁은 창 두 개로 읽혀
+            //  난이도를 실제보다 가혹하게 말하게 된다.
+            var outcomes = new List<PhaseOutcome>();
+            for (int p = 0; p < 10; p++)
+            {
+                bool pass = p <= 1 || p >= 8;
+                outcomes.Add(new PhaseOutcome(p, reached: pass, endX: pass ? 632f : 100f));
+            }
+            string report = BuildWithPhases(
+                new List<PhaseSweepRow> { new PhaseSweepRow("PlayerSpawn_1", 10, 1, 0.02f, outcomes) },
+                Unproven(Hit("FillWindmill/ArmW", -17.6f)));
+
+            Assert.IsTrue(Contains(report, "위상은 고리다 — 9 다음이 0이라"));
+            //  0~1과 8~9는 사실 한 창이라 4틱이다. 고리를 안 보면 2틱이라 적게 된다.
+            Assert.IsTrue(Contains(report, "가장 긴 창 4틱(0.08초)"));
+        }
+
+        [Test]
+        public void 성기게_훑었으면_놓칠_수_있다는_것을_적는다()
+        {
+            //  간격 2틱이면 1틱짜리 통과 창은 절반 확률로 안 보인다. 그 사실이 리포트 안에
+            //  없으면 "0/41"이 전수 결과로 읽힌다.
+            var outcomes = new List<PhaseOutcome>();
+            for (int p = 0; p < 82; p += 2)
+            {
+                outcomes.Add(new PhaseOutcome(p, reached: false, endX: 276f));
+            }
+            string report = BuildWithPhases(
+                new List<PhaseSweepRow> { new PhaseSweepRow("PlayerSpawn_1", 82, 2, 0.02f, outcomes) },
+                Unproven(Hit("FillWindmill/ArmW", -17.6f)));
+
+            Assert.IsTrue(Contains(report, "위상 공간 82틱 중 41개만 2틱 간격으로 훑었다"));
+            Assert.IsTrue(Contains(report, "통째로 놓칠 수 있다"));
+            //  전수일 때의 문구가 성긴 훑기에 새어 나오면 안 된다.
+            Assert.IsFalse(Contains(report, "위상 공간 82틱 전수"));
+        }
+
+        [Test]
+        public void 위상에서_파묻힌_스폰은_실패로_안_센다()
+        {
+            //  "그 위상엔 못 날렸다"와 "그 위상에선 못 지나간다"는 다른 말이다.
+            var outcomes = new List<PhaseOutcome>();
+            for (int p = 0; p < 10; p++)
+            {
+                bool buried = p < 3;
+                outcomes.Add(new PhaseOutcome(p, reached: false, endX: buried ? -2f : 50f,
+                                              spawnBlocked: buried));
+            }
+            string report = BuildWithPhases(
+                new List<PhaseSweepRow> { new PhaseSweepRow("PlayerSpawn_1", 10, 1, 0.02f, outcomes) },
+                Unproven(Hit("FillWindmill/ArmW", -17.6f)));
+
+            Assert.IsTrue(Contains(report, "스폰이 지형 안이라 못 날렸다: 3위상"));
+            Assert.IsTrue(Contains(report, "x≈50 (7위상)"));
+            //  막힌 곳 집계에 섞이면 출발점(x=-2)이 장애물로 잡힌다 — 그 줄이 있으면
+            //  레벨 디자이너가 있지도 않은 병목을 고치러 간다.
+            Assert.IsFalse(Contains(report, "x≈-2"));
+        }
+
+        [Test]
+        public void 안_훑었으면_위상_훑기_절이_아예_없다()
+        {
+            //  빈 절은 "훑었는데 아무 위상도 없었다"로 읽힌다.
+            string none = Build(Unproven(Hit("ComposedMap/Cube", -30f)));
+            string empty = BuildWithPhases(new List<PhaseSweepRow>(),
+                                           Unproven(Hit("ComposedMap/Cube", -30f)));
+
+            Assert.IsFalse(Contains(none, "위상 훑기"));
+            Assert.IsFalse(Contains(empty, "위상 훑기"));
+        }
+
+        [Test]
+        public void 위상_훑기는_자리별_판정에_섞이지_않는다()
+        {
+            //  진단 절이다 — 전 위상이 통과해도 ①의 판정은 여전히 틱 0 한 위상 기준이다.
+            //  섞이면 "❌인데 위상 훑기가 다 통과"라는 상태를 리포트가 스스로 지워 버린다.
+            var outcomes = new List<PhaseOutcome>();
+            for (int p = 0; p < 5; p++)
+            {
+                outcomes.Add(new PhaseOutcome(p, reached: true, endX: 632f));
+            }
+            string report = BuildWithPhases(
+                new List<PhaseSweepRow> { new PhaseSweepRow("PlayerSpawn_4", 5, 1, 0.02f, outcomes) },
+                new SpawnCleanRun("PlayerSpawn_4", 9f,
+                                  new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f),
+                                  verifiedByReplay: false, botReached: false, botFlaps: 0, bot: default));
+
+            Assert.IsTrue(Contains(report, "❌  탐색 x=38.2에서 막힘"));
+            Assert.IsFalse(Contains(report, "✅"));
+        }
     }
 }

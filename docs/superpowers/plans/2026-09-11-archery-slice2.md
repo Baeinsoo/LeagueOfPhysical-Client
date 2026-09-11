@@ -976,7 +976,7 @@ git -C .../LeagueOfPhysical-Shared commit -m "feat(archery): 화살이 지나온
 - Consumes: `GameFramework.World.Component`, `GameFramework.World.WorldEvent`.
 - Produces:
   - `class ArcheryScore : GameFramework.World.Component { public int Value; }`
-  - `sealed record ArcheryTargetHitEvent(string shooterId, long fireTick, int waveIndex, int slotIndex, int points) : WorldEvent`
+  - `sealed record ArcheryTargetHitEvent(string shooterId, long fireTick, int points) : WorldEvent`
   - 와이어: `WorldEventToC.archery_hit`(oneof 필드 4), `EntitySnap.score`(필드 24),
     **`ArcheryStateToC`(새 top-level 메시지, `MessageIds` 19)**
   - `WorldEventWire.ToWire`/`FromWire`가 위 사건을 다룬다
@@ -1013,8 +1013,6 @@ namespace LOP
     public sealed record ArcheryTargetHitEvent(
         string shooterId,
         long fireTick,
-        int waveIndex,
-        int slotIndex,
         int points
     ) : GameFramework.World.WorldEvent;
 }
@@ -1032,9 +1030,9 @@ message ArcheryHitToC
 {
 	string shooter_id = 1;
 	int64  fire_tick  = 2;   // shooter_id와 짝이 되어 "어느 화살"인지를 가리킨다
-	int32  wave_index = 3;   // wave_index와 slot_index가 짝이 되어 "어느 과녁"인지를 가리킨다
-	int32  slot_index = 4;
-	int32  points     = 5;   // 연출용. 점수의 진실원본은 EntitySnap.score다
+	int32  points     = 3;   // 연출용. 점수의 진실원본은 EntitySnap.score다
+	//  "어느 과녁"은 싣지 않는다 — 그건 ArcheryStateToC(상태)가 말한다. 나중에 "+N"을 과녁
+	//  자리에 띄우고 싶어지면 그때 필드를 더한다(proto 필드 추가는 뒤에 붙이면 되므로 싸다).
 }
 ```
 
@@ -1112,8 +1110,6 @@ cd .. && git diff Runtime.Generated/Scripts/MessageIds.cs
                         {
                             ShooterId = h.shooterId,
                             FireTick  = h.fireTick,
-                            WaveIndex = h.waveIndex,
-                            SlotIndex = h.slotIndex,
                             Points    = h.points,
                         }
                     };
@@ -1126,8 +1122,6 @@ cd .. && git diff Runtime.Generated/Scripts/MessageIds.cs
                     return new ArcheryTargetHitEvent(
                         shooterId: rec.ArcheryHit.ShooterId,
                         fireTick:  rec.ArcheryHit.FireTick,
-                        waveIndex: rec.ArcheryHit.WaveIndex,
-                        slotIndex: rec.ArcheryHit.SlotIndex,
                         points:    rec.ArcheryHit.Points);
 ```
 
@@ -1140,13 +1134,11 @@ cd .. && git diff Runtime.Generated/Scripts/MessageIds.cs
 [Test]
 public void 적중_사건은_와이어를_왕복해도_그대로다()
 {
-    var original = new ArcheryTargetHitEvent("e7", 1234L, 5, 2, 4);
+    var original = new ArcheryTargetHitEvent("e7", 1234L, 4);
     var restored = (ArcheryTargetHitEvent)WorldEventWire.FromWire(WorldEventWire.ToWire(original));
 
     Assert.AreEqual(original.shooterId, restored.shooterId);
     Assert.AreEqual(original.fireTick,  restored.fireTick);
-    Assert.AreEqual(original.waveIndex, restored.waveIndex);
-    Assert.AreEqual(original.slotIndex, restored.slotIndex);
     Assert.AreEqual(original.points,    restored.points);
 }
 ```
@@ -1264,6 +1256,21 @@ namespace LOP
             builder.Register<ArcheryConfigProvider>(Lifetime.Singleton);
             builder.Register<ArcheryConfig>(c => c.Resolve<ArcheryConfigProvider>().Get(), Lifetime.Singleton);
 ```
+
+**같은 자리에서 월드 등록도 고친다.** 지금 서버는 `IWorld`로만 등록해서 `ArcheryWorld` 자신을 꺼낼
+수 없는데, Task 6의 적중 판정이 `world.Shots`를 읽어야 한다. 클라 스코프와 같은 모양으로 바꾼다:
+
+```csharp
+            builder.Register<ArcheryWorld>(c => new ArcheryWorld(
+                c.Resolve<GameFramework.World.EntityRegistry>(),
+                c.Resolve<GameFramework.World.WorldEventBuffer>(),
+                c.Resolve<ArcheryAimSystem>(),
+                TickInterval), Lifetime.Singleton)
+                .As<GameFramework.World.IWorld>().AsSelf();
+```
+
+`IMatchSeed`가 이 스코프에서 해소되는지도 확인한다 — `PanchigiRuleSystem`/`LOPCombatSystem`이 어디서
+받는지 보고, 상위 스코프에 `MatchSeed`가 `IMatchSeed`로 등록돼 있지 않으면 `.As<IMatchSeed>()`를 더한다.
 
 - [ ] **Step 5: 컴파일이 되는지 본다**
 
@@ -1784,7 +1791,7 @@ namespace LOP
                 }
 
                 eventBuffer.Append(new ArcheryTargetHitEvent(
-                    candidate.ShooterId, candidate.FireTick, wave, candidate.Slot, points));
+                    candidate.ShooterId, candidate.FireTick, points));
             }
         }
 
@@ -2316,8 +2323,6 @@ namespace LOP
             if (wave >= 0)
             {
                 ArcheryWaveGenerator.Fill(targets, matchSeed.Value, wave, config);
-                long oldestFireTick = renderTick - (long)(ArcheryTrajectory.LifetimeSeconds / interval) - 1;
-                consumed.ForgetArrowsBefore(oldestFireTick);
             }
 
             var alive = new HashSet<(int, int)>();
@@ -2392,6 +2397,10 @@ namespace LOP
 }
 ```
 
+> 화살 기록 정리(`ForgetArrowsBefore`)는 **여기서 하지 않는다** — 화살을 도는 쪽이
+> `ArcheryArrowView`이므로 거기서 한다(Task 10). 과녁 뷰가 화살을 치우면 둘이 서로를 모르는 채
+> 엮인다.
+>
 > ⚠️ **매 프레임 `new HashSet`을 만들지 말 것** — 위 코드는 `ArcheryArrowView`의 모양을 그대로
 > 따랐지만, 그쪽도 같은 자리에 매 프레임 할당이 있다. 이 태스크에서는 **필드로 올리고 `Clear()`**
 > 해서 쓴다(과녁은 최대 3개라 크지 않지만, 매 프레임 쓰레기를 만드는 코드를 새로 복제할 이유는 없다).
@@ -2536,6 +2545,15 @@ namespace LOP
 
 **주의:** `alive.Add(key)`보다 **먼저** `continue` 해야 이미 그려 둔 화살이 다음 정리 단계에서
 치워진다. 순서를 바꾸면 박힌 화살이 그 자리에 멈춰 남는다.
+
+같은 메서드에서 **수명이 다한 화살의 기록도 버린다** — 화살을 도는 쪽이 여기라서 이 정리도 여기가
+자리다. `renderTick`을 계산한 직후에 한 줄:
+
+```csharp
+            //  목록에서 사라진 화살의 "박혔다" 기록을 계속 들고 있을 이유가 없다.
+            consumed.ForgetArrowsBefore(
+                (long)renderTick - (long)(ArcheryTrajectory.LifetimeSeconds / interval) - 1);
+```
 
 - [ ] **Step 3: 점수 라벨을 단다**
 

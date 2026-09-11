@@ -1,0 +1,19 @@
+{
+    "name": "LOP.MapTools",
+    "rootNamespace": "LOP.MapTools",
+    "references": [
+        "baegames.LOP.Shared.Runtime",
+        "FlappyRaceSlice.Logic"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

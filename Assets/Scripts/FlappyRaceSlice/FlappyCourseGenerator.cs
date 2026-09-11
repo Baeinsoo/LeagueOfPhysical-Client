@@ -60,7 +60,6 @@ public class FlappyCourseGenerator : MonoBehaviour
     public float movingPipeAmp = 2.0f;
     public float movingPipeSpeed = 1.2f;
     public float donutRadius = 3.4f;   // 스택 링 하나의 반지름
-    public float donutRotSpeed = 25f;
     public int donutGapCount = 3;      // 링 둘레에 균등 배치되는 빈틈 개수
     public int donutStackCount = 2;    // 세로로 쌓는 링 개수 (위/아래 2개 — 중간은 통로)
     public float donutStackOffset = 6f;   // 맨위~맨아래 링 중심의 절반 폭
@@ -284,7 +283,9 @@ public class FlappyCourseGenerator : MonoBehaviour
             var seg = MakeBox(go, "Seg", pos, new Vector3(bandThickness, segLen, pipeDepth));
             seg.transform.localRotation = Quaternion.Euler(0f, 0f, ang);
         }
-        go.gameObject.AddComponent<FlappyRotatingDonut>().rotSpeed = donutRotSpeed;
+        //  옛날엔 여기서 FlappyRotatingDonut(프레임마다 각도를 더하는 클라 전용 스크립트)을 붙였다.
+        //  그 방식은 프레임레이트에 따라 위상이 갈리고 과거 틱의 각도를 물을 수 없어 지웠다.
+        //  도는 장애물이 필요하면 LOP.FlappyWindmill 마커를 쓴다 — 각도가 틱의 함수라 클·서가 같다.
     }
 
     // --- 프리미티브 헬퍼 ---

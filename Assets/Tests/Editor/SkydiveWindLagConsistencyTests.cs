@@ -11,7 +11,7 @@ using NUnit.Framework;
 /// 더 이상 실제 코스를 재지 않게 된다.
 ///
 /// <c>LOPMasterData.LoadAsync()</c>는 <c>UnityWebRequest</c>를 써서 EditMode에서 블로킹 대기가
-/// 안전하지 않으므로, 패키지가 배포하는 <c>.bytes</c>를 직접 읽는다 — <c>FlappyMapTrapScanner</c>가
+/// 안전하지 않으므로, 패키지가 배포하는 <c>.bytes</c>를 직접 읽는다 — <c>FlappyMapPlayabilityCheck</c>가
 /// 이미 쓰는 방식과 같다.
 /// </summary>
 public class SkydiveWindLagConsistencyTests

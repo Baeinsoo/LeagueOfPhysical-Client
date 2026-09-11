@@ -8,7 +8,7 @@ namespace LOP
     /// 날아가는 화살을 그린다. <b>시뮬과 같은 식에 같은 시각을 넣으므로</b> 그림과 계산이 어긋나지 않는다.
     /// 화살은 엔티티가 아니라서 뷰가 직접 월드의 발사 목록을 읽는다.
     /// </summary>
-    public class ArcheryArrowView : ILateTickable
+    public class ArcheryArrowView : ILateTickable, System.IDisposable
     {
         private readonly GameFramework.Runner.IRunner runner;
         private readonly ArcheryWorld world;
@@ -24,6 +24,19 @@ namespace LOP
         {
             this.runner = runner;
             this.world = world;
+        }
+
+        //  화살마다 material을 새로 만들면 재질 인스턴스가 계속 쌓인다 — 한 장을 돌려 쓴다.
+        private Material _arrowMaterial;
+
+        private Material ArrowMaterial()
+        {
+            if (_arrowMaterial == null)
+            {
+                var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+                _arrowMaterial = new Material(shader) { color = Color.red };
+            }
+            return _arrowMaterial;
         }
 
         public void LateTick()
@@ -50,7 +63,14 @@ namespace LOP
                 if (drawn.TryGetValue(key, out var arrow) == false || arrow == null)
                 {
                     arrow = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    arrow.transform.localScale = new Vector3(0.05f, 0.05f, 0.6f);
+                    //  임시 그림이라 실물 비례보다 눈에 띄는 것이 우선이다 — 흰 5cm 막대는
+                    //  12m 밖에서 사실상 안 보여서 "안 나갔나 안 보이나"를 가릴 수 없었다.
+                    arrow.transform.localScale = new Vector3(0.15f, 0.15f, 0.8f);
+                    var renderer = arrow.GetComponent<Renderer>();
+                    if (renderer != null)
+                    {
+                        renderer.sharedMaterial = ArrowMaterial();
+                    }
                     Object.Destroy(arrow.GetComponent<Collider>());   // 그림일 뿐이다 — 판정은 시뮬이 한다
                     drawn[key] = arrow;
                 }
@@ -81,6 +101,23 @@ namespace LOP
             {
                 Object.Destroy(drawn[key]);
                 drawn.Remove(key);
+            }
+        }
+
+        // 판이 끝나면 그리던 화살과 재질을 같이 치운다 — 재질은 우리가 만든 것이라
+        // 아무도 대신 지워 주지 않는다.
+        public void Dispose()
+        {
+            foreach (var pair in drawn)
+            {
+                Object.Destroy(pair.Value);
+            }
+            drawn.Clear();
+
+            if (_arrowMaterial != null)
+            {
+                Object.Destroy(_arrowMaterial);
+                _arrowMaterial = null;
             }
         }
     }

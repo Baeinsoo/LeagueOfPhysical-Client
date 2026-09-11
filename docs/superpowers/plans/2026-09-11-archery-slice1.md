@@ -7,7 +7,7 @@
 
 **Architecture:** 새 게임 모드는 기존 배관에 칸 하나를 채우는 일이다 — `TbGameMode` 행이 게임 씬을
 가리키고, 그 씬의 `ArcheryLifetimeScope`가 자기 월드·생성기·룰을 등록한다. 시뮬(`ArcheryWorld`,
-`ArcheryAimSystem`, `ArrowTrajectory`)은 LOP-Shared에 두어 클·서가 **같은 구체 클래스**를 컴파일한다.
+`ArcheryAimSystem`, `ArcheryTrajectory`)은 LOP-Shared에 두어 클·서가 **같은 구체 클래스**를 컴파일한다.
 **화살은 엔티티가 아니다** — *누가·언제·어디서·어느 방향으로·얼마나 빠르게* 쐈는지만 있으면 어느
 시각의 위치든 계산되므로, 발사 사실만 남기고 궤적은 양쪽이 각자 계산한다.
 
@@ -39,7 +39,7 @@
   그 코드 문자열을 참조하지 않는 것을 확인했다(`grep -rn "TargetShooting" --include=*.cs`가 0건).
 - **시뮬 코드는 LOP-Shared에 구체 클래스로 둔다.** 인터페이스 seam 금지(결정론은 *공유 구체 코드*가
   보장한다).
-- **`*System`은 무상태 DI 인스턴스**, **`static`은 컨텍스트 없는 순수 커널에만**(`ArrowTrajectory`).
+- **`*System`은 무상태 DI 인스턴스**, **`static`은 컨텍스트 없는 순수 커널에만**(`ArcheryTrajectory`).
   순수 커널에 `*System` 이름을 붙이지 않는다.
 - **World 타입은 항상 풀 네임스페이스로 한정한다** — `GameFramework.World.Transform` 등.
   `using GameFramework.World;`를 추가하지 않는다(`UnityEngine.Component`와 충돌).
@@ -104,12 +104,12 @@ unity command test_status --project-path "$CLIENT"
 | **LOP-Shared** | |
 | `Runtime/Scripts/Game/ArcheryAim.cs` | 조준·당김 상태(데이터만). 각도, 당기는 중인가, 언제부터 |
 | `Runtime/Scripts/Game/ArcheryShot.cs` | 발사 사실 하나(불변 struct). 이것만 있으면 궤적이 계산된다 |
-| `Runtime/Scripts/Game/ArrowTrajectory.cs` | 순수 커널 — 각도→방향, 발사 후 t초의 위치·속도 |
+| `Runtime/Scripts/Game/ArcheryTrajectory.cs` | 순수 커널 — 각도→방향, 발사 후 t초의 위치·속도 |
 | `Runtime/Scripts/Game/ArcheryAimSystem.cs` | 입력을 읽어 조준 상태를 갱신하고, 떼는 틱에 발사를 만든다 |
 | `Runtime/Scripts/Game/ArcheryWorld.cs` | 시뮬 코어. 매 틱 조준 갱신 + 날아가는 화살 목록 관리 |
 | `Runtime/Scripts/Game/InputCommand.cs` | (수정) 조준·당김 필드 추가 |
 | `Protos/InputCommand.proto` | (수정) 같은 필드를 와이어에 |
-| `Tests/EditMode/ArrowTrajectoryTests.cs` | 각도→방향, 포물선 |
+| `Tests/EditMode/ArcheryTrajectoryTests.cs` | 각도→방향, 포물선 |
 | `Tests/EditMode/ArcheryAimSystemTests.cs` | 당김 시간→속도, 떼는 틱에만 발사 |
 | `Tests/EditMode/ArcheryWorldTests.cs` | 화살 수명, 롤백 저장·복원 |
 | **LOP-Client** | |
@@ -142,15 +142,15 @@ unity command test_status --project-path "$CLIENT"
 
 **Files:**
 - Create: `LeagueOfPhysical-Shared/Runtime/Scripts/Game/ArcheryShot.cs`
-- Create: `LeagueOfPhysical-Shared/Runtime/Scripts/Game/ArrowTrajectory.cs`
-- Test: `LeagueOfPhysical-Shared/Tests/EditMode/ArrowTrajectoryTests.cs`
+- Create: `LeagueOfPhysical-Shared/Runtime/Scripts/Game/ArcheryTrajectory.cs`
+- Test: `LeagueOfPhysical-Shared/Tests/EditMode/ArcheryTrajectoryTests.cs`
 
 **Interfaces:**
 - Consumes: `UnityEngine.Vector3`, `UnityEngine.Mathf`
 - Produces:
   - `LOP.ArcheryShot` — `readonly struct`, ctor `(string shooterId, long fireTick, Vector3 origin, Vector3 velocity)`,
     필드 `ShooterId`/`FireTick`/`Origin`/`Velocity`
-  - `LOP.ArrowTrajectory` — `static class`.
+  - `LOP.ArcheryTrajectory` — `static class`.
     `const float Gravity = 20f`, `const float LifetimeSeconds = 3f`,
     `static Vector3 DirectionFrom(float yawDegrees, float pitchDegrees)`,
     `static Vector3 PositionAt(in ArcheryShot shot, float secondsSinceFire)`,
@@ -158,7 +158,7 @@ unity command test_status --project-path "$CLIENT"
 
 - [ ] **Step 1: 실패하는 테스트를 쓴다**
 
-`LeagueOfPhysical-Shared/Tests/EditMode/ArrowTrajectoryTests.cs`:
+`LeagueOfPhysical-Shared/Tests/EditMode/ArcheryTrajectoryTests.cs`:
 
 ```csharp
 using NUnit.Framework;
@@ -166,14 +166,14 @@ using UnityEngine;
 
 namespace LOP.Tests
 {
-    public class ArrowTrajectoryTests
+    public class ArcheryTrajectoryTests
     {
         const float Tolerance = 1e-3f;
 
         [Test]
         public void 정면을_보면_앞으로_향한다()
         {
-            var direction = ArrowTrajectory.DirectionFrom(0f, 0f);
+            var direction = ArcheryTrajectory.DirectionFrom(0f, 0f);
 
             Assert.AreEqual(0f, direction.x, Tolerance);
             Assert.AreEqual(0f, direction.y, Tolerance);
@@ -183,7 +183,7 @@ namespace LOP.Tests
         [Test]
         public void 좌우_각도는_y축_회전이다()
         {
-            var direction = ArrowTrajectory.DirectionFrom(90f, 0f);
+            var direction = ArcheryTrajectory.DirectionFrom(90f, 0f);
 
             Assert.AreEqual(1f, direction.x, Tolerance);
             Assert.AreEqual(0f, direction.y, Tolerance);
@@ -193,7 +193,7 @@ namespace LOP.Tests
         [Test]
         public void 위아래_각도가_양수면_위를_본다()
         {
-            var direction = ArrowTrajectory.DirectionFrom(0f, 90f);
+            var direction = ArcheryTrajectory.DirectionFrom(0f, 90f);
 
             Assert.AreEqual(0f, direction.x, Tolerance);
             Assert.AreEqual(1f, direction.y, Tolerance);
@@ -203,7 +203,7 @@ namespace LOP.Tests
         [Test]
         public void 방향은_길이가_1이다()
         {
-            var direction = ArrowTrajectory.DirectionFrom(37f, 21f);
+            var direction = ArcheryTrajectory.DirectionFrom(37f, 21f);
 
             Assert.AreEqual(1f, direction.magnitude, Tolerance);
         }
@@ -213,10 +213,10 @@ namespace LOP.Tests
         {
             var shot = new ArcheryShot("a", 0, Vector3.zero, new Vector3(0f, 0f, 40f));
 
-            var position = ArrowTrajectory.PositionAt(shot, 1f);
+            var position = ArcheryTrajectory.PositionAt(shot, 1f);
 
             Assert.AreEqual(40f, position.z, Tolerance);                          // 40 × 1
-            Assert.AreEqual(-0.5f * ArrowTrajectory.Gravity, position.y, Tolerance); // -½gt²
+            Assert.AreEqual(-0.5f * ArcheryTrajectory.Gravity, position.y, Tolerance); // -½gt²
         }
 
         [Test]
@@ -225,7 +225,7 @@ namespace LOP.Tests
             var origin = new Vector3(3f, 2f, 1f);
             var shot = new ArcheryShot("a", 0, origin, new Vector3(0f, 0f, 40f));
 
-            var position = ArrowTrajectory.PositionAt(shot, 0f);
+            var position = ArcheryTrajectory.PositionAt(shot, 0f);
 
             Assert.AreEqual(origin.x, position.x, Tolerance);
             Assert.AreEqual(origin.y, position.y, Tolerance);
@@ -237,10 +237,10 @@ namespace LOP.Tests
         {
             var shot = new ArcheryShot("a", 0, Vector3.zero, new Vector3(0f, 10f, 40f));
 
-            var velocity = ArrowTrajectory.VelocityAt(shot, 1f);
+            var velocity = ArcheryTrajectory.VelocityAt(shot, 1f);
 
             Assert.AreEqual(40f, velocity.z, Tolerance);
-            Assert.AreEqual(10f - ArrowTrajectory.Gravity, velocity.y, Tolerance);
+            Assert.AreEqual(10f - ArcheryTrajectory.Gravity, velocity.y, Tolerance);
         }
     }
 }
@@ -254,7 +254,7 @@ unity command recompile_status --project-path "$CLIENT"
 unity command get_console_logs --severity error --limit 20 --project-path "$CLIENT"
 ```
 
-Expected: `ArcheryShot` / `ArrowTrajectory`가 없다는 CS0246 컴파일 에러.
+Expected: `ArcheryShot` / `ArcheryTrajectory`가 없다는 CS0246 컴파일 에러.
 
 - [ ] **Step 3: 최소 구현을 쓴다**
 
@@ -287,7 +287,7 @@ namespace LOP
 }
 ```
 
-`LeagueOfPhysical-Shared/Runtime/Scripts/Game/ArrowTrajectory.cs`:
+`LeagueOfPhysical-Shared/Runtime/Scripts/Game/ArcheryTrajectory.cs`:
 
 ```csharp
 using UnityEngine;
@@ -297,9 +297,12 @@ namespace LOP
     /// <summary>
     /// 화살의 궤적. 상태가 없는 순수 계산이라 클·서·뷰가 같은 식에 같은 시각을 넣으면 같은 답을 얻는다.
     /// </summary>
-    public static class ArrowTrajectory
+    public static class ArcheryTrajectory
     {
-        /// <summary>캐릭터에 걸리는 중력과 같은 값 — 눈에 보이는 무게감이 게임 안에서 일관되게 보인다.</summary>
+        /// <summary>
+        /// 화살에 걸리는 중력. 캐릭터 중력(약 19.6)과 비슷한 크기로 잡아 무게감이 따로 놀지 않게 한
+        /// 튜닝 값이다 — 같은 값으로 묶어 둔 것이 아니다.
+        /// </summary>
         public const float Gravity = 20f;
 
         /// <summary>이 시간이 지난 화살은 목록에서 지운다. 화면 밖으로 나간 뒤에도 들고 있을 이유가 없다.</summary>
@@ -341,7 +344,7 @@ unity command run_tests  --mode EditMode --async_tests true --project-path "$CLI
 unity command test_status --project-path "$CLIENT"
 ```
 
-Expected: `ArrowTrajectoryTests` 7개 PASS.
+Expected: `ArcheryTrajectoryTests` 7개 PASS.
 
 - [ ] **Step 5: 커밋**
 
@@ -349,8 +352,8 @@ Expected: `ArrowTrajectoryTests` 7개 PASS.
 cd C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Shared
 git status --short
 git add Runtime/Scripts/Game/ArcheryShot.cs Runtime/Scripts/Game/ArcheryShot.cs.meta \
-        Runtime/Scripts/Game/ArrowTrajectory.cs Runtime/Scripts/Game/ArrowTrajectory.cs.meta \
-        Tests/EditMode/ArrowTrajectoryTests.cs Tests/EditMode/ArrowTrajectoryTests.cs.meta
+        Runtime/Scripts/Game/ArcheryTrajectory.cs Runtime/Scripts/Game/ArcheryTrajectory.cs.meta \
+        Tests/EditMode/ArcheryTrajectoryTests.cs Tests/EditMode/ArcheryTrajectoryTests.cs.meta
 git commit -m "feat(archery): 화살 궤적을 상태 없는 계산으로 둔다"
 ```
 
@@ -364,7 +367,7 @@ git commit -m "feat(archery): 화살 궤적을 상태 없는 계산으로 둔다
 - Test: `LeagueOfPhysical-Shared/Tests/EditMode/ArcheryAimSystemTests.cs`
 
 **Interfaces:**
-- Consumes: `GameFramework.World.{Entity, Component, Transform}`, `LOP.{InputCommand, InputBuffer, ArcheryShot, ArrowTrajectory}`,
+- Consumes: `GameFramework.World.{Entity, Component, Transform}`, `LOP.{InputCommand, InputBuffer, ArcheryShot, ArcheryTrajectory}`,
   확장 메서드 `ToNumerics()`/`ToUnity()` (namespace `GameFramework`)
 - Produces:
   - `LOP.ArcheryAim : GameFramework.World.Component` — 필드 `float Yaw`, `float Pitch`, `bool Drawing`, `long DrawStartTick`
@@ -680,7 +683,7 @@ namespace LOP
             float speed = SpeedFor(DrawRatio(aim.DrawStartTick, tick, tickInterval));
             Vector3 origin = entity.Get<GameFramework.World.Transform>().Position.ToUnity()
                            + new Vector3(0f, EyeHeight, 0f);
-            Vector3 velocity = ArrowTrajectory.DirectionFrom(aim.Yaw, aim.Pitch) * speed;
+            Vector3 velocity = ArcheryTrajectory.DirectionFrom(aim.Yaw, aim.Pitch) * speed;
 
             aim.Drawing = false;
             return new ArcheryShot(entity.Id, tick, origin, velocity);
@@ -697,7 +700,7 @@ unity command run_tests  --mode EditMode --async_tests true --project-path "$CLI
 unity command test_status --project-path "$CLIENT"
 ```
 
-Expected: `ArcheryAimSystemTests` 9개 + `ArrowTrajectoryTests` 7개 PASS.
+Expected: `ArcheryAimSystemTests` 9개 + `ArcheryTrajectoryTests` 7개 PASS.
 
 - [ ] **Step 6: 커밋**
 
@@ -720,7 +723,7 @@ git commit -m "feat(archery): 당긴 만큼 세게 나가는 발사를 만든다
 - Test: `LeagueOfPhysical-Shared/Tests/EditMode/ArcheryWorldTests.cs`
 
 **Interfaces:**
-- Consumes: `GameFramework.World.{WorldBase, EntityRegistry, WorldEventBuffer, Simulated, Entity}`, `LOP.{ArcheryAimSystem, ArcheryShot, ArrowTrajectory, InputBuffer, InputCommand, ArcheryAim}`
+- Consumes: `GameFramework.World.{WorldBase, EntityRegistry, WorldEventBuffer, Simulated, Entity}`, `LOP.{ArcheryAimSystem, ArcheryShot, ArcheryTrajectory, InputBuffer, InputCommand, ArcheryAim}`
 - Produces:
   - `LOP.ArcheryWorld : GameFramework.World.WorldBase` — ctor `(EntityRegistry, WorldEventBuffer, ArcheryAimSystem, float tickInterval)`,
     `IReadOnlyList<ArcheryShot> Shots { get; }`
@@ -792,7 +795,7 @@ namespace LOP.Tests
             Assert.AreEqual(1, world.Shots.Count);
 
             Feed(archer, drawing: false, release: false);
-            long expiryTick = 2 + (long)(ArrowTrajectory.LifetimeSeconds / TickInterval) + 1;
+            long expiryTick = 2 + (long)(ArcheryTrajectory.LifetimeSeconds / TickInterval) + 1;
             world.Tick(expiryTick, TickInterval);
 
             Assert.AreEqual(0, world.Shots.Count);
@@ -923,7 +926,7 @@ namespace LOP
         // 화면 밖으로 나간 화살을 계속 들고 있으면 목록이 한 판 내내 자란다.
         private void RemoveExpired(long tick)
         {
-            float lifetimeTicks = ArrowTrajectory.LifetimeSeconds / tickInterval;
+            float lifetimeTicks = ArcheryTrajectory.LifetimeSeconds / tickInterval;
             for (int i = shots.Count - 1; i >= 0; i--)
             {
                 if (tick - shots[i].FireTick > lifetimeTicks)
@@ -1434,7 +1437,7 @@ git commit -m "feat(archery): 사대에 세우고 60초를 재는 서버 룰을 
 - Create: `LeagueOfPhysical-Client/Assets/Scenes/Archery.unity`
 
 **Interfaces:**
-- Consumes: `LOP.{PlayerInputManager, CameraController, IPlayerContext, GameLifetimeScope, ArcheryWorld, ArcheryAimSystem, ArrowTrajectory, ICharacterCreator, IEntitySyncPolicy, CharactersPredictedSyncPolicy, IGameDataStore}`,
+- Consumes: `LOP.{PlayerInputManager, CameraController, IPlayerContext, GameLifetimeScope, ArcheryWorld, ArcheryAimSystem, ArcheryTrajectory, ICharacterCreator, IEntitySyncPolicy, CharactersPredictedSyncPolicy, IGameDataStore}`,
   `GameFramework.World.EntityRegistry`, `GameFramework.Runner.{IRunner, ITickSystem}`, R3, VContainer
 - Produces:
   - `LOP.ArcheryPlayerCreator : ICharacterCreator`
@@ -1740,9 +1743,9 @@ namespace LOP
                 {
                     seconds = 0f;   // 아직 떠나기 전 프레임 — 출발점에 둔다
                 }
-                arrow.transform.position = ArrowTrajectory.PositionAt(shots[i], seconds);
+                arrow.transform.position = ArcheryTrajectory.PositionAt(shots[i], seconds);
 
-                var velocity = ArrowTrajectory.VelocityAt(shots[i], seconds);
+                var velocity = ArcheryTrajectory.VelocityAt(shots[i], seconds);
                 if (velocity.sqrMagnitude > 1e-6f)
                 {
                     arrow.transform.rotation = Quaternion.LookRotation(velocity);

@@ -880,8 +880,10 @@ namespace LOP
         private readonly float tickInterval;
         private readonly List<ArcheryShot> shots = new List<ArcheryShot>();
 
-        // 되감기용 보관. 틱마다 그 시점의 조준 상태와 화살 목록을 통째로 둔다.
-        private readonly Dictionary<long, SavedState> saved = new Dictionary<long, SavedState>();
+        // 되감기용 보관. 베이스가 최근 128틱(SaveCapacity)만 되감으므로 여기도 같은 길이로 묶는다 —
+        // 한쪽만 길면 쓰이지도 않는 스냅샷이 한 판 내내 쌓이기만 한다.
+        private readonly GameFramework.Netcode.SequenceBuffer<SavedState> saved
+            = new GameFramework.Netcode.SequenceBuffer<SavedState>(SaveCapacity);
 
         private readonly struct SavedState
         {
@@ -944,6 +946,13 @@ namespace LOP
             var aims = new Dictionary<string, ArcheryAim>();
             foreach (var entity in EntityRegistry.All)
             {
+                // 베이스는 Simulated인 몸만 되감는다. 남의 몸까지 담았다가 되돌리면 그 사이
+                // 네트워크로 온 남의 최신 조준을 옛 값으로 덮어쓴다.
+                if (entity.Has<GameFramework.World.Simulated>() == false)
+                {
+                    continue;
+                }
+
                 var aim = entity.Get<ArcheryAim>();
                 if (aim != null)
                 {
@@ -954,13 +963,13 @@ namespace LOP
                     };
                 }
             }
-            saved[tick] = new SavedState(new List<ArcheryShot>(shots), aims);
+            saved.Record(tick, new SavedState(new List<ArcheryShot>(shots), aims));
         }
 
         // 베이스가 bool을 요구한다 — 그 틱 기록이 없으면 false다.
         protected override bool LoadGameState(long tick)
         {
-            if (saved.TryGetValue(tick, out var state) == false)
+            if (saved.TryGet(tick, out var state) == false)
             {
                 return false;
             }
@@ -970,7 +979,13 @@ namespace LOP
 
             foreach (var pair in state.Aims)
             {
-                var aim = EntityRegistry.Get(pair.Key)?.Get<ArcheryAim>();
+                var entity = EntityRegistry.Get(pair.Key);
+                if (entity == null || entity.Has<GameFramework.World.Simulated>() == false)
+                {
+                    continue;   // 저장 때와 같은 가드 — 남의 몸은 되감지 않는다
+                }
+
+                var aim = entity.Get<ArcheryAim>();
                 if (aim == null)
                 {
                     continue;

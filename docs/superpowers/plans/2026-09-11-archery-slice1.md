@@ -2065,10 +2065,20 @@ git commit -m "chore(art): 원형 사대 맵을 가리킨다"
 - [ ] **Step 7: 커밋 (레포 세 곳)**
 
 ```bash
+# ⚠️ infrastructure도 피처 브랜치다 — main에 직접 꽂힌 것은 CI 봇 커밋뿐이고,
+#    사람이 만든 데이터 변경은 전부 feature → --no-ff 머지로 들어온다.
 cd C:/Users/re5na/workspace/LOP/infrastructure
+git checkout -b feature/archery-slice1
 git status --short
 git add table/Datas/#GameMode.xlsx table/Datas/#Map.xlsx table/Datas/#Queue.xlsx
 git commit -m "feat(archery): 게임 모드와 원형맵을 데이터에 올린다"
+
+# ⚠️ gen.sh는 lop-backend의 매치메이킹 마스터데이터도 고친다 — 빠뜨리면 매칭이 모드를 모른다.
+cd C:/Users/re5na/workspace/LOP/lop-backend
+git checkout -b feature/archery-slice1
+git status --short
+git add apps/matchmaking-server/master_data/tbgamemode.json apps/matchmaking-server/master_data/tbmap.json
+git commit -m "feat(archery): 매치메이킹이 활쏘기 모드와 원형맵을 알게 한다"
 
 cd C:/Users/re5na/workspace/LOP/LeagueOfPhysical-MasterData-Client
 git status --short && git add -u && git commit -m "chore: regenerate for archery"

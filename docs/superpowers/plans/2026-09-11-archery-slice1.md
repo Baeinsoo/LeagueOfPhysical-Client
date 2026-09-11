@@ -1236,6 +1236,12 @@ namespace LOP
             worldEntity.Add(new GameFramework.World.Velocity());
             worldEntity.Add(new EntityKind(EntityType.Character));
             worldEntity.Add(new Appearance(creationData.visualId));
+            // 걷지는 않지만 EntityBinder가 모든 엔티티에 물리 몸을 붙인다 — 모양과 종류가 없으면
+            // PhysicsBodyFactory가 거기서 예외를 던져 몸이 하나도 안 선다. 다른 캐릭터와 같은 치수.
+            worldEntity.Add(new GameFramework.World.CapsuleShape(
+                BodySizes.CharacterRadius, BodySizes.CharacterHeight));
+            worldEntity.Add(new GameFramework.World.PhysicsConfig(
+                GameFramework.World.BodyKind.Kinematic, freezeRotation: true, isTrigger: false));
             worldEntity.Add(new ArcheryAim());
             worldEntity.Add(new InputBuffer());
             // 서버는 여기서 직접 붙인다(클라는 EntityBinder가 동기화 정책을 보고 붙인다).
@@ -1521,6 +1527,12 @@ namespace LOP
             worldEntity.Add(new GameFramework.World.Velocity());
             worldEntity.Add(new EntityKind(EntityType.Character));
             worldEntity.Add(new Appearance(creationData.visualId));
+            // 걷지는 않지만 EntityBinder가 모든 엔티티에 물리 몸을 붙인다 — 모양과 종류가 없으면
+            // PhysicsBodyFactory가 거기서 예외를 던져 몸이 하나도 안 선다. 다른 캐릭터와 같은 치수.
+            worldEntity.Add(new GameFramework.World.CapsuleShape(
+                BodySizes.CharacterRadius, BodySizes.CharacterHeight));
+            worldEntity.Add(new GameFramework.World.PhysicsConfig(
+                GameFramework.World.BodyKind.Kinematic, freezeRotation: true, isTrigger: false));
             worldEntity.Add(new ArcheryAim());
 
             // 남의 몸도 입력 버퍼를 갖는다 — 서버가 남의 입력을 되뿌려 주고(EntityInputBroadcastSystem)
@@ -1700,6 +1712,10 @@ namespace LOP
                 return 0f;
             }
 
+            if (runner?.tickUpdater == null)
+            {
+                return 0f;   // 러너가 아직 안 물렸거나 이미 풀렸다
+            }
             double interval = runner.tickUpdater.interval;
             if (interval <= 0d)
             {
@@ -1748,6 +1764,12 @@ namespace LOP
 
         public void LateTick()
         {
+            // 러너가 아직 안 물렸거나(씬 진입 초기) 이미 풀렸으면(언로드 중) 그냥 건너뛴다 —
+            // RunnerBase가 Deinitialize에서 tickUpdater를 null로 되돌린다.
+            if (runner?.tickUpdater == null)
+            {
+                return;
+            }
             double interval = runner.tickUpdater.interval;
             if (interval <= 0d)
             {

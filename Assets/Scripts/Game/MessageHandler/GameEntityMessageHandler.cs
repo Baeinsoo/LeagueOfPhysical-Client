@@ -152,6 +152,12 @@ namespace LOP
                     finishPlacement.Value = entitySnap.finishPlacement;
                 }
 
+                var archeryScore = targetEntity?.Get<ArcheryScore>();
+                if (archeryScore != null)
+                {
+                    archeryScore.Value = entitySnap.score;
+                }
+
                 // 모드는 엔티티가 생길 때 한 번 정해졌다(EntityBinder) — 그때 붙인 팔로워 컴포넌트가 곧
                 // 그 판정 결과다. 여기서 정책에 다시 물으면 그 사이 정책의 답이 바뀐 경우(예: 로컬 id가
                 // 늦게 도착) 붙어 있는 팔로워와 어긋난다. 외삽·보간 둘 다 스냅을 받아야 한다(둘 다

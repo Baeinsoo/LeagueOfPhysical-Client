@@ -30,6 +30,7 @@ namespace LOP
             worldEntity.Add(new EntityKind(EntityType.Character));
             worldEntity.Add(new Appearance(creationData.visualId));
             worldEntity.Add(new ArcheryAim());
+            worldEntity.Add(new ArcheryScore());
 
             // 남의 몸도 입력 버퍼를 갖는다 — 서버가 남의 입력을 되뿌려 주고(EntityInputBroadcastSystem)
             // RemoteInputSystem이 여기에 채운다. 이 게임은 남도 굴리므로(CharactersPredictedSyncPolicy)

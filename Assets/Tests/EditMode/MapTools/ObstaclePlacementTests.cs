@@ -68,6 +68,92 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 한쪽으로_붙이면_되는_자리는_위치_손잡이가_0을_낸다()
+        {
+            //  둘 다 기준에 모자라지만(2.6 / 2.5) 합치면 넘는다 — 회랑도 팔도 안 건드려도 된다.
+            PlacementVerdict verdict = ObstaclePlacementRule.Judge(Placement(above: 2.6f, below: 2.5f), Required);
+            Assert.IsFalse(verdict.Guaranteed, "지금 자리에서는 아직 보장이 아니다.");
+            Assert.AreEqual(0f, verdict.ShortfallIfShifted, "위+아래가 기준을 넘으므로 옮기기만 하면 된다.");
+        }
+
+        [Test]
+        public void 합쳐도_모자라면_그_차이가_진짜_모자람이다()
+        {
+            //  x=276의 실측값(위 2.01 / 아래 1.84). 가운데 둔 채로는 2.90이 모자라지만,
+            //  한쪽으로 붙이고 나면 1.06만 남는다 — 그 차이만큼 맵을 덜 넓혀도 된다.
+            PlacementVerdict verdict = ObstaclePlacementRule.Judge(Placement(above: 2.01f, below: 1.84f), Required);
+            Assert.AreEqual(Required - 2.01f, verdict.Shortfall, 1e-4f);
+            Assert.AreEqual(Required - (2.01f + 1.84f), verdict.ShortfallIfShifted, 1e-4f);
+            Assert.AreEqual(1.062f, verdict.ShortfallIfShifted, 0.0005f);
+            Assert.Less(verdict.ShortfallIfShifted, verdict.Shortfall);
+        }
+
+        [Test]
+        public void 이미_한쪽_벽에_붙어_있으면_두_모자람이_같다()
+        {
+            //  x=350의 실측값 — 아래가 이미 0이라 옮겨서 벌 것이 없다.
+            PlacementVerdict verdict = ObstaclePlacementRule.Judge(Placement(above: 3.06f, below: 0f), Required);
+            Assert.AreEqual(verdict.Shortfall, verdict.ShortfallIfShifted, 1e-4f);
+        }
+
+        [Test]
+        public void 원판이_묻혀_있으면_그_깊이가_합산에서_빠진다()
+        {
+            //  x=350의 실측값 — 원판 아랫끝이 BoostHole 안으로 2.05m 들어가 있다(음수 밴드).
+            //  이걸 0으로 뭉개면 회랑 여유가 4.49로 보여 "0.42m만 넓히면 된다"는 틀린 답이 나온다.
+            PlacementVerdict buried = ObstaclePlacementRule.Judge(Placement(above: 4.49f, below: -2.05f), Required);
+            PlacementVerdict flattened = ObstaclePlacementRule.Judge(Placement(above: 4.49f, below: 0f), Required);
+            Assert.AreEqual(Required - (4.49f - 2.05f), buried.ShortfallIfShifted, 1e-4f);
+            Assert.Greater(buried.ShortfallIfShifted, flattened.ShortfallIfShifted,
+                           "묻힌 깊이를 빼지 않으면 넓혀야 할 양을 실제보다 적게 말한다.");
+            //  묻힌 쪽이 더 나은 밴드로 뽑히면 안 된다.
+            Assert.AreEqual(4.49f, buried.BestBand, 1e-4f);
+        }
+
+        [Test]
+        public void 보장된_자리는_위치_손잡이도_0이다()
+        {
+            PlacementVerdict verdict = ObstaclePlacementRule.Judge(Placement(above: Required + 1f, below: 0f), Required);
+            Assert.IsTrue(verdict.Guaranteed);
+            Assert.AreEqual(0f, verdict.ShortfallIfShifted);
+        }
+
+        [Test]
+        public void 절은_위치만_옮기면_되는_자리에_팔_줄이기를_안_적는다()
+        {
+            string section = ObstaclePlacementRule.Section(
+                new List<ObstaclePlacement> { Placement(2.6f, 2.5f, "FillWindmill") }, Required);
+
+            Assert.GreaterOrEqual(section.IndexOf("위치만 한쪽으로 붙이면 → 만족", StringComparison.Ordinal), 0);
+            //  여기서 "팔을 줄여라"까지 적으면 안 쓸 손잡이를 쓰게 만든다.
+            Assert.Less(section.IndexOf("줄이거나", StringComparison.Ordinal), 0);
+        }
+
+        [Test]
+        public void 팔을_다_없애도_모자라면_회랑만_말한다()
+        {
+            //  모자란 양이 팔보다 크면 "팔을 줄여라"는 음수 길이를 처방하는 셈이라 말이 안 된다.
+            string section = ObstaclePlacementRule.Section(
+                new List<ObstaclePlacement>
+                {
+                    new ObstaclePlacement("FillWindmill", 350f, -44f, 2.00f, 4.49f, -2.06f, measured: true),
+                }, Required);
+
+            Assert.GreaterOrEqual(section.IndexOf("회랑을 2.48m 넓혀야 한다", StringComparison.Ordinal), 0);
+            Assert.Less(section.IndexOf("L=-", StringComparison.Ordinal), 0);
+        }
+
+        [Test]
+        public void 절은_세_손잡이를_머리말에_밝힌다()
+        {
+            string section = ObstaclePlacementRule.Section(
+                new List<ObstaclePlacement> { Placement(1.70f, 0.90f, "FillWindmill") }, Required);
+
+            Assert.GreaterOrEqual(
+                section.IndexOf("팔 길이 L · 회랑 안에서의 세로 위치 · 회랑 폭", StringComparison.Ordinal), 0);
+        }
+
+        [Test]
         public void 딱_기준만큼이면_보장된다()
         {
             Assert.IsTrue(ObstaclePlacementRule.Judge(Placement(above: Required, below: 0f), Required).Guaranteed);
@@ -131,7 +217,10 @@ namespace LOP.MapTools.Tests
             Assert.Less(section.IndexOf("✅", StringComparison.Ordinal), 0);
             Assert.GreaterOrEqual(section.IndexOf("풍차 1개 중 1개가 기준 미달", StringComparison.Ordinal), 0);
             Assert.GreaterOrEqual(section.IndexOf("3.21m 모자람", StringComparison.Ordinal), 0);
-            Assert.GreaterOrEqual(section.IndexOf("팔을 3.21m 줄이거나 회랑을 3.21m 넓히면 만족", StringComparison.Ordinal), 0);
+            //  처방은 "한쪽으로 붙인 뒤"의 양이다 — 가운데 둔 채로 재면 필요 이상으로 넓히게 된다.
+            //  위 1.70 + 아래 0.90 = 2.60이므로 붙이고 나면 4.912 − 2.60 = 2.31이 남는다.
+            Assert.GreaterOrEqual(section.IndexOf("위치만 한쪽으로 붙이면 → 2.31m 모자람", StringComparison.Ordinal), 0);
+            Assert.GreaterOrEqual(section.IndexOf("팔을 2.31m 줄이거나(L=1.89) 회랑을 2.31m 넓히면 만족", StringComparison.Ordinal), 0);
             //  보장하지 않는 것을 스스로 밝힌다.
             Assert.GreaterOrEqual(section.IndexOf("도달 가능성은 ① 봇 비행이 답한다", StringComparison.Ordinal), 0);
         }

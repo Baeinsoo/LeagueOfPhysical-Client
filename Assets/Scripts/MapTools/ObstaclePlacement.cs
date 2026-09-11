@@ -6,9 +6,11 @@ namespace LOP.MapTools
     /// <summary>원판의 x 구간 안 한 자리에서 잰 위·아래 빈 높이(m).</summary>
     public readonly struct BandSample
     {
-        /// <summary>원판 위쪽으로 이어지는 빈 높이.</summary>
+        /// <summary>원판 위쪽으로 이어지는 빈 높이. <b>음수면 그만큼 원판 윗끝이 지형에 묻혀
+        /// 있다</b>(그만큼 내려야 밖으로 나온다).</summary>
         public readonly float Above;
-        /// <summary>원판 아래쪽으로 이어지는 빈 높이.</summary>
+        /// <summary>원판 아래쪽으로 이어지는 빈 높이. <b>음수면 그만큼 원판 아랫끝이 지형에
+        /// 묻혀 있다</b>(그만큼 올려야 밖으로 나온다).</summary>
         public readonly float Below;
 
         public BandSample(float above, float below)
@@ -31,7 +33,7 @@ namespace LOP.MapTools
         /// <summary>회전 중심에서 가장 먼 콜라이더 점까지의 거리 — 팔이 쓸고 가는 원판의 반지름.</summary>
         public readonly float DiscRadius;
         /// <summary>원판 위 밴드 — x 구간 <b>전체</b>에 걸친 최솟값이다. 한 자리에서만 넓으면
-        /// 소용없다(그 옆에서 막히면 밴드를 타고 지나갈 수 없다).</summary>
+        /// 소용없다(그 옆에서 막히면 밴드를 타고 지나갈 수 없다). 음수면 묻힌 깊이다.</summary>
         public readonly float BandAbove;
         /// <summary>원판 아래 밴드 — 위와 같이 구간 안 최솟값.</summary>
         public readonly float BandBelow;
@@ -89,13 +91,22 @@ namespace LOP.MapTools
         public readonly float BestBand;
         /// <summary>기준에서 모자란 양(m). 보장되면 0이다.</summary>
         public readonly float Shortfall;
+        /// <summary>
+        /// <b>회랑 안에서 장애물을 한쪽 벽에 붙였을 때</b> 남는 모자람(m). 0이면 회랑도 팔도
+        /// 안 건드리고 <b>자리만 옮기면</b> 된다.
+        /// <para>가운데 두면 빈 자리가 위·아래로 갈려 어느 쪽도 충분하지 않을 수 있다. 한쪽으로
+        /// 붙이면 그 둘이 반대쪽 한 덩어리가 되므로, 그때 쓸 수 있는 밴드는 위+아래다.</para>
+        /// </summary>
+        public readonly float ShortfallIfShifted;
 
-        public PlacementVerdict(bool measured, bool guaranteed, float bestBand, float shortfall)
+        public PlacementVerdict(bool measured, bool guaranteed, float bestBand, float shortfall,
+                                float shortfallIfShifted)
         {
             Measured = measured;
             Guaranteed = guaranteed;
             BestBand = bestBand;
             Shortfall = shortfall;
+            ShortfallIfShifted = shortfallIfShifted;
         }
     }
 
@@ -127,13 +138,17 @@ namespace LOP.MapTools
         {
             if (placement.Measured == false)
             {
-                return new PlacementVerdict(measured: false, guaranteed: false, bestBand: 0f, shortfall: 0f);
+                return new PlacementVerdict(measured: false, guaranteed: false, bestBand: 0f,
+                                            shortfall: 0f, shortfallIfShifted: 0f);
             }
             float best = placement.BandAbove > placement.BandBelow ? placement.BandAbove : placement.BandBelow;
             //  딱 기준만큼이면 통과다 — 그 폭에서는 날갯짓 아치가 밴드 안에 정확히 들어간다.
             bool guaranteed = best >= requiredBand;
+            //  한쪽 벽에 붙이면 위·아래로 갈려 있던 빈 자리가 반대쪽에 한 덩어리로 모인다.
+            float shifted = placement.BandAbove + placement.BandBelow;
             return new PlacementVerdict(measured: true, guaranteed, best,
-                                        guaranteed ? 0f : requiredBand - best);
+                                        guaranteed ? 0f : requiredBand - best,
+                                        shifted >= requiredBand ? 0f : requiredBand - shifted);
         }
 
         /// <summary>리포트의 "②-b 장애물 배치" 절 전체(머리말 줄 포함, 끝에 줄바꿈 없음).</summary>
@@ -143,6 +158,9 @@ namespace LOP.MapTools
             text.AppendLine("── ②-b 장애물 배치 ────────────────────");
             text.AppendLine($"  (돌아가는 장애물이 어떤 위상에서도 통과 가능한지 — 원판 바깥에 아치+몸({requiredBand:F2}m)이");
             text.AppendLine("   들어가는 밴드가 한쪽이라도 있으면 보장된다. 시뮬레이션이 아니라 산술이다.)");
+            text.AppendLine("  (손잡이는 셋 — 팔 길이 L · 회랑 안에서의 세로 위치 · 회랑 폭. 가운데 두면 빈 자리가");
+            text.AppendLine("   위·아래로 갈려 비용이 두 배다. 그래서 미달인 자리마다 '한쪽으로 붙였을 때'를 먼저 적는다.");
+            text.AppendLine("   밴드가 음수면 그만큼 원판이 지형에 묻혀 있다는 뜻이다.)");
 
             int shortCount = 0;
             int unmeasured = 0;
@@ -185,7 +203,21 @@ namespace LOP.MapTools
                     continue;
                 }
                 text.AppendLine($"  ❌ {body}   — {verdict.Shortfall:F2}m 모자람");
-                text.AppendLine($"     팔을 {verdict.Shortfall:F2}m 줄이거나 회랑을 {verdict.Shortfall:F2}m 넓히면 만족");
+                if (verdict.ShortfallIfShifted <= 0f)
+                {
+                    text.AppendLine("     위치만 한쪽으로 붙이면 → 만족 (팔도 회랑도 안 건드려도 된다)");
+                    continue;
+                }
+                text.AppendLine($"     위치만 한쪽으로 붙이면 → {verdict.ShortfallIfShifted:F2}m 모자람");
+                float targetRadius = placement.DiscRadius - verdict.ShortfallIfShifted;
+                if (targetRadius <= 0f)
+                {
+                    //  팔을 그만큼 줄이면 팔이 없어진다 — 남은 손잡이는 회랑뿐이다.
+                    text.AppendLine($"     회랑을 {verdict.ShortfallIfShifted:F2}m 넓혀야 한다 (팔만으로는 못 맞춘다)");
+                    continue;
+                }
+                text.AppendLine($"     팔을 {verdict.ShortfallIfShifted:F2}m 줄이거나(L={targetRadius:F2})"
+                              + $" 회랑을 {verdict.ShortfallIfShifted:F2}m 넓히면 만족");
             }
 
             text.AppendLine("  (주의: 밴드가 있다는 것과 새가 거기 도달할 수 있다는 것은 다르다 — 이 검사는 앞엣것만 본다.");

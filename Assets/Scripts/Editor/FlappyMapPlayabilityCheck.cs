@@ -665,13 +665,20 @@ namespace LOP.EditorTools
         }
 
         //  <paramref name="startY"/>에서 <paramref name="direction"/> 쪽으로 이어지는 빈 높이.
-        //  출발점이 이미 지형 안이면 0이다(원판 끝이 벽에 묻혀 있다는 뜻).
+        //  <b>출발점이 이미 지형 안이면 음수</b>다 — "원판을 반대쪽으로 이만큼 밀어야 이 끝이
+        //  지형 밖으로 나온다"는 깊이. 0으로 뭉개면 위·아래를 더한 값이 실제보다 커져서 "회랑을
+        //  얼마나 넓혀야 하나"에 모자란 답을 준다(x=350의 BoostHole에서 실제로 그랬다 —
+        //  0.42m라고 했지만 실제로 필요한 것은 2.48m였다).
         private static float FreeExtent(float x, float startY, float direction, float limit,
                                         int mapMask, HashSet<Collider> ignore)
         {
-            if (limit <= 0f || PlacementBlocked(x, startY, mapMask, ignore))
+            if (limit <= 0f)
             {
                 return 0f;
+            }
+            if (PlacementBlocked(x, startY, mapMask, ignore))
+            {
+                return -EscapeDepth(x, startY, -direction, limit, mapMask, ignore);
             }
             float lastFree = 0f;
             float distance = 0f;
@@ -699,6 +706,39 @@ namespace LOP.EditorTools
                     return low;
                 }
                 lastFree = distance;
+            }
+            return limit;
+        }
+
+        //  지형에 묻힌 점에서 <paramref name="direction"/> 쪽으로 몇 m를 가야 밖으로 나오는가.
+        //  한계까지 가도 못 나오면 그 한계를 답으로 준다(그 이상은 이 검사가 볼 이유가 없다).
+        private static float EscapeDepth(float x, float startY, float direction, float limit,
+                                         int mapMask, HashSet<Collider> ignore)
+        {
+            float lastBlocked = 0f;
+            float distance = 0f;
+            while (distance < limit)
+            {
+                distance = Mathf.Min(distance + PlacementProbeStep, limit);
+                if (PlacementBlocked(x, startY + direction * distance, mapMask, ignore) == false)
+                {
+                    float low = lastBlocked;
+                    float high = distance;
+                    for (int i = 0; i < PlacementBisectSteps; i++)
+                    {
+                        float mid = (low + high) * 0.5f;
+                        if (PlacementBlocked(x, startY + direction * mid, mapMask, ignore))
+                        {
+                            low = mid;
+                        }
+                        else
+                        {
+                            high = mid;
+                        }
+                    }
+                    return high;
+                }
+                lastBlocked = distance;
             }
             return limit;
         }

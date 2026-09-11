@@ -85,6 +85,10 @@ namespace LOP
                 Glide = inputCommand.Glide,
                 Posing = inputCommand.Posing,
                 Dash = inputCommand.Dash,
+                AimYaw = inputCommand.AimYaw,
+                AimPitch = inputCommand.AimPitch,
+                Drawing = inputCommand.Drawing,
+                Release = inputCommand.Release,
             };
         }
     }

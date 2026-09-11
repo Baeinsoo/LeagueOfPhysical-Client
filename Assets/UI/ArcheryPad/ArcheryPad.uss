@@ -1,0 +1,13 @@
+.archery-pad-root {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+
+.pad-half {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 50%;
+}
+
+.pad-left { left: 0; }
+.pad-right { right: 0; }

@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="ArcheryPad.uss" />
+    <ui:VisualElement name="archery-pad-root" class="archery-pad-root" picking-mode="Ignore">
+        <!-- 왼쪽 절반: 끌면 시점(=조준)이 돈다. -->
+        <ui:VisualElement name="left" class="pad-half pad-left" />
+        <!-- 오른쪽 절반: 누르면 당기고 떼면 쏜다. -->
+        <ui:VisualElement name="right" class="pad-half pad-right" />
+    </ui:VisualElement>
+</ui:UXML>

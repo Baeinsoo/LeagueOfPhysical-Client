@@ -17,6 +17,10 @@ namespace LOP
         private float heldPosture;   // 연속 — 슬라이더가 매 프레임 갱신(떼면 0=대자), 틱마다 샘플
         private bool heldGlide;      // 연속 — 슬라이더가 문턱을 넘고 있는 동안 참
         private bool heldPosing;     // 연속 — 자세 슬라이더를 잡고 있는 동안 참
+        private float heldAimYaw;     // 연속 — 카메라가 매 프레임 갱신, 틱마다 샘플
+        private float heldAimPitch;
+        private bool heldDrawing;     // 연속 — 손가락을 대고 있는 동안 참
+        private bool pendingRelease;  // 이산 — 소비 후 리셋
         private IRunner runner;
         private IPlayerContext playerContext;
         private AbilityActivator abilityActivator;
@@ -75,6 +79,10 @@ namespace LOP
                 Glide = heldGlide,
                 Posing = heldPosing,
                 Dash = pendingDash,
+                AimYaw = heldAimYaw,
+                AimPitch = heldAimPitch,
+                Drawing = heldDrawing,
+                Release = pendingRelease,
             };
 
             // 대시 등 조작 불가 상태에선 이동 입력을 무시한다(전송·예측 모두 0 → 보정 간섭 방지).
@@ -98,6 +106,7 @@ namespace LOP
             pendingJump = false;
             pendingDash = false;
             pendingAbilityId = 0;
+            pendingRelease = false;
         }
 
         // 와이어(proto) 변환은 여기(송신 어댑터)부터 — 도메인은 InputCommand만 다룬다.
@@ -138,6 +147,10 @@ namespace LOP
                 Glide = command.Glide,
                 Posing = command.Posing,
                 Dash = command.Dash,
+                AimYaw = command.AimYaw,
+                AimPitch = command.AimPitch,
+                Drawing = command.Drawing,
+                Release = command.Release,
             };
         }
 
@@ -174,6 +187,25 @@ namespace LOP
         public void SetGlide(bool glide)
         {
             heldGlide = glide;
+        }
+
+        /// <summary>조준 각도 — 카메라가 보는 방향을 매 프레임 넣는다. 틱마다 샘플된다.</summary>
+        public void SetAim(float yaw, float pitch)
+        {
+            heldAimYaw = yaw;
+            heldAimPitch = pitch;
+        }
+
+        /// <summary>활을 당기고 있나. 손가락을 대고 있는 동안 참.</summary>
+        public void SetDrawing(bool drawing)
+        {
+            heldDrawing = drawing;
+        }
+
+        /// <summary>손을 뗀 순간 한 번 부른다. 다음 틱 커맨드에 실려 나간다.</summary>
+        public void SetRelease()
+        {
+            pendingRelease = true;
         }
 
         /// <summary>슬롯으로 어빌리티 입력을 예약한다. 슬롯을 내 부여 기록으로 풀어 id를 와이어에 싣는다

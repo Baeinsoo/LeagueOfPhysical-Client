@@ -1238,6 +1238,9 @@ namespace LOP
             worldEntity.Add(new Appearance(creationData.visualId));
             worldEntity.Add(new ArcheryAim());
             worldEntity.Add(new InputBuffer());
+            // 서버는 여기서 직접 붙인다(클라는 EntityBinder가 동기화 정책을 보고 붙인다).
+            // 이게 없으면 ArcheryWorld.Mutation이 이 몸을 건너뛰어 조준도 발사도 영영 안 일어난다.
+            worldEntity.Add(new GameFramework.World.Simulated());
             entityRegistry.Add(worldEntity);
 
             Debug.Log($"[World] Registered archer {worldEntity.Id}");
@@ -1403,15 +1406,23 @@ namespace LOP
 캐릭터에 물리는 코드가 공용 DI가 아니라 씬 컴포넌트다.
 
 ```bash
-unity command copy_asset --from Assets/Scenes/Skydive.unity --to Assets/Scenes/Archery.unity --project-path "$SERVER"
+unity command copy_asset --asset Assets/Scenes/Skydive.unity --destination Assets/Scenes/Archery.unity --project-path "$SERVER"
 ```
+
+> **씬 저작에서 실제로 당한 것 셋** (2026-09-11 Task 5):
+> - **`attach_script`류가 아직 컴파일되지 않은 클래스를 붙이려 하면 그 `.cs`를 스텁으로 덮어쓸 수 있다.**
+>   순서를 지킬 것 — *파일을 쓰고 → 컴파일이 끝난 것을 확인하고 → 그다음 붙인다.* 덮어써졌으면 내용을
+>   복원한 뒤 `CompilationPipeline.RequestScriptCompilation(CleanBuildCache)`로 강제 재컴파일해야 한다
+>   (파일만 고치면 어셈블리가 낡은 채로 남는다).
+> - **저장 전에 씬을 전환하면 컴포넌트 교체 작업이 그대로 날아간다.** 바꿨으면 즉시 `save_scene`.
+> - **`add_scene_to_build`가 성공을 보고해도 `AssetDatabase.SaveAssets()` 전엔 디스크에 안 남는다.**
 
 그다음 에디터에서(또는 `unity command`로):
 1. `SkydiveLifetimeScope` 컴포넌트를 제거하고 `ArcheryLifetimeScope`를 붙인다.
    **규칙은 "타입 이름이 `Skydive`로 시작하는 컴포넌트만 제거"** 다.
 2. 갈아끼우면 **상속된 `runner` 직렬화 참조가 끊긴다.** 다시 물리고 확인한다:
    ```bash
-   unity command get_serialized_fields --object <ArcheryLifetimeScope> --project-path "$SERVER"
+   unity command get_component_properties --object <ArcheryLifetimeScope> --project-path "$SERVER"
    ```
    `{fileID: 0}`이 없어야 한다.
 3. 빌드 세팅에 추가:
@@ -1865,7 +1876,7 @@ Task 5 Step 4와 같은 규칙으로 컴포넌트를 갈아끼운다. **클라 �
 다시 물려야 한다**(스코프의 `[SerializeField]`).
 
 ```bash
-unity command get_serialized_fields --object <ArcheryLifetimeScope> --project-path "$CLIENT"
+unity command get_component_properties --object <ArcheryLifetimeScope> --project-path "$CLIENT"
 unity command add_scene_to_build --path Assets/Scenes/Archery.unity --project-path "$CLIENT"
 ```
 

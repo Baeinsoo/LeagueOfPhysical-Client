@@ -207,6 +207,10 @@ namespace LOP.EditorTools
             var placements = new List<LOP.MapTools.ObstaclePlacement>();
             //  null이면 "안 훑었다"는 뜻이다 — 빈 리스트("훑었는데 좁은 데가 없다")와 다르다.
             List<LOP.MapTools.StaticPinch> pinches = null;
+            //  ① 진단 — 관문 통과가 쓸 궤적. 스폰 넷과 높이 훑기 18줄이 <b>이미 나는 비행</b>이라
+            //  여기 담는 것은 기록뿐이다(다시 날리지 않는다).
+            var gateFlights = new List<GateFlight>();
+            string gateSection = null;
             //  밴드가 이만큼은 돼야 어떤 위상에서도 통과가 보장된다 — 날갯짓 아치 + 몸 높이.
             //  숫자를 박지 않고 실제 물리값에서 유도한다.
             float requiredBand = LOP.MapTools.ObstaclePlacementRule.RequiredBand(
@@ -240,6 +244,7 @@ namespace LOP.EditorTools
                     BotFlight flight = FlyBot(spawns[i].Position, finishX, shape, mapMask, query,
                                               SearchMinY, SearchMaxY, botGrid.IsFree, botGrid.IsFreeExact,
                                               trace: trace);
+                    RecordGateFlight(gateFlights, spawns[i].Name, trace, flight);
                     //  되돌리기 — 봇이 못 간 자리에서만 묻는다. 통과한 자리엔 되돌릴 죽음이 없고,
                     //  파묻힌 자리는 애초에 날지도 못했다.
                     var counterfactual = default(LOP.MapTools.Counterfactual);
@@ -338,7 +343,7 @@ namespace LOP.EditorTools
                     //  넣지 않는 것은 리포트를 시간에 따라 달라지는 문자열로 만들지 않기 위해서다.
                     var sweepWatch = System.Diagnostics.Stopwatch.StartNew();
                     heightSweep = SweepStartHeights(spawns, finishX, shape, mapMask, query,
-                                                    botGrid, counterfactualWatch,
+                                                    botGrid, counterfactualWatch, gateFlights,
                                                     out heightSweepCancelNote);
                     sweepWatch.Stop();
                     Debug.Log($"[맵 검사] 진단 높이 훑기 {heightSweep.Count}줄 — {sweepWatch.ElapsedMilliseconds}ms");
@@ -355,9 +360,18 @@ namespace LOP.EditorTools
                 //  ②-c 정적 좁힘 — 코스 전체를 세로로 훑으므로 여기는 진행률이 필요하다.
                 var pinchWatch = System.Diagnostics.Stopwatch.StartNew();
                 var pinchColumns = SweepStaticPinches(spawns[0].Position.x, finishX, mapMask,
-                                                      windmillInstances, out pinchSweepCancelNote);
+                                                      windmillInstances, out pinchSweepCancelNote,
+                                                      out var enclosedPerColumn);
                 pinches = LOP.MapTools.StaticPinchRule.Segments(pinchColumns, requiredBand, PinchSampleStep);
                 pinchWatch.Stop();
+
+                //  ① 진단 — 관문 통과. 판정이 아니다(cleanRuns에 안 들어간다). 위 훑기가 낸
+                //  "접기 전 창"과 이미 난 비행의 궤적만 쓰므로 새로 날리는 비행이 없다.
+                var gateWatch = System.Diagnostics.Stopwatch.StartNew();
+                gateSection = BuildGateSection(gateFlights, spawns[0].Position.x, enclosedPerColumn,
+                                               shape, requiredBand, windmillInstances);
+                gateWatch.Stop();
+                Debug.Log($"[맵 검사] 관문 통과 진단 — {gateWatch.ElapsedMilliseconds}ms");
                 //  비용은 콘솔에만 남긴다 — 리포트를 돌릴 때마다 달라지는 문자열로 만들지 않는다.
                 Debug.Log($"[맵 검사] 정적 좁힘 훑기 {pinchColumns.Count}칸 — {pinchWatch.ElapsedMilliseconds}ms");
             }
@@ -381,7 +395,7 @@ namespace LOP.EditorTools
                 UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
                 spawns[0].Position.x, finishX, config, cleanRuns, trapSection, budget, earliest,
                 HeightGrid, SearchMinY, SearchMaxY, heightSweep, phaseSweep, placements, requiredBand,
-                pinches, PinchSampleStep);
+                pinches, PinchSampleStep, gateSection);
 
             //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
             bool spawnXMismatch = false;
@@ -901,11 +915,15 @@ namespace LOP.EditorTools
 
         //  코스 x 전체를 훑어 x마다 "가장 넓은 갇힌 띠"를 낸다. 풍차는 없는 셈 친다 —
         //  이 절이 답하는 것은 <b>정적</b> 지형이고, 돌아가는 것은 ②-b가 본다.
+        //  <paramref name="enclosedPerColumn"/>은 x마다의 <b>갇힌 창 전부</b>다. PinchColumn이
+        //  "가장 넓은 것 하나"로 접기 <i>전</i>의 값이라, 회랑을 가로로 가르는 칸막이가 여기엔
+        //  남아 있다 — 관문 절(GateFunnelRule)이 그것을 본다. 같은 훑기에서 공짜로 나온다.
         private static List<LOP.MapTools.PinchColumn> SweepStaticPinches(
             float startX, float finishX, int mapMask, List<LOP.FlappyWindmill> windmills,
-            out string cancelNote)
+            out string cancelNote, out List<List<LOP.MapTools.GateWindow>> enclosedPerColumn)
         {
             cancelNote = null;
+            enclosedPerColumn = new List<List<LOP.MapTools.GateWindow>>();
             var ignore = new HashSet<Collider>();
             for (int i = 0; windmills != null && i < windmills.Count; i++)
             {
@@ -937,8 +955,162 @@ namespace LOP.EditorTools
                 }
                 CollectFreeBands(x, mapMask, ignore, bands);
                 columns.Add(LOP.MapTools.StaticPinchRule.Column(x, bands));
+                var enclosed = new List<LOP.MapTools.GateWindow>();
+                for (int b = 0; b < bands.Count; b++)
+                {
+                    if (bands[b].Enclosed == false)
+                    {
+                        continue;
+                    }
+                    enclosed.Add(new LOP.MapTools.GateWindow(
+                        bands[b].Bottom, bands[b].Top, bands[b].Floor, bands[b].Ceiling));
+                }
+                enclosedPerColumn.Add(enclosed);
             }
             return columns;
+        }
+
+        //  ── ① 진단 — 관문 통과 ──────────────────────────────────────────────
+
+        //  이미 난 비행 하나의 기록. 새로 날리지 않는다 — trace는 클린런·높이 훑기가 되돌리기용으로
+        //  <b>이미</b> 모으고 있던 것이고, 여기서는 그것을 한 번 더 읽을 뿐이다.
+        private struct GateFlight
+        {
+            public string Name;
+            public bool Reached;
+            public float StopX;
+            public List<LOP.MapTools.FlightSample> Path;
+        }
+
+        private static void RecordGateFlight(List<GateFlight> into, string name,
+                                             List<FlightStep> trace, in BotFlight flight)
+        {
+            //  출발점이 지형 안이면 날려 보지도 못했다 — 없는 궤적을 "관문에 못 왔다"로 세면
+            //  관문마다 유령 한 줄이 붙는다.
+            if (flight.SpawnBlocked || trace == null || trace.Count == 0)
+            {
+                return;
+            }
+            var path = new List<LOP.MapTools.FlightSample>(trace.Count + 1);
+            for (int i = 0; i < trace.Count; i++)
+            {
+                path.Add(new LOP.MapTools.FlightSample(
+                    trace[i].State.Position.x, trace[i].State.Position.y, trace[i].State.VerticalSpeed));
+            }
+            //  trace는 틱을 굴리기 <b>전</b> 상태만 담는다 — 마지막에 멈춘 자리를 따로 얹지
+            //  않으면 "어디서 죽었나"가 한 틱 앞의 자리로 찍힌다. 세로 속도도 부딪히기 직전
+            //  값(HitVerticalSpeed)을 쓴다: 이동 뒤 값은 벽에 지워져 부호가 없다.
+            path.Add(new LOP.MapTools.FlightSample(flight.EndX, flight.EndY, flight.HitVerticalSpeed));
+            into.Add(new GateFlight
+            {
+                Name = name,
+                Reached = flight.Reached,
+                StopX = flight.EndX,
+                Path = path,
+            });
+        }
+
+        //  관문을 몇 개까지 찍을 것인가. 관문 하나가 스폰 넷 + 훑기 18줄을 달고 나오므로
+        //  셋이면 리포트 한 화면을 넘지 않는다.
+        private const int GateSectionMax = 3;
+        //  이보다 멀리 떨어져 멈췄으면 다른 관문이다.
+        private const float GateClusterGap = 3f;
+        //  멈춘 자리 앞뒤로 이만큼 넓혀 본다 — 입구 상태를 재려면 아직 막히지 <b>않은</b> 자리가
+        //  필요하다. 멈춘 x에서 바로 재면 "이미 부딪히는 중"의 값만 나온다.
+        private const float GateClusterPad = 1f;
+        //  깔때기 격자. 세로속도는 종단낙하(−30)~날갯짓(+23) 전부를 이 간격으로 훑는다.
+        private const float GateFunnelYStep = 0.25f;
+        private const float GateFunnelSpeedStep = 2f;
+
+        private static string BuildGateSection(List<GateFlight> flights, float sweepStartX,
+                                               List<List<LOP.MapTools.GateWindow>> enclosedPerColumn,
+                                               in FlappyShape shape, float requiredBand,
+                                               List<LOP.FlappyWindmill> windmills)
+        {
+            if (flights == null || flights.Count == 0 || enclosedPerColumn == null
+                || enclosedPerColumn.Count == 0)
+            {
+                return null;
+            }
+            var stopXs = new List<float>();
+            for (int i = 0; i < flights.Count; i++)
+            {
+                if (flights[i].Reached == false)
+                {
+                    stopXs.Add(flights[i].StopX);
+                }
+            }
+            var clusters = LOP.MapTools.GateFunnelRule.Cluster(
+                stopXs, GateClusterGap, GateClusterPad, PinchSampleStep);
+            if (clusters.Count == 0)
+            {
+                return null;
+            }
+            var kernel = new LOP.MapTools.FlightKernel(shape.ForwardSpeed, shape.Gravity,
+                                                       shape.MaxFallSpeed, shape.FlapImpulse,
+                                                       TickSeconds, shape.Height);
+            var reports = new List<LOP.MapTools.GateReport>();
+            for (int g = 0; g < clusters.Count && reports.Count < GateSectionMax; g++)
+            {
+                var columns = new List<LOP.MapTools.GateColumn>();
+                int first = Mathf.RoundToInt((clusters[g].StartX - sweepStartX) / PinchSampleStep);
+                int last = Mathf.RoundToInt((clusters[g].EndX - sweepStartX) / PinchSampleStep);
+                first = Mathf.Clamp(first, 0, enclosedPerColumn.Count - 1);
+                last = Mathf.Clamp(last, first, enclosedPerColumn.Count - 1);
+                for (int i = first; i <= last; i++)
+                {
+                    columns.Add(new LOP.MapTools.GateColumn(
+                        sweepStartX + i * PinchSampleStep, enclosedPerColumn[i]));
+                }
+                if (columns.Count < 2)
+                {
+                    continue;
+                }
+                var report = new LOP.MapTools.GateReport
+                {
+                    StartX = columns[0].X,
+                    EndX = columns[columns.Count - 1].X,
+                    StopCount = clusters[g].StopCount,
+                    Columns = columns,
+                    Rotating = WindmillsOverlap(windmills, columns[0].X, columns[columns.Count - 1].X),
+                };
+                report.FaceIndex = LOP.MapTools.GateFunnelRule.FaceColumn(columns, shape.Height);
+                for (int i = 0; i < flights.Count; i++)
+                {
+                    report.Crossings.Add(LOP.MapTools.GateFunnelRule.Cross(
+                        flights[i].Name, report.StartX, report.EndX, columns, flights[i].Path,
+                        shape.Height));
+                }
+                report.Funnel = LOP.MapTools.GateFunnelRule.Funnel(
+                    columns, kernel, GateFunnelYStep, GateFunnelSpeedStep);
+                reports.Add(report);
+            }
+            return reports.Count == 0
+                ? null
+                : LOP.MapTools.GateFunnelRule.Section(reports, kernel, requiredBand, GateFunnelSpeedStep);
+        }
+
+        //  이 x구간에 도는 지형이 걸쳐 있나. 정적 훑기는 풍차를 빼고 재므로, 걸쳐 있으면 그
+        //  관문의 창 그림은 <b>풍차가 없는 셈 친 값</b>이라고 리포트가 스스로 밝혀야 한다.
+        private static bool WindmillsOverlap(List<LOP.FlappyWindmill> windmills, float startX, float endX)
+        {
+            for (int i = 0; windmills != null && i < windmills.Count; i++)
+            {
+                if (windmills[i] == null)
+                {
+                    continue;
+                }
+                var colliders = windmills[i].GetComponentsInChildren<Collider>(includeInactive: true);
+                for (int c = 0; c < colliders.Length; c++)
+                {
+                    Bounds bounds = colliders[c].bounds;
+                    if (bounds.max.x >= startX && bounds.min.x <= endX)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         private static void RestoreWindmills(List<(Transform Transform, Quaternion Rotation)> poses)
@@ -1780,7 +1952,7 @@ namespace LOP.EditorTools
         private static List<LOP.MapTools.HeightSweepRow> SweepStartHeights(
             List<(string Name, Vector3 Position)> spawns, float finishX, in FlappyShape shape,
             int mapMask, GameFramework.Physics.ICollisionQuery query, FreeSpaceGrid botGrid,
-            System.Diagnostics.Stopwatch counterfactualWatch,
+            System.Diagnostics.Stopwatch counterfactualWatch, List<GateFlight> gateFlights,
             out string cancelNote)
         {
             cancelNote = null;
@@ -1816,6 +1988,7 @@ namespace LOP.EditorTools
                 BotFlight flight = FlyBot(start, finishX, shape, mapMask, query,
                                           SearchMinY, SearchMaxY, botGrid.IsFree, botGrid.IsFreeExact,
                                           trace: trace);
+                RecordGateFlight(gateFlights, $"시작 y={y:F1}", trace, flight);
                 //  훑기 줄에도 되돌리기를 건다 — 스폰은 넷뿐이라 "겨냥이냐 지형이냐"의 진짜
                 //  표본은 이쪽이다. 다만 표에는 요약 한 숫자만 붙인다(AppendHeightSweep 참고).
                 var counterfactual = default(LOP.MapTools.Counterfactual);

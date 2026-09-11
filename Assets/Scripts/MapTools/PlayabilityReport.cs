@@ -276,7 +276,8 @@ namespace LOP.MapTools
                                    IReadOnlyList<ObstaclePlacement> placements = null,
                                    float requiredBand = 0f,
                                    IReadOnlyList<StaticPinch> pinches = null,
-                                   float pinchSampleStep = 0f)
+                                   float pinchSampleStep = 0f,
+                                   string gateSection = null)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
@@ -431,6 +432,15 @@ namespace LOP.MapTools
             AppendPhaseSweep(text, phaseSweep, startX, finishX);
 
             AppendHeightSweep(text, heightSweep, startX, finishX);
+
+            //  ① 진단 — 관문 통과. 높이 훑기 바로 뒤에 둔다: 훑기가 "어디서 멈췄나"를 줄줄이
+            //  보여 주고 나면 다음 질문이 반드시 "그래서 거기서 무슨 일이 있었나"이기 때문이다.
+            //  null이면 아예 안 찍는다 — 빈 절은 "재 봤더니 문제없다"로 잘못 읽힌다.
+            if (string.IsNullOrEmpty(gateSection) == false)
+            {
+                text.AppendLine(gateSection);
+                text.AppendLine();
+            }
 
             text.AppendLine("── ② 낌 지점 ─────────────────────────");
             text.AppendLine(trapSection);

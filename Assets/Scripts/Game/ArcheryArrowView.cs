@@ -12,6 +12,7 @@ namespace LOP
     {
         private readonly GameFramework.Runner.IRunner runner;
         private readonly ArcheryWorld world;
+        private readonly ArcheryConsumed consumed;
 
         // 목록의 자리(index)로 화살을 알아보면 안 된다 — 수명이 다한 화살이 빠지면 뒤 화살들의
         // 자리가 앞으로 당겨져서, 남아 있는 화살이 남의 궤적으로 순간이동한다.
@@ -20,10 +21,11 @@ namespace LOP
             new Dictionary<(string, long), GameObject>();
         private readonly List<(string, long)> stale = new List<(string, long)>();
 
-        public ArcheryArrowView(GameFramework.Runner.IRunner runner, ArcheryWorld world)
+        public ArcheryArrowView(GameFramework.Runner.IRunner runner, ArcheryWorld world, ArcheryConsumed consumed)
         {
             this.runner = runner;
             this.world = world;
+            this.consumed = consumed;
         }
 
         //  화살마다 material을 새로 만들면 재질 인스턴스가 계속 쌓인다 — 한 장을 돌려 쓴다.
@@ -52,11 +54,20 @@ namespace LOP
             }
             double renderTick = (runner.tickUpdater.elapsedTime - interval) / interval;
 
+            //  목록에서 사라진 화살의 "박혔다" 기록을 계속 들고 있을 이유가 없다.
+            consumed.ForgetArrowsBefore(
+                (long)renderTick - (long)(ArcheryTrajectory.LifetimeSeconds / interval) - 1);
+
             var shots = world.Shots;
             var alive = new HashSet<(string, long)>();
 
             for (int i = 0; i < shots.Count; i++)
             {
+                if (consumed.IsArrowGone(shots[i].ShooterId, shots[i].FireTick))
+                {
+                    continue;   // 과녁에 박혔다 — 계속 날아가는 그림은 거짓말이다
+                }
+
                 var key = (shots[i].ShooterId, shots[i].FireTick);
                 alive.Add(key);
 

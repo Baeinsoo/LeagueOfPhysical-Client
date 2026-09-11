@@ -27,6 +27,7 @@ namespace LOP
             IPublisher<InputTimingToC> inputTiming,
             IPublisher<EntityInputsToC> entityInputs,
             IPublisher<PanchigiStateToC> panchigiState,
+            IPublisher<ArcheryStateToC> archeryState,
             IPublisher<MatchEndedToC> matchEnded,
             IPublisher<MatchStartToC> matchStart)
         {
@@ -40,6 +41,7 @@ namespace LOP
             Register(inputTiming);
             Register(entityInputs);
             Register(panchigiState);
+            Register(archeryState);
             Register(matchEnded);
             Register(matchStart);
         }

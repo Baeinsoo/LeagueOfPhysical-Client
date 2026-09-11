@@ -11,6 +11,8 @@ namespace LOP.UI
     {
         private readonly PlayerInputManager input;
         private readonly CameraController cameraController;
+        private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly IPlayerContext playerContext;
 
         // 키 한 프레임이 손가락을 이만큼 끈 것과 같다(px). 드래그와 **같은 경로**로 넣어야
         // 감속·상하 한계각이 저절로 같아진다 — 마우스로 겨눈 것과 키보드로 겨눈 것이 달라지지 않게.
@@ -18,10 +20,26 @@ namespace LOP.UI
 
         private bool drawing;
 
-        public ArcheryPadViewModel(PlayerInputManager input, CameraController cameraController)
+        public ArcheryPadViewModel(
+            PlayerInputManager input,
+            CameraController cameraController,
+            GameFramework.World.EntityRegistry entityRegistry,
+            IPlayerContext playerContext)
         {
             this.input = input;
             this.cameraController = cameraController;
+            this.entityRegistry = entityRegistry;
+            this.playerContext = playerContext;
+        }
+
+        /// <summary>내가 지금까지 모은 점수. 서버 스냅샷이 채우는 값이라 <b>매 프레임 읽어</b> 쓴다.</summary>
+        public int Score
+        {
+            get
+            {
+                var entity = entityRegistry.Get(playerContext.entityId);
+                return entity?.Get<ArcheryScore>()?.Value ?? 0;
+            }
         }
 
         /// <summary>왼쪽 영역 드래그 — 시점을 돌린다. 조준은 이 시점을 그대로 따른다.</summary>

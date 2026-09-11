@@ -64,6 +64,12 @@ namespace LOP.EditorTools
         private static float SearchMinY;
         private static float SearchMaxY;
 
+        //  씬의 풍차 전부. 게임이 매 틱 하는 것과 똑같이(FlappyWorld.Mutation 맨 앞) 이 검사기도
+        //  한 틱을 굴리기 전에 날개를 그 틱 자세로 세운다 — 안 그러면 도는 장애물을 "저장된 각도로
+        //  굳은 벽"으로 보고 진단이 조용히 틀려진다. Step 하나에만 물려 두면 봇 비행·되돌리기·
+        //  굴려 보기·재생이 전부 같은 자세를 본다(넷 다 Step을 지나간다).
+        private static LOP.FlappyWindmillField Windmills;
+
         [MenuItem("LOP/Debug/Flappy 맵 검사")]
         public static void Check()
         {
@@ -124,6 +130,12 @@ namespace LOP.EditorTools
                     + $"문제 스폰: {string.Join(", ", backwardSpawns)}", "확인");
                 return;
             }
+
+            //  풍차를 모은다. 게임에서는 맵 로드가 마커의 [Inject]로 채우지만, 이 검사기는 DI 없이
+            //  에디터에서 도는 도구라 씬에서 직접 긁는다.
+            //  <b>끝나면 원래 자세로 되돌린다</b>(아래 finally) — 이 도구가 씬을 더럽히면 안 된다.
+            //  맵 씬은 커밋하지 않는 로컬 픽스처라, 자세가 남으면 진단이 diff로 새어 나간다.
+            Windmills = CollectWindmills(out var windmillPoses);
 
             var query = new GameFramework.Physics.UnityCollisionQuery();
             var grid = new FreeSpaceGrid(shape, mapMask);
@@ -271,6 +283,8 @@ namespace LOP.EditorTools
             finally
             {
                 EditorUtility.ClearProgressBar();
+                RestoreWindmills(windmillPoses);
+                Windmills = null;
             }
 
             //  ③ 산수라 진행률이 필요 없다. spawns[0] 하나만 놓고 계산한다 — 이 맵은 넷 다
@@ -321,6 +335,22 @@ namespace LOP.EditorTools
                 }
                 banner.AppendLine();
                 report = banner.ToString() + report;
+            }
+            //  도는 장애물이 있으면 이 리포트의 두 답이 서로 다른 정확도를 갖는다 — 그 사실을
+            //  리포트 안에 적어 둔다. 화면을 떠나 붙여넣기로 돌아다니는 문자열이 스스로
+            //  "어디까지 믿을 수 있는지"를 말해야 한다.
+            if (windmillPoses.Count > 0)
+            {
+                var note = new StringBuilder();
+                note.AppendLine($"ℹ️ 이 맵에 도는 장애물(풍차)이 {windmillPoses.Count}개 있다 — 두 답의 정확도가 다르다.");
+                note.AppendLine("  · 봇 비행·되돌리기·재생은 매 틱 날개를 그 틱 각도로 세우고 굴린다(게임과 같다).");
+                note.AppendLine("  · 전수 탐색(①의 두 번째 답)은 아직 아니다 — 자유공간 캐시(FreeSpaceGrid)가");
+                note.AppendLine("    칸마다 답을 한 번 재고 재사용해서, 도는 장애물을 '저장된 각도의 정적 벽'으로 본다.");
+                note.AppendLine("    봇이 겨냥에 쓰는 근거리 열(BotPilot.Decide)도 같은 캐시를 탄다 — 봇의 '물리'는");
+                note.AppendLine("    정확해졌지만 '겨냥'은 정적 전제 위에 있다.");
+                note.AppendLine("  · ②의 낌 스캔도 각 씨앗을 틱 0부터 굴린다 — 실제 판의 위상과는 다르다.");
+                note.AppendLine();
+                report = note.ToString() + report;
             }
             Debug.Log(report);
             EditorGUIUtility.systemCopyBuffer = report;
@@ -405,6 +435,46 @@ namespace LOP.EditorTools
         }
 
         /// <summary>새의 몸과 움직임 — 코드에 굳히지 않고 MasterData에서 읽는다.</summary>
+        //  씬에 있는 풍차를 모아 필드 하나로 만든다. 순서는 결과를 바꾸지 않는다 — 풍차는 각자
+        //  자기 자세만 대입하므로 서로 섞이지 않는다(FlappyWindmillField 주석 참고).
+        private static LOP.FlappyWindmillField CollectWindmills(
+            out List<(Transform Transform, Quaternion Rotation)> originalPoses)
+        {
+            var field = new LOP.FlappyWindmillField();
+            originalPoses = new List<(Transform, Quaternion)>();
+            var windmills = Object.FindObjectsByType<LOP.FlappyWindmill>(
+                FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            for (int i = 0; i < windmills.Length; i++)
+            {
+                originalPoses.Add((windmills[i].transform, windmills[i].transform.localRotation));
+                field.Add(windmills[i]);
+            }
+            if (windmills.Length > 0)
+            {
+                Debug.Log($"[맵 검사] 풍차 {windmills.Length}개 — 틱마다 자세를 다시 세운다.");
+            }
+            return field;
+        }
+
+        private static void RestoreWindmills(List<(Transform Transform, Quaternion Rotation)> poses)
+        {
+            if (poses == null)
+            {
+                return;
+            }
+            for (int i = 0; i < poses.Count; i++)
+            {
+                if (poses[i].Transform != null)
+                {
+                    poses[i].Transform.localRotation = poses[i].Rotation;
+                }
+            }
+            if (poses.Count > 0)
+            {
+                Physics.SyncTransforms();
+            }
+        }
+
         private readonly struct FlappyShape
         {
             public readonly float Radius;
@@ -1108,6 +1178,8 @@ namespace LOP.EditorTools
             var velocity = new Vector3(shape.ForwardSpeed, 0f, 0f);
             for (int tick = 0; tick < SimulationTicks; tick++)
             {
+                //  Step과 같은 자리에서 날개를 세운다 — 이 함수는 Step을 안 거치고 커널을 직접 부른다.
+                Windmills?.PoseForTick(tick, TickSeconds);
                 velocity.y -= shape.Gravity * TickSeconds;
                 if (velocity.y < -shape.MaxFallSpeed)
                 {
@@ -1120,13 +1192,25 @@ namespace LOP.EditorTools
                 position = result.position;
                 velocity = result.velocity;
             }
+            //  ②는 이 굴려 보기와 정지 접촉 검사(IsContactPoint)를 번갈아 부른다. 날개를 굴린
+            //  자세 그대로 두고 나가면 다음 접촉 검사가 "직전 자리가 몇 틱을 굴렸는가"에 따라
+            //  다른 답을 낸다 — 스캔 순서가 결과에 새어 든다. 틱 0 자세로 돌려놓고 나간다.
+            RestWindmills();
             return position.x - start.x >= EscapeDistance;
         }
+
+        //  ②가 기준으로 삼는 자세 = 틱 0. 게임의 실제 위상과는 다르지만(리포트의 주의 참고),
+        //  적어도 ② 안에서는 모든 측정이 같은 자세 위에 선다.
+        private static void RestWindmills() => Windmills?.PoseForTick(0, TickSeconds);
 
         /// <summary>새의 한 틱 상태 — 자리, 세로 속도, 스턴·무적 남은 시간.</summary>
         private struct BirdState
         {
             public Vector3 Position;
+            /// <summary>몇 번째 틱을 굴릴 차례인가. 풍차 자세가 틱의 함수라 상태에 들어 있어야
+            /// 한다 — 여기 두면 굴려 보기·되돌리기·재생이 따로 틱을 세지 않아도 저절로 맞는다
+            /// (넷 다 이 구조체를 그대로 들고 다닌다).</summary>
+            public long Tick;
             public float VerticalSpeed;
             public float Stun;
             public float Invuln;
@@ -1144,6 +1228,9 @@ namespace LOP.EditorTools
                                       HitWatcher query)
         {
             const float Epsilon = 1e-5f;
+            //  이 틱을 굴리기 전에 날개를 세운다 — FlappyWorld.Mutation의 맨 줄과 같은 순서다.
+            //  움직인 뒤에 세우면 이번 틱의 sweep이 한 틱 낡은 자세를 본다.
+            Windmills?.PoseForTick(state.Tick, TickSeconds);
             if (state.Stun > 0f)
             {
                 state.Stun -= TickSeconds;
@@ -1195,6 +1282,7 @@ namespace LOP.EditorTools
                 state.HitVerticalSpeed = velocity.y;
                 state.HitCollider = query.FirstHit;
             }
+            state.Tick++;
             return state;
         }
 
@@ -1207,14 +1295,21 @@ namespace LOP.EditorTools
             var query = new HitWatcher(inner);
             //  계속 누르기 / 안 누르기 / 두 틱에 한 번 / 네 틱에 한 번. 정상적인 벽은 여기서 끝난다.
             int[] periods = { 1, 0, 2, 4 };
-            for (int i = 0; i < periods.Length; i++)
+            try
             {
-                if (EscapesWithPeriod(start, periods[i], shape, mapMask, query))
+                for (int i = 0; i < periods.Length; i++)
                 {
-                    return true;
+                    if (EscapesWithPeriod(start, periods[i], shape, mapMask, query))
+                    {
+                        return true;
+                    }
                 }
+                return EscapesBySearch(start, shape, mapMask, query);
             }
-            return EscapesBySearch(start, shape, mapMask, query);
+            finally
+            {
+                RestWindmills();   // Escapes와 같은 이유 — 다음 측정에 자세를 흘리지 않는다
+            }
         }
 
         private static bool EscapesWithPeriod(Vector3 start, int period, in FlappyShape shape, int mapMask,
@@ -1409,6 +1504,9 @@ namespace LOP.EditorTools
                                         GameFramework.Physics.ICollisionQuery query,
                                         out List<string> cancelNotes)
         {
+            //  ①이 날개를 마지막으로 굴린 자세 그대로 시작하지 않는다 — ② 전체의 기준 자세를
+            //  틱 0으로 못박는다(아래 Escapes/EscapesWithFlap이 끝날 때마다 여기로 돌아온다).
+            RestWindmills();
             var candidates = new List<(float X, float Y)>();
             var stuck = new List<(float X, float Y)>();
             int contacts = 0;

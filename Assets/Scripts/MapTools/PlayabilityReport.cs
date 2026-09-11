@@ -274,7 +274,9 @@ namespace LOP.MapTools
                                    IReadOnlyList<HeightSweepRow> heightSweep = null,
                                    IReadOnlyList<PhaseSweepRow> phaseSweep = null,
                                    IReadOnlyList<ObstaclePlacement> placements = null,
-                                   float requiredBand = 0f)
+                                   float requiredBand = 0f,
+                                   IReadOnlyList<StaticPinch> pinches = null,
+                                   float pinchSampleStep = 0f)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
@@ -447,6 +449,16 @@ namespace LOP.MapTools
             if (placements != null && placements.Count > 0)
             {
                 text.AppendLine(ObstaclePlacementRule.Section(placements, requiredBand));
+                text.AppendLine();
+            }
+
+            //  ②-b와 달리 <b>빈 결과에도 절을 찍는다</b> — 훑었는데 좁은 데가 없었다는 것은
+            //  그 자체가 답이기 때문이다. 아예 안 훑었으면(null) 찍지 않는다.
+            if (pinches != null)
+            {
+                text.AppendLine(StaticPinchRule.Section(pinches, requiredBand, config.BodyHeight,
+                                                        config.ForwardSpeed, config.Gravity,
+                                                        pinchSampleStep));
                 text.AppendLine();
             }
 

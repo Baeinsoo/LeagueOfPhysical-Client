@@ -201,9 +201,12 @@ namespace LOP.EditorTools
             string cleanRunCancelNote = null;
             string heightSweepCancelNote = null;
             string phaseSweepCancelNote = null;
+            string pinchSweepCancelNote = null;
             var heightSweep = new List<LOP.MapTools.HeightSweepRow>();
             var phaseSweep = new List<LOP.MapTools.PhaseSweepRow>();
             var placements = new List<LOP.MapTools.ObstaclePlacement>();
+            //  null이면 "안 훑었다"는 뜻이다 — 빈 리스트("훑었는데 좁은 데가 없다")와 다르다.
+            List<LOP.MapTools.StaticPinch> pinches = null;
             //  밴드가 이만큼은 돼야 어떤 위상에서도 통과가 보장된다 — 날갯짓 아치 + 몸 높이.
             //  숫자를 박지 않고 실제 물리값에서 유도한다.
             float requiredBand = LOP.MapTools.ObstaclePlacementRule.RequiredBand(
@@ -348,6 +351,15 @@ namespace LOP.EditorTools
                 //  ②-b 배치 검사 — 산술이라 금방 끝난다(진행률이 필요 없다).
                 placements = MeasurePlacements(windmillInstances, mapMask, requiredBand,
                                                SearchMinY, SearchMaxY);
+
+                //  ②-c 정적 좁힘 — 코스 전체를 세로로 훑으므로 여기는 진행률이 필요하다.
+                var pinchWatch = System.Diagnostics.Stopwatch.StartNew();
+                var pinchColumns = SweepStaticPinches(spawns[0].Position.x, finishX, mapMask,
+                                                      windmillInstances, out pinchSweepCancelNote);
+                pinches = LOP.MapTools.StaticPinchRule.Segments(pinchColumns, requiredBand, PinchSampleStep);
+                pinchWatch.Stop();
+                //  비용은 콘솔에만 남긴다 — 리포트를 돌릴 때마다 달라지는 문자열로 만들지 않는다.
+                Debug.Log($"[맵 검사] 정적 좁힘 훑기 {pinchColumns.Count}칸 — {pinchWatch.ElapsedMilliseconds}ms");
             }
             finally
             {
@@ -368,7 +380,8 @@ namespace LOP.EditorTools
             string report = LOP.MapTools.PlayabilityReport.Build(
                 UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
                 spawns[0].Position.x, finishX, config, cleanRuns, trapSection, budget, earliest,
-                HeightGrid, SearchMinY, SearchMaxY, heightSweep, phaseSweep, placements, requiredBand);
+                HeightGrid, SearchMinY, SearchMaxY, heightSweep, phaseSweep, placements, requiredBand,
+                pinches, PinchSampleStep);
 
             //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
             bool spawnXMismatch = false;
@@ -390,7 +403,8 @@ namespace LOP.EditorTools
             //  절 안에 취소 문구를 갖고 있지만(BuildTrapSection), ①은 PlayabilityReport의 절이라
             //  거기 손대지 않고 여기서 요약해 알린다.
             if (cleanRunCancelNote != null || heightSweepCancelNote != null
-                || phaseSweepCancelNote != null || trapCancelNotes.Count > 0)
+                || phaseSweepCancelNote != null || pinchSweepCancelNote != null
+                || trapCancelNotes.Count > 0)
             {
                 var banner = new StringBuilder();
                 banner.AppendLine("⚠️⚠️⚠️ 이 검사는 도중에 취소됐다 — 아래 결과는 불완전하다 ⚠️⚠️⚠️");
@@ -409,6 +423,10 @@ namespace LOP.EditorTools
                 foreach (var note in trapCancelNotes)
                 {
                     banner.AppendLine($"  ② {note}");
+                }
+                if (pinchSweepCancelNote != null)
+                {
+                    banner.AppendLine($"  ②-c {pinchSweepCancelNote}");
                 }
                 banner.AppendLine();
                 report = banner.ToString() + report;
@@ -810,6 +828,117 @@ namespace LOP.EditorTools
             //  코스 순서로 읽히게 x 오름차순 — 디자이너가 앞에서부터 고친다.
             placements.Sort((left, right) => left.CenterX.CompareTo(right.CenterX));
             return placements;
+        }
+
+        //  ── ②-c 정적 좁힘 ──────────────────────────────────────────────────
+        //  "돌지 않는 지형이 코스를 얼마나 좁히는가"를 코스 전체에 걸쳐 잰다. ②-b와 <b>같은 자</b>를
+        //  쓴다 — 밴드 재기는 위의 FreeExtent/EscapeDepth 그대로고, 여기서는 그걸 세로로 죽 훑어
+        //  "이 x에 빈 띠가 어디어디 있나"로 엮을 뿐이다. 판정(무엇이 충분한가)은 순수 계층
+        //  (LOP.MapTools.StaticPinchRule)에 있다.
+
+        //  코스를 이 간격으로 훑는다. 이보다 짧은 좁힘은 표본 사이로 빠져나갈 수 있다 —
+        //  리포트 머리말이 그 한계를 그대로 말한다.
+        private const float PinchSampleStep = 0.5f;
+        //  띠 하나를 재고 다음 띠로 넘어갈 때 경계를 확실히 넘기 위한 최소 이동. 이분이 경계를
+        //  0.01mm까지 좁히므로 이만큼만 밀면 반드시 지형 안쪽에 떨어진다.
+        private const float PinchBandGap = 0.02f;
+
+        //  띠를 막고 있는 것의 이름을 읽을 때 경계에서 이만큼 안쪽을 찌른다.
+        private const float PinchNameProbe = 0.02f;
+
+        private static string ColliderNameAt(float x, float y, int mapMask, HashSet<Collider> ignore)
+        {
+            int count = Physics.OverlapSphereNonAlloc(
+                new Vector3(x, y, 0f), PlacementProbeRadius, PlacementOverlap,
+                mapMask, QueryTriggerInteraction.Ignore);
+            int limit = Mathf.Min(count, PlacementOverlap.Length);
+            for (int i = 0; i < limit; i++)
+            {
+                if (ignore.Contains(PlacementOverlap[i]) == false)
+                {
+                    return NameOf(PlacementOverlap[i].transform);
+                }
+            }
+            return null;
+        }
+
+        //  한 x를 아래에서 위로 훑어 빈 띠를 전부 모은다.
+        //  <b>지형 안에 들어간 자리를 0m 띠로 세지 않는다</b> — ②-b가 배운 바로 그 함정이다.
+        //  묻힌 자리에서는 FreeExtent가 <b>음수</b>(밖으로 나가려면 몇 m 가야 하나)를 돌려주므로,
+        //  그 깊이만큼 건너뛰고 다음 띠부터 잰다.
+        private static void CollectFreeBands(float x, int mapMask, HashSet<Collider> ignore,
+                                             List<LOP.MapTools.FreeBand> into)
+        {
+            into.Clear();
+            float y = SearchMinY;
+            //  무한 루프 방지 — 최소 이동이 PinchBandGap이므로 이보다 많이 돌 수 없다.
+            int guard = Mathf.CeilToInt((SearchMaxY - SearchMinY) / PinchBandGap) + 8;
+            while (y < SearchMaxY && guard-- > 0)
+            {
+                if (PlacementBlocked(x, y, mapMask, ignore))
+                {
+                    //  ②-b와 같은 자에 묻힌 깊이를 묻는다: 아래로 재려 했는데 출발점이 이미
+                    //  지형 안이면 "위로 이만큼 가야 밖"이 음수로 돌아온다.
+                    float buried = -FreeExtent(x, y, -1f, SearchMaxY - y, mapMask, ignore);
+                    y += Mathf.Max(buried, 0f) + PinchBandGap;
+                    continue;
+                }
+                float down = FreeExtent(x, y, -1f, y - SearchMinY, mapMask, ignore);
+                float up = FreeExtent(x, y, 1f, SearchMaxY - y, mapMask, ignore);
+                float bottom = y - Mathf.Max(down, 0f);
+                float top = y + Mathf.Max(up, 0f);
+                //  탐색 대역 끝에 닿았으면 그쪽은 막은 것이 없다 — 하늘이거나 맵 밑 허공이다.
+                bool openBelow = bottom <= SearchMinY + PinchNameProbe;
+                bool openAbove = top >= SearchMaxY - PinchNameProbe;
+                into.Add(new LOP.MapTools.FreeBand(
+                    bottom, top,
+                    openBelow ? null : ColliderNameAt(x, bottom - PinchNameProbe, mapMask, ignore),
+                    openAbove ? null : ColliderNameAt(x, top + PinchNameProbe, mapMask, ignore),
+                    openBelow, openAbove));
+                y = top + PinchBandGap;
+            }
+        }
+
+        //  코스 x 전체를 훑어 x마다 "가장 넓은 갇힌 띠"를 낸다. 풍차는 없는 셈 친다 —
+        //  이 절이 답하는 것은 <b>정적</b> 지형이고, 돌아가는 것은 ②-b가 본다.
+        private static List<LOP.MapTools.PinchColumn> SweepStaticPinches(
+            float startX, float finishX, int mapMask, List<LOP.FlappyWindmill> windmills,
+            out string cancelNote)
+        {
+            cancelNote = null;
+            var ignore = new HashSet<Collider>();
+            for (int i = 0; windmills != null && i < windmills.Count; i++)
+            {
+                if (windmills[i] == null)
+                {
+                    continue;
+                }
+                var colliders = windmills[i].GetComponentsInChildren<Collider>(includeInactive: true);
+                for (int c = 0; c < colliders.Length; c++)
+                {
+                    ignore.Add(colliders[c]);
+                }
+            }
+
+            var columns = new List<LOP.MapTools.PinchColumn>();
+            var bands = new List<LOP.MapTools.FreeBand>();
+            int steps = Mathf.Max(1, Mathf.CeilToInt((finishX - startX) / PinchSampleStep));
+            for (int i = 0; i <= steps; i++)
+            {
+                float x = startX + i * PinchSampleStep;
+                //  취소 확인은 32칸마다 — 칸마다 물으면 진행률 갱신이 훑기보다 비싸진다.
+                if ((i & 31) == 0 && EditorUtility.DisplayCancelableProgressBar(
+                        "Flappy 맵 검사 (2/3 정적 좁힘)",
+                        $"x={x:F0} / {finishX:F0}", i / (float)steps))
+                {
+                    Debug.LogWarning("[맵 검사] 취소됨 — 정적 좁힘 결과가 불완전하다.");
+                    cancelNote = $"정적 좁힘 — x {x:F0}까지만 훑음 (코스 끝은 {finishX:F0})";
+                    break;
+                }
+                CollectFreeBands(x, mapMask, ignore, bands);
+                columns.Add(LOP.MapTools.StaticPinchRule.Column(x, bands));
+            }
+            return columns;
         }
 
         private static void RestoreWindmills(List<(Transform Transform, Quaternion Rotation)> poses)

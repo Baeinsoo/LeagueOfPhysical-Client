@@ -9,6 +9,7 @@ namespace LOP.UI
     public class ArcheryPadView : UIView
     {
         private readonly ArcheryPadViewModel _viewModel;
+        private IVisualElementScheduledItem _tick;
 
         public ArcheryPadView(ArcheryPadViewModel viewModel)
         {
@@ -48,6 +49,10 @@ namespace LOP.UI
             });
             // 손가락이 화면 밖으로 나가면 위의 Up이 안 온다 — 그대로 두면 시위를 당긴 채 영영 멈춘다.
             right.RegisterCallback<PointerCaptureOutEvent>(_ => _viewModel.EndDraw());
+
+            // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.
+            // 마우스가 하나뿐인 PC에서 왼쪽 드래그 대신 WASD로 겨눌 수 있게 한다.
+            _tick = Root.schedule.Execute(_ => _viewModel.PollKeyboard()).Every(0);
         }
 
         private bool _disposed;
@@ -57,6 +62,8 @@ namespace LOP.UI
             if (!_disposed)
             {
                 _disposed = true;
+                // 화면이 닫힌 뒤에도 스케줄러가 돌면 없는 ViewModel을 계속 두드린다.
+                _tick?.Pause();
             }
 
             base.Dispose(disposing);

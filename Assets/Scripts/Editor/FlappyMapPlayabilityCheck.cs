@@ -66,9 +66,39 @@ namespace LOP.EditorTools
 
         //  씬의 풍차 전부. 게임이 매 틱 하는 것과 똑같이(FlappyWorld.Mutation 맨 앞) 이 검사기도
         //  한 틱을 굴리기 전에 날개를 그 틱 자세로 세운다 — 안 그러면 도는 장애물을 "저장된 각도로
-        //  굳은 벽"으로 보고 진단이 조용히 틀려진다. Step 하나에만 물려 두면 봇 비행·되돌리기·
-        //  굴려 보기·재생이 전부 같은 자세를 본다(넷 다 Step을 지나간다).
+        //  굳은 벽"으로 보고 진단이 조용히 틀려진다. 세우는 자리는 둘이다 — <b>굴리기 전</b>(Step)과
+        //  <b>재기 전</b>(BotWorld.Decide). 굴리기만 맞추면 봇이 한 눈으로만 난다: 움직임은 이
+        //  틱 각도를 따르는데 앞을 본 값은 다른 틱 각도의 것이 된다.
         private static LOP.FlappyWindmillField Windmills;
+
+        //  마지막으로 세운 틱. 자세는 틱만의 함수라 같은 틱을 다시 세워도 결과가 같은데,
+        //  PoseForTick은 Physics.SyncTransforms까지 부르므로 공짜가 아니다 — 굴려 보기가
+        //  같은 틱을 여러 번 지나가므로 이 한 줄이 그 값을 절반으로 줄인다.
+        private static long posedTick = long.MinValue;
+
+        //  봇이 쓰는 자유공간 캐시. 풍차 자세와 <b>같은 틱에 묶여야</b> 하므로 Windmills와 같은
+        //  자리에 둔다 — 둘을 따로 넘기면 한쪽만 갱신한 채 재는 길이 생긴다(그게 이번에 고친
+        //  버그였다: 아치 훑기는 그 틱을 보는데 바닥 규칙은 옛 각도를 봤다).
+        private static FreeSpaceGrid BotGrid;
+
+        //  이 틱을 재기 전에 세계를 그 틱 모습으로 맞춘다: 날개를 그 틱 각도로 세우고, 봇의
+        //  자유공간 캐시도 그 틱 칸으로 바꾼다. <b>봇이 한 틱에 묻는 값은 전부 이 한 줄 뒤에서
+        //  나와야 한다.</b>
+        private static void BeginBotTick(long tick)
+        {
+            PoseWindmills(tick);
+            BotGrid?.SetTick(tick);
+        }
+
+        private static void PoseWindmills(long tick)
+        {
+            if (Windmills == null || posedTick == tick)
+            {
+                return;
+            }
+            Windmills.PoseForTick(tick, TickSeconds);
+            posedTick = tick;
+        }
 
         [MenuItem("LOP/Debug/Flappy 맵 검사")]
         public static void Check()
@@ -135,18 +165,24 @@ namespace LOP.EditorTools
             //  에디터에서 도는 도구라 씬에서 직접 긁는다.
             //  <b>끝나면 원래 자세로 되돌린다</b>(아래 finally) — 이 도구가 씬을 더럽히면 안 된다.
             //  맵 씬은 커밋하지 않는 로컬 픽스처라, 자세가 남으면 진단이 diff로 새어 나간다.
-            Windmills = CollectWindmills(out var windmillPoses);
+            Windmills = CollectWindmills(out var windmillPoses, out var windmillSpecs);
+            posedTick = long.MinValue;
 
             var query = new GameFramework.Physics.UnityCollisionQuery();
-            var grid = new FreeSpaceGrid(shape, mapMask);
-            //  봇은 자기만의 자유공간 격자를 쓴다. 지금은 그럴 이유가 없다 — 캐시를 타는
-            //  프로브가 질의 좌표를 격자에 스냅해 그 스냅된 자리에서 재므로(FreeSpaceGrid.IsFree
-            //  참고) 답이 칸만의 함수이고, 따라서 둘을 합쳐도 답이 달라지지 않는다. 오히려
-            //  따로 두면 같은 칸을 양쪽이 각각 재서 항목도 PhysX 질의도 두 배가 된다.
-            //  그래도 지금 합치지 않는 것은 실측 런타임에 영향이 큰 변경이라서다(탐색이 봇의
-            //  틱당 약 1150개 프로브를 그대로 재사용하게 된다) — 에디터가 살아난 뒤 실제
-            //  맵에서 재 보고 합친다.
-            var botGrid = new FreeSpaceGrid(shape, mapMask);
+            //  전수 탐색이 쓰는 캐시 — <b>틱을 안 가린다</b>(tickWindow: 0). 탐색은 격자 위의
+            //  도달 가능성을 세는 것이라 "언제 그 자리에 닿느냐"를 들고 있지 않아, 물어볼 틱
+            //  자체가 없다. 그래서 도는 장애물은 저장된 각도의 정적 벽으로 보인다 — 그 한계는
+            //  리포트 머리말이 그대로 말한다(아래 windmillSpecs 주의).
+            var grid = new FreeSpaceGrid(shape, mapMask, tickWindow: 0);
+            //  봇이 쓰는 캐시는 <b>틱을 가린다</b> — 봇은 매 틱 자기가 몇 틱째인지 알고 날기
+            //  때문에(BirdState.Tick) 그 틱의 자세에서 잰 답만 쓸 수 있다. 그래서 탐색 캐시와
+            //  합칠 수 없다: 같은 칸에 대해 둘이 서로 다른 질문("아무 때나 뚫렸나" vs "이 틱에
+            //  뚫렸나")을 한다.
+            //  창은 굴려 보기 지평 + 2다. 굴려 보기는 한 틱에서 앞으로 RolloutHorizon틱을 두
+            //  갈래로 굴리므로 한 번에 살아 있는 틱이 [T, T+59]이고, 다음 틱엔 [T+1, T+60]이라
+            //  둘을 합쳐 61틱이 겹친다. 하나 더 얹어 그 겹침이 스스로를 밀어내지 않게 한다.
+            var botGrid = new FreeSpaceGrid(shape, mapMask, tickWindow: RolloutHorizon + 2);
+            BotGrid = botGrid;
             var cleanRuns = new List<LOP.MapTools.SpawnCleanRun>();
             string trapSection;
             //  null/빈 리스트면 취소 안 됨. 취소되면 "몇 개 중 몇 개만" 문구를 담아 report 맨
@@ -285,6 +321,8 @@ namespace LOP.EditorTools
                 EditorUtility.ClearProgressBar();
                 RestoreWindmills(windmillPoses);
                 Windmills = null;
+                BotGrid = null;
+                posedTick = long.MinValue;
             }
 
             //  ③ 산수라 진행률이 필요 없다. spawns[0] 하나만 놓고 계산한다 — 이 맵은 넷 다
@@ -339,15 +377,21 @@ namespace LOP.EditorTools
             //  도는 장애물이 있으면 이 리포트의 두 답이 서로 다른 정확도를 갖는다 — 그 사실을
             //  리포트 안에 적어 둔다. 화면을 떠나 붙여넣기로 돌아다니는 문자열이 스스로
             //  "어디까지 믿을 수 있는지"를 말해야 한다.
-            if (windmillPoses.Count > 0)
+            if (windmillSpecs.Count > 0)
             {
                 var note = new StringBuilder();
-                note.AppendLine($"ℹ️ 이 맵에 도는 장애물(풍차)이 {windmillPoses.Count}개 있다 — 두 답의 정확도가 다르다.");
-                note.AppendLine("  · 봇 비행·되돌리기·재생은 매 틱 날개를 그 틱 각도로 세우고 굴린다(게임과 같다).");
-                note.AppendLine("  · 전수 탐색(①의 두 번째 답)은 아직 아니다 — 자유공간 캐시(FreeSpaceGrid)가");
-                note.AppendLine("    칸마다 답을 한 번 재고 재사용해서, 도는 장애물을 '저장된 각도의 정적 벽'으로 본다.");
-                note.AppendLine("    봇이 겨냥에 쓰는 근거리 열(BotPilot.Decide)도 같은 캐시를 탄다 — 봇의 '물리'는");
-                note.AppendLine("    정확해졌지만 '겨냥'은 정적 전제 위에 있다.");
+                note.AppendLine($"회전 장애물: 풍차 {windmillSpecs.Count}개 ({DescribeWindmillSpeeds(windmillSpecs)}). "
+                              + "이 검사는 틱 0을 스폰으로 잡은 한 위상만 본다 —");
+                note.AppendLine($"             \"가능한 한 판\"이지 \"실제 그 판\"이 아니다"
+                              + $"(실제 판의 틱 0은 GameplayStartTick이라 각도가 다르다). {DescribePhaseSpace(windmillSpecs)}");
+                note.AppendLine("ℹ️ 도는 장애물이 있으므로 이 리포트의 두 답은 정확도가 다르다.");
+                note.AppendLine("  · 봇 비행(①의 첫째 답 — ✅ '봇 통과')은 회전을 매 틱 반영한다: 겨냥에 쓰는 근거리 열도,");
+                note.AppendLine("    천장 아치 훑기도, 이동 커널도 전부 그 틱 각도로 세운 날개를 보고 잰다(게임과 같다).");
+                note.AppendLine("    되돌리기·재생도 같은 자리를 지난다. 그래서 ✅ 봇 통과는 회전을 반영한 진짜 증명이다.");
+                note.AppendLine("  · 전수 탐색(①의 둘째 답)은 아니다 — 자유공간 캐시(FreeSpaceGrid)가 칸마다 답을 한 번");
+                note.AppendLine("    재고 재사용해서, 도는 장애물을 '맨 처음 그 칸을 잰 때의 각도로 굳은 벽'으로 본다.");
+                note.AppendLine("    탐색은 '몇 틱째에 그 자리에 닿는가'를 들고 있지 않아 물어볼 틱 자체가 없다.");
+                note.AppendLine("    ⚠️ 따라서 🟡·❌는 회전을 반영하지 않은 판정이다 — 실제로는 열려 있을 수 있다.");
                 note.AppendLine("  · ②의 낌 스캔도 각 씨앗을 틱 0부터 굴린다 — 실제 판의 위상과는 다르다.");
                 note.AppendLine();
                 report = note.ToString() + report;
@@ -438,15 +482,20 @@ namespace LOP.EditorTools
         //  씬에 있는 풍차를 모아 필드 하나로 만든다. 순서는 결과를 바꾸지 않는다 — 풍차는 각자
         //  자기 자세만 대입하므로 서로 섞이지 않는다(FlappyWindmillField 주석 참고).
         private static LOP.FlappyWindmillField CollectWindmills(
-            out List<(Transform Transform, Quaternion Rotation)> originalPoses)
+            out List<(Transform Transform, Quaternion Rotation)> originalPoses,
+            out List<(float RotSpeed, int Arms)> specs)
         {
             var field = new LOP.FlappyWindmillField();
             originalPoses = new List<(Transform, Quaternion)>();
+            specs = new List<(float, int)>();
             var windmills = Object.FindObjectsByType<LOP.FlappyWindmill>(
                 FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             for (int i = 0; i < windmills.Length; i++)
             {
                 originalPoses.Add((windmills[i].transform, windmills[i].transform.localRotation));
+                //  날개 수는 자식 수로 센다 — 리포트의 "위상 공간"이 이 수에서 나오므로
+                //  상수로 박지 않는다(십자면 4개라 90°마다 같은 모양이 된다).
+                specs.Add((windmills[i].RotSpeed, windmills[i].transform.childCount));
                 field.Add(windmills[i]);
             }
             if (windmills.Length > 0)
@@ -473,6 +522,48 @@ namespace LOP.EditorTools
             {
                 Physics.SyncTransforms();
             }
+        }
+
+        //  리포트 머리말의 숫자는 전부 씬에서 읽은 것이다 — 상수로 박으면 씬을 고친 날부터
+        //  조용히 거짓말을 한다. 풍차가 서로 다른 값을 가질 수 있으므로 "다 같은가"를 먼저 본다.
+        private static string DescribeWindmillSpeeds(List<(float RotSpeed, int Arms)> specs)
+        {
+            float min = specs[0].RotSpeed;
+            float max = specs[0].RotSpeed;
+            for (int i = 1; i < specs.Count; i++)
+            {
+                min = Mathf.Min(min, specs[i].RotSpeed);
+                max = Mathf.Max(max, specs[i].RotSpeed);
+            }
+            return Mathf.Approximately(min, max) ? $"{min:0.##}°/s" : $"{min:0.##}~{max:0.##}°/s";
+        }
+
+        private static string DescribePhaseSpace(List<(float RotSpeed, int Arms)> specs)
+        {
+            int longest = 0;
+            bool uniform = true;
+            for (int i = 0; i < specs.Count; i++)
+            {
+                longest = Mathf.Max(longest, LOP.MapTools.WindmillPhase.SpaceTicks(
+                    specs[i].RotSpeed, specs[i].Arms, TickSeconds));
+                if (Mathf.Approximately(specs[i].RotSpeed, specs[0].RotSpeed) == false
+                    || specs[i].Arms != specs[0].Arms)
+                {
+                    uniform = false;
+                }
+            }
+            if (uniform == false)
+            {
+                //  속도·날개 수가 섞이면 전체가 같은 모양으로 돌아오는 주기는 각자의 최소공배수라
+                //  한 수로 안 떨어진다. 지어내지 않고 "적어도 이만큼"만 말한다.
+                return $"풍차마다 속도·날개가 달라 위상 공간이 한 수로 안 떨어진다 — 가장 긴 것이 {longest}틱.";
+            }
+            int arms = specs[0].Arms;
+            if (arms < 1)
+            {
+                return $"위상 공간은 {longest}틱(한 바퀴 — 날개를 못 세어 대칭을 못 쓴다).";
+            }
+            return $"날개 {arms}개라 {360f / arms:0.##}°마다 같으므로 위상 공간은 {longest}틱.";
         }
 
         private readonly struct FlappyShape
@@ -567,7 +658,23 @@ namespace LOP.EditorTools
         //  전체를 미리 채우면 코스 전체가 570만 칸이라, 탐색이 실제로 밟는 칸만 채운다.
         private sealed class FreeSpaceGrid
         {
-            private readonly Dictionary<long, bool> cache = new Dictionary<long, bool>();
+            //  칸 → 뚫렸나. <b>틱을 가리는 캐시면</b> 이 사전이 "지금 틱" 것 하나이고, 틱마다
+            //  따로 있는 사전들은 아래 ring에 들어 있다.
+            private Dictionary<long, bool> cache;
+            //  <b>왜 틱을 가려야 하나.</b> 풍차가 돌기 시작하면서 같은 칸이 틱마다 다른 답을
+            //  갖게 됐다. 한 번 재서 영원히 재사용하면 봇이 <b>옛 각도로 굳은 벽</b>을 본다.
+            //
+            //  <b>왜 "틱이 바뀌면 비우기"가 아니라 고리(ring)인가 — 비우기는 캐시를 없애는 것과
+            //  같아서다.</b> 굴려 보기가 한 틱마다 앞으로 60틱을 두 갈래로 굴리느라 틱이 쉴 새
+            //  없이 오르내린다. 바뀔 때마다 통째로 비우면 바로 다음 질의가 또 새 틱이라, 틱당
+            //  약 1,150번인 캡슐 검사가 121배(약 14만 번)로 는다. 고리는 최근 몇 틱의 답을
+            //  나란히 들고 있어 그 재사용을 그대로 살린다 — 굴려 보기의 두 갈래가 같은 틱을
+            //  묻고, 다음 틱의 굴려 보기가 앞 틱이 이미 본 자리를 다시 묻기 때문이다.
+            //  한 바퀴 돌아 같은 칸에 다른 틱이 오면 그 자리는 <b>쓰이기 전에</b> 비워진다
+            //  (아래 SetTick이 틱을 대조한다) — 그래서 앞 틱 값이 절대 새어 나오지 않는다.
+            //  null이면 정적 전제(칸만의 함수)로 쓰는 캐시다 — 전수 탐색이 그쪽이다.
+            private readonly Dictionary<long, bool>[] ring;
+            private readonly long[] ringTick;
             private readonly FlappyShape shape;
             private readonly int mapMask;
 
@@ -578,12 +685,50 @@ namespace LOP.EditorTools
             public readonly LOP.MapTools.FreeSpaceProbe IsFree;
             public readonly LOP.MapTools.ExactFreeSpaceProbe IsFreeExact;
 
-            public FreeSpaceGrid(in FlappyShape shape, int mapMask)
+            /// <param name="tickWindow">몇 틱치 답을 나란히 들고 있을 것인가. <b>0이면 틱을 안
+            /// 가린다</b>(정적 전제 — 도는 장애물을 저장된 각도의 벽으로 본다).</param>
+            public FreeSpaceGrid(in FlappyShape shape, int mapMask, int tickWindow)
             {
                 this.shape = shape;
                 this.mapMask = mapMask;
+                if (tickWindow > 0)
+                {
+                    ring = new Dictionary<long, bool>[tickWindow];
+                    ringTick = new long[tickWindow];
+                    for (int i = 0; i < tickWindow; i++)
+                    {
+                        ring[i] = new Dictionary<long, bool>();
+                        //  실제 틱은 0 이상이라 이 값과 겹칠 수 없다 — 첫 질의가 반드시 비우고 들어간다.
+                        ringTick[i] = long.MinValue;
+                    }
+                    SetTick(0);
+                }
+                else
+                {
+                    cache = new Dictionary<long, bool>();
+                }
                 IsFree = MeasureSnapped;
                 IsFreeExact = Measure;
+            }
+
+            /// <summary>이 뒤의 질의는 <b>이 틱의 자세</b>에서 잰 값만 쓴다. 부르는 쪽은 같은
+            /// 자리에서 풍차도 그 틱 각도로 세워야 한다(<see cref="BeginBotTick"/>).</summary>
+            public void SetTick(long tick)
+            {
+                if (ring == null)
+                {
+                    //  정적 전제로 만든 캐시에 틱을 물으면 전제가 깨진 것이다 — 조용히 넘어가면
+                    //  "틱을 가린다"고 믿는 쪽이 앞 틱 답을 받는다.
+                    throw new System.InvalidOperationException(
+                        "this cache was built on the static assumption (tickWindow=0) — it has no per-tick answers.");
+                }
+                int slot = (int)(((tick % ring.Length) + ring.Length) % ring.Length);
+                if (ringTick[slot] != tick)
+                {
+                    ring[slot].Clear();
+                    ringTick[slot] = tick;
+                }
+                cache = ring[slot];
             }
 
             //  묻는 쪽은 전부 연속 좌표를 준다 — 탐색은 두 축을 다 보간하고(SegmentIsFree),
@@ -807,6 +952,11 @@ namespace LOP.EditorTools
 
             public LOP.MapTools.BotDecision Decide(in BirdState state)
             {
+                //  <b>재기 전에</b> 세계를 이 틱 모습으로 맞춘다. 이 아래 두 가지가 전부 지금
+                //  자세에 달려 있다 — 근거리 열(바닥 규칙이 겨냥에 쓴다)과 아치 훑기(천장
+                //  가드). 안 맞추면 봇이 한 눈으로만 난다: 판단은 이 틱 것인데 본 것은 다른
+                //  틱의 풍차 각도다.
+                BeginBotTick(state.Tick);
                 float scanX = state.Position.x + lookahead;
                 for (int i = 0; i < blockedNear.Length; i++)
                 {
@@ -866,6 +1016,10 @@ namespace LOP.EditorTools
                                         BirdState resumeState = default)
         {
             var query = new HitWatcher(inner);
+            //  스폰은 틱 0의 자리다 — 그 틱 자세에서 봐야 답이 하나로 정해진다. 안 세우면 직전
+            //  비행이 남긴 아무 각도에서 재게 되어, 같은 스폰이 검사할 때마다 "지형 안"이
+            //  됐다 안 됐다 한다.
+            PoseWindmills(0);
             //  출발점이 이미 지형 안이면 날려 봐야 뜻이 없다 — 그런데 그냥 날리면 "통과"가
             //  나온다. 비행이 쓰는 KinematicMover.Move는 전부 CapsuleCast인데, 유니티의 캡슐
             //  스윕은 *출발 자리에 이미 겹쳐 있는* 콜라이더를 보고하지 않기 때문이다. 그래서
@@ -1179,7 +1333,7 @@ namespace LOP.EditorTools
             for (int tick = 0; tick < SimulationTicks; tick++)
             {
                 //  Step과 같은 자리에서 날개를 세운다 — 이 함수는 Step을 안 거치고 커널을 직접 부른다.
-                Windmills?.PoseForTick(tick, TickSeconds);
+                PoseWindmills(tick);
                 velocity.y -= shape.Gravity * TickSeconds;
                 if (velocity.y < -shape.MaxFallSpeed)
                 {
@@ -1201,7 +1355,7 @@ namespace LOP.EditorTools
 
         //  ②가 기준으로 삼는 자세 = 틱 0. 게임의 실제 위상과는 다르지만(리포트의 주의 참고),
         //  적어도 ② 안에서는 모든 측정이 같은 자세 위에 선다.
-        private static void RestWindmills() => Windmills?.PoseForTick(0, TickSeconds);
+        private static void RestWindmills() => PoseWindmills(0);
 
         /// <summary>새의 한 틱 상태 — 자리, 세로 속도, 스턴·무적 남은 시간.</summary>
         private struct BirdState
@@ -1230,7 +1384,7 @@ namespace LOP.EditorTools
             const float Epsilon = 1e-5f;
             //  이 틱을 굴리기 전에 날개를 세운다 — FlappyWorld.Mutation의 맨 줄과 같은 순서다.
             //  움직인 뒤에 세우면 이번 틱의 sweep이 한 틱 낡은 자세를 본다.
-            Windmills?.PoseForTick(state.Tick, TickSeconds);
+            PoseWindmills(state.Tick);
             if (state.Stun > 0f)
             {
                 state.Stun -= TickSeconds;

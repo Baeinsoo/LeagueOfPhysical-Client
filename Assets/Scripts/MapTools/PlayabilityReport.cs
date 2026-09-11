@@ -651,4 +651,34 @@ namespace LOP.MapTools
             text.AppendLine();
         }
     }
+
+    /// <summary>
+    /// 도는 풍차의 <b>위상 공간</b> — 같은 모양이 다시 나타나기까지 몇 틱인가. 날개가 십자면
+    /// 90°만 돌아도 모양이 원래대로 돌아오므로 한 바퀴(360°)를 다 셀 이유가 없다.
+    ///
+    /// <para>검사가 틱 0 하나만 보는 것이 왜 한계인지를 이 수가 말해 준다 — 실제 판의 스폰
+    /// 틱(<c>GameplayStartTick</c>)은 0이 아니라서 날개가 다른 각도에 서 있고, 그 각도에서
+    /// 열려 있던 통로가 닫혀 있을 수 있다. 위상을 전부 훑으려면 이 수만큼의 시작 틱을 봐야 한다.</para>
+    /// </summary>
+    public static class WindmillPhase
+    {
+        /// <param name="arms">날개 수. 1 미만이면 대칭이 없다고 보고 한 바퀴를 센다.</param>
+        public static int SpaceTicks(float rotSpeedDegreesPerSecond, int arms, float tickSeconds)
+        {
+            if (tickSeconds <= 0f)
+            {
+                throw new System.ArgumentOutOfRangeException(nameof(tickSeconds), tickSeconds,
+                    "tickSeconds must be positive — otherwise the phase space is not a number of ticks.");
+            }
+            float speed = System.Math.Abs(rotSpeedDegreesPerSecond);
+            if (speed <= 0f)
+            {
+                //  안 돈다 — 모든 틱이 같은 모양이라 볼 위상이 하나뿐이다.
+                return 1;
+            }
+            float symmetry = arms >= 1 ? 360f / arms : 360f;
+            double ticks = System.Math.Ceiling(symmetry / (double)speed / tickSeconds);
+            return ticks < 1.0 ? 1 : (int)ticks;
+        }
+    }
 }

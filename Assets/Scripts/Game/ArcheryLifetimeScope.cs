@@ -41,6 +41,7 @@ namespace LOP
 
             builder.RegisterEntryPoint<ArcheryAimView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryArrowView>().AsSelf();
+            builder.RegisterEntryPoint<ArcheryRemoteShotHandler>();
 
             builder.RegisterEntryPoint<ArcheryHudCoordinator>();
             builder.Register<ArcheryPadViewModel>(Lifetime.Transient);

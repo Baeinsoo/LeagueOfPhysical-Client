@@ -41,8 +41,11 @@
   보장한다).
 - **`*System`은 무상태 DI 인스턴스**, **`static`은 컨텍스트 없는 순수 커널에만**(`ArcheryTrajectory`).
   순수 커널에 `*System` 이름을 붙이지 않는다.
-- **World 타입은 항상 풀 네임스페이스로 한정한다** — `GameFramework.World.Transform` 등.
-  `using GameFramework.World;`를 추가하지 않는다(`UnityEngine.Component`와 충돌).
+- **World 타입 이름이 `UnityEngine`과 겹치면 풀 네임스페이스로 한정한다** — `GameFramework.World.Transform`,
+  `GameFramework.World.Component` 등. 규칙의 목적은 **모호성 회피**이지 `using` 금지가 아니다:
+  LOP-Shared는 `using GameFramework.World;`와 `using UnityEngine;`을 함께 쓰는 파일이 이미
+  **테스트 11개·런타임 다수** 있고, 겹치는 이름만 한정해서 안전하게 쓴다. **bare `Component`를
+  쓰는 파일에서만** 그 using이 문제가 된다.
 - **`git add -A` / `git commit -a` 금지.** 워킹트리에 의도적으로 커밋하지 않는 로컬 픽스처가
   상시 있다(`Assets/Art` 서브모듈 포인터, `Jua-Regular SDF.asset`, `ProjectSettings/*`).
   **바꾼 파일만 경로로 지정**하고 커밋 전에 `git status --short`로 스테이지된 것을 확인한다.

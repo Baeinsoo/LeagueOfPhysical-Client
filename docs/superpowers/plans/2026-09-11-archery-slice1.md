@@ -1993,7 +1993,24 @@ git add Assets/Art           # ← 경로 지정. -A 금지
 git commit -m "chore(art): 원형 사대 맵을 가리킨다"
 ```
 
-- [ ] **Step 5: 끝-끝으로 확인한다**
+- [ ] **Step 5: 사대 마커가 안 잡혔을 때 조용하지 않게 한다**
+
+맵에 `SpawnPoint`가 없으면 `ArcheryRuleSystem`이 폴백 원형 배치를 쓰는데, **지금은 그게 조용하다.**
+형제 `SkydiveRuleSystem`은 같은 자리에서 경고를 찍는다. 이 태스크가 마커를 만들기 전까지는 **항상**
+폴백이라, 마커를 잘못 놓아도 사람들이 원형으로 그럴싸하게 서서 **오류가 가려진다.**
+
+`LeagueOfPhysical-Server/Assets/Scripts/Game/ArcheryRuleSystem.cs`의 `Initialize`에서 슬롯을 구한 직후:
+
+```csharp
+            if (slots.Count == 0)
+            {
+                Debug.LogWarning("[Archery] 맵에 SpawnPoint가 없다 — 원 둘레에 등간격으로 세운다");
+            }
+```
+
+서버 컴파일을 확인하고 **Server 레포에만** 커밋한다(경로 지정, 로컬 픽스처 11개 제외).
+
+- [ ] **Step 6: 끝-끝으로 확인한다**
 
 클라 두 대(메인 에디터 + MPPM 클론)와 서버를 띄우고 `Archery`로 매칭한다.
 
@@ -2010,7 +2027,7 @@ git commit -m "chore(art): 원형 사대 맵을 가리킨다"
 > ⚠️ **게임서버 이미지 태그가 낡으면 접속 몇 초 뒤 예외 없이 튕긴다.** 코드를 파기 전에
 > `GAME_SERVER_IMAGE` 태그와 서버 레포 main의 커밋 차를 먼저 본다.
 
-- [ ] **Step 6: 커밋 (레포 세 곳)**
+- [ ] **Step 7: 커밋 (레포 세 곳)**
 
 ```bash
 cd C:/Users/re5na/workspace/LOP/infrastructure

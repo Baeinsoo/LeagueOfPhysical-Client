@@ -272,7 +272,9 @@ namespace LOP.MapTools
                                    IReadOnlyList<StunBudgetPoint> budget, EarliestCatch earliest,
                                    float heightGrid, float minY, float maxY,
                                    IReadOnlyList<HeightSweepRow> heightSweep = null,
-                                   IReadOnlyList<PhaseSweepRow> phaseSweep = null)
+                                   IReadOnlyList<PhaseSweepRow> phaseSweep = null,
+                                   IReadOnlyList<ObstaclePlacement> placements = null,
+                                   float requiredBand = 0f)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
@@ -439,6 +441,14 @@ namespace LOP.MapTools
                           + " 게임에서는 밀려나 빠져나오는 자리도 낌으로 보고될 수 있다. 손대기 전에"
                           + " 실제로 껴 보는지 한 번 확인할 것)");
             text.AppendLine();
+
+            //  돌아가는 장애물이 없는 맵에는 이 절을 아예 안 찍는다 — 빈 절은 "재 봤더니 문제
+            //  없다"가 아니라 "여기도 봐야 한다"로 잘못 읽힌다.
+            if (placements != null && placements.Count > 0)
+            {
+                text.AppendLine(ObstaclePlacementRule.Section(placements, requiredBand));
+                text.AppendLine();
+            }
 
             text.AppendLine("── ③ 스턴 예산 ───────────────────────");
             text.AppendLine("  경과   클린런위치   허용    가능");

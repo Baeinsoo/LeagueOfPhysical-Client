@@ -169,8 +169,14 @@ namespace LOP.EditorTools
             //  에디터에서 도는 도구라 씬에서 직접 긁는다.
             //  <b>끝나면 원래 자세로 되돌린다</b>(아래 finally) — 이 도구가 씬을 더럽히면 안 된다.
             //  맵 씬은 커밋하지 않는 로컬 픽스처라, 자세가 남으면 진단이 diff로 새어 나간다.
-            Windmills = CollectWindmills(out var windmillPoses, out var windmillSpecs);
+            Windmills = CollectWindmills(out var windmillPoses, out var windmillSpecs,
+                                         out var windmillInstances);
             posedTick = long.MinValue;
+            //  이 도구는 씬을 읽기만 한다 — 그래도 자세를 세우느라 컴포넌트를 건드리므로,
+            //  들어올 때 깨끗했으면 나갈 때도 깨끗한지 끝에서 확인해 남긴다(맵 씬은 커밋하지
+            //  않는 로컬 픽스처라, 더티가 남으면 진단이 diff로 새어 나간다).
+            var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            bool sceneWasDirty = activeScene.isDirty;
 
             var query = new GameFramework.Physics.UnityCollisionQuery();
             //  전수 탐색이 쓰는 캐시 — <b>틱을 안 가린다</b>(tickWindow: 0). 탐색은 격자 위의
@@ -197,6 +203,11 @@ namespace LOP.EditorTools
             string phaseSweepCancelNote = null;
             var heightSweep = new List<LOP.MapTools.HeightSweepRow>();
             var phaseSweep = new List<LOP.MapTools.PhaseSweepRow>();
+            var placements = new List<LOP.MapTools.ObstaclePlacement>();
+            //  밴드가 이만큼은 돼야 어떤 위상에서도 통과가 보장된다 — 날갯짓 아치 + 몸 높이.
+            //  숫자를 박지 않고 실제 물리값에서 유도한다.
+            float requiredBand = LOP.MapTools.ObstaclePlacementRule.RequiredBand(
+                shape.FlapImpulse, shape.Gravity, TickSeconds, shape.Height);
             List<string> trapCancelNotes = new List<string>();
             try
             {
@@ -333,6 +344,10 @@ namespace LOP.EditorTools
                 //  ② 기존 낌 스캔 — 본문은 그대로다.
                 trapSection = ScanTraps(shape, bounds, mapMask, query, out var trapScanCancelNotes);
                 trapCancelNotes = trapScanCancelNotes;
+
+                //  ②-b 배치 검사 — 산술이라 금방 끝난다(진행률이 필요 없다).
+                placements = MeasurePlacements(windmillInstances, mapMask, requiredBand,
+                                               SearchMinY, SearchMaxY);
             }
             finally
             {
@@ -341,6 +356,7 @@ namespace LOP.EditorTools
                 Windmills = null;
                 BotGrid = null;
                 posedTick = long.MinValue;
+                Debug.Log($"[맵 검사] 씬 더티: 들어올 때 {sceneWasDirty} → 나갈 때 {activeScene.isDirty}");
             }
 
             //  ③ 산수라 진행률이 필요 없다. spawns[0] 하나만 놓고 계산한다 — 이 맵은 넷 다
@@ -352,7 +368,7 @@ namespace LOP.EditorTools
             string report = LOP.MapTools.PlayabilityReport.Build(
                 UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
                 spawns[0].Position.x, finishX, config, cleanRuns, trapSection, budget, earliest,
-                HeightGrid, SearchMinY, SearchMaxY, heightSweep, phaseSweep);
+                HeightGrid, SearchMinY, SearchMaxY, heightSweep, phaseSweep, placements, requiredBand);
 
             //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
             bool spawnXMismatch = false;
@@ -507,11 +523,15 @@ namespace LOP.EditorTools
         //  자기 자세만 대입하므로 서로 섞이지 않는다(FlappyWindmillField 주석 참고).
         private static LOP.FlappyWindmillField CollectWindmills(
             out List<(Transform Transform, Quaternion Rotation)> originalPoses,
-            out List<(float RotSpeed, int Arms)> specs)
+            out List<(float RotSpeed, int Arms)> specs,
+            out List<LOP.FlappyWindmill> instances)
         {
             var field = new LOP.FlappyWindmillField();
             originalPoses = new List<(Transform, Quaternion)>();
             specs = new List<(float, int)>();
+            //  ②-b(배치 검사)가 같은 목록을 봐야 한다 — 거기서 따로 찾으면 찾는 조건이
+            //  갈라져 "8개 중 3개"의 8이 이 절과 달라질 수 있다.
+            instances = new List<LOP.FlappyWindmill>();
             var windmills = Object.FindObjectsByType<LOP.FlappyWindmill>(
                 FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             for (int i = 0; i < windmills.Length; i++)
@@ -520,6 +540,7 @@ namespace LOP.EditorTools
                 //  날개 수는 자식 수로 센다 — 리포트의 "위상 공간"이 이 수에서 나오므로
                 //  상수로 박지 않는다(십자면 4개라 90°마다 같은 모양이 된다).
                 specs.Add((windmills[i].RotSpeed, windmills[i].transform.childCount));
+                instances.Add(windmills[i]);
                 field.Add(windmills[i]);
             }
             if (windmills.Length > 0)
@@ -527,6 +548,228 @@ namespace LOP.EditorTools
                 Debug.Log($"[맵 검사] 풍차 {windmills.Length}개 — 틱마다 자세를 다시 세운다.");
             }
             return field;
+        }
+
+        //  ── ②-b 장애물 배치 ────────────────────────────────────────────────
+        //  "돌아가는 장애물이 어떤 위상에서도 통과 가능한가"를 <b>시뮬레이션 없이</b> 잰다.
+        //  규칙 자체(무엇이 충분한가)는 순수 계층(LOP.MapTools.ObstaclePlacementRule)에 있고,
+        //  여기서는 씬에서 숫자만 읽어 넘긴다.
+
+        //  원판의 x 구간을 이 간격으로 훑는다. 봇이 보는 표와 같은 눈금이라 "봇이 볼 수 있는
+        //  정도"의 해상도로 잰다.
+        private const float PlacementSampleStep = HeightGrid;
+        //  밴드를 위/아래로 더듬는 간격. 처음 막히는 자리를 찾은 뒤 이분해서 좁히므로,
+        //  이 값은 답의 정밀도가 아니라 "얼마나 얇은 판까지 놓치지 않나"를 정한다.
+        private const float PlacementProbeStep = 0.05f;
+        //  이분 횟수. 0.05m를 2^12로 나누면 0.01mm라 리포트의 소수 둘째 자리를 충분히 넘는다.
+        private const int PlacementBisectSteps = 12;
+        //  점 탐침의 반지름. 0으로 두면 물리 질의가 불안정해서 아주 작은 값을 쓴다.
+        private const float PlacementProbeRadius = 0.01f;
+
+        private static string NameOf(Transform target)
+        {
+            Transform parent = target.parent;
+            return parent != null ? parent.name + "/" + target.name : target.name;
+        }
+
+        //  회전축 방향 성분을 뺀 거리 — 즉 <b>도는 평면 안에서</b> 중심으로부터 얼마나 먼가.
+        //  풍차는 자기 z축으로만 돌므로(FlappyWindmillField.PoseForTick이 Euler(0,0,angle)를
+        //  대입한다) 깊이(z) 성분은 돌아도 제자리다. 그걸 거리에 넣으면 원판이 실제보다
+        //  커져서 밴드가 있는데 없다고 말하게 된다.
+        private static float RadialDistance(Vector3 point, Vector3 center, Vector3 axis)
+        {
+            Vector3 offset = point - center;
+            return Vector3.ProjectOnPlane(offset, axis).magnitude;
+        }
+
+        //  회전 중심에서 가장 먼 콜라이더 점까지의 거리(회전 평면 안). 팔이 한 바퀴 도는 동안
+        //  쓸고 가는 원판의 반지름이다 — 중심을 축으로 통째로 도는 강체라 이 거리는 <b>지금
+        //  각도와 무관</b>하다(그래서 RotSpeed·StartAngle이 답을 못 바꾼다).
+        private static float FarthestColliderDistance(Collider collider, Vector3 center, Vector3 axis)
+        {
+            Transform t = collider.transform;
+            if (collider is BoxCollider box)
+            {
+                Vector3 half = box.size * 0.5f;
+                float farthest = 0f;
+                for (int sx = -1; sx <= 1; sx += 2)
+                {
+                    for (int sy = -1; sy <= 1; sy += 2)
+                    {
+                        for (int sz = -1; sz <= 1; sz += 2)
+                        {
+                            Vector3 local = box.center + new Vector3(sx * half.x, sy * half.y, sz * half.z);
+                            farthest = Mathf.Max(farthest, RadialDistance(t.TransformPoint(local), center, axis));
+                        }
+                    }
+                }
+                return farthest;
+            }
+            if (collider is SphereCollider sphere)
+            {
+                Vector3 scale = t.lossyScale;
+                float worst = Mathf.Max(Mathf.Abs(scale.x), Mathf.Max(Mathf.Abs(scale.y), Mathf.Abs(scale.z)));
+                return RadialDistance(t.TransformPoint(sphere.center), center, axis) + sphere.radius * worst;
+            }
+            //  로컬 형상을 정확히 모르는 콜라이더(메시·캡슐)는 지금 자세의 AABB 모서리로
+            //  대신한다. AABB는 형상보다 크고 그 크기가 각도에 따라 조금 달라지므로, 이
+            //  경우에만 답이 현재 각도에 살짝 흔들린다(이 맵의 날개는 전부 BoxCollider다).
+            Bounds bounds = collider.bounds;
+            float fallback = 0f;
+            for (int sx = -1; sx <= 1; sx += 2)
+            {
+                for (int sy = -1; sy <= 1; sy += 2)
+                {
+                    for (int sz = -1; sz <= 1; sz += 2)
+                    {
+                        var corner = new Vector3(sx > 0 ? bounds.max.x : bounds.min.x,
+                                                 sy > 0 ? bounds.max.y : bounds.min.y,
+                                                 sz > 0 ? bounds.max.z : bounds.min.z);
+                        fallback = Mathf.Max(fallback, RadialDistance(corner, center, axis));
+                    }
+                }
+            }
+            return fallback;
+        }
+
+        //  겹침 질의가 쓰는 버퍼. 한 자리에 겹치는 콜라이더가 이보다 많을 일은 없다 —
+        //  넘치면 아래에서 "막힘"으로 보수적으로 답한다.
+        private static readonly Collider[] PlacementOverlap = new Collider[32];
+
+        //  다른 판정 지점과 같이 z=0에서 잰다 — FlappyWorld가 매 틱 새를 z=0에 붙인다.
+        //  (맵이 z=0을 가운데 두고 옆으로 펼쳐진 2D 코스라 점 하나로 물어도 된다.)
+        //
+        //  <paramref name="ignore"/>에 든 콜라이더는 없는 셈 친다 — <b>재는 장애물 자신</b>이다.
+        //  밴드는 정적 지형이 만드는 것이지 팔이 만드는 게 아니다. 콜라이더를 껐다 켜는 대신
+        //  질의 결과에서 걸러 내는 이유는 그래야 <b>씬을 전혀 건드리지 않기</b> 때문이다
+        //  (컴포넌트를 끄면 유니티가 씬을 고친 것으로 표시한다 — 맵 씬은 커밋하지 않는
+        //  로컬 픽스처라 그 표시가 남으면 안 된다).
+        private static bool PlacementBlocked(float x, float y, int mapMask, HashSet<Collider> ignore)
+        {
+            int count = Physics.OverlapSphereNonAlloc(
+                new Vector3(x, y, 0f), PlacementProbeRadius, PlacementOverlap,
+                mapMask, QueryTriggerInteraction.Ignore);
+            if (count >= PlacementOverlap.Length)
+            {
+                //  버퍼가 찼다 — 뭘 놓쳤는지 알 수 없으니 뚫렸다고 말하지 않는다.
+                return true;
+            }
+            for (int i = 0; i < count; i++)
+            {
+                if (ignore.Contains(PlacementOverlap[i]) == false)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        //  <paramref name="startY"/>에서 <paramref name="direction"/> 쪽으로 이어지는 빈 높이.
+        //  출발점이 이미 지형 안이면 0이다(원판 끝이 벽에 묻혀 있다는 뜻).
+        private static float FreeExtent(float x, float startY, float direction, float limit,
+                                        int mapMask, HashSet<Collider> ignore)
+        {
+            if (limit <= 0f || PlacementBlocked(x, startY, mapMask, ignore))
+            {
+                return 0f;
+            }
+            float lastFree = 0f;
+            float distance = 0f;
+            while (distance < limit)
+            {
+                distance = Mathf.Min(distance + PlacementProbeStep, limit);
+                if (PlacementBlocked(x, startY + direction * distance, mapMask, ignore))
+                {
+                    //  마지막으로 뚫린 자리와 처음 막힌 자리 사이를 이분해 경계를 좁힌다 —
+                    //  더듬는 간격을 그대로 답으로 쓰면 밴드가 눈금만큼 부풀거나 준다.
+                    float low = lastFree;
+                    float high = distance;
+                    for (int i = 0; i < PlacementBisectSteps; i++)
+                    {
+                        float mid = (low + high) * 0.5f;
+                        if (PlacementBlocked(x, startY + direction * mid, mapMask, ignore))
+                        {
+                            high = mid;
+                        }
+                        else
+                        {
+                            low = mid;
+                        }
+                    }
+                    return low;
+                }
+                lastFree = distance;
+            }
+            return limit;
+        }
+
+        //  풍차마다 원판 반지름과 원판 바깥 두 밴드를 잰다.
+        //  <b>재는 동안 그 풍차 자신은 없는 셈 친다</b> — 밴드는 정적 지형이 만드는 것이지 팔이
+        //  만드는 게 아니다. 다른 풍차는 그대로 두고 잰다(옆 장애물이 막으면 그것도 사실이다).
+        private static List<LOP.MapTools.ObstaclePlacement> MeasurePlacements(
+            List<LOP.FlappyWindmill> windmills, int mapMask, float requiredBand,
+            float searchMinY, float searchMaxY)
+        {
+            var placements = new List<LOP.MapTools.ObstaclePlacement>();
+            if (windmills == null || windmills.Count == 0)
+            {
+                return placements;
+            }
+            //  다른 풍차의 자세는 전수 탐색과 같은 틱 0으로 고정한다 — 안 고정하면 바로 앞에
+            //  어떤 비행이 돌았느냐에 따라 이 숫자가 달라진다.
+            PoseWindmills(SearchPoseTick);
+
+            for (int i = 0; i < windmills.Count; i++)
+            {
+                LOP.FlappyWindmill windmill = windmills[i];
+                if (windmill == null)
+                {
+                    continue;
+                }
+                Vector3 center = windmill.transform.position;
+                //  풍차가 도는 축. 이 축으로만 돌므로 축 방향 성분은 원판 반지름에 안 들어간다.
+                Vector3 axis = windmill.transform.forward;
+                string name = NameOf(windmill.transform);
+                var colliders = windmill.GetComponentsInChildren<Collider>(includeInactive: true);
+                float radius = 0f;
+                for (int c = 0; c < colliders.Length; c++)
+                {
+                    radius = Mathf.Max(radius, FarthestColliderDistance(colliders[c], center, axis));
+                }
+                if (radius <= 0f)
+                {
+                    placements.Add(new LOP.MapTools.ObstaclePlacement(
+                        name, center.x, center.y, 0f, 0f, 0f, measured: false));
+                    continue;
+                }
+
+                //  재는 동안 이 풍차 자신은 없는 셈 친다. 다른 풍차는 그대로 둔다 —
+                //  옆 장애물이 막으면 그것도 사실이다.
+                var ignore = new HashSet<Collider>(colliders);
+                var samples = new List<LOP.MapTools.BandSample>();
+                float aboveStart = center.y + radius;
+                float belowStart = center.y - radius;
+                //  얼마나 멀리까지 더듬을 것인가. 맵 콜라이더의 대역 끝까지 보되, 적어도
+                //  기준의 두 배는 본다 — 상한이 기준보다 짧으면 "충분한데 상한에 잘려
+                //  미달로 찍히는" 일이 생긴다. 상한까지 안 막히면 그 값이 답이 되므로,
+                //  찍히는 숫자는 실제 밴드의 <b>하한</b>이다(✅ 판정에는 무해).
+                float aboveLimit = Mathf.Max(searchMaxY - aboveStart, requiredBand * 2f);
+                float belowLimit = Mathf.Max(belowStart - searchMinY, requiredBand * 2f);
+
+                int steps = Mathf.Max(1, Mathf.CeilToInt(2f * radius / PlacementSampleStep));
+                for (int s = 0; s <= steps; s++)
+                {
+                    float x = center.x - radius + 2f * radius * s / steps;
+                    samples.Add(new LOP.MapTools.BandSample(
+                        FreeExtent(x, aboveStart, 1f, aboveLimit, mapMask, ignore),
+                        FreeExtent(x, belowStart, -1f, belowLimit, mapMask, ignore)));
+                }
+                placements.Add(LOP.MapTools.ObstaclePlacement.Measure(
+                    name, center.x, center.y, radius, samples));
+            }
+            //  코스 순서로 읽히게 x 오름차순 — 디자이너가 앞에서부터 고친다.
+            placements.Sort((left, right) => left.CenterX.CompareTo(right.CenterX));
+            return placements;
         }
 
         private static void RestoreWindmills(List<(Transform Transform, Quaternion Rotation)> poses)

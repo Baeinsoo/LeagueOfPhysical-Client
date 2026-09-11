@@ -1865,7 +1865,13 @@ namespace LOP
 ```
 
 > `SkydiveLifetimeScope`가 등록하는 것 중 **이 게임에 없는 개념**(WindField·LaserField·DoorField·
-> BodyCollisionSystem·FinishSystem·IServerCorrectionHandler·IExtrapolationAcceleration)은 넣지 않는다.
+> BodyCollisionSystem·FinishSystem)은 넣지 않는다.
+>
+> **⚠️ 단 `IServerCorrectionHandler`와 `IExtrapolationAcceleration`은 반드시 등록한다** — 이 게임에
+> 보정할 것도 외삽할 것도 없지만, 전역으로 도는 `Reconciler`와 `EntityBinder`가 **생성자 의존**으로
+> 요구한다(`Reconciler.cs:71`, `EntityBinder.cs:38`). 빠지면 **컴파일은 통과하고 방에 들어가는 순간
+> 주입이 끊긴다.** 기존 게임 스코프 넷(Flappy·FlapWang·판치기·Skydive)이 전부 null 구현을 등록하는
+> 이유가 그것이다.
 > 단 **씬 마커나 `EntityBinder`의 생성자가 요구하는 등록**이 빠지면 주입이 그 자리에서 끊긴다.
 > 컴파일 통과 후 **실제로 방에 들어가 보고** 콘솔에 주입 실패가 없는지 확인한다(Task 7 Step 5).
 

@@ -28,6 +28,10 @@ namespace LOP
 
         public void LateTick()
         {
+            if (runner?.tickUpdater == null)
+            {
+                return;   // 씬 진입 초기거나 언로드 도중 — 러너가 아직/더 이상 안 물려 있다
+            }
             double interval = runner.tickUpdater.interval;
             if (interval <= 0d)
             {

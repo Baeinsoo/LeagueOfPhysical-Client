@@ -278,7 +278,9 @@ namespace LOP.MapTools
                                    IReadOnlyList<StaticPinch> pinches = null,
                                    float pinchSampleStep = 0f,
                                    string gateSection = null,
-                                   IReadOnlyList<StaticSplit> splits = null)
+                                   IReadOnlyList<StaticSplit> splits = null,
+                                   int separateSpaces = 0,
+                                   string approachSection = null)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
@@ -443,6 +445,14 @@ namespace LOP.MapTools
                 text.AppendLine();
             }
 
+            //  관문 앞 판단은 관문 통과 바로 뒤다 — "어디서 멈췄나 → 그 관문을 어떻게 맞았나 →
+            //  맞기 직전에 무엇을 골랐나"가 한 줄로 이어져야 읽힌다.
+            if (string.IsNullOrEmpty(approachSection) == false)
+            {
+                text.AppendLine(approachSection);
+                text.AppendLine();
+            }
+
             text.AppendLine("── ② 낌 지점 ─────────────────────────");
             text.AppendLine(trapSection);
             //  ②는 *일부러 지형 안에서* 출발시켜 빠져나오는지 보는 검사인데, 검사기의 한 틱
@@ -469,7 +479,7 @@ namespace LOP.MapTools
             {
                 text.AppendLine(StaticPinchRule.Section(pinches, requiredBand, config.BodyHeight,
                                                         config.ForwardSpeed, config.Gravity,
-                                                        pinchSampleStep, splits));
+                                                        pinchSampleStep, splits, separateSpaces));
                 text.AppendLine();
             }
 

@@ -25,6 +25,38 @@ namespace LOP.MapTools
         float ForwardX(in TState state);
     }
 
+    /// <summary>한 갈래를 굴려 본 결과 — 몇 틱을 살았고 어디까지 갔는가.
+    /// <para>고르는 데는 <see cref="BotRollout.Choose{TState}(IRolloutWorld{TState}, in TState, in BotDecision, int, float)"/>가
+    /// 이 값을 안에서 쓰고 버린다. 밖으로 내는 것은 <b>진단용</b>이다 — "왜 그 갈래를 골랐나"를
+    /// 물으려면 두 갈래가 각각 몇 점이었는지 보여야 한다.</para></summary>
+    public readonly struct RolloutBranch
+    {
+        public readonly int AliveTicks;
+        public readonly float ReachX;
+
+        public RolloutBranch(int aliveTicks, float reachX)
+        {
+            AliveTicks = aliveTicks;
+            ReachX = reachX;
+        }
+    }
+
+    /// <summary>이번 틱에 굴려 본 두 갈래. <see cref="Rolled"/>가 false면 굴리지 않은 것이라
+    /// (천장 가드가 누르는 쪽을 후보에서 뺐다) 두 갈래 값은 뜻이 없다.</summary>
+    public readonly struct RolloutBranches
+    {
+        public readonly bool Rolled;
+        public readonly RolloutBranch Flapped;
+        public readonly RolloutBranch Coasted;
+
+        public RolloutBranches(bool rolled, RolloutBranch flapped, RolloutBranch coasted)
+        {
+            Rolled = rolled;
+            Flapped = flapped;
+            Coasted = coasted;
+        }
+    }
+
     /// <summary>굴려 보고 내린 이번 틱의 결론.</summary>
     public readonly struct RolloutChoice
     {
@@ -73,6 +105,14 @@ namespace LOP.MapTools
         public static RolloutChoice Choose<TState>(IRolloutWorld<TState> world, in TState state,
                                                    in BotDecision baseDecision, int horizon,
                                                    float sameReachEpsilon)
+            => Choose(world, state, baseDecision, horizon, sameReachEpsilon, out _);
+
+        /// <summary>위와 <b>똑같이</b> 정하면서, 두 갈래가 각각 몇 점이었는지도 함께 낸다.
+        /// 판단에는 아무 영향이 없다 — 안에서 이미 계산해 버리던 값을 밖으로 낼 뿐이라
+        /// 굴려 보는 횟수도 그대로다(그래서 이 진단이 공짜다).</summary>
+        public static RolloutChoice Choose<TState>(IRolloutWorld<TState> world, in TState state,
+                                                   in BotDecision baseDecision, int horizon,
+                                                   float sameReachEpsilon, out RolloutBranches branches)
         {
             if (world == null)
             {
@@ -87,11 +127,13 @@ namespace LOP.MapTools
             //  후보 A(누른다)가 아예 없다 — 천장 가드가 막았다. 고를 게 없으니 굴리지 않는다.
             if (baseDecision.CeilingSafe == false)
             {
+                branches = default;
                 return new RolloutChoice(flap: false, rolledOut: false, deviated: false);
             }
 
-            Outcome flapped = Roll(world, state, firstFlap: true, horizon);
-            Outcome coasted = Roll(world, state, firstFlap: false, horizon);
+            RolloutBranch flapped = Roll(world, state, firstFlap: true, horizon);
+            RolloutBranch coasted = Roll(world, state, firstFlap: false, horizon);
+            branches = new RolloutBranches(rolled: true, flapped, coasted);
 
             //  ── "더 낫다"의 기준 (순서가 곧 우선순위다) ──
             //  ① 더 오래 산다. 굴리는 동안 안 닿는 쪽이 이긴다 — 이 도구가 답하려는 질문이
@@ -116,22 +158,9 @@ namespace LOP.MapTools
             return new RolloutChoice(flap, rolledOut: true, deviated: flap != baseDecision.Flap);
         }
 
-        /// <summary>굴려 본 결과 — 몇 틱을 살았고 어디까지 갔는가.</summary>
-        private readonly struct Outcome
-        {
-            public readonly int AliveTicks;
-            public readonly float ReachX;
-
-            public Outcome(int aliveTicks, float reachX)
-            {
-                AliveTicks = aliveTicks;
-                ReachX = reachX;
-            }
-        }
-
         //  첫 틱만 지정한 대로 하고, 그 뒤는 <b>기반 정책 그대로</b> 굴린다. "다르게 눌렀으면"을
         //  묻는 것이지 "다른 봇이었으면"을 묻는 것이 아니다 — 그래서 둘째 틱부터는 손대지 않는다.
-        private static Outcome Roll<TState>(IRolloutWorld<TState> world, in TState state,
+        private static RolloutBranch Roll<TState>(IRolloutWorld<TState> world, in TState state,
                                             bool firstFlap, int horizon)
         {
             TState s = state;
@@ -144,17 +173,17 @@ namespace LOP.MapTools
                 {
                     //  닿은 틱은 산 틱으로 세지 않는다. 자리는 닿은 그 자리를 쓴다 — 벽까지는
                     //  실제로 갔기 때문이다(둘 다 닿았을 때 ②가 그 차이로 우열을 가른다).
-                    return new Outcome(alive, world.ForwardX(s));
+                    return new RolloutBranch(alive, world.ForwardX(s));
                 }
                 alive = t + 1;
                 if (world.Finished(s))
                 {
                     //  끝까지 갔다. 더 굴릴 것이 없으니 "창을 다 살았다"로 세어, 창을 다 산
                     //  다른 후보와 ②(도달 거리)로 겨루게 한다.
-                    return new Outcome(horizon, world.ForwardX(s));
+                    return new RolloutBranch(horizon, world.ForwardX(s));
                 }
             }
-            return new Outcome(alive, world.ForwardX(s));
+            return new RolloutBranch(alive, world.ForwardX(s));
         }
     }
 }

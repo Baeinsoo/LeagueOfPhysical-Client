@@ -358,6 +358,36 @@ namespace LOP.MapTools
             return splits;
         }
 
+        /// <summary>
+        /// 갈림 목록에서 <b>별개 공간</b>을 뺀다 — 칸막이가 <paramref name="maxDivider"/>(아치+몸)보다
+        /// 두꺼운 것들이다.
+        ///
+        /// <para><b>왜 두꺼우면 갈림이 아닌가.</b> 그만큼 두꺼우면 한쪽 창에서 다른 창으로 옮겨 갈
+        /// 일이 없다 — 날갯짓 한 번이 그리는 아치에 몸 높이를 더해도 칸막이를 넘지 못하므로, 새는
+        /// 자기가 들어간 창 안에서만 논다. 그러면 그 둘은 <b>같은 회랑의 두 길이 아니라 서로 다른
+        /// 공간</b>이다. 갈림이 묻는 것은 "여기서 어느 창을 골랐느냐가 통과를 가르나"인데, 다른
+        /// 공간은 애초에 고를 수 있는 선택지가 아니다.</para>
+        ///
+        /// <para>실측에서 이것이 잡음이었다: 갈림 14곳 중 셋의 칸막이가 28.1m / 22.8m / 11.0m로,
+        /// 회랑이 갈린 게 아니라 코스 위아래로 멀리 떨어진 별개 공간이었다.</para>
+        /// </summary>
+        public static List<StaticSplit> WithoutSeparateSpaces(IReadOnlyList<StaticSplit> splits,
+                                                              float maxDivider, out int removed)
+        {
+            removed = 0;
+            var kept = new List<StaticSplit>();
+            for (int i = 0; splits != null && i < splits.Count; i++)
+            {
+                if (splits[i].Divider > maxDivider)
+                {
+                    removed++;
+                    continue;
+                }
+                kept.Add(splits[i]);
+            }
+            return kept;
+        }
+
         static int PassableCount(IReadOnlyList<GateWindow> windows, float bodyHeight)
         {
             int count = 0;
@@ -412,7 +442,8 @@ namespace LOP.MapTools
         /// <summary>리포트의 "②-c 정적 좁힘" 절 전체(머리말 줄 포함, 끝에 줄바꿈 없음).</summary>
         public static string Section(IReadOnlyList<StaticPinch> pinches, float requiredBand,
                                      float bodyHeight, float forwardSpeed, float gravity,
-                                     float sampleStep, IReadOnlyList<StaticSplit> splits = null)
+                                     float sampleStep, IReadOnlyList<StaticSplit> splits = null,
+                                     int separateSpaces = 0)
         {
             var text = new StringBuilder();
             text.AppendLine("── ②-c 정적 좁힘 ──────────────────────");
@@ -427,7 +458,7 @@ namespace LOP.MapTools
             if (pinches == null || pinches.Count == 0)
             {
                 text.AppendLine("  좁은 구간 없음 — 코스 전체에서 아치+몸이 들어간다");
-                AppendSplits(text, splits);
+                AppendSplits(text, splits, separateSpaces);
                 text.Append(Caveats(splits));
                 return text.ToString();
             }
@@ -476,21 +507,31 @@ namespace LOP.MapTools
                     text.AppendLine($"     → 또는 구간을 {verdict.ShortenBy:F2}m 줄이면 ⚠️ (길이 {verdict.MaxLength:F2}m 이하)");
                 }
             }
-            AppendSplits(text, splits);
+            AppendSplits(text, splits, separateSpaces);
             text.Append(Caveats(splits));
             return text.ToString();
         }
 
         //  갈림은 등급이 아니라 <b>덧붙이는 사실</b>이다 — 위의 ✅/⚠️/❌는 여전히 "가장 넓은 창"
         //  기준 그대로 두고, 여기서 "그 넓은 창이 사실 둘로 갈려 있다"를 따로 찍는다.
-        private static void AppendSplits(StringBuilder text, IReadOnlyList<StaticSplit> splits)
+        private static void AppendSplits(StringBuilder text, IReadOnlyList<StaticSplit> splits,
+                                         int separateSpaces)
         {
-            if (splits == null || splits.Count == 0)
+            int count = splits == null ? 0 : splits.Count;
+            //  하나도 안 남았어도 <b>거른 개수가 있으면</b> 한 줄은 찍는다 — 아무 줄도 없으면
+            //  "갈림을 안 쟀다"로 읽힌다.
+            if (count == 0 && separateSpaces == 0)
             {
                 return;
             }
-            text.AppendLine($"  갈림 {splits.Count}곳 — 창이 둘 이상이라 폭이 넉넉해도 \"어느 창이냐\"가 통과를 가른다");
-            for (int i = 0; i < splits.Count; i++)
+            string excluded = separateSpaces > 0 ? $" (별개 공간 {separateSpaces}곳 제외)" : string.Empty;
+            text.AppendLine($"  갈림 {count}곳{excluded} — 창이 둘 이상이라 폭이 넉넉해도 \"어느 창이냐\"가 통과를 가른다");
+            if (separateSpaces > 0)
+            {
+                text.AppendLine("     (뺀 것: 칸막이가 아치+몸보다 두꺼워 한쪽 창에서 다른 창으로 옮겨 갈 수 없는 것들 —"
+                              + " 같은 회랑의 두 길이 아니라 서로 다른 공간이다)");
+            }
+            for (int i = 0; i < count; i++)
             {
                 StaticSplit split = splits[i];
                 var spans = new StringBuilder();

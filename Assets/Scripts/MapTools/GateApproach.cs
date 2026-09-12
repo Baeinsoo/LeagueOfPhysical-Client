@@ -280,7 +280,8 @@ namespace LOP.MapTools
             text.AppendLine("   지난다\"고 한 뒤 남는 질문 — 앞을 내다보는 전방탐색은 왜 그 날갯짓을 안 고르나.)");
             text.AppendLine("  (\"누르면\"/\"안누르면\" = 그 갈래를 창 끝까지 굴려 본 결과다: 몇 틱 살았고 어디까지 갔나.");
             text.AppendLine("   천장 가드가 막은 틱은 <굴려 보지도 않는다> — 그래서 두 칸이 —다. 그게 곧 가설 ①의 모양이다.)");
-            text.AppendLine("  ⚠️ <깔때기 안>을 믿지 마라 — 깔때기는 관문 뒤를 안 본다(① 관문 통과 절의 ⚠️ 참고).");
+            text.AppendLine("  (<깔때기 안> = 그 진입 상태에서 이상적인 조종이면 지난다. 깔때기는 관문 끝이 아니라");
+            text.AppendLine("   관문 안에서 누른 날갯짓의 아치가 끝날 때까지 보므로, 관문 뒤에서 박는 궤적은 안 센다.)");
             if (approaches == null || approaches.Count == 0)
             {
                 text.Append("  잴 것이 없다 — 관문 앞 틱을 모은 비행이 하나도 없다");

@@ -47,6 +47,9 @@ namespace LOP.MapTools.Tests
 
         static bool[] Coast(int ticks) => new bool[ticks];
 
+        //  관문 뒤를 볼 수 없는 경우 — 이 파일은 관문 안의 규칙과 재생이 갈리지 않는지만 본다.
+        static readonly List<GateColumn> NoRunout = null;
+
         // ── 세 갈래가 옳게 갈리나 ───────────────────────────────────────────
 
         //  손으로 푼 값: 날갯짓이 없으면 y_k = y0 − 0.014·k(k+1)이다.
@@ -116,7 +119,7 @@ namespace LOP.MapTools.Tests
                     for (float vy = -MaxFallSpeed; vy <= FlapImpulse; vy += 4f)
                     {
                         List<bool> flaps;
-                        bool rolls = GateFunnelRule.TryRolls(y, vy, gates[g], Kernel, out flaps);
+                        bool rolls = GateFunnelRule.TryRolls(y, vy, gates[g], NoRunout, Kernel, out flaps);
                         FunnelReplay replay = GateFunnelReplayRule.Replay(y, vy, flaps, gates[g], Kernel);
                         Assert.AreEqual(rolls, replay.Passed,
                                         $"관문 {g}, 진입 y={y} vy={vy} — 깔때기와 재생이 갈렸다"
@@ -136,7 +139,7 @@ namespace LOP.MapTools.Tests
         {
             List<bool> flaps;
             //  창 바닥 아래에서 출발하면 어떤 조작으로도 못 지난다.
-            Assert.IsFalse(GateFunnelRule.TryRolls(-5f, 0f, TallGate(), Kernel, out flaps));
+            Assert.IsFalse(GateFunnelRule.TryRolls(-5f, 0f, TallGate(), NoRunout, Kernel, out flaps));
             Assert.AreEqual(0, flaps.Count, "못 지났으면 보여 줄 조작열도 없다.");
         }
 
@@ -149,8 +152,8 @@ namespace LOP.MapTools.Tests
                 for (float vy = -MaxFallSpeed; vy <= FlapImpulse; vy += 2f)
                 {
                     List<bool> flaps;
-                    Assert.AreEqual(GateFunnelRule.Rolls(y, vy, gate, Kernel),
-                                    GateFunnelRule.TryRolls(y, vy, gate, Kernel, out flaps),
+                    Assert.AreEqual(GateFunnelRule.Rolls(y, vy, gate, NoRunout, Kernel),
+                                    GateFunnelRule.TryRolls(y, vy, gate, NoRunout, Kernel, out flaps),
                                     $"진입 y={y} vy={vy}");
                 }
             }

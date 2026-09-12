@@ -171,6 +171,31 @@ namespace LOP.MapTools
             float vy = verticalSpeed - Gravity * TickSeconds;
             return vy < -MaxFallSpeed ? -MaxFallSpeed : vy;
         }
+
+        //  정점까지 따라가는 데 이보다 많은 틱이 든다면 입력이 잘못된 것이다 — 실제 값(임펄스 23,
+        //  중력 70, 틱 0.02초)으로는 18틱이면 끝난다. BotPilot도 같은 이유로 같은 상한을 쓴다.
+        const int MaxArcTicks = 100000;
+
+        /// <summary>날갯짓 한 번이 <b>정점에 닿을 때까지</b>의 틱수. 상수로 박지 않는다 — 중력이나
+        /// 임펄스를 바꾸면 이 수도 따라 움직여야 한다(실제 값으로는 18틱).
+        /// <para>세는 방법은 <c>BotPilot</c>의 아치 훑기와 같다: 누른 틱은 임펄스 그대로 가고 그다음
+        /// 틱부터 중력이 깎으므로, 속도가 0으로 떨어지는 데 드는 틱수 + 1이다. double로 세는 이유도
+        /// 같다 — float으로 세면 한 틱에 깎는 양이 값의 최소 단위보다 작아질 때 이 수가 안 닫힌다.</para></summary>
+        public int ArcTicks
+        {
+            get
+            {
+                if (Gravity <= 0f || TickSeconds <= 0f || FlapImpulse <= 0f)
+                {
+                    return 0;
+                }
+                double ticks = Math.Ceiling(FlapImpulse / ((double)Gravity * TickSeconds)) + 1;
+                return ticks > MaxArcTicks ? MaxArcTicks : (int)ticks;
+            }
+        }
+
+        /// <summary>그 아치가 앞으로 나아가는 거리 — 깔때기가 관문 끝 뒤로 더 봐야 하는 거리다.</summary>
+        public float ArcDistance => ArcTicks * ForwardSpeed * TickSeconds;
     }
 
     /// <summary>관문 하나에 대해 모은 것 전부 — 리포트 한 절의 재료다.</summary>
@@ -182,6 +207,10 @@ namespace LOP.MapTools
         public int StopCount;
         /// <summary>관문 구간의 열들(입구부터 출구까지).</summary>
         public IReadOnlyList<GateColumn> Columns;
+        /// <summary>관문 <b>뒤</b>의 열들 — 관문 안에서 누른 날갯짓의 아치가 끝날 때까지 더 보는
+        /// 자리다. 비어 있으면 관문 뒤를 못 본다는 뜻이고, 그러면 깔때기는 옛날처럼 관문 끝에서
+        /// 눈을 감는다(리포트가 그 사실을 스스로 밝힌다).</summary>
+        public IReadOnlyList<GateColumn> Runout;
         /// <summary>회랑을 가장 여러 창으로 가른 열 — 관문의 얼굴이다.</summary>
         public int FaceIndex;
         public List<GateCrossing> Crossings = new List<GateCrossing>();
@@ -448,18 +477,21 @@ namespace LOP.MapTools
         // ── 깔때기 ──────────────────────────────────────────────────────────
 
         /// <summary>입구에서 이 (높이, 세로속도)로 들어오면 관문을 지날 수 있나. 날갯짓을 마음대로
-        /// 넣어 본다 — 한 갈래라도 빠져나가면 참이다(<b>이상적인 조종</b>, 실제 봇이 아니다).</summary>
+        /// 넣어 본다 — 한 갈래라도 빠져나가면 참이다(<b>이상적인 조종</b>, 실제 봇이 아니다).
+        /// <para><paramref name="runout"/> = 관문 <b>뒤</b>의 열들. 관문을 나설 때 아직 올라가는
+        /// 중이면 그 오름은 취소할 수 없으므로(아래 <see cref="ArcClears"/>) 거기까지 더 본다.</para></summary>
         public static bool Rolls(float entryY, float entryVerticalSpeed,
-                                 IReadOnlyList<GateColumn> columns, in FlightKernel kernel)
-            => TryRolls(entryY, entryVerticalSpeed, columns, kernel, out _);
+                                 IReadOnlyList<GateColumn> columns, IReadOnlyList<GateColumn> runout,
+                                 in FlightKernel kernel)
+            => TryRolls(entryY, entryVerticalSpeed, columns, runout, kernel, out _);
 
         /// <summary><see cref="Rolls"/>와 같은 굴려 보기인데, 지나갔다면 <b>어떤 조작열로</b>
         /// 지나갔는지까지 돌려준다. 둘이 따로 굴리면 "통과한다"와 "그 조작열"이 서로 다른
         /// 물리에서 나올 수 있으므로, <see cref="Rolls"/>는 이 메서드를 부른다.
         /// <para><paramref name="flaps"/>[t] = t번째 틱에 날갯짓했나. 못 지났으면 빈 목록이다.</para></summary>
         public static bool TryRolls(float entryY, float entryVerticalSpeed,
-                                    IReadOnlyList<GateColumn> columns, in FlightKernel kernel,
-                                    out List<bool> flaps)
+                                    IReadOnlyList<GateColumn> columns, IReadOnlyList<GateColumn> runout,
+                                    in FlightKernel kernel, out List<bool> flaps)
         {
             flaps = new List<bool>();
             if (columns == null || columns.Count < 2)
@@ -502,6 +534,13 @@ namespace LOP.MapTools
                         }
                         if (x > endX)
                         {
+                            //  관문 끝을 넘었다고 바로 통과가 아니다 — 아직 올라가는 중이면 그
+                            //  오름은 이미 확정된 것이라 관문 뒤에서 박을 수 있다. 그 갈래는
+                            //  버리고 다른 갈래를 계속 본다(이 자리에서 false로 끝내면 안 된다).
+                            if (ArcClears(x, y, vy, runout, kernel) == false)
+                            {
+                                continue;
+                            }
                             Unwind(parent, flapOf, s.Node, f == 1, flaps);
                             return true;
                         }
@@ -528,6 +567,110 @@ namespace LOP.MapTools
             return false;
         }
 
+        /// <summary>
+        /// 관문을 나선 그 자리에서 <b>이미 확정된 것</b>이 다 끝날 때까지 더 굴려 본다.
+        ///
+        /// <para><b>왜 필요한가.</b> 날갯짓은 세로 속도를 <b>덮어쓰므로</b>(더하지 않는다) 한 번
+        /// 누르면 정점까지 다 올라간다 — 부분 아치가 없다. 그래서 "관문 끝을 넘었다"에서 눈을
+        /// 감으면, 관문 안에서 누른 날갯짓이 관문 <i>밖</i> 1.11m에서 천장에 박는 궤적도 통과로
+        /// 세게 된다(2026-09-12 실측: x 80.0~83.5 관문, 진짜 커널로 x=84.61에서 박았다).</para>
+        ///
+        /// <para><b>지평의 끝을 무엇으로 잡나.</b> "누른 지 몇 틱"이 아니라 <b>아직 올라가는
+        /// 중인가</b>(vy &gt; 0)로 잡는다. 물리에서 곧바로 나오는 조건이라 중력·임펄스를 바꾸면
+        /// 따라 움직이고, "관문 안에서 안 눌렀으면 확정된 것이 없다"도 이 조건의 한 경우로 덮인다
+        /// — 다만 <b>안 눌러도 올라가는 중일 수 있다</b>(입구 vy가 양수인 경우). 그래서 "안 눌렀으면
+        /// 더 볼 것 없다"는 참이 아니고, 떨어지는 중일 때만 참이다. 떨어지는 중이면 다음 틱에
+        /// 눌러 올라갈 수 있으므로 확정된 것이 없다.</para>
+        ///
+        /// <para><b>왜 여기서는 날갯짓을 안 넣어 보나.</b> 날갯짓은 vy를 23으로 덮어써 <b>더</b>
+        /// 올릴 뿐이라, 천장 쪽 막힘은 더 빨리 만난다 — 즉 안 누르는 이 경로가 천장에 대해 가장
+        /// 유리하다. 반대로 <b>바닥</b> 쪽 막힘은 누르면 피할 수 있으므로 통과를 취소하지 않는다
+        /// (<see cref="CeilingBlocks"/>). 단 그렇게 살린 갈래가 누른 뒤 그리는 새 아치까지는 보지
+        /// 않는다 — 그만큼은 여전히 낙관적이다.</para>
+        /// </summary>
+        public static bool ArcClears(float x, float y, float verticalSpeed,
+                                     IReadOnlyList<GateColumn> runout, in FlightKernel kernel)
+        {
+            int limit = kernel.ArcTicks;
+            float vy = verticalSpeed;
+            for (int t = 0; t < limit; t++)
+            {
+                float nextVy = kernel.NextVerticalSpeed(vy, flap: false);
+                if (nextVy <= 0f)
+                {
+                    //  더 오르지 않는다 — 확정된 것이 여기서 끝난다.
+                    return true;
+                }
+                float nextY = y + nextVy * kernel.TickSeconds;
+                float nextX = x + kernel.ForwardSpeed * kernel.TickSeconds;
+                float low = Math.Min(y, nextY);
+                float high = Math.Max(y, nextY);
+                if (TryColumnAfter(runout, x, out GateColumn from) == false
+                    || TryColumnAfter(runout, nextX, out GateColumn to) == false)
+                {
+                    //  관문 뒤로 볼 수 있는 지형이 없다 — 없는 것을 막혔다고도 안 막혔다고도
+                    //  할 수 없으니 여기서 멈춘다(그만큼 낙관적이다. 리포트가 그 사실을 적는다).
+                    return true;
+                }
+                if (CeilingBlocks(low, high, kernel.BodyHeight, from.Windows)
+                    || CeilingBlocks(low, high, kernel.BodyHeight, to.Windows))
+                {
+                    return false;
+                }
+                x = nextX;
+                y = nextY;
+                vy = nextVy;
+            }
+            return true;
+        }
+
+        /// <summary>이 훑기 구간이 <b>천장</b>에 막히나. 창 안이면 거짓이고, 창 밖이어도 <i>바닥</i>
+        /// 쪽으로 벗어난 것이면 거짓이다 — 날갯짓이 위로 올려 주므로 피할 수 있는 막힘이다.
+        /// 들어갈 창이 아예 없는 열(통째로 지형)은 피할 길이 없으므로 참이다.</summary>
+        public static bool CeilingBlocks(float lowY, float highY, float bodyHeight,
+                                         IReadOnlyList<GateWindow> windows)
+        {
+            if (SpanFits(lowY, highY, bodyHeight, windows))
+            {
+                return false;
+            }
+            //  가장 적게 벗어난 창을 골라 어느 쪽으로 벗어났는지 본다 — 재생(GateFunnelReplayRule)이
+            //  막은 자리를 고르는 셈과 같다.
+            float bestPenalty = float.MaxValue;
+            bool ceiling = false;
+            for (int i = 0; windows != null && i < windows.Count; i++)
+            {
+                float below = windows[i].Bottom - lowY;
+                float above = highY + bodyHeight - windows[i].Top;
+                float penalty = Math.Max(below, 0f) + Math.Max(above, 0f);
+                if (penalty >= bestPenalty)
+                {
+                    continue;
+                }
+                bestPenalty = penalty;
+                ceiling = above > below;
+            }
+            return bestPenalty == float.MaxValue || ceiling;
+        }
+
+        //  관문 뒤 열 중 이 x의 것. 볼 수 있는 자리를 벗어났으면 거짓 — 마지막 열을 늘여 붙여
+        //  없는 지형을 지어내지 않는다(ColumnAt은 범위 밖을 끝 열로 눌러 버린다).
+        static bool TryColumnAfter(IReadOnlyList<GateColumn> runout, float x, out GateColumn column)
+        {
+            column = default;
+            if (runout == null || runout.Count == 0)
+            {
+                return false;
+            }
+            float step = runout.Count > 1 ? runout[1].X - runout[0].X : 0f;
+            if (x > runout[runout.Count - 1].X + step * 0.5f)
+            {
+                return false;
+            }
+            column = ColumnAt(runout, x);
+            return true;
+        }
+
         //  마지막 한 틱(lastFlap)을 얹고 부모를 따라 거슬러 올라가 조작열을 시간순으로 편다.
         static void Unwind(List<int> parent, List<bool> flapOf, int node, bool lastFlap, List<bool> into)
         {
@@ -540,7 +683,8 @@ namespace LOP.MapTools
         }
 
         /// <summary>입구 격자를 훑어 깔때기를 낸다 — 높이 한 줄마다 통과하는 세로속도의 범위.</summary>
-        public static List<FunnelRow> Funnel(IReadOnlyList<GateColumn> columns, in FlightKernel kernel,
+        public static List<FunnelRow> Funnel(IReadOnlyList<GateColumn> columns,
+                                             IReadOnlyList<GateColumn> runout, in FlightKernel kernel,
                                              float yStep, float verticalSpeedStep)
         {
             var rows = new List<FunnelRow>();
@@ -569,7 +713,7 @@ namespace LOP.MapTools
                 bool sawPass = false;
                 for (float vy = -kernel.MaxFallSpeed; vy <= kernel.FlapImpulse + 1e-4f; vy += verticalSpeedStep)
                 {
-                    bool pass = Rolls(y, vy, columns, kernel);
+                    bool pass = Rolls(y, vy, columns, runout, kernel);
                     if (pass)
                     {
                         if (sawPass && wasPass == false)
@@ -604,11 +748,15 @@ namespace LOP.MapTools
             text.AppendLine($"  (깔때기 = 입구에서 어떤 (높이, 세로속도)로 들어와야 지나가나. 세로속도는"
                           + $" {verticalSpeedStep:F0}m/s 간격으로 훑었고,");
             text.AppendLine("   날갯짓은 마음대로 넣어 본다 — 즉 <이상적인 조종>이다.)");
-            text.AppendLine("  ⚠️ 이 절의 <깔때기 안/밖>을 믿지 마라 — 깔때기는 관문 끝(EndX)을 넘는 순간 <통과>로");
-            text.AppendLine("     세고 거기서 본다. 그런데 관문 안에서 누른 날갯짓은 아치를 끝까지 올라가므로,");
-            text.AppendLine("     관문을 나선 <뒤>에 천장에 박는 궤적도 여기서는 통과로 찍힌다. x 80.0~83.5에서 실제로");
-            text.AppendLine("     그랬다(2026-09-12 실측): 깔때기가 통과라 한 조작열을 진짜 커널로 재생하면 관문은");
-            text.AppendLine("     지나지만 x=84.61에서 박는다. 그 진입 상태는 전수 탐색으로도 살길이 없다.");
+            text.AppendLine($"  (깔때기의 지평은 관문 끝이 아니라 <확정된 아치의 끝>이다 — 날갯짓은 세로속도를 덮어써");
+            text.AppendLine($"   아치를 확정하므로, 관문을 나설 때 아직 올라가는 중이면 아치가 끝날 때까지"
+                          + $" {kernel.ArcTicks}틱({kernel.ArcDistance:F2}m)을 더 굴려 본다.");
+            text.AppendLine("   그래서 관문은 지나고 그 뒤에서 박는 궤적은 통과로 세지 않는다 — 2026-09-12 이전에는");
+            text.AppendLine("   관문 끝에서 눈을 감아, x 80.0~83.5를 지나 x=84.61에서 박는 궤적을 통과로 셌다.)");
+            text.AppendLine("  ⚠️ 남은 낙관 하나: 창은 <점>으로 잰 것이라 기운 면에서 몸을 구가 아니라 세로 막대로 본다.");
+            text.AppendLine("     기울기 m인 면에서 반지름 r인 구에 필요한 세로 여유는 r이 아니라 r·√(1+m²)이므로,");
+            text.AppendLine("     창이 r(√(1+m²)−1)만큼 넓게 잡힌다 — 이 맵 x≈84.5의 천장(m=0.77, r=0.45)에서 0.11m다.");
+            text.AppendLine("     관문 안(천장이 평평한 구간)에서는 안 보이고, 기운 천장이 있는 관문 뒤에서만 나타난다.");
             if (gates == null || gates.Count == 0)
             {
                 text.Append("  관문 없음 — 멈춘 비행이 하나도 없다");
@@ -640,6 +788,7 @@ namespace LOP.MapTools
             text.AppendLine(gate.Rotating
                 ? "    ⚠️ 이 관문엔 도는 지형이 있다 — 아래 창은 틱 0 자세의 것이다(도착 시점에 따라 달라진다)."
                 : "    이 관문은 돌지 않는 지형이다 — 창은 언제 도착하든 같다(도착 시점과 무관).");
+            AppendRunoutNote(text, gate, kernel);
             int passable = 0;
             for (int i = 0; i < windows.Count; i++)
             {
@@ -695,7 +844,7 @@ namespace LOP.MapTools
                     //  깔때기 안인가 = 그 진입 상태에서 <b>이상적인 조종</b>이면 지나갈 수 있었나.
                     //  깔때기 표를 다시 읽지 않고 같은 함수로 직접 묻는다 — 표는 y를 0.25m 격자로
                     //  반올림한 것이라, 실제 진입 y로 물어야 그 비행에 대한 답이 된다.
-                    if (Rolls(c.EntryY, c.EntryVerticalSpeed, gate.Columns, kernel))
+                    if (Rolls(c.EntryY, c.EntryVerticalSpeed, gate.Columns, gate.Runout, kernel))
                     {
                         failInFunnel++;
                     }
@@ -752,20 +901,38 @@ namespace LOP.MapTools
 
         //  지형 탓인가 겨냥 탓인가. 실패한 진입 상태가 깔때기 <b>안</b>이면 이상적인 조종으로는
         //  지날 수 있었다는 뜻이라 겨냥 문제고, <b>밖</b>이면 어떻게 조종해도 못 지나므로 지형이다.
-        //  깔때기 <b>밖</b>은 여전히 믿을 수 있다 — 관문 안에서 이미 막혔다는 뜻이라 관문 뒤를
-        //  더 봐도 답이 안 바뀐다. 믿을 수 없는 건 깔때기 <b>안</b>뿐이다(관문을 나선 뒤 박는
-        //  궤적을 통과로 셀 수 있다). 그래서 안쪽에는 겨냥/지형의 책임을 <b>묻지 않는다</b>.
+        //  <b>이 판정은 지평이 확정된 아치의 끝까지 늘어난 뒤에야 건전하다.</b> 관문 끝에서 눈을
+        //  감던 시절(~2026-09-12)에는 관문을 나선 뒤 박는 궤적을 통과로 세어 "깔때기 안"이 거짓이
+        //  될 수 있었고, 그래서 그때는 안쪽에 책임을 묻지 않았다. 지금은 아치가 끝날 때까지 보므로
+        //  안쪽도 다시 근거가 된다 — 남은 낙관(기운 천장의 0.11m)은 절 머리말이 밝힌다.
         static string Blame(int failCount, int inFunnel)
         {
             if (inFunnel == 0)
             {
                 return $"실패 {failCount}개의 진입 상태는 모두 깔때기 밖이므로 겨냥이 아니라 지형이 원인이다.";
             }
-            string outside = failCount - inFunnel > 0
-                ? $" 나머지 {failCount - inFunnel}개는 깔때기 밖이므로 지형이 원인이다."
-                : string.Empty;
-            return $"실패 {failCount}개 중 {inFunnel}개는 깔때기 안이지만, 그것만으로 겨냥 탓이라 할 수 없다"
-                 + " — 위 ⚠️ 참고(관문 뒤를 안 본다)." + outside;
+            if (inFunnel == failCount)
+            {
+                return $"실패 {failCount}개의 진입 상태는 모두 깔때기 안이므로 지형이 아니라 겨냥이 원인이다.";
+            }
+            return $"실패 {failCount}개 중 {inFunnel}개는 깔때기 안이므로 겨냥이 원인이고,"
+                 + $" 나머지 {failCount - inFunnel}개는 깔때기 밖이므로 지형이 원인이다.";
+        }
+
+        //  관문 뒤로 <b>얼마나</b> 볼 수 있었나. 아치보다 짧으면 그 너머는 안 본 것이라 그만큼
+        //  낙관적이다 — 조용히 두면 "지평을 늘렸다"는 말이 그 관문에서는 거짓이 된다.
+        static void AppendRunoutNote(StringBuilder text, GateReport gate, in FlightKernel kernel)
+        {
+            float seen = gate.Runout == null || gate.Runout.Count == 0
+                ? 0f
+                : gate.Runout[gate.Runout.Count - 1].X - gate.EndX;
+            if (seen + 1e-4f >= kernel.ArcDistance)
+            {
+                text.AppendLine($"    관문 뒤 {seen:F2}m까지 함께 본다 — 아치({kernel.ArcDistance:F2}m)가 다 들어간다.");
+                return;
+            }
+            text.AppendLine($"    ⚠️ 관문 뒤로 볼 수 있는 지형이 {seen:F2}m뿐이다(아치 {kernel.ArcDistance:F2}m보다 짧다)"
+                          + " — 그 너머에서 박는 궤적은 여기서도 통과로 센다.");
         }
 
         static void AppendCrossings(StringBuilder text, GateReport gate)

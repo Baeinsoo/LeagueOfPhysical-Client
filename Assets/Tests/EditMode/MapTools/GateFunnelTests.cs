@@ -29,6 +29,10 @@ namespace LOP.MapTools.Tests
 
         static GateWindow Window(float bottom, float top) => new GateWindow(bottom, top, "밑", "위");
 
+        //  관문 뒤를 <b>볼 수 없는</b> 경우. 이 관문들은 관문 안의 규칙만 재려는 것이라 뒤를 주지
+        //  않는다 — 지평이 아치 끝까지 늘어난 뒤에도 관문 안의 답은 그대로여야 한다.
+        static readonly List<GateColumn> NoRunout = null;
+
         //  날갯짓이 불가능한 낮은 창 하나짜리 관문. 창 높이 1.3 = 몸 0.9 + 여유 0.4인데
         //  날갯짓 한 틱이 0.46m를 올리므로 어디서 눌러도 천장을 뚫는다.
         static List<GateColumn> FlatGate()
@@ -138,35 +142,35 @@ namespace LOP.MapTools.Tests
         public void 너무_빨리_떨어지면_바닥에_닿는다()
         {
             //  y0=0.35, v=−4 → 3틱째 y = 0.35 − 0.24 − 0.168 = −0.058 < 0.
-            Assert.IsFalse(GateFunnelRule.Rolls(0.35f, -4f, FlatGate(), Kernel));
+            Assert.IsFalse(GateFunnelRule.Rolls(0.35f, -4f, FlatGate(), NoRunout, Kernel));
         }
 
         [Test]
         public void 조금_덜_떨어지면_지난다()
         {
             //  y0=0.35, v=−2 → 3틱째 y = 0.35 − 0.12 − 0.168 = +0.062 ≥ 0.
-            Assert.IsTrue(GateFunnelRule.Rolls(0.35f, -2f, FlatGate(), Kernel));
+            Assert.IsTrue(GateFunnelRule.Rolls(0.35f, -2f, FlatGate(), NoRunout, Kernel));
         }
 
         [Test]
         public void 너무_빨리_올라가면_천장에_닿는다()
         {
             //  y0=0.35, v=+6 → 1틱째 y = 0.35 + 0.092 = 0.442 > 0.4(발 상한).
-            Assert.IsFalse(GateFunnelRule.Rolls(0.35f, 6f, FlatGate(), Kernel));
+            Assert.IsFalse(GateFunnelRule.Rolls(0.35f, 6f, FlatGate(), NoRunout, Kernel));
         }
 
         [Test]
         public void 조금_덜_올라가면_지난다()
         {
             //  y0=0.35, v=+2 → 가장 높은 1틱째가 0.362 ≤ 0.4.
-            Assert.IsTrue(GateFunnelRule.Rolls(0.35f, 2f, FlatGate(), Kernel));
+            Assert.IsTrue(GateFunnelRule.Rolls(0.35f, 2f, FlatGate(), NoRunout, Kernel));
         }
 
         [Test]
         public void 깔때기가_높이마다_통과하는_속도_범위를_낸다()
         {
             //  줄은 창 바닥(0)부터 발 상한(0.4)까지. 간격 0.35면 정확히 두 줄이다.
-            List<FunnelRow> rows = GateFunnelRule.Funnel(FlatGate(), Kernel,
+            List<FunnelRow> rows = GateFunnelRule.Funnel(FlatGate(), NoRunout, Kernel,
                                                          yStep: 0.35f, verticalSpeedStep: 2f);
             Assert.AreEqual(2, rows.Count);
 
@@ -192,7 +196,7 @@ namespace LOP.MapTools.Tests
             //  발이 0.5면 머리가 1.4로 천장(1.3)을 뚫은 채 들어온 것이다.
             for (float v = -MaxFallSpeed; v <= FlapImpulse; v += 1f)
             {
-                Assert.IsFalse(GateFunnelRule.Rolls(0.5f, v, FlatGate(), Kernel),
+                Assert.IsFalse(GateFunnelRule.Rolls(0.5f, v, FlatGate(), NoRunout, Kernel),
                                $"창 밖에서 출발한 vy={v}가 통과로 셌다.");
             }
         }
@@ -376,7 +380,7 @@ namespace LOP.MapTools.Tests
         }
 
         static GateReport Verdict(List<GateColumn> columns, (float Y, float Vy)[] passes,
-                                  (float Y, float Vy)[] fails)
+                                  (float Y, float Vy)[] fails, List<GateColumn> runout = null)
         {
             float endX = columns[columns.Count - 1].X;
             var report = new GateReport
@@ -385,6 +389,7 @@ namespace LOP.MapTools.Tests
                 EndX = endX,
                 StopCount = fails.Length,
                 Columns = columns,
+                Runout = runout,
                 FaceIndex = GateFunnelRule.FaceColumn(columns, BodyHeight),
             };
             foreach (var p in passes)
@@ -428,26 +433,50 @@ namespace LOP.MapTools.Tests
             Assert.IsTrue(text.IndexOf("들어가야> 지난다", StringComparison.Ordinal) < 0);
         }
 
-        //  깔때기 <b>안</b>은 겨냥 탓의 근거가 못 된다 — 깔때기가 관문 뒤를 안 보기 때문이다
-        //  (2026-09-12 실측: 통과라 한 조작열이 관문을 나선 뒤 x=84.61에서 박았다). 그래서 이
-        //  절은 세기만 하고 책임을 묻지 않아야 한다.
+        //  깔때기 <b>안</b>은 다시 겨냥 탓의 근거가 된다 — 지평이 <확정된 아치의 끝>까지 늘어난
+        //  뒤로는, 관문을 나선 뒤 박는 궤적을 통과로 세지 않기 때문이다(2026-09-12에 그 지평을
+        //  고쳤다). 지평을 되돌리면 이 문장이 다시 거짓이 되므로 여기서 못박는다.
         [Test]
-        public void 실패가_깔때기_안이면_겨냥_탓이라고_적지_않는다()
+        public void 실패가_깔때기_안이면_겨냥_탓이라고_적는다()
         {
             string text = Section(Verdict(OpenGate(),
                 passes: new[] { (-10f, 20f) }, fails: new[] { (-10f, -8f), (-12f, -6f) }));
-            Assert.IsTrue(text.IndexOf("실패 2개 중 2개는 깔때기 안이지만, 그것만으로 겨냥 탓이라 할 수 없다",
+            Assert.IsTrue(text.IndexOf("실패 2개의 진입 상태는 모두 깔때기 안이므로 지형이 아니라 겨냥이 원인이다.",
                                        StringComparison.Ordinal) >= 0, text);
-            Assert.IsTrue(text.IndexOf("겨냥 문제다", StringComparison.Ordinal) < 0,
-                          "깔때기 안을 근거로 겨냥 탓이라 단정하면 안 된다.");
+        }
+
+        //  하나는 안, 하나는 밖인 관문. 창 [0, 1.3]에서 y=0.35로 들어오면 vy=−2는 지나고
+        //  vy=−4는 못 지난다(위 두 경계 테스트가 손으로 푼 값) — 그래서 둘을 갈라 적어야 한다.
+        [Test]
+        public void 안과_밖이_섞이면_겨냥과_지형을_갈라_적는다()
+        {
+            string text = Section(Verdict(FlatGate(),
+                passes: Array.Empty<(float, float)>(),
+                fails: new[] { (0.35f, -2f), (0.35f, -4f) }));
+            Assert.IsTrue(text.IndexOf("실패 2개 중 1개는 깔때기 안이므로 겨냥이 원인이고,"
+                                       + " 나머지 1개는 깔때기 밖이므로 지형이 원인이다.",
+                                       StringComparison.Ordinal) >= 0, text);
         }
 
         [Test]
-        public void 절은_깔때기가_관문_뒤를_안_본다고_경고한다()
+        public void 절은_지평이_확정된_아치의_끝이라고_밝힌다()
         {
             string text = Section(Verdict(OpenGate(),
                 passes: new[] { (-10f, 20f) }, fails: new[] { (-10f, -8f) }));
-            Assert.IsTrue(text.IndexOf("깔때기 안/밖>을 믿지 마라", StringComparison.Ordinal) >= 0, text);
+            Assert.IsTrue(text.IndexOf("<확정된 아치의 끝>이다", StringComparison.Ordinal) >= 0, text);
+            //  틱수·거리는 커널에서 나온다 — 상수로 박으면 중력을 바꾼 날 조용히 거짓이 된다.
+            Assert.IsTrue(text.IndexOf("18틱(3.96m)", StringComparison.Ordinal) >= 0, text);
+        }
+
+        //  고쳐지지 않은 낙관은 <조용히> 두지 않는다 — 기운 천장에서 창이 넓게 잡히는 크기를
+        //  절이 스스로 밝혀야 읽는 사람이 0.1m짜리 판정을 곧이곧대로 믿지 않는다.
+        [Test]
+        public void 절은_기운_천장에서_창이_넓게_잡힌다고_밝힌다()
+        {
+            string text = Section(Verdict(OpenGate(),
+                passes: new[] { (-10f, 20f) }, fails: new[] { (-10f, -8f) }));
+            Assert.IsTrue(text.IndexOf("r·√(1+m²)", StringComparison.Ordinal) >= 0, text);
+            Assert.IsTrue(text.IndexOf("0.11m", StringComparison.Ordinal) >= 0, text);
         }
 
         [Test]
@@ -498,6 +527,279 @@ namespace LOP.MapTools.Tests
             Assert.IsTrue(text.IndexOf("도달 못 함 1줄", StringComparison.Ordinal) >= 0);
             Assert.IsTrue(text.IndexOf("_3", StringComparison.Ordinal) < 0,
                           "도달 못 한 줄까지 이름을 늘어놓으면 절이 관문 하나에 22줄이 된다.");
+        }
+
+        // ── 지평 — 확정된 아치의 끝까지 ─────────────────────────────────────
+        //
+        //  날갯짓은 세로 속도를 <덮어쓰므로> 한 번 누르면 정점까지 다 올라간다. 그래서 "관문 끝을
+        //  넘었다"에서 눈을 감으면 관문 <밖>에서 박는 궤적을 통과로 세게 된다. 아래 첫 두 테스트가
+        //  2026-09-12에 실제로 그랬던 사례다(진짜 커널로 x=84.61에서 박은 그 궤적).
+
+        //  실측 재료: 관문 x 80.0~83.5, 칸막이 윗면 −10.24와 천장 −5.22 사이의 창.
+        static List<GateColumn> Task30Gate()
+        {
+            var windows = new[] { Window(-10.24f, -5.22f) };
+            var columns = new List<GateColumn>();
+            for (int i = 0; i < 8; i++)
+            {
+                columns.Add(new GateColumn(80f + i * 0.5f, windows));
+            }
+            return columns;
+        }
+
+        //  관문 뒤로 <내려오는> 긴 천장. 실측값 그대로 — x=83.5에서 −4.36이고 x 1m당 0.772m씩
+        //  낮아진다(x=86.0에서 −6.29). 바닥은 멀리 두어 천장만 재게 한다.
+        static List<GateColumn> Task30Runout()
+        {
+            var columns = new List<GateColumn>();
+            for (int i = 0; i < 9; i++)
+            {
+                float x = 84f + i * 0.5f;
+                columns.Add(new GateColumn(x, new[] { Window(-20f, -4.36f - 0.772f * (x - 83.5f)) }));
+            }
+            return columns;
+        }
+
+        static string Show(IReadOnlyList<bool> flaps)
+        {
+            var text = new System.Text.StringBuilder();
+            for (int i = 0; flaps != null && i < flaps.Count; i++)
+            {
+                text.Append(flaps[i] ? 'F' : '.');
+            }
+            return text.ToString();
+        }
+
+        //  ⚠️ 이 테스트가 빨강이면 지평이 관문 끝으로 되돌아간 것이다.
+        [Test]
+        public void 관문_뒤에서_박는_궤적은_통과로_세지_않는다()
+        {
+            Assert.IsFalse(GateFunnelRule.Rolls(-7.17f, -30f, Task30Gate(), Task30Runout(), Kernel),
+                           "관문 안에서 누른 날갯짓의 아치가 관문 뒤 내려오는 천장에 박는다.");
+        }
+
+        //  같은 진입인데 관문 뒤를 <안 보면> 통과로 센다 — 고친 것이 무엇인지를 못박는 대조군이다.
+        //  조작열까지 실측과 같아야 한다(다섯째 틱에 딱 한 번 누른다).
+        [Test]
+        public void 관문_끝에서_눈을_감으면_그_궤적이_통과로_센다()
+        {
+            List<bool> flaps;
+            Assert.IsTrue(GateFunnelRule.TryRolls(-7.17f, -30f, Task30Gate(), NoRunout, Kernel, out flaps));
+            Assert.AreEqual(".....F..........", Show(flaps),
+                            "2026-09-12 실측에서 깔때기가 낸 그 조작열이어야 한다.");
+        }
+
+        //  창 하나짜리 높은 회랑 x 0~1.0. 관문 뒤는 통째로 막아 둔다 — 보기만 하면 반드시 걸린다.
+        static List<GateColumn> TallShortGate()
+        {
+            var windows = new[] { Window(0f, 10f) };
+            return new List<GateColumn>
+            {
+                new GateColumn(0f, windows),
+                new GateColumn(0.5f, windows),
+                new GateColumn(1f, windows),
+            };
+        }
+
+        static List<GateColumn> SolidRunout()
+        {
+            var columns = new List<GateColumn>();
+            for (int i = 0; i < 6; i++)
+            {
+                columns.Add(new GateColumn(1.5f + i * 0.5f, Array.Empty<GateWindow>()));
+            }
+            return columns;
+        }
+
+        //  떨어지며 나서면 확정된 것이 없다 — 다음 틱에 눌러 올라갈 수 있으므로 관문 뒤가
+        //  무엇이든 이 판정을 바꾸지 않는다.
+        [Test]
+        public void 떨어지며_나서면_관문_뒤를_안_본다()
+        {
+            Assert.IsTrue(GateFunnelRule.Rolls(1f, 0f, TallShortGate(), SolidRunout(), Kernel),
+                          "관문 뒤가 통째로 막혀 있어도, 떨어지며 나섰으면 확정된 것이 없다.");
+        }
+
+        //  <b>안 눌러도</b> 올라가는 중일 수 있다(입구 vy가 양수). 그 오름도 취소할 수 없으므로
+        //  "안 눌렀으면 관문 끝에서 끝내도 된다"는 참이 아니다 — 지평은 누름이 아니라 <아직
+        //  올라가는가>로 잡는다. (y=1, vy=+10으로 들어오면 x=1.10에서 vy=+3.0으로 나선다.)
+        [Test]
+        public void 안_눌러도_올라가는_중이면_관문_뒤를_본다()
+        {
+            Assert.IsFalse(GateFunnelRule.Rolls(1f, 10f, TallShortGate(), SolidRunout(), Kernel),
+                           "올라가는 중에 나섰으면 그 오름은 확정된 것이라 관문 뒤에서 박는다.");
+            Assert.IsTrue(GateFunnelRule.Rolls(1f, 10f, TallShortGate(), NoRunout, Kernel),
+                          "관문 뒤를 못 보면 예전처럼 통과로 센다 — 위 판정이 지평에서 온 것임을 가른다.");
+        }
+
+        //  긴 회랑 x 0~8.0(33틱). 한 아치로는 끝까지 못 가므로 두 번 이상 누른다.
+        static List<GateColumn> LongGate()
+        {
+            var windows = new[] { Window(0f, 6f) };
+            var columns = new List<GateColumn>();
+            for (int i = 0; i < 17; i++)
+            {
+                columns.Add(new GateColumn(i * 0.5f, windows));
+            }
+            return columns;
+        }
+
+        static List<GateColumn> LongRunout(float ceiling)
+        {
+            var columns = new List<GateColumn>();
+            for (int i = 0; i < 10; i++)
+            {
+                columns.Add(new GateColumn(8.5f + i * 0.5f, new[] { Window(0f, ceiling) }));
+            }
+            return columns;
+        }
+
+        //  누른 틱이 여럿일 때 지평을 정하는 것은 <마지막> 누름이다. 이 관문의 가장 늦은 답은
+        //  <b>마지막 틱에 누르고 나가는 것</b>이라(y=0.89, vy=+23으로 나선다) 그 아치 4.01m가
+        //  통째로 관문 뒤에 있다. 천장이 그 아치를 받아 주면 그대로 통과고, 못 받아 주면 그
+        //  갈래만 버려지고 <덜 늦게 누르는> 다른 갈래가 답이 된다.
+        [Test]
+        public void 마지막_누름의_아치가_지평을_정한다()
+        {
+            List<bool> roomy;
+            Assert.IsTrue(GateFunnelRule.TryRolls(0.2f, 0f, LongGate(), LongRunout(6f), Kernel, out roomy));
+            Assert.IsTrue(roomy[roomy.Count - 1],
+                          "천장 6.0은 발 상한 5.1 — 0.89에서 4.01m 오르는 아치가 들어간다.");
+
+            List<bool> tight;
+            Assert.IsTrue(GateFunnelRule.TryRolls(0.2f, 0f, LongGate(), LongRunout(5f), Kernel, out tight));
+            Assert.IsFalse(tight[tight.Count - 1],
+                           "천장 5.0은 발 상한 4.1 — 마지막 틱 누름의 아치(4.90)가 안 들어가므로"
+                           + " 그 갈래는 버려져야 한다.");
+        }
+
+        // ── 지평의 길이는 물리에서 나온다 ───────────────────────────────────
+
+        [Test]
+        public void 아치_틱수와_거리는_중력과_임펄스에서_나온다()
+        {
+            //  23 / (70 × 0.02) = 16.43 → 올림 17, 누른 틱 하나를 더해 18. 전진은 18 × 0.22m.
+            Assert.AreEqual(18, Kernel.ArcTicks);
+            Assert.AreEqual(3.96f, Kernel.ArcDistance, 1e-4f);
+
+            //  중력이 절반이면 정점까지 두 배 가까이 걸린다: 23 / 0.7 = 32.86 → 33 + 1.
+            var lightGravity = new FlightKernel(ForwardSpeed, 35f, MaxFallSpeed, FlapImpulse,
+                                                TickSeconds, BodyHeight);
+            Assert.AreEqual(34, lightGravity.ArcTicks);
+
+            //  임펄스가 두 배여도 같은 수다: 46 / 1.4 = 32.86 → 33 + 1.
+            var strongFlap = new FlightKernel(ForwardSpeed, Gravity, MaxFallSpeed, 46f,
+                                              TickSeconds, BodyHeight);
+            Assert.AreEqual(34, strongFlap.ArcTicks);
+        }
+
+        //  x=0에서 천장 2.0으로 시작해 x 1m당 1.2m씩 <내려오는> 회랑. 막 누른 아치(4.01m)는 곧장
+        //  박고, 다 오른 아치의 꼬리(vy=+3이면 0.10m만 더 오른다)는 빠져나간다. 천장이 내려오므로
+        //  <더 멀리 보면> 떨어지는 몸도 결국 걸린다 — 지평이 <남은 오름>만큼이어야 한다는 뜻이다.
+        static List<GateColumn> DescendingRunout()
+        {
+            var columns = new List<GateColumn>();
+            for (int i = 0; i < 9; i++)
+            {
+                float x = i * 0.5f;
+                columns.Add(new GateColumn(x, new[] { Window(-20f, 2f - 1.2f * x) }));
+            }
+            return columns;
+        }
+
+        [Test]
+        public void 아치가_남아_있는_만큼만_본다()
+        {
+            Assert.IsFalse(GateFunnelRule.ArcClears(0f, 0f, 23f, DescendingRunout(), Kernel),
+                           "막 누르고 나섰으면 4.01m를 더 오르므로 두 틱 만에 천장에 박는다.");
+            Assert.IsTrue(GateFunnelRule.ArcClears(0f, 0f, 3f, DescendingRunout(), Kernel),
+                          "vy=+3이면 0.10m만 더 오르고 끝난다 — 그 뒤로 내려오는 천장에 걸리는 것은"
+                          + " 확정된 것이 아니라 다음 날갯짓으로 피할 수 있는 일이다.");
+        }
+
+        [Test]
+        public void 볼_지형이_없으면_더_보지_않는다()
+        {
+            Assert.IsTrue(GateFunnelRule.ArcClears(0f, 0f, 23f, NoRunout, Kernel),
+                          "관문 뒤를 못 보면 막혔다고도 안 막혔다고도 할 수 없다.");
+        }
+
+        // ── 천장 쪽만 통과를 취소한다 ───────────────────────────────────────
+
+        [Test]
+        public void 바닥_쪽으로_벗어난_것은_통과를_취소하지_않는다()
+        {
+            var windows = new[] { Window(0f, 5f) };
+            Assert.IsFalse(GateFunnelRule.CeilingBlocks(-1f, -0.5f, BodyHeight, windows),
+                           "바닥 밑으로 벗어난 것은 누르면 피할 수 있다.");
+            Assert.IsTrue(GateFunnelRule.CeilingBlocks(4.5f, 4.6f, BodyHeight, windows),
+                          "천장을 넘긴 것은 누르면 더 올라갈 뿐이라 못 피한다.");
+            Assert.IsFalse(GateFunnelRule.CeilingBlocks(1f, 1.5f, BodyHeight, windows),
+                           "창 안이면 막힌 것이 아니다.");
+            Assert.IsTrue(GateFunnelRule.CeilingBlocks(1f, 1.5f, BodyHeight, Array.Empty<GateWindow>()),
+                          "들어갈 창이 아예 없는 열은 피할 길이 없다.");
+        }
+
+        // ── 깔때기가 좁아진다 ───────────────────────────────────────────────
+
+        //  창 [0, 1.3]인 관문 뒤에 천장이 0.15m 낮은 회랑([0, 1.15])이 이어진다.
+        static List<GateColumn> LowerRunout()
+        {
+            var columns = new List<GateColumn>();
+            for (int i = 0; i < 9; i++)
+            {
+                columns.Add(new GateColumn(1f + i * 0.5f, new[] { Window(0f, 1.15f) }));
+            }
+            return columns;
+        }
+
+        [Test]
+        public void 지평을_늘리면_깔때기가_좁아진다()
+        {
+            List<FunnelRow> before = GateFunnelRule.Funnel(FlatGate(), NoRunout, Kernel,
+                                                           yStep: 0.35f, verticalSpeedStep: 2f);
+            List<FunnelRow> after = GateFunnelRule.Funnel(FlatGate(), LowerRunout(), Kernel,
+                                                          yStep: 0.35f, verticalSpeedStep: 2f);
+            //  바닥 줄에서 vy=+8은 x=0.66을 vy=+3.8로 나서서 0.38까지 더 오른다 — 머리가 1.28이라
+            //  관문 안(1.3)은 지나도 관문 뒤(1.15)는 못 지난다. +6은 0.2까지만 올라 그대로 지난다.
+            Assert.AreEqual(8f, before[0].MaxVerticalSpeed, 1e-4f);
+            Assert.AreEqual(6f, after[0].MaxVerticalSpeed, 1e-4f);
+            Assert.AreEqual(4f, after[0].MinVerticalSpeed, 1e-4f, "아래쪽 경계는 그대로다.");
+            //  0.35 줄은 어느 쪽도 올라가며 나서지 않아 판정이 안 바뀐다.
+            Assert.AreEqual(before[1].MinVerticalSpeed, after[1].MinVerticalSpeed, 1e-4f);
+            Assert.AreEqual(before[1].MaxVerticalSpeed, after[1].MaxVerticalSpeed, 1e-4f);
+        }
+
+        // ── 관문 뒤를 얼마나 봤는지 적는다 ──────────────────────────────────
+
+        //  OpenGate(창 −20~0, x 0~0.5) 뒤로 같은 창을 x=5.0까지 이어 붙인 것 — 4.50m라 아치가 다 든다.
+        static List<GateColumn> OpenRunout()
+        {
+            var open = new[] { Window(-20f, 0f) };
+            var columns = new List<GateColumn>();
+            for (int i = 1; i <= 9; i++)
+            {
+                columns.Add(new GateColumn(0.5f + i * 0.5f, open));
+            }
+            return columns;
+        }
+
+        [Test]
+        public void 아치가_다_들어가면_그렇게_적는다()
+        {
+            string text = Section(Verdict(OpenGate(),
+                passes: new[] { (-10f, 20f) }, fails: new[] { (-10f, -8f) },
+                runout: OpenRunout()));
+            Assert.IsTrue(text.IndexOf("관문 뒤 4.50m까지 함께 본다", StringComparison.Ordinal) >= 0, text);
+        }
+
+        [Test]
+        public void 아치보다_짧게_보면_경고한다()
+        {
+            string text = Section(Verdict(OpenGate(),
+                passes: new[] { (-10f, 20f) }, fails: new[] { (-10f, -8f) }));
+            Assert.IsTrue(text.IndexOf("⚠️ 관문 뒤로 볼 수 있는 지형이 0.00m뿐이다(아치 3.96m보다 짧다)",
+                                       StringComparison.Ordinal) >= 0, text);
         }
     }
 }

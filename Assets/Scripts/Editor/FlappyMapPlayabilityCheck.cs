@@ -1139,12 +1139,26 @@ namespace LOP.EditorTools
                 {
                     continue;
                 }
+                //  관문 <b>뒤</b>의 열들. 관문 안에서 누른 날갯짓은 정점까지 아치를 확정하므로,
+                //  그 아치가 끝나는 데까지를 함께 봐야 "관문은 지나고 뒤에서 박는" 궤적을 통과로
+                //  세지 않는다. 거리는 커널에서 나온다 — 상수로 박으면 중력·임펄스를 바꾼 날
+                //  조용히 짧아진다. 코스 끝에서는 있는 데까지만 본다(리포트가 그 사실을 적는다).
+                var runout = new List<LOP.MapTools.GateColumn>();
+                int runoutLast = Mathf.Min(
+                    last + Mathf.CeilToInt(kernel.ArcDistance / PinchSampleStep),
+                    enclosedPerColumn.Count - 1);
+                for (int i = last + 1; i <= runoutLast; i++)
+                {
+                    runout.Add(new LOP.MapTools.GateColumn(
+                        sweepStartX + i * PinchSampleStep, enclosedPerColumn[i]));
+                }
                 var report = new LOP.MapTools.GateReport
                 {
                     StartX = columns[0].X,
                     EndX = columns[columns.Count - 1].X,
                     StopCount = clusters[g].StopCount,
                     Columns = columns,
+                    Runout = runout,
                     Rotating = WindmillsOverlap(windmills, columns[0].X, columns[columns.Count - 1].X),
                 };
                 report.FaceIndex = LOP.MapTools.GateFunnelRule.FaceColumn(columns, shape.Height);
@@ -1155,7 +1169,7 @@ namespace LOP.EditorTools
                         shape.Height));
                 }
                 report.Funnel = LOP.MapTools.GateFunnelRule.Funnel(
-                    columns, kernel, GateFunnelYStep, GateFunnelSpeedStep);
+                    columns, runout, kernel, GateFunnelYStep, GateFunnelSpeedStep);
                 reports.Add(report);
             }
             if (reports.Count == 0)
@@ -1208,7 +1222,7 @@ namespace LOP.EditorTools
                     //  관문 통과 절이 쓰는 것과 <b>같은 함수</b>로 묻는다 — 표를 다시 읽으면
                     //  0.25m 격자로 반올림된 답이 나와 그 비행의 답이 아니게 된다.
                     InFunnel = LOP.MapTools.GateFunnelRule.Rolls(
-                        crossing.EntryY, crossing.EntryVerticalSpeed, gate.Columns, kernel),
+                        crossing.EntryY, crossing.EntryVerticalSpeed, gate.Columns, gate.Runout, kernel),
                     TicksAfterEntry = TicksAfterEntry(flights[i].Path, gate.StartX),
                     Samples = window,
                 });

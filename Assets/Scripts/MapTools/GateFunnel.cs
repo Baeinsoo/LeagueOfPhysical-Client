@@ -420,7 +420,9 @@ namespace LOP.MapTools
                                     nearestWindowSpan: nearest >= 0 ? stopWindows[nearest] : default);
         }
 
-        static GateColumn ColumnAt(IReadOnlyList<GateColumn> columns, float x)
+        /// <summary>이 x가 속한 열. <b>재생(<see cref="GateFunnelReplayRule"/>)이 같은 열을
+        /// 봐야</b> 깔때기와 재생이 같은 자로 재는 것이 된다 — 그래서 공개한다.</summary>
+        public static GateColumn ColumnAt(IReadOnlyList<GateColumn> columns, float x)
         {
             if (columns == null || columns.Count == 0)
             {
@@ -449,7 +451,17 @@ namespace LOP.MapTools
         /// 넣어 본다 — 한 갈래라도 빠져나가면 참이다(<b>이상적인 조종</b>, 실제 봇이 아니다).</summary>
         public static bool Rolls(float entryY, float entryVerticalSpeed,
                                  IReadOnlyList<GateColumn> columns, in FlightKernel kernel)
+            => TryRolls(entryY, entryVerticalSpeed, columns, kernel, out _);
+
+        /// <summary><see cref="Rolls"/>와 같은 굴려 보기인데, 지나갔다면 <b>어떤 조작열로</b>
+        /// 지나갔는지까지 돌려준다. 둘이 따로 굴리면 "통과한다"와 "그 조작열"이 서로 다른
+        /// 물리에서 나올 수 있으므로, <see cref="Rolls"/>는 이 메서드를 부른다.
+        /// <para><paramref name="flaps"/>[t] = t번째 틱에 날갯짓했나. 못 지났으면 빈 목록이다.</para></summary>
+        public static bool TryRolls(float entryY, float entryVerticalSpeed,
+                                    IReadOnlyList<GateColumn> columns, in FlightKernel kernel,
+                                    out List<bool> flaps)
         {
+            flaps = new List<bool>();
             if (columns == null || columns.Count < 2)
             {
                 return false;
@@ -460,8 +472,12 @@ namespace LOP.MapTools
             //  함께</b> 재므로 창 밖에서 출발하면 거기서 걸린다. 앞에 가드를 하나 더 두면
             //  아무것도 막지 않는 줄이 되고, 그걸 깨는 테스트도 못 만든다(실제로 확인했다).
             var seen = new HashSet<long>();
-            var frontier = new List<(float X, float Y, float Vy)> { (startX, entryY, entryVerticalSpeed) };
-            var next = new List<(float X, float Y, float Vy)>();
+            //  되짚어 올라가 조작열을 복원하려고 부모를 들고 있는다 — 굴려 보기 자체는
+            //  예전과 같고, 이 목록만 곁에 늘어난다.
+            var parent = new List<int>();
+            var flapOf = new List<bool>();
+            var frontier = new List<(float X, float Y, float Vy, int Node)> { (startX, entryY, entryVerticalSpeed, -1) };
+            var next = new List<(float X, float Y, float Vy, int Node)>();
             int states = 0;
             //  틱 수는 구간 길이에서 나온다 — 상수로 박으면 관문 길이가 바뀔 때 조용히 잘린다.
             int ticks = (int)Math.Ceiling((endX - startX) / (kernel.ForwardSpeed * kernel.TickSeconds)) + 2;
@@ -486,6 +502,7 @@ namespace LOP.MapTools
                         }
                         if (x > endX)
                         {
+                            Unwind(parent, flapOf, s.Node, f == 1, flaps);
                             return true;
                         }
                         long key = ((long)tick << 40)
@@ -499,7 +516,9 @@ namespace LOP.MapTools
                         {
                             return false;
                         }
-                        next.Add((x, y, vy));
+                        parent.Add(s.Node);
+                        flapOf.Add(f == 1);
+                        next.Add((x, y, vy, parent.Count - 1));
                     }
                 }
                 var swap = frontier;
@@ -507,6 +526,17 @@ namespace LOP.MapTools
                 next = swap;
             }
             return false;
+        }
+
+        //  마지막 한 틱(lastFlap)을 얹고 부모를 따라 거슬러 올라가 조작열을 시간순으로 편다.
+        static void Unwind(List<int> parent, List<bool> flapOf, int node, bool lastFlap, List<bool> into)
+        {
+            into.Add(lastFlap);
+            for (int n = node; n >= 0; n = parent[n])
+            {
+                into.Add(flapOf[n]);
+            }
+            into.Reverse();
         }
 
         /// <summary>입구 격자를 훑어 깔때기를 낸다 — 높이 한 줄마다 통과하는 세로속도의 범위.</summary>
@@ -573,8 +603,12 @@ namespace LOP.MapTools
             text.AppendLine($"   그 접힘에 사라진다. 여기서는 접지 않고 몸({kernel.BodyHeight:F2}m)이 들어가는 창을 전부 적는다.)");
             text.AppendLine($"  (깔때기 = 입구에서 어떤 (높이, 세로속도)로 들어와야 지나가나. 세로속도는"
                           + $" {verticalSpeedStep:F0}m/s 간격으로 훑었고,");
-            text.AppendLine("   날갯짓은 마음대로 넣어 본다 — 즉 <이상적인 조종>이다. 깔때기 안인데 못 지났다면");
-            text.AppendLine("   그건 지형이 아니라 겨냥 탓이다.)");
+            text.AppendLine("   날갯짓은 마음대로 넣어 본다 — 즉 <이상적인 조종>이다.)");
+            text.AppendLine("  ⚠️ 이 절의 <깔때기 안/밖>을 믿지 마라 — 깔때기는 관문 끝(EndX)을 넘는 순간 <통과>로");
+            text.AppendLine("     세고 거기서 본다. 그런데 관문 안에서 누른 날갯짓은 아치를 끝까지 올라가므로,");
+            text.AppendLine("     관문을 나선 <뒤>에 천장에 박는 궤적도 여기서는 통과로 찍힌다. x 80.0~83.5에서 실제로");
+            text.AppendLine("     그랬다(2026-09-12 실측): 깔때기가 통과라 한 조작열을 진짜 커널로 재생하면 관문은");
+            text.AppendLine("     지나지만 x=84.61에서 박는다. 그 진입 상태는 전수 탐색으로도 살길이 없다.");
             if (gates == null || gates.Count == 0)
             {
                 text.Append("  관문 없음 — 멈춘 비행이 하나도 없다");
@@ -718,18 +752,20 @@ namespace LOP.MapTools
 
         //  지형 탓인가 겨냥 탓인가. 실패한 진입 상태가 깔때기 <b>안</b>이면 이상적인 조종으로는
         //  지날 수 있었다는 뜻이라 겨냥 문제고, <b>밖</b>이면 어떻게 조종해도 못 지나므로 지형이다.
+        //  깔때기 <b>밖</b>은 여전히 믿을 수 있다 — 관문 안에서 이미 막혔다는 뜻이라 관문 뒤를
+        //  더 봐도 답이 안 바뀐다. 믿을 수 없는 건 깔때기 <b>안</b>뿐이다(관문을 나선 뒤 박는
+        //  궤적을 통과로 셀 수 있다). 그래서 안쪽에는 겨냥/지형의 책임을 <b>묻지 않는다</b>.
         static string Blame(int failCount, int inFunnel)
         {
-            if (inFunnel == failCount)
-            {
-                return $"실패 {failCount}개의 진입 상태는 모두 깔때기 안이므로 지형이 아니라 겨냥 문제다.";
-            }
             if (inFunnel == 0)
             {
                 return $"실패 {failCount}개의 진입 상태는 모두 깔때기 밖이므로 겨냥이 아니라 지형이 원인이다.";
             }
-            return $"실패 {failCount}개 중 {inFunnel}개는 깔때기 안(겨냥 문제), "
-                 + $"{failCount - inFunnel}개는 깔때기 밖(지형이 원인)이다.";
+            string outside = failCount - inFunnel > 0
+                ? $" 나머지 {failCount - inFunnel}개는 깔때기 밖이므로 지형이 원인이다."
+                : string.Empty;
+            return $"실패 {failCount}개 중 {inFunnel}개는 깔때기 안이지만, 그것만으로 겨냥 탓이라 할 수 없다"
+                 + " — 위 ⚠️ 참고(관문 뒤를 안 본다)." + outside;
         }
 
         static void AppendCrossings(StringBuilder text, GateReport gate)

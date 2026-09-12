@@ -428,13 +428,26 @@ namespace LOP.MapTools.Tests
             Assert.IsTrue(text.IndexOf("들어가야> 지난다", StringComparison.Ordinal) < 0);
         }
 
+        //  깔때기 <b>안</b>은 겨냥 탓의 근거가 못 된다 — 깔때기가 관문 뒤를 안 보기 때문이다
+        //  (2026-09-12 실측: 통과라 한 조작열이 관문을 나선 뒤 x=84.61에서 박았다). 그래서 이
+        //  절은 세기만 하고 책임을 묻지 않아야 한다.
         [Test]
-        public void 실패가_깔때기_안이면_겨냥_탓이라고_적는다()
+        public void 실패가_깔때기_안이면_겨냥_탓이라고_적지_않는다()
         {
             string text = Section(Verdict(OpenGate(),
                 passes: new[] { (-10f, 20f) }, fails: new[] { (-10f, -8f), (-12f, -6f) }));
-            Assert.IsTrue(text.IndexOf("실패 2개의 진입 상태는 모두 깔때기 안이므로 지형이 아니라 겨냥 문제다.",
+            Assert.IsTrue(text.IndexOf("실패 2개 중 2개는 깔때기 안이지만, 그것만으로 겨냥 탓이라 할 수 없다",
                                        StringComparison.Ordinal) >= 0, text);
+            Assert.IsTrue(text.IndexOf("겨냥 문제다", StringComparison.Ordinal) < 0,
+                          "깔때기 안을 근거로 겨냥 탓이라 단정하면 안 된다.");
+        }
+
+        [Test]
+        public void 절은_깔때기가_관문_뒤를_안_본다고_경고한다()
+        {
+            string text = Section(Verdict(OpenGate(),
+                passes: new[] { (-10f, 20f) }, fails: new[] { (-10f, -8f) }));
+            Assert.IsTrue(text.IndexOf("깔때기 안/밖>을 믿지 마라", StringComparison.Ordinal) >= 0, text);
         }
 
         [Test]

@@ -631,6 +631,105 @@ namespace LOP.MapTools
 
             AppendCrossings(text, gate);
             AppendFunnel(text, gate, verticalSpeedStep);
+            AppendVerdict(text, gate, kernel);
+        }
+
+        //  숫자만 늘어놓고 해석을 사람에게 맡기면, 읽는 사람마다 다른 결론을 낸다(그래서 이 절이
+        //  이미 답한 것을 두 번 손으로 재는 일이 생겼다). <b>겹침 여부와 깔때기 안/밖을 여기서
+        //  계산해 찍는다</b> — 손으로 적는 문장이 아니다.
+        static void AppendVerdict(StringBuilder text, GateReport gate, in FlightKernel kernel)
+        {
+            int passCount = 0;
+            int failCount = 0;
+            float passMin = float.MaxValue, passMax = float.MinValue;
+            float failMin = float.MaxValue, failMax = float.MinValue;
+            int failInFunnel = 0;
+            for (int i = 0; i < gate.Crossings.Count; i++)
+            {
+                GateCrossing c = gate.Crossings[i];
+                if (c.Outcome == GateOutcome.Passed)
+                {
+                    passCount++;
+                    passMin = Math.Min(passMin, c.EntryVerticalSpeed);
+                    passMax = Math.Max(passMax, c.EntryVerticalSpeed);
+                }
+                else if (c.Outcome == GateOutcome.Stopped)
+                {
+                    failCount++;
+                    failMin = Math.Min(failMin, c.EntryVerticalSpeed);
+                    failMax = Math.Max(failMax, c.EntryVerticalSpeed);
+                    //  깔때기 안인가 = 그 진입 상태에서 <b>이상적인 조종</b>이면 지나갈 수 있었나.
+                    //  깔때기 표를 다시 읽지 않고 같은 함수로 직접 묻는다 — 표는 y를 0.25m 격자로
+                    //  반올림한 것이라, 실제 진입 y로 물어야 그 비행에 대한 답이 된다.
+                    if (Rolls(c.EntryY, c.EntryVerticalSpeed, gate.Columns, kernel))
+                    {
+                        failInFunnel++;
+                    }
+                }
+            }
+            if (passCount == 0 && failCount == 0)
+            {
+                return;
+            }
+            //  범위는 늘 작은 값부터 큰 값 순으로 적는다 — 통과/실패 두 줄의 읽는 방향이 달라지면
+            //  둘을 겹쳐 보기 어렵다.
+            if (passCount > 0)
+            {
+                text.AppendLine($"    통과 {passCount}개: 진입 vy {passMin:+0.0;-0.0}~{passMax:+0.0;-0.0} {Sense(passMin, passMax)}");
+            }
+            if (failCount > 0)
+            {
+                bool overlap = passCount > 0 && passMin <= failMax && failMin <= passMax;
+                string overlapNote = passCount == 0 ? string.Empty : overlap ? "   겹침 있음" : "   겹침 없음";
+                text.AppendLine($"    실패 {failCount}개: 진입 vy {failMin:+0.0;-0.0}~{failMax:+0.0;-0.0} {Sense(failMin, failMax)}{overlapNote}");
+            }
+            if (passCount > 0 && failCount > 0)
+            {
+                text.AppendLine($"    → {Divide(passMin, passMax, failMin, failMax)}");
+            }
+            if (failCount > 0)
+            {
+                text.AppendLine($"      {Blame(failCount, failInFunnel)}");
+            }
+        }
+
+        //  이 범위가 올라가는 중인지 떨어지는 중인지. 0을 걸치면 둘이 섞인 것이라 그렇게 적는다.
+        static string Sense(float min, float max)
+            => min > 0f ? "(올라가는 중)" : max < 0f ? "(떨어지는 중)" : "(오르내림이 섞여 있다)";
+
+        //  통과와 실패를 진입 vy가 가르나. 겹치면 <b>안 가른다</b>고 적어야 한다 — 겹치는데도
+        //  "올라가며 들어가야 한다"고 적으면 거짓이다.
+        static string Divide(float passMin, float passMax, float failMin, float failMax)
+        {
+            if (passMin > failMax)
+            {
+                return passMin > 0f
+                    ? "이 관문은 <올라가며 들어가야> 지난다."
+                    : "이 관문은 <덜 떨어지며 들어가야> 지난다.";
+            }
+            if (passMax < failMin)
+            {
+                return passMax < 0f
+                    ? "이 관문은 <내려가며 들어가야> 지난다."
+                    : "이 관문은 <덜 올라가며 들어가야> 지난다.";
+            }
+            return "진입 vy만으로는 갈리지 않는다 — 같은 vy로 통과한 비행과 실패한 비행이 둘 다 있다.";
+        }
+
+        //  지형 탓인가 겨냥 탓인가. 실패한 진입 상태가 깔때기 <b>안</b>이면 이상적인 조종으로는
+        //  지날 수 있었다는 뜻이라 겨냥 문제고, <b>밖</b>이면 어떻게 조종해도 못 지나므로 지형이다.
+        static string Blame(int failCount, int inFunnel)
+        {
+            if (inFunnel == failCount)
+            {
+                return $"실패 {failCount}개의 진입 상태는 모두 깔때기 안이므로 지형이 아니라 겨냥 문제다.";
+            }
+            if (inFunnel == 0)
+            {
+                return $"실패 {failCount}개의 진입 상태는 모두 깔때기 밖이므로 겨냥이 아니라 지형이 원인이다.";
+            }
+            return $"실패 {failCount}개 중 {inFunnel}개는 깔때기 안(겨냥 문제), "
+                 + $"{failCount - inFunnel}개는 깔때기 밖(지형이 원인)이다.";
         }
 
         static void AppendCrossings(StringBuilder text, GateReport gate)

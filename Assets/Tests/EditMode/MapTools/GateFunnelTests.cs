@@ -354,6 +354,101 @@ namespace LOP.MapTools.Tests
             => GateFunnelRule.Section(new[] { report }, Kernel, requiredBand: 4.912f,
                                       verticalSpeedStep: 2f);
 
+        // ── 진단의 결론 ─────────────────────────────────────────────────────
+
+        //  창 하나짜리 아주 넓은 관문 — 어떤 진입도 깔때기 안이다.
+        static List<GateColumn> OpenGate()
+        {
+            var open = new[] { Window(-20f, 0f) };
+            return new List<GateColumn> { new GateColumn(0f, open), new GateColumn(0.5f, open) };
+        }
+
+        //  가운데 열이 통째로 막힌 관문 — 어떤 진입도 깔때기 밖이다.
+        static List<GateColumn> WalledGate()
+        {
+            var open = new[] { Window(-20f, 0f) };
+            return new List<GateColumn>
+            {
+                new GateColumn(0f, open),
+                new GateColumn(0.5f, Array.Empty<GateWindow>()),
+                new GateColumn(1f, open),
+            };
+        }
+
+        static GateReport Verdict(List<GateColumn> columns, (float Y, float Vy)[] passes,
+                                  (float Y, float Vy)[] fails)
+        {
+            float endX = columns[columns.Count - 1].X;
+            var report = new GateReport
+            {
+                StartX = columns[0].X,
+                EndX = endX,
+                StopCount = fails.Length,
+                Columns = columns,
+                FaceIndex = GateFunnelRule.FaceColumn(columns, BodyHeight),
+            };
+            foreach (var p in passes)
+            {
+                //  끝을 넘어간 표본이 있으면 통과다.
+                report.Crossings.Add(GateFunnelRule.Cross("통과", columns[0].X, endX, columns,
+                    Path((columns[0].X + 0.01f, p.Y, p.Vy), (endX + 1f, p.Y, p.Vy)), BodyHeight));
+            }
+            foreach (var f in fails)
+            {
+                //  관문 안에서 끝나면 실패다.
+                report.Crossings.Add(GateFunnelRule.Cross("실패", columns[0].X, endX, columns,
+                    Path((columns[0].X + 0.01f, f.Y, f.Vy), (columns[0].X + 0.02f, f.Y, f.Vy)), BodyHeight));
+            }
+            return report;
+        }
+
+        [Test]
+        public void 통과와_실패의_진입_vy가_안_겹치면_그렇게_적는다()
+        {
+            string text = Section(Verdict(OpenGate(),
+                passes: new[] { (-10f, 20f), (-10f, 17.4f) },
+                fails: new[] { (-10f, -8f) }));
+            Assert.IsTrue(text.IndexOf("통과 2개: 진입 vy +17.4~+20.0 (올라가는 중)",
+                                       StringComparison.Ordinal) >= 0, text);
+            Assert.IsTrue(text.IndexOf("실패 1개: 진입 vy -8.0~-8.0 (떨어지는 중)   겹침 없음",
+                                       StringComparison.Ordinal) >= 0, text);
+            Assert.IsTrue(text.IndexOf("이 관문은 <올라가며 들어가야> 지난다.", StringComparison.Ordinal) >= 0);
+        }
+
+        [Test]
+        public void 겹치면_vy로는_안_갈린다고_적는다()
+        {
+            //  같은 vy(+5)로 통과한 비행과 실패한 비행이 둘 다 있다 — 여기서 "올라가며 들어가야
+            //  한다"고 적으면 거짓말이 된다.
+            string text = Section(Verdict(OpenGate(),
+                passes: new[] { (-10f, 5f), (-10f, 12f) },
+                fails: new[] { (-10f, 5f), (-10f, -2f) }));
+            Assert.IsTrue(text.IndexOf("겹침 있음", StringComparison.Ordinal) >= 0, text);
+            Assert.IsTrue(text.IndexOf("진입 vy만으로는 갈리지 않는다", StringComparison.Ordinal) >= 0);
+            Assert.IsTrue(text.IndexOf("들어가야> 지난다", StringComparison.Ordinal) < 0);
+        }
+
+        [Test]
+        public void 실패가_깔때기_안이면_겨냥_탓이라고_적는다()
+        {
+            string text = Section(Verdict(OpenGate(),
+                passes: new[] { (-10f, 20f) }, fails: new[] { (-10f, -8f), (-12f, -6f) }));
+            Assert.IsTrue(text.IndexOf("실패 2개의 진입 상태는 모두 깔때기 안이므로 지형이 아니라 겨냥 문제다.",
+                                       StringComparison.Ordinal) >= 0, text);
+        }
+
+        [Test]
+        public void 실패가_깔때기_밖이면_지형_탓이라고_적는다()
+        {
+            //  가운데 열이 막혀 어떤 진입도 못 지난다 — 같은 문장을 반대로 적어야 한다.
+            string text = Section(Verdict(WalledGate(),
+                passes: Array.Empty<(float, float)>(), fails: new[] { (-10f, -8f) }));
+            Assert.IsTrue(text.IndexOf("실패 1개의 진입 상태는 모두 깔때기 밖이므로 겨냥이 아니라 지형이 원인이다.",
+                                       StringComparison.Ordinal) >= 0, text);
+            Assert.IsTrue(text.IndexOf("겹침", StringComparison.Ordinal) < 0,
+                          "통과가 하나도 없으면 겹칠 것도 없다.");
+        }
+
         [Test]
         public void 절이_창_둘을_따로_적고_갈림을_짚는다()
         {

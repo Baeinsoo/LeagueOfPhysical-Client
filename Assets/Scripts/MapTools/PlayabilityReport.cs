@@ -277,7 +277,8 @@ namespace LOP.MapTools
                                    float requiredBand = 0f,
                                    IReadOnlyList<StaticPinch> pinches = null,
                                    float pinchSampleStep = 0f,
-                                   string gateSection = null)
+                                   string gateSection = null,
+                                   IReadOnlyList<StaticSplit> splits = null)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
@@ -468,7 +469,7 @@ namespace LOP.MapTools
             {
                 text.AppendLine(StaticPinchRule.Section(pinches, requiredBand, config.BodyHeight,
                                                         config.ForwardSpeed, config.Gravity,
-                                                        pinchSampleStep));
+                                                        pinchSampleStep, splits));
                 text.AppendLine();
             }
 

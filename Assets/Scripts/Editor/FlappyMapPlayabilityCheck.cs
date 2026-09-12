@@ -104,9 +104,32 @@ namespace LOP.EditorTools
             posedTick = tick;
         }
 
-        [MenuItem("LOP/Debug/Flappy 맵 검사")]
-        public static void Check()
+        //  사람이 이 검사를 보고 있나. 대화상자를 띄워도 되는지가 여기서 갈린다 — 자세한 이유는
+        //  <see cref="LOP.MapTools.CheckBailout"/> 참고(사람 없을 때 띄우면 잡이 멎는다).
+        //  <b>InternalEditorUtility.isHumanControllingUs로는 못 가른다</b>: 이 검사를 돌리는
+        //  백그라운드 잡(unity cmd eval_file --detach)도 <i>정상 실행된 에디터</i> 안에서 도는
+        //  것이라 그 값이 참이다. 그래서 "부르는 쪽이 사람 없음을 밝히는" 플래그로 가른다 —
+        //  메뉴로 들어오면 사람이 있는 것이고, RunHeadless로 들어오면 없는 것이다.
+        private static bool humanWatching = true;
+
+        //  더 못 하겠을 때 알리는 유일한 자리. 부른 쪽은 곧바로 돌아가야 한다.
+        private static void Bail(string message)
         {
+            LOP.MapTools.CheckBailout.Report(humanWatching, "Flappy 맵 검사", message,
+                (title, body) => EditorUtility.DisplayDialog(title, body, "확인"),
+                body => Debug.LogError($"[맵 검사] {body}"));
+        }
+
+        [MenuItem("LOP/Debug/Flappy 맵 검사")]
+        public static void Check() => Run(humanWatching: true);
+
+        /// <summary>사람 없이 도는 백그라운드 잡(<c>unity cmd eval_file --detach</c>)에서 부른다 —
+        /// 막혔을 때 대화상자로 멎지 않고 에러 로그를 남기고 끝난다.</summary>
+        public static void RunHeadless() => Run(humanWatching: false);
+
+        public static void Run(bool humanWatching)
+        {
+            FlappyMapPlayabilityCheck.humanWatching = humanWatching;
             var totalWatch = System.Diagnostics.Stopwatch.StartNew();
             //  되돌리기가 검사 전체를 얼마나 무겁게 하는지는 재서 알아야 한다 — 되돌리는 틱 수
             //  (CounterfactualTicks)를 줄일지 말지가 이 숫자로 갈린다. 리포트에는 안 넣는다:
@@ -116,9 +139,8 @@ namespace LOP.EditorTools
             int mapMask = LayerMask.GetMask("Default");
             if (TryReadBounds(mapMask, out Bounds bounds) == false)
             {
-                EditorUtility.DisplayDialog("Flappy 맵 검사",
-                    "Default 레이어에 콜라이더가 없다 — 맵 씬을 먼저 열어라.\n" +
-                    "예: Assets/Art/Scenes/FlappyRaceMap.unity", "확인");
+                Bail("Default 레이어에 콜라이더가 없다 — 맵 씬을 먼저 열어라.\n"
+                   + "예: Assets/Art/Scenes/FlappyRaceMap.unity");
                 return;
             }
             SearchMinY = bounds.min.y;
@@ -127,23 +149,20 @@ namespace LOP.EditorTools
             //  읽는다 — 예전엔 FlappyShape용·추격자용으로 같은 .bytes를 두 번 읽고 파싱했다.
             if (TryReadFullConfig(out LOP.FlappyConfig config) == false)
             {
-                EditorUtility.DisplayDialog("Flappy 맵 검사",
-                    "MasterData에서 FlappyConfig를 못 읽었다 — 패키지 StreamingAssets를 확인하라.", "확인");
+                Bail("MasterData에서 FlappyConfig를 못 읽었다 — 패키지 StreamingAssets를 확인하라.");
                 return;
             }
             var shape = ShapeFrom(config);
             var spawns = ReadSpawns();
             if (spawns.Count == 0)
             {
-                EditorUtility.DisplayDialog("Flappy 맵 검사",
-                    "맵에 SpawnPoint 마커가 없다 — 게임과 같은 마커를 읽는다.", "확인");
+                Bail("맵에 SpawnPoint 마커가 없다 — 게임과 같은 마커를 읽는다.");
                 return;
             }
             if (TryReadFinishX(out float finishX, out int finishMarkerCount) == false)
             {
-                EditorUtility.DisplayDialog("Flappy 맵 검사",
-                    $"맵에 FinishLine 마커가 정확히 하나 있어야 한다 (발견: {finishMarkerCount}개)."
-                    + "\n서버 룰(FlappyRaceRuleSystem)이 이 조건이면 매치 시작 시 죽는다.", "확인");
+                Bail($"맵에 FinishLine 마커가 정확히 하나 있어야 한다 (발견: {finishMarkerCount}개)."
+                   + "\n서버 룰(FlappyRaceRuleSystem)이 이 조건이면 매치 시작 시 죽는다.");
                 return;
             }
             //  결승선이 스폰보다 앞이거나 같으면 코스가 거꾸로거나 길이 0이다 — CleanRunSearch가
@@ -159,9 +178,8 @@ namespace LOP.EditorTools
             }
             if (backwardSpawns.Count > 0)
             {
-                EditorUtility.DisplayDialog("Flappy 맵 검사",
-                    $"결승선(x={finishX:F1})이 스폰보다 앞이거나 같다 — 코스가 거꾸로거나 길이가 0이다.\n"
-                    + $"문제 스폰: {string.Join(", ", backwardSpawns)}", "확인");
+                Bail($"결승선(x={finishX:F1})이 스폰보다 앞이거나 같다 — 코스가 거꾸로거나 길이가 0이다.\n"
+                   + $"문제 스폰: {string.Join(", ", backwardSpawns)}");
                 return;
             }
 
@@ -207,6 +225,8 @@ namespace LOP.EditorTools
             var placements = new List<LOP.MapTools.ObstaclePlacement>();
             //  null이면 "안 훑었다"는 뜻이다 — 빈 리스트("훑었는데 좁은 데가 없다")와 다르다.
             List<LOP.MapTools.StaticPinch> pinches = null;
+            //  ②-c가 덧붙일 <b>갈림</b>. pinches와 같은 이유로 null이 "안 훑었다"다.
+            List<LOP.MapTools.StaticSplit> splits = null;
             //  ① 진단 — 관문 통과가 쓸 궤적. 스폰 넷과 높이 훑기 18줄이 <b>이미 나는 비행</b>이라
             //  여기 담는 것은 기록뿐이다(다시 날리지 않는다).
             var gateFlights = new List<GateFlight>();
@@ -363,6 +383,11 @@ namespace LOP.EditorTools
                                                       windmillInstances, out pinchSweepCancelNote,
                                                       out var enclosedPerColumn);
                 pinches = LOP.MapTools.StaticPinchRule.Segments(pinchColumns, requiredBand, PinchSampleStep);
+                //  접기 <b>전</b>의 창으로 갈림을 센다 — PinchColumn은 이미 "가장 넓은 창 하나"로
+                //  접힌 값이라 거기서는 칸막이가 보이지 않는다(그게 이 절의 맹점이었다).
+                splits = LOP.MapTools.StaticPinchRule.Splits(
+                    GateColumnsOf(enclosedPerColumn, spawns[0].Position.x), shape.Height,
+                    PinchSampleStep, SplitMinLength);
                 pinchWatch.Stop();
 
                 //  ① 진단 — 관문 통과. 판정이 아니다(cleanRuns에 안 들어간다). 위 훑기가 낸
@@ -395,7 +420,7 @@ namespace LOP.EditorTools
                 UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
                 spawns[0].Position.x, finishX, config, cleanRuns, trapSection, budget, earliest,
                 HeightGrid, SearchMinY, SearchMaxY, heightSweep, phaseSweep, placements, requiredBand,
-                pinches, PinchSampleStep, gateSection);
+                pinches, PinchSampleStep, gateSection, splits);
 
             //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
             bool spawnXMismatch = false;
@@ -859,6 +884,23 @@ namespace LOP.EditorTools
 
         //  띠를 막고 있는 것의 이름을 읽을 때 경계에서 이만큼 안쪽을 찌른다.
         private const float PinchNameProbe = 0.02f;
+
+        //  갈림이 이보다 짧게 이어지면 세지 않는다 — 표본 한 칸(0.5m)만 갈린 것은 창이 붙는
+        //  경계를 스친 것이지 회랑을 가로막은 칸막이가 아니다. 두 칸(1m)부터 센다.
+        private const float SplitMinLength = 1f;
+
+        //  접기 전의 창 목록을 x가 붙은 열로 바꾼다 — 관문 절과 ②-c의 갈림이 <b>같은 재료</b>를
+        //  보게 하려는 것이다(둘이 따로 훑으면 서로 다른 그림을 말하게 된다).
+        private static List<LOP.MapTools.GateColumn> GateColumnsOf(
+            List<List<LOP.MapTools.GateWindow>> enclosedPerColumn, float startX)
+        {
+            var columns = new List<LOP.MapTools.GateColumn>(enclosedPerColumn.Count);
+            for (int i = 0; i < enclosedPerColumn.Count; i++)
+            {
+                columns.Add(new LOP.MapTools.GateColumn(startX + i * PinchSampleStep, enclosedPerColumn[i]));
+            }
+            return columns;
+        }
 
         private static string ColliderNameAt(float x, float y, int mapMask, HashSet<Collider> ignore)
         {

@@ -312,5 +312,44 @@ namespace LOP.MapTools.Tests
                 $"천장 가드가 막은 자리에서 {guardedAndFlapped}번 눌렀다 (검사한 틱 {checkedTicks}). "
                 + "굴려 보기가 가드를 약화시켰다 — 회랑 게이트(4.4750)의 전제가 깨진다.");
         }
+
+        // ── 두 갈래 점수 내보내기(진단용) ────────────────────────────────────
+
+        [Test]
+        public void 두_갈래_점수를_함께_내도_고르는_답은_그대로다()
+        {
+            var world = new World();
+            world.Blocked.Add((10, 0));
+            var start = new Bird { Tick = 0, Height = 6, Rise = 0 };
+            BotDecision baseDecision = BaseDecisionAt(world, start);
+
+            RolloutChoice plain = BotRollout.Choose(world, start, baseDecision, horizon: 20, SameReach);
+            RolloutChoice reported = BotRollout.Choose(world, start, baseDecision, horizon: 20,
+                                                       SameReach, out RolloutBranches branches);
+
+            Assert.AreEqual(plain.Flap, reported.Flap, "진단을 붙였더니 답이 달라졌다.");
+            Assert.AreEqual(plain.RolledOut, reported.RolledOut);
+            Assert.AreEqual(plain.Deviated, reported.Deviated);
+            Assert.IsTrue(branches.Rolled, "굴렸는데 안 굴렸다고 적었다.");
+            //  누르는 쪽이 이겨서 뒤집힌 자리다 — 그 이유가 점수로도 보여야 한다.
+            Assert.Greater(branches.Flapped.AliveTicks, branches.Coasted.AliveTicks,
+                "뒤집은 이유(누르는 쪽이 더 오래 산다)가 점수에 안 나타난다.");
+        }
+
+        [Test]
+        public void 천장_가드가_막은_틱에는_굴린_적이_없다고_적는다()
+        {
+            var world = new World();
+            var start = new Bird { Tick = 0, Height = 6, Rise = 0 };
+            var guarded = new BotDecision(flap: false, gapFound: true, wantsFlap: true,
+                                          ceilingSafe: false);
+
+            RolloutChoice choice = BotRollout.Choose(world, start, guarded, horizon: 20, SameReach,
+                                                     out RolloutBranches branches);
+
+            Assert.IsFalse(choice.Flap);
+            Assert.IsFalse(branches.Rolled, "가드가 막았는데 굴렸다고 적었다.");
+            Assert.AreEqual(0, world.AdvanceCalls, "가드가 막았는데 실제로 굴렸다.");
+        }
     }
 }

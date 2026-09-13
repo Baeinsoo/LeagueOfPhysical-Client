@@ -1007,6 +1007,41 @@ namespace LOP.MapTools.Tests
             Assert.IsFalse(Contains(report, "x≈-2"));
         }
 
+        //  ── 빠름 모드: 안 돌린 절은 <안 돌렸다고> 적는다 ──────────────────
+        //  절을 조용히 빼면 나중에 이 글을 읽는 사람이 "통과했나 보다"로 읽는다.
+
+        static string BuildSkippingPhases(string skipNote)
+            => PlayabilityReport.Build("FlappyRaceMap", -2f, 632f, Config(),
+                                       new[] { Unproven(Hit("ComposedMap/Cube", -30f)) },
+                                       trapSection: "  낀 자리 없음.",
+                                       budget: new List<StunBudgetPoint>
+                                       {
+                                           new StunBudgetPoint(10f, 108f, 10, 7),
+                                       },
+                                       earliest: new EarliestCatch(true, 19.0f, 14),
+                                       heightGrid: 0.1f, minY: -40f, maxY: 40f,
+                                       heightSweep: null, phaseSweep: null,
+                                       phaseSweepSkipNote: skipNote);
+
+        [Test]
+        public void 빠름_모드는_머리말에_무엇을_건너뛰었는지_적는다()
+        {
+            string report = BuildSkippingPhases("① 위상 훑기를 건너뛰었다(시험용 문구).");
+            Assert.IsTrue(Contains(report, "⛔ 빠름 모드 — ① 위상 훑기를 건너뛰었다(시험용 문구)."),
+                          "어느 모드가 낸 리포트인지 맨 위에서 알 수 있어야 한다.");
+        }
+
+        [Test]
+        public void 빠름_모드는_위상_훑기_자리를_비워_두고_안_돌렸다고_적는다()
+        {
+            string report = BuildSkippingPhases("① 위상 훑기를 건너뛰었다(시험용 문구).");
+            Assert.IsTrue(Contains(report, "── ① 위상 훑기 (자리별)"),
+                          "자리는 남겨 둔다 — 절이 통째로 없으면 스크롤한 사람이 못 알아챈다.");
+            Assert.IsTrue(Contains(report, "이 절은 <안 돌렸다>"), "안 돌렸다고 적어야 한다.");
+            Assert.IsTrue(Contains(report, "없는 것이지 통과한 것이 아니다"),
+                          "없음을 통과로 읽지 말라고 못박아야 한다.");
+        }
+
         [Test]
         public void 안_훑었으면_위상_훑기_절이_아예_없다()
         {

@@ -276,12 +276,23 @@ namespace LOP.MapTools
                                    IReadOnlyList<ObstaclePlacement> placements = null,
                                    float requiredBand = 0f,
                                    IReadOnlyList<StaticPinch> pinches = null,
-                                   float pinchSampleStep = 0f)
+                                   float pinchSampleStep = 0f,
+                                   string gateSection = null,
+                                   IReadOnlyList<StaticSplit> splits = null,
+                                   int separateSpaces = 0,
+                                   string approachSection = null,
+                                   string phaseSweepSkipNote = null)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
 
             text.AppendLine("════ Flappy 맵 검사 ════");
+            //  <b>어느 모드가 낸 리포트인가를 맨 위에 적는다.</b> 빠진 절을 조용히 빼면, 나중에
+            //  이 글을 읽는 사람이 "그 절은 통과했나 보다"로 읽는다 — 느린 리포트보다 나쁘다.
+            if (string.IsNullOrEmpty(phaseSweepSkipNote) == false)
+            {
+                text.AppendLine($"⛔ 빠름 모드 — {phaseSweepSkipNote}");
+            }
             text.AppendLine($"맵: {mapName}        코스 x {startX:F0} → {finishX:F0}"
                           + $" ({finishX - startX:F0}m)   클린런 {cleanRunSeconds:F1}초");
             text.AppendLine($"물리: 전진 {config.ForwardSpeed:F0}  날갯짓 {config.FlapImpulse:F0}"
@@ -428,9 +439,26 @@ namespace LOP.MapTools
             }
             text.AppendLine();
 
-            AppendPhaseSweep(text, phaseSweep, startX, finishX);
+            AppendPhaseSweep(text, phaseSweep, startX, finishX, phaseSweepSkipNote);
 
             AppendHeightSweep(text, heightSweep, startX, finishX);
+
+            //  ① 진단 — 관문 통과. 높이 훑기 바로 뒤에 둔다: 훑기가 "어디서 멈췄나"를 줄줄이
+            //  보여 주고 나면 다음 질문이 반드시 "그래서 거기서 무슨 일이 있었나"이기 때문이다.
+            //  null이면 아예 안 찍는다 — 빈 절은 "재 봤더니 문제없다"로 잘못 읽힌다.
+            if (string.IsNullOrEmpty(gateSection) == false)
+            {
+                text.AppendLine(gateSection);
+                text.AppendLine();
+            }
+
+            //  관문 앞 판단은 관문 통과 바로 뒤다 — "어디서 멈췄나 → 그 관문을 어떻게 맞았나 →
+            //  맞기 직전에 무엇을 골랐나"가 한 줄로 이어져야 읽힌다.
+            if (string.IsNullOrEmpty(approachSection) == false)
+            {
+                text.AppendLine(approachSection);
+                text.AppendLine();
+            }
 
             text.AppendLine("── ② 낌 지점 ─────────────────────────");
             text.AppendLine(trapSection);
@@ -458,7 +486,7 @@ namespace LOP.MapTools
             {
                 text.AppendLine(StaticPinchRule.Section(pinches, requiredBand, config.BodyHeight,
                                                         config.ForwardSpeed, config.Gravity,
-                                                        pinchSampleStep));
+                                                        pinchSampleStep, splits, separateSpaces));
                 text.AppendLine();
             }
 
@@ -676,8 +704,19 @@ namespace LOP.MapTools
         //  언제 시작할지 못 고르므로, 몇 위상만 통과하는 자리는 "타이밍 관문"이지 자유 통과가
         //  아니다. 그래서 통과 창의 크기(틱·초)를 반드시 같이 찍는다.
         static void AppendPhaseSweep(StringBuilder text, IReadOnlyList<PhaseSweepRow> rows,
-                                     float startX, float finishX)
+                                     float startX, float finishX, string skipNote)
         {
+            //  <b>건너뛴 것은 없는 것과 다르다.</b> 절을 통째로 빼면 스크롤해 내려온 사람이
+            //  "여긴 문제가 없었나 보다"로 읽는다 — 그래서 자리를 비워 두고 안 돌렸다고 적는다.
+            if (string.IsNullOrEmpty(skipNote) == false)
+            {
+                text.AppendLine("── ① 위상 훑기 (자리별) ────────────────");
+                text.AppendLine($"  ⛔ 이 절은 <안 돌렸다> — {skipNote}");
+                text.AppendLine("  (없는 것이지 통과한 것이 아니다. 도는 장애물의 위상별 통과 여부는");
+                text.AppendLine("   이 리포트가 답하지 않는다 — 알아야 하면 전체 모드로 다시 돌릴 것.)");
+                text.AppendLine();
+                return;
+            }
             //  안 훑었으면 절 자체를 안 찍는다 — 빈 절은 "훑었는데 아무 위상도 없었다"로 읽힌다.
             if (rows == null || rows.Count == 0)
             {

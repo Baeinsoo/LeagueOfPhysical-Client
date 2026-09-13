@@ -31,6 +31,146 @@ namespace LOP.MapTools.Tests
         static string Section(params StaticPinch[] pinches)
             => StaticPinchRule.Section(pinches, Required, BodyHeight, ForwardSpeed, Gravity, SampleStep);
 
+        static string Section(IReadOnlyList<StaticSplit> splits, params StaticPinch[] pinches)
+            => StaticPinchRule.Section(pinches, Required, BodyHeight, ForwardSpeed, Gravity,
+                                       SampleStep, splits);
+
+        // ── 갈림 ────────────────────────────────────────────────────────────
+
+        const float SplitMinLength = 1f;
+
+        static GateWindow W(float bottom, float top, string floor = "ComposedMap/Cube",
+                            string ceiling = "ComposedMap/Cube")
+            => new GateWindow(bottom, top, floor, ceiling);
+
+        //  x 80.0~83.5가 3.16m 칸막이로 두 창(각 5.03m)으로 갈린 회랑. 앞뒤는 창 하나짜리
+        //  17.3m 회랑이다 — 접고 보면 둘이 같은 등급을 받는, 바로 그 실측 모양이다.
+        static List<GateColumn> SplitCourse()
+        {
+            var one = new[] { W(-19.75f, -2.45f) };
+            var two = new[] { W(-18.43f, -13.40f), W(-10.24f, -5.21f) };
+            var columns = new List<GateColumn>();
+            for (float x = 79f; x <= 85f + 1e-4f; x += SampleStep)
+            {
+                columns.Add(new GateColumn(x, x >= 80f - 1e-4f && x <= 83.5f + 1e-4f ? two : one));
+            }
+            return columns;
+        }
+
+        static List<StaticSplit> Splits(List<GateColumn> columns)
+            => StaticPinchRule.Splits(columns, BodyHeight, SampleStep, SplitMinLength);
+
+        [Test]
+        public void 창이_둘로_갈린_구간을_따로_찍는다()
+        {
+            List<StaticSplit> splits = Splits(SplitCourse());
+            Assert.AreEqual(1, splits.Count, "80.0~83.5 한 구간이다 — 앞뒤 창 하나짜리는 갈림이 아니다.");
+            Assert.AreEqual(80f, splits[0].StartX, 1e-3f);
+            Assert.AreEqual(83.5f, splits[0].EndX, 1e-3f);
+            Assert.AreEqual(2, splits[0].WindowCount);
+            //  표본 8개 × 0.5m — 좁힘과 같은 보수적 셈이다.
+            Assert.AreEqual(4f, splits[0].Length, 1e-3f);
+            Assert.AreEqual(3.16f, splits[0].Divider, 0.005f, "칸막이 두께 = 아래 창 천장 ~ 위 창 바닥.");
+            Assert.AreEqual("ComposedMap/Cube", splits[0].DividerName);
+        }
+
+        [Test]
+        public void 창이_하나뿐이면_갈림이_아니다()
+        {
+            var one = new[] { W(-19.75f, -2.45f) };
+            var columns = new List<GateColumn>();
+            for (float x = 0f; x < 10f; x += SampleStep)
+            {
+                columns.Add(new GateColumn(x, one));
+            }
+            Assert.AreEqual(0, Splits(columns).Count);
+            Assert.AreEqual(0, StaticPinchRule.Splits(null, BodyHeight, SampleStep, SplitMinLength).Count,
+                            "아예 안 훑은 경우(null)도 빈 결과여야 한다.");
+        }
+
+        [Test]
+        public void 몸이_안_들어가는_틈은_창으로_세지_않는다()
+        {
+            //  둘째 '창'이 0.5m라 몸(0.9m)이 안 들어간다 — 새가 고를 수 있는 자리가 아니므로
+            //  이 회랑은 갈린 것이 아니다. 이 줄이 없으면 손가락만 한 틈이 갈림을 만든다.
+            var decoy = new[] { W(-19.75f, -2.45f), W(0f, 0.5f) };
+            var columns = new List<GateColumn>();
+            for (float x = 0f; x < 10f; x += SampleStep)
+            {
+                columns.Add(new GateColumn(x, decoy));
+            }
+            Assert.AreEqual(0, Splits(columns).Count);
+        }
+
+        [Test]
+        public void 표본_한_칸만_갈린_것은_버린다()
+        {
+            //  창이 붙는 경계를 스친 한 칸짜리는 가로막은 칸막이가 아니다.
+            var one = new[] { W(-19.75f, -2.45f) };
+            var two = new[] { W(-18.43f, -13.40f), W(-10.24f, -5.21f) };
+            var columns = new List<GateColumn>
+            {
+                new GateColumn(0f, one),
+                new GateColumn(0.5f, two),
+                new GateColumn(1f, one),
+            };
+            Assert.AreEqual(0, Splits(columns).Count, "0.5m < 최소 1m이라 버려야 한다.");
+            //  두 칸이면 센다 — 문턱이 실제로 그 자리에 있다는 증거(없으면 위 단언이 공짜다).
+            columns.Insert(2, new GateColumn(0.75f, two));
+            Assert.AreEqual(1, StaticPinchRule.Splits(columns, BodyHeight, SampleStep, SplitMinLength).Count);
+        }
+
+        [Test]
+        public void 갈렸다_붙었다_하면_구간이_끊긴다()
+        {
+            var one = new[] { W(-19.75f, -2.45f) };
+            var two = new[] { W(-18.43f, -13.40f), W(-10.24f, -5.21f) };
+            var columns = new List<GateColumn>
+            {
+                new GateColumn(0f, two), new GateColumn(0.5f, two),
+                new GateColumn(1f, one),
+                new GateColumn(1.5f, two), new GateColumn(2f, two),
+            };
+            List<StaticSplit> splits = Splits(columns);
+            Assert.AreEqual(2, splits.Count, "붙은 열에서 끊긴다 — 억지로 이으면 회랑 절반이 한 구간이 된다.");
+            Assert.AreEqual(0f, splits[0].StartX, 1e-3f);
+            Assert.AreEqual(1.5f, splits[1].StartX, 1e-3f);
+        }
+
+        [Test]
+        public void 갈림은_등급을_바꾸지_않고_사실만_덧붙인다()
+        {
+            //  좁은 구간이 하나도 없는(= 전부 ✅인) 코스에도 갈림은 찍혀야 한다 — 그게 이 절의
+            //  맹점이었다. 등급 문구는 그대로 두고 갈림 줄만 는다.
+            string text = Section(Splits(SplitCourse()));
+            Assert.IsTrue(text.IndexOf("좁은 구간 없음", StringComparison.Ordinal) >= 0,
+                          "등급은 여전히 <가장 넓은 창> 기준 그대로다.");
+            Assert.IsTrue(text.IndexOf("갈림 1곳", StringComparison.Ordinal) >= 0);
+            Assert.IsTrue(text.IndexOf("창 2개", StringComparison.Ordinal) >= 0);
+            Assert.IsTrue(text.IndexOf("칸막이 3.2m", StringComparison.Ordinal) >= 0);
+            Assert.IsTrue(text.IndexOf("막는 것: ComposedMap/Cube", StringComparison.Ordinal) >= 0);
+            Assert.IsTrue(text.IndexOf("-18.43~-13.40 / -10.24~-5.21", StringComparison.Ordinal) >= 0,
+                          "창이 둘이라는 말만으로는 어디가 갈렸는지 못 고친다.");
+        }
+
+        [Test]
+        public void 갈림이_없으면_갈림_줄도_없다()
+        {
+            string text = Section(new List<StaticSplit>());
+            Assert.IsTrue(text.IndexOf("갈림", StringComparison.Ordinal) < 0,
+                          "없는 것을 0곳이라고 찍고 주의까지 붙이면 절이 길어지기만 한다.");
+            Assert.IsTrue(text.IndexOf("⚠ x", StringComparison.Ordinal) < 0);
+        }
+
+        [Test]
+        public void 절이_갈림의_어려움을_스스로_말한다()
+        {
+            string text = Section(Splits(SplitCourse()));
+            Assert.IsTrue(text.IndexOf("폭이 넉넉해도 갈림은 어렵다", StringComparison.Ordinal) >= 0);
+            Assert.IsTrue(text.IndexOf("관문 통과·깔때기", StringComparison.Ordinal) >= 0,
+                          "어느 창인지는 ①이 답한다는 것을 여기서 가리켜야 한다.");
+        }
+
         // ── 기준 ────────────────────────────────────────────────────────────
 
         [Test]

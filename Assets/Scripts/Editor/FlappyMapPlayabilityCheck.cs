@@ -104,9 +104,45 @@ namespace LOP.EditorTools
             posedTick = tick;
         }
 
-        [MenuItem("LOP/Debug/Flappy 맵 검사")]
-        public static void Check()
+        //  사람이 이 검사를 보고 있나. 대화상자를 띄워도 되는지가 여기서 갈린다 — 자세한 이유는
+        //  <see cref="LOP.MapTools.CheckBailout"/> 참고(사람 없을 때 띄우면 잡이 멎는다).
+        //  <b>InternalEditorUtility.isHumanControllingUs로는 못 가른다</b>: 이 검사를 돌리는
+        //  백그라운드 잡(unity cmd eval_file --detach)도 <i>정상 실행된 에디터</i> 안에서 도는
+        //  것이라 그 값이 참이다. 그래서 "부르는 쪽이 사람 없음을 밝히는" 플래그로 가른다 —
+        //  메뉴로 들어오면 사람이 있는 것이고, RunHeadless로 들어오면 없는 것이다.
+        private static bool humanWatching = true;
+
+        //  더 못 하겠을 때 알리는 유일한 자리. 부른 쪽은 곧바로 돌아가야 한다.
+        private static void Bail(string message)
         {
+            LOP.MapTools.CheckBailout.Report(humanWatching, "Flappy 맵 검사", message,
+                (title, body) => EditorUtility.DisplayDialog(title, body, "확인"),
+                body => Debug.LogError($"[맵 검사] {body}"));
+        }
+
+        //  빠름 모드가 무엇을 안 돌렸는지 <b>리포트가 스스로 밝히는</b> 문구. 여기 한 군데서만
+        //  쓴다 — 머리말과 빈 절이 다른 말을 하면 읽는 사람이 무엇을 못 본 건지 모른다.
+        private const string PhaseSweepSkipNote =
+            "① 위상 훑기를 건너뛰었다(검사 시간의 대부분이라 정적 지형을 고치는 동안은 끈다).";
+
+        [MenuItem("LOP/Debug/Flappy 맵 검사")]
+        public static void Check() => Run(humanWatching: true, skipPhaseSweep: false);
+
+        /// <summary>정적 지형을 고쳐 가며 볼 때 쓰는 모드 — 위상 훑기(검사 시간의 대부분)를
+        /// 건너뛴다. 도는 장애물의 위상별 통과 여부는 <b>답하지 않는다</b>.</summary>
+        [MenuItem("LOP/Debug/Flappy 맵 검사 (빠름 — 위상 훑기 건너뜀)")]
+        public static void CheckFast() => Run(humanWatching: true, skipPhaseSweep: true);
+
+        /// <summary>사람 없이 도는 백그라운드 잡(<c>unity cmd eval_file --detach</c>)에서 부른다 —
+        /// 막혔을 때 대화상자로 멎지 않고 에러 로그를 남기고 끝난다.</summary>
+        public static void RunHeadless() => Run(humanWatching: false, skipPhaseSweep: false);
+
+        /// <summary><see cref="RunHeadless"/>의 빠름 모드 — 백그라운드 잡에서도 메뉴 없이 켤 수 있게.</summary>
+        public static void RunHeadlessFast() => Run(humanWatching: false, skipPhaseSweep: true);
+
+        public static void Run(bool humanWatching, bool skipPhaseSweep = false)
+        {
+            FlappyMapPlayabilityCheck.humanWatching = humanWatching;
             var totalWatch = System.Diagnostics.Stopwatch.StartNew();
             //  되돌리기가 검사 전체를 얼마나 무겁게 하는지는 재서 알아야 한다 — 되돌리는 틱 수
             //  (CounterfactualTicks)를 줄일지 말지가 이 숫자로 갈린다. 리포트에는 안 넣는다:
@@ -116,9 +152,8 @@ namespace LOP.EditorTools
             int mapMask = LayerMask.GetMask("Default");
             if (TryReadBounds(mapMask, out Bounds bounds) == false)
             {
-                EditorUtility.DisplayDialog("Flappy 맵 검사",
-                    "Default 레이어에 콜라이더가 없다 — 맵 씬을 먼저 열어라.\n" +
-                    "예: Assets/Art/Scenes/FlappyRaceMap.unity", "확인");
+                Bail("Default 레이어에 콜라이더가 없다 — 맵 씬을 먼저 열어라.\n"
+                   + "예: Assets/Art/Scenes/FlappyRaceMap.unity");
                 return;
             }
             SearchMinY = bounds.min.y;
@@ -127,23 +162,20 @@ namespace LOP.EditorTools
             //  읽는다 — 예전엔 FlappyShape용·추격자용으로 같은 .bytes를 두 번 읽고 파싱했다.
             if (TryReadFullConfig(out LOP.FlappyConfig config) == false)
             {
-                EditorUtility.DisplayDialog("Flappy 맵 검사",
-                    "MasterData에서 FlappyConfig를 못 읽었다 — 패키지 StreamingAssets를 확인하라.", "확인");
+                Bail("MasterData에서 FlappyConfig를 못 읽었다 — 패키지 StreamingAssets를 확인하라.");
                 return;
             }
             var shape = ShapeFrom(config);
             var spawns = ReadSpawns();
             if (spawns.Count == 0)
             {
-                EditorUtility.DisplayDialog("Flappy 맵 검사",
-                    "맵에 SpawnPoint 마커가 없다 — 게임과 같은 마커를 읽는다.", "확인");
+                Bail("맵에 SpawnPoint 마커가 없다 — 게임과 같은 마커를 읽는다.");
                 return;
             }
             if (TryReadFinishX(out float finishX, out int finishMarkerCount) == false)
             {
-                EditorUtility.DisplayDialog("Flappy 맵 검사",
-                    $"맵에 FinishLine 마커가 정확히 하나 있어야 한다 (발견: {finishMarkerCount}개)."
-                    + "\n서버 룰(FlappyRaceRuleSystem)이 이 조건이면 매치 시작 시 죽는다.", "확인");
+                Bail($"맵에 FinishLine 마커가 정확히 하나 있어야 한다 (발견: {finishMarkerCount}개)."
+                   + "\n서버 룰(FlappyRaceRuleSystem)이 이 조건이면 매치 시작 시 죽는다.");
                 return;
             }
             //  결승선이 스폰보다 앞이거나 같으면 코스가 거꾸로거나 길이 0이다 — CleanRunSearch가
@@ -159,9 +191,8 @@ namespace LOP.EditorTools
             }
             if (backwardSpawns.Count > 0)
             {
-                EditorUtility.DisplayDialog("Flappy 맵 검사",
-                    $"결승선(x={finishX:F1})이 스폰보다 앞이거나 같다 — 코스가 거꾸로거나 길이가 0이다.\n"
-                    + $"문제 스폰: {string.Join(", ", backwardSpawns)}", "확인");
+                Bail($"결승선(x={finishX:F1})이 스폰보다 앞이거나 같다 — 코스가 거꾸로거나 길이가 0이다.\n"
+                   + $"문제 스폰: {string.Join(", ", backwardSpawns)}");
                 return;
             }
 
@@ -207,11 +238,27 @@ namespace LOP.EditorTools
             var placements = new List<LOP.MapTools.ObstaclePlacement>();
             //  null이면 "안 훑었다"는 뜻이다 — 빈 리스트("훑었는데 좁은 데가 없다")와 다르다.
             List<LOP.MapTools.StaticPinch> pinches = null;
+            //  ②-c가 덧붙일 <b>갈림</b>. pinches와 같은 이유로 null이 "안 훑었다"다.
+            List<LOP.MapTools.StaticSplit> splits = null;
+            //  ① 진단 — 관문 통과가 쓸 궤적. 스폰 넷과 높이 훑기 18줄이 <b>이미 나는 비행</b>이라
+            //  여기 담는 것은 기록뿐이다(다시 날리지 않는다).
+            var gateFlights = new List<GateFlight>();
+            string gateSection = null;
+            //  ① 진단 — 관문 앞 판단. 관문 절과 같은 재료(이미 난 비행)로 만든다.
+            string approachSection = null;
+            //  ②-c 갈림에서 <b>별개 공간</b>으로 걸러낸 개수. 0이면 거른 것이 없다.
+            int separateSpaces = 0;
             //  밴드가 이만큼은 돼야 어떤 위상에서도 통과가 보장된다 — 날갯짓 아치 + 몸 높이.
             //  숫자를 박지 않고 실제 물리값에서 유도한다.
             float requiredBand = LOP.MapTools.ObstaclePlacementRule.RequiredBand(
                 shape.FlapImpulse, shape.Gravity, TickSeconds, shape.Height);
             List<string> trapCancelNotes = new List<string>();
+            //  이 두 덩이는 <b>재지 않고 있었다</b> — 다른 절은 전부 제 시간을 콘솔에 찍는데
+            //  여기만 빈칸이라, 검사가 느려졌을 때 "전체 몇 분" 말고는 볼 수가 없었다(실제로
+            //  한 번 엉뚱한 데를 의심하는 데 썼다). 리포트에는 안 넣는다 — 리포트를 돌릴 때마다
+            //  달라지는 문자열로 만들지 않는다는 이 파일의 규칙 그대로다.
+            var cleanRunWatch = new System.Diagnostics.Stopwatch();
+            var searchWatch = new System.Diagnostics.Stopwatch();
             try
             {
                 //  ① 자리마다 따로 — 넷 중 하나라도 되면 통과로 뭉치면 공정성 문제가 안 보인다.
@@ -220,6 +267,7 @@ namespace LOP.EditorTools
                 //  반복)인 전수 탐색을 아예 안 돌려도 된다. 실패한 자리에만 탐색을 돌려
                 //  "맵이 불가능"인지 "봇이 못 간 것"인지 가른다. 정상적인 맵에서는 탐색이
                 //  아예 안 돌아 검사가 몇 분에서 몇 초가 된다.
+                cleanRunWatch.Start();
                 for (int i = 0; i < spawns.Count; i++)
                 {
                     if (EditorUtility.DisplayCancelableProgressBar("Flappy 맵 검사 (1/3 클린런)",
@@ -240,6 +288,7 @@ namespace LOP.EditorTools
                     BotFlight flight = FlyBot(spawns[i].Position, finishX, shape, mapMask, query,
                                               SearchMinY, SearchMaxY, botGrid.IsFree, botGrid.IsFreeExact,
                                               trace: trace);
+                    RecordGateFlight(gateFlights, spawns[i].Name, trace, flight);
                     //  되돌리기 — 봇이 못 간 자리에서만 묻는다. 통과한 자리엔 되돌릴 죽음이 없고,
                     //  파묻힌 자리는 애초에 날지도 못했다.
                     var counterfactual = default(LOP.MapTools.Counterfactual);
@@ -298,6 +347,7 @@ namespace LOP.EditorTools
                         forwardSpeed: shape.ForwardSpeed, flapImpulse: shape.FlapImpulse,
                         gravity: shape.Gravity, maxFallSpeed: shape.MaxFallSpeed,
                         tickSeconds: TickSeconds, heightGrid: HeightGrid);
+                    searchWatch.Start();
                     var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFree);
                     var replay = default(LOP.MapTools.ReplayMismatch);
                     //  탐색이 그 경로의 틱마다 "새가 여기 있다"고 믿었던 높이. 탐색은 경로만
@@ -309,15 +359,23 @@ namespace LOP.EditorTools
                     bool verified = result.Reachable
                         && VerifyByReplay(spawns[i].Position, result.Flaps, shape, mapMask, query,
                                           searchHeights, out replay);
+                    searchWatch.Stop();
                     cleanRuns.Add(new LOP.MapTools.SpawnCleanRun(
                         spawns[i].Name, spawns[i].Position.y, result, verified,
                         botReached: false, botFlaps: flight.FlapCount, bot: botDiagnostics,
                         replay: replay));
                 }
+                cleanRunWatch.Stop();
+                //  둘로 갈라 찍는다 — 봇 비행과 전수 탐색은 비용의 성질이 아주 달라서다(비행은
+                //  틱마다 캡슐 검사, 탐색은 격자 위 너비우선). 뭉쳐 찍으면 어느 쪽이 커졌는지
+                //  못 본다. 되돌리기는 아래에서 따로 찍으므로 여기서는 비행 쪽에 섞여 있다.
+                Debug.Log($"[맵 검사] 클린런 {spawns.Count}자리 — {cleanRunWatch.ElapsedMilliseconds}ms"
+                        + $" (봇 비행+되돌리기 {cleanRunWatch.ElapsedMilliseconds - searchWatch.ElapsedMilliseconds}ms"
+                        + $" · 전수 탐색+재생 {searchWatch.ElapsedMilliseconds}ms)");
 
                 //  ① 진단 — 위상 훑기. 판정이 아니다(위 cleanRuns는 여전히 틱 0 한 위상만 본다).
                 //  스폰 넷만 훑는다 — 높이 훑기 18줄까지 훑으면 비용이 그대로 18배가 된다.
-                if (cleanRunCancelNote == null)
+                if (cleanRunCancelNote == null && skipPhaseSweep == false)
                 {
                     var phaseWatch = System.Diagnostics.Stopwatch.StartNew();
                     phaseSweep = SweepPhases(spawns, finishX, shape, mapMask, query, botGrid,
@@ -338,26 +396,49 @@ namespace LOP.EditorTools
                     //  넣지 않는 것은 리포트를 시간에 따라 달라지는 문자열로 만들지 않기 위해서다.
                     var sweepWatch = System.Diagnostics.Stopwatch.StartNew();
                     heightSweep = SweepStartHeights(spawns, finishX, shape, mapMask, query,
-                                                    botGrid, counterfactualWatch,
+                                                    botGrid, counterfactualWatch, gateFlights,
                                                     out heightSweepCancelNote);
                     sweepWatch.Stop();
                     Debug.Log($"[맵 검사] 진단 높이 훑기 {heightSweep.Count}줄 — {sweepWatch.ElapsedMilliseconds}ms");
                 }
 
                 //  ② 기존 낌 스캔 — 본문은 그대로다.
+                var trapWatch = System.Diagnostics.Stopwatch.StartNew();
                 trapSection = ScanTraps(shape, bounds, mapMask, query, out var trapScanCancelNotes);
                 trapCancelNotes = trapScanCancelNotes;
 
                 //  ②-b 배치 검사 — 산술이라 금방 끝난다(진행률이 필요 없다).
                 placements = MeasurePlacements(windmillInstances, mapMask, requiredBand,
                                                SearchMinY, SearchMaxY);
+                trapWatch.Stop();
+                Debug.Log($"[맵 검사] ② 낌 스캔+배치 — {trapWatch.ElapsedMilliseconds}ms");
 
                 //  ②-c 정적 좁힘 — 코스 전체를 세로로 훑으므로 여기는 진행률이 필요하다.
                 var pinchWatch = System.Diagnostics.Stopwatch.StartNew();
                 var pinchColumns = SweepStaticPinches(spawns[0].Position.x, finishX, mapMask,
-                                                      windmillInstances, out pinchSweepCancelNote);
+                                                      windmillInstances, out pinchSweepCancelNote,
+                                                      out var enclosedPerColumn);
                 pinches = LOP.MapTools.StaticPinchRule.Segments(pinchColumns, requiredBand, PinchSampleStep);
+                //  접기 <b>전</b>의 창으로 갈림을 센다 — PinchColumn은 이미 "가장 넓은 창 하나"로
+                //  접힌 값이라 거기서는 칸막이가 보이지 않는다(그게 이 절의 맹점이었다).
+                //  칸막이가 아치+몸보다 두꺼운 것은 갈림이 아니라 <b>별개 공간</b>이다 — 그만큼
+                //  두꺼우면 한쪽 창에서 다른 창으로 옮겨 갈 일이 없으므로, 같은 회랑의 두 길이
+                //  아니라 서로 다른 공간이다(실측에서 28.1m / 22.8m / 11.0m짜리가 잡음이었다).
+                splits = LOP.MapTools.StaticPinchRule.WithoutSeparateSpaces(
+                    LOP.MapTools.StaticPinchRule.Splits(
+                        GateColumnsOf(enclosedPerColumn, spawns[0].Position.x), shape.Height,
+                        PinchSampleStep, SplitMinLength),
+                    requiredBand, out separateSpaces);
                 pinchWatch.Stop();
+
+                //  ① 진단 — 관문 통과. 판정이 아니다(cleanRuns에 안 들어간다). 위 훑기가 낸
+                //  "접기 전 창"과 이미 난 비행의 궤적만 쓰므로 새로 날리는 비행이 없다.
+                var gateWatch = System.Diagnostics.Stopwatch.StartNew();
+                gateSection = BuildGateSection(gateFlights, spawns[0].Position.x, enclosedPerColumn,
+                                               shape, requiredBand, windmillInstances,
+                                               out approachSection);
+                gateWatch.Stop();
+                Debug.Log($"[맵 검사] 관문 통과 진단 — {gateWatch.ElapsedMilliseconds}ms");
                 //  비용은 콘솔에만 남긴다 — 리포트를 돌릴 때마다 달라지는 문자열로 만들지 않는다.
                 Debug.Log($"[맵 검사] 정적 좁힘 훑기 {pinchColumns.Count}칸 — {pinchWatch.ElapsedMilliseconds}ms");
             }
@@ -381,7 +462,8 @@ namespace LOP.EditorTools
                 UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
                 spawns[0].Position.x, finishX, config, cleanRuns, trapSection, budget, earliest,
                 HeightGrid, SearchMinY, SearchMaxY, heightSweep, phaseSweep, placements, requiredBand,
-                pinches, PinchSampleStep);
+                pinches, PinchSampleStep, gateSection, splits, separateSpaces, approachSection,
+                skipPhaseSweep ? PhaseSweepSkipNote : null);
 
             //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
             bool spawnXMismatch = false;
@@ -441,7 +523,9 @@ namespace LOP.EditorTools
                               + "이 검사는 틱 0을 스폰으로 잡은 한 위상만 본다 —");
                 note.AppendLine($"             \"가능한 한 판\"이지 \"실제 그 판\"이 아니다"
                               + $"(실제 판의 틱 0은 GameplayStartTick이라 각도가 다르다). {DescribePhaseSpace(windmillSpecs)}");
-                note.AppendLine("             나머지 위상은 아래 \"① 위상 훑기\" 절이 보여 준다 — 판정(✅/🟡/❌)은 여전히 틱 0 하나다.");
+                note.AppendLine(skipPhaseSweep
+                    ? "             ⛔ 나머지 위상은 이 리포트가 안 본다 — 빠름 모드라 \"① 위상 훑기\"를 안 돌렸다."
+                    : "             나머지 위상은 아래 \"① 위상 훑기\" 절이 보여 준다 — 판정(✅/🟡/❌)은 여전히 틱 0 하나다.");
                 note.AppendLine("ℹ️ 도는 장애물이 있으므로 이 리포트의 두 답은 정확도가 다르다.");
                 note.AppendLine("  · 봇 비행(①의 첫째 답 — ✅ '봇 통과')은 회전을 매 틱 반영한다: 겨냥에 쓰는 근거리 열도,");
                 note.AppendLine("    천장 아치 훑기도, 이동 커널도 전부 그 틱 각도로 세운 날개를 보고 잰다(게임과 같다).");
@@ -846,6 +930,23 @@ namespace LOP.EditorTools
         //  띠를 막고 있는 것의 이름을 읽을 때 경계에서 이만큼 안쪽을 찌른다.
         private const float PinchNameProbe = 0.02f;
 
+        //  갈림이 이보다 짧게 이어지면 세지 않는다 — 표본 한 칸(0.5m)만 갈린 것은 창이 붙는
+        //  경계를 스친 것이지 회랑을 가로막은 칸막이가 아니다. 두 칸(1m)부터 센다.
+        private const float SplitMinLength = 1f;
+
+        //  접기 전의 창 목록을 x가 붙은 열로 바꾼다 — 관문 절과 ②-c의 갈림이 <b>같은 재료</b>를
+        //  보게 하려는 것이다(둘이 따로 훑으면 서로 다른 그림을 말하게 된다).
+        private static List<LOP.MapTools.GateColumn> GateColumnsOf(
+            List<List<LOP.MapTools.GateWindow>> enclosedPerColumn, float startX)
+        {
+            var columns = new List<LOP.MapTools.GateColumn>(enclosedPerColumn.Count);
+            for (int i = 0; i < enclosedPerColumn.Count; i++)
+            {
+                columns.Add(new LOP.MapTools.GateColumn(startX + i * PinchSampleStep, enclosedPerColumn[i]));
+            }
+            return columns;
+        }
+
         private static string ColliderNameAt(float x, float y, int mapMask, HashSet<Collider> ignore)
         {
             int count = Physics.OverlapSphereNonAlloc(
@@ -901,11 +1002,15 @@ namespace LOP.EditorTools
 
         //  코스 x 전체를 훑어 x마다 "가장 넓은 갇힌 띠"를 낸다. 풍차는 없는 셈 친다 —
         //  이 절이 답하는 것은 <b>정적</b> 지형이고, 돌아가는 것은 ②-b가 본다.
+        //  <paramref name="enclosedPerColumn"/>은 x마다의 <b>갇힌 창 전부</b>다. PinchColumn이
+        //  "가장 넓은 것 하나"로 접기 <i>전</i>의 값이라, 회랑을 가로로 가르는 칸막이가 여기엔
+        //  남아 있다 — 관문 절(GateFunnelRule)이 그것을 본다. 같은 훑기에서 공짜로 나온다.
         private static List<LOP.MapTools.PinchColumn> SweepStaticPinches(
             float startX, float finishX, int mapMask, List<LOP.FlappyWindmill> windmills,
-            out string cancelNote)
+            out string cancelNote, out List<List<LOP.MapTools.GateWindow>> enclosedPerColumn)
         {
             cancelNote = null;
+            enclosedPerColumn = new List<List<LOP.MapTools.GateWindow>>();
             var ignore = new HashSet<Collider>();
             for (int i = 0; windmills != null && i < windmills.Count; i++)
             {
@@ -937,8 +1042,266 @@ namespace LOP.EditorTools
                 }
                 CollectFreeBands(x, mapMask, ignore, bands);
                 columns.Add(LOP.MapTools.StaticPinchRule.Column(x, bands));
+                var enclosed = new List<LOP.MapTools.GateWindow>();
+                for (int b = 0; b < bands.Count; b++)
+                {
+                    if (bands[b].Enclosed == false)
+                    {
+                        continue;
+                    }
+                    enclosed.Add(new LOP.MapTools.GateWindow(
+                        bands[b].Bottom, bands[b].Top, bands[b].Floor, bands[b].Ceiling));
+                }
+                enclosedPerColumn.Add(enclosed);
             }
             return columns;
+        }
+
+        //  ── ① 진단 — 관문 통과 ──────────────────────────────────────────────
+
+        //  이미 난 비행 하나의 기록. 새로 날리지 않는다 — trace는 클린런·높이 훑기가 되돌리기용으로
+        //  <b>이미</b> 모으고 있던 것이고, 여기서는 그것을 한 번 더 읽을 뿐이다.
+        private struct GateFlight
+        {
+            public string Name;
+            public bool Reached;
+            public float StopX;
+            public List<LOP.MapTools.FlightSample> Path;
+            /// <summary>같은 비행의 틱별 <b>판단</b> 기록. Path와 같은 순서·같은 길이의 앞부분이다
+            /// (Path만 마지막에 멈춘 자리를 한 칸 더 달고 있다 — 그 칸엔 내릴 판단이 없다).</summary>
+            public List<LOP.MapTools.ApproachSample> Decisions;
+        }
+
+        private static void RecordGateFlight(List<GateFlight> into, string name,
+                                             List<FlightStep> trace, in BotFlight flight)
+        {
+            //  출발점이 지형 안이면 날려 보지도 못했다 — 없는 궤적을 "관문에 못 왔다"로 세면
+            //  관문마다 유령 한 줄이 붙는다.
+            if (flight.SpawnBlocked || trace == null || trace.Count == 0)
+            {
+                return;
+            }
+            var path = new List<LOP.MapTools.FlightSample>(trace.Count + 1);
+            var decisions = new List<LOP.MapTools.ApproachSample>(trace.Count);
+            for (int i = 0; i < trace.Count; i++)
+            {
+                path.Add(new LOP.MapTools.FlightSample(
+                    trace[i].State.Position.x, trace[i].State.Position.y, trace[i].State.VerticalSpeed));
+                LOP.MapTools.RolloutBranches branches = trace[i].Branches;
+                decisions.Add(new LOP.MapTools.ApproachSample(
+                    i, trace[i].State.Position.x, trace[i].State.Position.y,
+                    trace[i].State.VerticalSpeed,
+                    trace[i].Decision.WantsFlap, trace[i].Decision.CeilingSafe, branches.Rolled,
+                    branches.Flapped.AliveTicks, branches.Flapped.ReachX,
+                    branches.Coasted.AliveTicks, branches.Coasted.ReachX,
+                    trace[i].Flap));
+            }
+            //  trace는 틱을 굴리기 <b>전</b> 상태만 담는다 — 마지막에 멈춘 자리를 따로 얹지
+            //  않으면 "어디서 죽었나"가 한 틱 앞의 자리로 찍힌다. 세로 속도도 부딪히기 직전
+            //  값(HitVerticalSpeed)을 쓴다: 이동 뒤 값은 벽에 지워져 부호가 없다.
+            path.Add(new LOP.MapTools.FlightSample(flight.EndX, flight.EndY, flight.HitVerticalSpeed));
+            into.Add(new GateFlight
+            {
+                Name = name,
+                Reached = flight.Reached,
+                StopX = flight.EndX,
+                Path = path,
+                Decisions = decisions,
+            });
+        }
+
+        //  관문을 몇 개까지 찍을 것인가. 관문 하나가 스폰 넷 + 훑기 18줄을 달고 나오므로
+        //  셋이면 리포트 한 화면을 넘지 않는다.
+        private const int GateSectionMax = 3;
+        //  이보다 멀리 떨어져 멈췄으면 다른 관문이다.
+        private const float GateClusterGap = 3f;
+        //  멈춘 자리 앞뒤로 이만큼 넓혀 본다 — 입구 상태를 재려면 아직 막히지 <b>않은</b> 자리가
+        //  필요하다. 멈춘 x에서 바로 재면 "이미 부딪히는 중"의 값만 나온다.
+        private const float GateClusterPad = 1f;
+        //  깔때기 격자. 세로속도는 종단낙하(−30)~날갯짓(+23) 전부를 이 간격으로 훑는다.
+        private const float GateFunnelYStep = 0.25f;
+        private const float GateFunnelSpeedStep = 2f;
+
+        //  관문 앞 판단 표를 몇 비행까지 찍을 것인가. 열두 비행의 30틱을 다 찍으면 리포트가
+        //  표로 뒤덮인다 — 표는 대표 둘만 찍고 나머지는 요약 한 줄씩 받는다.
+        private const int GateApproachTableFlights = 2;
+        //  요약 줄까지 포함해 몇 비행을 볼 것인가. 스폰 넷 + 훑기 두엇이면 대표로 충분하다.
+        private const int GateApproachFlights = 6;
+
+        private static string BuildGateSection(List<GateFlight> flights, float sweepStartX,
+                                               List<List<LOP.MapTools.GateWindow>> enclosedPerColumn,
+                                               in FlappyShape shape, float requiredBand,
+                                               List<LOP.FlappyWindmill> windmills,
+                                               out string approachSection)
+        {
+            approachSection = null;
+            if (flights == null || flights.Count == 0 || enclosedPerColumn == null
+                || enclosedPerColumn.Count == 0)
+            {
+                return null;
+            }
+            var stopXs = new List<float>();
+            for (int i = 0; i < flights.Count; i++)
+            {
+                if (flights[i].Reached == false)
+                {
+                    stopXs.Add(flights[i].StopX);
+                }
+            }
+            var clusters = LOP.MapTools.GateFunnelRule.Cluster(
+                stopXs, GateClusterGap, GateClusterPad, PinchSampleStep);
+            if (clusters.Count == 0)
+            {
+                return null;
+            }
+            var kernel = new LOP.MapTools.FlightKernel(shape.ForwardSpeed, shape.Gravity,
+                                                       shape.MaxFallSpeed, shape.FlapImpulse,
+                                                       TickSeconds, shape.Height);
+            var reports = new List<LOP.MapTools.GateReport>();
+            for (int g = 0; g < clusters.Count && reports.Count < GateSectionMax; g++)
+            {
+                var columns = new List<LOP.MapTools.GateColumn>();
+                int first = Mathf.RoundToInt((clusters[g].StartX - sweepStartX) / PinchSampleStep);
+                int last = Mathf.RoundToInt((clusters[g].EndX - sweepStartX) / PinchSampleStep);
+                first = Mathf.Clamp(first, 0, enclosedPerColumn.Count - 1);
+                last = Mathf.Clamp(last, first, enclosedPerColumn.Count - 1);
+                for (int i = first; i <= last; i++)
+                {
+                    columns.Add(new LOP.MapTools.GateColumn(
+                        sweepStartX + i * PinchSampleStep, enclosedPerColumn[i]));
+                }
+                if (columns.Count < 2)
+                {
+                    continue;
+                }
+                //  관문 <b>뒤</b>의 열들. 관문 안에서 누른 날갯짓은 정점까지 아치를 확정하므로,
+                //  그 아치가 끝나는 데까지를 함께 봐야 "관문은 지나고 뒤에서 박는" 궤적을 통과로
+                //  세지 않는다. 거리는 커널에서 나온다 — 상수로 박으면 중력·임펄스를 바꾼 날
+                //  조용히 짧아진다. 코스 끝에서는 있는 데까지만 본다(리포트가 그 사실을 적는다).
+                var runout = new List<LOP.MapTools.GateColumn>();
+                int runoutLast = Mathf.Min(
+                    last + Mathf.CeilToInt(kernel.ArcDistance / PinchSampleStep),
+                    enclosedPerColumn.Count - 1);
+                for (int i = last + 1; i <= runoutLast; i++)
+                {
+                    runout.Add(new LOP.MapTools.GateColumn(
+                        sweepStartX + i * PinchSampleStep, enclosedPerColumn[i]));
+                }
+                var report = new LOP.MapTools.GateReport
+                {
+                    StartX = columns[0].X,
+                    EndX = columns[columns.Count - 1].X,
+                    StopCount = clusters[g].StopCount,
+                    Columns = columns,
+                    Runout = runout,
+                    Rotating = WindmillsOverlap(windmills, columns[0].X, columns[columns.Count - 1].X),
+                };
+                report.FaceIndex = LOP.MapTools.GateFunnelRule.FaceColumn(columns, shape.Height);
+                for (int i = 0; i < flights.Count; i++)
+                {
+                    report.Crossings.Add(LOP.MapTools.GateFunnelRule.Cross(
+                        flights[i].Name, report.StartX, report.EndX, columns, flights[i].Path,
+                        shape.Height));
+                }
+                report.Funnel = LOP.MapTools.GateFunnelRule.Funnel(
+                    columns, runout, kernel, GateFunnelYStep, GateFunnelSpeedStep);
+                reports.Add(report);
+            }
+            if (reports.Count == 0)
+            {
+                return null;
+            }
+            //  관문 앞 판단은 <b>맨 앞 관문 하나만</b> 본다 — 가장 많은 비행을 막는 자리이고,
+            //  관문마다 표를 달면 절이 리포트를 삼킨다.
+            approachSection = BuildApproachSection(reports[0], flights, kernel, shape);
+            return LOP.MapTools.GateFunnelRule.Section(reports, kernel, requiredBand, GateFunnelSpeedStep);
+        }
+
+        //  ── ① 진단 — 관문 앞 판단 ────────────────────────────────────────
+        //  새로 날리지 않는다 — 위 관문 절이 쓰는 그 궤적에 <b>이미 붙어 있던</b> 틱별 판단을
+        //  읽을 뿐이다(굴려 보기가 계산해 버리던 두 갈래 점수를 FlyBot이 받아 적어 둔다).
+        private static string BuildApproachSection(LOP.MapTools.GateReport gate, List<GateFlight> flights,
+                                                   in LOP.MapTools.FlightKernel kernel,
+                                                   in FlappyShape shape)
+        {
+            if (gate.Columns == null || gate.Columns.Count == 0)
+            {
+                return null;
+            }
+            float faceX = gate.FaceIndex >= 0 && gate.FaceIndex < gate.Columns.Count
+                ? gate.Columns[gate.FaceIndex].X
+                : gate.StartX;
+            //  굴려 보기가 "사실상 같은 거리"로 보는 폭과 <b>같은 값</b>이어야 한다 — 다른 값을
+            //  쓰면 봇이 동률로 본 것을 진단은 우열로 세어, 표가 봇의 판단과 어긋난다.
+            float sameReach = CounterfactualGain(shape);
+            var approaches = new List<LOP.MapTools.GateApproach>();
+            for (int i = 0; i < flights.Count && i < gate.Crossings.Count
+                            && approaches.Count < GateApproachFlights; i++)
+            {
+                LOP.MapTools.GateCrossing crossing = gate.Crossings[i];
+                if (crossing.Outcome != LOP.MapTools.GateOutcome.Stopped)
+                {
+                    continue;
+                }
+                var window = LOP.MapTools.GateApproachRule.Window(
+                    flights[i].Decisions, gate.StartX, LOP.MapTools.GateApproachRule.WindowTicks);
+                if (window.Count == 0)
+                {
+                    continue;
+                }
+                approaches.Add(new LOP.MapTools.GateApproach
+                {
+                    Name = flights[i].Name,
+                    EntryY = crossing.EntryY,
+                    EntryVerticalSpeed = crossing.EntryVerticalSpeed,
+                    //  관문 통과 절이 쓰는 것과 <b>같은 함수</b>로 묻는다 — 표를 다시 읽으면
+                    //  0.25m 격자로 반올림된 답이 나와 그 비행의 답이 아니게 된다.
+                    InFunnel = LOP.MapTools.GateFunnelRule.Rolls(
+                        crossing.EntryY, crossing.EntryVerticalSpeed, gate.Columns, gate.Runout, kernel),
+                    TicksAfterEntry = TicksAfterEntry(flights[i].Path, gate.StartX),
+                    Samples = window,
+                });
+            }
+            return approaches.Count == 0
+                ? null
+                : LOP.MapTools.GateApproachRule.Section(gate.StartX, gate.EndX, faceX, approaches,
+                                                        sameReach, GateApproachTableFlights);
+        }
+
+        //  관문에 들어선 뒤 멈출 때까지 몇 틱이었나. 궤적 마지막 칸이 멈춘 자리라 거기까지 센다.
+        private static int TicksAfterEntry(List<LOP.MapTools.FlightSample> path, float startX)
+        {
+            for (int i = 0; path != null && i < path.Count; i++)
+            {
+                if (path[i].X >= startX)
+                {
+                    return path.Count - 1 - i;
+                }
+            }
+            return 0;
+        }
+
+        //  이 x구간에 도는 지형이 걸쳐 있나. 정적 훑기는 풍차를 빼고 재므로, 걸쳐 있으면 그
+        //  관문의 창 그림은 <b>풍차가 없는 셈 친 값</b>이라고 리포트가 스스로 밝혀야 한다.
+        private static bool WindmillsOverlap(List<LOP.FlappyWindmill> windmills, float startX, float endX)
+        {
+            for (int i = 0; windmills != null && i < windmills.Count; i++)
+            {
+                if (windmills[i] == null)
+                {
+                    continue;
+                }
+                var colliders = windmills[i].GetComponentsInChildren<Collider>(includeInactive: true);
+                for (int c = 0; c < colliders.Length; c++)
+                {
+                    Bounds bounds = colliders[c].bounds;
+                    if (bounds.max.x >= startX && bounds.min.x <= endX)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         private static void RestoreWindmills(List<(Transform Transform, Quaternion Rotation)> poses)
@@ -1351,6 +1714,11 @@ namespace LOP.EditorTools
         {
             public BirdState State;
             public bool Flap;
+            //  그 틱에 봇이 <b>무엇을 보고</b> 그렇게 정했나. 되돌리기는 안 쓰지만 관문 앞
+            //  판단 진단(③)이 이걸로 표를 만든다 — 굴려 보기가 이미 계산한 값을 받아 적을 뿐이라
+            //  비행이 느려지지 않는다.
+            public LOP.MapTools.BotDecision Decision;
+            public LOP.MapTools.RolloutBranches Branches;
         }
 
         //  앞을 이만큼 내다본다(초 단위 — 거리가 아니라 시간으로 잡는 이유는 FlappyAutoFlapSystem의
@@ -1535,12 +1903,16 @@ namespace LOP.EditorTools
                 //  굴려 보기는 바로 이 world의 Decide/Advance를 쓰므로 실제 비행과 같은 물리다.
                 var decision = world.Decide(state);
                 var choice = LOP.MapTools.BotRollout.Choose(world, state, decision,
-                                                            RolloutHorizon, sameReach);
+                                                            RolloutHorizon, sameReach,
+                                                            out var branches);
                 //  되돌리기가 지정한 틱에서만 결정을 뒤집는다. 그 뒤부터는 원래 정책 그대로다 —
                 //  "다르게 눌렀으면"이지 "다른 봇이었으면"이 아니다. 뒤집는 대상은 <b>실제로
                 //  내린</b> 결정(굴려 보기의 결론)이다 — 기반 정책의 답이 아니다.
                 bool flap = tick == flipTick ? choice.Flap == false : choice.Flap;
-                trace?.Add(new FlightStep { State = state, Flap = flap });
+                trace?.Add(new FlightStep
+                {
+                    State = state, Flap = flap, Decision = decision, Branches = branches,
+                });
                 if (flap)
                 {
                     flaps++;
@@ -1780,7 +2152,7 @@ namespace LOP.EditorTools
         private static List<LOP.MapTools.HeightSweepRow> SweepStartHeights(
             List<(string Name, Vector3 Position)> spawns, float finishX, in FlappyShape shape,
             int mapMask, GameFramework.Physics.ICollisionQuery query, FreeSpaceGrid botGrid,
-            System.Diagnostics.Stopwatch counterfactualWatch,
+            System.Diagnostics.Stopwatch counterfactualWatch, List<GateFlight> gateFlights,
             out string cancelNote)
         {
             cancelNote = null;
@@ -1816,6 +2188,7 @@ namespace LOP.EditorTools
                 BotFlight flight = FlyBot(start, finishX, shape, mapMask, query,
                                           SearchMinY, SearchMaxY, botGrid.IsFree, botGrid.IsFreeExact,
                                           trace: trace);
+                RecordGateFlight(gateFlights, $"시작 y={y:F1}", trace, flight);
                 //  훑기 줄에도 되돌리기를 건다 — 스폰은 넷뿐이라 "겨냥이냐 지형이냐"의 진짜
                 //  표본은 이쪽이다. 다만 표에는 요약 한 숫자만 붙인다(AppendHeightSweep 참고).
                 var counterfactual = default(LOP.MapTools.Counterfactual);

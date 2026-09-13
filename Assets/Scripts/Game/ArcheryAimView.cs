@@ -81,7 +81,7 @@ namespace LOP
 
             //  화면 시각은 정수 틱이 아니라 renderTick이다 — 시뮬과 같은 식에 같은 시각을 넣는다.
             double renderTick = (runner.tickUpdater.elapsedTime - interval) / interval;
-            float held = (float)((renderTick - aim.DrawStartTick) * interval);
+            float held = ArcheryAimSystem.HeldSeconds(aim.DrawStartTick, renderTick, (float)interval);
 
             var offset = ArcheryShake.Offset(held, ArcheryShake.PhaseSeedOf(playerContext.entityId), config);
             //  조준 좌표계는 위가 양수, 유니티 x 회전은 아래가 양수다 — 위아래를 뒤집어 넘긴다.

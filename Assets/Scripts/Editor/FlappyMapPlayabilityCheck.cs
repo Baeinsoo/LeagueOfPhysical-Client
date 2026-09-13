@@ -240,6 +240,12 @@ namespace LOP.EditorTools
             float requiredBand = LOP.MapTools.ObstaclePlacementRule.RequiredBand(
                 shape.FlapImpulse, shape.Gravity, TickSeconds, shape.Height);
             List<string> trapCancelNotes = new List<string>();
+            //  이 두 덩이는 <b>재지 않고 있었다</b> — 다른 절은 전부 제 시간을 콘솔에 찍는데
+            //  여기만 빈칸이라, 검사가 느려졌을 때 "전체 몇 분" 말고는 볼 수가 없었다(실제로
+            //  한 번 엉뚱한 데를 의심하는 데 썼다). 리포트에는 안 넣는다 — 리포트를 돌릴 때마다
+            //  달라지는 문자열로 만들지 않는다는 이 파일의 규칙 그대로다.
+            var cleanRunWatch = new System.Diagnostics.Stopwatch();
+            var searchWatch = new System.Diagnostics.Stopwatch();
             try
             {
                 //  ① 자리마다 따로 — 넷 중 하나라도 되면 통과로 뭉치면 공정성 문제가 안 보인다.
@@ -248,6 +254,7 @@ namespace LOP.EditorTools
                 //  반복)인 전수 탐색을 아예 안 돌려도 된다. 실패한 자리에만 탐색을 돌려
                 //  "맵이 불가능"인지 "봇이 못 간 것"인지 가른다. 정상적인 맵에서는 탐색이
                 //  아예 안 돌아 검사가 몇 분에서 몇 초가 된다.
+                cleanRunWatch.Start();
                 for (int i = 0; i < spawns.Count; i++)
                 {
                     if (EditorUtility.DisplayCancelableProgressBar("Flappy 맵 검사 (1/3 클린런)",
@@ -327,6 +334,7 @@ namespace LOP.EditorTools
                         forwardSpeed: shape.ForwardSpeed, flapImpulse: shape.FlapImpulse,
                         gravity: shape.Gravity, maxFallSpeed: shape.MaxFallSpeed,
                         tickSeconds: TickSeconds, heightGrid: HeightGrid);
+                    searchWatch.Start();
                     var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFree);
                     var replay = default(LOP.MapTools.ReplayMismatch);
                     //  탐색이 그 경로의 틱마다 "새가 여기 있다"고 믿었던 높이. 탐색은 경로만
@@ -338,11 +346,19 @@ namespace LOP.EditorTools
                     bool verified = result.Reachable
                         && VerifyByReplay(spawns[i].Position, result.Flaps, shape, mapMask, query,
                                           searchHeights, out replay);
+                    searchWatch.Stop();
                     cleanRuns.Add(new LOP.MapTools.SpawnCleanRun(
                         spawns[i].Name, spawns[i].Position.y, result, verified,
                         botReached: false, botFlaps: flight.FlapCount, bot: botDiagnostics,
                         replay: replay));
                 }
+                cleanRunWatch.Stop();
+                //  둘로 갈라 찍는다 — 봇 비행과 전수 탐색은 비용의 성질이 아주 달라서다(비행은
+                //  틱마다 캡슐 검사, 탐색은 격자 위 너비우선). 뭉쳐 찍으면 어느 쪽이 커졌는지
+                //  못 본다. 되돌리기는 아래에서 따로 찍으므로 여기서는 비행 쪽에 섞여 있다.
+                Debug.Log($"[맵 검사] 클린런 {spawns.Count}자리 — {cleanRunWatch.ElapsedMilliseconds}ms"
+                        + $" (봇 비행+되돌리기 {cleanRunWatch.ElapsedMilliseconds - searchWatch.ElapsedMilliseconds}ms"
+                        + $" · 전수 탐색+재생 {searchWatch.ElapsedMilliseconds}ms)");
 
                 //  ① 진단 — 위상 훑기. 판정이 아니다(위 cleanRuns는 여전히 틱 0 한 위상만 본다).
                 //  스폰 넷만 훑는다 — 높이 훑기 18줄까지 훑으면 비용이 그대로 18배가 된다.
@@ -374,12 +390,15 @@ namespace LOP.EditorTools
                 }
 
                 //  ② 기존 낌 스캔 — 본문은 그대로다.
+                var trapWatch = System.Diagnostics.Stopwatch.StartNew();
                 trapSection = ScanTraps(shape, bounds, mapMask, query, out var trapScanCancelNotes);
                 trapCancelNotes = trapScanCancelNotes;
 
                 //  ②-b 배치 검사 — 산술이라 금방 끝난다(진행률이 필요 없다).
                 placements = MeasurePlacements(windmillInstances, mapMask, requiredBand,
                                                SearchMinY, SearchMaxY);
+                trapWatch.Stop();
+                Debug.Log($"[맵 검사] ② 낌 스캔+배치 — {trapWatch.ElapsedMilliseconds}ms");
 
                 //  ②-c 정적 좁힘 — 코스 전체를 세로로 훑으므로 여기는 진행률이 필요하다.
                 var pinchWatch = System.Diagnostics.Stopwatch.StartNew();

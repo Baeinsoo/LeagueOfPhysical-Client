@@ -483,7 +483,7 @@ namespace LOP.MapTools
         public static bool Rolls(float entryY, float entryVerticalSpeed,
                                  IReadOnlyList<GateColumn> columns, IReadOnlyList<GateColumn> runout,
                                  in FlightKernel kernel)
-            => TryRolls(entryY, entryVerticalSpeed, columns, runout, kernel, out _);
+            => TryRolls(entryY, entryVerticalSpeed, columns, runout, kernel, out _, out _);
 
         /// <summary><see cref="Rolls"/>와 같은 굴려 보기인데, 지나갔다면 <b>어떤 조작열로</b>
         /// 지나갔는지까지 돌려준다. 둘이 따로 굴리면 "통과한다"와 "그 조작열"이 서로 다른
@@ -492,8 +492,21 @@ namespace LOP.MapTools
         public static bool TryRolls(float entryY, float entryVerticalSpeed,
                                     IReadOnlyList<GateColumn> columns, IReadOnlyList<GateColumn> runout,
                                     in FlightKernel kernel, out List<bool> flaps)
+            => TryRolls(entryY, entryVerticalSpeed, columns, runout, kernel, out flaps, out _);
+
+        /// <summary><see cref="TryRolls(float,float,IReadOnlyList{GateColumn},IReadOnlyList{GateColumn},in FlightKernel,out List{bool})"/>와
+        /// 같은데, <b>거짓이 두 가지 뜻이라는 것</b>을 갈라 준다.
+        ///
+        /// <para><paramref name="gaveUp"/>가 참이면 "못 지난다"가 아니라 <b>못 쟀다</b>는 뜻이다 —
+        /// 굴려 보기가 상태 한도(<see cref="MaxFunnelStates"/>)에 걸려 도중에 그만뒀다. 창이
+        /// 넓어질수록 볼 상태가 기하급수로 늘어 이 한도에 먼저 닿는데, 그걸 "막혔다"로 읽으면
+        /// <b>천장을 올릴수록 더 안 된다</b>는 거짓말이 된다(처방 훑기에서 실제로 그렇게 나왔다).</para></summary>
+        public static bool TryRolls(float entryY, float entryVerticalSpeed,
+                                    IReadOnlyList<GateColumn> columns, IReadOnlyList<GateColumn> runout,
+                                    in FlightKernel kernel, out List<bool> flaps, out bool gaveUp)
         {
             flaps = new List<bool>();
+            gaveUp = false;
             if (columns == null || columns.Count < 2)
             {
                 return false;
@@ -553,6 +566,7 @@ namespace LOP.MapTools
                         }
                         if (++states > MaxFunnelStates)
                         {
+                            gaveUp = true;
                             return false;
                         }
                         parent.Add(s.Node);
@@ -827,6 +841,9 @@ namespace LOP.MapTools
             float passMin = float.MaxValue, passMax = float.MinValue;
             float failMin = float.MaxValue, failMax = float.MinValue;
             int failInFunnel = 0;
+            //  깔때기 <b>밖</b>이라 지형 탓인 진입 상태들 — 처방은 정확히 이것들을 안으로
+            //  들이는 데 얼마가 드나를 잰다(깔때기 안인 것은 이미 지형이 허락한 상태다).
+            var outside = new List<GateEntry>();
             for (int i = 0; i < gate.Crossings.Count; i++)
             {
                 GateCrossing c = gate.Crossings[i];
@@ -847,6 +864,10 @@ namespace LOP.MapTools
                     if (Rolls(c.EntryY, c.EntryVerticalSpeed, gate.Columns, gate.Runout, kernel))
                     {
                         failInFunnel++;
+                    }
+                    else
+                    {
+                        outside.Add(new GateEntry(c.EntryY, c.EntryVerticalSpeed));
                     }
                 }
             }
@@ -873,7 +894,97 @@ namespace LOP.MapTools
             if (failCount > 0)
             {
                 text.AppendLine($"      {Blame(failCount, failInFunnel)}");
+                AppendPrescription(text, gate, kernel, outside, failCount, failInFunnel);
             }
+        }
+
+        //  처방 훑기의 눈금과 끝. 눈금이 곧 답의 정밀도라 리포트가 그 값을 함께 적는다.
+        const float DividerStep = 0.2f;
+        const float CeilingStep = 0.25f;
+        const float CeilingCap = 8f;
+        const float SlopeStep = 0.02f;
+        //  이보다 완만한 천장은 "기운 천장"으로 안 본다 — 평평한 천장에서 기울기를 줄이라는
+        //  처방은 아무것도 안 바꾸는 줄이 된다.
+        const float SlopeFloor = 0.05f;
+
+        //  "막혔다"까지만 적고 끝내면 디자이너가 무엇을 얼마나 바꿔야 할지 모른다. 지형으로
+        //  판정된 진입 상태들을 <b>깔때기 안으로 들이는 데 드는 최소 Δ</b>를 편집 가지마다 잰다.
+        static void AppendPrescription(StringBuilder text, GateReport gate, in FlightKernel kernel,
+                                       List<GateEntry> outside, int failCount, int failInFunnel)
+        {
+            if (outside.Count == 0)
+            {
+                text.AppendLine("      → 지형은 충분하다 — 봇이 그 상태에서 못 고른다."
+                              + " (처방 없음: 맵이 아니라 봇 문제다.)");
+                return;
+            }
+            float pivotX = gate.Columns != null && gate.Columns.Count > 0 ? gate.Columns[0].X : 0f;
+            var faceWindows = gate.Columns != null && gate.FaceIndex >= 0
+                              && gate.FaceIndex < gate.Columns.Count
+                ? gate.Columns[gate.FaceIndex].Windows
+                : Array.Empty<GateWindow>();
+            //  기울기는 관문과 그 뒤를 <b>이어서</b> 잰다 — 범인이 관문 뒤 천장인 자리가 있어서다.
+            var span = new List<GateColumn>();
+            if (gate.Columns != null)
+            {
+                span.AddRange(gate.Columns);
+            }
+            if (gate.Runout != null)
+            {
+                span.AddRange(gate.Runout);
+            }
+            float thickness = GatePrescriptionRule.DividerThickness(faceWindows);
+            float descent = GatePrescriptionRule.CeilingDescent(span);
+
+            string which = failInFunnel == 0
+                ? $"지형으로 판정된 {failCount}개"
+                : $"깔때기 밖인 {outside.Count}개";
+            text.AppendLine($"      → 처방 ({which}를 깔때기 안으로 들이려면):");
+            if (thickness > 0f)
+            {
+                var scan = GatePrescriptionRule.WithBaseline(
+                    GatePrescriptionRule.Scan(outside, gate.Columns, gate.Runout, kernel,
+                                              GateEditKind.DividerThin, pivotX,
+                                              DividerStep, thickness),
+                    thickness);
+                text.AppendLine($"         · {GatePrescriptionRule.Line(scan)}");
+            }
+            var raise = GatePrescriptionRule.Scan(outside, gate.Columns, gate.Runout, kernel,
+                                                  GateEditKind.CeilingRaise, pivotX,
+                                                  CeilingStep, CeilingCap);
+            text.AppendLine($"         · {GatePrescriptionRule.Line(raise)}");
+            //  천장 처방이 어떤 Δ에서도 0이면 "이 자리는 가망 없다"로 읽히기 쉽다 — 실은 손잡이를
+            //  잘못 잡은 것이다. 그 구별을 리포트가 직접 적는다(실측으로 x 80.0~83.5가 그 경우였다).
+            if (raise.Best == 0)
+            {
+                text.AppendLine("           (천장 처방이 어떤 Δ에서도 0인 것은 <가망 없다>가 아니라 <손잡이가 아니다>는 뜻이다:");
+                text.AppendLine("            \"천장을 올린다\"는 열마다 <가장 높은 창>의 천장만 올리므로, 새가 칸막이 아래 칸에");
+                text.AppendLine("            갇혀 있으면 아무것도 안 바뀐다. 그 자리에서 듣는 손잡이는 칸막이 쪽이다.)");
+            }
+            if (descent >= SlopeFloor)
+            {
+                var slope = GatePrescriptionRule.WithBaseline(
+                    GatePrescriptionRule.Scan(outside, gate.Columns, gate.Runout, kernel,
+                                              GateEditKind.CeilingSlopeEase, pivotX,
+                                              SlopeStep, descent),
+                    descent);
+                text.AppendLine($"         · {GatePrescriptionRule.Line(slope)}");
+            }
+            else
+            {
+                text.AppendLine($"         · (천장 기울기 처방 없음 — 관문과 그 뒤를 이어 재니"
+                              + $" x 1m당 {descent:F2}m로 거의 평평하다)");
+            }
+            text.AppendLine("         ⚠️ 이 숫자는 <가상 변경>으로 잰 것이다 — 창 목록을 Δ만큼 옮겨"
+                          + " 굴려 봤을 뿐 씬은 안 고쳤다. 실제로 그 콜라이더를 옮기면 이어진 지형·");
+            text.AppendLine("            옆 관문·②-b 풍차 밴드가 따라 움직일 수 있으니, 고친 뒤 다시 재야 한다.");
+            text.AppendLine("         ⚠️ 기울기 처방에는 위 머리말의 낙관 0.11m가 그대로 걸린다 —"
+                          + " 기운 천장에서 창이 그만큼 넓게 잡히므로,");
+            text.AppendLine("            실제로는 여기 적힌 Δ보다 조금 더 필요할 수 있다.");
+            text.AppendLine("         ⚠️ 여기 숫자는 전부 <깔때기 판정>이다(이상적인 조종이면 지나나)."
+                          + " 진짜 커널로 조작열을 전수로 뒤져 본 것은");
+            text.AppendLine("            x≈82의 진입 상태 <하나>뿐이다 — 그 하나는 40틱 안에 x=87까지"
+                          + " 가는 무충돌 조작열이 없음이 확인됐다.");
         }
 
         //  이 범위가 올라가는 중인지 떨어지는 중인지. 0을 걸치면 둘이 섞인 것이라 그렇게 적는다.

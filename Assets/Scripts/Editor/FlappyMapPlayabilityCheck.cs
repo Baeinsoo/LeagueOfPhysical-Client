@@ -120,14 +120,27 @@ namespace LOP.EditorTools
                 body => Debug.LogError($"[맵 검사] {body}"));
         }
 
+        //  빠름 모드가 무엇을 안 돌렸는지 <b>리포트가 스스로 밝히는</b> 문구. 여기 한 군데서만
+        //  쓴다 — 머리말과 빈 절이 다른 말을 하면 읽는 사람이 무엇을 못 본 건지 모른다.
+        private const string PhaseSweepSkipNote =
+            "① 위상 훑기를 건너뛰었다(검사 시간의 대부분이라 정적 지형을 고치는 동안은 끈다).";
+
         [MenuItem("LOP/Debug/Flappy 맵 검사")]
-        public static void Check() => Run(humanWatching: true);
+        public static void Check() => Run(humanWatching: true, skipPhaseSweep: false);
+
+        /// <summary>정적 지형을 고쳐 가며 볼 때 쓰는 모드 — 위상 훑기(검사 시간의 대부분)를
+        /// 건너뛴다. 도는 장애물의 위상별 통과 여부는 <b>답하지 않는다</b>.</summary>
+        [MenuItem("LOP/Debug/Flappy 맵 검사 (빠름 — 위상 훑기 건너뜀)")]
+        public static void CheckFast() => Run(humanWatching: true, skipPhaseSweep: true);
 
         /// <summary>사람 없이 도는 백그라운드 잡(<c>unity cmd eval_file --detach</c>)에서 부른다 —
         /// 막혔을 때 대화상자로 멎지 않고 에러 로그를 남기고 끝난다.</summary>
-        public static void RunHeadless() => Run(humanWatching: false);
+        public static void RunHeadless() => Run(humanWatching: false, skipPhaseSweep: false);
 
-        public static void Run(bool humanWatching)
+        /// <summary><see cref="RunHeadless"/>의 빠름 모드 — 백그라운드 잡에서도 메뉴 없이 켤 수 있게.</summary>
+        public static void RunHeadlessFast() => Run(humanWatching: false, skipPhaseSweep: true);
+
+        public static void Run(bool humanWatching, bool skipPhaseSweep = false)
         {
             FlappyMapPlayabilityCheck.humanWatching = humanWatching;
             var totalWatch = System.Diagnostics.Stopwatch.StartNew();
@@ -362,7 +375,7 @@ namespace LOP.EditorTools
 
                 //  ① 진단 — 위상 훑기. 판정이 아니다(위 cleanRuns는 여전히 틱 0 한 위상만 본다).
                 //  스폰 넷만 훑는다 — 높이 훑기 18줄까지 훑으면 비용이 그대로 18배가 된다.
-                if (cleanRunCancelNote == null)
+                if (cleanRunCancelNote == null && skipPhaseSweep == false)
                 {
                     var phaseWatch = System.Diagnostics.Stopwatch.StartNew();
                     phaseSweep = SweepPhases(spawns, finishX, shape, mapMask, query, botGrid,
@@ -449,7 +462,8 @@ namespace LOP.EditorTools
                 UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
                 spawns[0].Position.x, finishX, config, cleanRuns, trapSection, budget, earliest,
                 HeightGrid, SearchMinY, SearchMaxY, heightSweep, phaseSweep, placements, requiredBand,
-                pinches, PinchSampleStep, gateSection, splits, separateSpaces, approachSection);
+                pinches, PinchSampleStep, gateSection, splits, separateSpaces, approachSection,
+                skipPhaseSweep ? PhaseSweepSkipNote : null);
 
             //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
             bool spawnXMismatch = false;
@@ -509,7 +523,9 @@ namespace LOP.EditorTools
                               + "이 검사는 틱 0을 스폰으로 잡은 한 위상만 본다 —");
                 note.AppendLine($"             \"가능한 한 판\"이지 \"실제 그 판\"이 아니다"
                               + $"(실제 판의 틱 0은 GameplayStartTick이라 각도가 다르다). {DescribePhaseSpace(windmillSpecs)}");
-                note.AppendLine("             나머지 위상은 아래 \"① 위상 훑기\" 절이 보여 준다 — 판정(✅/🟡/❌)은 여전히 틱 0 하나다.");
+                note.AppendLine(skipPhaseSweep
+                    ? "             ⛔ 나머지 위상은 이 리포트가 안 본다 — 빠름 모드라 \"① 위상 훑기\"를 안 돌렸다."
+                    : "             나머지 위상은 아래 \"① 위상 훑기\" 절이 보여 준다 — 판정(✅/🟡/❌)은 여전히 틱 0 하나다.");
                 note.AppendLine("ℹ️ 도는 장애물이 있으므로 이 리포트의 두 답은 정확도가 다르다.");
                 note.AppendLine("  · 봇 비행(①의 첫째 답 — ✅ '봇 통과')은 회전을 매 틱 반영한다: 겨냥에 쓰는 근거리 열도,");
                 note.AppendLine("    천장 아치 훑기도, 이동 커널도 전부 그 틱 각도로 세운 날개를 보고 잰다(게임과 같다).");

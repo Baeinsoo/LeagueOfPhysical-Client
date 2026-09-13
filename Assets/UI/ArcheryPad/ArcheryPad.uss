@@ -11,3 +11,15 @@
 
 .pad-left { left: 0; }
 .pad-right { right: 0; }
+
+/* 점수는 화면 위 가운데. 조작을 가리면 안 되므로 입력은 통과시킨다. */
+.archery-score {
+    position: absolute;
+    top: 24px;
+    left: 0;
+    right: 0;
+    -unity-text-align: middle-center;
+    font-size: 40px;
+    color: rgb(255, 236, 150);
+    -unity-font-style: bold;
+}

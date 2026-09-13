@@ -16,6 +16,10 @@ namespace LOP
 
         protected override void ConfigureGame(IContainerBuilder builder)
         {
+            builder.Register<ArcheryConfigProvider>(Lifetime.Singleton);
+            builder.Register<ArcheryConfig>(c => c.Resolve<ArcheryConfigProvider>().Get(), Lifetime.Singleton);
+            builder.Register<ArcheryConsumed>(Lifetime.Singleton);
+
             builder.RegisterComponent(cameraController);
 
             builder.Register<ArcheryAimSystem>(Lifetime.Singleton);
@@ -41,7 +45,10 @@ namespace LOP
 
             builder.RegisterEntryPoint<ArcheryAimView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryArrowView>().AsSelf();
+            builder.RegisterEntryPoint<ArcheryTargetView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryRemoteShotHandler>();
+            builder.RegisterEntryPoint<ArcheryHitHandler>();
+            builder.RegisterEntryPoint<ArcheryStateHandler>();
 
             builder.RegisterEntryPoint<ArcheryHudCoordinator>();
             builder.Register<ArcheryPadViewModel>(Lifetime.Transient);

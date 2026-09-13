@@ -9,6 +9,7 @@ namespace LOP.UI
     public class ArcheryPadView : UIView
     {
         private readonly ArcheryPadViewModel _viewModel;
+        private Label _score;
         private IVisualElementScheduledItem _tick;
 
         public ArcheryPadView(ArcheryPadViewModel viewModel)
@@ -24,6 +25,7 @@ namespace LOP.UI
 
             var left = Root.Q<VisualElement>("left");
             var right = Root.Q<VisualElement>("right");
+            _score = Root.Q<Label>("score");
 
             // 왼쪽 절반 — 끌면 시점이 돈다. 손가락을 대고 있는 동안만 받는다.
             left.RegisterCallback<PointerDownEvent>(evt => left.CapturePointer(evt.pointerId));
@@ -52,7 +54,12 @@ namespace LOP.UI
 
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.
             // 마우스가 하나뿐인 PC에서 왼쪽 드래그 대신 WASD로 겨눌 수 있게 한다.
-            _tick = Root.schedule.Execute(_ => _viewModel.PollKeyboard()).Every(0);
+            // 점수도 같은 스케줄러로 pull한다 — 서버 스냅샷이 채우는 값이라 R3 이벤트가 없다.
+            _tick = Root.schedule.Execute(_ =>
+            {
+                _viewModel.PollKeyboard();
+                _score.text = _viewModel.Score.ToString();
+            }).Every(0);
         }
 
         private bool _disposed;

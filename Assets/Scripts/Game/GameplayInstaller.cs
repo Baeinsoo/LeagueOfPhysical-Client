@@ -73,7 +73,7 @@ namespace LOP
             builder.Register<DebugHudViewModel>(Lifetime.Transient);
             builder.Register<DebugHudView>(Lifetime.Transient);
 
-            builder.Register<MatchSeed>(Lifetime.Singleton);
+            builder.Register<MatchSeed>(Lifetime.Singleton).AsSelf().As<IMatchSeed>();
             builder.Register<ReconciliationStats>(Lifetime.Singleton);
             builder.Register<MatchStartState>(Lifetime.Singleton);
             // 예측 대상마다 자기 것을 갖는다 — 튄 양이 엔티티마다 다르다. 내 것/남의 것이

@@ -20,6 +20,7 @@ namespace LOP
         
         /// <summary>결승선 등수(1부터). 0 = 아직 안 들어옴.</summary>
         public int finishPlacement { get; set; }
+        public int score { get; set; }
         public float postureAxis { get; set; }    // Skydive: 0 = 대자, 1 = 다이브
         public bool gliding { get; set; }         // Skydive: 패러세일을 폈나
         public float stamina { get; set; }        // Skydive: 남은 활공 자원

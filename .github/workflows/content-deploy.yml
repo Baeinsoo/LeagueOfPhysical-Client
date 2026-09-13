@@ -7,12 +7,20 @@ on:
         required: true
         default: gameserver
         type: choice
-        options: [gameserver, standalone, client-app, all]
+        # standalone-windows는 서버를 *유니티 에디터로* 띄워 로컬 테스트할 때 쓴다 — 그때 읽는
+        # 타깃이 StandaloneWindows64인데, gameserver(Linux)만 올리면 에디터 쪽 카탈로그가
+        # 영영 낡은 채로 남는다(2026-09-13에 실제로 그래서 활쏘기 맵을 못 찾았다).
+        options: [gameserver, standalone-windows, standalone, client-app, all]
       package_ref:
         description: "형제 패키지 레포(GameFramework/Shared/MasterData)를 어느 ref로 가져올지. 기본 main — 여러 레포에 걸친 브랜치를 배포할 때만 그 브랜치명을 준다."
         required: false
         default: main
         type: string
+      prune:
+        description: "S3에서 이번 빌드에 없는 옛 파일을 지울지(--delete). 기본 false = 어펜드. 옛 번들을 참조하는 설치본이 없다고 확신할 때만 true."
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: content-deploy
@@ -33,8 +41,9 @@ jobs:
         run: |
           set -e
           case "${{ inputs.target }}" in
-            gameserver)        T='["StandaloneLinux64"]' ;;
-            standalone|all)    T='["StandaloneLinux64","StandaloneOSX","StandaloneWindows64"]' ;;
+            gameserver)          T='["StandaloneLinux64"]' ;;
+            standalone-windows)  T='["StandaloneWindows64"]' ;;
+            standalone|all)      T='["StandaloneLinux64","StandaloneOSX","StandaloneWindows64"]' ;;
             client-app)        T='[]' ;;
             *) echo "::error::알 수 없는 target: ${{ inputs.target }}"; exit 1 ;;
           esac
@@ -206,7 +215,16 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ vars.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          PRUNE: ${{ inputs.prune }}
         run: |
           set -e
-          aws s3 sync ServerData/${{ matrix.target }} "s3://lop-assets/dev/${{ matrix.target }}"
-          echo "콘텐츠 갱신 완료: s3://lop-assets/dev/${{ matrix.target }}/"
+          #  기본은 어펜드다. 옛 번들을 지우면 그것을 참조하는 카탈로그를 든 설치본·실행 중인
+          #  서버가 에셋을 못 찾게 된다 — 그래서 지우는 쪽은 명시적으로 골라야만 한다.
+          if [ "$PRUNE" = "true" ]; then
+            echo "::warning::prune=true — 이번 빌드에 없는 파일을 S3에서 지운다"
+            DELETE_ARG="--delete"
+          else
+            DELETE_ARG=""
+          fi
+          aws s3 sync ServerData/${{ matrix.target }} "s3://lop-assets/dev/${{ matrix.target }}" $DELETE_ARG
+          echo "콘텐츠 갱신 완료: s3://lop-assets/dev/${{ matrix.target }}/ (prune=$PRUNE)"

@@ -39,6 +39,13 @@ namespace LOP
         public Camera MainCamera => mainCamera;
         public Transform Target { get; private set; }
 
+        /// <summary>
+        /// 회전에 덧붙이는 각도(도). x는 좌우, y는 위아래이며 <b>유니티 부호</b>다(양수가 아래).
+        /// 활쏘기의 손떨림이 이걸 쓴다 — 카메라 주인이 직접 더해야 <see cref="LateUpdate"/>가
+        /// 회전을 덮어쓰는 것과 실행 순서로 다투지 않는다. 기본 0이라 안 쓰는 모드는 영향이 없다.
+        /// </summary>
+        public Vector2 AimSwayDegrees { get; set; }
+
         private float yaw;
         private float pitch;
         private float distance;
@@ -95,7 +102,7 @@ namespace LOP
             zoomVelocity = SmoothDamp(zoomVelocity, 0, zoomDamping, deltaTime);
 
             // Apply transform
-            Quaternion rotation = Quaternion.Euler(pitch, yaw, 0);
+            Quaternion rotation = Quaternion.Euler(pitch + AimSwayDegrees.y, yaw + AimSwayDegrees.x, 0);
             Vector3 position = Pivot(Target) - (rotation * Vector3.forward * distance);
 
             mainCamera.transform.position = position;

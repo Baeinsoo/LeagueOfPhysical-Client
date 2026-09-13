@@ -20,16 +20,19 @@ namespace LOP
         private readonly CameraController cameraController;
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly ArcheryConfig config;
 
         public ArcheryAimView(GameFramework.Runner.IRunner runner, PlayerInputManager input,
                               CameraController cameraController, IPlayerContext playerContext,
-                              GameFramework.World.EntityRegistry entityRegistry)
+                              GameFramework.World.EntityRegistry entityRegistry,
+                              ArcheryConfig config)
         {
             this.runner = runner;
             this.input = input;
             this.cameraController = cameraController;
             this.playerContext = playerContext;
             this.entityRegistry = entityRegistry;
+            this.config = config;
         }
 
         public void LateTick()
@@ -40,6 +43,10 @@ namespace LOP
                 return;
             }
 
+            //  흔들림을 먼저 정한다. 카메라가 이 값을 얹어 돌고, 아래에서 읽는 방향이 그 결과라
+            //  보이는 곳과 화살이 가는 곳이 저절로 같아진다.
+            cameraController.AimSwayDegrees = SwayDegrees();
+
             // 유니티의 x 회전은 양수가 아래를 본다. 조준 각도는 양수가 위이므로 부호를 뒤집는다.
             float yaw = camera.transform.eulerAngles.y;
             float pitch = -Mathf.DeltaAngle(0f, camera.transform.eulerAngles.x);
@@ -49,6 +56,36 @@ namespace LOP
                 camera.fieldOfView,
                 Mathf.Lerp(WideFov, DrawnFov, MyDrawRatio()),
                 Time.deltaTime * FovLerpPerSecond);
+        }
+
+        private Vector2 SwayDegrees()
+        {
+            if (playerContext.entityId == null)
+            {
+                return Vector2.zero;
+            }
+            var aim = entityRegistry.Get(playerContext.entityId)?.Get<ArcheryAim>();
+            if (aim == null || aim.Drawing == false)
+            {
+                return Vector2.zero;   // 안 당기고 있으면 안 흔들린다
+            }
+            if (runner?.tickUpdater == null)
+            {
+                return Vector2.zero;
+            }
+            double interval = runner.tickUpdater.interval;
+            if (interval <= 0d)
+            {
+                return Vector2.zero;
+            }
+
+            //  화면 시각은 정수 틱이 아니라 renderTick이다 — 시뮬과 같은 식에 같은 시각을 넣는다.
+            double renderTick = (runner.tickUpdater.elapsedTime - interval) / interval;
+            float held = (float)((renderTick - aim.DrawStartTick) * interval);
+
+            var offset = ArcheryShake.Offset(held, ArcheryShake.PhaseSeedOf(playerContext.entityId), config);
+            //  조준 좌표계는 위가 양수, 유니티 x 회전은 아래가 양수다 — 위아래를 뒤집어 넘긴다.
+            return new Vector2(offset.x, -offset.y);
         }
 
         private float MyDrawRatio()

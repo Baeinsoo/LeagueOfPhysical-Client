@@ -155,7 +155,13 @@ namespace LOP
                 var archeryScore = targetEntity?.Get<ArcheryScore>();
                 if (archeryScore != null)
                 {
-                    archeryScore.Value = entitySnap.score;
+                    //  스냅샷은 **합계만** 준다 — 클라는 획득/벌점 내역을 모른다. Value가
+                    //  Gained-Lost 파생값이라 합계를 Gained에 넣고 Lost를 0으로 둬서 Value를 맞춘다.
+                    //  ⚠️ 그래서 클라의 Gained는 "획득 합"이 아니라 그냥 합계다. 내역이 필요하면
+                    //  결과 메시지의 stats 자루를 보라(MatchResultViewModel.ExtractScore).
+                    //  벌점이 생겨도 이 식은 그대로 맞는다 — 서버가 이미 뺀 값을 보내기 때문이다.
+                    archeryScore.Gained = entitySnap.score;
+                    archeryScore.Lost = 0;
                 }
 
                 // 모드는 엔티티가 생길 때 한 번 정해졌다(EntityBinder) — 그때 붙인 팔로워 컴포넌트가 곧

@@ -76,6 +76,16 @@ namespace LOP.UI
 
                 line.Add(placement);
                 line.Add(name);
+
+                //  점수 없는 모드는 이 자리가 아예 안 보여야 한다 — 빈칸도 "0점"도 아니라 없는 것이다.
+                if (row.HasScore)
+                {
+                    var score = new Label(MatchResultViewModel.FormatScore(row.Score, row.Gained, row.Lost));
+                    score.AddToClassList("card-text");
+                    score.AddToClassList("matchresult-row-score");
+                    line.Add(score);
+                }
+
                 container.Add(line);
             }
         }

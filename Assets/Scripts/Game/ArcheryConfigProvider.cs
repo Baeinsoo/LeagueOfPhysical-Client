@@ -35,8 +35,7 @@ namespace LOP
             //  같은 이름과 겹쳐서, 이름을 적는 순간 늘 풀네임으로 구분해야 한다.
             foreach (var row in System.Linq.Enumerable.OrderBy(md.Tables.TbArcheryTarget.DataList, x => x.Id))
             {
-                //  아직 마스터데이터에 함정 칸이 없다 — Task 2에서 실제 컬럼으로 바꾼다.
-                kinds.Add(new ArcheryTargetKind(row.Radius, row.Points, row.Weight, false));
+                kinds.Add(new ArcheryTargetKind(row.Radius, row.Points, row.Weight, row.IsTrap));
             }
             if (kinds.Count == 0)
             {
@@ -47,9 +46,8 @@ namespace LOP
             return new ArcheryConfig(
                 r.WavePeriodTicks, r.MinTargets, r.MaxTargets,
                 r.SpawnRadius, r.SpawnMinY, r.SpawnMaxY, r.MinSeparation,
-                //  아직 데이터에 칸이 없다 — Task 4에서 마스터데이터를 구운 뒤 실제 컬럼으로 바꾼다.
-                trapRatioMin: 0f, trapRatioMax: 0f,
-                shakeFreeSeconds: 1f, shakeRampSeconds: 2f, shakeMaxDegrees: 3f,
+                r.TrapRatioMin, r.TrapRatioMax,
+                r.ShakeFreeSeconds, r.ShakeRampSeconds, r.ShakeMaxDegrees,
                 kinds);
         }
     }

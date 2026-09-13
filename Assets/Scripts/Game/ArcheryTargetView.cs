@@ -8,6 +8,8 @@ namespace LOP
     /// 지금 떠 있는 과녁을 그린다. <b>통신으로 받는 것이 아니라</b> 서버와 같은 커널에 같은 씨앗을
     /// 넣어 각자 계산한다 — 그래서 핑과 무관하게 모두가 같은 순간에 같은 과녁을 본다.
     /// 과녁은 엔티티가 아니라서 뷰가 직접 생성 커널을 부른다(<see cref="ArcheryArrowView"/>와 같은 짝).
+    /// <para><b>함정은 색으로만 갈린다</b> — 크기가 성한 과녁과 겹치게 데이터를 넣었기 때문에,
+    /// 색을 못 보면 구분할 방법이 없다.</para>
     /// </summary>
     public class ArcheryTargetView : ILateTickable, System.IDisposable
     {
@@ -24,6 +26,7 @@ namespace LOP
         private readonly HashSet<(int, int)> alive = new HashSet<(int, int)>();
 
         private Material _targetMaterial;
+        private Material _trapMaterial;
 
         public ArcheryTargetView(GameFramework.Runner.IRunner runner,
                                  GameFramework.World.IWorld world,
@@ -74,13 +77,14 @@ namespace LOP
                 if (drawn.TryGetValue(key, out var sphere) == false || sphere == null)
                 {
                     sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    var renderer = sphere.GetComponent<Renderer>();
-                    if (renderer != null)
-                    {
-                        renderer.sharedMaterial = TargetMaterial();
-                    }
                     Object.Destroy(sphere.GetComponent<Collider>());   // 그림일 뿐이다 — 판정은 서버가 한다
                     drawn[key] = sphere;
+                }
+
+                var renderer = sphere.GetComponent<Renderer>();
+                if (renderer != null)
+                {
+                    renderer.sharedMaterial = targets[i].IsTrap ? TrapMaterial() : TargetMaterial();
                 }
 
                 sphere.transform.position = targets[i].Center;
@@ -115,6 +119,18 @@ namespace LOP
             return _targetMaterial;
         }
 
+        //  함정은 성한 과녁과 크기가 겹치게 뒀다 — 색이 유일한 단서다. 노랑(성한 것)과
+        //  가장 멀고, 붉은 화살과도 갈리는 쪽으로 고른다.
+        private Material TrapMaterial()
+        {
+            if (_trapMaterial == null)
+            {
+                var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+                _trapMaterial = new Material(shader) { color = new Color(0.15f, 0.2f, 0.9f) };
+            }
+            return _trapMaterial;
+        }
+
         public void Dispose()
         {
             foreach (var pair in drawn)
@@ -127,6 +143,12 @@ namespace LOP
             {
                 Object.Destroy(_targetMaterial);
                 _targetMaterial = null;
+            }
+
+            if (_trapMaterial != null)
+            {
+                Object.Destroy(_trapMaterial);
+                _trapMaterial = null;
             }
         }
     }

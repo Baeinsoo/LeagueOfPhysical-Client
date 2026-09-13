@@ -43,15 +43,13 @@ namespace LOP
                 return;
             }
 
-            //  여기서 정한 흔들림을 카메라가 실제로 돌리는 건 다음 프레임이다 — CameraController는
-            //  [DefaultExecutionOrder(3000)]의 LateUpdate이고 이 ILateTickable은 다른 player-loop
-            //  단계에서 도는 VContainer 훅이라, 이번 프레임에 쓴 값을 카메라가 아직 못 읽는다.
-            //  그래도 어긋나지 않는 이유는 아래 input.SetAim이 "지금 계산한 값"이 아니라
-            //  "카메라가 실제로 화면에 그려낸 회전"(camera.transform.eulerAngles)을 읽기 때문이다 —
-            //  흔들림이 한 프레임 늦게 반영되어도, 화면에 보이는 방향과 화살이 날아갈 방향은
-            //  항상 같은 값에서 나온다.
+            //  이 훅은 CameraController의 LateUpdate보다 먼저 돈다 — 여기서 정한 흔들림은
+            //  이번 프레임 안에 카메라 회전으로 반영된다.
             cameraController.AimSwayDegrees = SwayDegrees();
 
+            //  반대로 아래에서 읽는 회전은 카메라가 아직 이번 프레임 것을 쓰기 전이라 직전 프레임,
+            //  곧 지금 화면에 보이는 바로 그 방향이다. 보이는 것과 화살 가는 곳이 늘 맞는 이유가
+            //  이것이다 — 우리가 계산한 값이 아니라 플레이어가 실제로 보고 쏜 방향을 보낸다.
             // 유니티의 x 회전은 양수가 아래를 본다. 조준 각도는 양수가 위이므로 부호를 뒤집는다.
             float yaw = camera.transform.eulerAngles.y;
             float pitch = -Mathf.DeltaAngle(0f, camera.transform.eulerAngles.x);

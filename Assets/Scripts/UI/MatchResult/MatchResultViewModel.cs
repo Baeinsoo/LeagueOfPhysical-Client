@@ -13,12 +13,29 @@ namespace LOP.UI
         //  그리는 쪽이 공용 표기 함수를 거쳐 정한다.
         public readonly bool IsDraw;
 
+        //  이 판이 점수 개념을 쓰는 모드였나. 플랩왕·스카이다이브·판치기처럼 점수가 없는 모드는
+        //  자루가 비어서 오므로 false다 — "점수 없음"과 "0점"은 다른 사실이라 갈라 둔다.
+        public readonly bool HasScore;
+        public readonly int Score;
+        public readonly int Gained;
+        public readonly int Lost;
+
         public MatchResultRow(int placement, string displayName, bool isMe, bool isDraw = false)
+            : this(placement, displayName, isMe, isDraw, hasScore: false, score: 0, gained: 0, lost: 0)
+        {
+        }
+
+        public MatchResultRow(int placement, string displayName, bool isMe, bool isDraw,
+            bool hasScore, int score, int gained, int lost)
         {
             Placement = placement;
             DisplayName = displayName;
             IsMe = isMe;
             IsDraw = isDraw;
+            HasScore = hasScore;
+            Score = score;
+            Gained = gained;
+            Lost = lost;
         }
     }
 
@@ -86,11 +103,29 @@ namespace LOP.UI
             {
                 bool isMe = participant.userId == myUserId;
                 string displayName = isMe ? MyName : $"플레이어 {++otherNumber}";
+                var (hasScore, score, gained, lost) = ExtractScore(participant.stats);
 
-                rows.Add(new MatchResultRow(participant.placement, displayName, isMe, isDraw));
+                rows.Add(new MatchResultRow(participant.placement, displayName, isMe, isDraw,
+                    hasScore, score, gained, lost));
             }
 
             return rows;
+        }
+
+        /// <summary>
+        /// 자루에서 점수 3종을 뽑는다. 자루가 비었거나(점수 없는 모드) 점수 키가 없으면 점수 없음으로
+        /// 판정한다 — 결과 화면·프로필 전적이 같은 판정을 쓰게 여기 한 곳에 둔다.
+        /// </summary>
+        public static (bool hasScore, int score, int gained, int lost) ExtractScore(IReadOnlyDictionary<string, int> stats)
+        {
+            if (stats == null || !stats.TryGetValue(ArcheryStatKeys.Score, out int score))
+            {
+                return (false, 0, 0, 0);
+            }
+
+            stats.TryGetValue(ArcheryStatKeys.Gained, out int gained);
+            stats.TryGetValue(ArcheryStatKeys.Lost, out int lost);
+            return (true, score, gained, lost);
         }
 
         /// <summary>
@@ -120,6 +155,17 @@ namespace LOP.UI
             if (delta > 0) return $"+{delta}";
             if (delta < 0) return delta.ToString();
             return "±0";
+        }
+
+        /// <summary>
+        /// 점수 자리 표기. 벌점이 0이면 획득 내역을 굳이 안 보여준다 — 그때는 획득이 곧 점수와
+        /// 같은 값이라 괄호 안이 점수를 그대로 되풀이할 뿐이다.
+        /// </summary>
+        public static string FormatScore(int score, int gained, int lost)
+        {
+            return lost > 0
+                ? $"{score}점 (획득 {gained} · 벌점 {lost})"
+                : $"{score}점";
         }
     }
 }

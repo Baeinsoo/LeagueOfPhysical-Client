@@ -155,7 +155,10 @@ namespace LOP
                 var archeryScore = targetEntity?.Get<ArcheryScore>();
                 if (archeryScore != null)
                 {
-                    archeryScore.Value = entitySnap.score;
+                    //  Value는 이제 Gained-Lost 파생값이라 직접 못 넣는다. 슬라이스 2엔 벌점이
+                    //  없어(Lost는 늘 0) snap의 점수를 그대로 Gained에 넣으면 Value가 예전과 같다.
+                    archeryScore.Gained = entitySnap.score;
+                    archeryScore.Lost = 0;
                 }
 
                 // 모드는 엔티티가 생길 때 한 번 정해졌다(EntityBinder) — 그때 붙인 팔로워 컴포넌트가 곧

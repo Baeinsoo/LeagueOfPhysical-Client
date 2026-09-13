@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace LOP
 {
@@ -34,5 +35,8 @@ namespace LOP
         public int placement;
         public int mmrBefore;
         public int mmrAfter;
+
+        //  모드별 결과 지표. 이 필드가 생기기 전 확정된 옛 판은 서버가 빈 사전으로 채워 보낸다.
+        public Dictionary<string, int> stats;
     }
 }

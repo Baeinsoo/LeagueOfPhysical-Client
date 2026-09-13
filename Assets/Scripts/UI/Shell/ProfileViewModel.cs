@@ -299,8 +299,11 @@ namespace LOP.UI
             foreach (var participant in sorted)
             {
                 bool isMe = participant.userId == myUserId;
+                var (hasScore, score, gained, lost) = MatchResultViewModel.ExtractScore(participant.stats);
+
                 rows.Add(new MatchResultRow(participant.placement,
-                    isMe ? "나" : ShortName(participant.displayName), isMe, isDraw));
+                    isMe ? "나" : ShortName(participant.displayName), isMe, isDraw,
+                    hasScore, score, gained, lost));
             }
 
             return rows;

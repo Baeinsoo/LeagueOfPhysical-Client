@@ -40,6 +40,10 @@
     -unity-font-style: bold;
 }
 
+.matchresult-row-score {
+    opacity: 0.85;
+}
+
 .matchresult-rating {
     flex-direction: row;
     justify-content: space-between;

@@ -1166,13 +1166,16 @@ feat(archery): 서버 판정이 움직이는 과녁을 상대한다
                 {
                     continue;
                 }
-                if (ArcheryTargetMotion.IsAlive(targets[i], tick, tickInterval) == false)
+                //  서버 판정과 **같은 시각**을 쓴다 — 다르면 화면에선 꽂혔는데 점수는 안 나거나
+                //  그 반대다. 있는 자리와 살아 있는지를 둘 다 이 한 시각으로 묻는 것까지 같아야 한다.
+                double at = tick - 0.5;
+
+                if (ArcheryTargetMotion.IsAlive(targets[i], at, tickInterval) == false)
                 {
                     continue;
                 }
 
-                //  서버 판정과 같은 시각을 쓴다 — 다르면 화면에선 꽂혔는데 점수는 안 나거나 그 반대다.
-                Vector3 targetAt = ArcheryTargetMotion.PositionAt(targets[i], tick - 0.5, tickInterval);
+                Vector3 targetAt = ArcheryTargetMotion.PositionAt(targets[i], at, tickInterval);
 
                 if (ArcheryHitTest.SegmentHitsSphere(from, to, targetAt, targets[i].Radius, out float t))
                 {

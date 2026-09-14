@@ -797,6 +797,27 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 직전_틱_차이가_0이면_외삽_대신_원인을_짚어_준다()
+        {
+            //  탐색이 정확한 높이를 들고 다니게 된 뒤로 이 차이는 0이 된다. 그때 옛 외삽 문장을
+            //  그대로 찍으면 "0.000m/틱 … 같은 비율로 끝까지 가면 약 0.0m … 단조 증가한다"가 되어,
+            //  <b>아직 편향이 쌓이는 중</b>으로 읽힌다 — 실제로는 그 원인이 사라진 것이고 남은
+            //  원인은 충돌을 보는 방식이다. 엉뚱한 곳을 고치게 만드는 문장이라 갈라 찍는다.
+            string report = Build(Unproven(
+                Hit("지붕슬래브/Cube_77", 12.4f),
+                new ReplayMismatch(detected: true, tick: 304, x: 64.8f, y: -5.9f,
+                                   verticalSpeed: -12f, colliderPath: "ComposedMap/Cube",
+                                   searchY: -5.9f, hasSearchY: true,
+                                   prevDiff: 0f, hasPrevDiff: true)));
+
+            Assert.IsTrue(Contains(report, "정확히 같다(차이 0)"));
+            Assert.IsTrue(Contains(report, "충돌을 보는 방식"));
+            //  뜻 없는 외삽은 사라져야 한다.
+            Assert.IsFalse(Contains(report, "단조 증가"));
+            Assert.IsFalse(Contains(report, "m/틱"));
+        }
+
+        [Test]
         public void 직전_틱_차이를_모르면_그_줄을_안_찍는다()
         {
             //  1틱째에 부딪혔으면 직전 틱이 출발점이라 차이가 늘 0이다 — 0을 찍으면

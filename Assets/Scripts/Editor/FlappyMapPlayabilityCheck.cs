@@ -354,10 +354,11 @@ namespace LOP.EditorTools
                     var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFree);
                     var replay = default(LOP.MapTools.ReplayMismatch);
                     //  탐색이 그 경로의 틱마다 "새가 여기 있다"고 믿었던 높이. 탐색은 경로만
-                    //  돌려주고 높이는 안 들고 있으므로, 같은 격자 모델로 날갯짓 순서를 다시
-                    //  굴려 얻는다(CleanRunSearch.GridPathHeights — 탐색 본체는 안 고쳤다).
+                    //  돌려주고 높이는 안 들고 있으므로, 같은 산술로 날갯짓 순서를 다시 굴려
+                    //  얻는다(CleanRunSearch.PathHeights). 탐색이 높이를 눈금에 반올림하지
+                    //  않으므로 이 값은 아래 재생과 같아야 한다 — 갈리면 그 차이가 곧 결함이다.
                     float[] searchHeights = result.Reachable
-                        ? LOP.MapTools.CleanRunSearch.GridPathHeights(options, result.Flaps)
+                        ? LOP.MapTools.CleanRunSearch.PathHeights(options, result.Flaps)
                         : System.Array.Empty<float>();
                     bool verified = result.Reachable
                         && VerifyByReplay(spawns[i].Position, result.Flaps, shape, mapMask, query,
@@ -1591,7 +1592,8 @@ namespace LOP.EditorTools
         }
 
         //  탐색이 준 날갯짓 순서를 게임의 진짜 커널로 그대로 굴린다. 한 번이라도 닿으면 증명 실패다.
-        //  탐색은 높이를 눈금으로 뭉개므로, 이 재생만이 "정말 무충돌인가"의 증거다.
+        //  탐색은 높이를 정확히 이어 가지만 자유공간을 격자에 스냅해 재므로(그리고 이 커널은
+        //  sweep에 SkinWidth 여유를 둔다), 이 재생만이 "정말 무충돌인가"의 증거다.
         //  searchHeights[t] = 탐색이 t번째 틱을 밟은 뒤 새가 있다고 믿은 높이([0]은 출발).
         //  빈 배열이면 그 줄을 안 찍는다 — 모르는 것을 0.0으로 지어내지 않는다.
         private static bool VerifyByReplay(Vector3 start, IReadOnlyList<bool> flaps,
@@ -2348,15 +2350,12 @@ namespace LOP.EditorTools
             }
             else
             {
-                float vy = state.VerticalSpeed - shape.Gravity * TickSeconds;
-                if (vy < -shape.MaxFallSpeed)
-                {
-                    vy = -shape.MaxFallSpeed;
-                }
-                if (flap)
-                {
-                    vy = shape.FlapImpulse;   // 플랩은 그때까지의 세로 속도를 덮어쓴다
-                }
+                //  전수 탐색(CleanRunSearch)이 쓰는 것과 <b>같은 코드</b>다 — 중력을 빼고,
+                //  종단속도로 자르고, 날갯짓이면 그때까지의 세로 속도를 덮어쓴다. 같은 규칙을
+                //  양쪽에 따로 적어 두면 한쪽만 고쳐졌을 때 탐색이 찾은 경로가 여기서 깨진다.
+                float vy = LOP.MapTools.FlappyTickMath.NextVerticalSpeed(
+                    state.VerticalSpeed, flap, shape.FlapImpulse, shape.Gravity,
+                    shape.MaxFallSpeed, TickSeconds);
                 velocity = new Vector3(shape.ForwardSpeed, vy, 0f);
             }
 

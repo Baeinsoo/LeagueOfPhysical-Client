@@ -20,18 +20,15 @@ namespace LOP
         private const int SampleCount = 24;
         private const float LineWidth = 0.05f;
 
-        private readonly GameFramework.Runner.IRunner runner;
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
 
         private LineRenderer _line;
         private Material _lineMaterial;
 
-        public ArcheryAimGuideView(GameFramework.Runner.IRunner runner,
-                                   IPlayerContext playerContext,
+        public ArcheryAimGuideView(IPlayerContext playerContext,
                                    GameFramework.World.EntityRegistry entityRegistry)
         {
-            this.runner = runner;
             this.playerContext = playerContext;
             this.entityRegistry = entityRegistry;
         }
@@ -39,14 +36,8 @@ namespace LOP
         public void LateTick()
         {
             var aim = MyAim();
-            if (aim == null || aim.Drawing == false)
-            {
-                Hide();
-                return;
-            }
-
-            double interval = runner?.tickUpdater?.interval ?? 0d;
-            if (interval <= 0d)
+            //  임계치를 못 넘었으면 아직 시위가 안 걸린 것이다 — 쏘지도 않을 길을 그리지 않는다.
+            if (aim == null || aim.Drawing == false || aim.DrawRatio < ArcheryAimSystem.DrawThreshold)
             {
                 Hide();
                 return;
@@ -59,11 +50,9 @@ namespace LOP
                 return;
             }
 
-            //  화면 시각은 정수 틱이 아니라 renderTick이다 — 시뮬과 같은 식에 같은 시각을 넣는다.
-            double renderTick = (runner.tickUpdater.elapsedTime - interval) / interval;
-            float held = ArcheryAimSystem.HeldSeconds(aim.DrawStartTick, renderTick, (float)interval);
-            float speed = ArcheryAimSystem.SpeedFor(
-                Mathf.Clamp01(held / ArcheryAimSystem.FullDrawSeconds));
+            //  속도는 시뮬이 쏠 때 쓰는 것과 같은 값에서 나와야 한다 — 선이 거짓말을 하면
+            //  조준선이 있으나 마나다. 당김은 손가락이 끈 거리가 정하므로 그 값을 그대로 읽는다.
+            float speed = ArcheryAimSystem.SpeedFor(aim.DrawRatio);
 
             //  발사할 때와 같은 원점·속도로 만든다. 여기가 어긋나면 선이 거짓말을 한다.
             var shot = new ArcheryShot(

@@ -1,3 +1,4 @@
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace LOP.UI
@@ -44,7 +45,15 @@ namespace LOP.UI
             right.RegisterCallback<PointerDownEvent>(evt =>
             {
                 right.CapturePointer(evt.pointerId);
-                _viewModel.BeginDraw();
+                _viewModel.BeginDraw(evt.position);
+            });
+            //  댄 자리에서 끈 거리가 곧 당김이다 — 시간이 아니라 손가락이 정한다.
+            right.RegisterCallback<PointerMoveEvent>(evt =>
+            {
+                if (right.HasPointerCapture(evt.pointerId))
+                {
+                    _viewModel.DragDraw(evt.position);
+                }
             });
             right.RegisterCallback<PointerUpEvent>(evt =>
             {
@@ -61,8 +70,17 @@ namespace LOP.UI
             {
                 _viewModel.PollKeyboard();
                 _score.text = _viewModel.Score.ToString();
-                //  조준점은 당기는 동안만. 안 당길 때 띄워 두면 판 전체를 보는 시야를 가린다.
-                _reticle.style.display = _viewModel.Drawing ? DisplayStyle.Flex : DisplayStyle.None;
+                //  조준점은 손가락을 댄 동안만. 안 댔을 때 띄워 두면 판 전체를 보는 시야를 가린다.
+                //  임계치를 넘기 전에는 흐리게 — "아직 안 걸렸다"가 손에 읽혀야 취소를 고를 수 있다.
+                bool showing = _viewModel.Drawing;
+                _reticle.style.display = showing ? DisplayStyle.Flex : DisplayStyle.None;
+                if (showing)
+                {
+                    _reticle.style.opacity = _viewModel.DrawArmed ? 1f : 0.35f;
+                    //  당길수록 조준점이 조여든다 — 얼마나 당겼는지가 한눈에 보인다.
+                    float scale = Mathf.Lerp(1.6f, 1f, _viewModel.DrawRatio);
+                    _reticle.style.scale = new StyleScale(new Scale(new Vector2(scale, scale)));
+                }
             }).Every(0);
         }
 

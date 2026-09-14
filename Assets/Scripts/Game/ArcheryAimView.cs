@@ -15,24 +15,19 @@ namespace LOP
         private const float DrawnFov = 32f;
         private const float FovLerpPerSecond = 8f;
 
-        private readonly GameFramework.Runner.IRunner runner;
         private readonly PlayerInputManager input;
         private readonly CameraController cameraController;
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
-        private readonly ArcheryConfig config;
 
-        public ArcheryAimView(GameFramework.Runner.IRunner runner, PlayerInputManager input,
+        public ArcheryAimView(PlayerInputManager input,
                               CameraController cameraController, IPlayerContext playerContext,
-                              GameFramework.World.EntityRegistry entityRegistry,
-                              ArcheryConfig config)
+                              GameFramework.World.EntityRegistry entityRegistry)
         {
-            this.runner = runner;
             this.input = input;
             this.cameraController = cameraController;
             this.playerContext = playerContext;
             this.entityRegistry = entityRegistry;
-            this.config = config;
         }
 
         public void LateTick()
@@ -43,11 +38,7 @@ namespace LOP
                 return;
             }
 
-            //  이 훅은 CameraController의 LateUpdate보다 먼저 돈다 — 여기서 정한 흔들림은
-            //  이번 프레임 안에 카메라 회전으로 반영된다.
-            cameraController.AimSwayDegrees = SwayDegrees();
-
-            //  반대로 아래에서 읽는 회전은 카메라가 아직 이번 프레임 것을 쓰기 전이라 직전 프레임,
+            //  여기서 읽는 회전은 카메라가 아직 이번 프레임 것을 쓰기 전이라 직전 프레임,
             //  곧 지금 화면에 보이는 바로 그 방향이다. 보이는 것과 화살 가는 곳이 늘 맞는 이유가
             //  이것이다 — 우리가 계산한 값이 아니라 플레이어가 실제로 보고 쏜 방향을 보낸다.
             // 유니티의 x 회전은 양수가 아래를 본다. 조준 각도는 양수가 위이므로 부호를 뒤집는다.
@@ -61,36 +52,9 @@ namespace LOP
                 Time.deltaTime * FovLerpPerSecond);
         }
 
-        private Vector2 SwayDegrees()
-        {
-            if (playerContext.entityId == null)
-            {
-                return Vector2.zero;
-            }
-            var aim = entityRegistry.Get(playerContext.entityId)?.Get<ArcheryAim>();
-            if (aim == null || aim.Drawing == false)
-            {
-                return Vector2.zero;   // 안 당기고 있으면 안 흔들린다
-            }
-            if (runner?.tickUpdater == null)
-            {
-                return Vector2.zero;
-            }
-            double interval = runner.tickUpdater.interval;
-            if (interval <= 0d)
-            {
-                return Vector2.zero;
-            }
 
-            //  화면 시각은 정수 틱이 아니라 renderTick이다 — 시뮬과 같은 식에 같은 시각을 넣는다.
-            double renderTick = (runner.tickUpdater.elapsedTime - interval) / interval;
-            float held = ArcheryAimSystem.HeldSeconds(aim.DrawStartTick, renderTick, (float)interval);
-
-            var offset = ArcheryShake.Offset(held, ArcheryShake.PhaseSeedOf(playerContext.entityId), config);
-            //  조준 좌표계는 위가 양수, 유니티 x 회전은 아래가 양수다 — 위아래를 뒤집어 넘긴다.
-            return new Vector2(offset.x, -offset.y);
-        }
-
+        //  당김은 시간이 아니라 손가락이 끈 거리가 정한다 — 시뮬 상태를 그대로 읽는다.
+        //  화면이 같은 값을 따로 세면 언젠가 갈라진다.
         private float MyDrawRatio()
         {
             if (playerContext.entityId == null)
@@ -98,23 +62,7 @@ namespace LOP
                 return 0f;
             }
             var aim = entityRegistry.Get(playerContext.entityId)?.Get<ArcheryAim>();
-            if (aim == null || aim.Drawing == false)
-            {
-                return 0f;
-            }
-
-            if (runner?.tickUpdater == null)
-            {
-                return 0f;   // 씬 진입 초기거나 언로드 도중 — 러너가 아직/더 이상 안 물려 있다
-            }
-            double interval = runner.tickUpdater.interval;
-            if (interval <= 0d)
-            {
-                return 0f;
-            }
-            // 화면 시각은 정수 틱이 아니라 renderTick이다 — 시뮬과 같은 식에 같은 시각을 넣는다.
-            double renderTick = (runner.tickUpdater.elapsedTime - interval) / interval;
-            return ArcheryAimSystem.DrawRatio(aim.DrawStartTick, (long)System.Math.Floor(renderTick), (float)interval);
+            return aim != null && aim.Drawing ? aim.DrawRatio : 0f;
         }
     }
 }

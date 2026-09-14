@@ -91,13 +91,7 @@ namespace LOP
                     drawn[key] = arrow;
                 }
 
-                float seconds = (float)((renderTick - shots[i].FireTick) * interval);
-                if (seconds < 0f)
-                {
-                    seconds = 0f;   // 아직 떠나기 전 프레임 — 출발점에 둔다
-                }
-
-                //  꽂혔는지는 틱 시스템이 정한다 — 뷰는 그 결과를 읽어 거기서 멈춰 그릴 뿐이다.
+                //  꽂혔는지는 틱 시스템이 정한다 — 뷰는 그 결과를 읽어 과녁에 붙여 그릴 뿐이다.
                 if (stickSystem.TryGetImpact(shots[i].ShooterId, shots[i].FireTick, out var impact))
                 {
                     //  꽂힌 과녁이 사라지면(내가 아니라 남이 먹었어도) 화살도 같이 치운다 —
@@ -106,7 +100,33 @@ namespace LOP
                     {
                         continue;
                     }
-                    seconds = impact.Seconds;
+                    if (stickSystem.TryGetTarget(impact.Wave, impact.Slot, out var target) == false)
+                    {
+                        continue;
+                    }
+                    //  수명이 끝난 과녁은 땅 아래로 내려간 것이다 — 따라가면 화살이 바닥을 뚫고 들어간다.
+                    if (ArcheryTargetMotion.IsAlive(target, renderTick, (float)interval) == false)
+                    {
+                        continue;
+                    }
+
+                    //  과녁이 움직여도 꽂힌 자리(오프셋)는 그대로다 — 과녁을 따라 화살도 같이 움직인다.
+                    arrow.transform.position =
+                        ArcheryTargetMotion.PositionAt(target, renderTick, (float)interval) + impact.OffsetFromTarget;
+
+                    //  회전은 꽂힌 순간의 방향으로 고정한다 — 과녁을 따라 움직인다고 화살이 돌지는 않는다.
+                    var stuckVelocity = ArcheryTrajectory.VelocityAt(shots[i], impact.Seconds);
+                    if (stuckVelocity.sqrMagnitude > 1e-6f)
+                    {
+                        arrow.transform.rotation = Quaternion.LookRotation(stuckVelocity);
+                    }
+                    continue;
+                }
+
+                float seconds = (float)((renderTick - shots[i].FireTick) * interval);
+                if (seconds < 0f)
+                {
+                    seconds = 0f;   // 아직 떠나기 전 프레임 — 출발점에 둔다
                 }
 
                 arrow.transform.position = ArcheryTrajectory.PositionAt(shots[i], seconds);

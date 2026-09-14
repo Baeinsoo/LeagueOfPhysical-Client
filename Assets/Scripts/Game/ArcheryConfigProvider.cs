@@ -48,6 +48,7 @@ namespace LOP
                 r.SpawnRadius, r.SpawnMinY, r.SpawnMaxY, r.MinSeparation,
                 r.TrapRatioMin, r.TrapRatioMax,
                 r.ShakeFreeSeconds, r.ShakeRampSeconds, r.ShakeMaxDegrees,
+                r.RiseHeightMin, r.RiseHeightMax, r.StaggerTicks, r.RestTicks,
                 kinds);
         }
     }

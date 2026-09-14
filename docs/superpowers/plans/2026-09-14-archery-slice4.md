@@ -473,7 +473,7 @@ unity command --project-path C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Serve
 unity command --project-path C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Server run_tests --mode EditMode
 ```
 
-기대: 컴파일 초록, `ArcheryTargetMotionTests`의 여덟 테스트가 **이름으로** 결과에 보인다.
+기대: 컴파일 초록, `ArcheryTargetMotionTests`의 **열** 개 테스트가 **이름으로** 결과에 보이고 전부 통과한다.
 
 - [ ] **Step 5: 커밋 (레포 셋)**
 
@@ -492,9 +492,11 @@ feat(archery): 과녁을 "자리"에서 "궤적"으로 바꾼다
 화살과 같은 모양으로 둔다: 출발점·초기속도·출발시각만 있으면 어느 시각의
 위치든 나온다. 그래서 과녁도 여전히 통신하지 않는다.
 
-과녁 중력은 화살 중력(20)과 **다른 상수**다. 화살 중력은 쏘는 맛을 정하고
-과녁 중력은 난이도를 정한다 — 수명·높이에서 역산해 정점 주변이 저절로
-느려지게 잡았다(g=8H/T²).
+과녁 중력은 화살 중력(20)과 **같은 값**이다. 중력은 세계의 성질이지 물체의
+설정이 아니다 — 다르게 두면 같은 화면에서 화살과 과녁이 서로 다른 속도로
+떨어져, 화살로 과녁을 따라가는 이 게임에서는 바로 눈에 띈다.
+
+그래서 솟는 높이 하나가 속도도 수명도 정한다(v0=sqrt(2gH), 수명=2v0/g).
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01J3Xe7rZoLKi3dJFGKrLsGL
@@ -1164,13 +1166,16 @@ feat(archery): 서버 판정이 움직이는 과녁을 상대한다
                 {
                     continue;
                 }
-                if (ArcheryTargetMotion.IsAlive(targets[i], tick, tickInterval) == false)
+                //  서버 판정과 **같은 시각**을 쓴다 — 다르면 화면에선 꽂혔는데 점수는 안 나거나
+                //  그 반대다. 있는 자리와 살아 있는지를 둘 다 이 한 시각으로 묻는 것까지 같아야 한다.
+                double at = tick - 0.5;
+
+                if (ArcheryTargetMotion.IsAlive(targets[i], at, tickInterval) == false)
                 {
                     continue;
                 }
 
-                //  서버 판정과 같은 시각을 쓴다 — 다르면 화면에선 꽂혔는데 점수는 안 나거나 그 반대다.
-                Vector3 targetAt = ArcheryTargetMotion.PositionAt(targets[i], tick - 0.5, tickInterval);
+                Vector3 targetAt = ArcheryTargetMotion.PositionAt(targets[i], at, tickInterval);
 
                 if (ArcheryHitTest.SegmentHitsSphere(from, to, targetAt, targets[i].Radius, out float t))
                 {
@@ -1251,6 +1256,14 @@ def set_by_name(name, value):
 set_by_name('min_targets', 3)
 set_by_name('max_targets', 5)
 
+#  과녁이 무대에서 솟아나오게 한다. 이 값들은 과녁이 *떠 있던* 시절 것이라
+#  그대로 두면 공중 1.5~8m에 나타나 깡충 뛰었다 사라진다 — 솟아오르는 게 아니라
+#  떠서 까딱거리는 그림이다. 맵의 가운데 무대 윗면이 y=0.3이므로 거기서 출발시킨다.
+#  (솟는 높이 상한이 2.4m로 묶여 있어 "바닥에서 5m까지 솟구치게"는 불가능하다 —
+#   고칠 곳은 솟는 높이가 아니라 출발 높이였다. 정점은 1.5~3.0m가 된다.)
+set_by_name('spawn_min_y', 0.3)
+set_by_name('spawn_max_y', 0.6)
+
 #  웨이브 주기는 묶음 전체 + 쉼을 덮어야 한다.
 #  가장 높이(2.4m) 솟는 과녁의 수명이 0.98초 = 49틱이므로
 #  (5-1)*12 + 49 + 20 = 117 이고, 여유를 둬 120으로 한다.
@@ -1290,7 +1303,7 @@ for row in ws.iter_rows(values_only=True):
 "
 ```
 
-기대: `##var` 줄 끝에 `rise_height_min, rise_height_max, stagger_ticks, rest_ticks`, `##type`에 `float, float, int, int`, 데이터 줄 끝에 `1.2, 2.4, 12, 20`. **`min_targets`=3, `max_targets`=5, `wave_period_ticks`=120**. 그 밖의 기존 값(`spawn_radius` 3.5 등)은 **하나도 안 바뀌어야 한다** — 하나라도 움직였으면 멈추고 되돌린다.
+기대: `##var` 줄 끝에 `rise_height_min, rise_height_max, stagger_ticks, rest_ticks`, `##type`에 `float, float, int, int`, 데이터 줄 끝에 `1.2, 2.4, 12, 20`. **`min_targets`=3, `max_targets`=5, `wave_period_ticks`=120, `spawn_min_y`=0.3, `spawn_max_y`=0.6**. 그 밖의 기존 값(`spawn_radius` 3.5, `min_separation` 1.2 등)은 **하나도 안 바뀌어야 한다** — 하나라도 움직였으면 멈추고 되돌린다.
 
 - [ ] **Step 3: 굽고 네 출력처를 확인한다**
 
@@ -1442,7 +1455,7 @@ Task 2에서 넣은 임시값을 실제 컬럼으로 바꾸고, 낡은 주석을
                 r.SpawnRadius, r.SpawnMinY, r.SpawnMaxY, r.MinSeparation,
                 r.TrapRatioMin, r.TrapRatioMax,
                 r.ShakeFreeSeconds, r.ShakeRampSeconds, r.ShakeMaxDegrees,
-                r.RiseHeight, r.LifetimeSeconds, r.StaggerTicks, r.RestTicks,
+                r.RiseHeightMin, r.RiseHeightMax, r.StaggerTicks, r.RestTicks,
                 kinds);
 ```
 

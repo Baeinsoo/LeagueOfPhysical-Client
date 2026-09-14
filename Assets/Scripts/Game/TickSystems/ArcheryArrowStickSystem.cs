@@ -31,6 +31,11 @@ namespace LOP
         private readonly List<ArcheryTarget> targets = new List<ArcheryTarget>();
         private readonly List<(string, long)> stale = new List<(string, long)>();
 
+        // TryGetTarget 전용 조회 목록 — Tick()이 판정에 쓰는 targets를 여기서 덮어쓰면
+        // 서로의 내용을 지운다. 같은 웨이브를 다시 물으면 새로 안 채우고 이걸 재사용한다.
+        private readonly List<ArcheryTarget> queryTargets = new List<ArcheryTarget>();
+        private int queryWave = -1;
+
         public readonly struct Impact
         {
             public readonly int Wave;
@@ -39,11 +44,15 @@ namespace LOP
             /// <summary>발사 뒤 이만큼 지난 시점에 닿았다(초).</summary>
             public readonly float Seconds;
 
-            public Impact(int wave, int slot, float seconds)
+            /// <summary>꽂힌 지점 − 그때 과녁 중심. 과녁이 움직여도 화살이 같이 따라가는 데 쓴다.</summary>
+            public readonly Vector3 OffsetFromTarget;
+
+            public Impact(int wave, int slot, float seconds, Vector3 offsetFromTarget)
             {
                 Wave = wave;
                 Slot = slot;
                 Seconds = seconds;
+                OffsetFromTarget = offsetFromTarget;
             }
         }
 
@@ -61,13 +70,38 @@ namespace LOP
         public bool TryGetImpact(string shooterId, long fireTick, out Impact impact)
             => impacts.TryGetValue((shooterId, fireTick), out impact);
 
+        /// <summary>그 웨이브 그 자리의 과녁. 뷰가 꽂힌 화살을 과녁에 붙여 그리는 데 쓴다.</summary>
+        public bool TryGetTarget(int wave, int slot, out ArcheryTarget target)
+        {
+            if (wave != queryWave)
+            {
+                queryTargets.Clear();
+                if (wave >= 0)
+                {
+                    ArcheryWaveGenerator.Fill(queryTargets, matchSeed.Value, wave, config, world.GameplayStartTick);
+                }
+                queryWave = wave;
+            }
+
+            for (int i = 0; i < queryTargets.Count; i++)
+            {
+                if (queryTargets[i].SlotIndex == slot)
+                {
+                    target = queryTargets[i];
+                    return true;
+                }
+            }
+            target = default;
+            return false;
+        }
+
         public void Tick(long tick, float deltaTime)
         {
             int wave = ArcheryWaveGenerator.WaveIndexAt(tick, world.GameplayStartTick, config);
             targets.Clear();
             if (wave >= 0)
             {
-                ArcheryWaveGenerator.Fill(targets, matchSeed.Value, wave, config);
+                ArcheryWaveGenerator.Fill(targets, matchSeed.Value, wave, config, world.GameplayStartTick);
             }
 
             var shots = world.Shots;
@@ -90,6 +124,14 @@ namespace LOP
             //  남의 화살은 서버를 거쳐 오느라 이미 여러 틱 지난 뒤에 목록에 들어온다. 그래서 "직전 틱
             //  하나"만 보면 그 사이의 교차를 통째로 놓친다 — 가까운 과녁일수록 잘 놓친다.
             //  어디까지 봤는지 틱 단위로 기억해 두고 발사 틱부터 따라잡는다.
+            //
+            //  ⚠️ 이 따라잡기 루프는 과거 틱을 판정하면서도 **지금 틱의 웨이브 목록(targets)**을
+            //  쓴다 — 틱별로 따로 채우지 않는다(그러려면 틱별 웨이브 조회가 필요해 지금 범위 밖).
+            //  지금 안 터지는 건 쉼 23틱(WavePeriodTicks120 − BurstTicks97)이 남의 입력 지연
+            //  (대략 10틱)보다 넉넉히 길어서, 따라잡는 구간이 "지금 웨이브"를 벗어나는 일이 실제로
+            //  안 생기기 때문이다. 이 여유가 좁아지거나(웨이브를 빡빡하게 채우거나) 입력 지연이
+            //  늘어나면(패킷 손실·핑 급등) 과거 틱을 엉뚱한 웨이브의 과녁으로 판정하게 된다 —
+            //  배포 데이터 검사는 이 조건을 보지 않는다.
             if (checkedUpToTick.TryGetValue(key, out long from) == false)
             {
                 from = shot.FireTick;
@@ -99,9 +141,11 @@ namespace LOP
             {
                 float fromSeconds = (t - shot.FireTick) * tickInterval;
                 float toSeconds = fromSeconds + tickInterval;
-                if (CrossesLiveTarget(shot, wave, fromSeconds, toSeconds, out int slot, out float at))
+                if (CrossesLiveTarget(shot, wave, t + 1, fromSeconds, toSeconds,
+                                      out int slot, out float at, out Vector3 targetAt))
                 {
-                    impacts[key] = new Impact(wave, slot, at);
+                    Vector3 offset = ArcheryTrajectory.PositionAt(shot, at) - targetAt;
+                    impacts[key] = new Impact(wave, slot, at, offset);
                     checkedUpToTick[key] = tick;
                     return;
                 }
@@ -109,8 +153,9 @@ namespace LOP
             checkedUpToTick[key] = tick;
         }
 
-        private bool CrossesLiveTarget(in ArcheryShot shot, int wave, float fromSeconds, float toSeconds,
-                                       out int slot, out float atSeconds)
+        private bool CrossesLiveTarget(in ArcheryShot shot, int wave, long tick,
+                                       float fromSeconds, float toSeconds,
+                                       out int slot, out float atSeconds, out Vector3 targetAt)
         {
             Vector3 from = ArcheryTrajectory.PositionAt(shot, fromSeconds);
             Vector3 to = ArcheryTrajectory.PositionAt(shot, toSeconds);
@@ -121,15 +166,28 @@ namespace LOP
                 {
                     continue;
                 }
-                if (ArcheryHitTest.SegmentHitsSphere(from, to, targets[i].Center, targets[i].Radius, out float t))
+                //  서버 판정과 **같은 시각**을 쓴다 — 다르면 화면에선 꽂혔는데 점수는 안 나거나
+                //  그 반대다. 있는 자리와 살아 있는지를 둘 다 이 한 시각으로 묻는 것까지 같아야 한다.
+                double at = tick - 0.5;
+
+                if (ArcheryTargetMotion.IsAlive(targets[i], at, tickInterval) == false)
+                {
+                    continue;
+                }
+
+                Vector3 candidateTargetAt = ArcheryTargetMotion.PositionAt(targets[i], at, tickInterval);
+
+                if (ArcheryHitTest.SegmentHitsSphere(from, to, candidateTargetAt, targets[i].Radius, out float t))
                 {
                     slot = targets[i].SlotIndex;
                     atSeconds = Mathf.Lerp(fromSeconds, toSeconds, t);
+                    targetAt = candidateTargetAt;
                     return true;
                 }
             }
             slot = -1;
             atSeconds = 0f;
+            targetAt = default;
             return false;
         }
 

@@ -53,15 +53,18 @@ namespace LOP
                 return;
             }
 
-            //  과녁이 떠 있나 없나는 틱 단위 사실이라 소수 틱으로 물을 것이 없다 — 정수 틱으로 묻는다.
-            //  (화살의 *자세*는 소수 틱이 필요하지만 과녁은 가만히 있다.)
-            long renderTick = (long)System.Math.Floor((runner.tickUpdater.elapsedTime - interval) / interval);
-            int wave = ArcheryWaveGenerator.WaveIndexAt(renderTick, world.GameplayStartTick, config);
+            //  과녁이 이제 솟았다 떨어지므로 소수 틱이 필요하다 — 정수 틱으로 물으면 20ms 계단으로
+            //  튄다. (예전에는 "과녁은 가만히 있다"가 근거였는데 그 전제가 깨졌다.)
+            double renderTick = (runner.tickUpdater.elapsedTime - interval) / interval;
+
+            //  어느 웨이브인지는 틱 단위 사실이라 여기는 정수로 묻는다.
+            int wave = ArcheryWaveGenerator.WaveIndexAt((long)System.Math.Floor(renderTick),
+                                                        world.GameplayStartTick, config);
 
             targets.Clear();
             if (wave >= 0)
             {
-                ArcheryWaveGenerator.Fill(targets, matchSeed.Value, wave, config);
+                ArcheryWaveGenerator.Fill(targets, matchSeed.Value, wave, config, world.GameplayStartTick);
             }
 
             alive.Clear();
@@ -71,6 +74,10 @@ namespace LOP
                 if (consumed.IsTargetGone(key.Item1, key.Item2))
                 {
                     continue;   // 누군가 먹었다
+                }
+                if (ArcheryTargetMotion.IsAlive(targets[i], renderTick, (float)interval) == false)
+                {
+                    continue;   // 아직 안 솟았거나 이미 떨어졌다
                 }
                 alive.Add(key);
 
@@ -87,7 +94,7 @@ namespace LOP
                     renderer.sharedMaterial = targets[i].IsTrap ? TrapMaterial() : TargetMaterial();
                 }
 
-                sphere.transform.position = targets[i].Center;
+                sphere.transform.position = ArcheryTargetMotion.PositionAt(targets[i], renderTick, (float)interval);
                 //  보이는 크기가 곧 맞는 크기여야 한다 — 판정 반경이 0.25면 지름 0.5짜리 공이다.
                 sphere.transform.localScale = Vector3.one * (targets[i].Radius * 2f);
             }

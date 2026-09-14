@@ -29,7 +29,10 @@ namespace LOP.EditorTools
     /// <para>③ <b>스턴 예산</b> — 추격자에게 잡히기 전까지 몇 번이나 스턴을 먹어도 되는가
     /// (<see cref="LOP.MapTools.StunBudget"/>). 산수라 시뮬레이션이 필요 없다.</para>
     /// </summary>
-    public static class FlappyMapPlayabilityCheck
+    //  partial인 이유: 측정 전용 진단(FlappyBranchSignalProbe.cs)이 이 검사기의 <b>비공개
+    //  내부</b>(FlyBot·BotWorld·Step·FreeSpaceGrid…)를 그대로 써야 한다. 안 그러면 진단이
+    //  제 시뮬레이터를 갖게 되는데, 그게 이 파일이 곳곳에서 막고 있는 바로 그 사고다.
+    public static partial class FlappyMapPlayabilityCheck
     {
         //  훑는 격자. 촘촘할수록 작은 틈까지 잡지만 오래 걸린다(0.2m에서 코스 전체 약 3초).
         private const float GridStep = 0.2f;
@@ -1738,6 +1741,17 @@ namespace LOP.EditorTools
         //  줄이면 같은 자리가 안 보인다는 것도 같은 실측에서 확인됐다(그 창에서는 "0곳"이
         //  나왔다). 그래서 되돌리기 창과 같은 60으로 맞춘다 — 두 창이 같은 현상을 앞뒤로
         //  보는 것이라 값이 갈릴 이유가 없다.
+        //
+        //  <b>늘려 봤고 되돌렸다 (2026-09-14).</b> 60/90/120/180/240을 전부 재 봤다. 늘리면
+        //  x≈83에서 죽던 자리들이 실제로 <b>살아난다</b> — 시작 높이 18줄 중 그 자리에서 죽던
+        //  줄이 90틱에서 9→2줄, 120틱 이상에서 0줄이 된다. 그러니 거기서 죽은 건 지형이 아니라
+        //  이 창이 짧아서였던 게 맞다. <b>그런데 맵 전체로는 나빠진다</b>: 골인하는 스폰이
+        //  60틱 2개 → 90틱 1개 → 120틱 이상 0개다. 120틱을 넘기면 시작 높이 18줄이 <b>전부</b>
+        //  똑같이 x=199.5에서 멈춘다(되돌리기도 전 줄 0곳) — 시작 높이가 어디였는지가 결과에서
+        //  아예 사라진다는 뜻이라, 높이 훑기 절이 말하는 "봇이 정보를 잃고 있다"의 전형이다.
+        //  창을 늘리면 굴려 보기가 "창 안에서 한 틱이라도 더 사는 쪽"을 더 자주 고르게 되는데,
+        //  그 고르기가 모든 출발을 한 궤적으로 몰아넣는다. 그래서 <b>값은 60 그대로 두고</b>,
+        //  고칠 것은 창 길이가 아니라 두 갈래를 고르는 기준이라고 기록해 둔다.
         private const int RolloutHorizon = 60;
 
         //  봇이 보는 세계를 굴려 보기에 그대로 넘기는 어댑터. <b>실제 비행이 쓰는 바로 그
@@ -1806,6 +1820,8 @@ namespace LOP.EditorTools
             public bool Finished(in BirdState state) => state.Position.x >= finishX;
 
             public float ForwardX(in BirdState state) => state.Position.x;
+
+            public float VerticalSpeed(in BirdState state) => state.VerticalSpeed;
         }
 
         //  봇을 진짜 커널로 날린다. 궤적이 하나뿐이라 상태를 묶을 이유가 없고, 그래서 반올림도

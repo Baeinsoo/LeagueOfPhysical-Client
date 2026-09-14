@@ -56,6 +56,7 @@ namespace LOP.MapTools.Tests
             public bool Touched(in Bird s) => s.Height < 0 || Blocked.Contains((s.Tick, s.Height));
             public bool Finished(in Bird s) => false;
             public float ForwardX(in Bird s) => s.Tick;
+            public float VerticalSpeed(in Bird s) => s.Rise;
         }
 
         //  기반 정책이 이 상태에서 무엇을 하려 했는지. 굴려 보기는 이 값을 받아서 시작한다.
@@ -114,6 +115,9 @@ namespace LOP.MapTools.Tests
             //  상태 = 굴러간 틱 수. 첫 틱의 선택은 부호로 기억한다(+ 누름 / − 안 누름).
             public int FlapAliveTicks, CoastAliveTicks;
             public float FlapReach, CoastReach;
+            //  동점 깨기(③)가 보는 값. 기본값 0 — 안 건드리면 두 갈래가 세로 속도로도
+            //  동점이라, ①②만 묻는 기존 시험들이 ③에 걸리지 않는다.
+            public float FlapEndSpeed, CoastEndSpeed;
 
             public BotDecision Decide(in int s)
                 //  둘째 틱부터는 아무것도 안 한다 — 이 세계에서 결과는 이미 표로 정해져 있다.
@@ -130,6 +134,7 @@ namespace LOP.MapTools.Tests
 
             public bool Finished(in int s) => false;
             public float ForwardX(in int s) => s > 0 ? FlapReach : CoastReach;
+            public float VerticalSpeed(in int s) => s > 0 ? FlapEndSpeed : CoastEndSpeed;
         }
 
         static BotDecision Base(bool flap)
@@ -202,6 +207,83 @@ namespace LOP.MapTools.Tests
             Assert.IsFalse(choice.Flap,
                 "먼저 죽는 쪽이 더 멀리 간다는 이유로 뽑혔다 — 규칙 순서가 뒤집혔다.");
             Assert.IsTrue(choice.Deviated);
+        }
+
+        // ── ③ 동점을 세로 속도로 깬다 ────────────────────────────────────────
+        //  ①②는 전진 속도가 상수라 <b>같은 수</b>여서, 굴려 본 열 틱 중 아홉 틱이 동점으로
+        //  끝나고 있었다(521틱 중 463틱). 아래 셋이 그 자리에 들어간 ③의 경계를 지킨다.
+
+        [Test]
+        public void 끝_세로_속도가_크게_다르면_올라가는_쪽을_고른다()
+        {
+            //  살아남은 틱수도 도달 거리도 똑같다 — ①②는 아무 말도 못 한다. 그 자리에서
+            //  ③이 "끝에서 올라가는 중인 쪽"을 고른다.
+            var world = new ScriptedWorld
+            {
+                FlapAliveTicks = 20, CoastAliveTicks = 20, FlapReach = 50f, CoastReach = 50f,
+                FlapEndSpeed = 5f, CoastEndSpeed = -5f,
+            };
+
+            //  기반 정책은 "안 누른다"고 했다 — ③이 실제로 뒤집는지 보려면 반대로 세워야 한다.
+            RolloutChoice choice = BotRollout.Choose(world, 0, Base(false), horizon: 20, SameReach);
+
+            Assert.IsTrue(choice.Flap,
+                "①②가 동점인데 끝에서 떨어지는 쪽을 골랐다 — 동점 깨기가 안 걸렸다.");
+            Assert.IsTrue(choice.Deviated);
+        }
+
+        [Test]
+        public void 끝_세로_속도가_거꾸로_커도_같은_규칙이다()
+        {
+            //  위의 거울 — 부호만 뒤집는다. 이게 없으면 위 단언은 "늘 누른다"로도 초록이 된다.
+            var world = new ScriptedWorld
+            {
+                FlapAliveTicks = 20, CoastAliveTicks = 20, FlapReach = 50f, CoastReach = 50f,
+                FlapEndSpeed = -5f, CoastEndSpeed = 5f,
+            };
+
+            RolloutChoice choice = BotRollout.Choose(world, 0, Base(true), horizon: 20, SameReach);
+
+            Assert.IsFalse(choice.Flap,
+                "①②가 동점인데 끝에서 떨어지는 쪽을 골랐다 — 부호가 뒤집혀 있다.");
+            Assert.IsTrue(choice.Deviated);
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void 생존이_다르면_세로_속도를_보지_않는다(bool basePolicyFlaps)
+        {
+            //  누르는 쪽이 끝에서 한참 더 올라가는 중이지만 <b>먼저 죽는다</b>. ③은 ①이
+            //  입을 다물 때만 말해야 하므로, 여기서 세로 속도가 이기면 규칙 순서가 깨진 것이다.
+            var world = new ScriptedWorld
+            {
+                FlapAliveTicks = 5, CoastAliveTicks = 20, FlapReach = 50f, CoastReach = 50f,
+                FlapEndSpeed = 20f, CoastEndSpeed = -20f,
+            };
+
+            RolloutChoice choice = BotRollout.Choose(world, 0, Base(basePolicyFlaps), horizon: 20, SameReach);
+
+            Assert.IsFalse(choice.Flap,
+                "먼저 죽는 쪽이 '끝에서 올라가는 중'이라는 이유로 뽑혔다 — ③이 ①을 넘어섰다.");
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void 세로_속도_차이가_문턱_안이면_여전히_기반_정책을_따른다(bool basePolicyFlaps)
+        {
+            //  0.5m/s가 "사실상 같다"의 폭이다. <b>딱 경계(0.5)도 동점 쪽</b>이다(> 로만 우열을
+            //  가른다) — 두 수를 0.5f와 0f로 잡아야 차이가 float으로 정확히 0.5f가 된다.
+            var world = new ScriptedWorld
+            {
+                FlapAliveTicks = 20, CoastAliveTicks = 20, FlapReach = 50f, CoastReach = 50f,
+                FlapEndSpeed = BotRollout.SameSpeedEpsilon, CoastEndSpeed = 0f,
+            };
+
+            RolloutChoice choice = BotRollout.Choose(world, 0, Base(basePolicyFlaps), horizon: 20, SameReach);
+
+            Assert.AreEqual(basePolicyFlaps, choice.Flap,
+                "세로 속도 차이가 딱 문턱인데 우열을 가렸다 — 셋 다 동점이면 기반 정책이어야 한다.");
+            Assert.IsFalse(choice.Deviated);
         }
 
         // ── 후보 A가 없을 때 ─────────────────────────────────────────────────
@@ -281,6 +363,7 @@ namespace LOP.MapTools.Tests
             public bool Touched(in CorridorBird s) => free(s.X, s.Y) == false;
             public bool Finished(in CorridorBird s) => false;
             public float ForwardX(in CorridorBird s) => s.X;
+            public float VerticalSpeed(in CorridorBird s) => s.Vy;
         }
 
         [Test]

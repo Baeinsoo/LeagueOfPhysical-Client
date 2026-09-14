@@ -99,7 +99,7 @@ namespace LOP
             {
                 float fromSeconds = (t - shot.FireTick) * tickInterval;
                 float toSeconds = fromSeconds + tickInterval;
-                if (CrossesLiveTarget(shot, wave, fromSeconds, toSeconds, out int slot, out float at))
+                if (CrossesLiveTarget(shot, wave, t + 1, fromSeconds, toSeconds, out int slot, out float at))
                 {
                     impacts[key] = new Impact(wave, slot, at);
                     checkedUpToTick[key] = tick;
@@ -109,7 +109,8 @@ namespace LOP
             checkedUpToTick[key] = tick;
         }
 
-        private bool CrossesLiveTarget(in ArcheryShot shot, int wave, float fromSeconds, float toSeconds,
+        private bool CrossesLiveTarget(in ArcheryShot shot, int wave, long tick,
+                                       float fromSeconds, float toSeconds,
                                        out int slot, out float atSeconds)
         {
             Vector3 from = ArcheryTrajectory.PositionAt(shot, fromSeconds);
@@ -121,7 +122,18 @@ namespace LOP
                 {
                     continue;
                 }
-                if (ArcheryHitTest.SegmentHitsSphere(from, to, targets[i].Origin, targets[i].Radius, out float t))
+                //  서버 판정과 **같은 시각**을 쓴다 — 다르면 화면에선 꽂혔는데 점수는 안 나거나
+                //  그 반대다. 있는 자리와 살아 있는지를 둘 다 이 한 시각으로 묻는 것까지 같아야 한다.
+                double at = tick - 0.5;
+
+                if (ArcheryTargetMotion.IsAlive(targets[i], at, tickInterval) == false)
+                {
+                    continue;
+                }
+
+                Vector3 targetAt = ArcheryTargetMotion.PositionAt(targets[i], at, tickInterval);
+
+                if (ArcheryHitTest.SegmentHitsSphere(from, to, targetAt, targets[i].Radius, out float t))
                 {
                     slot = targets[i].SlotIndex;
                     atSeconds = Mathf.Lerp(fromSeconds, toSeconds, t);

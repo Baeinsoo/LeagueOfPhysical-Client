@@ -121,7 +121,7 @@ namespace LOP
                 {
                     continue;
                 }
-                if (ArcheryHitTest.SegmentHitsSphere(from, to, targets[i].Center, targets[i].Radius, out float t))
+                if (ArcheryHitTest.SegmentHitsSphere(from, to, targets[i].Origin, targets[i].Radius, out float t))
                 {
                     slot = targets[i].SlotIndex;
                     atSeconds = Mathf.Lerp(fromSeconds, toSeconds, t);

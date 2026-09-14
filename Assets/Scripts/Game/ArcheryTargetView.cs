@@ -87,7 +87,7 @@ namespace LOP
                     renderer.sharedMaterial = targets[i].IsTrap ? TrapMaterial() : TargetMaterial();
                 }
 
-                sphere.transform.position = targets[i].Center;
+                sphere.transform.position = targets[i].Origin;
                 //  보이는 크기가 곧 맞는 크기여야 한다 — 판정 반경이 0.25면 지름 0.5짜리 공이다.
                 sphere.transform.localScale = Vector3.one * (targets[i].Radius * 2f);
             }

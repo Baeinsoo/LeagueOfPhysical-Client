@@ -31,8 +31,26 @@ namespace LOP.MapTools
         /// <summary>관문 입구를 지나는 그 순간의 (높이, 세로속도)가 깔때기 안이었나.</summary>
         public readonly bool InFunnel;
 
+        /// <summary>굴리는 동안 위아래 여유가 <b>가장 작았던 틱</b>의 그 여유(m).
+        /// <para>봇은 관문이 어디인지 모른다 — 관문 자리는 검사기가 계산한다. 그런데 관문이란
+        /// 결국 <b>길이 가장 좁아지는 자리</b>라, 굴리는 동안 여유가 최소가 된 틱이 곧 "관문을
+        /// 지나는 순간"의 봇 나름의 표현이다. 지평 끝에서 재는 값과 달리 이 값은
+        /// <i>재는 지점을 관문으로 옮긴다</i>.</para></summary>
+        public readonly float MinClearance;
+        /// <summary>바로 그 <b>가장 좁았던 틱</b>에서의 세로 속도. 관문을 가른 것이
+        /// "도착하는 순간 얼마나 빨리 떨어지고 있었나"라면 이것이 그 값이다.</summary>
+        public readonly float MinClearanceVerticalSpeed;
+        /// <summary>굴리는 동안의 <b>최저</b> 세로 속도 — 가장 빨리 떨어졌던 순간.
+        /// 여유를 재지 않고도 "이 갈래는 어딘가에서 급강하했다"를 잡는 싼 대용이다.</summary>
+        public readonly float MinVerticalSpeed;
+        /// <summary>굴리는 동안 세로 속도가 <see cref="FastFallSpeed"/>보다 낮았던 틱 수 —
+        /// "너무 빨리 떨어진 시간".</summary>
+        public readonly int FastFallTicks;
+
         public BranchOutcome(int aliveTicks, float reachX, float endVerticalSpeed, float endClearance,
-                             int openTicks, bool funnelMeasured, bool inFunnel)
+                             int openTicks, bool funnelMeasured, bool inFunnel,
+                             float minClearance = 0f, float minClearanceVerticalSpeed = 0f,
+                             float minVerticalSpeed = 0f, int fastFallTicks = 0)
         {
             AliveTicks = aliveTicks;
             ReachX = reachX;
@@ -41,7 +59,15 @@ namespace LOP.MapTools
             OpenTicks = openTicks;
             FunnelMeasured = funnelMeasured;
             InFunnel = inFunnel;
+            MinClearance = minClearance;
+            MinClearanceVerticalSpeed = minClearanceVerticalSpeed;
+            MinVerticalSpeed = minVerticalSpeed;
+            FastFallTicks = fastFallTicks;
         }
+
+        /// <summary>"너무 빨리 떨어진다"의 경계(m/s). 관문에서 통과한 비행은 −9.2~−5.0으로
+        /// 도착했고 실패한 비행은 전부 −17.6으로 도착했다 — 그 둘 사이를 가른다.</summary>
+        public const float FastFallSpeed = -15f;
 
         public RolloutBranch AsRolloutBranch() => new RolloutBranch(AliveTicks, ReachX, EndVerticalSpeed);
     }
@@ -51,7 +77,7 @@ namespace LOP.MapTools
     public enum BranchSignal
     {
         /// <summary>지금 쓰는 기준 그대로(<see cref="BotRollout.Prefer"/>) — 오래 산 쪽,
-        /// 같으면 멀리 간 쪽.</summary>
+        /// 같으면 멀리 간 쪽, 그것도 같으면 끝에서 더 올라가는 중인 쪽.</summary>
         Current,
         /// <summary>산 틱 수만. <see cref="Current"/>의 ①만 떼어낸 것이다.</summary>
         AliveTicks,
@@ -65,6 +91,15 @@ namespace LOP.MapTools
         OpenTicks,
         /// <summary>관문 깔때기 <b>안으로</b> 들어간 쪽이 낫다고 본다.</summary>
         InFunnel,
+        /// <summary>가장 좁았던 자리에서 <b>덜 빨리 떨어지던</b> 쪽이 낫다고 본다 — 지금 기준의
+        /// 신호를 <b>지평 끝이 아니라 관문에서</b> 재는 것이다.</summary>
+        MinClearanceVerticalSpeed,
+        /// <summary>가장 좁았던 자리가 <b>덜 좁았던</b> 쪽이 낫다고 본다.</summary>
+        MinClearance,
+        /// <summary>굴리는 동안 <b>덜 급강하한</b> 쪽(최저 세로 속도가 높은 쪽)이 낫다고 본다.</summary>
+        MinVerticalSpeed,
+        /// <summary>너무 빨리 떨어진 시간이 <b>짧았던</b> 쪽이 낫다고 본다.</summary>
+        FastFallTicks,
     }
 
     /// <summary>되돌리기가 알려 준 "좋은 갈래" — 사후에 아는 정답이다.</summary>
@@ -168,6 +203,19 @@ namespace LOP.MapTools
                         return false;
                     }
                     prefer = flapped.InFunnel == coasted.InFunnel ? 0 : (flapped.InFunnel ? 1 : -1);
+                    return true;
+                case BranchSignal.MinClearanceVerticalSpeed:
+                    prefer = Compare(flapped.MinClearanceVerticalSpeed, coasted.MinClearanceVerticalSpeed, epsilon);
+                    return true;
+                case BranchSignal.MinClearance:
+                    prefer = Compare(flapped.MinClearance, coasted.MinClearance, epsilon);
+                    return true;
+                case BranchSignal.MinVerticalSpeed:
+                    prefer = Compare(flapped.MinVerticalSpeed, coasted.MinVerticalSpeed, epsilon);
+                    return true;
+                case BranchSignal.FastFallTicks:
+                    //  적을수록 좋다 — 그래서 부호를 뒤집어 견준다.
+                    prefer = Compare(coasted.FastFallTicks, flapped.FastFallTicks);
                     return true;
             }
             throw new ArgumentOutOfRangeException(nameof(signal), signal, "unknown branch signal.");

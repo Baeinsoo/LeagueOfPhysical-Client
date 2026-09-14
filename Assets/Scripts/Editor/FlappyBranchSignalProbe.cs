@@ -489,6 +489,7 @@ namespace LOP.EditorTools
             bool funnelMeasured = false;
             bool inFunnel = false;
             bool finished = false;
+            var narrow = new NarrowestTally(context, start);
             for (int t = 0; t < RolloutHorizon; t++)
             {
                 LOP.MapTools.BotDecision decision = world.Decide(s);
@@ -508,9 +509,10 @@ namespace LOP.EditorTools
                         next.Position.y, next.VerticalSpeed, gate.Columns, gate.Runout, gate.Kernel);
                 }
                 s = next;
+                narrow.Observe(context, s);
                 if (world.Touched(s))
                 {
-                    return Outcome(context, s, alive, openTicks, funnelMeasured, inFunnel);
+                    return Outcome(context, s, alive, openTicks, funnelMeasured, inFunnel, narrow);
                 }
                 alive = t + 1;
                 if (world.Finished(s))
@@ -519,37 +521,96 @@ namespace LOP.EditorTools
                     break;
                 }
             }
-            return Outcome(context, s, finished ? RolloutHorizon : alive, openTicks, funnelMeasured, inFunnel);
+            return Outcome(context, s, finished ? RolloutHorizon : alive, openTicks, funnelMeasured, inFunnel,
+                           narrow);
+        }
+
+        /// <summary>굴리는 동안 <b>매 틱</b> 봐야 알 수 있는 것들 — 가장 좁았던 자리와 그 자리의
+        /// 세로 속도, 최저 세로 속도, 급강하한 틱수. 지평 끝 한 자리만 보는 <see cref="Outcome"/>과
+        /// 달리 이 값들은 굴리는 내내 갱신된다.</summary>
+        private struct NarrowestTally
+        {
+            public float MinClearance;
+            public float MinClearanceVerticalSpeed;
+            public float MinVerticalSpeed;
+            public int FastFallTicks;
+
+            public NarrowestTally(in ProbeContext context, in BirdState start)
+            {
+                MinClearance = float.MaxValue;
+                MinClearanceVerticalSpeed = 0f;
+                MinVerticalSpeed = float.MaxValue;
+                FastFallTicks = 0;
+            }
+
+            public void Observe(in ProbeContext context, in BirdState state)
+            {
+                float vy = state.Stun > 0f ? state.HitVerticalSpeed : state.VerticalSpeed;
+                if (vy < MinVerticalSpeed)
+                {
+                    MinVerticalSpeed = vy;
+                }
+                if (vy < LOP.MapTools.BranchOutcome.FastFallSpeed)
+                {
+                    FastFallTicks++;
+                }
+                //  여유는 재기 전에 세계를 이 틱 모습으로 맞춰야 한다(풍차 각도).
+                BeginBotTick(state.Tick);
+                //  <b>지금까지의 최솟값보다 더 멀리는 재지 않는다</b> — 최솟값만 쓸 것이라
+                //  그보다 넓은 자리는 얼마나 넓은지 알 필요가 없다. 이 가지치기가 매 틱 재는
+                //  비용의 대부분을 없앤다.
+                float cap = MinClearance == float.MaxValue
+                    ? ProbeMaxClearance
+                    : Mathf.Min(ProbeMaxClearance, MinClearance + HeightGrid);
+                float below = FreeReach(context, state.Position.x, state.Position.y, -1f, cap);
+                float clearance = below;
+                if (clearance > 0f)
+                {
+                    clearance = Mathf.Min(clearance,
+                        FreeReach(context, state.Position.x, state.Position.y, +1f, cap));
+                }
+                if (clearance < MinClearance)
+                {
+                    MinClearance = clearance;
+                    MinClearanceVerticalSpeed = vy;
+                }
+            }
+
+            public float Clearance => MinClearance == float.MaxValue ? 0f : MinClearance;
+            public float FallSpeed => MinVerticalSpeed == float.MaxValue ? 0f : MinVerticalSpeed;
         }
 
         private static LOP.MapTools.BranchOutcome Outcome(in ProbeContext context, in BirdState end,
                                                           int alive, int openTicks,
-                                                          bool funnelMeasured, bool inFunnel)
+                                                          bool funnelMeasured, bool inFunnel,
+                                                          in NarrowestTally narrow)
         {
             //  빈 곳을 재기 전에 세계를 그 틱 모습으로 맞춘다 — 안 맞추면 다른 틱의 풍차 각도에서
             //  잰 값이 된다(봇의 아치 훑기가 지키는 것과 같은 규칙).
             BeginBotTick(end.Tick);
-            float below = FreeReach(context, end.Position.x, end.Position.y, -1f);
-            float above = FreeReach(context, end.Position.x, end.Position.y, +1f);
+            float below = FreeReach(context, end.Position.x, end.Position.y, -1f, ProbeMaxClearance);
+            float above = FreeReach(context, end.Position.x, end.Position.y, +1f, ProbeMaxClearance);
             return new LOP.MapTools.BranchOutcome(
                 alive, end.Position.x,
                 //  멈춰 세운 접촉이 있으면 그 <b>직전</b> 속도를 쓴다 — 이동 뒤 값은 벽에 지워져
                 //  부호가 사라진다(검사기가 죽은 자리를 적을 때 쓰는 규약과 같다).
                 end.Stun > 0f ? end.HitVerticalSpeed : end.VerticalSpeed,
-                Mathf.Min(below, above), openTicks, funnelMeasured, inFunnel);
+                Mathf.Min(below, above), openTicks, funnelMeasured, inFunnel,
+                narrow.Clearance, narrow.MinClearanceVerticalSpeed, narrow.FallSpeed, narrow.FastFallTicks);
         }
 
-        //  이 자리에서 그 방향으로 몸이 들어가는 채로 몇 m를 갈 수 있나.
-        private static float FreeReach(in ProbeContext context, float x, float y, float direction)
+        //  이 자리에서 그 방향으로 몸이 들어가는 채로 몇 m를 갈 수 있나. cap까지만 재고 멈춘다 —
+        //  부르는 쪽이 그보다 넓은지 아닌지만 알면 되는 경우가 있다.
+        private static float FreeReach(in ProbeContext context, float x, float y, float direction, float cap)
         {
-            for (float d = HeightGrid; d <= ProbeMaxClearance + 1e-4f; d += HeightGrid)
+            for (float d = HeightGrid; d <= cap + 1e-4f; d += HeightGrid)
             {
                 if (context.Grid.IsFreeExact(x, y + direction * d) == false)
                 {
                     return d - HeightGrid;
                 }
             }
-            return ProbeMaxClearance;
+            return cap;
         }
 
         private static BotWorld BuildProbeWorld(in ProbeContext context)
@@ -730,6 +791,9 @@ namespace LOP.EditorTools
             {
                 case LOP.MapTools.BranchSignal.EndVerticalSpeed: return ProbeSpeedEpsilon;
                 case LOP.MapTools.BranchSignal.EndClearance: return ProbeClearanceEpsilon;
+                case LOP.MapTools.BranchSignal.MinClearanceVerticalSpeed: return ProbeSpeedEpsilon;
+                case LOP.MapTools.BranchSignal.MinVerticalSpeed: return ProbeSpeedEpsilon;
+                case LOP.MapTools.BranchSignal.MinClearance: return ProbeClearanceEpsilon;
                 default: return sameReach;
             }
         }
@@ -745,6 +809,10 @@ namespace LOP.EditorTools
                 case LOP.MapTools.BranchSignal.EndClearance: return "끝에서의 세로 여유";
                 case LOP.MapTools.BranchSignal.OpenTicks: return "가드가 안 막은 틱수";
                 case LOP.MapTools.BranchSignal.InFunnel: return "관문 깔때기 안인가";
+                case LOP.MapTools.BranchSignal.MinClearanceVerticalSpeed: return "가장 좁았던 자리의 세로 속도";
+                case LOP.MapTools.BranchSignal.MinClearance: return "가장 좁았던 자리의 세로 여유";
+                case LOP.MapTools.BranchSignal.MinVerticalSpeed: return "굴리는 동안의 최저 세로 속도";
+                case LOP.MapTools.BranchSignal.FastFallTicks: return "너무 빨리 떨어진 틱수(적을수록 좋다)";
                 default: return signal.ToString();
             }
         }

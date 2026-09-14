@@ -84,10 +84,41 @@ namespace LOP.UI
             }
         }
 
-        public void BeginDraw()
+        /// <summary>
+        /// 이 거리만큼 끌면 완전히 당긴 것이다(화면 짧은 변 대비 비율). 엄지로 한 번에 끌 수 있는
+        /// 만큼으로 잡는다 — 손을 옮겨 짚어야 하는 거리면 조작이 아니라 곡예가 된다.
+        /// </summary>
+        private const float FullDrawDragFraction = 0.22f;
+
+        private Vector2 drawOrigin;
+
+        /// <summary>지금 끌고 있는 정도(0~1). 화면이 시위와 조준선을 이 값으로 그린다.</summary>
+        public float DrawRatio { get; private set; }
+
+        /// <summary>임계치를 넘겨 시위가 실제로 걸렸나. 못 넘으면 떼도 안 쏜다.</summary>
+        public bool DrawArmed => DrawRatio >= ArcheryAimSystem.DrawThreshold;
+
+        /// <summary>손가락을 댄 자리를 기억한다. 여기서부터 끈 거리가 곧 당김이다.</summary>
+        public void BeginDraw(Vector2 position)
         {
             drawing = true;
+            drawOrigin = position;
+            DrawRatio = 0f;
             input.SetDrawing(true);
+            input.SetDrawRatio(0f);
+        }
+
+        /// <summary>끌고 있는 동안 매번. 댄 자리에서 멀어진 만큼이 당김이다.</summary>
+        public void DragDraw(Vector2 position)
+        {
+            if (drawing == false)
+            {
+                return;
+            }
+            //  화면 짧은 변으로 나눈다 — 해상도가 달라도 같은 손동작이면 같은 값이 된다.
+            float unit = Mathf.Min(Screen.width, Screen.height) * FullDrawDragFraction;
+            DrawRatio = unit > 0f ? Mathf.Clamp01(Vector2.Distance(position, drawOrigin) / unit) : 0f;
+            input.SetDrawRatio(DrawRatio);
         }
 
         /// <summary>두 번 불려도 한 번만 쏜다 — 아래 View가 뗌을 두 경로로 받기 때문이다.</summary>
@@ -99,7 +130,12 @@ namespace LOP.UI
             }
             drawing = false;
             input.SetDrawing(false);
-            input.SetRelease();
+            //  임계치를 못 넘었으면 취소다 — 쏘라는 신호를 아예 안 보낸다.
+            if (DrawRatio >= ArcheryAimSystem.DrawThreshold)
+            {
+                input.SetRelease();
+            }
+            DrawRatio = 0f;
         }
     }
 }

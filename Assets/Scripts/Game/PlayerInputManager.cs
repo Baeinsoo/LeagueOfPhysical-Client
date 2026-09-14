@@ -20,6 +20,7 @@ namespace LOP
         private float heldAimYaw;     // 연속 — 카메라가 매 프레임 갱신, 틱마다 샘플
         private float heldAimPitch;
         private bool heldDrawing;     // 연속 — 손가락을 대고 있는 동안 참
+        private float heldDrawRatio;  // 연속 — 얼마나 끌었나(0~1)
         private bool pendingRelease;  // 이산 — 소비 후 리셋
         private IRunner runner;
         private IPlayerContext playerContext;
@@ -82,6 +83,7 @@ namespace LOP
                 AimYaw = heldAimYaw,
                 AimPitch = heldAimPitch,
                 Drawing = heldDrawing,
+                DrawRatio = heldDrawRatio,
                 Release = pendingRelease,
             };
 
@@ -151,6 +153,7 @@ namespace LOP
                 AimPitch = command.AimPitch,
                 Drawing = command.Drawing,
                 Release = command.Release,
+                DrawRatio = command.DrawRatio,
             };
         }
 
@@ -200,6 +203,16 @@ namespace LOP
         public void SetDrawing(bool drawing)
         {
             heldDrawing = drawing;
+            if (drawing == false)
+            {
+                heldDrawRatio = 0f;
+            }
+        }
+
+        /// <summary>얼마나 당겼나(0~1). 끈 거리를 화면 크기로 정규화한 값이라 기기가 달라도 같다.</summary>
+        public void SetDrawRatio(float ratio)
+        {
+            heldDrawRatio = UnityEngine.Mathf.Clamp01(ratio);
         }
 
         /// <summary>손을 뗀 순간 한 번 부른다. 다음 틱 커맨드에 실려 나간다.</summary>

@@ -67,7 +67,7 @@ namespace LOP
             targets.Clear();
             if (wave >= 0)
             {
-                ArcheryWaveGenerator.Fill(targets, matchSeed.Value, wave, config);
+                ArcheryWaveGenerator.Fill(targets, matchSeed.Value, wave, config, world.GameplayStartTick);
             }
 
             var shots = world.Shots;

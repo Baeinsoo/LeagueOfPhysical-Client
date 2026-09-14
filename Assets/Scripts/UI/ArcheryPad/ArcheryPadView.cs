@@ -12,6 +12,9 @@ namespace LOP.UI
         private readonly ArcheryPadViewModel _viewModel;
         private Label _score;
         private VisualElement _reticle;
+        private VisualElement _gauge;
+        private VisualElement _gaugeThreshold;
+        private VisualElement _gaugeKnob;
         private IVisualElementScheduledItem _tick;
 
         public ArcheryPadView(ArcheryPadViewModel viewModel)
@@ -29,6 +32,9 @@ namespace LOP.UI
             var right = Root.Q<VisualElement>("right");
             _score = Root.Q<Label>("score");
             _reticle = Root.Q<VisualElement>("reticle");
+            _gauge = Root.Q<VisualElement>("draw-gauge");
+            _gaugeThreshold = Root.Q<VisualElement>("draw-threshold");
+            _gaugeKnob = Root.Q<VisualElement>("draw-knob");
 
             // 왼쪽 절반 — 끌면 시점이 돈다. 손가락을 대고 있는 동안만 받는다.
             left.RegisterCallback<PointerDownEvent>(evt => left.CapturePointer(evt.pointerId));
@@ -72,16 +78,62 @@ namespace LOP.UI
                 _score.text = _viewModel.Score.ToString();
                 //  조준점은 손가락을 댄 동안만. 안 댔을 때 띄워 두면 판 전체를 보는 시야를 가린다.
                 //  임계치를 넘기 전에는 흐리게 — "아직 안 걸렸다"가 손에 읽혀야 취소를 고를 수 있다.
-                bool showing = _viewModel.Drawing;
-                _reticle.style.display = showing ? DisplayStyle.Flex : DisplayStyle.None;
-                if (showing)
+                //  임계치를 넘겨 시위가 걸린 동안만 띄운다 — 조준선과 같은 기준이라
+                //  "둘 다 보이면 쏠 수 있다"가 한눈에 읽힌다.
+                bool armed = _viewModel.DrawArmed;
+                _reticle.style.display = armed ? DisplayStyle.Flex : DisplayStyle.None;
+                if (armed)
                 {
-                    _reticle.style.opacity = _viewModel.DrawArmed ? 1f : 0.35f;
                     //  당길수록 조준점이 조여든다 — 얼마나 당겼는지가 한눈에 보인다.
-                    float scale = Mathf.Lerp(1.6f, 1f, _viewModel.DrawRatio);
+                    float scale = Mathf.Lerp(1.4f, 1f, _viewModel.DrawRatio);
                     _reticle.style.scale = new StyleScale(new Scale(new Vector2(scale, scale)));
                 }
+
+                UpdateGauge();
             }).Every(0);
+        }
+
+        //  게이지는 손가락을 댄 자리에 그린다. 크기가 화면 비율로 정의돼 있어 USS에 못 박고
+        //  여기서 픽셀로 계산한다. 바깥 원=완전 당김, 안쪽 원=임계치, 손잡이=지금 손가락.
+        private void UpdateGauge()
+        {
+            if (_viewModel.Drawing == false)
+            {
+                _gauge.style.display = DisplayStyle.None;
+                return;
+            }
+
+            _gauge.style.display = DisplayStyle.Flex;
+
+            float full = _viewModel.FullDrawPixels;
+            //  UI Toolkit의 좌표는 위가 0인데 포인터 좌표도 같은 기준이라 그대로 쓴다.
+            Vector2 origin = _viewModel.DrawOrigin;
+            SetCircle(_gauge, origin, full);
+
+            //  임계치 원은 게이지의 자식이라 좌표가 부모 기준이다 — 부모 가운데(full, full)에 앉힌다.
+            float threshold = full * ArcheryAimSystem.DrawThreshold;
+            SetCircle(_gaugeThreshold, new Vector2(full, full), threshold);
+
+            //  손잡이는 실제 손가락 자리에 둔다 — 원 안쪽으로 돌아오면 취소라는 게 그대로 보인다.
+            Vector2 knob = _viewModel.DrawCurrent;
+            float knobHalf = 23f;
+            _gaugeKnob.style.left = knob.x - origin.x + full - knobHalf;
+            _gaugeKnob.style.top = knob.y - origin.y + full - knobHalf;
+            _gaugeKnob.style.opacity = _viewModel.DrawArmed ? 0.95f : 0.4f;
+        }
+
+        //  가운데가 center인 지름 2*radius짜리 원을 절대 좌표로 앉힌다.
+        private void SetCircle(VisualElement element, Vector2 center, float radius)
+        {
+            float size = radius * 2f;
+            element.style.left = center.x - radius;
+            element.style.top = center.y - radius;
+            element.style.width = size;
+            element.style.height = size;
+            element.style.borderTopLeftRadius = radius;
+            element.style.borderTopRightRadius = radius;
+            element.style.borderBottomLeftRadius = radius;
+            element.style.borderBottomRightRadius = radius;
         }
 
         private bool _disposed;

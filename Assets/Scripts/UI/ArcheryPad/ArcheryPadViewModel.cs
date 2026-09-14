@@ -91,6 +91,7 @@ namespace LOP.UI
         private const float FullDrawDragFraction = 0.22f;
 
         private Vector2 drawOrigin;
+        private Vector2 drawCurrent;
 
         /// <summary>지금 끌고 있는 정도(0~1). 화면이 시위와 조준선을 이 값으로 그린다.</summary>
         public float DrawRatio { get; private set; }
@@ -98,11 +99,21 @@ namespace LOP.UI
         /// <summary>임계치를 넘겨 시위가 실제로 걸렸나. 못 넘으면 떼도 안 쏜다.</summary>
         public bool DrawArmed => DrawRatio >= ArcheryAimSystem.DrawThreshold;
 
+        /// <summary>손가락을 처음 댄 자리(화면 좌표). 게이지가 여기 그려진다.</summary>
+        public Vector2 DrawOrigin => drawOrigin;
+
+        /// <summary>지금 손가락 자리(화면 좌표).</summary>
+        public Vector2 DrawCurrent => drawCurrent;
+
+        /// <summary>완전히 당기는 데 필요한 거리(픽셀). 게이지 바깥 원의 반지름이다.</summary>
+        public float FullDrawPixels => Mathf.Min(Screen.width, Screen.height) * FullDrawDragFraction;
+
         /// <summary>손가락을 댄 자리를 기억한다. 여기서부터 끈 거리가 곧 당김이다.</summary>
         public void BeginDraw(Vector2 position)
         {
             drawing = true;
             drawOrigin = position;
+            drawCurrent = position;
             DrawRatio = 0f;
             input.SetDrawing(true);
             input.SetDrawRatio(0f);
@@ -115,8 +126,9 @@ namespace LOP.UI
             {
                 return;
             }
+            drawCurrent = position;
             //  화면 짧은 변으로 나눈다 — 해상도가 달라도 같은 손동작이면 같은 값이 된다.
-            float unit = Mathf.Min(Screen.width, Screen.height) * FullDrawDragFraction;
+            float unit = FullDrawPixels;
             DrawRatio = unit > 0f ? Mathf.Clamp01(Vector2.Distance(position, drawOrigin) / unit) : 0f;
             input.SetDrawRatio(DrawRatio);
         }

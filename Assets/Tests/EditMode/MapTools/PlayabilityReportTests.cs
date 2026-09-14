@@ -1094,5 +1094,71 @@ namespace LOP.MapTools.Tests
             Assert.IsTrue(Contains(report, "❌  탐색 x=38.2에서 막힘"));
             Assert.IsFalse(Contains(report, "✅"));
         }
+
+        //  ── 회전 무관 (증명된 경로가 날개 원반을 비켜 갔나) ──────────────────
+
+        static SweptDiscVerdict Discs(float worstGap, int count = 8, int unmeasured = 0)
+            => new SweptDiscVerdict(measured: true, discCount: count, unmeasured: unmeasured,
+                                    worst: new SweptDiscGap("Gauntlet/Windmill", measured: true,
+                                                            gap: worstGap, atX: 317.4f, atTick: 128));
+
+        //  전부 true인 날갯짓 배열 — 길이만 준 배열은 전부 false라 "날갯짓 0회"로 찍힌다.
+        static bool[] AllFlaps(int count)
+        {
+            var flaps = new bool[count];
+            for (int i = 0; i < count; i++) { flaps[i] = true; }
+            return flaps;
+        }
+
+        static SpawnCleanRun Proven(SweptDiscVerdict discs)
+            => new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, AllFlaps(214), 0f, 0f, 0, 0f),
+                                 verifiedByReplay: true, botReached: false, botFlaps: 0, bot: default,
+                                 spawnInsideTerrain: false, replay: default, discs: discs);
+
+        [Test]
+        public void 원반을_비켜_간_통과는_회전_무관이라고_적는다()
+        {
+            string report = Build(Proven(Discs(worstGap: 1.23f)));
+
+            Assert.IsTrue(Contains(report, "✅  날갯짓 214회"));
+            Assert.IsTrue(Contains(report, "🌀"));
+            Assert.IsTrue(Contains(report, "원반까지 최소 1.23m"));
+            //  ⚠️는 "틱 0에서만"의 표시다 — 무관한 자리에 붙으면 뜻이 뒤집힌다.
+            Assert.IsFalse(Contains(report, "틱 0 위상에서만"));
+        }
+
+        [Test]
+        public void 원반에_파고든_통과는_틱0에서만이라고_적는다()
+        {
+            string report = Build(Proven(Discs(worstGap: -0.42f)));
+
+            //  ✅는 그대로다 — 틱 0에서 무충돌로 재생된 것은 사실이다. 달라진 것은 그 참이
+            //  어디까지 미치느냐이고, 그것을 같은 글자로 뭉뚱그리지 않는다.
+            Assert.IsTrue(Contains(report, "✅  날갯짓 214회"));
+            Assert.IsTrue(Contains(report, "⚠️ 틱 0 위상에서만"));
+            Assert.IsTrue(Contains(report, "0.42m 파고듦"));
+            Assert.IsFalse(Contains(report, "🌀 회전 무관 ("));
+        }
+
+        [Test]
+        public void 도는_장애물이_없으면_그_줄도_설명도_안_찍는다()
+        {
+            //  빈 문구는 "쟀는데 무관했다"로 잘못 읽힌다.
+            string report = Build(Proven(default));
+
+            Assert.IsTrue(Contains(report, "✅  날갯짓 214회"));
+            Assert.IsFalse(Contains(report, "🌀"));
+            Assert.IsFalse(Contains(report, "회전 무관"));
+            Assert.IsFalse(Contains(report, "틱 0 위상에서만"));
+        }
+
+        [Test]
+        public void 회전_무관_설명은_한_번만_찍는다()
+        {
+            string report = Build(Proven(Discs(worstGap: 1.23f)), Proven(Discs(worstGap: 2.5f)));
+
+            Assert.AreEqual(2, Count(report, "🌀 회전 무관 ("));
+            Assert.AreEqual(1, Count(report, "날개가 어느 각도에 서 있어도"));
+        }
     }
 }

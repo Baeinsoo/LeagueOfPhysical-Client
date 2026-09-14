@@ -248,11 +248,16 @@ namespace LOP.MapTools
         /// <summary>재생이 어긋난 자리(🟡)의 부검 정보. <see cref="VerifiedByReplay"/>가
         /// false일 때만 뜻이 있다.</summary>
         public readonly ReplayMismatch Replay;
+        /// <summary>이 자리의 증명된 경로가 도는 장애물의 원반을 비켜 갔는가 —
+        /// 곧 그 증명이 <b>날개 각도와 무관한가</b>. 통과한 자리(✅)에서만 뜻이 있다.</summary>
+        public readonly SweptDiscVerdict Discs;
 
         public SpawnCleanRun(string name, float y, CleanRunResult result, bool verifiedByReplay,
                              bool botReached, int botFlaps, BotDiagnostics bot,
-                             bool spawnInsideTerrain = false, ReplayMismatch replay = default)
+                             bool spawnInsideTerrain = false, ReplayMismatch replay = default,
+                             SweptDiscVerdict discs = default)
         {
+            Discs = discs;
             Name = name;
             Y = y;
             Result = result;
@@ -322,6 +327,9 @@ namespace LOP.MapTools
             //  계수기를 어떻게 읽어야 하는지 경고를 단다. 안 찍힌 리포트에 경고만 뜨면 없는
             //  숫자를 조심하라는 말이 된다.
             bool anyBotAutopsy = false;
+            //  회전 무관 문구가 한 줄이라도 찍혔는가 — 찍혔을 때만 그 뜻을 아래에 설명한다.
+            //  도는 장애물이 없는 맵이면 문구도 설명도 안 나온다(빈 절은 "쟀는데 없었다"로 읽힌다).
+            bool anyDiscVerdict = false;
             for (int i = 0; i < cleanRuns.Count; i++)
             {
                 SpawnCleanRun run = cleanRuns[i];
@@ -338,14 +346,21 @@ namespace LOP.MapTools
                 else if (run.BotReached)
                 {
                     anyProven = true;
-                    text.AppendLine($"  {run.Name} (y={run.Y:F0})   ✅  봇 통과 · 날갯짓 {run.BotFlaps}회");
+                    anyDiscVerdict |= run.Discs.Measured;
+                    text.AppendLine($"  {run.Name} (y={run.Y:F0})   ✅  봇 통과 · 날갯짓 {run.BotFlaps}회"
+                                  + DiscSuffix(run.Discs));
                 }
                 else if (run.Result.Reachable)
                 {
                     if (run.VerifiedByReplay)
                     {
                         anyProven = true;
-                        text.AppendLine($"  {run.Name} (y={run.Y:F0})   ✅  날갯짓 {CountFlaps(run.Result)}회");
+                        //  이 ✅는 <b>탐색이 틱 0 자세로 굳혀 본 맵</b>에서 얻은 것이다. 그 한계가
+                        //  이 자리에 무해한지(경로가 날개 원반 밖으로만 지나는지)를 같은 줄에 붙인다 —
+                        //  ✅만 찍으면 "모든 위상에서 참"과 "틱 0에서만 참"이 한 글자로 뭉쳐진다.
+                        anyDiscVerdict |= run.Discs.Measured;
+                        text.AppendLine($"  {run.Name} (y={run.Y:F0})   ✅  날갯짓 {CountFlaps(run.Result)}회"
+                                      + DiscSuffix(run.Discs));
                     }
                     else
                     {
@@ -395,6 +410,10 @@ namespace LOP.MapTools
                 text.AppendLine("  (막힘:뜻없음 비는 혼자서는 결론을 못 낸다 — 완벽한 봇이 열린 하늘을 날면 1:∞이고");
                 text.AppendLine("   물리적 최소 회랑에서도 1:2.4다. 즉 이 비는 \"맵이 얼마나 트였나\"에 가깝다.");
                 text.AppendLine("   무엇을 고쳐야 하는지는 위 \"되돌리기\"가 답한다.)");
+            }
+            if (anyDiscVerdict)
+            {
+                text.AppendLine(SweptDiscRule.Note());
             }
             //  파묻힌 스폰은 통과에도 실패에도 안 든다 — 아래 공정성/처방 문구들이 이 자리를
             //  "된다"나 "안 된다" 어느 쪽으로도 세지 않게 한다.
@@ -525,6 +544,14 @@ namespace LOP.MapTools
                 if (result.Flaps[i]) { count++; }
             }
             return count;
+        }
+
+        //  통과한 자리 줄 끝에 붙이는 "회전 무관인가". 잴 것이 없었으면(도는 장애물이 없는 맵)
+        //  아무것도 안 붙인다 — 빈 문구는 "쟀는데 없었다"로 잘못 읽힌다.
+        static string DiscSuffix(in SweptDiscVerdict discs)
+        {
+            string line = SweptDiscRule.Line(discs);
+            return line.Length == 0 ? string.Empty : "   " + line;
         }
 
         //  봇이 못 간 자리(🟡/❌)마다 어디서 왜 멈췄는지를 같은 형식으로 찍는다 — 네 자리를

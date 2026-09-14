@@ -5,6 +5,12 @@
         <ui:VisualElement name="left" class="pad-half pad-left" />
         <!-- 오른쪽 절반: 누르면 당기고 떼면 쏜다. -->
         <ui:VisualElement name="right" class="pad-half pad-right" />
+        <!-- 당김 게이지: 손가락을 댄 자리에 뜬다. 바깥 원=완전 당김, 안쪽 원=임계치,
+             손잡이=지금 손가락. 어디까지 돌아가면 취소되는지가 눈에 보인다. -->
+        <ui:VisualElement name="draw-gauge" class="draw-gauge" picking-mode="Ignore">
+            <ui:VisualElement name="draw-threshold" class="draw-threshold" picking-mode="Ignore" />
+            <ui:VisualElement name="draw-knob" class="draw-knob" picking-mode="Ignore" />
+        </ui:VisualElement>
         <!-- 젤다식 조준점: 화면 한가운데, 당기는 동안만 뜬다. 바깥 원 + 가운데 점. -->
         <ui:VisualElement name="reticle" class="archery-reticle" picking-mode="Ignore">
             <ui:VisualElement name="reticle-dot" class="archery-reticle-dot" picking-mode="Ignore" />

@@ -13,7 +13,18 @@ namespace LOP
     {
         private const float WideFov = 60f;
         private const float DrawnFov = 32f;
+
         private const float FovLerpPerSecond = 8f;
+
+        //  화면이 따라가는 당김이 한 프레임에 이만큼보다 빨리 변하지 않는다(초당 비율).
+        //  쏘는 순간 시뮬은 당김을 0으로 **한 번에** 떨어뜨리는데, 그 계단을 화면이 그대로 따라가면
+        //  화각이 32도에서 60도로 튄다. 여기서 한 번 매끈하게 만들면 줌이든 뭐든 이 값을 읽는
+        //  모든 곳이 같이 부드러워진다 — 화면마다 따로 완충을 두지 않아도 된다.
+        //  ⚠️ 시뮬 값(서버로 가는 힘)은 건드리지 않는다. 늦추면 빨리 끌었을 때 힘이 덜 실린다.
+        private const float DrawRatioRisePerSecond = 6f;
+        private const float DrawRatioFallPerSecond = 2.5f;
+
+        private float shownDrawRatio;
 
         private readonly PlayerInputManager input;
         private readonly CameraController cameraController;
@@ -46,9 +57,18 @@ namespace LOP
             float pitch = -Mathf.DeltaAngle(0f, camera.transform.eulerAngles.x);
             input.SetAim(yaw, pitch);
 
+            //  당길 때는 손가락을 바짝 따라가고, 풀릴 때만 천천히 — 당긴 정도는 바로 읽혀야 하지만
+            //  놓은 뒤 되돌아가는 길은 급할 이유가 없다.
+            float target = MyDrawRatio();
+            float ratePerSecond = target > shownDrawRatio
+                ? DrawRatioRisePerSecond
+                : DrawRatioFallPerSecond;
+            shownDrawRatio = Mathf.MoveTowards(
+                shownDrawRatio, target, ratePerSecond * Time.deltaTime);
+
             camera.fieldOfView = Mathf.Lerp(
                 camera.fieldOfView,
-                Mathf.Lerp(WideFov, DrawnFov, MyDrawRatio()),
+                Mathf.Lerp(WideFov, DrawnFov, shownDrawRatio),
                 Time.deltaTime * FovLerpPerSecond);
         }
 

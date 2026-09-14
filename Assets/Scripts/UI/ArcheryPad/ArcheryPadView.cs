@@ -10,6 +10,7 @@ namespace LOP.UI
     {
         private readonly ArcheryPadViewModel _viewModel;
         private Label _score;
+        private VisualElement _reticle;
         private IVisualElementScheduledItem _tick;
 
         public ArcheryPadView(ArcheryPadViewModel viewModel)
@@ -26,6 +27,7 @@ namespace LOP.UI
             var left = Root.Q<VisualElement>("left");
             var right = Root.Q<VisualElement>("right");
             _score = Root.Q<Label>("score");
+            _reticle = Root.Q<VisualElement>("reticle");
 
             // 왼쪽 절반 — 끌면 시점이 돈다. 손가락을 대고 있는 동안만 받는다.
             left.RegisterCallback<PointerDownEvent>(evt => left.CapturePointer(evt.pointerId));
@@ -59,6 +61,8 @@ namespace LOP.UI
             {
                 _viewModel.PollKeyboard();
                 _score.text = _viewModel.Score.ToString();
+                //  조준점은 당기는 동안만. 안 당길 때 띄워 두면 판 전체를 보는 시야를 가린다.
+                _reticle.style.display = _viewModel.Drawing ? DisplayStyle.Flex : DisplayStyle.None;
             }).Every(0);
         }
 

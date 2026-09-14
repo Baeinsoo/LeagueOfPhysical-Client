@@ -48,8 +48,7 @@ namespace LOP
                 r.SpawnRadius, r.SpawnMinY, r.SpawnMaxY, r.MinSeparation,
                 r.TrapRatioMin, r.TrapRatioMax,
                 r.ShakeFreeSeconds, r.ShakeRampSeconds, r.ShakeMaxDegrees,
-                //  아직 데이터에 칸이 없다 — 마스터데이터를 구운 뒤 실제 컬럼으로 바꾼다.
-                riseHeightMin: 1.2f, riseHeightMax: 2.4f, staggerTicks: 12, restTicks: 20,
+                r.RiseHeightMin, r.RiseHeightMax, r.StaggerTicks, r.RestTicks,
                 kinds);
         }
     }

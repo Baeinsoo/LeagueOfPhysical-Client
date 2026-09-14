@@ -1253,6 +1253,14 @@ def set_by_name(name, value):
 set_by_name('min_targets', 3)
 set_by_name('max_targets', 5)
 
+#  과녁이 무대에서 솟아나오게 한다. 이 값들은 과녁이 *떠 있던* 시절 것이라
+#  그대로 두면 공중 1.5~8m에 나타나 깡충 뛰었다 사라진다 — 솟아오르는 게 아니라
+#  떠서 까딱거리는 그림이다. 맵의 가운데 무대 윗면이 y=0.3이므로 거기서 출발시킨다.
+#  (솟는 높이 상한이 2.4m로 묶여 있어 "바닥에서 5m까지 솟구치게"는 불가능하다 —
+#   고칠 곳은 솟는 높이가 아니라 출발 높이였다. 정점은 1.5~3.0m가 된다.)
+set_by_name('spawn_min_y', 0.3)
+set_by_name('spawn_max_y', 0.6)
+
 #  웨이브 주기는 묶음 전체 + 쉼을 덮어야 한다.
 #  가장 높이(2.4m) 솟는 과녁의 수명이 0.98초 = 49틱이므로
 #  (5-1)*12 + 49 + 20 = 117 이고, 여유를 둬 120으로 한다.
@@ -1292,7 +1300,7 @@ for row in ws.iter_rows(values_only=True):
 "
 ```
 
-기대: `##var` 줄 끝에 `rise_height_min, rise_height_max, stagger_ticks, rest_ticks`, `##type`에 `float, float, int, int`, 데이터 줄 끝에 `1.2, 2.4, 12, 20`. **`min_targets`=3, `max_targets`=5, `wave_period_ticks`=120**. 그 밖의 기존 값(`spawn_radius` 3.5 등)은 **하나도 안 바뀌어야 한다** — 하나라도 움직였으면 멈추고 되돌린다.
+기대: `##var` 줄 끝에 `rise_height_min, rise_height_max, stagger_ticks, rest_ticks`, `##type`에 `float, float, int, int`, 데이터 줄 끝에 `1.2, 2.4, 12, 20`. **`min_targets`=3, `max_targets`=5, `wave_period_ticks`=120, `spawn_min_y`=0.3, `spawn_max_y`=0.6**. 그 밖의 기존 값(`spawn_radius` 3.5, `min_separation` 1.2 등)은 **하나도 안 바뀌어야 한다** — 하나라도 움직였으면 멈추고 되돌린다.
 
 - [ ] **Step 3: 굽고 네 출력처를 확인한다**
 

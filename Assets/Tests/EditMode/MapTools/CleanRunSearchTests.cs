@@ -14,10 +14,39 @@ namespace LOP.MapTools.Tests
 
         static bool OpenSky(float x, float y) => true;
 
+        //  테스트는 맵 모양을 "이 점이 비었나"라는 술어 하나로 적는다. 탐색은 이제 한 틱
+        //  <b>쓸기</b>를 묻기 때문에, 그 술어를 예전 모델(선분을 눈금 간격으로 찍기)로 감싸
+        //  준다 — 여기서 재는 것은 탐색의 <i>경로 고르기</i>이지 충돌 모델이 아니다.
+        //  진짜 검사기는 이 어댑터가 아니라 게임의 이동 커널(FlappyTickSweep)을 넘기고,
+        //  그 커널과 어긋나지 않는지는 FlappyTickSweepTests가 따로 지킨다.
+        static CleanRunResult Run(in CleanRunOptions options, ExactFreeSpaceProbe isFree)
+            => CleanRunSearch.Run(options, isFree, PointSampleSweep(options, isFree));
+
+        static TickSweepProbe PointSampleSweep(CleanRunOptions options, ExactFreeSpaceProbe isFree)
+        {
+            float stepX = options.ForwardSpeed * options.TickSeconds;
+            return (x, y, verticalSpeed) =>
+            {
+                float ny = FlappyTickMath.AdvanceHeight(y, verticalSpeed, options.TickSeconds);
+                float dx = stepX, dy = ny - y;
+                int samples = UnityEngine.Mathf.CeilToInt(
+                    UnityEngine.Mathf.Sqrt(dx * dx + dy * dy) / options.HeightGrid) + 1;
+                for (int i = 0; i <= samples; i++)
+                {
+                    float t = i / (float)samples;
+                    if (isFree(x + dx * t, y + dy * t) == false)
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            };
+        }
+
         [Test]
         public void 빈_하늘이면_결승선까지_간다()
         {
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), OpenSky);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), OpenSky);
 
             Assert.IsTrue(result.Reachable);
         }
@@ -29,7 +58,7 @@ namespace LOP.MapTools.Tests
             //  자유공간 함수가 그 구간에서 전부 false를 준다.
             bool IsFree(float x, float y) => x < 20f;
 
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), IsFree);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), IsFree);
 
             Assert.IsFalse(result.Reachable);
             //  전진 11 × 0.02 = 0.22씩 가므로 20 근처에서 끊긴다.
@@ -45,7 +74,7 @@ namespace LOP.MapTools.Tests
             //  미리 날갯짓해 떠 있어야 넘는다.
             bool IsFree(float x, float y) => (x < 20f || x > 22f) || y >= 3f;
 
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), IsFree);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), IsFree);
 
             Assert.IsTrue(result.Reachable);
         }
@@ -56,8 +85,8 @@ namespace LOP.MapTools.Tests
             //  y ≥ 5 는 통째로 막힌 하늘. 아래에서 출발하면 가고, 위에서 출발하면 시작부터 막힌다.
             bool IsFree(float x, float y) => y < 5f;
 
-            Assert.IsTrue(CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), IsFree).Reachable);
-            Assert.IsFalse(CleanRunSearch.Run(Options(startY: 9f, finishX: 50f), IsFree).Reachable);
+            Assert.IsTrue(Run(Options(startY: 0f, finishX: 50f), IsFree).Reachable);
+            Assert.IsFalse(Run(Options(startY: 9f, finishX: 50f), IsFree).Reachable);
         }
 
         [Test]
@@ -69,7 +98,7 @@ namespace LOP.MapTools.Tests
             //  찍어 봐야만 걸린다.
             bool IsFree(float x, float y) => x < 20.05f || x > 20.20f;
 
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), IsFree);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), IsFree);
 
             Assert.IsFalse(result.Reachable);
         }
@@ -85,7 +114,7 @@ namespace LOP.MapTools.Tests
                 return y >= 0f && y <= 0.5f;
             }
 
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), IsFree);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), IsFree);
 
             Assert.IsFalse(result.Reachable);
             //  좁은 목이 있었다는 사실이 남아야 고칠 자리를 찾는다.
@@ -106,7 +135,7 @@ namespace LOP.MapTools.Tests
             //  reachable=true가 나온다.
             bool IsFree(float x, float y) => y >= 35f;
 
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 50f, finishX: 50f), IsFree);
+            CleanRunResult result = Run(Options(startY: 50f, finishX: 50f), IsFree);
 
             Assert.IsFalse(result.Reachable);
         }
@@ -134,7 +163,7 @@ namespace LOP.MapTools.Tests
                                               forwardSpeed: 11f, flapImpulse: 23f, gravity: 70f, maxFallSpeed: 30f,
                                               tickSeconds: 0.02f, heightGrid: 0.1f);
 
-            CleanRunSearch.Run(options, RecordingProbe);
+            Run(options, RecordingProbe);
 
             Assert.AreEqual(0.46f, maxY, 0.005f);
             Assert.AreEqual(-0.028f, minY, 0.005f);
@@ -143,7 +172,7 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 도달_가능하면_날갯짓_순서를_돌려준다()
         {
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), OpenSky);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), OpenSky);
 
             Assert.IsTrue(result.Reachable);
             //  50m를 0.22씩 가므로 228열(올림). 열마다 눌렀나/안 눌렀나가 하나씩 있어야 한다.
@@ -151,70 +180,56 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
-        public void 되짚은_순서를_탐색의_눈금_규칙으로_재생하면_막힌_자리를_안_지난다()
+        public void 칼날_위_경로도_연속_물리로_재생하면_막힌_자리를_안_지난다()
         {
-            //  x ∈ [20, 22] 은 y ≥ 3 만 빈다 — 날갯짓 없이는 못 넘는 턱.
+            //  x ∈ [20, 22] 은 y ≥ 3 만 빈다 — 날갯짓 없이는 못 넘는 턱. 문이 멀고(약 90틱)
+            //  되짚기가 고르는 경로의 마진이 얇아서, <b>예전의 눈금 모델은 여기서 정확히
+            //  깨졌다</b>: 틱마다 반올림한 높이를 다음 틱 입력으로 넘기는 바람에 90틱치
+            //  편향이 쌓여 눈금 모델은 y=3.4라고 믿었는데 연속 물리로는 y=1.94 — 턱에
+            //  박혔다. 지금은 탐색이 정확한 높이를 이어 가므로 두 값이 같아야 한다.
             bool IsFree(float x, float y) => (x < 20f || x > 22f) || y >= 3f;
             var options = Options(startY: 0f, finishX: 50f);
 
-            CleanRunResult result = CleanRunSearch.Run(options, IsFree);
+            CleanRunResult result = Run(options, IsFree);
             Assert.IsTrue(result.Reachable);
             //  빈 배열이면 아래 for문이 0번 돌아 아무것도 검증하지 않고 통과해 버린다 —
             //  "성공"과 "성공이라는데 되짚기가 깨졌다"를 갈라내는 길이 확인.
             Assert.AreEqual(228, result.Flaps.Count);
 
-            //  ExtractFlaps가 실제로 검증한 건 "연속 물리"가 아니라 탐색 자신의 눈금 모델이다
-            //  (SearchGrid는 internal이라 여기서 다시 쓴다 — 사다리 속도 계산 → y += vy×dt →
-            //  높이를 눈금에 반올림, 딱 이 세 단계). 이 모델로 재생했을 때 한 번도 막힌 자리를
-            //  지나지 않아야 "되짚기가 탐색이 걸은 길 그대로를 돌려줬다"가 증명된다. 연속
-            //  물리와의 괴리는 이 테스트의 몫이 아니다 — 진짜 커널로 재생해 증명하는 건 다음
-            //  슬라이스 일이고, 여기선 그 괴리가 있을 수 있다는 전제 자체가 설계다(§3.7).
-            float drop = options.Gravity * options.TickSeconds;
-            float Speed(bool afterFlap, int rung)
-            {
-                float v = (afterFlap ? options.FlapImpulse : 0f) - drop * rung;
-                return v < -options.MaxFallSpeed ? -options.MaxFallSpeed : v;
-            }
-            float Snap(float y) => options.MinY + UnityEngine.Mathf.Round((y - options.MinY) / options.HeightGrid) * options.HeightGrid;
-
-            float y = Snap(options.StartY);
-            bool afterFlapLadder = false;   //  시작은 "아직 날갯짓 안 한" 사다리(사다리 1, 칸 0)와 같다.
-            int rung = 0;
+            //  탐색이 준 순서 그대로 연속 물리(포물선)를 굴린다. 한 번이라도 막힌 자리를
+            //  지나면 안 된다 — 눈금이 상태를 뭉개는 순간 이 단언이 빨강이 된다.
+            float y = options.StartY, vy = 0f;
             for (int i = 0; i < result.Flaps.Count; i++)
             {
                 float x = options.StartX + 0.22f * i;
-                if (result.Flaps[i]) { afterFlapLadder = true; rung = 0; } else { rung += 1; }
-                y = Snap(y + Speed(afterFlapLadder, rung) * options.TickSeconds);
+                vy -= options.Gravity * options.TickSeconds;
+                if (vy < -options.MaxFallSpeed) { vy = -options.MaxFallSpeed; }
+                if (result.Flaps[i]) { vy = options.FlapImpulse; }
+                y += vy * options.TickSeconds;
                 Assert.IsTrue(IsFree(x + 0.22f, y),
-                              $"{i}번째 틱에서 (눈금 모델로도) 막힌 자리를 지났다 (x={x + 0.22f:F2} y={y:F2})");
+                              $"{i}번째 틱에서 막힌 자리를 지났다 (x={x + 0.22f:F2} y={y:F2})");
             }
         }
 
         [Test]
-        public void 턱이_일찍_오면_눈금_오차가_작아_연속_재생도_안_막힌다()
+        public void 턱이_일찍_와도_연속_재생이_안_막힌다()
         {
             //  x ∈ [3, 5] 은 y ≥ −0.4 만 비어 있다 — 시작(y=0)에서 아무것도 안 하면 자유낙하로
-            //  한참 못 미치지만(약 −5.9m), 몇 번만 날갯짓해도 넉넉히 위다. 앞선 x ∈ [20, 22],
-            //  y ≥ 3 턱은 "칼날 위" 시나리오였다(되짚기가 고르는 최소마진 경로가 실측 진행폭
-            //  0.22×90≈20 근처에서 눈금 반올림 오차가 90틱치 누적돼 최대 ~1.5m까지 벌어졌다
-            //  — 실측: 눈금 모델 y=3.4, 연속 재생 y=1.94).
+            //  한참 못 미치지만(약 −5.9m), 몇 번만 날갯짓해도 넉넉히 위다.
             //
-            //  여기서 마진을 넓히는 건 안 먹힌다 — 되짚기가 "가장 낮은 생존 상태"를 우선하므로
-            //  바닥을 낮추면 그만큼 더 낮은 경로를 다시 골라 마진이 도로 얇아진다(실측:
-            //  y≥−0.5→마진 0.9, y≥−1.0→마진 0.3, 요구를 낮춰도 마진이 안 커짐). 효과가 있는
-            //  건 문을 **일찍** 두는 것뿐이다 — 이 턱은 문(x=3~5, i=13~21)이 훨씬 이르고
-            //  그래서 필요한 날갯짓도 5회뿐이라(원래 턱은 10회 연속 몰아치기), 반올림 오차가
-            //  쌓일 기회 자체가 적다.
+            //  이 테스트는 <b>문이 이른</b> 경우(필요한 날갯짓 5회)를 본다. 문이 먼 "칼날 위"
+            //  경우는 위 `칼날_위_경로도…` 테스트가 본다 — 예전 눈금 모델에서는 그쪽만
+            //  깨졌고 이쪽은 오차가 쌓일 틱이 적어 초록이었다. 둘 다 남겨 둔다: 하나는
+            //  누적 편향을, 하나는 마진이 넉넉한 평범한 경우를 지킨다.
             bool IsFree(float x, float y) => (x < 3f || x > 5f) || y >= -0.4f;
             var options = Options(startY: 0f, finishX: 50f);
 
-            CleanRunResult result = CleanRunSearch.Run(options, IsFree);
+            CleanRunResult result = Run(options, IsFree);
             Assert.IsTrue(result.Reachable);
             Assert.AreEqual(228, result.Flaps.Count);
 
             //  탐색이 준 순서 그대로 포물선(연속 물리)을 굴린다. 한 번이라도 막힌 자리를
-            //  지나면 안 된다. 실측: 눈금 모델 마진 0.50m, 연속 재생 마진 0.53m — 반올림
-            //  오차(약 0.03m)에 비해 16배 이상 넉넉하다. 칼날 위가 아니다.
+            //  지나면 안 된다.
             float y = options.StartY, vy = 0f;
             for (int i = 0; i < result.Flaps.Count; i++)
             {
@@ -240,7 +255,7 @@ namespace LOP.MapTools.Tests
             bool IsFree(float x, float y) => (x < 5f || x > 7f) || (y >= -0.4f && y <= 2.0f);
             var options = Options(startY: 0f, finishX: 50f);
 
-            CleanRunResult result = CleanRunSearch.Run(options, IsFree);
+            CleanRunResult result = Run(options, IsFree);
             Assert.IsTrue(result.Reachable);
             Assert.AreEqual(228, result.Flaps.Count);
 
@@ -266,7 +281,7 @@ namespace LOP.MapTools.Tests
         {
             //  코스가 거꾸로(길이 음수) — 열 순회가 한 번도 안 돌아 그대로 "도달 가능"으로
             //  떨어지는 버그가 있었다. 자유공간은 항상 참이어도 이건 통과하면 안 된다.
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: -5f), OpenSky);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: -5f), OpenSky);
 
             Assert.IsFalse(result.Reachable);
             Assert.AreEqual(0, result.Flaps.Count);
@@ -276,7 +291,7 @@ namespace LOP.MapTools.Tests
         public void 결승선이_출발점과_같으면_거짓을_보고한다()
         {
             //  코스 길이가 정확히 0인 경계값. 위와 같은 이유로 실패해야 한다.
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 0f), OpenSky);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 0f), OpenSky);
 
             Assert.IsFalse(result.Reachable);
             Assert.AreEqual(0, result.Flaps.Count);
@@ -304,7 +319,7 @@ namespace LOP.MapTools.Tests
             //  minY는 클램프 없는(=더 깊이 떨어지는) 경우도 안 걸릴 만큼 낮게 둔다 — 대역
             //  경계에 걸려 죽으면 "클램프 때문"인지 "대역 때문"인지 구분이 안 된다.
             var options = Options(startY: 0f, finishX: 13.2f, minY: -60f, maxY: 1f);
-            CleanRunResult result = CleanRunSearch.Run(options, CeilingAtStart);
+            CleanRunResult result = Run(options, CeilingAtStart);
 
             Assert.IsTrue(result.Reachable);
             int ticks = result.Flaps.Count;
@@ -343,7 +358,7 @@ namespace LOP.MapTools.Tests
                                               minY: -32f, maxY: 5f,
                                               forwardSpeed: 11f, flapImpulse: 23f, gravity: 70f, maxFallSpeed: 30f,
                                               tickSeconds: 0.02f, heightGrid: 0.02f);
-            CleanRunResult result = CleanRunSearch.Run(options, MustFlapThenOpen);
+            CleanRunResult result = Run(options, MustFlapThenOpen);
             Assert.IsTrue(result.Reachable);
 
             //  탐색의 눈금 모델을 여기서 다시 적어 기대값을 만든다(차등 검사) — 사다리 속도
@@ -372,22 +387,27 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 밴드_꼭대기_높이도_표에_자리가_있다()
         {
-            //  HeightBucketCount의 "+ 1"을 지우면 표에서 맨 위 칸이 사라진다 — 그러면
-            //  꼭대기(maxY)에 있는 새가 HeightBucket의 경계 클램프에 걸려 조용히 한 칸
-            //  (0.1m) 아래로 눌린다. 여기서는 그 0.1m가 곧 생사다.
-            //  대역 꼭대기(y=1.0)에서 출발해 두 틱 자유낙하한다. 한 틱에 0.028·0.056만
-            //  떨어지므로 반올림이 새를 꼭대기 칸에 붙잡아 두고, x ≥ 0.3 의 좁은 문
-            //  (y ≥ 0.93)도 아슬아슬하게 지난다. 꼭대기 칸이 없으면 출발부터 0.9로 눌려
-            //  그 문에 걸린다.
-            bool HighGate(float x, float y) => x < 0.3f || y >= 0.93f;
-
-            //  두 열짜리 코스(0.4 ÷ 0.22 → 올림 2). 세 열이 되면 정상 코드도 문에 걸린다.
-            var options = new CleanRunOptions(startX: 0f, startY: 1f, finishX: 0.4f,
-                                              minY: 0f, maxY: 1f,
+            //  HeightBucketCount의 "+ 1"을 지우면 표에서 맨 위 칸이 사라진다 — 그러면 대역
+            //  꼭대기에 있는 상태가 HeightBucket의 경계 클램프에 걸려 <b>한 칸 아래 상태와
+            //  같은 열쇠</b>가 된다. 같은 열쇠면 하나만 남으므로(더 높은 쪽), 아래 상태가
+            //  조용히 사라진다. 그 아래 상태로만 갈 수 있는 길이 있으면 탐색이 그걸 못 본다.
+            //
+            //  그 상황을 손으로 만든다(열쇠 칸 0.6m, 대역 [−0.04, 0.92], 전진 0.22m/틱):
+            //    시드 y=0 → 1틱 안 누름 −0.028 / 누름 +0.46
+            //    2틱  −0.028에서 누름 → +0.432 (칸 1)  |  +0.46에서 누름 → +0.92 (칸 2 = 꼭대기)
+            //  둘은 같은 사다리 칸("방금 날갯짓함")이라 <b>칸 번호만이</b> 둘을 가른다.
+            //  꼭대기 칸이 없으면 0.92가 칸 1로 눌려 0.432를 밀어낸다.
+            //
+            //  그런데 0.92에서는 아무것도 못 한다 — 눌러도 안 눌러도 1.35~1.38로 대역 천장
+            //  (0.92)을 넘는다. 계속 갈 수 있는 건 밀려난 0.432뿐이다(0.864·0.892). 그래서
+            //  "도달 가능"이 곧 "꼭대기 칸이 표에 있다"의 답이다.
+            var options = new CleanRunOptions(startX: 0f, startY: 0f, finishX: 0.65f,
+                                              minY: -0.04f, maxY: 0.92f,
                                               forwardSpeed: 11f, flapImpulse: 23f, gravity: 70f, maxFallSpeed: 30f,
-                                              tickSeconds: 0.02f, heightGrid: 0.1f);
+                                              tickSeconds: 0.02f, heightGrid: 0.6f);
 
-            Assert.IsTrue(CleanRunSearch.Run(options, HighGate).Reachable);
+            Assert.IsTrue(Run(options, OpenSky).Reachable,
+                          "대역 꼭대기 칸이 표에 없어 한 칸 아래 상태가 밀려났다.");
         }
 
         [Test]
@@ -398,7 +418,7 @@ namespace LOP.MapTools.Tests
             //  "새가 0.22m는 갔다"고 읽혀 고칠 자리를 잘못 짚게 된다.
             bool IsFree(float x, float y) => x > 0.1f;
 
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), IsFree);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), IsFree);
 
             Assert.IsFalse(result.Reachable);
             Assert.AreEqual(0f, result.BlockedX, 0.001f);
@@ -414,23 +434,18 @@ namespace LOP.MapTools.Tests
             //  하다("되짚기가 가장 낮은 생존 상태를 우선하므로 바닥을 낮춰도 마진이 안
             //  커진다" — 턱 테스트의 주석).
             var options = Options(startY: 0f, finishX: 50f, minY: -3f, maxY: 3f);
-            CleanRunResult result = CleanRunSearch.Run(options, OpenSky);
+            CleanRunResult result = Run(options, OpenSky);
             Assert.IsTrue(result.Reachable);
 
-            //  탐색의 눈금 모델로 되짚은 순서를 재생해 끝 높이를 본다 — 가장 낮은 상태에서
+            //  되짚은 순서를 연속 물리로 재생해 끝 높이를 본다 — 가장 낮은 상태에서
             //  시작했으면 대역 바닥 쪽, 가장 높은 상태였으면 대역 천장 쪽에서 끝난다.
-            float drop = options.Gravity * options.TickSeconds;
-            float Snap(float y) => options.MinY
-                                 + UnityEngine.Mathf.Round((y - options.MinY) / options.HeightGrid) * options.HeightGrid;
-            float y = Snap(options.StartY);
-            bool afterFlap = false;
-            int rung = 0;
+            float y = options.StartY, vy = 0f;
             for (int i = 0; i < result.Flaps.Count; i++)
             {
-                if (result.Flaps[i]) { afterFlap = true; rung = 0; } else { rung += 1; }
-                float v = (afterFlap ? options.FlapImpulse : 0f) - drop * rung;
-                if (v < -options.MaxFallSpeed) { v = -options.MaxFallSpeed; }
-                y = Snap(y + v * options.TickSeconds);
+                vy -= options.Gravity * options.TickSeconds;
+                if (vy < -options.MaxFallSpeed) { vy = -options.MaxFallSpeed; }
+                if (result.Flaps[i]) { vy = options.FlapImpulse; }
+                y += vy * options.TickSeconds;
             }
 
             Assert.Less(y, 0f);
@@ -441,59 +456,139 @@ namespace LOP.MapTools.Tests
         {
             bool IsFree(float x, float y) => x < 20f;
 
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), IsFree);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), IsFree);
 
             Assert.IsFalse(result.Reachable);
             Assert.AreEqual(0, result.Flaps.Count);
         }
 
         [Test]
-        public void 격자_경로_높이는_탐색이_밟은_그_모델과_같다()
+        public void 경로_높이는_탐색이_밟은_그_산술과_같고_눈금에_안_붙는다()
         {
             //  재생이 어긋난 자리에 "탐색은 거기를 무엇이라고 믿었나"를 적으려면 틱별 높이가
-            //  있어야 하는데 탐색은 경로만 돌려준다. 그래서 같은 모델로 다시 굴리는데, 그
-            //  "같은 모델"이 정말 같은지를 여기서 못박는다 — 손으로 따로 적은 모델(매 틱
-            //  눈금에 반올림해 붙이는 그 규칙)과 값이 하나라도 갈리면 빨강이다.
+            //  있어야 하는데 탐색은 경로만 돌려준다. 그래서 같은 산술로 다시 굴리는데, 그
+            //  "같은 산술"이 정말 같은지를 여기서 못박는다 — 손으로 따로 적은 연속 물리와
+            //  값이 하나라도 갈리면 빨강이다(특히 어딘가에서 눈금에 반올림하면 바로 걸린다).
             bool IsFree(float x, float y) => (x < 20f || x > 22f) || y >= 3f;
-            CleanRunOptions options = Options(startY: 0f, finishX: 50f);
-            CleanRunResult result = CleanRunSearch.Run(options, IsFree);
+            //  출발 높이를 일부러 눈금(0.1m) 위가 아닌 값으로 둔다 — 눈금 위 값이면 첫 틱
+            //  반올림이 아무 일도 안 해, 시드를 반올림하는 회귀를 이 단언이 못 잡는다.
+            CleanRunOptions options = Options(startY: 0.37f, finishX: 50f);
+            CleanRunResult result = Run(options, IsFree);
             Assert.IsTrue(result.Reachable);
 
-            float[] heights = CleanRunSearch.GridPathHeights(options, result.Flaps);
+            float[] heights = CleanRunSearch.PathHeights(options, result.Flaps);
 
             //  [0]은 출발, [t]는 t번째 틱을 밟은 뒤 — 재생이 틱을 1부터 세는 것과 짝이 맞아야
             //  222틱째의 높이를 heights[222]에서 꺼내 쓸 수 있다.
             Assert.AreEqual(result.Flaps.Count + 1, heights.Length);
+            Assert.AreEqual(options.StartY, heights[0], 0f, "출발 높이가 그대로가 아니다(눈금에 붙였다).");
 
-            float drop = options.Gravity * options.TickSeconds;
-            float Snap(float y) => options.MinY
-                                 + UnityEngine.Mathf.Round((y - options.MinY) / options.HeightGrid) * options.HeightGrid;
-            float expected = Snap(options.StartY);
-            Assert.AreEqual(expected, heights[0], 1e-4f, "출발 높이가 눈금에 붙은 값이 아니다.");
-
-            bool afterFlap = false;
-            int rung = 0;
-            bool anyOffContinuous = false;
-            float continuous = options.StartY;
-            float continuousSpeed = 0f;
+            float expected = options.StartY;
+            float vy = 0f;
             for (int i = 0; i < result.Flaps.Count; i++)
             {
-                if (result.Flaps[i]) { afterFlap = true; rung = 0; } else { rung += 1; }
-                float v = (afterFlap ? options.FlapImpulse : 0f) - drop * rung;
-                if (v < -options.MaxFallSpeed) { v = -options.MaxFallSpeed; }
-                expected = Snap(expected + v * options.TickSeconds);
-                Assert.AreEqual(expected, heights[i + 1], 1e-4f, $"{i + 1}틱째 높이가 다르다.");
-
-                //  눈금에 안 붙인 연속 모델과는 실제로 갈려야 한다 — 안 갈리면 이 테스트는
-                //  "반올림을 안 해도 통과"라는 뜻이라 격자 편향을 하나도 안 지킨다.
-                continuousSpeed = result.Flaps[i] ? options.FlapImpulse
-                                                  : continuousSpeed - drop;
-                if (continuousSpeed < -options.MaxFallSpeed) { continuousSpeed = -options.MaxFallSpeed; }
-                continuous += continuousSpeed * options.TickSeconds;
-                if (UnityEngine.Mathf.Abs(continuous - heights[i + 1]) > 1e-3f) { anyOffContinuous = true; }
+                vy -= options.Gravity * options.TickSeconds;
+                if (vy < -options.MaxFallSpeed) { vy = -options.MaxFallSpeed; }
+                if (result.Flaps[i]) { vy = options.FlapImpulse; }
+                //  진짜 이동 커널(KinematicMover)의 수직 스텝을 손으로 그대로 옮긴 것이다 —
+                //  이동 거리를 먼저 변수에 담고 그 다음 부호를 붙여 더한다. `expected += vy*dt`
+                //  로 한 줄에 쓰면 JIT이 곱셈+덧셈을 한 명령으로 합쳐(FMA) 중간 반올림을
+                //  건너뛰고, 그러면 커널과 1 ulp씩 갈려 이 단언이 빨강이 된다(실측).
+                float distance = UnityEngine.Mathf.Abs(vy) * options.TickSeconds;
+                expected = vy >= 0f ? expected + distance : expected - distance;
+                //  오차 허용 0 — "거의 같다"가 아니라 같은 산술이어야 한다.
+                Assert.AreEqual(expected, heights[i + 1], 0f, $"{i + 1}틱째 높이가 다르다.");
             }
-            Assert.IsTrue(anyOffContinuous,
-                "눈금에 안 붙인 연속 모델과 값이 한 번도 안 갈렸다 — 반올림을 지키는 단언이 아니다.");
+        }
+
+        [Test]
+        public void 탐색이_믿는_높이는_진짜_이동_커널과_한_틱도_안_갈린다()
+        {
+            //  <b>이 슬라이스에서 가장 중요한 테스트다.</b> 탐색이 찾은 경로가 진짜 커널 재생에서
+            //  깨지던 원인은 둘이 서로 다른 산술을 쓴 것이었다. 여기서는 탐색이 믿는 높이와
+            //  게임이 실제로 쓰는 이동 커널(LOP.KinematicMover — 맵 검사기의 Step이 부르는 바로
+            //  그것)이 낸 높이를 <b>오차 허용 0</b>으로 틱마다 맞대 본다. 세로 속도 갱신도
+            //  탐색과 커널이 같이 쓰는 FlappyTickMath를 그대로 부른다.
+            //
+            //  충돌은 일부러 없다(NeverHits) — 여기서 재는 것은 "지형을 잘 피하나"가 아니라
+            //  "안 닿는 동안 두 산술이 같은 숫자를 내나"다. 지형 쪽은 위 재생 테스트들이 본다.
+            var options = Options(startY: 3.37f, finishX: 50f);
+            CleanRunResult result = Run(options, OpenSky);
+            Assert.IsTrue(result.Reachable);
+            Assert.AreEqual(228, result.Flaps.Count);
+
+            float[] believed = CleanRunSearch.PathHeights(options, result.Flaps);
+
+            var query = new NeverHits();
+            float x = options.StartX, y = options.StartY, vy = 0f;
+            for (int i = 0; i < result.Flaps.Count; i++)
+            {
+                vy = FlappyTickMath.NextVerticalSpeed(vy, result.Flaps[i], options.FlapImpulse,
+                                                      options.Gravity, options.MaxFallSpeed,
+                                                      options.TickSeconds);
+                LOP.KinematicMoveResult move = LOP.KinematicMover.Move(new LOP.KinematicMoveInput(
+                    new UnityEngine.Vector3(x, y, 0f),
+                    new UnityEngine.Vector3(options.ForwardSpeed, vy, 0f),
+                    radius: 0.45f, height: 0.9f, deltaTime: options.TickSeconds,
+                    layerMask: 0, stepOffset: 0f, groundProbe: 0f), query);
+                x = move.position.x;
+                y = move.position.y;
+                vy = move.velocity.y;
+                Assert.AreEqual(believed[i + 1], y, 0f,
+                                $"{i + 1}틱째에 탐색이 믿는 높이와 진짜 커널이 갈렸다.");
+            }
+        }
+
+        [Test]
+        public void 같은_열쇠_칸에_두_높이가_들어오면_더_높은_쪽이_남는다()
+        {
+            //  열쇠 칸을 일부러 크게(2m) 잡아 <b>세 번째 열에서</b> 충돌을 만든다. 실제 값(0.1m)
+            //  에서는 같은 칸 충돌이 한참 뒤에야 생겨 손으로 따라갈 수 없다.
+            //
+            //  손으로 따라간 값(전진 0.22m/틱, 날갯짓 +0.46m/틱, 중력 −1.4m/s per tick):
+            //    시드                 y = 0        (아직 날갯짓 안 함)
+            //    1틱  안 누름 → −0.028      /  누름 → +0.46
+            //    2틱  −0.028에서 누름 → +0.432  |  +0.46에서 누름 → +0.92
+            //  뒤 둘은 <b>같은 사다리 칸</b>(방금 날갯짓함)이고 눈금 2m에서 <b>같은 칸</b>이라
+            //  하나만 남는다. 남아야 하는 건 높은 쪽 0.92다.
+            //
+            //  그 뒤 x ≥ 0.6 에 y ≥ 1.36 만 비는 문을 둔다. 0.92에서 한 번 더 누르면 1.38로
+            //  <b>통과</b>하지만, 밀려난 0.432 쪽은 무엇을 해도 0.892·0.864라 못 지난다
+            //  (같은 칸의 다른 생존 상태 0.892도 최대 1.352라 못 지난다). 그래서 이 맵이
+            //  "도달 가능"으로 나오는지 아닌지가 곧 <b>어느 쪽을 남겼나</b>의 답이다.
+            bool IsFree(float x, float y) => x < 0.6f || y >= 1.36f;
+            //  세 열짜리 코스(0.65 ÷ 0.22 → 올림 3). 0.66으로 두면 부동소수점 때문에 네 열이 된다.
+            var options = new CleanRunOptions(startX: 0f, startY: 0f, finishX: 0.65f,
+                                              minY: -40f, maxY: 40f,
+                                              forwardSpeed: 11f, flapImpulse: 23f, gravity: 70f,
+                                              maxFallSpeed: 30f, tickSeconds: 0.02f, heightGrid: 2f);
+
+            CleanRunResult result = Run(options, IsFree);
+
+            Assert.IsTrue(result.Reachable,
+                          "같은 칸에서 더 높은 쪽을 안 남겼다 — 밀려난 낮은 쪽으로는 문을 못 지난다.");
+            //  세 틱 모두 날갯짓이어야 0.46 → 0.92 → 1.38이다. 이걸 안 보면 "어쩌다 통과"와
+            //  "그 경로로 통과"를 구분 못 한다.
+            Assert.AreEqual(3, result.Flaps.Count);
+            CollectionAssert.AreEqual(new[] { true, true, true }, result.Flaps);
+        }
+
+        //  아무것도 안 맞는 충돌 쿼리. 위 커널 비교 테스트는 "안 닿는 동안의 산술"만 재므로
+        //  지형이 없어야 한다 — 하나라도 맞으면 커널이 벽에서 잘라 버려 산술 비교가 아니게 된다.
+        sealed class NeverHits : GameFramework.Physics.ICollisionQuery
+        {
+            public GameFramework.Physics.CollisionHit CapsuleCast(
+                UnityEngine.Vector3 point1, UnityEngine.Vector3 point2, float radius,
+                UnityEngine.Vector3 direction, float distance, int layerMask)
+                => GameFramework.Physics.CollisionHit.None;
+
+            public GameFramework.Physics.CollisionHit Raycast(
+                UnityEngine.Vector3 origin, UnityEngine.Vector3 direction, float distance, int layerMask)
+                => GameFramework.Physics.CollisionHit.None;
+
+            public GameFramework.Physics.CollisionHit[] OverlapSphere(
+                UnityEngine.Vector3 center, float radius, int layerMask)
+                => System.Array.Empty<GameFramework.Physics.CollisionHit>();
         }
     }
 }

@@ -218,6 +218,14 @@ namespace LOP.EditorTools
             //  자체가 없다. 그래서 도는 장애물은 저장된 각도의 정적 벽으로 보인다 — 그 한계는
             //  리포트 머리말이 그대로 말한다(아래 windmillSpecs 주의).
             var grid = new FreeSpaceGrid(shape, mapMask, tickWindow: 0);
+            //  전수 탐색의 "한 틱 나아가면 닿나" — <b>게임의 진짜 이동 커널 그 자체</b>다
+            //  (FlappyTickSweep이 KinematicMover를 그대로 부른다). 예전엔 도착점 하나를 눈금에
+            //  붙여 정지 캡슐로 찍었는데, 커널은 캡슐을 한 틱 쓸고 벽에서 0.02m를 띄우므로
+            //  탐색이 커널보다 관대했고 찾은 경로가 재생에서 벽에 걸렸다.
+            //  캐시는 안 붙인다 — 질의가 (x, y, 세로속도) 연속값이라 같은 질문이 두 번 오지
+            //  않는다(탐색은 상태마다 딱 한 번 묻는다). 캐시를 붙이려면 다시 눈금에 붙여야
+            //  하고, 그러면 이 과제가 없앤 관대함이 그대로 돌아온다.
+            var searchSweep = SearchTickSweep(shape, mapMask, query);
             //  봇이 쓰는 캐시는 <b>틱을 가린다</b> — 봇은 매 틱 자기가 몇 틱째인지 알고 날기
             //  때문에(BirdState.Tick) 그 틱의 자세에서 잰 답만 쓸 수 있다. 그래서 탐색 캐시와
             //  합칠 수 없다: 같은 칸에 대해 둘이 서로 다른 질문("아무 때나 뚫렸나" vs "이 틱에
@@ -351,13 +359,14 @@ namespace LOP.EditorTools
                         gravity: shape.Gravity, maxFallSpeed: shape.MaxFallSpeed,
                         tickSeconds: TickSeconds, heightGrid: HeightGrid);
                     searchWatch.Start();
-                    var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFree);
+                    var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFreeExact, searchSweep);
                     var replay = default(LOP.MapTools.ReplayMismatch);
                     //  탐색이 그 경로의 틱마다 "새가 여기 있다"고 믿었던 높이. 탐색은 경로만
-                    //  돌려주고 높이는 안 들고 있으므로, 같은 격자 모델로 날갯짓 순서를 다시
-                    //  굴려 얻는다(CleanRunSearch.GridPathHeights — 탐색 본체는 안 고쳤다).
+                    //  돌려주고 높이는 안 들고 있으므로, 같은 산술로 날갯짓 순서를 다시 굴려
+                    //  얻는다(CleanRunSearch.PathHeights). 탐색이 높이를 눈금에 반올림하지
+                    //  않으므로 이 값은 아래 재생과 같아야 한다 — 갈리면 그 차이가 곧 결함이다.
                     float[] searchHeights = result.Reachable
-                        ? LOP.MapTools.CleanRunSearch.GridPathHeights(options, result.Flaps)
+                        ? LOP.MapTools.CleanRunSearch.PathHeights(options, result.Flaps)
                         : System.Array.Empty<float>();
                     bool verified = result.Reachable
                         && VerifyByReplay(spawns[i].Position, result.Flaps, shape, mapMask, query,
@@ -1468,6 +1477,21 @@ namespace LOP.EditorTools
             return any;
         }
 
+        //  전수 탐색이 쓰는 한 틱 쓸기. 재기 전에 풍차를 <b>탐색이 쓰는 한 위상</b>으로 세운다 —
+        //  점 검사(FreeSpaceGrid.Measure)가 같은 이유로 하던 것과 같다. 안 세우면 그 답이 "바로
+        //  앞에 어떤 비행이 돌았나"에 좌우돼 스폰 순서가 판정에 스며든다.
+        private static LOP.MapTools.TickSweepProbe SearchTickSweep(
+            in FlappyShape shape, int mapMask, GameFramework.Physics.ICollisionQuery query)
+        {
+            var sweep = new LOP.MapTools.FlappyTickSweep(
+                query, shape.ForwardSpeed, shape.Radius, shape.Height, TickSeconds, mapMask);
+            return (x, y, verticalSpeed) =>
+            {
+                PoseWindmills(SearchPoseTick);
+                return sweep.IsFree(x, y, verticalSpeed);
+            };
+        }
+
         //  "이 자리에 몸이 들어가나"를 매번 물리엔진에 묻지 않고 격자에 캐시한다.
         //  전체를 미리 채우면 코스 전체가 570만 칸이라, 탐색이 실제로 밟는 칸만 채운다.
         private sealed class FreeSpaceGrid
@@ -1591,7 +1615,8 @@ namespace LOP.EditorTools
         }
 
         //  탐색이 준 날갯짓 순서를 게임의 진짜 커널로 그대로 굴린다. 한 번이라도 닿으면 증명 실패다.
-        //  탐색은 높이를 눈금으로 뭉개므로, 이 재생만이 "정말 무충돌인가"의 증거다.
+        //  탐색은 높이를 정확히 이어 가지만 자유공간을 격자에 스냅해 재므로(그리고 이 커널은
+        //  sweep에 SkinWidth 여유를 둔다), 이 재생만이 "정말 무충돌인가"의 증거다.
         //  searchHeights[t] = 탐색이 t번째 틱을 밟은 뒤 새가 있다고 믿은 높이([0]은 출발).
         //  빈 배열이면 그 줄을 안 찍는다 — 모르는 것을 0.0으로 지어내지 않는다.
         private static bool VerifyByReplay(Vector3 start, IReadOnlyList<bool> flaps,
@@ -1752,6 +1777,25 @@ namespace LOP.EditorTools
         //  창을 늘리면 굴려 보기가 "창 안에서 한 틱이라도 더 사는 쪽"을 더 자주 고르게 되는데,
         //  그 고르기가 모든 출발을 한 궤적으로 몰아넣는다. 그래서 <b>값은 60 그대로 두고</b>,
         //  고칠 것은 창 길이가 아니라 두 갈래를 고르는 기준이라고 기록해 둔다.
+        //
+        //  <b>동점을 고친 뒤 같은 사다리를 다시 쟀다 — 그래도 60이다 (2026-09-14, Task 40).</b>
+        //  위 측정은 판단의 89%가 동점이던 때의 것이라, "지평을 늘려도 고르질 못해서 안 는 것"일
+        //  가능성이 남아 있었다. 동점 깨기가 들어가 비행당 120~140틱에서 기반 정책을 실제로
+        //  뒤집게 된 지금 다시 쟀다. 결과는 <b>18줄 훑기 완주 기준으로 늘지 않았다</b>:
+        //
+        //      H     60   90  120  180  240
+        //      완주   2    2    1    0    0     ← 이번(동점 수정 뒤)
+        //      완주   3    4    0    0    0     ← 위 2026-09-14 1차(동점 89%이던 때)
+        //
+        //  <b>다만 1차와 결정적으로 달라진 것이 하나 있다 — 가드가 실제로 열렸다.</b> 관문 앞
+        //  마지막 30틱 중 "누를 후보가 아예 없던"(CeilingSafe=false) 비율이
+        //  60틱에서 100%인데 90틱 76% · 180틱 62% · 240틱 63%로 떨어진다. 즉 지평을 늘리면
+        //  봇은 관문 근처에서 <b>고를 것을 실제로 갖게 된다.</b> 그런데도 완주가 안 는다.
+        //  이게 "지평이 원인이 아니다"의 가장 강한 형태다 — 이제 고를 수 있는데도 못 지나간다.
+        //
+        //  그래서 다음 레버는 창 길이가 아니라 <b>기반 정책</b>(BotPilot.Decide)이다. 같은
+        //  비행에서 가드가 막은 틱은 75~93틱뿐인데 <b>"애초에 누를 뜻이 없던" 틱이 1524~1539틱
+        //  (전체 1675틱의 91%)</b>다 — 봇은 막혀서 못 오르는 게 아니라 트인 곳에서 안 오른다.
         private const int RolloutHorizon = 60;
 
         //  봇이 보는 세계를 굴려 보기에 그대로 넘기는 어댑터. <b>실제 비행이 쓰는 바로 그
@@ -2329,15 +2373,12 @@ namespace LOP.EditorTools
             }
             else
             {
-                float vy = state.VerticalSpeed - shape.Gravity * TickSeconds;
-                if (vy < -shape.MaxFallSpeed)
-                {
-                    vy = -shape.MaxFallSpeed;
-                }
-                if (flap)
-                {
-                    vy = shape.FlapImpulse;   // 플랩은 그때까지의 세로 속도를 덮어쓴다
-                }
+                //  전수 탐색(CleanRunSearch)이 쓰는 것과 <b>같은 코드</b>다 — 중력을 빼고,
+                //  종단속도로 자르고, 날갯짓이면 그때까지의 세로 속도를 덮어쓴다. 같은 규칙을
+                //  양쪽에 따로 적어 두면 한쪽만 고쳐졌을 때 탐색이 찾은 경로가 여기서 깨진다.
+                float vy = LOP.MapTools.FlappyTickMath.NextVerticalSpeed(
+                    state.VerticalSpeed, flap, shape.FlapImpulse, shape.Gravity,
+                    shape.MaxFallSpeed, TickSeconds);
                 velocity = new Vector3(shape.ForwardSpeed, vy, 0f);
             }
 

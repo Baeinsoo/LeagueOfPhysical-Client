@@ -278,6 +278,14 @@ namespace LOP.EditorTools
                 //  반복)인 전수 탐색을 아예 안 돌려도 된다. 실패한 자리에만 탐색을 돌려
                 //  "맵이 불가능"인지 "봇이 못 간 것"인지 가른다. 정상적인 맵에서는 탐색이
                 //  아예 안 돌아 검사가 몇 분에서 몇 초가 된다.
+                //
+                //  ②-b 배치 검사를 <b>클린런보다 먼저</b> 돌린다 — 산술이라 금방 끝나고(진행률이
+                //  필요 없다), 여기서 나온 원반(허브 자리 + 팔 길이)을 자리마다 바로 써서
+                //  "이 통과가 날개 각도와 무관한가"를 같은 줄에 적기 때문이다. 원반 반지름은
+                //  회전 중심에서 잰 거리라 날개가 어느 각도에 서 있든 같은 값이다 — 그래서
+                //  클린런 앞에 두든 뒤에 두든 숫자가 달라지지 않는다.
+                placements = MeasurePlacements(windmillInstances, mapMask, requiredBand,
+                                               SearchMinY, SearchMaxY);
                 cleanRunWatch.Start();
                 for (int i = 0; i < spawns.Count; i++)
                 {
@@ -345,7 +353,10 @@ namespace LOP.EditorTools
                             //  리포트는 BotReached가 참이면 이 필드를 아예 안 본다.
                             new LOP.MapTools.CleanRunResult(true, System.Array.Empty<bool>(), 0f, 0f, 0, 0f),
                             verifiedByReplay: true, botReached: true, botFlaps: flight.FlapCount,
-                            bot: botDiagnostics));
+                            bot: botDiagnostics,
+                            //  봇이 실제로 난 궤적을 원반과 견준다 — 탐색을 안 돌렸으니
+                            //  이 자리에서 "그 통과"라고 할 경로는 이것뿐이다.
+                            discs: JudgeDiscs(BotPathOf(trace, flight, shape), shape, placements)));
                         continue;
                     }
 
@@ -368,14 +379,20 @@ namespace LOP.EditorTools
                     float[] searchHeights = result.Reachable
                         ? LOP.MapTools.CleanRunSearch.PathHeights(options, result.Flaps)
                         : System.Array.Empty<float>();
+                    //  재생이 지나간 자리를 그대로 받아 둔다 — 이 경로가 곧 ✅의 근거이므로,
+                    //  "그 ✅가 날개 각도와 무관한가"도 <b>같은 경로</b>로 재야 한다.
+                    var replayPath = new List<Vector3>();
                     bool verified = result.Reachable
                         && VerifyByReplay(spawns[i].Position, result.Flaps, shape, mapMask, query,
-                                          searchHeights, out replay);
+                                          searchHeights, out replay, replayPath);
                     searchWatch.Stop();
                     cleanRuns.Add(new LOP.MapTools.SpawnCleanRun(
                         spawns[i].Name, spawns[i].Position.y, result, verified,
                         botReached: false, botFlaps: flight.FlapCount, bot: botDiagnostics,
-                        replay: replay));
+                        replay: replay,
+                        //  증명 못 한 자리(🟡/❌)에는 리포트가 이 값을 안 찍는다 — 그래도 채워
+                        //  두는 편이 "증명된 자리만 골라 재는" 분기를 여기 또 두는 것보다 단순하다.
+                        discs: verified ? JudgeDiscs(replayPath, shape, placements) : default));
                 }
                 cleanRunWatch.Stop();
                 //  둘로 갈라 찍는다 — 봇 비행과 전수 탐색은 비용의 성질이 아주 달라서다(비행은
@@ -418,12 +435,8 @@ namespace LOP.EditorTools
                 var trapWatch = System.Diagnostics.Stopwatch.StartNew();
                 trapSection = ScanTraps(shape, bounds, mapMask, query, out var trapScanCancelNotes);
                 trapCancelNotes = trapScanCancelNotes;
-
-                //  ②-b 배치 검사 — 산술이라 금방 끝난다(진행률이 필요 없다).
-                placements = MeasurePlacements(windmillInstances, mapMask, requiredBand,
-                                               SearchMinY, SearchMaxY);
                 trapWatch.Stop();
-                Debug.Log($"[맵 검사] ② 낌 스캔+배치 — {trapWatch.ElapsedMilliseconds}ms");
+                Debug.Log($"[맵 검사] ② 낌 스캔 — {trapWatch.ElapsedMilliseconds}ms");
 
                 //  ②-c 정적 좁힘 — 코스 전체를 세로로 훑으므로 여기는 진행률이 필요하다.
                 var pinchWatch = System.Diagnostics.Stopwatch.StartNew();
@@ -924,6 +937,35 @@ namespace LOP.EditorTools
             //  코스 순서로 읽히게 x 오름차순 — 디자이너가 앞에서부터 고친다.
             placements.Sort((left, right) => left.CenterX.CompareTo(right.CenterX));
             return placements;
+        }
+
+        //  증명된 경로가 날개가 쓸고 가는 원반 밖으로만 지났나 — 그렇다면 그 증명은 날개가
+        //  어느 각도에 서 있어도 그대로 성립한다(탐색이 "틱 0 자세로 굳은 벽"을 본다는 한계가
+        //  이 경로에는 무해하다). 판정 산술은 순수 계층(LOP.MapTools.SweptDiscRule)에 있다.
+        private static LOP.MapTools.SweptDiscVerdict JudgeDiscs(
+            IReadOnlyList<Vector3> path, in FlappyShape shape,
+            IReadOnlyList<LOP.MapTools.ObstaclePlacement> placements)
+            => LOP.MapTools.SweptDiscRule.Judge(
+                LOP.MapTools.SweptDiscRule.MeasureAll(path, shape.Radius, shape.Height, placements));
+
+        //  봇 궤적을 <b>몸 가운데</b> 자리 목록으로. trace는 틱을 굴리기 전 상태만 담으므로
+        //  마지막에 멈춘 자리를 따로 얹는다(RecordGateFlight가 같은 이유로 하는 것과 같다).
+        private static List<Vector3> BotPathOf(List<FlightStep> trace, in BotFlight flight,
+                                               in FlappyShape shape)
+        {
+            var path = new List<Vector3>();
+            if (trace == null)
+            {
+                return path;
+            }
+            float halfHeight = shape.Height * 0.5f;
+            for (int i = 0; i < trace.Count; i++)
+            {
+                Vector3 feet = trace[i].State.Position;
+                path.Add(new Vector3(feet.x, feet.y + halfHeight, 0f));
+            }
+            path.Add(new Vector3(flight.EndX, flight.EndY + halfHeight, 0f));
+            return path;
         }
 
         //  ── ②-c 정적 좁힘 ──────────────────────────────────────────────────
@@ -1619,16 +1661,22 @@ namespace LOP.EditorTools
         //  sweep에 SkinWidth 여유를 둔다), 이 재생만이 "정말 무충돌인가"의 증거다.
         //  searchHeights[t] = 탐색이 t번째 틱을 밟은 뒤 새가 있다고 믿은 높이([0]은 출발).
         //  빈 배열이면 그 줄을 안 찍는다 — 모르는 것을 0.0으로 지어내지 않는다.
+        //  <paramref name="path"/>는 틱마다의 <b>몸 가운데</b> 자리다(발밑 + 몸 높이의 절반).
+        //  증명 경로 보기(FlappyProvenPathView.ReplayForDrawing)가 그리는 것과 같은 값이라,
+        //  회전 무관 측정과 그림이 같은 선을 본다.
         private static bool VerifyByReplay(Vector3 start, IReadOnlyList<bool> flaps,
                                            in FlappyShape shape, int mapMask,
                                            GameFramework.Physics.ICollisionQuery inner,
                                            IReadOnlyList<float> searchHeights,
-                                           out LOP.MapTools.ReplayMismatch mismatch)
+                                           out LOP.MapTools.ReplayMismatch mismatch,
+                                           List<Vector3> path = null)
         {
             var query = new HitWatcher(inner);
             //  다른 모든 탐색·판정 지점처럼 z=0으로 고정한다 — FlappyWorld가 매 틱 새를 z=0에
             //  붙이는 것과 같다. 마커의 z를 그대로 쓰면 그 값이 0이 아닐 때만 슬쩍 어긋난다.
             var state = new BirdState { Position = new Vector3(start.x, start.y, 0f) };
+            float halfHeight = shape.Height * 0.5f;
+            path?.Add(state.Position + Vector3.up * halfHeight);
             for (int i = 0; i < flaps.Count; i++)
             {
                 //  마지막으로 자유롭게 움직인 틱의 자리. 부딪힌 틱의 y는 이동 커널이 벽에
@@ -1636,6 +1684,7 @@ namespace LOP.EditorTools
                 //  진짜 편향에 가깝다(ReplayMismatch.PrevDiff 주석 참고).
                 float freeY = state.Position.y;
                 state = Step(state, flaps[i], shape, mapMask, query);
+                path?.Add(state.Position + Vector3.up * halfHeight);
                 if (state.Stun > 0f)
                 {
                     //  "어긋났다"만 남기면 사람이 원인을 못 짚는다 — 몇 번째 틱에 어디서

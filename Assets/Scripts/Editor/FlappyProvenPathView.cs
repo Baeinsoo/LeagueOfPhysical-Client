@@ -67,6 +67,10 @@ namespace LOP.EditorTools
             public int FlapCount;
             public bool HasTightest;
             public LOP.MapTools.ClearanceSample Tightest;
+            /// <summary>풍차마다의 최소 여유 — 이 경로가 날개가 쓸고 가는 원반을 얼마나 비켜
+            /// 갔나. 하나라도 음수면 이 경로의 증명은 틱 0 자세에서만 참이다.</summary>
+            public List<LOP.MapTools.SweptDiscGap> DiscGaps;
+            public LOP.MapTools.SweptDiscVerdict Discs;
             /// <summary>재생이 한 번도 안 닿고 끝났나. 리포트의 ✅와 같은 뜻이라 여기서도
             /// 확인하고, 아니면 그림 위에 경고를 올린다.</summary>
             public bool ReplayClean;
@@ -97,6 +101,16 @@ namespace LOP.EditorTools
             //  숫자를 콘솔에도 남긴다 — 코스가 634m라 한 화면에 네 경로를 다 담으면 라벨을
             //  못 읽고, 라벨을 읽으려고 당기면 다른 자리를 못 본다. 그림과 같은 값이 글로도
             //  있어야 그때 견줄 수 있다.
+            lastSummary = Summarize(paths);
+            Debug.Log(lastSummary);
+        }
+
+        //  마지막으로 그린 경로의 요약. 백그라운드 잡이 끝난 뒤 파일로 회수하려고 들고 있는다 —
+        //  콘솔은 도메인 리로드에 지워진다.
+        private static string lastSummary;
+
+        private static string Summarize(List<ProvenPath> paths)
+        {
             var summary = new System.Text.StringBuilder();
             summary.AppendLine($"[증명 경로] {paths.Count}자리를 씬 뷰에 그렸다."
                              + " 같은 메뉴를 다시 누르면 지운다(도메인 리로드로도 지워진다 — 씬에 아무것도 안 남긴다).");
@@ -110,8 +124,23 @@ namespace LOP.EditorTools
                           + $" · x={paths[i].Tightest.X:F1} · {paths[i].Tightest.Tick}틱)"
                         : "여유 측정 없음")
                     + (paths[i].ReplayClean ? "" : "  ⚠️ 재생이 지형에 닿았다"));
+                string verdict = LOP.MapTools.SweptDiscRule.Line(paths[i].Discs);
+                if (verdict.Length > 0)
+                {
+                    summary.AppendLine($"      {verdict}");
+                }
+                //  풍차마다의 숫자를 그대로 남긴다 — 한 줄 판정만으로는 "아슬아슬하게 무관"과
+                //  "넉넉하게 무관"을 못 가른다(맵을 손볼 때 그 차이가 곧 여유의 크기다).
+                var gaps = paths[i].DiscGaps;
+                for (int g = 0; gaps != null && g < gaps.Count; g++)
+                {
+                    summary.AppendLine(gaps[g].Measured
+                        ? $"      · {gaps[g].Name}  여유 {gaps[g].Gap:F2}m"
+                          + $" (x={gaps[g].AtX:F1} · {gaps[g].AtTick}틱)"
+                        : $"      · {gaps[g].Name}  원반을 못 재 판정 못 함");
+                }
             }
-            Debug.Log(summary.ToString());
+            return summary.ToString();
         }
 
         [MenuItem("LOP/Debug/Flappy 증명 경로 지우기")]
@@ -127,7 +156,13 @@ namespace LOP.EditorTools
         public static void ShowProvenPathsHeadless()
         {
             ClearProvenPaths();
+            lastSummary = null;
             ShowProvenPaths();
+            //  콘솔은 도메인 리로드에 지워지고 클립보드는 detach에서 안 채워진다 — 잡이 끝난
+            //  뒤에도 남는 곳은 Logs/뿐이다.
+            System.IO.File.WriteAllText(
+                System.IO.Path.Combine("Logs", "FlappyProvenPaths.txt"),
+                lastSummary ?? "[증명 경로] 그릴 것이 없었다 — 위 콘솔의 오류를 볼 것.");
         }
 
         // ── 경로 만들기 ──────────────────────────────────────────────────────
@@ -156,7 +191,15 @@ namespace LOP.EditorTools
             }
 
             var shape = ShapeFrom(config);
-            Windmills = CollectWindmills(out var windmillPoses, out _, out _);
+            Windmills = CollectWindmills(out var windmillPoses, out _, out var windmillInstances);
+            posedTick = long.MinValue;
+            //  ②-b가 쓰는 것과 <b>같은 원반</b>(허브 자리 + 팔 길이)을 같은 코드로 뽑는다 —
+            //  여기서 따로 재면 리포트의 ②-b와 이 그림이 다른 원을 말하게 된다.
+            var placements = MeasurePlacements(
+                windmillInstances, mapMask,
+                LOP.MapTools.ObstaclePlacementRule.RequiredBand(
+                    shape.FlapImpulse, shape.Gravity, TickSeconds, shape.Height),
+                SearchMinY, SearchMaxY);
             posedTick = long.MinValue;
             var query = new GameFramework.Physics.UnityCollisionQuery();
             //  검사 ①이 쓰는 것과 <b>같은 두 프로브</b>다: 틱을 안 가리는 자유공간 캐시(도는
@@ -191,7 +234,8 @@ namespace LOP.EditorTools
                     }
                     paths.Add(ReplayForDrawing(spawns[i].Name, spawns[i].Position, result.Flaps,
                                                shape, mapMask, query,
-                                               ProvenPathColors[i % ProvenPathColors.Length]));
+                                               ProvenPathColors[i % ProvenPathColors.Length],
+                                               placements));
                 }
             }
             finally
@@ -212,7 +256,8 @@ namespace LOP.EditorTools
         private static ProvenPath ReplayForDrawing(string name, Vector3 start, IReadOnlyList<bool> flaps,
                                                    in FlappyShape shape, int mapMask,
                                                    GameFramework.Physics.ICollisionQuery inner,
-                                                   Color color)
+                                                   Color color,
+                                                   IReadOnlyList<LOP.MapTools.ObstaclePlacement> placements)
         {
             var query = new HitWatcher(inner);
             //  다른 모든 판정 지점처럼 z=0으로 고정한다 — FlappyWorld가 매 틱 새를 z=0에 붙인다.
@@ -258,6 +303,9 @@ namespace LOP.EditorTools
                 ReplayClean = clean,
             };
             path.HasTightest = LOP.MapTools.TightestClearance.TryFind(samples, out path.Tightest);
+            path.DiscGaps = LOP.MapTools.SweptDiscRule.MeasureAll(
+                path.Points, shape.Radius, shape.Height, placements);
+            path.Discs = LOP.MapTools.SweptDiscRule.Judge(path.DiscGaps);
             if (clean == false)
             {
                 Debug.LogWarning($"[증명 경로] {name} — 재생이 지형에 닿았다. 리포트의 ✅와 어긋난다"

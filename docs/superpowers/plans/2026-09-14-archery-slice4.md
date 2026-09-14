@@ -1455,7 +1455,7 @@ Task 2에서 넣은 임시값을 실제 컬럼으로 바꾸고, 낡은 주석을
                 r.SpawnRadius, r.SpawnMinY, r.SpawnMaxY, r.MinSeparation,
                 r.TrapRatioMin, r.TrapRatioMax,
                 r.ShakeFreeSeconds, r.ShakeRampSeconds, r.ShakeMaxDegrees,
-                r.RiseHeight, r.LifetimeSeconds, r.StaggerTicks, r.RestTicks,
+                r.RiseHeightMin, r.RiseHeightMax, r.StaggerTicks, r.RestTicks,
                 kinds);
 ```
 

@@ -13,6 +13,7 @@ namespace LOP
         private readonly GameFramework.Runner.IRunner runner;
         private readonly ArcheryWorld world;
         private readonly ArcheryConsumed consumed;
+        private readonly ArcheryArrowStickSystem stickSystem;
 
         // 목록의 자리(index)로 화살을 알아보면 안 된다 — 수명이 다한 화살이 빠지면 뒤 화살들의
         // 자리가 앞으로 당겨져서, 남아 있는 화살이 남의 궤적으로 순간이동한다.
@@ -21,12 +22,16 @@ namespace LOP
             new Dictionary<(string, long), GameObject>();
         private readonly List<(string, long)> stale = new List<(string, long)>();
 
-        public ArcheryArrowView(GameFramework.Runner.IRunner runner, ArcheryWorld world, ArcheryConsumed consumed)
+
+        public ArcheryArrowView(GameFramework.Runner.IRunner runner, ArcheryWorld world,
+                                ArcheryConsumed consumed, ArcheryArrowStickSystem stickSystem)
         {
             this.runner = runner;
             this.world = world;
             this.consumed = consumed;
+            this.stickSystem = stickSystem;
         }
+
 
         //  화살마다 material을 새로 만들면 재질 인스턴스가 계속 쌓인다 — 한 장을 돌려 쓴다.
         private Material _arrowMaterial;
@@ -91,6 +96,19 @@ namespace LOP
                 {
                     seconds = 0f;   // 아직 떠나기 전 프레임 — 출발점에 둔다
                 }
+
+                //  꽂혔는지는 틱 시스템이 정한다 — 뷰는 그 결과를 읽어 거기서 멈춰 그릴 뿐이다.
+                if (stickSystem.TryGetImpact(shots[i].ShooterId, shots[i].FireTick, out var impact))
+                {
+                    //  꽂힌 과녁이 사라지면(내가 아니라 남이 먹었어도) 화살도 같이 치운다 —
+                    //  안 그러면 아무것도 없는 허공에 박힌 채로 남는다.
+                    if (consumed.IsTargetGone(impact.Wave, impact.Slot))
+                    {
+                        continue;
+                    }
+                    seconds = impact.Seconds;
+                }
+
                 arrow.transform.position = ArcheryTrajectory.PositionAt(shots[i], seconds);
 
                 var velocity = ArcheryTrajectory.VelocityAt(shots[i], seconds);

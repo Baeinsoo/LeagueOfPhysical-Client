@@ -43,6 +43,15 @@ namespace LOP
             // 생성자 의존이라 등록은 필요하다. 값은 쓰이지 않는다.
             builder.Register<IExtrapolationAcceleration, ZeroExtrapolationAcceleration>(Lifetime.Singleton);
 
+            //  화살이 과녁에 꽂히는 순간은 틱마다 찾는다 — 서버의 ArcheryHitSystem과 같은 모양이다.
+            //  프레임마다 찾으면 프레임 레이트에 따라 구간이 벌어져 기기마다 다르게 보인다.
+            builder.Register(c => new ArcheryArrowStickSystem(
+                c.Resolve<ArcheryWorld>(),
+                c.Resolve<ArcheryConfig>(),
+                c.Resolve<IMatchSeed>(),
+                c.Resolve<ArcheryConsumed>(),
+                TickInterval), Lifetime.Singleton);
+
             builder.RegisterEntryPoint<ArcheryAimView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryAimGuideView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryArrowView>().AsSelf();
@@ -54,6 +63,13 @@ namespace LOP
             builder.RegisterEntryPoint<ArcheryHudCoordinator>();
             builder.Register<ArcheryPadViewModel>(Lifetime.Transient);
             builder.Register<ArcheryPadView>(Lifetime.Transient);
+
+            //  화살이 생긴 *뒤*에 봐야 하므로 world.Tick 다음인 End에 문다(서버와 같은 자리).
+            builder.RegisterBuildCallback(container =>
+            {
+                runner.RegisterSystem<LOP.Event.LOPRunner.Update.End>(
+                    container.Resolve<ArcheryArrowStickSystem>());
+            });
         }
 
         protected override void RegisterViewFactories(

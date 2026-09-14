@@ -42,6 +42,16 @@ namespace LOP.UI
             }
         }
 
+        /// <summary>지금 시위를 당기고 있나. 조준점을 띄울지 정한다 — 시뮬 상태를 읽는다(화면이 따로 세지 않는다).</summary>
+        public bool Drawing
+        {
+            get
+            {
+                var entity = entityRegistry.Get(playerContext.entityId);
+                return entity?.Get<ArcheryAim>()?.Drawing ?? false;
+            }
+        }
+
         /// <summary>왼쪽 영역 드래그 — 시점을 돌린다. 조준은 이 시점을 그대로 따른다.</summary>
         public void LookBy(Vector2 deltaPixels)
         {

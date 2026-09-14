@@ -5,6 +5,10 @@
         <ui:VisualElement name="left" class="pad-half pad-left" />
         <!-- 오른쪽 절반: 누르면 당기고 떼면 쏜다. -->
         <ui:VisualElement name="right" class="pad-half pad-right" />
+        <!-- 젤다식 조준점: 화면 한가운데, 당기는 동안만 뜬다. 바깥 원 + 가운데 점. -->
+        <ui:VisualElement name="reticle" class="archery-reticle" picking-mode="Ignore">
+            <ui:VisualElement name="reticle-dot" class="archery-reticle-dot" picking-mode="Ignore" />
+        </ui:VisualElement>
         <ui:Label name="score" class="archery-score" text="0" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

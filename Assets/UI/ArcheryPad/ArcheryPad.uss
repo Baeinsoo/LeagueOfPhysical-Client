@@ -23,3 +23,28 @@
     color: rgb(255, 236, 150);
     -unity-font-style: bold;
 }
+/* 조준점 — 화면 한가운데. 당기는 동안만 보인다(ArcheryPadView가 켜고 끈다).
+   과녁(노랑)·함정(파랑)·화살(빨강) 어느 것과도 안 겹치게 흰 테두리로 둔다. */
+.archery-reticle {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 44px; height: 44px;
+    margin-left: -22px; margin-top: -22px;
+    border-left-width: 2px; border-right-width: 2px;
+    border-top-width: 2px; border-bottom-width: 2px;
+    border-left-color: rgba(255, 255, 255, 0.85);
+    border-right-color: rgba(255, 255, 255, 0.85);
+    border-top-color: rgba(255, 255, 255, 0.85);
+    border-bottom-color: rgba(255, 255, 255, 0.85);
+    border-top-left-radius: 22px; border-top-right-radius: 22px;
+    border-bottom-left-radius: 22px; border-bottom-right-radius: 22px;
+    align-items: center;
+    justify-content: center;
+}
+
+.archery-reticle-dot {
+    width: 5px; height: 5px;
+    background-color: rgba(255, 255, 255, 0.95);
+    border-top-left-radius: 3px; border-top-right-radius: 3px;
+    border-bottom-left-radius: 3px; border-bottom-right-radius: 3px;
+}

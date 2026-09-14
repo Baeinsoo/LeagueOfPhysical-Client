@@ -23,6 +23,8 @@ namespace LOP.MapTools
         bool Finished(in TState state);
         /// <summary>얼마나 멀리 갔는가(앞으로 간 거리).</summary>
         float ForwardX(in TState state);
+        /// <summary>세로 속도 — 양수면 올라가는 중, 음수면 떨어지는 중이다.</summary>
+        float VerticalSpeed(in TState state);
     }
 
     /// <summary>한 갈래를 굴려 본 결과 — 몇 틱을 살았고 어디까지 갔는가.
@@ -33,11 +35,15 @@ namespace LOP.MapTools
     {
         public readonly int AliveTicks;
         public readonly float ReachX;
+        /// <summary>굴리기가 <b>멈춘 자리</b>의 세로 속도(지평 끝, 또는 도중에 닿았으면 그 자리).
+        /// 양수면 올라가는 중이다.</summary>
+        public readonly float EndVerticalSpeed;
 
-        public RolloutBranch(int aliveTicks, float reachX)
+        public RolloutBranch(int aliveTicks, float reachX, float endVerticalSpeed)
         {
             AliveTicks = aliveTicks;
             ReachX = reachX;
+            EndVerticalSpeed = endVerticalSpeed;
         }
     }
 
@@ -96,6 +102,14 @@ namespace LOP.MapTools
     /// </summary>
     public static class BotRollout
     {
+        /// <summary>세로 속도가 "사실상 같다"고 볼 폭(m/s). 도달 거리의 폭과 달리 상수인 이유는
+        /// 이 값이 몸 크기에서 나오는 것이 아니라 <b>관문에서 실제로 갈린 폭</b>(+17 대 −15,
+        /// 약 32m/s)의 눈금에서 고른 것이라서다 — 그 3%가 잡음과 뜻 있는 차이의 경계다.
+        /// 적중률 59.8%도 이 폭으로 잰 값이므로, 이 수를 바꾸면 그 근거가 같이 흔들린다.
+        /// <para>측정 도구가 같은 신호를 채점할 때도 <b>이 상수</b>를 쓴다 — 두 벌로 두면
+        /// 조용히 갈라져 "봇이 쓰는 기준의 적중률"이 봇의 것이 아니게 된다.</para></summary>
+        public const float SameSpeedEpsilon = 0.5f;
+
         /// <summary>이번 틱에 누를지 정한다.</summary>
         /// <param name="baseDecision">이 상태에서 기반 정책이 낸 판단. 부르는 쪽이 이미 갖고
         /// 있으므로 다시 계산하지 않고 받는다 — 같은 상태에 같은 답이라 재계산은 낭비다.</param>
@@ -156,7 +170,21 @@ namespace LOP.MapTools
         /// <para>순서가 곧 우선순위다:
         /// ① <b>더 오래 산다</b> — 굴리는 동안 안 닿는 쪽이 이긴다. 이 도구가 답하려는 질문이
         ///    "지나갈 수 있는가"라서 살아남는 것이 다른 무엇보다 앞선다.
-        /// ② 둘 다 같은 만큼 살면 <b>더 멀리 간 쪽</b>. 결국 재는 것이 도달 거리다.</para></summary>
+        /// ② 둘 다 같은 만큼 살면 <b>더 멀리 간 쪽</b>. 결국 재는 것이 도달 거리다.
+        ///    (전진 속도가 상수라 실제로는 ①과 같은 값이지만, 전진이 상수가 아닌 세계에서도
+        ///    이 순서가 맞으므로 남겨 둔다.)
+        /// ③ 그것도 같으면 <b>끝에서 더 올라가는 중인 쪽</b>.</para>
+        ///
+        /// <para><b>왜 ③을 넣었나 — 재 보고 넣었다.</b> ①②만으로는 굴려 본 521틱 중
+        /// <b>463틱(88.9%)이 동점</b>이라, 전방탐색이 열 번 중 아홉 번은 아무 말도 못 하고
+        /// 기반 정책에 떠넘기고 있었다. 전진 속도가 상수여서 "더 오래 산다"와 "더 멀리 간다"가
+        /// <i>같은 수</i>인 것이 원인이다 — 기준이 둘로 보이지만 사실은 하나였다. 되돌리기가
+        /// 정답을 알려 준 264틱에서 <b>지금 기준의 적중률은 0.0%</b>(전부 동점)였고, 같은
+        /// 자리에서 지평 끝 세로 속도는 <b>59.8%</b>를 맞혔다. 그래서 동점을 깨는 자리에만
+        /// 이 한 신호를 넣는다 — ①②가 말을 할 때는 아무것도 바뀌지 않는다.</para>
+        ///
+        /// <para>후보로 재 본 다른 신호는 일부러 <b>안</b> 넣었다: "가드가 안 막은 틱수"는
+        /// 67.7%가 거꾸로였고(= 넣으면 나빠진다), "세로 여유"는 45.1%로 동전 던지기였다.</para></summary>
         public static int Prefer(in RolloutBranch flapped, in RolloutBranch coasted, float sameReachEpsilon)
         {
             if (flapped.AliveTicks != coasted.AliveTicks)
@@ -166,6 +194,10 @@ namespace LOP.MapTools
             if (Math.Abs(flapped.ReachX - coasted.ReachX) > sameReachEpsilon)
             {
                 return flapped.ReachX > coasted.ReachX ? 1 : -1;
+            }
+            if (Math.Abs(flapped.EndVerticalSpeed - coasted.EndVerticalSpeed) > SameSpeedEpsilon)
+            {
+                return flapped.EndVerticalSpeed > coasted.EndVerticalSpeed ? 1 : -1;
             }
             return 0;
         }
@@ -185,17 +217,17 @@ namespace LOP.MapTools
                 {
                     //  닿은 틱은 산 틱으로 세지 않는다. 자리는 닿은 그 자리를 쓴다 — 벽까지는
                     //  실제로 갔기 때문이다(둘 다 닿았을 때 ②가 그 차이로 우열을 가른다).
-                    return new RolloutBranch(alive, world.ForwardX(s));
+                    return new RolloutBranch(alive, world.ForwardX(s), world.VerticalSpeed(s));
                 }
                 alive = t + 1;
                 if (world.Finished(s))
                 {
                     //  끝까지 갔다. 더 굴릴 것이 없으니 "창을 다 살았다"로 세어, 창을 다 산
                     //  다른 후보와 ②(도달 거리)로 겨루게 한다.
-                    return new RolloutBranch(horizon, world.ForwardX(s));
+                    return new RolloutBranch(horizon, world.ForwardX(s), world.VerticalSpeed(s));
                 }
             }
-            return new RolloutBranch(alive, world.ForwardX(s));
+            return new RolloutBranch(alive, world.ForwardX(s), world.VerticalSpeed(s));
         }
     }
 }

@@ -43,7 +43,7 @@ namespace LOP.MapTools
             InFunnel = inFunnel;
         }
 
-        public RolloutBranch AsRolloutBranch() => new RolloutBranch(AliveTicks, ReachX);
+        public RolloutBranch AsRolloutBranch() => new RolloutBranch(AliveTicks, ReachX, EndVerticalSpeed);
     }
 
     /// <summary>갈래를 고르는 데 쓸 수 있는 후보 신호들. <see cref="Current"/>가 <b>지금 쓰는

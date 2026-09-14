@@ -44,7 +44,9 @@ namespace LOP.EditorTools
 
         //  실수 신호의 "사실상 같다" 폭. 지금 기준이 쓰는 폭(몸 지름)은 코드에서 가져오고,
         //  나머지는 각 양의 눈금에서 고른다.
-        private const float ProbeSpeedEpsilon = 0.5f;      // m/s — 관문에서 갈린 폭(+17 vs −15)의 3%
+        //  세로 속도의 폭은 이제 봇이 쓰는 그 상수다 — 이 신호가 동점 깨기로 들어갔으므로
+        //  여기에 사본을 두면 "봇의 기준"과 "채점하는 기준"이 조용히 갈라진다.
+        private const float ProbeSpeedEpsilon = LOP.MapTools.BotRollout.SameSpeedEpsilon;
         private const float ProbeClearanceEpsilon = 0.1f;  // m — 자유공간 격자 한 칸
 
         //  위아래 빈 곳을 이보다 멀리는 안 잰다 — "충분히 넓다"를 넘어서면 더 재도 판단이 안 바뀐다.

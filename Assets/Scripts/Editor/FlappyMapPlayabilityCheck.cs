@@ -1820,6 +1820,8 @@ namespace LOP.EditorTools
             public bool Finished(in BirdState state) => state.Position.x >= finishX;
 
             public float ForwardX(in BirdState state) => state.Position.x;
+
+            public float VerticalSpeed(in BirdState state) => state.VerticalSpeed;
         }
 
         //  봇을 진짜 커널로 날린다. 궤적이 하나뿐이라 상태를 묶을 이유가 없고, 그래서 반올림도

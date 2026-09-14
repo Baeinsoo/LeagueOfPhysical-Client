@@ -51,30 +51,41 @@
 `ArcheryTarget`이 `Center`(고정 위치) 대신 **`Origin`(솟기 시작하는 자리) + `RiseSpeed`(초기 상승 속도) + `SpawnTick`(솟기 시작한 틱)** 을 든다. 어느 시각의 위치든:
 
 ```
-y(t) = Origin.y + RiseSpeed·t − ½·TargetGravity·t²
+y(t) = Origin.y + RiseSpeed·t − ½·g·t²   (g는 화살과 같은 중력)
 ```
 
 **화살과 완전히 같은 모양이다**(`ArcheryShot` + `ArcheryTrajectory.PositionAt`). 그 선례를 그대로 따르는 것이 이 설계의 핵심이다 — 새 개념을 만들지 않는다.
 
-### 결정 2 — 과녁 중력은 화살 중력과 **다른 상수**다
+### 결정 2 — 중력은 **화살과 같은 값 하나**, 솟는 높이가 과녁마다 다르다
 
-화살은 `ArcheryTrajectory.Gravity = 20`이다. 과녁에 그 값을 쓰면 5m까지 솟는 데 초기속도 14m/s가 필요하고 왕복이 1.4초로 너무 빠르다.
+처음에는 과녁에 자기 중력을 주려 했다(수명·높이에서 역산). **틀렸다.** 화살과 과녁은 같은 화면에
+동시에 있고, 플레이어는 화살로 과녁을 따라간다 — 중력이 다르면 **0.6초에 화살은 3.6m 떨어지는데
+과녁은 1.5m** 떨어져 세상에 중력이 둘 있는 것처럼 보인다.
 
-과녁은 **수명과 솟는 높이에서 역산한 자기 상수**를 쓴다. 수명 T, 솟는 높이 H일 때:
+**`ArcheryTrajectory.Gravity = 20`을 과녁도 그대로 쓴다.** 중력은 세계의 성질이지 물체의 설정이
+아니다.
+
+그러면 높이와 수명이 **묶인다** — 중력이 고정이므로 하나를 정하면 다른 하나가 따라온다:
 
 ```
-g = 8H/T²      v₀ = gT/2 = 4H/T
+v₀ = √(2gH)      수명 T = 2v₀/g = √(8H/g)
 ```
 
-T=**2.2초**, H=5m면 **g=8.26, v₀=9.09m/s**. 정점 주변 0.54초가 저절로 느려진다(화살 비행시간 0.2~0.5초와 같은 자릿수 — spec §3.1).
+**솟는 높이를 과녁마다 다르게 뽑는다.** 고정이면 몇 번 보고 나면 "언제쯤 정점"이 몸에 배어
+리듬만으로 쏘게 된다. 높이가 다르면 **과녁마다 정점 시각이 달라져** 매번 봐야 한다.
 
-> **왜 2.2초인가 (계획 단계에서 검산함).** spec §3.1은 수명을 웨이브 주기(1.76초)와 같게 잡았는데,
-> 그 값이면 v₀=11.4m/s라 **과녁이 한 틱에 0.227m 움직인다.** 가장 작은 과녁 반지름이 0.2m이므로
-> 결정 4의 근사("한 틱 동안 정지한 것으로 본다")가 **깨진다** — 화살이 과녁을 뚫고 지나갈 수 있다.
-> 2.2초면 한 틱 0.182m로 반지름 안에 들어온다. **수명은 이제 웨이브 주기와 무관한 별도 값이다**
-> (묶음 구조로 바뀌면서 그 둘이 같아야 할 이유가 사라졌다).
+| 높이 | 수명 | 초기속도 | 한 틱 이동 |
+|---|---|---|---|
+| 1.2m | 0.69초 | 6.93 m/s | 0.139m |
+| 1.8m | 0.85초 | 8.49 m/s | 0.170m |
+| 2.4m | 0.98초 | 9.80 m/s | 0.196m |
 
-**이 둘을 한 상수로 합치지 않는다.** 화살 중력은 "쏘는 맛"을 정하고 과녁 중력은 "난이도"를 정한다 — 서로 다른 축이다.
+**범위를 1.2~2.4m로 잡는다.** 상한은 물리가 정한다 — 2.5m를 넘으면 한 틱 이동이 가장 작은 과녁
+반지름(0.2m)을 넘어 결정 4의 근사가 깨진다. 하한은 너무 낮으면 움직임이 안 읽혀서다.
+
+> **수명이 과녁마다 달라진다.** `ArcheryConfig.LifetimeSeconds` 같은 전역 값이 아니라
+> **과녁 자신이 자기 수명을 안다**(`ArcheryTarget.LifetimeSeconds`). 판정·그리기가 "이 과녁이
+> 아직 살아 있나"를 물을 때 그 과녁의 값을 쓴다.
 
 ### 결정 3 — 판정도 뷰도 **시각을 받는 형태**로 바뀐다
 
@@ -176,11 +187,12 @@ WavePeriodTicks ≥ (MaxTargets-1)·StaggerTicks + LifetimeTicks + RestTicks
 - Produces:
   - `ArcheryTarget(int waveIndex, int slotIndex, Vector3 origin, float riseSpeed, long spawnTick, float radius, int points, bool isTrap)`
   - 필드: `WaveIndex` `SlotIndex` `Origin`(Vector3) `RiseSpeed`(float) `SpawnTick`(long) `Radius` `Points` `IsTrap`
+  - 파생: `float LifetimeSeconds => 2f * RiseSpeed / ArcheryTargetMotion.Gravity`
   - `static class ArcheryTargetMotion`:
-    - `const float Gravity` — 과녁에 걸리는 중력
+    - `const float Gravity` — **`ArcheryTrajectory.Gravity`와 같은 값을 가리킨다**
     - `static Vector3 PositionAt(in ArcheryTarget target, double tick, float tickInterval)`
-    - `static float RiseSpeedFor(float riseHeight, float lifetimeSeconds)`
-    - `static bool IsAlive(in ArcheryTarget target, double tick, float tickInterval, float lifetimeSeconds)`
+    - `static float RiseSpeedFor(float riseHeight)` — 높이만 받는다(중력이 고정이므로)
+    - `static bool IsAlive(in ArcheryTarget target, double tick, float tickInterval)` — 과녁이 자기 수명을 안다
 
 - [ ] **Step 1: 실패하는 테스트를 쓴다**
 
@@ -239,13 +251,12 @@ namespace LOP.Tests
         [Test]
         public void 정점에서_정해진_높이만큼_솟는다()
         {
-            float riseHeight = 5f;
-            float lifetime = 2.2f;
-            float riseSpeed = ArcheryTargetMotion.RiseSpeedFor(riseHeight, lifetime);
+            float riseHeight = 2f;
+            float riseSpeed = ArcheryTargetMotion.RiseSpeedFor(riseHeight);
             var target = Target(spawnTick: 100, riseSpeed: riseSpeed);
 
             //  정점은 수명의 절반 시점이다(올라간 만큼 내려온다).
-            double apexTick = 100 + (lifetime / 2f) / TickInterval;
+            double apexTick = 100 + (target.LifetimeSeconds / 2f) / TickInterval;
             var apex = ArcheryTargetMotion.PositionAt(target, apexTick, TickInterval);
 
             Assert.AreEqual(target.Origin.y + riseHeight, apex.y, 0.01f);
@@ -255,11 +266,10 @@ namespace LOP.Tests
         [Test]
         public void 수명이_끝나면_출발_높이로_돌아온다()
         {
-            float lifetime = 2.2f;
-            float riseSpeed = ArcheryTargetMotion.RiseSpeedFor(5f, lifetime);
+            float riseSpeed = ArcheryTargetMotion.RiseSpeedFor(2f);
             var target = Target(spawnTick: 100, riseSpeed: riseSpeed);
 
-            double endTick = 100 + lifetime / TickInterval;
+            double endTick = 100 + target.LifetimeSeconds / TickInterval;
             var end = ArcheryTargetMotion.PositionAt(target, endTick, TickInterval);
 
             Assert.AreEqual(target.Origin.y, end.y, 0.01f);
@@ -282,25 +292,41 @@ namespace LOP.Tests
         [Test]
         public void 수명_안에서만_살아_있다()
         {
-            float lifetime = 2.2f;
-            var target = Target(spawnTick: 100, riseSpeed: 10f);
+            var target = Target(spawnTick: 100, riseSpeed: ArcheryTargetMotion.RiseSpeedFor(2f));
 
-            Assert.IsFalse(ArcheryTargetMotion.IsAlive(target, 99, TickInterval, lifetime), "솟기 전");
-            Assert.IsTrue(ArcheryTargetMotion.IsAlive(target, 100, TickInterval, lifetime), "솟는 순간");
-            Assert.IsTrue(ArcheryTargetMotion.IsAlive(target, 150, TickInterval, lifetime), "공중");
+            Assert.IsFalse(ArcheryTargetMotion.IsAlive(target, 99, TickInterval), "솟기 전");
+            Assert.IsTrue(ArcheryTargetMotion.IsAlive(target, 100, TickInterval), "솟는 순간");
+            Assert.IsTrue(ArcheryTargetMotion.IsAlive(target, 120, TickInterval), "공중");
 
-            double endTick = 100 + lifetime / TickInterval;
-            Assert.IsFalse(ArcheryTargetMotion.IsAlive(target, endTick + 1, TickInterval, lifetime), "떨어진 뒤");
+            double endTick = 100 + target.LifetimeSeconds / TickInterval;
+            Assert.IsFalse(ArcheryTargetMotion.IsAlive(target, endTick + 1, TickInterval), "떨어진 뒤");
         }
 
-        //  솟는 속도는 "얼마나 높이, 얼마나 오래"에서 역산된다 — 손으로 적어 넣는 값이 아니다.
+        //  중력이 고정이라 높이 하나가 속도도 수명도 정한다 — 손으로 적어 넣는 값이 아니다.
         [Test]
-        public void 솟는_속도는_높이와_수명에서_나온다()
+        public void 솟는_속도는_높이에서_나온다()
         {
-            float riseSpeed = ArcheryTargetMotion.RiseSpeedFor(riseHeight: 5f, lifetimeSeconds: 2.2f);
+            float riseSpeed = ArcheryTargetMotion.RiseSpeedFor(riseHeight: 2f);
 
-            //  v0 = 4H/T = 4*5/2.2
-            Assert.AreEqual(4f * 5f / 2.2f, riseSpeed, 1e-3f);
+            //  v0 = sqrt(2gH)
+            Assert.AreEqual(Mathf.Sqrt(2f * ArcheryTargetMotion.Gravity * 2f), riseSpeed, 1e-3f);
+        }
+
+        //  화살과 과녁이 같은 화면에 있다 — 중력이 다르면 같은 시간에 다르게 떨어져 눈에 띈다.
+        [Test]
+        public void 과녁_중력은_화살_중력과_같다()
+        {
+            Assert.AreEqual(ArcheryTrajectory.Gravity, ArcheryTargetMotion.Gravity);
+        }
+
+        //  높이가 다르면 수명도 다르다 — 그래서 "언제쯤 정점"이 과녁마다 달라진다.
+        [Test]
+        public void 높이가_다르면_수명도_다르다()
+        {
+            var low = Target(spawnTick: 100, riseSpeed: ArcheryTargetMotion.RiseSpeedFor(1.2f));
+            var high = Target(spawnTick: 100, riseSpeed: ArcheryTargetMotion.RiseSpeedFor(2.4f));
+
+            Assert.Less(low.LifetimeSeconds, high.LifetimeSeconds);
         }
     }
 }
@@ -342,6 +368,12 @@ unity command --project-path C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Serve
         /// <summary>맞히면 안 되는 과녁인가.</summary>
         public readonly bool IsTrap;
 
+        /// <summary>
+        /// 솟았다 떨어지기까지 걸리는 시간(초). 과녁마다 솟는 높이가 달라 <b>수명도 제각각</b>이라,
+        /// 전역 설정이 아니라 과녁 자신이 안다. 중력이 고정이므로 초기속도 하나로 정해진다.
+        /// </summary>
+        public float LifetimeSeconds => 2f * RiseSpeed / ArcheryTargetMotion.Gravity;
+
         public ArcheryTarget(int waveIndex, int slotIndex, Vector3 origin, float riseSpeed, long spawnTick,
                              float radius, int points, bool isTrap)
         {
@@ -374,27 +406,24 @@ namespace LOP
     public static class ArcheryTargetMotion
     {
         /// <summary>
-        /// 과녁에 걸리는 중력. <b>화살 중력(<see cref="ArcheryTrajectory.Gravity"/>=20)과 다른 값이다</b> —
-        /// 화살 중력은 쏘는 맛을 정하고 이 값은 난이도를 정한다. 수명 2.2초에 5m를 솟았다 떨어지는
-        /// 포물선에서 역산한 값이라(g=8H/T²), 정점 주변 0.5초쯤이 저절로 느려진다.
-        ///
-        /// <para>이 값을 키우면(= 수명을 줄이면) 과녁이 한 틱에 자기 반지름보다 많이 움직여
-        /// 판정이 뚫린다 — 서버 테스트가 그 선을 지킨다.</para>
+        /// 과녁에 걸리는 중력. <b>화살과 같은 값이다</b> — 중력은 세계의 성질이지 물체의 설정이
+        /// 아니다. 다르게 두면 같은 화면에서 화살과 과녁이 서로 다른 속도로 떨어져,
+        /// 화살로 과녁을 따라가는 이 게임에서는 바로 눈에 띈다.
         /// </summary>
-        public const float Gravity = 8.26f;
+        public const float Gravity = ArcheryTrajectory.Gravity;
 
         /// <summary>
-        /// 그 높이까지 솟았다 그 시간에 돌아오려면 얼마로 출발해야 하나(m/s).
-        /// 손으로 적는 값이 아니라 "얼마나 높이·얼마나 오래"에서 나온다.
+        /// 그 높이까지 솟으려면 얼마로 출발해야 하나(m/s). 중력이 고정이라 높이 하나가 속도도
+        /// 수명도 정한다 — 따로 적을 값이 없다.
         /// </summary>
-        public static float RiseSpeedFor(float riseHeight, float lifetimeSeconds)
+        public static float RiseSpeedFor(float riseHeight)
         {
-            if (lifetimeSeconds <= 0f)
+            if (riseHeight <= 0f)
             {
                 return 0f;
             }
-            //  정점 높이 H = v0²/(2g), 왕복 시간 T = 2v0/g 두 식을 풀면 v0 = 4H/T이다.
-            return 4f * riseHeight / lifetimeSeconds;
+            //  정점 높이 H = v0²/(2g)를 v0에 대해 풀면 v0 = sqrt(2gH)다.
+            return Mathf.Sqrt(2f * Gravity * riseHeight);
         }
 
         /// <summary>그 시각의 과녁 자리. 솟기 전에는 출발점에 가만히 있다.</summary>
@@ -410,10 +439,10 @@ namespace LOP
         }
 
         /// <summary>아직 공중에 있나. 솟기 전과 떨어진 뒤에는 거짓이다.</summary>
-        public static bool IsAlive(in ArcheryTarget target, double tick, float tickInterval, float lifetimeSeconds)
+        public static bool IsAlive(in ArcheryTarget target, double tick, float tickInterval)
         {
             double elapsed = (tick - target.SpawnTick) * tickInterval;
-            return elapsed >= 0d && elapsed <= lifetimeSeconds;
+            return elapsed >= 0d && elapsed <= target.LifetimeSeconds;
         }
     }
 }
@@ -490,7 +519,7 @@ EOF
 
 ---
 
-## Task 2: 설정에 솟는 높이·수명·간격·쉼을 낸다 (LOP-Shared)
+## Task 2: 설정에 솟는 높이 범위·간격·쉼을 낸다 (LOP-Shared)
 
 **Files:**
 - Modify: `Runtime/Scripts/Game/ArcheryConfig.cs`
@@ -499,10 +528,9 @@ EOF
 **Interfaces:**
 - Consumes: (없음)
 - Produces:
-  - `ArcheryConfig(int wavePeriodTicks, int minTargets, int maxTargets, float spawnRadius, float spawnMinY, float spawnMaxY, float minSeparation, float trapRatioMin, float trapRatioMax, float shakeFreeSeconds, float shakeRampSeconds, float shakeMaxDegrees, float riseHeight, float lifetimeSeconds, int staggerTicks, int restTicks, IReadOnlyList<ArcheryTargetKind> kinds)`
-  - `float RiseHeight` · `float LifetimeSeconds` · `int StaggerTicks` · `int RestTicks`
-  - `float RiseSpeed { get; }` — 파생. `ArcheryTargetMotion.RiseSpeedFor(RiseHeight, LifetimeSeconds)`
-  - `int BurstTicks { get; }` — 파생. 마지막 과녁이 떨어질 때까지 걸리는 틱 수
+  - `ArcheryConfig(int wavePeriodTicks, int minTargets, int maxTargets, float spawnRadius, float spawnMinY, float spawnMaxY, float minSeparation, float trapRatioMin, float trapRatioMax, float shakeFreeSeconds, float shakeRampSeconds, float shakeMaxDegrees, float riseHeightMin, float riseHeightMax, int staggerTicks, int restTicks, IReadOnlyList<ArcheryTargetKind> kinds)`
+  - `float RiseHeightMin` · `float RiseHeightMax` · `int StaggerTicks` · `int RestTicks`
+  - `int BurstTicks { get; }` — 파생. **가장 높이 솟는** 과녁이 떨어질 때까지 걸리는 틱 수
 
 > 인자가 열일곱으로 길어진다. 부르는 곳이 넷뿐이고(클·서 provider, 테스트 둘) 전부 이름 붙인 인자를 쓰므로 읽기에 문제가 없다. 빌더를 만들지 않는다(YAGNI).
 >
@@ -515,8 +543,8 @@ EOF
 ```csharp
         //  실측 기본값과 같은 모양으로 둔다 — 테스트가 배포 데이터와 다른 조건을 시험하면
         //  통과해도 아무것도 보장하지 못한다.
-        private const float TestRiseHeight = 5f;
-        private const float TestLifetime = 2.2f;
+        private const float TestRiseHeightMin = 1.2f;
+        private const float TestRiseHeightMax = 2.4f;
         private const int TestStaggerTicks = 12;
         private const int TestRestTicks = 20;
 
@@ -524,11 +552,11 @@ EOF
                                                 float trapRatioMin = 0f, float trapRatioMax = 0f)
         {
             return new ArcheryConfig(
-                wavePeriodTicks: 180, minTargets: 3, maxTargets: 5,
+                wavePeriodTicks: 120, minTargets: 3, maxTargets: 5,
                 spawnRadius: 3.5f, spawnMinY: 1.5f, spawnMaxY: 8f, minSeparation: minSeparation,
                 trapRatioMin: trapRatioMin, trapRatioMax: trapRatioMax,
                 shakeFreeSeconds: 1.2f, shakeRampSeconds: 2.5f, shakeMaxDegrees: 0f,
-                riseHeight: TestRiseHeight, lifetimeSeconds: TestLifetime,
+                riseHeightMin: TestRiseHeightMin, riseHeightMax: TestRiseHeightMax,
                 staggerTicks: TestStaggerTicks, restTicks: TestRestTicks,
                 kinds: kinds);
         }
@@ -539,24 +567,17 @@ EOF
 그리고 새 테스트 둘을 파일 끝의 마지막 `[Test]` 뒤에 넣는다:
 
 ```csharp
-        [Test]
-        public void 솟는_속도는_설정의_높이와_수명에서_나온다()
-        {
-            var config = Config();
-
-            Assert.AreEqual(
-                ArcheryTargetMotion.RiseSpeedFor(TestRiseHeight, TestLifetime),
-                config.RiseSpeed, 1e-4f);
-        }
-
         //  마지막 과녁이 떨어질 때까지 걸리는 시간이다 — 웨이브 주기가 이보다 짧으면
         //  마지막 과녁이 공중에서 잘려 사라진다(에러는 안 난다).
+        //  높이가 과녁마다 다르므로 **가장 높이 솟는 경우**로 잡아야 안전하다.
         [Test]
-        public void 묶음_길이는_마지막_과녁이_떨어질_때까지다()
+        public void 묶음_길이는_가장_높이_솟는_과녁이_떨어질_때까지다()
         {
             var config = Config();
 
-            int lifetimeTicks = Mathf.CeilToInt(TestLifetime / 0.02f);
+            float longest = 2f * ArcheryTargetMotion.RiseSpeedFor(TestRiseHeightMax)
+                          / ArcheryTargetMotion.Gravity;
+            int lifetimeTicks = Mathf.CeilToInt(longest / 0.02f);
             int expected = (config.MaxTargets - 1) * TestStaggerTicks + lifetimeTicks;
 
             Assert.AreEqual(expected, config.BurstTicks);
@@ -570,18 +591,24 @@ unity command --project-path C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Serve
 unity command --project-path C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Server recompile_status
 ```
 
-기대: `failed:true`, `ArcheryConfig` 생성자 인자 개수(CS7036/CS1739) 또는 `RiseSpeed`/`BurstTicks` 없음(CS1061).
+기대: `failed:true`, `ArcheryConfig` 생성자 인자 개수(CS7036/CS1739) 또는 `RiseHeightMin`/`BurstTicks` 없음(CS1061).
 
 - [ ] **Step 3: 최소 구현**
 
 `Runtime/Scripts/Game/ArcheryConfig.cs`에서 `MaxTargetRadius` 속성 아래에 더한다:
 
 ```csharp
-        /// <summary>과녁이 솟아오르는 높이(m). 정점까지의 높이다.</summary>
-        public float RiseHeight { get; }
+        /// <summary>과녁이 솟아오르는 높이의 하한(m).</summary>
+        public float RiseHeightMin { get; }
 
-        /// <summary>과녁 하나가 솟았다 떨어지기까지 걸리는 시간(초).</summary>
-        public float LifetimeSeconds { get; }
+        /// <summary>
+        /// 과녁이 솟아오르는 높이의 상한(m). <b>과녁마다 이 사이에서 뽑는다</b> — 고정이면 몇 번
+        /// 보고 나서 "언제쯤 정점"이 몸에 배어 리듬만으로 쏘게 된다.
+        ///
+        /// <para>⚠️ 너무 높이 잡으면 과녁이 한 틱에 자기 반지름보다 많이 움직여 판정이 뚫린다.
+        /// 중력 20·가장 작은 과녁 반지름 0.2m에서 상한은 약 2.5m다 — 배포 데이터 검사가 지킨다.</para>
+        /// </summary>
+        public float RiseHeightMax { get; }
 
         /// <summary>묶음 안에서 다음 과녁이 솟기까지의 간격(틱). 일정해야 리듬이 생긴다.</summary>
         public int StaggerTicks { get; }
@@ -589,12 +616,10 @@ unity command --project-path C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Serve
         /// <summary>묶음이 끝나고 다음 묶음까지의 쉼(틱). 끊겼다 시작해야 매 묶음이 새로 긴장된다.</summary>
         public int RestTicks { get; }
 
-        /// <summary>솟기 시작하는 속도(m/s). 높이와 수명에서 역산한 값이라 따로 적지 않는다.</summary>
-        public float RiseSpeed { get; }
-
         /// <summary>
-        /// 마지막 과녁이 떨어질 때까지 걸리는 틱 수. <see cref="WavePeriodTicks"/>가 이보다 짧으면
-        /// 마지막 과녁이 공중에서 잘려 사라진다 — 에러는 안 나므로 배포 데이터 검사가 지킨다.
+        /// 묶음이 다 끝나기까지 걸리는 틱 수 — <b>가장 높이 솟는 과녁</b> 기준이다.
+        /// <see cref="WavePeriodTicks"/>가 이보다 짧으면 마지막 과녁이 공중에서 잘려 사라진다 —
+        /// 에러는 안 나므로 배포 데이터 검사가 지킨다.
         /// </summary>
         public int BurstTicks { get; }
 ```
@@ -606,21 +631,23 @@ unity command --project-path C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Serve
                              float spawnRadius, float spawnMinY, float spawnMaxY, float minSeparation,
                              float trapRatioMin, float trapRatioMax,
                              float shakeFreeSeconds, float shakeRampSeconds, float shakeMaxDegrees,
-                             float riseHeight, float lifetimeSeconds, int staggerTicks, int restTicks,
+                             float riseHeightMin, float riseHeightMax, int staggerTicks, int restTicks,
                              IReadOnlyList<ArcheryTargetKind> kinds)
 ```
 
 (기존 대입은 그대로 두고 아래를 이어 붙인다)
 
 ```csharp
-            RiseHeight = riseHeight;
-            LifetimeSeconds = lifetimeSeconds;
+            RiseHeightMin = riseHeightMin;
+            RiseHeightMax = riseHeightMax;
             StaggerTicks = staggerTicks;
             RestTicks = restTicks;
-            RiseSpeed = ArcheryTargetMotion.RiseSpeedFor(riseHeight, lifetimeSeconds);
 
+            //  가장 높이 솟는 과녁이 제일 오래 떠 있다 — 묶음 길이는 그 기준으로 잡아야 안전하다.
+            float longestLifetime = 2f * ArcheryTargetMotion.RiseSpeedFor(riseHeightMax)
+                                  / ArcheryTargetMotion.Gravity;
             //  틱은 정수라 올림한다 — 내림하면 마지막 한 틱이 모자라 과녁이 땅에 닿기 전에 잘린다.
-            int lifetimeTicks = Mathf.CeilToInt(lifetimeSeconds / 0.02f);
+            int lifetimeTicks = Mathf.CeilToInt(longestLifetime / 0.02f);
             BurstTicks = (maxTargets - 1) * staggerTicks + lifetimeTicks;
 ```
 
@@ -637,7 +664,7 @@ unity command --project-path C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Serve
                 r.TrapRatioMin, r.TrapRatioMax,
                 r.ShakeFreeSeconds, r.ShakeRampSeconds, r.ShakeMaxDegrees,
                 //  아직 데이터에 칸이 없다 — 마스터데이터를 구운 뒤 실제 컬럼으로 바꾼다.
-                riseHeight: 5f, lifetimeSeconds: 2.2f, staggerTicks: 12, restTicks: 20,
+                riseHeightMin: 1.2f, riseHeightMax: 2.4f, staggerTicks: 12, restTicks: 20,
                 kinds);
 ```
 
@@ -658,11 +685,14 @@ unity command --project-path C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Serve
 각 레포에서 바꾼 파일만 스테이지하고 커밋한다. LOP-Shared:
 
 ```
-feat(archery): 설정에 솟는 높이·수명·간격·쉼을 낸다
+feat(archery): 설정에 솟는 높이 범위·간격·쉼을 낸다
 
-솟는 속도는 손으로 적지 않는다 — "얼마나 높이, 얼마나 오래"에서 역산한다.
-묶음 길이(BurstTicks)도 파생값이다: 웨이브 주기가 이보다 짧으면 마지막
-과녁이 공중에서 잘리는데 에러가 안 나므로, 그 관계를 한 곳에서 계산해 둔다.
+높이는 하나가 아니라 범위다 — 과녁마다 뽑는다. 고정이면 몇 번 보고 나서
+"언제쯤 정점"이 몸에 배어 리듬만으로 쏘게 된다.
+
+속도와 수명은 설정에 없다. 중력이 고정이므로 높이 하나가 둘 다 정한다.
+묶음 길이(BurstTicks)는 가장 높이 솟는 과녁 기준이다 — 웨이브 주기가
+이보다 짧으면 마지막 과녁이 공중에서 잘리는데 에러가 안 난다.
 ```
 
 서버·클라: `chore(archery): 설정 생성자 변경에 호출부를 맞춘다`
@@ -676,10 +706,14 @@ feat(archery): 설정에 솟는 높이·수명·간격·쉼을 낸다
 - Test: `Tests/EditMode/ArcheryWaveGeneratorTests.cs`
 
 **Interfaces:**
-- Consumes: `ArcheryTarget` 새 생성자 (Task 1), `ArcheryConfig.RiseSpeed/StaggerTicks/LifetimeSeconds` (Task 2), `ArcheryTargetMotion.RiseSpeedFor` (Task 1)
+- Consumes: `ArcheryTarget` 새 생성자 (Task 1), `ArcheryConfig.RiseHeightMin/Max/StaggerTicks` (Task 2), `ArcheryTargetMotion.RiseSpeedFor` (Task 1)
 - Produces:
   - `Fill(List<ArcheryTarget> into, ulong matchSeed, int waveIndex, ArcheryConfig config, long gameplayStartTick)` — **인자가 하나 늘어난다**(절대 틱을 알아야 `SpawnTick`을 낼 수 있다)
-  - 난수 소비 순서는 그대로: 개수 → (함정 종류 있으면) 함정비율 → 슬롯마다 (함정인가 → 종류 → 각도 → 반지름 → 높이)
+  - **난수 소비 순서가 바뀐다**: 개수 → (함정 종류 있으면) 함정비율 → 슬롯마다 (함정인가 → 종류 → 각도 → 반지름 → 높이 → **솟는 높이**)
+
+> ⚠️ **솟는 높이를 슬롯마다 뽑으므로 난수를 하나씩 더 쓴다.** 이 순서가 곧 클·서 계약이라
+> 양쪽이 반드시 함께 배포돼야 한다. 뽑는 자리는 **슬롯 루프의 맨 끝**이다 — 앞에 끼우면 기존
+> 값들이 전부 밀린다.
 
 - [ ] **Step 1: 실패하는 테스트를 쓴다**
 
@@ -750,18 +784,46 @@ feat(archery): 설정에 솟는 높이·수명·간격·쉼을 낸다
             }
         }
 
-        //  솟는 속도는 설정에서 나온다 — 과녁마다 다르면 어떤 건 더 높이 솟아 공간을 벗어난다.
+        //  높이가 설정 범위 안에 들어가야 한다 — 벗어나면 과녁이 공간 밖으로 나가거나
+        //  한 틱에 자기 반지름보다 많이 움직여 판정이 뚫린다.
         [Test]
-        public void 모든_과녁이_같은_속도로_솟는다()
+        public void 솟는_높이가_설정_범위_안이다()
         {
             var config = Config();
             var targets = new List<ArcheryTarget>();
-            Fill(targets, 9UL, 0, config);
 
-            for (int i = 0; i < targets.Count; i++)
+            float minSpeed = ArcheryTargetMotion.RiseSpeedFor(config.RiseHeightMin);
+            float maxSpeed = ArcheryTargetMotion.RiseSpeedFor(config.RiseHeightMax);
+
+            for (int wave = 0; wave < 100; wave++)
             {
-                Assert.AreEqual(config.RiseSpeed, targets[i].RiseSpeed, 1e-4f, $"slot {i}");
+                Fill(targets, 9UL, wave, config);
+                for (int i = 0; i < targets.Count; i++)
+                {
+                    Assert.That(targets[i].RiseSpeed, Is.InRange(minSpeed - 1e-3f, maxSpeed + 1e-3f),
+                                $"wave {wave} slot {i}");
+                }
             }
+        }
+
+        //  고정이면 "언제쯤 정점"이 몸에 배어 리듬만으로 쏘게 된다 — 실제로 갈리는지 본다.
+        [Test]
+        public void 과녁마다_솟는_높이가_다르다()
+        {
+            var config = Config();
+            var targets = new List<ArcheryTarget>();
+
+            var seen = new HashSet<float>();
+            for (int wave = 0; wave < 50; wave++)
+            {
+                Fill(targets, 21UL, wave, config);
+                for (int i = 0; i < targets.Count; i++)
+                {
+                    seen.Add(targets[i].RiseSpeed);
+                }
+            }
+
+            Assert.Greater(seen.Count, 10, "높이가 사실상 고정이면 정점 시각도 매번 같아진다");
         }
 ```
 
@@ -797,7 +859,13 @@ XML 주석의 난수 순서 설명은 그대로 두고, 그 아래에 한 줄 �
                 long spawnTick = ArcheryWaveGenerator.WaveStartTick(waveIndex, gameplayStartTick, config)
                                + (long)slot * config.StaggerTicks;
 
-                into.Add(new ArcheryTarget(waveIndex, slot, center, config.RiseSpeed, spawnTick,
+                //  솟는 높이는 과녁마다 다르다 — 고정이면 "언제쯤 정점"이 몸에 배어 리듬만으로
+                //  쏘게 된다. 높이가 다르면 정점 시각도 달라져 매번 봐야 한다.
+                //  (난수를 여기서 한 번 더 쓴다 — 순서가 계약이므로 반드시 슬롯 루프 맨 끝이다.)
+                float riseHeight = rng.Range(config.RiseHeightMin, config.RiseHeightMax);
+                float riseSpeed = ArcheryTargetMotion.RiseSpeedFor(riseHeight);
+
+                into.Add(new ArcheryTarget(waveIndex, slot, center, riseSpeed, spawnTick,
                                            kind.Radius, kind.Points, kind.IsTrap));
 ```
 
@@ -826,8 +894,12 @@ feat(archery): 묶음 안에서 과녁이 하나씩 연달아 솟는다
 그 리듬 속에 함정이 섞여 있으면 보고 판단하기 전에 이미 놓은 뒤다 —
 참기가 머리로 고르는 판단이 아니라 손이 멈춰야 하는 순간이 된다(spec 3.2).
 
-솟는 시각에 난수를 쓰지 않는다. 간격이 들쭉날쭉하면 리듬이 아니라 그냥
-산만한 것이 되기 때문이다. 난수 소비 순서는 그대로라 계약이 안 흔들린다.
+솟는 **시각**에는 난수를 쓰지 않는다. 간격이 들쭉날쭉하면 리듬이 아니라 그냥
+산만한 것이 되기 때문이다. 대신 솟는 **높이**를 과녁마다 뽑는다 — 고정이면
+"언제쯤 정점"이 몸에 배어 리듬만으로 쏘게 된다.
+
+⚠️ 난수를 슬롯마다 하나씩 더 쓰므로 소비 순서가 바뀐다 = 클·서 계약 변경이다.
+반드시 함께 배포돼야 한다.
 ```
 
 ---
@@ -839,7 +911,7 @@ feat(archery): 묶음 안에서 과녁이 하나씩 연달아 솟는다
 - Test: `Assets/Tests/Editor/ArcheryHitSystemTests.cs`
 
 **Interfaces:**
-- Consumes: `ArcheryTargetMotion.PositionAt(in ArcheryTarget, double tick, float tickInterval)` · `IsAlive(...)` (Task 1), `ArcheryConfig.LifetimeSeconds` (Task 2)
+- Consumes: `ArcheryTargetMotion.PositionAt(in ArcheryTarget, double tick, float tickInterval)` · `IsAlive(in ArcheryTarget, double, float)` (Task 1)
 - Produces: (없음 — 서버 내부)
 
 **결정 4를 여기서 구현한다.** 화살 선분은 `[tick-1, tick]` 구간이고, 과녁은 **구간 가운데(`tick - 0.5`)** 의 위치로 잰다.
@@ -915,7 +987,7 @@ feat(archery): 묶음 안에서 과녁이 하나씩 연달아 솟는다
             f.Archer("a");
             var target = f.TargetsOfWave(0)[0];
 
-            long lateTick = target.SpawnTick + Mathf.CeilToInt(f.Config.LifetimeSeconds / TickInterval) + 5;
+            long lateTick = target.SpawnTick + Mathf.CeilToInt(target.LifetimeSeconds / TickInterval) + 5;
             f.World.IngestRemoteShot(ShotThroughMoving("a", lateTick - 1, target, lateTick, 1.0f));
             f.System.Tick(lateTick, TickInterval);
 
@@ -948,7 +1020,7 @@ unity command --project-path C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Serve
                     }
 
                     //  아직 안 솟았거나 이미 떨어진 과녁은 없는 것이다.
-                    if (ArcheryTargetMotion.IsAlive(targets[i], tick, tickInterval, config.LifetimeSeconds) == false)
+                    if (ArcheryTargetMotion.IsAlive(targets[i], tick, tickInterval) == false)
                     {
                         continue;
                     }
@@ -983,12 +1055,13 @@ unity command --project-path C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Serve
 
 ```csharp
         //  "한 틱 동안 과녁이 정지한 것으로 봐도 된다"는 근사에 기대고 있다. 그 전제는
-        //  과녁이 한 틱에 자기 반지름보다 적게 움직인다는 것이다 — 속도를 올리면 깨진다.
+        //  과녁이 한 틱에 자기 반지름보다 적게 움직인다는 것이다 — 높이를 올리면 깨진다.
+        //  가장 높이 솟는 경우로 재야 한다(그게 제일 빠르다).
         [Test]
         public void 과녁은_한_틱에_자기_반지름보다_적게_움직인다()
         {
             var config = Config();
-            float perTick = config.RiseSpeed * TickInterval;
+            float perTick = ArcheryTargetMotion.RiseSpeedFor(config.RiseHeightMax) * TickInterval;
 
             float smallest = float.MaxValue;
             for (int i = 0; i < config.Kinds.Count; i++)
@@ -997,8 +1070,9 @@ unity command --project-path C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Serve
             }
 
             Assert.Less(perTick, smallest,
-                $"과녁이 한 틱에 {perTick:F3}m 움직이는데 가장 작은 과녁 반지름이 {smallest:F3}m다 — "
-                + "판정이 과녁을 뚫고 지나갈 수 있다. 움직이는 구 판정으로 바꾸거나 속도를 낮춰야 한다");
+                $"가장 높이 솟는 과녁이 한 틱에 {perTick:F3}m 움직이는데 가장 작은 과녁 반지름이 "
+                + $"{smallest:F3}m다 — 판정이 과녁을 뚫고 지나갈 수 있다. rise_height_max를 낮추거나 "
+                + "가장 작은 과녁을 키워야 한다");
         }
 ```
 
@@ -1012,10 +1086,10 @@ feat(archery): 서버 판정이 움직이는 과녁을 상대한다
 화살 선분은 [tick-1, tick] 구간인데 과녁을 tick에서만 재면 반 틱 어긋난다 —
 구간 가운데의 자리를 쓴다.
 
-움직이는 구 판정(상대속도 이차방정식)을 짓지 않는다. 한 틱 20ms에 과녁이
-0.18m 움직이는데 가장 작은 과녁 반지름이 0.2m라, 그 사이 정지한 것으로 봐도
-결과가 같다. 그 전제가 깨지는 조건을 테스트로 못박아 뒀다 — 속도를 올리면
-거기서 걸린다.
+움직이는 구 판정(상대속도 이차방정식)을 짓지 않는다. 가장 높이 솟는 과녁도
+한 틱 20ms에 0.196m 움직이는데 가장 작은 과녁 반지름이 0.2m라, 그 사이
+정지한 것으로 봐도 결과가 같다. 그 전제가 깨지는 조건을 테스트로 못박아
+뒀다 — 높이를 올리면 거기서 걸린다.
 ```
 
 ---
@@ -1027,7 +1101,7 @@ feat(archery): 서버 판정이 움직이는 과녁을 상대한다
 - Modify: `Assets/Scripts/Game/TickSystems/ArcheryArrowStickSystem.cs`
 
 **Interfaces:**
-- Consumes: `ArcheryTargetMotion.PositionAt/IsAlive` (Task 1), `ArcheryConfig.LifetimeSeconds` (Task 2)
+- Consumes: `ArcheryTargetMotion.PositionAt/IsAlive` (Task 1)
 - Produces: (없음 — 화면)
 
 **결정 3을 여기서 구현한다.** 뷰가 정수 틱을 쓰는 근거가 깨졌다.
@@ -1066,8 +1140,7 @@ feat(archery): 서버 판정이 움직이는 과녁을 상대한다
 그리고 **아직 안 솟았거나 떨어진 과녁은 그리지 않는다** — `consumed.IsTargetGone` 검사 바로 뒤에 더한다:
 
 ```csharp
-                if (ArcheryTargetMotion.IsAlive(targets[i], renderTick, (float)interval,
-                                                config.LifetimeSeconds) == false)
+                if (ArcheryTargetMotion.IsAlive(targets[i], renderTick, (float)interval) == false)
                 {
                     continue;   // 아직 안 솟았거나 이미 떨어졌다
                 }
@@ -1091,7 +1164,7 @@ feat(archery): 서버 판정이 움직이는 과녁을 상대한다
                 {
                     continue;
                 }
-                if (ArcheryTargetMotion.IsAlive(targets[i], tick, tickInterval, config.LifetimeSeconds) == false)
+                if (ArcheryTargetMotion.IsAlive(targets[i], tick, tickInterval) == false)
                 {
                     continue;
                 }
@@ -1147,7 +1220,7 @@ feat(archery): 화면이 솟아오르는 과녁을 그린다
 
 ---
 
-## Task 6: 데이터에 솟는 높이·수명·간격·쉼을 넣는다 (infrastructure + MasterData 둘)
+## Task 6: 데이터에 솟는 높이 범위·간격·쉼을 넣는다 (infrastructure + MasterData 둘)
 
 **Files:**
 - Modify: `C:/Users/re5na/workspace/LOP/infrastructure/table/Datas/#ArcheryConfig.xlsx`
@@ -1156,7 +1229,7 @@ feat(archery): 화면이 솟아오르는 과녁을 그린다
 
 **Interfaces:**
 - Consumes: (없음 — 데이터)
-- Produces: Luban 생성 `ArcheryConfig`에 `RiseHeight`/`LifetimeSeconds`/`StaggerTicks`/`RestTicks`
+- Produces: Luban 생성 `ArcheryConfig`에 `RiseHeightMin`/`RiseHeightMax`/`StaggerTicks`/`RestTicks`
 
 > **컬럼은 반드시 맨 뒤에 붙인다.** Luban은 컬럼 이름이 아니라 몇 번째 열인지로 읽는다.
 
@@ -1178,14 +1251,18 @@ def set_by_name(name, value):
 set_by_name('min_targets', 3)
 set_by_name('max_targets', 5)
 
-#  웨이브 주기는 묶음 전체 + 쉼을 덮어야 한다. 아래 새 값으로 계산하면
-#  (5-1)*12 + 110 + 20 = 178 이므로 180으로 둔다(여유 2틱).
-#  (110 = 수명 2.2초를 틱으로 올림)
-set_by_name('wave_period_ticks', 180)
+#  웨이브 주기는 묶음 전체 + 쉼을 덮어야 한다.
+#  가장 높이(2.4m) 솟는 과녁의 수명이 0.98초 = 49틱이므로
+#  (5-1)*12 + 49 + 20 = 117 이고, 여유를 둬 120으로 한다.
+set_by_name('wave_period_ticks', 120)
 
+#  높이는 과녁마다 이 사이에서 뽑는다 — 고정이면 "언제쯤 정점"이 몸에 밴다.
+#  상한 2.4m: 2.5m를 넘으면 과녁이 한 틱에 가장 작은 과녁 반지름(0.2m)보다
+#  많이 움직여 판정이 뚫린다. 수명·속도는 데이터에 없다 — 중력이 고정이라
+#  높이 하나가 둘 다 정한다.
 added = [
-    ('rise_height',       'float', 5.0),    # 정점까지 5m — 정점 주변 0.43초가 느려진다
-    ('lifetime_seconds',  'float', 2.2),    # 솟았다 떨어질 때까지. 1.76이면 판정 근사가 깨진다
+    ('rise_height_min',   'float', 1.2),    # 수명 0.69초
+    ('rise_height_max',   'float', 2.4),    # 수명 0.98초, 한 틱 0.196m < 0.2m
     ('stagger_ticks',     'int',   12),     # 0.24초 간격으로 하나씩
     ('rest_ticks',        'int',   20),     # 묶음 사이 0.4초 쉼
 ]
@@ -1213,7 +1290,7 @@ for row in ws.iter_rows(values_only=True):
 "
 ```
 
-기대: `##var` 줄 끝에 `rise_height, lifetime_seconds, stagger_ticks, rest_ticks`, `##type`에 `float, float, int, int`, 데이터 줄 끝에 `5.0, 2.2, 12, 20`. **`min_targets`=3, `max_targets`=5, `wave_period_ticks`=180**. 그 밖의 기존 값(`spawn_radius` 3.5 등)은 **하나도 안 바뀌어야 한다** — 하나라도 움직였으면 멈추고 되돌린다.
+기대: `##var` 줄 끝에 `rise_height_min, rise_height_max, stagger_ticks, rest_ticks`, `##type`에 `float, float, int, int`, 데이터 줄 끝에 `1.2, 2.4, 12, 20`. **`min_targets`=3, `max_targets`=5, `wave_period_ticks`=120**. 그 밖의 기존 값(`spawn_radius` 3.5 등)은 **하나도 안 바뀌어야 한다** — 하나라도 움직였으면 멈추고 되돌린다.
 
 - [ ] **Step 3: 굽고 네 출력처를 확인한다**
 
@@ -1228,7 +1305,7 @@ git -C /c/Users/re5na/workspace/LOP/lop-backend status --short
 기대: 앞의 셋에 변경, `lop-backend`는 무변경. 생성물에 새 필드가 들어갔는지:
 
 ```bash
-grep -n "RiseHeight\|LifetimeSeconds\|StaggerTicks\|RestTicks" \
+grep -n "RiseHeightMin\|RiseHeightMax\|StaggerTicks\|RestTicks" \
   /c/Users/re5na/workspace/LOP/LeagueOfPhysical-MasterData-Server/Runtime.Generated/Scripts/MasterData/ArcheryConfig.cs
 ```
 
@@ -1246,8 +1323,12 @@ grep -n "RiseHeight\|LifetimeSeconds\|StaggerTicks\|RestTicks" \
             var config = tables.TbArcheryConfig.GetOrDefault(1);
             Assert.IsNotNull(config, "TbArcheryConfig id=1 행이 없다");
 
+            //  가장 높이 솟는 과녁이 제일 오래 떠 있다 — 그 기준으로 재야 안전하다.
+            //  중력이 화살과 같으므로 v0 = sqrt(2gH), 수명 = 2v0/g다.
+            float g = 20f;   // ArcheryTrajectory.Gravity — MasterData 패키지는 Shared를 참조하지 않는다
+            float longestLifetime = 2f * Mathf.Sqrt(2f * g * config.RiseHeightMax) / g;
             //  틱은 정수라 올림한다 — 내림하면 마지막 한 틱이 모자라 과녁이 땅에 닿기 전에 잘린다.
-            int lifetimeTicks = Mathf.CeilToInt(config.LifetimeSeconds / 0.02f);
+            int lifetimeTicks = Mathf.CeilToInt(longestLifetime / 0.02f);
             int needed = (config.MaxTargets - 1) * config.StaggerTicks + lifetimeTicks + config.RestTicks;
 
             Assert.GreaterOrEqual(
@@ -1265,10 +1346,38 @@ grep -n "RiseHeight\|LifetimeSeconds\|StaggerTicks\|RestTicks" \
             var config = tables.TbArcheryConfig.GetOrDefault(1);
             Assert.IsNotNull(config, "TbArcheryConfig id=1 행이 없다");
 
-            float apex = config.SpawnMinY + config.RiseHeight;
-            Assert.LessOrEqual(apex, config.SpawnMaxY,
-                $"가장 낮은 자리({config.SpawnMinY})에서 {config.RiseHeight}m 솟으면 {apex}m인데 "
-                + $"과녁 공간 천장이 {config.SpawnMaxY}m다 — 공간을 벗어난다");
+            //  가장 높은 자리에서 가장 높이 솟는 경우가 천장에 제일 가깝다.
+            float apex = config.SpawnMaxY + config.RiseHeightMax;
+            //  솟아오르는 만큼 천장 위로 올라가도 되는 여유(m). 화면 밖으로 나가지만 않으면 된다.
+            const float Headroom = 4f;
+            Assert.LessOrEqual(apex, config.SpawnMaxY + Headroom,
+                $"가장 높은 자리({config.SpawnMaxY})에서 {config.RiseHeightMax}m 솟으면 {apex}m다 — "
+                + "화면 밖으로 나갈 수 있다");
+        }
+
+        //  이 검사가 이 슬라이스의 생명줄이다 — 높이를 올리면 과녁이 한 틱에 자기 반지름보다
+        //  많이 움직여 화살이 뚫고 지나간다. 에러는 안 나고 "가끔 안 맞는다"로만 보인다.
+        [Test]
+        public void 가장_높이_솟는_과녁도_한_틱에_가장_작은_반지름보다_적게_움직인다()
+        {
+            var tables = LoadTables();
+            var config = tables.TbArcheryConfig.GetOrDefault(1);
+            Assert.IsNotNull(config, "TbArcheryConfig id=1 행이 없다");
+
+            float g = 20f;   // ArcheryTrajectory.Gravity
+            float fastest = Mathf.Sqrt(2f * g * config.RiseHeightMax);
+            float perTick = fastest * 0.02f;
+
+            float smallest = float.MaxValue;
+            foreach (var row in tables.TbArcheryTarget.DataList)
+            {
+                smallest = Mathf.Min(smallest, row.Radius);
+            }
+
+            Assert.Less(perTick, smallest,
+                $"rise_height_max({config.RiseHeightMax}m)면 과녁이 한 틱에 {perTick:F3}m 움직이는데 "
+                + $"가장 작은 과녁 반지름이 {smallest:F3}m다 — 판정이 뚫린다. 높이를 낮추거나 "
+                + "가장 작은 과녁을 키워야 한다");
         }
 ```
 
@@ -1291,15 +1400,17 @@ unity command --project-path C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Serve
 infrastructure:
 
 ```
-feat(archery): 데이터에 솟는 높이·수명·간격·쉼을 넣는다
+feat(archery): 데이터에 솟는 높이 범위·간격·쉼을 넣는다
 
-묶음을 3~5개로 키우고 웨이브 주기를 180틱으로 맞췄다 —
-(5-1)*12 + 110 + 20 = 178틱이 필요하고 여유 2틱이다.
+묶음을 3~5개로 키우고 웨이브 주기를 120틱으로 맞췄다 —
+(5-1)*12 + 49 + 20 = 117틱이 필요하다(49 = 가장 높이 솟는 과녁의 수명).
 
-수명은 2.2초다. spec이 적어 둔 1.76초(웨이브 주기와 같은 값)면 과녁이 한 틱에
-0.227m 움직여 가장 작은 과녁 반지름(0.2m)을 넘어서고, 그러면 판정이 과녁을
-뚫고 지나간다. 묶음 구조로 바뀌면서 수명이 웨이브 주기와 같아야 할 이유도
-사라졌다.
+높이는 1.2~2.4m 범위에서 과녁마다 뽑는다. 고정이면 "언제쯤 정점"이 몸에 배어
+리듬만으로 쏘게 된다. 수명·속도 컬럼은 없다 — 중력이 화살과 같은 값으로
+고정이라 높이 하나가 둘 다 정한다.
+
+상한 2.4m는 물리가 정했다. 2.5m를 넘으면 과녁이 한 틱에 가장 작은 과녁
+반지름(0.2m)보다 많이 움직여 판정이 뚫린다 — 그 선을 검사로 못박았다.
 
 컬럼은 전부 맨 뒤에 붙였다. Luban은 컬럼 이름이 아니라 몇 번째 열인지로
 읽으므로 중간에 끼우면 기존 값이 조용히 뒤바뀐다.
@@ -1511,21 +1622,33 @@ git -C /c/Users/re5na/workspace/LOP/LeagueOfPhysical-Server rev-parse --short=7 
 
 **계획 단계에서 검산한 것 (그대로 쓰면 된다):**
 
-| 값 | 계산 | 결과 |
-|---|---|---|
-| 솟는 속도 | 4H/T = 4·5/2.2 | **9.09 m/s** |
-| 과녁 중력 | 8H/T² = 8·5/2.2² | **8.26** |
-| 한 틱 이동 | 9.09 × 0.02 | **0.182m** < 가장 작은 반지름 0.2m ✅ |
-| 정점 느린 구간 | 2√(2·0.3/g) | **0.54초** (화살 비행 0.2~0.5초와 같은 자릿수) |
-| 필요한 웨이브 주기 | (5−1)·12 + ⌈2.2/0.02⌉ + 20 | **178틱** → 180으로 둠 |
+중력은 화살과 같은 **20**으로 고정이고, 높이 하나가 속도도 수명도 정한다(`v₀=√(2gH)`, `T=2v₀/g`).
 
-**처음 쓴 수명 1.76초는 틀렸다** — 한 틱 0.227m로 반지름 0.2m를 넘겨 Task 4 Step 5의 테스트가
-처음부터 빨갛게 나왔을 것이다. 계획 단계에서 계산해 2.2초로 고쳤다.
+| 솟는 높이 | 수명 | 초기속도 | 한 틱 이동 |
+|---|---|---|---|
+| 1.2m (하한) | 0.69초 | 6.93 m/s | 0.139m ✅ |
+| 1.8m | 0.85초 | 8.49 m/s | 0.170m ✅ |
+| **2.4m (상한)** | **0.98초** | **9.80 m/s** | **0.196m** < 가장 작은 반지름 0.2m ✅ |
+| 2.5m | 1.00초 | 10.0 m/s | 0.200m ❌ 근사가 깨진다 |
+
+- 정점 주변 느린 구간(±0.3m): **0.35초** — 화살 비행시간 0.2~0.5초와 같은 자릿수
+- 필요한 웨이브 주기: (5−1)·12 + ⌈0.98/0.02⌉ + 20 = **117틱** → 120으로 둠
+
+**처음 쓴 설계 둘을 계획 단계에서 고쳤다:**
+
+1. **과녁에 자기 중력(8.26)을 주려 했다** — 틀렸다. 화살과 과녁이 같은 화면에 있고 플레이어는
+   화살로 과녁을 따라간다. 0.6초에 화살은 3.6m 떨어지는데 과녁은 1.5m면 세상에 중력이 둘 있는
+   것처럼 보인다. **중력은 세계의 성질이지 물체의 설정이 아니다.**
+2. **솟는 높이를 5m 고정으로 두려 했다** — 중력을 20으로 통일하면 5m는 한 틱 0.283m라 근사가
+   깨진다. 그리고 고정이면 몇 번 보고 나서 "언제쯤 정점"이 몸에 배어 리듬만으로 쏘게 된다.
+   **1.2~2.4m 범위에서 과녁마다 뽑는다.**
 
 **남은 위험(계획이 못 막는 것):**
-- 수명 2.2초는 한 틱 0.182m로 **여유가 0.018m뿐**이다. 실측에서 "너무 느리다"고 판단해 수명을
-  줄이면 그 테스트가 걸린다 — 그때는 **가장 작은 과녁을 키우거나**(데이터) 움직이는 구 판정으로
-  바꾼다. **테스트를 고치지 않는다.**
-- 수명이 웨이브 주기(3.6초)보다 짧으므로 **묶음이 끝난 뒤 빈 시간이 생긴다** — `rest_ticks`(0.4초)
-  외에 추가로 비는 구간이다. 실측에서 늘어진다고 느껴지면 `stagger_ticks`를 늘려 묶음을 길게 하거나
-  웨이브 주기를 줄인다(단 Task 6의 검사가 지키는 하한 아래로는 못 간다).
+
+- 상한 2.4m는 여유가 **0.004m뿐**이다. 실측에서 "움직임이 약하다"고 판단해 높이를 올리면
+  Task 6의 검사가 걸린다 — 그때는 **가장 작은 과녁(0.2m)을 키우거나** 움직이는 구 판정으로
+  바꾼다. **검사를 고치지 않는다.**
+- 솟는 폭이 1.2~2.4m라 spec §3.1이 적었던 5m보다 작다. 실측에서 "덜 극적이다"가 나올 수 있다 —
+  그렇다면 위 선택지 둘 중 하나를 골라야지, 높이만 올리면 판정이 조용히 뚫린다.
+- 묶음이 끝난 뒤 빈 시간이 생긴다(수명이 웨이브 주기보다 짧다). `rest_ticks` 0.4초 외의 여백이
+  늘어진다고 느껴지면 `stagger_ticks`를 늘리거나 웨이브 주기를 줄인다(Task 6의 하한 아래로는 못 간다).

@@ -135,27 +135,39 @@ namespace LOP.MapTools
             RolloutBranch coasted = Roll(world, state, firstFlap: false, horizon);
             branches = new RolloutBranches(rolled: true, flapped, coasted);
 
-            //  ── "더 낫다"의 기준 (순서가 곧 우선순위다) ──
-            //  ① 더 오래 산다. 굴리는 동안 안 닿는 쪽이 이긴다 — 이 도구가 답하려는 질문이
-            //     "지나갈 수 있는가"라서, 살아남는 것이 다른 무엇보다 앞선다.
-            //  ② 둘 다 같은 만큼 살면 더 멀리 간 쪽. 결국 재는 것이 도달 거리다.
-            //  ③ 사실상 같으면(몸 지름 이내) 기반 정책의 선택을 따른다. 동점에서 흔들리면
-            //     매 틱 이유 없이 판단이 바뀌어 궤적이 잡음이 된다.
-            bool flap;
-            if (flapped.AliveTicks != coasted.AliveTicks)
-            {
-                flap = flapped.AliveTicks > coasted.AliveTicks;
-            }
-            else if (Math.Abs(flapped.ReachX - coasted.ReachX) > sameReachEpsilon)
-            {
-                flap = flapped.ReachX > coasted.ReachX;
-            }
-            else
-            {
-                flap = baseDecision.Flap;
-            }
+            //  ③ 두 갈래가 사실상 같으면(Prefer가 0) 기반 정책의 선택을 따른다. 동점에서
+            //     흔들리면 매 틱 이유 없이 판단이 바뀌어 궤적이 잡음이 된다.
+            int prefer = Prefer(flapped, coasted, sameReachEpsilon);
+            bool flap = prefer != 0 ? prefer > 0 : baseDecision.Flap;
 
             return new RolloutChoice(flap, rolledOut: true, deviated: flap != baseDecision.Flap);
+        }
+
+        /// <summary>두 갈래 중 어느 쪽이 나은가 — <b>지금 쓰는 기준 그 자체</b>다.
+        /// +1이면 누르는 쪽, −1이면 안 누르는 쪽, <b>0이면 이 기준으로는 둘을 구별하지 못한다</b>
+        /// (그때 <see cref="Choose{TState}(IRolloutWorld{TState}, in TState, in BotDecision, int, float, out RolloutBranches)"/>가
+        /// 기반 정책으로 떨어진다).
+        ///
+        /// <para><b>왜 밖으로 냈나.</b> 이 기준이 좋은 갈래를 실제로 얼마나 자주 맞히는지
+        /// 재려면(<see cref="BranchSignals"/>) 채점기가 같은 규칙을 물어봐야 하는데, 채점기가
+        /// 규칙을 <i>베껴</i> 갖고 있으면 둘이 조용히 갈라져 "지금 기준의 적중률"이 지금 기준의
+        /// 것이 아니게 된다. 그래서 규칙은 이 한 군데에만 둔다.</para>
+        ///
+        /// <para>순서가 곧 우선순위다:
+        /// ① <b>더 오래 산다</b> — 굴리는 동안 안 닿는 쪽이 이긴다. 이 도구가 답하려는 질문이
+        ///    "지나갈 수 있는가"라서 살아남는 것이 다른 무엇보다 앞선다.
+        /// ② 둘 다 같은 만큼 살면 <b>더 멀리 간 쪽</b>. 결국 재는 것이 도달 거리다.</para></summary>
+        public static int Prefer(in RolloutBranch flapped, in RolloutBranch coasted, float sameReachEpsilon)
+        {
+            if (flapped.AliveTicks != coasted.AliveTicks)
+            {
+                return flapped.AliveTicks > coasted.AliveTicks ? 1 : -1;
+            }
+            if (Math.Abs(flapped.ReachX - coasted.ReachX) > sameReachEpsilon)
+            {
+                return flapped.ReachX > coasted.ReachX ? 1 : -1;
+            }
+            return 0;
         }
 
         //  첫 틱만 지정한 대로 하고, 그 뒤는 <b>기반 정책 그대로</b> 굴린다. "다르게 눌렀으면"을

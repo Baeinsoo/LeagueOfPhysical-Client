@@ -29,7 +29,10 @@ namespace LOP.EditorTools
     /// <para>③ <b>스턴 예산</b> — 추격자에게 잡히기 전까지 몇 번이나 스턴을 먹어도 되는가
     /// (<see cref="LOP.MapTools.StunBudget"/>). 산수라 시뮬레이션이 필요 없다.</para>
     /// </summary>
-    public static class FlappyMapPlayabilityCheck
+    //  partial인 이유: 측정 전용 진단(FlappyBranchSignalProbe.cs)이 이 검사기의 <b>비공개
+    //  내부</b>(FlyBot·BotWorld·Step·FreeSpaceGrid…)를 그대로 써야 한다. 안 그러면 진단이
+    //  제 시뮬레이터를 갖게 되는데, 그게 이 파일이 곳곳에서 막고 있는 바로 그 사고다.
+    public static partial class FlappyMapPlayabilityCheck
     {
         //  훑는 격자. 촘촘할수록 작은 틈까지 잡지만 오래 걸린다(0.2m에서 코스 전체 약 3초).
         private const float GridStep = 0.2f;

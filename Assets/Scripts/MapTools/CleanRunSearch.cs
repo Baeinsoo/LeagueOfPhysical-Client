@@ -13,6 +13,17 @@ namespace LOP.MapTools
     public delegate bool ExactFreeSpaceProbe(float x, float y);
 
     /// <summary>
+    /// 발밑이 (x, y)이고 세로 속도가 <paramref name="verticalSpeed"/>일 때, <b>한 틱을 나아가는
+    /// 동안</b> 몸이 아무 데도 안 닿는가. 도착점 하나를 찍는 <see cref="FreeSpaceProbe"/>와 달리
+    /// 그 틱의 <i>지나간 자리 전부</i>를 묻는다 — 진짜 이동 커널이 캡슐을 쓸어서 판정하기
+    /// 때문이다(<see cref="FlappyTickSweep"/>가 그 커널을 그대로 부르는 구현).
+    ///
+    /// <para>한 틱의 가로 이동거리와 dt는 묻지 않는다 — 둘 다 프로브 쪽이 이미 알고 있고,
+    /// 여기서 다시 넘기면 탐색이 믿는 값과 커널이 쓰는 값이 갈릴 자리가 하나 더 생긴다.</para>
+    /// </summary>
+    public delegate bool TickSweepProbe(float x, float y, float verticalSpeed);
+
+    /// <summary>
     /// 자유공간 캐시(<see cref="FreeSpaceProbe"/>를 구현하는 쪽)가 쓰는 격자 산술. 캐시 본체는
     /// 에디터 어셈블리에 있어 테스트가 닿지 않으므로, 그 답을 좌우하는 이 산술만 여기로 뺐다 —
     /// 여기를 항등으로 되돌리면 캐시가 다시 "누가 먼저 물었나"에 흔들린다.
@@ -148,13 +159,26 @@ namespace LOP.MapTools
     /// 탐색은 경로를 찾았는데 진짜 커널 재생에서 깨져 "모름"으로 남았다. 지금은 상태가
     /// 정확한 (높이, 세로속도)를 들고 다녀 그 편향이 없다.</para>
     ///
-    /// <para>남은 근사는 둘뿐이다 — ① 같은 열쇠 칸에 든 정확한 상태 중 하나만 남긴다
-    /// (<see cref="TryAdvance"/> 주석 참고), ② 자유공간 프로브가 격자에 스냅해 잰다.
-    /// 그래서 <b>✅(재생까지 통과)는 증명이지만 ❌는 여전히 "이 근사 아래서 못 찾았다"</b>이다.</para>
+    /// <para><b>닿았나도 커널과 같은 자로 잰다(2026-09-14).</b> 예전에는 도착점 하나를 0.1m
+    /// 눈금에 붙여 정지 캡슐 검사로 찍었다 — 커널은 캡슐을 한 틱 동안 쓸고 벽에서 0.02m를
+    /// 띄우므로, 탐색이 커널보다 <b>관대</b>했고 찾은 경로가 재생에서 벽에 걸렸다. 지금은
+    /// 한 틱 전진 판정을 <see cref="TickSweepProbe"/>로 묻고, 실검사에서는 그 구현이
+    /// <see cref="FlappyTickSweep"/> = <b>진짜 커널 그 자체</b>다.</para>
+    ///
+    /// <para>남은 근사는 <b>하나뿐</b>이다 — 같은 열쇠 칸에 든 정확한 상태 중 하나만 남긴다
+    /// (<see cref="TryAdvance"/> 주석 참고). 그래서 <b>✅(재생까지 통과)는 증명이지만 ❌는
+    /// 여전히 "이 근사 아래서 못 찾았다"</b>이다 — 밀려난 상태로만 빠져나가는 길이 있으면
+    /// 탐색은 그것을 못 본다.</para>
     /// </summary>
     public static class CleanRunSearch
     {
-        public static CleanRunResult Run(in CleanRunOptions options, FreeSpaceProbe isFree)
+        /// <param name="seedIsFree">출발 자리가 지형에 파묻혀 있지는 않은가. <b>격자에 붙이지
+        /// 않은 정확한 좌표</b>에서 재는 점 검사다 — 한 틱 전진 판정이 아니라 "시작할 수 있는
+        /// 자리인가"만 본다.</param>
+        /// <param name="tickIsFree">한 틱 전진이 아무 데도 안 닿는가. 실검사에서는 진짜 이동
+        /// 커널 그 자체다(<see cref="FlappyTickSweep"/>).</param>
+        public static CleanRunResult Run(in CleanRunOptions options, ExactFreeSpaceProbe seedIsFree,
+                                         TickSweepProbe tickIsFree)
         {
             //  결승선이 출발점보다 앞이거나 같으면 코스 길이가 0 이하다 — 그러면 아래 열
             //  순회가 한 번도 안 돌아 그대로 "도달 가능"으로 떨어진다(빈 Flaps와 함께).
@@ -178,7 +202,7 @@ namespace LOP.MapTools
             }
             //  출발: 아직 날갯짓 안 한 사다리의 첫 칸. 높이는 <b>눈금에 붙이지 않은 그대로</b>
             //  넣는다 — 여기서 반올림하면 첫 틱부터 진짜 물리와 최대 반 칸 어긋난 채 출발한다.
-            if (isFree(options.StartX, options.StartY) == false)
+            if (seedIsFree(options.StartX, options.StartY) == false)
             {
                 return new CleanRunResult(false, System.Array.Empty<bool>(), options.StartX, 0f, 0, 0f);
             }
@@ -212,12 +236,12 @@ namespace LOP.MapTools
                     grid.Decode(state, out _, out int ladder, out int rung);
 
                     //  날갯짓 안 함 — 같은 사다리의 다음 칸.
-                    if (TryAdvance(grid, isFree, x, y, ladder, rung + 1, options, next))
+                    if (TryAdvance(grid, tickIsFree, x, y, ladder, rung + 1, options, next))
                     {
                         any = true;
                     }
                     //  날갯짓 — 사다리 0의 첫 칸으로 갈아탄다.
-                    if (TryAdvance(grid, isFree, x, y, ladder: 0, rung: 0, options, next))
+                    if (TryAdvance(grid, tickIsFree, x, y, ladder: 0, rung: 0, options, next))
                     {
                         any = true;
                     }
@@ -248,7 +272,7 @@ namespace LOP.MapTools
 
             //  도달 가능하면 회랑 진단은 의미가 없다 — "막힌 이유"를 보여주는 값이지 성공
             //  경로의 성질이 아니다.
-            bool[] flaps = ExtractFlaps(grid, isFree, columns, options);
+            bool[] flaps = ExtractFlaps(grid, tickIsFree, columns, options);
             return new CleanRunResult(true, flaps, 0f, 0f, 0, 0f);
         }
 
@@ -346,7 +370,7 @@ namespace LOP.MapTools
 
         //  뒤에서 앞으로 한 경로를 뽑는다. 사다리 덕에 직전 상태가 계산으로 나와 부모 포인터가 필요 없다.
         //  마지막 열의 아무 생존 상태에서 시작해, 매 단계 직전 열의 후보를 앞으로 굴려 맞는 것을 고른다.
-        static bool[] ExtractFlaps(SearchGrid grid, FreeSpaceProbe isFree,
+        static bool[] ExtractFlaps(SearchGrid grid, TickSweepProbe tickIsFree,
                                    List<Column> columns, in CleanRunOptions options)
         {
             int last = columns.Count - 1;
@@ -392,8 +416,7 @@ namespace LOP.MapTools
                         //  자유롭다고 확인한 바로 그 선분이다. 그래도 남겨 두는 건 되짚기 후보
                         //  선택 규칙(지금은 칸 번호가 가장 낮은 것 우선)이 바뀌면 이 전제가
                         //  깨져 검사가 다시 의미를 가질 수 있어서다.
-                        if (SegmentIsFree(isFree, previousX, y, previousX + grid.StepX, ny,
-                                          options.HeightGrid) == false) { continue; }
+                        if (tickIsFree(previousX, y, grid.Speed(nextLadder, nextRung)) == false) { continue; }
 
                         flaps[column - 1] = flap == 1;
                         target = state;
@@ -416,7 +439,7 @@ namespace LOP.MapTools
         }
 
         //  한 스텝 나아가 본다. 몸이 스치면 그 갈래를 버린다.
-        static bool TryAdvance(SearchGrid grid, FreeSpaceProbe isFree, float x, float y,
+        static bool TryAdvance(SearchGrid grid, TickSweepProbe tickIsFree, float x, float y,
                                int ladder, int rung, in CleanRunOptions options,
                                float[] next)
         {
@@ -432,7 +455,10 @@ namespace LOP.MapTools
             {
                 return false;
             }
-            if (SegmentIsFree(isFree, x, y, x + grid.StepX, ny, options.HeightGrid) == false)
+            //  <b>닿았나를 커널과 같은 자로 잰다</b> — 도착점을 눈금에 붙여 찍는 것이 아니라
+            //  한 틱 동안 캡슐을 쓸어 본다(벽에서 0.02m 띄우는 여유까지 커널 그대로다).
+            //  점 검사는 커널보다 관대해서, 그것으로 찾은 경로가 재생에서 벽에 걸렸다.
+            if (tickIsFree(x, y, vy) == false)
             {
                 return false;
             }
@@ -448,7 +474,7 @@ namespace LOP.MapTools
             //  늘 같은 답이 나온다.
             //
             //  <b>버리는 쪽이 "실제로 있는 경로를 놓치는" 유일하게 남은 원인이다</b>(자유공간
-            //  프로브의 격자 스냅과 함께). 밀려난 낮은 쪽으로만 빠져나가는 길이 있으면 탐색은
+            //  검사는 이제 커널 그 자체라 더는 원인이 아니다). 밀려난 낮은 쪽으로만 빠져나가는 길이 있으면 탐색은
             //  그것을 못 본다 — 그래서 이 탐색의 ❌는 "없다"가 아니라 "이 근사 아래서 못
             //  찾았다"이다.
             if (float.IsNaN(next[index]) || ny > next[index])

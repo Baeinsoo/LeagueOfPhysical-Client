@@ -218,6 +218,14 @@ namespace LOP.EditorTools
             //  자체가 없다. 그래서 도는 장애물은 저장된 각도의 정적 벽으로 보인다 — 그 한계는
             //  리포트 머리말이 그대로 말한다(아래 windmillSpecs 주의).
             var grid = new FreeSpaceGrid(shape, mapMask, tickWindow: 0);
+            //  전수 탐색의 "한 틱 나아가면 닿나" — <b>게임의 진짜 이동 커널 그 자체</b>다
+            //  (FlappyTickSweep이 KinematicMover를 그대로 부른다). 예전엔 도착점 하나를 눈금에
+            //  붙여 정지 캡슐로 찍었는데, 커널은 캡슐을 한 틱 쓸고 벽에서 0.02m를 띄우므로
+            //  탐색이 커널보다 관대했고 찾은 경로가 재생에서 벽에 걸렸다.
+            //  캐시는 안 붙인다 — 질의가 (x, y, 세로속도) 연속값이라 같은 질문이 두 번 오지
+            //  않는다(탐색은 상태마다 딱 한 번 묻는다). 캐시를 붙이려면 다시 눈금에 붙여야
+            //  하고, 그러면 이 과제가 없앤 관대함이 그대로 돌아온다.
+            var searchSweep = SearchTickSweep(shape, mapMask, query);
             //  봇이 쓰는 캐시는 <b>틱을 가린다</b> — 봇은 매 틱 자기가 몇 틱째인지 알고 날기
             //  때문에(BirdState.Tick) 그 틱의 자세에서 잰 답만 쓸 수 있다. 그래서 탐색 캐시와
             //  합칠 수 없다: 같은 칸에 대해 둘이 서로 다른 질문("아무 때나 뚫렸나" vs "이 틱에
@@ -351,7 +359,7 @@ namespace LOP.EditorTools
                         gravity: shape.Gravity, maxFallSpeed: shape.MaxFallSpeed,
                         tickSeconds: TickSeconds, heightGrid: HeightGrid);
                     searchWatch.Start();
-                    var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFree);
+                    var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFreeExact, searchSweep);
                     var replay = default(LOP.MapTools.ReplayMismatch);
                     //  탐색이 그 경로의 틱마다 "새가 여기 있다"고 믿었던 높이. 탐색은 경로만
                     //  돌려주고 높이는 안 들고 있으므로, 같은 산술로 날갯짓 순서를 다시 굴려
@@ -1467,6 +1475,21 @@ namespace LOP.EditorTools
                 }
             }
             return any;
+        }
+
+        //  전수 탐색이 쓰는 한 틱 쓸기. 재기 전에 풍차를 <b>탐색이 쓰는 한 위상</b>으로 세운다 —
+        //  점 검사(FreeSpaceGrid.Measure)가 같은 이유로 하던 것과 같다. 안 세우면 그 답이 "바로
+        //  앞에 어떤 비행이 돌았나"에 좌우돼 스폰 순서가 판정에 스며든다.
+        private static LOP.MapTools.TickSweepProbe SearchTickSweep(
+            in FlappyShape shape, int mapMask, GameFramework.Physics.ICollisionQuery query)
+        {
+            var sweep = new LOP.MapTools.FlappyTickSweep(
+                query, shape.ForwardSpeed, shape.Radius, shape.Height, TickSeconds, mapMask);
+            return (x, y, verticalSpeed) =>
+            {
+                PoseWindmills(SearchPoseTick);
+                return sweep.IsFree(x, y, verticalSpeed);
+            };
         }
 
         //  "이 자리에 몸이 들어가나"를 매번 물리엔진에 묻지 않고 격자에 캐시한다.

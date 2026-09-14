@@ -3,6 +3,7 @@
     "rootNamespace": "LOP.MapTools",
     "references": [
         "baegames.LOP.Shared.Runtime",
+        "baegames.GameFramework.Runtime",
         "FlappyRaceSlice.Logic"
     ],
     "includePlatforms": [

@@ -14,10 +14,39 @@ namespace LOP.MapTools.Tests
 
         static bool OpenSky(float x, float y) => true;
 
+        //  테스트는 맵 모양을 "이 점이 비었나"라는 술어 하나로 적는다. 탐색은 이제 한 틱
+        //  <b>쓸기</b>를 묻기 때문에, 그 술어를 예전 모델(선분을 눈금 간격으로 찍기)로 감싸
+        //  준다 — 여기서 재는 것은 탐색의 <i>경로 고르기</i>이지 충돌 모델이 아니다.
+        //  진짜 검사기는 이 어댑터가 아니라 게임의 이동 커널(FlappyTickSweep)을 넘기고,
+        //  그 커널과 어긋나지 않는지는 FlappyTickSweepTests가 따로 지킨다.
+        static CleanRunResult Run(in CleanRunOptions options, ExactFreeSpaceProbe isFree)
+            => CleanRunSearch.Run(options, isFree, PointSampleSweep(options, isFree));
+
+        static TickSweepProbe PointSampleSweep(CleanRunOptions options, ExactFreeSpaceProbe isFree)
+        {
+            float stepX = options.ForwardSpeed * options.TickSeconds;
+            return (x, y, verticalSpeed) =>
+            {
+                float ny = FlappyTickMath.AdvanceHeight(y, verticalSpeed, options.TickSeconds);
+                float dx = stepX, dy = ny - y;
+                int samples = UnityEngine.Mathf.CeilToInt(
+                    UnityEngine.Mathf.Sqrt(dx * dx + dy * dy) / options.HeightGrid) + 1;
+                for (int i = 0; i <= samples; i++)
+                {
+                    float t = i / (float)samples;
+                    if (isFree(x + dx * t, y + dy * t) == false)
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            };
+        }
+
         [Test]
         public void 빈_하늘이면_결승선까지_간다()
         {
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), OpenSky);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), OpenSky);
 
             Assert.IsTrue(result.Reachable);
         }
@@ -29,7 +58,7 @@ namespace LOP.MapTools.Tests
             //  자유공간 함수가 그 구간에서 전부 false를 준다.
             bool IsFree(float x, float y) => x < 20f;
 
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), IsFree);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), IsFree);
 
             Assert.IsFalse(result.Reachable);
             //  전진 11 × 0.02 = 0.22씩 가므로 20 근처에서 끊긴다.
@@ -45,7 +74,7 @@ namespace LOP.MapTools.Tests
             //  미리 날갯짓해 떠 있어야 넘는다.
             bool IsFree(float x, float y) => (x < 20f || x > 22f) || y >= 3f;
 
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), IsFree);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), IsFree);
 
             Assert.IsTrue(result.Reachable);
         }
@@ -56,8 +85,8 @@ namespace LOP.MapTools.Tests
             //  y ≥ 5 는 통째로 막힌 하늘. 아래에서 출발하면 가고, 위에서 출발하면 시작부터 막힌다.
             bool IsFree(float x, float y) => y < 5f;
 
-            Assert.IsTrue(CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), IsFree).Reachable);
-            Assert.IsFalse(CleanRunSearch.Run(Options(startY: 9f, finishX: 50f), IsFree).Reachable);
+            Assert.IsTrue(Run(Options(startY: 0f, finishX: 50f), IsFree).Reachable);
+            Assert.IsFalse(Run(Options(startY: 9f, finishX: 50f), IsFree).Reachable);
         }
 
         [Test]
@@ -69,7 +98,7 @@ namespace LOP.MapTools.Tests
             //  찍어 봐야만 걸린다.
             bool IsFree(float x, float y) => x < 20.05f || x > 20.20f;
 
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), IsFree);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), IsFree);
 
             Assert.IsFalse(result.Reachable);
         }
@@ -85,7 +114,7 @@ namespace LOP.MapTools.Tests
                 return y >= 0f && y <= 0.5f;
             }
 
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), IsFree);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), IsFree);
 
             Assert.IsFalse(result.Reachable);
             //  좁은 목이 있었다는 사실이 남아야 고칠 자리를 찾는다.
@@ -106,7 +135,7 @@ namespace LOP.MapTools.Tests
             //  reachable=true가 나온다.
             bool IsFree(float x, float y) => y >= 35f;
 
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 50f, finishX: 50f), IsFree);
+            CleanRunResult result = Run(Options(startY: 50f, finishX: 50f), IsFree);
 
             Assert.IsFalse(result.Reachable);
         }
@@ -134,7 +163,7 @@ namespace LOP.MapTools.Tests
                                               forwardSpeed: 11f, flapImpulse: 23f, gravity: 70f, maxFallSpeed: 30f,
                                               tickSeconds: 0.02f, heightGrid: 0.1f);
 
-            CleanRunSearch.Run(options, RecordingProbe);
+            Run(options, RecordingProbe);
 
             Assert.AreEqual(0.46f, maxY, 0.005f);
             Assert.AreEqual(-0.028f, minY, 0.005f);
@@ -143,7 +172,7 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 도달_가능하면_날갯짓_순서를_돌려준다()
         {
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), OpenSky);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), OpenSky);
 
             Assert.IsTrue(result.Reachable);
             //  50m를 0.22씩 가므로 228열(올림). 열마다 눌렀나/안 눌렀나가 하나씩 있어야 한다.
@@ -161,7 +190,7 @@ namespace LOP.MapTools.Tests
             bool IsFree(float x, float y) => (x < 20f || x > 22f) || y >= 3f;
             var options = Options(startY: 0f, finishX: 50f);
 
-            CleanRunResult result = CleanRunSearch.Run(options, IsFree);
+            CleanRunResult result = Run(options, IsFree);
             Assert.IsTrue(result.Reachable);
             //  빈 배열이면 아래 for문이 0번 돌아 아무것도 검증하지 않고 통과해 버린다 —
             //  "성공"과 "성공이라는데 되짚기가 깨졌다"를 갈라내는 길이 확인.
@@ -195,7 +224,7 @@ namespace LOP.MapTools.Tests
             bool IsFree(float x, float y) => (x < 3f || x > 5f) || y >= -0.4f;
             var options = Options(startY: 0f, finishX: 50f);
 
-            CleanRunResult result = CleanRunSearch.Run(options, IsFree);
+            CleanRunResult result = Run(options, IsFree);
             Assert.IsTrue(result.Reachable);
             Assert.AreEqual(228, result.Flaps.Count);
 
@@ -226,7 +255,7 @@ namespace LOP.MapTools.Tests
             bool IsFree(float x, float y) => (x < 5f || x > 7f) || (y >= -0.4f && y <= 2.0f);
             var options = Options(startY: 0f, finishX: 50f);
 
-            CleanRunResult result = CleanRunSearch.Run(options, IsFree);
+            CleanRunResult result = Run(options, IsFree);
             Assert.IsTrue(result.Reachable);
             Assert.AreEqual(228, result.Flaps.Count);
 
@@ -252,7 +281,7 @@ namespace LOP.MapTools.Tests
         {
             //  코스가 거꾸로(길이 음수) — 열 순회가 한 번도 안 돌아 그대로 "도달 가능"으로
             //  떨어지는 버그가 있었다. 자유공간은 항상 참이어도 이건 통과하면 안 된다.
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: -5f), OpenSky);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: -5f), OpenSky);
 
             Assert.IsFalse(result.Reachable);
             Assert.AreEqual(0, result.Flaps.Count);
@@ -262,7 +291,7 @@ namespace LOP.MapTools.Tests
         public void 결승선이_출발점과_같으면_거짓을_보고한다()
         {
             //  코스 길이가 정확히 0인 경계값. 위와 같은 이유로 실패해야 한다.
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 0f), OpenSky);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 0f), OpenSky);
 
             Assert.IsFalse(result.Reachable);
             Assert.AreEqual(0, result.Flaps.Count);
@@ -290,7 +319,7 @@ namespace LOP.MapTools.Tests
             //  minY는 클램프 없는(=더 깊이 떨어지는) 경우도 안 걸릴 만큼 낮게 둔다 — 대역
             //  경계에 걸려 죽으면 "클램프 때문"인지 "대역 때문"인지 구분이 안 된다.
             var options = Options(startY: 0f, finishX: 13.2f, minY: -60f, maxY: 1f);
-            CleanRunResult result = CleanRunSearch.Run(options, CeilingAtStart);
+            CleanRunResult result = Run(options, CeilingAtStart);
 
             Assert.IsTrue(result.Reachable);
             int ticks = result.Flaps.Count;
@@ -329,7 +358,7 @@ namespace LOP.MapTools.Tests
                                               minY: -32f, maxY: 5f,
                                               forwardSpeed: 11f, flapImpulse: 23f, gravity: 70f, maxFallSpeed: 30f,
                                               tickSeconds: 0.02f, heightGrid: 0.02f);
-            CleanRunResult result = CleanRunSearch.Run(options, MustFlapThenOpen);
+            CleanRunResult result = Run(options, MustFlapThenOpen);
             Assert.IsTrue(result.Reachable);
 
             //  탐색의 눈금 모델을 여기서 다시 적어 기대값을 만든다(차등 검사) — 사다리 속도
@@ -377,7 +406,7 @@ namespace LOP.MapTools.Tests
                                               forwardSpeed: 11f, flapImpulse: 23f, gravity: 70f, maxFallSpeed: 30f,
                                               tickSeconds: 0.02f, heightGrid: 0.6f);
 
-            Assert.IsTrue(CleanRunSearch.Run(options, OpenSky).Reachable,
+            Assert.IsTrue(Run(options, OpenSky).Reachable,
                           "대역 꼭대기 칸이 표에 없어 한 칸 아래 상태가 밀려났다.");
         }
 
@@ -389,7 +418,7 @@ namespace LOP.MapTools.Tests
             //  "새가 0.22m는 갔다"고 읽혀 고칠 자리를 잘못 짚게 된다.
             bool IsFree(float x, float y) => x > 0.1f;
 
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), IsFree);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), IsFree);
 
             Assert.IsFalse(result.Reachable);
             Assert.AreEqual(0f, result.BlockedX, 0.001f);
@@ -405,7 +434,7 @@ namespace LOP.MapTools.Tests
             //  하다("되짚기가 가장 낮은 생존 상태를 우선하므로 바닥을 낮춰도 마진이 안
             //  커진다" — 턱 테스트의 주석).
             var options = Options(startY: 0f, finishX: 50f, minY: -3f, maxY: 3f);
-            CleanRunResult result = CleanRunSearch.Run(options, OpenSky);
+            CleanRunResult result = Run(options, OpenSky);
             Assert.IsTrue(result.Reachable);
 
             //  되짚은 순서를 연속 물리로 재생해 끝 높이를 본다 — 가장 낮은 상태에서
@@ -427,7 +456,7 @@ namespace LOP.MapTools.Tests
         {
             bool IsFree(float x, float y) => x < 20f;
 
-            CleanRunResult result = CleanRunSearch.Run(Options(startY: 0f, finishX: 50f), IsFree);
+            CleanRunResult result = Run(Options(startY: 0f, finishX: 50f), IsFree);
 
             Assert.IsFalse(result.Reachable);
             Assert.AreEqual(0, result.Flaps.Count);
@@ -444,7 +473,7 @@ namespace LOP.MapTools.Tests
             //  출발 높이를 일부러 눈금(0.1m) 위가 아닌 값으로 둔다 — 눈금 위 값이면 첫 틱
             //  반올림이 아무 일도 안 해, 시드를 반올림하는 회귀를 이 단언이 못 잡는다.
             CleanRunOptions options = Options(startY: 0.37f, finishX: 50f);
-            CleanRunResult result = CleanRunSearch.Run(options, IsFree);
+            CleanRunResult result = Run(options, IsFree);
             Assert.IsTrue(result.Reachable);
 
             float[] heights = CleanRunSearch.PathHeights(options, result.Flaps);
@@ -484,7 +513,7 @@ namespace LOP.MapTools.Tests
             //  충돌은 일부러 없다(NeverHits) — 여기서 재는 것은 "지형을 잘 피하나"가 아니라
             //  "안 닿는 동안 두 산술이 같은 숫자를 내나"다. 지형 쪽은 위 재생 테스트들이 본다.
             var options = Options(startY: 3.37f, finishX: 50f);
-            CleanRunResult result = CleanRunSearch.Run(options, OpenSky);
+            CleanRunResult result = Run(options, OpenSky);
             Assert.IsTrue(result.Reachable);
             Assert.AreEqual(228, result.Flaps.Count);
 
@@ -534,7 +563,7 @@ namespace LOP.MapTools.Tests
                                               forwardSpeed: 11f, flapImpulse: 23f, gravity: 70f,
                                               maxFallSpeed: 30f, tickSeconds: 0.02f, heightGrid: 2f);
 
-            CleanRunResult result = CleanRunSearch.Run(options, IsFree);
+            CleanRunResult result = Run(options, IsFree);
 
             Assert.IsTrue(result.Reachable,
                           "같은 칸에서 더 높은 쪽을 안 남겼다 — 밀려난 낮은 쪽으로는 문을 못 지난다.");

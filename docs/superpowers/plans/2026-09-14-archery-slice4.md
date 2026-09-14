@@ -473,7 +473,7 @@ unity command --project-path C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Serve
 unity command --project-path C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Server run_tests --mode EditMode
 ```
 
-기대: 컴파일 초록, `ArcheryTargetMotionTests`의 여덟 테스트가 **이름으로** 결과에 보인다.
+기대: 컴파일 초록, `ArcheryTargetMotionTests`의 **열** 개 테스트가 **이름으로** 결과에 보이고 전부 통과한다.
 
 - [ ] **Step 5: 커밋 (레포 셋)**
 
@@ -492,9 +492,11 @@ feat(archery): 과녁을 "자리"에서 "궤적"으로 바꾼다
 화살과 같은 모양으로 둔다: 출발점·초기속도·출발시각만 있으면 어느 시각의
 위치든 나온다. 그래서 과녁도 여전히 통신하지 않는다.
 
-과녁 중력은 화살 중력(20)과 **다른 상수**다. 화살 중력은 쏘는 맛을 정하고
-과녁 중력은 난이도를 정한다 — 수명·높이에서 역산해 정점 주변이 저절로
-느려지게 잡았다(g=8H/T²).
+과녁 중력은 화살 중력(20)과 **같은 값**이다. 중력은 세계의 성질이지 물체의
+설정이 아니다 — 다르게 두면 같은 화면에서 화살과 과녁이 서로 다른 속도로
+떨어져, 화살로 과녁을 따라가는 이 게임에서는 바로 눈에 띈다.
+
+그래서 솟는 높이 하나가 속도도 수명도 정한다(v0=sqrt(2gH), 수명=2v0/g).
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01J3Xe7rZoLKi3dJFGKrLsGL

@@ -286,7 +286,8 @@ namespace LOP.MapTools
                                    IReadOnlyList<StaticSplit> splits = null,
                                    int separateSpaces = 0,
                                    string approachSection = null,
-                                   string phaseSweepSkipNote = null)
+                                   string phaseSweepSkipNote = null,
+                                   IReadOnlyList<BlockDepth> blockDepths = null)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
@@ -460,6 +461,8 @@ namespace LOP.MapTools
                               + " 커널은 캡슐을 한 틱만큼 쓸어 본다). 자세한 내용은 docs/ROADMAP.md 참고)");
             }
             text.AppendLine();
+
+            AppendVisualHonesty(text, blockDepths);
 
             AppendPhaseSweep(text, phaseSweep, startX, finishX, phaseSweepSkipNote);
 
@@ -743,6 +746,40 @@ namespace LOP.MapTools
         //  <b>통과한 위상이 몇 개 있다고 해서 맵이 괜찮다는 뜻이 아니다</b> — 사람은 판이
         //  언제 시작할지 못 고르므로, 몇 위상만 통과하는 자리는 "타이밍 관문"이지 자유 통과가
         //  아니다. 그래서 통과 창의 크기(틱·초)를 반드시 같이 찍는다.
+        //  ── 🎥 시각 정직성 ──────────────────────────────────────
+        //  판정(①의 ✅/❌)과 섞지 않는다 — 이건 통과 가능성이 아니라 <읽기 쉬움>의 문제다.
+        //  안 쟀으면 절 자체를 안 찍는다: 빈 절은 "쟀는데 괜찮았다"로 읽힌다.
+        const float CameraDistance = 30f;      // FlappyCameraFollow.fixedZ = -30, 게임 평면 z=0
+        const float VerticalFov = 40f;         // 씬 카메라 field of view
+        const float DepthTolerance = 0.01f;
+
+        static void AppendVisualHonesty(StringBuilder text, IReadOnlyList<BlockDepth> blocks)
+        {
+            if (blocks == null)
+            {
+                return;
+            }
+
+            float halfHeight = VisualHonesty.ScreenHalfHeight(CameraDistance, VerticalFov);
+            text.AppendLine($"── 🎥 시각 정직성 (카메라 {CameraDistance:F0}m · FOV {VerticalFov:F0} → 화면 세로 ±{halfHeight:F2}m) ──");
+
+            DepthVerdict v = BlockDepthScan.Judge(blocks, DepthTolerance);
+            if (v.Honest)
+            {
+                text.AppendLine("  ✅ 판정면 뒤로 뻗은 블록 없음 — 보이는 대로 부딪힌다");
+                text.AppendLine();
+                return;
+            }
+
+            float mid = VisualHonesty.Intrusion(6.5f, CameraDistance, v.WorstBackDepth);
+            float edge = VisualHonesty.Intrusion(halfHeight, CameraDistance, v.WorstBackDepth);
+            text.AppendLine($"  ⚠️ 판정면 뒤로 뻗은 블록 {v.Count}개 — 가장 두꺼운 것 {v.WorstBackDepth:F2}m");
+            text.AppendLine($"     {v.WorstName} (x={v.WorstX:F1})");
+            text.AppendLine($"     그 블록 때문에 화면 중상단(h=6.5m)에서 {mid * 100f:F0}cm, 화면 끝에서 {edge * 100f:F0}cm 좁게 보인다");
+            text.AppendLine("     → 블록을 제 뒤쪽 두께만큼 카메라 쪽으로 당기면 0이 된다 (LOP/Debug/Flappy 판정면 정렬)");
+            text.AppendLine();
+        }
+
         static void AppendPhaseSweep(StringBuilder text, IReadOnlyList<PhaseSweepRow> rows,
                                      float startX, float finishX, string skipNote)
         {

@@ -488,7 +488,9 @@ namespace LOP.EditorTools
                 spawns[0].Position.x, finishX, config, cleanRuns, trapSection, budget, earliest,
                 HeightGrid, SearchMinY, SearchMaxY, heightSweep, phaseSweep, placements, requiredBand,
                 pinches, PinchSampleStep, gateSection, splits, separateSpaces, approachSection,
-                skipPhaseSweep ? PhaseSweepSkipNote : null);
+                skipPhaseSweep ? PhaseSweepSkipNote : null,
+                //  빠름 모드에서도 찍는다 — 콜라이더를 한 번 순회하는 것뿐이라 싸다.
+                ScanBlockDepths(mapMask, config.BodyRadius));
 
             //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
             bool spawnXMismatch = false;
@@ -1494,6 +1496,31 @@ namespace LOP.EditorTools
                 row.ChaserStartX, row.ChaserInitialSpeed, row.ChaserAcceleration, row.ChaserMaxSpeed,
                 row.FinishBrake);
             return true;
+        }
+
+        /// <summary>
+        /// 판정에 관여하는 블록의 뒤쪽 두께를 씬에서 잰다. <b>어느 콜라이더를 볼지·두께를 어떻게
+        /// 셀지는 여기서 정하지 않는다</b> — 그 규칙은 <see cref="LOP.MapTools.BlockDepthScan"/>에
+        /// 한 벌만 두고, 재는 쪽(여기)과 고치는 쪽(판정면 정렬)이 같은 것을 부른다.
+        /// </summary>
+        private static List<LOP.MapTools.BlockDepth> ScanBlockDepths(int mapMask, float bodyRadius)
+        {
+            var result = new List<LOP.MapTools.BlockDepth>();
+            foreach (var collider in Object.FindObjectsByType<Collider>(FindObjectsSortMode.None))
+            {
+                if ((mapMask & (1 << collider.gameObject.layer)) == 0)
+                {
+                    continue;
+                }
+                Bounds bounds = collider.bounds;
+                if (LOP.MapTools.BlockDepthScan.IsGameplayBlock(bounds, bodyRadius) == false)
+                {
+                    continue;
+                }
+                result.Add(new LOP.MapTools.BlockDepth(
+                    collider.name, bounds.center.x, LOP.MapTools.BlockDepthScan.BackDepth(bounds)));
+            }
+            return result;
         }
 
         private static bool TryReadBounds(int mapMask, out Bounds bounds)

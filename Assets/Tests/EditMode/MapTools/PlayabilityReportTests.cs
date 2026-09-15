@@ -1160,5 +1160,50 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(2, Count(report, "🌀 회전 무관 ("));
             Assert.AreEqual(1, Count(report, "날개가 어느 각도에 서 있어도"));
         }
+
+        static string BuildWithBlocks(IReadOnlyList<BlockDepth> blocks)
+            => PlayabilityReport.Build("FlappyRaceMap", -2f, 632f, Config(),
+                                       new SpawnCleanRun[0],
+                                       trapSection: "  낀 자리 없음.",
+                                       budget: new List<StunBudgetPoint>
+                                       {
+                                           new StunBudgetPoint(10f, 108f, 10, 7),
+                                       },
+                                       earliest: new EarliestCatch(true, 19.0f, 14),
+                                       heightGrid: 0.1f, minY: -40f, maxY: 40f,
+                                       blockDepths: blocks);
+
+        //  ⚠️와 ✅는 뜻이 다르므로 글자도 달라야 한다. 이모지 검색은 Ordinal로 — 문화권
+        //  비교(StringAssert)는 이모지가 없는 문자열도 통과시킨다.
+        [Test]
+        public void 뒤로_뻗은_블록이_있으면_리포트가_경고한다()
+        {
+            var blocks = new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 1.25f) };
+            string text = BuildWithBlocks(blocks);
+
+            Assert.That(text.IndexOf("시각 정직성", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
+            Assert.That(text.IndexOf("FillPinchTop", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
+            Assert.That(text.IndexOf("⚠️", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
+        }
+
+        [Test]
+        public void 전부_맞았으면_경고하지_않는다()
+        {
+            var blocks = new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 0f) };
+            string text = BuildWithBlocks(blocks);
+
+            Assert.That(text.IndexOf("시각 정직성", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
+            Assert.That(text.IndexOf("보이는 대로 부딪힌다", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
+        }
+
+        //  안 쟀을 때 절을 찍으면 "쟀는데 괜찮았다"로 잘못 읽힌다 — AppendPhaseSweep이 이미
+        //  같은 이유로 그렇게 한다.
+        [Test]
+        public void 안_쟀으면_절_자체를_안_찍는다()
+        {
+            string text = BuildWithBlocks(null);
+
+            Assert.That(text.IndexOf("시각 정직성", System.StringComparison.Ordinal), Is.LessThan(0));
+        }
     }
 }

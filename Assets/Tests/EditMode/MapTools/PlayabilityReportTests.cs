@@ -255,10 +255,17 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 봇도_탐색도_실패하면_불가능으로_찍는다()
         {
-            string report = Build(new SpawnCleanRun("PlayerSpawn_4", 9f,
-                new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f),
-                verifiedByReplay: false, botReached: false, botFlaps: 51, bot: default));
+            //  🎥 절을 <함께> 찍어 두고 ✅ 없음을 본다. 그 절은 자리별 판정과 무관하게 늘
+            //  찍히므로, 거기에 판정 글자가 끼면 "이 리포트에 ✅가 있다"가 언제나 참이 되어
+            //  이 줄을 비롯한 ✅ 없음 검사들이 통째로 공허해진다. blockDepths를 안 주면 그
+            //  규율을 지키는 것이 아니라 <마침 안 찍혀서> 초록인 것이라, 일부러 준다.
+            string report = BuildWithBlocks(
+                new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 0f) },
+                new SpawnCleanRun("PlayerSpawn_4", 9f,
+                    new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f),
+                    verifiedByReplay: false, botReached: false, botFlaps: 51, bot: default));
 
+            Assert.IsTrue(Contains(report, "뒤로 뻗은 블록 없음"));
             Assert.IsTrue(Contains(report, "❌"));
             Assert.IsFalse(Contains(report, "✅"));
             //  ❌ 줄의 x는 탐색이 막힌 지점이다 — 라벨 없이 "x="만 찍으면 바로 아래 봇
@@ -1161,9 +1168,9 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(1, Count(report, "날개가 어느 각도에 서 있어도"));
         }
 
-        static string BuildWithBlocks(IReadOnlyList<BlockDepth> blocks)
+        static string BuildWithBlocks(IReadOnlyList<BlockDepth> blocks, params SpawnCleanRun[] runs)
             => PlayabilityReport.Build("FlappyRaceMap", -2f, 632f, Config(),
-                                       new SpawnCleanRun[0],
+                                       runs,
                                        trapSection: "  낀 자리 없음.",
                                        budget: new List<StunBudgetPoint>
                                        {
@@ -1183,7 +1190,9 @@ namespace LOP.MapTools.Tests
 
             Assert.That(text.IndexOf("시각 정직성", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
             Assert.That(text.IndexOf("FillPinchTop", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
-            Assert.That(text.IndexOf("⚠️", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
+            //  ⚠️만 찾으면 아무것도 안 지킨다 — 이 픽스처는 ③의 "⚠️ 최속 탈락"을 늘 찍으므로
+            //  이 절을 통째로 지워도 초록이었다. 글자를 제 줄에 묶는다.
+            Assert.That(text.IndexOf("⚠️ 판정면 뒤로 뻗은 블록", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
         }
 
         [Test]
@@ -1194,6 +1203,8 @@ namespace LOP.MapTools.Tests
 
             Assert.That(text.IndexOf("시각 정직성", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
             Assert.That(text.IndexOf("보이는 대로 부딪힌다", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
+            //  있어야 할 줄만 보면 두 갈래를 <둘 다> 찍는 구현도 통과한다 — 없어야 할 줄도 본다.
+            Assert.That(text.IndexOf("판정면 뒤로 뻗은 블록", System.StringComparison.Ordinal), Is.LessThan(0));
         }
 
         //  안 쟀을 때 절을 찍으면 "쟀는데 괜찮았다"로 잘못 읽힌다 — AppendPhaseSweep이 이미

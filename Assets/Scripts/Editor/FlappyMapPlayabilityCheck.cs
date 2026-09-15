@@ -1512,6 +1512,21 @@ namespace LOP.EditorTools
                 {
                     continue;
                 }
+                //  꺼진 콜라이더는 부딪히지 않는다 — 게다가 그 bounds는 원점의 크기 0짜리라
+                //  그냥 두면 판정면 한가운데 있는 두께 0 블록으로 목록에 낀다(없는 것을 잰다).
+                //  FindObjectsByType가 거르는 것은 <꺼진 오브젝트>뿐이고, 켜진 오브젝트에
+                //  달린 꺼진 컴포넌트는 그대로 돌려준다.
+                if (collider.enabled == false)
+                {
+                    continue;
+                }
+                //  트리거는 통과하는 것이지 부딪히는 것이 아니다 — 이 파일의 다른 질의도
+                //  전부 QueryTriggerInteraction.Ignore로 뺀다. 안 빼면 나중에 결승선 트리거가
+                //  "판정면 뒤로 뻗은 블록"으로 보고되고, 정렬이 결승선을 옮겨 버린다.
+                if (collider.isTrigger)
+                {
+                    continue;
+                }
                 Bounds bounds = collider.bounds;
                 if (LOP.MapTools.BlockDepthScan.IsGameplayBlock(bounds, bodyRadius) == false)
                 {

@@ -76,6 +76,15 @@ namespace LOP.Tests.MapTools
             Assert.IsTrue(v.Honest);
         }
 
+        //  "안 쟀다"(null)와 "재 봤더니 없었다"(빈 목록)는 뜻이 다르다 — 판정이 둘을 같은
+        //  답으로 뭉개면 안 쟀는데 정직하다고 말하게 된다. 가리는 자리는 부르는 쪽이다.
+        [Test]
+        public void 안_잰_목록은_판정하지_않고_거절한다()
+        {
+            Assert.Throws<System.ArgumentNullException>(
+                () => BlockDepthScan.Judge(null, tolerance: 0.01f));
+        }
+
         //  재는 쪽(검사)과 고치는 쪽(정렬)이 같은 규칙을 봐야 한다 — 규칙이 갈라지면 서로 다른
         //  블록을 보면서 맞췄다고 착각한다. 그래서 규칙은 여기 한 군데에만 둔다.
         [Test]

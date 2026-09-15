@@ -61,10 +61,19 @@ namespace LOP.MapTools
             return Mathf.Max(0f, bounds.max.z);
         }
 
+        /// <param name="blocks">잰 블록 목록. <c>null</c>이면 <b>아무것도 안 쟀다</b>가 아니라
+        /// <b>재 봤더니 비어 있었다</b>와 구별되지 않으므로 여기서 받지 않는다 — "안 쟀다"는
+        /// 부르는 쪽이 자기 경계에서 가려야 할 일이다(리포트는 그 경우 절 자체를 안 찍는다).</param>
         /// <param name="tolerance">이만큼까지는 맞은 것으로 본다. 부동소수점 찌꺼기로 경고가
         /// 뜨면 진짜 신호가 묻힌다.</param>
+        /// <exception cref="System.ArgumentNullException"><paramref name="blocks"/>가 null일 때.</exception>
         public static DepthVerdict Judge(IReadOnlyList<BlockDepth> blocks, float tolerance)
         {
+            if (blocks == null)
+            {
+                throw new System.ArgumentNullException(nameof(blocks));
+            }
+
             int count = 0;
             float worst = 0f;
             string worstName = null;

@@ -1499,41 +1499,46 @@ namespace LOP.EditorTools
         }
 
         /// <summary>
-        /// 판정에 관여하는 블록의 뒤쪽 두께를 씬에서 잰다. <b>어느 콜라이더를 볼지·두께를 어떻게
-        /// 셀지는 여기서 정하지 않는다</b> — 그 규칙은 <see cref="LOP.MapTools.BlockDepthScan"/>에
-        /// 한 벌만 두고, 재는 쪽(여기)과 고치는 쪽(판정면 정렬)이 같은 것을 부른다.
+        /// 판정면보다 뒤로 그려지는 면의 두께를 씬에서 잰다. <b>무엇을 볼지·두께를 어떻게 셀지는
+        /// 여기서 정하지 않는다</b> — 그 규칙은 <see cref="LOP.MapTools.BlockDepthScan"/>에 한 벌만
+        /// 두고, 재는 쪽(여기)과 고치는 쪽(판정면 정렬)이 같은 것을 부른다.
+        ///
+        /// <para><b>콜라이더가 아니라 렌더러를 센다.</b> 화면에서 틈을 좁아 보이게 만드는 것은
+        /// 판정 모서리보다 <i>뒤에 그려지는 면</i>이지, 콜라이더의 z두께가 아니다 — 콜라이더는
+        /// 눈에 안 보이니 아무리 두꺼워도 화면이 안 바뀐다.</para>
+        ///
+        /// <para>다만 <b>틈을 만드는 면인지</b>(<see cref="LOP.MapTools.BlockDepth.BoundsGap"/>)는
+        /// 같이 적어 둔다 — 뒤를 단단한(트리거 아닌) 콜라이더가 받치고 있는 것만 그렇다. 판정은
+        /// 그것만 보고, 나머지(코인·결승선 배너)는 참고 줄로 따로 알린다. 이유는
+        /// <see cref="LOP.MapTools.BlockDepthScan.Judge"/> 주석 참고.</para>
         /// </summary>
         private static List<LOP.MapTools.BlockDepth> ScanBlockDepths(int mapMask, float bodyRadius)
         {
             var result = new List<LOP.MapTools.BlockDepth>();
-            foreach (var collider in Object.FindObjectsByType<Collider>(FindObjectsSortMode.None))
+            foreach (var renderer in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
             {
-                if ((mapMask & (1 << collider.gameObject.layer)) == 0)
+                if ((mapMask & (1 << renderer.gameObject.layer)) == 0)
                 {
                     continue;
                 }
-                //  꺼진 콜라이더는 부딪히지 않는다 — 게다가 그 bounds는 원점의 크기 0짜리라
-                //  그냥 두면 판정면 한가운데 있는 두께 0 블록으로 목록에 낀다(없는 것을 잰다).
-                //  FindObjectsByType가 거르는 것은 <꺼진 오브젝트>뿐이고, 켜진 오브젝트에
-                //  달린 꺼진 컴포넌트는 그대로 돌려준다.
-                if (collider.enabled == false)
+                //  안 그려지는 면은 화면을 못 바꾼다. FindObjectsByType가 거르는 것은 <꺼진
+                //  오브젝트>뿐이고, 켜진 오브젝트에 달린 꺼진 컴포넌트는 그대로 돌려준다.
+                if (renderer.enabled == false)
                 {
                     continue;
                 }
-                //  트리거는 통과하는 것이지 부딪히는 것이 아니다 — 이 파일의 다른 질의도
-                //  전부 QueryTriggerInteraction.Ignore로 뺀다. 안 빼면 나중에 결승선 트리거가
-                //  "판정면 뒤로 뻗은 블록"으로 보고되고, 정렬이 결승선을 옮겨 버린다.
-                if (collider.isTrigger)
-                {
-                    continue;
-                }
-                Bounds bounds = collider.bounds;
+                Bounds bounds = renderer.bounds;
                 if (LOP.MapTools.BlockDepthScan.IsGameplayBlock(bounds, bodyRadius) == false)
                 {
                     continue;
                 }
+                //  같은 오브젝트에 달린 단단한 콜라이더만 본다. 트리거는 통과하는 것이지
+                //  돌아가야 하는 벽이 아니라 틈의 가장자리가 못 된다.
+                var solid = renderer.GetComponent<Collider>();
+                bool boundsGap = solid != null && solid.enabled && solid.isTrigger == false;
                 result.Add(new LOP.MapTools.BlockDepth(
-                    collider.name, bounds.center.x, LOP.MapTools.BlockDepthScan.BackDepth(bounds)));
+                    renderer.name, bounds.center.x,
+                    LOP.MapTools.BlockDepthScan.BackDepth(bounds), boundsGap));
             }
             return result;
         }

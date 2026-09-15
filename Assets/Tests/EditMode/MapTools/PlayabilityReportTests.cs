@@ -260,12 +260,12 @@ namespace LOP.MapTools.Tests
             //  이 줄을 비롯한 ✅ 없음 검사들이 통째로 공허해진다. blockDepths를 안 주면 그
             //  규율을 지키는 것이 아니라 <마침 안 찍혀서> 초록인 것이라, 일부러 준다.
             string report = BuildWithBlocks(
-                new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 0f) },
+                new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 0f, boundsGap: true) },
                 new SpawnCleanRun("PlayerSpawn_4", 9f,
                     new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f),
                     verifiedByReplay: false, botReached: false, botFlaps: 51, bot: default));
 
-            Assert.IsTrue(Contains(report, "뒤로 뻗은 블록 없음"));
+            Assert.IsTrue(Contains(report, "판정면 뒤로 그려지는 면 없음"));
             Assert.IsTrue(Contains(report, "❌"));
             Assert.IsFalse(Contains(report, "✅"));
             //  ❌ 줄의 x는 탐색이 막힌 지점이다 — 라벨 없이 "x="만 찍으면 바로 아래 봇
@@ -1183,28 +1183,69 @@ namespace LOP.MapTools.Tests
         //  ⚠️와 ✅는 뜻이 다르므로 글자도 달라야 한다. 이모지 검색은 Ordinal로 — 문화권
         //  비교(StringAssert)는 이모지가 없는 문자열도 통과시킨다.
         [Test]
-        public void 뒤로_뻗은_블록이_있으면_리포트가_경고한다()
+        public void 뒤로_그려지는_면이_있으면_리포트가_경고한다()
         {
-            var blocks = new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 1.25f) };
+            var blocks = new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 1.25f, boundsGap: true) };
             string text = BuildWithBlocks(blocks);
 
             Assert.That(text.IndexOf("시각 정직성", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
             Assert.That(text.IndexOf("FillPinchTop", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
             //  ⚠️만 찾으면 아무것도 안 지킨다 — 이 픽스처는 ③의 "⚠️ 최속 탈락"을 늘 찍으므로
             //  이 절을 통째로 지워도 초록이었다. 글자를 제 줄에 묶는다.
-            Assert.That(text.IndexOf("⚠️ 판정면 뒤로 뻗은 블록", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
+            Assert.That(text.IndexOf("⚠️ 판정면 뒤로 그려지는 면", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
+            //  고치는 방법까지 같이 말해야 한다. "콜라이더는 제자리"가 빠지면 다음 사람이
+            //  콜라이더째 옮기는 옛 방식으로 돌아가고, 그러면 밀어내기의 최소 탈출 방향이
+            //  바뀌는데 맵 검사는 그 차이를 구조적으로 못 본다.
+            Assert.That(text.IndexOf("콜라이더는 제자리에 두고", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
         }
 
         [Test]
         public void 전부_맞았으면_경고하지_않는다()
         {
-            var blocks = new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 0f) };
+            var blocks = new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 0f, boundsGap: true) };
             string text = BuildWithBlocks(blocks);
 
             Assert.That(text.IndexOf("시각 정직성", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
             Assert.That(text.IndexOf("보이는 대로 부딪힌다", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
             //  있어야 할 줄만 보면 두 갈래를 <둘 다> 찍는 구현도 통과한다 — 없어야 할 줄도 본다.
-            Assert.That(text.IndexOf("판정면 뒤로 뻗은 블록", System.StringComparison.Ordinal), Is.LessThan(0));
+            Assert.That(text.IndexOf("⚠️ 판정면 뒤로 그려지는 면", System.StringComparison.Ordinal), Is.LessThan(0));
+        }
+
+        //  장식은 판정을 흔들지 못한다 — ⚠️ 없이 <참고 줄>로만 나와야 한다. 경고로 새면 진짜
+        //  신호가 묻히고, 아예 빠지면 다음 사람이 빠뜨린 줄 알고 같은 조사를 다시 한다.
+        [Test]
+        public void 렌더_전용은_경고가_아니라_참고_줄로_나온다()
+        {
+            var blocks = new List<BlockDepth>
+            {
+                new BlockDepth("FillPinchTop", 370f, 0f, boundsGap: true),
+                new BlockDepth("FinishLine", 400f, 1.25f, boundsGap: false),
+            };
+            string text = BuildWithBlocks(blocks);
+
+            //  판정 갈래는 여전히 "정직"이어야 한다.
+            Assert.That(text.IndexOf("판정면 뒤로 그려지는 면 없음", System.StringComparison.Ordinal),
+                        Is.GreaterThanOrEqualTo(0));
+            Assert.That(text.IndexOf("⚠️ 판정면 뒤로 그려지는 면", System.StringComparison.Ordinal),
+                        Is.LessThan(0));
+            //  그래도 있다는 사실과 <왜 뺐는지>는 찍혀야 한다.
+            Assert.That(text.IndexOf("렌더 전용 1개", System.StringComparison.Ordinal),
+                        Is.GreaterThanOrEqualTo(0));
+            Assert.That(text.IndexOf("FinishLine", System.StringComparison.Ordinal),
+                        Is.GreaterThanOrEqualTo(0));
+            Assert.That(text.IndexOf("틈을 만들지 않으므로 판정에서 뺀다", System.StringComparison.Ordinal),
+                        Is.GreaterThanOrEqualTo(0));
+        }
+
+        //  장식이 없으면 참고 줄도 없어야 한다 — 늘 찍히면 "0개" 줄이 소음이 되고, 있을 때와
+        //  없을 때가 구별이 안 된다.
+        [Test]
+        public void 렌더_전용이_없으면_참고_줄도_안_찍는다()
+        {
+            string text = BuildWithBlocks(
+                new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 0f, boundsGap: true) });
+
+            Assert.That(text.IndexOf("렌더 전용", System.StringComparison.Ordinal), Is.LessThan(0));
         }
 
         //  안 쟀을 때 절을 찍으면 "쟀는데 괜찮았다"로 잘못 읽힌다 — AppendPhaseSweep이 이미

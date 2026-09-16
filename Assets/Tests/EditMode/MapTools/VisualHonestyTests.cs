@@ -35,7 +35,8 @@ namespace LOP.Tests.MapTools
             Assert.AreEqual(0f, VisualHonesty.Intrusion(0f, 30f, 1.25f), 1e-6f);
         }
 
-        //  z=1.4에 있던 4개(범위 0.10~2.70)가 가장 심하다 — 두께가 크면 더 파고든다.
+        //  2.70은 임의로 고른 두꺼운 값이다(실제 맵의 어느 블록 두께를 가리키는 게 아니다) —
+        //  두께가 크면 더 파고든다는 것만 확인한다.
         [Test]
         public void 두꺼울수록_더_파고든다()
         {

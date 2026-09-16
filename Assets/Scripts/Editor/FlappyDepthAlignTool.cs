@@ -241,7 +241,13 @@ namespace LOP.EditorTools
                 moved.Clear();
             }
 
-            UnityEditor.SceneManagement.EditorSceneManager.SaveOpenScenes();
+            //  실패했으면 되돌린 값이 위치 왕복(Transform.position round-trip)의 ulp 잔차로
+            //  이미 dirty일 수 있다 — 실패한 실행이 씬 파일을 건드리면 안 되므로 저장을 건너뛴다.
+            //  보고서(log/Debug.Log)는 실패해도 그대로 남긴다.
+            if (failures.Count == 0)
+            {
+                UnityEditor.SceneManagement.EditorSceneManager.SaveOpenScenes();
+            }
 
             var log = new StringBuilder();
             log.AppendLine($"옮긴 렌더러 {moved.Count}개 · 건너뛴 것 {skipped.Count}개"

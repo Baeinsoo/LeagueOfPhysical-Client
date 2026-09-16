@@ -296,10 +296,12 @@ namespace LOP.Tests.MapTools
             Assert.AreEqual(FaceKind.ColliderElsewhere, BlockDepthScan.Classify(go));
         }
 
-        //  조상/자손 훑기는 자기 자신을 포함해 돌려준다. 그것을 안 빼면 <자기 콜라이더 때문에>
-        //  늘 "다른 데 있다"가 되어 벽이 하나도 안 남는다.
+        //  Classify는 "제 콜라이더가 있는가"부터 먼저 본다 — 그 확인이 조상/자손 탐색보다
+        //  앞서야 부모가 있는 평범한 벽도(자기 콜라이더가 있으니) Wall로 나온다. 순서가
+        //  뒤집혀 조상/자손 탐색이 먼저 돌면, GetComponentsInParent(true)가 자기 자신도
+        //  포함해 돌려주므로 벽마다 "다른 데도 있다"(ColliderElsewhere)로 오판된다.
         [Test]
-        public void 제_콜라이더를_다른_데_있는_것으로_세지_않는다()
+        public void 자기_콜라이더가_있으면_조상_자손_탐색보다_먼저_벽으로_판정한다()
         {
             var parent = NewObject("Parent");
             var go = NewObject("Wall");

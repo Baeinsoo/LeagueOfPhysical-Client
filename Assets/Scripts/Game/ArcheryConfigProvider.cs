@@ -36,7 +36,7 @@ namespace LOP
             foreach (var row in System.Linq.Enumerable.OrderBy(md.Tables.TbArcheryTarget.DataList, x => x.Id))
             {
                 kinds.Add(new ArcheryTargetKind(row.Radius, row.Points, row.Weight, row.IsTrap,
-                    ArcheryTargetShape.Sphere, null));
+                    (ArcheryTargetShape)row.Shape, BandsOf(md, row.Id)));
             }
             if (kinds.Count == 0)
             {
@@ -51,6 +51,21 @@ namespace LOP
                 r.ShakeFreeSeconds, r.ShakeRampSeconds, r.ShakeMaxDegrees,
                 r.RiseHeightMin, r.RiseHeightMax, r.StaggerTicks, r.RestTicks,
                 kinds);
+        }
+
+        //  그 과녁 종류의 띠를 중심에서 바깥 순서로 모은다. 순서가 뒤집히면 바깥 띠가 먼저
+        //  걸려서 한가운데를 맞혀도 낮은 점수가 나온다.
+        private static List<ArcheryRingBand> BandsOf(LOP.MasterData.LOPMasterData md, int targetId)
+        {
+            var bands = new List<ArcheryRingBand>();
+            foreach (var row in System.Linq.Enumerable.OrderBy(
+                         System.Linq.Enumerable.Where(md.Tables.TbArcheryRing.DataList,
+                                                      x => x.TargetId == targetId),
+                         x => x.OuterRatio))
+            {
+                bands.Add(new ArcheryRingBand(row.OuterRatio, row.Points));
+            }
+            return bands;
         }
     }
 }

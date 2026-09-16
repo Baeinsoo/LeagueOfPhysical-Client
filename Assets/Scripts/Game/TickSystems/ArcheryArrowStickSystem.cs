@@ -177,7 +177,7 @@ namespace LOP
 
                 Vector3 candidateTargetAt = ArcheryTargetMotion.PositionAt(targets[i], at, tickInterval);
 
-                if (ArcheryHitTest.SegmentHitsSphere(from, to, candidateTargetAt, targets[i].Radius, out float t))
+                if (ArcheryHitTest.SegmentHitsTarget(from, to, candidateTargetAt, targets[i], out float t, out _))
                 {
                     slot = targets[i].SlotIndex;
                     atSeconds = Mathf.Lerp(fromSeconds, toSeconds, t);

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace LOP
 {
     /// <summary>
-    /// Luban <c>TbArcheryConfig</c>(전역 단일 행, id=1)과 <c>TbArcheryTarget</c>(종류 목록)을
+    /// Luban <c>TbArcheryConfig</c>(맵마다 한 행)과 <c>TbArcheryTarget</c>(종류 목록)을
     /// LOP-Shared <see cref="ArcheryConfig"/>로 옮기는 사이드 로컬 어댑터
     /// (Shared는 MasterData 패키지 비참조 → 여기서 변환. <see cref="SkydiveConfigProvider"/> 대칭).
     ///
@@ -13,19 +13,24 @@ namespace LOP
     public class ArcheryConfigProvider
     {
         private readonly LOP.MasterData.LOPMasterData md;
+        private readonly IRoomDataStore roomDataStore;
 
-        public ArcheryConfigProvider(LOP.MasterData.LOPMasterData md)
+        public ArcheryConfigProvider(LOP.MasterData.LOPMasterData md, IRoomDataStore roomDataStore)
         {
             this.md = md;
+            this.roomDataStore = roomDataStore;
         }
 
         public ArcheryConfig Get()
         {
-            var r = md.Tables.TbArcheryConfig.GetOrDefault(1);
+            //  설정은 맵마다 다르다 — 같은 활쏘기라도 사거리 맵과 원형 맵은 과녁이 다르게 뜬다.
+            //  이번 라운드가 가리키는 맵을 그대로 쓴다(씬을 고를 때와 같은 출처).
+            int mapId = CurrentMapId();
+            var r = md.Tables.TbArcheryConfig.GetOrDefault(mapId);
             if (r == null)
             {
                 throw new System.InvalidOperationException(
-                    "TbArcheryConfig id=1 행을 찾을 수 없음 — MasterData 미로드 또는 ArcheryConfig 데이터 누락");
+                    $"TbArcheryConfig에 맵 {mapId}의 행이 없음 — 활쏘기 맵을 추가했으면 설정 행도 같이 넣어야 한다");
             }
 
             var kinds = new List<ArcheryTargetKind>();
@@ -66,6 +71,14 @@ namespace LOP
                 bands.Add(new ArcheryRingBand(row.OuterRatio, row.Points));
             }
             return bands;
+        }
+
+        //  씬을 고를 때와 같은 출처를 쓴다 — 두 곳이 다른 라운드를 보면 맵과 설정이 어긋난다.
+        private int CurrentMapId()
+        {
+            var rounds = roomDataStore.match?.rounds;
+            int index = MatchSceneResolver.CurrentRoundIndex(rounds?.Length ?? 0);
+            return rounds[index].mapId;
         }
     }
 }

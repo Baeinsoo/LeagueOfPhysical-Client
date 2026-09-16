@@ -286,7 +286,8 @@ namespace LOP.MapTools
                                    IReadOnlyList<StaticSplit> splits = null,
                                    int separateSpaces = 0,
                                    string approachSection = null,
-                                   string phaseSweepSkipNote = null)
+                                   string phaseSweepSkipNote = null,
+                                   IReadOnlyList<BlockDepth> blockDepths = null)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
@@ -460,6 +461,8 @@ namespace LOP.MapTools
                               + " 커널은 캡슐을 한 틱만큼 쓸어 본다). 자세한 내용은 docs/ROADMAP.md 참고)");
             }
             text.AppendLine();
+
+            AppendVisualHonesty(text, blockDepths);
 
             AppendPhaseSweep(text, phaseSweep, startX, finishX, phaseSweepSkipNote);
 
@@ -732,6 +735,80 @@ namespace LOP.MapTools
             text.AppendLine($"                                   여기는 코스의 {covered / course * 100f:F1}%인데 벌써 이만큼 벌어졌고,"
                           + $" 같은 비율로 끝(약 {courseTicks:F0}틱)까지 가면 약 {extrapolated:F1}m다"
                           + " — 작다는 뜻이 아니라 단조 증가한다는 뜻이다.");
+        }
+
+        //  ── 🎥 시각 정직성 ──────────────────────────────────────
+        //  판정(①의 ✅/❌)과 섞지 않는다 — 이건 통과 가능성이 아니라 <읽기 쉬움>의 문제다.
+        //  안 쟀으면 절 자체를 안 찍는다: 빈 절은 "쟀는데 괜찮았다"로 읽힌다.
+        //  여기서 재는 것은 <그려지는 면>이지 콜라이더가 아니다 — 원근 카메라가 판정 모서리보다
+        //  뒤에 있는 면을 소실점 쪽으로 당겨 그리는 것이 틈을 좁아 보이게 하는 원인이고,
+        //  콜라이더의 z두께는 눈에 안 보여 화면을 못 바꾼다.
+        const float CameraDistance = 30f;      // FlappyCameraFollow.fixedZ = -30, 게임 평면 z=0
+        const float VerticalFov = 40f;         // 씬 카메라 field of view
+        const float DepthTolerance = 0.01f;
+
+        static void AppendVisualHonesty(StringBuilder text, IReadOnlyList<BlockDepth> blocks)
+        {
+            if (blocks == null)
+            {
+                return;
+            }
+
+            float halfHeight = VisualHonesty.ScreenHalfHeight(CameraDistance, VerticalFov);
+            text.AppendLine($"── 🎥 시각 정직성 (카메라 {CameraDistance:F0}m · FOV {VerticalFov:F0} → 화면 세로 ±{halfHeight:F2}m) ──");
+
+            DepthVerdict v = BlockDepthScan.Judge(blocks, DepthTolerance);
+            if (v.Honest)
+            {
+                //  <b>여기에 ✅를 쓰지 않는다.</b> 이 절은 자리별 판정과 무관하게 늘 찍히므로,
+                //  판정 글자를 빌려 쓰면 "이 리포트에 ✅가 있다"가 언제나 참이 되어 자리별
+                //  판정을 확인하는 검사가 통째로 공허해진다(위 머리말이 같은 이유로 그렇게 한다).
+                //  ⚠️는 자리별 판정 글자가 아니라 이 파일 곳곳이 쓰는 주의 표시라 그대로 쓴다.
+                text.AppendLine("  판정면 뒤로 그려지는 면 없음 — 보이는 대로 부딪힌다");
+                AppendRenderOnlyNote(text, blocks);
+                text.AppendLine();
+                return;
+            }
+
+            float mid = VisualHonesty.Intrusion(6.5f, CameraDistance, v.WorstBackDepth);
+            float edge = VisualHonesty.Intrusion(halfHeight, CameraDistance, v.WorstBackDepth);
+            text.AppendLine($"  ⚠️ 판정면 뒤로 그려지는 면 {v.Count}개 — 가장 두꺼운 것 {v.WorstBackDepth:F2}m");
+            text.AppendLine($"     {v.WorstName} (x={v.WorstX:F1})");
+            text.AppendLine($"     그 면 때문에 화면 중상단(h=6.5m)에서 {mid * 100f:F0}cm, 화면 끝에서 {edge * 100f:F0}cm 좁게 보인다");
+            text.AppendLine("     → 그 면을 제 뒤쪽 두께만큼 카메라 쪽으로 당기면 0이 된다 (LOP/Debug/Flappy 판정면 정렬)");
+            text.AppendLine("       — 콜라이더는 제자리에 두고 <보이는 것>만 옮긴다. 판정은 한 톨도 안 바뀐다.");
+            AppendRenderOnlyNote(text, blocks);
+            text.AppendLine();
+        }
+
+        //  뒤를 콜라이더가 안 받치는 면은 <판정에서 뺀다>. 이 검사가 잡으려는 사고는 "지나갈 틈이
+        //  실제와 다르게 보인다" 하나뿐인데, 틈의 가장자리가 아닌 면은 아무리 뒤로 뻗어도 그
+        //  사고를 못 일으키기 때문이다 — 코인은 먹는 것이고 결승선은 지나가는 것이지 돌아가야
+        //  하는 벽이 아니다. 그래도 <b>안 찍으면 빠뜨린 것과 구별이 안 된다</b>. 그래서 경고(⚠️)가
+        //  아니라 참고 줄로 남긴다: 판정을 흐리지 않으면서, 다음 사람이 같은 조사를 처음부터
+        //  다시 하지 않게.
+        static void AppendRenderOnlyNote(StringBuilder text, IReadOnlyList<BlockDepth> blocks)
+        {
+            DepthVerdict d = BlockDepthScan.Summarize(blocks, DepthTolerance, FaceKind.RenderOnly);
+            //  Honest라는 이름은 판정 갈래의 것이다 — 여기서는 "하나도 없다"는 뜻이라 Count로 본다.
+            if (d.Count > 0)
+            {
+                text.AppendLine($"  렌더 전용 {d.Count}개가 대역 안·판정면 뒤에 있다"
+                              + $" (가장 뒤: {d.WorstName} {d.WorstBackDepth:F2}m)"
+                              + " — 틈을 만들지 않으므로 판정에서 뺀다");
+            }
+
+            //  <b>판정에서 빠졌지만 뺀 근거가 없는</b> 것들. 위 "렌더 전용"과 절대 섞지 않는다 —
+            //  저쪽은 "확인해 보니 틈을 안 만든다"이고 이쪽은 "같은 오브젝트에서 못 찾았다"라
+            //  전혀 다른 말이다. 섞으면 진짜 벽 하나가 조용히 판정에서 새도 아무도 모른다.
+            DepthVerdict e = BlockDepthScan.Summarize(blocks, DepthTolerance, FaceKind.ColliderElsewhere);
+            if (e.Count > 0)
+            {
+                text.AppendLine($"  ⚠️ 콜라이더가 다른 오브젝트에 있는 면 {e.Count}개"
+                              + $" (가장 뒤: {e.WorstName} {e.WorstBackDepth:F2}m) — 사람이 봐야 한다");
+                text.AppendLine("     같은 오브젝트의 콜라이더만 보는 규칙이라 틈을 만드는지 여기서 판단할 수 없다."
+                              + " 벽이면 판정에서 새고 있는 것이다.");
+            }
         }
 
         //  ── ① 위상 훑기 ────────────────────────────────────────────────────

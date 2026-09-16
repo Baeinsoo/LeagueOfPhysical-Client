@@ -488,7 +488,9 @@ namespace LOP.EditorTools
                 spawns[0].Position.x, finishX, config, cleanRuns, trapSection, budget, earliest,
                 HeightGrid, SearchMinY, SearchMaxY, heightSweep, phaseSweep, placements, requiredBand,
                 pinches, PinchSampleStep, gateSection, splits, separateSpaces, approachSection,
-                skipPhaseSweep ? PhaseSweepSkipNote : null);
+                skipPhaseSweep ? PhaseSweepSkipNote : null,
+                //  빠름 모드에서도 찍는다 — 콜라이더를 한 번 순회하는 것뿐이라 싸다.
+                ScanBlockDepths(mapMask, config.BodyRadius));
 
             //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
             bool spawnXMismatch = false;
@@ -1494,6 +1496,49 @@ namespace LOP.EditorTools
                 row.ChaserStartX, row.ChaserInitialSpeed, row.ChaserAcceleration, row.ChaserMaxSpeed,
                 row.FinishBrake);
             return true;
+        }
+
+        /// <summary>
+        /// 판정면보다 뒤로 그려지는 면의 두께를 씬에서 잰다. <b>무엇을 볼지·두께를 어떻게 셀지는
+        /// 여기서 정하지 않는다</b> — 그 규칙은 <see cref="LOP.MapTools.BlockDepthScan"/>에 한 벌만
+        /// 두고, 재는 쪽(여기)과 고치는 쪽(판정면 정렬)이 같은 것을 부른다.
+        ///
+        /// <para><b>콜라이더가 아니라 렌더러를 센다.</b> 화면에서 틈을 좁아 보이게 만드는 것은
+        /// 판정 모서리보다 <i>뒤에 그려지는 면</i>이지, 콜라이더의 z두께가 아니다 — 콜라이더는
+        /// 눈에 안 보이니 아무리 두꺼워도 화면이 안 바뀐다.</para>
+        ///
+        /// <para>다만 <b>면의 종류</b>(<see cref="LOP.MapTools.FaceKind"/>)는 같이 적어 둔다 —
+        /// 판정은 벽만 보고, 나머지는 참고 줄로 따로 알린다. <b>그 분류 규칙을 여기서 손으로
+        /// 쓰지 않는다</b>: <see cref="LOP.MapTools.BlockDepthScan.Classify"/> 한 벌만 부른다.
+        /// 예전엔 여기와 정렬 도구가 각자 규칙을 적어 두었는데, 그러면 규칙이 갈라져도 테스트가
+        /// 아무것도 못 잡는다(규칙이 코드에만 있고 아무 테스트도 안 붙기 때문).</para>
+        /// </summary>
+        private static List<LOP.MapTools.BlockDepth> ScanBlockDepths(int mapMask, float bodyRadius)
+        {
+            var result = new List<LOP.MapTools.BlockDepth>();
+            foreach (var renderer in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+            {
+                if ((mapMask & (1 << renderer.gameObject.layer)) == 0)
+                {
+                    continue;
+                }
+                //  안 그려지는 면은 화면을 못 바꾼다. FindObjectsByType가 거르는 것은 <꺼진
+                //  오브젝트>뿐이고, 켜진 오브젝트에 달린 꺼진 컴포넌트는 그대로 돌려준다.
+                if (renderer.enabled == false)
+                {
+                    continue;
+                }
+                Bounds bounds = renderer.bounds;
+                if (LOP.MapTools.BlockDepthScan.IsGameplayBlock(bounds, bodyRadius) == false)
+                {
+                    continue;
+                }
+                result.Add(new LOP.MapTools.BlockDepth(
+                    renderer.name, bounds.center.x,
+                    LOP.MapTools.BlockDepthScan.BackDepth(bounds),
+                    LOP.MapTools.BlockDepthScan.Classify(renderer.gameObject)));
+            }
+            return result;
         }
 
         private static bool TryReadBounds(int mapMask, out Bounds bounds)

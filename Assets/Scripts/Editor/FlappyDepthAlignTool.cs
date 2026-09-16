@@ -129,22 +129,34 @@ namespace LOP.EditorTools
                     continue;
                 }
 
-                //  <b>틈을 만드는 면만 옮긴다</b> — 뒤를 단단한(트리거 아닌) BoxCollider가 받치는 것.
-                //  코인·결승선 배너처럼 그려지기만 하는 것은 틈의 가장자리가 아니라, 뒤로 뻗어
-                //  있어도 지나갈 틈을 잘못 보이게 할 수가 없다. 옮기는 것 자체도 위험이 다른
-                //  별개 변경이라 뒤 슬라이스 몫이다. 재는 쪽은 그래도 이것들을 세어 참고 줄로
-                //  알린다 — 빼되 감추지 않는다.
-                var box = renderer.GetComponent<BoxCollider>();
-                var solid = renderer.GetComponent<Collider>();
-                if (solid == null || solid.isTrigger || solid.enabled == false)
+                //  <b>틈을 만드는 면만 옮긴다.</b> 분류 규칙은 여기서 손으로 쓰지 않고 재는 쪽과
+                //  같은 것(BlockDepthScan.Classify)을 부른다 — 규칙이 갈라지면 재는 쪽과 고치는
+                //  쪽이 서로 다른 면을 보면서 맞췄다고 착각한다.
+                var kind = LOP.MapTools.BlockDepthScan.Classify(renderer.gameObject);
+                if (kind == LOP.MapTools.FaceKind.RenderOnly)
                 {
+                    //  코인·결승선 배너처럼 그려지기만 하는 것은 틈의 가장자리가 아니라, 뒤로
+                    //  뻗어 있어도 지나갈 틈을 잘못 보이게 할 수가 없다. 옮기는 것 자체도 위험이
+                    //  다른 별개 변경이라 뒤 슬라이스 몫이다.
                     skipped.Add($"{renderer.name} (렌더 전용 — 틈을 안 만든다)  두께 {backDepth:F3}");
                     continue;
                 }
-                if (box == null)
+                if (kind == LOP.MapTools.FaceKind.ColliderElsewhere)
                 {
-                    //  중심을 보정할 수 없는 모양이라 콜라이더를 제자리에 못 박지 못한다.
-                    //  임의로 옮기면 판정이 따라 움직인다 — 그게 이 설계가 막으려는 바로 그것이다.
+                    //  "틈을 안 만든다"가 아니라 <b>"여기서 판단 못 한다"</b>이다. 콜라이더가 조상/
+                    //  자손에 있으면 옮겼을 때 무엇이 딸려가는지 이 도구가 알 수 없다.
+                    skipped.Add($"{renderer.name} (콜라이더가 다른 오브젝트에 있다 — 사람이 봐야 한다)"
+                              + $"  두께 {backDepth:F3}");
+                    continue;
+                }
+
+                //  벽이라도 <b>BoxCollider가 아니면 옮기지 않는다</b> — 중심을 보정할 수 없어
+                //  콜라이더를 제자리에 못 박지 못한다. 임의로 옮기면 판정이 따라 움직이는데,
+                //  그게 이 설계가 막으려는 바로 그것이다. 재는 쪽엔 없는 이 조건은 <b>일부러</b>
+                //  도구에만 둔다(안전 쪽으로 틀린다).
+                var box = renderer.GetComponent<BoxCollider>();
+                if (box == null || box.isTrigger || box.enabled == false)
+                {
                     skipped.Add($"{renderer.name} (BoxCollider가 아님 — 중심 보정 불가)  두께 {backDepth:F3}");
                     continue;
                 }

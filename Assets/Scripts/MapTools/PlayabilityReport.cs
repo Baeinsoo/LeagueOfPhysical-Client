@@ -789,14 +789,26 @@ namespace LOP.MapTools
         //  다시 하지 않게.
         static void AppendRenderOnlyNote(StringBuilder text, IReadOnlyList<BlockDepth> blocks)
         {
-            DepthVerdict d = BlockDepthScan.SummarizeRenderOnly(blocks, DepthTolerance);
-            if (d.Honest)
+            DepthVerdict d = BlockDepthScan.Summarize(blocks, DepthTolerance, FaceKind.RenderOnly);
+            //  Honest라는 이름은 판정 갈래의 것이다 — 여기서는 "하나도 없다"는 뜻이라 Count로 본다.
+            if (d.Count > 0)
             {
-                return;
+                text.AppendLine($"  렌더 전용 {d.Count}개가 대역 안·판정면 뒤에 있다"
+                              + $" (가장 뒤: {d.WorstName} {d.WorstBackDepth:F2}m)"
+                              + " — 틈을 만들지 않으므로 판정에서 뺀다");
             }
-            text.AppendLine($"  렌더 전용 {d.Count}개가 대역 안·판정면 뒤에 있다"
-                          + $" (가장 뒤: {d.WorstName} {d.WorstBackDepth:F2}m)"
-                          + " — 틈을 만들지 않으므로 판정에서 뺀다");
+
+            //  <b>판정에서 빠졌지만 뺀 근거가 없는</b> 것들. 위 "렌더 전용"과 절대 섞지 않는다 —
+            //  저쪽은 "확인해 보니 틈을 안 만든다"이고 이쪽은 "같은 오브젝트에서 못 찾았다"라
+            //  전혀 다른 말이다. 섞으면 진짜 벽 하나가 조용히 판정에서 새도 아무도 모른다.
+            DepthVerdict e = BlockDepthScan.Summarize(blocks, DepthTolerance, FaceKind.ColliderElsewhere);
+            if (e.Count > 0)
+            {
+                text.AppendLine($"  ⚠️ 콜라이더가 다른 오브젝트에 있는 면 {e.Count}개"
+                              + $" (가장 뒤: {e.WorstName} {e.WorstBackDepth:F2}m) — 사람이 봐야 한다");
+                text.AppendLine("     같은 오브젝트의 콜라이더만 보는 규칙이라 틈을 만드는지 여기서 판단할 수 없다."
+                              + " 벽이면 판정에서 새고 있는 것이다.");
+            }
         }
 
         //  ── ① 위상 훑기 ────────────────────────────────────────────────────

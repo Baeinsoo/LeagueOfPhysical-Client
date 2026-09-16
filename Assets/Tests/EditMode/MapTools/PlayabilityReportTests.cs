@@ -260,7 +260,7 @@ namespace LOP.MapTools.Tests
             //  이 줄을 비롯한 ✅ 없음 검사들이 통째로 공허해진다. blockDepths를 안 주면 그
             //  규율을 지키는 것이 아니라 <마침 안 찍혀서> 초록인 것이라, 일부러 준다.
             string report = BuildWithBlocks(
-                new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 0f, boundsGap: true) },
+                new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 0f, FaceKind.Wall) },
                 new SpawnCleanRun("PlayerSpawn_4", 9f,
                     new CleanRunResult(false, new bool[0], 38.2f, 31f, 34, 0.6f),
                     verifiedByReplay: false, botReached: false, botFlaps: 51, bot: default));
@@ -1185,7 +1185,7 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 뒤로_그려지는_면이_있으면_리포트가_경고한다()
         {
-            var blocks = new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 1.25f, boundsGap: true) };
+            var blocks = new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 1.25f, FaceKind.Wall) };
             string text = BuildWithBlocks(blocks);
 
             Assert.That(text.IndexOf("시각 정직성", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
@@ -1202,7 +1202,7 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 전부_맞았으면_경고하지_않는다()
         {
-            var blocks = new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 0f, boundsGap: true) };
+            var blocks = new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 0f, FaceKind.Wall) };
             string text = BuildWithBlocks(blocks);
 
             Assert.That(text.IndexOf("시각 정직성", System.StringComparison.Ordinal), Is.GreaterThanOrEqualTo(0));
@@ -1218,8 +1218,8 @@ namespace LOP.MapTools.Tests
         {
             var blocks = new List<BlockDepth>
             {
-                new BlockDepth("FillPinchTop", 370f, 0f, boundsGap: true),
-                new BlockDepth("FinishLine", 400f, 1.25f, boundsGap: false),
+                new BlockDepth("FillPinchTop", 370f, 0f, FaceKind.Wall),
+                new BlockDepth("FinishLine", 400f, 1.25f, FaceKind.RenderOnly),
             };
             string text = BuildWithBlocks(blocks);
 
@@ -1243,9 +1243,43 @@ namespace LOP.MapTools.Tests
         public void 렌더_전용이_없으면_참고_줄도_안_찍는다()
         {
             string text = BuildWithBlocks(
-                new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 0f, boundsGap: true) });
+                new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 0f, FaceKind.Wall) });
 
             Assert.That(text.IndexOf("렌더 전용", System.StringComparison.Ordinal), Is.LessThan(0));
+        }
+
+        //  <b>판단 불가는 장식과 섞이면 안 된다.</b> "확인해 보니 틈을 안 만든다"와 "같은
+        //  오브젝트에서 못 찾았다"는 전혀 다른 말이라, 한 줄로 뭉치면 진짜 벽이 판정에서
+        //  새고 있어도 읽는 사람이 모른다.
+        [Test]
+        public void 콜라이더가_다른_데_있는_면은_따로_크게_알린다()
+        {
+            var blocks = new List<BlockDepth>
+            {
+                new BlockDepth("FillPinchTop", 370f, 0f, FaceKind.Wall),
+                new BlockDepth("Coin", 390f, 0.12f, FaceKind.RenderOnly),
+                new BlockDepth("OrphanFace", 400f, 1.25f, FaceKind.ColliderElsewhere),
+            };
+            string text = BuildWithBlocks(blocks);
+
+            Assert.That(text.IndexOf("⚠️ 콜라이더가 다른 오브젝트에 있는 면 1개", System.StringComparison.Ordinal),
+                        Is.GreaterThanOrEqualTo(0));
+            Assert.That(text.IndexOf("사람이 봐야 한다", System.StringComparison.Ordinal),
+                        Is.GreaterThanOrEqualTo(0));
+            //  장식 줄은 코인 <하나만> 세야 한다 — 판단 불가가 거기 섞여 2개가 되면 안 된다.
+            Assert.That(text.IndexOf("렌더 전용 1개", System.StringComparison.Ordinal),
+                        Is.GreaterThanOrEqualTo(0));
+        }
+
+        //  판단 불가가 없으면 그 줄도 없어야 한다 — 늘 찍히면 소음이 되어 진짜일 때 안 읽힌다.
+        [Test]
+        public void 판단_불가가_없으면_그_줄은_안_찍는다()
+        {
+            string text = BuildWithBlocks(
+                new List<BlockDepth> { new BlockDepth("FillPinchTop", 370f, 0f, FaceKind.Wall) });
+
+            Assert.That(text.IndexOf("콜라이더가 다른 오브젝트에 있는 면", System.StringComparison.Ordinal),
+                        Is.LessThan(0));
         }
 
         //  안 쟀을 때 절을 찍으면 "쟀는데 괜찮았다"로 잘못 읽힌다 — AppendPhaseSweep이 이미

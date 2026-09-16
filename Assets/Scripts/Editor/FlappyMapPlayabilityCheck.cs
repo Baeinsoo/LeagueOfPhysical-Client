@@ -1507,10 +1507,11 @@ namespace LOP.EditorTools
         /// 판정 모서리보다 <i>뒤에 그려지는 면</i>이지, 콜라이더의 z두께가 아니다 — 콜라이더는
         /// 눈에 안 보이니 아무리 두꺼워도 화면이 안 바뀐다.</para>
         ///
-        /// <para>다만 <b>틈을 만드는 면인지</b>(<see cref="LOP.MapTools.BlockDepth.BoundsGap"/>)는
-        /// 같이 적어 둔다 — 뒤를 단단한(트리거 아닌) 콜라이더가 받치고 있는 것만 그렇다. 판정은
-        /// 그것만 보고, 나머지(코인·결승선 배너)는 참고 줄로 따로 알린다. 이유는
-        /// <see cref="LOP.MapTools.BlockDepthScan.Judge"/> 주석 참고.</para>
+        /// <para>다만 <b>면의 종류</b>(<see cref="LOP.MapTools.FaceKind"/>)는 같이 적어 둔다 —
+        /// 판정은 벽만 보고, 나머지는 참고 줄로 따로 알린다. <b>그 분류 규칙을 여기서 손으로
+        /// 쓰지 않는다</b>: <see cref="LOP.MapTools.BlockDepthScan.Classify"/> 한 벌만 부른다.
+        /// 예전엔 여기와 정렬 도구가 각자 규칙을 적어 두었는데, 그러면 규칙이 갈라져도 테스트가
+        /// 아무것도 못 잡는다(규칙이 코드에만 있고 아무 테스트도 안 붙기 때문).</para>
         /// </summary>
         private static List<LOP.MapTools.BlockDepth> ScanBlockDepths(int mapMask, float bodyRadius)
         {
@@ -1532,13 +1533,10 @@ namespace LOP.EditorTools
                 {
                     continue;
                 }
-                //  같은 오브젝트에 달린 단단한 콜라이더만 본다. 트리거는 통과하는 것이지
-                //  돌아가야 하는 벽이 아니라 틈의 가장자리가 못 된다.
-                var solid = renderer.GetComponent<Collider>();
-                bool boundsGap = solid != null && solid.enabled && solid.isTrigger == false;
                 result.Add(new LOP.MapTools.BlockDepth(
                     renderer.name, bounds.center.x,
-                    LOP.MapTools.BlockDepthScan.BackDepth(bounds), boundsGap));
+                    LOP.MapTools.BlockDepthScan.BackDepth(bounds),
+                    LOP.MapTools.BlockDepthScan.Classify(renderer.gameObject)));
             }
             return result;
         }

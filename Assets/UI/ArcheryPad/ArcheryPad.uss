@@ -94,23 +94,3 @@
     background-color: rgba(255, 255, 255, 0.55);
 }
 
-/* 활 조준기(사이트) — 거리마다 눈금 하나. 십자선 아래로 내려갈수록 먼 거리다.
-   위치는 View가 탄도 계산으로 정한다(USS는 모양만). 실제 양궁의 사이트 핀과 같은 것이라,
-   "어느 핀을 쓸지"와 "그 핀을 과녁에 붙들고 있기"는 여전히 쏘는 사람 몫이다. */
-.archery-sight-pin {
-    position: absolute;
-    left: 50%;
-    margin-left: -17px;
-    width: 34px;
-    height: 2px;
-    background-color: rgba(255, 236, 150, 0.7);
-}
-
-/* 거리 숫자는 눈금 오른쪽에. 눈금 자체를 가리지 않는다. */
-.archery-sight-pin-label {
-    position: absolute;
-    left: 42px;
-    top: -8px;
-    font-size: 13px;
-    color: rgba(255, 236, 150, 0.75);
-}

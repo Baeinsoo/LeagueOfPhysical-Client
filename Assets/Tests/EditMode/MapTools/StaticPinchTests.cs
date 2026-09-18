@@ -11,7 +11,10 @@ namespace LOP.MapTools.Tests
     /// </summary>
     public class StaticPinchTests
     {
-        //  실제 Flappy 값. 여기를 고치면 다른 숫자를 재는 것이다.
+        //  물리 표본 — 규칙을 재려고 얼려 둔 값이다(게임이 날갯짓 23 / 중력 70을 쓰던 시절 수치).
+        //  아래 경계값들을 이 수치로 손으로 풀어 놨으니 여기만 고치면 그 값들이 통째로 틀려진다.
+        //  지금 게임 값은 MasterData(TbFlappyConfig)에 있고 프로덕션은 거기서 읽어 기준을 그때그때
+        //  계산하므로, 이 상수가 게임과 달라도 맵 검사 결과는 옳다.
         const float FlapImpulse = 23f;
         const float Gravity = 70f;
         const float TickSeconds = 0.02f;
@@ -176,7 +179,7 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 기준은_2b와_같은_아치_더하기_몸이다()
         {
-            //  숫자를 박지 않았다는 증거 — 실제 물리값에서 4.912가 나온다.
+            //  숫자를 박지 않았다는 증거 — 위 표본 물리값을 넣으면 4.912가 나온다.
             Assert.AreEqual(4.912f, Required, 0.0005f);
             Assert.AreEqual(ObstaclePlacementRule.RequiredBand(FlapImpulse, Gravity, TickSeconds, BodyHeight),
                             Required, 1e-6f, "②-b와 기준이 갈리면 같은 원리라고 말할 수 없다.");

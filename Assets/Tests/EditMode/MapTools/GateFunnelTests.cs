@@ -16,7 +16,10 @@ namespace LOP.MapTools.Tests
     /// </summary>
     public class GateFunnelTests
     {
-        //  실제 Flappy 값. 여기를 고치면 다른 숫자를 재는 것이다.
+        //  물리 표본 — 규칙을 재려고 얼려 둔 값이다(게임이 날갯짓 23 / 중력 70을 쓰던 시절 수치).
+        //  아래 경계값들을 이 수치로 손으로 풀어 놨으니 여기만 고치면 그 값들이 통째로 틀려진다.
+        //  지금 게임 값은 MasterData(TbFlappyConfig)에 있고 프로덕션은 거기서 읽어 기준을 그때그때
+        //  계산하므로, 이 상수가 게임과 달라도 맵 검사 결과는 옳다.
         const float ForwardSpeed = 11f;
         const float Gravity = 70f;
         const float MaxFallSpeed = 30f;

@@ -33,6 +33,7 @@ namespace LOP.UI
 
             var dashButton = Root.Q<VisualElement>("dash-button");
             var dashFill = Root.Q<VisualElement>("dash-fill");
+            var dashStacks = Root.Q<Label>("dash-stacks");
 
             dashButton.RegisterCallback<PointerDownEvent>(evt =>
             {
@@ -43,6 +44,11 @@ namespace LOP.UI
 
             _viewModel.DashCharge
                 .Subscribe(charge => dashFill.style.height = Length.Percent(charge * 100f))
+                .AddTo(_subscriptions);
+
+            // 0칸이면 숫자를 지운다 — "0"을 띄우면 쓸 수 있는 것처럼 읽힌다.
+            _viewModel.DashStacks
+                .Subscribe(stacks => dashStacks.text = stacks > 0 ? stacks.ToString() : string.Empty)
                 .AddTo(_subscriptions);
 
             _viewModel.CanDash

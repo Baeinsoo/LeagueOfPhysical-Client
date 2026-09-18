@@ -379,7 +379,7 @@ git add Assets/Tests/Editor/ArcheryHitSystemTests.cs
 git commit -m "test(archery): 과녁 생성자에 수명·주인 인자를 맞춘다"
 ```
 
-> 새 `.cs`의 `.meta`가 아직 없으면 `unity command --project-path "C:/Users/re5na/workspace/LOP/LeagueOfPhysical-Server" refresh_unity`를 한 번 돌린 뒤 다시 본다. `.meta`를 손으로 만들지 않는다.
+> 새 `.cs`의 `.meta`가 아직 없으면 서버 에디터에 `recompile`을 한 번 걸고(`recompile_status`가 `completed`가 될 때까지) 다시 본다 — 에셋 재스캔이 같이 돌아 `.meta`가 생긴다. `.meta`를 손으로 만들지 않는다.
 
 ---
 
@@ -764,7 +764,7 @@ git add Runtime/Scripts/LOPMasterData.cs Runtime.Generated Tests/EditMode/Archer
 git commit -m "feat(masterdata): TbArcheryRange 생성물과 사거리 데이터 검사"
 ```
 
-> 새 `.cs`/`.bytes`의 `.meta`가 아직 없으면 서버 에디터에서 `refresh_unity`를 한 번 돌린 뒤 다시 `git status`를 본다. `.meta`가 빠지면 다른 기계에서 GUID가 달라진다.
+> 새 `.cs`/`.bytes`의 `.meta`가 아직 없으면 서버 에디터에 `recompile`을 걸고 `recompile_status`가 `completed`가 된 뒤 다시 `git status`를 본다. `.meta`가 빠지면 다른 기계에서 GUID가 달라진다.
 
 ---
 
@@ -3053,10 +3053,19 @@ git commit -m "feat(archery): 사거리 맵 씬을 어드레서블에 올린다"
 3. **LeagueOfPhysical-Shared** (값 그릇·레이아웃·코스·화살통·검증)
 4. **infrastructure** (엑셀)
 5. **MasterData-Client** · **MasterData-Server** (생성물)
-6. **LeagueOfPhysical-Server** (룰·판정·크리에이터)
-7. **LeagueOfPhysical-Client** (뷰·HUD·어드레서블·크리에이터 + 아트 포인터)
+6. **lop-backend** (매치메이킹 마스터데이터 — 아래 ⚠️)
+7. **LeagueOfPhysical-Server** (룰·판정·크리에이터)
+8. **LeagueOfPhysical-Client** (뷰·HUD·어드레서블·크리에이터 + 아트 포인터)
 
-> 아트 포인터(`Assets/Art`)는 **클라·서버 양쪽 레포에 각각** 있다. 한쪽만 올리면 그쪽 에디터만 새 씬을 본다.
+> ⚠️ **백엔드도 걸린다(계획을 쓸 때 놓쳤던 것).** `TbMap`은 Luban group이 `c,s,m`이라 `gen.sh`가
+> 매치메이킹 산출물(`apps/matchmaking-server/master_data/tbmap.json`)에도 쓴다. 매치메이킹은
+> `ticketRequestValidation`에서 `TbMap.get(mapId)`로 **티켓을 검증**하므로, 이 줄이 없으면
+> 맵 6을 고른 요청이 `INVALID_MAP`으로 거절된다 — 서버는 멀쩡해 보이고 그 맵만 매칭이 안 된다.
+> (맵 5를 추가할 때도 같은 커밋이 있었다: `7811f7a`.) 커밋 `cd692d4`.
+
+> **아트 마운트는 클라 레포에만 있다**(확인 2026-09-18: 서버 레포엔 `.gitmodules`도 `Assets/Art`도 없다).
+> 서버(파드)는 맵을 **어드레서블로만** 받는다. 그래서 순서가 중요하다 — **아트를 먼저 main에 올리고**,
+> 그 다음 클라 레포가 새 포인터를 커밋해야 한다. 거꾸로 하면 포인터가 *아직 없는 커밋*을 가리킨다.
 
 ### 2) 배포는 세 갈래고, 서로를 안 데려온다
 
@@ -3065,8 +3074,10 @@ git commit -m "feat(archery): 사거리 맵 씬을 어드레서블에 올린다"
 | **게임 서버 이미지** | 서버 코드(룰·판정) | 서버 레포 배포 워크플로 → 이미지 태그 = 서버 main SHA → infra GitOps가 bump → ArgoCD 롤아웃 |
 | **콘텐츠(어드레서블)** | **맵 씬** | 클라 레포 `content-deploy`. **`gameserver`(Linux)와 `standalone-windows`를 둘 다** 돌린다 — 파드와 에디터가 서로 다른 카탈로그를 읽는다 |
 | **마스터데이터** | 표 값 | 게임 서버 이미지에 실려 간다(패키지) — 이미지가 새로 구워져야 반영된다 |
+| **매치메이킹 서버** | `tbmap.json`(맵 6) | `backend-deploy` 워크플로, app=`matchmaking-server`. **게임 서버보다 먼저** 올린다 — 이게 없으면 맵을 고르는 순간 티켓이 거절된다 |
 
 ```bash
+gh workflow run backend-deploy -f app=matchmaking-server     # 먼저
 gh workflow run content-deploy -f target=gameserver
 gh workflow run content-deploy -f target=standalone-windows
 ```

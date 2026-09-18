@@ -22,6 +22,32 @@ namespace LOP
             new Dictionary<(string, long), GameObject>();
         private readonly List<(string, long)> stale = new List<(string, long)>();
 
+        //  빗나가 땅·벽에 꽂힌 화살. 이 목록은 world.Shots의 수명(3초)과 **따로 논다** —
+        //  조준선이 없어진 뒤로 "내 화살이 어디 떨어졌나"가 거리별 낙차를 익히는 유일한 단서라,
+        //  화살이 사라지기 전에 눈으로 확인할 시간이 있어야 한다.
+        private readonly Dictionary<(string shooterId, long fireTick), LandedArrow> landed =
+            new Dictionary<(string, long), LandedArrow>();
+        private readonly List<(string, long)> expired = new List<(string, long)>();
+
+        //  꽂힌 자리에 이만큼 남는다(초). 90m 과녁이 화면에서 작으므로 넉넉히 준다.
+        private const float LandedSeconds = 6f;
+
+        //  Character는 뺀다 — 화살이 사수 눈높이에서 나가므로 넣으면 제 몸에 바로 꽂히고,
+        //  옆 레인 사수 몸에도 걸린다. 과녁은 콜라이더가 없어 여기 안 걸린다(판정은 시뮬이 한다).
+        private readonly int worldLayerMask = LayerMask.GetMask("Default");
+
+        private readonly struct LandedArrow
+        {
+            public readonly GameObject Arrow;
+            public readonly float RemoveAtTime;
+
+            public LandedArrow(GameObject arrow, float removeAtTime)
+            {
+                Arrow = arrow;
+                RemoveAtTime = removeAtTime;
+            }
+        }
+
 
         public ArcheryArrowView(GameFramework.Runner.IRunner runner, ArcheryWorld world,
                                 ArcheryConsumed consumed, ArcheryArrowStickSystem stickSystem)
@@ -63,6 +89,8 @@ namespace LOP
             consumed.ForgetArrowsBefore(
                 (long)renderTick - (long)(ArcheryTrajectory.LifetimeSeconds / interval) - 1);
 
+            RemoveExpiredLandedArrows();
+
             var shots = world.Shots;
             var alive = new HashSet<(string, long)>();
 
@@ -74,6 +102,10 @@ namespace LOP
                 }
 
                 var key = (shots[i].ShooterId, shots[i].FireTick);
+                if (landed.ContainsKey(key))
+                {
+                    continue;   // 이미 땅·벽에 꽂혔다 — 그 그림은 landed가 따로 들고 있다
+                }
                 alive.Add(key);
 
                 if (drawn.TryGetValue(key, out var arrow) == false || arrow == null)
@@ -129,9 +161,29 @@ namespace LOP
                     seconds = 0f;   // 아직 떠나기 전 프레임 — 출발점에 둔다
                 }
 
-                arrow.transform.position = ArcheryTrajectory.PositionAt(shots[i], seconds);
-
+                Vector3 position = ArcheryTrajectory.PositionAt(shots[i], seconds);
                 var velocity = ArcheryTrajectory.VelocityAt(shots[i], seconds);
+
+                //  이번 프레임에 지나온 구간이 땅·벽을 통과했으면 거기서 멈춰 꽂는다. 예전엔
+                //  그냥 지나쳐 땅 밑으로 들어갔다 사라져서 **어디에 빗나갔는지 볼 수가 없었다.**
+                float previousSeconds = Mathf.Max(0f, seconds - Time.deltaTime);
+                Vector3 previous = ArcheryTrajectory.PositionAt(shots[i], previousSeconds);
+                if (previousSeconds < seconds
+                    && Physics.Linecast(previous, position, out RaycastHit ground,
+                                        worldLayerMask, QueryTriggerInteraction.Ignore))
+                {
+                    //  촉이 표면에 닿고 몸통은 밖에 남게 살짝 앞으로 밀어 넣는다.
+                    Vector3 heading = velocity.sqrMagnitude > 1e-6f ? velocity.normalized : Vector3.down;
+                    arrow.transform.position = ground.point + heading * 0.2f;
+                    arrow.transform.rotation = Quaternion.LookRotation(heading);
+
+                    alive.Remove(key);
+                    drawn.Remove(key);
+                    landed[key] = new LandedArrow(arrow, Time.time + LandedSeconds);
+                    continue;
+                }
+
+                arrow.transform.position = position;
                 if (velocity.sqrMagnitude > 1e-6f)
                 {
                     arrow.transform.rotation = Quaternion.LookRotation(velocity);
@@ -153,6 +205,28 @@ namespace LOP
             }
         }
 
+        private void RemoveExpiredLandedArrows()
+        {
+            if (landed.Count == 0)
+            {
+                return;
+            }
+
+            expired.Clear();
+            foreach (var pair in landed)
+            {
+                if (Time.time >= pair.Value.RemoveAtTime)
+                {
+                    expired.Add(pair.Key);
+                }
+            }
+            foreach (var key in expired)
+            {
+                Object.Destroy(landed[key].Arrow);
+                landed.Remove(key);
+            }
+        }
+
         // 판이 끝나면 그리던 화살과 재질을 같이 치운다 — 재질은 우리가 만든 것이라
         // 아무도 대신 지워 주지 않는다.
         public void Dispose()
@@ -162,6 +236,12 @@ namespace LOP
                 Object.Destroy(pair.Value);
             }
             drawn.Clear();
+
+            foreach (var pair in landed)
+            {
+                Object.Destroy(pair.Value.Arrow);
+            }
+            landed.Clear();
 
             if (_arrowMaterial != null)
             {

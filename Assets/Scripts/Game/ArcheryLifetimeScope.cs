@@ -60,7 +60,6 @@ namespace LOP
                 TickInterval), Lifetime.Singleton);
 
             builder.RegisterEntryPoint<ArcheryAimView>().AsSelf();
-            builder.RegisterEntryPoint<ArcheryAimGuideView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryArrowView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryTargetView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryRemoteShotHandler>();

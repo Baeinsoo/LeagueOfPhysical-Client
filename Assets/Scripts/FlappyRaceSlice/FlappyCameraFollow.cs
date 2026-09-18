@@ -6,7 +6,10 @@ public class FlappyCameraFollow : MonoBehaviour
     public Transform target;
     public float offsetX = 8f;
     public float fixedY = 1f;
-    public float fixedZ = -30f;
+    //  카메라를 당길수록 화면에 보이는 세상이 줄어 같은 속도로도 빨리 흐른다. 20인 이유:
+    //  가로로 긴 화면이라 원본 플래피의 <궤적 모양>과 <흘러가는 속도>를 동시에 못 맞추는데,
+    //  20 + 전진 6.8이 두 오차를 똑같이 1.46배로 나눠 갖는 지점이다(관문은 화면 세로의 30%).
+    public float fixedZ = -20f;
     public float lerp = 6f;
 
     [Header("선두 추종 — 추격자가 뒤를 자르므로 카메라는 선두를 잡아야 전원이 화면에 담긴다")]

@@ -743,7 +743,7 @@ namespace LOP.MapTools
         //  여기서 재는 것은 <그려지는 면>이지 콜라이더가 아니다 — 원근 카메라가 판정 모서리보다
         //  뒤에 있는 면을 소실점 쪽으로 당겨 그리는 것이 틈을 좁아 보이게 하는 원인이고,
         //  콜라이더의 z두께는 눈에 안 보여 화면을 못 바꾼다.
-        const float CameraDistance = 30f;      // FlappyCameraFollow.fixedZ = -30, 게임 평면 z=0
+        const float CameraDistance = 20f;      // FlappyCameraFollow.fixedZ = -20, 게임 평면 z=0
         const float VerticalFov = 40f;         // 씬 카메라 field of view
         const float DepthTolerance = 0.01f;
 

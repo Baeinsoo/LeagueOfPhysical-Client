@@ -13,6 +13,15 @@ namespace LOP.UI
         private readonly CameraController cameraController;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly IPlayerContext playerContext;
+        private readonly ArcheryConfig config;
+        private readonly ArcheryCourse course;
+        private readonly ArcheryConsumed consumed;
+        private readonly ArcheryWorld world;
+        private readonly GameFramework.Runner.IRunner runner;
+
+        //  매 프레임 새로 만들지 않고 돌려 쓴다 — course.Fill이 채워 준다.
+        private readonly System.Collections.Generic.List<ArcheryTarget> targetBuffer =
+            new System.Collections.Generic.List<ArcheryTarget>();
 
         //  겨누는 속도(도/초). 아래 화각을 기준으로 정한 값이고, 당겨서 화면이 좁아지면 그
         //  비율만큼 같이 줄어든다 — 그래야 손동작 하나가 **화면 위에서** 늘 같은 거리를 움직인다.
@@ -45,12 +54,102 @@ namespace LOP.UI
             PlayerInputManager input,
             CameraController cameraController,
             GameFramework.World.EntityRegistry entityRegistry,
-            IPlayerContext playerContext)
+            IPlayerContext playerContext,
+            ArcheryConfig config,
+            ArcheryCourse course,
+            ArcheryConsumed consumed,
+            ArcheryWorld world,
+            GameFramework.Runner.IRunner runner)
         {
             this.input = input;
             this.cameraController = cameraController;
             this.entityRegistry = entityRegistry;
             this.playerContext = playerContext;
+            this.config = config;
+            this.course = course;
+            this.consumed = consumed;
+            this.world = world;
+            this.runner = runner;
+        }
+
+        // ── 활 조준기(사이트) ───────────────────────────────────────────────────────
+        //
+        //  실제 양궁이 이 문제를 푸는 방식이다. 90m 과녁은 6도를 올려 쏴야 하는데, 기준이
+        //  십자선 하나뿐이면 **빈 하늘을 겨누고** 과녁은 화면 한참 아래에 남는다. 거리별 핀을
+        //  두면 "핀을 과녁에 얹는" 일이 되어 겨누는 자리에 과녁이 있다.
+        //
+        //  조준선(삭제됨)과 다른 점: 핀은 **거리별 기준선**일 뿐 착탄점이 아니다. 어느 핀을
+        //  쓸지 고르는 것도, 흔들리는 화면에서 그 핀을 10점에 붙들고 있는 것도 쏘는 사람 몫이다.
+
+        /// <summary>조준기에 핀을 놓을 거리들(m). 사거리 맵이 아니면 비어 있다.</summary>
+        public System.Collections.Generic.IReadOnlyList<ArcheryRangeStand> SightStands =>
+            config?.Range?.Stands ?? (System.Collections.Generic.IReadOnlyList<ArcheryRangeStand>)
+                System.Array.Empty<ArcheryRangeStand>();
+
+        /// <summary>
+        /// 이 거리의 과녁을 맞히려면 <b>십자선보다 몇 도 아래</b>에 과녁을 두어야 하는가.
+        /// 지금 당긴 정도(=화살 속도)로 계산하므로 당길수록 핀이 제자리를 찾는다. 못 닿으면 NaN.
+        /// </summary>
+        public float SightPinDegrees(float distanceMeters)
+        {
+            float speed = ArcheryAimSystem.SpeedFor(SimDrawRatio);
+            return ArcheryTrajectory.LaunchPitchDegrees(distanceMeters, TargetHeightOffset(), speed);
+        }
+
+        //  화면이 아니라 **시뮬이 들고 있는** 당김을 쓴다. 쏘는 힘을 정하는 것이 그 값이라,
+        //  화면이 제 손가락 값을 쓰면 핀이 실제 화살과 다른 속도를 그린다.
+        private float SimDrawRatio
+        {
+            get
+            {
+                var entity = entityRegistry.Get(playerContext.entityId);
+                return entity?.Get<ArcheryAim>()?.DrawRatio ?? 0f;
+            }
+        }
+
+        //  과녁 중심이 화살 떠나는 높이보다 얼마나 위/아래에 있나(m). 사거리 맵은 과녁이
+        //  1.30m, 눈높이가 1.40m라 10cm 아래인데, 그 10cm가 45m에서 10점 링 반지름의 절반을
+        //  먹는다 — 무시하면 잘 쏴도 계속 조금 높게 맞는다. 값을 박지 않고 지금 서 있는
+        //  과녁에서 직접 잰다(레인 높이가 바뀌어도 따라온다).
+        private float TargetHeightOffset()
+        {
+            var entity = entityRegistry.Get(playerContext.entityId);
+            if (entity == null || course == null || world == null || runner?.tickUpdater == null)
+            {
+                return 0f;
+            }
+
+            double interval = runner.tickUpdater.interval;
+            if (interval <= 0d)
+            {
+                return 0f;
+            }
+
+            double renderTick = (runner.tickUpdater.elapsedTime - interval) / interval;
+            int step = course.IndexAt((long)System.Math.Floor(renderTick), world.GameplayStartTick);
+            if (step < 0 || (course.StepCount != 0 && step >= course.StepCount))
+            {
+                return 0f;
+            }
+
+            targetBuffer.Clear();
+            course.Fill(targetBuffer, step, world.GameplayStartTick);
+            for (int i = 0; i < targetBuffer.Count; i++)
+            {
+                if (targetBuffer[i].OwnerUserId != playerContext.entityId)
+                {
+                    continue;
+                }
+                if (consumed != null && consumed.IsTargetGone(targetBuffer[i].WaveIndex, targetBuffer[i].SlotIndex))
+                {
+                    continue;
+                }
+
+                float eyeY = entity.Get<GameFramework.World.Transform>().Position.Y + ArcheryAimSystem.EyeHeight;
+                return targetBuffer[i].Origin.y - eyeY;
+            }
+
+            return 0f;   // 지금 내 과녁이 없다 — 수평으로 친다
         }
 
         /// <summary>내가 지금까지 모은 점수. 서버 스냅샷이 채우는 값이라 <b>매 프레임 읽어</b> 쓴다.</summary>
@@ -128,6 +227,9 @@ namespace LOP.UI
             float degreesPerSecond = Mathf.Lerp(FineDegreesPerSecond, MaxDegreesPerSecond, lookRamp);
             AimBy(look.normalized * (degreesPerSecond * FovScale * deltaSeconds));
         }
+
+        /// <summary>조준기 핀을 픽셀로 옮길 때 화각이 필요해서 화면이 카메라를 본다.</summary>
+        public Camera Camera => cameraController.MainCamera;
 
         /// <summary>지금 화각(도). 당길수록 좁아진다 — 카메라가 없으면 기준값으로 친다.</summary>
         private float CurrentFov

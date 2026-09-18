@@ -147,16 +147,24 @@ namespace LOP
                 float nextT = Mathf.Min(t + StepSeconds, ArcheryTrajectory.LifetimeSeconds);
                 Vector3 to = ArcheryTrajectory.PositionAt(shot, nextT);
 
+                //  한 구간 안에 둘 다 있을 수 있다(과녁 바로 뒤에 벽이나 자리 기둥이 서 있다).
+                //  먼저 찾은 쪽이 아니라 **먼저 닿는 쪽**에서 멈춰야 한다.
+                float nearest = 2f;   // 구간 매개변수(0~1) 밖의 보초값
+
                 if (Physics.Linecast(from, to, out RaycastHit hit, worldLayerMask, QueryTriggerInteraction.Ignore))
                 {
                     float segmentLength = Vector3.Distance(from, to);
-                    float fraction = segmentLength > 1e-6f ? hit.distance / segmentLength : 0f;
-                    return Mathf.Lerp(t, nextT, fraction);
+                    nearest = segmentLength > 1e-6f ? hit.distance / segmentLength : 0f;
                 }
 
-                if (TryHitLiveTargets(from, to, t, nextT, out float targetImpactSeconds))
+                if (TryHitLiveTargets(from, to, out float targetFraction) && targetFraction < nearest)
                 {
-                    return targetImpactSeconds;
+                    nearest = targetFraction;
+                }
+
+                if (nearest <= 1f)
+                {
+                    return Mathf.Lerp(t, nextT, nearest);
                 }
 
                 from = to;
@@ -168,8 +176,7 @@ namespace LOP
 
         //  살아 있는 과녁 중 이 구간에서 가장 먼저 맞는 것 하나만 본다 — 두 과녁이 겹쳐 있어도
         //  화살은 하나만 맞고 멈춘다.
-        private bool TryHitLiveTargets(Vector3 from, Vector3 to, float fromSeconds, float toSeconds,
-                                       out float impactSeconds)
+        private bool TryHitLiveTargets(Vector3 from, Vector3 to, out float fraction)
         {
             float earliest = 2f;   // 선분 매개변수(0~1) 밖의 보초값
             for (int i = 0; i < liveTargets.Count; i++)
@@ -182,14 +189,8 @@ namespace LOP
                 }
             }
 
-            if (earliest > 1f)
-            {
-                impactSeconds = 0f;
-                return false;
-            }
-
-            impactSeconds = Mathf.Lerp(fromSeconds, toSeconds, earliest);
-            return true;
+            fraction = earliest;
+            return earliest <= 1f;
         }
 
         //  ArcheryTargetView와 같은 순간(renderTick)을 물어야 한다 — 다른 시각을 쓰면 화면에 보이는

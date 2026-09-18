@@ -287,7 +287,10 @@ namespace LOP.MapTools
                                    int separateSpaces = 0,
                                    string approachSection = null,
                                    string phaseSweepSkipNote = null,
-                                   IReadOnlyList<BlockDepth> blockDepths = null)
+                                   IReadOnlyList<BlockDepth> blockDepths = null,
+                                   IReadOnlyList<Gate> gates = null,
+                                   float targetWindow = 0f,
+                                   float targetSpacing = 0f)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
@@ -512,6 +515,15 @@ namespace LOP.MapTools
                 text.AppendLine(StaticPinchRule.Section(pinches, requiredBand, config.BodyHeight,
                                                         config.ForwardSpeed, config.Gravity,
                                                         pinchSampleStep, splits, separateSpaces));
+                text.AppendLine();
+            }
+
+            //  관문을 못 찾았다는 것도 답이므로(코스가 통째로 트여 있다는 뜻) 빈 결과에도 찍는다.
+            //  안 훑었으면(null) 찍지 않는다 — 빈 절은 "재 봤더니 괜찮다"로 잘못 읽힌다.
+            if (gates != null)
+            {
+                text.AppendLine(GateRhythmRule.Section(gates, targetWindow, targetSpacing,
+                                                      config.ForwardSpeed, startX, finishX));
                 text.AppendLine();
             }
 

@@ -23,6 +23,17 @@
     color: rgb(255, 236, 150);
     -unity-font-style: bold;
 }
+/* 남은 화살 — 점수 바로 아래. 무제한 맵에서는 View가 아예 display:none으로 감춘다. */
+.archery-arrows {
+    position: absolute;
+    top: 72px;
+    left: 0;
+    right: 0;
+    -unity-text-align: middle-center;
+    font-size: 22px;
+    color: rgb(220, 220, 220);
+}
+
 /* 조준점 — 화면 한가운데. 당기는 동안만 보인다(ArcheryPadView가 켜고 끈다).
    과녁(노랑)·함정(파랑)·화살(빨강) 어느 것과도 안 겹치게 흰 테두리로 둔다. */
 .archery-reticle {

@@ -42,6 +42,17 @@ namespace LOP.UI
             }
         }
 
+        /// <summary>남은 화살. <b>−1이면 무제한</b>(원형 맵)이라 화면이 아예 안 띄운다.</summary>
+        public int ArrowsLeft
+        {
+            get
+            {
+                var entity = entityRegistry.Get(playerContext.entityId);
+                var quiver = entity?.Get<ArcheryQuiver>();
+                return quiver?.Remaining ?? -1;
+            }
+        }
+
         /// <summary>지금 시위를 당기고 있나. 조준점을 띄울지 정한다 — 시뮬 상태를 읽는다(화면이 따로 세지 않는다).</summary>
         public bool Drawing
         {

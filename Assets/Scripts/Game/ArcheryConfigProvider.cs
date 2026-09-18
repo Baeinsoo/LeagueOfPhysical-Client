@@ -49,13 +49,46 @@ namespace LOP
                     "TbArcheryTarget이 비어 있음 — 과녁 종류가 없으면 웨이브가 영원히 빈다");
             }
 
+            var courseKind = (ArcheryCourseKind)r.CourseKind;
+            var range = ArcheryRangeSettings.None;
+            if (courseKind == ArcheryCourseKind.Range)
+            {
+                var faceRow = md.Tables.TbArcheryTarget.GetOrDefault(r.RangeTargetId);
+                if (faceRow == null)
+                {
+                    throw new System.InvalidOperationException(
+                        $"맵 {mapId}의 range_target_id({r.RangeTargetId})가 TbArcheryTarget에 없다");
+                }
+
+                //  자리 번호 오름차순으로 넘긴다 — 코스가 이 차례를 자리 번호로 그대로 쓴다.
+                var stands = new List<ArcheryRangeStand>();
+                foreach (var row in System.Linq.Enumerable.OrderBy(
+                             System.Linq.Enumerable.Where(md.Tables.TbArcheryRange.DataList,
+                                                          x => x.MapId == mapId),
+                             x => x.StandIndex))
+                {
+                    stands.Add(new ArcheryRangeStand(row.StandIndex, row.DistanceM, row.ExposureTicks));
+                }
+                if (stands.Count == 0)
+                {
+                    throw new System.InvalidOperationException(
+                        $"맵 {mapId}은 사거리 코스인데 TbArcheryRange에 줄이 없다 — 과녁이 영영 안 뜬다");
+                }
+
+                range = new ArcheryRangeSettings(
+                    new ArcheryTargetKind(faceRow.Radius, faceRow.Points, faceRow.Weight, faceRow.IsTrap,
+                                          (ArcheryTargetShape)faceRow.Shape, BandsOf(md, faceRow.Id)),
+                    stands, r.StepGapTicks);
+            }
+
             return new ArcheryConfig(
                 r.WavePeriodTicks, r.MinTargets, r.MaxTargets,
                 r.SpawnRadius, r.SpawnMinY, r.SpawnMaxY, r.MinSeparation,
                 r.TrapRatioMin, r.TrapRatioMax,
                 r.ShakeFreeSeconds, r.ShakeRampSeconds, r.ShakeMaxDegrees,
                 r.RiseHeightMin, r.RiseHeightMax, r.StaggerTicks, r.RestTicks,
-                kinds);
+                kinds,
+                courseKind, r.MatchDurationTicks, range);
         }
 
         //  그 과녁 종류의 띠를 중심에서 바깥 순서로 모은다. 순서가 뒤집히면 바깥 띠가 먼저

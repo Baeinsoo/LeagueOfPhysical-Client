@@ -249,6 +249,7 @@ namespace LOP.EditorTools
             var placements = new List<LOP.MapTools.ObstaclePlacement>();
             //  null이면 "안 훑었다"는 뜻이다 — 빈 리스트("훑었는데 좁은 데가 없다")와 다르다.
             List<LOP.MapTools.StaticPinch> pinches = null;
+            List<LOP.MapTools.Gate> gates = null;
             //  ②-c가 덧붙일 <b>갈림</b>. pinches와 같은 이유로 null이 "안 훑었다"다.
             List<LOP.MapTools.StaticSplit> splits = null;
             //  ① 진단 — 관문 통과가 쓸 궤적. 스폰 넷과 높이 훑기 18줄이 <b>이미 나는 비행</b>이라
@@ -444,6 +445,11 @@ namespace LOP.EditorTools
                                                       windmillInstances, out pinchSweepCancelNote,
                                                       out var enclosedPerColumn);
                 pinches = LOP.MapTools.StaticPinchRule.Segments(pinchColumns, requiredBand, PinchSampleStep);
+                //  ②-d 관문 박자 — 같은 훑기 결과를 다시 쓴다(새로 훑지 않는다).
+                gates = LOP.MapTools.GateRhythmRule.Find(
+                    pinchColumns,
+                    LOP.MapTools.GateRhythmRule.TargetWindow(
+                        shape.FlapImpulse, shape.Gravity, TickSeconds, shape.Height));
                 //  접기 <b>전</b>의 창으로 갈림을 센다 — PinchColumn은 이미 "가장 넓은 창 하나"로
                 //  접힌 값이라 거기서는 칸막이가 보이지 않는다(그게 이 절의 맹점이었다).
                 //  칸막이가 아치+몸보다 두꺼운 것은 갈림이 아니라 <b>별개 공간</b>이다 — 그만큼
@@ -490,7 +496,11 @@ namespace LOP.EditorTools
                 pinches, PinchSampleStep, gateSection, splits, separateSpaces, approachSection,
                 skipPhaseSweep ? PhaseSweepSkipNote : null,
                 //  빠름 모드에서도 찍는다 — 콜라이더를 한 번 순회하는 것뿐이라 싸다.
-                ScanBlockDepths(mapMask, config.BodyRadius));
+                ScanBlockDepths(mapMask, config.BodyRadius),
+                gates,
+                LOP.MapTools.GateRhythmRule.TargetWindow(shape.FlapImpulse, shape.Gravity,
+                                                         TickSeconds, shape.Height),
+                LOP.MapTools.GateRhythmRule.TargetSpacing(config.ForwardSpeed));
 
             //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
             bool spawnXMismatch = false;

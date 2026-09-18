@@ -18,6 +18,14 @@ namespace LOP.UI
         private VisualElement _gaugeKnob;
         private IVisualElementScheduledItem _tick;
 
+        //  활 조준기의 핀들. 거리 하나에 눈금 하나 + 그 옆에 거리 숫자.
+        private readonly System.Collections.Generic.List<VisualElement> _sightPins =
+            new System.Collections.Generic.List<VisualElement>();
+
+        //  핀을 여기 붙이고 높이도 여기서 잰다 — 핀의 top이 이 부모 기준이라, 화면이 아니라
+        //  **부모**를 재야 둘이 어긋나지 않는다.
+        private VisualElement _padRoot;
+
         public ArcheryPadView(ArcheryPadViewModel viewModel)
         {
             _viewModel = viewModel;
@@ -29,6 +37,7 @@ namespace LOP.UI
         {
             base.OnOpen();
 
+            _padRoot = Root.Q<VisualElement>("archery-pad-root") ?? Root;
             var left = Root.Q<VisualElement>("left");
             var right = Root.Q<VisualElement>("right");
             _score = Root.Q<Label>("score");
@@ -109,6 +118,7 @@ namespace LOP.UI
                 }
 
                 UpdateGauge();
+                UpdateSight(armed);
             }).Every(0);
         }
 
@@ -139,6 +149,71 @@ namespace LOP.UI
             _gaugeKnob.style.left = knob.x - origin.x + full - knobHalf;
             _gaugeKnob.style.top = knob.y - origin.y + full - knobHalf;
             _gaugeKnob.style.opacity = _viewModel.DrawArmed ? 0.95f : 0.4f;
+        }
+
+        //  활 조준기 — 거리마다 눈금 하나. 십자선 아래로 "이 거리는 여기"를 표시한다.
+        //
+        //  각도를 픽셀로 옮길 때 각도에 비례해 나누면 안 된다. 원근 투영이라 화면 위 거리는
+        //  각도가 아니라 **탄젠트**에 비례한다 — 비례로 놓으면 먼 거리 핀일수록 조금씩 어긋나서,
+        //  가까운 과녁은 맞는데 90m만 계속 빗나가는 모양이 된다.
+        private void UpdateSight(bool armed)
+        {
+            var stands = _viewModel.SightStands;
+            if (stands.Count == 0)
+            {
+                return;   // 사거리 맵이 아니다(원형 맵) — 조준기를 안 쓴다
+            }
+
+            EnsureSightPins(stands.Count);
+
+            var camera = _viewModel.Camera;
+            float panelHeight = _padRoot?.layout.height ?? 0f;
+            if (armed == false || camera == null || panelHeight <= 0f)
+            {
+                for (int i = 0; i < _sightPins.Count; i++)
+                {
+                    _sightPins[i].style.display = DisplayStyle.None;
+                }
+                return;
+            }
+
+            float halfHeight = panelHeight * 0.5f;
+            float halfFovTan = Mathf.Tan(camera.fieldOfView * 0.5f * Mathf.Deg2Rad);
+
+            for (int i = 0; i < stands.Count; i++)
+            {
+                float degrees = _viewModel.SightPinDegrees(stands[i].DistanceM);
+                var pin = _sightPins[i];
+
+                //  그 당김으로는 닿지 않는 거리다 — 핀을 그리면 거짓말이 된다.
+                if (float.IsNaN(degrees) || halfFovTan <= 0f)
+                {
+                    pin.style.display = DisplayStyle.None;
+                    continue;
+                }
+
+                pin.style.display = DisplayStyle.Flex;
+                float offset = halfHeight * Mathf.Tan(degrees * Mathf.Deg2Rad) / halfFovTan;
+                pin.style.top = halfHeight + offset - 1f;   // 눈금 두께의 절반
+            }
+        }
+
+        private void EnsureSightPins(int count)
+        {
+            for (int i = _sightPins.Count; i < count; i++)
+            {
+                var pin = new VisualElement();
+                pin.AddToClassList("archery-sight-pin");
+                pin.pickingMode = PickingMode.Ignore;
+
+                var label = new Label(((int)_viewModel.SightStands[i].DistanceM).ToString());
+                label.AddToClassList("archery-sight-pin-label");
+                label.pickingMode = PickingMode.Ignore;
+                pin.Add(label);
+
+                _padRoot.Add(pin);
+                _sightPins.Add(pin);
+            }
         }
 
         //  가운데가 center인 지름 2*radius짜리 원을 절대 좌표로 앉힌다.

@@ -44,12 +44,14 @@ namespace LOP.UI
             {
                 if (left.HasPointerCapture(evt.pointerId))
                 {
-                    //  픽셀이 아니라 **화면 높이 대비 비율**로 넘긴다 — 좌표 해석은 View 몫이고,
+                    //  픽셀이 아니라 **화면 크기 대비 비율**로 넘긴다 — 좌표 해석은 View 몫이고,
                     //  패널 좌표는 Screen 픽셀과 단위가 다를 수 있어 여기서 재는 것이 정확하다.
-                    float height = Root.panel?.visualTree.layout.height ?? 0f;
-                    if (height > 0f)
+                    //  가로는 폭으로, 세로는 높이로 나눈다 — 둘의 화각이 다르기 때문이다.
+                    Vector2 size = Root.panel?.visualTree.layout.size ?? Vector2.zero;
+                    if (size.x > 0f && size.y > 0f)
                     {
-                        _viewModel.LookBy(evt.deltaPosition / height);
+                        _viewModel.LookBy(new Vector2(evt.deltaPosition.x / size.x,
+                                                      evt.deltaPosition.y / size.y));
                     }
                 }
             });

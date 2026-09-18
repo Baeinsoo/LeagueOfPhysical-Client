@@ -12,7 +12,11 @@ namespace LOP
     /// </summary>
     public class ArcheryAimView : ILateTickable
     {
-        private const float WideFov = 60f;
+        /// <summary>
+        /// 안 당겼을 때의 화각. 조작 감도가 이 값을 기준으로 정해져 있어(<c>ArcheryPadViewModel</c>)
+        /// 공개한다 — 두 곳에 같은 숫자를 적어 두면 한쪽만 고쳤을 때 조용히 어긋난다.
+        /// </summary>
+        public const float WideFov = 60f;
 
         //  더 세게 좁힌다(기존 32도) — 90m 과녁이 화면 높이의 2.4%로 너무 작게 보였다는 피드백.
         //  22도면 같은 거리에서 약 3.5%가 된다.

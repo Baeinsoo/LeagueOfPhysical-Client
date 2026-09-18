@@ -118,12 +118,15 @@ namespace LOP
             //  조준선이 있으나 마나다. 당김은 손가락이 끈 거리가 정하므로 그 값을 그대로 읽는다.
             float speed = ArcheryAimSystem.SpeedFor(aim.DrawRatio);
 
-            //  방향은 시뮬 값(aim.Yaw/Pitch)이 아니라 *지금 화면에 그려진 카메라 회전*에서 뽑는다.
-            //  시뮬 값은 틱(20ms)마다 계단으로 바뀌는데 화면은 매 프레임 도니까, 시뮬 값으로 그리면
-            //  점만 계단으로 튀어 덜덜거린다. 쏠 때 서버로 가는 각도 결국 이 회전에서 읽은 값이라
-            //  (ArcheryAimView.SetAim) 거짓말이 되지도 않는다.
-            float yaw = camera.transform.eulerAngles.y;
-            float pitch = -Mathf.DeltaAngle(0f, camera.transform.eulerAngles.x);
+            //  방향은 시뮬 값(aim.Yaw/Pitch)도 아니고 *화면에 그려진 카메라 회전*도 아닌,
+            //  카메라가 스스로 겨눈 각(CameraController.Yaw/Pitch, 흔들림을 더하기 전)에서 뽑는다.
+            //  시뮬 값은 틱(20ms)마다 계단으로 바뀌는데 이 값은 매 프레임 도니까, 시뮬 값으로
+            //  그리면 점만 계단으로 튀어 덜덜거린다. 그렇다고 화면에 그려진 회전(흔들림 포함)을
+            //  읽으면 바로 아래에서 DirectionFor가 흔들림을 또 더해 이중 적용이 된다. 쏠 때
+            //  서버로 가는 각도 결국 이 값에서 읽은 것이라(ArcheryAimView.SetAim) 거짓말이 되지도
+            //  않는다.
+            float yaw = cameraController.Yaw;
+            float pitch = -cameraController.Pitch;
 
             //  오래 당기고 있으면 실제로 쏠 화살도 흔들린다 — 선이 그 흔들림을 안 보여 주면
             //  "흔들리는지도 몰랐는데 빗나갔다"가 된다. 시뮬(ArcheryAimSystem.Tick)과 정확히

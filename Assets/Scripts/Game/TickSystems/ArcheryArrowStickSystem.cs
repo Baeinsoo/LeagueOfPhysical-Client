@@ -19,8 +19,7 @@ namespace LOP
     public class ArcheryArrowStickSystem : GameFramework.Runner.ITickSystem
     {
         private readonly ArcheryWorld world;
-        private readonly ArcheryConfig config;
-        private readonly IMatchSeed matchSeed;
+        private readonly ArcheryCourse course;
         private readonly ArcheryConsumed consumed;
         private readonly float tickInterval;
 
@@ -56,12 +55,11 @@ namespace LOP
             }
         }
 
-        public ArcheryArrowStickSystem(ArcheryWorld world, ArcheryConfig config, IMatchSeed matchSeed,
+        public ArcheryArrowStickSystem(ArcheryWorld world, ArcheryCourse course,
                                        ArcheryConsumed consumed, float tickInterval)
         {
             this.world = world;
-            this.config = config;
-            this.matchSeed = matchSeed;
+            this.course = course;
             this.consumed = consumed;
             this.tickInterval = tickInterval;
         }
@@ -76,9 +74,9 @@ namespace LOP
             if (wave != queryWave)
             {
                 queryTargets.Clear();
-                if (wave >= 0)
+                if (wave >= 0 && (course.StepCount == 0 || wave < course.StepCount))
                 {
-                    ArcheryWaveGenerator.Fill(queryTargets, matchSeed.Value, wave, config, world.GameplayStartTick);
+                    course.Fill(queryTargets, wave, world.GameplayStartTick);
                 }
                 queryWave = wave;
             }
@@ -97,11 +95,13 @@ namespace LOP
 
         public void Tick(long tick, float deltaTime)
         {
-            int wave = ArcheryWaveGenerator.WaveIndexAt(tick, world.GameplayStartTick, config);
+            int wave = course.IndexAt(tick, world.GameplayStartTick);
             targets.Clear();
-            if (wave >= 0)
+            //  아직 출발 전이 아니고, 사거리 코스라면 순서가 끝나지도 않은 경우에만 채운다
+            //  (웨이브 맵은 StepCount가 0이라 뒤쪽 조건에 안 걸린다).
+            if (wave >= 0 && (course.StepCount == 0 || wave < course.StepCount))
             {
-                ArcheryWaveGenerator.Fill(targets, matchSeed.Value, wave, config, world.GameplayStartTick);
+                course.Fill(targets, wave, world.GameplayStartTick);
             }
 
             var shots = world.Shots;

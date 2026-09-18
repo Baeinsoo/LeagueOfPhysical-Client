@@ -20,6 +20,14 @@ namespace LOP
             builder.Register<ArcheryConfig>(c => c.Resolve<ArcheryConfigProvider>().Get(), Lifetime.Singleton);
             builder.Register<ArcheryConsumed>(Lifetime.Singleton);
 
+            //  과녁이 언제 어디 서는지를 정하는 한 곳. 명단은 매치 시작 시점의 것을 그대로 쓴다 —
+            //  중간에 나간 사람이 있어도 과녁 주인이 밀리지 않게(스펙 6.2절).
+            builder.Register<ArcheryCourse>(c => new ArcheryCourse(
+                c.Resolve<ArcheryConfig>(),
+                c.Resolve<IMatchSeed>(),
+                c.Resolve<IRoomDataStore>().match.playerList,
+                TickInterval), Lifetime.Singleton);
+
             builder.RegisterComponent(cameraController);
 
             builder.Register<ArcheryAimSystem>(Lifetime.Singleton);
@@ -47,8 +55,7 @@ namespace LOP
             //  프레임마다 찾으면 프레임 레이트에 따라 구간이 벌어져 기기마다 다르게 보인다.
             builder.Register(c => new ArcheryArrowStickSystem(
                 c.Resolve<ArcheryWorld>(),
-                c.Resolve<ArcheryConfig>(),
-                c.Resolve<IMatchSeed>(),
+                c.Resolve<ArcheryCourse>(),
                 c.Resolve<ArcheryConsumed>(),
                 TickInterval), Lifetime.Singleton);
 

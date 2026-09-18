@@ -16,5 +16,6 @@
             <ui:VisualElement name="reticle-dot" class="archery-reticle-dot" picking-mode="Ignore" />
         </ui:VisualElement>
         <ui:Label name="score" class="archery-score" text="0" picking-mode="Ignore" />
+        <ui:Label name="arrows" class="archery-arrows" text="" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

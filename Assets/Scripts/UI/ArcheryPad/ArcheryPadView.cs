@@ -11,6 +11,7 @@ namespace LOP.UI
     {
         private readonly ArcheryPadViewModel _viewModel;
         private Label _score;
+        private Label _arrows;
         private VisualElement _reticle;
         private VisualElement _gauge;
         private VisualElement _gaugeThreshold;
@@ -31,6 +32,7 @@ namespace LOP.UI
             var left = Root.Q<VisualElement>("left");
             var right = Root.Q<VisualElement>("right");
             _score = Root.Q<Label>("score");
+            _arrows = Root.Q<Label>("arrows");
             _reticle = Root.Q<VisualElement>("reticle");
             _gauge = Root.Q<VisualElement>("draw-gauge");
             _gaugeThreshold = Root.Q<VisualElement>("draw-threshold");
@@ -76,6 +78,15 @@ namespace LOP.UI
             {
                 _viewModel.PollKeyboard();
                 _score.text = _viewModel.Score.ToString();
+
+                //  무제한인 맵에서는 아예 안 보이게 한다 — 늘 같은 숫자가 떠 있으면 눈만 시끄럽다.
+                int left = _viewModel.ArrowsLeft;
+                _arrows.style.display = left >= 0 ? DisplayStyle.Flex : DisplayStyle.None;
+                if (left >= 0)
+                {
+                    _arrows.text = $"화살 {left}";
+                }
+
                 //  조준점은 손가락을 댄 동안만. 안 댔을 때 띄워 두면 판 전체를 보는 시야를 가린다.
                 //  임계치를 넘기 전에는 흐리게 — "아직 안 걸렸다"가 손에 읽혀야 취소를 고를 수 있다.
                 //  임계치를 넘겨 시위가 걸린 동안만 띄운다 — 조준선과 같은 기준이라

@@ -44,7 +44,13 @@ namespace LOP.UI
             {
                 if (left.HasPointerCapture(evt.pointerId))
                 {
-                    _viewModel.LookBy(evt.deltaPosition);
+                    //  픽셀이 아니라 **화면 높이 대비 비율**로 넘긴다 — 좌표 해석은 View 몫이고,
+                    //  패널 좌표는 Screen 픽셀과 단위가 다를 수 있어 여기서 재는 것이 정확하다.
+                    float height = Root.panel?.visualTree.layout.height ?? 0f;
+                    if (height > 0f)
+                    {
+                        _viewModel.LookBy(evt.deltaPosition / height);
+                    }
                 }
             });
             left.RegisterCallback<PointerUpEvent>(evt => left.ReleasePointer(evt.pointerId));

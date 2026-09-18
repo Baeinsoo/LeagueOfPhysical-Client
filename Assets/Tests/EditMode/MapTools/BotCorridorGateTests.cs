@@ -28,7 +28,10 @@ namespace LOP.MapTools.Tests
     /// </summary>
     public class BotCorridorGateTests
     {
-        //  ── 물리 (실제 Flappy 값 — 여기를 고치면 다른 숫자를 재는 것이다) ──
+        //  ── 물리: 규칙을 재려고 얼려 둔 표본이다(게임이 날갯짓 23 / 중력 70을 쓰던 시절 수치) ──
+        //  아래 못박은 두 숫자는 이 수치에서 훑어 나온 값이라, 여기를 고치면 둘 다 다시 훑어야 한다.
+        //  게이트가 잡으려는 것은 게임 물리가 아니라 봇의 조종이므로 표본이 얼어 있어도 값을 한다.
+        //  지금 게임 값은 MasterData(TbFlappyConfig)에 있고, 맵 검사는 거기서 읽으므로 영향이 없다.
         const float BodyRadius = 0.45f;
         const float TickSeconds = 0.02f;
         const float Gravity = 70f;

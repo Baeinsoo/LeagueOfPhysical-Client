@@ -88,8 +88,9 @@ namespace LOP
                 Time.deltaTime * FovLerpPerSecond);
         }
 
-        //  오래 당기고 있으면 실제로 쏠 화살도 흔들린다 — 당기지 않을 때는 0으로 돌려놓는다.
-        //  안 그러면 쏜 뒤에도 화면이 기울어진 채 남는다.
+        //  잡고 있으면 지금도 실제로 쏠 화살이 흔들린다 — 당기지 않을 때는 0으로 돌려놓는다.
+        //  안 그러면 쏜 뒤에도 화면이 기울어진 채 남는다. 당김(aim.DrawRatio)도 같이 넘긴다 —
+        //  절반만 당긴 활은 절반만 떨어야 한다.
         private Vector2 SwayFor(ArcheryAim aim)
         {
             if (aim == null || aim.Drawing == false)
@@ -99,7 +100,7 @@ namespace LOP
 
             float heldSeconds = CurrentHeldSeconds(aim);
             int phaseSeed = ArcheryShake.PhaseSeedOf(playerContext.entityId);
-            Vector2 offset = ArcheryShake.Offset(heldSeconds, phaseSeed, config);
+            Vector2 offset = ArcheryShake.Offset(heldSeconds, aim.DrawRatio, phaseSeed, config);
 
             //  offset.y는 조준 좌표계(위가 양수), AimSwayDegrees.y는 유니티 부호(아래가 양수) —
             //  그대로 넣으면 화면이 실제 흔들림과 반대로 기운다.

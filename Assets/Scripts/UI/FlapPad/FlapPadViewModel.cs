@@ -16,11 +16,17 @@ namespace LOP.UI
         private readonly FlappyChaserView _chaserView;
 
         private readonly ReactiveProperty<float> _dashCharge = new ReactiveProperty<float>(0f);
+        private readonly ReactiveProperty<int> _dashStacks = new ReactiveProperty<int>(0);
         private readonly ReactiveProperty<bool> _canDash = new ReactiveProperty<bool>(false);
         private readonly ReactiveProperty<float> _chaserGap = new ReactiveProperty<float>(0f);
 
-        /// <summary>대시 게이지 0~1. 버튼이 이만큼 차오른다.</summary>
+        /// <summary>지금 채우고 있는 칸이 얼마나 찼나(0~1). 버튼이 이만큼 차오른다.
+        /// <para>쌓아 둔 칸은 <see cref="DashStacks"/>가 숫자로 따로 보여 준다 — 롤 강타와 같은 모양이다.
+        /// 게이지 하나로 0~2를 그리면 "지금 쓸 수 있나"가 눈금 중간에 묻힌다.</para></summary>
         public ReadOnlyReactiveProperty<float> DashCharge => _dashCharge;
+
+        /// <summary>지금 쓸 수 있는 칸 수(0~<see cref="FlappyDash.MaxCharge"/>).</summary>
+        public ReadOnlyReactiveProperty<int> DashStacks => _dashStacks;
 
         /// <summary>지금 대시를 쓸 수 있나. 버튼의 밝기와 반응이 이 값을 따른다.</summary>
         public ReadOnlyReactiveProperty<bool> CanDash => _canDash;
@@ -64,8 +70,11 @@ namespace LOP.UI
                 : _entityRegistry.Get(_playerContext.entityId);
 
             float charge = entity?.Get<FlappyDash>()?.Charge ?? 0f;
-            _dashCharge.Value = charge;
-            _canDash.Value = charge >= 1f;
+            int stacks = (int)charge;
+            _dashStacks.Value = stacks;
+            //  꽉 찼을 때 나머지를 그리면 게이지가 0으로 돌아가 "다 찼는데 비어 보이는" 그림이 된다.
+            _dashCharge.Value = charge >= FlappyDash.MaxCharge ? 1f : charge - stacks;
+            _canDash.Value = stacks >= 1;
 
             _chaserGap.Value = entity == null
                 ? 0f

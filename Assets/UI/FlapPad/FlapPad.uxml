@@ -6,6 +6,7 @@
         <ui:VisualElement name="dash-button" class="dash-button">
             <ui:VisualElement name="dash-fill" class="dash-fill" picking-mode="Ignore" />
             <ui:Label name="dash-label" class="dash-label" text="대시" picking-mode="Ignore" />
+            <ui:Label name="dash-stacks" class="dash-stacks" text="" picking-mode="Ignore" />
         </ui:VisualElement>
         <ui:Label name="flap-hint" class="flap-hint" text="화면을 누르면 날갯짓 (Space)" picking-mode="Ignore" />
     </ui:VisualElement>

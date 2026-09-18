@@ -53,6 +53,17 @@
     -unity-text-align: middle-center;
 }
 
+/* 쌓아 둔 칸 수 — 롤 강타처럼 버튼 모서리에 숫자로. 0칸이면 코드가 빈 문자열을 넣어 사라진다. */
+.dash-stacks {
+    position: absolute;
+    right: 10px;
+    bottom: 6px;
+    font-size: 34px;
+    color: rgb(255, 214, 92);
+    -unity-font-style: bold;
+    -unity-text-align: middle-right;
+}
+
 /* 가득 찼을 때만 밝아진다 — "지금 쓸 수 있다"가 눈에 띄어야 한다. */
 .dash-button--ready {
     border-color: rgb(255, 214, 92);

@@ -15,9 +15,8 @@ namespace LOP
     {
         private readonly GameFramework.Runner.IRunner runner;
         private readonly GameFramework.World.IWorld world;
-        private readonly ArcheryConfig config;
+        private readonly ArcheryCourse course;
         private readonly ArcheryConsumed consumed;
-        private readonly IMatchSeed matchSeed;
 
         private readonly List<ArcheryTarget> targets = new List<ArcheryTarget>();
         private readonly Dictionary<(int wave, int slot), GameObject> drawn
@@ -30,15 +29,13 @@ namespace LOP
 
         public ArcheryTargetView(GameFramework.Runner.IRunner runner,
                                  GameFramework.World.IWorld world,
-                                 ArcheryConfig config,
-                                 ArcheryConsumed consumed,
-                                 IMatchSeed matchSeed)
+                                 ArcheryCourse course,
+                                 ArcheryConsumed consumed)
         {
             this.runner = runner;
             this.world = world;
-            this.config = config;
+            this.course = course;
             this.consumed = consumed;
-            this.matchSeed = matchSeed;
         }
 
         public void LateTick()
@@ -57,14 +54,13 @@ namespace LOP
             //  튄다. (예전에는 "과녁은 가만히 있다"가 근거였는데 그 전제가 깨졌다.)
             double renderTick = (runner.tickUpdater.elapsedTime - interval) / interval;
 
-            //  어느 웨이브인지는 틱 단위 사실이라 여기는 정수로 묻는다.
-            int wave = ArcheryWaveGenerator.WaveIndexAt((long)System.Math.Floor(renderTick),
-                                                        world.GameplayStartTick, config);
+            //  어느 단계인지는 틱 단위 사실이라 여기는 정수로 묻는다.
+            int step = course.IndexAt((long)System.Math.Floor(renderTick), world.GameplayStartTick);
 
             targets.Clear();
-            if (wave >= 0)
+            if (step >= 0 && (course.StepCount == 0 || step < course.StepCount))
             {
-                ArcheryWaveGenerator.Fill(targets, matchSeed.Value, wave, config, world.GameplayStartTick);
+                course.Fill(targets, step, world.GameplayStartTick);
             }
 
             alive.Clear();

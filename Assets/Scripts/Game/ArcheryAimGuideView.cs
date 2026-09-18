@@ -128,13 +128,14 @@ namespace LOP
             float yaw = cameraController.Yaw;
             float pitch = -cameraController.Pitch;
 
-            //  오래 당기고 있으면 실제로 쏠 화살도 흔들린다 — 선이 그 흔들림을 안 보여 주면
+            //  잡고 있으면 지금도 실제로 쏠 화살이 흔들린다 — 선이 그 흔들림을 안 보여 주면
             //  "흔들리는지도 몰랐는데 빗나갔다"가 된다. 시뮬(ArcheryAimSystem.Tick)과 정확히
             //  같은 함수(DirectionFor)를 불러야 한다 — 여기서 sway를 따로 더하면 지금은 우연히
-            //  같아도 한쪽만 고치는 순간 조용히 갈라진다.
+            //  같아도 한쪽만 고치는 순간 조용히 갈라진다. 당김(aim.DrawRatio)도 같이 넘긴다 —
+            //  절반만 당긴 활은 절반만 떨어야 한다.
             float heldSeconds = CurrentHeldSeconds(aim);
             int phaseSeed = ArcheryShake.PhaseSeedOf(playerContext.entityId);
-            Vector3 direction = ArcheryAimSystem.DirectionFor(yaw, pitch, heldSeconds, phaseSeed, config);
+            Vector3 direction = ArcheryAimSystem.DirectionFor(yaw, pitch, heldSeconds, aim.DrawRatio, phaseSeed, config);
 
             //  발사할 때와 같은 원점·속도·방향으로 만든다. 여기가 어긋나면 선이 거짓말을 한다.
             var shot = new ArcheryShot(
@@ -189,8 +190,8 @@ namespace LOP
         }
 
         //  지금 이 순간 얼마나 당기고 있었나(초). 틱 정보가 아직 없으면(씬 진입 초기) 0을
-        //  준다 — DirectionFor에 0을 넣으면 유예 구간(ShakeFreeSeconds) 안이라 안 흔든 것과
-        //  같은 결과가 나오는 안전한 기본값이다.
+        //  준다 — DirectionFor에 0을 넣으면 "막 잡은 순간"과 같은 값이라 흔들림도 자연히
+        //  0에서 시작하는 안전한 기본값이다(더는 별도의 유예 구간이 없다).
         private float CurrentHeldSeconds(ArcheryAim aim)
         {
             if (runner?.tickUpdater == null)

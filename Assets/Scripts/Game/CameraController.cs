@@ -46,6 +46,17 @@ namespace LOP
         /// </summary>
         public Vector2 AimSwayDegrees { get; set; }
 
+        /// <summary>
+        /// 플레이어가 직접 조작한(흔들림을 더하기 전) 각도(도) — <see cref="LateUpdate"/>가
+        /// 렌더링에 쓰는 <c>yaw + AimSwayDegrees.x</c>와 다르다. 활쏘기 조준은 반드시 이 값을
+        /// 읽어야 한다 — 화면에 그려진 각(흔들림 포함)을 읽으면 흔들림이 조준에도 얹혀
+        /// 시뮬이 같은 흔들림을 또 더하게 된다(이중 적용).
+        /// </summary>
+        public float Yaw => yaw;
+
+        /// <summary>Pitch도 Yaw와 같은 이유로 흔들림을 더하기 전 값이다. 유니티 부호(양수가 아래).</summary>
+        public float Pitch => pitch;
+
         private float yaw;
         private float pitch;
         private float distance;

@@ -82,6 +82,22 @@ namespace LOP
             }
         }
 
+        /// <summary>
+        /// 겨눈 각을 <b>그 자리에서</b> 이만큼 돌린다(도). x는 좌우, y는 위아래이며 <b>양수가 위</b>다
+        /// — <see cref="Pitch"/>의 유니티 부호와 반대이니 주의.
+        ///
+        /// <para><see cref="ProcessTouchInput"/>와 달리 속도를 쌓지 않는다. 부른 만큼만 돌고, 안
+        /// 부르면 그 자리에 선다. 둘러보는 모드는 튕기면 미끄러지는 쪽이 편하지만 <b>겨누는 모드는
+        /// 멈출 수 있어야 한다</b> — 속도를 쌓는 방식은 손을 떼도 5도쯤 더 흘러가서 겨눈 곳에 설 수가
+        /// 없었다(90m 과녁의 10점 링이 0.25도다). 카메라 거리(줌)도 건드리지 않는다.</para>
+        /// </summary>
+        public void AimBy(Vector2 degrees)
+        {
+            yaw += degrees.x;
+            //  유니티의 x 회전은 양수가 아래를 본다 — 위로 올리라는 뜻이면 빼야 한다.
+            pitch = Mathf.Clamp(pitch - degrees.y, minPitch, maxPitch);
+        }
+
         public void ProcessTouchInput(Vector2 deltaPosition)
         {
             yawVelocity += Mathf.Clamp(deltaPosition.x * rotationAcceleration * 0.001f, -rotationMaxSpeed, rotationMaxSpeed);

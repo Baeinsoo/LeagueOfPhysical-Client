@@ -14,9 +14,30 @@ namespace LOP.UI
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly IPlayerContext playerContext;
 
-        // 키 한 프레임이 손가락을 이만큼 끈 것과 같다(px). 드래그와 **같은 경로**로 넣어야
-        // 감속·상하 한계각이 저절로 같아진다 — 마우스로 겨눈 것과 키보드로 겨눈 것이 달라지지 않게.
-        private const float KeyLookSpeed = 8f;
+        //  겨누는 속도(도/초). 아래 화각을 기준으로 정한 값이고, 당겨서 화면이 좁아지면 그
+        //  비율만큼 같이 줄어든다 — 그래야 손동작 하나가 **화면 위에서** 늘 같은 거리를 움직인다.
+        //  (저격 게임의 "줌 감도 보정"과 같은 것. 안 하면 줌인할수록 손이 미쳐 날뛴다.)
+        private const float ReferenceFov = ArcheryAimView.WideFov;
+
+        //  톡 쳤을 때의 속도. 당긴 상태(화각 22도)에서 약 2.2도/초가 되는데, 90m 과녁의 10점
+        //  링(0.25도)을 건너는 데 7프레임쯤 걸리는 속도다 — 미세조정이 되는 하한선.
+        private const float FineDegreesPerSecond = 6f;
+
+        //  계속 누르고 있을 때 도달하는 속도. 당긴 상태에서 약 22도/초 = 1초에 화면 하나.
+        private const float MaxDegreesPerSecond = 60f;
+
+        //  누르고 있으면 이 시간에 걸쳐 Fine에서 Max까지 오르고, 떼면 **즉시** Fine으로 돌아간다.
+        //  키보드는 세기를 못 주므로 "짧게 톡 치면 느리게, 길게 누르면 빠르게"로 세기를 만든다.
+        //  떼자마자 되돌리는 것이 핵심 — 안 그러면 연타할수록 점점 빨라져 미세조정이 사라진다.
+        private const float LookRampSeconds = 0.45f;
+
+        //  한 프레임이 크게 밀렸을 때(씬 로드·GC) 그 시간만큼을 한 번에 돌리면 화면이 툭 튄다.
+        //  속도를 쌓던 옛 방식은 감쇠가 그걸 눌러 줬지만 지금은 곧장 각도로 가므로 여기서 막는다.
+        //  20fps에 해당하는 값 — 이보다 느린 프레임은 "그만큼 돌았다" 치지 않는다.
+        private const float MaxLookDeltaSeconds = 0.05f;
+
+        //  지금 얼마나 오래 누르고 있나(0~1).
+        private float lookRamp;
 
         private bool drawing;
 
@@ -63,10 +84,16 @@ namespace LOP.UI
             }
         }
 
-        /// <summary>왼쪽 영역 드래그 — 시점을 돌린다. 조준은 이 시점을 그대로 따른다.</summary>
-        public void LookBy(Vector2 deltaPixels)
+        /// <summary>
+        /// 왼쪽 영역 드래그 — 시점을 돌린다. 받는 값은 <b>화면 크기 대비 비율</b>이다(픽셀이 아니다).
+        /// x는 가로 폭 대비, y는 세로 높이 대비. 한 화면만큼 끌면 딱 한 화면만큼 돈다 —
+        /// 손가락 밑의 그림이 손가락을 따라온다.
+        /// </summary>
+        public void LookBy(Vector2 deltaFraction)
         {
-            cameraController.ProcessTouchInput(deltaPixels);
+            //  가로와 세로는 화각이 다르다(가로 화각 = 세로 화각을 화면 비율로 늘린 것). 한 값으로
+            //  묶으면 가로로 끌 때만 어긋나는데, 가로로 긴 화면에서는 그 차이가 30%까지 벌어진다.
+            AimBy(new Vector2(deltaFraction.x * HorizontalFov, deltaFraction.y * CurrentFov));
         }
 
         /// <summary>
@@ -80,6 +107,7 @@ namespace LOP.UI
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
             if (keyboard == null)
             {
+                lookRamp = 0f;
                 return;   // 키보드가 없는 기기(모바일)
             }
 
@@ -89,10 +117,49 @@ namespace LOP.UI
             if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed) { look.y += 1f; }
             if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed) { look.y -= 1f; }
 
-            if (look != Vector2.zero)
+            if (look == Vector2.zero)
             {
-                LookBy(look.normalized * KeyLookSpeed);
+                lookRamp = 0f;
+                return;
             }
+
+            float deltaSeconds = Mathf.Min(Time.deltaTime, MaxLookDeltaSeconds);
+            lookRamp = Mathf.Min(1f, lookRamp + deltaSeconds / LookRampSeconds);
+            float degreesPerSecond = Mathf.Lerp(FineDegreesPerSecond, MaxDegreesPerSecond, lookRamp);
+            AimBy(look.normalized * (degreesPerSecond * FovScale * deltaSeconds));
+        }
+
+        /// <summary>지금 화각(도). 당길수록 좁아진다 — 카메라가 없으면 기준값으로 친다.</summary>
+        private float CurrentFov
+        {
+            get
+            {
+                var camera = cameraController.MainCamera;
+                return camera != null ? camera.fieldOfView : ReferenceFov;
+            }
+        }
+
+        /// <summary>가로 화각(도). 세로 화각을 화면 가로세로 비율로 늘린 값이다.</summary>
+        private float HorizontalFov
+        {
+            get
+            {
+                var camera = cameraController.MainCamera;
+                if (camera == null)
+                {
+                    return ReferenceFov;
+                }
+                float halfVertical = camera.fieldOfView * 0.5f * Mathf.Deg2Rad;
+                return 2f * Mathf.Atan(Mathf.Tan(halfVertical) * camera.aspect) * Mathf.Rad2Deg;
+            }
+        }
+
+        private float FovScale => CurrentFov / ReferenceFov;
+
+        //  속도를 쌓지 않는 경로로 넣는다 — 부른 만큼만 돌고 떼면 그 자리에 선다.
+        private void AimBy(Vector2 degrees)
+        {
+            cameraController.AimBy(degrees);
         }
 
         /// <summary>

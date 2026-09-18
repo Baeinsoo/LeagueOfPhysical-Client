@@ -111,8 +111,7 @@ namespace LOP
             return new Vector2(offset.x, -offset.y);
         }
 
-        //  ArcheryAimGuideView.CurrentHeldSeconds와 같은 계산 — 화면은 정수 틱 사이도 물어보므로
-        //  렌더 시각(소수 틱)을 쓴다.
+        //  화면은 정수 틱 사이도 물어보므로 렌더 시각(소수 틱)을 쓴다.
         private float CurrentHeldSeconds(ArcheryAim aim)
         {
             if (runner?.tickUpdater == null)

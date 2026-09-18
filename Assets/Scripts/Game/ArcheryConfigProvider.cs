@@ -50,6 +50,14 @@ namespace LOP
             }
 
             var courseKind = (ArcheryCourseKind)r.CourseKind;
+            //  모르는 값을 그냥 두면 캐스트가 조용히 통과해 웨이브로 굴러간다 — 사거리 맵이
+            //  원형처럼 돌면서 에러는 하나도 안 난다. 여기서 크게 터뜨린다.
+            if (courseKind != ArcheryCourseKind.Wave && courseKind != ArcheryCourseKind.Range)
+            {
+                throw new System.InvalidOperationException(
+                    $"맵 {mapId}의 course_kind({r.CourseKind})를 모른다 — 0(웨이브)나 1(사거리)이어야 한다");
+            }
+
             var range = ArcheryRangeSettings.None;
             if (courseKind == ArcheryCourseKind.Range)
             {

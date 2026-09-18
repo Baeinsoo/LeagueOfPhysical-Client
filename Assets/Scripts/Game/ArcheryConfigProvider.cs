@@ -75,7 +75,8 @@ namespace LOP
                                                           x => x.MapId == mapId),
                              x => x.StandIndex))
                 {
-                    stands.Add(new ArcheryRangeStand(row.StandIndex, row.DistanceM, row.ExposureTicks));
+                    stands.Add(new ArcheryRangeStand(row.StandIndex, row.DistanceM, row.ExposureTicks,
+                                                     row.LateralSpanM, row.LateralPeriodS));
                 }
                 if (stands.Count == 0)
                 {

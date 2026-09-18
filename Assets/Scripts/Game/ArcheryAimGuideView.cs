@@ -125,20 +125,21 @@ namespace LOP
             float yaw = camera.transform.eulerAngles.y;
             float pitch = -Mathf.DeltaAngle(0f, camera.transform.eulerAngles.x);
 
-            //  오래 당기고 있으면 실제로 쏠 화살도 흔들린다(ArcheryAimSystem) — 선이 그 흔들림을
-            //  안 보여 주면 "흔들리는지도 몰랐는데 빗나갔다"가 된다. 시뮬과 같은 함수에 같은
-            //  위상(내 entityId)을 넣어야 같은 순간엔 같은 흔들림이 나온다.
-            Vector2 sway = SwayNow(aim);
-            yaw += sway.x;
-            pitch += sway.y;
+            //  오래 당기고 있으면 실제로 쏠 화살도 흔들린다 — 선이 그 흔들림을 안 보여 주면
+            //  "흔들리는지도 몰랐는데 빗나갔다"가 된다. 시뮬(ArcheryAimSystem.Tick)과 정확히
+            //  같은 함수(DirectionFor)를 불러야 한다 — 여기서 sway를 따로 더하면 지금은 우연히
+            //  같아도 한쪽만 고치는 순간 조용히 갈라진다.
+            float heldSeconds = CurrentHeldSeconds(aim);
+            int phaseSeed = ArcheryShake.PhaseSeedOf(playerContext.entityId);
+            Vector3 direction = ArcheryAimSystem.DirectionFor(yaw, pitch, heldSeconds, phaseSeed, config);
 
-            //  발사할 때와 같은 원점·속도로 만든다. 여기가 어긋나면 선이 거짓말을 한다.
+            //  발사할 때와 같은 원점·속도·방향으로 만든다. 여기가 어긋나면 선이 거짓말을 한다.
             var shot = new ArcheryShot(
                 playerContext.entityId,
                 0,
                 GameFramework.World.EntityMotionExtensions.GetPosition(entity)
                     + new Vector3(0f, ArcheryAimSystem.EyeHeight, 0f),
-                ArcheryTrajectory.DirectionFrom(yaw, pitch) * speed);
+                direction * speed);
 
             float impactSeconds = FindImpactSeconds(shot);
             Draw(shot, camera, impactSeconds);
@@ -184,24 +185,23 @@ namespace LOP
             return ArcheryTrajectory.LifetimeSeconds;
         }
 
-        //  지금 이 순간의 흔들림. ArcheryAimSystem이 발사 시 쓰는 것과 같은 함수·같은 위상이다 —
-        //  틱 정보가 아직 없으면(씬 진입 초기) 안 흔든다.
-        private Vector2 SwayNow(ArcheryAim aim)
+        //  지금 이 순간 얼마나 당기고 있었나(초). 틱 정보가 아직 없으면(씬 진입 초기) 0을
+        //  준다 — DirectionFor에 0을 넣으면 유예 구간(ShakeFreeSeconds) 안이라 안 흔든 것과
+        //  같은 결과가 나오는 안전한 기본값이다.
+        private float CurrentHeldSeconds(ArcheryAim aim)
         {
             if (runner?.tickUpdater == null)
             {
-                return Vector2.zero;
+                return 0f;
             }
             double interval = runner.tickUpdater.interval;
             if (interval <= 0d)
             {
-                return Vector2.zero;
+                return 0f;
             }
 
             double renderTick = (runner.tickUpdater.elapsedTime - interval) / interval;
-            float heldSeconds = ArcheryAimSystem.HeldSeconds(aim.DrawStartTick, renderTick, (float)interval);
-            int phaseSeed = ArcheryShake.PhaseSeedOf(playerContext.entityId);
-            return ArcheryShake.Offset(heldSeconds, phaseSeed, config);
+            return ArcheryAimSystem.HeldSeconds(aim.DrawStartTick, renderTick, (float)interval);
         }
 
         //  살아 있는 과녁 중 이 구간에서 가장 먼저 맞는 것 하나만 본다 — 두 과녁이 겹쳐 있어도

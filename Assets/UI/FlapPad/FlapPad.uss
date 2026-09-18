@@ -48,20 +48,27 @@
 }
 
 .dash-label {
-    font-size: 30px;
+    /* 아래 숫자와 겹치지 않게 가운데에서 위로 22px 올린다(가운데 정렬된 자식의 아래 여백). */
+    margin-bottom: 44px;
+    font-size: 28px;
     color: rgba(255, 255, 255, 0.45);
     -unity-text-align: middle-center;
 }
 
-/* 쌓아 둔 칸 수 — 롤 강타처럼 버튼 모서리에 숫자로. 0칸이면 코드가 빈 문자열을 넣어 사라진다. */
+/* 쌓아 둔 칸 수 — 롤 강타처럼 숫자로 보여 준다. 0칸이면 코드가 빈 문자열을 넣어 사라진다.
+   모서리가 아니라 원 안쪽 아래에 둔다: 버튼이 원형 클리핑(overflow:hidden + border-radius)이라
+   모서리에 두면 잘려 나간다. 색도 게이지와 같은 호박색이면 다 찼을 때 숫자가 통째로 묻힌다 —
+   흰색 + 어두운 그림자라야 빈 버튼(어두움)과 찬 버튼(호박색) 양쪽에서 읽힌다. */
 .dash-stacks {
     position: absolute;
-    right: 10px;
-    bottom: 6px;
-    font-size: 34px;
-    color: rgb(255, 214, 92);
+    left: 0;
+    right: 0;
+    bottom: 18px;
+    font-size: 40px;
+    color: rgb(255, 255, 255);
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.95);
     -unity-font-style: bold;
-    -unity-text-align: middle-right;
+    -unity-text-align: middle-center;
 }
 
 /* 가득 찼을 때만 밝아진다 — "지금 쓸 수 있다"가 눈에 띄어야 한다. */

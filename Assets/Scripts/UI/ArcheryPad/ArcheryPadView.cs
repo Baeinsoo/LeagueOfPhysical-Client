@@ -67,8 +67,10 @@ namespace LOP.UI
                 {
                     return;
                 }
+                //  내려놓는 중에는 겨누지 않는다 — 손가락이 띠 안에서 꿈틀대면 ViewModel이
+                //  조준을 되돌리는 것과 싸운다.
                 Vector2 size = PanelSize();
-                if (size.x > 0f && size.y > 0f)
+                if (_viewModel.Lowering == false && size.x > 0f && size.y > 0f)
                 {
                     //  패널 좌표는 **아래로 갈수록 y가 커진다.** LookBy는 "양수 = 위"를 받으므로
                     //  여기서 뒤집는다. 안 뒤집으면 가로는 손가락을 따라가는데 세로만 반대로
@@ -109,6 +111,7 @@ namespace LOP.UI
             _tick = Root.schedule.Execute(_ =>
             {
                 _viewModel.PollKeyboard();
+                _viewModel.UpdateAim(Time.deltaTime);
                 _score.text = _viewModel.Score.ToString();
 
                 //  무제한인 맵에서는 아예 안 보이게 한다 — 늘 같은 숫자가 떠 있으면 눈만 시끄럽다.

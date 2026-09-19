@@ -193,11 +193,21 @@ namespace LOP.UI
         /// <summary>임계치를 넘겨 시위가 걸렸나. 못 넘으면 떼도 안 쏜다.</summary>
         public bool DrawArmed => DrawRatio >= ArcheryAimSystem.DrawThreshold;
 
+        //  활을 들기 직전에 보던 곳. 내려놓으면 여기로 돌아온다 — 아래 UpdateAim 참고.
+        private float aimAtPressYaw;
+        private float aimAtPressPitch;
+
+        //  돌아가는 데 걸리는 시간(초). 활을 내리는 동안 화각도 22°→60°로 넓어지므로
+        //  그 속도와 얼추 맞춰야 화면이 따로 노는 느낌이 안 난다.
+        private const float ReturnSeconds = 0.18f;
+
         /// <summary>손가락을 댔다 — 활이 올라오기 시작한다. 얼마나 올라오는지는 시뮬이 정한다.</summary>
         public void BeginDraw()
         {
             drawing = true;
             Lowering = false;
+            aimAtPressYaw = cameraController.Yaw;
+            aimAtPressPitch = cameraController.Pitch;
             input.SetDrawing(true);
             input.SetDrawRatio(1f);
         }
@@ -218,6 +228,36 @@ namespace LOP.UI
             //  DrawStartTick이 새로 찍혀 흔들림 피로가 초기화된다 — 띠에 담갔다 빼는 것이
             //  이득이 되면 안 된다. 목표만 0으로 낮춰 활이 내려가게 한다.
             input.SetDrawRatio(Lowering ? 0f : 1f);
+        }
+
+        /// <summary>
+        /// 내려놓는 동안 조준을 <b>활을 들기 직전 자리로</b> 되돌린다. 매 프레임 불린다.
+        ///
+        /// <para><b>왜 필요한가</b>: 취소하려면 손가락을 띠(화면 아래 15%)까지 내려야 하는데,
+        /// 그 손가락이 곧 조준이라 내려가는 동안 조준도 같이 끌려 내려간다. 화면 가운데쯤에서
+        /// 시작하면 화면 높이의 35%를 끄는 셈이고, 당긴 상태(화각 22°)에서 그건 <b>아래로 7.7°</b>다
+        /// — 90m 홀드오버 전체가 1.1°이니 취소 한 번에 조준이 통째로 날아간다. 특히 먼 과녁일수록
+        /// 위를 겨누고 있어 손해가 크다.</para>
+        ///
+        /// <para>활을 내려놓으면 시야도 원래대로 돌아가는 것이 물리적으로도 맞다. 되돌아가는
+        /// 동안 <see cref="LookBy"/>는 화면 쪽에서 막는다 — 안 막으면 손가락이 띠 안에서
+        /// 꿈틀댈 때마다 되돌아가는 것과 싸운다.</para>
+        /// </summary>
+        public void UpdateAim(float deltaSeconds)
+        {
+            if (drawing == false || Lowering == false || deltaSeconds <= 0f)
+            {
+                return;
+            }
+
+            //  남은 거리에 비례해 줄어드는 감쇠 — 끝에서 뚝 끊기지 않는다.
+            float k = 1f - Mathf.Exp(-deltaSeconds / ReturnSeconds);
+
+            //  부호 변환과 최단 방향 계산은 CameraController.StepToward 한 곳에 있다
+            //  (여기서 다시 하면 반드시 한 번은 틀린다 — 시험이 거기를 지킨다).
+            AimBy(CameraController.StepToward(
+                cameraController.Yaw, cameraController.Pitch,
+                aimAtPressYaw, aimAtPressPitch, k));
         }
 
         /// <summary>두 번 불려도 한 번만 쏜다 — 아래 View가 뗌을 두 경로로 받기 때문이다.</summary>

@@ -54,8 +54,7 @@ namespace LOP.UI
                 }
                 _drawPointerId = evt.pointerId;
                 surface.CapturePointer(evt.pointerId);
-                _viewModel.BeginDraw();
-                _viewModel.UpdatePointer(Fraction(evt.position));
+                _viewModel.BeginPress(Fraction(evt.position));
             });
 
             //  같은 손가락이 겨눈다. 끈 만큼(화면 대비 비율)을 조준으로 넘기고, 지금 자리는
@@ -67,18 +66,17 @@ namespace LOP.UI
                 {
                     return;
                 }
-                //  내려놓는 중에는 겨누지 않는다 — 손가락이 띠 안에서 꿈틀대면 ViewModel이
-                //  조준을 되돌리는 것과 싸운다.
+                //  패널 좌표는 **아래로 갈수록 y가 커진다.** ViewModel은 "양수 = 위"를 받으므로
+                //  여기서 뒤집는다. 안 뒤집으면 가로는 손가락을 따라가는데 세로만 반대로 도는,
+                //  어느 게임에도 없는 조합이 된다(옛 경로가 그랬고 그대로 옮겨졌다).
+                //  활인지 시야인지는 ViewModel이 정한다 — 화면은 움직임과 자리만 넘긴다.
                 Vector2 size = PanelSize();
-                if (_viewModel.Lowering == false && size.x > 0f && size.y > 0f)
+                if (size.x > 0f && size.y > 0f)
                 {
-                    //  패널 좌표는 **아래로 갈수록 y가 커진다.** LookBy는 "양수 = 위"를 받으므로
-                    //  여기서 뒤집는다. 안 뒤집으면 가로는 손가락을 따라가는데 세로만 반대로
-                    //  도는, 어느 게임에도 없는 조합이 된다(옛 경로가 그랬고 그대로 옮겨졌다).
-                    _viewModel.LookBy(new Vector2(evt.deltaPosition.x / size.x,
-                                                  -evt.deltaPosition.y / size.y));
+                    _viewModel.MovePointer(
+                        new Vector2(evt.deltaPosition.x / size.x, -evt.deltaPosition.y / size.y),
+                        Fraction(evt.position));
                 }
-                _viewModel.UpdatePointer(Fraction(evt.position));
             });
 
             //  당김을 시작한 손가락이 뗄 때만 발사 판정을 한다 — 다른 손가락이 살짝 스치고
@@ -91,7 +89,7 @@ namespace LOP.UI
                 }
                 surface.ReleasePointer(evt.pointerId);
                 _drawPointerId = -1;
-                _viewModel.EndDraw();
+                _viewModel.EndPress();
             });
             // 손가락이 화면 밖으로 나가면 위의 Up이 안 온다 — 그대로 두면 활을 든 채 영영 멈춘다.
             surface.RegisterCallback<PointerCaptureOutEvent>(evt =>
@@ -101,7 +99,7 @@ namespace LOP.UI
                     return;
                 }
                 _drawPointerId = -1;
-                _viewModel.EndDraw();
+                _viewModel.EndPress();
             });
 
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.
@@ -111,7 +109,7 @@ namespace LOP.UI
             _tick = Root.schedule.Execute(_ =>
             {
                 _viewModel.PollKeyboard();
-                _viewModel.UpdateAim(Time.deltaTime);
+                _viewModel.Tick(Time.deltaTime);
                 _score.text = _viewModel.Score.ToString();
 
                 //  무제한인 맵에서는 아예 안 보이게 한다 — 늘 같은 숫자가 떠 있으면 눈만 시끄럽다.
@@ -138,7 +136,7 @@ namespace LOP.UI
                 }
 
                 //  띠는 잡고 있는 동안만 보인다 — 안 그러면 화면 아래가 늘 가려진다.
-                bool holding = _viewModel.Drawing;
+                bool holding = _viewModel.Holding;
                 _lowerBand.style.display = holding ? DisplayStyle.Flex : DisplayStyle.None;
                 _lowerBand.EnableInClassList("is-lowering", holding && _viewModel.Lowering);
             }).Every(0);

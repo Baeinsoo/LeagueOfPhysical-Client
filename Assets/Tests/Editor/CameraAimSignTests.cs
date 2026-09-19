@@ -71,5 +71,67 @@ namespace LOP.Tests
                 Object.DestroyImmediate(host);
             }
         }
+    
+        //  ArcheryPadViewModel.UpdateAim이 **실제로 부르는** 함수를 잰다. 활을 내려놓을 때
+        //  조준을 들기 직전 자리로 되돌리는 계산이고, 부호를 한 번만 헷갈려도 되돌리기는커녕
+        //  두 배로 멀어진다 — 취소할 때마다 시야가 아래로 튀는 모양이 된다.
+        [Test]
+        public void 되돌리기가_목표_자세에_수렴한다()
+        {
+            var camera = NewCamera(out var host);
+            try
+            {
+                const float targetYaw = 0f, targetPitch = 0f;
+                camera.AimBy(new Vector2(12f, -7f));   // 조준이 오른쪽·아래로 끌려간 상황
+                Assert.Greater(Mathf.Abs(camera.Pitch - targetPitch), 1f, "준비 자체가 안 됐다");
+
+                //  한 프레임씩 60번 — UpdateAim이 매 프레임 하는 것과 같다.
+                for (int i = 0; i < 60; i++)
+                {
+                    camera.AimBy(CameraController.StepToward(
+                        camera.Yaw, camera.Pitch, targetYaw, targetPitch, 0.2f));
+                }
+
+                Assert.AreEqual(targetPitch, camera.Pitch, 1e-2f,
+                    "위아래가 목표로 안 온다 — 부호가 뒤집혀 있으면 오히려 멀어진다");
+                Assert.AreEqual(targetYaw, Mathf.DeltaAngle(0f, camera.Yaw), 1e-2f,
+                    "좌우가 목표로 안 온다");
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        //  첫 한 걸음이 **가까워지는 방향**이어야 한다. 위 시험은 60번 돌려 수렴을 보지만,
+        //  부호가 맞아도 방향이 뒤집힌 변형(예: 목표와 현재를 바꿔 빼기)은 첫 걸음에서 드러난다.
+        [Test]
+        public void 되돌리기의_첫_걸음이_가까워지는_쪽이다()
+        {
+            var camera = NewCamera(out var host);
+            try
+            {
+                camera.AimBy(new Vector2(0f, -7f));
+                float before = Mathf.Abs(camera.Pitch - 0f);
+
+                camera.AimBy(CameraController.StepToward(camera.Yaw, camera.Pitch, 0f, 0f, 0.3f));
+
+                Assert.Less(Mathf.Abs(camera.Pitch - 0f), before,
+                    "한 걸음 갔는데 목표에서 더 멀어졌다");
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        //  좌우는 360도를 넘나든다 — 350도에서 10도로 갈 때 최단(+20도)으로 가야지
+        //  그냥 빼면 반대로 340도를 돈다.
+        [Test]
+        public void 좌우를_되돌릴_때_먼_쪽으로_돌지_않는다()
+        {
+            var step = CameraController.StepToward(350f, 0f, 10f, 0f, 1f);
+            Assert.AreEqual(20f, step.x, 1e-3f, "최단 방향(+20도)이 아니다");
+        }
     }
 }

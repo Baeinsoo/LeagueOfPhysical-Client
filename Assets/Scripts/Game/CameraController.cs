@@ -91,6 +91,25 @@ namespace LOP
         /// 멈출 수 있어야 한다</b> — 속도를 쌓는 방식은 손을 떼도 5도쯤 더 흘러가서 겨눈 곳에 설 수가
         /// 없었다(90m 과녁의 10점 링이 0.25도다). 카메라 거리(줌)도 건드리지 않는다.</para>
         /// </summary>
+        /// <summary>
+        /// 지금 자세에서 목표 자세로 <paramref name="k"/>(0~1)만큼 다가가는
+        /// <see cref="AimBy"/> 입력을 만든다. 돌려주는 값은 AimBy의 규약대로 <b>y 양수가 위</b>다.
+        ///
+        /// <para>이 부호 변환이 <see cref="AimBy"/> 바깥에 흩어지면 반드시 한 번은 틀린다 —
+        /// Pitch는 유니티 부호(양수가 아래)인데 AimBy는 반대라, 빼는 순서를 한 번만 헷갈려도
+        /// 되돌리기는커녕 두 배로 멀어진다. 그래서 여기 한 곳에 두고 시험으로 박는다.</para>
+        ///
+        /// <para>좌우는 <see cref="Mathf.DeltaAngle"/>로 잰다 — 350도에서 10도로 갈 때
+        /// 그냥 빼면 최단(+20도)이 아니라 반대로 340도를 돈다.</para>
+        /// </summary>
+        public static Vector2 StepToward(float currentYaw, float currentPitch,
+                                         float targetYaw, float targetPitch, float k)
+        {
+            return new Vector2(
+                Mathf.DeltaAngle(currentYaw, targetYaw) * k,
+                -(targetPitch - currentPitch) * k);
+        }
+
         public void AimBy(Vector2 degrees)
         {
             yaw += degrees.x;

@@ -70,8 +70,11 @@ namespace LOP.UI
                 Vector2 size = PanelSize();
                 if (size.x > 0f && size.y > 0f)
                 {
+                    //  패널 좌표는 **아래로 갈수록 y가 커진다.** LookBy는 "양수 = 위"를 받으므로
+                    //  여기서 뒤집는다. 안 뒤집으면 가로는 손가락을 따라가는데 세로만 반대로
+                    //  도는, 어느 게임에도 없는 조합이 된다(옛 경로가 그랬고 그대로 옮겨졌다).
                     _viewModel.LookBy(new Vector2(evt.deltaPosition.x / size.x,
-                                                  evt.deltaPosition.y / size.y));
+                                                  -evt.deltaPosition.y / size.y));
                 }
                 _viewModel.UpdatePointer(Fraction(evt.position));
             });

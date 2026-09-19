@@ -76,7 +76,7 @@ namespace LOP
                              x => x.StandIndex))
                 {
                     stands.Add(new ArcheryRangeStand(row.StandIndex, row.DistanceM, row.ExposureTicks,
-                                                     row.LateralSpanM, row.LateralPeriodS));
+                                                     row.LateralSpanM, row.LateralPeriodS, row.FaceRadiusM));
                 }
                 if (stands.Count == 0)
                 {

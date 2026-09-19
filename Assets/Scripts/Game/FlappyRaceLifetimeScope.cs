@@ -79,6 +79,10 @@ namespace LOP
             //  손 떼고 남의 새를 관찰하기 위한 자동 비행. 토글은 LOP ▸ Debug ▸ Auto Flap.
             //  두 클라를 동시에 조종하면서는 관찰도, 설정을 바꿔 가며 비교하는 것도 불가능하다.
             builder.RegisterEntryPoint<FlappyAutoFlapSystem>();
+
+            //  판정 모양을 게임 화면에 그린다. 토글은 LOP ▸ Debug ▸ Hitbox 보기.
+            //  겉모습과 판정이 어긋나면 눈으로는 "닿은 것 같은데"까지만 알 수 있다.
+            builder.RegisterEntryPoint<FlappyHitboxDebugView>();
 #endif
 
             //  카메라와 벽이 같은 답을 봐야 한다 — 주인이 하나여야 하므로 싱글턴.

@@ -16,6 +16,16 @@ namespace LOP.UI
         private VisualElement _lowerBand;
         private IVisualElementScheduledItem _tick;
 
+        //  지금 당김을 시작한 손가락의 id. -1이면 아무도 안 당기고 있다.
+        //
+        //  <para>모바일에선 손가락이 둘 이상 화면에 닿을 수 있다 — 오른손 엄지가 만작 중인데
+        //  왼손 손가락이 살짝 스치기만 해도 그 손가락의 PointerUpEvent가 EndDraw()를 불러
+        //  오른손이 아직 잡고 있는 화살이 나가 버린다. 더 나쁜 경우는 오른손이 내려놓기
+        //  띠(하단) 안에 있을 때 — 두 번째 탭이 Lowering을 다시 false로 만들어 취소였어야 할
+        //  손짓이 발사로 뒤집힌다. 당김을 시작한 손가락만 기억해 그 손가락 이외의 입력은
+        //  통째로 무시한다.</para>
+        private int _drawPointerId = -1;
+
 
         public ArcheryPadView(ArcheryPadViewModel viewModel)
         {
@@ -34,9 +44,15 @@ namespace LOP.UI
             _arrows = Root.Q<Label>("arrows");
             _reticle = Root.Q<VisualElement>("reticle");
 
-            // 누르면 활이 올라온다 — 어디를 눌러도 된다.
+            // 누르면 활이 올라온다 — 어디를 눌러도 된다. 이미 당기는 손가락이 있으면(다른
+            // pointerId) 통째로 무시한다 — 두 번째 손가락이 첫 손가락의 당김을 가로채면 안 된다.
             surface.RegisterCallback<PointerDownEvent>(evt =>
             {
+                if (_drawPointerId != -1)
+                {
+                    return;
+                }
+                _drawPointerId = evt.pointerId;
                 surface.CapturePointer(evt.pointerId);
                 _viewModel.BeginDraw();
                 _viewModel.UpdatePointer(Fraction(evt.position));
@@ -44,9 +60,10 @@ namespace LOP.UI
 
             //  같은 손가락이 겨눈다. 끈 만큼(화면 대비 비율)을 조준으로 넘기고, 지금 자리는
             //  내려놓기 판정에 쓴다 — 두 가지를 한 번에 받는 유일한 자리다.
+            //  당김을 시작한 손가락이 아니면 무시한다(다른 손가락이 움직여도 조준이 안 흔들려야 한다).
             surface.RegisterCallback<PointerMoveEvent>(evt =>
             {
-                if (surface.HasPointerCapture(evt.pointerId) == false)
+                if (evt.pointerId != _drawPointerId || surface.HasPointerCapture(evt.pointerId) == false)
                 {
                     return;
                 }
@@ -59,16 +76,32 @@ namespace LOP.UI
                 _viewModel.UpdatePointer(Fraction(evt.position));
             });
 
+            //  당김을 시작한 손가락이 뗄 때만 발사 판정을 한다 — 다른 손가락이 살짝 스치고
+            //  떼는 것으로 발사되면 안 된다.
             surface.RegisterCallback<PointerUpEvent>(evt =>
             {
+                if (evt.pointerId != _drawPointerId)
+                {
+                    return;
+                }
                 surface.ReleasePointer(evt.pointerId);
+                _drawPointerId = -1;
                 _viewModel.EndDraw();
             });
             // 손가락이 화면 밖으로 나가면 위의 Up이 안 온다 — 그대로 두면 활을 든 채 영영 멈춘다.
-            surface.RegisterCallback<PointerCaptureOutEvent>(_ => _viewModel.EndDraw());
+            surface.RegisterCallback<PointerCaptureOutEvent>(evt =>
+            {
+                if (evt.pointerId != _drawPointerId)
+                {
+                    return;
+                }
+                _drawPointerId = -1;
+                _viewModel.EndDraw();
+            });
 
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.
-            // 마우스가 하나뿐인 PC에서 왼쪽 드래그 대신 WASD로 겨눌 수 있게 한다.
+            // 손가락 하나로 당김과 조준을 같이 하므로, 화면을 눌러 당기지 않고 시점만 돌리고
+            // 싶을 때(WASD) 마우스 대신 키보드를 쓸 수 있게 한다.
             // 점수도 같은 스케줄러로 pull한다 — 서버 스냅샷이 채우는 값이라 R3 이벤트가 없다.
             _tick = Root.schedule.Execute(_ =>
             {
@@ -83,10 +116,12 @@ namespace LOP.UI
                     _arrows.text = $"화살 {left}";
                 }
 
-                //  조준점은 손가락을 댄 동안만. 안 댔을 때 띄워 두면 판 전체를 보는 시야를 가린다.
-                //  임계치를 넘기 전에는 흐리게 — "아직 안 걸렸다"가 손에 읽혀야 취소를 고를 수 있다.
-                //  임계치를 넘겨 시위가 걸린 동안만 띄운다 — 조준선과 같은 기준이라
-                //  "둘 다 보이면 쏠 수 있다"가 한눈에 읽힌다.
+                //  조준점은 시위가 걸린 동안만 보인다(DrawArmed = aim.DrawRatio가 임계치 이상) —
+                //  안 걸렸을 때 띄워 두면 판 전체를 보는 시야를 가리고, "아직 안 걸렸다"가
+                //  손에 안 읽혀 취소를 고르기 어려워진다.
+                //  ⚠️ 이 값은 시뮬 상태를 그대로 읽으므로, 손을 뗀 뒤에도 aim.DrawRatio가
+                //  DrawFallPerSecond 속도로 천천히 풀린다 — 만작에서 놓으면 임계치 아래로
+                //  내려가기까지 0.2초 남짓 조준점이 화면에 남는다. 화면이 따로 세면 갈라진다.
                 bool armed = _viewModel.DrawArmed;
                 _reticle.style.display = armed ? DisplayStyle.Flex : DisplayStyle.None;
                 if (armed)

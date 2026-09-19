@@ -29,6 +29,9 @@ namespace LOP
         //  화각이 32도에서 60도로 튄다. 여기서 한 번 매끈하게 만들면 줌이든 뭐든 이 값을 읽는
         //  모든 곳이 같이 부드러워진다 — 화면마다 따로 완충을 두지 않아도 된다.
         //  ⚠️ 시뮬 값(서버로 가는 힘)은 건드리지 않는다. 늦추면 빨리 끌었을 때 힘이 덜 실린다.
+        //  당길 때 상한(초당 6) — 지금 시뮬 램프가 초당 2(ArcheryAimSystem.DrawRisePerSecond)라
+        //  이 값엔 절대 안 걸린다(늘 시뮬보다 여유롭다). 시뮬 램프가 더 빨라질 때를 대비한
+        //  여유값으로 남겨 둔다 — 지금은 사실상 아무 일도 안 한다.
         private const float DrawRatioRisePerSecond = 6f;
         private const float DrawRatioFallPerSecond = 2.5f;
 
@@ -128,8 +131,8 @@ namespace LOP
             return ArcheryAimSystem.HeldSeconds(aim.DrawStartTick, renderTick, (float)interval);
         }
 
-        //  당김은 시간이 아니라 손가락이 끈 거리가 정한다 — 시뮬 상태를 그대로 읽는다.
-        //  화면이 같은 값을 따로 세면 언젠가 갈라진다.
+        //  당김은 손가락이 끈 거리가 아니라 누르고 있은 시간이 정한다 — 시뮬 상태를 그대로
+        //  읽는다. 화면이 같은 값을 따로 세면 언젠가 갈라진다.
         private ArcheryAim MyAim()
         {
             if (playerContext.entityId == null)

@@ -39,7 +39,6 @@ namespace LOP.UI
         //  지금 얼마나 오래 누르고 있나(0~1).
         private float lookRamp;
 
-        private bool drawing;
 
         public ArcheryPadViewModel(
             PlayerInputManager input,
@@ -72,31 +71,6 @@ namespace LOP.UI
                 var quiver = entity?.Get<ArcheryQuiver>();
                 return quiver?.Remaining ?? -1;
             }
-        }
-
-        /// <summary>지금 시위를 당기고 있나. 조준점을 띄울지 정한다 — 시뮬 상태를 읽는다(화면이 따로 세지 않는다).</summary>
-        public bool Drawing
-        {
-            get
-            {
-                var entity = entityRegistry.Get(playerContext.entityId);
-                return entity?.Get<ArcheryAim>()?.Drawing ?? false;
-            }
-        }
-
-        /// <summary>
-        /// 손가락 드래그 — 시점을 돌린다. 화면 전체가 조작면이라 왼쪽/오른쪽 영역 구분은 없다 —
-        /// 끈 만큼 시점을 돌린다. 받는 값은 <b>화면 크기 대비 비율</b>이고,
-        /// <b>x는 양수가 오른쪽, y는 양수가 위</b>다 — 패널 좌표(아래가 +y)와 부호가 반대이니
-        /// 넘기는 쪽에서 뒤집어 줘야 한다. 두 축이 같은 관습을 써야 조작이 성립한다.
-        /// (픽셀이 아니다). x는 가로 폭 대비, y는 세로 높이 대비. 한 화면만큼 끌면 딱 한 화면만큼
-        /// 돈다 — 손가락 밑의 그림이 손가락을 따라온다.
-        /// </summary>
-        public void LookBy(Vector2 deltaFraction)
-        {
-            //  가로와 세로는 화각이 다르다(가로 화각 = 세로 화각을 화면 비율로 늘린 것). 한 값으로
-            //  묶으면 가로로 끌 때만 어긋나는데, 가로로 긴 화면에서는 그 차이가 30%까지 벌어진다.
-            AimBy(new Vector2(deltaFraction.x * HorizontalFov, deltaFraction.y * CurrentFov));
         }
 
         /// <summary>
@@ -201,25 +175,86 @@ namespace LOP.UI
         //  그 속도와 얼추 맞춰야 화면이 따로 노는 느낌이 안 난다.
         private const float ReturnSeconds = 0.18f;
 
-        /// <summary>손가락을 댔다 — 활이 올라오기 시작한다. 얼마나 올라오는지는 시뮬이 정한다.</summary>
-        public void BeginDraw()
+        //  누른 손가락이 무엇을 하려는지 아직 모르는 상태를 거친다.
+        //  <b>가만히 있으면 활, 곧바로 끌면 시야</b> — 길게 누르기와 쓸기를 가르는 표준 방식이다.
+        //  이게 없으면 화면을 쓸어 둘러보려 할 때마다 활이 당겨지고, 화살이 유한한 사거리 맵에서는
+        //  그게 곧 손해다.
+        private enum Press
         {
-            drawing = true;
+            None,
+            Deciding,   // 눌렀는데 아직 활인지 시야인지 모른다
+            Looking,    // 곧바로 끌었다 — 이 제스처는 끝까지 시야만 돌린다
+            Drawing,    // 가만히 버텼다 — 활이 올라왔다
+        }
+        private Press press = Press.None;
+
+        /// <summary>이만큼 가만히 있으면 활이 올라오기 시작한다(초).</summary>
+        public const float PressHoldSeconds = 0.15f;
+
+        /// <summary>그 안에 이만큼(화면 높이 대비) 움직이면 "시야를 돌리려던 것"으로 본다.</summary>
+        public const float DragSlopFraction = 0.02f;
+
+        /// <summary>누름이 무엇이 될지.</summary>
+        public enum PressIntent { Undecided, Look, Draw }
+
+        /// <summary>
+        /// 누른 뒤 <paramref name="travelFraction"/>만큼 움직이고 <paramref name="heldSeconds"/>가
+        /// 지났을 때 이 누름이 무엇이 되는가.
+        ///
+        /// <para><b>움직임이 먼저다</b> — 슬롭을 넘겼으면 그 뒤로 아무리 오래 눌러도 시야다.
+        /// 반대로 두면 "쓸어 둘러보다 손가락을 잠깐 멈췄는데 활이 올라오는" 일이 생긴다.</para>
+        /// </summary>
+        public static PressIntent Decide(float travelFraction, float heldSeconds)
+        {
+            if (travelFraction >= DragSlopFraction)
+            {
+                return PressIntent.Look;
+            }
+            return heldSeconds >= PressHoldSeconds ? PressIntent.Draw : PressIntent.Undecided;
+        }
+
+        private float pressSeconds;
+        private float pressTravel;
+
+        /// <summary>손가락을 댔다. 활인지 시야인지는 아직 정하지 않는다.</summary>
+        public void BeginPress(Vector2 positionFraction)
+        {
+            press = Press.Deciding;
+            pressSeconds = 0f;
+            pressTravel = 0f;
             Lowering = false;
             aimAtPressYaw = cameraController.Yaw;
             aimAtPressPitch = cameraController.Pitch;
-            input.SetDrawing(true);
-            input.SetDrawRatio(1f);
         }
 
         /// <summary>
-        /// 손가락이 움직였다 — 내려놓기 자리에 있는지만 갱신한다(겨누기는 <see cref="LookBy"/>).
+        /// 손가락이 움직였다. 받는 값은 화면 크기 대비 비율이고 <b>x 양수가 오른쪽, y 양수가 위</b>다.
         /// </summary>
-        public void UpdatePointer(Vector2 positionFraction)
+        public void MovePointer(Vector2 deltaFraction, Vector2 positionFraction)
         {
-            if (drawing == false)
+            if (press == Press.None)
             {
                 return;
+            }
+
+            if (press == Press.Deciding)
+            {
+                pressTravel += deltaFraction.magnitude;
+                if (Decide(pressTravel, pressSeconds) == PressIntent.Look)
+                {
+                    press = Press.Looking;   // 활은 안 든다 — 이 제스처가 끝날 때까지
+                }
+            }
+
+            if (press == Press.Looking)
+            {
+                AimByDrag(deltaFraction);
+                return;
+            }
+
+            if (press != Press.Drawing)
+            {
+                return;   // 아직 Deciding — 움직임이 슬롭 안이라 아무것도 안 한다
             }
 
             Lowering = positionFraction.y > (1f - LowerBandFraction);
@@ -228,24 +263,48 @@ namespace LOP.UI
             //  DrawStartTick이 새로 찍혀 흔들림 피로가 초기화된다 — 띠에 담갔다 빼는 것이
             //  이득이 되면 안 된다. 목표만 0으로 낮춰 활이 내려가게 한다.
             input.SetDrawRatio(Lowering ? 0f : 1f);
+
+            //  내려놓는 중에는 겨누지 않는다 — 아래 Tick이 조준을 되돌리는 것과 싸운다.
+            if (Lowering == false)
+            {
+                AimByDrag(deltaFraction);
+            }
+        }
+
+        /// <summary>매 프레임. 누름이 무엇이 될지 정하고, 내려놓는 동안 조준을 되돌린다.</summary>
+        public void Tick(float deltaSeconds)
+        {
+            if (deltaSeconds <= 0f)
+            {
+                return;
+            }
+
+            if (press == Press.Deciding)
+            {
+                pressSeconds += deltaSeconds;
+                if (Decide(pressTravel, pressSeconds) == PressIntent.Draw)
+                {
+                    press = Press.Drawing;
+                    input.SetDrawing(true);
+                    input.SetDrawRatio(1f);
+                }
+                return;
+            }
+
+            ReturnAimWhileLowering(deltaSeconds);
         }
 
         /// <summary>
-        /// 내려놓는 동안 조준을 <b>활을 들기 직전 자리로</b> 되돌린다. 매 프레임 불린다.
+        /// 내려놓는 동안 조준을 <b>활을 들기 직전 자리로</b> 되돌린다.
         ///
         /// <para><b>왜 필요한가</b>: 취소하려면 손가락을 띠(화면 아래 15%)까지 내려야 하는데,
         /// 그 손가락이 곧 조준이라 내려가는 동안 조준도 같이 끌려 내려간다. 화면 가운데쯤에서
         /// 시작하면 화면 높이의 35%를 끄는 셈이고, 당긴 상태(화각 22°)에서 그건 <b>아래로 7.7°</b>다
-        /// — 90m 홀드오버 전체가 1.1°이니 취소 한 번에 조준이 통째로 날아간다. 특히 먼 과녁일수록
-        /// 위를 겨누고 있어 손해가 크다.</para>
-        ///
-        /// <para>활을 내려놓으면 시야도 원래대로 돌아가는 것이 물리적으로도 맞다. 되돌아가는
-        /// 동안 <see cref="LookBy"/>는 화면 쪽에서 막는다 — 안 막으면 손가락이 띠 안에서
-        /// 꿈틀댈 때마다 되돌아가는 것과 싸운다.</para>
+        /// — 90m 홀드오버 전체가 1.1°이니 취소 한 번에 조준이 통째로 날아간다.</para>
         /// </summary>
-        public void UpdateAim(float deltaSeconds)
+        private void ReturnAimWhileLowering(float deltaSeconds)
         {
-            if (drawing == false || Lowering == false || deltaSeconds <= 0f)
+            if (press != Press.Drawing || Lowering == false)
             {
                 return;
             }
@@ -260,14 +319,28 @@ namespace LOP.UI
                 aimAtPressYaw, aimAtPressPitch, k));
         }
 
-        /// <summary>두 번 불려도 한 번만 쏜다 — 아래 View가 뗌을 두 경로로 받기 때문이다.</summary>
-        public void EndDraw()
+        //  끈 만큼 시야를 돌린다. 화각으로 감도가 보정돼 당길수록 저절로 정밀해진다.
+        private void AimByDrag(Vector2 deltaFraction)
         {
-            if (drawing == false)
+            AimBy(new Vector2(deltaFraction.x * HorizontalFov, deltaFraction.y * CurrentFov));
+        }
+
+        /// <summary>두 번 불려도 한 번만 쏜다 — 아래 View가 뗌을 두 경로로 받기 때문이다.</summary>
+        public void EndPress()
+        {
+            if (press == Press.None)
             {
                 return;
             }
-            drawing = false;
+
+            bool wasDrawing = press == Press.Drawing;
+            press = Press.None;
+
+            if (wasDrawing == false)
+            {
+                return;   // 시야만 돌렸거나, 활이 올라오기 전에 뗐다 — 화살은 없다
+            }
+
             input.SetDrawing(false);
 
             //  내려놓은 채로 뗐거나 시위가 안 걸렸으면 쏘라는 신호를 아예 안 보낸다.
@@ -277,5 +350,9 @@ namespace LOP.UI
             }
             Lowering = false;
         }
+
+        /// <summary>지금 활을 들고 있나. 화면이 띠와 조준점을 켜는 데 쓴다.</summary>
+        public bool Holding => press == Press.Drawing;
+
     }
 }

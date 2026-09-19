@@ -85,9 +85,10 @@ namespace LOP.UI
         }
 
         /// <summary>
-        /// 왼쪽 영역 드래그 — 시점을 돌린다. 받는 값은 <b>화면 크기 대비 비율</b>이다(픽셀이 아니다).
-        /// x는 가로 폭 대비, y는 세로 높이 대비. 한 화면만큼 끌면 딱 한 화면만큼 돈다 —
-        /// 손가락 밑의 그림이 손가락을 따라온다.
+        /// 손가락 드래그 — 시점을 돌린다. 화면 전체가 조작면이라 왼쪽/오른쪽 영역 구분은 없다 —
+        /// 당김과 조준을 같은 손가락 하나가 다 한다. 받는 값은 <b>화면 크기 대비 비율</b>이다
+        /// (픽셀이 아니다). x는 가로 폭 대비, y는 세로 높이 대비. 한 화면만큼 끌면 딱 한 화면만큼
+        /// 돈다 — 손가락 밑의 그림이 손가락을 따라온다.
         /// </summary>
         public void LookBy(Vector2 deltaFraction)
         {
@@ -97,9 +98,9 @@ namespace LOP.UI
         }
 
         /// <summary>
-        /// 데스크톱 편의: WASD(방향키도 같이)로 시점을 돌린다. 마우스가 하나뿐인 PC에서는 왼쪽 드래그와
-        /// 오른쪽 당김을 동시에 할 수 없어서, 조준을 키보드로 옮겨 마우스를 당김 전용으로 비운다.
-        /// 이 게임엔 이동이 없어 WASD가 비어 있다. 매 프레임 호출된다.
+        /// 데스크톱 편의: WASD(방향키도 같이)로 시점을 돌린다. 손가락(마우스) 하나로 화면을
+        /// 누르면 활도 함께 당겨지므로, 화살을 메기지 않고 시점만 둘러보고 싶을 때 WASD를 쓴다.
+        /// 이 게임엔 이동이 없어 WASD가 비어 있어 이 용도로 쓸 수 있다. 매 프레임 호출된다.
         /// 선례: <see cref="SkydivePadViewModel"/>의 같은 이름 메서드.
         /// </summary>
         public void PollKeyboard()
@@ -163,52 +164,58 @@ namespace LOP.UI
         }
 
         /// <summary>
-        /// 이 거리만큼 끌면 완전히 당긴 것이다(화면 짧은 변 대비 비율). 엄지로 한 번에 끌 수 있는
-        /// 만큼으로 잡는다 — 손을 옮겨 짚어야 하는 거리면 조작이 아니라 곡예가 된다.
+        /// 화면 아래 이만큼이 <b>내려놓기</b> 자리다. 여기서 떼면 화살이 안 나간다.
+        ///
+        /// <para>손가락 하나가 당김과 조준을 다 하므로 "떼기"는 발사일 수밖에 없다 — 취소는
+        /// 따로 제스처를 줘야 한다. 젤다는 드는 버튼과 쏘는 버튼이 달라 취소가 공짜지만,
+        /// 손가락 하나로 옮기면 그게 안 된다.</para>
         /// </summary>
-        private const float FullDrawDragFraction = 0.22f;
+        public const float LowerBandFraction = 0.15f;
 
-        private Vector2 drawOrigin;
-        private Vector2 drawCurrent;
+        /// <summary>지금 내려놓기 자리에 손가락이 있나. 화면이 띠를 붉게 켜는 데 쓴다.</summary>
+        public bool Lowering { get; private set; }
 
-        /// <summary>지금 끌고 있는 정도(0~1). 화면이 시위와 조준선을 이 값으로 그린다.</summary>
-        public float DrawRatio { get; private set; }
-
-        /// <summary>임계치를 넘겨 시위가 실제로 걸렸나. 못 넘으면 떼도 안 쏜다.</summary>
-        public bool DrawArmed => DrawRatio >= ArcheryAimSystem.DrawThreshold;
-
-        /// <summary>손가락을 처음 댄 자리(화면 좌표). 게이지가 여기 그려진다.</summary>
-        public Vector2 DrawOrigin => drawOrigin;
-
-        /// <summary>지금 손가락 자리(화면 좌표).</summary>
-        public Vector2 DrawCurrent => drawCurrent;
-
-        /// <summary>완전히 당기는 데 필요한 거리(픽셀). 게이지 바깥 원의 반지름이다.</summary>
-        public float FullDrawPixels => Mathf.Min(Screen.width, Screen.height) * FullDrawDragFraction;
-
-        /// <summary>손가락을 댄 자리를 기억한다. 여기서부터 끈 거리가 곧 당김이다.</summary>
-        public void BeginDraw(Vector2 position)
+        /// <summary>
+        /// 지금 얼마나 당겨졌나(0~1). <b>시뮬 값을 읽는다</b> — 화면이 따로 세면 클라와 서버가
+        /// 다른 값을 보게 된다. 화면이 하는 일은 "잡고 있다"고 말하는 것뿐이다.
+        /// </summary>
+        public float DrawRatio
         {
-            drawing = true;
-            drawOrigin = position;
-            drawCurrent = position;
-            DrawRatio = 0f;
-            input.SetDrawing(true);
-            input.SetDrawRatio(0f);
+            get
+            {
+                var entity = entityRegistry.Get(playerContext.entityId);
+                return entity?.Get<ArcheryAim>()?.DrawRatio ?? 0f;
+            }
         }
 
-        /// <summary>끌고 있는 동안 매번. 댄 자리에서 멀어진 만큼이 당김이다.</summary>
-        public void DragDraw(Vector2 position)
+        /// <summary>임계치를 넘겨 시위가 걸렸나. 못 넘으면 떼도 안 쏜다.</summary>
+        public bool DrawArmed => DrawRatio >= ArcheryAimSystem.DrawThreshold;
+
+        /// <summary>손가락을 댔다 — 활이 올라오기 시작한다. 얼마나 올라오는지는 시뮬이 정한다.</summary>
+        public void BeginDraw()
+        {
+            drawing = true;
+            Lowering = false;
+            input.SetDrawing(true);
+            input.SetDrawRatio(1f);
+        }
+
+        /// <summary>
+        /// 손가락이 움직였다 — 내려놓기 자리에 있는지만 갱신한다(겨누기는 <see cref="LookBy"/>).
+        /// </summary>
+        public void UpdatePointer(Vector2 positionFraction)
         {
             if (drawing == false)
             {
                 return;
             }
-            drawCurrent = position;
-            //  화면 짧은 변으로 나눈다 — 해상도가 달라도 같은 손동작이면 같은 값이 된다.
-            float unit = FullDrawPixels;
-            DrawRatio = unit > 0f ? Mathf.Clamp01(Vector2.Distance(position, drawOrigin) / unit) : 0f;
-            input.SetDrawRatio(DrawRatio);
+
+            Lowering = positionFraction.y > (1f - LowerBandFraction);
+
+            //  내리는 동안에도 Drawing은 **true로 둔다**. false로 내리면 다시 올릴 때
+            //  DrawStartTick이 새로 찍혀 흔들림 피로가 초기화된다 — 띠에 담갔다 빼는 것이
+            //  이득이 되면 안 된다. 목표만 0으로 낮춰 활이 내려가게 한다.
+            input.SetDrawRatio(Lowering ? 0f : 1f);
         }
 
         /// <summary>두 번 불려도 한 번만 쏜다 — 아래 View가 뗌을 두 경로로 받기 때문이다.</summary>
@@ -220,12 +227,13 @@ namespace LOP.UI
             }
             drawing = false;
             input.SetDrawing(false);
-            //  임계치를 못 넘었으면 취소다 — 쏘라는 신호를 아예 안 보낸다.
-            if (DrawRatio >= ArcheryAimSystem.DrawThreshold)
+
+            //  내려놓은 채로 뗐거나 시위가 안 걸렸으면 쏘라는 신호를 아예 안 보낸다.
+            if (Lowering == false && DrawArmed)
             {
                 input.SetRelease();
             }
-            DrawRatio = 0f;
+            Lowering = false;
         }
     }
 }

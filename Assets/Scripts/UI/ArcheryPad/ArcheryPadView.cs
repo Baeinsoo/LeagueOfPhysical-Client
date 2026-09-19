@@ -4,8 +4,8 @@ using UnityEngine.UIElements;
 namespace LOP.UI
 {
     /// <summary>
-    /// Archery 조작 화면. 화면을 좌/우 절반으로 나눈다 — 왼쪽은 드래그로 시점(=조준), 오른쪽은
-    /// 누르고 있으면 당기고 떼면 쏜다. ViewModel 커맨드로 넘기기만 하는 얇은 바인더다.
+    /// Archery 조작 화면. 화면 전체가 조작면이다 — 누르면 활이 올라오고, 누른 채 움직이면
+    /// 그 손가락이 겨눈다. 화면 아래 띠에서 떼면 취소. ViewModel 커맨드로 넘기기만 하는 얇은 바인더다.
     /// </summary>
     public class ArcheryPadView : UIView
     {
@@ -13,10 +13,18 @@ namespace LOP.UI
         private Label _score;
         private Label _arrows;
         private VisualElement _reticle;
-        private VisualElement _gauge;
-        private VisualElement _gaugeThreshold;
-        private VisualElement _gaugeKnob;
+        private VisualElement _lowerBand;
         private IVisualElementScheduledItem _tick;
+
+        //  지금 당김을 시작한 손가락의 id. -1이면 아무도 안 당기고 있다.
+        //
+        //  <para>모바일에선 손가락이 둘 이상 화면에 닿을 수 있다 — 오른손 엄지가 만작 중인데
+        //  왼손 손가락이 살짝 스치기만 해도 그 손가락의 PointerUpEvent가 EndDraw()를 불러
+        //  오른손이 아직 잡고 있는 화살이 나가 버린다. 더 나쁜 경우는 오른손이 내려놓기
+        //  띠(하단) 안에 있을 때 — 두 번째 탭이 Lowering을 다시 false로 만들어 취소였어야 할
+        //  손짓이 발사로 뒤집힌다. 당김을 시작한 손가락만 기억해 그 손가락 이외의 입력은
+        //  통째로 무시한다.</para>
+        private int _drawPointerId = -1;
 
 
         public ArcheryPadView(ArcheryPadViewModel viewModel)
@@ -30,58 +38,70 @@ namespace LOP.UI
         {
             base.OnOpen();
 
-            var left = Root.Q<VisualElement>("left");
-            var right = Root.Q<VisualElement>("right");
+            var surface = Root.Q<VisualElement>("surface");
+            _lowerBand = Root.Q<VisualElement>("lower-band");
             _score = Root.Q<Label>("score");
             _arrows = Root.Q<Label>("arrows");
             _reticle = Root.Q<VisualElement>("reticle");
-            _gauge = Root.Q<VisualElement>("draw-gauge");
-            _gaugeThreshold = Root.Q<VisualElement>("draw-threshold");
-            _gaugeKnob = Root.Q<VisualElement>("draw-knob");
 
-            // 왼쪽 절반 — 끌면 시점이 돈다. 손가락을 대고 있는 동안만 받는다.
-            left.RegisterCallback<PointerDownEvent>(evt => left.CapturePointer(evt.pointerId));
-            left.RegisterCallback<PointerMoveEvent>(evt =>
+            // 누르면 활이 올라온다 — 어디를 눌러도 된다. 이미 당기는 손가락이 있으면(다른
+            // pointerId) 통째로 무시한다 — 두 번째 손가락이 첫 손가락의 당김을 가로채면 안 된다.
+            surface.RegisterCallback<PointerDownEvent>(evt =>
             {
-                if (left.HasPointerCapture(evt.pointerId))
+                if (_drawPointerId != -1)
                 {
-                    //  픽셀이 아니라 **화면 크기 대비 비율**로 넘긴다 — 좌표 해석은 View 몫이고,
-                    //  패널 좌표는 Screen 픽셀과 단위가 다를 수 있어 여기서 재는 것이 정확하다.
-                    //  가로는 폭으로, 세로는 높이로 나눈다 — 둘의 화각이 다르기 때문이다.
-                    Vector2 size = Root.panel?.visualTree.layout.size ?? Vector2.zero;
-                    if (size.x > 0f && size.y > 0f)
-                    {
-                        _viewModel.LookBy(new Vector2(evt.deltaPosition.x / size.x,
-                                                      evt.deltaPosition.y / size.y));
-                    }
+                    return;
                 }
+                _drawPointerId = evt.pointerId;
+                surface.CapturePointer(evt.pointerId);
+                _viewModel.BeginDraw();
+                _viewModel.UpdatePointer(Fraction(evt.position));
             });
-            left.RegisterCallback<PointerUpEvent>(evt => left.ReleasePointer(evt.pointerId));
 
-            // 오른쪽 절반 — 누르면 당기고 떼면 쏜다.
-            right.RegisterCallback<PointerDownEvent>(evt =>
+            //  같은 손가락이 겨눈다. 끈 만큼(화면 대비 비율)을 조준으로 넘기고, 지금 자리는
+            //  내려놓기 판정에 쓴다 — 두 가지를 한 번에 받는 유일한 자리다.
+            //  당김을 시작한 손가락이 아니면 무시한다(다른 손가락이 움직여도 조준이 안 흔들려야 한다).
+            surface.RegisterCallback<PointerMoveEvent>(evt =>
             {
-                right.CapturePointer(evt.pointerId);
-                _viewModel.BeginDraw(evt.position);
-            });
-            //  댄 자리에서 끈 거리가 곧 당김이다 — 시간이 아니라 손가락이 정한다.
-            right.RegisterCallback<PointerMoveEvent>(evt =>
-            {
-                if (right.HasPointerCapture(evt.pointerId))
+                if (evt.pointerId != _drawPointerId || surface.HasPointerCapture(evt.pointerId) == false)
                 {
-                    _viewModel.DragDraw(evt.position);
+                    return;
                 }
+                Vector2 size = PanelSize();
+                if (size.x > 0f && size.y > 0f)
+                {
+                    _viewModel.LookBy(new Vector2(evt.deltaPosition.x / size.x,
+                                                  evt.deltaPosition.y / size.y));
+                }
+                _viewModel.UpdatePointer(Fraction(evt.position));
             });
-            right.RegisterCallback<PointerUpEvent>(evt =>
+
+            //  당김을 시작한 손가락이 뗄 때만 발사 판정을 한다 — 다른 손가락이 살짝 스치고
+            //  떼는 것으로 발사되면 안 된다.
+            surface.RegisterCallback<PointerUpEvent>(evt =>
             {
-                right.ReleasePointer(evt.pointerId);
+                if (evt.pointerId != _drawPointerId)
+                {
+                    return;
+                }
+                surface.ReleasePointer(evt.pointerId);
+                _drawPointerId = -1;
                 _viewModel.EndDraw();
             });
-            // 손가락이 화면 밖으로 나가면 위의 Up이 안 온다 — 그대로 두면 시위를 당긴 채 영영 멈춘다.
-            right.RegisterCallback<PointerCaptureOutEvent>(_ => _viewModel.EndDraw());
+            // 손가락이 화면 밖으로 나가면 위의 Up이 안 온다 — 그대로 두면 활을 든 채 영영 멈춘다.
+            surface.RegisterCallback<PointerCaptureOutEvent>(evt =>
+            {
+                if (evt.pointerId != _drawPointerId)
+                {
+                    return;
+                }
+                _drawPointerId = -1;
+                _viewModel.EndDraw();
+            });
 
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.
-            // 마우스가 하나뿐인 PC에서 왼쪽 드래그 대신 WASD로 겨눌 수 있게 한다.
+            // 손가락 하나로 당김과 조준을 같이 하므로, 화면을 눌러 당기지 않고 시점만 돌리고
+            // 싶을 때(WASD) 마우스 대신 키보드를 쓸 수 있게 한다.
             // 점수도 같은 스케줄러로 pull한다 — 서버 스냅샷이 채우는 값이라 R3 이벤트가 없다.
             _tick = Root.schedule.Execute(_ =>
             {
@@ -96,10 +116,12 @@ namespace LOP.UI
                     _arrows.text = $"화살 {left}";
                 }
 
-                //  조준점은 손가락을 댄 동안만. 안 댔을 때 띄워 두면 판 전체를 보는 시야를 가린다.
-                //  임계치를 넘기 전에는 흐리게 — "아직 안 걸렸다"가 손에 읽혀야 취소를 고를 수 있다.
-                //  임계치를 넘겨 시위가 걸린 동안만 띄운다 — 조준선과 같은 기준이라
-                //  "둘 다 보이면 쏠 수 있다"가 한눈에 읽힌다.
+                //  조준점은 시위가 걸린 동안만 보인다(DrawArmed = aim.DrawRatio가 임계치 이상) —
+                //  안 걸렸을 때 띄워 두면 판 전체를 보는 시야를 가리고, "아직 안 걸렸다"가
+                //  손에 안 읽혀 취소를 고르기 어려워진다.
+                //  ⚠️ 이 값은 시뮬 상태를 그대로 읽으므로, 손을 뗀 뒤에도 aim.DrawRatio가
+                //  DrawFallPerSecond 속도로 천천히 풀린다 — 만작에서 놓으면 임계치 아래로
+                //  내려가기까지 0.2초 남짓 조준점이 화면에 남는다. 화면이 따로 세면 갈라진다.
                 bool armed = _viewModel.DrawArmed;
                 _reticle.style.display = armed ? DisplayStyle.Flex : DisplayStyle.None;
                 if (armed)
@@ -109,51 +131,28 @@ namespace LOP.UI
                     _reticle.style.scale = new StyleScale(new Scale(new Vector2(scale, scale)));
                 }
 
-                UpdateGauge();
+                //  띠는 잡고 있는 동안만 보인다 — 안 그러면 화면 아래가 늘 가려진다.
+                bool holding = _viewModel.Drawing;
+                _lowerBand.style.display = holding ? DisplayStyle.Flex : DisplayStyle.None;
+                _lowerBand.EnableInClassList("is-lowering", holding && _viewModel.Lowering);
             }).Every(0);
         }
 
-        //  게이지는 손가락을 댄 자리에 그린다. 크기가 화면 비율로 정의돼 있어 USS에 못 박고
-        //  여기서 픽셀로 계산한다. 바깥 원=완전 당김, 안쪽 원=임계치, 손잡이=지금 손가락.
-        private void UpdateGauge()
+        //  UI Toolkit의 evt.position은 **패널** 좌표다 — 그래서 패널을 잰다. Screen 픽셀과
+        //  단위가 다를 수 있어 여기서 재는 것이 정확하다.
+        private Vector2 PanelSize()
         {
-            if (_viewModel.Drawing == false)
-            {
-                _gauge.style.display = DisplayStyle.None;
-                return;
-            }
-
-            _gauge.style.display = DisplayStyle.Flex;
-
-            float full = _viewModel.FullDrawPixels;
-            //  UI Toolkit의 좌표는 위가 0인데 포인터 좌표도 같은 기준이라 그대로 쓴다.
-            Vector2 origin = _viewModel.DrawOrigin;
-            SetCircle(_gauge, origin, full);
-
-            //  임계치 원은 게이지의 자식이라 좌표가 부모 기준이다 — 부모 가운데(full, full)에 앉힌다.
-            float threshold = full * ArcheryAimSystem.DrawThreshold;
-            SetCircle(_gaugeThreshold, new Vector2(full, full), threshold);
-
-            //  손잡이는 실제 손가락 자리에 둔다 — 원 안쪽으로 돌아오면 취소라는 게 그대로 보인다.
-            Vector2 knob = _viewModel.DrawCurrent;
-            float knobHalf = 23f;
-            _gaugeKnob.style.left = knob.x - origin.x + full - knobHalf;
-            _gaugeKnob.style.top = knob.y - origin.y + full - knobHalf;
-            _gaugeKnob.style.opacity = _viewModel.DrawArmed ? 0.95f : 0.4f;
+            return Root.panel?.visualTree.layout.size ?? Vector2.zero;
         }
 
-        //  가운데가 center인 지름 2*radius짜리 원을 절대 좌표로 앉힌다.
-        private void SetCircle(VisualElement element, Vector2 center, float radius)
+        private Vector2 Fraction(Vector2 panelPosition)
         {
-            float size = radius * 2f;
-            element.style.left = center.x - radius;
-            element.style.top = center.y - radius;
-            element.style.width = size;
-            element.style.height = size;
-            element.style.borderTopLeftRadius = radius;
-            element.style.borderTopRightRadius = radius;
-            element.style.borderBottomLeftRadius = radius;
-            element.style.borderBottomRightRadius = radius;
+            Vector2 size = PanelSize();
+            if (size.x <= 0f || size.y <= 0f)
+            {
+                return new Vector2(0.5f, 0.5f);
+            }
+            return new Vector2(panelPosition.x / size.x, panelPosition.y / size.y);
         }
 
         private bool _disposed;

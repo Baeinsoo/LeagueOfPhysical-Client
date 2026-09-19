@@ -3,14 +3,35 @@
     left: 0; right: 0; top: 0; bottom: 0;
 }
 
-.pad-half {
+/* 화면 전체가 조작면이다 — 왼쪽/오른쪽 구분이 없어졌다. */
+.pad-surface {
     position: absolute;
-    top: 0; bottom: 0;
-    width: 50%;
+    left: 0; right: 0; top: 0; bottom: 0;
 }
 
-.pad-left { left: 0; }
-.pad-right { right: 0; }
+/* 내려놓기 띠 — 잡고 있는 동안만 View가 켠다. 들어가면 붉어진다. */
+.lower-band {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 15%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(20, 24, 26, 0.42);
+    border-top-width: 1px;
+    border-top-color: rgba(255, 255, 255, 0.28);
+}
+.lower-band.is-lowering {
+    background-color: rgba(200, 54, 47, 0.30);
+    border-top-color: rgba(200, 54, 47, 0.9);
+}
+.lower-label {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.55);
+}
+.lower-band.is-lowering .lower-label {
+    color: rgb(240, 169, 163);
+}
 
 /* 점수는 화면 위 가운데. 조작을 가리면 안 되므로 입력은 통과시킨다. */
 .archery-score {
@@ -60,37 +81,4 @@
     border-bottom-left-radius: 3px; border-bottom-right-radius: 3px;
 }
 
-/* 당김 게이지 — 손가락을 댄 자리에 뜬다. 크기는 View가 화면 크기에 맞춰 코드로 정한다
-   (완전 당김 거리가 화면 비율로 정의돼 있어서 USS에 숫자로 못 박는다). */
-.draw-gauge {
-    position: absolute;
-    border-left-width: 2px; border-right-width: 2px;
-    border-top-width: 2px; border-bottom-width: 2px;
-    border-left-color: rgba(255, 255, 255, 0.35);
-    border-right-color: rgba(255, 255, 255, 0.35);
-    border-top-color: rgba(255, 255, 255, 0.35);
-    border-bottom-color: rgba(255, 255, 255, 0.35);
-    align-items: center;
-    justify-content: center;
-}
-
-/* 이 원 안으로 돌아오면 취소다 — 그 경계가 보여야 되돌릴지 말지를 고를 수 있다. */
-.draw-threshold {
-    position: absolute;
-    border-left-width: 2px; border-right-width: 2px;
-    border-top-width: 2px; border-bottom-width: 2px;
-    border-left-color: rgba(255, 190, 120, 0.75);
-    border-right-color: rgba(255, 190, 120, 0.75);
-    border-top-color: rgba(255, 190, 120, 0.75);
-    border-bottom-color: rgba(255, 190, 120, 0.75);
-}
-
-/* 지금 손가락 자리. 임계치를 넘으면 밝아진다. */
-.draw-knob {
-    position: absolute;
-    width: 46px; height: 46px;
-    border-top-left-radius: 23px; border-top-right-radius: 23px;
-    border-bottom-left-radius: 23px; border-bottom-right-radius: 23px;
-    background-color: rgba(255, 255, 255, 0.55);
-}
 

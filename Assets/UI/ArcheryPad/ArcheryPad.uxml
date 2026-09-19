@@ -1,17 +1,13 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="ArcheryPad.uss" />
-    <ui:VisualElement name="archery-pad-root" class="archery-pad-root" picking-mode="Ignore">
-        <!-- 왼쪽 절반: 끌면 시점(=조준)이 돈다. -->
-        <ui:VisualElement name="left" class="pad-half pad-left" />
-        <!-- 오른쪽 절반: 누르면 당기고 떼면 쏜다. -->
-        <ui:VisualElement name="right" class="pad-half pad-right" />
-        <!-- 당김 게이지: 손가락을 댄 자리에 뜬다. 바깥 원=완전 당김, 안쪽 원=임계치,
-             손잡이=지금 손가락. 어디까지 돌아가면 취소되는지가 눈에 보인다. -->
-        <ui:VisualElement name="draw-gauge" class="draw-gauge" picking-mode="Ignore">
-            <ui:VisualElement name="draw-threshold" class="draw-threshold" picking-mode="Ignore" />
-            <ui:VisualElement name="draw-knob" class="draw-knob" picking-mode="Ignore" />
+    <ui:VisualElement name="archery-pad-root" class="archery-pad-root">
+        <!-- 화면 전체가 조작면이다. 누르면 활이 올라오고, 누른 채 움직이면 겨눈다. -->
+        <ui:VisualElement name="surface" class="pad-surface" />
+        <!-- 내려놓기: 잡고 있는 동안만 보인다. 여기서 떼면 화살이 안 나간다. -->
+        <ui:VisualElement name="lower-band" class="lower-band" picking-mode="Ignore">
+            <ui:Label name="lower-label" class="lower-label" text="여기서 떼면 안 쏨" picking-mode="Ignore" />
         </ui:VisualElement>
-        <!-- 젤다식 조준점: 화면 한가운데, 당기는 동안만 뜬다. 바깥 원 + 가운데 점. -->
+        <!-- 조준점: 화면 한가운데, 시위가 걸린 동안만 뜬다. 바깥 원 + 가운데 점. -->
         <ui:VisualElement name="reticle" class="archery-reticle" picking-mode="Ignore">
             <ui:VisualElement name="reticle-dot" class="archery-reticle-dot" picking-mode="Ignore" />
         </ui:VisualElement>

@@ -1,0 +1,169 @@
+using System.Collections.Generic;
+using LOP.MapTools;
+using NUnit.Framework;
+
+namespace LOP.MapTools.Tests
+{
+    /// <summary>
+    /// 전통 플래피 코스의 배치 산술을 못박는다. 씬도 물리도 안 쓴다 —
+    /// 씬을 굽고 검사기로 확인하는 것보다 여기서 잡는 편이 훨씬 싸다.
+    /// </summary>
+    public class ClassicCourseTests
+    {
+        const float StartX = 0f;
+        const float Length = 408f;
+        const float Spacing = 11.4f;
+        const float Floor = -7.3f;
+        const float Ceiling = 7.3f;
+        const float Window = 4.37f;
+        const float MaxStep = 6f;
+        const ulong Seed = 20260919UL;
+
+        static List<CoursePipe> Layout(ulong seed = Seed, float maxStep = MaxStep)
+            => ClassicCourseRule.Layout(StartX, Length, Spacing, Floor, Ceiling, Window, maxStep, seed);
+
+        [Test]
+        public void 배치가_스스로의_규칙을_전부_지킨다()
+        {
+            //  Validate가 곧 이 규칙의 계약이다 — 아래 개별 시험들은 그 계약의 각 조항이
+            //  실제로 재지는지를 따로 확인한다(Validate가 무조건 null을 주는 물건이 되지 않게).
+            Assert.IsNull(ClassicCourseRule.Validate(Layout(), Floor, Ceiling, Window, Spacing, MaxStep));
+        }
+
+        [Test]
+        public void 첫_파이프는_시작선에서_한_간격_뒤다()
+        {
+            //  출발하자마자 관문이면 스폰 높이가 통과를 정해 버린다.
+            Assert.AreEqual(StartX + Spacing, Layout()[0].X, 1e-3f);
+        }
+
+        [Test]
+        public void 코스_길이를_간격으로_나눈_만큼_놓인다()
+        {
+            Assert.AreEqual((int)(Length / Spacing), Layout().Count);
+        }
+
+        [Test]
+        public void 창은_언제나_회랑_안에_온전히_들어간다()
+        {
+            //  창이 조금이라도 벽을 넘으면 그 관문은 통과 불가다 — 배치 단계에서 막아야 한다.
+            foreach (CoursePipe p in Layout())
+            {
+                Assert.GreaterOrEqual(p.GapCenter, Floor + Window * 0.5f - 1e-3f, $"x={p.X}");
+                Assert.LessOrEqual(p.GapCenter, Ceiling - Window * 0.5f + 1e-3f, $"x={p.X}");
+            }
+        }
+
+        [Test]
+        public void 이웃한_창의_높이차는_상한을_안_넘는다()
+        {
+            var pipes = Layout();
+            for (int i = 1; i < pipes.Count; i++)
+            {
+                Assert.LessOrEqual(System.Math.Abs(pipes[i].GapCenter - pipes[i - 1].GapCenter),
+                                   MaxStep + 1e-3f, $"x={pipes[i].X}");
+            }
+        }
+
+        [Test]
+        public void 창이_실제로_오르내린다()
+        {
+            //  "규칙을 다 지켰다"는 창이 하나도 안 움직여도 참이다. 움직이지 않으면 전통
+            //  플래피가 아니라 일직선 터널이므로 여기서 따로 확인한다.
+            var pipes = Layout();
+            float lowest = pipes[0].GapCenter, highest = pipes[0].GapCenter;
+            foreach (CoursePipe p in pipes)
+            {
+                if (p.GapCenter < lowest) { lowest = p.GapCenter; }
+                if (p.GapCenter > highest) { highest = p.GapCenter; }
+            }
+            //  회랑에서 창이 갈 수 있는 폭의 절반은 넘게 써야 "오르내린다"고 할 수 있다.
+            float span = (Ceiling - Window * 0.5f) - (Floor + Window * 0.5f);
+            Assert.Greater(highest - lowest, span * 0.5f,
+                           $"창이 {highest - lowest:F2}m 안에서만 움직였다 (갈 수 있는 폭 {span:F2}m)");
+        }
+
+        [Test]
+        public void 같은_씨앗은_같은_코스를_준다()
+        {
+            //  씬을 다시 구울 때마다 코스가 달라지면 "어제 본 그 자리"를 다시 못 본다.
+            var a = Layout();
+            var b = Layout();
+            for (int i = 0; i < a.Count; i++)
+            {
+                Assert.AreEqual(a[i].GapCenter, b[i].GapCenter, 1e-6f);
+            }
+        }
+
+        [Test]
+        public void 다른_씨앗은_다른_코스를_준다()
+        {
+            var a = Layout();
+            var b = Layout(seed: Seed + 1UL);
+            bool differs = false;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (System.Math.Abs(a[i].GapCenter - b[i].GapCenter) > 1e-4f) { differs = true; break; }
+            }
+            Assert.IsTrue(differs);
+        }
+
+        [Test]
+        public void 높이차_상한이_0이면_창이_안_움직인다()
+        {
+            var pipes = Layout(maxStep: 0f);
+            foreach (CoursePipe p in pipes)
+            {
+                Assert.AreEqual(pipes[0].GapCenter, p.GapCenter, 1e-4f);
+            }
+        }
+
+        [Test]
+        public void 창이_회랑보다_높으면_터뜨린다()
+        {
+            //  조용히 빈 목록을 주면 "코스를 구웠는데 아무것도 없다"가 되어 원인이 안 보인다.
+            Assert.Throws<System.ArgumentOutOfRangeException>(
+                () => ClassicCourseRule.Layout(StartX, Length, Spacing, Floor, Ceiling,
+                                               window: (Ceiling - Floor) + 0.01f, maxStep: MaxStep, seed: Seed));
+        }
+
+        // ── Validate가 실제로 잰다는 것 ──────────────────────────
+
+        [Test]
+        public void 회랑_밖으로_나간_창을_잡아낸다()
+        {
+            var bad = new List<CoursePipe> { new CoursePipe(Spacing, Ceiling) };
+            Assert.That(ClassicCourseRule.Validate(bad, Floor, Ceiling, Window, Spacing, MaxStep),
+                        Does.Contain("회랑 밖"));
+        }
+
+        [Test]
+        public void 어긋난_간격을_잡아낸다()
+        {
+            var bad = new List<CoursePipe>
+            {
+                new CoursePipe(Spacing, 0f), new CoursePipe(Spacing + 1f, 0f),
+            };
+            Assert.That(ClassicCourseRule.Validate(bad, Floor, Ceiling, Window, Spacing, MaxStep),
+                        Does.Contain("간격"));
+        }
+
+        [Test]
+        public void 너무_큰_높이차를_잡아낸다()
+        {
+            var bad = new List<CoursePipe>
+            {
+                new CoursePipe(Spacing, -3f), new CoursePipe(2 * Spacing, 4f),
+            };
+            Assert.That(ClassicCourseRule.Validate(bad, Floor, Ceiling, Window, Spacing, MaxStep),
+                        Does.Contain("움직였다"));
+        }
+
+        [Test]
+        public void 비어_있으면_그렇게_말한다()
+        {
+            Assert.That(ClassicCourseRule.Validate(null, Floor, Ceiling, Window, Spacing, MaxStep),
+                        Does.Contain("하나도 없다"));
+        }
+    }
+}

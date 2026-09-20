@@ -132,14 +132,19 @@ public class IOSBuildPostProcessTests
 
 ```bash
 cd /Users/insoobae/workspace/LOP/LeagueOfPhysical-Client-iOS
-export PATH="$HOME/.unity/bin:$PATH"
-unity command run_tests --mode EditMode --filter IOSBuildPostProcessTests \
-  --project-path . --no-banner
+export DEVELOPER_DIR=/Applications/Xcode-26.6.0.app/Contents/Developer
+UNITY=/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity
+"$UNITY" -batchmode -runTests -projectPath . -buildTarget iOS \
+  -testPlatform EditMode -testFilter "IOSBuildPostProcessTests" \
+  -testResults Logs/test-results.xml -logFile Logs/tests.log
+grep -E "error CS" Logs/tests.log | head -3
 ```
 
-기대: 세 개 전부 실패. `IOSBuildPostProcess` 타입이 없거나 `Apply`가 없다는 컴파일 에러.
+기대: 실패. `IOSBuildPostProcess` 타입이 없다는 컴파일 에러(`error CS0103`).
 
-> 에디터가 안 떠 있으면 `unity open . --build-target iOS`로 먼저 연다. **활성 타깃이 iOS여야** `#if UNITY_IOS`가 걸려 테스트가 컴파일된다.
+> **배치모드로 돌린다.** GUI 에디터를 띄우면 대화상자가 끼어들 수 있고, 에디터가 둘일 때
+> `unity` CLI에 등록되지 않는 경우도 있다. 배치모드는 프로젝트를 잠그므로 에디터를 먼저 닫는다.
+> `-buildTarget iOS`여야 `#if UNITY_IOS`가 걸려 테스트가 컴파일된다.
 
 - [ ] **Step 4: 구현한다**
 
@@ -217,12 +222,20 @@ namespace LOP.EditorTools
 - [ ] **Step 5: 테스트가 통과하는지 확인한다**
 
 ```bash
-export PATH="$HOME/.unity/bin:$PATH"
-unity command run_tests --mode EditMode --filter IOSBuildPostProcessTests \
-  --project-path /Users/insoobae/workspace/LOP/LeagueOfPhysical-Client-iOS --no-banner
+cd /Users/insoobae/workspace/LOP/LeagueOfPhysical-Client-iOS
+export DEVELOPER_DIR=/Applications/Xcode-26.6.0.app/Contents/Developer
+UNITY=/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity
+"$UNITY" -batchmode -runTests -projectPath . -buildTarget iOS \
+  -testPlatform EditMode -testFilter "IOSBuildPostProcessTests" \
+  -testResults Logs/test-results.xml -logFile Logs/tests.log
+python3 -c "
+import xml.etree.ElementTree as ET
+r = ET.parse('Logs/test-results.xml').getroot()
+print('total=%s passed=%s failed=%s' % (r.get('total'), r.get('passed'), r.get('failed')))
+"
 ```
 
-기대: 3 passed.
+기대: `total=3 passed=3 failed=0`.
 
 - [ ] **Step 6: 테스트가 진짜 뭔가를 지키는지 확인한다**
 
@@ -296,7 +309,7 @@ brew install ruby
 /opt/homebrew/opt/ruby/bin/ruby -v
 ```
 
-기대: 3.x 버전 출력.
+기대: 3.3 이상 출력(2026-09-20 실측 4.0.7). fastlane 2.240.1이 그 위에서 돌았다.
 
 - [ ] **Step 2: Gemfile 작성**
 
@@ -582,14 +595,20 @@ grep "Xcode 프로젝트 OK" Logs/ios-xcode.log
 
 기대: 두 grep 모두 한 줄씩 찍힌다.
 
-- [ ] **Step 5: 콘텐츠를 S3에 올린다**
+- [ ] **Step 5: 콘텐츠를 S3에 올린다 — CI로**
+
+로컬에서 `aws s3 sync`로 밀어 넣지 않는다. 그러면 다음에도 사람이 해야 한다.
+`content-deploy`에 iOS 타깃이 있으므로 그걸 돌린다(CI가 자격증명을 들고 있어 `aws login`도 필요 없다).
 
 ```bash
-aws s3 sync ServerData/iOS s3://lop-assets/dev/iOS
-aws s3 ls s3://lop-assets/dev/iOS/ | head
+gh workflow run content-deploy.yml --ref feature/ios-build -f target=ios
+gh run list --workflow=content-deploy.yml --limit 1
 ```
 
-기대: 카탈로그와 번들이 보인다.
+기대: 잡이 초록이고 `s3://lop-assets/dev/iOS/`에 카탈로그와 번들이 올라간다.
+
+> 앞 Step 4에서 콘텐츠를 로컬로 굽는 것은 **Xcode 프로젝트 빌드에 필요해서**다(로컬 그룹 번들이
+> 플레이어에 들어간다). S3로 나가는 것은 CI가 구운 쪽이다.
 
 - [ ] **Step 6: fastlane으로 서명·업로드**
 

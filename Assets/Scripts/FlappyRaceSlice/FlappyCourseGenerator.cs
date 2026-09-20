@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using FlappyRace;   // FlappyElevation — Logic 어셈블리로 옮겨졌다
 
 /// <summary>
 /// FlappyRace 코스 조립기 — 인스펙터 구간 리스트를 읽어 파이프/동적 장애물을 절차 생성한다.

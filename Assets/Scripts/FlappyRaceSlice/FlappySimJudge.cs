@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using FlappyRace;   // FlappyElevation — Logic 어셈블리로 옮겨졌다
 
 /// <summary>
 /// 맵 밸런싱용 시뮬레이션 판정기. 화면 재생(FlappyAutoPilot)과 별개인 헤드리스 순수 계산.

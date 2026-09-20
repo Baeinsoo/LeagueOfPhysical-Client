@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using FlappyRace;   // FlappyElevation — Logic 어셈블리로 옮겨졌다
 
 /// <summary>
 /// FlappyRace 3D 버티컬 슬라이스용 플레이어. 정식 아키텍처(World Core/VContainer) 미통합 — 손맛 확인용 독립 스크립트.

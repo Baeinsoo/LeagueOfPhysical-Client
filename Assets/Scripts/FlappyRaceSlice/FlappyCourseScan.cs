@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using FlappyRace;   // FlappyElevation — Logic 어셈블리로 옮겨졌다
 
 /// <summary>
 /// 코스 스캔 단일 진실원본 — 계측(FlappyPlayRecorder)과 판정(FlappySimJudge)이 *완전히 같은* 개구·목표·특징을 쓰게 한다.

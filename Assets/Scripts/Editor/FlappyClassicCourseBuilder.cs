@@ -23,8 +23,10 @@ namespace LOP.EditorTools
         private const float CameraDistance = 20f;
         private const float VerticalFov = 40f;
 
-        //  한 판을 60초로 잡는다. 전진 6.8 m/s면 408m이고 관문 36개 — 원본에서 "꽤 잘한 한 판"이다.
-        private const float RaceSeconds = 60f;
+        //  한 판을 90초로 잡는다. 전진 6.8 m/s면 612m이고 관문 약 53개다.
+        //  <b>맵마다 다를 수 있는 값</b>이다 — 경기 길이는 씬의 결승선 x로 표현되고, 런타임에
+        //  60초든 90초든 가정하는 곳은 없다(Archery의 MatchDurationTicks 같은 제한이 없다).
+        private const float RaceSeconds = 90f;
 
         //  이웃한 창의 높이차 상한. 1.67초에 충분히 갈 수 있는 폭이면서, 관문마다 고도를
         //  바꾸게 만들 만큼은 크다.
@@ -85,18 +87,31 @@ namespace LOP.EditorTools
                 Undo.DestroyObjectImmediate(composed.transform.GetChild(i).gameObject);
             }
 
-            var material = FindCourseMaterial();
-            Slab(composed.transform, "Floor", StartX, length, floorY - WallThickness * 0.5f,
-                 length + spacing * 4f, WallThickness, material);
-            Slab(composed.transform, "Ceiling", StartX, length, ceilingY + WallThickness * 0.5f,
-                 length + spacing * 4f, WallThickness, material);
+            var fallback = FindCourseMaterial();
+
+            //  바닥·천장은 구간마다 끊는다 — 한 덩어리면 색이 안 바뀌어 구간 경계가 바닥에서만
+            //  안 보인다. 앞뒤로는 코스 밖(스폰·결승선)까지 덮도록 여유를 준다.
+            float slabSpan = length / LOP.MapTools.CourseSectionRule.Count;
+            for (int i = 0; i < LOP.MapTools.CourseSectionRule.Count; i++)
+            {
+                bool first = i == 0;
+                bool last = i == LOP.MapTools.CourseSectionRule.Count - 1;
+                float from = StartX + slabSpan * i - (first ? spacing * 4f : 0f);
+                float to = StartX + slabSpan * (i + 1) + (last ? spacing * 4f : 0f);
+                Material slabSkin = SectionMaterial((from + to) * 0.5f, length, fallback);
+                Slab(composed.transform, $"Floor_{i}", from, to - from,
+                     floorY - WallThickness * 0.5f, to - from, WallThickness, slabSkin);
+                Slab(composed.transform, $"Ceiling_{i}", from, to - from,
+                     ceilingY + WallThickness * 0.5f, to - from, WallThickness, slabSkin);
+            }
 
             foreach (LOP.MapTools.CoursePipe p in pipes)
             {
+                Material skin = SectionMaterial(p.X, length, fallback);
                 float lowTop = p.GapCenter - window * 0.5f;
                 float highBottom = p.GapCenter + window * 0.5f;
-                Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X, floorY, lowTop, material);
-                Pipe(composed.transform, $"PipeHigh_{p.X:F0}", p.X, highBottom, ceilingY, material);
+                Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X, floorY, lowTop, skin);
+                Pipe(composed.transform, $"PipeHigh_{p.X:F0}", p.X, highBottom, ceilingY, skin);
             }
 
             PlaceSpawns(floorY, ceilingY, window, pipes.Count > 0 ? pipes[0].GapCenter : 0f);
@@ -110,7 +125,9 @@ namespace LOP.EditorTools
 
             EditorSceneManagerSave();
             Debug.Log($"[전통 코스] 파이프 {pipes.Count}쌍 · 창 {window:F2}m · 간격 {spacing:F1}m"
-                    + $" · 회랑 {corridor:F1}m · 길이 {length:F0}m ({RaceSeconds:F0}초)");
+                    + $" · 회랑 {corridor:F1}m · 길이 {length:F0}m ({RaceSeconds:F0}초)"
+                    + $" · 구간 {LOP.MapTools.CourseSectionRule.Count}개 ×"
+                    + $" {length / LOP.MapTools.CourseSectionRule.Count:F0}m");
         }
 
         //  코스 지오메트리 안에 섞여 있는 마커(FinishLine·SpawnPoint)를 <c>---Course---</c>
@@ -179,6 +196,14 @@ namespace LOP.EditorTools
             }
             Undo.RegisterCreatedObjectUndo(go, "Build classic course");
             return go;
+        }
+
+        //  구간 재질이 아직 없으면(도시 재질을 안 만들었으면) 그레이박스 재질로 계속 간다 —
+        //  색이 다를 뿐 구조 검증에는 지장이 없다.
+        private static Material SectionMaterial(float x, float length, Material fallback)
+        {
+            Material m = FlappyCityMaterials.Of(LOP.MapTools.CourseSectionRule.Of(x, StartX, length));
+            return m != null ? m : fallback;
         }
 
         //  기존 코스가 쓰던 머티리얼을 그대로 쓴다 — 못 찾으면 기본값으로 두고 계속 간다

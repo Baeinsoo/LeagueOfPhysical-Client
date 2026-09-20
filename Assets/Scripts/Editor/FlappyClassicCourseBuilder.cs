@@ -78,10 +78,14 @@ namespace LOP.EditorTools
             float ceilingY = corridor * 0.5f;
             float length = RaceSeconds * config.ForwardSpeed;
 
+            //  회랑 중심이 코스를 따라 오르내린다 — 긴 내리막이 다이브를 만든다.
+            System.Func<float, float> centerAt =
+                x => LOP.MapTools.CourseElevation.CenterY(x, StartX, length);
+
             var pipes = LOP.MapTools.ClassicCourseRule.Layout(
-                StartX, length, spacing, floorY, ceilingY, window, MaxGapStep, Seed);
+                StartX, length, spacing, floorY, ceilingY, window, MaxGapStep, Seed, centerAt);
             string bad = LOP.MapTools.ClassicCourseRule.Validate(
-                pipes, floorY, ceilingY, window, spacing, MaxGapStep);
+                pipes, floorY, ceilingY, window, spacing, MaxGapStep, centerAt);
             if (bad != null)
             {
                 //  씬을 건드리기 <b>전에</b> 멈춘다 — 반쯤 구운 코스를 남기지 않는다.
@@ -103,27 +107,37 @@ namespace LOP.EditorTools
 
             //  바닥·천장은 구간마다 끊는다 — 한 덩어리면 색이 안 바뀌어 구간 경계가 바닥에서만
             //  안 보인다. 앞뒤로는 코스 밖(스폰·결승선)까지 덮도록 여유를 준다.
-            float slabSpan = length / FlappyRace.CourseSectionRule.Count;
-            for (int i = 0; i < FlappyRace.CourseSectionRule.Count; i++)
+            //  바닥·천장은 <b>고저차를 따라간다</b>. 수평 조각을 겹쳐 놓으면 안 된다 —
+            //  높이가 다른 두 조각이 겹치는 구간에서 실효 바닥은 더 높은 쪽, 실효 천장은 더
+            //  낮은 쪽이 되어 <b>회랑이 최대 11m까지 먹힌다</b>(창 4.37m보다 좁아져 통과 불가).
+            //  실제로 x=203에서 회랑 높이가 0이 됐다.
+            //
+            //  그래서 조각을 <b>경사로 눕힌다</b>: 양 끝의 회랑 중심을 잇는 현(弦)을 윗면으로
+            //  삼아 z축 둘레로 기울인다. 바닥과 천장이 나란한 현이므로 세로 간격(회랑 높이)이
+            //  어디서나 일정하다. z축 회전이라 블록의 z 범위가 안 변해 층 규약·시각 정직성
+            //  검사에도 영향이 없다.
+            int rampCount = (int)System.Math.Ceiling(length / spacing) + 8;
+            for (int i = 0; i < rampCount; i++)
             {
-                bool first = i == 0;
-                bool last = i == FlappyRace.CourseSectionRule.Count - 1;
-                float from = StartX + slabSpan * i - (first ? spacing * 4f : 0f);
-                float to = StartX + slabSpan * (i + 1) + (last ? spacing * 4f : 0f);
-                Material slabSkin = SectionMaterial((from + to) * 0.5f, length, fallback);
-                Slab(composed.transform, $"Floor_{i}", from, to - from,
-                     floorY - WallThickness * 0.5f, to - from, WallThickness, slabSkin);
-                Slab(composed.transform, $"Ceiling_{i}", from, to - from,
-                     ceilingY + WallThickness * 0.5f, to - from, WallThickness, slabSkin);
+                float x0 = StartX - spacing * 4f + spacing * i;
+                float x1 = x0 + spacing;
+                Material rampSkin = SectionMaterial((x0 + x1) * 0.5f, length, fallback);
+                Ramp(composed.transform, $"Floor_{i}", x0, x1, centerAt(x0), centerAt(x1),
+                     floorY, below: true, material: rampSkin);
+                Ramp(composed.transform, $"Ceiling_{i}", x0, x1, centerAt(x0), centerAt(x1),
+                     ceilingY, below: false, material: rampSkin);
             }
 
             foreach (LOP.MapTools.CoursePipe p in pipes)
             {
                 Material skin = SectionMaterial(p.X, length, fallback);
+                float lift = centerAt(p.X);
                 float lowTop = p.GapCenter - window * 0.5f;
                 float highBottom = p.GapCenter + window * 0.5f;
-                Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X, floorY, lowTop, skin);
-                Pipe(composed.transform, $"PipeHigh_{p.X:F0}", p.X, highBottom, ceilingY, skin);
+                //  <b>실제</b> 바닥·천장까지 닿아야 한다. 평평한 floorY까지만 그리면 회랑이
+                //  내려간 자리에서 파이프 아래에 틈이 생겨 새가 빠져나간다.
+                Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X, floorY + lift - 1f, lowTop, skin);
+                Pipe(composed.transform, $"PipeHigh_{p.X:F0}", p.X, highBottom, ceilingY + lift + 1f, skin);
             }
 
             Backdrop(composed.transform, "Midground",
@@ -145,7 +159,9 @@ namespace LOP.EditorTools
             Debug.Log($"[전통 코스] 파이프 {pipes.Count}쌍 · 창 {window:F2}m · 간격 {spacing:F1}m"
                     + $" · 회랑 {corridor:F1}m · 길이 {length:F0}m ({RaceSeconds:F0}초)"
                     + $" · 구간 {FlappyRace.CourseSectionRule.Count}개 ×"
-                    + $" {length / FlappyRace.CourseSectionRule.Count:F0}m");
+                    + $" {length / FlappyRace.CourseSectionRule.Count:F0}m"
+                    + $" · 고저차 ±{LOP.MapTools.CourseElevation.AmpStart:F0}~{LOP.MapTools.CourseElevation.AmpEnd:F0}m"
+                    + $" (파장 {LOP.MapTools.CourseElevation.Wavelength:F0}m)");
         }
 
         //  코스 지오메트리 안에 섞여 있는 마커(FinishLine·SpawnPoint)를 <c>---Course---</c>
@@ -187,6 +203,29 @@ namespace LOP.EditorTools
             var go = Box(parent, name, material);
             go.transform.localScale = new Vector3(width, height, PipeDepth);
             go.transform.position = new Vector3(startX + length * 0.5f, centerY, PipeZ);
+        }
+
+        //  두 점의 회랑 중심을 잇는 현을 윗면(바닥) 또는 밑면(천장)으로 삼는 경사 조각.
+        //  z축 둘레로만 기울이므로 블록의 z 범위가 변하지 않는다.
+        private static void Ramp(Transform parent, string name, float x0, float x1,
+                                 float lift0, float lift1, float baseY, bool below, Material material)
+        {
+            float run = x1 - x0;
+            float rise = lift1 - lift0;
+            float angle = Mathf.Atan2(rise, run);
+            //  현을 다 덮으려면 조각이 기운 만큼 길어야 한다. 1%는 이웃과 겹쳐 틈을 막는 여유.
+            float chord = Mathf.Sqrt(run * run + rise * rise) * 1.01f;
+
+            var go = Box(parent, name, material);
+            go.transform.localScale = new Vector3(chord, WallThickness, PipeDepth);
+            go.transform.rotation = Quaternion.Euler(0f, 0f, angle * Mathf.Rad2Deg);
+
+            //  현의 한가운데에서 조각 두께의 절반만큼 <i>기운 방향의</i> 위/아래로 민다.
+            float midX = (x0 + x1) * 0.5f;
+            float midY = baseY + (lift0 + lift1) * 0.5f;
+            float half = WallThickness * 0.5f * (below ? -1f : 1f);
+            go.transform.position = new Vector3(midX - half * Mathf.Sin(angle),
+                                                midY + half * Mathf.Cos(angle), PipeZ);
         }
 
         private static void Pipe(Transform parent, string name, float x, float bottom, float top,

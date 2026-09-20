@@ -97,3 +97,10 @@ ServerData/
 # 개발 중 화면 캡처 — 프로젝트가 참조하지 않는데 Assets 안이라 텍스처로 임포트된다
 /[Aa]ssets/[Ss]creenshots/
 /[Aa]ssets/[Ss]creenshots.meta
+
+# fastlane
+/vendor/bundle/
+/.bundle/
+/fastlane/report.xml
+/fastlane/Preview.html
+/fastlane/test_output/

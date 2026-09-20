@@ -43,6 +43,12 @@ namespace LOP.EditorTools
         private const float MidgroundDepth = 6f;
         private const ulong MidgroundSeed = 20260920UL;
 
+        //  배경 도시. 카메라에서 82m라 화면 세로가 59.7m다 — 기존 건물이 1~6.4m뿐이라
+        //  화면의 10%만 채우고 있었다(스카이라인이 아니라 자갈이었다). x도 557m에서 끊겼다.
+        private const float SkylineZ = 62f;
+        private const float SkylineDepth = 8f;
+        private const ulong SkylineSeed = 20260921UL;
+
         private const float StartX = 0f;
         private const ulong Seed = 20260919UL;
 
@@ -124,6 +130,8 @@ namespace LOP.EditorTools
                      LOP.MapTools.BackdropLayout.Midground(StartX, length, MidgroundSeed),
                      MidgroundZ, MidgroundDepth, FlappyCityMaterials.Midground);
 
+            RebuildSkyline(length);
+
             PlaceSpawns(floorY, ceilingY, window, pipes.Count > 0 ? pipes[0].GapCenter : 0f);
             PlaceFinish(StartX + length + spacing);
 
@@ -188,6 +196,33 @@ namespace LOP.EditorTools
             float h = top - bottom;
             go.transform.localScale = new Vector3(PipeWidth, h, PipeDepth);
             go.transform.position = new Vector3(x, bottom + h * 0.5f, PipeZ);
+        }
+
+        //  <c>---Environment---</c>의 <c>CitySilhouette</c>만 다시 굽는다. 구름·장식은 손대지 않는다.
+        private static void RebuildSkyline(float length)
+        {
+            var env = GameObject.Find("---Environment---");
+            if (env == null)
+            {
+                Debug.LogWarning("[전통 코스] ---Environment---가 없다 — 배경을 못 구웠다.");
+                return;
+            }
+            Transform city = env.transform.Find("CitySilhouette");
+            if (city == null)
+            {
+                var made = new GameObject("CitySilhouette");
+                made.transform.SetParent(env.transform, worldPositionStays: false);
+                Undo.RegisterCreatedObjectUndo(made, "Build classic course");
+                city = made.transform;
+            }
+            Undo.RegisterFullObjectHierarchyUndo(city.gameObject, "Build classic course");
+            for (int i = city.childCount - 1; i >= 0; i--)
+            {
+                Undo.DestroyObjectImmediate(city.GetChild(i).gameObject);
+            }
+            Backdrop(city, "Skyline",
+                     LOP.MapTools.BackdropLayout.Skyline(StartX, length, SkylineSeed),
+                     SkylineZ, SkylineDepth, FlappyCityMaterials.Skyline);
         }
 
         //  게임 평면 뒤에 까는 실루엣. <b>콜라이더를 지운다</b> — 남으면 "안 보이는 벽"이 되고,

@@ -34,16 +34,23 @@ namespace LOP.MapTools
     /// </summary>
     public static class BackdropLayout
     {
-        /// <summary>중간층 — 34m 거리. 화면 세로 24.8m를 채워야 하므로 그보다 크게 잡는다.</summary>
+        /// <summary>
+        /// 중간층 — 34m 거리(화면 세로 24.8m). <b>성기게, 낮게</b> 깐다.
+        ///
+        /// <para>처음엔 폭 6~14m를 9~19m 간격으로 빽빽하게 깔았더니 화면을 거의 덮어서
+        /// 하늘이 사라지고, 무엇보다 <b>게임 평면의 파이프와 구별이 안 됐다</b>(회색 구간에서
+        /// 특히). 배경은 배경으로 읽혀야 하므로 덮는 비율을 약 24%로 낮추고 윗변을 화면
+        /// 중간 아래에 둔다 — 하늘이 보여야 장애물이 실루엣으로 떠오른다.</para>
+        /// </summary>
         public static List<BackdropBox> Midground(float startX, float length, ulong seed)
         {
             return Layout(startX, length, seed,
-                          stepMin: 9f, stepMax: 19f,
-                          widthMin: 6f, widthMax: 14f,
-                          heightMin: 18f, heightMax: 38f,
-                          baseY: -12f,
+                          stepMin: 22f, stepMax: 46f,
+                          widthMin: 5f, widthMax: 11f,
+                          heightMin: 12f, heightMax: 26f,
+                          baseY: -14f,
                           //  뒤로 갈수록 낮아지고(무너진다) 기운다.
-                          heightDecay: 0.45f, tiltMax: 14f);
+                          heightDecay: 0.35f, tiltMax: 14f);
         }
 
         /// <summary>배경 — 82m 거리. 화면 세로가 59.7m라 40m는 넘겨야 스카이라인으로 읽힌다.</summary>

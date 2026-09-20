@@ -78,6 +78,8 @@ crashlytics-build.properties
 .vsconfig
 Assets/NuGetForUnity/Packages/
 ServerData/
+# 어드레서블이 콘텐츠 빌드마다 새로 만든다 — 산출물이라 커밋하지 않는다.
+/[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/link.xml
 .vscode/
 
 # macOS / IDE
@@ -97,3 +99,10 @@ ServerData/
 # 개발 중 화면 캡처 — 프로젝트가 참조하지 않는데 Assets 안이라 텍스처로 임포트된다
 /[Aa]ssets/[Ss]creenshots/
 /[Aa]ssets/[Ss]creenshots.meta
+
+# fastlane
+/vendor/bundle/
+/.bundle/
+/fastlane/report.xml
+/fastlane/Preview.html
+/fastlane/test_output/

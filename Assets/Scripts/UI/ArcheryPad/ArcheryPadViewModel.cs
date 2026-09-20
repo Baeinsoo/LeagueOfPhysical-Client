@@ -155,8 +155,16 @@ namespace LOP.UI
         /// 6.1인치 가로 기준 약 20mm — 엄지가 한 번 접으면 닿는 거리다.</summary>
         public const float CancelBelowPressInHeights = 0.31f;
 
-        /// <summary>내려놓기 원의 반지름(화면 세로를 1로 본 값). 약 7mm = 지름 14mm.</summary>
-        public const float CancelRadiusInHeights = 0.11f;
+        /// <summary>
+        /// 내려놓기 원의 반지름(화면 세로를 1로 본 값). 폰에서 약 5mm = <b>지름 10mm</b>.
+        ///
+        /// <para>⚠️ 화면 <b>비율</b>이라 큰 화면에서는 그만큼 커 보인다 — 에디터 Game 뷰에서
+        /// 터무니없이 크게 보이는 건 정상이고, 폰에서는 엄지만 하다. 비율로 잡는 이유는
+        /// <b>정확성이 비율에 달려 있기 때문</b>이다(위 14% 계산은 각도라 화면 비율이다).
+        /// 손가락 크기는 화면 크기에 안 비례하므로, 줄이더라도 폰 기준 <b>지름 7~8mm</b>가
+        /// 바닥이다 — 애플 44pt·구글 48dp가 그쯤이고 그 아래로는 보지 않고 못 누른다.</para>
+        /// </summary>
+        public const float CancelRadiusInHeights = 0.075f;
 
         /// <summary>내려놓기 원의 한가운데. 화면이 원을 그리는 자리이자 판정하는 자리다 —
         /// 둘이 같은 값에서 나와야 "원 밖에서 뗐는데 안 나간다"가 안 생긴다.</summary>

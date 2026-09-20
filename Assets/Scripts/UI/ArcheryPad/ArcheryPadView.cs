@@ -5,7 +5,8 @@ namespace LOP.UI
 {
     /// <summary>
     /// Archery 조작 화면. 화면 전체가 조작면이다 — 누르면 활이 올라오고, 누른 채 움직이면
-    /// 그 손가락이 겨눈다. 화면 아래 띠에서 떼면 취소. ViewModel 커맨드로 넘기기만 하는 얇은 바인더다.
+    /// 그 손가락이 겨눈다. <b>누른 자리 아래에 뜨는 원</b>에서 떼면 취소.
+    /// ViewModel 커맨드로 넘기기만 하는 얇은 바인더다.
     /// </summary>
     public class ArcheryPadView : UIView
     {
@@ -13,17 +14,18 @@ namespace LOP.UI
         private Label _score;
         private Label _arrows;
         private VisualElement _reticle;
-        private VisualElement _lowerBand;
+        private VisualElement _cancelTarget;
+        //  원은 누른 자리에 한 번만 놓는다 — 그 자리는 누름이 끝날 때까지 안 움직인다.
+        private bool _cancelTargetPlaced;
         private IVisualElementScheduledItem _tick;
 
         //  지금 당김을 시작한 손가락의 id. -1이면 아무도 안 당기고 있다.
         //
         //  <para>모바일에선 손가락이 둘 이상 화면에 닿을 수 있다 — 오른손 엄지가 만작 중인데
-        //  왼손 손가락이 살짝 스치기만 해도 그 손가락의 PointerUpEvent가 EndDraw()를 불러
-        //  오른손이 아직 잡고 있는 화살이 나가 버린다. 더 나쁜 경우는 오른손이 내려놓기
-        //  띠(하단) 안에 있을 때 — 두 번째 탭이 Lowering을 다시 false로 만들어 취소였어야 할
-        //  손짓이 발사로 뒤집힌다. 당김을 시작한 손가락만 기억해 그 손가락 이외의 입력은
-        //  통째로 무시한다.</para>
+        //  왼손 손가락이 살짝 스치기만 해도 그 손가락의 PointerUpEvent가 발사 판정을 불러
+        //  오른손이 아직 잡고 있는 화살이 나가 버린다. 더 나쁜 경우는 오른손이 내려놓기 원
+        //  안에 있을 때 — 두 번째 탭이 판정을 뒤집어 취소였어야 할 손짓이 발사가 된다.
+        //  당김을 시작한 손가락만 기억해 그 손가락 이외의 입력은 통째로 무시한다.</para>
         private int _drawPointerId = -1;
 
 
@@ -39,7 +41,7 @@ namespace LOP.UI
             base.OnOpen();
 
             var surface = Root.Q<VisualElement>("surface");
-            _lowerBand = Root.Q<VisualElement>("lower-band");
+            _cancelTarget = Root.Q<VisualElement>("cancel-target");
             _score = Root.Q<Label>("score");
             _arrows = Root.Q<Label>("arrows");
             _reticle = Root.Q<VisualElement>("reticle");
@@ -54,7 +56,7 @@ namespace LOP.UI
                 }
                 _drawPointerId = evt.pointerId;
                 surface.CapturePointer(evt.pointerId);
-                _viewModel.BeginPress(Fraction(evt.position));
+                _viewModel.BeginPress(InHeights(evt.position));
             });
 
             //  같은 손가락이 겨눈다. 끈 만큼(화면 대비 비율)을 조준으로 넘기고, 지금 자리는
@@ -75,7 +77,7 @@ namespace LOP.UI
                 {
                     _viewModel.MovePointer(
                         new Vector2(evt.deltaPosition.x / size.x, -evt.deltaPosition.y / size.y),
-                        Fraction(evt.position));
+                        InHeights(evt.position));
                 }
             });
 
@@ -91,7 +93,9 @@ namespace LOP.UI
                 _drawPointerId = -1;
                 _viewModel.EndPress();
             });
-            // 손가락이 화면 밖으로 나가면 위의 Up이 안 온다 — 그대로 두면 활을 든 채 영영 멈춘다.
+            // 손가락이 화면 밖으로 나가거나 OS가 터치를 가져가면(알림 스와이프·전화·앱 전환)
+            // 위의 Up이 안 온다 — 그대로 두면 활을 든 채 영영 멈춘다. 그렇다고 EndPress로
+            // 보내면 **화살이 나가 버린다.** 터치를 뺏긴 건 "쏘겠다"는 뜻이 아니므로 내려놓는다.
             surface.RegisterCallback<PointerCaptureOutEvent>(evt =>
             {
                 if (evt.pointerId != _drawPointerId)
@@ -99,7 +103,7 @@ namespace LOP.UI
                     return;
                 }
                 _drawPointerId = -1;
-                _viewModel.EndPress();
+                _viewModel.Cancel();
             });
 
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.
@@ -135,11 +139,50 @@ namespace LOP.UI
                     _reticle.style.scale = new StyleScale(new Scale(new Vector2(scale, scale)));
                 }
 
-                //  띠는 잡고 있는 동안만 보인다 — 안 그러면 화면 아래가 늘 가려진다.
+                //  내려놓기 원은 잡고 있는 동안만 보인다 — 안 그러면 빈 화면에 원이 떠 있다.
                 bool holding = _viewModel.Holding;
-                _lowerBand.style.display = holding ? DisplayStyle.Flex : DisplayStyle.None;
-                _lowerBand.EnableInClassList("is-lowering", holding && _viewModel.Lowering);
+                _cancelTarget.style.display = holding ? DisplayStyle.Flex : DisplayStyle.None;
+                if (holding)
+                {
+                    if (_cancelTargetPlaced == false)
+                    {
+                        PlaceCancelTarget();
+                    }
+                    _cancelTarget.EnableInClassList("is-over", _viewModel.OverCancelTarget);
+                }
+                else
+                {
+                    _cancelTargetPlaced = false;
+                }
             }).Every(0);
+        }
+
+        //  원을 누른 자리 아래에 놓는다. 자리와 크기를 **ViewModel의 값에서만** 가져오므로
+        //  보이는 원과 판정하는 원이 갈라질 수가 없다 — 옛 띠는 높이가 코드와 USS 두 곳에
+        //  적혀 있어 어긋날 수 있었다.
+        private void PlaceCancelTarget()
+        {
+            Vector2 size = PanelSize();
+            if (size.y <= 0f)
+            {
+                return;   // 레이아웃이 아직 안 잡혔다 — 다음 프레임에 다시 시도한다
+            }
+
+            Vector2 center = _viewModel.CancelTargetCenterInHeights;
+            float radius = ArcheryPadViewModel.CancelRadiusInHeights * size.y;
+            float panelX = center.x * size.y;
+            float panelY = (1f - center.y) * size.y;   // 다시 "아래로 증가"하는 패널 좌표로
+
+            _cancelTarget.style.left = panelX - radius;
+            _cancelTarget.style.top = panelY - radius;
+            _cancelTarget.style.width = radius * 2f;
+            _cancelTarget.style.height = radius * 2f;
+            _cancelTarget.style.borderTopLeftRadius = radius;
+            _cancelTarget.style.borderTopRightRadius = radius;
+            _cancelTarget.style.borderBottomLeftRadius = radius;
+            _cancelTarget.style.borderBottomRightRadius = radius;
+
+            _cancelTargetPlaced = true;
         }
 
         //  UI Toolkit의 evt.position은 **패널** 좌표다 — 그래서 패널을 잰다. Screen 픽셀과
@@ -149,14 +192,17 @@ namespace LOP.UI
             return Root.panel?.visualTree.layout.size ?? Vector2.zero;
         }
 
-        private Vector2 Fraction(Vector2 panelPosition)
+        //  ViewModel은 **화면 세로를 1로 본 좌표**를 받는다 — 거리를 원으로 재려면 가로·세로가
+        //  같은 자로 재져야 하기 때문이다(각각 0~1로 정규화하면 가로로 찌그러진 타원이 된다).
+        //  가로 화면에서 x는 1을 넘는다(16:9면 0~1.78). y는 **위가 양수**로 뒤집어 AimBy와 맞춘다.
+        private Vector2 InHeights(Vector2 panelPosition)
         {
             Vector2 size = PanelSize();
-            if (size.x <= 0f || size.y <= 0f)
+            if (size.y <= 0f)
             {
                 return new Vector2(0.5f, 0.5f);
             }
-            return new Vector2(panelPosition.x / size.x, panelPosition.y / size.y);
+            return new Vector2(panelPosition.x / size.y, (size.y - panelPosition.y) / size.y);
         }
 
         private bool _disposed;

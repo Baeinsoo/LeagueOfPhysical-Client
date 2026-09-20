@@ -18,12 +18,12 @@ namespace LOP.EditorTools
     {
         private const string Folder = "Assets/Art/Environment/FlappyRace";
 
-        public static Material Of(LOP.MapTools.CourseSection section)
+        public static Material Of(FlappyRace.CourseSection section)
         {
             switch (section)
             {
-                case LOP.MapTools.CourseSection.Exposed: return Load("CityExposed");
-                case LOP.MapTools.CourseSection.Charred: return Load("CityCharred");
+                case FlappyRace.CourseSection.Exposed: return Load("CityExposed");
+                case FlappyRace.CourseSection.Charred: return Load("CityCharred");
                 default: return Load("CityIntact");
             }
         }

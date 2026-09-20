@@ -61,7 +61,7 @@ namespace LOP
             }
 
             Measure();
-            Apply(LOP.MapTools.CourseSectionRule.Progress(transform.Position.X, courseStartX, courseLength));
+            Apply(FlappyRace.CourseSectionRule.Progress(transform.Position.X, courseStartX, courseLength));
         }
 
         /// <summary>진행률 하나로 대기 전체가 정해진다. 테스트가 이 문으로 들어온다.</summary>

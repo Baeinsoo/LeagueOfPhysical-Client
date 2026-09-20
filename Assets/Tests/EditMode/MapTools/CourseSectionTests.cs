@@ -1,3 +1,4 @@
+using FlappyRace;
 using LOP.MapTools;
 using NUnit.Framework;
 

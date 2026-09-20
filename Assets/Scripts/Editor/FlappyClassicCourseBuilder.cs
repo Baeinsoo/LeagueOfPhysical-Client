@@ -130,6 +130,7 @@ namespace LOP.EditorTools
                      LOP.MapTools.BackdropLayout.Midground(StartX, length, MidgroundSeed),
                      MidgroundZ, MidgroundDepth, FlappyCityMaterials.Midground);
 
+            EnsureSun();
             RebuildSkyline(length);
 
             PlaceSpawns(floorY, ceilingY, window, pipes.Count > 0 ? pipes[0].GapCenter : 0f);
@@ -196,6 +197,40 @@ namespace LOP.EditorTools
             float h = top - bottom;
             go.transform.localScale = new Vector3(PipeWidth, h, PipeDepth);
             go.transform.position = new Vector3(x, bottom + h * 0.5f, PipeZ);
+        }
+
+        //  방향광이 <b>없으면</b> 하나 만든다. 이미 있으면 손대지 않는다(아트가 잡아 둔 값 보존).
+        //
+        //  <para>없으면 씬이 어두운 앰비언트로만 칠해져 모든 면이 같은 밝기가 된다 — 그러면
+        //  "게임 평면은 윗면이 밝아야 한다"(읽는 규칙의 절반)가 성립할 수가 없고, 안개로
+        //  씻긴 배경과 근경의 값이 붙어 장애물이 묻힌다. 실제로 그랬다.</para>
+        private static void EnsureSun()
+        {
+            foreach (var existing in Object.FindObjectsByType<Light>(FindObjectsInactive.Include,
+                                                                    FindObjectsSortMode.None))
+            {
+                if (existing.type == LightType.Directional)
+                {
+                    RenderSettings.sun = existing;
+                    return;
+                }
+            }
+
+            var home = GameObject.Find("---Lighting---");
+            var go = new GameObject("Sun");
+            if (home != null)
+            {
+                go.transform.SetParent(home.transform, worldPositionStays: false);
+            }
+            //  카메라는 -z에서 본다. 위-앞-왼쪽에서 비춰야 윗면과 카메라 쪽 면이 같이 밝아진다.
+            go.transform.rotation = Quaternion.Euler(48f, -35f, 0f);
+            var light = go.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.color = new Color(1f, 0.95f, 0.86f);   // 따뜻한 햇빛 — 근경을 따뜻하게 만드는 절반
+            light.intensity = 1.15f;
+            light.shadows = LightShadows.None;           // 모바일. 그림자는 형태를 흐릴 뿐이다
+            RenderSettings.sun = light;
+            Undo.RegisterCreatedObjectUndo(go, "Build classic course");
         }
 
         //  <c>---Environment---</c>의 <c>CitySilhouette</c>만 다시 굽는다. 구름·장식은 손대지 않는다.

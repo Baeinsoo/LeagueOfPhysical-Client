@@ -34,11 +34,14 @@ namespace LOP.EditorTools
         [MenuItem("LOP/Debug/Flappy 도시 재질 만들기")]
         public static void EnsureAll()
         {
-            //  게임 평면 셋 — 휘도 0.74 / 0.68 / 0.62. 색조만 차갑다→따뜻하다→붉다로 간다.
-            Ensure("CityIntact", new Color(0.76f, 0.76f, 0.74f), smoothness: 0.10f, emission: Color.black);
-            Ensure("CityExposed", new Color(0.76f, 0.66f, 0.54f), smoothness: 0.14f, emission: Color.black);
-            Ensure("CityCharred", new Color(0.74f, 0.58f, 0.48f), smoothness: 0.18f,
-                   emission: new Color(0.50f, 0.16f, 0.05f));
+            //  게임 평면 셋 — 휘도 0.77 / 0.68 / 0.61. <b>셋 다 따뜻하다</b>: 안개가 배경을
+            //  안개색(차가운 청회)으로 씻기므로, 근경이 중성 회백이면 배경과 같은 값이 되어
+            //  파이프가 묻힌다(실제로 그랬다 — 안개를 켜자마자 드러났다).
+            //  "근경 따뜻 / 원경 차갑게"는 Skydive 대기 슬라이스가 먼저 박은 규칙이다.
+            Ensure("CityIntact", new Color(0.84f, 0.76f, 0.62f), smoothness: 0.10f, emission: Color.black);
+            Ensure("CityExposed", new Color(0.84f, 0.66f, 0.44f), smoothness: 0.14f, emission: Color.black);
+            Ensure("CityCharred", new Color(0.84f, 0.56f, 0.42f), smoothness: 0.18f,
+                   emission: new Color(0.55f, 0.18f, 0.05f));
 
             //  중간층·배경 — 여기만 어두워진다. 안개가 거리로 더 씻긴다.
             Ensure("Midground", new Color(0.33f, 0.34f, 0.38f), smoothness: 0f, emission: Color.black);

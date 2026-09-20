@@ -166,17 +166,36 @@ namespace LOP.UI
         /// </summary>
         public const float CancelRadiusInHeights = 0.075f;
 
-        /// <summary>내려놓기 원의 한가운데. 화면이 원을 그리는 자리이자 판정하는 자리다 —
-        /// 둘이 같은 값에서 나와야 "원 밖에서 뗐는데 안 나간다"가 안 생긴다.</summary>
-        public static Vector2 CancelTargetCenter(Vector2 pressInHeights)
+        /// <summary>
+        /// 내려놓기 원의 한가운데. 화면이 원을 그리는 자리이자 판정하는 자리다 —
+        /// 둘이 같은 값에서 나와야 "원 밖에서 뗐는데 안 나간다"가 안 생긴다.
+        ///
+        /// <para><paramref name="screenWidthInHeights"/>는 세로를 1로 봤을 때의 가로 길이다
+        /// (16:9 가로 화면이면 1.78). 화면 끝을 알아야 밖으로 나가는 걸 막는다.</para>
+        /// </summary>
+        public static Vector2 CancelTargetCenter(Vector2 pressInHeights, float screenWidthInHeights)
         {
-            return pressInHeights - new Vector2(0f, CancelBelowPressInHeights);
+            //  기본은 아래다. 다만 가로로 쥐면 엄지가 낮게 쉬어서 화면 아래쪽을 누르는 일이
+            //  잦은데, 거기선 "아래로 31%"가 화면 밖이다. 그럴 땐 **위로 뒤집는다** —
+            //  거리는 어느 쪽이든 같으므로 조준이 쓰는 범위 밖이라는 성질이 유지된다.
+            //  (가까이 당겨 붙이면 안 된다. 그러면 겨누다 취소된다.)
+            float below = pressInHeights.y - CancelBelowPressInHeights;
+            float y = below >= CancelRadiusInHeights
+                ? below
+                : pressInHeights.y + CancelBelowPressInHeights;
+
+            //  가로로 삐져나가면 안쪽으로 민다. 미는 건 거리를 **늘리기만** 하므로 안전하다.
+            float maxX = Mathf.Max(CancelRadiusInHeights, screenWidthInHeights - CancelRadiusInHeights);
+            float x = Mathf.Clamp(pressInHeights.x, CancelRadiusInHeights, maxX);
+
+            return new Vector2(x, y);
         }
 
         /// <summary>그 원 안인가.</summary>
-        public static bool InsideCancelTarget(Vector2 pressInHeights, Vector2 pointInHeights)
+        public static bool InsideCancelTarget(Vector2 pressInHeights, Vector2 pointInHeights,
+            float screenWidthInHeights)
         {
-            return (pointInHeights - CancelTargetCenter(pressInHeights)).sqrMagnitude
+            return (pointInHeights - CancelTargetCenter(pressInHeights, screenWidthInHeights)).sqrMagnitude
                    <= CancelRadiusInHeights * CancelRadiusInHeights;
         }
 
@@ -190,7 +209,7 @@ namespace LOP.UI
         public bool OverCancelTarget { get; private set; }
 
         /// <summary>화면이 원을 그릴 자리. 잡고 있는 동안에만 쓴다.</summary>
-        public Vector2 CancelTargetCenterInHeights => CancelTargetCenter(pressInHeights);
+        public Vector2 CancelTargetCenterInHeights => CancelTargetCenter(pressInHeights, screenWidthInHeights);
 
         /// <summary>
         /// 지금 얼마나 당겨졌나(0~1). <b>시뮬 값을 읽는다</b> — 화면이 따로 세면 클라와 서버가
@@ -214,6 +233,9 @@ namespace LOP.UI
 
         //  손가락을 처음 댄 자리. 내려놓기 원이 여기를 기준으로 선다.
         private Vector2 pressInHeights;
+
+        //  세로를 1로 봤을 때의 가로 길이. 원이 화면 밖으로 안 나가게 하는 데 쓴다.
+        private float screenWidthInHeights = 16f / 9f;
 
         //  돌아가는 데 걸리는 시간(초). 활을 내리는 동안 화각도 22°→60°로 넓어지므로
         //  그 속도와 얼추 맞춰야 화면이 따로 노는 느낌이 안 난다.
@@ -270,9 +292,10 @@ namespace LOP.UI
         /// 손가락을 댔다. 활인지 시야인지는 아직 정하지 않는다.
         /// 받는 값은 <b>화면 세로를 1로 본 좌표</b>이고 y 양수가 위다(가로는 1을 넘는다).
         /// </summary>
-        public void BeginPress(Vector2 positionInHeights)
+        public void BeginPress(Vector2 positionInHeights, float screenWidthInHeights)
         {
             press = Press.Deciding;
+            this.screenWidthInHeights = screenWidthInHeights;
             pressSeconds = 0f;
             pressTravel = 0f;
             OverCancelTarget = false;
@@ -318,7 +341,7 @@ namespace LOP.UI
 
             //  원 안에 있는지는 **화면에 알려 주기 위해서만** 본다. 활을 내리지도, 조준을
             //  멈추지도 않는다 — 그래야 원 위를 지나 더 아래로 겨눌 수 있다.
-            OverCancelTarget = InsideCancelTarget(pressInHeights, positionInHeights);
+            OverCancelTarget = InsideCancelTarget(pressInHeights, positionInHeights, screenWidthInHeights);
 
             AimByDrag(deltaFraction);
         }

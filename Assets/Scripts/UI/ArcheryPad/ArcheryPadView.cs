@@ -56,7 +56,9 @@ namespace LOP.UI
                 }
                 _drawPointerId = evt.pointerId;
                 surface.CapturePointer(evt.pointerId);
-                _viewModel.BeginPress(InHeights(evt.position));
+                Vector2 panel = PanelSize();
+                _viewModel.BeginPress(InHeights(evt.position),
+                    panel.y > 0f ? panel.x / panel.y : 16f / 9f);
             });
 
             //  같은 손가락이 겨눈다. 끈 만큼(화면 대비 비율)을 조준으로 넘기고, 지금 자리는

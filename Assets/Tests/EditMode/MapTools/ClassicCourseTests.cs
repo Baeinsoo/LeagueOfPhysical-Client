@@ -165,5 +165,63 @@ namespace LOP.MapTools.Tests
             Assert.That(ClassicCourseRule.Validate(null, Floor, Ceiling, Window, Spacing, MaxStep),
                         Does.Contain("하나도 없다"));
         }
+
+        [Test]
+        public void 중심_오프셋을_주면_창이_통째로_따라_올라간다()
+        {
+            //  고저차는 랜덤워크 <b>뒤에</b> 더해진다 — 워크의 폭(난이도)은 그대로고 자리만 옮긴다.
+            var flat = ClassicCourseRule.Layout(0f, 100f, 11.4f, -7.28f, 7.28f, 4.37f, 6f, 1UL);
+            var lifted = ClassicCourseRule.Layout(0f, 100f, 11.4f, -7.28f, 7.28f, 4.37f, 6f, 1UL,
+                                                  centerAt: _ => 3f);
+
+            Assert.AreEqual(flat.Count, lifted.Count);
+            for (int i = 0; i < flat.Count; i++)
+            {
+                Assert.AreEqual(flat[i].GapCenter + 3f, lifted[i].GapCenter, 1e-3f);
+            }
+        }
+
+        [Test]
+        public void 고저차를_준_배치는_같은_고저차로_검증하면_통과한다()
+        {
+            //  Layout과 Validate는 <b>짝</b>이다. 한쪽만 고저차를 알면 멀쩡한 배치가 전부
+            //  "회랑 밖"으로 찍혀 빌더가 멈춰 선다 — 실제로 그렇게 멈췄다.
+            System.Func<float, float> centerAt = x => 3f * (float)System.Math.Sin(x / 90f);
+
+            var pipes = ClassicCourseRule.Layout(0f, 300f, 11.4f, -7.28f, 7.28f, 4.37f, 6f, 9UL,
+                                                 centerAt);
+
+            Assert.IsNull(ClassicCourseRule.Validate(pipes, -7.28f, 7.28f, 4.37f, 11.4f, 6f, centerAt),
+                          "같은 고저차로 검증하면 통과해야 한다");
+        }
+
+        [Test]
+        public void 고저차를_모르는_검증은_회랑_밖이라고_말한다()
+        {
+            //  반대 방향도 못박는다 — 짝을 안 맞추면 어떻게 되는지가 이 버그의 정체였다.
+            System.Func<float, float> centerAt = x => 3f * (float)System.Math.Sin(x / 90f);
+
+            var pipes = ClassicCourseRule.Layout(0f, 300f, 11.4f, -7.28f, 7.28f, 4.37f, 6f, 9UL,
+                                                 centerAt);
+
+            Assert.IsNotNull(ClassicCourseRule.Validate(pipes, -7.28f, 7.28f, 4.37f, 11.4f, 6f),
+                             "고저차를 빼고 재면 회랑 밖으로 보여야 한다");
+        }
+
+        [Test]
+        public void 가파른_곳에서는_창이_덜_움직인다()
+        {
+            //  새가 날아야 하는 거리는 회랑이 움직인 것 + 창이 움직인 것이다. 둘을 합쳐
+            //  maxStep 안에 들어가야 한다 — 안 그러면 따라갈 수 없는 자리가 생긴다.
+            System.Func<float, float> steep = x => 7f * (float)System.Math.Sin(x / 90f * 6.2832f);
+
+            var pipes = ClassicCourseRule.Layout(0f, 400f, 11.4f, -7.28f, 7.28f, 4.37f, 6f, 3UL, steep);
+
+            for (int i = 1; i < pipes.Count; i++)
+            {
+                float step = System.Math.Abs(pipes[i].GapCenter - pipes[i - 1].GapCenter);
+                Assert.LessOrEqual(step, 6f + 1e-3f, $"x={pipes[i].X:F1}에서 {step:F2}m 움직였다");
+            }
+        }
     }
 }

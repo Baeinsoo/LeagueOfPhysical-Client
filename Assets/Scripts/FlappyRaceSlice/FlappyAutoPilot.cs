@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using FlappyRace;   // FlappyElevation — Logic 어셈블리로 옮겨졌다
 
 /// <summary>
 /// 봇 오토파일럿 — 시뮬레이션을 게임 화면에서 눈으로 보게 재생.

@@ -5377,6 +5377,22 @@ spec `specs/2026-09-20-flappy-collapsing-city-design.md` · plan `plans/2026-09-
   "씬에 광원이 없다"는 진단 자체가 틀렸다: **맵 씬을 단독 렌더해서 없었던 것**이고 런타임엔
   게임 씬의 빛(50,-30,0, 따뜻한 색)이 적용된다. 그 잘못된 근거로 게임 씬 빛까지 돌렸다가 되돌렸다.
 
+### 검사가 나를 세 번째로 잡았다 — 이번엔 CI가
+
+`content-deploy`가 실패했다:
+
+```
+FlappyAtmosphere.cs(64,19): error CS0234
+  'MapTools'가 네임스페이스 'LOP'에 없다
+```
+
+`LOP.MapTools`는 **`includePlatforms: ["Editor"]`** 라 런타임이 참조할 수 없다. 그런데
+에디터에서는 멀쩡히 컴파일되고 **로컬 테스트 1853개가 전부 초록이었다** — 플레이어 빌드에서만
+드러나는 종류다. "테스트가 초록이다"가 이 결함엔 증거가 못 된다.
+
+구간 규칙을 `FlappyRaceSlice.Logic`(전 플랫폼 · autoReferenced · 엔진 비참조)으로 옮겼다.
+맵 빌더(에디터)와 대기(런타임)가 둘 다 보고 **asmdef는 한 줄도 안 고쳤다**.
+
 ### 안개는 씬이 아니라 런타임이 소유한다
 
 맵이 additive로 로드돼 유니티가 **활성 씬의 `RenderSettings`만** 적용한다. 씬에 안개를 켜 저장해도

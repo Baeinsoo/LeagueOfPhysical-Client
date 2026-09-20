@@ -43,8 +43,20 @@ public static class BuildScript
     }
 
     // ── APK 빌드 (③a). 디버그 서명(프로젝트 기본). 콘텐츠는 별도 스텝에서 이미 빌드했으므로 재빌드 안 함.
-    //    -buildEnv <이름> 필수. -development면 개발 빌드로(평문 http가 개발 빌드에서만 통한다).
     public static void BuildAndroidApk()
+    {
+        BuildPlayerFor(BuildTarget.Android, BuildTargetGroup.Android, "Build/lop.apk", "APK");
+    }
+
+    // ── iOS 빌드. 유니티가 내놓는 건 앱이 아니라 **Xcode 프로젝트**이고, 폰에 설치하는 것은
+    //    그 프로젝트를 연 Xcode다. 서명도 Xcode가 맡는다(프로젝트는 자동 서명 ON).
+    public static void BuildIOSXcodeProject()
+    {
+        BuildPlayerFor(BuildTarget.iOS, BuildTargetGroup.iOS, "Build/iOS", "Xcode 프로젝트");
+    }
+
+    //  -buildEnv <이름> 필수. -development면 개발 빌드로(평문 http가 개발 빌드에서만 통한다).
+    static void BuildPlayerFor(BuildTarget target, BuildTargetGroup targetGroup, string outputPath, string label)
     {
         var environment = EnvironmentBaker.EnvironmentFromCommandLine();
         if (string.IsNullOrEmpty(environment))
@@ -93,21 +105,21 @@ public static class BuildScript
             var options = new BuildPlayerOptions
             {
                 scenes = scenes,
-                locationPathName = "Build/lop.apk",
-                target = BuildTarget.Android,
-                targetGroup = BuildTargetGroup.Android,
+                locationPathName = outputPath,
+                target = target,
+                targetGroup = targetGroup,
                 options = buildOptions,
             };
             var report = BuildPipeline.BuildPlayer(options);
             var summary = report.summary;
             if (summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
             {
-                Debug.LogError($"APK build FAILED: {summary.result}, errors={summary.totalErrors}");
+                Debug.LogError($"{label} build FAILED: {summary.result}, errors={summary.totalErrors}");
                 exitCode = 1;
             }
             else
             {
-                Debug.Log($"APK OK: {summary.outputPath}, size={summary.totalSize} bytes, " +
+                Debug.Log($"{label} OK: {summary.outputPath}, size={summary.totalSize} bytes, " +
                           $"env={environment}, development={development}");
                 exitCode = 0;
             }

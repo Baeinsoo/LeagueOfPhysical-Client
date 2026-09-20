@@ -500,7 +500,9 @@ namespace LOP.EditorTools
                 gates,
                 LOP.MapTools.GateRhythmRule.TargetWindow(shape.FlapImpulse, shape.Gravity,
                                                          TickSeconds, shape.Height),
-                LOP.MapTools.GateRhythmRule.TargetSpacing(config.ForwardSpeed));
+                LOP.MapTools.GateRhythmRule.TargetSpacing(config.ForwardSpeed),
+                LOP.MapTools.LayerContract.Section(
+                    ScanLayerBlocks(mapMask, config.BodyRadius), GameplayMaterials));
 
             //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
             bool spawnXMismatch = false;
@@ -1523,6 +1525,40 @@ namespace LOP.EditorTools
         /// 예전엔 여기와 정렬 도구가 각자 규칙을 적어 두었는데, 그러면 규칙이 갈라져도 테스트가
         /// 아무것도 못 잡는다(규칙이 코드에만 있고 아무 테스트도 안 붙기 때문).</para>
         /// </summary>
+        //  게임 평면이 쓸 수 있는 재질. 구간 셋 + 아직 안 갈아 끼운 그레이박스 재질이다.
+        //  배경 재질은 목록으로 강제하지 않는다 — 규약은 "닿는 것"에만 건다.
+        private static readonly string[] GameplayMaterials =
+            { "CityIntact", "CityExposed", "CityCharred", "FloorNeutral" };
+
+        /// <summary>
+        /// 층 규약 검사에 넘길 블록을 씬에서 모은다. <see cref="ScanBlockDepths"/>와 같은 순회지만
+        /// <b>게임 평면이 아닌 것도 담는다</b> — 배경에 콜라이더가 남았는지가 이 검사의 절반이다.
+        ///
+        /// <para>맵 레이어(Default)만 본다. 다른 레이어의 콜라이더는 새의 sweep이 아예 안 보므로
+        /// 부딪힐 수 없고, 규약이 막으려는 사고가 아니다.</para>
+        /// </summary>
+        private static List<LOP.MapTools.LayerBlock> ScanLayerBlocks(int mapMask, float bodyRadius)
+        {
+            var result = new List<LOP.MapTools.LayerBlock>();
+            foreach (var renderer in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+            {
+                if ((mapMask & (1 << renderer.gameObject.layer)) == 0 || renderer.enabled == false)
+                {
+                    continue;
+                }
+                Bounds bounds = renderer.bounds;
+                var collider = renderer.GetComponent<Collider>();
+                //  에디터라 sharedMaterial이 맞다 — material을 읽으면 복제본이 생겨 씬이 더러워지고
+                //  이름도 "Foo (Instance)"가 되어 허용 목록과 안 맞는다.
+                string material = renderer.sharedMaterial != null ? renderer.sharedMaterial.name : null;
+                result.Add(new LOP.MapTools.LayerBlock(
+                    renderer.name, bounds.center.x,
+                    LOP.MapTools.BlockDepthScan.IsGameplayBlock(bounds, bodyRadius),
+                    collider != null && collider.enabled, material));
+            }
+            return result;
+        }
+
         private static List<LOP.MapTools.BlockDepth> ScanBlockDepths(int mapMask, float bodyRadius)
         {
             var result = new List<LOP.MapTools.BlockDepth>();

@@ -290,7 +290,8 @@ namespace LOP.MapTools
                                    IReadOnlyList<BlockDepth> blockDepths = null,
                                    IReadOnlyList<Gate> gates = null,
                                    float targetWindow = 0f,
-                                   float targetSpacing = 0f)
+                                   float targetSpacing = 0f,
+                                   string layerSection = null)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
@@ -466,6 +467,14 @@ namespace LOP.MapTools
             text.AppendLine();
 
             AppendVisualHonesty(text, blockDepths);
+
+            //  층 규약은 시각 정직성 바로 뒤다 — 둘 다 "통과 가능한가"가 아니라
+            //  "보이는 대로인가"를 묻는 절이라 붙여 둔다.
+            if (string.IsNullOrEmpty(layerSection) == false)
+            {
+                text.AppendLine(layerSection);
+                text.AppendLine();
+            }
 
             AppendPhaseSweep(text, phaseSweep, startX, finishX, phaseSweepSkipNote);
 

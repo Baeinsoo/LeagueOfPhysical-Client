@@ -20,6 +20,10 @@ namespace LOP
     {
         private const float WallHeight = 300f;
         private const float WallThickness = 2f;
+        //  카메라 쪽으로 뻗는 두께. 앞으로 늘리는 것은 <b>공짜다</b> — 판정면보다 앞이라
+        //  틈을 좁아 보이게 만들지 않는다(2026-09-15 판정면 정렬 §③). 그래야 선이 아니라
+        //  "다가오는 면"으로 보인다.
+        private const float WallDepth = 9f;
 
         private readonly GameFramework.World.IWorld world;
         private readonly EntityRenderClock renderClock;
@@ -64,6 +68,8 @@ namespace LOP
             {
                 position.y = cameraController.MainCamera.transform.position.y;
             }
+            //  뒷면을 판정면(z=0)에 걸고 앞으로만 뻗는다. 뒤로 뻗으면 원근이 틈을 좁아 보이게 한다.
+            position.z = -WallDepth * 0.5f;
             wall.transform.position = position;
         }
 
@@ -96,15 +102,48 @@ namespace LOP
                 UnityEngine.Object.Destroy(collider);
             }
 
-            wall.transform.localScale = new Vector3(WallThickness, WallHeight, WallThickness);
+            wall.transform.localScale = new Vector3(WallThickness, WallHeight, WallDepth);
 
-            //  추격자의 정체는 아트 단계 몫이라 지금은 붉은 판으로 자리만 잡는다.
+            //  붕괴 전선 — 어두운 먼지벽에 앞 가장자리만 잔불. 벽은 런타임 생성물이라 Art 에셋을
+            //  물릴 수 없어 색을 여기 둔다. 이 값이 추격자 색의 유일한 출처다.
             var shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader != null)
             {
-                wall.GetComponent<MeshRenderer>().sharedMaterial =
-                    new Material(shader) { color = new Color(0.85f, 0.15f, 0.15f) };
+                var material = new Material(shader);
+                material.SetColor("_BaseColor", new Color(0.16f, 0.13f, 0.12f));
+                material.SetFloat("_Smoothness", 0f);
+                material.EnableKeyword("_EMISSION");
+                material.SetColor("_EmissionColor", new Color(0.60f, 0.12f, 0.03f));
+                wall.GetComponent<MeshRenderer>().sharedMaterial = material;
+                AddDust(material);
             }
+        }
+
+        //  벽 앞으로 흘러나오는 먼지. 벽이 화면에 들어오는 것은 <b>실패했을 때뿐</b>이라
+        //  (잘 날면 5개 화면 뒤에 있다) 값을 비싸지 않게 유지한다.
+        private void AddDust(Material material)
+        {
+            var host = new GameObject("Dust");
+            host.transform.SetParent(wall.transform, worldPositionStays: false);
+            var dust = host.AddComponent<ParticleSystem>();
+
+            var main = dust.main;
+            main.startLifetime = 1.4f;
+            main.startSpeed = 3.5f;
+            main.startSize = 6f;
+            main.startColor = new Color(0.35f, 0.30f, 0.27f, 0.35f);
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 120;
+
+            var emission = dust.emission;
+            emission.rateOverTime = 45f;
+
+            //  벽이 세로로 300m라 로컬 스케일을 그대로 쓰면 먼지가 화면 밖까지 퍼진다.
+            var shape = dust.shape;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = new Vector3(0.5f, 0.12f, 1f);
+
+            host.GetComponent<ParticleSystemRenderer>().material = material;
         }
 
         public void Dispose()

@@ -158,7 +158,7 @@ Flappy Race 맵의 세계관·아트 방향. 그레이박스로 검증이 끝난
 | 만드는 것 | 레포 |
 |---|---|
 | 재질 (구간 3종 · 중간층 · 배경 개정 · 추격자 벽) | **Art** (`Assets/Art/Environment/FlappyRace/`) |
-| 씬의 안개·앰비언트 기본값, 중간층·배경 오브젝트 | **Art** (`Scenes/FlappyRaceMap.unity`) |
+| 중간층·배경 오브젝트 | **Art** (`Scenes/FlappyRaceMap.unity`) |
 | 코스 빌더 확장 (612m · 구간별 재질 · 중간층/배경 굽기) | 클라 `Assets/Scripts/Editor/FlappyClassicCourseBuilder.cs` |
 | 구간 경계 규칙 (순수 C#) | 클라 `Assets/Scripts/MapTools/CourseSection*.cs` |
 | 진행 대기 — 안개·하늘을 x로 보간 | 클라 `Assets/Scripts/Game/FlappyAtmosphere.cs` |
@@ -168,6 +168,13 @@ Flappy Race 맵의 세계관·아트 방향. 그레이박스로 검증이 끝난
 
 > **불변식:** 시뮬(Shared)이나 서버를 건드려야 할 일이 생기면 설계가 틀렸다는 신호다.
 > 이 슬라이스는 전부 프레젠테이션이다. (Skydive 대기 슬라이스와 같은 불변식.)
+
+> **⚠️ 안개는 씬에 두지 않는다 (2026-09-20 추가 — Skydive가 이미 당한 것).** 맵 씬은
+> **additive로 로드된다**(`LOPGameFactory`). 유니티는 **활성 씬의 `RenderSettings`만** 적용하므로,
+> 맵 씬에 `m_Fog: 1`을 저장해도 활성 씬(`m_Fog: 0`)이 이겨서 안개가 안 켜진다.
+> 그래서 **안개 on/off·모드·색·밀도는 전부 `FlappyAtmosphere`가 런타임에 쓴다.** 씬의
+> `RenderSettings`는 에디터에서 눈으로 보려고 맞춰 두는 값일 뿐 런타임 진실원본이 아니다.
+> (`SkydiveAtmosphere.Apply`의 주석이 같은 말을 한다.)
 
 `FlappyAtmosphere`는 `SkydiveAtmosphere`와 짝을 맞춘 이름이다 — 같은 일(안개·하늘을 매 프레임
 갱신)을 **고도(y) 대신 진행(x)** 으로 한다. 월드에서 읽기만 하는 pull이다.
@@ -213,6 +220,7 @@ Flappy Race 맵의 세계관·아트 방향. 그레이박스로 검증이 끝난
 - **맵 씬과 재질은 `Assets/Art` 서브모듈에 있다.** Art에서 따로 커밋·머지·푸시하고 클라의
   포인터가 그 뒤를 따라야 한다. **콘텐츠 빌드는 그 push 뒤에** 돌려야 한다(어기면 마커가
   missing script로 구워진다).
+- **씬에 저장한 안개는 안 켜진다** — 맵이 additive라 활성 씬이 이긴다(§4 참고).
 - **안개는 전역 상태다.** `RenderSettings`를 칠하면 다음 게임모드로 샌다.
   `SkydiveAtmosphere`가 시작값을 기억해 `Dispose`에서 되돌리는 이유이고, `FlappyAtmosphere`도
   같은 처리를 반드시 해야 한다.

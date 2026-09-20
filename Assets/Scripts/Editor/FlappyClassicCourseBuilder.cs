@@ -23,8 +23,10 @@ namespace LOP.EditorTools
         private const float CameraDistance = 20f;
         private const float VerticalFov = 40f;
 
-        //  한 판을 60초로 잡는다. 전진 6.8 m/s면 408m이고 관문 36개 — 원본에서 "꽤 잘한 한 판"이다.
-        private const float RaceSeconds = 60f;
+        //  한 판을 90초로 잡는다. 전진 6.8 m/s면 612m이고 관문 약 53개다.
+        //  <b>맵마다 다를 수 있는 값</b>이다 — 경기 길이는 씬의 결승선 x로 표현되고, 런타임에
+        //  60초든 90초든 가정하는 곳은 없다(Archery의 MatchDurationTicks 같은 제한이 없다).
+        private const float RaceSeconds = 90f;
 
         //  이웃한 창의 높이차 상한. 1.67초에 충분히 갈 수 있는 폭이면서, 관문마다 고도를
         //  바꾸게 만들 만큼은 크다.
@@ -35,6 +37,18 @@ namespace LOP.EditorTools
         private const float PipeDepth = 2.5f;        // 판정면 정렬 규약(오브젝트 z -1.25, 콜라이더 center.z +0.5)
         private const float PipeZ = -1.25f;
         private const float WallThickness = 20f;     // 바닥·천장 슬래브 두께 — 밑으로 빠지지 않게 두껍게
+        //  중간층 깊이. 34m 거리가 되어 화면 세로 24.8m를 담는다. 게임 평면(z=0)과 배경(z=62)
+        //  사이가 통째로 비어 있던 자리다 — 2.5D가 안 읽히던 이유.
+        private const float MidgroundZ = 14f;
+        private const float MidgroundDepth = 6f;
+        private const ulong MidgroundSeed = 20260920UL;
+
+        //  배경 도시. 카메라에서 82m라 화면 세로가 59.7m다 — 기존 건물이 1~6.4m뿐이라
+        //  화면의 10%만 채우고 있었다(스카이라인이 아니라 자갈이었다). x도 557m에서 끊겼다.
+        private const float SkylineZ = 62f;
+        private const float SkylineDepth = 8f;
+        private const ulong SkylineSeed = 20260921UL;
+
         private const float StartX = 0f;
         private const ulong Seed = 20260919UL;
 
@@ -85,19 +99,38 @@ namespace LOP.EditorTools
                 Undo.DestroyObjectImmediate(composed.transform.GetChild(i).gameObject);
             }
 
-            var material = FindCourseMaterial();
-            Slab(composed.transform, "Floor", StartX, length, floorY - WallThickness * 0.5f,
-                 length + spacing * 4f, WallThickness, material);
-            Slab(composed.transform, "Ceiling", StartX, length, ceilingY + WallThickness * 0.5f,
-                 length + spacing * 4f, WallThickness, material);
+            var fallback = FindCourseMaterial();
+
+            //  바닥·천장은 구간마다 끊는다 — 한 덩어리면 색이 안 바뀌어 구간 경계가 바닥에서만
+            //  안 보인다. 앞뒤로는 코스 밖(스폰·결승선)까지 덮도록 여유를 준다.
+            float slabSpan = length / LOP.MapTools.CourseSectionRule.Count;
+            for (int i = 0; i < LOP.MapTools.CourseSectionRule.Count; i++)
+            {
+                bool first = i == 0;
+                bool last = i == LOP.MapTools.CourseSectionRule.Count - 1;
+                float from = StartX + slabSpan * i - (first ? spacing * 4f : 0f);
+                float to = StartX + slabSpan * (i + 1) + (last ? spacing * 4f : 0f);
+                Material slabSkin = SectionMaterial((from + to) * 0.5f, length, fallback);
+                Slab(composed.transform, $"Floor_{i}", from, to - from,
+                     floorY - WallThickness * 0.5f, to - from, WallThickness, slabSkin);
+                Slab(composed.transform, $"Ceiling_{i}", from, to - from,
+                     ceilingY + WallThickness * 0.5f, to - from, WallThickness, slabSkin);
+            }
 
             foreach (LOP.MapTools.CoursePipe p in pipes)
             {
+                Material skin = SectionMaterial(p.X, length, fallback);
                 float lowTop = p.GapCenter - window * 0.5f;
                 float highBottom = p.GapCenter + window * 0.5f;
-                Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X, floorY, lowTop, material);
-                Pipe(composed.transform, $"PipeHigh_{p.X:F0}", p.X, highBottom, ceilingY, material);
+                Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X, floorY, lowTop, skin);
+                Pipe(composed.transform, $"PipeHigh_{p.X:F0}", p.X, highBottom, ceilingY, skin);
             }
+
+            Backdrop(composed.transform, "Midground",
+                     LOP.MapTools.BackdropLayout.Midground(StartX, length, MidgroundSeed),
+                     MidgroundZ, MidgroundDepth, FlappyCityMaterials.Midground);
+
+            RebuildSkyline(length);
 
             PlaceSpawns(floorY, ceilingY, window, pipes.Count > 0 ? pipes[0].GapCenter : 0f);
             PlaceFinish(StartX + length + spacing);
@@ -110,7 +143,9 @@ namespace LOP.EditorTools
 
             EditorSceneManagerSave();
             Debug.Log($"[전통 코스] 파이프 {pipes.Count}쌍 · 창 {window:F2}m · 간격 {spacing:F1}m"
-                    + $" · 회랑 {corridor:F1}m · 길이 {length:F0}m ({RaceSeconds:F0}초)");
+                    + $" · 회랑 {corridor:F1}m · 길이 {length:F0}m ({RaceSeconds:F0}초)"
+                    + $" · 구간 {LOP.MapTools.CourseSectionRule.Count}개 ×"
+                    + $" {length / LOP.MapTools.CourseSectionRule.Count:F0}m");
         }
 
         //  코스 지오메트리 안에 섞여 있는 마커(FinishLine·SpawnPoint)를 <c>---Course---</c>
@@ -163,6 +198,61 @@ namespace LOP.EditorTools
             go.transform.position = new Vector3(x, bottom + h * 0.5f, PipeZ);
         }
 
+        //  <c>---Environment---</c>의 <c>CitySilhouette</c>만 다시 굽는다. 구름·장식은 손대지 않는다.
+        private static void RebuildSkyline(float length)
+        {
+            var env = GameObject.Find("---Environment---");
+            if (env == null)
+            {
+                Debug.LogWarning("[전통 코스] ---Environment---가 없다 — 배경을 못 구웠다.");
+                return;
+            }
+            Transform city = env.transform.Find("CitySilhouette");
+            if (city == null)
+            {
+                var made = new GameObject("CitySilhouette");
+                made.transform.SetParent(env.transform, worldPositionStays: false);
+                Undo.RegisterCreatedObjectUndo(made, "Build classic course");
+                city = made.transform;
+            }
+            Undo.RegisterFullObjectHierarchyUndo(city.gameObject, "Build classic course");
+            for (int i = city.childCount - 1; i >= 0; i--)
+            {
+                Undo.DestroyObjectImmediate(city.GetChild(i).gameObject);
+            }
+            Backdrop(city, "Skyline",
+                     LOP.MapTools.BackdropLayout.Skyline(StartX, length, SkylineSeed),
+                     SkylineZ, SkylineDepth, FlappyCityMaterials.Skyline);
+        }
+
+        //  게임 평면 뒤에 까는 실루엣. <b>콜라이더를 지운다</b> — 남으면 "안 보이는 벽"이 되고,
+        //  그건 플레이어가 원인을 짚을 수 없는 종류의 버그다(🧱 층 규약 검사가 잡는 바로 그것).
+        private static void Backdrop(Transform parent, string groupName,
+                                     System.Collections.Generic.IReadOnlyList<LOP.MapTools.BackdropBox> boxes,
+                                     float z, float depth, Material material)
+        {
+            var group = new GameObject(groupName);
+            group.transform.SetParent(parent, worldPositionStays: false);
+            Undo.RegisterCreatedObjectUndo(group, "Build classic course");
+
+            foreach (LOP.MapTools.BackdropBox b in boxes)
+            {
+                var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                go.name = $"{groupName}_{b.X:F0}";
+                go.transform.SetParent(group.transform, worldPositionStays: false);
+                go.transform.localScale = new Vector3(b.Width, b.Height, depth);
+                go.transform.position = new Vector3(b.X, b.CenterY, z);
+                //  z축 둘레로만 기울인다 — 다른 축으로 돌리면 z 범위가 변해 층이 섞인다.
+                go.transform.rotation = Quaternion.Euler(0f, 0f, b.TiltDegrees);
+                Object.DestroyImmediate(go.GetComponent<BoxCollider>());
+                if (material != null)
+                {
+                    go.GetComponent<MeshRenderer>().sharedMaterial = material;
+                }
+                Undo.RegisterCreatedObjectUndo(go, "Build classic course");
+            }
+        }
+
         private static GameObject Box(Transform parent, string name, Material material)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -179,6 +269,14 @@ namespace LOP.EditorTools
             }
             Undo.RegisterCreatedObjectUndo(go, "Build classic course");
             return go;
+        }
+
+        //  구간 재질이 아직 없으면(도시 재질을 안 만들었으면) 그레이박스 재질로 계속 간다 —
+        //  색이 다를 뿐 구조 검증에는 지장이 없다.
+        private static Material SectionMaterial(float x, float length, Material fallback)
+        {
+            Material m = FlappyCityMaterials.Of(LOP.MapTools.CourseSectionRule.Of(x, StartX, length));
+            return m != null ? m : fallback;
         }
 
         //  기존 코스가 쓰던 머티리얼을 그대로 쓴다 — 못 찾으면 기본값으로 두고 계속 간다

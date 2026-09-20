@@ -92,6 +92,9 @@ namespace LOP
             //  같은 값을 읽어야 숫자와 그림이 어긋나지 않는다.
             builder.RegisterEntryPoint<FlappyChaserView>().AsSelf();
 
+            //  안개·하늘은 씬이 아니라 여기가 소유한다 — 맵이 additive라 씬의 RenderSettings는 무시된다.
+            builder.RegisterEntryPoint<FlappyAtmosphere>();
+
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             builder.Register<FlapPadViewModel>(Lifetime.Transient);
             builder.Register<FlapPadView>(Lifetime.Transient);

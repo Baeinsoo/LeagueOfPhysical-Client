@@ -37,6 +37,12 @@ namespace LOP.EditorTools
         private const float PipeDepth = 2.5f;        // 판정면 정렬 규약(오브젝트 z -1.25, 콜라이더 center.z +0.5)
         private const float PipeZ = -1.25f;
         private const float WallThickness = 20f;     // 바닥·천장 슬래브 두께 — 밑으로 빠지지 않게 두껍게
+        //  중간층 깊이. 34m 거리가 되어 화면 세로 24.8m를 담는다. 게임 평면(z=0)과 배경(z=62)
+        //  사이가 통째로 비어 있던 자리다 — 2.5D가 안 읽히던 이유.
+        private const float MidgroundZ = 14f;
+        private const float MidgroundDepth = 6f;
+        private const ulong MidgroundSeed = 20260920UL;
+
         private const float StartX = 0f;
         private const ulong Seed = 20260919UL;
 
@@ -114,6 +120,10 @@ namespace LOP.EditorTools
                 Pipe(composed.transform, $"PipeHigh_{p.X:F0}", p.X, highBottom, ceilingY, skin);
             }
 
+            Backdrop(composed.transform, "Midground",
+                     LOP.MapTools.BackdropLayout.Midground(StartX, length, MidgroundSeed),
+                     MidgroundZ, MidgroundDepth, FlappyCityMaterials.Midground);
+
             PlaceSpawns(floorY, ceilingY, window, pipes.Count > 0 ? pipes[0].GapCenter : 0f);
             PlaceFinish(StartX + length + spacing);
 
@@ -178,6 +188,34 @@ namespace LOP.EditorTools
             float h = top - bottom;
             go.transform.localScale = new Vector3(PipeWidth, h, PipeDepth);
             go.transform.position = new Vector3(x, bottom + h * 0.5f, PipeZ);
+        }
+
+        //  게임 평면 뒤에 까는 실루엣. <b>콜라이더를 지운다</b> — 남으면 "안 보이는 벽"이 되고,
+        //  그건 플레이어가 원인을 짚을 수 없는 종류의 버그다(🧱 층 규약 검사가 잡는 바로 그것).
+        private static void Backdrop(Transform parent, string groupName,
+                                     System.Collections.Generic.IReadOnlyList<LOP.MapTools.BackdropBox> boxes,
+                                     float z, float depth, Material material)
+        {
+            var group = new GameObject(groupName);
+            group.transform.SetParent(parent, worldPositionStays: false);
+            Undo.RegisterCreatedObjectUndo(group, "Build classic course");
+
+            foreach (LOP.MapTools.BackdropBox b in boxes)
+            {
+                var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                go.name = $"{groupName}_{b.X:F0}";
+                go.transform.SetParent(group.transform, worldPositionStays: false);
+                go.transform.localScale = new Vector3(b.Width, b.Height, depth);
+                go.transform.position = new Vector3(b.X, b.CenterY, z);
+                //  z축 둘레로만 기울인다 — 다른 축으로 돌리면 z 범위가 변해 층이 섞인다.
+                go.transform.rotation = Quaternion.Euler(0f, 0f, b.TiltDegrees);
+                Object.DestroyImmediate(go.GetComponent<BoxCollider>());
+                if (material != null)
+                {
+                    go.GetComponent<MeshRenderer>().sharedMaterial = material;
+                }
+                Undo.RegisterCreatedObjectUndo(go, "Build classic course");
+            }
         }
 
         private static GameObject Box(Transform parent, string name, Material material)

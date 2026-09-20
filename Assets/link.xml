@@ -1,0 +1,26 @@
+<!--
+  IL2CPP 빌드에서 코드 스트리핑이 "아무도 직접 호출하지 않는" 멤버를 잘라낸다. 리플렉션으로
+  찾아 쓰는 코드는 그 사실을 린커가 알 수 없어, 런타임에 가서야 없는 걸 발견한다.
+  에디터와 Mono 빌드에서는 스트리핑이 없어 드러나지 않는다 — iOS가 이 프로젝트의 첫 IL2CPP다.
+
+  실제로 걸린 것들(2026-09-20 iOS 첫 빌드):
+  - AutoMapper — 매핑 계획을 짜며 MethodInfo를 리플렉션으로 찾는데, 잘려서 Expression.Call에
+    null이 들어가 "Value cannot be null. Parameter name: method"로 죽었다.
+  - VContainer로 등록한 타입들 — 생성자를 리플렉션으로 찾는다. 생성자를 직접 호출하는 코드가
+    없으면 잘려 "Type does not found injectable constructor"가 된다(SessionManager 등).
+
+  그래서 우리 코드 어셈블리와 AutoMapper를 통째로 남긴다. 어느 멤버가 필요한지 세밀하게
+  고르려면 DI 등록과 매핑 정의를 전부 따라가야 하는데, 게임 코드가 그만큼 계속 바뀌는 자리라
+  값을 못 한다. 대신 앱 용량이 늘어난다는 비용은 받아들인다.
+-->
+<linker>
+  <assembly fullname="AutoMapper" preserve="all" />
+
+  <assembly fullname="Assembly-CSharp" preserve="all" />
+  <assembly fullname="baegames.GameFramework.Runtime" preserve="all" />
+  <assembly fullname="baegames.GameFramework.World" preserve="all" />
+  <assembly fullname="baegames.LOP.Shared.Runtime" preserve="all" />
+  <assembly fullname="baegames.LOP.Shared.Generated" preserve="all" />
+  <assembly fullname="baegames.LOP.MasterData.Client.Runtime" preserve="all" />
+  <assembly fullname="baegames.LOP.MasterData.Client.Generated" preserve="all" />
+</linker>

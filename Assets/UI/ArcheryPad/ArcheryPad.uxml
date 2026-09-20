@@ -3,9 +3,10 @@
     <ui:VisualElement name="archery-pad-root" class="archery-pad-root">
         <!-- 화면 전체가 조작면이다. 누르면 활이 올라오고, 누른 채 움직이면 겨눈다. -->
         <ui:VisualElement name="surface" class="pad-surface" />
-        <!-- 내려놓기: 잡고 있는 동안만 보인다. 여기서 떼면 화살이 안 나간다. -->
-        <ui:VisualElement name="lower-band" class="lower-band" picking-mode="Ignore">
-            <ui:Label name="lower-label" class="lower-label" text="내려놓기 — 안 쏘고, 시야도 활 들기 전으로" picking-mode="Ignore" />
+        <!-- 내려놓기: 누른 자리 아래에 뜨는 원. 잡고 있는 동안만 보이고, 여기서 떼면 안 쏜다.
+             자리와 크기는 ArcheryPadView가 ViewModel 값으로 정한다 — USS에 적지 않는다. -->
+        <ui:VisualElement name="cancel-target" class="cancel-target" picking-mode="Ignore">
+            <ui:Label name="cancel-label" class="cancel-label" text="내려놓기" picking-mode="Ignore" />
         </ui:VisualElement>
         <!-- 조준점: 화면 한가운데, 시위가 걸린 동안만 뜬다. 바깥 원 + 가운데 점. -->
         <ui:VisualElement name="reticle" class="archery-reticle" picking-mode="Ignore">

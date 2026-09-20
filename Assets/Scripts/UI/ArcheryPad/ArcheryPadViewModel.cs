@@ -139,17 +139,77 @@ namespace LOP.UI
             cameraController.AimBy(degrees);
         }
 
-        /// <summary>
-        /// 화면 아래 이만큼이 <b>내려놓기</b> 자리다. 여기서 떼면 화살이 안 나간다.
-        ///
-        /// <para>손가락 하나가 당김과 조준을 다 하므로 "떼기"는 발사일 수밖에 없다 — 취소는
-        /// 따로 제스처를 줘야 한다. 젤다는 드는 버튼과 쏘는 버튼이 달라 취소가 공짜지만,
-        /// 손가락 하나로 옮기면 그게 안 된다.</para>
-        /// </summary>
-        public const float LowerBandFraction = 0.15f;
+        //  ── 내려놓기 자리 ────────────────────────────────────────────────
+        //
+        //  손가락 하나가 당김과 조준을 다 하므로 "떼기"는 발사일 수밖에 없다. 그래서 취소는
+        //  따로 제스처를 줘야 하는데, 남은 재료가 움직임뿐이고 그 움직임은 이미 조준이 쓴다.
+        //
+        //  그래서 취소 자리를 **조준이 실제로 쓰지 않는 곳**에 둔다. 당긴 상태(화각 22°)에서
+        //  조준이 도는 거리는 홀드오버 1.12° + 미세조정 ±3° 정도 = 화면 세로의 14% 남짓이다.
+        //  원의 안쪽 가장자리가 20%라 그 밖이다.
+        //
+        //  자리는 **화면 아래가 아니라 누른 자리 기준**이다 — 그래야 엄지가 갈 거리가 늘 같다.
+        //  (화면 아래 띠였을 땐 위에서 누르면 35mm, 아래에서 누르면 0mm였다.)
 
-        /// <summary>지금 내려놓기 자리에 손가락이 있나. 화면이 띠를 붉게 켜는 데 쓴다.</summary>
-        public bool Lowering { get; private set; }
+        /// <summary>누른 자리에서 아래로 이만큼 떨어진 곳이 내려놓기 자리다(화면 세로를 1로 본 값).
+        /// 6.1인치 가로 기준 약 20mm — 엄지가 한 번 접으면 닿는 거리다.</summary>
+        public const float CancelBelowPressInHeights = 0.31f;
+
+        /// <summary>
+        /// 내려놓기 원의 반지름(화면 세로를 1로 본 값). 폰에서 약 5mm = <b>지름 10mm</b>.
+        ///
+        /// <para>⚠️ 화면 <b>비율</b>이라 큰 화면에서는 그만큼 커 보인다 — 에디터 Game 뷰에서
+        /// 터무니없이 크게 보이는 건 정상이고, 폰에서는 엄지만 하다. 비율로 잡는 이유는
+        /// <b>정확성이 비율에 달려 있기 때문</b>이다(위 14% 계산은 각도라 화면 비율이다).
+        /// 손가락 크기는 화면 크기에 안 비례하므로, 줄이더라도 폰 기준 <b>지름 7~8mm</b>가
+        /// 바닥이다 — 애플 44pt·구글 48dp가 그쯤이고 그 아래로는 보지 않고 못 누른다.</para>
+        /// </summary>
+        public const float CancelRadiusInHeights = 0.075f;
+
+        /// <summary>
+        /// 내려놓기 원의 한가운데. 화면이 원을 그리는 자리이자 판정하는 자리다 —
+        /// 둘이 같은 값에서 나와야 "원 밖에서 뗐는데 안 나간다"가 안 생긴다.
+        ///
+        /// <para><paramref name="screenWidthInHeights"/>는 세로를 1로 봤을 때의 가로 길이다
+        /// (16:9 가로 화면이면 1.78). 화면 끝을 알아야 밖으로 나가는 걸 막는다.</para>
+        /// </summary>
+        public static Vector2 CancelTargetCenter(Vector2 pressInHeights, float screenWidthInHeights)
+        {
+            //  기본은 아래다. 다만 가로로 쥐면 엄지가 낮게 쉬어서 화면 아래쪽을 누르는 일이
+            //  잦은데, 거기선 "아래로 31%"가 화면 밖이다. 그럴 땐 **위로 뒤집는다** —
+            //  거리는 어느 쪽이든 같으므로 조준이 쓰는 범위 밖이라는 성질이 유지된다.
+            //  (가까이 당겨 붙이면 안 된다. 그러면 겨누다 취소된다.)
+            float below = pressInHeights.y - CancelBelowPressInHeights;
+            float y = below >= CancelRadiusInHeights
+                ? below
+                : pressInHeights.y + CancelBelowPressInHeights;
+
+            //  가로로 삐져나가면 안쪽으로 민다. 미는 건 거리를 **늘리기만** 하므로 안전하다.
+            float maxX = Mathf.Max(CancelRadiusInHeights, screenWidthInHeights - CancelRadiusInHeights);
+            float x = Mathf.Clamp(pressInHeights.x, CancelRadiusInHeights, maxX);
+
+            return new Vector2(x, y);
+        }
+
+        /// <summary>그 원 안인가.</summary>
+        public static bool InsideCancelTarget(Vector2 pressInHeights, Vector2 pointInHeights,
+            float screenWidthInHeights)
+        {
+            return (pointInHeights - CancelTargetCenter(pressInHeights, screenWidthInHeights)).sqrMagnitude
+                   <= CancelRadiusInHeights * CancelRadiusInHeights;
+        }
+
+        /// <summary>
+        /// 손가락이 지금 내려놓기 자리 안에 있나. 화면이 원을 붉게 켜는 데 쓴다.
+        ///
+        /// <para><b>여기 있다고 활이 내려가지는 않는다</b> — 판정은 <b>뗄 때만</b> 한다.
+        /// 그래서 원 위를 지나 더 아래로 겨누는 것이 막히지 않는다. 누를 때가 아니라 뗄 때가
+        /// 결정한다는 건 터치 버튼의 표준 동작이기도 하다(WCAG 2.5.2).</para>
+        /// </summary>
+        public bool OverCancelTarget { get; private set; }
+
+        /// <summary>화면이 원을 그릴 자리. 잡고 있는 동안에만 쓴다.</summary>
+        public Vector2 CancelTargetCenterInHeights => CancelTargetCenter(pressInHeights, screenWidthInHeights);
 
         /// <summary>
         /// 지금 얼마나 당겨졌나(0~1). <b>시뮬 값을 읽는다</b> — 화면이 따로 세면 클라와 서버가
@@ -167,13 +227,25 @@ namespace LOP.UI
         /// <summary>임계치를 넘겨 시위가 걸렸나. 못 넘으면 떼도 안 쏜다.</summary>
         public bool DrawArmed => DrawRatio >= ArcheryAimSystem.DrawThreshold;
 
-        //  활을 들기 직전에 보던 곳. 내려놓으면 여기로 돌아온다 — 아래 UpdateAim 참고.
+        //  활을 들기 직전에 보던 곳. 내려놓으면 여기로 돌아온다 — 아래 ReturnAimAfterCancel 참고.
         private float aimAtPressYaw;
         private float aimAtPressPitch;
+
+        //  손가락을 처음 댄 자리. 내려놓기 원이 여기를 기준으로 선다.
+        private Vector2 pressInHeights;
+
+        //  세로를 1로 봤을 때의 가로 길이. 원이 화면 밖으로 안 나가게 하는 데 쓴다.
+        private float screenWidthInHeights = 16f / 9f;
 
         //  돌아가는 데 걸리는 시간(초). 활을 내리는 동안 화각도 22°→60°로 넓어지므로
         //  그 속도와 얼추 맞춰야 화면이 따로 노는 느낌이 안 난다.
         private const float ReturnSeconds = 0.18f;
+
+        //  되돌리기는 지수 감쇠라 수학적으로는 안 끝난다 — 이만큼 지나면 그만둔다.
+        private const float ReturnGiveUpSeconds = 0.6f;
+
+        private bool returningAim;
+        private float returnElapsed;
 
         //  누른 손가락이 무엇을 하려는지 아직 모르는 상태를 거친다.
         //  <b>가만히 있으면 활, 곧바로 끌면 시야</b> — 길게 누르기와 쓸기를 가르는 표준 방식이다.
@@ -216,21 +288,31 @@ namespace LOP.UI
         private float pressSeconds;
         private float pressTravel;
 
-        /// <summary>손가락을 댔다. 활인지 시야인지는 아직 정하지 않는다.</summary>
-        public void BeginPress(Vector2 positionFraction)
+        /// <summary>
+        /// 손가락을 댔다. 활인지 시야인지는 아직 정하지 않는다.
+        /// 받는 값은 <b>화면 세로를 1로 본 좌표</b>이고 y 양수가 위다(가로는 1을 넘는다).
+        /// </summary>
+        public void BeginPress(Vector2 positionInHeights, float screenWidthInHeights)
         {
             press = Press.Deciding;
+            this.screenWidthInHeights = screenWidthInHeights;
             pressSeconds = 0f;
             pressTravel = 0f;
-            Lowering = false;
+            OverCancelTarget = false;
+            pressInHeights = positionInHeights;
             aimAtPressYaw = cameraController.Yaw;
             aimAtPressPitch = cameraController.Pitch;
+
+            //  새로 겨누려는 것이니 앞선 되돌리기는 여기서 끝낸다.
+            returningAim = false;
         }
 
         /// <summary>
-        /// 손가락이 움직였다. 받는 값은 화면 크기 대비 비율이고 <b>x 양수가 오른쪽, y 양수가 위</b>다.
+        /// 손가락이 움직였다. <paramref name="deltaFraction"/>은 화면 크기 대비 비율,
+        /// <paramref name="positionInHeights"/>는 화면 세로를 1로 본 좌표다.
+        /// 둘 다 <b>x 양수가 오른쪽, y 양수가 위</b>로 같은 관습을 쓴다.
         /// </summary>
-        public void MovePointer(Vector2 deltaFraction, Vector2 positionFraction)
+        public void MovePointer(Vector2 deltaFraction, Vector2 positionInHeights)
         {
             if (press == Press.None)
             {
@@ -257,18 +339,11 @@ namespace LOP.UI
                 return;   // 아직 Deciding — 움직임이 슬롭 안이라 아무것도 안 한다
             }
 
-            Lowering = positionFraction.y > (1f - LowerBandFraction);
+            //  원 안에 있는지는 **화면에 알려 주기 위해서만** 본다. 활을 내리지도, 조준을
+            //  멈추지도 않는다 — 그래야 원 위를 지나 더 아래로 겨눌 수 있다.
+            OverCancelTarget = InsideCancelTarget(pressInHeights, positionInHeights, screenWidthInHeights);
 
-            //  내리는 동안에도 Drawing은 **true로 둔다**. false로 내리면 다시 올릴 때
-            //  DrawStartTick이 새로 찍혀 흔들림 피로가 초기화된다 — 띠에 담갔다 빼는 것이
-            //  이득이 되면 안 된다. 목표만 0으로 낮춰 활이 내려가게 한다.
-            input.SetDrawRatio(Lowering ? 0f : 1f);
-
-            //  내려놓는 중에는 겨누지 않는다 — 아래 Tick이 조준을 되돌리는 것과 싸운다.
-            if (Lowering == false)
-            {
-                AimByDrag(deltaFraction);
-            }
+            AimByDrag(deltaFraction);
         }
 
         /// <summary>매 프레임. 누름이 무엇이 될지 정하고, 내려놓는 동안 조준을 되돌린다.</summary>
@@ -291,21 +366,30 @@ namespace LOP.UI
                 return;
             }
 
-            ReturnAimWhileLowering(deltaSeconds);
+            ReturnAimAfterCancel(deltaSeconds);
         }
 
         /// <summary>
-        /// 내려놓는 동안 조준을 <b>활을 들기 직전 자리로</b> 되돌린다.
+        /// 내려놓은 <b>뒤에</b> 조준을 활을 들기 직전 자리로 되돌린다.
         ///
-        /// <para><b>왜 필요한가</b>: 취소하려면 손가락을 띠(화면 아래 15%)까지 내려야 하는데,
-        /// 그 손가락이 곧 조준이라 내려가는 동안 조준도 같이 끌려 내려간다. 화면 가운데쯤에서
-        /// 시작하면 화면 높이의 35%를 끄는 셈이고, 당긴 상태(화각 22°)에서 그건 <b>아래로 7.7°</b>다
-        /// — 90m 홀드오버 전체가 1.1°이니 취소 한 번에 조준이 통째로 날아간다.</para>
+        /// <para><b>왜 필요한가</b>: 취소하려면 손가락을 원까지 내려야 하는데, 그 손가락이 곧
+        /// 조준이라 내려간 만큼(화면 세로의 31% = 당긴 상태에서 <b>아래로 6.8°</b>) 조준도 같이
+        /// 끌려 내려간다. 90m 홀드오버 전체가 1.1°이니 그냥 두면 조준이 통째로 날아간다.</para>
+        ///
+        /// <para>판정이 <b>뗄 때</b> 나므로 되돌리기도 뗀 뒤에 돈다 — 잡고 있는 동안 돌리면
+        /// 겨누는 손가락과 싸운다.</para>
         /// </summary>
-        private void ReturnAimWhileLowering(float deltaSeconds)
+        private void ReturnAimAfterCancel(float deltaSeconds)
         {
-            if (press != Press.Drawing || Lowering == false)
+            if (returningAim == false)
             {
+                return;
+            }
+
+            returnElapsed += deltaSeconds;
+            if (returnElapsed >= ReturnGiveUpSeconds)
+            {
+                returningAim = false;
                 return;
             }
 
@@ -343,12 +427,46 @@ namespace LOP.UI
 
             input.SetDrawing(false);
 
-            //  내려놓은 채로 뗐거나 시위가 안 걸렸으면 쏘라는 신호를 아예 안 보낸다.
-            if (Lowering == false && DrawArmed)
+            //  내려놓기 원 안에서 뗐거나 시위가 안 걸렸으면 쏘라는 신호를 아예 안 보낸다.
+            if (OverCancelTarget == false && DrawArmed)
             {
                 input.SetRelease();
             }
-            Lowering = false;
+            else if (OverCancelTarget)
+            {
+                BeginAimReturn();
+            }
+            OverCancelTarget = false;
+        }
+
+        /// <summary>
+        /// 쏘지 않고 활을 내린다. 화면 밖으로 손가락이 나가 터치를 뺏겼을 때도 이리로 온다 —
+        /// <b>알림을 쓸어 내리거나 전화가 와서 화살이 나가면 안 되기 때문이다.</b>
+        /// </summary>
+        public void Cancel()
+        {
+            if (press == Press.None)
+            {
+                return;
+            }
+
+            bool wasDrawing = press == Press.Drawing;
+            press = Press.None;
+            OverCancelTarget = false;
+
+            if (wasDrawing == false)
+            {
+                return;
+            }
+
+            input.SetDrawing(false);
+            BeginAimReturn();
+        }
+
+        private void BeginAimReturn()
+        {
+            returningAim = true;
+            returnElapsed = 0f;
         }
 
         /// <summary>지금 활을 들고 있나. 화면이 띠와 조준점을 켜는 데 쓴다.</summary>

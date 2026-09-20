@@ -103,11 +103,11 @@ namespace LOP.EditorTools
 
             //  바닥·천장은 구간마다 끊는다 — 한 덩어리면 색이 안 바뀌어 구간 경계가 바닥에서만
             //  안 보인다. 앞뒤로는 코스 밖(스폰·결승선)까지 덮도록 여유를 준다.
-            float slabSpan = length / LOP.MapTools.CourseSectionRule.Count;
-            for (int i = 0; i < LOP.MapTools.CourseSectionRule.Count; i++)
+            float slabSpan = length / FlappyRace.CourseSectionRule.Count;
+            for (int i = 0; i < FlappyRace.CourseSectionRule.Count; i++)
             {
                 bool first = i == 0;
-                bool last = i == LOP.MapTools.CourseSectionRule.Count - 1;
+                bool last = i == FlappyRace.CourseSectionRule.Count - 1;
                 float from = StartX + slabSpan * i - (first ? spacing * 4f : 0f);
                 float to = StartX + slabSpan * (i + 1) + (last ? spacing * 4f : 0f);
                 Material slabSkin = SectionMaterial((from + to) * 0.5f, length, fallback);
@@ -144,8 +144,8 @@ namespace LOP.EditorTools
             EditorSceneManagerSave();
             Debug.Log($"[전통 코스] 파이프 {pipes.Count}쌍 · 창 {window:F2}m · 간격 {spacing:F1}m"
                     + $" · 회랑 {corridor:F1}m · 길이 {length:F0}m ({RaceSeconds:F0}초)"
-                    + $" · 구간 {LOP.MapTools.CourseSectionRule.Count}개 ×"
-                    + $" {length / LOP.MapTools.CourseSectionRule.Count:F0}m");
+                    + $" · 구간 {FlappyRace.CourseSectionRule.Count}개 ×"
+                    + $" {length / FlappyRace.CourseSectionRule.Count:F0}m");
         }
 
         //  코스 지오메트리 안에 섞여 있는 마커(FinishLine·SpawnPoint)를 <c>---Course---</c>
@@ -275,7 +275,7 @@ namespace LOP.EditorTools
         //  색이 다를 뿐 구조 검증에는 지장이 없다.
         private static Material SectionMaterial(float x, float length, Material fallback)
         {
-            Material m = FlappyCityMaterials.Of(LOP.MapTools.CourseSectionRule.Of(x, StartX, length));
+            Material m = FlappyCityMaterials.Of(FlappyRace.CourseSectionRule.Of(x, StartX, length));
             return m != null ? m : fallback;
         }
 

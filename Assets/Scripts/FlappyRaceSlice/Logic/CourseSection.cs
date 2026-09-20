@@ -1,4 +1,4 @@
-namespace LOP.MapTools
+namespace FlappyRace
 {
     /// <summary>코스가 얼마나 무너졌는가. 순서가 곧 진행 방향이다.</summary>
     public enum CourseSection
@@ -17,6 +17,11 @@ namespace LOP.MapTools
     /// <para><b>왜 비율인가</b>: 경계를 미터로 박으면 코스 길이를 바꿨을 때 조용히 틀려진다
     /// (회랑 하한 4.912가 물리 변경 뒤에도 문서에 남아 있던 사고와 같은 종류다). 길이가
     /// 60초에서 90초로 늘어도 "앞 3분의 1은 멀쩡하다"는 뜻은 그대로여야 한다.</para>
+    ///
+    /// <para><b>왜 MapTools가 아니라 여기 사는가</b>: 맵 검사·빌더(에디터)와 런타임 대기
+    /// (<see cref="LOP.FlappyAtmosphere"/>)가 <b>둘 다</b> 쓴다. <c>LOP.MapTools</c>는
+    /// 에디터 전용 어셈블리라 런타임이 참조할 수 없다 — 에디터에서는 멀쩡히 컴파일되고
+    /// <b>플레이어 빌드에서만</b> 깨진다(실제로 콘텐츠 빌드가 그렇게 실패했다).</para>
     /// </summary>
     public static class CourseSectionRule
     {

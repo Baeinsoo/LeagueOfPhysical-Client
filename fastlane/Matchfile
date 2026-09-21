@@ -1,0 +1,9 @@
+#  인증서는 비공개 버킷에 둔다. lop-assets는 앱이 자격증명 없이 카탈로그를 읽어가는 공개
+#  버킷이라, 거기 두면 링크를 아는 누구나 받아간다.
+storage_mode("s3")
+s3_bucket(ENV.fetch("MATCH_S3_BUCKET", "lop-client"))
+s3_region("ap-northeast-2")
+s3_prefix("certificates")
+
+type("appstore")
+app_identifier(["com.BAEGames.LeagueOfPhysicalClient"])

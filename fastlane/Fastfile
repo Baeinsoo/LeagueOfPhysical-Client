@@ -1,0 +1,74 @@
+default_platform(:ios)
+
+APP_IDENTIFIER = "com.BAEGames.LeagueOfPhysicalClient"
+XCODE_PROJECT  = "Build/iOS/Unity-iPhone.xcodeproj"
+SCHEME         = "Unity-iPhone"
+
+platform :ios do
+  desc "유니티가 만들어 둔 Xcode 프로젝트를 서명해 TestFlight에 올린다"
+  lane :beta do
+    unless File.directory?(XCODE_PROJECT)
+      UI.user_error!("#{XCODE_PROJECT} 가 없다. 유니티 배치 빌드를 먼저 돌려야 한다:\n" \
+                     "  DEVELOPER_DIR=/Applications/Xcode-26.6.0.app/Contents/Developer \\\n" \
+                     "  <Unity> -batchmode -quit -nographics -buildTarget iOS -projectPath . \\\n" \
+                     "    -executeMethod BuildScript.BuildIOSXcodeProject -buildEnv dev -development -logFile -")
+    end
+
+    #  CI에서만 임시 키체인을 만든다. 로컬에서는 아무 일도 하지 않는다.
+    setup_ci
+
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_KEY_P8"),
+      is_key_content_base64: true,
+    )
+
+    #  readonly가 핵심이다. CI가 인증서를 새로 만들 수 있으면, 한도에 걸린 날 조용히 기존
+    #  인증서를 무효화한다. 최초 생성은 사람이 로컬에서 한 번만 한다(`fastlane match appstore`).
+    match(
+      type: "appstore",
+      app_identifier: APP_IDENTIFIER,
+      readonly: true,
+      api_key: api_key,
+    )
+
+    #  유니티는 매번 Xcode 프로젝트를 새로 만들고 자동 서명으로 내놓는다(로컬에서 케이블로
+    #  꽂을 때 편하라고 그렇게 둔다). CI는 match가 준 프로파일을 정확히 써야 하므로 매번 되돌린다.
+    update_code_signing_settings(
+      path: XCODE_PROJECT,
+      use_automatic_signing: false,
+      team_id: ENV.fetch("APPLE_TEAM_ID", "X9SC492BAQ"),
+      targets: [SCHEME],
+      code_sign_identity: "Apple Distribution",
+      profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING][APP_IDENTIFIER],
+    )
+
+    #  빌드 번호는 애플이 들고 있는 값을 기준으로 올린다. 러너나 레포 상태에 기대면 기계가
+    #  둘인 이 프로젝트에서 언젠가 겹치고, 겹치면 업로드가 거부된다.
+    increment_build_number(
+      xcodeproj: XCODE_PROJECT,
+      build_number: latest_testflight_build_number(
+        api_key: api_key,
+        app_identifier: APP_IDENTIFIER,
+        initial_build_number: 0,
+      ) + 1,
+    )
+
+    build_app(
+      project: XCODE_PROJECT,
+      scheme: SCHEME,
+      export_method: "app-store",
+      output_directory: "Build/ipa",
+      output_name: "lop.ipa",
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      #  처리 대기로 러너를 붙잡아 두지 않는다. 내부 테스터는 처리가 끝나면 자동으로 받는다.
+      skip_waiting_for_build_processing: true,
+      #  외부 그룹 배포는 App Store Connect 쪽에서 관리한다(버전당 첫 빌드는 베타 심사).
+      distribute_external: false,
+    )
+  end
+end

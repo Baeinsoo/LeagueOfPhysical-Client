@@ -1,0 +1,5 @@
+app_identifier("com.BAEGames.LeagueOfPhysicalClient")
+
+#  팀 ID는 비밀이 아니다(프로비저닝 프로파일마다 들어 있다). 기본값을 박아 로컬에서 환경변수
+#  없이도 돌게 하고, CI는 환경변수로 덮어쓴다.
+team_id(ENV.fetch("APPLE_TEAM_ID", "X9SC492BAQ"))

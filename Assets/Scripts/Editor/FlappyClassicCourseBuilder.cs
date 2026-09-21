@@ -50,10 +50,10 @@ namespace LOP.EditorTools
         private const ulong SkylineSeed = 20260921UL;
 
         private const float StartX = 0f;
-        //  창이 둘인 <b>도전 구간</b>을 코스에 몇 군데 둘 것인가. 구간 하나는 연속 3관문이라
-        //  4개면 53관문 중 12개(23%) — 약 150m마다 한 번이다. 기본 맵 느낌은 그대로 두고
-        //  "여기선 위험을 걸어 볼까"를 가끔 묻는 정도.
-        private const int ChallengeRuns = 4;
+        //  창이 둘인 <b>도전 구간</b>을 코스에 몇 군데 둘 것인가. 구간 하나는 연속 4관문이라
+        //  6개면 53관문 중 24개(45%) — 약 100m(15초)마다 한 번이다. 기본 맵 느낌은 살아 있되
+        //  "위험을 걸 자리"가 꾸준히 온다.
+        private const int ChallengeRuns = 6;
 
         private const ulong Seed = 20260919UL;
 

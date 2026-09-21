@@ -59,7 +59,7 @@ namespace LOP.MapTools
     {
         /// <summary>도전 구간 하나가 몇 관문인가. 지그재그가 되려면 <b>연속</b>이어야 한다 —
         /// 하나만 떨어져 있으면 내려갔다 올라오는 일회성이지 리듬이 아니다.</summary>
-        public const int ChallengeRunLength = 3;
+        public const int ChallengeRunLength = 4;
 
         /// <summary>두 창이 물리적으로 들어가려면 필요한 최소 낙차(창 + 중간 기둥).</summary>
         public const float MinChallengeDrop = 5.87f;

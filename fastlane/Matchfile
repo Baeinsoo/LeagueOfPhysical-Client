@@ -3,7 +3,7 @@
 storage_mode("s3")
 s3_bucket(ENV.fetch("MATCH_S3_BUCKET", "lop-client"))
 s3_region("ap-northeast-2")
-s3_prefix("certificates")
+s3_object_prefix("certificates/")
 
 type("appstore")
 app_identifier(["com.BAEGames.LeagueOfPhysical"])

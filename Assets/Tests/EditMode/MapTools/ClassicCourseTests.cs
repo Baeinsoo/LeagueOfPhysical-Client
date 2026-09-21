@@ -249,7 +249,7 @@ namespace LOP.MapTools.Tests
             //  "기존 맵 느낌은 그대로, 도전 요소만 가미"가 이 테스트다. 난수 줄기를 나눠 쓰지
             //  않으면 도전 구간을 켜는 순간 안전선까지 통째로 달라진다.
             var without = WithRuns(0);
-            var with = WithRuns(4);
+            var with = WithRuns(6);
 
             Assert.AreEqual(without.Count, with.Count);
             for (int i = 0; i < without.Count; i++)
@@ -262,7 +262,7 @@ namespace LOP.MapTools.Tests
         public void 도전_관문은_연속으로_묶여_있다()
         {
             //  하나씩 흩어져 있으면 내려갔다 올라오는 일회성이지 지그재그가 아니다.
-            var pipes = WithRuns(4);
+            var pipes = WithRuns(6);
             int longestRun = 0, run = 0;
             foreach (CoursePipe p in pipes)
             {
@@ -277,7 +277,7 @@ namespace LOP.MapTools.Tests
         public void 도전_창은_최소_낙차를_넘는다()
         {
             //  창 4.37m 둘 + 중간 기둥이 들어가야 한다. 이보다 가까우면 두 창이 겹쳐 하나가 된다.
-            foreach (CoursePipe p in WithRuns(4))
+            foreach (CoursePipe p in WithRuns(6))
             {
                 if (p.HasChallenge == false) { continue; }
                 Assert.GreaterOrEqual(p.ChallengeDrop, ClassicCourseRule.MinChallengeDrop - 1e-3f,
@@ -290,7 +290,7 @@ namespace LOP.MapTools.Tests
         {
             float low = Floor + Window * 0.5f;
             float high = Ceiling - Window * 0.5f;
-            foreach (CoursePipe p in WithRuns(4))
+            foreach (CoursePipe p in WithRuns(6))
             {
                 if (p.HasChallenge == false) { continue; }
                 Assert.GreaterOrEqual(p.ChallengeCenter, low - 1e-3f, $"x={p.X:F1}");
@@ -302,13 +302,16 @@ namespace LOP.MapTools.Tests
         public void 도전_관문이_실제로_생긴다()
         {
             int count = 0;
-            foreach (CoursePipe p in WithRuns(4))
+            foreach (CoursePipe p in WithRuns(6))
             {
                 if (p.HasChallenge) { count++; }
             }
 
-            Assert.GreaterOrEqual(count, 6, "도전 관문이 너무 적다 — 배치가 안 먹고 있다");
-            Assert.LessOrEqual(count, 16, "도전 관문이 너무 많다 — 기본 맵 느낌이 사라진다");
+            //  구간 6개 × 연속 4관문 = 최대 24. 두 창이 안 들어가는 자리는 하나로 줄므로
+            //  실제로는 그보다 적다. 절반(12) 아래로 내려가면 배치가 안 먹고 있는 것이고,
+            //  24를 넘으면 구간이 겹쳐 기본 맵 느낌이 사라진다.
+            Assert.GreaterOrEqual(count, 12, "도전 관문이 너무 적다 — 배치가 안 먹고 있다");
+            Assert.LessOrEqual(count, 24, "도전 관문이 너무 많다 — 기본 맵 느낌이 사라진다");
         }
     }
 }

@@ -223,5 +223,92 @@ namespace LOP.MapTools.Tests
                 Assert.LessOrEqual(step, 6f + 1e-3f, $"x={pipes[i].X:F1}에서 {step:F2}m 움직였다");
             }
         }
+
+        //  ── 도전 구간: 창이 둘인 관문 ──────────────────────────────
+
+        //  도전 구간 테스트는 실제 코스 값을 쓴다(위쪽 상수는 옛 테스트의 어림값이다).
+        const float RunSpacing = 11.4f;
+        const float RunStep = 6f;
+
+        static System.Collections.Generic.List<CoursePipe> WithRuns(int runs)
+            => ClassicCourseRule.Layout(0f, 612f, RunSpacing, Floor, Ceiling, Window, RunStep,
+                                        20260921UL, centerAt: null, challengeRuns: runs);
+
+        [Test]
+        public void 도전_구간을_0으로_주면_전부_창이_하나다()
+        {
+            foreach (CoursePipe p in WithRuns(0))
+            {
+                Assert.IsFalse(p.HasChallenge);
+            }
+        }
+
+        [Test]
+        public void 도전_구간을_켜도_안전선은_그대로다()
+        {
+            //  "기존 맵 느낌은 그대로, 도전 요소만 가미"가 이 테스트다. 난수 줄기를 나눠 쓰지
+            //  않으면 도전 구간을 켜는 순간 안전선까지 통째로 달라진다.
+            var without = WithRuns(0);
+            var with = WithRuns(4);
+
+            Assert.AreEqual(without.Count, with.Count);
+            for (int i = 0; i < without.Count; i++)
+            {
+                Assert.AreEqual(without[i].GapCenter, with[i].GapCenter, 1e-4f, $"관문 {i}");
+            }
+        }
+
+        [Test]
+        public void 도전_관문은_연속으로_묶여_있다()
+        {
+            //  하나씩 흩어져 있으면 내려갔다 올라오는 일회성이지 지그재그가 아니다.
+            var pipes = WithRuns(4);
+            int longestRun = 0, run = 0;
+            foreach (CoursePipe p in pipes)
+            {
+                run = p.HasChallenge ? run + 1 : 0;
+                if (run > longestRun) { longestRun = run; }
+            }
+
+            Assert.GreaterOrEqual(longestRun, 2, "연속된 도전 관문이 없다");
+        }
+
+        [Test]
+        public void 도전_창은_최소_낙차를_넘는다()
+        {
+            //  창 4.37m 둘 + 중간 기둥이 들어가야 한다. 이보다 가까우면 두 창이 겹쳐 하나가 된다.
+            foreach (CoursePipe p in WithRuns(4))
+            {
+                if (p.HasChallenge == false) { continue; }
+                Assert.GreaterOrEqual(p.ChallengeDrop, ClassicCourseRule.MinChallengeDrop - 1e-3f,
+                                      $"x={p.X:F1}에서 두 창이 너무 가깝다");
+            }
+        }
+
+        [Test]
+        public void 도전_창도_회랑_안에_온전히_들어간다()
+        {
+            float low = Floor + Window * 0.5f;
+            float high = Ceiling - Window * 0.5f;
+            foreach (CoursePipe p in WithRuns(4))
+            {
+                if (p.HasChallenge == false) { continue; }
+                Assert.GreaterOrEqual(p.ChallengeCenter, low - 1e-3f, $"x={p.X:F1}");
+                Assert.LessOrEqual(p.ChallengeCenter, high + 1e-3f, $"x={p.X:F1}");
+            }
+        }
+
+        [Test]
+        public void 도전_관문이_실제로_생긴다()
+        {
+            int count = 0;
+            foreach (CoursePipe p in WithRuns(4))
+            {
+                if (p.HasChallenge) { count++; }
+            }
+
+            Assert.GreaterOrEqual(count, 6, "도전 관문이 너무 적다 — 배치가 안 먹고 있다");
+            Assert.LessOrEqual(count, 16, "도전 관문이 너무 많다 — 기본 맵 느낌이 사라진다");
+        }
     }
 }

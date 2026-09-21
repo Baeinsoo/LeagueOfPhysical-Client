@@ -50,6 +50,11 @@ namespace LOP.EditorTools
         private const ulong SkylineSeed = 20260921UL;
 
         private const float StartX = 0f;
+        //  창이 둘인 <b>도전 구간</b>을 코스에 몇 군데 둘 것인가. 구간 하나는 연속 3관문이라
+        //  4개면 53관문 중 12개(23%) — 약 150m마다 한 번이다. 기본 맵 느낌은 그대로 두고
+        //  "여기선 위험을 걸어 볼까"를 가끔 묻는 정도.
+        private const int ChallengeRuns = 4;
+
         private const ulong Seed = 20260919UL;
 
         [MenuItem("LOP/Debug/Flappy 전통 코스 굽기")]
@@ -83,7 +88,8 @@ namespace LOP.EditorTools
                 x => LOP.MapTools.CourseElevation.CenterY(x, StartX, length);
 
             var pipes = LOP.MapTools.ClassicCourseRule.Layout(
-                StartX, length, spacing, floorY, ceilingY, window, MaxGapStep, Seed, centerAt);
+                StartX, length, spacing, floorY, ceilingY, window, MaxGapStep, Seed, centerAt,
+                ChallengeRuns);
             string bad = LOP.MapTools.ClassicCourseRule.Validate(
                 pipes, floorY, ceilingY, window, spacing, MaxGapStep, centerAt);
             if (bad != null)
@@ -128,16 +134,36 @@ namespace LOP.EditorTools
                      ceilingY, below: false, material: rampSkin);
             }
 
+            int challengeGates = 0;
             foreach (LOP.MapTools.CoursePipe p in pipes)
             {
                 Material skin = SectionMaterial(p.X, length, fallback);
                 float lift = centerAt(p.X);
-                float lowTop = p.GapCenter - window * 0.5f;
-                float highBottom = p.GapCenter + window * 0.5f;
                 //  <b>실제</b> 바닥·천장까지 닿아야 한다. 평평한 floorY까지만 그리면 회랑이
                 //  내려간 자리에서 파이프 아래에 틈이 생겨 새가 빠져나간다.
-                Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X, floorY + lift - 1f, lowTop, skin);
-                Pipe(composed.transform, $"PipeHigh_{p.X:F0}", p.X, highBottom, ceilingY + lift + 1f, skin);
+                float bottom = floorY + lift - 1f;
+                float top = ceilingY + lift + 1f;
+
+                if (p.HasChallenge == false)
+                {
+                    Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X,
+                         bottom, p.GapCenter - window * 0.5f, skin);
+                    Pipe(composed.transform, $"PipeHigh_{p.X:F0}", p.X,
+                         p.GapCenter + window * 0.5f, top, skin);
+                    continue;
+                }
+
+                //  창이 둘인 기둥 — 아래 창, <b>중간 기둥</b>, 위 창 순으로 셋을 세운다.
+                //  중간 기둥이 두 창을 실제로 가르는 벽이라, 없으면 그냥 넓은 창 하나가 된다.
+                challengeGates++;
+                float lowerCenter = System.Math.Min(p.GapCenter, p.ChallengeCenter);
+                float upperCenter = System.Math.Max(p.GapCenter, p.ChallengeCenter);
+                Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X,
+                     bottom, lowerCenter - window * 0.5f, skin);
+                Pipe(composed.transform, $"PipeMid_{p.X:F0}", p.X,
+                     lowerCenter + window * 0.5f, upperCenter - window * 0.5f, skin);
+                Pipe(composed.transform, $"PipeHigh_{p.X:F0}", p.X,
+                     upperCenter + window * 0.5f, top, skin);
             }
 
             Backdrop(composed.transform, "Midground",
@@ -161,7 +187,8 @@ namespace LOP.EditorTools
                     + $" · 구간 {FlappyRace.CourseSectionRule.Count}개 ×"
                     + $" {length / FlappyRace.CourseSectionRule.Count:F0}m"
                     + $" · 고저차 ±{LOP.MapTools.CourseElevation.AmpStart:F0}~{LOP.MapTools.CourseElevation.AmpEnd:F0}m"
-                    + $" (파장 {LOP.MapTools.CourseElevation.Wavelength:F0}m)");
+                    + $" (파장 {LOP.MapTools.CourseElevation.Wavelength:F0}m)"
+                    + $" · 도전 관문 {challengeGates}개");
         }
 
         //  코스 지오메트리 안에 섞여 있는 마커(FinishLine·SpawnPoint)를 <c>---Course---</c>

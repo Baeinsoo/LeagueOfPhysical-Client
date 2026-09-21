@@ -168,9 +168,9 @@ PlayerSettings:
   androidMaxAspectRatio: 2.1
   androidMinAspectRatio: 1
   applicationIdentifier:
-    Android: com.BAEGames.LeagueOfPhysicalClient
+    Android: com.BAEGames.LeagueOfPhysical
     Standalone: com.BSGames.LeagueOfPhysical-Client
-    iPhone: com.BAEGames.LeagueOfPhysicalClient
+    iPhone: com.BAEGames.LeagueOfPhysical
   buildNumber:
     Standalone: 0
     VisionOS: 0

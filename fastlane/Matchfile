@@ -6,4 +6,4 @@ s3_region("ap-northeast-2")
 s3_prefix("certificates")
 
 type("appstore")
-app_identifier(["com.BAEGames.LeagueOfPhysicalClient"])
+app_identifier(["com.BAEGames.LeagueOfPhysical"])

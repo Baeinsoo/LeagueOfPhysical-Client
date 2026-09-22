@@ -35,7 +35,7 @@ namespace LOP
             worldEntity.Add(new ArcheryScore());
             //  사거리 맵은 화살이 과녁 수만큼이다. 웨이브 맵은 0을 돌려주므로 그릇을 안 붙인다 —
             //  붙이는 순간 한 발도 못 쏘게 되므로 이 조건이 곧 "원형 맵은 안 바뀐다"의 보증이다.
-            int arrows = course.ArrowsPerArcher;
+            int arrows = course.ArrowsPerStand;
             if (arrows > 0)
             {
                 worldEntity.Add(new ArcheryQuiver { Remaining = arrows });

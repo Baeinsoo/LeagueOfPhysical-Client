@@ -36,11 +36,10 @@ namespace LOP.UI
         // 원시 이동 벡터를 카메라 Y회전 기준으로 변환해 held 이동으로 넘긴다(0이면 0 그대로 → 정지 신호).
         private void PushMovement(Vector2 rawMove)
         {
-            float yAngle = _cameraController.MainCamera.transform.eulerAngles.y;
-            Quaternion cameraRotation = Quaternion.Euler(0, yAngle, 0);
-            Vector3 transformedInput = cameraRotation * new Vector3(rawMove.x, 0, rawMove.y);
+            Vector3 world = MoveStickDirection.ToWorld(
+                rawMove, _cameraController.MainCamera.transform.eulerAngles.y);
 
-            _playerInputManager.SetMovement(transformedInput.x, transformedInput.z);
+            _playerInputManager.SetMovement(world.x, world.z);
         }
 
         /// <summary>데스크톱 편의: Space 키 점프(원본 JoyStick.Update 동작 보존).</summary>

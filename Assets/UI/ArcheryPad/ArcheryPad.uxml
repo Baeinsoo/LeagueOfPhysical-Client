@@ -1,8 +1,16 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="ArcheryPad.uss" />
     <ui:VisualElement name="archery-pad-root" class="archery-pad-root">
-        <!-- 화면 전체가 조작면이다. 누르면 활이 올라오고, 누른 채 움직이면 겨눈다. -->
+        <!-- 조작면. 누르면 활이 올라오고, 누른 채 움직이면 겨눈다.
+             화면 전체를 덮되, 아래 걷기 스틱이 *그 위에* 얹혀 자기 구석만 가져간다. -->
         <ui:VisualElement name="surface" class="pad-surface" />
+        <!-- 걷기 스틱: 왼쪽 아래. 누른 자리에 떠오르는 떠다니는 스틱이다.
+             조작면보다 **뒤에** 적어야 위로 올라와 그 구석의 손가락을 먼저 받는다. -->
+        <ui:VisualElement name="move-area" class="move-area">
+            <ui:VisualElement name="move-bg" class="move-bg" picking-mode="Ignore">
+                <ui:VisualElement name="move-handle" class="move-handle" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
         <!-- 내려놓기: 누른 자리 아래에 뜨는 원. 잡고 있는 동안만 보이고, 여기서 떼면 안 쏜다.
              자리와 크기는 ArcheryPadView가 ViewModel 값으로 정한다 — USS에 적지 않는다. -->
         <ui:VisualElement name="cancel-target" class="cancel-target" picking-mode="Ignore">

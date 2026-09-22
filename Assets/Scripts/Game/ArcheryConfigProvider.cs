@@ -87,7 +87,8 @@ namespace LOP
                 range = new ArcheryRangeSettings(
                     new ArcheryTargetKind(faceRow.Radius, faceRow.Points, faceRow.Weight, faceRow.IsTrap,
                                           (ArcheryTargetShape)faceRow.Shape, BandsOf(md, faceRow.Id)),
-                    stands, r.StepGapTicks, r.ArrowsPerStand);
+                    stands, r.StepGapTicks, r.ArrowsPerStand,
+                    r.BoxHalfWidthM, r.BoxHalfDepthM, r.MoveSpeedMps);
             }
 
             return new ArcheryConfig(

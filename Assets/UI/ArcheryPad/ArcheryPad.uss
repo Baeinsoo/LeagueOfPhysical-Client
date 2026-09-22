@@ -3,10 +3,43 @@
     left: 0; right: 0; top: 0; bottom: 0;
 }
 
-/* 화면 전체가 조작면이다 — 왼쪽/오른쪽 구분이 없어졌다. */
+/* 조작면은 화면 전체다. 걷기 스틱이 그 위에 얹혀 왼쪽 아래 구석만 가져간다 —
+   그래서 겨누는 것은 나머지 어디서든 시작할 수 있다. */
 .pad-surface {
     position: absolute;
     left: 0; right: 0; top: 0; bottom: 0;
+}
+
+/* 걷기 스틱이 사는 구석. 오른손 엄지가 겨누는 동안 왼손 엄지가 여기를 쓴다.
+   취소 원은 누른 자리(오른쪽) 기준이라 이 구석과 겹치지 않는다. */
+.move-area {
+    position: absolute;
+    left: 0; bottom: 0;
+    width: 38%;
+    height: 55%;
+}
+
+/* 누른 자리에 떠오른다(떠다니는 스틱) — 자리는 View가 써 넣는다. */
+.move-bg {
+    position: absolute;
+    visibility: hidden;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.16);
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.45);
+}
+
+.move-handle {
+    position: absolute;
+    left: 55px; top: 55px;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.55);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.7);
 }
 
 /* 내려놓기 원 — 누른 자리 아래에 뜬다. 잡고 있는 동안만 View가 켠다.

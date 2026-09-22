@@ -16,6 +16,9 @@ namespace LOP.UI
         private readonly ArcheryImpactLog impactLog;
         private readonly ArcheryConfig config;
 
+        //  걷기 스틱을 민 양. 스틱을 놓으면 0이 되고, 그 0도 매 프레임 밀어야 캐릭이 선다.
+        private Vector2 moveStick;
+
         //  겨누는 속도(도/초). 아래 화각을 기준으로 정한 값이고, 당겨서 화면이 좁아지면 그
         //  비율만큼 같이 줄어든다 — 그래야 손동작 하나가 **화면 위에서** 늘 같은 거리를 움직인다.
         //  (저격 게임의 "줌 감도 보정"과 같은 것. 안 하면 줌인할수록 손이 미쳐 날뛴다.)
@@ -369,6 +372,30 @@ namespace LOP.UI
             OverCancelTarget = InsideCancelTarget(pressInHeights, positionInHeights, screenWidthInHeights);
 
             AimByDrag(deltaFraction);
+        }
+
+        /// <summary>
+        /// 걷기 스틱을 민 양(−1~1). 화면이 스틱을 잡고 있는 동안 갱신한다.
+        /// </summary>
+        public void SetMove(Vector2 stick)
+        {
+            moveStick = stick;
+        }
+
+        /// <summary>스틱에서 손을 뗐다.</summary>
+        public void ClearMove()
+        {
+            moveStick = Vector2.zero;
+        }
+
+        /// <summary>
+        /// 지금 스틱 값을 이동 입력으로 밀어 넣는다. <b>매 프레임</b> 불러야 한다 —
+        /// 손을 뗐을 때의 0도 밀어야 캐릭터가 선다(안 밀면 마지막 방향으로 계속 걷는다).
+        /// </summary>
+        public void FeedMove()
+        {
+            Vector3 world = MoveStickDirection.ToWorld(moveStick, Camera.transform.eulerAngles.y);
+            input.SetMovement(world.x, world.z);
         }
 
         /// <summary>매 프레임. 누름이 무엇이 될지 정하고, 내려놓는 동안 조준을 되돌린다.</summary>

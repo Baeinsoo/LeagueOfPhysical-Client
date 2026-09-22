@@ -1,8 +1,9 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="DebugHud.uss" />
     <ui:VisualElement name="debug-hud-root" class="debug-hud-root" picking-mode="Ignore">
-        <!-- 감췄을 때만 뜨는 아주 작은 되살리기 안내. 이게 없으면 F1을 아는 사람만 다시 켤 수 있다. -->
-        <ui:Label name="debug-hint" class="debug-hint" text="F1 디버그" picking-mode="Ignore" style="display: none;" />
+        <!-- 켜고 끄는 손잡이. **모바일엔 F1이 없으므로 늘 보이는 버튼이어야 한다.**
+             왼쪽 위인 이유: 오른쪽 위는 이 패널과 활쏘기 착탄 기록판이 쓴다. -->
+        <ui:Button name="debug-toggle" class="debug-toggle" text="디버그" />
         <ui:VisualElement name="debug-panel" class="debug-panel" picking-mode="Ignore">
             <!-- 시뮬이 멈췄을 때만 뜬다. 회색 줄 스무 개 사이에 섞이면 놓치므로 맨 위·빨강. -->
             <ui:Label name="faulted-text" class="debug-text debug-text--faulted" text="" style="display: none;" />

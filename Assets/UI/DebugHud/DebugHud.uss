@@ -26,11 +26,23 @@
     -unity-font-style: bold;
 }
 
-/* 감췄을 때만 보이는 되살리기 안내. 패널과 같은 모서리에 두되 눈에 안 걸리게 작고 흐리게. */
-.debug-hint {
+/* 켜고 끄는 손잡이. 늘 보인다 — 모바일엔 F1이 없다.
+   손가락으로 누를 수 있어야 하므로 44px 이상(애플 44pt·구글 48dp가 터치 타깃 최소치).
+   평소엔 눈에 안 걸리게 흐리고, 누를 때만 또렷해진다. */
+.debug-toggle {
     position: absolute;
     top: 8px; left: 8px;
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.28);
+    min-width: 88px; height: 44px;
+    padding: 0 12px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.55);
+    background-color: rgba(10, 10, 14, 0.35);
+    border-left-width: 0; border-right-width: 0;
+    border-top-width: 0; border-bottom-width: 0;
+    border-radius: 6px;
+}
+.debug-toggle:hover, .debug-toggle:active {
+    color: rgb(255, 255, 255);
+    background-color: rgba(10, 10, 14, 0.7);
 }
 

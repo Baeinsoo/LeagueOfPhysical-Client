@@ -37,7 +37,7 @@ namespace LOP.UI
 
         private IVisualElementScheduledItem _tick;
         private VisualElement _panel;
-        private Label _hint;
+        private Button _toggleButton;
 
         /// <summary>
         /// 숨김 여부를 기억하는 자리. 판마다 다시 켜야 하면 토글이 있으나 마나다.
@@ -46,8 +46,8 @@ namespace LOP.UI
         /// </summary>
         private const string HiddenPref = "lop.debugHud.hidden";
 
-        //  숨기기 단축키. 이 게임의 조작이 WASD·방향키·포인터를 쓰므로 그것들과 안 겹치고,
-        //  디버그 HUD 토글은 F1이 업계 관용이다.
+        //  데스크톱 단축키. 이 게임의 조작이 WASD·방향키·포인터를 쓰므로 안 겹치고,
+        //  디버그 HUD 토글은 F1이 업계 관용이다. **모바일용 손잡이는 버튼이 따로 있다.**
         private const UnityEngine.InputSystem.Key ToggleKey = UnityEngine.InputSystem.Key.F1;
 
         public DebugHudView(DebugHudViewModel viewModel)
@@ -90,7 +90,9 @@ namespace LOP.UI
             _dumpButton.clicked += _viewModel.DumpStats;
 
             _panel = Root.Q<VisualElement>("debug-panel");
-            _hint = Root.Q<Label>("debug-hint");
+            _toggleButton = Root.Q<Button>("debug-toggle");
+            //  모바일엔 F1이 없다 — 손가락으로 누를 손잡이가 늘 있어야 한다.
+            _toggleButton.clicked += () => SetHidden(Hidden == false);
             SetHidden(UnityEngine.PlayerPrefs.GetInt(HiddenPref, 0) != 0);
 
             _tick = Root.schedule.Execute(Refresh).Every(0);
@@ -100,7 +102,8 @@ namespace LOP.UI
         private void SetHidden(bool hidden)
         {
             _panel.style.display = hidden ? DisplayStyle.None : DisplayStyle.Flex;
-            _hint.style.display = hidden ? DisplayStyle.Flex : DisplayStyle.None;
+            //  지금 무엇을 하게 되는지를 글자가 말한다 — 감춰져 있으면 "켜기"다.
+            _toggleButton.text = hidden ? "디버그" : "디버그 ✕";
             UnityEngine.PlayerPrefs.SetInt(HiddenPref, hidden ? 1 : 0);
         }
 

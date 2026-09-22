@@ -41,6 +41,17 @@ namespace LOP.UI
         //  당김을 시작한 손가락만 기억해 그 손가락 이외의 입력은 통째로 무시한다.</para>
         private int _drawPointerId = -1;
 
+        //  걷기 스틱. 당김과 **다른 손가락**이라 id를 따로 기억한다.
+        private VisualElement _moveArea;
+        private VisualElement _moveBg;
+        private VisualElement _moveHandle;
+        private int _movePointerId = -1;
+        private Vector2 _moveCenter;
+
+        //  손잡이가 배경 안에서 벗어날 수 있는 최대 거리. 배경의 테두리 안쪽 칸에서
+        //  손잡이 크기를 뺀 절반이다.
+        private float MoveMaxRadius => (_moveBg.contentRect.width - _moveHandle.resolvedStyle.width) / 2f;
+
 
         public ArcheryPadView(ArcheryPadViewModel viewModel)
         {
@@ -61,6 +72,11 @@ namespace LOP.UI
             _score = Root.Q<Label>("score");
             _arrows = Root.Q<Label>("arrows");
             _reticle = Root.Q<VisualElement>("reticle");
+            _moveArea = Root.Q<VisualElement>("move-area");
+            _moveBg = Root.Q<VisualElement>("move-bg");
+            _moveHandle = Root.Q<VisualElement>("move-handle");
+
+            WireMoveStick();
 
             // 누르면 활이 올라온다 — 어디를 눌러도 된다. 이미 당기는 손가락이 있으면(다른
             // pointerId) 통째로 무시한다 — 두 번째 손가락이 첫 손가락의 당김을 가로채면 안 된다.
@@ -131,6 +147,8 @@ namespace LOP.UI
             _tick = Root.schedule.Execute(_ =>
             {
                 _viewModel.PollKeyboard();
+                //  스틱을 놓은 뒤의 0도 밀어야 캐릭이 선다 — 잡고 있을 때만 밀면 안 된다.
+                _viewModel.FeedMove();
                 _viewModel.Tick(Time.deltaTime);
                 _score.text = _viewModel.Score.ToString();
 
@@ -364,6 +382,104 @@ namespace LOP.UI
                 return new Vector2(0.5f, 0.5f);
             }
             return new Vector2(panelPosition.x / size.y, (size.y - panelPosition.y) / size.y);
+        }
+
+        /// <summary>
+        /// 걷기 스틱을 잇는다. 누른 자리에 떠오르는 <b>떠다니는 스틱</b>이다 — 구석 어디를
+        /// 잡아도 그 자리가 한가운데가 되므로, 엄지를 보지 않고 쓸 수 있다.
+        ///
+        /// <para>당김(오른손)과 <b>다른 손가락</b>이므로 id를 따로 잡는다. 안 그러면 한쪽이
+        /// 다른 쪽의 뗌을 자기 것으로 읽어, 걷다 손을 뗐을 뿐인데 화살이 나간다.</para>
+        /// </summary>
+        private void WireMoveStick()
+        {
+            _moveArea.RegisterCallback<PointerDownEvent>(evt =>
+            {
+                if (_movePointerId != -1)
+                {
+                    return;   // 이미 다른 손가락이 스틱을 잡고 있다
+                }
+
+                _movePointerId = evt.pointerId;
+                _moveArea.CapturePointer(evt.pointerId);
+
+                _moveCenter = (Vector2)evt.localPosition;
+                float outer = _moveBg.resolvedStyle.width;
+                _moveBg.style.visibility = Visibility.Visible;
+                _moveBg.style.left = _moveCenter.x - outer / 2f;
+                _moveBg.style.top = _moveCenter.y - outer / 2f;
+
+                UpdateMoveStick((Vector2)evt.localPosition);
+
+                //  겨누는 면이 이 누름을 당김으로 읽지 않게 막는다.
+                evt.StopPropagation();
+            });
+
+            _moveArea.RegisterCallback<PointerMoveEvent>(evt =>
+            {
+                if (evt.pointerId != _movePointerId)
+                {
+                    return;
+                }
+                UpdateMoveStick((Vector2)evt.localPosition);
+            });
+
+            _moveArea.RegisterCallback<PointerUpEvent>(evt =>
+            {
+                if (evt.pointerId != _movePointerId)
+                {
+                    return;
+                }
+                _moveArea.ReleasePointer(evt.pointerId);
+                ReleaseMoveStick();
+            });
+
+            //  손가락이 창 밖으로 나가거나 캡처를 잃으면 그대로 걷게 두면 안 된다.
+            _moveArea.RegisterCallback<PointerCaptureOutEvent>(evt =>
+            {
+                if (evt.pointerId != _movePointerId)
+                {
+                    return;
+                }
+                ReleaseMoveStick();
+            });
+        }
+
+        private void ReleaseMoveStick()
+        {
+            _movePointerId = -1;
+            _viewModel.ClearMove();
+            _moveBg.style.visibility = Visibility.Hidden;
+            PlaceMoveHandle(Vector2.zero);
+        }
+
+        private void UpdateMoveStick(Vector2 localPosition)
+        {
+            float maxRadius = MoveMaxRadius;
+            if (maxRadius <= 0f)
+            {
+                return;   // 레이아웃이 아직 안 잡혔다 — 다음 프레임에 다시 온다
+            }
+
+            Vector2 delta = localPosition - _moveCenter;
+            if (delta.magnitude > maxRadius)
+            {
+                delta = delta.normalized * maxRadius;
+            }
+            PlaceMoveHandle(delta);
+
+            //  얼마나 밀었나를 0~1로 넘긴다 — 살짝 밀면 천천히 간다.
+            //  화면 y는 아래로 증가하므로 뒤집어야 "위로 밀면 앞으로"가 된다.
+            Vector2 push = delta / maxRadius;
+            _viewModel.SetMove(new Vector2(push.x, -push.y));
+        }
+
+        //  손잡이는 배경의 자식이라 테두리 안쪽 좌표를 쓴다. 그 한가운데에서 민 만큼 벗어난다.
+        private void PlaceMoveHandle(Vector2 offset)
+        {
+            float maxRadius = MoveMaxRadius;
+            _moveHandle.style.left = maxRadius + offset.x;
+            _moveHandle.style.top = maxRadius + offset.y;
         }
 
         private bool _disposed;

@@ -38,7 +38,12 @@ namespace LOP
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
                 c.Resolve<ArcheryAimSystem>(),
                 c.Resolve<ArcheryCourse>(),
-                TickInterval), Lifetime.Singleton)
+                TickInterval,
+                //  사수가 자기 사대 안에서 걷는다. 실제로 도는지는 데이터가 정한다
+                //  (코스의 걷는 속도가 0이면 한 줄도 안 돈다 — 원형 맵이 그렇다).
+                c.Resolve<MovementSystem>(),
+                c.Resolve<KinematicMoveSystem>(),
+                c.Resolve<GameFramework.World.IMotionBridge>()), Lifetime.Singleton)
                 .As<GameFramework.World.IWorld>().AsSelf();
 
             builder.Register<ICharacterCreator, ArcheryPlayerCreator>(Lifetime.Singleton);

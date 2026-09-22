@@ -19,6 +19,10 @@ namespace LOP.UI
         //  걷기 스틱을 민 양. 스틱을 놓으면 0이 되고, 그 0도 매 프레임 밀어야 캐릭이 선다.
         private Vector2 moveStick;
 
+        //  WASD로 민 양. 스틱과 따로 두고, 스틱이 놀고 있을 때만 쓴다 — 한 변수에 둘 다
+        //  쓰면 손가락이 스틱을 놓는 순간 키보드 값까지 0으로 지워진다.
+        private Vector2 keyMove;
+
         //  겨누는 속도(도/초). 아래 화각을 기준으로 정한 값이고, 당겨서 화면이 좁아지면 그
         //  비율만큼 같이 줄어든다 — 그래야 손동작 하나가 **화면 위에서** 늘 같은 거리를 움직인다.
         //  (저격 게임의 "줌 감도 보정"과 같은 것. 안 하면 줌인할수록 손이 미쳐 날뛴다.)
@@ -113,14 +117,26 @@ namespace LOP.UI
             if (keyboard == null)
             {
                 lookRamp = 0f;
+                keyMove = Vector2.zero;
                 return;   // 키보드가 없는 기기(모바일)
             }
 
+            //  WASD = 걷기. 화면 스틱과 같은 값으로 넘긴다.
+            var walk = Vector2.zero;
+            if (keyboard.dKey.isPressed) { walk.x += 1f; }
+            if (keyboard.aKey.isPressed) { walk.x -= 1f; }
+            if (keyboard.wKey.isPressed) { walk.y += 1f; }
+            if (keyboard.sKey.isPressed) { walk.y -= 1f; }
+            keyMove = walk.sqrMagnitude > 1f ? walk.normalized : walk;
+
+            //  화살표 = 조준. 겨누는 데는 **멈춘 채 아주 조금씩** 움직이는 조작이 필요한데
+            //  (90m 10점 링이 0.04°다) 마우스 드래그로는 그 크기를 내기 어렵다. 그래서
+            //  키보드 미세 조준은 남겨 두고 걷기와 손가락만 나눈다.
             var look = Vector2.zero;
-            if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) { look.x += 1f; }
-            if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) { look.x -= 1f; }
-            if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed) { look.y += 1f; }
-            if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed) { look.y -= 1f; }
+            if (keyboard.rightArrowKey.isPressed) { look.x += 1f; }
+            if (keyboard.leftArrowKey.isPressed) { look.x -= 1f; }
+            if (keyboard.upArrowKey.isPressed) { look.y += 1f; }
+            if (keyboard.downArrowKey.isPressed) { look.y -= 1f; }
 
             if (look == Vector2.zero)
             {
@@ -394,7 +410,9 @@ namespace LOP.UI
         /// </summary>
         public void FeedMove()
         {
-            Vector3 world = MoveStickDirection.ToWorld(moveStick, Camera.transform.eulerAngles.y);
+            //  손가락이 스틱을 잡고 있으면 그쪽이 이긴다 — 데스크톱 WASD는 스틱이 놀 때만.
+            Vector2 stick = moveStick.sqrMagnitude > 0f ? moveStick : keyMove;
+            Vector3 world = MoveStickDirection.ToWorld(stick, Camera.transform.eulerAngles.y);
             input.SetMovement(world.x, world.z);
         }
 

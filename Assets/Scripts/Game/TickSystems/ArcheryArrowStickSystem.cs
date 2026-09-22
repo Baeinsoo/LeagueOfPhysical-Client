@@ -68,6 +68,26 @@ namespace LOP
         public bool TryGetImpact(string shooterId, long fireTick, out Impact impact)
             => impacts.TryGetValue((shooterId, fireTick), out impact);
 
+        /// <summary>
+        /// 그 화살이 <b>꽂힌 순간의 월드 좌표</b>. 화면이 "+10"을 거기서 띄우는 데 쓴다.
+        ///
+        /// <para>꽂힌 *뒤*의 자리가 아니라 <b>그 순간</b>이다 — 과녁은 계속 움직이지만 점수 표시는
+        /// 맞은 자리에 남아야 "어디를 맞혔길래 그 점수인가"가 읽힌다.</para>
+        /// </summary>
+        public bool TryGetImpactWorldPosition(string shooterId, long fireTick, out Vector3 position)
+        {
+            position = default;
+            if (TryGetImpact(shooterId, fireTick, out var impact) == false
+                || TryGetTarget(impact.Wave, impact.Slot, out var target) == false)
+            {
+                return false;
+            }
+
+            double hitTick = fireTick + impact.Seconds / tickInterval;
+            position = ArcheryTargetMotion.PositionAt(target, hitTick, tickInterval) + impact.OffsetFromTarget;
+            return true;
+        }
+
         /// <summary>그 웨이브 그 자리의 과녁. 뷰가 꽂힌 화살을 과녁에 붙여 그리는 데 쓴다.</summary>
         public bool TryGetTarget(int wave, int slot, out ArcheryTarget target)
         {

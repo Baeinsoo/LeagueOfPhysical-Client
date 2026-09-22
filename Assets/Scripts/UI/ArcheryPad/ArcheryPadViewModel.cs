@@ -13,6 +13,8 @@ namespace LOP.UI
         private readonly CameraController cameraController;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly IPlayerContext playerContext;
+        private readonly ArcheryImpactLog impactLog;
+        private readonly ArcheryConfig config;
 
         //  겨누는 속도(도/초). 아래 화각을 기준으로 정한 값이고, 당겨서 화면이 좁아지면 그
         //  비율만큼 같이 줄어든다 — 그래야 손동작 하나가 **화면 위에서** 늘 같은 거리를 움직인다.
@@ -44,13 +46,29 @@ namespace LOP.UI
             PlayerInputManager input,
             CameraController cameraController,
             GameFramework.World.EntityRegistry entityRegistry,
-            IPlayerContext playerContext)
+            IPlayerContext playerContext,
+            ArcheryImpactLog impactLog,
+            ArcheryConfig config)
         {
             this.input = input;
             this.cameraController = cameraController;
             this.entityRegistry = entityRegistry;
             this.playerContext = playerContext;
+            this.impactLog = impactLog;
+            this.config = config;
         }
+
+        /// <summary>지금 자리에서 내가 쏜 것들. 화면이 기록판에 점으로 찍는다.</summary>
+        public System.Collections.Generic.IReadOnlyList<ArcheryImpactLog.Shot> Impacts => impactLog.Shots;
+
+        /// <summary>기록판이 모으고 있는 자리 번호. 바뀌면 화면이 점을 다시 그린다.</summary>
+        public int ImpactWave => impactLog.Wave;
+
+        /// <summary>
+        /// 기록판에 그릴 점수 띠 — 바깥 비율과 점수의 짝, 중심에서 바깥 순서다.
+        /// <b>과녁을 그리는 값과 같은 데이터</b>에서 나오므로 그림과 실제 채점이 갈라질 수 없다.
+        /// </summary>
+        public System.Collections.Generic.IReadOnlyList<ArcheryRingBand> Bands => config.Range.Kind.Bands;
 
         /// <summary>내가 지금까지 모은 점수. 서버 스냅샷이 채우는 값이라 <b>매 프레임 읽어</b> 쓴다.</summary>
         public int Score

@@ -15,6 +15,23 @@ namespace LOP.UI
         private Label _arrows;
         private VisualElement _reticle;
         private VisualElement _cancelTarget;
+        private VisualElement _plotFace;
+        private Label _plotLabel;
+        private VisualElement _popups;
+
+        //  기록판에 이미 그린 발수와 자리. 이 둘이 그대로면 다시 안 그린다.
+        private int _plottedCount = -1;
+        private int _plottedWave = -2;
+
+        //  점수 표시를 이미 띄운 발수 — 새로 들어온 것만 띄운다.
+        private int _poppedCount;
+
+        //  띠 색: 중심부터 바깥으로. 과녁 본체와 같은 관습이다(금·빨강·파랑·검정·흰색).
+        private static readonly Color[] PlotBandColors =
+        {
+            new Color(1f, 0.85f, 0.1f), new Color(0.9f, 0.15f, 0.15f),
+            new Color(0.15f, 0.35f, 0.9f), new Color(0.1f, 0.1f, 0.1f), Color.white,
+        };
         //  원은 누른 자리에 한 번만 놓는다 — 그 자리는 누름이 끝날 때까지 안 움직인다.
         private bool _cancelTargetPlaced;
         private IVisualElementScheduledItem _tick;
@@ -42,6 +59,9 @@ namespace LOP.UI
 
             var surface = Root.Q<VisualElement>("surface");
             _cancelTarget = Root.Q<VisualElement>("cancel-target");
+            _plotFace = Root.Q<VisualElement>("plot-face");
+            _plotLabel = Root.Q<Label>("plot-label");
+            _popups = Root.Q<VisualElement>("hit-popups");
             _score = Root.Q<Label>("score");
             _arrows = Root.Q<Label>("arrows");
             _reticle = Root.Q<VisualElement>("reticle");
@@ -141,6 +161,9 @@ namespace LOP.UI
                     _reticle.style.scale = new StyleScale(new Scale(new Vector2(scale, scale)));
                 }
 
+                SyncImpactPlot();
+                SpawnHitPopups();
+
                 //  내려놓기 원은 잡고 있는 동안만 보인다 — 안 그러면 빈 화면에 원이 떠 있다.
                 bool holding = _viewModel.Holding;
                 _cancelTarget.style.display = holding ? DisplayStyle.Flex : DisplayStyle.None;
@@ -157,6 +180,137 @@ namespace LOP.UI
                     _cancelTargetPlaced = false;
                 }
             }).Every(0);
+        }
+
+        //  기록판을 지금 자리의 착탄점으로 맞춘다. 자리나 발수가 바뀐 프레임에만 다시 그린다 —
+        //  매 프레임 지웠다 만들면 UI 트리를 헛되이 흔든다.
+        private void SyncImpactPlot()
+        {
+            var shots = _viewModel.Impacts;
+            int wave = _viewModel.ImpactWave;
+            if (shots.Count == _plottedCount && wave == _plottedWave)
+            {
+                return;
+            }
+            _plottedCount = shots.Count;
+            _plottedWave = wave;
+
+            _plotFace.Clear();
+            DrawPlotBands();
+
+            //  좌표는 면 반지름을 1로 본 값이다 — 판 반지름을 곱해 픽셀로 옮긴다.
+            //  y는 위가 양수인데 패널은 아래가 양수라 여기서 뒤집는다.
+            float r = _plotFace.resolvedStyle.width * 0.5f;
+            if (r <= 0f)
+            {
+                _plottedCount = -1;   // 레이아웃이 아직 없다 — 다음 프레임에 다시
+                return;
+            }
+
+            for (int i = 0; i < shots.Count; i++)
+            {
+                var dot = new VisualElement();
+                dot.AddToClassList("plot-dot");
+                dot.EnableInClassList("is-latest", i == shots.Count - 1);
+                dot.pickingMode = PickingMode.Ignore;
+                dot.style.left = r + shots[i].FaceOffset.x * r;
+                dot.style.top = r - shots[i].FaceOffset.y * r;
+                _plotFace.Add(dot);
+            }
+
+            _plotLabel.text = shots.Count == 0 ? "" : shots.Count + "발";
+        }
+
+        //  띠 원을 바깥부터 그린다 — 나중에 그린 것이 위에 오므로 중심이 맨 위가 된다.
+        private void DrawPlotBands()
+        {
+            var bands = _viewModel.Bands;
+            if (bands == null)
+            {
+                return;
+            }
+
+            for (int i = bands.Count - 1; i >= 0; i--)
+            {
+                float ratio = Mathf.Clamp01(bands[i].OuterRatio);
+                var disc = new VisualElement();
+                disc.AddToClassList("plot-band");
+                disc.pickingMode = PickingMode.Ignore;
+
+                //  길이를 퍼센트로 주면 부모 크기가 바뀌어도 따라간다.
+                var size = new StyleLength(new Length(ratio * 100f, LengthUnit.Percent));
+                var half = new StyleLength(new Length((1f - ratio) * 50f, LengthUnit.Percent));
+                disc.style.width = size;
+                disc.style.height = size;
+                disc.style.left = half;
+                disc.style.top = half;
+
+                float radiusPx = _plotFace.resolvedStyle.width * 0.5f * ratio;
+                disc.style.borderTopLeftRadius = radiusPx;
+                disc.style.borderTopRightRadius = radiusPx;
+                disc.style.borderBottomLeftRadius = radiusPx;
+                disc.style.borderBottomRightRadius = radiusPx;
+
+                var color = PlotBandColors[Mathf.Min(i, PlotBandColors.Length - 1)];
+                color.a = 0.75f;
+                disc.style.backgroundColor = color;
+                _plotFace.Add(disc);
+            }
+        }
+
+        //  새로 들어온 발마다 "+10"을 맞은 자리에서 띄운다. 화면 좌표로 한 번 옮겨 두고
+        //  거기서 떠오르게 한다 — 과녁은 계속 움직이지만 점수는 **맞은 자리**에 남아야
+        //  "어디를 맞혔길래 그 점수인가"가 읽힌다.
+        private void SpawnHitPopups()
+        {
+            var shots = _viewModel.Impacts;
+            if (shots.Count < _poppedCount)
+            {
+                _poppedCount = 0;   // 자리가 바뀌어 비워졌다
+            }
+
+            var camera = Camera.main;
+            for (; _poppedCount < shots.Count; _poppedCount++)
+            {
+                var shot = shots[_poppedCount];
+                var label = new Label("+" + shot.Points);
+                label.AddToClassList("hit-popup");
+                label.pickingMode = PickingMode.Ignore;
+
+                Vector2 at = new Vector2(Root.layout.width * 0.5f, Root.layout.height * 0.4f);
+                if (camera != null)
+                {
+                    Vector3 screen = camera.WorldToScreenPoint(shot.WorldPosition);
+                    if (screen.z > 0f && Screen.width > 0 && Screen.height > 0)
+                    {
+                        //  스크린 픽셀 → 패널 좌표. 패널은 위가 0이라 y를 뒤집는다.
+                        at = new Vector2(screen.x / Screen.width * Root.layout.width,
+                                         (1f - screen.y / Screen.height) * Root.layout.height);
+                    }
+                }
+
+                label.style.left = at.x;
+                label.style.top = at.y;
+                _popups.Add(label);
+                FloatAndFade(label, at.y);
+            }
+        }
+
+        //  0.9초에 걸쳐 60px 떠오르며 사라진다. 끝나면 트리에서 뺀다 — 안 그러면 쌓인다.
+        private void FloatAndFade(VisualElement label, float startTop)
+        {
+            const int durationMs = 900;
+            label.schedule.Execute(() =>
+            {
+                label.style.top = startTop - 60f;
+                label.style.opacity = 0f;
+            }).ExecuteLater(16);
+            label.style.transitionProperty = new StyleList<StylePropertyName>(
+                new System.Collections.Generic.List<StylePropertyName> { "top", "opacity" });
+            label.style.transitionDuration = new StyleList<TimeValue>(
+                new System.Collections.Generic.List<TimeValue> { new TimeValue(durationMs, TimeUnit.Millisecond),
+                                                                 new TimeValue(durationMs, TimeUnit.Millisecond) });
+            label.schedule.Execute(() => label.RemoveFromHierarchy()).ExecuteLater(durationMs + 120);
         }
 
         //  원을 누른 자리 아래에 놓는다. 자리와 크기를 **ViewModel의 값에서만** 가져오므로

@@ -19,6 +19,8 @@ namespace LOP
             builder.Register<ArcheryConfigProvider>(Lifetime.Singleton);
             builder.Register<ArcheryConfig>(c => c.Resolve<ArcheryConfigProvider>().Get(), Lifetime.Singleton);
             builder.Register<ArcheryConsumed>(Lifetime.Singleton);
+            //  내 화살이 과녁 어디에 몇 점으로 꽂혔나 — 화면이 기록판과 "+10"을 그리는 데 읽는다.
+            builder.Register<ArcheryImpactLog>(Lifetime.Singleton);
 
             //  과녁이 언제 어디 서는지를 정하는 한 곳. 명단은 매치 시작 시점의 것을 그대로 쓴다 —
             //  중간에 나간 사람이 있어도 과녁 주인이 밀리지 않게(스펙 6.2절).

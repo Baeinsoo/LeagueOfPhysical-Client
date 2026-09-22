@@ -12,6 +12,15 @@
         <ui:VisualElement name="reticle" class="archery-reticle" picking-mode="Ignore">
             <ui:VisualElement name="reticle-dot" class="archery-reticle-dot" picking-mode="Ignore" />
         </ui:VisualElement>
+        <!-- 착탄 기록판: 이 자리에서 내 화살이 과녁 어디에 꽂혔나. 자리가 바뀌면 지워진다.
+             90m 과녁은 화면에서 지름 38px이라 눈으로는 착탄점을 못 읽는다 — 그걸 크게 보여 준다.
+             띠는 View가 ArcheryPadViewModel의 비율에서 그린다(점수 데이터와 한 값에서 나온다). -->
+        <ui:VisualElement name="impact-plot" class="impact-plot" picking-mode="Ignore">
+            <ui:VisualElement name="plot-face" class="plot-face" picking-mode="Ignore" />
+            <ui:Label name="plot-label" class="plot-label" text="" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <!-- 발당 점수가 떠오르는 자리. 맞은 과녁을 화면에 투영한 곳에서 시작한다. -->
+        <ui:VisualElement name="hit-popups" class="hit-popups" picking-mode="Ignore" />
         <ui:Label name="score" class="archery-score" text="0" picking-mode="Ignore" />
         <ui:Label name="arrows" class="archery-arrows" text="" picking-mode="Ignore" />
     </ui:VisualElement>

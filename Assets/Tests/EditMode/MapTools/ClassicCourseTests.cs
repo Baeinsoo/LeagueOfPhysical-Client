@@ -244,17 +244,32 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
-        public void 도전_구간을_켜도_안전선은_그대로다()
+        public void 도전_구간_안에서는_안전_창이_차선_반대편에_있다()
         {
-            //  "기존 맵 느낌은 그대로, 도전 요소만 가미"가 이 테스트다. 난수 줄기를 나눠 쓰지
-            //  않으면 도전 구간을 켜는 순간 안전선까지 통째로 달라진다.
-            var without = WithRuns(0);
-            var with = WithRuns(6);
-
-            Assert.AreEqual(without.Count, with.Count);
-            for (int i = 0; i < without.Count; i++)
+            //  차선이 끊기지 않으려면 안전 창이 그 반대편 절반에 있어야 한다. 이걸 안 지키면
+            //  두 창이 안 들어가는 관문이 생기고, 거기서 차선을 뒤집으면 못 지나가는 구간이 된다.
+            //
+            //  ⚠️ 이 자리에는 원래 "도전 구간을 켜도 안전선이 <b>그대로</b>다"가 있었다.
+            //  차선을 이어 두려면 구간 동안 안전선을 반대편에 묶어야 해서 그 성질은 포기했다.
+            //  대신 도전 구간 밖은 그대로이고, 걸음 상한(아래 테스트)이 통과 가능성을 지킨다.
+            foreach (CoursePipe p in WithRuns(6))
             {
-                Assert.AreEqual(without[i].GapCenter, with[i].GapCenter, 1e-4f, $"관문 {i}");
+                if (p.HasChallenge == false) { continue; }
+                Assert.GreaterOrEqual(p.ChallengeDrop, ClassicCourseRule.MinChallengeDrop - 1e-3f,
+                                      $"x={p.X:F1}");
+            }
+        }
+
+        [Test]
+        public void 도전_구간에서도_걸음이_상한을_넘지_않는다()
+        {
+            //  차선을 이으려고 안전선을 묶는 바람에 한 걸음이 10m를 넘으면 따라갈 수 없다.
+            //  이 테스트가 그 사고를 막는다.
+            var pipes = WithRuns(6);
+            for (int i = 1; i < pipes.Count; i++)
+            {
+                float step = System.Math.Abs(pipes[i].GapCenter - pipes[i - 1].GapCenter);
+                Assert.LessOrEqual(step, RunStep + 1e-3f, $"x={pipes[i].X:F1}에서 {step:F2}m 건너뛴다");
             }
         }
 
@@ -312,6 +327,34 @@ namespace LOP.MapTools.Tests
             //  24를 넘으면 구간이 겹쳐 기본 맵 느낌이 사라진다.
             Assert.GreaterOrEqual(count, 12, "도전 관문이 너무 적다 — 배치가 안 먹고 있다");
             Assert.LessOrEqual(count, 24, "도전 관문이 너무 많다 — 기본 맵 느낌이 사라진다");
+        }
+
+        [Test]
+        public void 한_도전_구간_안에서는_먼_창이_한쪽에만_있다()
+        {
+            //  관문마다 위아래로 번갈아 놓으면 1.67초마다 회랑 전폭을 오르내려야 하는데,
+            //  날갯짓이 세로 속도를 덮어쓰는 탓에(감속 없음) 빠르게 떨어진 채로는 틈을 못 지난다.
+            //  한쪽으로 몰아야 "한 번 내려가서 달리다가 한 번 올라온다"가 된다.
+            var pipes = WithRuns(6);
+
+            int? sideOfRun = null;
+            bool previousWasChallenge = false;
+            foreach (CoursePipe p in pipes)
+            {
+                if (p.HasChallenge == false)
+                {
+                    sideOfRun = null;
+                    previousWasChallenge = false;
+                    continue;
+                }
+                int side = p.ChallengeCenter < p.GapCenter ? -1 : 1;
+                if (previousWasChallenge)
+                {
+                    Assert.AreEqual(sideOfRun, side, $"x={p.X:F1}에서 차선이 뒤집혔다");
+                }
+                sideOfRun = side;
+                previousWasChallenge = true;
+            }
         }
     }
 }

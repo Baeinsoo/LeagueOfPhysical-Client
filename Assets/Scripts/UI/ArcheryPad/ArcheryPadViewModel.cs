@@ -58,6 +58,13 @@ namespace LOP.UI
             this.config = config;
         }
 
+        /// <summary>
+        /// 지금 화면을 그리는 카메라. 화면이 "+10"을 맞은 자리에 띄우려면 월드→화면 투영이 필요하다.
+        /// <b><c>Camera.main</c>을 쓰지 말 것</b> — 조준 카메라가 그 태그를 달고 있다는 보장이 없고,
+        /// 빗나가면 팝업이 전부 화면 한가운데로 떨어져 "어디를 맞혔나"가 사라진다.
+        /// </summary>
+        public Camera Camera => cameraController.MainCamera;
+
         /// <summary>지금 자리에서 내가 쏜 것들. 화면이 기록판에 점으로 찍는다.</summary>
         public System.Collections.Generic.IReadOnlyList<ArcheryImpactLog.Shot> Impacts => impactLog.Shots;
 

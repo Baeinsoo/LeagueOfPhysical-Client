@@ -218,7 +218,11 @@ namespace LOP.UI
                 _plotFace.Add(dot);
             }
 
-            _plotLabel.text = shots.Count == 0 ? "" : shots.Count + "발";
+            //  떠올랐다 사라지는 "+10"을 놓칠 수 있으므로, **마지막 발의 점수를 자리가 정해진
+            //  곳에도** 남긴다. 먼 과녁일수록 과녁이 작아 눈이 그쪽에 붙어 있기 어렵다.
+            _plotLabel.text = shots.Count == 0
+                ? ""
+                : shots.Count + "발  ·  +" + shots[shots.Count - 1].Points;
         }
 
         //  띠 원을 바깥부터 그린다 — 나중에 그린 것이 위에 오므로 중심이 맨 위가 된다.
@@ -269,7 +273,7 @@ namespace LOP.UI
                 _poppedCount = 0;   // 자리가 바뀌어 비워졌다
             }
 
-            var camera = Camera.main;
+            var camera = _viewModel.Camera;
             for (; _poppedCount < shots.Count; _poppedCount++)
             {
                 var shot = shots[_poppedCount];

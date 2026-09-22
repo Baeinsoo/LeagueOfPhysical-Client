@@ -25,3 +25,12 @@
     color: rgb(255, 92, 92);
     -unity-font-style: bold;
 }
+
+/* 감췄을 때만 보이는 되살리기 안내. 패널과 같은 모서리에 두되 눈에 안 걸리게 작고 흐리게. */
+.debug-hint {
+    position: absolute;
+    top: 8px; left: 8px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.28);
+}
+

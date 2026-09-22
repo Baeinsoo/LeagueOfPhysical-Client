@@ -23,8 +23,10 @@ namespace LOP.UI
         private int _plottedCount = -1;
         private int _plottedWave = -2;
 
-        //  점수 표시를 이미 띄운 발수 — 새로 들어온 것만 띄운다.
+        //  점수 표시를 이미 띄운 **자리와 발수**. 둘 다 봐야 한다 — 발수만 보면 자리가 바뀌어
+        //  목록이 비워졌을 때 같은 발수로 읽혀 그 뒤로 영영 안 뜬다(2026-09-22 실측).
         private int _poppedCount;
+        private int _poppedWave = -2;
 
         //  띠 색: 중심부터 바깥으로. 과녁 본체와 같은 관습이다(금·빨강·파랑·검정·흰색).
         private static readonly Color[] PlotBandColors =
@@ -268,10 +270,9 @@ namespace LOP.UI
         private void SpawnHitPopups()
         {
             var shots = _viewModel.Impacts;
-            if (shots.Count < _poppedCount)
-            {
-                _poppedCount = 0;   // 자리가 바뀌어 비워졌다
-            }
+            int wave = _viewModel.ImpactWave;
+            _poppedCount = ArcheryImpactLog.FirstUnshown(_poppedWave, _poppedCount, wave, shots.Count);
+            _poppedWave = wave;
 
             var camera = _viewModel.Camera;
             for (; _poppedCount < shots.Count; _poppedCount++)

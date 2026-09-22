@@ -55,6 +55,23 @@ namespace LOP
         }
 
         /// <summary>
+        /// 이미 화면에 띄운 것이 <paramref name="shownWave"/>의 <paramref name="shownCount"/>발일 때,
+        /// 지금 목록(<paramref name="wave"/> / <paramref name="count"/>)에서 <b>새로 띄울 첫 번째 번호</b>.
+        ///
+        /// <para><b>발수만 보면 안 된다</b> — 자리가 바뀌면 목록이 비워져 발수가 1로 되돌아가는데,
+        /// 앞 자리에서도 1발을 띄웠으면 "이미 띄웠다"로 착각해 <b>그 뒤로 영영 안 뜬다.</b>
+        /// (2026-09-22 실측: 첫 명중만 뜨고 다른 거리 과녁을 맞혀도 안 떴다.)</para>
+        /// </summary>
+        public static int FirstUnshown(int shownWave, int shownCount, int wave, int count)
+        {
+            if (wave != shownWave || count < shownCount)
+            {
+                return 0;   // 자리가 바뀌었거나 목록이 줄었다 — 처음부터 다시
+            }
+            return shownCount;
+        }
+
+        /// <summary>
         /// 꽂힌 자리를 <b>과녁 면 위의 좌표</b>로 바꾼다 — 면 반지름을 1로 보고, 사수가 보는 기준으로
         /// x는 오른쪽 y는 위.
         ///

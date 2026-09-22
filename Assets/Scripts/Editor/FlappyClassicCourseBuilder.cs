@@ -19,8 +19,14 @@ namespace LOP.EditorTools
     public static class FlappyClassicCourseBuilder
     {
         //  회랑 높이는 화면 세로와 같게 둔다 — 원본처럼 바닥과 천장이 늘 보여야 어디로 갈지
-        //  판단할 수 있다. 카메라 20 · FOV 40에서 화면 세로가 14.56m다.
-        private const float CameraDistance = 20f;
+        //  판단할 수 있다. 카메라 30 · FOV 40에서 화면 세로가 21.84m다.
+        //
+        //  <b>왜 30인가</b>: 09-18에 물리를 원본에 맞출 때 "한 탭 정점 ÷ 화면 세로 = 13.4%"로
+        //  보정했는데, 그때 쓴 화면 세로 21.84m는 <c>FlappyCameraFollow.fixedZ = -30</c>에서
+        //  나온 값이었다. 그 파일은 레거시고 실제 카메라는 20m라, 진짜 화면(14.56m) 기준으로는
+        //  20.1% — 원본보다 세로 운동이 1.5배 컸다("중력이 강하다"는 체감의 정체).
+        //  카메라를 30으로 올리면 그 보정이 전부 참이 되고, 회랑÷창 비율도 원본과 같은 5.0이 된다.
+        private const float CameraDistance = 30f;
         private const float VerticalFov = 40f;
 
         //  한 판을 90초로 잡는다. 전진 6.8 m/s면 612m이고 관문 약 53개다.

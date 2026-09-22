@@ -119,11 +119,44 @@ namespace LOP.MapTools
                 }
             }
 
-            //  도전 창은 안전 창의 <b>반대쪽 끝</b>에 놓고, 구간 안에서 번갈아 뒤집는다.
-            //  같은 쪽만 나오면 "내려갔다 올라오기"의 반복이지 지그재그가 아니다.
             int gateIndex = 0;
+            bool runLowerLane = true;   // 지금 도전 구간의 차선. 구간 첫 관문에서 정해진다.
             for (float x = startX + spacing; x <= startX + courseLength + 1e-4f; x += spacing)
             {
+                gateIndex++;
+
+                //  이 관문이 어느 도전 구간 안인가.
+                int inRun = -1;
+                foreach (int start in runStarts)
+                {
+                    if (gateIndex >= start && gateIndex < start + ChallengeRunLength)
+                    {
+                        inRun = gateIndex - start;
+                        break;
+                    }
+                }
+
+                //  <b>차선은 구간 시작 때 "안전선이 지금 있는 쪽의 반대"로 정한다.</b>
+                //  미리 정해 두면 구간 첫 관문에서 안전선이 반대편에 있을 수 있고, 그때 워크를
+                //  묶으면 한 걸음에 10m 넘게 건너뛰어 따라갈 수 없는 자리가 된다.
+                //  지금 있는 쪽의 반대로 고르면 시작부터 조건이 맞아 건너뜀이 없다.
+                if (inRun == 0)
+                {
+                    runLowerLane = center > (low + high) * 0.5f;
+                }
+                bool lowerLane = runLowerLane;
+
+                //  <b>구간 안에서는 안전 창을 차선 반대편 절반에 묶는다.</b> 안 묶으면 안전 창이
+                //  차선 쪽으로 내려온 관문에서 두 창이 안 들어가고, 그때 반대편으로 넘기면
+                //  차선이 뒤집혀 "1.67초마다 회랑 전폭 왕복"이 된다 — 그건 물리적으로 무리다
+                //  (아래 주석 참고). 묶으면 차선이 끊기지 않고 안전선도 여전히 움직인다.
+                float walkLow = low, walkHigh = high;
+                if (inRun >= 0)
+                {
+                    if (lowerLane) { walkLow = low + MinChallengeDrop; }
+                    else { walkHigh = high - MinChallengeDrop; }
+                    if (walkLow > walkHigh) { walkLow = walkHigh = (low + high) * 0.5f; }
+                }
                 //  <b>새가 실제로 날아야 하는 거리는 절대값</b>이다 — 회랑이 내려간 것이든 창이
                 //  내려간 것이든 똑같이 날아야 한다. 그래서 고저차가 먹은 만큼 워크 예산을 줄인다.
                 //  안 줄이면 가파른 구간에서 관문 사이 높이차가 워크(6m) + 고저차(최대 5.6m)로
@@ -137,25 +170,13 @@ namespace LOP.MapTools
                 //  범위 밖으로 나가면 <b>되튄다</b>(접는다). 잘라 버리면 벽에 붙은 창이 연달아
                 //  나와 "위만 보고 가면 되는" 구간이 생긴다.
                 float next = center + rng.Range(-budget, budget);
-                if (next < low) { next = low + (low - next); }
-                if (next > high) { next = high - (next - high); }
-                center = next < low ? low : (next > high ? high : next);
+                if (next < walkLow) { next = walkLow + (walkLow - next); }
+                if (next > walkHigh) { next = walkHigh - (next - walkHigh); }
+                center = next < walkLow ? walkLow : (next > walkHigh ? walkHigh : next);
                 //  랜덤워크는 <b>평평한 기준선 위에서</b> 돌고, 고저차는 마지막에 더한다.
                 //  워크 자체에 더하면 되튀기(low/high 접기)가 움직이는 벽을 상대하게 되어
                 //  진폭이 클 때 창이 회랑 밖으로 샌다.
-                gateIndex++;
                 float safeCenter = center + lift;
-
-                //  이 관문이 어느 도전 구간 안인가. 구간 안이면 두 번째 창을 시도한다.
-                int inRun = -1;
-                foreach (int start in runStarts)
-                {
-                    if (gateIndex >= start && gateIndex < start + ChallengeRunLength)
-                    {
-                        inRun = gateIndex - start;
-                        break;
-                    }
-                }
 
                 if (inRun < 0)
                 {
@@ -163,17 +184,22 @@ namespace LOP.MapTools
                     continue;
                 }
 
-                //  안전 창에서 가장 먼 끝. 거기까지의 낙차가 최소치를 못 넘으면 두 창이 안 들어간다
-                //  (안전 창이 밴드 한가운데일 때 그렇다) — 그런 자리는 창 하나로 둔다.
-                float far = (inRun % 2 == 0)
-                    ? ((center - low) > (high - center) ? low : high)
-                    : ((center - low) > (high - center) ? high : low);
+                //  <b>구간 안에서는 한쪽으로만</b> 둔다. 관문마다 위아래로 번갈아 놓으면 1.67초마다
+                //  회랑 전폭을 오르내려야 하는데, 그건 물리적으로 무리다:
+                //
+                //  날갯짓은 세로 속도를 +18.6으로 <i>덮어쓴다</i> — 감속이 없다. 그리고 관문을
+                //  가로지르는 0.37초 동안 떨어지는 거리가 놀 폭(3.47m)보다 작아야 통과하므로,
+                //  도착 속도가 9.4 m/s를 넘으면 못 지나간다. 5.9m만 자유낙하해도 26 m/s다.
+                //  즉 <b>뛰어내려 도달하는 게 아니라 천천히 내려가야</b> 하는데, 번갈아 놓으면
+                //  그럴 시간이 없다(내려가자마자 올라가야 한다).
+                //
+                //  한쪽으로 두면 "한 번 내려가서 그 차선을 달리다가 한 번 올라온다"가 된다 —
+                //  결심은 한 번이고, 내려갈 여유도 생긴다.
+                float far = lowerLane ? low : high;
                 if (System.Math.Abs(far - center) < MinChallengeDrop)
                 {
-                    far = (center - low) > (high - center) ? low : high;
-                }
-                if (System.Math.Abs(far - center) < MinChallengeDrop)
-                {
+                    //  워크를 묶어 뒀으니 여기 올 일이 없다. 와도 <b>차선을 뒤집지 않고</b>
+                    //  창 하나로 둔다 — 뒤집는 순간 못 지나가는 구간이 된다.
                     pipes.Add(new CoursePipe(x, safeCenter));
                     continue;
                 }

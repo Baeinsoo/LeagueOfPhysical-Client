@@ -156,14 +156,20 @@ namespace LOP.EditorTools
                 //  창이 둘인 기둥 — 아래 창, <b>중간 기둥</b>, 위 창 순으로 셋을 세운다.
                 //  중간 기둥이 두 창을 실제로 가르는 벽이라, 없으면 그냥 넓은 창 하나가 된다.
                 challengeGates++;
-                float lowerCenter = System.Math.Min(p.GapCenter, p.ChallengeCenter);
-                float upperCenter = System.Math.Max(p.GapCenter, p.ChallengeCenter);
+                //  두 창의 <b>폭이 다르다</b> — 도전 창이 넓다(브레이크가 없어 도착이 빠르므로).
+                //  그래서 어느 쪽이 도전 창인지 보고 반폭을 골라야 한다.
+                bool challengeIsLower = p.ChallengeCenter < p.GapCenter;
+                float lowerCenter = challengeIsLower ? p.ChallengeCenter : p.GapCenter;
+                float upperCenter = challengeIsLower ? p.GapCenter : p.ChallengeCenter;
+                float lowerHalf = (challengeIsLower ? LOP.MapTools.ClassicCourseRule.ChallengeWindow : window) * 0.5f;
+                float upperHalf = (challengeIsLower ? window : LOP.MapTools.ClassicCourseRule.ChallengeWindow) * 0.5f;
+
                 Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X,
-                     bottom, lowerCenter - window * 0.5f, skin);
+                     bottom, lowerCenter - lowerHalf, skin);
                 Pipe(composed.transform, $"PipeMid_{p.X:F0}", p.X,
-                     lowerCenter + window * 0.5f, upperCenter - window * 0.5f, skin);
+                     lowerCenter + lowerHalf, upperCenter - upperHalf, skin);
                 Pipe(composed.transform, $"PipeHigh_{p.X:F0}", p.X,
-                     upperCenter + window * 0.5f, top, skin);
+                     upperCenter + upperHalf, top, skin);
             }
 
             Backdrop(composed.transform, "Midground",

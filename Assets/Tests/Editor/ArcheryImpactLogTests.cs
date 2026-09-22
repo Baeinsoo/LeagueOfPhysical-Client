@@ -82,6 +82,41 @@ namespace LOP.Tests
             Assert.AreEqual(3, log.Shots.Count, "같은 자리인데 지워졌다");
         }
 
+        //  ── 발당 점수를 "새로 띄울 것"으로 가르는 판단 ────────────────────────────
+        //
+        //  2026-09-22 실측: **첫 명중만 뜨고, 다른 거리 과녁을 맞혀도 그 뒤로 영영 안 떴다.**
+        //  발수만 보고 자리를 안 봐서, 자리가 바뀌어 목록이 1발로 되돌아간 것을
+        //  "이미 1발 띄웠다"로 읽었기 때문이다.
+
+        [Test]
+        public void 자리가_바뀌면_발수가_같아도_처음부터_띄운다()
+        {
+            //  자리 0에서 1발을 띄웠는데, 자리 1에서도 1발이 들어온 상황
+            Assert.AreEqual(0, Log.FirstUnshown(shownWave: 0, shownCount: 1, wave: 1, count: 1),
+                "자리가 바뀌었는데 이미 띄운 것으로 쳐서 영영 안 뜬다");
+        }
+
+        [Test]
+        public void 같은_자리에서_늘어나면_이어서_띄운다()
+        {
+            Assert.AreEqual(1, Log.FirstUnshown(shownWave: 0, shownCount: 1, wave: 0, count: 3),
+                "이미 띄운 것을 다시 띄운다");
+        }
+
+        [Test]
+        public void 같은_자리에서_줄었으면_처음부터_띄운다()
+        {
+            //  이 경로는 지금 안 생기지만(목록은 자리가 바뀔 때만 비워진다), 줄어든 목록을
+            //  옛 번호로 읽으면 없는 칸을 집는다.
+            Assert.AreEqual(0, Log.FirstUnshown(shownWave: 2, shownCount: 3, wave: 2, count: 1));
+        }
+
+        [Test]
+        public void 새로_들어온_게_없으면_띄울_것도_없다()
+        {
+            Assert.AreEqual(2, Log.FirstUnshown(shownWave: 1, shownCount: 2, wave: 1, count: 2));
+        }
+
         //  반지름이 0이면 나눗셈이 터진다. 과녁이 아직 안 선 틱 등에서 들어올 수 있다.
         [Test]
         public void 반지름이_0이면_0을_돌려준다()

@@ -167,8 +167,8 @@ namespace LOP.EditorTools
                 bool challengeIsLower = p.ChallengeCenter < p.GapCenter;
                 float lowerCenter = challengeIsLower ? p.ChallengeCenter : p.GapCenter;
                 float upperCenter = challengeIsLower ? p.GapCenter : p.ChallengeCenter;
-                float lowerHalf = (challengeIsLower ? LOP.MapTools.ClassicCourseRule.ChallengeWindow : window) * 0.5f;
-                float upperHalf = (challengeIsLower ? window : LOP.MapTools.ClassicCourseRule.ChallengeWindow) * 0.5f;
+                float lowerHalf = (challengeIsLower ? LOP.MapTools.ClassicCourseRule.ChallengeWindowFor(window) : window) * 0.5f;
+                float upperHalf = (challengeIsLower ? window : LOP.MapTools.ClassicCourseRule.ChallengeWindowFor(window)) * 0.5f;
 
                 Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X,
                      bottom, lowerCenter - lowerHalf, skin);

@@ -62,23 +62,26 @@ namespace LOP.MapTools
         public const int ChallengeRunLength = 4;
 
         /// <summary>
-        /// <b>도전 창은 안전 창보다 넓다.</b> 이유는 브레이크가 없기 때문이다 — 날갯짓은 세로
-        /// 속도를 덮어쓸 뿐 줄이지 못하므로, 내려가다 보면 도착 속도가 빠를 수밖에 없다.
-        /// 관문을 가로지르는 0.37초 동안 떨어지는 만큼을 창이 담아야 통과하는데, 안전 창(4.37m)
-        /// 기준으로는 도착 속도 9.4 m/s가 상한이라 사실상 못 들어간다.
-        /// 6m면 상한이 14 m/s로 올라가 "천천히 내려가면 들어갈 수 있다"가 성립한다.
+        /// 도전 창의 폭 = 안전 창 × 이 값. <b>1.0이면 두 창이 같다.</b>
+        ///
+        /// <para>한때 1.37(=6m)이었다. 회랑이 14.56m이던 시절, 내려가며 도착하는 속도를
+        /// 안전 창(4.37m)이 못 담아서 사실상 못 들어갔기 때문이다. 카메라를 30m로 옮겨
+        /// 회랑이 21.84m가 되면서 그 보정이 과해졌고, 도전 창이 평범한 창보다 눈에 띄게
+        /// 넓어 "위험한 쪽"이 오히려 편해졌다. 그래서 1.0으로 되돌렸다.</para>
         /// </summary>
-        public const float ChallengeWindow = 6f;
+        public const float ChallengeWindowScale = 1.0f;
 
         /// <summary>두 창을 가르는 기둥의 두께. 이게 없으면 그냥 넓은 창 하나가 된다.</summary>
         public const float PillarThickness = 1.5f;
 
         /// <summary>두 창이 물리적으로 들어가려면 필요한 최소 낙차(창 절반씩 + 기둥).</summary>
-        public static float MinChallengeDropFor(float window)
-            => (window + ChallengeWindow) * 0.5f + PillarThickness;
+        public static float ChallengeWindowFor(float window) => window * ChallengeWindowScale;
 
-        /// <summary>안전 창 4.37m 기준의 최소 낙차. 테스트·검사가 쓰는 값.</summary>
-        public const float MinChallengeDrop = 6.685f;
+        public static float MinChallengeDropFor(float window)
+            => (window + ChallengeWindowFor(window)) * 0.5f + PillarThickness;
+
+        /// <summary>안전 창 4.37m 기준의 최소 낙차. 테스트가 쓰는 값.</summary>
+        public const float MinChallengeDrop = 5.87f;
 
         /// <summary>
         /// 파이프 쌍을 <paramref name="spacing"/> 간격으로 놓는다. 첫 파이프는 시작선에서
@@ -171,8 +174,9 @@ namespace LOP.MapTools
                 {
                     //  도전 창 중심의 한계에서 최소 낙차만큼 떨어진 자리가 안전 창의 하한이다.
                     float drop = MinChallengeDropFor(window);
-                    if (lowerLane) { walkLow = floorY + ChallengeWindow * 0.5f + drop; }
-                    else { walkHigh = ceilingY - ChallengeWindow * 0.5f - drop; }
+                    float half = ChallengeWindowFor(window) * 0.5f;
+                    if (lowerLane) { walkLow = floorY + half + drop; }
+                    else { walkHigh = ceilingY - half - drop; }
                     if (walkLow < low) { walkLow = low; }
                     if (walkHigh > high) { walkHigh = high; }
                     if (walkLow > walkHigh) { walkLow = walkHigh = (low + high) * 0.5f; }
@@ -216,8 +220,9 @@ namespace LOP.MapTools
                 //  한쪽으로 두면 "한 번 내려가서 그 차선을 달리다가 한 번 올라온다"가 된다 —
                 //  결심은 한 번이고, 내려갈 여유도 생긴다.
                 //  도전 창이 더 넓으니 그 중심이 갈 수 있는 범위도 더 좁다.
-                float challengeLow = floorY + ChallengeWindow * 0.5f;
-                float challengeHigh = ceilingY - ChallengeWindow * 0.5f;
+                float challengeHalf = ChallengeWindowFor(window) * 0.5f;
+                float challengeLow = floorY + challengeHalf;
+                float challengeHigh = ceilingY - challengeHalf;
                 float far = lowerLane ? challengeLow : challengeHigh;
                 if (System.Math.Abs(far - center) < MinChallengeDropFor(window))
                 {
@@ -273,8 +278,9 @@ namespace LOP.MapTools
                 if (p.HasChallenge)
                 {
                     float challengeRelative = p.ChallengeCenter - (centerAt != null ? centerAt(p.X) : 0f);
-                    if (challengeRelative < floorY + ChallengeWindow * 0.5f - 1e-3f
-                        || challengeRelative > ceilingY - ChallengeWindow * 0.5f + 1e-3f)
+                    float challengeHalf = ChallengeWindowFor(window) * 0.5f;
+                    if (challengeRelative < floorY + challengeHalf - 1e-3f
+                        || challengeRelative > ceilingY - challengeHalf + 1e-3f)
                     {
                         return $"x={p.X:F1}의 도전 창이 회랑 밖으로 나갔다 (중심 {challengeRelative:F2})";
                     }

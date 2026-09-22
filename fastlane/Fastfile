@@ -1,8 +1,13 @@
 default_platform(:ios)
 
 APP_IDENTIFIER = "com.BAEGames.LeagueOfPhysical"
-XCODE_PROJECT  = "Build/iOS/Unity-iPhone.xcodeproj"
 SCHEME         = "Unity-iPhone"
+
+#  절대경로로 잡는다. fastlane은 액션을 프로젝트 루트에서 돌리지만 lane 본문의 순수 Ruby는
+#  fastlane/ 안에서 돌아, 상대경로를 쓰면 fastlane/Build/... 를 찾다가 "없다"고 죽는다.
+PROJECT_ROOT   = File.expand_path("..", __dir__)
+XCODE_PROJECT  = File.join(PROJECT_ROOT, "Build/iOS/Unity-iPhone.xcodeproj")
+IPA_DIR        = File.join(PROJECT_ROOT, "Build/ipa")
 
 platform :ios do
   desc "애플 자격증명·앱 레코드가 준비됐는지 확인한다 (빌드하지 않음)"
@@ -75,7 +80,7 @@ platform :ios do
       project: XCODE_PROJECT,
       scheme: SCHEME,
       export_method: "app-store",
-      output_directory: "Build/ipa",
+      output_directory: IPA_DIR,
       output_name: "lop.ipa",
     )
 

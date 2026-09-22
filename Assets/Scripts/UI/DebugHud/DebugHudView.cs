@@ -36,6 +36,19 @@ namespace LOP.UI
         private Button _dumpButton;
 
         private IVisualElementScheduledItem _tick;
+        private VisualElement _panel;
+        private Label _hint;
+
+        /// <summary>
+        /// 숨김 여부를 기억하는 자리. 판마다 다시 켜야 하면 토글이 있으나 마나다.
+        /// <b>기본은 보임</b> — 넷코드를 볼 때 쓰던 도구라, 한 번도 안 누른 사람에게서
+        /// 말없이 사라지면 안 된다.
+        /// </summary>
+        private const string HiddenPref = "lop.debugHud.hidden";
+
+        //  숨기기 단축키. 이 게임의 조작이 WASD·방향키·포인터를 쓰므로 그것들과 안 겹치고,
+        //  디버그 HUD 토글은 F1이 업계 관용이다.
+        private const UnityEngine.InputSystem.Key ToggleKey = UnityEngine.InputSystem.Key.F1;
 
         public DebugHudView(DebugHudViewModel viewModel)
         {
@@ -76,12 +89,33 @@ namespace LOP.UI
             _dumpButton = Root.Q<Button>("dump-button");
             _dumpButton.clicked += _viewModel.DumpStats;
 
+            _panel = Root.Q<VisualElement>("debug-panel");
+            _hint = Root.Q<Label>("debug-hint");
+            SetHidden(UnityEngine.PlayerPrefs.GetInt(HiddenPref, 0) != 0);
+
             _tick = Root.schedule.Execute(Refresh).Every(0);
         }
 
+        //  루트가 아니라 패널만 감춘다 — 루트를 끄면 스케줄러가 멎어 F1을 못 듣는다.
+        private void SetHidden(bool hidden)
+        {
+            _panel.style.display = hidden ? DisplayStyle.None : DisplayStyle.Flex;
+            _hint.style.display = hidden ? DisplayStyle.Flex : DisplayStyle.None;
+            UnityEngine.PlayerPrefs.SetInt(HiddenPref, hidden ? 1 : 0);
+        }
+
+        private bool Hidden => _panel.style.display.value == DisplayStyle.None;
+
         private void Refresh(TimerState _)
         {
-            if (!_viewModel.IsRunning)
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard != null && keyboard[ToggleKey].wasPressedThisFrame)
+            {
+                SetHidden(Hidden == false);
+            }
+
+            //  감춘 동안엔 라벨을 안 만진다 — 스무 줄을 매 프레임 포맷할 이유가 없다.
+            if (Hidden || !_viewModel.IsRunning)
             {
                 return;
             }

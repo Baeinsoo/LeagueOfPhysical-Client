@@ -37,6 +37,7 @@ namespace LOP
                 c.Resolve<GameFramework.World.EntityRegistry>(),
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
                 c.Resolve<ArcheryAimSystem>(),
+                c.Resolve<ArcheryCourse>(),
                 TickInterval), Lifetime.Singleton)
                 .As<GameFramework.World.IWorld>().AsSelf();
 

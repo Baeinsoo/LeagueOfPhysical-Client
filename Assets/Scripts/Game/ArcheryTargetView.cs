@@ -30,15 +30,10 @@ namespace LOP
 
         //  색깔당 한 장. 흐린 판(남의 것)은 같은 색을 어둡게 만든 별도 한 장이다 —
         //  불투명 재질에 알파만 낮추면 아무 변화가 없어서(투명 모드가 아니다) 명도로 가른다.
-        private readonly Dictionary<(int band, bool dimmed), Material> _bandMaterials
-            = new Dictionary<(int, bool), Material>();
+        private readonly Dictionary<(Color color, bool dimmed), Material> _bandMaterials
+            = new Dictionary<(Color, bool), Material>();
 
         //  양궁 과녁면의 색차례(가운데 금색 → 빨강 → 파랑 → 검정 → 흰색). 띠가 더 많으면 돌려 쓴다.
-        private static readonly Color[] BandColors =
-        {
-            new Color(1f, 0.85f, 0.1f), new Color(0.9f, 0.15f, 0.15f),
-            new Color(0.15f, 0.35f, 0.9f), new Color(0.1f, 0.1f, 0.1f), Color.white,
-        };
 
         public ArcheryTargetView(GameFramework.Runner.IRunner runner,
                                  GameFramework.World.IWorld world,
@@ -196,17 +191,23 @@ namespace LOP
                 }
                 //  자식 이름이 "band{i}"라 그 번호가 곧 띠 번호다(BuildFace가 그렇게 붙인다).
                 int band = int.Parse(renderer.name.Substring("band".Length));
-                renderer.sharedMaterial = BandMaterial(band, dimmed: mine == false);
+
+                //  색은 **번호가 아니라 비율**로 고른다 — 번호로 고르면 띠 개수가 바뀔 때
+                //  되감겨 어긋난다(규정 10링에서 6번째가 다시 금색이 됐다).
+                float ratio = target.Bands != null && band < target.Bands.Count
+                    ? target.Bands[band].OuterRatio
+                    : 1f;
+                renderer.sharedMaterial = BandMaterial(ratio, dimmed: mine == false);
             }
         }
 
-        private Material BandMaterial(int bandIndex, bool dimmed)
+        private Material BandMaterial(float outerRatio, bool dimmed)
         {
-            var key = (bandIndex % BandColors.Length, dimmed);
+            var key = (ArcheryFaceColors.Of(outerRatio), dimmed);
             if (_bandMaterials.TryGetValue(key, out var material) == false || material == null)
             {
                 var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
-                Color color = BandColors[key.Item1];
+                Color color = key.Item1;
                 material = new Material(shader) { color = dimmed ? color * 0.35f : color };
                 _bandMaterials[key] = material;
             }

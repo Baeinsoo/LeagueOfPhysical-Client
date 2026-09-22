@@ -28,12 +28,6 @@ namespace LOP.UI
         private int _poppedCount;
         private int _poppedWave = -2;
 
-        //  띠 색: 중심부터 바깥으로. 과녁 본체와 같은 관습이다(금·빨강·파랑·검정·흰색).
-        private static readonly Color[] PlotBandColors =
-        {
-            new Color(1f, 0.85f, 0.1f), new Color(0.9f, 0.15f, 0.15f),
-            new Color(0.15f, 0.35f, 0.9f), new Color(0.1f, 0.1f, 0.1f), Color.white,
-        };
         //  원은 누른 자리에 한 번만 놓는다 — 그 자리는 누름이 끝날 때까지 안 움직인다.
         private bool _cancelTargetPlaced;
         private IVisualElementScheduledItem _tick;
@@ -197,17 +191,19 @@ namespace LOP.UI
             _plottedCount = shots.Count;
             _plottedWave = wave;
 
+            //  점을 찍으려면 판 반지름이 필요하다. 레이아웃이 아직이면 **그리기 전에** 물러난다.
+            float r = _plotFace.resolvedStyle.width * 0.5f;
+            if (r <= 0f)
+            {
+                _plottedCount = -1;   // 다음 프레임에 다시
+                return;
+            }
+
             _plotFace.Clear();
             DrawPlotBands();
 
             //  좌표는 면 반지름을 1로 본 값이다 — 판 반지름을 곱해 픽셀로 옮긴다.
             //  y는 위가 양수인데 패널은 아래가 양수라 여기서 뒤집는다.
-            float r = _plotFace.resolvedStyle.width * 0.5f;
-            if (r <= 0f)
-            {
-                _plottedCount = -1;   // 레이아웃이 아직 없다 — 다음 프레임에 다시
-                return;
-            }
 
             for (int i = 0; i < shots.Count; i++)
             {
@@ -251,13 +247,17 @@ namespace LOP.UI
                 disc.style.left = half;
                 disc.style.top = half;
 
-                float radiusPx = _plotFace.resolvedStyle.width * 0.5f * ratio;
-                disc.style.borderTopLeftRadius = radiusPx;
-                disc.style.borderTopRightRadius = radiusPx;
-                disc.style.borderBottomLeftRadius = radiusPx;
-                disc.style.borderBottomRightRadius = radiusPx;
+                //  **퍼센트로 준다.** 픽셀로 주려면 그 프레임의 판 크기를 알아야 하는데,
+                //  레이아웃이 아직 안 잡힌 프레임엔 0이 나와 **모서리가 안 깎여 사각형**이 된다
+                //  (2026-09-22 실측: 기록판이 네모로 보였다). 50%면 크기와 무관하게 늘 원이다.
+                var round = new StyleLength(new Length(50f, LengthUnit.Percent));
+                disc.style.borderTopLeftRadius = round;
+                disc.style.borderTopRightRadius = round;
+                disc.style.borderBottomLeftRadius = round;
+                disc.style.borderBottomRightRadius = round;
 
-                var color = PlotBandColors[Mathf.Min(i, PlotBandColors.Length - 1)];
+                //  3D 과녁과 **같은 함수**를 쓴다 — 두 곳이 다른 색을 칠하면 기록판이 거짓말을 한다.
+                var color = ArcheryFaceColors.Of(ratio);
                 color.a = 0.75f;
                 disc.style.backgroundColor = color;
                 _plotFace.Add(disc);

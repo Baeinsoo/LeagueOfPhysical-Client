@@ -88,4 +88,64 @@
     border-bottom-left-radius: 3px; border-bottom-right-radius: 3px;
 }
 
+/* ── 착탄 기록판 ───────────────────────────────────────────────────
+   화면 오른쪽 위. 과녁 면을 1로 본 좌표를 그대로 그리므로, 12m(40cm)든 90m(122cm)든
+   같은 그림 위에서 비교된다. 띠 원과 점은 View가 코드로 만들어 넣는다. */
+.impact-plot {
+    position: absolute;
+    top: 24px; right: 24px;
+    width: 200px; height: 224px;
+    align-items: center;
+}
+.plot-face {
+    width: 200px; height: 200px;
+    border-top-left-radius: 100px; border-top-right-radius: 100px;
+    border-bottom-left-radius: 100px; border-bottom-right-radius: 100px;
+    background-color: rgba(12, 16, 20, 0.55);
+    border-left-width: 1px; border-right-width: 1px;
+    border-top-width: 1px; border-bottom-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.25);
+    border-right-color: rgba(255, 255, 255, 0.25);
+    border-top-color: rgba(255, 255, 255, 0.25);
+    border-bottom-color: rgba(255, 255, 255, 0.25);
+}
+.plot-label {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.6);
+}
+/* 띠 하나(동심원). View가 비율대로 크기를 정한다. */
+.plot-band {
+    position: absolute;
+}
+/* 꽂힌 자리 하나. 마지막 발만 밝게 켠다 — 방금 쏜 것이 어디였는지가 읽혀야 고칠 수 있다. */
+.plot-dot {
+    position: absolute;
+    width: 9px; height: 9px;
+    margin-left: -4.5px; margin-top: -4.5px;
+    border-top-left-radius: 5px; border-top-right-radius: 5px;
+    border-bottom-left-radius: 5px; border-bottom-right-radius: 5px;
+    background-color: rgba(255, 255, 255, 0.45);
+}
+.plot-dot.is-latest {
+    width: 13px; height: 13px;
+    margin-left: -6.5px; margin-top: -6.5px;
+    border-top-left-radius: 7px; border-top-right-radius: 7px;
+    border-bottom-left-radius: 7px; border-bottom-right-radius: 7px;
+    background-color: rgb(255, 255, 255);
+}
+
+/* ── 발당 점수 ─────────────────────────────────────────────────── */
+.hit-popups {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+.hit-popup {
+    position: absolute;
+    font-size: 34px;
+    -unity-font-style: bold;
+    color: rgb(255, 236, 150);
+    -unity-text-align: middle-center;
+    width: 140px;
+    margin-left: -70px;
+}
 

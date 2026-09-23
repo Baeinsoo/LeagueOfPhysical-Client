@@ -50,6 +50,31 @@ namespace LOP.MapTools
     /// </summary>
     public static class FlappyTickMath
     {
+        /// <summary>
+        /// 틱마다의 x를 <b>재생과 같은 방식(더하기)으로</b> 채운 표. <paramref name="count"/>개를 만든다.
+        ///
+        /// <para><b>왜 곱셈이 아닌가.</b> <c>startX + stepX * n</c>은 수학적으로 같지만 부동소수에서
+        /// 다르다 — 진짜 이동 커널은 매 틱 x에 <c>stepX</c>를 <i>더해</i> 나아가므로, 곱셈으로 구한
+        /// x는 틱이 쌓일수록 벌어진다. 실측(전진 6.8 · 틱 0.02): 2848틱 1.1cm · 3683틱 2.2cm ·
+        /// 4267틱 3.0cm. 커널이 벽에서 띄우는 여유가 0.02m라 3cm면 <b>스치는 판정이 뒤집힌다</b> —
+        /// 탐색이 자유라고 본 틱에서 재생이 벽에 걸렸다(2026-09-23, 코스를 60초→90초로 늘리자 드러났다).
+        /// 세로 속도·높이를 양쪽이 같은 코드로 구하게 맞춘 것과 <b>같은 이유·같은 자리</b>다.</para>
+        /// </summary>
+        public static float[] ColumnXTable(float startX, float stepX, int count)
+        {
+            if (count < 1)
+            {
+                count = 1;
+            }
+            var table = new float[count];
+            table[0] = startX;
+            for (int i = 1; i < count; i++)
+            {
+                table[i] = table[i - 1] + stepX;
+            }
+            return table;
+        }
+
         public static float NextVerticalSpeed(float verticalSpeed, bool flap,
                                               float flapImpulse, float gravity,
                                               float maxFallSpeed, float tickSeconds)
@@ -221,8 +246,8 @@ namespace LOP.MapTools
 
             for (int column = 0; column < grid.ColumnCount; column++)
             {
-                float x = options.StartX + grid.StepX * column;
-                float nextX = x + grid.StepX;
+                float x = grid.ColumnX(column);
+                float nextX = grid.ColumnX(column + 1);
                 var next = NewColumn(grid.StateCount);
                 bool any = false;
 
@@ -388,7 +413,7 @@ namespace LOP.MapTools
             var flaps = new bool[last];
             for (int column = last; column > 0; column--)
             {
-                float previousX = options.StartX + grid.StepX * (column - 1);
+                float previousX = grid.ColumnX(column - 1);
                 Column previous = columns[column - 1];
                 bool found = false;
                 for (int i = 0; i < previous.States.Length && found == false; i++)
@@ -533,6 +558,25 @@ namespace LOP.MapTools
         public readonly int StateCount;
         public readonly int ColumnCount;
         public readonly float StepX;
+
+        //  컬럼마다의 x를 <b>미리 누적해</b> 담아 둔다.
+        //
+        //  <b>왜 곱셈으로 구하지 않나(StartX + StepX * column).</b> 수학적으로는 같지만 부동소수에서
+        //  다르다 — 재생(진짜 커널)은 매 틱 x에 StepX를 <i>더해</i> 나아가므로, 곱셈으로 구한 x는
+        //  틱이 쌓일수록 재생의 x와 벌어진다. 실측: 2848틱 1.1cm · 3683틱 2.2cm · 4267틱 3.0cm.
+        //  커널이 벽에서 띄우는 여유가 0.02m라, 3cm면 스치는 판정이 뒤집힌다 — 탐색이 자유라고
+        //  본 틱에서 재생이 벽에 걸렸다(2026-09-23, 코스를 60초→90초로 늘리자 드러났다).
+        //
+        //  높이(y)는 2026-09-14에 같은 이유로 "정확한 값을 들고 다니게" 고쳤다. 이것이 그
+        //  <b>나머지 절반</b>이다.
+        private readonly float[] columnX;
+
+        /// <summary><paramref name="column"/>번째 틱의 x. 재생과 <b>같은 방식으로</b> 누적한 값이다.</summary>
+        public float ColumnX(int column)
+        {
+            if (column < 0) { return columnX[0]; }
+            return column < columnX.Length ? columnX[column] : columnX[columnX.Length - 1];
+        }
         /// <summary>상태를 묶는 열쇠 칸의 높이 폭. 이제 <b>열쇠에만</b> 쓴다 — 상태가 들고
         /// 다니는 높이는 여기에 안 붙는다.</summary>
         public readonly float HeightGrid;
@@ -544,6 +588,10 @@ namespace LOP.MapTools
             StepX = options.ForwardSpeed * options.TickSeconds;
             ColumnCount = UnityEngine.Mathf.CeilToInt((options.FinishX - options.StartX) / StepX);
             HeightBucketCount = UnityEngine.Mathf.CeilToInt((options.MaxY - options.MinY) / options.HeightGrid) + 1;
+
+            //  재생이 하는 것과 같은 더하기로 채운다. 한 칸 더 잡는 이유는 마지막 컬럼의
+            //  "다음 x"(nextX)까지 같은 표에서 읽기 위해서다.
+            columnX = FlappyTickMath.ColumnXTable(options.StartX, StepX, ColumnCount + 2);
 
             //  사다리는 −MaxFallSpeed에 닿으면 더 안 변한다. 거기까지만 만들고 그 뒤는 흡수 상태다.
             float drop = options.Gravity * options.TickSeconds;

@@ -1022,6 +1022,9 @@ namespace LOP.EditorTools
         //  ── ⚡ 부스트 패드 ──────────────────────────────────────────────────
         //  패드는 <b>콜라이더가 없다</b> — 판정을 FlappyBoostPadField가 산술로 하기 때문이다.
         //  그래서 벽 속에 놓여도 물리가 아무 말을 안 한다. 여기서 재 주지 않으면 아무도 모른다.
+        //  판정면(z=0)에서만 본다 — 콜라이더는 z[-1.25~+1.25]에 걸쳐 있어 얇게 찍어도 다 닿는다.
+        private const float PadProbeDepth = 0.05f;
+
         private static List<LOP.MapTools.BoostPadMeasure> ScanBoostPads(int mapMask)
         {
             var measures = new List<LOP.MapTools.BoostPadMeasure>();
@@ -1043,14 +1046,20 @@ namespace LOP.EditorTools
                 float y0 = center.y - half;
                 float y1 = center.y + half;
 
-                //  패드 안을 훑어 장애물에 닿는 자리가 있는지 본다. 한 점만 보면 가운데는
-                //  비었는데 위아래가 파이프에 물린 경우를 놓친다.
+                //  <b>사각형 통째로</b> 본다. 세로 중심선만 찍으면 폭 방향으로 벽에 물린 것을
+                //  놓친다 — 실제로 그렇게 6개 중 2개만 잡히고 나머지 3개가 빠졌다.
                 string overlap = null;
-                int steps = Mathf.Max(2, Mathf.CeilToInt(pad.Height / PlacementProbeStep));
-                for (int i = 0; i <= steps && overlap == null; i++)
+                int count = Physics.OverlapBoxNonAlloc(
+                    new Vector3(center.x, center.y, 0f),
+                    new Vector3(pad.Width * 0.5f, half, PadProbeDepth), PlacementOverlap,
+                    Quaternion.identity, mapMask, QueryTriggerInteraction.Ignore);
+                for (int i = 0; i < Mathf.Min(count, PlacementOverlap.Length); i++)
                 {
-                    float y = y0 + pad.Height * i / steps;
-                    overlap = ColliderNameAt(center.x, y, mapMask, ignore);
+                    if (ignore.Contains(PlacementOverlap[i]) == false)
+                    {
+                        overlap = NameOf(PlacementOverlap[i].transform);
+                        break;
+                    }
                 }
 
                 //  회랑의 안쪽 바닥·천장 — 패드 가운데에서 위아래로 더듬는다. 가운데가 이미

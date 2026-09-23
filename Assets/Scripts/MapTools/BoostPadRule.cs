@@ -46,6 +46,30 @@ namespace LOP.MapTools
     public static class BoostPadRule
     {
         /// <summary>
+        /// 패드를 회랑 안으로 맞춘다. <b>패드 폭 전체에서 가장 좁은 회랑</b>을 받아야 한다 —
+        /// 가운데 한 점으로 맞추면 기운 자리에서 양 끝이 벽을 파고든다(실제로 났던 버그다:
+        /// 폭 5m · 경사 0.35m/m이면 양 끝이 0.87m 어긋나 고정 여백으로는 못 막는다).
+        ///
+        /// <para>위아래를 각각 잘라 내고 남은 것을 돌려준다 — 통째로 밀지 않는 이유는, 밀면
+        /// 패드가 도전 차선을 벗어나 안전한 쪽으로 넘어갈 수 있어서다.</para>
+        /// </summary>
+        /// <returns>맞춘 뒤의 높이. <paramref name="centerY"/>는 그 가운데로 갱신된다.</returns>
+        public static float Fit(ref float centerY, float height, float corridorLow, float corridorHigh)
+        {
+            float top = System.Math.Min(centerY + height * 0.5f, corridorHigh);
+            float bottom = System.Math.Max(centerY - height * 0.5f, corridorLow);
+            if (top < bottom)
+            {
+                //  회랑이 아예 패드보다 좁다 — 가운데만 알려 주고 높이 0으로 돌려보낸다.
+                //  부르는 쪽이 "최소 높이 미달"로 걸러야 한다.
+                centerY = (corridorLow + corridorHigh) * 0.5f;
+                return 0f;
+            }
+            centerY = (top + bottom) * 0.5f;
+            return top - bottom;
+        }
+
+        /// <summary>
         /// 패드 하나가 벌어 주는 거리(m). 대시와 같은 계산이다 — 부스트 동안 <c>dashMult</c>배로
         /// 가므로, 평소보다 더 간 몫이 이득이다.
         /// </summary>

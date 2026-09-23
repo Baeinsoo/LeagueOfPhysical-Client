@@ -59,6 +59,42 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 회랑_안이면_그대로_둔다()
+        {
+            float y = 0f;
+            Assert.That(BoostPadRule.Fit(ref y, 4f, -10f, 10f), Is.EqualTo(4f).Within(1e-4f));
+            Assert.That(y, Is.EqualTo(0f).Within(1e-4f));
+        }
+
+        [Test]
+        public void 벽에_물린_쪽만_잘라_낸다()
+        {
+            //  통째로 밀지 않는다 — 밀면 패드가 도전 차선을 벗어나 안전한 쪽으로 넘어간다.
+            //  아래가 0.5m 물렸으면 아래만 0.5m 깎이고 위는 그대로다.
+            float y = -8f;                               // 아래 −10, 위 −6
+            float height = BoostPadRule.Fit(ref y, 4f, -9.5f, 10f);
+
+            Assert.That(height, Is.EqualTo(3.5f).Within(1e-4f));
+            Assert.That(y, Is.EqualTo(-7.75f).Within(1e-4f));   // (−9.5 + −6) / 2
+        }
+
+        [Test]
+        public void 양쪽_다_물리면_양쪽_다_깎는다()
+        {
+            float y = 0f;
+            Assert.That(BoostPadRule.Fit(ref y, 10f, -2f, 3f), Is.EqualTo(5f).Within(1e-4f));
+            Assert.That(y, Is.EqualTo(0.5f).Within(1e-4f));
+        }
+
+        [Test]
+        public void 회랑이_아예_없으면_0을_돌려준다()
+        {
+            //  부르는 쪽이 "최소 높이 미달"로 걸러야 한다 — 억지로 놓으면 못 밟는 패드가 된다.
+            float y = 20f;
+            Assert.That(BoostPadRule.Fit(ref y, 4f, -1f, 1f), Is.EqualTo(0f).Within(1e-4f));
+        }
+
+        [Test]
         public void 이득은_대시와_같은_계산이다()
         {
             //  0.6초 × 6.8m/s × (2−1) = 4.08m. 충돌 5.4m의 0.76배 — 패드 하나가 충돌을 다 메우지

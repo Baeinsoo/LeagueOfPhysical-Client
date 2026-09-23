@@ -65,7 +65,18 @@ namespace LOP.EditorTools
         //  경제다: 0.6초 부스트 = +4.1m이고 충돌 한 번이 −5.4m이니, 패드 하나가 충돌 0.76회를
         //  메운다. 관문마다 놓으면(24개) 코스 612m에서 +98m = 16%라 대시 경제가 통째로 무의미해진다.
         private const float BoostPadDuration = 0.6f;
-        private const float BoostPadWidth = 5f;     // 전진 6.8m/s로 0.74초 — 놓칠 일이 없다
+        //  전진 6.8m/s로 0.51초(26틱) — 놓칠 일이 없다. 더 넓히지 않는 이유는 경사다:
+        //  패드는 가로로 눕힌 사각형이라, 회랑이 기울어 있으면 <b>폭이 넓을수록 양 끝이 벽에
+        //  가까워진다.</b> 5m로 뒀더니 왼쪽 끝이 바닥에 물렸다.
+        private const float BoostPadWidth = 3.5f;
+
+        //  패드와 벽 사이에 남길 틈. 콜라이더 표면에 딱 붙으면 검사가 "겹쳤다"로 읽는다.
+        private const float BoostPadClearance = 0.15f;
+
+        //  이보다 얇아지면 아예 놓지 않는다. 경사가 급한 자리에서 차선이 벽에 붙어 있으면
+        //  패드를 넣을 자리가 안 나오는데, 억지로 넣으면 <b>못 밟는 패드</b>가 된다 —
+        //  "있는데 안 되는 것"이 "없는 것"보다 나쁘다.
+        private const float BoostPadMinHeight = 1.6f;
 
         private const ulong Seed = 20260919UL;
 
@@ -184,7 +195,8 @@ namespace LOP.EditorTools
                      upperCenter + upperHalf, top, skin);
             }
 
-            int boostPads = BoostPads(composed.transform, pipes, window, centerAt, spacing, fallback);
+            int boostPads = BoostPads(composed.transform, pipes, window, centerAt, spacing,
+                                      floorY, ceilingY, fallback);
 
             Backdrop(composed.transform, "Midground",
                      LOP.MapTools.BackdropLayout.Midground(StartX, length, MidgroundSeed),
@@ -264,7 +276,7 @@ namespace LOP.EditorTools
         /// </summary>
         private static int BoostPads(Transform parent, System.Collections.Generic.IReadOnlyList<LOP.MapTools.CoursePipe> pipes,
                                      float window, System.Func<float, float> centerAt, float spacing,
-                                     Material fallback)
+                                     float floorY, float ceilingY, Material fallback)
         {
             int placed = 0;
             for (int i = 0; i < pipes.Count; i++)
@@ -283,8 +295,33 @@ namespace LOP.EditorTools
                 //  관문에서 패드까지 회랑이 기울어 간 만큼 따라 올린다. 안 따라가면 고저차가 큰
                 //  자리에서 패드가 차선 밖으로 나가 통과해도 안 밟힌다.
                 float padY = pipes[i].ChallengeCenter + (centerAt(padX) - centerAt(pipes[i].X));
-                BoostPad(parent, $"BoostPad_{padX:F0}", padX, padY,
-                         LOP.MapTools.ClassicCourseRule.ChallengeWindowFor(window), fallback);
+                float padHeight = LOP.MapTools.ClassicCourseRule.ChallengeWindowFor(window);
+
+                //  <b>패드 폭 전체</b>에서 회랑의 가장 좁은 곳에 맞춘다. 가운데 한 점만 보면
+                //  기운 자리에서 양 끝이 벽을 파고든다 — 고정 여백으로는 못 막는다(경사가
+                //  자리마다 다르므로). 도전 창은 회랑 벽에 붙어 있어 여유가 없는 쪽이다.
+                float highestFloor = float.MinValue;
+                float lowestCeiling = float.MaxValue;
+                for (int step = 0; step <= 8; step++)
+                {
+                    float sampleX = padX + BoostPadWidth * (step / 8f - 0.5f);
+                    float lift = centerAt(sampleX);
+                    highestFloor = Mathf.Max(highestFloor, floorY + lift);
+                    lowestCeiling = Mathf.Min(lowestCeiling, ceilingY + lift);
+                }
+                padHeight = LOP.MapTools.BoostPadRule.Fit(
+                    ref padY, padHeight,
+                    highestFloor + BoostPadClearance, lowestCeiling - BoostPadClearance);
+
+                if (padHeight < BoostPadMinHeight)
+                {
+                    Debug.LogWarning($"[전통 코스] x={padX:F0} 부스트 패드를 걸렀다 — 회랑이"
+                                   + $" {padHeight:F2}m밖에 안 남았다(최소 {BoostPadMinHeight:F1}m)."
+                                   + " 그 자리의 도전 차선이 벽에 너무 붙어 있다.");
+                    continue;
+                }
+
+                BoostPad(parent, $"BoostPad_{padX:F0}", padX, padY, padHeight, fallback);
                 placed++;
             }
             return placed;

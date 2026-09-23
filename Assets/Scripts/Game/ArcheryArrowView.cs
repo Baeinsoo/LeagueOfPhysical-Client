@@ -66,7 +66,9 @@ namespace LOP
         {
             if (_arrowMaterial == null)
             {
-                var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+                //  이름으로 찾는 셰이더는 Graphics ▸ Always Included Shaders에 있어야 폰 빌드에서도
+                //  잡힌다 — 없으면 null이 와서 매 프레임 터진다(RuntimeShaderInclusionTests가 지킨다).
+                var shader = Shader.Find("Universal Render Pipeline/Lit");
                 _arrowMaterial = new Material(shader) { color = Color.red };
             }
             return _arrowMaterial;

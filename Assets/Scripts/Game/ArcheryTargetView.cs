@@ -206,7 +206,9 @@ namespace LOP
             var key = (ArcheryFaceColors.Of(outerRatio), dimmed);
             if (_bandMaterials.TryGetValue(key, out var material) == false || material == null)
             {
-                var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+                //  이름으로 찾는 셰이더는 Graphics ▸ Always Included Shaders에 있어야 폰 빌드에서도
+                //  잡힌다 — 없으면 null이 와서 매 프레임 터진다(RuntimeShaderInclusionTests가 지킨다).
+                var shader = Shader.Find("Universal Render Pipeline/Lit");
                 Color color = key.Item1;
                 material = new Material(shader) { color = dimmed ? color * 0.35f : color };
                 _bandMaterials[key] = material;
@@ -219,7 +221,7 @@ namespace LOP
         {
             if (_targetMaterial == null)
             {
-                var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+                var shader = Shader.Find("Universal Render Pipeline/Lit");
                 //  임시 그림이라 실물보다 눈에 띄는 것이 우선이다. 붉은 화살과 갈리게 노랑.
                 _targetMaterial = new Material(shader) { color = new Color(1f, 0.85f, 0.1f) };
             }
@@ -232,7 +234,7 @@ namespace LOP
         {
             if (_trapMaterial == null)
             {
-                var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+                var shader = Shader.Find("Universal Render Pipeline/Lit");
                 _trapMaterial = new Material(shader) { color = new Color(0.15f, 0.2f, 0.9f) };
             }
             return _trapMaterial;

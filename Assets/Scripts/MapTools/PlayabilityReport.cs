@@ -291,7 +291,8 @@ namespace LOP.MapTools
                                    IReadOnlyList<Gate> gates = null,
                                    float targetWindow = 0f,
                                    float targetSpacing = 0f,
-                                   string layerSection = null)
+                                   string layerSection = null,
+                                   string boostSection = null)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
@@ -473,6 +474,13 @@ namespace LOP.MapTools
             if (string.IsNullOrEmpty(layerSection) == false)
             {
                 text.AppendLine(layerSection);
+                text.AppendLine();
+            }
+
+            //  부스트 패드는 층 규약 뒤다 — 둘 다 "콜라이더가 없어 조용히 넘어가는 것"을 잡는 절이다.
+            if (string.IsNullOrEmpty(boostSection) == false)
+            {
+                text.AppendLine(boostSection);
                 text.AppendLine();
             }
 

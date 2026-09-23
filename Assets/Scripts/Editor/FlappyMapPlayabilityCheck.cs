@@ -502,7 +502,11 @@ namespace LOP.EditorTools
                                                          TickSeconds, shape.Height),
                 LOP.MapTools.GateRhythmRule.TargetSpacing(config.ForwardSpeed),
                 LOP.MapTools.LayerContract.Section(
-                    ScanLayerBlocks(mapMask, config.BodyRadius), GameplayMaterials));
+                    ScanLayerBlocks(mapMask, config.BodyRadius), GameplayMaterials),
+                LOP.MapTools.BoostPadRule.Section(
+                    ScanBoostPads(mapMask), config.ForwardSpeed, config.DashMult,
+                    //  충돌 한 번의 손실 — 스턴 시간 동안 아예 안 나아간 거리다.
+                    config.StunTime * config.ForwardSpeed));
 
             //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
             bool spawnXMismatch = false;
@@ -1013,6 +1017,53 @@ namespace LOP.EditorTools
                 columns.Add(new LOP.MapTools.GateColumn(startX + i * PinchSampleStep, enclosedPerColumn[i]));
             }
             return columns;
+        }
+
+        //  ── ⚡ 부스트 패드 ──────────────────────────────────────────────────
+        //  패드는 <b>콜라이더가 없다</b> — 판정을 FlappyBoostPadField가 산술로 하기 때문이다.
+        //  그래서 벽 속에 놓여도 물리가 아무 말을 안 한다. 여기서 재 주지 않으면 아무도 모른다.
+        private static List<LOP.MapTools.BoostPadMeasure> ScanBoostPads(int mapMask)
+        {
+            var measures = new List<LOP.MapTools.BoostPadMeasure>();
+            LOP.FlappyBoostPad[] pads = Object.FindObjectsByType<LOP.FlappyBoostPad>(
+                FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            if (pads == null || pads.Length == 0)
+            {
+                return measures;
+            }
+
+            var ignore = new HashSet<Collider>();
+            //  x가 작은 것부터 — 리포트가 코스 순서로 읽혀야 한다.
+            System.Array.Sort(pads, (l, r) => l.transform.position.x.CompareTo(r.transform.position.x));
+
+            foreach (LOP.FlappyBoostPad pad in pads)
+            {
+                Vector3 center = pad.transform.position;
+                float half = pad.Height * 0.5f;
+                float y0 = center.y - half;
+                float y1 = center.y + half;
+
+                //  패드 안을 훑어 장애물에 닿는 자리가 있는지 본다. 한 점만 보면 가운데는
+                //  비었는데 위아래가 파이프에 물린 경우를 놓친다.
+                string overlap = null;
+                int steps = Mathf.Max(2, Mathf.CeilToInt(pad.Height / PlacementProbeStep));
+                for (int i = 0; i <= steps && overlap == null; i++)
+                {
+                    float y = y0 + pad.Height * i / steps;
+                    overlap = ColliderNameAt(center.x, y, mapMask, ignore);
+                }
+
+                //  회랑의 안쪽 바닥·천장 — 패드 가운데에서 위아래로 더듬는다. 가운데가 이미
+                //  막혀 있으면 FreeExtent가 음수를 돌려주므로 그대로 두어 "밖"으로 찍히게 한다.
+                float limit = pad.Height * 4f;
+                float up = FreeExtent(center.x, center.y, +1f, limit, mapMask, ignore);
+                float down = FreeExtent(center.x, center.y, -1f, limit, mapMask, ignore);
+
+                measures.Add(new LOP.MapTools.BoostPadMeasure(
+                    pad.name, center.x, y0, y1, pad.Duration,
+                    center.y - down, center.y + up, overlap));
+            }
+            return measures;
         }
 
         private static string ColliderNameAt(float x, float y, int mapMask, HashSet<Collider> ignore)

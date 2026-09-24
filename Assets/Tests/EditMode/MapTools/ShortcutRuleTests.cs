@@ -13,25 +13,41 @@ namespace LOP.MapTools.Tests
         const float Half = 10.92f;
         const float Window = 4.37f;
 
-        //  구간 3의 U(깊이 40, 오르막 1.5)를 x=100에서 시작한다.
-        static readonly ShortcutRect Deep = CourseProfileRule.ValleyShortcut(100f, 0f, 40f, 1.5f, Half, Window);
+        static readonly FlapArc Arc = new FlapArc(18.6f, 59f, 6.8f, 0.02f);
+
+        //  구간 3의 U(깊이 40, 오르막 1.5)와 어려운 굴을 x=100에서 시작한다.
+        static readonly ShortcutRect Deep = CourseProfileRule.ValleyShortcut(
+            100f, 0f, 40f, 1.5f, Half, Window, new ShortcutEntrance(3, 2.6f, 6f), Arc);
 
         [Test]
-        public void 가운데_절반은_혀_위에_있다()
+        public void 가운데_절반은_혀가_두_길을_가른다()
         {
-            //  이게 참이어야 가운데 절반에서 지름길 띠와 계곡이 혀로 완전히 갈린다.
-            //  지름길이 있는 구간의 U를 전부 본다 — 깊이마다 혀 모양이 달라진다.
+            //  이게 참이어야 금지 영역(가운데 절반)에서 지름길 새는 Y0 위, 계곡 새는 Y0 아래에만 있다.
             int checkedShapes = 0;
             foreach (SectionTerrain t in CourseProfileRule.Sections)
             {
                 if (t.ValleyShortcut == false) { continue; }
-                ShortcutRect r = CourseProfileRule.ValleyShortcut(100f, 0f, t.ValleyDepth, t.RiseSlope, Half, Window);
+                ShortcutRect r = CourseProfileRule.ValleyShortcut(
+                    100f, 0f, t.ValleyDepth, t.RiseSlope, Half, Window, t.Entrance, Arc);
                 float quarter = r.Length * 0.25f;
-                Assert.GreaterOrEqual(r.X0 + quarter, r.Tongue[0], $"깊이 {t.ValleyDepth}");
-                Assert.LessOrEqual(r.X1 - quarter, r.Tongue[6], $"깊이 {t.ValleyDepth}");
+                Assert.LessOrEqual(r.X1 - quarter, r.TongueEnd, $"깊이 {t.ValleyDepth}: 가운데 끝까지 혀가 있다");
+                for (float x = r.X0 + quarter; x < r.ChannelEnd; x += 0.1f)
+                {
+                    Assert.Greater(r.ChannelCenterAt(x) - r.Entrance.Thickness * 0.5f, r.Y0,
+                                   $"깊이 {t.ValleyDepth} x={x:F1}: 굴 바닥이 Y0 아래로 내려갔다");
+                }
                 checkedShapes++;
             }
             Assert.Greater(checkedShapes, 0, "지름길 구간이 하나도 없으면 이 시험은 아무것도 안 지킨다");
+        }
+
+        [Test]
+        public void 계곡_금지는_입구_굴을_막지_않는다()
+        {
+            for (float x = Deep.X0; x <= Deep.ChannelEnd; x += 0.1f)
+            {
+                Assert.IsFalse(ShortcutRule.ForbidsValley(Deep, x, Deep.ChannelCenterAt(x)), $"x={x:F1}");
+            }
         }
 
         [Test]
@@ -60,13 +76,27 @@ namespace LOP.MapTools.Tests
             float? x = ShortcutRule.PadCenterX(Deep, span, width, clear);
             Assert.IsTrue(x.HasValue);
             Assert.AreEqual(Deep.X1 - clear, x.Value + width * 0.5f + span, 1e-3f);
-            Assert.Greater(x.Value - width * 0.5f, Deep.X0, "패드는 지름길 안에 있다");
+            Assert.Greater(x.Value - width * 0.5f, Deep.ChannelEnd, "패드는 굴 뒤 곧은 길에 있다");
+        }
+
+        [Test]
+        public void 두_난이도_모두_곧은_길에_패드가_선다()
+        {
+            foreach (SectionTerrain t in CourseProfileRule.Sections)
+            {
+                if (t.ValleyShortcut == false) { continue; }
+                ShortcutRect r = CourseProfileRule.ValleyShortcut(
+                    100f, 0f, t.ValleyDepth, t.RiseSlope, Half, Window, t.Entrance, Arc);
+                float? x = ShortcutRule.PadCenterX(r, 8.16f, 1.5f, 1.5f);
+                Assert.IsTrue(x.HasValue, $"깊이 {t.ValleyDepth}: 곧은 길이 짧다");
+                Assert.Greater(x.Value - 0.75f, r.ChannelEnd, $"깊이 {t.ValleyDepth}");
+            }
         }
 
         [Test]
         public void 지름길이_짧으면_패드를_안_놓는다()
         {
-            var tiny = new ShortcutRect(0f, 8f, -2f, 2f, null);
+            var tiny = ShortcutRect.FromCenterSize(4f, 0f, 8f, 4f);
             Assert.IsFalse(ShortcutRule.PadCenterX(tiny, 8.16f, 1.5f, 1.5f).HasValue);
         }
 

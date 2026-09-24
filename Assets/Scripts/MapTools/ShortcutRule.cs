@@ -51,12 +51,13 @@ namespace LOP.MapTools
         /// <summary>
         /// 지름길 안 패드 자리. 부스트(대시 = 조종 안 되는 수평 직선)가 <b>출구 <paramref name="exitClear"/>m
         /// 전에 끝나야</b> 한다 — 09-24에 앞이 막힌 패드 6개를 배포한 교훈이다. 자리가 안 나오면 null.
+        /// 패드는 굴 뒤 곧은 길에만 선다 — 굴 안은 호를 따라 쳐야 하는 자리다.
         /// </summary>
         public static float? PadCenterX(ShortcutRect r, float boostSpan, float padWidth, float exitClear)
         {
             float right = r.X1 - exitClear - boostSpan;
             float center = right - padWidth * 0.5f;
-            if (center - padWidth * 0.5f <= r.X0) { return null; }
+            if (center - padWidth * 0.5f <= r.ChannelEnd) { return null; }
             return center;
         }
 

@@ -68,6 +68,8 @@ namespace LOP
                 TickInterval), Lifetime.Singleton);
 
             builder.RegisterEntryPoint<ArcheryAimView>().AsSelf();
+            //  한 발 승부에서만 일한다(사거리·원형 맵에선 공용 사대가 없어 아무것도 안 한다).
+            builder.RegisterEntryPoint<ArcheryShootOffLineupView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryArrowView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryTargetView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryRemoteShotHandler>();

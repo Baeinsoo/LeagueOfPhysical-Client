@@ -14,6 +14,8 @@ namespace LOP
         private readonly ArcheryWorld world;
         private readonly ArcheryConsumed consumed;
         private readonly ArcheryArrowStickSystem stickSystem;
+        private readonly ArcheryCourse course;
+        private readonly ArcheryShootOffLineupView lineupView;
 
         // 목록의 자리(index)로 화살을 알아보면 안 된다 — 수명이 다한 화살이 빠지면 뒤 화살들의
         // 자리가 앞으로 당겨져서, 남아 있는 화살이 남의 궤적으로 순간이동한다.
@@ -50,12 +52,15 @@ namespace LOP
 
 
         public ArcheryArrowView(GameFramework.Runner.IRunner runner, ArcheryWorld world,
-                                ArcheryConsumed consumed, ArcheryArrowStickSystem stickSystem)
+                                ArcheryConsumed consumed, ArcheryArrowStickSystem stickSystem,
+                                ArcheryCourse course, ArcheryShootOffLineupView lineupView)
         {
             this.runner = runner;
             this.world = world;
             this.consumed = consumed;
             this.stickSystem = stickSystem;
+            this.course = course;
+            this.lineupView = lineupView;
         }
 
 
@@ -185,7 +190,11 @@ namespace LOP
                     continue;
                 }
 
-                arrow.transform.position = position;
+                //  한 발 승부: 남의 화살은 화면 속 그 캐릭터의 활에서 떠나 실제 꽂힐 점으로 모인다.
+                //  꽂히는 자리는 진짜고, 날아가는 모양만 연출이다(판정도, 위의 땅 충돌 검사도 이 값을 안 본다).
+                arrow.transform.position = position
+                    + lineupView.DisplayOffsetOf(shots[i].ShooterId)
+                    * ArcheryShootOffLineup.ArrowBlend(seconds, FlightSecondsOf(shots[i]));
                 if (velocity.sqrMagnitude > 1e-6f)
                 {
                     arrow.transform.rotation = Quaternion.LookRotation(velocity);
@@ -205,6 +214,19 @@ namespace LOP
                 Object.Destroy(drawn[key]);
                 drawn.Remove(key);
             }
+        }
+
+        //  과녁까지 가는 데 걸리는 시간 = 과녁 거리 ÷ 수평 속도.
+        private float FlightSecondsOf(in ArcheryShot shot)
+        {
+            if (course.SharedLane == null)
+            {
+                return 0f;
+            }
+            int step = course.IndexAt(shot.FireTick, world.GameplayStartTick);
+            float distance = course.StandDistanceAt(step);
+            float speed = new Vector2(shot.Velocity.x, shot.Velocity.z).magnitude;
+            return speed > 0.01f ? distance / speed : 0f;
         }
 
         private void RemoveExpiredLandedArrows()

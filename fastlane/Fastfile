@@ -12,18 +12,19 @@ IPA_DIR        = File.join(PROJECT_ROOT, "Build/ipa")
 platform :ios do
   desc "애플 자격증명·앱 레코드가 준비됐는지 확인한다 (빌드하지 않음)"
   lane :verify do
-    api_key = app_store_connect_api_key(
-      key_id: ENV.fetch("ASC_KEY_ID"),
-      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
-      key_content: ENV.fetch("ASC_KEY_P8"),
-      is_key_content_base64: true,
-    )
-    n = latest_testflight_build_number(
-      api_key: api_key,
-      app_identifier: APP_IDENTIFIER,
-      initial_build_number: 0,
-    )
-    UI.success("ASC 인증 성공. #{APP_IDENTIFIER} 의 현재 TestFlight 최신 빌드 번호 = #{n}")
+    UI.success("ASC 인증 성공. #{APP_IDENTIFIER} 의 현재 TestFlight 최신 빌드 번호 = #{testflight_build_number}")
+  end
+
+  desc "TestFlight의 최신 빌드 번호를 파일에 적는다 (path: 로 위치 지정)"
+  #  CI가 업로드 성공을 판정하는 근거다. altool은 업로드를 마치고도 프로세스가 안 끝나는 일이
+  #  있어(2026-09-23 두 번, 한 번은 3시간 44분) 종료 코드로는 성공을 알 수 없다. 대신 이 번호가
+  #  올라갔는지를 애플에 직접 물어본다.
+  lane :latest_build_number_to_file do |options|
+    path = options[:path] || File.join(PROJECT_ROOT, "Build/latest_build_number.txt")
+    number = testflight_build_number
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, number.to_s)
+    UI.success("TestFlight 최신 빌드 번호 = #{number} → #{path}")
   end
 
   desc "유니티가 만들어 둔 Xcode 프로젝트를 서명해 TestFlight에 올린다"
@@ -38,12 +39,7 @@ platform :ios do
     #  CI에서만 임시 키체인을 만든다. 로컬에서는 아무 일도 하지 않는다.
     setup_ci
 
-    api_key = app_store_connect_api_key(
-      key_id: ENV.fetch("ASC_KEY_ID"),
-      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
-      key_content: ENV.fetch("ASC_KEY_P8"),
-      is_key_content_base64: true,
-    )
+    api_key = asc_api_key
 
     #  readonly가 핵심이다. CI가 인증서를 새로 만들 수 있으면, 한도에 걸린 날 조용히 기존
     #  인증서를 무효화한다. 최초 생성은 사람이 로컬에서 한 번만 한다(`fastlane match appstore`).
@@ -90,6 +86,23 @@ platform :ios do
       skip_waiting_for_build_processing: true,
       #  외부 그룹 배포는 App Store Connect 쪽에서 관리한다(버전당 첫 빌드는 베타 심사).
       distribute_external: false,
+    )
+  end
+
+  private_lane :asc_api_key do
+    app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_KEY_P8"),
+      is_key_content_base64: true,
+    )
+  end
+
+  private_lane :testflight_build_number do
+    latest_testflight_build_number(
+      api_key: asc_api_key,
+      app_identifier: APP_IDENTIFIER,
+      initial_build_number: 0,
     )
   end
 end

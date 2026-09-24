@@ -10,6 +10,27 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-20-ios-testflight-ci-design.md`
 
+## 진행 상태 (2026-09-24)
+
+아래 체크박스는 갱신하지 않았다 — 실제 진행은 이 표가 기준이다.
+
+| | |
+|---|---|
+| Task 0~4 | **끝남.** 손으로 TestFlight 빌드 1·2·3까지 올렸고 폰에서 로그인·매칭·게임 진입·플레이까지 확인했다. |
+| Task 5 | **워크플로 작성 끝남**(`client-app-deploy-ios.yml`). 실제 CI 1회 실행으로 확인하는 것만 남았다. |
+| Task 6 | 남음 — TestFlight 배포가 시작됐으므로 **이제 필요하다.** 지금의 full 빌드는 이미 설치된 앱과 어긋날 수 있다. |
+| Task 7 | 남음 — 외부 테스터 그룹·공개 링크는 사람이 App Store Connect에서 만들어야 한다. |
+
+계획서를 쓴 뒤에 알게 되어 Task 5 본문과 **달라진 것 셋**:
+
+1. 형제 레포 체크아웃은 `git reset --hard @{u}` 가 아니다 — 러너 폴더가 upstream 없는 브랜치에
+   올라가 있어 죽는다. `fetch origin main` + `checkout -B ci-build FETCH_HEAD` 로 간다.
+2. Xcode 빌드 성공은 폴더 존재로 판정하면 안 된다 — 실패한 빌드가 지난번 폴더를 남겨 통과한다.
+   `rm -rf Build/iOS` 후 로그의 `Xcode 프로젝트 OK` 로 판정한다.
+3. **altool은 업로드를 마치고도 안 끝난다**(실측 두 번, 한 번은 3시간 44분). 종료 코드로 성공을
+   판정하지 않고, 시간을 끊은 뒤 TestFlight 빌드 번호가 올라갔는지를 애플에 물어 판정한다
+   (`fastlane ios latest_build_number_to_file`).
+
 ## Global Constraints
 
 - 작업 위치는 **`/Users/insoobae/workspace/LOP/LeagueOfPhysical-Client-iOS`**(iOS 전용 클론), 브랜치 `feature/ios-build`. 기존 프로젝트(`LeagueOfPhysical-Client`)는 건드리지 않는다.

@@ -192,9 +192,12 @@ namespace LOP
 
                 //  한 발 승부: 남의 화살은 화면 속 그 캐릭터의 활에서 떠나 실제 꽂힐 점으로 모인다.
                 //  꽂히는 자리는 진짜고, 날아가는 모양만 연출이다(판정도, 위의 땅 충돌 검사도 이 값을 안 본다).
-                arrow.transform.position = position
-                    + lineupView.DisplayOffsetOf(shots[i].ShooterId)
-                    * ArcheryShootOffLineup.ArrowBlend(seconds, FlightSecondsOf(shots[i]));
+                Vector3 displayOffset = lineupView.DisplayOffsetOf(shots[i].ShooterId);
+                if (displayOffset != Vector3.zero)
+                {
+                    position += displayOffset * ArcheryShootOffLineup.ArrowBlend(seconds, FlightSecondsOf(shots[i]));
+                }
+                arrow.transform.position = position;
                 if (velocity.sqrMagnitude > 1e-6f)
                 {
                     arrow.transform.rotation = Quaternion.LookRotation(velocity);

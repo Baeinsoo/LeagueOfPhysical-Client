@@ -8,10 +8,10 @@ namespace LOP
     /// 한 발 승부에서 남의 몸을 좌우로 옮겨 그린다. 루트(판정과 같은 자리)는 건드리지 않고
     /// 보이는 몸통(visual)만 옮긴다.
     /// <para>보간기(<see cref="PredictedEntityInterpolator"/>)가 매 프레임 <c>LateUpdate</c>에서 몸통의
-    /// <b>월드</b> 위치를 덮어쓴다. 그래서 그 <b>뒤</b>(<see cref="IPostLateTickable"/>)에 돌며 보간기가
-    /// 써 둔 자리 위에 간격을 얹는다.</para>
+    /// <b>월드</b> 위치를 덮어쓰고, 이름표(<see cref="CharacterNameplate"/>)는 그 자리를 읽는다. 그래서 그
+    /// 사이에서 보간기가 써 둔 자리 위에 간격을 얹는다 — 도는 시각은 <see cref="ArcheryShootOffLineupDriver"/>가 잡는다.</para>
     /// </summary>
-    public class ArcheryShootOffLineupView : IPostLateTickable
+    public class ArcheryShootOffLineupView : IStartable, System.IDisposable
     {
         private readonly ArcheryCourse course;
         private readonly ActorRegistry actorRegistry;
@@ -40,7 +40,26 @@ namespace LOP
         public Vector3 DisplayOffsetOf(string entityId)
             => entityId != null && offsets.TryGetValue(entityId, out var o) ? o : Vector3.zero;
 
-        public void PostLateTick()
+        private ArcheryShootOffLineupDriver driver;
+
+        public void Start()
+        {
+            driver = new GameObject(nameof(ArcheryShootOffLineupDriver)).AddComponent<ArcheryShootOffLineupDriver>();
+            driver.View = this;
+        }
+
+        public void Dispose()
+        {
+            if (driver != null)
+            {
+                driver.View = null;
+                Object.Destroy(driver.gameObject);
+                driver = null;
+            }
+        }
+
+        /// <summary>남의 몸통을 옆으로 옮긴다. 보간기 뒤·이름표 앞에서 매 프레임 한 번.</summary>
+        public void Apply()
         {
             offsets.Clear();
             var lane = course.SharedLane;

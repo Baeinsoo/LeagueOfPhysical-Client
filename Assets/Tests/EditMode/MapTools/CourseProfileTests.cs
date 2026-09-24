@@ -224,16 +224,18 @@ namespace LOP.MapTools.Tests
             foreach (ShortcutRect r in Compose().Shortcuts)
             {
                 arcs.Add(r.Entrance.Arcs);
-                float vy = -12f, y = r.CenterY, x = r.X0;
+                float vy = -12f, y = r.CenterY;
                 int ticks = r.Entrance.Arcs * r.Arc.TicksPerArc;
                 for (int n = 0; n < ticks; n++)
                 {
                     vy = FlappyTickMath.NextVerticalSpeed(vy, n % r.Arc.TicksPerArc == 0, 18.6f, 59f, MaxFall, 0.02f);
                     y = FlappyTickMath.AdvanceHeight(y, vy, 0.02f);
-                    x += 6.8f * 0.02f;
+                    //  x를 누적이 아니라 매번 새로 계산한다 — 누적하면 뜬 오차가 쌓여(2026-09-25
+                    //  리뷰에서 실측 x0≈519·62틱에 0.85mm) 채널 끝 근처의 높이 비교가 어긋난다.
+                    float x = r.X0 + (n + 1) * 6.8f * 0.02f;
                     Assert.AreEqual(y, r.ChannelCenterAt(x), 2e-3f, $"x0={r.X0:F0} {n + 1}틱");
                 }
-                Assert.AreEqual(r.ChannelEnd, x, 1e-3f, "굴은 마지막 호에서 끝난다");
+                Assert.AreEqual(r.ChannelEnd, r.X0 + ticks * 6.8f * 0.02f, 1e-3f, "굴은 마지막 호에서 끝난다");
             }
             CollectionAssert.AreEquivalent(new[] { 1, 3 }, arcs, "쉬운 굴 하나, 어려운 굴 하나");
         }
@@ -292,6 +294,28 @@ namespace LOP.MapTools.Tests
                         Assert.GreaterOrEqual(s[5], s[3] - 1e-4f, $"{name} {i} 오른쪽 위≥아래");
                         if (i > 0) { Assert.AreEqual(strips[i - 1][2], s[0], 1e-5f, $"{name} {i} 이음새"); }
                     }
+                }
+            }
+        }
+
+        [Test]
+        public void 얇은_조각이_생기지_않는다()
+        {
+            //  step 자르기가 굴 끝·호 경계 바로 옆에 겹치면 폭 1cm 미만인 조각이 생긴다 —
+            //  그런 조각을 메시 콜라이더로 구우면(Task 2) 판정면이 쉽게 깨진다. 혀의 마지막
+            //  조각만 빼는 이유는 TongueEnd에서 위·아래가 만나 삼각형이 되는 자리라 폭이
+            //  구조적으로 짧을 수 있어서다(다른 조각과 달리 step 겹침 문제가 아니다).
+            foreach (ShortcutRect r in BothTiers())
+            {
+                List<float[]> roof = CourseProfileRule.ShortcutRoof(r, 1f, 0.25f);
+                foreach (float[] s in roof)
+                {
+                    Assert.GreaterOrEqual(s[2] - s[0], 0.01f, $"x0={r.X0:F0} 지붕 조각");
+                }
+                List<float[]> tongue = CourseProfileRule.ShortcutTongue(r, 0.25f);
+                for (int i = 0; i < tongue.Count - 1; i++)
+                {
+                    Assert.GreaterOrEqual(tongue[i][2] - tongue[i][0], 0.01f, $"x0={r.X0:F0} 혀 조각 {i}");
                 }
             }
         }

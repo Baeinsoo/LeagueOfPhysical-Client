@@ -463,15 +463,33 @@ namespace LOP.MapTools
             return strips;
         }
 
+        //  경계(굴 끝·호 경계) 바로 옆에 step 자르기가 겹치면 폭 1cm 미만인 얇은 조각이 생긴다 —
+        //  그 조각을 메시 콜라이더로 구우면(Task 2) 쉽게 깨지는 판정면이 된다. 그래서 그런 자리의
+        //  step 자르기는 건너뛴다 — 경계 자체(굴 끝·호 경계)는 항상 남긴다.
+        const float MinCutGap = 0.01f;
+
         //  굴 구간을 step마다 + 호 경계마다 자른 x들(입구·굴 끝 포함). 호 경계는 가운데선이 꺾이는 점이라
         //  띠가 그 점을 걸치면 곧은 변이 굴을 0.3m 넘게 파먹는다.
         static List<float> ChannelCuts(ShortcutRect r, float step)
         {
             var cuts = new List<float> { r.X0, r.ChannelEnd };
-            for (float x = r.X0 + step; x < r.ChannelEnd; x += step) { cuts.Add(x); }
             for (int k = 1; k < r.Entrance.Arcs; k++) { cuts.Add(r.X0 + k * r.Arc.Span); }
+            for (int i = 1; r.X0 + i * step < r.ChannelEnd; i++)
+            {
+                float x = r.X0 + i * step;
+                if (NearAnyCut(cuts, x) == false) { cuts.Add(x); }
+            }
             SortUnique(cuts);
             return cuts;
+        }
+
+        static bool NearAnyCut(List<float> cuts, float x)
+        {
+            foreach (float c in cuts)
+            {
+                if (Math.Abs(x - c) < MinCutGap) { return true; }
+            }
+            return false;
         }
 
         static void SortUnique(List<float> xs)

@@ -238,7 +238,7 @@ namespace LOP.UI
             //  곳에도** 남긴다. 먼 과녁일수록 과녁이 작아 눈이 그쪽에 붙어 있기 어렵다.
             _plotLabel.text = shots.Count == 0
                 ? ""
-                : shots.Count + "발  ·  +" + shots[shots.Count - 1].Points;
+                : shots.Count + "발  ·  " + _viewModel.PointsPrefix + shots[shots.Count - 1].Points;
         }
 
         //  띠 원을 바깥부터 그린다 — 나중에 그린 것이 위에 오므로 중심이 맨 위가 된다.
@@ -296,7 +296,7 @@ namespace LOP.UI
             for (; _poppedCount < shots.Count; _poppedCount++)
             {
                 var shot = shots[_poppedCount];
-                var label = new Label("+" + shot.Points);
+                var label = new Label(_viewModel.PointsPrefix + shot.Points);
                 label.AddToClassList("hit-popup");
                 label.pickingMode = PickingMode.Ignore;
 

@@ -79,6 +79,12 @@ namespace LOP.UI
         public int ImpactWave => impactLog.Wave;
 
         /// <summary>
+        /// 발당 점수 앞에 "+"를 붙이나. 한 발 승부에서 그 값은 <b>띠 점수</b>(1~10)이고 점수로 더해지지
+        /// 않는다(라운드 순위 점수만 더한다) — "+10"으로 쓰면 10점을 얻은 것처럼 읽힌다.
+        /// </summary>
+        public string PointsPrefix => config.CourseKind == ArcheryCourseKind.ShootOff ? "" : "+";
+
+        /// <summary>
         /// 기록판에 그릴 점수 띠 — 바깥 비율과 점수의 짝, 중심에서 바깥 순서다.
         /// <b>과녁을 그리는 값과 같은 데이터</b>에서 나오므로 그림과 실제 채점이 갈라질 수 없다.
         /// </summary>

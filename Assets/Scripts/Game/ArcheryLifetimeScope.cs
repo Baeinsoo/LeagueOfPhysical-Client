@@ -68,6 +68,8 @@ namespace LOP
                 TickInterval), Lifetime.Singleton);
 
             builder.RegisterEntryPoint<ArcheryAimView>().AsSelf();
+            //  한 발 승부에서만 일한다(사거리·원형 맵에선 공용 사대가 없어 아무것도 안 한다).
+            builder.RegisterEntryPoint<ArcheryShootOffLineupView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryArrowView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryTargetView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryRemoteShotHandler>();
@@ -77,6 +79,8 @@ namespace LOP
             builder.RegisterEntryPoint<ArcheryHudCoordinator>();
             builder.Register<ArcheryPadViewModel>(Lifetime.Transient);
             builder.Register<ArcheryPadView>(Lifetime.Transient);
+            builder.Register<ArcheryShootOffHudViewModel>(Lifetime.Transient);
+            builder.Register<ArcheryShootOffHudView>(Lifetime.Transient);
 
             //  화살이 생긴 *뒤*에 봐야 하므로 world.Tick 다음인 End에 문다(서버와 같은 자리).
             builder.RegisterBuildCallback(container =>
@@ -91,6 +95,8 @@ namespace LOP
         {
             sink.Add(windowManager.RegisterViewFactory<ArcheryPadView>(
                 () => container.Resolve<ArcheryPadView>()));
+            sink.Add(windowManager.RegisterViewFactory<ArcheryShootOffHudView>(
+                () => container.Resolve<ArcheryShootOffHudView>()));
         }
     }
 }

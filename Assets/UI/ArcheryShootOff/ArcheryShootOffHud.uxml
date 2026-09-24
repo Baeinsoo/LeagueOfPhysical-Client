@@ -1,0 +1,18 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="ArcheryShootOffHud.uss" />
+    <!-- 보여 주기만 한다 — 아래 조작 패드의 입력을 막지 않게 전부 picking-mode="Ignore". -->
+    <ui:VisualElement name="shootoff-root" class="shootoff-root" picking-mode="Ignore">
+        <ui:VisualElement class="shootoff-top" picking-mode="Ignore">
+            <ui:Label name="round" class="shootoff-round" picking-mode="Ignore" />
+            <ui:VisualElement class="shootoff-time" picking-mode="Ignore">
+                <ui:VisualElement name="time-fill" class="shootoff-time-fill" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement name="wind" class="shootoff-wind" picking-mode="Ignore">
+                <ui:Label name="wind-arrow" class="shootoff-wind-arrow" picking-mode="Ignore" />
+                <ui:Label name="wind-text" class="shootoff-wind-text" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:Label name="caption" class="shootoff-caption" picking-mode="Ignore" />
+        <ui:VisualElement name="result" class="shootoff-result" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

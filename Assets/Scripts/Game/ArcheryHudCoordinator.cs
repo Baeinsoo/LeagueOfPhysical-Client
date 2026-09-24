@@ -15,15 +15,17 @@ namespace LOP
         private readonly IGameDataStore gameDataStore;
         private readonly IWindowManager windowManager;
         private readonly ISubscriber<EntityCreated> entityCreatedSubscriber;
+        private readonly ArcheryCourse course;
 
         private bool _opened;
 
         public ArcheryHudCoordinator(IGameDataStore gameDataStore, IWindowManager windowManager,
-            ISubscriber<EntityCreated> entityCreatedSubscriber)
+            ISubscriber<EntityCreated> entityCreatedSubscriber, ArcheryCourse course)
         {
             this.gameDataStore = gameDataStore;
             this.windowManager = windowManager;
             this.entityCreatedSubscriber = entityCreatedSubscriber;
+            this.course = course;
         }
 
         protected override void Subscribe() => Track(entityCreatedSubscriber.Subscribe(OnEntityCreated));
@@ -37,6 +39,10 @@ namespace LOP
 
             // 조작면을 먼저 열어 Window 밴드 최하단에 깐다(전체화면이라 위 위젯 입력을 막지 않도록).
             windowManager.Open<ArcheryPadView>();
+            if (course.IsShootOff)
+            {
+                windowManager.Open<ArcheryShootOffHudView>();
+            }
             windowManager.Open<DebugHudView>();
             _opened = true;
         }

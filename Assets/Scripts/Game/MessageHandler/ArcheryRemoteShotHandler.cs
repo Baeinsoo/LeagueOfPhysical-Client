@@ -11,12 +11,14 @@ namespace LOP
     public class ArcheryRemoteShotHandler : MessageHandlerBase
     {
         private readonly ArcheryWorld archeryWorld;
+        private readonly ArcheryCourse course;
         private readonly IPlayerContext playerContext;
         private readonly ISubscriber<WorldEventBatchToC> batchSubscriber;
 
-        public ArcheryRemoteShotHandler(ArcheryWorld archeryWorld, IPlayerContext playerContext, ISubscriber<WorldEventBatchToC> batchSubscriber)
+        public ArcheryRemoteShotHandler(ArcheryWorld archeryWorld, ArcheryCourse course, IPlayerContext playerContext, ISubscriber<WorldEventBatchToC> batchSubscriber)
         {
             this.archeryWorld = archeryWorld;
+            this.course = course;
             this.playerContext = playerContext;
             this.batchSubscriber = batchSubscriber;
         }
@@ -39,7 +41,9 @@ namespace LOP
                 }
 
                 archeryWorld.IngestRemoteShot(new ArcheryShot(
-                    worldEvent.shooterId, worldEvent.fireTick, worldEvent.origin, worldEvent.velocity));
+                    worldEvent.shooterId, worldEvent.fireTick, worldEvent.origin, worldEvent.velocity,
+                    //  바람은 사건에 없다 — 쏜 틱만 알면 쏜 쪽과 같은 값이 나온다.
+                    course.WindAt(worldEvent.fireTick, archeryWorld.GameplayStartTick)));
             }
         }
     }

@@ -52,14 +52,15 @@ namespace LOP
             var courseKind = (ArcheryCourseKind)r.CourseKind;
             //  모르는 값을 그냥 두면 캐스트가 조용히 통과해 웨이브로 굴러간다 — 사거리 맵이
             //  원형처럼 돌면서 에러는 하나도 안 난다. 여기서 크게 터뜨린다.
-            if (courseKind != ArcheryCourseKind.Wave && courseKind != ArcheryCourseKind.Range)
+            if (courseKind != ArcheryCourseKind.Wave && courseKind != ArcheryCourseKind.Range
+                                                      && courseKind != ArcheryCourseKind.ShootOff)
             {
                 throw new System.InvalidOperationException(
-                    $"맵 {mapId}의 course_kind({r.CourseKind})를 모른다 — 0(웨이브)나 1(사거리)이어야 한다");
+                    $"맵 {mapId}의 course_kind({r.CourseKind})를 모른다 — 0(웨이브)·1(사거리)·2(한 발 승부)여야 한다");
             }
 
             var range = ArcheryRangeSettings.None;
-            if (courseKind == ArcheryCourseKind.Range)
+            if (courseKind == ArcheryCourseKind.Range || courseKind == ArcheryCourseKind.ShootOff)
             {
                 var faceRow = md.Tables.TbArcheryTarget.GetOrDefault(r.RangeTargetId);
                 if (faceRow == null)
@@ -68,20 +69,25 @@ namespace LOP
                         $"맵 {mapId}의 range_target_id({r.RangeTargetId})가 TbArcheryTarget에 없다");
                 }
 
-                //  자리 번호 오름차순으로 넘긴다 — 코스가 이 차례를 자리 번호로 그대로 쓴다.
+                //  자리 줄 순서 — 한 발 승부는 Id 오름차순(같은 자리를 라운드마다 다시 쓰므로
+                //  줄 순서 = 라운드 순서다), 사거리는 자리 번호 오름차순(코스가 이 차례를 그대로 쓴다).
+                var rows = System.Linq.Enumerable.Where(md.Tables.TbArcheryRange.DataList,
+                                                        x => x.MapId == mapId);
+                var ordered = courseKind == ArcheryCourseKind.ShootOff
+                    ? System.Linq.Enumerable.OrderBy(rows, x => x.Id)
+                    : System.Linq.Enumerable.OrderBy(rows, x => x.StandIndex);
+
                 var stands = new List<ArcheryRangeStand>();
-                foreach (var row in System.Linq.Enumerable.OrderBy(
-                             System.Linq.Enumerable.Where(md.Tables.TbArcheryRange.DataList,
-                                                          x => x.MapId == mapId),
-                             x => x.StandIndex))
+                foreach (var row in ordered)
                 {
                     stands.Add(new ArcheryRangeStand(row.StandIndex, row.DistanceM, row.ExposureTicks,
-                                                     row.LateralSpanM, row.LateralPeriodS, row.FaceRadiusM));
+                                                     row.LateralSpanM, row.LateralPeriodS, row.FaceRadiusM,
+                                                     row.WindMps2, row.PointsMultiplier));
                 }
                 if (stands.Count == 0)
                 {
                     throw new System.InvalidOperationException(
-                        $"맵 {mapId}은 사거리 코스인데 TbArcheryRange에 줄이 없다 — 과녁이 영영 안 뜬다");
+                        $"맵 {mapId}은 사거리/한 발 승부 코스인데 TbArcheryRange에 줄이 없다 — 과녁이 영영 안 뜬다");
                 }
 
                 range = new ArcheryRangeSettings(

@@ -79,6 +79,9 @@ namespace LOP.EditorTools
         //  "있는데 안 되는 것"이 "없는 것"보다 나쁘다.
         private const float BoostPadMinHeight = 1.6f;
 
+        //  지름길 패드의 부스트가 출구보다 이만큼 먼저 끝나야 한다(spec §4).
+        private const float ShortcutExitClear = 1.5f;
+
         private const ulong Seed = 20260919UL;
 
         [MenuItem("LOP/Debug/Flappy 전통 코스 굽기")]
@@ -107,15 +110,21 @@ namespace LOP.EditorTools
             float ceilingY = corridor * 0.5f;
             float length = RaceSeconds * config.ForwardSpeed;
 
-            //  회랑 중심이 코스를 따라 오르내린다 — 긴 내리막이 다이브를 만든다.
-            System.Func<float, float> centerAt =
-                x => LOP.MapTools.CourseElevation.CenterY(x, StartX, length);
+            //  코스는 뾰족한 U·A·계단 조각을 이어 붙인 꺾은선이다(spec 2026-09-24).
+            //  앞뒤 여유는 스폰 뒤와 결승선 뒤를 덮는다 — 예전 경사 격자의 여유(앞 4칸·뒤 8칸)와 같다.
+            var profile = LOP.MapTools.CourseProfileRule.Compose(
+                StartX, length, spacing, ceilingY, window, Seed,
+                leadIn: spacing * 4f, tail: spacing * 8f);
+            System.Func<float, float> centerAt = profile.CenterAt;
+
+            System.Func<float, bool> gateAllowed =
+                x => profile.GateAllowedAt(x, LOP.MapTools.CourseProfileRule.GateMargin);
 
             var pipes = LOP.MapTools.ClassicCourseRule.Layout(
                 StartX, length, spacing, floorY, ceilingY, window, MaxGapStep, Seed, centerAt,
-                ChallengeRuns);
+                ChallengeRuns, gateAllowed);
             string bad = LOP.MapTools.ClassicCourseRule.Validate(
-                pipes, floorY, ceilingY, window, spacing, MaxGapStep, centerAt);
+                pipes, floorY, ceilingY, window, spacing, MaxGapStep, centerAt, gateAllowed);
             if (bad != null)
             {
                 //  씬을 건드리기 <b>전에</b> 멈춘다 — 반쯤 구운 코스를 남기지 않는다.
@@ -137,26 +146,43 @@ namespace LOP.EditorTools
 
             //  바닥·천장은 구간마다 끊는다 — 한 덩어리면 색이 안 바뀌어 구간 경계가 바닥에서만
             //  안 보인다. 앞뒤로는 코스 밖(스폰·결승선)까지 덮도록 여유를 준다.
-            //  바닥·천장은 <b>고저차를 따라간다</b>. 수평 조각을 겹쳐 놓으면 안 된다 —
-            //  높이가 다른 두 조각이 겹치는 구간에서 실효 바닥은 더 높은 쪽, 실효 천장은 더
-            //  낮은 쪽이 되어 <b>회랑이 최대 11m까지 먹힌다</b>(창 4.37m보다 좁아져 통과 불가).
-            //  실제로 x=203에서 회랑 높이가 0이 됐다.
-            //
-            //  그래서 조각을 <b>경사로 눕힌다</b>: 양 끝의 회랑 중심을 잇는 현(弦)을 윗면으로
-            //  삼아 z축 둘레로 기울인다. 바닥과 천장이 나란한 현이므로 세로 간격(회랑 높이)이
-            //  어디서나 일정하다. z축 회전이라 블록의 z 범위가 안 변해 층 규약·시각 정직성
-            //  검사에도 영향이 없다.
-            int rampCount = (int)System.Math.Ceiling(length / spacing) + 8;
-            for (int i = 0; i < rampCount; i++)
+            //  바닥·천장은 <b>고저차를 따라간다</b>. 조각은 윗면(바닥) 또는 밑면(천장)이 기운
+            //  사각형이고 <b>양 끝은 세로로 곧다</b> — 이웃 조각과 세로 변을 딱 맞대므로 급한
+            //  꺾임에서도 틈(V자 홈)이나 겹침 턱이 안 생긴다. 바닥과 천장이 나란하니 회랑 높이는
+            //  어디서나 같다.
+            //  꺾은선의 꼭짓점마다, 그리고 구간 경계마다 끊는다 — 조각 하나가 곧은 경사 하나라
+            //  바닥·천장이 꺾은선에 정확히 놓인다. 구간 경계에서 끊어야 색이 바뀐다.
+            float sectionLength = length / FlappyRace.CourseSectionRule.Count;
+            var splits = new System.Collections.Generic.List<float>();
+            for (int s = 1; s < FlappyRace.CourseSectionRule.Count; s++) { splits.Add(StartX + sectionLength * s); }
+
+            var floorPieces = LOP.MapTools.CourseProfileRule.FloorPieces(profile, splits);
+            for (int i = 0; i < floorPieces.Count; i++)
             {
-                float x0 = StartX - spacing * 4f + spacing * i;
-                float x1 = x0 + spacing;
-                Material rampSkin = SectionMaterial((x0 + x1) * 0.5f, length, fallback);
-                Ramp(composed.transform, $"Floor_{i}", x0, x1, centerAt(x0), centerAt(x1),
-                     floorY, below: true, material: rampSkin);
-                Ramp(composed.transform, $"Ceiling_{i}", x0, x1, centerAt(x0), centerAt(x1),
-                     ceilingY, below: false, material: rampSkin);
+                LOP.MapTools.RampPiece q = floorPieces[i];
+                Prism(composed.transform, $"Floor_{i}", new[]
+                {
+                    new Vector2(q.X0, floorY + q.Lift0 - WallThickness),
+                    new Vector2(q.X1, floorY + q.Lift1 - WallThickness),
+                    new Vector2(q.X1, floorY + q.Lift1),
+                    new Vector2(q.X0, floorY + q.Lift0),
+                }, SectionMaterial((q.X0 + q.X1) * 0.5f, length, fallback));
             }
+            var ceilingPieces = LOP.MapTools.CourseProfileRule.CeilingPieces(profile, splits);
+            for (int i = 0; i < ceilingPieces.Count; i++)
+            {
+                LOP.MapTools.RampPiece q = ceilingPieces[i];
+                Prism(composed.transform, $"Ceiling_{i}", new[]
+                {
+                    new Vector2(q.X0, ceilingY + q.Lift0),
+                    new Vector2(q.X1, ceilingY + q.Lift1),
+                    new Vector2(q.X1, ceilingY + q.Lift1 + WallThickness),
+                    new Vector2(q.X0, ceilingY + q.Lift0 + WallThickness),
+                }, SectionMaterial((q.X0 + q.X1) * 0.5f, length, fallback));
+            }
+
+            //  지름길 구간의 천장은 경사 조각이 아니라 두 덩어리다: 지름길 위의 상자, 지름길과 계곡 사이의 혀.
+            int shortcutPads = Shortcuts(composed.transform, profile, config, length, fallback);
 
             int challengeGates = 0;
             foreach (LOP.MapTools.CoursePipe p in pipes)
@@ -201,12 +227,12 @@ namespace LOP.EditorTools
 
             Backdrop(composed.transform, "Midground",
                      LOP.MapTools.BackdropLayout.Midground(StartX, length, MidgroundSeed),
-                     MidgroundZ, MidgroundDepth, FlappyCityMaterials.Midground);
+                     MidgroundZ, MidgroundDepth, FlappyCityMaterials.Midground, centerAt);
 
             RebuildSkyline(length);
 
             PlaceSpawns(floorY, ceilingY, window, pipes.Count > 0 ? pipes[0].GapCenter : 0f);
-            PlaceFinish(StartX + length + spacing);
+            PlaceFinish(StartX + length + spacing, centerAt);
 
             //  이 프로젝트는 결정론 때문에 물리 동기를 직접 관리한다(Physics.autoSyncTransforms를
             //  켜 두지 않는다). 부르지 않으면 콜라이더가 <b>만들 때의 자리</b>에 그대로 있어서,
@@ -219,8 +245,8 @@ namespace LOP.EditorTools
                     + $" · 회랑 {corridor:F1}m · 길이 {length:F0}m ({RaceSeconds:F0}초)"
                     + $" · 구간 {FlappyRace.CourseSectionRule.Count}개 ×"
                     + $" {length / FlappyRace.CourseSectionRule.Count:F0}m"
-                    + $" · 고저차 ±{LOP.MapTools.CourseElevation.AmpStart:F0}~{LOP.MapTools.CourseElevation.AmpEnd:F0}m"
-                    + $" (파장 {LOP.MapTools.CourseElevation.Wavelength:F0}m)"
+                    + $" · 높낮이 {profile.MinY:F0}~{profile.MaxY:F0}m (조각 꼭짓점 {profile.VertexCount}개)"
+                    + $" · 지름길 {profile.Shortcuts.Count}개 (패드 {shortcutPads}개)"
                     + $" · 도전 관문 {challengeGates}개"
                     + $" · 부스트 패드 {boostPads}개 ({BoostPadDuration:F1}초)");
         }
@@ -266,8 +292,106 @@ namespace LOP.EditorTools
             go.transform.position = new Vector3(startX + length * 0.5f, centerY, PipeZ);
         }
 
-        //  두 점의 회랑 중심을 잇는 현을 윗면(바닥) 또는 밑면(천장)으로 삼는 경사 조각.
-        //  z축 둘레로만 기울이므로 블록의 z 범위가 변하지 않는다.
+        //  지름길 하나 = 위쪽 상자 + 혀(돌출 다각형) + 패드 + 검사기용 표시.
+        //  표시는 <b>Transform만 있는</b> 빈 GameObject다 — 맵 씬은 서버도 읽으므로 클라 전용 컴포넌트를
+        //  붙이면 서버에서 missing script가 되어 씬 주입이 끊긴다.
+        private static int Shortcuts(Transform parent, LOP.MapTools.CourseProfile profile,
+                                     LOP.MasterData.FlappyConfig config, float length, Material fallback)
+        {
+            int pads = 0;
+            float span = BoostPadDuration * config.ForwardSpeed * config.DashMult;
+            foreach (LOP.MapTools.ShortcutRect r in profile.Shortcuts)
+            {
+                float mid = (r.X0 + r.X1) * 0.5f;
+                Material skin = SectionMaterial(mid, length, fallback);
+
+                var roof = Box(parent, $"ShortcutRoof_{r.X0:F0}", skin);
+                roof.transform.localScale = new Vector3(r.X1 - r.X0, WallThickness, PipeDepth);
+                roof.transform.position = new Vector3(mid, r.Y1 + WallThickness * 0.5f, PipeZ);
+
+                var tongue = new Vector2[4];
+                for (int i = 0; i < 4; i++) { tongue[i] = new Vector2(r.Tongue[i * 2], r.Tongue[i * 2 + 1]); }
+                Prism(parent, $"ShortcutTongue_{r.X0:F0}", tongue, skin);
+
+                var marker = new GameObject($"Shortcut_{r.X0:F0}");
+                marker.transform.SetParent(parent, worldPositionStays: false);
+                marker.transform.position = new Vector3(mid, r.CenterY, 0f);
+                marker.transform.localScale = new Vector3(r.X1 - r.X0, r.Y1 - r.Y0, 1f);
+                Undo.RegisterCreatedObjectUndo(marker, "Build classic course");
+
+                float? padX = LOP.MapTools.ShortcutRule.PadCenterX(r, span, BoostPadWidth, ShortcutExitClear);
+                if (padX.HasValue == false)
+                {
+                    Debug.LogWarning($"[전통 코스] x={r.X0:F0} 지름길이 짧아 패드를 못 놓았다 ({r.Length:F1}m)");
+                    continue;
+                }
+                float padY = r.CenterY;
+                float padHeight = LOP.MapTools.BoostPadRule.Fit(
+                    ref padY, r.Y1 - r.Y0, r.Y0 + BoostPadClearance, r.Y1 - BoostPadClearance);
+                BoostPad(parent, $"BoostPad_{padX.Value:F0}", padX.Value, padY, padHeight, fallback);
+                pads++;
+            }
+            return pads;
+        }
+
+        //  z로 돌출한 볼록 다각형. 그려지는 면은 z [−2.5, 0], 콜라이더는 z [−1.25, +1.25] —
+        //  Box()가 지키는 판정면 정렬 규약과 같다(원근 카메라가 틈을 좁게 그리지 않게).
+        private static GameObject Prism(Transform parent, string name, Vector2[] polygon, Material material)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, worldPositionStays: false);
+            go.layer = LayerMask.NameToLayer("Default");
+            go.AddComponent<MeshFilter>().sharedMesh = PrismMesh(name, polygon, PipeZ - PipeDepth * 0.5f, PipeZ + PipeDepth * 0.5f);
+            go.AddComponent<MeshRenderer>().sharedMaterial = material;
+            var collider = go.AddComponent<MeshCollider>();
+            collider.sharedMesh = PrismMesh(name + "_Collider", polygon, -PipeDepth * 0.5f, PipeDepth * 0.5f);
+            //  오목(비볼록) 메시 콜라이더는 속이 빈 껍데기라, 안쪽에 완전히 들어간 구체는 겹침
+            //  검사(CheckSphere/OverlapSphere류)에 안 걸린다(표면을 스치는 CapsuleCast/Raycast는
+            //  걸린다). 볼록으로 두면 속이 찬 덩어리가 된다 — 혀·바닥·천장 조각은 늘 볼록 사다리꼴이라 모양이
+            //  바뀌지 않는다.
+            collider.convex = true;
+            Undo.RegisterCreatedObjectUndo(go, "Build classic course");
+            return go;
+        }
+
+        //  면마다 꼭짓점을 따로 둔다 — 모서리가 각지게 빛받아야 벽으로 읽힌다(공유하면 뭉개진다).
+        private static Mesh PrismMesh(string name, Vector2[] poly, float zNear, float zFar)
+        {
+            var vertices = new System.Collections.Generic.List<Vector3>();
+            var triangles = new System.Collections.Generic.List<int>();
+            int n = poly.Length;
+
+            //  앞면(카메라 쪽, z가 작은 쪽). 다각형은 반시계인데 −z에서 봐도 그대로 반시계로 보인다 —
+            //  그래서 인덱스 순서를 뒤집어야 시계 방향이 되어 유니티 앞면 규칙(카메라에서 봤을 때
+            //  시계 방향인 면이 앞면)에 맞는다.
+            int front = vertices.Count;
+            for (int i = 0; i < n; i++) { vertices.Add(new Vector3(poly[i].x, poly[i].y, zNear)); }
+            for (int i = 1; i < n - 1; i++) { triangles.Add(front); triangles.Add(front + i + 1); triangles.Add(front + i); }
+
+            int back = vertices.Count;
+            for (int i = 0; i < n; i++) { vertices.Add(new Vector3(poly[i].x, poly[i].y, zFar)); }
+            for (int i = 1; i < n - 1; i++) { triangles.Add(back); triangles.Add(back + i); triangles.Add(back + i + 1); }
+
+            for (int i = 0; i < n; i++)
+            {
+                Vector2 a = poly[i], b = poly[(i + 1) % n];
+                int s = vertices.Count;
+                vertices.Add(new Vector3(a.x, a.y, zNear));
+                vertices.Add(new Vector3(b.x, b.y, zNear));
+                vertices.Add(new Vector3(b.x, b.y, zFar));
+                vertices.Add(new Vector3(a.x, a.y, zFar));
+                triangles.Add(s); triangles.Add(s + 1); triangles.Add(s + 2);
+                triangles.Add(s); triangles.Add(s + 2); triangles.Add(s + 3);
+            }
+
+            var mesh = new Mesh { name = name };
+            mesh.SetVertices(vertices);
+            mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
         /// <summary>
         /// 도전 구간마다 <b>마지막 관문 바로 뒤</b>에 부스트 패드를 하나 둔다 — 그 자리에 있으려면
         /// 위험한 쪽 창을 실제로 통과했어야 하므로, "위험을 고른 쪽이 거리로 보상받는다"가 성립한다.
@@ -317,10 +441,8 @@ namespace LOP.EditorTools
                 for (int step = 0; step <= 8; step++)
                 {
                     float sampleX = padX + BoostPadWidth * (step / 8f - 0.5f);
-                    //  <b>곡선이 아니라 현을 재야 한다.</b> 바닥·천장은 경사를 직선 조각(Ramp)으로
-                    //  덮은 것이라, 실제 면은 centerAt 곡선이 아니라 그 조각의 현이다. 곡선으로
-                    //  재면 오차(수 cm)가 여유 0.15m를 먹고 패드가 바닥에 물린다(실측 1개).
-                    float lift = RampLift(sampleX, spacing, centerAt);
+                    //  바닥·천장이 꺾은선 꼭짓점에서 끊기므로 실제 면이 곧 centerAt이다.
+                    float lift = centerAt(sampleX);
                     highestFloor = Mathf.Max(highestFloor, floorY + lift);
                     lowestCeiling = Mathf.Min(lowestCeiling, ceilingY + lift);
                 }
@@ -342,24 +464,6 @@ namespace LOP.EditorTools
             return placed;
         }
 
-        /// <summary>
-        /// 그 x에서 바닥·천장 조각이 <b>실제로</b> 놓인 높이. <see cref="Ramp"/>가 굽는 것과 같은
-        /// 현(두 끝을 잇는 직선)을 그대로 계산한다 — 조각의 윗면이 이 현에 놓이기 때문이다.
-        ///
-        /// <para>회랑 중심 곡선(<c>centerAt</c>)과는 수 cm 다르다. 그 차이를 무시하면 벽에 딱 붙여
-        /// 놓는 것들(부스트 패드)이 조용히 지오메트리 속으로 들어간다.</para>
-        /// </summary>
-        private static float RampLift(float x, float spacing, System.Func<float, float> centerAt)
-        {
-            //  Ramp 루프와 같은 격자를 써야 같은 조각을 가리킨다.
-            float gridStart = StartX - spacing * 4f;
-            int index = Mathf.FloorToInt((x - gridStart) / spacing);
-            float x0 = gridStart + spacing * index;
-            float x1 = x0 + spacing;
-            float t = Mathf.Clamp01((x - x0) / spacing);
-            return Mathf.Lerp(centerAt(x0), centerAt(x1), t);
-        }
-
         //  콜라이더가 없다 — 판정은 <c>FlappyBoostPadField</c>가 산술로 한다(트리거로 하면
         //  롤백 재생에서 물리를 안 돌려 아예 답이 없다). 그려지는 크기가 곧 판정 사각형이라
         //  🎥 시각 정직성이 유지된다.
@@ -376,27 +480,6 @@ namespace LOP.EditorTools
             pad.Width = BoostPadWidth;
             pad.Height = height;
             pad.Duration = BoostPadDuration;
-        }
-
-        private static void Ramp(Transform parent, string name, float x0, float x1,
-                                 float lift0, float lift1, float baseY, bool below, Material material)
-        {
-            float run = x1 - x0;
-            float rise = lift1 - lift0;
-            float angle = Mathf.Atan2(rise, run);
-            //  현을 다 덮으려면 조각이 기운 만큼 길어야 한다. 1%는 이웃과 겹쳐 틈을 막는 여유.
-            float chord = Mathf.Sqrt(run * run + rise * rise) * 1.01f;
-
-            var go = Box(parent, name, material);
-            go.transform.localScale = new Vector3(chord, WallThickness, PipeDepth);
-            go.transform.rotation = Quaternion.Euler(0f, 0f, angle * Mathf.Rad2Deg);
-
-            //  현의 한가운데에서 조각 두께의 절반만큼 <i>기운 방향의</i> 위/아래로 민다.
-            float midX = (x0 + x1) * 0.5f;
-            float midY = baseY + (lift0 + lift1) * 0.5f;
-            float half = WallThickness * 0.5f * (below ? -1f : 1f);
-            go.transform.position = new Vector3(midX - half * Mathf.Sin(angle),
-                                                midY + half * Mathf.Cos(angle), PipeZ);
         }
 
         private static void Pipe(Transform parent, string name, float x, float bottom, float top,
@@ -430,16 +513,19 @@ namespace LOP.EditorTools
             {
                 Undo.DestroyObjectImmediate(city.GetChild(i).gameObject);
             }
+            //  스카이라인은 일부러 y=0에 둔다 — 코스 높이는 약 −40…+20m(60m)를 오르내리지만,
+            //  스카이라인은 82m 뒤에 있고 안개에 묻혀 높이가 안 맞아도 눈에 안 띈다.
             Backdrop(city, "Skyline",
                      LOP.MapTools.BackdropLayout.Skyline(StartX, length, SkylineSeed),
-                     SkylineZ, SkylineDepth, FlappyCityMaterials.Skyline);
+                     SkylineZ, SkylineDepth, FlappyCityMaterials.Skyline, x => 0f);
         }
 
         //  게임 평면 뒤에 까는 실루엣. <b>콜라이더를 지운다</b> — 남으면 "안 보이는 벽"이 되고,
         //  그건 플레이어가 원인을 짚을 수 없는 종류의 버그다(🧱 층 규약 검사가 잡는 바로 그것).
         private static void Backdrop(Transform parent, string groupName,
                                      System.Collections.Generic.IReadOnlyList<LOP.MapTools.BackdropBox> boxes,
-                                     float z, float depth, Material material)
+                                     float z, float depth, Material material,
+                                     System.Func<float, float> liftAt)
         {
             var group = new GameObject(groupName);
             group.transform.SetParent(parent, worldPositionStays: false);
@@ -451,7 +537,8 @@ namespace LOP.EditorTools
                 go.name = $"{groupName}_{b.X:F0}";
                 go.transform.SetParent(group.transform, worldPositionStays: false);
                 go.transform.localScale = new Vector3(b.Width, b.Height, depth);
-                go.transform.position = new Vector3(b.X, b.CenterY, z);
+                //  중간층은 코스 높이를 따라간다 — 40m 계곡에 내려가면 평지 기준 건물이 화면 위로 사라진다.
+                go.transform.position = new Vector3(b.X, b.CenterY + liftAt(b.X), z);
                 //  z축 둘레로만 기울인다 — 다른 축으로 돌리면 z 범위가 변해 층이 섞인다.
                 go.transform.rotation = Quaternion.Euler(0f, 0f, b.TiltDegrees);
                 Object.DestroyImmediate(go.GetComponent<BoxCollider>());
@@ -503,6 +590,8 @@ namespace LOP.EditorTools
 
         //  네 자리를 첫 창 높이 언저리에 세로로 편다 — 출발선에서 스폰 높이가 통과를 정하지
         //  않도록 첫 파이프는 한 간격 뒤에 있다(ClassicCourseRule).
+        //  y=0을 그대로 쓴다 — 결승선과 달리 스폰은 늘 StartX(꺾은선의 시작점)에 있고, 프로필은
+        //  거기서 항상 0으로 시작한다(CourseProfileRule.Compose가 y=0에서 출발).
         private static void PlaceSpawns(float floorY, float ceilingY, float window, float firstGapCenter)
         {
             var spawns = Object.FindObjectsByType<LOP.SpawnPoint>(FindObjectsInactive.Include,
@@ -522,7 +611,9 @@ namespace LOP.EditorTools
             }
         }
 
-        private static void PlaceFinish(float x)
+        //  y를 0으로 고정하지 않는다 — 계단 때문에 코스가 0이 아닌 높이에서 끝날 수 있다.
+        //  그 x의 실제 회랑 중심(centerAt)에 세워야 결승선이 바닥·천장 사이에 온전히 온다.
+        private static void PlaceFinish(float x, System.Func<float, float> centerAt)
         {
             var finish = Object.FindFirstObjectByType<LOP.FinishLine>(FindObjectsInactive.Include);
             if (finish == null)
@@ -531,7 +622,7 @@ namespace LOP.EditorTools
                 return;
             }
             Undo.RecordObject(finish.transform, "Build classic course");
-            finish.transform.position = new Vector3(x, 0f, finish.transform.position.z);
+            finish.transform.position = new Vector3(x, centerAt(x), finish.transform.position.z);
         }
 
         //  코스를 굽는 데 필요한 것은 이 넷뿐이다 — FlappyConfig를 통째로 만들지 않는다

@@ -226,6 +226,13 @@ namespace LOP.EditorTools
             //  않는다(탐색은 상태마다 딱 한 번 묻는다). 캐시를 붙이려면 다시 눈금에 붙여야
             //  하고, 그러면 이 과제가 없앤 관대함이 그대로 돌아온다.
             var searchSweep = SearchTickSweep(shape, mapMask, query);
+            //  ①의 탐색은 <b>지름길을 막고</b> 돈다 — 그래야 탐색으로 얻은 ✅가 "안전한 길이 있다"는 뜻이 된다.
+            //  (봇은 지름길을 모르고 날아서 봇 ✅는 이 약속 밖이다 — 그래서 🔀 절이 따로 증명한다.)
+            var shortcuts = ReadShortcuts();
+            LOP.MapTools.TickSweepProbe mainSweep = shortcuts.Count == 0
+                ? searchSweep
+                : (x, y, vy) => LOP.MapTools.ShortcutRule.ForbidsShortcut(shortcuts, x, y) == false
+                                && searchSweep(x, y, vy);
             //  봇이 쓰는 캐시는 <b>틱을 가린다</b> — 봇은 매 틱 자기가 몇 틱째인지 알고 날기
             //  때문에(BirdState.Tick) 그 틱의 자세에서 잰 답만 쓸 수 있다. 그래서 탐색 캐시와
             //  합칠 수 없다: 같은 칸에 대해 둘이 서로 다른 질문("아무 때나 뚫렸나" vs "이 틱에
@@ -236,6 +243,7 @@ namespace LOP.EditorTools
             var botGrid = new FreeSpaceGrid(shape, mapMask, tickWindow: RolloutHorizon + 2);
             BotGrid = botGrid;
             var cleanRuns = new List<LOP.MapTools.SpawnCleanRun>();
+            string shortcutSection = null;
             string trapSection;
             //  null/빈 리스트면 취소 안 됨. 취소되면 "몇 개 중 몇 개만" 문구를 담아 report 맨
             //  앞에 붙인다 — 콘솔 경고는 화면을 떠나면 안 남지만 report 문자열은 붙여넣기로
@@ -371,7 +379,7 @@ namespace LOP.EditorTools
                         gravity: shape.Gravity, maxFallSpeed: shape.MaxFallSpeed,
                         tickSeconds: TickSeconds, heightGrid: HeightGrid);
                     searchWatch.Start();
-                    var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFreeExact, searchSweep);
+                    var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFreeExact, mainSweep);
                     var replay = default(LOP.MapTools.ReplayMismatch);
                     //  탐색이 그 경로의 틱마다 "새가 여기 있다"고 믿었던 높이. 탐색은 경로만
                     //  돌려주고 높이는 안 들고 있으므로, 같은 산술로 날갯짓 순서를 다시 굴려
@@ -394,6 +402,13 @@ namespace LOP.EditorTools
                         //  증명 못 한 자리(🟡/❌)에는 리포트가 이 값을 안 찍는다 — 그래도 채워
                         //  두는 편이 "증명된 자리만 골라 재는" 분기를 여기 또 두는 것보다 단순하다.
                         discs: verified ? JudgeDiscs(replayPath, shape, placements) : default));
+                }
+                //  🔀 지름길 — 스폰 1에서 두 길을 따로 날린다. 지름길이 없거나 클린런을 중간에
+                //  취소했으면 건너뛴다 — 취소한 사람을 전수 탐색 두 번 더 기다리게 하지 않는다.
+                if (shortcuts.Count > 0 && cleanRunCancelNote == null)
+                {
+                    shortcutSection = ProveShortcuts(spawns[0].Position, finishX, shape, mapMask, query,
+                                                     grid, searchSweep, mainSweep, shortcuts);
                 }
                 cleanRunWatch.Stop();
                 //  둘로 갈라 찍는다 — 봇 비행과 전수 탐색은 비용의 성질이 아주 달라서다(비행은
@@ -506,7 +521,8 @@ namespace LOP.EditorTools
                 LOP.MapTools.BoostPadRule.Section(
                     ScanBoostPads(mapMask, shape, config.DashMult), config.ForwardSpeed, config.DashMult,
                     //  충돌 한 번의 손실 — 스턴 시간 동안 아예 안 나아간 거리다.
-                    config.StunTime * config.ForwardSpeed));
+                    config.StunTime * config.ForwardSpeed),
+                shortcutSection);
 
             //  스폰 x가 서로 다르면 ③이 spawns[0] 하나로 낸 예산을 전원 것처럼 읽으면 안 된다.
             bool spawnXMismatch = false;
@@ -606,6 +622,63 @@ namespace LOP.EditorTools
             Debug.Log($"[맵 검사] 되돌리기 {counterfactualWatch.ElapsedMilliseconds}ms"
                     + $" (전체의 {(totalWatch.ElapsedMilliseconds > 0 ? counterfactualWatch.ElapsedMilliseconds * 100f / totalWatch.ElapsedMilliseconds : 0f):F0}%)");
             Debug.Log($"[맵 검사] 전체 {totalWatch.ElapsedMilliseconds}ms");
+        }
+
+        //  빌더가 남긴 표시(Transform만 있는 빈 GameObject)에서 지름길 사각형을 되살린다.
+        //  위치 = 중심, 크기 = (길이, 세로 폭).
+        private static List<LOP.MapTools.ShortcutRect> ReadShortcuts()
+        {
+            var shortcuts = new List<LOP.MapTools.ShortcutRect>();
+            var composed = GameObject.Find("ComposedMap");
+            if (composed == null) { return shortcuts; }
+            foreach (Transform t in composed.transform)
+            {
+                if (t.name.StartsWith("Shortcut_", System.StringComparison.Ordinal) == false) { continue; }
+                Vector3 c = t.position, s = t.localScale;
+                shortcuts.Add(LOP.MapTools.ShortcutRect.FromCenterSize(c.x, c.y, s.x, s.y));
+            }
+            shortcuts.Sort((a, b) => a.X0.CompareTo(b.X0));
+            return shortcuts;
+        }
+
+        private static string ProveShortcuts(Vector3 start, float finishX, in FlappyShape shape, int mapMask,
+                                             GameFramework.Physics.ICollisionQuery query, FreeSpaceGrid grid,
+                                             LOP.MapTools.TickSweepProbe searchSweep,
+                                             LOP.MapTools.TickSweepProbe noShortcutSweep,
+                                             List<LOP.MapTools.ShortcutRect> shortcuts)
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            //  in 매개변수는 로컬 함수·람다가 잡을 수 없다(CS1628) — 복사본을 잡는다.
+            FlappyShape body = shape;
+            var options = new LOP.MapTools.CleanRunOptions(
+                startX: start.x, startY: start.y, finishX: finishX,
+                minY: SearchMinY, maxY: SearchMaxY,
+                forwardSpeed: body.ForwardSpeed, flapImpulse: body.FlapImpulse,
+                gravity: body.Gravity, maxFallSpeed: body.MaxFallSpeed,
+                tickSeconds: TickSeconds, heightGrid: HeightGrid);
+
+            LOP.MapTools.ShortcutProof Prove(string label, float x0, float x1, LOP.MapTools.TickSweepProbe probe)
+            {
+                var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFreeExact, probe);
+                if (result.Reachable == false)
+                {
+                    return new LOP.MapTools.ShortcutProof(label, x0, x1, false, false, result.BlockedX);
+                }
+                float[] heights = LOP.MapTools.CleanRunSearch.PathHeights(options, result.Flaps);
+                bool verified = VerifyByReplay(start, result.Flaps, body, mapMask, query, heights, out _);
+                return new LOP.MapTools.ShortcutProof(label, x0, x1, true, verified, 0f);
+            }
+
+            var safe = Prove("지름길 없이", 0f, 0f, noShortcutSweep);
+            var proofs = new List<LOP.MapTools.ShortcutProof>();
+            foreach (LOP.MapTools.ShortcutRect r in shortcuts)
+            {
+                LOP.MapTools.ShortcutRect only = r;
+                proofs.Add(Prove("", r.X0, r.X1,
+                    (x, y, vy) => LOP.MapTools.ShortcutRule.ForbidsValley(only, x, y) == false && searchSweep(x, y, vy)));
+            }
+            Debug.Log($"[맵 검사] 지름길 증명 {proofs.Count + 1}번 — {watch.ElapsedMilliseconds}ms");
+            return LOP.MapTools.ShortcutRule.Section(safe, proofs);
         }
 
         //  출발점과 결승선은 맵이 정한다 — 서버 룰(FlappyRaceRuleSystem)이 읽는 것과 같은 마커를

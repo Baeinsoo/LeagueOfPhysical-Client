@@ -356,5 +356,143 @@ namespace LOP.MapTools.Tests
                 previousWasChallenge = true;
             }
         }
+
+        //  ── 벽 건너뛰기 ──────────────────────────────────────────────
+        //  벽(가파른 경사)에는 관문을 두지 않는다 — 벽 자체가 장애물이다.
+
+        static bool NoGateIn100To200(float x) => x < 100f || x > 200f;
+
+        [Test]
+        public void 관문을_못_두는_자리는_건너뛴다()
+        {
+            var pipes = ClassicCourseRule.Layout(0f, 400f, 11.4f, -7.28f, 7.28f, 4.37f, 6f, 5UL,
+                                                 gateAllowed: NoGateIn100To200);
+            Assert.IsFalse(pipes.Exists(p => p.X >= 100f && p.X <= 200f));
+            foreach (CoursePipe p in pipes)
+            {
+                float k = p.X / 11.4f;
+                Assert.AreEqual(System.Math.Round(k), k, 1e-3, $"x={p.X} 칸에서 벗어났다");
+            }
+        }
+
+        [Test]
+        public void 건너뛴_칸을_사이에_둔_두_관문은_높이차를_안_본다()
+        {
+            //  벽을 건너는 높이차는 규칙이 아니라 검사기의 클린런이 판정한다.
+            var pipes = new List<CoursePipe> { new CoursePipe(11.4f, -3f), new CoursePipe(34.2f, 3f) };
+            Assert.IsNull(ClassicCourseRule.Validate(pipes, -7.28f, 7.28f, 4.37f, 11.4f, 1f));
+        }
+
+        [Test]
+        public void 바로_옆_칸이어도_사이에_벽이_있으면_높이차를_안_본다()
+        {
+            //  짧은 벽(4m)은 칸 하나(11.4m) 안에 들어간다 — 칸 수가 아니라 지형으로 가려야 한다.
+            var pipes = new List<CoursePipe> { new CoursePipe(11.4f, -5f), new CoursePipe(22.8f, 7f) };
+            System.Func<float, bool> gateAllowed = x => x < 15f || x > 19f;
+            Assert.IsNull(ClassicCourseRule.Validate(pipes, -20f, 20f, 4.37f, 11.4f, 6f, null, gateAllowed));
+            Assert.That(ClassicCourseRule.Validate(pipes, -20f, 20f, 4.37f, 11.4f, 6f), Does.Contain("움직였다"));
+        }
+
+        [Test]
+        public void 간격이_칸의_배수가_아니면_여전히_잡는다()
+        {
+            var pipes = new List<CoursePipe> { new CoursePipe(11.4f, 0f), new CoursePipe(28.5f, 0f) };
+            Assert.That(ClassicCourseRule.Validate(pipes, -7.28f, 7.28f, 4.37f, 11.4f, 6f), Does.Contain("간격"));
+        }
+
+        [Test]
+        public void 모두_허용하면_예전과_같은_코스다()
+        {
+            var before = ClassicCourseRule.Layout(0f, 612f, 11.4f, Floor, Ceiling, Window, 6f, 7UL, challengeRuns: 6);
+            var after = ClassicCourseRule.Layout(0f, 612f, 11.4f, Floor, Ceiling, Window, 6f, 7UL, challengeRuns: 6,
+                                                 gateAllowed: _ => true);
+            Assert.AreEqual(before.Count, after.Count);
+            for (int i = 0; i < before.Count; i++)
+            {
+                Assert.AreEqual(before[i].X, after[i].X);
+                Assert.AreEqual(before[i].GapCenter, after[i].GapCenter);
+                Assert.AreEqual(before[i].HasChallenge, after[i].HasChallenge);
+            }
+        }
+
+        [Test]
+        public void 도전_구간이_벽에_걸치면_다른_자리에_다시_놓인다()
+        {
+            //  고정 벽([100,200])은 씨앗 7에서 우연히 어느 도전 구간도 걸치지 않아 이 시험을
+            //  그냥 통과시켰다 — RemoveWhere를 지워도 초록이 나왔다. 그래서 벽을 고정값이 아니라
+            //  <b>배치 결과에서 직접 뽑는다</b>: 첫 도전 구간의 마지막 관문 자리를 막으면, 씨앗이
+            //  뭐든 그 구간은 반드시 벽에 걸친다.
+            var open = ClassicCourseRule.Layout(0f, 612f, 11.4f, Floor, Ceiling, Window, 6f, 7UL,
+                                                 challengeRuns: 6);
+            int firstIndex = open.FindIndex(p => p.HasChallenge);
+            Assert.That(firstIndex, Is.GreaterThanOrEqualTo(0), "도전 구간이 하나도 없다 — 이 시험이 못 선다");
+            float lastX = open[firstIndex + ClassicCourseRule.ChallengeRunLength - 1].X;
+
+            //  구간의 마지막 관문 하나만 막는다 — 나머지 셋은 열려 있다.
+            bool Allowed(float x) => System.Math.Abs(x - lastX) > 1f;
+
+            var pipes = ClassicCourseRule.Layout(0f, 612f, 11.4f, Floor, Ceiling, Window, 6f, 7UL,
+                                                 challengeRuns: 6, gateAllowed: Allowed);
+
+            //  막은 자리 자체에는 아무것도 안 선다(도전이든 안전이든) — 벽 규칙 자체는 그대로다.
+            Assert.IsFalse(pipes.Exists(p => System.Math.Abs(p.X - lastX) < 1e-3f), "막은 자리에 관문이 섰다");
+
+            //  <b>이제는 통째로 빠지지 않고 다른 자리에 다시 놓인다</b> — 자리 하나만 막았으니
+            //  다시 놓을 여유가 넉넉해서 요청한 6개가 그대로 나와야 한다. 어떤 구간도 막힌
+            //  자리를 끼고 있지 않고(부분 구간 없음), 전부 정확히 4관문이 칸 간격으로 이어진다.
+            var run = new List<CoursePipe>();
+            int runCount = 0;
+            foreach (CoursePipe p in pipes)
+            {
+                if (p.HasChallenge)
+                {
+                    Assert.That(System.Math.Abs(p.X - lastX), Is.GreaterThan(1e-3f),
+                               "막힌 자리가 도전 구간에 끼어 있다");
+                    run.Add(p);
+                    continue;
+                }
+                Assert.That(run.Count, Is.EqualTo(0).Or.EqualTo(ClassicCourseRule.ChallengeRunLength));
+                if (run.Count == ClassicCourseRule.ChallengeRunLength) { runCount++; }
+                for (int i = 1; i < run.Count; i++) { Assert.AreEqual(11.4f, run[i].X - run[i - 1].X, 1e-3f); }
+                run.Clear();
+            }
+            if (run.Count == ClassicCourseRule.ChallengeRunLength) { runCount++; }
+            Assert.AreEqual(6, runCount, "자리가 넉넉한데도 재배치가 6개를 못 채웠다");
+        }
+
+        [Test]
+        public void 자리가_적어도_찾을_수_있는_만큼_도전_구간을_다시_놓는다()
+        {
+            //  넓은 평지 두 군데([50,160]·[300,420])만 허용한다 — 그 밖은 전부 벽이다.
+            //  후보가 넉넉하지 않은 상황에서도 재배치가 최소 하나는 찾아내야 하고, 찾은 것은
+            //  전부 부분 없이 4관문이 칸 간격으로 이어져야 한다.
+            bool Allowed(float x) => (x > 50f && x < 160f) || (x > 300f && x < 420f);
+
+            var pipes = ClassicCourseRule.Layout(0f, 612f, 11.4f, Floor, Ceiling, Window, 6f, 7UL,
+                                                 challengeRuns: 6, gateAllowed: Allowed);
+
+            var runs = new List<List<CoursePipe>>();
+            var current = new List<CoursePipe>();
+            foreach (CoursePipe p in pipes)
+            {
+                if (p.HasChallenge) { current.Add(p); continue; }
+                if (current.Count > 0) { runs.Add(current); current = new List<CoursePipe>(); }
+            }
+            if (current.Count > 0) { runs.Add(current); }
+
+            Assert.That(runs.Count, Is.GreaterThanOrEqualTo(1), "벽 때문에 도전 구간이 하나도 안 나왔다");
+            foreach (List<CoursePipe> run in runs)
+            {
+                Assert.AreEqual(ClassicCourseRule.ChallengeRunLength, run.Count, "부분 구간이 나왔다");
+                for (int i = 1; i < run.Count; i++)
+                {
+                    Assert.AreEqual(11.4f, run[i].X - run[i - 1].X, 1e-3f, "칸이 이어져 있지 않다");
+                }
+                foreach (CoursePipe p in run)
+                {
+                    Assert.IsTrue(Allowed(p.X), $"x={p.X:F1}가 허용되지 않은 자리다");
+                }
+            }
+        }
     }
 }

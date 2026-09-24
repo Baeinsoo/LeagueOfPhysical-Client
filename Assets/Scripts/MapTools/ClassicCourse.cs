@@ -89,17 +89,23 @@ namespace LOP.MapTools
         /// </summary>
         /// <param name="maxStep">이웃한 두 창의 높이차 상한. 0 이하면 창이 안 움직인다.</param>
         /// <param name="centerAt">
-        /// 그 x에서 회랑 중심이 얼마나 올라가 있나(<see cref="CourseElevation"/>). null이면 평평하다.
+        /// 그 x에서 회랑 중심이 얼마나 올라가 있나(<see cref="CourseProfile.CenterAt"/>). null이면 평평하다.
         /// 창은 이 값 위에서 랜덤워크하므로 <b>회랑 안에 들어간다는 보장은 그대로</b>다.
         /// </param>
         /// <param name="challengeRuns">
         /// 창이 둘인 <b>도전 구간</b>을 코스에 몇 군데 둘 것인가. 0이면 전부 창 하나(옛 동작).
         /// </param>
+        /// <param name="gateAllowed">
+        /// 이 x에 관문을 세워도 되나(null이면 전부 허용). <paramref name="challengeRuns"/>가 걸려
+        /// 있으면, 벽에 걸치는 구간은 그냥 버리지 않고 <b>벽 없는 자리를 찾아 다시 놓는다</b> —
+        /// 그래야 요청한 개수가 실제로 나온다. 자리가 모자라면 있는 만큼만 놓는다.
+        /// </param>
         public static List<CoursePipe> Layout(float startX, float courseLength, float spacing,
                                               float floorY, float ceilingY, float window,
                                               float maxStep, ulong seed,
                                               System.Func<float, float> centerAt = null,
-                                              int challengeRuns = 0)
+                                              int challengeRuns = 0,
+                                              System.Func<float, bool> gateAllowed = null)
         {
             var pipes = new List<CoursePipe>();
             if (spacing <= 0f || courseLength <= 0f)
@@ -120,6 +126,12 @@ namespace LOP.MapTools
             float center = (low + high) * 0.5f;
             float previousLift = centerAt != null ? centerAt(startX) : 0f;
 
+            var positions = new List<float>();
+            for (float px = startX + spacing; px <= startX + courseLength + 1e-4f; px += spacing)
+            {
+                positions.Add(px);
+            }
+
             //  도전 구간의 첫 관문 번호들을 먼저 뽑는다. 코스를 고르게 나눠 그 안에서 흔들어,
             //  "약 150m마다 한 번"이 되게 한다 — 몰려 있으면 나머지가 통째로 심심해진다.
             int totalGates = (int)((courseLength - 1e-4f) / spacing);
@@ -129,20 +141,76 @@ namespace LOP.MapTools
                 //  <b>다른 난수 줄기</b>를 쓴다. 같은 줄기를 쓰면 도전 구간을 켜는 순간 안전선의
                 //  난수까지 밀려서 기본 맵이 통째로 달라진다 — "기존 느낌은 그대로"가 깨진다.
                 var runRng = new DeterministicRandom(seed ^ 0x9E3779B97F4A7C15UL);
-                int slot = totalGates / challengeRuns;
-                for (int r = 0; r < challengeRuns; r++)
+                if (gateAllowed == null)
                 {
-                    int lo = r * slot + 1;
-                    int hi = System.Math.Max(lo + 1, (r + 1) * slot - ChallengeRunLength);
-                    runStarts.Add(runRng.Range(lo, hi));
+                    int slot = totalGates / challengeRuns;
+                    for (int r = 0; r < challengeRuns; r++)
+                    {
+                        int lo = r * slot + 1;
+                        int hi = System.Math.Max(lo + 1, (r + 1) * slot - ChallengeRunLength);
+                        runStarts.Add(runRng.Range(lo, hi));
+                    }
+                }
+                else
+                {
+                    //  벽이 있으면 "무작정 뽑고 벽에 걸치면 버리기"로는 요청한 개수를 못 채운다
+                    //  (실제로 6개를 요청해도 0개가 나온 적이 있다 — 뽑힌 자리가 전부 벽에
+                    //  걸려 몽땅 버려졌기 때문). 그래서 <b>벽 없는 연속 4관문 자리</b>만 먼저
+                    //  후보로 추리고(칸이 이어져 있으니 간격도 저절로 맞다), 그 후보 목록을
+                    //  코스를 따라 고르게 나눠 하나씩 뽑는다 — 위 gateAllowed==null 분기와
+                    //  같은 모양(구간을 slot개로 나눠 그 안에서 하나 뽑기)이지만, 뽑는 대상이
+                    //  "관문 번호 전체"가 아니라 "실제로 놓을 수 있는 자리 목록"이다.
+                    var eligible = new List<int>();
+                    for (int g = 1; g + ChallengeRunLength - 1 <= positions.Count; g++)
+                    {
+                        bool ok = true;
+                        for (int k = 0; k < ChallengeRunLength; k++)
+                        {
+                            if (gateAllowed(positions[g - 1 + k]) == false) { ok = false; break; }
+                        }
+                        if (ok) { eligible.Add(g); }
+                    }
+                    if (eligible.Count > 0)
+                    {
+                        int slot = System.Math.Max(1, eligible.Count / challengeRuns);
+                        int width = System.Math.Max(1, slot - ChallengeRunLength - 1);
+                        for (int r = 0; r < challengeRuns; r++)
+                        {
+                            int lo = r * slot;
+                            if (lo >= eligible.Count) { continue; }   // 후보가 이 슬롯까지 못 미친다
+                            int hi = System.Math.Min(eligible.Count, lo + width);
+                            int pick = eligible[runRng.Range(lo, hi)];
+                            //  같은 자리가 두 슬롯에 걸쳐 뽑힐 수 있다(후보가 적을 때) — 이미
+                            //  고른 구간과 겹치거나 <b>바로 붙으면</b>(틈 0) 버린다. 안 그러면
+                            //  두 도전 구간이 맞닿아 8관문짜리 하나로 보인다 — "연속 4관문"이라는
+                            //  구간 정의가 깨진다. 겹치지만 않으면 요청한 개수보다 적게 나올
+                            //  뿐, 잘못된 자리에 놓이진 않는다.
+                            bool overlaps = false;
+                            foreach (int chosen in runStarts)
+                            {
+                                if (pick <= chosen + ChallengeRunLength && chosen <= pick + ChallengeRunLength)
+                                {
+                                    overlaps = true;
+                                    break;
+                                }
+                            }
+                            if (overlaps == false) { runStarts.Add(pick); }
+                        }
+                    }
                 }
             }
 
             int gateIndex = 0;
             bool runLowerLane = true;   // 지금 도전 구간의 차선. 구간 첫 관문에서 정해진다.
-            for (float x = startX + spacing; x <= startX + courseLength + 1e-4f; x += spacing)
+            foreach (float x in positions)
             {
                 gateIndex++;
+                //  벽 위에는 관문을 두지 않는다. 난수도 안 뽑고 previousLift도 안 옮긴다 —
+                //  벽 다음 첫 관문은 벽 전체의 고저차를 예산에서 빼므로 워크가 멈춰 선다.
+                if (gateAllowed != null && gateAllowed(x) == false)
+                {
+                    continue;
+                }
 
                 //  이 관문이 어느 도전 구간 안인가.
                 int inRun = -1;
@@ -245,7 +313,8 @@ namespace LOP.MapTools
         /// </summary>
         public static string Validate(IReadOnlyList<CoursePipe> pipes, float floorY, float ceilingY,
                                       float window, float spacing, float maxStep,
-                                      System.Func<float, float> centerAt = null)
+                                      System.Func<float, float> centerAt = null,
+                                      System.Func<float, bool> gateAllowed = null)
         {
             if (pipes == null || pipes.Count == 0)
             {
@@ -267,9 +336,11 @@ namespace LOP.MapTools
                     continue;   // 첫 관문은 앞이 없어 간격·높이차를 못 잰다
                 }
                 float gap = p.X - pipes[i - 1].X;
-                if (Math.Abs(gap - spacing) > 1e-3f)
+                //  벽 위 칸은 비어 있을 수 있다 — 간격은 한 칸의 배수면 된다.
+                int cells = (int)Math.Round(gap / spacing);
+                if (cells < 1 || Math.Abs(gap - cells * spacing) > 1e-3f)
                 {
-                    return $"x={p.X:F1}의 간격이 {gap:F2}m다 (목표 {spacing:F2}m)";
+                    return $"x={p.X:F1}의 간격이 {gap:F2}m다 (목표 {spacing:F2}m의 배수)";
                 }
                 //  높이차는 <b>절대값</b>으로 본다. 회랑이 움직인 것이든 창이 움직인 것이든
                 //  새는 똑같이 날아야 한다 — 상대값으로 재면 가파른 구간에서 두 배로 벌어진
@@ -294,13 +365,33 @@ namespace LOP.MapTools
 
                 //  <b>안전선</b>의 높이차만 잰다. 도전 창은 고르는 사람만 가므로 통과 가능성의
                 //  기준이 아니다 — 안전선이 끊기지 않는 것이 "누구나 깰 수 있다"의 뜻이다.
+                //  칸을 건너뛴 두 관문 사이(= 벽을 건넘)는 이 규칙이 아니라 검사기의 클린런이 판정한다.
+                //  바로 옆 칸이어도 둘 사이에 벽이 있으면 벽을 건너는 것이다 — 짧은 벽은 칸 하나
+                //  안에 들어가므로 칸 수로는 못 가린다. 그래서 지형(gateAllowed)으로 가린다.
                 float step = Math.Abs(p.GapCenter - pipes[i - 1].GapCenter);
-                if (step > maxStep + 1e-3f)
+                bool crossesWall = gateAllowed != null
+                    ? CrossesForbidden(pipes[i - 1].X, p.X, gateAllowed)
+                    : cells > 1;
+                if (crossesWall == false && step > maxStep + 1e-3f)
                 {
                     return $"x={p.X:F1}에서 창이 {step:F2}m 움직였다 (상한 {maxStep:F2}m)";
                 }
             }
             return null;
+        }
+
+        //  두 관문 사이(양 끝 제외)를 0.5m마다 훑어 관문을 못 세우는 자리가 하나라도 있나 본다.
+        static bool CrossesForbidden(float fromX, float toX, System.Func<float, bool> gateAllowed)
+        {
+            const float sampleStep = 0.5f;
+            for (float x = fromX + sampleStep; x < toX - 1e-3f; x += sampleStep)
+            {
+                if (gateAllowed(x) == false)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

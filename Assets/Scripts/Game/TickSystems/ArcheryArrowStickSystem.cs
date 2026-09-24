@@ -186,6 +186,12 @@ namespace LOP
                 {
                     continue;
                 }
+                //  서버와 같은 규칙: 한 발 승부 과녁은 그 라운드에 쏜 화살만 받는다.
+                if (targets[i].IsShared
+                    && course.IndexAt(shot.FireTick, world.GameplayStartTick) != targets[i].WaveIndex)
+                {
+                    continue;
+                }
                 //  서버 판정과 **같은 시각**을 쓴다 — 다르면 화면에선 꽂혔는데 점수는 안 나거나
                 //  그 반대다. 있는 자리와 살아 있는지를 둘 다 이 한 시각으로 묻는 것까지 같아야 한다.
                 double at = tick - 0.5;

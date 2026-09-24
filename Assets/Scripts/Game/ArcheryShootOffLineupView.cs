@@ -17,6 +17,9 @@ namespace LOP
         private readonly ActorRegistry actorRegistry;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly IPlayerContext playerContext;
+        //  매 프레임 정렬하므로 비교 함수를 한 번만 만든다(메서드 그룹을 넘기면 부를 때마다 새로 만든다).
+        private static readonly System.Comparison<string> ByOrdinal = string.CompareOrdinal;
+
         private readonly List<string> others = new List<string>();
         private readonly List<string> gone = new List<string>();
         private readonly Dictionary<string, Vector3> offsets = new Dictionary<string, Vector3>();
@@ -79,7 +82,7 @@ namespace LOP
                     others.Add(entity.Id);
                 }
             }
-            others.Sort(string.CompareOrdinal);
+            others.Sort(ByOrdinal);
 
             for (int i = 0; i < others.Count; i++)
             {

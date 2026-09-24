@@ -15,6 +15,7 @@ namespace LOP.UI
         //  이 세기(m/s²) 이상이면 바람이 세다고 해설한다. 화살표 크기는 WindArrowFull에서 가득 찬다.
         private const float StrongWind = 15f;
         private const float WindArrowFull = 20f;
+        private const double LastShotMarginTicks = 2d;
 
         private readonly GameFramework.Runner.IRunner runner;
         private readonly ArcheryWorld world;
@@ -142,7 +143,9 @@ namespace LOP.UI
         private float TimeLeftOf(int index, long start, double renderTick, double interval)
         {
             long close = course.RoundCloseTick(index, start);
-            double lastShot = close - course.StandDistanceAt(index) / ArcheryAimSystem.MinSpeed / interval;
+            //  경계에 딱 맞춰 끝나면 막대가 비는 순간 쏜 화살이 이미 늦다 — 두 틱 먼저 끝낸다.
+            double lastShot = close - course.StandDistanceAt(index) / ArcheryAimSystem.MinSpeed / interval
+                            - LastShotMarginTicks;
             double roundStart = close - course.ExposureTicksAt(index);
             double span = lastShot - roundStart;
             if (span <= 0d)

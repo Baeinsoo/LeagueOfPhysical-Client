@@ -49,7 +49,9 @@ namespace LOP
                 number = winnerStreak;
                 return ArcheryLine.Streak;
             }
+            //  거리가 같으면(공동 1등) 차이가 없는 것이다 — "단 1cm"로 부풀리지 않는다.
             if (anyHit && placements.Count > 1 && placements[1].Hit
+                && placements[1].Distance > winner.Distance
                 && placements[1].Distance - winner.Distance <= CloseMeters)
             {
                 number = UnityEngine.Mathf.Max(1, UnityEngine.Mathf.RoundToInt(

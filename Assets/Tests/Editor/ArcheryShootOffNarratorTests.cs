@@ -25,6 +25,16 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 거리가_같아_공동_1등이면_접전이_아니다()
+        {
+            var n = new ArcheryShootOffNarrator();
+            var line = n.LineFor(Round(0, ("a", true, 0.10f), ("b", true, 0.10f), ("me", true, 0.5f)), "me",
+                                 out _, out _);
+            Assert.AreNotEqual(ArcheryLine.Close, line, "차이가 0인데 \"단 1cm\"라고 한다");
+            Assert.AreEqual(ArcheryLine.Win, line);
+        }
+
+        [Test]
         public void 세_번_연속_1등이면_연승()
         {
             var n = new ArcheryShootOffNarrator();

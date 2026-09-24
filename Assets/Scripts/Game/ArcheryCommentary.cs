@@ -10,16 +10,16 @@ namespace LOP
     /// </summary>
     public sealed class ArcheryCommentary
     {
-        //  {n} = 이름, {k} = 숫자.
+        //  {n} = 이름, {k} = 숫자. 이름 뒤에 조사(을/를·이/가)를 붙이지 않는다 — 이름이 뭐로 끝날지 모른다.
         private static readonly Dictionary<ArcheryLine, string[]> Lines = new Dictionary<ArcheryLine, string[]>
         {
-            [ArcheryLine.Wind] = new[] { "깃발 보세요, 바람이 만만치 않습니다", "바람이 {n}쪽으로 붑니다" },
-            [ArcheryLine.Hush] = new[] { "마지막 한 발… 경기장이 조용해집니다", "점수 두 배! 숨을 죽입니다" },
+            [ArcheryLine.Wind] = new[] { "바람이 만만치 않습니다, 조준이 까다롭겠어요", "바람이 {n}쪽으로 붑니다" },
+            [ArcheryLine.Hush] = new[] { "마지막 한 발... 경기장이 조용해집니다", "점수 두 배! 숨을 죽입니다" },
             [ArcheryLine.Bull] = new[] { "{n}, 정중앙!!", "10점! {n} 오늘 컨디션 최고!", "{n}! 이건 교과서입니다!" },
             [ArcheryLine.Close] = new[] { "단 {k}cm!! 숨막히는 차이입니다", "사진 판독급! {k}cm!" },
-            [ArcheryLine.Streak] = new[] { "{k}연승! {n}을 막을 자가 없습니다", "{n}! {n}! 이름이 연호됩니다!" },
+            [ArcheryLine.Streak] = new[] { "{k}연승! 막을 자가 없습니다, {n}!", "{n}! {n}! 이름이 연호됩니다!" },
             [ArcheryLine.Comeback] = new[] { "꼴찌에서 1등으로! {n} 대역전!", "{n} 부활합니다!" },
-            [ArcheryLine.NoHit] = new[] { "{n}… 이건 조준이 아니라 기도였습니다", "과녁은 저쪽입니다, {n}" },
+            [ArcheryLine.NoHit] = new[] { "{n}... 이건 조준이 아니라 기도였습니다", "과녁은 저쪽입니다, {n}" },
             [ArcheryLine.Win] = new[] { "이번 라운드 {n} 가져갑니다", "{n}, 깔끔합니다", "이번엔 {n}!" },
             [ArcheryLine.Final] = new[] { "경기 종료! 오늘의 명사수는 {n}!", "{n}, 우승입니다!" },
         };

@@ -33,8 +33,16 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 경사는_물리_한계_안이다()
         {
-            //  내리막 2.5 = 최대 낙하 30m/s로 따라갈 수 있는 4.4보다 한참 안쪽.
-            //  오르막은 구간 한계(1.0/1.3/1.5) — 2.0이면 초당 6탭이 넘는다.
+            //  생산 코드 상수(DropSlope, Sections[].RiseSlope)와 비교하면 그 상수를 올려도 테스트가
+            //  못 잡는다(자기참조). 그래서 여기선 spec의 리터럴 값으로 직접 비교한다.
+            //  내리막: spec 값 2.5, 그리고 최대 낙하 30m/s ÷ 전진 6.8m/s = 4.4가 물리 한계.
+            //  오르막: spec §3 표의 구간별 값(1.0/1.3/1.5), 그리고 1.5를 넘으면 초당 3.5탭을 넘고
+            //  2.0이면 초당 6탭이 넘어 못 따라간다 — 그 절대 한계도 함께 건다.
+            const float dropSlopeSpec = 2.5f;
+            const float dropSlopePhysicsCeiling = 30f / 6.8f;
+            var riseSlopeSpec = new[] { 1.0f, 1.3f, 1.5f };
+            const float riseSlopeAbsoluteCeiling = 1.5f;
+
             var p = Compose();
             float sectionLen = Length / CourseProfileRule.Sections.Length;
             for (int i = 1; i < p.VertexCount; i++)
@@ -45,14 +53,17 @@ namespace LOP.MapTools.Tests
                 float slope = dy / dx;
                 if (slope < 0f)
                 {
-                    Assert.LessOrEqual(-slope, CourseProfileRule.DropSlope + 1e-3f, $"x={p.X(i):F1} 내리막");
+                    Assert.LessOrEqual(-slope, dropSlopeSpec + 1e-3f, $"x={p.X(i):F1} 내리막(spec)");
+                    Assert.LessOrEqual(-slope, dropSlopePhysicsCeiling + 1e-3f, $"x={p.X(i):F1} 내리막(물리 한계)");
                 }
                 else if (slope > 0f)
                 {
                     int s = System.Math.Min(CourseProfileRule.Sections.Length - 1,
                                             (int)((p.X(i - 1) - StartX) / sectionLen));
-                    Assert.LessOrEqual(slope, CourseProfileRule.Sections[s].RiseSlope + 1e-3f,
-                                       $"x={p.X(i):F1} 오르막(구간 {s + 1})");
+                    Assert.LessOrEqual(slope, riseSlopeSpec[s] + 1e-3f,
+                                       $"x={p.X(i):F1} 오르막(구간 {s + 1}, spec)");
+                    Assert.LessOrEqual(slope, riseSlopeAbsoluteCeiling + 1e-3f,
+                                       $"x={p.X(i):F1} 오르막(절대 한계)");
                 }
             }
         }

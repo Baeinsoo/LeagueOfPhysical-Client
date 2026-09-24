@@ -61,10 +61,18 @@ jobs:
         run: |
           set -o pipefail
           UNITY="/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity"
-          #  -buildTarget을 주지 않는다. 이 체크아웃은 배포 워크플로와 공유되는데, 여기서 타깃을
-          #  바꾸면 다음 배포가 재임포트로 느려진다. EditMode 시험은 활성 타깃과 무관하다.
+          #  -buildTarget을 **준다**. 안 주면 러너에 남아 있던 타깃을 그대로 쓰는데, 그러면
+          #  "몇 개를 돌릴지"가 직전에 무엇을 배포했느냐에 달린다 — 실제로 1960개와 1957개로
+          #  갈렸다. 차이는 `#if UNITY_IOS`로 감싼 Info.plist 후처리 시험 3개다.
+          #
+          #  iOS로 고정하는 이유는 지금 플랫폼 조건이 걸린 시험이 그것뿐이기 때문이다.
+          #  안드로이드 전용 조건부 시험이 생기면 이 한 줄로는 부족해지므로 타깃을 둘로
+          #  돌리거나(매트릭스) 조건부 컴파일을 걷어내야 한다.
+          #
+          #  대가: 이 체크아웃은 배포 워크플로와 공유되므로 안드로이드 배포가 뒤따르면 타깃을
+          #  되돌리며 재임포트가 돈다. 몇 개가 돌지 모르는 것보다는 그 시간이 낫다.
           "$UNITY" -batchmode -nographics -projectPath . \
-            -runTests -testPlatform EditMode \
+            -buildTarget iOS -runTests -testPlatform EditMode \
             -testResults test-results.xml -logFile - > unity-tests.log 2>&1 && RC=0 || RC=$?
           python3 - <<'PY'
           import os, sys, xml.etree.ElementTree as ET

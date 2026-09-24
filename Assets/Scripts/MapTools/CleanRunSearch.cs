@@ -218,6 +218,7 @@ namespace LOP.MapTools
             var grid = new SearchGrid(options);
 
             var current = NewColumn(grid.StateCount);
+            var currentLive = new List<int>();
             //  출발 높이 자체가 허용 범위 밖이면 그대로 실패 — HeightBucket이 조용히 경계로
             //  밀어 넣어 버리면 "다른 자리에서 시드해 놓고 진짜 출발지는 자유공간이라 통과"라는
             //  거짓 결과가 나온다.
@@ -231,10 +232,16 @@ namespace LOP.MapTools
             {
                 return new CleanRunResult(false, System.Array.Empty<bool>(), options.StartX, 0f, 0, 0f);
             }
-            current[grid.StateIndex(grid.HeightBucket(options.StartY), ladder: 1, rung: 0)] = options.StartY;
+            int seed = grid.StateIndex(grid.HeightBucket(options.StartY), ladder: 1, rung: 0);
+            current[seed] = options.StartY;
+            currentLive.Add(seed);
+            //  버퍼 둘을 번갈아 쓴다 — 열마다 상태표 전체를 새로 만들고 NaN으로 채우는 비용이 칸 수에
+            //  비례해서, 높이 범위가 넓은 코스에서 탐색 시간의 대부분이 됐다. 다 쓴 칸만 비운다.
+            var spare = NewColumn(grid.StateCount);
+            var spareLive = new List<int>();
             //  열마다 살아남은 상태를 쌓아 둔다 — 되짚기(ExtractFlaps)가 이걸 뒤에서부터
             //  앞으로 훑으며 직전 상태를 계산해 낸다. 시드(출발) 열도 포함.
-            var columns = new List<Column> { Archive(current, grid, out _, out _) };
+            var columns = new List<Column> { Archive(current, currentLive, grid, out _, out _) };
 
             float narrowestX = 0f, narrowestSpan = 0f;
             int narrowestCount = int.MaxValue;
@@ -248,25 +255,23 @@ namespace LOP.MapTools
             {
                 float x = grid.ColumnX(column);
                 float nextX = grid.ColumnX(column + 1);
-                var next = NewColumn(grid.StateCount);
+                var next = spare;
+                var nextLive = spareLive;
                 bool any = false;
 
-                for (int state = 0; state < grid.StateCount; state++)
+                for (int li = 0; li < currentLive.Count; li++)
                 {
+                    int state = currentLive[li];
                     float y = current[state];
-                    if (float.IsNaN(y))
-                    {
-                        continue;
-                    }
                     grid.Decode(state, out _, out int ladder, out int rung);
 
                     //  날갯짓 안 함 — 같은 사다리의 다음 칸.
-                    if (TryAdvance(grid, tickIsFree, x, y, ladder, rung + 1, options, next))
+                    if (TryAdvance(grid, tickIsFree, x, y, ladder, rung + 1, options, next, nextLive))
                     {
                         any = true;
                     }
                     //  날갯짓 — 사다리 0의 첫 칸으로 갈아탄다.
-                    if (TryAdvance(grid, tickIsFree, x, y, ladder: 0, rung: 0, options, next))
+                    if (TryAdvance(grid, tickIsFree, x, y, ladder: 0, rung: 0, options, next, nextLive))
                     {
                         any = true;
                     }
@@ -279,7 +284,7 @@ namespace LOP.MapTools
                                               narrowestSpan);
                 }
 
-                columns.Add(Archive(next, grid, out int liveCount, out float liveSpan));
+                columns.Add(Archive(next, nextLive, grid, out int liveCount, out float liveSpan));
                 if (measuringNarrowest == false && liveCount <= previousLiveCount)
                 {
                     measuringNarrowest = true;
@@ -292,7 +297,13 @@ namespace LOP.MapTools
                 }
                 previousLiveCount = liveCount;
 
+                //  다 쓴 버퍼는 쓴 칸만 NaN으로 되돌려 다음 열의 빈 버퍼로 돌린다.
+                for (int li = 0; li < currentLive.Count; li++) { current[currentLive[li]] = float.NaN; }
+                currentLive.Clear();
+                spare = current;
+                spareLive = currentLive;
                 current = next;
+                currentLive = nextLive;
             }
 
             //  도달 가능하면 회랑 진단은 의미가 없다 — "막힌 이유"를 보여주는 값이지 성공
@@ -366,30 +377,24 @@ namespace LOP.MapTools
         //  열 하나를 되짚기용으로 압축한다. 살아 있는 칸만 담으므로, 열마다 상태표 전체를
         //  들고 있을 때와 달리 긴 코스·높은 대역에서도 메모리가 생존 상태 수에만 비례한다.
         //  같은 한 번의 훑기로 회랑 진단값(생존 수·걸친 높이 폭)도 같이 낸다.
-        static Column Archive(float[] dense, SearchGrid grid, out int count, out float span)
+        static Column Archive(float[] dense, List<int> live, SearchGrid grid, out int count, out float span)
         {
-            count = 0;
+            //  칸 번호 오름차순이어야 한다 — 되짚기가 "가장 낮은 칸부터" 고르는 전제다.
+            live.Sort();
+            count = live.Count;
             int lo = int.MaxValue, hi = int.MinValue;
-            for (int i = 0; i < dense.Length; i++)
+            var states = new int[count];
+            var heights = new float[count];
+            for (int n = 0; n < count; n++)
             {
-                if (float.IsNaN(dense[i])) { continue; }
-                count++;
+                int i = live[n];
                 grid.Decode(i, out int bucket, out _, out _);
                 if (bucket < lo) { lo = bucket; }
                 if (bucket > hi) { hi = bucket; }
-            }
-            span = count == 0 ? 0f : (hi - lo) * grid.HeightGrid;
-
-            var states = new int[count];
-            var heights = new float[count];
-            int n = 0;
-            for (int i = 0; i < dense.Length; i++)
-            {
-                if (float.IsNaN(dense[i])) { continue; }
                 states[n] = i;
                 heights[n] = dense[i];
-                n++;
             }
+            span = count == 0 ? 0f : (hi - lo) * grid.HeightGrid;
             return new Column(states, heights);
         }
 
@@ -466,7 +471,7 @@ namespace LOP.MapTools
         //  한 스텝 나아가 본다. 몸이 스치면 그 갈래를 버린다.
         static bool TryAdvance(SearchGrid grid, TickSweepProbe tickIsFree, float x, float y,
                                int ladder, int rung, in CleanRunOptions options,
-                               float[] next)
+                               float[] next, List<int> nextLive)
         {
             int clamped = grid.ClampRung(rung);
             float vy = grid.Speed(ladder, clamped);
@@ -502,7 +507,12 @@ namespace LOP.MapTools
             //  검사는 이제 커널 그 자체라 더는 원인이 아니다). 밀려난 낮은 쪽으로만 빠져나가는 길이 있으면 탐색은
             //  그것을 못 본다 — 그래서 이 탐색의 ❌는 "없다"가 아니라 "이 근사 아래서 못
             //  찾았다"이다.
-            if (float.IsNaN(next[index]) || ny > next[index])
+            if (float.IsNaN(next[index]))
+            {
+                nextLive.Add(index);
+                next[index] = ny;
+            }
+            else if (ny > next[index])
             {
                 next[index] = ny;
             }

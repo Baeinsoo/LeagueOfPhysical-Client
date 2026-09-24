@@ -128,7 +128,11 @@ platform :ios do
     create_keychain(
       name: CI_KEYCHAIN,
       password: password,
-      default_keychain: false,   # 기본 키체인은 건드리지 않는다
+      #  기본 키체인으로 삼는 것이 업계 표준 구성이다. 한 번 기본에서 빼 봤더니(2026-09-24)
+      #  codesign이 `errSecInternalComponent`로 죽었다 — 서명 도구는 기본 키체인을 전제한다.
+      #  사람이 쓰는 기계라 빼앗는 것이 마음에 걸리지만, 아래 cleanup이 되돌리고 그마저
+      #  놓치는 경우(프로세스가 죽는 경우)는 워크플로의 마지막 스텝이 받아 준다.
+      default_keychain: true,
       unlock: true,
       timeout: 3600,
       lock_when_sleeps: false,

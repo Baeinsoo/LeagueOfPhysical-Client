@@ -292,7 +292,8 @@ namespace LOP.MapTools
                                    float targetWindow = 0f,
                                    float targetSpacing = 0f,
                                    string layerSection = null,
-                                   string boostSection = null)
+                                   string boostSection = null,
+                                   string shortcutSection = null)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
@@ -485,6 +486,13 @@ namespace LOP.MapTools
             if (string.IsNullOrEmpty(boostSection) == false)
             {
                 text.AppendLine(boostSection);
+                text.AppendLine();
+            }
+
+            //  지름길은 클린런 바로 곁의 증명이다 — ①이 "어떻게든 완주"라면 이 절은 "두 길 각각 완주"다.
+            if (string.IsNullOrEmpty(shortcutSection) == false)
+            {
+                text.AppendLine(shortcutSection);
                 text.AppendLine();
             }
 

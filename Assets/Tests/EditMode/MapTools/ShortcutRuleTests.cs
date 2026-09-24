@@ -20,9 +20,18 @@ namespace LOP.MapTools.Tests
         public void 가운데_절반은_혀_위에_있다()
         {
             //  이게 참이어야 가운데 절반에서 지름길 띠와 계곡이 혀로 완전히 갈린다.
-            float quarter = Deep.Length * 0.25f;
-            Assert.GreaterOrEqual(Deep.X0 + quarter, Deep.Tongue[0]);
-            Assert.LessOrEqual(Deep.X1 - quarter, Deep.Tongue[6]);
+            //  지름길이 있는 구간의 U를 전부 본다 — 깊이마다 혀 모양이 달라진다.
+            int checkedShapes = 0;
+            foreach (SectionTerrain t in CourseProfileRule.Sections)
+            {
+                if (t.ValleyShortcut == false) { continue; }
+                ShortcutRect r = CourseProfileRule.ValleyShortcut(100f, 0f, t.ValleyDepth, t.RiseSlope, Half, Window);
+                float quarter = r.Length * 0.25f;
+                Assert.GreaterOrEqual(r.X0 + quarter, r.Tongue[0], $"깊이 {t.ValleyDepth}");
+                Assert.LessOrEqual(r.X1 - quarter, r.Tongue[6], $"깊이 {t.ValleyDepth}");
+                checkedShapes++;
+            }
+            Assert.Greater(checkedShapes, 0, "지름길 구간이 하나도 없으면 이 시험은 아무것도 안 지킨다");
         }
 
         [Test]
@@ -68,11 +77,26 @@ namespace LOP.MapTools.Tests
             var ok = new ShortcutProof("지름길", 300f, 324f, true, true, 0f);
             var trap = new ShortcutProof("지름길", 480f, 504f, false, false, 482.3f);
             string s = ShortcutRule.Section(safe, new List<ShortcutProof> { ok, trap });
-            Assert.That(s, Does.Contain("🔀"));
+            //  이모지는 서수 비교로 본다 — Does.Contain은 문화권 비교라 이모지 검색어면 늘 맞는다.
+            Assert.IsTrue(s.IndexOf("🔀", System.StringComparison.Ordinal) >= 0);
+            string okLine = LineWith(s, "x=300~324");
+            string trapLine = LineWith(s, "x=480~504");
+            Assert.IsTrue(okLine.IndexOf("✅", System.StringComparison.Ordinal) >= 0, okLine);
+            Assert.IsTrue(trapLine.IndexOf("❌", System.StringComparison.Ordinal) >= 0, trapLine);
             Assert.That(s, Does.Contain("지름길 없이"));
             Assert.That(s, Does.Contain("x=300~324"));
             Assert.That(s, Does.Contain("함정"));
             Assert.That(s, Does.Contain("482.3"));
+        }
+
+        static string LineWith(string text, string needle)
+        {
+            foreach (string line in text.Split('\n'))
+            {
+                if (line.IndexOf(needle, System.StringComparison.Ordinal) >= 0) { return line; }
+            }
+            Assert.Fail($"'{needle}' 줄이 없다:\n{text}");
+            return null;
         }
 
         [Test]

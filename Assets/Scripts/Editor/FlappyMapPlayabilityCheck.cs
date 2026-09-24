@@ -403,9 +403,13 @@ namespace LOP.EditorTools
                         //  두는 편이 "증명된 자리만 골라 재는" 분기를 여기 또 두는 것보다 단순하다.
                         discs: verified ? JudgeDiscs(replayPath, shape, placements) : default));
                 }
-                //  🔀 지름길 — 스폰 1에서 두 길을 따로 날린다. 지름길이 없으면 절 자체가 "없다"를 말한다.
-                shortcutSection = ProveShortcuts(spawns[0].Position, finishX, shape, mapMask, query,
-                                                 grid, searchSweep, mainSweep, shortcuts);
+                //  🔀 지름길 — 스폰 1에서 두 길을 따로 날린다. 지름길이 없거나 클린런을 중간에
+                //  취소했으면 건너뛴다 — 취소한 사람을 전수 탐색 두 번 더 기다리게 하지 않는다.
+                if (shortcuts.Count > 0 && cleanRunCancelNote == null)
+                {
+                    shortcutSection = ProveShortcuts(spawns[0].Position, finishX, shape, mapMask, query,
+                                                     grid, searchSweep, mainSweep, shortcuts);
+                }
                 cleanRunWatch.Stop();
                 //  둘로 갈라 찍는다 — 봇 비행과 전수 탐색은 비용의 성질이 아주 달라서다(비행은
                 //  틱마다 캡슐 검사, 탐색은 격자 위 너비우선). 뭉쳐 찍으면 어느 쪽이 커졌는지

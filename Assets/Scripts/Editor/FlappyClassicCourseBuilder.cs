@@ -117,12 +117,14 @@ namespace LOP.EditorTools
                 leadIn: spacing * 4f, tail: spacing * 8f);
             System.Func<float, float> centerAt = profile.CenterAt;
 
+            System.Func<float, bool> gateAllowed =
+                x => profile.GateAllowedAt(x, LOP.MapTools.CourseProfileRule.GateMargin);
+
             var pipes = LOP.MapTools.ClassicCourseRule.Layout(
                 StartX, length, spacing, floorY, ceilingY, window, MaxGapStep, Seed, centerAt,
-                ChallengeRuns,
-                gateAllowed: x => profile.GateAllowedAt(x, LOP.MapTools.CourseProfileRule.GateMargin));
+                ChallengeRuns, gateAllowed);
             string bad = LOP.MapTools.ClassicCourseRule.Validate(
-                pipes, floorY, ceilingY, window, spacing, MaxGapStep, centerAt);
+                pipes, floorY, ceilingY, window, spacing, MaxGapStep, centerAt, gateAllowed);
             if (bad != null)
             {
                 //  씬을 건드리기 <b>전에</b> 멈춘다 — 반쯤 구운 코스를 남기지 않는다.
@@ -144,10 +146,10 @@ namespace LOP.EditorTools
 
             //  바닥·천장은 구간마다 끊는다 — 한 덩어리면 색이 안 바뀌어 구간 경계가 바닥에서만
             //  안 보인다. 앞뒤로는 코스 밖(스폰·결승선)까지 덮도록 여유를 준다.
-            //  바닥·천장은 <b>고저차를 따라간다</b>. 그래서 조각을 <b>경사로 눕힌다</b>: 양 끝의
-            //  회랑 중심을 잇는 현(弦)을 윗면으로 삼아 z축 둘레로 기울인다. 바닥과 천장이 나란한
-            //  현이므로 세로 간격(회랑 높이)이 어디서나 일정하다. z축 회전이라 블록의 z 범위가
-            //  안 변해 층 규약·시각 정직성 검사에도 영향이 없다.
+            //  바닥·천장은 <b>고저차를 따라간다</b>. 조각은 윗면(바닥) 또는 밑면(천장)이 기운
+            //  사각형이고 <b>양 끝은 세로로 곧다</b> — 이웃 조각과 세로 변을 딱 맞대므로 급한
+            //  꺾임에서도 틈(V자 홈)이나 겹침 턱이 안 생긴다. 바닥과 천장이 나란하니 회랑 높이는
+            //  어디서나 같다.
             //  꺾은선의 꼭짓점마다, 그리고 구간 경계마다 끊는다 — 조각 하나가 곧은 경사 하나라
             //  바닥·천장이 꺾은선에 정확히 놓인다. 구간 경계에서 끊어야 색이 바뀐다.
             float sectionLength = length / FlappyRace.CourseSectionRule.Count;
@@ -158,15 +160,25 @@ namespace LOP.EditorTools
             for (int i = 0; i < floorPieces.Count; i++)
             {
                 LOP.MapTools.RampPiece q = floorPieces[i];
-                Ramp(composed.transform, $"Floor_{i}", q.X0, q.X1, q.Lift0, q.Lift1,
-                     floorY, below: true, material: SectionMaterial((q.X0 + q.X1) * 0.5f, length, fallback));
+                Prism(composed.transform, $"Floor_{i}", new[]
+                {
+                    new Vector2(q.X0, floorY + q.Lift0 - WallThickness),
+                    new Vector2(q.X1, floorY + q.Lift1 - WallThickness),
+                    new Vector2(q.X1, floorY + q.Lift1),
+                    new Vector2(q.X0, floorY + q.Lift0),
+                }, SectionMaterial((q.X0 + q.X1) * 0.5f, length, fallback));
             }
             var ceilingPieces = LOP.MapTools.CourseProfileRule.CeilingPieces(profile, splits);
             for (int i = 0; i < ceilingPieces.Count; i++)
             {
                 LOP.MapTools.RampPiece q = ceilingPieces[i];
-                Ramp(composed.transform, $"Ceiling_{i}", q.X0, q.X1, q.Lift0, q.Lift1,
-                     ceilingY, below: false, material: SectionMaterial((q.X0 + q.X1) * 0.5f, length, fallback));
+                Prism(composed.transform, $"Ceiling_{i}", new[]
+                {
+                    new Vector2(q.X0, ceilingY + q.Lift0),
+                    new Vector2(q.X1, ceilingY + q.Lift1),
+                    new Vector2(q.X1, ceilingY + q.Lift1 + WallThickness),
+                    new Vector2(q.X0, ceilingY + q.Lift0 + WallThickness),
+                }, SectionMaterial((q.X0 + q.X1) * 0.5f, length, fallback));
             }
 
             //  지름길 구간의 천장은 경사 조각이 아니라 두 덩어리다: 지름길 위의 상자, 지름길과 계곡 사이의 혀.
@@ -335,7 +347,7 @@ namespace LOP.EditorTools
             collider.sharedMesh = PrismMesh(name + "_Collider", polygon, -PipeDepth * 0.5f, PipeDepth * 0.5f);
             //  오목(비볼록) 메시 콜라이더는 속이 빈 껍데기라, 안쪽에 완전히 들어간 구체는 겹침
             //  검사(CheckSphere/OverlapSphere류)에 안 걸린다(표면을 스치는 CapsuleCast/Raycast는
-            //  걸린다). 볼록으로 두면 속이 찬 덩어리가 된다 — 혀는 늘 볼록 사다리꼴이라 모양이
+            //  걸린다). 볼록으로 두면 속이 찬 덩어리가 된다 — 혀·바닥·천장 조각은 늘 볼록 사다리꼴이라 모양이
             //  바뀌지 않는다.
             collider.convex = true;
             Undo.RegisterCreatedObjectUndo(go, "Build classic course");
@@ -470,29 +482,6 @@ namespace LOP.EditorTools
             pad.Duration = BoostPadDuration;
         }
 
-        //  두 점의 회랑 중심을 잇는 현을 윗면(바닥) 또는 밑면(천장)으로 삼는 경사 조각.
-        //  z축 둘레로만 기울이므로 블록의 z 범위가 변하지 않는다.
-        private static void Ramp(Transform parent, string name, float x0, float x1,
-                                 float lift0, float lift1, float baseY, bool below, Material material)
-        {
-            float run = x1 - x0;
-            float rise = lift1 - lift0;
-            float angle = Mathf.Atan2(rise, run);
-            //  현을 다 덮으려면 조각이 기운 만큼 길어야 한다. 1%는 이웃과 겹쳐 틈을 막는 여유.
-            float chord = Mathf.Sqrt(run * run + rise * rise) * 1.01f;
-
-            var go = Box(parent, name, material);
-            go.transform.localScale = new Vector3(chord, WallThickness, PipeDepth);
-            go.transform.rotation = Quaternion.Euler(0f, 0f, angle * Mathf.Rad2Deg);
-
-            //  현의 한가운데에서 조각 두께의 절반만큼 <i>기운 방향의</i> 위/아래로 민다.
-            float midX = (x0 + x1) * 0.5f;
-            float midY = baseY + (lift0 + lift1) * 0.5f;
-            float half = WallThickness * 0.5f * (below ? -1f : 1f);
-            go.transform.position = new Vector3(midX - half * Mathf.Sin(angle),
-                                                midY + half * Mathf.Cos(angle), PipeZ);
-        }
-
         private static void Pipe(Transform parent, string name, float x, float bottom, float top,
                                  Material material)
         {
@@ -524,8 +513,8 @@ namespace LOP.EditorTools
             {
                 Undo.DestroyObjectImmediate(city.GetChild(i).gameObject);
             }
-            //  스카이라인은 82m 거리라 화면 세로 59.7m를 담는다 — 코스 고저차(최대 40m)를 그대로
-            //  더해도 화면 밖으로 안 나가므로 코스 높이를 따라가지 않고 그대로 둔다(spec §11).
+            //  스카이라인은 일부러 y=0에 둔다 — 코스 높이는 약 −40…+20m(60m)를 오르내리지만,
+            //  스카이라인은 82m 뒤에 있고 안개에 묻혀 높이가 안 맞아도 눈에 안 띈다.
             Backdrop(city, "Skyline",
                      LOP.MapTools.BackdropLayout.Skyline(StartX, length, SkylineSeed),
                      SkylineZ, SkylineDepth, FlappyCityMaterials.Skyline, x => 0f);

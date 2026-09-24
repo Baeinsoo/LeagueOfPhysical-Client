@@ -139,7 +139,12 @@ namespace LOP.MapTools
         public const float HillTop = 12f;
         /// <summary>관문을 평지 끝에서 이만큼 안쪽에만 둔다 — 벽을 내려오자마자 창이 있으면 못 멈춘다.</summary>
         public const float GateMargin = 2.5f;
-        /// <summary>지름길과 계곡 사이 혀의 최소 두께. 이보다 얇으면 두 길이 사실상 붙는다.</summary>
+        /// <summary>
+        /// 지름길과 계곡 사이 혀의 최소 두께. 이보다 얇으면 두 길이 사실상 붙는다.
+        /// 빌더가 파이프 윗끝을 천장 속으로 1m 박아 넣는데, 지름길 아래 계곡에선 그 천장이 곧 혀다 —
+        /// 그래서 이 값을 그 1m보다 줄이면 안 된다 — 1m면 파이프 끝이 지름길 바닥에 딱 닿고, 더 얇으면
+        /// 파이프가 혀를 뚫고 지름길로 삐져나온다. 파이프를 더 깊이 박게 바꾸면 이 값도 같이 올릴 것.
+        /// </summary>
         public const float MinTongue = 1f;
 
         /// <summary>구간 1(배우기) · 2 · 3. spec §3 표 그대로.</summary>

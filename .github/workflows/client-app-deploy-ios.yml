@@ -154,37 +154,62 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           set -eo pipefail
-          command -v timeout >/dev/null || {
-            echo "::error::러너에 timeout이 없다. 맥 러너에서 'brew install coreutils' 1회 실행할 것."
-            exit 1
-          }
           BEFORE=$(cat before.txt)
+          echo "업로드 전 빌드 번호: $BEFORE"
 
-          #  종료 코드로 성공을 판정하지 않는다 — altool이 업로드를 마치고도 안 끝나는 일이 있다
-          #  (2026-09-23 두 번, 한 번은 3시간 44분). 그래서 시간을 끊고, 실제로 올라갔는지는
-          #  애플에 빌드 번호를 물어 판정한다.
-          set +e
-          timeout 5400 bundle exec fastlane ios beta > fastlane.log 2>&1
-          RC=$?
-          set -e
+          #  성공의 진실원본은 fastlane의 종료 코드가 아니라 App Store Connect다.
+          #
+          #  altool은 업로드를 마치고도 프로세스가 안 끝난다(Xcode 26의 알려진 결함. 우리 환경에서
+          #  세 번 재현했고 한 번은 3시간 44분 매달렸다). 우리는 이미 커뮤니티 우회책인
+          #  `--use-old-altool`을 쓰고 있는데도 그렇다. 그래서 끝나기를 기다리지 않고,
+          #  **애플이 새 빌드 번호를 보여 주는 순간 끊는다.** 20분이면 될 일에 90분을 쓰지 않는다.
+          set -m
+          ( bundle exec fastlane ios beta > fastlane.log 2>&1 ) &
+          FL_PID=$!
+
+          RC=""
+          AFTER=""
+          for i in $(seq 90); do           # 최대 90분
+            if ! kill -0 "$FL_PID" 2>/dev/null; then
+              if wait "$FL_PID"; then RC=0; else RC=$?; fi    # 스스로 끝났다
+              break
+            fi
+            sleep 60
+            #  업로드 단계 전에는 물어봐야 소용없다 — 빌드·아카이브에만 8분쯤 걸린다.
+            #  다만 이 문구에만 기대지는 않는다(fastlane이 표현을 바꾸면 영영 안 물어보게 된다).
+            #  15분이 지나면 문구와 무관하게 묻기 시작한다.
+            if [ "$i" -lt 15 ] && ! grep -q "Ready to upload new build" fastlane.log 2>/dev/null; then
+              continue
+            fi
+            bundle exec fastlane ios latest_build_number_to_file path:"$PWD/after.txt" >/dev/null 2>&1 || continue
+            N=$(cat after.txt)
+            if [ "$N" -gt "$BEFORE" ]; then
+              AFTER="$N"
+              echo "애플이 빌드 $N 을 보여 준다 — 업로드가 끝났다. 안 끝나는 altool을 끊는다."
+              #  자식까지 함께 끊는다. fastlane만 죽이면 altool이 남아 며칠씩 돈다(실제로 그랬다).
+              kill -TERM -"$FL_PID" 2>/dev/null || kill -TERM "$FL_PID" 2>/dev/null || true
+              sleep 5
+              kill -KILL -"$FL_PID" 2>/dev/null || true
+              break
+            fi
+          done
 
           #  로그에 긴 base64(키)가 섞일 수 있어 걷어내고 보여 준다.
           grep -viE "[A-Za-z0-9+/]{60,}" fastlane.log | tail -30 || true
 
-          if [ "$RC" -ne 0 ]; then
-            echo "::warning::fastlane이 코드 $RC 로 끝났다. 업로드가 실제로 됐는지 애플에 물어본다."
+          if [ -z "$AFTER" ]; then
+            #  스스로 끝났거나 시간이 다 됐다. 어느 쪽이든 애플에게 한 번 더 묻고 판정한다.
             bundle exec fastlane ios latest_build_number_to_file path:"$PWD/after.txt"
             AFTER=$(cat after.txt)
-            if [ "$AFTER" -gt "$BEFORE" ]; then
-              echo "업로드는 성공했다 — 빌드 번호 $BEFORE → $AFTER. altool이 안 끝났을 뿐이다."
-            else
-              echo "::error::업로드 실패 — 빌드 번호가 $BEFORE 에서 움직이지 않았다."
-              exit 1
-            fi
-          else
-            bundle exec fastlane ios latest_build_number_to_file path:"$PWD/after.txt"
           fi
-          echo "build_number=$(cat after.txt)" >> "$GITHUB_OUTPUT"
+
+          if [ "$AFTER" -gt "$BEFORE" ]; then
+            echo "업로드 성공 — 빌드 번호 $BEFORE → $AFTER (fastlane 종료코드: ${RC:-끊음})"
+          else
+            echo "::error::업로드 실패 — 빌드 번호가 $BEFORE 에서 움직이지 않았다."
+            exit 1
+          fi
+          echo "build_number=$AFTER" >> "$GITHUB_OUTPUT"
 
       - name: 키체인 원상복구 (안전망)
         if: always()

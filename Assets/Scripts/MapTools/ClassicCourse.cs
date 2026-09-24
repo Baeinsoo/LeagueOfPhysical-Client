@@ -89,7 +89,7 @@ namespace LOP.MapTools
         /// </summary>
         /// <param name="maxStep">이웃한 두 창의 높이차 상한. 0 이하면 창이 안 움직인다.</param>
         /// <param name="centerAt">
-        /// 그 x에서 회랑 중심이 얼마나 올라가 있나(<see cref="CourseElevation"/>). null이면 평평하다.
+        /// 그 x에서 회랑 중심이 얼마나 올라가 있나(<see cref="CourseProfile.CenterAt"/>). null이면 평평하다.
         /// 창은 이 값 위에서 랜덤워크하므로 <b>회랑 안에 들어간다는 보장은 그대로</b>다.
         /// </param>
         /// <param name="challengeRuns">

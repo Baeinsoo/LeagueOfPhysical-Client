@@ -293,10 +293,13 @@ jobs:
             #  오래된 것을 지운다 — 용량 같은 간접 조건으로 고르면 나중에 큰 파일이 하나 더
             #  생겼을 때 조용히 같이 지워진다. `latest.json`처럼 파이프라인이 의존하는 것은
             #  태그를 안 달았으므로 규칙에 걸리지 않는다.
+            #  실패해도 배포를 멈추지 않는다 — dSYM은 이미 올라간 뒤라 쓸 수 있고, 태그가
+            #  없으면 자동 정리가 안 될 뿐이다(안드로이드 쪽 주석과 같은 사고).
             aws s3api put-object-tagging --bucket lop-client \
               --key "${DSYM_KEY#s3://lop-client/}" \
-              --tagging 'TagSet=[{Key=kind,Value=build-artifact}]'
-            echo "dSYM 보존: $DSYM_KEY (kind=build-artifact)"
+              --tagging 'TagSet=[{Key=kind,Value=build-artifact}]' \
+              || echo "::warning::dSYM에 수명 태그를 못 달았다 — 자동 정리 대상에서 빠진다."
+            echo "dSYM 보존: $DSYM_KEY"
           else
             #  배포 자체를 막을 일은 아니지만, 조용히 넘어가면 나중에 크래시를 못 읽는다.
             echo "::warning::dSYM($DSYM)이 없다 — 이 빌드의 크래시는 심볼화할 수 없다."

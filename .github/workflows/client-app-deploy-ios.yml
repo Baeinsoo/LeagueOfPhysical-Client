@@ -1,0 +1,234 @@
+name: client-app-deploy-ios
+#
+# iOS 앱을 구워 TestFlight에 올린다. 안드로이드(client-app-deploy)의 짝이지만 전달 방식이 달라
+# 파일을 나눴다 — APK는 받으면 바로 깔리지만 ipa는 TestFlight를 거쳐야 한다.
+#
+# 여기서는 유니티 배치 빌드와 S3 업로드만 한다. 서명·아카이브·업로드는 fastlane이 맡는다
+# (fastlane/Fastfile) — iOS 고유의 복잡성을 YAML이 아니라 그쪽에 모아 둔다.
+#
+# ⚠️ AWS_ACCESS_KEY_ID는 secrets가 아니라 vars다 — 되돌리지 말 것.
+#    프리사인 URL은 액세스 키 ID를 X-Amz-Credential에 담는데, 시크릿으로 등록돼 있으면 GitHub이
+#    잡 요약에서 *** 로 가려 서명이 깨진다. 서명을 만드는 AWS_SECRET_ACCESS_KEY는 그대로 시크릿이다.
+#
+# ⚠️ APPLE_TEAM_ID·MATCH_S3_BUCKET은 일부러 여기서 안 넘긴다. Fastfile/Matchfile에 기본값이 있고,
+#    GitHub 변수가 비어 있으면 빈 문자열이 넘어가 그 기본값을 덮어써 버린다(ENV.fetch는 "키가
+#    있으면" 기본값을 안 쓴다). 팀이나 버킷을 바꿀 일이 생기면 그 두 파일을 고치는 편이 안전하다.
+#
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: '대상 백엔드 환경'
+        type: choice
+        options:
+          - dev
+          - local-k8s
+          - local
+        default: dev
+      development:
+        description: '개발 빌드 (평문 http 허용 · 로그/프로파일러 유지)'
+        type: boolean
+        default: true
+
+concurrency:
+  group: client-app-deploy-ios
+  cancel-in-progress: false
+
+env:
+  AWS_DEFAULT_REGION: ap-northeast-2
+  #  이 맥의 xcode-select는 CommandLineTools를 가리킨다. 전역 변경은 sudo가 필요하므로
+  #  프로세스 단위로 Xcode를 지정한다.
+  DEVELOPER_DIR: /Applications/Xcode-26.6.0.app/Contents/Developer
+  #  Xcode 26의 altool에 패키지를 못 여는 회귀가 있다. 레거시 경로를 강제한다.
+  DELIVER_ALTOOL_ADDITIONAL_UPLOAD_PARAMETERS: "--use-old-altool"
+
+jobs:
+  build-deploy:
+    runs-on: [self-hosted, client]      # Client 전용 맥 러너
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive          # Assets/Art (public) 포함
+
+      - name: sha 산출
+        id: tag
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: 의존 UPM 패키지 레포 체크아웃 (file:../../ 형제 위치)
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE/.."
+          for r in GameFramework LeagueOfPhysical-Shared LeagueOfPhysical-MasterData-Client; do
+            if [ ! -d "$r/.git" ]; then
+              git clone --depth 1 "https://github.com/Baeinsoo/$r" "$r"
+            fi
+            #  "지금 어느 브랜치에 있나"에 기대지 않는다. 러너의 이 폴더는 다른 워크플로와
+            #  공유되는데 그쪽이 upstream 없는 로컬 브랜치(ci-build)에 올려두므로, @{u}에 기대면
+            #  "no upstream configured"로 죽는다. 원하는 ref를 명시해 가져오고 고정 이름으로 붙인다.
+            git -C "$r" fetch --depth 1 origin main
+            git -C "$r" checkout -q -B ci-build FETCH_HEAD
+            echo "$r @ $(git -C "$r" rev-parse --short HEAD)"
+          done
+
+      - name: NuGet 패키지 복원 (NuGetForUnity CLI, packages.config 기반)
+        run: |
+          set -e
+          dotnet tool restore
+          dotnet tool run nugetforunity restore .
+          test -f Assets/NuGetForUnity/Packages/R3.1.3.1/lib/netstandard2.1/R3.dll
+
+      - name: 어드레서블 콘텐츠 full 빌드 (iOS)
+        run: |
+          set -eo pipefail
+          UNITY="/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity"
+          if ! "$UNITY" -batchmode -quit -nographics -buildTarget iOS -projectPath . \
+                -executeMethod BuildScript.BuildContentFull -logFile - > unity-content.log 2>&1; then
+            echo "::error::content build failed"; tail -80 unity-content.log; exit 1
+          fi
+          #  빌드 서포트 모듈이 빠지면 -buildTarget이 조용히 무시되고 엉뚱한 플랫폼 것이 구워진다.
+          grep -q "content full build target: iOS" unity-content.log
+          test -f Assets/AddressableAssetsData/iOS/addressables_content_state.bin
+          ls ServerData/iOS
+
+      - name: 콘텐츠 업로드 (additive, --delete 금지)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ vars.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          set -e
+          #  경로가 환경과 무관하게 dev 고정인 것은 안드로이드 쪽과 같다 — 어드레서블 프로파일의
+          #  원격 경로가 그렇게 구워지기 때문이다. 환경별로 가르려면 프로파일부터 나눠야 한다.
+          aws s3 sync ServerData/iOS "s3://lop-assets/dev/iOS"
+          echo "콘텐츠 업로드 완료: s3://lop-assets/dev/iOS/"
+
+      - name: Xcode 프로젝트 빌드
+        env:
+          BUILD_ENV: ${{ inputs.environment }}
+          DEVELOPMENT: ${{ inputs.development }}
+        run: |
+          set -eo pipefail
+          UNITY="/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity"
+          #  실패한 빌드는 지난번 폴더를 그대로 남긴다. 지우지 않으면 "있는지" 검사가 낡은 것을
+          #  보고 통과해 버려, 옛 앱이 서명돼 올라간다.
+          rm -rf Build/iOS Build/ipa
+          DEV_FLAG=""
+          if [ "$DEVELOPMENT" = "true" ]; then DEV_FLAG="-development"; fi
+          if ! "$UNITY" -batchmode -quit -nographics -buildTarget iOS -projectPath . \
+                -executeMethod BuildScript.BuildIOSXcodeProject \
+                -buildEnv "$BUILD_ENV" $DEV_FLAG -logFile - > unity-xcode.log 2>&1; then
+            echo "::error::Xcode project build failed"; tail -80 unity-xcode.log; exit 1
+          fi
+          #  폴더가 있는지가 아니라 빌드가 성공했다고 말했는지로 판정한다(위 주석과 같은 이유).
+          grep -q "Xcode 프로젝트 OK" unity-xcode.log
+          tail -5 unity-xcode.log
+
+      - name: Ruby 의존성 설치
+        env:
+          PATH: /opt/homebrew/opt/ruby/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+        run: |
+          set -eo pipefail
+          bundle config set --local path vendor/bundle
+          bundle install
+
+      - name: 업로드 전 TestFlight 빌드 번호 기록
+        env:
+          PATH: /opt/homebrew/opt/ruby/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          set -eo pipefail
+          bundle exec fastlane ios latest_build_number_to_file path:"$PWD/before.txt"
+          echo "업로드 전 빌드 번호: $(cat before.txt)"
+
+      - name: 서명 + TestFlight 업로드 (fastlane)
+        id: upload
+        env:
+          PATH: /opt/homebrew/opt/ruby/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          AWS_ACCESS_KEY_ID: ${{ vars.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          set -eo pipefail
+          command -v timeout >/dev/null || {
+            echo "::error::러너에 timeout이 없다. 맥 러너에서 'brew install coreutils' 1회 실행할 것."
+            exit 1
+          }
+          BEFORE=$(cat before.txt)
+
+          #  종료 코드로 성공을 판정하지 않는다 — altool이 업로드를 마치고도 안 끝나는 일이 있다
+          #  (2026-09-23 두 번, 한 번은 3시간 44분). 그래서 시간을 끊고, 실제로 올라갔는지는
+          #  애플에 빌드 번호를 물어 판정한다.
+          set +e
+          timeout 5400 bundle exec fastlane ios beta > fastlane.log 2>&1
+          RC=$?
+          set -e
+
+          #  로그에 긴 base64(키)가 섞일 수 있어 걷어내고 보여 준다.
+          grep -viE "[A-Za-z0-9+/]{60,}" fastlane.log | tail -30 || true
+
+          if [ "$RC" -ne 0 ]; then
+            echo "::warning::fastlane이 코드 $RC 로 끝났다. 업로드가 실제로 됐는지 애플에 물어본다."
+            bundle exec fastlane ios latest_build_number_to_file path:"$PWD/after.txt"
+            AFTER=$(cat after.txt)
+            if [ "$AFTER" -gt "$BEFORE" ]; then
+              echo "업로드는 성공했다 — 빌드 번호 $BEFORE → $AFTER. altool이 안 끝났을 뿐이다."
+            else
+              echo "::error::업로드 실패 — 빌드 번호가 $BEFORE 에서 움직이지 않았다."
+              exit 1
+            fi
+          else
+            bundle exec fastlane ios latest_build_number_to_file path:"$PWD/after.txt"
+          fi
+          echo "build_number=$(cat after.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: content_state 보존 + latest 갱신
+        env:
+          AWS_ACCESS_KEY_ID: ${{ vars.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          BUILD_ENV: ${{ inputs.environment }}
+        run: |
+          set -e
+          SHA="${{ steps.tag.outputs.sha }}"
+          #  안드로이드는 builds/<env>/latest.json 을 쓴다. 돌아가는 그 경로를 건드리지 않으려고
+          #  iOS는 한 칸 아래에 따로 둔다. 증분 콘텐츠 잡이 이 파일을 읽는다.
+          DEST="s3://lop-client/builds/$BUILD_ENV/ios/$SHA"
+          aws s3 cp Assets/AddressableAssetsData/iOS/addressables_content_state.bin \
+            "$DEST/addressables_content_state.bin"
+          printf '{"sha":"%s","environment":"%s","build_number":"%s","content_state":"%s/addressables_content_state.bin"}\n' \
+            "$SHA" "$BUILD_ENV" "${{ steps.upload.outputs.build_number }}" "$DEST" > latest.json
+          aws s3 cp latest.json "s3://lop-client/builds/$BUILD_ENV/ios/latest.json"
+          echo "보존: $DEST/ , builds/$BUILD_ENV/ios/latest.json"
+
+      - name: 요약 게시
+        if: always()
+        run: |
+          {
+            echo "## iOS $BUILD_ENV 빌드 \`${{ steps.tag.outputs.sha }}\`"
+            echo
+            if [ -n "${{ steps.upload.outputs.build_number }}" ]; then
+              echo "TestFlight 빌드 번호 **${{ steps.upload.outputs.build_number }}** 로 올라갔다."
+              echo
+              echo "처리가 끝나면(보통 5~15분) 내부 테스터 폰의 TestFlight 앱에 나타난다."
+            else
+              echo "업로드까지 가지 못했다. 아래 로그 아티팩트를 볼 것."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          BUILD_ENV: ${{ inputs.environment }}
+
+      - name: 빌드 로그 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs
+          path: |
+            unity-content.log
+            unity-xcode.log
+            fastlane.log
+          if-no-files-found: warn
+          retention-days: 14

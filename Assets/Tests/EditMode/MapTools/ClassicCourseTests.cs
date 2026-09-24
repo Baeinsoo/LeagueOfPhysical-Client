@@ -408,9 +408,26 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 도전_구간이_벽에_걸치면_통째로_빠진다()
         {
-            //  반쯤 걸친 구간은 차선이 벽을 건너 이어져 따라갈 수 없다 — 네 관문이 모두 서야 남는다.
+            //  고정 벽([100,200])은 씨앗 7에서 우연히 어느 도전 구간도 걸치지 않아 이 시험을
+            //  그냥 통과시켰다 — RemoveWhere를 지워도 초록이 나왔다. 그래서 벽을 고정값이 아니라
+            //  <b>배치 결과에서 직접 뽑는다</b>: 첫 도전 구간의 마지막 관문 자리를 막으면, 씨앗이
+            //  뭐든 그 구간은 반드시 벽에 걸친다.
+            var open = ClassicCourseRule.Layout(0f, 612f, 11.4f, Floor, Ceiling, Window, 6f, 7UL,
+                                                 challengeRuns: 6);
+            int firstIndex = open.FindIndex(p => p.HasChallenge);
+            Assert.That(firstIndex, Is.GreaterThanOrEqualTo(0), "도전 구간이 하나도 없다 — 이 시험이 못 선다");
+            float firstX = open[firstIndex].X;
+            float lastX = open[firstIndex + ClassicCourseRule.ChallengeRunLength - 1].X;
+
+            //  구간의 마지막 관문 하나만 막는다 — 나머지 셋은 열려 있으니 "부분만 남기지 않는다"를 잰다.
+            bool Allowed(float x) => System.Math.Abs(x - lastX) > 1f;
+
             var pipes = ClassicCourseRule.Layout(0f, 612f, 11.4f, Floor, Ceiling, Window, 6f, 7UL,
-                                                 challengeRuns: 6, gateAllowed: NoGateIn100To200);
+                                                 challengeRuns: 6, gateAllowed: Allowed);
+
+            Assert.IsFalse(pipes.Exists(p => p.HasChallenge && p.X >= firstX - 1e-3f && p.X <= lastX + 1e-3f),
+                           "벽에 걸친 구간의 나머지 관문이 살아남았다");
+
             var run = new List<CoursePipe>();
             foreach (CoursePipe p in pipes)
             {

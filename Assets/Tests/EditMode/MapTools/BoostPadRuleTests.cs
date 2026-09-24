@@ -50,6 +50,34 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 부스트_앞이_막혔으면_잡는다()
+        {
+            //  이것이 없어서 6개 패드가 전부 함정인 채로 배포됐다(2026-09-24). 대시는 중력도
+            //  날갯짓도 없는 수평 직선이라, 패드 자리가 비어 있어도 앞이 막혔으면 그대로 박는다.
+            var pad = new BoostPadMeasure("BoostPad_74", 74f, -2.18f, 2.18f, 0.6f,
+                                          -10.92f, 10.92f, null,
+                                          blockedAheadName: "ComposedMap/PipeHigh_79", boostSpan: 8.16f);
+
+            Assert.IsTrue(pad.BlockedAhead);
+            Assert.IsFalse(pad.Ok, "자리가 비었다는 것만으로 통과시키면 안 된다");
+
+            string section = BoostPadRule.Section(new List<BoostPadMeasure> { pad },
+                                                 Forward, DashMult, CollisionCost);
+            Assert.That(section, Does.Contain("PipeHigh_79"));
+            Assert.That(section, Does.Contain("높이를 못 바꾸므로"));
+        }
+
+        [Test]
+        public void 앞이_뚫렸으면_통과다()
+        {
+            var pad = new BoostPadMeasure("BoostPad_74", 74f, -2.18f, 2.18f, 0.6f,
+                                          -10.92f, 10.92f, null,
+                                          blockedAheadName: null, boostSpan: 8.16f);
+            Assert.IsFalse(pad.BlockedAhead);
+            Assert.IsTrue(pad.Ok);
+        }
+
+        [Test]
         public void 패드가_아예_없으면_그렇다고_말한다()
         {
             //  빈 절은 "재 봤더니 문제없다"로 잘못 읽힌다 — 없으면 없다고 찍어야 한다.

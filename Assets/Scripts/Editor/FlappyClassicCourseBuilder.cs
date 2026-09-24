@@ -65,10 +65,11 @@ namespace LOP.EditorTools
         //  경제다: 0.6초 부스트 = +4.1m이고 충돌 한 번이 −5.4m이니, 패드 하나가 충돌 0.76회를
         //  메운다. 관문마다 놓으면(24개) 코스 612m에서 +98m = 16%라 대시 경제가 통째로 무의미해진다.
         private const float BoostPadDuration = 0.6f;
-        //  전진 6.8m/s로 0.51초(26틱) — 놓칠 일이 없다. 더 넓히지 않는 이유는 경사다:
-        //  패드는 가로로 눕힌 사각형이라, 회랑이 기울어 있으면 <b>폭이 넓을수록 양 끝이 벽에
-        //  가까워진다.</b> 5m로 뒀더니 왼쪽 끝이 바닥에 물렸다.
-        private const float BoostPadWidth = 3.5f;
+        //  전진 6.8m/s로 0.22초(11틱) — 틱 사이로 빠질 일이 없다. <b>좁게 두는 이유가 둘</b>이다:
+        //  ① 경사 — 패드는 가로로 눕힌 사각형이라 회랑이 기울면 폭이 넓을수록 양 끝이 벽에 가까워진다
+        //  (5m로 뒀더니 왼쪽 끝이 바닥에 물렸다). ② <b>부스트가 어디서 시작될지가 폭만큼 흔들린다</b> —
+        //  대시는 조종이 안 되는 직선이라, 시작점이 흔들리면 끝나는 자리도 그만큼 흔들린다.
+        private const float BoostPadWidth = 1.5f;
 
         //  패드와 벽 사이에 남길 틈. 콜라이더 표면에 딱 붙으면 검사가 "겹쳤다"로 읽는다.
         private const float BoostPadClearance = 0.15f;
@@ -291,10 +292,21 @@ namespace LOP.EditorTools
                     continue;
                 }
 
-                float padX = pipes[i].X + spacing * 0.5f;
-                //  관문에서 패드까지 회랑이 기울어 간 만큼 따라 올린다. 안 따라가면 고저차가 큰
-                //  자리에서 패드가 차선 밖으로 나가 통과해도 안 밟힌다.
-                float padY = pipes[i].ChallengeCenter + (centerAt(padX) - centerAt(pipes[i].X));
+                //  <b>구간 안</b>, 마지막 두 도전 관문 사이에 놓는다. 구간 <i>뒤</i>에 놓았더니
+                //  전부 함정이 됐다 — 대시는 조종이 안 되는 수평 직선인데(중력·날갯짓 없음),
+                //  그 앞에 오는 것이 차선이 다른 <b>평범한 관문</b>이라 8.2m를 날아가 그대로 박았다
+                //  (6개 중 6개, 4.4m 앞에서 막힘. 2026-09-24 실측).
+                //
+                //  구간 안은 앞뒤가 <b>같은 차선</b>이라 높이 차가 작다. 그래서 패드를 <b>다음 도전
+                //  관문의 창 높이</b>에 두면 부스트가 그 창을 통과시켜 준다 — 벌이 아니라 상이 된다.
+                if (i < 1 || pipes[i - 1].HasChallenge == false)
+                {
+                    continue;   // 구간이 하나짜리라 안에 놓을 자리가 없다
+                }
+                float padX = (pipes[i - 1].X + pipes[i].X) * 0.5f;
+                //  회랑 기울기를 따라가지 <b>않는다</b>. 이 패드의 존재 이유가 "다음 창에 정렬시키는
+                //  것"이라, 창의 절대 높이를 그대로 써야 부스트가 그 창을 지나간다.
+                float padY = pipes[i].ChallengeCenter;
                 float padHeight = LOP.MapTools.ClassicCourseRule.ChallengeWindowFor(window);
 
                 //  <b>패드 폭 전체</b>에서 회랑의 가장 좁은 곳에 맞춘다. 가운데 한 점만 보면
@@ -305,7 +317,10 @@ namespace LOP.EditorTools
                 for (int step = 0; step <= 8; step++)
                 {
                     float sampleX = padX + BoostPadWidth * (step / 8f - 0.5f);
-                    float lift = centerAt(sampleX);
+                    //  <b>곡선이 아니라 현을 재야 한다.</b> 바닥·천장은 경사를 직선 조각(Ramp)으로
+                    //  덮은 것이라, 실제 면은 centerAt 곡선이 아니라 그 조각의 현이다. 곡선으로
+                    //  재면 오차(수 cm)가 여유 0.15m를 먹고 패드가 바닥에 물린다(실측 1개).
+                    float lift = RampLift(sampleX, spacing, centerAt);
                     highestFloor = Mathf.Max(highestFloor, floorY + lift);
                     lowestCeiling = Mathf.Min(lowestCeiling, ceilingY + lift);
                 }
@@ -325,6 +340,24 @@ namespace LOP.EditorTools
                 placed++;
             }
             return placed;
+        }
+
+        /// <summary>
+        /// 그 x에서 바닥·천장 조각이 <b>실제로</b> 놓인 높이. <see cref="Ramp"/>가 굽는 것과 같은
+        /// 현(두 끝을 잇는 직선)을 그대로 계산한다 — 조각의 윗면이 이 현에 놓이기 때문이다.
+        ///
+        /// <para>회랑 중심 곡선(<c>centerAt</c>)과는 수 cm 다르다. 그 차이를 무시하면 벽에 딱 붙여
+        /// 놓는 것들(부스트 패드)이 조용히 지오메트리 속으로 들어간다.</para>
+        /// </summary>
+        private static float RampLift(float x, float spacing, System.Func<float, float> centerAt)
+        {
+            //  Ramp 루프와 같은 격자를 써야 같은 조각을 가리킨다.
+            float gridStart = StartX - spacing * 4f;
+            int index = Mathf.FloorToInt((x - gridStart) / spacing);
+            float x0 = gridStart + spacing * index;
+            float x1 = x0 + spacing;
+            float t = Mathf.Clamp01((x - x0) / spacing);
+            return Mathf.Lerp(centerAt(x0), centerAt(x1), t);
         }
 
         //  콜라이더가 없다 — 판정은 <c>FlappyBoostPadField</c>가 산술로 한다(트리거로 하면

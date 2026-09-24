@@ -1,5 +1,7 @@
 require "securerandom"
 require "shellwords"
+require "base64"
+require "spaceship"
 
 default_platform(:ios)
 
@@ -31,6 +33,34 @@ platform :ios do
     FileUtils.mkdir_p(File.dirname(path))
     File.write(path, number.to_s)
     UI.success("TestFlight 최신 빌드 번호 = #{number} → #{path}")
+  end
+
+  desc "TestFlight 공개 링크를 파일에 적는다 — 외부 그룹이 없으면 빈 파일 (path: 로 위치 지정)"
+  #  링크를 GitHub 변수에 사람이 손으로 넣어 두지 않고 애플에게 직접 묻는다. 손으로 옮겨 적으면
+  #  그룹을 다시 만든 날부터 조용히 낡은 링크를 뿌리게 된다.
+  #
+  #  토큰을 ENV에서 직접 만드는 것은 `app_store_connect_api_key`가 돌려주는 해시의 모양에
+  #  기대지 않기 위해서다 — 이 경로는 실제로 돌려 확인했다.
+  lane :public_link_to_file do |options|
+    path = options[:path] || File.join(PROJECT_ROOT, "Build/testflight_public_link.txt")
+
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key: Base64.decode64(ENV.fetch("ASC_KEY_P8")),
+    )
+
+    app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
+    group = app.get_beta_groups.find { |g| g.public_link_enabled && g.public_link }
+
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, group ? group.public_link.to_s : "")
+
+    if group
+      UI.success("TestFlight 공개 링크(#{group.name}) = #{group.public_link} → #{path}")
+    else
+      UI.important("공개 링크를 켠 외부 그룹이 없다. App Store Connect에서 만들면 다음 실행부터 QR이 나온다.")
+    end
   end
 
   desc "유니티가 만들어 둔 Xcode 프로젝트를 서명해 TestFlight에 올린다"

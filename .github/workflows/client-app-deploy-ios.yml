@@ -186,6 +186,26 @@ jobs:
           fi
           echo "build_number=$(cat after.txt)" >> "$GITHUB_OUTPUT"
 
+      - name: 키체인 원상복구 (안전망)
+        if: always()
+        run: |
+          set -e
+          #  서명용 키체인은 fastlane이 스스로 지우지만, 프로세스가 중간에 죽으면 그 정리가
+          #  안 돈다(2026-09-24에 실제로 그랬다). 이 맥은 사람이 직접 쓰는 기계라, 기본 키체인을
+          #  빼앗긴 채로 두면 그쪽 작업이 막힌다. 그래서 잡이 어떻게 끝나든 여기서 한 번 더 본다.
+          LOGIN="$HOME/Library/Keychains/login.keychain-db"
+          if [ -f "$HOME/Library/Keychains/lop_ci.keychain-db" ]; then
+            security delete-keychain "$HOME/Library/Keychains/lop_ci.keychain-db" || true
+            echo "남아 있던 CI 키체인을 지웠다"
+          fi
+          CURRENT=$(security default-keychain | tr -d ' "')
+          case "$CURRENT" in
+            *login.keychain*) echo "기본 키체인 정상: $CURRENT" ;;
+            *) security list-keychains -d user -s "$LOGIN"
+               security default-keychain -d user -s "$LOGIN"
+               echo "기본 키체인을 로그인 키체인으로 되돌렸다 (직전: $CURRENT)" ;;
+          esac
+
       - name: content_state 보존 + latest 갱신
         env:
           AWS_ACCESS_KEY_ID: ${{ vars.AWS_ACCESS_KEY_ID }}

@@ -18,7 +18,7 @@
 |---|---|
 | Task 0~4 | **끝남.** 손으로 TestFlight 빌드 1·2·3까지 올렸고 폰에서 로그인·매칭·게임 진입·플레이까지 확인했다. |
 | Task 5 | **끝남.** `client-app-deploy-ios.yml` 한 번 실행으로 TestFlight 빌드 6까지 올라갔다(8분). |
-| Task 6 | 남음 — TestFlight 배포가 시작됐으므로 **이제 필요하다.** 지금의 full 빌드는 이미 설치된 앱과 어긋날 수 있다. |
+| Task 6 | **배관은 끝남.** `content-deploy`의 `client-app-ios`가 baseline을 받아 증분으로 굽고 올린다(2분). 다만 **앱을 다시 깔지 않고 폰에서 변경이 보이는지는 아직 확인 안 했다** — 콘텐츠를 눈에 띄게 하나 바꿔야 하는 확인이라 남겨 둔다. |
 | Task 7 | 남음 — 외부 테스터 그룹·공개 링크는 사람이 App Store Connect에서 만들어야 한다. |
 
 계획서를 쓴 뒤에 알게 되어 Task 5 본문과 **달라진 것 다섯**:
@@ -36,6 +36,11 @@
    true`는 지킨다 — 한 번 false로 해 봤더니 codesign이 `errSecInternalComponent`로 죽었다.
    그리고 워크플로 마지막에 `if: always()` 스텝을 둬서, 프로세스가 죽어 정리가 못 돌아도
    기본 키체인과 검색 목록을 로그인 키체인으로 되돌린다(이 맥은 사람도 쓰는 기계다).
+4-b. **진입점은 새로 만들지 않았다.** 계획서는 `BuildIOSContentUpdate`를 복사해 넣으라고 했지만,
+   안드로이드용과 본문이 완전히 같다 — `GetContentStateDataPath`가 활성 빌드 타깃을 따르기 때문이다.
+   이 파일의 선례(`BuildContentFull` + `BuildAndroidContentFull` 별칭)대로 일반 메서드
+   `BuildContentUpdate()` + 기존 이름 별칭으로 뒀다.
+
 5. **업로드가 끝난 순간 끊는다.** altool이 매번 안 끝나므로 타임아웃을 다 기다리면 배포마다 90분이
    든다. fastlane을 뒤에서 돌리며 1분마다 애플에 빌드 번호를 묻고, 올라가면 프로세스 그룹째
    끊는다(자식까지 끊지 않으면 altool이 며칠씩 남는다). 93분 → 8분.

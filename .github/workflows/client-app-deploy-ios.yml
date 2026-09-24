@@ -264,11 +264,12 @@ jobs:
                echo "기본 키체인을 로그인 키체인으로 되돌렸다 (직전: $CURRENT)" ;;
           esac
 
-      - name: content_state 보존 + latest 갱신
+      - name: content_state · dSYM 보존 + latest 갱신
         env:
           AWS_ACCESS_KEY_ID: ${{ vars.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           BUILD_ENV: ${{ inputs.environment }}
+          BUILD_NUMBER: ${{ steps.upload.outputs.build_number }}
         run: |
           set -e
           SHA="${{ steps.tag.outputs.sha }}"
@@ -277,8 +278,25 @@ jobs:
           DEST="s3://lop-client/builds/$BUILD_ENV/ios/$SHA"
           aws s3 cp Assets/AddressableAssetsData/iOS/addressables_content_state.bin \
             "$DEST/addressables_content_state.bin"
-          printf '{"sha":"%s","environment":"%s","build_number":"%s","content_state":"%s/addressables_content_state.bin"}\n' \
-            "$SHA" "$BUILD_ENV" "${{ steps.upload.outputs.build_number }}" "$DEST" > latest.json
+
+          #  dSYM이 없으면 크래시 로그가 와도 **어느 줄에서 죽었는지 못 읽는다** — 주소만 남는다.
+          #  fastlane(gym)이 아카이브에서 뽑아 Build/ipa/ 에 넣어 두는데, 그 폴더는 다음 빌드가
+          #  통째로 지우므로(Xcode 프로젝트 빌드 스텝) 여기서 건져 두지 않으면 사라진다.
+          #  빌드 번호로 찾을 수 있게 파일 이름에 함께 박는다 — 크래시 리포트가 들고 오는 것이
+          #  sha가 아니라 버전·빌드 번호이기 때문이다.
+          DSYM="Build/ipa/lop.app.dSYM.zip"
+          DSYM_KEY=""
+          if [ -f "$DSYM" ]; then
+            DSYM_KEY="$DEST/lop-build${BUILD_NUMBER}.app.dSYM.zip"
+            aws s3 cp "$DSYM" "$DSYM_KEY"
+            echo "dSYM 보존: $DSYM_KEY"
+          else
+            #  배포 자체를 막을 일은 아니지만, 조용히 넘어가면 나중에 크래시를 못 읽는다.
+            echo "::warning::dSYM($DSYM)이 없다 — 이 빌드의 크래시는 심볼화할 수 없다."
+          fi
+
+          printf '{"sha":"%s","environment":"%s","build_number":"%s","content_state":"%s/addressables_content_state.bin","dsym":"%s"}\n' \
+            "$SHA" "$BUILD_ENV" "$BUILD_NUMBER" "$DEST" "$DSYM_KEY" > latest.json
           aws s3 cp latest.json "s3://lop-client/builds/$BUILD_ENV/ios/latest.json"
           echo "보존: $DEST/ , builds/$BUILD_ENV/ios/latest.json"
 

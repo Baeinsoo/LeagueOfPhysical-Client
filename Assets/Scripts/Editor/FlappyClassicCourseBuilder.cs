@@ -113,10 +113,7 @@ namespace LOP.EditorTools
 
             //  코스는 뾰족한 U·A·계단 조각을 이어 붙인 꺾은선이다(spec 2026-09-24).
             //  앞뒤 여유는 스폰 뒤와 결승선 뒤를 덮는다 — 예전 경사 격자의 여유(앞 4칸·뒤 8칸)와 같다.
-            var profile = LOP.MapTools.CourseProfileRule.Compose(
-                StartX, length, spacing, ceilingY, window, Seed,
-                leadIn: spacing * 4f, tail: spacing * 8f,
-                arc: new LOP.MapTools.FlapArc(config.FlapImpulse, config.Gravity, config.ForwardSpeed, TickSeconds));
+            var profile = ComposeProfile(config);
             System.Func<float, float> centerAt = profile.CenterAt;
 
             System.Func<float, bool> gateAllowed =
@@ -251,6 +248,20 @@ namespace LOP.EditorTools
                     + $" · 지름길 {profile.Shortcuts.Count}개 (패드 {shortcutPads}개)"
                     + $" · 도전 관문 {challengeGates}개"
                     + $" · 부스트 패드 {boostPads}개 ({BoostPadDuration:F1}초)");
+        }
+
+        /// <summary>굽기와 같은 코스 프로필. 에디터 측정(eval)이 씬과 같은 기하를 다시 얻을 때 쓴다.</summary>
+        public static LOP.MapTools.CourseProfile ComposeProfile(LOP.MasterData.FlappyConfig config)
+        {
+            float window = LOP.MapTools.GateRhythmRule.TargetWindow(
+                config.FlapImpulse, config.Gravity, TickSeconds, config.BodyHeight);
+            float spacing = LOP.MapTools.GateRhythmRule.TargetSpacing(config.ForwardSpeed);
+            float ceilingY = LOP.MapTools.VisualHonesty.ScreenHalfHeight(CameraDistance, VerticalFov);
+            float length = RaceSeconds * config.ForwardSpeed;
+            return LOP.MapTools.CourseProfileRule.Compose(
+                StartX, length, spacing, ceilingY, window, Seed,
+                leadIn: spacing * 4f, tail: spacing * 8f,
+                arc: new LOP.MapTools.FlapArc(config.FlapImpulse, config.Gravity, config.ForwardSpeed, TickSeconds));
         }
 
         //  코스 지오메트리 안에 섞여 있는 마커(FinishLine·SpawnPoint)를 <c>---Course---</c>
@@ -650,7 +661,7 @@ namespace LOP.EditorTools
 
         //  코스를 굽는 데 필요한 것은 이 넷뿐이다 — FlappyConfig를 통째로 만들지 않는다
         //  (스턴·대시·추격자 값은 지오메트리와 무관한데 생성자가 전부 요구한다).
-        private static bool TryReadConfig(out LOP.MasterData.FlappyConfig row)
+        public static bool TryReadConfig(out LOP.MasterData.FlappyConfig row)
         {
             row = null;
             string path = Path.GetFullPath(

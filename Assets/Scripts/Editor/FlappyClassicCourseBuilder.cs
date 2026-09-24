@@ -144,15 +144,10 @@ namespace LOP.EditorTools
 
             //  바닥·천장은 구간마다 끊는다 — 한 덩어리면 색이 안 바뀌어 구간 경계가 바닥에서만
             //  안 보인다. 앞뒤로는 코스 밖(스폰·결승선)까지 덮도록 여유를 준다.
-            //  바닥·천장은 <b>고저차를 따라간다</b>. 수평 조각을 겹쳐 놓으면 안 된다 —
-            //  높이가 다른 두 조각이 겹치는 구간에서 실효 바닥은 더 높은 쪽, 실효 천장은 더
-            //  낮은 쪽이 되어 <b>회랑이 최대 11m까지 먹힌다</b>(창 4.37m보다 좁아져 통과 불가).
-            //  실제로 x=203에서 회랑 높이가 0이 됐다.
-            //
-            //  그래서 조각을 <b>경사로 눕힌다</b>: 양 끝의 회랑 중심을 잇는 현(弦)을 윗면으로
-            //  삼아 z축 둘레로 기울인다. 바닥과 천장이 나란한 현이므로 세로 간격(회랑 높이)이
-            //  어디서나 일정하다. z축 회전이라 블록의 z 범위가 안 변해 층 규약·시각 정직성
-            //  검사에도 영향이 없다.
+            //  바닥·천장은 <b>고저차를 따라간다</b>. 그래서 조각을 <b>경사로 눕힌다</b>: 양 끝의
+            //  회랑 중심을 잇는 현(弦)을 윗면으로 삼아 z축 둘레로 기울인다. 바닥과 천장이 나란한
+            //  현이므로 세로 간격(회랑 높이)이 어디서나 일정하다. z축 회전이라 블록의 z 범위가
+            //  안 변해 층 규약·시각 정직성 검사에도 영향이 없다.
             //  꺾은선의 꼭짓점마다, 그리고 구간 경계마다 끊는다 — 조각 하나가 곧은 경사 하나라
             //  바닥·천장이 꺾은선에 정확히 놓인다. 구간 경계에서 끊어야 색이 바뀐다.
             float sectionLength = length / FlappyRace.CourseSectionRule.Count;
@@ -225,7 +220,7 @@ namespace LOP.EditorTools
             RebuildSkyline(length);
 
             PlaceSpawns(floorY, ceilingY, window, pipes.Count > 0 ? pipes[0].GapCenter : 0f);
-            PlaceFinish(StartX + length + spacing);
+            PlaceFinish(StartX + length + spacing, centerAt);
 
             //  이 프로젝트는 결정론 때문에 물리 동기를 직접 관리한다(Physics.autoSyncTransforms를
             //  켜 두지 않는다). 부르지 않으면 콜라이더가 <b>만들 때의 자리</b>에 그대로 있어서,
@@ -338,10 +333,10 @@ namespace LOP.EditorTools
             go.AddComponent<MeshRenderer>().sharedMaterial = material;
             var collider = go.AddComponent<MeshCollider>();
             collider.sharedMesh = PrismMesh(name + "_Collider", polygon, -PipeDepth * 0.5f, PipeDepth * 0.5f);
-            //  볼록으로 표시해야 한다 — 비볼록 MeshCollider는 CheckSphere/OverlapSphere류(겹침 질의)에
-            //  아예 안 잡힌다(스윕류인 CapsuleCast/Raycast는 잡는다). 맵 검사기(FlappyMapPlayabilityCheck)의
-            //  패드 겹침 판정이 겹침 질의를 쓰므로, 볼록으로 안 두면 혀가 있어도 "안 겹쳤다"로 읽힌다.
-            //  혀 다각형은 늘 볼록(계산 근거는 spec §4)이라 볼록 헐로 바꿔도 모양이 그대로다.
+            //  오목(비볼록) 메시 콜라이더는 속이 빈 껍데기라, 안쪽에 완전히 들어간 구체는 겹침
+            //  검사(CheckSphere/OverlapSphere류)에 안 걸린다(표면을 스치는 CapsuleCast/Raycast는
+            //  걸린다). 볼록으로 두면 속이 찬 덩어리가 된다 — 혀는 늘 볼록 사다리꼴이라 모양이
+            //  바뀌지 않는다.
             collider.convex = true;
             Undo.RegisterCreatedObjectUndo(go, "Build classic course");
             return go;
@@ -354,7 +349,9 @@ namespace LOP.EditorTools
             var triangles = new System.Collections.Generic.List<int>();
             int n = poly.Length;
 
-            //  앞면(카메라 쪽, z가 작은 쪽). 다각형은 반시계라 −z에서 보면 시계 — 유니티 앞면 규칙에 맞는다.
+            //  앞면(카메라 쪽, z가 작은 쪽). 다각형은 반시계인데 −z에서 봐도 그대로 반시계로 보인다 —
+            //  그래서 인덱스 순서를 뒤집어야 시계 방향이 되어 유니티 앞면 규칙(카메라에서 봤을 때
+            //  시계 방향인 면이 앞면)에 맞는다.
             int front = vertices.Count;
             for (int i = 0; i < n; i++) { vertices.Add(new Vector3(poly[i].x, poly[i].y, zNear)); }
             for (int i = 1; i < n - 1; i++) { triangles.Add(front); triangles.Add(front + i + 1); triangles.Add(front + i); }
@@ -383,8 +380,6 @@ namespace LOP.EditorTools
             return mesh;
         }
 
-        //  두 점의 회랑 중심을 잇는 현을 윗면(바닥) 또는 밑면(천장)으로 삼는 경사 조각.
-        //  z축 둘레로만 기울이므로 블록의 z 범위가 변하지 않는다.
         /// <summary>
         /// 도전 구간마다 <b>마지막 관문 바로 뒤</b>에 부스트 패드를 하나 둔다 — 그 자리에 있으려면
         /// 위험한 쪽 창을 실제로 통과했어야 하므로, "위험을 고른 쪽이 거리로 보상받는다"가 성립한다.
@@ -475,6 +470,8 @@ namespace LOP.EditorTools
             pad.Duration = BoostPadDuration;
         }
 
+        //  두 점의 회랑 중심을 잇는 현을 윗면(바닥) 또는 밑면(천장)으로 삼는 경사 조각.
+        //  z축 둘레로만 기울이므로 블록의 z 범위가 변하지 않는다.
         private static void Ramp(Transform parent, string name, float x0, float x1,
                                  float lift0, float lift1, float baseY, bool below, Material material)
         {
@@ -604,6 +601,8 @@ namespace LOP.EditorTools
 
         //  네 자리를 첫 창 높이 언저리에 세로로 편다 — 출발선에서 스폰 높이가 통과를 정하지
         //  않도록 첫 파이프는 한 간격 뒤에 있다(ClassicCourseRule).
+        //  y=0을 그대로 쓴다 — 결승선과 달리 스폰은 늘 StartX(꺾은선의 시작점)에 있고, 프로필은
+        //  거기서 항상 0으로 시작한다(CourseProfileRule.Compose가 y=0에서 출발).
         private static void PlaceSpawns(float floorY, float ceilingY, float window, float firstGapCenter)
         {
             var spawns = Object.FindObjectsByType<LOP.SpawnPoint>(FindObjectsInactive.Include,
@@ -623,7 +622,9 @@ namespace LOP.EditorTools
             }
         }
 
-        private static void PlaceFinish(float x)
+        //  y를 0으로 고정하지 않는다 — 계단 때문에 코스가 0이 아닌 높이에서 끝날 수 있다.
+        //  그 x의 실제 회랑 중심(centerAt)에 세워야 결승선이 바닥·천장 사이에 온전히 온다.
+        private static void PlaceFinish(float x, System.Func<float, float> centerAt)
         {
             var finish = Object.FindFirstObjectByType<LOP.FinishLine>(FindObjectsInactive.Include);
             if (finish == null)
@@ -632,7 +633,7 @@ namespace LOP.EditorTools
                 return;
             }
             Undo.RecordObject(finish.transform, "Build classic course");
-            finish.transform.position = new Vector3(x, 0f, finish.transform.position.z);
+            finish.transform.position = new Vector3(x, centerAt(x), finish.transform.position.z);
         }
 
         //  코스를 굽는 데 필요한 것은 이 넷뿐이다 — FlappyConfig를 통째로 만들지 않는다

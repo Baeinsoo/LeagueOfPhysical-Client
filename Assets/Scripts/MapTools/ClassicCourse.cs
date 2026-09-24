@@ -95,6 +95,11 @@ namespace LOP.MapTools
         /// <param name="challengeRuns">
         /// 창이 둘인 <b>도전 구간</b>을 코스에 몇 군데 둘 것인가. 0이면 전부 창 하나(옛 동작).
         /// </param>
+        /// <param name="gateAllowed">
+        /// 이 x에 관문을 세워도 되나(null이면 전부 허용). <paramref name="challengeRuns"/>가 걸려
+        /// 있으면, 벽에 걸치는 구간은 그냥 버리지 않고 <b>벽 없는 자리를 찾아 다시 놓는다</b> —
+        /// 그래야 요청한 개수가 실제로 나온다. 자리가 모자라면 있는 만큼만 놓는다.
+        /// </param>
         public static List<CoursePipe> Layout(float startX, float courseLength, float spacing,
                                               float floorY, float ceilingY, float window,
                                               float maxStep, ulong seed,
@@ -121,6 +126,12 @@ namespace LOP.MapTools
             float center = (low + high) * 0.5f;
             float previousLift = centerAt != null ? centerAt(startX) : 0f;
 
+            var positions = new List<float>();
+            for (float px = startX + spacing; px <= startX + courseLength + 1e-4f; px += spacing)
+            {
+                positions.Add(px);
+            }
+
             //  도전 구간의 첫 관문 번호들을 먼저 뽑는다. 코스를 고르게 나눠 그 안에서 흔들어,
             //  "약 150m마다 한 번"이 되게 한다 — 몰려 있으면 나머지가 통째로 심심해진다.
             int totalGates = (int)((courseLength - 1e-4f) / spacing);
@@ -130,33 +141,63 @@ namespace LOP.MapTools
                 //  <b>다른 난수 줄기</b>를 쓴다. 같은 줄기를 쓰면 도전 구간을 켜는 순간 안전선의
                 //  난수까지 밀려서 기본 맵이 통째로 달라진다 — "기존 느낌은 그대로"가 깨진다.
                 var runRng = new DeterministicRandom(seed ^ 0x9E3779B97F4A7C15UL);
-                int slot = totalGates / challengeRuns;
-                for (int r = 0; r < challengeRuns; r++)
+                if (gateAllowed == null)
                 {
-                    int lo = r * slot + 1;
-                    int hi = System.Math.Max(lo + 1, (r + 1) * slot - ChallengeRunLength);
-                    runStarts.Add(runRng.Range(lo, hi));
-                }
-            }
-
-            //  벽에 걸치는 도전 구간은 통째로 뺀다. 반만 남기면 차선이 벽을 건너 이어져
-            //  "벽을 따라 내려가며 먼 창을 노리는" 따라갈 수 없는 자리가 된다.
-            var positions = new List<float>();
-            for (float px = startX + spacing; px <= startX + courseLength + 1e-4f; px += spacing)
-            {
-                positions.Add(px);
-            }
-            if (gateAllowed != null)
-            {
-                runStarts.RemoveWhere(start =>
-                {
-                    for (int k = 0; k < ChallengeRunLength; k++)
+                    int slot = totalGates / challengeRuns;
+                    for (int r = 0; r < challengeRuns; r++)
                     {
-                        int g = start + k;
-                        if (g < 1 || g > positions.Count || gateAllowed(positions[g - 1]) == false) { return true; }
+                        int lo = r * slot + 1;
+                        int hi = System.Math.Max(lo + 1, (r + 1) * slot - ChallengeRunLength);
+                        runStarts.Add(runRng.Range(lo, hi));
                     }
-                    return false;
-                });
+                }
+                else
+                {
+                    //  벽이 있으면 "무작정 뽑고 벽에 걸치면 버리기"로는 요청한 개수를 못 채운다
+                    //  (실제로 6개를 요청해도 0개가 나온 적이 있다 — 뽑힌 자리가 전부 벽에
+                    //  걸려 몽땅 버려졌기 때문). 그래서 <b>벽 없는 연속 4관문 자리</b>만 먼저
+                    //  후보로 추리고(칸이 이어져 있으니 간격도 저절로 맞다), 그 후보 목록을
+                    //  코스를 따라 고르게 나눠 하나씩 뽑는다 — 위 gateAllowed==null 분기와
+                    //  같은 모양(구간을 slot개로 나눠 그 안에서 하나 뽑기)이지만, 뽑는 대상이
+                    //  "관문 번호 전체"가 아니라 "실제로 놓을 수 있는 자리 목록"이다.
+                    var eligible = new List<int>();
+                    for (int g = 1; g + ChallengeRunLength - 1 <= positions.Count; g++)
+                    {
+                        bool ok = true;
+                        for (int k = 0; k < ChallengeRunLength; k++)
+                        {
+                            if (gateAllowed(positions[g - 1 + k]) == false) { ok = false; break; }
+                        }
+                        if (ok) { eligible.Add(g); }
+                    }
+                    if (eligible.Count > 0)
+                    {
+                        int slot = eligible.Count / challengeRuns;
+                        int width = System.Math.Max(1, slot - ChallengeRunLength - 1);
+                        for (int r = 0; r < challengeRuns; r++)
+                        {
+                            int lo = r * slot;
+                            if (lo >= eligible.Count) { continue; }   // 후보가 이 슬롯까지 못 미친다
+                            int hi = System.Math.Min(eligible.Count, lo + width);
+                            int pick = eligible[runRng.Range(lo, hi)];
+                            //  같은 자리가 두 슬롯에 걸쳐 뽑힐 수 있다(후보가 적을 때) — 이미
+                            //  고른 구간과 겹치거나 <b>바로 붙으면</b>(틈 0) 버린다. 안 그러면
+                            //  두 도전 구간이 맞닿아 8관문짜리 하나로 보인다 — "연속 4관문"이라는
+                            //  구간 정의가 깨진다. 겹치지만 않으면 요청한 개수보다 적게 나올
+                            //  뿐, 잘못된 자리에 놓이진 않는다.
+                            bool overlaps = false;
+                            foreach (int chosen in runStarts)
+                            {
+                                if (pick <= chosen + ChallengeRunLength && chosen <= pick + ChallengeRunLength)
+                                {
+                                    overlaps = true;
+                                    break;
+                                }
+                            }
+                            if (overlaps == false) { runStarts.Add(pick); }
+                        }
+                    }
+                }
             }
 
             int gateIndex = 0;

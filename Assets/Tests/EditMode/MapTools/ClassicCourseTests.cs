@@ -406,7 +406,7 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
-        public void 도전_구간이_벽에_걸치면_통째로_빠진다()
+        public void 도전_구간이_벽에_걸치면_다른_자리에_다시_놓인다()
         {
             //  고정 벽([100,200])은 씨앗 7에서 우연히 어느 도전 구간도 걸치지 않아 이 시험을
             //  그냥 통과시켰다 — RemoveWhere를 지워도 초록이 나왔다. 그래서 벽을 고정값이 아니라
@@ -416,25 +416,72 @@ namespace LOP.MapTools.Tests
                                                  challengeRuns: 6);
             int firstIndex = open.FindIndex(p => p.HasChallenge);
             Assert.That(firstIndex, Is.GreaterThanOrEqualTo(0), "도전 구간이 하나도 없다 — 이 시험이 못 선다");
-            float firstX = open[firstIndex].X;
             float lastX = open[firstIndex + ClassicCourseRule.ChallengeRunLength - 1].X;
 
-            //  구간의 마지막 관문 하나만 막는다 — 나머지 셋은 열려 있으니 "부분만 남기지 않는다"를 잰다.
+            //  구간의 마지막 관문 하나만 막는다 — 나머지 셋은 열려 있다.
             bool Allowed(float x) => System.Math.Abs(x - lastX) > 1f;
 
             var pipes = ClassicCourseRule.Layout(0f, 612f, 11.4f, Floor, Ceiling, Window, 6f, 7UL,
                                                  challengeRuns: 6, gateAllowed: Allowed);
 
-            Assert.IsFalse(pipes.Exists(p => p.HasChallenge && p.X >= firstX - 1e-3f && p.X <= lastX + 1e-3f),
-                           "벽에 걸친 구간의 나머지 관문이 살아남았다");
+            //  막은 자리 자체에는 아무것도 안 선다(도전이든 안전이든) — 벽 규칙 자체는 그대로다.
+            Assert.IsFalse(pipes.Exists(p => System.Math.Abs(p.X - lastX) < 1e-3f), "막은 자리에 관문이 섰다");
 
+            //  <b>이제는 통째로 빠지지 않고 다른 자리에 다시 놓인다</b> — 자리 하나만 막았으니
+            //  다시 놓을 여유가 넉넉해서 요청한 6개가 그대로 나와야 한다. 어떤 구간도 막힌
+            //  자리를 끼고 있지 않고(부분 구간 없음), 전부 정확히 4관문이 칸 간격으로 이어진다.
             var run = new List<CoursePipe>();
+            int runCount = 0;
             foreach (CoursePipe p in pipes)
             {
-                if (p.HasChallenge) { run.Add(p); continue; }
+                if (p.HasChallenge)
+                {
+                    Assert.That(System.Math.Abs(p.X - lastX), Is.GreaterThan(1e-3f),
+                               "막힌 자리가 도전 구간에 끼어 있다");
+                    run.Add(p);
+                    continue;
+                }
                 Assert.That(run.Count, Is.EqualTo(0).Or.EqualTo(ClassicCourseRule.ChallengeRunLength));
+                if (run.Count == ClassicCourseRule.ChallengeRunLength) { runCount++; }
                 for (int i = 1; i < run.Count; i++) { Assert.AreEqual(11.4f, run[i].X - run[i - 1].X, 1e-3f); }
                 run.Clear();
+            }
+            if (run.Count == ClassicCourseRule.ChallengeRunLength) { runCount++; }
+            Assert.AreEqual(6, runCount, "자리가 넉넉한데도 재배치가 6개를 못 채웠다");
+        }
+
+        [Test]
+        public void 자리가_적어도_찾을_수_있는_만큼_도전_구간을_다시_놓는다()
+        {
+            //  넓은 평지 두 군데([50,160]·[300,420])만 허용한다 — 그 밖은 전부 벽이다.
+            //  후보가 넉넉하지 않은 상황에서도 재배치가 최소 하나는 찾아내야 하고, 찾은 것은
+            //  전부 부분 없이 4관문이 칸 간격으로 이어져야 한다.
+            bool Allowed(float x) => (x > 50f && x < 160f) || (x > 300f && x < 420f);
+
+            var pipes = ClassicCourseRule.Layout(0f, 612f, 11.4f, Floor, Ceiling, Window, 6f, 7UL,
+                                                 challengeRuns: 6, gateAllowed: Allowed);
+
+            var runs = new List<List<CoursePipe>>();
+            var current = new List<CoursePipe>();
+            foreach (CoursePipe p in pipes)
+            {
+                if (p.HasChallenge) { current.Add(p); continue; }
+                if (current.Count > 0) { runs.Add(current); current = new List<CoursePipe>(); }
+            }
+            if (current.Count > 0) { runs.Add(current); }
+
+            Assert.That(runs.Count, Is.GreaterThanOrEqualTo(1), "벽 때문에 도전 구간이 하나도 안 나왔다");
+            foreach (List<CoursePipe> run in runs)
+            {
+                Assert.AreEqual(ClassicCourseRule.ChallengeRunLength, run.Count, "부분 구간이 나왔다");
+                for (int i = 1; i < run.Count; i++)
+                {
+                    Assert.AreEqual(11.4f, run[i].X - run[i - 1].X, 1e-3f, "칸이 이어져 있지 않다");
+                }
+                foreach (CoursePipe p in run)
+                {
+                    Assert.IsTrue(Allowed(p.X), $"x={p.X:F1}가 허용되지 않은 자리다");
+                }
             }
         }
     }

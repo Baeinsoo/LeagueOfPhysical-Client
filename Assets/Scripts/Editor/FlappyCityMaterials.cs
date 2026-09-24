@@ -31,6 +31,12 @@ namespace LOP.EditorTools
         public static Material Midground => Load("Midground");
         public static Material Skyline => Load("Skyline");
 
+        /// <summary>
+        /// 부스트 패드 바닥. <b>콜라이더가 없는 소품</b>이라 게임 평면의 장애물 재질과 달라야 한다 —
+        /// 층 계약(<c>LayerContract</c>)이 "장애물 재질인데 콜라이더가 없다"를 위반으로 잡는다.
+        /// </summary>
+        public static Material Boost => Load("Boost");
+
         [MenuItem("LOP/Debug/Flappy 도시 재질 만들기")]
         public static void EnsureAll()
         {
@@ -42,6 +48,12 @@ namespace LOP.EditorTools
             Ensure("CityExposed", new Color(0.84f, 0.66f, 0.44f), smoothness: 0.14f, emission: Color.black);
             Ensure("CityCharred", new Color(0.84f, 0.56f, 0.42f), smoothness: 0.18f,
                    emission: new Color(0.55f, 0.18f, 0.05f));
+
+            //  부스트 패드 — 도시 어디에도 없는 형광 청록이다. 코스 색(따뜻한 흙빛) 안에서
+            //  <b>유일하게 차가운 밝은 것</b>이라 스쳐 지나가도 "저건 주는 것"으로 읽힌다.
+            //  발광을 강하게 주는 이유도 같다: 빠르게 지나가므로 알베도만으로는 못 읽힌다.
+            Ensure("Boost", new Color(0.25f, 0.95f, 0.75f), smoothness: 0.5f,
+                   emission: new Color(0.20f, 0.85f, 0.65f));
 
             //  중간층·배경 — 여기만 어두워진다. 안개가 거리로 더 씻긴다.
             Ensure("Midground", new Color(0.33f, 0.34f, 0.38f), smoothness: 0f, emission: Color.black);

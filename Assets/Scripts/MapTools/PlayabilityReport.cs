@@ -291,7 +291,8 @@ namespace LOP.MapTools
                                    IReadOnlyList<Gate> gates = null,
                                    float targetWindow = 0f,
                                    float targetSpacing = 0f,
-                                   string layerSection = null)
+                                   string layerSection = null,
+                                   string boostSection = null)
         {
             var text = new StringBuilder();
             float cleanRunSeconds = (finishX - startX) / config.ForwardSpeed;
@@ -450,19 +451,23 @@ namespace LOP.MapTools
             }
             if (anyUnproven)
             {
-                //  🟡는 이제 "봇이 못 갔다"는 사실을 담는다 — 그것이 곧 맵이 불가능하다는
-                //  뜻은 아니다(봇의 한계일 수 있다). 탐색이 찾은 경로가 있다는 것과, 그
-                //  경로가 진짜 커널 재생에서 어긋나 증명은 못 했다는 것은 별개다. 재생
-                //  불일치의 원인은 <b>높이 눈금이 아니다</b>(2026-09-14에 탐색이 정확한 높이를
-                //  들고 다니게 바뀌어 그 편향은 0이 됐다 — 위 "편향 읽기" 줄이 그것을 잰다).
-                //  남은 원인은 <b>무엇을 '닿았다'로 보느냐가 서로 다른 것</b>이다: 탐색은 점을
-                //  격자에 붙여 찍어 보고, 진짜 커널은 캡슐을 한 틱만큼 쓸어 보며 벽에서 살짝
-                //  띄운다. 그래서 눈금을 좁히는 것은 여전히 안정적인 해법이 아니다.
-                text.AppendLine("  (🟡는 봇이 못 갔지만 탐색은 경로를 찾은 결과다 — 맵이 불가능하다는"
-                              + " 뜻이 아니라 봇이 못 간 것일 수 있다. 탐색이 찾은 경로는 진짜 커널"
-                              + " 재생에서 어긋나 증명하지 못했다 — 남은 원인은 높이 계산이 아니라"
-                              + " 충돌을 보는 방식이 서로 다른 것이다(탐색은 점을 격자에 붙여 찍고,"
-                              + " 커널은 캡슐을 한 틱만큼 쓸어 본다). 자세한 내용은 docs/ROADMAP.md 참고)");
+                //  <b>🟡는 "모른다"이지 "된다"도 "안 된다"도 아니다.</b> 탐색이 경로를 냈지만
+                //  그 경로를 진짜 커널로 되돌려 보면 어긋나므로, 그 자리는 아직 아무도 끝까지
+                //  날아 본 적이 없다.
+                //
+                //  ⚠️ <b>여기에 원인을 단정해 적지 않는다.</b> 예전에는 "탐색은 점을 격자에 붙여
+                //  찍고 커널은 캡슐을 쓸어 본다"고 적혀 있었는데 그건 이미 <b>낡은 설명</b>이었고
+                //  (탐색의 한 틱 전진은 2026-09-14부터 커널 그 자체다), 그 틀린 문장을 믿고
+                //  엉뚱한 곳(눈금 크기)을 고치러 갈 뻔했다(2026-09-23). 밝혀진 것만 과거형으로 적는다.
+                text.AppendLine("  (🟡는 \"모른다\"는 뜻이다 — 맵이 불가능하다는 뜻도, 갈 수 있다고"
+                              + " 증명됐다는 뜻도 아니다. 탐색이 낸 경로가 진짜 커널 재생에서"
+                              + " 어긋나 증명이 되지 못했다.)");
+                text.AppendLine("  (지금까지 밝혀진 원인은 탐색과 재생이 x를 다르게 쌓은 것이다 —"
+                              + " 탐색은 곱셈(출발점 + 한틱x × 틱수), 커널은 매 틱 더하기라"
+                              + " 4267틱에서 3cm 벌어졌다. 커널이 벽에서 띄우는 여유가 0.02m라"
+                              + " 스치는 판정이 뒤집힌다. 2026-09-23에 탐색도 더하기로 맞췄다"
+                              + " — 그래도 어긋난다면 그건 새 원인이니 다시 재야 한다."
+                              + " 눈금을 좁히는 것은 이 증상의 해법이 아니다.)");
             }
             text.AppendLine();
 
@@ -473,6 +478,13 @@ namespace LOP.MapTools
             if (string.IsNullOrEmpty(layerSection) == false)
             {
                 text.AppendLine(layerSection);
+                text.AppendLine();
+            }
+
+            //  부스트 패드는 층 규약 뒤다 — 둘 다 "콜라이더가 없어 조용히 넘어가는 것"을 잡는 절이다.
+            if (string.IsNullOrEmpty(boostSection) == false)
+            {
+                text.AppendLine(boostSection);
                 text.AppendLine();
             }
 
@@ -742,8 +754,9 @@ namespace LOP.MapTools
             if (replay.PrevDiff == 0f)
             {
                 text.AppendLine("                             편향 읽기: 직전 틱까지 탐색과 재생의 높이가"
-                              + " 정확히 같다(차이 0) — 어긋난 원인은 높이 계산이 아니라 충돌을 보는"
-                              + " 방식이다(탐색은 점을 격자에 붙여 찍고, 커널은 캡슐을 한 틱만큼 쓸어 본다).");
+                              + " 정확히 같다(차이 0) — 높이 계산은 원인이 아니다. 충돌 판정도 아니다"
+                              + "(탐색의 한 틱 전진은 이미 진짜 이동 커널이다). x를 쌓는 방식이"
+                              + " 달랐던 것은 2026-09-23에 맞췄다 — 그래도 어긋나면 새 원인이다.");
                 return;
             }
             float perTick = replay.PrevDiff / replay.Tick;

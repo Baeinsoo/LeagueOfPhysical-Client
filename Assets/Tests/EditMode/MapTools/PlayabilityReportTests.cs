@@ -144,13 +144,14 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 증명되지_않은_안내는_눈금_처방을_주지_않는다()
         {
-            //  🟡의 원인은 반올림 편향의 누적이지 눈금 굵기가 아니다 — docs/ROADMAP.md가
-            //  이미 "눈금을 좁혀도 소용없다"고 결론 냈다. 옛 합쳐진 문장(❌/🟡 공용 처방)으로
-            //  되돌아가면 이 안 맞는 처방이 다시 붙는다 — 그 회귀를 여기서 잡는다.
+            //  🟡의 원인은 눈금 굵기가 아니다(2026-09-23 실측: 탐색과 재생이 x를 다르게 쌓아
+            //  4267틱에서 3cm 벌어진 것이었다). 옛 합쳐진 문장(❌/🟡 공용 처방)으로 되돌아가면
+            //  "눈금을 줄여 보라"는 안 맞는 처방이 다시 붙는다 — 그 회귀를 여기서 잡는다.
             string report = Build(
                 new SpawnCleanRun("PlayerSpawn_1", -6f, new CleanRunResult(true, new bool[214], 0f, 0f, 0, 0f), false, botReached: false, botFlaps: 0, bot: default));
 
-            StringAssert.Contains("ROADMAP", report);
+            //  처방을 <b>주지 않는다</b>는 것이 이 테스트의 핵심이고, 그 이유까지 글로 남아야 한다.
+            Assert.IsTrue(Contains(report, "눈금을 좁히는 것은 이 증상의 해법이 아니다"));
             StringAssert.DoesNotContain("줄여", report);
         }
 
@@ -282,8 +283,10 @@ namespace LOP.MapTools.Tests
 
             Assert.IsTrue(Contains(report, "🟡"));
             Assert.IsFalse(Contains(report, "✅"));
-            //  이 상태의 뜻이 "봇 한계일 수 있다"라는 것이 글로 남아야 한다.
-            StringAssert.Contains("봇이 못 간 것", report);
+            //  이 상태의 뜻이 <b>"모른다"</b>라는 것이 글로 남아야 한다 — "안 된다"로도
+            //  "된다"로도 읽히면 안 된다.
+            Assert.IsTrue(Contains(report, "\"모른다\"는 뜻이다"));
+            Assert.IsTrue(Contains(report, "증명됐다는 뜻도 아니다"));
             //  🟡 줄의 날갯짓 수는 탐색 경로의 것이다 — 라벨 없이 찍으면 바로 아래 봇의
             //  실제 날갯짓 수와 헷갈린다(Fix round 3, Important 1). 이 픽스처는 bool[191]이
             //  전부 false라 CountFlaps==0.
@@ -808,8 +811,8 @@ namespace LOP.MapTools.Tests
         {
             //  탐색이 정확한 높이를 들고 다니게 된 뒤로 이 차이는 0이 된다. 그때 옛 외삽 문장을
             //  그대로 찍으면 "0.000m/틱 … 같은 비율로 끝까지 가면 약 0.0m … 단조 증가한다"가 되어,
-            //  <b>아직 편향이 쌓이는 중</b>으로 읽힌다 — 실제로는 그 원인이 사라진 것이고 남은
-            //  원인은 충돌을 보는 방식이다. 엉뚱한 곳을 고치게 만드는 문장이라 갈라 찍는다.
+            //  <b>아직 편향이 쌓이는 중</b>으로 읽힌다 — 실제로는 높이 편향이 사라진 것이다.
+            //  엉뚱한 곳을 고치게 만드는 문장이라 갈라 찍는다.
             string report = Build(Unproven(
                 Hit("지붕슬래브/Cube_77", 12.4f),
                 new ReplayMismatch(detected: true, tick: 304, x: 64.8f, y: -5.9f,
@@ -818,7 +821,10 @@ namespace LOP.MapTools.Tests
                                    prevDiff: 0f, hasPrevDiff: true)));
 
             Assert.IsTrue(Contains(report, "정확히 같다(차이 0)"));
-            Assert.IsTrue(Contains(report, "충돌을 보는 방식"));
+            //  높이도 충돌 판정도 원인이 아니라는 것을 <b>짚어 줘야</b> 한다 — 안 그러면
+            //  읽는 사람이 그 둘부터 뒤진다.
+            Assert.IsTrue(Contains(report, "높이 계산은 원인이 아니다"));
+            Assert.IsTrue(Contains(report, "충돌 판정도 아니다"));
             //  뜻 없는 외삽은 사라져야 한다.
             Assert.IsFalse(Contains(report, "단조 증가"));
             Assert.IsFalse(Contains(report, "m/틱"));

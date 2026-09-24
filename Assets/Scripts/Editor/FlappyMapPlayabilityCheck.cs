@@ -504,7 +504,7 @@ namespace LOP.EditorTools
                 LOP.MapTools.LayerContract.Section(
                     ScanLayerBlocks(mapMask, config.BodyRadius), GameplayMaterials),
                 LOP.MapTools.BoostPadRule.Section(
-                    ScanBoostPads(mapMask), config.ForwardSpeed, config.DashMult,
+                    ScanBoostPads(mapMask, shape, config.DashMult), config.ForwardSpeed, config.DashMult,
                     //  충돌 한 번의 손실 — 스턴 시간 동안 아예 안 나아간 거리다.
                     config.StunTime * config.ForwardSpeed));
 
@@ -1025,7 +1025,9 @@ namespace LOP.EditorTools
         //  판정면(z=0)에서만 본다 — 콜라이더는 z[-1.25~+1.25]에 걸쳐 있어 얇게 찍어도 다 닿는다.
         private const float PadProbeDepth = 0.05f;
 
-        private static List<LOP.MapTools.BoostPadMeasure> ScanBoostPads(int mapMask)
+        private static List<LOP.MapTools.BoostPadMeasure> ScanBoostPads(int mapMask,
+                                                                        in FlappyShape shape,
+                                                                        float dashMult)
         {
             var measures = new List<LOP.MapTools.BoostPadMeasure>();
             LOP.FlappyBoostPad[] pads = Object.FindObjectsByType<LOP.FlappyBoostPad>(
@@ -1068,9 +1070,26 @@ namespace LOP.EditorTools
                 float up = FreeExtent(center.x, center.y, +1f, limit, mapMask, ignore);
                 float down = FreeExtent(center.x, center.y, -1f, limit, mapMask, ignore);
 
+                //  <b>부스트가 데려가는 동안 앞이 뚫렸나.</b> 대시는 중력도 날갯짓도 없는 수평
+                //  직선이라 그 동안 높이를 못 바꾼다 — 패드 자리가 비었어도 앞이 막혔으면 상이
+                //  아니라 벌이다(이 검사가 없어서 6개 전부 함정인 채로 배포됐다).
+                //  <b>패드의 오른쪽 끝</b>에서 잰다: 패드 위에 있는 동안 매 틱 다시 밟히므로
+                //  부스트는 사실상 그 자리에서 시작한다.
+                float span = pad.Duration * shape.ForwardSpeed * dashMult;
+                float startX = center.x + pad.Width * 0.5f;
+                string blockedAhead = null;
+                if (Physics.CapsuleCast(
+                        new Vector3(startX, center.y - shape.Height * 0.5f, 0f),
+                        new Vector3(startX, center.y + shape.Height * 0.5f, 0f),
+                        shape.Radius, Vector3.right, out RaycastHit ahead, span, mapMask,
+                        QueryTriggerInteraction.Ignore))
+                {
+                    blockedAhead = NameOf(ahead.collider.transform);
+                }
+
                 measures.Add(new LOP.MapTools.BoostPadMeasure(
                     pad.name, center.x, y0, y1, pad.Duration,
-                    center.y - down, center.y + up, overlap));
+                    center.y - down, center.y + up, overlap, blockedAhead, span));
             }
             return measures;
         }

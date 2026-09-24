@@ -18,8 +18,21 @@ namespace LOP.MapTools
         /// <summary>패드와 겹친 장애물 이름. 없으면 null.</summary>
         public readonly string OverlapName;
 
+        /// <summary>
+        /// 부스트가 데려가는 동안 앞을 막는 장애물 이름. 없으면 null.
+        ///
+        /// <para><b>패드 자리가 비어 있는 것만으로는 부족하다.</b> 대시는 중력도 날갯짓도 없는
+        /// 수평 직선이라 그 동안 높이를 못 바꾼다 — 앞이 막혀 있으면 상이 아니라 벌이다.
+        /// 이 절이 그것을 안 물어서 6개 전부가 함정인 채로 배포됐다(2026-09-24).</para>
+        /// </summary>
+        public readonly string BlockedAheadName;
+
+        /// <summary>부스트가 데려가는 거리(m).</summary>
+        public readonly float BoostSpan;
+
         public BoostPadMeasure(string name, float x, float y0, float y1, float duration,
-                               float corridorLow, float corridorHigh, string overlapName)
+                               float corridorLow, float corridorHigh, string overlapName,
+                               string blockedAheadName = null, float boostSpan = 0f)
         {
             Name = name;
             X = x;
@@ -29,11 +42,14 @@ namespace LOP.MapTools
             CorridorLow = corridorLow;
             CorridorHigh = corridorHigh;
             OverlapName = overlapName;
+            BlockedAheadName = blockedAheadName;
+            BoostSpan = boostSpan;
         }
 
         public bool OutsideCorridor => Y0 < CorridorLow || Y1 > CorridorHigh;
         public bool Overlapped => string.IsNullOrEmpty(OverlapName) == false;
-        public bool Ok => OutsideCorridor == false && Overlapped == false;
+        public bool BlockedAhead => string.IsNullOrEmpty(BlockedAheadName) == false;
+        public bool Ok => OutsideCorridor == false && Overlapped == false && BlockedAhead == false;
     }
 
     /// <summary>
@@ -99,9 +115,22 @@ namespace LOP.MapTools
                     continue;
                 }
                 bad++;
-                string why = pad.Overlapped
-                    ? $"장애물과 겹친다 ({pad.OverlapName}) — 밟으려면 먼저 부딪혀야 한다"
-                    : $"회랑 밖이다 (패드 y[{pad.Y0:F2}~{pad.Y1:F2}], 회랑 y[{pad.CorridorLow:F2}~{pad.CorridorHigh:F2}])";
+                string why;
+                if (pad.Overlapped)
+                {
+                    why = $"장애물과 겹친다 ({pad.OverlapName}) — 밟으려면 먼저 부딪혀야 한다";
+                }
+                else if (pad.BlockedAhead)
+                {
+                    //  대시는 조종이 안 되는 직선이라 이건 상이 아니라 벌이다.
+                    why = $"부스트 {pad.BoostSpan:F1}m 앞이 막혔다 ({pad.BlockedAheadName})"
+                        + " — 대시 중엔 높이를 못 바꾸므로 그대로 박는다";
+                }
+                else
+                {
+                    why = $"회랑 밖이다 (패드 y[{pad.Y0:F2}~{pad.Y1:F2}],"
+                        + $" 회랑 y[{pad.CorridorLow:F2}~{pad.CorridorHigh:F2}])";
+                }
                 text.AppendLine($"  ❌ x={pad.X:F0} {pad.Name} — {why}");
             }
 

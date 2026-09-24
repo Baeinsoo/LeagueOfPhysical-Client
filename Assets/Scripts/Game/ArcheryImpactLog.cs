@@ -81,21 +81,7 @@ namespace LOP
         /// </summary>
         public static Vector2 ToFaceOffset(Vector3 offsetFromTarget, Vector3 facing, float radius)
         {
-            if (radius <= 0f)
-            {
-                return Vector2.zero;
-            }
-
-            Vector3 shooterForward = -facing.normalized;   // 사수가 보는 쪽
-            Vector3 up = Vector3.up;
-            Vector3 right = Vector3.Cross(up, shooterForward).normalized;
-            if (right.sqrMagnitude < 0.5f)
-            {
-                return Vector2.zero;   // 과녁이 바로 위나 아래를 보는 축퇴 — 이 게임엔 없다
-            }
-
-            return new Vector2(Vector3.Dot(offsetFromTarget, right),
-                               Vector3.Dot(offsetFromTarget, up)) / radius;
+            return ArcheryFaceCoords.ToFaceOffset(offsetFromTarget, facing, radius);
         }
     }
 }

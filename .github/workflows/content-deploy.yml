@@ -10,7 +10,7 @@ on:
         # standalone-windows는 서버를 *유니티 에디터로* 띄워 로컬 테스트할 때 쓴다 — 그때 읽는
         # 타깃이 StandaloneWindows64인데, gameserver(Linux)만 올리면 에디터 쪽 카탈로그가
         # 영영 낡은 채로 남는다(2026-09-13에 실제로 그래서 활쏘기 맵을 못 찾았다).
-        options: [gameserver, standalone-windows, standalone, ios, client-app, all]
+        options: [gameserver, standalone-windows, standalone, client-app, client-app-ios, all]
       package_ref:
         description: "형제 패키지 레포(GameFramework/Shared/MasterData)를 어느 ref로 가져올지. 기본 main — 여러 레포에 걸친 브랜치를 배포할 때만 그 브랜치명을 준다."
         required: false
@@ -44,9 +44,11 @@ jobs:
             gameserver)          T='["StandaloneLinux64"]' ;;
             standalone-windows)  T='["StandaloneWindows64"]' ;;
             standalone)          T='["StandaloneLinux64","StandaloneOSX","StandaloneWindows64"]' ;;
-            ios)                 T='["iOS"]' ;;
-            all)                 T='["StandaloneLinux64","StandaloneOSX","StandaloneWindows64","iOS"]' ;;
-            client-app)        T='[]' ;;
+            all)                 T='["StandaloneLinux64","StandaloneOSX","StandaloneWindows64"]' ;;
+            client-app)          T='[]' ;;
+            #  iOS는 full 매트릭스가 아니라 아래 증분 잡이 맡는다(설치본이 남으므로).
+            #  all에도 일부러 넣지 않는다 — 러너가 한 대라 유니티를 동시에 여러 개 못 돌린다.
+            client-app-ios)      T='[]' ;;
             *) echo "::error::알 수 없는 target: ${{ inputs.target }}"; exit 1 ;;
           esac
           echo "targets=$T" >> "$GITHUB_OUTPUT"
@@ -125,16 +127,107 @@ jobs:
           aws s3 sync ServerData/Android "s3://lop-assets/dev/Android"
           echo "콘텐츠 갱신 완료: s3://lop-assets/dev/Android/"
 
-  # full로 굽는 플랫폼들. 게임서버 Linux + 데스크톱 macOS/Windows + iOS.
-  # 이 플랫폼들은 플레이어를 매번 새로 빌드해 깔므로 이미 깔린 설치본과의 호환을 지킬 필요가
-  # 없다 — 그래서 증분이 아니라 full로 굽는다. 안드로이드는 APK를 배포해두어 설치본이 남으므로
-  # 위 build-deploy-client-app이 증분으로 맡는다.
+  # 클라 앱(iOS) 콘텐츠. 안드로이드와 같은 이유로 증분이다 — TestFlight로 깔린 앱이 폰에 남아
+  # 있어서, full로 다시 구우면 그 앱이 든 번들·카탈로그와 어긋난다.
   #
-  # ⚠️ iOS가 여기 있는 것은 **아직 앱을 배포하지 않아서**다. 지금은 Xcode에서 케이블로 꽂아
-  # 매번 새로 까는 처지라 데스크톱과 같다. TestFlight 배포가 생기면 설치본이 남기 시작하므로
-  # 안드로이드처럼 증분 쪽으로 옮겨야 한다 —
-  # docs/superpowers/specs/2026-09-20-ios-testflight-ci-design.md §4.5 참고.
-  # (잡 이름이 'standalone'인데 iOS가 들어와 어긋난다. 실제 기준선은 full/증분이다.)
+  # baseline은 client-app-deploy-ios가 남긴 builds/dev/ios/latest.json 이 가리키는 content_state다.
+  # 그 워크플로를 dev로 한 번도 안 돌렸으면 이 잡은 시작하자마자 멈춘다(그게 맞다 — baseline
+  # 없이 구운 증분은 설치본과 어긋난다).
+  build-deploy-client-app-ios:
+    if: inputs.target == 'client-app-ios'
+    runs-on: [self-hosted, client]
+    env:
+      #  이 맥의 xcode-select는 CommandLineTools를 가리킨다. iOS 타깃으로 유니티를 돌리려면
+      #  프로세스 단위로 Xcode를 지정해야 한다.
+      DEVELOPER_DIR: /Applications/Xcode-26.6.0.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 의존 UPM 패키지 레포 체크아웃
+        env:
+          PACKAGE_REF: ${{ inputs.package_ref }}
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE/.."
+          for r in GameFramework LeagueOfPhysical-Shared LeagueOfPhysical-MasterData-Client; do
+            if [ ! -d "$r/.git" ]; then
+              git clone --depth 1 "https://github.com/Baeinsoo/$r" "$r"
+            fi
+            #  받아둔 폴더를 재사용하므로 "지금 어느 브랜치에 있나"에 기대면 안 된다.
+            TARGET="$PACKAGE_REF"
+            if ! git -C "$r" fetch --depth 1 origin "$TARGET" 2>/dev/null; then
+              echo "::warning::$r 에 '$PACKAGE_REF' 가 없다 — main으로 받는다"
+              TARGET=main
+              git -C "$r" fetch --depth 1 origin "$TARGET"
+            fi
+            git -C "$r" checkout -q -B ci-build FETCH_HEAD
+            echo "$r @ $(git -C "$r" rev-parse --short HEAD)"
+          done
+
+      - name: NuGet 패키지 복원 (NuGetForUnity CLI, packages.config 기반)
+        run: |
+          set -e
+          dotnet tool restore
+          dotnet tool run nugetforunity restore .
+          test -f Assets/NuGetForUnity/Packages/R3.1.3.1/lib/netstandard2.1/R3.dll
+
+      - name: baseline content_state 다운로드 (S3 latest)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ vars.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          set -e
+          if ! aws s3 cp "s3://lop-client/builds/dev/ios/latest.json" latest.json 2>/dev/null; then
+            echo "::error::builds/dev/ios/latest.json 없음 — client-app-deploy-ios를 dev로 먼저 실행해 baseline을 만드세요."
+            exit 1
+          fi
+          STATE_KEY=$(python3 -c "import json;print(json.load(open('latest.json'))['content_state'])")
+          echo "baseline: $STATE_KEY"
+          mkdir -p Assets/AddressableAssetsData/iOS
+          aws s3 cp "$STATE_KEY" Assets/AddressableAssetsData/iOS/addressables_content_state.bin
+
+      - name: 어드레서블 콘텐츠 update 빌드 (Update a Previous Build)
+        run: |
+          set -eo pipefail
+          UNITY="/Applications/Unity/Hub/Editor/6000.3.16f1/Unity.app/Contents/MacOS/Unity"
+          if ! "$UNITY" -batchmode -quit -nographics -buildTarget iOS -projectPath . \
+                -executeMethod BuildScript.BuildContentUpdate -logFile - > unity-content.log 2>&1; then
+            echo "::error::content update failed"; tail -80 unity-content.log; exit 1
+          fi
+          #  빌드 서포트 모듈이 빠지면 -buildTarget이 조용히 무시되고 엉뚱한 플랫폼 것이 구워진다.
+          grep -q "content update target: iOS" unity-content.log
+          tail -15 unity-content.log
+          ls ServerData/iOS
+
+      - name: 콘텐츠 업로드 (additive, --delete 금지)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ vars.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          set -e
+          #  prune 입력을 일부러 안 본다. 이미 깔린 앱이 옛 번들을 가리키고 있을 수 있어,
+          #  지우는 순간 그 앱이 콘텐츠를 못 받는다. 증분 잡은 언제나 어펜드다.
+          aws s3 sync ServerData/iOS "s3://lop-assets/dev/iOS"
+          echo "콘텐츠 갱신 완료: s3://lop-assets/dev/iOS/"
+
+      - name: 빌드 로그 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-content-update-log
+          path: unity-content.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  # full로 굽는 플랫폼들. 게임서버 Linux + 데스크톱 macOS/Windows.
+  # 이 플랫폼들은 플레이어를 매번 새로 빌드해 깔므로 이미 깔린 설치본과의 호환을 지킬 필요가
+  # 없다 — 그래서 증분이 아니라 full로 굽는다. 폰(안드로이드·iOS)은 배포한 앱이 기기에 남으므로
+  # 위 두 증분 잡이 맡는다.
+  #
+  # (2026-09-24까지는 iOS도 여기 있었다. TestFlight 배포가 시작돼 설치본이 남기 시작했으므로
+  #  증분 쪽으로 옮겼다 — 계획대로다.)
   build-deploy-standalone:
     needs: plan
     if: needs.plan.outputs.targets != '[]'

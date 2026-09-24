@@ -26,20 +26,30 @@ public static class BuildScript
         BuildContentFull();
     }
 
-    // ── 어드레서블: 증분 빌드 (③b). CI가 S3 baseline을 아래 경로에 미리 배치해야 함.
-    public static void BuildAndroidContentUpdate()
+    // ── 어드레서블: 증분 빌드. 이미 배포된 앱이 들고 있는 번들·카탈로그와 어긋나지 않게 굽는다.
+    //    baseline(직전 앱 빌드가 남긴 content_state)은 CI가 S3에서 받아 아래 경로에 미리 놓는다.
+    //    **경로는 활성 빌드 타깃을 따른다** — 그래서 이 메서드 하나로 안드로이드도 iOS도 된다.
+    //    타깃은 CI가 -buildTarget 으로 정한다.
+    public static void BuildContentUpdate()
     {
         var settings = EnsureSettings();
-        var statePath = ContentUpdateScript.GetContentStateDataPath(false); // Assets/AddressableAssetsData/Android/addressables_content_state.bin
+        var statePath = ContentUpdateScript.GetContentStateDataPath(false); // Assets/AddressableAssetsData/<타깃>/addressables_content_state.bin
         if (!System.IO.File.Exists(statePath))
         {
-            Debug.LogError($"content_state 없음: {statePath}. ③a(앱 빌드)를 먼저 실행해 baseline을 생성하세요.");
+            Debug.LogError($"content_state 없음: {statePath}. 앱 빌드(client-app-deploy 또는 client-app-deploy-ios)를 " +
+                           "먼저 실행해 baseline을 생성하세요.");
             EditorApplication.Exit(2);
             return;
         }
-        Debug.Log($"content update baseline: {statePath}");
+        Debug.Log($"content update target: {EditorUserBuildSettings.activeBuildTarget}, baseline: {statePath}");
         var result = ContentUpdateScript.BuildContentUpdate(settings, statePath);
         FinishContent(result, "UPDATE");
+    }
+
+    // ── 기존 이름 유지(호출하는 CI가 있다). 하는 일은 위와 같다.
+    public static void BuildAndroidContentUpdate()
+    {
+        BuildContentUpdate();
     }
 
     // ── APK 빌드 (③a). 디버그 서명(프로젝트 기본). 콘텐츠는 별도 스텝에서 이미 빌드했으므로 재빌드 안 함.

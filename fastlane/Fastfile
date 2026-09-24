@@ -1,7 +1,13 @@
+require "securerandom"
+require "shellwords"
+
 default_platform(:ios)
 
 APP_IDENTIFIER = "com.BAEGames.LeagueOfPhysical"
 SCHEME         = "Unity-iPhone"
+
+#  CI에서만 쓰는 서명용 키체인. 이 맥은 사람이 직접 쓰는 기계이기도 해서 끝나면 반드시 지운다.
+CI_KEYCHAIN    = "lop_ci.keychain"
 
 #  절대경로로 잡는다. fastlane은 액션을 프로젝트 루트에서 돌리지만 lane 본문의 순수 Ruby는
 #  fastlane/ 안에서 돌아, 상대경로를 쓰면 fastlane/Build/... 를 찾다가 "없다"고 죽는다.
@@ -36,57 +42,112 @@ platform :ios do
                      "    -executeMethod BuildScript.BuildIOSXcodeProject -buildEnv dev -development -logFile -")
     end
 
-    #  CI에서만 임시 키체인을 만든다. 로컬에서는 아무 일도 하지 않는다.
-    setup_ci
+    begin
+      prepare_ci_keychain
 
-    api_key = asc_api_key
+      #  로그 경로 정리 등. 키체인은 바로 위에서 우리가 지정했으므로 이쪽은 건너뛴다.
+      setup_ci
 
-    #  readonly가 핵심이다. CI가 인증서를 새로 만들 수 있으면, 한도에 걸린 날 조용히 기존
-    #  인증서를 무효화한다. 최초 생성은 사람이 로컬에서 한 번만 한다(`fastlane match appstore`).
-    match(
-      type: "appstore",
-      app_identifier: APP_IDENTIFIER,
-      readonly: true,
-      api_key: api_key,
-    )
+      api_key = asc_api_key
 
-    #  유니티는 매번 Xcode 프로젝트를 새로 만들고 자동 서명으로 내놓는다(로컬에서 케이블로
-    #  꽂을 때 편하라고 그렇게 둔다). CI는 match가 준 프로파일을 정확히 써야 하므로 매번 되돌린다.
-    update_code_signing_settings(
-      path: XCODE_PROJECT,
-      use_automatic_signing: false,
-      team_id: ENV.fetch("APPLE_TEAM_ID", "X9SC492BAQ"),
-      targets: [SCHEME],
-      code_sign_identity: "Apple Distribution",
-      profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING][APP_IDENTIFIER],
-    )
-
-    #  빌드 번호는 애플이 들고 있는 값을 기준으로 올린다. 러너나 레포 상태에 기대면 기계가
-    #  둘인 이 프로젝트에서 언젠가 겹치고, 겹치면 업로드가 거부된다.
-    increment_build_number(
-      xcodeproj: XCODE_PROJECT,
-      build_number: latest_testflight_build_number(
-        api_key: api_key,
+      #  readonly가 핵심이다. CI가 인증서를 새로 만들 수 있으면, 한도에 걸린 날 조용히 기존
+      #  인증서를 무효화한다. 최초 생성은 사람이 로컬에서 한 번만 한다(`fastlane match appstore`).
+      match(
+        type: "appstore",
         app_identifier: APP_IDENTIFIER,
-        initial_build_number: 0,
-      ) + 1,
+        readonly: true,
+        api_key: api_key,
+      )
+
+      #  유니티는 매번 Xcode 프로젝트를 새로 만들고 자동 서명으로 내놓는다(로컬에서 케이블로
+      #  꽂을 때 편하라고 그렇게 둔다). CI는 match가 준 프로파일을 정확히 써야 하므로 매번 되돌린다.
+      update_code_signing_settings(
+        path: XCODE_PROJECT,
+        use_automatic_signing: false,
+        team_id: ENV.fetch("APPLE_TEAM_ID", "X9SC492BAQ"),
+        targets: [SCHEME],
+        code_sign_identity: "Apple Distribution",
+        profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING][APP_IDENTIFIER],
+      )
+
+      #  빌드 번호는 애플이 들고 있는 값을 기준으로 올린다. 러너나 레포 상태에 기대면 기계가
+      #  둘인 이 프로젝트에서 언젠가 겹치고, 겹치면 업로드가 거부된다.
+      increment_build_number(
+        xcodeproj: XCODE_PROJECT,
+        build_number: latest_testflight_build_number(
+          api_key: api_key,
+          app_identifier: APP_IDENTIFIER,
+          initial_build_number: 0,
+        ) + 1,
+      )
+
+      build_app(
+        project: XCODE_PROJECT,
+        scheme: SCHEME,
+        export_method: "app-store",
+        output_directory: IPA_DIR,
+        output_name: "lop.ipa",
+      )
+
+      upload_to_testflight(
+        api_key: api_key,
+        #  처리 대기로 러너를 붙잡아 두지 않는다. 내부 테스터는 처리가 끝나면 자동으로 받는다.
+        skip_waiting_for_build_processing: true,
+        #  외부 그룹 배포는 App Store Connect 쪽에서 관리한다(버전당 첫 빌드는 베타 심사).
+        distribute_external: false,
+      )
+    ensure
+      cleanup_ci_keychain
+    end
+  end
+
+  #  ── 서명용 키체인 ────────────────────────────────────────────────────────────
+  #
+  #  왜 `setup_ci`의 키체인을 안 쓰나:
+  #
+  #  키체인에 개인 키를 넣은 뒤에는 "codesign이 이 키를 써도 된다"는 허락(partition list)을
+  #  같이 설정해야 한다. 안 하면 서명할 때 macOS가 **사람에게 창을 띄워 묻고**, 사람이 없는
+  #  CI는 거기서 영영 멈춘다. match는 키를 넣으면서 그 허락도 같이 설정해 주는데,
+  #
+  #      security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k <키체인암호> <키체인>
+  #
+  #  `setup_ci`가 만드는 키체인은 **암호가 빈 문자열**이라 이 명령이 제 역할을 못 한다.
+  #  그래서 창이 뜨는데, 그 창은 빈 암호를 받아 주지도 않는다 — 사람이 있어도 못 뚫는다
+  #  (2026-09-24 첫 CI 실행에서 실제로 그랬다).
+  #
+  #  그래서 제대로 된 암호를 가진 키체인을 직접 만들어 match에 넘긴다. 덤으로 두 가지를 지킨다:
+  #  기본 키체인을 빼앗지 않고(이 맥은 사람도 쓴다), 끝나면 지워서 검색 목록을 되돌린다.
+  private_lane :prepare_ci_keychain do
+    next unless is_ci   # 로컬에서는 사람이 쓰던 키체인을 그대로 쓴다
+
+    lane_context[:LOP_ORIGINAL_KEYCHAINS] =
+      sh("security list-keychains -d user", log: false)
+        .split("\n").map { |line| line.strip.delete('"') }.reject(&:empty?)
+
+    password = SecureRandom.hex(16)
+    create_keychain(
+      name: CI_KEYCHAIN,
+      password: password,
+      default_keychain: false,   # 기본 키체인은 건드리지 않는다
+      unlock: true,
+      timeout: 3600,
+      lock_when_sleeps: false,
+      add_to_search_list: true,
     )
 
-    build_app(
-      project: XCODE_PROJECT,
-      scheme: SCHEME,
-      export_method: "app-store",
-      output_directory: IPA_DIR,
-      output_name: "lop.ipa",
-    )
+    ENV["MATCH_KEYCHAIN_NAME"] = CI_KEYCHAIN
+    ENV["MATCH_KEYCHAIN_PASSWORD"] = password
+  end
 
-    upload_to_testflight(
-      api_key: api_key,
-      #  처리 대기로 러너를 붙잡아 두지 않는다. 내부 테스터는 처리가 끝나면 자동으로 받는다.
-      skip_waiting_for_build_processing: true,
-      #  외부 그룹 배포는 App Store Connect 쪽에서 관리한다(버전당 첫 빌드는 베타 심사).
-      distribute_external: false,
-    )
+  private_lane :cleanup_ci_keychain do
+    next unless is_ci
+
+    if File.exist?(File.expand_path("~/Library/Keychains/#{CI_KEYCHAIN}-db"))
+      delete_keychain(name: CI_KEYCHAIN)
+    end
+
+    original = lane_context[:LOP_ORIGINAL_KEYCHAINS]
+    sh("security list-keychains -d user -s #{original.shelljoin}", log: false) if original && !original.empty?
   end
 
   private_lane :asc_api_key do

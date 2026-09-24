@@ -172,7 +172,7 @@ namespace LOP.MapTools
                     }
                     if (eligible.Count > 0)
                     {
-                        int slot = eligible.Count / challengeRuns;
+                        int slot = System.Math.Max(1, eligible.Count / challengeRuns);
                         int width = System.Math.Max(1, slot - ChallengeRunLength - 1);
                         for (int r = 0; r < challengeRuns; r++)
                         {
@@ -313,7 +313,8 @@ namespace LOP.MapTools
         /// </summary>
         public static string Validate(IReadOnlyList<CoursePipe> pipes, float floorY, float ceilingY,
                                       float window, float spacing, float maxStep,
-                                      System.Func<float, float> centerAt = null)
+                                      System.Func<float, float> centerAt = null,
+                                      System.Func<float, bool> gateAllowed = null)
         {
             if (pipes == null || pipes.Count == 0)
             {
@@ -365,13 +366,32 @@ namespace LOP.MapTools
                 //  <b>안전선</b>의 높이차만 잰다. 도전 창은 고르는 사람만 가므로 통과 가능성의
                 //  기준이 아니다 — 안전선이 끊기지 않는 것이 "누구나 깰 수 있다"의 뜻이다.
                 //  칸을 건너뛴 두 관문 사이(= 벽을 건넘)는 이 규칙이 아니라 검사기의 클린런이 판정한다.
+                //  바로 옆 칸이어도 둘 사이에 벽이 있으면 벽을 건너는 것이다 — 짧은 벽은 칸 하나
+                //  안에 들어가므로 칸 수로는 못 가린다. 그래서 지형(gateAllowed)으로 가린다.
                 float step = Math.Abs(p.GapCenter - pipes[i - 1].GapCenter);
-                if (cells == 1 && step > maxStep + 1e-3f)
+                bool crossesWall = gateAllowed != null
+                    ? CrossesForbidden(pipes[i - 1].X, p.X, gateAllowed)
+                    : cells > 1;
+                if (crossesWall == false && step > maxStep + 1e-3f)
                 {
                     return $"x={p.X:F1}에서 창이 {step:F2}m 움직였다 (상한 {maxStep:F2}m)";
                 }
             }
             return null;
+        }
+
+        //  두 관문 사이(양 끝 제외)를 0.5m마다 훑어 관문을 못 세우는 자리가 하나라도 있나 본다.
+        static bool CrossesForbidden(float fromX, float toX, System.Func<float, bool> gateAllowed)
+        {
+            const float sampleStep = 0.5f;
+            for (float x = fromX + sampleStep; x < toX - 1e-3f; x += sampleStep)
+            {
+                if (gateAllowed(x) == false)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

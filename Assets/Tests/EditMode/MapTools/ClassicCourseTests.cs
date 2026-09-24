@@ -384,6 +384,16 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 바로_옆_칸이어도_사이에_벽이_있으면_높이차를_안_본다()
+        {
+            //  짧은 벽(4m)은 칸 하나(11.4m) 안에 들어간다 — 칸 수가 아니라 지형으로 가려야 한다.
+            var pipes = new List<CoursePipe> { new CoursePipe(11.4f, -5f), new CoursePipe(22.8f, 7f) };
+            System.Func<float, bool> gateAllowed = x => x < 15f || x > 19f;
+            Assert.IsNull(ClassicCourseRule.Validate(pipes, -20f, 20f, 4.37f, 11.4f, 6f, null, gateAllowed));
+            Assert.That(ClassicCourseRule.Validate(pipes, -20f, 20f, 4.37f, 11.4f, 6f), Does.Contain("움직였다"));
+        }
+
+        [Test]
         public void 간격이_칸의_배수가_아니면_여전히_잡는다()
         {
             var pipes = new List<CoursePipe> { new CoursePipe(11.4f, 0f), new CoursePipe(28.5f, 0f) };

@@ -356,5 +356,69 @@ namespace LOP.MapTools.Tests
                 previousWasChallenge = true;
             }
         }
+
+        //  ── 벽 건너뛰기 ──────────────────────────────────────────────
+        //  벽(가파른 경사)에는 관문을 두지 않는다 — 벽 자체가 장애물이다.
+
+        static bool NoGateIn100To200(float x) => x < 100f || x > 200f;
+
+        [Test]
+        public void 관문을_못_두는_자리는_건너뛴다()
+        {
+            var pipes = ClassicCourseRule.Layout(0f, 400f, 11.4f, -7.28f, 7.28f, 4.37f, 6f, 5UL,
+                                                 gateAllowed: NoGateIn100To200);
+            Assert.IsFalse(pipes.Exists(p => p.X >= 100f && p.X <= 200f));
+            foreach (CoursePipe p in pipes)
+            {
+                float k = p.X / 11.4f;
+                Assert.AreEqual(System.Math.Round(k), k, 1e-3, $"x={p.X} 칸에서 벗어났다");
+            }
+        }
+
+        [Test]
+        public void 건너뛴_칸을_사이에_둔_두_관문은_높이차를_안_본다()
+        {
+            //  벽을 건너는 높이차는 규칙이 아니라 검사기의 클린런이 판정한다.
+            var pipes = new List<CoursePipe> { new CoursePipe(11.4f, -3f), new CoursePipe(34.2f, 3f) };
+            Assert.IsNull(ClassicCourseRule.Validate(pipes, -7.28f, 7.28f, 4.37f, 11.4f, 1f));
+        }
+
+        [Test]
+        public void 간격이_칸의_배수가_아니면_여전히_잡는다()
+        {
+            var pipes = new List<CoursePipe> { new CoursePipe(11.4f, 0f), new CoursePipe(28.5f, 0f) };
+            Assert.That(ClassicCourseRule.Validate(pipes, -7.28f, 7.28f, 4.37f, 11.4f, 6f), Does.Contain("간격"));
+        }
+
+        [Test]
+        public void 모두_허용하면_예전과_같은_코스다()
+        {
+            var before = ClassicCourseRule.Layout(0f, 612f, 11.4f, Floor, Ceiling, Window, 6f, 7UL, challengeRuns: 6);
+            var after = ClassicCourseRule.Layout(0f, 612f, 11.4f, Floor, Ceiling, Window, 6f, 7UL, challengeRuns: 6,
+                                                 gateAllowed: _ => true);
+            Assert.AreEqual(before.Count, after.Count);
+            for (int i = 0; i < before.Count; i++)
+            {
+                Assert.AreEqual(before[i].X, after[i].X);
+                Assert.AreEqual(before[i].GapCenter, after[i].GapCenter);
+                Assert.AreEqual(before[i].HasChallenge, after[i].HasChallenge);
+            }
+        }
+
+        [Test]
+        public void 도전_구간이_벽에_걸치면_통째로_빠진다()
+        {
+            //  반쯤 걸친 구간은 차선이 벽을 건너 이어져 따라갈 수 없다 — 네 관문이 모두 서야 남는다.
+            var pipes = ClassicCourseRule.Layout(0f, 612f, 11.4f, Floor, Ceiling, Window, 6f, 7UL,
+                                                 challengeRuns: 6, gateAllowed: NoGateIn100To200);
+            var run = new List<CoursePipe>();
+            foreach (CoursePipe p in pipes)
+            {
+                if (p.HasChallenge) { run.Add(p); continue; }
+                Assert.That(run.Count, Is.EqualTo(0).Or.EqualTo(ClassicCourseRule.ChallengeRunLength));
+                for (int i = 1; i < run.Count; i++) { Assert.AreEqual(11.4f, run[i].X - run[i - 1].X, 1e-3f); }
+                run.Clear();
+            }
+        }
     }
 }

@@ -99,7 +99,8 @@ namespace LOP.MapTools
                                               float floorY, float ceilingY, float window,
                                               float maxStep, ulong seed,
                                               System.Func<float, float> centerAt = null,
-                                              int challengeRuns = 0)
+                                              int challengeRuns = 0,
+                                              System.Func<float, bool> gateAllowed = null)
         {
             var pipes = new List<CoursePipe>();
             if (spacing <= 0f || courseLength <= 0f)
@@ -138,11 +139,37 @@ namespace LOP.MapTools
                 }
             }
 
+            //  벽에 걸치는 도전 구간은 통째로 뺀다. 반만 남기면 차선이 벽을 건너 이어져
+            //  "벽을 따라 내려가며 먼 창을 노리는" 따라갈 수 없는 자리가 된다.
+            var positions = new List<float>();
+            for (float px = startX + spacing; px <= startX + courseLength + 1e-4f; px += spacing)
+            {
+                positions.Add(px);
+            }
+            if (gateAllowed != null)
+            {
+                runStarts.RemoveWhere(start =>
+                {
+                    for (int k = 0; k < ChallengeRunLength; k++)
+                    {
+                        int g = start + k;
+                        if (g < 1 || g > positions.Count || gateAllowed(positions[g - 1]) == false) { return true; }
+                    }
+                    return false;
+                });
+            }
+
             int gateIndex = 0;
             bool runLowerLane = true;   // 지금 도전 구간의 차선. 구간 첫 관문에서 정해진다.
-            for (float x = startX + spacing; x <= startX + courseLength + 1e-4f; x += spacing)
+            foreach (float x in positions)
             {
                 gateIndex++;
+                //  벽 위에는 관문을 두지 않는다. 난수도 안 뽑고 previousLift도 안 옮긴다 —
+                //  벽 다음 첫 관문은 벽 전체의 고저차를 예산에서 빼므로 워크가 멈춰 선다.
+                if (gateAllowed != null && gateAllowed(x) == false)
+                {
+                    continue;
+                }
 
                 //  이 관문이 어느 도전 구간 안인가.
                 int inRun = -1;
@@ -267,9 +294,11 @@ namespace LOP.MapTools
                     continue;   // 첫 관문은 앞이 없어 간격·높이차를 못 잰다
                 }
                 float gap = p.X - pipes[i - 1].X;
-                if (Math.Abs(gap - spacing) > 1e-3f)
+                //  벽 위 칸은 비어 있을 수 있다 — 간격은 한 칸의 배수면 된다.
+                int cells = (int)Math.Round(gap / spacing);
+                if (cells < 1 || Math.Abs(gap - cells * spacing) > 1e-3f)
                 {
-                    return $"x={p.X:F1}의 간격이 {gap:F2}m다 (목표 {spacing:F2}m)";
+                    return $"x={p.X:F1}의 간격이 {gap:F2}m다 (목표 {spacing:F2}m의 배수)";
                 }
                 //  높이차는 <b>절대값</b>으로 본다. 회랑이 움직인 것이든 창이 움직인 것이든
                 //  새는 똑같이 날아야 한다 — 상대값으로 재면 가파른 구간에서 두 배로 벌어진
@@ -294,8 +323,9 @@ namespace LOP.MapTools
 
                 //  <b>안전선</b>의 높이차만 잰다. 도전 창은 고르는 사람만 가므로 통과 가능성의
                 //  기준이 아니다 — 안전선이 끊기지 않는 것이 "누구나 깰 수 있다"의 뜻이다.
+                //  칸을 건너뛴 두 관문 사이(= 벽을 건넘)는 이 규칙이 아니라 검사기의 클린런이 판정한다.
                 float step = Math.Abs(p.GapCenter - pipes[i - 1].GapCenter);
-                if (step > maxStep + 1e-3f)
+                if (cells == 1 && step > maxStep + 1e-3f)
                 {
                     return $"x={p.X:F1}에서 창이 {step:F2}m 움직였다 (상한 {maxStep:F2}m)";
                 }

@@ -145,6 +145,11 @@ jobs:
           SHA="${{ steps.tag.outputs.sha }}"
           DEST="s3://lop-client/builds/$BUILD_ENV/$SHA"
           aws s3 cp Build/lop.apk "$DEST/lop.apk"
+          #  "지워도 되는 빌드 산출물" 표시. 버킷 수명 규칙이 이 태그만 보고 오래된 것을 지운다.
+          #  아래 content_state와 latest.json은 파이프라인이 의존하므로 태그를 달지 않는다.
+          aws s3api put-object-tagging --bucket lop-client \
+            --key "${DEST#s3://lop-client/}/lop.apk" \
+            --tagging 'TagSet=[{Key=kind,Value=build-artifact}]'
           aws s3 cp Assets/AddressableAssetsData/Android/addressables_content_state.bin \
             "$DEST/addressables_content_state.bin"
           # latest 포인터 (③b가 읽음) — 환경별로 따로 둔다. 한 개면 dev 아닌 빌드가 baseline을 덮는다.

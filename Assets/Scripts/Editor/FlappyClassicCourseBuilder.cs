@@ -253,13 +253,11 @@ namespace LOP.EditorTools
         /// <summary>굽기와 같은 코스 프로필. 에디터 측정(eval)이 씬과 같은 기하를 다시 얻을 때 쓴다.</summary>
         public static LOP.MapTools.CourseProfile ComposeProfile(LOP.MasterData.FlappyConfig config)
         {
-            float window = LOP.MapTools.GateRhythmRule.TargetWindow(
-                config.FlapImpulse, config.Gravity, TickSeconds, config.BodyHeight);
             float spacing = LOP.MapTools.GateRhythmRule.TargetSpacing(config.ForwardSpeed);
             float ceilingY = LOP.MapTools.VisualHonesty.ScreenHalfHeight(CameraDistance, VerticalFov);
             float length = RaceSeconds * config.ForwardSpeed;
             return LOP.MapTools.CourseProfileRule.Compose(
-                StartX, length, spacing, ceilingY, window, Seed,
+                StartX, length, spacing, ceilingY, Seed,
                 leadIn: spacing * 4f, tail: spacing * 8f,
                 arc: new LOP.MapTools.FlapArc(config.FlapImpulse, config.Gravity, config.ForwardSpeed, TickSeconds));
         }

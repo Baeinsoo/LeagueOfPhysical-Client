@@ -244,7 +244,7 @@ namespace LOP.MapTools
         /// <param name="tail">결승선 뒤 평지.</param>
         /// <param name="arc">입구 굴을 파는 날갯짓 호 — FlappyConfig에서 만든다.</param>
         public static CourseProfile Compose(float startX, float length, float spacing, float corridorHalf,
-                                            float window, ulong seed, float leadIn, float tail, FlapArc arc)
+                                            ulong seed, float leadIn, float tail, FlapArc arc)
         {
             var rng = new DeterministicRandom(seed);
             var xs = new List<float> { startX - leadIn };
@@ -318,7 +318,7 @@ namespace LOP.MapTools
                             xs.Add(x); ys.Add(y);
                             if (t.ValleyShortcut)
                             {
-                                shortcuts.Add(ValleyShortcut(x0, y, d, t.RiseSlope, corridorHalf, window, t.Entrance, arc));
+                                shortcuts.Add(ValleyShortcut(x0, y, d, t.RiseSlope, corridorHalf, t.Entrance, arc));
                             }
                             break;
                         }
@@ -366,30 +366,32 @@ namespace LOP.MapTools
 
         /// <summary>
         /// 계곡의 깊이 절반 높이에 지름길을 뚫는다. 입구는 내리막 벽 중간의 좁은 굴(날갯짓 호 모양)이고,
-        /// 굴이 끝나면 곧은 수평 길이 출구까지 간다(spec §4, §13). 혀가 <see cref="MinTongue"/>보다 얇거나,
-        /// 곧은 길이 <see cref="MinStraight"/>보다 짧거나, 턱 밑 틈이 <see cref="MinValleyGap"/>보다 좁으면 던진다.
+        /// 굴이 끝나면 곧은 수평 길이 출구까지 간다(spec §4, §13). <b>곧은 길 높이는 굴 두께와 같다</b> —
+        /// 굴을 빠져나온 새는 빠르게 떨어지는 중(약 18m/s)이라 다음 날갯짓 한 번이 3.12m를 통째로 올린다.
+        /// 곧은 길이 그보다 낮은 관문 폭(window)만큼만 있으면 그 날갯짓이 정확히 한 틱에만 맞아야 해서
+        /// 숨은 강제 박자가 생긴다(2026-09-25 측정) — 그래서 굴만큼 높였다. 혀가 <see cref="MinTongue"/>보다
+        /// 얇거나, 곧은 길이 <see cref="MinStraight"/>보다 짧거나, 턱 밑 틈이 <see cref="MinValleyGap"/>보다
+        /// 좁으면 던진다.
         /// </summary>
         /// <param name="x0">계곡이 시작하는 x(평지 끝).</param>
         public static ShortcutRect ValleyShortcut(float x0, float baseY, float depth, float riseSlope,
-                                                  float corridorHalf, float window,
+                                                  float corridorHalf,
                                                   ShortcutEntrance entrance, FlapArc arc)
         {
+            if (entrance.Arcs < 1 || entrance.Thickness <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(entrance), entrance.Thickness,
+                    $"입구 굴은 호 1개 이상, 두께가 0보다 커야 한다 (호 {entrance.Arcs}, 두께 {entrance.Thickness})");
+            }
             float center = baseY - depth * 0.5f;
-            float y0 = center - window * 0.5f;
-            float y1 = center + window * 0.5f;
+            float y0 = center - entrance.Thickness * 0.5f;
+            float y1 = center + entrance.Thickness * 0.5f;
             float topCeiling = baseY + corridorHalf;
             float bottomCeiling = baseY - depth + corridorHalf;
             if (y0 - bottomCeiling < MinTongue)
             {
                 throw new ArgumentOutOfRangeException(nameof(depth), depth,
                     $"깊이 {depth}m면 지름길 아래 혀가 {y0 - bottomCeiling:F2}m다 (최소 {MinTongue}m)");
-            }
-            //  굴이 곧은 길(window)보다 넓어도 된다 — 굴 끝에서 지붕은 내려오고 혀는 올라와 곧은
-            //  길 폭으로 좁아진다. 그래서 위 상한(window)은 더 이상 안 건다.
-            if (entrance.Arcs < 1 || entrance.Thickness <= 0f)
-            {
-                throw new ArgumentOutOfRangeException(nameof(entrance), entrance.Thickness,
-                    $"입구 굴은 호 1개 이상, 두께가 0보다 커야 한다 (호 {entrance.Arcs}, 두께 {entrance.Thickness})");
             }
             float bottom0 = x0 + depth / DropSlope;
             float bottom1 = bottom0 + ValleyBottom;

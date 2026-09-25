@@ -14,7 +14,6 @@ namespace LOP.MapTools.Tests
         const float Length = 612f;          // 90초 × 6.8m/s
         const float Spacing = 11.4f;
         const float Half = 10.92f;          // 카메라 30m · FOV 40의 화면 세로 절반
-        const float Window = 4.37f;
         const float LeadIn = Spacing * 4f;
         const float Tail = Spacing * 8f;
 
@@ -23,7 +22,7 @@ namespace LOP.MapTools.Tests
         const float MaxFall = 30f;
 
         static CourseProfile Compose(ulong seed = 20260919UL)
-            => CourseProfileRule.Compose(StartX, Length, Spacing, Half, Window, seed, LeadIn, Tail, Arc);
+            => CourseProfileRule.Compose(StartX, Length, Spacing, Half, seed, LeadIn, Tail, Arc);
 
         [Test]
         public void 출발점은_높이_0이고_앞뒤_여유까지_덮는다()
@@ -110,7 +109,7 @@ namespace LOP.MapTools.Tests
                 float mouthTop = r.ChannelCenterAt(r.X0) + r.Entrance.Thickness * 0.5f;
                 Assert.AreEqual(mouthTop, p.CenterAt(r.X0) + Half, 1e-3f, "입구 = 천장이 굴 윗면을 지나는 곳");
                 Assert.AreEqual(r.Y1, p.CenterAt(r.X1) + Half, 1e-3f, "출구");
-                Assert.AreEqual(Window, r.Y1 - r.Y0, 1e-4f, "세로 폭 = 평범한 틈");
+                Assert.AreEqual(r.Entrance.Thickness, r.Y1 - r.Y0, 1e-4f, "세로 폭 = 굴 두께(곧은 길도 굴만큼 높다)");
             }
         }
 
@@ -119,7 +118,7 @@ namespace LOP.MapTools.Tests
         {
             //  깊이 절반에 창을 뚫으면 혀가 남아야 한다. 20m면 혀가 없다.
             Assert.Throws<System.ArgumentOutOfRangeException>(
-                () => CourseProfileRule.ValleyShortcut(0f, 0f, 20f, 1.3f, Half, Window, Easy, Arc));
+                () => CourseProfileRule.ValleyShortcut(0f, 0f, 20f, 1.3f, Half, Easy, Arc));
         }
 
         [Test]
@@ -244,14 +243,14 @@ namespace LOP.MapTools.Tests
         public void 호가_너무_많거나_턱이_너무_길거나_두께가_0이면_던진다()
         {
             Assert.Throws<System.ArgumentOutOfRangeException>(
-                () => CourseProfileRule.ValleyShortcut(0f, 0f, 30f, 1.3f, Half, Window, new ShortcutEntrance(10, 6.0f, 4f), Arc),
+                () => CourseProfileRule.ValleyShortcut(0f, 0f, 30f, 1.3f, Half, new ShortcutEntrance(10, 6.0f, 4f), Arc),
                 "굴이 출구를 넘는다");
             Assert.Throws<System.ArgumentOutOfRangeException>(
-                () => CourseProfileRule.ValleyShortcut(0f, 0f, 30f, 1.3f, Half, Window, new ShortcutEntrance(1, 6.0f, 20f), Arc),
+                () => CourseProfileRule.ValleyShortcut(0f, 0f, 30f, 1.3f, Half, new ShortcutEntrance(1, 6.0f, 20f), Arc),
                 "턱 아래 계곡이 막힌다");
-            //  굴은 이제 곧은 길(window)보다 넓어도 된다 — 막는 건 두께 0(또는 음수)뿐이다.
+            //  곧은 길 높이가 이제 굴 두께 자체라 "곧은 길보다 넓다"는 개념이 없다 — 막는 건 두께 0(또는 음수)뿐이다.
             Assert.Throws<System.ArgumentOutOfRangeException>(
-                () => CourseProfileRule.ValleyShortcut(0f, 0f, 30f, 1.3f, Half, Window, new ShortcutEntrance(1, 0f, 4f), Arc),
+                () => CourseProfileRule.ValleyShortcut(0f, 0f, 30f, 1.3f, Half, new ShortcutEntrance(1, 0f, 4f), Arc),
                 "두께가 0이면 굴이 아니다");
         }
 
@@ -270,8 +269,21 @@ namespace LOP.MapTools.Tests
 
         static IEnumerable<ShortcutRect> BothTiers()
         {
-            yield return CourseProfileRule.ValleyShortcut(100f, 0f, 30f, 1.3f, Half, Window, Easy, Arc);
-            yield return CourseProfileRule.ValleyShortcut(100f, 0f, 40f, 1.5f, Half, Window, Hard, Arc);
+            yield return CourseProfileRule.ValleyShortcut(100f, 0f, 30f, 1.3f, Half, Easy, Arc);
+            yield return CourseProfileRule.ValleyShortcut(100f, 0f, 40f, 1.5f, Half, Hard, Arc);
+        }
+
+        [Test]
+        public void 곧은_길_높이는_굴_두께와_같다()
+        {
+            //  굴을 빠져나온 새는 떨어지는 중이라 날갯짓 한 번이 크게 올린다 — 곧은 길이 관문 폭만큼만
+            //  있으면 그 날갯짓이 한 틱에만 맞아야 해서 숨은 강제 박자가 생긴다. 그래서 곧은 길을
+            //  굴만큼 높였다(2026-09-25).
+            foreach (ShortcutRect r in BothTiers())
+            {
+                Assert.AreEqual(r.Entrance.Thickness, r.Y1 - r.Y0, 1e-4f,
+                                $"호 {r.Entrance.Arcs}: 곧은 길 높이 = 굴 두께");
+            }
         }
 
         [Test]

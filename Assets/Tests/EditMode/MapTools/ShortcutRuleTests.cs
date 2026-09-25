@@ -11,13 +11,12 @@ namespace LOP.MapTools.Tests
     public class ShortcutRuleTests
     {
         const float Half = 10.92f;
-        const float Window = 4.37f;
 
         static readonly FlapArc Arc = new FlapArc(18.6f, 59f, 6.8f, 0.02f);
 
         //  구간 3의 U(깊이 40, 오르막 1.5)와 어려운 굴을 x=100에서 시작한다.
         static readonly ShortcutRect Deep = CourseProfileRule.ValleyShortcut(
-            100f, 0f, 40f, 1.5f, Half, Window, new ShortcutEntrance(3, 5.0f, 6f), Arc);
+            100f, 0f, 40f, 1.5f, Half, new ShortcutEntrance(3, 5.0f, 6f), Arc);
 
         [Test]
         public void 가운데_절반은_혀가_두_길을_가른다()
@@ -28,7 +27,7 @@ namespace LOP.MapTools.Tests
             {
                 if (t.ValleyShortcut == false) { continue; }
                 ShortcutRect r = CourseProfileRule.ValleyShortcut(
-                    100f, 0f, t.ValleyDepth, t.RiseSlope, Half, Window, t.Entrance, Arc);
+                    100f, 0f, t.ValleyDepth, t.RiseSlope, Half, t.Entrance, Arc);
                 float quarter = r.Length * 0.25f;
                 Assert.LessOrEqual(r.X1 - quarter, r.TongueEnd, $"깊이 {t.ValleyDepth}: 가운데 끝까지 혀가 있다");
                 for (float x = r.X0 + quarter; x < r.ChannelEnd; x += 0.1f)
@@ -86,7 +85,7 @@ namespace LOP.MapTools.Tests
             {
                 if (t.ValleyShortcut == false) { continue; }
                 ShortcutRect r = CourseProfileRule.ValleyShortcut(
-                    100f, 0f, t.ValleyDepth, t.RiseSlope, Half, Window, t.Entrance, Arc);
+                    100f, 0f, t.ValleyDepth, t.RiseSlope, Half, t.Entrance, Arc);
                 float? x = ShortcutRule.PadCenterX(r, 8.16f, 1.5f, 1.5f);
                 Assert.IsTrue(x.HasValue, $"깊이 {t.ValleyDepth}: 곧은 길이 짧다");
                 Assert.Greater(x.Value - 0.75f, r.ChannelEnd, $"깊이 {t.ValleyDepth}");

@@ -231,9 +231,9 @@ namespace LOP.MapTools
         {
             new SectionTerrain(valleyDepth: 15f, hillHeight: 12f, riseSlope: 1.0f, stepHeight: 0f, valleyShortcut: false),
             new SectionTerrain(valleyDepth: 30f, hillHeight: 15f, riseSlope: 1.3f, stepHeight: 10f, valleyShortcut: true,
-                               entrance: new ShortcutEntrance(arcs: 1, thickness: 4.35f, lip: 4f)),
+                               entrance: new ShortcutEntrance(arcs: 1, thickness: 6.0f, lip: 4f)),
             new SectionTerrain(valleyDepth: 40f, hillHeight: 20f, riseSlope: 1.5f, stepHeight: 10f, valleyShortcut: true,
-                               entrance: new ShortcutEntrance(arcs: 3, thickness: 3.6f, lip: 6f)),
+                               entrance: new ShortcutEntrance(arcs: 3, thickness: 5.0f, lip: 6f)),
         };
 
         public static float ValleyLength(float depth, float rise) => depth / DropSlope + ValleyBottom + depth / rise;
@@ -384,10 +384,12 @@ namespace LOP.MapTools
                 throw new ArgumentOutOfRangeException(nameof(depth), depth,
                     $"깊이 {depth}m면 지름길 아래 혀가 {y0 - bottomCeiling:F2}m다 (최소 {MinTongue}m)");
             }
-            if (entrance.Arcs < 1 || entrance.Thickness <= 0f || entrance.Thickness > window)
+            //  굴이 곧은 길(window)보다 넓어도 된다 — 굴 끝에서 지붕은 내려오고 혀는 올라와 곧은
+            //  길 폭으로 좁아진다. 그래서 위 상한(window)은 더 이상 안 건다.
+            if (entrance.Arcs < 1 || entrance.Thickness <= 0f)
             {
                 throw new ArgumentOutOfRangeException(nameof(entrance), entrance.Thickness,
-                    $"입구 굴은 호 1개 이상, 두께 0~{window:F2}m여야 한다 (호 {entrance.Arcs}, 두께 {entrance.Thickness})");
+                    $"입구 굴은 호 1개 이상, 두께가 0보다 커야 한다 (호 {entrance.Arcs}, 두께 {entrance.Thickness})");
             }
             float bottom0 = x0 + depth / DropSlope;
             float bottom1 = bottom0 + ValleyBottom;

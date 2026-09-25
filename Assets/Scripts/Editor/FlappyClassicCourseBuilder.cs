@@ -326,7 +326,10 @@ namespace LOP.EditorTools
                 {
                     Prism(parent, $"ShortcutTongue_{r.X0:F0}_{i}", ToPolygon(tongue[i]), skin);
                 }
-                Debug.Log($"[전통 코스] 지름길 x={r.X0:F0}: 호 {r.Entrance.Arcs}개 · 굴 {r.Entrance.Thickness:F1}m · 턱 {r.Entrance.Lip:F0}m · 굴 끝 {r.ChannelEnd:F1} · 출구 {r.X1:F1}");
+                //  호 틱 수·길이를 같이 찍어 둔다 — 굽을 때마다 사람이 눈으로 "32틱·4.35m"와 맞는지
+                //  비교할 수 있게. 시험이 FlapArc를 자기가 만들어 쓰므로, 빌더가 엉뚱한 값을 넘겨도
+                //  시험도 검사기도 못 잡는다(뮤테이션으로 실제 확인됨) — 이 로그가 유일한 안전망이다.
+                Debug.Log($"[전통 코스] 지름길 x={r.X0:F0}: 호 {r.Entrance.Arcs}개(호 {r.Arc.TicksPerArc}틱·{r.Arc.Span:F2}m) · 굴 {r.Entrance.Thickness:F1}m · 턱 {r.Entrance.Lip:F0}m · 굴 끝 {r.ChannelEnd:F1} · 출구 {r.X1:F1}");
 
                 var marker = new GameObject($"Shortcut_{r.X0:F0}");
                 marker.transform.SetParent(parent, worldPositionStays: false);

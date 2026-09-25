@@ -30,10 +30,27 @@ namespace LOP.MapTools.Tests
                     100f, 0f, t.ValleyDepth, t.RiseSlope, Half, t.Entrance, Arc);
                 float quarter = r.Length * 0.25f;
                 Assert.LessOrEqual(r.X1 - quarter, r.TongueEnd, $"깊이 {t.ValleyDepth}: 가운데 끝까지 혀가 있다");
-                for (float x = r.X0 + quarter; x < r.ChannelEnd; x += 0.1f)
+
+                //  쉬운 굴(호 1개)은 가운데 절반이 굴 끝보다 뒤에서 시작해 아래 루프가 아예 안 돈다 —
+                //  굴 전체가 이미 앞쪽 절반 안에 들어간다는 뜻이라 그 자체가 맞는 기하다. 그걸 명시적으로
+                //  확인해 두지 않으면 "루프가 0번 돌았다"가 "통과했다"로 조용히 둔갑한다. 어려운 굴(호
+                //  3개)은 가운데 절반이 굴 중간을 관통해 루프가 반드시 돈다 — 그것도 명시적으로 센다.
+                bool coreStartsAfterChannel = r.X0 + quarter >= r.ChannelEnd;
+                if (coreStartsAfterChannel)
                 {
-                    Assert.Greater(r.ChannelCenterAt(x) - r.Entrance.Thickness * 0.5f, r.Y0,
-                                   $"깊이 {t.ValleyDepth} x={x:F1}: 굴 바닥이 Y0 아래로 내려갔다");
+                    Assert.GreaterOrEqual(r.X0 + quarter, r.ChannelEnd,
+                        $"깊이 {t.ValleyDepth}: 가운데 절반이 굴 끝보다 뒤에서 시작해 루프가 비는 게 맞다");
+                }
+                else
+                {
+                    int iterations = 0;
+                    for (float x = r.X0 + quarter; x < r.ChannelEnd; x += 0.1f)
+                    {
+                        Assert.Greater(r.ChannelCenterAt(x) - r.Entrance.Thickness * 0.5f, r.Y0,
+                                       $"깊이 {t.ValleyDepth} x={x:F1}: 굴 바닥이 Y0 아래로 내려갔다");
+                        iterations++;
+                    }
+                    Assert.Greater(iterations, 0, $"깊이 {t.ValleyDepth}: 루프가 돌 것으로 기대했는데 안 돌았다");
                 }
                 checkedShapes++;
             }
@@ -43,9 +60,12 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 계곡_금지는_입구_굴을_막지_않는다()
         {
+            //  굴 가운데선이 아니라 굴 바닥에 발 붙인 새(몸통 반지름 0.44)로 잰다 — 가운데선은 항상
+            //  Y0보다 굴 두께 절반 이상 위라 금지선에 닿을 일이 없어서, 두께가 잘못돼도 못 잡는 시험이었다.
             for (float x = Deep.X0; x <= Deep.ChannelEnd; x += 0.1f)
             {
-                Assert.IsFalse(ShortcutRule.ForbidsValley(Deep, x, Deep.ChannelCenterAt(x)), $"x={x:F1}");
+                float y = Deep.ChannelCenterAt(x) - Deep.Entrance.Thickness * 0.5f + 0.44f;
+                Assert.IsFalse(ShortcutRule.ForbidsValley(Deep, x, y), $"x={x:F1}");
             }
         }
 

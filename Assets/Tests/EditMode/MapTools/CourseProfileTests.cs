@@ -102,14 +102,14 @@ namespace LOP.MapTools.Tests
         public void 지름길_입구와_출구에서_천장이_지름길_윗면과_만난다()
         {
             //  입구·출구는 "천장선이 지름길 윗면을 지나는 곳"으로 정의된다. 여기가 어긋나면
-            //  위쪽 상자와 경사 조각 사이에 틈이 생기거나 겹친다.
+            //  지붕 띠·혀 띠와 경사 조각 사이에 틈이 생기거나 겹친다.
+            //  세로 폭 = 굴 두께 검증은 전용 시험 곧은_길_높이는_굴_두께와_같다가 맡는다(중복 제거).
             var p = Compose();
             foreach (ShortcutRect r in p.Shortcuts)
             {
                 float mouthTop = r.ChannelCenterAt(r.X0) + r.Entrance.Thickness * 0.5f;
                 Assert.AreEqual(mouthTop, p.CenterAt(r.X0) + Half, 1e-3f, "입구 = 천장이 굴 윗면을 지나는 곳");
                 Assert.AreEqual(r.Y1, p.CenterAt(r.X1) + Half, 1e-3f, "출구");
-                Assert.AreEqual(r.Entrance.Thickness, r.Y1 - r.Y0, 1e-4f, "세로 폭 = 굴 두께(곧은 길도 굴만큼 높다)");
             }
         }
 

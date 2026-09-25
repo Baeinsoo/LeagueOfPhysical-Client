@@ -59,7 +59,10 @@ namespace LOP.MapTools
         }
     }
 
-    /// <summary>지름길 입구 난이도. 굴이 좁을수록·호가 많을수록 박자가 빡빡하고, 놓치면 호마다 한 번씩 부딪힌다.</summary>
+    /// <summary>
+    /// 지름길 입구 난이도. 굴이 좁을수록·호가 많을수록 박자가 빡빡하다. 놓치고도 원래 박자를 그대로
+    /// 유지하며 날면 호마다 한 번씩 부딪힌다 — 놓친 뒤 박자를 다시 맞춰 나는 경우는 측정한 적이 없다.
+    /// </summary>
     public readonly struct ShortcutEntrance
     {
         /// <summary>이어진 호(날갯짓 박자) 수. 0이면 굴이 없다(씬 표시에서 되살린 값).</summary>
@@ -405,10 +408,12 @@ namespace LOP.MapTools
             float channelEnd = mouth + entrance.Arcs * arc.Span;
             float exit = bottom1 + (y1 - bottomCeiling) / riseSlope;
             float tongueEnd = bottom1 + (y0 - bottomCeiling) / riseSlope;
-            if (exit - channelEnd < MinStraight)
+            //  exit이 아니라 tongueEnd까지로 잰다 — 혀 띠(굴 끝~tongueEnd)는 TongueEnd를 지나면
+            //  위아래가 뒤집혀서, 굴이 tongueEnd를 넘으면 exit까지 여유가 있어도 혀 자체가 깨진다.
+            if (tongueEnd - channelEnd < MinStraight)
             {
                 throw new ArgumentOutOfRangeException(nameof(entrance), entrance.Arcs,
-                    $"호 {entrance.Arcs}개면 굴이 {channelEnd:F1}까지라 곧은 길이 {exit - channelEnd:F1}m뿐이다 (최소 {MinStraight}m)");
+                    $"호 {entrance.Arcs}개면 굴이 {channelEnd:F1}까지라 혀 끝까지 곧은 길이 {tongueEnd - channelEnd:F1}m뿐이다 (최소 {MinStraight}m)");
             }
             float floorAtMouth = topCeiling - DropSlope * (mouth - x0) - 2f * corridorHalf;
             float lipBottom = center - entrance.Thickness * 0.5f - entrance.Lip;
@@ -527,7 +532,7 @@ namespace LOP.MapTools
         public static List<RampPiece> FloorPieces(CourseProfile p, IReadOnlyList<float> splitXs)
             => Pieces(p, splitXs, cutShortcuts: false);
 
-        /// <summary>천장 경사 조각. 바닥과 같되 지름길 입구~출구는 도려낸다 — 그 자리는 빌더가 위쪽 상자와 혀로 채운다.</summary>
+        /// <summary>천장 경사 조각. 바닥과 같되 지름길 입구~출구는 도려낸다 — 그 자리는 빌더가 지붕 띠·혀 띠로 채운다.</summary>
         public static List<RampPiece> CeilingPieces(CourseProfile p, IReadOnlyList<float> splitXs)
             => Pieces(p, splitXs, cutShortcuts: true);
 

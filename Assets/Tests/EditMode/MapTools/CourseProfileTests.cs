@@ -182,8 +182,8 @@ namespace LOP.MapTools.Tests
             }
         }
 
-        static readonly ShortcutEntrance Easy = new ShortcutEntrance(1, 3.2f, 4f);
-        static readonly ShortcutEntrance Hard = new ShortcutEntrance(3, 2.6f, 6f);
+        static readonly ShortcutEntrance Easy = new ShortcutEntrance(1, 4.35f, 4f);
+        static readonly ShortcutEntrance Hard = new ShortcutEntrance(3, 3.6f, 6f);
 
         [Test]
         public void 날갯짓_호는_틱_궤적의_숫자다()
@@ -213,8 +213,8 @@ namespace LOP.MapTools.Tests
             Assert.IsFalse(CourseProfileRule.Sections[0].ValleyShortcut);
             ShortcutEntrance s2 = CourseProfileRule.Sections[1].Entrance;
             ShortcutEntrance s3 = CourseProfileRule.Sections[2].Entrance;
-            Assert.AreEqual((1, 3.2f, 4f), (s2.Arcs, s2.Thickness, s2.Lip), "구간 2 = 쉬운 굴");
-            Assert.AreEqual((3, 2.6f, 6f), (s3.Arcs, s3.Thickness, s3.Lip), "구간 3 = 어려운 굴");
+            Assert.AreEqual((1, 4.35f, 4f), (s2.Arcs, s2.Thickness, s2.Lip), "구간 2 = 쉬운 굴");
+            Assert.AreEqual((3, 3.6f, 6f), (s3.Arcs, s3.Thickness, s3.Lip), "구간 3 = 어려운 굴");
         }
 
         [Test]
@@ -244,10 +244,10 @@ namespace LOP.MapTools.Tests
         public void 호가_너무_많거나_턱이_너무_길거나_굴이_창보다_넓으면_던진다()
         {
             Assert.Throws<System.ArgumentOutOfRangeException>(
-                () => CourseProfileRule.ValleyShortcut(0f, 0f, 30f, 1.3f, Half, Window, new ShortcutEntrance(10, 3.2f, 4f), Arc),
+                () => CourseProfileRule.ValleyShortcut(0f, 0f, 30f, 1.3f, Half, Window, new ShortcutEntrance(10, 4.35f, 4f), Arc),
                 "굴이 출구를 넘는다");
             Assert.Throws<System.ArgumentOutOfRangeException>(
-                () => CourseProfileRule.ValleyShortcut(0f, 0f, 30f, 1.3f, Half, Window, new ShortcutEntrance(1, 3.2f, 20f), Arc),
+                () => CourseProfileRule.ValleyShortcut(0f, 0f, 30f, 1.3f, Half, Window, new ShortcutEntrance(1, 4.35f, 20f), Arc),
                 "턱 아래 계곡이 막힌다");
             Assert.Throws<System.ArgumentOutOfRangeException>(
                 () => CourseProfileRule.ValleyShortcut(0f, 0f, 30f, 1.3f, Half, Window, new ShortcutEntrance(1, 5f, 4f), Arc),

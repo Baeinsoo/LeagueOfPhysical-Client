@@ -17,7 +17,7 @@ namespace LOP.MapTools.Tests
 
         //  구간 3의 U(깊이 40, 오르막 1.5)와 어려운 굴을 x=100에서 시작한다.
         static readonly ShortcutRect Deep = CourseProfileRule.ValleyShortcut(
-            100f, 0f, 40f, 1.5f, Half, Window, new ShortcutEntrance(3, 2.6f, 6f), Arc);
+            100f, 0f, 40f, 1.5f, Half, Window, new ShortcutEntrance(3, 3.6f, 6f), Arc);
 
         [Test]
         public void 가운데_절반은_혀가_두_길을_가른다()

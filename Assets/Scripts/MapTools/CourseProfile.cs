@@ -231,9 +231,9 @@ namespace LOP.MapTools
         {
             new SectionTerrain(valleyDepth: 15f, hillHeight: 12f, riseSlope: 1.0f, stepHeight: 0f, valleyShortcut: false),
             new SectionTerrain(valleyDepth: 30f, hillHeight: 15f, riseSlope: 1.3f, stepHeight: 10f, valleyShortcut: true,
-                               entrance: new ShortcutEntrance(arcs: 1, thickness: 3.2f, lip: 4f)),
+                               entrance: new ShortcutEntrance(arcs: 1, thickness: 4.35f, lip: 4f)),
             new SectionTerrain(valleyDepth: 40f, hillHeight: 20f, riseSlope: 1.5f, stepHeight: 10f, valleyShortcut: true,
-                               entrance: new ShortcutEntrance(arcs: 3, thickness: 2.6f, lip: 6f)),
+                               entrance: new ShortcutEntrance(arcs: 3, thickness: 3.6f, lip: 6f)),
         };
 
         public static float ValleyLength(float depth, float rise) => depth / DropSlope + ValleyBottom + depth / rise;
@@ -443,13 +443,10 @@ namespace LOP.MapTools
         /// </summary>
         public static List<float[]> ShortcutTongue(ShortcutRect r, float step)
         {
-            List<float> cuts = ChannelCuts(r, step);
-            //  계곡 천장이 꺾이는 곳(바닥 시작·끝)과 혀 끝에서도 자른다 — 띠의 곧은 아랫변이 꺾인 선을 따라가게.
-            foreach (float x in new[] { r.ValleyBottom0, r.ValleyBottom1, r.TongueEnd })
-            {
-                if (x > r.X0 && x <= r.TongueEnd) { cuts.Add(x); }
-            }
-            SortUnique(cuts);
+            //  계곡 천장이 꺾이는 곳(바닥 시작·끝)과 혀 끝은 띠의 곧은 아랫변이 반드시 지나야 하는
+            //  모서리라 ChannelCuts에 "지켜야 할 자리"로 같이 넘긴다 — 그래야 바로 옆 step 자르기가
+            //  알아서 비켜간다(아래 ChannelCuts 참고).
+            List<float> cuts = ChannelCuts(r, step, r.ValleyBottom0, r.ValleyBottom1, r.TongueEnd);
             float half = r.Entrance.Thickness * 0.5f;
             var strips = new List<float[]>();
             for (int i = 1; i < cuts.Count; i++)
@@ -463,17 +460,22 @@ namespace LOP.MapTools
             return strips;
         }
 
-        //  경계(굴 끝·호 경계) 바로 옆에 step 자르기가 겹치면 폭 1cm 미만인 얇은 조각이 생긴다 —
-        //  그 조각을 메시 콜라이더로 구우면(Task 2) 쉽게 깨지는 판정면이 된다. 그래서 그런 자리의
-        //  step 자르기는 건너뛴다 — 경계 자체(굴 끝·호 경계)는 항상 남긴다.
+        //  경계(굴 끝·호 경계·keep으로 받은 모서리) 바로 옆에 step 자르기가 겹치면 폭 1cm 미만인
+        //  얇은 조각이 생긴다 — 그 조각을 메시 콜라이더로 구우면(Task 2) 쉽게 깨지는 판정면이 된다.
+        //  그래서 그런 자리의 step 자르기는 건너뛴다 — 경계 자체는 항상 남긴다.
         const float MinCutGap = 0.01f;
 
-        //  굴 구간을 step마다 + 호 경계마다 자른 x들(입구·굴 끝 포함). 호 경계는 가운데선이 꺾이는 점이라
-        //  띠가 그 점을 걸치면 곧은 변이 굴을 0.3m 넘게 파먹는다.
-        static List<float> ChannelCuts(ShortcutRect r, float step)
+        //  굴 구간을 step마다 + 호 경계마다 + keep마다 자른 x들(입구·굴 끝 포함). 호 경계·keep은
+        //  꼭 남아야 하는 모서리라 step보다 먼저 넣는다 — 그래야 바로 옆 step이 NearAnyCut에 걸려
+        //  알아서 빠진다. keep은 굴 범위를 넘어(TongueEnd까지) 있을 수 있다(혀의 계곡 쪽 꺾인 점 등).
+        static List<float> ChannelCuts(ShortcutRect r, float step, params float[] keep)
         {
             var cuts = new List<float> { r.X0, r.ChannelEnd };
             for (int k = 1; k < r.Entrance.Arcs; k++) { cuts.Add(r.X0 + k * r.Arc.Span); }
+            foreach (float g in keep)
+            {
+                if (g > r.X0 && g <= r.TongueEnd) { cuts.Add(g); }
+            }
             for (int i = 1; r.X0 + i * step < r.ChannelEnd; i++)
             {
                 float x = r.X0 + i * step;

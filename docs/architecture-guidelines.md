@@ -57,6 +57,10 @@ Assets/Tests/
 ```
 
 > **피처 폴더 규칙**: 모든 기능은 `Features/{FeatureName}/` 아래에 관련 코드를 모은다. 하위 폴더(Models, Systems, Components, UI, Data)는 해당 피처에 필요한 것만 생성한다 — 빈 폴더를 미리 만들지 않는다.
+>
+> **현재 클라는 아직 이관 전이다**: `Features/` 폴더가 없고, 스크립트는 `Assets/Scripts/{Lobby,Matchmaking,UI,...}`, UI 에셋(UXML·USS·이미지)은 `Assets/UI/<뷰>/`에 있다. 전체 이관은 별도 리팩터링 안건이므로, 그 전까지 새 화면은 이 현행 관례를 따른다.
+>
+> **아트 에셋(어드레서블)**: 아트 프리팹 루트에는 `Transform`+`Animator`만 둔다(게임플레이 스크립트 금지 — 런타임 `LOPEntityView`가 로드해 붙인다). 어드레서블 주소는 에셋 경로와 같게 둔다(예: `Assets/Art/Characters/Knight/Knight.prefab` = MasterData `SkinAsset.ModelPath`).
 
 ## 레이어 책임
 
@@ -112,6 +116,8 @@ Tests.PlayMode → 전체
 
 > 모든 asmdef에 `VContainer`, `UniTask`, `R3` 패키지 참조를 필요에 따라 추가한다. `Auto Referenced`는 false로 설정하여 불필요한 컴파일 의존을 방지한다.
 
+> **에디터 전용 asmdef**(`includePlatforms: ["Editor"]`, 예: `LOP.MapTools`)는 **런타임 코드가 참조하면 안 된다** — 에디터와 EditMode 테스트는 초록인데 플레이어·콘텐츠 빌드에서만 깨진다. 에디터 도구와 런타임이 같이 쓰는 순수 로직은 `FlappyRaceSlice.Logic`(`Assets/Scripts/FlappyRaceSlice/Logic/`, 전 플랫폼·`noEngineReferences`)에 둔다.
+
 ## R3 (Reactive Extensions) 사용 기준
 
 이벤트와 반응형 데이터 바인딩은 **R3로 통일**한다. ScriptableObject 이벤트 채널(Ryan Hipple 패턴)은 사용하지 않는다.
@@ -122,7 +128,7 @@ Tests.PlayMode → 전체
 |---|---|---|
 | 상태 변경 알림 | `ReactiveProperty<T>` | `ReactiveProperty<int> Hp` — Model이 소유, ViewModel/Component가 구독 |
 | 일회성 이벤트 | `Observable` (Subject) | `Subject<DamageEvent>` — System이 발행, Component가 구독 |
-| 글로벌 이벤트 버스 | `MessageBroker` (R3 기반) | 피처 간 통신 — `Infrastructure/EventBus/` |
+| 글로벌 이벤트 버스 | MessagePipe (`IPublisher<T>`/`ISubscriber<T>`, VContainer 등록) | 피처 간 통신 — 등록 규칙은 아래 |
 | UI 바인딩 | `ReadOnlyReactiveProperty<T>` | ViewModel이 Model의 RP를 변환해 노출, **View가 구독**해 VisualElement 갱신 (Unity6 네이티브 런타임 바인딩 대신 R3 중심 — "UI 아키텍처" 결정 참고) |
 | 컬렉션 변경 | `ObservableList<T>` | 인벤토리 아이템 목록 등 |
 
@@ -134,6 +140,7 @@ Tests.PlayMode → 전체
 **피처 간 통신:**
 - 피처 간 직접 참조 금지 — `Infrastructure/EventBus/`의 R3 기반 메시지 브로커를 통해서만 통신
 - 이벤트 정의는 발행하는 피처의 `Models/` 또는 `Shared/`에 위치
+- **메시지 브로커는 GameFramework `RegisterOrderedMessageBroker<T>()`로만 등록한다** — MessagePipe 기본 `RegisterMessageBroker`는 구독·해제를 반복하면 핸들러 호출 순서가 뒤집힌다. 필터·Async·Buffered 변형은 지원하지 않는다([ADR-0014](decisions/0014-ordered-message-broker-only.md))
 
 ## UI 아키텍처 (UI Toolkit + MVVM)
 
@@ -171,7 +178,8 @@ Tests.PlayMode → 전체
 모달이 단일 결과를 돌려주는 경우(확인/선택/로그인 등)는 **다이얼로그 서비스 패턴**을 따른다(Prism `IDialogService`/`IDialogAware`에 대응):
 - 매니저가 `UniTask<TResult> OpenModalAsync<TView, TResult>()`로 **결과를 await 반환**한다. **소비자는 View/ViewModel을 만지지 않고 결과만 받는다** — 외부에서 `view.ViewModel`에 접근하는 것은 tight-coupling 안티패턴.
 - **결과 출처 = ViewModel**: VM이 서비스 레이어를 호출해 로직을 수행하고 결과를 확정한다(결과 확정 = 닫기 신호). View는 버튼→VM 커맨드 전달 + VM 결과 포워딩(`IResultView<TResult>`)만 하는 수동 바인더.
-- 필수 모달(닫기 불가)은 `AutoClose = false`로 백드롭 클릭 무시.
+- ⚠️ **`UIPopup.AutoClose`(기본 true)는 현재 동작하지 않는다**: 백드롭이 모달 뷰 루트 *아래*에 깔리고, 모달 뷰 루트가 클릭을 먼저 받아서 클릭이 백드롭까지 안 내려간다. 바깥 클릭으로 취소하려면 **뷰가 직접 받는다** — 루트에 `PointerDownEvent`를 걸고, 카드 안이면 무시, 밖이면 VM `Cancel()`(본보기: `LeaveMatchConfirmView`). 닫기 불가 모달은 지금처럼 `AutoClose = false`로 둔다.
+- **어떤 경로로 닫히든 결과를 확정한다**: VM `Dispose()`에서 `TrySetResult(false)`. 안 하면 `OpenModalAsync`의 await가 끝나지 않는다.
 - UI 인프라(윈도우 매니저 등)는 **전용 UI Installer**로 등록해 앱/씬 스코프와의 결합을 분리한다.
 
 > 업계 근거: Unreal Engine CommonUI/Lyra(레이어별 activatable 위젯 스택, ZOrder, push/pop, 최상위 가시 레이어 top에 입력 포커스), UnityScreenNavigator(Page/Modal/Sheet 스택 + 모달 입력 차단). 소규모 프로젝트에서는 밴드 수를 최소화해 과설계를 피한다.
@@ -215,6 +223,11 @@ ScriptableObject는 **디자이너가 에디터에서 편집하는 불변 설정
 - MonoBehaviour 관련 통합 테스트는 PlayMode 테스트 사용
 - 테스트는 `Assets/Tests/EditMode/` 또는 `Assets/Tests/PlayMode/`에 위치
 - 실행: Unity Editor의 **Window > General > Test Runner**
+- **초록만으로 검증됐다고 하지 않는다** — 테스트가 아무것도 안 지키면서 통과하는 일이 반복됐다:
+  - 새 테스트는 통과시킨 뒤 **일부러 깨서 빨강을 확인**한다(대상 동작을 약화 → 그 테스트가 실패하는지 → 되돌리고 diff 0 확인).
+  - 단정을 쓸 때 "코드가 안 돌아도 성립하나?"를 묻는다(초기값과 같은 기대값, 둘 다 no-op이어도 같은 비교, 부정 단언). 성립하면 초기값을 바꾸거나 "실제로 움직였다"를 먼저 단정한다. 거부만 기대하는 묶음에는 양성 대조를 하나 넣는다.
+  - 단언을 고칠 때는 **변경 전 코드에서 실패하는지** 확인한다.
+  - 판별식(무엇을 수집·처리할지)을 바꾸면 엔티티를 손으로 조립하는 픽스처와 가짜(fake)를 전수 점검한다.
 
 ## 향후 고려사항
 
@@ -222,7 +235,7 @@ ScriptableObject는 **디자이너가 에디터에서 편집하는 불변 설정
 
 - [ ] **피처별 asmdef 분리** — 단일 `Features` 어셈블리로는 피처 간 직접 참조를 컴파일 타임에 차단할 수 없음. 피처가 5개 이상이고 **팀 규모가 커져서 피처 오너십 분리가 필요할 때** 피처별 asmdef로 분리 검토. 소규모 팀에서는 단일 `Features` asmdef 유지가 실용적
 - [ ] **게임 상태(State) 관리 패턴** — Menu → Loading → Gameplay → Pause → GameOver 등 앱 레벨 상태 전환 전략. VContainer `LifetimeScope` 계층과 연동하는 State Machine 또는 씬 기반 상태 관리
-- [ ] **씬 전략** — 단일 씬 vs 멀티 씬(Additive Loading) 결정, Addressables 도입 여부
+- [ ] **씬 전략** — 단일 씬 vs 멀티 씬(Additive Loading) 결정
 - [ ] **로깅/디버그 전략** — `Debug.Log` 래핑, 조건부 로깅, 릴리즈 빌드 시 로그 스트리핑
 
 ## 코드 컨벤션
@@ -254,7 +267,7 @@ ScriptableObject는 **디자이너가 에디터에서 편집하는 불변 설정
 ### Git 워크플로우
 
 - **main 브랜치에 직접 커밋 금지** — 모든 기능 구현/수정은 반드시 피처 브랜치에서 작업
-- 작업 시작 시(코드 변경 전) 워크트리를 생성하고 피처 브랜치에서 진행
+- 작업 시작 시(코드 변경 전) **그 자리에서** 피처 브랜치를 만든다(`git switch -c <branch>`). Unity 레포(Client/Server)는 `git worktree`를 쓰지 않는다 — 사본마다 Library 재생성·재임포트 비용이 든다. 전환 전에 미커밋 작업물을 확인하고, 커밋/스태시는 사용자에게 묻는다. 예외: iOS 작업은 형제 클론 `LeagueOfPhysical-Client-iOS`에서 하고, 문서만 고칠 때는 `Assets/` 없이 문서만 꺼낸 sparse 워크트리를 써도 된다([ADR-0012](decisions/0012-unity-repos-no-worktrees.md))
 - 완료 후 **원격 main 최신에서 리베이스한 뒤** main에 `--no-ff` 머지 — 정확한 순서와 금지사항은
   `CLAUDE.md`의 "푸시 규약(필수)"이 유일한 기준이다(force push 금지, Unity 로컬 픽스처 처리 포함)
 - spec/plan 문서 커밋도 피처 브랜치에서 수행

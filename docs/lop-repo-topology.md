@@ -14,7 +14,7 @@ LOP는 8개의 git 저장소로 나뉘어 있다. 이 문서는 *어떤 코드�
 | **LeagueOfPhysical-MasterData-Server** (`github.com/Baeinsoo/LeagueOfPhysical-MasterData-Server.git`) | Unity 패키지 (`com.baegames.lop.masterdata.server`) | **서버 전용 MasterData** — server projection(클라 전용 컬럼 제외, Luban group `s`) + 데이터. **클라 패키지와 상호 비참조** — 코드 레벨 격리로 DTO/보안. |
 | **LeagueOfPhysical-Client** | Unity 프로젝트 | 클라 특화 — `LOPGameEngine`(host 측), View(`LOPEntityView`, `DamageView`), 보정(`SnapReconciler`, `ServerStateReconciler`, `SnapInterpolator`), 매칭/로비, 입력 캡처. |
 | **LeagueOfPhysical-Server** | Unity 프로젝트 (Mirror 호스트) | 서버 특화 — `LOPGameEngine`(host 측), AI(`LOPAIController`), 와이어 송신(`WireBroadcaster`), `EntityInputComponent`, EntityCreationDataFactory. |
-| **LeagueOfPhysical-Art** (`github.com/Baeinsoo/LeagueOfPhysical-Art.git`) | git submodule | 디자이너 asset — 클라/서버 양쪽 `Assets/Art/`에 mount. |
+| **LeagueOfPhysical-Art** (`github.com/Baeinsoo/LeagueOfPhysical-Art.git`) | git submodule | 디자이너 asset — **클라 `Assets/Art/`에만** mount. 서버는 서브모듈이 없고 맵 씬 등은 어드레서블 콘텐츠(S3)로 받는다([ADR-0001](decisions/0001-server-has-no-art-submodule.md)). |
 | **infrastructure** | Node.js + Python | RoomServer 인프라(`k8s/`) + **MasterData 파이프라인**(`table/`): Excel(Excel-embedded `Datas/`) → **Luban**(`tools/Luban/`, `luban.conf`, `gen.sh`) → `.cs` + `.bytes` → MasterData-Client/Server 패키지로 출력. group `c`/`s`로 클·서 분기. |
 
 > ⚠️ **백엔드 3종은 모노레포로 통합됐다 (확인 2026-07-29).** 로비·매치메이킹·룸 서버는 이제
@@ -25,7 +25,7 @@ LOP는 8개의 git 저장소로 나뉘어 있다. 이 문서는 *어떤 코드�
 > 남아 있을 수 있으니, 백엔드를 고칠 때는 **반드시 `lop-backend`인지 확인할 것.**
 >
 > **배포 경로**: `lop-backend` push → GitHub Actions `backend-deploy`(수동 실행, 대상 앱 선택) →
-> 이미지 `re5nardo/<app>:<git-sha>` 빌드·푸시 → **infrastructure의 `k8s/apps/backend/<app>/kustomization.yaml`
+> 이미지 `re5nardo/<app>:<git-sha>` 빌드·푸시 → **infrastructure의 `k8s/envs/<env>/backend/kustomization.yaml`
 > 태그를 자동 bump·커밋** → ArgoCD가 감지해 롤아웃. 즉 **infrastructure가 GitOps 진실원본**이고,
 > 클러스터에 직접 `kubectl apply`한 변경은 selfHeal로 되돌아간다.
 
@@ -249,6 +249,9 @@ LOP-Shared와 MasterData-Client/Server 패키지가 *패키지 dependencies로 �
 
 - **현재 단계(file: 참조)**: 양쪽 manifest가 `file:.../LeagueOfPhysical-Shared`로 로컬 경로를 본다. Shared 코드는 *그 폴더*에서 직접 편집·커밋·push. GameFramework와 동일 방식.
 - **향후(git URL + tag 전환)**: 안정화 후 `https://github.com/Baeinsoo/LeagueOfPhysical-Shared.git?path=/Package#v0.x.y`로 클·서가 *같은 commit*을 보도록 잠금 가능.
+- **레포 간 푸시·배포 순서**: CI(`content-deploy`, `gameserver-deploy`)는 형제 패키지 레포를 *그 시점의 main*(입력 `package_ref` 기본값)으로 맞춰 빌드한다. 맵 씬 마커는 Shared 스크립트를 GUID로 참조하므로 순서가 틀리면 번들에 missing script로 구워진다:
+  ① Shared main → ② Art main → ③ Client main(Art 서브모듈 포인터) → ④ `content-deploy` → ⑤ Server main + `gameserver-deploy`.
+- **환경변수 요구/공급 계약**: 요구는 `lop-backend`의 각 진입점(`apps/*/src/main.ts`, `director.ts`)이 `validateEnv({...})`로, 공급은 **infrastructure** `k8s/base/backend/<app>/*-deployment.yaml`의 `envFrom.secretRef`(배포)와 `lop-backend/apps/*/.env.development.local`(로컬)이 한다. 요구를 늘리면 같은 변경에서 공급 두 곳도 늘린다 — envalid는 누락 시 `process.exit(1)`이라 파드가 즉사한다.
 
 ## 마이그레이션 슬라이스 — 요약
 

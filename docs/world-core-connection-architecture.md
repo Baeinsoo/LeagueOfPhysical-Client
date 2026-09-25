@@ -156,6 +156,7 @@ World 상태가 네트워크를 건널 때 *값을 snapshot(상태)으로 보낼
 - **Event = 연출/귀속 전용** (데미지 숫자·크리·회피·death 연출). **클라는 event로 authoritative 상태를 쓰지 않는다.**
 - *순수 snapshot 아님*: 크리/회피/누가-때렸나 같은 attribution을 snapshot delta로 복원 어려움.
 - *순수 event 아님*: event는 lossy → durable HP가 desync (Source의 "durable state = entity-state, not message" 규칙).
+- **지속시간(스턴·무적·대시 등)은 "끝나는 절대 틱"으로 싣는다** — 불리언이나 남은 초가 아니다(스냅이 늦게 와도 값이 낡지 않고, 보정 때 남은 양을 알 수 있다). 초↔틱 변환은 LOP-Shared `FlappyTickDuration.EndTick`/`RemainingSeconds` 한 곳만 쓴다. 호출부에서 `Ceiling(remaining/dt)`를 직접 쓰지 않는다 — 시뮬의 `Epsilon` 종료 규칙을 몰라 한 틱을 더 센다([ADR-0015](decisions/0015-wire-duration-as-end-tick.md)).
 
 ### 산업 정렬 (개념 vs 와이어 — 분리해서)
 
@@ -321,6 +322,7 @@ renderTick = (tickUpdater.elapsedTime - tickUpdater.interval) / tickUpdater.inte
 
 - **속도·중력을 게임 코드가 계산** — `MovementSystem`(입력→수평 속도, velocity 단일 writer) + `KinematicMoveSystem`(중력=분리된 수직 스텝 + collide-and-slide). 중력은 컨트롤러 레이어 소관이지 넉백류 외력(`MotionContributions`)과 다른 축.
 - **캡슐 sweep으로 벽까지만 이동 + 미끄러짐** — `KinematicMover`(LOP-Shared 공유 static 커널) + `ICollisionQuery` 포트(PhysX `CapsuleCast`). 시작 겹침(스폰 flush 등)은 `Depenetrate`(`ComputePenetration`)로 밀어냄 — 실제 콜라이더로 self 제외해야 해 host-side.
+- **수평과 수직을 따로 쓸어 낸다** — 수평 collide-and-slide 후 수직 sweep을 한 번 더 한다. 그래서 머리 위를 앞으로 기운 면(overhang)이 덮고 앞이 막힌 자리에서는 위로 가는 sweep이 천장에 막혀 날갯짓·점프가 무력해지고 영영 낀다(겹침이 아니라 `Depenetrate`도 할 일이 없다). 뒤로 기운 면(undercut)은 위가 열려 있어 안전하다. 그래서 맵을 이을 때 끝면이 주행면 위로 튀어나오지 않게 하고, 맵 검사의 낌 지점 스캔(`docs/archive/specs/2026-09-07-flappy-map-playability-check-design.md`)으로 확인한다.
 - **포지션 직접 제어** — 결과를 `World.Transform.Position`에 씀(진실원본). Rigidbody는 우리가 `rb.position`을 미는 **kinematic follower**, PhysX `Physics.Simulate`는 다이나믹 물체 전용. 캐릭터끼리 충돌도 PhysX 해소가 아니라 우리 sweep이 처리(둘 다 kinematic).
 - **예측=권위** — 클라 예측(`LOPRunner.MoveLocalPlayer` + `Reconciler` 재생)과 서버 권위(`LOPRunner.MoveCharacters`)가 **같은 `KinematicMoveSystem` 구체 코드**라 접지 높이·궤적이 일치 → reconciliation 최소. 게이트: 서버=모든 Character, 클라=내 캐릭만(원격은 스냅 팔로워).
 

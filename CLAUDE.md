@@ -1,69 +1,22 @@
 # LeagueOfPhysical-Client
 
-## 답변 스타일 (필수)
+@../league-of-physical/CLAUDE.md
 
-**답변은 항상 이해하기 쉬운 형태로 한다.** 전문용어·추상 개념(generation/application,
-cascade, egress, CQRS 등)을 그대로 나열하지 말고, 일상어로 풀고 구체 예시·표·다이어그램을
-곁들인다. 큰 그림(왜/무엇)을 먼저 제시하고 세부는 뒤에 둔다. 한 문단에 새 개념을 여러 개
-몰아넣지 않는다. 개념 자체는 정교하게 다루되, *전달*은 쉬워야 한다.
+위 줄이 모든 repo 공통 규칙(답변 스타일·주석·푸시 규약·문서 규칙)을 불러온다. 여러 repo에 걸친 문서는
+형제 repo `league-of-physical`의 `docs/`에 있다(지도: `../league-of-physical/docs/README.md`).
+이 repo 안에서만 의미 있는 README·운영 절차는 여기에 둔다.
 
-## 코드 주석 (필수)
+## 아키텍처 문서 (매 세션 자동 로드)
 
-**불필요한 주석은 달지 않고, 다는 주석은 쉽게 쓴다.**
+엔티티·World Core·넷코드·매칭 FSM을 건드리기 전에 따른다.
 
-- **불필요한 주석 지양**: 코드로 자명한 것(무엇을 하는지)은 주석 없이 둔다. 변수명/함수명으로
-  드러나면 주석 불필요. 비자명한 *의도(왜)* 만 짧게 남긴다.
-- **쉽게 쓰기**: 주석은 일상어로. 설명 없이 전문용어(예: kernel, brake-to-desired,
-  passthrough, momentum 등)를 던지지 말고, 그 자리에서 무슨 뜻인지 풀어 쓴다. 코드를 처음 보는
-  사람이 한 줄로 이해되게.
-- 아직 없는 미래 기능을 현재 주석에 섞지 않는다(혼동 유발). 상세 컨벤션은 `docs/architecture-guidelines.md`의 "주석 컨벤션" 참고.
+- @../league-of-physical/docs/architecture-guidelines.md
+- @../league-of-physical/docs/entity-system-design.md
+- @../league-of-physical/docs/lop-repo-topology.md
+- @../league-of-physical/docs/world-core-connection-architecture.md
+- @../league-of-physical/docs/netcode-redesign.md
 
-## 푸시 규약 (필수) — 원격 main 리베이스 → `--no-ff` 머지
-
-**모든 저장소(8개 전부)에서 main 푸시는 아래 순서로만 한다. 다른 방식으로 푸시하지 않는다.**
-
-```bash
-git fetch origin
-git rebase --autostash origin/main   # 피처 브랜치를 원격 main 최신 위로
-git checkout main
-git merge --ff-only origin/main      # 로컬 main을 원격에 맞춤
-git merge --no-ff <feature>          # 머지 커밋 생성
-git push origin main
-```
-
-**한 줄씩 결과를 확인하고 넘어간다. `&&`로 길게 이어 붙이지 말 것** — 실패한 단계를 지나쳐도 뒤
-단계가 성공해 버려서 *푸시는 됐는데 절차는 안 밟은* 상태가 된다(이 규약을 처음 적용한 날 실제로
-그랬다: Unity 워킹트리가 dirty라 리베이스가 거부됐는데 그대로 머지·푸시까지 갔다. 마침 원격이 안
-움직여 결과만 맞았을 뿐이다). **`--autostash`가 그 사고의 재발 방지책**이다 — 그래도 리베이스가
-실패하면 거기서 멈춘다.
-
-**왜 이 순서인가**
-
-- **리베이스가 먼저**여야 피처 커밋이 *원격 최신* 위에서 검증된 상태가 된다. 로컬 main 기준으로
-  머지하면 원격에만 있는 변경과 처음 만나는 지점이 main이 된다.
-- **`--no-ff`** 로 머지 커밋을 남겨 "어느 커밋들이 한 슬라이스였는지"가 히스토리에 보존된다.
-- **`--ff-only`** 로 로컬 main을 맞춘다 — 여기서 실패하면 로컬 main에 직접 커밋한 것이 있다는 뜻이니
-  멈추고 확인한다(main 직접 커밋 금지 위반의 탐지기).
-
-**반드시 지킬 것**
-
-- **`git push --force` / `--force-with-lease` 금지.** 푸시가 거절되면 힘으로 밀지 말고
-  **다시 `fetch` → 리베이스 → 재시도**한다. 이 프로젝트는 머신이 둘이라 그 사이 원격이 움직이는 일이
-  실제로 잦다(`[[two-machines-check-origin-first]]`).
-- **로컬 main을 기준으로 브랜치를 파지 말 것.** 로컬 main이 원격보다 뒤처져 있을 수 있다 — 브랜치
-  생성 직후 `git fetch && git rev-list --left-right --count origin/main...HEAD`로 확인한다.
-- **여러 레포가 걸린 변경은 레포마다 각각** 이 순서를 밟는다. 한 레포만 올라가면 계약이 어긋난다.
-
-**Unity 레포(클라·서버) 추가 주의**
-
-- 워킹트리에 **의도적으로 커밋하지 않는 로컬 픽스처**가 늘 있다(에디터 부팅 설정, 스폰 개수,
-  볼륨 프로파일 재직렬화, 아트 서브모듈 포인터, 폰트 에셋). 리베이스 전에 `git stash push -u -m ...`로
-  빼두고 끝나면 `pop`한다. **`git add -A` / `git commit -a` 금지** — 반드시 바꾼 파일만 경로로 지정하고,
-  커밋 전에 `git status --short`로 스테이지된 것이 의도한 파일뿐인지 확인한다.
-- 그 픽스처가 **upstream에서 개명된 파일** 위에 있을 수 있다. stash → 리베이스 → pop이면 git이 rename을
-  추적해 새 파일로 옮겨 붙인다(실증됨). 충돌이 나면 픽스처는 사용자 것이니 임의 판단하지 말고 보고한다.
-- 파일 이름을 바꿀 때는 **`.cs`와 짝 `.meta`를 함께 `git mv`** 한다 — GUID가 보존돼 씬·프리팹 참조가
-  안 끊기고, 에디터가 안 떠 있어도 안전하다.
+> 진행 중인 슬라이스의 spec은 **작업하는 동안만** `@../league-of-physical/docs/superpowers/specs/…` 줄을 더하고, 닫을 때 뺀다.
 
 ## UnityMCP instance targeting
 
@@ -92,31 +45,3 @@ with `unity_instance` set.
 Never operate against the server instance from this project unless the user
 explicitly asks.
 
-## Architecture & design docs (auto-loaded every session)
-
-These files describe the **durable structure, design contracts, and conventions**
-that all work in this repo must follow. They are imported via `@` syntax below so
-their contents are injected into the context at session start — no hook needed.
-Read and respect them **before** modifying anything related to entities, the
-World Core, netcode, or matching FSM.
-
-- @docs/architecture-guidelines.md
-- @docs/entity-system-design.md
-- @docs/lop-repo-topology.md
-- @docs/world-core-connection-architecture.md
-- @docs/netcode-redesign.md
-
-> 자동 로드는 이 다섯 개만 한다. 진행 중인 슬라이스의 spec은 **작업하는 동안만** `@` 줄을 더하고,
-> 닫을 때 뺀다.
-
-## 문서 규칙 (필수)
-
-문서 지도와 슬라이스 닫기 체크리스트는 `docs/README.md`에 있다. 요점:
-
-- **요청하지 않은 요약·보고서·완료 기록 md를 만들지 않는다.** 그런 내용은 커밋 메시지나 머지 커밋 본문에 쓴다.
-- **새 문서를 만들기 전에** `docs/README.md`의 표를 보고 들어갈 기존 문서가 있는지 확인한다. 있으면 그 문서를 고친다.
-- 임시 메모나 조사 노트는 `.superpowers/`(gitignore됨)에 둔다. 문서는 `Assets/` 밖에만 둔다.
-- `ROADMAP.md`에는 **상태만** 쓴다(지금 / 다음 / 파킹, 한 항목에 1~3줄). 경위와 교훈은 머지 커밋 본문으로 보낸다.
-- 오래 지켜야 할 **설계 결정**은 메모리가 아니라 `docs/decisions/`(ADR)에 쓴다. 메모리는 이 머신에만 있다.
-- spec은 맨 앞에 `## 의도` 절(문제 / 원하는 결과 / 제약 / 열린 질문)을 둔다.
-- `docs/archive/`, `docs/journal/`은 지난 기록이다. 사용자가 요청하거나 과거 경위를 추적할 때만 읽는다.

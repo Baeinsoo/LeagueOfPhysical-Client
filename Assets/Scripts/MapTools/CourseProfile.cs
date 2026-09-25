@@ -16,15 +16,65 @@ namespace LOP.MapTools
         /// <summary>계단 높이. 0이면 이 구간엔 계단이 없다.</summary>
         public readonly float StepHeight;
         public readonly bool ValleyShortcut;
+        public readonly ShortcutEntrance Entrance;
 
         public SectionTerrain(float valleyDepth, float hillHeight, float riseSlope, float stepHeight,
-                              bool valleyShortcut)
+                              bool valleyShortcut, ShortcutEntrance entrance = default)
         {
             ValleyDepth = valleyDepth;
             HillHeight = hillHeight;
             RiseSlope = riseSlope;
             StepHeight = stepHeight;
             ValleyShortcut = valleyShortcut;
+            Entrance = entrance;
+        }
+    }
+
+    /// <summary>
+    /// 날갯짓 한 번이 그리는 호 — <b>틱 단위로 뗀</b> 궤적. 커널은 한 틱에 속도를 먼저 바꾸고 그 속도로
+    /// 움직이므로, 날갯짓 틱부터 t초 뒤 높이는 연속 포물선이 아니라 (v + g·dt/2)·t − g·t²/2 다.
+    /// 연속식으로 굴을 파면 한 호 끝에서 0.37m 어긋나 제때 쳐도 박는다(spec §13).
+    /// </summary>
+    public readonly struct FlapArc
+    {
+        public readonly float FlapImpulse, Gravity, ForwardSpeed, TickSeconds;
+
+        public FlapArc(float flapImpulse, float gravity, float forwardSpeed, float tickSeconds)
+        {
+            FlapImpulse = flapImpulse; Gravity = gravity; ForwardSpeed = forwardSpeed; TickSeconds = tickSeconds;
+        }
+
+        public float EffectiveImpulse => FlapImpulse + Gravity * TickSeconds * 0.5f;
+        /// <summary>한 호의 틱 수 — 친 높이로 돌아오기 직전까지(내림). 그래서 호마다 조금씩 오른다.</summary>
+        public int TicksPerArc => (int)Math.Floor(2f * EffectiveImpulse / Gravity / TickSeconds);
+        public float Span => TicksPerArc * ForwardSpeed * TickSeconds;
+        public float RisePerArc => HeightAt(Span);
+        public float Apex => EffectiveImpulse * EffectiveImpulse / (2f * Gravity);
+
+        /// <summary>친 자리에서 앞으로 <paramref name="dx"/>m 갔을 때 친 높이보다 얼마나 위인가.</summary>
+        public float HeightAt(float dx)
+        {
+            float t = dx / ForwardSpeed;
+            return EffectiveImpulse * t - 0.5f * Gravity * t * t;
+        }
+    }
+
+    /// <summary>
+    /// 지름길 입구 난이도. 굴이 좁을수록·호가 많을수록 박자가 빡빡하다. 놓치고도 원래 박자를 그대로
+    /// 유지하며 날면 호마다 한 번씩 부딪힌다 — 놓친 뒤 박자를 다시 맞춰 나는 경우는 측정한 적이 없다.
+    /// </summary>
+    public readonly struct ShortcutEntrance
+    {
+        /// <summary>이어진 호(날갯짓 박자) 수. 0이면 굴이 없다(씬 표시에서 되살린 값).</summary>
+        public readonly int Arcs;
+        /// <summary>굴의 세로 폭.</summary>
+        public readonly float Thickness;
+        /// <summary>입구 밑으로 내려온 턱 길이. 낮게 빗나간 새가 여기에 부딪혀 계곡으로 떨어진다.</summary>
+        public readonly float Lip;
+
+        public ShortcutEntrance(int arcs, float thickness, float lip)
+        {
+            Arcs = arcs; Thickness = thickness; Lip = lip;
         }
     }
 
@@ -37,26 +87,54 @@ namespace LOP.MapTools
     }
 
     /// <summary>
-    /// U자를 수평으로 가로지르는 지름길. <see cref="X0"/>·<see cref="X1"/>은 천장선이 지름길 윗면을
-    /// 지나는 곳(입구·출구)이고, <see cref="Tongue"/>은 지름길과 계곡 사이에 남는 덩어리(혀)다.
+    /// U자 계곡을 가로지르는 지름길. 앞은 날갯짓 호 모양으로 판 좁은 굴(<see cref="X0"/>~<see cref="ChannelEnd"/>),
+    /// 뒤는 곧은 수평 길(~<see cref="X1"/>, 높이 <see cref="Y0"/>~<see cref="Y1"/>)이다. <see cref="X0"/>은 내리막
+    /// 천장이 굴 윗면을 지나는 곳(입구), <see cref="X1"/>은 오르막 천장이 곧은 길 윗면을 지나는 곳(출구).
     /// </summary>
     public readonly struct ShortcutRect
     {
-        public readonly float X0, X1, Y0, Y1;
-        /// <summary>(x, y) 네 쌍, 반시계: 윗변 왼쪽 → 바닥 왼쪽 → 바닥 오른쪽 → 윗변 오른쪽.</summary>
-        public readonly float[] Tongue;
+        public readonly float X0, ChannelEnd, X1, Y0, Y1;
+        public readonly ShortcutEntrance Entrance;
+        public readonly FlapArc Arc;
+        /// <summary>혀(지름길과 계곡 사이 덩어리)가 끝나는 x — 오르막 천장이 곧은 길 바닥을 지나는 곳.</summary>
+        public readonly float TongueEnd;
+        /// <summary>혀 아랫면을 그리는 데 쓰는 계곡 모양: 바닥 시작·끝 x, 바닥 위 천장 높이, 오르막 기울기.</summary>
+        public readonly float ValleyBottom0, ValleyBottom1, BottomCeiling, RiseSlope;
 
-        public ShortcutRect(float x0, float x1, float y0, float y1, float[] tongue)
+        public ShortcutRect(float x0, float channelEnd, float x1, float y0, float y1,
+                            ShortcutEntrance entrance, FlapArc arc, float tongueEnd,
+                            float valleyBottom0, float valleyBottom1, float bottomCeiling, float riseSlope)
         {
-            X0 = x0; X1 = x1; Y0 = y0; Y1 = y1; Tongue = tongue;
+            X0 = x0; ChannelEnd = channelEnd; X1 = x1; Y0 = y0; Y1 = y1;
+            Entrance = entrance; Arc = arc; TongueEnd = tongueEnd;
+            ValleyBottom0 = valleyBottom0; ValleyBottom1 = valleyBottom1;
+            BottomCeiling = bottomCeiling; RiseSlope = riseSlope;
         }
 
         public float CenterY => (Y0 + Y1) * 0.5f;
         public float Length => X1 - X0;
+        public float LipBottom => CenterY - Entrance.Thickness * 0.5f - Entrance.Lip;
 
-        /// <summary>씬 표시(빈 GameObject의 위치·크기)에서 되살린다. 혀는 검사에 필요 없어 비운다.</summary>
+        /// <summary>
+        /// 굴 가운데선 높이. 입구에서 <see cref="CenterY"/>로 시작해, 호마다 한 번 친 새가 지나는 틱 궤적을
+        /// 그대로 따른다. 굴 밖은 양 끝 값에 고정한다.
+        /// </summary>
+        public float ChannelCenterAt(float x)
+        {
+            if (Entrance.Arcs < 1 || x <= X0) { return CenterY; }
+            float span = Arc.Span;
+            float dx = Math.Min(x - X0, Entrance.Arcs * span);
+            int k = Math.Min((int)(dx / span), Entrance.Arcs - 1);
+            return CenterY + k * Arc.RisePerArc + Arc.HeightAt(dx - k * span);
+        }
+
+        /// <summary>씬 표시(빈 GameObject의 위치·크기)에서 되살린다. 검사기는 곧은 길 띠만 쓰므로 굴은 비운다.</summary>
         public static ShortcutRect FromCenterSize(float cx, float cy, float w, float h)
-            => new ShortcutRect(cx - w * 0.5f, cx + w * 0.5f, cy - h * 0.5f, cy + h * 0.5f, null);
+        {
+            float x0 = cx - w * 0.5f, x1 = cx + w * 0.5f;
+            return new ShortcutRect(x0, x0, x1, cy - h * 0.5f, cy + h * 0.5f,
+                                    default, default, x1, x0, x1, cy - h * 0.5f, 0f);
+        }
     }
 
     /// <summary>경사 조각 하나 — 두 x 사이를 곧은 선으로 잇는다. Lift는 회랑 중심 높이.</summary>
@@ -146,13 +224,19 @@ namespace LOP.MapTools
         /// 파이프가 혀를 뚫고 지름길로 삐져나온다. 파이프를 더 깊이 박게 바꾸면 이 값도 같이 올릴 것.
         /// </summary>
         public const float MinTongue = 1f;
+        /// <summary>굴 끝에서 출구까지 곧은 길의 최소 길이 — 호를 늘리다 굴이 출구를 넘는 실수를 막는다.</summary>
+        public const float MinStraight = 2f;
+        /// <summary>입구 턱 밑으로 계곡 새가 지나갈 최소 틈.</summary>
+        public const float MinValleyGap = 6f;
 
         /// <summary>구간 1(배우기) · 2 · 3. spec §3 표 그대로.</summary>
         public static readonly SectionTerrain[] Sections =
         {
             new SectionTerrain(valleyDepth: 15f, hillHeight: 12f, riseSlope: 1.0f, stepHeight: 0f, valleyShortcut: false),
-            new SectionTerrain(valleyDepth: 30f, hillHeight: 15f, riseSlope: 1.3f, stepHeight: 10f, valleyShortcut: true),
-            new SectionTerrain(valleyDepth: 40f, hillHeight: 20f, riseSlope: 1.5f, stepHeight: 10f, valleyShortcut: true),
+            new SectionTerrain(valleyDepth: 30f, hillHeight: 15f, riseSlope: 1.3f, stepHeight: 10f, valleyShortcut: true,
+                               entrance: new ShortcutEntrance(arcs: 1, thickness: 6.0f, lip: 4f)),
+            new SectionTerrain(valleyDepth: 40f, hillHeight: 20f, riseSlope: 1.5f, stepHeight: 10f, valleyShortcut: true,
+                               entrance: new ShortcutEntrance(arcs: 3, thickness: 5.0f, lip: 6f)),
         };
 
         public static float ValleyLength(float depth, float rise) => depth / DropSlope + ValleyBottom + depth / rise;
@@ -161,8 +245,9 @@ namespace LOP.MapTools
 
         /// <param name="leadIn">출발선 앞 평지(스폰 뒤를 덮는 여유).</param>
         /// <param name="tail">결승선 뒤 평지.</param>
+        /// <param name="arc">입구 굴을 파는 날갯짓 호 — FlappyConfig에서 만든다.</param>
         public static CourseProfile Compose(float startX, float length, float spacing, float corridorHalf,
-                                            float window, ulong seed, float leadIn, float tail)
+                                            ulong seed, float leadIn, float tail, FlapArc arc)
         {
             var rng = new DeterministicRandom(seed);
             var xs = new List<float> { startX - leadIn };
@@ -236,7 +321,7 @@ namespace LOP.MapTools
                             xs.Add(x); ys.Add(y);
                             if (t.ValleyShortcut)
                             {
-                                shortcuts.Add(ValleyShortcut(x0, y, d, t.RiseSlope, corridorHalf, window));
+                                shortcuts.Add(ValleyShortcut(x0, y, d, t.RiseSlope, corridorHalf, t.Entrance, arc));
                             }
                             break;
                         }
@@ -283,16 +368,27 @@ namespace LOP.MapTools
         }
 
         /// <summary>
-        /// 계곡의 깊이 절반 높이에 수평 지름길을 뚫는다. 입구는 내리막 벽 중간이라 먼저 절반을 급강하해야
-        /// 들어갈 수 있다(spec §4). 혀(지름길과 계곡 사이)가 <see cref="MinTongue"/>보다 얇으면 던진다.
+        /// 계곡의 깊이 절반 높이에 지름길을 뚫는다. 입구는 내리막 벽 중간의 좁은 굴(날갯짓 호 모양)이고,
+        /// 굴이 끝나면 곧은 수평 길이 출구까지 간다(spec §4, §13). <b>곧은 길 높이는 굴 두께와 같다</b> —
+        /// 굴을 빠져나온 새는 빠르게 떨어지는 중(약 18m/s)이라 다음 날갯짓 한 번이 3.12m를 통째로 올린다.
+        /// 곧은 길이 그보다 낮은 관문 폭(window)만큼만 있으면 그 날갯짓이 정확히 한 틱에만 맞아야 해서
+        /// 숨은 강제 박자가 생긴다(2026-09-25 측정) — 그래서 굴만큼 높였다. 혀가 <see cref="MinTongue"/>보다
+        /// 얇거나, 곧은 길이 <see cref="MinStraight"/>보다 짧거나, 턱 밑 틈이 <see cref="MinValleyGap"/>보다
+        /// 좁으면 던진다.
         /// </summary>
         /// <param name="x0">계곡이 시작하는 x(평지 끝).</param>
         public static ShortcutRect ValleyShortcut(float x0, float baseY, float depth, float riseSlope,
-                                                  float corridorHalf, float window)
+                                                  float corridorHalf,
+                                                  ShortcutEntrance entrance, FlapArc arc)
         {
+            if (entrance.Arcs < 1 || entrance.Thickness <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(entrance), entrance.Thickness,
+                    $"입구 굴은 호 1개 이상, 두께가 0보다 커야 한다 (호 {entrance.Arcs}, 두께 {entrance.Thickness})");
+            }
             float center = baseY - depth * 0.5f;
-            float y0 = center - window * 0.5f;
-            float y1 = center + window * 0.5f;
+            float y0 = center - entrance.Thickness * 0.5f;
+            float y1 = center + entrance.Thickness * 0.5f;
             float topCeiling = baseY + corridorHalf;
             float bottomCeiling = baseY - depth + corridorHalf;
             if (y0 - bottomCeiling < MinTongue)
@@ -303,25 +399,140 @@ namespace LOP.MapTools
             float bottom0 = x0 + depth / DropSlope;
             float bottom1 = bottom0 + ValleyBottom;
             //  내리막 천장선 y = topCeiling − DropSlope·(x − x0), 오르막 천장선 y = bottomCeiling + rise·(x − bottom1).
-            float entry = x0 + (topCeiling - y1) / DropSlope;
-            float exit = bottom1 + (y1 - bottomCeiling) / riseSlope;
-            float tongueLeft = x0 + (topCeiling - y0) / DropSlope;
-            float tongueRight = bottom1 + (y0 - bottomCeiling) / riseSlope;
-            var tongue = new[]
+            float mouth = x0 + (topCeiling - (center + entrance.Thickness * 0.5f)) / DropSlope;
+            if (mouth >= bottom0)
             {
-                tongueLeft, y0,
-                bottom0, bottomCeiling,
-                bottom1, bottomCeiling,
-                tongueRight, y0,
-            };
-            return new ShortcutRect(entry, exit, y0, y1, tongue);
+                throw new ArgumentOutOfRangeException(nameof(depth), depth,
+                    $"입구 {mouth:F1}이 계곡 바닥 시작 {bottom0:F1}보다 뒤다");
+            }
+            float channelEnd = mouth + entrance.Arcs * arc.Span;
+            float exit = bottom1 + (y1 - bottomCeiling) / riseSlope;
+            float tongueEnd = bottom1 + (y0 - bottomCeiling) / riseSlope;
+            //  exit이 아니라 tongueEnd까지로 잰다 — 혀 띠(굴 끝~tongueEnd)는 TongueEnd를 지나면
+            //  위아래가 뒤집혀서, 굴이 tongueEnd를 넘으면 exit까지 여유가 있어도 혀 자체가 깨진다.
+            if (tongueEnd - channelEnd < MinStraight)
+            {
+                throw new ArgumentOutOfRangeException(nameof(entrance), entrance.Arcs,
+                    $"호 {entrance.Arcs}개면 굴이 {channelEnd:F1}까지라 혀 끝까지 곧은 길이 {tongueEnd - channelEnd:F1}m뿐이다 (최소 {MinStraight}m)");
+            }
+            float floorAtMouth = topCeiling - DropSlope * (mouth - x0) - 2f * corridorHalf;
+            float lipBottom = center - entrance.Thickness * 0.5f - entrance.Lip;
+            if (lipBottom - floorAtMouth < MinValleyGap)
+            {
+                throw new ArgumentOutOfRangeException(nameof(entrance), entrance.Lip,
+                    $"턱 {entrance.Lip}m 밑 계곡 틈이 {lipBottom - floorAtMouth:F1}m다 (최소 {MinValleyGap}m)");
+            }
+            return new ShortcutRect(mouth, channelEnd, exit, y0, y1, entrance, arc, tongueEnd,
+                                    bottom0, bottom1, bottomCeiling, riseSlope);
         }
+
+        /// <summary>
+        /// 지름길 윗덩어리(지붕)를 세로 띠로 자른다. 굴 구간은 굴 윗면을 따라, 곧은 길은 <see cref="ShortcutRect.Y1"/>
+        /// 위에 얹는다. 호가 이어진 모양은 오목해서 한 덩어리 볼록 콜라이더로 만들면 굴이 메워진다 — 그래서 띠다.
+        /// </summary>
+        public static List<float[]> ShortcutRoof(ShortcutRect r, float wallThickness, float step)
+        {
+            var strips = new List<float[]>();
+            List<float> cuts = ChannelCuts(r, step);
+            float half = r.Entrance.Thickness * 0.5f;
+            for (int i = 1; i < cuts.Count; i++)
+            {
+                float a = cuts[i - 1], b = cuts[i];
+                float bottomA = r.ChannelCenterAt(a) + half;
+                float bottomB = r.ChannelCenterAt(b) + half;
+                strips.Add(Strip(a, bottomA, bottomA + wallThickness, b, bottomB, bottomB + wallThickness));
+            }
+            strips.Add(Strip(r.ChannelEnd, r.Y1, r.Y1 + wallThickness, r.X1, r.Y1, r.Y1 + wallThickness));
+            return strips;
+        }
+
+        /// <summary>
+        /// 지름길과 계곡 사이 덩어리(혀)를 세로 띠로 자른다. 윗면은 굴 바닥(곧은 길에선 <see cref="ShortcutRect.Y0"/>),
+        /// 아랫면은 계곡 천장선 — 단 입구 밑은 턱(세로 벽)에서 계곡 바닥 시작점까지 곧게 내려온다.
+        /// </summary>
+        public static List<float[]> ShortcutTongue(ShortcutRect r, float step)
+        {
+            //  계곡 천장이 꺾이는 곳(바닥 시작·끝)과 혀 끝은 띠의 곧은 아랫변이 반드시 지나야 하는
+            //  모서리라 ChannelCuts에 "지켜야 할 자리"로 같이 넘긴다 — 그래야 바로 옆 step 자르기가
+            //  알아서 비켜간다(아래 ChannelCuts 참고).
+            List<float> cuts = ChannelCuts(r, step, r.ValleyBottom0, r.ValleyBottom1, r.TongueEnd);
+            float half = r.Entrance.Thickness * 0.5f;
+            var strips = new List<float[]>();
+            for (int i = 1; i < cuts.Count; i++)
+            {
+                float a = cuts[i - 1], b = cuts[i];
+                bool inChannel = (a + b) * 0.5f < r.ChannelEnd;
+                float topA = inChannel ? r.ChannelCenterAt(a) - half : r.Y0;
+                float topB = inChannel ? r.ChannelCenterAt(b) - half : r.Y0;
+                strips.Add(Strip(a, TongueBottom(r, a), topA, b, TongueBottom(r, b), topB));
+            }
+            return strips;
+        }
+
+        //  경계(굴 끝·호 경계·keep으로 받은 모서리) 바로 옆에 step 자르기가 겹치면 폭 1cm 미만인
+        //  얇은 조각이 생긴다 — 그 조각을 메시 콜라이더로 구우면(Task 2) 쉽게 깨지는 판정면이 된다.
+        //  그래서 그런 자리의 step 자르기는 건너뛴다 — 경계 자체는 항상 남긴다.
+        const float MinCutGap = 0.01f;
+
+        //  굴 구간을 step마다 + 호 경계마다 + keep마다 자른 x들(입구·굴 끝 포함). 호 경계·keep은
+        //  꼭 남아야 하는 모서리라 step보다 먼저 넣는다 — 그래야 바로 옆 step이 NearAnyCut에 걸려
+        //  알아서 빠진다. keep은 굴 범위를 넘어(TongueEnd까지) 있을 수 있다(혀의 계곡 쪽 꺾인 점 등).
+        static List<float> ChannelCuts(ShortcutRect r, float step, params float[] keep)
+        {
+            var cuts = new List<float> { r.X0, r.ChannelEnd };
+            for (int k = 1; k < r.Entrance.Arcs; k++) { cuts.Add(r.X0 + k * r.Arc.Span); }
+            foreach (float g in keep)
+            {
+                if (g > r.X0 && g <= r.TongueEnd) { cuts.Add(g); }
+            }
+            for (int i = 1; r.X0 + i * step < r.ChannelEnd; i++)
+            {
+                float x = r.X0 + i * step;
+                if (NearAnyCut(cuts, x) == false) { cuts.Add(x); }
+            }
+            SortUnique(cuts);
+            return cuts;
+        }
+
+        static bool NearAnyCut(List<float> cuts, float x)
+        {
+            foreach (float c in cuts)
+            {
+                if (Math.Abs(x - c) < MinCutGap) { return true; }
+            }
+            return false;
+        }
+
+        static void SortUnique(List<float> xs)
+        {
+            xs.Sort();
+            for (int i = xs.Count - 1; i > 0; i--)
+            {
+                if (xs[i] - xs[i - 1] < 1e-4f) { xs.RemoveAt(i); }
+            }
+        }
+
+        static float TongueBottom(ShortcutRect r, float x)
+        {
+            float ceiling;
+            if (x <= r.ValleyBottom0) { ceiling = r.BottomCeiling + DropSlope * (r.ValleyBottom0 - x); }
+            else if (x <= r.ValleyBottom1) { ceiling = r.BottomCeiling; }
+            else { ceiling = r.BottomCeiling + r.RiseSlope * (x - r.ValleyBottom1); }
+            if (x >= r.ValleyBottom0) { return ceiling; }
+            float t = (x - r.X0) / (r.ValleyBottom0 - r.X0);
+            float lip = r.LipBottom + (r.BottomCeiling - r.LipBottom) * t;
+            return Math.Min(ceiling, lip);
+        }
+
+        //  반시계: 왼쪽 아래 → 오른쪽 아래 → 오른쪽 위 → 왼쪽 위 (빌더의 경사 조각과 같은 순서).
+        static float[] Strip(float a, float bottomA, float topA, float b, float bottomB, float topB)
+            => new[] { a, bottomA, b, bottomB, b, topB, a, topA };
 
         /// <summary>바닥 경사 조각. 꺾은선의 모든 꼭짓점과 <paramref name="splitXs"/>(구간 경계)에서 끊는다.</summary>
         public static List<RampPiece> FloorPieces(CourseProfile p, IReadOnlyList<float> splitXs)
             => Pieces(p, splitXs, cutShortcuts: false);
 
-        /// <summary>천장 경사 조각. 바닥과 같되 지름길 입구~출구는 도려낸다 — 그 자리는 빌더가 위쪽 상자와 혀로 채운다.</summary>
+        /// <summary>천장 경사 조각. 바닥과 같되 지름길 입구~출구는 도려낸다 — 그 자리는 빌더가 지붕 띠·혀 띠로 채운다.</summary>
         public static List<RampPiece> CeilingPieces(CourseProfile p, IReadOnlyList<float> splitXs)
             => Pieces(p, splitXs, cutShortcuts: true);
 

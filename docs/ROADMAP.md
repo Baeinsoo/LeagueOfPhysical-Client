@@ -14,7 +14,7 @@
 |---|---|---|
 | **Archery 한 발 승부**(`ShootOff`, 맵 7) | 슬라이스 1(규칙·해설 자막) 머지. 슬라이스 2 = 관중(깃발=풍향계)·큰 결과 화면·캐릭터 리액션 | `superpowers/specs/2026-09-24-archery-shoot-off-design.md` |
 | **Archery 게임 모드** 전반 | 사거리 맵(6)은 연습 모드로 유지. 튜닝 후속 셋 남음 | `superpowers/specs/2026-09-11-archery-game-mode-design.md` |
-| **Flappy 코스 — 지름길** | 뾰족한 지형 조각·곧은 지름길 머지. 입구를 A자 굴로 바꾸는 중(`feature/flappy-shortcut-arch-entrance`) | `superpowers/specs/2026-09-20-flappy-course-skill-lines-design.md`, `…/2026-09-24-flappy-terrain-shortcut-design.md` |
+| **Flappy 코스 — 지름길** | 뾰족한 지형 조각·곧은 지름길·A자 굴 입구(쉬운 굴 1개·어려운 굴 3개) 머지. 굴 두께·턱은 사람이 해 보고 맞출 차례 | `superpowers/specs/2026-09-20-flappy-course-skill-lines-design.md`, `archive/specs/2026-09-24-flappy-terrain-shortcut-design.md` §13 |
 
 ## ▶ 다음 (값어치 순)
 
@@ -45,6 +45,8 @@
 전수 목록은 [`journal/2026-09.md`](journal/2026-09.md)의 "📋 Flappy — spec들이 열어 둔 것 전수".
 컨셉 스펙(`superpowers/specs/2026-08-05-flappy-multiplayer-concept-design.md`)의 "아직 안 한 것": 즉시 정산, GO 스타트 부스트, 대시 이펙트, 실력별 결과 분포.
 
+- 🟢 **지름길 굴 난이도를 사람 기준으로** — 두께 6.0/5.0m·턱 4/6m는 측정으로 잡은 초안(굴 안 여유 쉬운 −3..+2틱, 어려운 −1..+2틱). 박자를 놓친 뒤 다시 맞추는 새가 얼마나 손해 보는지는 안 쟀다.
+- ⬜ 굽기가 틀린 호 값을 넘겨도 테스트·맵 검사가 못 잡는다(굽기 로그 `호 32틱·4.35m`로 눈 확인) · 꼭 남길 자르기끼리 1cm 간격 검사 없음 · 언덕(A) 지름길.
 - 🟢 오토파일럿 스턴 예산 — "22번"이 어디서 온 수인지부터 확인(도구가 낸 값은 골인 19번, 최속 탈락 14번째).
 - ⬜ 정식 목숨 게이지 HUD · 킬로그 · 원격 리드 크기와 스무딩 상수 분리 · `TbFlappyConfig` 이름 · Linux 콘텐츠 빌드 주기.
 

@@ -42,6 +42,7 @@ namespace LOP.EditorTools
         private const float PipeWidth = 1.6f;        // 기존 막대와 같은 두께
         private const float PipeDepth = 2.5f;        // 판정면 정렬 규약(오브젝트 z -1.25, 콜라이더 center.z +0.5)
         private const float PipeZ = -1.25f;
+        private const float ShortcutStripStep = 0.25f;
         private const float WallThickness = 20f;     // 바닥·천장 슬래브 두께 — 밑으로 빠지지 않게 두껍게
         //  중간층 깊이. 34m 거리가 되어 화면 세로 24.8m를 담는다. 게임 평면(z=0)과 배경(z=62)
         //  사이가 통째로 비어 있던 자리다 — 2.5D가 안 읽히던 이유.
@@ -112,9 +113,7 @@ namespace LOP.EditorTools
 
             //  코스는 뾰족한 U·A·계단 조각을 이어 붙인 꺾은선이다(spec 2026-09-24).
             //  앞뒤 여유는 스폰 뒤와 결승선 뒤를 덮는다 — 예전 경사 격자의 여유(앞 4칸·뒤 8칸)와 같다.
-            var profile = LOP.MapTools.CourseProfileRule.Compose(
-                StartX, length, spacing, ceilingY, window, Seed,
-                leadIn: spacing * 4f, tail: spacing * 8f);
+            var profile = ComposeProfile(config);
             System.Func<float, float> centerAt = profile.CenterAt;
 
             System.Func<float, bool> gateAllowed =
@@ -181,7 +180,7 @@ namespace LOP.EditorTools
                 }, SectionMaterial((q.X0 + q.X1) * 0.5f, length, fallback));
             }
 
-            //  지름길 구간의 천장은 경사 조각이 아니라 두 덩어리다: 지름길 위의 상자, 지름길과 계곡 사이의 혀.
+            //  지름길 구간의 천장은 경사 조각이 아니라 두 덩어리다: 지붕, 지름길과 계곡 사이의 혀.
             int shortcutPads = Shortcuts(composed.transform, profile, config, length, fallback);
 
             int challengeGates = 0;
@@ -251,6 +250,18 @@ namespace LOP.EditorTools
                     + $" · 부스트 패드 {boostPads}개 ({BoostPadDuration:F1}초)");
         }
 
+        /// <summary>굽기와 같은 코스 프로필. 에디터 측정(eval)이 씬과 같은 기하를 다시 얻을 때 쓴다.</summary>
+        public static LOP.MapTools.CourseProfile ComposeProfile(LOP.MasterData.FlappyConfig config)
+        {
+            float spacing = LOP.MapTools.GateRhythmRule.TargetSpacing(config.ForwardSpeed);
+            float ceilingY = LOP.MapTools.VisualHonesty.ScreenHalfHeight(CameraDistance, VerticalFov);
+            float length = RaceSeconds * config.ForwardSpeed;
+            return LOP.MapTools.CourseProfileRule.Compose(
+                StartX, length, spacing, ceilingY, Seed,
+                leadIn: spacing * 4f, tail: spacing * 8f,
+                arc: new LOP.MapTools.FlapArc(config.FlapImpulse, config.Gravity, config.ForwardSpeed, TickSeconds));
+        }
+
         //  코스 지오메트리 안에 섞여 있는 마커(FinishLine·SpawnPoint)를 <c>---Course---</c>
         //  아래로 옮긴다. 마커는 코스가 아니라 <b>규칙</b>이라 다시 구울 때 살아남아야 한다.
         private static void RescueMarkers(Transform composed)
@@ -292,7 +303,7 @@ namespace LOP.EditorTools
             go.transform.position = new Vector3(startX + length * 0.5f, centerY, PipeZ);
         }
 
-        //  지름길 하나 = 위쪽 상자 + 혀(돌출 다각형) + 패드 + 검사기용 표시.
+        //  지름길 하나 = 지붕 띠 + 혀 띠(굴을 판 덩어리를 세로로 자른 볼록 사각형) + 패드 + 검사기용 표시.
         //  표시는 <b>Transform만 있는</b> 빈 GameObject다 — 맵 씬은 서버도 읽으므로 클라 전용 컴포넌트를
         //  붙이면 서버에서 missing script가 되어 씬 주입이 끊긴다.
         private static int Shortcuts(Transform parent, LOP.MapTools.CourseProfile profile,
@@ -305,13 +316,20 @@ namespace LOP.EditorTools
                 float mid = (r.X0 + r.X1) * 0.5f;
                 Material skin = SectionMaterial(mid, length, fallback);
 
-                var roof = Box(parent, $"ShortcutRoof_{r.X0:F0}", skin);
-                roof.transform.localScale = new Vector3(r.X1 - r.X0, WallThickness, PipeDepth);
-                roof.transform.position = new Vector3(mid, r.Y1 + WallThickness * 0.5f, PipeZ);
-
-                var tongue = new Vector2[4];
-                for (int i = 0; i < 4; i++) { tongue[i] = new Vector2(r.Tongue[i * 2], r.Tongue[i * 2 + 1]); }
-                Prism(parent, $"ShortcutTongue_{r.X0:F0}", tongue, skin);
+                var roof = LOP.MapTools.CourseProfileRule.ShortcutRoof(r, WallThickness, ShortcutStripStep);
+                for (int i = 0; i < roof.Count; i++)
+                {
+                    Prism(parent, $"ShortcutRoof_{r.X0:F0}_{i}", ToPolygon(roof[i]), skin);
+                }
+                var tongue = LOP.MapTools.CourseProfileRule.ShortcutTongue(r, ShortcutStripStep);
+                for (int i = 0; i < tongue.Count; i++)
+                {
+                    Prism(parent, $"ShortcutTongue_{r.X0:F0}_{i}", ToPolygon(tongue[i]), skin);
+                }
+                //  호 틱 수·길이를 같이 찍어 둔다 — 굽을 때마다 사람이 눈으로 "32틱·4.35m"와 맞는지
+                //  비교할 수 있게. 시험이 FlapArc를 자기가 만들어 쓰므로, 빌더가 엉뚱한 값을 넘겨도
+                //  시험도 검사기도 못 잡는다(뮤테이션으로 실제 확인됨) — 이 로그가 유일한 안전망이다.
+                Debug.Log($"[전통 코스] 지름길 x={r.X0:F0}: 호 {r.Entrance.Arcs}개(호 {r.Arc.TicksPerArc}틱·{r.Arc.Span:F2}m) · 굴 {r.Entrance.Thickness:F1}m · 턱 {r.Entrance.Lip:F0}m · 굴 끝 {r.ChannelEnd:F1} · 출구 {r.X1:F1}");
 
                 var marker = new GameObject($"Shortcut_{r.X0:F0}");
                 marker.transform.SetParent(parent, worldPositionStays: false);
@@ -332,6 +350,23 @@ namespace LOP.EditorTools
                 pads++;
             }
             return pads;
+        }
+
+        //  띠(8개 수)를 다각형으로. 혀 끝 띠는 위·아래가 만나 삼각형이라 겹친 점을 뺀다.
+        private static Vector2[] ToPolygon(float[] strip)
+        {
+            var points = new System.Collections.Generic.List<Vector2>();
+            for (int i = 0; i < strip.Length; i += 2)
+            {
+                var p = new Vector2(strip[i], strip[i + 1]);
+                if (points.Count > 0 && (points[points.Count - 1] - p).sqrMagnitude < 1e-8f) { continue; }
+                points.Add(p);
+            }
+            if (points.Count > 1 && (points[0] - points[points.Count - 1]).sqrMagnitude < 1e-8f)
+            {
+                points.RemoveAt(points.Count - 1);
+            }
+            return points.ToArray();
         }
 
         //  z로 돌출한 볼록 다각형. 그려지는 면은 z [−2.5, 0], 콜라이더는 z [−1.25, +1.25] —
@@ -627,7 +662,7 @@ namespace LOP.EditorTools
 
         //  코스를 굽는 데 필요한 것은 이 넷뿐이다 — FlappyConfig를 통째로 만들지 않는다
         //  (스턴·대시·추격자 값은 지오메트리와 무관한데 생성자가 전부 요구한다).
-        private static bool TryReadConfig(out LOP.MasterData.FlappyConfig row)
+        public static bool TryReadConfig(out LOP.MasterData.FlappyConfig row)
         {
             row = null;
             string path = Path.GetFullPath(

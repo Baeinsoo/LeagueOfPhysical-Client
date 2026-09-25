@@ -14,12 +14,15 @@ namespace LOP.MapTools.Tests
         const float Length = 612f;          // 90초 × 6.8m/s
         const float Spacing = 11.4f;
         const float Half = 10.92f;          // 카메라 30m · FOV 40의 화면 세로 절반
-        const float Window = 4.37f;
         const float LeadIn = Spacing * 4f;
         const float Tail = Spacing * 8f;
 
+        //  FlappyConfig 값(날갯짓 18.6 · 중력 59 · 전진 6.8 · 틱 0.02). 시험은 숫자를 직접 쓴다.
+        static readonly FlapArc Arc = new FlapArc(18.6f, 59f, 6.8f, 0.02f);
+        const float MaxFall = 30f;
+
         static CourseProfile Compose(ulong seed = 20260919UL)
-            => CourseProfileRule.Compose(StartX, Length, Spacing, Half, Window, seed, LeadIn, Tail);
+            => CourseProfileRule.Compose(StartX, Length, Spacing, Half, seed, LeadIn, Tail, Arc);
 
         [Test]
         public void 출발점은_높이_0이고_앞뒤_여유까지_덮는다()
@@ -99,28 +102,14 @@ namespace LOP.MapTools.Tests
         public void 지름길_입구와_출구에서_천장이_지름길_윗면과_만난다()
         {
             //  입구·출구는 "천장선이 지름길 윗면을 지나는 곳"으로 정의된다. 여기가 어긋나면
-            //  위쪽 상자와 경사 조각 사이에 틈이 생기거나 겹친다.
+            //  지붕 띠·혀 띠와 경사 조각 사이에 틈이 생기거나 겹친다.
+            //  세로 폭 = 굴 두께 검증은 전용 시험 곧은_길_높이는_굴_두께와_같다가 맡는다(중복 제거).
             var p = Compose();
             foreach (ShortcutRect r in p.Shortcuts)
             {
-                Assert.AreEqual(r.Y1, p.CenterAt(r.X0) + Half, 1e-3f, "입구");
+                float mouthTop = r.ChannelCenterAt(r.X0) + r.Entrance.Thickness * 0.5f;
+                Assert.AreEqual(mouthTop, p.CenterAt(r.X0) + Half, 1e-3f, "입구 = 천장이 굴 윗면을 지나는 곳");
                 Assert.AreEqual(r.Y1, p.CenterAt(r.X1) + Half, 1e-3f, "출구");
-                Assert.AreEqual(Window, r.Y1 - r.Y0, 1e-4f, "세로 폭 = 평범한 틈");
-            }
-        }
-
-        [Test]
-        public void 혀는_지름길_아래에_있고_두께가_최소_이상이다()
-        {
-            foreach (ShortcutRect r in Compose().Shortcuts)
-            {
-                float[] t = r.Tongue;
-                Assert.AreEqual(8, t.Length);
-                Assert.AreEqual(r.Y0, t[1], 1e-4f);                       // 윗변 = 지름길 바닥
-                Assert.AreEqual(r.Y0, t[7], 1e-4f);
-                Assert.GreaterOrEqual(r.Y0 - t[3], CourseProfileRule.MinTongue - 1e-4f);
-                Assert.Greater(t[0], r.X0);                                // 혀는 지름길 안쪽
-                Assert.Less(t[6], r.X1);
             }
         }
 
@@ -129,7 +118,7 @@ namespace LOP.MapTools.Tests
         {
             //  깊이 절반에 창을 뚫으면 혀가 남아야 한다. 20m면 혀가 없다.
             Assert.Throws<System.ArgumentOutOfRangeException>(
-                () => CourseProfileRule.ValleyShortcut(0f, 0f, 20f, 1.3f, Half, Window));
+                () => CourseProfileRule.ValleyShortcut(0f, 0f, 20f, 1.3f, Half, Easy, Arc));
         }
 
         [Test]
@@ -144,7 +133,7 @@ namespace LOP.MapTools.Tests
             }
             //  U 벽 한가운데에는 서면 안 된다.
             ShortcutRect r = p.Shortcuts[0];
-            Assert.IsFalse(p.GateAllowedAt((r.X0 + r.Tongue[2]) * 0.5f, CourseProfileRule.GateMargin));
+            Assert.IsFalse(p.GateAllowedAt((r.X0 + r.ValleyBottom0) * 0.5f, CourseProfileRule.GateMargin));
         }
 
         [Test]
@@ -189,6 +178,197 @@ namespace LOP.MapTools.Tests
                 }
                 Assert.IsTrue(pieces.Exists(q => System.Math.Abs(q.X1 - r.X0) < 1e-3f), "입구에서 끝나는 조각");
                 Assert.IsTrue(pieces.Exists(q => System.Math.Abs(q.X0 - r.X1) < 1e-3f), "출구에서 시작하는 조각");
+            }
+        }
+
+        static readonly ShortcutEntrance Easy = new ShortcutEntrance(1, 6.0f, 4f);
+        static readonly ShortcutEntrance Hard = new ShortcutEntrance(3, 5.0f, 6f);
+
+        [Test]
+        public void 날갯짓_호는_틱_궤적의_숫자다()
+        {
+            Assert.AreEqual(32, Arc.TicksPerArc);
+            Assert.AreEqual(4.352f, Arc.Span, 1e-3f);
+            Assert.AreEqual(0.198f, Arc.RisePerArc, 2e-3f);
+            Assert.AreEqual(3.12f, Arc.Apex, 1e-2f);
+        }
+
+        [Test]
+        public void 호_높이는_진짜_커널을_틱마다_돌린_높이와_같다()
+        {
+            //  떨어지는 중(−12m/s)에 첫 틱에 친다 — 날갯짓은 세로 속도를 덮어쓰므로 그 전 속도는 상관없다.
+            float vy = -12f, y = 0f;
+            for (int n = 1; n <= Arc.TicksPerArc; n++)
+            {
+                vy = FlappyTickMath.NextVerticalSpeed(vy, n == 1, 18.6f, 59f, MaxFall, 0.02f);
+                y = FlappyTickMath.AdvanceHeight(y, vy, 0.02f);
+                Assert.AreEqual(y, Arc.HeightAt(n * 6.8f * 0.02f), 1e-3f, $"{n}틱");
+            }
+        }
+
+        [Test]
+        public void 구간마다_입구_난이도가_다르다()
+        {
+            Assert.IsFalse(CourseProfileRule.Sections[0].ValleyShortcut);
+            ShortcutEntrance s2 = CourseProfileRule.Sections[1].Entrance;
+            ShortcutEntrance s3 = CourseProfileRule.Sections[2].Entrance;
+            Assert.AreEqual((1, 6.0f, 4f), (s2.Arcs, s2.Thickness, s2.Lip), "구간 2 = 쉬운 굴");
+            Assert.AreEqual((3, 5.0f, 6f), (s3.Arcs, s3.Thickness, s3.Lip), "구간 3 = 어려운 굴");
+        }
+
+        [Test]
+        public void 입구_굴_가운데선은_호마다_날갯짓한_새의_틱_궤적이다()
+        {
+            var arcs = new List<int>();
+            foreach (ShortcutRect r in Compose().Shortcuts)
+            {
+                arcs.Add(r.Entrance.Arcs);
+                float vy = -12f, y = r.CenterY;
+                int ticks = r.Entrance.Arcs * r.Arc.TicksPerArc;
+                for (int n = 0; n < ticks; n++)
+                {
+                    vy = FlappyTickMath.NextVerticalSpeed(vy, n % r.Arc.TicksPerArc == 0, 18.6f, 59f, MaxFall, 0.02f);
+                    y = FlappyTickMath.AdvanceHeight(y, vy, 0.02f);
+                    //  x를 누적이 아니라 매번 새로 계산한다 — 누적하면 뜬 오차가 쌓여(2026-09-25
+                    //  리뷰에서 실측 x0≈519·62틱에 0.85mm) 채널 끝 근처의 높이 비교가 어긋난다.
+                    float x = r.X0 + (n + 1) * 6.8f * 0.02f;
+                    Assert.AreEqual(y, r.ChannelCenterAt(x), 2e-3f, $"x0={r.X0:F0} {n + 1}틱");
+                }
+                Assert.AreEqual(r.ChannelEnd, r.X0 + ticks * 6.8f * 0.02f, 1e-3f, "굴은 마지막 호에서 끝난다");
+            }
+            CollectionAssert.AreEquivalent(new[] { 1, 3 }, arcs, "쉬운 굴 하나, 어려운 굴 하나");
+        }
+
+        [Test]
+        public void 호가_너무_많거나_턱이_너무_길거나_두께가_0이면_던진다()
+        {
+            Assert.Throws<System.ArgumentOutOfRangeException>(
+                () => CourseProfileRule.ValleyShortcut(0f, 0f, 30f, 1.3f, Half, new ShortcutEntrance(10, 6.0f, 4f), Arc),
+                "굴이 출구를 넘는다");
+            Assert.Throws<System.ArgumentOutOfRangeException>(
+                () => CourseProfileRule.ValleyShortcut(0f, 0f, 30f, 1.3f, Half, new ShortcutEntrance(1, 6.0f, 20f), Arc),
+                "턱 아래 계곡이 막힌다");
+            //  곧은 길 높이가 이제 굴 두께 자체라 "곧은 길보다 넓다"는 개념이 없다 — 막는 건 두께 0(또는 음수)뿐이다.
+            Assert.Throws<System.ArgumentOutOfRangeException>(
+                () => CourseProfileRule.ValleyShortcut(0f, 0f, 30f, 1.3f, Half, new ShortcutEntrance(1, 0f, 4f), Arc),
+                "두께가 0이면 굴이 아니다");
+        }
+
+        static bool Inside(List<float[]> strips, float x, float y)
+        {
+            foreach (float[] s in strips)
+            {
+                if (x < s[0] || x > s[2]) { continue; }
+                float t = (x - s[0]) / (s[2] - s[0]);
+                float bottom = s[1] + (s[3] - s[1]) * t;
+                float top = s[7] + (s[5] - s[7]) * t;
+                if (y >= bottom && y <= top) { return true; }
+            }
+            return false;
+        }
+
+        static IEnumerable<ShortcutRect> BothTiers()
+        {
+            yield return CourseProfileRule.ValleyShortcut(100f, 0f, 30f, 1.3f, Half, Easy, Arc);
+            yield return CourseProfileRule.ValleyShortcut(100f, 0f, 40f, 1.5f, Half, Hard, Arc);
+        }
+
+        [Test]
+        public void 곧은_길_높이는_굴_두께와_같다()
+        {
+            //  굴을 빠져나온 새는 떨어지는 중이라 날갯짓 한 번이 크게 올린다 — 곧은 길이 관문 폭만큼만
+            //  있으면 그 날갯짓이 한 틱에만 맞아야 해서 숨은 강제 박자가 생긴다. 그래서 곧은 길을
+            //  굴만큼 높였다(2026-09-25).
+            foreach (ShortcutRect r in BothTiers())
+            {
+                Assert.AreEqual(r.Entrance.Thickness, r.Y1 - r.Y0, 1e-4f,
+                                $"호 {r.Entrance.Arcs}: 곧은 길 높이 = 굴 두께");
+            }
+        }
+
+        [Test]
+        public void 띠는_세로변이고_빈틈없이_이어진다()
+        {
+            foreach (ShortcutRect r in BothTiers())
+            {
+                List<float[]> roof = CourseProfileRule.ShortcutRoof(r, 1f, 0.25f);
+                List<float[]> tongue = CourseProfileRule.ShortcutTongue(r, 0.25f);
+                foreach (var (name, strips, end) in new[] { ("지붕", roof, r.X1), ("혀", tongue, r.TongueEnd) })
+                {
+                    Assert.AreEqual(r.X0, strips[0][0], 1e-4f, $"{name}는 입구에서 시작");
+                    Assert.AreEqual(end, strips[strips.Count - 1][2], 1e-4f, $"{name} 끝");
+                    for (int i = 0; i < strips.Count; i++)
+                    {
+                        float[] s = strips[i];
+                        Assert.AreEqual(s[0], s[6], 1e-6f, $"{name} {i} 왼변 세로");
+                        Assert.AreEqual(s[2], s[4], 1e-6f, $"{name} {i} 오른변 세로");
+                        Assert.Less(s[0], s[2], $"{name} {i} 폭");
+                        Assert.GreaterOrEqual(s[7], s[1] - 1e-4f, $"{name} {i} 왼쪽 위≥아래");
+                        Assert.GreaterOrEqual(s[5], s[3] - 1e-4f, $"{name} {i} 오른쪽 위≥아래");
+                        if (i > 0) { Assert.AreEqual(strips[i - 1][2], s[0], 1e-5f, $"{name} {i} 이음새"); }
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void 얇은_조각이_생기지_않는다()
+        {
+            //  step 자르기가 굴 끝·호 경계 바로 옆에 겹치면 폭 1cm 미만인 조각이 생긴다 —
+            //  그런 조각을 메시 콜라이더로 구우면(Task 2) 판정면이 쉽게 깨진다. 혀의 마지막
+            //  조각만 빼는 이유는 TongueEnd에서 위·아래가 만나 삼각형이 되는 자리라 폭이
+            //  구조적으로 짧을 수 있어서다(다른 조각과 달리 step 겹침 문제가 아니다).
+            foreach (ShortcutRect r in BothTiers())
+            {
+                List<float[]> roof = CourseProfileRule.ShortcutRoof(r, 1f, 0.25f);
+                foreach (float[] s in roof)
+                {
+                    Assert.GreaterOrEqual(s[2] - s[0], 0.01f, $"x0={r.X0:F0} 지붕 조각");
+                }
+                List<float[]> tongue = CourseProfileRule.ShortcutTongue(r, 0.25f);
+                for (int i = 0; i < tongue.Count - 1; i++)
+                {
+                    Assert.GreaterOrEqual(tongue[i][2] - tongue[i][0], 0.01f, $"x0={r.X0:F0} 혀 조각 {i}");
+                }
+            }
+        }
+
+        [Test]
+        public void 굴은_열려_있고_바로_위는_지붕_바로_아래는_혀다()
+        {
+            foreach (ShortcutRect r in BothTiers())
+            {
+                List<float[]> roof = CourseProfileRule.ShortcutRoof(r, 1f, 0.25f);
+                List<float[]> tongue = CourseProfileRule.ShortcutTongue(r, 0.25f);
+                float half = r.Entrance.Thickness * 0.5f;
+                for (float x = r.X0 + 0.01f; x < r.ChannelEnd - 0.01f; x += 0.05f)
+                {
+                    float c = r.ChannelCenterAt(x);
+                    string at = $"x0={r.X0:F0} x={x:F2}";
+                    //  윗면·바닥 5cm 안쪽까지 비어 있어야 한다 — 띠가 호 경계(꺾인 점)를 걸치면 여기서 걸린다.
+                    Assert.IsFalse(Inside(roof, x, c + half - 0.05f), $"{at} 굴 윗부분이 지붕에 먹혔다");
+                    Assert.IsFalse(Inside(tongue, x, c - half + 0.05f), $"{at} 굴 바닥이 혀에 먹혔다");
+                    Assert.IsTrue(Inside(roof, x, c + half + 0.05f), $"{at} 굴 위가 비었다");
+                    Assert.IsTrue(Inside(tongue, x, c - half - 0.05f), $"{at} 굴 아래가 비었다");
+                }
+                for (float x = r.ChannelEnd + 0.01f; x < r.TongueEnd - 0.1f; x += 0.05f)
+                {
+                    string at = $"x0={r.X0:F0} 곧은 길 x={x:F2}";
+                    Assert.IsFalse(Inside(roof, x, r.CenterY) || Inside(tongue, x, r.CenterY), $"{at} 막혔다");
+                    Assert.IsTrue(Inside(roof, x, r.Y1 + 0.05f), $"{at} 위가 비었다");
+                    Assert.IsTrue(Inside(tongue, x, r.Y0 - 0.05f), $"{at} 아래가 비었다");
+                }
+            }
+        }
+
+        [Test]
+        public void 입구_턱이_막고_턱_아래는_열려_있다()
+        {
+            foreach (ShortcutRect r in BothTiers())
+            {
+                List<float[]> tongue = CourseProfileRule.ShortcutTongue(r, 0.25f);
+                Assert.IsTrue(Inside(tongue, r.X0 + 0.05f, r.LipBottom + 0.2f), $"x0={r.X0:F0} 턱이 비었다");
+                Assert.IsFalse(Inside(tongue, r.X0 + 0.05f, r.LipBottom - 0.5f), $"x0={r.X0:F0} 턱 아래가 막혔다");
             }
         }
     }

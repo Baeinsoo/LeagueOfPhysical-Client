@@ -16,6 +16,38 @@ namespace LOP
         private readonly ArcheryArrowStickSystem stickSystem;
         private readonly ArcheryCourse course;
         private readonly ArcheryShootOffLineupView lineupView;
+        private readonly IGameDataStore gameDataStore;
+
+        //  남의 화살은 발사 소식이 늦게 온다 — 처음 받았을 때 이미 흘러 있던 시간(초)을 적어 두고
+        //  그 순간부터 활에서 출발시켜 따라잡게 그린다(ArcheryArrowDisplay.VisualSeconds).
+        private readonly Dictionary<(string shooterId, long fireTick), float> arrivalSeconds =
+            new Dictionary<(string, long), float>();
+        private readonly List<(string, long)> forgotten = new List<(string, long)>();
+
+        //  안 사라지는 과녁(사거리·한 발 승부)에 꽂힌 화살. 월드의 발사 목록은 3초 뒤 화살을 지우지만
+        //  과녁은 그보다 오래 서 있다 — 여러 발이 한 과녁에 꽂혀 있는 것 자체가 보여 줄 내용이라,
+        //  과녁이 내려갈 때까지 뷰가 따로 들고 있는다.
+        private readonly Dictionary<(string shooterId, long fireTick), StuckArrow> stuck =
+            new Dictionary<(string, long), StuckArrow>();
+        private readonly List<(string, long)> unstuck = new List<(string, long)>();
+
+        private readonly struct StuckArrow
+        {
+            public readonly GameObject Arrow;
+            public readonly ArcheryTarget Target;
+            public readonly int Wave;
+            public readonly int Slot;
+            public readonly Vector3 OffsetFromTarget;
+
+            public StuckArrow(GameObject arrow, ArcheryTarget target, int wave, int slot, Vector3 offsetFromTarget)
+            {
+                Arrow = arrow;
+                Target = target;
+                Wave = wave;
+                Slot = slot;
+                OffsetFromTarget = offsetFromTarget;
+            }
+        }
 
         // 목록의 자리(index)로 화살을 알아보면 안 된다 — 수명이 다한 화살이 빠지면 뒤 화살들의
         // 자리가 앞으로 당겨져서, 남아 있는 화살이 남의 궤적으로 순간이동한다.
@@ -53,7 +85,8 @@ namespace LOP
 
         public ArcheryArrowView(GameFramework.Runner.IRunner runner, ArcheryWorld world,
                                 ArcheryConsumed consumed, ArcheryArrowStickSystem stickSystem,
-                                ArcheryCourse course, ArcheryShootOffLineupView lineupView)
+                                ArcheryCourse course, ArcheryShootOffLineupView lineupView,
+                                IGameDataStore gameDataStore)
         {
             this.runner = runner;
             this.world = world;
@@ -61,6 +94,7 @@ namespace LOP
             this.stickSystem = stickSystem;
             this.course = course;
             this.lineupView = lineupView;
+            this.gameDataStore = gameDataStore;
         }
 
 
@@ -97,18 +131,29 @@ namespace LOP
                 (long)renderTick - (long)(ArcheryTrajectory.LifetimeSeconds / interval) - 1);
 
             RemoveExpiredLandedArrows();
+            UpdateStuckArrows(renderTick, (float)interval);
 
             var shots = world.Shots;
             var alive = new HashSet<(string, long)>();
 
             for (int i = 0; i < shots.Count; i++)
             {
-                if (consumed.IsArrowGone(shots[i].ShooterId, shots[i].FireTick))
+                //  꽂혔는지는 틱 시스템이 정한다 — 뷰는 그 결과를 읽어 과녁에 붙여 그릴 뿐이다.
+                bool hasImpact = stickSystem.TryGetImpact(shots[i].ShooterId, shots[i].FireTick, out var impact);
+                ArcheryTarget target = default;
+                bool hasTarget = hasImpact && stickSystem.TryGetTarget(impact.Wave, impact.Slot, out target);
+                bool consumedOnHit = hasTarget == false || ArcheryHitRules.ConsumedOnHit(target);
+                if (ArcheryArrowDisplay.HideConfirmedHit(
+                        consumed.IsArrowGone(shots[i].ShooterId, shots[i].FireTick), hasImpact, consumedOnHit))
                 {
-                    continue;   // 과녁에 박혔다 — 계속 날아가는 그림은 거짓말이다
+                    continue;   // 과녁과 함께 사라졌다 — 계속 날아가는 그림은 거짓말이다
                 }
 
                 var key = (shots[i].ShooterId, shots[i].FireTick);
+                if (stuck.ContainsKey(key))
+                {
+                    continue;   // 안 사라지는 과녁에 꽂혔다 — 그 그림은 stuck이 따로 들고 있다
+                }
                 if (landed.ContainsKey(key))
                 {
                     continue;   // 이미 땅·벽에 꽂혔다 — 그 그림은 landed가 따로 들고 있다
@@ -130,22 +175,15 @@ namespace LOP
                     drawn[key] = arrow;
                 }
 
-                //  꽂혔는지는 틱 시스템이 정한다 — 뷰는 그 결과를 읽어 과녁에 붙여 그릴 뿐이다.
-                if (stickSystem.TryGetImpact(shots[i].ShooterId, shots[i].FireTick, out var impact))
+                if (hasImpact)
                 {
                     //  꽂힌 과녁이 사라지면(내가 아니라 남이 먹었어도) 화살도 같이 치운다 —
                     //  안 그러면 아무것도 없는 허공에 박힌 채로 남는다.
-                    if (consumed.IsTargetGone(impact.Wave, impact.Slot))
+                    if (consumed.IsTargetGone(impact.Wave, impact.Slot) || hasTarget == false
+                        //  수명이 끝난 과녁은 땅 아래로 내려간 것이다 — 따라가면 화살이 바닥을 뚫고 들어간다.
+                        || ArcheryTargetMotion.IsAlive(target, renderTick, (float)interval) == false)
                     {
-                        continue;
-                    }
-                    if (stickSystem.TryGetTarget(impact.Wave, impact.Slot, out var target) == false)
-                    {
-                        continue;
-                    }
-                    //  수명이 끝난 과녁은 땅 아래로 내려간 것이다 — 따라가면 화살이 바닥을 뚫고 들어간다.
-                    if (ArcheryTargetMotion.IsAlive(target, renderTick, (float)interval) == false)
-                    {
+                        alive.Remove(key);
                         continue;
                     }
 
@@ -159,21 +197,34 @@ namespace LOP
                     {
                         arrow.transform.rotation = Quaternion.LookRotation(stuckVelocity);
                     }
+
+                    if (consumedOnHit == false)
+                    {
+                        alive.Remove(key);
+                        drawn.Remove(key);
+                        stuck[key] = new StuckArrow(arrow, target, impact.Wave, impact.Slot, impact.OffsetFromTarget);
+                    }
                     continue;
                 }
 
-                float seconds = (float)((renderTick - shots[i].FireTick) * interval);
-                if (seconds < 0f)
+                float trueSeconds = (float)((renderTick - shots[i].FireTick) * interval);
+                if (trueSeconds < 0f)
                 {
-                    seconds = 0f;   // 아직 떠나기 전 프레임 — 출발점에 둔다
+                    trueSeconds = 0f;   // 아직 떠나기 전 프레임 — 출발점에 둔다
                 }
+
+                float arrival = ArrivalSecondsOf(key, shots[i].ShooterId, trueSeconds, (float)interval);
+                float flight = FlightSecondsOf(shots[i]);
+                //  같은 궤적을 시간만 늦춰 그리므로 꽂히는 자리·땅에 떨어지는 자리는 그대로다.
+                float seconds = ArcheryArrowDisplay.VisualSeconds(trueSeconds, arrival, flight);
 
                 Vector3 position = ArcheryTrajectory.PositionAt(shots[i], seconds);
                 var velocity = ArcheryTrajectory.VelocityAt(shots[i], seconds);
 
                 //  이번 프레임에 지나온 구간이 땅·벽을 통과했으면 거기서 멈춰 꽂는다. 예전엔
                 //  그냥 지나쳐 땅 밑으로 들어갔다 사라져서 **어디에 빗나갔는지 볼 수가 없었다.**
-                float previousSeconds = Mathf.Max(0f, seconds - Time.deltaTime);
+                float previousSeconds = ArcheryArrowDisplay.VisualSeconds(
+                    Mathf.Max(0f, trueSeconds - Time.deltaTime), arrival, flight);
                 Vector3 previous = ArcheryTrajectory.PositionAt(shots[i], previousSeconds);
                 if (previousSeconds < seconds
                     && Physics.Linecast(previous, position, out RaycastHit ground,
@@ -195,7 +246,7 @@ namespace LOP
                 Vector3 displayOffset = lineupView.DisplayOffsetOf(shots[i].ShooterId);
                 if (displayOffset != Vector3.zero)
                 {
-                    position += displayOffset * ArcheryShootOffLineup.ArrowBlend(seconds, FlightSecondsOf(shots[i]));
+                    position += displayOffset * ArcheryShootOffLineup.ArrowBlend(seconds, flight);
                 }
                 arrow.transform.position = position;
                 if (velocity.sqrMagnitude > 1e-6f)
@@ -217,12 +268,38 @@ namespace LOP
                 Object.Destroy(drawn[key]);
                 drawn.Remove(key);
             }
+
+            forgotten.Clear();
+            foreach (var key in arrivalSeconds.Keys)
+            {
+                if (alive.Contains(key) == false && landed.ContainsKey(key) == false && stuck.ContainsKey(key) == false)
+                {
+                    forgotten.Add(key);
+                }
+            }
+            foreach (var key in forgotten)
+            {
+                arrivalSeconds.Remove(key);
+            }
         }
 
-        //  과녁까지 가는 데 걸리는 시간 = 과녁 거리 ÷ 수평 속도.
+        //  내 화살은 예측이라 쏜 틱에 바로 생긴다(0). 남의 것은 처음 본 순간 이미 흘러 있던 시간이다.
+        //  한 틱보다 적게 늦은 것은 늦은 게 아니다 — 그대로 그린다.
+        private float ArrivalSecondsOf((string, long) key, string shooterId, float trueSeconds, float interval)
+        {
+            if (arrivalSeconds.TryGetValue(key, out float arrival))
+            {
+                return arrival;
+            }
+            arrival = shooterId == gameDataStore.userEntityId || trueSeconds <= interval ? 0f : trueSeconds;
+            arrivalSeconds[key] = arrival;
+            return arrival;
+        }
+
+        //  과녁까지 가는 데 걸리는 시간 = 과녁 거리 ÷ 수평 속도. 레인이 없는 맵(원형)은 모른다(0).
         private float FlightSecondsOf(in ArcheryShot shot)
         {
-            if (course.SharedLane == null)
+            if (course.IsLaned == false)
             {
                 return 0f;
             }
@@ -230,6 +307,36 @@ namespace LOP
             float distance = course.StandDistanceAt(step);
             float speed = new Vector2(shot.Velocity.x, shot.Velocity.z).magnitude;
             return speed > 0.01f ? distance / speed : 0f;
+        }
+
+        //  꽂힌 채 과녁을 따라 움직이다가, 과녁이 내려가거나 치워지면 같이 치운다.
+        private void UpdateStuckArrows(double renderTick, float interval)
+        {
+            if (stuck.Count == 0)
+            {
+                return;
+            }
+
+            unstuck.Clear();
+            foreach (var pair in stuck)
+            {
+                var s = pair.Value;
+                if (s.Arrow == null || consumed.IsTargetGone(s.Wave, s.Slot)
+                    || ArcheryTargetMotion.IsAlive(s.Target, renderTick, interval) == false)
+                {
+                    unstuck.Add(pair.Key);
+                    continue;
+                }
+                s.Arrow.transform.position = ArcheryTargetMotion.PositionAt(s.Target, renderTick, interval) + s.OffsetFromTarget;
+            }
+            foreach (var key in unstuck)
+            {
+                if (stuck[key].Arrow != null)
+                {
+                    Object.Destroy(stuck[key].Arrow);
+                }
+                stuck.Remove(key);
+            }
         }
 
         private void RemoveExpiredLandedArrows()
@@ -269,6 +376,12 @@ namespace LOP
                 Object.Destroy(pair.Value.Arrow);
             }
             landed.Clear();
+
+            foreach (var pair in stuck)
+            {
+                Object.Destroy(pair.Value.Arrow);
+            }
+            stuck.Clear();
 
             if (_arrowMaterial != null)
             {

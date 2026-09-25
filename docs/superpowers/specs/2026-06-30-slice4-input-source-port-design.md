@@ -5,7 +5,7 @@
 **Date:** 2026-06-30
 **Status:** 보류 → Stage④ 이관 (위 박스 참고). 미구현.
 **Branch (제안):** (해당 없음 — Stage④ spec에서 다룸)
-**Related:** [World Core 연결 아키텍처](../../world-core-connection-architecture.md) (I/O 어댑터 — `IInputSource`) · [LOP 저장소 토폴로지](../../lop-repo-topology.md) (`IInputSource` 구현: 클 `PlayerInputManager…` / 서 `NetworkInputSource`) · 자매 슬라이스 [물리 시뮬레이터 어댑터](2026-06-21-slice4-physics-simulator-adapter-design.md) · [RNG 추상화](2026-06-22-slice4-random-abstraction-design.md)
+**Related:** [World Core 연결 아키텍처](../../world-core-connection-architecture.md) (I/O 어댑터 — `IInputSource`) · [LOP 저장소 토폴로지](../../lop-repo-topology.md) (`IInputSource` 구현: 클 `PlayerInputManager…` / 서 `NetworkInputSource`) · 자매 슬라이스 [물리 시뮬레이터 어댑터](../../archive/specs/2026-06-21-slice4-physics-simulator-adapter-design.md) · [RNG 추상화](../../archive/specs/2026-06-22-slice4-random-abstraction-design.md)
 
 ## Goal
 

@@ -29,7 +29,7 @@ LOP는 8개의 git 저장소로 나뉘어 있다. 이 문서는 *어떤 코드�
 > 태그를 자동 bump·커밋** → ArgoCD가 감지해 롤아웃. 즉 **infrastructure가 GitOps 진실원본**이고,
 > 클러스터에 직접 `kubectl apply`한 변경은 selfHeal로 되돌아간다.
 
-> ⚠️ **MasterData 도구 PIVOT (2026-06-03)**: 당초 Protobuf(`.proto`+protoc, 계획 2b/2c)로 가려던 MasterData를 **Luban**(focus-creative-games/luban)으로 전환. 클·서 분기는 Luban group `c`/`s`(테이블·필드 단위)로, 런타임은 Luban 생성 `Tables` 매니저를 얇은 `LOPMasterData` 래퍼로 사용. 상세·슬라이스는 `docs/superpowers/specs/2026-06-03-master-data-luban-migration-design.md`. 아래 "MasterData 패키지 구조" 절의 protoc/Google.Protobuf 기반 asmdef 세부는 *전환 전(2a)* 기준이며, 패키지 실제 배선은 Luban 전환(Slice β/γ)에서 `com.code-philosophy.luban` 참조로 정정됨. **마이그레이션 완료(α/β/γ, 2026-06-03)**: 양쪽 패키지가 Luban 생성 `.cs`+`.bytes`를 host, 클·서 런타임이 `LOPMasterData.Tables`로 동작, CSV·수기 POCO·GameFramework `IMasterData*` 모두 제거됨.
+> ⚠️ **MasterData 도구 PIVOT (2026-06-03)**: 당초 Protobuf(`.proto`+protoc, 계획 2b/2c)로 가려던 MasterData를 **Luban**(focus-creative-games/luban)으로 전환. 클·서 분기는 Luban group `c`/`s`(테이블·필드 단위)로, 런타임은 Luban 생성 `Tables` 매니저를 얇은 `LOPMasterData` 래퍼로 사용. 상세·슬라이스는 `docs/archive/specs/2026-06-03-master-data-luban-migration-design.md`. 아래 "MasterData 패키지 구조" 절의 protoc/Google.Protobuf 기반 asmdef 세부는 *전환 전(2a)* 기준이며, 패키지 실제 배선은 Luban 전환(Slice β/γ)에서 `com.code-philosophy.luban` 참조로 정정됨. **마이그레이션 완료(α/β/γ, 2026-06-03)**: 양쪽 패키지가 Luban 생성 `.cs`+`.bytes`를 host, 클·서 런타임이 `LOPMasterData.Tables`로 동작, CSV·수기 POCO·GameFramework `IMasterData*` 모두 제거됨.
 
 ## 의존 그래프
 

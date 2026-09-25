@@ -106,20 +106,17 @@ World Core, netcode, or matching FSM.
 - @docs/world-core-connection-architecture.md
 - @docs/netcode-redesign.md
 
-> Only **durable** docs are auto-loaded: the five architecture docs above. Add an
-> `@` line for a new spec **only while its work is active**; once a slice is
-> implemented and merged, **remove its `@` line** (the file stays in
-> `docs/superpowers/specs/` for reference, read on demand). This keeps the
-> auto-load set small. (The `game-scene-scope` design was auto-loaded while parked;
-> its `@` line was removed once it shipped — confirmed implemented in the 2026-07-13
-> audit.)
->
-> Completed slice specs (World Core Health/Mana/Level/Stats/Owner migration,
-> server Health slices, Motion, MVC-decouple, UI-Toolkit M1, LOP-Shared,
-> MasterData-Luban, netcode Phase 0–3, etc.) live in `docs/superpowers/specs/` but
-> are **not** auto-loaded — their locked decisions are summarized in the
-> architecture docs above and in project memory. Read a completed spec on demand
-> only if you need its detail.
->
-> `docs/superpowers/plans/` is likewise **not** auto-loaded — plans are per-task,
-> read on demand only when executing that specific plan.
+> 자동 로드는 이 다섯 개만 한다. 진행 중인 슬라이스의 spec은 **작업하는 동안만** `@` 줄을 더하고,
+> 닫을 때 뺀다.
+
+## 문서 규칙 (필수)
+
+문서 지도와 슬라이스 닫기 체크리스트는 `docs/README.md`에 있다. 요점:
+
+- **요청하지 않은 요약·보고서·완료 기록 md를 만들지 않는다.** 그런 내용은 커밋 메시지나 머지 커밋 본문에 쓴다.
+- **새 문서를 만들기 전에** `docs/README.md`의 표를 보고 들어갈 기존 문서가 있는지 확인한다. 있으면 그 문서를 고친다.
+- 임시 메모나 조사 노트는 `.superpowers/`(gitignore됨)에 둔다. 문서는 `Assets/` 밖에만 둔다.
+- `ROADMAP.md`에는 **상태만** 쓴다(지금 / 다음 / 파킹, 한 항목에 1~3줄). 경위와 교훈은 머지 커밋 본문으로 보낸다.
+- 오래 지켜야 할 **설계 결정**은 메모리가 아니라 `docs/decisions/`(ADR)에 쓴다. 메모리는 이 머신에만 있다.
+- spec은 맨 앞에 `## 의도` 절(문제 / 원하는 결과 / 제약 / 열린 질문)을 둔다.
+- `docs/archive/`, `docs/journal/`은 지난 기록이다. 사용자가 요청하거나 과거 경위를 추적할 때만 읽는다.

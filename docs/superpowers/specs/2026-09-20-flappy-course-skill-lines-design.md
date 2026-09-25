@@ -90,7 +90,7 @@ dive = fallSpeed > 0 ? DashChargeDive * min(v,30)/30 : 0;   // 속도에 단순 
 
 ## 4. 결정 — 갈림길(손가락 맵)
 
-> ⚠️ **대체됨 (2026-09-24)** — `2026-09-24-flappy-terrain-shortcut-design.md`로. 바닥 아래 터널은 화면 밖이고
+> ⚠️ **대체됨 (2026-09-24)** — `archive/specs/2026-09-24-flappy-terrain-shortcut-design.md`로. 바닥 아래 터널은 화면 밖이고
 > 바닥이 20m라 입구가 굴뚝이 되어 폐기했다. 뾰족한 U자를 곧게 가로지르는 지름길로 바꿨다.
 
 ```

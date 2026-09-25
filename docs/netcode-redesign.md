@@ -15,7 +15,7 @@ LOP는 PhysX 기반의 물리 시뮬레이션 게임이며, 클라이언트가 �
 ## 2. 현재 구조
 
 > **⚠️ 갱신 (2026-07-09) — 이 절은 *이 문서 착수 시점*의 구조다. 이후 세 축이 바뀌었으니 아래는 *배경/문제 진단*으로 읽을 것:**
-> - **이동 substrate**: 다이나믹 PhysX(속도→`Physics.Simulate` 적분)에서 **클·서 공유 키네마틱 컨트롤러**(속도·중력 게임코드 계산 + 캡슐 sweep collide-and-slide + 포지션 직접 제어)로 전환. velocity·위치 진실원본이 `World.Entity`, Rigidbody는 kinematic follower. 상세: `world-core-connection-architecture.md`의 "이동 substrate — 공유 키네마틱 컨트롤러" + `docs/superpowers/specs/2026-07-09-shared-kinematic-character-controller-design.md`. 이로써 §3.5(FP 비결정성)·§3.2(점프 임펄스 시점 민감) 영향이 크게 줄고, 클라 예측=서버 권위(같은 코드)라 지면 reconciliation이 소멸.
+> - **이동 substrate**: 다이나믹 PhysX(속도→`Physics.Simulate` 적분)에서 **클·서 공유 키네마틱 컨트롤러**(속도·중력 게임코드 계산 + 캡슐 sweep collide-and-slide + 포지션 직접 제어)로 전환. velocity·위치 진실원본이 `World.Entity`, Rigidbody는 kinematic follower. 상세: `world-core-connection-architecture.md`의 "이동 substrate — 공유 키네마틱 컨트롤러" + `docs/archive/specs/2026-07-09-shared-kinematic-character-controller-design.md`. 이로써 §3.5(FP 비결정성)·§3.2(점프 임펄스 시점 민감) 영향이 크게 줄고, 클라 예측=서버 권위(같은 코드)라 지면 reconciliation이 소멸.
 > - **reconciliation**: `SnapReconciler` delta-replay → `Reconciler` **하드 롤백(Snapshot/Restore) + 입력 replay**(Stage④ rollback 슬라이스).
 > - **입력-as-데이터 (2026-07-02)**: 서버 인풋 버퍼가 큐를 든 매니저에서 **데이터 컴포넌트**로 분리 — 실제 타입은 `LOP.InputBuffer`(LeagueOfPhysical-Shared의 `Component`)이고 처리 로직은 `InputBufferSystem`이 담당. 서버는 `entityRegistry.Get(id).Get<InputBuffer>()`로 읽는다. (아래 표·본문의 `EntityInputComponent`/`InputBufferComponent`는 옛 이름 — 실명은 `InputBuffer`.) 단 **클라 `PlayerInputManager`는 여전히 캡처+버퍼쓰기+송신에 더해 로컬 예측을 트리거**한다(이동=`SetCurrent`→공유 `MovementSystem`이 `world.Tick`서 소비, 어빌리티=`abilityActivator.TryActivate`). 그래서 표준 `IInputSource` provider(4d)는 아직 Stage④ 몫 — connection-arch §4d 참고.
 > - **명명**: `LOPGameEngine`→`LOPRunner`, 시뮬 코어는 `LOPWorld`로 분리.
@@ -275,7 +275,7 @@ Clock sync가 완벽해도 FP 오차 / 패킷 손실로 인한 미세 갭은 여
 - `LOPWorld`가 이 훅을 오버라이드해 어빌리티/상태이상/스탯/마나(`LOPSavedState`)를 추가로 저장·복원한다.
   `FlappyWorld`는 이 훅을 오버라이드하지 않는다 — 위치·속도만으로 충분해서다(스킬이 없으므로).
 
-상세 설계는 `docs/superpowers/specs/2026-08-17-flappy-race-gameplay-b2-design.md` §4 참고.
+상세 설계는 `docs/archive/specs/2026-08-17-flappy-race-gameplay-b2-design.md` §4 참고.
 
 ---
 

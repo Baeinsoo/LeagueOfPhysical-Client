@@ -21,7 +21,7 @@ namespace LOP.UI
         private readonly ReactiveProperty<float> _chaserGap = new ReactiveProperty<float>(0f);
 
         /// <summary>지금 채우고 있는 칸이 얼마나 찼나(0~1). 버튼이 이만큼 차오른다.
-        /// <para>쌓아 둔 칸은 <see cref="DashStacks"/>가 숫자로 따로 보여 준다 — 롤 강타와 같은 모양이다.
+        /// <para>쌓아 둔 칸은 <see cref="DashStacks"/>가 버튼 위 칸 아이콘으로 따로 보여 준다 — 카트라이더 부스터 칸과 같은 모양이다.
         /// 게이지 하나로 0~2를 그리면 "지금 쓸 수 있나"가 눈금 중간에 묻힌다.</para></summary>
         public ReadOnlyReactiveProperty<float> DashCharge => _dashCharge;
 

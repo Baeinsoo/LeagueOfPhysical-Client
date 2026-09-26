@@ -35,7 +35,8 @@ namespace LOP
                 chaserInitialSpeed: r.ChaserInitialSpeed,
                 chaserAcceleration: r.ChaserAcceleration,
                 chaserMaxSpeed: r.ChaserMaxSpeed,
-                finishBrake: r.FinishBrake);
+                finishBrake: r.FinishBrake,
+                dashChargeMinFall: r.DashChargeMinFall);
         }
     }
 }

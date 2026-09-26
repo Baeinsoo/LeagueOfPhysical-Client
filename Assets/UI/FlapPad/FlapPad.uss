@@ -21,17 +21,21 @@
     color: rgba(255, 255, 255, 0.55);
 }
 
-/* 대시 버튼 — 버튼 자신이 게이지다. 차오르는 것과 누를 수 있는지를 한 곳에서 보여준다. */
+/* 대시 버튼 — 카트라이더 부스터와 같은 구조다. 버튼 안의 채움은 "다음 한 칸까지" 진행만 보여 주고
+   (아직 못 쓰니 흰색), 한 칸이 다 차면 버튼 위 칸에 호박색 아이콘이 하나 생긴다(최대 2칸).
+   쓸 수 있는지는 채움 색이 아니라 아이콘과 버튼 전체 색으로 읽힌다 — 같은 색 채움의 투명도만
+   다르면 폰에서 구분이 안 됐다(2026-09-26).
+   위치는 엄지가 편한 쪽으로 구석에서 안쪽·위쪽으로 당겼다. */
 .dash-button {
     position: absolute;
-    right: 48px;
-    bottom: 120px;
-    width: 160px;
-    height: 160px;
-    border-radius: 80px;
+    right: 140px;
+    bottom: 200px;
+    width: 240px;
+    height: 240px;
+    border-radius: 120px;
     overflow: hidden;                       /* 채움이 둥근 테두리를 넘지 않게 */
     background-color: rgba(0, 0, 0, 0.35);
-    border-width: 3px;
+    border-width: 4px;
     border-color: rgba(255, 255, 255, 0.25);
     justify-content: center;
     align-items: center;
@@ -44,45 +48,51 @@
     right: 0;
     bottom: 0;
     height: 0;
-    background-color: rgba(255, 214, 92, 0.45);
+    background-color: rgba(255, 255, 255, 0.28);
 }
 
 .dash-label {
-    /* 아래 숫자와 겹치지 않게 가운데에서 위로 22px 올린다(가운데 정렬된 자식의 아래 여백). */
-    margin-bottom: 44px;
-    font-size: 28px;
+    font-size: 42px;
     color: rgba(255, 255, 255, 0.45);
     -unity-text-align: middle-center;
 }
 
-/* 쌓아 둔 칸 수 — 롤 강타처럼 숫자로 보여 준다. 0칸이면 코드가 빈 문자열을 넣어 사라진다.
-   모서리가 아니라 원 안쪽 아래에 둔다: 버튼이 원형 클리핑(overflow:hidden + border-radius)이라
-   모서리에 두면 잘려 나간다. 색도 게이지와 같은 호박색이면 다 찼을 때 숫자가 통째로 묻힌다 —
-   흰색 + 어두운 그림자라야 빈 버튼(어두움)과 찬 버튼(호박색) 양쪽에서 읽힌다. */
-.dash-stacks {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 18px;
-    font-size: 40px;
-    color: rgb(255, 255, 255);
-    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.95);
-    -unity-font-style: bold;
-    -unity-text-align: middle-center;
-}
-
-/* 가득 찼을 때만 밝아진다 — "지금 쓸 수 있다"가 눈에 띄어야 한다. */
+/* 한 칸 이상 모였을 때 — 버튼 전체가 호박색으로 바뀐다. */
 .dash-button--ready {
     border-color: rgb(255, 214, 92);
-    background-color: rgba(255, 214, 92, 0.25);
-}
-
-.dash-button--ready .dash-fill {
-    background-color: rgba(255, 214, 92, 0.75);
+    background-color: rgba(255, 170, 40, 0.85);
 }
 
 .dash-button--ready .dash-label {
     color: rgb(255, 255, 255);
+    -unity-font-style: bold;
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.8);
+}
+
+/* 모아 둔 대시 칸 — 버튼 바로 위에 가로로 둘. 버튼과 가운데를 맞춘다. */
+.dash-slots {
+    position: absolute;
+    right: 140px;
+    bottom: 456px;
+    width: 240px;
+    flex-direction: row;
+    justify-content: center;
+}
+
+.dash-slot {
+    width: 56px;
+    height: 56px;
+    margin-left: 10px;
+    margin-right: 10px;
+    border-radius: 28px;
+    border-width: 4px;
+    border-color: rgba(255, 255, 255, 0.35);
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+.dash-slot--filled {
+    border-color: rgb(255, 236, 170);
+    background-color: rgb(255, 170, 40);
 }
 
 /* 추격자까지 남은 거리 — 곡선을 튜닝하려면 이 숫자를 봐야 한다 */

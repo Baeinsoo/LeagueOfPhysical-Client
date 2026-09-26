@@ -7,43 +7,27 @@ namespace LOP
     /// </summary>
     public static class ArcheryArrowDisplay
     {
-        /// <summary>과녁까지 비행 시간을 모를 때(원형 맵) 따라잡는 데 쓰는 시간(초).</summary>
-        public const float DefaultCatchUpSeconds = 0.25f;
-
         /// <summary>
-        /// 비행이 거의 끝날 때 받았어도 이만큼은 날아가는 모습을 보여 준다(초). 너무 짧으면 과녁에
-        /// 순간이동한 것처럼 보이고, 길면 꽂히는 그림이 실제보다 늦는다.
+        /// 꼬리선의 끝이 궤적의 몇 초 지점에 있나. 화살은 늘 <b>실제 시각</b>에 그리고, 꼬리는 그보다
+        /// <paramref name="trailSeconds"/>만큼 뒤에서 따라온다.
+        ///
+        /// <para>남의 화살은 발사 소식이 늦게 와서 비행 중간에 처음 보인다 — 그 순간 꼬리를 <b>활(0초)부터</b>
+        /// 그려 순간이동이 아니라 날아온 것처럼 보이게 하고, 그 긴 꼬리는 <paramref name="trailSeconds"/>에
+        /// 걸쳐 보통 길이로 줄인다. 꼬리 끝은 앞으로만 간다.</para>
         /// </summary>
-        public const float MinCatchUpSeconds = 0.08f;
-
-        /// <summary>
-        /// 남의 화살은 발사 소식이 늦게 온다(서버를 거치고, 내 시계는 서버보다 앞서 간다). 받은 시각의
-        /// 실제 위치부터 그리면 <b>중간쯤에서 갑자기 나타난다.</b> 그래서 받은 순간 활(0초 지점)에서
-        /// 출발시키고 조금 빨리 날려, 과녁에 닿는 순간 실제 궤적과 만나게 한다.
-        /// </summary>
-        /// <param name="trueSeconds">쏜 뒤 실제로 흐른 시간.</param>
-        /// <param name="arrivalSeconds">발사 소식을 처음 받았을 때 이미 흘러 있던 시간(늦지 않았으면 0).</param>
-        /// <param name="flightSeconds">과녁까지 비행 시간. 모르면 0.</param>
-        public static float VisualSeconds(float trueSeconds, float arrivalSeconds, float flightSeconds)
+        /// <param name="seconds">쏜 뒤 실제로 흐른 시간.</param>
+        /// <param name="firstSeenSeconds">화살을 처음 본 순간 이미 흘러 있던 시간(제때 봤으면 0에 가깝다).</param>
+        public static float TrailTailSeconds(float seconds, float firstSeenSeconds, float trailSeconds)
         {
-            if (arrivalSeconds <= 0f)
+            if (trailSeconds <= 0f)
             {
-                return trueSeconds;
+                return seconds;
             }
 
-            float catchUp = flightSeconds > 0f
-                ? Mathf.Max(flightSeconds - arrivalSeconds, MinCatchUpSeconds)
-                : DefaultCatchUpSeconds;
-
-            if (trueSeconds >= arrivalSeconds + catchUp)
-            {
-                return trueSeconds;
-            }
-            if (trueSeconds <= arrivalSeconds)
-            {
-                return 0f;
-            }
-            return (trueSeconds - arrivalSeconds) * (arrivalSeconds + catchUp) / catchUp;
+            //  늦게 봐서 생긴 긴 꼬리의 남은 몫 — 처음 본 순간 가득, trailSeconds 뒤 0.
+            float extra = Mathf.Max(0f, firstSeenSeconds - trailSeconds)
+                        * Mathf.Clamp01(1f - (seconds - firstSeenSeconds) / trailSeconds);
+            return Mathf.Clamp(seconds - trailSeconds - extra, 0f, seconds);
         }
 
         /// <summary>

@@ -13,8 +13,8 @@ namespace LOP.UI
     public class ArcheryShootOffHudViewModel : IDisposable
     {
         //  이 세기(m/s²) 이상이면 바람이 세다고 해설한다. 화살표 크기는 WindArrowFull에서 가득 찬다.
-        private const float StrongWind = 2f;
-        private const float WindArrowFull = 3f;
+        private const float StrongWind = 4f;
+        private const float WindArrowFull = 5f;
         private const double LastShotMarginTicks = 2d;
 
         private readonly GameFramework.Runner.IRunner runner;

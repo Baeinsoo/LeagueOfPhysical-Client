@@ -4,56 +4,48 @@ namespace LOP.Tests
 {
     public class ArcheryArrowDisplayTests
     {
+        const float Trail = 0.2f;
+
         [Test]
-        public void 늦지_않게_받은_화살은_실제_시각_그대로()
+        public void 제때_본_화살의_꼬리는_정해진_길이만큼_뒤에_있다()
         {
-            Assert.AreEqual(0.3f, ArcheryArrowDisplay.VisualSeconds(0.3f, 0f, 0.5f), 1e-5f);
+            Assert.AreEqual(0.1f, ArcheryArrowDisplay.TrailTailSeconds(0.3f, 0f, Trail), 1e-5f);
         }
 
         [Test]
-        public void 늦게_받은_화살은_받은_순간_활에서_출발한다()
+        public void 막_쏜_화살의_꼬리는_활에서_시작한다()
         {
-            //  0.1초 늦게 받았다 — 그 순간 그림은 0초 지점(활)이다.
-            Assert.AreEqual(0f, ArcheryArrowDisplay.VisualSeconds(0.1f, 0.1f, 0.4f), 1e-5f);
+            Assert.AreEqual(0f, ArcheryArrowDisplay.TrailTailSeconds(0.05f, 0f, Trail), 1e-5f);
         }
 
         [Test]
-        public void 과녁에_닿는_순간_실제_궤적과_만난다()
+        public void 늦게_본_화살은_처음_보는_순간_활부터_지나온_길_전체를_그린다()
         {
-            //  0.1초 늦게 받았고 비행은 0.4초 — 0.4초에 그림도 0.4초 지점이어야 한다.
-            Assert.AreEqual(0.4f, ArcheryArrowDisplay.VisualSeconds(0.4f, 0.1f, 0.4f), 1e-5f);
+            //  0.4초 지점에서 처음 봤다 — 순간이동처럼 보이지 않게 활(0초)부터 선을 긋는다.
+            Assert.AreEqual(0f, ArcheryArrowDisplay.TrailTailSeconds(0.4f, 0.4f, Trail), 1e-5f);
         }
 
         [Test]
-        public void 따라잡는_동안은_실제보다_뒤에서_더_빨리_간다()
+        public void 늦게_본_화살의_긴_꼬리는_정해진_시간_안에_보통_길이로_줄어든다()
         {
-            float v = ArcheryArrowDisplay.VisualSeconds(0.25f, 0.1f, 0.4f);
-            Assert.Less(v, 0.25f);
-            Assert.Greater(v, 0.25f - 0.1f);
+            float mid = ArcheryArrowDisplay.TrailTailSeconds(0.5f, 0.4f, Trail);
+            Assert.Greater(mid, 0f);
+            Assert.Less(mid, 0.5f - Trail);
+            Assert.AreEqual(0.6f - Trail, ArcheryArrowDisplay.TrailTailSeconds(0.6f, 0.4f, Trail), 1e-5f);
+            Assert.AreEqual(0.9f - Trail, ArcheryArrowDisplay.TrailTailSeconds(0.9f, 0.4f, Trail), 1e-5f);
         }
 
         [Test]
-        public void 다_따라잡은_뒤는_실제_시각_그대로()
+        public void 꼬리는_앞으로만_간다()
         {
-            Assert.AreEqual(0.7f, ArcheryArrowDisplay.VisualSeconds(0.7f, 0.1f, 0.4f), 1e-5f);
-        }
-
-        [Test]
-        public void 비행_시간을_모르면_정해진_시간_안에_따라잡는다()
-        {
-            float arrival = 0.1f;
-            float end = arrival + ArcheryArrowDisplay.DefaultCatchUpSeconds;
-            Assert.AreEqual(0f, ArcheryArrowDisplay.VisualSeconds(arrival, arrival, 0f), 1e-5f);
-            Assert.AreEqual(end, ArcheryArrowDisplay.VisualSeconds(end, arrival, 0f), 1e-5f);
-        }
-
-        [Test]
-        public void 비행이_거의_끝난_뒤_받았어도_최소한은_날아가_보인다()
-        {
-            //  0.38초에 받았는데 비행이 0.4초 — 남은 0.02초가 아니라 최소 시간에 걸쳐 따라잡는다.
-            float arrival = 0.38f;
-            float mid = arrival + ArcheryArrowDisplay.MinCatchUpSeconds * 0.5f;
-            Assert.Less(ArcheryArrowDisplay.VisualSeconds(mid, arrival, 0.4f), mid);
+            float prev = -1f;
+            for (float t = 0.4f; t < 1f; t += 0.01f)
+            {
+                float tail = ArcheryArrowDisplay.TrailTailSeconds(t, 0.4f, Trail);
+                Assert.GreaterOrEqual(tail, prev - 1e-5f);
+                Assert.LessOrEqual(tail, t);
+                prev = tail;
+            }
         }
 
         [Test]

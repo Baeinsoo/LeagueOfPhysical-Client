@@ -107,7 +107,9 @@ namespace LOP
                 courseKind, r.MatchDurationTicks, range,
                 //  shakeBaseRatio는 ArcheryConfig 생성자에서 기본값 있는 매개변수 맨 끝에 있다
                 //  (C# 제약 — 위 주석 참고) — 여기서도 그 자리에 맞춰 마지막에 넘긴다.
-                r.ShakeBaseRatio);
+                r.ShakeBaseRatio,
+                //  0이면 예전 화살 속도(ArcheryAimSystem.MinSpeed/MaxSpeed)다 — 한 발 승부만 느리게 적는다.
+                r.ArrowMinSpeedMps, r.ArrowMaxSpeedMps);
         }
 
         //  그 과녁 종류의 띠를 중심에서 바깥 순서로 모은다. 순서가 뒤집히면 바깥 띠가 먼저

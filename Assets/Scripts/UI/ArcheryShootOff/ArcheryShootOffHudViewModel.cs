@@ -13,11 +13,12 @@ namespace LOP.UI
     public class ArcheryShootOffHudViewModel : IDisposable
     {
         //  이 세기(m/s²) 이상이면 바람이 세다고 해설한다. 화살표 크기는 WindArrowFull에서 가득 찬다.
-        private const float StrongWind = 15f;
-        private const float WindArrowFull = 20f;
+        private const float StrongWind = 2f;
+        private const float WindArrowFull = 3f;
         private const double LastShotMarginTicks = 2d;
 
         private readonly GameFramework.Runner.IRunner runner;
+        private readonly ArcheryConfig config;
         private readonly ArcheryWorld world;
         private readonly ArcheryCourse course;
         private readonly IGameDataStore gameDataStore;
@@ -57,9 +58,11 @@ namespace LOP.UI
         public ArcheryShootOffHudViewModel(GameFramework.Runner.IRunner runner, ArcheryWorld world,
                                            ArcheryCourse course, IGameDataStore gameDataStore,
                                            GameFramework.World.EntityRegistry entityRegistry,
-                                           ISubscriber<WorldEventBatchToC> batchSubscriber)
+                                           ISubscriber<WorldEventBatchToC> batchSubscriber,
+                                           ArcheryConfig config)
         {
             this.runner = runner;
+            this.config = config;
             this.world = world;
             this.course = course;
             this.gameDataStore = gameDataStore;
@@ -144,7 +147,7 @@ namespace LOP.UI
         {
             long close = course.RoundCloseTick(index, start);
             //  경계에 딱 맞춰 끝나면 막대가 비는 순간 쏜 화살이 이미 늦다 — 두 틱 먼저 끝낸다.
-            double lastShot = close - course.StandDistanceAt(index) / ArcheryAimSystem.MinSpeed / interval
+            double lastShot = close - course.StandDistanceAt(index) / config.ArrowMinSpeed / interval
                             - LastShotMarginTicks;
             double roundStart = close - course.ExposureTicksAt(index);
             double span = lastShot - roundStart;

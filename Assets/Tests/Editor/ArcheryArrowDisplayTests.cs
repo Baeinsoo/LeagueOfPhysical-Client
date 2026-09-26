@@ -19,18 +19,16 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 늦게_본_화살은_처음_보는_순간_활부터_지나온_길_전체를_그린다()
+        public void 늦게_본_화살의_꼬리는_처음_본_자리에서_시작한다()
         {
-            //  0.4초 지점에서 처음 봤다 — 순간이동처럼 보이지 않게 활(0초)부터 선을 긋는다.
-            Assert.AreEqual(0f, ArcheryArrowDisplay.TrailTailSeconds(0.4f, 0.4f, Trail), 1e-5f);
+            //  0.4초 지점에서 처음 봤다 — 그 전 길은 본 적이 없으니 꼬리가 없다.
+            Assert.AreEqual(0.4f, ArcheryArrowDisplay.TrailTailSeconds(0.4f, 0.4f, Trail), 1e-5f);
         }
 
         [Test]
-        public void 늦게_본_화살의_긴_꼬리는_정해진_시간_안에_보통_길이로_줄어든다()
+        public void 늦게_본_화살의_꼬리는_자라서_보통_길이가_된다()
         {
-            float mid = ArcheryArrowDisplay.TrailTailSeconds(0.5f, 0.4f, Trail);
-            Assert.Greater(mid, 0f);
-            Assert.Less(mid, 0.5f - Trail);
+            Assert.AreEqual(0.4f, ArcheryArrowDisplay.TrailTailSeconds(0.5f, 0.4f, Trail), 1e-5f);
             Assert.AreEqual(0.6f - Trail, ArcheryArrowDisplay.TrailTailSeconds(0.6f, 0.4f, Trail), 1e-5f);
             Assert.AreEqual(0.9f - Trail, ArcheryArrowDisplay.TrailTailSeconds(0.9f, 0.4f, Trail), 1e-5f);
         }
@@ -46,6 +44,26 @@ namespace LOP.Tests
                 Assert.LessOrEqual(tail, t);
                 prev = tail;
             }
+        }
+
+        [Test]
+        public void 제때_본_화살은_늦추지_않는다()
+        {
+            Assert.AreEqual(0f, ArcheryArrowDisplay.DisplayDelaySeconds(0f, 0.5f), 1e-5f);
+        }
+
+        [Test]
+        public void 늦게_본_화살은_늦게_본_만큼_늦춰_활에서_출발한다()
+        {
+            float delay = ArcheryArrowDisplay.DisplayDelaySeconds(0.2f, 0.5f);
+            Assert.AreEqual(0.2f, delay, 1e-5f);
+            Assert.AreEqual(0f, 0.2f - delay, 1e-5f);   // 처음 본 순간 그려지는 시각 = 활(0초)
+        }
+
+        [Test]
+        public void 너무_늦게_본_화살은_상한까지만_늦춘다()
+        {
+            Assert.AreEqual(0.5f, ArcheryArrowDisplay.DisplayDelaySeconds(2f, 0.5f), 1e-5f);
         }
 
         [Test]

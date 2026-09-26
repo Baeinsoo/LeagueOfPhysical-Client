@@ -1658,7 +1658,7 @@ namespace LOP.EditorTools
                 row.StunTime, row.InvulnTime,
                 row.DashMult, row.DashDuration, row.DashChargeBase, row.DashChargeDive,
                 row.ChaserStartX, row.ChaserInitialSpeed, row.ChaserAcceleration, row.ChaserMaxSpeed,
-                row.FinishBrake);
+                row.FinishBrake, row.DashChargeMinFall);
             return true;
         }
 

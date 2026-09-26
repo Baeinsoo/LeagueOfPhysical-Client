@@ -11,6 +11,7 @@ namespace LOP.UI
     public class FlapPadView : UIView
     {
         private const string ReadyClass = "dash-button--ready";
+        private const string SlotFilledClass = "dash-slot--filled";
 
         private readonly FlapPadViewModel _viewModel;
         private readonly CompositeDisposable _subscriptions = new CompositeDisposable();
@@ -33,7 +34,7 @@ namespace LOP.UI
 
             var dashButton = Root.Q<VisualElement>("dash-button");
             var dashFill = Root.Q<VisualElement>("dash-fill");
-            var dashStacks = Root.Q<Label>("dash-stacks");
+            var dashSlots = new[] { Root.Q<VisualElement>("dash-slot-0"), Root.Q<VisualElement>("dash-slot-1") };
 
             dashButton.RegisterCallback<PointerDownEvent>(evt =>
             {
@@ -46,9 +47,14 @@ namespace LOP.UI
                 .Subscribe(charge => dashFill.style.height = Length.Percent(charge * 100f))
                 .AddTo(_subscriptions);
 
-            // 0칸이면 숫자를 지운다 — "0"을 띄우면 쓸 수 있는 것처럼 읽힌다.
             _viewModel.DashStacks
-                .Subscribe(stacks => dashStacks.text = stacks > 0 ? stacks.ToString() : string.Empty)
+                .Subscribe(stacks =>
+                {
+                    for (int i = 0; i < dashSlots.Length; i++)
+                    {
+                        dashSlots[i].EnableInClassList(SlotFilledClass, i < stacks);
+                    }
+                })
                 .AddTo(_subscriptions);
 
             _viewModel.CanDash

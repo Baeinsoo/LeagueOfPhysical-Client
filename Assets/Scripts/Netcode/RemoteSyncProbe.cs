@@ -48,7 +48,7 @@ namespace LOP
 
         private static int frames, holds, stills;
         //  [판별] 안 움직인 프레임이 "길게 이어지나 vs 한두 프레임씩 끼나".
-        //  길면(0.8초≈48프레임) 스턴이라 진짜로 멈춘 것이고, 짧으면 보간이 계단처럼 끊기는 것이다.
+        //  길면(1.2초≈72프레임) 스턴이라 진짜로 멈춘 것이고, 짧으면 보간이 계단처럼 끊기는 것이다.
         private static readonly List<float> stillRuns = new List<float>();
         //  [판별] 안 움직일 때 서버가 준 속도. 0이면 원본이 멈춘 것, 0이 아닌데 화면이 안 움직이면 우리 탓이다.
         private static readonly List<float> stillSourceSpeeds = new List<float>();

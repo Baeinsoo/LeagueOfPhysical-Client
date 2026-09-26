@@ -55,7 +55,7 @@ namespace LOP
                 .As<GameFramework.World.IWorld>().AsSelf();
             builder.Register<ICharacterCreator, FlappyBirdCreator>(Lifetime.Singleton);
             //  스턴은 서버 권위다. 내 새는 클라가 굴리므로 "내가 맵에 부딪혔나"를 예측하게 되는데,
-            //  그 판정이 서버와 갈리면 0.8초 얼음이 통째로 어긋난다.
+            //  그 판정이 서버와 갈리면 1.2초 얼음이 통째로 어긋난다.
             builder.Register<IServerCorrectionHandler, FlappyServerCorrectionHandler>(Lifetime.Singleton);
 
             //  내 새만 예측하고, 남의 새는 서버 시간대의 스냅샷 보간으로 그린다.

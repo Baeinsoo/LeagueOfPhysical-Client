@@ -145,7 +145,7 @@ namespace LOP
                 return;   // 앞이 온통 막혔다 — 날갯짓해도 소용없으니 그냥 둔다
             }
 
-            TryDash(entity, position);
+            TryDash(entity, position, deltaTime);
 
             //  몸 반지름만큼은 가장자리에서 떨어져 지나간다.
             if (FlappyGapAiming.ShouldFlap(position.y, velocity.y, low, high, ticksToGap, deltaTime,
@@ -169,7 +169,7 @@ namespace LOP
         /// 게이지가 가득이고 대시 거리만큼 앞이 뚫려 있으면 지른다. 아끼지 않는 이유는 게이지가
         /// 다시 차기 때문이다 — 쓸 수 있을 때 쓰는 것이 곧 최선이고, 사람도 그렇게 친다.
         /// </summary>
-        private void TryDash(GameFramework.World.Entity entity, Vector3 position)
+        private void TryDash(GameFramework.World.Entity entity, Vector3 position, float deltaTime)
         {
             // 이 스위치는 에디터에만 있다(EditorPrefs). 가드를 빼면 에디터에서는 멀쩡한데
             // 플레이어 빌드에서 UnityEditor를 못 찾아 어드레서블 콘텐츠 빌드가 통째로 깨진다.
@@ -187,7 +187,8 @@ namespace LOP
 
             //  대시로 나아가는 거리. 이만큼 앞이 뚫려 있을 때만 지른다 —
             //  대시 중엔 날갯짓이 안 먹어 궤도를 못 고치므로, 막힌 데로 지르면 그대로 박는다.
-            float reach = config.ForwardSpeed * config.DashMult * config.DashDuration;
+            float reach = FlappyDashCurve.Distance(config.ForwardSpeed, config.DashDuration, config.DashDuration,
+                                                   config.DashMult, deltaTime);
             for (float ahead = DashProbeStep; ahead <= reach; ahead += DashProbeStep)
             {
                 var probe = new Vector3(position.x + ahead, position.y, position.z);

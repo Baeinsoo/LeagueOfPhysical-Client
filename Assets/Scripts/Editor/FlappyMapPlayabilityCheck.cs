@@ -519,7 +519,7 @@ namespace LOP.EditorTools
                 LOP.MapTools.LayerContract.Section(
                     ScanLayerBlocks(mapMask, config.BodyRadius), GameplayMaterials),
                 LOP.MapTools.BoostPadRule.Section(
-                    ScanBoostPads(mapMask, shape, config.DashMult), config.ForwardSpeed, config.DashMult,
+                    ScanBoostPads(mapMask, shape, config.DashDuration, config.DashMult), config.ForwardSpeed, config.DashMult,
                     //  충돌 한 번의 손실 — 스턴 시간 동안 아예 안 나아간 거리다.
                     config.StunTime * config.ForwardSpeed),
                 shortcutSection);
@@ -1100,7 +1100,7 @@ namespace LOP.EditorTools
 
         private static List<LOP.MapTools.BoostPadMeasure> ScanBoostPads(int mapMask,
                                                                         in FlappyShape shape,
-                                                                        float dashMult)
+                                                                        float dashDuration, float dashMult)
         {
             var measures = new List<LOP.MapTools.BoostPadMeasure>();
             LOP.FlappyBoostPad[] pads = Object.FindObjectsByType<LOP.FlappyBoostPad>(
@@ -1148,7 +1148,8 @@ namespace LOP.EditorTools
                 //  아니라 벌이다(이 검사가 없어서 6개 전부 함정인 채로 배포됐다).
                 //  <b>패드의 오른쪽 끝</b>에서 잰다: 패드 위에 있는 동안 매 틱 다시 밟히므로
                 //  부스트는 사실상 그 자리에서 시작한다.
-                float span = pad.Duration * shape.ForwardSpeed * dashMult;
+                float span = LOP.FlappyDashCurve.Distance(shape.ForwardSpeed, pad.Duration, dashDuration, dashMult,
+                                                          TickSeconds);
                 float startX = center.x + pad.Width * 0.5f;
                 string blockedAhead = null;
                 if (Physics.CapsuleCast(

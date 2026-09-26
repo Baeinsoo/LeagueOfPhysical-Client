@@ -86,11 +86,12 @@ namespace LOP.MapTools
         }
 
         /// <summary>
-        /// 패드 하나가 벌어 주는 거리(m). 대시와 같은 계산이다 — 부스트 동안 <c>dashMult</c>배로
-        /// 가므로, 평소보다 더 간 몫이 이득이다.
+        /// 패드 하나가 벌어 주는 거리(m). 대시와 같은 계산이다 — 부스트 동안 배수가 <c>dashMult</c>에서
+        /// 1로 곧게 줄므로 평균 배수는 (dashMult+1)/2이고, 평소보다 더 간 몫이 이득이다.
+        /// (틱으로 더하면 조금 더 나오지만 리포트의 비교용 숫자라 연속식으로 센다.)
         /// </summary>
         public static float GainMeters(float duration, float forwardSpeed, float dashMult)
-            => duration * forwardSpeed * (dashMult - 1f);
+            => duration * forwardSpeed * (dashMult - 1f) * 0.5f;
 
         public static string Section(IReadOnlyList<BoostPadMeasure> pads, float forwardSpeed,
                                     float dashMult, float collisionCostMeters)

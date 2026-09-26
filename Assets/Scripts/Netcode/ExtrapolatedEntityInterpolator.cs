@@ -75,7 +75,7 @@ namespace LOP
         private void CurrentState(out Vector3 position, out Vector3 velocity)
         {
             float elapsed = (float)(networkTime.ServerNow - latest.timestamp);
-            // 스턴 상태(맵에 부딪혀 멈춘 새)는 서버에서 위치가 얼어붙어 있고 속도도 0이다 — 그 0.8초
+            // 스턴 상태(맵에 부딪혀 멈춘 새)는 서버에서 위치가 얼어붙어 있고 속도도 0이다 — 그 1.2초
             // 동안의 실제 가속도는 0인데 여기에 중력까지 계속 넣으면, 패킷 손실로 오래 못 받을수록
             // (최대 0.25초) 서 있어야 할 새가 수 m 아래로 꺼지고 가짜 낙하속도까지 생긴다.
             // 멈춤 여부도 스냅이 스스로 들고 있는 틱으로 판단한다 — 클라 시계는 서버보다 앞서

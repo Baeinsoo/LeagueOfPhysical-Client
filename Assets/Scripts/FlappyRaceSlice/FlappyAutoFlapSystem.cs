@@ -48,9 +48,6 @@ namespace LOP
         //  같은 판을 두 번 돌려도 달라져, 이 도구의 존재 이유인 "같은 장면 반복"이 무너진다.
         private const float FlapCooldownSeconds = 0.12f;
 
-        //  대시로 나아가는 거리(전진 2배 × 0.2초). 이만큼 앞이 뚫려 있을 때만 지른다 —
-        //  대시 중엔 날갯짓이 안 먹어 궤도를 못 고치므로, 막힌 데로 지르면 그대로 박는다.
-        private const float DashReachSeconds = 0.2f;
         //  대시 경로를 훑는 간격. 몸 지름보다 촘촘해야 사이로 빠지는 기둥을 놓치지 않는다.
         private const float DashProbeStep = 0.4f;
 
@@ -188,7 +185,9 @@ namespace LOP
                 return;
             }
 
-            float reach = config.ForwardSpeed * config.DashMult * DashReachSeconds;
+            //  대시로 나아가는 거리. 이만큼 앞이 뚫려 있을 때만 지른다 —
+            //  대시 중엔 날갯짓이 안 먹어 궤도를 못 고치므로, 막힌 데로 지르면 그대로 박는다.
+            float reach = config.ForwardSpeed * config.DashMult * config.DashDuration;
             for (float ahead = DashProbeStep; ahead <= reach; ahead += DashProbeStep)
             {
                 var probe = new Vector3(position.x + ahead, position.y, position.z);

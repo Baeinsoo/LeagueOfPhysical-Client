@@ -63,9 +63,10 @@ namespace LOP.EditorTools
         private const int ChallengeRuns = 6;
 
         //  도전 구간을 <b>끝까지</b> 붙어 간 사람에게만 주는 부스트. 구간마다 하나뿐인 이유는
-        //  경제다: 0.6초 부스트 = +4.1m이고 충돌 한 번이 −5.4m이니, 패드 하나가 충돌 0.76회를
-        //  메운다. 관문마다 놓으면(24개) 코스 612m에서 +98m = 16%라 대시 경제가 통째로 무의미해진다.
-        private const float BoostPadDuration = 0.6f;
+        //  경제다: 부스트 0.4초 = +2.7m이고 충돌 한 번이 −8.2m(1.2초)이니, 패드 하나가 충돌 ⅓회를
+        //  메운다. 관문마다 놓으면 대시 경제가 통째로 무의미해진다.
+        //  부스트 길이는 따로 두지 않고 게이지 대시(<c>config.DashDuration</c>)와 같게 한다 —
+        //  "패드 = 공짜 대시 한 번"으로 읽혀야 하고, 둘이 다르면 어느 쪽이 기준인지 헷갈린다(2026-09-25).
         //  전진 6.8m/s로 0.22초(11틱) — 틱 사이로 빠질 일이 없다. <b>좁게 두는 이유가 둘</b>이다:
         //  ① 경사 — 패드는 가로로 눕힌 사각형이라 회랑이 기울면 폭이 넓을수록 양 끝이 벽에 가까워진다
         //  (5m로 뒀더니 왼쪽 끝이 바닥에 물렸다). ② <b>부스트가 어디서 시작될지가 폭만큼 흔들린다</b> —
@@ -222,7 +223,7 @@ namespace LOP.EditorTools
             }
 
             int boostPads = BoostPads(composed.transform, pipes, window, centerAt, spacing,
-                                      floorY, ceilingY, fallback);
+                                      floorY, ceilingY, config.DashDuration, fallback);
 
             Backdrop(composed.transform, "Midground",
                      LOP.MapTools.BackdropLayout.Midground(StartX, length, MidgroundSeed),
@@ -247,7 +248,7 @@ namespace LOP.EditorTools
                     + $" · 높낮이 {profile.MinY:F0}~{profile.MaxY:F0}m (조각 꼭짓점 {profile.VertexCount}개)"
                     + $" · 지름길 {profile.Shortcuts.Count}개 (패드 {shortcutPads}개)"
                     + $" · 도전 관문 {challengeGates}개"
-                    + $" · 부스트 패드 {boostPads}개 ({BoostPadDuration:F1}초)");
+                    + $" · 부스트 패드 {boostPads}개 ({config.DashDuration:F1}초)");
         }
 
         /// <summary>굽기와 같은 코스 프로필. 에디터 측정(eval)이 씬과 같은 기하를 다시 얻을 때 쓴다.</summary>
@@ -310,7 +311,7 @@ namespace LOP.EditorTools
                                      LOP.MasterData.FlappyConfig config, float length, Material fallback)
         {
             int pads = 0;
-            float span = BoostPadDuration * config.ForwardSpeed * config.DashMult;
+            float span = config.DashDuration * config.ForwardSpeed * config.DashMult;
             foreach (LOP.MapTools.ShortcutRect r in profile.Shortcuts)
             {
                 float mid = (r.X0 + r.X1) * 0.5f;
@@ -346,7 +347,7 @@ namespace LOP.EditorTools
                 float padY = r.CenterY;
                 float padHeight = LOP.MapTools.BoostPadRule.Fit(
                     ref padY, r.Y1 - r.Y0, r.Y0 + BoostPadClearance, r.Y1 - BoostPadClearance);
-                BoostPad(parent, $"BoostPad_{padX.Value:F0}", padX.Value, padY, padHeight, fallback);
+                BoostPad(parent, $"BoostPad_{padX.Value:F0}", padX.Value, padY, padHeight, config.DashDuration, fallback);
                 pads++;
             }
             return pads;
@@ -436,7 +437,7 @@ namespace LOP.EditorTools
         /// </summary>
         private static int BoostPads(Transform parent, System.Collections.Generic.IReadOnlyList<LOP.MapTools.CoursePipe> pipes,
                                      float window, System.Func<float, float> centerAt, float spacing,
-                                     float floorY, float ceilingY, Material fallback)
+                                     float floorY, float ceilingY, float padDuration, Material fallback)
         {
             int placed = 0;
             for (int i = 0; i < pipes.Count; i++)
@@ -493,7 +494,7 @@ namespace LOP.EditorTools
                     continue;
                 }
 
-                BoostPad(parent, $"BoostPad_{padX:F0}", padX, padY, padHeight, fallback);
+                BoostPad(parent, $"BoostPad_{padX:F0}", padX, padY, padHeight, padDuration, fallback);
                 placed++;
             }
             return placed;
@@ -503,7 +504,7 @@ namespace LOP.EditorTools
         //  롤백 재생에서 물리를 안 돌려 아예 답이 없다). 그려지는 크기가 곧 판정 사각형이라
         //  🎥 시각 정직성이 유지된다.
         private static void BoostPad(Transform parent, string name, float x, float y, float height,
-                                     Material fallback)
+                                     float duration, Material fallback)
         {
             Material skin = FlappyCityMaterials.Boost != null ? FlappyCityMaterials.Boost : fallback;
             var go = Box(parent, name, skin);
@@ -514,7 +515,7 @@ namespace LOP.EditorTools
             var pad = go.AddComponent<LOP.FlappyBoostPad>();
             pad.Width = BoostPadWidth;
             pad.Height = height;
-            pad.Duration = BoostPadDuration;
+            pad.Duration = duration;
         }
 
         private static void Pipe(Transform parent, string name, float x, float bottom, float top,

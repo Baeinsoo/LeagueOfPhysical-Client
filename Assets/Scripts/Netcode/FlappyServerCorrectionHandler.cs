@@ -4,7 +4,7 @@ namespace LOP
     /// Flappy Race의 서버 보정 — 스턴이 서버 권위다.
     ///
     /// 클라는 내 새를 직접 굴리므로 "내가 벽에 부딪혔나"도 예측한다. 그 판정이 서버와 갈리면
-    /// 0.8초 얼음이 통째로 어긋나므로, 위치가 맞아도 되돌린다.
+    /// 1.2초 얼음이 통째로 어긋나므로, 위치가 맞아도 되돌린다.
     /// (남의 새는 굴리지 않는다 — 보간으로 그리고 스턴 겉모습도 스냅에서 온다.)
     /// </summary>
     public class FlappyServerCorrectionHandler : IServerCorrectionHandler

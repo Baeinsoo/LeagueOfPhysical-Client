@@ -311,7 +311,8 @@ namespace LOP.EditorTools
                                      LOP.MasterData.FlappyConfig config, float length, Material fallback)
         {
             int pads = 0;
-            float span = config.DashDuration * config.ForwardSpeed * config.DashMult;
+            float span = LOP.FlappyDashCurve.Distance(config.ForwardSpeed, config.DashDuration,
+                                                      config.DashDuration, config.DashMult, TickSeconds);
             foreach (LOP.MapTools.ShortcutRect r in profile.Shortcuts)
             {
                 float mid = (r.X0 + r.X1) * 0.5f;

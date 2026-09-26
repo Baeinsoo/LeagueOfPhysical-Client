@@ -11,7 +11,7 @@ namespace LOP.MapTools.Tests
     public class BoostPadRuleTests
     {
         const float Forward = 6.8f;
-        const float DashMult = 2f;
+        const float DashMult = 3f;   // 대시 시작 배수 — 끝으로 갈수록 1배로 준다
         const float CollisionCost = 5.4f;
 
         static BoostPadMeasure Pad(float y0 = -2.18f, float y1 = 2.18f, string overlap = null,
@@ -125,7 +125,7 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 이득은_대시와_같은_계산이다()
         {
-            //  0.6초 × 6.8m/s × (2−1) = 4.08m. 충돌 5.4m의 0.76배 — 패드 하나가 충돌을 다 메우지
+            //  0.6초 × 6.8m/s × (3−1)/2 = 4.08m(평균 배수 2). 충돌 5.4m의 0.76배 — 패드 하나가 충돌을 다 메우지
             //  못하는 것이 의도다. 메우면 위험한 쪽이 공짜가 된다.
             Assert.That(BoostPadRule.GainMeters(0.6f, Forward, DashMult),
                         Is.EqualTo(4.08f).Within(1e-3f));

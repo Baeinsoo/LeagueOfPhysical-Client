@@ -25,6 +25,9 @@ namespace LOP
         //  꼬리선. 빠른 화살(20m에 0.2초)은 몇 프레임만 그려져 눈에 안 걸린다 — 지나온 길을 선으로
         //  남겨 궤적이 보이게 한다(총알의 예광탄과 같은 역할).
         private const float TrailSeconds = 0.18f;
+
+        //  재접속처럼 아주 늦게 본 화살까지 처음부터 다시 날리진 않는다.
+        private const float MaxDisplayDelaySeconds = 0.5f;
         private const int TrailPoints = 12;
         private readonly Dictionary<(string shooterId, long fireTick), LineRenderer> trails =
             new Dictionary<(string, long), LineRenderer>();
@@ -148,19 +151,38 @@ namespace LOP
                 var key = (shots[i].ShooterId, shots[i].FireTick);
                 seenKeys.Add(key);
 
-                float seconds = (float)((renderTick - shots[i].FireTick) * interval);
-                if (seconds < 0f)
+                float trueSeconds = (float)((renderTick - shots[i].FireTick) * interval);
+                if (trueSeconds < 0f)
                 {
-                    seconds = 0f;   // 아직 떠나기 전 프레임 — 출발점에 둔다
+                    trueSeconds = 0f;   // 아직 떠나기 전 프레임 — 출발점에 둔다
                 }
                 float flight = FlightSecondsOf(shots[i]);
-                float firstSeen = FirstSeenSecondsOf(key, seconds);
+                float firstSeen = FirstSeenSecondsOf(key, trueSeconds);
+
+                //  늦게 본 화살은 늦게 본 만큼 늦게 그린다 — 처음 보는 순간 활에서 출발한다.
+                //  아래 그림은 전부 이 시각(seconds)으로 그린다.
+                float delay = ArcheryArrowDisplay.DisplayDelaySeconds(firstSeen, MaxDisplayDelaySeconds);
+                float seconds = Mathf.Max(0f, trueSeconds - delay);
 
                 //  꽂혔는지는 틱 시스템이 정한다 — 뷰는 그 결과를 읽어 과녁에 붙여 그릴 뿐이다.
                 bool hasImpact = stickSystem.TryGetImpact(shots[i].ShooterId, shots[i].FireTick, out var impact);
                 ArcheryTarget target = default;
                 bool hasTarget = hasImpact && stickSystem.TryGetTarget(impact.Wave, impact.Slot, out target);
                 bool consumedOnHit = hasTarget == false || ArcheryHitRules.ConsumedOnHit(target);
+                //  늦게 그리는 화살은 실제로 꽂힌 뒤에도 잠깐 더 날아간다 — 그림이 과녁에 닿아야 꽂는다.
+                bool arrived = hasImpact && seconds >= impact.Seconds;
+
+                //  늦게 그리는 사이 과녁은 더 움직였다 — 실제로 꽂힌 자리가 아니라 지금 과녁 자리에
+                //  닿도록, 그 차이를 비행 동안 조금씩 얹는다(늦추지 않으면 0이다). 꽂힌 뒤에도
+                //  꼬리가 과녁으로 빨려 들어가는 동안 같은 값을 써야 꼬리가 화살에서 안 떨어진다.
+                Vector3 targetShift = Vector3.zero;
+                if (hasTarget)
+                {
+                    double impactTick = shots[i].FireTick + impact.Seconds / interval;
+                    targetShift = ArcheryTargetMotion.PositionAt(target, renderTick, (float)interval)
+                                - ArcheryTargetMotion.PositionAt(target, impactTick, (float)interval);
+                }
+                float shiftUntil = hasTarget ? impact.Seconds : 0f;
                 if (ArcheryArrowDisplay.HideConfirmedHit(
                         consumed.IsArrowGone(shots[i].ShooterId, shots[i].FireTick), hasImpact, consumedOnHit))
                 {
@@ -173,7 +195,8 @@ namespace LOP
                 }
 
                 //  꼬리선: 꽂힌 뒤에도 꼬리가 과녁까지 빨려 들어갈 때까지 그린다.
-                UpdateTrail(key, shots[i], seconds, hasImpact ? impact.Seconds : seconds, firstSeen, flight);
+                UpdateTrail(key, shots[i], seconds, arrived ? impact.Seconds : seconds,
+                            Mathf.Max(0f, firstSeen - delay), flight, targetShift, shiftUntil);
 
                 if (stuck.ContainsKey(key))
                 {
@@ -196,7 +219,7 @@ namespace LOP
                     drawn[key] = arrow;
                 }
 
-                if (hasImpact)
+                if (arrived)
                 {
                     //  꽂힌 과녁이 사라지면(내가 아니라 남이 먹었어도) 화살도 같이 치운다 —
                     //  안 그러면 아무것도 없는 허공에 박힌 채로 남는다.
@@ -251,7 +274,7 @@ namespace LOP
                     continue;
                 }
 
-                arrow.transform.position = DisplayPositionAt(shots[i], seconds, flight);
+                arrow.transform.position = DisplayPositionAt(shots[i], seconds, flight, targetShift, shiftUntil);
                 if (velocity.sqrMagnitude > 1e-6f)
                 {
                     arrow.transform.rotation = Quaternion.LookRotation(velocity);
@@ -301,7 +324,8 @@ namespace LOP
 
         //  한 발 승부: 남의 화살은 화면 속 그 캐릭터의 활에서 떠나 실제 꽂힐 점으로 모인다.
         //  꽂히는 자리는 진짜고, 날아가는 모양만 연출이다(판정도, 땅 충돌 검사도 이 값을 안 본다).
-        private Vector3 DisplayPositionAt(in ArcheryShot shot, float seconds, float flight)
+        private Vector3 DisplayPositionAt(in ArcheryShot shot, float seconds, float flight,
+                                          Vector3 targetShift, float shiftUntil)
         {
             Vector3 position = ArcheryTrajectory.PositionAt(shot, seconds);
             Vector3 displayOffset = lineupView.DisplayOffsetOf(shot.ShooterId);
@@ -309,11 +333,15 @@ namespace LOP
             {
                 position += displayOffset * ArcheryShootOffLineup.ArrowBlend(seconds, flight);
             }
+            if (shiftUntil > 0f)
+            {
+                position += targetShift * Mathf.Clamp01(seconds / shiftUntil);
+            }
             return position;
         }
 
         //  남의 화살은 발사 소식이 늦게 와서 비행 중간에 처음 보인다. 그때 이미 흘러 있던 시간을
-        //  적어 두고, 꼬리선이 그 순간 활부터 지나온 길을 그리게 한다(순간이동처럼 안 보이게).
+        //  적어 두고, 꼬리선이 그 뒤로 본 길만 그리게 한다.
         private float FirstSeenSecondsOf((string, long) key, float seconds)
         {
             if (firstSeenSeconds.TryGetValue(key, out float first))
@@ -327,7 +355,7 @@ namespace LOP
         //  꼬리는 화살이 지나온 실제 궤적 위의 점들이다 — 머리(지금 또는 꽂힌 순간)부터
         //  꼬리 끝(TrailTailSeconds)까지. 꼬리 끝이 머리를 따라잡으면 선을 치운다.
         private void UpdateTrail((string, long) key, in ArcheryShot shot, float seconds, float headSeconds,
-                                 float firstSeen, float flight)
+                                 float firstSeen, float flight, Vector3 targetShift, float shiftUntil)
         {
             float tail = ArcheryArrowDisplay.TrailTailSeconds(seconds, firstSeen, TrailSeconds);
             if (tail >= headSeconds - 1e-4f)
@@ -353,7 +381,7 @@ namespace LOP
             for (int j = 0; j < TrailPoints; j++)
             {
                 float t = Mathf.Lerp(tail, headSeconds, j / (float)(TrailPoints - 1));
-                line.SetPosition(j, DisplayPositionAt(shot, t, flight));
+                line.SetPosition(j, DisplayPositionAt(shot, t, flight, targetShift, shiftUntil));
             }
         }
 

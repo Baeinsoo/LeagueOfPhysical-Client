@@ -21,6 +21,9 @@ namespace LOP.UI
         private int _drawnResultVersion = -1;
         private IVisualElementScheduledItem _tick;
         private VisualElement _flash;
+        private VisualElement _intro;
+        private Label _introTitle;
+        private Label _introDetail;
         private VisualElement _bullPopups;
 
         public ArcheryShootOffHudView(ArcheryShootOffHudViewModel viewModel)
@@ -46,6 +49,9 @@ namespace LOP.UI
             _face.style.flexGrow = 1f;
             Root.Q<VisualElement>("result-face").Add(_face);
             _flash = Root.Q<VisualElement>("flash");
+            _intro = Root.Q<VisualElement>("intro");
+            _introTitle = Root.Q<Label>("intro-title");
+            _introDetail = Root.Q<Label>("intro-detail");
             _bullPopups = Root.Q<VisualElement>("bull-popups");
 
             _tick = Root.schedule.Execute(_ => Refresh()).Every(0);
@@ -82,6 +88,15 @@ namespace LOP.UI
             }
 
             _flash.style.opacity = _viewModel.FlashAlpha;
+
+            float intro = _viewModel.IntroAlpha;
+            _intro.style.display = intro > 0f ? DisplayStyle.Flex : DisplayStyle.None;
+            _intro.style.opacity = intro;
+            if (intro > 0f)
+            {
+                _introTitle.text = _viewModel.IntroTitle;
+                _introDetail.text = _viewModel.IntroDetail;
+            }
             while (_viewModel.TryTakeBull(out var world, out var color))
             {
                 SpawnBullPopup(world, color);

@@ -21,6 +21,11 @@
                 <ui:VisualElement name="result-list" class="shootoff-result-list" picking-mode="Ignore" />
             </ui:VisualElement>
         </ui:VisualElement>
+        <!-- 라운드 소개 — 자리가 바뀌는 순간 화면 전체를 덮는다. 자막·결과판 위에 온다. -->
+        <ui:VisualElement name="intro" class="shootoff-intro" picking-mode="Ignore">
+            <ui:Label name="intro-title" class="shootoff-intro-title" picking-mode="Ignore" />
+            <ui:Label name="intro-detail" class="shootoff-intro-detail" picking-mode="Ignore" />
+        </ui:VisualElement>
         <ui:VisualElement name="bull-popups" class="shootoff-bull-popups" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

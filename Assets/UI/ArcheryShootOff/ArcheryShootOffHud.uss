@@ -135,3 +135,26 @@
     -unity-font-style: bold;
     color: rgb(255, 255, 255);
 }
+
+/* 라운드 소개 — 자리가 바뀌는 순간 화면을 덮는다(투명도는 View가 매 프레임 준다). */
+.shootoff-intro {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background-color: rgb(20, 24, 32);
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    display: none;
+}
+.shootoff-intro-title {
+    font-size: 64px;
+    -unity-font-style: bold;
+    color: rgb(255, 236, 150);
+    -unity-text-align: middle-center;
+}
+.shootoff-intro-detail {
+    font-size: 30px;
+    color: rgb(235, 235, 235);
+    -unity-text-align: middle-center;
+    margin-top: 12px;
+}

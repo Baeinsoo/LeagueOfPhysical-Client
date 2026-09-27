@@ -7,11 +7,17 @@ namespace LOP.MapTools
     public readonly struct ShaftPiece
     {
         public readonly float X0, ChimneyX0, X1, FloorY, Depth;
-        public ShaftPiece(float x0, float floorY, float depth)
+
+        /// <summary>이 샤프트의 굴뚝 폭 — 깊이가 깊을수록 오르는 데 시간이 걸려 넓어진다
+        /// (<see cref="FieldLayout.ChimneyWidthFor"/>).</summary>
+        public float ChimneyWidth { get; }
+
+        public ShaftPiece(float x0, float floorY, float depth, float chimneyWidth)
         {
             X0 = x0;
             ChimneyX0 = x0 + FieldLayout.ShaftWidth + FieldLayout.PocketFloor;
-            X1 = ChimneyX0 + FieldLayout.ChimneyWidth;
+            ChimneyWidth = chimneyWidth;
+            X1 = ChimneyX0 + chimneyWidth;
             FloorY = floorY;
             Depth = depth;
         }
@@ -28,7 +34,6 @@ namespace LOP.MapTools
     {
         public const float ShaftWidth = 8f;
         public const float PocketFloor = 12f;
-        public const float ChimneyWidth = 8f;
         /// <summary>주머니 안 높이 — 날갯짓 한 번(3.1m)과 몸(0.9m)의 두 배.</summary>
         public const float PocketHeight = 8f;
         public const float SideWall = 2f;
@@ -37,30 +42,49 @@ namespace LOP.MapTools
         public const float UpdraftWidth = 7f;
         public static readonly float[] ShaftDepths = { 15f, 20f, 25f };
 
+        /// <summary>굴뚝을 지나는 동안 주머니 바닥에서 회랑 바닥 위 3m까지 오를 시간을 담아야
+        /// 한다 — 그 시간은 종단속도(riseCap)까지 가속하는 구간 + riseCap로 나는 구간의 합이다.
+        /// 1m는 여유. 0.5m 단위로 올림한다(재는 사람이 눈으로 맞춰 보기 좋게).</summary>
+        public static float ChimneyWidthFor(float depth, float forwardSpeed, float upAccel, float riseCap)
+        {
+            float raw = forwardSpeed * ((depth + 3f) / riseCap + riseCap / upAccel) + 1f;
+            return (float)Math.Ceiling(raw / 0.5) * 0.5f;
+        }
+
         public static List<ShaftPiece> PlaceShafts(CourseProfile p, float startX, float length, int sections,
-                                                   float corridorHalf)
+                                                   float corridorHalf, float forwardSpeed, float upAccel,
+                                                   float riseCap)
         {
             var shafts = new List<ShaftPiece>();
-            float need = ShaftWidth + PocketFloor + ChimneyWidth + 2f * (SideWall + GateClear + CourseProfileRule.GateMargin);
             float sectionLength = length / sections;
             for (int s = 0; s < sections; s++)
             {
                 float lo = startX + sectionLength * s, hi = lo + sectionLength;
-                FlatSpan best = default;
-                float bestLength = 0f;
-                foreach (FlatSpan f in p.Flats)
+                float baseDepth = ShaftDepths[Math.Min(s, ShaftDepths.Length - 1)];
+                //  깊이 그대로 안 들어가면 5m씩 얕게 — 최소 10m까지. 그래도 안 들어가면 그
+                //  구간은 건너뛴다(억지로 짧은 평지에 우겨넣지 않는다).
+                for (float depth = baseDepth; depth >= 10f; depth -= 5f)
                 {
-                    float a = Math.Max(f.From, lo), b = Math.Min(f.To, hi);
-                    //  출발 평지(스폰)는 건너뛴다 — 스폰 앞에서 바로 바닥이 꺼지면 배울 틈이 없다.
-                    if (a <= startX + 1f || b - a < need || b - a <= bestLength) { continue; }
-                    best = new FlatSpan(a, b);
-                    bestLength = b - a;
+                    float chimneyWidth = ChimneyWidthFor(depth, forwardSpeed, upAccel, riseCap);
+                    float need = ShaftWidth + PocketFloor + chimneyWidth
+                               + 2f * (SideWall + GateClear + CourseProfileRule.GateMargin);
+                    FlatSpan best = default;
+                    float bestLength = 0f;
+                    foreach (FlatSpan f in p.Flats)
+                    {
+                        float a = Math.Max(f.From, lo), b = Math.Min(f.To, hi);
+                        //  출발 평지(스폰)는 건너뛴다 — 스폰 앞에서 바로 바닥이 꺼지면 배울 틈이 없다.
+                        if (a <= startX + 1f || b - a < need || b - a <= bestLength) { continue; }
+                        best = new FlatSpan(a, b);
+                        bestLength = b - a;
+                    }
+                    if (bestLength <= 0f) { continue; }
+                    float span = ShaftWidth + PocketFloor + chimneyWidth;
+                    float x0 = (best.From + best.To) * 0.5f - span * 0.5f;
+                    float floorY = p.CenterAt(x0) - corridorHalf;
+                    shafts.Add(new ShaftPiece(x0, floorY, depth, chimneyWidth));
+                    break;
                 }
-                if (bestLength <= 0f) { continue; }
-                float span = ShaftWidth + PocketFloor + ChimneyWidth;
-                float x0 = (best.From + best.To) * 0.5f - span * 0.5f;
-                float floorY = p.CenterAt(x0) - corridorHalf;
-                shafts.Add(new ShaftPiece(x0, floorY, ShaftDepths[Math.Min(s, ShaftDepths.Length - 1)]));
             }
             return shafts;
         }
@@ -101,14 +125,38 @@ namespace LOP.MapTools
             return rects;
         }
 
-        /// <summary>샤프트 굴뚝 뒤 첫 보통 관문(창이 하나인). 없으면 −1.</summary>
-        public static int HologramGate(IReadOnlyList<CoursePipe> pipes, ShaftPiece shaft)
+        /// <summary>
+        /// 샤프트마다 가장 가까운 보통 관문(창이 하나인) — 양쪽 어디든, 샤프트의 관문 금지대
+        /// [X0−GateClear, X1+GateClear] 밖에서 찾는다. 앞 샤프트가 이미 고른 관문은 다음
+        /// 샤프트가 다시 못 쓴다(같은 관문을 둘이 나눠 쓰면 어느 샤프트의 홀로그램인지 모호해진다).
+        /// 없으면 그 자리에 −1.
+        /// </summary>
+        public static List<int> HologramGates(IReadOnlyList<CoursePipe> pipes, IReadOnlyList<ShaftPiece> shafts)
         {
-            for (int i = 0; i < pipes.Count; i++)
+            var result = new List<int>(shafts.Count);
+            var taken = new HashSet<int>();
+            foreach (ShaftPiece shaft in shafts)
             {
-                if (pipes[i].X > shaft.X1 + GateClear && pipes[i].HasChallenge == false) { return i; }
+                int best = -1;
+                float bestDist = float.MaxValue;
+                for (int i = 0; i < pipes.Count; i++)
+                {
+                    if (pipes[i].HasChallenge || taken.Contains(i)) { continue; }
+                    float x = pipes[i].X;
+                    bool outsideLeft = x < shaft.X0 - GateClear;
+                    bool outsideRight = x > shaft.X1 + GateClear;
+                    if (outsideLeft == false && outsideRight == false) { continue; }
+                    float dist = outsideLeft ? shaft.X0 - x : x - shaft.X1;
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        best = i;
+                    }
+                }
+                result.Add(best);
+                if (best >= 0) { taken.Add(best); }
             }
-            return -1;
+            return result;
         }
     }
 }

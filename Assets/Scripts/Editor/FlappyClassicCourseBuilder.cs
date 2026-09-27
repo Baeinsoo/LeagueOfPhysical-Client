@@ -121,7 +121,9 @@ namespace LOP.EditorTools
             //  샤프트 자리를 관문 배치보다 먼저 정한다 — gateAllowed가 그 자리를 피하게 하려면
             //  파이프를 놓기 전에 구멍이 어디인지 알아야 한다.
             var shafts = LOP.MapTools.FieldLayout.PlaceShafts(profile, StartX, length,
-                                                             FlappyRace.CourseSectionRule.Count, ceilingY);
+                                                             FlappyRace.CourseSectionRule.Count, ceilingY,
+                                                             config.ForwardSpeed, config.AirflowUpAccel,
+                                                             config.AirflowRiseCap);
             if (shafts.Count != FlappyRace.CourseSectionRule.Count)
             {
                 Debug.LogWarning($"[전통 코스] 샤프트가 {shafts.Count}개 놓였다"
@@ -196,12 +198,12 @@ namespace LOP.EditorTools
             //  지름길 구간의 천장은 경사 조각이 아니라 두 덩어리다: 지붕, 지름길과 계곡 사이의 혀.
             int shortcutPads = Shortcuts(composed.transform, profile, config, length, fallback);
 
-            //  샤프트마다 굴뚝 뒤 첫 보통 관문을 홀로그램 관문으로 삼는다 — 인덱스를 먼저
-            //  모아 둔다(아래 파이프 루프가 번호로 이 자리를 알아봐야 한다).
+            //  샤프트마다 가장 가까운 보통 관문을 홀로그램 관문으로 삼는다(양쪽 어디든, 샤프트
+            //  마다 서로 다른 관문 — FieldLayout.HologramGates가 중복을 스스로 막는다).
+            //  아래 파이프 루프가 번호로 이 자리를 알아봐야 하므로 인덱스만 먼저 모아 둔다.
             var hologramGates = new HashSet<int>();
-            foreach (LOP.MapTools.ShaftPiece s in shafts)
+            foreach (int gate in LOP.MapTools.FieldLayout.HologramGates(pipes, shafts))
             {
-                int gate = LOP.MapTools.FieldLayout.HologramGate(pipes, s);
                 if (gate >= 0)
                 {
                     hologramGates.Add(gate);

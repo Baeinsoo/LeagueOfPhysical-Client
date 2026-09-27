@@ -10,16 +10,16 @@ namespace LOP.Tests
         [Test]
         public void 역할_1등은_뜀_꼴찌와_빗나감은_주저앉음()
         {
-            Assert.AreEqual(ArcheryReactionRole.Winner, ArcheryReaction.RoleOf(0, 4, true));
-            Assert.AreEqual(ArcheryReactionRole.None, ArcheryReaction.RoleOf(1, 4, true));
-            Assert.AreEqual(ArcheryReactionRole.Slump, ArcheryReaction.RoleOf(3, 4, true));
-            Assert.AreEqual(ArcheryReactionRole.Slump, ArcheryReaction.RoleOf(1, 4, false));
+            Assert.AreEqual(ArcheryReactionRole.Winner, ArcheryReaction.RoleOf(0, 3, true));
+            Assert.AreEqual(ArcheryReactionRole.None, ArcheryReaction.RoleOf(1, 3, true));
+            Assert.AreEqual(ArcheryReactionRole.Slump, ArcheryReaction.RoleOf(3, 3, true));
+            Assert.AreEqual(ArcheryReactionRole.Slump, ArcheryReaction.RoleOf(1, 3, false));
         }
 
         [Test]
         public void 혼자면_뜀만()
         {
-            Assert.AreEqual(ArcheryReactionRole.Winner, ArcheryReaction.RoleOf(0, 1, true));
+            Assert.AreEqual(ArcheryReactionRole.Winner, ArcheryReaction.RoleOf(0, 0, true));
         }
 
         [Test]

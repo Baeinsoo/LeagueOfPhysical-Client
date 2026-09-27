@@ -81,11 +81,12 @@ namespace LOP
             var role = ArcheryReactionRole.None;
             if (IsShowing(renderTick))
             {
+                int lastRank = byRank.Count > 0 ? byRank[byRank.Count - 1].Rank : 0;
                 for (int i = 0; i < byRank.Count; i++)
                 {
                     if (byRank[i].ShooterId == entityId)
                     {
-                        role = ArcheryReaction.RoleOf(byRank[i].Rank, byRank.Count, byRank[i].Hit);
+                        role = ArcheryReaction.RoleOf(byRank[i].Rank, lastRank, byRank[i].Hit);
                         break;
                     }
                 }

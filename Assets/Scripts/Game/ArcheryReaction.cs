@@ -28,11 +28,12 @@ namespace LOP
         private const float SlumpDepth = 0.15f;
         private const float SlumpTilt = 12f;
 
-        public static ArcheryReactionRole RoleOf(int rank, int count, bool hit)
+        //  lastRank = 이번 라운드 순위 중 가장 큰 값 — 공동 꼴찌도 다 같이 주저앉는다.
+        public static ArcheryReactionRole RoleOf(int rank, int lastRank, bool hit)
         {
             if (hit == false) return ArcheryReactionRole.Slump;
             if (rank == 0) return ArcheryReactionRole.Winner;   // 혼자여도 뛴다
-            if (rank >= count - 1) return ArcheryReactionRole.Slump;
+            if (rank >= lastRank) return ArcheryReactionRole.Slump;
             return ArcheryReactionRole.None;
         }
 

@@ -86,7 +86,7 @@
 /* 라운드 결과 — 위쪽 가운데 반투명 판. 아래쪽 캐릭터 리액션이 보이게 화면 전체를 덮지 않는다. */
 .shootoff-result {
     position: absolute;
-    top: 200px;
+    top: 216px;
     align-self: center;
     width: 720px;
     padding: 14px 20px;

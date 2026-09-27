@@ -73,6 +73,16 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 공동_꼴찌는_둘_다_주저앉는다()
+        {
+            var t = Tracker();
+            t.OnRoundResult(Result(P("a", true, 0.1f, 0), P("b", true, 0.2f, 1),
+                                    P("c", true, 0.3f, 2), P("d", true, 0.3f, 2)), 5f, 1000L);
+            Assert.AreEqual(12f, t.PoseOf("c", 5.1f, 900d).TiltDegrees, 1e-5f);
+            Assert.AreEqual(12f, t.PoseOf("d", 5.1f, 900d).TiltDegrees, 1e-5f);
+        }
+
+        [Test]
         public void 결과에_없는_사람은_리액션이_없다()
         {
             var t = Tracker();

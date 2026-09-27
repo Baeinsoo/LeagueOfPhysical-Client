@@ -5,7 +5,9 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// 한 발 승부에서 남의 몸을 좌우로 옮겨 그린다. 루트(판정과 같은 자리)는 건드리지 않고
+    /// 한 발 승부에서 남의 몸을 좌우로 옮겨 그리고 리액션(튕김·기움)을 얹는다. 나는 빼는데,
+    /// 카메라가 내 보이는 몸을 따라가서(1인칭, 눈 앞 0.4m) 내 몸을 흔들면 시야가 흔들리기 때문이다.
+    /// 루트(판정과 같은 자리)와 화살 시작점(<see cref="DisplayOffsetOf"/>)은 건드리지 않고
     /// 보이는 몸통(visual)만 옮긴다.
     /// <para>보간기(<see cref="PredictedEntityInterpolator"/>)가 매 프레임 <c>LateUpdate</c>에서 몸통의
     /// <b>월드</b> 위치를 덮어쓰고, 이름표(<see cref="CharacterNameplate"/>)는 그 자리를 읽는다. 그래서 그
@@ -69,6 +71,7 @@ namespace LOP
             }
         }
 
+        /// <summary>보간기 뒤·이름표 앞에서 매 프레임 한 번</summary>
         public void Apply()
         {
             offsets.Clear();
@@ -101,11 +104,13 @@ namespace LOP
 
             if (me != null)
             {
-                Place(me, Vector3.zero, now, renderTick);
+                //  카메라가 내 몸을 따라가서 내 리액션은 시야 출렁임이 된다 — 나는 자세를 안 얹는다
+                Place(me, Vector3.zero, ArcheryReactionPose.Zero);
             }
             for (int i = 0; i < others.Count; i++)
             {
-                Place(others[i], offsets[others[i]], now, renderTick);
+                string id = others[i];
+                Place(id, offsets[id], resultTracker.PoseOf(id, now, renderTick));
             }
 
             //  나간 사람의 기록은 들고 있을 이유가 없다.
@@ -124,7 +129,7 @@ namespace LOP
         }
 
         //  좌우 간격 + 리액션(위아래 튕김, 옆으로 기움)을 보이는 몸통에 얹는다.
-        private void Place(string id, Vector3 lineOffset, float now, double renderTick)
+        private void Place(string id, Vector3 lineOffset, ArcheryReactionPose pose)
         {
             if (actorRegistry.TryGet(id, out var actor) == false || actor == null || actor.visualGameObject == null)
             {
@@ -132,7 +137,6 @@ namespace LOP
                 return;
             }
 
-            var pose = resultTracker.PoseOf(id, now, renderTick);
             Vector3 offset = lineOffset + Vector3.up * pose.Lift;
             Quaternion tilt = Quaternion.AngleAxis(pose.TiltDegrees, Vector3.forward);
 
@@ -162,7 +166,7 @@ namespace LOP
         {
             if (runner?.tickUpdater == null || runner.tickUpdater.interval <= 0d)
             {
-                return double.NegativeInfinity;
+                return double.PositiveInfinity;   // IsShowing이 false가 되게 — HUD 뷰모델과 맞춘다
             }
             double interval = runner.tickUpdater.interval;
             return (runner.tickUpdater.elapsedTime - interval) / interval;

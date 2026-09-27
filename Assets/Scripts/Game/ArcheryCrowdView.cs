@@ -30,13 +30,12 @@ namespace LOP
         private GameObject root;
         private ArcheryCrowdLayout layout;
         private ArcheryCrowdDirector director;
-        private Material material;
         private Mesh clothMesh;
         private Mesh arrowMesh;
         private readonly List<Fan> fans = new List<Fan>();
         private readonly List<Vector3> heads = new List<Vector3>();
         private readonly List<Collider> colliders = new List<Collider>();
-        private readonly MaterialPropertyBlock block = new MaterialPropertyBlock();
+        private readonly Dictionary<Color, Material> materials = new Dictionary<Color, Material>();
 
         private bool hasIndex;
         private int lastIndex;
@@ -93,7 +92,11 @@ namespace LOP
                 Object.Destroy(root);
                 root = null;
             }
-            if (material != null) { Object.Destroy(material); material = null; }
+            foreach (var mat in materials.Values)
+            {
+                Object.Destroy(mat);
+            }
+            materials.Clear();
             if (clothMesh != null) { Object.Destroy(clothMesh); clothMesh = null; }
             if (arrowMesh != null) { Object.Destroy(arrowMesh); arrowMesh = null; }
             fans.Clear();
@@ -154,7 +157,7 @@ namespace LOP
             if (pose.Gray != fan.Gray)
             {
                 fan.Gray = pose.Gray;
-                Paint(fan.Body, pose.Gray ? ArcheryCrowdLayout.BooGray : fan.Shirt);
+                fan.Body.sharedMaterial = MaterialFor(pose.Gray ? ArcheryCrowdLayout.BooGray : fan.Shirt);
             }
             if (fan.Cloth != null)
             {
@@ -166,9 +169,15 @@ namespace LOP
         //  관중 로컬 좌표: +X = 사수 기준 왼쪽, +Z = 사수 쪽. 천은 +X로 뻗고 아랫변이 −Y다.
         //  오른쪽 바람이면 Y로 180° 돌려 좌우를 바꾸고, 약할수록 Z축으로 더 내려 늘어뜨린다(처짐 = 90°).
         //  천 평면은 늘 사수를 향하고, 내리는 각이 0~90°라 아랫변이 위로 뒤집히지 않는다.
+        //  무풍(Side == 0)은 좌우 어느 쪽으로도 안 읽혀야 해서, 늘어진 채로 Y축 90°를 더 돌려 사수 쪽에서
+        //  옆면(모서리)만 보이게 한다 — 왼쪽·오른쪽 어느 쪽으로도 안 치우친다.
         private static Quaternion ClothRotation(ArcheryFlagPoseValue flag)
         {
-            float droop = flag.Side == 0 ? 90f : (1f - Mathf.Max(0.35f, flag.Extend)) * 90f;
+            if (flag.Side == 0)
+            {
+                return Quaternion.AngleAxis(90f, Vector3.up) * Quaternion.AngleAxis(-90f, Vector3.forward);
+            }
+            float droop = (1f - Mathf.Max(0.35f, flag.Extend)) * 90f;
             Quaternion mirror = flag.Side > 0 ? Quaternion.AngleAxis(180f, Vector3.up) : Quaternion.identity;
             return mirror * Quaternion.AngleAxis(-droop, Vector3.forward) * Quaternion.AngleAxis(flag.FlapDegrees, Vector3.right);
         }
@@ -189,7 +198,6 @@ namespace LOP
             }
             layout = ArcheryCrowdLayout.Build(lane.Value.ShooterPosition, lane.Value.Forward);
             director = new ArcheryCrowdDirector(layout.Seats.Count, () => Random.value);
-            material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             clothMesh = BuildCloth();
             root = new GameObject("ArcheryCrowd");
 
@@ -253,9 +261,8 @@ namespace LOP
                 cloth.localPosition = new Vector3(0.4f, 2.3f, 0f);
                 cloth.gameObject.AddComponent<MeshFilter>().sharedMesh = clothMesh;
                 var renderer = cloth.gameObject.AddComponent<MeshRenderer>();
-                renderer.sharedMaterial = material;
+                renderer.sharedMaterial = MaterialFor(shirt);
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                Paint(renderer, shirt);
                 fan.Cloth = cloth;
             }
 
@@ -292,17 +299,22 @@ namespace LOP
             go.transform.SetParent(parent, false);
             go.transform.localScale = scale;
             var renderer = go.GetComponent<Renderer>();
-            renderer.sharedMaterial = material;
+            renderer.sharedMaterial = MaterialFor(color);
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            Paint(renderer, color);
             return go.transform;
         }
 
-        private void Paint(Renderer renderer, Color color)
+        //  색깔당 재질 하나를 재사용한다 — SRP 배처가 묶어 그리도록 MaterialPropertyBlock 대신 sharedMaterial을 쓴다.
+        private Material MaterialFor(Color color)
         {
-            block.Clear();
-            block.SetColor("_BaseColor", color);
-            renderer.SetPropertyBlock(block);
+            if (materials.TryGetValue(color, out var mat) == false)
+            {
+                mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                mat.color = color;
+                mat.SetColor("_BaseColor", color);
+                materials[color] = mat;
+            }
+            return mat;
         }
 
         //  삼각 천 — 막대 꼭대기에서 +X로 뻗는다. 양면이 보이게 앞뒤 삼각형을 다 넣는다.
@@ -353,14 +365,14 @@ namespace LOP
 
         private void OnWorldEventBatch(WorldEventBatchToC msg)
         {
-            if (director == null)
-            {
-                return;
-            }
             foreach (var rec in msg.Events)
             {
                 if (rec.EventCase == WorldEventToC.EventOneofCase.ArcheryHit)
                 {
+                    if (director == null)
+                    {
+                        continue;
+                    }
                     var hit = (ArcheryTargetHitEvent)WorldEventWire.FromWire(rec);
                     director.OnBandHit(hit.points, Time.time);
                 }
@@ -368,8 +380,12 @@ namespace LOP
                 {
                     var result = (ArcheryRoundResultEvent)WorldEventWire.FromWire(rec);
                     //  해설과 같은 분류 — 해설은 "접전"인데 관중은 "대역전"으로 반응하는 어긋남이 없게.
+                    //  narrator는 라운드를 건너 연속 기록을 세므로, 관중석이 아직 없어도 항상 불러야 한다.
                     var line = narrator.LineFor(result, playerContext.entityId, out _, out _);
-                    director.OnResult(line, result.multiplier >= 2, Time.time);
+                    if (director != null)
+                    {
+                        director.OnResult(line, result.multiplier >= 2, Time.time);
+                    }
                 }
             }
         }
@@ -415,15 +431,9 @@ namespace LOP
             go.transform.localRotation = Quaternion.LookRotation(new Vector3(0.3f, -0.4f, -1f));
             go.AddComponent<MeshFilter>().sharedMesh = arrowMesh;
             var renderer = go.AddComponent<MeshRenderer>();
-            renderer.sharedMaterials = new[] { material, material, material };
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             var colors = new[] { new Color(0.92f, 0.78f, 0.52f), new Color(0.3f, 0.3f, 0.34f), new Color(1f, 0.25f, 0.3f) };
-            for (int part = 0; part < colors.Length; part++)
-            {
-                block.Clear();
-                block.SetColor("_BaseColor", colors[part]);
-                renderer.SetPropertyBlock(block, part);
-            }
+            renderer.sharedMaterials = new[] { MaterialFor(colors[0]), MaterialFor(colors[1]), MaterialFor(colors[2]) };
         }
     }
 }

@@ -22,7 +22,6 @@ namespace LOP
         private ArcheryChickenDriver driver;
         private Material material;
         private GameObject chicken;
-        private Transform body;
         private Transform leftLeg;
         private Transform rightLeg;
         private Transform leftWing;
@@ -160,7 +159,7 @@ namespace LOP
             material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             chicken = new GameObject("ArcheryChicken");
             var white = new Color(0.97f, 0.96f, 0.93f);
-            body = Part(chicken.transform, PrimitiveType.Sphere, new Vector3(0f, 0.3f, 0f), new Vector3(0.35f, 0.3f, 0.45f), white);
+            Part(chicken.transform, PrimitiveType.Sphere, new Vector3(0f, 0.3f, 0f), new Vector3(0.35f, 0.3f, 0.45f), white);
             Part(chicken.transform, PrimitiveType.Sphere, new Vector3(0f, 0.5f, 0.18f), Vector3.one * 0.18f, white);
             Part(chicken.transform, PrimitiveType.Cube, new Vector3(0f, 0.61f, 0.18f), new Vector3(0.04f, 0.08f, 0.1f), new Color(0.9f, 0.15f, 0.15f));
             Part(chicken.transform, PrimitiveType.Cube, new Vector3(0f, 0.5f, 0.3f), new Vector3(0.05f, 0.04f, 0.08f), new Color(1f, 0.75f, 0.1f));

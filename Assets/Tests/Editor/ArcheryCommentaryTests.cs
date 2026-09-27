@@ -39,5 +39,36 @@ namespace LOP.Tests
             c.TrySay(ArcheryLine.Streak, "a", 3, now: 0f);
             Assert.IsTrue(c.TrySay(ArcheryLine.Comeback, "b", 0, now: 0.5f));
         }
+
+        [Test]
+        public void 관중석_닭_로빈_후드_문장()
+        {
+            var c = First();
+            c.TrySay(ArcheryLine.CrowdHit, "2P 선수", 0, now: 0f);
+            Assert.AreEqual("아아— 화살이 관중석으로!", c.Text);
+            c.TrySay(ArcheryLine.Chicken, "2P 선수", 0, now: 10f);
+            Assert.AreEqual("닭이 제일 놀랐습니다", c.Text);
+            c.TrySay(ArcheryLine.RobinHood, "2P 선수", 0, now: 20f);
+            Assert.AreEqual("로빈 후드!!! 화살이 화살을 쪼갭니다!", c.Text);
+        }
+
+        [Test]
+        public void 로빈_후드는_10점_해설을_덮고_관중석은_10점과_같은_급()
+        {
+            Assert.AreEqual(7, ArcheryCommentary.PriorityOf(ArcheryLine.RobinHood));
+            Assert.AreEqual(3, ArcheryCommentary.PriorityOf(ArcheryLine.CrowdHit));
+            Assert.AreEqual(3, ArcheryCommentary.PriorityOf(ArcheryLine.Chicken));
+            var c = First();
+            c.TrySay(ArcheryLine.Bull, "a", 0, now: 0f);
+            Assert.IsTrue(c.TrySay(ArcheryLine.RobinHood, "b", 0, now: 0.1f));
+        }
+
+        [Test]
+        public void 새_문장도_이름을_채운다()
+        {
+            var c = new ArcheryCommentary(n => n - 1);   // 마지막 문장
+            c.TrySay(ArcheryLine.RobinHood, "3P 선수", 0, now: 0f);
+            Assert.AreEqual("3P 선수! 이건 전설입니다!", c.Text);
+        }
     }
 }

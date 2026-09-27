@@ -76,6 +76,8 @@ namespace LOP
             builder.RegisterEntryPoint<ArcheryShootOffReactionView>().AsSelf();
             //  한 발 승부 카메라 — 평소 3인칭, 당기는 동안만 1인칭.
             builder.RegisterEntryPoint<ArcheryShootOffCameraRig>().AsSelf();
+            //  한 발 승부 관중석·깃발(다른 모드에선 아무것도 안 만든다).
+            builder.RegisterEntryPoint<ArcheryCrowdView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryArrowView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryTargetView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryRemoteShotHandler>();

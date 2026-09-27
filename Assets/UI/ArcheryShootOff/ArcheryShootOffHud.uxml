@@ -2,6 +2,7 @@
     <Style src="ArcheryShootOffHud.uss" />
     <!-- 보여 주기만 한다 — 아래 조작 패드의 입력을 막지 않게 전부 picking-mode="Ignore". -->
     <ui:VisualElement name="shootoff-root" class="shootoff-root" picking-mode="Ignore">
+        <ui:VisualElement name="flash" class="shootoff-flash" picking-mode="Ignore" />
         <ui:VisualElement class="shootoff-top" picking-mode="Ignore">
             <ui:Label name="round" class="shootoff-round" picking-mode="Ignore" />
             <ui:VisualElement class="shootoff-time" picking-mode="Ignore">
@@ -20,5 +21,6 @@
                 <ui:VisualElement name="result-list" class="shootoff-result-list" picking-mode="Ignore" />
             </ui:VisualElement>
         </ui:VisualElement>
+        <ui:VisualElement name="bull-popups" class="shootoff-bull-popups" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

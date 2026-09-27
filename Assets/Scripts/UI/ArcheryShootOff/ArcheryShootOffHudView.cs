@@ -20,6 +20,8 @@ namespace LOP.UI
         private int _pinCount;
         private int _drawnResultVersion = -1;
         private IVisualElementScheduledItem _tick;
+        private VisualElement _flash;
+        private VisualElement _bullPopups;
 
         public ArcheryShootOffHudView(ArcheryShootOffHudViewModel viewModel)
         {
@@ -43,6 +45,8 @@ namespace LOP.UI
             _face = new ArcheryShootOffResultPanel();
             _face.style.flexGrow = 1f;
             Root.Q<VisualElement>("result-face").Add(_face);
+            _flash = Root.Q<VisualElement>("flash");
+            _bullPopups = Root.Q<VisualElement>("bull-popups");
 
             _tick = Root.schedule.Execute(_ => Refresh()).Every(0);
         }
@@ -76,6 +80,49 @@ namespace LOP.UI
             {
                 _face.SetShown(ArcheryShootOffResultLayout.PinsShown(_viewModel.ResultSeconds, _pinCount));
             }
+
+            _flash.style.opacity = _viewModel.FlashAlpha;
+            while (_viewModel.TryTakeBull(out var world, out var color))
+            {
+                SpawnBullPopup(world, color);
+            }
+        }
+
+        //  남의 10점 — 맞은 자리에서 "10!!"이 선수 색으로 떠오르며 사라진다.
+        private void SpawnBullPopup(Vector3 world, Color color)
+        {
+            var camera = _viewModel.Camera;
+            if (camera == null || Screen.width <= 0 || Screen.height <= 0)
+            {
+                return;
+            }
+            Vector3 screen = camera.WorldToScreenPoint(world);
+            if (screen.z <= 0f)
+            {
+                return;   // 카메라 뒤
+            }
+            var at = new Vector2(screen.x / Screen.width * Root.layout.width,
+                                 (1f - screen.y / Screen.height) * Root.layout.height);
+
+            var label = new Label("10!!");
+            label.AddToClassList("shootoff-bull-popup");
+            label.pickingMode = PickingMode.Ignore;
+            label.style.color = color;
+            label.style.left = at.x;
+            label.style.top = at.y;
+            _bullPopups.Add(label);
+
+            int durationMs = Mathf.RoundToInt(ArcheryBullseyeFx.PopupSeconds * 1000f);
+            label.style.transitionProperty = new StyleList<StylePropertyName>(
+                new List<StylePropertyName> { "top", "opacity" });
+            label.style.transitionDuration = new StyleList<TimeValue>(
+                new List<TimeValue> { new TimeValue(durationMs, TimeUnit.Millisecond), new TimeValue(durationMs, TimeUnit.Millisecond) });
+            label.schedule.Execute(() =>
+            {
+                label.style.top = at.y - 70f;
+                label.style.opacity = 0f;
+            }).ExecuteLater(16);
+            label.schedule.Execute(() => label.RemoveFromHierarchy()).ExecuteLater(durationMs + 120);
         }
 
         private void DrawResult()

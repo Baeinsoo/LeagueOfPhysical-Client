@@ -3,6 +3,27 @@
     left: 0; right: 0; top: 0; bottom: 0;
 }
 
+.shootoff-flash {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background-color: rgb(255, 255, 255);
+    opacity: 0;
+}
+.shootoff-bull-popups {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+.shootoff-bull-popup {
+    position: absolute;
+    font-size: 40px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 2px;
+    -unity-text-outline-color: rgb(255, 255, 255);
+    width: 160px;
+    margin-left: -80px;
+}
+
 /* 라운드 · 남은 시간 · 바람. 조작 패드의 점수(위 24px)·남은 화살(72px) 아래에 놓는다. */
 .shootoff-top {
     position: absolute;

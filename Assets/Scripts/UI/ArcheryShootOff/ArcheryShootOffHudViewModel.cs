@@ -26,6 +26,8 @@ namespace LOP.UI
         private readonly IDisposable subscription;
 
         private readonly ArcheryShootOffResultTracker resultTracker;
+        private readonly CameraController cameraController;
+        private readonly ArcheryArrowStickSystem stickSystem;
         private readonly ArcheryCommentary commentary = new ArcheryCommentary(n => UnityEngine.Random.Range(0, n));
         private readonly ArcheryShootOffNarrator narrator = new ArcheryShootOffNarrator();
         private readonly List<string> roster = new List<string>();
@@ -33,6 +35,12 @@ namespace LOP.UI
         private bool hasIndex;
         private int lastIndex;
         private float now;
+
+        private float myBullAt = float.NegativeInfinity;
+        private readonly Queue<(string shooterId, long fireTick)> pendingBulls = new Queue<(string, long)>();
+
+        public Camera Camera => cameraController != null ? cameraController.MainCamera : null;
+        public float FlashAlpha { get; private set; }
 
         public string RoundLabel { get; private set; } = string.Empty;
 
@@ -51,7 +59,9 @@ namespace LOP.UI
                                            GameFramework.World.EntityRegistry entityRegistry,
                                            ISubscriber<WorldEventBatchToC> batchSubscriber,
                                            ArcheryConfig config,
-                                           ArcheryShootOffResultTracker resultTracker)
+                                           ArcheryShootOffResultTracker resultTracker,
+                                           CameraController cameraController,
+                                           ArcheryArrowStickSystem stickSystem)
         {
             this.runner = runner;
             this.config = config;
@@ -60,12 +70,37 @@ namespace LOP.UI
             this.gameDataStore = gameDataStore;
             this.entityRegistry = entityRegistry;
             this.resultTracker = resultTracker;
+            this.cameraController = cameraController;
+            this.stickSystem = stickSystem;
             subscription = batchSubscriber.Subscribe(OnWorldEventBatch);
+        }
+
+        /// <summary>새로 들어온 남의 10점 하나를 꺼낸다(내 것은 패드가 띄운다). 꽂힌 자리를 아직 모르면 건너뛴다.</summary>
+        public bool TryTakeBull(out Vector3 worldPosition, out Color color)
+        {
+            while (pendingBulls.Count > 0)
+            {
+                var (shooterId, fireTick) = pendingBulls.Dequeue();
+                if (stickSystem.TryGetImpactWorldPosition(shooterId, fireTick, out worldPosition))
+                {
+                    color = ColorOf(shooterId);
+                    return true;
+                }
+            }
+            worldPosition = default;
+            color = default;
+            return false;
         }
 
         public void Tick(float now)
         {
             this.now = now;
+            float sinceBull = now - myBullAt;
+            FlashAlpha = ArcheryBullseyeFx.FlashAlpha(sinceBull);
+            if (cameraController != null)
+            {
+                cameraController.ShakeOffset = ArcheryBullseyeFx.ShakeOffset(sinceBull);
+            }
             if (runner?.tickUpdater == null || runner.tickUpdater.interval <= 0d)
             {
                 ResultVisible = false;
@@ -211,6 +246,14 @@ namespace LOP.UI
                     if (hit.points == 10)
                     {
                         commentary.TrySay(ArcheryLine.Bull, NameOf(hit.shooterId), 0, now);
+                        if (hit.shooterId == gameDataStore.userEntityId)
+                        {
+                            myBullAt = now;   // 내 10점 — 흔들림·번쩍임
+                        }
+                        else
+                        {
+                            pendingBulls.Enqueue((hit.shooterId, hit.fireTick));   // 남의 10점 — "10!!"만(조준을 흔들지 않는다)
+                        }
                     }
                 }
             }
@@ -272,6 +315,10 @@ namespace LOP.UI
         public void Dispose()
         {
             subscription?.Dispose();
+            if (cameraController != null)
+            {
+                cameraController.ShakeOffset = Vector3.zero;
+            }
         }
     }
 }

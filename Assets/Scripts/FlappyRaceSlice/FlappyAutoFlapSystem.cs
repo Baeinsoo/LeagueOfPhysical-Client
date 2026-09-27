@@ -70,8 +70,9 @@ namespace LOP
             this.entityRegistry = entityRegistry;
             this.playerInputManager = playerInputManager;
             this.config = config;
-            //  맵만 본다 — 새는 Character 레이어라 서로를 장애물로 오인하지 않는다.
-            this.mapLayerMask = LayerMask.GetMask("Default");
+            //  맵만 본다 — 새는 Character 레이어라 서로를 장애물로 오인하지 않는다. 홀로그램도 맵이다
+            //  (대시가 아니면 벽이다) — 검사기의 맵 마스크와 같게 둔다.
+            this.mapLayerMask = LayerMask.GetMask("Default", FlappyHologram.LayerName);
         }
 
         //  틱 등록은 Start에서 한다 — 이 클래스는 아무도 의존하지 않아서 엔트리포인트로 등록해야

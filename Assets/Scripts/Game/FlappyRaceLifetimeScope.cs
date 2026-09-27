@@ -35,6 +35,8 @@ namespace LOP
             // 부스트 패드도 같은 이유로 등록이 필요하다. 이건 특히 양쪽 다 해야 한다 — 한쪽만
             // 등록하면 그쪽만 패드를 밟아 전진 속도가 갈린다.
             builder.Register<FlappyBoostPadField>(Lifetime.Singleton);
+            // 기류 마커도 맵 로드 때 여기 들어온다. 양쪽 다 등록해야 한다 — 한쪽만 기류를 알면 세로 속도가 갈린다.
+            builder.Register<FlappyAirflowField>(Lifetime.Singleton);
             // sweep이 볼 것은 맵 지오메트리뿐이다 — 새끼리는 아예 부딪히지 않는다(서로 통과한다).
             // 새의 물리 몸은 PhysicsBodyFactory가 만들면서 무조건 Character 레이어에 둔다. 그래서 이
             // 마스크에 Character가 없는 한 새끼리는 sweep에 걸리지 않는다.
@@ -51,7 +53,7 @@ namespace LOP
                 c.Resolve<FlappyBoostPadField>(),
                 c.Resolve<GameFramework.Physics.ICollisionQuery>(),
                 c.Resolve<GameFramework.World.IMotionBridge>(),
-                LayerMask.GetMask("Default")), Lifetime.Singleton)
+                LayerMask.GetMask("Default", FlappyHologram.LayerName)), Lifetime.Singleton)
                 .As<GameFramework.World.IWorld>().AsSelf();
             builder.Register<ICharacterCreator, FlappyBirdCreator>(Lifetime.Singleton);
             //  스턴은 서버 권위다. 내 새는 클라가 굴리므로 "내가 맵에 부딪혔나"를 예측하게 되는데,
@@ -98,6 +100,9 @@ namespace LOP
 
             //  안개·하늘은 씬이 아니라 여기가 소유한다 — 맵이 additive라 씬의 RenderSettings는 무시된다.
             builder.RegisterEntryPoint<FlappyAtmosphere>();
+
+            //  홀로그램 관문 흔들림·조각 연출 — 판정과 무관한 클라 전용 화면 효과라 여기서만 등록한다.
+            builder.RegisterEntryPoint<FlappyHologramFx>();
 
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             builder.Register<FlapPadViewModel>(Lifetime.Transient);

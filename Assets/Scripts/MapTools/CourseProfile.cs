@@ -137,6 +137,16 @@ namespace LOP.MapTools
         }
     }
 
+    /// <summary>U자 계곡 한 조각의 모양. 기류 자리를 정할 때 오르막 시작(<see cref="Bottom1"/>)을 본다.</summary>
+    public readonly struct ValleyPiece
+    {
+        public readonly float X0, Bottom0, Bottom1, X1, BaseY, Depth;
+        public ValleyPiece(float x0, float bottom0, float bottom1, float x1, float baseY, float depth)
+        {
+            X0 = x0; Bottom0 = bottom0; Bottom1 = bottom1; X1 = x1; BaseY = baseY; Depth = depth;
+        }
+    }
+
     /// <summary>경사 조각 하나 — 두 x 사이를 곧은 선으로 잇는다. Lift는 회랑 중심 높이.</summary>
     public readonly struct RampPiece
     {
@@ -158,13 +168,16 @@ namespace LOP.MapTools
         private readonly float[] ys;
         private readonly List<FlatSpan> flats;
         private readonly List<ShortcutRect> shortcuts;
+        private readonly List<ValleyPiece> valleys;
 
-        internal CourseProfile(float[] xs, float[] ys, List<FlatSpan> flats, List<ShortcutRect> shortcuts)
+        internal CourseProfile(float[] xs, float[] ys, List<FlatSpan> flats, List<ShortcutRect> shortcuts,
+                               List<ValleyPiece> valleys)
         {
             this.xs = xs;
             this.ys = ys;
             this.flats = flats;
             this.shortcuts = shortcuts;
+            this.valleys = valleys;
             MinY = float.MaxValue;
             MaxY = float.MinValue;
             foreach (float y in ys)
@@ -179,6 +192,7 @@ namespace LOP.MapTools
         public float Y(int i) => ys[i];
         public IReadOnlyList<FlatSpan> Flats => flats;
         public IReadOnlyList<ShortcutRect> Shortcuts => shortcuts;
+        public IReadOnlyList<ValleyPiece> Valleys => valleys;
         public float MinY { get; }
         public float MaxY { get; }
 
@@ -254,6 +268,7 @@ namespace LOP.MapTools
             var ys = new List<float> { 0f };
             var flats = new List<FlatSpan>();
             var shortcuts = new List<ShortcutRect>();
+            var valleys = new List<ValleyPiece>();
 
             float x = startX;
             float y = 0f;
@@ -319,6 +334,7 @@ namespace LOP.MapTools
                             flats.Add(new FlatSpan(bottom0, bottom1));
                             x = bottom1 + d / t.RiseSlope;
                             xs.Add(x); ys.Add(y);
+                            valleys.Add(new ValleyPiece(x0, bottom0, bottom1, x, y, d));
                             if (t.ValleyShortcut)
                             {
                                 shortcuts.Add(ValleyShortcut(x0, y, d, t.RiseSlope, corridorHalf, t.Entrance, arc));
@@ -353,7 +369,7 @@ namespace LOP.MapTools
             float end = startX + length + tail;
             flats.Add(new FlatSpan(flatStart, end));
             xs.Add(end); ys.Add(y);
-            return new CourseProfile(xs.ToArray(), ys.ToArray(), flats, shortcuts);
+            return new CourseProfile(xs.ToArray(), ys.ToArray(), flats, shortcuts, valleys);
         }
 
         static float PieceLength(TerrainKind kind, SectionTerrain t)
@@ -530,13 +546,19 @@ namespace LOP.MapTools
 
         /// <summary>바닥 경사 조각. 꺾은선의 모든 꼭짓점과 <paramref name="splitXs"/>(구간 경계)에서 끊는다.</summary>
         public static List<RampPiece> FloorPieces(CourseProfile p, IReadOnlyList<float> splitXs)
-            => Pieces(p, splitXs, cutShortcuts: false);
+            => FloorPieces(p, splitXs, Array.Empty<ShaftPiece>());
+
+        /// <summary>바닥 경사 조각. <paramref name="holes"/>(샤프트) 안쪽 조각은 뺀다 — 회랑이 위로 그대로 이어진다.</summary>
+        public static List<RampPiece> FloorPieces(CourseProfile p, IReadOnlyList<float> splitXs,
+                                                   IReadOnlyList<ShaftPiece> holes)
+            => Pieces(p, splitXs, cutShortcuts: false, holes: holes);
 
         /// <summary>천장 경사 조각. 바닥과 같되 지름길 입구~출구는 도려낸다 — 그 자리는 빌더가 지붕 띠·혀 띠로 채운다.</summary>
         public static List<RampPiece> CeilingPieces(CourseProfile p, IReadOnlyList<float> splitXs)
-            => Pieces(p, splitXs, cutShortcuts: true);
+            => Pieces(p, splitXs, cutShortcuts: true, holes: Array.Empty<ShaftPiece>());
 
-        static List<RampPiece> Pieces(CourseProfile p, IReadOnlyList<float> splitXs, bool cutShortcuts)
+        static List<RampPiece> Pieces(CourseProfile p, IReadOnlyList<float> splitXs, bool cutShortcuts,
+                                      IReadOnlyList<ShaftPiece> holes)
         {
             float first = p.X(0);
             float last = p.X(p.VertexCount - 1);
@@ -547,6 +569,7 @@ namespace LOP.MapTools
             {
                 foreach (ShortcutRect r in p.Shortcuts) { cuts.Add(r.X0); cuts.Add(r.X1); }
             }
+            foreach (ShaftPiece h in holes) { cuts.Add(h.X0); cuts.Add(h.X1); }
             cuts.Sort();
 
             var pieces = new List<RampPiece>();
@@ -554,9 +577,12 @@ namespace LOP.MapTools
             {
                 float a = cuts[i - 1], b = cuts[i];
                 if (b - a < 1e-4f) { continue; }
+                float mid = (a + b) * 0.5f;
+                bool inHole = false;
+                foreach (ShaftPiece h in holes) { inHole |= mid > h.X0 && mid < h.X1; }
+                if (inHole) { continue; }
                 if (cutShortcuts)
                 {
-                    float mid = (a + b) * 0.5f;
                     bool inside = false;
                     foreach (ShortcutRect r in p.Shortcuts) { inside |= mid > r.X0 && mid < r.X1; }
                     if (inside) { continue; }

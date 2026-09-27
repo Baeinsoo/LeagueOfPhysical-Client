@@ -66,8 +66,11 @@ namespace LOP.MapTools
                 for (float depth = baseDepth; depth >= 10f; depth -= 5f)
                 {
                     float chimneyWidth = ChimneyWidthFor(depth, forwardSpeed, upAccel, riseCap);
-                    float need = ShaftWidth + PocketFloor + chimneyWidth
-                               + 2f * (SideWall + GateClear + CourseProfileRule.GateMargin);
+                    float span = ShaftWidth + PocketFloor + chimneyWidth;
+                    //  관문이 못 서는 거리(GateClear)는 여기서 셀 필요가 없다 — GateBlocked가
+                    //  따로 그걸 지킨다. 여기 need는 오직 "샤프트 벽이 평지 안에 들어가는가"만
+                    //  묻는다 — 옆벽 폭(SideWall) 밖으로 경사가 시작되기 전 1m 여유만 두면 된다.
+                    float need = span + 2f * (SideWall + 1f);
                     FlatSpan best = default;
                     float bestLength = 0f;
                     foreach (FlatSpan f in p.Flats)
@@ -79,7 +82,6 @@ namespace LOP.MapTools
                         bestLength = b - a;
                     }
                     if (bestLength <= 0f) { continue; }
-                    float span = ShaftWidth + PocketFloor + chimneyWidth;
                     float x0 = (best.From + best.To) * 0.5f - span * 0.5f;
                     float floorY = p.CenterAt(x0) - corridorHalf;
                     shafts.Add(new ShaftPiece(x0, floorY, depth, chimneyWidth));

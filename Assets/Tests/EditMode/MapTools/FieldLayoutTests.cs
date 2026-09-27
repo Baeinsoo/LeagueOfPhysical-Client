@@ -17,28 +17,42 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 샤프트는_구간마다_하나이고_깊이가_구간을_따른다()
         {
-            //  개수를 3으로 못박지 않는다 — 굴뚝 폭이 깊이를 따라가게 된 뒤로는(2026-09-27
-            //  수정 1) 평지가 새 굴뚝 폭까지 못 담는 구간은 통째로 건너뛴다(PlaceShafts 규칙).
-            //  실측(6.8/30/12, 이 파일의 Compose() 코스): 구간0(최장평지 63.2m)만 새 최소
-            //  필요폭(46.5m)을 넘고, 구간1(45.0m)·구간2(46.3m)는 최소 깊이(10m)에서도 모자라
-            //  샤프트가 안 선다 — 3개 중 1개만 실제로 배치된다. 대신 "선 것마다 자기 구간
-            //  범위 안에 있고, 깊이가 그 구간 기본값에서 5m 단위로만 얕아졌는가"를 검증한다.
+            //  개수는 3으로 못박는다 — 이게 설계 의도다(2026-09-27 수정 2: need에서
+            //  GateClear·GateMargin을 뺐다. 그건 GateBlocked가 이미 따로 지키므로 여기서
+            //  또 셀 필요가 없었다). 실측(6.8/30/12, 이 파일의 Compose() 코스)으로 구간
+            //  셋 모두 기본 깊이(15/20/25) 그대로 들어간다.
             var shafts = Shafts(Compose());
-            Assert.That(shafts, Is.Not.Empty);
-            float sectionLength = Length / 3f;
-            foreach (ShaftPiece shaft in shafts)
+            Assert.AreEqual(3, shafts.Count);
+            for (int s = 0; s < 3; s++)
             {
-                int section = System.Math.Min((int)((shaft.X0 - StartX) / sectionLength), 2);
-                float lo = StartX + sectionLength * section, hi = lo + sectionLength;
-                Assert.That(shaft.X0, Is.GreaterThanOrEqualTo(lo));
-                Assert.That(shaft.X1, Is.LessThanOrEqualTo(hi));
-                float baseDepth = FieldLayout.ShaftDepths[section];
-                Assert.That(shaft.Depth, Is.LessThanOrEqualTo(baseDepth));
-                Assert.That(shaft.Depth, Is.GreaterThanOrEqualTo(10f));
-                Assert.AreEqual(0f, (baseDepth - shaft.Depth) % 5f, 1e-3f, "깊이는 5m 단위로만 얕아진다");
-                float chimneyWidth = FieldLayout.ChimneyWidthFor(shaft.Depth, Forward, Up, Rise);
+                Assert.AreEqual(FieldLayout.ShaftDepths[s], shafts[s].Depth);
+                float lo = StartX + Length / 3f * s, hi = lo + Length / 3f;
+                Assert.That(shafts[s].X0, Is.GreaterThanOrEqualTo(lo));
+                Assert.That(shafts[s].X1, Is.LessThanOrEqualTo(hi));
+                float chimneyWidth = FieldLayout.ChimneyWidthFor(shafts[s].Depth, Forward, Up, Rise);
                 Assert.AreEqual(FieldLayout.ShaftWidth + FieldLayout.PocketFloor + chimneyWidth,
-                                shaft.Span, 1e-4f);
+                                shafts[s].Span, 1e-4f);
+            }
+        }
+
+        [Test]
+        public void 샤프트_벽은_평지_한_조각_안에_통째로_들어간다()
+        {
+            var p = Compose();
+            var shafts = Shafts(p);
+            Assert.That(shafts, Is.Not.Empty);
+            foreach (ShaftPiece s in shafts)
+            {
+                bool fitsInSomeFlat = false;
+                foreach (FlatSpan f in p.Flats)
+                {
+                    if (s.X0 - FieldLayout.SideWall >= f.From && s.X1 + FieldLayout.SideWall <= f.To)
+                    {
+                        fitsInSomeFlat = true;
+                        break;
+                    }
+                }
+                Assert.IsTrue(fitsInSomeFlat, $"x=[{s.X0:F1},{s.X1:F1}] 옆벽까지 담는 평지가 없다");
             }
         }
 

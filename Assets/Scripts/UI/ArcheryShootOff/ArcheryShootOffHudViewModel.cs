@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using GameFramework;
 using MessagePipe;
 using UnityEngine;
 
@@ -104,6 +105,7 @@ namespace LOP.UI
             if (runner?.tickUpdater == null || runner.tickUpdater.interval <= 0d)
             {
                 ResultVisible = false;
+                IntroAlpha = 0f;
                 return;
             }
 
@@ -113,6 +115,7 @@ namespace LOP.UI
             long tick = (long)Math.Floor(renderTick);
             long start = world.GameplayStartTick;
             ResultVisible = resultTracker.IsShowing(renderTick);
+            UpdateIntro(renderTick, start);
 
             int index = course.IndexAt(tick, start);
             bool inRound = index >= 0 && index < course.StepCount;
@@ -148,6 +151,93 @@ namespace LOP.UI
         }
 
         public bool ResultVisible { get; private set; }
+
+        /// <summary>라운드 소개 카드가 화면을 얼마나 덮나(0~1). 자리가 바뀌는 틱에 1이다.</summary>
+        public float IntroAlpha { get; private set; }
+        public string IntroTitle { get; private set; } = string.Empty;
+        public string IntroDetail { get; private set; } = string.Empty;
+
+        private readonly List<long> seatChangeTicks = new List<long>();
+        private long seatChangeStart = long.MinValue;
+        private int lastSeatRound = -1;
+
+        //  라운드 소개 카드 — 자리가 바뀌는 틱(결과 화면이 닫히는 틱)을 덮어 순간이동을 가린다.
+        //  자리가 바뀐 순간 카메라를 새 자리에서 과녁 쪽으로 돌린다.
+        private void UpdateIntro(double renderTick, long start)
+        {
+            IntroAlpha = 0f;
+            if (start == long.MaxValue || course.StepCount == 0)
+            {
+                return;   // 아직 판이 시작 안 했다
+            }
+            if (seatChangeStart != start)
+            {
+                seatChangeTicks.Clear();
+                for (int i = 0; i < course.StepCount; i++)
+                {
+                    seatChangeTicks.Add(i == 0 ? start : course.ResultEndTick(i - 1, start));
+                }
+                seatChangeStart = start;
+            }
+
+            int round = ArcheryShootOffIntro.ActiveRound(renderTick, seatChangeTicks);
+            if (round >= 0)
+            {
+                IntroAlpha = ArcheryShootOffIntro.AlphaAt(renderTick, seatChangeTicks[round]);
+                IntroTitle = $"라운드 {round + 1} / {course.StepCount}";
+                IntroDetail = IntroDetailOf(round, start);
+            }
+
+            int seatRound = course.SeatRoundAt((long)Math.Floor(renderTick), start);
+            if (seatRound != lastSeatRound)
+            {
+                lastSeatRound = seatRound;
+                FaceTarget(seatRound);
+            }
+        }
+
+        private string IntroDetailOf(int round, long start)
+        {
+            long roundStart = course.RoundCloseTick(round, start) - course.ExposureTicksAt(round);
+            float wind = WindAcross(course.WindAt(roundStart + 1, start));
+            string text = $"{Mathf.RoundToInt(course.StandDistanceAt(round))}m";
+            if (Mathf.Abs(wind) >= 0.5f)
+            {
+                text += $"   바람 {Mathf.Abs(wind):0} {(wind > 0f ? "오른쪽" : "왼쪽")}";
+            }
+            int multiplier = course.MultiplierAt(round);
+            if (multiplier > 1)
+            {
+                text += $"   점수 {multiplier}배!";
+            }
+            return text;
+        }
+
+        //  옆 자리로 옮겨지면 과녁이 화면 가운데에서 비켜난다 — 새 자리에서 그 라운드 과녁을 보게 돌려 둔다.
+        private void FaceTarget(int round)
+        {
+            var lane = course.SharedLane;
+            if (cameraController == null || lane == null || round < 0 || round >= config.Range.Stands.Count)
+            {
+                return;
+            }
+            GameFramework.World.Transform mine = null;
+            foreach (var entity in entityRegistry.All)
+            {
+                if (entity.Id == gameDataStore.userEntityId)
+                {
+                    mine = entity.Get<GameFramework.World.Transform>();
+                    break;
+                }
+            }
+            if (mine == null)
+            {
+                return;
+            }
+            Vector3 target = lane.Value.Stands[config.Range.Stands[round].StandIndex];
+            float yaw = ArcheryShootOffIntro.YawToward(mine.Position.ToUnity(), target);
+            cameraController.AimBy(new Vector2(Mathf.DeltaAngle(cameraController.Yaw, yaw), 0f));
+        }
         public int ResultVersion => resultTracker.Version;
         public IReadOnlyList<ArcheryRoundPlacement> ResultByRank => resultTracker.ByRank;
         public int ResultMultiplier => resultTracker.Current?.multiplier ?? 1;

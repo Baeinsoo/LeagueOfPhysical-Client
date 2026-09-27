@@ -96,6 +96,11 @@ namespace LOP.UI
 
         public string PopupText(int points) => PopupTextFor(config.CourseKind, points);
 
+        /// <summary>착탄 기록판(오른쪽 위 작은 과녁)을 보이나. 한 발 승부는 결과 화면의 큰 과녁이 같은 일을 해서 숨긴다.</summary>
+        public static bool ShowsImpactPlot(ArcheryCourseKind kind) => kind != ArcheryCourseKind.ShootOff;
+
+        public bool ShowImpactPlot => ShowsImpactPlot(config.CourseKind);
+
         /// <summary>
         /// 기록판에 그릴 점수 띠 — 바깥 비율과 점수의 짝, 중심에서 바깥 순서다.
         /// <b>과녁을 그리는 값과 같은 데이터</b>에서 나오므로 그림과 실제 채점이 갈라질 수 없다.

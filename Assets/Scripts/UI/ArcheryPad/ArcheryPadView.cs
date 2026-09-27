@@ -68,6 +68,8 @@ namespace LOP.UI
             _cancelTarget = Root.Q<VisualElement>("cancel-target");
             _plotFace = Root.Q<VisualElement>("plot-face");
             _plotLabel = Root.Q<Label>("plot-label");
+            Root.Q<VisualElement>("impact-plot").style.display =
+                _viewModel.ShowImpactPlot ? DisplayStyle.Flex : DisplayStyle.None;
             _popups = Root.Q<VisualElement>("hit-popups");
             _score = Root.Q<Label>("score");
             _arrows = Root.Q<Label>("arrows");

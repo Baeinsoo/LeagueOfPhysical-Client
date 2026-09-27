@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -117,8 +118,18 @@ namespace LOP.EditorTools
             var profile = ComposeProfile(config);
             System.Func<float, float> centerAt = profile.CenterAt;
 
+            //  샤프트 자리를 관문 배치보다 먼저 정한다 — gateAllowed가 그 자리를 피하게 하려면
+            //  파이프를 놓기 전에 구멍이 어디인지 알아야 한다.
+            var shafts = LOP.MapTools.FieldLayout.PlaceShafts(profile, StartX, length,
+                                                             FlappyRace.CourseSectionRule.Count, ceilingY);
+            if (shafts.Count != FlappyRace.CourseSectionRule.Count)
+            {
+                Debug.LogWarning($"[전통 코스] 샤프트가 {shafts.Count}개 놓였다"
+                               + $" (구간 {FlappyRace.CourseSectionRule.Count}개 중 자리를 못 찾은 구간이 있다).");
+            }
             System.Func<float, bool> gateAllowed =
-                x => profile.GateAllowedAt(x, LOP.MapTools.CourseProfileRule.GateMargin);
+                x => profile.GateAllowedAt(x, LOP.MapTools.CourseProfileRule.GateMargin)
+                  && LOP.MapTools.FieldLayout.GateBlocked(shafts, x) == false;
 
             var pipes = LOP.MapTools.ClassicCourseRule.Layout(
                 StartX, length, spacing, floorY, ceilingY, window, MaxGapStep, Seed, centerAt,
@@ -156,7 +167,7 @@ namespace LOP.EditorTools
             var splits = new System.Collections.Generic.List<float>();
             for (int s = 1; s < FlappyRace.CourseSectionRule.Count; s++) { splits.Add(StartX + sectionLength * s); }
 
-            var floorPieces = LOP.MapTools.CourseProfileRule.FloorPieces(profile, splits);
+            var floorPieces = LOP.MapTools.CourseProfileRule.FloorPieces(profile, splits, shafts);
             for (int i = 0; i < floorPieces.Count; i++)
             {
                 LOP.MapTools.RampPiece q = floorPieces[i];
@@ -168,6 +179,7 @@ namespace LOP.EditorTools
                     new Vector2(q.X0, floorY + q.Lift0),
                 }, SectionMaterial((q.X0 + q.X1) * 0.5f, length, fallback));
             }
+            Shafts(composed.transform, shafts, length, fallback);
             var ceilingPieces = LOP.MapTools.CourseProfileRule.CeilingPieces(profile, splits);
             for (int i = 0; i < ceilingPieces.Count; i++)
             {
@@ -184,9 +196,22 @@ namespace LOP.EditorTools
             //  지름길 구간의 천장은 경사 조각이 아니라 두 덩어리다: 지붕, 지름길과 계곡 사이의 혀.
             int shortcutPads = Shortcuts(composed.transform, profile, config, length, fallback);
 
-            int challengeGates = 0;
-            foreach (LOP.MapTools.CoursePipe p in pipes)
+            //  샤프트마다 굴뚝 뒤 첫 보통 관문을 홀로그램 관문으로 삼는다 — 인덱스를 먼저
+            //  모아 둔다(아래 파이프 루프가 번호로 이 자리를 알아봐야 한다).
+            var hologramGates = new HashSet<int>();
+            foreach (LOP.MapTools.ShaftPiece s in shafts)
             {
+                int gate = LOP.MapTools.FieldLayout.HologramGate(pipes, s);
+                if (gate >= 0)
+                {
+                    hologramGates.Add(gate);
+                }
+            }
+
+            int challengeGates = 0;
+            for (int pipeIndex = 0; pipeIndex < pipes.Count; pipeIndex++)
+            {
+                LOP.MapTools.CoursePipe p = pipes[pipeIndex];
                 Material skin = SectionMaterial(p.X, length, fallback);
                 float lift = centerAt(p.X);
                 //  <b>실제</b> 바닥·천장까지 닿아야 한다. 평평한 floorY까지만 그리면 회랑이
@@ -196,8 +221,18 @@ namespace LOP.EditorTools
 
                 if (p.HasChallenge == false)
                 {
-                    Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X,
-                         bottom, p.GapCenter - window * 0.5f, skin);
+                    //  이 관문이 홀로그램 관문이면, 아래 창의 <b>더 아래</b>에 대시로만 통과되는
+                    //  창을 하나 더 낸다 — 파이프는 그만큼 짧아지고 그 자리를 Hologram이 채운다.
+                    float windowBottom = p.GapCenter - window * 0.5f;
+                    if (hologramGates.Contains(pipeIndex) && windowBottom - window > bottom)
+                    {
+                        Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X, bottom, windowBottom - window, skin);
+                        Hologram(composed.transform, $"Hologram_{p.X:F0}", p.X, windowBottom - window, windowBottom);
+                    }
+                    else
+                    {
+                        Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X, bottom, windowBottom, skin);
+                    }
                     Pipe(composed.transform, $"PipeHigh_{p.X:F0}", p.X,
                          p.GapCenter + window * 0.5f, top, skin);
                     continue;
@@ -225,6 +260,9 @@ namespace LOP.EditorTools
             int boostPads = BoostPads(composed.transform, pipes, window, centerAt, spacing,
                                       floorY, ceilingY, config.DashDuration, fallback);
 
+            var airflowRects = LOP.MapTools.FieldLayout.Airflows(profile, shafts, ceilingY);
+            Airflows(composed.transform, airflowRects);
+
             Backdrop(composed.transform, "Midground",
                      LOP.MapTools.BackdropLayout.Midground(StartX, length, MidgroundSeed),
                      MidgroundZ, MidgroundDepth, FlappyCityMaterials.Midground, centerAt);
@@ -248,7 +286,8 @@ namespace LOP.EditorTools
                     + $" · 높낮이 {profile.MinY:F0}~{profile.MaxY:F0}m (조각 꼭짓점 {profile.VertexCount}개)"
                     + $" · 지름길 {profile.Shortcuts.Count}개 (패드 {shortcutPads}개)"
                     + $" · 도전 관문 {challengeGates}개"
-                    + $" · 부스트 패드 {boostPads}개 ({config.DashDuration:F1}초)");
+                    + $" · 부스트 패드 {boostPads}개 ({config.DashDuration:F1}초)"
+                    + $" · 샤프트 {shafts.Count}개 · 기류 {airflowRects.Count}개 · 홀로그램 {hologramGates.Count}개");
         }
 
         /// <summary>굽기와 같은 코스 프로필. 에디터 측정(eval)이 씬과 같은 기하를 다시 얻을 때 쓴다.</summary>
@@ -526,6 +565,154 @@ namespace LOP.EditorTools
             float h = top - bottom;
             go.transform.localScale = new Vector3(PipeWidth, h, PipeDepth);
             go.transform.position = new Vector3(x, bottom + h * 0.5f, PipeZ);
+        }
+
+        //  샤프트 = 바닥에 뚫린 ∪자 주머니. 회랑 바닥은 구멍 두 개(샤프트·굴뚝)만 비고 가운데는 이어진다.
+        private static void Shafts(Transform parent, IReadOnlyList<LOP.MapTools.ShaftPiece> shafts, float length,
+                                   Material fallback)
+        {
+            foreach (var s in shafts)
+            {
+                Material skin = SectionMaterial((s.X0 + s.X1) * 0.5f, length, fallback);
+                float bottom = s.PocketFloorY - WallThickness;
+                Slab(parent, $"ShaftFloor_{s.X0:F0}", s.X0 - LOP.MapTools.FieldLayout.SideWall,
+                     s.X1 + LOP.MapTools.FieldLayout.SideWall, bottom, s.PocketFloorY, skin);
+                Slab(parent, $"ShaftWallL_{s.X0:F0}", s.X0 - LOP.MapTools.FieldLayout.SideWall, s.X0,
+                     bottom, s.FloorY, skin);
+                Slab(parent, $"ShaftWallR_{s.X0:F0}", s.X1, s.X1 + LOP.MapTools.FieldLayout.SideWall,
+                     bottom, s.FloorY, skin);
+                Slab(parent, $"ShaftMiddle_{s.X0:F0}", s.X0 + LOP.MapTools.FieldLayout.ShaftWidth, s.ChimneyX0,
+                     s.PocketTop, s.FloorY, skin);
+                ShaftDepthDecor(parent, s, skin);
+            }
+        }
+
+        private static void Slab(Transform parent, string name, float x0, float x1, float y0, float y1, Material skin)
+        {
+            var go = Box(parent, name, skin);
+            go.transform.localScale = new Vector3(x1 - x0, y1 - y0, PipeDepth);
+            go.transform.position = new Vector3((x0 + x1) * 0.5f, (y0 + y1) * 0.5f, PipeZ);
+        }
+
+        //  2.5D 연출 — 샤프트·굴뚝 양쪽 벽 가장자리에, 판정면보다 <b>뒤</b>(z 1.5~6)로 갈수록
+        //  더 아래로 꺾여 들어간 층판을 세운다. "주머니가 화면 안쪽으로도 깊다"는 걸 보여 주는
+        //  것일 뿐 판정이 없다 — 🎥 검사의 "렌더 전용"에 들어간다.
+        private const int ShaftDecorLayers = 4;
+        private const float ShaftDecorThickness = 0.6f;
+        private const float ShaftDecorZNear = 1.5f;
+        private const float ShaftDecorZFar = 6f;
+
+        private static void ShaftDepthDecor(Transform parent, LOP.MapTools.ShaftPiece s, Material skin)
+        {
+            float zStep = (ShaftDecorZFar - ShaftDecorZNear) / (ShaftDecorLayers - 1);
+            float yStep = s.Depth / ShaftDecorLayers;
+            for (int i = 0; i < ShaftDecorLayers; i++)
+            {
+                float z = ShaftDecorZNear + zStep * i;
+                float top = s.FloorY - yStep * i;
+                float bottom = top - ShaftDecorThickness;
+                DecorSlab(parent, $"ShaftDecorL_{s.X0:F0}_{i}",
+                         s.X0 - LOP.MapTools.FieldLayout.SideWall, s.X0, bottom, top, z, skin);
+                DecorSlab(parent, $"ShaftDecorR_{s.X0:F0}_{i}",
+                         s.X1, s.X1 + LOP.MapTools.FieldLayout.SideWall, bottom, top, z, skin);
+            }
+        }
+
+        //  렌더 전용 조각 — Box를 만든 뒤 콜라이더를 지운다(낌·벽 규약 검사가 "안 보이는 벽"으로
+        //  잡지 않도록).
+        private static void DecorSlab(Transform parent, string name, float x0, float x1, float y0, float y1,
+                                      float z, Material skin)
+        {
+            var go = Box(parent, name, skin);
+            Object.DestroyImmediate(go.GetComponent<BoxCollider>());
+            go.transform.localScale = new Vector3(x1 - x0, y1 - y0, ShaftDecorThickness);
+            go.transform.position = new Vector3((x0 + x1) * 0.5f, (y0 + y1) * 0.5f, z);
+        }
+
+        //  기류 사각형마다 판정 마커(LOP.FlappyAirflow, DI가 필드를 채운다) + 판정면 뒤 반투명
+        //  기둥(연출뿐 — 콜라이더 없음)을 세운다.
+        private static void Airflows(Transform parent, IReadOnlyList<LOP.FlappyAirflowRect> rects)
+        {
+            Material up = AirflowUpMaterial();
+            Material down = AirflowDownMaterial();
+            foreach (LOP.FlappyAirflowRect r in rects)
+            {
+                float cx = (r.X0 + r.X1) * 0.5f;
+                float cy = (r.Y0 + r.Y1) * 0.5f;
+                float width = r.X1 - r.X0;
+                float height = r.Y1 - r.Y0;
+
+                var marker = new GameObject($"Airflow_{r.Kind}_{r.X0:F0}");
+                marker.transform.SetParent(parent, worldPositionStays: false);
+                marker.transform.position = new Vector3(cx, cy, 0f);
+                var flow = marker.AddComponent<LOP.FlappyAirflow>();
+                flow.Width = width;
+                flow.Height = height;
+                flow.Kind = r.Kind;
+                Undo.RegisterCreatedObjectUndo(marker, "Build classic course");
+
+                Material fx = r.Kind == LOP.FlappyAirflowKind.Up ? up : down;
+                var column = Box(parent, $"AirflowFx_{r.Kind}_{r.X0:F0}", fx);
+                Object.DestroyImmediate(column.GetComponent<BoxCollider>());
+                column.transform.localScale = new Vector3(width, height, PipeDepth);
+                column.transform.position = new Vector3(cx, cy, 1.5f);
+            }
+        }
+
+        //  대시 중이면 통과하는 벽. 콜라이더는 그대로 두고 층만 Hologram이다 — 판정은 이동이 마스크로 고른다.
+        private static void Hologram(Transform parent, string name, float x, float bottom, float top)
+        {
+            var go = Box(parent, name, HologramMaterial());
+            go.layer = LayerMask.NameToLayer(LOP.FlappyHologram.LayerName);
+            float h = top - bottom;
+            go.transform.localScale = new Vector3(PipeWidth, h, PipeDepth);
+            go.transform.position = new Vector3(x, bottom + h * 0.5f, PipeZ);
+            go.AddComponent<LOP.FlappyHologramMarker>();
+        }
+
+        private const string FieldMaterialFolder = "Assets/Art/Materials/Flappy";
+
+        private static Material AirflowUpMaterial() => EnsureTransparent("AirflowUp", new Color(0.5f, 0.85f, 0.6f, 0.30f));
+        private static Material AirflowDownMaterial() => EnsureTransparent("AirflowDown", new Color(0.55f, 0.85f, 0.9f, 0.30f));
+        private static Material HologramMaterial() => EnsureTransparent("Hologram", new Color(0.62f, 0.42f, 0.92f, 0.35f));
+
+        //  기류·홀로그램 반투명 재질. <b>있으면 그대로 쓴다</b>(FlappyCityMaterials.Ensure와 같은
+        //  규칙 — 에디터에서 손으로 고친 색이 다시 구울 때마다 날아가면 아트를 만질 수 없다).
+        //  URP Lit을 반투명 알파블렌드로 켜는 값은 이 프로젝트의 기존 반투명 재질
+        //  (Assets/Art/Materials/SkydiveCloud.mat)과 같은 조합을 그대로 쓴다.
+        private static Material EnsureTransparent(string name, Color color)
+        {
+            string path = $"{FieldMaterialFolder}/{name}.mat";
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing != null)
+            {
+                return existing;
+            }
+            var shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                Debug.LogError($"[전통 코스] URP Lit 셰이더를 못 찾아 {name} 재질을 못 만들었다.");
+                return null;
+            }
+            var material = new Material(shader) { name = name };
+            material.SetColor("_BaseColor", color);
+            material.SetFloat("_Metallic", 0f);
+            material.SetFloat("_Smoothness", 0.2f);
+            material.SetFloat("_Surface", 1f);   // Transparent
+            material.SetFloat("_Blend", 0f);     // Alpha
+            material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetFloat("_ZWrite", 0f);
+            material.SetFloat("_Cull", 0f);
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            if (AssetDatabase.IsValidFolder(FieldMaterialFolder) == false)
+            {
+                AssetDatabase.CreateFolder("Assets/Art/Materials", "Flappy");
+            }
+            AssetDatabase.CreateAsset(material, path);
+            return material;
         }
 
         //  <c>---Environment---</c>의 <c>CitySilhouette</c>만 다시 굽는다. 구름·장식은 손대지 않는다.

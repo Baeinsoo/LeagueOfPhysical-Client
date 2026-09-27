@@ -297,14 +297,16 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(0, result.Flaps.Count);
         }
 
-        //  ── 사다리·격자의 도메인 상수를 지키는 검사들 ──────────────
+        //  ── 종단속도·격자의 도메인 상수를 지키는 검사들 ──────────────
         //  아래 넷은 전부 "지워도 88개가 초록"이던 자리다(리뷰어 돌연변이 확인). 상수가
         //  틀리면 탐색이 *게임과 다른 새*를 모형으로 삼아 ❌/🟡 답이 조용히 바뀐다.
+        //  (예전엔 세로 속도를 사다리 표로 셌다. 지금은 게임과 같은 커널을 매 틱 부르므로
+        //  지키는 대상이 사다리 경계에서 그 커널의 종단속도 클램프로 옮겨 갔다.)
 
         [Test]
         public void 탐색은_종단속도보다_빨리_떨어지지_않는다()
         {
-            //  BuildLadder의 −MaxFallSpeed 클램프를 지우면 사다리가 끝없이 빨라진다. 22틱
+            //  세로 속도 커널의 −MaxFallSpeed 클램프를 지우면 낙하가 끝없이 빨라진다. 22틱
             //  (0.43초)만 떨어져도 갈리므로 634m 코스의 대부분 구간이 영향을 받는다.
             //  천장을 출발 높이에 붙여 날갯짓을 아예 못 하게 하고(올라가는 선분이 전부
             //  막힌다), 순수 자유낙하만 60틱 시켜 깊이를 잰다.
@@ -335,9 +337,9 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 날갯짓_사다리도_종단속도까지_다_내려간다()
         {
-            //  RungCount의 "+ 2"를 지우면 날갯짓 뒤 사다리가 −30이 아니라 −28.8에서 멈춘다
-            //  (마지막 칸이 모자라 ClampRung이 한 칸 앞에서 흡수해 버린다). 위 검사는
-            //  날갯짓 없는 사다리만 보므로 이걸 못 잡는다 — 여기서는 첫 틱에 날갯짓을
+            //  날갯짓 뒤의 낙하도 종단속도 −30까지 정확히 내려가야 한다 — 클램프 값이 틀리거나
+            //  (예: −28.8에서 멈춤) 날갯짓 뒤 속도를 다른 길로 굴리면 깊이가 갈린다. 위 검사는
+            //  날갯짓 없는 낙하만 보므로 이걸 못 잡는다 — 여기서는 첫 틱에 날갯짓을
             //  *강제*하고(안 누르면 바로 바닥) 그 뒤 자유낙하시켜 깊이를 잰다.
             float deepest = float.MaxValue;
             bool MustFlapThenOpen(float x, float y)
@@ -361,9 +363,9 @@ namespace LOP.MapTools.Tests
             CleanRunResult result = Run(options, MustFlapThenOpen);
             Assert.IsTrue(result.Reachable);
 
-            //  탐색의 눈금 모델을 여기서 다시 적어 기대값을 만든다(차등 검사) — 사다리 속도
-            //  계산 → y += vy×dt → 높이를 눈금에 반올림, 딱 세 단계다. 프로덕션의 RungCount가
-            //  모자라면 이 모델과 어긋난다.
+            //  탐색의 모델을 여기서 다시 적어 기대값을 만든다(차등 검사) — 날갯짓 뒤 속도
+            //  계산 → y += vy×dt → 높이를 눈금에 반올림. (지금 탐색은 높이를 반올림하지 않지만
+            //  0.02 눈금의 반올림 오차는 허용치 0.1 안에 든다.) 종단속도가 틀리면 어긋난다.
             float Snap(float y) => options.MinY
                                  + UnityEngine.Mathf.Round((y - options.MinY) / options.HeightGrid) * options.HeightGrid;
             float SpeedAfterFlap(int rung)
@@ -395,7 +397,7 @@ namespace LOP.MapTools.Tests
             //  그 상황을 손으로 만든다(열쇠 칸 0.6m, 대역 [−0.04, 0.92], 전진 0.22m/틱):
             //    시드 y=0 → 1틱 안 누름 −0.028 / 누름 +0.46
             //    2틱  −0.028에서 누름 → +0.432 (칸 1)  |  +0.46에서 누름 → +0.92 (칸 2 = 꼭대기)
-            //  둘은 같은 사다리 칸("방금 날갯짓함")이라 <b>칸 번호만이</b> 둘을 가른다.
+            //  둘은 세로 속도가 같아("방금 날갯짓함", 23) <b>높이 칸 번호만이</b> 둘을 가른다.
             //  꼭대기 칸이 없으면 0.92가 칸 1로 눌려 0.432를 밀어낸다.
             //
             //  그런데 0.92에서는 아무것도 못 한다 — 눌러도 안 눌러도 1.35~1.38로 대역 천장
@@ -549,7 +551,7 @@ namespace LOP.MapTools.Tests
             //    시드                 y = 0        (아직 날갯짓 안 함)
             //    1틱  안 누름 → −0.028      /  누름 → +0.46
             //    2틱  −0.028에서 누름 → +0.432  |  +0.46에서 누름 → +0.92
-            //  뒤 둘은 <b>같은 사다리 칸</b>(방금 날갯짓함)이고 눈금 2m에서 <b>같은 칸</b>이라
+            //  뒤 둘은 <b>세로 속도가 같고</b>(방금 날갯짓함) 눈금 2m에서 <b>같은 칸</b>이라
             //  하나만 남는다. 남아야 하는 건 높은 쪽 0.92다.
             //
             //  그 뒤 x ≥ 0.6 에 y ≥ 1.36 만 비는 문을 둔다. 0.92에서 한 번 더 누르면 1.38로
@@ -571,6 +573,56 @@ namespace LOP.MapTools.Tests
             //  "그 경로로 통과"를 구분 못 한다.
             Assert.AreEqual(3, result.Flaps.Count);
             CollectionAssert.AreEqual(new[] { true, true, true }, result.Flaps);
+        }
+
+        [Test]
+        public void 기류가_없으면_예전과_같은_경로를_찾는다()
+        {
+            //  기류 probe가 늘 None이면 probe를 안 넘긴 것과 한 비트도 다르지 않아야 한다.
+            bool IsFree(float x, float y) => (x < 20f || x > 22f) || y >= 3f;
+            var options = Options(startY: 0.37f, finishX: 50f);
+            var a = CleanRunSearch.Run(options, IsFree, PointSampleSweep(options, IsFree));
+            var b = CleanRunSearch.Run(options, IsFree, PointSampleSweep(options, IsFree),
+                                       (x, y) => LOP.FlappyAirflowKind.None);
+            Assert.IsTrue(a.Reachable);
+            Assert.AreEqual(a.Reachable, b.Reachable);
+            CollectionAssert.AreEqual(a.Flaps, b.Flaps);
+        }
+
+        [Test]
+        public void 상승기류가_있어야만_넘는_벽을_넘는다()
+        {
+            //  x 8~12에 높이 22m 아래가 전부 막힌 벽. 날갯짓만으론 8m 전진하는 동안 22m를 못
+            //  오르고(최고 상승 속도 18.6 × 8/6.8초 ≈ 21.9m), 벽 앞 상승기류(가속 60·상한 40)를
+            //  타면 오른다.
+            var options = new CleanRunOptions(0f, 0f, 20f, -10f, 30f, 6.8f, 18.6f, 59f, 30f, 0.02f, 0.1f,
+                                              upAccel: 60f, riseCap: 40f, shaftGravityMult: 2f);
+            TickSweepProbe wall = (x, y, vy) =>
+            {
+                float nx = x + 6.8f * 0.02f, ny = y + vy * 0.02f;
+                bool inWall = nx >= 8f && nx <= 12f && ny < 22f;
+                return inWall == false;
+            };
+            ExactFreeSpaceProbe seed = (x, y) => true;
+            AirflowProbe updraft = (x, y) => x >= 0f && x <= 8f ? LOP.FlappyAirflowKind.Up : LOP.FlappyAirflowKind.None;
+
+            var without = CleanRunSearch.Run(options, seed, wall);
+            var with = CleanRunSearch.Run(options, seed, wall, updraft);
+
+            Assert.IsFalse(without.Reachable, "날갯짓만으로 넘으면 이 시험이 아무것도 안 지킨다");
+            Assert.IsTrue(with.Reachable);
+            //  되짚은 경로를 같은 산술로 다시 굴려 벽을 정말 넘었는지 본다(PathHeights = 탐색의 믿음).
+            //  h[t]는 t틱을 밟은 뒤라 그때의 x는 표의 t번째 칸이다. 벽 판정은 y + vy×dt로 재서
+            //  PathHeights의 높이와 1 ulp쯤 다를 수 있으니 1cm 여유를 둔다.
+            float[] h = CleanRunSearch.PathHeights(options, with.Flaps, updraft);
+            float[] xs = FlappyTickMath.ColumnXTable(0f, 6.8f * 0.02f, h.Length);
+            for (int t = 1; t < h.Length; t++)
+            {
+                if (xs[t] >= 8f && xs[t] <= 12f)
+                {
+                    Assert.GreaterOrEqual(h[t], 22f - 0.01f, $"{t}틱째 벽 속을 지난다고 믿는다.");
+                }
+            }
         }
 
         //  아무것도 안 맞는 충돌 쿼리. 위 커널 비교 테스트는 "안 닿는 동안의 산술"만 재므로

@@ -169,7 +169,7 @@ namespace LOP.EditorTools
 
         private static List<ProvenPath> BuildProvenPaths()
         {
-            int mapMask = LayerMask.GetMask("Default");
+            int mapMask = CheckMapMask();
             if (TryReadBounds(mapMask, out Bounds bounds) == false)
             {
                 Debug.LogError("[증명 경로] Default 레이어에 콜라이더가 없다 — 맵 씬을 먼저 열어라."
@@ -191,6 +191,7 @@ namespace LOP.EditorTools
             }
 
             var shape = ShapeFrom(config);
+            ScanAirflows();
             Windmills = CollectWindmills(out var windmillPoses, out _, out var windmillInstances);
             posedTick = long.MinValue;
             //  ②-b가 쓰는 것과 <b>같은 원반</b>(허브 자리 + 팔 길이)을 같은 코드로 뽑는다 —
@@ -224,8 +225,11 @@ namespace LOP.EditorTools
                         minY: SearchMinY, maxY: SearchMaxY,
                         forwardSpeed: shape.ForwardSpeed, flapImpulse: shape.FlapImpulse,
                         gravity: shape.Gravity, maxFallSpeed: shape.MaxFallSpeed,
-                        tickSeconds: TickSeconds, heightGrid: HeightGrid);
-                    var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFreeExact, searchSweep);
+                        tickSeconds: TickSeconds, heightGrid: HeightGrid,
+                        upAccel: shape.AirflowUpAccel, riseCap: shape.AirflowRiseCap,
+                        shaftGravityMult: shape.ShaftGravityMult);
+                    var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFreeExact, searchSweep,
+                                                                 SampleAirflow);
                     if (result.Reachable == false)
                     {
                         Debug.LogWarning($"[증명 경로] {spawns[i].Name} — 탐색이 경로를 못 찾았다."

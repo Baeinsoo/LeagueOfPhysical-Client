@@ -152,7 +152,7 @@ namespace LOP.EditorTools
             //  리포트를 돌릴 때마다 달라지는 문자열로 만들지 않는다.
             var counterfactualWatch = new System.Diagnostics.Stopwatch();
             resumeShortcutVerified = false;
-            int mapMask = LayerMask.GetMask("Default");
+            int mapMask = CheckMapMask();
             if (TryReadBounds(mapMask, out Bounds bounds) == false)
             {
                 Bail("Default 레이어에 콜라이더가 없다 — 맵 씬을 먼저 열어라.\n"
@@ -169,6 +169,7 @@ namespace LOP.EditorTools
                 return;
             }
             var shape = ShapeFrom(config);
+            ScanAirflows();
             var spawns = ReadSpawns();
             if (spawns.Count == 0)
             {
@@ -377,16 +378,18 @@ namespace LOP.EditorTools
                         minY: SearchMinY, maxY: SearchMaxY,
                         forwardSpeed: shape.ForwardSpeed, flapImpulse: shape.FlapImpulse,
                         gravity: shape.Gravity, maxFallSpeed: shape.MaxFallSpeed,
-                        tickSeconds: TickSeconds, heightGrid: HeightGrid);
+                        tickSeconds: TickSeconds, heightGrid: HeightGrid,
+                        upAccel: shape.AirflowUpAccel, riseCap: shape.AirflowRiseCap,
+                        shaftGravityMult: shape.ShaftGravityMult);
                     searchWatch.Start();
-                    var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFreeExact, mainSweep);
+                    var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFreeExact, mainSweep, SampleAirflow);
                     var replay = default(LOP.MapTools.ReplayMismatch);
                     //  탐색이 그 경로의 틱마다 "새가 여기 있다"고 믿었던 높이. 탐색은 경로만
                     //  돌려주고 높이는 안 들고 있으므로, 같은 산술로 날갯짓 순서를 다시 굴려
                     //  얻는다(CleanRunSearch.PathHeights). 탐색이 높이를 눈금에 반올림하지
                     //  않으므로 이 값은 아래 재생과 같아야 한다 — 갈리면 그 차이가 곧 결함이다.
                     float[] searchHeights = result.Reachable
-                        ? LOP.MapTools.CleanRunSearch.PathHeights(options, result.Flaps)
+                        ? LOP.MapTools.CleanRunSearch.PathHeights(options, result.Flaps, SampleAirflow)
                         : System.Array.Empty<float>();
                     //  재생이 지나간 자리를 그대로 받아 둔다 — 이 경로가 곧 ✅의 근거이므로,
                     //  "그 ✅가 날개 각도와 무관한가"도 <b>같은 경로</b>로 재야 한다.
@@ -655,16 +658,18 @@ namespace LOP.EditorTools
                 minY: SearchMinY, maxY: SearchMaxY,
                 forwardSpeed: body.ForwardSpeed, flapImpulse: body.FlapImpulse,
                 gravity: body.Gravity, maxFallSpeed: body.MaxFallSpeed,
-                tickSeconds: TickSeconds, heightGrid: HeightGrid);
+                tickSeconds: TickSeconds, heightGrid: HeightGrid,
+                upAccel: body.AirflowUpAccel, riseCap: body.AirflowRiseCap,
+                shaftGravityMult: body.ShaftGravityMult);
 
             LOP.MapTools.ShortcutProof Prove(string label, float x0, float x1, LOP.MapTools.TickSweepProbe probe)
             {
-                var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFreeExact, probe);
+                var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFreeExact, probe, SampleAirflow);
                 if (result.Reachable == false)
                 {
                     return new LOP.MapTools.ShortcutProof(label, x0, x1, false, false, result.BlockedX);
                 }
-                float[] heights = LOP.MapTools.CleanRunSearch.PathHeights(options, result.Flaps);
+                float[] heights = LOP.MapTools.CleanRunSearch.PathHeights(options, result.Flaps, SampleAirflow);
                 bool verified = VerifyByReplay(start, result.Flaps, body, mapMask, query, heights, out _);
                 return new LOP.MapTools.ShortcutProof(label, x0, x1, true, verified, 0f);
             }
@@ -1090,6 +1095,37 @@ namespace LOP.EditorTools
                 columns.Add(new LOP.MapTools.GateColumn(startX + i * PinchSampleStep, enclosedPerColumn[i]));
             }
             return columns;
+        }
+
+        //  ── 🌬 기류 ─────────────────────────────────────────────────────────
+        //  씬의 기류 전부. 게임에서는 마커의 [Inject]가 채우지만 이 검사기는 DI 없이 도므로
+        //  씬에서 직접 긁는다. 탐색·재생·봇이 같은 한 벌을 본다(Step과 CleanRunSearch).
+        private static LOP.FlappyAirflowField Airflow = new LOP.FlappyAirflowField();
+
+        private static LOP.FlappyAirflowKind SampleAirflow(float x, float y) => Airflow.Sample(x, y);
+
+        //  검사기가 "벽"으로 보는 층. 홀로그램은 대시 중에만 뚫리는데, 검사기는 대시를 안 쓰고
+        //  길을 증명하므로 홀로그램도 벽이어야 그 증명이 대시 없이 성립한다.
+        private static int CheckMapMask() => LayerMask.GetMask("Default", LOP.FlappyHologram.LayerName);
+
+        //  마커의 Construct가 만드는 것과 같은 사각형을 여기서 만든다(중심 ± 폭·높이 절반).
+        //  매번 새로 채운다 — 앞선 검사의 씬 값이 남으면 지금 씬과 다른 기류로 증명하게 된다.
+        private static void ScanAirflows()
+        {
+            Airflow = new LOP.FlappyAirflowField();
+            LOP.FlappyAirflow[] markers = Object.FindObjectsByType<LOP.FlappyAirflow>(
+                FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            if (markers == null)
+            {
+                return;
+            }
+            foreach (LOP.FlappyAirflow marker in markers)
+            {
+                Vector3 c = marker.transform.position;
+                Airflow.Add(new LOP.FlappyAirflowRect(c.x - marker.Width * 0.5f, c.x + marker.Width * 0.5f,
+                                                      c.y - marker.Height * 0.5f, c.y + marker.Height * 0.5f,
+                                                      marker.Kind));
+            }
         }
 
         //  ── ⚡ 부스트 패드 ──────────────────────────────────────────────────
@@ -1608,10 +1644,17 @@ namespace LOP.EditorTools
             public readonly float FlapImpulse;
             public readonly float StunTime;
             public readonly float InvulnTime;
+            public readonly float AirflowUpAccel;
+            public readonly float AirflowRiseCap;
+            public readonly float ShaftGravityMult;
 
             public FlappyShape(float radius, float height, float forwardSpeed, float gravity, float maxFallSpeed,
-                               float flapImpulse, float stunTime, float invulnTime)
+                               float flapImpulse, float stunTime, float invulnTime,
+                               float airflowUpAccel, float airflowRiseCap, float shaftGravityMult)
             {
+                AirflowUpAccel = airflowUpAccel;
+                AirflowRiseCap = airflowRiseCap;
+                ShaftGravityMult = shaftGravityMult;
                 Radius = radius;
                 Height = height;
                 ForwardSpeed = forwardSpeed;
@@ -1632,7 +1675,8 @@ namespace LOP.EditorTools
         //  전부 FlappyConfig의 필드이므로 다시 읽지 않고 여기서 골라 담기만 한다.
         private static FlappyShape ShapeFrom(in LOP.FlappyConfig config)
             => new FlappyShape(config.BodyRadius, config.BodyHeight, config.ForwardSpeed, config.Gravity,
-                               config.MaxFallSpeed, config.FlapImpulse, config.StunTime, config.InvulnTime);
+                               config.MaxFallSpeed, config.FlapImpulse, config.StunTime, config.InvulnTime,
+                               config.AirflowUpAccel, config.AirflowRiseCap, config.ShaftGravityMult);
 
         //  이 TbFlappyConfig→FlappyConfig 매핑의 정본은 Assets/Scripts/Game/FlappyConfigProvider.cs다.
         //  거긴 재사용하지 않았다 — LOPMasterData.LoadAsync()가 UnityWebRequest로 테이블 16개를
@@ -2667,12 +2711,14 @@ namespace LOP.EditorTools
             }
             else
             {
-                //  전수 탐색(CleanRunSearch)이 쓰는 것과 <b>같은 코드</b>다 — 중력을 빼고,
-                //  종단속도로 자르고, 날갯짓이면 그때까지의 세로 속도를 덮어쓴다. 같은 규칙을
-                //  양쪽에 따로 적어 두면 한쪽만 고쳐졌을 때 탐색이 찾은 경로가 여기서 깨진다.
+                //  전수 탐색(CleanRunSearch)이 쓰는 것과 <b>같은 코드</b>다 — 중력(또는 기류)을
+                //  적용하고, 종단속도로 자르고, 날갯짓이면 그때까지의 세로 속도를 덮어쓴다. 같은
+                //  규칙을 양쪽에 따로 적어 두면 한쪽만 고쳐졌을 때 탐색이 찾은 경로가 여기서 깨진다.
+                //  기류는 게임(FlappyMoveSystem)처럼 <b>움직이기 전</b> 자리에서 묻는다.
                 float vy = LOP.MapTools.FlappyTickMath.NextVerticalSpeed(
-                    state.VerticalSpeed, flap, shape.FlapImpulse, shape.Gravity,
-                    shape.MaxFallSpeed, TickSeconds);
+                    state.VerticalSpeed, flap, Airflow.Sample(state.Position.x, state.Position.y),
+                    shape.FlapImpulse, shape.Gravity, shape.MaxFallSpeed, TickSeconds,
+                    shape.AirflowUpAccel, shape.AirflowRiseCap, shape.ShaftGravityMult);
                 velocity = new Vector3(shape.ForwardSpeed, vy, 0f);
             }
 

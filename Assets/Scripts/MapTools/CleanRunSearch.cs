@@ -23,6 +23,9 @@ namespace LOP.MapTools
     /// </summary>
     public delegate bool TickSweepProbe(float x, float y, float verticalSpeed);
 
+    /// <summary>한 틱 동안 새가 서 있던 자리의 기류. 탐색·재생이 게임과 같은 자리(이동 전)를 묻는다.</summary>
+    public delegate LOP.FlappyAirflowKind AirflowProbe(float x, float y);
+
     /// <summary>
     /// 자유공간 캐시(<see cref="FreeSpaceProbe"/>를 구현하는 쪽)가 쓰는 격자 산술. 캐시 본체는
     /// 에디터 어셈블리에 있어 테스트가 닿지 않으므로, 그 답을 좌우하는 이 산술만 여기로 뺐다 —
@@ -45,8 +48,9 @@ namespace LOP.MapTools
     /// 이 한 코드를 같이 쓴다</b> — 같은 규칙을 두 곳에 따로 적어 두면 한쪽만 고쳐져도 아무도
     /// 못 알아채고, 그러면 탐색이 찾은 경로가 재생에서 깨진다.
     ///
-    /// <para>순서가 전부다: <b>중력을 한 번 빼고 → 종단속도로 자르고 → 날갯짓이면 덮어쓴다.</b>
-    /// 날갯짓은 더하기가 아니라 <i>덮어쓰기</i>(그때까지의 세로 속도를 버린다)라서 맨 뒤여야 한다.</para>
+    /// <para>순서가 전부다: <b>중력(또는 기류)을 한 번 적용하고 → 종단속도로 자르고 → 날갯짓이면
+    /// 덮어쓴다.</b> 날갯짓은 더하기가 아니라 <i>덮어쓰기</i>(그때까지의 세로 속도를 버린다)라서 맨
+    /// 뒤여야 한다. 식 자체는 게임과 같은 <see cref="LOP.FlappyVerticalKernel"/> 한 곳에만 있다.</para>
     /// </summary>
     public static class FlappyTickMath
     {
@@ -75,21 +79,19 @@ namespace LOP.MapTools
             return table;
         }
 
+        /// <summary>기류 없는 자리의 세로 속도. 아래 기류판에 <c>None</c>을 넘긴 것과 같다.</summary>
         public static float NextVerticalSpeed(float verticalSpeed, bool flap,
                                               float flapImpulse, float gravity,
                                               float maxFallSpeed, float tickSeconds)
-        {
-            float vy = verticalSpeed - gravity * tickSeconds;
-            if (vy < -maxFallSpeed)
-            {
-                vy = -maxFallSpeed;
-            }
-            if (flap)
-            {
-                vy = flapImpulse;
-            }
-            return vy;
-        }
+            => NextVerticalSpeed(verticalSpeed, flap, LOP.FlappyAirflowKind.None, flapImpulse, gravity,
+                                 maxFallSpeed, tickSeconds, 0f, 0f, 1f);
+
+        /// <summary>게임의 세로 속도 식 그 자체(<see cref="LOP.FlappyVerticalKernel"/>). 따로 적지 않는다.</summary>
+        public static float NextVerticalSpeed(float verticalSpeed, bool flap, LOP.FlappyAirflowKind air,
+                                              float flapImpulse, float gravity, float maxFallSpeed, float tickSeconds,
+                                              float upAccel, float riseCap, float shaftGravityMult)
+            => LOP.FlappyVerticalKernel.Next(verticalSpeed, flap, air, flapImpulse, gravity, maxFallSpeed,
+                                             tickSeconds, upAccel, riseCap, shaftGravityMult);
 
         /// <summary>
         /// 세로로 한 틱 움직인 뒤의 높이. <b>진짜 이동 커널(<c>LOP.KinematicMover</c>)의 수직
@@ -124,11 +126,14 @@ namespace LOP.MapTools
         public readonly float ForwardSpeed, FlapImpulse, Gravity, MaxFallSpeed;
         public readonly float TickSeconds;
         public readonly float HeightGrid;
+        public readonly float UpAccel, RiseCap, ShaftGravityMult;
 
         public CleanRunOptions(float startX, float startY, float finishX, float minY, float maxY,
                                float forwardSpeed, float flapImpulse, float gravity, float maxFallSpeed,
-                               float tickSeconds, float heightGrid)
+                               float tickSeconds, float heightGrid,
+                               float upAccel = 0f, float riseCap = 0f, float shaftGravityMult = 1f)
         {
+            UpAccel = upAccel; RiseCap = riseCap; ShaftGravityMult = shaftGravityMult;
             StartX = startX; StartY = startY; FinishX = finishX;
             MinY = minY; MaxY = maxY;
             ForwardSpeed = forwardSpeed; FlapImpulse = flapImpulse;
@@ -171,7 +176,11 @@ namespace LOP.MapTools
     ///
     /// <para>세 가지 덕에 문제가 작다. ① 안 닿는 동안 커널이 하는 일은 <c>위치 += 속도 × dt</c>뿐이라
     /// 물리가 정확히 포물선이다. ② 전진이 상수라 x는 선택의 대상이 아니고 "열 = 틱"이다.
-    /// ③ 세로 속도가 연속값이 아니라 사다리라(날갯짓 뒤 몇 틱 지났나로 완전히 결정) 근사가 필요 없다.</para>
+    /// ③ 상태는 (높이칸, 세로속도칸)이고 각 칸에 <b>정확한</b> (높이, 세로속도)를 들고 다닌다.
+    /// 예전엔 세로 속도를 "마지막 날갯짓 뒤 몇 틱"의 사다리로 셌지만, 기류 안에선 속도가 자리에
+    /// 따라 달라져 그 전제가 깨진다. 속도칸 폭(0.05 m/s)은 기류 밖 속도들을 한 칸에 합치지 않을
+    /// 만큼 좁다(종단속도에 닿아 속도가 똑같아진 경우만 합쳐지고, 그건 아래 "같은 칸이면 높은 쪽" 근사와 같은 종류다).
+    /// 그래서 기류가 없으면 예전과 같은 답이 나온다.</para>
     ///
     /// <para><b>높이는 정확히 이어 가고, 눈금은 "이미 가 본 상태인가"의 열쇠로만 쓴다.</b>
     /// 한 틱 전진은 진짜 커널(<c>FlappyMapPlayabilityCheck.Step</c> → <c>KinematicMover</c>)과
@@ -190,6 +199,9 @@ namespace LOP.MapTools
     /// 한 틱 전진 판정을 <see cref="TickSweepProbe"/>로 묻고, 실검사에서는 그 구현이
     /// <see cref="FlappyTickSweep"/> = <b>진짜 커널 그 자체</b>다.</para>
     ///
+    /// <para><b>기류도 게임과 같은 자리에서 묻는다</b> — 그 틱에 움직이기 <i>전</i> 새가 선 자리.
+    /// 게임(<c>FlappyMoveSystem</c>)이 그렇게 하므로 한 자리라도 다르면 재생이 갈린다.</para>
+    ///
     /// <para>남은 근사는 <b>하나뿐</b>이다 — 같은 열쇠 칸에 든 정확한 상태 중 하나만 남긴다
     /// (<see cref="TryAdvance"/> 주석 참고). 그래서 <b>✅(재생까지 통과)는 증명이지만 ❌는
     /// 여전히 "이 근사 아래서 못 찾았다"</b>이다 — 밀려난 상태로만 빠져나가는 길이 있으면
@@ -202,8 +214,9 @@ namespace LOP.MapTools
         /// 자리인가"만 본다.</param>
         /// <param name="tickIsFree">한 틱 전진이 아무 데도 안 닿는가. 실검사에서는 진짜 이동
         /// 커널 그 자체다(<see cref="FlappyTickSweep"/>).</param>
+        /// <param name="air">자리마다의 기류. 없으면 어디에도 기류가 없는 것으로 본다.</param>
         public static CleanRunResult Run(in CleanRunOptions options, ExactFreeSpaceProbe seedIsFree,
-                                         TickSweepProbe tickIsFree)
+                                         TickSweepProbe tickIsFree, AirflowProbe air = null)
         {
             //  결승선이 출발점보다 앞이거나 같으면 코스 길이가 0 이하다 — 그러면 아래 열
             //  순회가 한 번도 안 돌아 그대로 "도달 가능"으로 떨어진다(빈 Flaps와 함께).
@@ -218,6 +231,7 @@ namespace LOP.MapTools
             var grid = new SearchGrid(options);
 
             var current = NewColumn(grid.StateCount);
+            var currentV = new float[grid.StateCount];
             var currentLive = new List<int>();
             //  출발 높이 자체가 허용 범위 밖이면 그대로 실패 — HeightBucket이 조용히 경계로
             //  밀어 넣어 버리면 "다른 자리에서 시드해 놓고 진짜 출발지는 자유공간이라 통과"라는
@@ -226,22 +240,24 @@ namespace LOP.MapTools
             {
                 return new CleanRunResult(false, System.Array.Empty<bool>(), options.StartX, 0f, 0, 0f);
             }
-            //  출발: 아직 날갯짓 안 한 사다리의 첫 칸. 높이는 <b>눈금에 붙이지 않은 그대로</b>
+            //  출발: 세로 속도 0. 높이는 <b>눈금에 붙이지 않은 그대로</b>
             //  넣는다 — 여기서 반올림하면 첫 틱부터 진짜 물리와 최대 반 칸 어긋난 채 출발한다.
             if (seedIsFree(options.StartX, options.StartY) == false)
             {
                 return new CleanRunResult(false, System.Array.Empty<bool>(), options.StartX, 0f, 0, 0f);
             }
-            int seed = grid.StateIndex(grid.HeightBucket(options.StartY), ladder: 1, rung: 0);
+            int seed = grid.StateIndex(grid.HeightBucket(options.StartY), grid.SpeedBucket(0f));
             current[seed] = options.StartY;
+            currentV[seed] = 0f;
             currentLive.Add(seed);
             //  버퍼 둘을 번갈아 쓴다 — 열마다 상태표 전체를 새로 만들고 NaN으로 채우는 비용이 칸 수에
             //  비례해서, 높이 범위가 넓은 코스에서 탐색 시간의 대부분이 됐다. 다 쓴 칸만 비운다.
             var spare = NewColumn(grid.StateCount);
+            var spareV = new float[grid.StateCount];
             var spareLive = new List<int>();
             //  열마다 살아남은 상태를 쌓아 둔다 — 되짚기(ExtractFlaps)가 이걸 뒤에서부터
             //  앞으로 훑으며 직전 상태를 계산해 낸다. 시드(출발) 열도 포함.
-            var columns = new List<Column> { Archive(current, currentLive, grid, out _, out _) };
+            var columns = new List<Column> { Archive(current, currentV, currentLive, grid, out _, out _) };
 
             float narrowestX = 0f, narrowestSpan = 0f;
             int narrowestCount = int.MaxValue;
@@ -256,24 +272,20 @@ namespace LOP.MapTools
                 float x = grid.ColumnX(column);
                 float nextX = grid.ColumnX(column + 1);
                 var next = spare;
+                var nextV = spareV;
                 var nextLive = spareLive;
                 bool any = false;
 
                 for (int li = 0; li < currentLive.Count; li++)
                 {
                     int state = currentLive[li];
-                    float y = current[state];
-                    grid.Decode(state, out _, out int ladder, out int rung);
-
-                    //  날갯짓 안 함 — 같은 사다리의 다음 칸.
-                    if (TryAdvance(grid, tickIsFree, x, y, ladder, rung + 1, options, next, nextLive))
+                    float y = current[state], vy = currentV[state];
+                    for (int f = 0; f < 2; f++)
                     {
-                        any = true;
-                    }
-                    //  날갯짓 — 사다리 0의 첫 칸으로 갈아탄다.
-                    if (TryAdvance(grid, tickIsFree, x, y, ladder: 0, rung: 0, options, next, nextLive))
-                    {
-                        any = true;
+                        if (TryAdvance(grid, tickIsFree, air, x, y, vy, f == 1, options, next, nextV, nextLive))
+                        {
+                            any = true;
+                        }
                     }
                 }
 
@@ -284,7 +296,7 @@ namespace LOP.MapTools
                                               narrowestSpan);
                 }
 
-                columns.Add(Archive(next, nextLive, grid, out int liveCount, out float liveSpan));
+                columns.Add(Archive(next, nextV, nextLive, grid, out int liveCount, out float liveSpan));
                 if (measuringNarrowest == false && liveCount <= previousLiveCount)
                 {
                     measuringNarrowest = true;
@@ -297,18 +309,21 @@ namespace LOP.MapTools
                 }
                 previousLiveCount = liveCount;
 
-                //  다 쓴 버퍼는 쓴 칸만 NaN으로 되돌려 다음 열의 빈 버퍼로 돌린다.
+                //  다 쓴 버퍼는 쓴 칸만 NaN으로 되돌려 다음 열의 빈 버퍼로 돌린다. 속도 버퍼는
+                //  안 비운다 — 높이가 NaN인 칸의 속도는 아무도 읽지 않는다.
                 for (int li = 0; li < currentLive.Count; li++) { current[currentLive[li]] = float.NaN; }
                 currentLive.Clear();
                 spare = current;
+                spareV = currentV;
                 spareLive = currentLive;
                 current = next;
+                currentV = nextV;
                 currentLive = nextLive;
             }
 
             //  도달 가능하면 회랑 진단은 의미가 없다 — "막힌 이유"를 보여주는 값이지 성공
             //  경로의 성질이 아니다.
-            bool[] flaps = ExtractFlaps(grid, tickIsFree, columns, options);
+            bool[] flaps = ExtractFlaps(grid, tickIsFree, air, columns, options);
             return new CleanRunResult(true, flaps, 0f, 0f, 0, 0f);
         }
 
@@ -322,44 +337,49 @@ namespace LOP.MapTools
         /// 눈금 반올림이 없으므로 이 값은 <b>진짜 커널 재생과 같아야 한다</b> — 갈린다면
         /// 두 곳의 산술이 다르다는 뜻이고, 그 차이 자체가 찾아야 할 결함이다.</para>
         /// </summary>
-        public static float[] PathHeights(in CleanRunOptions options, IReadOnlyList<bool> flaps)
+        public static float[] PathHeights(in CleanRunOptions options, IReadOnlyList<bool> flaps,
+                                          AirflowProbe air = null)
         {
             var grid = new SearchGrid(options);
             int count = flaps == null ? 0 : flaps.Count;
             var heights = new float[count + 1];
 
-            //  Run()의 시드와 같다 — 아직 날갯짓 안 한 사다리(1)의 첫 칸, 높이는 출발값 그대로.
-            int ladder = 1;
-            int rung = 0;
-            float y = options.StartY;
+            //  Run()의 시드와 같다 — 세로 속도 0, 높이는 출발값 그대로.
+            float y = options.StartY, vy = 0f;
             heights[0] = y;
 
             for (int i = 0; i < count; i++)
             {
-                //  날갯짓이면 사다리 0의 첫 칸으로 갈아타고, 아니면 같은 사다리의 다음 칸.
-                //  TryAdvance가 하는 것과 같은 계산이다(자유공간 검사만 빠졌다 — 여기서는
-                //  이미 통과한 경로를 되짚는 것이라 다시 물을 것이 없다).
-                if (flaps[i]) { ladder = 0; rung = 0; }
-                else { rung = rung + 1; }
-                rung = grid.ClampRung(rung);
-                y = FlappyTickMath.AdvanceHeight(y, grid.Speed(ladder, rung), options.TickSeconds);
+                //  TryAdvance와 같은 계산이다(자유공간 검사만 빠졌다 — 이미 통과한 경로를
+                //  되짚는 것이라 다시 물을 것이 없다). 기류도 같은 자리(이동 전)에서 묻는다.
+                vy = NextSpeed(options, air, grid.ColumnX(i), y, vy, flaps[i]);
+                y = FlappyTickMath.AdvanceHeight(y, vy, options.TickSeconds);
                 heights[i + 1] = y;
             }
             return heights;
         }
 
-        /// <summary>한 열의 생존 상태 — 열쇠 칸 번호와 <b>그 칸에 남은 정확한 높이</b>.
+        //  탐색·되짚기·PathHeights가 모두 이 한 줄로 세로 속도를 구한다 — 셋이 갈리면 되짚기가
+        //  정방향이 간 길을 못 찾거나, 믿는 높이가 탐색과 달라진다.
+        static float NextSpeed(in CleanRunOptions o, AirflowProbe air, float x, float y, float vy, bool flap)
+            => FlappyTickMath.NextVerticalSpeed(vy, flap, air == null ? LOP.FlappyAirflowKind.None : air(x, y),
+                                                o.FlapImpulse, o.Gravity, o.MaxFallSpeed, o.TickSeconds,
+                                                o.UpAccel, o.RiseCap, o.ShaftGravityMult);
+
+        /// <summary>한 열의 생존 상태 — 열쇠 칸 번호와 <b>그 칸에 남은 정확한 높이·세로 속도</b>.
         /// 칸 번호는 오름차순이다(되짚기가 "마지막 열의 가장 낮은 생존 상태"에서 시작한다는
         /// 규칙이 이 순서에 기댄다).</summary>
         readonly struct Column
         {
             public readonly int[] States;
             public readonly float[] Heights;
+            public readonly float[] Speeds;
 
-            public Column(int[] states, float[] heights)
+            public Column(int[] states, float[] heights, float[] speeds)
             {
                 States = states;
                 Heights = heights;
+                Speeds = speeds;
             }
         }
 
@@ -377,7 +397,8 @@ namespace LOP.MapTools
         //  열 하나를 되짚기용으로 압축한다. 살아 있는 칸만 담으므로, 열마다 상태표 전체를
         //  들고 있을 때와 달리 긴 코스·높은 대역에서도 메모리가 생존 상태 수에만 비례한다.
         //  같은 한 번의 훑기로 회랑 진단값(생존 수·걸친 높이 폭)도 같이 낸다.
-        static Column Archive(float[] dense, List<int> live, SearchGrid grid, out int count, out float span)
+        static Column Archive(float[] dense, float[] denseSpeeds, List<int> live, SearchGrid grid,
+                              out int count, out float span)
         {
             //  칸 번호 오름차순이어야 한다 — 되짚기가 "가장 낮은 칸부터" 고르는 전제다.
             live.Sort();
@@ -385,22 +406,25 @@ namespace LOP.MapTools
             int lo = int.MaxValue, hi = int.MinValue;
             var states = new int[count];
             var heights = new float[count];
+            var speeds = new float[count];
             for (int n = 0; n < count; n++)
             {
                 int i = live[n];
-                grid.Decode(i, out int bucket, out _, out _);
+                grid.Decode(i, out int bucket, out _);
                 if (bucket < lo) { lo = bucket; }
                 if (bucket > hi) { hi = bucket; }
                 states[n] = i;
                 heights[n] = dense[i];
+                speeds[n] = denseSpeeds[i];
             }
             span = count == 0 ? 0f : (hi - lo) * grid.HeightGrid;
-            return new Column(states, heights);
+            return new Column(states, heights, speeds);
         }
 
-        //  뒤에서 앞으로 한 경로를 뽑는다. 사다리 덕에 직전 상태가 계산으로 나와 부모 포인터가 필요 없다.
+        //  뒤에서 앞으로 한 경로를 뽑는다. 열마다 정확한 (높이, 속도)를 남겨 두어 직전 상태를 앞으로
+        //  굴려 맞춰 볼 수 있으므로 부모 포인터가 필요 없다.
         //  마지막 열의 아무 생존 상태에서 시작해, 매 단계 직전 열의 후보를 앞으로 굴려 맞는 것을 고른다.
-        static bool[] ExtractFlaps(SearchGrid grid, TickSweepProbe tickIsFree,
+        static bool[] ExtractFlaps(SearchGrid grid, TickSweepProbe tickIsFree, AirflowProbe air,
                                    List<Column> columns, in CleanRunOptions options)
         {
             int last = columns.Count - 1;
@@ -409,11 +433,12 @@ namespace LOP.MapTools
                 return System.Array.Empty<bool>();
             }
             //  마지막 열의 가장 낮은 생존 상태에서 시작한다(States가 칸 번호 오름차순이다).
-            //  높이뿐 아니라 <b>그 칸에 남은 정확한 높이</b>도 같이 들고 내려간다 — 아래에서
+            //  칸 번호뿐 아니라 <b>그 칸에 남은 정확한 높이·속도</b>도 같이 들고 내려간다 — 아래에서
             //  직전 상태를 고를 때 "칸이 같다"만으로는 모자라기 때문이다(같은 칸에 들어왔다가
             //  밀려난 후보가 있을 수 있다).
             int target = columns[last].States[0];
             float targetY = columns[last].Heights[0];
+            float targetV = columns[last].Speeds[0];
 
             var flaps = new bool[last];
             for (int column = last; column > 0; column--)
@@ -425,32 +450,31 @@ namespace LOP.MapTools
                 {
                     int state = previous.States[i];
                     float y = previous.Heights[i];
-                    grid.Decode(state, out _, out int ladder, out int rung);
+                    float v = previous.Speeds[i];
 
                     //  두 갈래를 그대로 굴려 목표 상태에 떨어지는지 본다 — 정방향과 같은 규칙이라
                     //  둘이 어긋날 수 없다.
                     for (int flap = 0; flap < 2 && found == false; flap++)
                     {
-                        int nextLadder = flap == 1 ? 0 : ladder;
-                        int nextRung = grid.ClampRung(flap == 1 ? 0 : rung + 1);
-                        float ny = FlappyTickMath.AdvanceHeight(y, grid.Speed(nextLadder, nextRung),
-                                                                options.TickSeconds);
+                        float nvy = NextSpeed(options, air, previousX, y, v, flap == 1);
+                        float ny = FlappyTickMath.AdvanceHeight(y, nvy, options.TickSeconds);
                         if (ny < options.MinY || ny > options.MaxY) { continue; }
-                        if (grid.StateIndex(grid.HeightBucket(ny), nextLadder, nextRung) != target) { continue; }
+                        if (grid.StateIndex(grid.HeightBucket(ny), grid.SpeedBucket(nvy)) != target) { continue; }
                         //  같은 칸에 닿긴 했지만 더 높은 쪽에 밀려난 후보를 걸러낸다. 이걸 빼면
-                        //  되짚기가 정방향이 실제로 남긴 높이와 다른 높이를 고르고, 그 뒤로는
-                        //  탐색이 검사한 적 없는 궤적이 나온다.
-                        if (ny != targetY) { continue; }
-                        //  이 검사는 지금 규칙에선 못 걸린다 — 위 두 조건을 다 통과한 후보는
-                        //  사다리 칸이 같아 속도가 같고 도착 높이도 같으므로, 정방향이 이미
-                        //  자유롭다고 확인한 바로 그 선분이다. 그래도 남겨 두는 건 되짚기 후보
-                        //  선택 규칙(지금은 칸 번호가 가장 낮은 것 우선)이 바뀌면 이 전제가
-                        //  깨져 검사가 다시 의미를 가질 수 있어서다.
-                        if (tickIsFree(previousX, y, grid.Speed(nextLadder, nextRung)) == false) { continue; }
+                        //  되짚기가 정방향이 실제로 남긴 값과 다른 상태를 고르고, 그 뒤로는
+                        //  탐색이 검사한 적 없는 궤적이 나온다. 속도도 정확히 같아야 한다 —
+                        //  기류 안에선 한 칸에 속도가 조금씩 다른 상태가 들어온다.
+                        if (ny != targetY || nvy != targetV) { continue; }
+                        //  이 검사는 지금 규칙에선 못 걸린다 — 위 조건을 다 통과한 후보는 출발
+                        //  높이·속도가 같으므로 정방향이 이미 자유롭다고 확인한 바로 그 선분이다.
+                        //  그래도 남겨 두는 건 되짚기 후보 선택 규칙(지금은 칸 번호가 가장 낮은 것
+                        //  우선)이 바뀌면 이 전제가 깨져 검사가 다시 의미를 가질 수 있어서다.
+                        if (tickIsFree(previousX, y, nvy) == false) { continue; }
 
                         flaps[column - 1] = flap == 1;
                         target = state;
                         targetY = y;
+                        targetV = v;
                         found = true;
                     }
                 }
@@ -469,18 +493,16 @@ namespace LOP.MapTools
         }
 
         //  한 스텝 나아가 본다. 몸이 스치면 그 갈래를 버린다.
-        static bool TryAdvance(SearchGrid grid, TickSweepProbe tickIsFree, float x, float y,
-                               int ladder, int rung, in CleanRunOptions options,
-                               float[] next, List<int> nextLive)
+        static bool TryAdvance(SearchGrid grid, TickSweepProbe tickIsFree, AirflowProbe air, float x, float y,
+                               float vy, bool flap, in CleanRunOptions options,
+                               float[] nextY, float[] nextV, List<int> nextLive)
         {
-            int clamped = grid.ClampRung(rung);
-            float vy = grid.Speed(ladder, clamped);
             //  진짜 커널(FlappyMapPlayabilityCheck.Step → KinematicMover)이 하는 것과 <b>같은
-            //  산술</b>이다: 세로 속도를 사다리에서 꺼내고(중력 한 번 빼고 종단속도로 자른 값,
-            //  날갯짓이면 그 속도를 덮어쓴 값) 그 속도로 한 틱 움직인다. 높이를 눈금에 붙이지
-            //  않고 그대로 이어 간다 — 붙이면 최대 반 칸 어긋난 값이 다음 틱의 <i>입력</i>이
-            //  되어 편향이 쌓이고, 그러면 찾은 경로가 재생에서 깨진다.
-            float ny = FlappyTickMath.AdvanceHeight(y, vy, options.TickSeconds);
+            //  산술</b>이다: 이동 전 자리의 기류로 세로 속도를 한 틱 갱신하고, 그 속도로 한 틱
+            //  움직인다. 높이·속도를 눈금에 붙이지 않고 그대로 이어 간다 — 붙이면 어긋난 값이
+            //  다음 틱의 <i>입력</i>이 되어 편향이 쌓이고, 그러면 찾은 경로가 재생에서 깨진다.
+            float nvy = NextSpeed(options, air, x, y, vy, flap);
+            float ny = FlappyTickMath.AdvanceHeight(y, nvy, options.TickSeconds);
             if (ny < options.MinY || ny > options.MaxY)
             {
                 return false;
@@ -488,33 +510,34 @@ namespace LOP.MapTools
             //  <b>닿았나를 커널과 같은 자로 잰다</b> — 도착점을 눈금에 붙여 찍는 것이 아니라
             //  한 틱 동안 캡슐을 쓸어 본다(벽에서 0.02m 띄우는 여유까지 커널 그대로다).
             //  점 검사는 커널보다 관대해서, 그것으로 찾은 경로가 재생에서 벽에 걸렸다.
-            if (tickIsFree(x, y, vy) == false)
+            if (tickIsFree(x, y, nvy) == false)
             {
                 return false;
             }
-            int index = grid.StateIndex(grid.HeightBucket(ny), ladder, clamped);
+            int index = grid.StateIndex(grid.HeightBucket(ny), grid.SpeedBucket(nvy));
             //  눈금은 여기서만 쓴다 — "이미 가 본 상태인가"의 열쇠다. 같은 칸에 서로 다른
-            //  정확한 높이가 들어오면 <b>더 높은 쪽</b> 하나만 남긴다.
+            //  정확한 상태가 들어오면 <b>더 높은 쪽</b> 하나만 남긴다(속도도 그 쪽 값으로).
             //
             //  왜 높은 쪽인가: 어느 쪽도 우월하지 않아서 <i>순서에 안 흔들리는</i> 쪽을 고른
-            //  것뿐이다. 같은 칸이면 사다리 칸도 같아서 앞으로의 속도 열이 똑같고, 그래서 두
-            //  미래는 0.1m 미만만큼 위아래로 나란히 옮긴 <i>같은 곡선</i>이다 — 바닥이 위험한
-            //  자리에선 높은 쪽이, 천장이 위험한 자리에선 낮은 쪽이 살아남는다. "먼저 도달한
-            //  쪽"으로 하면 상태를 훑는 순서가 답에 새어 들지만, 값으로 정하면 순서와 무관하게
-            //  늘 같은 답이 나온다.
+            //  것뿐이다. 기류 밖에선 같은 칸이면 속도가 똑같아서 두 미래는 0.1m 미만만큼
+            //  위아래로 나란히 옮긴 <i>같은 곡선</i>이다 — 바닥이 위험한 자리에선 높은 쪽이,
+            //  천장이 위험한 자리에선 낮은 쪽이 살아남는다. "먼저 도달한 쪽"으로 하면 상태를
+            //  훑는 순서가 답에 새어 들지만, 값으로 정하면 순서와 무관하게 늘 같은 답이 나온다.
             //
             //  <b>버리는 쪽이 "실제로 있는 경로를 놓치는" 유일하게 남은 원인이다</b>(자유공간
-            //  검사는 이제 커널 그 자체라 더는 원인이 아니다). 밀려난 낮은 쪽으로만 빠져나가는 길이 있으면 탐색은
-            //  그것을 못 본다 — 그래서 이 탐색의 ❌는 "없다"가 아니라 "이 근사 아래서 못
-            //  찾았다"이다.
-            if (float.IsNaN(next[index]))
+            //  검사는 이제 커널 그 자체라 더는 원인이 아니다). 밀려난 쪽으로만 빠져나가는 길이
+            //  있으면 탐색은 그것을 못 본다 — 그래서 이 탐색의 ❌는 "없다"가 아니라 "이 근사
+            //  아래서 못 찾았다"이다.
+            if (float.IsNaN(nextY[index]))
             {
                 nextLive.Add(index);
-                next[index] = ny;
+                nextY[index] = ny;
+                nextV[index] = nvy;
             }
-            else if (ny > next[index])
+            else if (ny > nextY[index])
             {
-                next[index] = ny;
+                nextY[index] = ny;
+                nextV[index] = nvy;
             }
             return true;
         }
@@ -556,15 +579,19 @@ namespace LOP.MapTools
         }
     }
 
-    /// <summary>상태 (높이버킷, 사다리, 칸)을 정수 하나로 누르는 규칙과 세로 속도 사다리.</summary>
+    /// <summary>상태 (높이칸, 세로속도칸)을 정수 하나로 누르는 규칙.</summary>
     internal sealed class SearchGrid
     {
+        /// <summary>세로속도 칸 폭. 기류 밖에서 나오는 속도들(출발 0에서 떨어지는 줄, 날갯짓 뒤
+        /// 떨어지는 줄)은 서로 이 폭보다 훨씬 멀다(실제 설정에서 가장 가까운 둘이 0.28 m/s) — 그래서
+        /// 한 칸에 합쳐지는 건 둘 다 종단속도에 닿아 속도가 똑같아졌을 때뿐이다.</summary>
+        public const float SpeedGrid = 0.05f;
+
         readonly CleanRunOptions options;
-        readonly float[] afterFlap;
-        readonly float[] beforeFlap;
+        readonly float minSpeed;
 
         public readonly int HeightBucketCount;
-        public readonly int RungCount;
+        public readonly int SpeedBucketCount;
         public readonly int StateCount;
         public readonly int ColumnCount;
         public readonly float StepX;
@@ -603,37 +630,12 @@ namespace LOP.MapTools
             //  "다음 x"(nextX)까지 같은 표에서 읽기 위해서다.
             columnX = FlappyTickMath.ColumnXTable(options.StartX, StepX, ColumnCount + 2);
 
-            //  사다리는 −MaxFallSpeed에 닿으면 더 안 변한다. 거기까지만 만들고 그 뒤는 흡수 상태다.
-            float drop = options.Gravity * options.TickSeconds;
-            RungCount = UnityEngine.Mathf.CeilToInt((options.FlapImpulse + options.MaxFallSpeed) / drop) + 2;
-            //  칸 0은 "방금 날갯짓한 직후"(= 날갯짓이 덮어쓴 값, 곧 FlapImpulse)와 "아직 한 번도
-            //  안 한 출발"(= 0)이다. 그 뒤 칸은 전부 진짜 커널과 같은 코드로 한 틱씩 굴린 값이다.
-            afterFlap = BuildLadder(options, options.FlapImpulse, RungCount);
-            beforeFlap = BuildLadder(options, 0f, RungCount);
-
-            StateCount = HeightBucketCount * 2 * RungCount;
+            //  세로 속도는 종단속도(−MaxFallSpeed)와 날갯짓·기류 상한 중 큰 쪽 사이에만 있다.
+            minSpeed = -options.MaxFallSpeed;
+            float maxSpeed = System.Math.Max(options.FlapImpulse, options.RiseCap);
+            SpeedBucketCount = UnityEngine.Mathf.CeilToInt((maxSpeed - minSpeed) / SpeedGrid) + 1;
+            StateCount = HeightBucketCount * SpeedBucketCount;
         }
-
-        static float[] BuildLadder(in CleanRunOptions options, float first, int count)
-        {
-            var ladder = new float[count];
-            ladder[0] = first;
-            for (int i = 1; i < count; i++)
-            {
-                //  사다리는 "날갯짓 뒤 몇 틱 지났나"를 세는 표라 중간에 날갯짓이 없다(flap: false).
-                ladder[i] = FlappyTickMath.NextVerticalSpeed(
-                    ladder[i - 1], flap: false, options.FlapImpulse, options.Gravity,
-                    options.MaxFallSpeed, options.TickSeconds);
-            }
-            return ladder;
-        }
-
-        //  이 경계값(RungCount − 1) 자체는 테스트로 안 갈린다 — 사다리가 −MaxFallSpeed에서
-        //  바닥을 치기 때문에, 마지막 두 칸은 어느 쪽이든 속도가 똑같다. 그래서 여기서
-        //  하나 모자라게 눌러도 밖으로 드러나는 움직임은 달라지지 않는다.
-        public int ClampRung(int rung) => rung >= RungCount ? RungCount - 1 : rung;
-
-        public float Speed(int ladder, int rung) => ladder == 0 ? afterFlap[rung] : beforeFlap[rung];
 
         public int HeightBucket(float y)
         {
@@ -643,15 +645,20 @@ namespace LOP.MapTools
             return bucket;
         }
 
-        public int StateIndex(int heightBucket, int ladder, int rung)
-            => (heightBucket * 2 + ladder) * RungCount + rung;
-
-        public void Decode(int state, out int heightBucket, out int ladder, out int rung)
+        public int SpeedBucket(float vy)
         {
-            rung = state % RungCount;
-            int rest = state / RungCount;
-            ladder = rest % 2;
-            heightBucket = rest / 2;
+            int bucket = UnityEngine.Mathf.RoundToInt((vy - minSpeed) / SpeedGrid);
+            if (bucket < 0) { return 0; }
+            if (bucket >= SpeedBucketCount) { return SpeedBucketCount - 1; }
+            return bucket;
+        }
+
+        public int StateIndex(int heightBucket, int speedBucket) => heightBucket * SpeedBucketCount + speedBucket;
+
+        public void Decode(int state, out int heightBucket, out int speedBucket)
+        {
+            speedBucket = state % SpeedBucketCount;
+            heightBucket = state / SpeedBucketCount;
         }
     }
 }

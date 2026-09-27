@@ -29,6 +29,8 @@ namespace LOP.UI
         private readonly ArcheryShootOffResultTracker resultTracker;
         private readonly CameraController cameraController;
         private readonly ArcheryArrowStickSystem stickSystem;
+        private readonly ArcheryArrowLandings landings;
+        private readonly ArcheryChickenView chickenView;
         private readonly ArcheryCommentary commentary = new ArcheryCommentary(n => UnityEngine.Random.Range(0, n));
         private readonly ArcheryShootOffNarrator narrator = new ArcheryShootOffNarrator();
         private readonly List<string> roster = new List<string>();
@@ -62,7 +64,8 @@ namespace LOP.UI
                                            ArcheryConfig config,
                                            ArcheryShootOffResultTracker resultTracker,
                                            CameraController cameraController,
-                                           ArcheryArrowStickSystem stickSystem)
+                                           ArcheryArrowStickSystem stickSystem,
+                                           ArcheryArrowLandings landings, ArcheryChickenView chickenView)
         {
             this.runner = runner;
             this.config = config;
@@ -74,6 +77,10 @@ namespace LOP.UI
             this.cameraController = cameraController;
             this.stickSystem = stickSystem;
             subscription = batchSubscriber.Subscribe(OnWorldEventBatch);
+            this.landings = landings;
+            this.chickenView = chickenView;
+            landings.Landed += OnLanded;
+            chickenView.Scared += OnChickenScared;
         }
 
         /// <summary>새로 들어온 남의 10점 하나를 꺼낸다(내 것은 패드가 띄운다). 꽂힌 자리를 아직 모르면 건너뛴다.</summary>
@@ -355,6 +362,20 @@ namespace LOP.UI
             commentary.TrySay(line, NameOf(subject), number, now);
         }
 
+        private void OnLanded(ArcheryArrowLanding landing)
+        {
+            if (landing.Kind == ArcheryLandingKind.Crowd)
+            {
+                commentary.TrySay(ArcheryLine.CrowdHit, NameOf(landing.ShooterId), 0, now);
+            }
+            else if (landing.Kind == ArcheryLandingKind.Target && landing.SplitArrow)
+            {
+                commentary.TrySay(ArcheryLine.RobinHood, NameOf(landing.ShooterId), 0, now);
+            }
+        }
+
+        private void OnChickenScared(string shooterId) => commentary.TrySay(ArcheryLine.Chicken, NameOf(shooterId), 0, now);
+
         /// <summary>
         /// 나면 "당신", 남이면 "{n}P 선수". 클라 엔티티엔 표시 이름이 없어서 <b>엔티티 id 서수 순서</b>로
         /// 번호를 매긴다(나 포함) — 어느 클라에서 봐도 같은 사람이 같은 번호이고, 화면 좌우 배치
@@ -405,6 +426,8 @@ namespace LOP.UI
         public void Dispose()
         {
             subscription?.Dispose();
+            landings.Landed -= OnLanded;
+            chickenView.Scared -= OnChickenScared;
             if (cameraController != null)
             {
                 cameraController.ShakeOffset = Vector3.zero;

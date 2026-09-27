@@ -7,7 +7,7 @@ namespace LOP
 {
     /// <summary>
     /// 한 발 승부의 지난 라운드 결과와 선수별 마지막 10점 시각을 모아 둔다. 결과 패널(HUD)과 캐릭터
-    /// 리액션(좌우 배치 뷰)이 같은 값을 읽는다 — 둘이 따로 세면 패널은 닫혔는데 캐릭터는 계속 뛴다.
+    /// 리액션(<see cref="ArcheryShootOffReactionView"/>)이 같은 값을 읽는다 — 둘이 따로 세면 패널은 닫혔는데 캐릭터는 계속 뛴다.
     /// </summary>
     public class ArcheryShootOffResultTracker : MessageHandlerBase
     {

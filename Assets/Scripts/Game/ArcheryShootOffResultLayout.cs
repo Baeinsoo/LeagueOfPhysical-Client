@@ -19,7 +19,7 @@ namespace LOP
             new Color(0xF5 / 255f, 0x9E / 255f, 0x0B / 255f),
         };
 
-        //  화면 좌우 배치와 같은 기준 — 누구 화면에서 줄 세워도 같은 순서다.
+        //  엔티티 id 순서 — 누구 화면에서 줄 세워도 같은 순서다(서는 자리와는 별개다, 자리는 라운드마다 돈다).
         public static List<string> Roster(IEnumerable<string> ids)
         {
             var list = new List<string>(ids);

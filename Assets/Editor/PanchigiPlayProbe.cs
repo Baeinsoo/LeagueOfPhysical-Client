@@ -59,8 +59,8 @@ namespace LOP.EditorTools
             sb.Append(" 나=").Append(myEntityId);
             sb.Append(" 동전=").Append(positions.Length);
             sb.Append(" 멎음=").Append(still);
-            sb.Append(" 낙=").Append(store.GetDropOutCount(myEntityId));
-            sb.Append(" 탈락=").Append(store.IsEliminated(myEntityId));
+            sb.Append(" 타격=").Append(string.Join(",", System.Linq.Enumerable.Select(store.Rolls(myEntityId), r => r.Foul ? "F" : r.Flipped.ToString())));
+            sb.Append(" 판주인=").Append(store.BoardOwnerEntityId);
             sb.Append(" 게이지=").Append(input.Charge.ToString("F2"));
             sb.Append(" z=[").Append(string.Join(",", positions.Select(v => v.z.ToString("F2")))).Append("]");
             return sb.ToString();

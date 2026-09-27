@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -32,15 +33,13 @@ namespace LOP.UI
             base.OnOpen();
 
             var turnLabel = Root.Q<Label>("turn-label");
-            var flipLabel = Root.Q<Label>("flip-label");
-            var dropOutLabel = Root.Q<Label>("dropout-label");
+            var scoreboard = Root.Q<VisualElement>("scoreboard");
             var chargeTrack = Root.Q<VisualElement>("charge-track");
             var chargeFill = Root.Q<VisualElement>("charge-fill");
             _tick = Root.schedule.Execute(_ =>
             {
                 turnLabel.text = _viewModel.Label();
-                flipLabel.text = _viewModel.FlipLabel();
-                dropOutLabel.text = _viewModel.DropOutLabel();
+                RenderScoreboard(scoreboard, _viewModel.Rows());
 
                 bool charging = _viewModel.IsCharging();
                 chargeTrack.style.display = charging ? DisplayStyle.Flex : DisplayStyle.None;
@@ -53,6 +52,61 @@ namespace LOP.UI
                     chargeFill.style.backgroundColor = Color.Lerp(Calm, Hot, t);
                 }
             }).Every(0);
+        }
+
+        //  줄 수·칸 수가 같으면 라벨 글자만 바꾼다 — 매 프레임 요소를 새로 만들면 UI Toolkit 레이아웃이 매번 다시 돈다.
+        private static void RenderScoreboard(VisualElement board, IReadOnlyList<PanchigiTurnViewModel.ScoreRow> rows)
+        {
+            if (rows.Count > 0 && board.childCount > 0 && board[0].Q($"frame-{rows[0].Frames.Count - 1}") == null)
+            {
+                board.Clear();   // 프레임 수가 바뀌었다
+            }
+            while (board.childCount > rows.Count) { board.RemoveAt(board.childCount - 1); }
+            while (board.childCount < rows.Count) { board.Add(NewRow(rows[0].Frames.Count)); }
+
+            for (int r = 0; r < rows.Count; r++)
+            {
+                var row = rows[r];
+                VisualElement line = board[r];
+                line.EnableInClassList("score-row--current", row.Current);
+                line.Q("chip").style.backgroundColor = row.Color;
+                line.Q<Label>("name").text = row.Name;
+                for (int f = 0; f < row.Frames.Count; f++)
+                {
+                    VisualElement cell = line.Q($"frame-{f}");
+                    cell.Q<Label>("marks").text = string.Join(" ", row.Frames[f].Marks);
+                    cell.Q<Label>("cum").text = row.Frames[f].Cumulative?.ToString() ?? string.Empty;
+                }
+                line.Q<Label>("total").text = row.Total.ToString();
+            }
+        }
+
+        private static VisualElement NewRow(int frameCount)
+        {
+            var line = new VisualElement();
+            line.AddToClassList("score-row");
+            var chip = new VisualElement { name = "chip" };
+            chip.AddToClassList("score-chip");
+            line.Add(chip);
+            var name = new Label { name = "name" };
+            name.AddToClassList("score-name");
+            line.Add(name);
+            for (int f = 0; f < frameCount; f++)
+            {
+                var cell = new VisualElement { name = $"frame-{f}" };
+                cell.AddToClassList("score-frame");
+                var marks = new Label { name = "marks" };
+                marks.AddToClassList("score-marks");
+                var cum = new Label { name = "cum" };
+                cum.AddToClassList("score-cum");
+                cell.Add(marks);
+                cell.Add(cum);
+                line.Add(cell);
+            }
+            var total = new Label { name = "total" };
+            total.AddToClassList("score-total");
+            line.Add(total);
+            return line;
         }
 
         //  판 왼쪽 옆에 붙인다. 값이 하나라도 수상하면 아무것도 안 쓰고 USS에 적힌 자리를 그대로 둔다 —

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using GameFramework;
 using MessagePipe;
 
@@ -18,8 +19,14 @@ namespace LOP
 
         private void OnState(PanchigiStateToC message)
         {
-            store.Set(message.Phase, message.CurrentEntityId, message.AimDeadlineTick, message.TurnCount,
-                message.DropOutCounts, message.EliminatedEntityIds);
+            var players = new List<(string, IReadOnlyList<PanchigiRoll>)>(message.Players.Count);
+            foreach (PanchigiPlayerRolls player in message.Players)
+            {
+                var list = new List<PanchigiRoll>(player.Rolls.Count);
+                foreach (PanchigiRollInfo roll in player.Rolls) { list.Add(new PanchigiRoll(roll.Flipped, roll.Foul)); }
+                players.Add((player.EntityId, list));
+            }
+            store.Set(message.Phase, message.CurrentEntityId, message.AimDeadlineTick, players);
         }
     }
 }

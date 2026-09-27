@@ -35,12 +35,6 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 닫는_틱은_라운드_마감_더하기_틈_빼기_60()
-        {
-            Assert.AreEqual(1000L + 200L - 60L, ArcheryShootOffResultLayout.CloseTick(1000L, 200));
-        }
-
-        [Test]
         public void 과녁_가운데는_패널_가운데_오른쪽_위는_오른쪽_위()
         {
             var center = new Vector2(150f, 150f);

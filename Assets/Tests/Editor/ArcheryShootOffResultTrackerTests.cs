@@ -7,7 +7,7 @@ namespace LOP.Tests
     public class ArcheryShootOffResultTrackerTests
     {
         //  구독은 Initialize 때만 한다 — 시험은 의존 없이 메서드를 직접 부른다.
-        private static ArcheryShootOffResultTracker Tracker() => new ArcheryShootOffResultTracker(null, null, null, null);
+        private static ArcheryShootOffResultTracker Tracker() => new ArcheryShootOffResultTracker(null, null, null);
 
         private static ArcheryRoundResultEvent Result(params ArcheryRoundPlacement[] p)
             => new ArcheryRoundResultEvent(2, 1, new List<ArcheryRoundPlacement>(p));

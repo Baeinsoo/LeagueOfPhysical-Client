@@ -14,7 +14,6 @@ namespace LOP
         private readonly ISubscriber<WorldEventBatchToC> batchSubscriber;
         private readonly ArcheryCourse course;
         private readonly ArcheryWorld world;
-        private readonly ArcheryConfig config;
 
         private readonly List<ArcheryRoundPlacement> byRank = new List<ArcheryRoundPlacement>();
         private readonly Dictionary<string, float> bullAt = new Dictionary<string, float>();
@@ -26,12 +25,11 @@ namespace LOP
         public int Version { get; private set; }
 
         public ArcheryShootOffResultTracker(ISubscriber<WorldEventBatchToC> batchSubscriber, ArcheryCourse course,
-                                            ArcheryWorld world, ArcheryConfig config)
+                                            ArcheryWorld world)
         {
             this.batchSubscriber = batchSubscriber;
             this.course = course;
             this.world = world;
-            this.config = config;
         }
 
         protected override void Subscribe() => Track(batchSubscriber.Subscribe(OnWorldEventBatch));
@@ -43,8 +41,7 @@ namespace LOP
                 if (rec.EventCase == WorldEventToC.EventOneofCase.ArcheryRoundResult)
                 {
                     var result = (ArcheryRoundResultEvent)WorldEventWire.FromWire(rec);
-                    long close = ArcheryShootOffResultLayout.CloseTick(
-                        course.RoundCloseTick(result.roundIndex, world.GameplayStartTick), config.Range.StepGapTicks);
+                    long close = course.ResultEndTick(result.roundIndex, world.GameplayStartTick);
                     OnRoundResult(result, Time.time, close);
                 }
                 else if (rec.EventCase == WorldEventToC.EventOneofCase.ArcheryHit)

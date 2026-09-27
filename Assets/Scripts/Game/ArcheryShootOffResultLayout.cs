@@ -10,7 +10,6 @@ namespace LOP
         public const float PinStaggerSeconds = 0.15f;
         private const float DrawLimit = 1.25f;
         private const float CloseGapMeters = 0.03f;
-        private const int CloseBeforeNextTicks = 60;   // 다음 라운드 과녁이 서기 1.2초 전
 
         private static readonly Color[] Palette =
         {
@@ -39,9 +38,6 @@ namespace LOP
             }
             return Color.white;   // 판 중간에 나간 사람
         }
-
-        public static long CloseTick(long roundCloseTick, int stepGapTicks)
-            => roundCloseTick + stepGapTicks - CloseBeforeNextTicks;
 
         public static bool IsDrawn(Vector2 faceMeters, float faceRadius)
             => faceRadius > 0f && faceMeters.magnitude <= faceRadius * DrawLimit;

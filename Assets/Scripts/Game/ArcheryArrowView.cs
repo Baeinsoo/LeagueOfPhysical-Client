@@ -15,7 +15,6 @@ namespace LOP
         private readonly ArcheryConsumed consumed;
         private readonly ArcheryArrowStickSystem stickSystem;
         private readonly ArcheryCourse course;
-        private readonly ArcheryShootOffLineupView lineupView;
 
         //  화살을 처음 본 순간 이미 흘러 있던 시간(초). 남의 화살은 소식이 늦어 0이 아니다.
         private readonly Dictionary<(string shooterId, long fireTick), float> firstSeenSeconds =
@@ -92,14 +91,13 @@ namespace LOP
 
         public ArcheryArrowView(GameFramework.Runner.IRunner runner, ArcheryWorld world,
                                 ArcheryConsumed consumed, ArcheryArrowStickSystem stickSystem,
-                                ArcheryCourse course, ArcheryShootOffLineupView lineupView)
+                                ArcheryCourse course)
         {
             this.runner = runner;
             this.world = world;
             this.consumed = consumed;
             this.stickSystem = stickSystem;
             this.course = course;
-            this.lineupView = lineupView;
         }
 
 
@@ -169,7 +167,6 @@ namespace LOP
                 {
                     seconds = 0f;   // 아직 떠나기 전 프레임 — 출발점에 둔다
                 }
-                float flight = FlightSecondsOf(shots[i]);
                 float firstSeen = FirstSeenSecondsOf(key, seconds);
 
                 //  꽂혔는지는 틱 시스템이 정한다 — 뷰는 그 결과를 읽어 과녁에 붙여 그릴 뿐이다.
@@ -189,7 +186,7 @@ namespace LOP
                 }
 
                 //  꼬리선: 꽂힌 뒤에도 꼬리가 과녁까지 빨려 들어갈 때까지 그린다.
-                UpdateTrail(key, shots[i], seconds, hasImpact ? impact.Seconds : seconds, firstSeen, flight);
+                UpdateTrail(key, shots[i], seconds, hasImpact ? impact.Seconds : seconds, firstSeen);
 
                 if (stuck.ContainsKey(key))
                 {
@@ -263,7 +260,7 @@ namespace LOP
                     continue;
                 }
 
-                arrow.transform.position = DisplayPositionAt(shots[i], seconds, flight);
+                arrow.transform.position = ArcheryTrajectory.PositionAt(shots[i], seconds);
                 if (velocity.sqrMagnitude > 1e-6f)
                 {
                     arrow.transform.rotation = Quaternion.LookRotation(velocity);
@@ -311,19 +308,6 @@ namespace LOP
             }
         }
 
-        //  한 발 승부: 남의 화살은 화면 속 그 캐릭터의 활에서 떠나 실제 꽂힐 점으로 모인다.
-        //  꽂히는 자리는 진짜고, 날아가는 모양만 연출이다(판정도, 땅 충돌 검사도 이 값을 안 본다).
-        private Vector3 DisplayPositionAt(in ArcheryShot shot, float seconds, float flight)
-        {
-            Vector3 position = ArcheryTrajectory.PositionAt(shot, seconds);
-            Vector3 displayOffset = lineupView.DisplayOffsetOf(shot.ShooterId);
-            if (displayOffset != Vector3.zero)
-            {
-                position += displayOffset * ArcheryShootOffLineup.ArrowBlend(seconds, flight);
-            }
-            return position;
-        }
-
         //  남의 화살은 발사 소식이 늦게 와서 비행 중간에 처음 보인다. 그때 이미 흘러 있던 시간을
         //  적어 두고, 꼬리선이 그 순간 활부터 지나온 길을 그리게 한다(순간이동처럼 안 보이게).
         private float FirstSeenSecondsOf((string, long) key, float seconds)
@@ -339,7 +323,7 @@ namespace LOP
         //  꼬리는 화살이 지나온 실제 궤적 위의 점들이다 — 머리(지금 또는 꽂힌 순간)부터
         //  꼬리 끝(TrailTailSeconds)까지. 꼬리 끝이 머리를 따라잡으면 선을 치운다.
         private void UpdateTrail((string, long) key, in ArcheryShot shot, float seconds, float headSeconds,
-                                 float firstSeen, float flight)
+                                 float firstSeen)
         {
             float tail = ArcheryArrowDisplay.TrailTailSeconds(seconds, firstSeen, TrailSeconds);
             if (tail >= headSeconds - 1e-4f)
@@ -366,7 +350,7 @@ namespace LOP
             for (int j = 0; j < TrailPoints; j++)
             {
                 float t = Mathf.Lerp(tail, headSeconds, j / (float)(TrailPoints - 1));
-                line.SetPosition(j, DisplayPositionAt(shot, t, flight));
+                line.SetPosition(j, ArcheryTrajectory.PositionAt(shot, t));
             }
         }
 
@@ -403,19 +387,6 @@ namespace LOP
                 new[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) },
                 new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.35f, 0.6f), new GradientAlphaKey(0.9f, 1f) });
             return gradient;
-        }
-
-        //  과녁까지 가는 데 걸리는 시간 = 과녁 거리 ÷ 수평 속도. 레인이 없는 맵(원형)은 모른다(0).
-        private float FlightSecondsOf(in ArcheryShot shot)
-        {
-            if (course.IsLaned == false)
-            {
-                return 0f;
-            }
-            int step = course.IndexAt(shot.FireTick, world.GameplayStartTick);
-            float distance = course.StandDistanceAt(step);
-            float speed = new Vector2(shot.Velocity.x, shot.Velocity.z).magnitude;
-            return speed > 0.01f ? distance / speed : 0f;
         }
 
         //  꽂힌 채 과녁을 따라 움직이다가, 과녁이 내려가거나 치워지면 같이 치운다.

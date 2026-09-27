@@ -13,6 +13,12 @@
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:Label name="caption" class="shootoff-caption" picking-mode="Ignore" />
-        <ui:VisualElement name="result" class="shootoff-result" picking-mode="Ignore" />
+        <ui:VisualElement name="result" class="shootoff-result" picking-mode="Ignore">
+            <ui:Label name="result-headline" class="shootoff-result-headline" picking-mode="Ignore" />
+            <ui:VisualElement class="shootoff-result-body" picking-mode="Ignore">
+                <ui:VisualElement name="result-face" class="shootoff-result-face" picking-mode="Ignore" />
+                <ui:VisualElement name="result-list" class="shootoff-result-list" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

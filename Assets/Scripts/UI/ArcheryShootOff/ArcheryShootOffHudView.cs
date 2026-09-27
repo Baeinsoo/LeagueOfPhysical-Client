@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -13,6 +14,10 @@ namespace LOP.UI
         private Label _windText;
         private Label _caption;
         private VisualElement _result;
+        private Label _resultHeadline;
+        private VisualElement _resultList;
+        private ArcheryShootOffResultPanel _face;
+        private int _pinCount;
         private int _drawnResultVersion = -1;
         private IVisualElementScheduledItem _tick;
 
@@ -33,6 +38,11 @@ namespace LOP.UI
             _windText = Root.Q<Label>("wind-text");
             _caption = Root.Q<Label>("caption");
             _result = Root.Q<VisualElement>("result");
+            _resultHeadline = Root.Q<Label>("result-headline");
+            _resultList = Root.Q<VisualElement>("result-list");
+            _face = new ArcheryShootOffResultPanel();
+            _face.style.flexGrow = 1f;
+            Root.Q<VisualElement>("result-face").Add(_face);
 
             _tick = Root.schedule.Execute(_ => Refresh()).Every(0);
         }
@@ -55,27 +65,63 @@ namespace LOP.UI
             _caption.text = caption;
             _caption.style.display = string.IsNullOrEmpty(caption) ? DisplayStyle.None : DisplayStyle.Flex;
 
-            _result.style.display = _viewModel.ResultVisible ? DisplayStyle.Flex : DisplayStyle.None;
+            bool showResult = _viewModel.ResultVisible;
+            _result.style.display = showResult ? DisplayStyle.Flex : DisplayStyle.None;
             if (_viewModel.ResultVersion != _drawnResultVersion)
             {
                 _drawnResultVersion = _viewModel.ResultVersion;
                 DrawResult();
             }
+            if (showResult)
+            {
+                _face.SetShown(ArcheryShootOffResultLayout.PinsShown(_viewModel.ResultSeconds, _pinCount));
+            }
         }
 
         private void DrawResult()
         {
-            _result.Clear();
-            var rows = _viewModel.ResultRows;
-            for (int i = 0; i < rows.Count; i++)
+            var byRank = _viewModel.ResultByRank;
+            float radius = _viewModel.ResultFaceRadius;
+
+            _resultHeadline.text = _viewModel.ResultHeadline;
+            _face.SetFace(radius, _viewModel.FaceBands);
+
+            var pins = new List<(Vector2, Color)>();
+            foreach (int i in ArcheryShootOffResultLayout.PinOrder(byRank, radius))
             {
-                var (name, points, detail) = rows[i];
-                var label = new Label($"{name}   +{points}   {detail}");
-                label.AddToClassList("shootoff-result-row");
-                label.EnableInClassList("is-first", i == 0 && points > 0);
-                label.pickingMode = PickingMode.Ignore;
-                _result.Add(label);
+                pins.Add((byRank[i].FaceOffset, _viewModel.ColorOf(byRank[i].ShooterId)));
             }
+            _face.SetPins(pins);
+            _pinCount = pins.Count;
+
+            _resultList.Clear();
+            foreach (var p in byRank)
+            {
+                var row = new VisualElement();
+                row.AddToClassList("shootoff-result-row");
+                row.EnableInClassList("is-me", _viewModel.ResultName(p.ShooterId) == "나");
+                row.pickingMode = PickingMode.Ignore;
+
+                var dot = new VisualElement();
+                dot.AddToClassList("shootoff-result-dot");
+                dot.style.backgroundColor = _viewModel.ColorOf(p.ShooterId);
+                dot.pickingMode = PickingMode.Ignore;
+                row.Add(dot);
+
+                row.Add(Text(ArcheryShootOffResultLayout.RankLabel(p.Rank)));
+                row.Add(Text(_viewModel.ResultName(p.ShooterId)));
+                row.Add(Text(ArcheryShootOffResultLayout.PointsText(p.Points, _viewModel.ResultMultiplier)));
+                row.Add(Text(ArcheryShootOffResultLayout.DistanceText(p.Hit, p.Distance)));
+                _resultList.Add(row);
+            }
+        }
+
+        private static Label Text(string text)
+        {
+            var label = new Label(text);
+            label.AddToClassList("shootoff-result-text");
+            label.pickingMode = PickingMode.Ignore;
+            return label;
         }
 
         private bool _disposed;

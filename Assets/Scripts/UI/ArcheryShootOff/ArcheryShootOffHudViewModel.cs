@@ -25,10 +25,9 @@ namespace LOP.UI
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly IDisposable subscription;
 
+        private readonly ArcheryShootOffResultTracker resultTracker;
         private readonly ArcheryCommentary commentary = new ArcheryCommentary(n => UnityEngine.Random.Range(0, n));
         private readonly ArcheryShootOffNarrator narrator = new ArcheryShootOffNarrator();
-        private readonly List<(string name, int points, string detail)> resultRows =
-            new List<(string name, int points, string detail)>();
         private readonly List<string> roster = new List<string>();
 
         private bool hasIndex;
@@ -45,21 +44,14 @@ namespace LOP.UI
         /// <summary>이 라운드에 쏠 수 있는 시간이 얼마나 남았나(1 → 0).</summary>
         public float TimeLeft01 { get; private set; }
 
-        /// <summary>순위 순서. 이름·이번 라운드 점수·과녁 중심에서 떨어진 거리.</summary>
-        public IReadOnlyList<(string name, int points, string detail)> ResultRows => resultRows;
-
-        public bool ResultVisible { get; private set; }
-
-        /// <summary>결과 목록이 새로 채워질 때마다 오른다 — View가 이걸 보고 한 번만 다시 그린다.</summary>
-        public int ResultVersion { get; private set; }
-
         public string Caption => commentary.IsShowing(now) ? commentary.Text : string.Empty;
 
         public ArcheryShootOffHudViewModel(GameFramework.Runner.IRunner runner, ArcheryWorld world,
                                            ArcheryCourse course, IGameDataStore gameDataStore,
                                            GameFramework.World.EntityRegistry entityRegistry,
                                            ISubscriber<WorldEventBatchToC> batchSubscriber,
-                                           ArcheryConfig config)
+                                           ArcheryConfig config,
+                                           ArcheryShootOffResultTracker resultTracker)
         {
             this.runner = runner;
             this.config = config;
@@ -67,6 +59,7 @@ namespace LOP.UI
             this.course = course;
             this.gameDataStore = gameDataStore;
             this.entityRegistry = entityRegistry;
+            this.resultTracker = resultTracker;
             subscription = batchSubscriber.Subscribe(OnWorldEventBatch);
         }
 
@@ -75,6 +68,7 @@ namespace LOP.UI
             this.now = now;
             if (runner?.tickUpdater == null || runner.tickUpdater.interval <= 0d)
             {
+                ResultVisible = false;
                 return;
             }
 
@@ -83,6 +77,8 @@ namespace LOP.UI
             double renderTick = (runner.tickUpdater.elapsedTime - interval) / interval;
             long tick = (long)Math.Floor(renderTick);
             long start = world.GameplayStartTick;
+            ResultVisible = resultTracker.IsShowing(renderTick);
+
             int index = course.IndexAt(tick, start);
             bool inRound = index >= 0 && index < course.StepCount;
 
@@ -116,11 +112,43 @@ namespace LOP.UI
             }
         }
 
+        public bool ResultVisible { get; private set; }
+        public int ResultVersion => resultTracker.Version;
+        public IReadOnlyList<ArcheryRoundPlacement> ResultByRank => resultTracker.ByRank;
+        public int ResultMultiplier => resultTracker.Current?.multiplier ?? 1;
+        public float ResultFaceRadius => resultTracker.Current == null ? 0f : course.FaceRadiusAt(resultTracker.Current.roundIndex);
+        public IReadOnlyList<ArcheryRingBand> FaceBands => course.FaceBands;
+        public float ResultSeconds => now - resultTracker.OpenedAt;
+        public string ResultHeadline => ArcheryShootOffResultLayout.Headline(resultTracker.ByRank, NameOf);
+
+        /// <summary>목록에 쓰는 짧은 이름 — 나는 "나", 남은 "{n}P".</summary>
+        public string ResultName(string entityId)
+        {
+            if (entityId == gameDataStore.userEntityId)
+            {
+                return "나";
+            }
+            string full = NameOf(entityId);
+            return full.EndsWith(" 선수") ? full.Substring(0, full.Length - 3) : full;
+        }
+
+        public Color ColorOf(string entityId)
+        {
+            roster.Clear();
+            foreach (var entity in entityRegistry.All)
+            {
+                if (entity.Has<ArcheryScore>())
+                {
+                    roster.Add(entity.Id);
+                }
+            }
+            return ArcheryShootOffResultLayout.ColorOf(ArcheryShootOffResultLayout.Roster(roster), entityId);
+        }
+
         private void OnRoundChanged(int index, float wind)
         {
             if (index >= 0 && index < course.StepCount)
             {
-                ResultVisible = false;
                 if (Mathf.Abs(wind) >= StrongWind)
                 {
                     commentary.TrySay(ArcheryLine.Wind, wind > 0f ? "오른" : "왼", 0, now);
@@ -190,15 +218,6 @@ namespace LOP.UI
 
         private void OnRoundResult(ArcheryRoundResultEvent result)
         {
-            resultRows.Clear();
-            foreach (var p in result.placements)
-            {
-                string detail = p.Hit ? $"{Mathf.RoundToInt(p.Distance * 100f)}cm" : "빗나감";
-                resultRows.Add((NameOf(p.ShooterId), p.Points, detail));
-            }
-            ResultVisible = true;
-            ResultVersion++;
-
             var line = narrator.LineFor(result, gameDataStore.userEntityId, out string subject, out int number);
             commentary.TrySay(line, NameOf(subject), number, now);
         }

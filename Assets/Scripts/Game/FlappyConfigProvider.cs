@@ -36,7 +36,10 @@ namespace LOP
                 chaserAcceleration: r.ChaserAcceleration,
                 chaserMaxSpeed: r.ChaserMaxSpeed,
                 finishBrake: r.FinishBrake,
-                dashChargeMinFall: r.DashChargeMinFall);
+                dashChargeMinFall: r.DashChargeMinFall,
+                airflowUpAccel: r.AirflowUpAccel,
+                airflowRiseCap: r.AirflowRiseCap,
+                shaftGravityMult: r.ShaftGravityMult);
         }
     }
 }

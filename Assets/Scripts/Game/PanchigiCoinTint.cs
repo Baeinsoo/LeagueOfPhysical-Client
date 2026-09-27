@@ -5,12 +5,14 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// 판 위 동전을 지금 프레임을 치는 사람의 색으로 칠한다 — 누구 프레임인지 한눈에 보이게.
+    /// 판 위 동전의 테두리를 지금 프레임을 치는 사람의 색으로 칠한다 — 누구 프레임인지 한눈에 보이게.
+    /// 앞뒷면(Face·FaceTop)은 칠하지 않는다 — 뒤집혔는지 읽는 것이 판치기의 핵심이라 그 대비를 지켜야 한다.
     /// 동전 외형은 비동기로 붙으므로 매 프레임 확인하되, 색이 같으면 아무것도 안 한다.
     /// </summary>
     public class PanchigiCoinTint : ITickable
     {
         private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
+        private const string RimName = "Body";   // 동전 프리팹의 테두리 오브젝트
 
         private readonly PanchigiStateStore store;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
@@ -38,6 +40,7 @@ namespace LOP
 
                 foreach (Renderer renderer in view.visualGameObject.GetComponentsInChildren<Renderer>())
                 {
+                    if (renderer.name != RimName) { continue; }
                     if (painted.TryGetValue(renderer, out Color current) && current == color) { continue; }
                     renderer.GetPropertyBlock(block);
                     block.SetColor(BaseColor, color);

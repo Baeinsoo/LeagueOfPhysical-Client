@@ -61,7 +61,8 @@ namespace LOP.UI
             public int Total;
         }
 
-        private const int Pins = 6;
+        //  핀 = 판에 놓인 동전 수 — 4인 판은 8개다. 서버도 동전 수로 센다.
+        private int Pins => PanchigiCoin.PinCount(entityRegistry.All, fallback: 6);
         private int FrameCount => masterData.Tables.TbPanchigiConfig.GetOrDefault(1)?.FrameCount ?? 5;
 
         /// <summary>점수판 — 참가 순서대로 한 줄씩.</summary>

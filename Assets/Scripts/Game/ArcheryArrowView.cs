@@ -266,8 +266,18 @@ namespace LOP
 
                     alive.Remove(key);
                     drawn.Remove(key);
-                    landed[key] = new LandedArrow(arrow, Time.time + LandedSeconds);
                     var kind = landings.IsCrowd(ground.collider) ? ArcheryLandingKind.Crowd : ArcheryLandingKind.Ground;
+                    if (kind == ArcheryLandingKind.Crowd)
+                    {
+                        //  관중석에 꽂힌 화살은 관객 머리 화살이 대신한다 — 허공에 떠 보이지 않게 바로 치운다.
+                        //  기록은 남긴다(그림 없이) — 안 남기면 다음 프레임에 다시 날아와 또 꽂힌다.
+                        Object.Destroy(arrow);
+                        landed[key] = new LandedArrow(null, Time.time + LandedSeconds);
+                    }
+                    else
+                    {
+                        landed[key] = new LandedArrow(arrow, Time.time + LandedSeconds);
+                    }
                     landings.Publish(new ArcheryArrowLanding(shots[i].ShooterId, kind, ground.point, false));
                     RemoveTrail(key);
                     continue;
@@ -490,7 +500,10 @@ namespace LOP
             }
             foreach (var key in expired)
             {
-                Object.Destroy(landed[key].Arrow);
+                if (landed[key].Arrow != null)
+                {
+                    Object.Destroy(landed[key].Arrow);
+                }
                 landed.Remove(key);
             }
         }
@@ -507,7 +520,10 @@ namespace LOP
 
             foreach (var pair in landed)
             {
-                Object.Destroy(pair.Value.Arrow);
+                if (pair.Value.Arrow != null)
+                {
+                    Object.Destroy(pair.Value.Arrow);
+                }
             }
             landed.Clear();
 

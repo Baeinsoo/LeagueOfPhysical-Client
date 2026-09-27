@@ -23,7 +23,6 @@ namespace LOP
         private readonly ISubscriber<WorldEventBatchToC> batchSubscriber;
         private readonly ArcheryArrowLandings landings;
         private readonly IPlayerContext playerContext;
-        private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly ArcheryShootOffNarrator narrator = new ArcheryShootOffNarrator();
 
         private ArcheryCrowdDriver driver;
@@ -56,7 +55,7 @@ namespace LOP
 
         public ArcheryCrowdView(ArcheryCourse course, ArcheryWorld world, GameFramework.Runner.IRunner runner,
                                 ISubscriber<WorldEventBatchToC> batchSubscriber, ArcheryArrowLandings landings,
-                                IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry)
+                                IPlayerContext playerContext)
         {
             this.course = course;
             this.world = world;
@@ -64,7 +63,6 @@ namespace LOP
             this.batchSubscriber = batchSubscriber;
             this.landings = landings;
             this.playerContext = playerContext;
-            this.entityRegistry = entityRegistry;
         }
 
         public void Start()
@@ -128,7 +126,9 @@ namespace LOP
             {
                 wind = WindAcross(course.WindAt(tick, start));   // 라운드 밖에는 마지막 바람을 그대로 둔다
             }
-            director.BaseMood = inRound && course.MultiplierAt(index) >= 2 ? ArcheryCrowdMood.Hush : ArcheryCrowdMood.Idle;
+            //  마지막 라운드는 결과가 나올 때까지만 조용하다.
+            bool hush = inRound && course.MultiplierAt(index) >= 2 && tick < course.RoundCloseTick(index, start);
+            director.BaseMood = hush ? ArcheryCrowdMood.Hush : ArcheryCrowdMood.Idle;
 
             if (hasIndex && index != lastIndex && index >= course.StepCount && lastIndex >= 0 && lastIndex < course.StepCount)
             {
@@ -159,10 +159,18 @@ namespace LOP
             if (fan.Cloth != null)
             {
                 var flag = ArcheryFlagPose.At(wind, now, seat.Phase);
-                Vector3 side = flag.Side == 0 ? Vector3.down
-                    : Vector3.Slerp(Vector3.down, layout.Right * flag.Side, Mathf.Max(0.35f, flag.Extend)).normalized;
-                fan.Cloth.rotation = Quaternion.AngleAxis(flag.FlapDegrees, side) * Quaternion.FromToRotation(Vector3.right, side);
+                fan.Cloth.localRotation = ClothRotation(flag);
             }
+        }
+
+        //  관중 로컬 좌표: +X = 사수 기준 왼쪽, +Z = 사수 쪽. 천은 +X로 뻗고 아랫변이 −Y다.
+        //  오른쪽 바람이면 Y로 180° 돌려 좌우를 바꾸고, 약할수록 Z축으로 더 내려 늘어뜨린다(처짐 = 90°).
+        //  천 평면은 늘 사수를 향하고, 내리는 각이 0~90°라 아랫변이 위로 뒤집히지 않는다.
+        private static Quaternion ClothRotation(ArcheryFlagPoseValue flag)
+        {
+            float droop = flag.Side == 0 ? 90f : (1f - Mathf.Max(0.35f, flag.Extend)) * 90f;
+            Quaternion mirror = flag.Side > 0 ? Quaternion.AngleAxis(180f, Vector3.up) : Quaternion.identity;
+            return mirror * Quaternion.AngleAxis(-droop, Vector3.forward) * Quaternion.AngleAxis(flag.FlapDegrees, Vector3.right);
         }
 
         //  깃발 값 = HUD 바람 화살표와 같은 식(양수 = 사수 기준 오른쪽).
@@ -205,16 +213,15 @@ namespace LOP
                 landings.AddCrowdCollider(collider);
             }
 
-            var roster = Roster();
             for (int i = 0; i < layout.Seats.Count; i++)
             {
-                fans.Add(BuildFan(layout.Seats[i], roster));
+                fans.Add(BuildFan(layout.Seats[i]));
                 heads.Add(layout.Seats[i].Position + Vector3.up * (1.3f * layout.Seats[i].Scale));
             }
             return true;
         }
 
-        private Fan BuildFan(ArcheryCrowdSeat seat, List<string> roster)
+        private Fan BuildFan(ArcheryCrowdSeat seat)
         {
             var fanRoot = new GameObject("Fan").transform;
             fanRoot.SetParent(root.transform, false);
@@ -254,7 +261,7 @@ namespace LOP
 
             if (seat.Sign >= 0)
             {
-                BuildSign(fanRoot, SignText(seat.Sign, roster));
+                BuildSign(fanRoot, SignText(seat.Sign, course.RosterCount));
             }
             return fan;
         }
@@ -277,7 +284,10 @@ namespace LOP
             var go = GameObject.CreatePrimitive(type);
             if (keepCollider == false)
             {
-                Object.Destroy(go.GetComponent<Collider>());   // 관중 몸에 화살이 걸리면 땅으로 읽힌다 — 상자만 받는다
+                //  관중 몸에 화살이 걸리면 땅으로 읽힌다 — 상자만 받는다. Destroy는 프레임 끝이라 먼저 끈다.
+                var bodyCollider = go.GetComponent<Collider>();
+                bodyCollider.enabled = false;
+                Object.Destroy(bodyCollider);
             }
             go.transform.SetParent(parent, false);
             go.transform.localScale = scale;
@@ -318,7 +328,7 @@ namespace LOP
             go.SetActive(false);
             go.transform.SetParent(fanRoot, false);
             go.transform.localPosition = new Vector3(0f, 2.0f, 0.1f);
-            //  월드 패널은 +Z 쪽에서 보인다 — 사수가 보는 방향(관중석의 뒤쪽)을 향하게.
+            //  월드 패널은 +Z가 보는 사람 반대쪽을 향할 때 읽힌다 — +Z를 사수가 보는 방향(관중석 뒤쪽)으로.
             go.transform.rotation = layout.Rotation * Quaternion.AngleAxis(180f, Vector3.up);
             var document = go.AddComponent<UIDocument>();
             document.panelSettings = panelSettings;
@@ -334,25 +344,11 @@ namespace LOP
             document.rootVisualElement.Add(label);
         }
 
-        private static string SignText(int sign, List<string> roster)
+        //  팻말 번호는 판 시작 때 정한 참가자 수만큼 돌려 쓴다(HUD 이름 "{n}P"와 같은 번호).
+        private static string SignText(int sign, int rosterCount)
         {
-            int k = roster.Count == 0 ? 1 : sign % roster.Count + 1;
+            int k = rosterCount <= 0 ? 1 : sign % rosterCount + 1;
             return SignTexts[sign % SignTexts.Length].Replace("{k}", k.ToString());
-        }
-
-        //  HUD 이름("{n}P")과 같은 순서 — 엔티티 id 서수.
-        private List<string> Roster()
-        {
-            var roster = new List<string>();
-            foreach (var entity in entityRegistry.All)
-            {
-                if (entity.Has<ArcheryScore>())
-                {
-                    roster.Add(entity.Id);
-                }
-            }
-            roster.Sort(string.CompareOrdinal);
-            return roster;
         }
 
         private void OnWorldEventBatch(WorldEventBatchToC msg)

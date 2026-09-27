@@ -13,14 +13,16 @@
 }
 
 .scoreboard { margin-top: 8px; background-color: rgba(0, 0, 0, 0.45); border-radius: 8px; padding: 6px 10px; }
-.score-row { flex-direction: row; align-items: center; height: 34px; }
+/* 행 높이는 고정하지 않는다 — 칸마다 기호 줄과 누적 줄을 세로로 쌓는데, 런타임 기본 테마가 라벨에 여백을 붙여
+   고정 높이를 넘치면 글자가 칸 위아래로 삐져나온다. */
+.score-row { flex-direction: row; align-items: stretch; min-height: 40px; padding: 2px 0; }
 .score-row--current { background-color: rgba(255, 255, 255, 0.12); border-radius: 6px; }
-.score-chip { width: 12px; height: 12px; border-radius: 6px; margin-right: 6px; }
-.score-name { width: 40px; font-size: 16px; color: rgb(255, 255, 255); }
-.score-frame { width: 52px; margin-left: 2px; border-left-width: 1px; border-color: rgba(255, 255, 255, 0.2); align-items: center; }
-.score-marks { font-size: 14px; color: rgb(255, 230, 160); }
-.score-cum { font-size: 14px; color: rgb(255, 255, 255); }
-.score-total { width: 44px; margin-left: 6px; font-size: 18px; color: rgb(255, 255, 255); -unity-font-style: bold; -unity-text-align: middle-right; }
+.score-chip { width: 12px; height: 12px; border-radius: 6px; margin-right: 6px; align-self: center; }
+.score-name { width: 40px; font-size: 16px; color: rgb(255, 255, 255); align-self: center; margin: 0; padding: 0; }
+.score-frame { width: 52px; margin-left: 2px; border-left-width: 1px; border-color: rgba(255, 255, 255, 0.2); align-items: center; justify-content: center; }
+.score-marks { font-size: 14px; color: rgb(255, 230, 160); margin: 0; padding: 0; -unity-text-align: middle-center; }
+.score-cum { font-size: 14px; color: rgb(255, 255, 255); margin: 0; padding: 0; -unity-text-align: middle-center; }
+.score-total { width: 44px; margin: 0 0 0 6px; padding: 0; align-self: center; font-size: 18px; color: rgb(255, 255, 255); -unity-font-style: bold; -unity-text-align: middle-right; }
 
 .charge-track {
     position: absolute;

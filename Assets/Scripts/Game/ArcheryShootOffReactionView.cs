@@ -5,9 +5,9 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// 한 발 승부에서 남의 몸통에 리액션(튕김·기움)을 얹는다. 나는 빼는데, 카메라가 내 보이는 몸을
-    /// 따라가서(1인칭, 눈 앞 0.4m) 내 몸을 흔들면 시야가 흔들리기 때문이다. 루트(판정 자리)는 건드리지
-    /// 않고 보이는 몸통(visual)만 움직인다. 자리는 진짜다 — 각자 실제 자리에 선다(<see cref="ArcheryShootOffSeats"/>).
+    /// 한 발 승부에서 모두의 몸통에 리액션(튕김·기움)을 얹는다. 카메라는 내 보이는 몸을 따라가므로
+    /// 내 튕김 높이(<see cref="LocalLift"/>)를 <see cref="ArcheryShootOffCameraRig"/>가 카메라 중심에서 빼서
+    /// 시야는 출렁이지 않는다. 루트(판정 자리)는 건드리지 않고 보이는 몸통(visual)만 움직인다. 자리는 진짜다 — 각자 실제 자리에 선다(<see cref="ArcheryShootOffSeats"/>).
     /// <para>보간기(<see cref="PredictedEntityInterpolator"/>)가 매 프레임 <c>LateUpdate</c>에서 몸통의
     /// <b>월드</b> 위치를 덮어쓰고, 이름표(<see cref="CharacterNameplate"/>)는 그 자리를 읽는다. 그래서 그
     /// 사이에서 얹는다 — 도는 시각은 <see cref="ArcheryShootOffReactionDriver"/>가 잡는다.</para>
@@ -31,6 +31,9 @@ namespace LOP
             new Dictionary<string, (Transform, Vector3, Vector3, Quaternion, Quaternion)>();
 
         private ArcheryShootOffReactionDriver driver;
+
+        /// <summary>이번 프레임에 내 몸을 위로 올린 양(m). 카메라가 이만큼을 빼서 시야를 붙들어 둔다.</summary>
+        public float LocalLift { get; private set; }
 
         public ArcheryShootOffReactionView(ArcheryCourse course, ActorRegistry actorRegistry,
                                            GameFramework.World.EntityRegistry entityRegistry,
@@ -75,6 +78,7 @@ namespace LOP
             string me = playerContext.entityId;
 
             present.Clear();
+            LocalLift = 0f;
             foreach (var entity in entityRegistry.All)
             {
                 if (entity.Has<ArcheryScore>() == false)
@@ -82,8 +86,12 @@ namespace LOP
                     continue;
                 }
                 present.Add(entity.Id);
-                //  카메라가 내 몸을 따라가서 내 리액션은 시야 출렁임이 된다 — 나는 자세를 안 얹는다
-                Place(entity.Id, entity.Id == me ? ArcheryReactionPose.Zero : resultTracker.PoseOf(entity.Id, now, renderTick));
+                var pose = resultTracker.PoseOf(entity.Id, now, renderTick);
+                if (entity.Id == me)
+                {
+                    LocalLift = pose.Lift;
+                }
+                Place(entity.Id, pose);
             }
 
             //  나간 사람의 기록은 들고 있을 이유가 없다.

@@ -15,8 +15,8 @@ namespace LOP.Tests
         private const string Me = "player-1";
         private const string Other = "player-2";
 
-        private static readonly Dictionary<string, int> NoDropOuts = new();
-        private static readonly string[] NoEliminated = System.Array.Empty<string>();
+        private static readonly Dictionary<string, int> NoStrokes = new();
+        private static readonly string[] NoFinished = System.Array.Empty<string>();
 
         private static PanchigiStateStore Store() => new PanchigiStateStore();
 
@@ -27,7 +27,7 @@ namespace LOP.Tests
         public void 조준_차례를_id_없이_물으면_터진다()
         {
             var store = Store();
-            store.Set(AimingPhase, Me, 0, 0, NoDropOuts, NoEliminated);
+            store.Set(AimingPhase, Me, 0, NoStrokes, NoFinished);
 
             Assert.Throws<System.ArgumentException>(() => store.IsAimingTurnOf(null));
             Assert.Throws<System.ArgumentException>(() => store.IsAimingTurnOf(string.Empty));
@@ -38,26 +38,26 @@ namespace LOP.Tests
         {
             //  단축평가로 빠져나가던 자리다 — 국면이 아니면 검사까지 못 갔다.
             var store = Store();
-            store.Set(SettlingPhase, Me, 0, 0, NoDropOuts, NoEliminated);
+            store.Set(SettlingPhase, Me, 0, NoStrokes, NoFinished);
 
             Assert.Throws<System.ArgumentException>(() => store.IsAimingTurnOf(null));
         }
 
         [Test]
-        public void 탈락_여부와_낙하_횟수도_id_없이_물으면_터진다()
+        public void 끝남_여부와_타수도_id_없이_물으면_터진다()
         {
             var store = Store();
-            store.Set(AimingPhase, Me, 0, 0, NoDropOuts, NoEliminated);
+            store.Set(AimingPhase, Me, 0, NoStrokes, NoFinished);
 
-            Assert.Throws<System.ArgumentException>(() => store.IsEliminated(null));
-            Assert.Throws<System.ArgumentException>(() => store.GetDropOutCount(string.Empty));
+            Assert.Throws<System.ArgumentException>(() => store.IsFinished(null));
+            Assert.Throws<System.ArgumentException>(() => store.GetStrokes(string.Empty));
         }
 
         [Test]
         public void 조준_국면에서_내_차례면_참이다()
         {
             var store = Store();
-            store.Set(AimingPhase, Me, 0, 0, NoDropOuts, NoEliminated);
+            store.Set(AimingPhase, Me, 0, NoStrokes, NoFinished);
 
             Assert.IsTrue(store.IsAimingTurnOf(Me));
         }
@@ -66,7 +66,7 @@ namespace LOP.Tests
         public void 조준_국면이어도_남의_차례면_거짓이다()
         {
             var store = Store();
-            store.Set(AimingPhase, Other, 0, 0, NoDropOuts, NoEliminated);
+            store.Set(AimingPhase, Other, 0, NoStrokes, NoFinished);
 
             Assert.IsFalse(store.IsAimingTurnOf(Me));
         }
@@ -75,18 +75,50 @@ namespace LOP.Tests
         public void 내_차례여도_정산_국면이면_거짓이다()
         {
             var store = Store();
-            store.Set(SettlingPhase, Me, 0, 0, NoDropOuts, NoEliminated);
+            store.Set(SettlingPhase, Me, 0, NoStrokes, NoFinished);
 
             Assert.IsFalse(store.IsAimingTurnOf(Me));
         }
 
         [Test]
-        public void 내_차례여도_탈락자면_거짓이다()
+        public void 내_차례여도_끝난_사람이면_거짓이다()
         {
             var store = Store();
-            store.Set(AimingPhase, Me, 0, 0, NoDropOuts, new[] { Me });
+            store.Set(AimingPhase, Me, 0, NoStrokes, new[] { Me });
 
             Assert.IsFalse(store.IsAimingTurnOf(Me));
+        }
+
+        [Test]
+        public void 타수와_끝난_사람을_그대로_담는다()
+        {
+            var store = Store();
+            store.Set(AimingPhase, Other, 0, new Dictionary<string, int> { [Me] = 4, [Other] = 2 }, new[] { Me });
+
+            Assert.AreEqual(4, store.GetStrokes(Me));
+            Assert.AreEqual(2, store.GetStrokes(Other));
+            Assert.IsTrue(store.IsFinished(Me));
+            Assert.IsFalse(store.IsFinished(Other));
+        }
+
+        [Test]
+        public void 판_주인은_조준하는_사람이다()
+        {
+            var store = Store();
+            store.Set(AimingPhase, Other, 0, NoStrokes, NoFinished);
+
+            Assert.AreEqual(Other, store.BoardOwnerEntityId);
+        }
+
+        [Test]
+        public void 정산_중에는_직전_조준자의_판이다()
+        {
+            //  서버는 동전이 구르는 동안 차례를 비워 보낸다 — 그때 화면의 판은 방금 친 사람 것이다.
+            var store = Store();
+            store.Set(AimingPhase, Me, 0, NoStrokes, NoFinished);
+            store.Set(SettlingPhase, string.Empty, 0, NoStrokes, NoFinished);
+
+            Assert.AreEqual(Me, store.BoardOwnerEntityId);
         }
     }
 }

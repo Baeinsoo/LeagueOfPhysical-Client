@@ -33,14 +33,14 @@ namespace LOP.UI
 
             var turnLabel = Root.Q<Label>("turn-label");
             var flipLabel = Root.Q<Label>("flip-label");
-            var dropOutLabel = Root.Q<Label>("dropout-label");
+            var strokeLabel = Root.Q<Label>("stroke-label");
             var chargeTrack = Root.Q<VisualElement>("charge-track");
             var chargeFill = Root.Q<VisualElement>("charge-fill");
             _tick = Root.schedule.Execute(_ =>
             {
                 turnLabel.text = _viewModel.Label();
                 flipLabel.text = _viewModel.FlipLabel();
-                dropOutLabel.text = _viewModel.DropOutLabel();
+                strokeLabel.text = _viewModel.StrokeLabel();
 
                 bool charging = _viewModel.IsCharging();
                 chargeTrack.style.display = charging ? DisplayStyle.Flex : DisplayStyle.None;

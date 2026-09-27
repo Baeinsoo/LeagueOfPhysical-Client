@@ -18,8 +18,8 @@ namespace LOP
 
         private void OnState(PanchigiStateToC message)
         {
-            store.Set(message.Phase, message.CurrentEntityId, message.AimDeadlineTick, message.TurnCount,
-                message.DropOutCounts, message.EliminatedEntityIds);
+            store.Set(message.Phase, message.CurrentEntityId, message.AimDeadlineTick,
+                message.Strokes, message.FinishedEntityIds);
         }
     }
 }

@@ -89,9 +89,12 @@ namespace LOP.MapTools.Tests
             var shafts = Shafts(Compose());
             Assert.That(shafts, Is.Not.Empty);
             ShaftPiece s = shafts[0];
-            Assert.IsTrue(FieldLayout.GateBlocked(shafts, s.X0 - FieldLayout.GateClear + 0.1f));
-            Assert.IsTrue(FieldLayout.GateBlocked(shafts, (s.X0 + s.X1) * 0.5f));
-            Assert.IsFalse(FieldLayout.GateBlocked(shafts, s.X1 + FieldLayout.GateClear + 0.1f));
+            Assert.IsTrue(FieldLayout.GateBlocked(shafts, s.X0 - FieldLayout.GateClear + 0.1f, Spacing));
+            Assert.IsTrue(FieldLayout.GateBlocked(shafts, (s.X0 + s.X1) * 0.5f, Spacing));
+            //  굴뚝 뒤 간격 하나까지는 전용 홀로그램 관문 몫이다.
+            Assert.IsTrue(FieldLayout.GateBlocked(shafts, s.X1 + FieldLayout.GateClear + Spacing - 0.1f, Spacing));
+            Assert.IsFalse(FieldLayout.GateBlocked(shafts, s.X1 + FieldLayout.GateClear + Spacing + 0.1f, Spacing));
+            Assert.IsFalse(FieldLayout.GateBlocked(shafts, s.X0 - FieldLayout.GateClear - 0.1f, Spacing));
         }
 
         [Test]
@@ -144,35 +147,81 @@ namespace LOP.MapTools.Tests
             }
         }
 
+        const float Finish = StartX + Length + Spacing;
+
         [Test]
-        public void 홀로그램_관문이_없으면_전부_음수다()
+        public void 전용_홀로그램_관문은_자리가_있는_샤프트마다_하나씩_굴뚝_바로_뒤_평지에_선다()
         {
-            var shafts = Shafts(Compose());
-            var gates = FieldLayout.HologramGates(new List<CoursePipe>(), shafts);
-            Assert.AreEqual(shafts.Count, gates.Count);
-            foreach (int g in gates) { Assert.AreEqual(-1, g); }
+            var p = Compose();
+            var shafts = Shafts(p);
+            var xs = FieldLayout.HologramGateXs(p, shafts, Finish);
+            Assert.That(xs, Is.Not.Empty);
+            int withRoom = 0;
+            foreach (ShaftPiece s in shafts)
+            {
+                float want = s.X1 + FieldLayout.GateClear + FieldLayout.HologramGateOffset;
+                bool room = p.GateAllowedAt(want, CourseProfileRule.GateMargin) && want <= Finish - FieldLayout.GateClear;
+                int mine = 0;
+                foreach (float x in xs)
+                {
+                    if (x > s.X1 && x < s.X1 + FieldLayout.GateClear + Spacing) { mine++; }
+                }
+                Assert.AreEqual(room ? 1 : 0, mine, $"x={s.X0:F0} 샤프트의 전용 관문 수");
+                if (room) { withRoom++; }
+            }
+            Assert.AreEqual(withRoom, xs.Count);
+            foreach (float x in xs)
+            {
+                Assert.IsTrue(p.GateAllowedAt(x, CourseProfileRule.GateMargin), $"x={x:F1} 전용 관문이 평지 밖이다");
+                bool strictlyAfterSome = false;
+                foreach (ShaftPiece s in shafts)
+                {
+                    if (x > s.X1 + FieldLayout.GateClear) { strictlyAfterSome = true; }
+                    Assert.IsFalse(x > s.X0 - FieldLayout.GateClear && x <= s.X1 + FieldLayout.GateClear,
+                                   $"x={x:F1} 전용 관문이 샤프트 구멍 위에 섰다");
+                }
+                Assert.IsTrue(strictlyAfterSome);
+            }
         }
 
         [Test]
-        public void 홀로그램_관문은_같은_관문을_두_샤프트가_같이_쓰지_않는다()
+        public void 전용_홀로그램_관문은_결승선_앞에_자리가_없으면_건너뛴다()
         {
-            //  두 샤프트를 붙여 두고, "둘 다에게 가장 가까운" 후보 관문 하나와 그보다 먼
-            //  대체 관문 하나만 준다 — 앞 샤프트가 가까운 쪽을 집으면 뒤 샤프트는 같은 걸
-            //  다시 못 쓰고 대체 관문으로 밀려나야 한다.
-            float w = FieldLayout.ChimneyWidthFor(15f, Forward, Up, Rise);
-            var shaft0 = new ShaftPiece(0f, 0f, 15f, w);
-            var shaft1 = new ShaftPiece(shaft0.X1 + 5f, 0f, 15f, w);
-            var shafts = new List<ShaftPiece> { shaft0, shaft1 };
+            var p = Compose();
+            var shafts = Shafts(p);
+            Assert.That(shafts, Is.Not.Empty);
+            ShaftPiece last = shafts[shafts.Count - 1];
+            float tooClose = last.X1 + FieldLayout.GateClear + FieldLayout.HologramGateOffset + FieldLayout.GateClear - 0.1f;
+            var far = FieldLayout.HologramGateXs(p, shafts, Finish);
+            var close = FieldLayout.HologramGateXs(p, shafts, tooClose);
+            //  이 코스의 마지막 샤프트는 결승선이 멀면 전용 관문이 선다 — 그래야 "건너뛴다"가 뭔가를 지킨다.
+            Assert.AreEqual(far.Count - 1, close.Count);
+            foreach (float x in close)
+            {
+                Assert.That(x, Is.LessThan(last.X0), "결승선에 바짝 붙은 전용 관문이 섰다");
+            }
+        }
 
-            float nearX = shaft1.X1 + FieldLayout.GateClear + 1f;
-            float farX = nearX + 30f;
-            var pipes = new List<CoursePipe> { new CoursePipe(nearX, 0f), new CoursePipe(farX, 0f) };
-
-            var gates = FieldLayout.HologramGates(pipes, shafts);
-            Assert.AreEqual(shafts.Count, gates.Count);
-            Assert.AreEqual(0, gates[0]);
-            Assert.AreEqual(1, gates[1]);
-            Assert.AreNotEqual(gates[0], gates[1]);
+        [Test]
+        public void 보통_관문은_샤프트와_전용_홀로그램_관문_자리를_피한다()
+        {
+            var p = Compose();
+            var shafts = Shafts(p);
+            Assert.That(shafts, Is.Not.Empty);
+            const float window = 4.37f;
+            System.Func<float, bool> gateAllowed =
+                x => p.GateAllowedAt(x, CourseProfileRule.GateMargin) && FieldLayout.GateBlocked(shafts, x, Spacing) == false;
+            var pipes = ClassicCourseRule.Layout(StartX, Length, Spacing, -Half, Half, window, 6f, 20260919UL,
+                                                 p.CenterAt, 6, gateAllowed);
+            Assert.That(pipes, Is.Not.Empty);
+            foreach (CoursePipe pipe in pipes)
+            {
+                foreach (ShaftPiece s in shafts)
+                {
+                    Assert.IsFalse(pipe.X >= s.X0 - FieldLayout.GateClear && pipe.X <= s.X1 + FieldLayout.GateClear + Spacing,
+                                   $"x={pipe.X:F1} 보통 관문이 x={s.X0:F0} 샤프트 금지대에 섰다");
+                }
+            }
         }
     }
 }

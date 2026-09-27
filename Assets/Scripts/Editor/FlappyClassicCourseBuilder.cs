@@ -131,7 +131,7 @@ namespace LOP.EditorTools
             }
             System.Func<float, bool> gateAllowed =
                 x => profile.GateAllowedAt(x, LOP.MapTools.CourseProfileRule.GateMargin)
-                  && LOP.MapTools.FieldLayout.GateBlocked(shafts, x) == false;
+                  && LOP.MapTools.FieldLayout.GateBlocked(shafts, x, spacing) == false;
 
             var pipes = LOP.MapTools.ClassicCourseRule.Layout(
                 StartX, length, spacing, floorY, ceilingY, window, MaxGapStep, Seed, centerAt,
@@ -198,18 +198,6 @@ namespace LOP.EditorTools
             //  지름길 구간의 천장은 경사 조각이 아니라 두 덩어리다: 지붕, 지름길과 계곡 사이의 혀.
             int shortcutPads = Shortcuts(composed.transform, profile, config, length, fallback);
 
-            //  샤프트마다 가장 가까운 보통 관문을 홀로그램 관문으로 삼는다(양쪽 어디든, 샤프트
-            //  마다 서로 다른 관문 — FieldLayout.HologramGates가 중복을 스스로 막는다).
-            //  아래 파이프 루프가 번호로 이 자리를 알아봐야 하므로 인덱스만 먼저 모아 둔다.
-            var hologramGates = new HashSet<int>();
-            foreach (int gate in LOP.MapTools.FieldLayout.HologramGates(pipes, shafts))
-            {
-                if (gate >= 0)
-                {
-                    hologramGates.Add(gate);
-                }
-            }
-
             int challengeGates = 0;
             for (int pipeIndex = 0; pipeIndex < pipes.Count; pipeIndex++)
             {
@@ -223,18 +211,7 @@ namespace LOP.EditorTools
 
                 if (p.HasChallenge == false)
                 {
-                    //  이 관문이 홀로그램 관문이면, 아래 창의 <b>더 아래</b>에 대시로만 통과되는
-                    //  창을 하나 더 낸다 — 파이프는 그만큼 짧아지고 그 자리를 Hologram이 채운다.
-                    float windowBottom = p.GapCenter - window * 0.5f;
-                    if (hologramGates.Contains(pipeIndex) && windowBottom - window > bottom)
-                    {
-                        Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X, bottom, windowBottom - window, skin);
-                        Hologram(composed.transform, $"Hologram_{p.X:F0}", p.X, windowBottom - window, windowBottom);
-                    }
-                    else
-                    {
-                        Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X, bottom, windowBottom, skin);
-                    }
+                    Pipe(composed.transform, $"PipeLow_{p.X:F0}", p.X, bottom, p.GapCenter - window * 0.5f, skin);
                     Pipe(composed.transform, $"PipeHigh_{p.X:F0}", p.X,
                          p.GapCenter + window * 0.5f, top, skin);
                     continue;
@@ -261,6 +238,19 @@ namespace LOP.EditorTools
 
             int boostPads = BoostPads(composed.transform, pipes, window, centerAt, spacing,
                                       floorY, ceilingY, config.DashDuration, fallback);
+
+            //  샤프트마다 굴뚝 바로 뒤에 전용 홀로그램 관문 — 보통 관문 목록(pipes)에 넣지 않는다.
+            //  Validate의 간격·높이차 규칙은 보통 관문의 리듬이고, 이 관문은 그 리듬 밖의 덤이다
+            //  (통과 가능성은 검사기의 탐색이 실제 콜라이더로 확인한다).
+            float finishX = StartX + length + spacing;
+            var hologramGateXs = LOP.MapTools.FieldLayout.HologramGateXs(profile, shafts, finishX);
+            if (hologramGateXs.Count != shafts.Count)
+            {
+                Debug.LogWarning($"[전통 코스] 전용 홀로그램 관문이 샤프트 {shafts.Count}개 중 {hologramGateXs.Count}개에만 섰다"
+                               + " (굴뚝 뒤가 평지가 아니거나 결승선에 너무 가까운 샤프트가 있다).");
+            }
+            int holograms = HologramGates(composed.transform, hologramGateXs, window, centerAt,
+                                          floorY, ceilingY, length, fallback);
 
             var airflowRects = LOP.MapTools.FieldLayout.Airflows(profile, shafts, ceilingY);
             Airflows(composed.transform, airflowRects);
@@ -289,7 +279,7 @@ namespace LOP.EditorTools
                     + $" · 지름길 {profile.Shortcuts.Count}개 (패드 {shortcutPads}개)"
                     + $" · 도전 관문 {challengeGates}개"
                     + $" · 부스트 패드 {boostPads}개 ({config.DashDuration:F1}초)"
-                    + $" · 샤프트 {shafts.Count}개 · 기류 {airflowRects.Count}개 · 홀로그램 {hologramGates.Count}개");
+                    + $" · 샤프트 {shafts.Count}개 · 기류 {airflowRects.Count}개 · 홀로그램 {holograms}개");
         }
 
         /// <summary>굽기와 같은 코스 프로필. 에디터 측정(eval)이 씬과 같은 기하를 다시 얻을 때 쓴다.</summary>
@@ -659,6 +649,39 @@ namespace LOP.EditorTools
                 column.transform.localScale = new Vector3(width, height, PipeDepth);
                 column.transform.position = new Vector3(cx, cy, 1.5f);
             }
+        }
+
+        //  전용 홀로그램 관문: 창은 회랑 가운데, 그 바로 아래 창 높이 하나만큼이 홀로그램이다 —
+        //  대시로 뚫으면 창보다 한 칸 낮게 빠져나갈 수 있다. 나머지 아래는 바닥까지, 위는 천장까지 파이프.
+        //  실제로 세운 홀로그램 수를 돌려준다 — 자리가 안 나서 통파이프로 막은 것은 세지 않는다.
+        private static int HologramGates(Transform parent, IReadOnlyList<float> xs, float window,
+                                         System.Func<float, float> centerAt, float floorY, float ceilingY,
+                                         float length, Material fallback)
+        {
+            int built = 0;
+            foreach (float x in xs)
+            {
+                Material skin = SectionMaterial(x, length, fallback);
+                float lift = centerAt(x);
+                float bottom = floorY + lift - 1f;
+                float top = ceilingY + lift + 1f;
+                float center = (floorY + ceilingY) * 0.5f + lift;
+                float windowBottom = center - window * 0.5f;
+                float hologramBottom = windowBottom - window;
+                if (hologramBottom > bottom)
+                {
+                    Pipe(parent, $"HoloGateLow_{x:F0}", x, bottom, hologramBottom, skin);
+                    Hologram(parent, $"HoloGate_{x:F0}", x, hologramBottom, windowBottom);
+                    built++;
+                }
+                else
+                {
+                    Debug.LogWarning($"[전통 코스] x={x:F0} 전용 관문 창 아래에 홀로그램 자리가 없다 — 통파이프로 막았다.");
+                    Pipe(parent, $"HoloGateLow_{x:F0}", x, bottom, windowBottom, skin);
+                }
+                Pipe(parent, $"HoloGateHigh_{x:F0}", x, windowBottom + window, top, skin);
+            }
+            return built;
         }
 
         //  대시 중이면 통과하는 벽. 콜라이더는 그대로 두고 층만 Hologram이다 — 판정은 이동이 마스크로 고른다.

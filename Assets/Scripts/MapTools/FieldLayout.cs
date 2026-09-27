@@ -28,7 +28,8 @@ namespace LOP.MapTools
 
     /// <summary>
     /// 묶음 1 기믹의 자리(spec 2026-09-27 §2·§3). 샤프트는 구간마다 가장 긴 평지 가운데,
-    /// 상승기류는 계곡 오르막 시작과 굴뚝, 하강기류는 샤프트 안, 홀로그램은 샤프트 뒤 첫 보통 관문.
+    /// 상승기류는 계곡 오르막 시작(지름길 계곡은 출구 뒤)과 굴뚝, 하강기류는 샤프트 안,
+    /// 홀로그램은 샤프트 바로 뒤에 따로 세우는 전용 관문.
     /// </summary>
     public static class FieldLayout
     {
@@ -43,7 +44,7 @@ namespace LOP.MapTools
         public static readonly float[] ShaftDepths = { 15f, 20f, 25f };
 
         /// <summary>굴뚝을 지나는 동안 주머니 바닥에서 회랑 바닥 위 3m까지 오를 시간을 담아야
-        /// 한다 — 그 시간은 종단속도(riseCap)까지 가속하는 구간 + riseCap로 나는 구간의 합이다.
+        /// 한다 — 그 시간은 상승 상한(riseCap)까지 가속하는 구간 + riseCap로 나는 구간의 합이다.
         /// 1m는 여유. 0.5m 단위로 올림한다(재는 사람이 눈으로 맞춰 보기 좋게).</summary>
         public static float ChimneyWidthFor(float depth, float forwardSpeed, float upAccel, float riseCap)
         {
@@ -91,13 +92,43 @@ namespace LOP.MapTools
             return shafts;
         }
 
-        public static bool GateBlocked(IReadOnlyList<ShaftPiece> shafts, float x)
+        /// <summary>
+        /// 보통 관문이 이 x에 못 서나. 샤프트 앞뒤 <see cref="GateClear"/>에 더해, 굴뚝 뒤로
+        /// 관문 간격 하나(<paramref name="spacing"/>)까지 막는다 — 그 자리는 전용 홀로그램 관문
+        /// (<see cref="HologramGateXs"/>) 몫이라, 보통 관문이 바짝 붙으면 두 관문이 한 관문처럼 겹친다.
+        /// </summary>
+        public static bool GateBlocked(IReadOnlyList<ShaftPiece> shafts, float x, float spacing)
         {
             for (int i = 0; i < shafts.Count; i++)
             {
-                if (x > shafts[i].X0 - GateClear && x < shafts[i].X1 + GateClear) { return true; }
+                if (x > shafts[i].X0 - GateClear && x < shafts[i].X1 + GateClear + spacing) { return true; }
             }
             return false;
+        }
+
+        /// <summary>전용 홀로그램 관문이 굴뚝 오른쪽 담장에서 떨어지는 거리(<see cref="GateClear"/> 밖으로 1m 더).</summary>
+        public const float HologramGateOffset = 1f;
+
+        /// <summary>
+        /// 샤프트마다 굴뚝 바로 뒤(X1 + GateClear + 1m)에 세울 전용 홀로그램 관문 x.
+        /// 샤프트를 막 빠져나온 새는 게이지가 차 있으니, 바로 다음 관문에서 대시를 써 볼 수
+        /// 있어야 한다(사용자 결정 2026-09-27). 그 자리가 평지 안쪽(<see cref="CourseProfileRule.GateMargin"/>)이
+        /// 아니거나 결승선 앞 <see cref="GateClear"/> 안으로 못 들어오면 그 샤프트는 건너뛴다 —
+        /// 경사에 걸친 파이프는 아래가 허공에 뜬다.
+        /// </summary>
+        public static List<float> HologramGateXs(CourseProfile p, IReadOnlyList<ShaftPiece> shafts, float finishX)
+        {
+            var xs = new List<float>(shafts.Count);
+            foreach (ShaftPiece s in shafts)
+            {
+                float x = s.X1 + GateClear + HologramGateOffset;
+                if (p.GateAllowedAt(x, CourseProfileRule.GateMargin) == false || x > finishX - GateClear)
+                {
+                    continue;
+                }
+                xs.Add(x);
+            }
+            return xs;
         }
 
         public static List<LOP.FlappyAirflowRect> Airflows(CourseProfile p, IReadOnlyList<ShaftPiece> shafts,
@@ -125,40 +156,6 @@ namespace LOP.MapTools
                 rects.Add(new LOP.FlappyAirflowRect(s.ChimneyX0, s.X1, s.PocketFloorY, s.FloorY + 3f, LOP.FlappyAirflowKind.Up));
             }
             return rects;
-        }
-
-        /// <summary>
-        /// 샤프트마다 가장 가까운 보통 관문(창이 하나인) — 양쪽 어디든, 샤프트의 관문 금지대
-        /// [X0−GateClear, X1+GateClear] 밖에서 찾는다. 앞 샤프트가 이미 고른 관문은 다음
-        /// 샤프트가 다시 못 쓴다(같은 관문을 둘이 나눠 쓰면 어느 샤프트의 홀로그램인지 모호해진다).
-        /// 없으면 그 자리에 −1.
-        /// </summary>
-        public static List<int> HologramGates(IReadOnlyList<CoursePipe> pipes, IReadOnlyList<ShaftPiece> shafts)
-        {
-            var result = new List<int>(shafts.Count);
-            var taken = new HashSet<int>();
-            foreach (ShaftPiece shaft in shafts)
-            {
-                int best = -1;
-                float bestDist = float.MaxValue;
-                for (int i = 0; i < pipes.Count; i++)
-                {
-                    if (pipes[i].HasChallenge || taken.Contains(i)) { continue; }
-                    float x = pipes[i].X;
-                    bool outsideLeft = x < shaft.X0 - GateClear;
-                    bool outsideRight = x > shaft.X1 + GateClear;
-                    if (outsideLeft == false && outsideRight == false) { continue; }
-                    float dist = outsideLeft ? shaft.X0 - x : x - shaft.X1;
-                    if (dist < bestDist)
-                    {
-                        bestDist = dist;
-                        best = i;
-                    }
-                }
-                result.Add(best);
-                if (best >= 0) { taken.Add(best); }
-            }
-            return result;
         }
     }
 }

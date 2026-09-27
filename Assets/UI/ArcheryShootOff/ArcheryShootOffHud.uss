@@ -3,6 +3,27 @@
     left: 0; right: 0; top: 0; bottom: 0;
 }
 
+.shootoff-flash {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background-color: rgb(255, 255, 255);
+    opacity: 0;
+}
+.shootoff-bull-popups {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+.shootoff-bull-popup {
+    position: absolute;
+    font-size: 40px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 2px;
+    -unity-text-outline-color: rgb(255, 255, 255);
+    width: 160px;
+    margin-left: -80px;
+}
+
 /* 라운드 · 남은 시간 · 바람. 조작 패드의 점수(위 24px)·남은 화살(72px) 아래에 놓는다. */
 .shootoff-top {
     position: absolute;
@@ -62,24 +83,55 @@
     border-bottom-left-radius: 24px; border-bottom-right-radius: 24px;
 }
 
-/* 라운드 결과 목록 — 화면 오른쪽 가운데, 착탄 기록판 아래. */
+/* 라운드 결과 — 위쪽 가운데 반투명 판. 아래쪽 캐릭터 리액션이 보이게 화면 전체를 덮지 않는다. */
 .shootoff-result {
     position: absolute;
-    right: 24px;
-    top: 50%;
-    min-width: 240px;
-    padding: 10px 14px;
-    background-color: rgba(12, 16, 20, 0.62);
-    border-top-left-radius: 10px; border-top-right-radius: 10px;
-    border-bottom-left-radius: 10px; border-bottom-right-radius: 10px;
+    top: 216px;
+    align-self: center;
+    width: 720px;
+    padding: 14px 20px;
+    background-color: rgba(12, 16, 20, 0.72);
+    border-top-left-radius: 16px; border-top-right-radius: 16px;
+    border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;
+}
+.shootoff-result-headline {
+    font-size: 34px;
+    -unity-font-style: bold;
+    color: rgb(255, 194, 61);
+    -unity-text-align: middle-center;
+    margin-bottom: 8px;
+}
+.shootoff-result-body {
+    flex-direction: row;
+    align-items: center;
+}
+.shootoff-result-face {
+    width: 300px;
+    height: 300px;
+}
+.shootoff-result-list {
+    flex-grow: 1;
+    margin-left: 24px;
 }
 .shootoff-result-row {
-    font-size: 20px;
-    color: rgb(230, 230, 230);
-    margin-top: 2px;
-    margin-bottom: 2px;
+    flex-direction: row;
+    align-items: center;
+    margin-top: 6px;
+    margin-bottom: 6px;
 }
-.shootoff-result-row.is-first {
-    color: rgb(255, 236, 150);
+.shootoff-result-dot {
+    width: 16px;
+    height: 16px;
+    border-top-left-radius: 8px; border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;
+    margin-right: 10px;
+}
+.shootoff-result-text {
+    font-size: 24px;
+    color: rgb(240, 236, 228);
+    margin-right: 14px;
+}
+.shootoff-result-row.is-me .shootoff-result-text {
     -unity-font-style: bold;
+    color: rgb(255, 255, 255);
 }

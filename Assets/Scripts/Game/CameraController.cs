@@ -57,6 +57,9 @@ namespace LOP
         /// <summary>Pitch도 Yaw와 같은 이유로 흔들림을 더하기 전 값이다. 유니티 부호(양수가 아래).</summary>
         public float Pitch => pitch;
 
+        /// <summary>카메라 위치에 더하는 흔들림(m, 카메라 기준 x 오른쪽·y 위). 기본 0 — 안 쓰는 모드는 영향이 없다.</summary>
+        public Vector3 ShakeOffset { get; set; }
+
         private float yaw;
         private float pitch;
         private float distance;
@@ -150,6 +153,7 @@ namespace LOP
             // Apply transform
             Quaternion rotation = Quaternion.Euler(pitch + AimSwayDegrees.y, yaw + AimSwayDegrees.x, 0);
             Vector3 position = Pivot(Target) - (rotation * Vector3.forward * distance);
+            position += rotation * ShakeOffset;
 
             mainCamera.transform.position = position;
             mainCamera.transform.rotation = rotation;

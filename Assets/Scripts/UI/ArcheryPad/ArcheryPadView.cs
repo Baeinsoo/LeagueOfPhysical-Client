@@ -296,7 +296,7 @@ namespace LOP.UI
             for (; _poppedCount < shots.Count; _poppedCount++)
             {
                 var shot = shots[_poppedCount];
-                var label = new Label(_viewModel.PointsPrefix + shot.Points);
+                var label = new Label(_viewModel.PopupText(shot.Points));
                 label.AddToClassList("hit-popup");
                 label.pickingMode = PickingMode.Ignore;
 

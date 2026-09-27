@@ -84,6 +84,18 @@ namespace LOP.UI
         /// </summary>
         public string PointsPrefix => config.CourseKind == ArcheryCourseKind.ShootOff ? "" : "+";
 
+        /// <summary>맞은 자리에 띄우는 글. 한 발 승부의 10점은 "10!!"(점수로 더해지지 않으니 +를 안 붙인다).</summary>
+        public static string PopupTextFor(ArcheryCourseKind kind, int points)
+        {
+            if (kind == ArcheryCourseKind.ShootOff)
+            {
+                return points == 10 ? "10!!" : points.ToString();
+            }
+            return "+" + points;
+        }
+
+        public string PopupText(int points) => PopupTextFor(config.CourseKind, points);
+
         /// <summary>
         /// 기록판에 그릴 점수 띠 — 바깥 비율과 점수의 짝, 중심에서 바깥 순서다.
         /// <b>과녁을 그리는 값과 같은 데이터</b>에서 나오므로 그림과 실제 채점이 갈라질 수 없다.

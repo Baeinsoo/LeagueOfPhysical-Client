@@ -101,6 +101,9 @@ namespace LOP
             //  안개·하늘은 씬이 아니라 여기가 소유한다 — 맵이 additive라 씬의 RenderSettings는 무시된다.
             builder.RegisterEntryPoint<FlappyAtmosphere>();
 
+            //  홀로그램 관문 흔들림·조각 연출 — 판정과 무관한 클라 전용 화면 효과라 여기서만 등록한다.
+            builder.RegisterEntryPoint<FlappyHologramFx>();
+
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             builder.Register<FlapPadViewModel>(Lifetime.Transient);
             builder.Register<FlapPadView>(Lifetime.Transient);

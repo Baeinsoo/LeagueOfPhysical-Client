@@ -268,7 +268,7 @@ namespace LOP.UI
         /// <summary>
         /// 나면 "당신", 남이면 "{n}P 선수". 클라 엔티티엔 표시 이름이 없어서 <b>엔티티 id 서수 순서</b>로
         /// 번호를 매긴다(나 포함) — 어느 클라에서 봐도 같은 사람이 같은 번호이고, 화면 좌우 배치
-        /// (<see cref="ArcheryShootOffLineupView"/>)와 같은 순서다.
+        /// (<see cref="ArcheryShootOffSeats"/>의 명단)와 같은 순서다.
         /// </summary>
         private string NameOf(string entityId)
         {

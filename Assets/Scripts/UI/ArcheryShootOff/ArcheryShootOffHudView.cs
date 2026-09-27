@@ -131,7 +131,7 @@ namespace LOP.UI
             float radius = _viewModel.ResultFaceRadius;
 
             _resultHeadline.text = _viewModel.ResultHeadline;
-            _face.SetFace(radius, _viewModel.FaceBands);
+            _face.SetFace(radius, _viewModel.FaceBands, ArcheryShootOffResultLayout.ViewRadius(byRank, radius));
 
             var pins = new List<(Vector2, Color)>();
             foreach (int i in ArcheryShootOffResultLayout.PinOrder(byRank, radius))

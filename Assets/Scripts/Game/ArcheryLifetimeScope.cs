@@ -71,7 +71,7 @@ namespace LOP
             //  지난 라운드 결과·10점 시각 — 결과 패널과 캐릭터 리액션이 같이 읽는다.
             builder.RegisterEntryPoint<ArcheryShootOffResultTracker>().AsSelf();
             //  한 발 승부에서만 일한다(사거리·원형 맵에선 공용 사대가 없어 아무것도 안 한다).
-            builder.RegisterEntryPoint<ArcheryShootOffLineupView>().AsSelf();
+            builder.RegisterEntryPoint<ArcheryShootOffReactionView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryArrowView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryTargetView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryRemoteShotHandler>();

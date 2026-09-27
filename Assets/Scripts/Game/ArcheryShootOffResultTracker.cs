@@ -7,14 +7,13 @@ namespace LOP
 {
     /// <summary>
     /// 한 발 승부의 지난 라운드 결과와 선수별 마지막 10점 시각을 모아 둔다. 결과 패널(HUD)과 캐릭터
-    /// 리액션(좌우 배치 뷰)이 같은 값을 읽는다 — 둘이 따로 세면 패널은 닫혔는데 캐릭터는 계속 뛴다.
+    /// 리액션(<see cref="ArcheryShootOffReactionView"/>)이 같은 값을 읽는다 — 둘이 따로 세면 패널은 닫혔는데 캐릭터는 계속 뛴다.
     /// </summary>
     public class ArcheryShootOffResultTracker : MessageHandlerBase
     {
         private readonly ISubscriber<WorldEventBatchToC> batchSubscriber;
         private readonly ArcheryCourse course;
         private readonly ArcheryWorld world;
-        private readonly ArcheryConfig config;
 
         private readonly List<ArcheryRoundPlacement> byRank = new List<ArcheryRoundPlacement>();
         private readonly Dictionary<string, float> bullAt = new Dictionary<string, float>();
@@ -26,12 +25,11 @@ namespace LOP
         public int Version { get; private set; }
 
         public ArcheryShootOffResultTracker(ISubscriber<WorldEventBatchToC> batchSubscriber, ArcheryCourse course,
-                                            ArcheryWorld world, ArcheryConfig config)
+                                            ArcheryWorld world)
         {
             this.batchSubscriber = batchSubscriber;
             this.course = course;
             this.world = world;
-            this.config = config;
         }
 
         protected override void Subscribe() => Track(batchSubscriber.Subscribe(OnWorldEventBatch));
@@ -43,8 +41,7 @@ namespace LOP
                 if (rec.EventCase == WorldEventToC.EventOneofCase.ArcheryRoundResult)
                 {
                     var result = (ArcheryRoundResultEvent)WorldEventWire.FromWire(rec);
-                    long close = ArcheryShootOffResultLayout.CloseTick(
-                        course.RoundCloseTick(result.roundIndex, world.GameplayStartTick), config.Range.StepGapTicks);
+                    long close = course.ResultEndTick(result.roundIndex, world.GameplayStartTick);
                     OnRoundResult(result, Time.time, close);
                 }
                 else if (rec.EventCase == WorldEventToC.EventOneofCase.ArcheryHit)

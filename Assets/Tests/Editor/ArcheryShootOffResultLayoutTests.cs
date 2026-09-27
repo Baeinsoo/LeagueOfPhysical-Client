@@ -35,12 +35,6 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 닫는_틱은_라운드_마감_더하기_틈_빼기_60()
-        {
-            Assert.AreEqual(1000L + 200L - 60L, ArcheryShootOffResultLayout.CloseTick(1000L, 200));
-        }
-
-        [Test]
         public void 과녁_가운데는_패널_가운데_오른쪽_위는_오른쪽_위()
         {
             var center = new Vector2(150f, 150f);
@@ -120,6 +114,28 @@ namespace LOP.Tests
             Assert.AreEqual(2, ArcheryShootOffResultLayout.PinsShown(0.15f, 3));
             Assert.AreEqual(3, ArcheryShootOffResultLayout.PinsShown(9f, 3));
             Assert.AreEqual(0, ArcheryShootOffResultLayout.PinsShown(1f, 0));
+        }
+
+        [Test]
+        public void 확대는_가장_먼_점이_가장자리_안쪽에_오게()
+        {
+            var r = new[] { P("a", true, 0.02f, 0f, 0), P("b", true, 0.04f, 0f, 1) };
+            //  가장 먼 점 4cm → 가장자리는 그 1.6배(6.4cm)지만, 과녁 반지름의 20%(8cm)보다 좁히지 않는다.
+            Assert.AreEqual(0.08f, ArcheryShootOffResultLayout.ViewRadius(r, 0.4f), 1e-5f);
+
+            var far = new[] { P("a", true, 0.2f, 0f, 0) };
+            Assert.AreEqual(0.32f, ArcheryShootOffResultLayout.ViewRadius(far, 0.4f), 1e-5f);
+        }
+
+        [Test]
+        public void 확대는_과녁_밖_한계를_넘지_않고_점이_없으면_과녁_전체()
+        {
+            var edge = new[] { P("a", true, 0.45f, 0f, 0) };
+            Assert.AreEqual(0.5f, ArcheryShootOffResultLayout.ViewRadius(edge, 0.4f), 1e-5f);   // 1.25배
+
+            var miss = new[] { P("a", false, 0f, 0f, 0) };
+            Assert.AreEqual(0.4f, ArcheryShootOffResultLayout.ViewRadius(miss, 0.4f), 1e-5f);
+            Assert.AreEqual(0f, ArcheryShootOffResultLayout.ViewRadius(miss, 0f));
         }
 
         [Test]

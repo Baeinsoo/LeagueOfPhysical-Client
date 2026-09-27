@@ -70,5 +70,21 @@ namespace LOP.Tests
             c.TrySay(ArcheryLine.RobinHood, "3P 선수", 0, now: 0f);
             Assert.AreEqual("3P 선수! 이건 전설입니다!", c.Text);
         }
+
+        [Test]
+        public void 바람_문장에_관중석_깃발이_더해졌다()
+        {
+            var c = new ArcheryCommentary(n => n - 1);   // 마지막 문장
+            c.TrySay(ArcheryLine.Wind, "오른", 0, now: 0f);
+            Assert.AreEqual("관중석 깃발 보세요, 바람이 오른쪽입니다", c.Text);
+        }
+
+        [Test]
+        public void NoHit_문장에_바람을_못_읽었다가_더해졌다()
+        {
+            var c = new ArcheryCommentary(n => n - 1);   // 마지막 문장
+            c.TrySay(ArcheryLine.NoHit, "민수 선수", 0, now: 0f);
+            Assert.AreEqual("민수 선수, 바람을 못 읽었네요", c.Text);
+        }
     }
 }

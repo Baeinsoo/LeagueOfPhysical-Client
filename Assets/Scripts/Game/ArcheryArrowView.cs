@@ -103,19 +103,35 @@ namespace LOP
         }
 
 
-        //  화살마다 material을 새로 만들면 재질 인스턴스가 계속 쌓인다 — 한 장을 돌려 쓴다.
-        private Material _arrowMaterial;
+        //  화살마다 메시·재질을 새로 만들면 계속 쌓인다 — 한 벌을 돌려 쓴다.
+        private Mesh _arrowMesh;
+        private Material[] _arrowMaterials;
 
-        private Material ArrowMaterial()
+        private Mesh ArrowMesh()
         {
-            if (_arrowMaterial == null)
+            if (_arrowMesh == null)
+            {
+                _arrowMesh = ArcheryArrowMesh.Build();
+            }
+            return _arrowMesh;
+        }
+
+        //  순서는 ArcheryArrowMesh의 부분 번호(대·촉·깃)와 같다.
+        private Material[] ArrowMaterials()
+        {
+            if (_arrowMaterials == null)
             {
                 //  이름으로 찾는 셰이더는 Graphics ▸ Always Included Shaders에 있어야 폰 빌드에서도
                 //  잡힌다 — 없으면 null이 와서 매 프레임 터진다(RuntimeShaderInclusionTests가 지킨다).
                 var shader = Shader.Find("Universal Render Pipeline/Lit");
-                _arrowMaterial = new Material(shader) { color = Color.red };
+                _arrowMaterials = new[]
+                {
+                    new Material(shader) { color = new Color(0.92f, 0.78f, 0.52f) },   // 나무 대
+                    new Material(shader) { color = new Color(0.3f, 0.3f, 0.34f) },     // 쇠 촉
+                    new Material(shader) { color = new Color(1f, 0.25f, 0.3f) },        // 빨간 깃 — 꽂힌 화살이 눈에 띈다
+                };
             }
-            return _arrowMaterial;
+            return _arrowMaterials;
         }
 
         public void LateTick()
@@ -183,16 +199,12 @@ namespace LOP
 
                 if (drawn.TryGetValue(key, out var arrow) == false || arrow == null)
                 {
-                    arrow = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    //  임시 그림이라 실물 비례보다 눈에 띄는 것이 우선이다 — 흰 5cm 막대는
-                    //  12m 밖에서 사실상 안 보여서 "안 나갔나 안 보이나"를 가릴 수 없었다.
-                    arrow.transform.localScale = new Vector3(0.15f, 0.15f, 0.8f);
-                    var renderer = arrow.GetComponent<Renderer>();
-                    if (renderer != null)
-                    {
-                        renderer.sharedMaterial = ArrowMaterial();
-                    }
-                    Object.Destroy(arrow.GetComponent<Collider>());   // 그림일 뿐이다 — 판정은 시뮬이 한다
+                    //  그림일 뿐이다 — 콜라이더가 없다(판정은 시뮬이 한다).
+                    arrow = new GameObject("Arrow");
+                    arrow.AddComponent<MeshFilter>().sharedMesh = ArrowMesh();
+                    var renderer = arrow.AddComponent<MeshRenderer>();
+                    renderer.sharedMaterials = ArrowMaterials();
+                    renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                     drawn[key] = arrow;
                 }
 
@@ -241,7 +253,7 @@ namespace LOP
                 {
                     //  촉이 표면에 닿고 몸통은 밖에 남게 살짝 앞으로 밀어 넣는다.
                     Vector3 heading = velocity.sqrMagnitude > 1e-6f ? velocity.normalized : Vector3.down;
-                    arrow.transform.position = ground.point + heading * 0.2f;
+                    arrow.transform.position = ground.point + heading * 0.1f;
                     arrow.transform.rotation = Quaternion.LookRotation(heading);
 
                     alive.Remove(key);
@@ -495,10 +507,19 @@ namespace LOP
                 _trailMaterial = null;
             }
 
-            if (_arrowMaterial != null)
+            if (_arrowMaterials != null)
             {
-                Object.Destroy(_arrowMaterial);
-                _arrowMaterial = null;
+                foreach (var material in _arrowMaterials)
+                {
+                    Object.Destroy(material);
+                }
+                _arrowMaterials = null;
+            }
+
+            if (_arrowMesh != null)
+            {
+                Object.Destroy(_arrowMesh);
+                _arrowMesh = null;
             }
         }
     }

@@ -24,19 +24,27 @@ namespace LOP
         private readonly List<string> gone = new List<string>();
         private readonly Dictionary<string, Vector3> offsets = new Dictionary<string, Vector3>();
 
-        //  지난 프레임에 몸통을 어디에 두었나. 보간기가 이번 프레임에 안 썼으면(샘플이 아직 없을 때)
-        //  몸통이 그 자리 그대로라, 간격을 또 얹으면 프레임마다 옆으로 밀려 나간다.
-        private readonly Dictionary<string, (Transform visual, Vector3 written, Vector3 offset)> applied =
-            new Dictionary<string, (Transform, Vector3, Vector3)>();
+        //  지난 프레임에 몸통을 어디에·어떤 회전으로 두었나. 보간기가 이번 프레임에 안 썼으면(샘플이
+        //  아직 없을 때) 그대로 남아 있어, 또 얹으면 프레임마다 쌓인다 — 지난번 값을 걷어 내고 다시 얹는다.
+        private readonly Dictionary<string, (Transform visual, Vector3 written, Vector3 offset,
+                                             Quaternion writtenRotation, Quaternion tilt)> applied =
+            new Dictionary<string, (Transform, Vector3, Vector3, Quaternion, Quaternion)>();
+
+        private readonly ArcheryShootOffResultTracker resultTracker;
+        private readonly GameFramework.Runner.IRunner runner;
 
         public ArcheryShootOffLineupView(ArcheryCourse course, ActorRegistry actorRegistry,
                                          GameFramework.World.EntityRegistry entityRegistry,
-                                         IPlayerContext playerContext)
+                                         IPlayerContext playerContext,
+                                         ArcheryShootOffResultTracker resultTracker,
+                                         GameFramework.Runner.IRunner runner)
         {
             this.course = course;
             this.actorRegistry = actorRegistry;
             this.entityRegistry = entityRegistry;
             this.playerContext = playerContext;
+            this.resultTracker = resultTracker;
+            this.runner = runner;
         }
 
         /// <summary>그 사수의 몸이 화면에서 판정 자리보다 얼마나 옆에 그려지나. 한 발 승부가 아니면 0.</summary>
@@ -61,7 +69,6 @@ namespace LOP
             }
         }
 
-        /// <summary>남의 몸통을 옆으로 옮긴다. 보간기 뒤·이름표 앞에서 매 프레임 한 번.</summary>
         public void Apply()
         {
             offsets.Clear();
@@ -72,12 +79,15 @@ namespace LOP
             }
 
             Vector3 right = ArcheryTargetMotion.ShooterRightAxis(-lane.Value.Forward);
+            float now = Time.time;
+            double renderTick = RenderTick();
 
-            //  모든 프레임에서 같은 자리를 지키게 id 순서로 줄 세운다. 나는 가운데라 빼고 센다.
+            //  모든 프레임에서 같은 자리를 지키게 id 순서로 줄 세운다. 나는 가운데라 간격 순번에서 뺀다.
             others.Clear();
+            string me = playerContext.entityId;
             foreach (var entity in entityRegistry.All)
             {
-                if (entity.Has<ArcheryScore>() && entity.Id != playerContext.entityId)
+                if (entity.Has<ArcheryScore>() && entity.Id != me)
                 {
                     others.Add(entity.Id);
                 }
@@ -86,33 +96,23 @@ namespace LOP
 
             for (int i = 0; i < others.Count; i++)
             {
-                string id = others[i];
-                Vector3 offset = right * ArcheryShootOffLineup.SlotOffset(i);
-                offsets[id] = offset;
+                offsets[others[i]] = right * ArcheryShootOffLineup.SlotOffset(i);
+            }
 
-                if (actorRegistry.TryGet(id, out var actor) == false || actor == null || actor.visualGameObject == null)
-                {
-                    applied.Remove(id);
-                    continue;
-                }
-
-                var visual = actor.visualGameObject.transform;
-                Vector3 basePosition = visual.position;
-                if (applied.TryGetValue(id, out var last) && last.visual == visual && basePosition == last.written)
-                {
-                    basePosition -= last.offset;   // 보간기가 이번엔 안 썼다 — 지난번 간격을 걷어 내고 다시 얹는다
-                }
-
-                Vector3 written = basePosition + offset;
-                visual.position = written;
-                applied[id] = (visual, written, offset);
+            if (me != null)
+            {
+                Place(me, Vector3.zero, now, renderTick);
+            }
+            for (int i = 0; i < others.Count; i++)
+            {
+                Place(others[i], offsets[others[i]], now, renderTick);
             }
 
             //  나간 사람의 기록은 들고 있을 이유가 없다.
             gone.Clear();
             foreach (var key in applied.Keys)
             {
-                if (offsets.ContainsKey(key) == false)
+                if (key != me && offsets.ContainsKey(key) == false)
                 {
                     gone.Add(key);
                 }
@@ -121,6 +121,51 @@ namespace LOP
             {
                 applied.Remove(key);
             }
+        }
+
+        //  좌우 간격 + 리액션(위아래 튕김, 옆으로 기움)을 보이는 몸통에 얹는다.
+        private void Place(string id, Vector3 lineOffset, float now, double renderTick)
+        {
+            if (actorRegistry.TryGet(id, out var actor) == false || actor == null || actor.visualGameObject == null)
+            {
+                applied.Remove(id);
+                return;
+            }
+
+            var pose = resultTracker.PoseOf(id, now, renderTick);
+            Vector3 offset = lineOffset + Vector3.up * pose.Lift;
+            Quaternion tilt = Quaternion.AngleAxis(pose.TiltDegrees, Vector3.forward);
+
+            var visual = actor.visualGameObject.transform;
+            Vector3 basePosition = visual.position;
+            Quaternion baseRotation = visual.rotation;
+            if (applied.TryGetValue(id, out var last) && last.visual == visual)
+            {
+                if (basePosition == last.written)
+                {
+                    basePosition -= last.offset;   // 보간기가 이번엔 안 썼다 — 지난번 값을 걷어 낸다
+                }
+                if (baseRotation == last.writtenRotation)
+                {
+                    baseRotation *= Quaternion.Inverse(last.tilt);
+                }
+            }
+
+            Vector3 written = basePosition + offset;
+            Quaternion writtenRotation = baseRotation * tilt;
+            visual.position = written;
+            visual.rotation = writtenRotation;
+            applied[id] = (visual, written, offset, writtenRotation, tilt);
+        }
+
+        private double RenderTick()
+        {
+            if (runner?.tickUpdater == null || runner.tickUpdater.interval <= 0d)
+            {
+                return double.NegativeInfinity;
+            }
+            double interval = runner.tickUpdater.interval;
+            return (runner.tickUpdater.elapsedTime - interval) / interval;
         }
     }
 }

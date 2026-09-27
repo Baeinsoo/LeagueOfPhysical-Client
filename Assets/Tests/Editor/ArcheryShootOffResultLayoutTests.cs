@@ -123,6 +123,28 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 확대는_가장_먼_점이_가장자리_안쪽에_오게()
+        {
+            var r = new[] { P("a", true, 0.02f, 0f, 0), P("b", true, 0.04f, 0f, 1) };
+            //  가장 먼 점 4cm → 가장자리는 그 1.6배(6.4cm)지만, 과녁 반지름의 20%(8cm)보다 좁히지 않는다.
+            Assert.AreEqual(0.08f, ArcheryShootOffResultLayout.ViewRadius(r, 0.4f), 1e-5f);
+
+            var far = new[] { P("a", true, 0.2f, 0f, 0) };
+            Assert.AreEqual(0.32f, ArcheryShootOffResultLayout.ViewRadius(far, 0.4f), 1e-5f);
+        }
+
+        [Test]
+        public void 확대는_과녁_밖_한계를_넘지_않고_점이_없으면_과녁_전체()
+        {
+            var edge = new[] { P("a", true, 0.45f, 0f, 0) };
+            Assert.AreEqual(0.5f, ArcheryShootOffResultLayout.ViewRadius(edge, 0.4f), 1e-5f);   // 1.25배
+
+            var miss = new[] { P("a", false, 0f, 0f, 0) };
+            Assert.AreEqual(0.4f, ArcheryShootOffResultLayout.ViewRadius(miss, 0.4f), 1e-5f);
+            Assert.AreEqual(0f, ArcheryShootOffResultLayout.ViewRadius(miss, 0f));
+        }
+
+        [Test]
         public void 목록_문구()
         {
             Assert.AreEqual("1위", ArcheryShootOffResultLayout.RankLabel(0));

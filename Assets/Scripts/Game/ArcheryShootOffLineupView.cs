@@ -5,7 +5,7 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// 한 발 승부에서 남의 몸을 좌우로 옮겨 그리고 리액션(튕김·기움)을 얹는다. 나는 빼는데,
+    /// 한 발 승부에서 남의 몸을 옆·앞으로 비스듬히 옮겨 그리고 리액션(튕김·기움)을 얹는다. 나는 빼는데,
     /// 카메라가 내 보이는 몸을 따라가서(1인칭, 눈 앞 0.4m) 내 몸을 흔들면 시야가 흔들리기 때문이다.
     /// 루트(판정과 같은 자리)와 화살 시작점(<see cref="DisplayOffsetOf"/>)은 건드리지 않고
     /// 보이는 몸통(visual)만 옮긴다.
@@ -99,7 +99,8 @@ namespace LOP
 
             for (int i = 0; i < others.Count; i++)
             {
-                offsets[others[i]] = right * ArcheryShootOffLineup.SlotOffset(i);
+                offsets[others[i]] = right * ArcheryShootOffLineup.SlotOffset(i)
+                                   + lane.Value.Forward * ArcheryShootOffLineup.ForwardOffset(i);
             }
 
             if (me != null)

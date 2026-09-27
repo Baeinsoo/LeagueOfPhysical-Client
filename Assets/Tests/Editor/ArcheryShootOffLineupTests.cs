@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using UnityEngine;
 
 namespace LOP.Tests
 {
@@ -12,6 +13,28 @@ namespace LOP.Tests
             Assert.AreEqual(-s, ArcheryShootOffLineup.SlotOffset(1), 1e-5f);
             Assert.AreEqual(2f * s, ArcheryShootOffLineup.SlotOffset(2), 1e-5f);
             Assert.AreEqual(-2f * s, ArcheryShootOffLineup.SlotOffset(3), 1e-5f);
+        }
+
+        [Test]
+        public void 바깥_자리일수록_앞으로도_나와_선다()
+        {
+            float f = ArcheryShootOffLineup.ForwardPerStepMeters;
+            Assert.AreEqual(f, ArcheryShootOffLineup.ForwardOffset(0), 1e-5f);
+            Assert.AreEqual(f, ArcheryShootOffLineup.ForwardOffset(1), 1e-5f);
+            Assert.AreEqual(2f * f, ArcheryShootOffLineup.ForwardOffset(2), 1e-5f);
+            Assert.AreEqual(2f * f, ArcheryShootOffLineup.ForwardOffset(3), 1e-5f);
+        }
+
+        [Test]
+        public void 과녁을_보고_있어도_남이_화면_안에_든다()
+        {
+            //  카메라는 눈에서 0.4m 앞, 화면 좌우 약 45도(세로 60도·16:9). 여유를 두고 35도 안.
+            for (int i = 0; i < 4; i++)
+            {
+                float side = Mathf.Abs(ArcheryShootOffLineup.SlotOffset(i));
+                float ahead = ArcheryShootOffLineup.ForwardOffset(i) - 0.4f;
+                Assert.Less(Mathf.Atan2(side, ahead) * Mathf.Rad2Deg, 35f, $"자리 {i}");
+            }
         }
 
         [Test]

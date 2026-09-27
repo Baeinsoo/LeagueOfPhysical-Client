@@ -9,6 +9,7 @@ namespace LOP
     public static class ArcheryShootOffLineup
     {
         public const float SpacingMeters = 1.6f;
+        public const float ForwardPerStepMeters = 3.2f;
 
         /// <summary>남의 자리(0부터)를 사수 기준 오른쪽 거리로. 오른쪽·왼쪽을 번갈아 바깥으로 늘어선다.</summary>
         public static float SlotOffset(int othersIndex)
@@ -16,6 +17,12 @@ namespace LOP
             int step = othersIndex / 2 + 1;
             return (othersIndex % 2 == 0 ? step : -step) * SpacingMeters;
         }
+
+        /// <summary>
+        /// 남의 자리를 과녁 쪽으로 얼마나 앞에 세우나. 옆에만 서면 과녁을 볼 때 화면 밖이라(1인칭),
+        /// 바깥 자리일수록 앞으로도 나와 비스듬히 선다 — 조준 중에도 화면 가장자리에 보인다.
+        /// </summary>
+        public static float ForwardOffset(int othersIndex) => (othersIndex / 2 + 1) * ForwardPerStepMeters;
 
         /// <summary>남의 화살이 그 캐릭터의 활에서 떠나 실제 꽂힌 점으로 모이도록, 간격을 비행 동안 줄인다.</summary>
         public static float ArrowBlend(float secondsSinceFire, float flightSeconds)

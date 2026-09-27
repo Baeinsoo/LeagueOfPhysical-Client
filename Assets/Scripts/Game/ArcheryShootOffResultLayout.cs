@@ -86,6 +86,32 @@ namespace LOP
             return order;
         }
 
+        /// <summary>
+        /// 결과 과녁의 가장자리가 과녁 위 몇 미터인가. 점들이 과녁 한가운데 몰려 몇 cm 차이가 안 보이므로,
+        /// 가장 먼 점이 가장자리 안쪽(1.6배)에 오게 확대한다. 과녁 반지름의 20%보다 좁히지 않고
+        /// 그리는 한계(1.25배)보다 넓히지 않는다. 그릴 점이 없으면 과녁 전체.
+        /// </summary>
+        public static float ViewRadius(IReadOnlyList<ArcheryRoundPlacement> byRank, float faceRadius)
+        {
+            if (faceRadius <= 0f)
+            {
+                return 0f;
+            }
+            float farthest = -1f;
+            foreach (var p in byRank)
+            {
+                if (p.Hit && IsDrawn(p.FaceOffset, faceRadius))
+                {
+                    farthest = Mathf.Max(farthest, p.FaceOffset.magnitude);
+                }
+            }
+            if (farthest < 0f)
+            {
+                return faceRadius;
+            }
+            return Mathf.Clamp(farthest * 1.6f, faceRadius * 0.2f, faceRadius * DrawLimit);
+        }
+
         public static int PinsShown(float secondsSinceOpen, int pinCount)
         {
             if (pinCount <= 0)

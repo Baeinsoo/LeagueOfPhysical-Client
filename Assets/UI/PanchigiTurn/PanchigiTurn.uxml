@@ -2,8 +2,7 @@
     <Style src="PanchigiTurn.uss" />
     <ui:VisualElement name="panchigi-turn" class="panchigi-turn">
         <ui:Label name="turn-label" class="turn-label" text="" />
-        <ui:Label name="flip-label" class="flip-label" text="" />
-        <ui:Label name="stroke-label" class="stroke-label" text="" />
+        <ui:VisualElement name="scoreboard" class="scoreboard" />
     </ui:VisualElement>
     <ui:VisualElement name="charge-track" class="charge-track">
         <ui:VisualElement name="charge-fill" class="charge-fill" />

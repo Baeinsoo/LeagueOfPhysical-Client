@@ -1,9 +1,11 @@
+using UnityEngine;
+using System.Collections.Generic;
 using GameFramework.Runner;
 
 namespace LOP.UI
 {
     /// <summary>
-    /// 내 차례인지와 남은 시간, 그리고 지금 판이 누구 것이고 몇 개 뒤집혔는지, 내 타수. 남은 시간은 서버가 보내 준 *마감 틱*에서
+    /// 내 차례인지와 남은 시간, 그리고 볼링 점수판. 남은 시간은 서버가 보내 준 *마감 틱*에서
     /// 매 프레임 계산한다 — 초마다 메시지를 받을 필요가 없다. 뒤집힌 개수도 마찬가지로 매 프레임
     /// 동전 자세에서 직접 센다 — 동전 회전은 이미 스냅샷으로 들어오므로 따로 받을 것이 없다.
     /// </summary>
@@ -31,9 +33,9 @@ namespace LOP.UI
         public string Label()
         {
             string me = gameDataStore.userEntityId;
-            if (store.IsFinished(me))
+            if (store.IsFinished(me, FrameCount, Pins))
             {
-                return $"끝 · {store.GetStrokes(me)}타 · 구경 중";
+                return $"끝 · {PanchigiBowlingScore.Total(store.Rolls(me), FrameCount, Pins)}점";
             }
 
             if (store.IsAiming == false)
@@ -46,30 +48,40 @@ namespace LOP.UI
                 return "다른 사람 차례";
             }
 
-            return $"내 차례 · {RemainingSeconds()}";
+            var at = PanchigiBowlingScore.Locate(store.Rolls(me), FrameCount, Pins);
+            return $"내 차례 · {at.Frame + 1}프레임 {at.RollInFrame + 1}번째 · {RemainingSeconds()}";
         }
 
-        /// <summary>지금 화면의 판이 누구 것이고 몇 개 뒤집혔나. 동전이 아직 안 왔으면 빈 줄로 둔다.</summary>
-        public string FlipLabel()
+        public sealed class ScoreRow
         {
-            PanchigiCoin.CountFlipped(entityRegistry.All, out int flipped, out int total);
-            if (total == 0)
+            public string Name;
+            public Color Color;
+            public bool Current;
+            public IReadOnlyList<PanchigiFrameView> Frames;
+            public int Total;
+        }
+
+        private const int Pins = 6;
+        private int FrameCount => masterData.Tables.TbPanchigiConfig.GetOrDefault(1)?.FrameCount ?? 5;
+
+        /// <summary>점수판 — 참가 순서대로 한 줄씩.</summary>
+        public IReadOnlyList<ScoreRow> Rows()
+        {
+            var rows = new List<ScoreRow>();
+            IReadOnlyList<string> ids = store.PlayerEntityIds;
+            for (int i = 0; i < ids.Count; i++)
             {
-                return string.Empty;
+                IReadOnlyList<PanchigiRoll> rolls = store.Rolls(ids[i]);
+                rows.Add(new ScoreRow
+                {
+                    Name = ids[i] == gameDataStore.userEntityId ? "나" : "상대",
+                    Color = PanchigiPlayerColors.For(i),
+                    Current = ids[i] == store.BoardOwnerEntityId,
+                    Frames = PanchigiBowlingScore.Frames(rolls, FrameCount, Pins),
+                    Total = PanchigiBowlingScore.Total(rolls, FrameCount, Pins),
+                });
             }
-
-            string owner = store.BoardOwnerEntityId;
-            string whose = string.IsNullOrEmpty(owner) ? string.Empty
-                : owner == gameDataStore.userEntityId ? "내 판 · " : "다른 사람 판 · ";
-            return $"{whose}뒤집힘 {flipped} / {total}";
-        }
-
-        /// <summary>내 타수 — 판치기는 시간이 아니라 타수 상한으로 끝난다.</summary>
-        public string StrokeLabel()
-        {
-            int limit = masterData.Tables.TbPanchigiConfig.GetOrDefault(1)?.StrokeLimit ?? 0;
-            int mine = store.GetStrokes(gameDataStore.userEntityId);
-            return limit > 0 ? $"내 타수 {mine} / {limit}" : $"내 타수 {mine}";
+            return rows;
         }
 
         /// <summary>게이지를 띄울 때인가 — 내 조준 차례일 때만.</summary>

@@ -31,6 +31,7 @@ namespace LOP
 
             builder.Register<PanchigiStateStore>(Lifetime.Singleton);
             builder.RegisterEntryPoint<PanchigiStateMessageHandler>();
+            builder.RegisterEntryPoint<PanchigiCoinTint>();
 
             builder.Register<LOP.UI.PanchigiTurnViewModel>(Lifetime.Transient);
             builder.Register<LOP.UI.PanchigiTurnView>(Lifetime.Transient);

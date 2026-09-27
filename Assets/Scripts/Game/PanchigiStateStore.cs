@@ -15,24 +15,26 @@ namespace LOP
         private readonly ReactiveProperty<string> currentEntityId = new(string.Empty);
         private readonly ReactiveProperty<long> aimDeadlineTick = new(0);
 
-        //  타수와 끝난 사람은 매 프레임 읽히기만 하므로(구독 없음) 평범한 컬렉션으로 둔다.
-        private readonly Dictionary<string, int> strokes = new();
-        private readonly HashSet<string> finished = new();
+        //  타격 기록은 매 프레임 읽히기만 하므로(구독 없음) 평범한 컬렉션으로 둔다.
+        private readonly List<string> playerEntityIds = new();
+        private readonly Dictionary<string, IReadOnlyList<PanchigiRoll>> rolls = new();
 
         public ReadOnlyReactiveProperty<int> Phase => phase;
         public ReadOnlyReactiveProperty<string> CurrentEntityId => currentEntityId;
         public ReadOnlyReactiveProperty<long> AimDeadlineTick => aimDeadlineTick;
 
-        public int GetStrokes(string entityId)
+        /// <summary>참가 순서 — 점수판 줄 순서이자 동전 색의 번호다.</summary>
+        public IReadOnlyList<string> PlayerEntityIds => playerEntityIds;
+
+        public IReadOnlyList<PanchigiRoll> Rolls(string entityId)
         {
             RequireEntityId(entityId);
-            return strokes.TryGetValue(entityId, out int count) ? count : 0;
+            return rolls.TryGetValue(entityId, out var list) ? list : System.Array.Empty<PanchigiRoll>();
         }
 
-        public bool IsFinished(string entityId)
+        public bool IsFinished(string entityId, int frameCount, int pinCount)
         {
-            RequireEntityId(entityId);
-            return finished.Contains(entityId);
+            return PanchigiBowlingScore.Locate(Rolls(entityId), frameCount, pinCount).Complete;
         }
 
         /// <summary>
@@ -60,17 +62,14 @@ namespace LOP
         /// <summary>이 사람이 지금 칠 차례인가 — 입력을 열지, 게이지를 띄울지가 같은 판단이어야 한다.</summary>
         public bool IsAimingTurnOf(string entityId)
         {
-            //  IsFinished가 검사하지만 여기서 먼저 한다 — 조준 국면이 아니면 단축평가로
-            //  거기까지 안 가서, id 없는 질문이 조용히 false로 빠져나간다.
             RequireEntityId(entityId);
 
             return IsAiming
-                && currentEntityId.CurrentValue == entityId
-                && IsFinished(entityId) == false;
+                && currentEntityId.CurrentValue == entityId;
         }
 
         public void Set(int phase, string currentEntityId, long aimDeadlineTick,
-            IReadOnlyDictionary<string, int> strokes, IEnumerable<string> finished)
+            IReadOnlyList<(string entityId, IReadOnlyList<PanchigiRoll> rolls)> players)
         {
             this.phase.Value = phase;
             this.currentEntityId.Value = currentEntityId;
@@ -82,11 +81,13 @@ namespace LOP
             }
 
             //  서버가 매번 전부 보내므로 통째로 갈아 끼운다 — 지운 뒤 채우지 않으면 옛 값이 남는다.
-            this.strokes.Clear();
-            foreach (var pair in strokes) { this.strokes[pair.Key] = pair.Value; }
-
-            this.finished.Clear();
-            foreach (string id in finished) { this.finished.Add(id); }
+            playerEntityIds.Clear();
+            rolls.Clear();
+            foreach (var (entityId, list) in players)
+            {
+                playerEntityIds.Add(entityId);
+                rolls[entityId] = list;
+            }
         }
     }
 }

@@ -60,6 +60,18 @@ namespace LOP
         /// <summary>카메라 위치에 더하는 흔들림(m, 카메라 기준 x 오른쪽·y 위). 기본 0 — 안 쓰는 모드는 영향이 없다.</summary>
         public Vector3 ShakeOffset { get; set; }
 
+        /// <summary>
+        /// 게임이 카메라 거리를 직접 정할 때(활쏘기: 평소 3인칭 ↔ 당기는 동안 1인칭). null이면 평소처럼
+        /// 줌과 거리 제한을 따른다. 기본 null이라 안 쓰는 모드는 영향이 없다.
+        /// </summary>
+        public float? DistanceOverride { get; set; }
+
+        /// <summary>카메라가 도는 중심에 더하는 값(월드, m). 기본 0.</summary>
+        public Vector3 PivotOffset { get; set; }
+
+        /// <summary>줌·거리 제한을 따른 지금 거리(<see cref="DistanceOverride"/>를 더하기 전).</summary>
+        public float Distance => distance;
+
         private float yaw;
         private float pitch;
         private float distance;
@@ -152,7 +164,7 @@ namespace LOP
 
             // Apply transform
             Quaternion rotation = Quaternion.Euler(pitch + AimSwayDegrees.y, yaw + AimSwayDegrees.x, 0);
-            Vector3 position = Pivot(Target) - (rotation * Vector3.forward * distance);
+            Vector3 position = Pivot(Target) + PivotOffset - (rotation * Vector3.forward * (DistanceOverride ?? distance));
             position += rotation * ShakeOffset;
 
             mainCamera.transform.position = position;

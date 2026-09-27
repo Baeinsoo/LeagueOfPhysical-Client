@@ -6,6 +6,14 @@ namespace LOP.Tests
     public class ArcheryPadPopupTextTests
     {
         [Test]
+        public void 착탄_기록판은_한_발_승부에서만_숨긴다()
+        {
+            Assert.IsFalse(LOP.UI.ArcheryPadViewModel.ShowsImpactPlot(ArcheryCourseKind.ShootOff));
+            Assert.IsTrue(LOP.UI.ArcheryPadViewModel.ShowsImpactPlot(ArcheryCourseKind.Range));
+            Assert.IsTrue(LOP.UI.ArcheryPadViewModel.ShowsImpactPlot(ArcheryCourseKind.Wave));
+        }
+
+        [Test]
         public void 한_발_승부의_10점은_10느낌표_둘()
         {
             Assert.AreEqual("10!!", LOP.UI.ArcheryPadViewModel.PopupTextFor(ArcheryCourseKind.ShootOff, 10));

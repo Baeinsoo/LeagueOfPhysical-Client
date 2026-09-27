@@ -2,6 +2,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using VContainer.Unity;
 
+//  EditMode 테스트(Assets/Tests/Editor, 별도 어셈블리)가 아래 internal 테스트 seam(markerSearch·
+//  TriggerCount·Tick(float))에 접근하려면 이 선언이 필요하다 — 코드를 옮기지 않고 어셈블리
+//  경계만 살짝 튼다.
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Assembly-CSharp-Editor")]
+
 namespace LOP
 {
     /// <summary>
@@ -38,10 +43,18 @@ namespace LOP
         private readonly Dictionary<FlappyHologramMarker, HologramFxState> states = new Dictionary<FlappyHologramMarker, HologramFxState>();
         private Material shardMaterial;
 
+        //  테스트 전용 seam — 실제로는 씬을 뒤지는 DefaultMarkerSearch, EditMode 테스트는 가짜
+        //  탐색으로 갈아 끼워 몇 번 불렸는지 세거나 원하는 시점에 마커를 "발견"시킨다.
+        internal System.Func<FlappyHologramMarker[]> markerSearch = DefaultMarkerSearch;
+
+        //  테스트 전용 seam — 홀로그램 연출이 실제로 발동한(들어오는 순간) 횟수.
+        internal int TriggerCount { get; private set; }
+
         private class HologramFxState
         {
             public Renderer Renderer;
             public Material MaterialInstance;
+            public Material OriginalSharedMaterial;
             public float BaseAlpha;
             public bool WasInside;
             public bool Active;
@@ -58,13 +71,19 @@ namespace LOP
 
         public void Tick()
         {
-            EnsureMarkers();
+            Tick(Time.deltaTime);
+        }
+
+        //  실 로직은 dt를 인자로 받는다 — EditMode 테스트는 Time.deltaTime(플레이 중이 아니면
+        //  0에 가깝다)에 기대지 않고 원하는 시간 간격을 직접 넣어 검증한다.
+        internal void Tick(float deltaTime)
+        {
+            EnsureMarkers(deltaTime);
             if (markers == null || markers.Length == 0)
             {
                 return;
             }
 
-            float dt = Time.deltaTime;
             float maxDuration = Mathf.Max(ShakeDuration, ShardDuration);
 
             foreach (var marker in markers)
@@ -85,6 +104,7 @@ namespace LOP
                 {
                     state.Active = true;
                     state.Elapsed = 0f;
+                    TriggerCount++;
                 }
                 state.WasInside = inside;
 
@@ -94,7 +114,7 @@ namespace LOP
                 }
 
                 Animate(state, state.Elapsed);
-                state.Elapsed += dt;
+                state.Elapsed += deltaTime;
                 if (state.Elapsed >= maxDuration)
                 {
                     state.Active = false;
@@ -105,7 +125,7 @@ namespace LOP
 
         //  스코프 시작(첫 틱)에 한 번 찾고, 못 찾으면 최대 5초 동안 1초 간격으로 재시도한 뒤
         //  그만둔다 — 홀로그램이 없는 맵에서 매 틱 FindObjectsByType을 영원히 돌리지 않는다.
-        private void EnsureMarkers()
+        private void EnsureMarkers(float deltaTime)
         {
             if (markers != null && markers.Length > 0)
             {
@@ -116,14 +136,14 @@ namespace LOP
                 return;
             }
 
-            markerSearchClock += Time.deltaTime;
+            markerSearchClock += deltaTime;
             if (markerSearchClock < nextMarkerSearchAt)
             {
                 return;
             }
 
-            var found = Object.FindObjectsByType<FlappyHologramMarker>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-            if (found.Length > 0)
+            var found = markerSearch();
+            if (found != null && found.Length > 0)
             {
                 markers = found;
                 return;
@@ -136,6 +156,11 @@ namespace LOP
             }
 
             nextMarkerSearchAt = markerSearchClock + MarkerSearchInterval;
+        }
+
+        private static FlappyHologramMarker[] DefaultMarkerSearch()
+        {
+            return Object.FindObjectsByType<FlappyHologramMarker>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         }
 
         private bool AnyBirdInside(Bounds bounds)
@@ -173,12 +198,23 @@ namespace LOP
                 return null;
             }
 
+            Material original = renderer.sharedMaterial;
+            if (original == null)
+            {
+                return null;   // 흔들 재질이 없다
+            }
+
+            //  renderer.material로 인스턴스를 만들면 에디트 모드에서 유니티가 경고 로그를 남긴다
+            //  (테스트 프레임워크가 이걸 실패로 잡는다) — 같은 결과를 직접 복제해서 만든다.
+            //  관문 셋이 같은 원본 재질을 공유해도 이러면 흔들림이 서로 안 섞인다.
+            Material instance = new Material(original) { name = original.name + " (Hologram Instance)" };
+            renderer.sharedMaterial = instance;
+
             state = new HologramFxState
             {
                 Renderer = renderer,
-                //  .material은 첫 접근에서 자동으로 개별 복사본을 만든다 — 관문 셋이 같은 원본
-                //  재질을 공유해도 흔들림은 서로 안 섞인다.
-                MaterialInstance = renderer.material,
+                OriginalSharedMaterial = original,
+                MaterialInstance = instance,
             };
             state.BaseAlpha = GetAlpha(state.MaterialInstance);
             state.Shards = BuildShards(marker.transform, renderer.bounds, out state.ShardHomes, out state.ShardScattered);
@@ -256,7 +292,7 @@ namespace LOP
                 var collider = shardObject.GetComponent<Collider>();
                 if (collider != null)
                 {
-                    Object.Destroy(collider);
+                    DestroyObject(collider);
                 }
                 shardObject.GetComponent<MeshRenderer>().sharedMaterial = shardMaterial;
 
@@ -321,9 +357,15 @@ namespace LOP
         {
             foreach (var state in states.Values)
             {
+                //  인스턴스 재질을 지우기 전에 렌더러를 원본 공유 재질로 되돌린다 — 안 그러면
+                //  렌더러가 곧 파괴될 재질을 계속 참조한 채 남는다(FlappyAtmosphere.Dispose와 같은 순서).
+                if (state.Renderer != null && state.OriginalSharedMaterial != null)
+                {
+                    state.Renderer.sharedMaterial = state.OriginalSharedMaterial;
+                }
                 if (state.MaterialInstance != null)
                 {
-                    Object.Destroy(state.MaterialInstance);
+                    DestroyObject(state.MaterialInstance);
                 }
                 if (state.Shards != null)
                 {
@@ -331,7 +373,7 @@ namespace LOP
                     {
                         if (shard != null)
                         {
-                            Object.Destroy(shard.gameObject);
+                            DestroyObject(shard.gameObject);
                         }
                     }
                 }
@@ -340,8 +382,28 @@ namespace LOP
 
             if (shardMaterial != null)
             {
-                Object.Destroy(shardMaterial);
+                DestroyObject(shardMaterial);
                 shardMaterial = null;
+            }
+        }
+
+        //  플레이 중이 아니면(EditMode 테스트 등) Destroy가 안 먹는다 — Unity가 요구하는 대로
+        //  DestroyImmediate로 갈아 끼운다(FlappyAtmosphere.Dispose와 같은 분기).
+        private static void DestroyObject(Object obj)
+        {
+            if (obj == null)
+            {
+                return;
+            }
+            //  namespace LOP 안에 LOP.Application(MonoSingleton)이 따로 있어 UnityEngine.Application을
+            //  풀네임으로 한정해야 한다 — 안 그러면 LOP.Application으로 잘못 잡혀 컴파일이 깨진다.
+            if (UnityEngine.Application.isPlaying)
+            {
+                Object.Destroy(obj);
+            }
+            else
+            {
+                Object.DestroyImmediate(obj);
             }
         }
     }

@@ -6,17 +6,17 @@ namespace LOP
     /// <summary>
     /// 화살 모양을 코드로 만든다 — 육각 대, 촉, 깃 세 장. 에셋이 아니라서 전달 과정이 없고 숫자만 고치면 된다.
     /// 날아가는 쪽이 +Z이고, 기준점은 촉 끝에서 <see cref="TipEmbed"/>만큼 뒤다(꽂히면 촉이 묻힌다).
-    /// 실물보다 굵다 — 45m 밖에서도 보여야 한다.
+    /// 실물보다 조금 굵다 — 멀리서 보이는 건 꼬리선이 맡는다.
     /// </summary>
     public static class ArcheryArrowMesh
     {
-        public const float Length = 0.85f;
-        public const float ShaftRadius = 0.035f;
-        public const float HeadLength = 0.16f;
-        public const float HeadRadius = 0.07f;
-        public const float FletchLength = 0.22f;
-        public const float FletchHeight = 0.08f;
-        public const float TipEmbed = 0.06f;
+        public const float Length = 0.8f;
+        public const float ShaftRadius = 0.018f;
+        public const float HeadLength = 0.11f;
+        public const float HeadRadius = 0.038f;
+        public const float FletchLength = 0.17f;
+        public const float FletchHeight = 0.05f;
+        public const float TipEmbed = 0.05f;
 
         //  부분 번호 — 렌더러의 재질 순서와 같다.
         public const int ShaftPart = 0;

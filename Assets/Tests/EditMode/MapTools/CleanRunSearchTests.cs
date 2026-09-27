@@ -576,9 +576,11 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
-        public void 기류가_없으면_예전과_같은_경로를_찾는다()
+        public void 기류_probe가_null이어도_None과_같다()
         {
-            //  기류 probe가 늘 None이면 probe를 안 넘긴 것과 한 비트도 다르지 않아야 한다.
+            //  probe를 안 넘긴 것(null)과 늘 None을 돌려주는 probe가 같은 경로를 내야 한다 — null
+            //  처리가 기류 분기를 엉뚱하게 타지 않는다는 것만 지킨다. 기류 없는 맵의 결과가 기류
+            //  도입 전과 같다는 보장은 아니다(그건 검사기 실측이 댄다).
             bool IsFree(float x, float y) => (x < 20f || x > 22f) || y >= 3f;
             var options = Options(startY: 0.37f, finishX: 50f);
             var a = CleanRunSearch.Run(options, IsFree, PointSampleSweep(options, IsFree));

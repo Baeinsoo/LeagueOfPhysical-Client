@@ -155,7 +155,7 @@ namespace LOP.EditorTools
             int mapMask = CheckMapMask();
             if (TryReadBounds(mapMask, out Bounds bounds) == false)
             {
-                Bail("Default 레이어에 콜라이더가 없다 — 맵 씬을 먼저 열어라.\n"
+                Bail("맵 층(Default·Hologram)에 콜라이더가 없다 — 맵 씬을 먼저 열어라.\n"
                    + "예: Assets/Art/Scenes/FlappyRaceMap.unity");
                 return;
             }
@@ -1723,16 +1723,17 @@ namespace LOP.EditorTools
         /// 예전엔 여기와 정렬 도구가 각자 규칙을 적어 두었는데, 그러면 규칙이 갈라져도 테스트가
         /// 아무것도 못 잡는다(규칙이 코드에만 있고 아무 테스트도 안 붙기 때문).</para>
         /// </summary>
-        //  게임 평면이 쓸 수 있는 재질. 구간 셋 + 아직 안 갈아 끼운 그레이박스 재질이다.
+        //  게임 평면이 쓸 수 있는 재질. 구간 셋 + 아직 안 갈아 끼운 그레이박스 재질 + 대시로만
+        //  뚫리는 홀로그램 벽(맵 층이 Default·Hologram 둘이라 홀로그램도 게임 평면에 선다).
         //  배경 재질은 목록으로 강제하지 않는다 — 규약은 "닿는 것"에만 건다.
         private static readonly string[] GameplayMaterials =
-            { "CityIntact", "CityExposed", "CityCharred", "FloorNeutral" };
+            { "CityIntact", "CityExposed", "CityCharred", "FloorNeutral", "Hologram" };
 
         /// <summary>
         /// 층 규약 검사에 넘길 블록을 씬에서 모은다. <see cref="ScanBlockDepths"/>와 같은 순회지만
         /// <b>게임 평면이 아닌 것도 담는다</b> — 배경에 콜라이더가 남았는지가 이 검사의 절반이다.
         ///
-        /// <para>맵 레이어(Default)만 본다. 다른 레이어의 콜라이더는 새의 sweep이 아예 안 보므로
+        /// <para>맵 층(Default·Hologram)만 본다. 다른 레이어의 콜라이더는 새의 sweep이 아예 안 보므로
         /// 부딪힐 수 없고, 규약이 막으려는 사고가 아니다.</para>
         /// </summary>
         private static List<LOP.MapTools.LayerBlock> ScanLayerBlocks(int mapMask, float bodyRadius)

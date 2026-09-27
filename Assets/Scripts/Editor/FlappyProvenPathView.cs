@@ -172,7 +172,7 @@ namespace LOP.EditorTools
             int mapMask = CheckMapMask();
             if (TryReadBounds(mapMask, out Bounds bounds) == false)
             {
-                Debug.LogError("[증명 경로] Default 레이어에 콜라이더가 없다 — 맵 씬을 먼저 열어라."
+                Debug.LogError("[증명 경로] 맵 층(Default·Hologram)에 콜라이더가 없다 — 맵 씬을 먼저 열어라."
                              + "\n예: Assets/Art/Scenes/FlappyRaceMap.unity");
                 return null;
             }

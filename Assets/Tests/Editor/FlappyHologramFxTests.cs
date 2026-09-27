@@ -169,4 +169,52 @@ public class FlappyHologramFxTests
 
         Assert.AreSame(original, renderer.sharedMaterial, "Dispose 후에는 원본 재질로 되돌아가 있어야 한다");
     }
+
+    //  ── 실제 관문 모양(판정면 정렬 규약) ──────────────────────
+
+    //  굽기가 만드는 그대로: 오브젝트 z −1.25, 콜라이더 center.z +0.5, 크기 (1.6, 4.37, 2.5).
+    //  그림은 z [−2.5, 0]이라 판정면(z = 0)에 선 새가 딱 경계에 걸린다.
+    private FlappyHologramMarker CreateRealGate(Vector3 centerXY)
+    {
+        var marker = CreateMarker(new Vector3(centerXY.x, centerXY.y, -1.25f), new Vector3(1.6f, 4.37f, 2.5f));
+        marker.GetComponent<BoxCollider>().center = new Vector3(0f, 0f, 0.5f);
+        return marker;
+    }
+
+    [Test]
+    public void 판정면에_선_새가_실제_관문_모양에_들어오면_발동한다()
+    {
+        var (registry, transform) = MakeBird(new Vector3(1000f, 0f, 0f));
+        var marker = CreateRealGate(new Vector3(10f, 0f, 0f));
+        var sut = new FlappyHologramFx(registry);
+        sut.markerSearch = () => new[] { marker };
+
+        sut.Tick(0.016f);
+        MoveTo(transform, new Vector3(10.3f, 1.5f, 0f));
+        sut.Tick(0.016f);
+        Assert.AreEqual(1, sut.TriggerCount);
+
+        sut.Dispose();
+    }
+
+    [Test]
+    public void 조각은_늘여_놓은_관문에_끌려_늘어나지_않는다()
+    {
+        var (registry, transform) = MakeBird(new Vector3(1000f, 0f, 0f));
+        var marker = CreateRealGate(new Vector3(10f, 0f, 0f));
+        var sut = new FlappyHologramFx(registry);
+        sut.markerSearch = () => new[] { marker };
+
+        sut.Tick(0.016f);
+        MoveTo(transform, new Vector3(10f, 0f, 0f));
+        sut.Tick(0.016f);   //  발동 — 조각이 켜진다
+
+        var shard = GameObject.Find("HologramShard_0");
+        Assert.IsNotNull(shard, "발동하면 조각이 켜져 있어야 한다");
+        Vector3 scale = shard.transform.lossyScale;
+        Assert.AreEqual(scale.x, scale.y, 1e-4f, "조각이 세로로 늘어났다");
+        Assert.AreEqual(scale.x, scale.z, 1e-4f, "조각이 깊이로 늘어났다");
+
+        sut.Dispose();
+    }
 }

@@ -59,6 +59,7 @@ namespace LOP
             public bool WasInside;
             public bool Active;
             public float Elapsed;
+            public GameObject ShardHolder;
             public Transform[] Shards;
             public Vector3[] ShardHomes;
             public Vector3[] ShardScattered;
@@ -177,7 +178,11 @@ namespace LOP
                     continue;
                 }
 
-                if (bounds.Contains(GameFramework.World.EntityMotionExtensions.GetPosition(entity)))
+                    //  x·y만 본다 — 관문의 그림은 z [−2.5, 0]이고 새는 판정면 z = 0에 딱 붙어 있어,
+                //  z까지 보면 경계에 걸친 부동소수 비교 한 번에 발동이 갈린다.
+                Vector3 position = GameFramework.World.EntityMotionExtensions.GetPosition(entity);
+                if (position.x >= bounds.min.x && position.x <= bounds.max.x
+                    && position.y >= bounds.min.y && position.y <= bounds.max.y)
                 {
                     return true;
                 }
@@ -217,7 +222,10 @@ namespace LOP
                 MaterialInstance = instance,
             };
             state.BaseAlpha = GetAlpha(state.MaterialInstance);
-            state.Shards = BuildShards(marker.transform, renderer.bounds, out state.ShardHomes, out state.ShardScattered);
+            //  조각은 마커 밑이 아니라 따로 둔 크기 1짜리 그릇에 담는다 — 마커는 (1.6, 4.37, 2.5)로
+            //  늘여 놓은 상자라 그 밑에 두면 정사각 조각이 세로로 길쭉하게 늘어난다.
+            state.ShardHolder = new GameObject($"HologramShards_{marker.name}");
+            state.Shards = BuildShards(state.ShardHolder.transform, renderer.bounds, out state.ShardHomes, out state.ShardScattered);
             states[marker] = state;
             return state;
         }
@@ -367,15 +375,9 @@ namespace LOP
                 {
                     DestroyObject(state.MaterialInstance);
                 }
-                if (state.Shards != null)
+                if (state.ShardHolder != null)
                 {
-                    foreach (var shard in state.Shards)
-                    {
-                        if (shard != null)
-                        {
-                            DestroyObject(shard.gameObject);
-                        }
-                    }
+                    DestroyObject(state.ShardHolder);
                 }
             }
             states.Clear();

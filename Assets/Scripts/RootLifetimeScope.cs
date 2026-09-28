@@ -49,6 +49,7 @@ namespace LOP
             builder.RegisterOrderedMessageBroker<EntityInputsToC>();
             builder.RegisterOrderedMessageBroker<PanchigiStateToC>();
             builder.RegisterOrderedMessageBroker<ArcheryStateToC>();
+            builder.RegisterOrderedMessageBroker<DodgeStateToC>();
             builder.RegisterOrderedMessageBroker<MatchEndedToC>();
             builder.RegisterOrderedMessageBroker<MatchStartToC>();
             builder.Register<NetworkMessageDispatcher>(Lifetime.Singleton);

@@ -36,10 +36,17 @@ Material:
     - _RimPower: 3
     - _RimStrength: 0.35
     - _Softness: 0.04
+    - _UseRegions: 0
     m_Colors:
     - _BaseColor: {r: 0.16862746, g: 0.16862746, b: 0.16862746, a: 1}
+    - _BottomColor: {r: 0.22999996, g: 0.19999996, b: 0.30999997, a: 1}
+    - _HairColor: {r: 0.28999996, g: 0.19999996, b: 0.12999997, a: 1}
     - _OutlineColor: {r: 0.24999997, g: 0.19999996, b: 0.29999998, a: 1}
     - _RimColor: {r: 1, g: 0.96, b: 0.88, a: 1}
     - _ShadowColor: {r: 0.62, g: 0.6399999, b: 0.86, a: 1}
+    - _ShoeColor: {r: 1, g: 1, b: 1, a: 1}
+    - _SkinColor: {r: 0.96999997, g: 0.82, b: 0.68, a: 1}
+    - _SleeveColor: {r: 1, g: 1, b: 1, a: 1}
+    - _TopColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

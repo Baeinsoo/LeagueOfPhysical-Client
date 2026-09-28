@@ -74,11 +74,11 @@ public class FlappyBuildingFacadeFxTests
         Assert.AreEqual(0.95f, sut.AlphaOf(facade), 1e-3f, "밖에서는 그대로");
 
         MoveX(me, 120f);
-        for (int i = 0; i < 4; i++) { sut.Tick(0.1f); }
+        for (int i = 0; i < 3; i++) { sut.Tick(0.1f); }
         Assert.AreEqual(0.2f, sut.AlphaOf(facade), 1e-3f, "안에서는 0.3초 안에 0.2까지");
 
         MoveX(me, 150f);
-        for (int i = 0; i < 4; i++) { sut.Tick(0.1f); }
+        for (int i = 0; i < 3; i++) { sut.Tick(0.1f); }
         Assert.AreEqual(0.95f, sut.AlphaOf(facade), 1e-3f, "나오면 되돌린다");
         sut.Dispose();
     }

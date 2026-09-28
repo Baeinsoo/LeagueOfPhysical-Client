@@ -45,6 +45,9 @@ namespace LOP.EditorTools
         private const float PipeZ = -1.25f;
         private const float ShortcutStripStep = 0.25f;
         private const float WallThickness = 20f;     // 바닥·천장 슬래브 두께 — 밑으로 빠지지 않게 두껍게
+        //  절벽 면의 x 두께. WallThickness(20m)만큼 번지면 절벽 20m 앞에 계곡·샤프트 구멍이 오는
+        //  시드·길이 조합에서 그 구멍을 조용히 메워 버린다 — 아래 Cliffs() 참고.
+        private const float CliffFaceThickness = 1f;
         //  중간층 깊이. 34m 거리가 되어 화면 세로 24.8m를 담는다. 게임 평면(z=0)과 배경(z=62)
         //  사이가 통째로 비어 있던 자리다 — 2.5D가 안 읽히던 이유.
         private const float MidgroundZ = 14f;
@@ -599,6 +602,11 @@ namespace LOP.EditorTools
         //  절벽 = 바닥이 Edge에서 수직으로 떨어진다. 바닥 경사 조각은 Edge~SlopeEnd를 비워 두므로(FloorGaps)
         //  아래 바닥과 절벽 면을 여기서 채운다. 절벽 면은 윗바닥 슬래브(두께 20m)보다 낙차(25m)가 커서 생기는
         //  슬래브 밑 빈칸까지 막는다.
+        //
+        //  <b>면은 x로 얇게(CliffFaceThickness) 둔다</b> — y(낙차 쪽)는 WallThickness만큼 두꺼워도
+        //  되지만, x까지 20m로 번지면 절벽 20m 이내에 계곡·샤프트 구멍이 오는 시드·길이 조합에서
+        //  그 구멍을 이 슬래브가 조용히 메워 버린다. 얇아도 y 범위(lower-WallThickness~top)는 그대로라
+        //  윗바닥 슬래브 밑 빈칸을 막는 역할은 그대로 한다.
         private static void Cliffs(Transform parent, LOP.MapTools.CourseProfile profile, float floorY, float length,
                                    Material fallback)
         {
@@ -607,7 +615,7 @@ namespace LOP.EditorTools
                 Material skin = SectionMaterial(c.Edge, length, fallback);
                 float top = floorY + c.TopY;
                 float lower = floorY + c.BottomY;
-                Slab(parent, $"CliffFace_{c.Edge:F0}", c.Edge - WallThickness, c.Edge, lower - WallThickness, top, skin);
+                Slab(parent, $"CliffFace_{c.Edge:F0}", c.Edge - CliffFaceThickness, c.Edge, lower - WallThickness, top, skin);
                 Slab(parent, $"CliffFloor_{c.Edge:F0}", c.Edge, c.SlopeEnd, lower - WallThickness, lower, skin);
             }
         }
@@ -669,7 +677,11 @@ namespace LOP.EditorTools
             go.transform.SetParent(parent, worldPositionStays: false);
             go.layer = LayerMask.NameToLayer("Default");
             go.AddComponent<MeshFilter>().sharedMesh = PrismMesh(name, polygon, FacadeZNear, FacadeZFar);
-            go.AddComponent<MeshRenderer>().sharedMaterial = material;
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+            //  그림자를 드리우면 통로 입구 칸이 그늘져 "입구가 늘 보인다"가 깨진다 — 연출뿐인 벽이라 끈다.
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
         }
 
         //  검사기용 표시 — Transform만 있는 빈 GameObject(위치 = 가운데, 크기 = 폭·높이).

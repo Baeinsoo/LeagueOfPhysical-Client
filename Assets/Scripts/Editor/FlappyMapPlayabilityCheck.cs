@@ -407,8 +407,9 @@ namespace LOP.EditorTools
                         //  두는 편이 "증명된 자리만 골라 재는" 분기를 여기 또 두는 것보다 단순하다.
                         discs: verified ? JudgeDiscs(replayPath, shape, placements) : default));
                 }
-                //  🔀 지름길 — 스폰 1에서 두 길을 따로 날린다. 지름길이 없거나 클린런을 중간에
-                //  취소했으면 건너뛴다 — 취소한 사람을 전수 탐색 두 번 더 기다리게 하지 않는다.
+                //  🔀 갈림길 — 스폰 1에서 안전한 길 + 갈림길마다 한 번씩 날린다. 갈림길이 없거나
+                //  클린런을 중간에 취소했으면 건너뛴다 — 취소한 사람을 전수 탐색 여러 번 더 기다리게
+                //  하지 않는다.
                 if (branches.Count > 0 && cleanRunCancelNote == null)
                 {
                     shortcutSection = ProveShortcuts(spawns[0].Position, finishX, shape, mapMask, query,

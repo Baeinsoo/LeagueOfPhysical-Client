@@ -163,7 +163,7 @@ namespace LOP.MapTools.Tests
         public void 지름길이_없으면_그렇다고_말한다()
         {
             var safe = new ShortcutProof("지름길 없이", 0f, 0f, true, true, 0f);
-            Assert.That(ShortcutRule.Section(safe, new List<ShortcutProof>()), Does.Contain("지름길이 없다"));
+            Assert.That(ShortcutRule.Section(safe, new List<ShortcutProof>()), Does.Contain("갈림길이 없다"));
         }
     }
 }

@@ -69,17 +69,17 @@ namespace LOP.MapTools
         public static string Section(ShortcutProof safeRoute, IReadOnlyList<ShortcutProof> shortcuts)
         {
             var text = new StringBuilder();
-            text.AppendLine("── 🔀 지름길 ──────────────────────────");
+            text.AppendLine("── 🔀 갈림길 ──────────────────────────");
             if (shortcuts == null || shortcuts.Count == 0)
             {
-                text.AppendLine("  지름길이 없다.");
+                text.AppendLine("  갈림길이 없다.");
                 return text.ToString().TrimEnd();
             }
-            text.AppendLine("  " + Line(safeRoute, "지름길을 막고 완주", "안전한 길이 없다 — 맵이 불가능하다"));
+            text.AppendLine("  " + Line(safeRoute, "갈림길을 막고 완주", "안전한 길이 없다 — 맵이 불가능하다"));
             foreach (ShortcutProof p in shortcuts)
             {
                 text.AppendLine($"  x={p.X0:F0}~{p.X1:F0}  "
-                              + Line(p, "들어가서 완주", "지름길이 아니라 함정이다(못 들어가거나 못 나온다)"));
+                              + Line(p, "들어가서 완주", "갈림길이 아니라 함정이다(못 들어가거나 못 나온다)"));
             }
             text.AppendLine("  (✅는 탐색이 찾은 길을 진짜 커널로 다시 날려 안 닿은 것이다. 🟡는 찾았지만 재생이 어긋났다.)");
             return text.ToString().TrimEnd();

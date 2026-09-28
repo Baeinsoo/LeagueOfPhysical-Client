@@ -24,9 +24,22 @@ namespace LOP.LookDevEditor
         private const string FaceAtlas = "Assets/LookDev/Face/FaceAtlas.png";
         private const float ChibiScale = 3f;   // 모델 키 0.49m → 약 1.47m(게임 캐릭터 1.5m)
 
+        /// <summary>플레이 중이거나 저장 안 된 씬이 있으면 다시 조립하지 않는다 — 새 씬이 열린 씬을 말없이 버린다.</summary>
+        public static bool CanRebuild(bool isPlaying, bool anySceneDirty) => isPlaying == false && anySceneDirty == false;
+
         [MenuItem("LOP/LookDev/Build Scene")]
         public static void Build()
         {
+            bool dirty = false;
+            for (int i = 0; i < UnityEngine.SceneManagement.SceneManager.sceneCount; i++)
+            {
+                dirty |= UnityEngine.SceneManagement.SceneManager.GetSceneAt(i).isDirty;
+            }
+            if (CanRebuild(EditorApplication.isPlayingOrWillChangePlaymode, dirty) == false)
+            {
+                Debug.LogError("[LookDev] 플레이 중이거나 저장 안 된 씬이 있어 조립하지 않았다 — 저장하거나 플레이를 멈춘 뒤 다시.");
+                return;
+            }
             ConfigureFaceAtlasImport();
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 

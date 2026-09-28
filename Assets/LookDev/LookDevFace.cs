@@ -20,21 +20,41 @@ namespace LOP.LookDev
         public string hiddenEyeMesh = "SM_Chibi_Eye";
 
         private GameObject plate;
+        private Mesh mesh;
         private Material instance;
 
-        private void OnEnable() { Build(); }
+        private void OnEnable()
+        {
+            Build();
+        }
 
+        //  OnValidate 안에서 오브젝트를 만들거나 부모를 바꾸면 유니티가 경고를 쏟는다 — 다음 틱으로 미룬다.
         private void OnValidate()
         {
-            if (isActiveAndEnabled)
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.delayCall += () =>
             {
-                Build();
+                if (this != null && isActiveAndEnabled)
+                {
+                    Build();
+                }
+            };
+#endif
+        }
+
+        //  끌 때는 숨기기만 한다(비활성화 도중 지우면 유니티가 거절한다). 정리는 OnDestroy에서.
+        private void OnDisable()
+        {
+            if (plate != null)
+            {
+                plate.GetComponent<MeshRenderer>().enabled = false;
             }
         }
 
-        private void OnDisable()
+        private void OnDestroy()
         {
             if (plate != null) { DestroyImmediate(plate); }
+            if (mesh != null) { DestroyImmediate(mesh); }
             if (instance != null) { DestroyImmediate(instance); }
         }
 
@@ -52,17 +72,21 @@ namespace LOP.LookDev
             }
             if (plate == null)
             {
-                plate = new GameObject("FacePlate") { hideFlags = HideFlags.DontSave };
-                plate.AddComponent<MeshFilter>();
-                plate.AddComponent<MeshRenderer>();
+                var existing = head.Find("FacePlate");
+                plate = existing != null ? existing.gameObject : new GameObject("FacePlate") { hideFlags = HideFlags.DontSave };
+                if (plate.GetComponent<MeshFilter>() == null) { plate.AddComponent<MeshFilter>(); }
+                if (plate.GetComponent<MeshRenderer>() == null) { plate.AddComponent<MeshRenderer>(); }
             }
             plate.transform.SetParent(head, false);
             plate.transform.localPosition = center;
             plate.transform.localRotation = Quaternion.LookRotation(facing.normalized, up.normalized);
             plate.transform.localScale = Vector3.one;
-            var filter = plate.GetComponent<MeshFilter>();
-            if (filter.sharedMesh != null) { DestroyImmediate(filter.sharedMesh); }
-            filter.sharedMesh = BuildPatch(radius, yawSpan * Mathf.Deg2Rad, pitchSpan * Mathf.Deg2Rad, 24, 18);
+            if (mesh == null)
+            {
+                mesh = new Mesh { name = "FacePlate", hideFlags = HideFlags.DontSave };
+            }
+            FillPatch(mesh, radius, yawSpan * Mathf.Deg2Rad, pitchSpan * Mathf.Deg2Rad, 24, 18);
+            plate.GetComponent<MeshFilter>().sharedMesh = mesh;
             if (instance == null) { instance = new Material(faceMaterial) { hideFlags = HideFlags.DontSave }; }
             Vector4 st = LookDevFaceAtlas.CellST(expression);
             instance.SetTextureScale("_FaceMap", new Vector2(st.x, st.y));
@@ -70,10 +94,11 @@ namespace LOP.LookDev
             var renderer = plate.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = instance;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.enabled = true;
         }
 
         //  구의 앞(+Z) 조각. UV는 조각 전체에 0~1로 편다.
-        private static Mesh BuildPatch(float r, float yaw, float pitch, int nx, int ny)
+        private static void FillPatch(Mesh mesh, float r, float yaw, float pitch, int nx, int ny)
         {
             var verts = new Vector3[(nx + 1) * (ny + 1)];
             var normals = new Vector3[verts.Length];
@@ -104,12 +129,11 @@ namespace LOP.LookDev
                     tris[t++] = i + 1; tris[t++] = i + nx + 2; tris[t++] = i + nx + 1;
                 }
             }
-            var mesh = new Mesh { name = "FacePlate", hideFlags = HideFlags.DontSave };
+            mesh.Clear();
             mesh.vertices = verts;
             mesh.normals = normals;
             mesh.uv = uvs;
             mesh.triangles = tris;
-            return mesh;
         }
     }
 }

@@ -40,6 +40,23 @@ namespace LOP.UI
             var livesLabel = Root.Q<Label>("lives-label");
             _viewModel.LivesTextProperty.Subscribe(t => livesLabel.text = t).AddTo(Disposables);
 
+            var stageBox = Root.Q<VisualElement>("stage-box");
+            var stageLabel = Root.Q<Label>("stage-label");
+            var stageFill = Root.Q<VisualElement>("stage-bar-fill");
+            var banner = Root.Q<Label>("banner-label");
+            _viewModel.StageTextProperty.Subscribe(t =>
+            {
+                stageLabel.text = t;
+                stageBox.style.display = string.IsNullOrEmpty(t) ? DisplayStyle.None : DisplayStyle.Flex;
+            }).AddTo(Disposables);
+            _viewModel.StageProgressProperty.Subscribe(p => stageFill.style.width = Length.Percent(p * 100f)).AddTo(Disposables);
+            _viewModel.SuddenDeathProperty.Subscribe(on => stageFill.EnableInClassList("stage-bar-fill--sudden", on)).AddTo(Disposables);
+            _viewModel.BannerTextProperty.Subscribe(t =>
+            {
+                banner.text = t;
+                banner.style.display = string.IsNullOrEmpty(t) ? DisplayStyle.None : DisplayStyle.Flex;
+            }).AddTo(Disposables);
+
             var stickArea = Root.Q<VisualElement>("joystick-area");
             stickArea.RegisterCallback<PointerDownEvent>(OnStickDown);
             stickArea.RegisterCallback<PointerMoveEvent>(OnStickMove);

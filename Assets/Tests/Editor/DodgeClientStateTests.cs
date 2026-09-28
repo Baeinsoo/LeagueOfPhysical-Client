@@ -36,5 +36,15 @@ namespace LOP.Tests
             s.TryGetLife("9", out int lives, out _);
             Assert.AreEqual(1, lives);
         }
+
+        [Test]
+        public void 예고_길이를_패턴에_옮긴다()
+        {
+            var m = Msg(1, 3);
+            m.Patterns[0].WarnTicks = 33;
+            var s = new DodgeClientState();
+            s.Apply(m);
+            Assert.AreEqual(33, s.Patterns[0].WarnTicks);
+        }
     }
 }

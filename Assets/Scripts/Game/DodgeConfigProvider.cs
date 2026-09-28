@@ -21,7 +21,8 @@ namespace LOP
             return new DodgeConfig(r.Lives, r.InvulnerableSeconds, r.HitRadius, r.LeadSeconds, r.ArenaHalf,
                                    r.TileCount, r.FirstPatternDelaySeconds, r.PatternIntervalSeconds, r.OnlyKind,
                                    r.WarnSeconds, r.BulletSpeed, r.BulletRadius, r.BombRadius, r.BombActiveSeconds,
-                                   r.LaserWidth, r.LaserOnSeconds, r.RockSpeed, r.RockRadius, r.TileOnSeconds);
+                                   r.LaserWidth, r.LaserOnSeconds, r.RockSpeed, r.RockRadius, r.TileOnSeconds,
+                                   r.MinIntervalSeconds, r.MinWarnSeconds, r.SuddenDeathBase, r.SuddenDeathGrowth);
         }
     }
 }

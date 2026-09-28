@@ -41,6 +41,7 @@ namespace LOP.LookDevEditor
                 return;
             }
             ConfigureFaceAtlasImport();
+            regions = LookDevRegionBaker.Bake();
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             var mats = new Materials();
@@ -97,13 +98,25 @@ namespace LOP.LookDevEditor
             private readonly System.Collections.Generic.Dictionary<string, Material> chibi = new System.Collections.Generic.Dictionary<string, Material>();
 
             //  PolyOne 베이스는 옷·피부 구분이 없는 민무늬 몸이다 — 룩 개발에선 몸 전체를 파티 색으로 칠한다.
-            public Material ChibiIn(string hex)
+            //  팀 저지(09-28 사용자 선택): 윗옷·소매 = 캐릭터 색, 바지 = 짙은 남보라, 신발 = 흰색, 피부는 사람마다.
+            public Material ChibiIn(string hex, string skin)
             {
-                if (chibi.TryGetValue(hex, out var m) == false)
+                string key = hex + skin;
+                if (chibi.TryGetValue(key, out var m) == false)
                 {
-                    m = Toon("Toon_Chibi_" + hex.TrimStart('#'), Hex(hex), outline: true, baseMap: ChibiTexture,
-                             outlineColor: Hex(hex) * 0.4f);
-                    chibi[hex] = m;
+                    m = new Material(Load("Assets/Shaders/LOP/LOPToon.shader"));
+                    m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(ChibiTexture));
+                    m.SetFloat("_UseRegions", 1f);
+                    m.SetColor("_SkinColor", Hex(skin));
+                    m.SetColor("_TopColor", Hex(hex));
+                    m.SetColor("_SleeveColor", Hex(hex));
+                    m.SetColor("_BottomColor", Hex("#3A3450"));
+                    m.SetColor("_ShoeColor", Hex("#FFFFFF"));
+                    m.SetColor("_HairColor", Hex(Hairs[(hex.GetHashCode() & 0x7fffffff) % Hairs.Length]));
+                    m.SetColor("_OutlineColor", Hex(hex) * 0.4f);
+                    m.SetShaderPassEnabled("SRPDefaultUnlit", true);
+                    m = Save("Toon_Chibi_" + hex.TrimStart('#') + "_" + skin.TrimStart('#'), m);
+                    chibi[key] = m;
                 }
                 return m;
             }
@@ -198,6 +211,10 @@ namespace LOP.LookDevEditor
             }
         }
 
+        private static readonly string[] Skins = { "#F7D2AE", "#FFE0BD", "#F3C9A0", "#E3B089", "#F7D2AE", "#C68642" };
+        private static readonly string[] Hairs = { "#4A3222", "#2A2A30", "#8A5A3B", "#D9A441", "#4A3222" };
+        private static Mesh regions;
+
         private static readonly string[] FanColors = { "#2EC4A6", "#F59E0B", "#EC4899", "#3B82F6", "#10B981", "#F97316", "#8B5CF6", "#FACC15" };
 
         private static void BuildStands(Transform root, Materials mats)
@@ -224,10 +241,11 @@ namespace LOP.LookDevEditor
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(ChibiModel);
             var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
             go.transform.SetParent(root, false);
-            var body = mats.ChibiIn(color);
+            var body = mats.ChibiIn(color, Skins[Mathf.Abs(position.GetHashCode()) % Skins.Length]);
             foreach (var smr in go.GetComponentsInChildren<SkinnedMeshRenderer>())
             {
                 smr.sharedMaterial = body;
+                if (smr.name == "SM_Chibi_Body" && regions != null) { smr.sharedMesh = regions; }   // 옷 영역을 구운 메시
             }
             //  편집 모드에선 애니메이션이 안 돈다 — 한 프레임을 샘플해 자세를 잡아 둔다. 샘플이 루트 위치를
             //  덮어쓰므로 자리·방향·크기는 그 뒤에 준다.

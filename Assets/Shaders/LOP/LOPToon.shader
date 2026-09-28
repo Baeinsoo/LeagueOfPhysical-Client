@@ -13,6 +13,13 @@ Shader "LOP/Toon"
         _RimStrength ("Rim Strength", Range(0, 1)) = 0.35
         _OutlineWidth ("Outline Width (px)", Range(0, 4)) = 1.5
         _OutlineColor ("Outline Color", Color) = (0.25, 0.2, 0.3, 1)
+        [Toggle] _UseRegions ("Use Vertex Regions", Float) = 0
+        _SkinColor ("Region Skin", Color) = (0.97, 0.82, 0.68, 1)
+        _TopColor ("Region Top", Color) = (1, 1, 1, 1)
+        _SleeveColor ("Region Sleeve", Color) = (1, 1, 1, 1)
+        _BottomColor ("Region Bottom", Color) = (0.23, 0.2, 0.31, 1)
+        _ShoeColor ("Region Shoe", Color) = (1, 1, 1, 1)
+        _HairColor ("Region Hair", Color) = (0.29, 0.2, 0.13, 1)
     }
     SubShader
     {
@@ -33,7 +40,27 @@ Shader "LOP/Toon"
             half _RimPower;
             half _RimStrength;
             half _OutlineWidth;
+            half _UseRegions;
+            half4 _SkinColor;
+            half4 _TopColor;
+            half4 _SleeveColor;
+            half4 _BottomColor;
+            half4 _ShoeColor;
+            half4 _HairColor;
         CBUFFER_END
+
+        //  정점 색 빨강 채널 = 옷 영역(0 피부 · 1 윗옷 · 2 소매 끝 · 3 바지 · 4 신발 · 5 머리카락). LookDevRegions와 같은 규칙.
+        half3 LOPRegionColor(half code)
+        {
+            half r = round(code * 5.0h);
+            half3 c = _SkinColor.rgb;
+            c = r > 0.5h ? _TopColor.rgb : c;
+            c = r > 1.5h ? _SleeveColor.rgb : c;
+            c = r > 2.5h ? _BottomColor.rgb : c;
+            c = r > 3.5h ? _ShoeColor.rgb : c;
+            c = r > 4.5h ? _HairColor.rgb : c;
+            return c;
+        }
         TEXTURE2D(_BaseMap);
         SAMPLER(sampler_BaseMap);
         ENDHLSL
@@ -53,7 +80,7 @@ Shader "LOP/Toon"
             #pragma multi_compile_fog
             #include "LOPToonLighting.hlsl"
 
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; };
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; half4 color : COLOR; };
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
@@ -61,6 +88,7 @@ Shader "LOP/Toon"
                 half3 normalWS : TEXCOORD1;
                 float2 uv : TEXCOORD2;
                 half fog : TEXCOORD3;
+                nointerpolation half region : TEXCOORD4;   // 영역 번호는 섞지 않는다 — 섞으면 사이 영역 색이 줄무늬로 낀다
             };
 
             Varyings vert(Attributes i)
@@ -72,12 +100,14 @@ Shader "LOP/Toon"
                 o.normalWS = TransformObjectToWorldNormal(i.normalOS);
                 o.uv = TRANSFORM_TEX(i.uv, _BaseMap);
                 o.fog = ComputeFogFactor(p.positionCS.z);
+                o.region = i.color.r;
                 return o;
             }
 
             half4 frag(Varyings i) : SV_Target
             {
                 half3 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv).rgb * _BaseColor.rgb;
+                albedo *= _UseRegions > 0.5h ? LOPRegionColor(i.region) : half3(1.0h, 1.0h, 1.0h);
                 half3 n = normalize(i.normalWS);
                 half3 v = GetWorldSpaceNormalizeViewDir(i.positionWS);
                 half3 c = LOPToonShade(i.positionWS, n, v, albedo, _ShadowColor.rgb, _MidThreshold, _LightThreshold,

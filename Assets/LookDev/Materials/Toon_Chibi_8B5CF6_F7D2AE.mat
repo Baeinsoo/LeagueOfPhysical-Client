@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Toon_Dirt
+  m_Name: Toon_Chibi_8B5CF6_F7D2AE
   m_Shader: {fileID: 4800000, guid: 5c79eaf12dc2fe94ba0f95f693b12f27, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -18,14 +18,13 @@ Material:
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
   stringTagMap: {}
-  disabledShaderPasses:
-  - SRPDEFAULTUNLIT
+  disabledShaderPasses: []
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
     - _BaseMap:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: a5fe382696437754685a252deeea70e4, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
@@ -36,17 +35,17 @@ Material:
     - _RimPower: 3
     - _RimStrength: 0.35
     - _Softness: 0.04
-    - _UseRegions: 0
+    - _UseRegions: 1
     m_Colors:
-    - _BaseColor: {r: 0.92156863, g: 0.8509804, b: 0.7058824, a: 1}
-    - _BottomColor: {r: 0.22999996, g: 0.19999996, b: 0.30999997, a: 1}
-    - _HairColor: {r: 0.28999996, g: 0.19999996, b: 0.12999997, a: 1}
-    - _OutlineColor: {r: 0.24999997, g: 0.19999996, b: 0.29999998, a: 1}
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _BottomColor: {r: 0.22745098, g: 0.20392157, b: 0.3137255, a: 1}
+    - _HairColor: {r: 0.2901961, g: 0.19607843, b: 0.13333334, a: 1}
+    - _OutlineColor: {r: 0.21803923, g: 0.14431374, b: 0.38588235, a: 0.4}
     - _RimColor: {r: 1, g: 0.96, b: 0.88, a: 1}
     - _ShadowColor: {r: 0.62, g: 0.6399999, b: 0.86, a: 1}
     - _ShoeColor: {r: 1, g: 1, b: 1, a: 1}
-    - _SkinColor: {r: 0.96999997, g: 0.82, b: 0.68, a: 1}
-    - _SleeveColor: {r: 1, g: 1, b: 1, a: 1}
-    - _TopColor: {r: 1, g: 1, b: 1, a: 1}
+    - _SkinColor: {r: 0.96862745, g: 0.8235294, b: 0.68235296, a: 1}
+    - _SleeveColor: {r: 0.54509807, g: 0.36078432, b: 0.9647059, a: 1}
+    - _TopColor: {r: 0.54509807, g: 0.36078432, b: 0.9647059, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

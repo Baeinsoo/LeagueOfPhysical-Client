@@ -1,5 +1,4 @@
 using System.Linq;
-using LOP.LookDev;
 using LOP.LookDevEditor;
 using NUnit.Framework;
 using UnityEditor;
@@ -7,7 +6,7 @@ using UnityEngine;
 
 namespace LOP.Tests
 {
-    public class LookDevFaceLifecycleTests
+    public class ChibiFaceLifecycleTests
     {
         private const string Model = "Assets/Art/PolyOne/Chibi Character/Model/SM_Chibi_Character.fbx";
 
@@ -23,7 +22,7 @@ namespace LOP.Tests
             var go = Object.Instantiate(prefab);
             try
             {
-                var face = go.AddComponent<LookDevFace>();
+                var face = go.AddComponent<ChibiFace>();
                 face.faceMaterial = material;
                 face.Build();
                 face.enabled = false;
@@ -42,6 +41,35 @@ namespace LOP.Tests
                 Object.DestroyImmediate(material);
             }
             Assert.AreEqual(before, PlateMeshes());
+        }
+
+        [Test]
+        public void 표정을_바꾸면_판은_그대로이고_칸만_바뀐다()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Model);
+            Assume.That(prefab, Is.Not.Null, "PolyOne 치비가 없다(Art 서브모듈)");
+            var material = new Material(Shader.Find("LOP/ToonDecal"));
+            var go = Object.Instantiate(prefab);
+            try
+            {
+                var face = go.AddComponent<ChibiFace>();
+                face.faceMaterial = material;
+                face.Build();
+                var plate = go.GetComponentsInChildren<MeshRenderer>(true).Single(r => r.name == "FacePlate");
+                var mesh = plate.GetComponent<MeshFilter>().sharedMesh;
+
+                face.SetExpression(ChibiExpression.Despair);
+
+                Vector4 st = ChibiFaceAtlas.CellST(ChibiExpression.Despair);
+                Assert.AreSame(mesh, plate.GetComponent<MeshFilter>().sharedMesh);
+                Assert.AreEqual(new Vector2(st.z, st.w), plate.sharedMaterial.GetTextureOffset("_FaceMap"));
+                Assert.AreEqual(ChibiExpression.Despair, face.expression);
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                Object.DestroyImmediate(material);
+            }
         }
 
         [Test]

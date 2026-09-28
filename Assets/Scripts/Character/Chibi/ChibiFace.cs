@@ -1,15 +1,15 @@
 using UnityEngine;
 
-namespace LOP.LookDev
+namespace LOP
 {
     /// <summary>
     /// 머리 앞에 곡면 얼굴 판을 붙이고 표정 칸을 고른다. 모델의 원래 눈 메시는 끈다.
     /// 반지름·중심·방향은 머리 뼈 로컬 좌표 — PolyOne 치비는 뼈 축이 돌아가 있다(앞 = −Y, 위 = −X).
     /// </summary>
     [ExecuteAlways]
-    public class LookDevFace : MonoBehaviour
+    public class ChibiFace : MonoBehaviour
     {
-        public LookDevExpression expression;
+        public ChibiExpression expression;
         public Material faceMaterial;
         public float radius = 0.175f;
         public Vector3 center = new Vector3(-0.12f, 0f, 0f);
@@ -88,13 +88,31 @@ namespace LOP.LookDev
             FillPatch(mesh, radius, yawSpan * Mathf.Deg2Rad, pitchSpan * Mathf.Deg2Rad, 24, 18);
             plate.GetComponent<MeshFilter>().sharedMesh = mesh;
             if (instance == null) { instance = new Material(faceMaterial) { hideFlags = HideFlags.DontSave }; }
-            Vector4 st = LookDevFaceAtlas.CellST(expression);
+            Vector4 st = ChibiFaceAtlas.CellST(expression);
             instance.SetTextureScale("_FaceMap", new Vector2(st.x, st.y));
             instance.SetTextureOffset("_FaceMap", new Vector2(st.z, st.w));
             var renderer = plate.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = instance;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.enabled = true;
+        }
+
+        /// <summary>판을 다시 만들지 않고 표정 칸만 바꾼다 — 리액션이 매 프레임 불러도 싸다.</summary>
+        public void SetExpression(ChibiExpression next)
+        {
+            if (expression == next && instance != null)
+            {
+                return;
+            }
+            expression = next;
+            if (instance == null)
+            {
+                Build();
+                return;
+            }
+            Vector4 st = ChibiFaceAtlas.CellST(expression);
+            instance.SetTextureScale("_FaceMap", new Vector2(st.x, st.y));
+            instance.SetTextureOffset("_FaceMap", new Vector2(st.z, st.w));
         }
 
         //  구의 앞(+Z) 조각. UV는 조각 전체에 0~1로 편다.

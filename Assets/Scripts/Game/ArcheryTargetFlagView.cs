@@ -101,13 +101,8 @@ namespace LOP
 
         private void Build()
         {
-            var shader = Shader.Find("Universal Render Pipeline/Lit");
-            poleMaterial = new Material(shader);
-            poleMaterial.color = new Color(0.36f, 0.27f, 0.21f);
-            poleMaterial.SetColor("_BaseColor", poleMaterial.color);
-            clothMaterial = new Material(shader);
-            clothMaterial.color = new Color(1f, 0.31f, 0.37f);   // #FF4F5E
-            clothMaterial.SetColor("_BaseColor", clothMaterial.color);
+            poleMaterial = LOPToonMaterials.Create(new Color(0.36f, 0.27f, 0.21f));
+            clothMaterial = LOPToonMaterials.Create(new Color(1f, 0.31f, 0.37f));   // #FF4F5E
             flag = new GameObject("ArcheryTargetFlag");
 
             var pole = GameObject.CreatePrimitive(PrimitiveType.Cube);

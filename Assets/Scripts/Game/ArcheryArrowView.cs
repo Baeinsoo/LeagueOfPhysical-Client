@@ -127,14 +127,11 @@ namespace LOP
         {
             if (_arrowMaterials == null)
             {
-                //  이름으로 찾는 셰이더는 Graphics ▸ Always Included Shaders에 있어야 폰 빌드에서도
-                //  잡힌다 — 없으면 null이 와서 매 프레임 터진다(RuntimeShaderInclusionTests가 지킨다).
-                var shader = Shader.Find("Universal Render Pipeline/Lit");
                 _arrowMaterials = new[]
                 {
-                    new Material(shader) { color = new Color(0.92f, 0.78f, 0.52f) },   // 나무 대
-                    new Material(shader) { color = new Color(0.3f, 0.3f, 0.34f) },     // 쇠 촉
-                    new Material(shader) { color = new Color(1f, 0.25f, 0.3f) },        // 빨간 깃 — 꽂힌 화살이 눈에 띈다
+                    LOPToonMaterials.Create(new Color(0.92f, 0.78f, 0.52f)),   // 나무 대
+                    LOPToonMaterials.Create(new Color(0.3f, 0.3f, 0.34f)),     // 쇠 촉
+                    LOPToonMaterials.Create(new Color(1f, 0.25f, 0.3f)),        // 빨간 깃 — 꽂힌 화살이 눈에 띈다
                 };
             }
             return _arrowMaterials;

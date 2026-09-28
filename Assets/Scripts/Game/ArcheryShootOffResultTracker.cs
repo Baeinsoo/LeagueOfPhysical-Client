@@ -75,21 +75,32 @@ namespace LOP
 
         public ArcheryReactionPose PoseOf(string entityId, float now, double renderTick)
         {
-            var role = ArcheryReactionRole.None;
-            if (IsShowing(renderTick))
+            float bull = bullAt.TryGetValue(entityId, out float at) ? at : float.NegativeInfinity;
+            return ArcheryReaction.PoseAt(now, bull, RoleOf(entityId, renderTick), OpenedAt);
+        }
+
+        /// <summary>표정·애니용 사건 신호 — 몸 튕김(<see cref="PoseOf"/>)과 같은 역할 판정을 쓴다.</summary>
+        public ArcheryReactionCue CueOf(string entityId, float now, double renderTick)
+        {
+            float bull = bullAt.TryGetValue(entityId, out float at) ? at : float.NegativeInfinity;
+            return ArcheryReaction.CueAt(now, bull, RoleOf(entityId, renderTick));
+        }
+
+        private ArcheryReactionRole RoleOf(string entityId, double renderTick)
+        {
+            if (IsShowing(renderTick) == false)
             {
-                int lastRank = byRank.Count > 0 ? byRank[byRank.Count - 1].Rank : 0;
-                for (int i = 0; i < byRank.Count; i++)
+                return ArcheryReactionRole.None;
+            }
+            int lastRank = byRank.Count > 0 ? byRank[byRank.Count - 1].Rank : 0;
+            for (int i = 0; i < byRank.Count; i++)
+            {
+                if (byRank[i].ShooterId == entityId)
                 {
-                    if (byRank[i].ShooterId == entityId)
-                    {
-                        role = ArcheryReaction.RoleOf(byRank[i].Rank, lastRank, byRank[i].Hit);
-                        break;
-                    }
+                    return ArcheryReaction.RoleOf(byRank[i].Rank, lastRank, byRank[i].Hit);
                 }
             }
-            float bull = bullAt.TryGetValue(entityId, out float at) ? at : float.NegativeInfinity;
-            return ArcheryReaction.PoseAt(now, bull, role, OpenedAt);
+            return ArcheryReactionRole.None;
         }
     }
 }

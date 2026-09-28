@@ -156,7 +156,7 @@ namespace LOP
 
         private void Build()
         {
-            material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            material = LOPToonMaterials.Create(Color.white);
             chicken = new GameObject("ArcheryChicken");
             var white = new Color(0.97f, 0.96f, 0.93f);
             Part(chicken.transform, PrimitiveType.Sphere, new Vector3(0f, 0.3f, 0f), new Vector3(0.35f, 0.3f, 0.45f), white);

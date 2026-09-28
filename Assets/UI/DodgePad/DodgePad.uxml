@@ -1,6 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="DodgePad.uss" />
     <ui:VisualElement name="dodge-pad-root" class="dodge-pad-root" picking-mode="Ignore">
+        <ui:Label name="lives-label" class="lives-label" text="" picking-mode="Ignore" />
         <!-- 조작은 이동 하나다. 화면 아래 절반 어디를 눌러도 그 자리가 스틱 중심이 된다.
              위쪽은 비워 둔다 — 위험 요소가 사방에서 오니 손이 경기장을 덜 가리게. -->
         <ui:VisualElement name="joystick-area" class="joystick-area">

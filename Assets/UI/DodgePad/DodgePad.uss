@@ -13,3 +13,10 @@
     position: absolute; width: 64px; height: 64px;
     border-radius: 32px; background-color: rgba(255, 255, 255, 0.45);
 }
+
+.lives-label {
+    position: absolute; left: 16px; top: 16px;
+    padding: 4px 10px; border-radius: 5px;
+    background-color: rgba(10, 10, 14, 0.7);
+    color: rgb(255, 224, 130); font-size: 28px; -unity-font-style: bold;
+}

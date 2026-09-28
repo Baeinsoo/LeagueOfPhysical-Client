@@ -27,7 +27,7 @@ namespace LOP.MapTools
     }
 
     /// <summary>
-    /// 묶음 1 기믹의 자리(spec 2026-09-27 §2·§3). 샤프트는 구간마다 가장 긴 평지 가운데,
+    /// 묶음 1 기믹의 자리(spec 2026-09-27 §2·§3). 샤프트는 구간마다 가장 긴 평지의 왼쪽 끝,
     /// 상승기류는 계곡 오르막 시작(지름길 계곡은 출구 뒤)과 굴뚝, 하강기류는 샤프트 안,
     /// 홀로그램은 샤프트 바로 뒤에 따로 세우는 전용 관문.
     /// </summary>
@@ -41,7 +41,9 @@ namespace LOP.MapTools
         /// <summary>샤프트 앞뒤로 관문을 두지 않는 거리. 파이프가 구멍 위에 서면 아래가 허공에 뜬다.</summary>
         public const float GateClear = 3f;
         public const float UpdraftWidth = 7f;
-        public static readonly float[] ShaftDepths = { 15f, 20f, 25f };
+        //  두 번째가 15m인 건 그 구간 평지(45m)에 20m 샤프트와 뒤 전용 관문 자리가 같이 안 들어가서다.
+        //  20m를 고집하면 다른 긴 평지로 옮겨 가 도전 구간 자리를 먹는다(2026-09-28 사용자 결정).
+        public static readonly float[] ShaftDepths = { 15f, 15f, 25f };
 
         /// <summary>굴뚝을 지나는 동안 주머니 바닥에서 회랑 바닥 위 3m까지 오를 시간을 담아야
         /// 한다 — 그 시간은 상승 상한(riseCap)까지 가속하는 구간 + riseCap로 나는 구간의 합이다.
@@ -68,22 +70,24 @@ namespace LOP.MapTools
                 {
                     float chimneyWidth = ChimneyWidthFor(depth, forwardSpeed, upAccel, riseCap);
                     float span = ShaftWidth + PocketFloor + chimneyWidth;
-                    //  관문이 못 서는 거리(GateClear)는 여기서 셀 필요가 없다 — GateBlocked가
-                    //  따로 그걸 지킨다. 여기 need는 오직 "샤프트 벽이 평지 안에 들어가는가"만
-                    //  묻는다 — 옆벽 폭(SideWall) 밖으로 경사가 시작되기 전 1m 여유만 두면 된다.
-                    float need = span + 2f * (SideWall + 1f);
-                    FlatSpan best = default;
+                    //  앞은 옆벽 + 1m(경사가 시작되기 전 여유), 뒤는 전용 홀로그램 관문이 평지 안에
+                    //  설 자리까지 잰다 — 그래야 모든 샤프트 뒤에 관문이 선다.
+                    float need = LeadRoom + span + HologramRoom;
+                    float bestFrom = 0f;
                     float bestLength = 0f;
                     foreach (FlatSpan f in p.Flats)
                     {
                         float a = Math.Max(f.From, lo), b = Math.Min(f.To, hi);
                         //  출발 평지(스폰)는 건너뛴다 — 스폰 앞에서 바로 바닥이 꺼지면 배울 틈이 없다.
-                        if (a <= startX + 1f || b - a < need || b - a <= bestLength) { continue; }
-                        best = new FlatSpan(a, b);
+                        //  뒤 여유는 구간 끝이 아니라 평지 끝(f.To)까지 잰다 — 관문은 다음 구간에 서도 된다.
+                        if (a <= startX + 1f || f.To - a < need || b - a <= bestLength) { continue; }
+                        bestFrom = a;
                         bestLength = b - a;
                     }
                     if (bestLength <= 0f) { continue; }
-                    float x0 = (best.From + best.To) * 0.5f - span * 0.5f;
+                    //  평지 왼쪽 끝에 붙인다. 남은 평지를 뒤에 한 덩어리로 남겨야 연속 4관문짜리
+                    //  도전 구간이 들어간다 — 가운데에 두면 평지가 둘로 잘려 양쪽 다 모자란다.
+                    float x0 = bestFrom + LeadRoom;
                     float floorY = p.CenterAt(x0) - corridorHalf;
                     shafts.Add(new ShaftPiece(x0, floorY, depth, chimneyWidth));
                     break;
@@ -108,6 +112,10 @@ namespace LOP.MapTools
 
         /// <summary>전용 홀로그램 관문이 굴뚝 오른쪽 담장에서 떨어지는 거리(<see cref="GateClear"/> 밖으로 1m 더).</summary>
         public const float HologramGateOffset = 1f;
+
+        //  샤프트 앞에 남기는 평지(옆벽 + 1m)와, 뒤에 전용 관문이 평지 안쪽에 서려면 필요한 평지.
+        private const float LeadRoom = SideWall + 1f;
+        private const float HologramRoom = GateClear + HologramGateOffset + CourseProfileRule.GateMargin;
 
         /// <summary>
         /// 샤프트마다 굴뚝 바로 뒤(X1 + GateClear + 1m)에 세울 전용 홀로그램 관문 x.

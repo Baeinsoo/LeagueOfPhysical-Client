@@ -20,7 +20,7 @@ namespace LOP.MapTools.Tests
             //  개수는 3으로 못박는다 — 이게 설계 의도다(2026-09-27 수정 2: need에서
             //  GateClear·GateMargin을 뺐다. 그건 GateBlocked가 이미 따로 지키므로 여기서
             //  또 셀 필요가 없었다). 실측(6.8/30/12, 이 파일의 Compose() 코스)으로 구간
-            //  셋 모두 기본 깊이(15/20/25) 그대로 들어간다.
+            //  셋 모두 기본 깊이(ShaftDepths) 그대로 들어간다.
             var shafts = Shafts(Compose());
             Assert.AreEqual(3, shafts.Count);
             for (int s = 0; s < 3; s++)
@@ -181,6 +181,39 @@ namespace LOP.MapTools.Tests
                                    $"x={x:F1} 전용 관문이 샤프트 구멍 위에 섰다");
                 }
                 Assert.IsTrue(strictlyAfterSome);
+            }
+        }
+
+        [Test]
+        //  샤프트를 고를 때 그 뒤 전용 관문 자리까지 재므로, 이 코스에선 모든 샤프트 뒤에 관문이
+        //  선다(2026-09-28 — 두 번째 샤프트 뒤가 2.5m 모자라 빠졌었다).
+        public void 모든_샤프트_뒤에_전용_홀로그램_관문이_선다()
+        {
+            var p = Compose();
+            var shafts = Shafts(p);
+            Assert.AreEqual(3, shafts.Count);
+            Assert.AreEqual(shafts.Count, FieldLayout.HologramGateXs(p, shafts, Finish).Count);
+        }
+
+        [Test]
+        //  샤프트는 평지 왼쪽 끝(옆벽 + 1m)에 붙는다 — 남은 평지를 한 덩어리로 뒤에 남겨야
+        //  연속 4관문짜리 도전 구간이 들어간다. 가운데에 두면 평지가 둘로 잘려 둘 다 모자란다.
+        public void 샤프트는_평지_왼쪽_끝에_붙는다()
+        {
+            var p = Compose();
+            var shafts = Shafts(p);
+            for (int s = 0; s < shafts.Count; s++)
+            {
+                float lo = StartX + Length / 3f * s;
+                bool found = false;
+                foreach (FlatSpan f in p.Flats)
+                {
+                    if (shafts[s].X0 < f.From || shafts[s].X1 > f.To) { continue; }
+                    found = true;
+                    float start = System.Math.Max(f.From, lo);
+                    Assert.AreEqual(start + FieldLayout.SideWall + 1f, shafts[s].X0, 1e-3f, $"샤프트 {s}");
+                }
+                Assert.IsTrue(found, $"샤프트 {s}를 담는 평지가 없다");
             }
         }
 

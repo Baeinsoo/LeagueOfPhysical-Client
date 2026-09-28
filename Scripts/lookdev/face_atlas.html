@@ -1,0 +1,57 @@
+<!doctype html>
+<!--
+  LookDev 얼굴 아틀라스 원본(스타일 C: 평소 동숲, 사건 때 바람의 지휘봉). 3열×2행, 칸 512px.
+  순서: Normal, Surprise, Cheer, Despair, Focus (마지막 칸 비움). 바탕 투명 — 머리카락은 모델 영역 색이 맡는다.
+
+  PNG로 뽑기(클라 루트에서):
+    "C:/Program Files/Google/Chrome/Application/chrome.exe" --headless=new --hide-scrollbars \
+      --default-background-color=00000000 --window-size=1536,1024 \
+      --screenshot="<클라 경로>/Assets/LookDev/Face/FaceAtlas.png" "file:///<클라 경로>/Scripts/lookdev/face_atlas.html"
+-->
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:transparent;overflow:hidden}svg{display:block}</style></head>
+<body><svg id="atlas" width="1536" height="1024" viewBox="0 0 1536 1024" xmlns="http://www.w3.org/2000/svg"></svg>
+<script>
+(function () {
+  var INK = '#241A2C', MOUTH = '#8A2E3E', TONGUE = '#FF8FA0', BLUSH = 'rgba(255,120,135,.45)', SWEAT = '#8FD3FF', GLOOM = 'rgba(80,90,170,.75)';
+  function blush(y) { return '<ellipse cx="146" cy="' + y + '" rx="44" ry="22" fill="' + BLUSH + '"/><ellipse cx="366" cy="' + y + '" rx="44" ry="22" fill="' + BLUSH + '"/>'; }
+  function ovalEye(cx, cy, rx, ry, hl) {
+    return '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + rx + '" ry="' + ry + '" fill="' + INK + '"/>' +
+      '<ellipse cx="' + (cx - rx * 0.3) + '" cy="' + (cy - ry * 0.38) + '" rx="' + rx * 0.34 + '" ry="' + ry * 0.26 + '" fill="#fff"/>' +
+      (hl ? '<circle cx="' + (cx + rx * 0.32) + '" cy="' + (cy + ry * 0.32) + '" r="' + rx * 0.14 + '" fill="#fff" opacity=".8"/>' : '');
+  }
+  function bigEye(cx, cy, r, look) {
+    return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="#fff" stroke="' + INK + '" stroke-width="9"/>' +
+      '<circle cx="' + (cx + (look || 0)) + '" cy="' + (cy + 4) + '" r="' + r * 0.52 + '" fill="' + INK + '"/>' +
+      '<circle cx="' + (cx + (look || 0) - r * 0.2) + '" cy="' + (cy - r * 0.15) + '" r="' + r * 0.18 + '" fill="#fff"/>';
+  }
+  function happyArc(cx, cy, w) { return '<path d="M' + (cx - w) + ' ' + (cy + 8) + ' Q' + cx + ' ' + (cy - w * 0.9) + ' ' + (cx + w) + ' ' + (cy + 8) + '" fill="none" stroke="' + INK + '" stroke-width="13" stroke-linecap="round"/>'; }
+  function brow(x1, y1, x2, y2, w) { return '<path d="M' + x1 + ' ' + y1 + ' L' + x2 + ' ' + y2 + '" stroke="' + INK + '" stroke-width="' + (w || 12) + '" stroke-linecap="round"/>'; }
+  function smile(cx, cy, w) { return '<path d="M' + (cx - w) + ' ' + cy + ' Q' + cx + ' ' + (cy + w * 0.8) + ' ' + (cx + w) + ' ' + cy + '" fill="none" stroke="' + INK + '" stroke-width="10" stroke-linecap="round"/>'; }
+  function openMouth(cx, cy, w, h) {
+    return '<path d="M' + (cx - w) + ' ' + cy + ' Q' + cx + ' ' + (cy + h * 1.6) + ' ' + (cx + w) + ' ' + cy + ' Z" fill="' + MOUTH + '" stroke="' + INK + '" stroke-width="6" stroke-linejoin="round"/>' +
+      '<ellipse cx="' + cx + '" cy="' + (cy + h * 0.55) + '" rx="' + w * 0.45 + '" ry="' + h * 0.3 + '" fill="' + TONGUE + '"/>';
+  }
+  function oMouth(cx, cy, rx, ry) { return '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + rx + '" ry="' + ry + '" fill="' + MOUTH + '" stroke="' + INK + '" stroke-width="6"/>'; }
+  function wave(cx, cy, w) {
+    var d = 'M' + (cx - w) + ' ' + cy, n = 4, step = 2 * w / n;
+    for (var i = 0; i < n; i++) { d += ' q' + step / 2 + ' ' + (i % 2 ? 14 : -14) + ' ' + step + ' 0'; }
+    return '<path d="' + d + '" fill="none" stroke="' + INK + '" stroke-width="9" stroke-linecap="round"/>';
+  }
+  function sweat(x, y, s) { return '<path d="M' + x + ' ' + y + ' q' + 16 * s + ' ' + 26 * s + ' 0 ' + 40 * s + ' q-' + 16 * s + ' -' + 14 * s + ' 0 -' + 40 * s + ' Z" fill="' + SWEAT + '" stroke="#3E7FB0" stroke-width="4"/>'; }
+  function gloom() { var s = ''; [196, 232, 268, 304, 340].forEach(function (x, i) { s += '<path d="M' + x + ' ' + (70 + (i % 2) * 14) + ' L' + x + ' 160" stroke="' + GLOOM + '" stroke-width="9" stroke-linecap="round"/>'; }); return s; }
+  function spark(x, y) { return '<path d="M' + x + ' ' + (y - 22) + ' L' + (x + 6) + ' ' + (y - 6) + ' L' + (x + 22) + ' ' + y + ' L' + (x + 6) + ' ' + (y + 6) + ' L' + x + ' ' + (y + 22) + ' L' + (x - 6) + ' ' + (y + 6) + ' L' + (x - 22) + ' ' + y + ' L' + (x - 6) + ' ' + (y - 6) + ' Z" fill="#FFD23A" stroke="' + INK + '" stroke-width="4"/>'; }
+
+  var FACES = [
+    function () { return ovalEye(196, 250, 26, 40, true) + ovalEye(316, 250, 26, 40, true) + blush(318) + smile(256, 312, 22); },
+    function () { return brow(150, 164, 224, 154, 12) + brow(362, 164, 288, 154, 12) + bigEye(186, 240, 52) + bigEye(326, 240, 52) + oMouth(256, 344, 20, 28) + sweat(400, 150, 1); },
+    function () { return happyArc(196, 254, 36) + happyArc(316, 254, 36) + blush(316) + openMouth(256, 300, 50, 38) + spark(420, 186); },
+    function () { return gloom() + brow(160, 236, 222, 212, 12) + brow(352, 236, 290, 212, 12) + ovalEye(196, 270, 20, 26) + ovalEye(316, 270, 20, 26) + wave(256, 336, 36) + sweat(118, 224, 0.9); },
+    function () { return brow(166, 222, 224, 236, 12) + '<path d="M166 258 L226 262" stroke="' + INK + '" stroke-width="13" stroke-linecap="round"/>' + ovalEye(316, 252, 24, 32, true) + '<path d="M238 324 L274 324" stroke="' + INK + '" stroke-width="10" stroke-linecap="round"/>'; }
+  ];
+  var svg = '';
+  FACES.forEach(function (f, i) {
+    svg += '<g transform="translate(' + (i % 3) * 512 + ' ' + Math.floor(i / 3) * 512 + ')">' + f() + '</g>';
+  });
+  document.getElementById('atlas').innerHTML = svg;
+})();
+</script></body></html>

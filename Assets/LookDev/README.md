@@ -13,4 +13,9 @@
 ## 메뉴
 
 - `LOP/LookDev/Build Scene` — `LookDev.unity`를 처음부터 다시 조립한다.
-- `LOP/LookDev/Capture` — 카메라 둘(가까이·게임 거리)을 `output/lookdev/*.png`로 남긴다.
+- `LOP/LookDev/Capture` — 카메라 셋(가까이·게임 거리·얼굴 정면)을 `output/lookdev/*.png`로 남긴다.
+- `LOP/LookDev/Bake Outfit Regions` — 몸 메시에 옷 영역(뼈 기준 6영역)을 굽는다(빌더가 자동으로 부른다).
+
+## 얼굴 아틀라스
+
+원본은 `Scripts/lookdev/face_atlas.html`(SVG, 스타일 C — 평소 동숲, 사건 때 바람의 지휘봉). 파일 머리 주석의 크롬 명령으로 `Face/FaceAtlas.png`를 다시 뽑는다.

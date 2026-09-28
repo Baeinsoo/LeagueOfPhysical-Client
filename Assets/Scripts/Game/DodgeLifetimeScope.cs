@@ -39,6 +39,8 @@ namespace LOP
             builder.RegisterEntryPoint<DodgeStateHandler>();
             // 판정과 같은 식에 내 몸이 그려지는 틱을 넣어 그린다(스펙 §5.3).
             builder.RegisterEntryPoint<DodgeHazardView>().AsSelf();
+            // 무적 동안 몸을 깜빡인다 — 서버가 보낸 무적 끝 틱으로(판정은 서버).
+            builder.RegisterEntryPoint<DodgeBlinkView>();
 
             builder.RegisterEntryPoint<DodgeHudCoordinator>();
             builder.Register<DodgePadViewModel>(Lifetime.Transient);

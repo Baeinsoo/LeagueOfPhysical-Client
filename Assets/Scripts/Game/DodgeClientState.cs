@@ -9,11 +9,13 @@ namespace LOP
     public class DodgeClientState
     {
         private readonly List<DodgePattern> patterns = new List<DodgePattern>();
-        private readonly Dictionary<string, (int lives, long eliminatedTick)> players =
-            new Dictionary<string, (int, long)>();
+        private readonly Dictionary<string, (int lives, long eliminatedTick, long invulnerableUntilTick)> players =
+            new Dictionary<string, (int, long, long)>();
+        private readonly List<string> playerIds = new List<string>();
 
         public IReadOnlyList<DodgePattern> Patterns => patterns;
         public int Version { get; private set; }
+        public IReadOnlyList<string> PlayerIds => playerIds;
 
         public bool Apply(DodgeStateToC message)
         {
@@ -32,12 +34,18 @@ namespace LOP
             }
 
             players.Clear();
+            playerIds.Clear();
             foreach (var p in message.Players)
             {
-                players[p.EntityId] = (p.Lives, p.EliminatedTick);
+                players[p.EntityId] = (p.Lives, p.EliminatedTick, p.InvulnerableUntilTick);
+                playerIds.Add(p.EntityId);
             }
             return true;
         }
+
+        /// <summary>무적이 끝나는 틱(서버 틱). 모르는 사람이면 -1 — 깜빡이지 않는다.</summary>
+        public long InvulnerableUntil(string entityId)
+            => entityId != null && players.TryGetValue(entityId, out var v) ? v.invulnerableUntilTick : -1;
 
         public bool TryGetLife(string entityId, out int lives, out long eliminatedTick)
         {

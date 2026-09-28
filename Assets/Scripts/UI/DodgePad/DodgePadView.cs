@@ -39,6 +39,12 @@ namespace LOP.UI
 
             var livesLabel = Root.Q<Label>("lives-label");
             _viewModel.LivesTextProperty.Subscribe(t => livesLabel.text = t).AddTo(Disposables);
+            var hitFlash = Root.Q<VisualElement>("hit-flash");
+            _viewModel.HitFlashProperty.Subscribe(on =>
+            {
+                hitFlash.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+                livesLabel.EnableInClassList("lives-label--hit", on);
+            }).AddTo(Disposables);
 
             var stageBox = Root.Q<VisualElement>("stage-box");
             var stageLabel = Root.Q<Label>("stage-label");

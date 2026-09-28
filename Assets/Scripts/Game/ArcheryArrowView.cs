@@ -15,6 +15,13 @@ namespace LOP
         private readonly ArcheryConsumed consumed;
         private readonly ArcheryArrowStickSystem stickSystem;
         private readonly ArcheryCourse course;
+        private readonly ArcheryArrowLandings landings;
+
+        //  로빈 후드로 쪼개진 화살 — 한 화살은 한 번만 쪼개진다.
+        private readonly HashSet<(string, long)> split = new HashSet<(string, long)>();
+        private readonly List<(string, long)> splitKeys = new List<(string, long)>();
+        private readonly List<Vector3> splitOffsets = new List<Vector3>();
+        private readonly List<bool> splitDone = new List<bool>();
 
         //  화살을 처음 본 순간 이미 흘러 있던 시간(초). 남의 화살은 소식이 늦어 0이 아니다.
         private readonly Dictionary<(string shooterId, long fireTick), float> firstSeenSeconds =
@@ -91,13 +98,14 @@ namespace LOP
 
         public ArcheryArrowView(GameFramework.Runner.IRunner runner, ArcheryWorld world,
                                 ArcheryConsumed consumed, ArcheryArrowStickSystem stickSystem,
-                                ArcheryCourse course)
+                                ArcheryCourse course, ArcheryArrowLandings landings)
         {
             this.runner = runner;
             this.world = world;
             this.consumed = consumed;
             this.stickSystem = stickSystem;
             this.course = course;
+            this.landings = landings;
         }
 
 
@@ -232,7 +240,10 @@ namespace LOP
                     {
                         alive.Remove(key);
                         drawn.Remove(key);
+                        bool didSplit = TrySplitEarlier(impact.Wave, impact.Slot, impact.OffsetFromTarget);
                         stuck[key] = new StuckArrow(arrow, target, impact.Wave, impact.Slot, impact.OffsetFromTarget);
+                        landings.Publish(new ArcheryArrowLanding(shots[i].ShooterId, ArcheryLandingKind.Target,
+                                                                 arrow.transform.position, didSplit));
                     }
                     continue;
                 }
@@ -255,7 +266,19 @@ namespace LOP
 
                     alive.Remove(key);
                     drawn.Remove(key);
-                    landed[key] = new LandedArrow(arrow, Time.time + LandedSeconds);
+                    var kind = landings.IsCrowd(ground.collider) ? ArcheryLandingKind.Crowd : ArcheryLandingKind.Ground;
+                    if (kind == ArcheryLandingKind.Crowd)
+                    {
+                        //  관중석에 꽂힌 화살은 관객 머리 화살이 대신한다 — 허공에 떠 보이지 않게 바로 치운다.
+                        //  기록은 남긴다(그림 없이) — 안 남기면 다음 프레임에 다시 날아와 또 꽂힌다.
+                        Object.Destroy(arrow);
+                        landed[key] = new LandedArrow(null, Time.time + LandedSeconds);
+                    }
+                    else
+                    {
+                        landed[key] = new LandedArrow(arrow, Time.time + LandedSeconds);
+                    }
+                    landings.Publish(new ArcheryArrowLanding(shots[i].ShooterId, kind, ground.point, false));
                     RemoveTrail(key);
                     continue;
                 }
@@ -389,6 +412,46 @@ namespace LOP
             return gradient;
         }
 
+        //  같은 과녁에 먼저 꽂힌 화살과 거의 겹치면 그 화살을 두 쪽으로 가른다(로빈 후드) — 원래 화살을 숨기고
+        //  반쪽 굵기 둘을 좌우로 벌려 세운다. 판정과는 상관없다.
+        private bool TrySplitEarlier(int wave, int slot, Vector3 offset)
+        {
+            splitKeys.Clear();
+            splitOffsets.Clear();
+            splitDone.Clear();
+            foreach (var pair in stuck)
+            {
+                if (pair.Value.Wave == wave && pair.Value.Slot == slot && pair.Value.Arrow != null)
+                {
+                    splitKeys.Add(pair.Key);
+                    splitOffsets.Add(pair.Value.OffsetFromTarget);
+                    splitDone.Add(split.Contains(pair.Key));
+                }
+            }
+            int at = ArcheryRobinHood.Splits(offset, splitOffsets, splitDone);
+            if (at < 0)
+            {
+                return false;
+            }
+            var key = splitKeys[at];
+            split.Add(key);
+            var old = stuck[key].Arrow;
+            old.GetComponent<MeshRenderer>().enabled = false;
+            foreach (float side in new[] { -1f, 1f })
+            {
+                var half = new GameObject("SplitHalf");
+                half.transform.SetParent(old.transform, false);
+                half.transform.localPosition = new Vector3(side * ArcheryArrowMesh.ShaftRadius, 0f, 0f);
+                half.transform.localRotation = Quaternion.AngleAxis(side * 8f, Vector3.up);
+                half.transform.localScale = new Vector3(0.5f, 1f, 1f);
+                half.AddComponent<MeshFilter>().sharedMesh = ArrowMesh();
+                var renderer = half.AddComponent<MeshRenderer>();
+                renderer.sharedMaterials = ArrowMaterials();
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            return true;
+        }
+
         //  꽂힌 채 과녁을 따라 움직이다가, 과녁이 내려가거나 치워지면 같이 치운다.
         private void UpdateStuckArrows(double renderTick, float interval)
         {
@@ -415,6 +478,7 @@ namespace LOP
                 {
                     Object.Destroy(stuck[key].Arrow);
                 }
+                split.Remove(key);
                 stuck.Remove(key);
             }
         }
@@ -436,7 +500,10 @@ namespace LOP
             }
             foreach (var key in expired)
             {
-                Object.Destroy(landed[key].Arrow);
+                if (landed[key].Arrow != null)
+                {
+                    Object.Destroy(landed[key].Arrow);
+                }
                 landed.Remove(key);
             }
         }
@@ -453,7 +520,10 @@ namespace LOP
 
             foreach (var pair in landed)
             {
-                Object.Destroy(pair.Value.Arrow);
+                if (pair.Value.Arrow != null)
+                {
+                    Object.Destroy(pair.Value.Arrow);
+                }
             }
             landed.Clear();
 
@@ -462,6 +532,7 @@ namespace LOP
                 Object.Destroy(pair.Value.Arrow);
             }
             stuck.Clear();
+            split.Clear();
 
             foreach (var pair in trails)
             {

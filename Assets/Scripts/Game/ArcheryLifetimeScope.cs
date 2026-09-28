@@ -21,6 +21,8 @@ namespace LOP
             builder.Register<ArcheryConsumed>(Lifetime.Singleton);
             //  내 화살이 과녁 어디에 몇 점으로 꽂혔나 — 화면이 기록판과 "+10"을 그리는 데 읽는다.
             builder.Register<ArcheryImpactLog>(Lifetime.Singleton);
+            //  화살이 과녁·땅·관중석에 꽂혔다는 알림 — 관중·닭·해설이 듣는다.
+            builder.Register<ArcheryArrowLandings>(Lifetime.Singleton);
 
             //  과녁이 언제 어디 서는지를 정하는 한 곳. 명단은 매치 시작 시점의 것을 그대로 쓴다 —
             //  중간에 나간 사람이 있어도 과녁 주인이 밀리지 않게(스펙 6.2절).
@@ -74,6 +76,12 @@ namespace LOP
             builder.RegisterEntryPoint<ArcheryShootOffReactionView>().AsSelf();
             //  한 발 승부 카메라 — 평소 3인칭, 당기는 동안만 1인칭.
             builder.RegisterEntryPoint<ArcheryShootOffCameraRig>().AsSelf();
+            //  한 발 승부 관중석·깃발(다른 모드에선 아무것도 안 만든다).
+            builder.RegisterEntryPoint<ArcheryCrowdView>().AsSelf();
+            //  한 발 승부 과녁 위 바람 깃발.
+            builder.RegisterEntryPoint<ArcheryTargetFlagView>().AsSelf();
+            //  정해진 라운드에 과녁 뒤를 지나가는 닭.
+            builder.RegisterEntryPoint<ArcheryChickenView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryArrowView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryTargetView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryRemoteShotHandler>();

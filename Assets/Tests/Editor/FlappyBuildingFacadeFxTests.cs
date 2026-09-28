@@ -122,4 +122,30 @@ public class FlappyBuildingFacadeFxTests
         Assert.AreSame(original, strip.sharedMaterial);
         Assert.AreEqual(0.95f, original.GetColor("_BaseColor").a, 1e-3f, "원본 재질 알파는 그대로");
     }
+
+    [Test]
+    public void 재질이_여럿이면_재질마다_옅어지고_각자_제_색을_지킨다()
+    {
+        var facade = CreateFacade(100f, 140f, out var first);
+        var second = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        second.transform.SetParent(facade.transform, false);
+        var windowMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        windowMaterial.SetColor("_BaseColor", new Color(1f, 0.84f, 0.42f, 0.95f));
+        var secondRenderer = second.GetComponent<Renderer>();
+        secondRenderer.sharedMaterial = windowMaterial;
+        spawned.Add(windowMaterial);
+        Material firstOriginal = first.sharedMaterial;
+
+        var registry = Birds(out var me, out _);
+        var sut = Make(registry, facade);
+        MoveX(me, 120f);
+        for (int i = 0; i < 3; i++) { sut.Tick(0.1f); }
+
+        Assert.AreNotSame(first.sharedMaterial, secondRenderer.sharedMaterial, "창문이 외벽 재질로 덮이면 안 된다");
+        Assert.AreEqual(0.2f, secondRenderer.sharedMaterial.GetColor("_BaseColor").a, 1e-3f);
+        Assert.AreEqual(1f, secondRenderer.sharedMaterial.GetColor("_BaseColor").r, 1e-3f, "제 색 그대로");
+        sut.Dispose();
+        Assert.AreSame(firstOriginal, first.sharedMaterial);
+        Assert.AreSame(windowMaterial, secondRenderer.sharedMaterial);
+    }
 }

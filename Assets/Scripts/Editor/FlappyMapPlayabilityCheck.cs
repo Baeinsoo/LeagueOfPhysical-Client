@@ -227,12 +227,13 @@ namespace LOP.EditorTools
             //  않는다(탐색은 상태마다 딱 한 번 묻는다). 캐시를 붙이려면 다시 눈금에 붙여야
             //  하고, 그러면 이 과제가 없앤 관대함이 그대로 돌아온다.
             var searchSweep = SearchTickSweep(shape, mapMask, query);
-            //  ①의 탐색은 <b>지름길을 막고</b> 돈다 — 그래야 탐색으로 얻은 ✅가 "안전한 길이 있다"는 뜻이 된다.
+            //  ①의 탐색은 <b>갈림길을 전부 막고</b> 돈다 — 그래야 탐색으로 얻은 ✅가 "안전한 길이 있다"는 뜻이 된다.
             //  (봇은 지름길을 모르고 날아서 봇 ✅는 이 약속 밖이다 — 그래서 🔀 절이 따로 증명한다.)
-            var shortcuts = ReadShortcuts();
-            LOP.MapTools.TickSweepProbe mainSweep = shortcuts.Count == 0
+            var branches = ReadBranches();
+            var branchRects = branches.ConvertAll(b => b.Rect);
+            LOP.MapTools.TickSweepProbe mainSweep = branches.Count == 0
                 ? searchSweep
-                : (x, y, vy) => LOP.MapTools.ShortcutRule.ForbidsShortcut(shortcuts, x, y) == false
+                : (x, y, vy) => LOP.MapTools.ShortcutRule.ForbidsShortcut(branchRects, x, y) == false
                                 && searchSweep(x, y, vy);
             //  봇이 쓰는 캐시는 <b>틱을 가린다</b> — 봇은 매 틱 자기가 몇 틱째인지 알고 날기
             //  때문에(BirdState.Tick) 그 틱의 자세에서 잰 답만 쓸 수 있다. 그래서 탐색 캐시와
@@ -406,12 +407,13 @@ namespace LOP.EditorTools
                         //  두는 편이 "증명된 자리만 골라 재는" 분기를 여기 또 두는 것보다 단순하다.
                         discs: verified ? JudgeDiscs(replayPath, shape, placements) : default));
                 }
-                //  🔀 지름길 — 스폰 1에서 두 길을 따로 날린다. 지름길이 없거나 클린런을 중간에
-                //  취소했으면 건너뛴다 — 취소한 사람을 전수 탐색 두 번 더 기다리게 하지 않는다.
-                if (shortcuts.Count > 0 && cleanRunCancelNote == null)
+                //  🔀 갈림길 — 스폰 1에서 안전한 길 + 갈림길마다 한 번씩 날린다. 갈림길이 없거나
+                //  클린런을 중간에 취소했으면 건너뛴다 — 취소한 사람을 전수 탐색 여러 번 더 기다리게
+                //  하지 않는다.
+                if (branches.Count > 0 && cleanRunCancelNote == null)
                 {
                     shortcutSection = ProveShortcuts(spawns[0].Position, finishX, shape, mapMask, query,
-                                                     grid, searchSweep, mainSweep, shortcuts);
+                                                     grid, searchSweep, mainSweep, branches);
                 }
                 cleanRunWatch.Stop();
                 //  둘로 갈라 찍는다 — 봇 비행과 전수 탐색은 비용의 성질이 아주 달라서다(비행은
@@ -506,6 +508,12 @@ namespace LOP.EditorTools
             //  것"이지 전원 것이 아니다. 아래에서 그 전제가 깨졌는지 확인해 경고를 붙인다.
             var budget = LOP.MapTools.StunBudget.Curve(config, spawns[0].Position.x, finishX, stepSeconds: 10f);
             var earliest = LOP.MapTools.StunBudget.FindEarliestCatch(config, spawns[0].Position.x, finishX);
+
+            string entrance = BuildingEntranceSection();
+            if (entrance != null)
+            {
+                shortcutSection = string.IsNullOrEmpty(shortcutSection) ? entrance : shortcutSection + "\n\n" + entrance;
+            }
 
             string report = LOP.MapTools.PlayabilityReport.Build(
                 UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
@@ -627,28 +635,27 @@ namespace LOP.EditorTools
             Debug.Log($"[맵 검사] 전체 {totalWatch.ElapsedMilliseconds}ms");
         }
 
-        //  빌더가 남긴 표시(Transform만 있는 빈 GameObject)에서 지름길 사각형을 되살린다.
-        //  위치 = 중심, 크기 = (길이, 세로 폭).
-        private static List<LOP.MapTools.ShortcutRect> ReadShortcuts()
+        //  빌더가 남긴 갈림길 표시(Transform만 있는 빈 GameObject)를 되살린다. 위치 = 가운데, 크기 = (길이, 세로 폭),
+        //  이름 = 막을 쪽·종류(Branch.MarkerName).
+        private static List<LOP.MapTools.Branch> ReadBranches()
         {
-            var shortcuts = new List<LOP.MapTools.ShortcutRect>();
+            var branches = new List<LOP.MapTools.Branch>();
             var composed = GameObject.Find("ComposedMap");
-            if (composed == null) { return shortcuts; }
+            if (composed == null) { return branches; }
             foreach (Transform t in composed.transform)
             {
-                if (t.name.StartsWith("Shortcut_", System.StringComparison.Ordinal) == false) { continue; }
                 Vector3 c = t.position, s = t.localScale;
-                shortcuts.Add(LOP.MapTools.ShortcutRect.FromCenterSize(c.x, c.y, s.x, s.y));
+                if (LOP.MapTools.Branch.TryParse(t.name, c.x, c.y, s.x, s.y, out var branch)) { branches.Add(branch); }
             }
-            shortcuts.Sort((a, b) => a.X0.CompareTo(b.X0));
-            return shortcuts;
+            branches.Sort((a, b) => a.Rect.X0.CompareTo(b.Rect.X0));
+            return branches;
         }
 
         private static string ProveShortcuts(Vector3 start, float finishX, in FlappyShape shape, int mapMask,
                                              GameFramework.Physics.ICollisionQuery query, FreeSpaceGrid grid,
                                              LOP.MapTools.TickSweepProbe searchSweep,
                                              LOP.MapTools.TickSweepProbe noShortcutSweep,
-                                             List<LOP.MapTools.ShortcutRect> shortcuts)
+                                             List<LOP.MapTools.Branch> branches)
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
             //  in 매개변수는 로컬 함수·람다가 잡을 수 없다(CS1628) — 복사본을 잡는다.
@@ -674,16 +681,43 @@ namespace LOP.EditorTools
                 return new LOP.MapTools.ShortcutProof(label, x0, x1, true, verified, 0f);
             }
 
-            var safe = Prove("지름길 없이", 0f, 0f, noShortcutSweep);
+            var safe = Prove("갈림길 없이", 0f, 0f, noShortcutSweep);
             var proofs = new List<LOP.MapTools.ShortcutProof>();
-            foreach (LOP.MapTools.ShortcutRect r in shortcuts)
+            foreach (LOP.MapTools.Branch b in branches)
             {
-                LOP.MapTools.ShortcutRect only = r;
-                proofs.Add(Prove("", r.X0, r.X1,
-                    (x, y, vy) => LOP.MapTools.ShortcutRule.ForbidsValley(only, x, y) == false && searchSweep(x, y, vy)));
+                LOP.MapTools.Branch only = b;
+                proofs.Add(Prove(b.Label, b.Rect.X0, b.Rect.X1,
+                    (x, y, vy) => LOP.MapTools.ShortcutRule.ForbidsOther(only, x, y) == false && searchSweep(x, y, vy)));
             }
-            Debug.Log($"[맵 검사] 지름길 증명 {proofs.Count + 1}번 — {watch.ElapsedMilliseconds}ms");
+            Debug.Log($"[맵 검사] 갈림길 증명 {proofs.Count + 1}번 — {watch.ElapsedMilliseconds}ms");
             return LOP.MapTools.ShortcutRule.Section(safe, proofs);
+        }
+
+        //  빌딩 앞벽이 통로를 가리는가(spec 2026-09-28 §3). 앞벽은 렌더 전용이라 다른 검사가 안 본다 —
+        //  그래서 "입구가 늘 보인다"는 약속은 여기서만 지킨다.
+        private static string BuildingEntranceSection()
+        {
+            var facades = new List<LOP.MapTools.Box2>();
+            foreach (var marker in Object.FindObjectsByType<LOP.FlappyBuildingFacade>(FindObjectsSortMode.None))
+            {
+                foreach (var renderer in marker.GetComponentsInChildren<Renderer>())
+                {
+                    Bounds b = renderer.bounds;
+                    facades.Add(new LOP.MapTools.Box2(b.min.x, b.min.y, b.max.x, b.max.y));
+                }
+            }
+            var lanes = new List<LOP.MapTools.Box2>();
+            var composed = GameObject.Find("ComposedMap");
+            if (composed != null)
+            {
+                foreach (Transform t in composed.transform)
+                {
+                    if (t.name.StartsWith("BuildingLane_", System.StringComparison.Ordinal) == false) { continue; }
+                    Vector3 c = t.position, s = t.localScale;
+                    lanes.Add(new LOP.MapTools.Box2(c.x - s.x * 0.5f, c.y - s.y * 0.5f, c.x + s.x * 0.5f, c.y + s.y * 0.5f));
+                }
+            }
+            return LOP.MapTools.BuildingLayout.EntranceSection(facades, lanes);
         }
 
         //  출발점과 결승선은 맵이 정한다 — 서버 룰(FlappyRaceRuleSystem)이 읽는 것과 같은 마커를

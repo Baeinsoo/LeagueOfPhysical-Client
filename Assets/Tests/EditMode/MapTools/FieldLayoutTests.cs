@@ -5,7 +5,7 @@ namespace LOP.MapTools.Tests
 {
     public class FieldLayoutTests
     {
-        const float StartX = 0f, Length = 612f, Spacing = 11.4f, Half = 10.92f;
+        const float StartX = 0f, Length = 748f, Spacing = 11.4f, Half = 10.92f;
         //  MasterData(TbFlappyConfig) 실측값 — 굴뚝 폭 공식이 이 값들로 검증돼야 한다.
         const float Forward = 6.8f, Up = 30f, Rise = 12f;
         static readonly FlapArc Arc = new FlapArc(18.6f, 59f, 6.8f, 0.02f);
@@ -28,7 +28,11 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(FieldLayout.ShaftDepths[s], shafts[s].Depth);
                 float lo = StartX + Length / 3f * s, hi = lo + Length / 3f;
                 Assert.That(shafts[s].X0, Is.GreaterThanOrEqualTo(lo));
-                Assert.That(shafts[s].X1, Is.LessThanOrEqualTo(hi));
+                Assert.That(shafts[s].X0, Is.LessThan(hi), $"샤프트 {s}가 구간 {s}에서 시작하지 않는다");
+                //  X1(굴뚝 끝)은 구간 경계를 살짝 넘을 수 있다 — 748m 코스에선 구간 1의 평지가 경계
+                //  너머까지 안 끊기고 이어져(빌딩 40m가 그 앞자리를 먹은 탓) 굴뚝이 그 평지 끝까지
+                //  쓴다(실측: 구간 1 샤프트 X1=254.4, 경계=249.3). 평지 한 조각 안에 통째로 들어가는지는
+                //  아래 샤프트_벽은_평지_한_조각_안에_통째로_들어간다가 따로 지킨다 — 여긴 "이 구간 몫"인지만 본다.
                 float chimneyWidth = FieldLayout.ChimneyWidthFor(shafts[s].Depth, Forward, Up, Rise);
                 Assert.AreEqual(FieldLayout.ShaftWidth + FieldLayout.PocketFloor + chimneyWidth,
                                 shafts[s].Span, 1e-4f);
@@ -256,5 +260,21 @@ namespace LOP.MapTools.Tests
                 }
             }
         }
-    }
+    
+        [Test]
+        //  샤프트·빌딩·절벽·굴이 긴 평지를 다 먹으면 연속 4관문짜리 도전 구간이 하나도 못 선다
+        //  (2026-09-28 묶음 2 첫 굽기에서 0개). 구간마다 남는 길이를 한 평지에 모아 자리를 남긴다.
+        public void 샤프트를_세우고도_도전_구간이_둘_이상_들어간다()
+        {
+            var p = Compose();
+            var shafts = Shafts(p);
+            const float window = 4.37f;
+            System.Func<float, bool> gateAllowed =
+                x => p.GateAllowedAt(x, CourseProfileRule.GateMargin) && FieldLayout.GateBlocked(shafts, x, Spacing) == false;
+            var pipes = ClassicCourseRule.Layout(StartX, Length, Spacing, -Half, Half, window, 6f, 20260919UL,
+                                                 p.CenterAt, 6, gateAllowed);
+            int challenge = pipes.FindAll(q => q.HasChallenge).Count;
+            Assert.GreaterOrEqual(challenge, 2 * ClassicCourseRule.ChallengeRunLength, $"도전 관문 {challenge}개");
+        }
+}
 }

@@ -30,10 +30,10 @@ namespace LOP.EditorTools
         private const float CameraDistance = 30f;
         private const float VerticalFov = 40f;
 
-        //  한 판을 90초로 잡는다. 전진 6.8 m/s면 612m이고 관문 약 53개다.
-        //  <b>맵마다 다를 수 있는 값</b>이다 — 경기 길이는 씬의 결승선 x로 표현되고, 런타임에
-        //  60초든 90초든 가정하는 곳은 없다(Archery의 MatchDurationTicks 같은 제한이 없다).
-        private const float RaceSeconds = 90f;
+        //  한 판을 110초로 잡는다. 전진 6.8 m/s면 748m다(2026-09-28 묶음 2 — 구간마다 새 지형 하나를
+        //  얹을 자리). <b>맵마다 다를 수 있는 값</b>이다 — 경기 길이는 씬의 결승선 x로 표현되고, 런타임에
+        //  몇 초를 가정하는 곳은 없다. 서버 판 상한은 150초(FlappyRaceRuleSystem).
+        private const float RaceSeconds = 110f;
 
         //  이웃한 창의 높이차 상한. 1.67초에 충분히 갈 수 있는 폭이면서, 관문마다 고도를
         //  바꾸게 만들 만큼은 크다.
@@ -45,6 +45,9 @@ namespace LOP.EditorTools
         private const float PipeZ = -1.25f;
         private const float ShortcutStripStep = 0.25f;
         private const float WallThickness = 20f;     // 바닥·천장 슬래브 두께 — 밑으로 빠지지 않게 두껍게
+        //  절벽 면의 x 두께. WallThickness(20m)만큼 번지면 절벽 20m 앞에 계곡·샤프트 구멍이 오는
+        //  시드·길이 조합에서 그 구멍을 조용히 메워 버린다 — 아래 Cliffs() 참고.
+        private const float CliffFaceThickness = 1f;
         //  중간층 깊이. 34m 거리가 되어 화면 세로 24.8m를 담는다. 게임 평면(z=0)과 배경(z=62)
         //  사이가 통째로 비어 있던 자리다 — 2.5D가 안 읽히던 이유.
         private const float MidgroundZ = 14f;
@@ -182,6 +185,9 @@ namespace LOP.EditorTools
                 }, SectionMaterial((q.X0 + q.X1) * 0.5f, length, fallback));
             }
             Shafts(composed.transform, shafts, length, fallback);
+            Cliffs(composed.transform, profile, floorY, length, fallback);
+            HillTunnels(composed.transform, profile, length, fallback);
+            Buildings(composed.transform, profile, ceilingY, length, fallback);
             var ceilingPieces = LOP.MapTools.CourseProfileRule.CeilingPieces(profile, splits);
             for (int i = 0; i < ceilingPieces.Count; i++)
             {
@@ -196,7 +202,8 @@ namespace LOP.EditorTools
             }
 
             //  지름길 구간의 천장은 경사 조각이 아니라 두 덩어리다: 지붕, 지름길과 계곡 사이의 혀.
-            int shortcutPads = Shortcuts(composed.transform, profile, config, length, fallback);
+            Shortcuts(composed.transform, profile, config, length, fallback);
+            int branchPads = Branches(composed.transform, profile, config, ceilingY, fallback);
 
             int challengeGates = 0;
             for (int pipeIndex = 0; pipeIndex < pipes.Count; pipeIndex++)
@@ -276,7 +283,8 @@ namespace LOP.EditorTools
                     + $" · 구간 {FlappyRace.CourseSectionRule.Count}개 ×"
                     + $" {length / FlappyRace.CourseSectionRule.Count:F0}m"
                     + $" · 높낮이 {profile.MinY:F0}~{profile.MaxY:F0}m (조각 꼭짓점 {profile.VertexCount}개)"
-                    + $" · 지름길 {profile.Shortcuts.Count}개 (패드 {shortcutPads}개)"
+                    + $" · 갈림길 {LOP.MapTools.CourseProfileRule.Branches(profile, ceilingY).Count}개 (패드 {branchPads}개)"
+                    + $" · 빌딩 {profile.Buildings.Count} · 절벽 {profile.Cliffs.Count} · 언덕 굴 {profile.HillTunnels.Count}"
                     + $" · 도전 관문 {challengeGates}개"
                     + $" · 부스트 패드 {boostPads}개 ({config.DashDuration:F1}초)"
                     + $" · 샤프트 {shafts.Count}개 · 기류 {airflowRects.Count}개 · 홀로그램 {holograms}개");
@@ -335,15 +343,11 @@ namespace LOP.EditorTools
             go.transform.position = new Vector3(startX + length * 0.5f, centerY, PipeZ);
         }
 
-        //  지름길 하나 = 지붕 띠 + 혀 띠(굴을 판 덩어리를 세로로 자른 볼록 사각형) + 패드 + 검사기용 표시.
-        //  표시는 <b>Transform만 있는</b> 빈 GameObject다 — 맵 씬은 서버도 읽으므로 클라 전용 컴포넌트를
-        //  붙이면 서버에서 missing script가 되어 씬 주입이 끊긴다.
-        private static int Shortcuts(Transform parent, LOP.MapTools.CourseProfile profile,
-                                     LOP.MasterData.FlappyConfig config, float length, Material fallback)
+        //  지름길 하나 = 지붕 띠 + 혀 띠(굴을 판 덩어리를 세로로 자른 볼록 사각형). 표시·패드는
+        //  <see cref="Branches"/>가 갈림길 전체(지름길·빌딩 위층·언덕 굴)를 한 곳에서 맡는다.
+        private static void Shortcuts(Transform parent, LOP.MapTools.CourseProfile profile,
+                                      LOP.MasterData.FlappyConfig config, float length, Material fallback)
         {
-            int pads = 0;
-            float span = LOP.FlappyDashCurve.Distance(config.ForwardSpeed, config.DashDuration,
-                                                      config.DashDuration, config.DashMult, TickSeconds);
             foreach (LOP.MapTools.ShortcutRect r in profile.Shortcuts)
             {
                 float mid = (r.X0 + r.X1) * 0.5f;
@@ -363,17 +367,26 @@ namespace LOP.EditorTools
                 //  비교할 수 있게. 시험이 FlapArc를 자기가 만들어 쓰므로, 빌더가 엉뚱한 값을 넘겨도
                 //  시험도 검사기도 못 잡는다(뮤테이션으로 실제 확인됨) — 이 로그가 유일한 안전망이다.
                 Debug.Log($"[전통 코스] 지름길 x={r.X0:F0}: 호 {r.Entrance.Arcs}개(호 {r.Arc.TicksPerArc}틱·{r.Arc.Span:F2}m) · 굴 {r.Entrance.Thickness:F1}m · 턱 {r.Entrance.Lip:F0}m · 굴 끝 {r.ChannelEnd:F1} · 출구 {r.X1:F1}");
+            }
+        }
 
-                var marker = new GameObject($"Shortcut_{r.X0:F0}");
-                marker.transform.SetParent(parent, worldPositionStays: false);
-                marker.transform.position = new Vector3(mid, r.CenterY, 0f);
-                marker.transform.localScale = new Vector3(r.X1 - r.X0, r.Y1 - r.Y0, 1f);
-                Undo.RegisterCreatedObjectUndo(marker, "Build classic course");
+        //  갈림길(계곡 지름길·빌딩 위층·언덕 굴)마다 검사기용 표시 + 부스트 패드 하나. 갈림길이 빠른 이유는
+        //  거리가 아니라 이 패드다 — 전진 속도는 늘 같다(spec 2026-09-28 §0).
+        private static int Branches(Transform parent, LOP.MapTools.CourseProfile profile,
+                                    LOP.MasterData.FlappyConfig config, float half, Material fallback)
+        {
+            int pads = 0;
+            float span = LOP.FlappyDashCurve.Distance(config.ForwardSpeed, config.DashDuration,
+                                                      config.DashDuration, config.DashMult, TickSeconds);
+            foreach (LOP.MapTools.Branch branch in LOP.MapTools.CourseProfileRule.Branches(profile, half))
+            {
+                LOP.MapTools.ShortcutRect r = branch.Rect;
+                AreaMarker(parent, branch.MarkerName, new LOP.MapTools.Box2(r.X0, r.Y0, r.X1, r.Y1));
 
                 float? padX = LOP.MapTools.ShortcutRule.PadCenterX(r, span, BoostPadWidth, ShortcutExitClear);
                 if (padX.HasValue == false)
                 {
-                    Debug.LogWarning($"[전통 코스] x={r.X0:F0} 지름길이 짧아 패드를 못 놓았다 ({r.Length:F1}m)");
+                    Debug.LogWarning($"[전통 코스] x={r.X0:F0} {branch.Label}이 짧아 패드를 못 놓았다 ({r.Length:F1}m)");
                     continue;
                 }
                 float padY = r.CenterY;
@@ -586,6 +599,101 @@ namespace LOP.EditorTools
             go.transform.position = new Vector3((x0 + x1) * 0.5f, (y0 + y1) * 0.5f, PipeZ);
         }
 
+        //  절벽 = 바닥이 Edge에서 수직으로 떨어진다. 바닥 경사 조각은 Edge~SlopeEnd를 비워 두므로(FloorGaps)
+        //  아래 바닥과 절벽 면을 여기서 채운다. 절벽 면은 윗바닥 슬래브(두께 20m)보다 낙차(25m)가 커서 생기는
+        //  슬래브 밑 빈칸까지 막는다.
+        //
+        //  <b>면은 x로 얇게(CliffFaceThickness) 둔다</b> — y(낙차 쪽)는 WallThickness만큼 두꺼워도
+        //  되지만, x까지 20m로 번지면 절벽 20m 이내에 계곡·샤프트 구멍이 오는 시드·길이 조합에서
+        //  그 구멍을 이 슬래브가 조용히 메워 버린다. 얇아도 y 범위(lower-WallThickness~top)는 그대로라
+        //  윗바닥 슬래브 밑 빈칸을 막는 역할은 그대로 한다.
+        private static void Cliffs(Transform parent, LOP.MapTools.CourseProfile profile, float floorY, float length,
+                                   Material fallback)
+        {
+            foreach (LOP.MapTools.CliffPiece c in profile.Cliffs)
+            {
+                Material skin = SectionMaterial(c.Edge, length, fallback);
+                float top = floorY + c.TopY;
+                float lower = floorY + c.BottomY;
+                Slab(parent, $"CliffFace_{c.Edge:F0}", c.Edge - CliffFaceThickness, c.Edge, lower - WallThickness, top, skin);
+                Slab(parent, $"CliffFloor_{c.Edge:F0}", c.Edge, c.SlopeEnd, lower - WallThickness, lower, skin);
+            }
+        }
+
+        //  언덕 굴 = 언덕 자리의 바닥 조각을 비우고(FloorGaps) 굴 바닥 + 굴 위 덩어리 띠로 채운다.
+        private static void HillTunnels(Transform parent, LOP.MapTools.CourseProfile profile, float length,
+                                        Material fallback)
+        {
+            foreach (LOP.MapTools.HillTunnelPiece t in profile.HillTunnels)
+            {
+                Material skin = SectionMaterial((t.HillX0 + t.HillX1) * 0.5f, length, fallback);
+                Slab(parent, $"HillTunnelFloor_{t.HillX0:F0}", t.HillX0, t.HillX1, t.FloorY - WallThickness, t.FloorY, skin);
+                var mass = LOP.MapTools.CourseProfileRule.HillTunnelMass(t);
+                for (int i = 0; i < mass.Count; i++)
+                {
+                    Prism(parent, $"HillTunnelMass_{t.HillX0:F0}_{i}", ToPolygon(mass[i]), skin);
+                }
+                Debug.Log($"[전통 코스] 언덕 굴 x={t.HillX0:F0}: 굴 {t.Thickness:F1}m · 입구 {t.Mouth:F1} · 출구 {t.Exit:F1}");
+            }
+        }
+
+        //  빌딩 = 층판·지붕(판정 있음) + 두 층 칸 표시 + 앞벽(연출만). 앞벽은 게임 평면 그림(z −2.5~0)보다
+        //  카메라 쪽에 둬 🎥·🧱 검사의 "게임 평면" 밖이다 — 콜라이더도 없다.
+        private const float FacadeZNear = -3.1f;
+        private const float FacadeZFar = -2.8f;
+
+        private static void Buildings(Transform parent, LOP.MapTools.CourseProfile profile, float half, float length,
+                                      Material fallback)
+        {
+            Material facadeMaterial = BuildingFacadeMaterial();
+            foreach (LOP.MapTools.BuildingPiece b in profile.Buildings)
+            {
+                Material skin = SectionMaterial((b.X0 + b.X1) * 0.5f, length, fallback);
+                LOP.MapTools.Box2 slab = LOP.MapTools.BuildingLayout.SlabBox(b, half);
+                LOP.MapTools.Box2 roof = LOP.MapTools.BuildingLayout.RoofBox(b, half);
+                Slab(parent, $"BuildingSlab_{b.X0:F0}", slab.X0, slab.X1, slab.Y0, slab.Y1, skin);
+                Slab(parent, $"BuildingRoof_{b.X0:F0}", roof.X0, roof.X1, roof.Y0, roof.Y1, skin);
+                AreaMarker(parent, $"BuildingLane_{b.X0:F0}_Lower", LOP.MapTools.BuildingLayout.LowerLaneBox(b, half));
+                AreaMarker(parent, $"BuildingLane_{b.X0:F0}_Upper", LOP.MapTools.BuildingLayout.UpperLaneBox(b, half));
+
+                var facade = new GameObject($"BuildingFacade_{b.X0:F0}");
+                facade.transform.SetParent(parent, worldPositionStays: false);
+                var marker = facade.AddComponent<LOP.FlappyBuildingFacade>();
+                marker.X0 = b.X0;
+                marker.X1 = b.X1;
+                Undo.RegisterCreatedObjectUndo(facade, "Build classic course");
+                var strips = LOP.MapTools.BuildingLayout.Facade(b, half);
+                for (int i = 0; i < strips.Count; i++)
+                {
+                    FacadeStrip(facade.transform, $"Facade_{i}", ToPolygon(strips[i]), facadeMaterial);
+                }
+            }
+        }
+
+        //  렌더 전용 앞벽 조각 — Prism과 같은 메시인데 콜라이더가 없다.
+        private static void FacadeStrip(Transform parent, string name, Vector2[] polygon, Material material)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, worldPositionStays: false);
+            go.layer = LayerMask.NameToLayer("Default");
+            go.AddComponent<MeshFilter>().sharedMesh = PrismMesh(name, polygon, FacadeZNear, FacadeZFar);
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+            //  그림자를 드리우면 통로 입구 칸이 그늘져 "입구가 늘 보인다"가 깨진다 — 연출뿐인 벽이라 끈다.
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
+        //  검사기용 표시 — Transform만 있는 빈 GameObject(위치 = 가운데, 크기 = 폭·높이).
+        private static void AreaMarker(Transform parent, string name, LOP.MapTools.Box2 box)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, worldPositionStays: false);
+            go.transform.position = new Vector3((box.X0 + box.X1) * 0.5f, (box.Y0 + box.Y1) * 0.5f, 0f);
+            go.transform.localScale = new Vector3(box.X1 - box.X0, box.Y1 - box.Y0, 1f);
+            Undo.RegisterCreatedObjectUndo(go, "Build classic course");
+        }
+
         //  2.5D 연출 — 샤프트·굴뚝 양쪽 벽 가장자리에, 판정면보다 <b>뒤</b>(z 1.5~6)로 갈수록
         //  더 아래로 꺾여 들어간 층판을 세운다. "주머니가 화면 안쪽으로도 깊다"는 걸 보여 주는
         //  것일 뿐 판정이 없다 — 🎥 검사의 "렌더 전용"에 들어간다.
@@ -700,6 +808,9 @@ namespace LOP.EditorTools
         private static Material AirflowUpMaterial() => EnsureTransparent("AirflowUp", new Color(0.5f, 0.85f, 0.6f, 0.30f));
         private static Material AirflowDownMaterial() => EnsureTransparent("AirflowDown", new Color(0.55f, 0.85f, 0.9f, 0.30f));
         private static Material HologramMaterial() => EnsureTransparent("Hologram", new Color(0.62f, 0.42f, 0.92f, 0.35f));
+
+        //  앞벽은 평소 거의 불투명하게 보이되, 연출이 알파를 내릴 수 있게 반투명 재질로 둔다.
+        private static Material BuildingFacadeMaterial() => EnsureTransparent("BuildingFacade", new Color(0.42f, 0.36f, 0.5f, 0.95f));
 
         //  기류·홀로그램 반투명 재질. <b>있으면 그대로 쓴다</b>(FlappyCityMaterials.Ensure와 같은
         //  규칙 — 에디터에서 손으로 고친 색이 다시 구울 때마다 날아가면 아트를 만질 수 없다).

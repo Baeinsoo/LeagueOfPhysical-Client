@@ -46,7 +46,12 @@ namespace LOP.MapTools
             return false;
         }
 
-        public static bool ForbidsValley(ShortcutRect r, float x, float y) => InCore(r, x) && y < r.Y0;
+        /// <summary>
+        /// 이 갈림길을 강제로 태울 때 막을 다른 길인가 — 가운데 절반(<see cref="InCore"/>)에서 길 칸의
+        /// <see cref="Branch.Other"/> 쪽 바깥.
+        /// </summary>
+        public static bool ForbidsOther(Branch b, float x, float y)
+            => InCore(b.Rect, x) && (b.Other == BranchSide.Below ? y < b.Rect.Y0 : y > b.Rect.Y1);
 
         /// <summary>
         /// 지름길 안 패드 자리. 부스트(대시 = 조종 안 되는 수평 직선)가 <b>출구 <paramref name="exitClear"/>m
@@ -64,17 +69,17 @@ namespace LOP.MapTools
         public static string Section(ShortcutProof safeRoute, IReadOnlyList<ShortcutProof> shortcuts)
         {
             var text = new StringBuilder();
-            text.AppendLine("── 🔀 지름길 ──────────────────────────");
+            text.AppendLine("── 🔀 갈림길 ──────────────────────────");
             if (shortcuts == null || shortcuts.Count == 0)
             {
-                text.AppendLine("  지름길이 없다.");
+                text.AppendLine("  갈림길이 없다.");
                 return text.ToString().TrimEnd();
             }
-            text.AppendLine("  " + Line(safeRoute, "지름길을 막고 완주", "안전한 길이 없다 — 맵이 불가능하다"));
+            text.AppendLine("  " + Line(safeRoute, "갈림길을 막고 완주", "안전한 길이 없다 — 맵이 불가능하다"));
             foreach (ShortcutProof p in shortcuts)
             {
                 text.AppendLine($"  x={p.X0:F0}~{p.X1:F0}  "
-                              + Line(p, "들어가서 완주", "지름길이 아니라 함정이다(못 들어가거나 못 나온다)"));
+                              + Line(p, "들어가서 완주", "갈림길이 아니라 함정이다(못 들어가거나 못 나온다)"));
             }
             text.AppendLine("  (✅는 탐색이 찾은 길을 진짜 커널로 다시 날려 안 닿은 것이다. 🟡는 찾았지만 재생이 어긋났다.)");
             return text.ToString().TrimEnd();

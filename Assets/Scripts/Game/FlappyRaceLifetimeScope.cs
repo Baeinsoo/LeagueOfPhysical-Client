@@ -104,6 +104,9 @@ namespace LOP
             //  홀로그램 관문 흔들림·조각 연출 — 판정과 무관한 클라 전용 화면 효과라 여기서만 등록한다.
             builder.RegisterEntryPoint<FlappyHologramFx>();
 
+            //  빌딩 앞벽 반투명 — 판정과 무관한 클라 전용 화면 효과.
+            builder.RegisterEntryPoint<FlappyBuildingFacadeFx>();
+
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             builder.Register<FlapPadViewModel>(Lifetime.Transient);
             builder.Register<FlapPadView>(Lifetime.Transient);

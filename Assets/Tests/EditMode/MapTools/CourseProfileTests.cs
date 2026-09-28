@@ -11,7 +11,7 @@ namespace LOP.MapTools.Tests
     public class CourseProfileTests
     {
         const float StartX = 0f;
-        const float Length = 612f;          // 90초 × 6.8m/s
+        const float Length = 748f;          // 110초 × 6.8m/s
         const float Spacing = 11.4f;
         const float Half = 10.92f;          // 카메라 30m · FOV 40의 화면 세로 절반
         const float LeadIn = Spacing * 4f;
@@ -50,6 +50,7 @@ namespace LOP.MapTools.Tests
             float sectionLen = Length / CourseProfileRule.Sections.Length;
             for (int i = 1; i < p.VertexCount; i++)
             {
+                if (InCliff(p, p.X(i - 1), p.X(i))) { continue; }   // 절벽 천장(3.5)은 따로 잰다
                 float dx = p.X(i) - p.X(i - 1);
                 float dy = p.Y(i) - p.Y(i - 1);
                 Assert.Greater(dx, 0f, $"{i}번째 꼭짓점이 뒤로 갔다");
@@ -86,6 +87,61 @@ namespace LOP.MapTools.Tests
         {
             var p = Compose();
             Assert.GreaterOrEqual(p.MaxY - p.MinY, 40f, "U 40m가 들어가야 한다");
+        }
+
+        [Test]
+        public void 구간_1에_빌딩이_하나_있고_건물_구간은_평지가_아니다()
+        {
+            var p = Compose();
+            Assert.AreEqual(1, p.Buildings.Count);
+            BuildingPiece b = p.Buildings[0];
+            float sectionLen = Length / 3f;
+            Assert.That(b.X0, Is.GreaterThan(StartX).And.LessThan(StartX + sectionLen));
+            Assert.AreEqual(40f, b.X1 - b.X0, 1e-3f);
+            Assert.AreEqual(p.CenterAt(b.X0), p.CenterAt(b.X1), 1e-4f, "건물 안 회랑은 평평하다");
+            Assert.AreEqual(b.BaseY, p.CenterAt((b.X0 + b.X1) * 0.5f), 1e-4f);
+            foreach (FlatSpan f in p.Flats)
+            {
+                Assert.IsFalse(f.From < b.X1 - 1e-3f && f.To > b.X0 + 1e-3f, $"평지 {f.From:F1}~{f.To:F1}가 건물과 겹친다");
+            }
+        }
+
+        [Test]
+        public void 구간_2의_계단_자리가_25m_절벽이_된다()
+        {
+            var p = Compose();
+            Assert.AreEqual(1, p.Cliffs.Count);
+            CliffPiece c = p.Cliffs[0];
+            float sectionLen = Length / 3f;
+            Assert.That(c.Edge, Is.GreaterThan(StartX + sectionLen).And.LessThan(StartX + 2 * sectionLen));
+            Assert.AreEqual(25f, c.Drop, 1e-4f);
+            Assert.AreEqual(c.Edge + 3f, c.SlopeStart, 1e-4f, "천장은 절벽 끝 3m 뒤부터 내려온다");
+            float slope = c.Drop / (c.SlopeEnd - c.SlopeStart);
+            Assert.LessOrEqual(slope, 3.5f + 1e-3f, "spec 기울기");
+            Assert.GreaterOrEqual(slope, 23.2f / 6.8f, "천장을 따라 내려오면 대시 문턱을 넘어야 한다");
+            Assert.AreEqual(p.CenterAt(c.Edge) - 25f, p.CenterAt(c.SlopeEnd), 1e-3f);
+            //  구간 2에서 기준 높이를 바꾸는 것은 절벽 하나뿐이다(계단이 절벽으로 바뀌었다).
+            Assert.AreEqual(25f, p.CenterAt(StartX + sectionLen) - p.CenterAt(StartX + 2 * sectionLen), 1e-3f);
+            //  절벽이 높이를 내렸으니 구간 3의 계단은 올라간다(0으로 되돌리는 쪽).
+            Assert.AreEqual(10f, p.CenterAt(StartX + Length) - p.CenterAt(StartX + 2 * sectionLen), 1e-3f);
+        }
+
+        [Test]
+        public void 절벽_밑에는_바닥_조각이_없고_양옆은_절벽에서_끊긴다()
+        {
+            var p = Compose();
+            CliffPiece c = p.Cliffs[0];
+            Assert.IsTrue(p.FloorGaps.Count >= 1);
+            Assert.IsTrue(new List<FlatSpan>(p.FloorGaps).Exists(g =>
+                System.Math.Abs(g.From - c.Edge) < 1e-4f && System.Math.Abs(g.To - c.SlopeEnd) < 1e-4f));
+            var pieces = CourseProfileRule.FloorPieces(p, new float[0]);
+            foreach (RampPiece q in pieces)
+            {
+                float mid = (q.X0 + q.X1) * 0.5f;
+                Assert.IsFalse(mid > c.Edge && mid < c.SlopeEnd, $"x={mid:F1} 절벽 밑에 바닥 조각");
+            }
+            Assert.IsTrue(pieces.Exists(q => System.Math.Abs(q.X1 - c.Edge) < 1e-3f), "절벽 끝에서 끝나는 조각");
+            Assert.IsTrue(pieces.Exists(q => System.Math.Abs(q.X0 - c.SlopeEnd) < 1e-3f), "절벽 아래에서 시작하는 조각");
         }
 
         [Test]
@@ -157,7 +213,10 @@ namespace LOP.MapTools.Tests
             {
                 Assert.AreEqual(p.CenterAt(pieces[i].X0), pieces[i].Lift0, 1e-3f);
                 Assert.AreEqual(p.CenterAt(pieces[i].X1), pieces[i].Lift1, 1e-3f);
-                if (i > 0) { Assert.AreEqual(pieces[i - 1].X1, pieces[i].X0, 1e-4f, "끊김"); }
+                if (i > 0 && IsFloorGap(p, pieces[i - 1].X1, pieces[i].X0) == false)
+                {
+                    Assert.AreEqual(pieces[i - 1].X1, pieces[i].X0, 1e-4f, "끊김");
+                }
             }
             Assert.AreEqual(p.X(p.VertexCount - 1), pieces[pieces.Count - 1].X1, 1e-3f);
             //  구간 경계에서 끊겨야 색이 바뀐다.
@@ -370,6 +429,25 @@ namespace LOP.MapTools.Tests
                 Assert.IsTrue(Inside(tongue, r.X0 + 0.05f, r.LipBottom + 0.2f), $"x0={r.X0:F0} 턱이 비었다");
                 Assert.IsFalse(Inside(tongue, r.X0 + 0.05f, r.LipBottom - 0.5f), $"x0={r.X0:F0} 턱 아래가 막혔다");
             }
+        }
+
+        static bool InCliff(CourseProfile p, float a, float b)
+        {
+            foreach (CliffPiece c in p.Cliffs)
+            {
+                if (a >= c.SlopeStart - 1e-3f && b <= c.SlopeEnd + 1e-3f) { return true; }
+            }
+            return false;
+        }
+
+        //  바닥이 비는 자리(절벽 밑·언덕 굴)는 빌더가 따로 채운다 — 거기서만 끊겨도 된다.
+        static bool IsFloorGap(CourseProfile p, float end, float start)
+        {
+            foreach (FlatSpan g in p.FloorGaps)
+            {
+                if (System.Math.Abs(g.From - end) < 1e-3f && System.Math.Abs(g.To - start) < 1e-3f) { return true; }
+            }
+            return false;
         }
     }
 }

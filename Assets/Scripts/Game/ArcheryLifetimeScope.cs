@@ -78,6 +78,8 @@ namespace LOP
             builder.RegisterEntryPoint<ArcheryShootOffCameraRig>().AsSelf();
             //  한 발 승부 관중석·깃발(다른 모드에선 아무것도 안 만든다).
             builder.RegisterEntryPoint<ArcheryCrowdView>().AsSelf();
+            //  한 발 승부 과녁 위 바람 깃발.
+            builder.RegisterEntryPoint<ArcheryTargetFlagView>().AsSelf();
             //  정해진 라운드에 과녁 뒤를 지나가는 닭.
             builder.RegisterEntryPoint<ArcheryChickenView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryArrowView>().AsSelf();

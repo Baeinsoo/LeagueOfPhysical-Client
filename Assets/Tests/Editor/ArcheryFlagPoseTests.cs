@@ -1,9 +1,36 @@
 using NUnit.Framework;
+using UnityEngine;
 
 namespace LOP.Tests
 {
     public class ArcheryFlagPoseTests
     {
+        private static Vector3 TipOf(float wind)
+        {
+            var root = Quaternion.LookRotation(-Vector3.forward);
+            return root * ArcheryFlagPose.LocalRotation(ArcheryFlagPose.At(wind, 0f, 0f)) * Vector3.right;
+        }
+
+        [Test]
+        public void 오른쪽_바람이면_천이_사수_기준_오른쪽으로()
+        {
+            Assert.Greater(TipOf(5f).x, 0.9f);
+        }
+
+        [Test]
+        public void 왼쪽_바람이면_천이_사수_기준_왼쪽으로()
+        {
+            Assert.Less(TipOf(-5f).x, -0.9f);
+        }
+
+        [Test]
+        public void 무풍이면_좌우로_안_치우치고_아래로()
+        {
+            Vector3 tip = TipOf(0f);
+            Assert.AreEqual(0f, tip.x, 1e-4f);
+            Assert.Less(tip.y, -0.9f);
+        }
+
         [Test]
         public void 바람이_없으면_처진다()
         {

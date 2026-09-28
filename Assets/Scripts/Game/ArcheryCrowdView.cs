@@ -8,7 +8,7 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// 한 발 승부의 관중석 — 과녁 너머에 코드 인형 관중을 세우고, 경기에 반응하게 하고, 깃발로 바람을 보여 준다.
+    /// 한 발 승부의 관중석 — 사대 양옆에 코드 인형 관중을 세우고, 경기에 반응하게 한다.
     /// 화살이 관중석에 실제로 꽂히면 가장 가까운 관객 머리에 화살을 붙인다. 모두 연출이다(판정 무관).
     /// 맵 씬이 뜬 뒤(<see cref="ArcheryCourse.SharedLane"/>이 생긴 뒤) 처음 도는 프레임에 만든다.
     /// </summary>
@@ -30,7 +30,6 @@ namespace LOP
         private GameObject root;
         private ArcheryCrowdLayout layout;
         private ArcheryCrowdDirector director;
-        private Mesh clothMesh;
         private Mesh arrowMesh;
         private readonly List<Fan> fans = new List<Fan>();
         private readonly List<Vector3> heads = new List<Vector3>();
@@ -39,7 +38,6 @@ namespace LOP
 
         private bool hasIndex;
         private int lastIndex;
-        private float wind;
 
         private sealed class Fan
         {
@@ -47,7 +45,6 @@ namespace LOP
             public Transform LeftArm;
             public Transform RightArm;
             public Renderer Body;
-            public Transform Cloth;
             public Color Shirt;
             public bool Gray;
         }
@@ -97,7 +94,6 @@ namespace LOP
                 Object.Destroy(mat);
             }
             materials.Clear();
-            if (clothMesh != null) { Object.Destroy(clothMesh); clothMesh = null; }
             if (arrowMesh != null) { Object.Destroy(arrowMesh); arrowMesh = null; }
             fans.Clear();
             heads.Clear();
@@ -125,10 +121,6 @@ namespace LOP
             int index = course.IndexAt(tick, start);
             bool inRound = index >= 0 && index < course.StepCount;
 
-            if (inRound)
-            {
-                wind = WindAcross(course.WindAt(tick, start));   // 라운드 밖에는 마지막 바람을 그대로 둔다
-            }
             //  마지막 라운드는 결과가 나올 때까지만 조용하다.
             bool hush = inRound && course.MultiplierAt(index) >= 2 && tick < course.RoundCloseTick(index, start);
             director.BaseMood = hush ? ArcheryCrowdMood.Hush : ArcheryCrowdMood.Idle;
@@ -151,7 +143,7 @@ namespace LOP
             var fan = fans[i];
             var seat = layout.Seats[i];
             var pose = ArcheryCrowdPose.At(director.MoodOf(i, now), now, seat.Phase);
-            fan.Root.position = seat.Position + Vector3.up * (pose.Lift * seat.Scale) + layout.Right * pose.Sway;
+            fan.Root.position = seat.Position + Vector3.up * (pose.Lift * seat.Scale) + (seat.Facing * Vector3.right) * pose.Sway;
             fan.LeftArm.localRotation = Quaternion.AngleAxis(-pose.LeftArmDegrees, Vector3.forward);
             fan.RightArm.localRotation = Quaternion.AngleAxis(pose.RightArmDegrees, Vector3.forward);
             if (pose.Gray != fan.Gray)
@@ -159,34 +151,6 @@ namespace LOP
                 fan.Gray = pose.Gray;
                 fan.Body.sharedMaterial = MaterialFor(pose.Gray ? ArcheryCrowdLayout.BooGray : fan.Shirt);
             }
-            if (fan.Cloth != null)
-            {
-                var flag = ArcheryFlagPose.At(wind, now, seat.Phase);
-                fan.Cloth.localRotation = ClothRotation(flag);
-            }
-        }
-
-        //  관중 로컬 좌표: +X = 사수 기준 왼쪽, +Z = 사수 쪽. 천은 +X로 뻗고 아랫변이 −Y다.
-        //  오른쪽 바람이면 Y로 180° 돌려 좌우를 바꾸고, 약할수록 Z축으로 더 내려 늘어뜨린다(처짐 = 90°).
-        //  천 평면은 늘 사수를 향하고, 내리는 각이 0~90°라 아랫변이 위로 뒤집히지 않는다.
-        //  무풍(Side == 0)은 좌우 어느 쪽으로도 안 읽혀야 해서, 늘어진 채로 Y축 90°를 더 돌려 사수 쪽에서
-        //  옆면(모서리)만 보이게 한다 — 왼쪽·오른쪽 어느 쪽으로도 안 치우친다.
-        private static Quaternion ClothRotation(ArcheryFlagPoseValue flag)
-        {
-            if (flag.Side == 0)
-            {
-                return Quaternion.AngleAxis(90f, Vector3.up) * Quaternion.AngleAxis(-90f, Vector3.forward);
-            }
-            float droop = (1f - Mathf.Max(0.35f, flag.Extend)) * 90f;
-            Quaternion mirror = flag.Side > 0 ? Quaternion.AngleAxis(180f, Vector3.up) : Quaternion.identity;
-            return mirror * Quaternion.AngleAxis(-droop, Vector3.forward) * Quaternion.AngleAxis(flag.FlapDegrees, Vector3.right);
-        }
-
-        //  깃발 값 = HUD 바람 화살표와 같은 식(양수 = 사수 기준 오른쪽).
-        private float WindAcross(Vector3 worldWind)
-        {
-            var lane = course.SharedLane;
-            return lane.HasValue ? Vector3.Dot(worldWind, ArcheryTargetMotion.ShooterRightAxis(-lane.Value.Forward)) : 0f;
         }
 
         private bool TryBuild()
@@ -198,13 +162,12 @@ namespace LOP
             }
             layout = ArcheryCrowdLayout.Build(lane.Value.ShooterPosition, lane.Value.Forward);
             director = new ArcheryCrowdDirector(layout.Seats.Count, () => Random.value);
-            clothMesh = BuildCloth();
             root = new GameObject("ArcheryCrowd");
 
             foreach (var step in layout.Steps)
             {
                 var box = Part(PrimitiveType.Cube, root.transform, step.Size, new Color(0.55f, 0.47f, 0.4f), keepCollider: true);
-                box.SetPositionAndRotation(step.Center, layout.Rotation);
+                box.SetPositionAndRotation(step.Center, step.Rotation);
                 var collider = box.GetComponent<Collider>();
                 colliders.Add(collider);
                 landings.AddCrowdCollider(collider);
@@ -214,7 +177,7 @@ namespace LOP
             {
                 var go = new GameObject("CrowdVolume");
                 go.transform.SetParent(root.transform, false);
-                go.transform.SetPositionAndRotation(volume.Center, layout.Rotation);
+                go.transform.SetPositionAndRotation(volume.Center, volume.Rotation);
                 var collider = go.AddComponent<BoxCollider>();
                 collider.size = volume.Size;
                 colliders.Add(collider);
@@ -223,17 +186,17 @@ namespace LOP
 
             for (int i = 0; i < layout.Seats.Count; i++)
             {
-                fans.Add(BuildFan(layout.Seats[i]));
+                fans.Add(BuildFan(layout.Seats[i], lane.Value.ShooterPosition));
                 heads.Add(layout.Seats[i].Position + Vector3.up * (1.3f * layout.Seats[i].Scale));
             }
             return true;
         }
 
-        private Fan BuildFan(ArcheryCrowdSeat seat)
+        private Fan BuildFan(ArcheryCrowdSeat seat, Vector3 shooterPosition)
         {
             var fanRoot = new GameObject("Fan").transform;
             fanRoot.SetParent(root.transform, false);
-            fanRoot.SetPositionAndRotation(seat.Position, layout.Rotation);
+            fanRoot.SetPositionAndRotation(seat.Position, seat.Facing);
             fanRoot.localScale = Vector3.one * seat.Scale;
 
             Color shirt = ArcheryCrowdLayout.Shirts[seat.Shirt];
@@ -252,23 +215,10 @@ namespace LOP
                 Shirt = shirt,
             };
 
-            if (seat.Flag)
-            {
-                var pole = Part(PrimitiveType.Cube, fanRoot, new Vector3(0.04f, 1.4f, 0.04f), new Color(0.36f, 0.27f, 0.21f));
-                pole.localPosition = new Vector3(0.4f, 1.6f, 0f);
-                var cloth = new GameObject("Cloth").transform;
-                cloth.SetParent(fanRoot, false);
-                cloth.localPosition = new Vector3(0.4f, 2.3f, 0f);
-                cloth.gameObject.AddComponent<MeshFilter>().sharedMesh = clothMesh;
-                var renderer = cloth.gameObject.AddComponent<MeshRenderer>();
-                renderer.sharedMaterial = MaterialFor(shirt);
-                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                fan.Cloth = cloth;
-            }
-
             if (seat.Sign >= 0)
             {
-                BuildSign(fanRoot, SignText(seat.Sign, course.RosterCount));
+                Vector3 signWorldPosition = fanRoot.TransformPoint(0f, 2.0f, 0.1f);
+                BuildSign(fanRoot, signWorldPosition, shooterPosition, SignText(seat.Sign, course.RosterCount));
             }
             return fan;
         }
@@ -317,17 +267,7 @@ namespace LOP
             return mat;
         }
 
-        //  삼각 천 — 막대 꼭대기에서 +X로 뻗는다. 양면이 보이게 앞뒤 삼각형을 다 넣는다.
-        private static Mesh BuildCloth()
-        {
-            var mesh = new Mesh { name = "CrowdFlagCloth" };
-            mesh.vertices = new[] { Vector3.zero, new Vector3(0.7f, -0.2f, 0f), new Vector3(0f, -0.45f, 0f) };
-            mesh.triangles = new[] { 0, 1, 2, 0, 2, 1 };
-            mesh.RecalculateNormals();
-            return mesh;
-        }
-
-        private void BuildSign(Transform fanRoot, string text)
+        private void BuildSign(Transform fanRoot, Vector3 signWorldPosition, Vector3 shooterPosition, string text)
         {
             var panelSettings = Resources.Load<PanelSettings>(PanelSettingsResource);
             if (panelSettings == null)
@@ -340,8 +280,10 @@ namespace LOP
             go.SetActive(false);
             go.transform.SetParent(fanRoot, false);
             go.transform.localPosition = new Vector3(0f, 2.0f, 0.1f);
-            //  월드 패널은 +Z가 보는 사람 반대쪽을 향할 때 읽힌다 — +Z를 사수가 보는 방향(관중석 뒤쪽)으로.
-            go.transform.rotation = layout.Rotation * Quaternion.AngleAxis(180f, Vector3.up);
+            //  월드 패널은 +Z가 보는 사람 반대쪽일 때 읽힌다 — +Z를 사수 자리 → 팻말 수평 방향으로.
+            Vector3 away = signWorldPosition - shooterPosition;
+            away.y = 0f;
+            go.transform.rotation = Quaternion.LookRotation(away.normalized);
             var document = go.AddComponent<UIDocument>();
             document.panelSettings = panelSettings;
             document.worldSpaceSize = new Vector2(140f, 40f);   // 100px = 1m → 1.4m × 0.4m

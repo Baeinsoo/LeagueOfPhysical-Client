@@ -35,5 +35,21 @@ namespace LOP
             float flap = Mathf.Sin(time * (6f + strength) + phase) * 15f * extend;
             return new ArcheryFlagPoseValue(wind > 0f ? 1 : -1, extend, flap);
         }
+
+        /// <summary>
+        /// 천의 로컬 회전. 기준 좌표는 사수를 보는 깃발 뿌리(로컬 +X = 사수 기준 왼쪽, +Z = 사수 쪽)이고 천은 +X로 뻗는다.
+        /// 오른쪽 바람이면 Y로 180° 돌려 좌우를 바꾸고, 약할수록 Z축으로 더 내려 늘어뜨린다(0~90°라 뒤집히지 않는다).
+        /// 무풍은 늘어진 채 Y로 90° 더 돌려 사수 쪽에서 옆면만 보이게 한다 — 어느 쪽으로도 안 읽힌다.
+        /// </summary>
+        public static Quaternion LocalRotation(ArcheryFlagPoseValue pose)
+        {
+            if (pose.Side == 0)
+            {
+                return Quaternion.AngleAxis(90f, Vector3.up) * Quaternion.AngleAxis(-90f, Vector3.forward);
+            }
+            float droop = (1f - Mathf.Max(0.35f, pose.Extend)) * 90f;
+            Quaternion mirror = pose.Side > 0 ? Quaternion.AngleAxis(180f, Vector3.up) : Quaternion.identity;
+            return mirror * Quaternion.AngleAxis(-droop, Vector3.forward) * Quaternion.AngleAxis(pose.FlapDegrees, Vector3.right);
+        }
     }
 }

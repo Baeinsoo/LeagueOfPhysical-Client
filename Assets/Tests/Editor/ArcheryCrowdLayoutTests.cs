@@ -9,77 +9,86 @@ namespace LOP.Tests
         private static ArcheryCrowdLayout Straight() => ArcheryCrowdLayout.Build(Vector3.zero, Vector3.forward);
 
         [Test]
-        public void 세_줄_135명()
+        public void 양옆_두_줄씩_144명()
         {
             var layout = Straight();
-            Assert.AreEqual(135, layout.Seats.Count);
-            Assert.AreEqual(3, layout.Steps.Count);
-            Assert.AreEqual(3, layout.Volumes.Count);
+            Assert.AreEqual(144, layout.Seats.Count);
+            Assert.AreEqual(4, layout.Steps.Count);
+            Assert.AreEqual(4, layout.Volumes.Count);
         }
 
         [Test]
-        public void 뒷줄이_더_멀고_더_높다()
+        public void 앞줄은_8_5m_뒷줄은_9_7m_바깥이고_더_높다()
         {
-            var layout = Straight();
-            ArcheryCrowdSeat front = default, back = default;
-            foreach (var s in layout.Seats)
-            {
-                if (s.Row == 0) { front = s; }
-                if (s.Row == 2) { back = s; }
-            }
-            Assert.AreEqual(85f, front.Position.z, 1e-3f);
-            Assert.AreEqual(0.6f, front.Position.y, 1e-3f);
-            Assert.AreEqual(85f + 2.4f, back.Position.z, 1e-3f);
-            Assert.AreEqual(1.8f, back.Position.y, 1e-3f);
-        }
-
-        [Test]
-        public void 가로_30m_안에_가운데_정렬()
-        {
-            float min = float.MaxValue, max = float.MinValue;
             foreach (var s in Straight().Seats)
             {
-                min = Mathf.Min(min, s.Position.x);
-                max = Mathf.Max(max, s.Position.x);
+                float lateral = Mathf.Abs(s.Position.x);
+                Assert.AreEqual(s.Row == 0 ? 8.5f : 9.7f, lateral, 1e-3f);
+                Assert.AreEqual(s.Row == 0 ? 0.6f : 1.2f, s.Position.y, 1e-3f);
             }
-            Assert.GreaterOrEqual(min, -15f);
-            Assert.LessOrEqual(max, 15f);
-            Assert.AreEqual(0f, (min + max) * 0.5f, 0.2f);
         }
 
         [Test]
-        public void 레인이_돌아가도_관중은_사수_쪽을_본다()
+        public void 사수_2m_뒤부터_22m_앞까지()
+        {
+            foreach (var s in Straight().Seats)
+            {
+                Assert.GreaterOrEqual(s.Position.z, -2f);
+                Assert.LessOrEqual(s.Position.z, 22f);
+            }
+        }
+
+        [Test]
+        public void 양쪽_인원이_같다()
+        {
+            int left = 0, right = 0;
+            foreach (var s in Straight().Seats) { if (s.Position.x < 0f) { left++; } else { right++; } }
+            Assert.AreEqual(72, left);
+            Assert.AreEqual(72, right);
+        }
+
+        [Test]
+        public void 관중은_레인_쪽을_본다()
+        {
+            foreach (var s in Straight().Seats)
+            {
+                Vector3 facing = s.Facing * Vector3.forward;
+                Assert.AreEqual(-Mathf.Sign(s.Position.x), facing.x, 1e-4f);
+            }
+        }
+
+        [Test]
+        public void 레인이_돌아가도_양옆에_선다()
         {
             var forward = new Vector3(1f, 0f, 1f).normalized;
-            var layout = ArcheryCrowdLayout.Build(new Vector3(10f, 0f, 5f), forward);
-            Vector3 facing = layout.Rotation * Vector3.forward;
-            Assert.AreEqual(-1f, Vector3.Dot(facing, forward), 1e-4f);
-            Vector3 seat = layout.Seats[0].Position - new Vector3(10f, 0f, 5f);
-            Assert.AreEqual(85f, Vector3.Dot(seat, forward), 1e-3f);
+            var origin = new Vector3(10f, 0f, 5f);
+            var layout = ArcheryCrowdLayout.Build(origin, forward);
+            foreach (var s in layout.Seats)
+            {
+                Vector3 d = s.Position - origin;
+                d.y = 0f;
+                Assert.AreEqual(s.Row == 0 ? 8.5f : 9.7f, Mathf.Abs(Vector3.Dot(d, layout.Right)), 1e-3f);
+                Vector3 facing = s.Facing * Vector3.forward;
+                Assert.Less(Vector3.Dot(facing, layout.Right) * Mathf.Sign(Vector3.Dot(d, layout.Right)), 0f);   // 레인(안쪽)을 본다
+            }
         }
 
         [Test]
-        public void 팻말은_맨_앞줄에_다섯_개이고_깃발과_안_겹친다()
+        public void 팻말은_앞줄에_다섯_개()
         {
             var signs = new List<int>();
+            int left = 0;
             foreach (var s in Straight().Seats)
             {
                 if (s.Sign >= 0)
                 {
                     Assert.AreEqual(0, s.Row);
-                    Assert.IsFalse(s.Flag);
                     signs.Add(s.Sign);
+                    if (s.Position.x < 0f) { left++; }
                 }
             }
             CollectionAssert.AreEquivalent(new[] { 0, 1, 2, 3, 4 }, signs);
-        }
-
-        [Test]
-        public void 깃발은_몇_명만()
-        {
-            int flags = 0;
-            foreach (var s in Straight().Seats) { if (s.Flag) { flags++; } }
-            Assert.That(flags, Is.InRange(3, 25));
+            Assert.AreEqual(2, left);
         }
 
         [Test]
@@ -90,7 +99,7 @@ namespace LOP.Tests
             for (int i = 0; i < a.Count; i++)
             {
                 Assert.AreEqual(a[i].Shirt, b[i].Shirt);
-                Assert.AreEqual(a[i].Flag, b[i].Flag);
+                Assert.AreEqual(a[i].Position, b[i].Position);
             }
         }
 

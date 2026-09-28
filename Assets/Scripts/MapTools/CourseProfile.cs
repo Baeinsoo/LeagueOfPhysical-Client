@@ -445,9 +445,15 @@ namespace LOP.MapTools
                     throw new InvalidOperationException(
                         $"구간 {s + 1}에 조각이 안 들어간다 (조각 {piecesLen:F1}m + 최소 평지 {minSum:F1}m > {sectionLen:F1}m)");
                 }
+                //  남는 길이는 한 틈에 몰아 긴 평지 하나를 만든다. 흩어 놓으면 평지마다 관문 서너 칸짜리가
+                //  되어, 샤프트가 한 곳을 먹고 나면 연속 4관문짜리 도전 구간이 들어갈 자리가 없다
+                //  (2026-09-28 묶음 2에서 도전 관문이 0개가 됐다). 출발 평지와 결승 평지는 이미 길어 빼고 고른다.
+                int firstGap = s == 0 ? 1 : 0;
+                int lastGap = s == Sections.Length - 1 ? gaps - 1 : gaps;
+                int wideGap = rng.Range(firstGap, lastGap);
                 var weights = new float[gaps];
-                float weightSum = 0f;
-                for (int g = 0; g < gaps; g++) { weights[g] = rng.Range(0f, 1f) + 0.1f; weightSum += weights[g]; }
+                weights[wideGap] = 1f;
+                float weightSum = 1f;
 
                 for (int g = 0; g < gaps; g++)
                 {

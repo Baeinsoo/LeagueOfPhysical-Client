@@ -260,5 +260,21 @@ namespace LOP.MapTools.Tests
                 }
             }
         }
-    }
+    
+        [Test]
+        //  샤프트·빌딩·절벽·굴이 긴 평지를 다 먹으면 연속 4관문짜리 도전 구간이 하나도 못 선다
+        //  (2026-09-28 묶음 2 첫 굽기에서 0개). 구간마다 남는 길이를 한 평지에 모아 자리를 남긴다.
+        public void 샤프트를_세우고도_도전_구간이_둘_이상_들어간다()
+        {
+            var p = Compose();
+            var shafts = Shafts(p);
+            const float window = 4.37f;
+            System.Func<float, bool> gateAllowed =
+                x => p.GateAllowedAt(x, CourseProfileRule.GateMargin) && FieldLayout.GateBlocked(shafts, x, Spacing) == false;
+            var pipes = ClassicCourseRule.Layout(StartX, Length, Spacing, -Half, Half, window, 6f, 20260919UL,
+                                                 p.CenterAt, 6, gateAllowed);
+            int challenge = pipes.FindAll(q => q.HasChallenge).Count;
+            Assert.GreaterOrEqual(challenge, 2 * ClassicCourseRule.ChallengeRunLength, $"도전 관문 {challenge}개");
+        }
+}
 }

@@ -1,5 +1,4 @@
 using System.IO;
-using LOP.LookDev;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -21,7 +20,7 @@ namespace LOP.LookDevEditor
         private const string ChibiModel = ChibiRoot + "/Model/SM_Chibi_Character.fbx";
         private const string ChibiTexture = ChibiRoot + "/Texture/Texture_ChibiCharacter_BaseColor.png";
         private const string ChibiAnimDir = ChibiRoot + "/Animation";
-        private const string FaceAtlas = "Assets/LookDev/Face/FaceAtlas.png";
+        private const string FaceAtlas = "Assets/Characters/Chibi/Face/FaceAtlas.png";
         private const float ChibiScale = 3f;   // 모델 키 0.49m → 약 1.47m(게임 캐릭터 1.5m)
 
         /// <summary>플레이 중이거나 저장 안 된 씬이 있으면 다시 조립하지 않는다 — 새 씬이 열린 씬을 말없이 버린다.</summary>
@@ -53,9 +52,9 @@ namespace LOP.LookDevEditor
             BuildTrees(root, mats);
             BuildStands(root, mats);
 
-            var hero = SpawnChibi(root, mats, new Vector3(-0.9f, 0f, 1.6f), 25f, LookDevExpression.Cheer, "Happy", "#FF4F5E");
+            var hero = SpawnChibi(root, mats, new Vector3(-0.9f, 0f, 1.6f), 25f, ChibiExpression.Cheer, "Happy", "#FF4F5E");
             hero.name = "Hero_Cheer";
-            var rival = SpawnChibi(root, mats, new Vector3(1.1f, 0f, 2.0f), 5f, LookDevExpression.Despair, "Sad", "#6C63FF");
+            var rival = SpawnChibi(root, mats, new Vector3(1.1f, 0f, 2.0f), 5f, ChibiExpression.Despair, "Sad", "#6C63FF");
             rival.name = "Rival_Despair";
 
             BuildCameras();
@@ -225,9 +224,9 @@ namespace LOP.LookDevEditor
                 Prim(root, "Stand", PrimitiveType.Cube, mats.Stand, new Vector3(side * 4.3f, 0.25f, 0.5f), new Vector3(1.1f, 0.5f, 6f));
                 for (int i = 0; i < 6; i++)
                 {
-                    var expr = (i + k) % 3 == 0 ? LookDevExpression.Cheer : LookDevExpression.Normal;
+                    var expr = (i + k) % 3 == 0 ? ChibiExpression.Cheer : ChibiExpression.Normal;
                     var fan = SpawnChibi(root, mats, new Vector3(side * 4.3f, 0.5f, -1.9f + i * 0.95f), side > 0 ? -90f : 90f,
-                                         expr, expr == LookDevExpression.Cheer ? "Happy" : "Idle", FanColors[(i + k * 3) % FanColors.Length], 0.5f);
+                                         expr, expr == ChibiExpression.Cheer ? "Happy" : "Idle", FanColors[(i + k * 3) % FanColors.Length], 0.5f);
                     fan.name = "Fan";
                 }
                 k++;
@@ -236,7 +235,7 @@ namespace LOP.LookDevEditor
 
         // ── 치비 ─────────────────────────────────────────────
         private static GameObject SpawnChibi(Transform root, Materials mats, Vector3 position, float yaw,
-                                             LookDevExpression expression, string clipName, string color, float sizeFactor = 1f)
+                                             ChibiExpression expression, string clipName, string color, float sizeFactor = 1f)
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(ChibiModel);
             var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
@@ -257,7 +256,7 @@ namespace LOP.LookDevEditor
             go.transform.position = position;
             go.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
             go.transform.localScale = Vector3.one * ChibiScale * sizeFactor;
-            var face = go.AddComponent<LookDevFace>();
+            var face = go.AddComponent<ChibiFace>();
             face.faceMaterial = mats.Face;
             face.expression = expression;
             face.Build();

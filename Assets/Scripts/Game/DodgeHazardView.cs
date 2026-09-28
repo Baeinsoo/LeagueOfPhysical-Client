@@ -45,8 +45,7 @@ namespace LOP
 
             // tickUpdater.tick은 "다음에 계산할 틱"이라 내 몸보다 한 틱 앞이다. 몸이 그려지는 시각에 맞춘다.
             double renderTick = (runner.tickUpdater.elapsedTime - interval) / interval;
-            long tick = (long)Math.Floor(renderTick);
-            float frac = (float)(renderTick - tick);
+            long tick = ShapeTick(renderTick, out float frac);
 
             shapes.Clear();
             foreach (var p in state.Patterns)
@@ -67,6 +66,18 @@ namespace LOP
             }
         }
 
+        // 몸은 틱 T의 결과를 시각 T에 두고 T→T+1을 섞는다. 도형 틱 T+1은 X1=b(T), X0=b(T+1)이라
+        // 같은 frac로 섞으면 몸과 같은 순간이다. 켜짐·꺼짐도 T+1 기준 — 지금 보이는 구간을 재는 판정이 T+1이다.
+        public static long ShapeTick(double renderTick, out float frac)
+        {
+            long tick = (long)Math.Floor(renderTick);
+            frac = (float)(renderTick - tick);
+            return tick + 1;
+        }
+
+        public static Vector2 CircleCenter(DodgeShape s, float frac) =>
+            new Vector2(Mathf.Lerp(s.X1, s.X0, frac), Mathf.Lerp(s.Z1, s.Z0, frac));
+
         private bool IsBullet(DodgeShape s) =>
             s.Type == DodgeShapeType.Circle && s.Active && s.Radius <= config.BulletRadius + 1e-4f;
 
@@ -78,8 +89,9 @@ namespace LOP
             {
                 case DodgeShapeType.Circle:
                 {
-                    // 움직이는 원은 한 틱 전 → 지금 사이를 frac만큼 섞어 부드럽게.
-                    float x = Mathf.Lerp(s.X1, s.X0, frac), z = Mathf.Lerp(s.Z1, s.Z0, frac);
+                    // 움직이는 원은 한 틱 전 → 지금 사이를 frac만큼 섞어 부드럽게(ShapeTick 참고).
+                    var c = CircleCenter(s, frac);
+                    float x = c.x, z = c.y;
                     if (IsBullet(s))
                     {
                         r.sharedMaterial = bullet;

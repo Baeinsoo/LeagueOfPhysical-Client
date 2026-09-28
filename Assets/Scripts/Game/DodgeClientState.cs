@@ -27,7 +27,8 @@ namespace LOP
             foreach (var w in message.Patterns)
             {
                 float P(int i) => i < w.P.Count ? w.P[i] : 0f;
-                patterns.Add(new DodgePattern(w.Id, (DodgePatternKind)w.Kind, w.StartTick, w.Seed, P(0), P(1), P(2), P(3)));
+                patterns.Add(new DodgePattern(w.Id, (DodgePatternKind)w.Kind, w.StartTick, w.Seed,
+                                              P(0), P(1), P(2), P(3), w.WarnTicks));
             }
 
             players.Clear();

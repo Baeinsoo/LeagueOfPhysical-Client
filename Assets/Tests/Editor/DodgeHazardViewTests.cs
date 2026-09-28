@@ -31,5 +31,26 @@ namespace LOP.Tests
             float expectedX = (ShapesAt(rock, t)[0].X0 + ShapesAt(rock, t + 1)[0].X0) * 0.5f;
             Assert.AreEqual(expectedX, drawn.x, 1e-4f);
         }
+
+        // 판정이 원이면 그림도 원이어야 한다 — 큐브로 그리면 네 모서리가 "보이는데 안 맞는" 자리가 된다.
+        [Test]
+        public void 원_판정은_원으로_그린다()
+        {
+            var bomb = new DodgePattern(1, DodgePatternKind.Bomb, 0, 0, 0f, 0f, 2f, 0f);
+            var rock = new DodgePattern(2, DodgePatternKind.Rock, 0, 0, 3f, 0f, 0f, 0f);
+            var laser = new DodgePattern(3, DodgePatternKind.Laser, 0, 0, -9f, 0f, 9f, 0f);
+
+            Assert.AreEqual(PrimitiveType.Cylinder, DodgeHazardView.PrimitiveFor(ShapesAt(bomb, 5)[0], C));
+            Assert.AreEqual(PrimitiveType.Cylinder, DodgeHazardView.PrimitiveFor(ShapesAt(bomb, C.WarnTicks)[0], C));
+            Assert.AreEqual(PrimitiveType.Cylinder, DodgeHazardView.PrimitiveFor(ShapesAt(rock, C.WarnTicks + 5)[0], C));
+            Assert.AreEqual(PrimitiveType.Cube, DodgeHazardView.PrimitiveFor(ShapesAt(laser, 5)[0], C));
+        }
+
+        [Test]
+        public void 탄은_구로_그린다()
+        {
+            var rain = new DodgePattern(1, DodgePatternKind.BulletRain, 0, 12345UL, 0f, 8f, 4f, 0.15f);
+            Assert.AreEqual(PrimitiveType.Sphere, DodgeHazardView.PrimitiveFor(ShapesAt(rain, 40)[0], C));
+        }
     }
 }

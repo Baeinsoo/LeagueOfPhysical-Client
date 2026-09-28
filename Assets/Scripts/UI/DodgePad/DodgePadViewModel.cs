@@ -60,7 +60,8 @@ namespace LOP.UI
         {
             if (!known) return "";
             if (eliminatedTick >= 0) return "탈락 — 관전 중";
-            return "목숨 " + new string('●', System.Math.Max(0, lives));
+            // 점은 다섯까지 — 시험용으로 목숨을 크게 잡으면 점이 화면을 넘는다.
+            return lives > 5 ? $"목숨 {lives}" : "목숨 " + new string('●', System.Math.Max(0, lives));
         }
 
         /// <summary>스테이지가 바뀐 뒤 배너를 띄워 두는 시간(2초).</summary>

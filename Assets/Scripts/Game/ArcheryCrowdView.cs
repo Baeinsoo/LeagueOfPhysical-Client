@@ -259,9 +259,7 @@ namespace LOP
         {
             if (materials.TryGetValue(color, out var mat) == false)
             {
-                mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                mat.color = color;
-                mat.SetColor("_BaseColor", color);
+                mat = LOPToonMaterials.Create(color);
                 materials[color] = mat;
             }
             return mat;

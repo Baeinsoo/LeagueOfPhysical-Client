@@ -2,8 +2,8 @@ Shader "LOP/Toon"
 {
     Properties
     {
-        _BaseMap ("Base Map", 2D) = "white" {}
-        _BaseColor ("Base Color", Color) = (1, 1, 1, 1)
+        [MainTexture] _BaseMap ("Base Map", 2D) = "white" {}
+        [MainColor] _BaseColor ("Base Color", Color) = (1, 1, 1, 1)
         _ShadowColor ("Shadow Color", Color) = (0.62, 0.64, 0.86, 1)
         _MidThreshold ("Mid Threshold", Range(0, 1)) = 0.45
         _LightThreshold ("Light Threshold", Range(0, 1)) = 0.72

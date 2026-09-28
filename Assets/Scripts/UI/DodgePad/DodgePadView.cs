@@ -1,3 +1,4 @@
+using R3;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -36,6 +37,9 @@ namespace LOP.UI
             _joystickHandle = Root.Q<VisualElement>("joystick-handle");
             Hide(_joystickBg);
 
+            var livesLabel = Root.Q<Label>("lives-label");
+            _viewModel.LivesTextProperty.Subscribe(t => livesLabel.text = t).AddTo(Disposables);
+
             var stickArea = Root.Q<VisualElement>("joystick-area");
             stickArea.RegisterCallback<PointerDownEvent>(OnStickDown);
             stickArea.RegisterCallback<PointerMoveEvent>(OnStickMove);
@@ -48,6 +52,8 @@ namespace LOP.UI
 
         private void Tick()
         {
+            _viewModel.Refresh();
+
             // 스틱을 잡고 있는 동안은 키보드를 읽지 않는다 — 둘 다 밀면 나중 것이 앞의 것을 지운다.
             if (_stickPointer == -1)
             {
@@ -122,6 +128,9 @@ namespace LOP.UI
                 if (disposing)
                 {
                     _tick?.Pause();
+                    // 스틱을 잡은 채 창이 닫혀도 걷던 입력이 남지 않게.
+                    _viewModel.Move(Vector2.zero);
+                    _viewModel.Dispose();
                 }
             }
 

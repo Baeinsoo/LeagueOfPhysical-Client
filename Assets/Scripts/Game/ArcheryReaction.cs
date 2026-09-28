@@ -4,6 +4,9 @@ namespace LOP
 {
     public enum ArcheryReactionRole { None, Winner, Slump }
 
+    /// <summary>표정·애니를 고를 사건 신호. 몸 튕김(<see cref="ArcheryReactionPose"/>)과 같은 때에 켜진다.</summary>
+    public enum ArcheryReactionCue { None, Cheer, Slump }
+
     public readonly struct ArcheryReactionPose
     {
         /// <summary>몸통을 위로 얼마나 올리나(m). 음수면 가라앉는다.</summary>
@@ -55,6 +58,14 @@ namespace LOP
                 return new ArcheryReactionPose(Jump(since, 12f), 0f);
             }
             return ArcheryReactionPose.Zero;
+        }
+
+        public static ArcheryReactionCue CueAt(float now, float bullAt, ArcheryReactionRole role)
+        {
+            if (role == ArcheryReactionRole.Winner) return ArcheryReactionCue.Cheer;
+            if (role == ArcheryReactionRole.Slump) return ArcheryReactionCue.Slump;
+            float since = now - bullAt;
+            return since >= 0f && since < BullSeconds ? ArcheryReactionCue.Cheer : ArcheryReactionCue.None;
         }
 
         private static float Jump(float t, float speed) => Mathf.Abs(Mathf.Sin(t * speed)) * JumpHeight;

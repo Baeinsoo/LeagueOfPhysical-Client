@@ -1,0 +1,40 @@
+using NUnit.Framework;
+
+namespace LOP.Tests
+{
+    public class DodgeClientStateTests
+    {
+        static DodgeStateToC Msg(int version, int lives)
+        {
+            var m = new DodgeStateToC { Version = version };
+            var w = new DodgePatternWire { Id = 1, Kind = (int)DodgePatternKind.Bomb, StartTick = 10, Seed = 0 };
+            w.P.Add(1f); w.P.Add(2f); w.P.Add(3f); w.P.Add(0f);
+            m.Patterns.Add(w);
+            m.Players.Add(new DodgePlayerWire { EntityId = "9", Lives = lives, EliminatedTick = -1 });
+            return m;
+        }
+
+        [Test]
+        public void 새_판본이면_패턴과_목숨을_그대로_옮긴다()
+        {
+            var s = new DodgeClientState();
+            Assert.IsTrue(s.Apply(Msg(1, 3)));
+            Assert.AreEqual(1, s.Patterns.Count);
+            Assert.AreEqual(DodgePatternKind.Bomb, s.Patterns[0].Kind);
+            Assert.AreEqual(3f, s.Patterns[0].P2);
+            Assert.IsTrue(s.TryGetLife("9", out int lives, out long eliminated));
+            Assert.AreEqual(3, lives);
+            Assert.AreEqual(-1, eliminated);
+        }
+
+        [Test]
+        public void 늦게_도착한_낡은_판본은_버린다()
+        {
+            var s = new DodgeClientState();
+            s.Apply(Msg(5, 1));
+            Assert.IsFalse(s.Apply(Msg(4, 3)));
+            s.TryGetLife("9", out int lives, out _);
+            Assert.AreEqual(1, lives);
+        }
+    }
+}

@@ -9,7 +9,7 @@ namespace LOP
 {
     /// <summary>
     /// Dodge 덩어리(클라) — 플랩왕의 캐릭터 월드를 그대로 쓰고, 조작은 이동 하나다.
-    /// 위험 요소(슬라이스 2)는 아직 없다.
+    /// 위험은 서버가 보낸 패턴을 같은 식으로 그리기만 한다(판정은 서버).
     /// </summary>
     public class DodgeLifetimeScope : GameLifetimeScope
     {
@@ -30,6 +30,13 @@ namespace LOP
 
             // 외삽 대상이 없어 값은 안 쓰이지만 EntityBinder의 생성자 의존이라 등록은 필요하다.
             builder.Register<IExtrapolationAcceleration, ZeroExtrapolationAcceleration>(Lifetime.Singleton);
+
+            builder.Register<DodgeConfigProvider>(Lifetime.Singleton);
+            builder.Register<DodgeConfig>(c => c.Resolve<DodgeConfigProvider>().Get(), Lifetime.Singleton);
+            builder.Register<DodgeClientState>(Lifetime.Singleton);
+            builder.RegisterEntryPoint<DodgeStateHandler>();
+            // 판정과 같은 식에 내 몸이 그려지는 틱을 넣어 그린다(스펙 §5.3).
+            builder.RegisterEntryPoint<DodgeHazardView>().AsSelf();
 
             builder.RegisterEntryPoint<DodgeHudCoordinator>();
             builder.Register<DodgePadViewModel>(Lifetime.Transient);

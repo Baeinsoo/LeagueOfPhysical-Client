@@ -19,6 +19,10 @@ namespace LOP.UI
         private readonly R3.ReactiveProperty<float> stageProgress = new R3.ReactiveProperty<float>(0f);
         private readonly R3.ReactiveProperty<bool> suddenDeath = new R3.ReactiveProperty<bool>(false);
         private readonly R3.ReactiveProperty<string> bannerText = new R3.ReactiveProperty<string>("");
+        private readonly R3.ReactiveProperty<bool> hitFlash = new R3.ReactiveProperty<bool>(false);
+        private bool knewLives;
+        private int lastLives;
+        private long hitTick = -1;
 
         public DodgePadViewModel(PlayerInputManager input, CameraController cameraController,
                                  DodgeClientState state, IGameDataStore gameDataStore,
@@ -40,12 +44,20 @@ namespace LOP.UI
         public R3.ReadOnlyReactiveProperty<float> StageProgressProperty => stageProgress;
         public R3.ReadOnlyReactiveProperty<bool> SuddenDeathProperty => suddenDeath;
         public R3.ReadOnlyReactiveProperty<string> BannerTextProperty => bannerText;
+        public R3.ReadOnlyReactiveProperty<bool> HitFlashProperty => hitFlash;
 
         /// <summary>매 프레임 서버 상태에서 내 목숨을 읽는다(연속 상태는 pull). 몸이 사라져도 id는 userEntityId로 남는다.</summary>
         public void Refresh()
         {
             bool known = state.TryGetLife(gameDataStore.userEntityId, out int lives, out long eliminatedTick);
             livesText.Value = LivesText(known, lives, eliminatedTick);
+
+            // 목숨이 준 순간을 맞은 틱으로 — 서버 상태가 알려 준 뒤라 조금 늦지만 되돌릴 일은 없다(스펙 §5.4).
+            long now = runner?.tickUpdater?.tick ?? 0;
+            hitTick = DodgeHitFeedback.NextHitTick(knewLives, lastLives, lives, hitTick, now);
+            knewLives = known;
+            lastLives = lives;
+            hitFlash.Value = DodgeHitFeedback.Flashing(now, hitTick);
 
             // 스테이지는 표와 경기 시작 틱으로 서버와 같은 식을 계산한다 — 와이어로 오지 않는다.
             long tick = runner?.tickUpdater?.tick ?? 0;
@@ -91,6 +103,7 @@ namespace LOP.UI
             stageProgress.Dispose();
             suddenDeath.Dispose();
             bannerText.Dispose();
+            hitFlash.Dispose();
         }
 
         /// <summary>방향 스틱. −1~1로 정규화된 값이 들어온다. 0을 넘겨야 몸이 선다(held 모델).</summary>

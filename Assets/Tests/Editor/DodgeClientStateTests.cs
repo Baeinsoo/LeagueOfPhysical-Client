@@ -46,5 +46,17 @@ namespace LOP.Tests
             s.Apply(m);
             Assert.AreEqual(33, s.Patterns[0].WarnTicks);
         }
+
+        [Test]
+        public void 무적_끝_틱을_사람마다_옮긴다()
+        {
+            var m = Msg(1, 3);
+            m.Players[0].InvulnerableUntilTick = 777;
+            var s = new DodgeClientState();
+            s.Apply(m);
+            Assert.AreEqual(777, s.InvulnerableUntil("9"));
+            Assert.AreEqual(-1, s.InvulnerableUntil("없는사람"));
+            CollectionAssert.AreEqual(new[] { "9" }, s.PlayerIds);
+        }
     }
 }

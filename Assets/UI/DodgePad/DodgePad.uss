@@ -46,3 +46,10 @@
     color: rgb(255, 255, 255); font-size: 44px; -unity-font-style: bold;
     -unity-text-outline-width: 2px; -unity-text-outline-color: rgb(0, 0, 0);
 }
+
+.hit-flash {
+    position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+    display: none;
+    border-width: 18px; border-color: rgba(255, 40, 40, 0.75);
+}
+.lives-label--hit { color: rgb(255, 80, 70); }

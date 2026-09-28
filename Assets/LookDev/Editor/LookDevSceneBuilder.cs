@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -15,7 +16,7 @@ namespace LOP.LookDevEditor
     {
         public const string ScenePath = "Assets/LookDev/LookDev.unity";
         private const string MaterialDir = "Assets/LookDev/Materials";
-        private const string ProfilePath = "Assets/LookDev/LOPLook.asset";
+        private const string ProfilePath = "Assets/Settings/LOPLook.asset";   // 게임(활쏘기 씬)도 이 프로필을 쓴다
         private const string ChibiRoot = "Assets/Art/PolyOne/Chibi Character";
         private const string ChibiModel = ChibiRoot + "/Model/SM_Chibi_Character.fbx";
         private const string ChibiTexture = ChibiRoot + "/Texture/Texture_ChibiCharacter_BaseColor.png";
@@ -289,9 +290,18 @@ namespace LOP.LookDevEditor
 
         private static void BuildVolume()
         {
-            AssetDatabase.DeleteAsset(ProfilePath);
-            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
-            AssetDatabase.CreateAsset(profile, ProfilePath);
+            //  게임 씬이 GUID로 참조한다 — 지우고 새로 만들지 않고 값만 다시 넣는다.
+            var profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(ProfilePath);
+            if (profile == null)
+            {
+                profile = ScriptableObject.CreateInstance<VolumeProfile>();
+                AssetDatabase.CreateAsset(profile, ProfilePath);
+            }
+            foreach (var old in profile.components.ToArray())
+            {
+                profile.Remove(old.GetType());
+                Object.DestroyImmediate(old, true);
+            }
             var bloom = profile.Add<Bloom>(true);
             bloom.threshold.Override(0.9f);
             bloom.intensity.Override(0.25f);

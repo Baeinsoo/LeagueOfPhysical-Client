@@ -11,7 +11,7 @@ namespace LOP.LookDev
     {
         public LookDevExpression expression;
         public Material faceMaterial;
-        public float radius = 0.16f;
+        public float radius = 0.175f;
         public Vector3 center = new Vector3(-0.12f, 0f, 0f);
         public Vector3 facing = new Vector3(0f, -1f, 0f);
         public Vector3 up = new Vector3(-1f, 0f, 0f);
@@ -100,8 +100,8 @@ namespace LOP.LookDev
                 for (int x = 0; x < nx; x++)
                 {
                     int i = y * (nx + 1) + x;
-                    tris[t++] = i; tris[t++] = i + nx + 1; tris[t++] = i + 1;
-                    tris[t++] = i + 1; tris[t++] = i + nx + 1; tris[t++] = i + nx + 2;
+                    tris[t++] = i; tris[t++] = i + 1; tris[t++] = i + nx + 1;
+                    tris[t++] = i + 1; tris[t++] = i + nx + 2; tris[t++] = i + nx + 1;
                 }
             }
             var mesh = new Mesh { name = "FacePlate", hideFlags = HideFlags.DontSave };

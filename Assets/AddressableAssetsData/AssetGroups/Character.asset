@@ -30,6 +30,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7e1f1624b67ea14428fe625cf6c213fd
+    m_Address: Assets/Characters/Chibi/Chibi.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ed4f7466c94b144b4ae4d2862145b798
     m_Address: Assets/Art/Characters/FlappyBird/Bird.prefab
     m_ReadOnly: 0

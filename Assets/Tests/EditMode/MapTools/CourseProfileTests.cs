@@ -431,6 +431,80 @@ namespace LOP.MapTools.Tests
             }
         }
 
+        [Test]
+        public void 구간_3_언덕에만_굴이_하나다()
+        {
+            var p = Compose();
+            Assert.AreEqual(1, p.HillTunnels.Count);
+            HillTunnelPiece t = p.HillTunnels[0];
+            Assert.That(t.HillX0, Is.GreaterThan(StartX + 2 * Length / 3f));
+            Assert.AreEqual(5f, t.Thickness, 1e-4f);
+            Assert.AreEqual(p.CenterAt(t.HillX0) - Half, t.FloorY, 1e-3f, "굴 바닥 = 언덕 전 회랑 바닥");
+            Assert.AreEqual(t.FloorY + 5f, t.TopY, 1e-4f);
+        }
+
+        [Test]
+        public void 굴_입구와_출구는_굴_위_덩어리가_1m_되는_자리다()
+        {
+            HillTunnelPiece t = Compose().HillTunnels[0];
+            Assert.AreEqual(t.HillX0 + 6f / 1.5f, t.Mouth, 1e-3f);
+            Assert.AreEqual(t.HillX1 - 6f / 2.5f, t.Exit, 1e-3f);
+            for (float x = t.Mouth; x <= t.Exit; x += 0.25f)
+            {
+                Assert.GreaterOrEqual(t.SurfaceAt(x) - t.TopY, 1f - 1e-3f, $"x={x:F2} 덩어리가 1m보다 얇다");
+            }
+        }
+
+        [Test]
+        public void 굴의_언덕_윗면은_코스_바닥과_같다()
+        {
+            var p = Compose();
+            HillTunnelPiece t = p.HillTunnels[0];
+            for (float x = t.HillX0; x <= t.HillX1; x += 0.5f)
+            {
+                Assert.AreEqual(p.CenterAt(x) - Half, t.SurfaceAt(x), 1e-3f, $"x={x:F1}");
+            }
+        }
+
+        [Test]
+        public void 굴_위_덩어리_띠는_굴_윗면에서_언덕_윗면까지_끊김_없이_이어진다()
+        {
+            HillTunnelPiece t = Compose().HillTunnels[0];
+            var strips = CourseProfileRule.HillTunnelMass(t);
+            Assert.AreEqual(t.Mouth, strips[0][0], 1e-4f);
+            Assert.AreEqual(t.Exit, strips[strips.Count - 1][2], 1e-4f);
+            for (int i = 0; i < strips.Count; i++)
+            {
+                float[] s = strips[i];   // a, 아래a, b, 아래b, b, 위b, a, 위a
+                Assert.AreEqual(t.TopY, s[1], 1e-4f);
+                Assert.AreEqual(t.TopY, s[3], 1e-4f);
+                Assert.AreEqual(t.SurfaceAt(s[2]), s[5], 1e-3f);
+                Assert.AreEqual(t.SurfaceAt(s[0]), s[7], 1e-3f);
+                if (i > 0) { Assert.AreEqual(strips[i - 1][2], s[0], 1e-4f, "끊김"); }
+            }
+        }
+
+        [Test]
+        public void 굴_자리에는_바닥_조각이_없다()
+        {
+            var p = Compose();
+            HillTunnelPiece t = p.HillTunnels[0];
+            foreach (RampPiece q in CourseProfileRule.FloorPieces(p, new float[0]))
+            {
+                float mid = (q.X0 + q.X1) * 0.5f;
+                Assert.IsFalse(mid > t.HillX0 && mid < t.HillX1, $"x={mid:F1} 굴 자리에 바닥 조각");
+            }
+        }
+
+        [Test]
+        public void 언덕이_굴과_덩어리를_못_담으면_던진다()
+        {
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => CourseProfileRule.HillTunnel(
+                0f, 3.67f, 15.67f, 17.87f, 0f, height: 5.5f, riseSlope: 1.5f, thickness: 5f, corridorHalf: Half));
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => CourseProfileRule.HillTunnel(
+                0f, 13.3f, 25.3f, 33.3f, 0f, height: 20f, riseSlope: 1.5f, thickness: 0f, corridorHalf: Half));
+        }
+
         static bool InCliff(CourseProfile p, float a, float b)
         {
             foreach (CliffPiece c in p.Cliffs)

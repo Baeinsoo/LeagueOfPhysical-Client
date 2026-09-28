@@ -178,6 +178,37 @@ namespace LOP.MapTools
         public float BottomY => TopY - Drop;
     }
 
+    /// <summary>
+    /// A자 언덕 밑동을 곧게 지나는 굴. 바닥은 언덕 전 회랑 바닥, 높이는 <see cref="Thickness"/>.
+    /// 굴 위 덩어리가 <see cref="CourseProfileRule.MinTongue"/>보다 두꺼운 <see cref="Mouth"/>~<see cref="Exit"/>에서만
+    /// 두 길(굴·넘는 길)이 갈린다.
+    /// </summary>
+    public readonly struct HillTunnelPiece
+    {
+        public readonly float HillX0, Top0, Top1, HillX1, BaseY, Height, RiseSlope, Thickness, CorridorHalf;
+
+        public HillTunnelPiece(float hillX0, float top0, float top1, float hillX1, float baseY, float height,
+                               float riseSlope, float thickness, float corridorHalf)
+        {
+            HillX0 = hillX0; Top0 = top0; Top1 = top1; HillX1 = hillX1; BaseY = baseY; Height = height;
+            RiseSlope = riseSlope; Thickness = thickness; CorridorHalf = corridorHalf;
+        }
+
+        public float FloorY => BaseY - CorridorHalf;
+        public float TopY => FloorY + Thickness;
+        public float Mouth => HillX0 + (Thickness + CourseProfileRule.MinTongue) / RiseSlope;
+        public float Exit => HillX1 - (Thickness + CourseProfileRule.MinTongue) / CourseProfileRule.DropSlope;
+
+        /// <summary>언덕 윗면(넘는 길의 바닥) 높이.</summary>
+        public float SurfaceAt(float x)
+        {
+            if (x <= HillX0 || x >= HillX1) { return FloorY; }
+            if (x < Top0) { return FloorY + RiseSlope * (x - HillX0); }
+            if (x <= Top1) { return FloorY + Height; }
+            return FloorY + Height - CourseProfileRule.DropSlope * (x - Top1);
+        }
+    }
+
     /// <summary>경사 조각 하나 — 두 x 사이를 곧은 선으로 잇는다. Lift는 회랑 중심 높이.</summary>
     public readonly struct RampPiece
     {
@@ -202,10 +233,12 @@ namespace LOP.MapTools
         private readonly List<ValleyPiece> valleys;
         private readonly List<BuildingPiece> buildings;
         private readonly List<CliffPiece> cliffs;
+        private readonly List<HillTunnelPiece> hillTunnels;
         private readonly List<FlatSpan> floorGaps;
 
         internal CourseProfile(float[] xs, float[] ys, List<FlatSpan> flats, List<ShortcutRect> shortcuts,
-                               List<ValleyPiece> valleys, List<BuildingPiece> buildings, List<CliffPiece> cliffs)
+                               List<ValleyPiece> valleys, List<BuildingPiece> buildings, List<CliffPiece> cliffs,
+                               List<HillTunnelPiece> hillTunnels)
         {
             this.xs = xs;
             this.ys = ys;
@@ -214,8 +247,11 @@ namespace LOP.MapTools
             this.valleys = valleys;
             this.buildings = buildings;
             this.cliffs = cliffs;
+            this.hillTunnels = hillTunnels;
             floorGaps = new List<FlatSpan>();
             foreach (CliffPiece c in cliffs) { floorGaps.Add(new FlatSpan(c.Edge, c.SlopeEnd)); }
+            foreach (HillTunnelPiece t in hillTunnels) { floorGaps.Add(new FlatSpan(t.HillX0, t.HillX1)); }
+            floorGaps.Sort((a, b) => a.From.CompareTo(b.From));
             MinY = float.MaxValue;
             MaxY = float.MinValue;
             foreach (float y in ys)
@@ -233,6 +269,7 @@ namespace LOP.MapTools
         public IReadOnlyList<ValleyPiece> Valleys => valleys;
         public IReadOnlyList<BuildingPiece> Buildings => buildings;
         public IReadOnlyList<CliffPiece> Cliffs => cliffs;
+        public IReadOnlyList<HillTunnelPiece> HillTunnels => hillTunnels;
         /// <summary>바닥 경사 조각을 비우는 x 범위 — 빌더가 그 자리를 따로 채운다(절벽 밑 바닥 등).</summary>
         public IReadOnlyList<FlatSpan> FloorGaps => floorGaps;
         public float MinY { get; }
@@ -296,6 +333,39 @@ namespace LOP.MapTools
 
         public static float CliffLength(float drop) => CliffDelay + drop / CliffSlope;
 
+        /// <summary>언덕 밑동 굴. 언덕이 굴과 덩어리(<see cref="MinTongue"/>)를 같이 못 담으면 던진다.</summary>
+        public static HillTunnelPiece HillTunnel(float hillX0, float top0, float top1, float hillX1, float baseY,
+                                                 float height, float riseSlope, float thickness, float corridorHalf)
+        {
+            if (thickness <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(thickness), thickness, "굴 높이는 0보다 커야 한다");
+            }
+            if (height < thickness + MinTongue)
+            {
+                throw new ArgumentOutOfRangeException(nameof(height), height,
+                    $"언덕 {height}m엔 굴 {thickness}m와 덩어리 {MinTongue}m가 같이 안 들어간다");
+            }
+            return new HillTunnelPiece(hillX0, top0, top1, hillX1, baseY, height, riseSlope, thickness, corridorHalf);
+        }
+
+        /// <summary>
+        /// 굴 위 덩어리를 세로 띠로 자른다(아랫면 = 굴 윗면, 윗면 = 언덕 윗면). 언덕 윗면이 꺾이는 곳(꼭대기 양 끝)에서
+        /// 끊으므로 띠마다 볼록 사다리꼴이다 — 볼록 메시 콜라이더로 구울 수 있다.
+        /// </summary>
+        public static List<float[]> HillTunnelMass(HillTunnelPiece t)
+        {
+            var cuts = new List<float> { t.Mouth, t.Top0, t.Top1, t.Exit };
+            var strips = new List<float[]>();
+            for (int i = 1; i < cuts.Count; i++)
+            {
+                float a = cuts[i - 1], b = cuts[i];
+                if (b - a < 1e-4f) { continue; }
+                strips.Add(Strip(a, t.TopY, t.SurfaceAt(a), b, t.TopY, t.SurfaceAt(b)));
+            }
+            return strips;
+        }
+
         /// <summary>구간 1(배우기) · 2 · 3. spec §3 표 그대로.</summary>
         public static readonly SectionTerrain[] Sections =
         {
@@ -305,7 +375,7 @@ namespace LOP.MapTools
                                entrance: new ShortcutEntrance(arcs: 1, thickness: 6.0f, lip: 4f),
                                cliffHeight: 25f),
             new SectionTerrain(valleyDepth: 40f, hillHeight: 20f, riseSlope: 1.5f, stepHeight: 10f, valleyShortcut: true,
-                               entrance: new ShortcutEntrance(arcs: 3, thickness: 5.0f, lip: 6f)),
+                               entrance: new ShortcutEntrance(arcs: 3, thickness: 5.0f, lip: 6f), hillTunnel: 5f),
         };
 
         public static float ValleyLength(float depth, float rise) => depth / DropSlope + ValleyBottom + depth / rise;
@@ -326,6 +396,7 @@ namespace LOP.MapTools
             var valleys = new List<ValleyPiece>();
             var buildings = new List<BuildingPiece>();
             var cliffs = new List<CliffPiece>();
+            var hillTunnels = new List<HillTunnelPiece>();
 
             float x = startX;
             float y = 0f;
@@ -410,6 +481,7 @@ namespace LOP.MapTools
                         case TerrainKind.Hill:
                         {
                             float h = t.HillHeight;
+                            float hillX0 = x;
                             float top0 = x + h / t.RiseSlope;
                             float top1 = top0 + HillTop;
                             xs.Add(top0); ys.Add(y + h);
@@ -417,6 +489,10 @@ namespace LOP.MapTools
                             flats.Add(new FlatSpan(top0, top1));
                             x = top1 + h / DropSlope;
                             xs.Add(x); ys.Add(y);
+                            if (t.HillTunnel > 0f)
+                            {
+                                hillTunnels.Add(HillTunnel(hillX0, top0, top1, x, y, h, t.RiseSlope, t.HillTunnel, corridorHalf));
+                            }
                             break;
                         }
                         case TerrainKind.Building:
@@ -455,7 +531,7 @@ namespace LOP.MapTools
             float end = startX + length + tail;
             flats.Add(new FlatSpan(flatStart, end));
             xs.Add(end); ys.Add(y);
-            return new CourseProfile(xs.ToArray(), ys.ToArray(), flats, shortcuts, valleys, buildings, cliffs);
+            return new CourseProfile(xs.ToArray(), ys.ToArray(), flats, shortcuts, valleys, buildings, cliffs, hillTunnels);
         }
 
         static float PieceLength(TerrainKind kind, SectionTerrain t)

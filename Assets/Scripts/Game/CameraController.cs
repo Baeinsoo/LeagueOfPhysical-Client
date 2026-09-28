@@ -28,6 +28,11 @@ namespace LOP
         // 곧 "겨누고 시작할 곳"인 게임은 켜야 한다 — 안 그러면 사대 반대편을 보고 시작한다.
         [SerializeField] private bool alignYawToTarget = false;
 
+        [Header("Follow")]
+        // 끄면 대상이 생겨도 카메라가 씬에 놓인 자리에 그대로 있다. 경기장 전체를 늘 같은
+        // 시점으로 봐야 하는 모드(Dodge)용이다. 기본은 켜짐 — 다른 모드는 모두 따라간다.
+        [SerializeField] private bool followTarget = true;
+
         [Header("Limits")]
         [SerializeField] private float minPitch = -20f;
         [SerializeField] private float maxPitch = 80f;
@@ -38,6 +43,12 @@ namespace LOP
 
         public Camera MainCamera => mainCamera;
         public Transform Target { get; private set; }
+
+        public bool FollowTarget
+        {
+            get => followTarget;
+            set => followTarget = value;
+        }
 
         /// <summary>
         /// 회전에 덧붙이는 각도(도). x는 좌우, y는 위아래이며 <b>유니티 부호</b>다(양수가 아래).
@@ -141,7 +152,7 @@ namespace LOP
 
         private void LateUpdate()
         {
-            if (Target == null)
+            if (Target == null || !followTarget)
             {
                 return;
             }

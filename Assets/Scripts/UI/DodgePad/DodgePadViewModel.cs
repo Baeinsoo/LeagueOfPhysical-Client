@@ -42,11 +42,22 @@ namespace LOP.UI
         /// <summary>방향 스틱. −1~1로 정규화된 값이 들어온다. 0을 넘겨야 몸이 선다(held 모델).</summary>
         public void Move(UnityEngine.Vector2 stick)
         {
-            // 식은 SkydivePadViewModel.Move와 같다 — 화면에서 위로 밀면 화면 위쪽으로 간다.
-            float yAngle = cameraController.MainCamera.transform.eulerAngles.y;
+            var world = CameraRelative(stick, cameraController.MainCamera);
+            input.SetMovement(world.x, world.y);
+        }
+
+        /// <summary>스틱 → 월드 xz. 식은 SkydivePadViewModel.Move와 같다 — 화면에서 위로 밀면 화면 위쪽으로 간다.</summary>
+        public static UnityEngine.Vector2 CameraRelative(UnityEngine.Vector2 stick, UnityEngine.Camera camera)
+        {
+            // 멈춤은 방향이 없다 — 카메라를 안 읽어야 씬을 내리며 카메라가 먼저 사라져도 닫힐 때 멈출 수 있다.
+            if (stick == UnityEngine.Vector2.zero)
+            {
+                return UnityEngine.Vector2.zero;
+            }
+            float yAngle = camera.transform.eulerAngles.y;
             var cameraRotation = UnityEngine.Quaternion.Euler(0, yAngle, 0);
             UnityEngine.Vector3 transformed = cameraRotation * new UnityEngine.Vector3(stick.x, 0, stick.y);
-            input.SetMovement(transformed.x, transformed.z);
+            return new UnityEngine.Vector2(transformed.x, transformed.z);
         }
 
         /// <summary>데스크톱용 WASD. 안 누르면 0을 밀어 선다.</summary>

@@ -79,6 +79,9 @@ MonoBehaviour:
   - viewName: SkydivePadView
     uxml: {fileID: 9197481963319205126, guid: 7f7999a09cef5f448afb7bec274e44b8, type: 3}
     uss: {fileID: 7433441132597879392, guid: da3666f8ac5db28489ab3a5af9feaf44, type: 3}
+  - viewName: DodgePadView
+    uxml: {fileID: 9197481963319205126, guid: d75aca2769e382b4da995178b83dca68, type: 3}
+    uss: {fileID: 7433441132597879392, guid: 77bd1749fd93e7745bd63dc1305a6829, type: 3}
   - viewName: ArcheryPadView
     uxml: {fileID: 9197481963319205126, guid: 544af42fa8b5ddb489e2ea0d884574d2, type: 3}
     uss: {fileID: 7433441132597879392, guid: 052fd1a415512774da9f4be025597794, type: 3}

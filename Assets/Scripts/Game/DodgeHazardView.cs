@@ -57,7 +57,7 @@ namespace LOP
             int used = 0;
             foreach (var s in shapes)
             {
-                var r = Take(used++, IsBullet(s) ? PrimitiveType.Sphere : PrimitiveType.Cube);
+                var r = Take(used++, PrimitiveFor(s, config));
                 Place(r, s, frac);
             }
             for (int i = used; i < pool.Count; i++)
@@ -78,7 +78,16 @@ namespace LOP
         public static Vector2 CircleCenter(DodgeShape s, float frac) =>
             new Vector2(Mathf.Lerp(s.X1, s.X0, frac), Mathf.Lerp(s.Z1, s.Z0, frac));
 
-        private bool IsBullet(DodgeShape s) =>
+        // 판정이 원이면 원기둥(납작한 원판)으로 — 큐브면 네 모서리가 "보이는데 안 맞는" 자리가 된다.
+        public static PrimitiveType PrimitiveFor(DodgeShape s, DodgeConfig config)
+        {
+            if (IsBullet(s, config)) return PrimitiveType.Sphere;
+            return s.Type == DodgeShapeType.Circle ? PrimitiveType.Cylinder : PrimitiveType.Cube;
+        }
+
+        private bool IsBullet(DodgeShape s) => IsBullet(s, config);
+
+        private static bool IsBullet(DodgeShape s, DodgeConfig config) =>
             s.Type == DodgeShapeType.Circle && s.Active && s.Radius <= config.BulletRadius + 1e-4f;
 
         private void Place(Renderer r, DodgeShape s, float frac)
@@ -106,7 +115,7 @@ namespace LOP
                         float d = s.Radius * 2f * (s.Active ? 1f : Mathf.Max(0.15f, s.Progress));
                         t.position = new Vector3(x, 0.03f, z);
                         t.rotation = Quaternion.identity;
-                        t.localScale = new Vector3(d, 0.04f, d);
+                        t.localScale = new Vector3(d, 0.02f, d);   // 원기둥 높이는 2 — 두께 0.04
                     }
                     break;
                 }
@@ -139,8 +148,8 @@ namespace LOP
                 pool.Add(null);
             }
             var r = pool[index];
-            bool wantSphere = type == PrimitiveType.Sphere;
-            if (r != null && (r.GetComponent<MeshFilter>().sharedMesh.name == "Sphere") == wantSphere)
+            // 기본 도형 메시 이름은 PrimitiveType 이름과 같다(Sphere/Cylinder/Cube).
+            if (r != null && r.GetComponent<MeshFilter>().sharedMesh.name == type.ToString())
             {
                 return r;
             }

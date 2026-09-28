@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.SceneManagement;
 using VContainer.Unity;
 
 namespace LOP
@@ -8,6 +9,8 @@ namespace LOP
     /// <summary>
     /// 활쏘기의 하늘·안개·앰비언트·해. 맵은 additive라 활성 씬(Room)의 RenderSettings만 먹는다 — 코드로 켜고, 나갈 때 되돌린다
     /// (<see cref="FlappyAtmosphere"/>와 같은 이유). 안개는 90m 과녁이 보이게 멀리서 시작한다.
+    /// <para>맵(과 그 흰 해)은 스코프 시작 뒤에 뜬다 — 씬이 뜰 때마다 해를 다시 고른다. 카메라의 Skybox 컴포넌트는
+    /// RenderSettings.skybox를 덮으므로 있는 동안 꺼 둔다.</para>
     /// </summary>
     public class ArcheryAtmosphere : IStartable, System.IDisposable
     {
@@ -23,13 +26,23 @@ namespace LOP
         private readonly Color ambientSky, ambientEquator, ambientGround;
         private readonly Light sun;
         private readonly List<Light> dimmed = new List<Light>();
+        private readonly List<Skybox> hiddenBoxes = new List<Skybox>();
+        private readonly string mainSceneName;
+        private bool listening;
         private Light mainSun;
         private Color mainColor;
         private Material sky;
         private bool applied;
 
-        public ArcheryAtmosphere()
+        [VContainer.Inject]
+        public ArcheryAtmosphere() : this("Archery")
         {
+        }
+
+        /// <param name="mainSceneName">주인공 해가 있는 씬(게임 씬). 시험은 열린 씬 이름을 준다.</param>
+        public ArcheryAtmosphere(string mainSceneName)
+        {
+            this.mainSceneName = mainSceneName;
             fog = RenderSettings.fog;
             fogMode = RenderSettings.fogMode;
             fogColor = RenderSettings.fogColor;
@@ -43,7 +56,21 @@ namespace LOP
             sun = RenderSettings.sun;
         }
 
-        public void Start() => Apply();
+        public void Start()
+        {
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            listening = true;
+            Apply();
+        }
+
+        public void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (applied)
+            {
+                PickSun();
+                HideCameraSkyboxes();
+            }
+        }
 
         public void Apply()
         {
@@ -59,12 +86,18 @@ namespace LOP
             RenderSettings.ambientEquatorColor = Hex("#C8D8F0");
             RenderSettings.ambientGroundColor = Hex("#7F92D8");
             PickSun();
+            HideCameraSkyboxes();
             DynamicGI.UpdateEnvironment();
             applied = true;
         }
 
         public void Dispose()
         {
+            if (listening)
+            {
+                SceneManager.sceneLoaded -= OnSceneLoaded;
+                listening = false;
+            }
             if (applied == false)
             {
                 return;
@@ -88,6 +121,14 @@ namespace LOP
                 }
             }
             dimmed.Clear();
+            foreach (var box in hiddenBoxes)
+            {
+                if (box != null)
+                {
+                    box.enabled = true;
+                }
+            }
+            hiddenBoxes.Clear();
             if (mainSun != null)
             {
                 mainSun.color = mainColor;
@@ -108,29 +149,44 @@ namespace LOP
         //  해가 둘이다(게임 씬 따뜻한 해 + 맵 흰 해). 게임 씬(Archery) 해를 주인공으로, 나머지 방향광은 끈다.
         private void PickSun()
         {
-            Light main = null;
             var lights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
-            foreach (var l in lights)
+            if (mainSun == null)
             {
-                if (l.type == LightType.Directional && l.enabled && l.gameObject.scene.name == "Archery")
+                foreach (var l in lights)
                 {
-                    main = l;
+                    if (l.type == LightType.Directional && l.enabled && l.gameObject.scene.name == mainSceneName)
+                    {
+                        mainSun = l;
+                        break;
+                    }
                 }
+                if (mainSun == null)
+                {
+                    return;
+                }
+                mainColor = mainSun.color;
+                mainSun.color = Hex("#FFF1D8");
+                RenderSettings.sun = mainSun;
             }
-            if (main == null)
-            {
-                return;
-            }
-            mainSun = main;
-            mainColor = main.color;
-            main.color = Hex("#FFF1D8");
-            RenderSettings.sun = main;
+            var main = mainSun;
             foreach (var l in lights)
             {
                 if (l != main && l.type == LightType.Directional && l.enabled)
                 {
                     l.enabled = false;
                     dimmed.Add(l);
+                }
+            }
+        }
+
+        private void HideCameraSkyboxes()
+        {
+            foreach (var box in Object.FindObjectsByType<Skybox>(FindObjectsSortMode.None))
+            {
+                if (box.enabled)
+                {
+                    box.enabled = false;
+                    hiddenBoxes.Add(box);
                 }
             }
         }

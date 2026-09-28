@@ -1,5 +1,7 @@
+using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace LOP.Tests
 {
@@ -40,5 +42,32 @@ namespace LOP.Tests
                 Assert.Greater(h.z - h.w, Ground.max.z + 20f, h.ToString());
             }
         }
+
+        [Test]
+        public void 맵이_늦게_떠도_뜬_뒤에_한_번만_입힌다()
+        {
+            //  게임 스코프가 맵보다 먼저 시작한다(LOPRoom: 스코프 생성 → 러너가 맵 로드) — Start 때는 땅이 없다.
+            var scenery = new ArcheryScenery();
+            scenery.Start();
+            Assert.AreEqual(0, Roots());
+            var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            ground.name = "Ground";
+            try
+            {
+                scenery.OnSceneLoaded(ground.scene, LoadSceneMode.Additive);
+                scenery.OnSceneLoaded(ground.scene, LoadSceneMode.Additive);
+                Assert.AreEqual(1, Roots());
+                Assert.AreEqual("LOP/Toon", ground.GetComponent<Renderer>().sharedMaterial.shader.name);
+                scenery.Dispose();
+                Assert.AreEqual(0, Roots());
+            }
+            finally
+            {
+                Object.DestroyImmediate(ground);
+            }
+        }
+
+        private static int Roots() => Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)
+            .Count(t => t.parent == null && t.name == "ArcheryScenery");
     }
 }

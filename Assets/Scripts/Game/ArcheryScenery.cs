@@ -8,21 +8,38 @@ namespace LOP
     /// <summary>
     /// 활쏘기 맵에 새 룩을 입힌다 — 땅·뒤 벽을 툰 재질로, 옆에 나무, 과녁 너머에 먼 언덕. 맵 씬(Art)은 고치지 않는다:
     /// 서버도 같은 씬을 쓰고 맵은 원격 에셋이라 고치면 배포가 따라온다. 판이 끝나면 되돌린다.
+    /// <para>게임 스코프가 맵보다 먼저 시작한다(LOPRoom: 스코프 생성 → 러너가 맵 로드) — 씬이 뜰 때마다 다시 찾아 한 번 입힌다.</para>
     /// </summary>
     public class ArcheryScenery : IStartable, System.IDisposable
     {
         private readonly List<(Renderer renderer, Material original)> swapped = new List<(Renderer, Material)>();
         private readonly List<Object> created = new List<Object>();
+        private bool dressed;
+        private bool listening;
 
         public void Start()
         {
-            var ground = FindInLoadedScenes("Ground");
-            var backstop = FindInLoadedScenes("Backstop");
-            if (ground == null)
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            listening = true;
+            TryDress();
+        }
+
+        public void OnSceneLoaded(Scene scene, LoadSceneMode mode) => TryDress();
+
+        //  땅(Ground)이 없는 맵(원형 사대 등)이면 아무것도 안 한다.
+        private void TryDress()
+        {
+            if (dressed)
             {
-                Debug.LogWarning("[ArcheryScenery] 맵에서 Ground를 못 찾았다 — 원경 없이 간다");
                 return;
             }
+            var ground = FindInLoadedScenes("Ground");
+            if (ground == null)
+            {
+                return;
+            }
+            dressed = true;
+            var backstop = FindInLoadedScenes("Backstop");
             var grass = Keep(LOPToonMaterials.Create(Hex("#7CC46E")));
             var wood = Keep(LOPToonMaterials.Create(Hex("#8B5E34")));
             var leaf = Keep(LOPToonMaterials.Create(Hex("#45B060")));
@@ -50,6 +67,12 @@ namespace LOP
 
         public void Dispose()
         {
+            if (listening)
+            {
+                SceneManager.sceneLoaded -= OnSceneLoaded;
+                listening = false;
+            }
+            dressed = false;
             foreach (var (renderer, original) in swapped)
             {
                 if (renderer != null)
@@ -62,7 +85,7 @@ namespace LOP
             {
                 if (o != null)
                 {
-                    Object.Destroy(o);
+                    if (UnityEngine.Application.isPlaying) { Object.Destroy(o); } else { Object.DestroyImmediate(o); }   // 편집 모드 시험에서도 부른다
                 }
             }
             created.Clear();
@@ -110,7 +133,7 @@ namespace LOP
         private static void Prim(Transform parent, PrimitiveType type, Material material, Vector3 position, Vector3 scale)
         {
             var go = GameObject.CreatePrimitive(type);
-            Object.Destroy(go.GetComponent<Collider>());   // 판정 무관 — 화살이 걸리면 안 된다
+            Object.DestroyImmediate(go.GetComponent<Collider>());   // 판정 무관 — 화살이 걸리면 안 된다(바로 지워 한 프레임도 안 남긴다)
             go.transform.SetParent(parent, false);
             go.transform.position = position;
             go.transform.localScale = scale;

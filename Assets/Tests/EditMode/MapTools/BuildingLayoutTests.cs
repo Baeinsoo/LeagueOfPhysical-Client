@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 
 namespace LOP.MapTools.Tests
@@ -83,5 +84,69 @@ namespace LOP.MapTools.Tests
 
         //  이모지는 Ordinal로 찾는다 — StringAssert.Contains는 문화권 비교라 이모지면 없는 문자열에도 맞는다.
         static bool Has(string text, string mark) => text != null && text.IndexOf(mark, System.StringComparison.Ordinal) >= 0;
+
+        [Test]
+        public void 기둥과_조명은_각_통로_칸_안에만_선다()
+        {
+            var lanes = new[] { BuildingLayout.LowerLaneBox(B, Half), BuildingLayout.UpperLaneBox(B, Half) };
+            var pillars = BuildingLayout.Pillars(B, Half);
+            var lamps = BuildingLayout.Lamps(B, Half);
+            Assert.AreEqual(10, pillars.Count, "40m를 8m 간격으로 두 층 = 5 × 2");
+            Assert.That(lamps, Is.Not.Empty);
+            foreach (Box2 box in pillars.Concat(lamps))
+            {
+                Assert.IsTrue(System.Array.Exists(lanes, l => box.X0 >= l.X0 - 1e-4f && box.X1 <= l.X1 + 1e-4f
+                                                          && box.Y0 >= l.Y0 - 1e-4f && box.Y1 <= l.Y1 + 1e-4f),
+                              $"x={box.X0:F1} y={box.Y0:F1} 통로 칸 밖");
+            }
+        }
+
+        [Test]
+        public void 창문_입구_띠_간판은_막힌_칸_앞에만_있고_통로를_안_가린다()
+        {
+            var lanes = new List<Box2> { BuildingLayout.LowerLaneBox(B, Half), BuildingLayout.UpperLaneBox(B, Half) };
+            var lit = new List<bool>();
+            var windows = BuildingLayout.Windows(B, Half, lit);
+            Assert.AreEqual(windows.Count, lit.Count);
+            Assert.That(windows.Count, Is.GreaterThan(10));
+            Assert.IsTrue(lit.Contains(true) && lit.Contains(false), "켜진 창과 꺼진 창이 섞인다");
+            var front = new List<Box2>(windows);
+            front.AddRange(BuildingLayout.EntranceTrim(B, Half));
+            front.Add(BuildingLayout.Sign(B, Half));
+            Assert.IsEmpty(BuildingLayout.FacadeOverLane(front, lanes, 0.001f));
+            Box2 sign = BuildingLayout.Sign(B, Half);
+            foreach (Box2 w in windows) { Assert.IsFalse(w.Overlaps(sign, 0.001f), "창문이 간판 뒤에 겹친다"); }
+        }
+
+        [Test]
+        public void 입구_띠는_위층_입구의_위아래_가로_띠뿐이다()
+        {
+            Box2 up = BuildingLayout.UpperLaneBox(B, Half);
+            var trim = BuildingLayout.EntranceTrim(B, Half);
+            Assert.AreEqual(2, trim.Count);
+            foreach (Box2 t in trim)
+            {
+                Assert.AreEqual(B.X0, t.X0, 1e-4f, "입구 앞 허공에 세우지 않는다");
+                Assert.Greater(t.X1 - t.X0, t.Y1 - t.Y0, "가로 띠");
+                Assert.IsTrue(t.Y1 <= up.Y0 + 1e-4f || t.Y0 >= up.Y1 - 1e-4f);
+            }
+        }
+
+        [Test]
+        public void 번개_모양은_간판_안의_볼록_삼각형_둘이다()
+        {
+            Box2 sign = BuildingLayout.Sign(B, Half);
+            var bolt = BuildingLayout.SignBolt(sign);
+            Assert.AreEqual(2, bolt.Count);
+            foreach (float[] tri in bolt)
+            {
+                Assert.AreEqual(6, tri.Length);
+                for (int i = 0; i < 6; i += 2)
+                {
+                    Assert.That(tri[i], Is.InRange(sign.X0, sign.X1));
+                    Assert.That(tri[i + 1], Is.InRange(sign.Y0, sign.Y1));
+                }
+            }
+        }
     }
 }

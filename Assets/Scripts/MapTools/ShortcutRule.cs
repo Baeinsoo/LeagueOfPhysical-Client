@@ -46,7 +46,12 @@ namespace LOP.MapTools
             return false;
         }
 
-        public static bool ForbidsValley(ShortcutRect r, float x, float y) => InCore(r, x) && y < r.Y0;
+        /// <summary>
+        /// 이 갈림길을 강제로 태울 때 막을 다른 길인가 — 가운데 절반(<see cref="InCore"/>)에서 길 칸의
+        /// <see cref="Branch.Other"/> 쪽 바깥.
+        /// </summary>
+        public static bool ForbidsOther(Branch b, float x, float y)
+            => InCore(b.Rect, x) && (b.Other == BranchSide.Below ? y < b.Rect.Y0 : y > b.Rect.Y1);
 
         /// <summary>
         /// 지름길 안 패드 자리. 부스트(대시 = 조종 안 되는 수평 직선)가 <b>출구 <paramref name="exitClear"/>m

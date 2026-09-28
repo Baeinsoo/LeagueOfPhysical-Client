@@ -680,7 +680,9 @@ namespace LOP.EditorTools
             {
                 LOP.MapTools.ShortcutRect only = r;
                 proofs.Add(Prove("", r.X0, r.X1,
-                    (x, y, vy) => LOP.MapTools.ShortcutRule.ForbidsValley(only, x, y) == false && searchSweep(x, y, vy)));
+                    (x, y, vy) => LOP.MapTools.ShortcutRule.ForbidsOther(
+                        new LOP.MapTools.Branch(only, LOP.MapTools.BranchSide.Below, LOP.MapTools.BranchKind.Valley), x, y) == false
+                        && searchSweep(x, y, vy)));
             }
             Debug.Log($"[맵 검사] 지름길 증명 {proofs.Count + 1}번 — {watch.ElapsedMilliseconds}ms");
             return LOP.MapTools.ShortcutRule.Section(safe, proofs);

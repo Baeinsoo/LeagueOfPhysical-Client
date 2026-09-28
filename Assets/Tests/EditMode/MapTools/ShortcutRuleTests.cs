@@ -65,7 +65,7 @@ namespace LOP.MapTools.Tests
             for (float x = Deep.X0; x <= Deep.ChannelEnd; x += 0.1f)
             {
                 float y = Deep.ChannelCenterAt(x) - Deep.Entrance.Thickness * 0.5f + 0.44f;
-                Assert.IsFalse(ShortcutRule.ForbidsValley(Deep, x, y), $"x={x:F1}");
+                Assert.IsFalse(ShortcutRule.ForbidsOther(new Branch(Deep, BranchSide.Below, BranchKind.Valley), x, y), $"x={x:F1}");
             }
         }
 
@@ -82,10 +82,21 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 계곡_금지는_가운데의_지름길_아래만_막는다()
         {
+            var branch = new Branch(Deep, BranchSide.Below, BranchKind.Valley);
             float mid = (Deep.X0 + Deep.X1) * 0.5f;
-            Assert.IsTrue(ShortcutRule.ForbidsValley(Deep, mid, Deep.Y0 - 5f));
-            Assert.IsFalse(ShortcutRule.ForbidsValley(Deep, mid, Deep.Y0 + 0.5f), "지름길은 열려 있어야 한다");
-            Assert.IsFalse(ShortcutRule.ForbidsValley(Deep, Deep.X1 + 5f, Deep.Y0 - 5f));
+            Assert.IsTrue(ShortcutRule.ForbidsOther(branch, mid, Deep.Y0 - 5f));
+            Assert.IsFalse(ShortcutRule.ForbidsOther(branch, mid, Deep.Y0 + 0.5f), "지름길은 열려 있어야 한다");
+            Assert.IsFalse(ShortcutRule.ForbidsOther(branch, Deep.X1 + 5f, Deep.Y0 - 5f));
+        }
+
+        [Test]
+        public void 위를_막는_갈림길은_가운데에서_길_칸_위만_막는다()
+        {
+            var tunnel = new Branch(ShortcutRect.FromCenterSize(50f, -8f, 24f, 5f), BranchSide.Above, BranchKind.Hill);
+            float mid = 50f;
+            Assert.IsTrue(ShortcutRule.ForbidsOther(tunnel, mid, tunnel.Rect.Y1 + 2f), "넘는 길은 막힌다");
+            Assert.IsFalse(ShortcutRule.ForbidsOther(tunnel, mid, tunnel.Rect.Y0 + 1f), "굴은 열려 있다");
+            Assert.IsFalse(ShortcutRule.ForbidsOther(tunnel, tunnel.Rect.X0 + 0.5f, tunnel.Rect.Y1 + 2f), "입구 근처는 안 막는다");
         }
 
         [Test]

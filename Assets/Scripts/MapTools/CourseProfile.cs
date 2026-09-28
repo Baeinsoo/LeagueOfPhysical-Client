@@ -765,5 +765,26 @@ namespace LOP.MapTools
             }
             return pieces;
         }
+
+        /// <summary>코스의 갈림길 전부(x 순). 빌더는 표시·패드를, 검사기는 🔀 증명을 이 목록으로 만든다.</summary>
+        public static List<Branch> Branches(CourseProfile p, float corridorHalf)
+        {
+            var all = new List<Branch>();
+            foreach (ShortcutRect r in p.Shortcuts) { all.Add(new Branch(r, BranchSide.Below, BranchKind.Valley)); }
+            foreach (BuildingPiece b in p.Buildings)
+            {
+                Box2 u = BuildingLayout.UpperLaneBox(b, corridorHalf);
+                all.Add(new Branch(Rect(u.X0, u.Y0, u.X1, u.Y1), BranchSide.Below, BranchKind.Building));
+            }
+            foreach (HillTunnelPiece t in p.HillTunnels)
+            {
+                all.Add(new Branch(Rect(t.Mouth, t.FloorY, t.Exit, t.TopY), BranchSide.Above, BranchKind.Hill));
+            }
+            all.Sort((a, b) => a.Rect.X0.CompareTo(b.Rect.X0));
+            return all;
+        }
+
+        static ShortcutRect Rect(float x0, float y0, float x1, float y1)
+            => ShortcutRect.FromCenterSize((x0 + x1) * 0.5f, (y0 + y1) * 0.5f, x1 - x0, y1 - y0);
     }
 }

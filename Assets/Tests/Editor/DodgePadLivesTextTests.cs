@@ -11,6 +11,15 @@ namespace LOP.Tests
         public void 살아_있으면_남은_목숨만큼_점을_찍는다() =>
             Assert.AreEqual("목숨 ●●", LOP.UI.DodgePadViewModel.LivesText(true, 2, -1));
 
+        // 시험용으로 목숨을 크게 잡으면 점 99개가 화면을 넘는다 — 많으면 숫자로.
+        [Test]
+        public void 목숨이_많으면_숫자로_보인다() =>
+            Assert.AreEqual("목숨 99", LOP.UI.DodgePadViewModel.LivesText(true, 99, -1));
+
+        [Test]
+        public void 다섯까지는_점으로_보인다() =>
+            Assert.AreEqual("목숨 ●●●●●", LOP.UI.DodgePadViewModel.LivesText(true, 5, -1));
+
         [Test]
         public void 탈락하면_관전_중이라고_한다() =>
             Assert.AreEqual("탈락 — 관전 중", LOP.UI.DodgePadViewModel.LivesText(true, 0, 120));

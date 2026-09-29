@@ -117,14 +117,22 @@ namespace LOP
             cloth = new GameObject("Cloth").transform;
             cloth.SetParent(flag.transform, false);
             cloth.localPosition = new Vector3(0f, PoleHeight, 0f);
-            clothMesh = new Mesh { name = "TargetFlagCloth" };
-            clothMesh.vertices = new[] { Vector3.zero, new Vector3(0.4f, -0.1f, 0f), new Vector3(0f, -0.25f, 0f) };
-            clothMesh.triangles = new[] { 0, 1, 2, 0, 2, 1 };   // 양면
-            clothMesh.RecalculateNormals();
+            clothMesh = BuildClothMesh();
             cloth.gameObject.AddComponent<MeshFilter>().sharedMesh = clothMesh;
             var renderer = cloth.gameObject.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = clothMaterial;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
+        public static Mesh BuildClothMesh()
+        {
+            //  양면은 면마다 점을 따로 둔다 — 점을 같이 쓰면 앞뒤 법선이 지워져 0이 되고, 툰 셰이더가 NaN을 내 블룸이 빛 덩어리로 번졌다.
+            Vector3 a = Vector3.zero, b = new Vector3(0.4f, -0.1f, 0f), c = new Vector3(0f, -0.25f, 0f);
+            var mesh = new Mesh { name = "TargetFlagCloth" };
+            mesh.vertices = new[] { a, b, c, a, c, b };
+            mesh.triangles = new[] { 0, 1, 2, 3, 4, 5 };
+            mesh.RecalculateNormals();
+            return mesh;
         }
     }
 }

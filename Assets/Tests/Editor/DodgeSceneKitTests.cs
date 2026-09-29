@@ -1,5 +1,7 @@
 using NUnit.Framework;
+using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEngine;
 
 namespace LOP.Tests
 {
@@ -32,6 +34,22 @@ namespace LOP.Tests
             finally
             {
                 EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        // 슬리퍼는 나무 바닥 위를 날아간다 — 바닥과 색상(hue)이 가까우면 묻혀 안 보인다(노랑·주황이 그랬다).
+        [Test]
+        public void 슬리퍼_색은_바닥과_겹치지_않는다()
+        {
+            var kit = AssetDatabase.LoadAssetAtPath<DodgePropKit>("Assets/Dodge/Props/DodgePropKit.asset");
+            var court = AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/Dodge/Toon_DodgeCourt.mat");
+            Assert.IsNotNull(kit); Assert.IsNotNull(court);
+            Color.RGBToHSV(court.GetColor("_BaseColor"), out float floorHue, out _, out _);
+            foreach (var m in kit.slipperMaterials)
+            {
+                Color.RGBToHSV(m.GetColor("_BaseColor"), out float h, out _, out _);
+                float d = Mathf.Abs(h - floorHue); d = Mathf.Min(d, 1f - d);
+                Assert.GreaterOrEqual(d * 360f, 30f, m.name + "이(가) 바닥 색과 겹친다");
             }
         }
     }

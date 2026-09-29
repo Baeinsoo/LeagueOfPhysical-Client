@@ -31,7 +31,7 @@ namespace LOP.EditorTools
             {
                 Toon("Toon_DodgeSlipperPink", Hex("#FF4F5E")),
                 Toon("Toon_DodgeSlipperBlue", Hex("#3B82F6")),
-                Toon("Toon_DodgeSlipperOrange", Hex("#F59E0B")),
+                Toon("Toon_DodgeSlipperGreen", Hex("#22C55E")),   // 노랑·주황은 나무 바닥에 묻힌다
             };
             kit.jarMaterial = Toon("Toon_DodgeJar", Hex("#7A4A2A"));
             kit.melonMaterial = Toon("Toon_DodgeMelon", Color.white, StripeTexture());

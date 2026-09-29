@@ -185,7 +185,7 @@ namespace LOP.EditorTools
                 }, SectionMaterial((q.X0 + q.X1) * 0.5f, length, fallback));
             }
             Shafts(composed.transform, shafts, length, fallback);
-            Cliffs(composed.transform, profile, floorY, length, fallback);
+            Cliffs(composed.transform, profile, floorY, ceilingY, length, fallback);
             HillTunnels(composed.transform, profile, length, fallback);
             Buildings(composed.transform, profile, ceilingY, length, fallback);
             var ceilingPieces = LOP.MapTools.CourseProfileRule.CeilingPieces(profile, splits);
@@ -607,8 +607,8 @@ namespace LOP.EditorTools
         //  되지만, x까지 20m로 번지면 절벽 20m 이내에 계곡·샤프트 구멍이 오는 시드·길이 조합에서
         //  그 구멍을 이 슬래브가 조용히 메워 버린다. 얇아도 y 범위(lower-WallThickness~top)는 그대로라
         //  윗바닥 슬래브 밑 빈칸을 막는 역할은 그대로 한다.
-        private static void Cliffs(Transform parent, LOP.MapTools.CourseProfile profile, float floorY, float length,
-                                   Material fallback)
+        private static void Cliffs(Transform parent, LOP.MapTools.CourseProfile profile, float floorY, float half,
+                                   float length, Material fallback)
         {
             foreach (LOP.MapTools.CliffPiece c in profile.Cliffs)
             {
@@ -617,6 +617,33 @@ namespace LOP.EditorTools
                 float lower = floorY + c.BottomY;
                 Slab(parent, $"CliffFace_{c.Edge:F0}", c.Edge - CliffFaceThickness, c.Edge, lower - WallThickness, top, skin);
                 Slab(parent, $"CliffFloor_{c.Edge:F0}", c.Edge, c.SlopeEnd, lower - WallThickness, lower, skin);
+
+                //  예고·잔해는 판정면 뒤 렌더 전용 — 바닥이 뚝 끊긴다는 걸 멀리서 읽히게 한다.
+                var decor = new GameObject($"CliffDecor_{c.Edge:F0}");
+                decor.transform.SetParent(parent, worldPositionStays: false);
+                Undo.RegisterCreatedObjectUndo(decor, "Build classic course");
+                var stripes = LOP.MapTools.CliffDecor.Stripes(c, half);
+                for (int i = 0; i < stripes.Count; i++)
+                {
+                    RenderOnly(decor.transform, $"Stripe_{i}", BoxPolygon(stripes[i]), 0.3f, 1.2f,
+                               i % 2 == 0 ? WarningYellowMaterial() : WarningBlackMaterial());
+                }
+                RenderOnly(decor.transform, "SignPost", BoxPolygon(LOP.MapTools.CliffDecor.SignPost(c, half)), 0.5f, 0.7f,
+                           WarningBlackMaterial());
+                RenderOnly(decor.transform, "SignTriangle", TrianglePolygon(LOP.MapTools.CliffDecor.SignTriangle(c, half)),
+                           0.45f, 0.55f, WarningYellowMaterial());
+                var chunks = LOP.MapTools.CliffDecor.BrokenChunks(c, half);
+                for (int i = 0; i < chunks.Count; i++)
+                {
+                    //  조각은 장애물 재질(skin)이라 게임 평면 대역(±0.45)에 걸치면 층 검사가 "보이는데 통과된다"로
+                    //  잡는다 — 대역 밖(0.5~)으로 민다.
+                    RenderOnly(decor.transform, $"Chunk_{i}", ToPolygon(chunks[i]), 0.5f, 1.2f, skin);
+                }
+                var rebars = LOP.MapTools.CliffDecor.Rebars(c, half);
+                for (int i = 0; i < rebars.Count; i++)
+                {
+                    RenderOnly(decor.transform, $"Rebar_{i}", ToPolygon(rebars[i]), 0.6f, 0.7f, RebarMaterial());
+                }
             }
         }
 
@@ -645,7 +672,7 @@ namespace LOP.EditorTools
         private static void Buildings(Transform parent, LOP.MapTools.CourseProfile profile, float half, float length,
                                       Material fallback)
         {
-            Material facadeMaterial = BuildingFacadeMaterial();
+            Material facadeMaterial = BuildingConcreteMaterial();
             foreach (LOP.MapTools.BuildingPiece b in profile.Buildings)
             {
                 Material skin = SectionMaterial((b.X0 + b.X1) * 0.5f, length, fallback);
@@ -667,22 +694,78 @@ namespace LOP.EditorTools
                 {
                     FacadeStrip(facade.transform, $"Facade_{i}", ToPolygon(strips[i]), facadeMaterial);
                 }
+
+                //  앞쪽 장식은 앞벽 표시 아래에 둔다 — 반투명 연출과 🏢 검사가 함께 본다. 외벽 띠보다 카메라 쪽.
+                var lit = new System.Collections.Generic.List<bool>();
+                var windows = LOP.MapTools.BuildingLayout.Windows(b, half, lit);
+                for (int i = 0; i < windows.Count; i++)
+                {
+                    RenderOnly(facade.transform, $"Window_{i}", BoxPolygon(windows[i]), FacadeZNear - 0.1f, FacadeZNear,
+                               lit[i] ? BuildingWindowLitMaterial() : BuildingWindowMaterial());
+                }
+                var trim = LOP.MapTools.BuildingLayout.EntranceTrim(b, half);
+                for (int i = 0; i < trim.Count; i++)
+                {
+                    RenderOnly(facade.transform, $"Trim_{i}", BoxPolygon(trim[i]), FacadeZNear - 0.15f, FacadeZNear,
+                               BuildingTrimMaterial());
+                }
+                LOP.MapTools.Box2 sign = LOP.MapTools.BuildingLayout.Sign(b, half);
+                RenderOnly(facade.transform, "Sign", BoxPolygon(sign), FacadeZNear - 0.15f, FacadeZNear, BuildingTrimMaterial());
+                var bolt = LOP.MapTools.BuildingLayout.SignBolt(sign);
+                for (int i = 0; i < bolt.Count; i++)
+                {
+                    RenderOnly(facade.transform, $"Bolt_{i}", TrianglePolygon(bolt[i]), FacadeZNear - 0.2f, FacadeZNear - 0.15f,
+                               BuildingBoltMaterial());
+                }
+
+                //  실내는 판정면 뒤 — 통로 뒤로 도시가 비치지 않게 막고, 기둥·조명으로 "건물 안"을 만든다.
+                var interior = new GameObject($"BuildingInterior_{b.X0:F0}");
+                interior.transform.SetParent(parent, worldPositionStays: false);
+                Undo.RegisterCreatedObjectUndo(interior, "Build classic course");
+                RenderOnly(interior.transform, "BackWall_Lower", BoxPolygon(LOP.MapTools.BuildingLayout.LowerLaneBox(b, half)),
+                           1.5f, 2.5f, BuildingInteriorMaterial());
+                RenderOnly(interior.transform, "BackWall_Upper", BoxPolygon(LOP.MapTools.BuildingLayout.UpperLaneBox(b, half)),
+                           1.5f, 2.5f, BuildingInteriorMaterial());
+                var pillars = LOP.MapTools.BuildingLayout.Pillars(b, half);
+                for (int i = 0; i < pillars.Count; i++)
+                {
+                    RenderOnly(interior.transform, $"Pillar_{i}", BoxPolygon(pillars[i]), 1.0f, 1.5f, BuildingPillarMaterial());
+                }
+                var lamps = LOP.MapTools.BuildingLayout.Lamps(b, half);
+                for (int i = 0; i < lamps.Count; i++)
+                {
+                    RenderOnly(interior.transform, $"Lamp_{i}", BoxPolygon(lamps[i]), 1.0f, 1.4f, BuildingLampMaterial());
+                }
             }
         }
 
         //  렌더 전용 앞벽 조각 — Prism과 같은 메시인데 콜라이더가 없다.
         private static void FacadeStrip(Transform parent, string name, Vector2[] polygon, Material material)
         {
+            RenderOnly(parent, name, polygon, FacadeZNear, FacadeZFar, material);
+        }
+
+        //  렌더 전용 조각 — Prism과 같은 메시인데 콜라이더가 없다. z 범위를 받는다(판정면 앞이면 음수, 뒤면 양수).
+        private static GameObject RenderOnly(Transform parent, string name, Vector2[] polygon, float zNear, float zFar,
+                                             Material material)
+        {
             var go = new GameObject(name);
             go.transform.SetParent(parent, worldPositionStays: false);
             go.layer = LayerMask.NameToLayer("Default");
-            go.AddComponent<MeshFilter>().sharedMesh = PrismMesh(name, polygon, FacadeZNear, FacadeZFar);
+            go.AddComponent<MeshFilter>().sharedMesh = PrismMesh(name, polygon, zNear, zFar);
             var renderer = go.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = material;
-            //  그림자를 드리우면 통로 입구 칸이 그늘져 "입구가 늘 보인다"가 깨진다 — 연출뿐인 벽이라 끈다.
+            //  그림자가 통로·바닥에 드리우면 "보이는 대로"가 흐려진다 — 장식은 그림자를 안 만든다.
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
+            return go;
         }
+
+        private static Vector2[] BoxPolygon(LOP.MapTools.Box2 b)
+            => new[] { new Vector2(b.X0, b.Y0), new Vector2(b.X1, b.Y0), new Vector2(b.X1, b.Y1), new Vector2(b.X0, b.Y1) };
+
+        private static Vector2[] TrianglePolygon(float[] t)
+            => new[] { new Vector2(t[0], t[1]), new Vector2(t[2], t[3]), new Vector2(t[4], t[5]) };
 
         //  검사기용 표시 — Transform만 있는 빈 GameObject(위치 = 가운데, 크기 = 폭·높이).
         private static void AreaMarker(Transform parent, string name, LOP.MapTools.Box2 box)
@@ -809,14 +892,31 @@ namespace LOP.EditorTools
         private static Material AirflowDownMaterial() => EnsureTransparent("AirflowDown", new Color(0.55f, 0.85f, 0.9f, 0.30f));
         private static Material HologramMaterial() => EnsureTransparent("Hologram", new Color(0.62f, 0.42f, 0.92f, 0.35f));
 
-        //  앞벽은 평소 거의 불투명하게 보이되, 연출이 알파를 내릴 수 있게 반투명 재질로 둔다.
-        private static Material BuildingFacadeMaterial() => EnsureTransparent("BuildingFacade", new Color(0.42f, 0.36f, 0.5f, 0.95f));
+        //  빌딩 외벽(앞벽 띠)·창문·입구 표시. 반투명 연출이 알파를 내려야 해서 반투명 재질로 둔다(알파 0.97).
+        //  앞쪽 장식(창문·트림·볼트)은 외벽 콘크리트보다 카메라 쪽에 있는데 큐가 같으면 그리기 순서가
+        //  안 정해져 튄다(z-fighting처럼 프레임마다 위아래가 뒤집힌다) — 큐를 한 칸씩 밀어 항상 외벽 다음에
+        //  그리게 한다(2026-09-29).
+        private static Material BuildingConcreteMaterial() => EnsureTransparent("BuildingConcrete", new Color(0.55f, 0.57f, 0.6f, 0.97f));
+        private static Material BuildingWindowMaterial() => EnsureTransparent("BuildingWindow", new Color(0.17f, 0.23f, 0.29f, 0.97f), queueOffset: 1);
+        private static Material BuildingWindowLitMaterial() => EnsureTransparent("BuildingWindowLit", new Color(1f, 0.84f, 0.42f, 0.97f), queueOffset: 1);
+        private static Material BuildingTrimMaterial() => EnsureTransparent("BuildingTrim", new Color(1f, 0.8f, 0f, 0.97f), queueOffset: 1);
+        private static Material BuildingBoltMaterial() => EnsureTransparent("BuildingBolt", new Color(0.1f, 0.1f, 0.1f, 0.97f), queueOffset: 2);
+        //  실내(판정면 뒤)는 옅어지지 않는다 — 알파 1. 반투명일 이유가 없는데 반투명 큐(ZWrite off)로
+        //  구우면 정렬이 그리는 순서에 기대게 돼 기둥·조명·경고 줄무늬가 서로 튄다 — 불투명으로 굽는다.
+        private static Material BuildingInteriorMaterial() => EnsureOpaque("BuildingInterior", new Color(0.15f, 0.17f, 0.21f, 1f));
+        private static Material BuildingPillarMaterial() => EnsureOpaque("BuildingPillar", new Color(0.23f, 0.25f, 0.3f, 1f));
+        private static Material BuildingLampMaterial() => EnsureOpaque("BuildingLamp", new Color(1f, 0.81f, 0.35f, 1f));
+        private static Material WarningYellowMaterial() => EnsureOpaque("WarningYellow", new Color(1f, 0.8f, 0f, 1f));
+        private static Material WarningBlackMaterial() => EnsureOpaque("WarningBlack", new Color(0.12f, 0.12f, 0.12f, 1f));
+        private static Material RebarMaterial() => EnsureOpaque("Rebar", new Color(0.7f, 0.35f, 0.16f, 1f));
 
         //  기류·홀로그램 반투명 재질. <b>있으면 그대로 쓴다</b>(FlappyCityMaterials.Ensure와 같은
         //  규칙 — 에디터에서 손으로 고친 색이 다시 구울 때마다 날아가면 아트를 만질 수 없다).
         //  URP Lit을 반투명 알파블렌드로 켜는 값은 이 프로젝트의 기존 반투명 재질
         //  (Assets/Art/Materials/SkydiveCloud.mat)과 같은 조합을 그대로 쓴다.
-        private static Material EnsureTransparent(string name, Color color)
+        //  <paramref name="queueOffset"/>: 같은 Transparent 칸에서 그리기 순서를 강제해야 할 때
+        //  쓴다(카메라 쪽 장식을 외벽보다 항상 나중에) — 기본 0은 예전과 같다.
+        private static Material EnsureTransparent(string name, Color color, int queueOffset = 0)
         {
             string path = $"{FieldMaterialFolder}/{name}.mat";
             var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -842,7 +942,43 @@ namespace LOP.EditorTools
             material.SetFloat("_Cull", 0f);
             material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             material.SetOverrideTag("RenderType", "Transparent");
-            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            //  URP는 불러올 때 큐를 Transparent + _QueueOffset으로 다시 맞춘다 — renderQueue만 바꾸면 3000으로 돌아간다.
+            material.SetFloat("_QueueOffset", queueOffset);
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent + queueOffset;
+            if (AssetDatabase.IsValidFolder(FieldMaterialFolder) == false)
+            {
+                AssetDatabase.CreateFolder("Assets/Art/Materials", "Flappy");
+            }
+            AssetDatabase.CreateAsset(material, path);
+            return material;
+        }
+
+        //  알파가 늘 1이라 반투명일 이유가 없는 장식용 불투명 재질. EnsureTransparent와 같은
+        //  "있으면 그대로 쓴다" 규칙 — Opaque·ZWrite on·Geometry 큐라 정렬이 그리기 순서에
+        //  기대지 않는다(반투명 큐로 구우면 서로 튄다, 2026-09-29).
+        private static Material EnsureOpaque(string name, Color color)
+        {
+            string path = $"{FieldMaterialFolder}/{name}.mat";
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing != null)
+            {
+                return existing;
+            }
+            var shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                Debug.LogError($"[전통 코스] URP Lit 셰이더를 못 찾아 {name} 재질을 못 만들었다.");
+                return null;
+            }
+            var material = new Material(shader) { name = name };
+            material.SetColor("_BaseColor", color);
+            material.SetFloat("_Metallic", 0f);
+            material.SetFloat("_Smoothness", 0.2f);
+            material.SetFloat("_Surface", 0f);   // Opaque
+            material.SetFloat("_ZWrite", 1f);
+            material.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.SetOverrideTag("RenderType", "Opaque");
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Geometry;
             if (AssetDatabase.IsValidFolder(FieldMaterialFolder) == false)
             {
                 AssetDatabase.CreateFolder("Assets/Art/Materials", "Flappy");

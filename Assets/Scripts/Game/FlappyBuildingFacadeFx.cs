@@ -33,9 +33,9 @@ namespace LOP
         {
             public Renderer[] Renderers;
             public Material[] Originals;
-            public Material Instance;
-            public float BaseAlpha;
-            public float Alpha;
+            public List<Material> Instances;
+            public List<float> BaseAlphas;
+            public float Progress;   // 0 = 밖(원래 알파), 1 = 안(InsideAlpha)
         }
 
         public FlappyBuildingFacadeFx(IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry)
@@ -69,14 +69,16 @@ namespace LOP
                     continue;
                 }
                 bool inside = myX.HasValue && myX.Value >= marker.X0 && myX.Value <= marker.X1;
-                float target = inside ? InsideAlpha : state.BaseAlpha;
-                float rate = Mathf.Abs(state.BaseAlpha - InsideAlpha) / FadeSeconds;
-                state.Alpha = Mathf.MoveTowards(state.Alpha, target, rate * deltaTime);
-                SetAlpha(state.Instance, state.Alpha);
+                state.Progress = Mathf.MoveTowards(state.Progress, inside ? 1f : 0f, deltaTime / FadeSeconds);
+                for (int i = 0; i < state.Instances.Count; i++)
+                {
+                    SetAlpha(state.Instances[i], Mathf.Lerp(state.BaseAlphas[i], InsideAlpha, state.Progress));
+                }
             }
         }
 
-        internal float AlphaOf(FlappyBuildingFacade marker) => states.TryGetValue(marker, out var s) ? s.Alpha : -1f;
+        internal float AlphaOf(FlappyBuildingFacade marker)
+            => states.TryGetValue(marker, out var s) && s.Instances.Count > 0 ? GetAlpha(s.Instances[0]) : -1f;
 
         private float? LocalBirdX()
         {
@@ -125,29 +127,41 @@ namespace LOP
                 return state;
             }
             var renderers = marker.GetComponentsInChildren<Renderer>();
-            if (renderers.Length == 0 || renderers[0].sharedMaterial == null)
+            if (renderers.Length == 0)
             {
                 return null;
             }
-            //  앞벽 조각이 수십 개라 재질 하나를 복제해 같이 쓴다 — 조각마다 복제하면 알파를 수십 번 바꿔야 한다.
+            //  외벽·창문·입구 띠처럼 재질이 여럿이다 — 재질마다 복제해 각자 제 색으로 옅어지게 한다.
             //  renderer.material은 에디트 모드에서 경고를 남겨(테스트가 실패로 잡는다) 직접 복제한다.
-            Material original = renderers[0].sharedMaterial;
-            var instance = new Material(original) { name = original.name + " (Facade Instance)" };
-            var originals = new Material[renderers.Length];
-            for (int i = 0; i < renderers.Length; i++)
-            {
-                originals[i] = renderers[i].sharedMaterial;
-                renderers[i].sharedMaterial = instance;
-            }
-            float alpha = GetAlpha(instance);
+            var byOriginal = new Dictionary<Material, Material>();
             state = new FacadeState
             {
                 Renderers = renderers,
-                Originals = originals,
-                Instance = instance,
-                BaseAlpha = alpha,
-                Alpha = alpha,
+                Originals = new Material[renderers.Length],
+                Instances = new List<Material>(),
+                BaseAlphas = new List<float>(),
             };
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Material original = renderers[i].sharedMaterial;
+                state.Originals[i] = original;
+                if (original == null)
+                {
+                    continue;
+                }
+                if (byOriginal.TryGetValue(original, out var instance) == false)
+                {
+                    instance = new Material(original) { name = original.name + " (Facade Instance)" };
+                    byOriginal[original] = instance;
+                    state.Instances.Add(instance);
+                    state.BaseAlphas.Add(GetAlpha(instance));
+                }
+                renderers[i].sharedMaterial = instance;
+            }
+            if (state.Instances.Count == 0)
+            {
+                return null;
+            }
             states[marker] = state;
             return state;
         }
@@ -179,7 +193,10 @@ namespace LOP
                         state.Renderers[i].sharedMaterial = state.Originals[i];
                     }
                 }
-                DestroyObject(state.Instance);
+                foreach (var instance in state.Instances)
+                {
+                    DestroyObject(instance);
+                }
             }
             states.Clear();
         }

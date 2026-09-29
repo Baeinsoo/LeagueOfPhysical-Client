@@ -26,8 +26,9 @@ namespace LOP.MapTools
         public const float LowerLane = 8f;
         public const float Slab = 2f;
         public const float UpperLane = 5f;
-        /// <summary>무너진 가장자리가 막힌 칸 안으로 들어가는 최대 깊이. 층판(2m)의 양 변이 다 들어가도 0.8m가 남는다.</summary>
-        public const float FacadeJag = 0.6f;
+        /// <summary>무너진 가장자리가 막힌 칸 안으로 들어가는 최대 깊이. 층판(2m)의 양 변이 다 들어가도 0.8m가 남는다.
+        /// (0.6은 잡음처럼 보였다 — 2026-09-29)</summary>
+        public const float FacadeJag = 0.3f;
         public const float FacadeStep = 1f;
 
         static float Floor(BuildingPiece b, float half) => b.BaseY - half;
@@ -78,6 +79,96 @@ namespace LOP.MapTools
                 }
             }
             return hits;
+        }
+
+        public const float PillarSpacing = 8f;
+        const float PillarWidth = 0.8f;
+
+        static IEnumerable<Box2> Lanes(BuildingPiece b, float half)
+        {
+            yield return LowerLaneBox(b, half);
+            yield return UpperLaneBox(b, half);
+        }
+
+        /// <summary>통로 안 뒤쪽 기둥 — 건물 안을 지나는 느낌을 준다(렌더 전용, 판정면 뒤).</summary>
+        public static List<Box2> Pillars(BuildingPiece b, float half)
+        {
+            var boxes = new List<Box2>();
+            foreach (Box2 lane in Lanes(b, half))
+            {
+                for (float x = b.X0 + PillarSpacing * 0.5f; x < b.X1; x += PillarSpacing)
+                {
+                    boxes.Add(new Box2(x - PillarWidth * 0.5f, lane.Y0, x + PillarWidth * 0.5f, lane.Y1));
+                }
+            }
+            return boxes;
+        }
+
+        /// <summary>통로 천장 바로 밑 조명 띠(렌더 전용, 판정면 뒤).</summary>
+        public static List<Box2> Lamps(BuildingPiece b, float half)
+        {
+            var boxes = new List<Box2>();
+            foreach (Box2 lane in Lanes(b, half))
+            {
+                for (float x = b.X0 + PillarSpacing; x < b.X1 - 0.5f; x += PillarSpacing)
+                {
+                    boxes.Add(new Box2(x - 1f, lane.Y1 - 0.35f, x + 1f, lane.Y1 - 0.1f));
+                }
+            }
+            return boxes;
+        }
+
+        /// <summary>지붕 띠 앞 창문 격자. <paramref name="lit"/>에 창마다 켜졌는지를 채운다(결정론 무늬). 간판 자리는 비운다.</summary>
+        public static List<Box2> Windows(BuildingPiece b, float half, List<bool> lit)
+        {
+            Box2 roof = RoofBox(b, half);
+            Box2 sign = Sign(b, half);
+            var boxes = new List<Box2>();
+            int i = 0;
+            for (float x = b.X0 + 1f; x + 1.2f <= b.X1 - 0.6f; x += 2.4f, i++)
+            {
+                int j = 0;
+                for (float y = roof.Y0 + 0.9f; y + 1.4f <= roof.Y1 - 0.6f; y += 2.2f, j++)
+                {
+                    var w = new Box2(x, y, x + 1.2f, y + 1.4f);
+                    if (w.Overlaps(sign, 0f)) { continue; }
+                    boxes.Add(w);
+                    lit.Add((i * 7 + j * 3) % 5 == 0);
+                }
+            }
+            return boxes;
+        }
+
+        /// <summary>
+        /// 위층 입구의 위아래 가로 띠(층판·지붕 앞). 입구 앞 허공에 세로로 세우면 그림뿐이어도 막힌 것처럼 보여
+        /// 가로 띠만 둔다.
+        /// </summary>
+        public static List<Box2> EntranceTrim(BuildingPiece b, float half)
+        {
+            Box2 up = UpperLaneBox(b, half);
+            return new List<Box2>
+            {
+                new Box2(b.X0, up.Y0 - 0.35f, b.X0 + 3f, up.Y0),
+                new Box2(b.X0, up.Y1, b.X0 + 3f, up.Y1 + 0.35f),
+            };
+        }
+
+        /// <summary>위층 입구 위 "⚡ 위층" 간판 판(지붕 띠 앞).</summary>
+        public static Box2 Sign(BuildingPiece b, float half)
+        {
+            Box2 up = UpperLaneBox(b, half);
+            return new Box2(b.X0 + 0.5f, up.Y1 + 1f, b.X0 + 4.5f, up.Y1 + 2.6f);
+        }
+
+        /// <summary>간판 속 번개 — 볼록 삼각형 둘(메시를 부채꼴로 나눠 그리므로 오목한 한 덩어리는 안 된다).</summary>
+        public static List<float[]> SignBolt(Box2 sign)
+        {
+            float cx = (sign.X0 + sign.X1) * 0.5f, cy = (sign.Y0 + sign.Y1) * 0.5f, h = (sign.Y1 - sign.Y0) * 0.4f;
+            return new List<float[]>
+            {
+                new[] { cx + 0.15f, cy + h, cx - 0.45f, cy - 0.05f, cx + 0.05f, cy - 0.05f },
+                new[] { cx - 0.05f, cy + 0.05f, cx + 0.45f, cy + 0.05f, cx - 0.15f, cy - h },
+            };
         }
 
         /// <summary>맵 검사 🏢 절. 빌딩이 없으면(통로 칸 0) null — 절을 안 찍는다.</summary>

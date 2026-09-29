@@ -107,6 +107,12 @@ namespace LOP
             //  빌딩 앞벽 반투명 — 판정과 무관한 클라 전용 화면 효과.
             builder.RegisterEntryPoint<FlappyBuildingFacadeFx>();
 
+            //  대시 흔들림·속도선·꼬리 — 판정과 무관한 클라 전용 연출.
+            builder.RegisterEntryPoint<FlappyDashFx>();
+
+            //  빠른 낙하에서 카메라가 아래를 먼저 보여 준다(절벽·샤프트).
+            builder.RegisterEntryPoint<FlappyFallLookDown>();
+
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             builder.Register<FlapPadViewModel>(Lifetime.Transient);
             builder.Register<FlapPadView>(Lifetime.Transient);

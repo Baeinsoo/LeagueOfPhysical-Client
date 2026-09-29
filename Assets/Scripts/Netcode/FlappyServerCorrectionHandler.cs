@@ -49,6 +49,17 @@ namespace LOP
             return (predictedDashRemaining > 0f) == (snapDashEndTick > tick);
         }
 
+        /// <summary>
+        /// 안 굴리는 새(외삽·보간)의 화면용 대시 잔량. FlappyDashFx가 모든 새의 DashRemaining을
+        /// 읽어 꼬리를 그리는데, 그 새들은 여기(ApplyAuthoritative)를 안 타므로 값이 비어 있었다
+        /// — 시뮬 상태가 아니라 렌더 전용이라 GameEntityMessageHandler.ApplyRemoteSnapState가
+        /// 직접 부른다.
+        /// </summary>
+        internal static void ApplyRemoteDash(FlappyDash dash, EntitySnap snap, float deltaTime)
+        {
+            dash.DashRemaining = FlappyTickDuration.RemainingSeconds(snap.dashEndTick, snap.tick, deltaTime);
+        }
+
         public void ApplyAuthoritative(GameFramework.World.Entity entity, EntitySnap snap, float deltaTime)
         {
             //  스턴과 대시를 따로 확인한다 — 한쪽만 달린 엔티티가 있어도 나머지는 되돌아간다.

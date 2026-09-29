@@ -9,12 +9,17 @@ namespace LOP
     /// </summary>
     public class FlappyFallLookDown : ITickable, System.IDisposable
     {
-        private const float FallThreshold = -15f;   // m/s — 이보다 빨리 떨어질 때만
+        //  날갯짓 뒤 0.6초면 −15 m/s에 닿아, 문턱을 거기 두면 평소 비행에서도 켜져 카메라가 출렁였다(2026-09-30).
+        //  −22는 날갯짓 없이 0.7초 넘게 떨어져야 닿는다 — 절벽·샤프트 낙하에서만 켜진다.
+        private const float StartSpeed = 22f;       // m/s — 이보다 빨리 떨어지면 내려다보기 시작
+        private const float FullSpeed = 30f;        // m/s — 최대 낙하 속도, 여기서 MaxDrop
         private const float MaxDrop = 5f;           // m
-        private const float ShiftSpeed = 10f;       // m/s — 카메라 중심이 옮겨 가는 빠르기
+        //  켜고 끄기 대신 속도에 비례한 목표를 부드럽게 따라간다 — 일정 속도로 출발·정지하면 덜컹인다.
+        private const float SmoothTime = 0.3f;      // s
 
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private float offsetVelocity;
 
         internal System.Action<Vector3> applyPivot;
         internal float Offset { get; private set; }
@@ -40,14 +45,15 @@ namespace LOP
                 var velocity = entityRegistry.Get(playerContext.entityId)?.Get<GameFramework.World.Velocity>();
                 if (velocity != null) { vy = velocity.Linear.Y; }
             }
-            float target = vy < FallThreshold ? -MaxDrop : 0f;
-            Offset = Mathf.MoveTowards(Offset, target, ShiftSpeed * deltaTime);
+            float target = -MaxDrop * Mathf.Clamp01((-vy - StartSpeed) / (FullSpeed - StartSpeed));
+            Offset = Mathf.SmoothDamp(Offset, target, ref offsetVelocity, SmoothTime, Mathf.Infinity, deltaTime);
             applyPivot(Vector3.up * Offset);
         }
 
         public void Dispose()
         {
             Offset = 0f;
+            offsetVelocity = 0f;
             applyPivot(Vector3.zero);
         }
     }

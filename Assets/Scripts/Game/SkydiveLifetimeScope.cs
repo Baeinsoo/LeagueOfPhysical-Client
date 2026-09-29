@@ -84,6 +84,7 @@ namespace LOP
 
             builder.RegisterEntryPoint<SkydiveHudCoordinator>();
             builder.RegisterEntryPoint<SkydiveAtmosphere>();
+            builder.RegisterEntryPoint<SkydiveChibiView>().AsSelf();   // 새 룩(슬라이스 4): 치비 낙하 동작·표정
             builder.Register<LOP.UI.SkydivePadViewModel>(Lifetime.Transient);
             builder.Register<LOP.UI.SkydivePadView>(Lifetime.Transient);
         }

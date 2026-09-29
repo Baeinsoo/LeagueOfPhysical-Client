@@ -49,13 +49,13 @@ namespace LOP
                     continue;
                 }
                 var visual = actor.visualGameObject;
-                if (!ArcheryChibiView.IsChibi(visual))
+                if (!ChibiDresser.IsChibi(visual))
                 {
                     continue;
                 }
                 if (!dressed.TryGetValue(id, out var last) || last != visual)
                 {
-                    ArcheryChibiView.DressVisual(id, visual, faceMaterial);
+                    ChibiDresser.Dress(id, visual, faceMaterial);
                     dressed[id] = visual;
                 }
                 var face = visual.GetComponent<ChibiFace>();

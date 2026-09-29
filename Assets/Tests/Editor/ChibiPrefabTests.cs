@@ -53,5 +53,18 @@ namespace LOP.Tests
             Assert.AreEqual(Path, entry.address);
             Assert.AreEqual("Character", entry.parentGroup.Name);
         }
+
+        [Test]
+        public void 떨어지는_동작이_있다()
+        {
+            //  PolyOne "Jumping Down"은 루프가 아니다 — 빌더가 루프를 켠 복사본(Fall)을 만들어 쓴다(원본은 안 건드림).
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Path);
+            var controller = (UnityEditor.Animations.AnimatorController)prefab.GetComponent<Animator>().runtimeAnimatorController;
+            CollectionAssert.Contains(controller.parameters.Select(p => p.name).ToArray(), "Falling");
+            var fall = controller.layers[0].stateMachine.states.Select(s => s.state).FirstOrDefault(s => s.name == "Fall");
+            Assert.IsNotNull(fall);
+            Assert.AreEqual("Fall", fall.motion.name);
+            Assert.IsTrue(fall.motion.isLooping);
+        }
     }
 }

@@ -635,7 +635,9 @@ namespace LOP.EditorTools
                 var chunks = LOP.MapTools.CliffDecor.BrokenChunks(c, half);
                 for (int i = 0; i < chunks.Count; i++)
                 {
-                    RenderOnly(decor.transform, $"Chunk_{i}", ToPolygon(chunks[i]), 0.3f, 1.2f, skin);
+                    //  조각은 장애물 재질(skin)이라 게임 평면 대역(±0.45)에 걸치면 층 검사가 "보이는데 통과된다"로
+                    //  잡는다 — 대역 밖(0.5~)으로 민다.
+                    RenderOnly(decor.transform, $"Chunk_{i}", ToPolygon(chunks[i]), 0.5f, 1.2f, skin);
                 }
                 var rebars = LOP.MapTools.CliffDecor.Rebars(c, half);
                 for (int i = 0; i < rebars.Count; i++)
@@ -891,24 +893,30 @@ namespace LOP.EditorTools
         private static Material HologramMaterial() => EnsureTransparent("Hologram", new Color(0.62f, 0.42f, 0.92f, 0.35f));
 
         //  빌딩 외벽(앞벽 띠)·창문·입구 표시. 반투명 연출이 알파를 내려야 해서 반투명 재질로 둔다(알파 0.97).
+        //  앞쪽 장식(창문·트림·볼트)은 외벽 콘크리트보다 카메라 쪽에 있는데 큐가 같으면 그리기 순서가
+        //  안 정해져 튄다(z-fighting처럼 프레임마다 위아래가 뒤집힌다) — 큐를 한 칸씩 밀어 항상 외벽 다음에
+        //  그리게 한다(2026-09-29).
         private static Material BuildingConcreteMaterial() => EnsureTransparent("BuildingConcrete", new Color(0.55f, 0.57f, 0.6f, 0.97f));
-        private static Material BuildingWindowMaterial() => EnsureTransparent("BuildingWindow", new Color(0.17f, 0.23f, 0.29f, 0.97f));
-        private static Material BuildingWindowLitMaterial() => EnsureTransparent("BuildingWindowLit", new Color(1f, 0.84f, 0.42f, 0.97f));
-        private static Material BuildingTrimMaterial() => EnsureTransparent("BuildingTrim", new Color(1f, 0.8f, 0f, 0.97f));
-        private static Material BuildingBoltMaterial() => EnsureTransparent("BuildingBolt", new Color(0.1f, 0.1f, 0.1f, 0.97f));
-        //  실내(판정면 뒤)는 옅어지지 않는다 — 알파 1.
-        private static Material BuildingInteriorMaterial() => EnsureTransparent("BuildingInterior", new Color(0.15f, 0.17f, 0.21f, 1f));
-        private static Material BuildingPillarMaterial() => EnsureTransparent("BuildingPillar", new Color(0.23f, 0.25f, 0.3f, 1f));
-        private static Material BuildingLampMaterial() => EnsureTransparent("BuildingLamp", new Color(1f, 0.81f, 0.35f, 1f));
-        private static Material WarningYellowMaterial() => EnsureTransparent("WarningYellow", new Color(1f, 0.8f, 0f, 1f));
-        private static Material WarningBlackMaterial() => EnsureTransparent("WarningBlack", new Color(0.12f, 0.12f, 0.12f, 1f));
-        private static Material RebarMaterial() => EnsureTransparent("Rebar", new Color(0.7f, 0.35f, 0.16f, 1f));
+        private static Material BuildingWindowMaterial() => EnsureTransparent("BuildingWindow", new Color(0.17f, 0.23f, 0.29f, 0.97f), queueOffset: 1);
+        private static Material BuildingWindowLitMaterial() => EnsureTransparent("BuildingWindowLit", new Color(1f, 0.84f, 0.42f, 0.97f), queueOffset: 1);
+        private static Material BuildingTrimMaterial() => EnsureTransparent("BuildingTrim", new Color(1f, 0.8f, 0f, 0.97f), queueOffset: 1);
+        private static Material BuildingBoltMaterial() => EnsureTransparent("BuildingBolt", new Color(0.1f, 0.1f, 0.1f, 0.97f), queueOffset: 2);
+        //  실내(판정면 뒤)는 옅어지지 않는다 — 알파 1. 반투명일 이유가 없는데 반투명 큐(ZWrite off)로
+        //  구우면 정렬이 그리는 순서에 기대게 돼 기둥·조명·경고 줄무늬가 서로 튄다 — 불투명으로 굽는다.
+        private static Material BuildingInteriorMaterial() => EnsureOpaque("BuildingInterior", new Color(0.15f, 0.17f, 0.21f, 1f));
+        private static Material BuildingPillarMaterial() => EnsureOpaque("BuildingPillar", new Color(0.23f, 0.25f, 0.3f, 1f));
+        private static Material BuildingLampMaterial() => EnsureOpaque("BuildingLamp", new Color(1f, 0.81f, 0.35f, 1f));
+        private static Material WarningYellowMaterial() => EnsureOpaque("WarningYellow", new Color(1f, 0.8f, 0f, 1f));
+        private static Material WarningBlackMaterial() => EnsureOpaque("WarningBlack", new Color(0.12f, 0.12f, 0.12f, 1f));
+        private static Material RebarMaterial() => EnsureOpaque("Rebar", new Color(0.7f, 0.35f, 0.16f, 1f));
 
         //  기류·홀로그램 반투명 재질. <b>있으면 그대로 쓴다</b>(FlappyCityMaterials.Ensure와 같은
         //  규칙 — 에디터에서 손으로 고친 색이 다시 구울 때마다 날아가면 아트를 만질 수 없다).
         //  URP Lit을 반투명 알파블렌드로 켜는 값은 이 프로젝트의 기존 반투명 재질
         //  (Assets/Art/Materials/SkydiveCloud.mat)과 같은 조합을 그대로 쓴다.
-        private static Material EnsureTransparent(string name, Color color)
+        //  <paramref name="queueOffset"/>: 같은 Transparent 칸에서 그리기 순서를 강제해야 할 때
+        //  쓴다(카메라 쪽 장식을 외벽보다 항상 나중에) — 기본 0은 예전과 같다.
+        private static Material EnsureTransparent(string name, Color color, int queueOffset = 0)
         {
             string path = $"{FieldMaterialFolder}/{name}.mat";
             var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -934,7 +942,41 @@ namespace LOP.EditorTools
             material.SetFloat("_Cull", 0f);
             material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             material.SetOverrideTag("RenderType", "Transparent");
-            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent + queueOffset;
+            if (AssetDatabase.IsValidFolder(FieldMaterialFolder) == false)
+            {
+                AssetDatabase.CreateFolder("Assets/Art/Materials", "Flappy");
+            }
+            AssetDatabase.CreateAsset(material, path);
+            return material;
+        }
+
+        //  알파가 늘 1이라 반투명일 이유가 없는 장식용 불투명 재질. EnsureTransparent와 같은
+        //  "있으면 그대로 쓴다" 규칙 — Opaque·ZWrite on·Geometry 큐라 정렬이 그리기 순서에
+        //  기대지 않는다(반투명 큐로 구우면 서로 튄다, 2026-09-29).
+        private static Material EnsureOpaque(string name, Color color)
+        {
+            string path = $"{FieldMaterialFolder}/{name}.mat";
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing != null)
+            {
+                return existing;
+            }
+            var shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                Debug.LogError($"[전통 코스] URP Lit 셰이더를 못 찾아 {name} 재질을 못 만들었다.");
+                return null;
+            }
+            var material = new Material(shader) { name = name };
+            material.SetColor("_BaseColor", color);
+            material.SetFloat("_Metallic", 0f);
+            material.SetFloat("_Smoothness", 0.2f);
+            material.SetFloat("_Surface", 0f);   // Opaque
+            material.SetFloat("_ZWrite", 1f);
+            material.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.SetOverrideTag("RenderType", "Opaque");
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Geometry;
             if (AssetDatabase.IsValidFolder(FieldMaterialFolder) == false)
             {
                 AssetDatabase.CreateFolder("Assets/Art/Materials", "Flappy");

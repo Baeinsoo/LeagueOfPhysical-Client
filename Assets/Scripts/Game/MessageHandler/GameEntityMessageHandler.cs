@@ -233,6 +233,13 @@ namespace LOP
                 remoteEffects.Effects.Clear();
                 remoteEffects.Effects.AddRange(entitySnap.statusEffects);
             }
+
+            FlappyDash remoteDash = targetEntity?.Get<FlappyDash>();
+            if (remoteDash != null)
+            {
+                // 화면 전용 값(FlappyDashFx가 모든 새의 꼬리를 이걸로 그린다) — 이 새는 안 굴리니 시뮬 상태가 아니다.
+                FlappyServerCorrectionHandler.ApplyRemoteDash(remoteDash, entitySnap, (float)runner.tickUpdater.interval);
+            }
         }
 
         private void OnEntitySpawnToC(EntitySpawnToC entitySpawnToC)

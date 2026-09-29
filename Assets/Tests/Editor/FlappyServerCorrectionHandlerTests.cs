@@ -205,5 +205,32 @@ namespace LOP.Tests
 
             Assert.DoesNotThrow(() => handler.ApplyAuthoritative(plain, Fixture.Snap("no-stun", tick: FlappyCorrectionFixture.SnapTick, stunEndTick: 140), FlappyCorrectionFixture.TickInterval));
         }
+
+        //  ── 남의 새(외삽·보간) 전용: ApplyRemoteDash. GameEntityMessageHandler.ApplyRemoteSnapState가
+        //  부르는 화면용 값이라 시뮬 경로(ApplyAuthoritative)와는 별개로 검사한다.
+
+        [Test]
+        public void 대시_끝틱이_미래면_남은시간이_채워진다()
+        {
+            var dash = new FlappyDash();
+            var snap = new EntitySnap { entityId = "bird-1", tick = 100, dashEndTick = 140 };
+
+            FlappyServerCorrectionHandler.ApplyRemoteDash(dash, snap, FlappyCorrectionFixture.TickInterval);
+
+            float expected = FlappyTickDuration.RemainingSeconds(140, 100, FlappyCorrectionFixture.TickInterval);
+            Assert.Greater(dash.DashRemaining, 0f);
+            Assert.AreEqual(expected, dash.DashRemaining, 1e-4f);
+        }
+
+        [Test]
+        public void 대시_끝틱이_0이면_남은시간도_0이다()
+        {
+            var dash = new FlappyDash();
+            var snap = new EntitySnap { entityId = "bird-1", tick = 100, dashEndTick = 0 };
+
+            FlappyServerCorrectionHandler.ApplyRemoteDash(dash, snap, FlappyCorrectionFixture.TickInterval);
+
+            Assert.AreEqual(0f, dash.DashRemaining, 1e-4f);
+        }
     }
 }

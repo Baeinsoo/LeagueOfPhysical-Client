@@ -85,13 +85,19 @@ namespace LOP.MapTools
             return top - bottom;
         }
 
+        /// <summary>이 절이 재는 시뮬 틱(초). 맵 체커(FlappyMapPlayabilityCheck)의 상수와 같은 값이지만
+        /// 그쪽은 Editor 전용 클래스의 private const라 MapTools 어셈블리에서 손이 안 닿는다 —
+        /// 값이 갈리면 같은 대시를 두 곳이 다르게 재는 것이라 여기 하나 따로 둔다.</summary>
+        private const float TickSeconds = 0.02f;
+
         /// <summary>
-        /// 패드 하나가 벌어 주는 거리(m). 대시와 같은 계산이다 — 부스트 동안 배수가 <c>dashMult</c>에서
-        /// 1로 곧게 줄므로 평균 배수는 (dashMult+1)/2이고, 평소보다 더 간 몫이 이득이다.
-        /// (틱으로 더하면 조금 더 나오지만 리포트의 비교용 숫자라 연속식으로 센다.)
+        /// 패드 하나가 벌어 주는 거리(m). 실제 대시 곡선(<see cref="LOP.FlappyDashCurve"/>)과 같은 계산이다 —
+        /// 배수가 앞 70%는 <c>dashMult</c>에 머물다 나머지 30%에서 곧게 1배로 줄어든다(2026-09-28 대시 곡선
+        /// 변경으로 예전의 "처음부터 곧게 준다"는 더 이상 맞지 않는다). 그 구간에서 평소보다 더 간 몫이
+        /// 이득이며, 곡선을 시뮬과 같은 틱 단위 합으로 재야 곡선이 또 바뀌어도 이 값이 따라간다.
         /// </summary>
         public static float GainMeters(float duration, float forwardSpeed, float dashMult)
-            => duration * forwardSpeed * (dashMult - 1f) * 0.5f;
+            => FlappyDashCurve.Distance(forwardSpeed, duration, duration, dashMult, TickSeconds) - forwardSpeed * duration;
 
         public static string Section(IReadOnlyList<BoostPadMeasure> pads, float forwardSpeed,
                                     float dashMult, float collisionCostMeters)

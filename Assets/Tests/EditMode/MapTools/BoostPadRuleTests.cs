@@ -125,24 +125,28 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 이득은_대시와_같은_계산이다()
         {
-            //  0.6초 × 6.8m/s × (3−1)/2 = 4.08m(평균 배수 2). 충돌 5.4m의 0.76배 — 패드 하나가 충돌을 다 메우지
-            //  못하는 것이 의도다. 메우면 위험한 쪽이 공짜가 된다.
-            Assert.That(BoostPadRule.GainMeters(0.6f, Forward, DashMult),
-                        Is.EqualTo(4.08f).Within(1e-3f));
+            //  독립적으로 고른 숫자(패드 표의 Forward·DashMult와 다르다) — 실제 곡선
+            //  (LOP.FlappyDashCurve.Distance)과 같은 값인지만 본다. Shared 쪽 테스트가
+            //  Distance(6.8, 0.48, 0.48, 2.2, 0.02) ≈ 3.4091m라고 고정해 두므로, 이득은
+            //  거기서 등속으로 갔을 거리(forwardSpeed×duration = 3.264m)를 뺀 값이다.
+            Assert.That(BoostPadRule.GainMeters(0.48f, 6.8f, 2.2f),
+                        Is.EqualTo(3.409f).Within(2e-3f));
         }
 
         [Test]
         public void 여섯_개면_코스의_몇_퍼센트인지_셀_수_있다()
         {
-            //  코스 612m(90초 × 6.8)에서 6개 = 24.5m = 4%. 관문마다 놓아 24개가 되면 16%라
-            //  대시 경제가 통째로 무의미해진다 — 그 선을 이 한 줄로 못박는다.
+            //  새 곡선으로 다시 잰 값 — 패드 하나당 GainMeters(0.6, 6.8, 3) ≈ 7.072m(직접 계산,
+            //  옛 공식의 출력을 그대로 베끼지 않았다), 6개면 42.432m. 코스 612m(90초 × 6.8)에서
+            //  6.9%. 관문마다 놓아 24개가 되면 27.7%라 대시 경제가 통째로 무의미해진다 — 그 선을
+            //  이 한 줄로 못박는다.
             var pads = new List<BoostPadMeasure>();
             for (int i = 0; i < 6; i++) { pads.Add(Pad()); }
 
             string section = BoostPadRule.Section(pads, Forward, DashMult, CollisionCost);
 
             Assert.That(section, Does.Contain("패드 6개"));
-            Assert.That(section, Does.Contain("+24.5m"));
+            Assert.That(section, Does.Contain("+42.4m"));
         }
     }
 }

@@ -100,6 +100,9 @@ namespace LOP.UI
         }
 
         /// <summary>매 프레임 월드에서 읽어 화면 값을 갱신한다(연속 상태는 pull).</summary>
+        /// <summary>낙하 속도선 세기(0~1) — 떨어지는 속도로 정한다(<see cref="SkydiveLookRules.SpeedLines"/>).</summary>
+        public float SpeedLines { get; private set; }
+
         public void Refresh()
         {
             var entity = string.IsNullOrEmpty(playerContext.entityId)
@@ -117,6 +120,8 @@ namespace LOP.UI
             }
 
             grounded.Value = entity.Get<GameFramework.World.GroundState>()?.IsGrounded ?? false;
+            var velocity = entity.Get<GameFramework.World.Velocity>();
+            SpeedLines = velocity == null ? 0f : LOP.SkydiveLookRules.SpeedLines(-velocity.Linear.Y);
 
             statusText.Value = Describe(entity.Get<LOP.MotionState>(),
                                         entity.Get<LOP.Posture>(),

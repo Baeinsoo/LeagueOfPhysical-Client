@@ -57,3 +57,6 @@
     height: 14px; border-radius: 7px; width: 100%;
     background-color: rgb(52, 211, 153);
 }
+
+/* 낙하 속도선 — 화면 전체, 맨 뒤 */
+.speed-lines { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }

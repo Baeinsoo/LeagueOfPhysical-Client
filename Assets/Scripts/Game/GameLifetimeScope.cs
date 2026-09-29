@@ -21,9 +21,14 @@ namespace LOP
         // 전역 WindowManager에 이 스코프가 기여한 View 팩토리 핸들(OnDestroy에서 해제).
         private readonly List<IDisposable> viewRegistrations = new List<IDisposable>();
 
+        /// <summary>머리 위 체력 바를 띄우나. 목숨으로 가는 모드는 끈다.</summary>
+        protected virtual bool ShowHealthBars => true;
+
         protected override void Configure(IContainerBuilder builder)
         {
             new GameplayInstaller().Install(builder);
+            // 모든 게임 스코프가 여기를 지나므로 등록이 빠지는 스코프가 없다(메모리 new-ctor-dependency-misses-a-scope).
+            builder.RegisterInstance(new CharacterDecorationSettings(ShowHealthBars));
 
             // runner은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.
             // AsSelf는 LOP 전용 진입점(EndMatch 등)을 쓰는 소비자를 위한 것 — IRunner에는 없는 API다.

@@ -25,6 +25,7 @@ namespace LOP
         private readonly IEntitySyncPolicy syncPolicy;
         private readonly IExtrapolationAcceleration extrapolationAcceleration;
         private readonly RenderCorrectionSmootherFactory renderCorrectionSmootherFactory;
+        private readonly CharacterDecorationSettings decorations;
 
         public EntityBinder(
             IObjectResolver objectResolver,
@@ -36,7 +37,8 @@ namespace LOP
             IPlayerContext playerContext,
             IEntitySyncPolicy syncPolicy,
             IExtrapolationAcceleration extrapolationAcceleration,
-            RenderCorrectionSmootherFactory renderCorrectionSmootherFactory)
+            RenderCorrectionSmootherFactory renderCorrectionSmootherFactory,
+            CharacterDecorationSettings decorations)
         {
             this.objectResolver = objectResolver;
             this.entityCreatedSubscriber = entityCreatedSubscriber;
@@ -48,6 +50,7 @@ namespace LOP
             this.syncPolicy = syncPolicy;
             this.extrapolationAcceleration = extrapolationAcceleration;
             this.renderCorrectionSmootherFactory = renderCorrectionSmootherFactory;
+            this.decorations = decorations;
         }
 
         protected override void Subscribe()
@@ -156,9 +159,13 @@ namespace LOP
                 objectResolver.Inject(damageFloaterEmitter);
                 damageFloaterEmitter.SetEntity(actor);
 
-                CharacterNameplate nameplate = root.AddComponent<CharacterNameplate>();
-                objectResolver.Inject(nameplate);
-                nameplate.SetEntity(actor);
+                // 체력 바 — 목숨으로 가는 모드(Dodge)는 끈다.
+                if (decorations.ShowHealthBar)
+                {
+                    CharacterNameplate nameplate = root.AddComponent<CharacterNameplate>();
+                    objectResolver.Inject(nameplate);
+                    nameplate.SetEntity(actor);
+                }
 
                 StatusEffectVfxView statusEffectVfx = root.AddComponent<StatusEffectVfxView>();
                 objectResolver.Inject(statusEffectVfx);

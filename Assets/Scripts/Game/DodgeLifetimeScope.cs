@@ -17,6 +17,9 @@ namespace LOP
         [SerializeField] private DodgePropKit propKit;
         public DodgePropKit PropKit => propKit;
 
+        // 이 모드는 목숨이다 — 100000 체력 바는 헷갈린다.
+        protected override bool ShowHealthBars => false;
+
         protected override void ConfigureGame(IContainerBuilder builder)
         {
             builder.RegisterComponent(cameraController);
@@ -44,6 +47,8 @@ namespace LOP
             builder.RegisterEntryPoint<DodgeHazardView>().AsSelf();
             // 무적 동안 몸을 깜빡인다 — 서버가 보낸 무적 끝 틱으로(판정은 서버).
             builder.RegisterEntryPoint<DodgeBlinkView>();
+            // 선수 치비에 얼굴·옷을 입히고, 무적 동안 놀란 표정.
+            builder.RegisterEntryPoint<DodgeChibiView>();
             // 테마 물건 층(슬리퍼·수박·장독·줄·거인). 바닥 층과 같은 도형·같은 렌더 틱.
             builder.RegisterEntryPoint<DodgePropView>();
 

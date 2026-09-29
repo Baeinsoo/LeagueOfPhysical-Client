@@ -26,5 +26,9 @@ namespace LOP
             => knewBefore && livesNow < livesBefore ? tick : hitTick;
 
         public static bool Flashing(long tick, long hitTick) => hitTick >= 0 && tick - hitTick < FlashTicks;
+
+        /// <summary>무적 동안 담담하게 놀란 얼굴 — 캐릭터는 웃기려 하지 않는다(테마 스펙 §1).</summary>
+        public static ChibiExpression ExpressionFor(long renderTick, long invulnerableUntilTick) =>
+            renderTick < invulnerableUntilTick ? ChibiExpression.Surprise : ChibiExpression.Normal;
     }
 }

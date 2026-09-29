@@ -368,6 +368,7 @@ MonoBehaviour:
   autoInjectGameObjects: []
   runner: {fileID: 1216527341}
   cameraController: {fileID: 1835644557}
+  propKit: {fileID: 11400000, guid: 5bf60ec891873644aa1fab83014b9f12, type: 2}
 --- !u!1 &1625307423
 GameObject:
   m_ObjectHideFlags: 0

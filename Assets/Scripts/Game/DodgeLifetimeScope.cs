@@ -14,10 +14,13 @@ namespace LOP
     public class DodgeLifetimeScope : GameLifetimeScope
     {
         [SerializeField] private CameraController cameraController;
+        [SerializeField] private DodgePropKit propKit;
+        public DodgePropKit PropKit => propKit;
 
         protected override void ConfigureGame(IContainerBuilder builder)
         {
             builder.RegisterComponent(cameraController);
+            builder.RegisterInstance(propKit);
 
             // FlapWangLifetimeScope와 같은 월드 배선 — 보정 핸들러가 구체 LOPWorld를 직접 본다.
             builder.Register<LOPWorld>(Lifetime.Singleton).As<GameFramework.World.IWorld>().AsSelf();

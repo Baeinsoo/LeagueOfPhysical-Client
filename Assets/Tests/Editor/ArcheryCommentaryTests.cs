@@ -68,7 +68,7 @@ namespace LOP.Tests
         {
             var c = new ArcheryCommentary(n => n - 1);   // 마지막 문장
             c.TrySay(ArcheryLine.RobinHood, "3P 선수", 0, now: 0f);
-            Assert.AreEqual("3P 선수! 이건 전설입니다!", c.Text);
+            Assert.AreEqual("숲의 의적이 돌아왔습니다, 3P 선수", c.Text);
         }
 
         [Test]

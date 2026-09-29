@@ -1,0 +1,81 @@
+<!doctype html>
+<!--
+  한 발 승부 만화 이펙트 아틀라스(바람의 지휘봉식). 4열×2행, 칸 256px, 투명 바탕.
+  칸: 0 효과선 · 1 연기 뭉치 · 2 "!" · 3 땀방울 · 4 우울 줄 · 5 반짝이 · 6·7 빈칸 (ArcheryComicFx가 번호로 쓴다).
+
+  PNG로 뽑기(클라 루트에서):
+    "C:/Program Files/Google/Chrome/Application/chrome.exe" --headless=new --hide-scrollbars \
+      --default-background-color=00000000 --window-size=1024,512 \
+      --screenshot="<클라 경로>/Assets/Resources/Comic/FxAtlas.png" "file:///<클라 경로>/Scripts/lookdev/fx_atlas.html"
+-->
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:transparent;overflow:hidden}svg{display:block}</style></head>
+<body><svg id="atlas" width="1024" height="512" viewBox="0 0 1024 512" xmlns="http://www.w3.org/2000/svg"></svg>
+<script>
+(function () {
+  var INK = '#17131C', RED = '#FF4F5E', SWEAT = '#8FD3FF', SWEAT_EDGE = '#3E7FB0', GLOOM = 'rgba(80,90,170,.75)', GOLD = '#FFD23A';
+  function P(d, fill, stroke, w) { return '<path d="' + d + '" fill="' + (fill || 'none') + '" stroke="' + (stroke || 'none') + '" stroke-width="' + (w || 0) + '" stroke-linejoin="round" stroke-linecap="round"/>'; }
+
+  // 0 효과선: 가운데를 비운 방사형 가시
+  function burst() {
+    var s = '', n = 14;
+    for (var i = 0; i < n; i++) {
+      var a = i / n * Math.PI * 2 + (i % 2 ? 0.08 : 0), r0 = 58 + (i % 3) * 8, r1 = 118 - (i % 2) * 14, w = 0.09;
+      var x0 = 128 + Math.cos(a - w) * r0, y0 = 128 + Math.sin(a - w) * r0;
+      var x1 = 128 + Math.cos(a + w) * r0, y1 = 128 + Math.sin(a + w) * r0;
+      var x2 = 128 + Math.cos(a) * r1, y2 = 128 + Math.sin(a) * r1;
+      s += P('M' + x0 + ' ' + y0 + ' L' + x2 + ' ' + y2 + ' L' + x1 + ' ' + y1 + ' Z', INK, INK, 4);
+    }
+    return s;
+  }
+  // 1 연기 뭉치
+  function smoke() {
+    var puffs = [[92, 150, 44], [140, 132, 52], [176, 160, 40], [118, 176, 38], [160, 186, 32]], s = '';
+    puffs.forEach(function (p) { s += '<circle cx="' + p[0] + '" cy="' + (p[1] + 8) + '" r="' + p[2] + '" fill="#C9C4CF"/>'; });
+    puffs.forEach(function (p) { s += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="' + p[2] + '" fill="#fff" stroke="' + INK + '" stroke-width="8"/>'; });
+    puffs.forEach(function (p) { s += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="' + (p[2] - 4) + '" fill="#fff"/>'; });
+    s += P('M104 128 q14 -16 30 -6', 'none', '#E4E0E8', 7);
+    return s;
+  }
+  // 2 "!" — 흰 폭발 위에 빨간 느낌표
+  function bang() {
+    var s = '', n = 12, pts = [];
+    for (var i = 0; i < n * 2; i++) {
+      var a = i / (n * 2) * Math.PI * 2, r = i % 2 ? 72 : 112;
+      pts.push((128 + Math.cos(a) * r) + ' ' + (128 + Math.sin(a) * r));
+    }
+    s += P('M' + pts.join(' L') + ' Z', '#fff', INK, 7);
+    s += P('M112 56 L144 56 L136 150 L120 150 Z', RED, INK, 9);
+    s += '<circle cx="128" cy="184" r="17" fill="' + RED + '" stroke="' + INK + '" stroke-width="9"/>';
+    return s;
+  }
+  // 3 땀방울
+  function sweat() {
+    return P('M128 44 C170 110 196 150 196 180 C196 218 166 236 128 236 C90 236 60 218 60 180 C60 150 86 110 128 44 Z', SWEAT, SWEAT_EDGE, 8) +
+      P('M96 176 C94 150 108 132 120 118', 'none', '#fff', 12);
+  }
+  // 4 우울 줄
+  function gloom() {
+    var s = '';
+    [48, 82, 116, 150, 184, 218].forEach(function (x, i) {
+      var len = 120 + (i % 2) * 50, d = 'M' + x + ' 30';
+      for (var y = 30; y < 30 + len; y += 30) { d += ' q' + (i % 2 ? 10 : -10) + ' 15 0 30'; }
+      s += P(d, 'none', GLOOM, 12);
+    });
+    return s;
+  }
+  // 5 반짝이
+  function star(cx, cy, r) {
+    var k = r * 0.28;
+    return P('M' + cx + ' ' + (cy - r) + ' L' + (cx + k) + ' ' + (cy - k) + ' L' + (cx + r) + ' ' + cy + ' L' + (cx + k) + ' ' + (cy + k) +
+      ' L' + cx + ' ' + (cy + r) + ' L' + (cx - k) + ' ' + (cy + k) + ' L' + (cx - r) + ' ' + cy + ' L' + (cx - k) + ' ' + (cy - k) + ' Z', GOLD, INK, 7);
+  }
+  function sparkle() { return star(112, 132, 78) + star(192, 70, 38) + star(196, 196, 28); }
+
+  var CELLS = [burst, smoke, bang, sweat, gloom, sparkle];
+  var svg = '';
+  CELLS.forEach(function (f, i) {
+    svg += '<g transform="translate(' + (i % 4) * 256 + ' ' + Math.floor(i / 4) * 256 + ')">' + f() + '</g>';
+  });
+  document.getElementById('atlas').innerHTML = svg;
+})();
+</script></body></html>

@@ -17,6 +17,7 @@ namespace LOP
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly ArcheryShootOffResultTracker resultTracker;
         private readonly GameFramework.Runner.IRunner runner;
+        private readonly ArcheryComicFxView comicFx;
 
         private readonly Dictionary<string, (GameObject visual, ArcheryReactionCue cue)> dressed =
             new Dictionary<string, (GameObject, ArcheryReactionCue)>();
@@ -24,8 +25,10 @@ namespace LOP
 
         public ArcheryChibiView(ArcheryCourse course, ActorRegistry actorRegistry,
                                 GameFramework.World.EntityRegistry entityRegistry,
-                                ArcheryShootOffResultTracker resultTracker, GameFramework.Runner.IRunner runner)
+                                ArcheryShootOffResultTracker resultTracker, GameFramework.Runner.IRunner runner,
+                                ArcheryComicFxView comicFx)
         {
+            this.comicFx = comicFx;
             this.course = course;
             this.actorRegistry = actorRegistry;
             this.entityRegistry = entityRegistry;
@@ -86,7 +89,7 @@ namespace LOP
                 var face = visual.GetComponent<ChibiFace>();
                 if (face != null)
                 {
-                    face.SetExpression(ChibiReaction.Of(cue, drawing).Expression);
+                    face.SetExpression(ChibiReaction.Of(cue, drawing, comicFx.IsSurprised(entity.Id, now)).Expression);
                 }
                 dressed[entity.Id] = (visual, cue);
             }

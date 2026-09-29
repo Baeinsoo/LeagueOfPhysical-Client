@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using VContainer.Unity;
@@ -120,9 +121,19 @@ namespace LOP
                 Island(root, island.Center, island.Radius, island.Radius * 1.6f, island.Trees, rng);
             }
 
-            foreach (var c in SkydiveSceneryLayout.CloudSpots())
+            //  구름은 층마다 메시 한 장(폰 부담 — 공을 하나하나 오브젝트로 두면 790개가 넘는다).
+            var white = Toon("#FFFFFF");
+            int seed = 7;
+            foreach (var layer in SkydiveSceneryLayout.CloudSpots().GroupBy(c => c.y))
             {
-                Cloud(root, new Vector3(c.x, c.y, c.z), c.w, rng);
+                var mesh = SkydiveSceneryLayout.BuildCloudLayer(layer.ToList(), seed++);
+                created.Add(mesh);
+                var go = new GameObject("CloudLayer_" + layer.Key);
+                go.transform.SetParent(root, false);
+                go.AddComponent<MeshFilter>().sharedMesh = mesh;
+                var mr = go.AddComponent<MeshRenderer>();
+                mr.sharedMaterial = white;
+                mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
 
             //  착지 섬 — 기존 바닥 충돌은 그대로, 보이는 것만 섬.
@@ -157,20 +168,6 @@ namespace LOP
                 Prim(root, PrimitiveType.Cylinder, Toon("#8B5E34"), p + new Vector3(0f, s, 0f), new Vector3(s * 0.4f, s, s * 0.4f));
                 Prim(root, PrimitiveType.Sphere, Toon("#45B060"), p + new Vector3(0f, s * 2.6f, 0f), Vector3.one * s * 2.2f);
                 Prim(root, PrimitiveType.Sphere, Toon("#45B060"), p + new Vector3(s * 0.6f, s * 2.1f, s * 0.3f), Vector3.one * s * 1.4f);
-            }
-        }
-
-        //  구 여섯 개를 뭉친 흰 구름 — 그늘은 툰 셰이더의 푸른 그림자.
-        private void Cloud(Transform root, Vector3 center, float size, System.Random rng)
-        {
-            var white = Toon("#FFFFFF");
-            Prim(root, PrimitiveType.Sphere, white, center, new Vector3(size, size * 0.6f, size));
-            for (int i = 0; i < 5; i++)
-            {
-                float a = i * Mathf.PI * 2f / 5f + (float)rng.NextDouble() * 0.6f;
-                float k = 0.55f + 0.2f * (float)rng.NextDouble();
-                var offset = new Vector3(Mathf.Cos(a) * size * 0.6f, (float)(rng.NextDouble() - 0.3) * size * 0.2f, Mathf.Sin(a) * size * 0.6f);
-                Prim(root, PrimitiveType.Sphere, white, center + offset, new Vector3(size * k, size * k * 0.6f, size * k));
             }
         }
 

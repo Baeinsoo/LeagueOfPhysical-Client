@@ -15,6 +15,8 @@ namespace LOP
         private readonly ActorRegistry actorRegistry;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly Dictionary<string, GameObject> dressed = new Dictionary<string, GameObject>();
+        //  옛 원격 에셋의 치비엔 Falling이 없다 — 없는 파라미터를 매 프레임 부르면 경고가 쌓인다. 몸마다 한 번 확인.
+        private readonly Dictionary<GameObject, bool> hasFalling = new Dictionary<GameObject, bool>();
         private readonly Dictionary<string, float> lastY = new Dictionary<string, float>();
         private readonly Dictionary<string, float> hitAt = new Dictionary<string, float>();
         private Material faceMaterial;
@@ -59,7 +61,24 @@ namespace LOP
                     dressed[entity.Id] = visual;
                 }
 
-                visual.GetComponent<Animator>().SetBool("Falling", motion.Value != SkydiveMotionState.Walking);
+                var animator = visual.GetComponent<Animator>();
+                if (hasFalling.TryGetValue(visual, out bool canFall) == false)
+                {
+                    canFall = false;
+                    var parameters = animator.parameters;
+                    foreach (var p in parameters)
+                    {
+                        canFall |= p.name == "Falling";
+                    }
+                    if (parameters.Length > 0)
+                    {
+                        hasFalling[visual] = canFall;   // 아직 초기화 전(빈 목록)이면 다음 프레임에 다시 본다
+                    }
+                }
+                if (canFall)
+                {
+                    animator.SetBool("Falling", motion.Value != SkydiveMotionState.Walking);
+                }
 
                 float y = GameFramework.World.EntityMotionExtensions.GetPosition(entity).y;
                 if (lastY.TryGetValue(entity.Id, out float prevY) && SkydiveLookRules.Teleported(prevY, y))
@@ -81,6 +100,7 @@ namespace LOP
         public void Dispose()
         {
             dressed.Clear();
+            hasFalling.Clear();
             lastY.Clear();
             hitAt.Clear();
         }

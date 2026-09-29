@@ -97,6 +97,7 @@ namespace LOP.UI
         {
             _viewModel.Refresh();
             _speedLines.Strength = _viewModel.SpeedLines;
+            _speedLines.Tick(Time.deltaTime);
             _viewModel.PollKeyboard();   // Space 점프 — 버튼과 무관하게 늘 받는다
 
             // 스틱을 잡고 있는 동안은 키보드를 읽지 않는다 — 둘 다 밀면 나중 것이 앞의 것을 지운다.

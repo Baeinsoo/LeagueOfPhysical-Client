@@ -31,10 +31,22 @@ namespace LOP.UI
                     return;
                 }
                 strength = v;
-                flow = Time.time;
                 MarkDirtyRepaint();
             }
         }
+
+        /// <summary>매 프레임 흐름을 한 칸 민다 — 흐름은 쌓아 가는 값이라 세기가 바뀌어도 튀지 않는다.</summary>
+        public void Tick(float deltaTime)
+        {
+            flow = Advance(flow, deltaTime, strength);
+            if (strength > 0f)
+            {
+                MarkDirtyRepaint();
+            }
+        }
+
+        public static float Advance(float flow, float deltaTime, float strength)
+            => flow + deltaTime * (0.6f + strength * 1.4f);
 
         public SpeedStreaksElement()
         {
@@ -68,7 +80,7 @@ namespace LOP.UI
             for (int i = 0; i < Count; i++)
             {
                 //  선마다 자기 위상으로 안쪽 끝이 바깥으로 흐른다(빠를수록 빨리).
-                float t = Mathf.Repeat(phase[i] + flow * (0.6f + strength * 1.4f), 1f);
+                float t = Mathf.Repeat(phase[i] + flow, 1f);
                 float inner = Mathf.Lerp(ClearCenter, 1f, t) * half;
                 float outer = inner + length[i] * half * (0.5f + strength);
                 var dir = new Vector2(Mathf.Cos(angle[i]), Mathf.Sin(angle[i]));

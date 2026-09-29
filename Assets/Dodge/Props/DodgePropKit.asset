@@ -18,7 +18,7 @@ MonoBehaviour:
   slipperMaterials:
   - {fileID: 2100000, guid: 98882dfb29b44e4408ecdbade891b15e, type: 2}
   - {fileID: 2100000, guid: db56db23e770ad14b9acb68a883798c9, type: 2}
-  - {fileID: 2100000, guid: f7982b2806f06124fa5625c416f454c1, type: 2}
+  - {fileID: 2100000, guid: 416fcabe7c91d114b9e4f18b0e47c559, type: 2}
   jarMaterial: {fileID: 2100000, guid: a6145d93f38a62b44aa7c87fa52aca5e, type: 2}
   melonMaterial: {fileID: 2100000, guid: e17c4473739c16f438732609ee5362cc, type: 2}
   ropeMaterial: {fileID: 2100000, guid: a71169ed7e300c44d9b8d8fb9d29b1a6, type: 2}

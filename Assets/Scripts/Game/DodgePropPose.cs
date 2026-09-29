@@ -50,8 +50,8 @@ namespace LOP
 
         public static float MelonHeight(float progress)
         {
-            float left = 1f - Mathf.Clamp01(progress);
-            return MelonDropHeight * left * left;   // 처음엔 느리게, 끝에 빨리 떨어진다
+            float p = Mathf.Clamp01(progress);
+            return MelonDropHeight * (1f - p * p);   // 중력처럼 — 처음엔 느리게, 바닥에 가까울수록 빨리
         }
 
         public static float RopeHeight(bool active, float progress) =>

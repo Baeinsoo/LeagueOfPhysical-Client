@@ -35,6 +35,15 @@ namespace LOP.Tests
             Assert.AreEqual(0f, DodgePropPose.MelonHeight(1f), 1e-4f);
         }
 
+        // 떨어지는 물건은 중력으로 점점 빨라진다 — 끝 10%에 떨어지는 거리가 처음 10%보다 커야 한다.
+        [Test]
+        public void 수박은_떨어질수록_빨라진다()
+        {
+            float first = DodgePropPose.MelonHeight(0f) - DodgePropPose.MelonHeight(0.1f);
+            float last = DodgePropPose.MelonHeight(0.9f) - DodgePropPose.MelonHeight(1f);
+            Assert.Greater(last, first * 3f);
+        }
+
         [Test]
         public void 줄은_예고_동안_올라가고_켜지면_바닥이다()
         {

@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bb2872a75cbb0984abab5047bf145db6, type: 3}
+  m_Name: DodgePropKit
+  m_EditorClassIdentifier: Assembly-CSharp::LOP.DodgePropKit
+  slipperMesh: {fileID: 4300000, guid: 34cbaa58898723f4e8048e35d95ccb01, type: 2}
+  jarMesh: {fileID: 4300000, guid: 576713c9d1430fb4c9587d226f7d6c2b, type: 2}
+  melonMesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  slipperMaterials:
+  - {fileID: 2100000, guid: 98882dfb29b44e4408ecdbade891b15e, type: 2}
+  - {fileID: 2100000, guid: db56db23e770ad14b9acb68a883798c9, type: 2}
+  - {fileID: 2100000, guid: f7982b2806f06124fa5625c416f454c1, type: 2}
+  jarMaterial: {fileID: 2100000, guid: a6145d93f38a62b44aa7c87fa52aca5e, type: 2}
+  melonMaterial: {fileID: 2100000, guid: e17c4473739c16f438732609ee5362cc, type: 2}
+  ropeMaterial: {fileID: 2100000, guid: a71169ed7e300c44d9b8d8fb9d29b1a6, type: 2}
+  warn: {fileID: 2100000, guid: 8959bb71b3c7ad04d92ebe53f113274a, type: 2}
+  shadow: {fileID: 2100000, guid: b57610344c74f2d4b9971b0f77f19570, type: 2}
+  juice: {fileID: 2100000, guid: 94e1561148d83e2418e0c3131ae0f064, type: 2}
+  hot: {fileID: 2100000, guid: a5b4560ee311e38498b3b746c51468d4, type: 2}
+  tileWarm: {fileID: 2100000, guid: f1f2aa5e7ecd076478c891749a752a55, type: 2}
+  tileHot: {fileID: 2100000, guid: 058220e48a121af4ba4bd84e651b1fb9, type: 2}

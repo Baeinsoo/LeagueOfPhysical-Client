@@ -49,5 +49,13 @@ namespace LOP.Tests
             Assert.IsTrue(DodgeHitFeedback.Flashing(500 + DodgeHitFeedback.FlashTicks - 1, 500));
             Assert.IsFalse(DodgeHitFeedback.Flashing(500 + DodgeHitFeedback.FlashTicks, 500));
         }
+
+        [Test]
+        public void 무적_동안은_놀란_표정이고_끝나면_돌아온다()
+        {
+            Assert.AreEqual(ChibiExpression.Surprise, DodgeHitFeedback.ExpressionFor(90, 100));
+            Assert.AreEqual(ChibiExpression.Normal, DodgeHitFeedback.ExpressionFor(100, 100));
+            Assert.AreEqual(ChibiExpression.Normal, DodgeHitFeedback.ExpressionFor(90, -1));
+        }
     }
 }

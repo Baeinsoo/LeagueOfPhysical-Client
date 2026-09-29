@@ -14,8 +14,8 @@ namespace LOP
         private readonly GameFramework.Runner.IRunner runner;
         private readonly DodgeClientState state;
         private readonly ActorRegistry actorRegistry;
-        private readonly Dictionary<string, (GameObject visual, Renderer[] renderers)> cache =
-            new Dictionary<string, (GameObject, Renderer[])>();
+        private readonly Dictionary<string, (GameObject visual, int count, Renderer[] renderers)> cache =
+            new Dictionary<string, (GameObject, int, Renderer[])>();
         private readonly HashSet<Renderer> hiddenByUs = new HashSet<Renderer>();
 
         public DodgeBlinkView(GameFramework.Runner.IRunner runner, DodgeClientState state, ActorRegistry actorRegistry)
@@ -59,15 +59,16 @@ namespace LOP
             }
         }
 
-        // 몸이 바뀌면(다시 생기면) 새로 모은다 — 매 프레임 GetComponentsInChildren을 부르지 않게.
+        // 몸이 바뀌거나 자식이 늘면(얼굴 판은 몸보다 늦게 붙는다) 새로 모은다 — 매 프레임 GetComponentsInChildren을 부르지 않게.
         private Renderer[] RenderersOf(string id, GameObject visual)
         {
-            if (cache.TryGetValue(id, out var c) && c.visual == visual)
+            int count = visual.transform.hierarchyCount;
+            if (cache.TryGetValue(id, out var c) && c.visual == visual && c.count == count)
             {
                 return c.renderers;
             }
             var renderers = visual.GetComponentsInChildren<Renderer>(true);
-            cache[id] = (visual, renderers);
+            cache[id] = (visual, count, renderers);
             return renderers;
         }
 

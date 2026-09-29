@@ -150,15 +150,16 @@ public class SkydiveAtmosphereTests
         RenderSettings.skybox = new Material(Shader.Find("Skybox/Procedural"));
         var sut = new SkydiveAtmosphere(new FakeContext { entityId = null }, new EntityRegistry());
 
+        //  룩 슬라이스 4부터 하늘은 수채화 하늘 — 지평선(_HorizonColor)을 고도별 안개색으로 칠한다.
         sut.Apply(3000f);
-        float tintAtTop = ((Material)RenderSettings.skybox).GetColor("_SkyTint").r;
+        float tintAtTop = ((Material)RenderSettings.skybox).GetColor("_HorizonColor").r;
 
         sut.Apply(0f);
-        float tintAtBottom = ((Material)RenderSettings.skybox).GetColor("_SkyTint").r;
+        float tintAtBottom = ((Material)RenderSettings.skybox).GetColor("_HorizonColor").r;
 
         Assert.That(tintAtBottom, Is.GreaterThan(tintAtTop), "지면 쪽이 더 따뜻해야(붉은기 상승) 한다");
-        Assert.That(tintAtBottom, Is.LessThan(RenderSettings.fogColor.r),
-                    "하늘은 안개보다 덜 변한다(0.55배 보간)");
+        Assert.That(tintAtBottom, Is.EqualTo(RenderSettings.fogColor.r).Within(1e-4f),
+                    "지평선은 안개색 그대로 — 멀수록 하늘로 녹아든다");
     }
 
     // ── Finding 3 — Dispose가 원래 값으로 되돌리고 복사본을 정리한다 ──

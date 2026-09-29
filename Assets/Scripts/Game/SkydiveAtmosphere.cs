@@ -26,7 +26,15 @@ namespace LOP
         private readonly Color originalFogColor;
         private readonly float originalFogDensity;
         private readonly Material originalSkybox;
+        private readonly Light originalSun;
         private bool disposed;
+
+        //  해 — 게임 씬(Skydive) 방향광을 주인공으로, 나머지(맵 쪽) 방향광은 끈다. 씬 수가 바뀔 때만 다시 고른다.
+        private readonly System.Collections.Generic.List<Light> dimmedSuns = new System.Collections.Generic.List<Light>();
+        private int sunSceneCount = -1;
+
+        //  Skydive.unity 카메라의 Skybox 컴포넌트는 RenderSettings.skybox를 덮는다(예전 고도 틴트가 안 보인 이유) — 있는 동안 끈다.
+        private readonly System.Collections.Generic.List<Skybox> hiddenBoxes = new System.Collections.Generic.List<Skybox>();
 
         public SkydiveAtmosphere(IPlayerContext playerContext,
                                  GameFramework.World.EntityRegistry entityRegistry)
@@ -39,6 +47,7 @@ namespace LOP
             originalFogColor = RenderSettings.fogColor;
             originalFogDensity = RenderSettings.fogDensity;
             originalSkybox = RenderSettings.skybox;
+            originalSun = RenderSettings.sun;
         }
 
         /// <summary>안개·하늘을 시작 전 값으로 되돌리고 복제한 스카이박스를 정리한다.</summary>
@@ -55,6 +64,17 @@ namespace LOP
             RenderSettings.fogColor = originalFogColor;
             RenderSettings.fogDensity = originalFogDensity;
             RenderSettings.skybox = originalSkybox;
+            RenderSettings.sun = originalSun;
+            foreach (var l in dimmedSuns)
+            {
+                if (l != null) { l.enabled = true; }
+            }
+            dimmedSuns.Clear();
+            foreach (var b in hiddenBoxes)
+            {
+                if (b != null) { b.enabled = true; }
+            }
+            hiddenBoxes.Clear();
 
             if (skyboxInstance != null)
             {
@@ -102,32 +122,75 @@ namespace LOP
             RenderSettings.fogColor = colors.fog;
             RenderSettings.fogDensity = SkydiveCloudLayers.DensityAt(altitude);
 
-            TintSky(colors.skyTint);
+            UseWatercolorSky();
+            PaintSky(skyboxInstance, colors.fog);
+            PickSunIfScenesChanged();
         }
 
-        private void TintSky(Color skyTint)
+        /// <summary>새 룩(슬라이스 4) — 하늘은 수채화 하늘 복사본 하나. 처음 한 번 만들고 이후엔 그것만 칠한다.</summary>
+        public void UseWatercolorSky()
         {
-            if (skyboxInstance == null)
+            if (skyboxInstance != null)
             {
-                Material source = RenderSettings.skybox;
-                if (source == null)
+                return;
+            }
+            var shader = Shader.Find("LOP/WatercolorSky");
+            if (shader == null)
+            {
+                return;   // 셰이더가 빠진 빌드 — 원래 하늘 그대로(분홍보다 낫다)
+            }
+            skyboxInstance = new Material(shader);
+            RenderSettings.skybox = skyboxInstance;
+        }
+
+        /// <summary>지평선을 안개색에 맞춘다 — 멀수록 하늘로 녹아드는 공기 원근(왕눈). 아래쪽은 조금 밝게.</summary>
+        public static void PaintSky(Material sky, Color fog)
+        {
+            if (sky == null)
+            {
+                return;
+            }
+            sky.SetColor("_HorizonColor", fog);
+            sky.SetColor("_BottomColor", Color.Lerp(fog, Color.white, 0.25f));
+        }
+
+        private void PickSunIfScenesChanged()
+        {
+            int count = UnityEngine.SceneManagement.SceneManager.sceneCount;
+            if (count == sunSceneCount)
+            {
+                return;
+            }
+            sunSceneCount = count;
+            foreach (var b in Object.FindObjectsByType<Skybox>(FindObjectsSortMode.None))
+            {
+                if (b.enabled)
                 {
-                    return;   // 아직 하늘 머티리얼이 없으면 칠할 게 없다
+                    b.enabled = false;
+                    hiddenBoxes.Add(b);
                 }
-
-                // 복사는 딱 한 번 — 이후 RenderSettings.skybox는 항상 이 복사본을 가리킨다.
-                skyboxInstance = new Material(source);
-                RenderSettings.skybox = skyboxInstance;
             }
-
-            // Procedural 스카이박스는 _SkyTint, 그 외 일부 셰이더는 _Tint를 쓴다.
-            if (skyboxInstance.HasProperty("_SkyTint"))
+            Light main = RenderSettings.sun != null && RenderSettings.sun.gameObject.scene.name == "Skydive" ? RenderSettings.sun : null;
+            var lights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+            foreach (var l in lights)
             {
-                skyboxInstance.SetColor("_SkyTint", skyTint);
+                if (main == null && l.type == LightType.Directional && l.enabled && l.gameObject.scene.name == "Skydive")
+                {
+                    main = l;
+                }
             }
-            else if (skyboxInstance.HasProperty("_Tint"))
+            if (main == null)
             {
-                skyboxInstance.SetColor("_Tint", skyTint);
+                return;
+            }
+            RenderSettings.sun = main;
+            foreach (var l in lights)
+            {
+                if (l != main && l.type == LightType.Directional && l.enabled)
+                {
+                    l.enabled = false;
+                    dimmedSuns.Add(l);
+                }
             }
         }
     }

@@ -49,7 +49,7 @@ namespace LOP.CharacterEditor
             animator.applyRootMotion = false;
             animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
 
-            AssetDatabase.DeleteAsset(PrefabPath);
+            //  지우지 않고 덮어쓴다 — 지우면 GUID가 바뀌어 원격 에셋(Addressables) 등록이 끊긴다(서버·클라가 치비를 못 찾는다).
             PrefabUtility.SaveAsPrefabAsset(go, PrefabPath);
             Object.DestroyImmediate(go);
             AssetDatabase.SaveAssets();
@@ -64,6 +64,7 @@ namespace LOP.CharacterEditor
             c.AddParameter("Hit", AnimatorControllerParameterType.Trigger);   // LOPEntityView가 부른다 — 연결 없음(경고만 막는다)
             c.AddParameter("Happy", AnimatorControllerParameterType.Trigger);
             c.AddParameter("Sad", AnimatorControllerParameterType.Trigger);
+            c.AddParameter("Falling", AnimatorControllerParameterType.Bool);   // 스카이다이브 — 공중이면 켠다
             var sm = c.layers[0].stateMachine;
             var idle = sm.AddState("Idle");
             idle.motion = Clip("Idle");
@@ -73,7 +74,18 @@ namespace LOP.CharacterEditor
             happy.motion = Clip("Happy");
             var sad = sm.AddState("Sad");
             sad.motion = Clip("Sad");
+            var fall = sm.AddState("Fall");
+            fall.motion = LoopingCopy("Jumping Down", Dir + "/Anim/Fall.anim");
             sm.defaultState = idle;
+            foreach (var from in new[] { idle, run })
+            {
+                var t = from.AddTransition(fall);
+                t.AddCondition(AnimatorConditionMode.If, 0, "Falling");
+                t.duration = 0.15f;
+            }
+            var land = fall.AddTransition(idle);
+            land.AddCondition(AnimatorConditionMode.IfNot, 0, "Falling");
+            land.duration = 0.15f;
             idle.AddTransition(run).AddCondition(AnimatorConditionMode.If, 0, "Run");
             run.AddTransition(idle).AddCondition(AnimatorConditionMode.IfNot, 0, "Run");
             foreach (var (state, trigger) in new[] { (happy, "Happy"), (sad, "Sad") })
@@ -90,13 +102,37 @@ namespace LOP.CharacterEditor
             return c;
         }
 
+        //  PolyOne 원본 클립은 루프가 아니다 — 원본은 두고 루프를 켠 복사본을 만든다.
+        private static AnimationClip LoopingCopy(string source, string path)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            var copy = Object.Instantiate(Clip(source));
+            copy.name = Path.GetFileNameWithoutExtension(path);
+            var settings = AnimationUtility.GetAnimationClipSettings(copy);
+            settings.loopTime = true;
+            AnimationUtility.SetAnimationClipSettings(copy, settings);
+            AssetDatabase.DeleteAsset(path);
+            AssetDatabase.CreateAsset(copy, path);
+            return copy;
+        }
+
         private static AnimationClip Clip(string name) => AssetDatabase.LoadAssetAtPath<AnimationClip>(Anim + name + ".anim");
 
+        //  이미 있으면 그 재질에 값만 옮긴다(GUID 유지 — ChibiFace.mat은 원격 에셋 주소로 등록돼 있다).
         private static Material Save(string path, Material m)
         {
-            AssetDatabase.DeleteAsset(path);
-            AssetDatabase.CreateAsset(m, path);
-            return m;
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing == null)
+            {
+                AssetDatabase.CreateAsset(m, path);
+                return m;
+            }
+            existing.shader = m.shader;
+            existing.CopyPropertiesFromMaterial(m);
+            existing.SetShaderPassEnabled("SRPDefaultUnlit", m.GetShaderPassEnabled("SRPDefaultUnlit"));
+            EditorUtility.SetDirty(existing);
+            Object.DestroyImmediate(m);
+            return existing;
         }
     }
 }

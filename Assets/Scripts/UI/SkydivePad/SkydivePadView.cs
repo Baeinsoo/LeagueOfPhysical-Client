@@ -31,6 +31,7 @@ namespace LOP.UI
         private Vector2 _sliderOrigin;
 
         private IVisualElementScheduledItem _tick;
+        private SpeedStreaksElement _speedLines;
 
         public SkydivePadView(SkydivePadViewModel viewModel)
         {
@@ -43,6 +44,9 @@ namespace LOP.UI
         {
             base.OnOpen();
 
+            _speedLines = new SpeedStreaksElement();
+            _speedLines.StretchToParentSize();
+            Root.Q<VisualElement>("speed-lines").Add(_speedLines);
             _joystickBg = Root.Q<VisualElement>("joystick-bg");
             _joystickHandle = Root.Q<VisualElement>("joystick-handle");
             _postureTrack = Root.Q<VisualElement>("posture-track");
@@ -92,6 +96,8 @@ namespace LOP.UI
         private void Tick()
         {
             _viewModel.Refresh();
+            _speedLines.Strength = _viewModel.SpeedLines;
+            _speedLines.Tick(Time.deltaTime);
             _viewModel.PollKeyboard();   // Space 점프 — 버튼과 무관하게 늘 받는다
 
             // 스틱을 잡고 있는 동안은 키보드를 읽지 않는다 — 둘 다 밀면 나중 것이 앞의 것을 지운다.

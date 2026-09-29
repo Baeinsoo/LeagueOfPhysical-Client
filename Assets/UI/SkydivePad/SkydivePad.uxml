@@ -3,6 +3,8 @@
     <ui:VisualElement name="skydive-pad-root" class="skydive-pad-root" picking-mode="Ignore">
         <!-- 화면 전체를 덮되 맨 뒤에 깔린다. 아래 조작 영역·버튼이 자기 자리의 터치를 먼저
              가져가고, 남는 곳(윗쪽·가운데)을 끌면 카메라가 돈다. FlapWang과 같은 구조. -->
+        <!-- 낙하 속도선(새 룩 슬라이스 4) — 맨 뒤, 터치를 안 받는다. -->
+        <ui:VisualElement name="speed-lines" class="speed-lines" picking-mode="Ignore" />
         <ui:VisualElement name="camera-drag" class="camera-drag" />
 
         <!-- 지금 상태와 스태미나. 엄지가 슬라이더를 덮으므로 상태는 다른 곳에 보여야 한다. -->

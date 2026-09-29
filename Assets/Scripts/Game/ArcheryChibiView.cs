@@ -70,13 +70,13 @@ namespace LOP
                     continue;
                 }
                 var visual = actor.visualGameObject;
-                if (IsChibi(visual) == false)
+                if (ChibiDresser.IsChibi(visual) == false)
                 {
                     continue;
                 }
                 if (dressed.TryGetValue(entity.Id, out var last) == false || last.visual != visual)
                 {
-                    DressVisual(entity.Id, visual, faceMaterial);
+                    ChibiDresser.Dress(entity.Id, visual, faceMaterial);
                     last = (visual, ArcheryReactionCue.None);
                 }
                 var cue = resultTracker.CueOf(entity.Id, now, renderTick);
@@ -98,36 +98,6 @@ namespace LOP
         public void Dispose()
         {
             dressed.Clear();
-        }
-
-        public static bool IsChibi(GameObject visual)
-        {
-            var animator = visual != null ? visual.GetComponent<Animator>() : null;
-            if (animator == null || animator.isHuman == false || animator.runtimeAnimatorController == null)
-            {
-                return false;
-            }
-            foreach (var clip in animator.runtimeAnimatorController.animationClips)
-            {
-                if (clip != null && clip.name == "Happy")
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        /// <summary>얼굴 판·저지를 입힌다. 이미 입었으면 얼굴은 새로 붙이지 않는다.</summary>
-        public static void DressVisual(string entityId, GameObject visual, Material faceMaterial)
-        {
-            ChibiOutfit.Apply(visual, ChibiOutfit.ColorsFor(entityId));
-            if (faceMaterial == null || visual.GetComponent<ChibiFace>() != null)
-            {
-                return;
-            }
-            var face = visual.AddComponent<ChibiFace>();
-            face.faceMaterial = faceMaterial;
-            face.Build();
         }
 
         private double RenderTick()

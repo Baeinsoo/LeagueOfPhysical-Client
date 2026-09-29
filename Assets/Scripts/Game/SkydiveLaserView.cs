@@ -20,6 +20,9 @@ namespace LOP
 
         private static readonly Color BeamColor = new Color(1f, 0.16f, 0.22f);
 
+        /// <summary>켜진 빔 — 1을 넘는 HDR 색이라 블룸(임계 0.9)에 빛난다(새 룩 슬라이스 4). 예고는 그대로 옅은 빨강.</summary>
+        public static readonly Color LitColor = BeamColor * 1.6f;
+
         private readonly GameFramework.Runner.IRunner runner;
         private readonly LaserField laserField;
 
@@ -120,7 +123,7 @@ namespace LOP
             if (shader != null)
             {
                 //  빔은 스스로 빛나는 것이라 조명을 받으면 각도에 따라 어두워져 오히려 안 읽힌다.
-                litMaterial = new Material(shader) { color = BeamColor };
+                litMaterial = new Material(shader) { color = LitColor };
                 telegraphMaterial = new Material(shader)
                 {
                     color = new Color(BeamColor.r, BeamColor.g, BeamColor.b, 0.35f)

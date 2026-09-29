@@ -1,0 +1,49 @@
+<!doctype html>
+<!--
+  정색 컷인 극화 얼굴(치비가 갑자기 진지해진 얼굴). 512×512, 투명 바탕, 층 셋 — #lines(선·빗금·눈·땀), #skin(얼굴 면만 흰색), #hair(머리카락 면만 흰색).
+  게임은 skin·hair에 사람마다 색을 곱하고 그 위에 lines를 얹는다(ArcheryShootOffHudView).
+
+  PNG로 뽑기(클라 루트에서, 층마다):
+    for L in lines skin hair; do N=$(echo $L | sed 's/^./\U&/'); \
+      "C:/Program Files/Google/Chrome/Application/chrome.exe" --headless=new --hide-scrollbars --default-background-color=00000000 \
+        --window-size=512,512 --screenshot="<클라 경로>/Assets/Resources/Comic/CutIn$N.png" "file:///<클라 경로>/Scripts/lookdev/cutin_face.html#$L"; done
+-->
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:transparent;overflow:hidden}svg{display:block}</style></head>
+<body><svg id="face" width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"></svg>
+<script>
+(function () {
+  var INK = '#17131C';
+  var HEAD = 'M96 250 C96 120 176 70 256 70 C336 70 416 120 416 250 C416 360 350 430 256 432 C162 430 96 360 96 250 Z';
+  var HAIR = 'M88 236 C84 120 170 52 256 52 C352 52 432 118 424 238 C400 172 360 150 318 148 C300 176 262 184 230 170 C214 190 176 196 150 180 C124 196 104 214 88 236 Z';
+  var layer = (location.hash || '#lines').slice(1);
+  var s = '';
+  if (layer === 'skin') {
+    s = '<path d="' + HEAD + '" fill="#fff"/>';
+  } else if (layer === 'hair') {
+    s = '<path d="' + HAIR + '" fill="#fff"/>';
+  } else {
+    s += '<defs><pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">' +
+         '<line x1="0" y1="0" x2="0" y2="7" stroke="' + INK + '" stroke-width="2.2"/></pattern>' +
+         '<clipPath id="head"><path d="' + HEAD + '"/></clipPath></defs>';
+    s += '<g clip-path="url(#head)">' +
+         '<path d="M96 300 C130 300 150 360 170 432 L96 432 Z" fill="url(#hatch)"/>' +
+         '<path d="M416 290 C380 300 360 360 346 432 L416 432 Z" fill="url(#hatch)"/>' +
+         '<path d="M200 402 C230 418 282 418 312 402 L330 432 L182 432 Z" fill="url(#hatch)"/></g>';
+    s += '<path d="' + HEAD + '" fill="none" stroke="' + INK + '" stroke-width="7"/>';
+    s += '<path d="' + HAIR + '" fill="none" stroke="' + INK + '" stroke-width="6"/>';
+    s += '<path d="M150 232 L232 256" stroke="' + INK + '" stroke-width="17" stroke-linecap="round"/>';
+    s += '<path d="M362 232 L280 256" stroke="' + INK + '" stroke-width="17" stroke-linecap="round"/>';
+    s += '<path d="M160 276 Q196 262 232 280 Q196 296 160 276 Z" fill="#fff" stroke="' + INK + '" stroke-width="6"/>';
+    s += '<path d="M352 276 Q316 262 280 280 Q316 296 352 276 Z" fill="#fff" stroke="' + INK + '" stroke-width="6"/>';
+    s += '<circle cx="206" cy="279" r="8" fill="' + INK + '"/><circle cx="306" cy="279" r="8" fill="' + INK + '"/>';
+    s += '<circle cx="209" cy="276" r="2.4" fill="#fff"/><circle cx="309" cy="276" r="2.4" fill="#fff"/>';
+    s += '<path d="M168 300 Q198 312 228 300" stroke="' + INK + '" stroke-width="3" fill="none"/>';
+    s += '<path d="M344 300 Q314 312 284 300" stroke="' + INK + '" stroke-width="3" fill="none"/>';
+    s += '<path d="M256 280 L246 344 L266 346" stroke="' + INK + '" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+    s += '<path d="M226 382 L290 380" stroke="' + INK + '" stroke-width="7" stroke-linecap="round"/>';
+    s += '<path d="M150 190 L140 176 M168 184 L162 168 M344 184 L352 168 M362 190 L374 176" stroke="' + INK + '" stroke-width="3"/>';
+    s += '<path d="M390 250 q14 22 0 34 q-14 -12 0 -34 Z" fill="#8FD3FF" stroke="' + INK + '" stroke-width="3.5"/>';
+  }
+  document.getElementById('face').innerHTML = s;
+})();
+</script></body></html>

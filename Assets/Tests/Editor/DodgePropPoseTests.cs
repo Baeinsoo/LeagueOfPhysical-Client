@@ -72,5 +72,36 @@ namespace LOP.Tests
             Assert.AreEqual(new Vector2(-9 - DodgePropPose.GiantBack, 2), a);
             Assert.AreEqual(new Vector2(9 + DodgePropPose.GiantBack, 2), b);
         }
+
+        // 같은 슬리퍼는 날아가는 내내 같은 색이어야 한다 — 위치로 색을 고르면 틱마다 번쩍인다(검토 Important 1).
+        [Test]
+        public void 슬리퍼_색은_날아가는_내내_같다()
+        {
+            var c = new DodgeConfig(3, 1.5f, 0.16f, 0.5f, 9f, 6, 2f, 1.8f, 0,
+                                    1.2f, 5f, 0.22f, 2f, 0.25f, 0.7f, 0.45f, 6f, 1.35f, 0.55f);
+            var rain = new DodgePattern(1, DodgePatternKind.BulletAimed, 0, 0, -10f, 1.3f, 10f, -2.7f);
+            int? first = null;
+            for (long t = 5; t < 120; t++)
+            {
+                var list = new System.Collections.Generic.List<DodgeShape>();
+                DodgeHazards.Shapes(rain, t, c, list);
+                var s = list[0];
+                int pick = DodgePropPose.SlipperPick(new Vector2(s.X1, s.Z1), new Vector2(s.X0, s.Z0), 3);
+                first ??= pick;
+                Assert.AreEqual(first.Value, pick, $"tick {t}");
+            }
+        }
+
+        // 억울함(안 닿았는데 맞았다)이 없으려면 맞기 전에 그림이 먼저 겹쳐 보여야 한다:
+        // 물건 그림 + 몸 그림(0.35) ≥ 물건 판정 + 몸 판정(HitRadius). 슬리퍼는 가장 얇은 옆면(폭 절반)으로 잰다.
+        [Test]
+        public void 맞기_전에_그림이_먼저_겹친다()
+        {
+            const float body = 0.35f, hit = 0.16f, bullet = 0.22f, rock = 1.35f;
+            float slipperHalfWidth = DodgePropPose.SlipperLength(bullet) * 0.45f * 0.5f;
+            Assert.GreaterOrEqual(slipperHalfWidth + body, bullet + hit);
+            float jarRadius = DodgePropPose.JarScale(rock) * 0.47f;   // 몸통 구 반지름 0.47
+            Assert.GreaterOrEqual(jarRadius + body, rock + hit);
+        }
     }
 }

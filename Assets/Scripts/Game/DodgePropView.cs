@@ -77,11 +77,18 @@ namespace LOP
                 }
                 else if (s.Kind == DodgePatternKind.Rock)
                 {
-                    DrawJar(s, frac, renderTick);
+                    // 장독은 패턴으로 그린다(아래) — 예고 도형 자리(벽 안쪽)가 굴러 나올 자리(벽 바깥)와 달라서.
                 }
                 else if (s.Kind == DodgePatternKind.Laser)
                 {
                     DrawRope(s, giantPairs++);
+                }
+            }
+            foreach (var p in state.Patterns)
+            {
+                if (p.Kind == DodgePatternKind.Rock)
+                {
+                    DrawJar(p, tick, frac, renderTick);
                 }
             }
             HideUnused();
@@ -94,7 +101,7 @@ namespace LOP
         private void DrawSlipper(DodgeShape s, float frac, double renderTick)
         {
             var c = DodgeHazardView.CircleCenter(s, frac);
-            int pick = Mathf.Abs((int)(s.X1 * 7f + s.Z1 * 13f)) % kit.slipperMaterials.Length;   // 탄마다 색이 다르게, 매 프레임 같게
+            int pick = DodgePropPose.SlipperPick(new Vector2(s.X1, s.Z1), new Vector2(s.X0, s.Z0), kit.slipperMaterials.Length);
             var t = Take("slipper" + pick, kit.slipperMesh, kit.slipperMaterials[pick]);
             float heading = DodgePropPose.HeadingDegrees(new Vector2(s.X1, s.Z1), new Vector2(s.X0, s.Z0));
             t.position = new Vector3(c.x, DodgePropPose.SlipperHeight, c.y);
@@ -102,21 +109,33 @@ namespace LOP
             t.localScale = Vector3.one * DodgePropPose.SlipperLength(s.Radius);
         }
 
-        private void DrawJar(DodgeShape s, float frac, double renderTick)
+        private readonly List<DodgeShape> jarShapes = new List<DodgeShape>();
+
+        private void DrawJar(in DodgePattern p, long tick, float frac, double renderTick)
         {
-            var c = DodgeHazardView.CircleCenter(s, frac);
+            jarShapes.Clear();
+            DodgeHazards.Shapes(p, tick, config, jarShapes);
+            if (jarShapes.Count == 0)
+            {
+                return;   // 시작 전이거나 끝났다
+            }
+            var s = jarShapes[0];
             var t = Take("jar", kit.jarMesh, kit.jarMaterial);
             float scale = DodgePropPose.JarScale(s.Radius);
             t.localScale = Vector3.one * scale;
+            // 방향은 패턴에서 — 도형 두 점으로 재면 첫 틱에 0이 되어 한 틱 옆으로 눕는다.
+            float heading = DodgePropPose.HeadingDegrees(Vector2.zero, DodgeHazards.RockDirection(p));
             if (!s.Active)
             {
-                // 예고: 들어올 자리에 서서 흔들린다
-                t.position = new Vector3(c.x, scale * 0.5f, c.y);
-                t.rotation = Quaternion.Euler(DodgePropPose.WobbleDegrees(s.Progress, renderTick), 0f, 0f);
+                // 예고: 굴러 나올 첫 자리(벽 바깥)에 서서 흔들린다 — 켜지는 순간 그 자리에서 굴러 나온다.
+                Vector2 start = DodgeHazards.RockStart(p, config);
+                t.position = new Vector3(start.x, scale * 0.5f, start.y);
+                t.rotation = Quaternion.Euler(0f, heading, 0f)
+                             * Quaternion.Euler(DodgePropPose.WobbleDegrees(s.Progress, renderTick), 0f, 0f);
                 return;
             }
             // 켜짐: 옆으로 누워 진행 방향으로 구른다(긴 축 y를 진행 방향과 직각으로)
-            float heading = DodgePropPose.HeadingDegrees(new Vector2(s.X1, s.Z1), new Vector2(s.X0, s.Z0));
+            var c = DodgeHazardView.CircleCenter(s, frac);
             float roll = DodgePropPose.RollDegrees(renderTick, config.RockSpeed, s.Radius);
             t.position = new Vector3(c.x, scale * 0.5f, c.y);
             t.rotation = Quaternion.Euler(0f, heading, 0f) * Quaternion.Euler(roll, 0f, 0f) * Quaternion.Euler(0f, 0f, 90f);

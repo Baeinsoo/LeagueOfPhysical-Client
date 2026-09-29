@@ -48,5 +48,13 @@ namespace LOP.Tests
             Assert.AreEqual("Happy", ChibiReaction.TriggerOnChange(ArcheryReactionCue.None, ArcheryReactionCue.Cheer));
             Assert.AreEqual("Sad", ChibiReaction.TriggerOnChange(ArcheryReactionCue.Cheer, ArcheryReactionCue.Slump));
         }
+
+        [Test]
+        public void 놀람은_사건보다_뒤_조준보다_앞()
+        {
+            Assert.AreEqual(ChibiExpression.Surprise, ChibiReaction.Of(ArcheryReactionCue.None, drawing: true, surprised: true).Expression);
+            Assert.AreEqual(ChibiExpression.Cheer, ChibiReaction.Of(ArcheryReactionCue.Cheer, drawing: false, surprised: true).Expression);
+            Assert.AreEqual(ChibiExpression.Focus, ChibiReaction.Of(ArcheryReactionCue.None, drawing: true, surprised: false).Expression);
+        }
     }
 }

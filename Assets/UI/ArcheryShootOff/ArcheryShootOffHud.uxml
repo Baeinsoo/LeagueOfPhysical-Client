@@ -26,6 +26,23 @@
             <ui:Label name="intro-title" class="shootoff-intro-title" picking-mode="Ignore" />
             <ui:Label name="intro-detail" class="shootoff-intro-detail" picking-mode="Ignore" />
         </ui:VisualElement>
+        <!-- 정색 컷인 — 결과 순간 0.95초. 띠는 기울어져 있고 안쪽 내용은 되돌려 똑바로 선다. -->
+        <ui:VisualElement name="cutin" class="cutin" picking-mode="Ignore">
+            <ui:VisualElement name="cutin-band" class="cutin-band" picking-mode="Ignore">
+                <ui:VisualElement name="cutin-lines" class="cutin-lines" picking-mode="Ignore" />
+                <ui:VisualElement class="cutin-inner" picking-mode="Ignore">
+                    <ui:VisualElement name="cutin-face" class="cutin-face" picking-mode="Ignore">
+                        <ui:VisualElement name="cutin-skin" class="cutin-layer" picking-mode="Ignore" />
+                        <ui:VisualElement name="cutin-hair" class="cutin-layer" picking-mode="Ignore" />
+                        <ui:VisualElement name="cutin-ink" class="cutin-layer" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="cutin-words" picking-mode="Ignore">
+                        <ui:Label name="cutin-shout" class="cutin-shout" picking-mode="Ignore" />
+                        <ui:Label name="cutin-name" class="cutin-name" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
         <ui:VisualElement name="bull-popups" class="shootoff-bull-popups" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

@@ -79,7 +79,8 @@ namespace LOP
             //  한 발 승부 관중석·깃발(다른 모드에선 아무것도 안 만든다).
             builder.RegisterEntryPoint<ArcheryCrowdView>().AsSelf();
             //  새 룩(슬라이스 2): 한 발 승부 치비 표정·애니, 활쏘기 원경·하늘.
-            builder.RegisterEntryPoint<ArcheryComicFxView>().AsSelf();   // 슬라이스 3: 머리 위 만화 그림(치비 놀람 표정의 출처)
+            builder.RegisterEntryPoint<ArcheryComicFxView>().AsSelf();
+            builder.RegisterEntryPoint<ArcheryCutInFreeze>().AsSelf();   // 정색 컷인 동안 화면 흑백 정지   // 슬라이스 3: 머리 위 만화 그림(치비 놀람 표정의 출처)
             builder.RegisterEntryPoint<ArcheryChibiView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryScenery>().AsSelf();
             builder.RegisterEntryPoint<ArcheryAtmosphere>().AsSelf();

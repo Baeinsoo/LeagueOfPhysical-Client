@@ -158,3 +158,26 @@
     -unity-text-align: middle-center;
     margin-top: 12px;
 }
+
+/* 정색 컷인(슬라이스 3) — 띠는 -7도, 안쪽은 +7도로 되돌려 똑바로. 얼굴 너비는 코드가 높이에 맞춘다(USS에 aspect-ratio가 없다). */
+.cutin { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: none; }
+.cutin-band {
+    position: absolute; left: -8%; right: -8%; top: 22%; height: 56%;
+    rotate: -7deg; background-color: rgb(14, 11, 18); overflow: hidden;
+    border-top-width: 6px; border-bottom-width: 6px; border-top-color: rgb(255, 255, 255); border-bottom-color: rgb(255, 255, 255);
+}
+.cutin-lines { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
+.cutin-inner { position: absolute; left: 0; right: 0; top: 0; bottom: 0; rotate: 7deg; }
+.cutin-face { position: absolute; left: 14%; top: -8%; height: 116%; }
+.cutin-layer { position: absolute; left: 0; right: 0; top: 0; bottom: 0; -unity-background-scale-mode: scale-to-fit; }
+.cutin-words { position: absolute; right: 12%; top: 30%; rotate: -4deg; align-items: flex-start; }
+.cutin-shout {
+    -unity-font-definition: url("project://database/Assets/UI/Theme/Fonts/BlackHanSans%20CutIn.asset");
+    font-size: 88px; color: rgb(255, 255, 255);
+    -unity-text-outline-width: 3px; -unity-text-outline-color: rgb(14, 11, 18);
+    text-shadow: 6px 6px 0 rgb(255, 79, 94);
+}
+.cutin-name {
+    -unity-font-definition: url("project://database/Assets/UI/Theme/Fonts/BlackHanSans%20CutIn.asset");
+    font-size: 26px; color: rgb(243, 239, 230); letter-spacing: 3px; margin-top: 6px;
+}

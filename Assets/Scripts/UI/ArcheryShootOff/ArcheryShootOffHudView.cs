@@ -21,6 +21,8 @@ namespace LOP.UI
         private int _drawnResultVersion = -1;
         private IVisualElementScheduledItem _tick;
         private VisualElement _flash;
+        private VisualElement _cutIn, _cutInBand, _cutInFace, _cutInSkin, _cutInHair;
+        private Label _cutInShout, _cutInName;
         private VisualElement _intro;
         private Label _introTitle;
         private Label _introDetail;
@@ -53,6 +55,7 @@ namespace LOP.UI
             _introTitle = Root.Q<Label>("intro-title");
             _introDetail = Root.Q<Label>("intro-detail");
             _bullPopups = Root.Q<VisualElement>("bull-popups");
+            BindCutIn();
 
             _tick = Root.schedule.Execute(_ => Refresh()).Every(0);
         }
@@ -88,6 +91,7 @@ namespace LOP.UI
             }
 
             _flash.style.opacity = _viewModel.FlashAlpha;
+            DrawCutIn();
 
             float intro = _viewModel.IntroAlpha;
             _intro.style.display = intro > 0f ? DisplayStyle.Flex : DisplayStyle.None;
@@ -101,6 +105,42 @@ namespace LOP.UI
             {
                 SpawnBullPopup(world, color);
             }
+        }
+
+        private void BindCutIn()
+        {
+            _cutIn = Root.Q<VisualElement>("cutin");
+            _cutInBand = Root.Q<VisualElement>("cutin-band");
+            _cutInFace = Root.Q<VisualElement>("cutin-face");
+            _cutInSkin = Root.Q<VisualElement>("cutin-skin");
+            _cutInHair = Root.Q<VisualElement>("cutin-hair");
+            _cutInShout = Root.Q<Label>("cutin-shout");
+            _cutInName = Root.Q<Label>("cutin-name");
+            var lines = new SpeedLinesElement();
+            lines.StretchToParentSize();
+            Root.Q<VisualElement>("cutin-lines").Add(lines);
+            _cutInSkin.style.backgroundImage = new StyleBackground(Resources.Load<Texture2D>("Comic/CutInSkin"));
+            _cutInHair.style.backgroundImage = new StyleBackground(Resources.Load<Texture2D>("Comic/CutInHair"));
+            Root.Q<VisualElement>("cutin-ink").style.backgroundImage = new StyleBackground(Resources.Load<Texture2D>("Comic/CutInLines"));
+            //  USS에 aspect-ratio가 없다 — 얼굴은 높이만큼 너비를 준다(정사각형 그림).
+            _cutInFace.RegisterCallback<GeometryChangedEvent>(_ => _cutInFace.style.width = _cutInFace.resolvedStyle.height);
+        }
+
+        private void DrawCutIn()
+        {
+            bool visible = _viewModel.CutInVisible;
+            _cutIn.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            if (visible == false)
+            {
+                return;
+            }
+            _cutInBand.style.translate = new Translate(new Length(_viewModel.CutInSlideX * 110f, LengthUnit.Percent), 0f);
+            var shake = _viewModel.CutInShake;
+            _cutInFace.style.translate = new Translate(shake.x, shake.y);
+            _cutInShout.text = _viewModel.CutInShout;
+            _cutInName.text = _viewModel.CutInName;
+            _cutInSkin.style.unityBackgroundImageTintColor = _viewModel.CutInSkin;
+            _cutInHair.style.unityBackgroundImageTintColor = _viewModel.CutInHair;
         }
 
         //  남의 10점 — 맞은 자리에서 "10!!"이 선수 색으로 떠오르며 사라진다.

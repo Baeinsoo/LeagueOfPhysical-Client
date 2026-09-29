@@ -42,6 +42,24 @@ namespace LOP.UI
         private float myBullAt = float.NegativeInfinity;
         private readonly Queue<(string shooterId, long fireTick)> pendingBulls = new Queue<(string, long)>();
 
+        //  정색 컷인(슬라이스 3) — 라운드 동안 후보를 모으고, 결과가 보이기 시작하는 프레임에 하나를 띄운다.
+        private readonly ArcheryCutInFreeze freeze;
+        private readonly ArcheryCutInCollector cutIns = new ArcheryCutInCollector();
+        private readonly List<string> roundBulls = new List<string>();
+        private ArcheryCutInPick pendingCutIn = ArcheryCutInPick.None;
+        private ArcheryCutInPick shownCutIn = ArcheryCutInPick.None;
+        private int cutInsUsed;
+        private float cutInAt = float.NegativeInfinity;
+        private bool lastResultVisible;
+
+        public bool CutInVisible { get; private set; }
+        public float CutInSlideX { get; private set; }
+        public Vector2 CutInShake { get; private set; }
+        public string CutInShout { get; private set; } = string.Empty;
+        public string CutInName { get; private set; } = string.Empty;
+        public Color CutInSkin { get; private set; } = Color.white;
+        public Color CutInHair { get; private set; } = Color.white;
+
         public Camera Camera => cameraController != null ? cameraController.MainCamera : null;
         public float FlashAlpha { get; private set; }
 
@@ -65,8 +83,10 @@ namespace LOP.UI
                                            ArcheryShootOffResultTracker resultTracker,
                                            CameraController cameraController,
                                            ArcheryArrowStickSystem stickSystem,
-                                           ArcheryArrowLandings landings, ArcheryChickenView chickenView)
+                                           ArcheryArrowLandings landings, ArcheryChickenView chickenView,
+                                           ArcheryCutInFreeze freeze)
         {
+            this.freeze = freeze;
             this.runner = runner;
             this.config = config;
             this.world = world;
@@ -122,6 +142,7 @@ namespace LOP.UI
             long tick = (long)Math.Floor(renderTick);
             long start = world.GameplayStartTick;
             ResultVisible = resultTracker.IsShowing(renderTick);
+            UpdateCutIn();
             UpdateIntro(renderTick, start);
 
             int index = course.IndexAt(tick, start);
@@ -343,6 +364,7 @@ namespace LOP.UI
                     if (hit.points == 10)
                     {
                         commentary.TrySay(ArcheryLine.Bull, NameOf(hit.shooterId), 0, now);
+                        roundBulls.Add(hit.shooterId);
                         if (hit.shooterId == gameDataStore.userEntityId)
                         {
                             myBullAt = now;   // 내 10점 — 흔들림·번쩍임
@@ -360,7 +382,73 @@ namespace LOP.UI
         {
             var line = narrator.LineFor(result, gameDataStore.userEntityId, out string subject, out int number);
             commentary.TrySay(line, NameOf(subject), number, now);
+
+            //  10점 이벤트엔 순위가 없다 — 결과의 순위로 가장 잘한 10점 사수를 고른다.
+            foreach (var id in roundBulls)
+            {
+                foreach (var p in result.placements)
+                {
+                    if (p.ShooterId == id)
+                    {
+                        cutIns.OnBull(id, p.Rank);
+                    }
+                }
+            }
+            roundBulls.Clear();
+            string comeback = line == ArcheryLine.Comeback ? subject : null;
+            string last = result.roundIndex == course.StepCount - 1 ? BottomScorer() : null;
+            pendingCutIn = ArcheryCutInPicker.Pick(cutIns.Take(comeback, last), cutInsUsed, drawing: false);
         }
+
+        //  결과가 보이기 시작하는 프레임에 한 번 — 당기는 중이면 버린다(조작 중엔 절대 안 뜬다).
+        private void UpdateCutIn()
+        {
+            bool opened = ResultVisible && lastResultVisible == false;
+            lastResultVisible = ResultVisible;
+            if (opened && pendingCutIn.Kind != ArcheryCutInKind.None)
+            {
+                var pick = ArcheryCutInPicker.Pick(Single(pendingCutIn), cutInsUsed, IsMeDrawing());
+                if (pick.Kind != ArcheryCutInKind.None)
+                {
+                    shownCutIn = pick;
+                    cutInAt = now;
+                    cutInsUsed++;
+                    CutInShout = ArcheryGrandTitles.Shout(pick.Kind);
+                    CutInName = ArcheryGrandTitles.Name(pick.Kind, n => UnityEngine.Random.Range(0, n));
+                    var colors = ChibiOutfit.ColorsFor(pick.SubjectId);
+                    CutInSkin = colors.Skin;
+                    CutInHair = colors.Hair;
+                }
+            }
+            if (opened)
+            {
+                pendingCutIn = ArcheryCutInPick.None;
+            }
+            float t = now - cutInAt;
+            CutInVisible = ArcheryCutInTimeline.IsActive(t);
+            CutInSlideX = ArcheryCutInTimeline.SlideX(t);
+            CutInShake = ArcheryCutInTimeline.Shake(t);
+            if (freeze != null)
+            {
+                freeze.Weight = ArcheryCutInTimeline.Freeze(t);
+            }
+        }
+
+        private static ArcheryCutInCandidates Single(ArcheryCutInPick pick)
+        {
+            var c = new ArcheryCutInCandidates();
+            switch (pick.Kind)
+            {
+                case ArcheryCutInKind.Comeback: c.ComebackId = pick.SubjectId; break;
+                case ArcheryCutInKind.RobinHood: c.RobinHoodId = pick.SubjectId; break;
+                case ArcheryCutInKind.Bull: c.BullId = pick.SubjectId; break;
+                case ArcheryCutInKind.LastPlace: c.LastPlaceId = pick.SubjectId; break;
+            }
+            return c;
+        }
+
+        private bool IsMeDrawing()
+            => entityRegistry.Get(gameDataStore.userEntityId)?.Get<ArcheryAim>()?.Drawing == true;
 
         private void OnLanded(ArcheryArrowLanding landing)
         {
@@ -371,6 +459,7 @@ namespace LOP.UI
             else if (landing.Kind == ArcheryLandingKind.Target && landing.SplitArrow)
             {
                 commentary.TrySay(ArcheryLine.RobinHood, NameOf(landing.ShooterId), 0, now);
+                cutIns.OnRobinHood(landing.ShooterId);
             }
         }
 
@@ -423,8 +512,34 @@ namespace LOP.UI
             return best;
         }
 
+        //  총점 꼴찌. 동점이면 id 서수가 뒤인 사람(1등 고르기와 반대 방향).
+        private string BottomScorer()
+        {
+            string worst = null;
+            int worstScore = int.MaxValue;
+            foreach (var entity in entityRegistry.All)
+            {
+                var score = entity.Get<ArcheryScore>();
+                if (score == null)
+                {
+                    continue;
+                }
+                if (score.Value < worstScore
+                    || (score.Value == worstScore && string.CompareOrdinal(entity.Id, worst) > 0))
+                {
+                    worst = entity.Id;
+                    worstScore = score.Value;
+                }
+            }
+            return worst;
+        }
+
         public void Dispose()
         {
+            if (freeze != null)
+            {
+                freeze.Weight = 0f;
+            }
             subscription?.Dispose();
             landings.Landed -= OnLanded;
             chickenView.Scared -= OnChickenScared;

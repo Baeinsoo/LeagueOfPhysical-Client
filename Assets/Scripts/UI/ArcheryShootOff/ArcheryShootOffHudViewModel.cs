@@ -46,11 +46,10 @@ namespace LOP.UI
         private readonly ArcheryCutInFreeze freeze;
         private readonly ArcheryCutInCollector cutIns = new ArcheryCutInCollector();
         private readonly List<string> roundBulls = new List<string>();
-        private ArcheryCutInPick pendingCutIn = ArcheryCutInPick.None;
-        private ArcheryCutInPick shownCutIn = ArcheryCutInPick.None;
+        private readonly ArcheryCutInTrigger cutInTrigger = new ArcheryCutInTrigger();
+        private readonly ArcheryShootOffTotals totals = new ArcheryShootOffTotals();
         private int cutInsUsed;
         private float cutInAt = float.NegativeInfinity;
-        private bool lastResultVisible;
 
         public bool CutInVisible { get; private set; }
         public float CutInSlideX { get; private set; }
@@ -396,33 +395,24 @@ namespace LOP.UI
             }
             roundBulls.Clear();
             string comeback = line == ArcheryLine.Comeback ? subject : null;
-            string last = result.roundIndex == course.StepCount - 1 ? BottomScorer() : null;
-            pendingCutIn = ArcheryCutInPicker.Pick(cutIns.Take(comeback, last), cutInsUsed, drawing: false);
+            totals.Add(result.placements, id => entityRegistry.Get(id)?.Get<ArcheryScore>()?.Value ?? 0);
+            string last = result.roundIndex == course.StepCount - 1 ? totals.Bottom() : null;
+            cutInTrigger.OnResult(ArcheryCutInPicker.Pick(cutIns.Take(comeback, last), cutInsUsed, drawing: false));
         }
 
-        //  결과가 보이기 시작하는 프레임에 한 번 — 당기는 중이면 버린다(조작 중엔 절대 안 뜬다).
+        //  결과가 보이기 시작하는 프레임에 한 번 — 당기는 중이면 버린다(조작 중엔 절대 안 뜬다, ArcheryCutInTrigger).
         private void UpdateCutIn()
         {
-            bool opened = ResultVisible && lastResultVisible == false;
-            lastResultVisible = ResultVisible;
-            if (opened && pendingCutIn.Kind != ArcheryCutInKind.None)
+            var pick = cutInTrigger.Tick(ResultVisible, IsMeDrawing(), cutInsUsed);
+            if (pick.Kind != ArcheryCutInKind.None)
             {
-                var pick = ArcheryCutInPicker.Pick(Single(pendingCutIn), cutInsUsed, IsMeDrawing());
-                if (pick.Kind != ArcheryCutInKind.None)
-                {
-                    shownCutIn = pick;
-                    cutInAt = now;
-                    cutInsUsed++;
-                    CutInShout = ArcheryGrandTitles.Shout(pick.Kind);
-                    CutInName = ArcheryGrandTitles.Name(pick.Kind, n => UnityEngine.Random.Range(0, n));
-                    var colors = ChibiOutfit.ColorsFor(pick.SubjectId);
-                    CutInSkin = colors.Skin;
-                    CutInHair = colors.Hair;
-                }
-            }
-            if (opened)
-            {
-                pendingCutIn = ArcheryCutInPick.None;
+                cutInAt = now;
+                cutInsUsed++;
+                CutInShout = ArcheryGrandTitles.Shout(pick.Kind);
+                CutInName = ArcheryGrandTitles.Name(pick.Kind, n => UnityEngine.Random.Range(0, n));
+                var colors = ChibiOutfit.ColorsFor(pick.SubjectId);
+                CutInSkin = colors.Skin;
+                CutInHair = colors.Hair;
             }
             float t = now - cutInAt;
             CutInVisible = ArcheryCutInTimeline.IsActive(t);
@@ -432,19 +422,6 @@ namespace LOP.UI
             {
                 freeze.Weight = ArcheryCutInTimeline.Freeze(t);
             }
-        }
-
-        private static ArcheryCutInCandidates Single(ArcheryCutInPick pick)
-        {
-            var c = new ArcheryCutInCandidates();
-            switch (pick.Kind)
-            {
-                case ArcheryCutInKind.Comeback: c.ComebackId = pick.SubjectId; break;
-                case ArcheryCutInKind.RobinHood: c.RobinHoodId = pick.SubjectId; break;
-                case ArcheryCutInKind.Bull: c.BullId = pick.SubjectId; break;
-                case ArcheryCutInKind.LastPlace: c.LastPlaceId = pick.SubjectId; break;
-            }
-            return c;
         }
 
         private bool IsMeDrawing()
@@ -510,28 +487,6 @@ namespace LOP.UI
                 }
             }
             return best;
-        }
-
-        //  총점 꼴찌. 동점이면 id 서수가 뒤인 사람(1등 고르기와 반대 방향).
-        private string BottomScorer()
-        {
-            string worst = null;
-            int worstScore = int.MaxValue;
-            foreach (var entity in entityRegistry.All)
-            {
-                var score = entity.Get<ArcheryScore>();
-                if (score == null)
-                {
-                    continue;
-                }
-                if (score.Value < worstScore
-                    || (score.Value == worstScore && string.CompareOrdinal(entity.Id, worst) > 0))
-                {
-                    worst = entity.Id;
-                    worstScore = score.Value;
-                }
-            }
-            return worst;
         }
 
         public void Dispose()

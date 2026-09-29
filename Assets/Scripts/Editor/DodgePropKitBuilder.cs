@@ -37,11 +37,12 @@ namespace LOP.EditorTools
             kit.melonMaterial = Toon("Toon_DodgeMelon", Color.white, StripeTexture());
             kit.ropeMaterial = Toon("Toon_DodgeRope", Hex("#F5E6C8"));
 
-            kit.warn = Overlay("Dodge_Warn", new Color(1f, 0.82f, 0.4f, 0.35f));
+            // 예고는 보라 — 노랑·주황은 나무 바닥에 섞이면 묻힌다. 켜지면(과즙·열기) 빨강.
+            kit.warn = Overlay("Dodge_Warn", new Color(0.6f, 0.35f, 1f, 0.45f));
             kit.shadow = Overlay("Dodge_Shadow", new Color(0f, 0f, 0f, 0.3f));
             kit.juice = Overlay("Dodge_Juice", new Color(1f, 0.31f, 0.37f, 0.8f));
             kit.hot = Overlay("Dodge_Hot", new Color(1f, 0.25f, 0.2f, 0.85f));
-            kit.tileWarm = Overlay("Dodge_TileWarm", new Color(1f, 0.7f, 0.28f, 0.45f));
+            kit.tileWarm = Overlay("Dodge_TileWarm", new Color(0.6f, 0.35f, 1f, 0.45f));
             kit.tileHot = Overlay("Dodge_TileHot", new Color(1f, 0.23f, 0.19f, 0.8f));
             EditorUtility.SetDirty(kit);
             AssetDatabase.SaveAssets();

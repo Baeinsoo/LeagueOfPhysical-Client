@@ -52,5 +52,22 @@ namespace LOP.Tests
                 Assert.GreaterOrEqual(d * 360f, 30f, m.name + "이(가) 바닥 색과 겹친다");
             }
         }
+
+        // 예고는 반투명으로 바닥 위에 깔린다 — 바닥과 섞인 색이 바닥과 색상(hue)이 가까우면 안 보인다(노란 예고가 그랬다).
+        [Test]
+        public void 예고_색은_바닥에_깔려도_보인다()
+        {
+            var kit = AssetDatabase.LoadAssetAtPath<DodgePropKit>("Assets/Dodge/Props/DodgePropKit.asset");
+            var court = AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/Dodge/Toon_DodgeCourt.mat");
+            Color floor = court.GetColor("_BaseColor");
+            Color.RGBToHSV(floor, out float floorHue, out _, out _);
+            foreach (var m in new[] { kit.warn, kit.tileWarm })
+            {
+                Color c = m.color;
+                Color.RGBToHSV(Color.Lerp(floor, c, c.a), out float h, out _, out _);
+                float d = Mathf.Abs(h - floorHue); d = Mathf.Min(d, 1f - d);
+                Assert.GreaterOrEqual(d * 360f, 30f, m.name + "이(가) 바닥에 묻힌다");
+            }
+        }
     }
 }

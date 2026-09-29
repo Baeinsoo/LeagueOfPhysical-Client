@@ -942,6 +942,8 @@ namespace LOP.EditorTools
             material.SetFloat("_Cull", 0f);
             material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             material.SetOverrideTag("RenderType", "Transparent");
+            //  URP는 불러올 때 큐를 Transparent + _QueueOffset으로 다시 맞춘다 — renderQueue만 바꾸면 3000으로 돌아간다.
+            material.SetFloat("_QueueOffset", queueOffset);
             material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent + queueOffset;
             if (AssetDatabase.IsValidFolder(FieldMaterialFolder) == false)
             {

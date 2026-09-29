@@ -31,6 +31,30 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 처음_나타났을_때_잡은_점수에서_센다()
+        {
+            //  첫 결과 패킷이 늦어(재전송) 점수 스냅샷이 먼저 왔다 — 결과 순간의 점수엔 이미 이번 라운드가 들어 있다.
+            var totals = new ArcheryShootOffTotals();
+            totals.Seed("A", 0);
+            totals.Seed("B", 0);
+            var already = new Dictionary<string, int> { ["A"] = 3, ["B"] = 9 };
+            totals.Add(new List<ArcheryRoundPlacement> { P("B", 0, 9), P("A", 1, 3) }, id => already[id]);
+            totals.Add(new List<ArcheryRoundPlacement> { P("A", 0, 10), P("B", 1, 0) }, id => already[id]);
+            Assert.AreEqual("B", totals.Bottom());   // A 13 · B 9 (두 번 세면 A 16 · B 18 → A가 꼴찌로 잘못)
+        }
+
+        [Test]
+        public void 나중에_잡아도_처음_값을_지킨다()
+        {
+            var totals = new ArcheryShootOffTotals();
+            totals.Seed("A", 0);
+            totals.Seed("A", 50);
+            totals.Add(new List<ArcheryRoundPlacement> { P("A", 0, 1) }, id => 99);
+            totals.Add(new List<ArcheryRoundPlacement> { P("B", 0, 5) }, id => 99);
+            Assert.AreEqual("A", totals.Bottom());   // A 1 · B 104
+        }
+
+        [Test]
         public void 결과가_열리는_순간에만_한_번()
         {
             var trigger = new ArcheryCutInTrigger();

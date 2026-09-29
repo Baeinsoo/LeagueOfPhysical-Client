@@ -141,6 +141,7 @@ namespace LOP.UI
             long tick = (long)Math.Floor(renderTick);
             long start = world.GameplayStartTick;
             ResultVisible = resultTracker.IsShowing(renderTick);
+            SeedTotals();
             UpdateCutIn();
             UpdateIntro(renderTick, start);
 
@@ -421,6 +422,19 @@ namespace LOP.UI
             if (freeze != null)
             {
                 freeze.Weight = ArcheryCutInTimeline.Freeze(t);
+            }
+        }
+
+        //  사수가 처음 보이는 프레임의 점수가 총점 출발점(판 시작이면 0).
+        private void SeedTotals()
+        {
+            foreach (var entity in entityRegistry.All)
+            {
+                var score = entity.Get<ArcheryScore>();
+                if (score != null)
+                {
+                    totals.Seed(entity.Id, score.Value);
+                }
             }
         }
 

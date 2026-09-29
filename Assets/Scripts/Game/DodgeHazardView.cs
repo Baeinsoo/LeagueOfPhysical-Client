@@ -6,34 +6,34 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// 위험을 그린다. 판정과 같은 식에 **내 몸이 그려지는 틱**을 넣으므로, 보이는 것이 곧 서버 판정이다.
-    /// 틱(50Hz)으로만 그리면 탄이 계단처럼 움직여서, 움직이는 원은 한 틱 전 자리와 지금 자리 사이를 섞는다.
+    /// 위험의 바닥 층 — "어디가 위험한가"를 읽히게 하는 반투명 표시(그림자·과즙 원·줄 자리·온돌 칸·예고).
+    /// 테마 물건(슬리퍼·수박·장독·줄)은 <see cref="DodgePropView"/>가 따로 그린다.
+    /// 판정과 같은 식에 **내 몸이 그려지는 틱**을 넣으므로, 보이는 것이 곧 서버 판정이다.
     /// MonoBehaviour가 아니다 — 서버 씬에서 빠진 스크립트가 되지 않게(SkydiveLaserView와 같은 이유).
     /// </summary>
     public class DodgeHazardView : ILateTickable, IDisposable
     {
-        private static readonly Color WarnColor = new Color(1f, 0.82f, 0.2f, 0.35f);
-        private static readonly Color HotColor = new Color(1f, 0.25f, 0.2f, 0.9f);
-        private static readonly Color BulletColor = new Color(1f, 0.95f, 0.98f, 1f);
-
         private readonly GameFramework.Runner.IRunner runner;
         private readonly DodgeClientState state;
         private readonly DodgeConfig config;
+        private readonly DodgePropKit kit;
         private readonly List<DodgeShape> shapes = new List<DodgeShape>();
-        private readonly List<Renderer> pool = new List<Renderer>();
+        // 모양별로 나눈 풀 — 한 풀을 번갈아 쓰면 칸 수가 바뀔 때마다 부수고 다시 만든다.
+        private readonly List<Renderer> discs = new List<Renderer>();
+        private readonly List<Renderer> boxes = new List<Renderer>();
         private GameObject root;
-        private Material warn, hot, bullet;
 
-        public DodgeHazardView(GameFramework.Runner.IRunner runner, DodgeClientState state, DodgeConfig config)
+        public DodgeHazardView(GameFramework.Runner.IRunner runner, DodgeClientState state, DodgeConfig config, DodgePropKit kit)
         {
             this.runner = runner;
             this.state = state;
             this.config = config;
+            this.kit = kit;
         }
 
         public void LateTick()
         {
-            if (runner?.tickUpdater == null)
+            if (kit == null || runner?.tickUpdater == null)
             {
                 return;
             }
@@ -53,17 +53,21 @@ namespace LOP
                 DodgeHazards.Shapes(p, tick, config, shapes);
             }
 
-            EnsureRoot();
-            int used = 0;
+            root ??= new GameObject("DodgeHazards");
+            int usedDiscs = 0, usedBoxes = 0;
             foreach (var s in shapes)
             {
-                var r = Take(used++, PrimitiveFor(s, config));
+                if (!DodgePropPose.DrawnOnGround(s))
+                {
+                    continue;   // 슬리퍼·굴러가는 장독은 물건 층
+                }
+                var r = s.Type == DodgeShapeType.Circle
+                    ? Take(discs, usedDiscs++, PrimitiveType.Cylinder)
+                    : Take(boxes, usedBoxes++, PrimitiveType.Cube);
                 Place(r, s, frac);
             }
-            for (int i = used; i < pool.Count; i++)
-            {
-                pool[i].enabled = false;
-            }
+            for (int i = usedDiscs; i < discs.Count; i++) discs[i].enabled = false;
+            for (int i = usedBoxes; i < boxes.Count; i++) boxes[i].enabled = false;
         }
 
         // 몸은 틱 T의 결과를 시각 T에 두고 T→T+1을 섞는다. 도형 틱 T+1은 X1=b(T), X0=b(T+1)이라
@@ -78,17 +82,9 @@ namespace LOP
         public static Vector2 CircleCenter(DodgeShape s, float frac) =>
             new Vector2(Mathf.Lerp(s.X1, s.X0, frac), Mathf.Lerp(s.Z1, s.Z0, frac));
 
-        // 판정이 원이면 원기둥(납작한 원판)으로 — 큐브면 네 모서리가 "보이는데 안 맞는" 자리가 된다.
-        public static PrimitiveType PrimitiveFor(DodgeShape s, DodgeConfig config)
-        {
-            if (IsBullet(s, config)) return PrimitiveType.Sphere;
-            return s.Type == DodgeShapeType.Circle ? PrimitiveType.Cylinder : PrimitiveType.Cube;
-        }
-
-        private bool IsBullet(DodgeShape s) => IsBullet(s, config);
-
-        private static bool IsBullet(DodgeShape s, DodgeConfig config) =>
-            s.Type == DodgeShapeType.Circle && s.Active && s.Radius <= config.BulletRadius + 1e-4f;
+        // 판정이 원이면 원기둥(납작한 원판)으로 — 상자면 네 모서리가 "보이는데 안 맞는" 자리가 된다.
+        public static PrimitiveType GroundPrimitive(DodgeShapeType type) =>
+            type == DodgeShapeType.Circle ? PrimitiveType.Cylinder : PrimitiveType.Cube;
 
         private void Place(Renderer r, DodgeShape s, float frac)
         {
@@ -98,41 +94,32 @@ namespace LOP
             {
                 case DodgeShapeType.Circle:
                 {
-                    // 움직이는 원은 한 틱 전 → 지금 사이를 frac만큼 섞어 부드럽게(ShapeTick 참고).
+                    // 폭탄: 예고는 커지는 수박 그림자, 켜지면 과즙 원. 바위: 들어올 자리의 예고 원.
                     var c = CircleCenter(s, frac);
-                    float x = c.x, z = c.y;
-                    if (IsBullet(s))
-                    {
-                        r.sharedMaterial = bullet;
-                        t.position = new Vector3(x, 0.6f, z);
-                        t.rotation = Quaternion.identity;
-                        t.localScale = Vector3.one * (s.Radius * 2f);
-                    }
-                    else
-                    {
-                        // 예고는 차오르는 원판, 켜지면 붉은 원판. 두께는 얇게 — 바닥 위에 깔린다.
-                        r.sharedMaterial = s.Active ? hot : warn;
-                        float d = s.Radius * 2f * (s.Active ? 1f : Mathf.Max(0.15f, s.Progress));
-                        t.position = new Vector3(x, 0.03f, z);
-                        t.rotation = Quaternion.identity;
-                        t.localScale = new Vector3(d, 0.02f, d);   // 원기둥 높이는 2 — 두께 0.04
-                    }
+                    bool bomb = s.Kind == DodgePatternKind.Bomb;
+                    r.sharedMaterial = s.Active ? kit.juice : bomb ? kit.shadow : kit.warn;
+                    float d = s.Radius * 2f * (s.Active ? 1f : Mathf.Max(0.15f, s.Progress));
+                    t.position = new Vector3(c.x, 0.03f, c.y);
+                    t.rotation = Quaternion.identity;
+                    t.localScale = new Vector3(d, 0.02f, d);   // 원기둥 높이는 2 — 두께 0.04
                     break;
                 }
                 case DodgeShapeType.Segment:
                 {
-                    var a = new Vector3(s.X0, 0.4f, s.Z0);
-                    var b = new Vector3(s.X1, 0.4f, s.Z1);
-                    r.sharedMaterial = s.Active ? hot : warn;
+                    // 줄넘기 자리: 예고는 가는 선, 켜지면 판정 폭 그대로의 빨간 띠. 줄 자체는 물건 층.
+                    var a = new Vector3(s.X0, 0.04f, s.Z0);
+                    var b = new Vector3(s.X1, 0.04f, s.Z1);
+                    r.sharedMaterial = s.Active ? kit.hot : kit.warn;
                     float width = s.Active ? s.Radius * 2f : 0.08f + 0.12f * s.Progress;
                     t.position = (a + b) * 0.5f;
                     t.rotation = Quaternion.LookRotation(b - a, Vector3.up);
-                    t.localScale = new Vector3(width, s.Active ? 0.6f : 0.05f, (b - a).magnitude);
+                    t.localScale = new Vector3(width, 0.05f, (b - a).magnitude);
                     break;
                 }
                 case DodgeShapeType.Rect:
                 {
-                    r.sharedMaterial = s.Active ? hot : warn;
+                    // 온돌: 노랗게 따뜻해졌다가 빨갛게 달아오른다.
+                    r.sharedMaterial = s.Active ? kit.tileHot : kit.tileWarm;
                     t.position = new Vector3((s.X0 + s.X1) * 0.5f, 0.02f, (s.Z0 + s.Z1) * 0.5f);
                     t.rotation = Quaternion.identity;
                     t.localScale = new Vector3((s.X1 - s.X0) * 0.96f, 0.02f, (s.Z1 - s.Z0) * 0.96f);
@@ -141,21 +128,11 @@ namespace LOP
             }
         }
 
-        private Renderer Take(int index, PrimitiveType type)
+        private Renderer Take(List<Renderer> pool, int index, PrimitiveType type)
         {
-            while (pool.Count <= index)
+            if (index < pool.Count)
             {
-                pool.Add(null);
-            }
-            var r = pool[index];
-            // 기본 도형 메시 이름은 PrimitiveType 이름과 같다(Sphere/Cylinder/Cube).
-            if (r != null && r.GetComponent<MeshFilter>().sharedMesh.name == type.ToString())
-            {
-                return r;
-            }
-            if (r != null)
-            {
-                UnityEngine.Object.Destroy(r.gameObject);
+                return pool[index];
             }
             var go = GameObject.CreatePrimitive(type);
             go.name = "DodgeHazard";
@@ -166,51 +143,22 @@ namespace LOP
                 UnityEngine.Object.Destroy(collider);
             }
             go.transform.SetParent(root.transform, worldPositionStays: false);
-            r = go.GetComponent<Renderer>();
-            pool[index] = r;
+            var r = go.GetComponent<Renderer>();
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            pool.Add(r);
             return r;
-        }
-
-        private void EnsureRoot()
-        {
-            if (root != null)
-            {
-                return;
-            }
-            root = new GameObject("DodgeHazards");
-            var shader = Shader.Find("Universal Render Pipeline/Unlit");
-            warn = MakeTransparent(shader, WarnColor);
-            hot = MakeTransparent(shader, HotColor);
-            bullet = new Material(shader) { color = BulletColor };
-        }
-
-        // URP Unlit을 반투명으로 — 예고가 바닥과 캐릭터를 가리지 않게.
-        private static Material MakeTransparent(Shader shader, Color color)
-        {
-            var m = new Material(shader) { color = color };
-            m.SetFloat("_Surface", 1f);
-            m.SetFloat("_Blend", 0f);
-            m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            m.SetInt("_ZWrite", 0);
-            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-            return m;
         }
 
         public void Dispose()
         {
-            pool.Clear();
+            discs.Clear();
+            boxes.Clear();
             if (root != null)
             {
                 UnityEngine.Object.Destroy(root);
                 root = null;
             }
-            // SkydiveLaserView는 머티리얼을 안 지워 샌다 — 여기선 지운다.
-            if (warn != null) UnityEngine.Object.Destroy(warn);
-            if (hot != null) UnityEngine.Object.Destroy(hot);
-            if (bullet != null) UnityEngine.Object.Destroy(bullet);
-            warn = hot = bullet = null;
+            // 재질은 키트 에셋이라 지우지 않는다.
         }
     }
 }

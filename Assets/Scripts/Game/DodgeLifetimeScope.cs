@@ -44,6 +44,8 @@ namespace LOP
             builder.RegisterEntryPoint<DodgeHazardView>().AsSelf();
             // 무적 동안 몸을 깜빡인다 — 서버가 보낸 무적 끝 틱으로(판정은 서버).
             builder.RegisterEntryPoint<DodgeBlinkView>();
+            // 테마 물건 층(슬리퍼·수박·장독·줄·거인). 바닥 층과 같은 도형·같은 렌더 틱.
+            builder.RegisterEntryPoint<DodgePropView>();
 
             builder.RegisterEntryPoint<DodgeHudCoordinator>();
             builder.Register<DodgePadViewModel>(Lifetime.Transient);

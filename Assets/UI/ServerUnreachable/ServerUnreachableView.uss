@@ -1,0 +1,30 @@
+/* 색·테두리·라운드는 Theme.uss의 .card/.btn/.title이 담당한다. 로그인 화면과 같은 배경·크기. */
+.unreachable-root {
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+    background-image: url("../Title/title_screen.png");
+    -unity-background-scale-mode: scale-and-crop;
+}
+
+.unreachable-card {
+    width: 760px;
+}
+
+.unreachable-title {
+    font-size: 52px;
+    margin-bottom: 24px;
+}
+
+.unreachable-message {
+    font-size: 30px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    margin-bottom: 12px;
+}
+
+.unreachable-button {
+    height: 108px;
+    margin-top: 20px;
+    font-size: 38px;
+}

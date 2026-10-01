@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="unreachable-root" class="unreachable-root">
+        <ui:VisualElement class="card unreachable-card">
+            <ui:Label text="연결 실패" class="title unreachable-title" />
+            <ui:Label name="unreachable-message" text="" class="unreachable-message" />
+            <ui:Button name="unreachable-retry" text="다시 시도" class="btn btn--primary unreachable-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

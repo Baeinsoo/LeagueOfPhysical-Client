@@ -64,7 +64,7 @@ namespace LOP.UI
             catch (Exception exception)
             {
                 //  실패해도 결과를 확정하지 않는다 — 확정하면 모달이 닫히고 사용자가 다시 시도할 수 없다.
-                SetError("로그인에 실패했습니다. 다시 시도해 주세요.");
+                SetError(ErrorTextFor(exception));
                 UnityEngine.Debug.LogError(exception);
             }
             finally
@@ -74,6 +74,12 @@ namespace LOP.UI
                 SetBusy(false);
             }
         }
+
+        /// <summary>서버에 아예 닿지 못한 실패(응답 코드 없음)는 "로그인 실패"가 아니다 — 서버가 꺼졌는데 계정 문제처럼 보이지 않게.</summary>
+        public static string ErrorTextFor(Exception exception)
+            => ConnectionFailure.Is(exception)
+                ? "서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."
+                : "로그인에 실패했습니다. 다시 시도해 주세요.";
 
         private void SetError(string message)
         {

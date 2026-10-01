@@ -10,9 +10,12 @@ namespace LOP
         private readonly IWindowManager windowManager;
         private readonly AuthenticationService authenticationService;
         private readonly IUserDataStore userDataStore;
+        private readonly ServerGate serverGate;
 
-        public LoginComponent(IWindowManager windowManager, AuthenticationService authenticationService, IUserDataStore userDataStore)
+        public LoginComponent(IWindowManager windowManager, AuthenticationService authenticationService, IUserDataStore userDataStore,
+                              ServerGate serverGate)
         {
+            this.serverGate = serverGate;
             this.windowManager = windowManager;
             this.authenticationService = authenticationService;
             this.userDataStore = userDataStore;
@@ -38,16 +41,24 @@ namespace LOP
                 return null;
             }
 
-            try
+            while (true)
             {
-                return await authenticationService.SignInAsync(AuthProvider.Anonymous);
-            }
-            catch (Exception exception)
-            {
-                //  네트워크 실패 등 — 팝업으로 넘겨 사용자가 재시도할 수 있게 한다. 원인이
-                //  오프라인/서버다운/진짜 거부 중 무엇인지 콘솔에 남겨 나중에 구분할 수 있게 한다.
-                UnityEngine.Debug.LogWarning($"[Auth] 조용한 자동 로그인 실패, 로그인 팝업으로 넘어갑니다: {exception}");
-                return null;
+                try
+                {
+                    return await authenticationService.SignInAsync(AuthProvider.Anonymous);
+                }
+                catch (Exception exception) when (ConnectionFailure.Is(exception))
+                {
+                    //  확인은 통과했는데 그 사이 서버가 내려갔다 — 로그인 팝업이 아니라 연결 팝업으로 돌아가 닿을 때까지 기다린 뒤 다시.
+                    UnityEngine.Debug.LogWarning($"[Auth] 자동 로그인 중 서버 연결이 끊겼습니다: {exception.Message}");
+                    await serverGate.EnsureReachableAsync();
+                }
+                catch (Exception exception)
+                {
+                    //  서버가 답했는데 실패(거부·서버 오류 등) — 팝업으로 넘겨 사용자가 다시 시도할 수 있게 한다.
+                    UnityEngine.Debug.LogWarning($"[Auth] 조용한 자동 로그인 실패, 로그인 팝업으로 넘어갑니다: {exception}");
+                    return null;
+                }
             }
         }
     }

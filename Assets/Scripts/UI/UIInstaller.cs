@@ -17,6 +17,12 @@ namespace LOP.UI
             builder.Register<LoginViewModel>(Lifetime.Transient);
             builder.Register<LoginView>(Lifetime.Transient);
 
+            //  로그인보다 먼저 — 서버에 닿는지 확인하고, 안 닿으면 [다시 시도] 팝업.
+            builder.Register(_ => new LOP.ServerReachability(), Lifetime.Singleton);
+            builder.Register<LOP.ServerGate>(Lifetime.Transient);
+            builder.Register<ServerUnreachableViewModel>(Lifetime.Transient);
+            builder.Register<ServerUnreachableView>(Lifetime.Transient);
+
             builder.Register<GameLoadingView>(Lifetime.Transient);
             builder.Register<MatchingWaitingView>(Lifetime.Transient);
             builder.Register<MatchmakingFailedView>(Lifetime.Transient);

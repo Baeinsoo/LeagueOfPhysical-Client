@@ -79,6 +79,31 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 꾸밈은_충돌체가_없고_메시는_에셋으로_남는다()
+        {
+            //  꾸밈(구름·덩굴·석상 눈·나무·울타리 빔)은 판정과 무관하다 — 충돌체가 있으면 보이지 않는 곳에서 몸이 걸린다.
+            //  코드로 만든 메시는 에셋으로 저장하지 않으면 씬을 다시 열 때 사라진다(원격 에셋·서버에서 빈 메시).
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.OpenScene(SkydivePyramidBuilder.ScenePath, UnityEditor.SceneManagement.OpenSceneMode.Additive);
+            try
+            {
+                var dressing = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<Transform>(true)).FirstOrDefault(t => t.name == "Dressing");
+                Assert.IsNotNull(dressing, "꾸밈이 없다");
+                Assert.AreEqual(0, dressing.GetComponentsInChildren<Collider>(true).Length);
+                var filters = dressing.GetComponentsInChildren<MeshFilter>(true);
+                Assert.Greater(filters.Length, 50);
+                foreach (var f in filters)
+                {
+                    Assert.IsNotNull(f.sharedMesh, f.name);
+                    Assert.IsTrue(UnityEditor.EditorUtility.IsPersistent(f.sharedMesh), f.name + " 메시가 저장되지 않았다");
+                }
+                //  판정 상자는 우리 툰 재질이다(회색 블록 아웃 끝).
+                var terrace = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<MeshRenderer>(true)).First(r => r.name.StartsWith("Terrace_"));
+                Assert.AreEqual("LOP/Toon", terrace.sharedMaterial.shader.name);
+            }
+            finally { UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true); }
+        }
+
+        [Test]
         public void 앞마당은_놀이_폭을_다_덮고_구멍이_없다()
         {
             var porch = SkydivePyramidLayout.Porch;

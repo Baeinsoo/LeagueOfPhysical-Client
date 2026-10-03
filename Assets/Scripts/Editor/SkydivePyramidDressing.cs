@@ -91,7 +91,8 @@ namespace LOP.EditorTools
                 {
                     BlockRim(root, h.X, h.Z, h.Half + 1.2f, t.Y + 1.5f + 0.6f);
                 }
-                Frame(root, $"TerraceEdge_{t.Y:0}", StoneDark, 0f, 0f, 99f, t.Y + 1.75f, 2f, 0.5f);
+                var pc = L.PlateCenter(System.Array.IndexOf(L.TerraceYs, t.Y) + 1);   // 판마다 중심이 다르다(나선)
+                Frame(root, $"TerraceEdge_{t.Y:0}", StoneDark, pc.x, pc.y, 98f, t.Y + 1.75f, 2f, 0.5f);
             }
             foreach (var t in L.ShaftLedges)
             {
@@ -187,7 +188,8 @@ namespace LOP.EditorTools
         {
             //  갱도를 감싼 섬 밑동 — 출구(450) 아래로 거꾸로 선 바위
             var cone = SaveMesh(LOP.SkydiveSceneryLayout.BuildCone(160f, 420f, 14), "IslandCone");
-            MeshObj(root, "IslandCone", cone, Rock, L.PorchOffset + new Vector3(0f, L.ExitY, 70f));
+            //  출구 구멍(앞마당 기준 z 70)의 낙하 기둥을 비켜 뒤쪽(z 250)에 — 덮으면 캐릭터가 바위 속으로 사라진다.
+            MeshObj(root, "IslandCone", cone, Rock, L.PorchOffset + new Vector3(0f, L.ExitY, 250f));
         }
 
         //  정글: 신전 광장(가운데) + 테두리 + 북쪽 작은 계단 신전 + 나무

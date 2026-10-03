@@ -42,8 +42,11 @@ namespace LOP.EditorTools
             return new Plate($"Plate{k}", c.x - PlateHalf, c.x + PlateHalf, c.y - PlateHalf, c.y + PlateHalf);
         }
 
-        /// <summary>제단 = 첫 빠른 구멍(익히기 구멍) 바로 위 — 어디로 뛰어내려도 그 구멍에 빠진다.</summary>
-        public static Vector2 AltarXZ => OnCircle(FastRadius, 1);
+        /// <summary>
+        /// 제단 = 익히기 구멍 바로 위 — 어디로 뛰어내려도 그 구멍에 빠진다. 반지름 45(빠른 원 60보다 안쪽): 60m 넓은 구멍의 바깥 가장자리가
+        /// 2800 안전한 구멍에 다이브(33m)로 닿지 않게(가장자리→안전 39m). 가운데에서 재는 길 검사는 이걸 못 본다(리뷰).
+        /// </summary>
+        public static Vector2 AltarXZ => OnCircle(45f, 1);
 
         /// <summary>앞마당·갱도·구름층·폭포는 v1 배치를 나선 끝(층 5) 자리로 옮긴 것.</summary>
         public static Vector3 PorchOffset => new Vector3(PlateCenter(5).x, 0f, PlateCenter(5).y);

@@ -151,11 +151,15 @@ namespace LOP.EditorTools
             foreach (var w in L.Winds) { CreateWindVolume(winds, w.Name, w.Center, w.Radius, w.Height, w.Wind, windAssets); }
             CreateCheckpointMarkers(root, L.SpawnY, L.RespawnPoints);
 
-            //  CreateCheckpointMarkers는 스폰 표식을 (0,spawnY,0)에 한 번 더 둔다 — 표에도 같은 값이 있어 같은 자리에 둘이 생긴다. 하나만 남긴다.
-            var seen = new HashSet<Vector3>();
+            //  CreateCheckpointMarkers는 스폰 표식을 (0,spawnY,0)에 하나 더 둔다 — 고도가 같은 표식이 둘이면 나중 것이 이겨,
+            //  순서가 바뀌면 공중(원점)에서 부활한다. 표의 자리와 다른 표식은 지운다.
             foreach (var m in root.GetComponentsInChildren<LOP.CheckpointMarker>())
             {
-                if (seen.Add(m.transform.position) == false) { Object.DestroyImmediate(m.gameObject); }
+                var pos = m.transform.position;
+                if (L.RespawnPoints.TryGetValue(pos.y, out var want) == false || (want - pos).sqrMagnitude > 0.01f)
+                {
+                    Object.DestroyImmediate(m.gameObject);
+                }
             }
 
             SkydivePyramidDressing.Dress(root);

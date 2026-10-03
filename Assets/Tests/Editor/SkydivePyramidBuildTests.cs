@@ -35,6 +35,55 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 위층_구멍_어디서도_안전한_구멍에_다이브로_못_닿는다()
+        {
+            //  길 검사는 구멍 가운데에서 잰다 — 넓은 구멍(익히기 60m)의 가장자리에서 다이브(33m)로 안전한 구멍에 닿으면 갈림길이 무너진다(리뷰).
+            const float diveReach = 34f;
+            for (int k = 1; k < L.Terraces.Length; k++)
+            {
+                foreach (var from in L.Terraces[k - 1].Holes)
+                {
+                    foreach (var to in L.Terraces[k].Holes.Where(h => h.HasDoor == false))
+                    {
+                        float gapX = Mathf.Max(0f, Mathf.Abs(from.X - to.X) - from.Half - to.Half);
+                        float gapZ = Mathf.Max(0f, Mathf.Abs(from.Z - to.Z) - from.Half - to.Half);
+                        Assert.Greater(new Vector2(gapX, gapZ).magnitude, diveReach,
+                            $"{L.Terraces[k - 1].Y:0} 구멍({from.X:0},{from.Z:0}) 가장자리에서 {L.Terraces[k].Y:0} 안전한 구멍({to.X:0},{to.Z:0})까지 다이브로 닿는다");
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void 꾸밈이_구멍_위를_가로지르거나_갱도_출구를_가리지_않는다()
+        {
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.OpenScene(SkydivePyramidBuilder.ScenePath, UnityEditor.SceneManagement.OpenSceneMode.Additive);
+            try
+            {
+                var renderers = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<MeshRenderer>(true)).ToArray();
+                //  판 둘레 띠는 그 판 위에만 — 옛 원점 기준 띠가 안전한 구멍 위를 다리처럼 가로질렀다.
+                foreach (var edge in renderers.Where(r => r.name.StartsWith("TerraceEdge_")))
+                {
+                    var c = edge.bounds.center;
+                    bool onSomePlate = Enumerable.Range(1, 4).Any(k => Mathf.Abs(c.x - L.PlateCenter(k).x) <= 101f && Mathf.Abs(c.z - L.PlateCenter(k).y) <= 101f
+                                                                     && Mathf.Abs(c.y - L.TerraceYs[k - 1]) < 5f);
+                    Assert.IsTrue(onSomePlate, $"{edge.name}가 판 밖에 떠 있다({c})");
+                }
+                //  갱도 출구 구멍의 낙하 기둥을 바위가 덮으면 캐릭터가 바위 속으로 사라진다.
+                var exit = L.ShaftLedges.Last().Holes[0];
+                var cone = renderers.First(r => r.name == "IslandCone").bounds;
+                bool overlap = cone.min.x < exit.X + exit.Half && cone.max.x > exit.X - exit.Half && cone.min.z < exit.Z + exit.Half && cone.max.z > exit.Z - exit.Half;
+                Assert.IsFalse(overlap, "섬 바위가 갱도 출구 낙하 기둥을 덮는다");
+                //  체크포인트 표식은 고도마다 하나, 3600은 제단 위.
+                var markers = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<LOP.CheckpointMarker>(true)).ToArray();
+                Assert.AreEqual(L.RespawnPoints.Count, markers.Length, "같은 고도에 표식이 둘이면 나중 것이 이긴다 — 순서가 바뀌면 공중에서 부활");
+                var top = markers.Single(m => Mathf.Approximately(m.transform.position.y, L.SpawnY));
+                Assert.AreEqual(L.AltarXZ.x, top.transform.position.x, 0.01f);
+            }
+            finally { UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true); }
+        }
+
+        [Test]
         public void 첫_테라스는_문_없는_큰_구멍_하나가_제단을_덮는다()
         {
             var first = L.Terraces[0];

@@ -28,18 +28,30 @@ namespace LOP.EditorTools
 
             // 다른 씬을 건드리지 않게 맵만 덧붙여 열고 저장한 뒤 닫는다.
             var scene = EditorSceneManager.OpenScene(MapPath, OpenSceneMode.Additive);
-            GameObject look = null;
+            GameObject look = null, thrower = null, wallN = null;
             foreach (var go in scene.GetRootGameObjects())
             {
                 switch (go.name)
                 {
                     case "ArenaLook": look = go; break;
+                    case "Thrower": thrower = go; break;
                     case "Floor": go.GetComponent<MeshRenderer>().sharedMaterial = court; break;
                     case "WallN": case "WallS": case "WallE": case "WallW":
+                        if (go.name == "WallN") wallN = go;
                         go.GetComponent<MeshRenderer>().sharedMaterial = wall; break;
                 }
             }
             if (look != null) Object.DestroyImmediate(look);
+
+            // 가운데 투척 심판의 몸 — 충돌만(그림은 클라 DodgePropView의 치비). 서버 진행기 Thrower(0,0)·시뮬 ThrowerRadius(0.45)와 같다.
+            if (thrower != null) Object.DestroyImmediate(thrower);
+            thrower = new GameObject("Thrower");
+            UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(thrower, scene);
+            if (wallN != null) thrower.layer = wallN.layer;   // 벽과 같은 층 — 이동이 같은 식으로 막힌다
+            var cap = thrower.AddComponent<CapsuleCollider>();
+            cap.radius = 0.45f;
+            cap.height = 2f;
+            cap.center = new Vector3(0f, 1f, 0f);
             look = new GameObject("ArenaLook");
             UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(look, scene);
 

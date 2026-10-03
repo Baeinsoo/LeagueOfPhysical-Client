@@ -593,6 +593,8 @@ namespace LOP.EditorTools
                 }
             }
 
+            CreateCheckpointMarkers(root.transform, LOP.SkydiveCourseLayout.SpawnY, LOP.SkydiveCourseLayout.RespawnPoints);
+
             EditorSceneManager.MarkSceneDirty(scene);
 
             //  어긋난 문이 있는데 "저장해라"로 끝내면 죽이는 상자와 보이는 상자가 갈린 씬이 그대로
@@ -841,6 +843,32 @@ namespace LOP.EditorTools
         /// <para>허브에는 회전을 넣지 않는다 — 패널 오프셋이 이미 <c>AxisAngle</c>로 월드 축 기준
         /// 방향을 잡으므로 부모가 또 돌면 자식 로컬 좌표가 두 번 꺾인다.</para>
         /// </summary>
+        //  체크포인트 표식 — 스폰 고도에도 하나 둔다. 빠지면 맨 위 선반이 스폰이 되어,
+        //  그 위에서 죽은 사람이 아래 선반으로 순간이동한다(이득).
+        internal static GameObject CreateCheckpointMarkers(Transform parent, float spawnY,
+                                                           IReadOnlyDictionary<float, Vector3> respawnPoints)
+        {
+            var root = new GameObject("Checkpoints");
+            if (parent != null)
+            {
+                root.transform.SetParent(parent, worldPositionStays: false);
+            }
+            Add(root.transform, $"Checkpoint_{spawnY:0}", new Vector3(0f, spawnY, 0f));
+            foreach (var pair in respawnPoints)
+            {
+                Add(root.transform, $"Checkpoint_{pair.Key:0}", pair.Value);
+            }
+            return root;
+
+            static void Add(Transform parent, string name, Vector3 position)
+            {
+                var go = new GameObject(name);
+                go.transform.SetParent(parent, worldPositionStays: false);
+                go.transform.localPosition = position;
+                go.AddComponent<LOP.CheckpointMarker>();
+            }
+        }
+
         internal static GameObject CreateDoorVolume(Transform parent, in DoorSpec spec, Material material)
         {
             var go = new GameObject(spec.Name);

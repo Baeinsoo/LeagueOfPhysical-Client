@@ -16,9 +16,9 @@ namespace LOP.EditorTools
         private const string MaterialDir = "Assets/Art/Materials/Pyramid";
         private const string MeshDir = "Assets/Art/Models/Pyramid";
 
-        public static Material Stone => Toon("Stone", "#D9B48A", topGrid: 5f);
-        public static Material StoneDark => Toon("StoneDark", "#A9825A");
-        public static Material Rock => Toon("Rock", "#B98F66");
+        public static Material Stone => Toon("Stone", "#D9B48A", topGrid: 8f, sideGrid: 4f);
+        public static Material StoneDark => Toon("StoneDark", "#A9825A", sideGrid: 4f);
+        public static Material Rock => Toon("Rock", "#B98F66", sideGrid: 7f);
         public static Material Jungle => Toon("Jungle", "#5FA35A");
         private static Material Moss => Toon("Moss", "#7DB46A");
         private static Material Vine => Toon("Vine", "#5E9E55");
@@ -37,6 +37,8 @@ namespace LOP.EditorTools
             Summit(root);
             PyramidFaces(root, rng);
             HoleRims(root);
+            SetPieceDetails(root, rng);
+            MossLumps(root, rng);
             LaserEyes(root);
             BoundaryBeams(root);
             Clouds(root, rng);
@@ -51,7 +53,7 @@ namespace LOP.EditorTools
         {
             float y = L.SpawnY;
             Frame(root, "AltarRim", StoneDark, 0f, 0f, L.AltarHalf, y + 1.6f, 2f, 0.6f);
-            float tz = 160f, ty = y + 60f;
+            float tz = 160f, ty = y;   // 맨 윗단 윗면(제단 높이) 위에 선다
             Prim(root, "Temple", PrimitiveType.Cube, Stone, new Vector3(0f, ty + 15f, tz), new Vector3(70f, 30f, 60f));
             Prim(root, "TempleRoof", PrimitiveType.Cube, StoneDark, new Vector3(0f, ty + 32f, tz), new Vector3(80f, 4f, 70f));
             Prim(root, "TempleDoor", PrimitiveType.Cube, Toon("Door", "#4A3A2C"), new Vector3(0f, ty + 9f, tz - 30.2f), new Vector3(12f, 18f, 1f));
@@ -64,29 +66,30 @@ namespace LOP.EditorTools
         //  계단 단 앞면(남쪽, z=100): 위 끝 문양 띠 + 늘어진 덩굴
         private static void PyramidFaces(Transform root, System.Random rng)
         {
-            float[] tops = { L.SpawnY + 60f, 3200f, 2800f, 2400f };
+            float[] tops = { L.SpawnY, 3200f, 2800f, 2400f };
             for (int i = 0; i < tops.Length; i++)
             {
                 float w = 200f + 2f * 60f * i;
                 Prim(root, $"TierBand_{i}", PrimitiveType.Cube, StoneDark, new Vector3(0f, tops[i] - 3f, 99f), new Vector3(w + 1f, 4f, 3f));
                 Prim(root, $"TierBand2_{i}", PrimitiveType.Cube, Moss, new Vector3(0f, tops[i] - 8f, 99.5f), new Vector3(w + 0.5f, 1.2f, 2f));
-                for (int k = 0; k < 12; k++)
+                for (int k = 0; k < 26; k++)
                 {
                     float x = ((float)rng.NextDouble() * 2f - 1f) * (w * 0.5f - 6f);
-                    float len = 15f + (float)rng.NextDouble() * 55f;
-                    Prim(root, $"Vine_{i}_{k}", PrimitiveType.Cube, Vine, new Vector3(x, tops[i] - 6f - len * 0.5f, 99.4f), new Vector3(1.2f, len, 1.2f));
+                    float len = 20f + (float)rng.NextDouble() * 90f;
+                    Prim(root, $"Vine_{i}_{k}", PrimitiveType.Cube, Vine, new Vector3(x, tops[i] - 6f - len * 0.5f, 98.8f), new Vector3(2.4f, len, 2.4f));
+                    Prim(root, $"VineLeaf_{i}_{k}", PrimitiveType.Sphere, Moss, new Vector3(x, tops[i] - 6f - len, 98.5f), new Vector3(5f, 4f, 3f));
                 }
             }
         }
 
-        //  구멍 = 신전 우물: 짙은 돌 테두리. 판 가장자리에도 띠. 높이 0.5 — 걸어 지나가도 거슬리지 않게 낮게.
+        //  구멍 = 신전 우물: 덩어리 돌 테두리(시안처럼 블록이 하나씩 보이게, 사암·짙은 사암 번갈아). 높이 1.2 — 낮게.
         private static void HoleRims(Transform root)
         {
             foreach (var t in L.Terraces)
             {
                 foreach (var h in t.Holes)
                 {
-                    Frame(root, $"Well_{t.Y:0}_{h.X:0}_{h.Z:0}", StoneDark, h.X, h.Z, h.Half + 1f, t.Y + 1.75f, 2f, 0.5f);
+                    BlockRim(root, h.X, h.Z, h.Half + 1.2f, t.Y + 1.5f + 0.6f);
                 }
                 Frame(root, $"TerraceEdge_{t.Y:0}", StoneDark, 0f, 0f, 99f, t.Y + 1.75f, 2f, 0.5f);
             }
@@ -114,15 +117,16 @@ namespace LOP.EditorTools
         //  경계 = 세로 레이저 울타리(파킹된 경계 아이디어 1번). 판정 벽은 빌더가 그대로 두고 그림만 이것으로.
         private static void BoundaryBeams(Transform root)
         {
-            var beam = Unlit("FenceBeam", LOP.SkydiveLaserView.LitColor * 0.8f);
+            //  놀이 칸 둘레(±104)에만, 40m 간격으로 성기게 — 북쪽 끝까지 촘촘히 세웠더니 화면이 붉은 우리가 됐다(10-03 캡처).
+            var beam = Unlit("FenceBeam", new Color(1f, 0.3f, 0.35f));
             foreach (var wall in L.BoundaryWalls)
             {
                 bool alongX = wall.size.x > wall.size.z;
-                float span = alongX ? wall.size.x : wall.size.z;
-                for (float s = -span * 0.5f + 4f; s <= span * 0.5f - 4f; s += 13f)
+                for (float s = -100f; s <= 100.01f; s += 40f)
                 {
-                    var p = wall.center + (alongX ? new Vector3(s, 0f, 0f) : new Vector3(0f, 0f, s));
-                    Prim(root, "FenceBeam", PrimitiveType.Cube, beam, p, new Vector3(0.5f, wall.size.y, 0.5f));
+                    var p = alongX ? new Vector3(s, wall.center.y, wall.center.z) : new Vector3(wall.center.x, wall.center.y, s);
+                    if (wall.Contains(p) == false) { continue; }
+                    Prim(root, "FenceBeam", PrimitiveType.Cube, beam, p, new Vector3(0.35f, wall.size.y, 0.35f));
                 }
             }
         }
@@ -130,6 +134,21 @@ namespace LOP.EditorTools
         //  구름층(1500~1900): 층마다 메시 한 장. 코스 안엔 층마다 한 덩이 — 뚫고 지나가는 맛.
         private static void Clouds(Transform root, System.Random rng)
         {
+            //  테라스 사이 바깥(코스 밖)에도 구름을 깔아 떨어지며 내려다볼 때 깊이가 보이게(시안의 아래 구름).
+            float[] outerLayers = { 3000f, 2600f, 2200f };
+            for (int k = 0; k < outerLayers.Length; k++)
+            {
+                var ring = new List<Vector4>();
+                for (int i = 0; i < 16; i++)
+                {
+                    float x, z;
+                    do { x = Rand(rng, 480f); z = Rand(rng, 480f); }
+                    while (Mathf.Abs(x) < 150f && Mathf.Abs(z) < 150f);
+                    ring.Add(new Vector4(x, outerLayers[k] + Rand(rng, 30f), z, 22f + (float)rng.NextDouble() * 28f));
+                }
+                MeshObj(root, $"OuterCloud_{outerLayers[k]:0}", SaveMesh(LOP.SkydiveSceneryLayout.BuildCloudLayer(ring, 200 + k), $"OuterCloud_{k}"), Cloud, Vector3.zero);
+            }
+
             float[] layers = { 1520f, 1700f, 1850f };
             for (int k = 0; k < layers.Length; k++)
             {
@@ -209,6 +228,72 @@ namespace LOP.EditorTools
             }
         }
 
+        //  테라스 계단 신전 위 꾸밈: 앞 문, 꼭대기 석상 머리, 옆면 덩굴
+        private static void SetPieceDetails(Transform root, System.Random rng)
+        {
+            foreach (var p in L.SetPieces)
+            {
+                float baseY = p.Y + 1.5f;
+                float topY = baseY + p.Height;
+                //  가운데(0,0)를 보는 면에 문
+                var toCenter = new Vector3(-p.X, 0f, -p.Z).normalized;
+                Vector3 face = Mathf.Abs(toCenter.x) > Mathf.Abs(toCenter.z) ? new Vector3(Mathf.Sign(toCenter.x), 0f, 0f) : new Vector3(0f, 0f, Mathf.Sign(toCenter.z));
+                var c = new Vector3(p.X, 0f, p.Z);
+                var door = Prim(root, "PieceDoor", PrimitiveType.Cube, Toon("Door", "#4A3A2C"), c + face * (p.Half + 0.3f) + Vector3.up * (baseY + 4f), Vector3.one);
+                door.transform.localScale = face.x != 0f ? new Vector3(0.6f, 8f, 6f) : new Vector3(6f, 8f, 0.6f);
+                Head(root, c + Vector3.up * (topY + 4f), 6f);
+                for (int k = 0; k < 5; k++)
+                {
+                    float len = 6f + (float)rng.NextDouble() * 14f;
+                    var side = face.x != 0f ? new Vector3(0f, 0f, Rand(rng, p.Half * 0.8f)) : new Vector3(Rand(rng, p.Half * 0.8f), 0f, 0f);
+                    Prim(root, "PieceVine", PrimitiveType.Cube, Vine, c + side + face * (p.Half * 0.75f + 0.2f) + Vector3.up * (topY - 2f - len * 0.5f), new Vector3(1.4f, len, 1.4f));
+                }
+            }
+        }
+
+        //  테라스 위 이끼 덩어리(낮게 — 걸어 지나가도 발목 높이)
+        private static void MossLumps(Transform root, System.Random rng)
+        {
+            foreach (var t in L.Terraces)
+            {
+                int placed = 0;
+                for (int tries = 0; tries < 60 && placed < 8; tries++)
+                {
+                    float x = Rand(rng, 92f), z = Rand(rng, 92f);
+                    bool bad = false;
+                    foreach (var h in t.Holes) { bad |= Mathf.Abs(x - h.X) < h.Half + 5f && Mathf.Abs(z - h.Z) < h.Half + 5f; }
+                    foreach (var p in L.SetPieces) { bad |= p.Y == t.Y && Mathf.Abs(x - p.X) < p.Half + 3f && Mathf.Abs(z - p.Z) < p.Half + 3f; }
+                    if (bad) { continue; }
+                    //  덤불 덩어리 2~3개 — 납작한 원판은 위에서 보면 초록 점이었다
+                    int n = 2 + rng.Next(2);
+                    for (int k = 0; k < n; k++)
+                    {
+                        float r = 1.8f + (float)rng.NextDouble() * 1.6f;
+                        Prim(root, "Moss", PrimitiveType.Sphere, k == 0 ? Moss : Vine, new Vector3(x + Rand(rng, 3f), t.Y + 1.5f + r * 0.5f, z + Rand(rng, 3f)), new Vector3(r * 2f, r * 1.4f, r * 2f));
+                    }
+                    placed++;
+                }
+            }
+        }
+
+        //  덩어리 돌 테두리 — 변마다 3.2m 블록을 0.3m 틈으로 늘어놓는다
+        private static void BlockRim(Transform root, float cx, float cz, float half, float y)
+        {
+            const float len = 3.2f, gap = 0.3f, depth = 1.6f, height = 1.2f;
+            int i = 0;
+            var sides = new[] { (Vector3.right, Vector3.forward), (Vector3.right, Vector3.back), (Vector3.forward, Vector3.right), (Vector3.forward, Vector3.left) };
+            foreach (var (dir, normal) in sides)
+            {
+                float span = half * 2f + depth * 2f;
+                for (float s = -span * 0.5f + len * 0.5f; s <= span * 0.5f - len * 0.5f + 0.01f; s += len + gap)
+                {
+                    var p = new Vector3(cx, y, cz) + normal * (half + depth * 0.5f) + dir * s;
+                    var size = dir.x != 0f ? new Vector3(len, height, depth) : new Vector3(depth, height, len);
+                    Prim(root, "WellBlock", PrimitiveType.Cube, (i++ % 2 == 0) ? Stone : StoneDark, p, size);
+                }
+            }
+        }
+
         // ---- 도우미 ----
 
         private static float Rand(System.Random rng, float range) => ((float)rng.NextDouble() * 2f - 1f) * range;
@@ -284,7 +369,7 @@ namespace LOP.EditorTools
             return existing;
         }
 
-        private static Material Toon(string name, string hex, float topGrid = 0f)
+        private static Material Toon(string name, string hex, float topGrid = 0f, float sideGrid = 0f)
         {
             Directory.CreateDirectory(MaterialDir);
             string path = $"{MaterialDir}/Pyramid{name}.mat";
@@ -297,6 +382,7 @@ namespace LOP.EditorTools
             }
             m.SetColor("_BaseColor", color);
             m.SetFloat("_TopGrid", topGrid);
+            m.SetFloat("_SideGrid", sideGrid);
             m.SetShaderPassEnabled("SRPDefaultUnlit", false);   // 외곽선은 캐릭터만
             EditorUtility.SetDirty(m);
             return m;

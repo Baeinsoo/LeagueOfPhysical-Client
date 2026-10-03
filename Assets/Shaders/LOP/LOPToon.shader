@@ -21,6 +21,7 @@ Shader "LOP/Toon"
         _ShoeColor ("Region Shoe", Color) = (1, 1, 1, 1)
         _HairColor ("Region Hair", Color) = (0.29, 0.2, 0.13, 1)
         _TopGrid ("Top Grid Tile (m, 0 = off)", Float) = 0
+        _SideGrid ("Side Masonry Course (m, 0 = off)", Float) = 0
     }
     SubShader
     {
@@ -49,6 +50,7 @@ Shader "LOP/Toon"
             half4 _ShoeColor;
             half4 _HairColor;
             float _TopGrid;
+            float _SideGrid;
         CBUFFER_END
 
         //  정점 색 빨강 채널 = 옷 영역(0 피부 · 1 윗옷 · 2 소매 끝 · 3 바지 · 4 신발 · 5 머리카락). LookDevRegions와 같은 규칙.
@@ -83,6 +85,19 @@ Shader "LOP/Toon"
             half checker = fmod(abs(cell.x + cell.y), 2.0) < 0.5 ? 0.0h : 1.0h;
             half shade = checker * 0.07h + LOPGridLine(p, 0.6) * 0.14h + LOPGridLine(p * 0.25, 1.2) * 0.2h;
             return 1.0h - shade * up;
+        }
+
+        //  옆면 줄눈(돌 쌓은 결) — 가로 줄은 높이마다, 세로 이음은 한 줄씩 엇갈린다. 거대한 민짜 벽에 크기감을 준다.
+        half LOPSideGrid(float3 positionWS, half3 n)
+        {
+            if (_SideGrid <= 0.0) return 1.0h;
+            half side = saturate((0.55h - abs(n.y)) * 4.0h);
+            float row = positionWS.y / _SideGrid;
+            float course = floor(row);
+            float along = (abs(n.x) > abs(n.z) ? positionWS.z : positionWS.x) / (_SideGrid * 2.0) + fmod(abs(course), 2.0) * 0.5;
+            half block = fmod(abs(course + floor(along)), 3.0) < 0.5 ? 1.0h : 0.0h;
+            half shade = LOPGridLine(float2(row, 0.5), 0.8) * 0.2h + LOPGridLine(float2(along, 0.5), 0.8) * 0.14h + block * 0.06h;
+            return 1.0h - shade * side;
         }
 
         TEXTURE2D(_BaseMap);
@@ -133,7 +148,7 @@ Shader "LOP/Toon"
                 half3 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv).rgb * _BaseColor.rgb;
                 albedo *= _UseRegions > 0.5h ? LOPRegionColor(i.region) : half3(1.0h, 1.0h, 1.0h);
                 half3 n = normalize(i.normalWS);
-                albedo *= LOPTopGrid(i.positionWS, n);
+                albedo *= LOPTopGrid(i.positionWS, n) * LOPSideGrid(i.positionWS, n);
                 half3 v = GetWorldSpaceNormalizeViewDir(i.positionWS);
                 half3 c = LOPToonShade(i.positionWS, n, v, albedo, _ShadowColor.rgb, _MidThreshold, _LightThreshold,
                                        _Softness, _RimColor.rgb, _RimPower, _RimStrength);

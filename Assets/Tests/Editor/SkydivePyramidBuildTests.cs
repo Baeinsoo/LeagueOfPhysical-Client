@@ -24,12 +24,40 @@ namespace LOP.Tests
         public void 테라스는_더미_위_4층을_600m_올린_것이다()
         {
             CollectionAssert.AreEqual(new[] { 3200f, 2800f, 2400f, 2000f }, SkydivePyramidLayout.Terraces.Select(s => s.Y).ToArray());
-            for (int i = 0; i < 4; i++)
+            for (int i = 1; i < 4; i++)
             {
                 var dummy = SkydiveCourseBuilder.Shelves[i];
                 var t = SkydivePyramidLayout.Terraces[i];
                 Assert.AreEqual(dummy.Y + SkydivePyramidLayout.Shift, t.Y);
                 Assert.AreEqual(dummy.Holes.Length, t.Holes.Length);
+            }
+        }
+
+        [Test]
+        public void 첫_테라스는_문_없는_큰_구멍_하나_제단을_덮는다()
+        {
+            //  스펙 §2.1 익히기 — 제단 어디서 뛰어내려도 구멍으로 떨어진다. 문·갈림길은 2800부터.
+            var first = SkydivePyramidLayout.Terraces[0];
+            Assert.AreEqual(1, first.Holes.Length);
+            Assert.IsFalse(first.Holes[0].HasDoor);
+            Assert.GreaterOrEqual(first.Holes[0].Half, SkydivePyramidLayout.AltarHalf);
+            Assert.IsFalse(SkydivePyramidLayout.TerraceDoors.Any(d => Mathf.Approximately(d.Center.y, 3200f)));
+            Assert.IsTrue(SkydivePyramidLayout.Lasers.Any(l => l.Pivot.y > 3200f && l.Pivot.y < SkydivePyramidLayout.SpawnY), "3400 느린 레이저");
+        }
+
+        [Test]
+        public void 앞마당_위에서는_놀이_폭_밖으로_못_나간다()
+        {
+            //  제단에서 대자로 400m 떨어지면 옆으로 77m 간다 — 막지 않으면 테라스를 다 건너뛰고 바닥에 닿는다.
+            //  동·서·남은 보이는 경계벽, 북은 피라미드 몸체·섬 바위(충돌체)가 막는다.
+            float top = SkydivePyramidLayout.SpawnY + 50f, bottom = SkydivePyramidLayout.PorchY;
+            foreach (var probe in new[] { new Vector3(-101f, 0f, 0f), new Vector3(101f, 0f, 0f), new Vector3(0f, 0f, -101f), new Vector3(0f, 0f, 101f) })
+            {
+                for (float y = bottom + 1f; y < top; y += 25f)
+                {
+                    var p = new Vector3(probe.x, y, probe.z);
+                    Assert.IsTrue(SkydivePyramidLayout.Solids.Any(b => b.Contains(p)), $"{p}에 막는 것이 없다 — 코스를 건너뛴다");
+                }
             }
         }
 

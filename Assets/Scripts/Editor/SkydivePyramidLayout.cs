@@ -23,13 +23,18 @@ namespace LOP.EditorTools
         private const float DummyLowest = 1400f;   // 더미에서 가져올 맨 아래 선반
         private const float DummyLaserLift = 15f;  // 더미 레이저는 선반 15m 위에 있고 이름에 선반 고도가 들어 있다
 
-        public static readonly Shelf[] Terraces = Shelves
-            .Where(s => s.Y >= DummyLowest)
-            .Select(s => new Shelf(s.Y + Shift, s.Holes))
+        private const float DummyFirst = 2600f;    // 더미 첫 선반 — 피라미드에선 익히기 테라스로 바꾼다
+
+        //  첫 테라스(3200)는 익히기(스펙 §2.1): 문 없는 큰 구멍 하나가 제단(±30)을 다 덮는다 — 어디서 뛰어내려도 빠진다.
+        //  갈림길은 2800부터. 출발점(0,0)이 더미와 같아 아래 테라스로 이어지는 길 검사도 그대로다.
+        public static readonly Shelf[] Terraces = new[] { new Shelf(DummyFirst + Shift, new[] { new Hole(0f, 0f, 60f, hasDoor: false) }) }
+            .Concat(Shelves
+                .Where(s => s.Y >= DummyLowest && s.Y < DummyFirst)
+                .Select(s => new Shelf(s.Y + Shift, s.Holes)))
             .ToArray();
 
         public static readonly DoorSpec[] TerraceDoors = Doors
-            .Where(d => d.Center.y >= DummyLowest)
+            .Where(d => d.Center.y >= DummyLowest && d.Center.y < DummyFirst)
             .Select(d => new DoorSpec(d.Name.Replace($"{d.Center.y:0}", $"{d.Center.y + Shift:0}"),
                                       d.Center + Vector3.up * Shift, d.HalfWidth, d.HalfDepth,
                                       d.AxisAngleDegrees, d.Period, d.OpenTicks, d.MoveTicks, d.Phase))
@@ -44,6 +49,9 @@ namespace LOP.EditorTools
                                        l.AngularSpeedDegreesPerTick, l.SweepHalfRangeDegrees, l.Period, l.OnTicks, l.Phase))
             .Concat(new[]
             {
+                //  구간 1: 석상 눈 사이를 느리게 왕복 — 익히기라 맞아도 제단으로 돌아갈 뿐
+                new LaserSpec("Laser_3400_Sweep", new Vector3(-60f, 3400f, 0f), length: 40f, radius: 0.8f,
+                              startAngleDegrees: 0f, angularSpeedDegreesPerTick: 1f, sweepHalfRangeDegrees: 30f, period: 0, onTicks: 0, phase: 0),
                 //  구간 3: 구름 속 — 오는 것이 보이게 굵고 느리게 왕복
                 new LaserSpec("Laser_1600_Sweep", new Vector3(0f, 1600f, -30f), length: 40f, radius: 0.8f,
                               startAngleDegrees: 0f, angularSpeedDegreesPerTick: 1.5f, sweepHalfRangeDegrees: 60f, period: 0, onTicks: 0, phase: 0),
@@ -90,6 +98,36 @@ namespace LOP.EditorTools
             new Shelf(700f, new[] { new Hole(15f, 55f, 14f, hasDoor: false), new Hole(-15f, 85f, 14f, hasDoor: false) }),
             new Shelf(ExitY, new[] { new Hole(0f, 70f, 20f, hasDoor: false) }),
         };
+
+        /// <summary>
+        /// 앞마당(1300) 위에서 놀이 폭(±100) 밖으로 못 나가게 막는 단단한 것들. 제단에서 대자로 400m 떨어지면 옆으로 77m 가서
+        /// 막지 않으면 테라스를 다 건너뛴다. 북쪽은 피라미드 몸체·섬 바위, 동·서·남은 보이는 경계벽(블록 아웃 임시 — 경계 슬라이스가 대신한다).
+        /// </summary>
+        public static readonly Bounds[] BoundaryWalls =
+        {
+            new Bounds(new Vector3(-102f, (PorchY + SpawnY + 60f) * 0.5f, 0f), new Vector3(4f, SpawnY + 60f - PorchY, 208f)),
+            new Bounds(new Vector3(102f, (PorchY + SpawnY + 60f) * 0.5f, 0f), new Vector3(4f, SpawnY + 60f - PorchY, 208f)),
+            new Bounds(new Vector3(0f, (PorchY + SpawnY + 60f) * 0.5f, -102f), new Vector3(208f, SpawnY + 60f - PorchY, 4f)),
+        };
+
+        public static Bounds[] PyramidBody
+        {
+            get
+            {
+                //  계단 단: 위일수록 좁고 얕다. 맨 위 단은 제단 뒤 신전까지(+60m) 올라간다.
+                float[] tiers = { SpawnY + 60f, 3200f, 2800f, 2400f, 2000f };
+                var list = new List<Bounds>();
+                for (int i = 0; i < tiers.Length - 1; i++)
+                {
+                    float w = 200f + 2f * 60f * i, d = 120f + 60f * i;
+                    list.Add(new Bounds(new Vector3(0f, (tiers[i] + tiers[i + 1]) * 0.5f, 100f + d * 0.5f), new Vector3(w, tiers[i] - tiers[i + 1], d)));
+                }
+                list.Add(new Bounds(new Vector3(0f, 1225f, 250f), new Vector3(400f, 1550f, 300f)));   // 섬 바위(450..2000)
+                return list.ToArray();
+            }
+        }
+
+        public static Bounds[] Solids => BoundaryWalls.Concat(PyramidBody).ToArray();
 
         public static Plate ShaftFloor => new Plate(string.Empty, -ShaftXHalf, ShaftXHalf, ShaftZMin, ShaftZMax);
 

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -98,14 +99,17 @@ namespace LOP.EditorTools
             finish.transform.localPosition = new Vector3(0f, Thickness * 0.5f, 0f);
             finish.AddComponent<LOP.FinishLine>();
 
-            //  장식(충돌체 없음): 피라미드 몸체 · 섬 바위
-            float[] tiers = { L.SpawnY, 3200f, 2800f, 2400f, 2000f };
-            for (int i = 0; i < tiers.Length - 1; i++)
+            //  피라미드 몸체·섬 바위(북쪽을 막는다) + 동·서·남 경계벽 — 놀이 폭 밖으로 건너뛰지 못하게(충돌체 있음)
+            var body = L.PyramidBody;
+            for (int i = 0; i < body.Length; i++)
             {
-                float w = 200f + 2f * 60f * i, d = 120f + 60f * i;
-                Deco(root, $"PyramidTier_{i}", gray, new Vector3(0f, (tiers[i] + tiers[i + 1]) * 0.5f, 100f + d * 0.5f), new Vector3(w, tiers[i] - tiers[i + 1], d));
+                Box(root, i < body.Length - 1 ? $"PyramidTier_{i}" : "IslandRock", gray, body[i].center, body[i].size);
             }
-            Deco(root, "IslandRock", gray, new Vector3(0f, 1225f, 250f), new Vector3(400f, 1550f, 300f));
+            var edge = EnsureMaterial("Assets/Art/Materials/SkydivePyramidBlockoutBoundary.mat", new Color(0.85f, 0.45f, 0.42f));
+            for (int i = 0; i < L.BoundaryWalls.Length; i++)
+            {
+                Box(root, $"BoundaryWall_{i}", edge, L.BoundaryWalls[i].center, L.BoundaryWalls[i].size);
+            }
 
             //  레이저·문·바람·체크포인트
             var lasers = new GameObject("Lasers").transform;
@@ -135,7 +139,8 @@ namespace LOP.EditorTools
         {
             if (ReachableChain(false, L.Terraces, L.TerraceWinds, out string report, L.SpawnY) == false) { return "테라스 다이브 길 — " + report; }
             if (ReachableChain(true, L.Terraces, L.TerraceWinds, out report, L.SpawnY) == false) { return "테라스 안전한 길 — " + report; }
-            return FindRouteNotSplit(L.Terraces, L.TerraceWinds, L.SpawnY)
+            //  첫 테라스(3200)는 익히기라 갈림길이 없다 — 갈림길 검사는 2800부터, 출발은 3200 구멍 한가운데.
+            return FindRouteNotSplit(L.Terraces.Skip(1).ToArray(), L.TerraceWinds, L.Terraces[0].Y)
                 ?? FindDoorHoleMismatch(L.Terraces, L.TerraceDoors)
                 ?? FindDoorSizeMismatch(L.Terraces, L.TerraceDoors)
                 ?? FindDoorNeverCloses(L.TerraceDoors)
@@ -203,11 +208,5 @@ namespace LOP.EditorTools
             return go;
         }
 
-        //  장식 — 판정과 무관하니 충돌체를 지운다(남으면 몸이 그 위에 선다).
-        private static void Deco(Transform parent, string name, Material m, Vector3 center, Vector3 size)
-        {
-            var go = Box(parent, name, m, center, size);
-            Object.DestroyImmediate(go.GetComponent<Collider>());
-        }
     }
 }

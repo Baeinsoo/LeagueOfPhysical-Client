@@ -57,7 +57,7 @@ namespace LOP.UI
             var stageBox = Root.Q<VisualElement>("stage-box");
             var stageLabel = Root.Q<Label>("stage-label");
             var stageFill = Root.Q<VisualElement>("stage-bar-fill");
-            var banner = Root.Q<Label>("banner-label");
+            var caption = Root.Q<Label>("caption-label");
             _viewModel.StageTextProperty.Subscribe(t =>
             {
                 stageLabel.text = t;
@@ -65,10 +65,10 @@ namespace LOP.UI
             }).AddTo(Disposables);
             _viewModel.StageProgressProperty.Subscribe(p => stageFill.style.width = Length.Percent(p * 100f)).AddTo(Disposables);
             _viewModel.SuddenDeathProperty.Subscribe(on => stageFill.EnableInClassList("stage-bar-fill--sudden", on)).AddTo(Disposables);
-            _viewModel.BannerTextProperty.Subscribe(t =>
+            _viewModel.CaptionTextProperty.Subscribe(t =>
             {
-                banner.text = t;
-                banner.style.display = string.IsNullOrEmpty(t) ? DisplayStyle.None : DisplayStyle.Flex;
+                caption.text = t;
+                caption.style.display = string.IsNullOrEmpty(t) ? DisplayStyle.None : DisplayStyle.Flex;
             }).AddTo(Disposables);
 
             var stickArea = Root.Q<VisualElement>("joystick-area");

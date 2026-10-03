@@ -43,11 +43,12 @@
 }
 .stage-bar-fill--sudden { background-color: rgb(255, 80, 70); }
 
-.banner-label {
-    position: absolute; top: 30%; left: 0; right: 0;
-    -unity-text-align: middle-center;
-    color: rgb(255, 255, 255); font-size: 44px; -unity-font-style: bold;
-    -unity-text-outline-width: 2px; -unity-text-outline-color: rgb(0, 0, 0);
+.caption-label {
+    margin-top: 8px; padding: 4px 14px; border-radius: 4px;
+    background-color: rgba(10, 10, 14, 0.75);
+    border-left-width: 4px; border-left-color: rgb(255, 79, 94);
+    color: rgb(255, 255, 255); font-size: 22px;
+    white-space: nowrap; flex-shrink: 0;
 }
 
 .hit-flash {

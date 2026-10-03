@@ -53,6 +53,9 @@ namespace LOP.MapTools
         //  맨 아래에서 남는 틈. 새(0.9m)보다 작아야 "아래로 빠져나감"이 없다.
         public const float BottomGap = 0.6f;
         public const float PendulumInset = 1.5f;
+        //  계곡 진자는 굴 입구 앞에 단다 — 칸 천장보다 조금 위, 쓸어도 입구 0.3 앞까지만.
+        public const float ValleyPivotRise = 0.5f;
+        public const float PendulumFrontGap = 0.3f;
         public const float MinRod = 2.5f;
         public const float MaxRod = 6f;
         public const float BoardLength = 7f;
@@ -89,20 +92,26 @@ namespace LOP.MapTools
 
         public static bool TryPendulum(in Branch b, out GuardSpot spot)
         {
-            float rod = (b.Rect.Y1 - b.Rect.Y0) - BottomGap - TipHeight * 0.5f;
+            //  계곡 지름길 앞 13m는 물결 굴(두께 5m)이라 안쪽 천장에 달면 굴 벽을 뚫는다 — 입구 앞에 단다.
+            bool front = b.Kind == BranchKind.Valley;
+            float pivotY = front ? b.Rect.Y1 + ValleyPivotRise : b.Rect.Y1;
+            float rod = (pivotY - b.Rect.Y0) - BottomGap - TipHeight * 0.5f;
             if (rod < MinRod)
             {
                 spot = default;
                 return false;
             }
             rod = Mathf.Min(rod, MaxRod);
-            float pivotX = b.Rect.X0 + PendulumInset;
-            float pivotY = b.Rect.Y1;
             //  끝 철골의 모서리까지 덮는다 — 막대 끝에서 반 폭만큼 옆으로, 반 높이만큼 아래로 더 나간다.
             float reach = Mathf.Sqrt((rod + TipHeight * 0.5f) * (rod + TipHeight * 0.5f) + TipWidth * TipWidth * 0.25f);
             //  가까운 모서리(안쪽)는 축에서 반높이만큼 덜 나간 자리에서 반폭만큼 벌어진다 — 각도는 그 모서리 기준.
             float extra = Mathf.Atan2(TipWidth * 0.5f, rod - TipHeight * 0.5f) * Mathf.Rad2Deg;
-            var sector = new GuardSector(pivotX, pivotY, reach, -90f, PendulumAmplitude + extra);
+            float halfAngle = PendulumAmplitude + extra;
+            //  앞에 달 땐 쓸고 지나가는 끝(BandX1)이 굴 입구 앞 0.3에서 멈추게 피벗을 뒤로 뺀다.
+            float pivotX = front
+                ? b.Rect.X0 - PendulumFrontGap - reach * Mathf.Sin(Mathf.Min(90f, halfAngle) * Mathf.Deg2Rad)
+                : b.Rect.X0 + PendulumInset;
+            var sector = new GuardSector(pivotX, pivotY, reach, -90f, halfAngle);
             spot = new GuardSpot(GuardKind.Pendulum, b.Rect.X0, pivotX, pivotY, rod, PendulumAmplitude, sector);
             return true;
         }

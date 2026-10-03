@@ -12,9 +12,9 @@ namespace LOP.MapTools.Tests
                           kind == BranchKind.Hill ? BranchSide.Above : BranchSide.Below, kind);
 
         [Test]
-        public void 진자는_입구_안쪽_천장에_매달고_맨_아래가_바닥_위_0_6이다()
+        public void 언덕_진자는_입구_안쪽_천장에_매달고_맨_아래가_바닥_위_0_6이다()
         {
-            Assert.IsTrue(GuardLayout.TryPendulum(Make(BranchKind.Valley), out var g));
+            Assert.IsTrue(GuardLayout.TryPendulum(Make(BranchKind.Hill), out var g));
             Assert.AreEqual(101.5f, g.PivotX, 1e-4f);
             Assert.AreEqual(5f, g.PivotY, 1e-4f);
             //  5 − 0.6 − 0.4(끝 철골 반 높이) = 4.0
@@ -24,7 +24,19 @@ namespace LOP.MapTools.Tests
 
         [Test]
         public void 칸이_너무_낮으면_진자를_안_놓는다()
-            => Assert.IsFalse(GuardLayout.TryPendulum(Make(BranchKind.Valley, y1: 3f), out _));
+            => Assert.IsFalse(GuardLayout.TryPendulum(Make(BranchKind.Hill, y1: 3f), out _));
+
+        [Test]
+        public void 계곡_진자는_굴_입구_앞에_매달아_쓸어도_굴에_안_들어간다()
+        {
+            //  계곡 지름길 앞 13m는 물결 굴이라 안쪽 천장에 매달면 굴 벽을 뚫는다 — 입구 앞, 칸 위 0.5에 단다.
+            Assert.IsTrue(GuardLayout.TryPendulum(Make(BranchKind.Valley), out var g));
+            Assert.AreEqual(5.5f, g.PivotY, 1e-4f);
+            Assert.AreEqual(4.5f, g.Length, 1e-4f);
+            Assert.AreEqual(100f - 0.3f, g.BandX1, 1e-4f, "쓸고 지나가는 끝이 굴 입구(X0) 앞 0.3");
+            Assert.AreEqual(0.6f, g.PivotY - g.Length - GuardLayout.TipHeight * 0.5f, 1e-4f);
+            Assert.Less(g.PivotX, 100f);
+        }
 
         [Test]
         public void 칸이_높아도_막대는_6m까지다()
@@ -68,7 +80,7 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 진자_부채꼴은_끝_철골까지_덮는다()
         {
-            GuardLayout.TryPendulum(Make(BranchKind.Valley), out var g);
+            GuardLayout.TryPendulum(Make(BranchKind.Hill), out var g);
             Assert.AreEqual(-90f, g.Sector.AxisDegrees, 1e-4f);
             //  막대 길이 4.0, 끝 철골 반높이 0.4·반폭 0.8 — 안쪽 모서리는 축에서 (rod − 반높이)만큼 떨어져 있다.
             float extraDeg = Mathf.Atan2(0.8f, 4.0f - 0.4f) * Mathf.Rad2Deg;

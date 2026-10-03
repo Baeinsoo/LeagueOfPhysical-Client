@@ -437,11 +437,11 @@ namespace LOP.EditorTools
                 {
                     shortcutSection = ProveShortcuts(spawns[0].Position, finishX, shape, mapMask, query,
                                                      grid, searchSweep, mainSweep, branches,
-                                                     out var branchFlaps, out var safePath);
+                                                     out var branchFlaps, out var safePath, out bool safeVerified);
                     if (Guards.Count > 0)
                     {
                         shortcutSection += "\n\n" + GuardSection(spawns[0].Position, shape, mapMask, query,
-                                                                  branchFlaps, safePath);
+                                                                  branches, branchFlaps, safePath, safeVerified);
                     }
                 }
                 cleanRunWatch.Stop();
@@ -687,7 +687,8 @@ namespace LOP.EditorTools
                                              LOP.MapTools.TickSweepProbe noShortcutSweep,
                                              List<LOP.MapTools.Branch> branches,
                                              out Dictionary<int, IReadOnlyList<bool>> branchFlaps,
-                                             out List<Vector3> safePath)
+                                             out List<Vector3> safePath,
+                                             out bool safeVerified)
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
             //  out 매개변수도 로컬 함수가 잡을 수 없다 — 로컬에 모았다가 끝에 넘긴다.
@@ -714,10 +715,6 @@ namespace LOP.EditorTools
                 {
                     return new LOP.MapTools.ShortcutProof(label, x0, x1, false, false, result.BlockedX);
                 }
-                if (guardsOn == false)
-                {
-                    flapsByBranch[Mathf.RoundToInt(x0)] = result.Flaps;
-                }
                 float[] heights = LOP.MapTools.CleanRunSearch.PathHeights(options, result.Flaps, SampleAirflow);
                 bool verified;
                 if (guardsOn)
@@ -729,6 +726,11 @@ namespace LOP.EditorTools
                 else
                 {
                     verified = VerifyByReplay(start, result.Flaps, body, mapMask, query, heights, out _, path);
+                }
+                //  🚪는 이 날갯짓으로 기준점을 잡는다 — 재생이 어긋난 경로면 기준점이 갈림길에 없을 수 있다.
+                if (guardsOn == false && verified)
+                {
+                    flapsByBranch[Mathf.RoundToInt(x0)] = result.Flaps;
                 }
                 return new LOP.MapTools.ShortcutProof(label, x0, x1, true, verified, 0f);
             }
@@ -744,6 +746,7 @@ namespace LOP.EditorTools
             }
             branchFlaps = flapsByBranch;
             safePath = safeCenters;
+            safeVerified = safe.Verified;
             Debug.Log($"[맵 검사] 갈림길 증명 {proofs.Count + 1}번 — {watch.ElapsedMilliseconds}ms");
             return LOP.MapTools.ShortcutRule.Section(safe, proofs);
         }
@@ -752,13 +755,18 @@ namespace LOP.EditorTools
         //  위상 0…124마다 그 틱에 기준점에서 출발해 게임과 같은 Step으로 날갯짓/안 함을 펼친다.
         private const int GuardPhaseTicks = 125;
         private const int GuardLeadTicks = 50;
-        private const int GuardHorizonTicks = 150;
+        //  지평 = 기준점에서 출구까지 곧장 가는 틱 + 여유. 고정 틱이면 먼 문지기는 출구에 못 닿는다.
+        private const int GuardHorizonSlackTicks = 25;
+        //  위상 하나에 펼칠 상태 수 상한 — 넘으면 "못 지났다"로 센다(관대한 쪽으로 틀리지 않게).
+        private const int GuardMaxStates = 20000;
         private const float GuardExitPast = 2f;
         private const float GuardVerticalSpeedCell = 0.5f;
 
         private static string GuardSection(Vector3 start, in FlappyShape shape, int mapMask,
                                            GameFramework.Physics.ICollisionQuery query,
-                                           Dictionary<int, IReadOnlyList<bool>> branchFlaps, List<Vector3> safePath)
+                                           List<LOP.MapTools.Branch> branches,
+                                           Dictionary<int, IReadOnlyList<bool>> branchFlaps, List<Vector3> safePath,
+                                           bool safeVerified)
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
             var rows = new List<LOP.MapTools.GuardWindow>();
@@ -766,7 +774,16 @@ namespace LOP.EditorTools
             {
                 LOP.MapTools.GuardSpot spot = g.Spot;
                 float gap = LOP.MapTools.GuardRule.Gap(safePath, shape.Radius, shape.Height, spot.Sector);
-                bool gapMeasured = safePath != null && safePath.Count > 0;
+                //  잘린 경로(재생이 중간에 닿음)로 잰 거리는 뒤쪽을 못 본다 — 재생이 끝까지 간 때만 잰 것으로 친다.
+                bool gapMeasured = safeVerified && safePath != null && safePath.Count > 0;
+                int branchIndex = branches.FindIndex(b => Mathf.RoundToInt(b.Rect.X0) == Mathf.RoundToInt(spot.BranchX0));
+                if (branchIndex < 0)
+                {
+                    rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.PivotX, 0, 0, false,
+                        "이 문지기의 갈림길 표시가 없다", gap, gapMeasured));
+                    continue;
+                }
+                LOP.MapTools.Branch branch = branches[branchIndex];
                 if (branchFlaps == null || branchFlaps.TryGetValue(Mathf.RoundToInt(spot.BranchX0), out var flaps) == false)
                 {
                     rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.PivotX, 0, 0, false,
@@ -792,10 +809,12 @@ namespace LOP.EditorTools
                 }
                 BirdState reference = trail[Mathf.Max(0, trail.Count - 1 - GuardLeadTicks)];
                 float exitX = spot.BandX1 + GuardExitPast;
+                int horizon = Mathf.CeilToInt((exitX - reference.Position.x) / (shape.ForwardSpeed * TickSeconds))
+                            + GuardHorizonSlackTicks;
 
                 //  2) 켜고 위상마다.
                 SetGuardsActive(true);
-                int passed = 0;
+                int passed = 0, capped = 0;
                 try
                 {
                     for (int phase = 0; phase < GuardPhaseTicks; phase++)
@@ -804,39 +823,57 @@ namespace LOP.EditorTools
                         from.Tick = phase;
                         from.Stun = 0f;
                         from.Invuln = 0f;
-                        if (PassesGuard(from, exitX, shape, mapMask, watcher)) { passed++; }
+                        if (PassesGuard(from, exitX, horizon, branch, shape, mapMask, watcher, out bool hitCap)) { passed++; }
+                        if (hitCap) { capped++; }
                     }
                 }
                 finally
                 {
                     SetGuardsActive(false);
                 }
-                rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.PivotX, passed, GuardPhaseTicks, true, null, gap, gapMeasured));
-                Debug.Log($"[맵 검사] 🚪 {spot.MarkerName} 열린 창 {passed}/{GuardPhaseTicks}");
+                rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.PivotX, passed, GuardPhaseTicks, true,
+                    capped > 0 ? $"상한 걸림 {capped}" : null, gap, gapMeasured));
+                Debug.Log($"[맵 검사] 🚪 {spot.MarkerName} 열린 창 {passed}/{GuardPhaseTicks}, 상한 걸림 {capped}");
             }
             Debug.Log($"[맵 검사] 🚪 문지기 {Guards.Count}개 — {watch.ElapsedMilliseconds}ms");
             return LOP.MapTools.GuardRule.Section(rows);
         }
 
         //  기다릴 수 없다(전진 속도 고정) — 펼칠 것은 날갯짓뿐이다. 같은 틱에 (높이 칸, 세로 속도 칸)이 같으면 하나로 합친다.
-        private static bool PassesGuard(BirdState from, float exitX, in FlappyShape shape, int mapMask, HitWatcher query)
+        //  지름길 안에서만 편다 — 안 그러면 기본 길로 내려가 출구 x에 닿고 "지났다"가 된다.
+        //  좌표는 🔀 증명의 프로브와 같은 발밑(Position.y)이다. 성공 = 출구 x를 넘었고 몸 전체(발밑 ~ 발밑+키)가 칸의 y 범위 안.
+        private static bool PassesGuard(BirdState from, float exitX, int horizon, LOP.MapTools.Branch branch,
+                                        in FlappyShape shape, int mapMask, HitWatcher query, out bool hitCap)
         {
+            hitCap = false;
             var frontier = new List<BirdState> { from };
             var next = new List<BirdState>();
             var seen = new HashSet<long>();
-            for (int t = 0; t < GuardHorizonTicks && frontier.Count > 0; t++)
+            int expanded = 0;
+            for (int t = 0; t < horizon && frontier.Count > 0; t++)
             {
                 next.Clear();
                 seen.Clear();
                 foreach (BirdState s in frontier)
                 {
+                    if (++expanded > GuardMaxStates)
+                    {
+                        hitCap = true;
+                        return false;
+                    }
                     for (int f = 0; f < 2; f++)
                     {
                         BirdState n = Step(s, f == 1, shape, mapMask, query);
                         if (n.Stun > 0f) { continue; }
-                        if (n.Position.x >= exitX) { return true; }
-                        if (n.Position.y < SearchMinY || n.Position.y > SearchMaxY) { continue; }
-                        long key = ((long)Mathf.RoundToInt(n.Position.y / HeightGrid) << 32)
+                        float x = n.Position.x, y = n.Position.y;
+                        if (LOP.MapTools.ShortcutRule.ForbidsOther(branch, x, y)) { continue; }
+                        if (x >= exitX)
+                        {
+                            if (y >= branch.Rect.Y0 && y + shape.Height <= branch.Rect.Y1) { return true; }
+                            continue;
+                        }
+                        if (y < SearchMinY || y > SearchMaxY) { continue; }
+                        long key = ((long)Mathf.RoundToInt(y / HeightGrid) << 32)
                                  ^ (uint)Mathf.RoundToInt(n.VerticalSpeed / GuardVerticalSpeedCell);
                         if (seen.Add(key)) { next.Add(n); }
                     }

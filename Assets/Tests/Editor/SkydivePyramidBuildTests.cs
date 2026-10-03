@@ -58,6 +58,25 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 맵_표와_원격_에셋에_등록돼_있다()
+        {
+            var settings = UnityEditor.AddressableAssets.AddressableAssetSettingsDefaultObject.Settings;
+            var guid = UnityEditor.AssetDatabase.AssetPathToGUID(SkydivePyramidBuilder.ScenePath);
+            var entry = settings.FindAssetEntry(guid);
+            Assert.IsNotNull(entry, "Scene 그룹에 없으면 원격 에셋이 안 올라가 방에서 맵을 못 연다");
+            Assert.AreEqual(SkydivePyramidBuilder.ScenePath, entry.address);
+            Assert.AreEqual("Scene", entry.parentGroup.Name);
+
+            //  LoadAsync는 EditMode에서 기다리기 위험하다 — 패키지의 .bytes를 직접 읽는다(SkydiveLandingMasterDataConsistencyTests와 같은 방식).
+            string path = System.IO.Path.GetFullPath(
+                "Packages/com.baegames.lop.masterdata.client/Runtime.Generated/StreamingAssets/MasterData/tbmap.bytes");
+            var table = new LOP.MasterData.TbMap(new Luban.ByteBuf(System.IO.File.ReadAllBytes(path)));
+            var map = table.GetOrDefault(9);
+            Assert.IsNotNull(map, "TbMap에 9번 맵이 없다");
+            Assert.AreEqual(SkydivePyramidBuilder.ScenePath, map.ScenePath);
+        }
+
+        [Test]
         public void 피라미드_부활_지점은_모두_판_위_구멍_밖()
         {
             Assert.IsNull(SkydivePyramidBuilder.FindBadRespawn());

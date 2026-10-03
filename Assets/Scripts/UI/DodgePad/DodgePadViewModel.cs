@@ -14,7 +14,7 @@ namespace LOP.UI
         private readonly GameFramework.World.IWorld world;
         private readonly DodgeConfig config;
         private readonly DodgeStageTable stages;
-        private readonly R3.ReactiveProperty<string> livesText = new R3.ReactiveProperty<string>("");
+        private readonly R3.ReactiveProperty<(int full, int empty, string note)> lives = new R3.ReactiveProperty<(int, int, string)>((0, 0, ""));
         private readonly R3.ReactiveProperty<string> stageText = new R3.ReactiveProperty<string>("");
         private readonly R3.ReactiveProperty<float> stageProgress = new R3.ReactiveProperty<float>(0f);
         private readonly R3.ReactiveProperty<bool> suddenDeath = new R3.ReactiveProperty<bool>(false);
@@ -39,7 +39,7 @@ namespace LOP.UI
             this.stages = stages;
         }
 
-        public R3.ReadOnlyReactiveProperty<string> LivesTextProperty => livesText;
+        public R3.ReadOnlyReactiveProperty<(int full, int empty, string note)> LivesProperty => lives;
         public R3.ReadOnlyReactiveProperty<string> StageTextProperty => stageText;
         public R3.ReadOnlyReactiveProperty<float> StageProgressProperty => stageProgress;
         public R3.ReadOnlyReactiveProperty<bool> SuddenDeathProperty => suddenDeath;
@@ -50,7 +50,7 @@ namespace LOP.UI
         public void Refresh()
         {
             bool known = state.TryGetLife(gameDataStore.userEntityId, out int lives, out long eliminatedTick);
-            livesText.Value = LivesText(known, lives, eliminatedTick);
+            this.lives.Value = Hearts(known, lives, eliminatedTick, config.Lives);
 
             // 목숨이 준 순간을 맞은 틱으로 — 서버 상태가 알려 준 뒤라 조금 늦지만 되돌릴 일은 없다(스펙 §5.4).
             long now = runner?.tickUpdater?.tick ?? 0;
@@ -68,12 +68,17 @@ namespace LOP.UI
             bannerText.Value = hud.banner;
         }
 
-        public static string LivesText(bool known, int lives, long eliminatedTick)
+        /// <summary>하트를 늘어놓는 최대 개수. 시험용으로 목숨을 크게 잡으면 하트 하나에 숫자를 붙인다.</summary>
+        public const int MaxHearts = 8;
+
+        /// <summary>찬 하트·빈 하트(잃은 목숨) 개수와 곁들일 글. 처음 목숨(maxLives)을 넘는 일은 없다.</summary>
+        public static (int full, int empty, string note) Hearts(bool known, int lives, long eliminatedTick, int maxLives)
         {
-            if (!known) return "";
-            if (eliminatedTick >= 0) return "탈락 — 관전 중";
-            // 점은 다섯까지 — 시험용으로 목숨을 크게 잡으면 점이 화면을 넘는다.
-            return lives > 5 ? $"목숨 {lives}" : "목숨 " + new string('●', System.Math.Max(0, lives));
+            if (!known) return (0, 0, "");
+            if (eliminatedTick >= 0) return (0, 0, "탈락 — 관전 중");
+            lives = System.Math.Max(0, lives);
+            if (maxLives > MaxHearts) return (1, 0, $"×{lives}");
+            return (lives, System.Math.Max(0, maxLives - lives), "");
         }
 
         /// <summary>스테이지가 바뀐 뒤 배너를 띄워 두는 시간(2초).</summary>
@@ -98,7 +103,7 @@ namespace LOP.UI
 
         public void Dispose()
         {
-            livesText.Dispose();
+            lives.Dispose();
             stageText.Dispose();
             stageProgress.Dispose();
             suddenDeath.Dispose();

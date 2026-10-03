@@ -14,12 +14,15 @@
     border-radius: 32px; background-color: rgba(255, 255, 255, 0.45);
 }
 
-.lives-label {
+.lives-box {
     position: absolute; left: 16px; top: 16px;
-    padding: 4px 10px; border-radius: 5px;
+    flex-direction: row; align-items: center;
+    padding: 6px 10px; border-radius: 5px;
     background-color: rgba(10, 10, 14, 0.7);
-    color: rgb(255, 224, 130); font-size: 28px; -unity-font-style: bold;
 }
+.hearts { flex-direction: row; }
+.heart { width: 30px; height: 28px; margin-right: 4px; }
+.lives-label { color: rgb(255, 224, 130); font-size: 28px; -unity-font-style: bold; }
 
 .stage-box {
     position: absolute; top: 16px; left: 30%; right: 30%;
@@ -52,4 +55,4 @@
     display: none;
     border-width: 18px; border-color: rgba(255, 40, 40, 0.75);
 }
-.lives-label--hit { color: rgb(255, 80, 70); }
+.lives-box--hit { background-color: rgba(200, 30, 30, 0.75); }

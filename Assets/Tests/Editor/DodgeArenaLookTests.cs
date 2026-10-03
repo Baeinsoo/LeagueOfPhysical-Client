@@ -47,11 +47,16 @@ namespace LOP.Tests
                             case "WallS": Assert.AreEqual(-9.5f, b.center.z, 1e-3f); break;
                             case "WallE": Assert.AreEqual(9.5f, b.center.x, 1e-3f); break;
                             case "WallW": Assert.AreEqual(-9.5f, b.center.x, 1e-3f); break;
+                            // 가운데 투척 심판 — 서버 진행기 Thrower(0,0)·시뮬 ThrowerRadius(0.45)와 같은 자리·크기
+                            case "Thrower":
+                                Assert.AreEqual(0f, b.center.x, 1e-3f); Assert.AreEqual(0f, b.center.z, 1e-3f);
+                                Assert.AreEqual(0.9f, b.size.x, 1e-3f);
+                                break;
                             default: Assert.Fail("장식에 콜라이더가 있다: " + col.gameObject.name); break;
                         }
                     }
                 }
-                Assert.AreEqual(5, colliders);
+                Assert.AreEqual(6, colliders);
             }
             finally
             {

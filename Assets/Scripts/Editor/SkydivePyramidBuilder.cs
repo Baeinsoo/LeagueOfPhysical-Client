@@ -35,8 +35,10 @@ namespace LOP.EditorTools
                 Object.DestroyImmediate(go);   // 다시 구울 때 옛 것이 겹쳐 남지 않게
             }
 
-            var gray = EnsureMaterial("Assets/Art/Materials/SkydivePyramidBlockout.mat", new Color(0.62f, 0.62f, 0.62f));
-            var green = EnsureMaterial("Assets/Art/Materials/SkydivePyramidBlockoutGround.mat", new Color(0.45f, 0.6f, 0.45f));
+            //  판정 상자도 우리 툰 재질(꾸밈 1차) — 밟는 면은 사암 + 격자, 벽은 짙은 사암.
+            var gray = SkydivePyramidDressing.Stone;
+            var dark = SkydivePyramidDressing.StoneDark;
+            var green = SkydivePyramidDressing.Jungle;
 
             var root = new GameObject("Course").transform;
 
@@ -73,16 +75,16 @@ namespace LOP.EditorTools
                 new Vector3((L.ShaftXHalf + L.ShaftWall) * 2f, Thickness, L.ShaftZMax - L.ShaftZMin + L.ShaftWall * 2f));
             foreach (float sx in new[] { -1f, 1f })
             {
-                Box(root, $"EntranceWall_{sx:0}", gray, new Vector3(sx * (L.ShaftXHalf + L.ShaftWall * 0.5f), (L.PorchY + L.RoofY) * 0.5f, (L.ShaftZMin + L.ShaftZMax) * 0.5f),
+                Box(root, $"EntranceWall_{sx:0}", dark, new Vector3(sx * (L.ShaftXHalf + L.ShaftWall * 0.5f), (L.PorchY + L.RoofY) * 0.5f, (L.ShaftZMin + L.ShaftZMax) * 0.5f),
                     new Vector3(L.ShaftWall, L.RoofY - L.PorchY, L.ShaftZMax - L.ShaftZMin));
             }
 
             //  구간 4: 갱도 벽 + 턱
             float shaftH = L.PorchY - L.ExitY, shaftCY = (L.PorchY + L.ExitY) * 0.5f, zc = (L.ShaftZMin + L.ShaftZMax) * 0.5f, zl = L.ShaftZMax - L.ShaftZMin;
-            Box(root, "ShaftWall_W", gray, new Vector3(-L.ShaftXHalf - L.ShaftWall * 0.5f, shaftCY, zc), new Vector3(L.ShaftWall, shaftH, zl));
-            Box(root, "ShaftWall_E", gray, new Vector3(L.ShaftXHalf + L.ShaftWall * 0.5f, shaftCY, zc), new Vector3(L.ShaftWall, shaftH, zl));
-            Box(root, "ShaftWall_N", gray, new Vector3(0f, shaftCY, L.ShaftZMax + L.ShaftWall * 0.5f), new Vector3(L.ShaftXHalf * 2f + L.ShaftWall * 2f, shaftH, L.ShaftWall));
-            Box(root, "ShaftWall_S", gray, new Vector3(0f, shaftCY, L.ShaftZMin - L.ShaftWall * 0.5f), new Vector3(L.ShaftXHalf * 2f + L.ShaftWall * 2f, shaftH, L.ShaftWall));
+            Box(root, "ShaftWall_W", dark, new Vector3(-L.ShaftXHalf - L.ShaftWall * 0.5f, shaftCY, zc), new Vector3(L.ShaftWall, shaftH, zl));
+            Box(root, "ShaftWall_E", dark, new Vector3(L.ShaftXHalf + L.ShaftWall * 0.5f, shaftCY, zc), new Vector3(L.ShaftWall, shaftH, zl));
+            Box(root, "ShaftWall_N", dark, new Vector3(0f, shaftCY, L.ShaftZMax + L.ShaftWall * 0.5f), new Vector3(L.ShaftXHalf * 2f + L.ShaftWall * 2f, shaftH, L.ShaftWall));
+            Box(root, "ShaftWall_S", dark, new Vector3(0f, shaftCY, L.ShaftZMin - L.ShaftWall * 0.5f), new Vector3(L.ShaftXHalf * 2f + L.ShaftWall * 2f, shaftH, L.ShaftWall));
             foreach (var ledge in L.ShaftLedges)
             {
                 foreach (var p in Carve(L.ShaftFloor, ledge.Holes))
@@ -103,7 +105,8 @@ namespace LOP.EditorTools
             var body = L.PyramidBody;
             for (int i = 0; i < body.Length; i++)
             {
-                Box(root, i < body.Length - 1 ? $"PyramidTier_{i}" : "IslandRock", gray, body[i].center, body[i].size);
+                var tierMaterial = i == body.Length - 1 ? SkydivePyramidDressing.Rock : (i % 2 == 0 ? gray : dark);
+                Box(root, i < body.Length - 1 ? $"PyramidTier_{i}" : "IslandRock", tierMaterial, body[i].center, body[i].size);
             }
             var edge = EnsureMaterial("Assets/Art/Materials/SkydivePyramidBlockoutBoundary.mat", new Color(0.85f, 0.45f, 0.42f));
             for (int i = 0; i < L.BoundaryWalls.Length; i++)
@@ -111,6 +114,8 @@ namespace LOP.EditorTools
                 var wall = Box(root, $"BoundaryWall_{i}", edge, L.BoundaryWalls[i].center, L.BoundaryWalls[i].size);
                 //  해가 남쪽에서 비춘다 — 2300m 벽이 그림자를 드리우면 코스 전체가 어두워진다.
                 wall.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                //  벽 면은 그리지 않는다 — 꾸밈의 세로 레이저 울타리가 이 벽을 보여 준다(판정 자리와 같은 면).
+                wall.GetComponent<MeshRenderer>().enabled = false;
             }
 
             //  레이저·문·바람·체크포인트
@@ -119,7 +124,7 @@ namespace LOP.EditorTools
             foreach (var l in L.Lasers) { CreateLaserVolume(lasers, l); }
             var doors = new GameObject("Doors").transform;
             doors.SetParent(root, false);
-            foreach (var d in L.TerraceDoors) { CreateDoorVolume(doors, d, gray); }
+            foreach (var d in L.TerraceDoors) { CreateDoorVolume(doors, d, dark); }
             var winds = new GameObject("Winds").transform;
             winds.SetParent(root, false);
             var windAssets = SkydiveWindAssets.EnsureAssets();
@@ -132,6 +137,9 @@ namespace LOP.EditorTools
             {
                 if (seen.Add(m.transform.position) == false) { Object.DestroyImmediate(m.gameObject); }
             }
+
+            SkydivePyramidDressing.Dress(root);
+            AssetDatabase.SaveAssets();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log($"[SkydivePyramid] 구웠다 — {ScenePath}");

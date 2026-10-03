@@ -2,6 +2,7 @@ using System.Linq;
 using LOP.EditorTools;
 using NUnit.Framework;
 using UnityEngine;
+using L = LOP.EditorTools.SkydivePyramidLayout;
 
 namespace LOP.Tests
 {
@@ -16,73 +17,173 @@ namespace LOP.Tests
         [Test]
         public void 체크포인트는_구간마다_다섯이고_맨_위가_스폰이다()
         {
-            CollectionAssert.AreEquivalent(new[] { 3600f, 3200f, 2000f, 1300f, 450f }, SkydivePyramidLayout.RespawnPoints.Keys.ToArray());
-            Assert.AreEqual(SkydivePyramidLayout.SpawnY, SkydivePyramidLayout.RespawnPoints.Keys.Max());
+            CollectionAssert.AreEquivalent(new[] { 3600f, 3200f, 2000f, 1300f, 450f }, L.RespawnPoints.Keys.ToArray());
+            Assert.AreEqual(L.SpawnY, L.RespawnPoints.Keys.Max());
         }
 
         [Test]
-        public void 테라스는_더미_위_4층을_600m_올린_것이다()
+        public void 나선은_층마다_40도_빠른_구멍은_다이브_안전한_구멍은_대자_거리()
         {
-            CollectionAssert.AreEqual(new[] { 3200f, 2800f, 2400f, 2000f }, SkydivePyramidLayout.Terraces.Select(s => s.Y).ToArray());
-            for (int i = 1; i < 4; i++)
+            for (int k = 2; k <= 4; k++)
             {
-                var dummy = SkydiveCourseBuilder.Shelves[i];
-                var t = SkydivePyramidLayout.Terraces[i];
-                Assert.AreEqual(dummy.Y + SkydivePyramidLayout.Shift, t.Y);
-                Assert.AreEqual(dummy.Holes.Length, t.Holes.Length);
+                Assert.AreEqual(40f, Mathf.DeltaAngle(L.Theta(k - 1), L.Theta(k)), 0.001f);
+                var fastStep = (L.OnCircle(L.FastRadius, k) - L.OnCircle(L.FastRadius, k - 1)).magnitude;
+                var safeStep = (L.OnCircle(L.SafeRadius, k) - L.OnCircle(L.SafeRadius, k - 1)).magnitude;
+                Assert.AreEqual(41f, fastStep, 1f, "빠른 구멍 사이 — 다이브 도달(33) + 반폭(12) 안");
+                Assert.AreEqual(75f, safeStep, 1f, "안전한 구멍 사이 — 대자(77)로만");
             }
         }
 
         [Test]
-        public void 첫_테라스는_문_없는_큰_구멍_하나_제단을_덮는다()
+        public void 첫_테라스는_문_없는_큰_구멍_하나가_제단을_덮는다()
         {
-            //  스펙 §2.1 익히기 — 제단 어디서 뛰어내려도 구멍으로 떨어진다. 문·갈림길은 2800부터.
-            var first = SkydivePyramidLayout.Terraces[0];
+            var first = L.Terraces[0];
             Assert.AreEqual(1, first.Holes.Length);
             Assert.IsFalse(first.Holes[0].HasDoor);
-            Assert.GreaterOrEqual(first.Holes[0].Half, SkydivePyramidLayout.AltarHalf);
-            Assert.IsFalse(SkydivePyramidLayout.TerraceDoors.Any(d => Mathf.Approximately(d.Center.y, 3200f)));
-            Assert.IsTrue(SkydivePyramidLayout.Lasers.Any(l => l.Pivot.y > 3200f && l.Pivot.y < SkydivePyramidLayout.SpawnY), "3400 느린 레이저");
+            Assert.GreaterOrEqual(first.Holes[0].Half, L.AltarHalf);
+            Assert.AreEqual(L.AltarXZ.x, first.Holes[0].X, 0.01f);
+            Assert.AreEqual(L.AltarXZ.y, first.Holes[0].Z, 0.01f);
+            Assert.IsTrue(L.Lasers.Any(l => l.Pivot.y > 3200f && l.Pivot.y < L.SpawnY), "3400 느린 레이저");
         }
 
         [Test]
-        public void 앞마당_위에서는_놀이_폭_밖으로_못_나간다()
+        public void 층마다_경계가_다음_테라스_둘레를_막는다()
         {
-            //  제단에서 대자로 400m 떨어지면 옆으로 77m 간다 — 막지 않으면 테라스를 다 건너뛰고 바닥에 닿는다.
-            //  동·서·남은 보이는 경계벽, 북은 피라미드 몸체·섬 바위(충돌체)가 막는다.
-            float top = SkydivePyramidLayout.SpawnY + 50f, bottom = SkydivePyramidLayout.PorchY;
-            foreach (var probe in new[] { new Vector3(-101f, 0f, 0f), new Vector3(101f, 0f, 0f), new Vector3(0f, 0f, -101f), new Vector3(0f, 0f, 101f) })
+            //  띠(판 k 높이 ~ 위 판 높이)의 가운데 높이에서 판 k 둘레 바로 바깥 점들이 모두 벽 안이어야 한다 — 옆으로 흘러 한 층을 건너뛰지 못하게.
+            var bands = new (int plate, float low, float high)[]
             {
-                for (float y = bottom + 1f; y < top; y += 25f)
+                (1, 3200f, L.SpawnY), (2, 2800f, 3200f), (3, 2400f, 2800f), (4, 2000f, 2400f), (5, L.PorchY, 2000f),
+            };
+            var walls = L.BandWalls;
+            foreach (var (plate, low, high) in bands)
+            {
+                var c = L.PlateCenter(plate);
+                float y = (low + high) * 0.5f;
+                foreach (var d in new[] { new Vector2(102f, 0f), new Vector2(-102f, 0f), new Vector2(0f, 102f), new Vector2(0f, -102f),
+                                          new Vector2(102f, 60f), new Vector2(-102f, -60f), new Vector2(60f, 102f), new Vector2(-60f, -102f) })
                 {
-                    var p = new Vector3(probe.x, y, probe.z);
-                    Assert.IsTrue(SkydivePyramidLayout.Solids.Any(b => b.Contains(p)), $"{p}에 막는 것이 없다 — 코스를 건너뛴다");
+                    var p = new Vector3(c.x + d.x, y, c.y + d.y);
+                    Assert.IsTrue(walls.Any(w => w.Contains(p)), $"판 {plate} 띠의 {p}에 벽이 없다 — 한 층을 건너뛴다");
                 }
             }
         }
 
         [Test]
-        public void 경계벽은_그림자를_드리우지_않는다()
+        public void 몸체는_다음_층_낙하_칸을_침범하지_않는다()
         {
-            //  해가 남쪽에서 비춘다 — 2300m짜리 남쪽 벽이 그림자를 드리우면 코스 전체가 어두워진다(플레이 관측).
+            foreach (var (rect, low, high) in L.BodyPieces)
+            {
+                int k = System.Array.FindIndex(L.TerraceYs, y => Mathf.Abs(y - 1.5f - high) < 0.01f) + 1;
+                Assert.Greater(k, 0, "몸체 조각의 판을 못 찾았다");
+                var next = L.PlateCenter(k + 1);
+                //  경계에 딱 붙은 조각(104.0)이 부동소수로 103.99가 되는 것은 침범이 아니다 — 0.05 여유.
+                bool overlapX = rect.XMin < next.x + 103.95f && rect.XMax > next.x - 103.95f;
+                bool overlapZ = rect.ZMin < next.y + 103.95f && rect.ZMax > next.y - 103.95f;
+                Assert.IsFalse(overlapX && overlapZ, $"판 {k} 몸체 {rect.Name}가 판 {k + 1}의 낙하 칸(띠 벽 안)에 들어온다");
+            }
+        }
+
+        [Test]
+        public void 앞마당은_2000_구멍_아래고_갱도_위가_아니다()
+        {
+            var porchParts = new[] { L.Porch }.Concat(L.PorchSides).ToArray();
+            var shaft = L.ShaftFloor;
+            foreach (var h in L.Terraces[3].Holes)
+            {
+                Assert.IsTrue(porchParts.Any(p => h.X >= p.XMin && h.X <= p.XMax && h.Z >= p.ZMin && h.Z <= p.ZMax), $"2000 구멍({h.X:0},{h.Z:0}) 아래 앞마당이 없다");
+                bool overShaft = h.X + h.Half > shaft.XMin - L.ShaftWall && h.X - h.Half < shaft.XMax + L.ShaftWall
+                              && h.Z + h.Half > shaft.ZMin - L.ShaftWall && h.Z - h.Half < shaft.ZMax + L.ShaftWall;
+                Assert.IsFalse(overShaft, $"2000 구멍({h.X:0},{h.Z:0})이 갱도 위다 — 앞마당을 건너뛴다");
+            }
+        }
+
+        [Test]
+        public void 앞마당은_놀이_폭을_다_덮고_구멍이_없다()
+        {
+            var t = L.PorchOffset;
+            var porchParts = new[] { L.Porch }.Concat(L.PorchSides).ToArray();
+            var shaft = L.ShaftFloor;
+            for (float x = -99f; x <= 99f; x += 2f)
+            {
+                for (float z = -99f; z <= 99f; z += 2f)
+                {
+                    float wx = t.x + x, wz = t.z + z;
+                    bool inShaft = wx > shaft.XMin - L.ShaftWall && wx < shaft.XMax + L.ShaftWall && wz > shaft.ZMin - L.ShaftWall;
+                    if (inShaft) { continue; }
+                    Assert.IsTrue(porchParts.Any(p => wx >= p.XMin && wx <= p.XMax && wz >= p.ZMin && wz <= p.ZMax), $"({wx:0},{wz:0})에 1300 바닥이 없다 — 갱도를 건너뛴다");
+                }
+            }
+        }
+
+        [Test]
+        public void 테라스_조형물은_구멍_부활_레이저를_피한다()
+        {
+            var pieces = L.SetPieces;
+            for (int k = 1; k <= 4; k++)
+            {
+                var t = L.Terraces[k - 1];
+                var c = L.PlateCenter(k);
+                var mine = pieces.Where(p => Mathf.Approximately(p.Y, t.Y)).ToArray();
+                Assert.IsNotEmpty(mine, $"{t.Y:0} 테라스에 조형물이 없다");
+                foreach (var p in mine)
+                {
+                    Assert.LessOrEqual(Mathf.Abs(p.X - c.x) + p.Half, L.PlateHalf, "판 밖");
+                    Assert.LessOrEqual(Mathf.Abs(p.Z - c.y) + p.Half, L.PlateHalf, "판 밖");
+                    foreach (var h in t.Holes)
+                    {
+                        Assert.IsTrue(Mathf.Abs(p.X - h.X) > p.Half + h.Half + 6f || Mathf.Abs(p.Z - h.Z) > p.Half + h.Half + 6f, $"{p.Y:0} 조형물이 구멍을 막는다");
+                    }
+                    if (L.RespawnPoints.TryGetValue(p.Y, out var r))
+                    {
+                        Assert.IsTrue(Mathf.Abs(p.X - r.x) > p.Half + 8f || Mathf.Abs(p.Z - r.z) > p.Half + 8f, $"{p.Y:0} 조형물이 부활 지점 위");
+                    }
+                    foreach (var l in L.Lasers)
+                    {
+                        bool sameBand = l.Pivot.y > p.Y - 5f && l.Pivot.y < p.Y + p.Height + 5f;
+                        float d = new Vector2(l.Pivot.x - p.X, l.Pivot.z - p.Z).magnitude;
+                        Assert.IsFalse(sameBand && d < l.Length + p.Half * 1.42f, $"{p.Y:0} 조형물이 레이저 {l.Name}의 원 안");
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void 피라미드_부활_지점은_모두_판_위_구멍_밖()
+        {
+            Assert.IsNull(SkydivePyramidBuilder.FindBadRespawn());
+        }
+
+        [Test]
+        public void 벽_면엔_돌_쌓은_결이_있다()
+        {
+            Assert.AreEqual(0f, LOPToonMaterials.Create(Color.white).GetFloat("_SideGrid"), "다른 모드엔 영향 없음(기본 꺼짐)");
+            Assert.Greater(SkydivePyramidDressing.StoneDark.GetFloat("_SideGrid"), 0f);
+            Assert.Greater(SkydivePyramidDressing.Stone.GetFloat("_SideGrid"), 0f);
+        }
+
+        [Test]
+        public void 경계벽은_그림자를_드리우지_않고_면을_그리지_않는다()
+        {
             var scene = UnityEditor.SceneManagement.EditorSceneManager.OpenScene(SkydivePyramidBuilder.ScenePath, UnityEditor.SceneManagement.OpenSceneMode.Additive);
             try
             {
-                var walls = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<MeshRenderer>(true)).Where(r => r.name.StartsWith("BoundaryWall")).ToArray();
-                Assert.AreEqual(SkydivePyramidLayout.BoundaryWalls.Length, walls.Length);
+                var bodies = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<MeshRenderer>(true)).Where(r => r.name.StartsWith("Body_")).ToArray();
+                Assert.IsNotEmpty(bodies);
+                Assert.IsTrue(bodies.All(b => b.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.Off), "몸체 그림자가 아래 테라스를 덮는다");
+                var walls = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<MeshRenderer>(true)).Where(r => r.name.StartsWith("BandWall")).ToArray();
+                Assert.AreEqual(L.BandWalls.Length, walls.Length);
                 foreach (var w in walls)
                 {
                     Assert.AreEqual(UnityEngine.Rendering.ShadowCastingMode.Off, w.shadowCastingMode, w.name);
+                    Assert.IsFalse(w.enabled, "벽 면은 그리지 않는다 — 울타리 빔이 보여 준다");
                 }
             }
             finally { UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true); }
         }
 
         [Test]
-        public void 꾸밈은_충돌체가_없고_메시는_에셋으로_남는다()
+        public void 꾸밈은_충돌체가_없고_메시는_저장된다()
         {
-            //  꾸밈(구름·덩굴·석상 눈·나무·울타리 빔)은 판정과 무관하다 — 충돌체가 있으면 보이지 않는 곳에서 몸이 걸린다.
-            //  코드로 만든 메시는 에셋으로 저장하지 않으면 씬을 다시 열 때 사라진다(원격 에셋·서버에서 빈 메시).
             var scene = UnityEditor.SceneManagement.EditorSceneManager.OpenScene(SkydivePyramidBuilder.ScenePath, UnityEditor.SceneManagement.OpenSceneMode.Additive);
             try
             {
@@ -96,81 +197,10 @@ namespace LOP.Tests
                     Assert.IsNotNull(f.sharedMesh, f.name);
                     Assert.IsTrue(UnityEditor.EditorUtility.IsPersistent(f.sharedMesh), f.name + " 메시가 저장되지 않았다");
                 }
-                //  판정 상자는 우리 툰 재질이다(회색 블록 아웃 끝).
                 var terrace = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<MeshRenderer>(true)).First(r => r.name.StartsWith("Terrace_"));
                 Assert.AreEqual("LOP/Toon", terrace.sharedMaterial.shader.name);
             }
             finally { UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true); }
-        }
-
-        [Test]
-        public void 벽_면엔_돌_쌓은_결이_있다()
-        {
-            //  400m 민짜 면은 가까이서 결이 없어 "거대한 벽"으로만 보였다 — 옆면 줄눈으로 크기감을 준다.
-            Assert.AreEqual(0f, LOPToonMaterials.Create(Color.white).GetFloat("_SideGrid"), "다른 모드엔 영향 없음(기본 꺼짐)");
-            Assert.Greater(SkydivePyramidDressing.StoneDark.GetFloat("_SideGrid"), 0f);
-            Assert.Greater(SkydivePyramidDressing.Stone.GetFloat("_SideGrid"), 0f);
-        }
-
-        [Test]
-        public void 꼭대기는_내려다보는_자리다()
-        {
-            //  제단 뒤로 피라미드 윗단이 솟아 있으면 꼭대기에서 벽을 올려다본다 — 윗단 윗면은 제단 높이까지만.
-            var top = SkydivePyramidLayout.PyramidBody[0];
-            Assert.LessOrEqual(top.max.y, SkydivePyramidLayout.SpawnY + 1.5f);
-        }
-
-        [Test]
-        public void 테라스_조형물은_구멍_부활_레이저를_피한다()
-        {
-            var pieces = SkydivePyramidLayout.SetPieces;
-            foreach (var t in SkydivePyramidLayout.Terraces)
-            {
-                Assert.IsTrue(pieces.Any(p => Mathf.Approximately(p.Y, t.Y)), $"{t.Y:0} 테라스에 조형물이 없다");
-            }
-            foreach (var p in pieces)
-            {
-                var t = SkydivePyramidLayout.Terraces.First(x => Mathf.Approximately(x.Y, p.Y));
-                Assert.LessOrEqual(Mathf.Abs(p.X) + p.Half, 100f, "놀이 판 밖");
-                foreach (var h in t.Holes)
-                {
-                    Assert.IsTrue(Mathf.Abs(p.X - h.X) > p.Half + h.Half + 6f || Mathf.Abs(p.Z - h.Z) > p.Half + h.Half + 6f, $"{p.Y:0} 조형물이 구멍({h.X:0},{h.Z:0})을 막는다");
-                }
-                if (SkydivePyramidLayout.RespawnPoints.TryGetValue(p.Y, out var r))
-                {
-                    Assert.IsTrue(Mathf.Abs(p.X - r.x) > p.Half + 8f || Mathf.Abs(p.Z - r.z) > p.Half + 8f, $"{p.Y:0} 조형물이 부활 지점 위");
-                }
-                foreach (var l in SkydivePyramidLayout.Lasers)
-                {
-                    bool sameBand = l.Pivot.y > p.Y - 5f && l.Pivot.y < p.Y + p.Height + 5f;
-                    float d = new Vector2(l.Pivot.x - p.X, l.Pivot.z - p.Z).magnitude;
-                    Assert.IsFalse(sameBand && d < l.Length + p.Half * 1.42f, $"{p.Y:0} 조형물이 레이저 {l.Name}의 원 안");
-                }
-            }
-        }
-
-        [Test]
-        public void 앞마당은_놀이_폭을_다_덮고_구멍이_없다()
-        {
-            var porch = SkydivePyramidLayout.Porch;
-            Assert.LessOrEqual(porch.XMin, -100f);
-            Assert.GreaterOrEqual(porch.XMax, 100f);
-            Assert.LessOrEqual(porch.ZMin, -100f);
-            //  앞마당 북쪽 끝이 갱도 남쪽 벽(z 35)까지 와야 틈으로 빠지지 않는다.
-            Assert.GreaterOrEqual(porch.ZMax, 35f);
-
-            //  갱도(±35) 밖, z 35..100도 덮여야 한다 — 지붕 옆으로 떨어져 갱도를 건너뛰는 길을 막는다.
-            for (float x = -99f; x <= 99f; x += 2f)
-            {
-                for (float z = -99f; z <= 99f; z += 2f)
-                {
-                    bool inShaft = Mathf.Abs(x) < SkydivePyramidLayout.ShaftXHalf + SkydivePyramidLayout.ShaftWall && z > porch.ZMax;
-                    if (inShaft) { continue; }
-                    bool covered = (x >= porch.XMin && x <= porch.XMax && z >= porch.ZMin && z <= porch.ZMax)
-                        || SkydivePyramidLayout.PorchSides.Any(p => x >= p.XMin && x <= p.XMax && z >= p.ZMin && z <= p.ZMax);
-                    Assert.IsTrue(covered, $"({x},{z})에 1300 바닥이 없다 — 갱도를 건너뛴다");
-                }
-            }
         }
 
         [Test]
@@ -183,19 +213,13 @@ namespace LOP.Tests
             Assert.AreEqual(SkydivePyramidBuilder.ScenePath, entry.address);
             Assert.AreEqual("Scene", entry.parentGroup.Name);
 
-            //  LoadAsync는 EditMode에서 기다리기 위험하다 — 패키지의 .bytes를 직접 읽는다(SkydiveLandingMasterDataConsistencyTests와 같은 방식).
+            //  LoadAsync는 EditMode에서 기다리기 위험하다 — 패키지의 .bytes를 직접 읽는다.
             string path = System.IO.Path.GetFullPath(
                 "Packages/com.baegames.lop.masterdata.client/Runtime.Generated/StreamingAssets/MasterData/tbmap.bytes");
             var table = new LOP.MasterData.TbMap(new Luban.ByteBuf(System.IO.File.ReadAllBytes(path)));
             var map = table.GetOrDefault(9);
             Assert.IsNotNull(map, "TbMap에 9번 맵이 없다");
             Assert.AreEqual(SkydivePyramidBuilder.ScenePath, map.ScenePath);
-        }
-
-        [Test]
-        public void 피라미드_부활_지점은_모두_판_위_구멍_밖()
-        {
-            Assert.IsNull(SkydivePyramidBuilder.FindBadRespawn());
         }
     }
 }

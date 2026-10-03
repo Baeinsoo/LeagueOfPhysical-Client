@@ -6,141 +6,225 @@ using static LOP.EditorTools.SkydiveCourseBuilder;
 namespace LOP.EditorTools
 {
     /// <summary>
-    /// 피라미드 맵 표(블록 아웃, 스펙 2026-10-03 §2). 구간 1·2는 더미 코스 위 4층을 600m 올린 것 — 낙하 물리가 높이와 무관해
-    /// 더미가 통과하던 검사·손맛을 그대로 가져온다. 구간 3~5는 새로 놓는다.
+    /// 피라미드 맵 표 v2(스펙 2026-10-04 §2) — 완만한 나선. 층마다 40° 돌아 내려간다. 값은 전부 월드 좌표다.
+    /// 빠른 구멍은 반지름 60 원(이웃 41m — 다이브 도달 33 + 반폭 12), 안전한 구멍은 110 원(이웃 75m — 대자로만).
+    /// 판정 코드는 그대로 — 이 표와 빌더·검사만 맵을 안다.
     /// </summary>
     internal static class SkydivePyramidLayout
     {
-        public const float Shift = 600f;
         public const float SpawnY = 3600f;
         public const float AltarHalf = 30f;
         public const float PorchY = 1300f;
         public const float RoofY = 1330f;
         public const float ExitY = 450f;
-        public const float ShaftXHalf = 30f, ShaftZMin = 40f, ShaftZMax = 100f, ShaftWall = 5f;
+        public const float ShaftXHalf = 30f, ShaftZMin = 40f, ShaftZMax = 100f, ShaftWall = 5f;   // 앞마당 기준(PorchOffset 더하기 전)
         public const float GroundHalf = 300f;
 
-        private const float DummyLowest = 1400f;   // 더미에서 가져올 맨 아래 선반
-        private const float DummyLaserLift = 15f;  // 더미 레이저는 선반 15m 위에 있고 이름에 선반 고도가 들어 있다
+        public const float StepDegrees = 40f;
+        public const float PlateRadius = 70f, FastRadius = 60f, SafeRadius = 110f;
+        public const float PlateHalf = 100f;
+        public static readonly float[] TerraceYs = { 3200f, 2800f, 2400f, 2000f };
 
-        private const float DummyFirst = 2600f;    // 더미 첫 선반 — 피라미드에선 익히기 테라스로 바꾼다
+        /// <summary>층 k(0 = 제단, 1..4 = 테라스, 5 = 앞마당)의 나선 각(도).</summary>
+        public static float Theta(int k) => -90f + StepDegrees * k;
 
-        //  첫 테라스(3200)는 익히기(스펙 §2.1): 문 없는 큰 구멍 하나가 제단(±30)을 다 덮는다 — 어디서 뛰어내려도 빠진다.
-        //  갈림길은 2800부터. 출발점(0,0)이 더미와 같아 아래 테라스로 이어지는 길 검사도 그대로다.
-        public static readonly Shelf[] Terraces = new[] { new Shelf(DummyFirst + Shift, new[] { new Hole(0f, 0f, 60f, hasDoor: false) }) }
-            .Concat(Shelves
-                .Where(s => s.Y >= DummyLowest && s.Y < DummyFirst)
-                .Select(s => new Shelf(s.Y + Shift, s.Holes)))
-            .ToArray();
-
-        public static readonly DoorSpec[] TerraceDoors = Doors
-            .Where(d => d.Center.y >= DummyLowest && d.Center.y < DummyFirst)
-            .Select(d => new DoorSpec(d.Name.Replace($"{d.Center.y:0}", $"{d.Center.y + Shift:0}"),
-                                      d.Center + Vector3.up * Shift, d.HalfWidth, d.HalfDepth,
-                                      d.AxisAngleDegrees, d.Period, d.OpenTicks, d.MoveTicks, d.Phase))
-            .ToArray();
-
-        private static bool InTop(float y) => y > DummyLowest && y <= LOP.SkydiveCourseLayout.SpawnY;
-
-        public static readonly LaserSpec[] Lasers = SkydiveCourseBuilder.Lasers
-            .Where(l => InTop(l.Pivot.y))
-            .Select(l => new LaserSpec(l.Name.Replace($"{l.Pivot.y - DummyLaserLift:0}", $"{l.Pivot.y - DummyLaserLift + Shift:0}"),
-                                       l.Pivot + Vector3.up * Shift, l.Length, l.Radius, l.StartAngleDegrees,
-                                       l.AngularSpeedDegreesPerTick, l.SweepHalfRangeDegrees, l.Period, l.OnTicks, l.Phase))
-            .Concat(new[]
-            {
-                //  구간 1: 석상 눈 사이를 느리게 왕복 — 익히기라 맞아도 제단으로 돌아갈 뿐
-                new LaserSpec("Laser_3400_Sweep", new Vector3(-60f, 3400f, 0f), length: 40f, radius: 0.8f,
-                              startAngleDegrees: 0f, angularSpeedDegreesPerTick: 1f, sweepHalfRangeDegrees: 30f, period: 0, onTicks: 0, phase: 0),
-                //  구간 3: 구름 속 — 오는 것이 보이게 굵고 느리게 왕복
-                new LaserSpec("Laser_1600_Sweep", new Vector3(0f, 1600f, -30f), length: 40f, radius: 0.8f,
-                              startAngleDegrees: 0f, angularSpeedDegreesPerTick: 1.5f, sweepHalfRangeDegrees: 60f, period: 0, onTicks: 0, phase: 0),
-                //  구간 4: 갱도 가운데에서 벽까지(29m) 도는 빔
-                new LaserSpec("Laser_1150_Spin", new Vector3(0f, 1150f, 70f), length: 29f, radius: 0.6f,
-                              startAngleDegrees: 0f, angularSpeedDegreesPerTick: 3f, sweepHalfRangeDegrees: 0f, period: 0, onTicks: 0, phase: 0),
-                new LaserSpec("Laser_850_Sweep", new Vector3(0f, 850f, 70f), length: 29f, radius: 0.6f,
-                              startAngleDegrees: 0f, angularSpeedDegreesPerTick: 2f, sweepHalfRangeDegrees: 90f, period: 0, onTicks: 0, phase: 0),
-                new LaserSpec("Laser_550_Spin", new Vector3(0f, 550f, 70f), length: 29f, radius: 0.6f,
-                              startAngleDegrees: 180f, angularSpeedDegreesPerTick: -3f, sweepHalfRangeDegrees: 0f, period: 0, onTicks: 0, phase: 0),
-            })
-            .ToArray();
-
-        public static readonly WindSpec[] TerraceWinds = SkydiveCourseBuilder.Winds
-            .Where(w => InTop(w.Center.y))
-            .Select(w => new WindSpec(w.Name.Replace($"{w.Center.y:0}", $"{w.Center.y + Shift:0}"),
-                                      w.Center + Vector3.up * Shift, w.Radius, w.Height, w.Wind))
-            .ToArray();
-
-        public static readonly WindSpec[] Winds = TerraceWinds.Concat(new[]
+        public static Vector2 OnCircle(float radius, int k)
         {
-            //  폭포 기둥 — 실리면 빨라진다(하강풍)
-            new WindSpec("Wind_1650_Fall", new Vector3(70f, 1650f, -40f), 20f, 300f, new Vector3(0f, -25f, 0f)),
-            //  폭포 밑 물안개 — 패러세일이 오래 간다(상승풍)
-            new WindSpec("Wind_1420_Mist", new Vector3(-60f, 1420f, -40f), 25f, 120f, new Vector3(0f, 30f, 0f)),
+            float a = Theta(k) * Mathf.Deg2Rad;
+            return new Vector2(Mathf.Cos(a) * radius, Mathf.Sin(a) * radius);
+        }
+
+        public static Vector2 PlateCenter(int k) => OnCircle(PlateRadius, k);
+
+        public static Plate PlateRect(int k)
+        {
+            var c = PlateCenter(k);
+            return new Plate($"Plate{k}", c.x - PlateHalf, c.x + PlateHalf, c.y - PlateHalf, c.y + PlateHalf);
+        }
+
+        /// <summary>제단 = 첫 빠른 구멍(익히기 구멍) 바로 위 — 어디로 뛰어내려도 그 구멍에 빠진다.</summary>
+        public static Vector2 AltarXZ => OnCircle(FastRadius, 1);
+
+        /// <summary>앞마당·갱도·구름층·폭포는 v1 배치를 나선 끝(층 5) 자리로 옮긴 것.</summary>
+        public static Vector3 PorchOffset => new Vector3(PlateCenter(5).x, 0f, PlateCenter(5).y);
+
+        // ---- 테라스 ----
+
+        public static readonly Shelf[] Terraces = BuildTerraces();
+
+        private static Shelf[] BuildTerraces()
+        {
+            var list = new List<Shelf>();
+            var a = AltarXZ;
+            //  3200 익히기: 문 없는 큰 구멍 하나(제단 아래). 갈림길은 2800부터.
+            list.Add(new Shelf(TerraceYs[0], new[] { new Hole(a.x, a.y, 60f, hasDoor: false) }));
+            for (int k = 2; k <= 4; k++)
+            {
+                var f = OnCircle(FastRadius, k);
+                var s = OnCircle(SafeRadius, k);
+                list.Add(new Shelf(TerraceYs[k - 1], new[] { new Hole(f.x, f.y, 24f, hasDoor: true), new Hole(s.x, s.y, 20f, hasDoor: false) }));
+            }
+            return list.ToArray();
+        }
+
+        public static IReadOnlyList<Vector2> TerracePlateCenters => new[] { PlateCenter(1), PlateCenter(2), PlateCenter(3), PlateCenter(4) };
+
+        //  빠른 구멍의 문 — 더미 Door_2200 박자, 층마다 박자를 밀어 한꺼번에 열리지 않게.
+        public static readonly DoorSpec[] TerraceDoors = Enumerable.Range(2, 3).Select(k =>
+        {
+            var f = OnCircle(FastRadius, k);
+            return new DoorSpec($"Door_{TerraceYs[k - 1]:0}", new Vector3(f.x, TerraceYs[k - 1], f.y), halfWidth: 12f, halfDepth: 12f,
+                                axisAngleDegrees: 90f, period: 180, openTicks: 100, moveTicks: 22, phase: (k - 2) * 60);
         }).ToArray();
 
-        /// <summary>앞마당 — 놀이 폭 전체, 구멍 없음. 내려가는 길은 뒤쪽 갱도 입구 하나.</summary>
-        public static readonly Plate Porch = new Plate("Porch", -100f, 100f, -100f, ShaftZMin - ShaftWall);
+        // ---- 레이저 묶음(스펙 §3) ----
 
-        /// <summary>
-        /// 갱도 지붕 양옆의 앞마당 — 위 테라스의 안전한 구멍(−35,80)이 지붕 옆으로 떨어뜨린다. 여기가 비면 갱도를 건너뛰고
-        /// 바닥까지 간다. 놀이 폭(±100) 안에서 갱도(±35) 밖을 다 덮는다.
-        /// </summary>
-        public static readonly Plate[] PorchSides =
+        public static readonly LaserSpec[] Lasers = BuildLasers();
+
+        private static LaserSpec[] BuildLasers()
         {
-            new Plate("PorchWest", -100f, -(ShaftXHalf + ShaftWall), ShaftZMin - ShaftWall, 100f),
-            new Plate("PorchEast", ShaftXHalf + ShaftWall, 100f, ShaftZMin - ShaftWall, 100f),
+            var list = new List<LaserSpec>();
+            var a = AltarXZ;
+            //  구간 1: 익히기 — 제단 옆에서 느리게 왕복 하나. 익히기 구멍(±30)은 문 없는 "안전한 길"이라 그 위는 안 쓴다(끝이 구멍 가장자리에서 10m).
+            list.Add(new LaserSpec("Laser_3400_Sweep", new Vector3(a.x - 80f, 3400f, a.y), length: 40f, radius: 0.8f,
+                                   startAngleDegrees: 0f, angularSpeedDegreesPerTick: 1f, sweepHalfRangeDegrees: 30f, period: 0, onTicks: 0, phase: 0));
+            //  테라스: 빠른 구멍 15m 위 — 빗살(2800) · 물결(2400) · 부채(2000). 안전한 구멍(75m 밖)엔 안 닿는다.
+            Vector3 Over(int k) { var f = OnCircle(FastRadius, k); return new Vector3(f.x, TerraceYs[k - 1] + 15f, f.y); }
+            list.AddRange(SkydiveLaserPatterns.Comb("L2815", Over(2), Theta(2), count: 6, spacing: 4f, length: 36f, gapIndex: 2));
+            list.AddRange(SkydiveLaserPatterns.Wave("L2415", Over(3), Theta(3), count: 6, spacing: 4f, length: 36f, period: 120, onTicks: 70));
+            list.AddRange(SkydiveLaserPatterns.Fan("L2015", Over(4), arms: 3, length: 22f, degPerTick: 2f, radius: 0.6f));
+            //  구름층: 굵고 느린 부채 둘(흐린 시야라 예고가 잘 보이게)
+            var t = PorchOffset;
+            list.AddRange(SkydiveLaserPatterns.Fan("L1750", t + new Vector3(40f, 1750f, -60f), arms: 3, length: 30f, degPerTick: -1.2f, radius: 0.8f));
+            list.AddRange(SkydiveLaserPatterns.Fan("L1600", t + new Vector3(0f, 1600f, -30f), arms: 4, length: 40f, degPerTick: 1f, radius: 0.8f));
+            //  갱도(미션 임파서블 복도): 격자 → 물결 → 조이는 문
+            var shaft = t + new Vector3(0f, 0f, (ShaftZMin + ShaftZMax) * 0.5f);
+            list.AddRange(SkydiveLaserPatterns.Grid("L1150", shaft + Vector3.up * 1150f, count: 6, spacing: 8f, length: 56f, layerGap: 8f));
+            list.AddRange(SkydiveLaserPatterns.Wave("L900", shaft + Vector3.up * 900f, 0f, count: 7, spacing: 7f, length: 56f, period: 120, onTicks: 60));
+            list.AddRange(SkydiveLaserPatterns.Closing("L600", shaft + Vector3.up * 600f, halfWidth: 28f, length: 30f, sweepDeg: 50f, degPerTick: 2f));
+            return list.ToArray();
+        }
+
+        // ---- 바람(구간 3 폭포·물안개 — 테라스엔 없음) ----
+
+        public static readonly WindSpec[] TerraceWinds = new WindSpec[0];
+
+        public static WindSpec[] Winds => new[]
+        {
+            new WindSpec("Wind_1650_Fall", PorchOffset + new Vector3(70f, 1650f, -40f), 20f, 300f, new Vector3(0f, -25f, 0f)),
+            new WindSpec("Wind_1420_Mist", PorchOffset + new Vector3(-60f, 1420f, -40f), 25f, 120f, new Vector3(0f, 30f, 0f)),
         };
 
-        public static readonly Shelf[] ShaftLedges =
+        // ---- 앞마당·갱도(v1 배치를 PorchOffset만큼 옮김) ----
+
+        private static Plate Move(Plate p) => new Plate(p.Name, p.XMin + PorchOffset.x, p.XMax + PorchOffset.x, p.ZMin + PorchOffset.z, p.ZMax + PorchOffset.z);
+
+        public static Plate Porch => Move(new Plate("Porch", -100f, 100f, -100f, ShaftZMin - ShaftWall));
+
+        public static Plate[] PorchSides => new[]
         {
-            new Shelf(1000f, new[] { new Hole(-15f, 55f, 14f, hasDoor: false), new Hole(15f, 85f, 14f, hasDoor: false) }),
-            new Shelf(700f, new[] { new Hole(15f, 55f, 14f, hasDoor: false), new Hole(-15f, 85f, 14f, hasDoor: false) }),
-            new Shelf(ExitY, new[] { new Hole(0f, 70f, 20f, hasDoor: false) }),
+            Move(new Plate("PorchWest", -100f, -(ShaftXHalf + ShaftWall), ShaftZMin - ShaftWall, 100f)),
+            Move(new Plate("PorchEast", ShaftXHalf + ShaftWall, 100f, ShaftZMin - ShaftWall, 100f)),
         };
 
-        /// <summary>
-        /// 앞마당(1300) 위에서 놀이 폭(±100) 밖으로 못 나가게 막는 단단한 것들. 제단에서 대자로 400m 떨어지면 옆으로 77m 가서
-        /// 막지 않으면 테라스를 다 건너뛴다. 북쪽은 피라미드 몸체·섬 바위, 동·서·남은 보이는 경계벽(블록 아웃 임시 — 경계 슬라이스가 대신한다).
-        /// </summary>
-        //  동·서 벽은 북쪽 끝(z 560)까지 — 피라미드 단이 놀이 폭보다 넓어, 단 윗면을 걸어 놀이 폭 밖으로 돌아 나가는 길을 막는다.
-        //  북쪽은 맨 윗단 윗면(제단 높이) 위만 — 그 아래는 피라미드 몸체가 막는다.
-        public static readonly Bounds[] BoundaryWalls =
-        {
-            new Bounds(new Vector3(-102f, (PorchY + SpawnY + 60f) * 0.5f, 228f), new Vector3(4f, SpawnY + 60f - PorchY, 664f)),
-            new Bounds(new Vector3(102f, (PorchY + SpawnY + 60f) * 0.5f, 228f), new Vector3(4f, SpawnY + 60f - PorchY, 664f)),
-            new Bounds(new Vector3(0f, (PorchY + SpawnY + 60f) * 0.5f, -102f), new Vector3(208f, SpawnY + 60f - PorchY, 4f)),
-            new Bounds(new Vector3(0f, SpawnY + 30f, 102f), new Vector3(208f, 60f, 4f)),
-        };
+        public static Plate ShaftFloor => Move(new Plate(string.Empty, -ShaftXHalf, ShaftXHalf, ShaftZMin, ShaftZMax));
 
-        public static Bounds[] PyramidBody
+        public static Shelf[] ShaftLedges
         {
             get
             {
-                //  계단 단: 위일수록 좁고 얕다. 맨 윗단 윗면 = 제단 높이 — 꼭대기에 서서 내려다본다(벽을 올려다보지 않게).
-                float[] tiers = { SpawnY, 3200f, 2800f, 2400f, 2000f };
-                var list = new List<Bounds>();
-                for (int i = 0; i < tiers.Length - 1; i++)
+                Hole H(float x, float z, float side) => new Hole(x + PorchOffset.x, z + PorchOffset.z, side, hasDoor: false);
+                return new[]
                 {
-                    float w = 200f + 2f * 60f * i, d = 120f + 60f * i;
-                    list.Add(new Bounds(new Vector3(0f, (tiers[i] + tiers[i + 1]) * 0.5f, 100f + d * 0.5f), new Vector3(w, tiers[i] - tiers[i + 1], d)));
+                    new Shelf(1000f, new[] { H(-15f, 55f, 14f), H(15f, 85f, 14f) }),
+                    new Shelf(700f, new[] { H(15f, 55f, 14f), H(-15f, 85f, 14f) }),
+                    new Shelf(ExitY, new[] { H(0f, 70f, 20f) }),
+                };
+            }
+        }
+
+        // ---- 체크포인트 ----
+
+        public static readonly IReadOnlyDictionary<float, Vector3> RespawnPoints = BuildRespawns();
+
+        private static IReadOnlyDictionary<float, Vector3> BuildRespawns()
+        {
+            var a = AltarXZ;
+            var c1 = PlateCenter(1);
+            var c4 = PlateCenter(4);
+            var t = PorchOffset;
+            return new Dictionary<float, Vector3>
+            {
+                { SpawnY, new Vector3(a.x, SpawnY, a.y) },
+                { 3200f, new Vector3(c1.x + 60f, 3200f, c1.y) },
+                { 2000f, new Vector3(c4.x - 60f, 2000f, c4.y) },
+                { PorchY, t + new Vector3(0f, PorchY, -40f) },
+                { ExitY, t + new Vector3(20f, ExitY, 50f) },
+            };
+        }
+
+        // ---- 층별 경계·몸체 ----
+
+        /// <summary>
+        /// 띠마다(위 판 높이 ~ 이 판 높이) 이 판 둘레(±102)를 막는 네 벽. 층마다 놀이 칸이 옮겨 가 큰 상자 하나로는 못 막는다 —
+        /// 안 막으면 옆으로 흘러 다음 판 밖으로 나가 한 층을 건너뛴다(대자 77m).
+        /// </summary>
+        public static Bounds[] BandWalls
+        {
+            get
+            {
+                var list = new List<Bounds>();
+                void Ring(Vector2 c, float low, float high)
+                {
+                    float h = high - low, y = (low + high) * 0.5f, e = PlateHalf + 2f, len = PlateHalf * 2f + 8f;
+                    list.Add(new Bounds(new Vector3(c.x - e, y, c.y), new Vector3(4f, h, len)));
+                    list.Add(new Bounds(new Vector3(c.x + e, y, c.y), new Vector3(4f, h, len)));
+                    list.Add(new Bounds(new Vector3(c.x, y, c.y - e), new Vector3(len, h, 4f)));
+                    list.Add(new Bounds(new Vector3(c.x, y, c.y + e), new Vector3(len, h, 4f)));
                 }
-                list.Add(new Bounds(new Vector3(0f, 1225f, 250f), new Vector3(400f, 1550f, 300f)));   // 섬 바위(450..2000)
+                Ring(PlateCenter(1), TerraceYs[0], SpawnY + 60f);
+                for (int k = 2; k <= 4; k++)
+                {
+                    Ring(PlateCenter(k), TerraceYs[k - 1], TerraceYs[k - 2]);
+                }
+                Ring(PlateCenter(5), PorchY, TerraceYs[3]);
                 return list.ToArray();
             }
         }
 
-        /// <summary>테라스 위 계단 신전(시안의 모서리 피라미드) — 부딪히는 물체라 구멍·부활 지점·레이저 원을 피해 고른다.</summary>
+        /// <summary>
+        /// 나선 몸체 — 판 k 아래, 판 k+1 낙하 칸(띠 벽 안) 밖만 채운다. 멀리서 "나선 계단을 두른 피라미드"로 읽히게, 떨어지는 길은 안 가리게.
+        /// </summary>
+        public static (Plate rect, float low, float high)[] BodyPieces
+        {
+            get
+            {
+                var list = new List<(Plate, float, float)>();
+                for (int k = 1; k <= 4; k++)
+                {
+                    float high = TerraceYs[k - 1] - 1.5f;
+                    float low = k < 4 ? TerraceYs[k] : PorchY;
+                    var next = PlateCenter(k + 1);
+                    foreach (var p in Carve(PlateRect(k), new[] { new Hole(next.x, next.y, PlateHalf * 2f + 8f, hasDoor: false) }))
+                    {
+                        list.Add((p, low, high));
+                    }
+                }
+                return list.ToArray();
+            }
+        }
+
+        // ---- 테라스 계단 신전 ----
+
         public readonly struct SetPiece
         {
             public readonly float Y, X, Z, Half, Height;
             public SetPiece(float y, float x, float z, float half, float height) { Y = y; X = x; Z = z; Half = half; Height = height; }
         }
 
-        //  200m 테라스에서 눈에 들어오는 크기 — 30m는 떨어지며 보면 점이었다(10-03 캡처).
         private const float PieceHalf = 22f, PieceHeight = 42f;
 
-        //  처음 쓸 때 고른다 — 정적 필드는 적힌 순서로 초기화되는데 아래 RespawnPoints가 이보다 뒤에 있다.
+        //  처음 쓸 때 고른다 — 정적 필드는 적힌 순서로 초기화되는데 RespawnPoints·Lasers를 쓴다.
         private static SetPiece[] setPieces;
         public static SetPiece[] SetPieces => setPieces ??= PickSetPieces();
 
@@ -149,47 +233,41 @@ namespace LOP.EditorTools
             var candidates = new[] { new Vector2(-72f, -72f), new Vector2(72f, -72f), new Vector2(-72f, 72f), new Vector2(72f, 72f),
                                      new Vector2(-78f, 0f), new Vector2(78f, 0f), new Vector2(0f, -78f), new Vector2(0f, 78f) };
             var list = new List<SetPiece>();
-            foreach (var t in Terraces)
+            for (int k = 1; k <= 4; k++)
             {
+                var t = Terraces[k - 1];
+                var c = PlateCenter(k);
                 int picked = 0;
-                foreach (var c in candidates)
+                foreach (var d in candidates)
                 {
                     if (picked == 4) { break; }
-                    var piece = new SetPiece(t.Y, c.x, c.y, PieceHalf, PieceHeight);
-                    if (Clear(piece, t)) { list.Add(piece); picked++; }
+                    var piece = new SetPiece(t.Y, c.x + d.x, c.y + d.y, PieceHalf, PieceHeight);
+                    if (Clear(piece, t, c)) { list.Add(piece); picked++; }
                 }
             }
             return list.ToArray();
         }
 
-        private static bool Clear(SetPiece p, Shelf t)
+        private static bool Clear(SetPiece p, Shelf t, Vector2 plateCenter)
         {
             foreach (var h in t.Holes)
             {
                 if (Mathf.Abs(p.X - h.X) <= p.Half + h.Half + 6f && Mathf.Abs(p.Z - h.Z) <= p.Half + h.Half + 6f) { return false; }
             }
-            //  체크포인트가 있는 테라스만 부활 지점이 있다(2800·2400은 없다).
+            //  체크포인트가 있는 테라스만 부활 지점이 있다.
             if (RespawnPoints.TryGetValue(t.Y, out var r) && Mathf.Abs(p.X - r.x) <= p.Half + 8f && Mathf.Abs(p.Z - r.z) <= p.Half + 8f) { return false; }
             foreach (var l in Lasers)
             {
+                //  빔은 피벗에서 한쪽으로 뻗는다 — 피벗 원(반지름 = 길이)으로 넉넉히 본다.
                 bool sameBand = l.Pivot.y > p.Y - 5f && l.Pivot.y < p.Y + p.Height + 5f;
                 float d = new Vector2(l.Pivot.x - p.X, l.Pivot.z - p.Z).magnitude;
                 if (sameBand && d < l.Length + p.Half * 1.42f) { return false; }
             }
-            return true;
+            //  띠 벽 안 — 판 밖으로 튀어나오면 벽에 박힌다.
+            return Mathf.Abs(p.X - plateCenter.x) + p.Half <= PlateHalf && Mathf.Abs(p.Z - plateCenter.y) + p.Half <= PlateHalf;
         }
 
-        public static Bounds[] Solids => BoundaryWalls.Concat(PyramidBody).ToArray();
-
-        public static Plate ShaftFloor => new Plate(string.Empty, -ShaftXHalf, ShaftXHalf, ShaftZMin, ShaftZMax);
-
-        public static readonly IReadOnlyDictionary<float, Vector3> RespawnPoints = new Dictionary<float, Vector3>
-        {
-            { SpawnY, new Vector3(0f, SpawnY, 0f) },
-            { 3200f, LOP.SkydiveCourseLayout.RespawnPoints[2600f] + Vector3.up * Shift },
-            { 2000f, LOP.SkydiveCourseLayout.RespawnPoints[1400f] + Vector3.up * Shift },
-            { PorchY, new Vector3(0f, PorchY, -40f) },
-            { ExitY, new Vector3(20f, ExitY, 50f) },
-        };
+        /// <summary>판정하는 단단한 경계 전부(띠 벽).</summary>
+        public static Bounds[] Solids => BandWalls;
     }
 }

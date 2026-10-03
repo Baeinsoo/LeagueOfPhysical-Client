@@ -104,7 +104,7 @@ namespace LOP.EditorTools
         // 대자 도달 안에 둔다(스펙 §3.1). 여기에 바람이 더해진다: 순풍이 미는 자리에 안전한
         // 구멍을 두면 다이브가 공짜로 실려 가 도달해 버리므로, 바람이 센 구간에서는 안전한
         // 구멍을 바람을 가로지르는 쪽에 둔다. 그 조건들을 FindRouteNotSplit()이 굽기 전에 다 잰다.
-        private static readonly Shelf[] Shelves =
+        internal static readonly Shelf[] Shelves =
         {
             new Shelf(2600f, new[]
             {
@@ -593,6 +593,8 @@ namespace LOP.EditorTools
                 }
             }
 
+            CreateCheckpointMarkers(root.transform, LOP.SkydiveCourseLayout.SpawnY, LOP.SkydiveCourseLayout.RespawnPoints);
+
             EditorSceneManager.MarkSceneDirty(scene);
 
             //  어긋난 문이 있는데 "저장해라"로 끝내면 죽이는 상자와 보이는 상자가 갈린 씬이 그대로
@@ -841,6 +843,32 @@ namespace LOP.EditorTools
         /// <para>허브에는 회전을 넣지 않는다 — 패널 오프셋이 이미 <c>AxisAngle</c>로 월드 축 기준
         /// 방향을 잡으므로 부모가 또 돌면 자식 로컬 좌표가 두 번 꺾인다.</para>
         /// </summary>
+        //  체크포인트 표식 — 스폰 고도에도 하나 둔다. 빠지면 맨 위 선반이 스폰이 되어,
+        //  그 위에서 죽은 사람이 아래 선반으로 순간이동한다(이득).
+        internal static GameObject CreateCheckpointMarkers(Transform parent, float spawnY,
+                                                           IReadOnlyDictionary<float, Vector3> respawnPoints)
+        {
+            var root = new GameObject("Checkpoints");
+            if (parent != null)
+            {
+                root.transform.SetParent(parent, worldPositionStays: false);
+            }
+            Add(root.transform, $"Checkpoint_{spawnY:0}", new Vector3(0f, spawnY, 0f));
+            foreach (var pair in respawnPoints)
+            {
+                Add(root.transform, $"Checkpoint_{pair.Key:0}", pair.Value);
+            }
+            return root;
+
+            static void Add(Transform parent, string name, Vector3 position)
+            {
+                var go = new GameObject(name);
+                go.transform.SetParent(parent, worldPositionStays: false);
+                go.transform.localPosition = position;
+                go.AddComponent<LOP.CheckpointMarker>();
+            }
+        }
+
         internal static GameObject CreateDoorVolume(Transform parent, in DoorSpec spec, Material material)
         {
             var go = new GameObject(spec.Name);
@@ -1870,13 +1898,13 @@ namespace LOP.EditorTools
         //  도달 불가능한 구멍까지 출발점으로 삼아, 갈 수 없는 자리에서 재고 통과시켰다.
         //  규칙은 "어딘가에서 닿으면 됨"이 아니라 "실제로 갈 수 있었던 자리에서 닿아야 함"이다.
         private static List<ShelfStep> WalkShelves(bool safeOnly, IReadOnlyList<Shelf> shelves,
-                                                  IReadOnlyList<WindSpec> winds)
+                                                  IReadOnlyList<WindSpec> winds, float spawnY)
         {
             var steps = new List<ShelfStep>();
 
             //  출발은 스폰 한 점이다.
             var from = new List<Vector2> { new Vector2(0f, 0f) };
-            float previousY = LOP.SkydiveCourseLayout.SpawnY;
+            float previousY = spawnY;   // 맵마다 스폰 고도가 다르다(피라미드 3600)
 
             foreach (Shelf shelf in shelves)
             {
@@ -1948,12 +1976,13 @@ namespace LOP.EditorTools
             => ReachableChain(safeOnly, Shelves, Winds, out report);
 
         internal static bool ReachableChain(bool safeOnly, IReadOnlyList<Shelf> shelves,
-                                            IReadOnlyList<WindSpec> winds, out string report)
+                                            IReadOnlyList<WindSpec> winds, out string report,
+                                            float spawnY = LOP.SkydiveCourseLayout.SpawnY)
         {
             var lines = new List<string>();
             bool ok = true;
 
-            foreach (ShelfStep step in WalkShelves(safeOnly, shelves, winds))
+            foreach (ShelfStep step in WalkShelves(safeOnly, shelves, winds, spawnY))
             {
                 if (step.Holes.Count == 0)
                 {
@@ -1998,9 +2027,10 @@ namespace LOP.EditorTools
         //  실려 가 도달해 버려, 무풍으로만 재면 성질이 깨진 표가 초록으로 통과한다.
         internal static string FindRouteNotSplit() => FindRouteNotSplit(Shelves, Winds);
 
-        internal static string FindRouteNotSplit(IReadOnlyList<Shelf> shelves, IReadOnlyList<WindSpec> winds)
+        internal static string FindRouteNotSplit(IReadOnlyList<Shelf> shelves, IReadOnlyList<WindSpec> winds,
+                                                 float spawnY = LOP.SkydiveCourseLayout.SpawnY)
         {
-            foreach (ShelfStep step in WalkShelves(safeOnly: false, shelves, winds))
+            foreach (ShelfStep step in WalkShelves(safeOnly: false, shelves, winds, spawnY))
             {
                 foreach (HoleStep h in step.Holes)
                 {

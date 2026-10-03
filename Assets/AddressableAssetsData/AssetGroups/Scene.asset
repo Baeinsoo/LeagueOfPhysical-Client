@@ -30,6 +30,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: be8d2c50f3cf7a9418867d43c731cab1
+    m_Address: Assets/Art/Scenes/SkydivePyramidMap.unity
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c1b2508f6022cdc48b5ded5103099530
     m_Address: Assets/Art/Scenes/FlapWangMap.unity
     m_ReadOnly: 0

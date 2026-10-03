@@ -101,7 +101,7 @@ namespace LOP
             string name = mat.name.Replace(" (Instance)", string.Empty);
             switch (name)
             {
-                case "SkydiveStone": Swap(r, Toon("#D9B48A")); return true;
+                case "SkydiveStone": Swap(r, Shelf()); return true;
                 case "SkydiveWindArrow_Weak": Swap(r, Toon("#2E86C8")); return true;
                 case "SkydiveWindArrow_Mid": Swap(r, Toon("#17A996")); return true;
                 case "SkydiveWindArrow_Strong": Swap(r, Toon("#E0700F")); return true;
@@ -169,6 +169,22 @@ namespace LOP
                 Prim(root, PrimitiveType.Sphere, Toon("#45B060"), p + new Vector3(0f, s * 2.6f, 0f), Vector3.one * s * 2.2f);
                 Prim(root, PrimitiveType.Sphere, Toon("#45B060"), p + new Vector3(s * 0.6f, s * 2.1f, s * 0.3f), Vector3.one * s * 1.4f);
             }
+        }
+
+        //  선반 윗면은 타일 무늬 — 단색이면 다가가도 변하는 게 없어 거리가 안 느껴진다(5m 칸, 20m마다 굵은 줄).
+        private const float ShelfTile = 5f;
+
+        private Material Shelf()
+        {
+            if (toon.TryGetValue("shelf", out var m) == false)
+            {
+                ColorUtility.TryParseHtmlString("#D9B48A", out var color);
+                m = LOPToonMaterials.Create(color);
+                m.SetFloat("_TopGrid", ShelfTile);
+                toon["shelf"] = m;
+                created.Add(m);
+            }
+            return m;
         }
 
         private Material Toon(string hex)

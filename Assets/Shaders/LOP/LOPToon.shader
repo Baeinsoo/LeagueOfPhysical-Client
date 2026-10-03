@@ -20,6 +20,7 @@ Shader "LOP/Toon"
         _BottomColor ("Region Bottom", Color) = (0.23, 0.2, 0.31, 1)
         _ShoeColor ("Region Shoe", Color) = (1, 1, 1, 1)
         _HairColor ("Region Hair", Color) = (0.29, 0.2, 0.13, 1)
+        _TopGrid ("Top Grid Tile (m, 0 = off)", Float) = 0
     }
     SubShader
     {
@@ -47,6 +48,7 @@ Shader "LOP/Toon"
             half4 _BottomColor;
             half4 _ShoeColor;
             half4 _HairColor;
+            float _TopGrid;
         CBUFFER_END
 
         //  정점 색 빨강 채널 = 옷 영역(0 피부 · 1 윗옷 · 2 소매 끝 · 3 바지 · 4 신발 · 5 머리카락). LookDevRegions와 같은 규칙.
@@ -61,6 +63,28 @@ Shader "LOP/Toon"
             c = r > 4.5h ? _HairColor.rgb : c;
             return c;
         }
+        //  윗면 무늬(월드 좌표 타일) — 크기를 가늠할 단서. 타일 하나 + 4칸마다 굵은 줄, 칸마다 밝기를 살짝 엇갈린다.
+        //  화면에서 줄이 너무 촘촘해지면(멀면) 그 줄은 흐려 없앤다 — 안 그러면 모아레로 지글거린다.
+        half LOPGridLine(float2 p, float width)
+        {
+            float2 w = fwidth(p);
+            float2 d = abs(frac(p - 0.5) - 0.5) / max(w, 1e-4);
+            half stroke = 1.0h - saturate(min(d.x, d.y) - width);
+            half fade = 1.0h - saturate((max(w.x, w.y) - 0.15) * 4.0);
+            return stroke * fade;
+        }
+
+        half LOPTopGrid(float3 positionWS, half3 n)
+        {
+            if (_TopGrid <= 0.0) return 1.0h;
+            half up = saturate((n.y - 0.6h) * 5.0h);
+            float2 p = positionWS.xz / _TopGrid;
+            float2 cell = floor(p);
+            half checker = fmod(abs(cell.x + cell.y), 2.0) < 0.5 ? 0.0h : 1.0h;
+            half shade = checker * 0.07h + LOPGridLine(p, 0.6) * 0.14h + LOPGridLine(p * 0.25, 1.2) * 0.2h;
+            return 1.0h - shade * up;
+        }
+
         TEXTURE2D(_BaseMap);
         SAMPLER(sampler_BaseMap);
         ENDHLSL
@@ -109,6 +133,7 @@ Shader "LOP/Toon"
                 half3 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv).rgb * _BaseColor.rgb;
                 albedo *= _UseRegions > 0.5h ? LOPRegionColor(i.region) : half3(1.0h, 1.0h, 1.0h);
                 half3 n = normalize(i.normalWS);
+                albedo *= LOPTopGrid(i.positionWS, n);
                 half3 v = GetWorldSpaceNormalizeViewDir(i.positionWS);
                 half3 c = LOPToonShade(i.positionWS, n, v, albedo, _ShadowColor.rgb, _MidThreshold, _LightThreshold,
                                        _Softness, _RimColor.rgb, _RimPower, _RimStrength);

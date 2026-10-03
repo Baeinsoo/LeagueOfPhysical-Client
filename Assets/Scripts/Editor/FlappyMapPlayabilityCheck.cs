@@ -735,7 +735,26 @@ namespace LOP.EditorTools
                 return new LOP.MapTools.ShortcutProof(label, x0, x1, true, verified, 0f);
             }
 
-            var safe = Prove("갈림길 없이", 0f, 0f, noShortcutSweep, guardsOn: true, path: safeCenters);
+            //  약속은 "어느 위상에도 문지기를 안 만나는 기본 길이 있다"다 — 아무 길이나 찾으면 입구 앞 문지기 범위를
+            //  지나는 길을 골라 🌀가 ❌로 나온다. 그래서 탐색부터 범위를 막는다(캡슐 아래·가운데·위 구, 발밑 y 기준).
+            var sectors = new List<LOP.MapTools.GuardSector>();
+            foreach (GuardInstance g in Guards) { sectors.Add(g.Spot.Sector); }
+            float clear = body.Radius + GuardSafeMargin;
+            float[] sphereRises = { body.Radius, body.Height * 0.5f, body.Height - body.Radius };
+            LOP.MapTools.TickSweepProbe safeSweep = sectors.Count == 0
+                ? noShortcutSweep
+                : (x, y, vy) =>
+                {
+                    foreach (LOP.MapTools.GuardSector s in sectors)
+                    {
+                        foreach (float rise in sphereRises)
+                        {
+                            if (LOP.MapTools.GuardRule.SectorDistance(new Vector2(x, y + rise), s) <= clear) { return false; }
+                        }
+                    }
+                    return noShortcutSweep(x, y, vy);
+                };
+            var safe = Prove("갈림길 없이", 0f, 0f, safeSweep, guardsOn: true, path: safeCenters);
             var proofs = new List<LOP.MapTools.ShortcutProof>();
             foreach (LOP.MapTools.Branch b in branches)
             {
@@ -754,6 +773,8 @@ namespace LOP.EditorTools
         //  🚪 문지기(spec 2026-10-03 §3). 기준점 = 그 갈림길 증명 경로에서 문지기 띠 50틱 전.
         //  위상 0…124마다 그 틱에 기준점에서 출발해 게임과 같은 Step으로 날갯짓/안 함을 펼친다.
         private const int GuardPhaseTicks = 125;
+        //  "갈림길 없이" 탐색이 문지기 범위에서 띄우는 여유 — 🌀 거리가 0이 아니라 확실히 양수로 나오게.
+        private const float GuardSafeMargin = 0.05f;
         private const int GuardLeadTicks = 50;
         //  지평 = 기준점에서 출구까지 곧장 가는 틱 + 여유. 고정 틱이면 먼 문지기는 출구에 못 닿는다.
         private const int GuardHorizonSlackTicks = 25;

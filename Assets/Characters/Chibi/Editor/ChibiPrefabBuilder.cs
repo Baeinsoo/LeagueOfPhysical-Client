@@ -67,9 +67,9 @@ namespace LOP.CharacterEditor
             c.AddParameter("Falling", AnimatorControllerParameterType.Bool);   // 스카이다이브 — 공중이면 켠다
             var sm = c.layers[0].stateMachine;
             var idle = sm.AddState("Idle");
-            idle.motion = Clip("Idle");
+            idle.motion = LoopingCopy("Idle", Dir + "/Anim/Idle.anim");   // 원본은 루프가 꺼져 있어 한 번 돌고 멈춘다
             var run = sm.AddState("Run");
-            run.motion = Clip("Run");
+            run.motion = LoopingCopy("Run", Dir + "/Anim/Run.anim");
             var happy = sm.AddState("Happy");
             happy.motion = Clip("Happy");
             var sad = sm.AddState("Sad");

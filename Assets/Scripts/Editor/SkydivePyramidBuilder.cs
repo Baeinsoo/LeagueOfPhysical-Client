@@ -108,7 +108,9 @@ namespace LOP.EditorTools
             var edge = EnsureMaterial("Assets/Art/Materials/SkydivePyramidBlockoutBoundary.mat", new Color(0.85f, 0.45f, 0.42f));
             for (int i = 0; i < L.BoundaryWalls.Length; i++)
             {
-                Box(root, $"BoundaryWall_{i}", edge, L.BoundaryWalls[i].center, L.BoundaryWalls[i].size);
+                var wall = Box(root, $"BoundaryWall_{i}", edge, L.BoundaryWalls[i].center, L.BoundaryWalls[i].size);
+                //  해가 남쪽에서 비춘다 — 2300m 벽이 그림자를 드리우면 코스 전체가 어두워진다.
+                wall.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
 
             //  레이저·문·바람·체크포인트

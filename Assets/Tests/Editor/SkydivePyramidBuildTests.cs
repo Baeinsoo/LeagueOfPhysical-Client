@@ -62,6 +62,23 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 경계벽은_그림자를_드리우지_않는다()
+        {
+            //  해가 남쪽에서 비춘다 — 2300m짜리 남쪽 벽이 그림자를 드리우면 코스 전체가 어두워진다(플레이 관측).
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.OpenScene(SkydivePyramidBuilder.ScenePath, UnityEditor.SceneManagement.OpenSceneMode.Additive);
+            try
+            {
+                var walls = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<MeshRenderer>(true)).Where(r => r.name.StartsWith("BoundaryWall")).ToArray();
+                Assert.AreEqual(SkydivePyramidLayout.BoundaryWalls.Length, walls.Length);
+                foreach (var w in walls)
+                {
+                    Assert.AreEqual(UnityEngine.Rendering.ShadowCastingMode.Off, w.shadowCastingMode, w.name);
+                }
+            }
+            finally { UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true); }
+        }
+
+        [Test]
         public void 앞마당은_놀이_폭을_다_덮고_구멍이_없다()
         {
             var porch = SkydivePyramidLayout.Porch;

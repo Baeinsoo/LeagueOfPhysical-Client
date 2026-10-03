@@ -35,6 +35,7 @@ Material:
     - _RimPower: 3
     - _RimStrength: 0.35
     - _Softness: 0.04
+    - _TopGrid: 0
     - _UseRegions: 1
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}

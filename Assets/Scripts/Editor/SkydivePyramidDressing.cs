@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using static LOP.EditorTools.SkydiveCourseBuilder;
@@ -34,8 +35,7 @@ namespace LOP.EditorTools
             root.SetParent(course, false);
             var rng = new System.Random(20261003);
 
-            Summit(root);
-            PyramidFaces(root, rng);
+            //  꼭대기 신전·피라미드 면 덩굴은 슬라이스 B에서 블렌더 부품으로 다시 한다(v2 나선엔 v1 자리가 없다).
             HoleRims(root);
             SetPieceDetails(root, rng);
             MossLumps(root, rng);
@@ -91,7 +91,8 @@ namespace LOP.EditorTools
                 {
                     BlockRim(root, h.X, h.Z, h.Half + 1.2f, t.Y + 1.5f + 0.6f);
                 }
-                Frame(root, $"TerraceEdge_{t.Y:0}", StoneDark, 0f, 0f, 99f, t.Y + 1.75f, 2f, 0.5f);
+                var pc = L.PlateCenter(System.Array.IndexOf(L.TerraceYs, t.Y) + 1);   // 판마다 중심이 다르다(나선)
+                Frame(root, $"TerraceEdge_{t.Y:0}", StoneDark, pc.x, pc.y, 98f, t.Y + 1.75f, 2f, 0.5f);
             }
             foreach (var t in L.ShaftLedges)
             {
@@ -105,12 +106,14 @@ namespace LOP.EditorTools
         //  레이저는 떠 있는 석상 눈에서 나온다 — 작은 돌(마름모) + 빛나는 붉은 심. 충돌체 없음, 몸보다 작게(3m).
         private static void LaserEyes(Transform root)
         {
+            //  묶음마다 눈 하나(묶음 이름 = '_' 앞) — 빔마다 달면 빗살 끝에 돌이 줄줄이 뜬다. 묶음 피벗들의 가운데.
             var glow = Unlit("EyeGlow", LOP.SkydiveLaserView.LitColor);
-            foreach (var l in L.Lasers)
+            foreach (var group in L.Lasers.GroupBy(l => l.Name.Split('_')[0] == "Laser" ? l.Name : l.Name.Split('_')[0]))
             {
-                var stone = Prim(root, $"Eye_{l.Name}", PrimitiveType.Cube, StoneDark, l.Pivot, Vector3.one * 3f);
+                var p = group.Aggregate(Vector3.zero, (acc, l) => acc + l.Pivot) / group.Count();
+                var stone = Prim(root, $"Eye_{group.Key}", PrimitiveType.Cube, StoneDark, p, Vector3.one * 3f);
                 stone.transform.rotation = Quaternion.Euler(45f, 45f, 0f);
-                Prim(root, $"EyeCore_{l.Name}", PrimitiveType.Sphere, glow, l.Pivot, Vector3.one * 1.6f);
+                Prim(root, $"EyeCore_{group.Key}", PrimitiveType.Sphere, glow, p, Vector3.one * 1.6f);
             }
         }
 
@@ -119,12 +122,12 @@ namespace LOP.EditorTools
         {
             //  놀이 칸 둘레(±104)에만, 40m 간격으로 성기게 — 북쪽 끝까지 촘촘히 세웠더니 화면이 붉은 우리가 됐다(10-03 캡처).
             var beam = Unlit("FenceBeam", new Color(1f, 0.3f, 0.35f));
-            foreach (var wall in L.BoundaryWalls)
+            foreach (var wall in L.BandWalls)
             {
                 bool alongX = wall.size.x > wall.size.z;
                 for (float s = -100f; s <= 100.01f; s += 40f)
                 {
-                    var p = alongX ? new Vector3(s, wall.center.y, wall.center.z) : new Vector3(wall.center.x, wall.center.y, s);
+                    var p = alongX ? new Vector3(wall.center.x + s, wall.center.y, wall.center.z) : new Vector3(wall.center.x, wall.center.y, wall.center.z + s);
                     if (wall.Contains(p) == false) { continue; }
                     Prim(root, "FenceBeam", PrimitiveType.Cube, beam, p, new Vector3(0.35f, wall.size.y, 0.35f));
                 }
@@ -143,7 +146,7 @@ namespace LOP.EditorTools
                 {
                     float x, z;
                     do { x = Rand(rng, 480f); z = Rand(rng, 480f); }
-                    while (Mathf.Abs(x) < 150f && Mathf.Abs(z) < 150f);
+                    while (Mathf.Abs(x) < 200f && Mathf.Abs(z) < 200f);   // 나선 판들이 원점 ±170 안에 있다
                     ring.Add(new Vector4(x, outerLayers[k] + Rand(rng, 30f), z, 22f + (float)rng.NextDouble() * 28f));
                 }
                 MeshObj(root, $"OuterCloud_{outerLayers[k]:0}", SaveMesh(LOP.SkydiveSceneryLayout.BuildCloudLayer(ring, 200 + k), $"OuterCloud_{k}"), Cloud, Vector3.zero);
@@ -152,12 +155,13 @@ namespace LOP.EditorTools
             float[] layers = { 1520f, 1700f, 1850f };
             for (int k = 0; k < layers.Length; k++)
             {
-                var spots = new List<Vector4> { new Vector4(Rand(rng, 60f), layers[k], Rand(rng, 60f), 22f) };
+                var o = L.PorchOffset;
+                var spots = new List<Vector4> { new Vector4(o.x + Rand(rng, 60f), layers[k], o.z + Rand(rng, 60f), 22f) };
                 for (int i = 0; i < 14; i++)
                 {
                     float x, z;
                     do { x = Rand(rng, 520f); z = Rand(rng, 520f); }
-                    while (Mathf.Abs(x) < 140f && Mathf.Abs(z) < 140f);
+                    while (Mathf.Abs(x) < 200f && Mathf.Abs(z) < 200f);
                     spots.Add(new Vector4(x, layers[k] + Rand(rng, 25f), z, 20f + (float)rng.NextDouble() * 25f));
                 }
                 var mesh = SaveMesh(LOP.SkydiveSceneryLayout.BuildCloudLayer(spots, 100 + k), $"CloudLayer_{k}");
@@ -168,12 +172,13 @@ namespace LOP.EditorTools
         //  폭포: 하강풍 기둥 자리에 떨어지는 물줄기, 상승풍 자리에 물안개 뭉치
         private static void Waterfall(Transform root)
         {
-            Prim(root, "Waterfall", PrimitiveType.Cube, Water, new Vector3(70f, 1745f, -40f), new Vector3(14f, 500f, 3f));
+            var o = L.PorchOffset;
+            Prim(root, "Waterfall", PrimitiveType.Cube, Water, o + new Vector3(70f, 1745f, -40f), new Vector3(14f, 500f, 3f));
             var mist = new List<Vector4>
             {
-                new Vector4(70f, 1490f, -40f, 18f),
-                new Vector4(-60f, 1400f, -40f, 16f),
-                new Vector4(-60f, 1440f, -40f, 12f),
+                new Vector4(o.x + 70f, 1490f, o.z - 40f, 18f),
+                new Vector4(o.x - 60f, 1400f, o.z - 40f, 16f),
+                new Vector4(o.x - 60f, 1440f, o.z - 40f, 12f),
             };
             MeshObj(root, "Mist", SaveMesh(LOP.SkydiveSceneryLayout.BuildCloudLayer(mist, 7), "Mist"), Cloud, Vector3.zero);
         }
@@ -181,9 +186,10 @@ namespace LOP.EditorTools
         //  섬 윗면 풀밭(피라미드 뒤) + 밑동 거꾸로 선 바위 — 코스 칸(z ≤ 100)은 가리지 않는다
         private static void IslandUnderside(Transform root)
         {
-            Prim(root, "IslandGrass", PrimitiveType.Cylinder, Moss, new Vector3(0f, 2001f, 270f), new Vector3(320f, 1.5f, 320f));
+            //  갱도를 감싼 섬 밑동 — 출구(450) 아래로 거꾸로 선 바위
             var cone = SaveMesh(LOP.SkydiveSceneryLayout.BuildCone(160f, 420f, 14), "IslandCone");
-            MeshObj(root, "IslandCone", cone, Rock, new Vector3(0f, L.ExitY, 250f));
+            //  출구 구멍(앞마당 기준 z 70)의 낙하 기둥을 비켜 뒤쪽(z 250)에 — 덮으면 캐릭터가 바위 속으로 사라진다.
+            MeshObj(root, "IslandCone", cone, Rock, L.PorchOffset + new Vector3(0f, L.ExitY, 250f));
         }
 
         //  정글: 신전 광장(가운데) + 테두리 + 북쪽 작은 계단 신전 + 나무
@@ -259,7 +265,8 @@ namespace LOP.EditorTools
                 int placed = 0;
                 for (int tries = 0; tries < 60 && placed < 8; tries++)
                 {
-                    float x = Rand(rng, 92f), z = Rand(rng, 92f);
+                    var pc = L.PlateCenter(System.Array.IndexOf(L.TerraceYs, t.Y) + 1);
+                    float x = pc.x + Rand(rng, 92f), z = pc.y + Rand(rng, 92f);
                     bool bad = false;
                     foreach (var h in t.Holes) { bad |= Mathf.Abs(x - h.X) < h.Half + 5f && Mathf.Abs(z - h.Z) < h.Half + 5f; }
                     foreach (var p in L.SetPieces) { bad |= p.Y == t.Y && Mathf.Abs(x - p.X) < p.Half + 3f && Mathf.Abs(z - p.Z) < p.Half + 3f; }

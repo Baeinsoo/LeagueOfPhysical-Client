@@ -1108,13 +1108,17 @@ namespace LOP.EditorTools
         internal static string FindBlockedGate() => FindBlockedGate(Lasers);
 
         internal static string FindBlockedGate(IReadOnlyList<LaserSpec> lasers)
+            => FindBlockedGate(Shelves, lasers, LOP.SkydiveCourseLayout.SpawnY);
+
+        //  맵마다(피라미드 나선) — 선반 순서는 위→아래, 맨 위 길목은 스폰 높이부터.
+        internal static string FindBlockedGate(IReadOnlyList<Shelf> shelves, IReadOnlyList<LaserSpec> lasers, float spawnY)
         {
-            for (int i = 0; i < Shelves.Length; i++)
+            for (int i = 0; i < shelves.Count; i++)
             {
-                Shelf shelf = Shelves[i];
+                Shelf shelf = shelves[i];
                 // 이 구멍으로 내려오는 길목 — 바로 위 선반(맨 위는 스폰)부터 이 선반까지.
-                // Build()가 기둥을 세울 때 쓰는 것과 같은 관계다(위→아래로 적힌 Shelves 순서에 의존).
-                float upperY = i == 0 ? LOP.SkydiveCourseLayout.SpawnY : Shelves[i - 1].Y;
+                // Build()가 기둥을 세울 때 쓰는 것과 같은 관계다(위→아래로 적힌 선반 순서에 의존).
+                float upperY = i == 0 ? spawnY : shelves[i - 1].Y;
 
                 //  구멍이 둘이어도 각자 따로 본다("하나만 열리면 됨"이 아니다). 스펙 §3.2 ②가
                 //  안전한 구멍만으로 완주할 수 있기를 요구하므로 안전한 구멍이 영영 막히면 안
@@ -1130,7 +1134,7 @@ namespace LOP.EditorTools
             return null;
         }
 
-        private static bool GateEverOpens(float shelfY, in Hole hole, float upperY, IReadOnlyList<LaserSpec> lasers)
+        internal static bool GateEverOpens(float shelfY, in Hole hole, float upperY, IReadOnlyList<LaserSpec> lasers)
         {
             var beams = new List<LOP.Laser>();
             for (int i = 0; i < lasers.Count; i++)
@@ -1224,11 +1228,17 @@ namespace LOP.EditorTools
         internal static string FindLaserOnSafeHole() => FindLaserOnSafeHole(Lasers);
 
         internal static string FindLaserOnSafeHole(IReadOnlyList<LaserSpec> lasers)
+            => FindLaserOnSafeHole(Shelves, lasers, LOP.SkydiveCourseLayout.SpawnY, null);
+
+        //  plateCenters: 선반마다의 판 중심(나선은 층마다 판이 옮겨 간다). null이면 원점.
+        internal static string FindLaserOnSafeHole(IReadOnlyList<Shelf> shelves, IReadOnlyList<LaserSpec> lasers,
+                                                   float spawnY, IReadOnlyList<Vector2> plateCenters)
         {
-            for (int i = 0; i < Shelves.Length; i++)
+            for (int i = 0; i < shelves.Count; i++)
             {
-                Shelf shelf = Shelves[i];
-                float upperY = i == 0 ? LOP.SkydiveCourseLayout.SpawnY : Shelves[i - 1].Y;
+                Shelf shelf = shelves[i];
+                float upperY = i == 0 ? spawnY : shelves[i - 1].Y;
+                Vector2 center = plateCenters == null ? Vector2.zero : plateCenters[i];
 
                 foreach (Hole hole in shelf.Holes)
                 {
@@ -1244,7 +1254,7 @@ namespace LOP.EditorTools
                         {
                             continue;   // 다른 구간의 빔은 이 구멍까지 닿지 않는다
                         }
-                        if (Mathf.Abs(spec.Pivot.x) >= SlabHalf || Mathf.Abs(spec.Pivot.z) >= SlabHalf)
+                        if (Mathf.Abs(spec.Pivot.x - center.x) >= SlabHalf || Mathf.Abs(spec.Pivot.z - center.y) >= SlabHalf)
                         {
                             continue;   // 벽에서 뻗는 격자·쓸기 — 위 설명 참고
                         }
@@ -1898,12 +1908,12 @@ namespace LOP.EditorTools
         //  도달 불가능한 구멍까지 출발점으로 삼아, 갈 수 없는 자리에서 재고 통과시켰다.
         //  규칙은 "어딘가에서 닿으면 됨"이 아니라 "실제로 갈 수 있었던 자리에서 닿아야 함"이다.
         private static List<ShelfStep> WalkShelves(bool safeOnly, IReadOnlyList<Shelf> shelves,
-                                                  IReadOnlyList<WindSpec> winds, float spawnY)
+                                                  IReadOnlyList<WindSpec> winds, float spawnY, Vector2 spawnXZ)
         {
             var steps = new List<ShelfStep>();
 
-            //  출발은 스폰 한 점이다.
-            var from = new List<Vector2> { new Vector2(0f, 0f) };
+            //  출발은 스폰 한 점이다(맵마다 다르다 — 피라미드 나선은 제단 자리).
+            var from = new List<Vector2> { spawnXZ };
             float previousY = spawnY;   // 맵마다 스폰 고도가 다르다(피라미드 3600)
 
             foreach (Shelf shelf in shelves)
@@ -1977,12 +1987,12 @@ namespace LOP.EditorTools
 
         internal static bool ReachableChain(bool safeOnly, IReadOnlyList<Shelf> shelves,
                                             IReadOnlyList<WindSpec> winds, out string report,
-                                            float spawnY = LOP.SkydiveCourseLayout.SpawnY)
+                                            float spawnY = LOP.SkydiveCourseLayout.SpawnY, Vector2? spawnXZ = null)
         {
             var lines = new List<string>();
             bool ok = true;
 
-            foreach (ShelfStep step in WalkShelves(safeOnly, shelves, winds, spawnY))
+            foreach (ShelfStep step in WalkShelves(safeOnly, shelves, winds, spawnY, spawnXZ ?? Vector2.zero))
             {
                 if (step.Holes.Count == 0)
                 {
@@ -2028,9 +2038,9 @@ namespace LOP.EditorTools
         internal static string FindRouteNotSplit() => FindRouteNotSplit(Shelves, Winds);
 
         internal static string FindRouteNotSplit(IReadOnlyList<Shelf> shelves, IReadOnlyList<WindSpec> winds,
-                                                 float spawnY = LOP.SkydiveCourseLayout.SpawnY)
+                                                 float spawnY = LOP.SkydiveCourseLayout.SpawnY, Vector2? spawnXZ = null)
         {
-            foreach (ShelfStep step in WalkShelves(safeOnly: false, shelves, winds, spawnY))
+            foreach (ShelfStep step in WalkShelves(safeOnly: false, shelves, winds, spawnY, spawnXZ ?? Vector2.zero))
             {
                 foreach (HoleStep h in step.Holes)
                 {

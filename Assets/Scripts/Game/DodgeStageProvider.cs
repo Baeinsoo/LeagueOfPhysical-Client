@@ -25,5 +25,13 @@ namespace LOP
             }
             return new DodgeStageTable(stages);
         }
+
+        /// <summary>스테이지 해설(클라 전용 칸) — <see cref="Get"/>과 같은 id 순.</summary>
+        public IReadOnlyList<string> Captions()
+        {
+            var rows = new List<LOP.MasterData.DodgeStage>(md.Tables.TbDodgeStage.DataList);
+            rows.Sort((a, b) => a.Id.CompareTo(b.Id));
+            return rows.ConvertAll(r => r.Caption ?? "");
+        }
     }
 }

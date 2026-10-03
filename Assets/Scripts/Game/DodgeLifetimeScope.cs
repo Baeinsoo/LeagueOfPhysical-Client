@@ -42,6 +42,8 @@ namespace LOP
             builder.Register<DodgeClientState>(Lifetime.Singleton);
             builder.Register<DodgeStageProvider>(Lifetime.Singleton);
             builder.Register<DodgeStageTable>(c => c.Resolve<DodgeStageProvider>().Get(), Lifetime.Singleton);
+            builder.Register<DodgeCaptionDirector>(c => new DodgeCaptionDirector(
+                c.Resolve<DodgeStageTable>(), c.Resolve<DodgeStageProvider>().Captions()), Lifetime.Singleton);
             builder.RegisterEntryPoint<DodgeStateHandler>();
             // 판정과 같은 식에 내 몸이 그려지는 틱을 넣어 그린다(스펙 §5.3).
             builder.RegisterEntryPoint<DodgeHazardView>().AsSelf();
@@ -51,6 +53,8 @@ namespace LOP
             builder.RegisterEntryPoint<DodgeChibiView>();
             // 테마 물건 층(슬리퍼·수박·장독·줄·거인). 바닥 층과 같은 도형·같은 렌더 틱.
             builder.RegisterEntryPoint<DodgePropView>();
+            // 탈락한 선수를 실은 들것이 가장 가까운 벽 밖으로 나간다(그림만).
+            builder.RegisterEntryPoint<DodgeStretcherView>();
 
             builder.RegisterEntryPoint<DodgeHudCoordinator>();
             builder.Register<DodgePadViewModel>(Lifetime.Transient);

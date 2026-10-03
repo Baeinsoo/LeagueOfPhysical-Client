@@ -14,11 +14,16 @@ namespace LOP.UI
         private readonly GameFramework.World.IWorld world;
         private readonly DodgeConfig config;
         private readonly DodgeStageTable stages;
+        private readonly DodgeCaptionDirector captionDirector;
+        private readonly DodgeCaptionQueue captionQueue = new DodgeCaptionQueue();
+        private readonly System.Collections.Generic.List<(string id, bool eliminated)> roster =
+            new System.Collections.Generic.List<(string, bool)>();
+        private readonly System.Collections.Generic.List<string> newLines = new System.Collections.Generic.List<string>();
         private readonly R3.ReactiveProperty<(int full, int empty, string note)> lives = new R3.ReactiveProperty<(int, int, string)>((0, 0, ""));
         private readonly R3.ReactiveProperty<string> stageText = new R3.ReactiveProperty<string>("");
         private readonly R3.ReactiveProperty<float> stageProgress = new R3.ReactiveProperty<float>(0f);
         private readonly R3.ReactiveProperty<bool> suddenDeath = new R3.ReactiveProperty<bool>(false);
-        private readonly R3.ReactiveProperty<string> bannerText = new R3.ReactiveProperty<string>("");
+        private readonly R3.ReactiveProperty<string> captionText = new R3.ReactiveProperty<string>("");
         private readonly R3.ReactiveProperty<bool> hitFlash = new R3.ReactiveProperty<bool>(false);
         private bool knewLives;
         private int lastLives;
@@ -27,7 +32,7 @@ namespace LOP.UI
         public DodgePadViewModel(PlayerInputManager input, CameraController cameraController,
                                  DodgeClientState state, IGameDataStore gameDataStore,
                                  GameFramework.Runner.IRunner runner, GameFramework.World.IWorld world,
-                                 DodgeConfig config, DodgeStageTable stages)
+                                 DodgeConfig config, DodgeStageTable stages, DodgeCaptionDirector captionDirector)
         {
             this.input = input;
             this.cameraController = cameraController;
@@ -37,13 +42,14 @@ namespace LOP.UI
             this.world = world;
             this.config = config;
             this.stages = stages;
+            this.captionDirector = captionDirector;
         }
 
         public R3.ReadOnlyReactiveProperty<(int full, int empty, string note)> LivesProperty => lives;
         public R3.ReadOnlyReactiveProperty<string> StageTextProperty => stageText;
         public R3.ReadOnlyReactiveProperty<float> StageProgressProperty => stageProgress;
         public R3.ReadOnlyReactiveProperty<bool> SuddenDeathProperty => suddenDeath;
-        public R3.ReadOnlyReactiveProperty<string> BannerTextProperty => bannerText;
+        public R3.ReadOnlyReactiveProperty<string> CaptionTextProperty => captionText;
         public R3.ReadOnlyReactiveProperty<bool> HitFlashProperty => hitFlash;
 
         /// <summary>매 프레임 서버 상태에서 내 목숨을 읽는다(연속 상태는 pull). 몸이 사라져도 id는 userEntityId로 남는다.</summary>
@@ -61,11 +67,23 @@ namespace LOP.UI
 
             // 스테이지는 표와 경기 시작 틱으로 서버와 같은 식을 계산한다 — 와이어로 오지 않는다.
             long tick = runner?.tickUpdater?.tick ?? 0;
-            var hud = StageHud(stages.At(tick, world.GameplayStartTick, config), stages, tick);
+            var at = stages.At(tick, world.GameplayStartTick, config);
+            var hud = StageHud(at, stages);
             stageText.Value = hud.label;
             stageProgress.Value = hud.progress;
             suddenDeath.Value = hud.suddenDeath;
-            bannerText.Value = hud.banner;
+
+            // 중계 자막 — 새로 생긴 사건만 줄을 세운다(테마 스펙 §4).
+            roster.Clear();
+            foreach (var id in state.PlayerIds)
+            {
+                state.TryGetLife(id, out _, out long out_);
+                roster.Add((id, out_ >= 0));
+            }
+            newLines.Clear();
+            captionDirector.Observe(at, roster, gameDataStore.userEntityId, newLines);
+            foreach (var line in newLines) captionQueue.Push(line);
+            captionText.Value = captionQueue.Tick(tick / (double)DodgeConfig.TicksPerSecond);
         }
 
         /// <summary>하트를 늘어놓는 최대 개수. 시험용으로 목숨을 크게 잡으면 하트 하나에 숫자를 붙인다.</summary>
@@ -81,24 +99,18 @@ namespace LOP.UI
             return (lives, System.Math.Max(0, maxLives - lives), "");
         }
 
-        /// <summary>스테이지가 바뀐 뒤 배너를 띄워 두는 시간(2초).</summary>
-        public const int BannerTicks = 100;
-
-        public static (string label, float progress, bool suddenDeath, string banner) StageHud(
-            in DodgeStagePoint at, DodgeStageTable stages, long tick)
+        /// <summary>위쪽 막대 — 몇 번째 스테이지인지와 얼마나 지났는지. 사건 알림은 중계 자막이 한다.</summary>
+        public static (string label, float progress, bool suddenDeath) StageHud(in DodgeStagePoint at, DodgeStageTable stages)
         {
             if (!at.Started)
             {
-                return ("", 0f, false, "");
+                return ("", 0f, false);
             }
-            bool fresh = tick - at.StartTick < BannerTicks;
             if (at.SuddenDeath)
             {
-                return ("서든데스", 1f, true, fresh ? "서든데스 — 전부 섞여 점점 빨라집니다" : "");
+                return ("서든데스", 1f, true);
             }
-            string name = stages[at.Index].Name;
-            return ($"{at.Index + 1}/{stages.Count} {name}", at.Progress, false,
-                    fresh ? $"스테이지 {at.Index + 1} — {name}" : "");
+            return ($"{at.Index + 1}/{stages.Count} {stages[at.Index].Name}", at.Progress, false);
         }
 
         public void Dispose()
@@ -107,7 +119,7 @@ namespace LOP.UI
             stageText.Dispose();
             stageProgress.Dispose();
             suddenDeath.Dispose();
-            bannerText.Dispose();
+            captionText.Dispose();
             hitFlash.Dispose();
         }
 

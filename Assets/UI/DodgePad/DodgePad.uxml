@@ -12,8 +12,9 @@
             <ui:VisualElement name="stage-bar" class="stage-bar" picking-mode="Ignore">
                 <ui:VisualElement name="stage-bar-fill" class="stage-bar-fill" picking-mode="Ignore" />
             </ui:VisualElement>
+            <!-- 중계 자막 띠 — 사건마다 정색한 한 줄. 가운데는 위험을 보는 곳이라 비워 둔다. -->
+            <ui:Label name="caption-label" class="caption-label" text="" picking-mode="Ignore" />
         </ui:VisualElement>
-        <ui:Label name="banner-label" class="banner-label" text="" picking-mode="Ignore" />
         <!-- 조작은 이동 하나다. 화면 아래 절반 어디를 눌러도 그 자리가 스틱 중심이 된다.
              위쪽은 비워 둔다 — 위험 요소가 사방에서 오니 손이 경기장을 덜 가리게. -->
         <ui:VisualElement name="joystick-area" class="joystick-area">

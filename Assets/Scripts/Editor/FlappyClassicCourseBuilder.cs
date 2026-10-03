@@ -204,6 +204,7 @@ namespace LOP.EditorTools
             //  지름길 구간의 천장은 경사 조각이 아니라 두 덩어리다: 지붕, 지름길과 계곡 사이의 혀.
             Shortcuts(composed.transform, profile, config, length, fallback);
             int branchPads = Branches(composed.transform, profile, config, ceilingY, fallback);
+            int guards = Guards(composed.transform, profile, ceilingY, length, fallback, out int guardOverlaps);
 
             int challengeGates = 0;
             for (int pipeIndex = 0; pipeIndex < pipes.Count; pipeIndex++)
@@ -287,7 +288,8 @@ namespace LOP.EditorTools
                     + $" · 빌딩 {profile.Buildings.Count} · 절벽 {profile.Cliffs.Count} · 언덕 굴 {profile.HillTunnels.Count}"
                     + $" · 도전 관문 {challengeGates}개"
                     + $" · 부스트 패드 {boostPads}개 ({config.DashDuration:F1}초)"
-                    + $" · 샤프트 {shafts.Count}개 · 기류 {airflowRects.Count}개 · 홀로그램 {holograms}개");
+                    + $" · 샤프트 {shafts.Count}개 · 기류 {airflowRects.Count}개 · 홀로그램 {holograms}개"
+                    + $" · 문지기 {guards}개 (지형 겹침 {guardOverlaps})");
         }
 
         /// <summary>굽기와 같은 코스 프로필. 에디터 측정(eval)이 씬과 같은 기하를 다시 얻을 때 쓴다.</summary>
@@ -396,6 +398,127 @@ namespace LOP.EditorTools
                 pads++;
             }
             return pads;
+        }
+
+        //  갈림길 입구 문지기(spec 2026-10-03 §2). 콜라이더 조각은 구간 재질 — 층 규약이 "장애물"로 읽는다.
+        //  루트가 회전축이고 자식이 매달린다. 장식은 루트 자식이라 함께 돈다(받침 팔만 안 돈다).
+        private static int Guards(Transform parent, LOP.MapTools.CourseProfile profile, float half, float length,
+                                  Material fallback, out int overlaps)
+        {
+            var spots = LOP.MapTools.GuardLayout.ForCourse(LOP.MapTools.CourseProfileRule.Branches(profile, half));
+            float front = PipeZ - PipeDepth * 0.5f;   // 그려지는 앞면 z
+            foreach (LOP.MapTools.GuardSpot g in spots)
+            {
+                Material skin = SectionMaterial(g.PivotX, length, fallback);
+                var root = new GameObject(g.MarkerName);
+                root.transform.SetParent(parent, worldPositionStays: false);
+                root.transform.position = new Vector3(g.PivotX, g.PivotY, 0f);
+                Undo.RegisterCreatedObjectUndo(root, "Build classic course");
+
+                if (g.Kind == LOP.MapTools.GuardKind.Pendulum)
+                {
+                    var marker = root.AddComponent<LOP.FlappyPendulum>();
+                    marker.Amplitude = g.AmplitudeDegrees;
+                    marker.Period = LOP.MapTools.GuardLayout.PeriodSeconds;
+                    marker.Phase = 0f;
+                    //  막대는 축에서 0.3m 아래부터 — 천장에 딱 붙이면 지형 겹침 검사가 늘 "닿았다"고 센다(받침 장식이 틈을 가린다).
+                    GuardPiece(root.transform, "Rod", 0f, -(g.Length + RodTopGap) * 0.5f, LOP.MapTools.GuardLayout.RodThickness, g.Length - RodTopGap, skin);
+                    float tw = LOP.MapTools.GuardLayout.TipWidth, th = LOP.MapTools.GuardLayout.TipHeight;
+                    GuardPiece(root.transform, "Weight", 0f, -g.Length, tw, th, skin);
+                    //  끝 철골 위쪽 경고 띠와 축 받침 — 렌더 전용, 앞면 바로 앞.
+                    RenderOnly(root.transform, "WeightStripe",
+                        BoxPolygon(new LOP.MapTools.Box2(-tw * 0.5f, -g.Length + th * 0.5f - 0.22f, tw * 0.5f, -g.Length + th * 0.5f)),
+                        front - 0.06f, front - 0.01f, WarningYellowMaterial());
+                    RenderOnly(root.transform, "Anchor", BoxPolygon(new LOP.MapTools.Box2(-0.6f, -0.25f, 0.6f, 0.35f)),
+                        front - 0.06f, front - 0.01f, WarningBlackMaterial());
+                }
+                else
+                {
+                    var marker = root.AddComponent<LOP.FlappyWindmill>();
+                    marker.RotSpeed = LOP.MapTools.GuardLayout.BoardSpeed;
+                    marker.StartAngle = 0f;
+                    float bl = LOP.MapTools.GuardLayout.BoardLength, bt = LOP.MapTools.GuardLayout.BoardThickness;
+                    GuardPiece(root.transform, "Board", 0f, 0f, bl, bt, skin);
+                    RenderOnly(root.transform, "BoardFace",
+                        BoxPolygon(new LOP.MapTools.Box2(-bl * 0.5f + 0.15f, -bt * 0.5f + 0.08f, bl * 0.5f - 0.15f, bt * 0.5f - 0.08f)),
+                        front - 0.06f, front - 0.01f, WarningYellowMaterial());
+                    RenderOnly(root.transform, "BoardBolt",
+                        //  볼록한 마름모 — 프리즘 메시는 부채꼴로 삼각분할하므로 오목한 번개 모양은 깨진다.
+                        new[] { new Vector2(-0.3f, 0f), new Vector2(0f, -0.24f), new Vector2(0.3f, 0f), new Vector2(0f, 0.24f) },
+                        front - 0.1f, front - 0.06f, BuildingBoltMaterial());
+                    //  외벽에서 축까지 받침 팔 — 판정면 뒤라 돌아가는 판과 안 부딪혀 보인다.
+                    RenderOnly(parent, $"{g.MarkerName}_Arm",
+                        new[] { new Vector2(g.PivotX, g.PivotY - 0.15f), new Vector2(g.BranchX0, g.PivotY + 1.2f),
+                                new Vector2(g.BranchX0, g.PivotY + 1.5f), new Vector2(g.PivotX, g.PivotY + 0.15f) },
+                        0.5f, 0.8f, RebarMaterial());
+                }
+            }
+            Physics.SyncTransforms();
+            overlaps = CountGuardTerrainOverlaps(parent, spots);
+            return spots.Count;
+        }
+
+        private const float RodTopGap = 0.3f;
+
+        private static GameObject GuardPiece(Transform root, string name, float x, float y, float w, float h, Material skin)
+        {
+            var go = Box(root, name, skin);
+            go.transform.localScale = new Vector3(w, h, PipeDepth);
+            go.transform.localPosition = new Vector3(x, y, PipeZ);
+            return go;
+        }
+
+        //  25위상(5틱 간격)으로 돌려 보며 문지기 콜라이더가 정적 지형과 겹치는지 센다 — 진자가 바닥·천장·언덕을
+        //  뚫으면 "보이는 대로"가 깨진다. 끝나면 쉬는 자세(회전 0)로 되돌린다.
+        private static int CountGuardTerrainOverlaps(Transform parent, List<LOP.MapTools.GuardSpot> spots)
+        {
+            int overlaps = 0;
+            int mask = LayerMask.GetMask("Default");
+            foreach (LOP.MapTools.GuardSpot g in spots)
+            {
+                Transform root = parent.Find(g.MarkerName);
+                if (root == null) { continue; }
+                var own = root.GetComponentsInChildren<Collider>();
+                for (int phase = 0; phase < 125; phase += 5)
+                {
+                    float angle = g.Kind == LOP.MapTools.GuardKind.Pendulum
+                        ? LOP.FlappyPendulumCurve.AngleAt(g.AmplitudeDegrees, LOP.MapTools.GuardLayout.PeriodSeconds, 0f, phase, TickSeconds)
+                        : LOP.FlappyWindmillCurve.AngleAt(0f, LOP.MapTools.GuardLayout.BoardSpeed, phase, TickSeconds);
+                    root.localRotation = Quaternion.Euler(0f, 0f, angle);
+                    Physics.SyncTransforms();
+                    if (TouchesTerrain(own, mask))
+                    {
+                        overlaps++;
+                        Debug.LogWarning($"[전통 코스] {g.MarkerName}이 위상 {phase}틱에서 지형과 겹친다");
+                        break;
+                    }
+                }
+                root.localRotation = Quaternion.identity;
+            }
+            Physics.SyncTransforms();
+            return overlaps;
+        }
+
+        private static bool TouchesTerrain(Collider[] own, int mask)
+        {
+            var ownSet = new HashSet<Collider>(own);
+            foreach (Collider c in own)
+            {
+                var box = (BoxCollider)c;
+                Vector3 center = c.transform.TransformPoint(box.center);
+                Vector3 halfExtents = Vector3.Scale(box.size, c.transform.lossyScale) * 0.5f;
+                foreach (Collider other in Physics.OverlapBox(center, halfExtents, c.transform.rotation, mask, QueryTriggerInteraction.Ignore))
+                {
+                    if (ownSet.Contains(other) == false
+                        && Physics.ComputePenetration(c, c.transform.position, c.transform.rotation,
+                                                      other, other.transform.position, other.transform.rotation, out _, out float depth)
+                        && depth > 0.01f)   // 맞닿기만 한 것은 겹침이 아니다
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         //  띠(8개 수)를 다각형으로. 혀 끝 띠는 위·아래가 만나 삼각형이라 겹친 점을 뺀다.

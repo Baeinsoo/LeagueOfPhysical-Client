@@ -103,19 +103,22 @@ namespace LOP.EditorTools
         /// 앞마당(1300) 위에서 놀이 폭(±100) 밖으로 못 나가게 막는 단단한 것들. 제단에서 대자로 400m 떨어지면 옆으로 77m 가서
         /// 막지 않으면 테라스를 다 건너뛴다. 북쪽은 피라미드 몸체·섬 바위, 동·서·남은 보이는 경계벽(블록 아웃 임시 — 경계 슬라이스가 대신한다).
         /// </summary>
+        //  동·서 벽은 북쪽 끝(z 560)까지 — 피라미드 단이 놀이 폭보다 넓어, 단 윗면을 걸어 놀이 폭 밖으로 돌아 나가는 길을 막는다.
+        //  북쪽은 맨 윗단 윗면(제단 높이) 위만 — 그 아래는 피라미드 몸체가 막는다.
         public static readonly Bounds[] BoundaryWalls =
         {
-            new Bounds(new Vector3(-102f, (PorchY + SpawnY + 60f) * 0.5f, 0f), new Vector3(4f, SpawnY + 60f - PorchY, 208f)),
-            new Bounds(new Vector3(102f, (PorchY + SpawnY + 60f) * 0.5f, 0f), new Vector3(4f, SpawnY + 60f - PorchY, 208f)),
+            new Bounds(new Vector3(-102f, (PorchY + SpawnY + 60f) * 0.5f, 228f), new Vector3(4f, SpawnY + 60f - PorchY, 664f)),
+            new Bounds(new Vector3(102f, (PorchY + SpawnY + 60f) * 0.5f, 228f), new Vector3(4f, SpawnY + 60f - PorchY, 664f)),
             new Bounds(new Vector3(0f, (PorchY + SpawnY + 60f) * 0.5f, -102f), new Vector3(208f, SpawnY + 60f - PorchY, 4f)),
+            new Bounds(new Vector3(0f, SpawnY + 30f, 102f), new Vector3(208f, 60f, 4f)),
         };
 
         public static Bounds[] PyramidBody
         {
             get
             {
-                //  계단 단: 위일수록 좁고 얕다. 맨 위 단은 제단 뒤 신전까지(+60m) 올라간다.
-                float[] tiers = { SpawnY + 60f, 3200f, 2800f, 2400f, 2000f };
+                //  계단 단: 위일수록 좁고 얕다. 맨 윗단 윗면 = 제단 높이 — 꼭대기에 서서 내려다본다(벽을 올려다보지 않게).
+                float[] tiers = { SpawnY, 3200f, 2800f, 2400f, 2000f };
                 var list = new List<Bounds>();
                 for (int i = 0; i < tiers.Length - 1; i++)
                 {
@@ -125,6 +128,55 @@ namespace LOP.EditorTools
                 list.Add(new Bounds(new Vector3(0f, 1225f, 250f), new Vector3(400f, 1550f, 300f)));   // 섬 바위(450..2000)
                 return list.ToArray();
             }
+        }
+
+        /// <summary>테라스 위 계단 신전(시안의 모서리 피라미드) — 부딪히는 물체라 구멍·부활 지점·레이저 원을 피해 고른다.</summary>
+        public readonly struct SetPiece
+        {
+            public readonly float Y, X, Z, Half, Height;
+            public SetPiece(float y, float x, float z, float half, float height) { Y = y; X = x; Z = z; Half = half; Height = height; }
+        }
+
+        //  200m 테라스에서 눈에 들어오는 크기 — 30m는 떨어지며 보면 점이었다(10-03 캡처).
+        private const float PieceHalf = 22f, PieceHeight = 42f;
+
+        //  처음 쓸 때 고른다 — 정적 필드는 적힌 순서로 초기화되는데 아래 RespawnPoints가 이보다 뒤에 있다.
+        private static SetPiece[] setPieces;
+        public static SetPiece[] SetPieces => setPieces ??= PickSetPieces();
+
+        private static SetPiece[] PickSetPieces()
+        {
+            var candidates = new[] { new Vector2(-72f, -72f), new Vector2(72f, -72f), new Vector2(-72f, 72f), new Vector2(72f, 72f),
+                                     new Vector2(-78f, 0f), new Vector2(78f, 0f), new Vector2(0f, -78f), new Vector2(0f, 78f) };
+            var list = new List<SetPiece>();
+            foreach (var t in Terraces)
+            {
+                int picked = 0;
+                foreach (var c in candidates)
+                {
+                    if (picked == 4) { break; }
+                    var piece = new SetPiece(t.Y, c.x, c.y, PieceHalf, PieceHeight);
+                    if (Clear(piece, t)) { list.Add(piece); picked++; }
+                }
+            }
+            return list.ToArray();
+        }
+
+        private static bool Clear(SetPiece p, Shelf t)
+        {
+            foreach (var h in t.Holes)
+            {
+                if (Mathf.Abs(p.X - h.X) <= p.Half + h.Half + 6f && Mathf.Abs(p.Z - h.Z) <= p.Half + h.Half + 6f) { return false; }
+            }
+            //  체크포인트가 있는 테라스만 부활 지점이 있다(2800·2400은 없다).
+            if (RespawnPoints.TryGetValue(t.Y, out var r) && Mathf.Abs(p.X - r.x) <= p.Half + 8f && Mathf.Abs(p.Z - r.z) <= p.Half + 8f) { return false; }
+            foreach (var l in Lasers)
+            {
+                bool sameBand = l.Pivot.y > p.Y - 5f && l.Pivot.y < p.Y + p.Height + 5f;
+                float d = new Vector2(l.Pivot.x - p.X, l.Pivot.z - p.Z).magnitude;
+                if (sameBand && d < l.Length + p.Half * 1.42f) { return false; }
+            }
+            return true;
         }
 
         public static Bounds[] Solids => BoundaryWalls.Concat(PyramidBody).ToArray();

@@ -104,6 +104,52 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 벽_면엔_돌_쌓은_결이_있다()
+        {
+            //  400m 민짜 면은 가까이서 결이 없어 "거대한 벽"으로만 보였다 — 옆면 줄눈으로 크기감을 준다.
+            Assert.AreEqual(0f, LOPToonMaterials.Create(Color.white).GetFloat("_SideGrid"), "다른 모드엔 영향 없음(기본 꺼짐)");
+            Assert.Greater(SkydivePyramidDressing.StoneDark.GetFloat("_SideGrid"), 0f);
+            Assert.Greater(SkydivePyramidDressing.Stone.GetFloat("_SideGrid"), 0f);
+        }
+
+        [Test]
+        public void 꼭대기는_내려다보는_자리다()
+        {
+            //  제단 뒤로 피라미드 윗단이 솟아 있으면 꼭대기에서 벽을 올려다본다 — 윗단 윗면은 제단 높이까지만.
+            var top = SkydivePyramidLayout.PyramidBody[0];
+            Assert.LessOrEqual(top.max.y, SkydivePyramidLayout.SpawnY + 1.5f);
+        }
+
+        [Test]
+        public void 테라스_조형물은_구멍_부활_레이저를_피한다()
+        {
+            var pieces = SkydivePyramidLayout.SetPieces;
+            foreach (var t in SkydivePyramidLayout.Terraces)
+            {
+                Assert.IsTrue(pieces.Any(p => Mathf.Approximately(p.Y, t.Y)), $"{t.Y:0} 테라스에 조형물이 없다");
+            }
+            foreach (var p in pieces)
+            {
+                var t = SkydivePyramidLayout.Terraces.First(x => Mathf.Approximately(x.Y, p.Y));
+                Assert.LessOrEqual(Mathf.Abs(p.X) + p.Half, 100f, "놀이 판 밖");
+                foreach (var h in t.Holes)
+                {
+                    Assert.IsTrue(Mathf.Abs(p.X - h.X) > p.Half + h.Half + 6f || Mathf.Abs(p.Z - h.Z) > p.Half + h.Half + 6f, $"{p.Y:0} 조형물이 구멍({h.X:0},{h.Z:0})을 막는다");
+                }
+                if (SkydivePyramidLayout.RespawnPoints.TryGetValue(p.Y, out var r))
+                {
+                    Assert.IsTrue(Mathf.Abs(p.X - r.x) > p.Half + 8f || Mathf.Abs(p.Z - r.z) > p.Half + 8f, $"{p.Y:0} 조형물이 부활 지점 위");
+                }
+                foreach (var l in SkydivePyramidLayout.Lasers)
+                {
+                    bool sameBand = l.Pivot.y > p.Y - 5f && l.Pivot.y < p.Y + p.Height + 5f;
+                    float d = new Vector2(l.Pivot.x - p.X, l.Pivot.z - p.Z).magnitude;
+                    Assert.IsFalse(sameBand && d < l.Length + p.Half * 1.42f, $"{p.Y:0} 조형물이 레이저 {l.Name}의 원 안");
+                }
+            }
+        }
+
+        [Test]
         public void 앞마당은_놀이_폭을_다_덮고_구멍이_없다()
         {
             var porch = SkydivePyramidLayout.Porch;

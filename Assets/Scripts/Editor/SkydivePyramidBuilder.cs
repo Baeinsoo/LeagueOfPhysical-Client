@@ -65,6 +65,19 @@ namespace LOP.EditorTools
                 }
             }
 
+            //  테라스 계단 신전(부딪히는 물체) — 시안의 모서리 피라미드. 구멍·부활·레이저를 피해 고른 자리(L.SetPieces).
+            foreach (var piece in L.SetPieces)
+            {
+                const int steps = 5;
+                float stepH = piece.Height / steps;
+                for (int k = 0; k < steps; k++)
+                {
+                    float w = piece.Half * 2f * (1f - k / (steps + 1.5f));
+                    Box(root, $"Piece_{piece.Y:0}_{piece.X:0}_{piece.Z:0}_{k}", k % 2 == 0 ? gray : dark,
+                        new Vector3(piece.X, piece.Y + 1.5f + stepH * (k + 0.5f), piece.Z), new Vector3(w, stepH, w));
+                }
+            }
+
             //  구간 3: 앞마당 + 갱도 입구 지붕·옆벽
             Box(root, "Porch", gray, Center(L.Porch, L.PorchY), new Vector3(L.Porch.Width, Thickness, L.Porch.Depth));
             foreach (var side in L.PorchSides)

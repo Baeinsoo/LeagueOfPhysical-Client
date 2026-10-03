@@ -28,7 +28,10 @@ namespace LOP.MapTools
         }
         public string MarkerName => $"{GuardLayout.MarkerPrefix}{BranchX0:F0}_{Kind}";
         public string Label => Kind == GuardKind.Pendulum ? "철골 진자" : "회전 광고판";
-        /// <summary>쓸고 지나가는 x 범위 — 🚪 검사가 "띠에 들어가기 전"과 "띠 끝"을 여기서 잰다.</summary>
+        /// <summary>
+        /// 쓸고 지나가는 x 범위 — 🚪 검사가 "띠에 들어가기 전"과 "띠 끝"을 여기서 잰다.
+        /// 축이 똑바로 아래(−90°)거나 원 전체(반각 ≥180°)일 때만 맞는 식이다 — 지금 두 문지기 다 그렇다.
+        /// </summary>
         public float BandX0 => Sector.HalfAngleDegrees >= 180f
             ? Sector.CenterX - Sector.Radius
             : Sector.CenterX - Sector.Radius * Mathf.Sin(Mathf.Min(90f, Sector.HalfAngleDegrees) * Mathf.Deg2Rad);
@@ -97,7 +100,8 @@ namespace LOP.MapTools
             float pivotY = b.Rect.Y1;
             //  끝 철골의 모서리까지 덮는다 — 막대 끝에서 반 폭만큼 옆으로, 반 높이만큼 아래로 더 나간다.
             float reach = Mathf.Sqrt((rod + TipHeight * 0.5f) * (rod + TipHeight * 0.5f) + TipWidth * TipWidth * 0.25f);
-            float extra = Mathf.Atan2(TipWidth * 0.5f, rod) * Mathf.Rad2Deg;
+            //  가까운 모서리(안쪽)는 축에서 반높이만큼 덜 나간 자리에서 반폭만큼 벌어진다 — 각도는 그 모서리 기준.
+            float extra = Mathf.Atan2(TipWidth * 0.5f, rod - TipHeight * 0.5f) * Mathf.Rad2Deg;
             var sector = new GuardSector(pivotX, pivotY, reach, -90f, PendulumAmplitude + extra);
             spot = new GuardSpot(GuardKind.Pendulum, b.Rect.X0, pivotX, pivotY, rod, PendulumAmplitude, sector);
             return true;
@@ -106,9 +110,11 @@ namespace LOP.MapTools
         public static GuardSpot Billboard(in Branch b)
         {
             float half = BoardLength * 0.5f;
-            float pivotX = b.Rect.X0 - BoardFrontGap - half;
-            float pivotY = b.Rect.Y0 + BoardRiseOverFloor + half;
+            //  판이 회전하며 가장 멀리 나가는 거리(reach) 기준으로 앞·위를 띄워야, 다 돌아도 앞은 입구 벽에
+            //  안 닿고 아래 끝은 바닥 위 0.3을 지킨다 — half로 띄우면 회전 중 reach만큼 더 삐져나간다.
             float reach = Mathf.Sqrt(half * half + BoardThickness * BoardThickness * 0.25f);
+            float pivotX = b.Rect.X0 - BoardFrontGap - reach;
+            float pivotY = b.Rect.Y0 + BoardRiseOverFloor + reach;
             var sector = new GuardSector(pivotX, pivotY, reach, 0f, 180f);
             return new GuardSpot(GuardKind.Billboard, b.Rect.X0, pivotX, pivotY, BoardLength, 0f, sector);
         }

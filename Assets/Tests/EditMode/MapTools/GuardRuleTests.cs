@@ -43,6 +43,16 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 캡슐_위아래_구_중심이_갈려야_진짜_틈이다()
+        {
+            //  반지름 0.45, 높이 1.9 → half = 1.9*0.5 − 0.45 = 0.5, 구 중심은 몸 중심 ±0.5.
+            //  점 (0,−6.1): 위쪽 구 중심 (0,−5.6)이 부채꼴 축에 가장 가깝다 — 거리 5.6−5=0.6, Gap=0.6−0.45=0.15.
+            //  오프셋 없이(반지름만 빼면) 거리가 6.1−5=1.1이라 Gap이 0.65로 잘못 나와 이 값으로는 안 걸린다.
+            var path = new List<Vector3> { new Vector3(0f, -6.1f, 0f) };
+            Assert.AreEqual(0.15f, GuardRule.Gap(path, 0.45f, 1.9f, Down), 1e-3f);
+        }
+
+        [Test]
         public void 열린_창은_25퍼센트가_경계다()
         {
             Assert.IsTrue(GuardRule.Opens(32, 125));   // 25.6%

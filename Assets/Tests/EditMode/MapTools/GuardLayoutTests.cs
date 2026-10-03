@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace LOP.MapTools.Tests
 {
@@ -36,10 +37,15 @@ namespace LOP.MapTools.Tests
         public void 광고판은_입구_앞에_서고_아래_끝이_바닥_위_0_3이다()
         {
             var g = GuardLayout.Billboard(Make(BranchKind.Building));
-            Assert.AreEqual(100f - 0.3f - 3.5f, g.PivotX, 1e-4f);
-            Assert.AreEqual(0.3f + 3.5f, g.PivotY, 1e-4f);
+            //  반 길이 3.5, 두께 반 0.3 — 판이 돌 때 가장 멀리 나가는 거리(reach)가 피벗 기준이라
+            //  half가 아니라 reach로 앞뒤·위아래를 띈다.
+            float reach = Mathf.Sqrt(3.5f * 3.5f + 0.3f * 0.3f);
+            Assert.AreEqual(100f - 0.3f - reach, g.PivotX, 1e-4f);
+            Assert.AreEqual(0.3f + reach, g.PivotY, 1e-4f);
             Assert.GreaterOrEqual(g.Sector.HalfAngleDegrees, 180f);
-            Assert.LessOrEqual(g.PivotX + g.Sector.Radius, 100f, "판이 돌아도 건물 안으로 들어가지 않는다");
+            //  판이 다 돌아도 아래 끝은 바닥 위 0.3, 앞 끝은 건물 벽(X0) 안으로 안 들어간다 — 둘 다 reach가 정확히 맞아야 한다.
+            Assert.AreEqual(0.3f, g.PivotY - g.Sector.Radius, 1e-4f);
+            Assert.AreEqual(100f - 0.3f, g.PivotX + g.Sector.Radius, 1e-4f, "판이 돌아도 건물 안으로 들어가지 않는다");
         }
 
         [Test]
@@ -64,8 +70,10 @@ namespace LOP.MapTools.Tests
         {
             GuardLayout.TryPendulum(Make(BranchKind.Valley), out var g);
             Assert.AreEqual(-90f, g.Sector.AxisDegrees, 1e-4f);
-            Assert.Greater(g.Sector.HalfAngleDegrees, GuardLayout.PendulumAmplitude);
-            Assert.GreaterOrEqual(g.Sector.Radius, g.Length + GuardLayout.TipHeight * 0.5f);
+            //  막대 길이 4.0, 끝 철골 반높이 0.4·반폭 0.8 — 안쪽 모서리는 축에서 (rod − 반높이)만큼 떨어져 있다.
+            float extraDeg = Mathf.Atan2(0.8f, 4.0f - 0.4f) * Mathf.Rad2Deg;
+            Assert.AreEqual(55f + extraDeg, g.Sector.HalfAngleDegrees, 1e-3f);
+            Assert.AreEqual(Mathf.Sqrt(4.4f * 4.4f + 0.8f * 0.8f), g.Sector.Radius, 1e-4f);
             Assert.Less(g.BandX0, g.PivotX); Assert.Greater(g.BandX1, g.PivotX);
         }
     }

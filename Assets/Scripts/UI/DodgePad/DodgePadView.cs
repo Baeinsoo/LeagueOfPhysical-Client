@@ -37,13 +37,21 @@ namespace LOP.UI
             _joystickHandle = Root.Q<VisualElement>("joystick-handle");
             Hide(_joystickBg);
 
+            var livesBox = Root.Q<VisualElement>("lives-box");
+            var hearts = Root.Q<VisualElement>("hearts");
             var livesLabel = Root.Q<Label>("lives-label");
-            _viewModel.LivesTextProperty.Subscribe(t => livesLabel.text = t).AddTo(Disposables);
+            _viewModel.LivesProperty.Subscribe(l =>
+            {
+                ShowHearts(hearts, l.full, l.empty);
+                livesLabel.text = l.note;
+                livesLabel.style.display = string.IsNullOrEmpty(l.note) ? DisplayStyle.None : DisplayStyle.Flex;
+                livesBox.style.display = l.full + l.empty == 0 && string.IsNullOrEmpty(l.note) ? DisplayStyle.None : DisplayStyle.Flex;
+            }).AddTo(Disposables);
             var hitFlash = Root.Q<VisualElement>("hit-flash");
             _viewModel.HitFlashProperty.Subscribe(on =>
             {
                 hitFlash.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
-                livesLabel.EnableInClassList("lives-label--hit", on);
+                livesBox.EnableInClassList("lives-box--hit", on);
             }).AddTo(Disposables);
 
             var stageBox = Root.Q<VisualElement>("stage-box");
@@ -71,6 +79,15 @@ namespace LOP.UI
 
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.
             _tick = Root.schedule.Execute(_ => Tick()).Every(0);
+        }
+
+        // 개수가 바뀔 때만 하트를 더하거나 뺀다 — 매 프레임 새로 만들지 않는다.
+        private static void ShowHearts(VisualElement row, int full, int empty)
+        {
+            int total = full + empty;
+            while (row.childCount < total) row.Add(new HeartElement());
+            while (row.childCount > total) row.RemoveAt(row.childCount - 1);
+            for (int i = 0; i < total; i++) ((HeartElement)row[i]).Filled = i < full;
         }
 
         private void Tick()

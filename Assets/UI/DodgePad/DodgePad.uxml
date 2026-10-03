@@ -3,7 +3,10 @@
     <ui:VisualElement name="dodge-pad-root" class="dodge-pad-root" picking-mode="Ignore">
         <!-- 맞은 순간 화면 가장자리가 빨갛게 번쩍인다. 가운데는 비워 위험을 가리지 않는다. -->
         <ui:VisualElement name="hit-flash" class="hit-flash" picking-mode="Ignore" />
-        <ui:Label name="lives-label" class="lives-label" text="" picking-mode="Ignore" />
+        <ui:VisualElement name="lives-box" class="lives-box" picking-mode="Ignore">
+            <ui:VisualElement name="hearts" class="hearts" picking-mode="Ignore" />
+            <ui:Label name="lives-label" class="lives-label" text="" picking-mode="Ignore" />
+        </ui:VisualElement>
         <ui:VisualElement name="stage-box" class="stage-box" picking-mode="Ignore">
             <ui:Label name="stage-label" class="stage-label" text="" picking-mode="Ignore" />
             <ui:VisualElement name="stage-bar" class="stage-bar" picking-mode="Ignore">

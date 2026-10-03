@@ -66,5 +66,19 @@ namespace LOP.Tests
             Assert.AreEqual("Fall", fall.motion.name);
             Assert.IsTrue(fall.motion.isLooping);
         }
+
+        [Test]
+        public void 달리기와_대기가_반복된다()
+        {
+            //  PolyOne Run(0.63초)·Idle은 루프가 꺼져 있어 한 번 돌고 마지막 자세로 멈췄다(스카이다이브 착지 뒤 걷기에서 드러남).
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Path);
+            var controller = (UnityEditor.Animations.AnimatorController)prefab.GetComponent<Animator>().runtimeAnimatorController;
+            foreach (var name in new[] { "Run", "Idle" })
+            {
+                var state = controller.layers[0].stateMachine.states.Select(s => s.state).FirstOrDefault(s => s.name == name);
+                Assert.IsNotNull(state, name);
+                Assert.IsTrue(state.motion.isLooping, name + " 클립이 반복되지 않는다");
+            }
+        }
     }
 }

@@ -443,6 +443,8 @@ namespace LOP.EditorTools
                     shortcutSection = ProveShortcuts(spawns[0].Position, finishX, shape, mapMask, query,
                                                      grid, searchSweep, mainSweep, branches,
                                                      out var branchFlaps, out var safePath, out bool safeVerified);
+                    //  🚪만 검사(FlappyMapGuardOnlyCheck)가 이 지형 증명을 다시 쓴다.
+                    SaveGuardCache(spawns[0].Position, branchFlaps, safePath, safeVerified);
                     if (Guards.Count > 0)
                     {
                         shortcutSection += "\n\n" + GuardSection(spawns[0].Position, shape, mapMask, query,

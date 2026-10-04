@@ -42,7 +42,8 @@ namespace LOP.EditorTools
                 while (root.parent != null && root.parent != composed.transform) { root = root.parent; }
                 if (root.name.StartsWith(LOP.MapTools.GuardLayout.MarkerPrefix, System.StringComparison.Ordinal)) { continue; }
                 //  도는 장애물은 검사 중 자세를 바꾸므로 경계가 매번 달라진다 — 지문에서 뺀다.
-                if (c.GetComponentInParent<LOP.FlappyWindmill>(true) != null || c.GetComponentInParent<LOP.FlappyPendulum>(true) != null) { continue; }
+                if (c.GetComponentInParent<LOP.FlappyWindmill>(true) != null || c.GetComponentInParent<LOP.FlappyPendulum>(true) != null
+                    || c.GetComponentInParent<LOP.FlappyShutter>(true) != null) { continue; }
                 Bounds b = c.bounds;
                 count++;
                 sum += System.Math.Round(b.min.x + b.min.y + b.min.z + b.max.x + b.max.y + b.max.z, 2);

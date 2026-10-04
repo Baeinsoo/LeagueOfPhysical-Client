@@ -75,16 +75,16 @@ namespace LOP.EditorTools
         private static LOP.FlappyWindmillField Windmills;
 
         //  문지기(spec 2026-10-03). 기존 검사(① 봇·전수 탐색·② 스캔)는 문지기를 <b>끈 채</b> 돈다 — 봇의 틱별
-        //  빈 공간 캐시가 진자를 모른다. 켜는 곳은 "갈림길 없이" 재생과 🚪 절 둘뿐이다.
+        //  빈 공간 캐시가 셔터를 모른다. 켜는 곳은 "갈림길 없이" 재생과 🚪 절 둘뿐이다.
         private sealed class GuardInstance
         {
             public LOP.MapTools.GuardSpot Spot;
             public GameObject Root;
-            public Quaternion RestRotation;
+            public Transform Door;
+            public Vector3 DoorRest;
         }
         private static readonly List<GuardInstance> Guards = new List<GuardInstance>();
-        private static LOP.FlappyPendulumField GuardPendulums;
-        private static LOP.FlappyWindmillField GuardBoards;
+        private static LOP.FlappyShutterField GuardShutters;
 
         //  움직이는 장애물 콜라이더가 지금 켜져 있을 수 있나. 꺼져 있으면 Step이 틱마다 OverlapCapsule을 안 부른다 —
         //  기존 검사는 문지기를 끈 채 돌고 지금 맵엔 보통 풍차가 없어서, 이걸 안 가리면 클린런이 세 배 넘게 느려졌다.
@@ -128,8 +128,7 @@ namespace LOP.EditorTools
                 return;
             }
             Windmills?.PoseForTick(tick, TickSeconds);
-            GuardBoards?.PoseForTick(tick, TickSeconds);
-            GuardPendulums?.PoseForTick(tick, TickSeconds);
+            GuardShutters?.PoseForTick(tick, TickSeconds);
             posedTick = tick;
         }
 
@@ -744,20 +743,20 @@ namespace LOP.EditorTools
             }
 
             //  약속은 "어느 위상에도 문지기를 안 만나는 기본 길이 있다"다 — 아무 길이나 찾으면 입구 앞 문지기 범위를
-            //  지나는 길을 골라 🌀가 ❌로 나온다. 그래서 탐색부터 범위를 막는다(캡슐 아래·가운데·위 구, 발밑 y 기준).
-            var sectors = new List<LOP.MapTools.GuardSector>();
-            foreach (GuardInstance g in Guards) { sectors.Add(g.Spot.Sector); }
+            //  지나는 길을 골라 🌀가 ❌로 나온다. 그래서 탐색부터 셔터가 오르내리는 사각형을 막는다(캡슐 아래·가운데·위 구, 발밑 y 기준).
+            var sweeps = new List<LOP.MapTools.Box2>();
+            foreach (GuardInstance g in Guards) { sweeps.Add(g.Spot.SweepRect); }
             float clear = body.Radius + GuardSafeMargin;
             float[] sphereRises = { body.Radius, body.Height * 0.5f, body.Height - body.Radius };
-            LOP.MapTools.TickSweepProbe safeSweep = sectors.Count == 0
+            LOP.MapTools.TickSweepProbe safeSweep = sweeps.Count == 0
                 ? noShortcutSweep
                 : (x, y, vy) =>
                 {
-                    foreach (LOP.MapTools.GuardSector s in sectors)
+                    foreach (LOP.MapTools.Box2 r in sweeps)
                     {
                         foreach (float rise in sphereRises)
                         {
-                            if (LOP.MapTools.GuardRule.SectorDistance(new Vector2(x, y + rise), s) <= clear) { return false; }
+                            if (LOP.MapTools.GuardRule.RectDistance(new Vector2(x, y + rise), r) <= clear) { return false; }
                         }
                     }
                     return noShortcutSweep(x, y, vy);
@@ -807,20 +806,20 @@ namespace LOP.EditorTools
             foreach (GuardInstance g in Guards)
             {
                 LOP.MapTools.GuardSpot spot = g.Spot;
-                float gap = LOP.MapTools.GuardRule.Gap(safePath, shape.Radius, shape.Height, spot.Sector);
+                float gap = LOP.MapTools.GuardRule.Gap(safePath, shape.Radius, shape.Height, spot.SweepRect);
                 //  잘린 경로(재생이 중간에 닿음)로 잰 거리는 뒤쪽을 못 본다 — 재생이 끝까지 간 때만 잰 것으로 친다.
                 bool gapMeasured = safeVerified && safePath != null && safePath.Count > 0;
                 int branchIndex = branches.FindIndex(b => Mathf.RoundToInt(b.Rect.X0) == Mathf.RoundToInt(spot.BranchX0));
                 if (branchIndex < 0)
                 {
-                    rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.PivotX, 0, 0, false,
+                    rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.DoorX, 0, 0, false,
                         "이 문지기의 갈림길 표시가 없다", gap, gapMeasured));
                     continue;
                 }
                 LOP.MapTools.Branch branch = branches[branchIndex];
                 if (branchFlaps == null || branchFlaps.TryGetValue(Mathf.RoundToInt(spot.BranchX0), out var flaps) == false)
                 {
-                    rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.PivotX, 0, 0, false,
+                    rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.DoorX, 0, 0, false,
                         "이 갈림길의 지형 증명이 없다(🔀 줄 참고)", gap, gapMeasured));
                     continue;
                 }
@@ -837,7 +836,7 @@ namespace LOP.EditorTools
                 }
                 if (trail.Count == 0)
                 {
-                    rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.PivotX, 0, 0, false,
+                    rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.DoorX, 0, 0, false,
                         "갈림길 경로가 비었다", gap, gapMeasured));
                     continue;
                 }
@@ -861,7 +860,7 @@ namespace LOP.EditorTools
                 {
                     SetGuardsActive(false);
                 }
-                rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.PivotX, passed, GuardPhaseTicks, true,
+                rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.DoorX, passed, GuardPhaseTicks, true,
                     capped > 0 ? $"상한 걸림 {capped}" : null, gap, gapMeasured));
                 Debug.Log($"[맵 검사] 🚪 {spot.MarkerName} 열린 창 {passed}/{GuardPhaseTicks}, 상한 걸림 {capped}");
             }
@@ -1030,7 +1029,7 @@ namespace LOP.EditorTools
                 FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             for (int i = 0; i < windmills.Length; i++)
             {
-                //  문지기 광고판도 FlappyWindmill이지만 기존 풍차 진단에 섞지 않는다 — 🚪 절이 따로 본다.
+                //  문지기(Guard_)는 기존 풍차 진단에 섞지 않는다 — 🚪 절이 따로 본다.
                 if (windmills[i].name.StartsWith(LOP.MapTools.GuardLayout.MarkerPrefix, System.StringComparison.Ordinal)) { continue; }
                 originalPoses.Add((windmills[i].transform, windmills[i].transform.localRotation));
                 //  날개 수는 자식 수로 센다 — 리포트의 "위상 공간"이 이 수에서 나오므로
@@ -1049,19 +1048,26 @@ namespace LOP.EditorTools
         private static void CollectGuards()
         {
             Guards.Clear();
-            GuardPendulums = new LOP.FlappyPendulumField();
-            GuardBoards = new LOP.FlappyWindmillField();
+            GuardShutters = new LOP.FlappyShutterField();
             var composed = GameObject.Find("ComposedMap");
             if (composed == null) { return; }
             foreach (LOP.MapTools.GuardSpot spot in LOP.MapTools.GuardLayout.ForCourse(ReadBranches()))
             {
                 Transform root = composed.transform.Find(spot.MarkerName);
                 if (root == null) { continue; }
-                Guards.Add(new GuardInstance { Spot = spot, Root = root.gameObject, RestRotation = root.localRotation });
-                var pendulum = root.GetComponent<LOP.FlappyPendulum>();
-                if (pendulum != null) { GuardPendulums.Add(pendulum); }
-                var board = root.GetComponent<LOP.FlappyWindmill>();
-                if (board != null) { GuardBoards.Add(board); }
+                var shutter = root.GetComponent<LOP.FlappyShutter>();
+                if (shutter == null || shutter.Door == null)
+                {
+                    Debug.LogWarning($"[맵 검사] {spot.MarkerName}에 셔터(문)가 없다 — 옛 굽기면 맵을 다시 구울 것.");
+                    continue;
+                }
+                //  빌더가 숨을 자리 따라 문을 안쪽으로 밀었을 수 있다 — 자리는 씬에서 읽는다.
+                Guards.Add(new GuardInstance
+                {
+                    Spot = spot.AtDoorX(root.position.x), Root = root.gameObject,
+                    Door = shutter.Door, DoorRest = shutter.Door.localPosition,
+                });
+                GuardShutters.Add(shutter);
             }
             if (Guards.Count > 0) { Debug.Log($"[맵 검사] 문지기 {Guards.Count}개 — 기존 검사 동안 끈다."); }
         }
@@ -1072,12 +1078,11 @@ namespace LOP.EditorTools
             {
                 if (g.Root == null) { continue; }
                 g.Root.SetActive(true);
-                g.Root.transform.localRotation = g.RestRotation;
+                if (g.Door != null) { g.Door.localPosition = g.DoorRest; }   // 구운 자리(닫힘)로
             }
             Physics.SyncTransforms();
             Guards.Clear();
-            GuardPendulums = null;
-            GuardBoards = null;
+            GuardShutters = null;
         }
 
         //  ── ②-b 장애물 배치 ────────────────────────────────────────────────

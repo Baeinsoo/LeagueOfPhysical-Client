@@ -79,6 +79,21 @@ namespace LOP.EditorTools
             lasers.SetParent(root, false);
             foreach (var l in C.Lasers()) { CreateLaserVolume(lasers, l); }
 
+            //  창 테두리 — 그물은 촘촘한 빨간 선이라 구멍이 묻힌다. 노랗게 빛나는 틀로 "여기로"를 멀리서 보이게.
+            //  틀은 창 바로 바깥 빔 자리(판정 경계)에 둔다 — 틀 안쪽이 곧 지나가는 칸이다. 충돌체 없음.
+            var frameMat = WindowFrameMaterial();
+            var frames = new GameObject("WindowFrames").transform;
+            frames.SetParent(root, false);
+            float e = C.WindowHalf + 0.4f, t = 0.25f;
+            foreach (var n in C.Nets)
+            {
+                var c = new Vector3(n.X, n.Y + 0.3f, n.Z);
+                Frame(frames, $"Frame_{n.Y:0}_N", frameMat, c + new Vector3(0f, 0f, e), new Vector3(e * 2f + t, t, t));
+                Frame(frames, $"Frame_{n.Y:0}_S", frameMat, c + new Vector3(0f, 0f, -e), new Vector3(e * 2f + t, t, t));
+                Frame(frames, $"Frame_{n.Y:0}_E", frameMat, c + new Vector3(e, 0f, 0f), new Vector3(t, t, e * 2f + t));
+                Frame(frames, $"Frame_{n.Y:0}_W", frameMat, c + new Vector3(-e, 0f, 0f), new Vector3(t, t, e * 2f + t));
+            }
+
             CreateCheckpointMarkers(root, C.SpawnY, C.RespawnPoints);
             //  CreateCheckpointMarkers는 (0, spawnY, 0)에 표식을 하나 더 둔다 — 여기는 스폰 판 구멍 위라 지운다.
             foreach (var m in root.GetComponentsInChildren<LOP.CheckpointMarker>())
@@ -121,6 +136,27 @@ namespace LOP.EditorTools
             var lasers = C.Lasers();
             if (lasers.Select(l => l.Name).Distinct().Count() != lasers.Length) { return "빔 이름이 겹친다"; }
             return FindTooFastLaser(lasers);
+        }
+
+        private static Material WindowFrameMaterial()
+        {
+            const string path = "Assets/Art/Materials/Pyramid/ChimneyWindowFrame.mat";
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null)
+            {
+                m = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+                AssetDatabase.CreateAsset(m, path);
+            }
+            m.SetColor("_BaseColor", new Color(1f, 0.8f, 0.2f) * 2.2f);   // HDR — 블룸에 빛난다
+            EditorUtility.SetDirty(m);
+            return m;
+        }
+
+        private static void Frame(Transform parent, string name, Material m, Vector3 center, Vector3 size)
+        {
+            var go = Box(parent, name, m, center, size);
+            Object.DestroyImmediate(go.GetComponent<Collider>());   // 보이기만 — 부딪히면 그물 위에 선다
+            go.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
         private static void Slab(Transform parent, string name, Material m, in Plate p, float y)

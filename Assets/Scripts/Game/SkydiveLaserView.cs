@@ -23,14 +23,28 @@ namespace LOP
         /// <summary>켜진 빔 — 1을 넘는 HDR 색이라 블룸(임계 0.9)에 빛난다(새 룩 슬라이스 4). 예고는 그대로 옅은 빨강.</summary>
         public static readonly Color LitColor = BeamColor * 1.6f;
 
+        /// <summary>빛 번짐 재질 — Resources에 둬야 빌드에 셰이더(LOP/LaserGlow)가 따라간다.</summary>
+        public const string GlowMaterialResource = "Laser/LaserGlow";
+
+        /// <summary>빛 번짐(겉) 굵기 = 판정 굵기. 보이는 범위가 곧 맞는 범위다 — 더 가늘게 그리면 "틈이 있어 보이는데 죽는다".</summary>
+        public static float GlowThickness(float radius) => radius * 2f;
+
+        /// <summary>하얗게 빛나는 심지 — 젤다·미션 임파서블 레이저는 가는 선이다. 빛 번짐의 1/4, 너무 가늘면 멀리서 깜빡인다.</summary>
+        public static float CoreThickness(float radius) => Mathf.Max(0.06f, radius * 0.5f);
+
+        private static readonly Color CoreColor = new Color(1f, 0.75f, 0.78f) * 2.2f;
+
         private readonly GameFramework.Runner.IRunner runner;
         private readonly LaserField laserField;
 
         private readonly List<Transform> beams = new List<Transform>();
+        private readonly List<Transform> cores = new List<Transform>();
         private readonly List<MeshRenderer> renderers = new List<MeshRenderer>();
+        private readonly List<MeshRenderer> coreRenderers = new List<MeshRenderer>();
         private GameObject root;
         private Material litMaterial;
         private Material telegraphMaterial;
+        private Material coreMaterial;
 
         public SkydiveLaserView(GameFramework.Runner.IRunner runner, LaserField laserField)
         {
@@ -70,6 +84,7 @@ namespace LOP
                 bool telegraphing = lit == false && WillLightWithin(laser, tick, ahead);
 
                 renderers[i].enabled = lit || telegraphing;
+                coreRenderers[i].enabled = lit;   // 예고는 옅은 번짐만 — 심지가 있으면 켜진 빔과 구별이 안 된다
                 if (renderers[i].enabled == false)
                 {
                     continue;
@@ -80,12 +95,18 @@ namespace LOP
                 var direction = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
                 var pivot = new Vector3(laser.Pivot.X, laser.Pivot.Y, laser.Pivot.Z);
 
-                //  큐브는 가운데가 원점이라 절반만큼 밀어야 피벗에서 뻗어 나간다.
-                beams[i].position = pivot + direction * (laser.Length * 0.5f);
-                beams[i].rotation = Quaternion.Euler(0f, -angle * Mathf.Rad2Deg, 0f);
-
-                float thickness = laser.Radius * (lit ? 2f : 0.5f);
-                beams[i].localScale = new Vector3(laser.Length, thickness, thickness);
+                //  원기둥은 가운데가 원점·Y축이 길이라 절반만큼 밀고, Y를 빔 방향(수평)으로 눕힌다.
+                var center = pivot + direction * (laser.Length * 0.5f);
+                var rotation = Quaternion.Euler(0f, -angle * Mathf.Rad2Deg, 0f) * Quaternion.Euler(0f, 0f, 90f);
+                float glow = GlowThickness(laser.Radius) * (lit ? 1f : 0.5f);
+                beams[i].SetPositionAndRotation(center, rotation);
+                beams[i].localScale = new Vector3(glow, laser.Length * 0.5f, glow);
+                if (lit)
+                {
+                    float core = CoreThickness(laser.Radius);
+                    cores[i].SetPositionAndRotation(center, rotation);
+                    cores[i].localScale = new Vector3(core, laser.Length * 0.5f, core);
+                }
             }
         }
 
@@ -119,45 +140,62 @@ namespace LOP
             Dispose();
             root = new GameObject("SkydiveLasers");
 
-            var shader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (shader != null)
+            //  번짐 = 가산 합성(LOP/LaserGlow, 가장자리로 옅어짐), 심지 = 불투명 HDR(블룸에 빛난다).
+            var glowTemplate = Resources.Load<Material>(GlowMaterialResource);
+            var unlit = Shader.Find("Universal Render Pipeline/Unlit");
+            if (glowTemplate != null)
             {
-                //  빔은 스스로 빛나는 것이라 조명을 받으면 각도에 따라 어두워져 오히려 안 읽힌다.
-                litMaterial = new Material(shader) { color = LitColor };
-                telegraphMaterial = new Material(shader)
+                litMaterial = new Material(glowTemplate);
+                telegraphMaterial = new Material(glowTemplate);
+                telegraphMaterial.SetColor("_Color", BeamColor * 0.6f);
+            }
+            if (unlit != null)
+            {
+                coreMaterial = new Material(unlit) { color = CoreColor };
+                if (litMaterial == null)
                 {
-                    color = new Color(BeamColor.r, BeamColor.g, BeamColor.b, 0.35f)
-                };
+                    //  재질을 못 찾으면 예전처럼 불투명 빨강 — 레이저가 안 보이는 것보다 낫다.
+                    litMaterial = new Material(unlit) { color = LitColor };
+                    telegraphMaterial = new Material(unlit) { color = BeamColor * 0.6f };
+                }
             }
 
             for (int i = 0; i < lasers.Count; i++)
             {
-                var beam = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                beam.name = $"Beam{i}";
-                beam.transform.SetParent(root.transform, worldPositionStays: false);
-
-                //  콜라이더가 붙으면 키네마틱 이동이 벽으로 인식해 레이저 위에 착지한다.
-                var collider = beam.GetComponent<Collider>();
-                if (collider != null)
-                {
-                    UnityEngine.Object.Destroy(collider);
-                }
-
-                var renderer = beam.GetComponent<MeshRenderer>();
-                if (litMaterial != null)
-                {
-                    renderer.sharedMaterial = litMaterial;
-                }
-
-                beams.Add(beam.transform);
-                renderers.Add(renderer);
+                beams.Add(CreateCylinder($"Beam{i}", litMaterial, renderers));
+                cores.Add(CreateCylinder($"Core{i}", coreMaterial, coreRenderers));
             }
+        }
+
+        private Transform CreateCylinder(string name, Material material, List<MeshRenderer> into)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            go.name = name;
+            go.transform.SetParent(root.transform, worldPositionStays: false);
+
+            //  콜라이더가 붙으면 키네마틱 이동이 벽으로 인식해 레이저 위에 착지한다.
+            var collider = go.GetComponent<Collider>();
+            if (collider != null)
+            {
+                UnityEngine.Object.Destroy(collider);
+            }
+
+            var renderer = go.GetComponent<MeshRenderer>();
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            if (material != null)
+            {
+                renderer.sharedMaterial = material;
+            }
+            into.Add(renderer);
+            return go.transform;
         }
 
         public void Dispose()
         {
             beams.Clear();
+            cores.Clear();
             renderers.Clear();
+            coreRenderers.Clear();
             if (root != null)
             {
                 UnityEngine.Object.Destroy(root);

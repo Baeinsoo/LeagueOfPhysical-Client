@@ -38,6 +38,9 @@ namespace LOP.MapTools
         internal static GuardSpot NewShutter(float branchX0, float doorX, float y0, float y1, float travel)
             => new GuardSpot(branchX0, doorX, y0, y1, travel);
 
+        /// <summary>같은 셔터를 문 가운데만 옮겨서. 빌더가 숨을 자리를 찾아 민 x를 검사기가 씬에서 다시 읽는다.</summary>
+        public GuardSpot AtDoorX(float doorX) => NewShutter(BranchX0, doorX, Y0, Y1, Travel);
+
         public string MarkerName => $"{GuardLayout.MarkerPrefix}{BranchX0:F0}_{Kind}";
         public string Label => Kind == GuardKind.Shutter ? "셔터" : Kind == GuardKind.Pendulum ? "철골 진자" : "회전 광고판";
 

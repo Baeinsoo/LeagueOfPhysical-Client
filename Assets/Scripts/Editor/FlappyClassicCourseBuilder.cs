@@ -204,7 +204,7 @@ namespace LOP.EditorTools
             //  지름길 구간의 천장은 경사 조각이 아니라 두 덩어리다: 지붕, 지름길과 계곡 사이의 혀.
             Shortcuts(composed.transform, profile, config, length, fallback);
             int branchPads = Branches(composed.transform, profile, config, ceilingY, fallback);
-            int guards = Guards(composed.transform, profile, ceilingY, length, fallback, out int guardOverlaps);
+            int guards = Guards(composed.transform, profile, ceilingY, length, fallback, out int guardNoHide, out int guardOverlaps);
 
             int challengeGates = 0;
             for (int pipeIndex = 0; pipeIndex < pipes.Count; pipeIndex++)
@@ -289,7 +289,8 @@ namespace LOP.EditorTools
                     + $" · 도전 관문 {challengeGates}개"
                     + $" · 부스트 패드 {boostPads}개 ({config.DashDuration:F1}초)"
                     + $" · 샤프트 {shafts.Count}개 · 기류 {airflowRects.Count}개 · 홀로그램 {holograms}개"
-                    + $" · 문지기 {guards}개 (지형 겹침 {guardOverlaps})");
+                    + $" · 문지기 {guards}개 (셔터, 숨을 자리 부족 {guardNoHide})"
+                    + (guardOverlaps > 0 ? $" · ⚠️ 셔터 지형 겹침 {guardOverlaps}" : ""));
         }
 
         /// <summary>굽기와 같은 코스 프로필. 에디터 측정(eval)이 씬과 같은 기하를 다시 얻을 때 쓴다.</summary>
@@ -400,124 +401,139 @@ namespace LOP.EditorTools
             return pads;
         }
 
-        //  갈림길 입구 문지기(spec 2026-10-03 §2). 콜라이더 조각은 구간 재질 — 층 규약이 "장애물"로 읽는다.
-        //  루트가 회전축이고 자식이 매달린다. 장식은 루트 자식이라 함께 돈다(받침 팔만 안 돈다).
+        //  갈림길 입구 문지기 = 주기 셔터(spec 2026-10-03 §2, 2026-10-04 셔터로 바꿈). 루트는 안 움직이고 자식 Door가
+        //  오르내린다(FlappyShutterField). 문 콜라이더는 구간 재질 — 층 규약이 "장애물"로 읽는다.
+        //  문이 다 열렸을 때 들어갈 천장 속이 꽉 차 있어야 한다 — 비어 있으면 열린 문이 허공에 떠 보이고 위로 지나는 길을 막는다.
+        //  그래서 숨을 자리를 찾을 때까지 문을 굴 안쪽으로 민다(언덕 굴은 입구 천장이 얇다).
         private static int Guards(Transform parent, LOP.MapTools.CourseProfile profile, float half, float length,
-                                  Material fallback, out int overlaps)
+                                  Material fallback, out int noHide, out int overlaps)
         {
-            var spots = LOP.MapTools.GuardLayout.ForCourse(LOP.MapTools.CourseProfileRule.Branches(profile, half));
-            float front = PipeZ - PipeDepth * 0.5f;   // 그려지는 앞면 z
-            foreach (LOP.MapTools.GuardSpot g in spots)
-            {
-                Material skin = SectionMaterial(g.PivotX, length, fallback);
-                var root = new GameObject(g.MarkerName);
-                root.transform.SetParent(parent, worldPositionStays: false);
-                root.transform.position = new Vector3(g.PivotX, g.PivotY, 0f);
-                Undo.RegisterCreatedObjectUndo(root, "Build classic course");
-
-                if (g.Kind == LOP.MapTools.GuardKind.Pendulum)
-                {
-                    var marker = root.AddComponent<LOP.FlappyPendulum>();
-                    marker.Amplitude = g.AmplitudeDegrees;
-                    marker.Period = LOP.MapTools.GuardLayout.PeriodSeconds;
-                    marker.Phase = 0f;
-                    //  막대는 축에서 0.3m 아래부터 — 천장에 딱 붙이면 지형 겹침 검사가 늘 "닿았다"고 센다(받침 장식이 틈을 가린다).
-                    GuardPiece(root.transform, "Rod", 0f, -(g.Length + RodTopGap) * 0.5f, LOP.MapTools.GuardLayout.RodThickness, g.Length - RodTopGap, skin);
-                    float tw = LOP.MapTools.GuardLayout.TipWidth, th = LOP.MapTools.GuardLayout.TipHeight;
-                    GuardPiece(root.transform, "Weight", 0f, -g.Length, tw, th, skin);
-                    //  끝 철골 위쪽 경고 띠와 축 받침 — 렌더 전용, 앞면 바로 앞.
-                    RenderOnly(root.transform, "WeightStripe",
-                        BoxPolygon(new LOP.MapTools.Box2(-tw * 0.5f, -g.Length + th * 0.5f - 0.22f, tw * 0.5f, -g.Length + th * 0.5f)),
-                        front - 0.06f, front - 0.01f, WarningYellowMaterial());
-                    RenderOnly(root.transform, "Anchor", BoxPolygon(new LOP.MapTools.Box2(-0.6f, -0.25f, 0.6f, 0.35f)),
-                        front - 0.06f, front - 0.01f, WarningBlackMaterial());
-                }
-                else
-                {
-                    var marker = root.AddComponent<LOP.FlappyWindmill>();
-                    marker.RotSpeed = LOP.MapTools.GuardLayout.BoardSpeed;
-                    marker.StartAngle = 0f;
-                    //  판 길이는 위층 칸 높이에서 나온다(GuardLayout.Billboard) — 상수가 아니다.
-                    float bl = g.Length, bt = LOP.MapTools.GuardLayout.BoardThickness;
-                    float bolt = bl / 7f;   // 번개 마름모는 예전 7m 판에서 잡은 크기에 비례
-                    GuardPiece(root.transform, "Board", 0f, 0f, bl, bt, skin);
-                    RenderOnly(root.transform, "BoardFace",
-                        BoxPolygon(new LOP.MapTools.Box2(-bl * 0.5f + 0.15f, -bt * 0.5f + 0.08f, bl * 0.5f - 0.15f, bt * 0.5f - 0.08f)),
-                        front - 0.06f, front - 0.01f, WarningYellowMaterial());
-                    RenderOnly(root.transform, "BoardBolt",
-                        //  볼록한 마름모 — 프리즘 메시는 부채꼴로 삼각분할하므로 오목한 번개 모양은 깨진다.
-                        new[] { new Vector2(-0.3f * bolt, 0f), new Vector2(0f, -0.24f * bolt), new Vector2(0.3f * bolt, 0f), new Vector2(0f, 0.24f * bolt) },
-                        front - 0.1f, front - 0.06f, BuildingBoltMaterial());
-                    //  위층 안쪽 뒷벽에 박힌 축 받침 — 판정면 뒤라 돌아가는 판과 안 부딪혀 보인다. 안 도는 코스 자식.
-                    RenderOnly(parent, $"{g.MarkerName}_Axle",
-                        BoxPolygon(new LOP.MapTools.Box2(g.PivotX - 0.35f, g.PivotY - 0.35f, g.PivotX + 0.35f, g.PivotY + 0.35f)),
-                        0.5f, 0.8f, WarningBlackMaterial());
-                }
-            }
+            noHide = 0;
+            overlaps = 0;
             Physics.SyncTransforms();
-            overlaps = CountGuardTerrainOverlaps(parent, spots);
-            return spots.Count;
-        }
-
-        private const float RodTopGap = 0.3f;
-
-        private static GameObject GuardPiece(Transform root, string name, float x, float y, float w, float h, Material skin)
-        {
-            var go = Box(root, name, skin);
-            go.transform.localScale = new Vector3(w, h, PipeDepth);
-            go.transform.localPosition = new Vector3(x, y, PipeZ);
-            return go;
-        }
-
-        //  25위상(5틱 간격)으로 돌려 보며 문지기 콜라이더가 정적 지형과 겹치는지 센다 — 진자가 바닥·천장·언덕을
-        //  뚫으면 "보이는 대로"가 깨진다. 끝나면 쉬는 자세(회전 0)로 되돌린다.
-        private static int CountGuardTerrainOverlaps(Transform parent, List<LOP.MapTools.GuardSpot> spots)
-        {
-            int overlaps = 0;
             int mask = LayerMask.GetMask("Default");
-            foreach (LOP.MapTools.GuardSpot g in spots)
+            int built = 0;
+            foreach (LOP.MapTools.GuardSpot spot in LOP.MapTools.GuardLayout.ForCourse(LOP.MapTools.CourseProfileRule.Branches(profile, half)))
             {
-                Transform root = parent.Find(g.MarkerName);
-                if (root == null) { continue; }
-                var own = root.GetComponentsInChildren<Collider>();
-                for (int phase = 0; phase < 125; phase += 5)
+                LOP.MapTools.GuardSpot g = spot;
+                bool hidden = false;
+                for (float x = spot.DoorX; x <= spot.BranchX0 + ShutterSearchDepth + 1e-3f; x += ShutterSearchStep)
                 {
-                    float angle = g.Kind == LOP.MapTools.GuardKind.Pendulum
-                        ? LOP.FlappyPendulumCurve.AngleAt(g.AmplitudeDegrees, LOP.MapTools.GuardLayout.PeriodSeconds, 0f, phase, TickSeconds)
-                        : LOP.FlappyWindmillCurve.AngleAt(0f, LOP.MapTools.GuardLayout.BoardSpeed, phase, TickSeconds);
-                    root.localRotation = Quaternion.Euler(0f, 0f, angle);
-                    Physics.SyncTransforms();
-                    if (TouchesTerrain(own, mask))
-                    {
-                        overlaps++;
-                        Debug.LogWarning($"[전통 코스] {g.MarkerName}이 위상 {phase}틱에서 지형과 겹친다");
-                        break;
-                    }
+                    if (ShutterHidden(spot.AtDoorX(x), mask)) { g = spot.AtDoorX(x); hidden = true; break; }
                 }
-                root.localRotation = Quaternion.identity;
+                if (hidden == false)
+                {
+                    noHide++;
+                    Debug.LogWarning($"[전통 코스] {spot.MarkerName}: x {spot.DoorX:F2}~{spot.BranchX0 + ShutterSearchDepth:F2}에 열린 문이 숨을 천장이 없다 — 셔터를 안 놓는다");
+                    continue;
+                }
+                if (Mathf.Abs(g.DoorX - spot.DoorX) > 1e-3f)
+                {
+                    Debug.Log($"[전통 코스] {g.MarkerName}: 숨을 자리 따라 문을 x {spot.DoorX:F2} → {g.DoorX:F2}로 민다");
+                }
+
+                ShutterGuard(parent, g, SectionMaterial(g.DoorX, length, fallback));
+                built++;
+                Physics.SyncTransforms();
+                if (ClosedDoorTouchesTerrain(g, mask))
+                {
+                    overlaps++;
+                    Debug.LogWarning($"[전통 코스] {g.MarkerName}: 닫힌 문이 칸 안에서 지형과 겹친다");
+                }
             }
-            Physics.SyncTransforms();
-            return overlaps;
+            return built;
         }
 
-        private static bool TouchesTerrain(Collider[] own, int mask)
+        private const float ShutterSearchStep = 0.25f;
+        //  입구(X0)에서 이만큼 안쪽까지만 민다 — 더 들어가면 입구 문지기가 아니다.
+        private const float ShutterSearchDepth = 8f;
+        private const float ShutterStripe = 0.3f;
+        //  문 앞면은 지형 앞면(z −2.5)보다 0.05 뒤 — 천장 속에 들어갔을 때 같은 면에서 깜빡이지 않는다.
+        private const float ShutterDepth = PipeDepth - 0.05f;
+
+        private static void ShutterGuard(Transform parent, LOP.MapTools.GuardSpot g, Material skin)
         {
-            var ownSet = new HashSet<Collider>(own);
-            foreach (Collider c in own)
+            var root = new GameObject(g.MarkerName);
+            root.transform.SetParent(parent, worldPositionStays: false);
+            root.transform.position = new Vector3(g.DoorX, 0f, 0f);
+            root.isStatic = true;   // 루트는 안 움직인다. 움직이는 Door 이하는 static이 아니다
+            Undo.RegisterCreatedObjectUndo(root, "Build classic course");
+
+            var door = new GameObject("Door");
+            door.transform.SetParent(root.transform, worldPositionStays: false);
+            door.layer = LayerMask.NameToLayer("Default");
+
+            var marker = root.AddComponent<LOP.FlappyShutter>();
+            marker.Travel = g.Travel;
+            marker.Period = LOP.MapTools.GuardLayout.PeriodSeconds;
+            marker.OpenShare = LOP.MapTools.GuardLayout.ShutterOpenShare;
+            marker.MoveShare = LOP.MapTools.GuardLayout.ShutterMoveShare;
+            marker.Phase = 0f;
+            marker.Door = door.transform;
+
+            //  Box() 규약을 깊이만 바꿔 쓴다: 그려지는 면 z [−ShutterDepth, 0], 콜라이더는 z 0을 가운데로 걸친다(파이프와 같다).
+            float w = LOP.MapTools.GuardLayout.ShutterWidth;
+            var panel = Box(door.transform, "Panel", skin);
+            panel.transform.localScale = new Vector3(w, g.DoorTop - g.DoorBottom, ShutterDepth);
+            panel.transform.localPosition = new Vector3(0f, (g.DoorBottom + g.DoorTop) * 0.5f, -ShutterDepth * 0.5f);
+
+            //  바닥 쪽 경고 띠 — 렌더 전용, 문 앞면 바로 앞. Door 자식이라 같이 오르내린다.
+            float front = -ShutterDepth;
+            const int stripes = 4;
+            for (int i = 0; i < stripes; i++)
             {
-                var box = (BoxCollider)c;
-                Vector3 center = c.transform.TransformPoint(box.center);
-                Vector3 halfExtents = Vector3.Scale(box.size, c.transform.lossyScale) * 0.5f;
-                foreach (Collider other in Physics.OverlapBox(center, halfExtents, c.transform.rotation, mask, QueryTriggerInteraction.Ignore))
+                float x0 = -w * 0.5f + w * i / stripes, x1 = -w * 0.5f + w * (i + 1) / stripes;
+                RenderOnly(door.transform, $"Stripe_{i}",
+                    BoxPolygon(new LOP.MapTools.Box2(x0, g.DoorBottom, x1, g.DoorBottom + ShutterStripe)),
+                    front - 0.03f, front, i % 2 == 0 ? WarningYellowMaterial() : WarningBlackMaterial());
+            }
+        }
+
+        //  다 열린 문이 차지할 천장 속(칸 천장 위 0.1 ~ 문 꼭대기)이 문 양 끝·가운데에서 모두 지형 안인가.
+        private static bool ShutterHidden(LOP.MapTools.GuardSpot g, int mask)
+        {
+            float w = LOP.MapTools.GuardLayout.ShutterWidth;
+            float top = g.DoorTop + g.Travel;
+            for (int c = -1; c <= 1; c++)
+            {
+                float x = g.DoorX + c * w * 0.5f;
+                for (float y = g.Y1 + 0.1f; y <= top + 1e-3f; y += ShutterSearchStep)
                 {
-                    if (ownSet.Contains(other) == false
-                        && Physics.ComputePenetration(c, c.transform.position, c.transform.rotation,
-                                                      other, other.transform.position, other.transform.rotation, out _, out float depth)
-                        && depth > 0.01f)   // 맞닿기만 한 것은 겹침이 아니다
-                    {
-                        return true;
-                    }
+                    if (InsideTerrain(new Vector3(x, y, 0f), mask) == false) { return false; }
                 }
+                if (InsideTerrain(new Vector3(x, top, 0f), mask) == false) { return false; }
+            }
+            return true;
+        }
+
+        private static bool InsideTerrain(Vector3 p, int mask)
+        {
+            foreach (Collider c in Physics.OverlapSphere(p, 0.01f, mask, QueryTriggerInteraction.Ignore))
+            {
+                if (IsGuard(c.transform) == false) { return true; }
+            }
+            return false;
+        }
+
+        private static bool IsGuard(Transform t)
+        {
+            for (; t != null; t = t.parent)
+            {
+                if (t.name.StartsWith(LOP.MapTools.GuardLayout.MarkerPrefix, System.StringComparison.Ordinal)) { return true; }
+            }
+            return false;
+        }
+
+        //  닫힌 문의 칸 안 부분(바닥~천장)이 지형을 0.01보다 깊이 파고드나. 바닥 묻힘·천장 속 부분은 일부러 겹치므로 뺀다.
+        private static bool ClosedDoorTouchesTerrain(LOP.MapTools.GuardSpot g, int mask)
+        {
+            const float tolerance = 0.01f;   // 맞닿기만 한 것은 겹침이 아니다
+            float w = LOP.MapTools.GuardLayout.ShutterWidth;
+            var center = new Vector3(g.DoorX, (g.Y0 + g.Y1) * 0.5f, 0f);
+            var halfExtents = new Vector3(w * 0.5f - tolerance, (g.Y1 - g.Y0) * 0.5f - tolerance, ShutterDepth * 0.5f - tolerance);
+            foreach (Collider c in Physics.OverlapBox(center, halfExtents, Quaternion.identity, mask, QueryTriggerInteraction.Ignore))
+            {
+                if (IsGuard(c.transform) == false) { return true; }
             }
             return false;
         }

@@ -65,6 +65,19 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 문_자리만_옮기면_나머지는_그대로다()
+        {
+            var g = GuardLayout.Shutter(Make(BranchKind.Hill, y0: 2f, y1: 7f), 101f);
+            var moved = g.AtDoorX(103.5f);
+            Assert.AreEqual(103.5f, moved.DoorX, 1e-4f);
+            Assert.AreEqual(103.1f, moved.BandX0, 1e-4f);
+            Assert.AreEqual(g.Travel, moved.Travel, 1e-6f);
+            Assert.AreEqual(g.Y0, moved.Y0, 1e-6f);
+            Assert.AreEqual(g.Y1, moved.Y1, 1e-6f);
+            Assert.AreEqual(g.MarkerName, moved.MarkerName, "이름은 갈림길 x0로 짓는다 — 검사기가 이 이름으로 찾는다");
+        }
+
+        [Test]
         public void 빈_목록이면_문지기도_없다()
         {
             Assert.AreEqual(0, GuardLayout.ForCourse(null).Count);

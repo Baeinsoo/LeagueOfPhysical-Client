@@ -18,8 +18,8 @@ namespace LOP.EditorTools
         public const float ExitY = 60f;             // 굴뚝 바닥(그 아래는 트인 착지 마당)
         public const float GroundHalf = 100f;
         public const float WindowHalf = 4f;         // 몸 중심이 지나갈 수 있는 창(반폭)
-        public const float BeamRadius = 0.9f;
-        public const float BeamSpacing = 2.5f;      // < 2·(빔 0.9 + 몸 0.4) — 빔 사이로 못 빠진다
+        public const float BeamRadius = 0.15f;      // 젤다식 가는 레이저(빛 번짐 굵기 = 판정 굵기)
+        public const float BeamSpacing = 1.0f;      // < 2·(빔 0.15 + 몸 0.4) = 1.1 — 빔 사이로 못 빠진다. 보이는 틈 0.7 < 몸 0.8
         private const float BodyRadius = 0.4f;      // #SkydiveConfig body_radius
 
         //  #SkydiveConfig에서 옮겨 적음(SkydiveCourseBuilder의 대자·다이브 상수와 같은 방식).

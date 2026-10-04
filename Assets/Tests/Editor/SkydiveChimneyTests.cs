@@ -40,6 +40,16 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 그물은_가는_빔이고_보이는_틈으로도_몸이_못_빠진다()
+        {
+            //  젤다식 가는 레이저 — 빔 사이 틈(간격 − 빛 번짐 굵기)이 몸 지름(0.8)보다 좁아야 보이는 대로다.
+            Assert.LessOrEqual(C.BeamRadius, 0.2f);
+            float gap = C.BeamSpacing - SkydiveLaserView.GlowThickness(C.BeamRadius);
+            Assert.Less(gap, 0.8f);
+            Assert.Greater(gap, 0.3f, "틈이 비쳐야 아래 그물의 구멍이 보인다");
+        }
+
+        [Test]
         public void 계단은_대자로_못_가고_패러세일로만_간다()
         {
             var steps = C.Transitions().Where(t => t.Kind == C.StepKind.Glide).ToArray();

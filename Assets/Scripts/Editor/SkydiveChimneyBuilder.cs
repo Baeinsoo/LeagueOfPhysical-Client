@@ -138,16 +138,21 @@ namespace LOP.EditorTools
             return FindTooFastLaser(lasers);
         }
 
+        /// <summary>창 테두리 — 레이저와 같은 셰이더(LOP/LaserGlow)라 깊이에 따라 같이 옅어진다(겹친 그물에서 어느 창이 바로 아래인지).</summary>
         private static Material WindowFrameMaterial()
         {
             const string path = "Assets/Art/Materials/Pyramid/ChimneyWindowFrame.mat";
+            var shader = Shader.Find("LOP/LaserGlow");
             var m = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (m == null)
             {
-                m = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+                m = new Material(shader);
                 AssetDatabase.CreateAsset(m, path);
             }
-            m.SetColor("_BaseColor", new Color(1f, 0.8f, 0.2f) * 2.2f);   // HDR — 블룸에 빛난다
+            m.shader = shader;
+            m.SetColor("_Color", new Color(1f, 0.8f, 0.2f) * 1.6f);   // HDR — 블룸에 빛난다(1을 넘되 옅어짐이 보일 만큼만)
+            m.SetFloat("_Falloff", 0f);                                // 납작한 막대라 고르게
+            LOP.SkydiveLaserView.ApplyFade(m);                          // 레이저와 같은 깊이 옅어짐
             EditorUtility.SetDirty(m);
             return m;
         }

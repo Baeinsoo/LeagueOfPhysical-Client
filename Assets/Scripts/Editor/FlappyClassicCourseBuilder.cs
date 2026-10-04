@@ -437,20 +437,21 @@ namespace LOP.EditorTools
                     var marker = root.AddComponent<LOP.FlappyWindmill>();
                     marker.RotSpeed = LOP.MapTools.GuardLayout.BoardSpeed;
                     marker.StartAngle = 0f;
-                    float bl = LOP.MapTools.GuardLayout.BoardLength, bt = LOP.MapTools.GuardLayout.BoardThickness;
+                    //  판 길이는 위층 칸 높이에서 나온다(GuardLayout.Billboard) — 상수가 아니다.
+                    float bl = g.Length, bt = LOP.MapTools.GuardLayout.BoardThickness;
+                    float bolt = bl / 7f;   // 번개 마름모는 예전 7m 판에서 잡은 크기에 비례
                     GuardPiece(root.transform, "Board", 0f, 0f, bl, bt, skin);
                     RenderOnly(root.transform, "BoardFace",
                         BoxPolygon(new LOP.MapTools.Box2(-bl * 0.5f + 0.15f, -bt * 0.5f + 0.08f, bl * 0.5f - 0.15f, bt * 0.5f - 0.08f)),
                         front - 0.06f, front - 0.01f, WarningYellowMaterial());
                     RenderOnly(root.transform, "BoardBolt",
                         //  볼록한 마름모 — 프리즘 메시는 부채꼴로 삼각분할하므로 오목한 번개 모양은 깨진다.
-                        new[] { new Vector2(-0.3f, 0f), new Vector2(0f, -0.24f), new Vector2(0.3f, 0f), new Vector2(0f, 0.24f) },
+                        new[] { new Vector2(-0.3f * bolt, 0f), new Vector2(0f, -0.24f * bolt), new Vector2(0.3f * bolt, 0f), new Vector2(0f, 0.24f * bolt) },
                         front - 0.1f, front - 0.06f, BuildingBoltMaterial());
-                    //  외벽에서 축까지 받침 팔 — 판정면 뒤라 돌아가는 판과 안 부딪혀 보인다.
-                    RenderOnly(parent, $"{g.MarkerName}_Arm",
-                        new[] { new Vector2(g.PivotX, g.PivotY - 0.15f), new Vector2(g.BranchX0, g.PivotY + 1.2f),
-                                new Vector2(g.BranchX0, g.PivotY + 1.5f), new Vector2(g.PivotX, g.PivotY + 0.15f) },
-                        0.5f, 0.8f, RebarMaterial());
+                    //  위층 안쪽 뒷벽에 박힌 축 받침 — 판정면 뒤라 돌아가는 판과 안 부딪혀 보인다. 안 도는 코스 자식.
+                    RenderOnly(parent, $"{g.MarkerName}_Axle",
+                        BoxPolygon(new LOP.MapTools.Box2(g.PivotX - 0.35f, g.PivotY - 0.35f, g.PivotX + 0.35f, g.PivotY + 0.35f)),
+                        0.5f, 0.8f, WarningBlackMaterial());
                 }
             }
             Physics.SyncTransforms();

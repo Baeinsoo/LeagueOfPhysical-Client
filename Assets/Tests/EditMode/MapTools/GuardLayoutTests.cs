@@ -12,19 +12,18 @@ namespace LOP.MapTools.Tests
                           kind == BranchKind.Hill ? BranchSide.Above : BranchSide.Below, kind);
 
         [Test]
-        public void 언덕_진자는_입구_안쪽_천장에_매달고_맨_아래가_바닥_위_0_6이다()
+        public void 언덕_진자는_입구_안쪽_천장에_매달고_막대는_칸_높이보다_2m_짧다()
         {
             Assert.IsTrue(GuardLayout.TryPendulum(Make(BranchKind.Hill), out var g));
             Assert.AreEqual(101.5f, g.PivotX, 1e-4f);
             Assert.AreEqual(5f, g.PivotY, 1e-4f);
-            //  5 − 0.6 − 0.4(끝 철골 반 높이) = 4.0
-            Assert.AreEqual(4.0f, g.Length, 1e-4f);
-            Assert.AreEqual(0.6f, g.PivotY - g.Length - GuardLayout.TipHeight * 0.5f, 1e-4f);
+            //  5 − 2.0 = 3.0 — 아래로 빠져나갈 틈을 남긴다.
+            Assert.AreEqual(3.0f, g.Length, 1e-4f);
         }
 
         [Test]
         public void 칸이_너무_낮으면_진자를_안_놓는다()
-            => Assert.IsFalse(GuardLayout.TryPendulum(Make(BranchKind.Hill, y1: 3f), out _));
+            => Assert.IsFalse(GuardLayout.TryPendulum(Make(BranchKind.Hill, y1: 4f), out _));
 
         [Test]
         public void 칸이_높아도_막대는_6m까지다()
@@ -34,18 +33,18 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
-        public void 광고판은_입구_앞에_서고_아래_끝이_바닥_위_0_3이다()
+        public void 광고판은_위층_입구_안쪽에서_돌고_바닥_천장과_0_3_띈다()
         {
             var g = GuardLayout.Billboard(Make(BranchKind.Building));
-            //  반 길이 3.5, 두께 반 0.3 — 판이 돌 때 가장 멀리 나가는 거리(reach)가 피벗 기준이라
-            //  half가 아니라 reach로 앞뒤·위아래를 띈다.
-            float reach = Mathf.Sqrt(3.5f * 3.5f + 0.3f * 0.3f);
-            Assert.AreEqual(100f - 0.3f - reach, g.PivotX, 1e-4f);
-            Assert.AreEqual(0.3f + reach, g.PivotY, 1e-4f);
+            //  reach = 5/2 − 0.3 = 2.2, 두께 반 0.3 — 판 길이는 모서리가 reach 안에 들게.
+            Assert.AreEqual(2f * Mathf.Sqrt(2.2f * 2.2f - 0.09f), g.Length, 1e-4f);
+            Assert.AreEqual(2.2f, g.Sector.Radius, 1e-4f);
+            Assert.AreEqual(102.5f, g.PivotX, 1e-4f);
+            Assert.AreEqual(2.5f, g.PivotY, 1e-4f);
             Assert.GreaterOrEqual(g.Sector.HalfAngleDegrees, 180f);
-            //  판이 다 돌아도 아래 끝은 바닥 위 0.3, 앞 끝은 건물 벽(X0) 안으로 안 들어간다 — 둘 다 reach가 정확히 맞아야 한다.
             Assert.AreEqual(0.3f, g.PivotY - g.Sector.Radius, 1e-4f);
-            Assert.AreEqual(100f - 0.3f, g.PivotX + g.Sector.Radius, 1e-4f, "판이 돌아도 건물 안으로 들어가지 않는다");
+            Assert.AreEqual(4.7f, g.PivotY + g.Sector.Radius, 1e-4f);
+            Assert.AreEqual(100.3f, g.PivotX - g.Sector.Radius, 1e-4f, "입구 벽(X0) 안쪽 0.3부터 돈다");
         }
 
         [Test]
@@ -69,10 +68,10 @@ namespace LOP.MapTools.Tests
         {
             GuardLayout.TryPendulum(Make(BranchKind.Hill), out var g);
             Assert.AreEqual(-90f, g.Sector.AxisDegrees, 1e-4f);
-            //  막대 길이 4.0, 끝 철골 반높이 0.4·반폭 0.8 — 안쪽 모서리는 축에서 (rod − 반높이)만큼 떨어져 있다.
-            float extraDeg = Mathf.Atan2(0.8f, 4.0f - 0.4f) * Mathf.Rad2Deg;
+            //  막대 길이 3.0, 끝 철골 반높이 0.4·반폭 0.8 — 안쪽 모서리는 축에서 (rod − 반높이)만큼 떨어져 있다.
+            float extraDeg = Mathf.Atan2(0.8f, 3.0f - 0.4f) * Mathf.Rad2Deg;
             Assert.AreEqual(55f + extraDeg, g.Sector.HalfAngleDegrees, 1e-3f);
-            Assert.AreEqual(Mathf.Sqrt(4.4f * 4.4f + 0.8f * 0.8f), g.Sector.Radius, 1e-4f);
+            Assert.AreEqual(Mathf.Sqrt(3.4f * 3.4f + 0.8f * 0.8f), g.Sector.Radius, 1e-4f);
             Assert.Less(g.BandX0, g.PivotX); Assert.Greater(g.BandX1, g.PivotX);
         }
     }

@@ -25,6 +25,7 @@ namespace LOP
 
         /// <summary>빛 번짐 재질 — Resources에 둬야 빌드에 셰이더(LOP/LaserGlow)가 따라간다.</summary>
         public const string GlowMaterialResource = "Laser/LaserGlow";
+        public const string CoreMaterialResource = "Laser/LaserCore";
 
         /// <summary>빛 번짐(겉) 굵기 = 판정 굵기. 보이는 범위가 곧 맞는 범위다 — 더 가늘게 그리면 "틈이 있어 보이는데 죽는다".</summary>
         public static float GlowThickness(float radius) => radius * 2f;
@@ -32,10 +33,26 @@ namespace LOP
         /// <summary>하얗게 빛나는 심지 — 젤다·미션 임파서블 레이저는 가는 선이다. 빛 번짐의 1/4, 너무 가늘면 멀리서 깜빡인다.</summary>
         public static float CoreThickness(float radius) => Mathf.Max(0.06f, radius * 0.5f);
 
-        private static readonly Color CoreColor = new Color(1f, 0.75f, 0.78f) * 2.2f;
+
+        //  깊이 옅어짐(LOP/LaserGlow) — 계단(10m 간격)에서 바로 아래 한 장만 밝고 다음 장은 1/3쯤 되게 짧게.
+        //  재질 에셋에 값이 저장돼 셰이더 기본값을 덮으므로, 값은 여기 한 곳에 두고 재질마다 덮어쓴다(ApplyFade).
+        public const float FadeNear = 2f, FadeFar = 20f, FadeMin = 0.18f, FadeAbove = 0.05f;
+
+        public static void ApplyFade(Material m)
+        {
+            m.SetFloat("_FadeNear", FadeNear);
+            m.SetFloat("_FadeFar", FadeFar);
+            m.SetFloat("_FadeMin", FadeMin);
+            m.SetFloat("_FadeAbove", FadeAbove);
+        }
+
+        //  깊이 옅어짐의 기준점(내 캐릭터) — LOP/LaserGlow가 읽는다. w=1이면 유효, 0이면 셰이더가 카메라 높이를 쓴다.
+        private static readonly int FadeOriginId = Shader.PropertyToID("_LaserFadeOrigin");
 
         private readonly GameFramework.Runner.IRunner runner;
         private readonly LaserField laserField;
+        private readonly IPlayerContext playerContext;
+        private readonly GameFramework.World.EntityRegistry entityRegistry;
 
         private readonly List<Transform> beams = new List<Transform>();
         private readonly List<Transform> cores = new List<Transform>();
@@ -46,10 +63,13 @@ namespace LOP
         private Material telegraphMaterial;
         private Material coreMaterial;
 
-        public SkydiveLaserView(GameFramework.Runner.IRunner runner, LaserField laserField)
+        public SkydiveLaserView(GameFramework.Runner.IRunner runner, LaserField laserField,
+                                IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry)
         {
             this.runner = runner;
             this.laserField = laserField;
+            this.playerContext = playerContext;
+            this.entityRegistry = entityRegistry;
         }
 
         public void LateTick()
@@ -61,6 +81,7 @@ namespace LOP
             }
 
             EnsureBeams(lasers);
+            UpdateFadeOrigin();
 
             double interval = runner.tickUpdater.interval;
             if (interval <= 0d)
@@ -111,6 +132,22 @@ namespace LOP
         }
 
         /// <summary>
+        /// 옅어짐 기준 = 내 캐릭터 높이. 카메라는 플레이어가 높이·각도를 바꿔(위로 최대 20m) 기준으로 못 쓴다 —
+        /// 카메라 기준이면 바로 아래 그물이 줌에 따라 옅어지기도 한다.
+        /// </summary>
+        private void UpdateFadeOrigin()
+        {
+            var entity = string.IsNullOrEmpty(playerContext.entityId) ? null : entityRegistry.Get(playerContext.entityId);
+            if (entity == null)
+            {
+                Shader.SetGlobalVector(FadeOriginId, Vector4.zero);
+                return;
+            }
+            Vector3 p = GameFramework.World.EntityMotionExtensions.GetPosition(entity);
+            Shader.SetGlobalVector(FadeOriginId, new Vector4(p.x, p.y, p.z, 1f));
+        }
+
+        /// <summary>
         /// 앞으로 <paramref name="ahead"/>틱 안에 켜지나. 켜지기 전에 가는 선으로 예고하려고 쓴다 —
         /// 예고 없이 켜지는 점멸 빔은 피할 수 없고, 피할 수 없는 것은 장애물이 아니라 주사위다.
         /// </summary>
@@ -137,27 +174,30 @@ namespace LOP
                 return;
             }
 
-            Dispose();
+            DestroyBeams();
             root = new GameObject("SkydiveLasers");
 
-            //  번짐 = 가산 합성(LOP/LaserGlow, 가장자리로 옅어짐), 심지 = 불투명 HDR(블룸에 빛난다).
+            //  번짐·심지 모두 LOP/LaserGlow(가산, 카메라에서 아래로 멀수록 옅어짐) — 겹친 그물의 앞뒤를 밝기로 가른다.
+            //  번짐은 가장자리로 옅어지고, 심지는 고르게 하얗게 빛난다(재질 값은 Resources 에셋에).
             var glowTemplate = Resources.Load<Material>(GlowMaterialResource);
-            var unlit = Shader.Find("Universal Render Pipeline/Unlit");
-            if (glowTemplate != null)
+            var coreTemplate = Resources.Load<Material>(CoreMaterialResource);
+            if (glowTemplate != null && coreTemplate != null)
             {
                 litMaterial = new Material(glowTemplate);
                 telegraphMaterial = new Material(glowTemplate);
                 telegraphMaterial.SetColor("_Color", BeamColor * 0.6f);
+                coreMaterial = new Material(coreTemplate);
+                ApplyFade(litMaterial);
+                ApplyFade(telegraphMaterial);
+                ApplyFade(coreMaterial);
             }
-            if (unlit != null)
+            else
             {
-                coreMaterial = new Material(unlit) { color = CoreColor };
-                if (litMaterial == null)
-                {
-                    //  재질을 못 찾으면 예전처럼 불투명 빨강 — 레이저가 안 보이는 것보다 낫다.
-                    litMaterial = new Material(unlit) { color = LitColor };
-                    telegraphMaterial = new Material(unlit) { color = BeamColor * 0.6f };
-                }
+                //  재질을 못 찾으면 예전처럼 불투명 빨강 — 레이저가 안 보이는 것보다 낫다.
+                var unlit = Shader.Find("Universal Render Pipeline/Unlit");
+                litMaterial = new Material(unlit) { color = LitColor };
+                telegraphMaterial = new Material(unlit) { color = BeamColor * 0.6f };
+                coreMaterial = litMaterial;
             }
 
             for (int i = 0; i < lasers.Count; i++)
@@ -191,6 +231,12 @@ namespace LOP
         }
 
         public void Dispose()
+        {
+            DestroyBeams();
+            Shader.SetGlobalVector(FadeOriginId, Vector4.zero);   // 다른 모드로 가도 남으면 그쪽 레이저가 엉뚱하게 옅어진다
+        }
+
+        private void DestroyBeams()
         {
             beams.Clear();
             cores.Clear();

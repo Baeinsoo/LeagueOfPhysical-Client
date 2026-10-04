@@ -789,8 +789,9 @@ namespace LOP.EditorTools
         //  🚪 탐색의 합치기 눈금 — 전수 탐색 눈금(HeightGrid)보다 굵게. 25틱 앞에서 출발하는 짧은 탐색이라 이 정도로 충분하다.
         private const float GuardHeightCell = 0.25f;
         private const float GuardVerticalSpeedCell = 1.0f;
-        //  칸·출발 높이 바깥으로 이만큼 넘게 벗어난 상태는 버린다 — 어차피 칸 안에서 끝나야 한다.
+        //  칸 바깥으로 이만큼 넘게 벗어난 상태는 버린다 — 어차피 칸 안에서 끝나야 한다.
         private const float GuardBandSlack = 1.5f;
+        private const float GuardStartStep = 0.1f;
         private const float GuardExitPast = 2f;
 
         private static string GuardSection(Vector3 start, in FlappyShape shape, int mapMask,
@@ -850,11 +851,7 @@ namespace LOP.EditorTools
                 {
                     for (int phase = 0; phase < GuardPhaseTicks; phase++)
                     {
-                        BirdState from = reference;
-                        from.Tick = phase;
-                        from.Stun = 0f;
-                        from.Invuln = 0f;
-                        if (PassesGuard(from, exitX, horizon, branch, shape, mapMask, watcher, out bool hitCap)) { passed++; }
+                        if (PassesGuard(reference.Position.x, phase, exitX, horizon, branch, shape, mapMask, watcher, out bool hitCap)) { passed++; }
                         if (hitCap) { capped++; }
                     }
                 }
@@ -873,16 +870,31 @@ namespace LOP.EditorTools
         //  기다릴 수 없다(전진 속도 고정) — 펼칠 것은 날갯짓뿐이다. 같은 틱에 (높이 칸, 세로 속도 칸)이 같으면 하나로 합친다.
         //  지름길 안에서만 편다 — 안 그러면 기본 길로 내려가 출구 x에 닿고 "지났다"가 된다.
         //  좌표는 🔀 증명의 프로브와 같은 발밑(Position.y)이다. 성공 = 출구 x를 넘었고 몸 전체(발밑 ~ 발밑+키)가 칸의 y 범위 안.
-        private static bool PassesGuard(BirdState from, float exitX, int horizon, LOP.MapTools.Branch branch,
+        //  출발은 기준 x에서 칸 높이 전체(0.1m 간격, 세로 속도 0) — 실제 새는 아무 높이로나 온다. 한 높이에서만 출발하면
+        //  그 높이가 운 나쁘게 막힌 위상에서 창이 0으로 나왔다. 상태 상한은 출발점 전부를 합친 한 위상 기준이다.
+        private static bool PassesGuard(float startX, int phase, float exitX, int horizon, LOP.MapTools.Branch branch,
                                         in FlappyShape shape, int mapMask, HitWatcher query, out bool hitCap)
         {
             hitCap = false;
-            var frontier = new List<BirdState> { from };
+            var frontier = new List<BirdState>();
+            //  이 위상의 자세로 세운 뒤 벽(문지기 포함) 속 출발점은 뺀다.
+            PoseWindmills(phase);
+            int starts = Mathf.FloorToInt((branch.Rect.Y1 - shape.Height - branch.Rect.Y0) / GuardStartStep + 1e-3f);
+            for (int i = 0; i <= starts; i++)
+            {
+                var p = new Vector3(startX, branch.Rect.Y0 + i * GuardStartStep, 0f);
+                if (Physics.CheckCapsule(p + Vector3.up * shape.Radius, p + Vector3.up * (shape.Height - shape.Radius),
+                                         shape.Radius, mapMask, QueryTriggerInteraction.Ignore))
+                {
+                    continue;
+                }
+                frontier.Add(new BirdState { Position = p, Tick = phase });
+            }
             var next = new List<BirdState>();
             var seen = new HashSet<long>();
             int expanded = 0;
-            float minY = Mathf.Min(branch.Rect.Y0, from.Position.y) - GuardBandSlack;
-            float maxY = Mathf.Max(branch.Rect.Y1, from.Position.y + shape.Height) + GuardBandSlack;
+            float minY = branch.Rect.Y0 - GuardBandSlack;
+            float maxY = branch.Rect.Y1 + GuardBandSlack;
             for (int t = 0; t < horizon && frontier.Count > 0; t++)
             {
                 next.Clear();

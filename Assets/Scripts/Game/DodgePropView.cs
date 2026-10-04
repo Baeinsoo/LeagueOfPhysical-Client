@@ -23,7 +23,6 @@ namespace LOP
         private readonly List<GameObject> giants = new List<GameObject>();
         private GameObject root;
         private GameObject chibiPrefab;
-        private GameObject referee;
 
         public DodgePropView(GameFramework.Runner.IRunner runner, DodgeClientState state, DodgeConfig config, DodgePropKit kit)
         {
@@ -61,7 +60,6 @@ namespace LOP
 
             root ??= new GameObject("DodgeProps");
             used.Clear();
-            PlaceReferee();
             int giantPairs = 0;
             foreach (var s in shapes)
             {
@@ -162,21 +160,6 @@ namespace LOP
             var (ga, gb) = DodgePropPose.GiantSpots(a, b);
             PlaceGiant(pairIndex * 2, ga, a);
             PlaceGiant(pairIndex * 2 + 1, gb, b);
-        }
-
-        // 가운데 투척 심판(탄막 발사원). 맵의 "Thrower" 충돌체와 같은 자리 — 그림만 여기서, 막는 것은 맵이.
-        private void PlaceReferee()
-        {
-            if (referee != null || chibiPrefab == null)
-            {
-                return;
-            }
-            referee = UnityEngine.Object.Instantiate(chibiPrefab, root.transform);
-            referee.name = "DodgeReferee";
-            referee.transform.localScale = chibiPrefab.transform.localScale * DodgePropPose.RefereeScale;
-            referee.transform.SetPositionAndRotation(new Vector3(DodgeHazards.Thrower.x, 0f, DodgeHazards.Thrower.y),
-                                                     Quaternion.LookRotation(Vector3.back, Vector3.up));   // 카메라 쪽을 본다
-            ChibiOutfit.Apply(referee, ChibiOutfit.ColorsFor("dodge-referee"));
         }
 
         private void PlaceGiant(int index, Vector2 spot, Vector2 lookAt)

@@ -19,8 +19,6 @@ namespace LOP
         /// <summary>줄 끝에서 거인이 서는 거리. 줄 끝이 벽 안쪽(±9)이라 벽 바깥(±10)을 넘게.</summary>
         public const float GiantBack = 2.2f;
         public const float GiantScale = 3f;
-        /// <summary>가운데 투척 심판 — 맵 충돌체 반지름 0.45m에 맞춰 선수 치비(몸 그림 0.35m)보다 조금 크게.</summary>
-        public const float RefereeScale = 0.45f / 0.35f;
 
         public static bool IsBullet(DodgePatternKind k) =>
             k == DodgePatternKind.BulletRain || k == DodgePatternKind.BulletWall || k == DodgePatternKind.BulletAimed ||

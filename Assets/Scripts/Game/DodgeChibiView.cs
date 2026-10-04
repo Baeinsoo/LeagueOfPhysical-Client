@@ -17,6 +17,7 @@ namespace LOP
         private readonly ActorRegistry actorRegistry;
         private readonly Dictionary<string, GameObject> dressed = new Dictionary<string, GameObject>();
         private Material faceMaterial;
+        private readonly HashSet<string> players = new HashSet<string>();
 
         public DodgeChibiView(GameFramework.Runner.IRunner runner, DodgeClientState state, ActorRegistry actorRegistry)
         {
@@ -42,6 +43,8 @@ namespace LOP
             }
             double interval = runner.tickUpdater.interval;
             long renderTick = (long)System.Math.Floor((runner.tickUpdater.elapsedTime - interval) / interval);
+            players.Clear();
+            foreach (var id in state.PlayerIds) players.Add(id);
             foreach (var id in state.PlayerIds)
             {
                 if (!actorRegistry.TryGet(id, out var actor) || actor == null || actor.visualGameObject == null)
@@ -64,6 +67,22 @@ namespace LOP
                     face.SetExpression(DodgeHitFeedback.ExpressionFor(renderTick, state.InvulnerableUntil(id)));
                 }
             }
+
+            // 선수가 아닌 치비 = 탄막 투척 심판(서버가 식대로 세우는 캐릭터). 같은 심판 옷을 입힌다.
+            foreach (var actor in actorRegistry.All)
+            {
+                if (actor == null || actor.visualGameObject == null || players.Contains(actor.entityId)) continue;
+                var visual = actor.visualGameObject;
+                if (!ChibiDresser.IsChibi(visual)) continue;
+                if (!dressed.TryGetValue(actor.entityId, out var last) || last != visual)
+                {
+                    ChibiDresser.Dress(RefereeOutfitId, visual, faceMaterial);
+                    dressed[actor.entityId] = visual;
+                }
+            }
         }
+
+        /// <summary>심판 옷 색을 고르는 열쇠 — 엔티티 id가 판마다 달라도 늘 같은 옷.</summary>
+        public const string RefereeOutfitId = "dodge-referee";
     }
 }

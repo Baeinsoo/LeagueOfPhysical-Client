@@ -74,6 +74,30 @@ namespace LOP.EditorTools
         //  틱 각도를 따르는데 앞을 본 값은 다른 틱 각도의 것이 된다.
         private static LOP.FlappyWindmillField Windmills;
 
+        //  문지기(spec 2026-10-03). 기존 검사(① 봇·전수 탐색·② 스캔)는 문지기를 <b>끈 채</b> 돈다 — 봇의 틱별
+        //  빈 공간 캐시가 셔터를 모른다. 켜는 곳은 "갈림길 없이" 재생과 🚪 절 둘뿐이다.
+        private sealed class GuardInstance
+        {
+            public LOP.MapTools.GuardSpot Spot;
+            public GameObject Root;
+            public Transform Door;
+            public Vector3 DoorRest;
+        }
+        private static readonly List<GuardInstance> Guards = new List<GuardInstance>();
+        private static LOP.FlappyShutterField GuardShutters;
+
+        //  움직이는 장애물 콜라이더가 지금 켜져 있을 수 있나. 꺼져 있으면 Step이 틱마다 OverlapCapsule을 안 부른다 —
+        //  기존 검사는 문지기를 끈 채 돌고 지금 맵엔 보통 풍차가 없어서, 이걸 안 가리면 클린런이 세 배 넘게 느려졌다.
+        private static bool moversLive;
+
+        private static void SetGuardsActive(bool active)
+        {
+            foreach (GuardInstance g in Guards) { g.Root.SetActive(active); }
+            moversLive = (active && Guards.Count > 0) || (Windmills != null && Windmills.Count > 0);
+            Physics.SyncTransforms();
+            posedTick = long.MinValue;   // 켜고 끈 뒤엔 자세를 다시 세운다
+        }
+
         //  마지막으로 세운 틱. 자세는 틱만의 함수라 같은 틱을 다시 세워도 결과가 같은데,
         //  PoseForTick은 Physics.SyncTransforms까지 부르므로 공짜가 아니다 — 굴려 보기가
         //  같은 틱을 여러 번 지나가므로 이 한 줄이 그 값을 절반으로 줄인다.
@@ -99,11 +123,12 @@ namespace LOP.EditorTools
 
         private static void PoseWindmills(long tick)
         {
-            if (Windmills == null || posedTick == tick)
+            if ((Windmills == null && Guards.Count == 0) || posedTick == tick)
             {
                 return;
             }
-            Windmills.PoseForTick(tick, TickSeconds);
+            Windmills?.PoseForTick(tick, TickSeconds);
+            GuardShutters?.PoseForTick(tick, TickSeconds);
             posedTick = tick;
         }
 
@@ -206,6 +231,8 @@ namespace LOP.EditorTools
             //  맵 씬은 커밋하지 않는 로컬 픽스처라, 자세가 남으면 진단이 diff로 새어 나간다.
             Windmills = CollectWindmills(out var windmillPoses, out var windmillSpecs,
                                          out var windmillInstances);
+            CollectGuards();
+            SetGuardsActive(false);
             posedTick = long.MinValue;
             //  이 도구는 씬을 읽기만 한다 — 그래도 자세를 세우느라 컴포넌트를 건드리므로,
             //  들어올 때 깨끗했으면 나갈 때도 깨끗한지 끝에서 확인해 남긴다(맵 씬은 커밋하지
@@ -413,7 +440,15 @@ namespace LOP.EditorTools
                 if (branches.Count > 0 && cleanRunCancelNote == null)
                 {
                     shortcutSection = ProveShortcuts(spawns[0].Position, finishX, shape, mapMask, query,
-                                                     grid, searchSweep, mainSweep, branches);
+                                                     grid, searchSweep, mainSweep, branches,
+                                                     out var branchFlaps, out var safePath, out bool safeVerified);
+                    //  🚪만 검사(FlappyMapGuardOnlyCheck)가 이 지형 증명을 다시 쓴다.
+                    SaveGuardCache(spawns[0].Position, branchFlaps, safePath, safeVerified);
+                    if (Guards.Count > 0)
+                    {
+                        shortcutSection += "\n\n" + GuardSection(spawns[0].Position, shape, mapMask, query,
+                                                                  branches, branchFlaps, safePath, safeVerified);
+                    }
                 }
                 cleanRunWatch.Stop();
                 //  둘로 갈라 찍는다 — 봇 비행과 전수 탐색은 비용의 성질이 아주 달라서다(비행은
@@ -497,7 +532,9 @@ namespace LOP.EditorTools
             {
                 EditorUtility.ClearProgressBar();
                 RestoreWindmills(windmillPoses);
+                RestoreGuards();
                 Windmills = null;
+                moversLive = false;
                 BotGrid = null;
                 posedTick = long.MinValue;
                 Debug.Log($"[맵 검사] 씬 더티: 들어올 때 {sceneWasDirty} → 나갈 때 {activeScene.isDirty}");
@@ -655,9 +692,15 @@ namespace LOP.EditorTools
                                              GameFramework.Physics.ICollisionQuery query, FreeSpaceGrid grid,
                                              LOP.MapTools.TickSweepProbe searchSweep,
                                              LOP.MapTools.TickSweepProbe noShortcutSweep,
-                                             List<LOP.MapTools.Branch> branches)
+                                             List<LOP.MapTools.Branch> branches,
+                                             out Dictionary<int, IReadOnlyList<bool>> branchFlaps,
+                                             out List<Vector3> safePath,
+                                             out bool safeVerified)
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
+            //  out 매개변수도 로컬 함수가 잡을 수 없다 — 로컬에 모았다가 끝에 넘긴다.
+            var flapsByBranch = new Dictionary<int, IReadOnlyList<bool>>();
+            var safeCenters = new List<Vector3>();
             //  in 매개변수는 로컬 함수·람다가 잡을 수 없다(CS1628) — 복사본을 잡는다.
             FlappyShape body = shape;
             var options = new LOP.MapTools.CleanRunOptions(
@@ -669,7 +712,10 @@ namespace LOP.EditorTools
                 upAccel: body.AirflowUpAccel, riseCap: body.AirflowRiseCap,
                 shaftGravityMult: body.ShaftGravityMult);
 
-            LOP.MapTools.ShortcutProof Prove(string label, float x0, float x1, LOP.MapTools.TickSweepProbe probe)
+            //  "갈림길 없이"만 문지기를 켠 채 재생한다 — 기본 길은 어느 위상에서도 안 막혀야 하므로.
+            //  갈림길 증명은 지형만의 증명이라 끈 채로 둔다(문지기는 🚪 절이 따로 증명한다).
+            LOP.MapTools.ShortcutProof Prove(string label, float x0, float x1, LOP.MapTools.TickSweepProbe probe,
+                                             bool guardsOn, List<Vector3> path)
             {
                 var result = LOP.MapTools.CleanRunSearch.Run(options, grid.IsFreeExact, probe, SampleAirflow);
                 if (result.Reachable == false)
@@ -677,20 +723,210 @@ namespace LOP.EditorTools
                     return new LOP.MapTools.ShortcutProof(label, x0, x1, false, false, result.BlockedX);
                 }
                 float[] heights = LOP.MapTools.CleanRunSearch.PathHeights(options, result.Flaps, SampleAirflow);
-                bool verified = VerifyByReplay(start, result.Flaps, body, mapMask, query, heights, out _);
+                bool verified;
+                if (guardsOn)
+                {
+                    SetGuardsActive(true);
+                    try { verified = VerifyByReplay(start, result.Flaps, body, mapMask, query, heights, out _, path); }
+                    finally { SetGuardsActive(false); }
+                }
+                else
+                {
+                    verified = VerifyByReplay(start, result.Flaps, body, mapMask, query, heights, out _, path);
+                }
+                //  🚪는 이 날갯짓으로 기준점을 잡는다 — 재생이 어긋난 경로면 기준점이 갈림길에 없을 수 있다.
+                if (guardsOn == false && verified)
+                {
+                    flapsByBranch[Mathf.RoundToInt(x0)] = result.Flaps;
+                }
                 return new LOP.MapTools.ShortcutProof(label, x0, x1, true, verified, 0f);
             }
 
-            var safe = Prove("갈림길 없이", 0f, 0f, noShortcutSweep);
+            //  약속은 "어느 위상에도 문지기를 안 만나는 기본 길이 있다"다 — 아무 길이나 찾으면 입구 앞 문지기 범위를
+            //  지나는 길을 골라 🌀가 ❌로 나온다. 그래서 탐색부터 셔터가 오르내리는 사각형을 막는다(캡슐 아래·가운데·위 구, 발밑 y 기준).
+            var sweeps = new List<LOP.MapTools.Box2>();
+            foreach (GuardInstance g in Guards) { sweeps.Add(g.Spot.SweepRect); }
+            float clear = body.Radius + GuardSafeMargin;
+            float[] sphereRises = { body.Radius, body.Height * 0.5f, body.Height - body.Radius };
+            LOP.MapTools.TickSweepProbe safeSweep = sweeps.Count == 0
+                ? noShortcutSweep
+                : (x, y, vy) =>
+                {
+                    foreach (LOP.MapTools.Box2 r in sweeps)
+                    {
+                        foreach (float rise in sphereRises)
+                        {
+                            if (LOP.MapTools.GuardRule.RectDistance(new Vector2(x, y + rise), r) <= clear) { return false; }
+                        }
+                    }
+                    return noShortcutSweep(x, y, vy);
+                };
+            var safe = Prove("갈림길 없이", 0f, 0f, safeSweep, guardsOn: true, path: safeCenters);
             var proofs = new List<LOP.MapTools.ShortcutProof>();
             foreach (LOP.MapTools.Branch b in branches)
             {
                 LOP.MapTools.Branch only = b;
                 proofs.Add(Prove(b.Label, b.Rect.X0, b.Rect.X1,
-                    (x, y, vy) => LOP.MapTools.ShortcutRule.ForbidsOther(only, x, y) == false && searchSweep(x, y, vy)));
+                    (x, y, vy) => LOP.MapTools.ShortcutRule.ForbidsOther(only, x, y) == false && searchSweep(x, y, vy),
+                    guardsOn: false, path: null));
             }
+            branchFlaps = flapsByBranch;
+            safePath = safeCenters;
+            safeVerified = safe.Verified;
             Debug.Log($"[맵 검사] 갈림길 증명 {proofs.Count + 1}번 — {watch.ElapsedMilliseconds}ms");
             return LOP.MapTools.ShortcutRule.Section(safe, proofs);
+        }
+
+        //  🚪 문지기(spec 2026-10-03 §3). 기준점 = 그 갈림길 증명 경로에서 문지기 띠 50틱 전.
+        //  위상 0…124마다 그 틱에 기준점에서 출발해 게임과 같은 Step으로 날갯짓/안 함을 펼친다.
+        private const int GuardPhaseTicks = 125;
+        //  "갈림길 없이" 탐색이 문지기 범위에서 띄우는 여유 — 🌀 거리가 0이 아니라 확실히 양수로 나오게.
+        private const float GuardSafeMargin = 0.05f;
+        private const int GuardLeadTicks = 25;
+        //  지평 = 기준점에서 출구까지 곧장 가는 틱 + 여유. 고정 틱이면 먼 문지기는 출구에 못 닿는다.
+        private const int GuardHorizonSlackTicks = 25;
+        //  위상 하나에 펼칠 상태 수 상한 — 넘으면 "못 지났다"로 센다(관대한 쪽으로 틀리지 않게).
+        private const int GuardMaxStates = 60000;
+        //  🚪 탐색의 합치기 눈금 — 전수 탐색 눈금(HeightGrid)보다 굵게. 25틱 앞에서 출발하는 짧은 탐색이라 이 정도로 충분하다.
+        private const float GuardHeightCell = 0.25f;
+        private const float GuardVerticalSpeedCell = 1.0f;
+        //  칸 바깥으로 이만큼 넘게 벗어난 상태는 버린다 — 어차피 칸 안에서 끝나야 한다.
+        private const float GuardBandSlack = 1.5f;
+        private const float GuardStartStep = 0.1f;
+        private const float GuardExitPast = 2f;
+
+        private static string GuardSection(Vector3 start, in FlappyShape shape, int mapMask,
+                                           GameFramework.Physics.ICollisionQuery query,
+                                           List<LOP.MapTools.Branch> branches,
+                                           Dictionary<int, IReadOnlyList<bool>> branchFlaps, List<Vector3> safePath,
+                                           bool safeVerified)
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var rows = new List<LOP.MapTools.GuardWindow>();
+            foreach (GuardInstance g in Guards)
+            {
+                LOP.MapTools.GuardSpot spot = g.Spot;
+                float gap = LOP.MapTools.GuardRule.Gap(safePath, shape.Radius, shape.Height, spot.SweepRect);
+                //  잘린 경로(재생이 중간에 닿음)로 잰 거리는 뒤쪽을 못 본다 — 재생이 끝까지 간 때만 잰 것으로 친다.
+                bool gapMeasured = safeVerified && safePath != null && safePath.Count > 0;
+                int branchIndex = branches.FindIndex(b => Mathf.RoundToInt(b.Rect.X0) == Mathf.RoundToInt(spot.BranchX0));
+                if (branchIndex < 0)
+                {
+                    rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.DoorX, 0, 0, false,
+                        "이 문지기의 갈림길 표시가 없다", gap, gapMeasured));
+                    continue;
+                }
+                LOP.MapTools.Branch branch = branches[branchIndex];
+                if (branchFlaps == null || branchFlaps.TryGetValue(Mathf.RoundToInt(spot.BranchX0), out var flaps) == false)
+                {
+                    rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.DoorX, 0, 0, false,
+                        "이 갈림길의 지형 증명이 없다(🔀 줄 참고)", gap, gapMeasured));
+                    continue;
+                }
+                //  1) 끈 채로 갈림길 경로를 다시 날려 기준점을 잡는다.
+                SetGuardsActive(false);
+                var watcher = new HitWatcher(query);
+                var trail = new List<BirdState>();
+                var state = new BirdState { Position = new Vector3(start.x, start.y, 0f) };
+                for (int i = 0; i < flaps.Count; i++)
+                {
+                    trail.Add(state);
+                    if (state.Position.x + shape.Radius >= spot.BandX0) { break; }
+                    state = Step(state, flaps[i], shape, mapMask, watcher);
+                }
+                if (trail.Count == 0)
+                {
+                    rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.DoorX, 0, 0, false,
+                        "갈림길 경로가 비었다", gap, gapMeasured));
+                    continue;
+                }
+                BirdState reference = trail[Mathf.Max(0, trail.Count - 1 - GuardLeadTicks)];
+                float exitX = spot.BandX1 + GuardExitPast;
+                int horizon = Mathf.CeilToInt((exitX - reference.Position.x) / (shape.ForwardSpeed * TickSeconds))
+                            + GuardHorizonSlackTicks;
+
+                //  2) 켜고 위상마다.
+                SetGuardsActive(true);
+                int passed = 0, capped = 0;
+                try
+                {
+                    for (int phase = 0; phase < GuardPhaseTicks; phase++)
+                    {
+                        if (PassesGuard(reference.Position.x, phase, exitX, horizon, branch, shape, mapMask, watcher, out bool hitCap)) { passed++; }
+                        if (hitCap) { capped++; }
+                    }
+                }
+                finally
+                {
+                    SetGuardsActive(false);
+                }
+                rows.Add(new LOP.MapTools.GuardWindow(spot.Label, spot.DoorX, passed, GuardPhaseTicks, true,
+                    capped > 0 ? $"상한 걸림 {capped}" : null, gap, gapMeasured));
+                Debug.Log($"[맵 검사] 🚪 {spot.MarkerName} 열린 창 {passed}/{GuardPhaseTicks}, 상한 걸림 {capped}");
+            }
+            Debug.Log($"[맵 검사] 🚪 문지기 {Guards.Count}개 — {watch.ElapsedMilliseconds}ms");
+            return LOP.MapTools.GuardRule.Section(rows);
+        }
+
+        //  기다릴 수 없다(전진 속도 고정) — 펼칠 것은 날갯짓뿐이다. 같은 틱에 (높이 칸, 세로 속도 칸)이 같으면 하나로 합친다.
+        //  지름길 안에서만 편다 — 안 그러면 기본 길로 내려가 출구 x에 닿고 "지났다"가 된다.
+        //  좌표는 🔀 증명의 프로브와 같은 발밑(Position.y)이다. 성공 = 출구 x를 넘었고 몸 전체(발밑 ~ 발밑+키)가 칸의 y 범위 안.
+        //  출발은 기준 x에서 칸 높이 전체(0.1m 간격, 세로 속도 0) — 실제 새는 아무 높이로나 온다. 한 높이에서만 출발하면
+        //  그 높이가 운 나쁘게 막힌 위상에서 창이 0으로 나왔다. 상태 상한은 출발점 전부를 합친 한 위상 기준이다.
+        private static bool PassesGuard(float startX, int phase, float exitX, int horizon, LOP.MapTools.Branch branch,
+                                        in FlappyShape shape, int mapMask, HitWatcher query, out bool hitCap)
+        {
+            hitCap = false;
+            var frontier = new List<BirdState>();
+            //  이 위상의 자세로 세운 뒤 벽(문지기 포함) 속 출발점은 뺀다.
+            PoseWindmills(phase);
+            int starts = Mathf.FloorToInt((branch.Rect.Y1 - shape.Height - branch.Rect.Y0) / GuardStartStep + 1e-3f);
+            for (int i = 0; i <= starts; i++)
+            {
+                var p = new Vector3(startX, branch.Rect.Y0 + i * GuardStartStep, 0f);
+                if (Physics.CheckCapsule(p + Vector3.up * shape.Radius, p + Vector3.up * (shape.Height - shape.Radius),
+                                         shape.Radius, mapMask, QueryTriggerInteraction.Ignore))
+                {
+                    continue;
+                }
+                frontier.Add(new BirdState { Position = p, Tick = phase });
+            }
+            var next = new List<BirdState>();
+            var seen = new HashSet<long>();
+            int expanded = 0;
+            float minY = branch.Rect.Y0 - GuardBandSlack;
+            float maxY = branch.Rect.Y1 + GuardBandSlack;
+            for (int t = 0; t < horizon && frontier.Count > 0; t++)
+            {
+                next.Clear();
+                seen.Clear();
+                foreach (BirdState s in frontier)
+                {
+                    if (++expanded > GuardMaxStates)
+                    {
+                        hitCap = true;
+                        return false;
+                    }
+                    for (int f = 0; f < 2; f++)
+                    {
+                        BirdState n = Step(s, f == 1, shape, mapMask, query);
+                        if (n.Stun > 0f) { continue; }
+                        float x = n.Position.x, y = n.Position.y;
+                        if (LOP.MapTools.ShortcutRule.ForbidsOther(branch, x, y)) { continue; }
+                        if (x >= exitX)
+                        {
+                            if (y >= branch.Rect.Y0 && y + shape.Height <= branch.Rect.Y1) { return true; }
+                            continue;
+                        }
+                        if (y < minY || y > maxY) { continue; }
+                        long key = ((long)Mathf.RoundToInt(y / GuardHeightCell) << 32)
+                                 ^ (uint)Mathf.RoundToInt(n.VerticalSpeed / GuardVerticalSpeedCell);
+                        if (seen.Add(key)) { next.Add(n); }
+                    }
+                }
+                var swap = frontier; frontier = next; next = swap;
+            }
+            return false;
         }
 
         //  빌딩 앞벽이 통로를 가리는가(spec 2026-09-28 §3). 앞벽은 렌더 전용이라 다른 검사가 안 본다 —
@@ -793,6 +1029,8 @@ namespace LOP.EditorTools
                 FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             for (int i = 0; i < windmills.Length; i++)
             {
+                //  문지기(Guard_)는 기존 풍차 진단에 섞지 않는다 — 🚪 절이 따로 본다.
+                if (windmills[i].name.StartsWith(LOP.MapTools.GuardLayout.MarkerPrefix, System.StringComparison.Ordinal)) { continue; }
                 originalPoses.Add((windmills[i].transform, windmills[i].transform.localRotation));
                 //  날개 수는 자식 수로 센다 — 리포트의 "위상 공간"이 이 수에서 나오므로
                 //  상수로 박지 않는다(십자면 4개라 90°마다 같은 모양이 된다).
@@ -800,11 +1038,51 @@ namespace LOP.EditorTools
                 instances.Add(windmills[i]);
                 field.Add(windmills[i]);
             }
-            if (windmills.Length > 0)
+            if (field.Count > 0)
             {
-                Debug.Log($"[맵 검사] 풍차 {windmills.Length}개 — 틱마다 자세를 다시 세운다.");
+                Debug.Log($"[맵 검사] 풍차 {field.Count}개 — 틱마다 자세를 다시 세운다.");
             }
             return field;
+        }
+
+        private static void CollectGuards()
+        {
+            Guards.Clear();
+            GuardShutters = new LOP.FlappyShutterField();
+            var composed = GameObject.Find("ComposedMap");
+            if (composed == null) { return; }
+            foreach (LOP.MapTools.GuardSpot spot in LOP.MapTools.GuardLayout.ForCourse(ReadBranches()))
+            {
+                Transform root = composed.transform.Find(spot.MarkerName);
+                if (root == null) { continue; }
+                var shutter = root.GetComponent<LOP.FlappyShutter>();
+                if (shutter == null || shutter.Door == null)
+                {
+                    Debug.LogWarning($"[맵 검사] {spot.MarkerName}에 셔터(문)가 없다 — 옛 굽기면 맵을 다시 구울 것.");
+                    continue;
+                }
+                //  빌더가 숨을 자리 따라 문을 안쪽으로 밀었을 수 있다 — 자리는 씬에서 읽는다.
+                Guards.Add(new GuardInstance
+                {
+                    Spot = spot.AtDoorX(root.position.x), Root = root.gameObject,
+                    Door = shutter.Door, DoorRest = shutter.Door.localPosition,
+                });
+                GuardShutters.Add(shutter);
+            }
+            if (Guards.Count > 0) { Debug.Log($"[맵 검사] 문지기 {Guards.Count}개 — 기존 검사 동안 끈다."); }
+        }
+
+        private static void RestoreGuards()
+        {
+            foreach (GuardInstance g in Guards)
+            {
+                if (g.Root == null) { continue; }
+                g.Root.SetActive(true);
+                if (g.Door != null) { g.Door.localPosition = g.DoorRest; }   // 구운 자리(닫힘)로
+            }
+            Physics.SyncTransforms();
+            Guards.Clear();
+            GuardShutters = null;
         }
 
         //  ── ②-b 장애물 배치 ────────────────────────────────────────────────
@@ -2737,6 +3015,16 @@ namespace LOP.EditorTools
                 {
                     state.Invuln = 0f;
                 }
+            }
+
+            //  움직이는 장애물이 쳐서 들어오면 기절 — FlappyWorld.Mutation과 같은 자리·같은 판정.
+            //  꺼진 문지기는 질의에 안 잡히므로 따로 가리지 않는다.
+            if (moversLive && state.Stun <= 0f && state.Invuln <= 0f
+                && LOP.FlappyMoverOverlap.StruckBy(state.Position, shape.Radius, shape.Height, mapMask))
+            {
+                state.Stun = shape.StunTime;
+                state.HitVerticalSpeed = state.VerticalSpeed;
+                state.HitCollider = null;
             }
 
             Vector3 velocity;

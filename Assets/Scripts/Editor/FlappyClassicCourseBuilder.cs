@@ -204,6 +204,7 @@ namespace LOP.EditorTools
             //  지름길 구간의 천장은 경사 조각이 아니라 두 덩어리다: 지붕, 지름길과 계곡 사이의 혀.
             Shortcuts(composed.transform, profile, config, length, fallback);
             int branchPads = Branches(composed.transform, profile, config, ceilingY, fallback);
+            int guards = Guards(composed.transform, profile, ceilingY, length, fallback, out int guardNoHide, out int guardOverlaps);
 
             int challengeGates = 0;
             for (int pipeIndex = 0; pipeIndex < pipes.Count; pipeIndex++)
@@ -287,7 +288,9 @@ namespace LOP.EditorTools
                     + $" · 빌딩 {profile.Buildings.Count} · 절벽 {profile.Cliffs.Count} · 언덕 굴 {profile.HillTunnels.Count}"
                     + $" · 도전 관문 {challengeGates}개"
                     + $" · 부스트 패드 {boostPads}개 ({config.DashDuration:F1}초)"
-                    + $" · 샤프트 {shafts.Count}개 · 기류 {airflowRects.Count}개 · 홀로그램 {holograms}개");
+                    + $" · 샤프트 {shafts.Count}개 · 기류 {airflowRects.Count}개 · 홀로그램 {holograms}개"
+                    + $" · 문지기 {guards}개 (셔터, 숨을 자리 부족 {guardNoHide})"
+                    + (guardOverlaps > 0 ? $" · ⚠️ 셔터 지형 겹침 {guardOverlaps}" : ""));
         }
 
         /// <summary>굽기와 같은 코스 프로필. 에디터 측정(eval)이 씬과 같은 기하를 다시 얻을 때 쓴다.</summary>
@@ -396,6 +399,143 @@ namespace LOP.EditorTools
                 pads++;
             }
             return pads;
+        }
+
+        //  갈림길 입구 문지기 = 주기 셔터(spec 2026-10-03 §2, 2026-10-04 셔터로 바꿈). 루트는 안 움직이고 자식 Door가
+        //  오르내린다(FlappyShutterField). 문 콜라이더는 구간 재질 — 층 규약이 "장애물"로 읽는다.
+        //  문이 다 열렸을 때 들어갈 천장 속이 꽉 차 있어야 한다 — 비어 있으면 열린 문이 허공에 떠 보이고 위로 지나는 길을 막는다.
+        //  그래서 숨을 자리를 찾을 때까지 문을 굴 안쪽으로 민다(언덕 굴은 입구 천장이 얇다).
+        private static int Guards(Transform parent, LOP.MapTools.CourseProfile profile, float half, float length,
+                                  Material fallback, out int noHide, out int overlaps)
+        {
+            noHide = 0;
+            overlaps = 0;
+            Physics.SyncTransforms();
+            int mask = LayerMask.GetMask("Default");
+            int built = 0;
+            foreach (LOP.MapTools.GuardSpot spot in LOP.MapTools.GuardLayout.ForCourse(LOP.MapTools.CourseProfileRule.Branches(profile, half)))
+            {
+                LOP.MapTools.GuardSpot g = spot;
+                bool hidden = false;
+                for (float x = spot.DoorX; x <= spot.BranchX0 + ShutterSearchDepth + 1e-3f; x += ShutterSearchStep)
+                {
+                    if (ShutterHidden(spot.AtDoorX(x), mask)) { g = spot.AtDoorX(x); hidden = true; break; }
+                }
+                if (hidden == false)
+                {
+                    noHide++;
+                    Debug.LogWarning($"[전통 코스] {spot.MarkerName}: x {spot.DoorX:F2}~{spot.BranchX0 + ShutterSearchDepth:F2}에 열린 문이 숨을 천장이 없다 — 셔터를 안 놓는다");
+                    continue;
+                }
+                if (Mathf.Abs(g.DoorX - spot.DoorX) > 1e-3f)
+                {
+                    Debug.Log($"[전통 코스] {g.MarkerName}: 숨을 자리 따라 문을 x {spot.DoorX:F2} → {g.DoorX:F2}로 민다");
+                }
+
+                ShutterGuard(parent, g, SectionMaterial(g.DoorX, length, fallback));
+                built++;
+                Physics.SyncTransforms();
+                if (ClosedDoorTouchesTerrain(g, mask))
+                {
+                    overlaps++;
+                    Debug.LogWarning($"[전통 코스] {g.MarkerName}: 닫힌 문이 칸 안에서 지형과 겹친다");
+                }
+            }
+            return built;
+        }
+
+        private const float ShutterSearchStep = 0.25f;
+        //  입구(X0)에서 이만큼 안쪽까지만 민다 — 더 들어가면 입구 문지기가 아니다.
+        private const float ShutterSearchDepth = 8f;
+        private const float ShutterStripe = 0.3f;
+        //  문 앞면은 지형 앞면(z −2.5)보다 0.05 뒤 — 천장 속에 들어갔을 때 같은 면에서 깜빡이지 않는다.
+        private const float ShutterDepth = PipeDepth - 0.05f;
+
+        private static void ShutterGuard(Transform parent, LOP.MapTools.GuardSpot g, Material skin)
+        {
+            var root = new GameObject(g.MarkerName);
+            root.transform.SetParent(parent, worldPositionStays: false);
+            root.transform.position = new Vector3(g.DoorX, 0f, 0f);
+            root.isStatic = true;   // 루트는 안 움직인다. 움직이는 Door 이하는 static이 아니다
+            Undo.RegisterCreatedObjectUndo(root, "Build classic course");
+
+            var door = new GameObject("Door");
+            door.transform.SetParent(root.transform, worldPositionStays: false);
+            door.layer = LayerMask.NameToLayer("Default");
+
+            var marker = root.AddComponent<LOP.FlappyShutter>();
+            marker.Travel = g.Travel;
+            marker.Period = LOP.MapTools.GuardLayout.PeriodSeconds;
+            marker.OpenShare = LOP.MapTools.GuardLayout.ShutterOpenShare;
+            marker.MoveShare = LOP.MapTools.GuardLayout.ShutterMoveShare;
+            marker.Phase = 0f;
+            marker.Door = door.transform;
+
+            //  Box() 규약을 깊이만 바꿔 쓴다: 그려지는 면 z [−ShutterDepth, 0], 콜라이더는 z 0을 가운데로 걸친다(파이프와 같다).
+            float w = LOP.MapTools.GuardLayout.ShutterWidth;
+            var panel = Box(door.transform, "Panel", skin);
+            panel.transform.localScale = new Vector3(w, g.DoorTop - g.DoorBottom, ShutterDepth);
+            panel.transform.localPosition = new Vector3(0f, (g.DoorBottom + g.DoorTop) * 0.5f, -ShutterDepth * 0.5f);
+
+            //  바닥 쪽 경고 띠 — 렌더 전용, 문 앞면 바로 앞. Door 자식이라 같이 오르내린다.
+            float front = -ShutterDepth;
+            const int stripes = 4;
+            for (int i = 0; i < stripes; i++)
+            {
+                float x0 = -w * 0.5f + w * i / stripes, x1 = -w * 0.5f + w * (i + 1) / stripes;
+                RenderOnly(door.transform, $"Stripe_{i}",
+                    BoxPolygon(new LOP.MapTools.Box2(x0, g.DoorBottom, x1, g.DoorBottom + ShutterStripe)),
+                    front - 0.03f, front, i % 2 == 0 ? WarningYellowMaterial() : WarningBlackMaterial());
+            }
+        }
+
+        //  다 열린 문이 차지할 천장 속(칸 천장 위 0.1 ~ 문 꼭대기)이 문 양 끝·가운데에서 모두 지형 안인가.
+        private static bool ShutterHidden(LOP.MapTools.GuardSpot g, int mask)
+        {
+            float w = LOP.MapTools.GuardLayout.ShutterWidth;
+            float top = g.DoorTop + g.Travel;
+            for (int c = -1; c <= 1; c++)
+            {
+                float x = g.DoorX + c * w * 0.5f;
+                for (float y = g.Y1 + 0.1f; y <= top + 1e-3f; y += ShutterSearchStep)
+                {
+                    if (InsideTerrain(new Vector3(x, y, 0f), mask) == false) { return false; }
+                }
+                if (InsideTerrain(new Vector3(x, top, 0f), mask) == false) { return false; }
+            }
+            return true;
+        }
+
+        private static bool InsideTerrain(Vector3 p, int mask)
+        {
+            foreach (Collider c in Physics.OverlapSphere(p, 0.01f, mask, QueryTriggerInteraction.Ignore))
+            {
+                if (IsGuard(c.transform) == false) { return true; }
+            }
+            return false;
+        }
+
+        private static bool IsGuard(Transform t)
+        {
+            for (; t != null; t = t.parent)
+            {
+                if (t.name.StartsWith(LOP.MapTools.GuardLayout.MarkerPrefix, System.StringComparison.Ordinal)) { return true; }
+            }
+            return false;
+        }
+
+        //  닫힌 문의 칸 안 부분(바닥~천장)이 지형을 0.01보다 깊이 파고드나. 바닥 묻힘·천장 속 부분은 일부러 겹치므로 뺀다.
+        private static bool ClosedDoorTouchesTerrain(LOP.MapTools.GuardSpot g, int mask)
+        {
+            const float tolerance = 0.01f;   // 맞닿기만 한 것은 겹침이 아니다
+            float w = LOP.MapTools.GuardLayout.ShutterWidth;
+            var center = new Vector3(g.DoorX, (g.Y0 + g.Y1) * 0.5f, 0f);
+            var halfExtents = new Vector3(w * 0.5f - tolerance, (g.Y1 - g.Y0) * 0.5f - tolerance, ShutterDepth * 0.5f - tolerance);
+            foreach (Collider c in Physics.OverlapBox(center, halfExtents, Quaternion.identity, mask, QueryTriggerInteraction.Ignore))
+            {
+                if (IsGuard(c.transform) == false) { return true; }
+            }
+            return false;
         }
 
         //  띠(8개 수)를 다각형으로. 혀 끝 띠는 위·아래가 만나 삼각형이라 겹친 점을 뺀다.

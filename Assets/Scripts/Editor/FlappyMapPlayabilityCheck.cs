@@ -86,9 +86,14 @@ namespace LOP.EditorTools
         private static LOP.FlappyPendulumField GuardPendulums;
         private static LOP.FlappyWindmillField GuardBoards;
 
+        //  움직이는 장애물 콜라이더가 지금 켜져 있을 수 있나. 꺼져 있으면 Step이 틱마다 OverlapCapsule을 안 부른다 —
+        //  기존 검사는 문지기를 끈 채 돌고 지금 맵엔 보통 풍차가 없어서, 이걸 안 가리면 클린런이 세 배 넘게 느려졌다.
+        private static bool moversLive;
+
         private static void SetGuardsActive(bool active)
         {
             foreach (GuardInstance g in Guards) { g.Root.SetActive(active); }
+            moversLive = (active && Guards.Count > 0) || (Windmills != null && Windmills.Count > 0);
             Physics.SyncTransforms();
             posedTick = long.MinValue;   // 켜고 끈 뒤엔 자세를 다시 세운다
         }
@@ -528,6 +533,7 @@ namespace LOP.EditorTools
                 RestoreWindmills(windmillPoses);
                 RestoreGuards();
                 Windmills = null;
+                moversLive = false;
                 BotGrid = null;
                 posedTick = long.MinValue;
                 Debug.Log($"[맵 검사] 씬 더티: 들어올 때 {sceneWasDirty} → 나갈 때 {activeScene.isDirty}");
@@ -775,13 +781,17 @@ namespace LOP.EditorTools
         private const int GuardPhaseTicks = 125;
         //  "갈림길 없이" 탐색이 문지기 범위에서 띄우는 여유 — 🌀 거리가 0이 아니라 확실히 양수로 나오게.
         private const float GuardSafeMargin = 0.05f;
-        private const int GuardLeadTicks = 50;
+        private const int GuardLeadTicks = 25;
         //  지평 = 기준점에서 출구까지 곧장 가는 틱 + 여유. 고정 틱이면 먼 문지기는 출구에 못 닿는다.
         private const int GuardHorizonSlackTicks = 25;
         //  위상 하나에 펼칠 상태 수 상한 — 넘으면 "못 지났다"로 센다(관대한 쪽으로 틀리지 않게).
-        private const int GuardMaxStates = 20000;
+        private const int GuardMaxStates = 60000;
+        //  🚪 탐색의 합치기 눈금 — 전수 탐색 눈금(HeightGrid)보다 굵게. 25틱 앞에서 출발하는 짧은 탐색이라 이 정도로 충분하다.
+        private const float GuardHeightCell = 0.25f;
+        private const float GuardVerticalSpeedCell = 1.0f;
+        //  칸·출발 높이 바깥으로 이만큼 넘게 벗어난 상태는 버린다 — 어차피 칸 안에서 끝나야 한다.
+        private const float GuardBandSlack = 1.5f;
         private const float GuardExitPast = 2f;
-        private const float GuardVerticalSpeedCell = 0.5f;
 
         private static string GuardSection(Vector3 start, in FlappyShape shape, int mapMask,
                                            GameFramework.Physics.ICollisionQuery query,
@@ -871,6 +881,8 @@ namespace LOP.EditorTools
             var next = new List<BirdState>();
             var seen = new HashSet<long>();
             int expanded = 0;
+            float minY = Mathf.Min(branch.Rect.Y0, from.Position.y) - GuardBandSlack;
+            float maxY = Mathf.Max(branch.Rect.Y1, from.Position.y + shape.Height) + GuardBandSlack;
             for (int t = 0; t < horizon && frontier.Count > 0; t++)
             {
                 next.Clear();
@@ -893,8 +905,8 @@ namespace LOP.EditorTools
                             if (y >= branch.Rect.Y0 && y + shape.Height <= branch.Rect.Y1) { return true; }
                             continue;
                         }
-                        if (y < SearchMinY || y > SearchMaxY) { continue; }
-                        long key = ((long)Mathf.RoundToInt(y / HeightGrid) << 32)
+                        if (y < minY || y > maxY) { continue; }
+                        long key = ((long)Mathf.RoundToInt(y / GuardHeightCell) << 32)
                                  ^ (uint)Mathf.RoundToInt(n.VerticalSpeed / GuardVerticalSpeedCell);
                         if (seen.Add(key)) { next.Add(n); }
                     }
@@ -2988,7 +3000,7 @@ namespace LOP.EditorTools
 
             //  움직이는 장애물이 쳐서 들어오면 기절 — FlappyWorld.Mutation과 같은 자리·같은 판정.
             //  꺼진 문지기는 질의에 안 잡히므로 따로 가리지 않는다.
-            if (state.Stun <= 0f && state.Invuln <= 0f
+            if (moversLive && state.Stun <= 0f && state.Invuln <= 0f
                 && LOP.FlappyMoverOverlap.StruckBy(state.Position, shape.Radius, shape.Height, mapMask))
             {
                 state.Stun = shape.StunTime;

@@ -41,5 +41,15 @@ namespace LOP.Tests
             Assert.AreEqual(PrimitiveType.Cube, DodgeHazardView.GroundPrimitive(DodgeShapeType.Segment));
             Assert.AreEqual(PrimitiveType.Cube, DodgeHazardView.GroundPrimitive(DodgeShapeType.Rect));
         }
+
+        // 온돌 예고는 칸 가운데서부터 차오른다 — "다 차면 발동"(WildStar·FFXIV 채움 표시). 켜지면 칸 전체.
+        [Test]
+        public void 온돌_예고는_차오르고_켜지면_칸_전체다()
+        {
+            Assert.Less(DodgeHazardView.TileFill(false, 0f), DodgeHazardView.TileFill(false, 0.5f));
+            Assert.Less(DodgeHazardView.TileFill(false, 0.5f), DodgeHazardView.TileFill(false, 1f));
+            Assert.Greater(DodgeHazardView.TileFill(false, 0f), 0f);   // 처음부터 어디인지는 보인다
+            Assert.AreEqual(DodgeHazardView.TileFill(true, 0f), DodgeHazardView.TileFill(false, 1f), 1e-5f);
+        }
     }
 }

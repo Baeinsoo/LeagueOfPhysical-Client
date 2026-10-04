@@ -39,8 +39,8 @@ namespace LOP.MapTools
     }
 
     /// <summary>
-    /// 갈림길 입구 문지기의 자리(spec 2026-10-03 §2.1). 빌딩 위층 = 광고판, 언덕 굴 = 진자,
-    /// 계곡 지름길은 <b>첫 번째만</b> 진자 — 마지막 계곡은 타이밍 없는 지름길로 남긴다.
+    /// 갈림길 입구 문지기의 자리(spec 2026-10-03 §2.1). 빌딩 위층 = 광고판, 언덕 굴 = 진자.
+    /// 계곡 지름길은 문지기 없이 남긴다 — 입구 앞이 계곡 가장자리 땅이고 뒤가 물결 굴이라 진자를 걸 자리가 없다(2026-10-04 사용자 결정).
     /// </summary>
     public static class GuardLayout
     {
@@ -53,9 +53,6 @@ namespace LOP.MapTools
         //  맨 아래에서 남는 틈. 새(0.9m)보다 작아야 "아래로 빠져나감"이 없다.
         public const float BottomGap = 0.6f;
         public const float PendulumInset = 1.5f;
-        //  계곡 진자는 굴 입구 앞에 단다 — 칸 천장보다 조금 위, 쓸어도 입구 0.3 앞까지만.
-        public const float ValleyPivotRise = 0.5f;
-        public const float PendulumFrontGap = 0.3f;
         public const float MinRod = 2.5f;
         public const float MaxRod = 6f;
         public const float BoardLength = 7f;
@@ -71,7 +68,6 @@ namespace LOP.MapTools
             if (branches == null) { return spots; }
             var sorted = new List<Branch>(branches);
             sorted.Sort((a, b) => a.Rect.X0.CompareTo(b.Rect.X0));
-            bool valleyTaken = false;
             foreach (Branch b in sorted)
             {
                 switch (b.Kind)
@@ -82,9 +78,6 @@ namespace LOP.MapTools
                     case BranchKind.Hill:
                         if (TryPendulum(b, out var hill)) { spots.Add(hill); }
                         break;
-                    default:
-                        if (valleyTaken == false && TryPendulum(b, out var valley)) { spots.Add(valley); valleyTaken = true; }
-                        break;
                 }
             }
             return spots;
@@ -92,9 +85,7 @@ namespace LOP.MapTools
 
         public static bool TryPendulum(in Branch b, out GuardSpot spot)
         {
-            //  계곡 지름길 앞 13m는 물결 굴(두께 5m)이라 안쪽 천장에 달면 굴 벽을 뚫는다 — 입구 앞에 단다.
-            bool front = b.Kind == BranchKind.Valley;
-            float pivotY = front ? b.Rect.Y1 + ValleyPivotRise : b.Rect.Y1;
+            float pivotY = b.Rect.Y1;
             float rod = (pivotY - b.Rect.Y0) - BottomGap - TipHeight * 0.5f;
             if (rod < MinRod)
             {
@@ -106,12 +97,8 @@ namespace LOP.MapTools
             float reach = Mathf.Sqrt((rod + TipHeight * 0.5f) * (rod + TipHeight * 0.5f) + TipWidth * TipWidth * 0.25f);
             //  가까운 모서리(안쪽)는 축에서 반높이만큼 덜 나간 자리에서 반폭만큼 벌어진다 — 각도는 그 모서리 기준.
             float extra = Mathf.Atan2(TipWidth * 0.5f, rod - TipHeight * 0.5f) * Mathf.Rad2Deg;
-            float halfAngle = PendulumAmplitude + extra;
-            //  앞에 달 땐 쓸고 지나가는 끝(BandX1)이 굴 입구 앞 0.3에서 멈추게 피벗을 뒤로 뺀다.
-            float pivotX = front
-                ? b.Rect.X0 - PendulumFrontGap - reach * Mathf.Sin(Mathf.Min(90f, halfAngle) * Mathf.Deg2Rad)
-                : b.Rect.X0 + PendulumInset;
-            var sector = new GuardSector(pivotX, pivotY, reach, -90f, halfAngle);
+            float pivotX = b.Rect.X0 + PendulumInset;
+            var sector = new GuardSector(pivotX, pivotY, reach, -90f, PendulumAmplitude + extra);
             spot = new GuardSpot(GuardKind.Pendulum, b.Rect.X0, pivotX, pivotY, rod, PendulumAmplitude, sector);
             return true;
         }

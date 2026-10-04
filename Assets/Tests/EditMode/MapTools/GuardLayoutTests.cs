@@ -27,18 +27,6 @@ namespace LOP.MapTools.Tests
             => Assert.IsFalse(GuardLayout.TryPendulum(Make(BranchKind.Hill, y1: 3f), out _));
 
         [Test]
-        public void 계곡_진자는_굴_입구_앞에_매달아_쓸어도_굴에_안_들어간다()
-        {
-            //  계곡 지름길 앞 13m는 물결 굴이라 안쪽 천장에 매달면 굴 벽을 뚫는다 — 입구 앞, 칸 위 0.5에 단다.
-            Assert.IsTrue(GuardLayout.TryPendulum(Make(BranchKind.Valley), out var g));
-            Assert.AreEqual(5.5f, g.PivotY, 1e-4f);
-            Assert.AreEqual(4.5f, g.Length, 1e-4f);
-            Assert.AreEqual(100f - 0.3f, g.BandX1, 1e-4f, "쓸고 지나가는 끝이 굴 입구(X0) 앞 0.3");
-            Assert.AreEqual(0.6f, g.PivotY - g.Length - GuardLayout.TipHeight * 0.5f, 1e-4f);
-            Assert.Less(g.PivotX, 100f);
-        }
-
-        [Test]
         public void 칸이_높아도_막대는_6m까지다()
         {
             Assert.IsTrue(GuardLayout.TryPendulum(Make(BranchKind.Hill, y1: 12f), out var g));
@@ -61,7 +49,7 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
-        public void 코스_배치는_빌딩_광고판_언덕_진자_첫_계곡만_진자다()
+        public void 코스_배치는_빌딩_광고판_언덕_진자뿐이고_계곡엔_없다()
         {
             var spots = GuardLayout.ForCourse(new List<Branch>
             {
@@ -70,11 +58,10 @@ namespace LOP.MapTools.Tests
                 Make(BranchKind.Hill, x0: 626f),
                 Make(BranchKind.Valley, x0: 678f),
             });
-            Assert.AreEqual(3, spots.Count);
-            Assert.AreEqual(GuardKind.Billboard, spots[0].Kind);
-            Assert.AreEqual(GuardKind.Pendulum, spots[1].Kind); Assert.AreEqual(291f, spots[1].BranchX0, 1e-4f);
-            Assert.AreEqual(GuardKind.Pendulum, spots[2].Kind); Assert.AreEqual(626f, spots[2].BranchX0, 1e-4f);
-            Assert.AreEqual("Guard_291_Pendulum", spots[1].MarkerName);
+            Assert.AreEqual(2, spots.Count);
+            Assert.AreEqual(GuardKind.Billboard, spots[0].Kind); Assert.AreEqual(34f, spots[0].BranchX0, 1e-4f);
+            Assert.AreEqual(GuardKind.Pendulum, spots[1].Kind); Assert.AreEqual(626f, spots[1].BranchX0, 1e-4f);
+            Assert.AreEqual("Guard_626_Pendulum", spots[1].MarkerName);
         }
 
         [Test]

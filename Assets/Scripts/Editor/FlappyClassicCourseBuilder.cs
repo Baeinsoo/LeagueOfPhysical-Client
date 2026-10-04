@@ -431,14 +431,6 @@ namespace LOP.EditorTools
                         front - 0.06f, front - 0.01f, WarningYellowMaterial());
                     RenderOnly(root.transform, "Anchor", BoxPolygon(new LOP.MapTools.Box2(-0.6f, -0.25f, 0.6f, 0.35f)),
                         front - 0.06f, front - 0.01f, WarningBlackMaterial());
-                    //  굴 입구 앞에 단 진자(계곡)는 허공에 뜬 것처럼 보인다 — 입구까지 받침 들보를 판정면 뒤에 그린다.
-                    if (g.PivotX < g.BranchX0)
-                    {
-                        RenderOnly(parent, $"{g.MarkerName}_Gantry",
-                            new[] { new Vector2(g.PivotX, g.PivotY - 0.15f), new Vector2(g.BranchX0, g.PivotY - 0.15f),
-                                    new Vector2(g.BranchX0, g.PivotY + 0.15f), new Vector2(g.PivotX, g.PivotY + 0.15f) },
-                            0.5f, 0.8f, RebarMaterial());
-                    }
                 }
                 else
                 {

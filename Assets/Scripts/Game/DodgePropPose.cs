@@ -22,7 +22,7 @@ namespace LOP
 
         public static bool IsBullet(DodgePatternKind k) =>
             k == DodgePatternKind.BulletRain || k == DodgePatternKind.BulletWall || k == DodgePatternKind.BulletAimed ||
-            k == DodgePatternKind.Ring || k == DodgePatternKind.Spiral;
+            k == DodgePatternKind.Ring || k == DodgePatternKind.Spiral || k == DodgePatternKind.BulletStream;
 
         /// <summary>바닥 층이 그리나. 탄은 슬리퍼, 굴러가는 장독은 물건 층이 그린다 — 나머지(예고·과즙·줄 자리·온돌)는 바닥이다.</summary>
         public static bool DrawnOnGround(in DodgeShape s) =>

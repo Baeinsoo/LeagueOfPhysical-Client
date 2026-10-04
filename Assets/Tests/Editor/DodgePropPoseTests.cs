@@ -14,6 +14,7 @@ namespace LOP.Tests
             Assert.IsFalse(DodgePropPose.DrawnOnGround(Shape(DodgePatternKind.BulletAimed, true)));
             Assert.IsFalse(DodgePropPose.DrawnOnGround(Shape(DodgePatternKind.Ring, true)));     // 탄막도 슬리퍼
             Assert.IsFalse(DodgePropPose.DrawnOnGround(Shape(DodgePatternKind.Spiral, true)));
+            Assert.IsFalse(DodgePropPose.DrawnOnGround(Shape(DodgePatternKind.BulletStream, true)));
             Assert.IsFalse(DodgePropPose.DrawnOnGround(Shape(DodgePatternKind.Rock, true)));
             Assert.IsTrue(DodgePropPose.DrawnOnGround(Shape(DodgePatternKind.Rock, false)));   // 예고 원은 바닥
             Assert.IsTrue(DodgePropPose.DrawnOnGround(Shape(DodgePatternKind.Bomb, true)));    // 과즙 원

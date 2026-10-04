@@ -118,15 +118,20 @@ namespace LOP
                 }
                 case DodgeShapeType.Rect:
                 {
-                    // 온돌: 노랗게 따뜻해졌다가 빨갛게 달아오른다.
+                    // 온돌: 예고는 칸 가운데서 차오르고(다 차면 발동), 켜지면 칸 전체가 빨갛게.
                     r.sharedMaterial = s.Active ? kit.tileHot : kit.tileWarm;
+                    float fill = TileFill(s.Active, s.Progress);
                     t.position = new Vector3((s.X0 + s.X1) * 0.5f, 0.02f, (s.Z0 + s.Z1) * 0.5f);
                     t.rotation = Quaternion.identity;
-                    t.localScale = new Vector3((s.X1 - s.X0) * 0.96f, 0.02f, (s.Z1 - s.Z0) * 0.96f);
+                    t.localScale = new Vector3((s.X1 - s.X0) * fill, 0.02f, (s.Z1 - s.Z0) * fill);
                     break;
                 }
             }
         }
+
+        /// <summary>온돌 칸을 덮는 비율. 예고는 0.25에서 0.96까지 차오르고 켜지면 0.96(칸 사이 틈만 남김).</summary>
+        public static float TileFill(bool active, float progress) =>
+            active ? 0.96f : Mathf.Lerp(0.25f, 0.96f, Mathf.Clamp01(progress));
 
         private Renderer Take(List<Renderer> pool, int index, PrimitiveType type)
         {

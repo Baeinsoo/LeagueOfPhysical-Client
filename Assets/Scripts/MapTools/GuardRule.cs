@@ -21,7 +21,7 @@ namespace LOP.MapTools
 
     /// <summary>
     /// 🚪 문지기 절(spec 2026-10-03 §3). 열린 창 = 통과한 도착 위상 / 전체 위상, 25% 이상이면 ✅.
-    /// 기본 길 안전은 쓸고 지나가는 범위(부채꼴·원)와 "갈림길 없이" 경로의 최소 거리로 — 위상과 무관한 증명이다.
+    /// 기본 길 안전은 쓸고 지나가는 범위(부채꼴·원·셔터 사각형)와 "갈림길 없이" 경로의 최소 거리로 — 위상과 무관한 증명이다.
     /// </summary>
     public static class GuardRule
     {
@@ -53,6 +53,13 @@ namespace LOP.MapTools
         /// </summary>
         public static float Gap(IReadOnlyList<Vector3> centers, float bodyRadius, float bodyHeight, in GuardSector s)
         {
+            GuardSector sector = s;
+            return Gap(centers, bodyRadius, bodyHeight, p => SectorDistance(p, sector));
+        }
+
+        private static float Gap(IReadOnlyList<Vector3> centers, float bodyRadius, float bodyHeight,
+                                 System.Func<Vector2, float> distance)
+        {
             if (centers == null || centers.Count == 0)
             {
                 return float.PositiveInfinity;
@@ -68,12 +75,24 @@ namespace LOP.MapTools
                     Vector3 c = Vector3.Lerp(from, to, k / 4f);
                     for (int j = -1; j <= 1; j++)
                     {
-                        best = Mathf.Min(best, SectorDistance(new Vector2(c.x, c.y + j * half), s));
+                        best = Mathf.Min(best, distance(new Vector2(c.x, c.y + j * half)));
                     }
                 }
             }
             return best - bodyRadius;
         }
+
+        /// <summary>점에서 사각형까지 거리. 안이면 0.</summary>
+        public static float RectDistance(Vector2 p, Box2 r)
+        {
+            float dx = Mathf.Max(r.X0 - p.x, 0f, p.x - r.X1);
+            float dy = Mathf.Max(r.Y0 - p.y, 0f, p.y - r.Y1);
+            return Mathf.Sqrt(dx * dx + dy * dy);
+        }
+
+        /// <summary>셔터가 오르내리며 쓰는 사각형과 경로의 최소 틈 — 부채꼴 판과 같은 표본.</summary>
+        public static float Gap(IReadOnlyList<Vector3> centers, float bodyRadius, float bodyHeight, Box2 rect)
+            => Gap(centers, bodyRadius, bodyHeight, p => RectDistance(p, rect));
 
         public static string Section(IReadOnlyList<GuardWindow> rows)
         {
@@ -92,7 +111,7 @@ namespace LOP.MapTools
                     continue;
                 }
                 int percent = Mathf.FloorToInt(100f * r.Passed / Mathf.Max(1, r.Total));
-                string window = Opens(r.Passed, r.Total) ? "✅" : "❌ 25% 미만 — 자리·진폭부터 조정";
+                string window = Opens(r.Passed, r.Total) ? "✅" : "❌ 25% 미만 — 자리·주기부터 조정";
                 string safety = r.GapMeasured == false ? "⛔ 기본 길 거리 못 잼"
                               : r.Gap > 0f ? $"기본 길과 최소 {r.Gap:F1}m 🌀"
                               : "❌ 기본 길을 쓸고 지나간다";

@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using UnityEngine;
 
 namespace LOP.MapTools.Tests
 {
@@ -12,67 +11,64 @@ namespace LOP.MapTools.Tests
                           kind == BranchKind.Hill ? BranchSide.Above : BranchSide.Below, kind);
 
         [Test]
-        public void 언덕_진자는_입구_안쪽_천장에_매달고_막대는_칸_높이보다_2m_짧다()
+        public void 셔터는_칸_높이에_0_3을_더한_만큼_올라간다()
         {
-            Assert.IsTrue(GuardLayout.TryPendulum(Make(BranchKind.Hill), out var g));
-            Assert.AreEqual(101.5f, g.PivotX, 1e-4f);
-            Assert.AreEqual(5f, g.PivotY, 1e-4f);
-            //  5 − 2.0 = 3.0 — 아래로 빠져나갈 틈을 남긴다.
-            Assert.AreEqual(3.0f, g.Length, 1e-4f);
+            var g = GuardLayout.Shutter(Make(BranchKind.Building, y0: 2f, y1: 7f), 101f);
+            Assert.AreEqual(GuardKind.Shutter, g.Kind);
+            Assert.AreEqual(5.3f, g.Travel, 1e-4f);
+            Assert.AreEqual(2f, g.Y0, 1e-4f);
+            Assert.AreEqual(7f, g.Y1, 1e-4f);
         }
 
         [Test]
-        public void 칸이_너무_낮으면_진자를_안_놓는다()
-            => Assert.IsFalse(GuardLayout.TryPendulum(Make(BranchKind.Hill, y1: 4f), out _));
-
-        [Test]
-        public void 칸이_높아도_막대는_6m까지다()
+        public void 닫힌_문은_바닥_0_05_아래부터_천장_0_45_위까지다()
         {
-            Assert.IsTrue(GuardLayout.TryPendulum(Make(BranchKind.Hill, y1: 12f), out var g));
-            Assert.AreEqual(GuardLayout.MaxRod, g.Length, 1e-4f);
+            var g = GuardLayout.Shutter(Make(BranchKind.Building, y0: 2f, y1: 7f), 101f);
+            Assert.AreEqual(1.95f, g.DoorBottom, 1e-4f);
+            Assert.AreEqual(7.45f, g.DoorTop, 1e-4f);
+            //  다 열리면 문 바닥이 천장보다 위 — 칸이 통째로 열린다.
+            Assert.Greater(g.DoorBottom + g.Travel, g.Y1);
         }
 
         [Test]
-        public void 광고판은_위층_입구_안쪽에서_돌고_바닥_천장과_0_3_띈다()
+        public void 띠와_쓸린_사각형은_문_폭과_올라간_자리까지다()
         {
-            var g = GuardLayout.Billboard(Make(BranchKind.Building));
-            //  reach = 5/2 − 0.3 = 2.2, 두께 반 0.3 — 판 길이는 모서리가 reach 안에 들게.
-            Assert.AreEqual(2f * Mathf.Sqrt(2.2f * 2.2f - 0.09f), g.Length, 1e-4f);
-            Assert.AreEqual(2.2f, g.Sector.Radius, 1e-4f);
-            Assert.AreEqual(102.5f, g.PivotX, 1e-4f);
-            Assert.AreEqual(2.5f, g.PivotY, 1e-4f);
-            Assert.GreaterOrEqual(g.Sector.HalfAngleDegrees, 180f);
-            Assert.AreEqual(0.3f, g.PivotY - g.Sector.Radius, 1e-4f);
-            Assert.AreEqual(4.7f, g.PivotY + g.Sector.Radius, 1e-4f);
-            Assert.AreEqual(100.3f, g.PivotX - g.Sector.Radius, 1e-4f, "입구 벽(X0) 안쪽 0.3부터 돈다");
+            var g = GuardLayout.Shutter(Make(BranchKind.Hill, y0: 2f, y1: 7f), 101f);
+            Assert.AreEqual(101f, g.DoorX, 1e-4f);
+            Assert.AreEqual(101f, g.PivotX, 1e-4f);
+            Assert.AreEqual(100.6f, g.BandX0, 1e-4f);
+            Assert.AreEqual(101.4f, g.BandX1, 1e-4f);
+            Assert.AreEqual(100.6f, g.SweepRect.X0, 1e-4f);
+            Assert.AreEqual(101.4f, g.SweepRect.X1, 1e-4f);
+            Assert.AreEqual(1.95f, g.SweepRect.Y0, 1e-4f);
+            Assert.AreEqual(7.45f + 5.3f, g.SweepRect.Y1, 1e-4f);
         }
 
         [Test]
-        public void 코스_배치는_빌딩_광고판_언덕_진자뿐이고_계곡엔_없다()
+        public void 코스_배치는_빌딩_언덕마다_셔터_하나_계곡엔_없다()
         {
             var spots = GuardLayout.ForCourse(new List<Branch>
             {
-                Make(BranchKind.Building, x0: 34f, y1: 5f),
-                Make(BranchKind.Valley, x0: 291f),
                 Make(BranchKind.Hill, x0: 626f),
+                Make(BranchKind.Valley, x0: 291f),
+                Make(BranchKind.Building, x0: 34f),
                 Make(BranchKind.Valley, x0: 678f),
             });
             Assert.AreEqual(2, spots.Count);
-            Assert.AreEqual(GuardKind.Billboard, spots[0].Kind); Assert.AreEqual(34f, spots[0].BranchX0, 1e-4f);
-            Assert.AreEqual(GuardKind.Pendulum, spots[1].Kind); Assert.AreEqual(626f, spots[1].BranchX0, 1e-4f);
-            Assert.AreEqual("Guard_626_Pendulum", spots[1].MarkerName);
+            Assert.AreEqual(34f, spots[0].BranchX0, 1e-4f, "x0 순");
+            Assert.AreEqual(626f, spots[1].BranchX0, 1e-4f);
+            foreach (GuardSpot s in spots) { Assert.AreEqual(GuardKind.Shutter, s.Kind); }
+            //  기본 자리: 입구 안쪽 0.3 + 반폭 0.4.
+            Assert.AreEqual(34.7f, spots[0].DoorX, 1e-4f);
+            Assert.AreEqual("Guard_626_Shutter", spots[1].MarkerName);
+            Assert.AreEqual("셔터", spots[1].Label);
         }
 
         [Test]
-        public void 진자_부채꼴은_끝_철골까지_덮는다()
+        public void 빈_목록이면_문지기도_없다()
         {
-            GuardLayout.TryPendulum(Make(BranchKind.Hill), out var g);
-            Assert.AreEqual(-90f, g.Sector.AxisDegrees, 1e-4f);
-            //  막대 길이 3.0, 끝 철골 반높이 0.4·반폭 0.8 — 안쪽 모서리는 축에서 (rod − 반높이)만큼 떨어져 있다.
-            float extraDeg = Mathf.Atan2(0.8f, 3.0f - 0.4f) * Mathf.Rad2Deg;
-            Assert.AreEqual(55f + extraDeg, g.Sector.HalfAngleDegrees, 1e-3f);
-            Assert.AreEqual(Mathf.Sqrt(3.4f * 3.4f + 0.8f * 0.8f), g.Sector.Radius, 1e-4f);
-            Assert.Less(g.BandX0, g.PivotX); Assert.Greater(g.BandX1, g.PivotX);
+            Assert.AreEqual(0, GuardLayout.ForCourse(null).Count);
+            Assert.AreEqual(0, GuardLayout.ForCourse(new List<Branch>()).Count);
         }
     }
 }

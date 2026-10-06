@@ -124,13 +124,13 @@ public class FlappyFallLookDownTests
     }
 
     //  문턱을 맥스 낙하의 비율로 잡았는지는 Tick·EntityRegistry 없이 계산만 보면 된다 —
-    //  미네 코어로 맥스 낙하가 30→11.25로 줄어도 같은 비율(0.73)에서 시작해 맥스에서 -5(MaxDrop)에
+    //  미네 코어로 맥스 낙하가 30→11.25로 줄어도 같은 비율(22/30)에서 시작해 맥스에서 -5(MaxDrop)에
     //  닿는지가 핵심이다. 옛 값(30)도 같이 지켜 회귀를 막는다.
     [Test]
     public void TargetDrop_새_맥스낙하에서_비율_문턱을_지킨다()
     {
         const float maxFall = 11.25f;
-        //  0.73×11.25 = 8.2125 — −8은 그 문턱보다 느려(덜 가팔라) 아직 안 켜진다.
+        //  22/30×11.25 = 8.25 — −8은 그 문턱보다 느려(덜 가팔라) 아직 안 켜진다.
         Assert.AreEqual(0f, LOP.FlappyFallLookDown.TargetDrop(-8f, maxFall), 1e-4f);
         Assert.AreEqual(-5f, LOP.FlappyFallLookDown.TargetDrop(-11.25f, maxFall), 1e-4f);
     }
@@ -139,9 +139,8 @@ public class FlappyFallLookDownTests
     public void TargetDrop_옛_맥스낙하_30에서도_그대로다()
     {
         const float maxFall = 30f;
-        //  0.73×30 = 21.9 (옛 리터럴 문턱 22와는 다르다 — −22는 그 틈 안에 들어가 정확히 0이
-        //  아니다). 비율 밑으로 확실히 들어가는 −20으로 "아직 안 켜짐"을 본다.
-        Assert.AreEqual(0f, LOP.FlappyFallLookDown.TargetDrop(-20f, maxFall), 1e-4f);
+        //  비율이 정확히 22f/30f라 맥스 낙하 30에선 옛 리터럴 문턱(22)과 그대로 맞아떨어진다.
+        Assert.AreEqual(0f, LOP.FlappyFallLookDown.TargetDrop(-22f, maxFall), 1e-4f);
         Assert.AreEqual(-5f, LOP.FlappyFallLookDown.TargetDrop(-30f, maxFall), 1e-4f);
     }
 }

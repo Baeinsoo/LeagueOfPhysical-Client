@@ -9,11 +9,11 @@ namespace LOP
     /// </summary>
     public class FlappyFallLookDown : ITickable, System.IDisposable
     {
-        //  옛 값은 고정 22~30 m/s였다(맥스 낙하 30일 때 얘기). 22/30 ≈ 0.73 — 이 비율을 고정해
+        //  옛 값은 고정 22~30 m/s였다(맥스 낙하 30일 때 얘기). 그 비율을 그대로(22f/30f) 고정해
         //  맥스 낙하에 곱하는 쪽으로 바꿨다. 미네 코어로 맥스 낙하가 30→11.25로 줄어도
-        //  (0.73×11.25=8.21) 같은 느낌이 옮겨진다. 비율 밑에서 켜면 날갯짓 뒤 0.6초만에 닿아
+        //  (22/30×11.25=8.25) 같은 느낌이 옮겨진다. 비율 밑에서 켜면 날갯짓 뒤 0.6초만에 닿아
         //  평소 비행에서도 카메라가 출렁인다(2026-09-30).
-        private const float StartRatio = 0.73f;     // 맥스 낙하 속도에 대한 비율 — 이 위부터 내려다보기 시작
+        private const float StartRatio = 22f / 30f;  // 오늘의 22/30 — 맥스 낙하 속도에 대한 비율
         private const float MaxDrop = 5f;           // m
         //  켜고 끄기 대신 속도에 비례한 목표를 부드럽게 따라간다 — 일정 속도로 출발·정지하면 덜컹인다.
         private const float SmoothTime = 0.3f;      // s

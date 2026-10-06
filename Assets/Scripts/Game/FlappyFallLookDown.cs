@@ -9,11 +9,11 @@ namespace LOP
     /// </summary>
     public class FlappyFallLookDown : ITickable, System.IDisposable
     {
-        //  옛 값은 고정 22~30 m/s였다(맥스 낙하 30일 때 얘기). 그 비율을 그대로(22f/30f) 고정해
-        //  맥스 낙하에 곱하는 쪽으로 바꿨다. 미네 코어로 맥스 낙하가 30→11.25로 줄어도
-        //  (22/30×11.25=8.25) 같은 느낌이 옮겨진다. 비율 밑에서 켜면 날갯짓 뒤 0.6초만에 닿아
-        //  평소 비행에서도 카메라가 출렁인다(2026-09-30).
-        private const float StartRatio = 22f / 30f;  // 오늘의 22/30 — 맥스 낙하 속도에 대한 비율
+        //  문턱은 날갯짓 속도 위에 둔다 — 날갯짓 한 주기는 날갯짓 속도(아래로)까지 떨어지고 다시 뜨므로,
+        //  그보다 빨라야 "평소 비행이 아닌 낙하"다. 날갯짓~맥스 낙하 사이의 같은 몫(K)에서 켠다.
+        //  옛 물리(날갯짓 18.6 · 맥스 낙하 30)에선 정확히 옛 문턱 22가 나온다. 맥스 낙하의 비율(22/30)로
+        //  잡으면 미네 코어(10.125 · 11.25)에선 8.25가 되어 날갯짓 속도 밑이라 평소 비행에도 카메라가 출렁인다.
+        private const float K = (22f - 18.6f) / (30f - 18.6f);
         private const float MaxDrop = 5f;           // m
         //  켜고 끄기 대신 속도에 비례한 목표를 부드럽게 따라간다 — 일정 속도로 출발·정지하면 덜컹인다.
         private const float SmoothTime = 0.3f;      // s
@@ -48,17 +48,18 @@ namespace LOP
                 var velocity = entityRegistry.Get(playerContext.entityId)?.Get<GameFramework.World.Velocity>();
                 if (velocity != null) { vy = velocity.Linear.Y; }
             }
-            float target = TargetDrop(vy, config.MaxFallSpeed);
+            float target = TargetDrop(vy, config.FlapImpulse, config.MaxFallSpeed);
             Offset = Mathf.SmoothDamp(Offset, target, ref offsetVelocity, SmoothTime, Mathf.Infinity, deltaTime);
             applyPivot(Vector3.up * Offset);
         }
 
-        //  계산만 떼어 테스트한다 — maxFall이 30이든(옛 값) 11.25든(미네 코어) 같은 비율로 맞는지
+        //  계산만 떼어 테스트한다 — 옛 물리든 미네 코어든 문턱이 날갯짓 속도 위에 서는지
         //  EntityRegistry·Tick 없이 바로 확인할 수 있다.
-        internal static float TargetDrop(float vy, float maxFall)
+        internal static float TargetDrop(float vy, float flapImpulse, float maxFall)
         {
-            float start = StartRatio * maxFall;
-            return -MaxDrop * Mathf.Clamp01((-vy - start) / (maxFall - start));
+            float start = flapImpulse + K * (maxFall - flapImpulse);
+            float full = maxFall;
+            return -MaxDrop * Mathf.Clamp01((-vy - start) / (full - start));
         }
 
         public void Dispose()

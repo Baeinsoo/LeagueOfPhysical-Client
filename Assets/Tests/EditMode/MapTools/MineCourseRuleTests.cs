@@ -14,6 +14,12 @@ namespace LOP.MapTools.Tests
     {
         static readonly MinePhysics P = new MinePhysics(4.5f, 10.125f, 33.75f, 11.25f, 0.02f);
 
+        //  MasterData FlappyConfig의 대시 값(DashMult 2.2 · DashDuration 0.48) — 부스트 거리를 게임 곡선으로 셀 때 쓴다.
+        const float DashMult = 2.2f;
+        const float DashDuration = 0.48f;
+        //  새 코끝까지의 반 길이(m) — 발밑 x에서 이만큼 앞이 칸막이에 먼저 닿는다.
+        const float NoseHalfLength = 0.64f;
+
         static MineCourse Layout() => MineCourseRule.Layout(P);
 
         //  굴 조각이 아닌 관문 — 프로토타입 덤프의 gates와 같은 목록.
@@ -85,10 +91,11 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(expectPads[i].y1, pad.Rect.Y1, 0.01f, $"패드 {i} y1");
                 Assert.AreEqual(1.1f, pad.Duration, 1e-5f);
 
-                //  패드는 굴을 빠져나온 뒤에, 부스트 직선(약 10.6 m)은 칸막이 안에서 끝난다.
+                //  패드는 굴을 빠져나온 뒤에, 부스트 직선(게임과 같은 대시 곡선으로 적분) + 코끝은 칸막이 안에서 끝난다.
                 MineTube tube = c.Tubes.Single(t => Math.Abs(t.X0 - (f.X0 + 3f)) < 0.01f);
                 Assert.Greater(pad.Rect.X0, tube.X1, $"패드 {i}가 굴 뒤");
-                Assert.Less(pad.Rect.X0 + 10.6f, f.X1, $"패드 {i} 부스트가 칸막이 안");
+                float boost = LOP.FlappyDashCurve.Distance(P.Forward, pad.Duration, DashDuration, DashMult, P.Tick);
+                Assert.Less(pad.Rect.X0 + boost + NoseHalfLength, f.X1, $"패드 {i} 부스트가 칸막이 안");
             }
         }
 

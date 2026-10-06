@@ -88,11 +88,13 @@ namespace LOP.EditorTools
                     FlappyClassicCourseBuilder.BoxPolygon(new Box2(w.X0, w.Y0, w.X1, w.Y1)), skin);
             }
 
-            //  패드 사각형이 곧 판정 사각형(FlappyBoostPad) — 크기를 배치 그대로 쓴다(폭 1.2 · 높이 2.8).
+            //  패드 사각형이 곧 판정 사각형(FlappyBoostPad) — 크기는 배치 그대로(폭 1.2 · 높이 2.8).
+            //  다만 판정은 발밑 점으로 하고 규칙의 사각형은 몸 중심 기준(프로토타입)이라, 몸 반지름만큼 내려 놓는다.
             foreach (MinePad pad in course.Pads)
             {
                 MineRect r = pad.Rect;
-                FlappyClassicCourseBuilder.BoostPad(root, $"BoostPad_{r.X0:F0}", (r.X0 + r.X1) * 0.5f, (r.Y0 + r.Y1) * 0.5f,
+                float centerY = (r.Y0 + r.Y1) * 0.5f - config.BodyRadius;
+                FlappyClassicCourseBuilder.BoostPad(root, $"BoostPad_{r.X0:F0}", (r.X0 + r.X1) * 0.5f, centerY,
                                                     r.Y1 - r.Y0, pad.Duration, skin, r.X1 - r.X0);
             }
 

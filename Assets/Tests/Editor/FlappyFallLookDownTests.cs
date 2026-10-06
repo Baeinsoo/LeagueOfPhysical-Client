@@ -7,7 +7,7 @@ using UnityEngine;
 public class FlappyFallLookDownTests
 {
     //  옛 물리값(맥스 낙하 30)을 그대로 쓴다 — 아래 Tick 기반 테스트들은 비율화 전의 체감을
-    //  그대로 지키는지 보는 것이라 숫자를 바꾸지 않는다. 비율 자체는 TargetDrop 테스트에서 본다.
+    //  그대로 지키는지 보는 것이라 숫자를 바꾸지 않는다(날갯짓 18.6이면 문턱이 그대로 22). 미네 코어 값은 TargetDrop 테스트에서 본다.
     private static FlappyConfig Config(float maxFallSpeed = 30f)
         => new FlappyConfig(forwardSpeed: 6.8f, flapImpulse: 18.6f, gravity: 59f, maxFallSpeed: maxFallSpeed,
                             bodyRadius: 0.45f, bodyHeight: 0.9f, restitution: 0.35f,
@@ -123,24 +123,24 @@ public class FlappyFallLookDownTests
         Assert.AreEqual(Vector3.zero, pivots[pivots.Count - 1]);
     }
 
-    //  문턱을 맥스 낙하의 비율로 잡았는지는 Tick·EntityRegistry 없이 계산만 보면 된다 —
-    //  미네 코어로 맥스 낙하가 30→11.25로 줄어도 같은 비율(22/30)에서 시작해 맥스에서 -5(MaxDrop)에
-    //  닿는지가 핵심이다. 옛 값(30)도 같이 지켜 회귀를 막는다.
+    //  문턱이 날갯짓 속도 위에 서는지는 Tick·EntityRegistry 없이 계산만 보면 된다 —
+    //  날갯짓 한 주기는 날갯짓 속도까지 떨어졌다 다시 뜨므로, 그 바닥에서 켜지면 평소 비행에도 출렁인다.
+    //  옛 물리(18.6 · 30)도 같이 지켜 회귀를 막는다.
     [Test]
-    public void TargetDrop_새_맥스낙하에서_비율_문턱을_지킨다()
+    public void TargetDrop_미네코어_날갯짓_속도의_낙하엔_안_켜진다()
     {
-        const float maxFall = 11.25f;
-        //  22/30×11.25 = 8.25 — −8은 그 문턱보다 느려(덜 가팔라) 아직 안 켜진다.
-        Assert.AreEqual(0f, LOP.FlappyFallLookDown.TargetDrop(-8f, maxFall), 1e-4f);
-        Assert.AreEqual(-5f, LOP.FlappyFallLookDown.TargetDrop(-11.25f, maxFall), 1e-4f);
+        const float flap = 10.125f, maxFall = 11.25f;
+        //  평소 날갯짓 주기의 바닥(−10.125) — 맥스 낙하 비율(22/30×11.25=8.25)로 잡으면 여기서 이미 켜졌다.
+        Assert.AreEqual(0f, LOP.FlappyFallLookDown.TargetDrop(-10.125f, flap, maxFall), 1e-4f);
+        Assert.AreEqual(-5f, LOP.FlappyFallLookDown.TargetDrop(-11.25f, flap, maxFall), 1e-4f);
     }
 
     [Test]
-    public void TargetDrop_옛_맥스낙하_30에서도_그대로다()
+    public void TargetDrop_옛_물리에서도_그대로다()
     {
-        const float maxFall = 30f;
-        //  비율이 정확히 22f/30f라 맥스 낙하 30에선 옛 리터럴 문턱(22)과 그대로 맞아떨어진다.
-        Assert.AreEqual(0f, LOP.FlappyFallLookDown.TargetDrop(-22f, maxFall), 1e-4f);
-        Assert.AreEqual(-5f, LOP.FlappyFallLookDown.TargetDrop(-30f, maxFall), 1e-4f);
+        const float flap = 18.6f, maxFall = 30f;
+        //  K가 (22−18.6)/(30−18.6)이라 옛 물리에선 옛 리터럴 문턱(22)과 그대로 맞아떨어진다.
+        Assert.AreEqual(0f, LOP.FlappyFallLookDown.TargetDrop(-22f, flap, maxFall), 1e-4f);
+        Assert.AreEqual(-5f, LOP.FlappyFallLookDown.TargetDrop(-30f, flap, maxFall), 1e-4f);
     }
 }

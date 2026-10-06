@@ -35,6 +35,8 @@ namespace LOP
             // 맵 씬의 CheckpointMarker가 맵 로드 시 여기에 자기를 넣는다. 클라는 부활을 판정하지 않지만
             // 표식의 [Inject]가 이걸 요구하므로 등록이 없으면 씬 주입이 그 자리에서 끊긴다.
             builder.Register<CheckpointField>(Lifetime.Singleton);
+            // 맵 씬의 SavePad도 마찬가지 — 게다가 클라는 저장을 자기 예측 캐릭터에 돌려 표시한다(부활은 서버).
+            builder.Register<SavePadField>(Lifetime.Singleton);
             builder.Register<LaserField>(Lifetime.Singleton);
             // 맵 씬의 DoorVolume 마커도 마찬가지다 — 클라는 문 판정을 하지 않지만, 마커의
             // [Inject]가 이걸 요구하므로 등록이 없으면 씬 주입이 그 자리에서 끊긴다.
@@ -62,11 +64,13 @@ namespace LOP
                 // sweep이 볼 것은 맵 지오메트리뿐이다. 몸의 물리 콜라이더는 Character 레이어에
                 // 있으므로(PhysicsBodyFactory), 이 마스크에 Character가 없는 한 사람끼리는 안 걸린다.
                 // 사람끼리 부딪히는 것은 위에서 등록한 BodyCollisionSystem이 이동 뒤 별도 단계로 처리한다.
-                LayerMask.GetMask("Default")), Lifetime.Singleton)
+                LayerMask.GetMask("Default"),
+                c.Resolve<SavePadField>()), Lifetime.Singleton)
                 .As<GameFramework.World.IWorld>().AsSelf();
 
             //  레이저를 그린다. 판정과 같은 식에 같은 틱을 넣으므로 그림과 판정이 어긋나지 않는다.
             builder.RegisterEntryPoint<SkydiveLaserView>().AsSelf();
+            builder.RegisterEntryPoint<SkydiveSavePadView>().AsSelf();
 
             //  시뮬은 50Hz인데 화면은 더 빨라, 틱 자세만 쓰면 문이 계단처럼 떤다.
             builder.RegisterEntryPoint<SkydiveDoorView>().AsSelf();

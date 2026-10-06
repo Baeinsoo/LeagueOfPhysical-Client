@@ -164,17 +164,36 @@ namespace LOP.EditorTools
         /// <summary>동굴 출구(마지막 구멍)에서 제단까지 수평 거리.</summary>
         public static float FinalHorizontal => new Vector2(AltarCenter.x - 190f, AltarCenter.z - 25f).magnitude;
 
-        // ---- 체크포인트 ----
+        // ---- 세이브 발판(스펙 2026-10-06) · 체크포인트 ----
 
-        /// <summary>650~760(레이저 바닥~섬)에는 두지 않는다 — 섬을 놓치면 900으로 돌아가야 한다(놓친 쪽이 이득이면 안 된다).</summary>
+        public readonly struct Pad
+        {
+            public readonly int Id;
+            public readonly string Label;
+            public readonly float FloorY, X, Z, Half;
+            public Pad(int id, string label, float floorY, float x, float z, float half) { Id = id; Label = label; FloorY = floorY; X = x; Z = z; Half = half; }
+            /// <summary>발판 윗면(판 윗면 + 높인 만큼). 부활 자리 높이.</summary>
+            public float TopY => FloorY + 1.5f + PadRaise;
+        }
+
+        public const float PadRaise = 2f;
+
+        /// <summary>
+        /// 저장은 내려앉아야 된다 — 빠른 길(다이브 줄)에서 벗어난 자리, 안전한 길에서 대자로 닿거나 걸어서 가는 곳.
+        /// 내려앉으려면 펴야 하고(착지 치사 30), 다시 뛰면 낙하 속도가 0부터다.
+        /// </summary>
+        public static readonly Pad[] SavePads =
+        {
+            new Pad(1, "테라스 1300", 1300f, 30f, -60f, 5f),
+            new Pad(2, "테라스 1100", 1100f, 55f, -25f, 5f),
+            new Pad(3, "섬", IslandY, 158f, -32f, 5f),
+            new Pad(4, "동굴", 560f, 179f, 14f, 3f),
+        };
+
+        /// <summary>발판 맵 — 자동 체크포인트는 출발 하나뿐이다(저장 없이 죽으면 출발로).</summary>
         public static readonly IReadOnlyDictionary<float, Vector3> RespawnPoints = new Dictionary<float, Vector3>
         {
             { 1500f, new Vector3(0f, 1500f, 40f) },
-            { 1300f, new Vector3(-45f, 1300f, 45f) },
-            { 1100f, new Vector3(-45f, 1100f, -45f) },
-            { 900f, new Vector3(-45f, 900f, -45f) },
-            { 640f, new Vector3(200f, 640f, 15f) },
-            { 400f, new Vector3(178f, 400f, 37f) },
         };
 
         public static LaserSpec[] AllLasers()

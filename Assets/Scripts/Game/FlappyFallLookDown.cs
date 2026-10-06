@@ -9,26 +9,29 @@ namespace LOP
     /// </summary>
     public class FlappyFallLookDown : ITickable, System.IDisposable
     {
-        //  날갯짓 뒤 0.6초면 −15 m/s에 닿아, 문턱을 거기 두면 평소 비행에서도 켜져 카메라가 출렁였다(2026-09-30).
-        //  −22는 날갯짓 없이 0.7초 넘게 떨어져야 닿는다 — 절벽·샤프트 낙하에서만 켜진다.
-        private const float StartSpeed = 22f;       // m/s — 이보다 빨리 떨어지면 내려다보기 시작
-        private const float FullSpeed = 30f;        // m/s — 최대 낙하 속도, 여기서 MaxDrop
+        //  옛 값은 고정 22~30 m/s였다(맥스 낙하 30일 때 얘기). 22/30 ≈ 0.73 — 이 비율을 고정해
+        //  맥스 낙하에 곱하는 쪽으로 바꿨다. 미네 코어로 맥스 낙하가 30→11.25로 줄어도
+        //  (0.73×11.25=8.21) 같은 느낌이 옮겨진다. 비율 밑에서 켜면 날갯짓 뒤 0.6초만에 닿아
+        //  평소 비행에서도 카메라가 출렁인다(2026-09-30).
+        private const float StartRatio = 0.73f;     // 맥스 낙하 속도에 대한 비율 — 이 위부터 내려다보기 시작
         private const float MaxDrop = 5f;           // m
         //  켜고 끄기 대신 속도에 비례한 목표를 부드럽게 따라간다 — 일정 속도로 출발·정지하면 덜컹인다.
         private const float SmoothTime = 0.3f;      // s
 
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly FlappyConfig config;
         private float offsetVelocity;
 
         internal System.Action<Vector3> applyPivot;
         internal float Offset { get; private set; }
 
         public FlappyFallLookDown(IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry,
-                                  CameraController cameraController)
+                                  CameraController cameraController, FlappyConfig config)
         {
             this.playerContext = playerContext;
             this.entityRegistry = entityRegistry;
+            this.config = config;
             applyPivot = p => { if (cameraController != null) { cameraController.PivotOffset = p; } };
         }
 
@@ -45,9 +48,17 @@ namespace LOP
                 var velocity = entityRegistry.Get(playerContext.entityId)?.Get<GameFramework.World.Velocity>();
                 if (velocity != null) { vy = velocity.Linear.Y; }
             }
-            float target = -MaxDrop * Mathf.Clamp01((-vy - StartSpeed) / (FullSpeed - StartSpeed));
+            float target = TargetDrop(vy, config.MaxFallSpeed);
             Offset = Mathf.SmoothDamp(Offset, target, ref offsetVelocity, SmoothTime, Mathf.Infinity, deltaTime);
             applyPivot(Vector3.up * Offset);
+        }
+
+        //  계산만 떼어 테스트한다 — maxFall이 30이든(옛 값) 11.25든(미네 코어) 같은 비율로 맞는지
+        //  EntityRegistry·Tick 없이 바로 확인할 수 있다.
+        internal static float TargetDrop(float vy, float maxFall)
+        {
+            float start = StartRatio * maxFall;
+            return -MaxDrop * Mathf.Clamp01((-vy - start) / (maxFall - start));
         }
 
         public void Dispose()

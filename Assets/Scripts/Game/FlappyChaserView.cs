@@ -31,6 +31,7 @@ namespace LOP
         private readonly CameraController cameraController;
         private readonly FinishLineBounds finishLine;
         private readonly FlappyConfig config;
+        private readonly FlappyMapRulesField rules;
 
         private GameObject wall;
 
@@ -42,7 +43,8 @@ namespace LOP
                                 FlappySpectate spectate,
                                 CameraController cameraController,
                                 FinishLineBounds finishLine,
-                                FlappyConfig config)
+                                FlappyConfig config,
+                                FlappyMapRulesField rules)
         {
             this.world = world;
             this.renderClock = renderClock;
@@ -50,11 +52,24 @@ namespace LOP
             this.cameraController = cameraController;
             this.finishLine = finishLine;
             this.config = config;
+            this.rules = rules;
         }
 
         public void LateTick()
         {
             EnsureWall();
+
+            //  맵이 추격자를 꺼 두면(FlappyMapRules.Chaser == false) 벽을 숨기고 화면 밖
+            //  (-무한대)에 둔다 — HUD(FlapPadViewModel)의 ChaserGap 계산도 이 X를 읽으므로,
+            //  숨기는 것과 값을 보내는 것을 한곳에서 같이 해야 숫자와 그림이 어긋나지 않는다.
+            if (rules.Chaser == false)
+            {
+                wall.SetActive(false);
+                X = float.NegativeInfinity;
+                return;
+            }
+
+            wall.SetActive(true);
 
             //  벽은 결승선에서 멈춘다 — 서버의 잡는 판정과 같은 상한을 써야 화면이 맞는다.
             float stopAtX = finishLine.TryGet(out var bounds) ? bounds.min.x : float.MaxValue;

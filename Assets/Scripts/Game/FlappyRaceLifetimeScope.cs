@@ -38,6 +38,10 @@ namespace LOP
             // 부스트 패드도 같은 이유로 등록이 필요하다. 이건 특히 양쪽 다 해야 한다 — 한쪽만
             // 등록하면 그쪽만 패드를 밟아 전진 속도가 갈린다.
             builder.Register<FlappyBoostPadField>(Lifetime.Singleton);
+            // 맵이 추격자·수동 대시를 켜는지. 맵 씬의 FlappyMapRules 마커가 맵 로드 시 여기에 값을
+            // 넣는다. FlappyDashSystem·FlappyChaserView·FlapPadViewModel이 이걸 주입받으므로
+            // 등록이 없으면 씬 주입이 끊긴다 — 부스트 패드와 같은 이유로 양쪽(클·서) 다 등록해야 한다.
+            builder.Register<FlappyMapRulesField>(Lifetime.Singleton);
             // 기류 마커도 맵 로드 때 여기 들어온다. 양쪽 다 등록해야 한다 — 한쪽만 기류를 알면 세로 속도가 갈린다.
             builder.Register<FlappyAirflowField>(Lifetime.Singleton);
             // sweep이 볼 것은 맵 지오메트리뿐이다 — 새끼리는 아예 부딪히지 않는다(서로 통과한다).

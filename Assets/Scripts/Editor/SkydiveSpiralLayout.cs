@@ -176,7 +176,11 @@ namespace LOP.EditorTools
             public float TopY => FloorY + 1.5f + PadRaise;
         }
 
-        public const float PadRaise = 2f;
+        /// <summary>
+        /// 바닥과 거의 같은 높이(3cm) — 높인 상자는 모서리에 캡슐이 걸려 공중에 뜬 채 멈췄다(10-07 사용자 플레이,
+        /// 스카이다이브는 턱 오르기가 꺼져 있다). 발판은 충돌 없는 색칠 판이고 발이 그 높이면 저장한다.
+        /// </summary>
+        public const float PadRaise = 0.03f;
 
         /// <summary>
         /// 저장은 내려앉아야 된다 — 빠른 길(다이브 줄)에서 벗어난 자리, 안전한 길에서 대자로 닿거나 걸어서 가는 곳.

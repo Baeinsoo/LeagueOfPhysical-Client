@@ -111,7 +111,8 @@ namespace LOP.EditorTools
             padRoot.SetParent(root, false);
             foreach (var pad in S.SavePads)
             {
-                var go = Box(padRoot, $"SavePad_{pad.Id}", padMat, new Vector3(pad.X, pad.TopY - S.PadRaise * 0.5f, pad.Z), new Vector3(pad.Half * 2f, S.PadRaise, pad.Half * 2f));
+                var go = Box(padRoot, $"SavePad_{pad.Id}", padMat, new Vector3(pad.X, pad.TopY - S.PadRaise, pad.Z), new Vector3(pad.Half * 2f, S.PadRaise * 2f, pad.Half * 2f));
+                Object.DestroyImmediate(go.GetComponent<Collider>());   // 색칠 판 — 걸려 멈추지 않게, 밟는 것은 아래 바닥
                 var marker = go.AddComponent<LOP.SavePad>();
                 marker.Id = pad.Id;
                 marker.Label = pad.Label;

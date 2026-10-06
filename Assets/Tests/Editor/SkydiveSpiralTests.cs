@@ -24,6 +24,13 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 발판은_바닥과_같은_높이라_턱이_없다()
+        {
+            //  높인 상자 모서리에 캡슐이 걸려 공중에서 멈췄다(턱 오르기 없음). 걸어 들어가도 저장돼야 한다.
+            Assert.Less(S.PadRaise, 0.1f);
+        }
+
+        [Test]
         public void 발판은_빠른_길_밖_판_위에_있다()
         {
             Assert.IsNull(SkydiveSpiralBuilder.FindBadPad());

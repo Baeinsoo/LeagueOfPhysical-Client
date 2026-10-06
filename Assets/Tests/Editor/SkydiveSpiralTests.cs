@@ -16,11 +16,17 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 섬을_놓쳐_레이저_바닥에_닿으면_다리_위로_돌아간다()
+        public void 발판_맵이라_자동_체크포인트는_출발_하나다()
         {
-            //  섬 아래 체크포인트로 돌아가면 섬을 놓친 쪽이 이득이다(섬·다리를 건너뛴다).
-            float back = LOP.SkydiveCheckpoints.LastPassedShelfY(S.LaserFloorY - 0.5f, S.RespawnPoints.Keys.ToList(), S.SpawnY);
-            Assert.AreEqual(S.BridgeTopY, back);
+            //  아래에 자동 체크포인트가 있으면 저장 안 한 사람도 그리로 돌아가 저장할 이유가 없다.
+            CollectionAssert.AreEquivalent(new[] { S.SpawnY }, S.RespawnPoints.Keys.ToArray());
+            Assert.GreaterOrEqual(S.SavePads.Length, 4, "구간마다 하나");
+        }
+
+        [Test]
+        public void 발판은_빠른_길_밖_판_위에_있다()
+        {
+            Assert.IsNull(SkydiveSpiralBuilder.FindBadPad());
         }
 
         [Test]

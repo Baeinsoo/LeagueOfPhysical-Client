@@ -105,6 +105,18 @@ namespace LOP.EditorTools
             var windAssets = SkydiveWindAssets.EnsureAssets();
             foreach (var w in S.Updrafts) { CreateWindVolume(winds, w.Name, w.Center, w.Radius, w.Height, w.Wind, windAssets); }
 
+            //  세이브 발판 — 보이는 판이 곧 발판(SavePad가 렌더러 바운드를 등록). 내려앉으면 저장, 내가 저장한 것은 빛난다(클라 뷰).
+            var padMat = EnsurePadMaterial();
+            var padRoot = new GameObject("SavePads").transform;
+            padRoot.SetParent(root, false);
+            foreach (var pad in S.SavePads)
+            {
+                var go = Box(padRoot, $"SavePad_{pad.Id}", padMat, new Vector3(pad.X, pad.TopY - S.PadRaise * 0.5f, pad.Z), new Vector3(pad.Half * 2f, S.PadRaise, pad.Half * 2f));
+                var marker = go.AddComponent<LOP.SavePad>();
+                marker.Id = pad.Id;
+                marker.Label = pad.Label;
+            }
+
             CreateCheckpointMarkers(root, S.SpawnY, S.RespawnPoints);
             foreach (var m in root.GetComponentsInChildren<LOP.CheckpointMarker>())
             {
@@ -161,7 +173,40 @@ namespace LOP.EditorTools
                     if (Mathf.Abs(pair.Value.x - h.X) <= r && Mathf.Abs(pair.Value.z - h.Z) <= r) { return $"{pair.Key:0} 부활 지점이 구멍 위"; }
                 }
             }
+            var padError = FindBadPad();
+            if (padError != null) { return padError; }
             return FindTooFastLaser(S.AllLasers());
+        }
+
+        /// <summary>발판이 판 위, 구멍 밖, 그리고 빠른 길(위층 빠른 구멍)에서 다이브로 공짜로 밟히지 않는 자리인지.</summary>
+        internal static string FindBadPad()
+        {
+            if (S.SavePads.Select(p => p.Id).Distinct().Count() != S.SavePads.Length) { return "발판 번호가 겹친다"; }
+            var t = S.Terraces;
+            foreach (var pad in S.SavePads)
+            {
+                Plate floor;
+                Hole[] holes;
+                int k = System.Array.FindIndex(t, sh => sh.Y == pad.FloorY);
+                var ledge = S.CaveLedges.FirstOrDefault(sh => sh.Y == pad.FloorY);
+                if (k >= 0) { floor = new Plate("", -S.TerraceHalf, S.TerraceHalf, -S.TerraceHalf, S.TerraceHalf); holes = t[k].Holes; }
+                else if (pad.FloorY == S.IslandY) { floor = S.Island; var c = S.Cave; holes = new[] { new Hole((c.XMin + c.XMax) * 0.5f, (c.ZMin + c.ZMax) * 0.5f, c.Width + 10f, false) }; }
+                else if (ledge.Holes != null) { floor = S.Cave; holes = ledge.Holes; }
+                else { return $"발판 {pad.Label}: {pad.FloorY:0}에 판이 없다"; }
+
+                if (pad.X - pad.Half < floor.XMin || pad.X + pad.Half > floor.XMax || pad.Z - pad.Half < floor.ZMin || pad.Z + pad.Half > floor.ZMax) { return $"발판 {pad.Label}이 판 밖"; }
+                foreach (var h in holes)
+                {
+                    if (Mathf.Abs(pad.X - h.X) < pad.Half + h.Half + 1f && Mathf.Abs(pad.Z - h.Z) < pad.Half + h.Half + 1f) { return $"발판 {pad.Label}이 구멍({h.X:0},{h.Z:0})에 붙었다"; }
+                }
+                if (k >= 1)
+                {
+                    var fast = t[k - 1].Holes[0];
+                    float d = new Vector2(pad.X - fast.X, pad.Z - fast.Z).magnitude;
+                    if (d <= S.DiveReach(t[k - 1].Y - t[k].Y) + pad.Half) { return $"발판 {pad.Label}이 빠른 길에서 다이브로 공짜로 닿는다"; }
+                }
+            }
+            return null;
         }
 
         private static float Dist(in Hole a, in Hole b) => new Vector2(a.X - b.X, a.Z - b.Z).magnitude;
@@ -207,6 +252,17 @@ namespace LOP.EditorTools
             m.SetFloat("_FadeFar", 10001f);
             m.SetFloat("_FadeAbove", 1f);
             EditorUtility.SetDirty(m);
+            return m;
+        }
+
+        private static Material EnsurePadMaterial()
+        {
+            const string path = "Assets/Art/Materials/Pyramid/SpiralSavePad.mat";
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m != null) { return m; }
+            m = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            m.SetColor("_BaseColor", new Color(0.55f, 0.75f, 0.95f));   // 옅은 하늘색 — 저장하면 클라가 민트로 바꿔 빛낸다
+            AssetDatabase.CreateAsset(m, path);
             return m;
         }
 

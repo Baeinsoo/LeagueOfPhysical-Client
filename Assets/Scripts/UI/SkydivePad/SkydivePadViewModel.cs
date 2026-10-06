@@ -20,6 +20,7 @@ namespace LOP.UI
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly SkydiveConfig config;
+        private readonly SavePadField savePads;
 
         private readonly ReactiveProperty<float> staminaRatio = new ReactiveProperty<float>(1f);
         private readonly ReactiveProperty<bool> grounded = new ReactiveProperty<bool>(false);
@@ -39,8 +40,10 @@ namespace LOP.UI
         public SkydivePadViewModel(PlayerInputManager input, CameraController cameraController,
                                    IPlayerContext playerContext,
                                    GameFramework.World.EntityRegistry entityRegistry,
-                                   SkydiveConfig config)
+                                   SkydiveConfig config,
+                                   SavePadField savePads)
         {
+            this.savePads = savePads;
             this.input = input;
             this.cameraController = cameraController;
             this.playerContext = playerContext;
@@ -125,7 +128,8 @@ namespace LOP.UI
 
             statusText.Value = Describe(entity.Get<LOP.MotionState>(),
                                         entity.Get<LOP.Posture>(),
-                                        entity.Get<GameFramework.World.Velocity>());
+                                        entity.Get<GameFramework.World.Velocity>())
+                               + SaveSuffix(entity.Get<LOP.SkydiveSave>());
         }
 
         private static string Describe(LOP.MotionState motion, LOP.Posture posture,
@@ -148,6 +152,16 @@ namespace LOP.UI
                 default:
                     return $"{PoseName(posture)}  {fall:F0}";
             }
+        }
+
+        //  발판 맵에서만 — 저장했으면 어디인지, 안 했으면 죽으면 출발로 간다는 것을 늘 보이게.
+        private string SaveSuffix(LOP.SkydiveSave save)
+        {
+            if (savePads == null || savePads.Count == 0 || save == null)
+            {
+                return string.Empty;
+            }
+            return savePads.TryGetLabel(save.PadId, out string label) ? $"   저장: {label}" : "   저장 없음";
         }
 
         private static string PoseName(LOP.Posture posture)

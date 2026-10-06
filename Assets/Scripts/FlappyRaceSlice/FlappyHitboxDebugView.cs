@@ -142,9 +142,30 @@ namespace LOP
                     //  매 프레임 여기에 소수 틱 자세를 넣는다.
                     Vector3 feet = actor.visualGameObject.transform.position;
                     feet.z = PlaneZ;
-                    //  판정 모양: 반지름 config.BodyRadius, 중심이 발밑에서 그만큼 위.
-                    //  KinematicMover.Cast가 p1=p2=발밑+반지름으로 두므로 구 하나다.
-                    DrawCircle(feet + Vector3.up * config.BodyRadius, config.BodyRadius, BodyColor);
+                    //  판정 모양: 엔티티가 실제로 들고 있는 CapsuleShape를 본다 — config만 보면
+                    //  이 새가 정말 누운 몸인지 확인할 길이 없다(둘이 어긋나면 그림이 거짓말한다).
+                    //  없으면(이론상 없어야 함) config 반지름/높이로 선 캡슐을 그린다.
+                    GameFramework.World.CapsuleShape capsule = e.Get<GameFramework.World.CapsuleShape>();
+                    float radius = capsule != null ? capsule.Radius : config.BodyRadius;
+                    float height = capsule != null ? capsule.Height : config.BodyHeight;
+                    //  누운(X) 캡슐이면 CapsuleEnds가 좌우 두 끝을 내준다 — KinematicMover.Cast와
+                    //  같은 식(여기서 베끼지 않는다). 선 캡슐이면 lyingLength=0이라 p1==p2(구 하나).
+                    float lyingLength = capsule != null && capsule.Axis == GameFramework.World.CapsuleAxis.X
+                        ? capsule.Length : 0f;
+                    CapsuleEnds.Of(feet, radius, height, lyingLength, out Vector3 p1, out Vector3 p2);
+                    if (lyingLength > 0f)
+                    {
+                        DrawCircle(p1, radius, BodyColor);
+                        DrawCircle(p2, radius, BodyColor);
+                        GL.Color(BodyColor);
+                        Line(p1 + Vector3.up * radius, p2 + Vector3.up * radius);
+                        Line(p1 + Vector3.down * radius, p2 + Vector3.down * radius);
+                    }
+                    else
+                    {
+                        //  KinematicMover.Cast가 p1=p2=발밑+반지름으로 두므로 구 하나다.
+                        DrawCircle(p1, radius, BodyColor);
+                    }
                     //  발밑 십자 — 엔티티 위치가 어디인지 보여 준다(겉모습 중심과 다르다).
                     GL.Color(BodyColor);
                     Line(feet + Vector3.left * 0.25f, feet + Vector3.right * 0.25f);

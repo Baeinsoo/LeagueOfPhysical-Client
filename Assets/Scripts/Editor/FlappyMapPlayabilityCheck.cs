@@ -2016,7 +2016,8 @@ namespace LOP.EditorTools
                 row.DashMult, row.DashDuration, row.DashChargeBase, row.DashChargeDive,
                 row.ChaserStartX, row.ChaserInitialSpeed, row.ChaserAcceleration, row.ChaserMaxSpeed,
                 row.FinishBrake, row.DashChargeMinFall,
-                row.AirflowUpAccel, row.AirflowRiseCap, row.ShaftGravityMult);
+                row.AirflowUpAccel, row.AirflowRiseCap, row.ShaftGravityMult,
+                bodyLength: row.BodyLength);
             return true;
         }
 

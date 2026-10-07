@@ -120,6 +120,9 @@ namespace LOP
             //  빠른 낙하에서 카메라가 아래를 먼저 보여 준다(절벽·샤프트).
             builder.RegisterEntryPoint<FlappyFallLookDown>();
 
+            //  카메라 거리는 20m 고정, 내 대시 중에만 3m 빠진다(사용자 결정 2026-10-07).
+            builder.RegisterEntryPoint<FlappyCameraDistance>();
+
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             builder.Register<FlapPadViewModel>(Lifetime.Transient);
             builder.Register<FlapPadView>(Lifetime.Transient);

@@ -7,7 +7,8 @@ namespace LOP
 {
     /// <summary>
     /// 대시 연출(클라 전용). 내 새: 대시 시작에 카메라 흔들림 한 번 + 대시 중 화면 가로 속도선. 모든 새: 대시 중 불꽃 꼬리 —
-    /// 남이 대시한 것도 읽힌다. 시야(카메라 거리·FOV)는 안 바꾼다 — 줌이 섞이면 헷갈린다(사용자 결정 2026-09-29).
+    /// 남이 대시한 것도 읽힌다. 카메라 거리는 여기서 건드리지 않는다 — 내 대시 중 3m 빠지는 줌은
+    /// <see cref="FlappyCameraDistance"/>가 따로 맡는다(2026-09-29 결정은 2026-10-07에 뒤집혔다). FOV는 여전히 안 바꾼다.
     /// 판정·시뮬과 무관하다.
     /// </summary>
     public class FlappyDashFx : ITickable, System.IDisposable

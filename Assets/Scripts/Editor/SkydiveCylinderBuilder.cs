@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using static LOP.EditorTools.SkydiveCourseBuilder;
+using static LOP.EditorTools.SkydiveMapKit;
 using Y = LOP.EditorTools.SkydiveCylinderLayout;
 
 namespace LOP.EditorTools
@@ -35,8 +35,8 @@ namespace LOP.EditorTools
                 Object.DestroyImmediate(go);
             }
 
-            var stone = SkydivePyramidDressing.Stone;
-            var wallMat = SkydivePyramidDressing.StoneDark;
+            var stone = SkydiveMapKit.Stone;
+            var wallMat = SkydiveMapKit.StoneDark;
             //  장애물 윗면 격자 — 단색 큰 판은 가까워져도 거리가 안 읽힌다(사용자 10-07). 판과 같이 돌게 메시 UV 기준.
             var discMat = HazardMaterial("HazardDisc", "#C8553D");
             var irisMat = HazardMaterial("HazardIris", "#D98A2B");
@@ -132,7 +132,7 @@ namespace LOP.EditorTools
             var doors = new GameObject("Doors").transform;
             doors.SetParent(root, false);
             //  문 패널은 유니티 큐브(UV 0~1)라 메시 기준 격자가 안 나온다 — 월드 격자 재질을 따로 쓴다.
-            CreateDoorVolume(doors, Y.Door, SkydivePyramidDressing.Toon("HazardDoor", "#D98A2B", topGrid: 4f, sideGrid: 3f));
+            CreateDoorVolume(doors, Y.Door, SkydiveMapKit.Toon("HazardDoor", "#D98A2B", topGrid: 4f, sideGrid: 3f));
 
             //  세이브 선반 — 벽의 좁은 턱 + 바닥 높이 발판(충돌 없음)
             var padMat = PadMaterial();
@@ -148,7 +148,7 @@ namespace LOP.EditorTools
             }
 
             //  바닥 + 결승 판(충돌 없는 판 — 걸어 들어가도 결승)
-            MeshBody(root, "Floor", SkydivePyramidDressing.Jungle, Sector("CylFloor", 0f, Y.Radius + Y.Wall, 0f, 360f, Vector3.zero), new Vector3(0f, -Y.Thickness * 0.5f, 0f));
+            MeshBody(root, "Floor", SkydiveMapKit.Jungle, Sector("CylFloor", 0f, Y.Radius + Y.Wall, 0f, 360f, Vector3.zero), new Vector3(0f, -Y.Thickness * 0.5f, 0f));
             var finish = Box(root, "FinishPad", Gold(), Y.FinishCenter + Vector3.up * 0.03f, new Vector3(Y.FinishHalf * 2f, 0.06f, Y.FinishHalf * 2f), Quaternion.identity);
             Object.DestroyImmediate(finish.GetComponent<Collider>());
             finish.AddComponent<LOP.FinishLine>();
@@ -282,7 +282,7 @@ namespace LOP.EditorTools
             mesh.SetTriangles(t, 0);
             mesh.SetUVs(0, v.Select(p => new Vector2(p.x, p.z)).ToList());
             mesh.RecalculateBounds();
-            return save ? SkydivePyramidDressing.SaveMesh(mesh, assetName) : mesh;
+            return save ? SkydiveMapKit.SaveMesh(mesh, assetName) : mesh;
         }
 
         /// <summary>가운데가 원점인 상자 메시 — UV = 로컬 (x, z) 미터라 윗면 격자가 날개를 따라 돈다(Unity 큐브의 UV는 면마다 0~1).</summary>
@@ -314,7 +314,7 @@ namespace LOP.EditorTools
             mesh.SetTriangles(t, 0);
             mesh.SetUVs(0, v.Select(p => new Vector2(p.x, p.z)).ToList());
             mesh.RecalculateBounds();
-            return save ? SkydivePyramidDressing.SaveMesh(mesh, assetName) : mesh;
+            return save ? SkydiveMapKit.SaveMesh(mesh, assetName) : mesh;
         }
 
         private static GameObject Box(Transform parent, string name, Material m, Vector3 center, Vector3 size, Quaternion rotation)
@@ -333,7 +333,7 @@ namespace LOP.EditorTools
         /// <summary>장애물 재질 — 윗면 격자 4m(메시 UV 기준, 판과 같이 돈다) + 옆면 줄눈.</summary>
         private static Material HazardMaterial(string name, string hex)
         {
-            var m = SkydivePyramidDressing.Toon(name, hex, topGrid: 4f, sideGrid: 3f);
+            var m = SkydiveMapKit.Toon(name, hex, topGrid: 4f, sideGrid: 3f);
             m.SetFloat("_TopGridSpace", 1f);
             EditorUtility.SetDirty(m);
             return m;

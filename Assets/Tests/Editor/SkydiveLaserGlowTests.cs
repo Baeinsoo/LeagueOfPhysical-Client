@@ -41,14 +41,13 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 심지와_창_테두리도_깊이에_따라_옅어진다()
+        public void 심지도_번짐과_같이_깊이에_따라_옅어진다()
         {
             //  그물이 여러 장 겹치면 원근만으로는 앞뒤를 못 가른다 — 밝기가 깊이를 말해야 한다.
-            //  심지·번짐·창 테두리가 모두 같은 셰이더(내 캐릭터 높이 기준 옅어짐)를 써야 한 장씩 같이 옅어진다.
+            //  심지·번짐이 같은 셰이더(내 캐릭터 높이 기준 옅어짐)를 써야 같이 옅어진다. (굴뚝 맵의 창 테두리는 맵과 함께 지웠다 — 10-07)
             var core = UnityEngine.Resources.Load<UnityEngine.Material>(SkydiveLaserView.CoreMaterialResource);
             Assert.IsNotNull(core);
-            var frame = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.Material>("Assets/Art/Materials/Pyramid/ChimneyWindowFrame.mat");
-            foreach (var m in new[] { core, frame, UnityEngine.Resources.Load<UnityEngine.Material>(SkydiveLaserView.GlowMaterialResource) })
+            foreach (var m in new[] { core, UnityEngine.Resources.Load<UnityEngine.Material>(SkydiveLaserView.GlowMaterialResource) })
             {
                 Assert.AreEqual("LOP/LaserGlow", m.shader.name, m.name);
                 Assert.IsTrue(m.HasProperty("_FadeFar"), m.name);
@@ -56,7 +55,6 @@ namespace LOP.Tests
             //  재질 에셋 값은 셰이더 기본값을 덮는다 — 실제로 쓰는 값은 런타임·굽기에서 ApplyFade로 덮어쓴 것.
             Assert.LessOrEqual(SkydiveLaserView.FadeFar, 25f, "계단 10m — 두 장 아래면 충분히 옅어야 앞이 읽힌다");
             Assert.Less(SkydiveLaserView.FadeMin, 0.3f);
-            Assert.AreEqual(SkydiveLaserView.FadeFar, frame.GetFloat("_FadeFar"), 0.001f, "창 테두리도 같은 값(굽기에서 덮어씀)");
         }
     }
 }

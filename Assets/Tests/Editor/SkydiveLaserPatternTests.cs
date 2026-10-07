@@ -2,7 +2,7 @@ using System.Linq;
 using LOP.EditorTools;
 using NUnit.Framework;
 using UnityEngine;
-using static LOP.EditorTools.SkydiveCourseBuilder;
+using static LOP.EditorTools.SkydiveMapKit;
 
 namespace LOP.Tests
 {

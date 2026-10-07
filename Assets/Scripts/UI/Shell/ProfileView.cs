@@ -174,10 +174,27 @@ namespace LOP.UI
                 return block;
             }
 
-            block.Add(BuildStat("전적 점수", stats.Mmr.ToString()));
-            block.Add(BuildStat("판수", $"{stats.GamesPlayed}판"));
-            block.Add(BuildStat("1등", $"{stats.FirstPlaces}회"));
-            block.Add(BuildStat("평균 등수", $"{stats.AveragePlacement}등"));
+            //  랭크 칸은 티어·LP를 맨 위에 크게. 숨은 점수는 어느 칸에도 안 보인다.
+            if (!string.IsNullOrEmpty(stats.RankLine))
+            {
+                var tier = new Label(stats.RankLine);
+                tier.AddToClassList("profile-rank");
+                if (!string.IsNullOrEmpty(stats.TierClass)) tier.AddToClassList(stats.TierClass);
+                block.Add(tier);
+            }
+            if (!string.IsNullOrEmpty(stats.PeakLine))
+            {
+                var peak = new Label(stats.PeakLine);
+                peak.AddToClassList("profile-stat-label");
+                block.Add(peak);
+            }
+
+            if (stats.GamesPlayed > 0)
+            {
+                block.Add(BuildStat("판수", $"{stats.GamesPlayed}판"));
+                block.Add(BuildStat("1등", $"{stats.FirstPlaces}회"));
+                block.Add(BuildStat("평균 등수", $"{stats.AveragePlacement}등"));
+            }
 
             return block;
         }

@@ -37,9 +37,10 @@ namespace LOP.EditorTools
 
             var stone = SkydivePyramidDressing.Stone;
             var wallMat = SkydivePyramidDressing.StoneDark;
-            var discMat = SkydivePyramidDressing.Toon("HazardDisc", "#C8553D", sideGrid: 3f);
-            var irisMat = SkydivePyramidDressing.Toon("HazardIris", "#D98A2B", sideGrid: 3f);
-            var millMat = SkydivePyramidDressing.Toon("HazardMill", "#8A5BB0", sideGrid: 3f);
+            //  장애물 윗면 격자 — 단색 큰 판은 가까워져도 거리가 안 읽힌다(사용자 10-07). 판과 같이 돌게 메시 UV 기준.
+            var discMat = HazardMaterial("HazardDisc", "#C8553D");
+            var irisMat = HazardMaterial("HazardIris", "#D98A2B");
+            var millMat = HazardMaterial("HazardMill", "#8A5BB0");
             var root = new GameObject("Course").transform;
 
             //  원통 벽 — 판정은 상자, 그림은 안쪽 면만(카메라가 벽 밖으로 나가도 안 가린다)
@@ -113,10 +114,12 @@ namespace LOP.EditorTools
                 spinner.StartDegrees = m.StartDegrees;
                 spinner.DegreesPerTick = m.DegreesPerTick;
                 float len = Y.Radius - 2f;
+                var bar = BarMesh($"Cyl{m.Name}_Blade", new Vector3(len, Y.Thickness, m.Width));
                 for (int b = 0; b < m.Blades; b++)
                 {
                     float deg = b * 360f / m.Blades;
-                    Box(spinner.transform, $"Blade_{b}", millMat, Y.OnCircle(len * 0.5f, deg, 0f), new Vector3(len, Y.Thickness, m.Width), Quaternion.Euler(0f, -deg, 0f));
+                    var blade = MeshBody(spinner.transform, $"Blade_{b}", millMat, bar, Y.OnCircle(len * 0.5f, deg, 0f));
+                    blade.transform.localRotation = Quaternion.Euler(0f, -deg, 0f);   // 로컬 +X가 (cos, 0, sin)을 보게(DoorVolume.PanelRotation과 같은 부호)
                 }
             }
 
@@ -128,7 +131,8 @@ namespace LOP.EditorTools
             }
             var doors = new GameObject("Doors").transform;
             doors.SetParent(root, false);
-            CreateDoorVolume(doors, Y.Door, irisMat);
+            //  문 패널은 유니티 큐브(UV 0~1)라 메시 기준 격자가 안 나온다 — 월드 격자 재질을 따로 쓴다.
+            CreateDoorVolume(doors, Y.Door, SkydivePyramidDressing.Toon("HazardDoor", "#D98A2B", topGrid: 4f, sideGrid: 3f));
 
             //  세이브 선반 — 벽의 좁은 턱 + 바닥 높이 발판(충돌 없음)
             var padMat = PadMaterial();
@@ -281,6 +285,38 @@ namespace LOP.EditorTools
             return save ? SkydivePyramidDressing.SaveMesh(mesh, assetName) : mesh;
         }
 
+        /// <summary>가운데가 원점인 상자 메시 — UV = 로컬 (x, z) 미터라 윗면 격자가 날개를 따라 돈다(Unity 큐브의 UV는 면마다 0~1).</summary>
+        internal static Mesh BarMesh(string assetName, Vector3 size, bool save = true)
+        {
+            Vector3 h = size * 0.5f;
+            var v = new List<Vector3>();
+            var n = new List<Vector3>();
+            var t = new List<int>();
+            void Face(Vector3 normal, Vector3 u, Vector3 w)
+            {
+                //  normal 쪽 면: 가운데 = normal·h, 두 변 = u·h, w·h
+                Vector3 c = Vector3.Scale(normal, h), du = Vector3.Scale(u, h), dw = Vector3.Scale(w, h);
+                int i = v.Count;
+                v.Add(c - du - dw); v.Add(c + du - dw); v.Add(c + du + dw); v.Add(c - du + dw);
+                for (int k = 0; k < 4; k++) { n.Add(normal); }
+                if (Vector3.Dot(Vector3.Cross(v[i + 1] - v[i], v[i + 2] - v[i]), normal) >= 0f) { t.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 }); }
+                else { t.AddRange(new[] { i, i + 2, i + 1, i, i + 3, i + 2 }); }
+            }
+            Face(Vector3.up, Vector3.right, Vector3.forward);
+            Face(Vector3.down, Vector3.right, Vector3.forward);
+            Face(Vector3.right, Vector3.up, Vector3.forward);
+            Face(Vector3.left, Vector3.up, Vector3.forward);
+            Face(Vector3.forward, Vector3.right, Vector3.up);
+            Face(Vector3.back, Vector3.right, Vector3.up);
+            var mesh = new Mesh();
+            mesh.SetVertices(v);
+            mesh.SetNormals(n);
+            mesh.SetTriangles(t, 0);
+            mesh.SetUVs(0, v.Select(p => new Vector2(p.x, p.z)).ToList());
+            mesh.RecalculateBounds();
+            return save ? SkydivePyramidDressing.SaveMesh(mesh, assetName) : mesh;
+        }
+
         private static GameObject Box(Transform parent, string name, Material m, Vector3 center, Vector3 size, Quaternion rotation)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -292,6 +328,15 @@ namespace LOP.EditorTools
             go.layer = LayerMask.NameToLayer("Default");
             go.GetComponent<MeshRenderer>().sharedMaterial = m;
             return go;
+        }
+
+        /// <summary>장애물 재질 — 윗면 격자 4m(메시 UV 기준, 판과 같이 돈다) + 옆면 줄눈.</summary>
+        private static Material HazardMaterial(string name, string hex)
+        {
+            var m = SkydivePyramidDressing.Toon(name, hex, topGrid: 4f, sideGrid: 3f);
+            m.SetFloat("_TopGridSpace", 1f);
+            EditorUtility.SetDirty(m);
+            return m;
         }
 
         private static Material PadMaterial()

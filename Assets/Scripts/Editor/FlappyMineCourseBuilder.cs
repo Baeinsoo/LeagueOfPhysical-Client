@@ -115,6 +115,10 @@ namespace LOP.EditorTools
                                                    course.Gates.Count > 0 ? course.Gates[0].GapCenter : course.CenterAt(0f));
             FlappyClassicCourseBuilder.PlaceFinish(course.Length, course.CenterAt);
 
+            //  카메라가 통로를 따라가려면(FlappyCorridorCamera) 그 중심선이 씬에 있어야 한다 — 없으면 붙이고,
+            //  있으면 점만 갈아 끼운다. 스폰·결승선 뒤로도 EndMargin만큼 더 뻗는다(바닥·천장과 같은 범위).
+            BuildCorridorLine(composed, course);
+
             //  물리 동기를 직접 관리하는 프로젝트라, 부르지 않으면 콜라이더가 만들 때 자리에 남는다(전통 굽기 참고).
             Physics.SyncTransforms();
 
@@ -173,6 +177,29 @@ namespace LOP.EditorTools
                 }
             }
             return count;
+        }
+
+        //  통로 중심선 표시 — 없으면 붙이고 있으면 점만 갈아 끼운다(FlappyMapRules와 같은 요령).
+        private static void BuildCorridorLine(GameObject composed, MineCourse course)
+        {
+            var line = composed.GetComponent<LOP.FlappyCorridorLine>();
+            if (line == null)
+            {
+                line = Undo.AddComponent<LOP.FlappyCorridorLine>(composed);
+            }
+            Undo.RecordObject(line, "Build mine course corridor line");
+
+            var xs = new List<float> { -EndMargin };
+            xs.AddRange(course.Breaks(BreakStep));
+            xs.Add(course.Length + EndMargin);
+
+            var points = new Vector2[xs.Count];
+            for (int i = 0; i < xs.Count; i++)
+            {
+                points[i] = new Vector2(xs[i], course.CenterAt(xs[i]));
+            }
+            line.Points = points;
+            EditorUtility.SetDirty(line);
         }
 
         //  관문 = 위·아래 파이프. Low/High가 NaN이면 통로 바닥·천장선까지(두께 전체에서 가장 먼 쪽 + 묻기),

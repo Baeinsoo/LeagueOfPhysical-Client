@@ -123,6 +123,10 @@ namespace LOP
             //  카메라 거리는 20m 고정, 내 대시 중에만 3m 빠진다(사용자 결정 2026-10-07).
             builder.RegisterEntryPoint<FlappyCameraDistance>();
 
+            //  카메라 중심을 통로에 고정 — 원조처럼 플레이필드 높이가 일정하다(맵에 FlappyCorridorLine
+            //  표시가 없으면 아무것도 안 한다. 전통 코스는 아직 표시가 없다).
+            builder.RegisterEntryPoint<FlappyCorridorCamera>();
+
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             builder.Register<FlapPadViewModel>(Lifetime.Transient);
             builder.Register<FlapPadView>(Lifetime.Transient);

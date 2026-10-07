@@ -100,8 +100,11 @@ namespace LOP.MapTools
         /// <summary>좁은 구간·낮은 천장의 가장자리를 넓은 통로로 잇는 거리.</summary>
         public const float EdgeBlend = 3f;
 
-        /// <summary>낮은 천장 구간의 반 높이.</summary>
-        public const float LowHalf = 2.6f;
+        /// <summary>낮은 천장 구간의 반 높이(10-07 난이도 올림: 2.6 → 2.2).</summary>
+        public const float LowHalf = 2.2f;
+
+        /// <summary>낮은 천장 중심선 물결 진폭(10-07 난이도 올림: 1.5 → 3.5)과 주기.</summary>
+        internal const double LowAmp = 3.5, LowPer = 17;
 
         public IReadOnlyList<MineGate> Gates;
         public IReadOnlyList<MineTube> Tubes;
@@ -116,14 +119,14 @@ namespace LOP.MapTools
         internal List<(double a, double b, double h)> Narrows = new List<(double a, double b, double h)>();
         internal List<(double a, double b)> Lows = new List<(double a, double b)>();
 
-        /// <summary>통로 중심 높이: 꺾은선 + 낮은 천장 안의 물결(1.5·sin, 주기 17 m).</summary>
+        /// <summary>통로 중심 높이: 꺾은선 + 낮은 천장 안의 물결(3.5·sin, 주기 17 m).</summary>
         public float CenterAt(float x) => (float)CenterAtD(x);
 
         internal double CenterAtD(double x)
         {
             foreach (var (a, b) in Lows)
             {
-                if (x > a && x < b) { return Lin(x) + 1.5 * Math.Sin(2 * Math.PI * (x - a) / 17.0); }
+                if (x > a && x < b) { return Lin(x) + LowAmp * Math.Sin(2 * Math.PI * (x - a) / LowPer); }
             }
             return Lin(x);
         }
@@ -220,7 +223,23 @@ namespace LOP.MapTools
         //  지형 (프로토타입 TERRAIN)
         const double DropLen = 8, Drop = 22, DiveNarrow = 2.8;
         const double ClimbLen = 16, Climb = 21, ClimbNarrow = 1.4;
-        const double CoasterLen = 45, CoasterAmp = 4, CoasterPer = 30, CoasterGap = 5;
+        const double CoasterLen = 45, CoasterAmp = 4, CoasterPer = 30;
+
+        //  10-07 난이도 올림 — 쉬던 구간을 한계 쪽으로. 직선(긴 통로)·S자(롤러코스터)는 한계와 예전 값 사이로 타협.
+        /// <summary>사이 관문 틈 중심의 난수 폭(예전 3.0 — 원조처럼 5.3 m 폭에서 제각각).</summary>
+        const double ConnBand = 5.3;
+        /// <summary>긴 통로 12 m 관문의 틈(예전 3.75, 한계 2.5와 그 사이).</summary>
+        const double LongGap = 3.1;
+        /// <summary>물결 터널 틈(예전 3.75)·진폭·주기.</summary>
+        const double WaveGap = 3.7, WaveAmp = 1.2, WavePer = 16;
+        /// <summary>슬라럼 좌우 폭(예전 ±2.0).</summary>
+        const double Slalom = 2.6;
+        /// <summary>급반전 오르내림(예전 ±4.0).</summary>
+        const double Flip = 5.5;
+        /// <summary>롤러코스터 굴 틈(예전 5.0, 한계 4.6과 그 사이).</summary>
+        const double CoasterGap = 4.85;
+        /// <summary>갈림길 반대쪽 보통 관문 틈 중심의 난수 폭(예전 1.6).</summary>
+        const double ForkBand = 4.0;
 
         /// <summary>
         /// 프로토타입 mode 9 그대로. 난수는 관문마다 하나(기본 관문·긴 통로·갈림길 반대쪽 관문)씩만 뽑는다 —
@@ -245,13 +264,13 @@ namespace LOP.MapTools
             //  커서 = 다음 장애물의 왼쪽 끝.
             double cur = 14, baseY = 0;
 
-            void Put(double w, double center)
+            void Put(double w, double center, double gap = GAP)
             {
-                gates.Add(new MineGate((float)(cur + w / 2), (float)w, (float)center, (float)GAP));
+                gates.Add(new MineGate((float)(cur + w / 2), (float)w, (float)center, (float)gap));
                 pts.Add((cur + w / 2, baseY));
                 cur += w + FREE;
             }
-            void Norm(int n) { for (int i = 0; i < n; i++) { Put(PW, baseY + (Rnd() - 0.5) * 3.0); } }
+            void Norm(int n) { for (int i = 0; i < n; i++) { Put(PW, baseY + (Rnd() - 0.5) * ConnBand); } }
             void Tube(double x0, double x1, Func<double, double> center, double gap, double low = double.NaN, double high = double.NaN)
             {
                 tubes.Add(new MineTube { X0 = (float)x0, X1 = (float)x1, Gap = (float)gap, Low = (float)low, High = (float)high,
@@ -292,7 +311,7 @@ namespace LOP.MapTools
 
                 for (double gx = fx + 3; gx < fx1 - 2; gx += 5.4)
                 {
-                    gates.Add(new MineGate((float)(gx + PW / 2), (float)PW, (float)(baseY - side * 4.5 + (Rnd() - 0.5) * 1.6), (float)GAP,
+                    gates.Add(new MineGate((float)(gx + PW / 2), (float)PW, (float)(baseY - side * 4.5 + (Rnd() - 0.5) * ForkBand), (float)GAP,
                                            (float)(up ? bot : baseY + 0.6), (float)(up ? baseY - 0.6 : top)));
                 }
                 forks.Add(new MineFork((float)fx, (float)fx1, (float)baseY, up,
@@ -306,21 +325,21 @@ namespace LOP.MapTools
                 switch (name)
                 {
                     case "긴 통로":
-                        Put(12, baseY + (Rnd() - 0.5) * 1.5);
+                        Put(12, baseY + (Rnd() - 0.5) * 1.5, LongGap);
                         break;
                     case "슬라럼":
-                        for (int i = 0; i < 6; i++) { Put(PW, baseY + (i % 2 == 1 ? 2.0 : -2.0)); }
+                        for (int i = 0; i < 6; i++) { Put(PW, baseY + (i % 2 == 1 ? Slalom : -Slalom)); }
                         break;
                     case "물결 터널":
                     {
                         double x0 = cur, b = baseY;
-                        Tube(x0, x0 + 24, x => b + 1.2 * Math.Sin(2 * Math.PI * (x - x0) / 16), GAP);
+                        Tube(x0, x0 + 24, x => b + WaveAmp * Math.Sin(2 * Math.PI * (x - x0) / WavePer), WaveGap);
                         pts.Add((x0 + 12, baseY));
                         cur += 24 + FREE;
                         break;
                     }
                     case "급반전":
-                        for (int i = 0; i < 4; i++) { baseY += (i % 2 == 0) ? 4.0 : -4.0; Put(PW, baseY); }
+                        for (int i = 0; i < 4; i++) { baseY += (i % 2 == 0) ? Flip : -Flip; Put(PW, baseY); }
                         break;
                     case "낮은 천장":
                     {

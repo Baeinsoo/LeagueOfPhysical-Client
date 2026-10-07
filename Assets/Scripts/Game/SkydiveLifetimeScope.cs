@@ -41,6 +41,8 @@ namespace LOP
             builder.Register<ObstacleField>(Lifetime.Singleton);
             // 별 조각(StarVolume) — 클라도 같은 식으로 결승을 예측하고, 가까우면 "잡기!"를 띄운다.
             builder.Register<CatchTargetField>(Lifetime.Singleton);
+            //  맵 씬의 RetryVolume이 여기에 들어온다 — 판정은 서버만 하지만 표식은 클·서 같은 씬이라 둘 다 등록해야 주입이 된다.
+            builder.Register<RetryField>(Lifetime.Singleton);
             builder.Register<LaserField>(Lifetime.Singleton);
             // 맵 씬의 DoorVolume 마커도 마찬가지다 — 클라는 문 판정을 하지 않지만, 마커의
             // [Inject]가 이걸 요구하므로 등록이 없으면 씬 주입이 그 자리에서 끊긴다.

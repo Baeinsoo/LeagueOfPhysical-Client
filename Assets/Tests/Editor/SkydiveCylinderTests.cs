@@ -43,6 +43,15 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 결승은_별뿐이고_놓치면_출구_아래_공중에서_다시_떨어진다()
+        {
+            //  사용자 10-07 안 A — 도착 판이 별을 무의미하게 만들었다. 다시 떨어지는 자리는 별보다 충분히 위(겨눌 틈), 출구보다 아래.
+            Assert.Greater(Y.RetryPoint.y, Y.StarCenter.y + Y.StarBob + 40f);
+            Assert.Less(Y.RetryPoint.y, Y.ExitY - 10f);
+            Assert.Greater(Y.RetryBelowY, 0f, "구름(윗면 y 0)에 닿는 틱에 걸려야 한다");
+        }
+
+        [Test]
         public void 장애물은_세_종류가_다_있다()
         {
             Assert.GreaterOrEqual(Y.Discs.Length, 1, "도는 원판");

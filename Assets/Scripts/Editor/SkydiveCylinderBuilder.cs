@@ -166,7 +166,7 @@ namespace LOP.EditorTools
                 marker.Label = l.Label;
             }
 
-            //  구름 위 바닥 + 결승 판(충돌 없는 판 — 걸어 들어가도 결승). 출구 아래는 탁 트인 금빛 하늘.
+            //  구름 바닥. 출구 아래는 탁 트인 금빛 하늘.
             //  구름 바다는 옅은 하늘색 — 하얗게 두면 금빛 노출에 다 날아가 아무것도 안 보인다(왕눈 엔딩: 금빛 역광 + 파란 하늘·분홍 구름 귀퉁이).
             MeshBody(root, "CloudFloor", SkydiveMapKit.Toon("CloudFloor", "#86AEEF"), Sector("CylCloudFloor", 0f, Y.CloudFloorRadius, 0f, 360f, Vector3.zero), new Vector3(0f, -Y.Thickness * 0.5f, 0f));
             var puffs = new GameObject("CloudPuffs").transform;
@@ -184,9 +184,12 @@ namespace LOP.EditorTools
                 puff.transform.localScale = new Vector3(size, size * 0.35f, size * 0.8f);
                 puff.GetComponent<MeshRenderer>().sharedMaterial = puffMat;
             }
-            var finish = Box(root, "FinishPad", Gold(), Y.FinishCenter + Vector3.up * 0.03f, new Vector3(Y.FinishHalf * 2f, 0.06f, Y.FinishHalf * 2f), Quaternion.identity);
-            Object.DestroyImmediate(finish.GetComponent<Collider>());
-            finish.AddComponent<LOP.FinishLine>();
+            //  별만 결승(사용자 10-07) — 도착 판은 없다. 별을 놓치고 구름에 닿으면 출구 아래에서 다시 떨어진다.
+            //  구름은 단단하게 둔다 — 별을 잡은 사람은 구름 위에 내려선다(엔딩처럼).
+            var retry = new GameObject("Retry").transform;
+            retry.SetParent(root, false);
+            retry.localPosition = Y.RetryPoint;
+            retry.gameObject.AddComponent<LOP.RetryVolume>().BelowY = Y.RetryBelowY;
 
             //  별 조각 — 닿으면 결승(StarVolume: 판정은 CatchTargetField, 자세는 ObstacleField). 충돌 없음.
             var star = new GameObject("Star").transform;
@@ -275,7 +278,9 @@ namespace LOP.EditorTools
                     if (r < w.Radius && Mathf.Abs(l.Y - w.Center.y) < w.Height * 0.5f) { return $"선반 {l.Label}이 바람({w.Name}) 안"; }
                 }
             }
-            if (Y.FinishCenter.magnitude + Y.FinishHalf * 1.42f > Y.CloudFloorRadius) { return "결승 판이 구름 바닥 밖"; }
+            if (Y.RetryPoint.y > Y.ExitY - 10f) { return "다시 떨어지는 자리가 출구에 너무 가깝다"; }
+            if (Y.RetryPoint.y < Y.StarCenter.y + Y.StarBob + 40f) { return "다시 떨어지는 자리가 별에 너무 가깝다(겨눌 틈이 없다)"; }
+            if (Y.RetryBelowY <= 0f) { return "다시 떨어지기 높이가 구름 윗면 아래 — 구름에 막혀 영영 안 걸린다"; }
             if (Y.StarCenter.y + Y.StarBob > Y.ExitY - 40f) { return "별이 출구에 너무 가깝다 — 빠져나오자마자 공짜로 닿는다"; }
             if (Y.StarCenter.y - Y.StarBob < 40f) { return "별이 바닥에 너무 가깝다 — 내려앉아 걸어서 닿는다(공중에서 잡아야)"; }
             if (Y.StarOrbit > Y.Radius - 10f) { return "별이 탑 밖으로 돈다 — 출구 아래에서 쫓을 수 있어야"; }
@@ -461,12 +466,6 @@ namespace LOP.EditorTools
         private static Material PadMaterial()
         {
             const string path = "Assets/Art/Materials/Pyramid/SpiralSavePad.mat";   // 피라미드 개정안과 같은 하늘색 발판
-            return AssetDatabase.LoadAssetAtPath<Material>(path);
-        }
-
-        private static Material Gold()
-        {
-            const string path = "Assets/Art/Materials/Pyramid/SpiralFinishAltar.mat";
             return AssetDatabase.LoadAssetAtPath<Material>(path);
         }
     }

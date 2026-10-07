@@ -108,10 +108,12 @@ namespace LOP.EditorTools
             new WindSpec("Up_960", new Vector3(35f, 960f, 0f), 18f, 120f, new Vector3(0f, 60f, 0f)),         // 상승 기류 — 날개 아래서 기다리기
         };
 
-        // ---- 결승·체크포인트 ----
+        // ---- 다시 떨어지기·체크포인트 ----
 
-        /// <summary>바닥의 결승 판(16×16) — 가운데가 아니라 옆. 내려앉아 걸어가도 된다(턱 없음, 충돌 없는 판).</summary>
-        public static readonly Vector3 FinishCenter = new Vector3(0f, 0f, 0f);
+        /// <summary>별을 놓치고 구름에 닿으면 여기서 다시 떨어진다 — 출구 바로 아래 공중. 결승은 별뿐이다(도착 판 없음).</summary>
+        public static readonly Vector3 RetryPoint = new Vector3(0f, 270f, 0f);
+        /// <summary>구름 윗면(y 0) 바로 위 — 닿는 틱에 걸린다. 0 이하면 구름에 막혀 영영 안 걸린다.</summary>
+        public const float RetryBelowY = 1f;
 
         /// <summary>
         /// 별 조각 — 출구 아래에서 천천히 돌며(반지름 40, 18초에 한 바퀴) 위아래로 흔들린다(±25, 8초). 닿으면 결승.
@@ -149,7 +151,6 @@ namespace LOP.EditorTools
             ColorUtility.TryParseHtmlString(sun, out var s);
             return new SkydiveMoodKey { Altitude = alt, Fog = f, FogDensity = density, Ambient = a, Sun = s, SunIntensity = sunIntensity, Bloom = bloom, Exposure = exposure };
         }
-        public const float FinishHalf = 8f;
 
         /// <summary>자동 체크포인트는 출발 하나 — 저장은 선반에서 직접.</summary>
         public static readonly IReadOnlyDictionary<float, Vector3> RespawnPoints = new Dictionary<float, Vector3>

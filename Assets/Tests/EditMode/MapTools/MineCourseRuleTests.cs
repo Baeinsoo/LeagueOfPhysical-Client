@@ -53,19 +53,56 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(38, gates.Count);
             var expect = new (float x, float c, float w)[]
             {
-                (14.975f, -0.773f, 1.95f), (20.375f, 0.689f, 1.95f), (25.775f, 0.825f, 1.95f),
-                (31.175f, -0.72f, 1.95f), (41.6f, -0.679f, 12f), (52.025f, 0.256f, 1.95f),
+                (14.975f, -1.366f, 1.95f), (20.375f, 1.218f, 1.95f), (25.775f, 1.457f, 1.95f),
+                (31.175f, -1.271f, 1.95f), (41.6f, -0.679f, 12f), (52.025f, 0.451f, 1.95f),
             };
             for (int i = 0; i < expect.Length; i++)
             {
                 Assert.AreEqual(expect[i].x, gates[i].X, 0.002f, $"관문 {i} x");
                 Assert.AreEqual(expect[i].c, gates[i].GapCenter, 0.002f, $"관문 {i} 틈 중심");
                 Assert.AreEqual(expect[i].w, gates[i].Width, 0.002f, $"관문 {i} 두께");
-                Assert.AreEqual(3.75f, gates[i].Gap, 1e-4f);
+                //  관문 4 = 긴 통로(12 m) — 틈이 3.1로 좁다. 나머지는 원조 틈 3.75.
+                Assert.AreEqual(i == 4 ? 3.1f : 3.75f, gates[i].Gap, 1e-4f, $"관문 {i} 틈");
             }
             var last = gates[gates.Count - 1];
             Assert.AreEqual(398.925f, last.X, 0.002f);
-            Assert.AreEqual(0.156f, last.GapCenter, 0.002f);
+            Assert.AreEqual(1.043f, last.GapCenter, 0.002f);
+        }
+
+        [Test]
+        public void 난이도_값이_프로토타입과_같다()
+        {
+            var c = Layout();
+            var gates = Gates(c);
+
+            //  슬라럼(관문 6~11): 통로 중심(0) ± 2.6을 번갈아.
+            for (int i = 0; i < 6; i++)
+            {
+                Assert.AreEqual(57.425f + 5.4f * i, gates[6 + i].X, 0.002f, $"슬라럼 {i} x");
+                Assert.AreEqual(i % 2 == 1 ? 2.6f : -2.6f, gates[6 + i].GapCenter, 1e-4f, $"슬라럼 {i} 틈 중심");
+            }
+            //  급반전(관문 26~29): 바닥 −22에서 +5.5 / −5.5 번갈아.
+            var flip = new[] { -16.5f, -22f, -16.5f, -22f };
+            for (int i = 0; i < 4; i++)
+            {
+                Assert.AreEqual(310.125f + 5.4f * i, gates[26 + i].X, 0.002f, $"급반전 {i} x");
+                Assert.AreEqual(flip[i], gates[26 + i].GapCenter, 1e-4f, $"급반전 {i} 틈 중심");
+            }
+            //  갈림길 반대쪽 보통 관문 — 폭 4 m 난수 띠(첫 갈림길, 관문 14~16).
+            var fork = new[] { -3.911f, -4.496f, -6.275f };
+            for (int i = 0; i < 3; i++) { Assert.AreEqual(fork[i], gates[14 + i].GapCenter, 0.002f, $"갈림길 관문 {i}"); }
+
+            //  물결 터널 틈 3.7, 롤러코스터 틈 4.85.
+            MineTube wave = c.Tubes.Single(t => Math.Abs(t.X0 - 94.25f) < 0.01f);
+            Assert.AreEqual(3.7f, wave.Gap, 1e-5f);
+            Assert.AreEqual(1.2f, wave.Center(94.25f + 4f), 1e-4f, "물결 진폭 1.2 · 주기 16");
+            MineTube coaster = c.Tubes.Single(t => Math.Abs(t.X0 - 225.75f) < 0.01f);
+            Assert.AreEqual(4.85f, coaster.Gap, 1e-5f);
+
+            //  낮은 천장(182.9 ~ 216.9): 반 높이 2.2, 중심선 물결 진폭 3.5 · 주기 17(¼ 주기에서 꼭대기).
+            Assert.AreEqual(2.2f, MineCourse.LowHalf, 1e-6f);
+            Assert.AreEqual(2.2f, c.HalfAt(182.9f + 10f), 1e-4f);
+            Assert.AreEqual(-22f + 3.5f, c.CenterAt(182.9f + 17f / 4f), 0.01f);
         }
 
         [Test]
@@ -103,7 +140,7 @@ namespace LOP.MapTools.Tests
         public void 통로_높이()
         {
             var c = Layout();
-            var expect = new (float x, float center, float half)[] { (0f, 0f, 10.92f), (100f, 0f, 10.92f), (200f, -21.945f, 2.6f), (300f, -22f, 10.92f), (400f, -1f, 10.92f) };
+            var expect = new (float x, float center, float half)[] { (0f, 0f, 10.92f), (100f, 0f, 10.92f), (200f, -21.871f, 2.2f), (300f, -22f, 10.92f), (400f, -1f, 10.92f) };
             foreach (var e in expect)
             {
                 Assert.AreEqual(e.center, c.CenterAt(e.x), 0.01f, $"x={e.x} 중심");

@@ -71,12 +71,8 @@ namespace LOP.UI
         //  한 화면에 보여줄 판 수. 서버도 상한(50)을 갖고 있어 이 값이 그대로 쓰인다.
         private const int HistoryLimit = 20;
 
-        //  큐를 TbQueue에서 읽는 것은 로비 선택 UI 슬라이스 몫이다 — 여기도 호출부 관례대로 id를 박는다.
-        private static readonly (int id, string name)[] Queues =
-        {
-            (1, "캐주얼"),
-            (2, "랭크"),
-        };
+        //  보여 줄 큐 순서. id와 이름은 마스터데이터(TbQueue)에서 읽는다 — 로비·전적과 같은 이름을 쓰게.
+        private static readonly QueueKind[] QueueOrder = { QueueKind.Casual, QueueKind.Ranked };
 
         private readonly IUserDataStore _userDataStore;
         private readonly LOP.MasterData.LOPMasterData _masterData;
@@ -165,9 +161,9 @@ namespace LOP.UI
 
             try
             {
-                foreach (var queue in Queues)
+                foreach (var kind in QueueOrder)
                 {
-                    await WebAPI.GetUserRating(userId, queue.id, _cts.Token);
+                    await WebAPI.GetUserRating(userId, QueueChoice.QueueId(kind, _masterData.Tables.TbQueue), _cts.Token);
                 }
             }
             catch (OperationCanceledException)
@@ -207,7 +203,7 @@ namespace LOP.UI
             if (_cts.IsCancellationRequested) return;
 
             _status.Value = string.Empty;
-            _stats.Value = Build(_userDataStore.userRatingByQueueId, rank, rankFailed, _masterData.Tables.TbRankDivision);
+            _stats.Value = Build(_userDataStore.userRatingByQueueId, rank, rankFailed, _masterData.Tables.TbRankDivision, _masterData.Tables.TbQueue);
 
             //  전적은 요약보다 늦게 와도 된다. 실패해도 위 요약은 이미 떠 있으므로 화면 전체를
             //  실패로 되돌리지 않는다 — 목록만 비워 둔다.
@@ -367,13 +363,14 @@ namespace LOP.UI
                 : string.Empty;
 
         private static IReadOnlyList<ProfileQueueStats> Build(IReadOnlyDictionary<int, UserRating> ratingByQueueId,
-            RankDto rank, bool rankFailed, LOP.MasterData.TbRankDivision divisions)
+            RankDto rank, bool rankFailed, LOP.MasterData.TbRankDivision divisions, LOP.MasterData.TbQueue queues)
         {
-            var stats = new List<ProfileQueueStats>(Queues.Length);
+            var stats = new List<ProfileQueueStats>(QueueOrder.Length);
 
-            foreach (var queue in Queues)
+            foreach (var kind in QueueOrder)
             {
-                bool ranked = queue.id == 2;
+                var queue = (id: QueueChoice.QueueId(kind, queues), name: QueueChoice.Name(kind, queues));
+                bool ranked = kind == QueueKind.Ranked;
                 string rankLine = !ranked ? string.Empty
                     : rankFailed ? "랭크 정보를 불러오지 못했습니다"
                     : rank == null || rank.placementPlayed == 0 ? string.Empty

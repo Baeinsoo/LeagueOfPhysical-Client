@@ -27,6 +27,11 @@ namespace LOP.UI
             return kind == QueueKind.Ranked ? (queueId, 0, 0) : (queueId, gameModeId, mapId);
         }
 
-        public static string Name(QueueKind kind) => kind == QueueKind.Ranked ? "랭크" : "일반";
+        /// <summary>화면에 보일 큐 이름. 마스터데이터 한 곳에서 읽는다 — 로비·대기·프로필·전적이 같은 말을 쓰게.</summary>
+        public static string Name(QueueKind kind, LOP.MasterData.TbQueue queues)
+        {
+            var row = queues.GetOrDefault(QueueId(kind, queues));
+            return row?.Name ?? string.Empty;
+        }
     }
 }

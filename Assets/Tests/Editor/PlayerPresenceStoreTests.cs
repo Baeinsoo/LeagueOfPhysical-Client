@@ -70,9 +70,11 @@ namespace LOP.Tests
         [Test]
         public void 판치기_점수판_이름()
         {
-            Assert.AreEqual("나", LOP.UI.PanchigiTurnViewModel.RowName(isMe: true, away: false));
-            Assert.AreEqual("상대", LOP.UI.PanchigiTurnViewModel.RowName(isMe: false, away: false));
-            Assert.AreEqual("상대 (연결 끊김)", LOP.UI.PanchigiTurnViewModel.RowName(isMe: false, away: true));
+            //  이름 칸은 40px라 이름은 그대로 두고, 끊김은 줄 오른쪽 바깥 꼬리표로 따로 붙인다.
+            Assert.AreEqual("나", LOP.UI.PanchigiTurnViewModel.RowName(isMe: true));
+            Assert.AreEqual("상대", LOP.UI.PanchigiTurnViewModel.RowName(isMe: false));
+            Assert.AreEqual("연결 끊김", LOP.UI.PanchigiTurnViewModel.AwayTag(away: true));
+            Assert.AreEqual("", LOP.UI.PanchigiTurnViewModel.AwayTag(away: false));
         }
     }
 }

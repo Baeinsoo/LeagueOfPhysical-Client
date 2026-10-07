@@ -60,6 +60,8 @@ namespace LOP.UI
             public string Name;
             public Color Color;
             public bool Current;
+            /// <summary>판 도중 끊겨 있다 — 줄 오른쪽 바깥에 꼬리표(<see cref="AwayTag"/>).</summary>
+            public string AwayTag;
             public IReadOnlyList<PanchigiFrameView> Frames;
             public int Total;
         }
@@ -78,7 +80,8 @@ namespace LOP.UI
                 IReadOnlyList<PanchigiRoll> rolls = store.Rolls(ids[i]);
                 rows.Add(new ScoreRow
                 {
-                    Name = RowName(ids[i] == gameDataStore.userEntityId, presence.IsAway(ids[i])),
+                    Name = RowName(ids[i] == gameDataStore.userEntityId),
+                    AwayTag = AwayTag(presence.IsAway(ids[i])),
                     Color = PanchigiPlayerColors.For(i),
                     Current = ids[i] == store.BoardOwnerEntityId,
                     Frames = PanchigiBowlingScore.Frames(rolls, FrameCount, Pins),
@@ -88,8 +91,11 @@ namespace LOP.UI
             return rows;
         }
 
-        /// <summary>점수판 한 줄의 이름. 판 도중 끊긴 상대는 그렇다고 적는다(돌아오면 지워진다).</summary>
-        public static string RowName(bool isMe, bool away) => isMe ? "나" : away ? "상대 (연결 끊김)" : "상대";
+        /// <summary>점수판 한 줄의 이름.</summary>
+        public static string RowName(bool isMe) => isMe ? "나" : "상대";
+
+        /// <summary>판 도중 끊긴 사람 줄의 꼬리표(돌아오면 빈칸). 이름 칸이 좁아 이름에 붙이지 않는다.</summary>
+        public static string AwayTag(bool away) => away ? "연결 끊김" : "";
 
         /// <summary>게이지를 띄울 때인가 — 내 조준 차례일 때만.</summary>
         public bool IsCharging() => store.IsAimingTurnOf(gameDataStore.userEntityId);

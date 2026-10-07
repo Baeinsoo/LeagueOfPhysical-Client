@@ -78,6 +78,9 @@ namespace LOP.UI
                     cell.Q<Label>("cum").text = row.Frames[f].Cumulative?.ToString() ?? string.Empty;
                 }
                 line.Q<Label>("total").text = row.Total.ToString();
+                var away = line.Q<Label>("away");
+                away.text = row.AwayTag;
+                away.style.display = string.IsNullOrEmpty(row.AwayTag) ? DisplayStyle.None : DisplayStyle.Flex;
             }
         }
 
@@ -106,6 +109,11 @@ namespace LOP.UI
             var total = new Label { name = "total" };
             total.AddToClassList("score-total");
             line.Add(total);
+            //  판 도중 끊김 — 점수판 폭을 바꾸지 않게 줄 오른쪽 바깥에 띄운다.
+            var away = new Label { name = "away", pickingMode = PickingMode.Ignore };
+            away.AddToClassList("score-away");
+            away.style.display = DisplayStyle.None;
+            line.Add(away);
             return line;
         }
 

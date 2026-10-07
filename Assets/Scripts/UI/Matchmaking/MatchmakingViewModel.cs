@@ -129,6 +129,8 @@ namespace LOP.UI
             }
         }
 
+        private const string RankLoadFailed = "랭크 정보를 불러오지 못했습니다";
+
         private async UniTaskVoid RefreshRankAsync()
         {
             string userId = _userDataStore.user?.id;
@@ -136,22 +138,49 @@ namespace LOP.UI
 
             try
             {
-                var response = await WebAPI.GetRank(userId, _cts.Token);
+                string text = await LoadRankSummary(ct => WebAPI.GetRank(userId, ct), _masterData.Tables.TbRankDivision, _cts.Token);
                 if (_cts.IsCancellationRequested) return;
-                _rankSummary.Value = response?.rank == null
-                    ? "랭크 정보를 불러오지 못했습니다"
-                    : RankFormat.Summary(response.rank, _masterData.Tables.TbRankDivision);
+                _rankSummary.Value = text;
             }
             catch (OperationCanceledException)
             {
                 //  로비를 떠났다 — 쓸 곳이 없다.
             }
+        }
+
+        /// <summary>
+        /// 로비 랭크 요약 문자열. 못 받으면(네트워크·401·빈 응답) 안내 문구 — 요약을 못 받아도 랭크 매칭은 된다.
+        /// 취소는 그대로 던진다(화면이 사라진 것이라 쓸 곳이 없다).
+        /// </summary>
+        public static async UniTask<string> LoadRankSummary(
+            Func<CancellationToken, UniTask<GetRankResponse>> fetch, LOP.MasterData.TbRankDivision divisions, CancellationToken ct)
+        {
+            try
+            {
+                var response = await fetch(ct);
+                return response?.rank == null ? RankLoadFailed : RankFormat.Summary(response.rank, divisions);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception e)
             {
-                //  요약을 못 받아도 랭크 매칭은 된다 — 안내만 바꾼다.
-                UnityEngine.Debug.LogError($"Failed to load rank. Error: {e.Message}");
-                if (_cts.IsCancellationRequested) return;
-                _rankSummary.Value = "랭크 정보를 불러오지 못했습니다";
+                UnityEngine.Debug.LogWarning($"Failed to load rank. Error: {e.Message}");
+                return RankLoadFailed;
+            }
+        }
+
+        /// <summary>
+        /// 실제로 플레이한 것만 기억한다. 큐는 늘, 게임·맵은 일반일 때만 — 랭크는 게임·맵을 안 골랐으니(0/0)
+        /// 덮으면 다음 일반 판이 첫 게임으로 조용히 돌아간다.
+        /// </summary>
+        public static void RememberPlay(LastPlayedSelectionStore store, QueueKind kind, int gameModeId, int mapId)
+        {
+            store.SaveQueue(kind);
+            if (kind == QueueKind.Casual)
+            {
+                store.Save(gameModeId, mapId);
             }
         }
 
@@ -228,12 +257,8 @@ namespace LOP.UI
             _matchmakingDataStore.mapId = mapId;
 
             //  고른 순간이 아니라 실제로 플레이한 것만 기억한다 — 드롭다운을 뒤적이다 만 것까지
-            //  남으면 "마지막에 한 게임"이 아니게 된다. 랭크는 게임·맵을 안 골랐으니 그 기억은 그대로 둔다.
-            _lastPlayed.SaveQueue(_selectedQueue.Value);
-            if (_selectedQueue.Value == QueueKind.Casual)
-            {
-                _lastPlayed.Save(gameModeId, mapId);
-            }
+            //  남으면 "마지막에 한 게임"이 아니게 된다.
+            RememberPlay(_lastPlayed, _selectedQueue.Value, gameModeId, mapId);
 
             _matchStateMachine.Fire(MatchEvent.PlayClicked);
         }

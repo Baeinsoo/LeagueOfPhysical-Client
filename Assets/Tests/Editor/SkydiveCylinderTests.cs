@@ -36,7 +36,7 @@ namespace LOP.Tests
             for (int tick = 0; tick < 7200; tick += 10)
             {
                 var p = CatchTargetGeometry.PositionAt(new CatchTarget(Y.StarCenter, Y.StarOrbit, Y.StarDegreesPerTick, 0f, Y.StarBob, Y.StarBobPeriod, Y.StarCatchRadius), tick);
-                Assert.Less(p.y, Y.ExitY - 30f);
+                Assert.Less(p.y, Y.ExitY - 150f, "출구 바로 앞이면 애매하다 — 빠져나와 찾고 쫓을 거리가 있어야(사용자 10-07)");
                 Assert.Greater(p.y, 40f);
                 Assert.Less(new Vector2(p.x, p.z).magnitude, Y.Radius, "출구 아래(탑 둘레 안)");
             }

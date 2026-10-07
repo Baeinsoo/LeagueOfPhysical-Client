@@ -39,6 +39,8 @@ namespace LOP
             builder.Register<SavePadField>(Lifetime.Singleton);
             // 도는 원판·날개·조리개 — 시뮬이 정수 틱으로 세우고, SkydiveObstacleView가 프레임마다 소수 틱으로 그린다.
             builder.Register<ObstacleField>(Lifetime.Singleton);
+            // 별 조각(StarVolume) — 클라도 같은 식으로 결승을 예측하고, 가까우면 "잡기!"를 띄운다.
+            builder.Register<CatchTargetField>(Lifetime.Singleton);
             builder.Register<LaserField>(Lifetime.Singleton);
             // 맵 씬의 DoorVolume 마커도 마찬가지다 — 클라는 문 판정을 하지 않지만, 마커의
             // [Inject]가 이걸 요구하므로 등록이 없으면 씬 주입이 그 자리에서 끊긴다.
@@ -68,7 +70,8 @@ namespace LOP
                 // 사람끼리 부딪히는 것은 위에서 등록한 BodyCollisionSystem이 이동 뒤 별도 단계로 처리한다.
                 LayerMask.GetMask("Default"),
                 c.Resolve<SavePadField>(),
-                c.Resolve<ObstacleField>()), Lifetime.Singleton)
+                c.Resolve<ObstacleField>(),
+                c.Resolve<CatchTargetField>()), Lifetime.Singleton)
                 .As<GameFramework.World.IWorld>().AsSelf();
 
             //  레이저를 그린다. 판정과 같은 식에 같은 틱을 넣으므로 그림과 판정이 어긋나지 않는다.

@@ -188,10 +188,18 @@ namespace LOP.EditorTools
             Object.DestroyImmediate(finish.GetComponent<Collider>());
             finish.AddComponent<LOP.FinishLine>();
 
-            //  별 조각(1단계는 보이기만) — 결승 판 위에 떠서 금빛으로 빛난다. 충돌 없음.
+            //  별 조각 — 닿으면 결승(StarVolume: 판정은 CatchTargetField, 자세는 ObstacleField). 충돌 없음.
             var star = new GameObject("Star").transform;
             star.SetParent(root, false);
             star.localPosition = Y.StarCenter;
+            var starVol = star.gameObject.AddComponent<LOP.StarVolume>();
+            starVol.Center = Y.StarCenter;
+            starVol.OrbitRadius = Y.StarOrbit;
+            starVol.DegreesPerTick = Y.StarDegreesPerTick;
+            starVol.BobAmplitude = Y.StarBob;
+            starVol.BobPeriod = Y.StarBobPeriod;
+            starVol.CatchRadius = Y.StarCatchRadius;
+            starVol.Pose(0);
             Glow(star, "Halo", StarMaterial("StarHalo", new Color(1f, 0.72f, 0.3f) * 2.6f, 1.2f), 26f);
             Glow(star, "Core", StarMaterial("StarCore", new Color(1f, 0.95f, 0.8f) * 3f, 0f), 7f);
             //  위로 솟는 금빛 기둥 — 출구에서 내려다보면 "저기가 목표"로 읽히게(빛나는 점 하나는 밝은 하늘에 묻힌다).
@@ -199,7 +207,7 @@ namespace LOP.EditorTools
             Object.DestroyImmediate(beacon.GetComponent<Collider>());
             beacon.name = "Beacon";
             beacon.transform.SetParent(star, false);
-            float beaconLen = Y.ExitY - Y.StarCenter.y - 20f;
+            float beaconLen = Y.ExitY - (Y.StarCenter.y + Y.StarBob) - 15f;   // 가장 높이 떠도 출구에 안 닿게
             beacon.transform.localPosition = Vector3.up * (beaconLen * 0.5f);
             beacon.transform.localScale = new Vector3(10f, beaconLen * 0.5f, 10f);
             var bmr = beacon.GetComponent<MeshRenderer>();
@@ -268,6 +276,9 @@ namespace LOP.EditorTools
                 }
             }
             if (Y.FinishCenter.magnitude + Y.FinishHalf * 1.42f > Y.CloudFloorRadius) { return "결승 판이 구름 바닥 밖"; }
+            if (Y.StarCenter.y + Y.StarBob > Y.ExitY - 40f) { return "별이 출구에 너무 가깝다 — 빠져나오자마자 공짜로 닿는다"; }
+            if (Y.StarCenter.y - Y.StarBob < 40f) { return "별이 바닥에 너무 가깝다 — 내려앉아 걸어서 닿는다(공중에서 잡아야)"; }
+            if (Y.StarOrbit > Y.Radius - 10f) { return "별이 탑 밖으로 돈다 — 출구 아래에서 쫓을 수 있어야"; }
             foreach (float oy in Y.ObstacleYs())
             {
                 if (oy < Y.ExitY + 10f) { return $"장애물({oy:0})이 원통 출구 아래 — 탁 트인 하늘엔 원통 벽이 없어 옆으로 빠진다"; }

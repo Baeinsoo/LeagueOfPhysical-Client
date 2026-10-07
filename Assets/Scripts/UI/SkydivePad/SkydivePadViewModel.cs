@@ -21,6 +21,11 @@ namespace LOP.UI
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly SkydiveConfig config;
         private readonly SavePadField savePads;
+        private readonly CatchTargetField catchTargets;
+        private readonly GameFramework.Runner.IRunner runner;
+
+        //  별 조각이 이보다 가까우면 "잡기!"를 띄운다 — 대자로 2초 안에 닿을 거리쯤.
+        private const float CatchHintDistance = 40f;
 
         private readonly ReactiveProperty<float> staminaRatio = new ReactiveProperty<float>(1f);
         private readonly ReactiveProperty<bool> grounded = new ReactiveProperty<bool>(false);
@@ -41,9 +46,13 @@ namespace LOP.UI
                                    IPlayerContext playerContext,
                                    GameFramework.World.EntityRegistry entityRegistry,
                                    SkydiveConfig config,
-                                   SavePadField savePads)
+                                   SavePadField savePads,
+                                   CatchTargetField catchTargets,
+                                   GameFramework.Runner.IRunner runner)
         {
             this.savePads = savePads;
+            this.catchTargets = catchTargets;
+            this.runner = runner;
             this.input = input;
             this.cameraController = cameraController;
             this.playerContext = playerContext;
@@ -129,7 +138,8 @@ namespace LOP.UI
             statusText.Value = Describe(entity.Get<LOP.MotionState>(),
                                         entity.Get<LOP.Posture>(),
                                         entity.Get<GameFramework.World.Velocity>())
-                               + SaveSuffix(entity.Get<LOP.SkydiveSave>());
+                               + SaveSuffix(entity.Get<LOP.SkydiveSave>())
+                               + CatchSuffix(entity);
         }
 
         private static string Describe(LOP.MotionState motion, LOP.Posture posture,
@@ -152,6 +162,29 @@ namespace LOP.UI
                 default:
                     return $"{PoseName(posture)}  {fall:F0}";
             }
+        }
+
+        //  별 조각이 가까우면 "잡기!" — 결승 전에만. 별 자리는 시뮬과 같은 식(틱)으로 구한다.
+        private string CatchSuffix(GameFramework.World.Entity entity)
+        {
+            if (catchTargets == null || catchTargets.All.Count == 0 || runner?.tickUpdater == null)
+            {
+                return string.Empty;
+            }
+            if (entity.Get<LOP.FinishState>()?.Finished ?? false)
+            {
+                return string.Empty;
+            }
+            var me = GameFramework.World.EntityMotionExtensions.GetPosition(entity);
+            long tick = runner.tickUpdater.tick;
+            foreach (var t in catchTargets.All)
+            {
+                if (UnityEngine.Vector3.Distance(LOP.CatchTargetGeometry.PositionAt(t, tick), me) <= CatchHintDistance)
+                {
+                    return "   ★ 잡기!";
+                }
+            }
+            return string.Empty;
         }
 
         //  발판 맵에서만 — 저장했으면 어디인지, 안 했으면 죽으면 출발로 간다는 것을 늘 보이게.

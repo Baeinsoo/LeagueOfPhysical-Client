@@ -113,8 +113,14 @@ namespace LOP.EditorTools
         /// <summary>바닥의 결승 판(16×16) — 가운데가 아니라 옆. 내려앉아 걸어가도 된다(턱 없음, 충돌 없는 판).</summary>
         public static readonly Vector3 FinishCenter = new Vector3(0f, 0f, 0f);
 
-        /// <summary>떠 있는 별 조각(1단계는 보이기만) — 결승 판 위, 출구에서 내려다보면 금빛 속에 보인다.</summary>
-        public static readonly Vector3 StarCenter = new Vector3(0f, 70f, 0f);
+        /// <summary>
+        /// 별 조각 — 출구 아래에서 천천히 돌며(반지름 40, 18초에 한 바퀴) 위아래로 흔들린다(±25, 8초). 닿으면 결승.
+        /// 출구를 빠져나오는 자리·순간을 겨눠 다이브로 낚아챌지, 펴서 시간을 벌어 쫓을지가 마지막 고민이다.
+        /// 놓치면 구름 바다에 내려 결승 판까지 걸어가도 된다(더 늦을 뿐).
+        /// </summary>
+        public static readonly Vector3 StarCenter = new Vector3(0f, 150f, 0f);
+        public const float StarOrbit = 40f, StarDegreesPerTick = 0.4f, StarBob = 25f, StarCatchRadius = 6f;
+        public const int StarBobPeriod = 400;
 
         /// <summary>벽 틈새 빛줄기 — (높이, 각도). 아래로 갈수록 많고 굵다(출구가 가깝다는 신호).</summary>
         public static readonly (float y, float deg, float width)[] LightShafts =

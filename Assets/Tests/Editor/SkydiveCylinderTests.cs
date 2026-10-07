@@ -30,6 +30,19 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 별은_출구_아래_공중에서_돈다()
+        {
+            //  빠져나오자마자 공짜로 닿거나, 내려앉아 걸어서 닿으면 마지막 고민(낚아챌까 쫓을까)이 없다.
+            for (int tick = 0; tick < 7200; tick += 10)
+            {
+                var p = CatchTargetGeometry.PositionAt(new CatchTarget(Y.StarCenter, Y.StarOrbit, Y.StarDegreesPerTick, 0f, Y.StarBob, Y.StarBobPeriod, Y.StarCatchRadius), tick);
+                Assert.Less(p.y, Y.ExitY - 30f);
+                Assert.Greater(p.y, 40f);
+                Assert.Less(new Vector2(p.x, p.z).magnitude, Y.Radius, "출구 아래(탑 둘레 안)");
+            }
+        }
+
+        [Test]
         public void 장애물은_세_종류가_다_있다()
         {
             Assert.GreaterOrEqual(Y.Discs.Length, 1, "도는 원판");

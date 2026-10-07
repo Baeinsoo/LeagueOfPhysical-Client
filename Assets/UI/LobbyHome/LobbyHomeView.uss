@@ -19,7 +19,10 @@
     align-items: center;
     justify-content: center;
     width: 900px;
-    height: 260px;
+    /* 오른쪽 칸이 큐 칩 + 드롭다운 둘로 세 줄이라 높이를 고정하면 넘친다 — 내용에 맞춰 늘고, 최소 높이만 둔다 */
+    min-height: 260px;
+    padding-top: 24px;
+    padding-bottom: 24px;
     padding-left: 40px;
     padding-right: 40px;
 }

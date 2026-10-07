@@ -192,8 +192,19 @@ namespace LOP.EditorTools
             var star = new GameObject("Star").transform;
             star.SetParent(root, false);
             star.localPosition = Y.StarCenter;
-            Glow(star, "Halo", StarMaterial("StarHalo", new Color(1f, 0.72f, 0.3f) * 2.2f, 1.4f), 14f);
-            Glow(star, "Core", StarMaterial("StarCore", new Color(1f, 0.95f, 0.8f) * 3f, 0f), 4f);
+            Glow(star, "Halo", StarMaterial("StarHalo", new Color(1f, 0.72f, 0.3f) * 2.6f, 1.2f), 26f);
+            Glow(star, "Core", StarMaterial("StarCore", new Color(1f, 0.95f, 0.8f) * 3f, 0f), 7f);
+            //  위로 솟는 금빛 기둥 — 출구에서 내려다보면 "저기가 목표"로 읽히게(빛나는 점 하나는 밝은 하늘에 묻힌다).
+            var beacon = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            Object.DestroyImmediate(beacon.GetComponent<Collider>());
+            beacon.name = "Beacon";
+            beacon.transform.SetParent(star, false);
+            float beaconLen = Y.ExitY - Y.StarCenter.y - 20f;
+            beacon.transform.localPosition = Vector3.up * (beaconLen * 0.5f);
+            beacon.transform.localScale = new Vector3(10f, beaconLen * 0.5f, 10f);
+            var bmr = beacon.GetComponent<MeshRenderer>();
+            bmr.sharedMaterial = StarMaterial("StarBeacon", new Color(1f, 0.75f, 0.35f) * 0.9f, 2.4f);
+            bmr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
             //  맵별 분위기 — 클라 SkydiveAtmosphere가 내 높이로 읽는다(위는 어둡게, 출구는 금빛).
             var moodGo = new GameObject("Mood");
@@ -309,7 +320,7 @@ namespace LOP.EditorTools
             return m;
         }
 
-        private static Material LightShaftMaterial() => GlowMaterial("CylLightShaft", new Color(1f, 0.78f, 0.45f) * 0.12f, 2.6f);   // 넓고 옅게 — 막대가 아니라 빛
+        private static Material LightShaftMaterial() => GlowMaterial("CylLightShaft", new Color(1f, 0.78f, 0.45f) * 0.26f, 2.6f);   // 넓고 옅게 — 막대가 아니라 빛
         private static Material StarMaterial(string name, Color color, float falloff) => GlowMaterial($"Cyl{name}", color, falloff);
 
         private static GameObject Hub(Transform parent, string name, float y)

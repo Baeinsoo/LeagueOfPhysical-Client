@@ -130,9 +130,10 @@ namespace LOP.EditorTools
             MoodKey(1700f, "#15121C", 0.0035f, "#2A2635", "#9AA6C8", 0.35f, 0.4f, -0.3f),
             MoodKey(1100f, "#1F1820", 0.0030f, "#3A2E33", "#C9A27E", 0.45f, 0.5f, -0.2f),
             MoodKey(600f, "#3A2622", 0.0025f, "#5A3E30", "#E8A86A", 0.7f, 0.7f, 0f),
-            MoodKey(330f, "#8A5636", 0.0020f, "#9A6A44", "#FFC27A", 1.1f, 1.0f, 0.3f),
-            MoodKey(280f, "#FFE2AE", 0.0003f, "#A88E72", "#FFE3A8", 1.2f, 1.4f, 0.15f),   // 눈부시되 하늘·구름이 비치게(왕눈 엔딩: 금빛 역광 + 파란 하늘 귀퉁이)
-            MoodKey(0f, "#FFE9CC", 0.0003f, "#A08C78", "#FFF0C8", 1.1f, 0.9f, 0f),
+            MoodKey(330f, "#5A3422", 0.0022f, "#6E4630", "#E8A060", 0.85f, 0.7f, 0f),      // 출구 바로 위는 더 어둡게 — 터지는 순간과 대비
+            MoodKey(295f, "#FFD27A", 0.0003f, "#E6B26E", "#FFD890", 1.7f, 3.2f, 1.2f),    // 빠져나오는 순간 — 확 눈부시게(어둠에서 나와 눈이 부신 것처럼)
+            MoodKey(240f, "#FFDA92", 0.0003f, "#B8946A", "#FFE0A0", 1.25f, 1.7f, 0.3f),   // 눈이 적응하듯 가라앉는다 — 하늘·구름이 보이게
+            MoodKey(0f, "#FFE0A4", 0.0003f, "#A88E70", "#FFE8B8", 1.15f, 1.3f, 0.15f),
         };
 
         private static SkydiveMoodKey MoodKey(float alt, string fog, float density, string ambient, string sun, float sunIntensity, float bloom, float exposure)

@@ -16,11 +16,12 @@ namespace LOP.Tests
         public void 랭크는_게임과_맵을_비운다_서버가_고른다() =>
             Assert.AreEqual((2, 0, 0), QueueChoice.Request(QueueKind.Ranked, 7, 70, Q));
 
+        //  이름은 마스터데이터(TbQueue.Name) 한 곳에서 — 로비·대기·프로필·전적이 같은 말을 쓴다.
         [Test]
-        public void 큐_이름()
+        public void 큐_이름은_마스터데이터에서()
         {
-            Assert.AreEqual("일반", QueueChoice.Name(QueueKind.Casual));
-            Assert.AreEqual("랭크", QueueChoice.Name(QueueKind.Ranked));
+            Assert.AreEqual("일반", QueueChoice.Name(QueueKind.Casual, Q));
+            Assert.AreEqual("랭크", QueueChoice.Name(QueueKind.Ranked, Q));
         }
 
         [Test]

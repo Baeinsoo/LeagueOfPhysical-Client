@@ -37,7 +37,7 @@ namespace LOP.UI
         public ReadOnlyReactiveProperty<string> RankSummary => _rankSummary;
 
         /// <summary>대기 화면에 보여 줄 큐 이름.</summary>
-        public string CurrentQueueName => QueueChoice.Name(_selectedQueue.Value);
+        public string CurrentQueueName => QueueChoice.Name(_selectedQueue.Value, _masterData.Tables.TbQueue);
 
         /// <summary>매칭 진행 중 여부. 코디네이터가 구독해 대기 오버레이를 열고/닫는다.</summary>
         public ReadOnlyReactiveProperty<bool> IsMatching => _isMatching;

@@ -120,7 +120,7 @@ namespace LOP.EditorTools
         /// 출구를 빠져나오는 자리·순간을 겨눠 다이브로 낚아챌지, 펴서 시간을 벌어 쫓을지가 마지막 고민이다.
         /// 놓치면 구름 바다에 내려 결승 판까지 걸어가도 된다(더 늦을 뿐).
         /// </summary>
-        public static readonly Vector3 StarCenter = new Vector3(0f, 150f, 0f);
+        public static readonly Vector3 StarCenter = new Vector3(0f, 80f, 0f);   // 출구에서 충분히 아래(사용자 10-07: "통로 앞이라 애매")
         public const float StarOrbit = 40f, StarDegreesPerTick = 0.4f, StarBob = 25f, StarCatchRadius = 6f;
         public const int StarBobPeriod = 400;
 

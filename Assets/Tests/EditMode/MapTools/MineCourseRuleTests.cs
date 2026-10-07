@@ -88,8 +88,8 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(310.125f + 5.4f * i, gates[26 + i].X, 0.002f, $"급반전 {i} x");
                 Assert.AreEqual(flip[i], gates[26 + i].GapCenter, 1e-4f, $"급반전 {i} 틈 중심");
             }
-            //  갈림길 반대쪽 보통 관문 — 폭 4 m 난수 띠(첫 갈림길, 관문 14~16).
-            var fork = new[] { -3.911f, -4.496f, -6.275f };
+            //  갈림길 반대쪽 보통 관문 — 폭 2 m 난수 띠(첫 갈림길, 관문 14~16).
+            var fork = new[] { -3.606f, -3.898f, -4.787f };
             for (int i = 0; i < 3; i++) { Assert.AreEqual(fork[i], gates[14 + i].GapCenter, 0.002f, $"갈림길 관문 {i}"); }
 
             //  물결 터널 틈 3.7, 롤러코스터 틈 4.85.
@@ -110,7 +110,7 @@ namespace LOP.MapTools.Tests
         {
             var c = Layout();
             var expectForks = new (float x0, float x1, float b, bool up)[] { (127.1f, 147.8f, 0f, true), (279.6f, 300.3f, -22f, false), (363f, 383.7f, -1f, true) };
-            var expectPads = new (float x0, float y0, float y1)[] { (135.8f, 3.1f, 5.9f), (288.3f, -27.9f, -25.1f), (371.7f, 2.1f, 4.9f) };
+            var expectPads = new (float x0, float y0, float y1)[] { (135.8f, 1.2f, 4.0f), (288.3f, -28.0f, -25.2f), (371.7f, 0.2f, 3.0f) };
             Assert.AreEqual(3, c.Forks.Count);
             Assert.AreEqual(3, c.Pads.Count);
             Assert.AreEqual(3, c.Walls.Count);
@@ -140,7 +140,7 @@ namespace LOP.MapTools.Tests
         public void 통로_높이()
         {
             var c = Layout();
-            var expect = new (float x, float center, float half)[] { (0f, 0f, 10.92f), (100f, 0f, 10.92f), (200f, -21.871f, 2.2f), (300f, -22f, 10.92f), (400f, -1f, 10.92f) };
+            var expect = new (float x, float center, float half)[] { (0f, 0f, 7.28f), (100f, 0f, 7.28f), (200f, -21.871f, 2.2f), (300f, -22f, 7.28f), (400f, -1f, 7.28f) };
             foreach (var e in expect)
             {
                 Assert.AreEqual(e.center, c.CenterAt(e.x), 0.01f, $"x={e.x} 중심");
@@ -162,7 +162,7 @@ namespace LOP.MapTools.Tests
             MineTube tube = c.Tubes.Single(t => Math.Abs(t.X0 - (127.1f + 3f)) < 0.01f);
 
             //  게임 커널로 입구에서 날갯짓, 30틱 뒤 또 날갯짓 — 굴 중심선이 그 궤적과 틱마다 같아야 한다.
-            float x = 127.1f + 3f, y = 4.5f, vy = 0f;
+            float x = 127.1f + 3f, y = 2.6f, vy = 0f;
             Assert.AreEqual(y, tube.Center(x), 1e-3f);
             for (int k = 0; k < 60; k++)
             {

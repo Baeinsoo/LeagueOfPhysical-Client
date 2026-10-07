@@ -94,8 +94,8 @@ namespace LOP.MapTools
     /// </summary>
     public sealed class MineCourse
     {
-        /// <summary>통로 반 높이(지금 굽기와 같다: 30 m · FOV 40의 화면 반). 프로토타입은 10.9.</summary>
-        public const float BaseHalf = 10.92f;
+        /// <summary>통로 반 높이(10-07 원조처럼: 통로 = 화면 — 카메라 20 m 세로 14.56 m의 반). 프로토타입은 7.28.</summary>
+        public const float BaseHalf = 7.28f;
 
         /// <summary>좁은 구간·낮은 천장의 가장자리를 넓은 통로로 잇는 거리.</summary>
         public const float EdgeBlend = 3f;
@@ -238,8 +238,12 @@ namespace LOP.MapTools
         const double Flip = 5.5;
         /// <summary>롤러코스터 굴 틈(예전 5.0, 한계 4.6과 그 사이).</summary>
         const double CoasterGap = 4.85;
-        /// <summary>갈림길 반대쪽 보통 관문 틈 중심의 난수 폭(예전 1.6).</summary>
-        const double ForkBand = 4.0;
+        /// <summary>갈림길 굴 쪽 칸 중심 — 통로가 좁아져 위 굴은 위로 ForkTunnelUp, 아래 굴은 아래로 ForkTunnelDown(비대칭, 예전 둘 다 4.5).</summary>
+        const double ForkTunnelUp = 2.6, ForkTunnelDown = 4.6;
+        /// <summary>갈림길 반대쪽 보통 칸 관문 틈 중심(통로 중심에서 ±ForkOther, 예전 ±4.5).</summary>
+        const double ForkOther = 3.9;
+        /// <summary>갈림길 반대쪽 보통 관문 틈 중심의 난수 폭(예전 4.0 — 칸이 좁아져 함께 줄었다).</summary>
+        const double ForkBand = 2.0;
 
         /// <summary>
         /// 프로토타입 mode 9 그대로. 난수는 관문마다 하나(기본 관문·긴 통로·갈림길 반대쪽 관문)씩만 뽑는다 —
@@ -284,7 +288,7 @@ namespace LOP.MapTools
             //  반대쪽은 보통 관문.
             void Fork(bool up)
             {
-                double side = up ? 1 : -1, fx = cur, laneC = baseY + 4.5 * side;
+                double side = up ? 1 : -1, fx = cur, laneC = baseY + (up ? ForkTunnelUp : -ForkTunnelDown);
                 double top = baseY + MineCourse.BaseHalf + 1, bot = baseY - MineCourse.BaseHalf - 1;
 
                 //  굴 중심선: 입구에서 날갯짓, arcT틱 뒤 다시 날갯짓 — 같은 높이로 두 번 튀어 오른다.
@@ -311,7 +315,7 @@ namespace LOP.MapTools
 
                 for (double gx = fx + 3; gx < fx1 - 2; gx += 5.4)
                 {
-                    gates.Add(new MineGate((float)(gx + PW / 2), (float)PW, (float)(baseY - side * 4.5 + (Rnd() - 0.5) * ForkBand), (float)GAP,
+                    gates.Add(new MineGate((float)(gx + PW / 2), (float)PW, (float)(baseY - side * ForkOther + (Rnd() - 0.5) * ForkBand), (float)GAP,
                                            (float)(up ? bot : baseY + 0.6), (float)(up ? baseY - 0.6 : top)));
                 }
                 forks.Add(new MineFork((float)fx, (float)fx1, (float)baseY, up,

@@ -25,7 +25,7 @@ namespace LOP.EditorTools
         private const string TextureDir = "Assets/Art/Textures/Mine";
         private const string ModelDir = "Assets/Art/Models/Mine";
         private const string GradientPath = TextureDir + "/sky_sunset_gradient.png";
-        private const string LookAssetPath = "Assets/Art/Settings/FlappyMineLook.asset";
+        internal const string LookAssetPath = "Assets/Art/Settings/FlappyMineLook.asset";
 
         [MenuItem("LOP/Debug/Flappy 광산 재질 갱신")]
         public static void EnsureFromMenu()

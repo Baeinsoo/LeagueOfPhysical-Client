@@ -340,6 +340,38 @@ namespace LOP.MapTools
             }
         }
 
+        // ── 회색 박스와 그림의 경계(스펙 §6) ──
+
+        //  회색 박스 조각 경계는 Breaks의 float 값이라 범위 끝과 1e-3 안쪽으로 어긋날 수 있다.
+        const double SpanEps = 1e-3;
+
+        /// <summary>x 폭 [x0, x1]이 [from, to] 안에 완전히 드나 — 그런 회색 박스 조각만 렌더러를 끈다(끝이 맞닿은 것은 안).</summary>
+        public static bool SpanInside(float x0, float x1, float from, float to)
+        {
+            return x0 >= from - SpanEps && x1 <= to + SpanEps;
+        }
+
+        /// <summary>x 폭 [x0, x1]이 [from, to]와 조금이라도 겹치나(끝만 맞닿은 것은 아니다) — 관문은 걸치기만 해도 통째로 입힌다.</summary>
+        public static bool SpanOverlaps(float x0, float x1, float from, float to)
+        {
+            return x1 > from + SpanEps && x0 < to - SpanEps;
+        }
+
+        /// <summary>
+        /// 범위 [from, to]에 <b>걸친</b> 조각(겹치지만 안에 다 들지 않는 것)은 렌더러를 켠 채 두므로, 바닥·천장 그림이 그 조각
+        /// 끝까지 이어 덮도록 범위를 넓힌다. 범위 밖 조각·끝만 맞닿은 조각은 범위를 바꾸지 않는다.
+        /// </summary>
+        public static (float from, float to) CoverRange(IEnumerable<(float x0, float x1)> spans, float from, float to)
+        {
+            foreach (var (x0, x1) in spans)
+            {
+                if (!SpanOverlaps(x0, x1, from, to) || SpanInside(x0, x1, from, to)) { continue; }
+                from = Math.Min(from, x0);
+                to = Math.Max(to, x1);
+            }
+            return (from, to);
+        }
+
         // ── 도우미 ──
 
         /// <summary>[from, to]를 unit에 가장 가까운 같은 폭 n칸으로. 칸 경계는 double로 셈해 오차가 쌓이지 않는다.</summary>

@@ -323,6 +323,78 @@ namespace LOP.MapTools.Tests
             }
         }
 
+        // ── 회색 박스 렌더러 끄기 / 그림 범위 넓히기 ──
+
+        [TestCase(-20f, 0f, true)]        // 범위 앞끝에 딱 맞은 조각
+        [TestCase(90f, 94.25f, true)]     // 범위 뒤끝에 딱 맞은 조각
+        [TestCase(10f, 10.5f, true)]
+        [TestCase(-20.5f, -19.5f, false)] // 앞끝에 걸침
+        [TestCase(94f, 94.5f, false)]     // 뒤끝에 걸침
+        [TestCase(100f, 101f, false)]     // 범위 밖
+        [TestCase(-21f, -20f, false)]     // 끝만 맞닿음(밖)
+        public void 범위_안에_완전히_든_조각만_안이다(float x0, float x1, bool inside)
+        {
+            Assert.AreEqual(inside, MineDressingLayout.SpanInside(x0, x1, From, To));
+        }
+
+        [Test]
+        public void 범위_끝의_float_오차는_안으로_친다()
+        {
+            Assert.IsTrue(MineDressingLayout.SpanInside(From - 0.0004f, 0f, From, To));
+            Assert.IsTrue(MineDressingLayout.SpanInside(90f, To + 0.0004f, From, To));
+        }
+
+        [TestCase(94f, 94.5f, true)]      // 걸침
+        [TestCase(-21f, -19f, true)]
+        [TestCase(10f, 12f, true)]        // 안
+        [TestCase(94.25f, 95f, false)]    // 끝만 맞닿음
+        [TestCase(-25f, -20f, false)]
+        [TestCase(100f, 112f, false)]     // 밖
+        public void 관문은_조금이라도_겹치면_입힌다(float x0, float x1, bool overlaps)
+        {
+            Assert.AreEqual(overlaps, MineDressingLayout.SpanOverlaps(x0, x1, From, To));
+        }
+
+        [Test]
+        public void 걸친_조각이_없으면_범위_그대로()
+        {
+            var spans = new List<(float, float)> { (-40f, -20f), (-20f, 0f), (0f, 50f), (50f, 94.25f), (94.25f, 120f) };
+            var (from, to) = MineDressingLayout.CoverRange(spans, From, To);
+            Assert.AreEqual(From, from);
+            Assert.AreEqual(To, to);
+        }
+
+        [Test]
+        public void 걸친_조각_끝까지_그림_범위를_넓힌다()
+        {
+            var spans = new List<(float, float)> { (-60f, -21f), (-21f, 0f), (0f, 94f), (94f, 96.5f), (96.5f, 200f) };
+            var (from, to) = MineDressingLayout.CoverRange(spans, From, To);
+            Assert.AreEqual(-21f, from);
+            Assert.AreEqual(96.5f, to);
+        }
+
+        [Test]
+        public void 실제_코스의_회색_바닥_조각은_보기_구간에서_걸치지_않거나_덮인다()
+        {
+            //  굽기와 같은 조각 경계(−20, Breaks(0.5), 길이+20). 넓힌 범위 안의 조각은 모두 안이고, 밖의 것은 모두 안 겹친다
+            //  — 그래서 "켜 둔 회색 조각"과 "그림"이 겹치는 자리가 없다.
+            var c = Course();
+            var xs = new List<float> { -20f };
+            xs.AddRange(c.Breaks(0.5f));
+            xs.Add(c.Length + 20f);
+            var spans = new List<(float, float)>();
+            for (int i = 0; i + 1 < xs.Count; i++) { spans.Add((xs[i], xs[i + 1])); }
+
+            var (from, to) = MineDressingLayout.CoverRange(spans, From, To);
+            Assert.LessOrEqual(from, From);
+            Assert.GreaterOrEqual(to, To);
+            foreach (var (x0, x1) in spans)
+            {
+                bool inside = MineDressingLayout.SpanInside(x0, x1, from, to);
+                Assert.IsTrue(inside || !MineDressingLayout.SpanOverlaps(x0, x1, from, to), $"[{x0}, {x1}]가 넓힌 범위에 걸친다");
+            }
+        }
+
         sealed class FloatComparer : System.Collections.IComparer
         {
             readonly float eps;

@@ -15,6 +15,9 @@ namespace LOP.EditorTools
         public const float Wall = 4f;
         public const int WallSegments = 48;
         public const float SpawnY = 1600f, SpawnHole = 14f, SpawnRingRadius = 35f;
+        /// <summary>원통(하늘 유적 탑)이 끝나는 높이 — 여기서 빠져나오면 금빛 하늘이 열린다(빛을 향한 낙하).</summary>
+        public const float ExitY = 300f;
+        public const float CloudFloorRadius = 260f;
         public const float Thickness = 3f;
         public const float BodyRadius = 0.4f;
 
@@ -72,7 +75,7 @@ namespace LOP.EditorTools
         public static readonly Windmill[] Windmills =
         {
             new Windmill("Mill_1020", 1020f, blades: 3, width: 16f, startDegrees: 0f, degreesPerTick: -0.8f),
-            new Windmill("Mill_220", 220f, blades: 4, width: 14f, startDegrees: 45f, degreesPerTick: 1.0f),
+            new Windmill("Mill_330", 330f, blades: 4, width: 14f, startDegrees: 45f, degreesPerTick: 1.0f),   // 출구 바로 위 마지막 관문
         };
 
         /// <summary>양쪽에서 닫히는 큰 판(문 키운 것) — 원통을 막는 판에 40×40 구멍.</summary>
@@ -103,13 +106,42 @@ namespace LOP.EditorTools
         {
             new WindSpec("Side_1250", new Vector3(0f, 1250f, 0f), Radius, 60f, new Vector3(18f, 0f, 0f)),   // 옆바람 — 틈에서 밀어내거나 실어 준다
             new WindSpec("Up_960", new Vector3(35f, 960f, 0f), 18f, 120f, new Vector3(0f, 60f, 0f)),         // 상승 기류 — 날개 아래서 기다리기
-            new WindSpec("Down_260", new Vector3(0f, 260f, 0f), 25f, 80f, new Vector3(0f, -30f, 0f)),        // 하강 기류 — 날개를 빨리 지나게
         };
 
         // ---- 결승·체크포인트 ----
 
         /// <summary>바닥의 결승 판(16×16) — 가운데가 아니라 옆. 내려앉아 걸어가도 된다(턱 없음, 충돌 없는 판).</summary>
-        public static readonly Vector3 FinishCenter = new Vector3(28f, 0f, 0f);
+        public static readonly Vector3 FinishCenter = new Vector3(0f, 0f, 0f);
+
+        /// <summary>떠 있는 별 조각(1단계는 보이기만) — 결승 판 위, 출구에서 내려다보면 금빛 속에 보인다.</summary>
+        public static readonly Vector3 StarCenter = new Vector3(0f, 70f, 0f);
+
+        /// <summary>벽 틈새 빛줄기 — (높이, 각도). 아래로 갈수록 많고 굵다(출구가 가깝다는 신호).</summary>
+        public static readonly (float y, float deg, float width)[] LightShafts =
+        {
+            (1500f, 30f, 10f), (1350f, 200f, 10f), (1200f, 110f, 12f), (1080f, 300f, 12f),
+            (950f, 60f, 14f), (820f, 240f, 14f), (700f, 150f, 16f), (560f, 330f, 18f),
+            (450f, 20f, 20f), (400f, 200f, 22f), (350f, 110f, 24f),
+        };
+
+        /// <summary>높이별 분위기 — 위는 갇힌 어둠(차갑게), 내려갈수록 따뜻하게, 출구에서 금빛으로 터진다.</summary>
+        public static SkydiveMoodKey[] Mood => new[]
+        {
+            MoodKey(1700f, "#15121C", 0.0035f, "#2A2635", "#9AA6C8", 0.35f, 0.4f, -0.3f),
+            MoodKey(1100f, "#1F1820", 0.0030f, "#3A2E33", "#C9A27E", 0.45f, 0.5f, -0.2f),
+            MoodKey(600f, "#3A2622", 0.0025f, "#5A3E30", "#E8A86A", 0.7f, 0.7f, 0f),
+            MoodKey(330f, "#8A5636", 0.0020f, "#9A6A44", "#FFC27A", 1.1f, 1.0f, 0.3f),
+            MoodKey(280f, "#FFE2AE", 0.0003f, "#A88E72", "#FFE3A8", 1.2f, 1.4f, 0.15f),   // 눈부시되 하늘·구름이 비치게(왕눈 엔딩: 금빛 역광 + 파란 하늘 귀퉁이)
+            MoodKey(0f, "#FFE9CC", 0.0003f, "#A08C78", "#FFF0C8", 1.1f, 0.9f, 0f),
+        };
+
+        private static SkydiveMoodKey MoodKey(float alt, string fog, float density, string ambient, string sun, float sunIntensity, float bloom, float exposure)
+        {
+            ColorUtility.TryParseHtmlString(fog, out var f);
+            ColorUtility.TryParseHtmlString(ambient, out var a);
+            ColorUtility.TryParseHtmlString(sun, out var s);
+            return new SkydiveMoodKey { Altitude = alt, Fog = f, FogDensity = density, Ambient = a, Sun = s, SunIntensity = sunIntensity, Bloom = bloom, Exposure = exposure };
+        }
         public const float FinishHalf = 8f;
 
         /// <summary>자동 체크포인트는 출발 하나 — 저장은 선반에서 직접.</summary>

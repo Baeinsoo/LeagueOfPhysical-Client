@@ -43,8 +43,9 @@ namespace LOP.EditorTools
             var millMat = HazardMaterial("HazardMill", "#8A5BB0");
             var root = new GameObject("Course").transform;
 
-            //  원통 벽 — 판정은 상자, 그림은 안쪽 면만(카메라가 벽 밖으로 나가도 안 가린다)
-            float wallTop = Y.SpawnY + 60f, wallH = wallTop + Y.Thickness;
+            //  원통 벽(하늘 유적 탑) — 출구 높이(ExitY)에서 끝난다. 판정은 상자, 그림은 안쪽 면 + 바깥 면
+            //  (안쪽만 그리면 카메라가 벽 밖으로 나가도 안 가리고, 바깥 면은 출구를 빠져나온 뒤 위로 탑이 보이게).
+            float wallTop = Y.SpawnY + 60f, wallBottom = Y.ExitY, wallH = wallTop - wallBottom, wallCy = (wallTop + wallBottom) * 0.5f;
             float segLen = 2f * Mathf.PI * (Y.Radius + Y.Wall) / Y.WallSegments + 0.5f;
             var walls = new GameObject("Wall").transform;
             walls.SetParent(root, false);
@@ -52,19 +53,35 @@ namespace LOP.EditorTools
             {
                 float deg = k * 360f / Y.WallSegments;
                 var radial = Y.OnCircle(1f, deg, 0f);
-                var box = Box(walls, $"Wall_{k}", wallMat, radial * (Y.Radius + Y.Wall * 0.5f) + Vector3.up * (wallH * 0.5f - Y.Thickness),
+                var box = Box(walls, $"Wall_{k}", wallMat, radial * (Y.Radius + Y.Wall * 0.5f) + Vector3.up * wallCy,
                               new Vector3(Y.Wall, wallH, segLen), Quaternion.Euler(0f, -deg, 0f));
                 box.GetComponent<MeshRenderer>().enabled = false;
-                var face = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                Object.DestroyImmediate(face.GetComponent<Collider>());
-                face.name = $"Wall_{k}_Face";
-                face.transform.SetParent(walls, false);
-                face.transform.localPosition = radial * Y.Radius + Vector3.up * (wallH * 0.5f - Y.Thickness);
-                face.transform.localRotation = Quaternion.LookRotation(radial);   // Quad 앞면(-Z)이 안쪽을 본다
-                face.transform.localScale = new Vector3(2f * Mathf.PI * Y.Radius / Y.WallSegments + 0.3f, wallH, 1f);
-                var r = face.GetComponent<MeshRenderer>();
-                r.sharedMaterial = wallMat;
-                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                Face(walls, $"Wall_{k}_In", wallMat, radial * Y.Radius + Vector3.up * wallCy, Quaternion.LookRotation(radial),
+                     new Vector3(2f * Mathf.PI * Y.Radius / Y.WallSegments + 0.3f, wallH, 1f));   // Quad 앞면(-Z)이 안쪽
+                Face(walls, $"Wall_{k}_Out", wallMat, radial * (Y.Radius + Y.Wall) + Vector3.up * wallCy, Quaternion.LookRotation(-radial),
+                     new Vector3(2f * Mathf.PI * (Y.Radius + Y.Wall) / Y.WallSegments + 0.3f, wallH, 1f));   // 바깥을 본다
+            }
+
+            //  틈새 빛줄기 — 벽에서 비스듬히 아래로 들어오는 빛 기둥(충돌 없음, 가산). 아래로 갈수록 굵다.
+            var shaftMat = LightShaftMaterial();
+            var shafts = new GameObject("LightShafts").transform;
+            shafts.SetParent(root, false);
+            foreach (var (y, deg, width) in Y.LightShafts)
+            {
+                var inward = -Y.OnCircle(1f, deg, 0f);
+                var dir = (inward * Mathf.Cos(40f * Mathf.Deg2Rad) + Vector3.down * Mathf.Sin(40f * Mathf.Deg2Rad)).normalized;
+                const float len = 90f;
+                var start = Y.OnCircle(Y.Radius - 0.5f, deg, y);
+                var beam = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                Object.DestroyImmediate(beam.GetComponent<Collider>());
+                beam.name = $"Shaft_{y:0}";
+                beam.transform.SetParent(shafts, false);
+                beam.transform.localPosition = start + dir * (len * 0.5f);
+                beam.transform.localRotation = Quaternion.FromToRotation(Vector3.up, dir);
+                beam.transform.localScale = new Vector3(width, len * 0.5f, width);
+                var br = beam.GetComponent<MeshRenderer>();
+                br.sharedMaterial = shaftMat;
+                br.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
 
             //  출발 고리 + 스폰
@@ -123,12 +140,14 @@ namespace LOP.EditorTools
                 }
             }
 
-            //  닫히는 큰 판 — 원통을 막는 판(가운데 40×40 구멍) + 문
-            var slab = new Plate("Slab", -Y.Radius - Y.Wall, Y.Radius + Y.Wall, -Y.Radius - Y.Wall, Y.Radius + Y.Wall);
-            foreach (var p in Carve(slab, new[] { new Hole(0f, 0f, Y.DoorHole, true) }))
-            {
-                Box(root, $"DoorSlab_{p.Name}", stone, new Vector3((p.XMin + p.XMax) * 0.5f, Y.DoorSlabY, (p.ZMin + p.ZMax) * 0.5f), new Vector3(p.Width, Y.Thickness, p.Depth), Quaternion.identity);
-            }
+            //  닫히는 큰 판 — 원통 모양 고리(가운데 원 r=√2·20) + 사각 구멍 둘레의 네 토막. 사각 판이면 모서리가 탑 밖으로 튀어나온다.
+            float holeHalf = Y.DoorHole * 0.5f, inner = holeHalf * 1.4143f;
+            MeshBody(root, "DoorSlab_Ring", stone, Sector("CylDoorSlabRing", inner, Y.Radius + 0.5f, 0f, 360f, Vector3.zero), new Vector3(0f, Y.DoorSlabY, 0f));
+            float band = inner - holeHalf;
+            Box(root, "DoorSlab_N", stone, new Vector3(0f, Y.DoorSlabY, holeHalf + band * 0.5f), new Vector3(Y.DoorHole, Y.Thickness, band), Quaternion.identity);
+            Box(root, "DoorSlab_S", stone, new Vector3(0f, Y.DoorSlabY, -holeHalf - band * 0.5f), new Vector3(Y.DoorHole, Y.Thickness, band), Quaternion.identity);
+            Box(root, "DoorSlab_E", stone, new Vector3(holeHalf + band * 0.5f, Y.DoorSlabY, 0f), new Vector3(band, Y.Thickness, Y.DoorHole), Quaternion.identity);
+            Box(root, "DoorSlab_W", stone, new Vector3(-holeHalf - band * 0.5f, Y.DoorSlabY, 0f), new Vector3(band, Y.Thickness, Y.DoorHole), Quaternion.identity);
             var doors = new GameObject("Doors").transform;
             doors.SetParent(root, false);
             //  문 패널은 유니티 큐브(UV 0~1)라 메시 기준 격자가 안 나온다 — 월드 격자 재질을 따로 쓴다.
@@ -147,11 +166,39 @@ namespace LOP.EditorTools
                 marker.Label = l.Label;
             }
 
-            //  바닥 + 결승 판(충돌 없는 판 — 걸어 들어가도 결승)
-            MeshBody(root, "Floor", SkydiveMapKit.Jungle, Sector("CylFloor", 0f, Y.Radius + Y.Wall, 0f, 360f, Vector3.zero), new Vector3(0f, -Y.Thickness * 0.5f, 0f));
+            //  구름 위 바닥 + 결승 판(충돌 없는 판 — 걸어 들어가도 결승). 출구 아래는 탁 트인 금빛 하늘.
+            //  구름 바다는 옅은 하늘색 — 하얗게 두면 금빛 노출에 다 날아가 아무것도 안 보인다(왕눈 엔딩: 금빛 역광 + 파란 하늘·분홍 구름 귀퉁이).
+            MeshBody(root, "CloudFloor", SkydiveMapKit.Toon("CloudFloor", "#86AEEF"), Sector("CylCloudFloor", 0f, Y.CloudFloorRadius, 0f, 360f, Vector3.zero), new Vector3(0f, -Y.Thickness * 0.5f, 0f));
+            var puffs = new GameObject("CloudPuffs").transform;
+            puffs.SetParent(root, false);
+            var puffMat = SkydiveMapKit.Toon("CloudPuff", "#F2C9DA");
+            var rng = new System.Random(20261007);
+            for (int i = 0; i < 18; i++)
+            {
+                float deg = (float)rng.NextDouble() * 360f, r = 70f + (float)rng.NextDouble() * 170f, size = 18f + (float)rng.NextDouble() * 26f;
+                var puff = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                Object.DestroyImmediate(puff.GetComponent<Collider>());   // 꾸밈 — 밟히지 않는다
+                puff.name = $"Puff_{i}";
+                puff.transform.SetParent(puffs, false);
+                puff.transform.localPosition = Y.OnCircle(r, deg, size * 0.15f);
+                puff.transform.localScale = new Vector3(size, size * 0.35f, size * 0.8f);
+                puff.GetComponent<MeshRenderer>().sharedMaterial = puffMat;
+            }
             var finish = Box(root, "FinishPad", Gold(), Y.FinishCenter + Vector3.up * 0.03f, new Vector3(Y.FinishHalf * 2f, 0.06f, Y.FinishHalf * 2f), Quaternion.identity);
             Object.DestroyImmediate(finish.GetComponent<Collider>());
             finish.AddComponent<LOP.FinishLine>();
+
+            //  별 조각(1단계는 보이기만) — 결승 판 위에 떠서 금빛으로 빛난다. 충돌 없음.
+            var star = new GameObject("Star").transform;
+            star.SetParent(root, false);
+            star.localPosition = Y.StarCenter;
+            Glow(star, "Halo", StarMaterial("StarHalo", new Color(1f, 0.72f, 0.3f) * 2.2f, 1.4f), 14f);
+            Glow(star, "Core", StarMaterial("StarCore", new Color(1f, 0.95f, 0.8f) * 3f, 0f), 4f);
+
+            //  맵별 분위기 — 클라 SkydiveAtmosphere가 내 높이로 읽는다(위는 어둡게, 출구는 금빛).
+            var moodGo = new GameObject("Mood");
+            moodGo.transform.SetParent(root, false);
+            moodGo.AddComponent<LOP.SkydiveMood>().Keys = Y.Mood;
 
             //  레이저·바람·체크포인트
             var lasers = new GameObject("Lasers").transform;
@@ -209,11 +256,61 @@ namespace LOP.EditorTools
                     if (r < w.Radius && Mathf.Abs(l.Y - w.Center.y) < w.Height * 0.5f) { return $"선반 {l.Label}이 바람({w.Name}) 안"; }
                 }
             }
-            if (Y.FinishCenter.magnitude + Y.FinishHalf * 1.42f > Y.Radius) { return "결승 판이 원통 밖"; }
+            if (Y.FinishCenter.magnitude + Y.FinishHalf * 1.42f > Y.CloudFloorRadius) { return "결승 판이 구름 바닥 밖"; }
+            foreach (float oy in Y.ObstacleYs())
+            {
+                if (oy < Y.ExitY + 10f) { return $"장애물({oy:0})이 원통 출구 아래 — 탁 트인 하늘엔 원통 벽이 없어 옆으로 빠진다"; }
+            }
             return FindTooFastLaser(Y.Lasers);
         }
 
         // ---- 도우미 ----
+
+        private static void Face(Transform parent, string name, Material m, Vector3 pos, Quaternion rot, Vector3 scale)
+        {
+            var face = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            Object.DestroyImmediate(face.GetComponent<Collider>());
+            face.name = name;
+            face.transform.SetParent(parent, false);
+            face.transform.localPosition = pos;
+            face.transform.localRotation = rot;
+            face.transform.localScale = scale;
+            var r = face.GetComponent<MeshRenderer>();
+            r.sharedMaterial = m;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
+        private static void Glow(Transform parent, string name, Material m, float diameter)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            Object.DestroyImmediate(go.GetComponent<Collider>());
+            go.name = name;
+            go.transform.SetParent(parent, false);
+            go.transform.localScale = Vector3.one * diameter;
+            var r = go.GetComponent<MeshRenderer>();
+            r.sharedMaterial = m;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
+        /// <summary>빛 셰이더(LOP/LaserGlow, 가산) 재질 — 깊이 옅어짐은 끈다(빛줄기·별은 늘 같은 밝기).</summary>
+        private static Material GlowMaterial(string name, Color color, float falloff)
+        {
+            string path = $"Assets/Art/Materials/Pyramid/{name}.mat";
+            var shader = Shader.Find("LOP/LaserGlow");
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null) { m = new Material(shader); AssetDatabase.CreateAsset(m, path); }
+            m.shader = shader;
+            m.SetColor("_Color", color);
+            m.SetFloat("_Falloff", falloff);
+            m.SetFloat("_FadeNear", 100000f);
+            m.SetFloat("_FadeFar", 100001f);
+            m.SetFloat("_FadeAbove", 1f);
+            EditorUtility.SetDirty(m);
+            return m;
+        }
+
+        private static Material LightShaftMaterial() => GlowMaterial("CylLightShaft", new Color(1f, 0.78f, 0.45f) * 0.12f, 2.6f);   // 넓고 옅게 — 막대가 아니라 빛
+        private static Material StarMaterial(string name, Color color, float falloff) => GlowMaterial($"Cyl{name}", color, falloff);
 
         private static GameObject Hub(Transform parent, string name, float y)
         {

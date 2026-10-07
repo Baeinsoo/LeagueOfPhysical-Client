@@ -36,6 +36,20 @@ namespace LOP
         //  Skydive.unity 카메라의 Skybox 컴포넌트는 RenderSettings.skybox를 덮는다(예전 고도 틴트가 안 보인 이유) — 있는 동안 끈다.
         private readonly System.Collections.Generic.List<Skybox> hiddenBoxes = new System.Collections.Generic.List<Skybox>();
 
+        //  맵별 분위기(SkydiveMood) — 있으면 고도 곡선 대신 이것을 쓴다(빛을 향한 낙하: 위는 어둡게, 출구는 금빛).
+        private SkydiveMood mood;
+        private int moodSceneCount = -1;
+        private readonly UnityEngine.Rendering.AmbientMode originalAmbientMode = RenderSettings.ambientMode;
+        private readonly Color originalAmbient = RenderSettings.ambientLight;
+        private Color originalSunColor;
+        private float originalSunIntensity;
+        private bool sunTouched;
+        private UnityEngine.Rendering.Volume volume;
+        private UnityEngine.Rendering.VolumeProfile originalProfile;
+        private UnityEngine.Rendering.VolumeProfile profileInstance;
+        private UnityEngine.Rendering.Universal.Bloom bloom;
+        private UnityEngine.Rendering.Universal.ColorAdjustments colorAdjust;
+
         public SkydiveAtmosphere(IPlayerContext playerContext,
                                  GameFramework.World.EntityRegistry entityRegistry)
         {
@@ -64,7 +78,23 @@ namespace LOP
             RenderSettings.fogColor = originalFogColor;
             RenderSettings.fogDensity = originalFogDensity;
             RenderSettings.skybox = originalSkybox;
+            if (sunTouched && RenderSettings.sun != null)
+            {
+                RenderSettings.sun.color = originalSunColor;
+                RenderSettings.sun.intensity = originalSunIntensity;
+            }
             RenderSettings.sun = originalSun;
+            RenderSettings.ambientMode = originalAmbientMode;
+            RenderSettings.ambientLight = originalAmbient;
+            if (volume != null && originalProfile != null)
+            {
+                volume.sharedProfile = originalProfile;   // 복사본만 칠했다 — 에셋은 그대로
+            }
+            if (profileInstance != null)
+            {
+                if (UnityEngine.Application.isPlaying) { Object.Destroy(profileInstance); } else { Object.DestroyImmediate(profileInstance); }
+                profileInstance = null;
+            }
             foreach (var l in dimmedSuns)
             {
                 if (l != null) { l.enabled = true; }
@@ -113,6 +143,12 @@ namespace LOP
         /// <summary>고도 하나로 대기 전체가 정해진다. 테스트가 이 문으로 들어온다.</summary>
         public void Apply(float altitude)
         {
+            FindMoodIfScenesChanged();
+            if (mood != null && SkydiveMoodCurve.TryEvaluate(mood.Keys, altitude, out var m))
+            {
+                ApplyMood(m);
+                return;
+            }
             var colors = SkydiveSkyGradient.Evaluate(altitude);
 
             // 안개 on/off·모드도 여기서 정한다 — 씬 파일(RenderSettings)에 맡기면 씬이 additive로
@@ -125,6 +161,72 @@ namespace LOP
             UseWatercolorSky();
             PaintSky(skyboxInstance, colors.fog);
             PickSunIfScenesChanged();
+        }
+
+        /// <summary>맵별 분위기 한 점을 화면에 — 안개·주변광·하늘 지평선·햇빛·블룸·노출.</summary>
+        private void ApplyMood(in SkydiveMoodKey m)
+        {
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.fogColor = m.Fog;
+            RenderSettings.fogDensity = m.FogDensity;
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+            RenderSettings.ambientLight = m.Ambient;
+            UseWatercolorSky();
+            PaintSky(skyboxInstance, m.Fog);
+            PickSunIfScenesChanged();
+            var sun = RenderSettings.sun;
+            if (sun != null)
+            {
+                if (sunTouched == false)
+                {
+                    originalSunColor = sun.color;
+                    originalSunIntensity = sun.intensity;
+                    sunTouched = true;
+                }
+                sun.color = m.Sun;
+                sun.intensity = m.SunIntensity;
+            }
+            EnsurePost();
+            if (bloom != null) { bloom.intensity.Override(m.Bloom); }
+            if (colorAdjust != null) { colorAdjust.postExposure.Override(m.Exposure); }
+        }
+
+        private void FindMoodIfScenesChanged()
+        {
+            int count = UnityEngine.SceneManagement.SceneManager.sceneCount;
+            if (count == moodSceneCount)
+            {
+                return;   // 맵이 additive로 늦게 뜬다 — 씬 수가 바뀔 때만 다시 찾는다(분위기 없는 맵에서 매 프레임 훑지 않게)
+            }
+            moodSceneCount = count;
+            mood = Object.FindFirstObjectByType<SkydiveMood>();
+        }
+
+        //  후처리는 전역 볼륨 프로필의 복사본만 칠한다(에셋이 더러워지지 않게 — 스카이박스와 같은 이유).
+        private void EnsurePost()
+        {
+            if (profileInstance != null)
+            {
+                return;
+            }
+            foreach (var v in Object.FindObjectsByType<UnityEngine.Rendering.Volume>(FindObjectsSortMode.None))
+            {
+                if (v.isGlobal && v.sharedProfile != null)
+                {
+                    volume = v;
+                    break;
+                }
+            }
+            if (volume == null)
+            {
+                return;
+            }
+            originalProfile = volume.sharedProfile;
+            profileInstance = Object.Instantiate(originalProfile);
+            volume.sharedProfile = profileInstance;
+            if (profileInstance.TryGet(out bloom) == false) { bloom = profileInstance.Add<UnityEngine.Rendering.Universal.Bloom>(true); }
+            if (profileInstance.TryGet(out colorAdjust) == false) { colorAdjust = profileInstance.Add<UnityEngine.Rendering.Universal.ColorAdjustments>(true); }
         }
 
         /// <summary>새 룩(슬라이스 4) — 하늘은 수채화 하늘 복사본 하나. 처음 한 번 만들고 이후엔 그것만 칠한다.</summary>

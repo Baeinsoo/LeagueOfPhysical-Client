@@ -16,6 +16,20 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 위는_어둡고_출구에서_금빛으로_터진다()
+        {
+            //  빛을 향한 낙하(왕국의 눈물 엔딩 오마주) — 갇힌 어둠에서 압도적인 빛으로.
+            var top = SkydiveMoodCurve.Evaluate(Y.Mood, Y.SpawnY);
+            var mid = SkydiveMoodCurve.Evaluate(Y.Mood, 800f);
+            var exit = SkydiveMoodCurve.Evaluate(Y.Mood, Y.ExitY - 20f);
+            Assert.Less(top.Fog.grayscale, 0.15f, "꼭대기는 어둡다");
+            Assert.Less(top.Fog.grayscale, mid.Fog.grayscale, "내려갈수록 밝아진다");
+            Assert.Greater(exit.Fog.grayscale, 0.8f, "출구는 하얗게 열린다");
+            Assert.Greater(exit.Bloom, top.Bloom * 3f, "출구에서 빛이 번진다");
+            Assert.Greater(exit.Exposure, top.Exposure);
+        }
+
+        [Test]
         public void 장애물은_세_종류가_다_있다()
         {
             Assert.GreaterOrEqual(Y.Discs.Length, 1, "도는 원판");

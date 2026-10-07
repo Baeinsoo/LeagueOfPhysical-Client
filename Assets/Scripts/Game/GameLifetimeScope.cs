@@ -24,11 +24,15 @@ namespace LOP
         /// <summary>머리 위 체력 바를 띄우나. 목숨으로 가는 모드는 끈다.</summary>
         protected virtual bool ShowHealthBars => true;
 
+        /// <summary>판 도중 끊김·재접속을 위쪽 토스트로 알리나. 자기 방식(자막 등)이 있는 모드는 끈다.</summary>
+        protected virtual bool AnnouncePresenceWithToast => true;
+
         protected override void Configure(IContainerBuilder builder)
         {
             new GameplayInstaller().Install(builder);
             // 모든 게임 스코프가 여기를 지나므로 등록이 빠지는 스코프가 없다(메모리 new-ctor-dependency-misses-a-scope).
             builder.RegisterInstance(new CharacterDecorationSettings(ShowHealthBars));
+            builder.RegisterInstance(new PresenceDisplaySettings(AnnouncePresenceWithToast));
 
             // runner은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.
             // AsSelf는 LOP 전용 진입점(EndMatch 등)을 쓰는 소비자를 위한 것 — IRunner에는 없는 API다.
@@ -44,6 +48,7 @@ namespace LOP
                 // 전역 WindowManager에 게임 스코프 View 팩토리 기여: Open<T>가 게임 스코프 resolver로 생성 → IPlayerContext 주입.
                 var windowManager = container.Resolve<IWindowManager>();
                 viewRegistrations.Add(windowManager.RegisterViewFactory<DebugHudView>(() => container.Resolve<DebugHudView>()));
+                viewRegistrations.Add(windowManager.RegisterViewFactory<PresenceToastView>(() => container.Resolve<PresenceToastView>()));
                 RegisterViewFactories(container, windowManager, viewRegistrations);
             });
         }

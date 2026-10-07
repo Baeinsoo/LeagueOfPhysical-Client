@@ -29,6 +29,7 @@ namespace LOP
             IPublisher<PanchigiStateToC> panchigiState,
             IPublisher<ArcheryStateToC> archeryState,
             IPublisher<DodgeStateToC> dodgeState,
+            IPublisher<PlayerPresenceToC> playerPresence,
             IPublisher<MatchEndedToC> matchEnded,
             IPublisher<MatchStartToC> matchStart)
         {
@@ -44,6 +45,7 @@ namespace LOP
             Register(panchigiState);
             Register(archeryState);
             Register(dodgeState);
+            Register(playerPresence);
             Register(matchEnded);
             Register(matchStart);
         }

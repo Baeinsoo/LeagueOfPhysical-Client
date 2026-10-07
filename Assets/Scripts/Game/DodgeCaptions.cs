@@ -17,6 +17,10 @@ namespace LOP
 
         public static string Eliminated(string playerName) => $"{playerName}, 아쉽게 탈락합니다.";
 
+        /// <summary>판 도중 끊김·재접속 — 피하기는 토스트 대신 자막으로 알리고, 이름도 자막의 번호를 쓴다.</summary>
+        public static string PresenceLine(IEnumerable<string> ids, PresenceChange change) =>
+            $"{PlayerName(ids, change.EntityId)} {(change.Away ? "연결 끊김" : "재접속")}";
+
         /// <summary>"{n}P 선수" — 엔티티 id 서수 순서(나 포함). 어느 클라에서 봐도 같은 사람이 같은 번호다(활쏘기와 같은 규칙).</summary>
         public static string PlayerName(IEnumerable<string> ids, string id)
         {

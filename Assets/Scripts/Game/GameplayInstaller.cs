@@ -61,6 +61,11 @@ namespace LOP
             builder.RegisterEntryPoint<GameWorldEventMessageHandler>();
             builder.RegisterEntryPoint<MatchEndedMessageHandler>();
             builder.RegisterEntryPoint<MatchStartMessageHandler>();
+            //  판 도중 끊긴 사람 — 모든 게임 공통. 알리는 방법(토스트/자막)은 스코프가 정한다.
+            builder.Register<PlayerPresenceStore>(Lifetime.Singleton);
+            builder.RegisterEntryPoint<PresenceMessageHandler>();
+            builder.RegisterEntryPoint<PresenceToastCoordinator>();
+            builder.Register<PresenceToastView>(Lifetime.Transient);
             // EntityBinder가 EntityCreated 때 로컬 유저 actor를 만들어 playerContext.actor에 세팅한다.
             // 게임별 PlayerHudCoordinator(각 게임 스코프가 등록)와 등록 순서가 무관하다 — 이유는 그쪽 주석 참고.
             builder.RegisterEntryPoint<EntityBinder>();

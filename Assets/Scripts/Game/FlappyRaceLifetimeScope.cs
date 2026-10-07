@@ -117,8 +117,8 @@ namespace LOP
             //  대시 흔들림·속도선·꼬리 — 판정과 무관한 클라 전용 연출.
             builder.RegisterEntryPoint<FlappyDashFx>();
 
-            //  빠른 낙하에서 카메라가 아래를 먼저 보여 준다(절벽·샤프트).
-            builder.RegisterEntryPoint<FlappyFallLookDown>();
+            //  낙하 내려다보기(FlappyFallLookDown)는 껐다 — 카메라가 새를 뒤따라 늦게 움직이는 느낌이라
+            //  원조처럼 고정된 구도가 낫다(사용자 결정 2026-10-07). 클래스와 시험은 남겨 둔다.
 
             //  카메라 거리는 20m 고정, 내 대시 중에만 3m 빠진다(사용자 결정 2026-10-07).
             builder.RegisterEntryPoint<FlappyCameraDistance>();

@@ -137,7 +137,7 @@ namespace LOP.UI
                 var placement = new Label(MatchResultViewModel.FormatPlacement(row.Placement, row.IsDraw));
                 placement.AddToClassList("profile-stat-label");
 
-                var name = new Label(row.DisplayName);
+                var name = new Label(row.IsLeft ? $"{row.DisplayName} · 나감" : row.DisplayName);
                 name.AddToClassList("profile-stat-value");
 
                 line.Add(placement);

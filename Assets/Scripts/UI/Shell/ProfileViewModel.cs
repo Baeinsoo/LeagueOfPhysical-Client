@@ -326,7 +326,7 @@ namespace LOP.UI
 
                 rows.Add(new MatchResultRow(participant.placement,
                     isMe ? "나" : ShortName(participant.displayName), isMe, isDraw,
-                    hasScore, score, gained, lost));
+                    hasScore, score, gained, lost, MatchResultViewModel.IsLeft(participant.stats)));
             }
 
             return rows;
@@ -351,6 +351,7 @@ namespace LOP.UI
         public static string MyResultText(MatchHistoryParticipantDto mine, bool isDraw, LOP.MasterData.TbRankDivision divisions)
         {
             string head = isDraw ? "무승부" : $"{mine.placement}등";
+            if (MatchResultViewModel.IsLeft(mine.stats)) head += " · 나감";
             return mine.rank == null ? head : $"{head}  {RankFormat.LpDelta(mine.rank)}";
         }
 

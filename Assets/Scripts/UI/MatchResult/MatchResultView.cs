@@ -80,6 +80,15 @@ namespace LOP.UI
                 line.Add(placement);
                 line.Add(name);
 
+                //  나간 사람은 왜 꼴찌인지 보이게 한다.
+                if (row.IsLeft)
+                {
+                    var left = new Label("나감");
+                    left.AddToClassList("card-text");
+                    left.AddToClassList("match-left-tag");
+                    line.Add(left);
+                }
+
                 //  점수 없는 모드는 이 자리가 아예 안 보여야 한다 — 빈칸도 "0점"도 아니라 없는 것이다.
                 if (row.HasScore)
                 {

@@ -1,3 +1,4 @@
+using R3;
 using UnityEngine.UIElements;
 
 namespace LOP.UI
@@ -13,6 +14,7 @@ namespace LOP.UI
         // LOP.Action(MonoBehaviour 컴포넌트)이 System.Action을 가리므로 풀 한정한다.
         private Button _confirmButton;
         private System.Action _onConfirm;
+        private System.IDisposable _rankSubscription;
 
         public MatchResultView(MatchResultViewModel viewModel)
         {
@@ -37,6 +39,7 @@ namespace LOP.UI
         public override void OnClose()
         {
             if (_confirmButton != null) _confirmButton.clicked -= OnConfirmClicked;
+            _rankSubscription?.Dispose();
             base.OnClose();
         }
 
@@ -90,17 +93,36 @@ namespace LOP.UI
             }
         }
 
+        //  랭크 줄은 로비 조회가 도착해야 생긴다. 빈 동안(캐주얼 포함)은 숨긴다.
         private void BuildRating()
         {
             var rating = Root.Q<VisualElement>("matchresult-rating");
+            var value = Root.Q<Label>("matchresult-rating-value");
 
-            if (!_viewModel.HasRatingChange)
+            _rankSubscription = _viewModel.RankLine.Subscribe(line =>
             {
-                rating.style.display = DisplayStyle.None;
-                return;
+                value.text = line;
+                rating.style.display = string.IsNullOrEmpty(line) ? DisplayStyle.None : DisplayStyle.Flex;
+            });
+        }
+
+        private bool _disposed;
+
+        protected override void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                _disposed = true;
+
+                if (disposing)
+                {
+                    //  VContainer는 Transient를 추적하지 않는다 — WindowManager.Close가 View를 dispose하므로 VM 정리는 여기서
+                    //  (ProfileView와 같은 방식). 닫힌 뒤 도착한 응답이 죽은 화면에 쓰지 않게 조회도 끊는다.
+                    _viewModel.Dispose();
+                }
             }
 
-            Root.Q<Label>("matchresult-rating-value").text = _viewModel.RatingText;
+            base.Dispose(disposing);
         }
 
         private void OnConfirmClicked() => _onConfirm?.Invoke();

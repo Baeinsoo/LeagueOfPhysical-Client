@@ -18,6 +18,9 @@ namespace LOP.UI
         private const string GameModeKey = "LOP.LastPlayed.GameModeId";
         private const string MapKey = "LOP.LastPlayed.MapId";
 
+        /// <summary>마지막으로 매칭한 큐 종류(일반/랭크). 시험이 지우려고 공개한다.</summary>
+        public const string QueueKey = "LOP.LastPlayed.Queue";
+
         /// <summary>저장된 적이 없음을 뜻하는 값. 마스터데이터 id는 1부터라 0과 겹치지 않는다.</summary>
         private const int None = 0;
 
@@ -29,6 +32,21 @@ namespace LOP.UI
             //  즉시 디스크에 쓴다. 안 쓰면 앱이 정상 종료될 때만 저장되는데, 플레이 버튼을 누른
             //  직후는 곧바로 게임 씬으로 넘어가는 지점이라 그 뒤에 무슨 일이 있을지 보장이 없다.
             PlayerPrefs.Save();
+        }
+
+        /// <summary>랭크를 골라 매칭했으면 다음 로비에도 랭크가 골라져 있게.</summary>
+        public void SaveQueue(QueueKind kind)
+        {
+            //  0은 "저장 안 함"이라 종류 + 1로 적는다.
+            PlayerPrefs.SetInt(QueueKey, (int)kind + 1);
+            PlayerPrefs.Save();
+        }
+
+        public bool TryLoadQueue(out QueueKind kind)
+        {
+            int stored = PlayerPrefs.GetInt(QueueKey, None);
+            kind = stored == None ? QueueKind.Casual : (QueueKind)(stored - 1);
+            return stored != None;
         }
 
         /// <summary>저장된 것이 있으면 true. 없으면 out 값은 의미 없다.</summary>

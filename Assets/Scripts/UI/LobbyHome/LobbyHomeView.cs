@@ -20,6 +20,9 @@ namespace LOP.UI
 
         private DropdownField _gamePick;
         private DropdownField _mapPick;
+        private Button _queueCasual;
+        private Button _queueRanked;
+        private Label _rankSummary;
         private readonly CompositeDisposable _subscriptions = new CompositeDisposable();
 
         //  VM 값을 드롭다운에 밀어넣는 동안은 드롭다운의 변경 콜백을 무시한다 — 안 그러면
@@ -44,6 +47,9 @@ namespace LOP.UI
             _profileButton = Root.Q<Button>("nav-profile");
             _gamePick = Root.Q<DropdownField>("game-pick");
             _mapPick = Root.Q<DropdownField>("map-pick");
+            _queueCasual = Root.Q<Button>("queue-casual");
+            _queueRanked = Root.Q<Button>("queue-ranked");
+            _rankSummary = Root.Q<Label>("rank-summary");
 
             _playButton.clicked += OnPlayClicked;
             _shopButton.clicked += OnShopClicked;
@@ -54,6 +60,10 @@ namespace LOP.UI
             //  바깥 버튼까지 올라가 매칭이 시작된다 — 고르려던 사람에게는 오조작이다.
             StopClickFromReachingPlay(_gamePick);
             StopClickFromReachingPlay(_mapPick);
+
+            //  큐 전환 칩도 시작 버튼 안에 있다 — 누른 클릭이 시작까지 올라가면 안 된다.
+            StopButtonClickFromReachingPlay(_queueCasual, () => _matchmaking.SelectQueue(QueueKind.Casual));
+            StopButtonClickFromReachingPlay(_queueRanked, () => _matchmaking.SelectQueue(QueueKind.Ranked));
 
             var gameNames = new List<string>(_matchmaking.Games.Count);
             foreach (var game in _matchmaking.Games)
@@ -73,6 +83,31 @@ namespace LOP.UI
 
             _matchmaking.SelectedGameIndex.Subscribe(OnGameSelected).AddTo(_subscriptions);
             _matchmaking.SelectedMapIndex.Subscribe(OnMapSelected).AddTo(_subscriptions);
+            _matchmaking.SelectedQueue.Subscribe(OnQueueSelected).AddTo(_subscriptions);
+            _matchmaking.RankSummary.Subscribe(text => _rankSummary.text = text).AddTo(_subscriptions);
+        }
+
+        //  랭크면 게임·맵을 숨기고 내 티어를 보인다. 일반이면 반대.
+        private void OnQueueSelected(QueueKind kind)
+        {
+            bool ranked = kind == QueueKind.Ranked;
+            _queueCasual.EnableInClassList("lobbyhome-queue--selected", !ranked);
+            _queueRanked.EnableInClassList("lobbyhome-queue--selected", ranked);
+            _gamePick.style.display = ranked ? DisplayStyle.None : DisplayStyle.Flex;
+            _mapPick.style.display = ranked ? DisplayStyle.None : DisplayStyle.Flex;
+            _rankSummary.style.display = ranked ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        //  버튼은 clicked가 PointerUp 뒤에 오므로, 전파만 끊고 동작은 ClickEvent에서 직접 부른다.
+        private static void StopButtonClickFromReachingPlay(Button button, System.Action onClick)
+        {
+            button.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation());
+            button.RegisterCallback<PointerUpEvent>(evt => evt.StopPropagation());
+            button.RegisterCallback<ClickEvent>(evt =>
+            {
+                evt.StopPropagation();
+                onClick();
+            });
         }
 
         //  게임이 바뀌면 맵 목록 자체가 바뀐다 — 목록을 다시 채운 뒤 지금 맵을 표시한다.

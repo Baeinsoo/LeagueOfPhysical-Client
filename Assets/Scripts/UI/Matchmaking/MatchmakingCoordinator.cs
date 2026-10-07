@@ -40,6 +40,7 @@ namespace LOP.UI
                 if (_waitingView == null)
                 {
                     _waitingView = _windowManager.Open<MatchingWaitingView>();
+                    _waitingView.SetQueueName(_viewModel.CurrentQueueName);
                     _waitingView.SetCancelCallback(_viewModel.Cancel);
                 }
             }

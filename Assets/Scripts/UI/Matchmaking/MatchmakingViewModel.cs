@@ -1,7 +1,9 @@
+using Cysharp.Threading.Tasks;
 using GameFramework;
 using R3;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace LOP.UI
 {
@@ -17,11 +19,25 @@ namespace LOP.UI
         private readonly IMatchmakingDataStore _matchmakingDataStore;
         private readonly IUserLocationService _userLocationService;
         private readonly LastPlayedSelectionStore _lastPlayed;
+        private readonly LOP.MasterData.LOPMasterData _masterData;
+        private readonly IUserDataStore _userDataStore;
+        private readonly CancellationTokenSource _cts = new();
 
         private readonly ReactiveProperty<bool> _isMatching = new(false);
         private readonly Subject<CancellationReason> _matchmakingFailed = new();
         private readonly ReactiveProperty<int> _selectedGameIndex = new(0);
         private readonly ReactiveProperty<int> _selectedMapIndex = new(0);
+        private readonly ReactiveProperty<QueueKind> _selectedQueue = new(QueueKind.Casual);
+        private readonly ReactiveProperty<string> _rankSummary = new(string.Empty);
+
+        /// <summary>일반/랭크. 랭크면 게임·맵 대신 내 티어를 보여 준다(서버가 게임을 고른다).</summary>
+        public ReadOnlyReactiveProperty<QueueKind> SelectedQueue => _selectedQueue;
+
+        /// <summary>랭크 요약("골드 II · 45 LP" / "배치 2/5"). 받기 전엔 빈 문자열.</summary>
+        public ReadOnlyReactiveProperty<string> RankSummary => _rankSummary;
+
+        /// <summary>대기 화면에 보여 줄 큐 이름.</summary>
+        public string CurrentQueueName => QueueChoice.Name(_selectedQueue.Value);
 
         /// <summary>매칭 진행 중 여부. 코디네이터가 구독해 대기 오버레이를 열고/닫는다.</summary>
         public ReadOnlyReactiveProperty<bool> IsMatching => _isMatching;
@@ -46,12 +62,16 @@ namespace LOP.UI
             IMatchmakingDataStore matchmakingDataStore,
             IUserLocationService userLocationService,
             PlayableGameProvider playableGameProvider,
-            LastPlayedSelectionStore lastPlayed)
+            LastPlayedSelectionStore lastPlayed,
+            LOP.MasterData.LOPMasterData masterData,
+            IUserDataStore userDataStore)
         {
             _matchStateMachine = matchStateMachine;
             _matchmakingDataStore = matchmakingDataStore;
             _userLocationService = userLocationService;
             _lastPlayed = lastPlayed;
+            _masterData = masterData;
+            _userDataStore = userDataStore;
 
             Games = playableGameProvider.Games;
 
@@ -64,6 +84,11 @@ namespace LOP.UI
         /// </summary>
         private void RestoreLastPlayed()
         {
+            if (_lastPlayed.TryLoadQueue(out var queue))
+            {
+                _selectedQueue.Value = queue;
+            }
+
             if (_lastPlayed.TryLoad(out int gameModeId, out int mapId) == false)
             {
                 return;
@@ -91,6 +116,42 @@ namespace LOP.UI
                     return;
                 }
                 return;   // 그 게임에 그 맵이 없다 — 조합이 깨졌으므로 통째로 기본값을 쓴다
+            }
+        }
+
+        /// <summary>일반/랭크 전환 커맨드. 랭크로 오면 내 랭크를 다시 받아온다(판을 하고 와서 바뀌었을 수 있다).</summary>
+        public void SelectQueue(QueueKind kind)
+        {
+            _selectedQueue.Value = kind;
+            if (kind == QueueKind.Ranked)
+            {
+                RefreshRankAsync().Forget();
+            }
+        }
+
+        private async UniTaskVoid RefreshRankAsync()
+        {
+            string userId = _userDataStore.user?.id;
+            if (string.IsNullOrEmpty(userId)) return;
+
+            try
+            {
+                var response = await WebAPI.GetRank(userId, _cts.Token);
+                if (_cts.IsCancellationRequested) return;
+                _rankSummary.Value = response?.rank == null
+                    ? "랭크 정보를 불러오지 못했습니다"
+                    : RankFormat.Summary(response.rank, _masterData.Tables.TbRankDivision);
+            }
+            catch (OperationCanceledException)
+            {
+                //  로비를 떠났다 — 쓸 곳이 없다.
+            }
+            catch (Exception e)
+            {
+                //  요약을 못 받아도 랭크 매칭은 된다 — 안내만 바꾼다.
+                UnityEngine.Debug.LogError($"Failed to load rank. Error: {e.Message}");
+                if (_cts.IsCancellationRequested) return;
+                _rankSummary.Value = "랭크 정보를 불러오지 못했습니다";
             }
         }
 
@@ -139,6 +200,12 @@ namespace LOP.UI
         {
             _matchStateMachine.onStateChange += OnStateChange;
             _matchStateMachine.Start();
+
+            //  지난번에 랭크를 골랐으면 들어오자마자 요약을 채운다.
+            if (_selectedQueue.Value == QueueKind.Ranked)
+            {
+                RefreshRankAsync().Forget();
+            }
         }
 
         /// <summary>Play 버튼 커맨드. 매칭 파라미터 세팅 후 FSM에 PlayClicked 발행.</summary>
@@ -154,13 +221,19 @@ namespace LOP.UI
                 return;
             }
 
-            _matchmakingDataStore.queueId = 1;      // TbQueue: Casual
-            _matchmakingDataStore.gameModeId = CurrentGame().GameModeId;
-            _matchmakingDataStore.mapId = CurrentMap().MapId;
+            var (queueId, gameModeId, mapId) = QueueChoice.Request(
+                _selectedQueue.Value, CurrentGame().GameModeId, CurrentMap().MapId, _masterData.Tables.TbQueue);
+            _matchmakingDataStore.queueId = queueId;
+            _matchmakingDataStore.gameModeId = gameModeId;
+            _matchmakingDataStore.mapId = mapId;
 
             //  고른 순간이 아니라 실제로 플레이한 것만 기억한다 — 드롭다운을 뒤적이다 만 것까지
-            //  남으면 "마지막에 한 게임"이 아니게 된다.
-            _lastPlayed.Save(_matchmakingDataStore.gameModeId, _matchmakingDataStore.mapId);
+            //  남으면 "마지막에 한 게임"이 아니게 된다. 랭크는 게임·맵을 안 골랐으니 그 기억은 그대로 둔다.
+            _lastPlayed.SaveQueue(_selectedQueue.Value);
+            if (_selectedQueue.Value == QueueKind.Casual)
+            {
+                _lastPlayed.Save(gameModeId, mapId);
+            }
 
             _matchStateMachine.Fire(MatchEvent.PlayClicked);
         }
@@ -194,6 +267,10 @@ namespace LOP.UI
         {
             _matchStateMachine.onStateChange -= OnStateChange;
             _matchStateMachine.Stop();
+            _cts.Cancel();
+            _cts.Dispose();
+            _selectedQueue.Dispose();
+            _rankSummary.Dispose();
             _isMatching.Dispose();
             _matchmakingFailed.Dispose();
             _selectedGameIndex.Dispose();

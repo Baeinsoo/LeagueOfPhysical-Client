@@ -6,8 +6,14 @@
             <ui:Button name="play-button" class="btn btn--primary lobbyhome-play">
                 <ui:Label name="play-label" text="PLAY" class="lobbyhome-play__text" />
                 <ui:VisualElement name="play-picks" class="lobbyhome-picks">
+                    <!-- 일반/랭크. 랭크면 아래 두 드롭다운 대신 내 티어를 보여 준다(게임은 서버가 고른다). -->
+                    <ui:VisualElement name="queue-picks" class="lobbyhome-queues">
+                        <ui:Button name="queue-casual" text="일반" class="lobbyhome-queue" />
+                        <ui:Button name="queue-ranked" text="랭크" class="lobbyhome-queue" />
+                    </ui:VisualElement>
                     <ui:DropdownField name="game-pick" class="lobbyhome-pick" />
                     <ui:DropdownField name="map-pick" class="lobbyhome-pick" />
+                    <ui:Label name="rank-summary" class="lobbyhome-rank" />
                 </ui:VisualElement>
             </ui:Button>
         </ui:VisualElement>

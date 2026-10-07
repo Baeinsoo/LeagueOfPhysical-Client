@@ -2,7 +2,8 @@
     <ui:VisualElement name="matching-root" class="scrim matching-root">
         <ui:VisualElement name="matching-card" class="card matching-card">
             <ui:Label text="MATCHING" class="title matching-title" />
-            <ui:Label text="Waiting for players..." class="card-text matching-message" />
+            <ui:Label name="matching-queue" class="card-text matching-message" />
+            <ui:Label name="matching-elapsed" text="0:00" class="card-text matching-message" />
             <ui:Button name="cancel-button" text="Cancel" class="btn btn--secondary matching-cancel" />
         </ui:VisualElement>
     </ui:VisualElement>

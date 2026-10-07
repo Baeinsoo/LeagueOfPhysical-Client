@@ -1,4 +1,8 @@
+using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using R3;
 
 namespace LOP.UI
 {
@@ -40,33 +44,89 @@ namespace LOP.UI
     }
 
     /// <summary>
-    /// 결과 화면 ViewModel. 스토어에 남은 직전 매치 결과를 표시용 줄 목록과 점수 문자열로 바꾼다.
-    /// 화면이 열릴 때 한 번 읽고 끝나는 값이라 R3 스트림을 두지 않는다(라이브로 바뀌는 상태가 없다).
+    /// 결과 화면 ViewModel. 스토어에 남은 직전 매치 결과를 표시용 줄 목록으로 바꾸고, 랭크 판이면
+    /// 로비에 그 매치의 내 결과를 물어 티어·LP 줄을 만든다(게임 서버 메시지엔 랭크가 없다).
+    /// 캐주얼은 숨은 점수를 보여 주지 않는다 — 롤 일반 게임처럼 숫자가 어디에도 안 나온다.
+    /// 등수는 열릴 때 한 번 정해지고, 랭크 줄만 도착이 늦어 R3로 노출한다.
     /// </summary>
-    public class MatchResultViewModel
+    public class MatchResultViewModel : IDisposable
     {
         private const string MyName = "나";
 
-        public IReadOnlyList<MatchResultRow> Rows { get; }
-        public bool HasRatingChange { get; }
+        private readonly ReactiveProperty<string> _rankLine = new(string.Empty);
+        private readonly CancellationTokenSource _cts = new();
 
-        /// <summary>"1138 (+138)" 형태. 변화가 없으면 빈 문자열.</summary>
-        public string RatingText { get; }
+        public IReadOnlyList<MatchResultRow> Rows { get; }
 
         /// <summary>1등이 여럿이면 아무도 이긴 게 아니다 — 화면이 등수 대신 그렇게 말해야 한다.</summary>
         public bool IsDraw { get; }
 
-        public MatchResultViewModel(IMatchResultDataStore matchResultDataStore, IUserDataStore userDataStore)
+        /// <summary>랭크 판의 "골드 II 45 → 63 LP (+18)". 캐주얼이거나 아직·못 받았으면 빈 문자열(줄을 숨긴다).</summary>
+        public ReadOnlyReactiveProperty<string> RankLine => _rankLine;
+
+        [VContainer.Inject]
+        public MatchResultViewModel(IMatchResultDataStore matchResultDataStore, IUserDataStore userDataStore, LOP.MasterData.LOPMasterData masterData)
+            : this(matchResultDataStore, userDataStore, masterData.Tables.TbQueue, masterData.Tables.TbRankDivision, WebAPI.GetMyMatch)
+        {
+        }
+
+        /// <param name="fetchMatch">(userId, matchId, ct) → 그 매치의 내 결과. 시험이 가짜를 꽂는다.</param>
+        public MatchResultViewModel(IMatchResultDataStore matchResultDataStore, IUserDataStore userDataStore,
+            LOP.MasterData.TbQueue queues, LOP.MasterData.TbRankDivision divisions,
+            Func<string, string, CancellationToken, UniTask<GetMyMatchResponse>> fetchMatch)
         {
             var result = matchResultDataStore.result;
+            string myUserId = userDataStore.user?.id;
 
-            Rows = BuildRows(result?.participants, userDataStore.user?.id);
+            Rows = BuildRows(result?.participants, myUserId);
             IsDraw = Rows.Count > 0 && Rows[0].IsDraw;
 
-            HasRatingChange = result?.hasRatingChange ?? false;
-            RatingText = HasRatingChange
-                ? $"{result.myMmrAfter} ({FormatDelta(result.myMmrBefore, result.myMmrAfter)})"
-                : string.Empty;
+            LoadRankAsync(result?.matchId, myUserId, queues, divisions, fetchMatch).Forget();
+        }
+
+        private async UniTaskVoid LoadRankAsync(string matchId, string myUserId,
+            LOP.MasterData.TbQueue queues, LOP.MasterData.TbRankDivision divisions,
+            Func<string, string, CancellationToken, UniTask<GetMyMatchResponse>> fetchMatch)
+        {
+            if (string.IsNullOrEmpty(matchId) || string.IsNullOrEmpty(myUserId)) return;
+
+            try
+            {
+                var response = await fetchMatch(myUserId, matchId, _cts.Token);
+                if (_cts.IsCancellationRequested || response?.match == null) return;
+
+                //  랭크 큐가 아니면 줄이 없다 — 캐주얼 점수는 숨긴다.
+                if (queues.GetOrDefault(response.match.queueId)?.HasVisibleRank != true) return;
+
+                foreach (var p in response.match.participants ?? Array.Empty<MatchHistoryParticipantDto>())
+                {
+                    if (p.userId == myUserId && p.rank != null)
+                    {
+                        _rankLine.Value = RankFormat.ResultLine(p.rank, divisions);
+                        return;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                //  화면이 먼저 닫혔다 — 쓸 곳이 없다.
+            }
+            catch (Exception e)
+            {
+                //  못 받으면 줄을 숨긴 채 둔다. 등수표는 이미 떠 있다.
+                UnityEngine.Debug.LogWarning($"Failed to load ranked result. matchId: {matchId}, error: {e.Message}");
+            }
+        }
+
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _cts.Cancel();
+            _cts.Dispose();
+            _rankLine.Dispose();
         }
 
         /// <summary>

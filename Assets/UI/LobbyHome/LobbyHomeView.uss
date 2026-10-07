@@ -98,3 +98,43 @@
     margin-left: 20px;
     margin-right: 20px;
 }
+
+/* 일반/랭크 전환 — 드롭다운 필과 같은 흰 바탕, 고른 쪽만 채운다 */
+.lobbyhome-queues {
+    flex-direction: row;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.lobbyhome-queue {
+    flex-grow: 1;
+    height: 64px;
+    margin-left: 0;
+    margin-right: 8px;
+    font-size: 30px;
+    color: var(--lop-text);
+    background-color: rgba(255, 255, 255, 0.6);
+    border-color: rgba(255, 255, 255, 0.95);
+    border-width: var(--lop-border-xs);
+    border-radius: 32px;
+    -unity-text-outline-width: 0;
+}
+
+.lobbyhome-queue--selected {
+    color: var(--lop-text-on-fill);
+    background-color: var(--lop-primary-shade);
+}
+
+/* 랭크일 때 드롭다운 두 줄 자리에 들어가는 내 티어 — 필과 같은 크기 */
+.lobbyhome-rank {
+    min-width: 420px;
+    height: 84px;
+    margin-top: 8px;
+    padding-left: 30px;
+    font-size: 34px;
+    color: var(--lop-text);
+    background-color: rgba(255, 255, 255, 0.88);
+    border-radius: 42px;
+    -unity-text-align: middle-left;
+    -unity-text-outline-width: 0;
+}

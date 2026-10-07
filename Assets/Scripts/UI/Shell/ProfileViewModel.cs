@@ -7,24 +7,35 @@ using UnityEngine;
 
 namespace LOP.UI
 {
-    /// <summary>프로필에 보여줄 큐 하나의 전적. 기록이 없으면 HasRecord가 false다.</summary>
+    /// <summary>
+    /// 프로필에 보여줄 큐 하나의 전적. 기록이 없으면 HasRecord가 false다.
+    /// 숨은 점수는 싣지 않는다 — 캐주얼은 점수를 안 보이고(롤 일반 게임처럼), 랭크는 티어·LP로 보인다.
+    /// </summary>
     public readonly struct ProfileQueueStats
     {
         public readonly string QueueName;
         public readonly bool HasRecord;
-        public readonly int Mmr;
         public readonly int GamesPlayed;
         public readonly int FirstPlaces;
         public readonly string AveragePlacement;
+        /// <summary>랭크 칸만 — "골드 II · 45 LP" / "배치 2/5". 그 밖엔 빈 문자열.</summary>
+        public readonly string RankLine;
+        /// <summary>랭크 칸만 — "이번 시즌 최고: 골드 I". 배치 중이거나 없으면 빈 문자열.</summary>
+        public readonly string PeakLine;
+        /// <summary>티어 색 USS 클래스. 없으면 빈 문자열.</summary>
+        public readonly string TierClass;
 
-        public ProfileQueueStats(string queueName, bool hasRecord, int mmr, int gamesPlayed, int firstPlaces, string averagePlacement)
+        public ProfileQueueStats(string queueName, bool hasRecord, int gamesPlayed, int firstPlaces, string averagePlacement,
+            string rankLine = "", string peakLine = "", string tierClass = "")
         {
             QueueName = queueName;
             HasRecord = hasRecord;
-            Mmr = mmr;
             GamesPlayed = gamesPlayed;
             FirstPlaces = firstPlaces;
             AveragePlacement = averagePlacement;
+            RankLine = rankLine;
+            PeakLine = peakLine;
+            TierClass = tierClass;
         }
     }
 
@@ -177,8 +188,26 @@ namespace LOP.UI
 
             if (_cts.IsCancellationRequested) return;
 
+            //  랭크 칸 — 못 받아도 나머지는 보여 준다(랭크 칸만 안내).
+            RankDto rank = null;
+            bool rankFailed = false;
+            try
+            {
+                rank = (await WebAPI.GetRank(userId, _cts.Token))?.rank;
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to load rank. Error: {e.Message}");
+                rankFailed = true;
+            }
+            if (_cts.IsCancellationRequested) return;
+
             _status.Value = string.Empty;
-            _stats.Value = Build(_userDataStore.userRatingByQueueId);
+            _stats.Value = Build(_userDataStore.userRatingByQueueId, rank, rankFailed, _masterData.Tables.TbRankDivision);
 
             //  전적은 요약보다 늦게 와도 된다. 실패해도 위 요약은 이미 떠 있으므로 화면 전체를
             //  실패로 되돌리지 않는다 — 목록만 비워 둔다.
@@ -217,9 +246,7 @@ namespace LOP.UI
                     GameModeName(match.rounds),
                     Subtitle(match.queueId, match.rounds),
                     FormatEndedAt(match.endedAt),
-                    mine == null
-                        ? string.Empty
-                        : $"{(isDraw ? "무승부" : $"{mine.placement}등")}  {MatchResultViewModel.FormatDelta(mine.mmrBefore, mine.mmrAfter)}",
+                    mine == null ? string.Empty : MyResultText(mine, isDraw, _masterData.Tables.TbRankDivision),
                     mine != null,
                     rows));
             }
@@ -324,12 +351,37 @@ namespace LOP.UI
                 : displayName.Substring(0, IdentityMaxLength);
         }
 
-        private static IReadOnlyList<ProfileQueueStats> Build(IReadOnlyDictionary<int, UserRating> ratingByQueueId)
+        /// <summary>전적 카드의 내 결과. 캐주얼 "2등", 랭크 "2등  +18 LP", 무승부 "무승부"(숨은 점수는 안 보인다).</summary>
+        public static string MyResultText(MatchHistoryParticipantDto mine, bool isDraw, LOP.MasterData.TbRankDivision divisions)
+        {
+            string head = isDraw ? "무승부" : $"{mine.placement}등";
+            return mine.rank == null ? head : $"{head}  {RankFormat.LpDelta(mine.rank)}";
+        }
+
+        public static string RankLineOf(RankDto rank, LOP.MasterData.TbRankDivision divisions) => RankFormat.Summary(rank, divisions);
+
+        /// <summary>배치가 끝난 뒤에만 말한다 — 배치 중의 임시 티어는 "최고"라고 하기 이르다.</summary>
+        public static string PeakLineOf(RankDto rank, LOP.MasterData.TbRankDivision divisions) =>
+            rank.peakDivisionIndex >= 0 && rank.placementPlayed >= rank.placementGames
+                ? $"이번 시즌 최고: {RankFormat.DivisionName(rank.peakDivisionIndex, divisions)}"
+                : string.Empty;
+
+        private static IReadOnlyList<ProfileQueueStats> Build(IReadOnlyDictionary<int, UserRating> ratingByQueueId,
+            RankDto rank, bool rankFailed, LOP.MasterData.TbRankDivision divisions)
         {
             var stats = new List<ProfileQueueStats>(Queues.Length);
 
             foreach (var queue in Queues)
             {
+                bool ranked = queue.id == 2;
+                string rankLine = !ranked ? string.Empty
+                    : rankFailed ? "랭크 정보를 불러오지 못했습니다"
+                    : rank == null || rank.placementPlayed == 0 ? string.Empty
+                    : RankLineOf(rank, divisions);
+                string peakLine = ranked && rank != null ? PeakLineOf(rank, divisions) : string.Empty;
+                string tierClass = ranked && rank != null && rank.placementPlayed >= rank.placementGames
+                    ? RankFormat.TierClass(rank.divisionIndex, divisions) : string.Empty;
+
                 if (ratingByQueueId.TryGetValue(queue.id, out var rating) && rating.gamesPlayed > 0)
                 {
                     //  평균 등수는 판수로 나눈다 — 판수 0이면 0으로 나누므로 위 가드가 필수다.
@@ -338,11 +390,11 @@ namespace LOP.UI
                         .ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
 
                     stats.Add(new ProfileQueueStats(
-                        queue.name, true, rating.mmr, rating.gamesPlayed, rating.firstPlaces, average));
+                        queue.name, true, rating.gamesPlayed, rating.firstPlaces, average, rankLine, peakLine, tierClass));
                 }
                 else
                 {
-                    stats.Add(new ProfileQueueStats(queue.name, false, 0, 0, 0, null));
+                    stats.Add(new ProfileQueueStats(queue.name, rankLine.Length > 0, 0, 0, null, rankLine, peakLine, tierClass));
                 }
             }
 

@@ -207,3 +207,19 @@
     color: var(--lop-text);
     -unity-text-align: middle-center;
 }
+
+/* 랭크 티어 색 — 티어 그림이 생기기 전까지 이름에 색만 입힌다(RankFormat.TierClass). */
+.profile-rank {
+    font-size: 40px;
+    margin-bottom: 6px;
+    -unity-text-outline-width: 0;
+}
+
+.rank-tier--iron { color: #7a6a62; }
+.rank-tier--bronze { color: #b0703a; }
+.rank-tier--silver { color: #8a949e; }
+.rank-tier--gold { color: #d9a520; }
+.rank-tier--platinum { color: #3fb8a8; }
+.rank-tier--emerald { color: #2fae5f; }
+.rank-tier--diamond { color: #5b8dee; }
+.rank-tier--master { color: #b25ad6; }

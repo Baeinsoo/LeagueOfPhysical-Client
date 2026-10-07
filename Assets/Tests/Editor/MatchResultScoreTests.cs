@@ -34,7 +34,9 @@ namespace LOP.Tests
                 result = new MatchResult { participants = participants },
             };
             var userDataStore = new FakeUserDataStore { user = new User { id = myUserId } };
-            return new MatchResultViewModel(matchResultDataStore, userDataStore);
+            //  랭크 줄은 이 시험의 관심사가 아니다 — 매치 조회는 비어 있게 돌려준다.
+            return new MatchResultViewModel(matchResultDataStore, userDataStore, TestRankTables.Queues, TestRankTables.Divisions,
+                (u, m, ct) => Cysharp.Threading.Tasks.UniTask.FromResult(new GetMyMatchResponse()));
         }
 
         // ── ExtractScore: 빈 자루 ≠ 0점 ─────────────────────────────────────

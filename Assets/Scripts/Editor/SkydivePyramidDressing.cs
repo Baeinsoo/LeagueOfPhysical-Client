@@ -352,7 +352,7 @@ namespace LOP.EditorTools
         }
 
         //  메시 에셋 덮어쓰기 — 지우고 새로 만들면 GUID가 바뀌어 씬 참조·원격 에셋이 깨진다.
-        private static Mesh SaveMesh(Mesh mesh, string name)
+        internal static Mesh SaveMesh(Mesh mesh, string name)
         {
             Directory.CreateDirectory(MeshDir);
             string path = $"{MeshDir}/{name}.asset";
@@ -376,7 +376,7 @@ namespace LOP.EditorTools
             return existing;
         }
 
-        private static Material Toon(string name, string hex, float topGrid = 0f, float sideGrid = 0f)
+        internal static Material Toon(string name, string hex, float topGrid = 0f, float sideGrid = 0f)
         {
             Directory.CreateDirectory(MaterialDir);
             string path = $"{MaterialDir}/Pyramid{name}.mat";

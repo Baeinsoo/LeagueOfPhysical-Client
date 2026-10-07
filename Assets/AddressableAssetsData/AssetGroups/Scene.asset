@@ -20,6 +20,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 61b576937eca86948a845d807a6a2400
+    m_Address: Assets/Art/Scenes/SkydiveCylinderMap.unity
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a0b90f9e61ce545baaa467db2f7fa010
     m_Address: Assets/Art/Scenes/FlappyRaceMap.unity
     m_ReadOnly: 0

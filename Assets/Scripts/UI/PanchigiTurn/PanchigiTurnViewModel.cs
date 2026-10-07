@@ -17,11 +17,13 @@ namespace LOP.UI
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly LOP.MasterData.LOPMasterData masterData;
         private readonly PanchigiStrikeInput strikeInput;
+        private readonly PlayerPresenceStore presence;
 
         public PanchigiTurnViewModel(PanchigiStateStore store, IGameDataStore gameDataStore, IRunner runner,
             GameFramework.World.EntityRegistry entityRegistry, LOP.MasterData.LOPMasterData masterData,
-            PanchigiStrikeInput strikeInput)
+            PanchigiStrikeInput strikeInput, PlayerPresenceStore presence)
         {
+            this.presence = presence;
             this.store = store;
             this.gameDataStore = gameDataStore;
             this.runner = runner;
@@ -45,7 +47,8 @@ namespace LOP.UI
 
             if (store.CurrentEntityId.CurrentValue != me)
             {
-                return "다른 사람 차례";
+                //  끊긴 사람 차례는 서버가 곧 넘긴다 — 멈춘 게 아니라는 걸 알린다.
+                return presence.IsAway(store.CurrentEntityId.CurrentValue) ? "연결 끊김 — 차례를 넘깁니다" : "다른 사람 차례";
             }
 
             var at = PanchigiBowlingScore.Locate(store.Rolls(me), FrameCount, Pins);
@@ -75,7 +78,7 @@ namespace LOP.UI
                 IReadOnlyList<PanchigiRoll> rolls = store.Rolls(ids[i]);
                 rows.Add(new ScoreRow
                 {
-                    Name = ids[i] == gameDataStore.userEntityId ? "나" : "상대",
+                    Name = RowName(ids[i] == gameDataStore.userEntityId, presence.IsAway(ids[i])),
                     Color = PanchigiPlayerColors.For(i),
                     Current = ids[i] == store.BoardOwnerEntityId,
                     Frames = PanchigiBowlingScore.Frames(rolls, FrameCount, Pins),
@@ -84,6 +87,9 @@ namespace LOP.UI
             }
             return rows;
         }
+
+        /// <summary>점수판 한 줄의 이름. 판 도중 끊긴 상대는 그렇다고 적는다(돌아오면 지워진다).</summary>
+        public static string RowName(bool isMe, bool away) => isMe ? "나" : away ? "상대 (연결 끊김)" : "상대";
 
         /// <summary>게이지를 띄울 때인가 — 내 조준 차례일 때만.</summary>
         public bool IsCharging() => store.IsAimingTurnOf(gameDataStore.userEntityId);

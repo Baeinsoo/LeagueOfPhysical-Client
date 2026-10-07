@@ -19,6 +19,9 @@ namespace LOP.UI
         private readonly System.Collections.Generic.List<(string id, bool eliminated)> roster =
             new System.Collections.Generic.List<(string, bool)>();
         private readonly System.Collections.Generic.List<string> newLines = new System.Collections.Generic.List<string>();
+        //  판 도중 끊김·재접속 — 토스트 대신 자막 줄에 세운다(다음 Refresh에서).
+        private readonly System.Collections.Generic.List<PresenceChange> presenceChanges = new System.Collections.Generic.List<PresenceChange>();
+        private readonly System.IDisposable presenceSubscription;
         private readonly R3.ReactiveProperty<(int full, int empty, string note)> lives = new R3.ReactiveProperty<(int, int, string)>((0, 0, ""));
         private readonly R3.ReactiveProperty<string> stageText = new R3.ReactiveProperty<string>("");
         private readonly R3.ReactiveProperty<float> stageProgress = new R3.ReactiveProperty<float>(0f);
@@ -32,8 +35,10 @@ namespace LOP.UI
         public DodgePadViewModel(PlayerInputManager input, CameraController cameraController,
                                  DodgeClientState state, IGameDataStore gameDataStore,
                                  GameFramework.Runner.IRunner runner, GameFramework.World.IWorld world,
-                                 DodgeConfig config, DodgeStageTable stages, DodgeCaptionDirector captionDirector)
+                                 DodgeConfig config, DodgeStageTable stages, DodgeCaptionDirector captionDirector,
+                                 PlayerPresenceStore presence)
         {
+            presenceSubscription = R3.ObservableSubscribeExtensions.Subscribe(presence.Changes, presenceChanges.Add);
             this.input = input;
             this.cameraController = cameraController;
             this.state = state;
@@ -83,6 +88,8 @@ namespace LOP.UI
             newLines.Clear();
             captionDirector.Observe(at, roster, gameDataStore.userEntityId, newLines);
             foreach (var line in newLines) captionQueue.Push(line);
+            foreach (var change in presenceChanges) captionQueue.Push(DodgeCaptions.PresenceLine(state.PlayerIds, change));
+            presenceChanges.Clear();
             captionText.Value = captionQueue.Tick(tick / (double)DodgeConfig.TicksPerSecond);
         }
 
@@ -115,6 +122,7 @@ namespace LOP.UI
 
         public void Dispose()
         {
+            presenceSubscription.Dispose();
             lives.Dispose();
             stageText.Dispose();
             stageProgress.Dispose();

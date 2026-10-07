@@ -20,6 +20,9 @@ namespace LOP
         // 이 모드는 목숨이다 — 100000 체력 바는 헷갈린다.
         protected override bool ShowHealthBars => false;
 
+        // 끊김·재접속은 중계 자막이 전한다 — 토스트까지 띄우면 두 번 말한다.
+        protected override bool AnnouncePresenceWithToast => false;
+
         protected override void ConfigureGame(IContainerBuilder builder)
         {
             builder.RegisterComponent(cameraController);

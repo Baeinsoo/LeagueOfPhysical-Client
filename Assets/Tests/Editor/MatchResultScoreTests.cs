@@ -41,6 +41,20 @@ namespace LOP.Tests
 
         // ── ExtractScore: 빈 자루 ≠ 0점 ─────────────────────────────────────
 
+        // ── 나감 표시: 판 도중 나가 끝까지 안 돌아온 사람은 서버가 자루에 left=1을 싣는다 ──
+        [Test]
+        public void 나간_사람_줄은_나감으로_표시된다()
+        {
+            var vm = ViewModel(new[]
+            {
+                new MatchParticipantResult { userId = "me", placement = 1, stats = new Dictionary<string, int>() },
+                new MatchParticipantResult { userId = "you", placement = 2, stats = new Dictionary<string, int> { [MatchStatKeys.Left] = 1 } },
+            }, "me");
+            Assert.IsFalse(vm.Rows[0].IsLeft);
+            Assert.IsTrue(vm.Rows[1].IsLeft);
+            Assert.IsFalse(vm.Rows[1].HasScore, "나감 표시는 점수가 아니다");
+        }
+
         [Test]
         public void 자루가_null이면_점수가_없다()
         {

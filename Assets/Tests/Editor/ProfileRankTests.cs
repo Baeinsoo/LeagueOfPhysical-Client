@@ -27,6 +27,13 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 나간_판은_나감()
+        {
+            var mine = new MatchHistoryParticipantDto { placement = 2, stats = new System.Collections.Generic.Dictionary<string, int> { [MatchStatKeys.Left] = 1 } };
+            Assert.AreEqual("2등 · 나감", ProfileViewModel.MyResultText(mine, false, D));
+        }
+
+        [Test]
         public void 무승부()
         {
             Assert.AreEqual("무승부", ProfileViewModel.MyResultText(new MatchHistoryParticipantDto { placement = 1 }, true, D));

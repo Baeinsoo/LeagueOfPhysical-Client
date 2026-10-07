@@ -223,3 +223,9 @@
 .rank-tier--emerald { color: #2fae5f; }
 .rank-tier--diamond { color: #5b8dee; }
 .rank-tier--master { color: #b25ad6; }
+
+/* 판 도중 나가 끝까지 안 돌아온 사람 — 결과 화면 줄 끝의 "나감" */
+.match-left-tag {
+    color: #b0503a;
+    margin-left: 12px;
+}

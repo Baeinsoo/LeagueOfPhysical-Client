@@ -24,14 +24,18 @@ namespace LOP.UI
         public readonly int Gained;
         public readonly int Lost;
 
+        //  판 도중 나가 끝까지 안 돌아왔다 — 그래서 꼴찌다. 화면이 "나감"이라고 알린다(서버가 자루에 싣는 사실).
+        public readonly bool IsLeft;
+
         public MatchResultRow(int placement, string displayName, bool isMe, bool isDraw = false)
             : this(placement, displayName, isMe, isDraw, hasScore: false, score: 0, gained: 0, lost: 0)
         {
         }
 
         public MatchResultRow(int placement, string displayName, bool isMe, bool isDraw,
-            bool hasScore, int score, int gained, int lost)
+            bool hasScore, int score, int gained, int lost, bool isLeft = false)
         {
+            IsLeft = isLeft;
             Placement = placement;
             DisplayName = displayName;
             IsMe = isMe;
@@ -129,6 +133,10 @@ namespace LOP.UI
             _rankLine.Dispose();
         }
 
+        /// <summary>서버가 자루에 "나감" 표시를 실었나.</summary>
+        public static bool IsLeft(System.Collections.Generic.IReadOnlyDictionary<string, int> stats) =>
+            stats != null && stats.TryGetValue(MatchStatKeys.Left, out int left) && left != 0;
+
         /// <summary>
         /// 등수 오름차순으로 정렬해 줄을 만든다. 본인은 "나", 나머지는 정렬 순서대로 "플레이어 1·2…".
         /// 닉네임 개념이 아직 없어 userId를 그대로 띄우지 않기 위한 표기다.
@@ -166,7 +174,7 @@ namespace LOP.UI
                 var (hasScore, score, gained, lost) = ExtractScore(participant.stats);
 
                 rows.Add(new MatchResultRow(participant.placement, displayName, isMe, isDraw,
-                    hasScore, score, gained, lost));
+                    hasScore, score, gained, lost, IsLeft(participant.stats)));
             }
 
             return rows;

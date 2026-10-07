@@ -19,6 +19,10 @@ namespace LOP.Tests
         public void 두_번_불러도_재질_수가_늘지_않고_값만_갱신된다()
         {
             var look = ScriptableObject.CreateInstance<FlappyMineLook>();
+            //  Plank.mat은 피스처가 아니라 커밋된 실물 에셋이다 — 이 테스트가 값을 바꿔 보려고 건드리므로,
+            //  무슨 일이 있어도(단언 실패 포함) 원래 값으로 되돌린다. "원래 값"은 이 look의 기본 필드값 —
+            //  grainStrength 기본 1에서 Grain()은 색을 그대로 돌려주므로 재질에 구워진 값과 같다.
+            Color originalPlank = look.plankColor;
             try
             {
                 FlappyMineMaterials.Ensure(look);
@@ -35,6 +39,8 @@ namespace LOP.Tests
             }
             finally
             {
+                look.plankColor = originalPlank;
+                FlappyMineMaterials.Ensure(look);   // Plank.mat을 실물 기본값으로 되돌린다
                 Object.DestroyImmediate(look);
             }
         }

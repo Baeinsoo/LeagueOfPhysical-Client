@@ -96,7 +96,7 @@ namespace LOP.EditorTools
             //  하늘 — 굴 안은 단색(굴 배경과 같은 값), 바깥은 그러데이션 텍스처.
             UnlitOpaque("Sky_Cave", look.hazeCaveColor);
             var sky = UnlitOpaque("Sky_Sunset", Color.white);
-            sky.SetTexture("_BaseMap", EnsureSunsetGradient(look));
+            if (sky != null) { sky.SetTexture("_BaseMap", EnsureSunsetGradient(look)); }
 
             RemapModelMaterials(slots);
 
@@ -109,6 +109,7 @@ namespace LOP.EditorTools
         private static Material Toon(string name, Color baseColor, Texture2D baseMap, Color shadowColor)
         {
             var m = LoadOrCreate(name, "LOP/Toon");
+            if (m == null) { return null; }   // LoadOrCreate가 이미 에러를 찍었다 — 이 재질만 건너뛴다
             m.SetColor("_BaseColor", baseColor);
             m.SetTexture("_BaseMap", baseMap);
             m.SetColor("_ShadowColor", shadowColor);
@@ -122,6 +123,7 @@ namespace LOP.EditorTools
         private static Material UnlitOpaque(string name, Color color)
         {
             var m = LoadOrCreate(name, "Universal Render Pipeline/Unlit");
+            if (m == null) { return null; }   // LoadOrCreate가 이미 에러를 찍었다 — 이 재질만 건너뛴다
             m.SetColor("_BaseColor", color);
             m.enableInstancing = true;
             EditorUtility.SetDirty(m);
@@ -131,6 +133,7 @@ namespace LOP.EditorTools
         private static Material UnlitTransparent(string name, Color colorWithAlpha)
         {
             var m = UnlitOpaque(name, colorWithAlpha);
+            if (m == null) { return null; }
             SetTransparent(m, additive: false);
             return m;
         }
@@ -138,6 +141,7 @@ namespace LOP.EditorTools
         private static Material UnlitAdditive(string name, Color colorWithAlpha)
         {
             var m = UnlitOpaque(name, colorWithAlpha);
+            if (m == null) { return null; }
             SetTransparent(m, additive: true);
             return m;
         }
@@ -229,7 +233,7 @@ namespace LOP.EditorTools
                 bool changed = false;
                 foreach (Material embedded in AssetDatabase.LoadAllAssetsAtPath(fbxPath).OfType<Material>())
                 {
-                    if (slots.TryGetValue(embedded.name, out Material target) == false) { continue; }
+                    if (slots.TryGetValue(embedded.name, out Material target) == false || target == null) { continue; }
                     var id = new AssetImporter.SourceAssetIdentifier(typeof(Material), embedded.name);
                     if (current.TryGetValue(id, out Object already) && already == target) { continue; }
                     importer.AddRemap(id, target);

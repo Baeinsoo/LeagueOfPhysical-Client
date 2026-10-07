@@ -105,6 +105,15 @@ namespace LOP
         public static UniTask<GetMatchHistoryResponse> GetMatchHistory(string userId, int limit, CancellationToken cancellationToken = default)
             => authorized.SendAsync<GetMatchHistoryResponse>(
                 HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/matches?limit={limit}"), cancellationToken);
+
+        //  발행하지 않는다 — 받는 스토어가 없다(GetMatchHistory와 같은 이유: 브로커 없는 타입을 발행하면 던진다).
+        public static UniTask<GetRankResponse> GetRank(string userId, CancellationToken cancellationToken = default)
+            => authorized.SendAsync<GetRankResponse>(
+                HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/rank"), cancellationToken);
+
+        public static UniTask<GetMyMatchResponse> GetMyMatch(string userId, string matchId, CancellationToken cancellationToken = default)
+            => authorized.SendAsync<GetMyMatchResponse>(
+                HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/matches/{matchId}"), cancellationToken);
         #endregion
 
         #region Room

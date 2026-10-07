@@ -40,8 +40,9 @@ namespace LOP
             worldEntity.Add(new Appearance(creationData.visualId));
             worldEntity.Add(new MotionContributions());
             // 새 몸은 시뮬이 쓰는 그 값(TbFlappyConfig)에서 온다 — 물리 팔로워가 다른 몸을 세우면
-            // 겹침 밀어내기가 시뮬이 모르는 위치 점프를 만든다.
-            worldEntity.Add(new GameFramework.World.CapsuleShape(config.BodyRadius, config.BodyHeight));
+            // 겹침 밀어내기가 시뮬이 모르는 위치 점프를 만든다. BodyLength가 지름보다 크면 누운
+            // 캡슐이다(FlappyBodyShape — 클·서가 같은 식을 쓴다).
+            worldEntity.Add(FlappyBodyShape.For(config));
             worldEntity.Add(new FinishState());
             worldEntity.Add(new FinishPlacement());
             // 지금까지 EntityBinder가 하드코딩하던 값을 그대로 옮긴 것 — 거동 변화 없음.

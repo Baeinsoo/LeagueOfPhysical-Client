@@ -39,7 +39,8 @@ namespace LOP
                 dashChargeMinFall: r.DashChargeMinFall,
                 airflowUpAccel: r.AirflowUpAccel,
                 airflowRiseCap: r.AirflowRiseCap,
-                shaftGravityMult: r.ShaftGravityMult);
+                shaftGravityMult: r.ShaftGravityMult,
+                bodyLength: r.BodyLength);
         }
     }
 }

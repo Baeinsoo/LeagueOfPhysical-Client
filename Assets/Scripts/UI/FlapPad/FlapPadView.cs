@@ -35,6 +35,7 @@ namespace LOP.UI
             var dashButton = Root.Q<VisualElement>("dash-button");
             var dashFill = Root.Q<VisualElement>("dash-fill");
             var dashSlots = new[] { Root.Q<VisualElement>("dash-slot-0"), Root.Q<VisualElement>("dash-slot-1") };
+            var dashSlotsContainer = Root.Q<VisualElement>("dash-slots");
 
             dashButton.RegisterCallback<PointerDownEvent>(evt =>
             {
@@ -64,6 +65,23 @@ namespace LOP.UI
             var chaserGap = Root.Q<Label>("chaser-gap");
             _viewModel.ChaserGap
                 .Subscribe(gap => chaserGap.text = $"추격자 {gap:F0}m")
+                .AddTo(_subscriptions);
+
+            //  맵이 수동 대시를 꺼 두면(FlappyMapRules.ManualDash == false) 다이브로 못 채우는
+            //  게이지라 버튼·칸·게이지를 통째로 숨긴다 — 눌러도 거의 안 나가는 버튼을 보여 주지 않는다.
+            _viewModel.ShowDash
+                .Subscribe(show =>
+                {
+                    var display = show ? DisplayStyle.Flex : DisplayStyle.None;
+                    dashButton.style.display = display;
+                    dashSlotsContainer.style.display = display;
+                })
+                .AddTo(_subscriptions);
+
+            //  맵이 추격자를 꺼 두면(FlappyMapRules.Chaser == false) 벽이 화면 밖에 있으므로
+            //  숫자도 같이 숨긴다.
+            _viewModel.ShowChaserGap
+                .Subscribe(show => chaserGap.style.display = show ? DisplayStyle.Flex : DisplayStyle.None)
                 .AddTo(_subscriptions);
 
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.

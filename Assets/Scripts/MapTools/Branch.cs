@@ -5,11 +5,11 @@ namespace LOP.MapTools
     /// <summary>갈림길을 강제로 태울 때 막을 다른 길이 어느 쪽인가.</summary>
     public enum BranchSide { Below, Above }
 
-    public enum BranchKind { Valley, Building, Hill }
+    public enum BranchKind { Valley, Building, Hill, Mine }
 
     /// <summary>
     /// 갈림길 하나 = 들어갈 길 칸 + 그 길을 강제할 때 막을 쪽(spec 2026-09-28 §3). 계곡 지름길(아래가 계곡),
-    /// 빌딩 위층(아래가 아래층), 언덕 굴(위가 넘는 길) 셋이 같은 모양이라 검사기·빌더가 한 목록으로 다룬다.
+    /// 빌딩 위층(아래가 아래층), 언덕 굴(위가 넘는 길), 광산 굴(고수 갈림길의 2번 점프 굴)이 같은 모양이라 검사기·빌더가 한 목록으로 다룬다.
     /// </summary>
     public readonly struct Branch
     {
@@ -30,6 +30,7 @@ namespace LOP.MapTools
                 {
                     case BranchKind.Building: return "빌딩 위층";
                     case BranchKind.Hill: return "언덕 굴";
+                    case BranchKind.Mine: return "광산 굴";
                     default: return "계곡 지름길";
                 }
             }

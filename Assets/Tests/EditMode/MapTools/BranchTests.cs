@@ -52,6 +52,7 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual("계곡 지름길", new Branch(default, BranchSide.Below, BranchKind.Valley).Label);
             Assert.AreEqual("빌딩 위층", new Branch(default, BranchSide.Below, BranchKind.Building).Label);
             Assert.AreEqual("언덕 굴", new Branch(default, BranchSide.Above, BranchKind.Hill).Label);
+            Assert.AreEqual("광산 굴", new Branch(default, BranchSide.Below, BranchKind.Mine).Label);
         }
     }
 }

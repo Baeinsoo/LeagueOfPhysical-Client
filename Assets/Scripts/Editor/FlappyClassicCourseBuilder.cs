@@ -44,7 +44,7 @@ namespace LOP.EditorTools
         private const float PipeDepth = 2.5f;        // 판정면 정렬 규약(오브젝트 z -1.25, 콜라이더 center.z +0.5)
         private const float PipeZ = -1.25f;
         private const float ShortcutStripStep = 0.25f;
-        private const float WallThickness = 20f;     // 바닥·천장 슬래브 두께 — 밑으로 빠지지 않게 두껍게
+        internal const float WallThickness = 20f;     // 바닥·천장 슬래브 두께 — 밑으로 빠지지 않게 두껍게
         //  절벽 면의 x 두께. WallThickness(20m)만큼 번지면 절벽 20m 앞에 계곡·샤프트 구멍이 오는
         //  시드·길이 조합에서 그 구멍을 조용히 메워 버린다 — 아래 Cliffs() 참고.
         private const float CliffFaceThickness = 1f;
@@ -269,6 +269,9 @@ namespace LOP.EditorTools
 
             RebuildSkyline(length);
 
+            //  전통 코스는 추격자·수동 대시가 있는 맵이다 — 같은 씬을 광산 굽기가 끈 채로 남겼어도 다시 켠다.
+            ApplyMapRules(composed, chaser: true, manualDash: true);
+
             PlaceSpawns(floorY, ceilingY, window, pipes.Count > 0 ? pipes[0].GapCenter : 0f);
             PlaceFinish(StartX + length + spacing, centerAt);
 
@@ -307,7 +310,7 @@ namespace LOP.EditorTools
 
         //  코스 지오메트리 안에 섞여 있는 마커(FinishLine·SpawnPoint)를 <c>---Course---</c>
         //  아래로 옮긴다. 마커는 코스가 아니라 <b>규칙</b>이라 다시 구울 때 살아남아야 한다.
-        private static void RescueMarkers(Transform composed)
+        internal static void RescueMarkers(Transform composed)
         {
             var home = GameObject.Find("---Course---");
             if (home == null)
@@ -330,7 +333,22 @@ namespace LOP.EditorTools
             }
         }
 
-        private static void EditorSceneManagerSave()
+        //  맵 룰 마커(추격자·수동 대시)를 ComposedMap 자체에 둔다 — 자식은 굽기마다 지워지지만 이건 살아남는다.
+        //  없으면 붙이고, 있으면 값만 바꾼다. 마커가 없는 맵은 둘 다 꺼진 것과 같지만, 굽기는 뜻을 씬에 남긴다.
+        internal static void ApplyMapRules(GameObject composed, bool chaser, bool manualDash)
+        {
+            var rules = composed.GetComponent<LOP.FlappyMapRules>();
+            if (rules == null)
+            {
+                rules = Undo.AddComponent<LOP.FlappyMapRules>(composed);
+            }
+            Undo.RecordObject(rules, "Build course map rules");
+            rules.Chaser = chaser;
+            rules.ManualDash = manualDash;
+            EditorUtility.SetDirty(rules);
+        }
+
+        internal static void EditorSceneManagerSave()
         {
             UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
                 UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene());
@@ -557,7 +575,7 @@ namespace LOP.EditorTools
 
         //  z로 돌출한 볼록 다각형. 그려지는 면은 z [−2.5, 0], 콜라이더는 z [−1.25, +1.25] —
         //  Box()가 지키는 판정면 정렬 규약과 같다(원근 카메라가 틈을 좁게 그리지 않게).
-        private static GameObject Prism(Transform parent, string name, Vector2[] polygon, Material material)
+        internal static GameObject Prism(Transform parent, string name, Vector2[] polygon, Material material)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, worldPositionStays: false);
@@ -576,7 +594,7 @@ namespace LOP.EditorTools
         }
 
         //  면마다 꼭짓점을 따로 둔다 — 모서리가 각지게 빛받아야 벽으로 읽힌다(공유하면 뭉개진다).
-        private static Mesh PrismMesh(string name, Vector2[] poly, float zNear, float zFar)
+        internal static Mesh PrismMesh(string name, Vector2[] poly, float zNear, float zFar)
         {
             var vertices = new System.Collections.Generic.List<Vector3>();
             var triangles = new System.Collections.Generic.List<int>();
@@ -688,27 +706,27 @@ namespace LOP.EditorTools
         //  콜라이더가 없다 — 판정은 <c>FlappyBoostPadField</c>가 산술로 한다(트리거로 하면
         //  롤백 재생에서 물리를 안 돌려 아예 답이 없다). 그려지는 크기가 곧 판정 사각형이라
         //  🎥 시각 정직성이 유지된다.
-        private static void BoostPad(Transform parent, string name, float x, float y, float height,
-                                     float duration, Material fallback)
+        internal static void BoostPad(Transform parent, string name, float x, float y, float height,
+                                      float duration, Material fallback, float width = BoostPadWidth)
         {
             Material skin = FlappyCityMaterials.Boost != null ? FlappyCityMaterials.Boost : fallback;
             var go = Box(parent, name, skin);
             Object.DestroyImmediate(go.GetComponent<BoxCollider>());
-            go.transform.localScale = new Vector3(BoostPadWidth, height, PipeDepth);
+            go.transform.localScale = new Vector3(width, height, PipeDepth);
             go.transform.position = new Vector3(x, y, PipeZ);
 
             var pad = go.AddComponent<LOP.FlappyBoostPad>();
-            pad.Width = BoostPadWidth;
+            pad.Width = width;
             pad.Height = height;
             pad.Duration = duration;
         }
 
-        private static void Pipe(Transform parent, string name, float x, float bottom, float top,
-                                 Material material)
+        internal static void Pipe(Transform parent, string name, float x, float bottom, float top,
+                                  Material material, float width = PipeWidth)
         {
             var go = Box(parent, name, material);
             float h = top - bottom;
-            go.transform.localScale = new Vector3(PipeWidth, h, PipeDepth);
+            go.transform.localScale = new Vector3(width, h, PipeDepth);
             go.transform.position = new Vector3(x, bottom + h * 0.5f, PipeZ);
         }
 
@@ -901,14 +919,14 @@ namespace LOP.EditorTools
             return go;
         }
 
-        private static Vector2[] BoxPolygon(LOP.MapTools.Box2 b)
+        internal static Vector2[] BoxPolygon(LOP.MapTools.Box2 b)
             => new[] { new Vector2(b.X0, b.Y0), new Vector2(b.X1, b.Y0), new Vector2(b.X1, b.Y1), new Vector2(b.X0, b.Y1) };
 
         private static Vector2[] TrianglePolygon(float[] t)
             => new[] { new Vector2(t[0], t[1]), new Vector2(t[2], t[3]), new Vector2(t[4], t[5]) };
 
         //  검사기용 표시 — Transform만 있는 빈 GameObject(위치 = 가운데, 크기 = 폭·높이).
-        private static void AreaMarker(Transform parent, string name, LOP.MapTools.Box2 box)
+        internal static void AreaMarker(Transform parent, string name, LOP.MapTools.Box2 box)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, worldPositionStays: false);
@@ -1186,7 +1204,7 @@ namespace LOP.EditorTools
             }
         }
 
-        private static GameObject Box(Transform parent, string name, Material material)
+        internal static GameObject Box(Transform parent, string name, Material material)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = name;
@@ -1214,7 +1232,7 @@ namespace LOP.EditorTools
 
         //  기존 코스가 쓰던 머티리얼을 그대로 쓴다 — 못 찾으면 기본값으로 두고 계속 간다
         //  (색이 다를 뿐 구조 검증에는 지장이 없다).
-        private static Material FindCourseMaterial()
+        internal static Material FindCourseMaterial()
         {
             string[] guids = AssetDatabase.FindAssets("FloorNeutral t:Material");
             if (guids.Length == 0)
@@ -1228,7 +1246,7 @@ namespace LOP.EditorTools
         //  않도록 첫 파이프는 한 간격 뒤에 있다(ClassicCourseRule).
         //  y=0을 그대로 쓴다 — 결승선과 달리 스폰은 늘 StartX(꺾은선의 시작점)에 있고, 프로필은
         //  거기서 항상 0으로 시작한다(CourseProfileRule.Compose가 y=0에서 출발).
-        private static void PlaceSpawns(float floorY, float ceilingY, float window, float firstGapCenter)
+        internal static void PlaceSpawns(float floorY, float ceilingY, float window, float firstGapCenter)
         {
             var spawns = Object.FindObjectsByType<LOP.SpawnPoint>(FindObjectsInactive.Include,
                                                                   FindObjectsSortMode.None);
@@ -1249,7 +1267,7 @@ namespace LOP.EditorTools
 
         //  y를 0으로 고정하지 않는다 — 계단 때문에 코스가 0이 아닌 높이에서 끝날 수 있다.
         //  그 x의 실제 회랑 중심(centerAt)에 세워야 결승선이 바닥·천장 사이에 온전히 온다.
-        private static void PlaceFinish(float x, System.Func<float, float> centerAt)
+        internal static void PlaceFinish(float x, System.Func<float, float> centerAt)
         {
             var finish = Object.FindFirstObjectByType<LOP.FinishLine>(FindObjectsInactive.Include);
             if (finish == null)

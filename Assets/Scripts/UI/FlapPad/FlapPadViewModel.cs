@@ -14,11 +14,14 @@ namespace LOP.UI
         private readonly IPlayerContext _playerContext;
         private readonly GameFramework.World.EntityRegistry _entityRegistry;
         private readonly FlappyChaserView _chaserView;
+        private readonly FlappyMapRulesField _rules;
 
         private readonly ReactiveProperty<float> _dashCharge = new ReactiveProperty<float>(0f);
         private readonly ReactiveProperty<int> _dashStacks = new ReactiveProperty<int>(0);
         private readonly ReactiveProperty<bool> _canDash = new ReactiveProperty<bool>(false);
         private readonly ReactiveProperty<float> _chaserGap = new ReactiveProperty<float>(0f);
+        private readonly ReactiveProperty<bool> _showDash = new ReactiveProperty<bool>(false);
+        private readonly ReactiveProperty<bool> _showChaserGap = new ReactiveProperty<bool>(false);
 
         /// <summary>지금 채우고 있는 칸이 얼마나 찼나(0~1). 버튼이 이만큼 차오른다.
         /// <para>쌓아 둔 칸은 <see cref="DashStacks"/>가 버튼 위 칸 아이콘으로 따로 보여 준다 — 카트라이더 부스터 칸과 같은 모양이다.
@@ -35,15 +38,25 @@ namespace LOP.UI
         /// 각자 계산하면 숫자와 화면 속 벽이 어긋난다.</summary>
         public ReadOnlyReactiveProperty<float> ChaserGap => _chaserGap;
 
+        /// <summary>대시 버튼·칸·게이지를 보여 주나. 맵이 수동 대시를 꺼 두면(FlappyMapRules.ManualDash
+        /// == false) 다이브로 못 채우는 게이지라 눌러도 거의 안 나가므로, 아예 숨겨 헛눌림을 막는다.</summary>
+        public ReadOnlyReactiveProperty<bool> ShowDash => _showDash;
+
+        /// <summary>추격자 간격 라벨을 보여 주나. 맵이 추격자를 꺼 두면(FlappyMapRules.Chaser == false)
+        /// 벽이 화면 밖에 있으므로 숫자도 같이 숨긴다.</summary>
+        public ReadOnlyReactiveProperty<bool> ShowChaserGap => _showChaserGap;
+
         public FlapPadViewModel(PlayerInputManager playerInputManager,
                                 IPlayerContext playerContext,
                                 GameFramework.World.EntityRegistry entityRegistry,
-                                FlappyChaserView chaserView)
+                                FlappyChaserView chaserView,
+                                FlappyMapRulesField rules)
         {
             _playerInputManager = playerInputManager;
             _playerContext = playerContext;
             _entityRegistry = entityRegistry;
             _chaserView = chaserView;
+            _rules = rules;
         }
 
         /// <summary>날갯짓. 와이어에는 기존 Jump 입력으로 실린다 — 서버 입력 버퍼는 그대로 쓴다.</summary>
@@ -79,6 +92,9 @@ namespace LOP.UI
             _chaserGap.Value = entity == null
                 ? 0f
                 : (entity.Get<GameFramework.World.Transform>()?.Position.X ?? 0f) - _chaserView.X;
+
+            _showDash.Value = _rules.ManualDash;
+            _showChaserGap.Value = _rules.Chaser;
         }
 
         /// <summary>데스크톱 편의: Space는 날갯짓, Shift/D는 대시. View가 매 프레임 부른다.</summary>

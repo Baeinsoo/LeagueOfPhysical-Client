@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
-using static LOP.EditorTools.SkydiveCourseBuilder;
+using static LOP.EditorTools.SkydiveMapKit;
 
 namespace LOP.EditorTools
 {

@@ -96,7 +96,6 @@ namespace LOP
             builder.RegisterEntryPoint<SkydiveHudCoordinator>();
             builder.RegisterEntryPoint<SkydiveAtmosphere>();
             builder.RegisterEntryPoint<SkydiveChibiView>().AsSelf();
-            builder.RegisterEntryPoint<SkydiveScenery>().AsSelf();   // 새 룩: 코스 툰 재질·하늘섬·뭉게구름·착지 섬   // 새 룩(슬라이스 4): 치비 낙하 동작·표정
             builder.Register<LOP.UI.SkydivePadViewModel>(Lifetime.Transient);
             builder.Register<LOP.UI.SkydivePadView>(Lifetime.Transient);
         }

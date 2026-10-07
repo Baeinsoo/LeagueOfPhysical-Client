@@ -21,6 +21,7 @@ Shader "LOP/Toon"
         _ShoeColor ("Region Shoe", Color) = (1, 1, 1, 1)
         _HairColor ("Region Hair", Color) = (0.29, 0.2, 0.13, 1)
         _TopGrid ("Top Grid Tile (m, 0 = off)", Float) = 0
+        _TopGridSpace ("Top Grid In Mesh UV (1 = moves with the object)", Float) = 0
         _SideGrid ("Side Masonry Course (m, 0 = off)", Float) = 0
     }
     SubShader
@@ -50,6 +51,7 @@ Shader "LOP/Toon"
             half4 _ShoeColor;
             half4 _HairColor;
             float _TopGrid;
+            float _TopGridSpace;
             float _SideGrid;
         CBUFFER_END
 
@@ -76,11 +78,12 @@ Shader "LOP/Toon"
             return stroke * fade;
         }
 
-        half LOPTopGrid(float3 positionWS, half3 n)
+        //  격자 좌표: 기본은 월드 xz(땅에 박힌 판). 도는 원판·움직이는 날개는 메시 UV(미터)로 — 월드면 판만 돌고 격자는 멈춰 있다.
+        half LOPTopGrid(float3 positionWS, half3 n, float2 meshUV)
         {
             if (_TopGrid <= 0.0) return 1.0h;
             half up = saturate((n.y - 0.6h) * 5.0h);
-            float2 p = positionWS.xz / _TopGrid;
+            float2 p = (_TopGridSpace > 0.5 ? meshUV : positionWS.xz) / _TopGrid;
             float2 cell = floor(p);
             half checker = fmod(abs(cell.x + cell.y), 2.0) < 0.5 ? 0.0h : 1.0h;
             half shade = checker * 0.07h + LOPGridLine(p, 0.6) * 0.14h + LOPGridLine(p * 0.25, 1.2) * 0.2h;
@@ -148,7 +151,7 @@ Shader "LOP/Toon"
                 half3 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv).rgb * _BaseColor.rgb;
                 albedo *= _UseRegions > 0.5h ? LOPRegionColor(i.region) : half3(1.0h, 1.0h, 1.0h);
                 half3 n = normalize(i.normalWS);
-                albedo *= LOPTopGrid(i.positionWS, n) * LOPSideGrid(i.positionWS, n);
+                albedo *= LOPTopGrid(i.positionWS, n, i.uv) * LOPSideGrid(i.positionWS, n);
                 half3 v = GetWorldSpaceNormalizeViewDir(i.positionWS);
                 half3 c = LOPToonShade(i.positionWS, n, v, albedo, _ShadowColor.rgb, _MidThreshold, _LightThreshold,
                                        _Softness, _RimColor.rgb, _RimPower, _RimStrength);

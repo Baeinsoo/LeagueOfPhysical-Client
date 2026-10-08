@@ -10,7 +10,8 @@ namespace LOP.EditorTools
     /// 정하고, 여기서는 그 숫자를 전통 굽기의 부품(<c>Prism</c>·<c>Pipe</c>·<c>BoostPad</c>)으로 세우기만 한다.
     ///
     /// <para><b>회색 박스</b>다: 기믹·스카이라인·미드그라운드는 굽지 않고 재질도 하나뿐이다. 재미를 먼저 보고,
-    /// 모양이 정해지면 그때 입힌다.</para>
+    /// 모양이 정해지면 그때 입힌다. 지금은 보기 구간(<c>DressFrom</c>~<c>DressTo</c>)만 <see cref="FlappyMineDressing"/>이
+    /// 광산 옷을 입힌다(회색 박스의 렌더러만 끄고 판정은 그대로).</para>
     ///
     /// <para>전통 굽기와 같은 씬(<c>ComposedMap</c>)을 갈아 끼운다 — 두 메뉴는 서로를 덮어쓴다.
     /// 맵 룰(<see cref="LOP.FlappyMapRules"/>)도 같이 바꾼다: 광산은 추격자·수동 대시가 없다.</para>
@@ -34,6 +35,10 @@ namespace LOP.EditorTools
 
         //  스폰 높이 범위를 정할 창 — 프로토타입 관문 틈(GAP)과 같다.
         private const float SpawnWindow = 3.75f;
+
+        //  광산 옷을 입히는 범위(스펙 §3 보기 구간) — 스폰 뒤 끝(−EndMargin)부터 "물결 터널" 앞까지.
+        //  다음 단계(코스 전체에 펼치기)에서 넓힌다.
+        private const float DressFrom = -20f, DressTo = 94.25f;
 
         [MenuItem("LOP/Debug/Flappy 광산 코스 굽기")]
         public static void Build()
@@ -115,6 +120,34 @@ namespace LOP.EditorTools
                                                    course.Gates.Count > 0 ? course.Gates[0].GapCenter : course.CenterAt(0f));
             FlappyClassicCourseBuilder.PlaceFinish(course.Length, course.CenterAt);
 
+            //  카메라가 통로를 따라가려면(FlappyCorridorCamera) 그 중심선이 씬에 있어야 한다 — 없으면 붙이고,
+            //  있으면 점만 갈아 끼운다. 스폰·결승선 뒤로도 EndMargin만큼 더 뻗는다(바닥·천장과 같은 범위).
+            BuildCorridorLine(composed, course);
+
+            //  광산 옷(스펙 §6) — 회색 박스 위에 부품을 놓고 범위 안 회색 렌더러를 끈다. 설정 에셋이 없으면 회색 박스로 둔다.
+            var look = AssetDatabase.LoadAssetAtPath<FlappyMineLook>(FlappyMineMaterials.LookAssetPath);
+            if (look == null)
+            {
+                Debug.LogError($"[광산 코스] {FlappyMineMaterials.LookAssetPath}가 없어 옷을 입히지 않았다 — 회색 박스로 남는다.");
+            }
+            else
+            {
+                FlappyMineMaterials.Ensure(look);
+                if (FlappyMineDressing.Dress(root, course, look, DressFrom, DressTo))
+                {
+                    //  전통 코스 바탕(구름·코인·덤불·도시 실루엣)은 끈다 — 지우지 않는다(전통 굽기가 다시 켠다).
+                    List<string> hiddenBackdrop = FlappyClassicCourseBuilder.SetClassicBackdropActive(false, "Build mine course");
+                    Debug.Log("[광산 코스] 끈 전통 바탕: " + (hiddenBackdrop.Count > 0 ? string.Join(", ", hiddenBackdrop) : "없음(이미 꺼져 있음)"));
+                }
+                else
+                {
+                    //  부품·재질이 없어 옷을 못 입혔다(Art 서브모듈을 안 받은 기계 등) — 바탕까지 끄면 빈 배경만 남는다.
+                    //  옛 옷은 Dress가 이미 지웠으므로, 앞선 광산 굽기가 꺼 둔 바탕도 다시 켠다.
+                    FlappyClassicCourseBuilder.SetClassicBackdropActive(true, "Build mine course");
+                    Debug.LogError("[광산 코스] 옷을 못 입혀 전통 바탕을 켜 둔다 — 회색 박스로 남는다.");
+                }
+            }
+
             //  물리 동기를 직접 관리하는 프로젝트라, 부르지 않으면 콜라이더가 만들 때 자리에 남는다(전통 굽기 참고).
             Physics.SyncTransforms();
 
@@ -129,9 +162,7 @@ namespace LOP.EditorTools
         private static int BuildFloorAndCeiling(Transform root, MineCourse course, Material skin,
                                                 System.Func<float, float> floorAt, System.Func<float, float> ceilingAt)
         {
-            var xs = new List<float> { -EndMargin };
-            xs.AddRange(course.Breaks(BreakStep));
-            xs.Add(course.Length + EndMargin);
+            List<float> xs = CorridorXs(course);
 
             int count = 0;
             for (int i = 0; i + 1 < xs.Count; i++)
@@ -145,6 +176,15 @@ namespace LOP.EditorTools
                 count += 2;
             }
             return count;
+        }
+
+        //  바닥·천장 조각과 통로 중심선이 같이 쓰는 x 목록: 스폰 뒤 −EndMargin, Breaks, 결승선 뒤 +EndMargin.
+        private static List<float> CorridorXs(MineCourse course)
+        {
+            var xs = new List<float> { -EndMargin };
+            xs.AddRange(course.Breaks(BreakStep));
+            xs.Add(course.Length + EndMargin);
+            return xs;
         }
 
         //  굴: 0.25 m 조각마다 지붕(굴 위 가장자리 ~ High/천장선)과 바닥(Low/바닥선 ~ 굴 아래 가장자리) 사다리꼴.
@@ -173,6 +213,27 @@ namespace LOP.EditorTools
                 }
             }
             return count;
+        }
+
+        //  통로 중심선 표시 — 없으면 붙이고 있으면 점만 갈아 끼운다(FlappyMapRules와 같은 요령).
+        private static void BuildCorridorLine(GameObject composed, MineCourse course)
+        {
+            var line = composed.GetComponent<LOP.FlappyCorridorLine>();
+            if (line == null)
+            {
+                line = Undo.AddComponent<LOP.FlappyCorridorLine>(composed);
+            }
+            Undo.RecordObject(line, "Build mine course corridor line");
+
+            List<float> xs = CorridorXs(course);
+
+            var points = new Vector2[xs.Count];
+            for (int i = 0; i < xs.Count; i++)
+            {
+                points[i] = new Vector2(xs[i], course.CenterAt(xs[i]));
+            }
+            line.Points = points;
+            EditorUtility.SetDirty(line);
         }
 
         //  관문 = 위·아래 파이프. Low/High가 NaN이면 통로 바닥·천장선까지(두께 전체에서 가장 먼 쪽 + 묻기),

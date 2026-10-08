@@ -25,19 +25,19 @@ public class FlappyCameraDistanceTests
     }
 
     [Test]
-    public void TargetDistance_평소엔_20()
+    public void TargetDistance_평소엔_23()
     {
-        Assert.AreEqual(20f, FlappyCameraDistance.TargetDistance(dashing: false), 1e-4f);
+        Assert.AreEqual(23f, FlappyCameraDistance.TargetDistance(dashing: false), 1e-4f);
     }
 
     [Test]
-    public void TargetDistance_대시_중엔_23()
+    public void TargetDistance_대시_중엔_26()
     {
-        Assert.AreEqual(23f, FlappyCameraDistance.TargetDistance(dashing: true), 1e-4f);
+        Assert.AreEqual(26f, FlappyCameraDistance.TargetDistance(dashing: true), 1e-4f);
     }
 
     [Test]
-    public void 대시_중이면_거리가_23으로_빠진다()
+    public void 대시_중이면_거리가_26으로_빠진다()
     {
         var registry = Birds(out var me, out _);
         var sut = new FlappyCameraDistance(new PlayerContext { entityId = "me" }, registry, null);
@@ -47,11 +47,11 @@ public class FlappyCameraDistanceTests
         me.Get<FlappyDash>().DashRemaining = 0.48f;
         Run(sut, 2f);
 
-        Assert.AreEqual(23f, applied, 0.05f);
+        Assert.AreEqual(26f, applied, 0.05f);
     }
 
     [Test]
-    public void 대시가_아니면_거리가_20으로_돌아온다()
+    public void 대시가_아니면_거리가_23으로_돌아온다()
     {
         var registry = Birds(out var me, out _);
         var sut = new FlappyCameraDistance(new PlayerContext { entityId = "me" }, registry, null);
@@ -64,7 +64,7 @@ public class FlappyCameraDistanceTests
         me.Get<FlappyDash>().DashRemaining = 0f;
         Run(sut, 2f);
 
-        Assert.AreEqual(20f, applied, 0.05f);
+        Assert.AreEqual(23f, applied, 0.05f);
     }
 
     [Test]
@@ -78,7 +78,7 @@ public class FlappyCameraDistanceTests
 
         me.Get<FlappyDash>().DashRemaining = 0.48f;
         sut.Tick(0.02f);
-        Assert.Less(applied.Value - 20f, 0.5f, "첫 틱은 조금만 빠진다");
+        Assert.Less(applied.Value - 23f, 0.5f, "첫 틱은 조금만 빠진다");
     }
 
     [Test]
@@ -92,7 +92,7 @@ public class FlappyCameraDistanceTests
         other.Get<FlappyDash>().DashRemaining = 0.48f;
         Run(sut, 1f);
 
-        Assert.AreEqual(20f, applied, 1e-4f);
+        Assert.AreEqual(23f, applied, 1e-4f);
     }
 
     [Test]

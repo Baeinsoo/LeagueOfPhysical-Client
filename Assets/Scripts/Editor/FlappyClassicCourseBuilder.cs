@@ -15,7 +15,7 @@ namespace LOP.EditorTools
     ///
     /// <para><b>건드리지 않는 것</b>: <c>---Environment---</c>(구름·도시 실루엣 등 바탕)와
     /// 조명. 코스 지오메트리(<c>ComposedMap</c>의 자식)만 통째로 갈아 끼우고, 스폰·결승선은
-    /// 자리를 옮긴다.</para>
+    /// 자리를 옮긴다. 바탕은 도시 실루엣만 다시 굽고, 광산 굽기가 꺼 둔 바탕을 다시 켠다.</para>
     /// </summary>
     public static class FlappyClassicCourseBuilder
     {
@@ -267,10 +267,15 @@ namespace LOP.EditorTools
                      LOP.MapTools.BackdropLayout.Midground(StartX, length, MidgroundSeed),
                      MidgroundZ, MidgroundDepth, FlappyCityMaterials.Midground, centerAt);
 
+            //  광산 굽기가 끈 바탕(구름·장식·도시 실루엣)을 다시 켠다 — 구름·장식은 여기서 다시 만들지 않으므로 지우지 않고 끄기만 했다.
+            SetClassicBackdropActive(true, "Build classic course");
             RebuildSkyline(length);
 
             //  전통 코스는 추격자·수동 대시가 있는 맵이다 — 같은 씬을 광산 굽기가 끈 채로 남겼어도 다시 켠다.
             ApplyMapRules(composed, chaser: true, manualDash: true);
+            //  광산 굽기가 남긴 통로 중심선도 뗀다 — 남겨 두면 카메라(FlappyCorridorCamera)가 이 코스에서도
+            //  광산 높이를 따라간다. 전통 코스는 표시가 없는 맵이다.
+            RemoveCorridorLine(composed);
 
             PlaceSpawns(floorY, ceilingY, window, pipes.Count > 0 ? pipes[0].GapCenter : 0f);
             PlaceFinish(StartX + length + spacing, centerAt);
@@ -346,6 +351,17 @@ namespace LOP.EditorTools
             rules.Chaser = chaser;
             rules.ManualDash = manualDash;
             EditorUtility.SetDirty(rules);
+        }
+
+        //  통로 중심선 표시(광산 굽기가 ComposedMap 자체에 붙인다 — 자식이 아니라 굽기마다 지워지지 않는다)를 뗀다.
+        //  Undo로 떼므로 굽기를 되돌리면 같이 돌아온다. 없으면 아무것도 안 한다.
+        internal static void RemoveCorridorLine(GameObject composed)
+        {
+            var line = composed.GetComponent<LOP.FlappyCorridorLine>();
+            if (line != null)
+            {
+                Undo.DestroyObjectImmediate(line);
+            }
         }
 
         internal static void EditorSceneManagerSave()
@@ -1143,6 +1159,28 @@ namespace LOP.EditorTools
             }
             AssetDatabase.CreateAsset(material, path);
             return material;
+        }
+
+        //  <c>---Environment---</c> 아래 전통 코스 전용 바탕 — 광산 코스(FlappyMineCourseBuilder)는 이것들을 끈다
+        //  (하늘·실루엣을 따로 입히는데 구름이 그 앞에, 코인·덤불이 통로 안·바닥 여유에 보였다 — 10-08 캡처).
+        //  조명은 여기 없다(맵 씬엔 빛이 없고 게임 씬 FlappyRace에 있다). Ground는 원래부터 꺼져 있어 손대지 않는다.
+        internal static readonly string[] ClassicBackdropNames = { "Clouds", "Decorations", "CitySilhouette" };
+
+        /// <summary><c>---Environment---</c>의 <see cref="ClassicBackdropNames"/>를 켜거나 끈다. 상태가 바뀐 이름 목록을 돌려준다.</summary>
+        internal static List<string> SetClassicBackdropActive(bool active, string undoName)
+        {
+            var changed = new List<string>();
+            var env = GameObject.Find("---Environment---");
+            if (env == null) { return changed; }
+            foreach (string name in ClassicBackdropNames)
+            {
+                Transform t = env.transform.Find(name);
+                if (t == null || t.gameObject.activeSelf == active) { continue; }
+                Undo.RecordObject(t.gameObject, undoName);
+                t.gameObject.SetActive(active);
+                changed.Add(name);
+            }
+            return changed;
         }
 
         //  <c>---Environment---</c>의 <c>CitySilhouette</c>만 다시 굽는다. 구름·장식은 손대지 않는다.

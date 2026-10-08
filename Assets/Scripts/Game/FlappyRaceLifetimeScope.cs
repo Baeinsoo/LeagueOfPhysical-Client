@@ -120,8 +120,13 @@ namespace LOP
             //  낙하 내려다보기(FlappyFallLookDown)는 껐다 — 카메라가 새를 뒤따라 늦게 움직이는 느낌이라
             //  원조처럼 고정된 구도가 낫다(사용자 결정 2026-10-07). 클래스와 시험은 남겨 둔다.
 
-            //  카메라 거리는 20m 고정, 내 대시 중에만 3m 빠진다(사용자 결정 2026-10-07).
+            //  카메라 거리는 23m 고정, 내 대시 중에만 3m 빠진다(사용자 결정 2026-10-07, 20 → 23m는 10-08).
             builder.RegisterEntryPoint<FlappyCameraDistance>();
+
+            //  카메라 중심을 통로에 고정 — 원조처럼 플레이필드 높이가 일정하다(맵에 FlappyCorridorLine
+            //  표시가 없으면 아무것도 안 한다. 전통 코스는 표시가 없다 — 전통 굽기가 광산 표시를 뗀다).
+            //  계산은 CameraController.BeforeFollow에서 한다(그려진 몸 위치 기준).
+            builder.RegisterEntryPoint<FlappyCorridorCamera>();
 
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             builder.Register<FlapPadViewModel>(Lifetime.Transient);

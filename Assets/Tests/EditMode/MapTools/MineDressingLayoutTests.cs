@@ -19,7 +19,7 @@ namespace LOP.MapTools.Tests
         const float From = -20f, To = 94.25f;
         const float Eps = 0.001f;
 
-        static readonly MineDressingLayout.BackgroundDensity Density = new MineDressingLayout.BackgroundDensity(9f, 0.5f, 16f, 2);
+        static readonly MineDressingLayout.BackgroundDensity Density = new MineDressingLayout.BackgroundDensity(9f, 0.5f, 16f, 2, 0.75f, 0.8f);
 
         static float Floor(MineCourse c, float x) => c.CenterAt(x) - c.HalfAt(x);
         static float Ceiling(MineCourse c, float x) => c.CenterAt(x) + c.HalfAt(x);
@@ -86,6 +86,46 @@ namespace LOP.MapTools.Tests
             CollectionAssert.AreEqual(new[] { -3f, -1f, 1f, 3f }, high.StrapYs.ToArray(), new FloatComparer(Eps));
             //  짧은 기둥엔 쇠띠가 없다(쇠테만).
             Assert.AreEqual(0, MineDressingLayout.GateStack(0f, 1.5f, true).StrapYs.Count);
+        }
+
+        // ── 관문 가로 칸(긴 관문) ──
+
+        [Test]
+        public void 보통_관문은_한_칸이고_늘이지_않는다()
+        {
+            var cols = MineDressingLayout.GateColumns(10f, MineDressingLayout.GateUnitWidth);
+            Assert.AreEqual(1, cols.Count);
+            Assert.AreEqual(10f, cols[0].X, Eps);
+            Assert.AreEqual(1f, cols[0].ScaleX, Eps);
+        }
+
+        [Test]
+        public void 긴_관문은_늘이지_않고_같은_폭_칸을_빈틈없이_잇는다()
+        {
+            //  긴 통로 관문(폭 12) — 한 칸을 6.15배로 늘이면 볼트가 찌그러진다. 1.95 이하 칸 7개로 나눈다.
+            const float x = 41.6f, width = 12f;
+            var cols = MineDressingLayout.GateColumns(x, width);
+            Assert.AreEqual(7, cols.Count);
+            float unit = MineDressingLayout.GateUnitWidth;
+            Assert.AreEqual(x - width / 2f, cols[0].X - cols[0].ScaleX * unit / 2f, Eps, "왼끝이 파이프 왼끝과 다르다");
+            Assert.AreEqual(x + width / 2f, cols[6].X + cols[6].ScaleX * unit / 2f, Eps, "오른끝이 파이프 오른끝과 다르다");
+            for (int i = 0; i < cols.Count; i++)
+            {
+                Assert.LessOrEqual(cols[i].ScaleX, 1f + Eps, $"{i}번째 칸을 늘였다");
+                Assert.Greater(cols[i].ScaleX, 0.8f, $"{i}번째 칸이 너무 좁다(가는 자투리)");
+                if (i > 0)
+                {
+                    Assert.AreEqual(cols[i - 1].X + cols[i - 1].ScaleX * unit / 2f, cols[i].X - cols[i].ScaleX * unit / 2f, Eps, $"{i}번째 이음매");
+                }
+            }
+        }
+
+        [Test]
+        public void 관문_폭의_float_오차로_자투리_칸이_생기지_않는다()
+        {
+            var cols = MineDressingLayout.GateColumns(0f, 3.9000002f);
+            Assert.AreEqual(2, cols.Count);
+            Assert.AreEqual(1f, cols[1].ScaleX, Eps);
         }
 
         // ── 바닥 비계 ──
@@ -194,6 +234,19 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 배경_층은_안개_가운데_먼_비계_실루엣_순으로_멀어진다()
+        {
+            Assert.Less(MineDressingLayout.HazeZ, MineDressingLayout.LanternZ);
+            Assert.Less(MineDressingLayout.LanternZ, MineDressingLayout.MidZ);
+            Assert.Less(MineDressingLayout.MidZ, MineDressingLayout.FarHazeZ, "먼 안개 막이 가운데 층 앞에 있다");
+            Assert.Less(MineDressingLayout.FarHazeZ, MineDressingLayout.FarZ, "먼 안개 막이 먼 비계 뒤에 있다");
+            Assert.Less(MineDressingLayout.FarZ, MineDressingLayout.SilhouetteNearZ);
+            Assert.Less(MineDressingLayout.SilhouetteNearZ, MineDressingLayout.SilhouetteFarZ);
+            //  먼 비계는 예전 z 11보다 확실히 뒤(관문과 다투지 않게 — 10-08 캡처).
+            Assert.GreaterOrEqual(MineDressingLayout.FarZ, 18f);
+        }
+
+        [Test]
         public void 배경은_판정면_뒤에만()
         {
             foreach (var p in MineDressingLayout.Background(Course(), From, To, 7, Density))
@@ -211,7 +264,10 @@ namespace LOP.MapTools.Tests
             {
                 bool outside = p.X < MineDressingLayout.OutsideEnd;
                 Assert.AreEqual(outside ? MinePartKind.CanyonSilhouette : MinePartKind.CaveSilhouette, p.Kind, $"x={p.X}");
-                Assert.That(p.Z, Is.InRange(13f, 15f));
+                Assert.That(p.Z, Is.InRange(MineDressingLayout.SilhouetteNearZ, MineDressingLayout.SilhouetteFarZ));
+                //  먼 비계보다 뒤 — 앞이면 비계 가운데를 실루엣 띠가 가린다.
+                Assert.Greater(p.Z, MineDressingLayout.FarZ, $"x={p.X} 실루엣이 먼 비계 앞에 있다");
+                Assert.AreEqual(MineDressingLayout.SilhouetteScaleX, p.ScaleX, Eps);
             }
             //  층마다(먼·가까운, 바닥 쪽) 빈틈없이.
             foreach (int layer in new[] { 0, 1 })
@@ -230,11 +286,16 @@ namespace LOP.MapTools.Tests
         {
             var c = Course();
             var far = MineDressingLayout.Background(c, From, To, 7, Density).Where(p => p.Kind == MinePartKind.BgTrestleBay).ToList();
+            //  멀리 보이게 줄인 칸 폭(3 m × FarScale)으로 빈틈없이.
             AssertCovers(far, From - MineDressingLayout.BackgroundMargin, To + MineDressingLayout.BackgroundMargin,
-                         MineDressingLayout.BgTrestleBayWidth);
+                         MineDressingLayout.BgTrestleBayWidth * Density.FarScale);
             foreach (var p in far)
             {
                 Assert.AreEqual(MineDressingLayout.FarZ, p.Z, Eps);
+                Assert.AreEqual(Density.FarScale, p.ScaleY, Eps, $"x={p.X} 높이 축척");
+                //  폭 축척 = 현 길이 / 3 — 기운 칸은 현이 칸 폭보다 길어 FarScale보다 조금 크다.
+                Assert.AreEqual(p.Length / MineDressingLayout.BgTrestleBayWidth, p.ScaleX, Eps, $"x={p.X} 폭 축척");
+                Assert.AreEqual(Density.FarScale * MineDressingLayout.BgTrestleBayWidth, p.Width, Eps, $"x={p.X} 칸 폭");
                 //  시안: −1.0 + 2.5·sin(i·0.45), i = 3 m 칸 번호 — 칸 가운데에서 이어진 곡선과 같다.
                 float expect = c.CenterAt(p.X) - 1.0f + 2.5f * (float)Math.Sin(p.X / 3.0 * 0.45);
                 //  칸은 양끝을 잇는 현이라 가운데가 곡선보다 최대 2.5·0.15²·1.5²/2 ≈ 0.063 낮다.
@@ -253,8 +314,11 @@ namespace LOP.MapTools.Tests
             foreach (var cart in carts)
             {
                 Assert.That(cart.X, Is.InRange(From, To));
-                Assert.IsTrue(far.Any(f => Math.Abs(f.X - cart.X) < Eps && Math.Abs(f.Y + MineDressingLayout.RailTop - cart.Y) < Eps
+                //  비계를 줄인 만큼 레일 높이도 줄고, 광차도 같은 축척.
+                Assert.IsTrue(far.Any(f => Math.Abs(f.X - cart.X) < Eps && Math.Abs(f.Y + MineDressingLayout.RailTop * Density.FarScale - cart.Y) < Eps
                                            && Math.Abs(f.Z - cart.Z) < Eps), $"x={cart.X} 광차가 비계 위에 없다");
+                Assert.AreEqual(Density.FarScale, cart.ScaleX, Eps);
+                Assert.AreEqual(Density.FarScale, cart.ScaleY, Eps);
             }
             Assert.AreEqual(carts.Count, carts.Select(p => p.X).Distinct().Count(), "광차 둘이 한 칸에");
         }
@@ -272,6 +336,8 @@ namespace LOP.MapTools.Tests
             for (int i = 1; i < frames.Count; i++) { Assert.AreEqual(Density.FrameSpacing, frames[i].X - frames[i - 1].X, Eps); }
             Assert.IsTrue(frames.Concat(ladders).Concat(walks).Concat(lanterns).All(p => p.X >= MineDressingLayout.OutsideEnd));
             Assert.IsTrue(frames.All(p => Math.Abs(p.Z - MineDressingLayout.MidZ) < Eps));
+            //  가운데 층은 MidScale로 줄인다(틀·발판·사다리 모두).
+            Assert.IsTrue(frames.Concat(walks).Concat(ladders).All(p => Math.Abs(p.ScaleX - Density.MidScale) < Eps && Math.Abs(p.ScaleY - Density.MidScale) < Eps));
             Assert.AreEqual(frames.Count, walks.Count);
             //  사다리 비율 0.5 — 전부도 아니고 하나도 없지도 않다.
             Assert.That(ladders.Count, Is.InRange(1, frames.Count - 1));
@@ -287,9 +353,9 @@ namespace LOP.MapTools.Tests
         public void 사다리_비율_0이면_없고_1이면_틀마다()
         {
             var c = Course();
-            var none = MineDressingLayout.Background(c, From, To, 7, new MineDressingLayout.BackgroundDensity(9f, 0f, 16f, 2));
+            var none = MineDressingLayout.Background(c, From, To, 7, new MineDressingLayout.BackgroundDensity(9f, 0f, 16f, 2, 0.75f, 0.8f));
             Assert.AreEqual(0, none.Count(p => p.Kind == MinePartKind.Ladder));
-            var all = MineDressingLayout.Background(c, From, To, 7, new MineDressingLayout.BackgroundDensity(9f, 1f, 16f, 2));
+            var all = MineDressingLayout.Background(c, From, To, 7, new MineDressingLayout.BackgroundDensity(9f, 1f, 16f, 2, 0.75f, 0.8f));
             Assert.AreEqual(all.Count(p => p.Kind == MinePartKind.BgFrame), all.Count(p => p.Kind == MinePartKind.Ladder));
         }
 

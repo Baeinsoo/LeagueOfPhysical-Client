@@ -134,6 +134,9 @@ namespace LOP.EditorTools
             {
                 FlappyMineMaterials.Ensure(look);
                 FlappyMineDressing.Dress(root, course, look, DressFrom, DressTo);
+                //  전통 코스 바탕(구름·코인·덤불·도시 실루엣)은 끈다 — 지우지 않는다(전통 굽기가 다시 켠다).
+                List<string> hiddenBackdrop = FlappyClassicCourseBuilder.SetClassicBackdropActive(false, "Build mine course");
+                Debug.Log("[광산 코스] 끈 전통 바탕: " + (hiddenBackdrop.Count > 0 ? string.Join(", ", hiddenBackdrop) : "없음(이미 꺼져 있음)"));
             }
 
             //  물리 동기를 직접 관리하는 프로젝트라, 부르지 않으면 콜라이더가 만들 때 자리에 남는다(전통 굽기 참고).

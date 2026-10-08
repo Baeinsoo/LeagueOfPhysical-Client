@@ -4,8 +4,10 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// Flappy 레이스 카메라 거리는 20m로 고정한다 — 구간별로 줌을 바꾸면 눈대중(날아오는 틈·새 크기)이
-    /// 흔들려서 뺐다(사용자 결정 2026-10-07). 20m는 새와 틈이 원조 물리와 같은 크기로 보이는 거리다.
+    /// Flappy 레이스 카메라 거리는 23m로 고정한다 — 구간별로 줌을 바꾸면 눈대중(날아오는 틈·새 크기)이
+    /// 흔들려서 뺐다(사용자 결정 2026-10-07). 처음엔 통로(14.56m)가 화면 세로와 딱 같은 20m였는데,
+    /// 광산 옷을 입히니 바닥 레일·천장 바위가 화면 밖으로 밀려나 23m로 물렸다(사용자 결정 2026-10-08) —
+    /// 화면 세로 16.7m, 통로 위아래로 1m쯤 바닥·천장이 보인다.
     ///
     /// <para>내 새가 대시(패드 부스트·수동 대시) 중일 때만 카트 부스트처럼 3m 뒤로 빠졌다가,
     /// 대시가 끝나면 다시 부드럽게 돌아온다. <see cref="FlappyFallLookDown"/>과 같은 패턴 —
@@ -13,7 +15,7 @@ namespace LOP
     /// </summary>
     public class FlappyCameraDistance : ITickable, System.IDisposable
     {
-        internal const float BaseDistance = 20f;   // m — 원조 물리에서 새·틈이 보이던 크기
+        internal const float BaseDistance = 23f;   // m — 통로 + 위아래 1m 여유(바닥 레일·천장)가 보이는 거리
         internal const float BoostPullBack = 3f;    // m — 대시 중 추가로 빠지는 거리
         private const float SmoothTime = 0.4f;      // s — 카트 부스트처럼 0.3~0.5초 사이로 들어가고 나온다
 

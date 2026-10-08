@@ -30,7 +30,14 @@ namespace LOP.EditorTools
         [Header("안개 — 구역별(§5). '굴 배경'은 굴 안개와 같은 값이라 따로 두지 않는다")]
         public Color hazeCaveColor = Hex("#1c120e");             // 안개(굴 안) = 굴 배경 = Sky_Cave
         public Color hazeOutsideColor = Hex("#f2a878");          // 안개(노을 바깥)
-        [Range(0f, 1f)] public float hazeAlpha = 0.4f;           // 안개 진하기(비교판 "중간")
+        [Range(0f, 1f)] public float hazeAlpha = 0.4f;           // 안개 진하기(비교판 "중간") — 노을 바깥
+        //  굴 안 안개 진하기. 유니티는 선형 공간에서 섞어서, 어두운 굴 안개 0.4는 시안(sRGB에서 섞은 0.4)보다 옅게 먹는다 —
+        //  배경 틀이 관문만큼 밝았다(10-08 캡처). 굴 안만 올린다.
+        [Range(0f, 1f)] public float hazeCaveAlpha = 0.55f;
+        //  먼 안개 막(z 12) 진하기 — 먼 비계·실루엣은 안개를 두 겹 쓴다(10-08). 같은 까닭으로 어두운 굴 안개는
+        //  0.4 한 겹 더로는 22%밖에 안 어두워졌고, 밝은 바깥 안개는 0.65면 협곡이 다 지워졌다 — 구역마다 따로 둔다.
+        [Range(0f, 1f)] public float farHazeOutsideAlpha = 0.15f;
+        [Range(0f, 1f)] public float farHazeCaveAlpha = 0.65f;
 
         [Header("나무결·그림자")]
         //  나무결 세기 — 텍스처 대비 조절. LOPToon.shader는 _BaseMap × _BaseColor를 그대로 곱할 뿐
@@ -43,11 +50,14 @@ namespace LOP.EditorTools
         //  ADR-0017(소프트 툰, 그림자 푸른 보라) — LOPToon.shader의 _ShadowColor 기본값과 같은 값을 그대로 옮겼다.
         public Color shadowColor = new Color(0.62f, 0.64f, 0.86f, 1f);
 
-        [Header("배경 밀도")]
-        public float frameSpacing = 9f;          // 배경 갱목 틀(BgFrame) 간격(m)
-        [Range(0f, 1f)] public float ladderChance = 0.5f;   // 틀마다 사다리가 걸릴 비율
+        [Header("배경 밀도·크기")]
+        //  10-08 캡처: 배경이 관문과 다퉜다 — 틀을 성기게(9 → 13 m), 사다리를 덜(0.5 → 0.35), 둘 다 줄여(×0.8) 뒤로 물렸다.
+        public float frameSpacing = 13f;         // 배경 갱목 틀(BgFrame) 간격(m)
+        [Range(0f, 1f)] public float ladderChance = 0.35f;  // 틀마다 사다리가 걸릴 비율
         public float lanternSpacing = 16f;        // 랜턴 간격(m)
         public int cartCount = 2;                 // 보기 구간 안 배경 광차 수
+        [Range(0.3f, 1f)] public float farScale = 0.75f;    // 먼 비계·광차 축척(z 18에서 멀리 보이게)
+        [Range(0.3f, 1f)] public float midScale = 0.8f;     // 가운데 층(틀·발판·사다리) 축척
 
         private static Color Hex(string hex)
         {

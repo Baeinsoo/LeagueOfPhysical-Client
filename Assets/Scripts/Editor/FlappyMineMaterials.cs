@@ -25,6 +25,10 @@ namespace LOP.EditorTools
         private const string TextureDir = "Assets/Art/Textures/Mine";
         private const string ModelDir = "Assets/Art/Models/Mine";
         private const string GradientPath = TextureDir + "/sky_sunset_gradient.png";
+        private const string SkyBlendPath = TextureDir + "/sky_mouth_blend.png";
+        private const string HazeBlendPath = TextureDir + "/haze_mouth_blend.png";
+        private const string FarHazeBlendPath = TextureDir + "/haze_far_mouth_blend.png";
+        private const string GlowPath = TextureDir + "/lantern_glow.png";
         internal const string LookAssetPath = "Assets/Art/Settings/FlappyMineLook.asset";
 
         [MenuItem("LOP/Debug/Flappy 광산 재질 갱신")]
@@ -85,18 +89,34 @@ namespace LOP.EditorTools
             UnlitOpaque("Silhouette_Canyon2", look.canyonSilhouette2Color);
             slots["Silhouette"] = silhouetteCave1;
 
-            //  안개 막(z=2.2, §4) — 반투명, 빛 안 받음.
-            UnlitTransparent("Haze_Cave", WithAlpha(look.hazeCaveColor, look.hazeAlpha));
-            UnlitTransparent("Haze_Outside", WithAlpha(look.hazeOutsideColor, look.hazeAlpha));
+            //  안개 막(z=2.2, §4) — 반투명, 빛 안 받음. 바깥/굴 사이(굴 입구)는 가로 그러데이션 텍스처로 잇는다(10-08 이음매).
+            //  먼 안개 막(z=12, 먼 비계·실루엣만 한 겹 더)은 같은 색에 구역별 진하기(farHaze*Alpha) — Haze_Far_*.
+            //  입구 띠는 색과 진하기를 둘 다 텍스처가 담는다(바깥 → 굴로 알파도 섞인다). 재질 _BaseColor는 흰색.
+            var layers = new[]
+            {
+                ("Haze_", look.hazeAlpha, look.hazeCaveAlpha, HazeBlendPath),
+                ("Haze_Far_", look.farHazeOutsideAlpha, look.farHazeCaveAlpha, FarHazeBlendPath),
+            };
+            foreach (var (prefix, outsideAlpha, caveAlpha, blendPath) in layers)
+            {
+                UnlitTransparent(prefix + "Cave", WithAlpha(look.hazeCaveColor, caveAlpha));
+                UnlitTransparent(prefix + "Outside", WithAlpha(look.hazeOutsideColor, outsideAlpha));
+                var mouth = UnlitTransparent(prefix + "Mouth", Color.white);
+                if (mouth != null) { mouth.SetTexture("_BaseMap", EnsureHazeBlend(look, blendPath, outsideAlpha, caveAlpha)); }
+            }
 
-            //  랜턴 빛 원판 — 가산(Blend One One)을 직접 걸어 흉내 낸다. URP Unlit 인스펙터엔
+            //  랜턴 빛 — 가산(Blend One One)을 직접 걸어 흉내 낸다. URP Unlit 인스펙터엔
             //  "가산" 프리셋이 없지만, 셰이더 Blend 식이 _SrcBlend/_DstBlend를 그대로 읽어 먹는다.
-            UnlitAdditive("LanternGlow", WithAlpha(look.lanternColor, 0.5f));
+            //  가운데가 밝고 가장자리가 0인 방사형 텍스처를 곱해 테두리 없이 옅어진다(10-08 — 균일 원판은 스티커처럼 보였다).
+            var glow = UnlitAdditive("LanternGlow", WithAlpha(look.lanternColor, 0.5f));
+            if (glow != null) { glow.SetTexture("_BaseMap", EnsureGlowTexture()); }
 
-            //  하늘 — 굴 안은 단색(굴 배경과 같은 값), 바깥은 그러데이션 텍스처.
+            //  하늘 — 굴 안은 단색(굴 배경과 같은 값), 바깥은 그러데이션 텍스처, 그 사이는 둘을 가로로 섞은 텍스처.
             UnlitOpaque("Sky_Cave", look.hazeCaveColor);
             var sky = UnlitOpaque("Sky_Sunset", Color.white);
             if (sky != null) { sky.SetTexture("_BaseMap", EnsureSunsetGradient(look)); }
+            var skyMouth = UnlitOpaque("Sky_Mouth", Color.white);
+            if (skyMouth != null) { skyMouth.SetTexture("_BaseMap", EnsureSkyBlend(look)); }
 
             RemapModelMaterials(slots);
 
@@ -189,32 +209,74 @@ namespace LOP.EditorTools
             return m;
         }
 
-        // ---- 하늘 그러데이션 텍스처 ----
+        // ---- 만든 텍스처(하늘·안개 그러데이션, 랜턴 빛) ----
 
         //  1×256 세로 그러데이션. V=0(아래)=skySunsetBottomColor, V=1(위)=skySunsetTopColor.
         private static Texture2D EnsureSunsetGradient(FlappyMineLook look)
         {
-            const int height = 256;
-            var tex = new Texture2D(1, height, TextureFormat.RGBA32, false);
+            return WriteTexture(GradientPath, 1, 256, (u, v) => SunsetAt(look, v));
+        }
+
+        //  64×256: u = 0(바깥) → 1(굴)로 노을 그러데이션을 굴 배경색으로 섞는다. v는 노을과 같다(같은 높이의 띠에 붙는다).
+        private static Texture2D EnsureSkyBlend(FlappyMineLook look)
+        {
+            return WriteTexture(SkyBlendPath, 64, 256, (u, v) => Color.Lerp(SunsetAt(look, v), look.hazeCaveColor, Mathf.SmoothStep(0f, 1f, u)));
+        }
+
+        //  64×1: u = 0(바깥 안개, outsideAlpha) → 1(굴 안개, caveAlpha). 색·알파를 같이 섞는다.
+        private static Texture2D EnsureHazeBlend(FlappyMineLook look, string path, float outsideAlpha, float caveAlpha)
+        {
+            Color outside = WithAlpha(look.hazeOutsideColor, outsideAlpha), cave = WithAlpha(look.hazeCaveColor, caveAlpha);
+            return WriteTexture(path, 64, 1, (u, v) => Color.Lerp(outside, cave, Mathf.SmoothStep(0f, 1f, u)));
+        }
+
+        //  64×64 방사형: 가운데 0.9 → 가장자리(반지름 0.5) 0, (1 − r)^1.5로 부드럽게. 가산이라 RGB가 곧 밝기다(알파도 같은 값).
+        //  선형(sRGB 끔)으로 임포트한다 — sRGB로 읽으면 값이 2.2제곱으로 눌려 빛이 랜턴 몸통 뒤에만 몰린다(10-08 캡처).
+        private static Texture2D EnsureGlowTexture()
+        {
+            return WriteTexture(GlowPath, 64, 64, (u, v) =>
+            {
+                float r = Mathf.Clamp01(Vector2.Distance(new Vector2(u, v), new Vector2(0.5f, 0.5f)) / 0.5f);
+                float k = 0.9f * Mathf.Pow(1f - r, 1.5f);
+                return new Color(k, k, k, k);
+            }, linear: true);
+        }
+
+        private static Color SunsetAt(FlappyMineLook look, float v) => Color.Lerp(look.skySunsetBottomColor, look.skySunsetTopColor, v);
+
+        //  픽셀 중심의 (u, v)로 칠한 PNG를 쓴다 — 내용이 같으면 파일을 다시 쓰지도, 다시 임포트하지도 않는다(굽기마다 부른다).
+        //  가장자리 픽셀이 정확히 0·1이 되도록 u = x / (w − 1)(폭 1이면 0)로 잰다. 클램프, 밉맵 없음. linear면 sRGB 변환 없이 값 그대로 쓴다.
+        private static Texture2D WriteTexture(string path, int width, int height, System.Func<float, float, Color> colorAt, bool linear = false)
+        {
+            var tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
             for (int y = 0; y < height; y++)
             {
-                float t = y / (float)(height - 1);
-                tex.SetPixel(0, y, Color.Lerp(look.skySunsetBottomColor, look.skySunsetTopColor, t));
+                for (int x = 0; x < width; x++)
+                {
+                    float u = width > 1 ? x / (float)(width - 1) : 0f, v = height > 1 ? y / (float)(height - 1) : 0f;
+                    tex.SetPixel(x, y, colorAt(u, v));
+                }
             }
             tex.Apply();
-
-            Directory.CreateDirectory(TextureDir);
-            File.WriteAllBytes(GradientPath, tex.EncodeToPNG());
+            byte[] png = tex.EncodeToPNG();
             Object.DestroyImmediate(tex);
 
-            AssetDatabase.ImportAsset(GradientPath, ImportAssetOptions.ForceUpdate);
-            if (AssetImporter.GetAtPath(GradientPath) is TextureImporter importer)
+            Directory.CreateDirectory(TextureDir);
+            bool same = File.Exists(path) && File.ReadAllBytes(path).SequenceEqual(png);
+            if (same == false)
+            {
+                File.WriteAllBytes(path, png);
+                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+            }
+            if (AssetImporter.GetAtPath(path) is TextureImporter importer
+                && (importer.wrapMode != TextureWrapMode.Clamp || importer.mipmapEnabled || importer.sRGBTexture == linear))
             {
                 importer.wrapMode = TextureWrapMode.Clamp;
                 importer.mipmapEnabled = false;
+                importer.sRGBTexture = !linear;
                 importer.SaveAndReimport();
             }
-            return AssetDatabase.LoadAssetAtPath<Texture2D>(GradientPath);
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 
         // ---- FBX 리매핑 ----

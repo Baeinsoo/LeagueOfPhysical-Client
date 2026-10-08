@@ -1,7 +1,9 @@
 """Flappy 광산 부품 — 원점 기준 단위 부품을 FBX로, 나무결·바위 무늬를 512² 타일 PNG로 뽑는다.
 
-실행:  blender -b -P Tools/Blender/mine_parts.py -- <LeagueOfPhysical-Client/Assets/Art 절대경로>
+실행:  blender -b -P Tools/Blender/mine_parts.py -- <LeagueOfPhysical-Client/Assets/Art 절대경로> [부품 이름 ...]
 출력:  <Art>/Models/Mine/<부품>.fbx,  <Art>/Textures/Mine/{wood_grain,rock}.png
+       부품 이름을 주면 그 부품 FBX만 다시 뽑는다(텍스처는 안 건드린다) — FBX는 뽑을 때마다 바이트가 달라져
+       안 바뀐 부품까지 커밋에 섞이지 않게.
 
 좌표는 전부 **게임(유니티) 좌표**로 적는다: x = 오른쪽(코스 진행), y = 위, z = 깊이(+가 카메라 반대쪽, 카메라는 −z).
 단위 m. 블렌더로 옮길 때 (x, y, z) → 블렌더 (x, z, y)로 바꾸고, FBX 축 설정이 다시 유니티 축으로 돌린다.
@@ -12,7 +14,9 @@ import bpy, bmesh, math, os, random, sys
 import numpy as np
 from mathutils import Vector
 
-ART = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else None
+ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
+ART = ARGS[0] if ARGS else None
+ONLY = set(ARGS[1:])     # 비면 전부
 if not ART or not os.path.isdir(ART):
     raise SystemExit('usage: blender -b -P mine_parts.py -- <Assets/Art 절대경로>')
 MODEL_DIR = os.path.join(ART, 'Models', 'Mine')
@@ -263,14 +267,22 @@ def ceiling_rock():
     return p
 
 
+# 굴 입구 아치의 앞뒤. 뒷면 = 판정면(z 0) — 판정면 뒤로 띠가 뻗으면 원근 때문에 통로가 좁아 보이고(10-07 리뷰),
+# z 2.2 안개 막 뒤로 가면 흐린 상자로 읽힌다(10-08 캡처). 깊이 2 m 틀로 판정면 앞에만 둔다.
+MOUTH_FRONT = -2.0
+# 아래 턱은 비계 데크(TrestleBay z −1.3~0, 윗면 = 바닥선) 앞에만 — 데크 윗면과 같은 높이 같은 깊이에 겹치면 깜빡인다.
+MOUTH_LOW_BACK = -1.32
+
+
 def cave_mouth():
-    """CaveMouth — 굴 입구 바위 아치. 원점 = 통로 가운데: x ∈ [−5, 5](−x가 바깥 노을 쪽), 안쪽 천장선 y = +7.28, 바닥선 y = −7.28.
-    위 덩이는 z −1.5~6(앞으로 나와 입구를 감싼다), 아래 덩이는 z 0.7~6(비계 데크 뒤). 안쪽 선에 밝은 띠(RockEdge).
+    """CaveMouth — 굴 입구 바위 아치(틀). 원점 = 통로 가운데: x ∈ [−5, 5](−x가 바깥 노을 쪽), 안쪽 천장선 y = +7.28, 바닥선 y = −7.28.
+    뒷면이 z = 0(판정면)이고 앞으로 2 m(z −2~0): 유니티에서 z 0에 놓으면 전부 판정면·안개 막 앞이다.
+    위 덩이는 z −2~0, 아래 턱은 z −2~−1.32(비계 데크 앞). 안쪽 선에 밝은 띠(RockEdge), 앞면에 각진 덩이(RockDark).
     바깥 쪽 외곽은 통로 선에서 가장 튀어나오고 멀어질수록 물러나는 둥근 아치 모양."""
     p = Part('CaveMouth')
     rnd = random.Random(24)
     H = 12.0
-    for sgn, z0 in ((1, -1.5), (-1, 0.7)):
+    for sgn, z0, z1 in ((1, MOUTH_FRONT, 0.0), (-1, MOUTH_FRONT, MOUTH_LOW_BACK)):
         edge = []
         steps = 9
         for k in range(steps + 1):
@@ -280,8 +292,9 @@ def cave_mouth():
         outline = [(5.0, sgn * (HALF + 0.17)), (5.0, sgn * (HALF + H))] + list(reversed(edge))
         if sgn < 0:
             outline.reverse()
-        p.slab(outline, z0, 6.0, 'Rock')
-        p.prism_x(chamfer_rect(sgn * (HALF + 0.09), (z0 - 0.05 + 6.0) / 2, 0.18, 6.0 - z0 + 0.05, 0.05), -5.0, 5.0, 'RockEdge')
+        p.slab(outline, z0, z1, 'Rock')
+        # 띠는 바위 앞면보다 0.05 앞으로 — 뒤로는 z1을 넘지 않는다(판정면 뒤로 안 간다).
+        p.prism_x(chamfer_rect(sgn * (HALF + 0.09), (z0 - 0.05 + z1) / 2, 0.18, z1 - z0 + 0.05, 0.05), -5.0, 5.0, 'RockEdge')
         for k in range(3 if sgn > 0 else 2):
             x = -2.5 + 2.6 * k + rnd.random() * 0.8
             y = sgn * (HALF + 1.4 + rnd.random() * 3.0)
@@ -474,10 +487,14 @@ def main():
     for make in PARTS:
         bpy.ops.wm.read_factory_settings(use_empty=True)
         part = make()
+        if ONLY and part.name not in ONLY:
+            part.bm.free()
+            continue
         tris = part.tris(); (x0, y0, z0), (x1, y1, z1) = part.bounds(); slots = ','.join(part.slots)
         path = export(part)
         print(f'PART {part.name:16s} tris={tris:4d} x=[{x0:.3f},{x1:.3f}] y=[{y0:.3f},{y1:.3f}] z=[{z0:.3f},{z1:.3f}] slots={slots} -> {os.path.relpath(path, ART)}')
-    bake_textures()
+    if not ONLY:
+        bake_textures()
     print('mine_parts: DONE')
 
 

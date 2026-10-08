@@ -56,6 +56,17 @@ namespace LOP.MapTools
         }
     }
 
+    /// <summary>관문 가로 칸 하나. GatePlank·GateStrap·GateCap(폭 1.95, 가운데 원점)을 <see cref="X"/>에 놓고 x 축척 = <see cref="ScaleX"/>.</summary>
+    public readonly struct GatePlankColumn
+    {
+        public readonly float X, ScaleX;
+
+        public GatePlankColumn(float x, float scaleX)
+        {
+            X = x; ScaleX = scaleX;
+        }
+    }
+
     /// <summary>관문 기둥 하나(파이프 한 개)를 채우는 판자 칸·쇠띠·쇠테 자리.</summary>
     public sealed class GateStackLayout
     {
@@ -91,8 +102,11 @@ namespace LOP.MapTools
         /// <summary>배경 층은 카메라 시야를 덮도록 범위 앞뒤로 이만큼 더 깐다.</summary>
         public const float BackgroundMargin = 15f;
 
-        //  ── 깊이(Global Constraints) ──
-        public const float HazeZ = 2.2f, LanternZ = 4.5f, MidZ = 6f, FarZ = 11f, SilhouetteNearZ = 13f, SilhouetteFarZ = 15f;
+        //  ── 깊이(Global Constraints, 10-08 고침) ──
+        //  먼 비계는 z 11에서 관문과 다퉜다(캡처) — 18로 물렸고, 실루엣은 그보다 뒤(22·25)로 같이 물렸다.
+        //  안개 막(2.2) 뒤 층은 전부 안개를 한 겹 쓰고, 먼 비계·실루엣은 가운데 층 뒤 안개 막(FarHazeZ 12)을 한 겹 더 쓴다 —
+        //  한 겹(0.4)만으로는 먼 비계가 관문만큼 진했다(10-08 캡처). 두 겹이면 1 − 0.6² = 0.64.
+        public const float HazeZ = 2.2f, LanternZ = 4.5f, MidZ = 6f, FarHazeZ = 12f, FarZ = 18f, SilhouetteNearZ = 22f, SilhouetteFarZ = 25f;
 
         //  ── 부품 단위(Task 3 실측) ──
         /// <summary>TrestleBay·RailSpan x ±1.2(가운데 원점).</summary>
@@ -109,8 +123,13 @@ namespace LOP.MapTools
         public const float StrapSpacing = 2f;
         /// <summary>BgTrestleBay x ±1.5, 레일 윗면 +0.28(RailSpan도 같다) — 광차는 여기에 선다.</summary>
         public const float BgTrestleBayWidth = 3f, RailTop = 0.28f;
-        /// <summary>SilhouetteStrip x ±10 — 양끝 높이가 같아 20 m마다 이어진다.</summary>
-        public const float SilhouetteWidth = 20f;
+        /// <summary>
+        /// SilhouetteStrip x ±10 — 양끝 높이가 같아 이어 깔 수 있다. z 13·15에서 22·25로 물리며 화면에서 같은 크기로 보이게
+        /// 카메라 거리 비(45/33 ≈ 1.36)만큼 키운다 — 띠 하나가 덮는 폭 = 20 × 1.36.
+        /// </summary>
+        public const float SilhouetteScaleX = 1.36f, SilhouetteWidth = 20f * SilhouetteScaleX;
+        /// <summary>GatePlank·GateStrap·GateCap x ±0.975 — 보통 관문 폭.</summary>
+        public const float GateUnitWidth = 1.95f;
         /// <summary>BgFrame x ±3.3(윗면 원점), Walkway x ±3.0(윗면 원점), Ladder 위 끝 원점.</summary>
         public const float BgFrameWidth = 6.6f, WalkwayWidth = 6f, LadderWidth = 0.82f, LanternWidth = 0.6f, MineCartWidth = 1.95f;
 
@@ -136,10 +155,15 @@ namespace LOP.MapTools
             public readonly float LanternSpacing;
             /// <summary>[from, to] 안 먼 비계 위 광차 수.</summary>
             public readonly int CartCount;
+            /// <summary>먼 비계·광차 축척 — 칸 폭도 3 m × 이 값으로 줄어 멀리 보인다.</summary>
+            public readonly float FarScale;
+            /// <summary>가운데 층(틀·발판·사다리) 축척.</summary>
+            public readonly float MidScale;
 
-            public BackgroundDensity(float frameSpacing, float ladderChance, float lanternSpacing, int cartCount)
+            public BackgroundDensity(float frameSpacing, float ladderChance, float lanternSpacing, int cartCount, float farScale, float midScale)
             {
                 FrameSpacing = frameSpacing; LadderChance = ladderChance; LanternSpacing = lanternSpacing; CartCount = cartCount;
+                FarScale = farScale; MidScale = midScale;
             }
         }
 
@@ -173,6 +197,25 @@ namespace LOP.MapTools
                 s.StrapYs.Add((float)y);
             }
             return s;
+        }
+
+        /// <summary>
+        /// 관문 가로 칸. 폭 <paramref name="width"/>를 1.95 이하의 같은 폭 칸 ceil(width / 1.95)개로 나눈다 — 긴 관문(폭 12)을 한 칸으로
+        /// 6.15배 늘이면 나무결·볼트가 찌그러진다. 칸은 모두 같은 폭이라 가는 자투리 칸이 없다(7칸이면 축척 0.88).
+        /// 양끝은 파이프 양끝과 정확히 같다.
+        /// </summary>
+        public static List<GatePlankColumn> GateColumns(float x, float width)
+        {
+            var list = new List<GatePlankColumn>();
+            if (!(width > 1e-4f)) { return list; }
+            //  1e-3 여유로 올림 — 3.9가 float 오차로 3.9000002가 되어 0에 가까운 자투리 칸이 생기지 않게.
+            int n = Math.Max(1, (int)Math.Ceiling(width / (double)GateUnitWidth - 1e-3));
+            double w = (double)width / n, left = x - width / 2.0;
+            for (int i = 0; i < n; i++)
+            {
+                list.Add(new GatePlankColumn((float)(left + (i + 0.5) * w), (float)(w / GateUnitWidth)));
+            }
+            return list;
         }
 
         // ── 바닥·천장 ──
@@ -215,11 +258,11 @@ namespace LOP.MapTools
         /// <summary>
         /// 배경 층 전부(z &gt; 2.2). [from − 15, to + 15]를 덮는다. 같은 시드면 같은 결과.
         /// <list type="bullet">
-        /// <item>실루엣(z 13 / 15): x = 24를 이음매로 20 m 띠. 가운데가 24 앞이면 협곡(바닥 쪽만), 뒤면 굴벽(바닥 + 뒤집은 천장 쪽).
+        /// <item>실루엣(z 22 / 25): x = 24를 이음매로 27.2 m 띠(20 m 띠를 1.36배). 가운데가 24 앞이면 협곡(바닥 쪽만), 뒤면 굴벽(바닥 + 뒤집은 천장 쪽).
         /// 높이(y 축척)만 시드로 흔든다.</item>
-        /// <item>먼 비계(z 11): 3 m 칸(x = 3k ~ 3k+3), 데크 윗면 = 가운데선 −1.0 + 2.5·sin(0.15·x)의 현. 구역 구분 없이(바깥은 협곡 다리).</item>
-        /// <item>광차: [from, to] 안 먼 비계 칸 중 시드로 고른 서로 다른 칸, 레일 윗면 위.</item>
-        /// <item>가운데 층(z 6)·랜턴(z 4.5): 굴(x ≥ 24)에만. 틀은 <see cref="BackgroundDensity.FrameSpacing"/>마다, 틀마다 발판 하나,
+        /// <item>먼 비계(z 18): 3·FarScale m 칸, 축척 FarScale, 데크 윗면 = 가운데선 −1.0 + 2.5·sin(0.15·x)의 현. 구역 구분 없이(바깥은 협곡 다리).</item>
+        /// <item>광차: [from, to] 안 먼 비계 칸 중 시드로 고른 서로 다른 칸, 레일 윗면 위(같은 축척).</item>
+        /// <item>가운데 층(z 6, 축척 MidScale)·랜턴(z 4.5): 굴(x ≥ 24)에만. 틀은 <see cref="BackgroundDensity.FrameSpacing"/>마다, 틀마다 발판 하나,
         /// 사다리는 확률. 랜턴은 <see cref="BackgroundDensity.LanternSpacing"/>마다 ±1 m.</item>
         /// </list>
         /// </summary>
@@ -230,29 +273,31 @@ namespace LOP.MapTools
             double lo = from - BackgroundMargin, hi = to + BackgroundMargin;
 
             AddSilhouettes(c, lo, hi, rng, list);
-            var far = AddFarTrestles(c, lo, hi, list);
-            AddCarts(far, from, to, d.CartCount, rng, list);
+            var far = AddFarTrestles(c, lo, hi, d.FarScale, list);
+            AddCarts(far, from, to, d.CartCount, d.FarScale, rng, list);
             AddMidLayer(c, lo, hi, d, rng, list);
             return list;
         }
 
         //  실루엣 층 하나: (z, 층, 바닥 쪽 기준선 높이, 천장 쪽 기준선 높이(NaN = 없음), y 축척 범위). 기준선은 통로 가운데 기준.
         //  띠의 들쭉날쭉한 윗선은 기준선 위 1.4~5.3(Task 3) — 시안 silhouette(15, −2.0, 4.0)·(15, 6.5, 3.0, up)이 굴의 먼 층이다.
+        //  처음 값(z 13·15, 카메라 20)을 z 22·25(카메라 23)로 옮기며 기준선·축척에 카메라 거리 비를 곱했다
+        //  (가까운 층 45/33 ≈ 1.36, 먼 층 48/35 ≈ 1.37) — 화면에서 보이는 자리·크기는 그대로다.
         static readonly (float z, int layer, float floorBase, float ceilBase, float sMin, float sMax)[] CaveLayers =
         {
-            (SilhouetteNearZ, 0, -6.0f, 10.0f, 0.8f, 1.2f),
-            (SilhouetteFarZ, 1, -3.4f, 7.9f, 0.8f, 1.2f),
+            (SilhouetteNearZ, 0, -8.2f, 13.6f, 1.1f, 1.65f),
+            (SilhouetteFarZ, 1, -4.65f, 10.8f, 1.1f, 1.65f),
         };
         //  협곡(노을 바깥): 시안 silhouette(20, −7, 6)·(26, −4, 9) — 바닥 쪽만, 높이 크게.
         static readonly (float z, int layer, float floorBase, float ceilBase, float sMin, float sMax)[] CanyonLayers =
         {
-            (SilhouetteNearZ, 0, -8.5f, float.NaN, 1.2f, 1.6f),
-            (SilhouetteFarZ, 1, -7.0f, float.NaN, 1.7f, 2.3f),
+            (SilhouetteNearZ, 0, -11.6f, float.NaN, 1.65f, 2.2f),
+            (SilhouetteFarZ, 1, -9.6f, float.NaN, 2.35f, 3.15f),
         };
 
         static void AddSilhouettes(MineCourse c, double lo, double hi, Lcg rng, List<MinePiece> list)
         {
-            //  띠 가운데 = 24 ± 10 + 20k — 협곡/굴벽이 정확히 24에서 갈린다.
+            //  띠 가운데 = 24 + (k + ½)·폭 — 협곡/굴벽이 정확히 24에서 갈린다.
             double w = SilhouetteWidth;
             int k0 = (int)Math.Floor((lo - OutsideEnd) / w), k1 = (int)Math.Ceiling((hi - OutsideEnd) / w);
             for (int k = k0; k < k1; k++)
@@ -264,32 +309,33 @@ namespace LOP.MapTools
                 foreach (var l in canyon ? CanyonLayers : CaveLayers)
                 {
                     float s = rng.Range(l.sMin, l.sMax);
-                    list.Add(new MinePiece(kind, (float)x, center + l.floorBase, l.z, 0f, (float)w, (float)w, 1f, s, false, l.layer));
+                    list.Add(new MinePiece(kind, (float)x, center + l.floorBase, l.z, 0f, (float)w, (float)w, SilhouetteScaleX, s, false, l.layer));
                     if (!float.IsNaN(l.ceilBase))
                     {
                         float sc = rng.Range(l.sMin, l.sMax);
-                        list.Add(new MinePiece(kind, (float)x, center + l.ceilBase, l.z, 0f, (float)w, (float)w, 1f, sc, true, l.layer));
+                        list.Add(new MinePiece(kind, (float)x, center + l.ceilBase, l.z, 0f, (float)w, (float)w, SilhouetteScaleX, sc, true, l.layer));
                     }
                 }
             }
         }
 
-        static List<MinePiece> AddFarTrestles(MineCourse c, double lo, double hi, List<MinePiece> list)
+        static List<MinePiece> AddFarTrestles(MineCourse c, double lo, double hi, float scale, List<MinePiece> list)
         {
             var far = new List<MinePiece>();
-            double w = BgTrestleBayWidth;
+            //  칸 폭은 줄인 만큼 좁게(축척은 x·y 같이). 높이 곡선은 그대로 x의 함수다(칸 폭과 무관).
+            double w = BgTrestleBayWidth * (double)scale;
             int k0 = (int)Math.Floor(lo / w), k1 = (int)Math.Ceiling(hi / w);
             for (int k = k0; k < k1; k++)
             {
                 var p = Chord(MinePartKind.BgTrestleBay, k * w, (k + 1) * w,
-                              x => c.CenterAtD(x) + FarBase + FarAmp * Math.Sin(x / w * FarPhasePerBay), FarZ, BgTrestleBayWidth);
+                              x => c.CenterAtD(x) + FarBase + FarAmp * Math.Sin(x / BgTrestleBayWidth * FarPhasePerBay), FarZ, BgTrestleBayWidth, scale);
                 far.Add(p);
                 list.Add(p);
             }
             return far;
         }
 
-        static void AddCarts(List<MinePiece> far, float from, float to, int count, Lcg rng, List<MinePiece> list)
+        static void AddCarts(List<MinePiece> far, float from, float to, int count, float scale, Lcg rng, List<MinePiece> list)
         {
             var pool = far.FindAll(p => p.X >= from && p.X <= to);
             for (int i = 0; i < count && pool.Count > 0; i++)
@@ -297,7 +343,8 @@ namespace LOP.MapTools
                 int j = (int)(rng.Next() * pool.Count);
                 var bay = pool[j];
                 pool.RemoveAt(j);
-                list.Add(new MinePiece(MinePartKind.MineCart, bay.X, bay.Y + RailTop, bay.Z, bay.AngleDegrees, MineCartWidth, MineCartWidth, 1f, 1f));
+                list.Add(new MinePiece(MinePartKind.MineCart, bay.X, bay.Y + RailTop * scale, bay.Z, bay.AngleDegrees,
+                                       MineCartWidth * scale, MineCartWidth * scale, scale, scale));
             }
         }
 
@@ -312,15 +359,16 @@ namespace LOP.MapTools
                     double x = OutsideEnd + (k + 0.5) * d.FrameSpacing;
                     if (x > hi) { break; }
                     if (x < start) { continue; }
-                    float fx = (float)x, center = c.CenterAt(fx);
-                    list.Add(new MinePiece(MinePartKind.BgFrame, fx, center + FrameTop, MidZ, 0f, BgFrameWidth, BgFrameWidth, 1f, 1f));
+                    //  축척 m = MidScale. 틀 윗면·발판·사다리 위 끝 높이는 그대로 두고 크기만 줄인다(틀 다리는 데크 아래로 숨는다).
+                    float fx = (float)x, center = c.CenterAt(fx), m = d.MidScale;
+                    list.Add(new MinePiece(MinePartKind.BgFrame, fx, center + FrameTop, MidZ, 0f, BgFrameWidth * m, BgFrameWidth * m, m, m));
                     float walk = WalkLow + rng.Range(0f, WalkRange);
-                    list.Add(new MinePiece(MinePartKind.Walkway, fx, center + walk, MidZ, 0f, WalkwayWidth, WalkwayWidth, 1f, 1f));
+                    list.Add(new MinePiece(MinePartKind.Walkway, fx, center + walk, MidZ, 0f, WalkwayWidth * m, WalkwayWidth * m, m, m));
                     //  확률은 항상 뽑는다 — 사다리 비율을 바꿔도 뒤 소품의 난수가 밀리지 않게.
                     if (rng.Next() < d.LadderChance)
                     {
-                        float lx = fx + LadderOffsetX;
-                        list.Add(new MinePiece(MinePartKind.Ladder, lx, c.CenterAt(lx) + LadderTop, MidZ + LadderDz, 0f, LadderWidth, LadderWidth, 1f, 1f));
+                        float lx = fx + LadderOffsetX * m;
+                        list.Add(new MinePiece(MinePartKind.Ladder, lx, c.CenterAt(lx) + LadderTop, MidZ + LadderDz, 0f, LadderWidth * m, LadderWidth * m, m, m));
                     }
                 }
             }
@@ -383,13 +431,13 @@ namespace LOP.MapTools
             for (int i = 0; i < n; i++) { yield return (from + len * i / n, from + len * (i + 1) / n); }
         }
 
-        /// <summary>선 f 위의 두 점 (x0, f(x0))·(x1, f(x1))을 잇는 현에 놓인 조각. 축척 x = 현 길이 / 부품 단위.</summary>
-        static MinePiece Chord(MinePartKind kind, double x0, double x1, Func<double, double> f, float z, float unit)
+        /// <summary>선 f 위의 두 점 (x0, f(x0))·(x1, f(x1))을 잇는 현에 놓인 조각. 축척 x = 현 길이 / 부품 단위, 축척 y = <paramref name="scaleY"/>.</summary>
+        static MinePiece Chord(MinePartKind kind, double x0, double x1, Func<double, double> f, float z, float unit, float scaleY = 1f)
         {
             double y0 = f(x0), y1 = f(x1), w = x1 - x0, dy = y1 - y0;
             double len = Math.Sqrt(w * w + dy * dy);
             return new MinePiece(kind, (float)((x0 + x1) / 2), (float)((y0 + y1) / 2), z, (float)(Math.Atan2(dy, w) * 180.0 / Math.PI),
-                                 (float)w, (float)len, (float)(len / unit), 1f);
+                                 (float)w, (float)len, (float)(len / unit), scaleY);
         }
 
         /// <summary>MineCourseRule과 같은 LCG(uint 넘침). System.Random은 런타임마다 수열이 다를 수 있어 쓰지 않는다.</summary>

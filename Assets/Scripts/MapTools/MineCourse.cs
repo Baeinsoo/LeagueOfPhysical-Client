@@ -94,7 +94,7 @@ namespace LOP.MapTools
     /// </summary>
     public sealed class MineCourse
     {
-        /// <summary>통로 반 높이(10-07 원조처럼: 통로 = 화면 — 카메라 20 m 세로 14.56 m의 반). 프로토타입은 7.28.</summary>
+        /// <summary>통로 반 높이(10-07 원조처럼: 통로 = 화면 — 카메라 20 m 세로 14.56 m의 반. 10-08 카메라를 23 m로 물려 위아래 1 m쯤 바닥·천장이 보인다). 프로토타입은 7.28.</summary>
         public const float BaseHalf = 7.28f;
 
         /// <summary>좁은 구간·낮은 천장의 가장자리를 넓은 통로로 잇는 거리.</summary>

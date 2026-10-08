@@ -36,18 +36,22 @@ namespace LOP.EditorTools
         private const float FloorZ = -0.65f;
         //  CeilingRock −1.607~+1.35, Beam ±0.8.
         private const float CeilingRockZ = -1.35f, BeamZ = -0.8f;
-        //  GatePlank·GateStrap·GateCap의 x 폭 — 보통 관문 폭과 같다. 긴 관문은 x 축척으로 늘인다.
-        private const float GateUnitWidth = 1.95f;
-
-        //  ── 카메라 시야(스펙 §2): z −20, 세로 시야 40°, 대시 때 +3 m. 화면 비는 넓은 폰(20:9)보다 조금 넉넉히 ──
-        private const float CameraZ = -20f, CameraDash = 3f, HalfFovDegrees = 20f, MaxAspect = 2.4f, ViewMargin = 2f;
+        //  ── 카메라 시야(스펙 §2): z −23(10-08, 20에서 물림 — FlappyCameraDistance), 세로 시야 40°, 대시 때 +3 m.
+        //  화면 비는 넓은 폰(20:9)보다 조금 넉넉히 ──
+        private const float CameraZ = -23f, CameraDash = 3f, HalfFovDegrees = 20f, MaxAspect = 2.4f, ViewMargin = 2f;
 
         //  하늘 평면 깊이와 조각 폭 — 조각마다 그 자리 통로 가운데를 따라간다(오르내리는 코스로 펼칠 때 대비).
         private const float SkyZ = 30f, PanelSegment = 10f;
 
-        //  랜턴 빛 원판: 유리 가운데(사슬 위 끝 −1.85, Task 3)에서 조금 앞(랜턴 z ±0.3보다 앞), 지름.
-        private const float LanternGlassDrop = 1.85f, GlowFront = 0.4f, GlowDiameter = 1.6f;
-        private const int GlowSides = 24;
+        //  ── 바깥 → 굴 이음매 ──
+        //  안개 막(z 2.2)은 판정면과 거의 같이 움직이므로 굴 입구 폭(24~34) 그대로 섞는다. 하늘(z 30)은 시차가 커서
+        //  아치(29)가 화면에 있는 동안 아치 뒤로 보이는 하늘 x가 약 10~48을 오간다 — 그 폭 전체(29 ± 20)에 걸쳐 섞는다.
+        //  한 x에서 색이 확 바뀌면 수직선이 보인다(10-08 캡처).
+        private const float SkyBlendHalf = 20f, BlendSegment = 2f;
+
+        //  랜턴 빛: 유리 가운데(사슬 위 끝 −1.85, Task 3)에서 조금 앞(랜턴 z ±0.3보다 앞). 가장자리로 갈수록 옅어지는
+        //  방사형 텍스처(<c>lantern_glow.png</c>)를 붙인 사각형이라, 원판보다 크게 잡아도 테두리가 안 보인다.
+        private const float LanternGlassDrop = 1.85f, GlowFront = 0.4f, GlowSize = 2.6f;
 
         private static readonly string[] PartNames =
         {
@@ -58,7 +62,8 @@ namespace LOP.EditorTools
         private static readonly string[] MaterialNames =
         {
             "Silhouette_Cave1", "Silhouette_Cave2", "Silhouette_Canyon1", "Silhouette_Canyon2",
-            "Sky_Sunset", "Sky_Cave", "Haze_Outside", "Haze_Cave", "LanternGlow",
+            "Sky_Sunset", "Sky_Cave", "Sky_Mouth", "Haze_Outside", "Haze_Cave", "Haze_Mouth",
+            "Haze_Far_Outside", "Haze_Far_Cave", "Haze_Far_Mouth", "LanternGlow",
         };
 
         /// <summary>
@@ -147,7 +152,8 @@ namespace LOP.EditorTools
                 }
             }
 
-            //  3. 굴 입구 아치 — 원점 = 통로 가운데(Task 3), z는 부품 그대로(아래 덩이는 데크 뒤로 들어간다).
+            //  3. 굴 입구 아치 — 원점 = 통로 가운데, 뒷면 = z 0(10-08 다시 깎음: 깊이 2 m 틀이라 전부 판정면 앞·안개 막 앞).
+            //  위 띠 아랫면 = 천장선, 아래 턱 윗면 = 바닥선이고 아래 턱은 데크 앞(z −2.05~−1.32)에만 있다.
             if (MineDressingLayout.SpanOverlaps(MineDressingLayout.OutsideEnd, MineDressingLayout.CaveInside, coverFrom, coverTo))
             {
                 var (mx, my) = MineDressingLayout.CaveMouthAt(course);
@@ -155,8 +161,9 @@ namespace LOP.EditorTools
             }
 
             //  4. 배경 — 실루엣(재질을 층·구역으로 갈아 끼운다), 먼 비계·광차, 가운데 층, 랜턴 + 빛 원판.
-            var density = new MineDressingLayout.BackgroundDensity(look.frameSpacing, look.ladderChance, look.lanternSpacing, look.cartCount);
-            Mesh disc = DiscMesh(GlowSides);
+            var density = new MineDressingLayout.BackgroundDensity(look.frameSpacing, look.ladderChance, look.lanternSpacing, look.cartCount,
+                                                                   look.farScale, look.midScale);
+            Mesh glowQuad = GlowQuadMesh();
             int background = 0, lanterns = 0;
             foreach (MinePiece p in MineDressingLayout.Background(course, dressFrom, dressTo, BackgroundSeed, density))
             {
@@ -174,7 +181,7 @@ namespace LOP.EditorTools
                         break;
                     case MinePartKind.Lantern:
                         Place(g.Lights, models["Lantern"], p, p.Z);
-                        Glow(g.Lights, disc, materials["LanternGlow"], new Vector3(p.X, p.Y - LanternGlassDrop, p.Z - GlowFront));
+                        Glow(g.Lights, glowQuad, materials["LanternGlow"], new Vector3(p.X, p.Y - LanternGlassDrop, p.Z - GlowFront));
                         lanterns++;
                         break;
                     default:
@@ -184,14 +191,24 @@ namespace LOP.EditorTools
                 background++;
             }
 
-            //  5. 하늘(z 30)·안개 막(z 2.2) — 굴 입구 가운데(29)에서 바깥/굴로 갈린다. 이음매는 아치 뒤.
-            float split = MineDressingLayout.CaveMouthX;
-            Vector2 skyView = ViewHalfSize(SkyZ), hazeView = ViewHalfSize(MineDressingLayout.HazeZ);
+            //  5. 하늘(z 30)·안개 막(z 2.2) — 바깥/굴 사이를 그러데이션 띠(*_Mouth, 텍스처 u 0 = 바깥 → 1 = 굴)로 잇는다.
+            float skyFrom = MineDressingLayout.CaveMouthX - SkyBlendHalf, skyTo = MineDressingLayout.CaveMouthX + SkyBlendHalf;
+            float hazeFrom = MineDressingLayout.OutsideEnd, hazeTo = MineDressingLayout.CaveInside;
+            Vector2 skyView = ViewHalfSize(SkyZ);
+            float skyH = skyView.y * 2f;
             int panels = 0;
-            panels += Panels(g.Sky, course, dressFrom - skyView.x, split, SkyZ, skyView.y * 2f, materials["Sky_Sunset"]);
-            panels += Panels(g.Sky, course, split, dressTo + skyView.x, SkyZ, skyView.y * 2f, materials["Sky_Cave"]);
-            panels += Panels(g.Haze, course, dressFrom - hazeView.x, split, MineDressingLayout.HazeZ, hazeView.y * 2f, materials["Haze_Outside"]);
-            panels += Panels(g.Haze, course, split, dressTo + hazeView.x, MineDressingLayout.HazeZ, hazeView.y * 2f, materials["Haze_Cave"]);
+            panels += Panels(g.Sky, course, dressFrom - skyView.x, skyFrom, SkyZ, skyH, materials["Sky_Sunset"]);
+            panels += BlendStrip(g.Sky, course, skyFrom, skyTo, SkyZ, skyH, materials["Sky_Mouth"]);
+            panels += Panels(g.Sky, course, skyTo, dressTo + skyView.x, SkyZ, skyH, materials["Sky_Cave"]);
+            //  안개 막 두 겹: 판정면 바로 뒤(배경 전부, Haze_*), 가운데 층 뒤(먼 비계·실루엣만 한 겹 더, Haze_Far_* — 더 진하다).
+            foreach (var (hazeZ, prefix) in new[] { (MineDressingLayout.HazeZ, "Haze_"), (MineDressingLayout.FarHazeZ, "Haze_Far_") })
+            {
+                Vector2 hazeView = ViewHalfSize(hazeZ);
+                float hazeH = hazeView.y * 2f;
+                panels += Panels(g.Haze, course, dressFrom - hazeView.x, hazeFrom, hazeZ, hazeH, materials[prefix + "Outside"]);
+                panels += BlendStrip(g.Haze, course, hazeFrom, hazeTo, hazeZ, hazeH, materials[prefix + "Mouth"]);
+                panels += Panels(g.Haze, course, hazeTo, dressTo + hazeView.x, hazeZ, hazeH, materials[prefix + "Cave"]);
+            }
 
             MakeRenderOnly(dressing.gameObject);
             Undo.RegisterCreatedObjectUndo(dressing.gameObject, "Dress mine course");
@@ -203,24 +220,27 @@ namespace LOP.EditorTools
 
         // ---- 관문 ----
 
-        //  파이프 사각형 하나를 판자 칸·쇠띠·쇠테로 정확히 채운다. 폭은 x 축척(보통 관문 1.95면 1).
+        //  파이프 사각형 하나를 판자 칸·쇠띠·쇠테로 정확히 채운다. 가로는 1.95 이하 칸으로 이어 깐다(긴 관문도 늘이지 않는다).
         private static void DressGate(Transform parent, Dictionary<string, GameObject> models,
                                       float x, float width, float bottom, float top, bool capAtTop)
         {
-            float sx = width / GateUnitWidth;
             GateStackLayout stack = MineDressingLayout.GateStack(bottom, top, capAtTop);
-            foreach (GateCell cell in stack.Cells)
+            foreach (GatePlankColumn col in MineDressingLayout.GateColumns(x, width))
             {
-                Instance(parent, models["GatePlank"], new Vector3(x, cell.Y0, GateZ), 0f, new Vector3(sx, cell.Height, 1f));
-            }
-            foreach (float y in stack.StrapYs)
-            {
-                Instance(parent, models["GateStrap"], new Vector3(x, y, GateZ), 0f, new Vector3(sx, 1f, 1f));
-            }
-            if (stack.Cells.Count > 0)
-            {
-                //  위 관문(틈이 아래)은 Z축 180° — 원점(윗면)이 아래 끝에 오고 두께가 위로 간다. 볼트(앞 −z)는 그대로 앞이다.
-                Instance(parent, models["GateCap"], new Vector3(x, stack.CapY, GateZ), stack.CapFlipped ? 180f : 0f, new Vector3(sx, 1f, 1f));
+                float cx = col.X, sx = col.ScaleX;
+                foreach (GateCell cell in stack.Cells)
+                {
+                    Instance(parent, models["GatePlank"], new Vector3(cx, cell.Y0, GateZ), 0f, new Vector3(sx, cell.Height, 1f));
+                }
+                foreach (float y in stack.StrapYs)
+                {
+                    Instance(parent, models["GateStrap"], new Vector3(cx, y, GateZ), 0f, new Vector3(sx, 1f, 1f));
+                }
+                if (stack.Cells.Count > 0)
+                {
+                    //  위 관문(틈이 아래)은 Z축 180° — 원점(윗면)이 아래 끝에 오고 두께가 위로 간다. 볼트(앞 −z)는 그대로 앞이다.
+                    Instance(parent, models["GateCap"], new Vector3(cx, stack.CapY, GateZ), stack.CapFlipped ? 180f : 0f, new Vector3(sx, 1f, 1f));
+                }
             }
         }
 
@@ -259,32 +279,65 @@ namespace LOP.EditorTools
             return n;
         }
 
-        private static void Glow(Transform parent, Mesh disc, Material material, Vector3 position)
+        //  바깥/굴 그러데이션 띠: [x0, x1]을 BlendSegment 근처 칸으로 나눈 메시 하나. 칸 경계마다 그 자리 통로 가운데에 높이 height,
+        //  u = 0(x0) → 1(x1), v = 0(아래) → 1(위) — 텍스처(FlappyMineMaterials의 *_mouth_blend.png)가 u로 바깥 → 굴을 섞는다.
+        private static int BlendStrip(Transform parent, MineCourse course, float x0, float x1, float z, float height, Material material)
+        {
+            if (!(x1 > x0)) { return 0; }
+            int n = Mathf.Max(1, Mathf.CeilToInt((x1 - x0) / BlendSegment));
+            var vertices = new Vector3[(n + 1) * 2];
+            var uvs = new Vector2[vertices.Length];
+            var triangles = new int[n * 6];
+            float midX = (x0 + x1) / 2f, midY = course.CenterAt(midX);
+            for (int i = 0; i <= n; i++)
+            {
+                float t = i / (float)n, x = Mathf.Lerp(x0, x1, t), cy = course.CenterAt(x);
+                //  메시는 띠 가운데(midX, midY, z)를 원점으로 — 정점은 거기서 잰 상대 좌표.
+                vertices[i * 2] = new Vector3(x - midX, cy - height / 2f - midY, 0f);
+                vertices[i * 2 + 1] = new Vector3(x - midX, cy + height / 2f - midY, 0f);
+                uvs[i * 2] = new Vector2(t, 0f);
+                uvs[i * 2 + 1] = new Vector2(t, 1f);
+            }
+            for (int i = 0; i < n; i++)
+            {
+                int bl = i * 2, tl = bl + 1, br = bl + 2, tr = bl + 3;
+                //  카메라(−z)에서 보면 시계 방향 = 앞면(Unity Quad와 같은 감김).
+                triangles[i * 6] = bl; triangles[i * 6 + 1] = tr; triangles[i * 6 + 2] = br;
+                triangles[i * 6 + 3] = tr; triangles[i * 6 + 4] = bl; triangles[i * 6 + 5] = tl;
+            }
+            var mesh = new Mesh { name = material.name + "_Strip", vertices = vertices, uv = uvs, triangles = triangles };
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+
+            var go = new GameObject(material.name);
+            go.transform.SetParent(parent, worldPositionStays: false);
+            go.transform.position = new Vector3(midX, midY, z);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = material;
+            return 1;
+        }
+
+        private static void Glow(Transform parent, Mesh quad, Material material, Vector3 position)
         {
             var go = new GameObject("LanternGlow");
             go.transform.SetParent(parent, worldPositionStays: false);
             go.transform.position = position;
-            go.transform.localScale = new Vector3(GlowDiameter, GlowDiameter, 1f);
-            go.AddComponent<MeshFilter>().sharedMesh = disc;
+            go.transform.localScale = new Vector3(GlowSize, GlowSize, 1f);
+            go.AddComponent<MeshFilter>().sharedMesh = quad;
             go.AddComponent<MeshRenderer>().sharedMaterial = material;
         }
 
-        //  지름 1, −Z를 보는 원판(씬에 한 벌 — 빛 원판 전부가 같이 쓴다).
-        private static Mesh DiscMesh(int sides)
+        //  1×1, −Z를 보는 UV 사각형(씬에 한 벌 — 빛 전부가 같이 쓴다). 둥근 모양·옅어짐은 텍스처가 맡는다.
+        private static Mesh GlowQuadMesh()
         {
-            var vertices = new Vector3[sides + 1];
-            var triangles = new int[sides * 3];
-            vertices[0] = Vector3.zero;
-            for (int i = 0; i < sides; i++)
+            var mesh = new Mesh
             {
-                float a = i * Mathf.PI * 2f / sides;
-                vertices[i + 1] = new Vector3(Mathf.Cos(a) * 0.5f, Mathf.Sin(a) * 0.5f, 0f);
-                //  가운데 → 다음 → 지금: 카메라(−z)에서 보면 시계 방향 = 앞면.
-                triangles[i * 3] = 0;
-                triangles[i * 3 + 1] = (i + 1) % sides + 1;
-                triangles[i * 3 + 2] = i + 1;
-            }
-            var mesh = new Mesh { name = "MineLanternGlowDisc", vertices = vertices, triangles = triangles };
+                name = "MineLanternGlowQuad",
+                vertices = new[] { new Vector3(-0.5f, -0.5f, 0f), new Vector3(0.5f, -0.5f, 0f), new Vector3(-0.5f, 0.5f, 0f), new Vector3(0.5f, 0.5f, 0f) },
+                uv = new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f) },
+                //  카메라(−z)에서 보면 시계 방향 = 앞면.
+                triangles = new[] { 0, 3, 1, 3, 0, 2 },
+            };
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             return mesh;

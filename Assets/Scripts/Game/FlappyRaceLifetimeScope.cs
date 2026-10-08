@@ -124,7 +124,8 @@ namespace LOP
             builder.RegisterEntryPoint<FlappyCameraDistance>();
 
             //  카메라 중심을 통로에 고정 — 원조처럼 플레이필드 높이가 일정하다(맵에 FlappyCorridorLine
-            //  표시가 없으면 아무것도 안 한다. 전통 코스는 아직 표시가 없다).
+            //  표시가 없으면 아무것도 안 한다. 전통 코스는 표시가 없다 — 전통 굽기가 광산 표시를 뗀다).
+            //  계산은 CameraController.BeforeFollow에서 한다(그려진 몸 위치 기준).
             builder.RegisterEntryPoint<FlappyCorridorCamera>();
 
             builder.RegisterEntryPoint<FlappyHudCoordinator>();

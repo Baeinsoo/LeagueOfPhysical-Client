@@ -69,9 +69,10 @@ namespace LOP.EditorTools
         /// <summary>
         /// <paramref name="composedMap"/>(회색 박스가 이미 구워진 ComposedMap) 아래 <c>Dressing</c>을 다시 만든다.
         /// [<paramref name="dressFrom"/>, <paramref name="dressTo"/>]가 입히는 범위(보기 구간), 배경은 앞뒤 15 m 더.
-        /// 부품·재질이 하나라도 없으면 에러만 남기고 아무것도 안 바꾼다(회색 박스 그대로).
+        /// 부품·재질이 하나라도 없으면 에러만 남기고 아무것도 안 바꾼다(회색 박스 그대로) — 그때 false를 돌려준다.
+        /// 부르는 쪽은 false면 전통 바탕을 끄지 않는다(끄면 하늘도 옷도 없는 빈 배경이 남는다).
         /// </summary>
-        public static void Dress(Transform composedMap, MineCourse course, FlappyMineLook look, float dressFrom, float dressTo)
+        public static bool Dress(Transform composedMap, MineCourse course, FlappyMineLook look, float dressFrom, float dressTo)
         {
             Transform old = composedMap.Find(DressingName);
             if (old != null)
@@ -81,7 +82,7 @@ namespace LOP.EditorTools
 
             if (TryLoadKit(out var models, out var materials) == false)
             {
-                return;
+                return false;
             }
 
             var dressing = new GameObject(DressingName).transform;
@@ -216,6 +217,7 @@ namespace LOP.EditorTools
             Debug.Log($"[광산 옷] 범위 {dressFrom:F2}~{dressTo:F2} (바닥·천장 그림 {coverFrom:F2}~{coverTo:F2})"
                     + $" · 관문 파이프 {gates}개 · 비계 {floor}칸 · 천장 {ceiling}조각 · 배경 {background}개(랜턴 {lanterns})"
                     + $" · 하늘·안개 {panels}장 · 끈 회색 렌더러 {hidden}개");
+            return true;
         }
 
         // ---- 관문 ----

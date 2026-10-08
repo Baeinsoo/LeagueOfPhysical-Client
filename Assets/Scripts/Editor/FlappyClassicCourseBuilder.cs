@@ -273,6 +273,9 @@ namespace LOP.EditorTools
 
             //  전통 코스는 추격자·수동 대시가 있는 맵이다 — 같은 씬을 광산 굽기가 끈 채로 남겼어도 다시 켠다.
             ApplyMapRules(composed, chaser: true, manualDash: true);
+            //  광산 굽기가 남긴 통로 중심선도 뗀다 — 남겨 두면 카메라(FlappyCorridorCamera)가 이 코스에서도
+            //  광산 높이를 따라간다. 전통 코스는 표시가 없는 맵이다.
+            RemoveCorridorLine(composed);
 
             PlaceSpawns(floorY, ceilingY, window, pipes.Count > 0 ? pipes[0].GapCenter : 0f);
             PlaceFinish(StartX + length + spacing, centerAt);
@@ -348,6 +351,17 @@ namespace LOP.EditorTools
             rules.Chaser = chaser;
             rules.ManualDash = manualDash;
             EditorUtility.SetDirty(rules);
+        }
+
+        //  통로 중심선 표시(광산 굽기가 ComposedMap 자체에 붙인다 — 자식이 아니라 굽기마다 지워지지 않는다)를 뗀다.
+        //  Undo로 떼므로 굽기를 되돌리면 같이 돌아온다. 없으면 아무것도 안 한다.
+        internal static void RemoveCorridorLine(GameObject composed)
+        {
+            var line = composed.GetComponent<LOP.FlappyCorridorLine>();
+            if (line != null)
+            {
+                Undo.DestroyObjectImmediate(line);
+            }
         }
 
         internal static void EditorSceneManagerSave()

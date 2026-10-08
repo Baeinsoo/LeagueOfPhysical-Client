@@ -80,6 +80,17 @@ namespace LOP
         /// <summary>카메라가 도는 중심에 더하는 값(월드, m). 기본 0.</summary>
         public Vector3 PivotOffset { get; set; }
 
+        /// <summary>대상 원점에서 중심까지 올린 높이(m). 중심 = <c>Target.position + up × PivotHeight + PivotOffset</c>.</summary>
+        public float PivotHeight => pivotHeight;
+
+        /// <summary>
+        /// <see cref="LateUpdate"/>가 카메라를 놓기 <b>직전</b>에 부른다(대상이 있고 따라가는 중일 때만).
+        /// 이 컴포넌트는 실행 순서가 늦어(3000) 그때는 보간기가 이번 프레임의 몸 위치를 이미 옮겨 놓았다 —
+        /// 그려진 몸 위치에 맞춰 <see cref="PivotOffset"/>을 정해야 하는 쪽(Flappy 통로 카메라)이 여기서 계산한다.
+        /// VContainer의 ILateTickable은 MonoBehaviour LateUpdate보다 먼저 돌아 몸이 아직 옛 자리라 못 쓴다.
+        /// </summary>
+        public event System.Action BeforeFollow;
+
         /// <summary>줌·거리 제한을 따른 지금 거리(<see cref="DistanceOverride"/>를 더하기 전).</summary>
         public float Distance => distance;
 
@@ -156,6 +167,8 @@ namespace LOP
             {
                 return;
             }
+
+            BeforeFollow?.Invoke();
 
             float deltaTime = Time.deltaTime;
 

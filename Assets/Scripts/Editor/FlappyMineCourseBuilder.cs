@@ -133,10 +133,19 @@ namespace LOP.EditorTools
             else
             {
                 FlappyMineMaterials.Ensure(look);
-                FlappyMineDressing.Dress(root, course, look, DressFrom, DressTo);
-                //  전통 코스 바탕(구름·코인·덤불·도시 실루엣)은 끈다 — 지우지 않는다(전통 굽기가 다시 켠다).
-                List<string> hiddenBackdrop = FlappyClassicCourseBuilder.SetClassicBackdropActive(false, "Build mine course");
-                Debug.Log("[광산 코스] 끈 전통 바탕: " + (hiddenBackdrop.Count > 0 ? string.Join(", ", hiddenBackdrop) : "없음(이미 꺼져 있음)"));
+                if (FlappyMineDressing.Dress(root, course, look, DressFrom, DressTo))
+                {
+                    //  전통 코스 바탕(구름·코인·덤불·도시 실루엣)은 끈다 — 지우지 않는다(전통 굽기가 다시 켠다).
+                    List<string> hiddenBackdrop = FlappyClassicCourseBuilder.SetClassicBackdropActive(false, "Build mine course");
+                    Debug.Log("[광산 코스] 끈 전통 바탕: " + (hiddenBackdrop.Count > 0 ? string.Join(", ", hiddenBackdrop) : "없음(이미 꺼져 있음)"));
+                }
+                else
+                {
+                    //  부품·재질이 없어 옷을 못 입혔다(Art 서브모듈을 안 받은 기계 등) — 바탕까지 끄면 빈 배경만 남는다.
+                    //  옛 옷은 Dress가 이미 지웠으므로, 앞선 광산 굽기가 꺼 둔 바탕도 다시 켠다.
+                    FlappyClassicCourseBuilder.SetClassicBackdropActive(true, "Build mine course");
+                    Debug.LogError("[광산 코스] 옷을 못 입혀 전통 바탕을 켜 둔다 — 회색 박스로 남는다.");
+                }
             }
 
             //  물리 동기를 직접 관리하는 프로젝트라, 부르지 않으면 콜라이더가 만들 때 자리에 남는다(전통 굽기 참고).

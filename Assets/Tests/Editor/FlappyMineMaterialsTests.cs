@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using LOP.EditorTools;
 using NUnit.Framework;
@@ -7,22 +8,91 @@ using UnityEngine;
 namespace LOP.Tests
 {
     /// <summary>
-    /// <see cref="FlappyMineMaterials.Ensure"/>는 실제 <c>Assets/Art/Materials/Mine</c>에 재질을 만든다
-    /// (피스처가 아니라 이 슬라이스가 커밋하는 실물 에셋이라 임시 폴더로 옮기지 않았다). 두 번 불러도
+    /// <see cref="FlappyMineMaterials.Ensure"/>는 실제 <c>Assets/Art/{Materials,Textures,Models}/Mine</c>에 재질·텍스처·
+    /// 임포트 설정을 쓴다(피스처가 아니라 이 슬라이스가 커밋하는 실물 에셋이라 임시 폴더로 옮기지 않았다). 두 번 불러도
     /// 재질 수가 늘지 않고, 값만 최신 <see cref="FlappyMineLook"/>으로 갱신되는지를 본다.
+    ///
+    /// <para><b>실물을 지킨다(10-08 최종 리뷰 I3).</b> 클래스 기본값으로 Ensure를 부르면 사용자가
+    /// <c>FlappyMineLook.asset</c>으로 조절해 구운 값이 테스트를 돌릴 때마다 기본값으로 되돌아갔다. 그래서
+    /// ① look은 실제 asset의 복사본(<see cref="Object.Instantiate(Object)"/>)을 쓰고, ② 시작 전에 Ensure가 쓰는 세 폴더의
+    /// 파일 바이트를 떠 두었다가 끝나면 바뀐 파일만 되돌리고 새로 생긴 파일은 지운다 — 무슨 값을 넣어 보든
+    /// Art 서브모듈은 테스트 전 그대로다.</para>
     /// </summary>
     public class FlappyMineMaterialsTests
     {
         private const string MaterialDir = "Assets/Art/Materials/Mine";
+        private static readonly string[] WrittenDirs = { MaterialDir, "Assets/Art/Textures/Mine", "Assets/Art/Models/Mine" };
+
+        private Dictionary<string, byte[]> snapshot;
+
+        [OneTimeSetUp]
+        public void SnapshotArt()
+        {
+            snapshot = new Dictionary<string, byte[]>();
+            foreach (string dir in WrittenDirs)
+            {
+                if (Directory.Exists(dir) == false) { continue; }
+                foreach (string f in Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
+                {
+                    snapshot[f.Replace('\\', '/')] = File.ReadAllBytes(f);
+                }
+            }
+        }
+
+        [OneTimeTearDown]
+        public void RestoreArt()
+        {
+            var reimport = new HashSet<string>();
+            var created = new List<string>();
+            foreach (string dir in WrittenDirs)
+            {
+                if (Directory.Exists(dir) == false) { continue; }
+                foreach (string raw in Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
+                {
+                    string f = raw.Replace('\\', '/');
+                    if (snapshot.ContainsKey(f) == false) { created.Add(f); }
+                }
+            }
+            foreach (var pair in snapshot)
+            {
+                if (File.Exists(pair.Key) && SameBytes(File.ReadAllBytes(pair.Key), pair.Value)) { continue; }
+                File.WriteAllBytes(pair.Key, pair.Value);
+                reimport.Add(pair.Key.EndsWith(".meta") ? pair.Key.Substring(0, pair.Key.Length - 5) : pair.Key);
+            }
+            foreach (string f in created)
+            {
+                if (f.EndsWith(".meta")) { continue; }   // 에셋과 같이 지운다
+                AssetDatabase.DeleteAsset(f);
+            }
+            foreach (string f in created)
+            {
+                if (File.Exists(f)) { File.Delete(f); }   // 짝 없이 남은 .meta
+            }
+            //  디스크를 되돌렸으니 메모리의 재질·텍스처·임포터도 디스크에서 다시 읽게 한다.
+            foreach (string path in reimport)
+            {
+                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+            }
+        }
+
+        private static bool SameBytes(byte[] a, byte[] b)
+        {
+            if (a.Length != b.Length) { return false; }
+            for (int i = 0; i < a.Length; i++) { if (a[i] != b[i]) { return false; } }
+            return true;
+        }
+
+        //  실제 asset의 복사본 — 클래스 기본값이 아니라 지금 조절해 둔 값으로 Ensure를 부른다(asset 자체는 안 건드린다).
+        private static FlappyMineLook Look()
+        {
+            var real = AssetDatabase.LoadAssetAtPath<FlappyMineLook>(FlappyMineMaterials.LookAssetPath);
+            return real != null ? Object.Instantiate(real) : ScriptableObject.CreateInstance<FlappyMineLook>();
+        }
 
         [Test]
         public void 두_번_불러도_재질_수가_늘지_않고_값만_갱신된다()
         {
-            var look = ScriptableObject.CreateInstance<FlappyMineLook>();
-            //  Plank.mat은 피스처가 아니라 커밋된 실물 에셋이다 — 이 테스트가 값을 바꿔 보려고 건드리므로,
-            //  무슨 일이 있어도(단언 실패 포함) 원래 값으로 되돌린다. "원래 값"은 이 look의 기본 필드값 —
-            //  grainStrength 기본 1에서 Grain()은 색을 그대로 돌려주므로 재질에 구워진 값과 같다.
-            Color originalPlank = look.plankColor;
+            var look = Look();
             try
             {
                 FlappyMineMaterials.Ensure(look);
@@ -39,16 +109,14 @@ namespace LOP.Tests
             }
             finally
             {
-                look.plankColor = originalPlank;
-                FlappyMineMaterials.Ensure(look);   // Plank.mat을 실물 기본값으로 되돌린다
-                Object.DestroyImmediate(look);
+                Object.DestroyImmediate(look);   // Plank.mat은 RestoreArt가 디스크 바이트로 되돌린다
             }
         }
 
         [Test]
         public void 나무_슬롯은_툰_셰이더에_나무결_텍스처를_쓴다()
         {
-            var look = ScriptableObject.CreateInstance<FlappyMineLook>();
+            var look = Look();
             try
             {
                 FlappyMineMaterials.Ensure(look);
@@ -66,7 +134,7 @@ namespace LOP.Tests
         [Test]
         public void 바위_슬롯은_바위_텍스처_쇠_슬롯은_텍스처가_없다()
         {
-            var look = ScriptableObject.CreateInstance<FlappyMineLook>();
+            var look = Look();
             try
             {
                 FlappyMineMaterials.Ensure(look);
@@ -97,7 +165,7 @@ namespace LOP.Tests
         [Test]
         public void 랜턴_빛은_가운데가_밝고_가장자리가_0인_방사형_텍스처를_쓴다()
         {
-            var look = ScriptableObject.CreateInstance<FlappyMineLook>();
+            var look = Look();
             try
             {
                 FlappyMineMaterials.Ensure(look);
@@ -124,7 +192,7 @@ namespace LOP.Tests
         [Test]
         public void 먼_안개_막은_구역마다_진하기가_다르고_입구_띠가_진하기도_섞는다()
         {
-            var look = ScriptableObject.CreateInstance<FlappyMineLook>();
+            var look = Look();
             try
             {
                 FlappyMineMaterials.Ensure(look);
@@ -147,7 +215,7 @@ namespace LOP.Tests
         [Test]
         public void 굴_입구_안개_띠는_바깥_안개에서_굴_안개로_섞인다()
         {
-            var look = ScriptableObject.CreateInstance<FlappyMineLook>();
+            var look = Look();
             try
             {
                 FlappyMineMaterials.Ensure(look);

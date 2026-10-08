@@ -52,6 +52,14 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 별은_보이는_빛_안이면_잡힌다()
+        {
+            //  10-08 실측: 빛(반지름 13m) 속 8.4m까지 들어갔는데 판정(6m)이 작아 안 잡혔다. 빛 크기는 판정에서 만든다(빌더).
+            Assert.GreaterOrEqual(Y.StarCatchRadius, 12f);
+            Assert.AreEqual(Y.StarCatchRadius * 2f, Y.StarHaloDiameter, 1e-3f);
+        }
+
+        [Test]
         public void 장애물은_세_종류가_다_있다()
         {
             Assert.GreaterOrEqual(Y.Discs.Length, 1, "도는 원판");

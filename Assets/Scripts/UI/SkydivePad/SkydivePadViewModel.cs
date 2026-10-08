@@ -181,7 +181,7 @@ namespace LOP.UI
             {
                 if (UnityEngine.Vector3.Distance(LOP.CatchTargetGeometry.PositionAt(t, tick), me) <= CatchHintDistance)
                 {
-                    return "   ★ 잡기!";
+                    return "   ★ 별에 닿으면 끝!";
                 }
             }
             return string.Empty;

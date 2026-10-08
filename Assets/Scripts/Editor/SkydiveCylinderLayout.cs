@@ -116,14 +116,14 @@ namespace LOP.EditorTools
         public const float RetryBelowY = 1f;
 
         /// <summary>
-        /// 별 조각 — 출구 아래에서 천천히 돌며(반지름 40, 18초에 한 바퀴) 위아래로 흔들린다(±25, 8초). 닿으면 결승.
-        /// 출구를 빠져나오는 자리·순간을 겨눠 다이브로 낚아챌지, 펴서 시간을 벌어 쫓을지가 마지막 고민이다.
-        /// 놓치면 구름 바다에 내려 결승 판까지 걸어가도 된다(더 늦을 뿐).
+        /// 별 조각 — 구름 바로 위(35~55m)에서 천천히 돌며(반지름 40, 초속 약 7m — 활강의 절반) 위아래로 흔들린다(±10, 8초).
+        /// 닿으면 결승. 판정은 보이는 빛보다 넉넉하다 — 스치기만 해도 잡힌다(사용자 10-08 "그냥 터치해도 바로 잡히게").
+        /// 놓치고 구름에 닿으면 출구 아래에서 다시 떨어진다.
         /// </summary>
-        public static readonly Vector3 StarCenter = new Vector3(0f, 80f, 0f);   // 출구에서 충분히 아래(사용자 10-07: "통로 앞이라 애매")
-        public const float StarOrbit = 40f, StarDegreesPerTick = 0.4f, StarBob = 25f, StarCatchRadius = 12f;
-        /// <summary>바깥 노란 빛의 지름 — 보이는 빛이 곧 잡히는 범위여야 한다.</summary>
-        public const float StarHaloDiameter = StarCatchRadius * 2f;
+        public static readonly Vector3 StarCenter = new Vector3(0f, 45f, 0f);   // 구름 바로 위(사용자 10-07 "통로 앞이라 애매", 10-08 "더 낮게")
+        public const float StarOrbit = 40f, StarDegreesPerTick = 0.2f, StarBob = 10f, StarCatchRadius = 15f;
+        /// <summary>바깥 노란 빛의 지름(반지름 12) — 판정(15)이 이보다 넉넉해 빛에 스치면 잡힌다.</summary>
+        public const float StarHaloDiameter = 24f;
         public const int StarBobPeriod = 400;
 
         /// <summary>벽 틈새 빛줄기 — (높이, 각도). 아래로 갈수록 많고 굵다(출구가 가깝다는 신호).</summary>

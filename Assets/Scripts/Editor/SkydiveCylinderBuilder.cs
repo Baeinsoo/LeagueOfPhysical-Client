@@ -212,9 +212,9 @@ namespace LOP.EditorTools
             beacon.transform.SetParent(star, false);
             float beaconLen = Y.ExitY - (Y.StarCenter.y + Y.StarBob) - 15f;   // 가장 높이 떠도 출구에 안 닿게
             beacon.transform.localPosition = Vector3.up * (beaconLen * 0.5f);
-            beacon.transform.localScale = new Vector3(10f, beaconLen * 0.5f, 10f);
+            beacon.transform.localScale = new Vector3(3f, beaconLen * 0.5f, 3f);   // 가늘게 — 닿을 물체가 아니라 빛줄기로 읽히게
             var bmr = beacon.GetComponent<MeshRenderer>();
-            bmr.sharedMaterial = StarMaterial("StarBeacon", new Color(1f, 0.75f, 0.35f) * 0.9f, 2.4f);
+            bmr.sharedMaterial = StarMaterial("StarBeacon", new Color(1f, 0.75f, 0.35f) * 0.5f, 2.4f);
             bmr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
             //  맵별 분위기 — 클라 SkydiveAtmosphere가 내 높이로 읽는다(위는 어둡게, 출구는 금빛).
@@ -282,7 +282,7 @@ namespace LOP.EditorTools
             if (Y.RetryPoint.y < Y.StarCenter.y + Y.StarBob + 40f) { return "다시 떨어지는 자리가 별에 너무 가깝다(겨눌 틈이 없다)"; }
             if (Y.RetryBelowY <= 0f) { return "다시 떨어지기 높이가 구름 윗면 아래 — 구름에 막혀 영영 안 걸린다"; }
             if (Y.StarCenter.y + Y.StarBob > Y.ExitY - 40f) { return "별이 출구에 너무 가깝다 — 빠져나오자마자 공짜로 닿는다"; }
-            if (Y.StarCenter.y - Y.StarBob < 40f) { return "별이 바닥에 너무 가깝다 — 내려앉아 걸어서 닿는다(공중에서 잡아야)"; }
+            if (Y.StarCenter.y - Y.StarBob - Y.StarCatchRadius < 8f) { return "별이 바닥에 너무 가깝다 — 구름 위에 서서 닿는다(공중에서 잡아야)"; }
             if (Y.StarOrbit > Y.Radius - 10f) { return "별이 탑 밖으로 돈다 — 출구 아래에서 쫓을 수 있어야"; }
             foreach (float oy in Y.ObstacleYs())
             {

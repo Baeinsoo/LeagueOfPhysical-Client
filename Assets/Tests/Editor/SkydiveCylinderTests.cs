@@ -37,7 +37,8 @@ namespace LOP.Tests
             {
                 var p = CatchTargetGeometry.PositionAt(new CatchTarget(Y.StarCenter, Y.StarOrbit, Y.StarDegreesPerTick, 0f, Y.StarBob, Y.StarBobPeriod, Y.StarCatchRadius), tick);
                 Assert.Less(p.y, Y.ExitY - 150f, "출구 바로 앞이면 애매하다 — 빠져나와 찾고 쫓을 거리가 있어야(사용자 10-07)");
-                Assert.Greater(p.y, 40f);
+                Assert.Less(p.y, 60f, "더 낮게(사용자 10-08)");
+                Assert.Greater(p.y - Y.StarCatchRadius, 8f, "구름 위에 서서 손이 닿으면 안 된다(공중에서 잡아야)");
                 Assert.Less(new Vector2(p.x, p.z).magnitude, Y.Radius, "출구 아래(탑 둘레 안)");
             }
         }
@@ -55,8 +56,11 @@ namespace LOP.Tests
         public void 별은_보이는_빛_안이면_잡힌다()
         {
             //  10-08 실측: 빛(반지름 13m) 속 8.4m까지 들어갔는데 판정(6m)이 작아 안 잡혔다. 빛 크기는 판정에서 만든다(빌더).
-            Assert.GreaterOrEqual(Y.StarCatchRadius, 12f);
-            Assert.AreEqual(Y.StarCatchRadius * 2f, Y.StarHaloDiameter, 1e-3f);
+            //  10-08 사용자: "그냥 터치해도 바로 잡히게" — 판정이 보이는 빛보다 넉넉해야 스치기만 해도 잡힌다.
+            Assert.GreaterOrEqual(Y.StarCatchRadius, Y.StarHaloDiameter * 0.5f + 3f);
+            //  쫓아가 닿을 수 있게 — 활강(초속 14m)보다 확실히 느리게.
+            float metersPerSecond = 2f * Mathf.PI * Y.StarOrbit * Y.StarDegreesPerTick / 360f * 50f;
+            Assert.LessOrEqual(metersPerSecond, 8f);
         }
 
         [Test]

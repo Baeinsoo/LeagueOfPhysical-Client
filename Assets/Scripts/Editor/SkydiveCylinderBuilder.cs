@@ -203,7 +203,7 @@ namespace LOP.EditorTools
             starVol.BobPeriod = Y.StarBobPeriod;
             starVol.CatchRadius = Y.StarCatchRadius;
             starVol.Pose(0);
-            Glow(star, "Halo", StarMaterial("StarHalo", new Color(1f, 0.72f, 0.3f) * 2.6f, 1.2f), 26f);
+            Glow(star, "Halo", StarMaterial("StarHalo", new Color(1f, 0.72f, 0.3f) * 2.6f, 1.2f), Y.StarHaloDiameter);
             Glow(star, "Core", StarMaterial("StarCore", new Color(1f, 0.95f, 0.8f) * 3f, 0f), 7f);
             //  위로 솟는 금빛 기둥 — 출구에서 내려다보면 "저기가 목표"로 읽히게(빛나는 점 하나는 밝은 하늘에 묻힌다).
             var beacon = GameObject.CreatePrimitive(PrimitiveType.Cylinder);

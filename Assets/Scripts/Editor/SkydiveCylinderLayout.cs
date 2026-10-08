@@ -121,7 +121,9 @@ namespace LOP.EditorTools
         /// 놓치면 구름 바다에 내려 결승 판까지 걸어가도 된다(더 늦을 뿐).
         /// </summary>
         public static readonly Vector3 StarCenter = new Vector3(0f, 80f, 0f);   // 출구에서 충분히 아래(사용자 10-07: "통로 앞이라 애매")
-        public const float StarOrbit = 40f, StarDegreesPerTick = 0.4f, StarBob = 25f, StarCatchRadius = 6f;
+        public const float StarOrbit = 40f, StarDegreesPerTick = 0.4f, StarBob = 25f, StarCatchRadius = 12f;
+        /// <summary>바깥 노란 빛의 지름 — 보이는 빛이 곧 잡히는 범위여야 한다.</summary>
+        public const float StarHaloDiameter = StarCatchRadius * 2f;
         public const int StarBobPeriod = 400;
 
         /// <summary>벽 틈새 빛줄기 — (높이, 각도). 아래로 갈수록 많고 굵다(출구가 가깝다는 신호).</summary>

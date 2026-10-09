@@ -283,17 +283,7 @@ namespace LOP
                     continue;
                 }
                 EntitySnap snap = pair.Value;
-                GameFramework.World.EntityMotionExtensions.SetPosition(target, snap.position);
-                GameFramework.World.EntityMotionExtensions.SetRotation(target, snap.rotation);
-                GameFramework.World.EntityMotionExtensions.SetVelocity(target, snap.velocity);
-
-                //  판단은 teleportTracker가 이미 했다 — 여기선 클라 쪽 카운터를 서버 값에 맞춰
-                //  두 사이드가 같은 값을 들고 있게만 한다(안 맞추면 나중에 읽는 쪽이 헷갈린다).
-                var targetTransform = target.Get<GameFramework.World.Transform>();
-                if (targetTransform != null)
-                {
-                    targetTransform.TeleportCount = snap.teleportCount;
-                }
+                AuthoritativeSnap.ApplyMotion(target, snap);
 
                 var motionContributions = target.Get<MotionContributions>();
                 if (motionContributions != null)

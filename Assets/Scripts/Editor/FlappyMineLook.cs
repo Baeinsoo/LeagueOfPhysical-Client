@@ -55,7 +55,7 @@ namespace LOP.EditorTools
         public float frameSpacing = 13f;         // 배경 갱목 틀(BgFrame) 간격(m)
         [Range(0f, 1f)] public float ladderChance = 0.35f;  // 틀마다 사다리가 걸릴 비율
         public float lanternSpacing = 16f;        // 랜턴 간격(m)
-        public int cartCount = 2;                 // 보기 구간 안 배경 광차 수
+        public int cartCount = 2;                 // 평평한 앞부분 안 배경 광차 수
         [Range(0.3f, 1f)] public float farScale = 0.75f;    // 먼 비계·광차 축척(z 18에서 멀리 보이게)
         [Range(0.3f, 1f)] public float midScale = 0.8f;     // 가운데 층(틀·발판·사다리) 축척
 

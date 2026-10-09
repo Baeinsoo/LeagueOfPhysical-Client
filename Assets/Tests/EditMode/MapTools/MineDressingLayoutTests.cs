@@ -15,7 +15,9 @@ namespace LOP.MapTools.Tests
         static readonly MinePhysics P = new MinePhysics(4.5f, 10.125f, 33.75f, 11.25f, 0.02f);
         static MineCourse Course() => MineCourseRule.Layout(P);
 
-        //  보기 구간(스펙 §3).
+        //  임의 범위(스펙 §3 예시 값) — 순수 함수(범위를 받기만 하는 레이아웃 계산)를 재는 테스트에서만 쓴다.
+        //  실제 굽기 범위는 코스에 달렸다(10-09 3막: [-20, c.FlatEnd()] — 입구 바로 뒤가 수직 갱이라 짧다). 그 범위를
+        //  재는 테스트는 따로 c.FlatEnd()를 쓴다(아래 FlatEnd-의존 테스트들).
         const float From = -20f, To = 94.25f;
         const float Eps = 0.001f;
 
@@ -133,9 +135,12 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 비계_데크_윗면이_바닥선에_붙는다()
         {
+            //  10-09 3막: 보기 구간이 94.25까지 평평하다는 가정이 깨졌다(입구 바로 뒤가 수직 갱) —
+            //  실제 평평한 끝(FlatEnd)까지로 좁혀서 같은 걸 확인한다.
             var c = Course();
-            var bays = MineDressingLayout.TrestleBays(c, From, To);
-            Assert.Greater(bays.Count, 40);
+            float to = c.FlatEnd();
+            var bays = MineDressingLayout.TrestleBays(c, From, to);
+            Assert.Greater(bays.Count, 10);
             foreach (var b in bays)
             {
                 Assert.AreEqual(MinePartKind.TrestleBay, b.Kind);
@@ -149,10 +154,11 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 비틀린_바닥에서도_데크_양끝이_바닥선에()
         {
-            //  수직 갱 낙하(156.65~) — 바닥이 22 m 떨어지는 곳.
+            //  10-09 3막: 첫 수직 갱 낙하(24.8~32.8) — 8 m 만에 22 m 떨어지는, 가장 가파른 경우(현 기울기 약 70°).
+            //  (옛 주석의 156.65~는 지금 순서에선 낮은 천장 꼬리·롤러코스터 앞이라 완만한 물결일 뿐 — 가장 가파른 경우를 안 지켰다.)
             var c = Course();
-            var bays = MineDressingLayout.TrestleBays(c, 150f, 175f);
-            Assert.IsTrue(bays.Any(b => Math.Abs(b.AngleDegrees) > 10f), "기울어진 칸이 하나도 없다");
+            var bays = MineDressingLayout.TrestleBays(c, 20f, 40f);
+            Assert.IsTrue(bays.Any(b => Math.Abs(b.AngleDegrees) > 45f), "가장 가파른 수직 갱 낙하 칸이 없다");
             foreach (var b in bays)
             {
                 var (x0, y0, x1, y1) = Ends(b);
@@ -160,7 +166,7 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(Floor(c, x1), y1, 0.01f, $"x={b.X} 오른끝");
             }
             //  천장도 — 여기선 수직 갱이 좁아져 HalfAt이 7.28이 아니다.
-            foreach (var p in MineDressingLayout.CeilingPieces(c, 150f, 175f))
+            foreach (var p in MineDressingLayout.CeilingPieces(c, 20f, 40f))
             {
                 var (x0, y0, x1, y1) = Ends(p);
                 Assert.AreEqual(Ceiling(c, x0), y0, 0.01f, $"x={p.X} 천장 왼끝");
@@ -180,8 +186,10 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 천장_조각_아랫면이_천장선에_붙는다()
         {
+            //  10-09 3막: 위와 같은 이유로 평평한 끝(FlatEnd)까지로 좁힌다.
             var c = Course();
-            var pieces = MineDressingLayout.CeilingPieces(c, From, To);
+            float to = c.FlatEnd();
+            var pieces = MineDressingLayout.CeilingPieces(c, From, to);
             foreach (var p in pieces)
             {
                 Assert.AreEqual(Ceiling(c, p.X), p.Y, Eps, $"x={p.X} 가운데");
@@ -189,7 +197,7 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(Ceiling(c, x0), y0, Eps, $"x={p.X} 왼끝");
                 Assert.AreEqual(Ceiling(c, x1), y1, Eps, $"x={p.X} 오른끝");
             }
-            AssertTiles(pieces, From, To, MineDressingLayout.CeilingPieceWidth);
+            AssertTiles(pieces, From, to, MineDressingLayout.CeilingPieceWidth);
         }
 
         [Test]
@@ -284,11 +292,17 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 먼_비계는_사인_높이로_범위_앞뒤_15m를_덮는다()
         {
+            //  10-09 3막: 이 테스트의 주장은 "평평한 구간 안에서 현(chord)이 사인 곡선과 맞는다"다 —
+            //  margin(15 m)까지 포함해 꺾이지 않아야 하므로 to = FlatEnd − margin(4.8)로 좁힌다.
+            //  배경이 수직 갱 꺾임을 가로지르는 문제(실제 옷 입히기 범위)는 "코스 전체에 펼치기" 슬라이스의 몫 — 여기서 늘리지 않는다.
             var c = Course();
-            var far = MineDressingLayout.Background(c, From, To, 7, Density).Where(p => p.Kind == MinePartKind.BgTrestleBay).ToList();
+            float to = c.FlatEnd() - MineDressingLayout.BackgroundMargin;
+            var far = MineDressingLayout.Background(c, From, to, 7, Density).Where(p => p.Kind == MinePartKind.BgTrestleBay).ToList();
             //  멀리 보이게 줄인 칸 폭(3 m × FarScale)으로 빈틈없이.
-            AssertCovers(far, From - MineDressingLayout.BackgroundMargin, To + MineDressingLayout.BackgroundMargin,
+            AssertCovers(far, From - MineDressingLayout.BackgroundMargin, to + MineDressingLayout.BackgroundMargin,
                          MineDressingLayout.BgTrestleBayWidth * Density.FarScale);
+            //  범위가 좁아져도(−35~19.8, 실측 24칸) 여러 칸을 뜻있게 검사하도록 최소치를 둔다.
+            Assert.Greater(far.Count, 15);
             foreach (var p in far)
             {
                 Assert.AreEqual(MineDressingLayout.FarZ, p.Z, Eps);
@@ -440,24 +454,28 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
-        public void 실제_코스의_회색_바닥_조각은_보기_구간에서_걸치지_않거나_덮인다()
+        public void 실제_코스의_회색_바닥_조각은_평평한_앞부분에서_걸치지_않거나_덮인다()
         {
             //  굽기와 같은 조각 경계(−20, Breaks(0.5), 길이+20). 넓힌 범위 안의 조각은 모두 안이고, 밖의 것은 모두 안 겹친다
             //  — 그래서 "켜 둔 회색 조각"과 "그림"이 겹치는 자리가 없다.
+            //  10-09 3막: 실제 굽기 범위는 [From, c.FlatEnd()]다(위 To=94.25는 옛 보기 구간 — 이제 입구 바로 뒤가
+            //  수직 갱이라 94.25까지 평평하지 않다). FlatEnd가 Breaks의 꺾임 경계가 아닌 값으로 바뀌는 날,
+            //  CoverRange가 그 꺾이는 자리까지 옷을 넓히면 여기서 잡힌다.
             var c = Course();
+            float to = c.FlatEnd();
             var xs = new List<float> { -20f };
             xs.AddRange(c.Breaks(0.5f));
             xs.Add(c.Length + 20f);
             var spans = new List<(float, float)>();
             for (int i = 0; i + 1 < xs.Count; i++) { spans.Add((xs[i], xs[i + 1])); }
 
-            var (from, to) = MineDressingLayout.CoverRange(spans, From, To);
+            var (from, resultTo) = MineDressingLayout.CoverRange(spans, From, to);
             Assert.LessOrEqual(from, From);
-            Assert.GreaterOrEqual(to, To);
+            Assert.GreaterOrEqual(resultTo, to);
             foreach (var (x0, x1) in spans)
             {
-                bool inside = MineDressingLayout.SpanInside(x0, x1, from, to);
-                Assert.IsTrue(inside || !MineDressingLayout.SpanOverlaps(x0, x1, from, to), $"[{x0}, {x1}]가 넓힌 범위에 걸친다");
+                bool inside = MineDressingLayout.SpanInside(x0, x1, from, resultTo);
+                Assert.IsTrue(inside || !MineDressingLayout.SpanOverlaps(x0, x1, from, resultTo), $"[{x0}, {x1}]가 넓힌 범위에 걸친다");
             }
         }
 

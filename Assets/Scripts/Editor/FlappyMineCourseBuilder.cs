@@ -6,11 +6,12 @@ using UnityEngine;
 namespace LOP.EditorTools
 {
     /// <summary>
-    /// 맵 씬의 코스를 <b>광산 코스</b>로 다시 굽는다 — 배치는 <see cref="MineCourseRule.Layout"/>(프로토타입 mode 9 그대로)이
-    /// 정하고, 여기서는 그 숫자를 전통 굽기의 부품(<c>Prism</c>·<c>Pipe</c>·<c>BoostPad</c>)으로 세우기만 한다.
+    /// 맵 씬의 코스를 <b>광산 코스</b>로 다시 굽는다 — 배치는 <see cref="MineCourseRule.Layout"/>(프로토타입 난수 생성기·
+    /// 소비 순서 그대로, 구간 배치는 mode 10·시드 17)이 정하고, 여기서는 그 숫자를 전통 굽기의 부품
+    /// (<c>Prism</c>·<c>Pipe</c>·<c>BoostPad</c>)으로 세우기만 한다.
     ///
     /// <para><b>회색 박스</b>다: 기믹·스카이라인·미드그라운드는 굽지 않고 재질도 하나뿐이다. 재미를 먼저 보고,
-    /// 모양이 정해지면 그때 입힌다. 지금은 보기 구간(<c>DressFrom</c>~<c>DressTo</c>)만 <see cref="FlappyMineDressing"/>이
+    /// 모양이 정해지면 그때 입힌다. 지금은 평평한 앞부분(<c>DressFrom</c>~<see cref="LOP.MapTools.MineCourse.FlatEnd"/>)만 <see cref="FlappyMineDressing"/>이
     /// 광산 옷을 입힌다(회색 박스의 렌더러만 끄고 판정은 그대로).</para>
     ///
     /// <para>전통 굽기와 같은 씬(<c>ComposedMap</c>)을 갈아 끼운다 — 두 메뉴는 서로를 덮어쓴다.
@@ -36,9 +37,9 @@ namespace LOP.EditorTools
         //  스폰 높이 범위를 정할 창 — 프로토타입 관문 틈(GAP)과 같다.
         private const float SpawnWindow = 3.75f;
 
-        //  광산 옷을 입히는 범위(스펙 §3 보기 구간) — 스폰 뒤 끝(−EndMargin)부터 "물결 터널" 앞까지.
-        //  다음 단계(코스 전체에 펼치기)에서 넓힌다.
-        private const float DressFrom = -20f, DressTo = 94.25f;
+        //  옷 입히는 범위 시작. 끝은 코스의 평평한 앞부분 끝(MineCourse.FlatEnd — 3막은 첫 수직 갱 전이 앞 19.8).
+        //  꺾이는 곳에 맞춘 옷은 "코스 전체에 펼치기"에서 한다(10-09 결정 A).
+        private const float DressFrom = -20f;
 
         [MenuItem("LOP/Debug/Flappy 광산 코스 굽기")]
         public static void Build()
@@ -133,7 +134,7 @@ namespace LOP.EditorTools
             else
             {
                 FlappyMineMaterials.Ensure(look);
-                if (FlappyMineDressing.Dress(root, course, look, DressFrom, DressTo))
+                if (FlappyMineDressing.Dress(root, course, look, DressFrom, course.FlatEnd()))
                 {
                     //  전통 코스 바탕(구름·코인·덤불·도시 실루엣)은 끈다 — 지우지 않는다(전통 굽기가 다시 켠다).
                     List<string> hiddenBackdrop = FlappyClassicCourseBuilder.SetClassicBackdropActive(false, "Build mine course");

@@ -28,6 +28,7 @@ namespace LOP.Tests
             Assert.AreEqual(new Vector3(1f, 2f, 3f), entity.Get<GameFramework.World.Transform>().Position.ToUnity());
             Assert.AreEqual(new Vector3(4f, 0f, -1f), entity.Get<GameFramework.World.Velocity>().Linear.ToUnity());
             Assert.AreEqual(3, entity.Get<GameFramework.World.Transform>().TeleportCount);
+            Assert.AreEqual(90f, GameFramework.World.EntityMotionExtensions.GetRotation(entity).y, 0.01f);
             Assert.IsTrue(entity.Get<GameFramework.World.GroundState>().IsGrounded);
         }
 

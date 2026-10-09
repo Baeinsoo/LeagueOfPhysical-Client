@@ -133,9 +133,12 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 비계_데크_윗면이_바닥선에_붙는다()
         {
+            //  10-09 3막: 보기 구간이 94.25까지 평평하다는 가정이 깨졌다(입구 바로 뒤가 수직 갱) —
+            //  실제 평평한 끝(FlatEnd)까지로 좁혀서 같은 걸 확인한다.
             var c = Course();
-            var bays = MineDressingLayout.TrestleBays(c, From, To);
-            Assert.Greater(bays.Count, 40);
+            float to = c.FlatEnd();
+            var bays = MineDressingLayout.TrestleBays(c, From, to);
+            Assert.Greater(bays.Count, 10);
             foreach (var b in bays)
             {
                 Assert.AreEqual(MinePartKind.TrestleBay, b.Kind);
@@ -180,8 +183,10 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 천장_조각_아랫면이_천장선에_붙는다()
         {
+            //  10-09 3막: 위와 같은 이유로 평평한 끝(FlatEnd)까지로 좁힌다.
             var c = Course();
-            var pieces = MineDressingLayout.CeilingPieces(c, From, To);
+            float to = c.FlatEnd();
+            var pieces = MineDressingLayout.CeilingPieces(c, From, to);
             foreach (var p in pieces)
             {
                 Assert.AreEqual(Ceiling(c, p.X), p.Y, Eps, $"x={p.X} 가운데");
@@ -189,7 +194,7 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(Ceiling(c, x0), y0, Eps, $"x={p.X} 왼끝");
                 Assert.AreEqual(Ceiling(c, x1), y1, Eps, $"x={p.X} 오른끝");
             }
-            AssertTiles(pieces, From, To, MineDressingLayout.CeilingPieceWidth);
+            AssertTiles(pieces, From, to, MineDressingLayout.CeilingPieceWidth);
         }
 
         [Test]
@@ -284,10 +289,13 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 먼_비계는_사인_높이로_범위_앞뒤_15m를_덮는다()
         {
+            //  10-09 3막: 평평한 끝(FlatEnd)까지로 좁힌다 — 그래도 배경 margin(15 m)이 그 뒤 수직 갱 꺾이는
+            //  점을 넘어서면 칸 하나가 꺾이는 점을 걸치면서 현(chord) 오차가 난다(Task 2가 다룰 몫).
             var c = Course();
-            var far = MineDressingLayout.Background(c, From, To, 7, Density).Where(p => p.Kind == MinePartKind.BgTrestleBay).ToList();
+            float to = c.FlatEnd();
+            var far = MineDressingLayout.Background(c, From, to, 7, Density).Where(p => p.Kind == MinePartKind.BgTrestleBay).ToList();
             //  멀리 보이게 줄인 칸 폭(3 m × FarScale)으로 빈틈없이.
-            AssertCovers(far, From - MineDressingLayout.BackgroundMargin, To + MineDressingLayout.BackgroundMargin,
+            AssertCovers(far, From - MineDressingLayout.BackgroundMargin, to + MineDressingLayout.BackgroundMargin,
                          MineDressingLayout.BgTrestleBayWidth * Density.FarScale);
             foreach (var p in far)
             {

@@ -146,6 +146,22 @@ namespace LOP.MapTools
             return Points[Points.Count - 1].y;
         }
 
+        /// <summary>
+        /// 처음으로 통로가 꺾이거나 좁아지기 시작하는 x — 그 앞은 중심이 시작 높이 그대로이고 반 높이가 <see cref="BaseHalf"/>다.
+        /// 굽기가 옷 입히는 범위 끝으로 쓴다(10-09: 3막 코스는 입구 바로 뒤가 수직 갱이라 옷은 그 앞 노을 바깥까지만).
+        /// </summary>
+        public float FlatEnd()
+        {
+            double end = Length;
+            foreach (var (a, _, _) in Narrows) { end = Math.Min(end, a - EdgeBlend); }
+            foreach (var (a, _) in Lows) { end = Math.Min(end, a - EdgeBlend); }
+            for (int i = 1; i < Points.Count; i++)
+            {
+                if (Math.Abs(Points[i].y - Points[0].y) > 1e-9) { end = Math.Min(end, Points[i - 1].x); break; }
+            }
+            return (float)end;
+        }
+
         /// <summary>통로 반 높이: 좁은 구간(수직 갱·굴뚝) → 낮은 천장 → <see cref="BaseHalf"/>. 경계 밖 3 m는 선형 전이.</summary>
         public float HalfAt(float x) => (float)HalfAtD(x);
 
@@ -203,13 +219,13 @@ namespace LOP.MapTools
     /// <b>광산 코스</b> 배치 — 웹 프로토타입(mode 9)의 <c>build()</c>를 그대로 옮겼다. 난수 생성기와 <b>소비 순서</b>까지
     /// 같아야 "프로토타입에서 해 본 그 코스"가 나온다(테스트가 지킨다).
     ///
-    /// <para>순서: 몸 풀기 4관문 → 긴 통로 → 슬라럼 → 물결 터널 → 갈림길⬆ → 수직 갱 22 m 낙하 → 낮은 천장 →
-    /// 롤러코스터 → 갈림길⬇ → 급반전 → 굴뚝 21 m 상승 → 갈림길⬆ → 출구. 통과 가능성 증명은 맵 검사 몫이다.</para>
+    /// <para>순서(10-09 3막): 출발 2관문 → 1막 하강(수직 갱 22 m → 슬라럼 8 → 갈림길⬇) → 2막 갱 바닥(낮은 천장 24 m →
+    /// 롤러코스터 55 m → 급반전 → 갈림길⬆ → 깊은 갱 28 m) → 3막 탈출(긴 통로 → 굴뚝 28 m → 갈림길⬆) → 출구. 통과 가능성 증명은 맵 검사 몫이다.</para>
     /// </summary>
     public static class MineCourseRule
     {
-        /// <summary>프로토타입 <c>seeded(7 + 9)</c>.</summary>
-        public const uint Seed = 16;
+        /// <summary>프로토타입 <c>seeded(7 + 9)</c> → 10-09 3막(v30 "0 · 광산 3막")은 <c>seeded(7 + 10)</c> — 관문 1·2·29·마지막 핀이 16으로는 안 맞고 17로만 맞는다.</summary>
+        public const uint Seed = 17;
 
         /// <summary>파이프 두께 · 관문 틈 · 관문 사이 빈 거리(원조 간격 5.4 m − 두께).</summary>
         const double PW = 1.95, GAP = 3.75, FREE = 5.4 - PW;
@@ -236,14 +252,24 @@ namespace LOP.MapTools
         const double Slalom = 2.6;
         /// <summary>급반전 오르내림(예전 ±4.0).</summary>
         const double Flip = 5.5;
-        /// <summary>롤러코스터 굴 틈(예전 5.0, 한계 4.6과 그 사이).</summary>
-        const double CoasterGap = 4.85;
+        /// <summary>롤러코스터 굴 틈(예전 5.0 → 10-07 4.85 → 10-09 3막 4.8. 4.7은 검사에서 거의 못 지난다).</summary>
+        const double CoasterGap = 4.8;
         /// <summary>갈림길 굴 쪽 칸 중심 — 통로가 좁아져 위 굴은 위로 ForkTunnelUp, 아래 굴은 아래로 ForkTunnelDown(비대칭, 예전 둘 다 4.5).</summary>
         const double ForkTunnelUp = 2.6, ForkTunnelDown = 4.6;
         /// <summary>갈림길 반대쪽 보통 칸 관문 틈 중심(통로 중심에서 ±ForkOther, 예전 ±4.5).</summary>
         const double ForkOther = 3.9;
-        /// <summary>갈림길 반대쪽 보통 관문 틈 중심의 난수 폭(예전 4.0 — 칸이 좁아져 함께 줄었다).</summary>
-        const double ForkBand = 2.0;
+        /// <summary>갈림길 반대쪽 보통 관문 틈 중심의 난수 폭(예전 4.0 → 2.0 → 10-09 3막 3.0 — 검사에서 가장 쉬운 곳이었다).</summary>
+        const double ForkBand = 3.0;
+        /// <summary>갈림길 반대쪽 보통 관문의 틈(10-09 3막: 원조 3.75 → 3.3). 굴(3.1)보다는 넉넉한 "안전하지만 느린 길".</summary>
+        const double ForkGap = 3.3;
+
+        /// <summary>구간 옵션(10-09 3막). 비워 두면 그 구간의 기본값 — 관문 수(슬라럼), 길이(낮은 천장·롤러코스터·수직 갱·굴뚝), 높이 차(수직 갱·굴뚝).</summary>
+        sealed class SectionOptions
+        {
+            public int? Gates;
+            public double? Length;
+            public double? Rise;
+        }
 
         /// <summary>
         /// 프로토타입 mode 9 그대로. 난수는 관문마다 하나(기본 관문·긴 통로·갈림길 반대쪽 관문)씩만 뽑는다 —
@@ -315,7 +341,7 @@ namespace LOP.MapTools
 
                 for (double gx = fx + 3; gx < fx1 - 2; gx += 5.4)
                 {
-                    gates.Add(new MineGate((float)(gx + PW / 2), (float)PW, (float)(baseY - side * ForkOther + (Rnd() - 0.5) * ForkBand), (float)GAP,
+                    gates.Add(new MineGate((float)(gx + PW / 2), (float)PW, (float)(baseY - side * ForkOther + (Rnd() - 0.5) * ForkBand), (float)ForkGap,
                                            (float)(up ? bot : baseY + 0.6), (float)(up ? baseY - 0.6 : top)));
                 }
                 forks.Add(new MineFork((float)fx, (float)fx1, (float)baseY, up,
@@ -324,7 +350,7 @@ namespace LOP.MapTools
                 cur = fx1 + FREE;
             }
 
-            void Section(string name)
+            void Section(string name, SectionOptions o)
             {
                 switch (name)
                 {
@@ -332,7 +358,7 @@ namespace LOP.MapTools
                         Put(12, baseY + (Rnd() - 0.5) * 1.5, LongGap);
                         break;
                     case "슬라럼":
-                        for (int i = 0; i < 6; i++) { Put(PW, baseY + (i % 2 == 1 ? Slalom : -Slalom)); }
+                        for (int i = 0; i < (o?.Gates ?? 6); i++) { Put(PW, baseY + (i % 2 == 1 ? Slalom : -Slalom)); }
                         break;
                     case "물결 터널":
                     {
@@ -347,7 +373,7 @@ namespace LOP.MapTools
                         break;
                     case "낮은 천장":
                     {
-                        double a = cur, b = cur + 34;
+                        double a = cur, b = cur + (o?.Length ?? 34);
                         c.Lows.Add((a, b));
                         cur = b + FREE;
                         pts.Add((b + 2, baseY));
@@ -356,28 +382,28 @@ namespace LOP.MapTools
                     //  수직 갱: 좁은 굴이 짧은 거리에 크게 떨어진다 — 손 떼고 떨어지다 바닥에서 정확히 받아 낸다.
                     case "수직 갱 낙하":
                     {
-                        double a = cur, b = cur + DropLen;
+                        double a = cur, b = cur + (o?.Length ?? DropLen);
                         c.Narrows.Add((a - 2, b + 4, DiveNarrow));
-                        pts.Add((a, baseY)); baseY -= Drop; pts.Add((b, baseY));
+                        pts.Add((a, baseY)); baseY -= o?.Rise ?? Drop; pts.Add((b, baseY));
                         cur = b + 4 + FREE;
                         break;
                     }
                     //  굴뚝: 좁은 굴이 길게 오르막 — 쉬지 않고 빠르게 쳐야 한다.
                     case "굴뚝 오르기":
                     {
-                        double a = cur, b = cur + ClimbLen;
+                        double a = cur, b = cur + (o?.Length ?? ClimbLen);
                         c.Narrows.Add((a - 2, b + 2, ClimbNarrow));
-                        pts.Add((a, baseY)); baseY += Climb; pts.Add((b, baseY));
+                        pts.Add((a, baseY)); baseY += o?.Rise ?? Climb; pts.Add((b, baseY));
                         cur = b + 2 + FREE;
                         break;
                     }
                     //  레일 롤러코스터: 큰 물결을 그리는 긴 굴 — 떨어지고 솟구치기를 굴 안에서 이어 탄다.
                     case "레일 롤러코스터":
                     {
-                        double a = cur, b = baseY;
-                        Tube(a, a + CoasterLen, x => b + CoasterAmp * Math.Sin(2 * Math.PI * (x - a) / CoasterPer), CoasterGap);
-                        pts.Add((a + CoasterLen / 2, baseY));
-                        cur = a + CoasterLen + FREE;
+                        double a = cur, b = baseY, len = o?.Length ?? CoasterLen;
+                        Tube(a, a + len, x => b + CoasterAmp * Math.Sin(2 * Math.PI * (x - a) / CoasterPer), CoasterGap);
+                        pts.Add((a + len / 2, baseY));
+                        cur = a + len + FREE;
                         break;
                     }
                     case "고수 갈림길 ⬆굴": Fork(true); break;
@@ -386,17 +412,21 @@ namespace LOP.MapTools
                 }
             }
 
-            //  광산 코스 순서(프로토타입 MINE_ORDER): [구간, 뒤에 붙는 보통 관문 수].
-            var order = new (string name, int after)[]
+            //  광산 코스 3막(10-09, 프로토타입 MINE3_ORDER): [구간, 뒤에 붙는 보통 관문 수, 옵션].
+            //  1막 하강 — 노을 입구에서 곧장 수직 갱. 2막 갱 바닥 — 롤러코스터 중심, 더 깊은 두 번째 갱으로 끝. 3막 탈출 — 가장 긴 굴뚝 → 마지막 갈림길.
+            //  물결 터널은 낮은 천장과 겹쳐 뺐다(코드는 남긴다).
+            var order = new (string name, int after, SectionOptions o)[]
             {
-                ("긴 통로", 1), ("슬라럼", 1), ("물결 터널", 1), ("고수 갈림길 ⬆굴", 1), ("수직 갱 낙하", 2), ("낮은 천장", 1),
-                ("레일 롤러코스터", 1), ("고수 갈림길 ⬇굴", 1), ("급반전", 1), ("굴뚝 오르기", 1), ("고수 갈림길 ⬆굴", 3),
+                ("수직 갱 낙하", 1, null), ("슬라럼", 1, new SectionOptions { Gates = 8 }), ("고수 갈림길 ⬇굴", 2, null),
+                ("낮은 천장", 1, new SectionOptions { Length = 24 }), ("레일 롤러코스터", 1, new SectionOptions { Length = 55 }), ("급반전", 1, null),
+                ("고수 갈림길 ⬆굴", 0, null), ("수직 갱 낙하", 2, new SectionOptions { Length = 10, Rise = 28 }),
+                ("긴 통로", 1, null), ("굴뚝 오르기", 0, new SectionOptions { Length = 21, Rise = 28 }), ("고수 갈림길 ⬆굴", 3, null),
             };
-            Norm(4);
-            foreach (var (name, after) in order)
+            Norm(2);
+            foreach (var (name, after, o) in order)
             {
                 sections.Add(new MineSection(name, (float)cur));
-                Section(name);
+                Section(name, o);
                 Norm(after);
             }
 

@@ -289,14 +289,17 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 먼_비계는_사인_높이로_범위_앞뒤_15m를_덮는다()
         {
-            //  10-09 3막: 평평한 끝(FlatEnd)까지로 좁힌다 — 그래도 배경 margin(15 m)이 그 뒤 수직 갱 꺾이는
-            //  점을 넘어서면 칸 하나가 꺾이는 점을 걸치면서 현(chord) 오차가 난다(Task 2가 다룰 몫).
+            //  10-09 3막: 이 테스트의 주장은 "평평한 구간 안에서 현(chord)이 사인 곡선과 맞는다"다 —
+            //  margin(15 m)까지 포함해 꺾이지 않아야 하므로 to = FlatEnd − margin(4.8)로 좁힌다.
+            //  배경이 수직 갱 꺾임을 가로지르는 문제(실제 옷 입히기 범위)는 "코스 전체에 펼치기" 슬라이스의 몫 — 여기서 늘리지 않는다.
             var c = Course();
-            float to = c.FlatEnd();
+            float to = c.FlatEnd() - MineDressingLayout.BackgroundMargin;
             var far = MineDressingLayout.Background(c, From, to, 7, Density).Where(p => p.Kind == MinePartKind.BgTrestleBay).ToList();
             //  멀리 보이게 줄인 칸 폭(3 m × FarScale)으로 빈틈없이.
             AssertCovers(far, From - MineDressingLayout.BackgroundMargin, to + MineDressingLayout.BackgroundMargin,
                          MineDressingLayout.BgTrestleBayWidth * Density.FarScale);
+            //  범위가 좁아져도(−35~19.8, 실측 24칸) 여러 칸을 뜻있게 검사하도록 최소치를 둔다.
+            Assert.Greater(far.Count, 15);
             foreach (var p in far)
             {
                 Assert.AreEqual(MineDressingLayout.FarZ, p.Z, Eps);

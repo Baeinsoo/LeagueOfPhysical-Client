@@ -6,8 +6,9 @@ using UnityEngine;
 namespace LOP.EditorTools
 {
     /// <summary>
-    /// 맵 씬의 코스를 <b>광산 코스</b>로 다시 굽는다 — 배치는 <see cref="MineCourseRule.Layout"/>(프로토타입 mode 9 그대로)이
-    /// 정하고, 여기서는 그 숫자를 전통 굽기의 부품(<c>Prism</c>·<c>Pipe</c>·<c>BoostPad</c>)으로 세우기만 한다.
+    /// 맵 씬의 코스를 <b>광산 코스</b>로 다시 굽는다 — 배치는 <see cref="MineCourseRule.Layout"/>(프로토타입 난수 생성기·
+    /// 소비 순서 그대로, 구간 배치는 mode 10·시드 17)이 정하고, 여기서는 그 숫자를 전통 굽기의 부품
+    /// (<c>Prism</c>·<c>Pipe</c>·<c>BoostPad</c>)으로 세우기만 한다.
     ///
     /// <para><b>회색 박스</b>다: 기믹·스카이라인·미드그라운드는 굽지 않고 재질도 하나뿐이다. 재미를 먼저 보고,
     /// 모양이 정해지면 그때 입힌다. 지금은 평평한 앞부분(<c>DressFrom</c>~<see cref="LOP.MapTools.MineCourse.FlatEnd"/>)만 <see cref="FlappyMineDressing"/>이

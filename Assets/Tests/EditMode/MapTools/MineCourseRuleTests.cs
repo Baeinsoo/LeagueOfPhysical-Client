@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using LOP.MapTools;
 using NUnit.Framework;
 
@@ -182,6 +183,52 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(MineCourse.BaseHalf, c.HalfAt(x), 1e-4f, $"x={x} 반 높이");
             }
             Assert.Less(c.HalfAt(19.8f + 0.5f), MineCourse.BaseHalf, "바로 뒤는 좁아지기 시작");
+        }
+
+        //  FlatEnd()는 세 갈래(Narrows·Lows·꺾은선) 중 가장 앞 값을 쓴다. 실제 코스는 늘 Narrows(첫 수직 갱)가
+        //  가장 앞이라 위 테스트는 그 갈래만 지킨다. 나머지 둘은 합성 코스로 따로 지킨다 — Points/Narrows/Lows가
+        //  internal이고 이 테스트 어셈블리에 InternalsVisibleTo가 없어서(확인함, LOP.MapTools.asmdef에 없다)
+        //  프로덕션 코드를 건드리지 않고 리플렉션으로만 채운다.
+
+        [Test]
+        public void FlatEnd은_Lows_갈래가_가장_앞이면_그걸_쓴다()
+        {
+            //  Narrows·꺾은선이 없으니 이 갈래(Lows)를 지우면 FlatEnd가 Length(100)까지 튄다 — 사보타주로 확인했다.
+            var c = Synthetic(
+                points: new List<(double, double)> { (0, 0), (100, 0) },
+                narrows: new List<(double, double, double)>(),
+                lows: new List<(double, double)> { (5, 20) },
+                length: 100f);
+            Assert.AreEqual(5f - MineCourse.EdgeBlend, c.FlatEnd(), 1e-4f);
+        }
+
+        [Test]
+        public void FlatEnd은_꺾은선_갈래가_가장_앞이면_그걸_쓴다()
+        {
+            //  Narrows·Lows가 없으니 이 갈래(꺾은선 루프)를 지우면 FlatEnd가 Length(100)까지 튄다 — 사보타주로 확인했다.
+            var c = Synthetic(
+                points: new List<(double, double)> { (0, 0), (10, 0), (20, 5) },
+                narrows: new List<(double, double, double)>(),
+                lows: new List<(double, double)>(),
+                length: 100f);
+            Assert.AreEqual(10f, c.FlatEnd(), 1e-4f);
+        }
+
+        static MineCourse Synthetic(List<(double, double)> points, List<(double, double, double)> narrows, List<(double, double)> lows, float length)
+        {
+            var c = new MineCourse();
+            SetInternalField(c, "Points", points);
+            SetInternalField(c, "Narrows", narrows);
+            SetInternalField(c, "Lows", lows);
+            c.Length = length;
+            return c;
+        }
+
+        static void SetInternalField(MineCourse c, string name, object value)
+        {
+            var field = typeof(MineCourse).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(field, $"MineCourse.{name} 필드를 못 찾았다 — 리플렉션 경로가 깨졌다.");
+            field.SetValue(c, value);
         }
 
         [Test]

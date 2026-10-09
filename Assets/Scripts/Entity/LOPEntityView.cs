@@ -101,12 +101,12 @@ namespace LOP
                 return;
             }
 
-            const float walkThreshold = 0.01f;
             var worldEntity = entityRegistry.Get(entityId);
             Vector3 v = worldEntity != null ? GameFramework.World.EntityMotionExtensions.GetVelocity(worldEntity) : Vector3.zero;
-            float horizontalSpeedSquared = v.x * v.x + v.z * v.z;
+            //  몸 속도는 세계 기준이라, 도는 판 위에선 발밑 땅 속도를 빼고 본다(서 있기만 해도 달리면 안 된다).
+            System.Numerics.Vector3 ground = worldEntity?.Get<MovementBase>()?.Velocity ?? System.Numerics.Vector3.Zero;
             bool grounded = worldEntity?.Get<GameFramework.World.GroundState>()?.IsGrounded ?? false;
-            animator.SetBool("Run", horizontalSpeedSquared > walkThreshold * walkThreshold && grounded);
+            animator.SetBool("Run", RunAnimation.ShouldRun(v, ground.ToUnity(), grounded));
         }
 
         // 이미 그리기 시작한 발동. 같은 스킬을 연타해도 발동마다 값이 달라지도록 종료 틱까지 함께 본다.

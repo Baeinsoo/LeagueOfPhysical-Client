@@ -75,6 +75,17 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 정령_얼굴은_빛보다_작고_빛_위에_그려진다()
+        {
+            //  얼굴이 빛보다 크면 "스치면 잡힘"의 그림이 어긋나고, 빛보다 먼저 그려지면 가산 빛에 묻혀 안 보인다.
+            Assert.Less(Y.SpiritFaceSize, Y.StarHaloDiameter);
+            var face = SkydiveCylinderBuilder.SpiritFaceMaterial();
+            Assert.AreEqual("LOP/SpiritFace", face.shader.name);
+            var glow = UnityEditor.AssetDatabase.LoadAssetAtPath<Shader>("Assets/Shaders/LOP/LOPLaserGlow.shader");
+            Assert.Greater(face.renderQueue, glow.renderQueue, "빛(가산) 다음에 그려야 눈이 보인다");
+        }
+
+        [Test]
         public void 별은_보이는_빛_안이면_잡힌다()
         {
             //  10-08 실측: 빛(반지름 13m) 속 8.4m까지 들어갔는데 판정(6m)이 작아 안 잡혔다. 빛 크기는 판정에서 만든다(빌더).

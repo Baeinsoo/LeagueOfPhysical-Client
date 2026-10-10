@@ -204,8 +204,8 @@ namespace LOP.EditorTools
             retry.localPosition = Y.RetryPoint;
             retry.gameObject.AddComponent<LOP.RetryVolume>().BelowY = Y.RetryBelowY;
 
-            //  별 조각 — 닿으면 결승(StarVolume: 판정은 CatchTargetField, 자세는 ObstacleField). 충돌 없음.
-            var star = new GameObject("Star").transform;
+            //  정령 — 닿으면 결승(StarVolume: 판정은 CatchTargetField, 자세는 ObstacleField). 충돌 없음.
+            var star = new GameObject("Spirit").transform;
             star.SetParent(root, false);
             star.localPosition = Y.StarCenter;
             var starVol = star.gameObject.AddComponent<LOP.StarVolume>();
@@ -216,8 +216,16 @@ namespace LOP.EditorTools
             starVol.BobPeriod = Y.StarBobPeriod;
             starVol.CatchRadius = Y.StarCatchRadius;
             starVol.Pose(0);
-            Glow(star, "Halo", StarMaterial("StarHalo", new Color(1f, 0.72f, 0.3f) * 2.6f, 1.2f), Y.StarHaloDiameter);
-            Glow(star, "Core", StarMaterial("StarCore", new Color(1f, 0.95f, 0.8f) * 3f, 0f), 7f);
+            Glow(star, "Halo", StarMaterial("SpiritHalo", new Color(1f, 0.9f, 0.68f) * 2.4f, 1.2f), Y.StarHaloDiameter);   // 흰 금빛
+            Glow(star, "Core", StarMaterial("SpiritCore", new Color(1f, 0.98f, 0.92f) * 3.2f, 0f), Y.SpiritFaceSize);
+            var face = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            Object.DestroyImmediate(face.GetComponent<Collider>());
+            face.name = "Face";
+            face.transform.SetParent(star, false);
+            face.transform.localScale = Vector3.one * Y.SpiritFaceSize;
+            var fr = face.GetComponent<MeshRenderer>();
+            fr.sharedMaterial = SpiritFaceMaterial();
+            fr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             //  위로 솟는 금빛 기둥 — 출구에서 내려다보면 "저기가 목표"로 읽히게(빛나는 점 하나는 밝은 하늘에 묻힌다).
             var beacon = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             Object.DestroyImmediate(beacon.GetComponent<Collider>());
@@ -382,6 +390,18 @@ namespace LOP.EditorTools
 
         private static Material LightShaftMaterial() => GlowMaterial("CylLightShaft", new Color(1f, 0.78f, 0.45f) * 0.26f, 2.6f);   // 넓고 옅게 — 막대가 아니라 빛
         private static Material StarMaterial(string name, Color color, float falloff) => GlowMaterial($"Cyl{name}", color, falloff);
+
+        internal static Material SpiritFaceMaterial()
+        {
+            const string path = "Assets/Art/Materials/Pyramid/CylSpiritFace.mat";
+            var shader = Shader.Find("LOP/SpiritFace");
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null) { m = new Material(shader); AssetDatabase.CreateAsset(m, path); }
+            m.shader = shader;
+            m.renderQueue = -1;   // 셰이더의 Transparent+50을 그대로 쓴다
+            EditorUtility.SetDirty(m);
+            return m;
+        }
 
         private static GameObject Hub(Transform parent, string name, float y)
         {

@@ -45,7 +45,8 @@ namespace LOP.EditorTools
 
             //  원통 벽(태풍 구름 벽) — 출구 높이(ExitY)에서 끝난다. 판정은 상자, 그림은 안쪽 면 + 바깥 면
             //  (안쪽만 그리면 카메라가 벽 밖으로 나가도 안 가리고, 바깥 면은 출구를 빠져나온 뒤 위로 탑이 보이게).
-            float wallTop = Y.SpawnY + Y.WallAboveSpawn, wallBottom = Y.ExitY, wallH = wallTop - wallBottom, wallCy = (wallTop + wallBottom) * 0.5f;
+            var (wallTop, wallBottom) = WallSpan();
+            float wallH = wallTop - wallBottom, wallCy = (wallTop + wallBottom) * 0.5f;
             float segLen = 2f * Mathf.PI * (Y.Radius + Y.Wall) / Y.WallSegments + 0.5f;
             var walls = new GameObject("Wall").transform;
             walls.SetParent(root, false);
@@ -352,6 +353,9 @@ namespace LOP.EditorTools
             EditorUtility.SetDirty(m);
             return m;
         }
+
+        /// <summary>벽의 위·아래 높이 — Build가 쓰는 값 그대로(굽지 않고 시험하려고 따로 뺐다).</summary>
+        internal static (float top, float bottom) WallSpan() => (Y.SpawnY + Y.WallAboveSpawn, Y.ExitY);
 
         internal static Material StormWallMaterial()
         {

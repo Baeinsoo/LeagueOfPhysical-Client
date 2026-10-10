@@ -64,6 +64,16 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 사람을_태울지는_표에서_정하고_원판_풍차만_태운다()
+        {
+            //  사용자 10-10: 장애물마다 고른다. 맵은 표에서 굽는 산출물이라 인스펙터에서 바꾸면 다시 구울 때 사라진다 — 표가 진실이다.
+            Assert.IsTrue(Y.Discs.All(d => d.Rideable), "원판은 태운다");
+            Assert.IsTrue(Y.Windmills.All(m => m.Rideable), "풍차는 태운다");
+            Assert.IsTrue(Y.Irises.All(i => i.Rideable == false), "조리개는 관문 — 안 태운다");
+            Assert.IsFalse(Y.Door.Rideable, "문은 관문 — 안 태운다");
+        }
+
+        [Test]
         public void 장애물은_세_종류가_다_있다()
         {
             Assert.GreaterOrEqual(Y.Discs.Length, 1, "도는 원판");

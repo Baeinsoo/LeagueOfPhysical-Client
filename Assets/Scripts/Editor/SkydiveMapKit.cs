@@ -127,9 +127,13 @@ namespace LOP.EditorTools
             public readonly int MoveTicks;
             public readonly int Phase;
 
+            /// <summary>위에 선 사람을 패널과 같이 옮길지(DoorVolume.Rideable). 기본 꺼짐 — 열리면 떨어지는 관문.</summary>
+            public readonly bool Rideable;
+
             public DoorSpec(string name, Vector3 center, float halfWidth, float halfDepth,
-                            float axisAngleDegrees, int period, int openTicks, int moveTicks, int phase)
+                            float axisAngleDegrees, int period, int openTicks, int moveTicks, int phase, bool rideable = false)
             {
+                Rideable = rideable;
                 Name = name;
                 Center = center;
                 HalfWidth = halfWidth;
@@ -345,6 +349,7 @@ namespace LOP.EditorTools
             marker.OpenTicks = spec.OpenTicks;
             marker.MoveTicks = spec.MoveTicks;
             marker.Phase = spec.Phase;
+            marker.Rideable = spec.Rideable;
 
             marker.PanelA = CreateDoorPanel(go.transform, spec.Name + "_A", spec, material);
             marker.PanelB = CreateDoorPanel(go.transform, spec.Name + "_B", spec, material);

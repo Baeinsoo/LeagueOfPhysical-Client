@@ -25,8 +25,10 @@ namespace LOP.EditorTools
         {
             public readonly string Name;
             public readonly float Y, GapDegrees, StartDegrees, DegreesPerTick;
-            public Disc(string name, float y, float gapDegrees, float startDegrees, float degreesPerTick)
-            { Name = name; Y = y; GapDegrees = gapDegrees; StartDegrees = startDegrees; DegreesPerTick = degreesPerTick; }
+            /// <summary>위에 선 사람을 같이 돌릴지(SpinnerVolume.Rideable). 맵은 이 표에서 굽는 산출물이라 인스펙터가 아니라 여기서 정한다.</summary>
+            public readonly bool Rideable;
+            public Disc(string name, float y, float gapDegrees, float startDegrees, float degreesPerTick, bool rideable = true)
+            { Name = name; Y = y; GapDegrees = gapDegrees; StartDegrees = startDegrees; DegreesPerTick = degreesPerTick; Rideable = rideable; }
         }
 
         public readonly struct Iris
@@ -34,8 +36,10 @@ namespace LOP.EditorTools
             public readonly string Name;
             public readonly float Y, Travel;
             public readonly int Blades, Period, OpenTicks, MoveTicks, Phase;
-            public Iris(string name, float y, int blades, float travel, int period, int openTicks, int moveTicks, int phase)
-            { Name = name; Y = y; Blades = blades; Travel = travel; Period = period; OpenTicks = openTicks; MoveTicks = moveTicks; Phase = phase; }
+            /// <summary>위에 선 사람을 날개와 같이 옮길지(IrisVolume.Rideable). 기본 꺼짐 — 열리면 떨어지는 관문.</summary>
+            public readonly bool Rideable;
+            public Iris(string name, float y, int blades, float travel, int period, int openTicks, int moveTicks, int phase, bool rideable = false)
+            { Name = name; Y = y; Blades = blades; Travel = travel; Period = period; OpenTicks = openTicks; MoveTicks = moveTicks; Phase = phase; Rideable = rideable; }
         }
 
         public readonly struct Windmill
@@ -43,8 +47,10 @@ namespace LOP.EditorTools
             public readonly string Name;
             public readonly float Y, Width, StartDegrees, DegreesPerTick;
             public readonly int Blades;
-            public Windmill(string name, float y, int blades, float width, float startDegrees, float degreesPerTick)
-            { Name = name; Y = y; Blades = blades; Width = width; StartDegrees = startDegrees; DegreesPerTick = degreesPerTick; }
+            /// <summary>위에 선 사람을 같이 돌릴지(SpinnerVolume.Rideable).</summary>
+            public readonly bool Rideable;
+            public Windmill(string name, float y, int blades, float width, float startDegrees, float degreesPerTick, bool rideable = true)
+            { Name = name; Y = y; Blades = blades; Width = width; StartDegrees = startDegrees; DegreesPerTick = degreesPerTick; Rideable = rideable; }
         }
 
         public readonly struct Ledge

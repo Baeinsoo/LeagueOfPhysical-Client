@@ -102,6 +102,7 @@ namespace LOP.EditorTools
                 var spinner = Hub(root, d.Name, d.Y).AddComponent<LOP.SpinnerVolume>();
                 spinner.StartDegrees = d.StartDegrees;
                 spinner.DegreesPerTick = d.DegreesPerTick;
+                spinner.Rideable = d.Rideable;
                 MeshBody(spinner.transform, "Plate", discMat, Sector($"Cyl{d.Name}", 0f, Y.Radius - 1f, d.GapDegrees, 360f, Vector3.zero), Vector3.zero);
             }
 
@@ -110,6 +111,7 @@ namespace LOP.EditorTools
             {
                 var vol = Hub(root, iris.Name, iris.Y).AddComponent<LOP.IrisVolume>();
                 vol.Travel = iris.Travel;
+                vol.Rideable = iris.Rideable;
                 vol.Period = iris.Period; vol.OpenTicks = iris.OpenTicks; vol.MoveTicks = iris.MoveTicks; vol.Phase = iris.Phase;
                 var blades = new List<Transform>();
                 float w = 360f / iris.Blades;
@@ -130,6 +132,7 @@ namespace LOP.EditorTools
                 var spinner = Hub(root, m.Name, m.Y).AddComponent<LOP.SpinnerVolume>();
                 spinner.StartDegrees = m.StartDegrees;
                 spinner.DegreesPerTick = m.DegreesPerTick;
+                spinner.Rideable = m.Rideable;
                 float len = Y.Radius - 2f;
                 var bar = BarMesh($"Cyl{m.Name}_Blade", new Vector3(len, Y.Thickness, m.Width));
                 for (int b = 0; b < m.Blades; b++)

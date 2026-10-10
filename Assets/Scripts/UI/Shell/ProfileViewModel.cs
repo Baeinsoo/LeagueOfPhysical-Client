@@ -238,11 +238,16 @@ namespace LOP.UI
                 //  줄이 이미 무승부인지 알고 있다. 여기서 다시 세면 둘이 어긋날 수 있다.
                 bool isDraw = rows.Count > 0 && rows[0].IsDraw;
 
+                //  "공동 N등" 표기도 결과 화면과 같은 판정을 쓴다 — 줄 목록을 그대로 훑는다.
+                var placements = new List<int>(rows.Count);
+                foreach (var row in rows) { placements.Add(row.Placement); }
+                int tiedCount = mine == null ? 1 : MatchResultViewModel.TiedCount(placements, mine.placement);
+
                 entries.Add(new ProfileMatchEntry(
                     GameModeName(match.rounds),
                     Subtitle(match.queueId, match.rounds),
                     FormatEndedAt(match.endedAt),
-                    mine == null ? string.Empty : MyResultText(mine, isDraw, _masterData.Tables.TbRankDivision),
+                    mine == null ? string.Empty : MyResultText(mine, isDraw, _masterData.Tables.TbRankDivision, tiedCount),
                     mine != null,
                     rows));
             }
@@ -347,10 +352,13 @@ namespace LOP.UI
                 : displayName.Substring(0, IdentityMaxLength);
         }
 
-        /// <summary>전적 카드의 내 결과. 캐주얼 "2등", 랭크 "2등  +18 LP", 무승부 "무승부"(숨은 점수는 안 보인다).</summary>
-        public static string MyResultText(MatchHistoryParticipantDto mine, bool isDraw, LOP.MasterData.TbRankDivision divisions)
+        /// <summary>
+        /// 전적 카드의 내 결과. 캐주얼 "2등", 랭크 "2등  +18 LP", 무승부 "무승부", 2위 이하 동점은
+        /// "공동 N등"(숨은 점수는 안 보인다). tiedCount를 안 넘기면(과거 호출부) 동점 없음으로 본다.
+        /// </summary>
+        public static string MyResultText(MatchHistoryParticipantDto mine, bool isDraw, LOP.MasterData.TbRankDivision divisions, int tiedCount = 1)
         {
-            string head = isDraw ? "무승부" : $"{mine.placement}등";
+            string head = isDraw ? "무승부" : tiedCount > 1 ? $"공동 {mine.placement}등" : $"{mine.placement}등";
             if (MatchResultViewModel.IsLeft(mine.stats)) head += " · 나감";
             return mine.rank == null ? head : $"{head}  {RankFormat.LpDelta(mine.rank)}";
         }

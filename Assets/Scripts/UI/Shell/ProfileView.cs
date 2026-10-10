@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using R3;
 using UnityEngine.UIElements;
 
@@ -128,13 +129,18 @@ namespace LOP.UI
                 card.Add(mine);
             }
 
+            //  "공동 N등" 표기는 그 등수에 몇 명이 몰려 있는지로 정한다 — 결과 화면과 같은 판정.
+            var placements = new List<int>(match.Rows.Count);
+            foreach (var row in match.Rows) { placements.Add(row.Placement); }
+
             foreach (var row in match.Rows)
             {
                 var line = new VisualElement();
                 line.AddToClassList("profile-stat");
                 if (row.IsMe) line.AddToClassList("matchresult-row--me");
 
-                var placement = new Label(MatchResultViewModel.FormatPlacement(row.Placement, row.IsDraw));
+                int tiedCount = MatchResultViewModel.TiedCount(placements, row.Placement);
+                var placement = new Label(MatchResultViewModel.FormatPlacement(row.Placement, row.IsDraw, tiedCount));
                 placement.AddToClassList("profile-stat-label");
 
                 var name = new Label(row.IsLeft ? $"{row.DisplayName} · 나감" : row.DisplayName);

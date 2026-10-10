@@ -74,6 +74,23 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 문을_만들_때_표의_Rideable_값을_그대로_쓴다()
+        {
+            //  리뷰 PR3 재리뷰 #1: 표의 값이 지금은 모두 기본값과 같아, 굽기가 값을 안 넘겨도 아무도 모른다 — 기본값과 반대인 값으로 잰다.
+            var parent = new GameObject("DoorParent");
+            try
+            {
+                var spec = new SkydiveMapKit.DoorSpec("RideableDoor", Vector3.zero, 4f, 4f, 0f, 40, 10, 5, 0, rideable: true);
+                var go = SkydiveMapKit.CreateDoorVolume(parent.transform, spec, null);
+                Assert.IsTrue(go.GetComponent<LOP.DoorVolume>().Rideable);
+            }
+            finally
+            {
+                Object.DestroyImmediate(parent);
+            }
+        }
+
+        [Test]
         public void 장애물은_세_종류가_다_있다()
         {
             Assert.GreaterOrEqual(Y.Discs.Length, 1, "도는 원판");

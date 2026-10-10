@@ -35,6 +35,10 @@ namespace LOP
             worldEntity.Add(new GameFramework.World.Velocity());
             worldEntity.Add(new EntityKind(EntityType.Character));
             worldEntity.Add(new Appearance(creationData.visualId));
+            if (creationData.look != null)
+            {
+                worldEntity.Add(creationData.look);
+            }
             worldEntity.Add(new GameFramework.World.CapsuleShape(0.3f, 1.6f));
             worldEntity.Add(new GameFramework.World.PhysicsConfig(
                 GameFramework.World.BodyKind.Kinematic, freezeRotation: true, isTrigger: false));

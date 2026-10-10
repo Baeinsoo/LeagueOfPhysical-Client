@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using R3;
 using UnityEngine.UIElements;
 
@@ -15,6 +16,7 @@ namespace LOP.UI
         private Button _confirmButton;
         private System.Action _onConfirm;
         private System.IDisposable _rankSubscription;
+        private System.IDisposable _rewardSubscription;
 
         public MatchResultView(MatchResultViewModel viewModel)
         {
@@ -34,12 +36,14 @@ namespace LOP.UI
 
             BuildRows();
             BuildRating();
+            BuildReward();
         }
 
         public override void OnClose()
         {
             if (_confirmButton != null) _confirmButton.clicked -= OnConfirmClicked;
             _rankSubscription?.Dispose();
+            _rewardSubscription?.Dispose();
             base.OnClose();
         }
 
@@ -65,13 +69,18 @@ namespace LOP.UI
                 message.style.display = DisplayStyle.None;
             }
 
+            //  "공동 N등" 표기는 그 등수에 몇 명이 몰려 있는지로 정한다 — 줄 전체를 한 번 훑어야 안다.
+            var placements = new List<int>(_viewModel.Rows.Count);
+            foreach (var row in _viewModel.Rows) { placements.Add(row.Placement); }
+
             foreach (var row in _viewModel.Rows)
             {
                 var line = new VisualElement();
                 line.AddToClassList("matchresult-row");
                 if (row.IsMe) line.AddToClassList("matchresult-row--me");
 
-                var placement = new Label(MatchResultViewModel.FormatPlacement(row.Placement, row.IsDraw));
+                int tiedCount = MatchResultViewModel.TiedCount(placements, row.Placement);
+                var placement = new Label(MatchResultViewModel.FormatPlacement(row.Placement, row.IsDraw, tiedCount));
                 placement.AddToClassList("card-text");
 
                 var name = new Label(row.DisplayName);
@@ -112,6 +121,20 @@ namespace LOP.UI
             {
                 value.text = line;
                 rating.style.display = string.IsNullOrEmpty(line) ? DisplayStyle.None : DisplayStyle.Flex;
+            });
+        }
+
+        //  보상 줄도 랭크 줄과 같은 조회가 끝나야 채워진다(GetMyMatch). 캐주얼도 보상이 있으니
+        //  랭크 줄과 달리 큐 종류로 숨기지 않는다 — 비어 있으면(못 받음·없음) 그때만 숨긴다.
+        private void BuildReward()
+        {
+            var reward = Root.Q<VisualElement>("matchresult-reward");
+            var value = Root.Q<Label>("matchresult-reward-value");
+
+            _rewardSubscription = _viewModel.RewardLine.Subscribe(line =>
+            {
+                value.text = line;
+                reward.style.display = string.IsNullOrEmpty(line) ? DisplayStyle.None : DisplayStyle.Flex;
             });
         }
 

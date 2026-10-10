@@ -8,6 +8,10 @@
                 <ui:Label text="랭크" class="card-text matchresult-rating-label" />
                 <ui:Label name="matchresult-rating-value" class="card-text matchresult-rating-value" />
             </ui:VisualElement>
+            <ui:VisualElement name="matchresult-reward" class="matchresult-reward">
+                <ui:Label text="보상" class="card-text matchresult-reward-label" />
+                <ui:Label name="matchresult-reward-value" class="card-text matchresult-reward-value" />
+            </ui:VisualElement>
             <ui:Button name="confirm-button" text="확인" class="btn btn--primary matchresult-confirm" />
         </ui:VisualElement>
     </ui:VisualElement>

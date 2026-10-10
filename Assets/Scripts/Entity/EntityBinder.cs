@@ -159,8 +159,9 @@ namespace LOP
                 objectResolver.Inject(damageFloaterEmitter);
                 damageFloaterEmitter.SetEntity(actor);
 
-                // 체력 바 — 목숨으로 가는 모드(Dodge)는 끈다.
-                if (decorations.ShowHealthBar)
+                // 이름표(이름·칭호·배너·레벨 + HP바) — 몸이 있는 모든 모드에서 켠다. HP바만 끄고 싶은
+                // 모드(Dodge)는 decorations.ShowHealthBar로 그 블록만 숨긴다(네임플레이트 내부에서 처리).
+                if (decorations.ShowNameplate)
                 {
                     CharacterNameplate nameplate = root.AddComponent<CharacterNameplate>();
                     objectResolver.Inject(nameplate);

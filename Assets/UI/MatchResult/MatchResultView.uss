@@ -49,3 +49,9 @@
     justify-content: space-between;
     margin-bottom: 8px;
 }
+
+.matchresult-reward {
+    flex-direction: row;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}

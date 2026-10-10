@@ -19,6 +19,8 @@ namespace LOP
         private readonly DodgeClientState state;
         private readonly ActorRegistry actorRegistry;
         private readonly DodgePropKit kit;
+        private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly CosmeticCatalog catalog;
         private readonly Dictionary<string, Vector2> lastSeen = new Dictionary<string, Vector2>();
         private readonly HashSet<string> gone = new HashSet<string>();
         private readonly List<(GameObject root, Vector2 from, Vector2 exit, float seconds)> rides =
@@ -27,11 +29,14 @@ namespace LOP
         private Material faceMaterial;
         private bool seeded;
 
-        public DodgeStretcherView(DodgeClientState state, ActorRegistry actorRegistry, DodgePropKit kit)
+        public DodgeStretcherView(DodgeClientState state, ActorRegistry actorRegistry, DodgePropKit kit,
+                                  GameFramework.World.EntityRegistry entityRegistry, CosmeticCatalog catalog)
         {
             this.state = state;
             this.actorRegistry = actorRegistry;
             this.kit = kit;
+            this.entityRegistry = entityRegistry;
+            this.catalog = catalog;
         }
 
         public void Start()
@@ -99,7 +104,8 @@ namespace LOP
                 body.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
                 var animator = body.GetComponent<Animator>();
                 if (animator != null) animator.enabled = false;
-                ChibiDresser.Dress(id, body, faceMaterial);
+                // 서버가 탈락과 함께 몸을 지워 엔티티가 이미 없을 수 있다 — 그때는 look 없이 기본값으로.
+                ChibiDresser.Dress(id, body, faceMaterial, entityRegistry.Get(id)?.Get<PlayerLook>(), catalog);
             }
             rides.Add((root, from, exit, 0f));
         }

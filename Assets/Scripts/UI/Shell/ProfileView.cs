@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using R3;
 using UnityEngine.UIElements;
 
@@ -34,6 +35,42 @@ namespace LOP.UI
             {
                 status.text = text;
                 status.style.display = string.IsNullOrEmpty(text) ? DisplayStyle.None : DisplayStyle.Flex;
+            }));
+
+            var progress = Root.Q<VisualElement>("profile-progress");
+
+            //  레벨·경험치는 받기 전엔 숨긴다 — "레벨: Lv 1" 같은 거짓값이나 "경험치: "만 남은 빈 줄이 뜨지 않게.
+            Disposables.Add(_viewModel.LevelText.CombineLatest(_viewModel.XpText, (level, xp) => (level, xp)).Subscribe(t =>
+            {
+                progress.Clear();
+                if (!string.IsNullOrEmpty(t.level))
+                {
+                    progress.Add(BuildStat("레벨", t.level));
+                }
+                if (!string.IsNullOrEmpty(t.xp))
+                {
+                    progress.Add(BuildStat("경험치", t.xp));
+                }
+            }));
+
+            var equippedTitle = Root.Q<Label>("profile-equipped-title");
+            var equipped = Root.Q<VisualElement>("profile-equipped");
+
+            Disposables.Add(_viewModel.EquippedText.Subscribe(text =>
+            {
+                equipped.Clear();
+
+                bool has = !string.IsNullOrEmpty(text);
+                equippedTitle.style.display = has ? DisplayStyle.Flex : DisplayStyle.None;
+                equipped.style.display = has ? DisplayStyle.Flex : DisplayStyle.None;
+                if (!has) return;
+
+                foreach (var line in text.Split('\n'))
+                {
+                    var lineLabel = new Label(line);
+                    lineLabel.AddToClassList("profile-stat-label");
+                    equipped.Add(lineLabel);
+                }
             }));
 
             var historyTitle = Root.Q<Label>("profile-history-title");
@@ -128,13 +165,18 @@ namespace LOP.UI
                 card.Add(mine);
             }
 
+            //  "공동 N등" 표기는 그 등수에 몇 명이 몰려 있는지로 정한다 — 결과 화면과 같은 판정.
+            var placements = new List<int>(match.Rows.Count);
+            foreach (var row in match.Rows) { placements.Add(row.Placement); }
+
             foreach (var row in match.Rows)
             {
                 var line = new VisualElement();
                 line.AddToClassList("profile-stat");
                 if (row.IsMe) line.AddToClassList("matchresult-row--me");
 
-                var placement = new Label(MatchResultViewModel.FormatPlacement(row.Placement, row.IsDraw));
+                int tiedCount = MatchResultViewModel.TiedCount(placements, row.Placement);
+                var placement = new Label(MatchResultViewModel.FormatPlacement(row.Placement, row.IsDraw, tiedCount));
                 placement.AddToClassList("profile-stat-label");
 
                 var name = new Label(row.IsLeft ? $"{row.DisplayName} · 나감" : row.DisplayName);

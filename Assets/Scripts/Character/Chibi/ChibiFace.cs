@@ -4,17 +4,21 @@ namespace LOP
 {
     /// <summary>
     /// 머리 앞에 곡면 얼굴 판을 붙이고 표정 칸을 고른다. 모델의 원래 눈 메시는 끈다.
-    /// 반지름·중심·방향은 머리 뼈 로컬 좌표 — PolyOne 치비는 뼈 축이 돌아가 있다(앞 = −Y, 위 = −X).
+    /// 반지름·중심·방향은 머리 뼈 로컬 좌표 — 기본값은 <see cref="ChibiHeadFrame"/>(PolyOne 치비 관례)다.
     /// </summary>
     [ExecuteAlways]
     public class ChibiFace : MonoBehaviour
     {
         public ChibiExpression expression;
+
+        /// <summary>반응할 일이 없을 때 짓는 표정. 룩의 얼굴 품목이 정한다(<see cref="ChibiDresser"/>).</summary>
+        [System.NonSerialized] public ChibiExpression restExpression = ChibiExpression.Normal;
+
         public Material faceMaterial;
-        public float radius = 0.175f;
-        public Vector3 center = new Vector3(-0.12f, 0f, 0f);
-        public Vector3 facing = new Vector3(0f, -1f, 0f);
-        public Vector3 up = new Vector3(-1f, 0f, 0f);
+        public float radius = ChibiHeadFrame.Radius;
+        public Vector3 center = ChibiHeadFrame.Center;
+        public Vector3 facing = ChibiHeadFrame.Facing;
+        public Vector3 up = ChibiHeadFrame.Up;
         [Range(20f, 170f)] public float yawSpan = 100f;
         [Range(20f, 140f)] public float pitchSpan = 80f;
         public string hiddenEyeMesh = "SM_Chibi_Eye";
@@ -113,6 +117,15 @@ namespace LOP
             Vector4 st = ChibiFaceAtlas.CellST(expression);
             instance.SetTextureScale("_FaceMap", new Vector2(st.x, st.y));
             instance.SetTextureOffset("_FaceMap", new Vector2(st.z, st.w));
+        }
+
+        /// <summary>
+        /// 게임 리액션용. 리액션 규칙은 "평소"를 Normal로 돌려주는데, 그대로 쓰면 룩의 표정이 첫 틱에 지워진다 —
+        /// Normal이면 쉴 때 표정으로 바꿔 보인다.
+        /// </summary>
+        public void SetReaction(ChibiExpression reaction)
+        {
+            SetExpression(reaction == ChibiExpression.Normal ? restExpression : reaction);
         }
 
         //  구의 앞(+Z) 조각. UV는 조각 전체에 0~1로 편다.

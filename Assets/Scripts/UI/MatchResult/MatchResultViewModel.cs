@@ -58,6 +58,7 @@ namespace LOP.UI
         private const string MyName = "나";
 
         private readonly ReactiveProperty<string> _rankLine = new(string.Empty);
+        private readonly ReactiveProperty<string> _rewardLine = new(string.Empty);
         private readonly CancellationTokenSource _cts = new();
 
         public IReadOnlyList<MatchResultRow> Rows { get; }
@@ -67,6 +68,10 @@ namespace LOP.UI
 
         /// <summary>랭크 판의 "골드 II 45 → 63 LP (+18)". 캐주얼이거나 아직·못 받았으면 빈 문자열(줄을 숨긴다).</summary>
         public ReadOnlyReactiveProperty<string> RankLine => _rankLine;
+
+        /// <summary>"+50 코인 · +120 XP" 같은 보상 줄. 캐주얼·랭크 모두 뜬다. 보상이 없거나 아직·못 받았으면
+        /// 빈 문자열(줄을 숨긴다). 랭크 줄과 같은 조회(GetMyMatch)에서 함께 채워진다 — 게임서버 메시지엔 보상이 없다.</summary>
+        public ReadOnlyReactiveProperty<string> RewardLine => _rewardLine;
 
         [VContainer.Inject]
         public MatchResultViewModel(IMatchResultDataStore matchResultDataStore, IUserDataStore userDataStore, LOP.MasterData.LOPMasterData masterData)
@@ -85,10 +90,12 @@ namespace LOP.UI
             Rows = BuildRows(result?.participants, myUserId);
             IsDraw = Rows.Count > 0 && Rows[0].IsDraw;
 
-            LoadRankAsync(result?.matchId, myUserId, queues, divisions, fetchMatch).Forget();
+            LoadMatchAsync(result?.matchId, myUserId, queues, divisions, fetchMatch).Forget();
         }
 
-        private async UniTaskVoid LoadRankAsync(string matchId, string myUserId,
+        //  랭크 줄과 보상 줄은 같은 조회(GetMyMatch) 한 번으로 채운다 — 랭크 큐 여부와 무관하게
+        //  보상은 항상 찾는다(캐주얼도 보상이 있다), 랭크 줄만 랭크 큐일 때 채운다.
+        private async UniTaskVoid LoadMatchAsync(string matchId, string myUserId,
             LOP.MasterData.TbQueue queues, LOP.MasterData.TbRankDivision divisions,
             Func<string, string, CancellationToken, UniTask<GetMyMatchResponse>> fetchMatch)
         {
@@ -99,16 +106,19 @@ namespace LOP.UI
                 var response = await fetchMatch(myUserId, matchId, _cts.Token);
                 if (_cts.IsCancellationRequested || response?.match == null) return;
 
-                //  랭크 큐가 아니면 줄이 없다 — 캐주얼 점수는 숨긴다.
-                if (queues.GetOrDefault(response.match.queueId)?.HasVisibleRank != true) return;
+                bool showRank = queues.GetOrDefault(response.match.queueId)?.HasVisibleRank == true;
 
                 foreach (var p in response.match.participants ?? Array.Empty<MatchHistoryParticipantDto>())
                 {
-                    if (p.userId == myUserId && p.rank != null)
+                    if (p.userId != myUserId) continue;
+
+                    if (showRank && p.rank != null)
                     {
                         _rankLine.Value = RankFormat.ResultLine(p.rank, divisions);
-                        return;
                     }
+
+                    _rewardLine.Value = RewardFormat.Line(p.reward);
+                    return;
                 }
             }
             catch (OperationCanceledException)
@@ -118,7 +128,7 @@ namespace LOP.UI
             catch (Exception e)
             {
                 //  못 받으면 줄을 숨긴 채 둔다. 등수표는 이미 떠 있다.
-                UnityEngine.Debug.LogWarning($"Failed to load ranked result. matchId: {matchId}, error: {e.Message}");
+                UnityEngine.Debug.LogWarning($"Failed to load match result. matchId: {matchId}, error: {e.Message}");
             }
         }
 
@@ -131,6 +141,7 @@ namespace LOP.UI
             _cts.Cancel();
             _cts.Dispose();
             _rankLine.Dispose();
+            _rewardLine.Dispose();
         }
 
         /// <summary>서버가 자루에 "나감" 표시를 실었나.</summary>
@@ -197,22 +208,40 @@ namespace LOP.UI
         }
 
         /// <summary>
-        /// 1등이 여럿이면 아무도 이긴 게 아니다(무승부). 승자 없이 끝난 판은 전원 공동 1등으로 온다.
+        /// 전원이 같은 등수로 오면 무승부다(승자 없이 끝난 판). 1등이 여럿이어도 뒤가 등수별로
+        /// 갈리면(예: 1,1,3,4) 그건 공동 1등일 뿐 — 전원이 동점이어야 비로소 무승부다.
         /// </summary>
         public static bool IsDrawn(IReadOnlyList<int> placements)
         {
-            int firstPlaces = 0;
+            if (placements.Count < 2) return false;
+
+            int first = placements[0];
             foreach (int placement in placements)
             {
-                if (placement == 1) { firstPlaces++; }
+                if (placement != first) return false;
             }
-            return firstPlaces > 1;
+            return true;
         }
 
-        /// <summary>무승부면 등수 자리를 비운다 — 공동 1등을 "1등"이라 적으면 이긴 것처럼 읽힌다.</summary>
-        public static string FormatPlacement(int placement, bool isDraw)
+        /// <summary>그 등수에 몇 명이 몰려 있나. "공동 N등" 표기 여부를 가른다.</summary>
+        public static int TiedCount(IReadOnlyList<int> placements, int placement)
         {
-            return isDraw ? "-" : $"{placement}등";
+            int count = 0;
+            foreach (int p in placements)
+            {
+                if (p == placement) { count++; }
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// 무승부면 등수 자리를 비운다 — 전원 동점을 "1등"이라 적으면 이긴 것처럼 읽힌다.
+        /// 무승부가 아니지만 그 등수에 둘 이상 몰려 있으면(2위 이하 동점) "공동 N등"으로 적는다.
+        /// </summary>
+        public static string FormatPlacement(int placement, bool isDraw, int tiedCount)
+        {
+            if (isDraw) return "-";
+            return tiedCount > 1 ? $"공동 {placement}등" : $"{placement}등";
         }
 
         /// <summary>점수 증감을 부호가 보이게. 결과 화면과 프로필 전적이 같은 표기를 쓴다.</summary>

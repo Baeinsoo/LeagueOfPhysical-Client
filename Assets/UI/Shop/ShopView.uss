@@ -1,0 +1,122 @@
+/* 상점 셸 본문. .shell-body의 가운데 정렬을 되돌린다(ProfileView와 같은 이유). */
+.shop-body {
+    justify-content: flex-start;
+    align-items: stretch;
+    padding: 20px;
+}
+
+.shop-tabs {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.shop-tab {
+    height: 72px;
+    font-size: 26px;
+    margin: 4px;
+    padding-left: 16px;
+    padding-right: 16px;
+}
+
+.shop-tab--selected {
+    background-color: var(--lop-primary);
+    -unity-text-outline-color: var(--lop-primary-shade);
+}
+
+.shop-grid {
+    flex-grow: 1;
+    margin-bottom: 16px;
+}
+
+/* 폰 폭 기준 2열 — 칸을 48%로 두고 줄바꿈시킨다. */
+.shop-grid > .unity-scroll-view__content-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.shop-cell {
+    width: 48%;
+    min-height: 140px;
+    margin-bottom: 16px;
+    background-color: var(--lop-surface-sunken);
+    border-color: var(--lop-surface-line);
+    border-width: var(--lop-border-xs);
+    border-radius: var(--lop-radius-m);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    transition-property: none;
+}
+
+.shop-cell:hover, .shop-cell:active {
+    background-color: var(--lop-surface-sunken);
+}
+
+.shop-cell--selected {
+    border-color: var(--lop-primary);
+    border-width: var(--lop-border-m);
+}
+
+.item-name {
+    font-size: 28px;
+    color: var(--lop-text);
+    -unity-text-outline-width: 0;
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
+.item-price {
+    font-size: 24px;
+    color: var(--lop-text);
+    -unity-text-outline-width: 0;
+    -unity-text-align: middle-center;
+    margin-top: 4px;
+}
+
+.item-badge {
+    font-size: 22px;
+    color: var(--lop-success);
+    -unity-text-outline-width: 0;
+    -unity-text-align: middle-center;
+    margin-top: 4px;
+}
+
+.shop-message {
+    font-size: 26px;
+    color: var(--lop-danger);
+    -unity-text-outline-width: 0;
+    margin-bottom: 12px;
+}
+
+.shop-detail {
+    flex-direction: column;
+    padding: 16px;
+    background-color: var(--lop-surface-sunken);
+    border-radius: var(--lop-radius-m);
+}
+
+.shop-detail-name {
+    font-size: 34px;
+    margin-bottom: 6px;
+}
+
+.shop-detail-price {
+    font-size: 28px;
+    margin-bottom: 12px;
+}
+
+.shop-detail-actions {
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.shop-action {
+    flex-grow: 1;
+    height: 80px;
+    font-size: 28px;
+    margin: 4px;
+}

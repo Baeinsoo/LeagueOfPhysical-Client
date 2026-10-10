@@ -79,5 +79,63 @@ namespace LOP.Tests
             Assert.IsFalse(LookDevSceneBuilder.CanRebuild(isPlaying: true, anySceneDirty: false));
             Assert.IsFalse(LookDevSceneBuilder.CanRebuild(isPlaying: false, anySceneDirty: true));
         }
+
+        [Test]
+        public void 쉴_때_표정이_환호면_보통_반응은_환호로_보인다()
+        {
+            var go = new GameObject("Face");
+            try
+            {
+                var face = go.AddComponent<ChibiFace>();
+                face.restExpression = ChibiExpression.Cheer;
+
+                face.SetReaction(ChibiExpression.Normal);
+
+                Assert.AreEqual(ChibiExpression.Cheer, face.expression);
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void 반응이_끝나면_쉴_때_표정으로_돌아간다()
+        {
+            var go = new GameObject("Face");
+            try
+            {
+                var face = go.AddComponent<ChibiFace>();
+                face.restExpression = ChibiExpression.Cheer;
+
+                face.SetReaction(ChibiExpression.Despair);
+                Assert.AreEqual(ChibiExpression.Despair, face.expression);
+
+                face.SetReaction(ChibiExpression.Normal);
+                Assert.AreEqual(ChibiExpression.Cheer, face.expression);
+
+                //  SetExpression은 글자 그대로다 — 쉴 때 표정으로 바꾸지 않는다.
+                face.SetExpression(ChibiExpression.Normal);
+                Assert.AreEqual(ChibiExpression.Normal, face.expression);
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void 룩의_표정이_쉴_때_표정이_된다()
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Characters/Chibi/Chibi.prefab"));
+            try
+            {
+                var faceMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Characters/Chibi/Materials/ChibiFace.mat");
+                var catalog = new CosmeticCatalog(TestEconomyTables.Cosmetics, TestEconomyTables.CosmeticSlots, TestEconomyTables.Currencies);
+                var look = new PlayerLook(new System.Collections.Generic.Dictionary<string, string> { ["face"] = "face_dummy_b" }, "테스터", 1);
+
+                ChibiDresser.Dress("e1", go, faceMat, look, catalog);
+                var face = go.GetComponent<ChibiFace>();
+                face.SetReaction(ChibiExpression.Normal);
+
+                Assert.AreEqual(ChibiExpression.Cheer, face.restExpression);
+                Assert.AreEqual(ChibiExpression.Cheer, face.expression);
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
     }
 }

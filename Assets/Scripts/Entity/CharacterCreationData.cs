@@ -23,5 +23,8 @@ namespace LOP
         public int dexterity { get; set; }
         public int intelligence { get; set; }
         public int vitality { get; set; }
+
+        /// <summary>그 판의 룩·이름·레벨 — null이면 사람이 아닌 몸(몬스터·심판 등).</summary>
+        public PlayerLook look { get; set; }
     }
 }

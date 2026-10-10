@@ -1,5 +1,16 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:VisualElement name="lobbyhome-root" class="lobbyhome-root">
+        <!-- 상단 코인·레벨 칩. 값은 EconomyStore 구독으로 채운다(LobbyHomeView). -->
+        <ui:VisualElement name="lobbyhome-topbar" class="lobbyhome-topbar">
+            <ui:VisualElement name="coin-chip" class="lobbyhome-chip">
+                <ui:Label name="coin-icon" text="코인" class="lobbyhome-chip__icon" />
+                <ui:Label name="coin-value" text="0" class="lobbyhome-chip__value" />
+            </ui:VisualElement>
+            <ui:VisualElement name="level-chip" class="lobbyhome-chip">
+                <ui:Label name="level-value" text="Lv 1" class="lobbyhome-chip__value" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
         <ui:VisualElement name="lobbyhome-center" class="lobbyhome-center">
             <!-- 선택은 시작 버튼 안에 들어 있다. 칩을 누르면 그 클릭은 칩이 먹고(전파 차단),
                  그 밖의 면적은 전부 시작이다. -->

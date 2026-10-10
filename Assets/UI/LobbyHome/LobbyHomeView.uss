@@ -13,6 +13,40 @@
     align-items: center;
 }
 
+/* 상단 코인·레벨 칩 줄. 왼쪽에 붙인다 — 부모(.lobbyhome-root)는 가운데 정렬이라 자기 정렬로 뺀다 */
+.lobbyhome-topbar {
+    flex-direction: row;
+    align-self: flex-start;
+}
+
+/* 알약 칩 — 드롭다운 필(.lobbyhome-pick)과 같은 흰 바탕 톤으로 통일한다 */
+.lobbyhome-chip {
+    flex-direction: row;
+    align-items: center;
+    height: 72px;
+    padding-left: 26px;
+    padding-right: 30px;
+    margin-right: 16px;
+    background-color: rgba(255, 255, 255, 0.88);
+    border-color: rgba(255, 255, 255, 0.95);
+    border-width: var(--lop-border-xs);
+    border-radius: 36px;
+}
+
+.lobbyhome-chip__icon {
+    font-size: 28px;
+    color: var(--lop-surface-line);
+    -unity-text-outline-width: 0;
+    margin-right: 10px;
+}
+
+.lobbyhome-chip__value {
+    font-size: 34px;
+    color: var(--lop-text);
+    -unity-text-outline-width: 0;
+    -unity-text-align: middle-left;
+}
+
 /* 시작 버튼 — 선택 칩을 품고 있어 예전보다 크고, 안에서 좌우로 나뉜다 */
 .lobbyhome-play {
     flex-direction: row;

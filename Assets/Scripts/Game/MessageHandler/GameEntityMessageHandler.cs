@@ -274,6 +274,7 @@ namespace LOP
                         dexterity = entitySpawnToC.EntityCreationData.CharacterCreationData.Dexterity,
                         intelligence = entitySpawnToC.EntityCreationData.CharacterCreationData.Intelligence,
                         vitality = entitySpawnToC.EntityCreationData.CharacterCreationData.Vitality,
+                        look = PlayerLookFromProto.Convert(entitySpawnToC.EntityCreationData.CharacterCreationData),
                     });
                     break;
 

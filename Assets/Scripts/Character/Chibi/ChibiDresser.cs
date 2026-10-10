@@ -25,17 +25,30 @@ namespace LOP
             return false;
         }
 
-        /// <summary>얼굴 판·저지를 입힌다. 이미 입었으면 얼굴은 새로 붙이지 않는다.</summary>
-        public static void Dress(string entityId, GameObject visual, Material faceMaterial)
+        /// <summary>
+        /// 얼굴 판·저지를 입힌다. 이미 얼굴 판이 있으면 새로 붙이지 않는다. <paramref name="look"/>이 있으면
+        /// 상·하의 색·표정·모자·장식에 룩을 반영한다 — 없으면(심판·들것 등) 엔티티 기본 색만 입힌다.
+        /// </summary>
+        public static void Dress(string entityId, GameObject visual, Material faceMaterial,
+            PlayerLook look = null, CosmeticCatalog catalog = null)
         {
-            ChibiOutfit.Apply(visual, ChibiOutfit.ColorsFor(entityId));
-            if (faceMaterial == null || visual.GetComponent<ChibiFace>() != null)
+            ChibiOutfit.Apply(visual, ChibiLookApplier.ColorsFor(entityId, look, catalog));
+
+            if (faceMaterial != null && visual.GetComponent<ChibiFace>() == null)
             {
-                return;
+                var face = visual.AddComponent<ChibiFace>();
+                face.faceMaterial = faceMaterial;
+                face.Build();
             }
-            var face = visual.AddComponent<ChibiFace>();
-            face.faceMaterial = faceMaterial;
-            face.Build();
+
+            var existingFace = visual.GetComponent<ChibiFace>();
+            if (existingFace != null)
+            {
+                existingFace.restExpression = ChibiLookApplier.ExpressionFor(look, catalog);
+                existingFace.SetExpression(existingFace.restExpression);
+            }
+
+            ChibiLookApplier.ApplyPrimitives(visual, look, catalog);
         }
     }
 }

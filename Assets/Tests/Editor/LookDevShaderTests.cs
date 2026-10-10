@@ -11,6 +11,7 @@ namespace LOP.Tests
         [TestCase("Assets/Shaders/LOP/LOPToonDecal.shader", "LOP/ToonDecal")]
         [TestCase("Assets/Shaders/LOP/LOPWatercolorSky.shader", "LOP/WatercolorSky")]
         [TestCase("Assets/Shaders/LOP/LOPStormWall.shader", "LOP/StormWall")]
+        [TestCase("Assets/Shaders/LOP/LOPStormSea.shader", "LOP/StormSea")]
         [TestCase("Assets/Shaders/LOP/LOPSpiritFace.shader", "LOP/SpiritFace")]
         public void 셰이더가_오류_없이_컴파일된다(string path, string name)
         {

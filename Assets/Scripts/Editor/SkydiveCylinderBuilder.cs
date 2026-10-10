@@ -179,12 +179,11 @@ namespace LOP.EditorTools
                 marker.Label = l.Label;
             }
 
-            //  구름 바닥. 출구 아래는 탁 트인 금빛 하늘.
-            //  구름 바다는 옅은 하늘색 — 하얗게 두면 금빛 노출에 다 날아가 아무것도 안 보인다(왕눈 엔딩: 금빛 역광 + 파란 하늘·분홍 구름 귀퉁이).
-            MeshBody(root, "CloudFloor", SkydiveMapKit.Toon("CloudFloor", "#86AEEF"), Sector("CylCloudFloor", 0f, Y.CloudFloorRadius, 0f, 360f, Vector3.zero), new Vector3(0f, -Y.Thickness * 0.5f, 0f));
+            //  번개 치는 먹구름 바다 — 정령 아래 바닥. 닿으면 다시 떨어진다(번개 그림은 단계 2). 단단하게 둔다 — 정령을 잡은 사람은 구름 위에 내려선다.
+            MeshBody(root, "CloudFloor", StormSeaMaterial(), Sector("CylCloudFloor", 0f, Y.CloudFloorRadius, 0f, 360f, Vector3.zero), new Vector3(0f, -Y.Thickness * 0.5f, 0f));
             var puffs = new GameObject("CloudPuffs").transform;
             puffs.SetParent(root, false);
-            var puffMat = SkydiveMapKit.Toon("CloudPuff", "#F2C9DA");
+            var puffMat = SkydiveMapKit.Toon("CylStormPuff", "#463C58");
             var rng = new System.Random(20261007);
             for (int i = 0; i < 18; i++)
             {
@@ -196,6 +195,23 @@ namespace LOP.EditorTools
                 puff.transform.localPosition = Y.OnCircle(r, deg, size * 0.15f);
                 puff.transform.localScale = new Vector3(size, size * 0.35f, size * 0.8f);
                 puff.GetComponent<MeshRenderer>().sharedMaterial = puffMat;
+            }
+            //  먼 대지 — 3막 수평선. 납작한 덩어리, 충돌 없음.
+            var lands = new GameObject("FarLands").transform;
+            lands.SetParent(root, false);
+            var landMat = SkydiveMapKit.Toon("CylFarLand", "#6E8A5A");
+            foreach (var l in Y.Lands)
+            {
+                var land = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                Object.DestroyImmediate(land.GetComponent<Collider>());
+                land.name = $"Land_{l.deg:0}";
+                land.transform.SetParent(lands, false);
+                land.transform.localPosition = Y.OnCircle(l.distance, l.deg, Y.LandBaseY);
+                land.transform.localRotation = Quaternion.Euler(0f, -l.deg, 0f);
+                land.transform.localScale = new Vector3(l.width * 0.6f, l.height, l.width);   // 둘레 방향으로 길게
+                var lr = land.GetComponent<MeshRenderer>();
+                lr.sharedMaterial = landMat;
+                lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
             //  별만 결승(사용자 10-07) — 도착 판은 없다. 별을 놓치고 구름에 닿으면 출구 아래에서 다시 떨어진다.
             //  구름은 단단하게 둔다 — 별을 잡은 사람은 구름 위에 내려선다(엔딩처럼).
@@ -373,6 +389,18 @@ namespace LOP.EditorTools
 
         /// <summary>벽의 위·아래 높이 — Build가 쓰는 값 그대로(굽지 않고 시험하려고 따로 뺐다).</summary>
         internal static (float top, float bottom) WallSpan() => (Y.SpawnY + Y.WallAboveSpawn, Y.ExitY);
+
+        internal static Material StormSeaMaterial()
+        {
+            const string path = "Assets/Art/Materials/Pyramid/CylStormSea.mat";
+            var shader = Shader.Find("LOP/StormSea");
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null) { m = new Material(shader); AssetDatabase.CreateAsset(m, path); }
+            m.shader = shader;
+            m.SetFloat("_FlashChance", 0.08f);
+            EditorUtility.SetDirty(m);
+            return m;
+        }
 
         internal static Material StormWallMaterial()
         {

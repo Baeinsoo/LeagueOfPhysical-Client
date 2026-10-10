@@ -125,6 +125,10 @@ namespace LOP.EditorTools
                 }
             }
 
+            //  10-10 Task 5: 옛 구역 상수(24·34·29)가 지워져 코스에서 찾은 구역으로 옮겨 놓기만 했다 — 구역별 입히기는 Task 6 몫.
+            MineZones zones = MineDressingLayout.Zones(course);
+            float caveMouthX = (zones.OutsideEnd + zones.EntranceEnd) / 2f;
+
             //  2. 바닥·천장 — 걸친 회색 조각 끝까지 넓힌 범위.
             var (coverFrom, coverTo) = MineDressingLayout.CoverRange(slabSpans, dressFrom, dressTo);
             int floor = 0;
@@ -137,17 +141,17 @@ namespace LOP.EditorTools
 
             //  천장은 구역마다 따로: 노을 바깥 = 들보, 굴 입구 = 없음(아치가 덮는다), 굴 안 = 바위.
             int ceiling = 0;
-            if (coverFrom < MineDressingLayout.OutsideEnd)
+            if (coverFrom < zones.OutsideEnd)
             {
-                foreach (MinePiece p in MineDressingLayout.CeilingPieces(course, coverFrom, Mathf.Min(coverTo, MineDressingLayout.OutsideEnd)))
+                foreach (MinePiece p in MineDressingLayout.CeilingPieces(course, coverFrom, Mathf.Min(coverTo, zones.OutsideEnd)))
                 {
                     Place(g.Ceiling, models["Beam"], p, p.Z + BeamZ);
                     ceiling++;
                 }
             }
-            if (coverTo > MineDressingLayout.CaveInside)
+            if (coverTo > zones.EntranceEnd)
             {
-                foreach (MinePiece p in MineDressingLayout.CeilingPieces(course, Mathf.Max(coverFrom, MineDressingLayout.CaveInside), coverTo))
+                foreach (MinePiece p in MineDressingLayout.CeilingPieces(course, Mathf.Max(coverFrom, zones.EntranceEnd), coverTo))
                 {
                     Place(g.Ceiling, models["CeilingRock"], p, p.Z + CeilingRockZ);
                     ceiling++;
@@ -156,9 +160,9 @@ namespace LOP.EditorTools
 
             //  3. 굴 입구 아치 — 원점 = 통로 가운데, 뒷면 = z 0(10-08 다시 깎음: 깊이 2 m 틀이라 전부 판정면 앞·안개 막 앞).
             //  위 띠 아랫면 = 천장선, 아래 턱 윗면 = 바닥선이고 아래 턱은 데크 앞(z −2.05~−1.32)에만 있다.
-            if (MineDressingLayout.SpanOverlaps(MineDressingLayout.OutsideEnd, MineDressingLayout.CaveInside, coverFrom, coverTo))
+            if (MineDressingLayout.SpanOverlaps(zones.OutsideEnd, zones.EntranceEnd, coverFrom, coverTo))
             {
-                var (mx, my) = MineDressingLayout.CaveMouthAt(course);
+                float mx = caveMouthX, my = course.CenterAt(caveMouthX);
                 Instance(g.Mouth, models["CaveMouth"], new Vector3(mx, my, 0f), 0f, Vector3.one);
             }
 
@@ -194,8 +198,8 @@ namespace LOP.EditorTools
             }
 
             //  5. 하늘(z 30)·안개 막(z 2.2) — 바깥/굴 사이를 그러데이션 띠(*_Mouth, 텍스처 u 0 = 바깥 → 1 = 굴)로 잇는다.
-            float skyFrom = MineDressingLayout.CaveMouthX - SkyBlendHalf, skyTo = MineDressingLayout.CaveMouthX + SkyBlendHalf;
-            float hazeFrom = MineDressingLayout.OutsideEnd, hazeTo = MineDressingLayout.CaveInside;
+            float skyFrom = caveMouthX - SkyBlendHalf, skyTo = caveMouthX + SkyBlendHalf;
+            float hazeFrom = zones.OutsideEnd, hazeTo = zones.EntranceEnd;
             Vector2 skyView = ViewHalfSize(SkyZ);
             float skyH = skyView.y * 2f;
             int panels = 0;

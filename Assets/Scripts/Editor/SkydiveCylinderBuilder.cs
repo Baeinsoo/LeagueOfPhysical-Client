@@ -183,7 +183,7 @@ namespace LOP.EditorTools
             MeshBody(root, "CloudFloor", StormSeaMaterial(), Sector("CylCloudFloor", 0f, Y.CloudFloorRadius, 0f, 360f, Vector3.zero), new Vector3(0f, -Y.Thickness * 0.5f, 0f));
             var puffs = new GameObject("CloudPuffs").transform;
             puffs.SetParent(root, false);
-            var puffMat = SkydiveMapKit.Toon("CylStormPuff", "#463C58");
+            var puffMat = StormPuffMaterial();
             var rng = new System.Random(20261007);
             for (int i = 0; i < 18; i++)
             {
@@ -390,6 +390,8 @@ namespace LOP.EditorTools
         /// <summary>벽의 위·아래 높이 — Build가 쓰는 값 그대로(굽지 않고 시험하려고 따로 뺐다).</summary>
         internal static (float top, float bottom) WallSpan() => (Y.SpawnY + Y.WallAboveSpawn, Y.ExitY);
 
+        internal static Material StormPuffMaterial() => SkydiveMapKit.Toon("CylStormPuff", "#E4E9F2");
+
         internal static Material StormSeaMaterial()
         {
             const string path = "Assets/Art/Materials/Pyramid/CylStormSea.mat";
@@ -397,6 +399,10 @@ namespace LOP.EditorTools
             var m = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (m == null) { m = new Material(shader); AssetDatabase.CreateAsset(m, path); }
             m.shader = shader;
+            //  재질이 이미 있으면 셰이더 기본값이 안 먹으니 색을 직접 박는다.
+            m.SetColor("_DarkColor", new Color(0.60f, 0.65f, 0.74f, 1f));
+            m.SetColor("_LightColor", new Color(0.96f, 0.97f, 0.99f, 1f));
+            m.SetColor("_FlashColor", new Color(1.6f, 2.0f, 3.2f, 1f));
             m.SetFloat("_FlashChance", 0.08f);
             EditorUtility.SetDirty(m);
             return m;

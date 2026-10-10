@@ -71,11 +71,13 @@ namespace LOP.EditorTools
             Color ropeColor = ToColor(0x5a, 0x46, 0x36);       // 줄(랜턴 줄·케이지 줄)
             Color boltRimColor = ToColor(0x2a, 0x1a, 0x12);    // ⚡ 테두리 — 거의 검은 갈색
             Color padFrameColor = ToColor(0x4a, 0x3a, 0x30);   // 발판 어두운 틀
-            //  빛 재질의 밑감(시안 emit 기준색) — look.boltGlow/padGlow를 곱해 밝기를 낸다. LOP/Toon은 발광이
-            //  없어서(ADR-0017, 소품 외곽선도 끄는 셰이더) 이 둘만 LanternGlow와 같은 URP Unlit으로 직접 밝기를 낸다 —
-            //  조명 각도와 상관없이 일정하게 빛나고, 1 미만이면 블룸 문턱 밑이라(은은하게) 과하게 빛나지 않는다.
-            Color boltGlowBase = ToColor(0xff, 0xc0, 0x30);
-            Color padGlowBase = ToColor(0xff, 0xb3, 0x40);
+            //  빛 재질의 밑감(Task 3 표 "모양" 열 — ⚡ 노란 면·발판 윗면 색) × look.boltGlow/padGlow. LOP/Toon은
+            //  발광(_Emission) 프로퍼티가 없어서(shader property 목록으로 직접 확인, ADR-0017 — 소품 외곽선도
+            //  끄는 셰이더) "모양"과 "빛"을 따로 못 둔다 — 이 둘만 LanternGlow와 같은 URP Unlit 하나로 모양+빛을
+            //  합쳐 밑감에 세기를 곱한 값을 그대로 _BaseColor로 쓴다(조명 각도와 상관없이 일정하게 빛난다).
+            //  1 미만이면 블룸 문턱 밑이라(은은하게) 과하게 빛나지 않는다 — padGlow(0.8)는 일부러 거기 둔다.
+            Color boltGlowBase = ToColor(0xff, 0xd8, 0x4a);
+            Color padGlowBase = ToColor(0xff, 0xcf, 0x5a);
 
             //  슬롯 이름(Task 3 보고) → 재질. FBX 리매핑은 이 이름으로 찾는다.
             var slots = new Dictionary<string, Material>

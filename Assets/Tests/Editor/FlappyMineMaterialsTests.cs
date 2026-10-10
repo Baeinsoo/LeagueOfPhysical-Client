@@ -271,6 +271,10 @@ namespace LOP.Tests
                 Assert.AreEqual("Universal Render Pipeline/Unlit", boltGlow.shader.name);
                 Assert.AreEqual("Universal Render Pipeline/Unlit", padGlow.shader.name);
 
+                //  밑감 = Task 3 표 "모양" 열(⚡ 노란 면 #ffd84a, 발판 윗면 #ffcf5a) × 세기 — 둘을 한 Unlit로 합친다.
+                AssertColor(boltGlow.GetColor("_BaseColor"), 0xff, 0xd8, 0x4a, look.boltGlow, "BoltGlow");
+                AssertColor(padGlow.GetColor("_BaseColor"), 0xff, 0xcf, 0x5a, look.padGlow, "PadGlow");
+
                 float boltMax = Max(boltGlow.GetColor("_BaseColor"));
                 float padMax = Max(padGlow.GetColor("_BaseColor"));
                 //  "과하게 빛나지 않는다" — 블룸 문턱을 살짝 넘는 정도까지만(세기 배수가 그대로 밑감에 곱해진다).
@@ -291,6 +295,14 @@ namespace LOP.Tests
         }
 
         private static float Max(Color c) => Mathf.Max(c.r, c.g, c.b);
+
+        //  밑감(8비트 채널)에 세기를 곱한 값과 실제 _BaseColor를 비교한다.
+        private static void AssertColor(Color actual, byte r, byte g, byte b, float intensity, string label)
+        {
+            Assert.AreEqual(r / 255f * intensity, actual.r, 0.01f, $"{label} r");
+            Assert.AreEqual(g / 255f * intensity, actual.g, 0.01f, $"{label} g");
+            Assert.AreEqual(b / 255f * intensity, actual.b, 0.01f, $"{label} b");
+        }
 
         [Test]
         public void 새_부품_FBX는_새_재질로_리매핑된다()

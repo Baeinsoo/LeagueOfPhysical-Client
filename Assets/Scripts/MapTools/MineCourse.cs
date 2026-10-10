@@ -220,8 +220,9 @@ namespace LOP.MapTools
     /// 3막용으로 다시 짰다 — mode 10, 시드 17은 <see cref="Seed"/> 참고). 생성기·소비 순서가 같아야
     /// "프로토타입에서 해 본 그 코스"가 나온다(테스트가 지킨다).
     ///
-    /// <para>순서(10-09 3막): 출발 2관문 → 1막 하강(수직 갱 22 m → 슬라럼 8 → 갈림길⬇) → 2막 갱 바닥(낮은 천장 24 m →
-    /// 롤러코스터 55 m → 급반전 → 갈림길⬆ → 깊은 갱 28 m) → 3막 탈출(긴 통로 → 굴뚝 28 m → 갈림길⬆) → 출구. 통과 가능성 증명은 맵 검사 몫이다.</para>
+    /// <para>순서(10-09 3막, 10-10 슬라럼 자리를 계단 내리막으로): 출발 2관문 → 1막 하강(수직 갱 22 m → 계단 내리막 6(4.5 m씩) → 갈림길⬇) → 2막 갱 바닥(낮은 천장 24 m →
+    /// 롤러코스터 55 m → 급반전 → 갈림길⬆ → 깊은 갱 28 m) → 3막 탈출(긴 통로 → 굴뚝 28 m → 갈림길⬆) → 출구. 통과 가능성 증명은 맵 검사 몫이다.
+    /// 슬라럼 코드는 순서에서 빠졌지만 남겨 둔다.</para>
     /// </summary>
     public static class MineCourseRule
     {
@@ -251,6 +252,8 @@ namespace LOP.MapTools
         const double WaveGap = 3.7, WaveAmp = 1.2, WavePer = 16;
         /// <summary>슬라럼 좌우 폭(예전 ±2.0).</summary>
         const double Slalom = 2.6;
+        /// <summary>계단 내리막: 관문마다 기준 높이를 내리는 폭(10-10, 4.5 통과 · 5.5 막힘 — 초당 4번 날갯짓 검사).</summary>
+        const double StairDown = 4.5;
         /// <summary>급반전 오르내림(예전 ±4.0).</summary>
         const double Flip = 5.5;
         /// <summary>롤러코스터 굴 틈(예전 5.0 → 10-07 4.85 → 10-09 3막 4.8. 4.7은 검사에서 거의 못 지난다).</summary>
@@ -264,7 +267,7 @@ namespace LOP.MapTools
         /// <summary>갈림길 반대쪽 보통 관문의 틈(10-09 3막: 원조 3.75 → 3.3). 굴(3.1)보다는 넉넉한 "안전하지만 느린 길".</summary>
         const double ForkGap = 3.3;
 
-        /// <summary>구간 옵션(10-09 3막). 비워 두면 그 구간의 기본값 — 관문 수(슬라럼), 길이(낮은 천장·롤러코스터·수직 갱·굴뚝), 높이 차(수직 갱·굴뚝).</summary>
+        /// <summary>구간 옵션(10-09 3막). 비워 두면 그 구간의 기본값 — 관문 수(슬라럼·계단 내리막), 길이(낮은 천장·롤러코스터·수직 갱·굴뚝), 높이 차(수직 갱·굴뚝).</summary>
         sealed class SectionOptions
         {
             public int? Gates;
@@ -358,6 +361,10 @@ namespace LOP.MapTools
                     case "긴 통로":
                         Put(12, baseY + (Rnd() - 0.5) * 1.5, LongGap);
                         break;
+                    //  계단 내리막: 관문마다 4.5 m씩 뚝뚝 — 손 떼고 떨어지다 다음 틈에서 잡는 게 연속으로 온다. 통로도 계단처럼 따라 내려간다.
+                    case "계단 내리막":
+                        for (int i = 0; i < (o?.Gates ?? 6); i++) { baseY -= StairDown; Put(PW, baseY); }
+                        break;
                     case "슬라럼":
                         for (int i = 0; i < (o?.Gates ?? 6); i++) { Put(PW, baseY + (i % 2 == 1 ? Slalom : -Slalom)); }
                         break;
@@ -415,10 +422,11 @@ namespace LOP.MapTools
 
             //  광산 코스 3막(10-09, 프로토타입 MINE3_ORDER): [구간, 뒤에 붙는 보통 관문 수, 옵션].
             //  1막 하강 — 노을 입구에서 곧장 수직 갱. 2막 갱 바닥 — 롤러코스터 중심, 더 깊은 두 번째 갱으로 끝. 3막 탈출 — 가장 긴 굴뚝 → 마지막 갈림길.
+            //  1막의 갱 바닥 다음은 10-10부터 계단 내리막 6(4.5 m씩, 프로토타입 v31) — 슬라럼 8을 대신한다(슬라럼 코드는 남긴다).
             //  물결 터널은 낮은 천장과 겹쳐 뺐다(코드는 남긴다).
             var order = new (string name, int after, SectionOptions o)[]
             {
-                ("수직 갱 낙하", 1, null), ("슬라럼", 1, new SectionOptions { Gates = 8 }), ("고수 갈림길 ⬇굴", 2, null),
+                ("수직 갱 낙하", 1, null), ("계단 내리막", 1, new SectionOptions { Gates = 6 }), ("고수 갈림길 ⬇굴", 2, null),
                 ("낮은 천장", 1, new SectionOptions { Length = 24 }), ("레일 롤러코스터", 1, new SectionOptions { Length = 55 }), ("급반전", 1, null),
                 ("고수 갈림길 ⬆굴", 0, null), ("수직 갱 낙하", 2, new SectionOptions { Length = 10, Rise = 28 }),
                 ("긴 통로", 1, null), ("굴뚝 오르기", 0, new SectionOptions { Length = 21, Rise = 28 }), ("고수 갈림길 ⬆굴", 3, null),

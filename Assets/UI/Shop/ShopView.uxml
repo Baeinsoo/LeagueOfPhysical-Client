@@ -1,0 +1,21 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="shell-root" class="shell-root">
+        <ui:VisualElement name="shell-header" class="shell-header">
+            <ui:Button name="back-button" text="◀ 뒤로" class="btn btn--secondary shell-back" />
+            <ui:Label name="shell-title" text="" class="title shell-title" />
+        </ui:VisualElement>
+        <ui:VisualElement name="shell-body" class="shell-body shop-body">
+            <ui:VisualElement name="shop-tabs" class="shop-tabs" />
+            <ui:ScrollView name="shop-grid" class="shop-grid" />
+            <ui:Label name="shop-message" text="" class="card-text shop-message" />
+            <ui:VisualElement name="shop-detail" class="shop-detail">
+                <ui:Label name="detail-name" text="" class="title shop-detail-name" />
+                <ui:Label name="detail-price" text="" class="card-text shop-detail-price" />
+                <ui:VisualElement name="shop-detail-actions" class="shop-detail-actions">
+                    <ui:Button name="buy-button" text="구매" class="btn btn--primary shop-action" />
+                    <ui:Button name="equip-button" text="장착" class="btn btn--secondary shop-action" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

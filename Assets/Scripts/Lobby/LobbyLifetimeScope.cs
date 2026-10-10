@@ -52,6 +52,8 @@ namespace LOP
 
             // 프론트엔드 네비(상점/설정/프로필). VM은 Scoped — LobbyHomeView와 FrontEndCoordinator가 공유한다.
             builder.Register<LobbyHomeViewModel>(Lifetime.Scoped);
+            //  View와 함께 Transient — 상점을 열 때마다 그 시점의 스토어 값으로 품목 상태를 다시 센다.
+            builder.Register<ShopViewModel>(Lifetime.Transient);
             builder.Register<ShopView>(Lifetime.Transient);
             builder.Register<SettingsView>(Lifetime.Transient);
             // View와 함께 Transient — 프로필을 열 때마다 전적을 다시 받아온다.

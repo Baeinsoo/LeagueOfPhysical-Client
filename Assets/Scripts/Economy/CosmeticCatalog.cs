@@ -15,6 +15,7 @@ namespace LOP
         private readonly Dictionary<int, List<Cosmetic>> _itemsBySlot = new();
         private readonly Dictionary<int, CosmeticSlot> _slotsById = new();
         private readonly Dictionary<string, CosmeticSlot> _slotsByCode = new();
+        private readonly List<CosmeticSlot> _slotsInOrder = new();
         private readonly int _coinCurrencyId;
 
         //  코인으로 지불하는 통화의 코드. 마스터데이터 쪽 명명(infrastructure/table/Datas/#Currency.xlsx)과 맞춘다.
@@ -32,7 +33,10 @@ namespace LOP
             {
                 _slotsById[slot.Id] = slot;
                 _slotsByCode[slot.Code] = slot;
+                _slotsInOrder.Add(slot);
             }
+            //  표의 display_order대로 탭을 그리기 위한 정렬. 같은 순서 값이면 id로 묶어 결정적으로 둔다.
+            _slotsInOrder.Sort((a, b) => a.DisplayOrder != b.DisplayOrder ? a.DisplayOrder.CompareTo(b.DisplayOrder) : a.Id.CompareTo(b.Id));
 
             foreach (var item in cosmetics.DataList)
             {
@@ -85,5 +89,8 @@ namespace LOP
         }
 
         public CosmeticSlot SlotByCode(string code) => code != null && _slotsByCode.TryGetValue(code, out var slot) ? slot : null;
+
+        /// <summary>표시 순서(display_order)대로 슬롯 전체. 상점 탭을 이 순서로 그린다.</summary>
+        public IReadOnlyList<CosmeticSlot> Slots => _slotsInOrder;
     }
 }

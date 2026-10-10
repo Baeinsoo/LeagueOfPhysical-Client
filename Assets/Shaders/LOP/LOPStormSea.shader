@@ -82,7 +82,7 @@ Shader "LOP/StormSea"
 
                 //  번개: 칸마다, 시간 칸마다 한 번 제비뽑기 → 뽑히면 확 켜졌다 빠르게 꺼진다. 칸 가운데서 둥글게 퍼진다.
                 float2 cell = floor(xz / _FlashCell);
-                float slot = floor(_Time.y * _FlashRate);
+                float slot = fmod(floor(_Time.y * _FlashRate), 997.0);   // 해시에 넣기 전에 작게 — 커지면 소수 정밀도가 깨져 번쩍임이 규칙적으로 변한다
                 float pick = step(1.0 - _FlashChance, Hash(cell + slot * float2(0.37, 1.91)));
                 float fade = 1.0 - frac(_Time.y * _FlashRate);
                 float2 local = frac(xz / _FlashCell) - 0.5;

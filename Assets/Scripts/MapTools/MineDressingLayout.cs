@@ -6,7 +6,7 @@ namespace LOP.MapTools
 {
     /// <summary>
     /// 광산 옷 부품 종류. 이름은 Art/Models/Mine의 FBX 이름과 같다(실루엣 둘은 SilhouetteStrip 하나를 재질만 바꿔 쓴다).
-    /// 10-10 펼치기 1차 부품 14종(Task 3 보고 표)과, 바위 가장자리 밝은 테로 다시 쓰는 <see cref="GateCap"/>(관문 쇠테)을 뒤에 더했다.
+    /// 10-10 펼치기 1차 부품 14종(Task 3 보고 표)과, 바위 가장자리 얇은 밝은 테 <see cref="EdgeRim"/>(RockMass 메시 + 무늬 없는 밝은 재질)을 뒤에 더했다.
     /// </summary>
     public enum MinePartKind
     {
@@ -14,8 +14,13 @@ namespace LOP.MapTools
         BgTrestleBay, MineCart, BgFrame, Ladder, Walkway, Lantern, CaveSilhouette, CanyonSilhouette,
         EntranceFrame, EntranceSign, LanternString, ShaftTimber, CageRail, Cage, BenchFace, ShortScaffold,
         RockMass, BoreFrame, BoltSign, PadGlow, DividerWall, MergeSlope,
-        /// <summary>관문 쇠테(GateCap.fbx). 굴·패드 방 바위의 닿는 가장자리 밝은 테로 쓴다 — RockMass에는 테가 없다.</summary>
+        /// <summary>관문 쇠테(GateCap.fbx). 관문 기둥 끝에만 쓴다(Task 7 Fix 1부터 바위 가장자리 테는 <see cref="EdgeRim"/>).</summary>
         GateCap,
+        /// <summary>
+        /// 바위의 닿는 가장자리 얇은 밝은 테(Task 7 Fix 1, 사용자 10-10 "디자인이 시끄럽다") — RockMass 메시(왼끝 아래 원점, 1×1, z ±1.3)에
+        /// 무늬 없는 밝은 재질(RockEdge)을 씌운 띠. 볼트·두꺼운 쇠테 없이 판정선 위에 <see cref="MineDressingLayout.RimThickness"/>만.
+        /// </summary>
+        EdgeRim,
     }
 
     /// <summary>
@@ -148,6 +153,21 @@ namespace LOP.MapTools
         public const float CeilingPieceWidth = 2f, CeilingRockUnit = 2f;
         /// <summary>Beam x ±0.5(가운데, 아랫면 원점) — 1 m 단위라 x 축척으로 늘인다.</summary>
         public const float BeamUnit = 1f;
+        /// <summary>
+        /// 판정면 앞으로 당긴 z(부품 뒷면이 판정면): TrestleBay ±0.65(RailSpan ±0.55), CeilingRock −1.607~+1.35, Beam ±0.8.
+        /// (10-10 Fix 1: 굽기에 있던 값을 옮겨 왔다 — <see cref="FloorAndCeiling"/>가 최종 z를 준다.)
+        /// </summary>
+        public const float FloorZ = -0.65f, CeilingRockZ = -1.35f, BeamZ = -0.8f;
+        /// <summary>
+        /// 비계(다리 12 m)·바위 천장(높이 4 m)을 놓는 곧은 구간 조건(10-10 Task 7 Fix 1): 기울기 이하·길이 이상. 그 밖(굽은·짧은·가파른 칸)은
+        /// 다리 없는 바위 띠 + 밝은 테 — 기운 상자의 다리·옆면이 이웃 골짜기의 열린 통로로 빠져나오기 때문이다(캡처 1.90 m·1.20 m).
+        /// </summary>
+        public const float TrestleMaxSlopeDegrees = 15f, StraightMinRun = 1.2f;
+        /// <summary>
+        /// 바위 띠 두께(판정선에서 바깥으로 수직) — 화면 위·아래 끝까지 차게(카메라 반 시야 8.4 − 낮은 천장 반 높이 2.2 + 물결 높이차·대시 여유).
+        /// 사용자 10-10: "판정 바깥은 차분한 어두운 바위 덩어리로 채운다".
+        /// </summary>
+        public const float LineRockDepth = 10f;
         /// <summary>GatePlank 한 칸 높이(아래 끝 원점, y 0~1).</summary>
         public const float PlankCell = 1f;
         /// <summary>GateStrap 반 두께(y ±0.08), GateCap 두께(윗면 원점, 아래로 0.4).</summary>
@@ -168,51 +188,71 @@ namespace LOP.MapTools
 
         //  ── 펼치기 1차 부품(10-10, Task 3 보고 표의 실측 원점·크기) ──
         //  z는 <b>최종 값</b>이다(굽기가 더 당기지 않는다). 닿는 부품(바위·테·칸막이·단·갱목·발판)은 뒷면이 판정면(z 0)에 오게 —
-        //  원근 카메라가 판정면 뒤 면을 틈 쪽으로 당겨 그려 틈이 좁아 보이지 않게. 장식(문틀·간판·줄·랜턴·케이지·비계·⚡ 판)은
-        //  앞면이 판정면 뒤(z &gt; 0).
+        //  원근 카메라가 판정면 뒤 면을 틈 쪽으로 당겨 그려 틈이 좁아 보이지 않게(⚡ 판은 판정 고체인 칸막이 앞면에 붙는다).
+        //  장식(문틀·간판)은 앞면이 판정면 뒤(z &gt; 0). 바위 덩어리·테·단은 깊이 축척 0.1로 납작하다(<see cref="DepthScale"/>).
         /// <summary>
         /// EntranceFrame x ±2.5(문턱 가운데 원점), 기둥 안쪽 면 x ±1.9, 상인방 y 14.62~15.42(문턱 기준), z 0.03~0.68.
         /// 간판(높이 1) 가운데는 아랫변이 상인방 아랫변(14.62)에 오게 — 문틀 안 통로(14.56) 위.
         /// </summary>
         public const float EntranceHalfWidth = 2.5f, EntrancePostInner = 1.9f, EntranceSignCenter = 15.12f;
-        /// <summary>랜턴 줄을 거는 높이(문턱 기준, 상인방 바로 아래)와 처짐(LanternString y = −0.35·4t(1−t)).</summary>
-        public const float EntranceStringHang = 14.3f, LanternStringSag = 0.35f;
-        /// <summary>줄에 다는 랜턴(Lantern, 사슬 위 끝 원점) 축척 — 줄 부품 안 랜턴은 늘어나 알약이 되므로 따로 단다.</summary>
-        public const float StringLanternScale = 0.45f;
-        /// <summary>문틀(z 0.03~)은 그대로 판정면 뒤. 간판(z −0.085~0.07)은 상인방 앞면에 붙여 앞면이 판정면 바로 뒤. 줄·랜턴은 기둥 사이 깊이 가운데.</summary>
-        public const float EntranceFrameZ = 0f, EntranceSignZ = 0.09f, EntranceStringZ = 0.36f;
+        /// <summary>문틀(z 0.03~)은 그대로 판정면 뒤. 간판(z −0.085~0.07)은 상인방 앞면에 붙여 앞면이 판정면 바로 뒤.</summary>
+        public const float EntranceFrameZ = 0f, EntranceSignZ = 0.09f;
+        //  랜턴 줄(LanternString + 작은 Lantern 4개)은 Task 7 Fix 1에서 뺐다(사용자 10-10 "3D 모델이 투머치" — 입구는 상인방 + 간판만).
 
-        /// <summary>ShaftTimber 높이(왼끝 아래 원점, y 0~0.4, z ±0.5), 한 조각 길이 상한, 갱 벽 두께(판정선에서 바깥으로 — 카메라 반 시야 + 대시 여유).</summary>
-        public const float ShaftTimberHeight = 0.4f, ShaftTimberUnit = 3f, ShaftWallDepth = 7f, ShaftTimberZ = -0.5f;
-        /// <summary>CageRail(아래 끝 가운데, z ±0.11)·Cage(가운데, z ±0.605) — 갱목(뒷면 0) 뒤.</summary>
-        public const float CageZ = 1.0f;
+        /// <summary>
+        /// ShaftTimber 높이(왼끝 아래 원점, y 0~0.4, z ±0.5), 한 조각 길이 상한(실제 갱목 크기 — 3 m로 늘이면 거대한 판자로 읽혔다),
+        /// 갱 벽 두께(판정선에서 바깥으로 — 카메라 반 시야 + 대시 여유).
+        /// </summary>
+        public const float ShaftTimberHeight = 0.4f, ShaftTimberUnit = 1.5f, ShaftWallDepth = 12f, ShaftTimberZ = -0.5f;
+        /// <summary>벽 갱목 줄 수(Task 7 Fix 1: 7 m 16줄 → 두 줄. 그 뒤는 바위).</summary>
+        public const int ShaftTimberRows = 2;
+        /// <summary>
+        /// 갱목 뒤 바위(RockMass + 삼각형): 판정선에서 수직으로 이만큼 바깥(두 줄 갱목 뒤에 숨는 깊이)의 선 바깥, 가장 바깥 꼭짓점 너머 <see cref="ShaftWallDepth"/>까지.
+        /// 앞면이 판정면 바로 뒤(z 0.02)라 갱목(z −1~0)을 가리지 않는다.
+        /// </summary>
+        public const float ShaftRockInset = 0.65f, ShaftRockZ = 0.15f;
+        //  승강 케이지·레일(Cage·CageRail)은 Task 7 Fix 1에서 뺐다 — 2 m 통로 안 상자가 장애물로 읽혔고(캡처), 사용자 10-10 "투머치".
 
-        /// <summary>BenchFace(윗면 앞 모서리 왼끝, z −1.35~1.3). ShortScaffold 다리 x ±1.05(아래 가운데 원점, z ±0.35).</summary>
-        public const float BenchZ = -1.3f, ScaffoldLegX = 1.05f, ScaffoldZ = 0.4f;
+        /// <summary>BenchFace(윗면 앞 모서리 왼끝, 메시 z −1.35~1.3) — 깊이 축척 0.1(<see cref="DepthScale"/>)이라 z −0.265~0.</summary>
+        public const float BenchZ = -0.13f;
+        //  짧은 비계(ShortScaffold)는 Task 7 Fix 1에서 뺐다 — 계단 통로 안 탁자·발판처럼 장애물로 읽혔고(캡처), 사용자 10-10 "투머치".
+
+        /// <summary>
+        /// 부품의 z 축척(굽기가 localScale.z로 쓴다). 바위 덩어리·삼각형·얇은 테·바위 단은 0.1 — 사용자 10-10("디자인이 시끄럽다"):
+        /// 깊이 2.6 m 상자는 원근으로 윗면이 밝게 드러나 두꺼운 밝은 띠로 보였다. 납작하게 판정면 바로 앞에 붙이면 차분한 면이 되고
+        /// 그림 경계도 판정 경계에 더 붙는다. 나무 구조물(관문·비계·갱목·칸막이)과 빛 판은 그대로 1.
+        /// </summary>
+        public static float DepthScale(MinePartKind kind) =>
+            kind == MinePartKind.RockMass || kind == MinePartKind.MergeSlope || kind == MinePartKind.EdgeRim || kind == MinePartKind.BenchFace ? FlatDepth : 1f;
+
+        /// <summary><see cref="DepthScale"/>의 납작한 값.</summary>
+        public const float FlatDepth = 0.1f;
 
         /// <summary>
         /// 굴 회색 박스 조각 폭 — <c>FlappyMineCourseBuilder.TubeStripStep</c>과 같아야 한다(바위 테가 같은 현을 따라간다).
         /// </summary>
         public const float TubeStripStep = 0.25f;
         /// <summary>
-        /// RockMass(왼끝 아래, z ±1.3) — 뒷면 0. 밝은 테(GateCap, z −0.80~0.73, 두께 0.4)는 바위 앞면(−2.6)보다 앞.
+        /// RockMass(왼끝 아래, 메시 z ±1.3, 깊이 축척 0.1 → z −0.26~0) — 뒷면 0. 밝은 테(<see cref="MinePartKind.EdgeRim"/> = RockMass 메시, z −0.28~−0.02,
+        /// 두께 0.12)는 바위 앞면(−0.26)·MergeSlope 앞면(−0.267)보다 앞.
         /// 테가 틈 쪽으로 삐져나올 수 있는 곳(바위가 90° 넘게 볼록하게 꺾이는 V, 굴 x 폭 끝에서 기운 테)은 끊지 않고 y 축척으로 얇게 해
         /// 삐져나온 깊이를 <see cref="RimSlack"/> 이하로 둔다(그림 경계 = 판정 경계 ± 0.05).
         /// </summary>
-        public const float RockZ = -1.3f, RimZ = -1.9f, RimThickness = 0.4f, RimSlack = 0.04f;
-        /// <summary>MergeSlope(왼끝 아래, z −1.35~1.3) — 바위 앞면과 겹치지 않게 0.02 앞. 방 끝에서 덮는 폭.</summary>
-        public const float MergeSlopeZ = -1.32f, MergeSlopeWidth = 2.4f;
+        public const float RockZ = -0.13f, RimZ = -0.15f, RimThickness = 0.12f, RimSlack = 0.04f;
+        /// <summary>MergeSlope(왼끝 아래, 메시 z −1.35~1.3, 깊이 축척 0.1 → −0.267~0) — 바위 앞면과 겹치지 않게 조금 앞. 방 끝에서 덮는 폭.</summary>
+        public const float MergeSlopeZ = -0.132f, MergeSlopeWidth = 2.4f;
         /// <summary>DividerWall(왼끝 가운데, y ±0.6 = 1.2, z ±0.75).</summary>
         public const float DividerZ = -0.75f, DividerHeight = 1.2f;
         //  BoreFrame(굴 입구 문틀)은 Fix round 1부터 놓지 않는다: 상인방·문턱이 x −0.3~1.0 곧은 각재라 굴 앞에 두면 열린 칸 위,
         //  굴 안에 두면 휘는 틈 위에 판정면 앞(앞면 −1.84)으로 걸치고, 틈을 가로지르는 문설주(z 0.2~0.5)를 판정면 뒤에 두려면
         //  바위(앞면 −2.6)에 묻힌다. 메시를 고친 뒤(문설주를 뒤로, 상인방·문턱을 짧게·앞으로) 다시 넣는다. 굴 시작 세로 면은 밝은 테가 맡는다.
-        /// <summary>BoltSign(가운데, x ±0.95, y ±0.547, z −0.11~0.06) — 굴 입구 앞 열린 칸 위쪽, 판정면 뒤.</summary>
-        public const float BoltSignZ = 0.12f, BoltSignHalfWidth = 0.95f, BoltSignHalfHeight = 0.547f, BoltSignAboveMouth = 0.25f, BoltSignBeforeMouth = 0.3f;
-        /// <summary>PadGlow(가운데, y ±0.15, z −0.67~0.65) — 윗면이 방 바닥선, 밝은 테보다 앞.</summary>
-        public const float PadGlowZ = -2.1f, PadGlowHalfHeight = 0.15f;
-        /// <summary>GateCap 폭(x ±0.975). 긴 테는 이 폭 이하로 나눠 볼트가 늘어나지 않게.</summary>
-        const float RimUnit = 1.95f;
+        /// <summary>
+        /// BoltSign(가운데, x ±0.95, y ±0.547, z −0.11~0.06) — 칸막이(판정 고체) 앞머리 앞면에 붙인다: 칸막이 앞면(−1.5)보다 0.02 앞,
+        /// 높이는 칸막이 위·아래에서 <see cref="BoltSignInset"/> 안쪽까지 줄인다(Task 7 Fix 1: 굴 입구 앞 열린 칸 판정면 뒤에 떠 있어 장애물로 읽혔다).
+        /// </summary>
+        public const float BoltSignZ = -1.58f, BoltSignHalfWidth = 0.95f, BoltSignHalfHeight = 0.547f, BoltSignNose = 0.3f, BoltSignInset = 0.05f;
+        /// <summary>PadGlow(가운데, y ±0.15, z −0.67~0.65) — 윗면이 방 바닥선, 밝은 테보다 앞(z −1.62~−0.30, 납작한 바위 바로 앞).</summary>
+        public const float PadGlowZ = -0.95f, PadGlowHalfHeight = 0.15f;
 
         //  ── 배경 모양(블렌더 시안 mine_variants5.py의 값을 통로 가운데 기준으로) ──
         //  먼 비계 높이: −1.0 + 2.5·sin(i·0.45), i = 3 m 칸 번호 → x로 이으면 sin(0.15·x).
@@ -238,10 +278,21 @@ namespace LOP.MapTools
             /// <summary>가운데 층(틀·발판·사다리) 축척.</summary>
             public readonly float MidScale;
 
+            /// <summary>먼 비계를 이만큼 칸 이어 놓고 <see cref="FarGap"/>칸 비운다(0 = 끊지 않고 이어 깐다).</summary>
+            public readonly int FarRun;
+            /// <summary>먼 비계 무리 사이 빈 칸 수.</summary>
+            public readonly int FarGap;
+
             public BackgroundDensity(float frameSpacing, float ladderChance, float lanternSpacing, int cartCount, float farScale, float midScale)
+                : this(frameSpacing, ladderChance, lanternSpacing, cartCount, farScale, midScale, 0, 0)
+            {
+            }
+
+            public BackgroundDensity(float frameSpacing, float ladderChance, float lanternSpacing, int cartCount, float farScale, float midScale,
+                                     int farRun, int farGap)
             {
                 FrameSpacing = frameSpacing; LadderChance = ladderChance; LanternSpacing = lanternSpacing; CartCount = cartCount;
-                FarScale = farScale; MidScale = midScale;
+                FarScale = farScale; MidScale = midScale; FarRun = farRun; FarGap = farGap;
             }
         }
 
@@ -335,6 +386,226 @@ namespace LOP.MapTools
             return list;
         }
 
+        // ── 바닥·천장 전체(10-10 Task 7 Fix 1 — 굽기에서 옮겨 왔다) ──
+
+        /// <summary>
+        /// 범위 [<paramref name="from"/>, <paramref name="to"/>]의 바닥·천장 그림 전부(갱목 구간 <see cref="ShaftSpans"/>·바위 단 구간은 뺀다 —
+        /// 거기는 갱목·단이 바닥·천장이다). z는 최종 값, <see cref="MinePiece.Layer"/> 0 = 바닥, 1 = 천장.
+        /// 범위는 넓히지 않는다 — 범위에 걸친 회색 조각은 굽기가 범위 밖 부분만 남기고 자른다(<see cref="OutsideX"/>).
+        /// </summary>
+        public static List<MinePiece> FloorAndCeiling(MineCourse c, MineZones z, float from, float to)
+        {
+            var list = new List<MinePiece>();
+            foreach (var (a, b) in PlainSpans(c, z, from, to))
+            {
+                AddLine(c, a, b, -1, list);
+                //  천장: 노을 바깥·갱 입구 문틀 = 들보(높이 0.8 — 문틀 상인방·간판이 들보 위 판정 고체 쪽에 보이게), 굴 안 = 바위.
+                if (a < z.EntranceEnd)
+                {
+                    foreach (var (x0, x1) in BentTiles(c, (float)a, (float)Math.Min(b, z.EntranceEnd), CeilingPieceWidth))
+                    {
+                        list.Add(At(Chord(MinePartKind.Beam, x0, x1, x => c.CenterAtD(x) + c.HalfAtD(x), 0f, BeamUnit), BeamZ, 1));
+                    }
+                }
+                if (b > z.EntranceEnd) { AddLine(c, Math.Max(a, z.EntranceEnd), b, 1, list); }
+            }
+            return list;
+        }
+
+        //  바닥(side −1)·굴 안 천장(+1) 한 구간: 판정선을 곧은 구간(run)으로 끊는다. 바닥은 완만하고(≤ 15°) 긴(≥ 1.2 m) run만 비계,
+        //  나머지(굽은 물결·전이·가파른 칸)와 굴 안 천장 전부는 다리 없는 바위 띠 + 얇은 밝은 테(사용자 10-10: 천장 바위 부품의
+        //  울퉁불퉁한 구멍 무늬와 두꺼운 테가 시끄럽다 — 천장은 차분한 바위 덩어리로). 그림 경계가 판정 현 그대로다.
+        static void AddLine(MineCourse c, double a, double b, int side, List<MinePiece> list)
+        {
+            int layer = side < 0 ? 0 : 1;
+            var band = new List<(double x0, double x1, double e0, double e1)>();
+            foreach (var r in LineRuns(c, a, b, side))
+            {
+                if (side > 0 || !Straight(r))
+                {
+                    band.Add(r);
+                    continue;
+                }
+                AddBand(band, side, layer, list);
+                band.Clear();
+                Func<double, double> line = x => c.CenterAtD(x) + side * c.HalfAtD(x);
+                foreach (var (x0, x1) in Tiles((float)r.x0, (float)r.x1, TrestleBayWidth)) { list.Add(At(Chord(MinePartKind.TrestleBay, x0, x1, line, 0f, TrestleBayWidth), FloorZ, layer)); }
+            }
+            AddBand(band, side, layer, list);
+        }
+
+        static bool Straight((double x0, double x1, double e0, double e1) r)
+        {
+            double deg = Math.Abs(Math.Atan2(r.e1 - r.e0, r.x1 - r.x0)) * 180.0 / Math.PI;
+            return deg <= TrestleMaxSlopeDegrees + 1e-6 && r.x1 - r.x0 >= StraightMinRun - 1e-6;
+        }
+
+        //  [a, b]의 판정선(바닥 −1·천장 +1)을 기울기가 같은 곳끼리 이은 곧은 구간 — 양끝은 판정선 위(회색 박스 현과 같은 x).
+        static List<(double x0, double x1, double e0, double e1)> LineRuns(MineCourse c, double a, double b, int side)
+        {
+            var runs = new List<(double x0, double x1, double e0, double e1)>();
+            var xs = StraightBreaks(c, (float)a, (float)b);
+            double E(double x) => c.CenterAtD(x) + side * c.HalfAtD(x);
+            for (int i = 1; i < xs.Count; i++)
+            {
+                double x0 = xs[i - 1], x1 = xs[i], e0 = E(x0), e1 = E(x1);
+                if (runs.Count > 0)
+                {
+                    var r = runs[runs.Count - 1];
+                    if (Math.Abs((r.e1 - r.e0) / (r.x1 - r.x0) - (e1 - e0) / (x1 - x0)) < 1e-4)
+                    {
+                        runs[runs.Count - 1] = (r.x0, x1, r.e0, e1);
+                        continue;
+                    }
+                }
+                runs.Add((x0, x1, e0, e1));
+            }
+            return runs;
+        }
+
+        //  다리 없는 바위 띠 + 얇은 밝은 테. 바위는 AddRockBeyondLine(바깥 끝이 곧은 덩어리), 테는 현마다.
+        static void AddBand(List<(double x0, double x1, double e0, double e1)> band, int side, int layer, List<MinePiece> list)
+        {
+            if (band.Count == 0) { return; }
+            var tmp = new List<MinePiece>();
+            AddRockBeyondLine(band, side, LineRockDepth, RockZ, MergeSlopeZ, tmp);
+            for (int i = 0; i < band.Count; i++)
+            {
+                var r = band[i];
+                double maxT = Math.Min(i > 0 ? ConvexThickness(band[i - 1], r, side) : RimThickness,
+                                       i + 1 < band.Count ? ConvexThickness(r, band[i + 1], side) : RimThickness);
+                //  바위 쪽으로 오목하게 꺾이는 곳(물결 골)은 두 테 끝이 부채꼴로 벌어져 홈이 난다 — 테를 현 방향으로 두께·tan(꺾임/2)만큼
+                //  늘여 겹친다. 늘인 부분은 이웃 현의 바위 쪽이라 통로로 나가지 않는다.
+                double ext0 = i > 0 ? ConcaveOverlap(band[i - 1], r, side) : 0, ext1 = i + 1 < band.Count ? ConcaveOverlap(r, band[i + 1], side) : 0;
+                double len = Math.Sqrt((r.x1 - r.x0) * (r.x1 - r.x0) + (r.e1 - r.e0) * (r.e1 - r.e0));
+                double ux = (r.x1 - r.x0) / len, uy = (r.e1 - r.e0) / len;
+                double ax = r.x0 - ux * ext0, ay = r.e0 - uy * ext0, bx = r.x1 + ux * ext1, by = r.e1 + uy * ext1;
+                //  바위가 진행 방향 오른쪽: 바닥 바위(아래)는 왼→오, 천장 바위(위)는 오→왼.
+                if (side < 0) { AddRim(ax, ay, bx, by, double.NegativeInfinity, double.PositiveInfinity, maxT, tmp); }
+                else { AddRim(bx, by, ax, ay, double.NegativeInfinity, double.PositiveInfinity, maxT, tmp); }
+            }
+            foreach (MinePiece p in tmp) { list.Add(At(p, p.Z, layer)); }
+        }
+
+        /// <summary>
+        /// 꺾은선(현 runs, x 증가) 바깥(side −1 아래, +1 위) 판정 고체를 바위로 채운다: 현마다 그 x 폭의 세로 기둥(RockMass)을 가장 바깥 쪽 꼭짓점
+        /// 너머 <paramref name="depth"/>까지 + 기둥 끝과 현 사이 삼각형(MergeSlope, 굽기가 무늬 없는 바위 재질로 덮는다). 그래서 안쪽 경계는 현 그대로,
+        /// 바깥 끝은 한 높이로 곧다(현마다 같은 두께로 깔면 바깥 끝이 계단이 되고, 현을 따라 기울이면 가파른 현에서 옆 통로로 새어 나왔다 — 캡처 2차·테스트).
+        /// </summary>
+        static void AddRockBeyondLine(List<(double x0, double x1, double e0, double e1)> runs, int side, double depth, float rockZ, float wedgeZ, List<MinePiece> list)
+        {
+            double extreme = side < 0 ? runs.Min(r => Math.Min(r.e0, r.e1)) : runs.Max(r => Math.Max(r.e0, r.e1));
+            double outer = extreme + side * depth;
+            foreach (var r in runs)
+            {
+                double near = side < 0 ? Math.Min(r.e0, r.e1) : Math.Max(r.e0, r.e1);
+                AddRock(r.x0, r.x1, outer, near, list, rockZ);
+                AddEdgeWedge(r.x0, r.e0, r.x1, r.e1, side, list, wedgeZ);
+            }
+        }
+
+        /// <summary>바닥·천장 그림이 맡는 구간 = [from, to]에서 갱목 구간·바위 단(바닥 쪽 단의 [X, X + Width]) 구간을 뺀 나머지.</summary>
+        public static List<(double from, double to)> PlainSpans(MineCourse c, MineZones z, float from, float to)
+        {
+            var cuts = new List<(double from, double to)>();
+            foreach (var (a, b) in ShaftSpans(c, z)) { cuts.Add((a, b)); }
+            foreach (MinePiece p in StairBenches(c, z))
+            {
+                if (p.Kind == MinePartKind.BenchFace && !p.Flipped) { cuts.Add((p.X, p.X + p.Width)); }
+            }
+            cuts.Sort((p, q) => p.from.CompareTo(q.from));
+            var result = new List<(double from, double to)>();
+            double cursor = from;
+            foreach (var (a, b) in cuts)
+            {
+                if (b <= cursor) { continue; }
+                if (a >= to) { break; }
+                if (a - cursor > 1e-4) { result.Add((cursor, a)); }
+                cursor = Math.Max(cursor, b);
+            }
+            if (to - cursor > 1e-4) { result.Add((cursor, to)); }
+            return result;
+        }
+
+        static MinePiece At(MinePiece p, float z, int layer) =>
+            new MinePiece(p.Kind, p.X, p.Y, z, p.AngleDegrees, p.Width, p.Length, p.ScaleX, p.ScaleY, p.Flipped, layer);
+
+        /// <summary>
+        /// 볼록 다각형에서 x &lt; <paramref name="from"/> 부분과 x &gt; <paramref name="to"/> 부분(폭 1e-4 넘는 것만).
+        /// 범위에 걸친 회색 바닥·천장 조각은 이 부분만 그린다 — 범위 안은 옷이 그린다.
+        /// </summary>
+        public static List<(double x, double y)[]> OutsideX(IReadOnlyList<(double x, double y)> poly, double from, double to)
+        {
+            var parts = new List<(double x, double y)[]>();
+            var pts = poly.ToList();
+            foreach (var part in new[] { ClipPoly(pts, p => from - p.x, Lerp), ClipPoly(pts, p => p.x - to, Lerp) })
+            {
+                if (part.Count >= 3 && part.Max(p => p.x) - part.Min(p => p.x) > 1e-4) { parts.Add(part.ToArray()); }
+            }
+            return parts;
+        }
+
+        static (double x, double y) Lerp((double x, double y) a, (double x, double y) b, double t) => (a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+
+        //  볼록 다각형을 f(p) ≥ 0 쪽만 남긴다(Sutherland–Hodgman). 꼭짓점 사이는 lerp로 잇는다.
+        static List<T> ClipPoly<T>(List<T> poly, Func<T, double> f, Func<T, T, double, T> lerp)
+        {
+            var result = new List<T>();
+            for (int i = 0; i < poly.Count; i++)
+            {
+                T cur = poly[i], next = poly[(i + 1) % poly.Count];
+                double fc = f(cur), fn = f(next);
+                if (fc >= 0) { result.Add(cur); }
+                if ((fc >= 0) != (fn >= 0)) { result.Add(lerp(cur, next, fc / (fc - fn))); }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// 판정면 뒤 장식 중 통로를 가로지르는 모양(갱 입구 문틀의 기둥·가새)이라 굽기가 열린 통로 안 부분을 잘라 내는 부품.
+        /// </summary>
+        public static bool ClipsToCorridor(MinePartKind kind) => kind == MinePartKind.EntranceFrame;
+
+        /// <summary>
+        /// 삼각형 하나에서 열린 통로(바닥선과 천장선 사이) 밖 부분만 남긴다 — 결과는 다각형들, 꼭짓점은 원래 세 꼭짓점의 무게(합 1)라
+        /// 위치·법선·UV를 같은 무게로 섞으면 된다. 바닥·천장선은 회색 박스와 같이 <c>Breaks</c> 사이 현이다.
+        /// </summary>
+        public static List<List<(double w0, double w1, double w2)>> ClipOutsideCorridor(MineCourse c, (double x, double y) p0, (double x, double y) p1, (double x, double y) p2)
+        {
+            var result = new List<List<(double w0, double w1, double w2)>>();
+            (double x, double y) Pos((double w0, double w1, double w2) w) =>
+                (w.w0 * p0.x + w.w1 * p1.x + w.w2 * p2.x, w.w0 * p0.y + w.w1 * p1.y + w.w2 * p2.y);
+            (double, double, double) WLerp((double w0, double w1, double w2) a, (double w0, double w1, double w2) b, double t) =>
+                (a.w0 + (b.w0 - a.w0) * t, a.w1 + (b.w1 - a.w1) * t, a.w2 + (b.w2 - a.w2) * t);
+
+            //  x를 꺾이는 곳(Breaks)에서 끊은 칸마다 바닥·천장선이 곧다 — 그 칸 안에서 천장선 위·바닥선 아래만 남긴다.
+            double xmin = Math.Min(p0.x, Math.Min(p1.x, p2.x)), xmax = Math.Max(p0.x, Math.Max(p1.x, p2.x));
+            var xs = new List<double> { xmin };
+            foreach (float bx in c.Breaks(BreakStep)) { if (bx > xmin + 1e-9 && bx < xmax - 1e-9) { xs.Add(bx); } }
+            xs.Add(xmax);
+            var tri = new List<(double w0, double w1, double w2)> { (1, 0, 0), (0, 1, 0), (0, 0, 1) };
+            for (int i = 0; i + 1 < xs.Count; i++)
+            {
+                double xa = xs[i], xb = xs[i + 1];
+                var poly = tri;
+                bool flat = xb - xa <= 1e-9;   // 화면에 수직인 면(옆면) — x 한 점
+                if (!flat)
+                {
+                    poly = ClipPoly(poly, w => Pos(w).x - xa, WLerp);
+                    poly = ClipPoly(poly, w => xb - Pos(w).x, WLerp);
+                }
+                if (poly.Count < 3) { continue; }
+                double fa = c.CenterAtD(xa) - c.HalfAtD(xa), fb = c.CenterAtD(xb) - c.HalfAtD(xb);
+                double ca = c.CenterAtD(xa) + c.HalfAtD(xa), cb = c.CenterAtD(xb) + c.HalfAtD(xb);
+                double Line(double ya, double yb, double x) => flat ? ya : ya + (yb - ya) * (x - xa) / (xb - xa);
+                var above = ClipPoly(poly, w => { var p = Pos(w); return p.y - Line(ca, cb, p.x); }, WLerp);
+                var below = ClipPoly(poly, w => { var p = Pos(w); return Line(fa, fb, p.x) - p.y; }, WLerp);
+                if (above.Count >= 3) { result.Add(above); }
+                if (below.Count >= 3) { result.Add(below); }
+            }
+            return result;
+        }
+
         // ── 구역(10-10 펼치기 1차) ──
 
         /// <summary>
@@ -362,11 +633,10 @@ namespace LOP.MapTools
 
         /// <summary>
         /// 갱 입구 문틀(스펙 §5): 문틀은 오른끝이 <see cref="MineZones.EntranceEnd"/>에 닿게(3막은 폭 5가 문틀 구간 19.8~24.8을 꼭 채운다),
-        /// 문턱 = 그 자리 통로 중심 − 7.28(문틀 안 통로 14.56이 넓은 통로와 겹친다). 간판은 상인방 앞(통로 위), 랜턴 줄은 기둥 안쪽 면
-        /// 사이 상인방 바로 아래 — 줄 부품은 줄로만 쓰고 랜턴은 <see cref="MinePartKind.Lantern"/>을 작게 줄을 따라 <paramref name="lanternsPerString"/>개.
-        /// 전부 장식이라 판정면 뒤.
+        /// 문턱 = 그 자리 통로 중심 − 7.28(문틀 안 통로 14.56이 넓은 통로와 겹친다). 간판은 상인방 앞(통로 위). 둘 다 판정면 뒤 장식이다.
+        /// 문틀 기둥·가새는 열린 통로를 가로지르므로 굽기가 통로 안 부분을 잘라 낸다(<see cref="ClipsToCorridor"/>) — 상인방·문턱·기둥 끝만 남는다.
         /// </summary>
-        public static List<MinePiece> Entrance(MineCourse c, MineZones z, int lanternsPerString = 4)
+        public static List<MinePiece> Entrance(MineCourse c, MineZones z)
         {
             var list = new List<MinePiece>();
             float fx = z.EntranceEnd - EntranceHalfWidth;
@@ -374,32 +644,22 @@ namespace LOP.MapTools
             float w = EntranceHalfWidth * 2f;
             list.Add(new MinePiece(MinePartKind.EntranceFrame, fx, threshold, EntranceFrameZ, 0f, w, w, 1f, 1f));
             list.Add(new MinePiece(MinePartKind.EntranceSign, fx, threshold + EntranceSignCenter, EntranceSignZ, 0f, 3f, 3f, 1f, 1f));
-
-            float left = fx - EntrancePostInner, span = EntrancePostInner * 2f, hang = threshold + EntranceStringHang;
-            list.Add(new MinePiece(MinePartKind.LanternString, left, hang, EntranceStringZ, 0f, span, span, span, 1f));
-            for (int i = 0; i < lanternsPerString; i++)
-            {
-                float t = (i + 0.5f) / lanternsPerString;
-                float lw = LanternWidth * StringLanternScale;
-                list.Add(new MinePiece(MinePartKind.Lantern, left + t * span, hang - LanternStringSag * 4f * t * (1f - t), EntranceStringZ, 0f,
-                                       lw, lw, StringLanternScale, StringLanternScale));
-            }
             return list;
         }
 
         // ── 수직 갱 ──
 
         /// <summary>
-        /// 수직 갱 갱도(스펙 §5): 좁은 구간(<c>Narrows</c>) [a − 3, b + 3]마다(앞은 문틀 끝, 뒤는 옷 끝에서 자른다)
+        /// 수직 갱 갱도(스펙 §5): 좁은 구간(<c>Narrows</c>) [a − 3, b + 3]마다(앞은 문틀 끝, 뒤는 옷 끝에서 자른다) 바닥·천장 쪽 벽에
         /// <list type="bullet">
-        /// <item>바닥·천장 쪽 벽에 <see cref="MinePartKind.ShaftTimber"/>를 층층이 — 판정선이 꺾이는 곳(<see cref="StraightBreaks"/>)에서 끊은
-        /// 꺾은선을 바깥(바닥은 아래, 천장은 위)으로 <paramref name="timberSpacing"/>씩 평행 이동(꺾이는 곳은 맞댐)한 줄마다, 줄 하나를 3 m 이하
-        /// 조각으로. 첫 줄의 통로 쪽 변이 판정선이고 나머지는 전부 판정선 바깥이다. 깊이 <see cref="ShaftWallDepth"/>까지.</item>
-        /// <item>뒤(z &gt; 0)에 승강 레일 <see cref="MinePartKind.CageRail"/> + 케이지 <see cref="MinePartKind.Cage"/> 하나: 가장 가파른 낙하 마디의
-        /// <paramref name="cageRatio"/> 자리 x, 케이지는 그 자리 통로 가운데, 레일은 위·아래 벽 속(갱목이 가린다)까지.</item>
+        /// <item><see cref="MinePartKind.ShaftTimber"/> <see cref="ShaftTimberRows"/>줄 — 판정선이 꺾이는 곳(<see cref="StraightBreaks"/>)에서 끊은
+        /// 꺾은선을 바깥(바닥은 아래, 천장은 위)으로 <paramref name="timberSpacing"/>씩 평행 이동(꺾이는 곳은 맞댐)한 줄마다 1.5 m 이하 조각,
+        /// 둘째 줄은 반 칸 어긋나게. 첫 줄의 통로 쪽 변이 판정선이고 나머지는 전부 판정선 바깥이다.</item>
+        /// <item>그 뒤 바위(<see cref="MinePartKind.RockMass"/>·삼각형, 판정면 뒤): 판정선에서 <see cref="ShaftRockInset"/> 바깥 선 너머 전부(바깥 끝은 곧다).</item>
         /// </list>
+        /// 통로 안에는 아무것도 없다(케이지는 뺐다).
         /// </summary>
-        public static List<MinePiece> ShaftWalls(MineCourse c, MineZones z, float timberSpacing, float cageRatio = 0.3f)
+        public static List<MinePiece> ShaftWalls(MineCourse c, MineZones z, float timberSpacing)
         {
             var list = new List<MinePiece>();
             if (!(timberSpacing > 0f)) { throw new ArgumentOutOfRangeException(nameof(timberSpacing)); }
@@ -408,13 +668,12 @@ namespace LOP.MapTools
                 var (from, to) = ShaftSpan(a, b, z);
                 if (to - from <= 1e-6) { continue; }
                 var xs = StraightBreaks(c, (float)from, (float)to);
-                int layers = (int)Math.Ceiling(ShaftWallDepth / timberSpacing - 1e-6);
                 foreach (int side in new[] { -1, 1 })
                 {
                     var verts = MergeStraight(xs.Select(x => (x, c.CenterAtD(x) + side * c.HalfAtD(x))).ToList());
-                    for (int k = 0; k < layers; k++) { AddTimberLayer(verts, side, k * (double)timberSpacing, from, to, list); }
+                    for (int k = 0; k < ShaftTimberRows; k++) { AddTimberLayer(verts, side, k * (double)timberSpacing, from, to, k % 2 == 1, list); }
+                    AddShaftRock(verts, side, from, to, list);
                 }
-                AddCage(c, a, b, from, to, cageRatio, list);
             }
             return list;
         }
@@ -439,10 +698,9 @@ namespace LOP.MapTools
             return (Math.Max(a - MineCourse.EdgeBlend, z.EntranceEnd), Math.Min(b + MineCourse.EdgeBlend, z.DressEnd));
         }
 
-        //  꺾은선 verts를 바깥으로 d만큼 평행 이동(꺾이는 곳은 두 선이 만나는 점으로 맞댐)한 줄에 갱목을 깐다 — 줄은 [x0, x1] 안으로 자른다
-        //  (가파른 갱에서 깊은 줄은 법선 방향으로 수 m 옆으로 밀려 범위 밖 문틀 구간으로 나간다).
+        //  꺾은선 verts를 바깥으로 d만큼 평행 이동한 점들(꺾이는 곳은 두 선이 만나는 점으로 맞댐)과 마디마다 바깥 법선.
         //  side −1 = 바닥 쪽(바깥 = 진행 방향 오른쪽 = 아래), +1 = 천장 쪽(왼쪽 = 위).
-        static void AddTimberLayer(List<(double x, double y)> verts, int side, double d, double x0, double x1, List<MinePiece> list)
+        static ((double x, double y)[] off, (double x, double y)[] normals) Offset(List<(double x, double y)> verts, int side, double d)
         {
             int m = verts.Count - 1;
             var normals = new (double x, double y)[m];
@@ -467,6 +725,15 @@ namespace LOP.MapTools
                 }
                 off[j] = (verts[j].x + n.x * d, verts[j].y + n.y * d);
             }
+            return (off, normals);
+        }
+
+        //  평행 이동한 줄 하나에 갱목을 깐다 — 줄은 [x0, x1] 안으로 자른다(가파른 갱에서 바깥 줄은 법선 방향으로 옆으로 밀려 범위 밖으로 나간다).
+        //  stagger면 이음매를 반 칸 어긋나게(양끝 반 조각) — 줄마다 이음매가 같은 자리에 오면 판자 벽이 격자로 읽힌다.
+        static void AddTimberLayer(List<(double x, double y)> verts, int side, double d, double x0, double x1, bool stagger, List<MinePiece> list)
+        {
+            var (off, normals) = Offset(verts, side, d);
+            int m = verts.Count - 1;
             for (int j = 0; j < m; j++)
             {
                 var (ax, ay) = off[j];
@@ -489,18 +756,46 @@ namespace LOP.MapTools
                 double len = Math.Sqrt(dx * dx + dy * dy);
                 if (len < 0.05) { continue; }
                 int pieces = Math.Max(1, (int)Math.Ceiling(len / ShaftTimberUnit - 1e-6));
+                var cuts = new List<double> { 0 };
+                for (int i = 1; i < pieces; i++) { cuts.Add(i / (double)pieces); }
+                if (stagger) { cuts = new List<double> { 0 }; for (int i = 0; i < pieces; i++) { cuts.Add((i + 0.5) / pieces); } }
+                cuts.Add(1);
                 double ang = Math.Atan2(dy, dx) * 180.0 / Math.PI;
                 var (nx, ny) = normals[j];
-                for (int i = 0; i < pieces; i++)
+                for (int i = 0; i + 1 < cuts.Count; i++)
                 {
-                    double px = sx + dx * i / pieces, py = sy + dy * i / pieces;
+                    double l = len * (cuts[i + 1] - cuts[i]);
+                    if (l < 0.05) { continue; }
+                    double px = sx + dx * cuts[i], py = sy + dy * cuts[i];
                     //  원점 = 왼끝 아래. 천장 쪽은 통로 쪽 변이 아래 변이라 그대로, 바닥 쪽은 위 변이 통로 쪽이라 바깥으로 0.4 내린다.
                     if (side < 0) { px += nx * ShaftTimberHeight; py += ny * ShaftTimberHeight; }
-                    float l = (float)(len / pieces);
                     list.Add(new MinePiece(MinePartKind.ShaftTimber, (float)px, (float)py, ShaftTimberZ, (float)ang,
-                                           (float)Math.Abs(dx / pieces), l, l, 1f));
+                                           (float)Math.Abs(dx * (cuts[i + 1] - cuts[i])), (float)l, (float)l, 1f));
                 }
             }
+        }
+
+        //  갱목 뒤 바위: 판정선을 바깥으로 ShaftRockInset 평행 이동한 꺾은선을 [from, to]로 자르고(양끝 마디는 이어 늘인다) 그 바깥에 바위 띠.
+        //  띠 안쪽 변은 갱목 둘째 줄 밑에 숨는다. 판정면 뒤(앞면 0.02)라 갱목을 가리지 않는다.
+        static void AddShaftRock(List<(double x, double y)> verts, int side, double from, double to, List<MinePiece> list)
+        {
+            var (off, _) = Offset(verts, side, ShaftRockInset);
+            var pts = off.Where((p, i) => i == 0 || p.x > off[i - 1].x + 1e-9).ToList();
+            double Y(double x)
+            {
+                int j = 1;
+                while (j < pts.Count - 1 && x > pts[j].x) { j++; }
+                var (ax, ay) = pts[j - 1];
+                var (bx, by) = pts[j];
+                return ay + (by - ay) * (x - ax) / (bx - ax);
+            }
+            var xs = new List<double> { from };
+            foreach (var p in pts) { if (p.x > from + 1e-6 && p.x < to - 1e-6) { xs.Add(p.x); } }
+            xs.Add(to);
+            var runs = new List<(double x0, double x1, double e0, double e1)>();
+            for (int i = 1; i < xs.Count; i++) { runs.Add((xs[i - 1], xs[i], Y(xs[i - 1]), Y(xs[i]))); }
+            //  삼각형(MergeSlope, 앞면 = Z − 0.135)도 기둥(Z − 0.13)과 같은 앞면 0.02(둘 다 깊이 축척 0.1).
+            AddRockBeyondLine(runs, side, ShaftWallDepth - ShaftRockInset, ShaftRockZ, ShaftRockZ + 0.005f, list);
         }
 
         //  꺾은선에서 곧게 이어지는(방향 차 &lt; 1e-4 rad) 가운데 점을 뺀다 — Breaks의 float x 때문에 곧은 갱도 0.5 m마다 끊겨 있다.
@@ -519,26 +814,6 @@ namespace LOP.MapTools
             return r;
         }
 
-        static void AddCage(MineCourse c, double a, double b, double from, double to, float ratio, List<MinePiece> list)
-        {
-            //  가장 가파른 낙하 마디(통로 중심 꺾은선) — 좁은 구간 [a, b] 안.
-            double bestSlope = 0, x0 = double.NaN, x1 = double.NaN;
-            for (int i = 0; i + 1 < c.Points.Count; i++)
-            {
-                var (pa, _) = c.Points[i];
-                var (pb, _) = c.Points[i + 1];
-                if (pa < a - 1e-6 || pb > b + 1e-6 || pb - pa <= 1e-6) { continue; }
-                double slope = Math.Abs(PolySlope(c, i));
-                if (slope > bestSlope) { bestSlope = slope; x0 = pa; x1 = pb; }
-            }
-            if (double.IsNaN(x0)) { return; }
-            float cx = (float)(x0 + ratio * (x1 - x0));
-            if (cx < from || cx > to) { return; }
-            list.Add(new MinePiece(MinePartKind.Cage, cx, c.CenterAt(cx), CageZ, 0f, 1.6f, 1.6f, 1f, 1f));
-            float bottom = c.CenterAt(cx) - c.HalfAt(cx) - ShaftWallDepth, top = c.CenterAt(cx) + c.HalfAt(cx) + ShaftWallDepth;
-            list.Add(new MinePiece(MinePartKind.CageRail, cx, bottom, CageZ, 0f, 2.06f, top - bottom, 1f, top - bottom));
-        }
-
         // ── 계단 내리막 ──
 
         /// <summary>
@@ -547,7 +822,6 @@ namespace LOP.MapTools
         /// <list type="bullet">
         /// <item>바닥 쪽 <see cref="MinePartKind.BenchFace"/>: 원점 = 칸 왼끝 바닥선, 현 각도·길이 — 윗면(밝은 띠)이 바닥선 그대로, 몸통은 아래로 4.5.</item>
         /// <item>천장 쪽 BenchFace: Z축 180°(<see cref="MinePiece.Flipped"/>) — 원점 = 칸 오른끝 천장선, 몸통은 위로.</item>
-        /// <item><see cref="MinePartKind.ShortScaffold"/>: 칸 가운데, 판정면 뒤. 내리막 쪽 다리가 바닥선에 닿고 오르막 쪽은 단(앞면이 가린다)에 묻힌다.</item>
         /// </list>
         /// </summary>
         public static List<MinePiece> StairBenches(MineCourse c, MineZones z)
@@ -582,9 +856,6 @@ namespace LOP.MapTools
             list.Add(new MinePiece(MinePartKind.BenchFace, (float)x1, (float)cb, BenchZ, (float)(Math.Atan2(cb - ca, w) * 180.0 / Math.PI),
                                    (float)w, (float)cl, (float)cl, 1f, flipped: true));
 
-            float mx = (float)((x0 + x1) / 2);
-            float legY = Math.Min(c.CenterAt(mx - ScaffoldLegX) - c.HalfAt(mx - ScaffoldLegX), c.CenterAt(mx + ScaffoldLegX) - c.HalfAt(mx + ScaffoldLegX));
-            list.Add(new MinePiece(MinePartKind.ShortScaffold, mx, legY, ScaffoldZ, 0f, 2.4f, 2.4f, 1f, 1f));
         }
 
         // ── 고수 갈림길 ──
@@ -596,9 +867,9 @@ namespace LOP.MapTools
         /// <item>굴 칸 바위(<see cref="MinePartKind.RockMass"/>): 굴(틈 3.1)·패드 방(틈 4.6) 틈 밖 ~ 칸 끝(칸 끝이 통로 밖이면 통로 바닥·천장선까지).
         /// 굴마다 큰 사각형 하나 + 휘는 가장자리는 회색 박스와 같은 0.25 m 조각(<see cref="TubeStripStep"/>)마다 기둥, 기둥 끝과 현 사이 삼각형은
         /// <see cref="MinePartKind.MergeSlope"/>(빗변 = 현). 그래서 그림 경계가 회색 박스 현 그대로다.</item>
-        /// <item>밝은 테(<see cref="MinePartKind.GateCap"/> — 관문 쇠테를 다시 씀): 바위의 닿는 가장자리 전부 — 굴·방 틈 가장자리 현(같은 기울기는
+        /// <item>얇은 밝은 테(<see cref="MinePartKind.EdgeRim"/>): 바위의 닿는 가장자리 전부 — 굴·방 틈 가장자리 현(같은 기울기는
         /// 이어 붙여 1.95 m 이하 칸으로), 굴 시작·굴→방·방 끝의 세로 면. 두께 0.4가 바위 쪽, 바위 앞면보다 앞.</item>
-        /// <item><see cref="MinePartKind.BoltSign"/>: 굴 입구 앞 열린 칸, 굴 틈 위 끝 위(판정면 뒤). <see cref="MinePartKind.BoreFrame"/>은 메시를 고칠 때까지 놓지 않는다(상수 옆 주석).</item>
+        /// <item><see cref="MinePartKind.BoltSign"/>: 칸막이 앞머리 앞면(판정 고체 위, 판정면 앞). <see cref="MinePartKind.BoreFrame"/>은 메시를 고칠 때까지 놓지 않는다(상수 옆 주석).</item>
         /// <item><see cref="MinePartKind.PadGlow"/>: 패드 가운데 x, 윗면 = 방 바닥(굴이 위 칸이면 칸막이 윗면).</item>
         /// <item>합류 경사 <see cref="MinePartKind.MergeSlope"/>: 방 끝 칸막이 쪽 바위 <b>안</b> — 방 끝 2.4 m를 비스듬히 덮는다(남는 삼각형도 RockMass가 이미 덮어
         /// 그림 경계는 판정 사각형 그대로다). 칸막이 쪽 바위가 없으면(위 칸 방은 칸막이가 곧 바닥) 놓지 않는다.</item>
@@ -625,10 +896,13 @@ namespace LOP.MapTools
 
             foreach (int side in new[] { -1, 1 }) { AddTubeRock(c, tubes, lane, side, list); }
 
-            MineTube bore = tubes[0];
-            float mouth = bore.Center(bore.X0), mouthTop = mouth + bore.Gap * 0.5f;
-            list.Add(new MinePiece(MinePartKind.BoltSign, bore.X0 - BoltSignBeforeMouth - BoltSignHalfWidth, mouthTop + BoltSignAboveMouth + BoltSignHalfHeight,
-                                   BoltSignZ, 0f, BoltSignHalfWidth * 2f, BoltSignHalfWidth * 2f, 1f, 1f));
+            foreach (MineRect w in c.Walls)
+            {
+                if (Math.Abs(w.X0 - f.X0) > 1e-3f || Math.Abs(w.X1 - f.X1) > 1e-3f) { continue; }
+                float s = Math.Min(1f, (w.Y1 - w.Y0 - 2f * BoltSignInset) / (2f * BoltSignHalfHeight));
+                list.Add(new MinePiece(MinePartKind.BoltSign, w.X0 + BoltSignNose + BoltSignHalfWidth * s, (w.Y0 + w.Y1) / 2f, BoltSignZ, 0f,
+                                       BoltSignHalfWidth * 2f * s, BoltSignHalfWidth * 2f * s, s, s));
+            }
 
             foreach (MinePad pad in c.Pads)
             {
@@ -737,6 +1011,14 @@ namespace LOP.MapTools
             return cos >= 0 ? RimThickness : Math.Min(RimThickness, RimSlack * steep / -cos);
         }
 
+        //  두 현 사이가 바위 쪽으로 오목하면(아래 바위는 왼쪽으로, 위 바위는 오른쪽으로 꺾임) 테를 늘일 길이 = 두께·tan(꺾임/2), 볼록이면 0.
+        static double ConcaveOverlap((double x0, double x1, double e0, double e1) a, (double x0, double x1, double e0, double e1) b, int side)
+        {
+            double turn = Math.Atan2(b.e1 - b.e0, b.x1 - b.x0) - Math.Atan2(a.e1 - a.e0, a.x1 - a.x0);
+            bool concave = side < 0 ? turn > 1e-9 : turn < -1e-9;
+            return concave ? RimThickness * Math.Tan(Math.Abs(turn) / 2) : 0;
+        }
+
         //  칸 끝 쪽 바위 경계: 아래 바위는 칸 아래 끝과 통로 바닥선 중 위, 위 바위는 칸 위 끝과 통로 천장선 중 아래(칸이 통로 밖으로 1 m 나가 있다).
         //  통로가 굴 구간 안에서 오르내리면 바위가 통로 바닥·천장 쪽으로 넘치는 편(겹침)을 고른다 — 빈틈이 생기지 않게.
         static double Outer(MineCourse c, MineTube t, MineRect lane, int side)
@@ -757,21 +1039,21 @@ namespace LOP.MapTools
         /// 기운 현 아래(위) 삼각형 — 기둥 윗면(아랫면)과 현 사이. MergeSlope(바위 = 단위 상자 v ≥ u 삼각형, 빗변에 밝은 띠)를
         /// 현에 맞춰 놓는다: 위 바위는 원점 = 현의 낮은 끝, y 축척 +; 아래 바위는 원점 = 높은 끝, y 축척 −. x 축척은 원점에서 다른 끝 쪽(±).
         /// </summary>
-        static void AddEdgeWedge(double x0, double e0, double x1, double e1, int side, List<MinePiece> list)
+        static void AddEdgeWedge(double x0, double e0, double x1, double e1, int side, List<MinePiece> list, float z = MergeSlopeZ)
         {
             double dy = e1 - e0, w = x1 - x0;
             if (Math.Abs(dy) <= 1e-4 || w <= 1e-6) { return; }
             bool originLeft = side > 0 ? e0 < e1 : e0 > e1;
             double ox = originLeft ? x0 : x1, oy = originLeft ? e0 : e1;
             float sx = (float)(originLeft ? w : -w), sy = (float)(side * Math.Abs(dy));
-            list.Add(new MinePiece(MinePartKind.MergeSlope, (float)ox, (float)oy, MergeSlopeZ, 0f, (float)w, (float)w, sx, sy));
+            list.Add(new MinePiece(MinePartKind.MergeSlope, (float)ox, (float)oy, z, 0f, (float)w, (float)w, sx, sy));
         }
 
-        static void AddRock(double x0, double x1, double ya, double yb, List<MinePiece> list)
+        static void AddRock(double x0, double x1, double ya, double yb, List<MinePiece> list, float z = RockZ)
         {
             double lo = Math.Min(ya, yb), hi = Math.Max(ya, yb), w = x1 - x0;
             if (hi - lo <= 1e-4 || w <= 1e-6) { return; }
-            list.Add(new MinePiece(MinePartKind.RockMass, (float)x0, (float)lo, RockZ, 0f, (float)w, (float)w, (float)w, (float)(hi - lo)));
+            list.Add(new MinePiece(MinePartKind.RockMass, (float)x0, (float)lo, z, 0f, (float)w, (float)w, (float)w, (float)(hi - lo)));
         }
 
         //  세로 면 x의 [ya, yb] 테. rockRight면 바위가 x 오른쪽. 테(두께 0.4)가 덮는 x 폭 안에서 바위를 낸 굴 rock의 가장자리가
@@ -793,9 +1075,9 @@ namespace LOP.MapTools
         }
 
         /// <summary>
-        /// 선분 P→Q를 따라 밝은 테(GateCap — 가운데 원점, 윗면 = 원점, 두께 0.4 × y 축척이 국소 −y)를 깐다. 국소 −y가 진행 방향 오른쪽이므로
-        /// 바위가 오른쪽에 오도록 P→Q를 넘겨야 한다. 1.95 m 이하 같은 폭 칸으로 나눈다. 두께는 <paramref name="maxThickness"/> 이하이고,
-        /// 기운 테의 바깥 모서리(P·Q + 두께·n)가 [xMin, xMax] 밖으로 <see cref="RimSlack"/> 넘게 나가지 않을 만큼만이다(끊지 않는다).
+        /// 선분 P→Q를 따라 얇은 밝은 테(<see cref="MinePartKind.EdgeRim"/> — RockMass 메시, 왼끝 아래 원점)를 깐다. 테는 진행 방향 오른쪽(바위 쪽)으로
+        /// 두께만큼이라 바위가 오른쪽에 오도록 P→Q를 넘겨야 한다. 두께는 <paramref name="maxThickness"/> 이하이고, 기운 테의 바깥 모서리
+        /// (P·Q + 두께·n)가 [xMin, xMax] 밖으로 <see cref="RimSlack"/> 넘게 나가지 않을 만큼만이다(끊지 않는다).
         /// </summary>
         static void AddRim(double px, double py, double qx, double qy, double xMin, double xMax, double maxThickness, List<MinePiece> list)
         {
@@ -807,14 +1089,11 @@ namespace LOP.MapTools
             if (nxu < -1e-9) { thick = Math.Min(thick, (lx - xMin + RimSlack) / -nxu); }
             if (nxu > 1e-9) { thick = Math.Min(thick, (xMax - rx + RimSlack) / nxu); }
             thick = Math.Max(thick, 0.02);
-            int n = Math.Max(1, (int)Math.Ceiling(len / RimUnit - 1e-3));
-            float ang = (float)(Math.Atan2(dy, dx) * 180.0 / Math.PI), l = (float)(len / n);
-            for (int i = 0; i < n; i++)
-            {
-                double t = (i + 0.5) / n;
-                list.Add(new MinePiece(MinePartKind.GateCap, (float)(px + dx * t), (float)(py + dy * t), RimZ, ang,
-                                       (float)Math.Abs(dx / n), l, l / RimUnit, (float)(thick / RimThickness)));
-            }
+            //  국소 u = P→Q, v = 왼쪽 법선. 띠 [0, len] × [0, thick]의 v = thick 변이 P→Q 선이 되게 원점 = P + thick·(오른쪽 법선).
+            double rnx = dy / len, rny = -dx / len;
+            float ang = (float)(Math.Atan2(dy, dx) * 180.0 / Math.PI);
+            list.Add(new MinePiece(MinePartKind.EdgeRim, (float)(px + thick * rnx), (float)(py + thick * rny), RimZ, ang,
+                                   (float)Math.Abs(dx), (float)len, (float)len, (float)thick));
         }
 
         /// <summary>굴 조각 — <c>FlappyMineGeometry.Slices</c>와 같은 float 셈(마지막 조각만 짧고 끝은 정확히 to).</summary>
@@ -838,7 +1117,8 @@ namespace LOP.MapTools
         /// <item>실루엣(z 22 / 25): 통로 중심 꺾은선(낮은 천장 물결은 뺀 것)이 꺾이는 x와 이음매에서 끊고, 곧은 구간마다 27.2 m(20 m 띠 × 1.36)
         /// 근처 같은 폭 띠를 그 꺾은선 + 기준 높이의 <b>현</b>으로 놓는다(기울면 띠도 기운다, x 축척 = 현 길이 / 20).
         /// 가운데가 이음매 앞이면 협곡(바닥 쪽만), 뒤면 굴벽(바닥 + 뒤집은 천장 쪽). 높이(y 축척)만 시드로 흔든다.</item>
-        /// <item>먼 비계(z 18): 3·FarScale m 칸, 축척 FarScale, 데크 윗면 = 통로 중심 −1.0 + 2.5·sin(0.15·x)의 현. 구역 구분 없이(바깥은 협곡 다리).</item>
+        /// <item>먼 비계(z 18): 3·FarScale m 칸, 축척 FarScale, 데크 윗면 = 통로 중심 −1.0 + 2.5·sin(0.15·x)의 현. 구역 구분 없이(바깥은 협곡 다리).
+        /// <see cref="BackgroundDensity.FarRun"/>칸 놓고 <see cref="BackgroundDensity.FarGap"/>칸 비운다(0이면 이어 깐다).</item>
         /// <item>광차: [from, to] 안 먼 비계 칸 중 시드로 고른 서로 다른 칸, 레일 윗면 위(같은 축척).</item>
         /// <item>가운데 층(z 6, 축척 MidScale)·랜턴(z 4.5): 굴(x ≥ 이음매)에만, 그 자리 통로 중심 기준. 틀은 <see cref="BackgroundDensity.FrameSpacing"/>마다,
         /// 틀마다 발판 하나, 사다리는 확률. 랜턴은 <see cref="BackgroundDensity.LanternSpacing"/>마다 ±1 m.</item>
@@ -852,7 +1132,7 @@ namespace LOP.MapTools
             float seam = Zones(c).EntranceEnd;
 
             AddSilhouettes(c, lo, hi, seam, rng, list);
-            var far = AddFarTrestles(c, lo, hi, d.FarScale, list);
+            var far = AddFarTrestles(c, lo, hi, d.FarScale, d.FarRun, d.FarGap, list);
             AddCarts(far, from, to, d.CartCount, d.FarScale, rng, list);
             AddMidLayer(c, lo, hi, seam, d, rng, list);
             return list;
@@ -945,7 +1225,7 @@ namespace LOP.MapTools
             return (y1 - y0) / Math.Max(1e-6, x1 - x0);
         }
 
-        static List<MinePiece> AddFarTrestles(MineCourse c, double lo, double hi, float scale, List<MinePiece> list)
+        static List<MinePiece> AddFarTrestles(MineCourse c, double lo, double hi, float scale, int run, int gap, List<MinePiece> list)
         {
             var far = new List<MinePiece>();
             //  칸 폭은 줄인 만큼 좁게(축척은 x·y 같이). 높이 곡선은 그대로 x의 함수다(칸 폭과 무관).
@@ -953,6 +1233,8 @@ namespace LOP.MapTools
             int k0 = (int)Math.Floor(lo / w), k1 = (int)Math.Ceiling(hi / w);
             for (int k = k0; k < k1; k++)
             {
+                //  무리로 끊기(Task 7 Fix 1 — 배경이 장애물 집중을 흐렸다): 칸 번호 k의 격자로 정해 범위를 바꿔도 무리가 안 움직인다.
+                if (run > 0 && gap > 0 && ((k % (run + gap)) + (run + gap)) % (run + gap) >= run) { continue; }
                 var p = Chord(MinePartKind.BgTrestleBay, k * w, (k + 1) * w,
                               x => c.CenterAtD(x) + FarBase + FarAmp * Math.Sin(x / BgTrestleBayWidth * FarPhasePerBay), FarZ, BgTrestleBayWidth, scale);
                 far.Add(p);
@@ -1029,21 +1311,6 @@ namespace LOP.MapTools
         public static bool SpanOverlaps(float x0, float x1, float from, float to)
         {
             return x1 > from + SpanEps && x0 < to - SpanEps;
-        }
-
-        /// <summary>
-        /// 범위 [from, to]에 <b>걸친</b> 조각(겹치지만 안에 다 들지 않는 것)은 렌더러를 켠 채 두므로, 바닥·천장 그림이 그 조각
-        /// 끝까지 이어 덮도록 범위를 넓힌다. 범위 밖 조각·끝만 맞닿은 조각은 범위를 바꾸지 않는다.
-        /// </summary>
-        public static (float from, float to) CoverRange(IEnumerable<(float x0, float x1)> spans, float from, float to)
-        {
-            foreach (var (x0, x1) in spans)
-            {
-                if (!SpanOverlaps(x0, x1, from, to) || SpanInside(x0, x1, from, to)) { continue; }
-                from = Math.Min(from, x0);
-                to = Math.Max(to, x1);
-            }
-            return (from, to);
         }
 
         // ── 도우미 ──

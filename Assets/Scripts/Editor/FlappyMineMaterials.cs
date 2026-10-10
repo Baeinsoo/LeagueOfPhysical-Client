@@ -29,6 +29,7 @@ namespace LOP.EditorTools
         private const string HazeBlendPath = TextureDir + "/haze_mouth_blend.png";
         private const string FarHazeBlendPath = TextureDir + "/haze_far_mouth_blend.png";
         private const string GlowPath = TextureDir + "/lantern_glow.png";
+        private const string CalmStrataPath = TextureDir + "/strata_calm.png";
         internal const string LookAssetPath = "Assets/Art/Settings/FlappyMineLook.asset";
 
         [MenuItem("LOP/Debug/Flappy 광산 재질 갱신")]
@@ -54,7 +55,6 @@ namespace LOP.EditorTools
 
             var wood = LoadTexture("wood_grain");
             var rock = LoadTexture("rock");
-            var strata = LoadTexture("strata");
             Color shadow = look.shadowColor;
 
             //  쇠·광차 색은 Global Constraints에 없다 — 쇠테(밝다)·쇠띠(어둡다) 사이에서 고른 값이다.
@@ -102,7 +102,9 @@ namespace LOP.EditorTools
                 ["SignWood"] = Toon("SignWood", Grain(look, look.signColor), wood, shadow),
                 ["SignInlay"] = Toon("SignInlay", signInlayColor, null, shadow),
                 ["Rope"] = Toon("Rope", ropeColor, null, shadow),
-                ["Strata"] = Toon("Strata", StrataTint(look), strata, shadow),               // 색은 strata.png에 구움 — 기본은 흰색(틴트 없음)
+                //  10-10 Task 7 Fix 1(사용자 "디자인이 시끄럽다"): strata.png(512², 띠 대비 큼·잡티) 대신 strataColors를 평균 쪽으로 당겨
+                //  어둡게 한 부드러운 네 띠(strata_calm.png)를 쓴다 — 차분한 어두운 바위 덩어리. 틴트는 흰색(색은 텍스처에).
+                ["Strata"] = Toon("Strata", Color.white, EnsureCalmStrata(look), shadow),
                 ["BoltRim"] = Toon("BoltRim", boltRimColor, null, shadow),
                 ["PadFrame"] = Toon("PadFrame", padFrameColor, null, shadow),
                 ["BoltGlow"] = UnlitOpaque("BoltGlow", ScaleRgb(boltGlowBase, look.boltGlow)),
@@ -275,6 +277,21 @@ namespace LOP.EditorTools
             }, linear: true);
         }
 
+        //  1×256 세로 띠: strataColors 네 색(v 아래→위)을 평균 쪽으로 strataContrast만큼만 남기고 strataBrightness를 곱한다. 띠 사이는 부드럽게.
+        private static Texture2D EnsureCalmStrata(FlappyMineLook look)
+        {
+            Color[] bands = look.strataColors != null && look.strataColors.Length > 0 ? look.strataColors : DefaultStrataColors;
+            Color avg = AverageRgb(bands);
+            return WriteTexture(CalmStrataPath, 1, 256, (u, v) =>
+            {
+                float f = Mathf.Clamp(v * bands.Length - 0.5f, 0f, bands.Length - 1f);
+                int i = Mathf.Min(bands.Length - 2, Mathf.FloorToInt(f));
+                Color c = bands.Length == 1 ? bands[0] : Color.Lerp(bands[i], bands[i + 1], Mathf.SmoothStep(0f, 1f, f - i));
+                Color calm = Color.Lerp(avg, c, look.strataContrast);
+                return new Color(calm.r * look.strataBrightness, calm.g * look.strataBrightness, calm.b * look.strataBrightness, 1f);
+            });
+        }
+
         private static Color SunsetAt(FlappyMineLook look, float v) => Color.Lerp(look.skySunsetBottomColor, look.skySunsetTopColor, v);
 
         //  픽셀 중심의 (u, v)로 칠한 PNG를 쓴다 — 내용이 같으면 파일을 다시 쓰지도, 다시 임포트하지도 않는다(굽기마다 부른다).
@@ -350,24 +367,12 @@ namespace LOP.EditorTools
         //  빛 재질 밑감에 세기를 곱한다 — 1보다 크면(밑감 밝은 채널이 1에 가까워서) HDR 값이 되어 블룸 문턱을 살짝 넘는다.
         private static Color ScaleRgb(Color c, float k) => new Color(c.r * k, c.g * k, c.b * k, c.a);
 
-        //  strataColors(FlappyMineLook)와 strata.png를 구운 기본색(STRATA_COLORS, mine_parts.py) 네 색의 평균을
-        //  채널별로 나눈 비율 — 기본값 그대로면 1(흰색, 틴트 없음). 네 띠를 따로 바꾸려면 텍스처를 다시 구워야 한다
-        //  (Task 3 보고) — 이건 "전체 틴트"로 대신하는 근사치.
+        //  strata.png를 구운 기본 네 색(STRATA_COLORS, mine_parts.py) — strataColors가 비었을 때 차분한 띠의 대신 값.
         private static readonly Color[] DefaultStrataColors =
         {
             new Color32(0x7a, 0x56, 0x46, 255), new Color32(0x6a, 0x48, 0x38, 255),
             new Color32(0x8a, 0x64, 0x4e, 255), new Color32(0x5e, 0x40, 0x34, 255),
         };
-
-        private static Color StrataTint(FlappyMineLook look)
-        {
-            Color avg = AverageRgb(look.strataColors);
-            Color baseAvg = AverageRgb(DefaultStrataColors);
-            return new Color(
-                baseAvg.r > 0f ? avg.r / baseAvg.r : 1f,
-                baseAvg.g > 0f ? avg.g / baseAvg.g : 1f,
-                baseAvg.b > 0f ? avg.b / baseAvg.b : 1f);
-        }
 
         private static Color AverageRgb(Color[] colors)
         {

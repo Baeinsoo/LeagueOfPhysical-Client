@@ -238,15 +238,24 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void Strata_슬롯은_strata_텍스처를_쓰고_기본색은_흰색이다()
+        public void Strata_슬롯은_차분한_strata_calm_텍스처를_쓰고_기본색은_흰색이다()
         {
+            //  10-10 Task 7 Fix 1(사용자 "디자인이 시끄럽다"): 대비 큰 strata.png 대신 네 띠를 평균 쪽으로 당긴 어두운 띠를 굽는다.
             var look = Look();
             try
             {
                 FlappyMineMaterials.Ensure(look);
                 var strata = AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/Strata.mat");
                 Assert.IsNotNull(strata, "Strata.mat이 없다");
-                Assert.AreEqual("strata", strata.GetTexture("_BaseMap").name);
+                Assert.AreEqual("strata_calm", strata.GetTexture("_BaseMap").name);
+                //  기본값(대비 0.12)이면 띠 사이 밝기 차가 아주 작다 — 원래 네 색은 0.15쯤 벌어졌다.
+                var png = new Texture2D(2, 2);
+                png.LoadImage(System.IO.File.ReadAllBytes("Assets/Art/Textures/Mine/strata_calm.png"));
+                float lo = 1f, hi = 0f;
+                foreach (Color p in png.GetPixels()) { float l = p.grayscale; lo = Mathf.Min(lo, l); hi = Mathf.Max(hi, l); }
+                Object.DestroyImmediate(png);
+                Assert.Less(hi - lo, 0.05f, "지층 띠 대비가 크다");
+                Assert.Less(hi, 0.5f, "바위가 어둡지 않다");
                 var color = strata.GetColor("_BaseColor");
                 Assert.AreEqual(1f, color.r, 0.01f);
                 Assert.AreEqual(1f, color.g, 0.01f);

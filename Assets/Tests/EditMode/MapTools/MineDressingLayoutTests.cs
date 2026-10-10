@@ -478,50 +478,6 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(overlaps, MineDressingLayout.SpanOverlaps(x0, x1, From, To));
         }
 
-        [Test]
-        public void 걸친_조각이_없으면_범위_그대로()
-        {
-            var spans = new List<(float, float)> { (-40f, -20f), (-20f, 0f), (0f, 50f), (50f, 94.25f), (94.25f, 120f) };
-            var (from, to) = MineDressingLayout.CoverRange(spans, From, To);
-            Assert.AreEqual(From, from);
-            Assert.AreEqual(To, to);
-        }
-
-        [Test]
-        public void 걸친_조각_끝까지_그림_범위를_넓힌다()
-        {
-            var spans = new List<(float, float)> { (-60f, -21f), (-21f, 0f), (0f, 94f), (94f, 96.5f), (96.5f, 200f) };
-            var (from, to) = MineDressingLayout.CoverRange(spans, From, To);
-            Assert.AreEqual(-21f, from);
-            Assert.AreEqual(96.5f, to);
-        }
-
-        [Test]
-        public void 실제_코스의_회색_바닥_조각은_평평한_앞부분에서_걸치지_않거나_덮인다()
-        {
-            //  굽기와 같은 조각 경계(−20, Breaks(0.5), 길이+20). 넓힌 범위 안의 조각은 모두 안이고, 밖의 것은 모두 안 겹친다
-            //  — 그래서 "켜 둔 회색 조각"과 "그림"이 겹치는 자리가 없다.
-            //  10-09 3막: 실제 굽기 범위는 [From, c.FlatEnd()]다(위 To=94.25는 옛 보기 구간 — 이제 입구 바로 뒤가
-            //  수직 갱이라 94.25까지 평평하지 않다). FlatEnd가 Breaks의 꺾임 경계가 아닌 값으로 바뀌는 날,
-            //  CoverRange가 그 꺾이는 자리까지 옷을 넓히면 여기서 잡힌다.
-            var c = Course();
-            float to = c.FlatEnd();
-            var xs = new List<float> { -20f };
-            xs.AddRange(c.Breaks(0.5f));
-            xs.Add(c.Length + 20f);
-            var spans = new List<(float, float)>();
-            for (int i = 0; i + 1 < xs.Count; i++) { spans.Add((xs[i], xs[i + 1])); }
-
-            var (from, resultTo) = MineDressingLayout.CoverRange(spans, From, to);
-            Assert.LessOrEqual(from, From);
-            Assert.GreaterOrEqual(resultTo, to);
-            foreach (var (x0, x1) in spans)
-            {
-                bool inside = MineDressingLayout.SpanInside(x0, x1, from, resultTo);
-                Assert.IsTrue(inside || !MineDressingLayout.SpanOverlaps(x0, x1, from, resultTo), $"[{x0}, {x1}]가 넓힌 범위에 걸친다");
-            }
-        }
-
         // ══ 펼치기 1차(10-10): 구간 배치 규칙 ══
 
         //  부품 z 범위(Task 3 보고 표, 원점 기준) — 닿는 부품은 뒷면 ≤ 0(판정면 앞), 장식은 앞면 > 0(판정면 뒤).
@@ -533,19 +489,19 @@ namespace LOP.MapTools.Tests
             { MinePartKind.BenchFace, (-1.35f, 1.3f) }, { MinePartKind.ShortScaffold, (-0.35f, 0.35f) },
             { MinePartKind.RockMass, (-1.3f, 1.3f) }, { MinePartKind.BoreFrame, (-1.65f, 0.52f) }, { MinePartKind.BoltSign, (-0.11f, 0.06f) },
             { MinePartKind.PadGlow, (-0.67f, 0.65f) }, { MinePartKind.DividerWall, (-0.75f, 0.75f) }, { MinePartKind.MergeSlope, (-1.35f, 1.3f) },
-            { MinePartKind.GateCap, (-0.80f, 0.73f) },
+            { MinePartKind.GateCap, (-0.80f, 0.73f) }, { MinePartKind.EdgeRim, (-1.3f, 1.3f) },
         };
 
         static readonly HashSet<MinePartKind> Touchable = new HashSet<MinePartKind>
         {
-            MinePartKind.RockMass, MinePartKind.GateCap, MinePartKind.MergeSlope, MinePartKind.DividerWall,
-            MinePartKind.BenchFace, MinePartKind.ShaftTimber, MinePartKind.PadGlow,
+            MinePartKind.RockMass, MinePartKind.EdgeRim, MinePartKind.MergeSlope, MinePartKind.DividerWall,
+            MinePartKind.BenchFace, MinePartKind.ShaftTimber, MinePartKind.PadGlow, MinePartKind.BoltSign,
         };
 
         static readonly HashSet<MinePartKind> Decoration = new HashSet<MinePartKind>
         {
             MinePartKind.EntranceFrame, MinePartKind.EntranceSign, MinePartKind.LanternString, MinePartKind.Lantern,
-            MinePartKind.CageRail, MinePartKind.Cage, MinePartKind.ShortScaffold, MinePartKind.BoltSign,
+            MinePartKind.CageRail, MinePartKind.Cage, MinePartKind.ShortScaffold,
         };
 
         const float LookTimberSpacing = 0.45f;   // FlappyMineLook.shaftTimberSpacing 기본값
@@ -582,6 +538,7 @@ namespace LOP.MapTools.Tests
             switch (p.Kind)
             {
                 case MinePartKind.RockMass:   // 왼끝 아래, x·y 축척
+                case MinePartKind.EdgeRim:    // RockMass 메시
                     return u >= 0 && u <= p.ScaleX && v >= 0 && v <= p.ScaleY;
                 case MinePartKind.GateCap:    // 가운데, 윗면 원점, 두께 0.4 × y 축척 아래로
                     return Math.Abs(u) <= 0.975 * p.ScaleX && v >= -0.4 * p.ScaleY && v <= 0;
@@ -630,13 +587,12 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(151.25f, z.DressEnd, 0.01f, "옷 범위 끝 = 첫 레일 롤러코스터");
         }
 
-        [TestCase(4)]
-        [TestCase(3)]
-        public void 입구_문틀은_EntranceEnd_쪽_통로_중심_기준이고_랜턴은_줄을_따라(int lanterns)
+        [Test]
+        public void 입구_문틀은_EntranceEnd_쪽_통로_중심_기준이고_간판은_상인방_앞()
         {
             var c = Course();
             var z = MineDressingLayout.Zones(c);
-            var e = MineDressingLayout.Entrance(c, z, lanterns);
+            var e = MineDressingLayout.Entrance(c, z);
             var frame = e.Single(p => p.Kind == MinePartKind.EntranceFrame);
             Assert.AreEqual(z.EntranceEnd, frame.X + 2.5f, Eps, "문틀 오른끝 = EntranceEnd");
             Assert.AreEqual(z.OutsideEnd, frame.X - 2.5f, 0.01f, "3막은 문틀 폭이 구간을 꼭 채운다");
@@ -645,19 +601,6 @@ namespace LOP.MapTools.Tests
             var sign = e.Single(p => p.Kind == MinePartKind.EntranceSign);
             Assert.AreEqual(frame.X, sign.X, Eps);
             Assert.Greater(sign.Y - 0.5f, frame.Y + 14.56f, "간판은 통로(문틀 안) 위에");
-
-            var rope = e.Single(p => p.Kind == MinePartKind.LanternString);
-            Assert.AreEqual(frame.X - 1.9f, rope.X, Eps, "줄 왼끝 = 왼 기둥 안쪽 면");
-            Assert.AreEqual(3.8f, rope.ScaleX, Eps, "줄 = 기둥 사이");
-            var ls = e.Where(p => p.Kind == MinePartKind.Lantern).OrderBy(p => p.X).ToList();
-            Assert.AreEqual(lanterns, ls.Count);
-            foreach (var l in ls)
-            {
-                Assert.That(l.X, Is.InRange(rope.X, rope.X + rope.ScaleX));
-                float t = (l.X - rope.X) / rope.ScaleX;
-                Assert.AreEqual(rope.Y - 0.35f * 4f * t * (1f - t), l.Y, Eps, $"x={l.X} 랜턴이 처진 줄에 안 걸렸다");
-                Assert.Less(l.ScaleX, 1f, "줄에 다는 랜턴은 작게");
-            }
         }
 
         [Test]
@@ -721,28 +664,8 @@ namespace LOP.MapTools.Tests
             }
             Assert.Greater(touchFloor, 5, "판정선에 붙은 바닥 쪽 첫 줄이 없다");
             Assert.Greater(touchCeiling, 5, "판정선에 붙은 천장 쪽 첫 줄이 없다");
-            //  층층이: 같은 자리에 간격 0.45로 여러 줄.
-            Assert.Greater(timbers.Count, (touchFloor + touchCeiling) * 5);
-        }
-
-        [Test]
-        public void 케이지_레일과_케이지는_수직_갱마다_하나씩_통로_뒤에()
-        {
-            var c = Course();
-            var z = MineDressingLayout.Zones(c);
-            var w = MineDressingLayout.ShaftWalls(c, z, LookTimberSpacing, 0.3f);
-            var cage = w.Single(p => p.Kind == MinePartKind.Cage);
-            var rail = w.Single(p => p.Kind == MinePartKind.CageRail);
-            //  낙하 24.8 → 32.8의 30% 자리, 통로 가운데.
-            Assert.AreEqual(24.8f + 0.3f * 8f, cage.X, 0.01f);
-            Assert.AreEqual(c.CenterAt(cage.X), cage.Y, Eps);
-            Assert.AreEqual(cage.X, rail.X, Eps);
-            Assert.Less(rail.Y, Floor(c, rail.X) - 3f, "레일 아래 끝은 바닥 벽 속");
-            Assert.Greater(rail.Y + rail.ScaleY, Ceiling(c, rail.X) + 3f, "레일 위 끝은 천장 벽 속");
-            //  갱목(z ±0.5 + 원점) 뒤 — 통로 밖 레일은 갱목이 가린다.
-            float timberBack = w.Where(p => p.Kind == MinePartKind.ShaftTimber).Max(p => p.Z) + 0.5f;
-            Assert.Greater(rail.Z - 0.11f, timberBack);
-            Assert.Greater(cage.Z - 0.605f, timberBack);
+            //  두 줄(Task 7 Fix 1 — 16줄은 거대한 판자 경사로로 읽혔다): 둘째 줄은 반 칸 어긋나 조각이 하나씩 더 많다.
+            Assert.That(timbers.Count, Is.InRange((touchFloor + touchCeiling) * 2 - 4, (touchFloor + touchCeiling) * 2 + 12));
         }
 
         [Test]
@@ -770,14 +693,6 @@ namespace LOP.MapTools.Tests
                 var inner = World(p, p.ScaleX / 2, -2.25);
                 if (p.Flipped) { Assert.Greater(inner.y, Ceiling(c, (float)inner.x)); } else { Assert.Less(inner.y, Floor(c, (float)inner.x)); }
             }
-            var scaffolds = s.Where(p => p.Kind == MinePartKind.ShortScaffold).ToList();
-            Assert.AreEqual(6, scaffolds.Count);
-            foreach (var p in scaffolds)
-            {
-                //  내리막 쪽 다리가 바닥에 닿고(뜨지 않고), 오르막 쪽 다리는 단에 묻힌다.
-                float lowLeg = Math.Min(Floor(c, p.X - 1.05f), Floor(c, p.X + 1.05f));
-                Assert.AreEqual(lowLeg, p.Y, Eps, $"x={p.X} 비계가 바닥에 안 섰다");
-            }
         }
 
         [Test]
@@ -803,10 +718,10 @@ namespace LOP.MapTools.Tests
             foreach (MineFork f in c.Forks)
             {
                 var pieces = MineDressingLayout.ForkPieces(c, f);
-                var rock = pieces.Where(p => p.Kind == MinePartKind.RockMass || p.Kind == MinePartKind.GateCap
+                var rock = pieces.Where(p => p.Kind == MinePartKind.RockMass || p.Kind == MinePartKind.EdgeRim
                                              || p.Kind == MinePartKind.MergeSlope || p.Kind == MinePartKind.PadGlow).ToList();
                 //  판정면 앞(앞면 z < 0)에 그려진 것 전부 — 열린 칸·틈 위에 하나라도 있으면 "닿을 것처럼 보이는데 지나간다".
-                var inFront = pieces.Where(p => p.Z + PartDepth[p.Kind].front < 0f).ToList();
+                var inFront = pieces.Where(p => Front(p) < 0f).ToList();
                 var tubes = c.Tubes.Where(t => t.X0 >= f.X0 - 1e-3f && t.X1 <= f.X1 + 1e-3f).OrderBy(t => t.X0).ToList();
                 Assert.AreEqual(2, tubes.Count, "갈림길 = 굴 + 패드 방");
                 MineRect lane = f.TunnelLane;
@@ -839,10 +754,12 @@ namespace LOP.MapTools.Tests
                 Assert.Greater(solid, 500);
                 Assert.Greater(open, 500);
                 //  밝은 테가 바위 앞면보다 앞(바위가 테를 가리지 않게).
-                float rockFront = pieces.Where(p => p.Kind == MinePartKind.RockMass).Min(p => p.Z) + PartDepth[MinePartKind.RockMass].front;
-                foreach (var cap in pieces.Where(p => p.Kind == MinePartKind.GateCap))
+                float rockFront = pieces.Where(p => p.Kind == MinePartKind.RockMass).Min(Front);
+                float slopeFront = pieces.Where(p => p.Kind == MinePartKind.MergeSlope).Min(Front);
+                foreach (var cap in pieces.Where(p => p.Kind == MinePartKind.EdgeRim))
                 {
-                    Assert.Less(cap.Z + PartDepth[MinePartKind.GateCap].front, rockFront, "밝은 테가 바위 뒤에 묻혔다");
+                    Assert.Less(Front(cap), Math.Min(rockFront, slopeFront), "밝은 테가 바위 뒤에 묻혔다");
+                    Assert.LessOrEqual(Back(cap), 0f, "밝은 테 뒷면이 판정면 뒤");
                 }
             }
         }
@@ -853,7 +770,7 @@ namespace LOP.MapTools.Tests
             var c = Course();
             foreach (MineFork f in c.Forks)
             {
-                var caps = MineDressingLayout.ForkPieces(c, f).Where(p => p.Kind == MinePartKind.GateCap).ToList();
+                var caps = MineDressingLayout.ForkPieces(c, f).Where(p => p.Kind == MinePartKind.EdgeRim).ToList();
                 var tubes = c.Tubes.Where(t => t.X0 >= f.X0 - 1e-3f && t.X1 <= f.X1 + 1e-3f).OrderBy(t => t.X0).ToList();
                 MineRect lane = f.TunnelLane;
                 int samples = 0;
@@ -893,12 +810,9 @@ namespace LOP.MapTools.Tests
                 //  휘는 틈 위 판정면 앞에 걸친다. 메시를 고친 뒤 다시 넣는다.
                 Assert.IsFalse(pieces.Any(p => p.Kind == MinePartKind.BoreFrame), "굴 문틀은 메시를 고치기 전까지 놓지 않는다");
 
+                //  ⚡ 판은 칸막이 앞머리(번개_판은_칸막이_앞머리에_… 테스트) — 굴 시작 앞.
                 var bolt = pieces.Single(p => p.Kind == MinePartKind.BoltSign);
-                //  굴 입구 위(입구 앞 열린 칸, 판정면 뒤) — 굴 틈 위 끝보다 위, 칸 위 끝 아래, 굴 시작 앞.
-                Assert.Greater(bolt.Y - 0.547f, bore.Center(bore.X0) + bore.Gap / 2f);
-                Assert.Less(bolt.Y + 0.547f, Math.Min(lane.Y1, Ceiling(c, bolt.X)));
-                Assert.LessOrEqual(bolt.X + 0.95f, bore.X0);
-                Assert.GreaterOrEqual(bolt.X - 0.95f, f.X0);
+                Assert.LessOrEqual(bolt.X + 0.95f * bolt.ScaleX, bore.X0);
 
                 var pad = c.Pads.Single(q => q.Rect.X0 > f.X0 && q.Rect.X1 < f.X1);
                 var glow = pieces.Single(p => p.Kind == MinePartKind.PadGlow);
@@ -936,8 +850,9 @@ namespace LOP.MapTools.Tests
             Assert.IsTrue(all.Any(p => Touchable.Contains(p.Kind)) && all.Any(p => Decoration.Contains(p.Kind)));
             foreach (var p in all)
             {
-                var (front, back) = PartDepth[p.Kind];
-                if (Touchable.Contains(p.Kind)) { Assert.LessOrEqual(p.Z + back, 0.001f, $"{p} 닿는 부품 뒷면이 판정면 뒤"); }
+                float front = Front(p) - p.Z, back = Back(p) - p.Z;
+                //  갱목 뒤 바위(RockMass, 앞면 ≥ 0)는 판정선에서 물러난 바탕이라 뺀다(수직_갱은_… 테스트가 지킨다).
+                if (Touchable.Contains(p.Kind) && p.Z + front < 0f) { Assert.LessOrEqual(p.Z + back, 0.001f, $"{p} 닿는 부품 뒷면이 판정면 뒤"); }
                 else if (Decoration.Contains(p.Kind)) { Assert.Greater(p.Z + front, 0f, $"{p} 장식이 판정면 앞"); }
             }
             //  범위(옷 끝 = 롤러코스터 앞) 밖에는 놓지 않는다.
@@ -989,6 +904,444 @@ namespace LOP.MapTools.Tests
             var gb = MineDressingLayout.Background(c2, From, 151.25f, 7, Density);
             Assert.AreEqual(ga.Count, gb.Count);
             for (int i = 0; i < ga.Count; i++) { Assert.AreEqual(ga[i], gb[i], $"배경 {i}번째"); }
+        }
+
+        // ══ Task 7 Fix 1(10-10): 첫 굽기 캡처에서 나온 것 — "선명하고 테두리가 밝으면 닿는 것" ══
+        //  판정면 앞 그림, 그리고 판정면과 안개 막 사이의 장식은 열린 통로(닿지 않는 곳)에 있으면 장애물로 읽힌다.
+
+        //  부품 국소 발자국(원점·축척 규칙은 Task 3 실측, 굽기 Place와 같다): 직사각 (u0, u1, v0, v1)은 축척을 곱한 값, tri면 MergeSlope 삼각형.
+        static (double u0, double u1, double v0, double v1, bool tri)? Footprint(MinePiece p)
+        {
+            double sx = p.ScaleX, sy = p.ScaleY;
+            switch (p.Kind)
+            {
+                case MinePartKind.TrestleBay: return (-1.2 * sx, 1.2 * sx, -12 * sy, 0, false);
+                case MinePartKind.CeilingRock: return (-1.0 * sx, 1.0 * sx, 0, 4 * sy, false);
+                case MinePartKind.Beam: return (-0.5 * sx, 0.5 * sx, 0, 0.8 * sy, false);
+                case MinePartKind.RockMass:
+                case MinePartKind.EdgeRim: return (Math.Min(0, sx), Math.Max(0, sx), Math.Min(0, sy), Math.Max(0, sy), false);
+                case MinePartKind.MergeSlope: return (Math.Min(0, sx), Math.Max(0, sx), Math.Min(0, sy), Math.Max(0, sy), true);
+                case MinePartKind.GateCap: return (-0.975 * sx, 0.975 * sx, -0.4 * sy, 0, false);
+                case MinePartKind.ShaftTimber: return (0, sx, 0, 0.4 * sy, false);
+                case MinePartKind.BenchFace: return (0, sx, -4.5 * sy, 0, false);
+                case MinePartKind.DividerWall: return (0, sx, -0.6 * sy, 0.6 * sy, false);
+                case MinePartKind.PadGlow: return (-0.6, 0.6, -0.15, 0.15, false);
+                case MinePartKind.BoltSign: return (-0.95 * sx, 0.95 * sx, -0.547 * sy, 0.547 * sy, false);
+                case MinePartKind.EntranceSign: return (-1.5 * sx, 1.5 * sx, -0.5 * sy, 0.5 * sy, false);
+                case MinePartKind.LanternString: return (-0.014 * sx, 1.014 * sx, -0.756 * sy, 0.011 * sy, false);
+                case MinePartKind.Lantern: return (-0.3 * sx, 0.3 * sx, -2.2 * sy, 0, false);
+                case MinePartKind.Cage: return (-0.8, 0.8, -1.0, 1.0, false);
+                case MinePartKind.CageRail: return (-1.03 * sx, 1.03 * sx, 0, sy, false);
+                case MinePartKind.ShortScaffold: return (-1.2, 1.2, 0, 2.5, false);
+                default: return null;
+            }
+        }
+
+        //  발자국 안을 세계 0.1 m 간격으로 훑은 점.
+        static IEnumerable<(double x, double y)> FootprintSamples(MinePiece p, double step = 0.1)
+        {
+            var f = Footprint(p);
+            if (f == null) { yield break; }
+            var (u0, u1, v0, v1, tri) = f.Value;
+            int nu = Math.Max(1, (int)Math.Ceiling((u1 - u0) / step)), nv = Math.Max(1, (int)Math.Ceiling((v1 - v0) / step));
+            for (int i = 0; i <= nu; i++)
+            {
+                for (int j = 0; j <= nv; j++)
+                {
+                    double u = u0 + (u1 - u0) * i / nu, v = v0 + (v1 - v0) * j / nv;
+                    if (tri)
+                    {
+                        double s = u / p.ScaleX, t = v / p.ScaleY;
+                        if (t < s - 1e-9) { continue; }
+                    }
+                    yield return World(p, u, v);
+                }
+            }
+        }
+
+        //  판정 바닥·천장선 = 회색 박스 조각(Breaks 사이 현).
+        sealed class Judge
+        {
+            readonly MineCourse c;
+            readonly float[] xs;
+
+            public Judge(MineCourse c)
+            {
+                this.c = c;
+                var l = new List<float> { -40f };
+                l.AddRange(c.Breaks(MineDressingLayout.BreakStep));
+                l.Add(c.Length + 40f);
+                xs = l.ToArray();
+            }
+
+            double Chord(double x, Func<float, float> line)
+            {
+                int i = Array.BinarySearch(xs, (float)x);
+                if (i < 0) { i = ~i; }
+                i = Math.Max(1, Math.Min(xs.Length - 1, i));
+                float a = xs[i - 1], b = xs[i];
+                double ya = line(a), yb = line(b);
+                return b - a < 1e-6 ? ya : ya + (yb - ya) * (x - a) / (b - a);
+            }
+
+            public double FloorAt(double x) => Chord(x, q => c.CenterAt(q) - c.HalfAt(q));
+            public double CeilAt(double x) => Chord(x, q => c.CenterAt(q) + c.HalfAt(q));
+
+            //  열린 곳 = 판정 바닥·천장선 사이, 관문 파이프·칸막이·굴 바위 밖.
+            public bool Open(double x, double y)
+            {
+                if (y <= FloorAt(x) || y >= CeilAt(x)) { return false; }
+                foreach (MineGate g in c.Gates)
+                {
+                    if (Math.Abs(x - g.X) > g.Width / 2.0) { continue; }
+                    double gb = g.GapCenter - g.Gap / 2.0, gt = g.GapCenter + g.Gap / 2.0;
+                    if ((y < gb && (float.IsNaN(g.Low) || y > g.Low)) || (y > gt && (float.IsNaN(g.High) || y < g.High))) { return false; }
+                }
+                foreach (MineRect w in c.Walls)
+                {
+                    if (x >= w.X0 && x <= w.X1 && y >= w.Y0 && y <= w.Y1) { return false; }
+                }
+                foreach (MineTube t in c.Tubes)
+                {
+                    if (x < t.X0 || x > t.X1) { continue; }
+                    double e = JudgedCenter(t, x);
+                    if ((y < e - t.Gap / 2.0 && (float.IsNaN(t.Low) || y > t.Low)) || (y > e + t.Gap / 2.0 && (float.IsNaN(t.High) || y < t.High))) { return false; }
+                }
+                return true;
+            }
+
+            //  열린 곳 안으로 0.05 넘게 들어간 점(둘레 0.05·0.03의 열여섯 방향도 다 열린 곳) — 그림 경계 = 판정 경계 ± 0.05.
+            //  대각선까지 보는 것은 판정 고체의 모서리(굴 끝 · 틈 가장자리) 바로 바깥 점을 거르려고다.
+            public bool DeepOpen(double x, double y)
+            {
+                if (!Open(x, y)) { return false; }
+                foreach (double r in new[] { 0.05, 0.03 })
+                {
+                    for (int k = 0; k < 16; k++)
+                    {
+                        double a = k * Math.PI / 8;
+                        if (!Open(x + r * Math.Cos(a), y + r * Math.Sin(a))) { return false; }
+                    }
+                }
+                return true;
+            }
+        }
+
+        static MineZones Zones3(MineCourse c) => MineDressingLayout.Zones(c);
+
+        //  범위 안 바닥·천장 + 구간 부품 전부.
+        static List<MinePiece> AllRangePieces(MineCourse c, MineZones z)
+        {
+            var all = MineDressingLayout.FloorAndCeiling(c, z, From, z.DressEnd);
+            all.AddRange(AllSpreadPieces(c, z));
+            return all;
+        }
+
+        static readonly Dictionary<MinePartKind, float> FrontOf = new Dictionary<MinePartKind, float>
+        {
+            //  부품 앞면 z(원점 기준, Task 3·Task 7 실측).
+            { MinePartKind.TrestleBay, -0.65f }, { MinePartKind.CeilingRock, -1.607f }, { MinePartKind.Beam, -0.8f },
+        };
+
+        static float Front(MinePiece p) => p.Z + (FrontOf.TryGetValue(p.Kind, out float f) ? f : PartDepth[p.Kind].front * MineDressingLayout.DepthScale(p.Kind));
+        static float Back(MinePiece p) => p.Z + PartDepth[p.Kind].back * MineDressingLayout.DepthScale(p.Kind);
+
+        [Test]
+        public void 판정면_앞_그림은_범위_안_열린_통로에_0_05_넘게_들어가지_않는다()
+        {
+            //  캡처(10-10 Task 7): 굽은 칸 비계 다리가 열린 골짜기를 가로지르고(1.90 m), 가파른 천장 바위 옆면이 V 아래로 내려왔다(1.20 m).
+            var c = Course();
+            var z = Zones3(c);
+            var judge = new Judge(c);
+            var front = AllRangePieces(c, z).Where(p => Front(p) < 0f).ToList();
+            Assert.Greater(front.Count, 300);
+            var bad = new List<string>();
+            foreach (var p in front)
+            {
+                foreach (var (x, y) in FootprintSamples(p))
+                {
+                    if (x < From || x > z.DressEnd) { continue; }
+                    if (judge.DeepOpen(x, y)) { bad.Add($"{p} ({x:F2},{y:F2})"); break; }
+                }
+            }
+            Assert.IsEmpty(bad, $"판정면 앞 그림이 열린 통로에: {bad.Count}개\n" + string.Join("\n", bad.Take(20)));
+        }
+
+        [Test]
+        public void 판정면과_안개_막_사이_장식은_열린_통로에_없다()
+        {
+            //  캡처: 수직 갱 통로 안 케이지, 계단 통로 안 짧은 비계가 장애물로 읽혔다. 갱 입구 문틀은 굽기가 통로 안을 잘라 낸다(아래 테스트).
+            var c = Course();
+            var z = Zones3(c);
+            var judge = new Judge(c);
+            var mid = AllRangePieces(c, z).Where(p => Front(p) >= 0f && Front(p) < MineDressingLayout.HazeZ).ToList();
+            Assert.IsNotEmpty(mid);
+            var bad = new List<string>();
+            foreach (var p in mid)
+            {
+                if (MineDressingLayout.ClipsToCorridor(p.Kind)) { continue; }
+                Assert.IsNotNull(Footprint(p), $"{p.Kind} 발자국이 없다");
+                foreach (var (x, y) in FootprintSamples(p))
+                {
+                    if (judge.DeepOpen(x, y)) { bad.Add($"{p} ({x:F2},{y:F2})"); break; }
+                }
+            }
+            Assert.IsEmpty(bad, "판정면 뒤 장식이 열린 통로에:\n" + string.Join("\n", bad));
+        }
+
+        [Test]
+        public void 비계는_완만하고_곧은_긴_바닥에만_그_밖은_다리_없는_바위_띠와_밝은_테()
+        {
+            var c = Course();
+            var z = Zones3(c);
+            var fc = MineDressingLayout.FloorAndCeiling(c, z, From, z.DressEnd);
+            var bays = fc.Where(p => p.Kind == MinePartKind.TrestleBay).ToList();
+            Assert.Greater(bays.Count, 20);
+            foreach (var b in bays)
+            {
+                Assert.LessOrEqual(Math.Abs(b.AngleDegrees), MineDressingLayout.TrestleMaxSlopeDegrees + 1e-3, $"{b} 기운 칸에 비계");
+            }
+            //  낮은 천장 물결(118.4~142.4)·입구 오르막(19.8~22.8)에는 비계가 없고 바위 띠 + 밝은 테가 바닥선을 맡는다.
+            foreach (var (a, b) in new[] { (19.8f, 22.8f), (115.4f, 145.4f) })
+            {
+                Assert.IsFalse(bays.Any(p => p.X > a + 0.01f && p.X < b - 0.01f), $"[{a}, {b}] 굽은 바닥에 비계");
+                Assert.IsTrue(fc.Any(p => p.Layer == 0 && p.Kind == MinePartKind.EdgeRim && p.X > a && p.X < b), $"[{a}, {b}] 바닥 밝은 테가 없다");
+                Assert.IsTrue(fc.Any(p => p.Layer == 0 && p.Kind == MinePartKind.RockMass && p.X > a - 0.01f && p.X < b), $"[{a}, {b}] 바닥 바위 띠가 없다");
+            }
+            //  밝은 테가 굽은 바닥선을 빈틈없이 덮는다(테 안쪽 0.03).
+            //  굴 안 천장은 전부 차분한 바위 띠(천장 바위 부품 CeilingRock은 쓰지 않는다 — 사용자 10-10 "시끄럽다").
+            Assert.IsFalse(fc.Any(p => p.Kind == MinePartKind.CeilingRock || p.Kind == MinePartKind.GateCap), "바닥·천장에 천장 바위·쇠테가 있다");
+            var rims = fc.Where(p => p.Kind == MinePartKind.EdgeRim).ToList();
+            var judge = new Judge(c);
+            foreach (var (a, b, layer) in new[] { (19.85, 22.75, 0), (115.45, 145.35, 0), (24.85, 151.2, 1) })
+            {
+                for (double x = a; x < b; x += 0.05)
+                {
+                    if (layer == 1 && MineDressingLayout.PlainSpans(c, z, From, z.DressEnd).All(sp => x < sp.from || x > sp.to)) { continue; }   // 갱목·단 구간
+                    double y = layer == 0 ? judge.FloorAt(x) - 0.03 : judge.CeilAt(x) + 0.03;
+                    Assert.IsTrue(rims.Any(p => p.Layer == layer && Covers(p, x, y)), $"{(layer == 0 ? "바닥" : "천장")} ({x:F2},{y:F2})에 밝은 테가 없다");
+                    //  테 밖(바위 쪽 0.5·3·8 m)은 바위가 채운다.
+                    foreach (double d in new[] { 0.5, 3.0, 8.0 })
+                    {
+                        double yy = layer == 0 ? judge.FloorAt(x) - d : judge.CeilAt(x) + d;
+                        Assert.IsTrue(fc.Any(p => p.Layer == layer && (p.Kind == MinePartKind.RockMass || p.Kind == MinePartKind.MergeSlope) && Covers(p, x, yy)),
+                                      $"({x:F2},{yy:F2}) 판정 고체에 바위가 없다");
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void 바닥_천장_그림은_범위를_빈틈없이_딱_맞게_덮는다()
+        {
+            //  캡처: 범위에 걸친 회색 Floor_117(146.8~178.8)이 범위 안에 회색으로 보였다. 이제 그림 범위는 넓히지 않고 [from, to] 그대로다
+            //  (걸친 회색 조각은 굽기가 범위 밖 부분만 남긴다 — 아래 테스트).
+            var c = Course();
+            var z = Zones3(c);
+            var judge = new Judge(c);
+            var fc = MineDressingLayout.FloorAndCeiling(c, z, From, z.DressEnd);
+            var spans = MineDressingLayout.PlainSpans(c, z, From, z.DressEnd);
+            //  판정선 바로 바깥(0.1)을 그 층 그림이 덮나.
+            bool Covered(int layer, double x)
+            {
+                double y = layer == 0 ? judge.FloorAt(x) - 0.1 : judge.CeilAt(x) + 0.1;
+                return fc.Any(p => p.Layer == layer && InFootprint(p, x, y));
+            }
+            foreach (int layer in new[] { 0, 1 })
+            {
+                foreach (var (a, b) in spans)
+                {
+                    for (double x = a + 0.02; x < b - 0.02; x += 0.1)
+                    {
+                        //  꺾이는 곳에서 이웃 조각 끝이 부채꼴로 벌어진 작은 홈(들보·비계 모서리)은 ± 0.15 안 이웃 점으로 봐준다.
+                        Assert.IsTrue(Covered(layer, x) || (Covered(layer, x - 0.15) && Covered(layer, x + 0.15)), $"{(layer == 0 ? "바닥" : "천장")} x={x:F2} 그림이 없다");
+                    }
+                }
+                Assert.IsFalse(Covered(layer, z.DressEnd + 0.1), "옷 끝 뒤까지 그렸다");
+                Assert.IsFalse(Covered(layer, From - 0.1), "옷 앞까지 그렸다");
+            }
+        }
+
+        static bool InFootprint(MinePiece p, double x, double y)
+        {
+            var f = Footprint(p);
+            if (f == null) { return false; }
+            var (u0, u1, v0, v1, tri) = f.Value;
+            var (u, v) = Local(p, x, y);
+            if (u < u0 - 1e-6 || u > u1 + 1e-6 || v < v0 - 1e-6 || v > v1 + 1e-6) { return false; }
+            return !tri || v / p.ScaleY >= u / p.ScaleX - 1e-9;
+        }
+
+        [Test]
+        public void 범위에_걸친_회색_조각은_범위_밖_부분만_남긴다()
+        {
+            //  Floor_117: x 146.83~178.75, 범위 끝 151.25.
+            var quad = new[] { (146.83, -56.28), (178.75, -56.28), (178.75, -60.28), (146.83, -60.28) };
+            var parts = MineDressingLayout.OutsideX(quad, -20, 151.25);
+            Assert.AreEqual(1, parts.Count);
+            Assert.AreEqual(151.25, parts[0].Min(p => p.x), 1e-6);
+            Assert.AreEqual(178.75, parts[0].Max(p => p.x), 1e-6);
+            Assert.AreEqual(-56.28, parts[0].Max(p => p.y), 1e-6);
+            Assert.AreEqual(-60.28, parts[0].Min(p => p.y), 1e-6);
+            //  기운 조각은 자른 자리 y를 잇는다.
+            var slant = new[] { (150.0, 0.0), (152.0, 2.0), (152.0, -2.0), (150.0, -4.0) };
+            var sp = MineDressingLayout.OutsideX(slant, -20, 151.25).Single();
+            Assert.AreEqual(1.25, sp.Where(p => Math.Abs(p.x - 151.25) < 1e-9).Max(p => p.y), 1e-6);
+            Assert.AreEqual(-2.75, sp.Where(p => Math.Abs(p.x - 151.25) < 1e-9).Min(p => p.y), 1e-6);
+            //  다 안이면 아무것도, 다 밖이면 그대로.
+            Assert.AreEqual(0, MineDressingLayout.OutsideX(new[] { (0.0, 0.0), (2.0, 0.0), (2.0, -1.0) }, -20, 151.25).Count);
+            Assert.AreEqual(3, MineDressingLayout.OutsideX(new[] { (160.0, 0.0), (162.0, 0.0), (162.0, -1.0) }, -20, 151.25).Single().Length);
+        }
+
+        [Test]
+        public void 수직_갱은_벽에_갱목_두_줄과_그_뒤_바위만()
+        {
+            //  캡처: 7 m 깊이 16줄 3 m 판자가 거대한 판자 경사로처럼 읽혔고, 통로 안 승강 케이지가 장애물로 읽혔다.
+            var c = Course();
+            var z = Zones3(c);
+            var w = MineDressingLayout.ShaftWalls(c, z, LookTimberSpacing);
+            Assert.IsFalse(w.Any(p => p.Kind == MinePartKind.Cage || p.Kind == MinePartKind.CageRail), "케이지·레일은 뺐다(사용자 10-10: 투머치)");
+            var timbers = w.Where(p => p.Kind == MinePartKind.ShaftTimber).ToList();
+            //  판자 길이는 실제 갱목 크기(1.5 m 근처) — 3 m로 늘이지 않는다.
+            foreach (var t in timbers) { Assert.LessOrEqual(t.ScaleX, 1.6f, $"{t} 판자가 너무 길다"); }
+            //  줄 수: 판자 가운데에서 판정선(꺾은선)까지 수직 거리 — 첫 줄 0.2, 둘째 줄 0.65. 그보다 깊은 판자는 없다.
+            var judge = new Judge(c);
+            var span0 = MineDressingLayout.ShaftSpans(c, z).Single();
+            double Dist(double px, double py, bool floorSide)
+            {
+                double best = double.MaxValue;
+                for (double x = span0.from - 1; x <= span0.to + 1; x += 0.02)
+                {
+                    double ly = floorSide ? judge.FloorAt(x) : judge.CeilAt(x);
+                    best = Math.Min(best, Math.Sqrt((px - x) * (px - x) + (py - ly) * (py - ly)));
+                }
+                return best;
+            }
+            int second = 0;
+            foreach (var t in timbers)
+            {
+                var (mx, my) = World(t, t.ScaleX / 2, 0.2);
+                double d = Dist(mx, my, my < c.CenterAt((float)mx));
+                Assert.LessOrEqual(d, 0.65 + 0.06, $"{t} 판자가 둘째 줄보다 깊다(d {d:F2}) — 벽은 두 줄");
+                if (d > 0.5) { second++; }
+            }
+            Assert.Greater(second, 10, "둘째 줄이 없다");
+            //  뒤 바위(RockMass, 판정면 뒤 앞면 ≥ 0)가 갱목 뒤 판정 고체를 덮는다: 갱 구간 판정선에서 바깥 1.0~5.0 m(세로).
+            var rock = w.Where(p => p.Kind == MinePartKind.RockMass || p.Kind == MinePartKind.MergeSlope).ToList();
+            Assert.IsNotEmpty(rock, "갱목 뒤 바위가 없다");
+            foreach (var r in rock) { Assert.GreaterOrEqual(Front(r), 0f, $"{r} 뒤 바위가 판정면 앞(갱목을 가린다)"); }
+            var span = MineDressingLayout.ShaftSpans(c, z).Single();
+            for (double x = span.from + 0.1; x < span.to - 0.1; x += 0.25)
+            {
+                foreach (int side in new[] { -1, 1 })
+                {
+                    double line = side < 0 ? judge.FloorAt(x) : judge.CeilAt(x);
+                    //  70° 벽은 수직 0.6 m가 세로로 1.75 m라 세로 3.0~5.0에서 본다.
+                    for (double d = 3.0; d <= 5.0; d += 0.5)
+                    {
+                        double y = line + side * d;
+                        Assert.IsTrue(rock.Any(r => Covers(r, x, y)) || timbers.Any(t => InTimber(t, x, y)), $"갱 벽 ({x:F2},{y:F2}) 판정 고체에 바위·갱목 그림이 없다");
+                    }
+                }
+            }
+        }
+
+        static bool InTimber(MinePiece p, double x, double y)
+        {
+            var (u, v) = Local(p, x, y);
+            return u >= 0 && u <= p.ScaleX && v >= 0 && v <= 0.4 * p.ScaleY;
+        }
+
+        [Test]
+        public void 계단은_바위_단만_짧은_비계는_없다()
+        {
+            var c = Course();
+            var s = MineDressingLayout.StairBenches(c, Zones3(c));
+            Assert.IsFalse(s.Any(p => p.Kind == MinePartKind.ShortScaffold), "짧은 비계는 뺐다(통로 안 장애물로 읽힘, 사용자 10-10: 투머치)");
+            Assert.AreEqual(12, s.Count(p => p.Kind == MinePartKind.BenchFace));
+        }
+
+        [Test]
+        public void 갱_입구는_문틀과_간판만이고_문틀은_열린_통로_안을_잘라_낸다()
+        {
+            var c = Course();
+            var z = Zones3(c);
+            var e = MineDressingLayout.Entrance(c, z);
+            CollectionAssert.AreEquivalent(new[] { MinePartKind.EntranceFrame, MinePartKind.EntranceSign }, e.Select(p => p.Kind).ToArray(),
+                                           "입구는 문틀(상인방) + 간판만(랜턴 줄은 뺐다 — 사용자 10-10: 투머치)");
+            Assert.IsTrue(MineDressingLayout.ClipsToCorridor(MinePartKind.EntranceFrame));
+            //  문틀 기둥(국소 x ±1.9~2.5, y −1.02~14.62)을 삼각형 둘로 잘라 본다 — 남은 것은 통로 밖, 통로 밖 넓이는 그대로.
+            var frame = e.Single(p => p.Kind == MinePartKind.EntranceFrame);
+            var judge = new Judge(c);
+            foreach (double side in new[] { -1.0, 1.0 })
+            {
+                double u0 = side < 0 ? -2.5 : 1.9, u1 = side < 0 ? -1.9 : 2.5;
+                var a = (frame.X + u0, frame.Y - 1.02); var b = (frame.X + u1, frame.Y - 1.02);
+                var d = (frame.X + u1, frame.Y + 14.62); var f = (frame.X + u0, frame.Y + 14.62);
+                double kept = 0;
+                foreach (var tri in new[] { (a, b, d), (a, d, f) })
+                {
+                    foreach (var poly in MineDressingLayout.ClipOutsideCorridor(c, tri.Item1, tri.Item2, tri.Item3))
+                    {
+                        Assert.AreEqual(1.0, poly.Sum(q => q.w0 + q.w1 + q.w2) / poly.Count, 1e-9);
+                        var pts = poly.Select(q => (x: q.w0 * tri.Item1.Item1 + q.w1 * tri.Item2.Item1 + q.w2 * tri.Item3.Item1,
+                                                    y: q.w0 * tri.Item1.Item2 + q.w1 * tri.Item2.Item2 + q.w2 * tri.Item3.Item2)).ToList();
+                        foreach (var (x, y) in pts)
+                        {
+                            bool inside = y > judge.FloorAt(x) + 1e-4 && y < judge.CeilAt(x) - 1e-4;
+                            Assert.IsFalse(inside, $"기둥 {side} 남긴 꼭짓점 ({x:F2},{y:F2})이 열린 통로 안");
+                        }
+                        for (int i = 0; i < pts.Count; i++)
+                        {
+                            var p = pts[i]; var q = pts[(i + 1) % pts.Count];
+                            kept += (p.x * q.y - q.x * p.y) / 2.0;
+                        }
+                    }
+                }
+                //  통로 밖 넓이(0.01 격자).
+                double expect = 0;
+                for (double x = frame.X + u0 + 0.005; x < frame.X + u1; x += 0.01)
+                {
+                    double lo = frame.Y - 1.02, hi = frame.Y + 14.62;
+                    double below = Math.Max(0, Math.Min(hi, judge.FloorAt(x)) - lo), above = Math.Max(0, hi - Math.Max(lo, judge.CeilAt(x)));
+                    expect += (below + above) * 0.01;
+                }
+                Assert.Greater(expect, 1.0);
+                Assert.AreEqual(expect, Math.Abs(kept), 0.05, $"기둥 {side} 통로 밖 넓이");
+            }
+        }
+
+        [Test]
+        public void 번개_판은_칸막이_앞머리에_붙어_열린_칸에_걸치지_않는다()
+        {
+            var c = Course();
+            foreach (MineFork f in c.Forks)
+            {
+                var bolt = MineDressingLayout.ForkPieces(c, f).Single(p => p.Kind == MinePartKind.BoltSign);
+                var wall = c.Walls.Single(w => Math.Abs(w.X0 - f.X0) < 1e-3f);
+                Assert.Less(Front(bolt), -0.75f - 0.75f, "칸막이 앞면보다 앞");
+                Assert.GreaterOrEqual(bolt.X - 0.95f * bolt.ScaleX, wall.X0 - Eps);
+                Assert.GreaterOrEqual(bolt.Y - 0.547f * bolt.ScaleY, wall.Y0 + 0.02f, "판이 칸막이 아래로 삐져나온다");
+                Assert.LessOrEqual(bolt.Y + 0.547f * bolt.ScaleY, wall.Y1 - 0.02f, "판이 칸막이 위로 삐져나온다");
+            }
+        }
+
+        [Test]
+        public void 먼_비계는_무리로_끊어_놓아_성기게()
+        {
+            var c = Course();
+            var d = new MineDressingLayout.BackgroundDensity(9f, 0.5f, 16f, 2, 0.75f, 0.8f, 3, 5);
+            var far = MineDressingLayout.Background(c, From, To, 7, d).Where(p => p.Kind == MinePartKind.BgTrestleBay).OrderBy(p => p.X).ToList();
+            var full = MineDressingLayout.Background(c, From, To, 7, Density).Where(p => p.Kind == MinePartKind.BgTrestleBay).ToList();
+            double w = MineDressingLayout.BgTrestleBayWidth * 0.75;
+            Assert.That(far.Count, Is.InRange(full.Count * 3 / 8 - 2, full.Count * 3 / 8 + 2), "3칸 놓고 5칸 비운다");
+            int run = 1;
+            for (int i = 1; i < far.Count; i++)
+            {
+                double gap = far[i].X - far[i - 1].X;
+                if (gap < w * 1.5) { run++; Assert.LessOrEqual(run, 3, $"x={far[i].X} 무리가 3칸보다 길다"); }
+                else { Assert.AreEqual(w * 6, gap, 0.01, $"x={far[i].X} 무리 사이가 5칸이 아니다"); run = 1; }
+            }
         }
 
         sealed class FloatComparer : System.Collections.IComparer

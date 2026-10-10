@@ -33,11 +33,11 @@ namespace LOP.EditorTools
         [Range(0f, 1f)] public float hazeAlpha = 0.4f;           // 안개 진하기(비교판 "중간") — 노을 바깥
         //  굴 안 안개 진하기. 유니티는 선형 공간에서 섞어서, 어두운 굴 안개 0.4는 시안(sRGB에서 섞은 0.4)보다 옅게 먹는다 —
         //  배경 틀이 관문만큼 밝았다(10-08 캡처). 굴 안만 올린다.
-        [Range(0f, 1f)] public float hazeCaveAlpha = 0.55f;
+        [Range(0f, 1f)] public float hazeCaveAlpha = 0.65f;   // 10-10 Task 7 Fix 1: 0.55 → 0.65(배경이 관문 집중을 흐렸다)
         //  먼 안개 막(z 12) 진하기 — 먼 비계·실루엣은 안개를 두 겹 쓴다(10-08). 같은 까닭으로 어두운 굴 안개는
         //  0.4 한 겹 더로는 22%밖에 안 어두워졌고, 밝은 바깥 안개는 0.65면 협곡이 다 지워졌다 — 구역마다 따로 둔다.
         [Range(0f, 1f)] public float farHazeOutsideAlpha = 0.15f;
-        [Range(0f, 1f)] public float farHazeCaveAlpha = 0.65f;
+        [Range(0f, 1f)] public float farHazeCaveAlpha = 0.88f;   // 10-10 Task 7 Fix 1: 0.65 → 0.88
 
         [Header("나무결·그림자")]
         //  나무결 세기 — 텍스처 대비 조절. LOPToon.shader는 _BaseMap × _BaseColor를 그대로 곱할 뿐
@@ -52,12 +52,17 @@ namespace LOP.EditorTools
 
         [Header("배경 밀도·크기")]
         //  10-08 캡처: 배경이 관문과 다퉜다 — 틀을 성기게(9 → 13 m), 사다리를 덜(0.5 → 0.35), 둘 다 줄여(×0.8) 뒤로 물렸다.
-        public float frameSpacing = 13f;         // 배경 갱목 틀(BgFrame) 간격(m)
-        [Range(0f, 1f)] public float ladderChance = 0.35f;  // 틀마다 사다리가 걸릴 비율
+        //  10-10 Task 7 Fix 1(사용자 "배경이 너무 눈에 들어온다"·"투머치"): 13 → 45 m, 사다리 0.35 → 0.1.
+        public float frameSpacing = 45f;         // 배경 갱목 틀(BgFrame) 간격(m)
+        [Range(0f, 1f)] public float ladderChance = 0.1f;  // 틀마다 사다리가 걸릴 비율
         public float lanternSpacing = 16f;        // 랜턴 간격(m)
         public int cartCount = 2;                 // 평평한 앞부분 안 배경 광차 수
         [Range(0.3f, 1f)] public float farScale = 0.75f;    // 먼 비계·광차 축척(z 18에서 멀리 보이게)
         [Range(0.3f, 1f)] public float midScale = 0.8f;     // 가운데 층(틀·발판·사다리) 축척
+        //  10-10 Task 7 Fix 1: 먼 비계가 이어진 X 가새 띠로 관문과 다퉜다("배경이 너무 눈에 들어와서 장애물 집중이 떨어진다") —
+        //  run칸 놓고 gap칸 비워 무리로 끊는다(0이면 이어 깐다).
+        [Min(0)] public int farTrestleRun = 2;   // 먼 비계 무리 하나의 칸 수
+        [Min(0)] public int farTrestleGap = 7;   // 무리 사이 빈 칸 수
 
         [Header("펼치기 1차 — 새 부품(Task 3·4). 배치 값은 FlappyMineDressing(다음 태스크)이 읽는다")]
         //  지층 띠(Strata) 4색 — v(아래→위) 순서, mine_parts.py STRATA_COLORS와 같은 시안 값. 색은 이미
@@ -67,11 +72,14 @@ namespace LOP.EditorTools
         {
             Hex("#7a5646"), Hex("#6a4838"), Hex("#8a644e"), Hex("#5e4034"),
         };
+        //  10-10 Task 7 Fix 1(사용자 "디자인이 시끄럽다 — 바위는 차분한 어두운 덩어리, 지층은 아주 은은하게"): 바위 덩어리(Strata 슬롯)는
+        //  strata.png 대신 위 네 색을 평균 쪽으로 당긴(대비 strataContrast) 어두운(strataBrightness) 부드러운 띠 텍스처를 굽는다.
+        [Range(0f, 1f)] public float strataContrast = 0.12f;
+        [Range(0.3f, 1.2f)] public float strataBrightness = 0.8f;
         public float shaftTimberSpacing = 0.45f;   // 갱도 벽 갱목(ShaftTimber) 배치 간격(m)
-        //  케이지(Cage)가 CageRail 위에서 쉬는 높이 비율(0 아래 끝 ~ 1 위 끝). 시안에 정해진 숫자가 없어
-        //  "내려와 멈춰 있는" 모습으로 아래쪽을 골랐다 — Task 5·6이 코스에 맞춰 바꿀 수 있다.
+        //  케이지(Cage)가 CageRail 위에서 쉬는 높이 비율(0 아래 끝 ~ 1 위 끝). 10-10 Task 7 Fix 1부터 케이지를 놓지 않아 지금은 안 쓴다.
         [Range(0f, 1f)] public float cagePositionRatio = 0.3f;
-        public int lanternsPerString = 4;          // 랜턴 줄(LanternString) 하나에 매단 랜턴 수 — 지금 FBX와 같다
+        public int lanternsPerString = 4;          // 랜턴 줄 하나에 매단 랜턴 수 — 10-10 Task 7 Fix 1부터 입구 랜턴 줄을 놓지 않아 지금은 안 쓴다
         //  ⚡ 판·발판 빛 세기 — 시안 emit은 각각 ×1.4·×1.6이었지만 과하게 빛난다는 지적(10-08류)이 있어 낮췄다.
         //  밑감 색에 곱하는 배수라 1 미만이면 블룸 문턱을 안 넘는다(발판은 일부러 더 은은하게).
         public float boltGlow = 1.2f;              // ⚡ 판(BoltGlow) 빛 세기

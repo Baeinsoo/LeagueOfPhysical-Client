@@ -11,12 +11,13 @@ namespace LOP.EditorTools
     /// <see cref="MineDressingLayout"/>이 정한 자리에 놓고, 범위 안 회색 박스의 <b>렌더러만</b> 끈다(콜라이더는 손대지 않는다).
     ///
     /// <para><b>무엇을 끄나</b>는 이름이 아니라 위치 x로 정한다. 이름은 종류(관문·바닥·천장)를 가를 때만 쓴다.
-    /// 관문 파이프는 범위에 조금이라도 걸치면 통째로 입히고 끈다. 바닥·천장 조각은 범위 안에 완전히 든 것만 끄고,
-    /// 걸친 조각은 켠 채 두는 대신 바닥·천장 그림을 그 조각 끝까지 이어 덮는다(<see cref="MineDressingLayout.CoverRange"/>).</para>
+    /// 관문 파이프는 범위에 조금이라도 걸치면 통째로 입히고 끈다. 바닥·천장 조각은 범위 안에 완전히 든 것은 끄고,
+    /// 범위에 걸친 것은 렌더 메시만 범위 밖 부분으로 잘라 둔다(<see cref="MineDressingLayout.OutsideX"/> — 콜라이더 메시는 그대로).
+    /// 그래서 옷 범위 안에는 회색이 없고, 바닥·천장 그림은 범위 [from, to] 그대로다(10-10 Task 7 Fix 1 — 예전엔 걸친 조각 끝까지 넓혔다).</para>
     ///
     /// <para><b>보이는 면은 판정면(z = 0) 앞에</b> 둔다 — 원근 카메라가 판정면 뒤 면을 가운데로 당겨 그려 틈이 좁아 보이지
     /// 않게(<see cref="FlappyDepthAlignTool"/>와 같은 이유). 관문·바닥·천장 부품은 뒷면 z(Task 3 실측)만큼 앞으로 당긴다.
-    /// 10-10 펼치기 1차 부품(갱 입구 문틀·갱도·계단 단·갈림길 바위)은 배치 규칙이 서로 앞뒤까지 맞춘 <b>최종 z</b>를 주므로 그대로 놓는다.</para>
+    /// z는 전부 배치 규칙(<see cref="MineDressingLayout"/>)이 준 <b>최종 값</b>이다 — 관문만 여기서 당긴다.</para>
     ///
     /// <para>구역(<see cref="MineDressingLayout.Zones"/>): 노을 바깥 → 갱 입구 문틀(천장은 들보, 문틀은 판정면 뒤) → 수직 갱(갱목이 바닥·천장) →
     /// 계단(바위 단이 바닥·천장) → 그 뒤 비계·바위 천장 + 고수 갈림길 바위·칸막이. 안개 그러데이션은 문틀 자리, 하늘(z 30)은 시차 때문에 문틀 끝 ± 20 m.</para>
@@ -35,11 +36,8 @@ namespace LOP.EditorTools
 
         //  ── 판정면 앞으로 당기기(부품 뒷면 z, Task 3 실측) ──
         //  관문 셋(GatePlank ±0.65, GateStrap ±0.69, GateCap −0.80~+0.73)은 한 틀에서 만든 것이라 같은 z로 옮긴다.
+        //  (바닥·천장의 FloorZ·CeilingRockZ·BeamZ는 10-10 Task 7 Fix 1부터 MineDressingLayout에 있다.)
         private const float GateZ = -0.73f;
-        //  TrestleBay ±0.65(RailSpan ±0.55).
-        private const float FloorZ = -0.65f;
-        //  CeilingRock −1.607~+1.35, Beam ±0.8.
-        private const float CeilingRockZ = -1.35f, BeamZ = -0.8f;
         //  ── 카메라 시야(스펙 §2): z −23(10-08, 20에서 물림 — FlappyCameraDistance), 세로 시야 40°, 대시 때 +3 m.
         //  화면 비는 넓은 폰(20:9)보다 조금 넉넉히 ──
         private const float CameraZ = -23f, CameraDash = 3f, HalfFovDegrees = 20f, MaxAspect = 2.4f, ViewMargin = 2f;
@@ -78,6 +76,8 @@ namespace LOP.EditorTools
             "Silhouette_Cave1", "Silhouette_Cave2", "Silhouette_Canyon1", "Silhouette_Canyon2",
             "Sky_Sunset", "Sky_Cave", "Sky_Mouth", "Haze_Outside", "Haze_Cave", "Haze_Mouth",
             "Haze_Far_Outside", "Haze_Far_Cave", "Haze_Far_Mouth", "LanternGlow",
+            //  10-10 Task 7 Fix 1: 얇은 밝은 테(EdgeRim = RockMass 메시 + 무늬 없는 RockEdge), 무늬 차분한 바위(Strata — MergeSlope 밝은 띠 덮기).
+            "RockEdge", "Strata",
         };
 
         /// <summary>
@@ -112,8 +112,7 @@ namespace LOP.EditorTools
             //     굴 조각(TubeRoof·TubeFloor)과 칸막이(ForkWall)는 갈림길 바위·칸막이 그림이 덮는다. 패드(BoostPad)는 청록 발광 상자라
             //     (따뜻한 색·LOP/Toon 규칙 밖, 열린 방 한가운데 판정면 앞이라 장애물로 읽힌다) 렌더러만 끄고 ⚡ 발판(PadGlow)·⚡ 판이 대신한다 —
             //     FlappyBoostPad 판정은 렌더러를 읽지 않는다(상자에 콜라이더도 없다).
-            var slabSpans = new List<(float x0, float x1)>();
-            int gates = 0, hidden = 0;
+            int gates = 0, hidden = 0, trimmed = 0;
             for (int i = 0; i < composedMap.childCount; i++)
             {
                 Transform t = composedMap.GetChild(i);
@@ -137,11 +136,16 @@ namespace LOP.EditorTools
                 else if (n.StartsWith("Floor_") || n.StartsWith("Ceiling_"))
                 {
                     Bounds b = r.bounds;
-                    slabSpans.Add((b.min.x, b.max.x));
                     if (MineDressingLayout.SpanInside(b.min.x, b.max.x, dressFrom, dressTo))
                     {
                         Hide(r);
                         hidden++;
+                    }
+                    else if (MineDressingLayout.SpanOverlaps(b.min.x, b.max.x, dressFrom, dressTo))
+                    {
+                        //  범위에 걸친 조각(3막 Floor_117·Ceiling_117, 146.8~178.8) — 범위 안 부분이 판정면 앞(z −2.5)에서 옷을 덮어 회색 상자로 보였다.
+                        TrimToOutside(t, r, dressFrom, dressTo);
+                        trimmed++;
                     }
                 }
                 else if (n.StartsWith("TubeRoof_") || n.StartsWith("TubeFloor_") || n.StartsWith("ForkWall_") || n.StartsWith("BoostPad_"))
@@ -160,24 +164,22 @@ namespace LOP.EditorTools
             int entrance = 0, shaft = 0, stairs = 0, forks = 0, lanterns = 0;
             if (zones.OutsideEnd >= dressFrom && zones.EntranceEnd > zones.OutsideEnd && zones.EntranceEnd <= dressTo)
             {
-                foreach (MinePiece p in MineDressingLayout.Entrance(course, zones, look.lanternsPerString))
+                foreach (MinePiece p in MineDressingLayout.Entrance(course, zones))
                 {
-                    PlacePiece(g.Entrance, models, glowQuad, materials, p, ref lanterns);
+                    GameObject go = PlacePiece(g.Entrance, models, glowQuad, materials, p, ref lanterns);
+                    //  문틀 기둥·가새는 열린 통로를 가로지른다 — 통로 안 부분을 잘라 낸다(상인방·문턱·통로 밖 기둥 끝만 남는다).
+                    if (MineDressingLayout.ClipsToCorridor(p.Kind)) { ClipOutsideCorridor(go, course); }
                     entrance++;
                 }
             }
-            List<(float from, float to)> shaftSpans = MineDressingLayout.ShaftSpans(course, zones);
-            foreach (MinePiece p in MineDressingLayout.ShaftWalls(course, zones, look.shaftTimberSpacing, look.cagePositionRatio))
+            foreach (MinePiece p in MineDressingLayout.ShaftWalls(course, zones, look.shaftTimberSpacing))
             {
                 PlacePiece(g.Shaft, models, glowQuad, materials, p, ref lanterns);
                 shaft++;
             }
-            var stairSpans = new List<(float from, float to)>();
             foreach (MinePiece p in MineDressingLayout.StairBenches(course, zones))
             {
                 PlacePiece(g.Stairs, models, glowQuad, materials, p, ref lanterns);
-                //  바닥 쪽 단(뒤집지 않은 것)은 원점 = 칸 왼끝, 폭 = 칸 x 폭 — 그 칸은 단이 바닥·천장을 맡는다.
-                if (p.Kind == MinePartKind.BenchFace && p.Flipped == false) { stairSpans.Add((p.X, p.X + p.Width)); }
                 stairs++;
             }
             foreach (MineFork f in course.Forks)
@@ -190,48 +192,20 @@ namespace LOP.EditorTools
                 }
             }
 
-            //  3. 바닥·천장 — 걸친 회색 조각 끝까지 넓힌 범위에서 갱목(수직 갱)·바위 단(계단)이 맡은 구간을 뺀 곳.
-            //     비계 레일은 갱 앞(문틀 끝)에서 끝난다(스펙 §5).
-            var (coverFrom, coverTo) = MineDressingLayout.CoverRange(slabSpans, dressFrom, dressTo);
-            var structure = new List<(float from, float to)>(shaftSpans);
-            structure.AddRange(stairSpans);
-            List<(float from, float to)> plain = Subtract(coverFrom, coverTo, structure);
-
+            //  3. 바닥·천장(배치 규칙이 갱목·바위 단 구간을 빼고, 곧고 완만한 곳은 비계·바위 천장, 굽은 곳은 바위 띠 + 밝은 테로 고른다).
+            //     비계 칸마다 같은 자리에 레일(RailSpan). 레일 윗면이 바닥선 위 0.28인 것은 10-08부터 그대로다.
             int floor = 0, ceiling = 0;
-            foreach (var (from, to) in plain)
+            foreach (MinePiece p in MineDressingLayout.FloorAndCeiling(course, zones, dressFrom, dressTo))
             {
-                foreach (MinePiece p in MineDressingLayout.TrestleBays(course, from, to))
-                {
-                    Place(g.Floor, models["TrestleBay"], p, p.Z + FloorZ);
-                    Place(g.Floor, models["RailSpan"], p, p.Z + FloorZ);
-                    floor++;
-                }
-
-                //  천장은 구역마다: 노을 바깥·갱 입구 문틀 = 들보, 굴 안 = 바위.
-                //  문틀 구간(19.8~24.8)은 통로가 반 높이 7.28 → 2.8로 좁아져 문틀의 상인방·간판·랜턴 줄(문턱 + 14.3 위)이 판정 천장선보다
-                //  4 m쯤 위, 판정 고체 쪽에 온다. 높이 4 m 바위(CeilingRock)를 깔면 그것들을 다 가린다 — 그래서 문틀 구간도 들보(높이 0.8)로
-                //  천장선만 표시하고 그 위는 문틀(판정면 뒤 장식)이 보이게 둔다. 노을 바깥과 같은 약속이다(들보 위는 하늘이 보여도 판정 고체).
-                if (from < zones.EntranceEnd)
-                {
-                    foreach (MinePiece p in MineDressingLayout.CeilingPieces(course, from, Mathf.Min(to, zones.EntranceEnd)))
-                    {
-                        Place(g.Ceiling, models["Beam"], AsBeam(p), p.Z + BeamZ);
-                        ceiling++;
-                    }
-                }
-                if (to > zones.EntranceEnd)
-                {
-                    foreach (MinePiece p in MineDressingLayout.CeilingPieces(course, Mathf.Max(from, zones.EntranceEnd), to))
-                    {
-                        Place(g.Ceiling, models["CeilingRock"], p, p.Z + CeilingRockZ);
-                        ceiling++;
-                    }
-                }
+                Transform parent = p.Layer == 0 ? g.Floor : g.Ceiling;
+                PlacePiece(parent, models, glowQuad, materials, p, ref lanterns);
+                if (p.Kind == MinePartKind.TrestleBay) { Place(parent, models["RailSpan"], p, p.Z); }
+                if (p.Layer == 0) { floor++; } else { ceiling++; }
             }
 
             //  4. 배경 — 실루엣(재질을 층·구역으로 갈아 끼운다), 먼 비계·광차, 가운데 층, 랜턴 + 빛 원판.
             var density = new MineDressingLayout.BackgroundDensity(look.frameSpacing, look.ladderChance, look.lanternSpacing, look.cartCount,
-                                                                   look.farScale, look.midScale);
+                                                                   look.farScale, look.midScale, look.farTrestleRun, look.farTrestleGap);
             int background = 0;
             foreach (MinePiece p in MineDressingLayout.Background(course, dressFrom, dressTo, BackgroundSeed, density))
             {
@@ -277,50 +251,131 @@ namespace LOP.EditorTools
             MakeRenderOnly(dressing.gameObject);
             Undo.RegisterCreatedObjectUndo(dressing.gameObject, "Dress mine course");
 
-            Debug.Log($"[광산 옷] 범위 {dressFrom:F2}~{dressTo:F2} ({zones}) · 바닥·천장 그림 {coverFrom:F2}~{coverTo:F2}"
-                    + $" (갱목·바위 단 구간 {structure.Count}개 뺌) · 관문 파이프 {gates}개 · 비계 {floor}칸 · 천장 {ceiling}조각"
+            Debug.Log($"[광산 옷] 범위 {dressFrom:F2}~{dressTo:F2} ({zones}) · 걸친 회색 조각 {trimmed}개는 범위 밖만 남김"
+                    + $" · 관문 파이프 {gates}개 · 바닥 {floor}조각 · 천장 {ceiling}조각"
                     + $" · 문틀 {entrance} · 갱도 {shaft} · 계단 {stairs} · 갈림길 {forks} · 배경 {background}개 · 랜턴 {lanterns}"
                     + $" · 하늘·안개 띠 {strips}개 · 끈 회색 렌더러 {hidden}개");
             return true;
         }
 
-        //  [from, to]에서 구간들을 뺀 나머지(오름차순, 폭 1e-4 이하는 버린다).
-        private static List<(float from, float to)> Subtract(float from, float to, List<(float from, float to)> cuts)
+        //  범위에 걸친 회색 바닥·천장 조각의 렌더 메시를 범위 밖 부분만으로 바꾼다(콜라이더 메시는 따로라 그대로 — 판정 불변).
+        //  PrismMesh는 앞면 n개 · 뒷면 n개 · 옆면 4n개 정점이라 앞 n개가 다각형이다.
+        private static void TrimToOutside(Transform t, MeshRenderer r, float dressFrom, float dressTo)
         {
-            var sorted = new List<(float from, float to)>(cuts);
-            sorted.Sort((a, b) => a.from.CompareTo(b.from));
-            var result = new List<(float from, float to)>();
-            float cursor = from;
-            foreach (var (a, b) in sorted)
+            var mf = t.GetComponent<MeshFilter>();
+            Mesh m = mf.sharedMesh;
+            Vector3[] v = m.vertices;
+            int n = v.Length / 6;
+            float zNear = v[0].z, zFar = v[n].z;
+            var poly = new List<(double x, double y)>();
+            for (int i = 0; i < n; i++)
             {
-                if (b <= cursor) { continue; }
-                if (a >= to) { break; }
-                if (a - cursor > 1e-4f) { result.Add((cursor, a)); }
-                cursor = Mathf.Max(cursor, b);
+                Vector3 w = t.TransformPoint(v[i]);
+                poly.Add((w.x, w.y));
             }
-            if (to - cursor > 1e-4f) { result.Add((cursor, to)); }
-            return result;
+            List<(double x, double y)[]> parts = MineDressingLayout.OutsideX(poly, dressFrom, dressTo);
+            if (parts.Count == 0)
+            {
+                Hide(r);
+                return;
+            }
+            var combine = new CombineInstance[parts.Count];
+            for (int i = 0; i < parts.Count; i++)
+            {
+                var local = new Vector2[parts[i].Length];
+                for (int k = 0; k < local.Length; k++)
+                {
+                    Vector3 lp = t.InverseTransformPoint(new Vector3((float)parts[i][k].x, (float)parts[i][k].y, 0f));
+                    local[k] = new Vector2(lp.x, lp.y);
+                }
+                combine[i] = new CombineInstance { mesh = FlappyClassicCourseBuilder.PrismMesh(m.name, local, zNear, zFar), transform = Matrix4x4.identity };
+            }
+            var trimmed = new Mesh { name = m.name + "_Outside" };
+            trimmed.CombineMeshes(combine, mergeSubMeshes: true, useMatrices: false);
+            trimmed.RecalculateBounds();
+            Undo.RecordObject(mf, "Dress mine course");
+            mf.sharedMesh = trimmed;
         }
 
-        //  천장 조각을 들보로 — 같은 현(가운데 원점·아랫면 = 천장선), x 축척만 들보 단위(1 m)로.
-        private static MinePiece AsBeam(MinePiece p)
+        //  부품 인스턴스의 메시를 열린 통로 밖 부분만으로 바꾼다(삼각형마다 MineDressingLayout.ClipOutsideCorridor — 위치·법선·UV는 같은 무게로 섞는다).
+        //  씬에 든 메시라 굽기마다 새로 만든다(원본 FBX는 그대로).
+        private static void ClipOutsideCorridor(GameObject go, MineCourse course)
         {
-            if (p.Kind == MinePartKind.Beam) { return p; }
-            return new MinePiece(MinePartKind.Beam, p.X, p.Y, p.Z, p.AngleDegrees, p.Width, p.Length,
-                                 p.Length / MineDressingLayout.BeamUnit, p.ScaleY, p.Flipped, p.Layer);
+            foreach (MeshFilter mf in go.GetComponentsInChildren<MeshFilter>(true))
+            {
+                Mesh src = mf.sharedMesh;
+                if (src == null) { continue; }
+                Matrix4x4 toWorld = mf.transform.localToWorldMatrix;
+                Vector3[] v = src.vertices;
+                Vector3[] nrm = src.normals;
+                Vector2[] uv = src.uv;
+                bool hasN = nrm != null && nrm.Length == v.Length, hasUv = uv != null && uv.Length == v.Length;
+                var outV = new List<Vector3>();
+                var outN = new List<Vector3>();
+                var outUv = new List<Vector2>();
+                var subs = new List<List<int>>();
+                for (int s = 0; s < src.subMeshCount; s++)
+                {
+                    var tris = new List<int>();
+                    int[] t = src.GetTriangles(s);
+                    for (int k = 0; k + 2 < t.Length; k += 3)
+                    {
+                        int a = t[k], b = t[k + 1], c = t[k + 2];
+                        Vector3 wa = toWorld.MultiplyPoint3x4(v[a]), wb = toWorld.MultiplyPoint3x4(v[b]), wc = toWorld.MultiplyPoint3x4(v[c]);
+                        foreach (var poly in MineDressingLayout.ClipOutsideCorridor(course, (wa.x, wa.y), (wb.x, wb.y), (wc.x, wc.y)))
+                        {
+                            int start = outV.Count;
+                            foreach (var (w0, w1, w2) in poly)
+                            {
+                                float f0 = (float)w0, f1 = (float)w1, f2 = (float)w2;
+                                outV.Add(v[a] * f0 + v[b] * f1 + v[c] * f2);
+                                outN.Add(hasN ? (nrm[a] * f0 + nrm[b] * f1 + nrm[c] * f2).normalized : Vector3.back);
+                                outUv.Add(hasUv ? uv[a] * f0 + uv[b] * f1 + uv[c] * f2 : Vector2.zero);
+                            }
+                            //  볼록 다각형 → 부채꼴, 감김은 원래 삼각형 그대로(무게 공간에서 자르기만 했다).
+                            for (int i = 1; i + 1 < poly.Count; i++) { tris.Add(start); tris.Add(start + i); tris.Add(start + i + 1); }
+                        }
+                    }
+                    subs.Add(tris);
+                }
+                var mesh = new Mesh { name = src.name + "_OutsideCorridor" };
+                mesh.indexFormat = outV.Count > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16;
+                mesh.SetVertices(outV);
+                mesh.SetNormals(outN);
+                mesh.SetUVs(0, outUv);
+                mesh.subMeshCount = subs.Count;
+                for (int s = 0; s < subs.Count; s++) { mesh.SetTriangles(subs[s], s); }
+                mesh.RecalculateBounds();
+                mf.sharedMesh = mesh;
+            }
         }
 
         //  새 부품(그리고 배경 랜턴)을 규칙이 준 자리·z 그대로. 랜턴은 빛 원판도 같은 축척으로.
-        private static void PlacePiece(Transform parent, Dictionary<string, GameObject> models, Mesh glowQuad,
-                                       Dictionary<string, Material> materials, MinePiece p, ref int lanterns)
+        //  EdgeRim은 RockMass 메시에 RockEdge(무늬 없는 밝은 색) 재질, MergeSlope는 빗변 밝은 띠까지 바위 재질(Strata)로 —
+        //  밝은 것은 판정선 위 얇은 테 하나만 남긴다(사용자 10-10 "디자인이 시끄럽다"; 갈림길 방 끝 합류 경사의 밝은 사선도 이것으로 사라진다).
+        private static GameObject PlacePiece(Transform parent, Dictionary<string, GameObject> models, Mesh glowQuad,
+                                             Dictionary<string, Material> materials, MinePiece p, ref int lanterns)
         {
-            Place(parent, models[p.Kind.ToString()], p, p.Z);
+            string model = p.Kind == MinePartKind.EdgeRim ? "RockMass" : p.Kind.ToString();
+            GameObject go = Place(parent, models[model], p, p.Z);
+            if (p.Kind == MinePartKind.EdgeRim || p.Kind == MinePartKind.MergeSlope)
+            {
+                Material m = materials[p.Kind == MinePartKind.EdgeRim ? "RockEdge" : "Strata"];
+                foreach (MeshRenderer r in go.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    var mats = new Material[r.sharedMaterials.Length];
+                    for (int i = 0; i < mats.Length; i++) { mats[i] = m; }
+                    r.sharedMaterials = mats;
+                }
+                go.name = p.Kind.ToString();
+            }
             if (p.Kind == MinePartKind.Lantern)
             {
                 float s = p.ScaleY;
                 Glow(parent, glowQuad, materials["LanternGlow"], new Vector3(p.X, p.Y - LanternGlassDrop * s, p.Z - GlowFront * s), GlowSize * s);
                 lanterns++;
             }
+            return go;
         }
 
         // ---- 관문 ----
@@ -351,10 +406,11 @@ namespace LOP.EditorTools
 
         // ---- 놓기 ----
 
+        //  z 축척은 배치 규칙(MineDressingLayout.DepthScale) — 바위 덩어리·테·단은 납작하게(0.1).
         private static GameObject Place(Transform parent, GameObject model, MinePiece p, float z)
         {
             return Instance(parent, model, new Vector3(p.X, p.Y, z), p.AngleDegrees + (p.Flipped ? 180f : 0f),
-                            new Vector3(p.ScaleX, p.ScaleY, 1f));
+                            new Vector3(p.ScaleX, p.ScaleY, MineDressingLayout.DepthScale(p.Kind)));
         }
 
         private static GameObject Instance(Transform parent, GameObject model, Vector3 position, float angleZ, Vector3 scale)

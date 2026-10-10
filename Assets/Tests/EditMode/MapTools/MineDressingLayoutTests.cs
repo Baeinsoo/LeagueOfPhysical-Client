@@ -661,6 +661,23 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 갱목_구간은_갱목이_덮는_x와_같다()
+        {
+            var c = Course();
+            var z = MineDressingLayout.Zones(c);
+            var spans = MineDressingLayout.ShaftSpans(c, z);
+            //  3막: 수직 갱 좁은 구간(22.8~36.8) ± 전이 3 m, 앞은 문틀 끝(24.8)에서 자른다. 뒤의 좁은 구간 둘은 옷 끝(151.25) 뒤라 없다.
+            Assert.AreEqual(1, spans.Count, string.Join(", ", spans));
+            Assert.AreEqual(24.8f, spans[0].from, 1e-3f);
+            Assert.AreEqual(39.8f, spans[0].to, 1e-3f);
+            //  갱목 첫 줄(천장 쪽은 원점이 판정선 위 왼끝)이 이 구간을 양끝까지 채운다 — 굽기는 이 구간에서 바닥·천장 조각을 빼므로 틈이 생기면 안 된다.
+            var ceilingRow = MineDressingLayout.ShaftWalls(c, z, LookTimberSpacing)
+                .Where(p => p.Kind == MinePartKind.ShaftTimber && Math.Abs(p.Y - Ceiling(c, p.X)) < 1e-3f).ToList();
+            Assert.AreEqual(spans[0].from, ceilingRow.Min(p => p.X), 1e-3f);
+            Assert.AreEqual(spans[0].to, ceilingRow.Max(p => p.X + p.Width), 1e-3f);
+        }
+
+        [Test]
         public void 갱_벽_갱목은_판정선_바깥에만_있고_첫_줄은_판정선에_붙는다()
         {
             var c = Course();

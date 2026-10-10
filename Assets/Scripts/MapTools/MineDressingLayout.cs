@@ -405,7 +405,7 @@ namespace LOP.MapTools
             if (!(timberSpacing > 0f)) { throw new ArgumentOutOfRangeException(nameof(timberSpacing)); }
             foreach (var (a, b, _) in c.Narrows)
             {
-                double from = Math.Max(a - MineCourse.EdgeBlend, z.EntranceEnd), to = Math.Min(b + MineCourse.EdgeBlend, z.DressEnd);
+                var (from, to) = ShaftSpan(a, b, z);
                 if (to - from <= 1e-6) { continue; }
                 var xs = StraightBreaks(c, (float)from, (float)to);
                 int layers = (int)Math.Ceiling(ShaftWallDepth / timberSpacing - 1e-6);
@@ -417,6 +417,26 @@ namespace LOP.MapTools
                 AddCage(c, a, b, from, to, cageRatio, list);
             }
             return list;
+        }
+
+        /// <summary>
+        /// <see cref="ShaftWalls"/>가 갱목으로 덮는 x 구간들(좁은 구간마다 [a − 3, b + 3]을 문틀 끝·옷 끝으로 자른 것, 빈 구간은 뺀다) —
+        /// 3막은 [24.8, 39.8] 하나. 굽기가 이 구간에서는 바닥 비계·천장 조각을 놓지 않는다(갱목이 바닥·천장을 맡는다).
+        /// </summary>
+        public static List<(float from, float to)> ShaftSpans(MineCourse c, MineZones z)
+        {
+            var list = new List<(float from, float to)>();
+            foreach (var (a, b, _) in c.Narrows)
+            {
+                var (from, to) = ShaftSpan(a, b, z);
+                if (to - from > 1e-6) { list.Add(((float)from, (float)to)); }
+            }
+            return list;
+        }
+
+        static (double from, double to) ShaftSpan(double a, double b, MineZones z)
+        {
+            return (Math.Max(a - MineCourse.EdgeBlend, z.EntranceEnd), Math.Min(b + MineCourse.EdgeBlend, z.DressEnd));
         }
 
         //  꺾은선 verts를 바깥으로 d만큼 평행 이동(꺾이는 곳은 두 선이 만나는 점으로 맞댐)한 줄에 갱목을 깐다 — 줄은 [x0, x1] 안으로 자른다

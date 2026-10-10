@@ -16,17 +16,27 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 위는_어둡고_출구에서_금빛으로_터진다()
+        public void 맑게_시작해_어둡게_조이고_출구에서_금빛으로_터진다()
         {
-            //  빛을 향한 낙하(왕국의 눈물 엔딩 오마주) — 갇힌 어둠에서 압도적인 빛으로.
+            //  3막(사용자 10-10): 1막 맑은 낮 → 2막 어두움 → 3막 금빛. 1막과 3막은 빛의 종류가 다르다(파랑 vs 금빛).
             var top = SkydiveMoodCurve.Evaluate(Y.Mood, Y.SpawnY);
             var mid = SkydiveMoodCurve.Evaluate(Y.Mood, 800f);
+            var dark = SkydiveMoodCurve.Evaluate(Y.Mood, 400f);
             var exit = SkydiveMoodCurve.Evaluate(Y.Mood, Y.ExitY - 20f);
-            Assert.Less(top.Fog.grayscale, 0.15f, "꼭대기는 어둡다");
-            Assert.Less(top.Fog.grayscale, mid.Fog.grayscale, "내려갈수록 밝아진다");
+
+            Assert.Greater(top.Fog.grayscale, 0.5f, "꼭대기는 맑다");
+            Assert.Less(top.Fog.grayscale, 0.8f, "그래도 하얗게 날지 않는다 — 첫 원판 격자가 읽혀야");
+            Assert.Greater(top.Fog.b, top.Fog.r, "1막은 파란 빛");
+            Assert.Greater(exit.Fog.r, exit.Fog.b, "3막은 금빛");
+
+            Assert.Less(mid.Fog.grayscale, top.Fog.grayscale, "내려갈수록 어두워진다");
+            Assert.Less(dark.Fog.grayscale, mid.Fog.grayscale, "출구 직전이 가장 어둡다");
+            Assert.Less(dark.Fog.grayscale, 0.2f);
+            Assert.Less(dark.SunIntensity, top.SunIntensity * 0.5f, "햇빛도 약해진다");
+
             Assert.Greater(exit.Fog.grayscale, 0.8f, "출구는 하얗게 열린다");
-            Assert.Greater(exit.Bloom, top.Bloom * 3f, "출구에서 빛이 번진다");
-            Assert.Greater(exit.Exposure, top.Exposure);
+            Assert.Greater(exit.Bloom, dark.Bloom * 3f, "출구에서 빛이 번진다 — 바로 위 어둠과 대비");
+            Assert.Greater(exit.Exposure, dark.Exposure);
         }
 
         [Test]

@@ -116,6 +116,72 @@ namespace LOP.Tests
             Assert.IsTrue(seenRequest.equip);
             Assert.AreEqual(Catalog.CoinCurrencyId, seenRequest.expectedPrice.currencyId);
             Assert.AreEqual(300, seenRequest.expectedPrice.amount);
+
+            //  View가 SelectedCosmeticId 변경에만 상세 패널을 다시 그리면(구매 응답으로 Items만
+            //  바뀌는 이 경로에서) 낡은 버튼 상태를 보여준다 — 그 버그가 VM 쪽에서도 보이는 계약:
+            //  선택은 그대로인데 그 선택의 State/CanBuy가 바뀌어 있다.
+            Assert.AreEqual(red.Id, vm.SelectedCosmeticId.CurrentValue, "구매해도 선택 품목은 그대로여야 한다");
+            var purchasedItem = Find(vm.Items.CurrentValue, red.Id);
+            Assert.AreEqual(ItemState.Equipped, purchasedItem.State);
+            Assert.IsFalse(purchasedItem.CanBuy, "이미 산 품목은 다시 살 수 없어야 한다");
+        }
+
+        [Test]
+        public void 구매_진행_중에는_Busy가_true다()
+        {
+            var hat = Catalog.SlotByCode("hat");
+            var red = Catalog.ByCode("hat_cube_red");
+            var completion = new UniTaskCompletionSource<PurchaseCosmeticResponse>();
+
+            Func<string, PurchaseCosmeticRequest, CancellationToken, UniTask<PurchaseCosmeticResponse>> purchase =
+                (userId, request, ct) => completion.Task;
+
+            var (vm, _) = NewViewModel(purchase: purchase);
+            vm.SelectSlot(hat.Id);
+            vm.Select(red.Id);
+
+            Assert.IsFalse(vm.Busy.CurrentValue);
+
+            vm.BuyAsync(true).Forget();
+            Assert.IsTrue(vm.Busy.CurrentValue, "요청이 아직 안 끝났으면 Busy가 true여야 한다");
+
+            completion.TrySetResult(new PurchaseCosmeticResponse
+            {
+                code = ResponseCode.SUCCESS,
+                wallets = new[] { new WalletDto { currencyId = Catalog.CoinCurrencyId, balance = 400 } },
+                loadout = new[] { new LoadoutSlotDto { slotId = hat.Id, userCosmeticId = "u1", cosmeticId = red.Id } },
+                owned = new OwnedCosmeticDto { id = "u1", cosmeticId = red.Id, source = "purchase", acquiredAt = "2026-10-11T00:00:00.000Z" },
+            });
+
+            Assert.IsFalse(vm.Busy.CurrentValue, "응답이 끝났으면 성공·거절·예외 어느 쪽이든 Busy가 꺼져야 한다");
+        }
+
+        [Test]
+        public void 장착_진행_중에도_Busy가_true다()
+        {
+            var hat = Catalog.SlotByCode("hat");
+            var red = Catalog.ByCode("hat_cube_red");
+            var completion = new UniTaskCompletionSource<SetLoadoutResponse>();
+
+            Func<string, SetLoadoutRequest, CancellationToken, UniTask<SetLoadoutResponse>> setLoadout =
+                (userId, request, ct) => completion.Task;
+
+            var (vm, _) = NewViewModel(
+                owned: new[] { new OwnedCosmeticDto { id = "u1", cosmeticId = red.Id, source = "purchase", acquiredAt = "2026-10-11T00:00:00.000Z" } },
+                setLoadout: setLoadout);
+            vm.SelectSlot(hat.Id);
+            vm.Select(red.Id);
+
+            vm.EquipAsync().Forget();
+            Assert.IsTrue(vm.Busy.CurrentValue);
+
+            completion.TrySetResult(new SetLoadoutResponse
+            {
+                code = ResponseCode.SUCCESS,
+                loadout = new[] { new LoadoutSlotDto { slotId = hat.Id, userCosmeticId = "u1", cosmeticId = red.Id } },
+            });
+
+            Assert.IsFalse(vm.Busy.CurrentValue);
         }
 
         [Test]

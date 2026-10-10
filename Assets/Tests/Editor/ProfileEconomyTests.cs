@@ -94,6 +94,19 @@ namespace LOP.Tests
             //  슬롯마다 한 줄 — 로드아웃에 없는 슬롯도 기본 품목으로 한 줄을 채운다. 한 줄이라도
             //  빠지면(예: 기본값 조회가 깨지면) 이 수가 어긋난다.
             Assert.AreEqual(Catalog.Slots.Count, lines.Length);
+
+            //  로드아웃에 없는 슬롯(top)은 "?"가 아니라 그 슬롯의 기본 품목 이름으로 채워져야 한다
+            //  (fallback 줄이 지워져도 위 두 단언[시작 문자열·줄 수]은 그대로 통과해 못 잡는다).
+            var topSlotName = Catalog.SlotByCode("top").Name;
+            var topDefaultItemName = Catalog.DefaultOf(Catalog.SlotByCode("top").Id).Name;
+            var expectedTopLine = $"{topSlotName}: {topDefaultItemName}";
+
+            string topLine = null;
+            foreach (var line in lines)
+            {
+                if (line.StartsWith(topSlotName + ":")) topLine = line;
+            }
+            Assert.AreEqual(expectedTopLine, topLine);
         }
 
         [Test]

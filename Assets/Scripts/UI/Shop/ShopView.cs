@@ -46,12 +46,16 @@ namespace LOP.UI
             BuildTabs();
 
             Disposables.Add(_viewModel.SelectedSlotId.Subscribe(_ => MarkSelectedTab()));
+            //  Items 구독만으로 그리드+상세를 같이 새로 그린다. SelectedCosmeticId에만 묶으면
+            //  "선택은 그대로인데 그 품목의 State/CanBuy만 바뀐" 경우(구매·장착 성공 직후)를
+            //  놓쳐 버튼·가격이 낡은 채로 남는다 — 리뷰에서 지적된 버그.
             Disposables.Add(_viewModel.Items.Subscribe(RebuildGrid));
             Disposables.Add(_viewModel.SelectedCosmeticId.Subscribe(_ =>
             {
                 MarkSelectedCell();
                 RefreshDetail();
             }));
+            Disposables.Add(_viewModel.Busy.Subscribe(_ => RefreshDetail()));
             Disposables.Add(_viewModel.Message.Subscribe(text =>
             {
                 _message.text = text;
@@ -134,6 +138,7 @@ namespace LOP.UI
             }
 
             MarkSelectedCell();
+            RefreshDetail();
         }
 
         private void MarkSelectedCell()
@@ -176,8 +181,11 @@ namespace LOP.UI
             _detailPrice.text = FormatPrice(selectedItem);
 
             //  기본/장착 품목은 살 것도 더 장착할 것도 없다 — 두 버튼 다 꺼 둔다.
-            _buyButton.SetEnabled(selectedItem.State == ItemState.NotOwned && selectedItem.CanBuy);
-            _equipButton.SetEnabled(selectedItem.State == ItemState.Owned);
+            //  요청이 응답을 기다리는 동안(Busy)도 잠근다 — 안 그러면 응답 전에 또 눌러
+            //  같은 멱등키로 중복 요청을 보낸다.
+            bool busy = _viewModel.Busy.CurrentValue;
+            _buyButton.SetEnabled(!busy && selectedItem.State == ItemState.NotOwned && selectedItem.CanBuy);
+            _equipButton.SetEnabled(!busy && selectedItem.State == ItemState.Owned);
         }
 
         //  "300 코인" / 비매품 기본 품목은 "기본" / 그 외 가격이 없으면 "-"(현재 데이터엔 안 나오지만

@@ -51,13 +51,21 @@ namespace LOP
                 list.Add(item);
             }
 
+            bool foundCoinCurrency = false;
             foreach (var currency in currencies.DataList)
             {
                 if (currency.Code == CoinCurrencyCode)
                 {
                     _coinCurrencyId = currency.Id;
+                    foundCoinCurrency = true;
                     break;
                 }
+            }
+            //  못 찾으면 0으로 조용히 넘어가지 않는다 — id 0이 실제 통화와 겹치면 가격 판정이
+            //  전부 틀어진다. 마스터데이터 누락은 즉시 드러나야 한다.
+            if (!foundCoinCurrency)
+            {
+                UnityEngine.Debug.LogError($"[CosmeticCatalog] Currency code \"{CoinCurrencyCode}\" not found in TbCurrency.");
             }
         }
 

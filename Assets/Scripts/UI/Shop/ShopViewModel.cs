@@ -69,6 +69,7 @@ namespace LOP.UI
         private readonly ReactiveProperty<int> _selectedCosmeticId = new(0);
         private readonly ReactiveProperty<IReadOnlyList<ShopItem>> _items = new(Array.Empty<ShopItem>());
         private readonly ReactiveProperty<string> _message = new(string.Empty);
+        private readonly ReactiveProperty<bool> _busy = new(false);
 
         //  구매 한 번마다 쓰는 멱등키. 같은 품목으로 재시도하면 재사용하고, 성공했거나 다른 품목을
         //  고르면 버린다 — 서버가 "같은 거래"로 보게 할지 "새 거래"로 보게 할지를 가른다.
@@ -80,6 +81,10 @@ namespace LOP.UI
         public ReadOnlyReactiveProperty<int> SelectedCosmeticId => _selectedCosmeticId;
         public ReadOnlyReactiveProperty<IReadOnlyList<ShopItem>> Items => _items;
         public ReadOnlyReactiveProperty<string> Message => _message;
+
+        /// <summary>구매/장착 요청이 응답을 기다리는 동안 true. View가 이동안 두 버튼을 잠근다 —
+        /// 안 그러면 응답 오기 전에 한 번 더 눌러 같은 멱등키로 중복 요청을 보낸다.</summary>
+        public ReadOnlyReactiveProperty<bool> Busy => _busy;
 
         [VContainer.Inject]
         public ShopViewModel(EconomyStore store, CosmeticCatalog catalog, IUserDataStore users)
@@ -157,34 +162,43 @@ namespace LOP.UI
                 equip = equip,
             };
 
-            PurchaseCosmeticResponse response;
+            _busy.Value = true;
             try
             {
-                response = await _purchase(userId, request, _cts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"[ShopViewModel] Failed to purchase. error: {e.Message}");
+                PurchaseCosmeticResponse response;
+                try
+                {
+                    response = await _purchase(userId, request, _cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"[ShopViewModel] Failed to purchase. error: {e.Message}");
+                    if (_cts.IsCancellationRequested) return;
+                    _message.Value = MessageFor(0);
+                    return;
+                }
                 if (_cts.IsCancellationRequested) return;
-                _message.Value = MessageFor(0);
-                return;
-            }
-            if (_cts.IsCancellationRequested) return;
 
-            if (response != null && response.code == ResponseCode.SUCCESS)
+                if (response != null && response.code == ResponseCode.SUCCESS)
+                {
+                    //  성공했으니 이 거래는 끝 — 다음 구매는 새 멱등키로 시작한다.
+                    _purchaseKey = null;
+                    _message.Value = string.Empty;
+                    _store.ApplyPurchase(response);
+                    return;
+                }
+
+                _message.Value = MessageFor(response?.code ?? 0);
+            }
+            finally
             {
-                //  성공했으니 이 거래는 끝 — 다음 구매는 새 멱등키로 시작한다.
-                _purchaseKey = null;
-                _message.Value = string.Empty;
-                _store.ApplyPurchase(response);
-                return;
+                //  성공·거절·예외·취소 어느 경로든 반드시 풀어준다 — 안 풀면 버튼이 영영 잠긴다.
+                if (!_disposed) _busy.Value = false;
             }
-
-            _message.Value = MessageFor(response?.code ?? 0);
         }
 
         public async UniTask EquipAsync()
@@ -203,32 +217,40 @@ namespace LOP.UI
 
             var request = new SetLoadoutRequest { slotId = item.SlotId, userCosmeticId = userCosmeticId };
 
-            SetLoadoutResponse response;
+            _busy.Value = true;
             try
             {
-                response = await _setLoadout(userId, request, _cts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"[ShopViewModel] Failed to set loadout. error: {e.Message}");
+                SetLoadoutResponse response;
+                try
+                {
+                    response = await _setLoadout(userId, request, _cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"[ShopViewModel] Failed to set loadout. error: {e.Message}");
+                    if (_cts.IsCancellationRequested) return;
+                    _message.Value = MessageFor(0);
+                    return;
+                }
                 if (_cts.IsCancellationRequested) return;
-                _message.Value = MessageFor(0);
-                return;
-            }
-            if (_cts.IsCancellationRequested) return;
 
-            if (response != null && response.code == ResponseCode.SUCCESS)
+                if (response != null && response.code == ResponseCode.SUCCESS)
+                {
+                    _message.Value = string.Empty;
+                    _store.ApplyLoadout(response);
+                    return;
+                }
+
+                _message.Value = MessageFor(response?.code ?? 0);
+            }
+            finally
             {
-                _message.Value = string.Empty;
-                _store.ApplyLoadout(response);
-                return;
+                if (!_disposed) _busy.Value = false;
             }
-
-            _message.Value = MessageFor(response?.code ?? 0);
         }
 
         private string FindOwnedInstanceId(int cosmeticId)
@@ -307,6 +329,7 @@ namespace LOP.UI
             _selectedCosmeticId.Dispose();
             _items.Dispose();
             _message.Dispose();
+            _busy.Dispose();
         }
     }
 }

@@ -116,8 +116,11 @@ namespace LOP.EditorTools
 
         // ---- 다시 떨어지기·체크포인트 ----
 
-        /// <summary>별을 놓치고 구름에 닿으면 여기서 다시 떨어진다 — 출구 바로 아래 공중. 결승은 별뿐이다(도착 판 없음).</summary>
-        public static readonly Vector3 RetryPoint = new Vector3(0f, 270f, 0f);
+        /// <summary>
+        /// 정령을 놓치고 구름에 닿으면 여기서 다시 떨어진다 — 태풍 안, 마지막 풍차(330)와 출구(300) 사이(사용자 10-10 A).
+        /// 다시 할 때마다 태풍 바닥을 뚫고 나오는 순간을 또 겪는다. 결승은 정령뿐이다(도착 판 없음).
+        /// </summary>
+        public static readonly Vector3 RetryPoint = new Vector3(0f, 315f, 0f);
         /// <summary>구름 윗면(y 0) 바로 위 — 닿는 틱에 걸린다. 0 이하면 구름에 막혀 영영 안 걸린다.</summary>
         public const float RetryBelowY = 1f;
 

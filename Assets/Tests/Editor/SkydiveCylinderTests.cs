@@ -44,12 +44,24 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 결승은_별뿐이고_놓치면_출구_아래_공중에서_다시_떨어진다()
+        public void 놓치면_태풍_안_출구_바로_위에서_다시_떨어진다()
         {
-            //  사용자 10-07 안 A — 도착 판이 별을 무의미하게 만들었다. 다시 떨어지는 자리는 별보다 충분히 위(겨눌 틈), 출구보다 아래.
-            Assert.Greater(Y.RetryPoint.y, Y.StarCenter.y + Y.StarBob + 40f);
-            Assert.Less(Y.RetryPoint.y, Y.ExitY - 10f);
+            //  사용자 10-10 A — 다시 할 때마다 태풍 바닥을 뚫는 순간을 또 겪는다. 마지막 풍차(330)와 출구(300) 사이.
+            Assert.AreEqual(new Vector3(0f, 315f, 0f), Y.RetryPoint);
+            Assert.Greater(Y.RetryPoint.y, Y.ExitY, "출구 위(태풍 안)");
+            Assert.Less(Y.RetryPoint.y, Y.ObstacleYs().Min(), "마지막 장애물 아래");
             Assert.Greater(Y.RetryBelowY, 0f, "구름(윗면 y 0)에 닿는 틱에 걸려야 한다");
+            Assert.IsNull(SkydiveCylinderBuilder.CheckRetryPoint(Y.RetryPoint));
+        }
+
+        [TestCase(0f, 270f, 0f, TestName = "출구_아래(옛_자리)는_거부")]
+        [TestCase(0f, 302f, 0f, TestName = "출구에_딱_붙으면_거부")]
+        [TestCase(0f, 328f, 0f, TestName = "풍차_날개와_겹치면_거부")]
+        [TestCase(0f, 324f, 0f, TestName = "풍차_날개_바로_밑이면_거부")]
+        [TestCase(55f, 315f, 0f, TestName = "벽에_붙으면_거부")]
+        public void 다시_떨어지는_자리_검사는_어긋난_자리를_막는다(float x, float y, float z)
+        {
+            Assert.IsNotNull(SkydiveCylinderBuilder.CheckRetryPoint(new Vector3(x, y, z)));
         }
 
         [Test]

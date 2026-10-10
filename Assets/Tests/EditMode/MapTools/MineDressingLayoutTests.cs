@@ -177,8 +177,11 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 비계는_범위를_빈틈없이_덮고_밖으로_안_나간다()
         {
-            var bays = MineDressingLayout.TrestleBays(Course(), From, To);
-            AssertTiles(bays, From, To, MineDressingLayout.TrestleBayWidth);
+            //  10-10: 칸이 꺾이는 곳(Breaks)에서 끊기므로 수직 갱 전이·꺾은선 구간 칸은 0.5~3 m로 들쭉날쭉하다 —
+            //  "2.4 근처 폭"은 평평한 앞부분(FlatEnd 앞)에서만 본다. 빈틈·겹침·범위 검사는 범위 전체 그대로.
+            var c = Course();
+            var bays = MineDressingLayout.TrestleBays(c, From, To);
+            AssertTiles(bays, From, To, MineDressingLayout.TrestleBayWidth, c.FlatEnd());
         }
 
         // ── 천장 ──
@@ -213,6 +216,35 @@ namespace LOP.MapTools.Tests
                 //  축척은 부품 단위 길이 기준(들보 1 m, 바위 2 m).
                 float unit = p.Kind == MinePartKind.Beam ? MineDressingLayout.BeamUnit : MineDressingLayout.CeilingRockUnit;
                 Assert.AreEqual(p.Length / unit, p.ScaleX, Eps);
+            }
+        }
+
+        [Test]
+        public void 꺾이는_곳에서도_바닥_천장_칸_양끝이_판정선_위이고_칸_안에서_꺾이지_않는다()
+        {
+            var c = MineCourseRule.Layout(P);
+            float to = c.Sections.First(s => s.Name == "레일 롤러코스터").X;
+            var breaks = c.Breaks(MineDressingLayout.BreakStep);
+            foreach (var (kind, pieces, line) in new[]
+            {
+                ("바닥", MineDressingLayout.TrestleBays(c, -20f, to), (Func<float, float>)(x => c.CenterAt(x) - c.HalfAt(x))),
+                ("천장", MineDressingLayout.CeilingPieces(c, -20f, to), (Func<float, float>)(x => c.CenterAt(x) + c.HalfAt(x))),
+            })
+            {
+                foreach (MinePiece p in pieces)
+                {
+                    float x0 = p.X - p.Width / 2f, x1 = p.X + p.Width / 2f;
+                    double rad = p.AngleDegrees * Math.PI / 180.0, half = p.Length / 2.0;
+                    float ya = (float)(p.Y - Math.Sin(rad) * half), yb = (float)(p.Y + Math.Sin(rad) * half);
+                    Assert.AreEqual(line(x0), ya, 0.01f, $"{kind} x={x0} 왼끝");
+                    Assert.AreEqual(line(x1), yb, 0.01f, $"{kind} x={x1} 오른끝");
+                    //  칸 안쪽에 끊는 점이 있으면 그 점도 현 위에 있어야 한다(= 칸 안에서 꺾이지 않는다). 곡선(낮은 천장)도 0.5 m 간격이라 0.05 안.
+                    foreach (float bx in breaks.Where(bx => bx > x0 + 1e-3f && bx < x1 - 1e-3f))
+                    {
+                        float chordY = ya + (yb - ya) * (bx - x0) / (x1 - x0);
+                        Assert.AreEqual(line(bx), chordY, 0.05f, $"{kind} 칸 [{x0},{x1}] 안 x={bx}");
+                    }
+                }
             }
         }
 
@@ -375,15 +407,16 @@ namespace LOP.MapTools.Tests
 
         // ── 도우미 ──
 
-        //  가운데 정렬 조각들이 [from, to]를 빈틈·겹침 없이 덮고, 밖으로 나가지 않는다. 칸 폭은 단위 폭 근처(±10%).
-        static void AssertTiles(List<MinePiece> pieces, float from, float to, float unit)
+        //  가운데 정렬 조각들이 [from, to]를 빈틈·겹침 없이 덮고, 밖으로 나가지 않는다. 칸 폭은 단위 폭 근처(±10%) —
+        //  오른끝이 widthCheckEnd 이하인 칸만(꺾이는 곳에서 끊긴 칸은 짧거나 길 수 있다).
+        static void AssertTiles(List<MinePiece> pieces, float from, float to, float unit, float widthCheckEnd = float.PositiveInfinity)
         {
             var s = pieces.OrderBy(p => p.X).ToList();
             Assert.AreEqual(from, s[0].X - s[0].Width / 2f, Eps, "첫 조각이 from에서 시작하지 않는다");
             Assert.AreEqual(to, s[s.Count - 1].X + s[s.Count - 1].Width / 2f, Eps, "마지막 조각이 to에서 끝나지 않는다");
             for (int i = 0; i < s.Count; i++)
             {
-                Assert.That(s[i].Width, Is.InRange(unit * 0.9f, unit * 1.1f));
+                if (s[i].X + s[i].Width / 2f <= widthCheckEnd + Eps) { Assert.That(s[i].Width, Is.InRange(unit * 0.9f, unit * 1.1f)); }
                 Assert.That(s[i].X - s[i].Width / 2f, Is.GreaterThanOrEqualTo(from - Eps));
                 Assert.That(s[i].X + s[i].Width / 2f, Is.LessThanOrEqualTo(to + Eps));
                 if (i > 0) { Assert.AreEqual(s[i - 1].X + s[i - 1].Width / 2f, s[i].X - s[i].Width / 2f, Eps, $"x={s[i].X} 이음매"); }

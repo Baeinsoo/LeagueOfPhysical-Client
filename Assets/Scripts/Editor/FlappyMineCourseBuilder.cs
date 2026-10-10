@@ -22,7 +22,8 @@ namespace LOP.EditorTools
         private const float TickSeconds = 0.02f;
 
         //  바닥·천장을 자를 간격(좁은·낮은 구간의 전이 곡선). 꺾은선 꼭짓점은 이와 상관없이 다 들어간다.
-        private const float BreakStep = 0.5f;
+        //  옷 칸(MineDressingLayout.BentTiles)이 같은 값으로 끊어야 그림과 회색 박스가 같은 x에서 꺾인다 — 값은 한곳에서 정한다.
+        private const float BreakStep = MineDressingLayout.BreakStep;
 
         //  굴을 사다리꼴로 자르는 간격 — 전통 지름길 띠(ShortcutStripStep)와 같다.
         private const float TubeStripStep = 0.25f;

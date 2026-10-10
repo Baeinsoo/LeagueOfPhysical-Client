@@ -87,8 +87,12 @@ namespace LOP.MapTools
     ///
     /// <para><b>그림 경계 = 판정 경계</b>(스펙 §4): 데크 윗면은 바닥선(<c>CenterAt − HalfAt</c>), 천장 조각 아랫면은 천장선
     /// (<c>CenterAt + HalfAt</c>), 기둥 칸은 파이프 높이를 정확히 채운다. 이어 까는 조각(비계·천장)은 양끝을 그 선 위의 두 점에
-    /// 맞춘 <b>현</b>이다 — 가운데 y = 양끝 평균, 각도 = 현의 기울기, 길이 = 현의 길이. 선이 직선인 곳(평평한 앞부분 전부,
-    /// <c>MineCourse.FlatEnd</c> 앞)에선 가운데도 선 위에 있고, 꺾이는 칸에선 양끝만 정확하다(칸 사이 이음매가 벌어지지 않는 쪽을 골랐다).</para>
+    /// 맞춘 <b>현</b>이다 — 가운데 y = 양끝 평균, 각도 = 현의 기울기, 길이 = 현의 길이.</para>
+    ///
+    /// <para><b>칸은 꺾이는 곳에서 끊는다</b>(10-10): 회색 박스 바닥·천장은 <c>Breaks(</c><see cref="BreakStep"/><c>)</c>의 x마다 꺾이는
+    /// 꺾은선이므로, 칸 끊는 점도 범위 양끝 + 그 x들이다. 바닥선·천장선이 둘 다 곧게 이어지는 구간은 합쳐 단위 폭 근처 같은 칸으로
+    /// 나누고(<see cref="BentTiles"/>), 그래서 칸 양끝이 판정선 위에 있고 칸 안에서 판정선이 꺾이지 않는다 — 현이 곧 판정선이다.
+    /// 전이·물결 구간은 0.5 m마다 꺾이므로 그곳 칸은 0.5 m로 짧다.</para>
     ///
     /// <para>부품 크기·원점은 Task 3 보고(<c>.superpowers/sdd/2026-10-07-flappy-mine-look-slice1/task-3-report.md</c>)의 유니티 실측값이다.</para>
     /// </summary>
@@ -221,13 +225,19 @@ namespace LOP.MapTools
         // ── 바닥·천장 ──
 
         /// <summary>
-        /// 바닥 비계(TrestleBay + 같은 자리 RailSpan). [from, to]를 2.4 m에 가장 가까운 같은 폭으로 나눠 빈틈없이 깐다 —
-        /// 칸 폭이 2.4에서 조금 어긋나므로 x 축척 = <see cref="MinePiece.ScaleX"/>(현 길이 / 2.4). Y = 데크 윗면(원점).
+        /// 바닥·천장을 자를 간격(좁은·낮은 구간의 전이 곡선) — <c>MineCourse.Breaks</c>에 넘긴다. 회색 박스
+        /// (<c>FlappyMineCourseBuilder</c>)도 이 값을 써서 옷 칸과 회색 박스 조각이 같은 x에서 꺾인다.
+        /// </summary>
+        public const float BreakStep = 0.5f;
+
+        /// <summary>
+        /// 바닥 비계(TrestleBay + 같은 자리 RailSpan). [from, to]를 꺾이는 곳에서 끊고(<see cref="BentTiles"/>) 곧은 구간마다
+        /// 2.4 m에 가장 가까운 같은 폭으로 나눠 빈틈없이 깐다 — 칸 폭이 2.4에서 어긋나므로 x 축척 = <see cref="MinePiece.ScaleX"/>(현 길이 / 2.4). Y = 데크 윗면(원점).
         /// </summary>
         public static List<MinePiece> TrestleBays(MineCourse c, float from, float to)
         {
             var list = new List<MinePiece>();
-            foreach (var (x0, x1) in Tiles(from, to, TrestleBayWidth))
+            foreach (var (x0, x1) in BentTiles(c, from, to, TrestleBayWidth))
             {
                 list.Add(Chord(MinePartKind.TrestleBay, x0, x1, x => c.CenterAtD(x) - c.HalfAtD(x), 0f, TrestleBayWidth));
             }
@@ -235,13 +245,13 @@ namespace LOP.MapTools
         }
 
         /// <summary>
-        /// 천장 조각. [from, to]를 2 m 근처 같은 폭으로 나눈다. 가운데가 노을 바깥(x &lt; 24)이면 <see cref="MinePartKind.Beam"/>
+        /// 천장 조각. [from, to]를 꺾이는 곳에서 끊고(<see cref="BentTiles"/>) 곧은 구간마다 2 m 근처 같은 폭으로 나눈다. 가운데가 노을 바깥(x &lt; 24)이면 <see cref="MinePartKind.Beam"/>
         /// (1 m 단위), 아니면 <see cref="MinePartKind.CeilingRock"/>(2 m 단위). Y = 아랫면 = 천장선.
         /// </summary>
         public static List<MinePiece> CeilingPieces(MineCourse c, float from, float to)
         {
             var list = new List<MinePiece>();
-            foreach (var (x0, x1) in Tiles(from, to, CeilingPieceWidth))
+            foreach (var (x0, x1) in BentTiles(c, from, to, CeilingPieceWidth))
             {
                 bool beam = (x0 + x1) / 2.0 < OutsideEnd;
                 list.Add(Chord(beam ? MinePartKind.Beam : MinePartKind.CeilingRock, x0, x1, x => c.CenterAtD(x) + c.HalfAtD(x), 0f,
@@ -421,6 +431,42 @@ namespace LOP.MapTools
         }
 
         // ── 도우미 ──
+
+        /// <summary>
+        /// 꺾이는 곳에 맞춘 칸. 끊는 점 = {from, to} ∪ (<c>c.Breaks(BreakStep)</c> 중 from &lt; x &lt; to) — 회색 박스 바닥·천장 조각과 같은 x다.
+        /// 이웃한 두 구간이 바닥선과 천장선 <b>둘 다</b> 같은 기울기(차 &lt; 1e-6)면 한 직선 구간으로 합치고, 직선 구간마다
+        /// <see cref="Tiles"/>로 unit 근처 같은 폭 칸을 낸다. 그래서 칸 양끝이 판정선 위에 있고 칸 안에서 판정선이 꺾이지 않는다.
+        /// 곡선(낮은 천장 물결)·전이 구간은 0.5 m 조각마다 꺾이므로 그 칸은 0.5 m로 짧다.
+        /// </summary>
+        internal static IEnumerable<(double x0, double x1)> BentTiles(MineCourse c, float from, float to, float unit)
+        {
+            if ((double)to - from <= 1e-6) { yield break; }
+            var xs = new List<double> { from };
+            foreach (float b in c.Breaks(BreakStep))
+            {
+                if (b > from && b < to) { xs.Add(b); }
+            }
+            xs.Add(to);
+
+            double Floor(double x) => c.CenterAtD(x) - c.HalfAtD(x);
+            double Ceil(double x) => c.CenterAtD(x) + c.HalfAtD(x);
+
+            int start = 0;
+            for (int i = 1; i < xs.Count; i++)
+            {
+                //  다음 구간이 이 구간과 기울기가 같으면 이어 붙인다. 마지막 구간이거나 꺾이면 [xs[start], xs[i]]를 낸다.
+                bool last = i == xs.Count - 1;
+                if (!last)
+                {
+                    double w0 = xs[i] - xs[i - 1], w1 = xs[i + 1] - xs[i];
+                    double f0 = (Floor(xs[i]) - Floor(xs[i - 1])) / w0, f1 = (Floor(xs[i + 1]) - Floor(xs[i])) / w1;
+                    double c0 = (Ceil(xs[i]) - Ceil(xs[i - 1])) / w0, c1 = (Ceil(xs[i + 1]) - Ceil(xs[i])) / w1;
+                    if (Math.Abs(f0 - f1) < 1e-6 && Math.Abs(c0 - c1) < 1e-6) { continue; }
+                }
+                foreach (var t in Tiles((float)xs[start], (float)xs[i], unit)) { yield return t; }
+                start = i;
+            }
+        }
 
         /// <summary>[from, to]를 unit에 가장 가까운 같은 폭 n칸으로. 칸 경계는 double로 셈해 오차가 쌓이지 않는다.</summary>
         static IEnumerable<(double x0, double x1)> Tiles(float from, float to, float unit)

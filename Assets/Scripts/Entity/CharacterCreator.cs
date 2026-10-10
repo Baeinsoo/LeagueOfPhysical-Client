@@ -41,6 +41,10 @@ namespace LOP
             worldEntity.Add(new EntityKind(EntityType.Character));
             worldEntity.Add(new MasterDataRef(creationData.characterCode));
             worldEntity.Add(new Appearance(creationData.visualId));
+            if (creationData.look != null)
+            {
+                worldEntity.Add(creationData.look);
+            }
 
             var worldHealth = new GameFramework.World.Health(creationData.maxHP) { Current = creationData.currentHP };
             worldEntity.Add(worldHealth);

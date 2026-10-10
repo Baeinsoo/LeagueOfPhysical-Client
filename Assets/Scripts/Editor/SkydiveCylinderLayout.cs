@@ -128,7 +128,7 @@ namespace LOP.EditorTools
         public const float RetryBelowY = 1f;
 
         /// <summary>
-        /// 별 조각 — 구름 바로 위(35~55m)에서 천천히 돌며(반지름 40, 초속 약 7m — 활강의 절반) 위아래로 흔들린다(±10, 8초).
+        /// 정령(지금은 별과 같은 판정·움직임) — 구름 바로 위(35~55m)에서 천천히 돌며(반지름 40, 초속 약 7m — 활강의 절반) 위아래로 흔들린다(±10, 8초).
         /// 닿으면 결승. 판정은 보이는 빛보다 넉넉하다 — 스치기만 해도 잡힌다(사용자 10-08 "그냥 터치해도 바로 잡히게").
         /// 놓치고 구름에 닿으면 출구 아래에서 다시 떨어진다.
         /// </summary>
@@ -137,6 +137,8 @@ namespace LOP.EditorTools
         /// <summary>바깥 노란 빛의 지름(반지름 12) — 판정(15)이 이보다 넉넉해 빛에 스치면 잡힌다.</summary>
         public const float StarHaloDiameter = 24f;
         public const int StarBobPeriod = 400;
+        /// <summary>정령 얼굴(눈 둘) 판 크기 — 빛 심지(지름 7)와 같게. 빛(24)보다 작아 판정(15)이 그림보다 넉넉한 것은 그대로.</summary>
+        public const float SpiritFaceSize = 7f;
 
         /// <summary>벽 틈새 빛줄기 — (높이, 각도). 아래로 갈수록 많고 굵다(출구가 가깝다는 신호).</summary>
         public static readonly (float y, float deg, float width)[] LightShafts =

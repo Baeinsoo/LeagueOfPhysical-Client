@@ -51,8 +51,10 @@ Shader "LOP/StormWall"
                 float2 i = floor(p);
                 float2 f = frac(p);
                 f = f * f * (3.0 - 2.0 * f);
-                float x0 = fmod(fmod(i.x, period) + period, period);
-                float x1 = fmod(x0 + 1.0, period);
+                //  fmod는 GPU에서 나눗셈 근사라 6.9999995처럼 나온다 — 해시에 들어가면 칸 경계마다 값이 끊겨 세로 줄이 생긴다. 반올림해 늘 정수로 고정.
+                float x0 = round(i.x - period * floor(i.x / period));
+                x0 = (x0 >= period) ? x0 - period : x0;
+                float x1 = (x0 + 1.0 >= period) ? 0.0 : x0 + 1.0;
                 float a = Hash(float2(x0, i.y));
                 float b = Hash(float2(x1, i.y));
                 float c = Hash(float2(x0, i.y + 1.0));

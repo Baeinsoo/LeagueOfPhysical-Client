@@ -77,12 +77,15 @@ namespace LOP.UI
         private readonly IUserDataStore _userDataStore;
         private readonly LOP.MasterData.LOPMasterData _masterData;
         private readonly IWindowManager _windowManager;
+        private readonly EconomyStore _economyStore;
         private readonly CancellationTokenSource _cts = new();
 
         private readonly ReactiveProperty<IReadOnlyList<ProfileQueueStats>> _stats = new(null);
         private readonly ReactiveProperty<string> _status = new("불러오는 중…");
         private readonly ReactiveProperty<IReadOnlyList<ProfileMatchEntry>> _matches = new(null);
         private readonly ReactiveProperty<string> _identity = new(string.Empty);
+        private readonly ReadOnlyReactiveProperty<string> _xpText;
+        private readonly ReadOnlyReactiveProperty<string> _equippedText;
 
         /// <summary>도착 전에는 null.</summary>
         public ReadOnlyReactiveProperty<IReadOnlyList<ProfileQueueStats>> Stats => _stats;
@@ -96,14 +99,75 @@ namespace LOP.UI
         /// <summary>화면 상단의 `이름#태그`. 개명하면 바뀌므로 라이브 상태다.</summary>
         public ReadOnlyReactiveProperty<string> Identity => _identity;
 
-        public ProfileViewModel(IUserDataStore userDataStore, LOP.MasterData.LOPMasterData masterData, IWindowManager windowManager)
+        /// <summary>내 레벨. <see cref="EconomyStore"/>를 그대로 보여준다 — 받기 전엔 1(기본값).</summary>
+        public ReadOnlyReactiveProperty<int> Level => _economyStore.Level;
+
+        /// <summary>"1,250 / 1,400"(이번 레벨 경험치 / 다음 레벨까지 필요한 경험치). 받기 전엔 빈 문자열.</summary>
+        public ReadOnlyReactiveProperty<string> XpText => _xpText;
+
+        /// <summary>슬롯 표시순서대로 한 줄씩 "슬롯명: 품목명". 받기 전엔 빈 문자열.</summary>
+        public ReadOnlyReactiveProperty<string> EquippedText => _equippedText;
+
+        public ProfileViewModel(IUserDataStore userDataStore, LOP.MasterData.LOPMasterData masterData, IWindowManager windowManager,
+            EconomyStore economyStore, CosmeticCatalog catalog)
         {
             _userDataStore = userDataStore;
             _masterData = masterData;
             _windowManager = windowManager;
+            _economyStore = economyStore;
+
+            //  Progress가 null(아직 못 받음)이면 둘 다 빈 문자열 — 레벨 칩과 달리 "기본값"이 없는
+            //  문구라, 안 받은 상태를 숫자 0 같은 거짓값으로 채우지 않는다.
+            _xpText = economyStore.Progress.Select(FormatXp).ToReadOnlyReactiveProperty(string.Empty);
+            _equippedText = economyStore.Progress
+                .CombineLatest(economyStore.Loadout, (progress, loadout) =>
+                    progress == null ? string.Empty : BuildEquippedText(loadout, catalog))
+                .ToReadOnlyReactiveProperty(string.Empty);
 
             RefreshIdentity();
             LoadAsync().Forget();
+        }
+
+        /// <summary>경험치 문구. "이번 레벨에 쌓은 경험치 / 다음 레벨까지 필요한 경험치", 천단위 구분자.</summary>
+        private static string FormatXp(ProgressDto progress)
+        {
+            if (progress == null) return string.Empty;
+
+            return $"{progress.xpIntoLevel.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)}" +
+                $" / {progress.xpToNext.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)}";
+        }
+
+        /// <summary>
+        /// 슬롯 표시순서대로 "슬롯명: 품목명" 한 줄씩. 로드아웃에 없는 슬롯은 그 슬롯의 기본 품목을
+        /// 보여준다(상점과 같은 판정). 마스터데이터에 없는 코스메틱 id(옛 품목이 내려온 경우)는
+        /// 그 슬롯만 "?"로 — 한 슬롯의 잘못된 값이 나머지 줄을 가리지 않게 한다.
+        /// </summary>
+        private static string BuildEquippedText(IReadOnlyList<LoadoutSlotDto> loadout, CosmeticCatalog catalog)
+        {
+            var lines = new List<string>(catalog.Slots.Count);
+
+            foreach (var slot in catalog.Slots)
+            {
+                int cosmeticId = 0;
+                foreach (var entry in loadout)
+                {
+                    if (entry.slotId == slot.Id)
+                    {
+                        cosmeticId = entry.cosmeticId;
+                        break;
+                    }
+                }
+
+                if (cosmeticId == 0)
+                {
+                    cosmeticId = catalog.DefaultOf(slot.Id)?.Id ?? 0;
+                }
+
+                string itemName = catalog.ById(cosmeticId)?.Name ?? "?";
+                lines.Add($"{slot.Name}: {itemName}");
+            }
+
+            return string.Join("\n", lines);
         }
 
         /// <summary>
@@ -148,6 +212,9 @@ namespace LOP.UI
             _status.Dispose();
             _matches.Dispose();
             _identity.Dispose();
+            //  Level은 EconomyStore 소유라 여기서 dispose하지 않는다(스토어는 Scoped로 더 길게 산다).
+            _xpText.Dispose();
+            _equippedText.Dispose();
         }
 
         private async UniTaskVoid LoadAsync()

@@ -163,6 +163,7 @@ namespace LOP.Tests
                 Assert.AreEqual(1, hats.Count);
                 Assert.AreEqual(Vector3.one * 0.25f, hats[0].localScale);
                 Assert.IsNull(hats[0].GetComponent<Collider>());
+                Object.DestroyImmediate(hats[0].GetComponent<MeshRenderer>().sharedMaterial);
             }
             finally
             {
@@ -186,7 +187,9 @@ namespace LOP.Tests
                 ChibiLookApplier.ApplyPrimitives(root, look, catalog);
 
                 Assert.AreEqual(0, ChildrenNamed(head.transform, "Look_hat").Count);
-                Assert.AreEqual(1, ChildrenNamed(chest.transform, "Look_accessory").Count);
+                var accessories = ChildrenNamed(chest.transform, "Look_accessory");
+                Assert.AreEqual(1, accessories.Count);
+                Object.DestroyImmediate(accessories[0].GetComponent<MeshRenderer>().sharedMaterial);
             }
             finally
             {
@@ -195,16 +198,104 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 룩이_없으면_원시도형을_안_붙인다()
+        public void 룩이_없이_다시_입히면_전에_붙인_원시도형을_뗀다()
         {
             var root = new GameObject("Root");
             var head = new GameObject("Head");
             head.transform.SetParent(root.transform);
             try
             {
+                ChibiLookApplier.ApplyPrimitives(root, LookWith(("hat", "hat_cube_red")), NewCatalog());
+                Assert.AreEqual(1, ChildrenNamed(head.transform, "Look_hat").Count, "전제: 먼저 모자가 붙어 있어야 한다");
+
                 ChibiLookApplier.ApplyPrimitives(root, null, null);
 
                 Assert.AreEqual(0, ChildrenNamed(head.transform, "Look_hat").Count);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void 다시_입히면_이전_모자의_머티리얼을_지운다()
+        {
+            var root = new GameObject("Root");
+            var head = new GameObject("Head");
+            head.transform.SetParent(root.transform);
+            Material second = null;
+            try
+            {
+                var catalog = NewCatalog();
+                var look = LookWith(("hat", "hat_cube_red"));
+
+                ChibiLookApplier.ApplyPrimitives(root, look, catalog);
+                var first = head.transform.Find("Look_hat").GetComponent<MeshRenderer>().sharedMaterial;
+                Assert.IsTrue(first != null, "전제: 모자 머티리얼이 있어야 한다");
+
+                ChibiLookApplier.ApplyPrimitives(root, look, catalog);
+                second = head.transform.Find("Look_hat").GetComponent<MeshRenderer>().sharedMaterial;
+
+                //  매번 새로 만든 머티리얼이라, 다시 입힐 때 안 지우면 쌓인다.
+                Assert.IsTrue(first == null, "이전 머티리얼이 남아 있다(누수)");
+            }
+            finally
+            {
+                if (second != null) Object.DestroyImmediate(second);
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void 모자는_돌아간_머리_뼈에서도_월드_위쪽에_얹힌다()
+        {
+            var root = new GameObject("Root");
+            var head = new GameObject("Head");
+            head.transform.SetParent(root.transform);
+            head.transform.position = new Vector3(1f, 2f, 3f);
+            //  PolyOne 치비처럼 뼈 로컬 −X가 월드 위, −Y가 앞이 되게 돌린다.
+            head.transform.rotation = Quaternion.Euler(0f, 0f, -90f);
+            try
+            {
+                Assert.That(Vector3.Distance(head.transform.TransformDirection(Vector3.left), Vector3.up), Is.LessThan(1e-4f), "전제: 로컬 −X가 월드 위");
+
+                ChibiLookApplier.ApplyPrimitives(root, LookWith(("hat", "hat_cube_red")), NewCatalog());   // 0.25 큐브
+
+                var hat = head.transform.Find("Look_hat");
+                var headCenter = head.transform.TransformPoint(ChibiHeadFrame.Center);
+                var offset = hat.position - headCenter;
+                Assert.AreEqual(ChibiHeadFrame.Radius + 0.125f, offset.y, 0.01f, "모자가 머리 꼭대기 위에 있지 않다");
+                Assert.AreEqual(0f, offset.x, 0.01f);
+                Assert.AreEqual(0f, offset.z, 0.01f);
+                //  모자의 위도 월드 위를 본다.
+                Assert.That(Vector3.Dot(hat.up, Vector3.up), Is.GreaterThan(0.999f));
+                Object.DestroyImmediate(hat.GetComponent<MeshRenderer>().sharedMaterial);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void 장식은_돌아간_가슴_뼈에서도_몸_앞에_붙는다()
+        {
+            var root = new GameObject("Root");
+            root.transform.rotation = Quaternion.Euler(0f, 30f, 0f);
+            var chest = new GameObject("Chest");
+            chest.transform.SetParent(root.transform);
+            chest.transform.localPosition = new Vector3(0f, 1f, 0f);
+            chest.transform.localRotation = Quaternion.Euler(-90f, 0f, -90f);
+            try
+            {
+                ChibiLookApplier.ApplyPrimitives(root, LookWith(("accessory", "acc_sphere")), NewCatalog());
+
+                var accessory = chest.transform.Find("Look_accessory");
+                var offset = accessory.position - chest.transform.position;
+                Assert.That(Vector3.Distance(offset, root.transform.forward * 0.08f), Is.LessThan(0.005f),
+                    $"장식이 몸 앞이 아니다: {offset}");
+                Object.DestroyImmediate(accessory.GetComponent<MeshRenderer>().sharedMaterial);
             }
             finally
             {

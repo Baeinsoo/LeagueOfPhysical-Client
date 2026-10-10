@@ -44,7 +44,8 @@ namespace LOP
             var existingFace = visual.GetComponent<ChibiFace>();
             if (existingFace != null)
             {
-                existingFace.SetExpression(ChibiLookApplier.ExpressionFor(look, catalog));
+                existingFace.restExpression = ChibiLookApplier.ExpressionFor(look, catalog);
+                existingFace.SetExpression(existingFace.restExpression);
             }
 
             ChibiLookApplier.ApplyPrimitives(visual, look, catalog);

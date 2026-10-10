@@ -180,12 +180,11 @@ namespace LOP.UI
             _detailName.text = selectedItem.Name;
             _detailPrice.text = FormatPrice(selectedItem);
 
-            //  기본/장착 품목은 살 것도 더 장착할 것도 없다 — 두 버튼 다 꺼 둔다.
-            //  요청이 응답을 기다리는 동안(Busy)도 잠근다 — 안 그러면 응답 전에 또 눌러
+            //  요청이 응답을 기다리는 동안(Busy)은 둘 다 잠근다 — 안 그러면 응답 전에 또 눌러
             //  같은 멱등키로 중복 요청을 보낸다.
             bool busy = _viewModel.Busy.CurrentValue;
-            _buyButton.SetEnabled(!busy && selectedItem.State == ItemState.NotOwned && selectedItem.CanBuy);
-            _equipButton.SetEnabled(!busy && selectedItem.State == ItemState.Owned);
+            _buyButton.SetEnabled(!busy && selectedItem.CanBuy);
+            _equipButton.SetEnabled(!busy && selectedItem.CanEquip);
         }
 
         //  "300 코인" / 비매품 기본 품목은 "기본" / 그 외 가격이 없으면 "-"(현재 데이터엔 안 나오지만

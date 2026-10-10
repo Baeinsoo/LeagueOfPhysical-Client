@@ -39,12 +39,14 @@ namespace LOP.UI
 
             var progress = Root.Q<VisualElement>("profile-progress");
 
-            //  레벨은 기본값(1)이 있어 바로 보여주고, 경험치는 받기 전엔 숨긴다 — "경험치: "만 남은
-            //  빈 줄이 뜨지 않게.
-            Disposables.Add(_viewModel.Level.CombineLatest(_viewModel.XpText, (level, xp) => (level, xp)).Subscribe(t =>
+            //  레벨·경험치는 받기 전엔 숨긴다 — "레벨: Lv 1" 같은 거짓값이나 "경험치: "만 남은 빈 줄이 뜨지 않게.
+            Disposables.Add(_viewModel.LevelText.CombineLatest(_viewModel.XpText, (level, xp) => (level, xp)).Subscribe(t =>
             {
                 progress.Clear();
-                progress.Add(BuildStat("레벨", $"Lv {t.level}"));
+                if (!string.IsNullOrEmpty(t.level))
+                {
+                    progress.Add(BuildStat("레벨", t.level));
+                }
                 if (!string.IsNullOrEmpty(t.xp))
                 {
                     progress.Add(BuildStat("경험치", t.xp));

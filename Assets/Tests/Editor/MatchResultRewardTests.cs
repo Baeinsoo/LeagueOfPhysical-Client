@@ -30,7 +30,7 @@ namespace LOP.Tests
         }
 
         //  가짜 조회는 이미 끝난 UniTask를 돌려준다 — 생성자 안에서 바로 줄이 채워진다.
-        private static MatchResultViewModel ViewModel(int queueOfMatch, MatchRewardDto reward)
+        private static MatchResultViewModel ViewModel(int queueOfMatch, MatchRewardDto reward, RankChangeDto rank = null)
         {
             var store = new FakeMatchResultDataStore
             {
@@ -48,7 +48,7 @@ namespace LOP.Tests
                     match = new MatchHistoryEntryDto
                     {
                         matchId = matchId, queueId = queueOfMatch,
-                        participants = new[] { new MatchHistoryParticipantDto { userId = userId, placement = 1, reward = reward } },
+                        participants = new[] { new MatchHistoryParticipantDto { userId = userId, placement = 1, reward = reward, rank = rank } },
                     },
                 });
 
@@ -79,7 +79,11 @@ namespace LOP.Tests
         [Test]
         public void 보상이_없으면_줄을_숨긴다()
         {
-            var vm = ViewModel(queueOfMatch: 2, reward: null);
+            //  같은 응답에 랭크가 실려 있어 랭크 줄이 채워진다 — 조회가 실제로 처리됐는데도 보상 줄만 빈다.
+            var rank = new RankChangeDto { divisionBefore = 14, lpBefore = 45, divisionAfter = 14, lpAfter = 63, placementPlayed = 5, placementGames = 5 };
+            var vm = ViewModel(queueOfMatch: 2, reward: null, rank: rank);
+
+            Assert.AreEqual("골드 II 45 → 63 LP (+18)", vm.RankLine.CurrentValue, "전제: 조회 결과가 반영돼야 한다");
             Assert.AreEqual(string.Empty, vm.RewardLine.CurrentValue);
         }
 

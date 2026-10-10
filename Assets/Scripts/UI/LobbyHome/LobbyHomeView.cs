@@ -92,9 +92,16 @@ namespace LOP.UI
             _matchmaking.SelectedQueue.Subscribe(OnQueueSelected).AddTo(_subscriptions);
             _matchmaking.RankSummary.Subscribe(text => _rankSummary.text = text).AddTo(_subscriptions);
 
-            _economy.Coins.Subscribe(coins => _coinValue.text = coins.ToString("N0")).AddTo(_subscriptions);
-            _economy.Level.Subscribe(level => _levelValue.text = $"Lv {level}").AddTo(_subscriptions);
+            _economy.Progress.CombineLatest(_economy.Coins, (progress, coins) => CoinChipText(progress, coins))
+                .Subscribe(text => _coinValue.text = text).AddTo(_subscriptions);
+            _economy.Progress.Subscribe(progress => _levelValue.text = LevelChipText(progress)).AddTo(_subscriptions);
         }
+
+        //  한 번도 못 받았으면 "0 코인"·"Lv 1"이 아니라 "-" — 실패한 조회를 진짜 0원으로 보이게 하지 않는다.
+        //  코인과 진행도는 같은 조회로 함께 오므로 진행도 유무로 "받았나"를 가른다.
+        public static string CoinChipText(ProgressDto progress, long coins) => progress == null ? "-" : coins.ToString("N0");
+
+        public static string LevelChipText(ProgressDto progress) => progress == null ? "-" : $"Lv {progress.level}";
 
         //  랭크면 게임·맵을 숨기고 내 티어를 보인다. 일반이면 반대.
         private void OnQueueSelected(QueueKind kind)

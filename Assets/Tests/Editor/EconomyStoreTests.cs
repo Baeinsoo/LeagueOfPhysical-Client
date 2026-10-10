@@ -100,10 +100,17 @@ namespace LOP.Tests
             var store = NewStore((userId, ct) => UniTask.FromResult(SuccessResponse(700, 3)));
             store.RefreshAsync(CancellationToken.None).Forget();
 
-            //  거절 응답은 code만 오고 owned/wallets/loadout이 null이다(economy.service.ts).
-            store.ApplyPurchase(new PurchaseCosmeticResponse { code = ResponseCode.INSUFFICIENT_FUNDS });
+            //  거절 응답인데도 지갑·로드아웃·보유가 실려 온 비정상 응답 — code 검사가 빠지면 전부 반영된다.
+            store.ApplyPurchase(new PurchaseCosmeticResponse
+            {
+                code = ResponseCode.INSUFFICIENT_FUNDS,
+                wallets = new[] { new WalletDto { currencyId = 1, balance = 1 } },
+                loadout = new[] { new LoadoutSlotDto { slotId = 1, userCosmeticId = "u9", cosmeticId = 102 } },
+                owned = new OwnedCosmeticDto { id = "u9", cosmeticId = 102, source = "purchase", acquiredAt = "2026-10-11T00:00:00.000Z" },
+            });
 
             Assert.AreEqual(700, store.Coins.CurrentValue);
+            Assert.AreEqual(0, store.Loadout.CurrentValue.Count);
             Assert.AreEqual(0, store.Owned.CurrentValue.Count);
         }
 
@@ -123,6 +130,20 @@ namespace LOP.Tests
             Assert.AreEqual(202, store.Loadout.CurrentValue[0].cosmeticId);
             //  지갑은 이 응답이 안 실어 오므로 그대로다.
             Assert.AreEqual(700, store.Coins.CurrentValue);
+        }
+
+        [Test]
+        public void 받기_전에는_로비_칩이_대시이고_받으면_값이_된다()
+        {
+            var store = NewStore((userId, ct) => UniTask.FromResult(SuccessResponse(1700, 3)));
+
+            Assert.AreEqual("-", LOP.UI.LobbyHomeView.CoinChipText(store.Progress.CurrentValue, store.Coins.CurrentValue));
+            Assert.AreEqual("-", LOP.UI.LobbyHomeView.LevelChipText(store.Progress.CurrentValue));
+
+            store.RefreshAsync(CancellationToken.None).Forget();
+
+            Assert.AreEqual(1700.ToString("N0"), LOP.UI.LobbyHomeView.CoinChipText(store.Progress.CurrentValue, store.Coins.CurrentValue));
+            Assert.AreEqual("Lv 3", LOP.UI.LobbyHomeView.LevelChipText(store.Progress.CurrentValue));
         }
     }
 }

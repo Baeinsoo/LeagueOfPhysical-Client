@@ -94,7 +94,7 @@ namespace LOP
                 var face = visual.GetComponent<ChibiFace>();
                 if (face != null)
                 {
-                    face.SetExpression(SkydiveLookRules.ChibiFace(motion.Value, posture?.Axis ?? 0f, posture?.Gliding ?? false, hitRecently));
+                    face.SetReaction(SkydiveLookRules.ChibiFace(motion.Value, posture?.Axis ?? 0f, posture?.Gliding ?? false, hitRecently));
                 }
             }
         }

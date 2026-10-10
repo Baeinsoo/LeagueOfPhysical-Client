@@ -69,7 +69,7 @@ namespace LOP
                 var face = visual.GetComponent<ChibiFace>();
                 if (face != null)
                 {
-                    face.SetExpression(DodgeHitFeedback.ExpressionFor(renderTick, state.InvulnerableUntil(id)));
+                    face.SetReaction(DodgeHitFeedback.ExpressionFor(renderTick, state.InvulnerableUntil(id)));
                 }
             }
 

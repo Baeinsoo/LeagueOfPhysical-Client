@@ -298,11 +298,222 @@ namespace LOP.Tests
             AssertMessage(ResponseCode.INSUFFICIENT_FUNDS, "코인이 부족합니다");
             AssertMessage(ResponseCode.COSMETIC_ALREADY_OWNED, "이미 가진 품목");
             AssertMessage(ResponseCode.COSMETIC_NOT_PURCHASABLE, "살 수 없는 품목");
-            AssertMessage(ResponseCode.PRICE_MISMATCH, "가격이 바뀌었습니다. 다시 열어 주세요");
+            AssertMessage(ResponseCode.PRICE_MISMATCH, "가격이 바뀌었습니다. 앱을 업데이트해 주세요");
             AssertMessage(ResponseCode.ACCOUNT_FROZEN, "계정이 일시 정지 상태");
             AssertMessage(ResponseCode.ECONOMY_DISABLED, "지금은 상점을 쓸 수 없습니다");
             AssertMessage(ResponseCode.WALLET_FULL, "지갑이 가득 찼습니다");
             AssertMessage(ResponseCode.COSMETIC_NOT_EXIST, "잠시 뒤 다시 시도");
+        }
+
+        //  조회 횟수를 세고, 다음 조회가 돌려줄 보유 목록을 바꿀 수 있는 가짜 스토어.
+        private sealed class CountingFetch
+        {
+            public int Calls;
+            public long Coins = 700;
+            public LoadoutSlotDto[] Loadout = Array.Empty<LoadoutSlotDto>();
+            public OwnedCosmeticDto[] Owned = Array.Empty<OwnedCosmeticDto>();
+
+            public UniTask<GetEconomyResponse> Fetch(string userId, CancellationToken ct)
+            {
+                Calls++;
+                return UniTask.FromResult(EconomyResponse(Coins, Loadout, Owned));
+            }
+        }
+
+        private static (ShopViewModel vm, EconomyStore store) NewViewModelWith(CountingFetch fetch,
+            Func<string, PurchaseCosmeticRequest, CancellationToken, UniTask<PurchaseCosmeticResponse>> purchase = null,
+            Func<string, SetLoadoutRequest, CancellationToken, UniTask<SetLoadoutResponse>> setLoadout = null)
+        {
+            var users = new FakeUserDataStore { user = new User { id = "me" } };
+            var store = new EconomyStore(users, Catalog, fetch.Fetch);
+            store.RefreshAsync(CancellationToken.None).Forget();
+            var vm = new ShopViewModel(store, Catalog, users, purchase, setLoadout);
+            return (vm, store);
+        }
+
+        [Test]
+        public void 상점을_열면_재화를_새로_조회한다()
+        {
+            var fetch = new CountingFetch();
+            var users = new FakeUserDataStore { user = new User { id = "me" } };
+            var store = new EconomyStore(users, Catalog, fetch.Fetch);
+
+            Assert.AreEqual(0, fetch.Calls);
+            var vm = new ShopViewModel(store, Catalog, users, null, null);
+
+            //  로비 진입 때 조회가 실패했어도 상점을 여는 순간 다시 받아 온다.
+            Assert.AreEqual(1, fetch.Calls);
+            Assert.AreEqual(700, store.Coins.CurrentValue);
+            vm.Dispose();
+        }
+
+        [Test]
+        public void 구매_중_예외가_나면_한_번_더_조회한다()
+        {
+            var hat = Catalog.SlotByCode("hat");
+            var red = Catalog.ByCode("hat_cube_red");
+            var fetch = new CountingFetch();
+
+            Func<string, PurchaseCosmeticRequest, CancellationToken, UniTask<PurchaseCosmeticResponse>> purchase =
+                (userId, request, ct) => throw new TimeoutException("응답 없음");
+
+            var (vm, _) = NewViewModelWith(fetch, purchase: purchase);
+            vm.SelectSlot(hat.Id);
+            vm.Select(red.Id);
+            int before = fetch.Calls;
+
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("Failed to purchase"));
+            vm.BuyAsync(true).Forget();
+
+            //  서버가 커밋했는데 응답만 잃었을 수 있다 — 진실은 다시 물어봐야 안다.
+            Assert.AreEqual(before + 1, fetch.Calls);
+        }
+
+        [Test]
+        public void 이미_가진_품목_응답이면_다시_조회해_보유를_반영한다()
+        {
+            var hat = Catalog.SlotByCode("hat");
+            var red = Catalog.ByCode("hat_cube_red");
+            var fetch = new CountingFetch();
+
+            //  앞선 요청이 서버에선 커밋됐는데 응답을 잃은 상황 — 다음 조회부터는 빨간 모자가 보유로 온다.
+            Func<string, PurchaseCosmeticRequest, CancellationToken, UniTask<PurchaseCosmeticResponse>> purchase =
+                (userId, request, ct) =>
+                {
+                    fetch.Owned = new[] { new OwnedCosmeticDto { id = "u-red", cosmeticId = red.Id, source = "purchase", acquiredAt = "2026-10-11T00:00:00.000Z" } };
+                    return UniTask.FromResult(new PurchaseCosmeticResponse { code = ResponseCode.COSMETIC_ALREADY_OWNED });
+                };
+
+            var (vm, store) = NewViewModelWith(fetch, purchase: purchase);
+            vm.SelectSlot(hat.Id);
+            vm.Select(red.Id);
+            Assert.AreEqual(ItemState.NotOwned, Find(vm.Items.CurrentValue, red.Id).State);
+            int before = fetch.Calls;
+
+            vm.BuyAsync(true).Forget();
+
+            Assert.AreEqual(before + 1, fetch.Calls);
+            Assert.AreEqual(1, store.Owned.CurrentValue.Count);
+            Assert.AreEqual("u-red", store.Owned.CurrentValue[0].id);
+            Assert.AreEqual(ItemState.Owned, Find(vm.Items.CurrentValue, red.Id).State);
+        }
+
+        [TestCase(ResponseCode.PRICE_MISMATCH)]
+        [TestCase(ResponseCode.IDEMPOTENCY_CONFLICT)]
+        public void 스토어가_낡았다는_거절이면_다시_조회한다(int code)
+        {
+            var hat = Catalog.SlotByCode("hat");
+            var red = Catalog.ByCode("hat_cube_red");
+            var fetch = new CountingFetch();
+
+            Func<string, PurchaseCosmeticRequest, CancellationToken, UniTask<PurchaseCosmeticResponse>> purchase =
+                (userId, request, ct) => UniTask.FromResult(new PurchaseCosmeticResponse { code = code });
+
+            var (vm, _) = NewViewModelWith(fetch, purchase: purchase);
+            vm.SelectSlot(hat.Id);
+            vm.Select(red.Id);
+            int before = fetch.Calls;
+
+            vm.BuyAsync(true).Forget();
+
+            Assert.AreEqual(before + 1, fetch.Calls);
+        }
+
+        [Test]
+        public void 코인_부족_거절은_다시_조회하지_않는다()
+        {
+            var hat = Catalog.SlotByCode("hat");
+            var red = Catalog.ByCode("hat_cube_red");
+            var fetch = new CountingFetch { Coins = 100 };
+
+            Func<string, PurchaseCosmeticRequest, CancellationToken, UniTask<PurchaseCosmeticResponse>> purchase =
+                (userId, request, ct) => UniTask.FromResult(new PurchaseCosmeticResponse { code = ResponseCode.INSUFFICIENT_FUNDS });
+
+            var (vm, _) = NewViewModelWith(fetch, purchase: purchase);
+            vm.SelectSlot(hat.Id);
+            vm.Select(red.Id);
+            int before = fetch.Calls;
+
+            vm.BuyAsync(true).Forget();
+
+            Assert.AreEqual(before, fetch.Calls);
+        }
+
+        [Test]
+        public void 비매품은_가격이_있어도_살_수_없다()
+        {
+            var hat = Catalog.SlotByCode("hat");
+
+            //  가격 줄은 있지만 purchasable=false인 품목 하나짜리 표 — 실제 데이터엔 아직 이런 행이 없다.
+            var buf = new Luban.ByteBuf();
+            buf.WriteSize(1);
+            buf.WriteInt(9001);
+            buf.WriteString("hat_not_for_sale");
+            buf.WriteInt(hat.Id);
+            buf.WriteString("비매품 모자");
+            buf.WriteInt(1);
+            buf.WriteBool(false);   // purchasable
+            buf.WriteBool(false);   // is_default
+            buf.WriteString("primitive");
+            buf.WriteString("cube:#000000:0.2");
+            buf.WriteSize(1);
+            buf.WriteInt(Catalog.CoinCurrencyId);
+            buf.WriteLong(100);
+            var catalog = new CosmeticCatalog(new LOP.MasterData.TbCosmetic(buf), TestEconomyTables.CosmeticSlots, TestEconomyTables.Currencies);
+
+            var users = new FakeUserDataStore { user = new User { id = "me" } };
+            var store = new EconomyStore(users, catalog, (userId, ct) => UniTask.FromResult(EconomyResponse(700, null, null)));
+            var vm = new ShopViewModel(store, catalog, users, null, null);
+            store.RefreshAsync(CancellationToken.None).Forget();
+            vm.SelectSlot(hat.Id);
+
+            var item = Find(vm.Items.CurrentValue, 9001);
+            Assert.AreEqual(100, item.CoinPrice);
+            Assert.IsFalse(item.CanBuy);
+        }
+
+        [Test]
+        public void 기본_품목을_장착하면_모자를_벗는다()
+        {
+            var hat = Catalog.SlotByCode("hat");
+            var none = Catalog.ByCode("hat_none");
+            var red = Catalog.ByCode("hat_cube_red");
+            SetLoadoutRequest seenRequest = null;
+
+            Func<string, SetLoadoutRequest, CancellationToken, UniTask<SetLoadoutResponse>> setLoadout =
+                (userId, request, ct) =>
+                {
+                    seenRequest = request;
+                    return UniTask.FromResult(new SetLoadoutResponse
+                    {
+                        code = ResponseCode.SUCCESS,
+                        loadout = new[] { new LoadoutSlotDto { slotId = hat.Id, userCosmeticId = "u-none", cosmeticId = none.Id } },
+                    });
+                };
+
+            //  백엔드가 기본 품목도 보유 행으로 깔아 둔다(bootstrap) — 그 인스턴스로 장착하는 것이 "벗기"다.
+            var (vm, _) = NewViewModel(
+                loadout: new[] { new LoadoutSlotDto { slotId = hat.Id, userCosmeticId = "u-red", cosmeticId = red.Id } },
+                owned: new[]
+                {
+                    new OwnedCosmeticDto { id = "u-none", cosmeticId = none.Id, source = "default", acquiredAt = "2026-10-11T00:00:00.000Z" },
+                    new OwnedCosmeticDto { id = "u-red", cosmeticId = red.Id, source = "purchase", acquiredAt = "2026-10-11T00:00:00.000Z" },
+                },
+                setLoadout: setLoadout);
+            vm.SelectSlot(hat.Id);
+            vm.Select(none.Id);
+
+            var noneItem = Find(vm.Items.CurrentValue, none.Id);
+            Assert.AreEqual(ItemState.Default, noneItem.State, "기본 표시는 그대로 둔다");
+            Assert.IsTrue(noneItem.CanEquip, "보유했고 장착 안 된 기본 품목은 장착할 수 있어야 한다");
+            Assert.IsFalse(Find(vm.Items.CurrentValue, red.Id).CanEquip, "이미 장착한 품목은 또 장착할 게 없다");
+
+            vm.EquipAsync().Forget();
+
+            Assert.IsNotNull(seenRequest);
+            Assert.AreEqual(hat.Id, seenRequest.slotId);
+            Assert.AreEqual("u-none", seenRequest.userCosmeticId);
+            Assert.AreEqual(ItemState.Equipped, Find(vm.Items.CurrentValue, none.Id).State);
         }
     }
 }

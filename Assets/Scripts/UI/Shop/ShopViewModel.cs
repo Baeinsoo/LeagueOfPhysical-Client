@@ -7,7 +7,8 @@ using UnityEngine;
 
 namespace LOP.UI
 {
-    /// <summary>품목 하나의 상태. 보유도 장착도 아니면 NotOwned, 그 슬롯의 공짜 기본값이면 Default.</summary>
+    /// <summary>품목 하나의 표시 상태(뱃지). 보유도 장착도 아니면 NotOwned, 장착 안 된 그 슬롯의 공짜 기본값이면 Default.
+    /// 장착할 수 있는지는 상태가 아니라 <see cref="ShopItem.CanEquip"/>로 본다 — 기본 품목도 보유했으면 장착(=벗기)할 수 있다.</summary>
     public enum ItemState
     {
         NotOwned,
@@ -24,16 +25,19 @@ namespace LOP.UI
         /// <summary>코인으로 못 사는 품목(비매품)이면 null.</summary>
         public readonly long? CoinPrice;
         public readonly ItemState State;
-        /// <summary>안 가졌고 가격이 있고 지갑이 충분하면 true.</summary>
+        /// <summary>안 가졌고 파는 품목이고 가격이 있고 지갑이 충분하면 true.</summary>
         public readonly bool CanBuy;
+        /// <summary>보유했고 지금 장착 중이 아니면 true. 기본 품목도 포함한다.</summary>
+        public readonly bool CanEquip;
 
-        public ShopItem(int cosmeticId, string name, long? coinPrice, ItemState state, bool canBuy)
+        public ShopItem(int cosmeticId, string name, long? coinPrice, ItemState state, bool canBuy, bool canEquip)
         {
             CosmeticId = cosmeticId;
             Name = name;
             CoinPrice = coinPrice;
             State = state;
             CanBuy = canBuy;
+            CanEquip = canEquip;
         }
     }
 
@@ -115,6 +119,9 @@ namespace LOP.UI
             _subscriptions.Add(_store.Coins.Subscribe(_ => RebuildItems()));
 
             if (Slots.Count > 0) SelectSlot(Slots[0].SlotId);
+
+            //  상점은 열 때마다 새로 생긴다 — 로비 진입 때 조회가 실패했어도 여기서 다시 받아 온다.
+            _store.RefreshAsync(_cts.Token).Forget();
         }
 
         public void SelectSlot(int slotId)
@@ -179,6 +186,8 @@ namespace LOP.UI
                     Debug.LogWarning($"[ShopViewModel] Failed to purchase. error: {e.Message}");
                     if (_cts.IsCancellationRequested) return;
                     _message.Value = MessageFor(0);
+                    //  서버는 커밋했는데 응답만 잃었을 수 있다 — 진실은 다시 물어봐야 안다.
+                    RefreshStore();
                     return;
                 }
                 if (_cts.IsCancellationRequested) return;
@@ -192,7 +201,9 @@ namespace LOP.UI
                     return;
                 }
 
-                _message.Value = MessageFor(response?.code ?? 0);
+                int code = response?.code ?? 0;
+                _message.Value = MessageFor(code);
+                if (MeansStoreIsStale(code)) RefreshStore();
             }
             finally
             {
@@ -234,6 +245,7 @@ namespace LOP.UI
                     Debug.LogWarning($"[ShopViewModel] Failed to set loadout. error: {e.Message}");
                     if (_cts.IsCancellationRequested) return;
                     _message.Value = MessageFor(0);
+                    RefreshStore();
                     return;
                 }
                 if (_cts.IsCancellationRequested) return;
@@ -245,13 +257,23 @@ namespace LOP.UI
                     return;
                 }
 
-                _message.Value = MessageFor(response?.code ?? 0);
+                int code = response?.code ?? 0;
+                _message.Value = MessageFor(code);
+                if (MeansStoreIsStale(code)) RefreshStore();
             }
             finally
             {
                 if (!_disposed) _busy.Value = false;
             }
         }
+
+        private void RefreshStore() => _store.RefreshAsync(_cts.Token).Forget();
+
+        //  이 거절들은 "내가 아는 보유·가격이 서버와 다르다"는 뜻이다 — 화면을 서버 기준으로 다시 맞춘다.
+        private static bool MeansStoreIsStale(int code) =>
+            code == ResponseCode.COSMETIC_ALREADY_OWNED
+            || code == ResponseCode.PRICE_MISMATCH
+            || code == ResponseCode.IDEMPOTENCY_CONFLICT;
 
         private string FindOwnedInstanceId(int cosmeticId)
         {
@@ -287,14 +309,18 @@ namespace LOP.UI
             {
                 long? price = _catalog.CoinPriceOf(item);
 
-                ItemState state = item.Id == equippedCosmeticId ? ItemState.Equipped
+                bool equipped = item.Id == equippedCosmeticId;
+                bool owned = ownedCosmeticIds.Contains(item.Id);
+
+                ItemState state = equipped ? ItemState.Equipped
                     : item.IsDefault ? ItemState.Default
-                    : ownedCosmeticIds.Contains(item.Id) ? ItemState.Owned
+                    : owned ? ItemState.Owned
                     : ItemState.NotOwned;
 
-                bool canBuy = state == ItemState.NotOwned && price.HasValue && coins >= price.Value;
+                bool canBuy = state == ItemState.NotOwned && item.Purchasable && price.HasValue && coins >= price.Value;
+                bool canEquip = owned && !equipped;
 
-                list.Add(new ShopItem(item.Id, item.Name, price, state, canBuy));
+                list.Add(new ShopItem(item.Id, item.Name, price, state, canBuy, canEquip));
             }
 
             _items.Value = list;
@@ -306,7 +332,7 @@ namespace LOP.UI
             ResponseCode.INSUFFICIENT_FUNDS => "코인이 부족합니다",
             ResponseCode.COSMETIC_ALREADY_OWNED => "이미 가진 품목",
             ResponseCode.COSMETIC_NOT_PURCHASABLE => "살 수 없는 품목",
-            ResponseCode.PRICE_MISMATCH => "가격이 바뀌었습니다. 다시 열어 주세요",
+            ResponseCode.PRICE_MISMATCH => "가격이 바뀌었습니다. 앱을 업데이트해 주세요",
             ResponseCode.ACCOUNT_FROZEN => "계정이 일시 정지 상태",
             ResponseCode.ECONOMY_DISABLED => "지금은 상점을 쓸 수 없습니다",
             ResponseCode.WALLET_FULL => "지갑이 가득 찼습니다",

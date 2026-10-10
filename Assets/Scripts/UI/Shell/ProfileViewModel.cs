@@ -84,6 +84,7 @@ namespace LOP.UI
         private readonly ReactiveProperty<string> _status = new("불러오는 중…");
         private readonly ReactiveProperty<IReadOnlyList<ProfileMatchEntry>> _matches = new(null);
         private readonly ReactiveProperty<string> _identity = new(string.Empty);
+        private readonly ReadOnlyReactiveProperty<string> _levelText;
         private readonly ReadOnlyReactiveProperty<string> _xpText;
         private readonly ReadOnlyReactiveProperty<string> _equippedText;
 
@@ -102,6 +103,9 @@ namespace LOP.UI
         /// <summary>내 레벨. <see cref="EconomyStore"/>를 그대로 보여준다 — 받기 전엔 1(기본값).</summary>
         public ReadOnlyReactiveProperty<int> Level => _economyStore.Level;
 
+        /// <summary>"Lv 7". 받기 전엔 빈 문자열 — 경험치와 같이 숨긴다(받지 못한 레벨을 1로 보이지 않게).</summary>
+        public ReadOnlyReactiveProperty<string> LevelText => _levelText;
+
         /// <summary>"1,250 / 1,400"(이번 레벨 경험치 / 다음 레벨까지 필요한 경험치). 받기 전엔 빈 문자열.</summary>
         public ReadOnlyReactiveProperty<string> XpText => _xpText;
 
@@ -118,6 +122,8 @@ namespace LOP.UI
 
             //  Progress가 null(아직 못 받음)이면 둘 다 빈 문자열 — 레벨 칩과 달리 "기본값"이 없는
             //  문구라, 안 받은 상태를 숫자 0 같은 거짓값으로 채우지 않는다.
+            _levelText = economyStore.Progress.Select(progress => progress == null ? string.Empty : $"Lv {progress.level}")
+                .ToReadOnlyReactiveProperty(string.Empty);
             _xpText = economyStore.Progress.Select(FormatXp).ToReadOnlyReactiveProperty(string.Empty);
             _equippedText = economyStore.Progress
                 .CombineLatest(economyStore.Loadout, (progress, loadout) =>
@@ -213,6 +219,7 @@ namespace LOP.UI
             _matches.Dispose();
             _identity.Dispose();
             //  Level은 EconomyStore 소유라 여기서 dispose하지 않는다(스토어는 Scoped로 더 길게 산다).
+            _levelText.Dispose();
             _xpText.Dispose();
             _equippedText.Dispose();
         }

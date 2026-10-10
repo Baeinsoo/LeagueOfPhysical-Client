@@ -91,7 +91,7 @@ namespace LOP
                 var face = visual.GetComponent<ChibiFace>();
                 if (face != null)
                 {
-                    face.SetExpression(ChibiReaction.Of(cue, drawing, comicFx.IsSurprised(entity.Id, now)).Expression);
+                    face.SetReaction(ChibiReaction.Of(cue, drawing, comicFx.IsSurprised(entity.Id, now)).Expression);
                 }
                 dressed[entity.Id] = (visual, cue);
             }

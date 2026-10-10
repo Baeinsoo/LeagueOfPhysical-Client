@@ -56,12 +56,33 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 새로고침_전에는_경험치와_장착_문구가_비어있다()
+        public void 조회가_실패하는_동안은_레벨_경험치_장착_문구가_비고_성공하면_채워진다()
         {
-            var (vm, _) = NewViewModel(Array.Empty<LoadoutSlotDto>());
+            var economyUser = new FakeUserDataStore { user = new User { id = "me" } };
+            var progress = new ProgressDto { level = 7, xp = 5000, xpIntoLevel = 1250, xpToNext = 1400 };
+            //  실패 코드인데 진행도까지 실려 온 응답 — 이걸 반영하면 받지 못한 값을 보여 주게 된다.
+            var response = new GetEconomyResponse { code = ResponseCode.USER_NOT_EXIST, progress = progress, loadout = Array.Empty<LoadoutSlotDto>() };
+            var store = new EconomyStore(economyUser, Catalog, (userId, ct) => UniTask.FromResult(response));
+            var vm = new ProfileViewModel(new FakeUserDataStore(), null, null, store, Catalog);
 
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Warning, new System.Text.RegularExpressions.Regex("Failed to refresh economy"));
+            store.RefreshAsync(CancellationToken.None).Forget();
+
+            Assert.AreEqual(string.Empty, vm.LevelText.CurrentValue);
             Assert.AreEqual(string.Empty, vm.XpText.CurrentValue);
             Assert.AreEqual(string.Empty, vm.EquippedText.CurrentValue);
+
+            response = new GetEconomyResponse
+            {
+                code = ResponseCode.SUCCESS, wallets = Array.Empty<WalletDto>(), progress = progress,
+                loadout = Array.Empty<LoadoutSlotDto>(), owned = Array.Empty<OwnedCosmeticDto>(),
+            };
+            store.RefreshAsync(CancellationToken.None).Forget();
+
+            Assert.AreEqual("Lv 7", vm.LevelText.CurrentValue);
+            Assert.AreEqual("1,250 / 1,400", vm.XpText.CurrentValue);
+            Assert.AreNotEqual(string.Empty, vm.EquippedText.CurrentValue);
+            vm.Dispose();
         }
 
         [Test]

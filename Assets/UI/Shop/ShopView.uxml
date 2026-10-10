@@ -1,4 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="../Shell/ShellView.uss" />
     <ui:VisualElement name="shell-root" class="shell-root">
         <ui:VisualElement name="shell-header" class="shell-header">
             <ui:Button name="back-button" text="◀ 뒤로" class="btn btn--secondary shell-back" />

@@ -34,10 +34,6 @@ namespace LOP
             // 고를 수 있는 게임 목록. 마스터데이터를 한 번 훑어 만들어 두므로 Scoped면 충분하다.
             builder.Register<PlayableGameProvider>(Lifetime.Scoped);
 
-            // 꾸밈 품목·슬롯·통화 색인. PlayableGameProvider와 같은 이유로 RootLifetimeScope가 아니라
-            // 여기 둔다 — LOPMasterData.Tables는 Entrance가 끝나야 채워지는데, Root는 그 전에 뜬다.
-            builder.Register<CosmeticCatalog>(Lifetime.Scoped);
-
             // 로비 전체가 보는 내 재화·레벨 단일 진실원본. Scoped — 코인·레벨 칩(LobbyHomeView)과
             // 상점(구매·로드아웃 응답 반영)이 같은 인스턴스를 공유해야 값이 어긋나지 않는다.
             builder.Register<EconomyStore>(Lifetime.Scoped);

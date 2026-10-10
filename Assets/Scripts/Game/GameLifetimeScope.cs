@@ -24,6 +24,9 @@ namespace LOP
         /// <summary>머리 위 체력 바를 띄우나. 목숨으로 가는 모드는 끈다.</summary>
         protected virtual bool ShowHealthBars => true;
 
+        /// <summary>머리 위 이름표(이름·칭호·배너·레벨)를 띄우나. 몸이 있는 모든 모드에서 켠다 — HP바와 별개.</summary>
+        protected virtual bool ShowNameplates => true;
+
         /// <summary>판 도중 끊김·재접속을 위쪽 토스트로 알리나. 자기 방식(자막 등)이 있는 모드는 끈다.</summary>
         protected virtual bool AnnouncePresenceWithToast => true;
 
@@ -31,7 +34,7 @@ namespace LOP
         {
             new GameplayInstaller().Install(builder);
             // 모든 게임 스코프가 여기를 지나므로 등록이 빠지는 스코프가 없다(메모리 new-ctor-dependency-misses-a-scope).
-            builder.RegisterInstance(new CharacterDecorationSettings(ShowHealthBars));
+            builder.RegisterInstance(new CharacterDecorationSettings(ShowHealthBars, ShowNameplates));
             builder.RegisterInstance(new PresenceDisplaySettings(AnnouncePresenceWithToast));
 
             // runner은 게임 서비스에 의존하므로 부모(Room)가 아닌 이 컨테이너에서 주입돼야 한다.

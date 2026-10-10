@@ -66,6 +66,12 @@ namespace LOP
 
             builder.Register<LOP.MasterData.LOPMasterData>(Lifetime.Singleton);
 
+            // 꾸밈 품목·슬롯·통화 색인. Lobby(상점·프로필)만이 아니라 게임 스코프(이름표 — 칭호·배너)도
+            // 봐야 해서 Root로 올렸다. 생성자가 masterData.Tables를 바로 읽지만, 이 타입을 실제로
+            // 주입받는 쪽(Lobby/Room/게임 스코프)은 전부 Entrance가 끝난 뒤에만 생기므로 테이블은
+            // 이미 차 있다 — Root가 뜨는 시점엔 아무도 resolve하지 않는다.
+            builder.Register<CosmeticCatalog>(Lifetime.Singleton);
+
             //  자격증명 보관소는 프로필(인스턴스)마다, 그리고 환경마다 칸이 달라야 해서 인스턴스로
             //  등록한다. 환경이 빠지면 dev 계정과 local 계정이 한 칸을 나눠 쓰고, 환경을 바꿔
             //  접속할 때마다 서버가 "그런 계정 없다"(401)고 해서 앞 환경 계정이 지워진다.

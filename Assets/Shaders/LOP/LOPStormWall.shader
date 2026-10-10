@@ -85,7 +85,7 @@ Shader "LOP/StormWall"
 
             half4 frag(Varyings i) : SV_Target
             {
-                float cells = max(1.0, round(2.0 * PI * _Radius / _Scale));
+                float cells = 2.0 * max(1.0, round(PI * _Radius / _Scale));   // 항상 짝수 — 노이즈 주기를 절반으로 줄여도 정수라 이음매가 없다
                 float turn = atan2(i.positionWS.z, i.positionWS.x) / (2.0 * PI) + _Time.y * _FlowSpeed / 360.0;   // 바퀴 수
                 float2 p = float2(turn * cells, i.positionWS.y * 1.8 / _Scale);   // 세로로 눌러 옆으로 길게 — 휘감기는 띠처럼
                 float warp = WrapFbm(p * 0.5, cells * 0.5);

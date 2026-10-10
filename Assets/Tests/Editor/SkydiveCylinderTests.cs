@@ -181,6 +181,8 @@ namespace LOP.Tests
         {
             //  spec §2 — 위를 보면 높은 구름 벽 사이로 하늘이 뚫린 경기장 모양. 지금(+60)은 벽 끝이 바로 보여 탑처럼 읽힌다.
             Assert.GreaterOrEqual(Y.WallAboveSpawn, 300f);
+            var (top, _) = SkydiveCylinderBuilder.WallSpan();   // 굽는 쪽이 실제로 쓰는 값 — 상수만 키우고 빌더가 +60에 머물면 여기서 잡힌다
+            Assert.GreaterOrEqual(top, Y.SpawnY + 300f);
         }
 
         [Test]

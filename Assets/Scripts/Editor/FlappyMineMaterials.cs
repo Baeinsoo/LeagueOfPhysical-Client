@@ -54,6 +54,7 @@ namespace LOP.EditorTools
 
             var wood = LoadTexture("wood_grain");
             var rock = LoadTexture("rock");
+            var strata = LoadTexture("strata");
             Color shadow = look.shadowColor;
 
             //  쇠·광차 색은 Global Constraints에 없다 — 쇠테(밝다)·쇠띠(어둡다) 사이에서 고른 값이다.
@@ -62,6 +63,19 @@ namespace LOP.EditorTools
             Color cartRimColor = ToColor(0x8a, 0x6a, 0x4a);
             Color oreColor = ToColor(0xc9, 0x79, 0x3f);
             Color rockDarkColor = Darken(look.rockColor, 0.7f);
+
+            //  펼치기 1차 새 슬롯 9개(Task 3 보고 표) — Global Constraints에 없는 색은 그 표에서 고정으로 가져온다.
+            //  signColor(간판 판자)·boltGlow·padGlow만 FlappyMineLook 조절 값이다.
+            Color timberColor = ToColor(0x9a, 0x64, 0x38);     // 갱목 — Wood보다 어둡고 붉은 갈색
+            Color signInlayColor = ToColor(0x3a, 0x26, 0x18);  // 간판 그림 홈 — 탄 갈색
+            Color ropeColor = ToColor(0x5a, 0x46, 0x36);       // 줄(랜턴 줄·케이지 줄)
+            Color boltRimColor = ToColor(0x2a, 0x1a, 0x12);    // ⚡ 테두리 — 거의 검은 갈색
+            Color padFrameColor = ToColor(0x4a, 0x3a, 0x30);   // 발판 어두운 틀
+            //  빛 재질의 밑감(시안 emit 기준색) — look.boltGlow/padGlow를 곱해 밝기를 낸다. LOP/Toon은 발광이
+            //  없어서(ADR-0017, 소품 외곽선도 끄는 셰이더) 이 둘만 LanternGlow와 같은 URP Unlit으로 직접 밝기를 낸다 —
+            //  조명 각도와 상관없이 일정하게 빛나고, 1 미만이면 블룸 문턱 밑이라(은은하게) 과하게 빛나지 않는다.
+            Color boltGlowBase = ToColor(0xff, 0xc0, 0x30);
+            Color padGlowBase = ToColor(0xff, 0xb3, 0x40);
 
             //  슬롯 이름(Task 3 보고) → 재질. FBX 리매핑은 이 이름으로 찾는다.
             var slots = new Dictionary<string, Material>
@@ -80,6 +94,17 @@ namespace LOP.EditorTools
                 ["CartRim"] = Toon("CartRim", cartRimColor, null, shadow),
                 ["Ore"] = Toon("Ore", oreColor, null, shadow),
                 ["Glass"] = Toon("Glass", look.lanternColor, null, shadow),                 // 밝은 바탕 = 빛나는 느낌(발광 없음)
+
+                //  펼치기 1차 새 슬롯 9개.
+                ["Timber"] = Toon("Timber", Grain(look, timberColor), wood, shadow),
+                ["SignWood"] = Toon("SignWood", Grain(look, look.signColor), wood, shadow),
+                ["SignInlay"] = Toon("SignInlay", signInlayColor, null, shadow),
+                ["Rope"] = Toon("Rope", ropeColor, null, shadow),
+                ["Strata"] = Toon("Strata", StrataTint(look), strata, shadow),               // 색은 strata.png에 구움 — 기본은 흰색(틴트 없음)
+                ["BoltRim"] = Toon("BoltRim", boltRimColor, null, shadow),
+                ["PadFrame"] = Toon("PadFrame", padFrameColor, null, shadow),
+                ["BoltGlow"] = UnlitOpaque("BoltGlow", ScaleRgb(boltGlowBase, look.boltGlow)),
+                ["PadGlow"] = UnlitOpaque("PadGlow", ScaleRgb(padGlowBase, look.padGlow)),
             };
 
             //  실루엣 네 겹 — 기본 슬롯 리매핑은 Silhouette_Cave1로(클래스 주석 참고).
@@ -205,6 +230,12 @@ namespace LOP.EditorTools
                 }
                 m = new Material(shader) { name = name };
                 AssetDatabase.CreateAsset(m, path);
+                //  막 만든 에셋을 한 번 왕복(저장 → 동기 재가져오기)시키고 다시 읽어 돌려준다 — 그러지 않고
+                //  바로 호출자가 SetColor 등으로 고치면(10-10 겪음), 그사이 끼는 비동기 임포트가 그 수정을
+                //  디스크 기본값으로 덮어써 버릴 때가 있다(재질마다 23개를 잇따라 만드는 Ensure에서만 보였다).
+                AssetDatabase.SaveAssets();
+                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+                m = AssetDatabase.LoadAssetAtPath<Material>(path);
             }
             return m;
         }
@@ -313,6 +344,37 @@ namespace LOP.EditorTools
         private static Color Grain(FlappyMineLook look, Color color) => Color.Lerp(Color.white, color, look.grainStrength);
 
         private static Color Darken(Color c, float factor) => new Color(c.r * factor, c.g * factor, c.b * factor, c.a);
+
+        //  빛 재질 밑감에 세기를 곱한다 — 1보다 크면(밑감 밝은 채널이 1에 가까워서) HDR 값이 되어 블룸 문턱을 살짝 넘는다.
+        private static Color ScaleRgb(Color c, float k) => new Color(c.r * k, c.g * k, c.b * k, c.a);
+
+        //  strataColors(FlappyMineLook)와 strata.png를 구운 기본색(STRATA_COLORS, mine_parts.py) 네 색의 평균을
+        //  채널별로 나눈 비율 — 기본값 그대로면 1(흰색, 틴트 없음). 네 띠를 따로 바꾸려면 텍스처를 다시 구워야 한다
+        //  (Task 3 보고) — 이건 "전체 틴트"로 대신하는 근사치.
+        private static readonly Color[] DefaultStrataColors =
+        {
+            new Color32(0x7a, 0x56, 0x46, 255), new Color32(0x6a, 0x48, 0x38, 255),
+            new Color32(0x8a, 0x64, 0x4e, 255), new Color32(0x5e, 0x40, 0x34, 255),
+        };
+
+        private static Color StrataTint(FlappyMineLook look)
+        {
+            Color avg = AverageRgb(look.strataColors);
+            Color baseAvg = AverageRgb(DefaultStrataColors);
+            return new Color(
+                baseAvg.r > 0f ? avg.r / baseAvg.r : 1f,
+                baseAvg.g > 0f ? avg.g / baseAvg.g : 1f,
+                baseAvg.b > 0f ? avg.b / baseAvg.b : 1f);
+        }
+
+        private static Color AverageRgb(Color[] colors)
+        {
+            if (colors == null || colors.Length == 0) { return Color.white; }
+            float r = 0f, g = 0f, b = 0f;
+            foreach (Color c in colors) { r += c.r; g += c.g; b += c.b; }
+            int n = colors.Length;
+            return new Color(r / n, g / n, b / n);
+        }
 
         private static Color WithAlpha(Color c, float a) => new Color(c.r, c.g, c.b, a);
 

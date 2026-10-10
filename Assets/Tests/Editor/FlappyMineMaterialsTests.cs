@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using LOP.EditorTools;
 using NUnit.Framework;
 using UnityEditor;
@@ -205,6 +206,115 @@ namespace LOP.Tests
                     Assert.AreEqual(look.farHazeCaveAlpha, tex.GetPixel(tex.width - 1, 0).a, 0.01f, "오른끝 진하기가 굴 먼 안개와 다르다");
                 }
                 finally { Object.DestroyImmediate(tex); }
+            }
+            finally
+            {
+                Object.DestroyImmediate(look);
+            }
+        }
+
+        //  펼치기 1차(Task 4) — 새 슬롯 9개.
+
+        [Test]
+        public void 새_나무_슬롯_Timber_SignWood는_나무결_텍스처를_쓴다()
+        {
+            var look = Look();
+            try
+            {
+                FlappyMineMaterials.Ensure(look);
+                foreach (string name in new[] { "Timber", "SignWood" })
+                {
+                    var m = AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/{name}.mat");
+                    Assert.IsNotNull(m, $"{name}.mat이 없다");
+                    Assert.AreEqual("LOP/Toon", m.shader.name, $"{name}이 LOP/Toon이 아니다");
+                    Assert.AreEqual("wood_grain", m.GetTexture("_BaseMap").name, $"{name}에 나무결 텍스처가 없다");
+                    Assert.IsFalse(m.GetShaderPassEnabled("SRPDefaultUnlit"), $"{name}에 외곽선이 켜져 있다");
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(look);
+            }
+        }
+
+        [Test]
+        public void Strata_슬롯은_strata_텍스처를_쓰고_기본색은_흰색이다()
+        {
+            var look = Look();
+            try
+            {
+                FlappyMineMaterials.Ensure(look);
+                var strata = AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/Strata.mat");
+                Assert.IsNotNull(strata, "Strata.mat이 없다");
+                Assert.AreEqual("strata", strata.GetTexture("_BaseMap").name);
+                var color = strata.GetColor("_BaseColor");
+                Assert.AreEqual(1f, color.r, 0.01f);
+                Assert.AreEqual(1f, color.g, 0.01f);
+                Assert.AreEqual(1f, color.b, 0.01f);
+            }
+            finally
+            {
+                Object.DestroyImmediate(look);
+            }
+        }
+
+        [Test]
+        public void 빛_재질_BoltGlow_PadGlow는_세기_배수를_따르고_과하게_빛나지_않는다()
+        {
+            var look = Look();
+            try
+            {
+                FlappyMineMaterials.Ensure(look);
+
+                var boltGlow = AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/BoltGlow.mat");
+                var padGlow = AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/PadGlow.mat");
+                Assert.AreEqual("Universal Render Pipeline/Unlit", boltGlow.shader.name);
+                Assert.AreEqual("Universal Render Pipeline/Unlit", padGlow.shader.name);
+
+                float boltMax = Max(boltGlow.GetColor("_BaseColor"));
+                float padMax = Max(padGlow.GetColor("_BaseColor"));
+                //  "과하게 빛나지 않는다" — 블룸 문턱을 살짝 넘는 정도까지만(세기 배수가 그대로 밑감에 곱해진다).
+                Assert.That(boltMax, Is.InRange(1f, 1.5f), "⚡ 판이 블룸 문턱을 안 넘거나 너무 밝다");
+                Assert.Less(padMax, 1f, "발판이 블룸 문턱을 넘는다(은은해야 한다)");
+
+                //  세기를 바꾸면 그대로 반영된다(두 배로 밝아지면 밑감도 두 배).
+                float before = Max(AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/BoltGlow.mat").GetColor("_BaseColor"));
+                look.boltGlow *= 2f;
+                FlappyMineMaterials.Ensure(look);
+                float after = Max(AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/BoltGlow.mat").GetColor("_BaseColor"));
+                Assert.AreEqual(before * 2f, after, 0.01f, "boltGlow 세기가 밑감에 그대로 반영되지 않는다");
+            }
+            finally
+            {
+                Object.DestroyImmediate(look);
+            }
+        }
+
+        private static float Max(Color c) => Mathf.Max(c.r, c.g, c.b);
+
+        [Test]
+        public void 새_부품_FBX는_새_재질로_리매핑된다()
+        {
+            var look = Look();
+            try
+            {
+                FlappyMineMaterials.Ensure(look);
+
+                string fbxPath = "Assets/Art/Models/Mine/BoltSign.fbx";
+                Assert.IsTrue(File.Exists(fbxPath), $"{fbxPath}가 없다");
+                var importer = (ModelImporter)AssetImporter.GetAtPath(fbxPath);
+                var remap = importer.GetExternalObjectMap();
+
+                var boltRim = AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/BoltRim.mat");
+                var boltGlow = AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/BoltGlow.mat");
+                var signWood = AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/SignWood.mat");
+
+                bool Mapped(string slot, Material target) => remap.Any(kv =>
+                    kv.Key.type == typeof(Material) && kv.Key.name == slot && kv.Value == target);
+
+                Assert.IsTrue(Mapped("BoltRim", boltRim), "BoltSign.fbx의 BoltRim 슬롯이 리매핑 안 됐다");
+                Assert.IsTrue(Mapped("BoltGlow", boltGlow), "BoltSign.fbx의 BoltGlow 슬롯이 리매핑 안 됐다");
+                Assert.IsTrue(Mapped("SignWood", signWood), "BoltSign.fbx의 SignWood 슬롯이 리매핑 안 됐다");
             }
             finally
             {

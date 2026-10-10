@@ -59,6 +59,25 @@ namespace LOP.EditorTools
         [Range(0.3f, 1f)] public float farScale = 0.75f;    // 먼 비계·광차 축척(z 18에서 멀리 보이게)
         [Range(0.3f, 1f)] public float midScale = 0.8f;     // 가운데 층(틀·발판·사다리) 축척
 
+        [Header("펼치기 1차 — 새 부품(Task 3·4). 배치 값은 FlappyMineDressing(다음 태스크)이 읽는다")]
+        //  지층 띠(Strata) 4색 — v(아래→위) 순서, mine_parts.py STRATA_COLORS와 같은 시안 값. 색은 이미
+        //  strata.png에 구워 있어 재질 기본색은 흰색이다(FlappyMineMaterials 참고) — 여기서 바꿔도 네 띠를 따로
+        //  바꾸지는 못하고(텍스처 재굽기가 필요) 전체를 한 틴트로만 반영한다.
+        public Color[] strataColors =
+        {
+            Hex("#7a5646"), Hex("#6a4838"), Hex("#8a644e"), Hex("#5e4034"),
+        };
+        public float shaftTimberSpacing = 0.45f;   // 갱도 벽 갱목(ShaftTimber) 배치 간격(m)
+        //  케이지(Cage)가 CageRail 위에서 쉬는 높이 비율(0 아래 끝 ~ 1 위 끝). 시안에 정해진 숫자가 없어
+        //  "내려와 멈춰 있는" 모습으로 아래쪽을 골랐다 — Task 5·6이 코스에 맞춰 바꿀 수 있다.
+        [Range(0f, 1f)] public float cagePositionRatio = 0.3f;
+        public int lanternsPerString = 4;          // 랜턴 줄(LanternString) 하나에 매단 랜턴 수 — 지금 FBX와 같다
+        //  ⚡ 판·발판 빛 세기 — 시안 emit은 각각 ×1.4·×1.6이었지만 과하게 빛난다는 지적(10-08류)이 있어 낮췄다.
+        //  밑감 색에 곱하는 배수라 1 미만이면 블룸 문턱을 안 넘는다(발판은 일부러 더 은은하게).
+        public float boltGlow = 1.2f;              // ⚡ 판(BoltGlow) 빛 세기
+        public float padGlow = 0.8f;               // 발판(PadGlow) 빛 세기 — 더 은은하게
+        public Color signColor = Hex("#7a4e30");   // 간판 판자 색(SignWood 슬롯 — 입구 간판·⚡ 판이 같이 쓴다)
+
         private static Color Hex(string hex)
         {
             ColorUtility.TryParseHtmlString(hex, out var color);

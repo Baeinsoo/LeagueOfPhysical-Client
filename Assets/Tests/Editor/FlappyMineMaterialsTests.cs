@@ -238,24 +238,33 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void Strata_슬롯은_차분한_strata_calm_텍스처를_쓰고_기본색은_흰색이다()
+        public void Strata_슬롯은_칠한_바위_텍스처를_반복으로_쓰고_평균은_바위색_밝은_테보다_어둡다()
         {
-            //  10-10 Task 7 Fix 1(사용자 "디자인이 시끄럽다"): 대비 큰 strata.png 대신 네 띠를 평균 쪽으로 당긴 어두운 띠를 굽는다.
+            //  10-11 Fix 1c(사용자 v3 "A"): 민짜 띠(strata_calm) 대신 칠한 바위(rock_paint) — 월드 UV로 반복하므로 Repeat·밉맵.
             var look = Look();
             try
             {
                 FlappyMineMaterials.Ensure(look);
                 var strata = AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/Strata.mat");
                 Assert.IsNotNull(strata, "Strata.mat이 없다");
-                Assert.AreEqual("strata_calm", strata.GetTexture("_BaseMap").name);
-                //  기본값(대비 0.12)이면 띠 사이 밝기 차가 아주 작다 — 원래 네 색은 0.15쯤 벌어졌다.
+                Assert.AreEqual("rock_paint", strata.GetTexture("_BaseMap").name);
+                var importer = (TextureImporter)AssetImporter.GetAtPath(FlappyMineMaterials.RockPaintPath);
+                Assert.AreEqual(TextureWrapMode.Repeat, importer.wrapMode, "월드 UV로 반복하는데 Repeat가 아니다");
+                Assert.IsTrue(importer.mipmapEnabled, "멀리서 반짝이지 않게 밉맵이 있어야 한다");
+                Assert.GreaterOrEqual(importer.maxTextureSize, FlappyMineMaterials.RockPaintSize);
+
                 var png = new Texture2D(2, 2);
-                png.LoadImage(System.IO.File.ReadAllBytes("Assets/Art/Textures/Mine/strata_calm.png"));
-                float lo = 1f, hi = 0f;
-                foreach (Color p in png.GetPixels()) { float l = p.grayscale; lo = Mathf.Min(lo, l); hi = Mathf.Max(hi, l); }
+                png.LoadImage(File.ReadAllBytes(FlappyMineMaterials.RockPaintPath));
+                Assert.AreEqual(FlappyMineMaterials.RockPaintSize, png.width);
+                Color[] px = png.GetPixels();
                 Object.DestroyImmediate(png);
-                Assert.Less(hi - lo, 0.05f, "지층 띠 대비가 크다");
-                Assert.Less(hi, 0.5f, "바위가 어둡지 않다");
+                float mean = px.Average(p => p.grayscale), hi = px.Max(p => p.grayscale);
+                float std = Mathf.Sqrt(px.Average(p => (p.grayscale - mean) * (p.grayscale - mean)));
+                float rock = FlappyMineMaterials.CalmRockBase(look).grayscale;
+                float rim = look.rockBandColor.grayscale;
+                Assert.AreEqual(rock, mean, 0.02f, "텍스처 평균이 바위 평균 색(장식 색 기준)에서 벗어난다");
+                Assert.Less(hi, rim * 0.75f, "바위 면에 밝은 테만큼 밝은 화소가 있다(밝은 것 = 닿는 것)");
+                Assert.Greater(std, 0.025f, "바위 면이 민짜다(v2·v3 '휑하다')");
                 var color = strata.GetColor("_BaseColor");
                 Assert.AreEqual(1f, color.r, 0.01f);
                 Assert.AreEqual(1f, color.g, 0.01f);

@@ -33,11 +33,11 @@ namespace LOP.EditorTools
         [Range(0f, 1f)] public float hazeAlpha = 0.4f;           // 안개 진하기(비교판 "중간") — 노을 바깥
         //  굴 안 안개 진하기. 유니티는 선형 공간에서 섞어서, 어두운 굴 안개 0.4는 시안(sRGB에서 섞은 0.4)보다 옅게 먹는다 —
         //  배경 틀이 관문만큼 밝았다(10-08 캡처). 굴 안만 올린다.
-        [Range(0f, 1f)] public float hazeCaveAlpha = 0.65f;   // 10-10 Task 7 Fix 1: 0.55 → 0.65(배경이 관문 집중을 흐렸다)
+        [Range(0f, 1f)] public float hazeCaveAlpha = 0.52f;   // 10-10 Task 7 Fix 1: 0.55 → 0.65(배경이 관문 집중을 흐렸다). 10-11 Fix 1c(사용자 v3 "C" — 통로 뒤가 비어 보인다): 0.65 → 0.52
         //  먼 안개 막(z 12) 진하기 — 먼 비계·실루엣은 안개를 두 겹 쓴다(10-08). 같은 까닭으로 어두운 굴 안개는
         //  0.4 한 겹 더로는 22%밖에 안 어두워졌고, 밝은 바깥 안개는 0.65면 협곡이 다 지워졌다 — 구역마다 따로 둔다.
         [Range(0f, 1f)] public float farHazeOutsideAlpha = 0.15f;
-        [Range(0f, 1f)] public float farHazeCaveAlpha = 0.88f;   // 10-10 Task 7 Fix 1: 0.65 → 0.88
+        [Range(0f, 1f)] public float farHazeCaveAlpha = 0.74f;   // 10-10 Task 7 Fix 1: 0.65 → 0.88. 10-11 Fix 1c("C"): 0.88 → 0.74
 
         [Header("나무결·그림자")]
         //  나무결 세기 — 텍스처 대비 조절. LOPToon.shader는 _BaseMap × _BaseColor를 그대로 곱할 뿐
@@ -69,8 +69,8 @@ namespace LOP.EditorTools
         [Header("바위 면 장식(10-10 Fix 1b) — 판정 고체 바위 면 위에만, 어둡고 납작하게. 칸 확률 합 ≤ 1")]
         //  사용자 10-10: v1 "투머치·요란하다" → v2 "차분한데 너무 휑하다". 그 사이 — 칸(decorCell m 격자)마다 하나까지.
         [Min(0.6f)] public float decorCell = 2.6f;             // 후보 격자 칸(m) — 작을수록 촘촘
-        [Range(0f, 1f)] public float decorLensChance = 0.4f;  // 은은한 지층 렌즈
-        [Range(0f, 1f)] public float decorSeamChance = 0.14f;  // 큰 금(이음매)
+        [Range(0f, 1f)] public float decorLensChance = 0.2f;  // 은은한 지층 렌즈(10-11 Fix 1c: 칠한 바위에 지층이 있어 0.4 → 0.2)
+        [Range(0f, 1f)] public float decorSeamChance = 0.06f;  // 큰 금(이음매)(10-11 Fix 1c: 칠한 바위에 금이 있어 0.14 → 0.06)
         [Range(0f, 1f)] public float decorPropChance = 0.07f;  // 박힌 갱목 받침(기둥 둘 + 상인방)
         [Range(0f, 1f)] public float decorCribChance = 0.04f;  // 박힌 갱목 쌓기
         [Range(0f, 1f)] public float decorOreChance = 0.05f;   // 가는 광맥 + 어두운 광석 조각
@@ -85,6 +85,16 @@ namespace LOP.EditorTools
         [Range(0.2f, 1f)] public float decorTimberShade = 0.5f; // 박힌 갱목·사다리 = 갱목 색 × 이 값
         [Range(0.2f, 1f)] public float decorOreShade = 0.55f;   // 광석 조각 = 광석 색 × 이 값
 
+        [Header("칠한 바위(10-11 Fix 1c) — 바위 덩어리 면 텍스처. 월드 좌표 UV라 판이 커도 늘어나지 않는다")]
+        //  사용자 10-11 v3 "A": 큰 덩이 그림자·굵은 금 몇 개·읽히는 지층 — 동키콩 광산 배경처럼. 중간 대비, 밝은 테·튀어나온 혹 없음.
+        //  값을 바꾸면 'LOP/Debug/Flappy 광산 재질 갱신'만으로 텍스처가 다시 칠해진다(크기 rockPaintTile은 굽기가 UV에 쓰므로 다시 굽기).
+        [Min(2f)] public float rockPaintTile = 16f;             // 텍스처 한 장이 덮는 월드 크기(m, 가로·세로)
+        [Range(2, 12)] public int rockPaintBlocks = 6;           // 한 장의 덩이 격자(가로·세로 같은 수) — 덩이 하나 ≈ rockPaintTile / 이 값
+        [Range(0f, 2f)] public float rockPaintContrast = 1f;     // 명암 폭(1 = 기본 중간 대비, 0 = 민짜)
+        [Range(0f, 2f)] public float rockPaintStrata = 1f;       // 지층 띠 세기
+        [Range(1, 24)] public int rockPaintStrands = 8;          // 한 장의 지층 띠 수
+        [Range(0, 16)] public int rockPaintCracks = 5;           // 한 장의 굵은 금 수
+
         [Header("펼치기 1차 — 새 부품(Task 3·4). 배치 값은 FlappyMineDressing(다음 태스크)이 읽는다")]
         //  지층 띠(Strata) 4색 — v(아래→위) 순서, mine_parts.py STRATA_COLORS와 같은 시안 값. 색은 이미
         //  strata.png에 구워 있어 재질 기본색은 흰색이다(FlappyMineMaterials 참고) — 여기서 바꿔도 네 띠를 따로
@@ -93,9 +103,8 @@ namespace LOP.EditorTools
         {
             Hex("#7a5646"), Hex("#6a4838"), Hex("#8a644e"), Hex("#5e4034"),
         };
-        //  10-10 Task 7 Fix 1(사용자 "디자인이 시끄럽다 — 바위는 차분한 어두운 덩어리, 지층은 아주 은은하게"): 바위 덩어리(Strata 슬롯)는
-        //  strata.png 대신 위 네 색을 평균 쪽으로 당긴(대비 strataContrast) 어두운(strataBrightness) 부드러운 띠 텍스처를 굽는다.
-        [Range(0f, 1f)] public float strataContrast = 0.12f;
+        //  바위 평균 밝기 — 바위 덩어리(Strata 슬롯)의 칠한 바위 텍스처 평균 색 = 위 네 색 평균 × 이 값(장식 색의 기준).
+        //  10-10 Fix 1에서 쓰던 띠 대비(strataContrast·strata_calm.png)는 10-11 Fix 1c의 칠한 바위(위 "칠한 바위" 조절판)로 바꿨다.
         [Range(0.3f, 1.2f)] public float strataBrightness = 0.8f;
         public float shaftTimberSpacing = 0.45f;   // 갱도 벽 갱목(ShaftTimber) 배치 간격(m)
         //  케이지(Cage)가 CageRail 위에서 쉬는 높이 비율(0 아래 끝 ~ 1 위 끝). 10-10 Task 7 Fix 1부터 케이지를 놓지 않아 지금은 안 쓴다.

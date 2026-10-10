@@ -264,13 +264,17 @@ namespace LOP.EditorTools
                 strips += Strip(layer, course, blendTo, dressTo + view.x, z, view, materials[cave], blend: false);
             }
 
+            //  6. 바위 덩어리(Strata 재질 — RockMass·MergeSlope·바위 단) UV를 월드 좌표 / rockPaintTile로 다시 쓴다(10-11 Fix 1c).
+            //     부품 UV는 단위 상자 한 장이라 큰 판에서 칠한 바위가 늘어나고 조각마다 무늬가 끊겼다 — 월드 UV면 축척과 상관없이 같은 크기로 이어진다.
+            int worldUv = ApplyWorldUv(dressing, materials["Strata"], look.rockPaintTile);
+
             MakeRenderOnly(dressing.gameObject);
             Undo.RegisterCreatedObjectUndo(dressing.gameObject, "Dress mine course");
 
             Debug.Log($"[광산 옷] 범위 {dressFrom:F2}~{dressTo:F2} ({zones}) · 걸친 회색 조각 {trimmed}개는 범위 밖만 남김"
                     + $" · 관문 파이프 {gates}개 · 바닥 {floor}조각 · 천장 {ceiling}조각"
                     + $" · 문틀 {entrance} · 갱도 {shaft} · 계단 {stairs} · 갈림길 {forks} · 바위 면 장식 {decorCount} · 배경 {background}개 · 랜턴 {lanterns}"
-                    + $" · 하늘·안개 띠 {strips}개 · 끈 회색 렌더러 {hidden}개");
+                    + $" · 하늘·안개 띠 {strips}개 · 월드 UV 바위 {worldUv}개 · 끈 회색 렌더러 {hidden}개");
             return true;
         }
 
@@ -311,6 +315,54 @@ namespace LOP.EditorTools
             trimmed.RecalculateBounds();
             Undo.RecordObject(mf, "Dress mine course");
             mf.sharedMesh = trimmed;
+        }
+
+        //  material을 쓰는 렌더러마다 메시를 복사해 그 재질 서브메시 정점의 UV를 월드 (x, y) / tile로 바꾼다. 씬에 든 메시라 굽기마다 새로 만든다.
+        private static int ApplyWorldUv(Transform root, Material material, float tile)
+        {
+            int count = 0;
+            foreach (MeshRenderer r in root.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                Material[] mats = r.sharedMaterials;
+                var flags = new bool[mats.Length];
+                bool any = false;
+                for (int i = 0; i < mats.Length; i++) { flags[i] = mats[i] == material; any |= flags[i]; }
+                if (any == false) { continue; }
+                var mf = r.GetComponent<MeshFilter>();
+                if (mf == null || mf.sharedMesh == null) { continue; }
+                mf.sharedMesh = WorldUvMesh(mf.sharedMesh, mf.transform.localToWorldMatrix, flags, tile);
+                count++;
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// src의 복사본 — <paramref name="subMeshUsesWorld"/>가 참인 서브메시(모자라면 마지막 값)에 쓰인 정점의 UV를
+        /// 월드 (x, y) / <paramref name="tile"/>로 바꾼다. 나머지 정점 UV는 그대로. 맞닿은 두 조각은 맞닿은 점에서 UV가 같다(이음매 없음).
+        /// </summary>
+        public static Mesh WorldUvMesh(Mesh src, Matrix4x4 toWorld, bool[] subMeshUsesWorld, float tile)
+        {
+            var mesh = Object.Instantiate(src);
+            mesh.name = src.name + "_WorldUv";
+            Vector3[] v = mesh.vertices;
+            var uv = new List<Vector2>();
+            mesh.GetUVs(0, uv);
+            while (uv.Count < v.Length) { uv.Add(Vector2.zero); }
+            var hit = new bool[v.Length];
+            for (int s = 0; s < mesh.subMeshCount; s++)
+            {
+                bool use = subMeshUsesWorld.Length == 0 ? false : subMeshUsesWorld[Mathf.Min(s, subMeshUsesWorld.Length - 1)];
+                if (use == false) { continue; }
+                foreach (int i in mesh.GetTriangles(s)) { hit[i] = true; }
+            }
+            for (int i = 0; i < v.Length; i++)
+            {
+                if (hit[i] == false) { continue; }
+                Vector3 w = toWorld.MultiplyPoint3x4(v[i]);
+                uv[i] = new Vector2(w.x / tile, w.y / tile);
+            }
+            mesh.SetUVs(0, uv);
+            return mesh;
         }
 
         //  부품 인스턴스의 메시를 열린 통로 밖 부분만으로 바꾼다(삼각형마다 MineDressingLayout.ClipOutsideCorridor — 위치·법선·UV는 같은 무게로 섞는다).

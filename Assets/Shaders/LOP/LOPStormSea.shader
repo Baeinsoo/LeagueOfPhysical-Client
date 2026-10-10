@@ -1,13 +1,13 @@
-//  번개 치는 먹구름 바다 — 정령 아래 바닥 구름. 어두운 보랏빛 구름 무늬 위로, 칸마다 정해진 무작위 순간에
-//  속에서 번개가 번쩍인다(시간을 칸 번호와 섞은 해시라 같은 시각엔 늘 같은 칸이 켜진다). 그림만 — 판정과 무관.
+//  햇빛 받은 구름 바다 — 정령 아래 바닥 구름. 흰 구름 무늬 위로, 그늘 속에서 칸마다 정해진 무작위 순간에
+//  번개가 번쩍인다(시간을 칸 번호와 섞은 해시라 같은 시각엔 늘 같은 칸이 켜진다). 그림만 — 판정과 무관.
 Shader "LOP/StormSea"
 {
     Properties
     {
-        _DarkColor ("Cloud Shadow", Color) = (0.13, 0.11, 0.18, 1)
-        _LightColor ("Cloud Top", Color) = (0.36, 0.30, 0.42, 1)
+        _DarkColor ("Cloud Shadow", Color) = (0.60, 0.65, 0.74, 1)
+        _LightColor ("Cloud Top", Color) = (0.96, 0.97, 0.99, 1)
         _Scale ("Cloud Size (m)", Float) = 50
-        [HDR] _FlashColor ("Flash", Color) = (2.2, 2.2, 3.0, 1)
+        [HDR] _FlashColor ("Flash", Color) = (1.6, 2.0, 3.2, 1)
         _FlashCell ("Flash Cell (m)", Float) = 70
         _FlashRate ("Flash Slots per Second", Float) = 1.5
         _FlashChance ("Flash Chance per Slot", Range(0, 1)) = 0.08
@@ -78,7 +78,7 @@ Shader "LOP/StormSea"
                 float2 xz = i.positionWS.xz;
                 float c = Fbm(xz / _Scale + float2(_Time.y * 0.02, 0.0));   // 아주 천천히 흘러간다
                 half3 col = lerp(_DarkColor.rgb, _LightColor.rgb, smoothstep(0.35, 0.8, c));
-                col *= GetMainLight().color * 0.6 + 0.4;   // 위에서 금빛 노을을 받는다
+                col *= GetMainLight().color * 0.6 + 0.4;   // 위에서 햇빛을 받는다
 
                 //  번개: 칸마다, 시간 칸마다 한 번 제비뽑기 → 뽑히면 확 켜졌다 빠르게 꺼진다. 칸 가운데서 둥글게 퍼진다.
                 float2 cell = floor(xz / _FlashCell);
@@ -86,7 +86,7 @@ Shader "LOP/StormSea"
                 float pick = step(1.0 - _FlashChance, Hash(cell + slot * float2(0.37, 1.91)));
                 float fade = 1.0 - frac(_Time.y * _FlashRate);
                 float2 local = frac(xz / _FlashCell) - 0.5;
-                float flash = pick * fade * fade * fade * saturate(1.0 - length(local) * 2.0) * (0.5 + c);
+                float flash = pick * fade * fade * fade * saturate(1.0 - length(local) * 2.0) * (1.5 - c);
                 col += _FlashColor.rgb * flash;
 
                 col = MixFog(col, i.fog);

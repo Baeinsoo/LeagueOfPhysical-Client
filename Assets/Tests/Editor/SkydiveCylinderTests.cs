@@ -256,13 +256,25 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 먹구름_바다는_번개가_번쩍인다()
+        public void 구름_바다는_밝고_그늘에서_번개가_번쩍인다()
         {
             var m = SkydiveCylinderBuilder.StormSeaMaterial();
             Assert.AreEqual("LOP/StormSea", m.shader.name);
             Assert.Greater(m.GetFloat("_FlashChance"), 0f, "번쩍임이 있어야 '닿으면 안 되는 곳'으로 읽힌다");
-            Assert.Less(m.GetFloat("_FlashChance"), 0.2f, "온통 번쩍이면 금빛 하늘을 덮는다");
-            Assert.Less(m.GetColor("_DarkColor").grayscale, 0.25f, "먹구름은 어둡다");
+            Assert.Less(m.GetFloat("_FlashChance"), 0.2f, "온통 번쩍이면 밝은 하늘을 덮는다");
+            Assert.Greater(m.GetColor("_LightColor").grayscale, 0.9f, "햇빛 받은 윗면은 밝다 — 3막이 어둡게 읽히지 않게");
+            Assert.Greater(m.GetColor("_DarkColor").grayscale, 0.5f, "그늘도 먹구름처럼 시커멓지 않다");
+            Assert.Less(m.GetColor("_DarkColor").grayscale, m.GetColor("_LightColor").grayscale, "무늬가 보이게");
+            var flash = m.GetColor("_FlashColor");
+            Assert.Greater(flash.b, flash.r, "밝은 구름 위에서도 보이는 푸른 번쩍");
+            Assert.Greater(flash.maxColorComponent, 2f, "밝은 구름 위에서도 보이는 푸른 번쩍");
+        }
+
+        [Test]
+        public void 구름_덩이_재질은_밝다()
+        {
+            var puff = SkydiveCylinderBuilder.StormPuffMaterial();
+            Assert.Greater(puff.GetColor("_BaseColor").grayscale, 0.8f, "구름 덩이가 어두우면 밝은 바다 위에서 얼룩진다");
         }
     }
 }

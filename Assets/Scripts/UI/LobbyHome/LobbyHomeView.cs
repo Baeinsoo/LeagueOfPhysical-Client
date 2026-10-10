@@ -12,6 +12,7 @@ namespace LOP.UI
     {
         private readonly MatchmakingViewModel _matchmaking;
         private readonly LobbyHomeViewModel _viewModel;
+        private readonly EconomyStore _economy;
 
         private Button _playButton;
         private Button _shopButton;
@@ -23,16 +24,19 @@ namespace LOP.UI
         private Button _queueCasual;
         private Button _queueRanked;
         private Label _rankSummary;
+        private Label _coinValue;
+        private Label _levelValue;
         private readonly CompositeDisposable _subscriptions = new CompositeDisposable();
 
         //  VM 값을 드롭다운에 밀어넣는 동안은 드롭다운의 변경 콜백을 무시한다 — 안 그러면
         //  "VM이 바꿈 → 드롭다운이 알림 → VM에 다시 씀"으로 되돌아온다.
         private bool _applyingFromViewModel;
 
-        public LobbyHomeView(MatchmakingViewModel matchmaking, LobbyHomeViewModel viewModel)
+        public LobbyHomeView(MatchmakingViewModel matchmaking, LobbyHomeViewModel viewModel, EconomyStore economy)
         {
             _matchmaking = matchmaking;
             _viewModel = viewModel;
+            _economy = economy;
         }
 
         public override UILayer Layer => UILayer.Window;
@@ -50,6 +54,8 @@ namespace LOP.UI
             _queueCasual = Root.Q<Button>("queue-casual");
             _queueRanked = Root.Q<Button>("queue-ranked");
             _rankSummary = Root.Q<Label>("rank-summary");
+            _coinValue = Root.Q<Label>("coin-value");
+            _levelValue = Root.Q<Label>("level-value");
 
             _playButton.clicked += OnPlayClicked;
             _shopButton.clicked += OnShopClicked;
@@ -85,6 +91,9 @@ namespace LOP.UI
             _matchmaking.SelectedMapIndex.Subscribe(OnMapSelected).AddTo(_subscriptions);
             _matchmaking.SelectedQueue.Subscribe(OnQueueSelected).AddTo(_subscriptions);
             _matchmaking.RankSummary.Subscribe(text => _rankSummary.text = text).AddTo(_subscriptions);
+
+            _economy.Coins.Subscribe(coins => _coinValue.text = coins.ToString("N0")).AddTo(_subscriptions);
+            _economy.Level.Subscribe(level => _levelValue.text = $"Lv {level}").AddTo(_subscriptions);
         }
 
         //  랭크면 게임·맵을 숨기고 내 티어를 보인다. 일반이면 반대.

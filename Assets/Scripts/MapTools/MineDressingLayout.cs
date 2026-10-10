@@ -194,17 +194,19 @@ namespace LOP.MapTools
         /// 굴 회색 박스 조각 폭 — <c>FlappyMineCourseBuilder.TubeStripStep</c>과 같아야 한다(바위 테가 같은 현을 따라간다).
         /// </summary>
         public const float TubeStripStep = 0.25f;
-        /// <summary>RockMass(왼끝 아래, z ±1.3) — 뒷면 0. 밝은 테(GateCap, z −0.80~0.73, 두께 0.4)는 바위 앞면(−2.6)보다 앞.</summary>
-        public const float RockZ = -1.3f, RimZ = -1.9f, RimThickness = 0.4f;
+        /// <summary>
+        /// RockMass(왼끝 아래, z ±1.3) — 뒷면 0. 밝은 테(GateCap, z −0.80~0.73, 두께 0.4)는 바위 앞면(−2.6)보다 앞.
+        /// 테가 틈 쪽으로 삐져나올 수 있는 곳(바위가 90° 넘게 볼록하게 꺾이는 V, 굴 x 폭 끝에서 기운 테)은 끊지 않고 y 축척으로 얇게 해
+        /// 삐져나온 깊이를 <see cref="RimSlack"/> 이하로 둔다(그림 경계 = 판정 경계 ± 0.05).
+        /// </summary>
+        public const float RockZ = -1.3f, RimZ = -1.9f, RimThickness = 0.4f, RimSlack = 0.04f;
         /// <summary>MergeSlope(왼끝 아래, z −1.35~1.3) — 바위 앞면과 겹치지 않게 0.02 앞. 방 끝에서 덮는 폭.</summary>
         public const float MergeSlopeZ = -1.32f, MergeSlopeWidth = 2.4f;
         /// <summary>DividerWall(왼끝 가운데, y ±0.6 = 1.2, z ±0.75).</summary>
         public const float DividerZ = -0.75f, DividerHeight = 1.2f;
-        /// <summary>
-        /// BoreFrame(굴 입구 중심, x −0.3~1.0, z −1.65~0.52). 틈을 가로지르는 문설주(z 0.2~0.5)가 판정면 뒤에 오도록 −0.19 —
-        /// 그래서 상인방·문턱(앞면 −1.84)은 바위 앞면(−2.6) 뒤라 굴 앞 0.3 m만 보인다(Task 7 캡처 뒤 부품 손볼 자리).
-        /// </summary>
-        public const float BoreFrameZ = -0.19f;
+        //  BoreFrame(굴 입구 문틀)은 Fix round 1부터 놓지 않는다: 상인방·문턱이 x −0.3~1.0 곧은 각재라 굴 앞에 두면 열린 칸 위,
+        //  굴 안에 두면 휘는 틈 위에 판정면 앞(앞면 −1.84)으로 걸치고, 틈을 가로지르는 문설주(z 0.2~0.5)를 판정면 뒤에 두려면
+        //  바위(앞면 −2.6)에 묻힌다. 메시를 고친 뒤(문설주를 뒤로, 상인방·문턱을 짧게·앞으로) 다시 넣는다. 굴 시작 세로 면은 밝은 테가 맡는다.
         /// <summary>BoltSign(가운데, x ±0.95, y ±0.547, z −0.11~0.06) — 굴 입구 앞 열린 칸 위쪽, 판정면 뒤.</summary>
         public const float BoltSignZ = 0.12f, BoltSignHalfWidth = 0.95f, BoltSignHalfHeight = 0.547f, BoltSignAboveMouth = 0.25f, BoltSignBeforeMouth = 0.3f;
         /// <summary>PadGlow(가운데, y ±0.15, z −0.67~0.65) — 윗면이 방 바닥선, 밝은 테보다 앞.</summary>
@@ -576,7 +578,7 @@ namespace LOP.MapTools
         /// <see cref="MinePartKind.MergeSlope"/>(빗변 = 현). 그래서 그림 경계가 회색 박스 현 그대로다.</item>
         /// <item>밝은 테(<see cref="MinePartKind.GateCap"/> — 관문 쇠테를 다시 씀): 바위의 닿는 가장자리 전부 — 굴·방 틈 가장자리 현(같은 기울기는
         /// 이어 붙여 1.95 m 이하 칸으로), 굴 시작·굴→방·방 끝의 세로 면. 두께 0.4가 바위 쪽, 바위 앞면보다 앞.</item>
-        /// <item><see cref="MinePartKind.BoreFrame"/>: 굴 시작, 입구 중심. <see cref="MinePartKind.BoltSign"/>: 굴 입구 앞 열린 칸, 굴 틈 위 끝 위(판정면 뒤).</item>
+        /// <item><see cref="MinePartKind.BoltSign"/>: 굴 입구 앞 열린 칸, 굴 틈 위 끝 위(판정면 뒤). <see cref="MinePartKind.BoreFrame"/>은 메시를 고칠 때까지 놓지 않는다(상수 옆 주석).</item>
         /// <item><see cref="MinePartKind.PadGlow"/>: 패드 가운데 x, 윗면 = 방 바닥(굴이 위 칸이면 칸막이 윗면).</item>
         /// <item>합류 경사 <see cref="MinePartKind.MergeSlope"/>: 방 끝 칸막이 쪽 바위 <b>안</b> — 방 끝 2.4 m를 비스듬히 덮는다(남는 삼각형도 RockMass가 이미 덮어
         /// 그림 경계는 판정 사각형 그대로다). 칸막이 쪽 바위가 없으면(위 칸 방은 칸막이가 곧 바닥) 놓지 않는다.</item>
@@ -605,7 +607,6 @@ namespace LOP.MapTools
 
             MineTube bore = tubes[0];
             float mouth = bore.Center(bore.X0), mouthTop = mouth + bore.Gap * 0.5f;
-            list.Add(new MinePiece(MinePartKind.BoreFrame, bore.X0, mouth, BoreFrameZ, 0f, 1.3f, 1.3f, 1f, 1f));
             list.Add(new MinePiece(MinePartKind.BoltSign, bore.X0 - BoltSignBeforeMouth - BoltSignHalfWidth, mouthTop + BoltSignAboveMouth + BoltSignHalfHeight,
                                    BoltSignZ, 0f, BoltSignHalfWidth * 2f, BoltSignHalfWidth * 2f, 1f, 1f));
 
@@ -671,15 +672,13 @@ namespace LOP.MapTools
                     AddEdgeWedge(r.x0, r.e0, r.x1, r.e1, side, list);
                     if (Math.Abs(r.e0 - outer) < 1e-5 && Math.Abs(r.e1 - outer) < 1e-5) { continue; }   // 바위 없음(칸막이·칸 끝이 곧 가장자리)
 
-                    //  바위가 볼록하게 꺾이는 곳(두 번째 날갯짓의 V 바닥 등)에서는 직사각 테가 틈 쪽으로 삐져나온다 — 그만큼(0.4·tan(꺾임/2)) 양끝을 줄인다.
-                    double cut0 = ri > 0 ? ConvexCut(runs[ri - 1], r, side) : 0, cut1 = ri + 1 < runs.Count ? ConvexCut(r, runs[ri + 1], side) : 0;
-                    double len = Math.Sqrt((r.x1 - r.x0) * (r.x1 - r.x0) + (r.e1 - r.e0) * (r.e1 - r.e0));
-                    if (cut0 + cut1 >= len - 1e-4) { continue; }
-                    double ta = cut0 / len, tb = 1 - cut1 / len;
-                    double ax = r.x0 + (r.x1 - r.x0) * ta, ay = r.e0 + (r.e1 - r.e0) * ta, bx = r.x0 + (r.x1 - r.x0) * tb, by = r.e0 + (r.e1 - r.e0) * tb;
-                    //  바위가 진행 방향 오른쪽에 오게: 아래 바위는 왼→오, 위 바위는 오→왼. 기운 테는 법선 쪽으로 x가 0.4·sin만큼 삐져나오므로
-                    //  이 굴 x 폭 안으로 줄인다(굴 앞 열린 칸·옆 굴 틈으로 나가지 않게).
-                    if (side < 0) { AddRim(ax, ay, bx, by, t.X0, t.X1, list); } else { AddRim(bx, by, ax, ay, t.X0, t.X1, list); }
+                    //  바위가 90° 넘게 볼록하게 꺾이는 곳(두 번째 날갯짓의 V 바닥)에서는 직사각 테가 이웃 현 너머 틈으로 두께 × |cos 꺾임|만큼
+                    //  나간다 — 끊지 않고 얇게 한다. 90° 이하로 꺾이면 테 모서리가 두 현의 바위 쪽에 다 있어 그대로 둔다.
+                    double maxT = Math.Min(ri > 0 ? ConvexThickness(runs[ri - 1], r, side) : RimThickness,
+                                           ri + 1 < runs.Count ? ConvexThickness(r, runs[ri + 1], side) : RimThickness);
+                    //  바위가 진행 방향 오른쪽에 오게: 아래 바위는 왼→오, 위 바위는 오→왼. 기운 테는 법선 쪽으로 x가 두께·sin만큼 삐져나오므로
+                    //  이 굴 x 폭 밖(굴 앞 열린 칸·옆 굴 틈)으로 RimSlack 넘게 나가지 않게 얇게 한다.
+                    if (side < 0) { AddRim(r.x0, r.e0, r.x1, r.e1, t.X0, t.X1, maxT, list); } else { AddRim(r.x1, r.e1, r.x0, r.e0, t.X0, t.X1, maxT, list); }
                 }
 
                 //  세로 면: 굴 시작(열린 칸 ↔ 첫 굴), 굴 사이(앞 굴 끝 ↔ 이 굴 시작), 마지막 굴 끝(↔ 열린 통로).
@@ -705,15 +704,17 @@ namespace LOP.MapTools
             }
         }
 
-        //  두 현 사이 꺾임이 바위 쪽으로 볼록하면 테를 줄일 길이 0.4·tan(꺾임/2), 아니면(오목·곧음·0.02 이하) 0.
-        //  아래 바위(side −1)는 진행 방향 오른쪽 — 오른쪽으로 꺾일 때 볼록. 위 바위는 왼쪽으로 꺾일 때.
-        static double ConvexCut((double x0, double x1, double e0, double e1) a, (double x0, double x1, double e0, double e1) b, int side)
+        //  두 현 사이 꺾임에서 테가 가질 수 있는 두께. 바위 쪽으로 90° 넘게 볼록하면 RimSlack / |cos 꺾임|(이웃 현 너머로 나간 깊이 =
+        //  두께·|cos|), 아니면 RimThickness. 아래 바위(side −1)는 진행 방향 오른쪽 — 오른쪽으로 꺾일 때 볼록. 위 바위는 왼쪽으로 꺾일 때.
+        static double ConvexThickness((double x0, double x1, double e0, double e1) a, (double x0, double x1, double e0, double e1) b, int side)
         {
             double a1 = Math.Atan2(a.e1 - a.e0, a.x1 - a.x0), a2 = Math.Atan2(b.e1 - b.e0, b.x1 - b.x0);
             double turn = a2 - a1;   // + = 왼쪽으로
-            if (side < 0 ? turn >= 0 : turn <= 0) { return 0; }
-            double cut = RimThickness * Math.Tan(Math.Abs(turn) / 2);
-            return cut > 0.02 ? cut : 0;
+            if (side < 0 ? turn >= 0 : turn <= 0) { return RimThickness; }
+            double cos = Math.Cos(turn);
+            //  깊이는 세로로 잰다(판정 가장자리는 x의 함수) — 기운 현에서는 세로 깊이 = 수직 깊이 / cos(현 각)이라 그만큼 더 얇게.
+            double steep = Math.Min(Math.Abs(Math.Cos(a1)), Math.Abs(Math.Cos(a2)));
+            return cos >= 0 ? RimThickness : Math.Min(RimThickness, RimSlack * steep / -cos);
         }
 
         //  칸 끝 쪽 바위 경계: 아래 바위는 칸 아래 끝과 통로 바닥선 중 위, 위 바위는 칸 위 끝과 통로 천장선 중 아래(칸이 통로 밖으로 1 m 나가 있다).
@@ -767,44 +768,32 @@ namespace LOP.MapTools
             }
             if (hi - lo <= 1e-3) { return; }
             //  위로 가면 오른쪽 법선이 +x, 아래로 가면 −x.
-            if (rockRight) { AddRim(x, lo, x, hi, double.NegativeInfinity, double.PositiveInfinity, list); }
-            else { AddRim(x, hi, x, lo, double.NegativeInfinity, double.PositiveInfinity, list); }
+            if (rockRight) { AddRim(x, lo, x, hi, double.NegativeInfinity, double.PositiveInfinity, RimThickness, list); }
+            else { AddRim(x, hi, x, lo, double.NegativeInfinity, double.PositiveInfinity, RimThickness, list); }
         }
 
         /// <summary>
-        /// 선분 P→Q를 따라 밝은 테(GateCap — 가운데 원점, 윗면 = 원점, 두께 0.4가 국소 −y)를 깐다. 국소 −y가 진행 방향 오른쪽이므로
-        /// 바위가 오른쪽에 오도록 P→Q를 넘겨야 한다. 1.95 m 이하 같은 폭 칸으로 나눈다.
+        /// 선분 P→Q를 따라 밝은 테(GateCap — 가운데 원점, 윗면 = 원점, 두께 0.4 × y 축척이 국소 −y)를 깐다. 국소 −y가 진행 방향 오른쪽이므로
+        /// 바위가 오른쪽에 오도록 P→Q를 넘겨야 한다. 1.95 m 이하 같은 폭 칸으로 나눈다. 두께는 <paramref name="maxThickness"/> 이하이고,
+        /// 기운 테의 바깥 모서리(P·Q + 두께·n)가 [xMin, xMax] 밖으로 <see cref="RimSlack"/> 넘게 나가지 않을 만큼만이다(끊지 않는다).
         /// </summary>
-        static void AddRim(double px, double py, double qx, double qy, double xMin, double xMax, List<MinePiece> list)
+        static void AddRim(double px, double py, double qx, double qy, double xMin, double xMax, double maxThickness, List<MinePiece> list)
         {
             double dx = qx - px, dy = qy - py, len = Math.Sqrt(dx * dx + dy * dy);
             if (len <= 1e-4) { return; }
-            //  테 네 꼭짓점(P, Q, P + 0.4n, Q + 0.4n)이 [xMin, xMax] 안에 들게 현을 따라 양끝을 줄인다. n = 오른쪽 법선.
-            if (Math.Abs(dx) > 1e-6)
-            {
-                double nx = dy / len * RimThickness;
-                bool forward = dx > 0;
-                double lx = forward ? px : qx, rx = forward ? qx : px;
-                double cut0 = Math.Max(0, xMin - (lx + Math.Min(0, nx))), cut1 = Math.Max(0, (rx + Math.Max(0, nx)) - xMax);
-                if (cut0 + cut1 > 0)
-                {
-                    double w = rx - lx;
-                    if (cut0 + cut1 >= w - 1e-4) { return; }
-                    double t0 = cut0 / w, t1 = 1 - cut1 / w;
-                    //  t는 왼끝 → 오른끝 비율. 진행 방향이 왼쪽이면 P가 오른끝이다.
-                    double ta = forward ? t0 : 1 - t1, tb = forward ? t1 : 1 - t0;
-                    double npx = px + dx * ta, npy = py + dy * ta, nqx = px + dx * tb, nqy = py + dy * tb;
-                    px = npx; py = npy; qx = nqx; qy = nqy;
-                    dx = qx - px; dy = qy - py; len = Math.Sqrt(dx * dx + dy * dy);
-                }
-            }
+            double thick = maxThickness;
+            double nxu = dy / len;   // 오른쪽 법선의 x 성분
+            double lx = Math.Min(px, qx), rx = Math.Max(px, qx);
+            if (nxu < -1e-9) { thick = Math.Min(thick, (lx - xMin + RimSlack) / -nxu); }
+            if (nxu > 1e-9) { thick = Math.Min(thick, (xMax - rx + RimSlack) / nxu); }
+            thick = Math.Max(thick, 0.02);
             int n = Math.Max(1, (int)Math.Ceiling(len / RimUnit - 1e-3));
             float ang = (float)(Math.Atan2(dy, dx) * 180.0 / Math.PI), l = (float)(len / n);
             for (int i = 0; i < n; i++)
             {
                 double t = (i + 0.5) / n;
                 list.Add(new MinePiece(MinePartKind.GateCap, (float)(px + dx * t), (float)(py + dy * t), RimZ, ang,
-                                       (float)Math.Abs(dx / n), l, l / RimUnit, 1f));
+                                       (float)Math.Abs(dx / n), l, l / RimUnit, (float)(thick / RimThickness)));
             }
         }
 

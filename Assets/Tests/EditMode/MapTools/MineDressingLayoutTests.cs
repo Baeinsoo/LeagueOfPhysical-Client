@@ -583,8 +583,14 @@ namespace LOP.MapTools.Tests
             {
                 case MinePartKind.RockMass:   // 왼끝 아래, x·y 축척
                     return u >= 0 && u <= p.ScaleX && v >= 0 && v <= p.ScaleY;
-                case MinePartKind.GateCap:    // 가운데, 윗면 원점, 두께 0.4 아래로
-                    return Math.Abs(u) <= 0.975 * p.ScaleX && v >= -0.4 && v <= 0;
+                case MinePartKind.GateCap:    // 가운데, 윗면 원점, 두께 0.4 × y 축척 아래로
+                    return Math.Abs(u) <= 0.975 * p.ScaleX && v >= -0.4 * p.ScaleY && v <= 0;
+                case MinePartKind.BoreFrame:  // 굴 입구 중심, x −0.3~1.0, y ±1.755(상인방·문턱 바깥 끝)
+                    return u >= -0.3 && u <= 1.0 && Math.Abs(v) <= 1.755;
+                case MinePartKind.BoltSign:
+                    return Math.Abs(u) <= 0.95 && Math.Abs(v) <= 0.547;
+                case MinePartKind.DividerWall: // 왼끝 가운데, x 축척, y ±0.6 × y 축척
+                    return u >= 0 && u <= p.ScaleX && Math.Abs(v) <= 0.6 * p.ScaleY;
                 case MinePartKind.MergeSlope: // 왼끝 아래, 빗변 위쪽 삼각형(축척 음수면 뒤집힘)
                 {
                     double s = u / p.ScaleX, t = v / p.ScaleY;
@@ -772,6 +778,8 @@ namespace LOP.MapTools.Tests
                 var pieces = MineDressingLayout.ForkPieces(c, f);
                 var rock = pieces.Where(p => p.Kind == MinePartKind.RockMass || p.Kind == MinePartKind.GateCap
                                              || p.Kind == MinePartKind.MergeSlope || p.Kind == MinePartKind.PadGlow).ToList();
+                //  판정면 앞(앞면 z < 0)에 그려진 것 전부 — 열린 칸·틈 위에 하나라도 있으면 "닿을 것처럼 보이는데 지나간다".
+                var inFront = pieces.Where(p => p.Z + PartDepth[p.Kind].front < 0f).ToList();
                 var tubes = c.Tubes.Where(t => t.X0 >= f.X0 - 1e-3f && t.X1 <= f.X1 + 1e-3f).OrderBy(t => t.X0).ToList();
                 Assert.AreEqual(2, tubes.Count, "갈림길 = 굴 + 패드 방");
                 MineRect lane = f.TunnelLane;
@@ -784,17 +792,20 @@ namespace LOP.MapTools.Tests
                     double lo = Math.Max(lane.Y0, Floor(c, (float)x)), hi = Math.Min(lane.Y1, Ceiling(c, (float)x));
                     for (double y = lo + 0.017; y < hi; y += 0.1)
                     {
-                        //  > 0: 판정 바위, < 0: 틈(굴 앞은 칸 전체가 틈).
+                        //  > 0: 판정 바위, < 0: 틈(굴 앞은 칸 전체가 틈). 굴 끝 세로 면에서 0.05 안은 경계라 보지 않는다.
+                        if (tubes.Any(q => Math.Abs(x - q.X0) < 0.05 || Math.Abs(x - q.X1) < 0.05)) { continue; }
                         double outside = t == null ? -Math.Min(y - lo, hi - y) : Math.Abs(y - JudgedCenter(t, x)) - t.Gap / 2.0;
-                        if (outside > 0.06)
+                        //  그림 경계 = 판정 경계 ± 0.05.
+                        if (outside > 0.05)
                         {
                             solid++;
                             Assert.IsTrue(rock.Any(p => Covers(p, x, y)), $"갈림길 {f.X0}: 판정 바위 ({x:F2},{y:F2})를 그림이 안 덮는다");
                         }
-                        else if (outside < -0.06)
+                        else if (outside < -0.05)
                         {
                             open++;
-                            Assert.IsFalse(rock.Any(p => Covers(p, x, y)), $"갈림길 {f.X0}: 틈 ({x:F2},{y:F2})에 바위 그림이 있다");
+                            var hit = inFront.FirstOrDefault(p => Covers(p, x, y));
+                            Assert.IsFalse(hit.Length > 0, $"갈림길 {f.X0}: 열린 칸·틈 ({x:F2},{y:F2})에 판정면 앞 그림 {hit}");
                         }
                     }
                 }
@@ -810,6 +821,37 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 밝은_테가_굴_방_틈의_닿는_바위_가장자리를_빈틈없이_덮는다()
+        {
+            var c = Course();
+            foreach (MineFork f in c.Forks)
+            {
+                var caps = MineDressingLayout.ForkPieces(c, f).Where(p => p.Kind == MinePartKind.GateCap).ToList();
+                var tubes = c.Tubes.Where(t => t.X0 >= f.X0 - 1e-3f && t.X1 <= f.X1 + 1e-3f).OrderBy(t => t.X0).ToList();
+                MineRect lane = f.TunnelLane;
+                int samples = 0;
+                foreach (MineTube t in tubes)
+                {
+                    foreach (int side in new[] { -1, 1 })
+                    {
+                        for (double x = t.X0 + 0.02; x < t.X1 - 0.02; x += 0.05)
+                        {
+                            //  판정 가장자리(회색 박스 현). 칸 끝(칸막이·통로 바닥·천장) 너머면 그 쪽 바위가 없다.
+                            double e = JudgedCenter(t, x) + side * t.Gap / 2.0;
+                            double outer = side < 0 ? Math.Max(lane.Y0, Floor(c, (float)x)) : Math.Min(lane.Y1, Ceiling(c, (float)x));
+                            if (side < 0 ? e <= outer + 0.02 : e >= outer - 0.02) { continue; }
+                            samples++;
+                            //  가장자리에서 바위 쪽으로 0.03 — 테(가장 얇은 곳 0.04) 안이어야 한다.
+                            double y = e + side * 0.03;
+                            Assert.IsTrue(caps.Any(p => Covers(p, x, y)), $"갈림길 {f.X0}: 닿는 바위 가장자리 ({x:F2},{e:F2})에 밝은 테가 없다");
+                        }
+                    }
+                }
+                Assert.Greater(samples, 300);
+            }
+        }
+
+        [Test]
         public void 굴_문틀_번개_판_발판_합류_경사의_자리()
         {
             var c = Course();
@@ -820,11 +862,9 @@ namespace LOP.MapTools.Tests
                 MineTube bore = tubes[0], room = tubes[1];
                 MineRect lane = f.TunnelLane;
 
-                var frame = pieces.Single(p => p.Kind == MinePartKind.BoreFrame);
-                Assert.AreEqual(bore.X0, frame.X, Eps, "굴 문틀 = 굴 시작");
-                Assert.AreEqual(bore.Center(bore.X0), frame.Y, Eps, "굴 문틀 = 굴 입구 중심");
-                //  틈을 가로지르는 문설주(z 0.2~0.5)는 판정면 뒤에.
-                Assert.Greater(frame.Z + 0.2f, 0f, "굴 문틀 문설주가 판정면 앞에서 틈을 가린다");
+                //  굴 문틀(BoreFrame)은 지금 메시로는 놓지 않는다(Fix round 1): 상인방·문턱이 곧은 1.3 m라 어디 두든 굴 앞 열린 칸이나
+                //  휘는 틈 위 판정면 앞에 걸친다. 메시를 고친 뒤 다시 넣는다.
+                Assert.IsFalse(pieces.Any(p => p.Kind == MinePartKind.BoreFrame), "굴 문틀은 메시를 고치기 전까지 놓지 않는다");
 
                 var bolt = pieces.Single(p => p.Kind == MinePartKind.BoltSign);
                 //  굴 입구 위(입구 앞 열린 칸, 판정면 뒤) — 굴 틈 위 끝보다 위, 칸 위 끝 아래, 굴 시작 앞.

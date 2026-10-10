@@ -21,6 +21,17 @@ namespace LOP.EditorTools
         /// <summary>벽이 출발점보다 얼마나 더 높은가 — 위를 보면 높은 구름 벽 사이로 하늘이 동그랗게 뚫린다(태풍의 눈).</summary>
         public const float WallAboveSpawn = 300f;
         public const float CloudFloorRadius = 260f;
+        /// <summary>
+        /// 3막 수평선의 먼 대지(섬·육지) — (방향°, 가운데까지 거리, 폭, 높이). 납작한 덩어리라 충돌체 없음.
+        /// 구름 바다(반지름 260) 밖, 구름 아래로 내려다보이게 — "발밑에 세상이 펼쳐졌다".
+        /// </summary>
+        public static readonly (float deg, float distance, float width, float height)[] Lands =
+        {
+            (20f, 1100f, 700f, 140f), (95f, 1400f, 900f, 220f), (170f, 1000f, 500f, 110f),
+            (250f, 1300f, 800f, 180f), (320f, 1150f, 600f, 130f),
+        };
+        /// <summary>대지 덩어리 가운데 높이 — 꼭대기(가운데 + 높이/2)가 구름 바다(y 0)보다 아래.</summary>
+        public const float LandBaseY = -260f;
         public const float Thickness = 3f;
         public const float BodyRadius = 0.4f;
 

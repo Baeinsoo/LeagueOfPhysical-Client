@@ -228,5 +228,33 @@ namespace LOP.Tests
             Assert.AreEqual(Y.Radius, m.GetFloat("_Radius"), 0.001f, "둘레 칸 수를 반지름으로 정한다 — 틀리면 무늬가 늘어나거나 이음매가 생긴다");
             Assert.AreNotEqual(0f, m.GetFloat("_FlowSpeed"), "흘러야 태풍이다");
         }
+
+        [Test]
+        public void 먼_대지는_구름_바다_밖_발밑에_펼쳐진다()
+        {
+            //  3막 "발밑에 세상이 펼쳐졌다". 구름 바다 안쪽에 겹치면 정령 쫓는 자리를 가리고, 구름 위로 솟으면 벽처럼 막는다.
+            Assert.GreaterOrEqual(Y.Lands.Length, 4, "한쪽만 있으면 수평선이 비어 보인다");
+            var degs = Y.Lands.Select(l => l.deg).OrderBy(d => d).ToArray();
+            for (int k = 0; k < degs.Length; k++)
+            {
+                float gap = (k + 1 < degs.Length ? degs[k + 1] : degs[0] + 360f) - degs[k];
+                Assert.Less(gap, 120f, "둘레에 고루 — 크게 빈 방향이 없게");
+            }
+            foreach (var l in Y.Lands)
+            {
+                Assert.Greater(l.distance - l.width * 0.5f, Y.CloudFloorRadius + 100f, $"{l.deg}° 대지는 구름 바다 밖");
+                Assert.Less(Y.LandBaseY + l.height * 0.5f, 0f, $"{l.deg}° 대지 꼭대기는 구름 바다(y 0) 아래");
+            }
+        }
+
+        [Test]
+        public void 먹구름_바다는_번개가_번쩍인다()
+        {
+            var m = SkydiveCylinderBuilder.StormSeaMaterial();
+            Assert.AreEqual("LOP/StormSea", m.shader.name);
+            Assert.Greater(m.GetFloat("_FlashChance"), 0f, "번쩍임이 있어야 '닿으면 안 되는 곳'으로 읽힌다");
+            Assert.Less(m.GetFloat("_FlashChance"), 0.2f, "온통 번쩍이면 금빛 하늘을 덮는다");
+            Assert.Less(m.GetColor("_DarkColor").grayscale, 0.25f, "먹구름은 어둡다");
+        }
     }
 }

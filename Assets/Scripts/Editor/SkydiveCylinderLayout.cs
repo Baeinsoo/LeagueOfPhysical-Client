@@ -159,16 +159,16 @@ namespace LOP.EditorTools
             (450f, 20f, 20f), (400f, 200f, 22f), (350f, 110f, 24f),
         };
 
-        /// <summary>높이별 분위기 — 1막 맑은 낮(파란 하늘이 뚫린 눈 꼭대기) → 2막 구름 벽에 가려 어두워짐 → 3막 바닥을 뚫는 순간 금빛으로 터진다.</summary>
+        /// <summary>높이별 분위기 — 1막 맑은 낮(파란 하늘이 뚫린 눈 꼭대기) → 2막 구름 벽에 가려 어두워짐 → 3막 바닥을 뚫는 순간 하얗게 번쩍인 뒤 맑고 밝은 낮 하늘이 열린다.</summary>
         public static SkydiveMoodKey[] Mood => new[]
         {
             MoodKey(1700f, "#8EB8E0", 0.0012f, "#9CB4D0", "#FFFFFF", 1.2f, 0.6f, 0f),       // 1막 — 맑은 하늘색, 흰 햇빛
             MoodKey(1100f, "#5C6878", 0.0022f, "#56606E", "#B8C2D0", 0.7f, 0.5f, -0.1f),    // 흐려지기 시작(회청색)
             MoodKey(600f, "#2A2A33", 0.0030f, "#33313A", "#8A8896", 0.35f, 0.4f, -0.3f),     // 2막 — 먹구름
             MoodKey(330f, "#22202A", 0.0032f, "#2C2930", "#7A7480", 0.3f, 0.4f, -0.35f),     // 가장 어둡게 — 터지기 직전
-            MoodKey(295f, "#FFD27A", 0.0003f, "#E6B26E", "#FFD890", 1.7f, 3.2f, 1.2f),    // 빠져나오는 순간 — 확 눈부시게(어둠에서 나와 눈이 부신 것처럼)
-            MoodKey(240f, "#FFDA92", 0.0003f, "#B8946A", "#FFE0A0", 1.25f, 1.7f, 0.3f),   // 눈이 적응하듯 가라앉는다 — 하늘·구름이 보이게
-            MoodKey(0f, "#FFE0A4", 0.0003f, "#A88E70", "#FFE8B8", 1.15f, 1.3f, 0.15f),
+            MoodKey(295f, "#FFFFFF", 0.0003f, "#E8EEF5", "#FFFFFF", 2.0f, 3.5f, 1.4f),    // 빠져나오는 순간 — 하얗게 번쩍(어둠에서 나와 눈이 부신 것처럼)
+            MoodKey(240f, "#CFE6FF", 0.0003f, "#B8C8DA", "#FFFFFF", 1.3f, 1.4f, 0.4f),    // 눈이 적응하며 맑은 하늘이 보인다
+            MoodKey(0f, "#B4D8FF", 0.0003f, "#A8BCD0", "#FFFFFF", 1.2f, 1.1f, 0.25f),
         };
 
         private static SkydiveMoodKey MoodKey(float alt, string fog, float density, string ambient, string sun, float sunIntensity, float bloom, float exposure)

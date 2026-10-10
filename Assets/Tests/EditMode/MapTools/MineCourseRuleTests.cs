@@ -106,8 +106,8 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(3.3f, gates[10 + i].Gap, 1e-4f, $"갈림길 관문 {i} 틈");
             }
 
-            //  물결 터널은 빠졌다 — 굴은 롤러코스터 1 + 갈림길 굴 3.
-            Assert.AreEqual(4, c.Tubes.Count);
+            //  물결 터널은 빠졌다 — 굴은 롤러코스터 1 + 갈림길 굴 3 + 패드 방 3.
+            Assert.AreEqual(7, c.Tubes.Count);
             MineTube coaster = c.Tubes.Single(t => Math.Abs(t.X0 - 151.25f) < 0.01f);
             Assert.AreEqual(4.8f, coaster.Gap, 1e-5f);
             Assert.AreEqual(151.25f + 55f, coaster.X1, 0.01f, "롤러코스터 55 m");
@@ -146,6 +146,37 @@ namespace LOP.MapTools.Tests
                 Assert.Greater(pad.Rect.X0, tube.X1, $"패드 {i}가 굴 뒤");
                 float boost = LOP.FlappyDashCurve.Distance(P.Forward, pad.Duration, DashDuration, DashMult, P.Tick);
                 Assert.Less(pad.Rect.X0 + boost + NoseHalfLength, f.X1, $"패드 {i} 부스트가 칸막이 안");
+            }
+        }
+
+        [Test]
+        public void 고수_길은_굴을_나오면_땅에_둘러싸인_패드_방에서_합류한다()
+        {
+            var c = Layout();
+            //  웹 v33: 굴 끝(ax1) ~ 칸막이 끝(fx1), 굴 칸 중심 높이, 틈 4.6, 위·아래 끝은 굴과 같은 칸 끝.
+            var expect = new (float x0, float x1, float center, float low, float high)[]
+            {
+                (91.85f, 104.15f, -53.6f, -49f - MineCourse.BaseHalf - 1f, -49.6f),   // ⬇굴
+                (250.5f, 262.8f, -46.4f, -48.4f, -49f + MineCourse.BaseHalf + 1f),    // ⬆굴
+                (350.2f, 362.5f, -46.4f, -48.4f, -49f + MineCourse.BaseHalf + 1f),    // ⬆굴
+            };
+            for (int i = 0; i < 3; i++)
+            {
+                MineFork f = c.Forks[i];
+                MineTube tunnel = c.Tubes.Single(t => Math.Abs(t.X0 - (f.X0 + 3f)) < 0.01f);
+                MineTube room = c.Tubes.Single(t => Math.Abs(t.X0 - tunnel.X1) < 0.01f && t != tunnel);
+                Assert.AreEqual(expect[i].x0, room.X0, 0.01f, $"방 {i} X0");
+                Assert.AreEqual(expect[i].x1, room.X1, 0.01f, $"방 {i} X1 = 칸막이 끝");
+                Assert.AreEqual(f.X1, room.X1, 1e-4f, $"방 {i}은 칸막이와 같이 끝난다");
+                Assert.AreEqual(4.6f, room.Gap, 1e-5f, $"방 {i} 틈");
+                Assert.AreEqual(expect[i].center, room.Center(room.X0), 1e-4f, $"방 {i} 중심(시작)");
+                Assert.AreEqual(expect[i].center, room.Center(room.X1), 1e-4f, $"방 {i} 중심(끝) — 수평");
+                Assert.AreEqual(expect[i].low, room.Low, 1e-4f, $"방 {i} Low");
+                Assert.AreEqual(expect[i].high, room.High, 1e-4f, $"방 {i} High");
+                //  패드는 방 안에.
+                MinePad pad = c.Pads[i];
+                Assert.Greater(pad.Rect.X0, room.X0); Assert.Less(pad.Rect.X1, room.X1);
+                Assert.Greater(pad.Rect.Y0, expect[i].center - 2.3f); Assert.Less(pad.Rect.Y1, expect[i].center + 2.3f);
             }
         }
 

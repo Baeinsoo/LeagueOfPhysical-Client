@@ -164,7 +164,7 @@ namespace LOP.UI
             }
         }
 
-        //  정령이 가까우면 "잡기!" — 결승 전에만. 별 자리는 시뮬과 같은 식(틱)으로 구한다.
+        //  정령이 가까우면 "잡기!" — 결승 전에만. 정령 자리는 시뮬과 같은 식(틱)으로 구한다.
         private string CatchSuffix(GameFramework.World.Entity entity)
         {
             if (catchTargets == null || catchTargets.All.Count == 0 || runner?.tickUpdater == null)

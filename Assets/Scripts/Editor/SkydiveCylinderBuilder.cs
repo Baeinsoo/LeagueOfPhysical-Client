@@ -281,8 +281,8 @@ namespace LOP.EditorTools
                     if (r < w.Radius && Mathf.Abs(l.Y - w.Center.y) < w.Height * 0.5f) { return $"선반 {l.Label}이 바람({w.Name}) 안"; }
                 }
             }
-            if (Y.RetryPoint.y > Y.ExitY - 10f) { return "다시 떨어지는 자리가 출구에 너무 가깝다"; }
-            if (Y.RetryPoint.y < Y.StarCenter.y + Y.StarBob + 40f) { return "다시 떨어지는 자리가 별에 너무 가깝다(겨눌 틈이 없다)"; }
+            string retryError = CheckRetryPoint(Y.RetryPoint);
+            if (retryError != null) { return retryError; }
             if (Y.RetryBelowY <= 0f) { return "다시 떨어지기 높이가 구름 윗면 아래 — 구름에 막혀 영영 안 걸린다"; }
             if (Y.StarCenter.y + Y.StarBob > Y.ExitY - 40f) { return "별이 출구에 너무 가깝다 — 빠져나오자마자 공짜로 닿는다"; }
             if (Y.StarCenter.y - Y.StarBob - Y.StarCatchRadius < 8f) { return "별이 바닥에 너무 가깝다 — 구름 위에 서서 닿는다(공중에서 잡아야)"; }
@@ -292,6 +292,20 @@ namespace LOP.EditorTools
                 if (oy < Y.ExitY + 10f) { return $"장애물({oy:0})이 원통 출구 아래 — 탁 트인 하늘엔 원통 벽이 없어 옆으로 빠진다"; }
             }
             return FindTooFastLaser(Y.Lasers);
+        }
+
+        //  다시 떨어진 몸이 도는 날개에 바로 맞지 않을 만큼(몸 키 + 한 틱 낙하 여유).
+        private const float RetryClearance = 6f;
+
+        /// <summary>다시 떨어지는 자리 — 출구 위(태풍 안), 마지막 장애물 아래, 벽에서 떨어진 곳이어야 한다.</summary>
+        internal static string CheckRetryPoint(Vector3 retry)
+        {
+            if (retry.y < Y.ExitY + 5f) { return "다시 떨어지는 자리가 출구 아래거나 너무 붙었다 — 태풍 안에서 떨어져야 바닥을 뚫는 순간을 다시 겪는다"; }
+            float lowest = Y.ObstacleYs().Min();
+            if (retry.y > lowest - Y.Thickness * 0.5f - RetryClearance) { return $"다시 떨어지는 자리가 마지막 장애물({lowest:0})에 너무 가깝다 — 떨어지자마자 날개에 맞는다"; }
+            if (new Vector2(retry.x, retry.z).magnitude > Y.Radius - 10f) { return "다시 떨어지는 자리가 벽에 붙어 있다"; }
+            if (retry.y < Y.StarCenter.y + Y.StarBob + 40f) { return "다시 떨어지는 자리가 정령에 너무 가깝다(겨눌 틈이 없다)"; }
+            return null;
         }
 
         // ---- 도우미 ----

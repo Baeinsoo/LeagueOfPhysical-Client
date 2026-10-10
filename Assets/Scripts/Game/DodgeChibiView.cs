@@ -15,15 +15,20 @@ namespace LOP
         private readonly GameFramework.Runner.IRunner runner;
         private readonly DodgeClientState state;
         private readonly ActorRegistry actorRegistry;
+        private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly CosmeticCatalog catalog;
         private readonly Dictionary<string, GameObject> dressed = new Dictionary<string, GameObject>();
         private Material faceMaterial;
         private readonly HashSet<string> players = new HashSet<string>();
 
-        public DodgeChibiView(GameFramework.Runner.IRunner runner, DodgeClientState state, ActorRegistry actorRegistry)
+        public DodgeChibiView(GameFramework.Runner.IRunner runner, DodgeClientState state, ActorRegistry actorRegistry,
+                              GameFramework.World.EntityRegistry entityRegistry, CosmeticCatalog catalog)
         {
             this.runner = runner;
             this.state = state;
             this.actorRegistry = actorRegistry;
+            this.entityRegistry = entityRegistry;
+            this.catalog = catalog;
         }
 
         public void Start()
@@ -58,7 +63,7 @@ namespace LOP
                 }
                 if (!dressed.TryGetValue(id, out var last) || last != visual)
                 {
-                    ChibiDresser.Dress(id, visual, faceMaterial);
+                    ChibiDresser.Dress(id, visual, faceMaterial, entityRegistry.Get(id)?.Get<PlayerLook>(), catalog);
                     dressed[id] = visual;
                 }
                 var face = visual.GetComponent<ChibiFace>();

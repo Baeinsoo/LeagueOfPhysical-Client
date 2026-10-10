@@ -50,5 +50,42 @@ namespace LOP.Tests
             }
             finally { Object.DestroyImmediate(go); }
         }
+
+        [Test]
+        public void 룩의_모자와_표정이_반영된다()
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(ChibiPath));
+            try
+            {
+                var faceMat = AssetDatabase.LoadAssetAtPath<Material>(FacePath);
+                var catalog = new CosmeticCatalog(TestEconomyTables.Cosmetics, TestEconomyTables.CosmeticSlots, TestEconomyTables.Currencies);
+                var look = new PlayerLook(
+                    new System.Collections.Generic.Dictionary<string, string> { ["hat"] = "hat_cube_red", ["face"] = "face_dummy_b" },
+                    "테스터", 1);
+
+                ChibiDresser.Dress("e1", go, faceMat, look, catalog);
+
+                var head = go.GetComponent<Animator>().GetBoneTransform(HumanBodyBones.Head);
+                Assert.IsNotNull(head.Find("Look_hat"));
+                Assert.AreEqual(ChibiExpression.Cheer, go.GetComponent<ChibiFace>().expression);
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void 룩이_없는_3개_인자_호출은_그대로_동작한다()
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(ChibiPath));
+            try
+            {
+                var faceMat = AssetDatabase.LoadAssetAtPath<Material>(FacePath);
+                ChibiDresser.Dress("referee", go, faceMat);
+
+                Assert.AreEqual(ChibiExpression.Normal, go.GetComponent<ChibiFace>().expression);
+                var head = go.GetComponent<Animator>().GetBoneTransform(HumanBodyBones.Head);
+                Assert.IsNull(head.Find("Look_hat"));
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
     }
 }

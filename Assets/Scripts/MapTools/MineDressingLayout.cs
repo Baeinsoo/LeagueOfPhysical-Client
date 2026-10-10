@@ -21,6 +21,25 @@ namespace LOP.MapTools
         /// 무늬 없는 밝은 재질(RockEdge)을 씌운 띠. 볼트·두꺼운 쇠테 없이 판정선 위에 <see cref="MineDressingLayout.RimThickness"/>만.
         /// </summary>
         EdgeRim,
+
+        //  ── 바위 면 장식(10-10 Task 7 Fix 1b, 사용자 "차분해지긴 했는데 너무 휑하다") — <see cref="MineDressingLayout.RockDecor"/>.
+        //  전부 판정 고체 바위 면 위(열린 통로·관문·밝은 테에서 여유만큼 떨어진 곳)에만, 어둡고 납작하게.
+        /// <summary>은은한 지층 렌즈(물결 진 긴 띠). <see cref="MinePiece.Layer"/> 0 = 조금 어둡게, 1 = 조금 밝게.</summary>
+        StrataLens,
+        /// <summary>바위 면의 큰 금(이음매) — 바위보다 조금 어두운 가는 리본.</summary>
+        RockSeam,
+        /// <summary>바위에 박힌 갱목 받침(기둥 둘 + 상인방) — 어두운 갱목.</summary>
+        TimberSet,
+        /// <summary>바위에 박힌 갱목 쌓기.</summary>
+        Cribbing,
+        /// <summary>가는 광맥 + 작은 어두운 광석 조각.</summary>
+        OreVein,
+        /// <summary>바위에 묻힌 끊긴 레일 조각.</summary>
+        RailScrap,
+        /// <summary>수직 갱 벽 깊은 곳의 흐린 갱목 줄(ShaftTimber 메시, 어두운 재질, 납작).</summary>
+        DeepTimber,
+        /// <summary>수직 갱 벽에 붙은 사다리(Ladder 메시, 어두운 재질).</summary>
+        WallLadder,
     }
 
     /// <summary>
@@ -223,7 +242,8 @@ namespace LOP.MapTools
         /// 그림 경계도 판정 경계에 더 붙는다. 나무 구조물(관문·비계·갱목·칸막이)과 빛 판은 그대로 1.
         /// </summary>
         public static float DepthScale(MinePartKind kind) =>
-            kind == MinePartKind.RockMass || kind == MinePartKind.MergeSlope || kind == MinePartKind.EdgeRim || kind == MinePartKind.BenchFace ? FlatDepth : 1f;
+            kind == MinePartKind.RockMass || kind == MinePartKind.MergeSlope || kind == MinePartKind.EdgeRim || kind == MinePartKind.BenchFace ? FlatDepth
+            : kind == MinePartKind.DeepTimber ? DeepTimberDepth : 1f;
 
         /// <summary><see cref="DepthScale"/>의 납작한 값.</summary>
         public const float FlatDepth = 0.1f;
@@ -258,6 +278,7 @@ namespace LOP.MapTools
         //  먼 비계 높이: −1.0 + 2.5·sin(i·0.45), i = 3 m 칸 번호 → x로 이으면 sin(0.15·x).
         const double FarBase = -1.0, FarAmp = 2.5, FarPhasePerBay = 0.45;
         //  가운데 층: 틀 윗면 +6.5, 사다리 위 끝 +3.0(틀 기둥 옆 +1.2, 조금 앞 z −0.4), 발판 윗면 −2.5~−0.5.
+        const float MidCartOffsetX = 1.4f;
         const float FrameTop = 6.5f, LadderTop = 3.0f, LadderOffsetX = 1.2f, LadderDz = -0.4f, WalkLow = -2.5f, WalkRange = 2f;
         //  랜턴: 유리 가운데 +2.8(Lantern 원점이 사슬 위 끝이고 유리는 원점 −1.85), 자리 흔들림 ±1 m.
         const float LanternGlass = 2.8f, LanternGlassBelowHang = 1.85f, LanternJitter = 1f;
@@ -282,6 +303,8 @@ namespace LOP.MapTools
             public readonly int FarRun;
             /// <summary>먼 비계 무리 사이 빈 칸 수.</summary>
             public readonly int FarGap;
+            /// <summary>가운데 층 발판마다 광차가 설 확률(0~1, 10-10 Fix 1b — 열린 통로 뒤 깊이). 난수는 따로 뽑아 다른 소품을 밀지 않는다.</summary>
+            public readonly float MidCartChance;
 
             public BackgroundDensity(float frameSpacing, float ladderChance, float lanternSpacing, int cartCount, float farScale, float midScale)
                 : this(frameSpacing, ladderChance, lanternSpacing, cartCount, farScale, midScale, 0, 0)
@@ -292,7 +315,14 @@ namespace LOP.MapTools
                                      int farRun, int farGap)
             {
                 FrameSpacing = frameSpacing; LadderChance = ladderChance; LanternSpacing = lanternSpacing; CartCount = cartCount;
-                FarScale = farScale; MidScale = midScale; FarRun = farRun; FarGap = farGap;
+                FarScale = farScale; MidScale = midScale; FarRun = farRun; FarGap = farGap; MidCartChance = 0f;
+            }
+
+            public BackgroundDensity(float frameSpacing, float ladderChance, float lanternSpacing, int cartCount, float farScale, float midScale,
+                                     int farRun, int farGap, float midCartChance)
+                : this(frameSpacing, ladderChance, lanternSpacing, cartCount, farScale, midScale, farRun, farGap)
+            {
+                MidCartChance = midCartChance;
             }
         }
 
@@ -730,7 +760,8 @@ namespace LOP.MapTools
 
         //  평행 이동한 줄 하나에 갱목을 깐다 — 줄은 [x0, x1] 안으로 자른다(가파른 갱에서 바깥 줄은 법선 방향으로 옆으로 밀려 범위 밖으로 나간다).
         //  stagger면 이음매를 반 칸 어긋나게(양끝 반 조각) — 줄마다 이음매가 같은 자리에 오면 판자 벽이 격자로 읽힌다.
-        static void AddTimberLayer(List<(double x, double y)> verts, int side, double d, double x0, double x1, bool stagger, List<MinePiece> list)
+        static void AddTimberLayer(List<(double x, double y)> verts, int side, double d, double x0, double x1, bool stagger, List<MinePiece> list,
+                                   MinePartKind kind = MinePartKind.ShaftTimber, float z = ShaftTimberZ)
         {
             var (off, normals) = Offset(verts, side, d);
             int m = verts.Count - 1;
@@ -769,7 +800,7 @@ namespace LOP.MapTools
                     double px = sx + dx * cuts[i], py = sy + dy * cuts[i];
                     //  원점 = 왼끝 아래. 천장 쪽은 통로 쪽 변이 아래 변이라 그대로, 바닥 쪽은 위 변이 통로 쪽이라 바깥으로 0.4 내린다.
                     if (side < 0) { px += nx * ShaftTimberHeight; py += ny * ShaftTimberHeight; }
-                    list.Add(new MinePiece(MinePartKind.ShaftTimber, (float)px, (float)py, ShaftTimberZ, (float)ang,
+                    list.Add(new MinePiece(kind, (float)px, (float)py, z, (float)ang,
                                            (float)Math.Abs(dx * (cuts[i + 1] - cuts[i])), (float)l, (float)l, 1f));
                 }
             }
@@ -1108,6 +1139,459 @@ namespace LOP.MapTools
             }
         }
 
+        // ── 바위 면 장식(10-10 Task 7 Fix 1b) ──
+        //  사용자 10-10: v1 "3D 모델이 투머치"·"디자인이 요란하다" → v2(차분한 바위 덩어리) → "차분해지긴 했는데 너무 휑하다 — 그 부분 좀 더 꾸며야겠다".
+        //  그 사이: 판정 고체 바위 면(천장 위·바닥 아래 바위 띠, 갱 벽, 계단 단, 갈림길 바위) 위에만 어둡고 납작한 장식을 성기게.
+
+        /// <summary>
+        /// 장식 z(부품 원점 = 뒷면, 앞으로 두께만큼). 바위 앞면(−0.26)보다 앞, 관문 앞면(−1.38)보다 훨씬 뒤 — 판정면 앞이지만 판정 고체 위에만 놓는다.
+        /// 렌즈 둘(어둡게·밝게)은 겹쳐도 z가 달라 깜빡이지 않게 조금 어긋난다.
+        /// </summary>
+        public const float LensZ = -0.27f, LensLightZ = -0.276f, SeamZ = -0.285f, OreZ = -0.29f, PropZ = -0.30f, DeepTimberZ = -0.33f,
+                           WallLadderZ = -0.33f, RockLanternZ = -0.75f;
+        /// <summary>깊은 갱목(ShaftTimber 메시 z ±0.5)의 깊이 축척 — 납작하게(옆면이 밝은 띠로 드러나지 않게).</summary>
+        public const float DeepTimberDepth = 0.12f;
+        /// <summary>바위 면 랜턴 축척(배경 랜턴 1의 반쯤 — 바위 면 위 작은 등). 갱목 받침 상인방 아랫면(원점 + 2.2·축척)에 건다.</summary>
+        public const float RockLanternScale = 0.55f, TimberSetCapUnder = 2.2f;
+        /// <summary>관문 파이프가 바닥·천장선 너머로 묻히는 깊이(<c>FlappyMineCourseBuilder.PipeBury</c>와 같아야 한다 — 관문 그림이 거기까지 덮는다).</summary>
+        public const float GatePipeBury = 1f;
+        /// <summary>격자 줄은 통로 중심 위아래로 이만큼까지(카메라 반 시야 8.4 + 계단에서 카메라 중심과 옆 칸 통로 중심의 차) — 그 밖은 화면에 안 든다.</summary>
+        public const float DecorRowReach = 16f;
+        /// <summary>갱 벽 사다리 가운데의 판정선 바깥 거리(갱목 두 줄·그 뒤 바위 시작 0.65 너머, 깊은 갱목 줄 앞).</summary>
+        public const float WallLadderOffset = 1.7f;
+
+        /// <summary>바위 면 장식 조절판(<c>FlappyMineLook</c>의 같은 이름 값 — 에디터 어셈블리라 여기서 못 본다).</summary>
+        public readonly struct RockDecorDensity
+        {
+            /// <summary>후보 격자 칸(m). 칸마다 장식 하나까지(확률).</summary>
+            public readonly float Cell;
+            /// <summary>칸마다 지층 렌즈·금·갱목 받침·갱목 쌓기·광맥·레일 조각이 놓일 확률(합 ≤ 1, 나머지는 빈 칸).</summary>
+            public readonly float LensChance, SeamChance, PropChance, CribChance, OreChance, RailChance;
+            /// <summary>갱목 받침마다 랜턴을 걸 확률, 랜턴 사이 최소 x 간격(m).</summary>
+            public readonly float LanternChance, LanternMinGap;
+            /// <summary>장식이 열린 통로·관문·칸막이에서 떨어질 거리(m) — 판정선 위 밝은 테(0.12)도 이 안이다.</summary>
+            public readonly float Margin;
+            /// <summary>수직 갱 벽 깊은 갱목 두 줄의 판정선 바깥 거리(m, 0 = 없음).</summary>
+            public readonly float ShaftDeepOffset;
+            /// <summary>수직 갱 벽 사다리(아래쪽 벽).</summary>
+            public readonly bool ShaftLadder;
+
+            public RockDecorDensity(float cell, float lensChance, float seamChance, float propChance, float cribChance, float oreChance,
+                                    float railChance, float lanternChance, float lanternMinGap, float margin, float shaftDeepOffset, bool shaftLadder)
+            {
+                Cell = cell; LensChance = lensChance; SeamChance = seamChance; PropChance = propChance; CribChance = cribChance;
+                OreChance = oreChance; RailChance = railChance; LanternChance = lanternChance; LanternMinGap = lanternMinGap;
+                Margin = margin; ShaftDeepOffset = shaftDeepOffset; ShaftLadder = shaftLadder;
+            }
+
+            /// <summary>모든 장식 끔(갱 벽 깊은 갱목·사다리도).</summary>
+            public static RockDecorDensity None => new RockDecorDensity(2.6f, 0, 0, 0, 0, 0, 0, 0, 0, 0.45f, 0, false);
+        }
+
+        /// <summary>
+        /// 장식 부품의 국소 발자국(원점 기준, 축척을 곱한 u0·u1·v0·v1 — Task 3·Fix 1b 메시 실측). 랜턴은 빛 원판의 보이는 부분까지.
+        /// 장식이 아닌 종류는 null.
+        /// </summary>
+        public static (double u0, double u1, double v0, double v1)? DecorFootprint(MinePiece p)
+        {
+            double sx = p.ScaleX, sy = p.ScaleY;
+            (double, double, double, double) R(double a, double b, double c, double d) => (Math.Min(a, b), Math.Max(a, b), Math.Min(c, d), Math.Max(c, d));
+            switch (p.Kind)
+            {
+                case MinePartKind.StrataLens: return R(0, sx, -0.55 * sy, 0.5 * sy);
+                case MinePartKind.RockSeam: return R(0, sx, -0.28 * sy, 0.2 * sy);
+                case MinePartKind.OreVein: return R(0, sx, -0.06 * sy, 0.1 * sy);
+                case MinePartKind.TimberSet: return R(-1.1 * sx, 1.1 * sx, 0, 2.46 * sy);
+                case MinePartKind.Cribbing: return R(-0.6 * sx, 0.6 * sx, 0, 1.6 * sy);
+                case MinePartKind.RailScrap: return R(0, 1.62 * sx, 0, 0.34 * sy);
+                case MinePartKind.DeepTimber: return R(0, sx, 0, ShaftTimberHeight * sy);
+                case MinePartKind.WallLadder: return R(-0.41 * sx, 0.41 * sx, -16 * sy, 0);
+                case MinePartKind.Lantern: return R(-0.9 * sx, 0.9 * sx, (-LanternGlassBelowHang - 0.9) * sy, 0);
+                default: return null;
+            }
+        }
+
+        /// <summary>
+        /// 바위 면 장식 전부(스펙 밖 — 사용자 10-10 "너무 휑하다"). 같은 입력이면 같은 결과다(칸마다 (시드, 칸 번호)로 난수).
+        /// <list type="bullet">
+        /// <item>수직 갱: 벽 깊은 곳에 흐린 갱목 두 줄(<see cref="RockDecorDensity.ShaftDeepOffset"/>), 아래쪽 벽에 사다리 하나(가장 긴 곧은 마디).</item>
+        /// <item>격자(절대 좌표 <see cref="RockDecorDensity.Cell"/> 칸, 통로 중심 ± <see cref="DecorRowReach"/>): 칸마다 확률로 지층 렌즈·금·갱목 받침·
+        /// 갱목 쌓기·광맥·레일 조각 하나. 갱목 받침에는 확률로 작은 랜턴(랜턴끼리 <see cref="RockDecorDensity.LanternMinGap"/> 이상).</item>
+        /// </list>
+        /// <b>놓는 조건</b>(<see cref="DecorFits"/>): 발자국을 <see cref="RockDecorDensity.Margin"/>만큼 넓힌 사각형 전부가 열린 통로·관문 파이프·칸막이 밖이고
+        /// [<paramref name="from"/>, <paramref name="to"/>] 안, 발자국 전부가 바위 그림(바닥·천장 바위 띠, 갱 벽 바위, 계단 단, 갈림길 바위) 위.
+        /// 받침·쌓기·레일·광맥·랜턴은 서로 겹치지 않는다(0.3 m 띄움).
+        /// </summary>
+        public static List<MinePiece> RockDecor(MineCourse c, MineZones z, float from, float to, int seed, RockDecorDensity d, float timberSpacing)
+        {
+            if (!(d.Cell > 0.5f)) { throw new ArgumentOutOfRangeException(nameof(d), "Cell은 0.5 m보다 커야 한다"); }
+            float sum = d.LensChance + d.SeamChance + d.PropChance + d.CribChance + d.OreChance + d.RailChance;
+            if (sum > 1f + 1e-5f || d.LensChance < 0 || d.SeamChance < 0 || d.PropChance < 0 || d.CribChance < 0 || d.OreChance < 0 || d.RailChance < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(d), $"칸 확률 합 {sum}은 0~1이어야 한다");
+            }
+            var list = new List<MinePiece>();
+            var ctx = new DecorContext(c, z, from, to, d.Margin, timberSpacing);
+
+            //  1. 수직 갱 벽.
+            foreach (var (a, b, _) in c.Narrows)
+            {
+                var (sFrom, sTo) = ShaftSpan(a, b, z);
+                if (sTo - sFrom <= 1e-6) { continue; }
+                var xs = StraightBreaks(c, (float)sFrom, (float)sTo);
+                foreach (int side in new[] { -1, 1 })
+                {
+                    var verts = MergeStraight(xs.Select(x => (x, c.CenterAtD(x) + side * c.HalfAtD(x))).ToList());
+                    if (d.ShaftDeepOffset > 0f)
+                    {
+                        //  가장 긴 곧은 마디에만(cap3 1차: 꺾이는 곳에서 2.6 m 평행 이동한 줄이 V자로 꺾여 보였다).
+                        var run = LongestSegment(verts);
+                        var rows = new List<MinePiece>();
+                        //  평행 이동한 줄은 x로 마디 밖까지 밀린다 — 마디의 x 폭으로 자른다(이웃 마디 쪽 판정선에 다가가지 않게).
+                        double rx0 = Math.Max(sFrom, Math.Min(run[0].x, run[1].x)), rx1 = Math.Min(sTo, Math.Max(run[0].x, run[1].x));
+                        AddTimberLayer(run, side, d.ShaftDeepOffset, rx0, rx1, false, rows, MinePartKind.DeepTimber, DeepTimberZ);
+                        AddTimberLayer(run, side, d.ShaftDeepOffset + timberSpacing, rx0, rx1, true, rows, MinePartKind.DeepTimber, DeepTimberZ);
+                        foreach (MinePiece p in rows) { if (ctx.Fits(p)) { list.Add(p); } }
+                    }
+                    if (d.ShaftLadder && side < 0)
+                    {
+                        //  마디 끝은 갱 구간 끝(바위가 끝나는 곳)에 닿는다 — 안 들어가면 가운데를 두고 짧게 해 본다.
+                        foreach (double frac in new[] { 1.0, 0.8, 0.6, 0.45 })
+                        {
+                            MinePiece? ladder = WallLadderOn(verts, side, frac);
+                            if (ladder.HasValue && ctx.Fits(ladder.Value)) { list.Add(ladder.Value); break; }
+                        }
+                    }
+                }
+            }
+
+            //  2. 바위 면 격자.
+            double cell = d.Cell;
+            int k0 = (int)Math.Floor(from / cell), k1 = (int)Math.Ceiling(to / cell);
+            double lastLantern = double.NegativeInfinity;
+            for (int k = k0; k < k1; k++)
+            {
+                double xc = (k + 0.5) * cell, centre = c.CenterAtD(Math.Max(from, Math.Min(to, xc)));
+                int j0 = (int)Math.Floor((centre - DecorRowReach) / cell), j1 = (int)Math.Ceiling((centre + DecorRowReach) / cell);
+                for (int j = j0; j < j1; j++)
+                {
+                    var rng = new Lcg(unchecked((int)((uint)seed * 2654435761u ^ (uint)k * 73856093u ^ (uint)j * 19349663u)));
+                    rng.Next(); rng.Next();
+                    //  칸마다 같은 수만큼 뽑는다 — 확률을 바꿔도 다른 칸의 난수가 밀리지 않게.
+                    double r = rng.Next(), jx = rng.Next(), jy = rng.Next(), ra = rng.Next(), rl = rng.Next(), rt = rng.Next(), rs = rng.Next(), rlan = rng.Next();
+                    double px = (k + 0.15 + 0.7 * jx) * cell, py = (j + 0.15 + 0.7 * jy) * cell;
+                    MinePiece? made = MakeDecor(d, r, px, py, ra, rl, rt, rs, 1.0);
+                    if (!made.HasValue) { continue; }
+                    MinePiece p = made.Value;
+                    bool solid = p.Kind == MinePartKind.TimberSet || p.Kind == MinePartKind.Cribbing || p.Kind == MinePartKind.RailScrap || p.Kind == MinePartKind.OreVein;
+                    if (solid && ctx.Overlaps(p)) { continue; }
+                    //  무늬(렌즈·금)는 바위 면이 좁으면(계단 단·갈림길 바위·얇은 천장 띠) 같은 가운데에서 줄여 다시 본다 — 박힌 소품은 줄이지 않는다.
+                    bool fits = ctx.Fits(p);
+                    for (int shrink = 1; !fits && !solid && shrink < DecorShrink.Length; shrink++)
+                    {
+                        p = MakeDecor(d, r, px, py, ra, rl, rt, rs, DecorShrink[shrink]).Value;
+                        fits = ctx.Fits(p);
+                    }
+                    if (!fits) { continue; }
+                    list.Add(p);
+                    if (solid) { ctx.Occupy(p); }
+                    if (p.Kind == MinePartKind.TimberSet && rlan < d.LanternChance && Math.Abs(px - lastLantern) >= d.LanternMinGap)
+                    {
+                        float s = RockLanternScale;
+                        var lantern = new MinePiece(MinePartKind.Lantern, p.X, p.Y + TimberSetCapUnder * p.ScaleY, RockLanternZ, 0f,
+                                                    LanternWidth * s, LanternWidth * s, s, s);
+                        if (ctx.Fits(lantern))
+                        {
+                            list.Add(lantern);
+                            lastLantern = px;
+                        }
+                    }
+                }
+            }
+            return list;
+        }
+
+        //  칸 하나의 장식(가운데 (px, py)) — 원점·축척·각도. r로 종류를 고른다(누적 확률).
+        //  무늬가 안 들어가면 줄여 보는 배율(첫 값 = 원래 크기).
+        static readonly double[] DecorShrink = { 1.0, 0.7, 0.5 };
+
+        static MinePiece? MakeDecor(RockDecorDensity d, double r, double px, double py, double ra, double rl, double rt, double rs, double k)
+        {
+            double acc = d.LensChance;
+            if (r < acc)
+            {
+                double len = (2.0 + 3.0 * rl) * k, th = (0.4 + 0.5 * rt) * Math.Sqrt(k), ang = (ra - 0.5) * 12;
+                bool light = rs >= 0.5;
+                return Centered(MinePartKind.StrataLens, px, py, len, ang, len, th, light ? LensLightZ : LensZ, light ? 1 : 0);
+            }
+            if (r < (acc += d.SeamChance))
+            {
+                double len = (1.4 + 1.8 * rl) * k, ang = (ra - 0.5) * 80;
+                return Centered(MinePartKind.RockSeam, px, py, len, ang, len, rs < 0.5 ? -1 : 1, SeamZ, 0);
+            }
+            if (r < (acc += d.PropChance))
+            {
+                double s = 0.75 + 0.25 * rl, ang = (ra - 0.5) * 4;
+                return Bottom(MinePartKind.TimberSet, px, py, 2.46 * s, ang, 2.2 * s, s, s);
+            }
+            if (r < (acc += d.CribChance))
+            {
+                double s = 0.7 + 0.3 * rl, ang = (ra - 0.5) * 6;
+                return Bottom(MinePartKind.Cribbing, px, py, 1.6 * s, ang, 1.2 * s, s, s);
+            }
+            if (r < (acc += d.OreChance))
+            {
+                double len = 0.9 + 0.6 * rl, ang = (ra - 0.5) * 50;
+                return Centered(MinePartKind.OreVein, px, py, len, ang, len, 1, OreZ, 0);
+            }
+            if (r < (acc += d.RailChance))
+            {
+                double s = 0.8 + 0.3 * rl, ang = (ra - 0.5) * 30;
+                return Centered(MinePartKind.RailScrap, px, py, 1.62 * s, ang, s, s, PropZ, 0);
+            }
+            return null;
+        }
+
+        //  왼끝 원점 부품을 가운데가 (px, py)에 오게 — 원점 = 가운데 − 회전한 (길이/2, 0).
+        static MinePiece Centered(MinePartKind kind, double px, double py, double length, double angDeg, double sx, double sy, float z, int layer)
+        {
+            double a = angDeg * Math.PI / 180.0;
+            double ox = px - length / 2 * Math.Cos(a), oy = py - length / 2 * Math.Sin(a);
+            return new MinePiece(kind, (float)ox, (float)oy, z, (float)angDeg, (float)(length * Math.Abs(Math.Cos(a))), (float)length, (float)sx, (float)sy, layer: layer);
+        }
+
+        //  아래 가운데 원점 부품(받침·쌓기)을 가운데가 (px, py)에 오게 — 원점 = 가운데 − 회전한 (0, 높이/2).
+        static MinePiece Bottom(MinePartKind kind, double px, double py, double height, double angDeg, double width, double sx, double sy)
+        {
+            double a = angDeg * Math.PI / 180.0;
+            double ox = px + height / 2 * Math.Sin(a), oy = py - height / 2 * Math.Cos(a);
+            return new MinePiece(kind, (float)ox, (float)oy, PropZ, (float)angDeg, (float)width, (float)width, (float)sx, (float)sy);
+        }
+
+        static List<(double x, double y)> LongestSegment(List<(double x, double y)> verts)
+        {
+            int best = 0; double bestLen = -1;
+            for (int i = 0; i + 1 < verts.Count; i++)
+            {
+                double l = Math.Sqrt(Math.Pow(verts[i + 1].x - verts[i].x, 2) + Math.Pow(verts[i + 1].y - verts[i].y, 2));
+                if (l > bestLen) { bestLen = l; best = i; }
+            }
+            return new List<(double x, double y)> { verts[best], verts[best + 1] };
+        }
+
+        //  갱 벽 사다리: 꺾은선(verts)의 가장 긴 마디를 따라, 판정선 바깥 WallLadderOffset, 양끝 1 m 안쪽. 원점 = 위 끝(사다리는 국소 −y로 16 m).
+        static MinePiece? WallLadderOn(List<(double x, double y)> verts, int side, double frac)
+        {
+            int best = -1; double bestLen = 0;
+            for (int i = 0; i + 1 < verts.Count; i++)
+            {
+                double l = Math.Sqrt(Math.Pow(verts[i + 1].x - verts[i].x, 2) + Math.Pow(verts[i + 1].y - verts[i].y, 2));
+                if (l > bestLen) { bestLen = l; best = i; }
+            }
+            if (best < 0 || bestLen < 4) { return null; }
+            var (ax, ay) = verts[best];
+            var (bx, by) = verts[best + 1];
+            //  위 끝 → 아래 끝 방향.
+            if (by > ay) { (ax, ay, bx, by) = (bx, by, ax, ay); }
+            double dx = (bx - ax) / bestLen, dy = (by - ay) / bestLen;
+            //  바깥 법선: 바닥 쪽(side −1)은 진행 방향(x 증가) 오른쪽.
+            double tx = verts[best + 1].x - verts[best].x, ty = verts[best + 1].y - verts[best].y, tl = Math.Sqrt(tx * tx + ty * ty);
+            double nx = side > 0 ? -ty / tl : ty / tl, ny = side > 0 ? tx / tl : -tx / tl;
+            double len = (bestLen - 2) * frac, start = 1 + (bestLen - 2) * (1 - frac) / 2;
+            double ox = ax + dx * start + nx * WallLadderOffset, oy = ay + dy * start + ny * WallLadderOffset;
+            //  국소 −y = 세계 (sin a, −cos a) = (dx, dy).
+            double ang = Math.Atan2(dx, -dy) * 180.0 / Math.PI;
+            const float scaleX = 0.8f;
+            return new MinePiece(MinePartKind.WallLadder, (float)ox, (float)oy, WallLadderZ, (float)ang, LadderWidth * scaleX, (float)len, scaleX, (float)(len / 16.0));
+        }
+
+        /// <summary>장식이 놓일 수 있나 — <see cref="RockDecor"/>의 조건(테스트용으로 열어 둔다). 범위·여유는 <paramref name="d"/>.</summary>
+        public static bool DecorFits(MineCourse c, MineZones z, float from, float to, RockDecorDensity d, float timberSpacing, MinePiece p) =>
+            new DecorContext(c, z, from, to, d.Margin, timberSpacing).Fits(p);
+
+        //  장식 놓기 판정: 열린 곳(판정 바닥·천장선 = Breaks 사이 현, 관문·칸막이·굴 바위 밖)·관문·칸막이를 막힌 곳으로, 바위 그림을 받침으로.
+        sealed class DecorContext
+        {
+            readonly MineCourse c;
+            readonly float from, to;
+            readonly double margin;
+            readonly float[] xs;
+            readonly Dictionary<int, List<MinePiece>> rockBins = new Dictionary<int, List<MinePiece>>();
+            readonly List<(double x0, double x1, double y0, double y1)> occupied = new List<(double, double, double, double)>();
+
+            public DecorContext(MineCourse c, MineZones z, float from, float to, double margin, float timberSpacing)
+            {
+                this.c = c; this.from = from; this.to = to; this.margin = margin;
+                var l = new List<float> { -1e4f };
+                l.AddRange(c.Breaks(BreakStep));
+                l.Add(1e4f);
+                xs = l.ToArray();
+
+                var rock = new List<MinePiece>();
+                rock.AddRange(FloorAndCeiling(c, z, from, to));
+                rock.AddRange(ShaftWalls(c, z, timberSpacing));
+                rock.AddRange(StairBenches(c, z));
+                foreach (MineFork f in c.Forks) { if (f.X0 >= from && f.X1 <= to) { rock.AddRange(ForkPieces(c, f)); } }
+                foreach (MinePiece p in rock)
+                {
+                    if (p.Kind != MinePartKind.RockMass && p.Kind != MinePartKind.MergeSlope && p.Kind != MinePartKind.BenchFace) { continue; }
+                    var (x0, x1) = XExtent(p);
+                    for (int b = (int)Math.Floor(x0); b <= (int)Math.Floor(x1); b++)
+                    {
+                        if (!rockBins.TryGetValue(b, out var bin)) { rockBins[b] = bin = new List<MinePiece>(); }
+                        bin.Add(p);
+                    }
+                }
+            }
+
+            static (double x0, double x1) XExtent(MinePiece p)
+            {
+                var (u0, u1, v0, v1) = RockLocal(p);
+                double lo = double.PositiveInfinity, hi = double.NegativeInfinity;
+                foreach (var (u, v) in new[] { (u0, v0), (u1, v0), (u0, v1), (u1, v1) })
+                {
+                    double x = LocalToWorld(p, u, v).x;
+                    lo = Math.Min(lo, x); hi = Math.Max(hi, x);
+                }
+                return (lo, hi);
+            }
+
+            static (double u0, double u1, double v0, double v1) RockLocal(MinePiece p) => p.Kind == MinePartKind.BenchFace
+                ? (0, p.ScaleX, -4.5 * p.ScaleY, 0)
+                : (Math.Min(0, p.ScaleX), Math.Max(0, p.ScaleX), Math.Min(0, p.ScaleY), Math.Max(0, p.ScaleY));
+
+            static bool RockCovers(MinePiece p, double x, double y)
+            {
+                var (u, v) = WorldToLocal(p, x, y);
+                const double e = 1e-6;
+                if (p.Kind == MinePartKind.BenchFace) { return u >= -e && u <= p.ScaleX + e && v >= -4.5 * p.ScaleY - e && v <= e; }
+                double s = u / p.ScaleX, t = v / p.ScaleY;
+                if (s < -e || s > 1 + e || t < -e || t > 1 + e) { return false; }
+                return p.Kind != MinePartKind.MergeSlope || t >= s - e;
+            }
+
+            bool RockAt(double x, double y)
+            {
+                if (!rockBins.TryGetValue((int)Math.Floor(x), out var bin)) { return false; }
+                foreach (MinePiece p in bin) { if (RockCovers(p, x, y)) { return true; } }
+                return false;
+            }
+
+            double Chord(double x, int side)
+            {
+                int i = Array.BinarySearch(xs, (float)x);
+                if (i < 0) { i = ~i; }
+                i = Math.Max(1, Math.Min(xs.Length - 1, i));
+                float a = Math.Max(xs[i - 1], -1e3f), b = Math.Min(xs[i], 1e3f);
+                double ya = c.CenterAtD(a) + side * c.HalfAtD(a), yb = c.CenterAtD(b) + side * c.HalfAtD(b);
+                return b - a < 1e-6 ? ya : ya + (yb - ya) * (x - a) / (b - a);
+            }
+
+            //  막힌 곳 = 열린 통로, 관문 파이프(회색 박스와 같이 Low/High가 NaN이면 바닥·천장선 너머 GatePipeBury까지 — 관문 그림이 거기까지),
+            //  칸막이 — 장식이 덮으면 안 되는 곳.
+            bool Blocked(double x, double y)
+            {
+                foreach (MineGate g in c.Gates)
+                {
+                    double half = g.Width / 2.0;
+                    if (Math.Abs(x - g.X) > half) { continue; }
+                    double gb = g.GapCenter - g.Gap / 2.0, gt = g.GapCenter + g.Gap / 2.0;
+                    double low = float.IsNaN(g.Low) ? Math.Min(Chord(g.X - half, -1), Math.Min(Chord(g.X, -1), Chord(g.X + half, -1))) - GatePipeBury : g.Low;
+                    double high = float.IsNaN(g.High) ? Math.Max(Chord(g.X - half, 1), Math.Max(Chord(g.X, 1), Chord(g.X + half, 1))) + GatePipeBury : g.High;
+                    if ((y < gb && y > low) || (y > gt && y < high)) { return true; }
+                }
+                foreach (MineRect w in c.Walls)
+                {
+                    if (x >= w.X0 && x <= w.X1 && y >= w.Y0 && y <= w.Y1) { return true; }
+                }
+                if (y <= Chord(x, -1) || y >= Chord(x, 1)) { return false; }
+                foreach (MineTube t in c.Tubes)
+                {
+                    if (x < t.X0 || x > t.X1) { continue; }
+                    double e = TubeChord(t, x);
+                    if ((y < e - t.Gap / 2.0 && (float.IsNaN(t.Low) || y > t.Low)) || (y > e + t.Gap / 2.0 && (float.IsNaN(t.High) || y < t.High))) { return false; }
+                }
+                return true;
+            }
+
+            //  굴 중심 = 회색 박스 조각(0.25 m, float 셈)의 현.
+            static double TubeChord(MineTube t, double x)
+            {
+                int n = (int)Math.Ceiling((t.X1 - t.X0) / TubeStripStep - 1e-4f);
+                for (int i = 0; i < n; i++)
+                {
+                    float a = t.X0 + i * TubeStripStep, b = i == n - 1 ? t.X1 : t.X0 + (i + 1) * TubeStripStep;
+                    if (x <= b || i == n - 1)
+                    {
+                        float ca = t.Center(a), cb = t.Center(b);
+                        return ca + (cb - ca) * (x - a) / (b - a);
+                    }
+                }
+                return t.Center((float)x);
+            }
+
+            //  발자국(넓힌 것)을 step 간격 격자로 훑은 세계 점.
+            static IEnumerable<(double x, double y)> Samples(MinePiece p, (double u0, double u1, double v0, double v1) f, double grow, double step)
+            {
+                double u0 = f.u0 - grow, u1 = f.u1 + grow, v0 = f.v0 - grow, v1 = f.v1 + grow;
+                int nu = Math.Max(1, (int)Math.Ceiling((u1 - u0) / step)), nv = Math.Max(1, (int)Math.Ceiling((v1 - v0) / step));
+                for (int i = 0; i <= nu; i++)
+                {
+                    for (int j = 0; j <= nv; j++) { yield return LocalToWorld(p, u0 + (u1 - u0) * i / nu, v0 + (v1 - v0) * j / nv); }
+                }
+            }
+
+            public bool Fits(MinePiece p)
+            {
+                var f = DecorFootprint(p);
+                if (f == null) { return false; }
+                foreach (var (x, y) in Samples(p, f.Value, margin, 0.2))
+                {
+                    if (x < from || x > to || Blocked(x, y)) { return false; }
+                }
+                foreach (var (x, y) in Samples(p, f.Value, 0, 0.25))
+                {
+                    if (!RockAt(x, y)) { return false; }
+                }
+                return true;
+            }
+
+            (double x0, double x1, double y0, double y1) Box(MinePiece p, double grow)
+            {
+                var f = DecorFootprint(p).Value;
+                double x0 = double.PositiveInfinity, x1 = double.NegativeInfinity, y0 = double.PositiveInfinity, y1 = double.NegativeInfinity;
+                foreach (var (u, v) in new[] { (f.u0, f.v0), (f.u1, f.v0), (f.u0, f.v1), (f.u1, f.v1) })
+                {
+                    var (x, y) = LocalToWorld(p, u, v);
+                    x0 = Math.Min(x0, x); x1 = Math.Max(x1, x); y0 = Math.Min(y0, y); y1 = Math.Max(y1, y);
+                }
+                return (x0 - grow, x1 + grow, y0 - grow, y1 + grow);
+            }
+
+            public bool Overlaps(MinePiece p)
+            {
+                var b = Box(p, 0.3);
+                foreach (var o in occupied) { if (b.x0 < o.x1 && o.x0 < b.x1 && b.y0 < o.y1 && o.y0 < b.y1) { return true; } }
+                return false;
+            }
+
+            public void Occupy(MinePiece p) => occupied.Add(Box(p, 0));
+        }
+
+        /// <summary>부품 국소 (u, v) → 세계(원점·각도, <see cref="MinePiece.Flipped"/>면 180° 더). 축척은 u·v에 이미 곱한 값.</summary>
+        public static (double x, double y) LocalToWorld(MinePiece p, double u, double v)
+        {
+            double a = (p.AngleDegrees + (p.Flipped ? 180.0 : 0.0)) * Math.PI / 180.0;
+            return (p.X + u * Math.Cos(a) - v * Math.Sin(a), p.Y + u * Math.Sin(a) + v * Math.Cos(a));
+        }
+
+        static (double u, double v) WorldToLocal(MinePiece p, double x, double y)
+        {
+            double a = (p.AngleDegrees + (p.Flipped ? 180.0 : 0.0)) * Math.PI / 180.0;
+            double dx = x - p.X, dy = y - p.Y;
+            return (dx * Math.Cos(a) + dy * Math.Sin(a), -dx * Math.Sin(a) + dy * Math.Cos(a));
+        }
+
         // ── 배경 ──
 
         /// <summary>
@@ -1134,7 +1618,7 @@ namespace LOP.MapTools
             AddSilhouettes(c, lo, hi, seam, rng, list);
             var far = AddFarTrestles(c, lo, hi, d.FarScale, d.FarRun, d.FarGap, list);
             AddCarts(far, from, to, d.CartCount, d.FarScale, rng, list);
-            AddMidLayer(c, lo, hi, seam, d, rng, list);
+            AddMidLayer(c, lo, hi, seam, d, rng, new Lcg(unchecked(seed * 31 + 17)), list);
             return list;
         }
 
@@ -1256,7 +1740,7 @@ namespace LOP.MapTools
             }
         }
 
-        static void AddMidLayer(MineCourse c, double lo, double hi, float seam, BackgroundDensity d, Lcg rng, List<MinePiece> list)
+        static void AddMidLayer(MineCourse c, double lo, double hi, float seam, BackgroundDensity d, Lcg rng, Lcg cartRng, List<MinePiece> list)
         {
             //  격자는 굴 시작(이음매 = 갱 입구 문틀 끝)에서 시작한다 — 범위를 늘려도 이미 있던 틀이 움직이지 않게.
             double start = Math.Max(lo, seam);
@@ -1272,6 +1756,12 @@ namespace LOP.MapTools
                     list.Add(new MinePiece(MinePartKind.BgFrame, fx, center + FrameTop, MidZ, 0f, BgFrameWidth * m, BgFrameWidth * m, m, m));
                     float walk = WalkLow + rng.Range(0f, WalkRange);
                     list.Add(new MinePiece(MinePartKind.Walkway, fx, center + walk, MidZ, 0f, WalkwayWidth * m, WalkwayWidth * m, m, m));
+                    //  발판 위 광차(Fix 1b): 틀 기둥(±3.3·m)과 사다리(+1.2·m) 사이, 발판 왼쪽 반에. 따로 뽑는 난수라 다른 소품이 안 밀린다.
+                    if (cartRng.Next() < d.MidCartChance)
+                    {
+                        float cx = fx - MidCartOffsetX * m;
+                        list.Add(new MinePiece(MinePartKind.MineCart, cx, center + walk, MidZ, 0f, MineCartWidth * m, MineCartWidth * m, m, m));
+                    }
                     //  확률은 항상 뽑는다 — 사다리 비율을 바꿔도 뒤 소품의 난수가 밀리지 않게.
                     if (rng.Next() < d.LadderChance)
                     {

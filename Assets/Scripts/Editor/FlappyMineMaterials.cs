@@ -63,6 +63,8 @@ namespace LOP.EditorTools
             Color cartRimColor = ToColor(0x8a, 0x6a, 0x4a);
             Color oreColor = ToColor(0xc9, 0x79, 0x3f);
             Color rockDarkColor = Darken(look.rockColor, 0.7f);
+            //  차분한 바위(Strata 재질 = 흰색 × strata_calm)의 평균 색 — 장식 색의 기준.
+            Color rockBase = CalmRockBase(look);
 
             //  펼치기 1차 새 슬롯 9개(Task 3 보고 표) — Global Constraints에 없는 색은 그 표에서 고정으로 가져온다.
             //  signColor(간판 판자)·boltGlow·padGlow만 FlappyMineLook 조절 값이다.
@@ -109,7 +111,16 @@ namespace LOP.EditorTools
                 ["PadFrame"] = Toon("PadFrame", padFrameColor, null, shadow),
                 ["BoltGlow"] = UnlitOpaque("BoltGlow", ScaleRgb(boltGlowBase, look.boltGlow)),
                 ["PadGlow"] = UnlitOpaque("PadGlow", ScaleRgb(padGlowBase, look.padGlow)),
+
+                //  10-10 Fix 1b 바위 면 장식 — 전부 차분한 바위 색(strata_calm 평균)이나 갱목 색에서 조금만 어긋나게(밝은 것 = 닿는 것이라
+                //  밝은 테보다 늘 어둡다). 지층 렌즈 슬롯 기본은 어두운 쪽 — 밝은 쪽은 굽기가 층(Layer 1)마다 갈아 끼운다.
+                ["StrataPatch"] = Toon("StrataPatchDark", ScaleRgb(rockBase, 1f - look.decorContrast), null, shadow),
+                ["Seam"] = Toon("Seam", ScaleRgb(rockBase, look.decorSeamShade), null, shadow),
+                ["TimberDim"] = Toon("TimberDim", ScaleRgb(Grain(look, timberColor), look.decorTimberShade), wood, shadow),
+                ["OreDim"] = Toon("OreDim", ScaleRgb(oreColor, look.decorOreShade), null, shadow),
+                ["RailDim"] = Toon("RailDim", ScaleRgb(railColor, 0.85f), null, shadow),
             };
+            Toon("StrataPatchLight", ScaleRgb(rockBase, 1f + look.decorContrast), null, shadow);
 
             //  실루엣 네 겹 — 기본 슬롯 리매핑은 Silhouette_Cave1로(클래스 주석 참고).
             var silhouetteCave1 = UnlitOpaque("Silhouette_Cave1", look.caveSilhouette1Color);
@@ -290,6 +301,13 @@ namespace LOP.EditorTools
                 Color calm = Color.Lerp(avg, c, look.strataContrast);
                 return new Color(calm.r * look.strataBrightness, calm.g * look.strataBrightness, calm.b * look.strataBrightness, 1f);
             });
+        }
+
+        /// <summary>차분한 바위 텍스처(strata_calm)의 평균 색 = strataColors 평균 × strataBrightness(대비는 평균 둘레로만 흔든다).</summary>
+        internal static Color CalmRockBase(FlappyMineLook look)
+        {
+            Color[] bands = look.strataColors != null && look.strataColors.Length > 0 ? look.strataColors : DefaultStrataColors;
+            return ScaleRgb(AverageRgb(bands), look.strataBrightness);
         }
 
         private static Color SunsetAt(FlappyMineLook look, float v) => Color.Lerp(look.skySunsetBottomColor, look.skySunsetTopColor, v);

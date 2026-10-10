@@ -69,6 +69,8 @@ namespace LOP.EditorTools
             "BgFrame", "Ladder", "Walkway", "BgTrestleBay", "MineCart", "Lantern", "SilhouetteStrip",
             "EntranceFrame", "EntranceSign", "LanternString", "ShaftTimber", "CageRail", "Cage", "BenchFace", "ShortScaffold",
             "RockMass", "BoreFrame", "BoltSign", "PadGlow", "DividerWall", "MergeSlope",
+            //  10-10 Fix 1b 바위 면 장식.
+            "StrataLens", "RockSeam", "TimberSet", "Cribbing", "OreVein", "RailScrap",
         };
 
         private static readonly string[] MaterialNames =
@@ -78,6 +80,8 @@ namespace LOP.EditorTools
             "Haze_Far_Outside", "Haze_Far_Cave", "Haze_Far_Mouth", "LanternGlow",
             //  10-10 Task 7 Fix 1: 얇은 밝은 테(EdgeRim = RockMass 메시 + 무늬 없는 RockEdge), 무늬 차분한 바위(Strata — MergeSlope 밝은 띠 덮기).
             "RockEdge", "Strata",
+            //  10-10 Fix 1b: 지층 렌즈 두 밝기, 어두운 갱목(깊은 갱목·사다리 덮기).
+            "StrataPatchDark", "StrataPatchLight", "TimberDim",
         };
 
         /// <summary>
@@ -203,9 +207,20 @@ namespace LOP.EditorTools
                 if (p.Layer == 0) { floor++; } else { ceiling++; }
             }
 
+            //  3b. 바위 면 장식(Fix 1b) — 판정 고체 바위 면 위에만(규칙이 열린 통로·관문·칸막이에서 여유만큼 떨어뜨린다).
+            var decor = new MineDressingLayout.RockDecorDensity(look.decorCell, look.decorLensChance, look.decorSeamChance, look.decorPropChance,
+                look.decorCribChance, look.decorOreChance, look.decorRailChance, look.decorLanternChance, look.decorLanternMinGap, look.decorMargin,
+                look.shaftDeepTimberOffset, look.shaftWallLadder);
+            int decorCount = 0;
+            foreach (MinePiece p in MineDressingLayout.RockDecor(course, zones, dressFrom, dressTo, BackgroundSeed, decor, look.shaftTimberSpacing))
+            {
+                PlacePiece(g.Decor, models, glowQuad, materials, p, ref lanterns);
+                decorCount++;
+            }
+
             //  4. 배경 — 실루엣(재질을 층·구역으로 갈아 끼운다), 먼 비계·광차, 가운데 층, 랜턴 + 빛 원판.
             var density = new MineDressingLayout.BackgroundDensity(look.frameSpacing, look.ladderChance, look.lanternSpacing, look.cartCount,
-                                                                   look.farScale, look.midScale, look.farTrestleRun, look.farTrestleGap);
+                                                                   look.farScale, look.midScale, look.farTrestleRun, look.farTrestleGap, look.midCartChance);
             int background = 0;
             foreach (MinePiece p in MineDressingLayout.Background(course, dressFrom, dressTo, BackgroundSeed, density))
             {
@@ -219,7 +234,8 @@ namespace LOP.EditorTools
                         break;
                     case MinePartKind.BgTrestleBay:
                     case MinePartKind.MineCart:
-                        Place(g.Far, models[p.Kind.ToString()], p, p.Z);
+                        //  발판 위 광차(Fix 1b)는 가운데 층(z 6) — 먼 층 묶음과 가른다.
+                        Place(p.Z < MineDressingLayout.FarHazeZ ? g.Mid : g.Far, models[p.Kind.ToString()], p, p.Z);
                         break;
                     case MinePartKind.Lantern:
                         PlacePiece(g.Lights, models, glowQuad, materials, p, ref lanterns);
@@ -253,7 +269,7 @@ namespace LOP.EditorTools
 
             Debug.Log($"[광산 옷] 범위 {dressFrom:F2}~{dressTo:F2} ({zones}) · 걸친 회색 조각 {trimmed}개는 범위 밖만 남김"
                     + $" · 관문 파이프 {gates}개 · 바닥 {floor}조각 · 천장 {ceiling}조각"
-                    + $" · 문틀 {entrance} · 갱도 {shaft} · 계단 {stairs} · 갈림길 {forks} · 배경 {background}개 · 랜턴 {lanterns}"
+                    + $" · 문틀 {entrance} · 갱도 {shaft} · 계단 {stairs} · 갈림길 {forks} · 바위 면 장식 {decorCount} · 배경 {background}개 · 랜턴 {lanterns}"
                     + $" · 하늘·안개 띠 {strips}개 · 끈 회색 렌더러 {hidden}개");
             return true;
         }
@@ -356,11 +372,12 @@ namespace LOP.EditorTools
         private static GameObject PlacePiece(Transform parent, Dictionary<string, GameObject> models, Mesh glowQuad,
                                              Dictionary<string, Material> materials, MinePiece p, ref int lanterns)
         {
-            string model = p.Kind == MinePartKind.EdgeRim ? "RockMass" : p.Kind.ToString();
+            string model = ModelName(p.Kind);
             GameObject go = Place(parent, models[model], p, p.Z);
-            if (p.Kind == MinePartKind.EdgeRim || p.Kind == MinePartKind.MergeSlope)
+            string over = OverrideMaterial(p);
+            if (over != null)
             {
-                Material m = materials[p.Kind == MinePartKind.EdgeRim ? "RockEdge" : "Strata"];
+                Material m = materials[over];
                 foreach (MeshRenderer r in go.GetComponentsInChildren<MeshRenderer>(true))
                 {
                     var mats = new Material[r.sharedMaterials.Length];
@@ -377,6 +394,27 @@ namespace LOP.EditorTools
             }
             return go;
         }
+
+        //  부품 종류 → FBX 이름. 메시를 빌려 쓰는 종류(테·깊은 갱목·벽 사다리)만 다르다.
+        private static string ModelName(MinePartKind kind) => kind switch
+        {
+            MinePartKind.EdgeRim => "RockMass",
+            MinePartKind.DeepTimber => "ShaftTimber",
+            MinePartKind.WallLadder => "Ladder",
+            _ => kind.ToString(),
+        };
+
+        //  인스턴스 재질을 통째로 갈아 끼울 종류(없으면 null — FBX 리매핑 그대로).
+        //  EdgeRim = 무늬 없는 밝은 테, MergeSlope = 빗변 밝은 띠까지 바위, 깊은 갱목·벽 사다리 = 어두운 갱목, 지층 렌즈 = 층(0 어둡게·1 밝게).
+        private static string OverrideMaterial(MinePiece p) => p.Kind switch
+        {
+            MinePartKind.EdgeRim => "RockEdge",
+            MinePartKind.MergeSlope => "Strata",
+            MinePartKind.DeepTimber => "TimberDim",
+            MinePartKind.WallLadder => "TimberDim",
+            MinePartKind.StrataLens => p.Layer == 1 ? "StrataPatchLight" : "StrataPatchDark",
+            _ => null,
+        };
 
         // ---- 관문 ----
 
@@ -562,7 +600,7 @@ namespace LOP.EditorTools
         //  Dressing 아래 층별 묶음.
         private sealed class Groups
         {
-            public readonly Transform Gates, Floor, Ceiling, Entrance, Shaft, Stairs, Forks, Far, Mid, Silhouettes, Sky, Haze, Lights;
+            public readonly Transform Gates, Floor, Ceiling, Entrance, Shaft, Stairs, Forks, Decor, Far, Mid, Silhouettes, Sky, Haze, Lights;
 
             public Groups(Transform dressing)
             {
@@ -573,6 +611,7 @@ namespace LOP.EditorTools
                 Shaft = Child(dressing, "Shaft");
                 Stairs = Child(dressing, "Stairs");
                 Forks = Child(dressing, "Forks");
+                Decor = Child(dressing, "Decor");
                 Transform background = Child(dressing, "Background");
                 Far = Child(background, "Far");
                 Mid = Child(background, "Mid");

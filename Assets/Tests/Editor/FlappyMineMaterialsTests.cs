@@ -314,6 +314,34 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 바위_면_장식_재질은_밝은_테보다_어둡고_바위와_대비가_작다()
+        {
+            //  10-10 Fix 1b: "밝은 것 = 닿는 것" — 장식은 판정선 위 얇은 테(RockEdge)보다 늘 어둡고, 지층 렌즈는 바위와 거의 같은 밝기.
+            var look = Look();
+            try
+            {
+                FlappyMineMaterials.Ensure(look);
+                float L(string n) => AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/{n}.mat").GetColor("_BaseColor").grayscale;
+                float rim = L("RockEdge"), rock = FlappyMineMaterials.CalmRockBase(look).grayscale;
+                foreach (string n in new[] { "StrataPatchDark", "StrataPatchLight", "Seam", "TimberDim", "OreDim", "RailDim" })
+                {
+                    Assert.Less(L(n), rim * 0.75f, $"{n}이 밝은 테만큼 밝다");
+                }
+                Assert.Less(Mathf.Abs(L("StrataPatchLight") - rock), 0.05f, "밝은 렌즈 대비가 크다");
+                Assert.Less(Mathf.Abs(L("StrataPatchDark") - rock), 0.05f, "어두운 렌즈 대비가 크다");
+                Assert.Less(L("Seam"), rock, "금이 바위보다 어둡지 않다");
+
+                var remap = ((ModelImporter)AssetImporter.GetAtPath("Assets/Art/Models/Mine/TimberSet.fbx")).GetExternalObjectMap();
+                var dim = AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/TimberDim.mat");
+                Assert.IsTrue(remap.Any(kv => kv.Key.name == "TimberDim" && kv.Value == dim), "TimberSet.fbx의 TimberDim 슬롯이 리매핑 안 됐다");
+            }
+            finally
+            {
+                Object.DestroyImmediate(look);
+            }
+        }
+
+        [Test]
         public void 새_부품_FBX는_새_재질로_리매핑된다()
         {
             var look = Look();

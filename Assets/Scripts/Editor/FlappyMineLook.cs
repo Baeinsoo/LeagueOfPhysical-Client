@@ -53,8 +53,10 @@ namespace LOP.EditorTools
         [Header("배경 밀도·크기")]
         //  10-08 캡처: 배경이 관문과 다퉜다 — 틀을 성기게(9 → 13 m), 사다리를 덜(0.5 → 0.35), 둘 다 줄여(×0.8) 뒤로 물렸다.
         //  10-10 Task 7 Fix 1(사용자 "배경이 너무 눈에 들어온다"·"투머치"): 13 → 45 m, 사다리 0.35 → 0.1.
-        public float frameSpacing = 45f;         // 배경 갱목 틀(BgFrame) 간격(m)
-        [Range(0f, 1f)] public float ladderChance = 0.1f;  // 틀마다 사다리가 걸릴 비율
+        //  10-10 Fix 1b(사용자 v2 "너무 휑하다"): 열린 통로 뒤를 조금 더 깊게 — 45 → 30 m, 사다리 0.1 → 0.3, 발판 광차, 먼 비계 빈 칸 7 → 5.
+        public float frameSpacing = 30f;         // 배경 갱목 틀(BgFrame) 간격(m)
+        [Range(0f, 1f)] public float ladderChance = 0.3f;  // 틀마다 사다리가 걸릴 비율
+        [Range(0f, 1f)] public float midCartChance = 0.3f; // 가운데 층 발판마다 광차가 설 비율
         public float lanternSpacing = 16f;        // 랜턴 간격(m)
         public int cartCount = 2;                 // 평평한 앞부분 안 배경 광차 수
         [Range(0.3f, 1f)] public float farScale = 0.75f;    // 먼 비계·광차 축척(z 18에서 멀리 보이게)
@@ -62,7 +64,26 @@ namespace LOP.EditorTools
         //  10-10 Task 7 Fix 1: 먼 비계가 이어진 X 가새 띠로 관문과 다퉜다("배경이 너무 눈에 들어와서 장애물 집중이 떨어진다") —
         //  run칸 놓고 gap칸 비워 무리로 끊는다(0이면 이어 깐다).
         [Min(0)] public int farTrestleRun = 2;   // 먼 비계 무리 하나의 칸 수
-        [Min(0)] public int farTrestleGap = 7;   // 무리 사이 빈 칸 수
+        [Min(0)] public int farTrestleGap = 5;   // 무리 사이 빈 칸 수
+
+        [Header("바위 면 장식(10-10 Fix 1b) — 판정 고체 바위 면 위에만, 어둡고 납작하게. 칸 확률 합 ≤ 1")]
+        //  사용자 10-10: v1 "투머치·요란하다" → v2 "차분한데 너무 휑하다". 그 사이 — 칸(decorCell m 격자)마다 하나까지.
+        [Min(0.6f)] public float decorCell = 2.6f;             // 후보 격자 칸(m) — 작을수록 촘촘
+        [Range(0f, 1f)] public float decorLensChance = 0.4f;  // 은은한 지층 렌즈
+        [Range(0f, 1f)] public float decorSeamChance = 0.14f;  // 큰 금(이음매)
+        [Range(0f, 1f)] public float decorPropChance = 0.07f;  // 박힌 갱목 받침(기둥 둘 + 상인방)
+        [Range(0f, 1f)] public float decorCribChance = 0.04f;  // 박힌 갱목 쌓기
+        [Range(0f, 1f)] public float decorOreChance = 0.05f;   // 가는 광맥 + 어두운 광석 조각
+        [Range(0f, 1f)] public float decorRailChance = 0.025f; // 묻힌 레일 조각
+        [Range(0f, 1f)] public float decorLanternChance = 0.5f; // 갱목 받침마다 작은 랜턴을 걸 비율
+        [Min(0f)] public float decorLanternMinGap = 18f;       // 바위 면 랜턴 사이 최소 간격(m)
+        [Min(0.2f)] public float decorMargin = 0.45f;          // 열린 통로·관문·칸막이에서 떨어질 거리(m)
+        [Min(0f)] public float shaftDeepTimberOffset = 2.6f;   // 수직 갱 벽 깊은 갱목 두 줄의 판정선 바깥 거리(m, 0 = 없음)
+        public bool shaftWallLadder = true;                   // 수직 갱 아래쪽 벽 사다리
+        [Range(0f, 0.3f)] public float decorContrast = 0.09f;  // 지층 렌즈 밝기 차(바위 대비 ±)
+        [Range(0.3f, 1f)] public float decorSeamShade = 0.72f; // 금·광맥 = 바위 × 이 값
+        [Range(0.2f, 1f)] public float decorTimberShade = 0.5f; // 박힌 갱목·사다리 = 갱목 색 × 이 값
+        [Range(0.2f, 1f)] public float decorOreShade = 0.55f;   // 광석 조각 = 광석 색 × 이 값
 
         [Header("펼치기 1차 — 새 부품(Task 3·4). 배치 값은 FlappyMineDressing(다음 태스크)이 읽는다")]
         //  지층 띠(Strata) 4색 — v(아래→위) 순서, mine_parts.py STRATA_COLORS와 같은 시안 값. 색은 이미

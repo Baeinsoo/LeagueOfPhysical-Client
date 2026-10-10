@@ -28,7 +28,7 @@ AXIS_UP = 'Y'
 
 # 무늬 텍스처 한 장이 덮는 길이(m). UV = 상자 투영 / 이 값.
 UV_TILE = {'Plank': 1.0, 'Wood': 1.0, 'Tie': 1.0, 'Rock': 2.0, 'RockDark': 2.0,
-           'Timber': 1.0, 'SignWood': 1.0, 'Strata': 1.0}
+           'Timber': 1.0, 'SignWood': 1.0, 'Strata': 1.0, 'TimberDim': 1.0}
 
 HALF = 7.28   # 통로 반 높이(MineCourse.BaseHalf) — CaveMouth 안쪽 선
 
@@ -638,8 +638,108 @@ NEW_PARTS = [entrance_frame, entrance_sign, lantern_string, shaft_timber, cage_r
              rock_mass, bore_frame, bolt_sign, pad_glow, divider_wall, merge_slope]
 
 
+# ════════════════════════ 바위 면 장식(10-10 Task 7 Fix 1b) ════════════════════════
+#  사용자 10-10 "차분해지긴 했는데 너무 휑하다": 판정 고체 바위 면 위에 붙이는 납작한 장식. 전부 뒷면 z = 0, 앞면 −두께(얇다 —
+#  원근으로 옆·윗면이 밝은 띠로 드러나지 않게). 밝은 테두리·볼트·점 무늬는 없다(밝은 것 = 닿는 것, 판정선 위 얇은 테만).
+#  재질 슬롯은 어두운 전용 슬롯(Seam·StrataPatch·TimberDim·OreDim·RailDim) — 색은 FlappyMineMaterials가 바위 색에서 정한다.
+DECOR_T = 0.01   # 무늬(지층 렌즈·금·광맥) 두께 — 0.04는 원근으로 윗면이 1~2 px 밝은 선으로 보였다(cap3 1차)
+PROP_T = 0.12    # 박힌 갱목·레일 조각 두께
+
+
+def _ribbon(center, half_width):
+    """중심선 점들(x, y)과 점마다 반폭 → 위 변 + 거꾸로 아래 변 외곽선."""
+    top = [(x, y + w) for (x, y), w in zip(center, half_width)]
+    bot = [(x, y - w) for (x, y), w in zip(center, half_width)]
+    return top + list(reversed(bot))
+
+
+def strata_lens():
+    """StrataLens — 바위 면의 은은한 지층 렌즈(물결 진 긴 띠). 원점 = 왼끝 가운데: x ∈ [0, 1](x 축척 = 길이), y ∈ [−0.5, 0.5](y 축척 = 두께),
+    z ∈ [−0.01, 0]. 양끝이 뾰족하게 가늘어져 바위 무늬처럼 녹아든다. 슬롯 StrataPatch(굽기가 층에 따라 조금 어둡게/밝게 갈아 끼운다)."""
+    p = Part('StrataLens')
+    n = 28
+    top, bot = [], []
+    for i in range(n + 1):
+        t = i / n
+        s = math.sin(math.pi * t) ** 0.7
+        top.append((t, 0.5 * s * (1 + 0.18 * math.sin(3 * math.pi * t + 0.4))))
+        bot.append((t, -0.5 * s * (1 + 0.12 * math.sin(5 * math.pi * t + 1.3))))
+    outline = top + list(reversed(bot[1:-1]))
+    p.slab(outline, -DECOR_T, 0.0, 'StrataPatch')
+    return p
+
+
+def rock_seam():
+    """RockSeam — 바위 면의 큰 금(이음매). 원점 = 왼끝 가운데: x ∈ [0, 1](x 축척 = 길이), y는 지그재그 ±0.1 + 갈래 −0.28·+0.2(축척 1),
+    z ∈ [−0.01, 0]. 끝이 가늘어지는 리본 + 짧은 갈래 둘. 슬롯 Seam(바위보다 조금 어둡다)."""
+    p = Part('RockSeam')
+    ts = [0.0, 0.12, 0.25, 0.37, 0.5, 0.63, 0.76, 0.88, 1.0]
+    ys = [0.0, 0.06, -0.04, 0.08, 0.02, -0.06, 0.03, -0.05, 0.0]
+    ws = [0.006 + 0.032 * math.sin(math.pi * t) ** 0.5 for t in ts]
+    p.slab(_ribbon(list(zip(ts, ys)), ws), -DECOR_T, 0.0, 'Seam')
+    p.slab([(0.49, 0.0), (0.53, 0.02), (0.72, -0.28)], -DECOR_T, 0.0, 'Seam')
+    p.slab([(0.24, -0.03), (0.27, -0.05), (0.34, 0.2)], -DECOR_T, 0.0, 'Seam')
+    return p
+
+
+def timber_set():
+    """TimberSet — 바위에 박힌 갱목 받침(기둥 둘 + 상인방 + 귀 받침). 원점 = 아래 가운데: x ∈ [−1.1, 1.1], y ∈ [0, 2.46],
+    z ∈ [−0.12, 0]. 상인방 아랫면 y = 2.2(랜턴을 거는 자리). 슬롯 TimberDim(어두운 갱목)."""
+    p = Part('TimberSet')
+    zc = -PROP_T / 2
+    for i, px in enumerate((-0.9, 0.9)):
+        p.box((px, 1.1, zc), (0.22, 2.2, PROP_T), 'TimberDim', uvo=0.31 * i)
+    p.box((0.0, 2.33, zc), (2.2, 0.26, PROP_T), 'TimberDim', uvo=0.17)
+    for sx in (-1, 1):
+        p.strut((sx * 0.79, 1.72), (sx * 0.42, 2.2), 0.12, PROP_T * 0.8, zc, 'TimberDim')
+    return p
+
+
+def cribbing():
+    """Cribbing — 바위에 박힌 갱목 쌓기(가로 통나무 + 마구리 둘을 번갈아 네 켜). 원점 = 아래 가운데: x ∈ [−0.6, 0.6], y ∈ [0, 1.6],
+    z ∈ [−0.12, 0]. 슬롯 TimberDim."""
+    p = Part('Cribbing')
+    zc = -PROP_T / 2
+    for i in range(4):
+        y = i * 0.4
+        p.box((0.0, y + 0.1, zc), (1.2, 0.2, PROP_T), 'TimberDim', uvo=0.23 * i)
+        for ex in (-0.45, 0.45):
+            p.box((ex, y + 0.3, zc), (0.2, 0.2, PROP_T), 'TimberDim', uvo=0.11 * i)
+    return p
+
+
+def ore_vein():
+    """OreVein — 바위 면의 가는 광맥 + 작은 광석 조각 셋. 원점 = 왼끝 가운데: x ∈ [0, 1](x 축척), y ±0.12, z ∈ [−0.015, 0].
+    광맥은 Seam, 조각은 OreDim(어두운 구리빛 — 반짝이지 않는다)."""
+    p = Part('OreVein')
+    ts = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+    ys = [0.0, 0.03, -0.02, 0.04, -0.01, 0.0]
+    ws = [0.004 + 0.022 * math.sin(math.pi * t) ** 0.5 for t in ts]
+    p.slab(_ribbon(list(zip(ts, ys)), ws), -DECOR_T, 0.0, 'Seam')
+    for cx, cy, r, rot in ((0.27, 0.0, 0.07, 0.3), (0.55, 0.035, 0.09, 1.1), (0.78, -0.01, 0.06, 2.0)):
+        pts = [(cx + r * (1 + 0.25 * math.sin(3 * k)) * math.cos(rot + 2 * math.pi * k / 5),
+                cy + r * 0.8 * (1 + 0.25 * math.sin(3 * k)) * math.sin(rot + 2 * math.pi * k / 5)) for k in range(5)]
+        p.slab(pts, -0.015, 0.0, 'OreDim')
+    return p
+
+
+def rail_scrap():
+    """RailScrap — 바위에 묻힌 끊긴 레일 조각(침목 넷 + 레일, 끝이 휘어 들림). 원점 = 왼끝 아래: x ∈ [0, 1.6], y ∈ [0, ~0.3],
+    z ∈ [−0.1, 0]. 슬롯 RailDim·TimberDim."""
+    p = Part('RailScrap')
+    zc = -0.05
+    for i, tx in enumerate((0.15, 0.55, 0.95, 1.35)):
+        p.box((tx, 0.05, zc), (0.18, 0.1, 0.1), 'TimberDim', uvo=0.19 * i)
+    p.box((0.65, 0.135, zc), (1.3, 0.07, 0.08), 'RailDim')
+    p.strut((1.28, 0.135), (1.6, 0.3), 0.07, 0.08, zc, 'RailDim')
+    return p
+
+
+DECOR_PARTS = [strata_lens, rock_seam, timber_set, cribbing, ore_vein, rail_scrap]
+
+
 PARTS = [gate_plank, gate_strap, gate_cap, trestle_bay, rail_span, ceiling_rock, cave_mouth, beam,
-         bg_frame, ladder, walkway, bg_trestle_bay, mine_cart, lantern, silhouette_strip] + NEW_PARTS
+         bg_frame, ladder, walkway, bg_trestle_bay, mine_cart, lantern, silhouette_strip] + NEW_PARTS + DECOR_PARTS
 
 
 def export(part):

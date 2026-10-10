@@ -17,6 +17,15 @@ namespace LOP.EditorTools
         public const string ScenePath = "Assets/Art/Scenes/SkydiveCylinderMap.unity";
         private const float MinPassage = 6f;   // 몸(0.8) + 넉넉한 조종 여유 — 이보다 좁은 틈은 틈이 아니다
 
+        //  태풍에 휘말린 유적 조각 — 사암 빛을 조금씩 달리해 종류는 구별되게. 피라미드 맵의 위험 재질은 건드리지 않는다.
+        internal static readonly (string name, string hex)[] RuinMaterials =
+        {
+            ("CylRuinDisc", "#C9A57A"),
+            ("CylRuinIris", "#B98A5E"),
+            ("CylRuinMill", "#A88466"),
+            ("CylRuinDoor", "#B98A5E"),
+        };
+
         [MenuItem("LOP/Skydive/원통 시제품 굽기")]
         public static void Build()
         {
@@ -38,9 +47,9 @@ namespace LOP.EditorTools
             var stone = SkydiveMapKit.Stone;
             var wallMat = StormWallMaterial();
             //  장애물 윗면 격자 — 단색 큰 판은 가까워져도 거리가 안 읽힌다(사용자 10-07). 판과 같이 돌게 메시 UV 기준.
-            var discMat = HazardMaterial("HazardDisc", "#C8553D");
-            var irisMat = HazardMaterial("HazardIris", "#D98A2B");
-            var millMat = HazardMaterial("HazardMill", "#8A5BB0");
+            var discMat = RuinMaterial(RuinMaterials[0].name, RuinMaterials[0].hex);
+            var irisMat = RuinMaterial(RuinMaterials[1].name, RuinMaterials[1].hex);
+            var millMat = RuinMaterial(RuinMaterials[2].name, RuinMaterials[2].hex);
             var root = new GameObject("Course").transform;
 
             //  원통 벽(태풍 구름 벽) — 출구 높이(ExitY)에서 끝난다. 판정은 상자, 그림은 안쪽 면 + 바깥 면
@@ -155,7 +164,7 @@ namespace LOP.EditorTools
             var doors = new GameObject("Doors").transform;
             doors.SetParent(root, false);
             //  문 패널은 유니티 큐브(UV 0~1)라 메시 기준 격자가 안 나온다 — 월드 격자 재질을 따로 쓴다.
-            CreateDoorVolume(doors, Y.Door, SkydiveMapKit.Toon("HazardDoor", "#D98A2B", topGrid: 4f, sideGrid: 3f));
+            CreateDoorVolume(doors, Y.Door, SkydiveMapKit.Toon(RuinMaterials[3].name, RuinMaterials[3].hex, topGrid: 4f, sideGrid: 3f));
 
             //  세이브 선반 — 벽의 좁은 턱 + 바닥 높이 발판(충돌 없음)
             var padMat = PadMaterial();
@@ -490,7 +499,7 @@ namespace LOP.EditorTools
         }
 
         /// <summary>장애물 재질 — 윗면 격자 4m(메시 UV 기준, 판과 같이 돈다) + 옆면 줄눈.</summary>
-        private static Material HazardMaterial(string name, string hex)
+        internal static Material RuinMaterial(string name, string hex)
         {
             var m = SkydiveMapKit.Toon(name, hex, topGrid: 4f, sideGrid: 3f);
             m.SetFloat("_TopGridSpace", 1f);

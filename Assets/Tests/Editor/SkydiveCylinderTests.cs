@@ -133,16 +133,40 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 장애물_윗면에는_판과_같이_도는_격자가_있다()
+        public void 장애물은_사암_유적_옷을_입고_윗면에_판과_같이_도는_격자가_있다()
         {
-            //  단색 큰 판은 가까워져도 거리가 안 읽힌다(사용자 10-07) — 칸이 커지는 게 보여야 한다.
-            //  도는 판이라 월드 좌표 격자면 판만 돌고 격자는 멈춰 있다 → 메시 UV(미터) 기준.
-            foreach (var name in new[] { "HazardDisc", "HazardIris", "HazardMill" })
+            //  태풍에 휘말린 유적 조각(spec §2). 단색 큰 판은 가까워져도 거리가 안 읽힌다(사용자 10-07) — 격자는 남긴다.
+            CollectionAssert.AreEqual(new[] { "CylRuinDisc", "CylRuinIris", "CylRuinMill", "CylRuinDoor" },
+                                      SkydiveCylinderBuilder.RuinMaterials.Select(r => r.name).ToArray());
+            foreach (var (name, hex) in SkydiveCylinderBuilder.RuinMaterials)
+            {
+                ColorUtility.TryParseHtmlString(hex, out var c);
+                Color.RGBToHSV(c, out float h, out float s, out _);
+                Assert.That(h, Is.InRange(0.04f, 0.13f), $"{name}은 사암 빛(주황~노랑 사이)");
+                Assert.Less(s, 0.55f, $"{name}은 색이 빠진 돌");
+            }
+            foreach (var (name, hex) in SkydiveCylinderBuilder.RuinMaterials) { SkydiveCylinderBuilder.RuinMaterial(name, hex); }
+            foreach (var name in new[] { "CylRuinDisc", "CylRuinIris", "CylRuinMill" })
+            {
+                var m = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>($"Assets/Art/Materials/Pyramid/Pyramid{name}.mat");
+                Assert.IsNotNull(m, $"{name} — 빌더를 한 번 구워야 생긴다");
+                Assert.Greater(m.GetFloat("_TopGrid"), 0f, $"{name} 격자");
+                Assert.AreEqual(1f, m.GetFloat("_TopGridSpace"), $"{name} 격자는 메시 기준(판과 같이 돈다)");
+            }
+        }
+
+        [Test]
+        public void 다른_맵이_쓰는_위험_재질_색은_그대로다()
+        {
+            //  원통 옷을 바꾸려고 공용 재질을 고치면 피라미드 맵 색이 같이 바뀐다.
+            foreach (var (name, hex) in new[] { ("HazardDisc", "#C8553D"), ("HazardIris", "#D98A2B"), ("HazardMill", "#8A5BB0") })
             {
                 var m = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>($"Assets/Art/Materials/Pyramid/Pyramid{name}.mat");
                 Assert.IsNotNull(m, name);
-                Assert.Greater(m.GetFloat("_TopGrid"), 0f, $"{name} 격자");
-                Assert.AreEqual(1f, m.GetFloat("_TopGridSpace"), $"{name} 격자는 메시 기준");
+                ColorUtility.TryParseHtmlString(hex, out var want);
+                Assert.AreEqual(want.r, m.GetColor("_BaseColor").r, 0.01f, name);
+                Assert.AreEqual(want.g, m.GetColor("_BaseColor").g, 0.01f, name);
+                Assert.AreEqual(want.b, m.GetColor("_BaseColor").b, 0.01f, name);
             }
         }
 

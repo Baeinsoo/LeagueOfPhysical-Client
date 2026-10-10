@@ -175,5 +175,21 @@ namespace LOP.Tests
             Vector3 normal = Vector3.Cross(v[tris[1]] - v[tris[0]], v[tris[2]] - v[tris[0]]);
             Assert.Greater(normal.y, 0f);
         }
+
+        [Test]
+        public void 벽은_출발점보다_한참_높아_위로_하늘이_동그랗게_뚫린다()
+        {
+            //  spec §2 — 위를 보면 높은 구름 벽 사이로 하늘이 뚫린 경기장 모양. 지금(+60)은 벽 끝이 바로 보여 탑처럼 읽힌다.
+            Assert.GreaterOrEqual(Y.WallAboveSpawn, 300f);
+        }
+
+        [Test]
+        public void 구름_벽_재질은_둘레를_따라_흐르고_원통_반지름을_안다()
+        {
+            var m = SkydiveCylinderBuilder.StormWallMaterial();
+            Assert.AreEqual("LOP/StormWall", m.shader.name);
+            Assert.AreEqual(Y.Radius, m.GetFloat("_Radius"), 0.001f, "둘레 칸 수를 반지름으로 정한다 — 틀리면 무늬가 늘어나거나 이음매가 생긴다");
+            Assert.AreNotEqual(0f, m.GetFloat("_FlowSpeed"), "흘러야 태풍이다");
+        }
     }
 }

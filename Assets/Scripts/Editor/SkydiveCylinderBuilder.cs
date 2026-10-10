@@ -36,16 +36,16 @@ namespace LOP.EditorTools
             }
 
             var stone = SkydiveMapKit.Stone;
-            var wallMat = SkydiveMapKit.StoneDark;
+            var wallMat = StormWallMaterial();
             //  장애물 윗면 격자 — 단색 큰 판은 가까워져도 거리가 안 읽힌다(사용자 10-07). 판과 같이 돌게 메시 UV 기준.
             var discMat = HazardMaterial("HazardDisc", "#C8553D");
             var irisMat = HazardMaterial("HazardIris", "#D98A2B");
             var millMat = HazardMaterial("HazardMill", "#8A5BB0");
             var root = new GameObject("Course").transform;
 
-            //  원통 벽(하늘 유적 탑) — 출구 높이(ExitY)에서 끝난다. 판정은 상자, 그림은 안쪽 면 + 바깥 면
+            //  원통 벽(태풍 구름 벽) — 출구 높이(ExitY)에서 끝난다. 판정은 상자, 그림은 안쪽 면 + 바깥 면
             //  (안쪽만 그리면 카메라가 벽 밖으로 나가도 안 가리고, 바깥 면은 출구를 빠져나온 뒤 위로 탑이 보이게).
-            float wallTop = Y.SpawnY + 60f, wallBottom = Y.ExitY, wallH = wallTop - wallBottom, wallCy = (wallTop + wallBottom) * 0.5f;
+            float wallTop = Y.SpawnY + Y.WallAboveSpawn, wallBottom = Y.ExitY, wallH = wallTop - wallBottom, wallCy = (wallTop + wallBottom) * 0.5f;
             float segLen = 2f * Mathf.PI * (Y.Radius + Y.Wall) / Y.WallSegments + 0.5f;
             var walls = new GameObject("Wall").transform;
             walls.SetParent(root, false);
@@ -349,6 +349,20 @@ namespace LOP.EditorTools
             m.SetFloat("_FadeNear", 100000f);
             m.SetFloat("_FadeFar", 100001f);
             m.SetFloat("_FadeAbove", 1f);
+            EditorUtility.SetDirty(m);
+            return m;
+        }
+
+        internal static Material StormWallMaterial()
+        {
+            const string path = "Assets/Art/Materials/Pyramid/CylStormWall.mat";
+            var shader = Shader.Find("LOP/StormWall");
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null) { m = new Material(shader); AssetDatabase.CreateAsset(m, path); }
+            m.shader = shader;
+            m.SetFloat("_Radius", Y.Radius);
+            m.SetFloat("_Scale", 40f);
+            m.SetFloat("_FlowSpeed", 6f);   // 한 바퀴 1분 — 빙빙 도는 게 보이되 어지럽지 않게
             EditorUtility.SetDirty(m);
             return m;
         }

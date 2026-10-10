@@ -116,6 +116,22 @@ namespace LOP
                 HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/matches/{matchId}"), cancellationToken);
         #endregion
 
+        #region Economy
+        //  발행하지 않는다 — 받는 스토어가 없다(GetMatchHistory와 같은 이유: 브로커 없는 타입을 발행하면 던진다).
+        //  부르는 쪽(상점/프로필 ViewModel)이 반환값을 그대로 쓴다.
+        public static UniTask<GetEconomyResponse> GetEconomy(string userId, CancellationToken cancellationToken = default)
+            => authorized.SendAsync<GetEconomyResponse>(
+                HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/economy"), cancellationToken);
+
+        public static UniTask<PurchaseCosmeticResponse> PurchaseCosmetic(string userId, PurchaseCosmeticRequest request, CancellationToken cancellationToken = default)
+            => authorized.SendAsync<PurchaseCosmeticResponse>(
+                HttpRequestMessage.Post($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/economy/purchase", request), cancellationToken);
+
+        public static UniTask<SetLoadoutResponse> SetLoadout(string userId, SetLoadoutRequest request, CancellationToken cancellationToken = default)
+            => authorized.SendAsync<SetLoadoutResponse>(
+                HttpRequestMessage.Put($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/economy/loadout", request), cancellationToken);
+        #endregion
+
         #region Room
 
         public static UniTask<RoomJoinableResponse> CheckRoomJoinable(string roomId, CancellationToken cancellationToken = default)

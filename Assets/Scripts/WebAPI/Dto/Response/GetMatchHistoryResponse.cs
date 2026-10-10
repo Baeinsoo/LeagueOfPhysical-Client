@@ -41,6 +41,10 @@ namespace LOP
 
         //  랭크 판만 — 티어·LP·배치 변화. 캐주얼이면 null.
         public RankChangeDto rank;
+
+        //  이번 판 보상(코인·XP). 캐주얼·랭크 모두 받는다 — 보상이 없던 사람(나감·너무 짧음·동결·
+        //  지급 꺼짐)이거나 이 필드가 생기기 전 확정된 옛 판이면 null.
+        public MatchRewardDto reward;
     }
 
     /// <summary>매치 하나(GET /user/:id/matches/:matchId). 결과 화면이 랭크 변화를 그리려고 묻는다.</summary>

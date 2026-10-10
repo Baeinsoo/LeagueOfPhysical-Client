@@ -45,6 +45,23 @@ namespace LOP
         public const int USER_RATING_NOT_EXIST = 70000;
         #endregion
 
+        #region Economy
+        //  백엔드 responseCode.interface.ts의 Economy region과 값이 같아야 한다 — 바꾸면 양쪽을 함께 고친다.
+        public const int INSUFFICIENT_FUNDS = 80000;
+        public const int COSMETIC_ALREADY_OWNED = 80001;
+        public const int COSMETIC_NOT_PURCHASABLE = 80002;
+        public const int PRICE_MISMATCH = 80003;
+        public const int COSMETIC_NOT_OWNED = 80004;
+        public const int ACCOUNT_FROZEN = 80005;
+        public const int ECONOMY_DISABLED = 80006;
+        public const int IDEMPOTENCY_CONFLICT = 80007;
+        public const int COSMETIC_NOT_EXIST = 80008;
+        public const int SLOT_MISMATCH = 80009;
+        public const int WALLET_FULL = 80010;
+        //  내부 API(역분개) 전용이지만 같은 번호대라 클라 사본에도 함께 둔다.
+        public const int ALREADY_REVERSED = 80011;
+        #endregion
+
         public const int UNKNOWN_ERROR = 5000000;
     }
 }

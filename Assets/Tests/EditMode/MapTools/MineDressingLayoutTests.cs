@@ -671,10 +671,20 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(24.8f, spans[0].from, 1e-3f);
             Assert.AreEqual(39.8f, spans[0].to, 1e-3f);
             //  갱목 첫 줄(천장 쪽은 원점이 판정선 위 왼끝)이 이 구간을 양끝까지 채운다 — 굽기는 이 구간에서 바닥·천장 조각을 빼므로 틈이 생기면 안 된다.
-            var ceilingRow = MineDressingLayout.ShaftWalls(c, z, LookTimberSpacing)
-                .Where(p => p.Kind == MinePartKind.ShaftTimber && Math.Abs(p.Y - Ceiling(c, p.X)) < 1e-3f).ToList();
+            var timbers = MineDressingLayout.ShaftWalls(c, z, LookTimberSpacing).Where(p => p.Kind == MinePartKind.ShaftTimber).ToList();
+            var ceilingRow = timbers.Where(p => Math.Abs(p.Y - Ceiling(c, p.X)) < 1e-3f).ToList();
             Assert.AreEqual(spans[0].from, ceilingRow.Min(p => p.X), 1e-3f);
             Assert.AreEqual(spans[0].to, ceilingRow.Max(p => p.X + p.Width), 1e-3f);
+            //  바닥 쪽 첫 줄: 원점이 바깥으로 0.4 내려가 있고 통로 쪽 변(국소 v 0.4)의 양끝이 바닥 판정선 위다.
+            var floorRow = timbers.Where(p =>
+            {
+                var a = World(p, 0, MineDressingLayout.ShaftTimberHeight);
+                var b = World(p, p.ScaleX, MineDressingLayout.ShaftTimberHeight);
+                return a.y < c.CenterAt((float)a.x) && Math.Abs(a.y - Floor(c, (float)a.x)) < 1e-3 && Math.Abs(b.y - Floor(c, (float)b.x)) < 1e-3;
+            }).ToList();
+            Assert.Greater(floorRow.Count, 0, "바닥 쪽 첫 줄이 없다");
+            Assert.AreEqual(spans[0].from, floorRow.Min(p => World(p, 0, MineDressingLayout.ShaftTimberHeight).x), 1e-3);
+            Assert.AreEqual(spans[0].to, floorRow.Max(p => World(p, p.ScaleX, MineDressingLayout.ShaftTimberHeight).x), 1e-3);
         }
 
         [Test]

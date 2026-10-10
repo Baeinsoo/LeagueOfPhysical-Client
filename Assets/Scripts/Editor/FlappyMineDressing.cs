@@ -19,7 +19,7 @@ namespace LOP.EditorTools
     /// 10-10 펼치기 1차 부품(갱 입구 문틀·갱도·계단 단·갈림길 바위)은 배치 규칙이 서로 앞뒤까지 맞춘 <b>최종 z</b>를 주므로 그대로 놓는다.</para>
     ///
     /// <para>구역(<see cref="MineDressingLayout.Zones"/>): 노을 바깥 → 갱 입구 문틀(천장은 들보, 문틀은 판정면 뒤) → 수직 갱(갱목이 바닥·천장) →
-    /// 계단(바위 단이 바닥·천장) → 그 뒤 비계·바위 천장 + 고수 갈림길 바위·칸막이. 노을 하늘은 문틀 끝까지, 하늘·안개 그러데이션은 문틀 자리.</para>
+    /// 계단(바위 단이 바닥·천장) → 그 뒤 비계·바위 천장 + 고수 갈림길 바위·칸막이. 안개 그러데이션은 문틀 자리, 하늘(z 30)은 시차 때문에 문틀 끝 ± 20 m.</para>
     ///
     /// <para>전부 렌더 전용이다: 콜라이더 없음, 그림자 끔, 정적 배칭. 결과는 <c>ComposedMap/Dressing</c> 하나에 모이고
     /// 굽기마다 지우고 새로 만든다.</para>
@@ -52,6 +52,11 @@ namespace LOP.EditorTools
         private const float StripSegment = 2f;
         //  띠 높이를 정하려고 통로 가운데를 훑는 간격.
         private const float CoverSample = 0.5f;
+
+        //  하늘(z 30) 노을 → 굴 섞임 반폭(m). 안개 막(z 2.2·12)은 판정면과 거의 같이 움직여 문틀 자리(OutsideEnd ~ EntranceEnd)에서 섞지만,
+        //  하늘은 시차가 커서(판정면 x에 보이는 하늘 x = 카메라 x + (x − 카메라 x)·53/23) 고정된 x에서 바꾸면 문틀과 맞출 수 없고,
+        //  5 m 띠는 화면을 쓸고 지나가는 세로 경계선이 된다(10-08 캡처). 그래서 문틀 끝(EntranceEnd) ± 20 m에 걸쳐 섞는다(10-08 고침과 같은 폭).
+        private const float SkyBlendHalf = 20f;
 
         //  랜턴 빛: 유리 가운데(사슬 위 끝 −1.85, Task 3)에서 조금 앞(랜턴 z ±0.3보다 앞). 가장자리로 갈수록 옅어지는
         //  방사형 텍스처(<c>lantern_glow.png</c>)를 붙인 사각형이라, 원판보다 크게 잡아도 테두리가 안 보인다.
@@ -104,8 +109,9 @@ namespace LOP.EditorTools
             var zones = new MineZones(found.OutsideEnd, found.EntranceEnd, dressTo);
 
             //  1. 회색 박스: 관문은 입히고 끄고, 바닥·천장·굴 조각·칸막이는 범위 안에 완전히 든 것만 끈다(콜라이더는 그대로).
-            //     굴 조각(TubeRoof·TubeFloor)과 칸막이(ForkWall)는 갈림길 바위·칸막이 그림이 덮는다. 패드(BoostPad)는 회색이 아니라
-            //     판정 사각형을 그대로 보여 주는 것이라 켜 둔다.
+            //     굴 조각(TubeRoof·TubeFloor)과 칸막이(ForkWall)는 갈림길 바위·칸막이 그림이 덮는다. 패드(BoostPad)는 청록 발광 상자라
+            //     (따뜻한 색·LOP/Toon 규칙 밖, 열린 방 한가운데 판정면 앞이라 장애물로 읽힌다) 렌더러만 끄고 ⚡ 발판(PadGlow)·⚡ 판이 대신한다 —
+            //     FlappyBoostPad 판정은 렌더러를 읽지 않는다(상자에 콜라이더도 없다).
             var slabSpans = new List<(float x0, float x1)>();
             int gates = 0, hidden = 0;
             for (int i = 0; i < composedMap.childCount; i++)
@@ -138,7 +144,7 @@ namespace LOP.EditorTools
                         hidden++;
                     }
                 }
-                else if (n.StartsWith("TubeRoof_") || n.StartsWith("TubeFloor_") || n.StartsWith("ForkWall_"))
+                else if (n.StartsWith("TubeRoof_") || n.StartsWith("TubeFloor_") || n.StartsWith("ForkWall_") || n.StartsWith("BoostPad_"))
                 {
                     Bounds b = r.bounds;
                     if (MineDressingLayout.SpanInside(b.min.x, b.max.x, dressFrom, dressTo))
@@ -251,20 +257,21 @@ namespace LOP.EditorTools
                 background++;
             }
 
-            //  5. 하늘(z 30)·안개 막(z 2.2·12) — 노을 바깥 | 갱 입구 문틀(그러데이션 띠 *_Mouth, 텍스처 u 0 = 바깥 → 1 = 굴) | 굴 안.
-            //  노을 하늘은 문틀 끝(EntranceEnd)까지다(스펙 §6).
+            //  5. 하늘(z 30)·안개 막(z 2.2·12) — 노을 바깥 | 그러데이션 띠(*_Mouth, 텍스처 u 0 = 바깥 → 1 = 굴) | 굴 안.
+            //  안개는 갱 입구 문틀 자리에서 섞고, 하늘은 문틀 끝을 가운데로 넓게 섞는다(스펙 §6 "노을은 문틀까지"를 시차 때문에 고친 것).
+            //  하늘만 섞임 띠가 EntranceEnd ± SkyBlendHalf다(시차 — 상수 옆 주석).
             int strips = 0;
-            foreach (var (z, layer, cave, outside, mouth) in new[]
+            foreach (var (z, layer, cave, outside, mouth, blendFrom, blendTo) in new[]
             {
-                (SkyZ, g.Sky, "Sky_Cave", "Sky_Sunset", "Sky_Mouth"),
-                (MineDressingLayout.HazeZ, g.Haze, "Haze_Cave", "Haze_Outside", "Haze_Mouth"),
-                (MineDressingLayout.FarHazeZ, g.Haze, "Haze_Far_Cave", "Haze_Far_Outside", "Haze_Far_Mouth"),
+                (SkyZ, g.Sky, "Sky_Cave", "Sky_Sunset", "Sky_Mouth", zones.EntranceEnd - SkyBlendHalf, zones.EntranceEnd + SkyBlendHalf),
+                (MineDressingLayout.HazeZ, g.Haze, "Haze_Cave", "Haze_Outside", "Haze_Mouth", zones.OutsideEnd, zones.EntranceEnd),
+                (MineDressingLayout.FarHazeZ, g.Haze, "Haze_Far_Cave", "Haze_Far_Outside", "Haze_Far_Mouth", zones.OutsideEnd, zones.EntranceEnd),
             })
             {
                 Vector2 view = ViewHalfSize(z);
-                strips += Strip(layer, course, dressFrom - view.x, zones.OutsideEnd, z, view, materials[outside], blend: false);
-                strips += Strip(layer, course, zones.OutsideEnd, zones.EntranceEnd, z, view, materials[mouth], blend: true);
-                strips += Strip(layer, course, zones.EntranceEnd, dressTo + view.x, z, view, materials[cave], blend: false);
+                strips += Strip(layer, course, dressFrom - view.x, blendFrom, z, view, materials[outside], blend: false);
+                strips += Strip(layer, course, blendFrom, blendTo, z, view, materials[mouth], blend: true);
+                strips += Strip(layer, course, blendTo, dressTo + view.x, z, view, materials[cave], blend: false);
             }
 
             MakeRenderOnly(dressing.gameObject);

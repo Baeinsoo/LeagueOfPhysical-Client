@@ -22,6 +22,7 @@ namespace LOP
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly CosmeticCatalog catalog;
         private readonly Dictionary<string, Vector2> lastSeen = new Dictionary<string, Vector2>();
+        private readonly Dictionary<string, PlayerLook> lastLook = new Dictionary<string, PlayerLook>();
         private readonly HashSet<string> gone = new HashSet<string>();
         private readonly List<(GameObject root, Vector2 from, Vector2 exit, float seconds)> rides =
             new List<(GameObject, Vector2, Vector2, float)>();
@@ -56,6 +57,8 @@ namespace LOP
                     var p = actor.visualGameObject.transform.position;
                     lastSeen[id] = new Vector2(p.x, p.z);
                 }
+                var look = entityRegistry.Get(id)?.Get<PlayerLook>();
+                if (look != null) lastLook[id] = look;
                 state.TryGetLife(id, out _, out long eliminatedTick);
                 // 처음 볼 때 이미 탈락한 사람(재접속 전)은 실어 내지 않는다 — 자막과 같은 규칙.
                 if (eliminatedTick >= 0 && gone.Add(id) && seeded && lastSeen.TryGetValue(id, out var at))
@@ -104,8 +107,8 @@ namespace LOP
                 body.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
                 var animator = body.GetComponent<Animator>();
                 if (animator != null) animator.enabled = false;
-                // 서버가 탈락과 함께 몸을 지워 엔티티가 이미 없을 수 있다 — 그때는 look 없이 기본값으로.
-                ChibiDresser.Dress(id, body, faceMaterial, entityRegistry.Get(id)?.Get<PlayerLook>(), catalog);
+                // 룩은 몸이 살아 있을 때 기억해 둔다 — 탈락과 디스폰이 같이 와서 순서에 따라 엔티티가 먼저 사라진다.
+                ChibiDresser.Dress(id, body, faceMaterial, lastLook.TryGetValue(id, out var look) ? look : null, catalog);
             }
             rides.Add((root, from, exit, 0f));
         }

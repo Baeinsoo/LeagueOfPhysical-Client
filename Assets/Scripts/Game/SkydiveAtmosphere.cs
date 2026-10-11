@@ -36,7 +36,7 @@ namespace LOP
         //  Skydive.unity 카메라의 Skybox 컴포넌트는 RenderSettings.skybox를 덮는다(예전 고도 틴트가 안 보인 이유) — 있는 동안 끈다.
         private readonly System.Collections.Generic.List<Skybox> hiddenBoxes = new System.Collections.Generic.List<Skybox>();
 
-        //  맵별 분위기(SkydiveMood) — 있으면 고도 곡선 대신 이것을 쓴다(빛을 향한 낙하: 위는 어둡게, 출구는 금빛).
+        //  맵별 분위기(SkydiveMood) — 있으면 고도 곡선 대신 이것을 쓴다(빛을 향한 낙하: 위는 어둡게, 출구에서 하얗게 번쩍).
         private SkydiveMood mood;
         private int moodSceneCount = -1;
         private readonly UnityEngine.Rendering.AmbientMode originalAmbientMode = RenderSettings.ambientMode;

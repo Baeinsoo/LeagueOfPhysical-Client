@@ -15,9 +15,23 @@ namespace LOP.EditorTools
         public const float Wall = 4f;
         public const int WallSegments = 48;
         public const float SpawnY = 1600f, SpawnHole = 14f, SpawnRingRadius = 35f;
-        /// <summary>원통(하늘 유적 탑)이 끝나는 높이 — 여기서 빠져나오면 금빛 하늘이 열린다(빛을 향한 낙하).</summary>
+        /// <summary>원통(하늘 유적 탑)이 끝나는 높이 — 여기서 빠져나오면 하얗게 번쩍인 뒤 밝은 하늘이 열린다(빛을 향한 낙하).</summary>
         public const float ExitY = 300f;
+
+        /// <summary>벽이 출발점보다 얼마나 더 높은가 — 위를 보면 높은 구름 벽 사이로 하늘이 동그랗게 뚫린다(태풍의 눈).</summary>
+        public const float WallAboveSpawn = 300f;
         public const float CloudFloorRadius = 260f;
+        /// <summary>
+        /// 3막 수평선의 먼 대지(섬·육지) — (방향°, 가운데까지 거리, 폭, 높이). 납작한 덩어리라 충돌체 없음.
+        /// 구름 바다(반지름 260) 밖, 구름 아래로 내려다보이게 — "발밑에 세상이 펼쳐졌다".
+        /// </summary>
+        public static readonly (float deg, float distance, float width, float height)[] Lands =
+        {
+            (20f, 1100f, 700f, 140f), (95f, 1400f, 900f, 220f), (170f, 1000f, 500f, 110f),
+            (250f, 1300f, 800f, 180f), (320f, 1150f, 600f, 130f),
+        };
+        /// <summary>대지 덩어리 가운데 높이 — 꼭대기(가운데 + 높이/2)가 구름 바다(y 0)보다 아래.</summary>
+        public const float LandBaseY = -260f;
         public const float Thickness = 3f;
         public const float BodyRadius = 0.4f;
 
@@ -116,13 +130,16 @@ namespace LOP.EditorTools
 
         // ---- 다시 떨어지기·체크포인트 ----
 
-        /// <summary>별을 놓치고 구름에 닿으면 여기서 다시 떨어진다 — 출구 바로 아래 공중. 결승은 별뿐이다(도착 판 없음).</summary>
-        public static readonly Vector3 RetryPoint = new Vector3(0f, 270f, 0f);
+        /// <summary>
+        /// 정령을 놓치고 구름에 닿으면 여기서 다시 떨어진다 — 태풍 안, 마지막 풍차(330)와 출구(300) 사이(사용자 10-10 A).
+        /// 다시 할 때마다 태풍 바닥을 뚫고 나오는 순간을 또 겪는다. 결승은 정령뿐이다(도착 판 없음).
+        /// </summary>
+        public static readonly Vector3 RetryPoint = new Vector3(0f, 315f, 0f);
         /// <summary>구름 윗면(y 0) 바로 위 — 닿는 틱에 걸린다. 0 이하면 구름에 막혀 영영 안 걸린다.</summary>
         public const float RetryBelowY = 1f;
 
         /// <summary>
-        /// 별 조각 — 구름 바로 위(35~55m)에서 천천히 돌며(반지름 40, 초속 약 7m — 활강의 절반) 위아래로 흔들린다(±10, 8초).
+        /// 정령(지금은 별과 같은 판정·움직임) — 구름 바로 위(35~55m)에서 천천히 돌며(반지름 40, 초속 약 7m — 활강의 절반) 위아래로 흔들린다(±10, 8초).
         /// 닿으면 결승. 판정은 보이는 빛보다 넉넉하다 — 스치기만 해도 잡힌다(사용자 10-08 "그냥 터치해도 바로 잡히게").
         /// 놓치고 구름에 닿으면 출구 아래에서 다시 떨어진다.
         /// </summary>
@@ -131,6 +148,8 @@ namespace LOP.EditorTools
         /// <summary>바깥 노란 빛의 지름(반지름 12) — 판정(15)이 이보다 넉넉해 빛에 스치면 잡힌다.</summary>
         public const float StarHaloDiameter = 24f;
         public const int StarBobPeriod = 400;
+        /// <summary>정령 얼굴(눈 둘) 판 크기 — 빛 심지(지름 7)와 같게. 빛(24)보다 작아 판정(15)이 그림보다 넉넉한 것은 그대로.</summary>
+        public const float SpiritFaceSize = 7f;
 
         /// <summary>벽 틈새 빛줄기 — (높이, 각도). 아래로 갈수록 많고 굵다(출구가 가깝다는 신호).</summary>
         public static readonly (float y, float deg, float width)[] LightShafts =
@@ -140,16 +159,16 @@ namespace LOP.EditorTools
             (450f, 20f, 20f), (400f, 200f, 22f), (350f, 110f, 24f),
         };
 
-        /// <summary>높이별 분위기 — 위는 갇힌 어둠(차갑게), 내려갈수록 따뜻하게, 출구에서 금빛으로 터진다.</summary>
+        /// <summary>높이별 분위기 — 1막 맑은 낮(파란 하늘이 뚫린 눈 꼭대기) → 2막 구름 벽에 가려 어두워짐 → 3막 바닥을 뚫는 순간 하얗게 번쩍인 뒤 맑고 밝은 낮 하늘이 열린다.</summary>
         public static SkydiveMoodKey[] Mood => new[]
         {
-            MoodKey(1700f, "#15121C", 0.0035f, "#2A2635", "#9AA6C8", 0.35f, 0.4f, -0.3f),
-            MoodKey(1100f, "#1F1820", 0.0030f, "#3A2E33", "#C9A27E", 0.45f, 0.5f, -0.2f),
-            MoodKey(600f, "#3A2622", 0.0025f, "#5A3E30", "#E8A86A", 0.7f, 0.7f, 0f),
-            MoodKey(330f, "#5A3422", 0.0022f, "#6E4630", "#E8A060", 0.85f, 0.7f, 0f),      // 출구 바로 위는 더 어둡게 — 터지는 순간과 대비
-            MoodKey(295f, "#FFD27A", 0.0003f, "#E6B26E", "#FFD890", 1.7f, 3.2f, 1.2f),    // 빠져나오는 순간 — 확 눈부시게(어둠에서 나와 눈이 부신 것처럼)
-            MoodKey(240f, "#FFDA92", 0.0003f, "#B8946A", "#FFE0A0", 1.25f, 1.7f, 0.3f),   // 눈이 적응하듯 가라앉는다 — 하늘·구름이 보이게
-            MoodKey(0f, "#FFE0A4", 0.0003f, "#A88E70", "#FFE8B8", 1.15f, 1.3f, 0.15f),
+            MoodKey(1700f, "#8EB8E0", 0.0012f, "#9CB4D0", "#FFFFFF", 1.2f, 0.6f, 0f),       // 1막 — 맑은 하늘색, 흰 햇빛
+            MoodKey(1100f, "#5C6878", 0.0022f, "#56606E", "#B8C2D0", 0.7f, 0.5f, -0.1f),    // 흐려지기 시작(회청색)
+            MoodKey(600f, "#2A2A33", 0.0030f, "#33313A", "#8A8896", 0.35f, 0.4f, -0.3f),     // 2막 — 먹구름
+            MoodKey(330f, "#22202A", 0.0032f, "#2C2930", "#7A7480", 0.3f, 0.4f, -0.35f),     // 가장 어둡게 — 터지기 직전
+            MoodKey(295f, "#FFFFFF", 0.0003f, "#E8EEF5", "#FFFFFF", 2.0f, 3.5f, 1.4f),    // 빠져나오는 순간 — 하얗게 번쩍(어둠에서 나와 눈이 부신 것처럼)
+            MoodKey(240f, "#CFE6FF", 0.0003f, "#B8C8DA", "#FFFFFF", 1.3f, 1.4f, 0.4f),    // 눈이 적응하며 맑은 하늘이 보인다
+            MoodKey(0f, "#B4D8FF", 0.0003f, "#A8BCD0", "#FFFFFF", 1.2f, 1.1f, 0.25f),
         };
 
         private static SkydiveMoodKey MoodKey(float alt, string fog, float density, string ambient, string sun, float sunIntensity, float bloom, float exposure)

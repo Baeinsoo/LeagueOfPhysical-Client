@@ -24,7 +24,7 @@ namespace LOP.UI
         private readonly CatchTargetField catchTargets;
         private readonly GameFramework.Runner.IRunner runner;
 
-        //  별 조각이 이보다 가까우면 "잡기!"를 띄운다 — 대자로 2초 안에 닿을 거리쯤.
+        //  정령이 이보다 가까우면 "잡기!"를 띄운다 — 대자로 2초 안에 닿을 거리쯤.
         private const float CatchHintDistance = 40f;
 
         private readonly ReactiveProperty<float> staminaRatio = new ReactiveProperty<float>(1f);
@@ -164,7 +164,7 @@ namespace LOP.UI
             }
         }
 
-        //  별 조각이 가까우면 "잡기!" — 결승 전에만. 별 자리는 시뮬과 같은 식(틱)으로 구한다.
+        //  정령이 가까우면 "잡기!" — 결승 전에만. 정령 자리는 시뮬과 같은 식(틱)으로 구한다.
         private string CatchSuffix(GameFramework.World.Entity entity)
         {
             if (catchTargets == null || catchTargets.All.Count == 0 || runner?.tickUpdater == null)
@@ -181,7 +181,7 @@ namespace LOP.UI
             {
                 if (UnityEngine.Vector3.Distance(LOP.CatchTargetGeometry.PositionAt(t, tick), me) <= CatchHintDistance)
                 {
-                    return "   ★ 별에 닿으면 끝!";
+                    return "   ★ 정령에 닿으면 끝!";
                 }
             }
             return string.Empty;

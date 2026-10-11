@@ -17,6 +17,15 @@ namespace LOP.EditorTools
         public const string ScenePath = "Assets/Art/Scenes/SkydiveCylinderMap.unity";
         private const float MinPassage = 6f;   // 몸(0.8) + 넉넉한 조종 여유 — 이보다 좁은 틈은 틈이 아니다
 
+        //  태풍에 휘말린 유적 조각 — 사암 빛을 조금씩 달리해 종류는 구별되게. 피라미드 맵의 위험 재질은 건드리지 않는다.
+        internal static readonly (string name, string hex)[] RuinMaterials =
+        {
+            ("CylRuinDisc", "#C9A57A"),
+            ("CylRuinIris", "#B98A5E"),
+            ("CylRuinMill", "#A88466"),
+            ("CylRuinDoor", "#B98A5E"),
+        };
+
         [MenuItem("LOP/Skydive/원통 시제품 굽기")]
         public static void Build()
         {
@@ -36,16 +45,17 @@ namespace LOP.EditorTools
             }
 
             var stone = SkydiveMapKit.Stone;
-            var wallMat = SkydiveMapKit.StoneDark;
+            var wallMat = StormWallMaterial();
             //  장애물 윗면 격자 — 단색 큰 판은 가까워져도 거리가 안 읽힌다(사용자 10-07). 판과 같이 돌게 메시 UV 기준.
-            var discMat = HazardMaterial("HazardDisc", "#C8553D");
-            var irisMat = HazardMaterial("HazardIris", "#D98A2B");
-            var millMat = HazardMaterial("HazardMill", "#8A5BB0");
+            var discMat = RuinMaterial(RuinMaterials[0].name, RuinMaterials[0].hex);
+            var irisMat = RuinMaterial(RuinMaterials[1].name, RuinMaterials[1].hex);
+            var millMat = RuinMaterial(RuinMaterials[2].name, RuinMaterials[2].hex);
             var root = new GameObject("Course").transform;
 
-            //  원통 벽(하늘 유적 탑) — 출구 높이(ExitY)에서 끝난다. 판정은 상자, 그림은 안쪽 면 + 바깥 면
+            //  원통 벽(태풍 구름 벽) — 출구 높이(ExitY)에서 끝난다. 판정은 상자, 그림은 안쪽 면 + 바깥 면
             //  (안쪽만 그리면 카메라가 벽 밖으로 나가도 안 가리고, 바깥 면은 출구를 빠져나온 뒤 위로 탑이 보이게).
-            float wallTop = Y.SpawnY + 60f, wallBottom = Y.ExitY, wallH = wallTop - wallBottom, wallCy = (wallTop + wallBottom) * 0.5f;
+            var (wallTop, wallBottom) = WallSpan();
+            float wallH = wallTop - wallBottom, wallCy = (wallTop + wallBottom) * 0.5f;
             float segLen = 2f * Mathf.PI * (Y.Radius + Y.Wall) / Y.WallSegments + 0.5f;
             var walls = new GameObject("Wall").transform;
             walls.SetParent(root, false);
@@ -154,7 +164,7 @@ namespace LOP.EditorTools
             var doors = new GameObject("Doors").transform;
             doors.SetParent(root, false);
             //  문 패널은 유니티 큐브(UV 0~1)라 메시 기준 격자가 안 나온다 — 월드 격자 재질을 따로 쓴다.
-            CreateDoorVolume(doors, Y.Door, SkydiveMapKit.Toon("HazardDoor", "#D98A2B", topGrid: 4f, sideGrid: 3f));
+            CreateDoorVolume(doors, Y.Door, SkydiveMapKit.Toon(RuinMaterials[3].name, RuinMaterials[3].hex, topGrid: 4f, sideGrid: 3f));
 
             //  세이브 선반 — 벽의 좁은 턱 + 바닥 높이 발판(충돌 없음)
             var padMat = PadMaterial();
@@ -169,12 +179,11 @@ namespace LOP.EditorTools
                 marker.Label = l.Label;
             }
 
-            //  구름 바닥. 출구 아래는 탁 트인 금빛 하늘.
-            //  구름 바다는 옅은 하늘색 — 하얗게 두면 금빛 노출에 다 날아가 아무것도 안 보인다(왕눈 엔딩: 금빛 역광 + 파란 하늘·분홍 구름 귀퉁이).
-            MeshBody(root, "CloudFloor", SkydiveMapKit.Toon("CloudFloor", "#86AEEF"), Sector("CylCloudFloor", 0f, Y.CloudFloorRadius, 0f, 360f, Vector3.zero), new Vector3(0f, -Y.Thickness * 0.5f, 0f));
+            //  번개 치는 먹구름 바다 — 정령 아래 바닥. 닿으면 다시 떨어진다(번개 그림은 단계 2). 단단하게 둔다 — 정령을 잡은 사람은 구름 위에 내려선다.
+            MeshBody(root, "CloudFloor", StormSeaMaterial(), Sector("CylCloudFloor", 0f, Y.CloudFloorRadius, 0f, 360f, Vector3.zero), new Vector3(0f, -Y.Thickness * 0.5f, 0f));
             var puffs = new GameObject("CloudPuffs").transform;
             puffs.SetParent(root, false);
-            var puffMat = SkydiveMapKit.Toon("CloudPuff", "#F2C9DA");
+            var puffMat = StormPuffMaterial();
             var rng = new System.Random(20261007);
             for (int i = 0; i < 18; i++)
             {
@@ -187,6 +196,23 @@ namespace LOP.EditorTools
                 puff.transform.localScale = new Vector3(size, size * 0.35f, size * 0.8f);
                 puff.GetComponent<MeshRenderer>().sharedMaterial = puffMat;
             }
+            //  먼 대지 — 3막 수평선. 납작한 덩어리, 충돌 없음.
+            var lands = new GameObject("FarLands").transform;
+            lands.SetParent(root, false);
+            var landMat = SkydiveMapKit.Toon("CylFarLand", "#6E8A5A");
+            foreach (var l in Y.Lands)
+            {
+                var land = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                Object.DestroyImmediate(land.GetComponent<Collider>());
+                land.name = $"Land_{l.deg:0}";
+                land.transform.SetParent(lands, false);
+                land.transform.localPosition = Y.OnCircle(l.distance, l.deg, Y.LandBaseY);
+                land.transform.localRotation = Quaternion.Euler(0f, -l.deg, 0f);
+                land.transform.localScale = new Vector3(l.width * 0.6f, l.height, l.width);   // 둘레 방향으로 길게
+                var lr = land.GetComponent<MeshRenderer>();
+                lr.sharedMaterial = landMat;
+                lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
             //  별만 결승(사용자 10-07) — 도착 판은 없다. 별을 놓치고 구름에 닿으면 출구 아래에서 다시 떨어진다.
             //  구름은 단단하게 둔다 — 별을 잡은 사람은 구름 위에 내려선다(엔딩처럼).
             var retry = new GameObject("Retry").transform;
@@ -194,8 +220,8 @@ namespace LOP.EditorTools
             retry.localPosition = Y.RetryPoint;
             retry.gameObject.AddComponent<LOP.RetryVolume>().BelowY = Y.RetryBelowY;
 
-            //  별 조각 — 닿으면 결승(StarVolume: 판정은 CatchTargetField, 자세는 ObstacleField). 충돌 없음.
-            var star = new GameObject("Star").transform;
+            //  정령 — 닿으면 결승(StarVolume: 판정은 CatchTargetField, 자세는 ObstacleField). 충돌 없음.
+            var star = new GameObject("Spirit").transform;
             star.SetParent(root, false);
             star.localPosition = Y.StarCenter;
             var starVol = star.gameObject.AddComponent<LOP.StarVolume>();
@@ -206,8 +232,16 @@ namespace LOP.EditorTools
             starVol.BobPeriod = Y.StarBobPeriod;
             starVol.CatchRadius = Y.StarCatchRadius;
             starVol.Pose(0);
-            Glow(star, "Halo", StarMaterial("StarHalo", new Color(1f, 0.72f, 0.3f) * 2.6f, 1.2f), Y.StarHaloDiameter);
-            Glow(star, "Core", StarMaterial("StarCore", new Color(1f, 0.95f, 0.8f) * 3f, 0f), 7f);
+            Glow(star, "Halo", StarMaterial("SpiritHalo", new Color(1f, 0.9f, 0.68f) * 2.4f, 1.2f), Y.StarHaloDiameter);   // 흰 금빛
+            Glow(star, "Core", StarMaterial("SpiritCore", new Color(1f, 0.98f, 0.92f) * 3.2f, 0f), Y.SpiritFaceSize);
+            var face = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            Object.DestroyImmediate(face.GetComponent<Collider>());
+            face.name = "Face";
+            face.transform.SetParent(star, false);
+            face.transform.localScale = Vector3.one * Y.SpiritFaceSize;
+            var fr = face.GetComponent<MeshRenderer>();
+            fr.sharedMaterial = SpiritFaceMaterial();
+            fr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             //  위로 솟는 금빛 기둥 — 출구에서 내려다보면 "저기가 목표"로 읽히게(빛나는 점 하나는 밝은 하늘에 묻힌다).
             var beacon = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             Object.DestroyImmediate(beacon.GetComponent<Collider>());
@@ -220,7 +254,7 @@ namespace LOP.EditorTools
             bmr.sharedMaterial = StarMaterial("StarBeacon", new Color(1f, 0.75f, 0.35f) * 0.5f, 2.4f);
             bmr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-            //  맵별 분위기 — 클라 SkydiveAtmosphere가 내 높이로 읽는다(위는 어둡게, 출구는 금빛).
+            //  맵별 분위기 — 클라 SkydiveAtmosphere가 내 높이로 읽는다(위는 어둡게, 출구에서 하얗게 번쩍).
             var moodGo = new GameObject("Mood");
             moodGo.transform.SetParent(root, false);
             moodGo.AddComponent<LOP.SkydiveMood>().Keys = Y.Mood;
@@ -281,8 +315,8 @@ namespace LOP.EditorTools
                     if (r < w.Radius && Mathf.Abs(l.Y - w.Center.y) < w.Height * 0.5f) { return $"선반 {l.Label}이 바람({w.Name}) 안"; }
                 }
             }
-            if (Y.RetryPoint.y > Y.ExitY - 10f) { return "다시 떨어지는 자리가 출구에 너무 가깝다"; }
-            if (Y.RetryPoint.y < Y.StarCenter.y + Y.StarBob + 40f) { return "다시 떨어지는 자리가 별에 너무 가깝다(겨눌 틈이 없다)"; }
+            string retryError = CheckRetryPoint(Y.RetryPoint);
+            if (retryError != null) { return retryError; }
             if (Y.RetryBelowY <= 0f) { return "다시 떨어지기 높이가 구름 윗면 아래 — 구름에 막혀 영영 안 걸린다"; }
             if (Y.StarCenter.y + Y.StarBob > Y.ExitY - 40f) { return "별이 출구에 너무 가깝다 — 빠져나오자마자 공짜로 닿는다"; }
             if (Y.StarCenter.y - Y.StarBob - Y.StarCatchRadius < 8f) { return "별이 바닥에 너무 가깝다 — 구름 위에 서서 닿는다(공중에서 잡아야)"; }
@@ -292,6 +326,20 @@ namespace LOP.EditorTools
                 if (oy < Y.ExitY + 10f) { return $"장애물({oy:0})이 원통 출구 아래 — 탁 트인 하늘엔 원통 벽이 없어 옆으로 빠진다"; }
             }
             return FindTooFastLaser(Y.Lasers);
+        }
+
+        //  다시 떨어진 몸이 도는 날개에 바로 맞지 않을 만큼(몸 키 + 한 틱 낙하 여유).
+        private const float RetryClearance = 6f;
+
+        /// <summary>다시 떨어지는 자리 — 출구 위(태풍 안), 마지막 장애물 아래, 벽에서 떨어진 곳이어야 한다.</summary>
+        internal static string CheckRetryPoint(Vector3 retry)
+        {
+            if (retry.y < Y.ExitY + 5f) { return "다시 떨어지는 자리가 출구 아래거나 너무 붙었다 — 태풍 안에서 떨어져야 바닥을 뚫는 순간을 다시 겪는다"; }
+            float lowest = Y.ObstacleYs().Min();
+            if (retry.y > lowest - Y.Thickness * 0.5f - RetryClearance) { return $"다시 떨어지는 자리가 마지막 장애물({lowest:0})에 너무 가깝다 — 떨어지자마자 날개에 맞는다"; }
+            if (new Vector2(retry.x, retry.z).magnitude > Y.Radius - 10f) { return "다시 떨어지는 자리가 벽에 붙어 있다"; }
+            if (retry.y < Y.StarCenter.y + Y.StarBob + 40f) { return "다시 떨어지는 자리가 정령에 너무 가깝다(겨눌 틈이 없다)"; }
+            return null;
         }
 
         // ---- 도우미 ----
@@ -339,8 +387,55 @@ namespace LOP.EditorTools
             return m;
         }
 
+        /// <summary>벽의 위·아래 높이 — Build가 쓰는 값 그대로(굽지 않고 시험하려고 따로 뺐다).</summary>
+        internal static (float top, float bottom) WallSpan() => (Y.SpawnY + Y.WallAboveSpawn, Y.ExitY);
+
+        internal static Material StormPuffMaterial() => SkydiveMapKit.Toon("CylStormPuff", "#E4E9F2");
+
+        internal static Material StormSeaMaterial()
+        {
+            const string path = "Assets/Art/Materials/Pyramid/CylStormSea.mat";
+            var shader = Shader.Find("LOP/StormSea");
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null) { m = new Material(shader); AssetDatabase.CreateAsset(m, path); }
+            m.shader = shader;
+            //  재질이 이미 있으면 셰이더 기본값이 안 먹으니 색을 직접 박는다.
+            m.SetColor("_DarkColor", new Color(0.60f, 0.65f, 0.74f, 1f));
+            m.SetColor("_LightColor", new Color(0.96f, 0.97f, 0.99f, 1f));
+            m.SetColor("_FlashColor", new Color(1.6f, 2.0f, 3.2f, 1f));
+            m.SetFloat("_FlashChance", 0.08f);
+            EditorUtility.SetDirty(m);
+            return m;
+        }
+
+        internal static Material StormWallMaterial()
+        {
+            const string path = "Assets/Art/Materials/Pyramid/CylStormWall.mat";
+            var shader = Shader.Find("LOP/StormWall");
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null) { m = new Material(shader); AssetDatabase.CreateAsset(m, path); }
+            m.shader = shader;
+            m.SetFloat("_Radius", Y.Radius);
+            m.SetFloat("_Scale", 40f);
+            m.SetFloat("_FlowSpeed", 6f);   // 한 바퀴 1분 — 빙빙 도는 게 보이되 어지럽지 않게
+            EditorUtility.SetDirty(m);
+            return m;
+        }
+
         private static Material LightShaftMaterial() => GlowMaterial("CylLightShaft", new Color(1f, 0.78f, 0.45f) * 0.26f, 2.6f);   // 넓고 옅게 — 막대가 아니라 빛
         private static Material StarMaterial(string name, Color color, float falloff) => GlowMaterial($"Cyl{name}", color, falloff);
+
+        internal static Material SpiritFaceMaterial()
+        {
+            const string path = "Assets/Art/Materials/Pyramid/CylSpiritFace.mat";
+            var shader = Shader.Find("LOP/SpiritFace");
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null) { m = new Material(shader); AssetDatabase.CreateAsset(m, path); }
+            m.shader = shader;
+            m.renderQueue = -1;   // 셰이더의 Transparent+50을 그대로 쓴다
+            EditorUtility.SetDirty(m);
+            return m;
+        }
 
         private static GameObject Hub(Transform parent, string name, float y)
         {
@@ -458,7 +553,7 @@ namespace LOP.EditorTools
         }
 
         /// <summary>장애물 재질 — 윗면 격자 4m(메시 UV 기준, 판과 같이 돈다) + 옆면 줄눈.</summary>
-        private static Material HazardMaterial(string name, string hex)
+        internal static Material RuinMaterial(string name, string hex)
         {
             var m = SkydiveMapKit.Toon(name, hex, topGrid: 4f, sideGrid: 3f);
             m.SetFloat("_TopGridSpace", 1f);

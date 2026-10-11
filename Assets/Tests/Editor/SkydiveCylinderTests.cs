@@ -16,17 +16,35 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 위는_어둡고_출구에서_금빛으로_터진다()
+        public void 맑게_시작해_어둡게_조이고_출구에서_하얗게_터져_밝은_하늘이_열린다()
         {
-            //  빛을 향한 낙하(왕국의 눈물 엔딩 오마주) — 갇힌 어둠에서 압도적인 빛으로.
+            //  3막(사용자 10-10): 1막 맑은 낮 → 2막 어두움 → 빠져나오는 순간 하얀 번쩍 → 3막 맑고 밝은 낮 하늘.
             var top = SkydiveMoodCurve.Evaluate(Y.Mood, Y.SpawnY);
             var mid = SkydiveMoodCurve.Evaluate(Y.Mood, 800f);
+            var dark = SkydiveMoodCurve.Evaluate(Y.Mood, 400f);
             var exit = SkydiveMoodCurve.Evaluate(Y.Mood, Y.ExitY - 20f);
-            Assert.Less(top.Fog.grayscale, 0.15f, "꼭대기는 어둡다");
-            Assert.Less(top.Fog.grayscale, mid.Fog.grayscale, "내려갈수록 밝아진다");
+
+            Assert.Greater(top.Fog.grayscale, 0.5f, "꼭대기는 맑다");
+            Assert.Less(top.Fog.grayscale, 0.8f, "그래도 하얗게 날지 않는다 — 첫 원판 격자가 읽혀야");
+            Assert.Greater(top.Fog.b, top.Fog.r, "1막은 파란 빛");
+
+            Assert.Less(mid.Fog.grayscale, top.Fog.grayscale, "내려갈수록 어두워진다");
+            Assert.Less(dark.Fog.grayscale, mid.Fog.grayscale, "출구 직전이 가장 어둡다");
+            Assert.Less(dark.Fog.grayscale, 0.2f);
+            Assert.Less(dark.SunIntensity, top.SunIntensity * 0.5f, "햇빛도 약해진다");
+
             Assert.Greater(exit.Fog.grayscale, 0.8f, "출구는 하얗게 열린다");
-            Assert.Greater(exit.Bloom, top.Bloom * 3f, "출구에서 빛이 번진다");
-            Assert.Greater(exit.Exposure, top.Exposure);
+            Assert.Greater(exit.Bloom, dark.Bloom * 3f, "출구에서 빛이 번진다 — 바로 위 어둠과 대비");
+            Assert.Greater(exit.Exposure, dark.Exposure);
+
+            var flash = SkydiveMoodCurve.Evaluate(Y.Mood, Y.ExitY - 5f);
+            Assert.Greater(flash.Exposure, 1f, "빠져나오는 순간 번쩍");
+            Assert.Greater(flash.Bloom, dark.Bloom * 5f, "빠져나오는 순간 번쩍");
+
+            var below = SkydiveMoodCurve.Evaluate(Y.Mood, 100f);
+            Assert.Greater(below.Fog.grayscale, top.Fog.grayscale, "3막 하늘은 1막보다 밝다");
+            Assert.GreaterOrEqual(below.Fog.b, below.Fog.r, "금빛이 아니라 맑은 하늘");
+            Assert.Less(below.FogDensity, top.FogDensity, "탁 트인다");
         }
 
         [Test]
@@ -44,12 +62,35 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 결승은_별뿐이고_놓치면_출구_아래_공중에서_다시_떨어진다()
+        public void 놓치면_태풍_안_출구_바로_위에서_다시_떨어진다()
         {
-            //  사용자 10-07 안 A — 도착 판이 별을 무의미하게 만들었다. 다시 떨어지는 자리는 별보다 충분히 위(겨눌 틈), 출구보다 아래.
-            Assert.Greater(Y.RetryPoint.y, Y.StarCenter.y + Y.StarBob + 40f);
-            Assert.Less(Y.RetryPoint.y, Y.ExitY - 10f);
+            //  사용자 10-10 A — 다시 할 때마다 태풍 바닥을 뚫는 순간을 또 겪는다. 마지막 풍차(330)와 출구(300) 사이.
+            Assert.AreEqual(new Vector3(0f, 315f, 0f), Y.RetryPoint);
+            Assert.Greater(Y.RetryPoint.y, Y.ExitY, "출구 위(태풍 안)");
+            Assert.Less(Y.RetryPoint.y, Y.ObstacleYs().Min(), "마지막 장애물 아래");
             Assert.Greater(Y.RetryBelowY, 0f, "구름(윗면 y 0)에 닿는 틱에 걸려야 한다");
+            Assert.IsNull(SkydiveCylinderBuilder.CheckRetryPoint(Y.RetryPoint));
+        }
+
+        [TestCase(0f, 270f, 0f, TestName = "출구_아래(옛_자리)는_거부")]
+        [TestCase(0f, 302f, 0f, TestName = "출구에_딱_붙으면_거부")]
+        [TestCase(0f, 328f, 0f, TestName = "풍차_날개와_겹치면_거부")]
+        [TestCase(0f, 324f, 0f, TestName = "풍차_날개_바로_밑이면_거부")]
+        [TestCase(55f, 315f, 0f, TestName = "벽에_붙으면_거부")]
+        public void 다시_떨어지는_자리_검사는_어긋난_자리를_막는다(float x, float y, float z)
+        {
+            Assert.IsNotNull(SkydiveCylinderBuilder.CheckRetryPoint(new Vector3(x, y, z)));
+        }
+
+        [Test]
+        public void 정령_얼굴은_빛보다_작고_빛_위에_그려진다()
+        {
+            //  얼굴이 빛보다 크면 "스치면 잡힘"의 그림이 어긋나고, 빛보다 먼저 그려지면 가산 빛에 묻혀 안 보인다.
+            Assert.Less(Y.SpiritFaceSize, Y.StarHaloDiameter);
+            var face = SkydiveCylinderBuilder.SpiritFaceMaterial();
+            Assert.AreEqual("LOP/SpiritFace", face.shader.name);
+            var glow = UnityEditor.AssetDatabase.LoadAssetAtPath<Shader>("Assets/Shaders/LOP/LOPLaserGlow.shader");
+            Assert.Greater(face.renderQueue, glow.renderQueue, "빛(가산) 다음에 그려야 눈이 보인다");
         }
 
         [Test]
@@ -111,16 +152,40 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 장애물_윗면에는_판과_같이_도는_격자가_있다()
+        public void 장애물은_사암_유적_옷을_입고_윗면에_판과_같이_도는_격자가_있다()
         {
-            //  단색 큰 판은 가까워져도 거리가 안 읽힌다(사용자 10-07) — 칸이 커지는 게 보여야 한다.
-            //  도는 판이라 월드 좌표 격자면 판만 돌고 격자는 멈춰 있다 → 메시 UV(미터) 기준.
-            foreach (var name in new[] { "HazardDisc", "HazardIris", "HazardMill" })
+            //  태풍에 휘말린 유적 조각(spec §2). 단색 큰 판은 가까워져도 거리가 안 읽힌다(사용자 10-07) — 격자는 남긴다.
+            CollectionAssert.AreEqual(new[] { "CylRuinDisc", "CylRuinIris", "CylRuinMill", "CylRuinDoor" },
+                                      SkydiveCylinderBuilder.RuinMaterials.Select(r => r.name).ToArray());
+            foreach (var (name, hex) in SkydiveCylinderBuilder.RuinMaterials)
+            {
+                ColorUtility.TryParseHtmlString(hex, out var c);
+                Color.RGBToHSV(c, out float h, out float s, out _);
+                Assert.That(h, Is.InRange(0.04f, 0.13f), $"{name}은 사암 빛(주황~노랑 사이)");
+                Assert.Less(s, 0.55f, $"{name}은 색이 빠진 돌");
+            }
+            foreach (var (name, hex) in SkydiveCylinderBuilder.RuinMaterials) { SkydiveCylinderBuilder.RuinMaterial(name, hex); }
+            foreach (var name in new[] { "CylRuinDisc", "CylRuinIris", "CylRuinMill" })
+            {
+                var m = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>($"Assets/Art/Materials/Pyramid/Pyramid{name}.mat");
+                Assert.IsNotNull(m, $"{name} — 빌더를 한 번 구워야 생긴다");
+                Assert.Greater(m.GetFloat("_TopGrid"), 0f, $"{name} 격자");
+                Assert.AreEqual(1f, m.GetFloat("_TopGridSpace"), $"{name} 격자는 메시 기준(판과 같이 돈다)");
+            }
+        }
+
+        [Test]
+        public void 다른_맵이_쓰는_위험_재질_색은_그대로다()
+        {
+            //  원통 옷을 바꾸려고 공용 재질을 고치면 피라미드 맵 색이 같이 바뀐다.
+            foreach (var (name, hex) in new[] { ("HazardDisc", "#C8553D"), ("HazardIris", "#D98A2B"), ("HazardMill", "#8A5BB0") })
             {
                 var m = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>($"Assets/Art/Materials/Pyramid/Pyramid{name}.mat");
                 Assert.IsNotNull(m, name);
-                Assert.Greater(m.GetFloat("_TopGrid"), 0f, $"{name} 격자");
-                Assert.AreEqual(1f, m.GetFloat("_TopGridSpace"), $"{name} 격자는 메시 기준");
+                ColorUtility.TryParseHtmlString(hex, out var want);
+                Assert.AreEqual(want.r, m.GetColor("_BaseColor").r, 0.01f, name);
+                Assert.AreEqual(want.g, m.GetColor("_BaseColor").g, 0.01f, name);
+                Assert.AreEqual(want.b, m.GetColor("_BaseColor").b, 0.01f, name);
             }
         }
 
@@ -152,6 +217,64 @@ namespace LOP.Tests
             var v = mesh.vertices;
             Vector3 normal = Vector3.Cross(v[tris[1]] - v[tris[0]], v[tris[2]] - v[tris[0]]);
             Assert.Greater(normal.y, 0f);
+        }
+
+        [Test]
+        public void 벽은_출발점보다_한참_높아_위로_하늘이_동그랗게_뚫린다()
+        {
+            //  spec §2 — 위를 보면 높은 구름 벽 사이로 하늘이 뚫린 경기장 모양. 지금(+60)은 벽 끝이 바로 보여 탑처럼 읽힌다.
+            Assert.GreaterOrEqual(Y.WallAboveSpawn, 300f);
+            var (top, _) = SkydiveCylinderBuilder.WallSpan();   // 굽는 쪽이 실제로 쓰는 값 — 상수만 키우고 빌더가 +60에 머물면 여기서 잡힌다
+            Assert.GreaterOrEqual(top, Y.SpawnY + 300f);
+        }
+
+        [Test]
+        public void 구름_벽_재질은_둘레를_따라_흐르고_원통_반지름을_안다()
+        {
+            var m = SkydiveCylinderBuilder.StormWallMaterial();
+            Assert.AreEqual("LOP/StormWall", m.shader.name);
+            Assert.AreEqual(Y.Radius, m.GetFloat("_Radius"), 0.001f, "둘레 칸 수를 반지름으로 정한다 — 틀리면 무늬가 늘어나거나 이음매가 생긴다");
+            Assert.AreNotEqual(0f, m.GetFloat("_FlowSpeed"), "흘러야 태풍이다");
+        }
+
+        [Test]
+        public void 먼_대지는_구름_바다_밖_발밑에_펼쳐진다()
+        {
+            //  3막 "발밑에 세상이 펼쳐졌다". 구름 바다 안쪽에 겹치면 정령 쫓는 자리를 가리고, 구름 위로 솟으면 벽처럼 막는다.
+            Assert.GreaterOrEqual(Y.Lands.Length, 4, "한쪽만 있으면 수평선이 비어 보인다");
+            var degs = Y.Lands.Select(l => l.deg).OrderBy(d => d).ToArray();
+            for (int k = 0; k < degs.Length; k++)
+            {
+                float gap = (k + 1 < degs.Length ? degs[k + 1] : degs[0] + 360f) - degs[k];
+                Assert.Less(gap, 120f, "둘레에 고루 — 크게 빈 방향이 없게");
+            }
+            foreach (var l in Y.Lands)
+            {
+                Assert.Greater(l.distance - l.width * 0.5f, Y.CloudFloorRadius + 100f, $"{l.deg}° 대지는 구름 바다 밖");
+                Assert.Less(Y.LandBaseY + l.height * 0.5f, 0f, $"{l.deg}° 대지 꼭대기는 구름 바다(y 0) 아래");
+            }
+        }
+
+        [Test]
+        public void 구름_바다는_밝고_그늘에서_번개가_번쩍인다()
+        {
+            var m = SkydiveCylinderBuilder.StormSeaMaterial();
+            Assert.AreEqual("LOP/StormSea", m.shader.name);
+            Assert.Greater(m.GetFloat("_FlashChance"), 0f, "번쩍임이 있어야 '닿으면 안 되는 곳'으로 읽힌다");
+            Assert.Less(m.GetFloat("_FlashChance"), 0.2f, "온통 번쩍이면 밝은 하늘을 덮는다");
+            Assert.Greater(m.GetColor("_LightColor").grayscale, 0.9f, "햇빛 받은 윗면은 밝다 — 3막이 어둡게 읽히지 않게");
+            Assert.Greater(m.GetColor("_DarkColor").grayscale, 0.5f, "그늘도 먹구름처럼 시커멓지 않다");
+            Assert.Less(m.GetColor("_DarkColor").grayscale, m.GetColor("_LightColor").grayscale, "무늬가 보이게");
+            var flash = m.GetColor("_FlashColor");
+            Assert.Greater(flash.b, flash.r, "밝은 구름 위에서도 보이는 푸른 번쩍");
+            Assert.Greater(flash.maxColorComponent, 2f, "밝은 구름 위에서도 보이는 푸른 번쩍");
+        }
+
+        [Test]
+        public void 구름_덩이_재질은_밝다()
+        {
+            var puff = SkydiveCylinderBuilder.StormPuffMaterial();
+            Assert.Greater(puff.GetColor("_BaseColor").grayscale, 0.8f, "구름 덩이가 어두우면 밝은 바다 위에서 얼룩진다");
         }
     }
 }

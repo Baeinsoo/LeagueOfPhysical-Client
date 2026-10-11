@@ -15,7 +15,7 @@ namespace LOP.EditorTools
         public const float Wall = 4f;
         public const int WallSegments = 48;
         public const float SpawnY = 1600f, SpawnHole = 14f, SpawnRingRadius = 35f;
-        /// <summary>원통(하늘 유적 탑)이 끝나는 높이 — 여기서 빠져나오면 금빛 하늘이 열린다(빛을 향한 낙하).</summary>
+        /// <summary>원통(하늘 유적 탑)이 끝나는 높이 — 여기서 빠져나오면 하얗게 번쩍인 뒤 밝은 하늘이 열린다(빛을 향한 낙하).</summary>
         public const float ExitY = 300f;
 
         /// <summary>벽이 출발점보다 얼마나 더 높은가 — 위를 보면 높은 구름 벽 사이로 하늘이 동그랗게 뚫린다(태풍의 눈).</summary>

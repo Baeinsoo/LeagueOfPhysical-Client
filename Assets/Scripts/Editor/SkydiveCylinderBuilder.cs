@@ -254,7 +254,7 @@ namespace LOP.EditorTools
             bmr.sharedMaterial = StarMaterial("StarBeacon", new Color(1f, 0.75f, 0.35f) * 0.5f, 2.4f);
             bmr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-            //  맵별 분위기 — 클라 SkydiveAtmosphere가 내 높이로 읽는다(위는 어둡게, 출구는 금빛).
+            //  맵별 분위기 — 클라 SkydiveAtmosphere가 내 높이로 읽는다(위는 어둡게, 출구에서 하얗게 번쩍).
             var moodGo = new GameObject("Mood");
             moodGo.transform.SetParent(root, false);
             moodGo.AddComponent<LOP.SkydiveMood>().Keys = Y.Mood;

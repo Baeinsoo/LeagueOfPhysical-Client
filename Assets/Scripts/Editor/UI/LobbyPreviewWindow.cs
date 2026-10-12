@@ -16,6 +16,7 @@ namespace LOP.EditorTools
 
         [SerializeField] private bool _ranked;
         [SerializeField] private bool _longName;
+        [SerializeField] private int _height = 1080;
 
         [MenuItem("LOP/UI/로비 미리보기 (일반)")]
         public static void OpenCasual() => Show(false, false);
@@ -30,6 +31,9 @@ namespace LOP.EditorTools
             UiSnapshot.Save(Show(false, false), "output/lobby-casual.png");
             EditorApplication.delayCall += () => Delay(1.5, () => UiSnapshot.Save(Show(true, false), "output/lobby-ranked.png"));
             EditorApplication.delayCall += () => Delay(3.0, () => UiSnapshot.Save(Show(false, true), "output/lobby-longname.png"));
+            //  20:9 폰 — 패널은 폭을 1920에 맞추므로 높이가 864가 된다.
+            EditorApplication.delayCall += () => Delay(4.5, () => UiSnapshot.Save(Show(false, false, 864), "output/lobby-short.png"));
+            EditorApplication.delayCall += () => Delay(6.0, () => UiSnapshot.Save(Show(true, false, 864), "output/lobby-short-ranked.png"));
         }
 
         private static void Delay(double seconds, System.Action action)
@@ -44,11 +48,12 @@ namespace LOP.EditorTools
             EditorApplication.update += Tick;
         }
 
-        private static LobbyPreviewWindow Show(bool ranked, bool longName)
+        private static LobbyPreviewWindow Show(bool ranked, bool longName, int height = 1080)
         {
             var w = GetWindow<LobbyPreviewWindow>("로비 미리보기");
             w._ranked = ranked;
             w._longName = longName;
+            w._height = height;
             w.rootVisualElement.Clear();
             w.CreateGUI();
             return w;
@@ -65,11 +70,14 @@ namespace LOP.EditorTools
             }
             var host = new VisualElement();
             host.style.width = 1920;
-            host.style.height = 1080;
+            host.style.height = _height;
             AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(Uxml).CloneTree(host);
             root.Add(host);
 
-            host.Q("lobbyhome-root").EnableInClassList("ranked", _ranked);
+            var lobbyRoot = host.Q("lobbyhome-root");
+            lobbyRoot.EnableInClassList("ranked", _ranked);
+            lobbyRoot.EnableInClassList("has-tier", true);
+            lobbyRoot.EnableInClassList(LobbyLayout.ShortClass, LobbyLayout.IsShort(_height));
             host.Q("queue-casual").EnableInClassList("kit-toggle__opt--on", !_ranked);
             host.Q("queue-ranked").EnableInClassList("kit-toggle__opt--on", _ranked);
             host.Q<Label>("play-label").text = _ranked ? "출전" : "PLAY";

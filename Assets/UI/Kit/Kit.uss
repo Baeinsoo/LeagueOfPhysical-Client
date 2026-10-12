@@ -108,7 +108,7 @@
 .kit-card .sticker__face { justify-content: flex-start; align-items: stretch; padding: 0; }
 .kit-card__art { height: 180px; border-top-left-radius: 10px; border-top-right-radius: 10px; justify-content: center; align-items: center; }
 .kit-card__art-text { font-size: 96px; color: #FFFFFF; }
-.kit-card__name { font-size: 30px; padding: 10px 16px; background-color: var(--lop-ink); color: var(--lop-face); -unity-text-align: middle-center; }
+.kit-card__name { font-size: 30px; padding: 10px 16px; background-color: var(--lop-ink); color: var(--lop-face); -unity-text-align: middle-center; overflow: hidden; white-space: nowrap; max-width: 300px; }
 .kit-card__desc { font-size: 26px; padding: 10px 16px; color: var(--lop-ink); -unity-text-align: middle-center; overflow: hidden; white-space: nowrap; max-width: 300px; }
 /* 고른 카드 — 바깥 노란 테두리. 앞면에 두면 Painter2D 앞면이 테두리를 덮는다. 폭·여백을 6씩 늘리고 줄여 옆 카드가 안 밀린다 */
 .kit-card--picked { width: 312px; margin: -6px 14px; border-width: 6px; border-color: var(--lop-reward); border-radius: 16px; }
@@ -145,7 +145,8 @@
 .kit-plate { min-height: 72px; max-width: 640px; }
 .kit-plate .sticker { flex-grow: 1; }
 .kit-plate .sticker__face { flex-direction: row; justify-content: flex-start; padding: 14px 36px; }
-.kit-plate__name { font-size: 30px; color: var(--lop-ink); overflow: hidden; white-space: nowrap; flex-shrink: 1; max-width: 420px; }
+/* 이름 폭 380 = 글자 영역 568 − 메타 약 130 − 도형 44 — 라벨이 줄어들면 "..."이 잘려 나가므로 처음부터 들어가게 둔다 */
+.kit-plate__name { font-size: 30px; color: var(--lop-ink); overflow: hidden; white-space: nowrap; flex-shrink: 0; max-width: 380px; }
 .kit-plate__meta { flex-shrink: 0; font-size: 30px; color: var(--lop-ink); margin-left: 10px; margin-right: 10px; white-space: nowrap; }
 
 /* 코인 — 노란 스티커 (시안 .stk.reward) */

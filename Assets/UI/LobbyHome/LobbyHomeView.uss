@@ -15,6 +15,9 @@
 
 .lobbyhome-plate { position: absolute; left: 0; top: 0; }
 .lobbyhome-plate .tier-shape { width: 44px; height: 44px; }
+/* 이름표 티어 도형은 랭크를 받아 티어를 알 때만(.has-tier). 랭크 모드에선 티어 카드가 대신한다 */
+#player-tier { display: none; }
+.has-tier #player-tier { display: flex; }
 .lobbyhome-rankcard { display: none; flex-direction: row; align-items: center; }
 .lobbyhome-plate .lobbyhome-rankcard__emblem { width: 110px; height: 110px; margin-right: 20px; }
 .lobbyhome-rankcard__head { font-size: 40px; color: var(--lop-ink); }
@@ -39,7 +42,14 @@
 .ranked .lobbyhome-stage__floor { background-color: #2D2B66; }
 .ranked .lobbyhome-col--left { top: 168px; }
 .ranked .lobbyhome-rankcard { display: flex; }
-.ranked .lobbyhome-plate .kit-plate__name, .ranked .lobbyhome-plate .kit-plate__meta, .ranked #player-tier { display: none; }
+.ranked .lobbyhome-plate .kit-plate__name, .ranked .lobbyhome-plate .kit-plate__meta, .ranked.has-tier #player-tier, .ranked #player-tier { display: none; }
 .ranked .lobbyhome-gamechip { display: none; }
 .ranked .lobbyhome-ranked-note { display: flex; }
 .ranked .kit-ticker__tag-text { letter-spacing: 3px; }
+
+/* 낮은 화면(20:9 등, 패널 높이 < 1070) — 버튼을 줄이고 전환 칩·종목 칩을 PLAY 왼쪽으로. LobbyLayout이 .short를 붙인다
+ * 오른쪽 줄 아래 = 150 + 3×120 + 2×12 = 534, PLAY 위 = 높이 − 92 − 192 (21:9 높이 823에서도 539) */
+.short .kit-nav { height: 120px; margin-bottom: 12px; }
+.short .lobbyhome-play-group > * { margin-top: 0; }
+.short .lobbyhome-play-group .kit-toggle { position: absolute; right: 476px; bottom: 88px; }
+.short .lobbyhome-play-group .lobbyhome-gamechip { position: absolute; right: 476px; bottom: 0; }

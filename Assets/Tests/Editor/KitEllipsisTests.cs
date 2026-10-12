@@ -45,5 +45,28 @@ namespace LOP.Tests
                 .ToArray();
             CollectionAssert.IsEmpty(offenders, "말줄임은 KitEllipsis로 — USS ellipsis는 '…' 없는 글꼴에서 에디터를 멈춘다");
         }
+
+        [Test]
+        public void 한_줄로_자르는_규칙에는_max_width가_있다()
+        {
+            //  KitEllipsis는 USS max-width를 자를 폭으로 쓴다. 없으면 자르지 않아 긴 글자가 그냥 넘치거나 감긴다.
+            var offenders = Directory.GetFiles("Assets/UI", "*.uss", SearchOption.AllDirectories)
+                .SelectMany(p => System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(p), @"([^{}]+)\{([^}]*)\}")
+                    .Cast<System.Text.RegularExpressions.Match>()
+                    .Where(m => m.Groups[2].Value.Contains("white-space: nowrap") && m.Groups[2].Value.Contains("overflow: hidden")
+                        && !m.Groups[2].Value.Contains("max-width"))
+                    .Select(m => $"{Path.GetFileName(p)}: {m.Groups[1].Value.Trim()}"))
+                .ToArray();
+            CollectionAssert.IsEmpty(offenders);
+        }
+
+        [Test]
+        public void 카드_이름도_한_줄로_자른다()
+        {
+            var uss = File.ReadAllText("Assets/UI/Kit/Kit.uss");
+            var rule = System.Text.RegularExpressions.Regex.Match(uss, @"\.kit-card__name \{([^}]*)\}").Groups[1].Value;
+            StringAssert.Contains("white-space: nowrap", rule);
+            StringAssert.Contains("max-width", rule);
+        }
     }
 }

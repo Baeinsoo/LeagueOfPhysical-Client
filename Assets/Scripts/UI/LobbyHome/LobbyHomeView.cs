@@ -12,6 +12,7 @@ namespace LOP.UI
         private const long CasualHalfBreathMs = 900;
         private const long RankedHalfBreathMs = 1300;
         private const long TickerIntervalMs = 4000;
+        private const long NameRefreshMs = 500;
 
         private static readonly string[] CasualTicker = { "오늘의 경기 · 피지컬 리그", "새 시즌 진행 중" };
         private const string RankedTicker = "리그 경기 · 승점이 걸려 있습니다 · 나가면 꼴찌로 기록";
@@ -24,6 +25,8 @@ namespace LOP.UI
 
         private Breather _breather;
         private IVisualElementScheduledItem _tickerItem;
+        private IVisualElementScheduledItem _nameItem;
+        private string _shownName;
         private int _tickerIndex;
 
         public LobbyHomeView(MatchmakingViewModel matchmaking, LobbyHomeViewModel viewModel, EconomyStore economy, IUserDataStore userData)
@@ -49,9 +52,12 @@ namespace LOP.UI
             Root.Q<Button>("queue-casual").clicked += () => _matchmaking.SelectQueue(QueueKind.Casual);
             Root.Q<Button>("queue-ranked").clicked += () => _matchmaking.SelectQueue(QueueKind.Ranked);
 
-            KitEllipsis.SetText(Root.Q<Label>("player-name"), _userData.user?.displayName ?? string.Empty);
-            //  일반 모드 이름표의 티어 도형은 랭크를 한 번 받아 티어를 알 때만 보인다.
-            Root.Q("player-tier").style.display = DisplayStyle.None;
+            RefreshName();
+            //  이름 바꾸기는 로비 위 창에서 일어나고 스토어는 알림을 내지 않는다 — 가볍게 자주 다시 읽는다.
+            _nameItem = Root.schedule.Execute(RefreshName).Every(NameRefreshMs);
+
+            var root = Root.Q("lobbyhome-root");
+            root.RegisterCallback<GeometryChangedEvent>(_ => root.EnableInClassList(LobbyLayout.ShortClass, LobbyLayout.IsShort(root.layout.height)));
 
             _breather = new Breather(Root.Q("play-button"), CasualHalfBreathMs);
             _tickerItem = Root.schedule.Execute(AdvanceTicker).Every(TickerIntervalMs);
@@ -90,9 +96,17 @@ namespace LOP.UI
             Root.Q<Label>("rank-head").text = card.Headline ?? string.Empty;
             Root.Q<Label>("rank-sub").text = card.Subline ?? string.Empty;
             Root.Q<TierShapeElement>("rank-tier").SetTier(card.TierCode);
-            var plateTier = Root.Q<TierShapeElement>("player-tier");
-            plateTier.SetTier(card.TierCode);
-            plateTier.style.display = card.TierCode == null ? DisplayStyle.None : DisplayStyle.Flex;
+            Root.Q<TierShapeElement>("player-tier").SetTier(card.TierCode);
+            //  표시 여부는 USS가 정한다(.has-tier, 랭크면 숨김) — 인라인 display는 USS를 이겨서 쓰지 않는다.
+            Root.Q("lobbyhome-root").EnableInClassList("has-tier", card.TierCode != null);
+        }
+
+        private void RefreshName()
+        {
+            string name = _userData.user?.displayName ?? string.Empty;
+            if (name == _shownName) return;
+            _shownName = name;
+            KitEllipsis.SetText(Root.Q<Label>("player-name"), name);
         }
 
         private void RefreshGameChip()
@@ -133,6 +147,8 @@ namespace LOP.UI
             _breather = null;
             _tickerItem?.Pause();
             _tickerItem = null;
+            _nameItem?.Pause();
+            _nameItem = null;
             base.OnClose();
         }
 

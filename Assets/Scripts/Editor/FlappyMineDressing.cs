@@ -110,7 +110,7 @@ namespace LOP.EditorTools
 
             //  구역은 코스에서 찾는다(3막 19.8 · 24.8 · 151.25). 옷 끝은 부르는 쪽 범위를 따른다.
             MineZones found = MineDressingLayout.Zones(course);
-            var zones = new MineZones(found.OutsideEnd, found.EntranceEnd, dressTo);
+            var zones = new MineZones(found.OutsideEnd, found.EntranceEnd, found.ExitStart, found.ExitEnd, dressTo);
 
             //  1. 회색 박스: 관문은 입히고 끄고, 바닥·천장·굴 조각·칸막이는 범위 안에 완전히 든 것만 끈다(콜라이더는 그대로).
             //     굴 조각(TubeRoof·TubeFloor)과 칸막이(ForkWall)는 갈림길 바위·칸막이 그림이 덮는다. 패드(BoostPad)는 청록 발광 상자라

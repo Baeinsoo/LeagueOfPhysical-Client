@@ -56,7 +56,8 @@
     translate: 4px 7px;
 }
 
-.tier-shape { width: 40px; height: 40px; }
+/* 도형은 줄어들지 않는다 — 좁으면 옆의 이름이 잘린다 */
+.tier-shape { width: 40px; height: 40px; flex-shrink: 0; }
 .tier-shape--iron { --tier-color: #7a6a62; }
 .tier-shape--bronze { --tier-color: #b0703a; }
 .tier-shape--silver { --tier-color: #8a949e; }
@@ -65,3 +66,84 @@
 .tier-shape--emerald { --tier-color: #2fae5f; }
 .tier-shape--diamond { --tier-color: #5b8dee; }
 .tier-shape--master { --tier-color: #b25ad6; }
+
+/* 주·보조 버튼 — 앞면 색만 바꾼다. 색면 위 글자는 흰색 + 그 색의 진한 외곽선 */
+.kit-btn { height: 96px; min-width: 240px; }
+.kit-btn .sticker { flex-grow: 1; }
+.kit-btn .sticker__face { padding: 0 36px; }
+.kit-btn--primary .sticker { --sticker-face: var(--lop-primary); }
+.kit-btn--info .sticker { --sticker-face: var(--lop-info); }
+.kit-btn__label { font-size: 36px; color: #FFFFFF; -unity-text-outline-width: 2px; }
+.kit-btn--primary .kit-btn__label { -unity-text-outline-color: var(--lop-primary-shade); }
+.kit-btn--info .kit-btn__label { -unity-text-outline-color: var(--lop-info-shade); }
+
+/* 세로 네비 버튼 156×132 — 크림 면, 인디고 글자 */
+.kit-nav { width: 156px; height: 132px; margin-bottom: 16px; }
+.kit-nav .sticker { flex-grow: 1; }
+.kit-nav__icon { width: 48px; height: 48px; font-size: 40px; -unity-text-align: middle-center; }
+.kit-nav__label { font-size: 26px; color: var(--lop-ink); -unity-text-outline-width: 0; }
+
+/* PLAY 460×192 — 주황 면, 숨쉬기는 Breather가 클래스를 토글 */
+.kit-play { width: 460px; height: 192px; transition-property: scale; transition-duration: 900ms; transition-timing-function: ease-in-out; }
+.kit-play .sticker { flex-grow: 1; --sticker-face: var(--lop-primary); }
+.kit-play--breath { scale: 1.03 1.03; }
+.kit-play__label { font-size: 64px; color: #FFFFFF; -unity-text-outline-width: 2px; -unity-text-outline-color: var(--lop-primary-shade); }
+.ranked .kit-play { transition-duration: 1300ms; }
+.ranked .kit-play .sticker { --sticker-face: var(--lop-live); }
+.ranked .kit-play__label { -unity-text-outline-color: var(--lop-live-shade); }
+
+/* 일반/랭크 전환 칩 — 알약, 고른 쪽 크림(랭크면 빨강) */
+.kit-toggle { flex-direction: row; height: 64px; padding: 6px; border-radius: 32px; background-color: var(--lop-ink); }
+.kit-toggle__opt { height: 52px; min-width: 120px; border-radius: 26px; border-width: 0; margin: 0; background-color: rgba(255, 255, 255, 0); font-size: 26px; color: var(--lop-face); -unity-text-align: middle-center; }
+.kit-toggle__opt:hover { background-color: rgba(255, 255, 255, 0); }
+.kit-toggle__opt--on, .kit-toggle__opt--on:hover, .kit-toggle__opt--on:active { background-color: var(--lop-face); color: var(--lop-ink); }
+.ranked .kit-toggle__opt--on, .ranked .kit-toggle__opt--on:hover, .ranked .kit-toggle__opt--on:active { background-color: var(--lop-live); color: #FFFFFF; }
+
+/* 알약 칩 — 종목 칩·경기장 칩·코인. 넘치면 말줄임(KitEllipsis가 max-width로 자름) */
+.kit-chip { flex-direction: row; align-items: center; height: 64px; padding: 0 28px; border-radius: 32px; border-width: 0; background-color: var(--lop-face); }
+.kit-chip__text { font-size: 26px; color: var(--lop-ink); -unity-text-outline-width: 0; overflow: hidden; white-space: nowrap; max-width: 520px; }
+.kit-chip--picked { border-width: 4px; border-color: var(--lop-reward); }
+
+/* 종목 카드 — 곧은 판, 모서리 10, 뒷면 4·7 */
+.sticker--card { --sticker-radius: 10; --sticker-back-x: 4; --sticker-back-y: 7; }
+.kit-card { width: 300px; height: 380px; margin: 0 14px; transition-property: translate; transition-duration: 120ms; }
+.kit-card .sticker { flex-grow: 1; }
+.kit-card .sticker__face { justify-content: flex-start; padding: 16px; }
+.kit-card__art { width: 268px; height: 200px; border-radius: 8px; justify-content: center; align-items: center; }
+.kit-card__art-text { font-size: 96px; color: #FFFFFF; }
+.kit-card__name { font-size: 36px; margin-top: 14px; color: var(--lop-ink); }
+.kit-card__desc { font-size: 22px; color: var(--lop-ink); overflow: hidden; white-space: nowrap; max-width: 268px; }
+.kit-card--picked { translate: 0 -12px; }
+.kit-card--picked .sticker { --sticker-back: var(--lop-reward); }
+.kit-card__art--0 { background-color: #FF4F5E; }
+.kit-card__art--1 { background-color: #2EC4A6; }
+.kit-card__art--2 { background-color: #6C63FF; }
+.kit-card__art--3 { background-color: #F59E0B; }
+.kit-card__art--4 { background-color: #4A9FE0; }
+
+/* LIVE 띠 — 꼬리 16px 고정, 인디고 면 */
+.kit-ticker { height: 60px; }
+.kit-ticker .sticker { flex-grow: 1; --sticker-tail: 16; --sticker-face: var(--lop-ink); --sticker-back: var(--lop-ink-deep); }
+.kit-ticker .sticker__face { flex-direction: row; justify-content: flex-start; padding-left: 80px; padding-right: 80px; }
+.kit-ticker__tag { height: 40px; padding: 0 14px; margin-right: 18px; border-radius: 6px; background-color: var(--lop-live); color: #FFFFFF; font-size: 22px; -unity-text-align: middle-center; }
+.kit-ticker__text { font-size: 26px; color: var(--lop-face); overflow: hidden; white-space: nowrap; flex-shrink: 1; max-width: 1100px; }
+
+/* 알림 배지 — 빨간 원(데이터가 생기기 전까지 숨김) */
+.kit-badge { position: absolute; top: -10px; right: -10px; min-width: 36px; height: 36px; border-radius: 18px; background-color: var(--lop-live); color: #FFFFFF; font-size: 22px; -unity-text-align: middle-center; display: none; }
+.kit-badge--on { display: flex; }
+
+/* 이름표 — 곧은 크림 판 */
+.kit-plate { height: 96px; max-width: 560px; }
+.kit-plate .sticker { flex-grow: 1; --sticker-radius: 8; }
+.kit-plate .sticker__face { flex-direction: row; justify-content: flex-start; padding: 0 22px; }
+.kit-plate__name { font-size: 30px; color: var(--lop-ink); overflow: hidden; white-space: nowrap; flex-shrink: 1; max-width: 360px; }
+.kit-plate__meta { flex-shrink: 0; font-size: 26px; color: var(--lop-ink); margin-left: 10px; margin-right: 10px; white-space: nowrap; }
+
+/* 코인 칩 — 노랑 동전 자리 */
+.kit-coin__dot { width: 36px; height: 36px; border-radius: 18px; background-color: var(--lop-reward); margin-right: 12px; }
+
+/* 토스트 */
+.kit-toast-root { position: absolute; left: 0; right: 0; top: 140px; align-items: center; }
+.kit-toast { height: 88px; min-width: 360px; }
+.kit-toast .sticker__face { padding: 0 40px; }
+.kit-toast__text { font-size: 30px; }

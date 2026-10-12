@@ -13,15 +13,16 @@
 
 .lobbyhome-safe { position: absolute; left: 80px; right: 80px; top: 32px; bottom: 0; }
 
-.lobbyhome-plate { position: absolute; left: 0; top: 0; }
+/* 일반 이름표와 랭크 티어 카드는 같은 크기 — 모드를 바꿔도 아래 버튼 줄이 움직이지 않는다 */
+.lobbyhome-plate { position: absolute; left: 0; top: 0; height: 96px; min-width: 560px; }
 .lobbyhome-plate .tier-shape { width: 44px; height: 44px; }
 /* 이름표 티어 도형은 랭크를 받아 티어를 알 때만(.has-tier). 랭크 모드에선 티어 카드가 대신한다 */
 #player-tier { display: none; }
 .has-tier #player-tier { display: flex; }
 .lobbyhome-rankcard { display: none; flex-direction: row; align-items: center; }
-.lobbyhome-plate .lobbyhome-rankcard__emblem { width: 110px; height: 110px; margin-right: 20px; }
-.lobbyhome-rankcard__head { font-size: 40px; color: var(--lop-ink); }
-.lobbyhome-rankcard__sub { font-size: 22px; color: var(--lop-ink); opacity: 0.8; margin-top: 4px; }
+.lobbyhome-plate .lobbyhome-rankcard__emblem { width: 60px; height: 60px; margin-right: 16px; }
+.lobbyhome-rankcard__head { font-size: 32px; color: var(--lop-ink); }
+.lobbyhome-rankcard__sub { font-size: 22px; color: var(--lop-ink); opacity: 0.8; }
 .lobbyhome-coin { position: absolute; right: 0; top: 0; }
 
 .lobbyhome-col { position: absolute; top: 118px; }
@@ -30,7 +31,7 @@
 
 .lobbyhome-play-group { position: absolute; right: 0; bottom: 92px; align-items: flex-end; }
 .lobbyhome-play-group > * { margin-top: 16px; }
-.lobbyhome-ranked-note { display: none; position: absolute; left: 0; bottom: 100px; font-size: 30px; color: var(--lop-face); opacity: 0.8; }
+.lobbyhome-rankedchip { display: none; }
 
 .lobbyhome-ticker { position: absolute; left: 0; right: 0; bottom: 0; }
 
@@ -40,11 +41,10 @@
 .ranked .lobbyhome-stage__light { background-color: rgba(31, 29, 74, 0.6); }
 .ranked .lobbyhome-stage__glow { background-color: rgba(232, 50, 47, 0.7); }
 .ranked .lobbyhome-stage__floor { background-color: #2D2B66; }
-.ranked .lobbyhome-col--left { top: 168px; }
 .ranked .lobbyhome-rankcard { display: flex; }
 .ranked .lobbyhome-plate .kit-plate__name, .ranked .lobbyhome-plate .kit-plate__meta, .ranked.has-tier #player-tier, .ranked #player-tier { display: none; }
 .ranked .lobbyhome-gamechip { display: none; }
-.ranked .lobbyhome-ranked-note { display: flex; }
+.ranked .lobbyhome-rankedchip { display: flex; }
 .ranked .kit-ticker__tag-text { letter-spacing: 3px; }
 
 /* 낮은 화면(20:9 등, 패널 높이 < 1070) — 버튼을 줄이고 전환 칩·종목 칩을 PLAY 왼쪽으로. LobbyLayout이 .short를 붙인다
@@ -52,4 +52,4 @@
 .short .kit-nav { height: 120px; margin-bottom: 12px; }
 .short .lobbyhome-play-group > * { margin-top: 0; }
 .short .lobbyhome-play-group .kit-toggle { position: absolute; right: 476px; bottom: 88px; }
-.short .lobbyhome-play-group .lobbyhome-gamechip { position: absolute; right: 476px; bottom: 0; }
+.short .lobbyhome-play-group .lobbyhome-gamechip, .short .lobbyhome-play-group .lobbyhome-rankedchip { position: absolute; right: 476px; bottom: 0; }

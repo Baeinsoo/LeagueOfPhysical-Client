@@ -7,7 +7,8 @@
             </ui:Button>
             <ui:Label text="종목" class="kit-title gameselect-title" />
         </ui:VisualElement>
-        <ui:VisualElement name="card-row" class="gameselect-cards" />
+        <!-- 종목이 늘면 좌우로 밀어 넘긴다 — 다 들어가면 가운데 -->
+        <ui:ScrollView name="card-row" mode="Horizontal" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Hidden" class="gameselect-cards" />
         <ui:VisualElement class="gameselect-maps">
             <ui:Label text="경기장" class="kit-text gameselect-map-label" />
             <ui:VisualElement name="map-row" class="gameselect-map-row" />

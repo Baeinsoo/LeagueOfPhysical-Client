@@ -638,6 +638,78 @@ NEW_PARTS = [entrance_frame, entrance_sign, lantern_string, shaft_timber, cage_r
              rock_mass, bore_frame, bolt_sign, pad_glow, divider_wall, merge_slope]
 
 
+# ──────────── 펼치기 2차(10-12) — 출구·결승선 ────────────
+# 크기·깊이는 MineDressingLayout 상수(CliffEdgeZ/CliffEdgeHalfDepth, FinishFlagZ)와 레이아웃 테스트 PartDepth 표가 가정한 값 그대로.
+
+def exit_sign():
+    """ExitSign — 갱 출구 간판(글자 없음, EntranceSign과 짝). 가운데가 원점: x ∈ [−1.5, 1.5], y ∈ [−0.5, 0.5], 판 z ∈ [−0.06, 0.06],
+    쇠띠 z ±0.07. 앞(−z)에 그림 홈(SignInlay, z −0.085~−0.06): 왼쪽 지평선 위 해(반원 + 빛살), 오른쪽 → 화살표. 슬롯은 EntranceSign과 같다."""
+    p = Part('ExitSign')
+    for i, yc in enumerate((-1 / 3, 0.0, 1 / 3)):
+        p.prism_x(chamfer_rect(yc, 0.0, 1 / 3 - 0.012, 0.12, 0.025), -1.5, 1.5, 'SignWood', uvo=0.37 * i + 0.11)
+    for sx in (-1, 1):
+        p.box((sx * 1.28, 0.0, 0.0), (0.12, 1.0, 0.14), 'Iron')
+    z0, z1 = -0.085, -0.06
+    zc, d = (z0 + z1) / 2, z1 - z0
+    # 해: 지평선(가로 줄) 위 반원 + 빛살 다섯
+    cx, cy, r = -0.68, -0.16, 0.24
+    p.strut((-1.1, cy), (-0.26, cy), 0.045, d, zc, 'SignInlay')
+    p.slab([(cx + r * math.cos(math.pi * k / 12), cy + r * math.sin(math.pi * k / 12)) for k in range(13)], z0, z1, 'SignInlay')
+    for k in range(5):
+        a = math.pi * (k + 1) / 6
+        p.strut((cx + 0.31 * math.cos(a), cy + 0.31 * math.sin(a)), (cx + 0.43 * math.cos(a), cy + 0.43 * math.sin(a)), 0.05, d, zc, 'SignInlay')
+    # 화살표(→ 출구 밖): 몸통 + 머리
+    p.strut((0.22, 0.0), (0.84, 0.0), 0.13, d, zc, 'SignInlay')
+    p.slab([(0.78, 0.27), (1.12, 0.0), (0.78, -0.27)], z0, z1, 'SignInlay')
+    return p
+
+
+CLIFF_HALF = 1.0   # 절벽 몸통 반 깊이 = MineDressingLayout.CliffEdgeHalfDepth
+# 오른끝(절벽 가장자리) 단면 — 위 끝 (1, 0)에서 아래로 갈수록 조금씩 안으로 들어가는 울퉁불퉁한 바위 면(단위 좌표, x·y 축척).
+CLIFF_FACE = [(1.0, 0.0), (0.986, -0.025), (0.962, -0.06), (0.97, -0.11), (0.945, -0.18), (0.952, -0.26),
+              (0.92, -0.36), (0.9, -0.5), (0.91, -0.62), (0.87, -0.78), (0.84, -1.0)]
+
+
+def cliff_edge():
+    """CliffEdge — 출구 밖 산이 끝나는 절벽 끝 바위. 원점 = 위 끝 왼쪽: x ∈ [0, 1], y ∈ [−1, 0](x·y 축척), z ∈ [−1.0, 1.0].
+    몸통은 바위 덩어리(Strata — 굽기가 월드 UV로 rock_paint를 깐다, RockMass와 같다). 오른끝은 아래로 갈수록 안으로 들어가는 울퉁불퉁한 절벽 면.
+    윗면(y 0, 위를 보는 면 하나)만 CliffSun — 노을 빛을 받은 따뜻한 바위 색(밝은 테 아님: 앞을 보는 두께가 없어 선으로 안 보인다)."""
+    p = Part('CliffEdge')
+    outline = [(0.0, 0.0)] + CLIFF_FACE + [(0.0, -1.0)]
+    faces = p.slab(outline, -CLIFF_HALF, CLIFF_HALF, 'Strata')
+    sun = p._slot('CliffSun')
+    p.bm.normal_update()
+    for f in faces:
+        if f.normal.z > 0.99:          # 블렌더 +Z = 게임 +y(위)
+            f.material_index = sun
+    return p
+
+
+FLAG_COLS, FLAG_ROWS = 6, 4
+FLAG_X, FLAG_Y0, FLAG_Y1 = 0.45, 1.86, 2.72   # 체크 깃발 x ±0.45, 아래 1.86 ~ 가로대 2.72
+FLAG_Z0, FLAG_Z1 = -0.1, -0.075               # 깃발 천은 기둥 앞(카메라 쪽)
+
+
+def finish_flag():
+    """FinishFlag — 결승선 깃발대. 원점 = 아래 가운데(기둥 밑): x ∈ [−0.5, 0.5], y ∈ [0, 3.0], z ∈ [−0.1, 0.1].
+    나무 기둥(Timber, r 0.06, 결승선 x = 원점) + 꼭대기 가로대에 매단 체크 깃발 6 × 4(FlagBrown·FlagCream — 따뜻한 갈색·크림, 형광 없음)
+    + 밑받침(Iron, z ±0.1). 깃발 천은 기둥 앞 z −0.1~−0.075."""
+    p = Part('FinishFlag')
+    p.box((0.0, 0.06, 0.0), (0.36, 0.12, 0.2), 'Iron')
+    p.cyl((0.0, 1.47, 0.0), 0.06, 2.82, 'y', 10, 'Timber')
+    p.cyl((0.0, 2.94, 0.0), 0.085, 0.12, 'y', 10, 'Timber')
+    p.box((0.0, 2.76, 0.0), (0.98, 0.08, 0.1), 'Timber')
+    cw, ch = 2 * FLAG_X / FLAG_COLS, (FLAG_Y1 - FLAG_Y0) / FLAG_ROWS
+    for i in range(FLAG_COLS):
+        for j in range(FLAG_ROWS):
+            slot = 'FlagCream' if (i + j) % 2 == 0 else 'FlagBrown'
+            p.box((-FLAG_X + (i + 0.5) * cw, FLAG_Y0 + (j + 0.5) * ch, (FLAG_Z0 + FLAG_Z1) / 2), (cw, ch, FLAG_Z1 - FLAG_Z0), slot)
+    return p
+
+
+SPREAD2_PARTS = [exit_sign, cliff_edge, finish_flag]
+
+
 # ════════════════════════ 바위 면 장식(10-10 Task 7 Fix 1b) ════════════════════════
 #  사용자 10-10 "차분해지긴 했는데 너무 휑하다": 판정 고체 바위 면 위에 붙이는 납작한 장식. 전부 뒷면 z = 0, 앞면 −두께(얇다 —
 #  원근으로 옆·윗면이 밝은 띠로 드러나지 않게). 밝은 테두리·볼트·점 무늬는 없다(밝은 것 = 닿는 것, 판정선 위 얇은 테만).
@@ -739,7 +811,7 @@ DECOR_PARTS = [strata_lens, rock_seam, timber_set, cribbing, ore_vein, rail_scra
 
 
 PARTS = [gate_plank, gate_strap, gate_cap, trestle_bay, rail_span, ceiling_rock, cave_mouth, beam,
-         bg_frame, ladder, walkway, bg_trestle_bay, mine_cart, lantern, silhouette_strip] + NEW_PARTS + DECOR_PARTS
+         bg_frame, ladder, walkway, bg_trestle_bay, mine_cart, lantern, silhouette_strip] + NEW_PARTS + DECOR_PARTS + SPREAD2_PARTS
 
 
 def export(part):

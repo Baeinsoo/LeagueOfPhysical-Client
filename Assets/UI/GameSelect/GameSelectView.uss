@@ -1,0 +1,11 @@
+/* 종목 선택 — 시안 modes.html 배치(1920×1080 기준) */
+.gameselect-root { flex-grow: 1; padding: 32px 80px; background-color: #262458; }
+.gameselect-header { flex-direction: row; align-items: center; height: 110px; }
+.gameselect-root .gameselect-back__label { font-size: 30px; }
+.gameselect-title { font-size: 72px; color: var(--lop-face); margin-left: 32px; text-shadow: 3px 4px 0 var(--lop-ink-deep); }
+.gameselect-cards { flex-direction: row; justify-content: center; align-items: flex-start; margin-top: 58px; }
+.gameselect-maps { flex-direction: row; justify-content: center; align-items: center; margin-top: 60px; }
+.gameselect-map-label { font-size: 22px; color: var(--lop-face); margin-right: 12px; }
+.gameselect-map-row { flex-direction: row; }
+.gameselect-root .gameselect-confirm { position: absolute; right: 80px; bottom: 120px; width: 360px; height: 140px; }
+.gameselect-root .gameselect-confirm__label { font-size: 56px; }

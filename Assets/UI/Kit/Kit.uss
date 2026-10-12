@@ -101,17 +101,25 @@
 .kit-chip__text { font-size: 26px; color: var(--lop-ink); -unity-text-outline-width: 0; overflow: hidden; white-space: nowrap; max-width: 520px; }
 .kit-chip--picked { border-width: 4px; border-color: var(--lop-reward); }
 
-/* 종목 카드 — 곧은 판, 모서리 10, 뒷면 4·7 */
+/* 종목 카드 — 곧은 판, 모서리 10, 뒷면 4·7. 그림이 위를 채우고 이름은 남색 띠 (시안 kit.css .card) */
 .sticker--card { --sticker-radius: 10; --sticker-back-x: 4; --sticker-back-y: 7; }
-.kit-card { width: 300px; height: 380px; margin: 0 14px; transition-property: translate; transition-duration: 120ms; }
+.kit-card { width: 300px; margin: 0 20px; }
 .kit-card .sticker { flex-grow: 1; }
-.kit-card .sticker__face { justify-content: flex-start; padding: 16px; }
-.kit-card__art { width: 268px; height: 200px; border-radius: 8px; justify-content: center; align-items: center; }
+.kit-card .sticker__face { justify-content: flex-start; align-items: stretch; padding: 0; }
+.kit-card__art { height: 180px; border-top-left-radius: 10px; border-top-right-radius: 10px; justify-content: center; align-items: center; }
 .kit-card__art-text { font-size: 96px; color: #FFFFFF; }
-.kit-card__name { font-size: 36px; margin-top: 14px; color: var(--lop-ink); }
-.kit-card__desc { font-size: 22px; color: var(--lop-ink); overflow: hidden; white-space: nowrap; max-width: 268px; }
-.kit-card--picked { translate: 0 -12px; }
-.kit-card--picked .sticker { --sticker-back: var(--lop-reward); }
+.kit-card__name { font-size: 30px; padding: 10px 16px; background-color: var(--lop-ink); color: var(--lop-face); -unity-text-align: middle-center; }
+.kit-card__desc { font-size: 26px; padding: 10px 16px; color: var(--lop-ink); -unity-text-align: middle-center; overflow: hidden; white-space: nowrap; max-width: 300px; }
+/* 고른 카드 — 바깥 노란 테두리. 앞면에 두면 Painter2D 앞면이 테두리를 덮는다. 폭·여백을 6씩 늘리고 줄여 옆 카드가 안 밀린다 */
+.kit-card--picked { width: 312px; margin: -6px 14px; border-width: 6px; border-color: var(--lop-reward); border-radius: 16px; }
+
+/* 경기장 칩 — 기울인 스티커, 고른 것은 노란 면 (시안 modes.html .maps) */
+.kit-mapchip { height: 72px; margin: 0 12px; }
+.kit-mapchip .sticker { flex-grow: 1; }
+.kit-mapchip .sticker__face { padding: 0 36px; }
+.kit-mapchip__text { font-size: 30px; color: var(--lop-ink); overflow: hidden; white-space: nowrap; max-width: 420px; }
+.kit-mapchip--picked .sticker { --sticker-face: var(--lop-reward); }
+.kit-mapchip--picked .kit-mapchip__text { color: var(--lop-reward-ink); }
 .kit-card__art--0 { background-color: #FF4F5E; }
 .kit-card__art--1 { background-color: #2EC4A6; }
 .kit-card__art--2 { background-color: #6C63FF; }

@@ -141,7 +141,7 @@ namespace LOP.EditorTools
                     //  전통 코스 바탕(구름·코인·덤불·도시 실루엣)은 끈다 — 지우지 않는다(전통 굽기가 다시 켠다).
                     List<string> hiddenBackdrop = FlappyClassicCourseBuilder.SetClassicBackdropActive(false, "Build mine course");
                     Debug.Log("[광산 코스] 끈 전통 바탕: " + (hiddenBackdrop.Count > 0 ? string.Join(", ", hiddenBackdrop) : "없음(이미 꺼져 있음)"));
-                    //  결승선 마커 기둥(노랑·초록)은 렌더러만 끈다 — 마커·판정은 그대로, 결승선 그림은 옷의 깃발·체크무늬 띠가 맡는다(10-12 fix1).
+                    //  결승선 마커 기둥(노랑·초록)은 그림만 숨긴다(렌더러는 켠 채 재질 목록만 비운다) — 마커·형상(bounds)·판정은 그대로, 결승선 그림은 옷의 깃발·체크무늬 띠가 맡는다(10-12 fix1).
                     FlappyClassicCourseBuilder.SetFinishMarkerVisible(false, "Build mine course");
                 }
                 else

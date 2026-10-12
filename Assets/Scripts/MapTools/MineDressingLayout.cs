@@ -272,7 +272,7 @@ namespace LOP.MapTools
         /// </summary>
         public const float FinishFlagZ = 2.8f, FinishFlagWidth = 1f;
         /// <summary>
-        /// 결승선 체크무늬 띠(fix1 — 게임 FinishLine 마커의 노랑·초록 기둥은 광산 굽기가 렌더러만 끈다): 결승선 x ± <see cref="FinishBannerHalfWidth"/>
+        /// 결승선 체크무늬 띠(fix1 — 게임 FinishLine 마커의 노랑·초록 기둥은 광산 굽기가 그림만 숨긴다 — 렌더러는 켠 채 재질 목록만 비운다): 결승선 x ± <see cref="FinishBannerHalfWidth"/>
         /// (마커 폭 1.2와 같다), 천장선 위·바닥선 아래로 <see cref="FinishBannerHeight"/>(화면 위·아래 끝 1.09까지 찬다) — 판정 고체 위라 판정면 앞에 또렷하게.
         /// z는 들보(앞면 −1.6)·데크(−1.3)·레일보다 앞이고, 통로 쪽 변에서 판정면(z 0)까지 누운 면도 체크무늬다(원근으로 보이는 들보·데크 밑·윗면을 덮는다).
         /// 칸은 <see cref="FinishCheckerCell"/> 정사각에 가깝게.
@@ -1049,7 +1049,7 @@ namespace LOP.MapTools
         /// 판정면 뒤 안개 막 뒤(<see cref="FinishFlagZ"/>).</item>
         /// <item><see cref="MinePartKind.FinishBanner"/> 둘(fix1): 결승선 x ± <see cref="FinishBannerHalfWidth"/>의 체크무늬 띠 — 천장선 위로, 바닥선 아래로
         /// <see cref="FinishBannerHeight"/>. 판정 고체 위라 판정면 앞(<see cref="FinishBannerZ"/>)에 또렷하게. 게임 FinishLine 마커(노랑·초록 기둥)는 광산 굽기가
-        /// 렌더러만 끄므로 이 띠와 깃발이 결승선 그림이다. 띠 x 폭에서 판정선이 기울면 띠 끝을 그 x 폭 판정선 꼭짓점 너머로 물린다.
+        /// 그림만 숨기므로 이 띠와 깃발이 결승선 그림이다. 띠 x 폭에서 판정선이 기울면 띠 끝을 그 x 폭 판정선 꼭짓점 너머로 물린다.
         /// 그리고 같은 폭 체크무늬 막(Layer 2) 하나가 깃발 위부터 천장선까지 깃발 뒤 안개 막 뒤(<see cref="FinishCurtainZ"/>)에 걸린다.</item>
         /// <item><see cref="MinePartKind.CliffEdge"/>: 출구 밖 산 바닥이 끝나는 곳 — 출구 문틀 시작부터 문틀 끝 + <see cref="CliffReach"/>(오른끝 = 절벽 가장자리),
         /// 윗면은 그 x 폭 바닥선 중 가장 낮은 곳보다 <see cref="CliffTopDrop"/> 아래(레일 다리 아래, 판정선 밖), 판정면 뒤라 비계 다리가 그 앞을 지난다.

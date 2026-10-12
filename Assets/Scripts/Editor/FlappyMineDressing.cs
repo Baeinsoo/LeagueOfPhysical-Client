@@ -195,7 +195,7 @@ namespace LOP.EditorTools
                     exit++;
                 }
             }
-            //  결승선 깃발·체크무늬 띠·절벽 끝 — 결승선이 범위 안일 때만. 게임 FinishLine 마커 기둥은 부르는 쪽(광산 굽기)이 렌더러만 끈다.
+            //  결승선 깃발·체크무늬 띠·절벽 끝 — 결승선이 범위 안일 때만. 게임 FinishLine 마커 기둥은 부르는 쪽(광산 굽기)이 그림만 숨긴다(렌더러는 켠 채).
             int finish = 0;
             if (course.Length >= dressFrom && course.Length <= dressTo)
             {

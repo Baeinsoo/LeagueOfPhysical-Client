@@ -1,0 +1,57 @@
+/* 출시 UI 키트 — 새 토큰은 .kit 아래에만 둔다. 옛 화면(:root 토큰)은 그대로다.
+ * 값의 출처: league-of-physical docs/archive/specs/2026-10-10-release-ui-concept-design.md §3 */
+.kit {
+    --lop-ink: #2C2A6B;
+    --lop-ink-deep: #1F1D4A;
+    --lop-face: #FFF8E8;
+    --lop-primary: #FF8A00;
+    --lop-primary-shade: #B85E00;
+    --lop-reward: #FFD23F;
+    --lop-reward-ink: #3A2A00;
+    --lop-live: #E8322F;
+    --lop-live-shade: #8E1A17;
+    --lop-info: #4A9FE0;
+    --lop-info-shade: #2C6FA8;
+    --lop-scrim: rgba(31, 29, 74, 0.55);
+    color: var(--lop-ink);
+}
+
+.kit-title {
+    -unity-font-definition: url("project://database/Assets/UI/Kit/Fonts/BlackHanSans-Regular%20SDF%20Dynamic.asset?fileID=11400000&guid=da5712ebc3331f74c927a6ca7626e5e2&type=2#BlackHanSans-Regular SDF Dynamic");
+}
+
+.kit-text {
+    color: var(--lop-ink);
+    -unity-text-outline-width: 0;
+}
+
+/* 버튼 껍데기를 지우고 안의 스티커가 모양을 맡는다 */
+.kit-press {
+    background-color: rgba(255, 255, 255, 0);
+    border-width: 0;
+    padding: 0;
+    margin: 0;
+}
+.kit-press:hover, .kit-press:active {
+    background-color: rgba(255, 255, 255, 0);
+}
+
+.sticker {
+    --sticker-face: var(--lop-face);
+    --sticker-back: var(--lop-ink);
+}
+
+.sticker__face {
+    transition-property: translate;
+    transition-duration: 70ms;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 눌림: 앞면이 뒷면 두께만큼 내려가 뒷면이 가려진다 */
+.kit-press:active .sticker__face {
+    translate: 6px 9px;
+}
+.kit-press:active .sticker--card .sticker__face {
+    translate: 4px 7px;
+}

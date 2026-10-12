@@ -103,8 +103,8 @@ namespace LOP.MapTools
         /// <summary>낮은 천장 구간의 반 높이(10-07 난이도 올림: 2.6 → 2.2).</summary>
         public const float LowHalf = 2.2f;
 
-        /// <summary>낮은 천장 중심선 물결 진폭(10-07 난이도 올림: 1.5 → 3.5)과 주기.</summary>
-        internal const double LowAmp = 3.5, LowPer = 17;
+        /// <summary>낮은 천장 중심선 물결 진폭(10-07 난이도 올림: 1.5 → 3.5, 10-12 사람 판 3.5 → 2.5 — 맵 검사기 봇이 물결 내리막 천장(기울기 1.11)에 박았다. 처방 0.85 이하)과 주기.</summary>
+        internal const double LowAmp = 2.5, LowPer = 17;
 
         public IReadOnlyList<MineGate> Gates;
         public IReadOnlyList<MineTube> Tubes;
@@ -224,6 +224,9 @@ namespace LOP.MapTools
     /// 롤러코스터 55 m → 급반전 → 갈림길⬆ → 깊은 갱 24 m) → 3막 탈출(긴 통로 → 굴뚝 24 m → 갈림길⬆) → 출구. 통과 가능성 증명은 맵 검사 몫이다.
     /// 깊은 갱·굴뚝은 10-12에 28 → 24 m(게임 이동 커널 검사: 10 m에 28 m는 최대 낙하 속도로도 못 내려가고, 굴뚝 28 m는 초당 4번 가까이 쳐야 했다.
     /// 24 m면 초당 3.3번으로 지나간다). 둘이 같이 줄어 출구 높이·구간 x는 그대로다.
+    /// 갱 기울기는 최대 낙하(1 m 갈 때 2.5 m)보다 <b>조금 완만하게</b> 2.4(첫 갱 22 m를 8 → 9.2 m, 둘째 갱 24 m/10 m 그대로, 10-12):
+    /// 더 가파르면(첫 갱 2.75) 손 떼고 떨어져도 천장이 먼저 내려와 박고(맵 검사기 봇 전부·사람 판), 훨씬 완만하면(2.0) 벽보다 빨리 떨어지는데
+    /// 좁은 갱에서 날갯짓 한 번(+10)이 내려오는 천장에 비해 5 m를 튀어 올라 브레이크가 없다 — 둘 다 못 지나간다(게임 커널 검사).
     /// 슬라럼 코드는 순서에서 빠졌지만 남겨 둔다.</para>
     /// </summary>
     public static class MineCourseRule
@@ -234,8 +237,8 @@ namespace LOP.MapTools
         /// <summary>파이프 두께 · 관문 틈 · 관문 사이 빈 거리(원조 간격 5.4 m − 두께).</summary>
         const double PW = 1.95, GAP = 3.75, FREE = 5.4 - PW;
 
-        /// <summary>갈림길 2번 점프 굴의 틈.</summary>
-        const double TunnelGap = 3.1;
+        /// <summary>갈림길 2번 점프 굴의 틈(10-12 사람 판 3.1 → 3.4 — "무조건 부딪힌다". 완벽 비행 한계는 2.9~3.0).</summary>
+        const double TunnelGap = 3.4;
 
         /// <summary>고수 길 패드 방의 틈(10-10): 굴을 빠져나오면 땅으로 둘러싸인 조금 넓은 방 → 칸막이 끝에서 합류.</summary>
         const double ChamberGap = 4.6;
@@ -244,7 +247,8 @@ namespace LOP.MapTools
         const float PadDuration = 1.1f;
 
         //  지형 (프로토타입 TERRAIN)
-        const double DropLen = 8, Drop = 22, DiveNarrow = 2.8;
+        //  DiveNarrow(수직 갱 반 높이) 10-12 사람 판 2.8 → 4.3: 갱 입구에서 떨어지기 시작하는 몸을 내려오는 천장이 먼저 박았다(맵 검사기 처방 "천장 1.5 m 올려라").
+        const double DropLen = 8, Drop = 22, DiveNarrow = 4.3;
         const double ClimbLen = 16, Climb = 21, ClimbNarrow = 1.4;
         const double CoasterLen = 45, CoasterAmp = 4, CoasterPer = 30;
 
@@ -259,8 +263,17 @@ namespace LOP.MapTools
         const double Slalom = 2.6;
         /// <summary>계단 내리막: 관문마다 기준 높이를 내리는 폭(10-10, 4.5 통과 · 5.5 막힘 — 초당 4번 날갯짓 검사).</summary>
         const double StairDown = 4.5;
+        /// <summary>계단 관문 사이를 보통(5.4 m)보다 더 띄우는 거리(10-12 사람 판 "무조건 부딪힌다"): 5.4 m 간격에선 4.5 m를 떨어진 뒤 다음 틈 앞에서
+        /// 속도를 못 죽여 파이프에 박았다(맵 검사기 봇 전부 — 지형 판정). 8 m면 떨어지고 → 한 번 쳐서 → 꼭대기에서 틈을 지난다.</summary>
+        const double StairExtra = 2.6;
         /// <summary>급반전 오르내림(예전 ±4.0).</summary>
-        const double Flip = 5.5;
+        //  10-12 사람 판 5.5 → 4.5: 낮은 관문에서 나와 다음 높은 관문까지 5.5 m를 못 올라 맵 검사기 봇 7/10이 박았다(깔때기 0.3 m 밖).
+        const double Flip = 4.5;
+        /// <summary>급반전 관문 사이를 더 띄우는 거리(10-12, 계단과 같은 이유 — 5.4 m에 ±5.5 m는 맵 검사기 봇이 다음 파이프에 박았다).</summary>
+        const double FlipExtra = 2.6;
+        /// <summary>갈림길 끝(칸막이 끝)과 다음 관문 사이에 더 두는 거리(10-12): 위 칸은 칸막이 끝까지 못 내려오는데
+        /// 다음 보통 관문이 몇 m 아래 4 m 뒤에 있으면 떨어지다 못 멈춰 박았다(맵 검사기 봇).</summary>
+        const double ForkMergeRoom = 3.0;
         /// <summary>롤러코스터 굴 틈(예전 5.0 → 10-07 4.85 → 10-09 3막 4.8. 4.7은 검사에서 거의 못 지난다).</summary>
         const double CoasterGap = 4.8;
         /// <summary>갈림길 굴 쪽 칸 중심 — 통로가 좁아져 위 굴은 위로 ForkTunnelUp, 아래 굴은 아래로 ForkTunnelDown(비대칭, 예전 둘 다 4.5).</summary>
@@ -359,7 +372,7 @@ namespace LOP.MapTools
                 forks.Add(new MineFork((float)fx, (float)fx1, (float)baseY, up,
                                        new MineRect((float)fx, (float)fx1, (float)laneLo, (float)laneHi)));
                 pts.Add((fx1, baseY));
-                cur = fx1 + FREE;
+                cur = fx1 + FREE + ForkMergeRoom;
             }
 
             void Section(string name, SectionOptions o)
@@ -371,7 +384,7 @@ namespace LOP.MapTools
                         break;
                     //  계단 내리막: 관문마다 4.5 m씩 뚝뚝 — 손 떼고 떨어지다 다음 틈에서 잡는 게 연속으로 온다. 통로도 계단처럼 따라 내려간다.
                     case "계단 내리막":
-                        for (int i = 0; i < (o?.Gates ?? 6); i++) { baseY -= StairDown; Put(PW, baseY); }
+                        for (int i = 0; i < (o?.Gates ?? 6); i++) { baseY -= StairDown; Put(PW, baseY); cur += StairExtra; }
                         break;
                     case "슬라럼":
                         for (int i = 0; i < (o?.Gates ?? 6); i++) { Put(PW, baseY + (i % 2 == 1 ? Slalom : -Slalom)); }
@@ -385,7 +398,7 @@ namespace LOP.MapTools
                         break;
                     }
                     case "급반전":
-                        for (int i = 0; i < 4; i++) { baseY += (i % 2 == 0) ? Flip : -Flip; Put(PW, baseY); }
+                        for (int i = 0; i < 4; i++) { baseY += (i % 2 == 0) ? Flip : -Flip; Put(PW, baseY); cur += FlipExtra; }
                         break;
                     case "낮은 천장":
                     {
@@ -434,7 +447,7 @@ namespace LOP.MapTools
             //  물결 터널은 낮은 천장과 겹쳐 뺐다(코드는 남긴다). 깊은 갱·굴뚝 24 m는 위 요약 주석 참고(10-12, 프로토타입은 28).
             var order = new (string name, int after, SectionOptions o)[]
             {
-                ("수직 갱 낙하", 1, null), ("계단 내리막", 1, new SectionOptions { Gates = 6 }), ("고수 갈림길 ⬇굴", 2, null),
+                ("수직 갱 낙하", 1, new SectionOptions { Length = 9.2 }), ("계단 내리막", 1, new SectionOptions { Gates = 6 }), ("고수 갈림길 ⬇굴", 2, null),
                 ("낮은 천장", 1, new SectionOptions { Length = 24 }), ("레일 롤러코스터", 1, new SectionOptions { Length = 55 }), ("급반전", 1, null),
                 ("고수 갈림길 ⬆굴", 0, null), ("수직 갱 낙하", 2, new SectionOptions { Length = 10, Rise = 24 }),
                 ("긴 통로", 1, null), ("굴뚝 오르기", 0, new SectionOptions { Length = 21, Rise = 24 }), ("고수 갈림길 ⬆굴", 3, null),

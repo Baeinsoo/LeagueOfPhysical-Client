@@ -8,9 +8,11 @@ namespace LOP
     /// 바닥 구름에 닿아 다시 시작되는 순간 — 그 자리에 번개를 내리꽂고(모두의 화면), 새 자리에서 몸을 떨게 하고,
     /// 내 것이면 화면을 하얗게 번쩍인다. 규칙은 안 건드린다(서버가 이미 옮겼다 — 이건 그 순간을 가리는 그림).
     /// </summary>
-    public class SkydiveLightningView : ILateTickable, System.IDisposable
+    public class SkydiveLightningView : IStartable, ILateTickable, System.IDisposable
     {
         private static readonly Color BoltColor = new Color(0.75f, 0.88f, 1f);
+        //  1을 넘겨야 블룸에 걸려 번쩍인다
+        private const float BoltIntensity = 3f;
         private const float BoltWidth = 1.2f;
         private const int PoolSize = 4;
 
@@ -19,6 +21,10 @@ namespace LOP
         private readonly RetryField retryField;
         private readonly IPlayerContext playerContext;
         private readonly SkydiveAtmosphere atmosphere;
+        private readonly CameraController cameraController;
+        private SkydiveLightningDriver driver;
+        //  내 몸을 떨면 카메라도 같이 따라가 몸은 가만하고 세상이 흔들린다 — 카메라 중심에서 그만큼 빼 몸이 떨려 보이게 한다
+        private bool cameraOffsetSet;
         private readonly SkydiveStrikeDetector detector = new SkydiveStrikeDetector();
 
         private class Bolt
@@ -48,14 +54,39 @@ namespace LOP
         private int strikeCount;
 
         public SkydiveLightningView(ActorRegistry actorRegistry, GameFramework.World.EntityRegistry entityRegistry,
-                                    RetryField retryField, IPlayerContext playerContext, SkydiveAtmosphere atmosphere)
+                                    RetryField retryField, IPlayerContext playerContext, SkydiveAtmosphere atmosphere,
+                                    CameraController cameraController)
         {
+            this.cameraController = cameraController;
             this.actorRegistry = actorRegistry;
             this.entityRegistry = entityRegistry;
             this.retryField = retryField;
             this.playerContext = playerContext;
             this.atmosphere = atmosphere;
         }
+
+        public void Start()
+        {
+            driver = new GameObject(nameof(SkydiveLightningDriver)).AddComponent<SkydiveLightningDriver>();
+            driver.View = this;
+        }
+
+        /// <summary>번개 기둥 재질 — 레이저 재질 복사본이되, 내 높이로 옅어지는 깊이 효과는 끈다(다시 시작 뒤 기둥은 150m 아래다).</summary>
+        public static Material CreateBoltMaterial()
+        {
+            var template = Resources.Load<Material>(SkydiveLaserView.CoreMaterialResource);
+            //  공유 재질 에셋을 칠하면 파일이 더러워진다 — 번개마다 복사본
+            var material = template != null ? new Material(template) : new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            if (template != null)
+            {
+                SkydiveLaserView.ApplyFade(material);
+                material.SetFloat("_FadeMin", 1f);
+                material.SetFloat("_FadeAbove", 1f);
+            }
+            return material;
+        }
+
+        public static Color BoltColorAt(float alpha) => BoltColor * (BoltIntensity * alpha);
 
         public void LateTick()
         {
@@ -85,7 +116,6 @@ namespace LOP
                 }
             }
             UpdateBolts(now);
-            UpdateShakes(now);
         }
 
         private void StartBolt(Vector3 ground, float now)
@@ -136,7 +166,7 @@ namespace LOP
                     if (b.Root.activeSelf) b.Root.SetActive(false);
                     continue;
                 }
-                b.Material.SetColor("_Color", BoltColor * alpha);
+                b.Material.SetColor("_Color", BoltColorAt(alpha));
             }
         }
 
@@ -162,8 +192,11 @@ namespace LOP
             return current == s.LastPosition ? current - s.LastOffset : current;
         }
 
-        private void UpdateShakes(float now)
+        /// <summary>보간기 뒤·카메라 앞에서 매 프레임 한 번(<see cref="SkydiveLightningDriver"/>).</summary>
+        public void ApplyShakes()
         {
+            float now = Time.time;
+            var localOffset = Vector3.zero;
             finishedShakes.Clear();
             foreach (var pair in shakes)
             {
@@ -184,11 +217,26 @@ namespace LOP
                 s.LastOffset = SkydiveLightning.ShakeOffset(elapsed, s.Seed);
                 s.Visual.position = basePosition + s.LastOffset;
                 s.LastPosition = s.Visual.position;
+                if (pair.Key == playerContext.entityId)
+                {
+                    localOffset = s.LastOffset;
+                }
             }
             foreach (var id in finishedShakes)
             {
                 shakes.Remove(id);
             }
+            SetCameraOffset(localOffset);
+        }
+
+        private void SetCameraOffset(Vector3 offset)
+        {
+            if (cameraController == null || (offset == Vector3.zero && cameraOffsetSet == false))
+            {
+                return;   // 떨지 않을 땐 다른 쪽이 쓰는 PivotOffset을 건드리지 않는다
+            }
+            cameraController.PivotOffset = -offset;
+            cameraOffsetSet = offset != Vector3.zero;
         }
 
         private void EnsureRoot()
@@ -201,13 +249,7 @@ namespace LOP
 
         private Bolt CreateBolt()
         {
-            var template = Resources.Load<Material>(SkydiveLaserView.CoreMaterialResource);
-            //  공유 재질 에셋을 칠하면 파일이 더러워진다 — 번개마다 복사본
-            var material = template != null ? new Material(template) : new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            if (template != null)
-            {
-                SkydiveLaserView.ApplyFade(material);
-            }
+            var material = CreateBoltMaterial();
             var bolt = new Bolt { Root = new GameObject("Bolt"), Segments = new Transform[SkydiveLightning.BoltSegments], Material = material };
             bolt.Root.transform.SetParent(root.transform, worldPositionStays: false);
             for (int i = 0; i < bolt.Segments.Length; i++)
@@ -232,6 +274,13 @@ namespace LOP
 
         public void Dispose()
         {
+            if (driver != null)
+            {
+                driver.View = null;
+                Object.Destroy(driver.gameObject);
+                driver = null;
+            }
+            SetCameraOffset(Vector3.zero);
             foreach (var s in shakes.Values)
             {
                 if (s.Visual != null) s.Visual.position = BasePosition(s);

@@ -160,6 +160,33 @@ namespace LOP.Tests
             }
         }
 
+        [Test]
+        public void 떨림은_보간기_뒤_카메라_앞에서_얹는다()
+        {
+            //  VContainer LateTick은 MonoBehaviour LateUpdate보다 먼저 돌아 보간기(0)가 떨림을 지운다 — 순서 있는 드라이버가 얹는다
+            var order = (DefaultExecutionOrder)System.Attribute.GetCustomAttribute(typeof(SkydiveLightningDriver), typeof(DefaultExecutionOrder));
+            Assert.IsNotNull(order);
+            Assert.That(order.order, Is.GreaterThan(0).And.LessThan(3000));   // 카메라 3000
+        }
+
+        [Test]
+        public void 번개_재질은_내_높이로_옅어지지_않고_블룸에_걸린다()
+        {
+            //  레이저 재질은 내 캐릭터보다 아래·위를 옅게 지운다 — 번개는 다시 시작 뒤 150m 아래라 그대로면 거의 안 보인다
+            var m = SkydiveLightningView.CreateBoltMaterial();
+            try
+            {
+                Assert.AreEqual(1f, m.GetFloat("_FadeMin"));
+                Assert.AreEqual(1f, m.GetFloat("_FadeAbove"));
+                Assert.That(SkydiveLightningView.BoltColorAt(1f).maxColorComponent, Is.GreaterThan(1f));
+                Assert.AreEqual(0f, SkydiveLightningView.BoltColorAt(0f).maxColorComponent);
+            }
+            finally
+            {
+                Object.DestroyImmediate(m);
+            }
+        }
+
         private class FakePlayerContext : IPlayerContext
         {
             public GameFramework.ISession session { get; set; }

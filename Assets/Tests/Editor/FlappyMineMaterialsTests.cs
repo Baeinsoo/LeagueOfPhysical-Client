@@ -408,6 +408,15 @@ namespace LOP.Tests
                 Assert.Less(sun.grayscale, rim * 0.75f, "절벽 윗면이 밝은 테처럼 튄다");
                 //  체크 깃발은 두 색이 또렷이 갈린다.
                 Assert.Greater(C("FlagCream").grayscale - C("FlagBrown").grayscale, 0.25f, "체크 두 색 대비가 작다");
+                //  결승선 반투명 줄(10-12 시안 B): 깃발 두 색 그대로, 알파만 FinishStripeAlpha, 투명 큐.
+                foreach (string n in new[] { "FlagCream", "FlagBrown" })
+                {
+                    Material fade = M(n + "Fade");
+                    Assert.IsNotNull(fade, $"{n}Fade.mat이 없다");
+                    Assert.AreEqual((Vector3)(Vector4)C(n), (Vector3)(Vector4)fade.GetColor("_BaseColor"), $"{n}Fade 색이 깃발과 다르다");
+                    Assert.AreEqual(FlappyMineMaterials.FinishStripeAlpha, fade.GetColor("_BaseColor").a, 1e-3f, $"{n}Fade 알파");
+                    Assert.AreEqual((int)UnityEngine.Rendering.RenderQueue.Transparent, fade.renderQueue, $"{n}Fade가 투명 큐가 아니다");
+                }
 
                 bool Mapped(string fbx, string slot) =>
                     ((ModelImporter)AssetImporter.GetAtPath($"Assets/Art/Models/Mine/{fbx}.fbx")).GetExternalObjectMap()

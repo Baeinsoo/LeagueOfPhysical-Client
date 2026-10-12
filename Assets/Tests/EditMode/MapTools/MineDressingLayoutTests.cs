@@ -1142,6 +1142,8 @@ namespace LOP.MapTools.Tests
             foreach (var p in mid)
             {
                 if (MineDressingLayout.ClipsToCorridor(p.Kind)) { continue; }
+                //  결승선 줄·깃발은 예외(10-12 시안 B) — 피할 것이 아니라 지나가는 선. 자리는 결승선 테스트가 본다.
+                if (IsFinishLine(p)) { continue; }
                 Assert.IsNotNull(Footprint(p), $"{p.Kind} 발자국이 없다");
                 foreach (var (x, y) in FootprintSamples(p))
                 {
@@ -1802,31 +1804,39 @@ namespace LOP.MapTools.Tests
             Assert.IsFalse(w.SequenceEqual(MineDressingLayout.ChimneyWalls(c, 8, z)), "시드가 달라도 같다");
         }
 
+        static float FinishFlagHalfWidth(MinePiece flag) => 0.5f * flag.ScaleX;
+
+        static bool IsFinishLine(MinePiece p) =>
+            p.Kind == MinePartKind.FinishFlag || (p.Kind == MinePartKind.FinishBanner && p.Layer == 2);
+
         [Test]
-        public void 결승선_깃발은_코스_끝_안개_뒤_체크무늬_띠는_통로_밖_절벽_끝은_출구_밖_레일_다리_아래()
+        public void 결승선_줄은_캐릭터_바로_뒤_통로를_가로지르고_깃발은_그_옆_체크무늬_띠는_통로_밖_절벽_끝은_출구_밖_레일_다리_아래()
         {
             var c = Course();
             var z = Zones3(c);
             var judge = new Judge(c);
             var f = MineDressingLayout.Finish(c, z);
             var flag = f.Single(p => p.Kind == MinePartKind.FinishFlag);
-            Assert.AreEqual(c.Length, flag.X, Eps, "깃발은 결승선 x");
-            Assert.AreEqual(Floor(c, c.Length), flag.Y, Eps, "깃발 아래 끝 = 레일 다리 바닥선");
-            //  결승선은 열린 통로 안에 선다 — 판정면 뒤, 안개 막 뒤(판정면~안개 사이 통로 안 장식은 장애물로 읽힌다).
-            Assert.Greater(Front(flag), MineDressingLayout.HazeZ, "깃발이 안개 막 앞");
+            //  10-12 시안 B: 안개 막 뒤 깃발·막은 노을에 묻혀 배경으로 읽혔다 — 줄과 깃발을 캐릭터(반지름 0.45) 바로 뒤, 안개 막 앞으로.
+            //  깃발은 줄 바로 오른쪽(결승선 너머) 바닥에, 줄과 겹치지 않게.
+            Assert.Greater(flag.X - FinishFlagHalfWidth(flag), c.Length + MineDressingLayout.FinishBannerHalfWidth, "깃발이 줄과 겹친다");
+            Assert.AreEqual(Floor(c, flag.X), flag.Y, Eps, "깃발 아래 끝 = 레일 다리 바닥선");
+            Assert.AreEqual(MineDressingLayout.FinishStripeZ, flag.Z, Eps, "깃발이 줄과 다른 깊이");
 
             //  fix1(캡처 x 380: 게임 FinishLine 마커 기둥이 깃발을 통째로 가렸다 — 광산 굽기가 마커 렌더러를 끈다): 결승선 체크무늬 띠 둘.
             //  결승선 x를 가운데로 천장선 위·바닥선 아래에(판정 고체 위 — 열린 통로에 안 들어간다), 판정면 앞(데크·들보보다 앞)에 또렷하게,
             //  게임 카메라 화면 위·아래 끝(통로 중심 ± 8.37)까지 찬다.
             var banners = f.Where(p => p.Kind == MinePartKind.FinishBanner && p.Layer != 2).OrderBy(p => p.Y).ToList();
             Assert.AreEqual(2, banners.Count, "결승선 띠는 천장 쪽 하나, 바닥 쪽 하나");
-            //  그리고 같은 폭 체크무늬 막 하나가 깃발 위부터 천장선까지 — 통로 안이라 깃발 뒤, 안개 막 뒤(판정면~안개 사이 통로 안 장식은 장애물로 읽힌다).
-            var curtain = f.Single(p => p.Kind == MinePartKind.FinishBanner && p.Layer == 2);
-            Assert.AreEqual(c.Length, curtain.X + curtain.ScaleX / 2f, Eps, "막 가운데가 결승선 x가 아니다");
-            Assert.Greater(Front(curtain), Front(flag), "막이 깃발 앞");
-            Assert.Greater(Front(curtain), MineDressingLayout.HazeZ, "막이 안개 막 앞");
-            Assert.Greater(curtain.Y, flag.Y + 3f, "막이 깃발을 가린다");
-            Assert.AreEqual(Ceiling(c, c.Length), curtain.Y + curtain.ScaleY, 0.05f, "막 윗변 = 천장선");
+            //  그리고 같은 폭 반투명 줄 하나가 바닥 띠부터 천장 띠까지 끊김 없이 — 캐릭터 몸(z ±0.45)보다 뒤, 안개 막(2.2)보다 앞.
+            //  위·아래로 판정선 너머까지(원근으로 판정선 안쪽에 그려지는 틈 메우기).
+            var stripe = f.Single(p => p.Kind == MinePartKind.FinishBanner && p.Layer == 2);
+            Assert.AreEqual(c.Length, stripe.X + stripe.ScaleX / 2f, Eps, "줄 가운데가 결승선 x가 아니다");
+            Assert.Greater(Front(stripe), 0.45f, "줄이 캐릭터 몸과 겹친다");
+            Assert.Less(Front(stripe), MineDressingLayout.HazeZ, "줄이 안개 막 뒤(노을에 묻힌다)");
+            Assert.LessOrEqual(stripe.Y, Floor(c, c.Length) - MineDressingLayout.FinishStripeOverlap + 0.05f, "줄 아래 끝이 바닥선 너머까지 안 간다");
+            Assert.GreaterOrEqual(stripe.Y + stripe.ScaleY, Ceiling(c, c.Length) + MineDressingLayout.FinishStripeOverlap - 0.05f, "줄 위 끝이 천장선 너머까지 안 간다");
+            Assert.AreEqual(0f, stripe.AngleDegrees, Eps);
             foreach (var b in banners)
             {
                 Assert.AreEqual(c.Length, b.X + b.ScaleX / 2f, Eps, $"{b} 띠 가운데가 결승선 x가 아니다");

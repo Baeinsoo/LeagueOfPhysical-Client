@@ -36,6 +36,8 @@ namespace LOP.EditorTools
         internal const string LookAssetPath = "Assets/Art/Settings/FlappyMineLook.asset";
         /// <summary>절벽 윗면(CliffSun) = 바위 평균 색에서 노을 색 쪽으로 이만큼 섞는다 — 따뜻하지만 밝은 테보다 어둡다.</summary>
         internal const float CliffSunWarmth = 0.35f;
+        //  결승선 반투명 줄의 불투명도(10-12 시안 B — 사용자가 60%를 골랐다).
+        internal const float FinishStripeAlpha = 0.6f;
 
         [MenuItem("LOP/Debug/Flappy 광산 재질 갱신")]
         public static void EnsureFromMenu()
@@ -137,6 +139,9 @@ namespace LOP.EditorTools
                 ["FlagBrown"] = Toon("FlagBrown", flagBrownColor, null, shadow),
             };
             Toon("StrataPatchLight", ScaleRgb(rockBase, 1f + look.decorContrast), null, shadow);
+            //  결승선 반투명 줄(10-12 시안 B) — 깃발 두 색에 알파. Toon은 투명이 없어 URP Unlit 투명(안개 막과 같은 방식).
+            UnlitTransparent("FlagCreamFade", WithAlpha(flagCreamColor, FinishStripeAlpha));
+            UnlitTransparent("FlagBrownFade", WithAlpha(flagBrownColor, FinishStripeAlpha));
 
             //  실루엣 네 겹 — 기본 슬롯 리매핑은 Silhouette_Cave1로(클래스 주석 참고).
             var silhouetteCave1 = UnlitOpaque("Silhouette_Cave1", look.caveSilhouette1Color);

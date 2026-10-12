@@ -268,9 +268,10 @@ namespace LOP.MapTools
         /// </summary>
         public const float EntranceLintelBottom = 14.62f;
         /// <summary>
-        /// FinishFlag(아래 가운데 원점, 1.0 × 3.0, 깃발대 z ±0.1). 결승선은 열린 통로 안에 서므로 판정면 뒤, 안개 막(2.2) 뒤.
+        /// FinishFlag(아래 가운데 원점, 1.0 × 3.0, 깃발대 z ±0.1). 결승선 줄 바로 오른쪽(결승선 x + <see cref="FinishFlagOffset"/>) 바닥에,
+        /// 줄과 같은 깊이(<see cref="FinishStripeZ"/>)로 꽂는다 — 판정면~안개 막 사이 통로 안이지만 결승선이라 장애물 규칙의 예외다(10-12 결승선 시안 B).
         /// </summary>
-        public const float FinishFlagZ = 2.8f, FinishFlagWidth = 1f;
+        public const float FinishFlagZ = FinishStripeZ, FinishFlagWidth = 1f, FinishFlagOffset = 1.2f;
         /// <summary>
         /// 결승선 체크무늬 띠(fix1 — 게임 FinishLine 마커의 노랑·초록 기둥은 광산 굽기가 그림만 숨긴다 — 렌더러는 켠 채 재질 목록만 비운다): 결승선 x ± <see cref="FinishBannerHalfWidth"/>
         /// (마커 폭 1.2와 같다), 천장선 위·바닥선 아래로 <see cref="FinishBannerHeight"/>(화면 위·아래 끝 1.09까지 찬다) — 판정 고체 위라 판정면 앞에 또렷하게.
@@ -279,10 +280,12 @@ namespace LOP.MapTools
         /// </summary>
         public const float FinishBannerHalfWidth = 0.6f, FinishBannerHeight = 1.2f, FinishBannerZ = -1.65f, FinishCheckerCell = 0.3f;
         /// <summary>
-        /// 결승선 체크무늬 막(<see cref="MinePiece.Layer"/> 2, fix1 둘째 캡처 — 위·아래 띠는 화면 끝 1 m씩이라 결승선이 약했다): 같은 폭으로 깃발 위
-        /// (깃발 높이 <see cref="FinishFlagHeight"/> + <see cref="FinishCurtainGap"/>)부터 천장선까지, 열린 통로 안이라 깃발 뒤 안개 막 뒤(<see cref="FinishCurtainZ"/>).
+        /// 결승선 반투명 줄(<see cref="MinePiece.Layer"/> 2, 10-12 결승선 시안 B — 안개 막 뒤 막·깃발은 노을에 묻혀 배경으로 읽혔다): 같은 폭으로
+        /// 바닥 띠부터 천장 띠까지 끊김 없이, 캐릭터(반지름 0.45) 바로 뒤 <see cref="FinishStripeZ"/>에 안개 없이. 캐릭터가 그 앞을 지나간다.
+        /// 위·아래로 판정선 너머 <see cref="FinishStripeOverlap"/>씩 더 — 판정면 뒤라 원근으로 판정선보다 안쪽에 그려지는 틈을 메운다(넘친 곳은 고체 그림 뒤에 가린다).
+        /// 판정면~안개 막 사이 열린 통로 안이지만 피할 것이 아니라 지나가는 선이라 장애물 규칙의 예외다(원래 게임 결승 기둥도 통로 안에 섰다).
         /// </summary>
-        public const float FinishFlagHeight = 3f, FinishCurtainGap = 0.3f, FinishCurtainZ = FinishFlagZ + 0.4f;
+        public const float FinishFlagHeight = 3f, FinishStripeZ = 0.8f, FinishStripeOverlap = 0.3f;
         /// <summary>
         /// CliffEdge(위 끝 왼쪽 원점, x 0~1 · y −1~0, 메시 z ±<see cref="CliffEdgeHalfDepth"/> — Task 2가 이 깊이로 만든다)를 깊이 축척
         /// <see cref="CliffDepthScale"/>로 늘여 판정면 바로 뒤(앞면 +0.05)부터 안개 막 너머까지 깐다(fix1): 게임 카메라(23 m, 통로 중심)는 바닥선 아래
@@ -1045,12 +1048,12 @@ namespace LOP.MapTools
         /// <summary>
         /// 결승선·절벽 끝(2차 스펙 §2·§3):
         /// <list type="bullet">
-        /// <item><see cref="MinePartKind.FinishFlag"/>: 결승선 x(<see cref="MineCourse.Length"/>), 아래 끝 = 바닥선(레일 다리 데크). 열린 통로 안에 서므로
-        /// 판정면 뒤 안개 막 뒤(<see cref="FinishFlagZ"/>).</item>
+        /// <item><see cref="MinePartKind.FinishFlag"/>: 결승선 x(<see cref="MineCourse.Length"/>) + <see cref="FinishFlagOffset"/>, 아래 끝 = 바닥선(레일 다리 데크).
+        /// 줄과 같은 깊이(<see cref="FinishFlagZ"/>).</item>
         /// <item><see cref="MinePartKind.FinishBanner"/> 둘(fix1): 결승선 x ± <see cref="FinishBannerHalfWidth"/>의 체크무늬 띠 — 천장선 위로, 바닥선 아래로
         /// <see cref="FinishBannerHeight"/>. 판정 고체 위라 판정면 앞(<see cref="FinishBannerZ"/>)에 또렷하게. 게임 FinishLine 마커(노랑·초록 기둥)는 광산 굽기가
         /// 그림만 숨기므로 이 띠와 깃발이 결승선 그림이다. 띠 x 폭에서 판정선이 기울면 띠 끝을 그 x 폭 판정선 꼭짓점 너머로 물린다.
-        /// 그리고 같은 폭 체크무늬 막(Layer 2) 하나가 깃발 위부터 천장선까지 깃발 뒤 안개 막 뒤(<see cref="FinishCurtainZ"/>)에 걸린다.</item>
+        /// 그리고 같은 폭 반투명 줄(Layer 2) 하나가 바닥 띠부터 천장 띠까지 캐릭터 바로 뒤(<see cref="FinishStripeZ"/>)에 걸린다.</item>
         /// <item><see cref="MinePartKind.CliffEdge"/>: 출구 밖 산 바닥이 끝나는 곳 — 출구 문틀 시작부터 문틀 끝 + <see cref="CliffReach"/>(오른끝 = 절벽 가장자리),
         /// 윗면은 그 x 폭 바닥선 중 가장 낮은 곳보다 <see cref="CliffTopDrop"/> 아래(레일 다리 아래, 판정선 밖), 판정면 뒤라 비계 다리가 그 앞을 지난다.
         /// 깊이는 안개 막 너머까지(<see cref="CliffDepthScale"/>) — 노을빛 윗면이 원근으로 다리 위에 보인다. 출구가 없으면 놓지 않는다.</item>
@@ -1059,18 +1062,15 @@ namespace LOP.MapTools
         public static List<MinePiece> Finish(MineCourse c, MineZones z)
         {
             var list = new List<MinePiece>();
-            float fl = c.CenterAt(c.Length) - c.HalfAt(c.Length);
-            list.Add(new MinePiece(MinePartKind.FinishFlag, c.Length, fl, FinishFlagZ, 0f, FinishFlagWidth, FinishFlagWidth, 1f, 1f));
+            float fx = c.Length + FinishFlagOffset, fl = c.CenterAt(fx) - c.HalfAt(fx);
+            list.Add(new MinePiece(MinePartKind.FinishFlag, fx, fl, FinishFlagZ, 0f, FinishFlagWidth, FinishFlagWidth, 1f, 1f));
             float bx0 = c.Length - FinishBannerHalfWidth, bw = FinishBannerHalfWidth * 2f;
             var bxs = StraightBreaks(c, bx0, bx0 + bw);
             double top = bxs.Max(x => c.CenterAtD(x) + c.HalfAtD(x)), bottom = bxs.Min(x => c.CenterAtD(x) - c.HalfAtD(x));
             list.Add(new MinePiece(MinePartKind.FinishBanner, bx0, (float)top, FinishBannerZ, 0f, bw, bw, bw, FinishBannerHeight, layer: 1));
             list.Add(new MinePiece(MinePartKind.FinishBanner, bx0, (float)(bottom - FinishBannerHeight), FinishBannerZ, 0f, bw, bw, bw, FinishBannerHeight, layer: 0));
-            float curtainBottom = fl + FinishFlagHeight + FinishCurtainGap, curtainTop = c.CenterAt(c.Length) + c.HalfAt(c.Length);
-            if (curtainTop - curtainBottom > FinishCheckerCell)
-            {
-                list.Add(new MinePiece(MinePartKind.FinishBanner, bx0, curtainBottom, FinishCurtainZ, 0f, bw, bw, bw, curtainTop - curtainBottom, layer: 2));
-            }
+            float stripeBottom = (float)bottom - FinishStripeOverlap, stripeHeight = (float)(top - bottom) + 2f * FinishStripeOverlap;
+            list.Add(new MinePiece(MinePartKind.FinishBanner, bx0, stripeBottom, FinishStripeZ, 0f, bw, bw, bw, stripeHeight, layer: 2));
             if (z.HasExit)
             {
                 float x0 = z.ExitStart, x1 = Math.Min(z.ExitEnd + CliffReach, Math.Max(z.ExitEnd, c.Length - 1f));

@@ -1,42 +1,37 @@
 using R3;
-using System.Collections.Generic;
 using UnityEngine.UIElements;
 
 namespace LOP.UI
 {
     /// <summary>
-    /// 로비 홈 허브 View(프론트엔드 베이스). Play는 매칭 커맨드, 네비바 버튼은 LobbyHomeViewModel 네비 커맨드로
-    /// 전달하는 얇은 바인더. 매칭 흐름·대기 오버레이는 MatchmakingCoordinator, 네비 화면 교체는 FrontEndCoordinator가 담당.
+    /// 로비 홈 바인더. 버튼 목적지는 FrontEndRoutes 표, 화면 교체는 FrontEndCoordinator,
+    /// 매칭 흐름은 MatchmakingCoordinator가 맡는다. 랭크면 루트에 .ranked를 붙여 톤만 바꾼다.
     /// </summary>
     public class LobbyHomeView : UIView
     {
+        private const long CasualHalfBreathMs = 900;
+        private const long RankedHalfBreathMs = 1300;
+        private const long TickerIntervalMs = 4000;
+
+        private static readonly string[] CasualTicker = { "오늘의 경기 · 피지컬 리그", "새 시즌 진행 중" };
+        private const string RankedTicker = "리그 경기 · 승점이 걸려 있습니다 · 나가면 꼴찌로 기록";
+
         private readonly MatchmakingViewModel _matchmaking;
         private readonly LobbyHomeViewModel _viewModel;
         private readonly EconomyStore _economy;
-
-        private Button _playButton;
-        private Button _shopButton;
-        private Button _settingsButton;
-        private Button _profileButton;
-
-        private DropdownField _gamePick;
-        private DropdownField _mapPick;
-        private Button _queueCasual;
-        private Button _queueRanked;
-        private Label _rankSummary;
-        private Label _coinValue;
-        private Label _levelValue;
+        private readonly IUserDataStore _userData;
         private readonly CompositeDisposable _subscriptions = new CompositeDisposable();
 
-        //  VM 값을 드롭다운에 밀어넣는 동안은 드롭다운의 변경 콜백을 무시한다 — 안 그러면
-        //  "VM이 바꿈 → 드롭다운이 알림 → VM에 다시 씀"으로 되돌아온다.
-        private bool _applyingFromViewModel;
+        private Breather _breather;
+        private IVisualElementScheduledItem _tickerItem;
+        private int _tickerIndex;
 
-        public LobbyHomeView(MatchmakingViewModel matchmaking, LobbyHomeViewModel viewModel, EconomyStore economy)
+        public LobbyHomeView(MatchmakingViewModel matchmaking, LobbyHomeViewModel viewModel, EconomyStore economy, IUserDataStore userData)
         {
             _matchmaking = matchmaking;
             _viewModel = viewModel;
             _economy = economy;
+            _userData = userData;
         }
 
         public override UILayer Layer => UILayer.Window;
@@ -45,171 +40,102 @@ namespace LOP.UI
         {
             base.OnOpen();
 
-            _playButton = Root.Q<Button>("play-button");
-            _shopButton = Root.Q<Button>("nav-shop");
-            _settingsButton = Root.Q<Button>("nav-settings");
-            _profileButton = Root.Q<Button>("nav-profile");
-            _gamePick = Root.Q<DropdownField>("game-pick");
-            _mapPick = Root.Q<DropdownField>("map-pick");
-            _queueCasual = Root.Q<Button>("queue-casual");
-            _queueRanked = Root.Q<Button>("queue-ranked");
-            _rankSummary = Root.Q<Label>("rank-summary");
-            _coinValue = Root.Q<Label>("coin-value");
-            _levelValue = Root.Q<Label>("level-value");
-
-            _playButton.clicked += OnPlayClicked;
-            _shopButton.clicked += OnShopClicked;
-            _settingsButton.clicked += OnSettingsClicked;
-            _profileButton.clicked += OnProfileClicked;
-
-            //  드롭다운은 시작 버튼 "안"에 있다. 여기서 전파를 끊지 않으면 목록을 여는 클릭이
-            //  바깥 버튼까지 올라가 매칭이 시작된다 — 고르려던 사람에게는 오조작이다.
-            StopClickFromReachingPlay(_gamePick);
-            StopClickFromReachingPlay(_mapPick);
-
-            //  큐 전환 칩도 시작 버튼 안에 있다 — 누른 클릭이 시작까지 올라가면 안 된다.
-            StopButtonClickFromReachingPlay(_queueCasual, () => _matchmaking.SelectQueue(QueueKind.Casual));
-            StopButtonClickFromReachingPlay(_queueRanked, () => _matchmaking.SelectQueue(QueueKind.Ranked));
-
-            var gameNames = new List<string>(_matchmaking.Games.Count);
-            foreach (var game in _matchmaking.Games)
+            foreach (var route in FrontEndRoutes.LobbyButtons)
             {
-                gameNames.Add(game.Name);
+                var destination = route.Value;
+                Root.Q<Button>(route.Key).clicked += () => _viewModel.Navigate(destination);
             }
-            _gamePick.choices = gameNames;
+            Root.Q<Button>("play-button").clicked += OnPlayClicked;
+            Root.Q<Button>("queue-casual").clicked += () => _matchmaking.SelectQueue(QueueKind.Casual);
+            Root.Q<Button>("queue-ranked").clicked += () => _matchmaking.SelectQueue(QueueKind.Ranked);
 
-            _gamePick.RegisterValueChangedCallback(_ =>
-            {
-                if (_applyingFromViewModel == false) _matchmaking.SelectGame(_gamePick.index);
-            });
-            _mapPick.RegisterValueChangedCallback(_ =>
-            {
-                if (_applyingFromViewModel == false) _matchmaking.SelectMap(_mapPick.index);
-            });
+            KitEllipsis.SetText(Root.Q<Label>("player-name"), _userData.user?.displayName ?? string.Empty);
+            //  일반 모드 이름표의 티어 도형은 랭크를 한 번 받아 티어를 알 때만 보인다.
+            Root.Q("player-tier").style.display = DisplayStyle.None;
 
-            _matchmaking.SelectedGameIndex.Subscribe(OnGameSelected).AddTo(_subscriptions);
-            _matchmaking.SelectedMapIndex.Subscribe(OnMapSelected).AddTo(_subscriptions);
+            _breather = new Breather(Root.Q("play-button"), CasualHalfBreathMs);
+            _tickerItem = Root.schedule.Execute(AdvanceTicker).Every(TickerIntervalMs);
+
             _matchmaking.SelectedQueue.Subscribe(OnQueueSelected).AddTo(_subscriptions);
-            _matchmaking.RankSummary.Subscribe(text => _rankSummary.text = text).AddTo(_subscriptions);
+            _matchmaking.SelectedGameIndex.Subscribe(_ => RefreshGameChip()).AddTo(_subscriptions);
+            _matchmaking.SelectedMapIndex.Subscribe(_ => RefreshGameChip()).AddTo(_subscriptions);
+            _matchmaking.RankCard.Subscribe(OnRankCard).AddTo(_subscriptions);
 
             _economy.Progress.CombineLatest(_economy.Coins, (progress, coins) => CoinChipText(progress, coins))
-                .Subscribe(text => _coinValue.text = text).AddTo(_subscriptions);
-            _economy.Progress.Subscribe(progress => _levelValue.text = LevelChipText(progress)).AddTo(_subscriptions);
+                .Subscribe(text => Root.Q<Label>("coin-value").text = $"🪙 {text}").AddTo(_subscriptions);
+            _economy.Progress.Subscribe(progress => Root.Q<Label>("player-meta").text = $"· {LevelChipText(progress)}").AddTo(_subscriptions);
         }
 
-        //  한 번도 못 받았으면 "0 코인"·"Lv 1"이 아니라 "-" — 실패한 조회를 진짜 0원으로 보이게 하지 않는다.
+        //  한 번도 못 받았으면 "0"·"Lv 1"이 아니라 "-" — 실패한 조회를 진짜 0원으로 보이게 하지 않는다.
         //  코인과 진행도는 같은 조회로 함께 오므로 진행도 유무로 "받았나"를 가른다.
         public static string CoinChipText(ProgressDto progress, long coins) => progress == null ? "-" : coins.ToString("N0");
 
         public static string LevelChipText(ProgressDto progress) => progress == null ? "-" : $"Lv {progress.level}";
 
-        //  랭크면 게임·맵을 숨기고 내 티어를 보인다. 일반이면 반대.
         private void OnQueueSelected(QueueKind kind)
         {
             bool ranked = kind == QueueKind.Ranked;
-            _queueCasual.EnableInClassList("lobbyhome-queue--selected", !ranked);
-            _queueRanked.EnableInClassList("lobbyhome-queue--selected", ranked);
-            _gamePick.style.display = ranked ? DisplayStyle.None : DisplayStyle.Flex;
-            _mapPick.style.display = ranked ? DisplayStyle.None : DisplayStyle.Flex;
-            _rankSummary.style.display = ranked ? DisplayStyle.Flex : DisplayStyle.None;
+            Root.Q("lobbyhome-root").EnableInClassList("ranked", ranked);
+            Root.Q<Button>("queue-casual").EnableInClassList("kit-toggle__opt--on", !ranked);
+            Root.Q<Button>("queue-ranked").EnableInClassList("kit-toggle__opt--on", ranked);
+            Root.Q<Label>("play-label").text = ranked ? "출전" : "PLAY";
+            Root.Q<Label>("ticker-tag").text = ranked ? "RANKED" : "LIVE";
+            _breather.SetHalfPeriod(ranked ? RankedHalfBreathMs : CasualHalfBreathMs);
+            _tickerIndex = 0;
+            AdvanceTicker();
         }
 
-        //  버튼은 clicked가 PointerUp 뒤에 오므로, 전파만 끊고 동작은 ClickEvent에서 직접 부른다.
-        private static void StopButtonClickFromReachingPlay(Button button, System.Action onClick)
+        private void OnRankCard(RankCard card)
         {
-            button.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation());
-            button.RegisterCallback<PointerUpEvent>(evt => evt.StopPropagation());
-            button.RegisterCallback<ClickEvent>(evt =>
-            {
-                evt.StopPropagation();
-                onClick();
-            });
+            Root.Q<Label>("rank-head").text = card.Headline ?? string.Empty;
+            Root.Q<Label>("rank-sub").text = card.Subline ?? string.Empty;
+            Root.Q<TierShapeElement>("rank-tier").SetTier(card.TierCode);
+            var plateTier = Root.Q<TierShapeElement>("player-tier");
+            plateTier.SetTier(card.TierCode);
+            plateTier.style.display = card.TierCode == null ? DisplayStyle.None : DisplayStyle.Flex;
         }
 
-        //  게임이 바뀌면 맵 목록 자체가 바뀐다 — 목록을 다시 채운 뒤 지금 맵을 표시한다.
-        private void OnGameSelected(int index)
+        private void RefreshGameChip()
         {
-            _applyingFromViewModel = true;
+            var games = _matchmaking.Games;
+            int g = _matchmaking.SelectedGameIndex.CurrentValue;
+            var maps = _matchmaking.CurrentMaps;
+            int m = _matchmaking.SelectedMapIndex.CurrentValue;
+            string game = g >= 0 && g < games.Count ? games[g].Name : string.Empty;
+            string map = m >= 0 && m < maps.Count ? maps[m].Name : string.Empty;
+            string text = string.IsNullOrEmpty(map) ? $"🎯 {game} ▾" : $"🎯 {game} · {map} ▾";
+            KitEllipsis.SetText(Root.Q<Label>("game-chip-text"), text);
+        }
 
-            _gamePick.index = index;
-
-            var mapNames = new List<string>(_matchmaking.CurrentMaps.Count);
-            foreach (var map in _matchmaking.CurrentMaps)
+        private void AdvanceTicker()
+        {
+            string text;
+            if (_matchmaking.SelectedQueue.CurrentValue == QueueKind.Ranked)
             {
-                mapNames.Add(map.Name);
+                text = RankedTicker;
             }
-            _mapPick.choices = mapNames;
-            _mapPick.index = _matchmaking.SelectedMapIndex.CurrentValue;
-
-            _applyingFromViewModel = false;
-        }
-
-        private void OnMapSelected(int index)
-        {
-            _applyingFromViewModel = true;
-            _mapPick.index = index;
-            _applyingFromViewModel = false;
-        }
-
-        private void StopClickFromReachingPlay(DropdownField pick)
-        {
-            pick.RegisterCallback<PointerDownEvent>(evt =>
+            else
             {
-                evt.StopPropagation();
-
-                //  목록은 이 클릭으로 열린다. 열린 뒤라야 항목을 만질 수 있어 다음 틱으로 미룬다.
-                pick.schedule.Execute(() => MarkSelectedDropdownItem(pick));
-            });
-            pick.RegisterCallback<PointerUpEvent>(evt => evt.StopPropagation());
-            pick.RegisterCallback<ClickEvent>(evt => evt.StopPropagation());
-        }
-
-        /// <summary>
-        /// 펼쳐진 목록에서 지금 고른 항목에 표시용 클래스를 붙인다.
-        /// 유니티는 선택을 클래스로 알려주지 않고 체크마크의 visibility로만 표시하는데,
-        /// USS에는 "자식이 보이는 부모"를 고르는 방법이 없어 코드가 대신 붙여 준다.
-        ///
-        /// 판정은 <b>인덱스</b>로 한다. 항목은 choices와 같은 순서로 만들어지므로 n번째 항목이
-        /// 곧 choices[n]이다. 체크마크 visibility는 메뉴가 갓 열린 프레임에 확정되지 않고,
-        /// 글자 비교는 이름이 겹치면 깨진다. 목록은 열 때마다 새로 만들어지므로 매번 다시 붙인다.
-        /// </summary>
-        private void MarkSelectedDropdownItem(DropdownField pick)
-        {
-            //  목록은 우리 문서가 아니라 패널 루트에 붙는다.
-            var panelRoot = Root.panel?.visualTree;
-            if (panelRoot == null)
-            {
-                return;
+                var games = _matchmaking.Games;
+                int g = _matchmaking.SelectedGameIndex.CurrentValue;
+                int i = _tickerIndex++ % (CasualTicker.Length + 1);
+                text = i < CasualTicker.Length
+                    ? CasualTicker[i]
+                    : $"오늘의 종목 · {(g >= 0 && g < games.Count ? games[g].Name : string.Empty)}";
             }
-
-            //  두 드롭다운의 목록이 동시에 남아 있어도 섞이지 않도록 방금 열린 것만 본다.
-            var menus = panelRoot.Query<VisualElement>(className: "unity-base-dropdown").ToList();
-            if (menus.Count == 0)
-            {
-                return;
-            }
-
-            var items = menus[menus.Count - 1].Query<VisualElement>(className: "unity-base-dropdown__item").ToList();
-            for (var i = 0; i < items.Count; i++)
-            {
-                items[i].EnableInClassList("lop-dropdown-item--selected", i == pick.index);
-            }
+            KitEllipsis.SetText(Root.Q<Label>("ticker-text"), text);
         }
 
         public override void OnClose()
         {
             _subscriptions.Clear();
-
-            if (_playButton != null) _playButton.clicked -= OnPlayClicked;
-            if (_shopButton != null) _shopButton.clicked -= OnShopClicked;
-            if (_settingsButton != null) _settingsButton.clicked -= OnSettingsClicked;
-            if (_profileButton != null) _profileButton.clicked -= OnProfileClicked;
+            _breather?.Dispose();
+            _breather = null;
+            _tickerItem?.Pause();
+            _tickerItem = null;
             base.OnClose();
         }
 
         private void OnPlayClicked() => _matchmaking.Play();
-        private void OnShopClicked() => _viewModel.Navigate(FrontEndDestination.Shop);
-        private void OnSettingsClicked() => _viewModel.Navigate(FrontEndDestination.Settings);
-        private void OnProfileClicked() => _viewModel.Navigate(FrontEndDestination.Profile);
     }
 }

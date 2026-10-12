@@ -126,26 +126,39 @@
 .kit-card__art--3 { background-color: #F59E0B; }
 .kit-card__art--4 { background-color: #4A9FE0; }
 
-/* LIVE 띠 — 꼬리 16px 고정, 인디고 면 */
-.kit-ticker { height: 60px; }
-.kit-ticker .sticker { flex-grow: 1; --sticker-tail: 16; --sticker-face: var(--lop-ink); --sticker-back: var(--lop-ink-deep); }
-.kit-ticker .sticker__face { flex-direction: row; justify-content: flex-start; padding-left: 80px; padding-right: 80px; }
-.kit-ticker__tag { height: 40px; padding: 0 14px; margin-right: 18px; border-radius: 6px; background-color: var(--lop-live); color: #FFFFFF; font-size: 22px; -unity-text-align: middle-center; }
-.kit-ticker__text { font-size: 26px; color: var(--lop-face); overflow: hidden; white-space: nowrap; flex-shrink: 1; max-width: 1100px; }
+/* LIVE 띠 — 화면 폭 남색 띠. 왼쪽 빨간 태그·오른쪽 노란 시즌 칸은 기운 스티커(뒷면 없음) (시안 kit.css .ticker) */
+.kit-ticker { height: 60px; flex-direction: row; background-color: var(--lop-ink); }
+.kit-ticker__tag { --sticker-face: var(--lop-live); --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; margin-left: -16px; }
+.kit-ticker__tag .sticker__face { flex-direction: row; padding-left: 96px; padding-right: 44px; }
+.kit-ticker__dot { width: 14px; height: 14px; border-radius: 7px; background-color: #FFFFFF; margin-right: 12px; }
+.kit-ticker__tag-text { font-size: 26px; color: #FFFFFF; letter-spacing: 2px; }
+.kit-ticker__text { flex-grow: 1; flex-shrink: 1; padding: 0 32px; font-size: 26px; color: var(--lop-face); -unity-text-align: middle-left; overflow: hidden; white-space: nowrap; max-width: 1300px; }
+.kit-ticker__season { --sticker-face: var(--lop-reward); --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; margin-right: -16px; }
+.kit-ticker__season .sticker__face { padding-left: 48px; padding-right: 96px; }
+.kit-ticker__season-text { font-size: 26px; color: var(--lop-reward-ink); }
 
 /* 알림 배지 — 흰 테두리 빨간 원, 글자는 .kit-title과 함께 쓴다(데이터가 생기기 전까지 숨김) */
 .kit-badge { position: absolute; top: -14px; right: -14px; min-width: 44px; height: 44px; padding: 0 10px; border-radius: 22px; border-width: 4px; border-color: #FFFFFF; background-color: var(--lop-live); color: #FFFFFF; font-size: 24px; -unity-text-align: middle-center; display: none; }
 .kit-badge--on { display: flex; }
 
-/* 이름표 — 곧은 크림 판 */
-.kit-plate { height: 96px; max-width: 560px; }
-.kit-plate .sticker { flex-grow: 1; --sticker-radius: 8; }
-.kit-plate .sticker__face { flex-direction: row; justify-content: flex-start; padding: 0 22px; }
-.kit-plate__name { font-size: 30px; color: var(--lop-ink); overflow: hidden; white-space: nowrap; flex-shrink: 1; max-width: 360px; }
-.kit-plate__meta { flex-shrink: 0; font-size: 26px; color: var(--lop-ink); margin-left: 10px; margin-right: 10px; white-space: nowrap; }
+/* 이름표 — 기운 크림 스티커: 이름 · Lv · 티어 도형 (시안 lobby.html .top .who) */
+.kit-plate { min-height: 72px; max-width: 640px; }
+.kit-plate .sticker { flex-grow: 1; }
+.kit-plate .sticker__face { flex-direction: row; justify-content: flex-start; padding: 14px 36px; }
+.kit-plate__name { font-size: 30px; color: var(--lop-ink); overflow: hidden; white-space: nowrap; flex-shrink: 1; max-width: 420px; }
+.kit-plate__meta { flex-shrink: 0; font-size: 30px; color: var(--lop-ink); margin-left: 10px; margin-right: 10px; white-space: nowrap; }
 
-/* 코인 칩 — 노랑 동전 자리 */
-.kit-coin__dot { width: 36px; height: 36px; border-radius: 18px; background-color: var(--lop-reward); margin-right: 12px; }
+/* 코인 — 노란 스티커 (시안 .stk.reward) */
+.kit-coin { height: 72px; }
+.kit-coin .sticker { flex-grow: 1; --sticker-face: var(--lop-reward); }
+.kit-coin .sticker__face { flex-direction: row; padding: 0 36px; }
+.kit-coin__text { font-size: 30px; color: var(--lop-reward-ink); white-space: nowrap; }
+
+/* 종목 칩 — 기운 크림 스티커 "🎯 종목 · 경기장 ▾" (시안 lobby.html .play) */
+.kit-gamechip { height: 72px; }
+.kit-gamechip .sticker { flex-grow: 1; }
+.kit-gamechip .sticker__face { padding: 0 36px; }
+.kit-gamechip__text { font-size: 30px; color: var(--lop-ink); overflow: hidden; white-space: nowrap; max-width: 520px; }
 
 /* 토스트 */
 .kit-toast-root { position: absolute; left: 0; right: 0; top: 140px; align-items: center; }

@@ -69,10 +69,9 @@
         </ui:VisualElement>
         <ui:VisualElement class="kit-gallery__row">
             <ui:VisualElement class="kit-ticker kit-gallery__ticker">
-                <lop:StickerElement>
-                    <ui:Label text="● LIVE" class="kit-ticker__tag" />
-                    <ui:Label text="시즌 1 진행 중 · 오늘도 한 판 붙어 볼까요" class="kit-text kit-ticker__text kit-ellipsis" />
-                </lop:StickerElement>
+                <lop:StickerElement class="kit-ticker__tag"><ui:VisualElement class="kit-ticker__dot" /><ui:Label text="LIVE" class="kit-title kit-ticker__tag-text" /></lop:StickerElement>
+                <ui:Label text="시즌 1 진행 중 · 오늘도 한 판 붙어 볼까요" class="kit-text kit-ticker__text kit-ellipsis" />
+                <lop:StickerElement class="kit-ticker__season"><ui:Label text="시즌 1" class="kit-ticker__season-text" /></lop:StickerElement>
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement class="kit-gallery__row">
@@ -83,9 +82,8 @@
                     <lop:TierShapeElement class="kit-gallery__tier" />
                 </lop:StickerElement>
             </ui:VisualElement>
-            <ui:VisualElement class="kit-chip kit-coin">
-                <ui:VisualElement class="kit-coin__dot" />
-                <ui:Label text="12,340" class="kit-chip__text kit-ellipsis" />
+            <ui:VisualElement class="kit-coin">
+                <lop:StickerElement><ui:Label text="🪙 12,340" class="kit-coin__text" /></lop:StickerElement>
             </ui:VisualElement>
             <lop:StickerElement class="kit-toast">
                 <ui:Label text="곧 열려요" class="kit-text kit-toast__text" />

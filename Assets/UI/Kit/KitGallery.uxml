@@ -39,14 +39,14 @@
             <ui:Button class="kit-press kit-card">
                 <lop:StickerElement class="sticker--card">
                     <ui:VisualElement class="kit-card__art kit-card__art--0"><ui:Label text="활" class="kit-title kit-card__art-text" /></ui:VisualElement>
-                    <ui:Label text="활쏘기" class="kit-title kit-card__name" />
+                    <ui:Label text="활쏘기" class="kit-card__name" />
                     <ui:Label text="바람을 읽고 과녁 한가운데를 노려요" class="kit-text kit-card__desc kit-ellipsis" />
                 </lop:StickerElement>
             </ui:Button>
             <ui:Button class="kit-press kit-card kit-card--picked">
                 <lop:StickerElement class="sticker--card">
                     <ui:VisualElement class="kit-card__art kit-card__art--1"><ui:Label text="피" class="kit-title kit-card__art-text" /></ui:VisualElement>
-                    <ui:Label text="피하기" class="kit-title kit-card__name" />
+                    <ui:Label text="피하기" class="kit-card__name" />
                     <ui:Label text="날아오는 공을 끝까지 피해요" class="kit-text kit-card__desc kit-ellipsis" />
                 </lop:StickerElement>
             </ui:Button>

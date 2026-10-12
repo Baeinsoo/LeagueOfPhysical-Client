@@ -21,6 +21,7 @@ namespace LOP.UI
         private ShellView _currentShell;
         private MatchResultView _matchResultView;
         private readonly ToastSlot<KitToastView> _toast = new();
+        private GameSelectView _gameSelect;
         private readonly CancellationTokenSource _cts = new();
 
         public FrontEndCoordinator(
@@ -78,7 +79,8 @@ namespace LOP.UI
             }
             if (destination == FrontEndDestination.GameSelect)
             {
-                return;   //  화면은 종목 선택 태스크에서 연결한다
+                OpenGameSelect();
+                return;
             }
 
             CloseCurrentShell();
@@ -92,6 +94,20 @@ namespace LOP.UI
             };
 
             _currentShell?.SetBackCallback(CloseCurrentShell);
+        }
+
+        private void OpenGameSelect()
+        {
+            if (_gameSelect != null) return;   //  두 번 눌러도 한 장만
+            _gameSelect = _windowManager.Open<GameSelectView>();
+            _gameSelect.SetCloseCallback(CloseGameSelect);
+        }
+
+        private void CloseGameSelect()
+        {
+            if (_gameSelect == null) return;
+            _windowManager.Close(_gameSelect);
+            _gameSelect = null;
         }
 
         //  토스트는 하나만 — 새 것이 오면 이전 것을 바로 닫는다.
@@ -129,6 +145,7 @@ namespace LOP.UI
             _cts.Dispose();
             var toast = _toast.Clear(_toast.Current);
             if (toast != null) _windowManager.Close(toast);
+            CloseGameSelect();
             CloseCurrentShell();
 
             if (_matchResultView != null)

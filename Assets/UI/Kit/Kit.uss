@@ -55,3 +55,13 @@
 .kit-press:active .sticker--card .sticker__face {
     translate: 4px 7px;
 }
+
+.tier-shape { width: 40px; height: 40px; }
+.tier-shape--iron { --tier-color: #7a6a62; }
+.tier-shape--bronze { --tier-color: #b0703a; }
+.tier-shape--silver { --tier-color: #8a949e; }
+.tier-shape--gold { --tier-color: #d9a520; }
+.tier-shape--platinum { --tier-color: #3fb8a8; }
+.tier-shape--emerald { --tier-color: #2fae5f; }
+.tier-shape--diamond { --tier-color: #5b8dee; }
+.tier-shape--master { --tier-color: #b25ad6; }

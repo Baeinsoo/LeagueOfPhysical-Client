@@ -38,7 +38,6 @@ namespace LOP
             return false;
         }
 
-        /// <summary>내 화면 하얀 번쩍 — 잠깐 꽉 찼다가 걷힌다. 0..1.</summary>
         /// <summary>
         /// 번쩍을 분위기에 얹는다 — 더하지 않고 밝은 쪽을 쓴다. 다시 시작 자리가 출구 바로 위라 출구 번쩍과 겹치기 때문.
         /// </summary>
@@ -49,6 +48,7 @@ namespace LOP
             return m;
         }
 
+        /// <summary>내 화면 하얀 번쩍 — 잠깐 꽉 찼다가 걷힌다. 0..1.</summary>
         public static float FlashBoost(float elapsed)
         {
             if (elapsed < 0f) return 0f;

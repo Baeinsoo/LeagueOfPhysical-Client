@@ -11,8 +11,8 @@ namespace LOP.EditorTools
     /// (<c>Prism</c>·<c>Pipe</c>·<c>BoostPad</c>)으로 세우기만 한다.
     ///
     /// <para><b>회색 박스</b>다: 기믹·스카이라인·미드그라운드는 굽지 않고 재질도 하나뿐이다. 재미를 먼저 보고,
-    /// 모양이 정해지면 그때 입힌다. 지금은 평평한 앞부분(<c>DressFrom</c>~<see cref="LOP.MapTools.MineCourse.FlatEnd"/>)만 <see cref="FlappyMineDressing"/>이
-    /// 광산 옷을 입힌다(회색 박스의 렌더러만 끄고 판정은 그대로).</para>
+    /// 모양이 정해지면 그때 입힌다. 지금은 <c>DressFrom</c>~첫 "레일 롤러코스터"(<see cref="MineZones.DressEnd"/>, 3막 151.25)만
+    /// <see cref="FlappyMineDressing"/>이 광산 옷을 입힌다(회색 박스의 렌더러만 끄고 판정은 그대로).</para>
     ///
     /// <para>전통 굽기와 같은 씬(<c>ComposedMap</c>)을 갈아 끼운다 — 두 메뉴는 서로를 덮어쓴다.
     /// 맵 룰(<see cref="LOP.FlappyMapRules"/>)도 같이 바꾼다: 광산은 추격자·수동 대시가 없다.</para>
@@ -22,7 +22,8 @@ namespace LOP.EditorTools
         private const float TickSeconds = 0.02f;
 
         //  바닥·천장을 자를 간격(좁은·낮은 구간의 전이 곡선). 꺾은선 꼭짓점은 이와 상관없이 다 들어간다.
-        private const float BreakStep = 0.5f;
+        //  옷 칸(MineDressingLayout.BentTiles)이 같은 값으로 끊어야 그림과 회색 박스가 같은 x에서 꺾인다 — 값은 한곳에서 정한다.
+        private const float BreakStep = MineDressingLayout.BreakStep;
 
         //  굴을 사다리꼴로 자르는 간격 — 전통 지름길 띠(ShortcutStripStep)와 같다.
         private const float TubeStripStep = 0.25f;
@@ -37,8 +38,8 @@ namespace LOP.EditorTools
         //  스폰 높이 범위를 정할 창 — 프로토타입 관문 틈(GAP)과 같다.
         private const float SpawnWindow = 3.75f;
 
-        //  옷 입히는 범위 시작. 끝은 코스의 평평한 앞부분 끝(MineCourse.FlatEnd — 3막은 첫 수직 갱 전이 앞 19.8).
-        //  꺾이는 곳에 맞춘 옷은 "코스 전체에 펼치기"에서 한다(10-09 결정 A).
+        //  옷 입히는 범위 시작. 끝은 코스에서 찾는다 — 첫 "레일 롤러코스터" 구간 시작(MineZones.DressEnd, 3막 151.25).
+        //  10-10 펼치기 1차: 롤러코스터부터 뒤는 2차에서 입힌다.
         private const float DressFrom = -20f;
 
         [MenuItem("LOP/Debug/Flappy 광산 코스 굽기")]
@@ -134,7 +135,7 @@ namespace LOP.EditorTools
             else
             {
                 FlappyMineMaterials.Ensure(look);
-                if (FlappyMineDressing.Dress(root, course, look, DressFrom, course.FlatEnd()))
+                if (FlappyMineDressing.Dress(root, course, look, DressFrom, MineDressingLayout.Zones(course).DressEnd))
                 {
                     //  전통 코스 바탕(구름·코인·덤불·도시 실루엣)은 끈다 — 지우지 않는다(전통 굽기가 다시 켠다).
                     List<string> hiddenBackdrop = FlappyClassicCourseBuilder.SetClassicBackdropActive(false, "Build mine course");

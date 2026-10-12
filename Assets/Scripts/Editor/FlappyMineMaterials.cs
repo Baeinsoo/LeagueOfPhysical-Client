@@ -29,6 +29,10 @@ namespace LOP.EditorTools
         private const string HazeBlendPath = TextureDir + "/haze_mouth_blend.png";
         private const string FarHazeBlendPath = TextureDir + "/haze_far_mouth_blend.png";
         private const string GlowPath = TextureDir + "/lantern_glow.png";
+        internal const string RockPaintPath = TextureDir + "/rock_paint.png";
+        /// <summary>칠한 바위 텍스처 한 변(화소). 2의 거듭제곱 — 반복(Repeat)·밉맵.</summary>
+        internal const int RockPaintSize = 1024;
+        private const int RockPaintSeed = 7;
         internal const string LookAssetPath = "Assets/Art/Settings/FlappyMineLook.asset";
 
         [MenuItem("LOP/Debug/Flappy 광산 재질 갱신")]
@@ -62,6 +66,23 @@ namespace LOP.EditorTools
             Color cartRimColor = ToColor(0x8a, 0x6a, 0x4a);
             Color oreColor = ToColor(0xc9, 0x79, 0x3f);
             Color rockDarkColor = Darken(look.rockColor, 0.7f);
+            //  바위 덩어리(Strata 재질 = 흰색 × rock_paint)의 평균 색 — 장식 색의 기준.
+            Color rockBase = CalmRockBase(look);
+
+            //  펼치기 1차 새 슬롯 9개(Task 3 보고 표) — Global Constraints에 없는 색은 그 표에서 고정으로 가져온다.
+            //  signColor(간판 판자)·boltGlow·padGlow만 FlappyMineLook 조절 값이다.
+            Color timberColor = ToColor(0x9a, 0x64, 0x38);     // 갱목 — Wood보다 어둡고 붉은 갈색
+            Color signInlayColor = ToColor(0x3a, 0x26, 0x18);  // 간판 그림 홈 — 탄 갈색
+            Color ropeColor = ToColor(0x5a, 0x46, 0x36);       // 줄(랜턴 줄·케이지 줄)
+            Color boltRimColor = ToColor(0x2a, 0x1a, 0x12);    // ⚡ 테두리 — 거의 검은 갈색
+            Color padFrameColor = ToColor(0x4a, 0x3a, 0x30);   // 발판 어두운 틀
+            //  빛 재질의 밑감(Task 3 표 "모양" 열 — ⚡ 노란 면·발판 윗면 색) × look.boltGlow/padGlow. LOP/Toon은
+            //  발광(_Emission) 프로퍼티가 없어서(shader property 목록으로 직접 확인, ADR-0017 — 소품 외곽선도
+            //  끄는 셰이더) "모양"과 "빛"을 따로 못 둔다 — 이 둘만 LanternGlow와 같은 URP Unlit 하나로 모양+빛을
+            //  합쳐 밑감에 세기를 곱한 값을 그대로 _BaseColor로 쓴다(조명 각도와 상관없이 일정하게 빛난다).
+            //  1 미만이면 블룸 문턱 밑이라(은은하게) 과하게 빛나지 않는다 — padGlow(0.8)는 일부러 거기 둔다.
+            Color boltGlowBase = ToColor(0xff, 0xd8, 0x4a);
+            Color padGlowBase = ToColor(0xff, 0xcf, 0x5a);
 
             //  슬롯 이름(Task 3 보고) → 재질. FBX 리매핑은 이 이름으로 찾는다.
             var slots = new Dictionary<string, Material>
@@ -80,7 +101,30 @@ namespace LOP.EditorTools
                 ["CartRim"] = Toon("CartRim", cartRimColor, null, shadow),
                 ["Ore"] = Toon("Ore", oreColor, null, shadow),
                 ["Glass"] = Toon("Glass", look.lanternColor, null, shadow),                 // 밝은 바탕 = 빛나는 느낌(발광 없음)
+
+                //  펼치기 1차 새 슬롯 9개.
+                ["Timber"] = Toon("Timber", Grain(look, timberColor), wood, shadow),
+                ["SignWood"] = Toon("SignWood", Grain(look, look.signColor), wood, shadow),
+                ["SignInlay"] = Toon("SignInlay", signInlayColor, null, shadow),
+                ["Rope"] = Toon("Rope", ropeColor, null, shadow),
+                //  10-11 Fix 1c(사용자 v3 "A"): 민짜 띠(strata_calm, v2·v3 "휑하다") 대신 손으로 칠한 듯한 바위 면(rock_paint.png, MineRockPaint) —
+                //  큰 덩이 그림자·굵은 금·지층. 평균 색 = CalmRockBase(장식 색 기준 그대로). 틴트는 흰색(색은 텍스처에).
+                //  UV는 굽기가 월드 좌표 / rockPaintTile로 다시 쓴다(FlappyMineDressing.WorldUv) — 판이 커도 늘어나지 않고 조각끼리 이어진다.
+                ["Strata"] = Toon("Strata", Color.white, EnsureRockPaint(look), shadow),
+                ["BoltRim"] = Toon("BoltRim", boltRimColor, null, shadow),
+                ["PadFrame"] = Toon("PadFrame", padFrameColor, null, shadow),
+                ["BoltGlow"] = UnlitOpaque("BoltGlow", ScaleRgb(boltGlowBase, look.boltGlow)),
+                ["PadGlow"] = UnlitOpaque("PadGlow", ScaleRgb(padGlowBase, look.padGlow)),
+
+                //  10-10 Fix 1b 바위 면 장식 — 전부 바위 평균 색(rock_paint 평균 = CalmRockBase)이나 갱목 색에서 조금만 어긋나게(밝은 것 = 닿는 것이라
+                //  밝은 테보다 늘 어둡다). 지층 렌즈 슬롯 기본은 어두운 쪽 — 밝은 쪽은 굽기가 층(Layer 1)마다 갈아 끼운다.
+                ["StrataPatch"] = Toon("StrataPatchDark", ScaleRgb(rockBase, 1f - look.decorContrast), null, shadow),
+                ["Seam"] = Toon("Seam", ScaleRgb(rockBase, look.decorSeamShade), null, shadow),
+                ["TimberDim"] = Toon("TimberDim", ScaleRgb(Grain(look, timberColor), look.decorTimberShade), wood, shadow),
+                ["OreDim"] = Toon("OreDim", ScaleRgb(oreColor, look.decorOreShade), null, shadow),
+                ["RailDim"] = Toon("RailDim", ScaleRgb(railColor, 0.85f), null, shadow),
             };
+            Toon("StrataPatchLight", ScaleRgb(rockBase, 1f + look.decorContrast), null, shadow);
 
             //  실루엣 네 겹 — 기본 슬롯 리매핑은 Silhouette_Cave1로(클래스 주석 참고).
             var silhouetteCave1 = UnlitOpaque("Silhouette_Cave1", look.caveSilhouette1Color);
@@ -205,6 +249,12 @@ namespace LOP.EditorTools
                 }
                 m = new Material(shader) { name = name };
                 AssetDatabase.CreateAsset(m, path);
+                //  막 만든 에셋을 한 번 왕복(저장 → 동기 재가져오기)시키고 다시 읽어 돌려준다 — 그러지 않고
+                //  바로 호출자가 SetColor 등으로 고치면(10-10 겪음), 그사이 끼는 비동기 임포트가 그 수정을
+                //  디스크 기본값으로 덮어써 버릴 때가 있다(재질마다 23개를 잇따라 만드는 Ensure에서만 보였다).
+                AssetDatabase.SaveAssets();
+                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+                m = AssetDatabase.LoadAssetAtPath<Material>(path);
             }
             return m;
         }
@@ -240,6 +290,50 @@ namespace LOP.EditorTools
                 float k = 0.9f * Mathf.Pow(1f - r, 1.5f);
                 return new Color(k, k, k, k);
             }, linear: true);
+        }
+
+        //  칠한 바위(MineRockPaint) RockPaintSize² — 평균 색 CalmRockBase. 반복·밉맵(멀리서도 반짝이지 않게), sRGB.
+        private static Texture2D EnsureRockPaint(FlappyMineLook look)
+        {
+            Color b = CalmRockBase(look);
+            var settings = RockPaintSettings(look);
+            byte[] rgba = MineRockPaint.Rgba(settings, b.r, b.g, b.b);
+            var tex = new Texture2D(settings.Size, settings.Size, TextureFormat.RGBA32, false);
+            tex.LoadRawTextureData(rgba);
+            tex.Apply();
+            byte[] png = tex.EncodeToPNG();
+            Object.DestroyImmediate(tex);
+
+            Directory.CreateDirectory(TextureDir);
+            bool same = File.Exists(RockPaintPath) && File.ReadAllBytes(RockPaintPath).SequenceEqual(png);
+            if (same == false)
+            {
+                File.WriteAllBytes(RockPaintPath, png);
+                AssetDatabase.ImportAsset(RockPaintPath, ImportAssetOptions.ForceUpdate);
+            }
+            if (AssetImporter.GetAtPath(RockPaintPath) is TextureImporter importer
+                && (importer.wrapMode != TextureWrapMode.Repeat || importer.mipmapEnabled == false || importer.sRGBTexture == false
+                    || importer.anisoLevel != 4 || importer.maxTextureSize < settings.Size))
+            {
+                importer.wrapMode = TextureWrapMode.Repeat;
+                importer.mipmapEnabled = true;
+                importer.sRGBTexture = true;
+                importer.anisoLevel = 4;
+                importer.maxTextureSize = Mathf.Max(importer.maxTextureSize, settings.Size);
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(RockPaintPath);
+        }
+
+        internal static MineRockPaint.Settings RockPaintSettings(FlappyMineLook look) =>
+            new MineRockPaint.Settings(RockPaintSize, look.rockPaintBlocks, look.rockPaintBlocks, look.rockPaintContrast, look.rockPaintStrata,
+                                       look.rockPaintStrands, look.rockPaintCracks, RockPaintSeed);
+
+        /// <summary>바위 덩어리 텍스처(rock_paint)의 평균 색 = strataColors 평균 × strataBrightness(명암은 평균 둘레로만 흔든다).</summary>
+        internal static Color CalmRockBase(FlappyMineLook look)
+        {
+            Color[] bands = look.strataColors != null && look.strataColors.Length > 0 ? look.strataColors : DefaultStrataColors;
+            return ScaleRgb(AverageRgb(bands), look.strataBrightness);
         }
 
         private static Color SunsetAt(FlappyMineLook look, float v) => Color.Lerp(look.skySunsetBottomColor, look.skySunsetTopColor, v);
@@ -313,6 +407,25 @@ namespace LOP.EditorTools
         private static Color Grain(FlappyMineLook look, Color color) => Color.Lerp(Color.white, color, look.grainStrength);
 
         private static Color Darken(Color c, float factor) => new Color(c.r * factor, c.g * factor, c.b * factor, c.a);
+
+        //  빛 재질 밑감에 세기를 곱한다 — 1보다 크면(밑감 밝은 채널이 1에 가까워서) HDR 값이 되어 블룸 문턱을 살짝 넘는다.
+        private static Color ScaleRgb(Color c, float k) => new Color(c.r * k, c.g * k, c.b * k, c.a);
+
+        //  strata.png를 구운 기본 네 색(STRATA_COLORS, mine_parts.py) — strataColors가 비었을 때 대신 쓰는 값.
+        private static readonly Color[] DefaultStrataColors =
+        {
+            new Color32(0x7a, 0x56, 0x46, 255), new Color32(0x6a, 0x48, 0x38, 255),
+            new Color32(0x8a, 0x64, 0x4e, 255), new Color32(0x5e, 0x40, 0x34, 255),
+        };
+
+        private static Color AverageRgb(Color[] colors)
+        {
+            if (colors == null || colors.Length == 0) { return Color.white; }
+            float r = 0f, g = 0f, b = 0f;
+            foreach (Color c in colors) { r += c.r; g += c.g; b += c.b; }
+            int n = colors.Length;
+            return new Color(r / n, g / n, b / n);
+        }
 
         private static Color WithAlpha(Color c, float a) => new Color(c.r, c.g, c.b, a);
 

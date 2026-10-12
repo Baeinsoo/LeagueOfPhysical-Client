@@ -235,6 +235,9 @@ namespace LOP.MapTools
         /// <summary>갈림길 2번 점프 굴의 틈.</summary>
         const double TunnelGap = 3.1;
 
+        /// <summary>고수 길 패드 방의 틈(10-10): 굴을 빠져나오면 땅으로 둘러싸인 조금 넓은 방 → 칸막이 끝에서 합류.</summary>
+        const double ChamberGap = 4.6;
+
         /// <summary>⚡ 패드 부스트 시간(초).</summary>
         const float PadDuration = 1.1f;
 
@@ -315,7 +318,7 @@ namespace LOP.MapTools
             int arcT = (int)Math.Round(2.0 * p.Flap / p.Gravity / p.Tick);
 
             //  고수 갈림길: 가운데 칸막이로 위·아래가 갈린다. 한쪽은 날갯짓 정확히 2번짜리 포물선 굴(틈 폭 일정) + 끝에 ⚡ 패드,
-            //  반대쪽은 보통 관문.
+            //  반대쪽은 보통 관문. 굴을 나오면 패드 방(틈 4.6)에서 칸막이 끝과 함께 합류.
             void Fork(bool up)
             {
                 double side = up ? 1 : -1, fx = cur, laneC = baseY + (up ? ForkTunnelUp : -ForkTunnelDown);
@@ -341,6 +344,9 @@ namespace LOP.MapTools
                 double padX = ax1 + 0.3;
                 pads.Add(new MinePad(new MineRect((float)padX, (float)(padX + 1.2), (float)(laneC - 1.4), (float)(laneC + 1.4)), PadDuration));
                 double fx1 = padX + 12;   // 부스트 약 10 m가 칸막이 안에서 끝나게
+                //  패드 방(10-10, 웹 v33): 굴 끝 ~ 칸막이 끝, 굴 칸 중심 높이 그대로 — 위·아래는 굴과 같은 칸 끝까지 땅.
+                double roomY = laneC;
+                Tube(ax1, fx1, _ => roomY, ChamberGap, laneLo, laneHi);
                 walls.Add(new MineRect((float)fx, (float)fx1, (float)(baseY - 0.6), (float)(baseY + 0.6)));
 
                 for (double gx = fx + 3; gx < fx1 - 2; gx += 5.4)

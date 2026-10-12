@@ -3,7 +3,7 @@
 실행:  blender -b -P Tools/Blender/mine_parts.py -- <LeagueOfPhysical-Client/Assets/Art 절대경로> [부품 이름 ...]
 출력:  <Art>/Models/Mine/<부품>.fbx,  <Art>/Textures/Mine/{wood_grain,rock}.png
        부품 이름을 주면 그 부품 FBX만 다시 뽑는다(텍스처는 안 건드린다) — FBX는 뽑을 때마다 바이트가 달라져
-       안 바뀐 부품까지 커밋에 섞이지 않게.
+       안 바뀐 부품까지 커밋에 섞이지 않게. 이름에 'strata'를 넣으면 지층 띠 텍스처 strata.png만 함께 뽑는다.
 
 좌표는 전부 **게임(유니티) 좌표**로 적는다: x = 오른쪽(코스 진행), y = 위, z = 깊이(+가 카메라 반대쪽, 카메라는 −z).
 단위 m. 블렌더로 옮길 때 (x, y, z) → 블렌더 (x, z, y)로 바꾸고, FBX 축 설정이 다시 유니티 축으로 돌린다.
@@ -27,7 +27,8 @@ AXIS_FORWARD = 'Z'
 AXIS_UP = 'Y'
 
 # 무늬 텍스처 한 장이 덮는 길이(m). UV = 상자 투영 / 이 값.
-UV_TILE = {'Plank': 1.0, 'Wood': 1.0, 'Tie': 1.0, 'Rock': 2.0, 'RockDark': 2.0}
+UV_TILE = {'Plank': 1.0, 'Wood': 1.0, 'Tie': 1.0, 'Rock': 2.0, 'RockDark': 2.0,
+           'Timber': 1.0, 'SignWood': 1.0, 'Strata': 1.0, 'TimberDim': 1.0}
 
 HALF = 7.28   # 통로 반 높이(MineCourse.BaseHalf) — CaveMouth 안쪽 선
 
@@ -45,6 +46,7 @@ class Part:
         self.bm = bmesh.new()
         self.slots = []
         self.uvo = self.bm.faces.layers.float.new('uvo')
+        self.tile = {}           # 슬롯별 UV_TILE 덮어쓰기(이 부품만) — 축척해 쓰는 부품이 단위 크기에 맞춘다
 
     def _slot(self, mat):
         if mat not in self.slots:
@@ -161,7 +163,8 @@ class Part:
         for f in bm.faces:
             n = f.normal; g = (abs(n.x), abs(n.z), abs(n.y))   # 게임 축 크기
             ax = g.index(max(g))
-            tile = UV_TILE.get(self.slots[f.material_index], 1.0)
+            slot = self.slots[f.material_index]
+            tile = self.tile.get(slot, UV_TILE.get(slot, 1.0))
             o = f[self.uvo]
             for l in f.loops:
                 gx, gy, gz = l.vert.co.x, l.vert.co.z, l.vert.co.y
@@ -394,8 +397,349 @@ def silhouette_strip():
     return p
 
 
+# ──────────── 펼치기 1차(10-10) — 갱 입구·수직 갱·계단 내리막·고수 갈림길 ────────────
+# "x 축척"·"y 축척" 부품은 그 축 길이가 1 m인 단위 조각이다. 축척하면 그 축 방향으로 늘어나므로
+# 그 축을 따라 끝없이 이어지는 모양(각재·띠)만 넣고, 점 같은 장식(못·쇠띠·돌)은 넣지 않는다 — 늘어나 타원이 된다.
+# 지층 띠(Strata)는 띠가 v(= y)로만 바뀌고 u(= x)로는 거의 같은 무늬라 x로 늘리거나 좁혀도 그대로 읽힌다.
+
+PORTAL_HALF = 7.28      # 평지 통로 반 높이(14.56 / 2)
+PORTAL_RIM = 1.72       # 문틀이 통로 위·아래 밖으로 덮는 높이 — 18 = 14.56 + 2 × 1.72
+ENT_Z0, ENT_Z1 = 0.06, 0.66   # 입구 문틀 깊이: 판정면(z 0) 뒤 0.6 m
+BORE_HALF = 1.55        # 굴 틈 3.1의 반
+ROCK_Z0, ROCK_Z1 = -1.3, 1.3  # 바위 몸통 깊이(CeilingRock과 같은 앞면 −1.3)
+
+
+def wedge(p, a, b, c, z0, z1, mat, uvo=0.0):
+    """xy 삼각형 a·b·c를 z0~z1로 뽑은 쐐기."""
+    return p._ring_prism([(q[0], q[1], z0) for q in (a, b, c)], [(q[0], q[1], z1) for q in (a, b, c)], mat, uvo)
+
+
+def entrance_frame():
+    """EntranceFrame — 갱 입구 문틀. 원점 = 문턱(바닥선) 가운데: x ∈ [−2.5, 2.5], y ∈ [−1.72, 16.28]
+    (통로 14.56 = y 0~14.56, 위·아래로 1.72씩 밖을 덮는다), z ∈ [0.06, 0.66](전부 판정면 뒤).
+    기둥 0.6 × 0.6 둘(x ±2.2), 문턱 밑 깔목, 상인방 두 겹, 위 모서리 버팀목, 쐐기, 쇠띠, 볼트."""
+    p = Part('EntranceFrame')
+    zc, d = (ENT_Z0 + ENT_Z1) / 2, ENT_Z1 - ENT_Z0
+    top = 2 * PORTAL_HALF                              # 천장선 y 14.56
+    lo, hi = -PORTAL_RIM, top + PORTAL_RIM             # −1.72, 16.28
+    p.prism_x(chamfer_rect(lo + 0.35, zc, 0.7, d, 0.05), -2.5, 2.5, 'Timber')               # 문턱 깔목 y −1.72~−1.02
+    for sx in (-1, 1):
+        p.prism_y(chamfer_rect(sx * 2.2, zc, 0.6, d, 0.05), lo + 0.7, top + 0.06, 'Timber', uvo=0.31 * (sx > 0))
+    p.prism_x(chamfer_rect(top + 0.06 + 0.4, zc, 0.8, d, 0.05), -2.5, 2.5, 'Timber', uvo=0.17)   # 상인방 y 14.62~15.42
+    p.prism_x(chamfer_rect((top + 0.86 + hi) / 2, zc, hi - top - 0.86, d, 0.05), -2.5, 2.5, 'Timber', uvo=0.53)  # 머리목 ~16.28
+    for sx in (-1, 1):
+        p.strut((sx * 1.9, top - 2.0), (sx * 0.8, top + 0.06), 0.34, 0.4, zc + 0.04, 'Timber', uvo=0.4)   # 위 모서리 버팀목
+        ix = sx * 1.9                                                                                  # 기둥 안쪽 면
+        wedge(p, (ix, top + 0.06), (ix, top - 0.42), (ix - sx * 0.36, top + 0.06), zc - 0.2, zc + 0.2, 'Timber')
+        wedge(p, (ix, lo + 0.7), (ix, lo + 1.18), (ix - sx * 0.36, lo + 0.7), zc - 0.2, zc + 0.2, 'Timber')
+        for by in (top - 0.5, -0.45):
+            p.box((sx * 2.19, by, zc), (0.62, 0.14, d + 0.04), 'Strap')                                # 쇠띠 z 0.04~0.68, 바깥 면은 기둥과 같게(폭 5.0)
+    for bx in (-1.8, -0.6, 0.6, 1.8):
+        p.cyl((bx, top + 0.46, ENT_Z0 - 0.0), 0.07, 0.06, 'z', 8, 'Iron')                             # 볼트 z 0.03~0.09
+    return p
+
+
+def entrance_sign():
+    """EntranceSign — 갱 입구 간판(글자 없음). 가운데가 원점: x ∈ [−1.5, 1.5], y ∈ [−0.5, 0.5], 판 z ∈ [−0.06, 0.06].
+    앞(−z)에 그림 홈: 왼쪽 곡괭이, 오른쪽 광차(SignInlay, z −0.085~−0.06). 양끝 쇠띠."""
+    p = Part('EntranceSign')
+    for i, yc in enumerate((-1 / 3, 0.0, 1 / 3)):
+        p.prism_x(chamfer_rect(yc, 0.0, 1 / 3 - 0.012, 0.12, 0.025), -1.5, 1.5, 'SignWood', uvo=0.29 * i)
+    for sx in (-1, 1):
+        p.box((sx * 1.28, 0.0, 0.0), (0.12, 1.0, 0.14), 'Iron')
+    z0, z1 = -0.085, -0.06
+    # 곡괭이: 자루 + 휜 머리
+    a, b = (-0.98, -0.36), (-0.4, 0.28)
+    p.strut(a, b, 0.08, z1 - z0, (z0 + z1) / 2, 'SignInlay')
+    L = math.hypot(b[0] - a[0], b[1] - a[1]); dx, dy = (b[0] - a[0]) / L, (b[1] - a[1]) / L
+    px, py = -dy, dx
+    head = [(b[0] + s * 0.34 * px - s * s * 0.1 * dx, b[1] + s * 0.34 * py - s * s * 0.1 * dy) for s in (-1, -0.5, 0, 0.5, 1)]
+    for q0, q1 in zip(head, head[1:]):
+        p.strut(q0, q1, 0.09, z1 - z0, (z0 + z1) / 2, 'SignInlay')
+    # 광차: 몸통 사다리꼴 + 바퀴 + 레일 줄
+    p.slab([(0.3, -0.12), (0.98, -0.12), (1.1, 0.26), (0.18, 0.26)], z0, z1, 'SignInlay')
+    for wx in (0.45, 0.83):
+        p.cyl((wx, -0.22, (z0 + z1) / 2), 0.1, z1 - z0, 'z', 10, 'SignInlay', smooth=False)
+    p.strut((0.1, -0.35), (1.18, -0.35), 0.04, z1 - z0, (z0 + z1) / 2, 'SignInlay')
+    return p
+
+
+LANTERN_SAG = 0.35
+
+
+def lantern_string():
+    """LanternString — 처진 줄 + 작은 랜턴 4개. 원점 = 왼끝(거는 점): x ∈ [0, 1](x 축척으로 늘린다), 오른끝도 y 0.
+    줄은 y = −0.35·4t(1−t)로 처지고, 랜턴은 t = 0.2·0.4·0.6·0.8에 매달려 아래 끝 y ≈ −0.66.
+    주의: x로 늘리면 랜턴도 그만큼 넓어진다(작은 랜턴 폭 0.2)."""
+    p = Part('LanternString')
+    n = 16
+    pts = [(i / n, -LANTERN_SAG * 4 * (i / n) * (1 - i / n)) for i in range(n + 1)]
+    for q0, q1 in zip(pts, pts[1:]):
+        p.strut(q0, q1, 0.035, 0.035, 0.0, 'Rope')
+    for t in (0.2, 0.4, 0.6, 0.8):
+        y = -LANTERN_SAG * 4 * t * (1 - t)
+        p.cyl((t, y - 0.06, 0.0), 0.012, 0.12, 'y', 6, 'Iron')
+        p.cyl((t, y - 0.14, 0.0), 0.085, 0.05, 'y', 8, 'Iron')
+        p.cyl((t, y - 0.27, 0.0), 0.1, 0.22, 'y', 8, 'Glass')
+        p.cyl((t, y - 0.4, 0.0), 0.075, 0.04, 'y', 8, 'Iron')
+    return p
+
+
+def shaft_timber():
+    """ShaftTimber — 갱도 벽 가로 갱목 한 줄. 원점 = 왼끝 아래: x ∈ [0, 1](x 축척), y ∈ [0, 0.4], z ∈ [−0.5, 0.5].
+    앞뒤 모서리만 깎아(x 방향 이음 없음) 층층이 쌓으면 줄 사이에 홈이 보인다(간격 > 0.4일 때 틈)."""
+    p = Part('ShaftTimber')
+    p.prism_x(chamfer_rect(0.2, 0.0, 0.4, 1.0, 0.06), 0.0, 1.0, 'Timber')
+    return p
+
+
+def cage_rail():
+    """CageRail — 승강 케이지 안내 레일 두 줄 + 줄. 원점 = 아래 끝 가운데: y ∈ [0, 1](y 축척으로 늘린다),
+    안내 각재 x ±0.95(케이지 폭 1.6 바로 밖), 안쪽 면에 쇠 레일, 가운데 매단 줄. z ∈ [−0.11, 0.11]."""
+    p = Part('CageRail')
+    for sx in (-1, 1):
+        p.prism_y(chamfer_rect(sx * 0.95, 0.0, 0.16, 0.22, 0.03), 0.0, 1.0, 'Timber', uvo=0.4 * (sx > 0))
+        p.box((sx * 0.855, 0.5, 0.0), (0.03, 1.0, 0.08), 'Rail')
+    p.cyl((0.0, 0.5, 0.0), 0.025, 1.0, 'y', 6, 'Rope')
+    return p
+
+
+def cage():
+    """Cage — 나무·쇠 승강 케이지. 가운데가 원점: x ∈ [−0.8, 0.8], y ∈ [−1, 1], z ∈ [−0.6, 0.6].
+    바닥·지붕 판, 쇠 모서리 기둥, 아래 반은 판자 벽, 위 반은 쇠창살, 가로 쇠띠."""
+    p = Part('Cage')
+    for yy in (-0.93, 0.93):
+        p.box((0.0, yy, 0.0), (1.6, 0.14, 1.2), 'Wood', uvo=0.2 * (yy > 0))
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            p.box((sx * 0.76, 0.0, sz * 0.56), (0.08, 1.72, 0.08), 'Iron')
+        p.box((sx * 0.76, -0.55, 0.0), (0.06, 0.62, 1.04), 'Wood')
+    for sz in (-1, 1):
+        p.box((0.0, -0.55, sz * 0.56), (1.44, 0.62, 0.06), 'Wood')
+        for i in range(7):
+            p.box((-0.6 + 0.2 * i, 0.27, sz * 0.56), (0.04, 1.04, 0.04), 'Iron')
+        for by in (-0.22, 0.8):
+            p.box((0.0, by, sz * 0.57), (1.56, 0.08, 0.07), 'Strap')
+    return p
+
+
+BENCH_DROP = 4.5
+
+
+def bench_face():
+    """BenchFace — 계단식 바위 단(한 단). 원점 = 단 윗면 앞 모서리의 왼끝(윗면 = 바닥선): x ∈ [0, 1](x 축척 = 단 길이),
+    y ∈ [−4.5, 0](한 단 높이 4.5 = 아랫단 바닥선까지), 몸통 z ∈ [−1.3, 1.3], 위 밝은 띠(RockEdge) y −0.18~0 · z −1.35~1.3.
+    앞면은 지층 띠(Strata, 4.5 m에 띠 4줄 — 아랫단도 4.5 아래라 무늬가 이어진다). 천장 쪽 단은 z축 180° 돌려 쓴다."""
+    p = Part('BenchFace')
+    p.tile['Strata'] = BENCH_DROP
+    p.prism_x(chamfer_rect(-0.09, -0.025, 0.18, 2.65, 0.05), 0.0, 1.0, 'RockEdge')
+    p.box((0.5, -(BENCH_DROP + 0.18) / 2, 0.0), (1.0, BENCH_DROP - 0.18, ROCK_Z1 - ROCK_Z0), 'Strata')
+    return p
+
+
+def short_scaffold():
+    """ShortScaffold — 단 앞면에 거는 짧은 비계 + 사다리. 원점 = 아래 가운데: x ∈ [−1.2, 1.2], y ∈ [0, 2.5], z ∈ [−0.35, 0.35].
+    기둥 둘(x ±1.05), 윗판(y 2.3~2.5), 가운데 띠장, 엇댄 버팀목, 앞(−z)에 사다리(x −0.65~−0.25)."""
+    p = Part('ShortScaffold')
+    for sx in (-1, 1):
+        p.prism_y(chamfer_rect(sx * 1.05, 0.0, 0.2, 0.2, 0.02), 0.0, 2.3, 'Wood', uvo=0.3 * (sx > 0))
+    p.prism_x(chamfer_rect(2.4, 0.0, 0.2, 0.7, 0.03), -1.2, 1.2, 'Wood', uvo=0.6)
+    p.box((0.0, 1.15, 0.1), (1.9, 0.14, 0.12), 'Wood')
+    p.strut((-0.95, 0.1), (0.95, 2.25), 0.12, 0.08, 0.18, 'Wood')
+    for xr in (-0.65, -0.25):
+        p.box((xr, 1.25, -0.22), (0.07, 2.5, 0.07), 'Wood')
+    y = 0.25
+    while y < 2.45:
+        p.box((-0.45, y, -0.22), (0.4, 0.05, 0.05), 'Wood')
+        y += 0.3
+    return p
+
+
+def rock_mass():
+    """RockMass — 지층 무늬 바위 덩어리 조각. 원점 = 왼끝 아래: x ∈ [0, 1], y ∈ [0, 1](x·y 축척), z ∈ [−1.3, 1.3].
+    UV는 단위 상자에 텍스처 한 장(띠 4줄) — 축척한 높이에 띠 4줄. 테두리는 없다(경계 띠는 MergeSlope·따로)."""
+    p = Part('RockMass')
+    p.box((0.5, 0.5, 0.0), (1.0, 1.0, ROCK_Z1 - ROCK_Z0), 'Strata')
+    return p
+
+
+def bore_frame():
+    """BoreFrame — 굴 입구 문틀(갱목). 원점 = 굴 입구 중심(틈 가운데): x ∈ [−0.3, 1.0], y ∈ [−1.75, 1.75](틈 ±1.55 바로 밖에
+    0.2 두께 상인방·문턱), 상인방·문턱 z ∈ [−1.6, 0.5](바위 앞면 −1.3보다 0.3 앞). 틈을 가로지르는 문설주는 판정면 뒤
+    (x −0.3~0.1, z 0.2~0.5)라 새를 가리지 않는다. 쇠띠·볼트."""
+    p = Part('BoreFrame')
+    for sy in (-1, 1):
+        yc = sy * (BORE_HALF + 0.1)
+        p.prism_x(chamfer_rect(yc, -0.55, 0.2, 2.1, 0.03), -0.3, 1.0, 'Timber', uvo=0.3 * (sy > 0))
+        p.box((0.45, yc, -0.55), (0.1, 0.21, 2.14), 'Strap')
+        for bx in (-0.12, 0.8):
+            p.cyl((bx, yc, -1.62), 0.05, 0.06, 'z', 8, 'Iron')
+    p.prism_y(chamfer_rect(-0.1, 0.35, 0.4, 0.3, 0.03), -BORE_HALF, BORE_HALF, 'Timber', uvo=0.7)
+    return p
+
+
+def bolt_glyph(s, cx=0.0, cy=0.0):
+    """굵은 ⚡ 외곽선(높이 s, 가운데 정렬)."""
+    pts = [(-0.05, 0.5), (0.30, 0.5), (0.08, 0.08), (0.28, 0.08), (-0.12, -0.5), (0.0, -0.06), (-0.22, -0.06)]
+    return [(cx + (x - 0.04) * s, cy + y * s) for x, y in pts]
+
+
+def bolt_sign():
+    """BoltSign — 판자 위 굵은 번개(⚡). 가운데가 원점: x ∈ [−0.95, 0.95], y ∈ [−0.55, 0.55], 판 z ∈ [−0.06, 0.06].
+    어두운 테두리(BoltRim, z −0.08~−0.06, 높이 1.09) 위에 노란 면(BoltGlow — 빛 재질, z −0.11~−0.08, 높이 0.95)."""
+    p = Part('BoltSign')
+    for i, yc in enumerate((-0.3667, 0.0, 0.3667)):
+        p.prism_x(chamfer_rect(yc, 0.0, 0.36, 0.12, 0.02), -0.95, 0.95, 'SignWood', uvo=0.23 * i)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            p.cyl((sx * 0.8, sy * 0.3667, -0.07), 0.04, 0.04, 'z', 8, 'Iron')
+    p.slab(bolt_glyph(0.95 * 1.15), -0.08, -0.06, 'BoltRim')
+    p.slab(bolt_glyph(0.95), -0.11, -0.08, 'BoltGlow')
+    return p
+
+
+def pad_glow():
+    """PadGlow — ⚡ 발판. 가운데가 원점: x ∈ [−0.6, 0.6], y ∈ [−0.15, 0.15], z ∈ [−0.67, 0.65].
+    어두운 틀(PadFrame, y −0.15~0.11) 위에 빛 판(PadGlow, y 0.11~0.15), 앞면(z −0.67~−0.65)에 > > > (PadGlow)."""
+    p = Part('PadGlow')
+    p.box((0.0, -0.02, 0.0), (1.2, 0.26, 1.3), 'PadFrame')
+    p.box((0.0, 0.13, 0.0), (1.0, 0.04, 1.1), 'PadGlow')
+    for cx in (-0.33, 0.0, 0.33):
+        p.strut((cx - 0.08, 0.07), (cx + 0.07, -0.02), 0.045, 0.02, -0.66, 'PadGlow')
+        p.strut((cx - 0.08, -0.11), (cx + 0.07, -0.02), 0.045, 0.02, -0.66, 'PadGlow')
+    return p
+
+
+DIV_HALF = 0.6
+
+
+def divider_wall():
+    """DividerWall — 두꺼운 갱목 칸막이 1 m. 원점 = 왼끝 가운데: x ∈ [0, 1](x 축척), y ∈ [−0.6, 0.6](칸막이 높이 1.2 그대로),
+    위·아래 밝은 테(Band, y ±0.42~±0.6, z ±0.75 — 닿는 면) 사이에 각재 두 줄(Timber, z ±0.7). 쇠띠는 x로 늘어나므로 넣지 않는다."""
+    p = Part('DividerWall')
+    for sy in (-1, 1):
+        p.prism_x(chamfer_rect(sy * (DIV_HALF - 0.09), 0.0, 0.18, 1.5, 0.03), 0.0, 1.0, 'Band')
+        p.prism_x(chamfer_rect(sy * 0.21, 0.0, 0.4, 1.4, 0.05), 0.0, 1.0, 'Timber', uvo=0.35 * (sy > 0))
+    return p
+
+
+def merge_slope():
+    """MergeSlope — 비스듬히 열리는 바위 쐐기. 원점 = 왼끝 아래: 1 × 1(x·y 축척), 바위는 빗변 (0,0)→(1,1)의 위쪽(왼쪽 위 삼각형),
+    빗변 쪽에 밝은 띠(RockEdge, 두께 0.13 수직, z −1.35~1.3). 천장이 오른쪽으로 갈수록 올라가며 열린다.
+    바닥 쪽은 y 축척을 음수로(위아래 뒤집기). 몸통 z ∈ [−1.3, 1.3], 지층 띠는 RockMass와 같은 단위 UV."""
+    p = Part('MergeSlope')
+    a = 0.13 * math.sqrt(2)
+    p.slab([(0.0, a), (1.0 - a, 1.0), (0.0, 1.0)], ROCK_Z0, ROCK_Z1, 'Strata')
+    p.slab([(0.0, 0.0), (1.0, 1.0), (1.0 - a, 1.0), (0.0, a)], ROCK_Z0 - 0.05, ROCK_Z1, 'RockEdge')
+    return p
+
+
+NEW_PARTS = [entrance_frame, entrance_sign, lantern_string, shaft_timber, cage_rail, cage, bench_face, short_scaffold,
+             rock_mass, bore_frame, bolt_sign, pad_glow, divider_wall, merge_slope]
+
+
+# ════════════════════════ 바위 면 장식(10-10 Task 7 Fix 1b) ════════════════════════
+#  사용자 10-10 "차분해지긴 했는데 너무 휑하다": 판정 고체 바위 면 위에 붙이는 납작한 장식. 전부 뒷면 z = 0, 앞면 −두께(얇다 —
+#  원근으로 옆·윗면이 밝은 띠로 드러나지 않게). 밝은 테두리·볼트·점 무늬는 없다(밝은 것 = 닿는 것, 판정선 위 얇은 테만).
+#  재질 슬롯은 어두운 전용 슬롯(Seam·StrataPatch·TimberDim·OreDim·RailDim) — 색은 FlappyMineMaterials가 바위 색에서 정한다.
+DECOR_T = 0.01   # 무늬(지층 렌즈·금·광맥) 두께 — 0.04는 원근으로 윗면이 1~2 px 밝은 선으로 보였다(cap3 1차)
+PROP_T = 0.12    # 박힌 갱목·레일 조각 두께
+
+
+def _ribbon(center, half_width):
+    """중심선 점들(x, y)과 점마다 반폭 → 위 변 + 거꾸로 아래 변 외곽선."""
+    top = [(x, y + w) for (x, y), w in zip(center, half_width)]
+    bot = [(x, y - w) for (x, y), w in zip(center, half_width)]
+    return top + list(reversed(bot))
+
+
+def strata_lens():
+    """StrataLens — 바위 면의 은은한 지층 렌즈(물결 진 긴 띠). 원점 = 왼끝 가운데: x ∈ [0, 1](x 축척 = 길이), y ∈ [−0.5, 0.5](y 축척 = 두께),
+    z ∈ [−0.01, 0]. 양끝이 뾰족하게 가늘어져 바위 무늬처럼 녹아든다. 슬롯 StrataPatch(굽기가 층에 따라 조금 어둡게/밝게 갈아 끼운다)."""
+    p = Part('StrataLens')
+    n = 28
+    top, bot = [], []
+    for i in range(n + 1):
+        t = i / n
+        s = math.sin(math.pi * t) ** 0.7
+        top.append((t, 0.5 * s * (1 + 0.18 * math.sin(3 * math.pi * t + 0.4))))
+        bot.append((t, -0.5 * s * (1 + 0.12 * math.sin(5 * math.pi * t + 1.3))))
+    outline = top + list(reversed(bot[1:-1]))
+    p.slab(outline, -DECOR_T, 0.0, 'StrataPatch')
+    return p
+
+
+def rock_seam():
+    """RockSeam — 바위 면의 큰 금(이음매). 원점 = 왼끝 가운데: x ∈ [0, 1](x 축척 = 길이), y는 지그재그 ±0.1 + 갈래 −0.28·+0.2(축척 1),
+    z ∈ [−0.01, 0]. 끝이 가늘어지는 리본 + 짧은 갈래 둘. 슬롯 Seam(바위보다 조금 어둡다)."""
+    p = Part('RockSeam')
+    ts = [0.0, 0.12, 0.25, 0.37, 0.5, 0.63, 0.76, 0.88, 1.0]
+    ys = [0.0, 0.06, -0.04, 0.08, 0.02, -0.06, 0.03, -0.05, 0.0]
+    ws = [0.006 + 0.032 * math.sin(math.pi * t) ** 0.5 for t in ts]
+    p.slab(_ribbon(list(zip(ts, ys)), ws), -DECOR_T, 0.0, 'Seam')
+    p.slab([(0.49, 0.0), (0.53, 0.02), (0.72, -0.28)], -DECOR_T, 0.0, 'Seam')
+    p.slab([(0.24, -0.03), (0.27, -0.05), (0.34, 0.2)], -DECOR_T, 0.0, 'Seam')
+    return p
+
+
+def timber_set():
+    """TimberSet — 바위에 박힌 갱목 받침(기둥 둘 + 상인방 + 귀 받침). 원점 = 아래 가운데: x ∈ [−1.1, 1.1], y ∈ [0, 2.46],
+    z ∈ [−0.12, 0]. 상인방 아랫면 y = 2.2(랜턴을 거는 자리). 슬롯 TimberDim(어두운 갱목)."""
+    p = Part('TimberSet')
+    zc = -PROP_T / 2
+    for i, px in enumerate((-0.9, 0.9)):
+        p.box((px, 1.1, zc), (0.22, 2.2, PROP_T), 'TimberDim', uvo=0.31 * i)
+    p.box((0.0, 2.33, zc), (2.2, 0.26, PROP_T), 'TimberDim', uvo=0.17)
+    for sx in (-1, 1):
+        p.strut((sx * 0.79, 1.72), (sx * 0.42, 2.2), 0.12, PROP_T * 0.8, zc, 'TimberDim')
+    return p
+
+
+def cribbing():
+    """Cribbing — 바위에 박힌 갱목 쌓기(가로 통나무 + 마구리 둘을 번갈아 네 켜). 원점 = 아래 가운데: x ∈ [−0.6, 0.6], y ∈ [0, 1.6],
+    z ∈ [−0.12, 0]. 슬롯 TimberDim."""
+    p = Part('Cribbing')
+    zc = -PROP_T / 2
+    for i in range(4):
+        y = i * 0.4
+        p.box((0.0, y + 0.1, zc), (1.2, 0.2, PROP_T), 'TimberDim', uvo=0.23 * i)
+        for ex in (-0.45, 0.45):
+            p.box((ex, y + 0.3, zc), (0.2, 0.2, PROP_T), 'TimberDim', uvo=0.11 * i)
+    return p
+
+
+def ore_vein():
+    """OreVein — 바위 면의 가는 광맥 + 작은 광석 조각 셋. 원점 = 왼끝 가운데: x ∈ [0, 1](x 축척), y ±0.12, z ∈ [−0.015, 0].
+    광맥은 Seam, 조각은 OreDim(어두운 구리빛 — 반짝이지 않는다)."""
+    p = Part('OreVein')
+    ts = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+    ys = [0.0, 0.03, -0.02, 0.04, -0.01, 0.0]
+    ws = [0.004 + 0.022 * math.sin(math.pi * t) ** 0.5 for t in ts]
+    p.slab(_ribbon(list(zip(ts, ys)), ws), -DECOR_T, 0.0, 'Seam')
+    for cx, cy, r, rot in ((0.27, 0.0, 0.07, 0.3), (0.55, 0.035, 0.09, 1.1), (0.78, -0.01, 0.06, 2.0)):
+        pts = [(cx + r * (1 + 0.25 * math.sin(3 * k)) * math.cos(rot + 2 * math.pi * k / 5),
+                cy + r * 0.8 * (1 + 0.25 * math.sin(3 * k)) * math.sin(rot + 2 * math.pi * k / 5)) for k in range(5)]
+        p.slab(pts, -0.015, 0.0, 'OreDim')
+    return p
+
+
+def rail_scrap():
+    """RailScrap — 바위에 묻힌 끊긴 레일 조각(침목 넷 + 레일, 끝이 휘어 들림). 원점 = 왼끝 아래: x ∈ [0, 1.6], y ∈ [0, ~0.3],
+    z ∈ [−0.1, 0]. 슬롯 RailDim·TimberDim."""
+    p = Part('RailScrap')
+    zc = -0.05
+    for i, tx in enumerate((0.15, 0.55, 0.95, 1.35)):
+        p.box((tx, 0.05, zc), (0.18, 0.1, 0.1), 'TimberDim', uvo=0.19 * i)
+    p.box((0.65, 0.135, zc), (1.3, 0.07, 0.08), 'RailDim')
+    p.strut((1.28, 0.135), (1.6, 0.3), 0.07, 0.08, zc, 'RailDim')
+    return p
+
+
+DECOR_PARTS = [strata_lens, rock_seam, timber_set, cribbing, ore_vein, rail_scrap]
+
+
 PARTS = [gate_plank, gate_strap, gate_cap, trestle_bay, rail_span, ceiling_rock, cave_mouth, beam,
-         bg_frame, ladder, walkway, bg_trestle_bay, mine_cart, lantern, silhouette_strip]
+         bg_frame, ladder, walkway, bg_trestle_bay, mine_cart, lantern, silhouette_strip] + NEW_PARTS + DECOR_PARTS
 
 
 def export(part):
@@ -480,6 +824,49 @@ def bake_textures():
               f'min={float(arr.min()):.3f} max={float(min(arr.max(), 1.0)):.3f}')
 
 
+# 지층 띠 기본 4색(sRGB) — 시안 mine_sections.py strata_fill의 strA~D. 위에서부터가 아니라 v(아래→위) 순서.
+STRATA_COLORS = ('#7a5646', '#6a4838', '#8a644e', '#5e4034')
+
+
+def bake_strata():
+    """strata.png — 따뜻한 갈색 4색 가로 띠 + 결. 색을 텍스처에 굽는다(재질 기본색은 흰색으로 둔다).
+    띠 경계와 결은 u(x) 방향 주파수가 1~2뿐이라 x로 크게 늘리거나 좁혀도(축척 부품) 가로 지층으로 읽힌다.
+    양방향 이어짐(정수 주파수), 띠 4줄 = 텍스처 한 장."""
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    u, v = np.meshgrid(np.arange(N) / N, np.arange(N) / N)
+    rng = np.random.default_rng(23)
+
+    def wob(fu, fv, n):
+        out = np.zeros_like(u)
+        for _ in range(n):
+            i = int(rng.integers(0, fu + 1)); j = int(rng.integers(1, fv + 1)) if fv else 0
+            if i == 0 and j == 0:
+                continue
+            out += np.sin(2 * np.pi * (i * u + j * v) + rng.uniform(0, 2 * np.pi)) / math.hypot(i, j)
+        return out / (np.abs(out).max() + 1e-9)
+
+    # 띠 경계: v를 낮은 u 주파수로 살짝 비튼다(경계가 물결)
+    vv = (v + 0.035 * wob(2, 1, 6)) % 1.0
+    k = np.floor(vv * 4).astype(int) % 4
+    cols = np.array([[int(c[i:i + 2], 16) / 255.0 for i in (1, 3, 5)] for c in STRATA_COLORS])
+    rgb = cols[k]
+    # 띠 안 명암: 위쪽이 조금 밝게(층 윗면이 빛 받는 느낌) + 경계 바로 아래 어두운 금
+    f = (vv * 4) % 1.0
+    shade = 0.92 + 0.1 * f - 0.22 * np.clip((f - 0.96) / 0.04, 0, 1) - 0.12 * np.clip((0.03 - f) / 0.03, 0, 1)
+    streak = wob(2, 48, 40)      # 가로 결(세로 주파수만 높다)
+    grain = wob(1, 96, 30)
+    m = shade * (1.0 + 0.06 * streak + 0.03 * grain)
+    out = np.clip(rgb * m[..., None], 0, 1).astype(np.float32)
+    rgba = np.concatenate([out, np.ones_like(out[..., :1])], axis=-1)
+    img = bpy.data.images.new('strata', N, N, alpha=False)
+    img.pixels.foreach_set(rgba.ravel())
+    img.filepath_raw = os.path.join(TEX_DIR, 'strata.png')
+    img.file_format = 'PNG'
+    img.save()
+    print(f'TEX strata.png {N}x{N} mean_rgb={tuple(round(float(x), 3) for x in out.reshape(-1, 3).mean(0))} '
+          f'seam_u={float(np.abs(out[:, 0] - out[:, -1]).mean()):.4f} seam_v={float(np.abs(out[0] - out[-1]).mean()):.4f}')
+
+
 def main():
     os.makedirs(MODEL_DIR, exist_ok=True)
     os.makedirs(TEX_DIR, exist_ok=True)
@@ -495,6 +882,8 @@ def main():
         print(f'PART {part.name:16s} tris={tris:4d} x=[{x0:.3f},{x1:.3f}] y=[{y0:.3f},{y1:.3f}] z=[{z0:.3f},{z1:.3f}] slots={slots} -> {os.path.relpath(path, ART)}')
     if not ONLY:
         bake_textures()
+    if not ONLY or 'strata' in ONLY:
+        bake_strata()
     print('mine_parts: DONE')
 
 

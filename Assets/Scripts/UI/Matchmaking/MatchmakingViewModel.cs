@@ -29,12 +29,15 @@ namespace LOP.UI
         private readonly ReactiveProperty<int> _selectedMapIndex = new(0);
         private readonly ReactiveProperty<QueueKind> _selectedQueue = new(QueueKind.Casual);
         private readonly ReactiveProperty<string> _rankSummary = new(string.Empty);
+        private readonly ReactiveProperty<RankCard> _rankCard = new(default);
 
         /// <summary>일반/랭크. 랭크면 게임·맵 대신 내 티어를 보여 준다(서버가 게임을 고른다).</summary>
         public ReadOnlyReactiveProperty<QueueKind> SelectedQueue => _selectedQueue;
 
         /// <summary>랭크 요약("골드 II · 45 LP" / "배치 2/5"). 받기 전엔 빈 문자열.</summary>
         public ReadOnlyReactiveProperty<string> RankSummary => _rankSummary;
+        /// <summary>로비 랭크 모드의 티어 카드. 받기 전엔 default(Headline null — 빈 칸).</summary>
+        public ReadOnlyReactiveProperty<RankCard> RankCard => _rankCard;
 
         /// <summary>대기 화면에 보여 줄 큐 이름.</summary>
         public string CurrentQueueName => QueueChoice.Name(_selectedQueue.Value, _masterData.Tables.TbQueue);
@@ -136,16 +139,24 @@ namespace LOP.UI
             string userId = _userDataStore.user?.id;
             if (string.IsNullOrEmpty(userId)) return;
 
+            GetRankResponse response = null;
             try
             {
-                string text = await LoadRankSummary(ct => WebAPI.GetRank(userId, ct), _masterData.Tables.TbRankDivision, _cts.Token);
-                if (_cts.IsCancellationRequested) return;
-                _rankSummary.Value = text;
+                response = await WebAPI.GetRank(userId, _cts.Token);
             }
             catch (OperationCanceledException)
             {
-                //  로비를 떠났다 — 쓸 곳이 없다.
+                return;   //  로비를 떠났다 — 쓸 곳이 없다.
             }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogWarning($"Failed to load rank. Error: {e.Message}");
+            }
+            if (_cts.IsCancellationRequested) return;
+
+            var divisions = _masterData.Tables.TbRankDivision;
+            _rankSummary.Value = response?.rank == null ? RankLoadFailed : RankFormat.Summary(response.rank, divisions);
+            _rankCard.Value = response?.rank == null ? RankCardFormat.Failed() : RankCardFormat.From(response.rank, divisions);
         }
 
         /// <summary>
@@ -296,6 +307,7 @@ namespace LOP.UI
             _cts.Dispose();
             _selectedQueue.Dispose();
             _rankSummary.Dispose();
+            _rankCard.Dispose();
             _isMatching.Dispose();
             _matchmakingFailed.Dispose();
             _selectedGameIndex.Dispose();

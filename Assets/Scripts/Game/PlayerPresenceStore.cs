@@ -27,7 +27,9 @@ namespace LOP
 
     public static class PresenceText
     {
-        public static string For(PresenceChange change) => $"{change.Slot}P 선수 {(change.Away ? "연결 끊김" : "재접속")}";
+        /// <summary>룩(표시 이름)이 있으면 그 이름, 없으면 "{slot}P 선수".</summary>
+        public static string For(GameFramework.World.EntityRegistry registry, PresenceChange change) =>
+            $"{PlayerNames.For(registry, change.EntityId, $"{change.Slot}P 선수")} {(change.Away ? "연결 끊김" : "재접속")}";
     }
 
     /// <summary>

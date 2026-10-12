@@ -46,7 +46,8 @@ namespace LOP
             builder.Register<DodgeStageProvider>(Lifetime.Singleton);
             builder.Register<DodgeStageTable>(c => c.Resolve<DodgeStageProvider>().Get(), Lifetime.Singleton);
             builder.Register<DodgeCaptionDirector>(c => new DodgeCaptionDirector(
-                c.Resolve<DodgeStageTable>(), c.Resolve<DodgeStageProvider>().Captions()), Lifetime.Singleton);
+                c.Resolve<DodgeStageTable>(), c.Resolve<DodgeStageProvider>().Captions(),
+                c.Resolve<GameFramework.World.EntityRegistry>()), Lifetime.Singleton);
             builder.RegisterEntryPoint<DodgeStateHandler>();
             // 판정과 같은 식에 내 몸이 그려지는 틱을 넣어 그린다(스펙 §5.3).
             builder.RegisterEntryPoint<DodgeHazardView>().AsSelf();

@@ -39,6 +39,22 @@ namespace LOP
             return Color.white;   // 판 중간에 나간 사람
         }
 
+        /// <summary>룩(표시 이름)이 있으면 그 이름, 없으면 명단 서수로 "{n}P 선수".</summary>
+        public static string NameOf(GameFramework.World.EntityRegistry registry, IReadOnlyList<string> roster, string id)
+        {
+            int at = -1;
+            for (int i = 0; i < roster.Count; i++)
+            {
+                if (roster[i] == id)
+                {
+                    at = i;
+                    break;
+                }
+            }
+            string fallback = at >= 0 ? $"{at + 1}P 선수" : "선수";
+            return PlayerNames.For(registry, id, fallback);
+        }
+
         public static bool IsDrawn(Vector2 faceMeters, float faceRadius)
             => faceRadius > 0f && faceMeters.magnitude <= faceRadius * DrawLimit;
 

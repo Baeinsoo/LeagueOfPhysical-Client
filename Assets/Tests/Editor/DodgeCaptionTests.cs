@@ -63,7 +63,7 @@ namespace LOP.Tests
         [Test]
         public void 시작하면_개회와_첫_스테이지를_말한다()
         {
-            var d = new DodgeCaptionDirector(T, Captions);
+            var d = new DodgeCaptionDirector(T, Captions, new GameFramework.World.EntityRegistry());
             Assert.IsEmpty(Observe(d, -1, "a"));   // 시작 전 — 경기 시작 틱이 아직 안 왔다
             CollectionAssert.AreEqual(new[] { DodgeCaptions.Opening, "슬리퍼가 날아듭니다." }, Observe(d, 0, "a"));
             Assert.IsEmpty(Observe(d, 1, "a"));
@@ -72,7 +72,7 @@ namespace LOP.Tests
         [Test]
         public void 해설이_빈_스테이지는_번호와_이름으로()
         {
-            var d = new DodgeCaptionDirector(T, Captions);
+            var d = new DodgeCaptionDirector(T, Captions, new GameFramework.World.EntityRegistry());
             Observe(d, 0, "a");
             CollectionAssert.AreEqual(new[] { "스테이지 2 — 수박" }, Observe(d, 500, "a"));
         }
@@ -80,7 +80,7 @@ namespace LOP.Tests
         [Test]
         public void 서든데스는_연장전이라고_한_번_말한다()
         {
-            var d = new DodgeCaptionDirector(T, Captions);
+            var d = new DodgeCaptionDirector(T, Captions, new GameFramework.World.EntityRegistry());
             Observe(d, 0, "a");
             Observe(d, 500, "a");
             CollectionAssert.AreEqual(new[] { DodgeCaptions.SuddenDeath }, Observe(d, 1000, "a"));
@@ -91,16 +91,32 @@ namespace LOP.Tests
         [Test]
         public void 남이_탈락하면_번호로_부른다()
         {
-            var d = new DodgeCaptionDirector(T, Captions);
+            var d = new DodgeCaptionDirector(T, Captions, new GameFramework.World.EntityRegistry());
             Observe(d, 0, "b", ("b", false), ("a", false));
             CollectionAssert.AreEqual(new[] { "1P 선수, 아쉽게 탈락합니다." }, Observe(d, 5, "b", ("b", false), ("a", true)));
             Assert.IsEmpty(Observe(d, 6, "b", ("b", false), ("a", true)));
         }
 
+        // 몸에 룩(표시 이름)이 있으면 번호 대신 그 이름으로 부른다 — PlayerNames가 자막에 꽂혀 있는지 확인.
+        [Test]
+        public void 룩이_있으면_번호_대신_이름으로_부른다()
+        {
+            var registry = new GameFramework.World.EntityRegistry();
+            var entity = new GameFramework.World.Entity("a");
+            entity.Add(new PlayerLook(null, "Kim", 1));
+            registry.Add(entity);
+
+            var d = new DodgeCaptionDirector(T, Captions, registry);
+            Observe(d, 0, "b", ("b", false), ("a", false));
+            var lines = Observe(d, 5, "b", ("b", false), ("a", true));
+            CollectionAssert.AreEqual(new[] { "Kim, 아쉽게 탈락합니다." }, lines);
+            Assert.IsFalse(lines[0].Contains("1P"));
+        }
+
         [Test]
         public void 내가_탈락하면_관전석으로()
         {
-            var d = new DodgeCaptionDirector(T, Captions);
+            var d = new DodgeCaptionDirector(T, Captions, new GameFramework.World.EntityRegistry());
             Observe(d, 0, "b", ("b", false), ("a", false));
             CollectionAssert.AreEqual(new[] { DodgeCaptions.MeEliminated }, Observe(d, 5, "b", ("b", true), ("a", false)));
         }
@@ -109,7 +125,7 @@ namespace LOP.Tests
         [Test]
         public void 처음_볼_때_이미_탈락한_사람은_말하지_않는다()
         {
-            var d = new DodgeCaptionDirector(T, Captions);
+            var d = new DodgeCaptionDirector(T, Captions, new GameFramework.World.EntityRegistry());
             var lines = Observe(d, 600, "b", ("b", false), ("a", true));
             CollectionAssert.AreEqual(new[] { "스테이지 2 — 수박" }, lines);
         }

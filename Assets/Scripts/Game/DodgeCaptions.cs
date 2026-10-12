@@ -17,17 +17,18 @@ namespace LOP
 
         public static string Eliminated(string playerName) => $"{playerName}, 아쉽게 탈락합니다.";
 
-        /// <summary>판 도중 끊김·재접속 — 피하기는 토스트 대신 자막으로 알리고, 이름도 자막의 번호를 쓴다.</summary>
-        public static string PresenceLine(IEnumerable<string> ids, PresenceChange change) =>
-            $"{PlayerName(ids, change.EntityId)} {(change.Away ? "연결 끊김" : "재접속")}";
+        /// <summary>판 도중 끊김·재접속 — 피하기는 토스트 대신 자막으로 알리고, 이름은 몸에 룩이 있으면 그 이름, 없으면 자막의 번호를 쓴다.</summary>
+        public static string PresenceLine(GameFramework.World.EntityRegistry registry, IEnumerable<string> ids, PresenceChange change) =>
+            $"{PlayerName(registry, ids, change.EntityId)} {(change.Away ? "연결 끊김" : "재접속")}";
 
-        /// <summary>"{n}P 선수" — 엔티티 id 서수 순서(나 포함). 어느 클라에서 봐도 같은 사람이 같은 번호다(활쏘기와 같은 규칙).</summary>
-        public static string PlayerName(IEnumerable<string> ids, string id)
+        /// <summary>룩(표시 이름)이 있으면 그 이름, 없으면 "{n}P 선수" — 엔티티 id 서수 순서(나 포함, 활쏘기와 같은 규칙).</summary>
+        public static string PlayerName(GameFramework.World.EntityRegistry registry, IEnumerable<string> ids, string id)
         {
             var sorted = new List<string>(ids);
             sorted.Sort(string.CompareOrdinal);
             int at = sorted.IndexOf(id);
-            return at >= 0 ? $"{at + 1}P 선수" : "선수";
+            string fallback = at >= 0 ? $"{at + 1}P 선수" : "선수";
+            return PlayerNames.For(registry, id, fallback);
         }
     }
 
@@ -70,16 +71,19 @@ namespace LOP
     {
         private readonly DodgeStageTable stages;
         private readonly IReadOnlyList<string> stageCaptions;
+        private readonly GameFramework.World.EntityRegistry registry;
         private readonly HashSet<string> eliminated = new HashSet<string>();
         private readonly List<string> ids = new List<string>();
         private bool seeded;
         private int lastIndex = -1;
 
         /// <param name="stageCaptions">스테이지 순서(id 순)의 해설. 비었으면 번호와 이름으로 대신한다.</param>
-        public DodgeCaptionDirector(DodgeStageTable stages, IReadOnlyList<string> stageCaptions)
+        /// <param name="registry">탈락 자막의 이름을 룩에서 찾는다 — 없으면 번호로 대신한다.</param>
+        public DodgeCaptionDirector(DodgeStageTable stages, IReadOnlyList<string> stageCaptions, GameFramework.World.EntityRegistry registry)
         {
             this.stages = stages;
             this.stageCaptions = stageCaptions;
+            this.registry = registry;
         }
 
         public void Observe(in DodgeStagePoint at, IReadOnlyList<(string id, bool eliminated)> players, string myId,
@@ -90,7 +94,7 @@ namespace LOP
             foreach (var p in players)
             {
                 if (!p.eliminated || !eliminated.Add(p.id) || !seeded) continue;
-                output.Add(p.id == myId ? DodgeCaptions.MeEliminated : DodgeCaptions.Eliminated(DodgeCaptions.PlayerName(ids, p.id)));
+                output.Add(p.id == myId ? DodgeCaptions.MeEliminated : DodgeCaptions.Eliminated(DodgeCaptions.PlayerName(registry, ids, p.id)));
             }
             seeded = true;
 

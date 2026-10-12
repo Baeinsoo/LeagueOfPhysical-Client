@@ -88,6 +88,8 @@ namespace LOP.EditorTools
             "RockEdge", "Strata",
             //  10-10 Fix 1b: 지층 렌즈 두 밝기, 어두운 갱목(깊은 갱목·사다리 덮기).
             "StrataPatchDark", "StrataPatchLight", "TimberDim",
+            //  10-12 fix1: 결승선 체크무늬 띠(FinishFlag 천과 같은 두 색).
+            "FlagCream", "FlagBrown",
         };
 
         /// <summary>
@@ -182,18 +184,18 @@ namespace LOP.EditorTools
                     entrance++;
                 }
             }
-            //  출구 문틀(입구의 거울) — 문설주·가새는 입구처럼 통로 안 부분을 잘라 낸다. 랜턴 줄은 안개 막 뒤(배치 규칙 z 그대로).
+            //  출구 문틀(입구의 거울) — 문설주·가새는 입구처럼 통로 안 부분을 잘라 낸다. 상인방 아랫변이 천장선이다(fix1, 랜턴 줄 없음).
             int exit = 0;
             if (zones.HasExit && zones.ExitStart >= dressFrom && zones.ExitEnd <= dressTo)
             {
-                foreach (MinePiece p in MineDressingLayout.Exit(course, zones, look.lanternsPerString))
+                foreach (MinePiece p in MineDressingLayout.Exit(course, zones))
                 {
                     GameObject go = PlacePiece(g.Exit, models, glowQuad, materials, p, ref lanterns);
                     if (MineDressingLayout.ClipsToCorridor(p.Kind)) { ClipOutsideCorridor(go, course); }
                     exit++;
                 }
             }
-            //  결승선 깃발·절벽 끝 — 결승선이 범위 안일 때만.
+            //  결승선 깃발·체크무늬 띠·절벽 끝 — 결승선이 범위 안일 때만. 게임 FinishLine 마커 기둥은 부르는 쪽(광산 굽기)이 렌더러만 끈다.
             int finish = 0;
             if (course.Length >= dressFrom && course.Length <= dressTo)
             {
@@ -225,12 +227,13 @@ namespace LOP.EditorTools
 
             //  3. 바닥·천장(배치 규칙이 갱목·바위 단 구간을 빼고, 곧고 완만한 곳은 비계·바위 천장, 굽은 곳은 바위 띠 + 밝은 테로 고른다).
             //     비계 칸마다 같은 자리에 레일(RailSpan). 레일 윗면이 바닥선 위 0.28인 것은 10-08부터 그대로다.
+            //     롤러코스터 굴 안 비계 칸은 얹지 않는다 — 굴 바닥 레일(CoasterRail, 윗면 = 판정선)이 비계·바위 띠를 가로질러 잇는다(fix1).
             int floor = 0, ceiling = 0;
             foreach (MinePiece p in MineDressingLayout.FloorAndCeiling(course, zones, dressFrom, dressTo))
             {
                 Transform parent = p.Layer == 0 ? g.Floor : g.Ceiling;
                 PlacePiece(parent, models, glowQuad, materials, p, ref lanterns);
-                if (p.Kind == MinePartKind.TrestleBay) { Place(parent, models["RailSpan"], p, p.Z); }
+                if (p.Kind == MinePartKind.TrestleBay && !MineDressingLayout.InCoaster(course, p.X)) { Place(parent, models["RailSpan"], p, p.Z); }
                 if (p.Layer == 0) { floor++; } else { ceiling++; }
             }
 
@@ -474,8 +477,14 @@ namespace LOP.EditorTools
         private static GameObject PlacePiece(Transform parent, Dictionary<string, GameObject> models, Mesh glowQuad,
                                              Dictionary<string, Material> materials, MinePiece p, ref int lanterns)
         {
+            if (p.Kind == MinePartKind.FinishBanner)
+            {
+                return CheckerBanner(parent, materials["FlagCream"], materials["FlagBrown"], p);
+            }
             string model = ModelName(p.Kind);
             GameObject go = Place(parent, models[model], p, p.Z);
+            //  메시를 빌려 쓰는 종류는 종류 이름으로(굽기 뒤 검사가 RailSpan(데크 위 레일)과 굴 바닥 레일을 가른다).
+            if (model != p.Kind.ToString()) { go.name = p.Kind.ToString(); }
             string over = OverrideMaterial(p);
             if (over != null)
             {
@@ -503,6 +512,9 @@ namespace LOP.EditorTools
             MinePartKind.EdgeRim => "RockMass",
             MinePartKind.DeepTimber => "ShaftTimber",
             MinePartKind.WallLadder => "Ladder",
+            MinePartKind.CoasterRail => "RailSpan",
+            MinePartKind.RailPost => "ShaftTimber",
+            MinePartKind.RockVeneer => "RockMass",
             _ => kind.ToString(),
         };
 
@@ -517,6 +529,61 @@ namespace LOP.EditorTools
             MinePartKind.StrataLens => p.Layer == 1 ? "StrataPatchLight" : "StrataPatchDark",
             _ => null,
         };
+
+        //  결승선 체크무늬 띠: p 자리(왼끝 아래)에 폭 ScaleX × 높이 ScaleY 평면 격자, 칸은 FinishCheckerCell 근처 정사각, 두 재질을 엇갈려.
+        //  −z를 보는 앞면 + 통로 쪽 변(천장 띠는 아랫변, 바닥 띠는 윗변)에서 판정면(z 0)까지 뒤로 누운 면 — 판정면 앞 띠는 원근으로 화면 바깥쪽에 그려져
+        //  통로 쪽 변과 판정선 사이에 들보·데크 밑면이 보였다(fix1 캡처). 누운 면이 그 자리를 체크무늬로 채운다(양면). 씬에 든 메시라 굽기마다 새로 만든다.
+        private const float BannerLift = 0.005f;
+
+        private static GameObject CheckerBanner(Transform parent, Material light, Material dark, MinePiece p)
+        {
+            float w = p.ScaleX, h = p.ScaleY, d = Mathf.Max(0f, -p.Z), cell = MineDressingLayout.FinishCheckerCell;
+            int nx = Mathf.Max(1, Mathf.RoundToInt(w / cell)), ny = Mathf.Max(1, Mathf.RoundToInt(h / cell)), nz = Mathf.Max(1, Mathf.RoundToInt(d / cell));
+            var vertices = new List<Vector3>();
+            var subs = new[] { new List<int>(), new List<int>() };
+            for (int i = 0; i < nx; i++)
+            {
+                float x0 = w * i / nx, x1 = w * (i + 1) / nx;
+                for (int j = 0; j < ny; j++)
+                {
+                    float y0 = h * j / ny, y1 = h * (j + 1) / ny;
+                    int b = vertices.Count;
+                    vertices.Add(new Vector3(x0, y0, 0f)); vertices.Add(new Vector3(x1, y0, 0f));
+                    vertices.Add(new Vector3(x0, y1, 0f)); vertices.Add(new Vector3(x1, y1, 0f));
+                    //  카메라(−z)에서 보면 시계 방향 = 앞면(GlowQuadMesh와 같다).
+                    subs[(i + j) % 2].AddRange(new[] { b, b + 3, b + 1, b + 3, b, b + 2 });
+                }
+                //  누운 면: 천장 띠(Layer 1)는 y 0, 바닥 띠는 y h — 들보 밑면·데크 윗면(같은 판정선)과 깜빡이지 않게 통로 쪽으로 BannerLift(± 0.05 안).
+                //  앞면 통로 쪽 칸과 이어지게 무늬를 맞춘다.
+                float yc = p.Layer == 1 ? -BannerLift : h + BannerLift;
+                int edgeRow = p.Layer == 1 ? 0 : ny - 1;
+                for (int k = 0; k < nz && d > 0f; k++)
+                {
+                    float z0 = d * k / nz, z1 = d * (k + 1) / nz;
+                    int slot = (i + edgeRow + k + 1) % 2;
+                    foreach (bool flip in new[] { false, true })
+                    {
+                        int b = vertices.Count;
+                        vertices.Add(new Vector3(x0, yc, z0)); vertices.Add(new Vector3(x1, yc, z0));
+                        vertices.Add(new Vector3(x0, yc, z1)); vertices.Add(new Vector3(x1, yc, z1));
+                        subs[slot].AddRange(flip ? new[] { b, b + 1, b + 3, b + 3, b + 2, b } : new[] { b, b + 3, b + 1, b + 3, b, b + 2 });
+                    }
+                }
+            }
+            var mesh = new Mesh { name = "MineFinishBanner" };
+            mesh.SetVertices(vertices);
+            mesh.subMeshCount = 2;
+            mesh.SetTriangles(subs[0], 0);
+            mesh.SetTriangles(subs[1], 1);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            var go = new GameObject(p.Kind.ToString());
+            go.transform.SetParent(parent, worldPositionStays: false);
+            go.transform.SetPositionAndRotation(new Vector3(p.X, p.Y, p.Z), Quaternion.Euler(0f, 0f, p.AngleDegrees));
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterials = new[] { light, dark };
+            return go;
+        }
 
         // ---- 관문 ----
 

@@ -48,6 +48,25 @@ namespace LOP.MapTools
         CliffEdge,
         /// <summary>결승선 깃발대(아래 가운데 원점, 1.0 × 3.0).</summary>
         FinishFlag,
+
+        //  ── 펼치기 2차 첫 굽기 고침(10-12 fix1) ──
+        /// <summary>
+        /// 롤러코스터 굴 바닥(아래 가장자리 = 판정선)을 따라 이어 까는 광차 레일(RailSpan 메시, 가운데 원점, x ±1.2·축척, 침목 아랫면 0 · 레일 윗면 0.28).
+        /// 원점은 현 가운데에서 현의 법선 아래로 <see cref="MineDressingLayout.RailTop"/> — 레일 윗면이 판정선(현)이다.
+        /// </summary>
+        CoasterRail,
+        /// <summary>롤러코스터 레일 밑 짧은 받침 기둥(ShaftTimber 메시를 세운 것: 원점 = 왼끝 위, −90°, x 축척 = 길이, y 축척 = 굵기 / 0.4).</summary>
+        RailPost,
+        /// <summary>
+        /// 결승선 체크무늬 띠(굽기가 만드는 격자, 원점 = 왼끝 아래 앞면, x·y 축척 = 폭·높이 m, 통로 쪽 변에서 판정면까지 누운 면 포함). 통로 밖(천장선 위·바닥선 아래)에만.
+        /// <see cref="MinePiece.Layer"/> 1 = 천장 띠, 0 = 바닥 띠.
+        /// </summary>
+        FinishBanner,
+        /// <summary>
+        /// 두께 없는 바위 판(RockMass 메시, 깊이 축척 <see cref="MineDressingLayout.VeneerDepth"/>). 바위 띠(앞면 −0.26)가 더 깊은 갱 벽 바위(앞면 0.02)와 맞닿는 곳에서
+        /// 바위 띠 끝 옆면(어두운 세로선, 캡처 x ≈ 283.3)을 가린다 — 판에는 옆면이 없어 새 선이 생기지 않는다.
+        /// </summary>
+        RockVeneer,
     }
 
     /// <summary>
@@ -63,7 +82,7 @@ namespace LOP.MapTools
         public readonly float EntranceEnd;
         /// <summary>
         /// 출구 문틀 시작 = 마지막 고수 갈림길 끝(<see cref="MineFork.X1"/>, 3막 362.5). 갈림길이 없으면 코스 길이(출구 없음).
-        /// 굴 천장 바위는 여기까지, 여기부터 들보(입구 앞과 거울).
+        /// 굴 천장 바위는 여기까지, 출구 문틀은 상인방이 천장이고 <see cref="ExitEnd"/>부터 들보(입구 앞과 거울, 10-12 fix1).
         /// </summary>
         public readonly float ExitStart;
         /// <summary>출구 문틀 끝 = <see cref="ExitStart"/> + 5(3막 367.5). 굴 배경은 여기까지, 노을 하늘·협곡은 여기부터. 출구가 없으면 = <see cref="ExitStart"/>.</summary>
@@ -242,21 +261,52 @@ namespace LOP.MapTools
         /// <summary>출구 문틀 존 폭 = 입구 문틀 폭(5 m) — 1차 <see cref="MinePartKind.EntranceFrame"/>을 그대로 쓴다.</summary>
         public const float ExitLength = EntranceHalfWidth * 2f;
         /// <summary>
-        /// 출구 랜턴 줄(LanternString: 왼끝 원점, x 0~1, 처짐 아래로 0.756, z ±0.1)을 거는 높이(문턱 기준, 상인방 바로 아래 — 통로 안)와
-        /// 줄 위 랜턴의 처짐(y = −0.35·4t(1−t)), 랜턴 축척. 줄이 열린 통로 안에 걸리므로 z는 안개 막 뒤 배경 랜턴 층(<see cref="LanternZ"/>) —
-        /// 판정면~안개 사이 통로 안 장식은 장애물로 읽혔다(1차 Task 7 Fix 1, 입구 랜턴 줄을 뺀 까닭).
+        /// EntranceFrame 상인방 아랫변(문턱 기준 14.62). 출구는 통로가 평평해(입구처럼 좁아지지 않는다) 문턱을 통로 중심 − 7.28에 두면
+        /// 상인방이 천장선 0.06 위에 떠 들보(0.8)에 가려졌다(첫 굽기 캡처 x 368) — 출구는 상인방 아랫변을 천장선에 맞추고 들보를 빼서,
+        /// 상인방이 곧 그 자리 천장 그림이다(fix1).
+        /// 출구 랜턴 줄은 뺐다(fix1 — 들보 아래 1 m에 떠 보였다. 1차 입구 랜턴 줄을 뺀 것과 같다).
         /// </summary>
-        public const float ExitStringHang = 14.3f, LanternStringSag = 0.35f, StringLanternScale = 0.45f, ExitStringZ = LanternZ;
+        public const float EntranceLintelBottom = 14.62f;
         /// <summary>
         /// FinishFlag(아래 가운데 원점, 1.0 × 3.0, 깃발대 z ±0.1). 결승선은 열린 통로 안에 서므로 판정면 뒤, 안개 막(2.2) 뒤.
         /// </summary>
         public const float FinishFlagZ = 2.8f, FinishFlagWidth = 1f;
         /// <summary>
-        /// CliffEdge(위 끝 왼쪽 원점, x 0~1 · y −1~0, z ±<see cref="CliffEdgeHalfDepth"/> — Task 2가 이 깊이로 만든다).
-        /// 판정면 뒤(앞면 +0.05)라 비계 다리(z −1.3~0)를 가리지 않고, 뒷면(2.05)이 안개 막(2.2) 앞. 윗면은 바닥선(비계 데크)보다
-        /// <see cref="CliffTopDrop"/> 아래, 오른끝(가장자리)은 출구 문틀 끝 + <see cref="CliffReach"/>, 깊이는 화면 아래까지(<see cref="LineRockDepth"/>).
+        /// 결승선 체크무늬 띠(fix1 — 게임 FinishLine 마커의 노랑·초록 기둥은 광산 굽기가 렌더러만 끈다): 결승선 x ± <see cref="FinishBannerHalfWidth"/>
+        /// (마커 폭 1.2와 같다), 천장선 위·바닥선 아래로 <see cref="FinishBannerHeight"/>(화면 위·아래 끝 1.09까지 찬다) — 판정 고체 위라 판정면 앞에 또렷하게.
+        /// z는 들보(앞면 −1.6)·데크(−1.3)·레일보다 앞이고, 통로 쪽 변에서 판정면(z 0)까지 누운 면도 체크무늬다(원근으로 보이는 들보·데크 밑·윗면을 덮는다).
+        /// 칸은 <see cref="FinishCheckerCell"/> 정사각에 가깝게.
         /// </summary>
-        public const float CliffEdgeHalfDepth = 1f, CliffEdgeZ = 1.05f, CliffTopDrop = 0.3f, CliffReach = 3f;
+        public const float FinishBannerHalfWidth = 0.6f, FinishBannerHeight = 1.2f, FinishBannerZ = -1.65f, FinishCheckerCell = 0.3f;
+        /// <summary>
+        /// 결승선 체크무늬 막(<see cref="MinePiece.Layer"/> 2, fix1 둘째 캡처 — 위·아래 띠는 화면 끝 1 m씩이라 결승선이 약했다): 같은 폭으로 깃발 위
+        /// (깃발 높이 <see cref="FinishFlagHeight"/> + <see cref="FinishCurtainGap"/>)부터 천장선까지, 열린 통로 안이라 깃발 뒤 안개 막 뒤(<see cref="FinishCurtainZ"/>).
+        /// </summary>
+        public const float FinishFlagHeight = 3f, FinishCurtainGap = 0.3f, FinishCurtainZ = FinishFlagZ + 0.4f;
+        /// <summary>
+        /// CliffEdge(위 끝 왼쪽 원점, x 0~1 · y −1~0, 메시 z ±<see cref="CliffEdgeHalfDepth"/> — Task 2가 이 깊이로 만든다)를 깊이 축척
+        /// <see cref="CliffDepthScale"/>로 늘여 판정면 바로 뒤(앞면 +0.05)부터 안개 막 너머까지 깐다(fix1): 게임 카메라(23 m, 통로 중심)는 바닥선 아래
+        /// 1.09 m만 보여 판정면 근처 절벽은 비계 데크·다리에 가렸다 — 깊게 깐 절벽의 노을빛 윗면이 원근으로 레일 다리 <b>위</b>로 올라와 보이고,
+        /// 그 윗면이 끝나는 곳(오른끝 = 출구 문틀 끝 + <see cref="CliffReach"/>)이 절벽 가장자리로 읽힌다. 그 뒤 다리 밑은 노을뿐이다.
+        /// 윗면은 바닥선(비계 데크)보다 <see cref="CliffTopDrop"/> 아래, 깊이는 화면 아래까지(<see cref="LineRockDepth"/>). xy 발자국은 전부 바닥선 아래다.
+        /// </summary>
+        public const float CliffEdgeHalfDepth = 1f, CliffDepthScale = 3f, CliffEdgeZ = 0.05f + CliffEdgeHalfDepth * CliffDepthScale,
+                           CliffTopDrop = 0.3f, CliffReach = 3f;
+
+        //  ── 롤러코스터 레일(fix1) ──
+        /// <summary>
+        /// 굴 바닥 레일(<see cref="MinePartKind.CoasterRail"/>, RailSpan z ±0.55)의 z — 굴 비계 데크(앞면 −1.3)보다 앞이라 레일이 끊기지 않고 이어 보인다(앞면 −1.35).
+        /// 받침 기둥(<see cref="MinePartKind.RailPost"/>, ShaftTimber z ±0.5)은 레일 뒤: z, 길이, 굵기(ShaftTimber 0.4의 비율).
+        /// </summary>
+        public const float CoasterRailZ = -0.8f, RailPostZ = -0.5f, RailPostLength = 1.6f, RailPostThickness = 0.6f, RailPostSpacing = 2.4f;
+
+        //  ── 갱목 구간과 바위 띠 이음매(fix1) ──
+        /// <summary>
+        /// 바위 띠(<see cref="RockZ"/>, 앞면 −0.26)가 갱 벽 바위(<see cref="ShaftRockZ"/>, 앞면 0.02)와 맞닿는 갱목 구간 끝에서, 갱 쪽으로 이만큼
+        /// 덮는 두께 없는 바위 판(<see cref="MinePartKind.RockVeneer"/>) — 카메라가 옆에서 보는 바위 띠 끝 옆면(폭 ≈ x 거리·0.26/23, 화면 끝에서 0.3 m)을 가린다.
+        /// 판은 바위 띠 앞면보다 조금 뒤(갈림길 바위와 겹쳐도 깜빡이지 않게), 갱목·깊은 갱목·바위 면 장식보다 뒤.
+        /// </summary>
+        public const float VeneerCover = 1f, VeneerFront = -0.255f, VeneerDepth = 0.002f;
 
         //  ── 펼치기 2차(10-12) 굴뚝(오르막 좁은 구간) 벽 ──
         /// <summary>
@@ -300,7 +350,9 @@ namespace LOP.MapTools
         /// </summary>
         public static float DepthScale(MinePartKind kind) =>
             kind == MinePartKind.RockMass || kind == MinePartKind.MergeSlope || kind == MinePartKind.EdgeRim || kind == MinePartKind.BenchFace ? FlatDepth
-            : kind == MinePartKind.DeepTimber ? DeepTimberDepth : 1f;
+            : kind == MinePartKind.DeepTimber ? DeepTimberDepth
+            : kind == MinePartKind.CliffEdge ? CliffDepthScale
+            : kind == MinePartKind.RockVeneer ? VeneerDepth : 1f;
 
         /// <summary><see cref="DepthScale"/>의 납작한 값.</summary>
         public const float FlatDepth = 0.1f;
@@ -489,14 +541,46 @@ namespace LOP.MapTools
             foreach (var (a, b) in PlainSpans(c, z, from, to))
             {
                 AddLine(c, a, b, -1, list, InChimney);
-                //  천장: 노을 바깥·갱 입구 문틀 = 들보(높이 0.8 — 문틀 상인방·간판이 들보 위 판정 고체 쪽에 보이게), 굴 안 = 바위,
-                //  출구 문틀부터 다시 들보(10-12, 입구와 거울).
+                //  천장: 노을 바깥·갱 입구 문틀 = 들보(높이 0.8 — 입구는 통로가 좁아져 문틀 상인방·간판이 들보 위 판정 고체 쪽에 보인다), 굴 안 = 바위,
+                //  출구 문틀은 비우고(상인방이 천장 — <see cref="Exit"/>, fix1) 출구 문틀 끝부터 다시 들보(10-12, 입구와 거울).
                 AddBeams(c, a, Math.Min(b, z.EntranceEnd), list);
                 AddLine(c, Math.Max(a, z.EntranceEnd), Math.Min(b, z.ExitStart), 1, list, InChimney);
-                AddBeams(c, Math.Max(a, z.ExitStart), b, list);
+                AddBeams(c, Math.Max(a, z.HasExit ? z.ExitEnd : z.ExitStart), b, list);
             }
             foreach (MineTube t in CoasterTubes(c)) { AddCoaster(c, t, from, to, list); }
+            AddShaftVeneers(c, z, from, to, list);
             return list;
+        }
+
+        /// <summary>롤러코스터 굴(<see cref="CoasterTubes"/>) x 폭 안인가 — 그곳 비계 칸은 데크 위 레일(RailSpan)을 얹지 않는다(굴 바닥 레일 <see cref="MinePartKind.CoasterRail"/>이 잇는다).</summary>
+        public static bool InCoaster(MineCourse c, double x) => CoasterTubes(c).Any(t => x > t.X0 && x < t.X1);
+
+        //  갱목 구간(ShaftSpans) 끝에 맞닿은 바위 띠 기둥(RockMass, RockZ)마다 갱 쪽으로 VeneerCover만큼 두께 없는 바위 판 — 바위 띠 끝 옆면 가리기(fix1).
+        //  판의 통로 쪽 끝은 그 x 폭 판정선(현 꼭짓점) 너머로 물려 통로에 안 들어간다. 범위 [from, to] 안만.
+        static void AddShaftVeneers(MineCourse c, MineZones z, float from, float to, List<MinePiece> list)
+        {
+            var add = new List<MinePiece>();
+            foreach (var (sf, st) in ShaftSpans(c, z))
+            {
+                foreach (MinePiece p in list)
+                {
+                    if (p.Kind != MinePartKind.RockMass || Math.Abs(p.Z - RockZ) > 1e-4f) { continue; }
+                    double a, b;
+                    if (Math.Abs(p.X - st) < 1e-3) { a = st - VeneerCover; b = st; }
+                    else if (Math.Abs(p.X + p.ScaleX - sf) < 1e-3) { a = sf; b = sf + VeneerCover; }
+                    else { continue; }
+                    a = Math.Max(a, from); b = Math.Min(b, to);
+                    if (b - a <= 1e-6) { continue; }
+                    double lo = p.Y, hi = p.Y + p.ScaleY;
+                    var xs = StraightBreaks(c, (float)a, (float)b);
+                    if (p.Layer == 1) { lo = Math.Max(lo, xs.Max(x => c.CenterAtD(x) + c.HalfAtD(x))); }
+                    else { hi = Math.Min(hi, xs.Min(x => c.CenterAtD(x) - c.HalfAtD(x))); }
+                    if (hi - lo <= 1e-4) { continue; }
+                    add.Add(new MinePiece(MinePartKind.RockVeneer, (float)a, (float)lo, VeneerFront + 1.3f * VeneerDepth, 0f,
+                                          (float)(b - a), (float)(b - a), (float)(b - a), (float)(hi - lo), layer: p.Layer));
+                }
+            }
+            list.AddRange(add);
         }
 
         static void AddBeams(MineCourse c, double a, double b, List<MinePiece> list)
@@ -560,6 +644,7 @@ namespace LOP.MapTools
                 var strips = TubeEdgeRuns(c, t, side, lo, hi);
                 var runs = side < 0 ? CoarsenFloor(strips) : Coarsen(strips, 0, strips.Count - 1, CoasterBandTol);
                 AddRuns(runs, side, list, r => side < 0 && Straight(r), t.X0, t.X1);
+                if (side < 0) { AddCoasterRail(runs, t.X0, t.X1, list); }
 
                 int layer = side < 0 ? 0 : 1;
                 var faces = new List<MinePiece>();
@@ -568,6 +653,72 @@ namespace LOP.MapTools
                 if (hi >= t.X1 - 1e-6) { AddFace(t, side, t.X1, Open(t.X1), strips[strips.Count - 1].e1, rockRight: false, faces); }
                 foreach (MinePiece p in faces) { list.Add(At(p, p.Z, layer)); }
             }
+        }
+
+        //  굴 바닥 레일(fix1, 캡처 x 175 "레일보다 굴로 읽힌다"): 바닥 현(비계 칸·바위 띠 칸 모두)을 2.4 m 근처 칸으로 나눠 RailSpan을 잇는다 —
+        //  레일 윗면 = 현(판정선 ± 합친 오차), 몸통은 판정선 아래(판정 고체 쪽). 바위 띠 칸 밑에는 RailPostSpacing마다 짧은 받침 기둥을 바위로 박는다
+        //  (비계 칸은 다리가 있다). 기둥 윗끝은 그 x 폭 레일 침목 아랫면 아래 — 통로에 안 들어간다.
+        //  기운 레일은 아랫변 모서리가 윗변보다 RailTop·sin만큼 옆으로 나가므로, 굴 양끝(xMin·xMax) 칸은 그만큼 줄여 굴 x 폭 밖(열린 통로)에 안 나가게 한다.
+        static void AddCoasterRail(List<(double x0, double x1, double e0, double e1)> runs, double xMin, double xMax, List<MinePiece> list)
+        {
+            if (runs.Count == 0) { return; }
+            for (int i = 0; i < runs.Count; i++)
+            {
+                var r = runs[i];
+                double k = (r.e1 - r.e0) / (r.x1 - r.x0);
+                Func<double, double> line = x => r.e0 + k * (x - r.x0);
+                double sin = k / Math.Sqrt(1 + k * k), cos = 1 / Math.Sqrt(1 + k * k);
+                //  골(바위 쪽으로 오목하게 꺾이는 곳)에서는 두 레일 윗변이 꼭짓점에서 만나고 아랫변이 벌어져 틈이 난다 — 현 방향으로 RailTop·tan(꺾임/2)만큼
+                //  늘여 겹친다(밝은 테의 ConcaveOverlap과 같은 셈). 늘인 윗변은 이웃 현의 바위 쪽이라 통로로 안 나간다.
+                double ext0 = i > 0 ? RailConcaveOverlap(runs[i - 1], r) * cos : 0, ext1 = i + 1 < runs.Count ? RailConcaveOverlap(r, runs[i + 1]) * cos : 0;
+                //  칸 수는 현 길이로(가파른 현을 x 폭으로 나누면 칸이 늘어 침목이 벌어진다).
+                int n = Math.Max(1, (int)Math.Round((r.x1 - r.x0) / cos / TrestleBayWidth));
+                var tiles = Enumerable.Range(0, n).Select(j => (r.x0 + (r.x1 - r.x0) * j / n, r.x0 + (r.x1 - r.x0) * (j + 1) / n)).ToList();
+                for (int ti = 0; ti < tiles.Count; ti++)
+                {
+                    var (t0, t1) = tiles[ti];
+                    if (ti == 0) { t0 -= ext0; }
+                    if (ti == tiles.Count - 1) { t1 += ext1; }
+                    double x0 = Math.Max(t0, xMin + Math.Max(0, -RailTop * sin)), x1 = Math.Min(t1, xMax - Math.Max(0, RailTop * sin));
+                    if (x1 - x0 <= 1e-3) { continue; }
+                    MinePiece ch = Chord(MinePartKind.CoasterRail, x0, x1, line, CoasterRailZ, TrestleBayWidth);
+                    double a = ch.AngleDegrees * Math.PI / 180.0;
+                    list.Add(new MinePiece(MinePartKind.CoasterRail, (float)(ch.X + RailTop * Math.Sin(a)), (float)(ch.Y - RailTop * Math.Cos(a)), CoasterRailZ,
+                                           ch.AngleDegrees, ch.Width, ch.Length, ch.ScaleX, 1f, layer: 0));
+                }
+            }
+
+            double w = ShaftTimberHeight * RailPostThickness, end = runs[runs.Count - 1].x1;
+            //  x에서 레일 침목 아랫면(현에서 법선 아래 RailTop → 세로로 RailTop / cos).
+            double Under(int i, double x)
+            {
+                var r = runs[i];
+                double k = (r.e1 - r.e0) / (r.x1 - r.x0);
+                return r.e0 + k * (x - r.x0) - RailTop * Math.Sqrt(1 + k * k);
+            }
+            int Find(double x) => runs.FindIndex(r => x >= r.x0 - 1e-9 && x <= r.x1 + 1e-9);
+            for (double xp = runs[0].x0 + RailPostSpacing / 2; xp + w / 2 < end; xp += RailPostSpacing)
+            {
+                double xa = xp - w / 2, xb = xp + w / 2;
+                int ia = Find(xa), ib = Find(xb);
+                if (ia < 0 || ib < 0) { continue; }
+                bool trestle = false;
+                double top = double.PositiveInfinity;
+                for (int i = ia; i <= ib; i++)
+                {
+                    trestle |= Straight(runs[i]);
+                    top = Math.Min(top, Math.Min(Under(i, Math.Max(xa, runs[i].x0)), Under(i, Math.Min(xb, runs[i].x1))));
+                }
+                if (trestle) { continue; }
+                list.Add(new MinePiece(MinePartKind.RailPost, (float)xa, (float)top, RailPostZ, -90f, (float)w, RailPostLength, RailPostLength, RailPostThickness, layer: 0));
+            }
+        }
+
+        //  바닥 현 a → b가 위로 꺾이면(바위 쪽으로 오목) 레일을 늘일 길이 = RailTop·tan(꺾임/2), 아니면 0.
+        static double RailConcaveOverlap((double x0, double x1, double e0, double e1) a, (double x0, double x1, double e0, double e1) b)
+        {
+            double turn = Math.Atan2(b.e1 - b.e0, b.x1 - b.x0) - Math.Atan2(a.e1 - a.e0, a.x1 - a.x0);
+            return turn > 1e-9 ? RailTop * Math.Tan(turn / 2) : 0;
         }
 
         //  굴 가장자리 현(회색 박스와 같은 0.25 m 조각, [lo, hi]로 자른 것) — 통로 바닥·천장선 너머로는 안 간다.
@@ -871,30 +1022,23 @@ namespace LOP.MapTools
 
         /// <summary>
         /// 출구 문틀(2차 스펙 §2) — 1차 <see cref="Entrance"/>의 거울: 같은 문틀(<see cref="MinePartKind.EntranceFrame"/>)이 출구 존
-        /// [<see cref="MineZones.ExitStart"/>, <see cref="MineZones.ExitEnd"/>]을 꼭 채우고, 문턱 = 그 자리 통로 중심 − 7.28, 간판
-        /// (<see cref="MinePartKind.ExitSign"/>)은 상인방 앞(통로 위). 문설주는 굽기가 열린 통로 안을 잘라 낸다(<see cref="ClipsToCorridor"/>).
-        /// 문설주 사이 상인방 아래에 랜턴 줄 하나 + 작은 랜턴 <paramref name="lanternsPerString"/>개 — 통로 안이라 안개 막 뒤(<see cref="ExitStringZ"/>).
+        /// [<see cref="MineZones.ExitStart"/>, <see cref="MineZones.ExitEnd"/>]을 꼭 채우고, 간판(<see cref="MinePartKind.ExitSign"/>)은 상인방 앞.
+        /// 출구는 통로가 평평해 입구처럼 상인방이 들보 위로 드러나지 않으므로(fix1) <b>상인방 아랫변 = 그 자리 천장선</b>
+        /// (문턱 = 천장선 − <see cref="EntranceLintelBottom"/>)이고 이 구간 천장엔 들보가 없다(<see cref="FloorAndCeiling"/>) — 상인방이 천장 그림이다.
+        /// 문설주는 굽기가 열린 통로 안을 잘라 낸다(<see cref="ClipsToCorridor"/>). 랜턴 줄은 없다(fix1 — 떠 보였다).
         /// 출구가 없으면(<see cref="MineZones.HasExit"/>) 빈 목록.
         /// </summary>
-        public static List<MinePiece> Exit(MineCourse c, MineZones z, int lanternsPerString)
+        public static List<MinePiece> Exit(MineCourse c, MineZones z)
         {
             var list = new List<MinePiece>();
             if (!z.HasExit) { return list; }
             float fx = z.ExitStart + EntranceHalfWidth;
-            float threshold = c.CenterAt(fx) - MineCourse.BaseHalf;
+            //  천장선이 존 안에서 기울면 가장 높은 꼭짓점에 — 상인방이 통로에 안 들어간다(3막은 평평해 그대로 천장선).
+            double ceiling = StraightBreaks(c, z.ExitStart, z.ExitEnd).Max(x => c.CenterAtD(x) + c.HalfAtD(x));
+            float threshold = (float)(ceiling - EntranceLintelBottom);
             float w = EntranceHalfWidth * 2f;
             list.Add(new MinePiece(MinePartKind.EntranceFrame, fx, threshold, EntranceFrameZ, 0f, w, w, 1f, 1f));
             list.Add(new MinePiece(MinePartKind.ExitSign, fx, threshold + EntranceSignCenter, EntranceSignZ, 0f, 3f, 3f, 1f, 1f));
-
-            float left = fx - EntrancePostInner, span = EntrancePostInner * 2f, hang = threshold + ExitStringHang;
-            list.Add(new MinePiece(MinePartKind.LanternString, left, hang, ExitStringZ, 0f, span, span, span, 1f));
-            float lw = LanternWidth * StringLanternScale;
-            for (int i = 0; i < lanternsPerString; i++)
-            {
-                float t = (i + 0.5f) / lanternsPerString;
-                list.Add(new MinePiece(MinePartKind.Lantern, left + t * span, hang - LanternStringSag * 4f * t * (1f - t), ExitStringZ, 0f,
-                                       lw, lw, StringLanternScale, StringLanternScale));
-            }
             return list;
         }
 
@@ -903,9 +1047,13 @@ namespace LOP.MapTools
         /// <list type="bullet">
         /// <item><see cref="MinePartKind.FinishFlag"/>: 결승선 x(<see cref="MineCourse.Length"/>), 아래 끝 = 바닥선(레일 다리 데크). 열린 통로 안에 서므로
         /// 판정면 뒤 안개 막 뒤(<see cref="FinishFlagZ"/>).</item>
+        /// <item><see cref="MinePartKind.FinishBanner"/> 둘(fix1): 결승선 x ± <see cref="FinishBannerHalfWidth"/>의 체크무늬 띠 — 천장선 위로, 바닥선 아래로
+        /// <see cref="FinishBannerHeight"/>. 판정 고체 위라 판정면 앞(<see cref="FinishBannerZ"/>)에 또렷하게. 게임 FinishLine 마커(노랑·초록 기둥)는 광산 굽기가
+        /// 렌더러만 끄므로 이 띠와 깃발이 결승선 그림이다. 띠 x 폭에서 판정선이 기울면 띠 끝을 그 x 폭 판정선 꼭짓점 너머로 물린다.
+        /// 그리고 같은 폭 체크무늬 막(Layer 2) 하나가 깃발 위부터 천장선까지 깃발 뒤 안개 막 뒤(<see cref="FinishCurtainZ"/>)에 걸린다.</item>
         /// <item><see cref="MinePartKind.CliffEdge"/>: 출구 밖 산 바닥이 끝나는 곳 — 출구 문틀 시작부터 문틀 끝 + <see cref="CliffReach"/>(오른끝 = 절벽 가장자리),
         /// 윗면은 그 x 폭 바닥선 중 가장 낮은 곳보다 <see cref="CliffTopDrop"/> 아래(레일 다리 아래, 판정선 밖), 판정면 뒤라 비계 다리가 그 앞을 지난다.
-        /// 출구가 없으면 놓지 않는다.</item>
+        /// 깊이는 안개 막 너머까지(<see cref="CliffDepthScale"/>) — 노을빛 윗면이 원근으로 다리 위에 보인다. 출구가 없으면 놓지 않는다.</item>
         /// </list>
         /// </summary>
         public static List<MinePiece> Finish(MineCourse c, MineZones z)
@@ -913,6 +1061,16 @@ namespace LOP.MapTools
             var list = new List<MinePiece>();
             float fl = c.CenterAt(c.Length) - c.HalfAt(c.Length);
             list.Add(new MinePiece(MinePartKind.FinishFlag, c.Length, fl, FinishFlagZ, 0f, FinishFlagWidth, FinishFlagWidth, 1f, 1f));
+            float bx0 = c.Length - FinishBannerHalfWidth, bw = FinishBannerHalfWidth * 2f;
+            var bxs = StraightBreaks(c, bx0, bx0 + bw);
+            double top = bxs.Max(x => c.CenterAtD(x) + c.HalfAtD(x)), bottom = bxs.Min(x => c.CenterAtD(x) - c.HalfAtD(x));
+            list.Add(new MinePiece(MinePartKind.FinishBanner, bx0, (float)top, FinishBannerZ, 0f, bw, bw, bw, FinishBannerHeight, layer: 1));
+            list.Add(new MinePiece(MinePartKind.FinishBanner, bx0, (float)(bottom - FinishBannerHeight), FinishBannerZ, 0f, bw, bw, bw, FinishBannerHeight, layer: 0));
+            float curtainBottom = fl + FinishFlagHeight + FinishCurtainGap, curtainTop = c.CenterAt(c.Length) + c.HalfAt(c.Length);
+            if (curtainTop - curtainBottom > FinishCheckerCell)
+            {
+                list.Add(new MinePiece(MinePartKind.FinishBanner, bx0, curtainBottom, FinishCurtainZ, 0f, bw, bw, bw, curtainTop - curtainBottom, layer: 2));
+            }
             if (z.HasExit)
             {
                 float x0 = z.ExitStart, x1 = Math.Min(z.ExitEnd + CliffReach, Math.Max(z.ExitEnd, c.Length - 1f));

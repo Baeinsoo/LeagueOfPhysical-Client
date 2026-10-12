@@ -131,6 +131,7 @@ namespace LOP.EditorTools
             if (look == null)
             {
                 Debug.LogError($"[광산 코스] {FlappyMineMaterials.LookAssetPath}가 없어 옷을 입히지 않았다 — 회색 박스로 남는다.");
+                FlappyClassicCourseBuilder.SetFinishMarkerVisible(true, "Build mine course");
             }
             else
             {
@@ -140,12 +141,15 @@ namespace LOP.EditorTools
                     //  전통 코스 바탕(구름·코인·덤불·도시 실루엣)은 끈다 — 지우지 않는다(전통 굽기가 다시 켠다).
                     List<string> hiddenBackdrop = FlappyClassicCourseBuilder.SetClassicBackdropActive(false, "Build mine course");
                     Debug.Log("[광산 코스] 끈 전통 바탕: " + (hiddenBackdrop.Count > 0 ? string.Join(", ", hiddenBackdrop) : "없음(이미 꺼져 있음)"));
+                    //  결승선 마커 기둥(노랑·초록)은 렌더러만 끈다 — 마커·판정은 그대로, 결승선 그림은 옷의 깃발·체크무늬 띠가 맡는다(10-12 fix1).
+                    FlappyClassicCourseBuilder.SetFinishMarkerVisible(false, "Build mine course");
                 }
                 else
                 {
                     //  부품·재질이 없어 옷을 못 입혔다(Art 서브모듈을 안 받은 기계 등) — 바탕까지 끄면 빈 배경만 남는다.
                     //  옛 옷은 Dress가 이미 지웠으므로, 앞선 광산 굽기가 꺼 둔 바탕도 다시 켠다.
                     FlappyClassicCourseBuilder.SetClassicBackdropActive(true, "Build mine course");
+                    FlappyClassicCourseBuilder.SetFinishMarkerVisible(true, "Build mine course");
                     Debug.LogError("[광산 코스] 옷을 못 입혀 전통 바탕을 켜 둔다 — 회색 박스로 남는다.");
                 }
             }

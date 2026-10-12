@@ -77,6 +77,12 @@ namespace LOP.UI
             {
                 _cards[i].EnableInClassList("kit-card--picked", i == gameIndex);
             }
+            //  고른 카드가 화면 밖(여섯째 이후)이면 보이게 넘긴다 — 레이아웃이 끝난 다음 틱에.
+            if (_cards is ScrollView scroll && gameIndex >= 0 && gameIndex < _cards.childCount)
+            {
+                var picked = _cards[gameIndex];
+                scroll.schedule.Execute(() => scroll.ScrollTo(picked));
+            }
 
             _maps.Clear();
             for (int i = 0; i < _vm.Maps.Count; i++)

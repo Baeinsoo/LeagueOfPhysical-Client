@@ -32,8 +32,11 @@
     padding: 0;
     margin: 0;
 }
-.kit-press:hover, .kit-press:active {
+/* 유니티 기본 테마의 .unity-button:hover:enabled 가 특이도로 이겨 버튼 바탕 직사각형이 비치던 것을 막는다 */
+.kit-press:hover, .kit-press:active,
+.kit-press:hover:enabled, .kit-press:active:enabled, .kit-press:hover:active:enabled, .kit-press:focus {
     background-color: rgba(255, 255, 255, 0);
+    border-color: rgba(255, 255, 255, 0);
 }
 
 .sticker {
@@ -92,9 +95,9 @@
 /* 일반/랭크 전환 칩 — 반투명 크림 알약, 고른 쪽 크림(랭크면 빨강) (시안 kit.css .chip) */
 .kit-toggle { flex-direction: row; height: 72px; padding: 6px; border-radius: 36px; background-color: rgba(255, 248, 232, 0.25); }
 .kit-toggle__opt { height: 60px; padding: 0 32px; border-radius: 30px; border-width: 0; margin: 0; background-color: rgba(255, 255, 255, 0); font-size: 30px; color: #FFFFFF; -unity-text-align: middle-center; }
-.kit-toggle__opt:hover { background-color: rgba(255, 255, 255, 0); }
-.kit-toggle__opt--on, .kit-toggle__opt--on:hover, .kit-toggle__opt--on:active { background-color: var(--lop-face); color: var(--lop-ink); }
-.ranked .kit-toggle__opt--on, .ranked .kit-toggle__opt--on:hover, .ranked .kit-toggle__opt--on:active { background-color: var(--lop-live); color: #FFFFFF; }
+.kit-toggle__opt:hover, .kit-toggle__opt:hover:enabled, .kit-toggle__opt:active:enabled { background-color: rgba(255, 255, 255, 0); border-color: rgba(255, 255, 255, 0); }
+.kit-toggle__opt--on, .kit-toggle__opt--on:hover, .kit-toggle__opt--on:active, .kit-toggle__opt--on:hover:enabled, .kit-toggle__opt--on:active:enabled { background-color: var(--lop-face); color: var(--lop-ink); }
+.ranked .kit-toggle__opt--on, .ranked .kit-toggle__opt--on:hover, .ranked .kit-toggle__opt--on:active, .ranked .kit-toggle__opt--on:hover:enabled, .ranked .kit-toggle__opt--on:active:enabled { background-color: var(--lop-live); color: #FFFFFF; }
 
 /* 알약 칩 — 종목 칩·경기장 칩·코인. 넘치면 말줄임(KitEllipsis가 max-width로 자름) */
 .kit-chip { flex-direction: row; align-items: center; height: 64px; padding: 0 28px; border-radius: 32px; border-width: 0; background-color: var(--lop-face); }
@@ -109,7 +112,7 @@
 .kit-card__art { height: 180px; border-top-left-radius: 10px; border-top-right-radius: 10px; justify-content: center; align-items: center; }
 .kit-card__art-text { font-size: 96px; color: #FFFFFF; }
 .kit-card__name { font-size: 30px; padding: 10px 16px; background-color: var(--lop-ink); color: var(--lop-face); -unity-text-align: middle-center; overflow: hidden; white-space: nowrap; max-width: 300px; }
-.kit-card__desc { font-size: 26px; padding: 10px 16px; color: var(--lop-ink); -unity-text-align: middle-center; overflow: hidden; white-space: nowrap; max-width: 300px; }
+.kit-card__desc { min-height: 52px; font-size: 26px; padding: 10px 16px; color: var(--lop-ink); -unity-text-align: middle-center; overflow: hidden; white-space: nowrap; max-width: 300px; }
 /* 고른 카드 — 바깥 노란 테두리. 앞면에 두면 Painter2D 앞면이 테두리를 덮는다. 폭·여백을 6씩 늘리고 줄여 옆 카드가 안 밀린다 */
 .kit-card--picked { width: 312px; margin: -6px 14px; border-width: 6px; border-color: var(--lop-reward); border-radius: 16px; }
 

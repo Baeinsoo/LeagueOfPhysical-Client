@@ -45,9 +45,7 @@
                 <ui:Button name="nav-season" class="kit-press kit-nav"><lop:StickerElement><ui:Label text="🏆" class="kit-nav__icon" /><ui:Label text="시즌" class="kit-nav__label" /></lop:StickerElement></ui:Button>
                 <ui:Button name="nav-settings" class="kit-press kit-nav"><lop:StickerElement><ui:Label text="⚙️" class="kit-nav__icon" /><ui:Label text="설정" class="kit-nav__label" /></lop:StickerElement></ui:Button>
             </ui:VisualElement>
-            <!-- 왼쪽 아래: 랭크 안내 -->
-            <ui:Label name="ranked-note" text="종목은 랜덤 · 실력이 가까운 선수와" class="lobbyhome-ranked-note" />
-            <!-- 오른쪽 아래: 전환 칩 → PLAY → 종목 칩 -->
+            <!-- 오른쪽 아래: 전환 칩 → PLAY → 종목 칩(랭크면 안내 칩) -->
             <ui:VisualElement class="lobbyhome-play-group" picking-mode="Ignore">
                 <ui:VisualElement class="kit-toggle">
                     <ui:Button name="queue-casual" text="일반" class="kit-toggle__opt" />
@@ -59,6 +57,10 @@
                 <ui:Button name="game-chip" class="kit-press kit-gamechip lobbyhome-gamechip">
                     <lop:StickerElement><ui:Label name="game-chip-text" class="kit-gamechip__text" /></lop:StickerElement>
                 </ui:Button>
+                <!-- 랭크면 같은 자리에 안내 칩 — PLAY 위치가 일반과 같게 남는다 -->
+                <ui:VisualElement name="ranked-chip" class="kit-gamechip lobbyhome-rankedchip">
+                    <lop:StickerElement><ui:Label text="🎲 종목 랜덤 · 실력 맞춤" class="kit-gamechip__text" /></lop:StickerElement>
+                </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
 

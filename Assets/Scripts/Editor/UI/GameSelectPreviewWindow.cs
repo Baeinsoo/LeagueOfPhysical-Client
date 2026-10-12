@@ -41,6 +41,8 @@ namespace LOP.EditorTools
                 new(3, "플래피 레이스", "두드려 날아 먼저 완주", new[] { new MapChoice(30, "도시") }),
                 new(4, "스카이다이브", "떨어지며 별을 모아요", new[] { new MapChoice(40, "하늘") }),
                 new(5, "판치기", "딱지를 뒤집어라", new[] { new MapChoice(50, "교실") }),
+                //  설명 없는 종목 — 카드 높이가 같아야 한다. 여섯째라 1920에 다 안 들어가 좌우로 넘긴다.
+                new(6, "플랩왕", "", new[] { new MapChoice(60, "광산") }),
             };
             var view = new GameSelectView(new GameSelectViewModel(games, 0, 0, (g, m) => Debug.Log($"고르기: {g}/{m}")));
             view.Initialize(host);

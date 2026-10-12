@@ -269,6 +269,8 @@ namespace LOP.EditorTools
 
             //  광산 굽기가 끈 바탕(구름·장식·도시 실루엣)을 다시 켠다 — 구름·장식은 여기서 다시 만들지 않으므로 지우지 않고 끄기만 했다.
             SetClassicBackdropActive(true, "Build classic course");
+            //  광산 굽기가 끈 결승선 마커 기둥 그림도 다시 켠다(전통 코스는 노랑·초록 기둥이 결승선 그림이다).
+            SetFinishMarkerVisible(true, "Build classic course");
             RebuildSkyline(length);
 
             //  전통 코스는 추격자·수동 대시가 있는 맵이다 — 같은 씬을 광산 굽기가 끈 채로 남겼어도 다시 켠다.
@@ -1165,6 +1167,44 @@ namespace LOP.EditorTools
         //  (하늘·실루엣을 따로 입히는데 구름이 그 앞에, 코인·덤불이 통로 안·바닥 여유에 보였다 — 10-08 캡처).
         //  조명은 여기 없다(맵 씬엔 빛이 없고 게임 씬 FlappyRace에 있다). Ground는 원래부터 꺼져 있어 손대지 않는다.
         internal static readonly string[] ClassicBackdropNames = { "Clouds", "Decorations", "CitySilhouette" };
+
+        /// <summary>결승선 마커 기둥 재질(노랑·초록) — 전통 굽기가 마커 그림을 되살릴 때 쓴다.</summary>
+        internal const string FinishMarkerMaterialPath = "Assets/Art/Environment/FlappyRace/Finish.mat";
+
+        /// <summary>
+        /// 결승선 마커(<see cref="LOP.FinishLine"/>)의 <b>그림만</b> 켜거나 끈다 — 광산 굽기는 끈다(노랑·초록 기둥이 광산 결승선 깃발·체크무늬를 통째로 가렸다 — 10-12 fix1).
+        /// 오브젝트·컴포넌트·트랜스폼은 그대로고 <b>렌더러도 켠 채</b>다: <c>FinishLine.Shape</c>가 <c>renderer.bounds</c>를 결승선 형상으로 쓰고 서버(헤드리스)가 그것으로
+        /// 골인을 판정하므로, 렌더러를 끄지 않는다. 대신 재질 목록을 비운다(그릴 서브메시가 없다 — 씬에 저장되고, bounds는 메시·트랜스폼에서 나와 그대로다).
+        /// <c>Renderer.forceRenderingOff</c>는 씬에 저장되지 않아(6000.3 실측: 직렬화 속성 없음, Instantiate 사본도 false) 쓰지 않는다.
+        /// 되살릴 때는 <see cref="FinishMarkerMaterialPath"/>. 바꾼 것이 있으면 true.
+        /// </summary>
+        internal static bool SetFinishMarkerVisible(bool visible, string undoName)
+        {
+            var finish = Object.FindFirstObjectByType<LOP.FinishLine>(FindObjectsInactive.Include);
+            if (finish == null) { return false; }
+            Material shown = AssetDatabase.LoadAssetAtPath<Material>(FinishMarkerMaterialPath);
+            bool changed = false;
+            foreach (Renderer r in finish.GetComponentsInChildren<Renderer>(true)) { changed |= SetMarkerDrawn(r, visible, shown, undoName); }
+            return changed;
+        }
+
+        /// <summary>
+        /// 마커 렌더러 하나: 늘 켠 채(<c>enabled</c> — 앞선 fix1 굽기가 꺼 둔 것도 다시 켠다), 그림만 재질 목록으로 — 숨기면 빈 목록, 보이면 비어 있을 때만 <paramref name="shown"/>
+        /// (이미 재질이 있으면 그대로). 바꾼 것이 있으면 true.
+        /// </summary>
+        internal static bool SetMarkerDrawn(Renderer r, bool visible, Material shown, string undoName)
+        {
+            bool changed = false;
+            if (!r.enabled || (visible ? r.sharedMaterials.Length == 0 && shown != null : r.sharedMaterials.Length > 0))
+            {
+                Undo.RecordObject(r, undoName);
+                changed = true;
+            }
+            r.enabled = true;
+            if (!visible) { r.sharedMaterials = new Material[0]; }
+            else if (r.sharedMaterials.Length == 0 && shown != null) { r.sharedMaterials = new[] { shown }; }
+            return changed;
+        }
 
         /// <summary><c>---Environment---</c>의 <see cref="ClassicBackdropNames"/>를 켜거나 끈다. 상태가 바뀐 이름 목록을 돌려준다.</summary>
         internal static List<string> SetClassicBackdropActive(bool active, string undoName)

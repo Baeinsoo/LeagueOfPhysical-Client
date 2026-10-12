@@ -34,6 +34,8 @@ namespace LOP.EditorTools
         internal const int RockPaintSize = 1024;
         private const int RockPaintSeed = 7;
         internal const string LookAssetPath = "Assets/Art/Settings/FlappyMineLook.asset";
+        /// <summary>절벽 윗면(CliffSun) = 바위 평균 색에서 노을 색 쪽으로 이만큼 섞는다 — 따뜻하지만 밝은 테보다 어둡다.</summary>
+        internal const float CliffSunWarmth = 0.35f;
 
         [MenuItem("LOP/Debug/Flappy 광산 재질 갱신")]
         public static void EnsureFromMenu()
@@ -83,6 +85,11 @@ namespace LOP.EditorTools
             //  1 미만이면 블룸 문턱 밑이라(은은하게) 과하게 빛나지 않는다 — padGlow(0.8)는 일부러 거기 둔다.
             Color boltGlowBase = ToColor(0xff, 0xd8, 0x4a);
             Color padGlowBase = ToColor(0xff, 0xcf, 0x5a);
+            //  펼치기 2차(10-12) 새 슬롯 3개. 결승선 체크 깃발 두 색 — 따뜻한 갈색·크림(형광 없음). 크림도 밝은 테(rockBandColor)보다
+            //  어둡게 둔다(밝은 것 = 닿는 것). 절벽 윗면(CliffSun)은 바위 평균 색을 노을(하늘 아래 색) 쪽으로 조금 당긴 따뜻한 면.
+            Color flagCreamColor = ToColor(0xc9, 0xb0, 0x8a);
+            Color flagBrownColor = ToColor(0x6a, 0x46, 0x30);
+            Color cliffSunColor = Color.Lerp(rockBase, look.skySunsetBottomColor, CliffSunWarmth);
 
             //  슬롯 이름(Task 3 보고) → 재질. FBX 리매핑은 이 이름으로 찾는다.
             var slots = new Dictionary<string, Material>
@@ -123,6 +130,11 @@ namespace LOP.EditorTools
                 ["TimberDim"] = Toon("TimberDim", ScaleRgb(Grain(look, timberColor), look.decorTimberShade), wood, shadow),
                 ["OreDim"] = Toon("OreDim", ScaleRgb(oreColor, look.decorOreShade), null, shadow),
                 ["RailDim"] = Toon("RailDim", ScaleRgb(railColor, 0.85f), null, shadow),
+
+                //  10-12 펼치기 2차 — 절벽 끝 윗면(CliffEdge 몸통은 Strata), 결승선 깃발.
+                ["CliffSun"] = Toon("CliffSun", cliffSunColor, null, shadow),
+                ["FlagCream"] = Toon("FlagCream", flagCreamColor, null, shadow),
+                ["FlagBrown"] = Toon("FlagBrown", flagBrownColor, null, shadow),
             };
             Toon("StrataPatchLight", ScaleRgb(rockBase, 1f + look.decorContrast), null, shadow);
 

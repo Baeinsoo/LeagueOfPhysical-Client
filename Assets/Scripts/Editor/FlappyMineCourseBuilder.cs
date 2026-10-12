@@ -11,8 +11,8 @@ namespace LOP.EditorTools
     /// (<c>Prism</c>·<c>Pipe</c>·<c>BoostPad</c>)으로 세우기만 한다.
     ///
     /// <para><b>회색 박스</b>다: 기믹·스카이라인·미드그라운드는 굽지 않고 재질도 하나뿐이다. 재미를 먼저 보고,
-    /// 모양이 정해지면 그때 입힌다. 지금은 <c>DressFrom</c>~첫 "레일 롤러코스터"(<see cref="MineZones.DressEnd"/>, 3막 151.25)만
-    /// <see cref="FlappyMineDressing"/>이 광산 옷을 입힌다(회색 박스의 렌더러만 끄고 판정은 그대로).</para>
+    /// 모양이 정해지면 그때 입힌다. <c>DressFrom</c>~코스 끝 + <see cref="EndMargin"/>(3막 406.15, 10-12 펼치기 2차 — 1차는 첫 "레일 롤러코스터" 151.25까지)를
+    /// <see cref="FlappyMineDressing"/>이 광산 옷으로 입힌다(회색 박스의 렌더러만 끄고 판정은 그대로).</para>
     ///
     /// <para>전통 굽기와 같은 씬(<c>ComposedMap</c>)을 갈아 끼운다 — 두 메뉴는 서로를 덮어쓴다.
     /// 맵 룰(<see cref="LOP.FlappyMapRules"/>)도 같이 바꾼다: 광산은 추격자·수동 대시가 없다.</para>
@@ -28,8 +28,8 @@ namespace LOP.EditorTools
         //  굴을 사다리꼴로 자르는 간격 — 전통 지름길 띠(ShortcutStripStep)와 같다.
         private const float TubeStripStep = 0.25f;
 
-        //  바닥·천장을 스폰 뒤·결승선 뒤로 더 뻗는다.
-        private const float EndMargin = 20f;
+        //  바닥·천장을 스폰 뒤·결승선 뒤로 더 뻗는다. 옷 범위 끝(코스 끝 + 이 값)과 같은 값이라 배치 규칙 쪽 상수 하나를 쓴다.
+        private const float EndMargin = MineDressingLayout.EndMargin;
 
         //  NaN 끝(통로 바닥·천장까지 막는 관문)은 선에 딱 맞추지 않고 이만큼 벽 안으로 묻는다 — 관문이 두꺼우면
         //  (긴 통로 12 m) 통로가 기운 자리에서 한쪽 아래에 틈이 생긴다. 전통 굽기의 파이프도 1 m 묻는다.
@@ -38,9 +38,9 @@ namespace LOP.EditorTools
         //  스폰 높이 범위를 정할 창 — 프로토타입 관문 틈(GAP)과 같다.
         private const float SpawnWindow = 3.75f;
 
-        //  옷 입히는 범위 시작. 끝은 코스에서 찾는다 — 첫 "레일 롤러코스터" 구간 시작(MineZones.DressEnd, 3막 151.25).
-        //  10-10 펼치기 1차: 롤러코스터부터 뒤는 2차에서 입힌다.
-        private const float DressFrom = -20f;
+        //  옷 입히는 범위 시작. 끝은 바닥·천장 조각 끝과 같은 코스 끝 + EndMargin(3막 406.15) — 범위 안 회색 렌더러가 전부 꺼진다.
+        //  10-12 펼치기 2차: 1차는 첫 "레일 롤러코스터"(151.25)까지였다.
+        private const float DressFrom = -EndMargin;
 
         [MenuItem("LOP/Debug/Flappy 광산 코스 굽기")]
         public static void Build()
@@ -131,21 +131,25 @@ namespace LOP.EditorTools
             if (look == null)
             {
                 Debug.LogError($"[광산 코스] {FlappyMineMaterials.LookAssetPath}가 없어 옷을 입히지 않았다 — 회색 박스로 남는다.");
+                FlappyClassicCourseBuilder.SetFinishMarkerVisible(true, "Build mine course");
             }
             else
             {
                 FlappyMineMaterials.Ensure(look);
-                if (FlappyMineDressing.Dress(root, course, look, DressFrom, MineDressingLayout.Zones(course).DressEnd))
+                if (FlappyMineDressing.Dress(root, course, look, DressFrom, course.Length + EndMargin))
                 {
                     //  전통 코스 바탕(구름·코인·덤불·도시 실루엣)은 끈다 — 지우지 않는다(전통 굽기가 다시 켠다).
                     List<string> hiddenBackdrop = FlappyClassicCourseBuilder.SetClassicBackdropActive(false, "Build mine course");
                     Debug.Log("[광산 코스] 끈 전통 바탕: " + (hiddenBackdrop.Count > 0 ? string.Join(", ", hiddenBackdrop) : "없음(이미 꺼져 있음)"));
+                    //  결승선 마커 기둥(노랑·초록)은 그림만 숨긴다(렌더러는 켠 채 재질 목록만 비운다) — 마커·형상(bounds)·판정은 그대로, 결승선 그림은 옷의 깃발·체크무늬 띠가 맡는다(10-12 fix1).
+                    FlappyClassicCourseBuilder.SetFinishMarkerVisible(false, "Build mine course");
                 }
                 else
                 {
                     //  부품·재질이 없어 옷을 못 입혔다(Art 서브모듈을 안 받은 기계 등) — 바탕까지 끄면 빈 배경만 남는다.
                     //  옛 옷은 Dress가 이미 지웠으므로, 앞선 광산 굽기가 꺼 둔 바탕도 다시 켠다.
                     FlappyClassicCourseBuilder.SetClassicBackdropActive(true, "Build mine course");
+                    FlappyClassicCourseBuilder.SetFinishMarkerVisible(true, "Build mine course");
                     Debug.LogError("[광산 코스] 옷을 못 입혀 전통 바탕을 켜 둔다 — 회색 박스로 남는다.");
                 }
             }

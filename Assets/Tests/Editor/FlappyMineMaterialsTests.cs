@@ -380,6 +380,51 @@ namespace LOP.Tests
             }
         }
 
+        //  펼치기 2차(10-12) — 출구 부품 새 슬롯 3개(CliffSun·FlagCream·FlagBrown).
+
+        [Test]
+        public void 출구_부품_새_슬롯은_따뜻하고_밝은_테보다_어둡고_FBX에_리매핑된다()
+        {
+            var look = Look();
+            try
+            {
+                FlappyMineMaterials.Ensure(look);
+                Material M(string n) => AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/{n}.mat");
+                Color C(string n) => M(n).GetColor("_BaseColor");
+                float rim = C("RockEdge").grayscale;
+                Color rock = FlappyMineMaterials.CalmRockBase(look);
+                foreach (string n in new[] { "CliffSun", "FlagCream", "FlagBrown" })
+                {
+                    Assert.IsNotNull(M(n), $"{n}.mat이 없다");
+                    Assert.AreEqual("LOP/Toon", M(n).shader.name, $"{n}이 LOP/Toon이 아니다");
+                    Assert.IsFalse(M(n).GetShaderPassEnabled("SRPDefaultUnlit"), $"{n}에 외곽선이 켜져 있다");
+                    Assert.Less(C(n).grayscale, rim, $"{n}이 밝은 테보다 밝다(밝은 것 = 닿는 것)");
+                    Assert.Greater(C(n).r - C(n).b, 0.1f, $"{n}이 따뜻한 색이 아니다(형광·회색 금지)");
+                }
+                //  절벽 윗면: 바위보다 조금 밝고 더 따뜻하지만(노을 빛) 테처럼 튀지 않는다.
+                Color sun = C("CliffSun");
+                Assert.Greater(sun.grayscale, rock.grayscale, "절벽 윗면이 빛을 받은 것 같지 않다");
+                Assert.Greater(sun.r - sun.b, rock.r - rock.b, "절벽 윗면이 바위보다 따뜻하지 않다");
+                Assert.Less(sun.grayscale, rim * 0.75f, "절벽 윗면이 밝은 테처럼 튄다");
+                //  체크 깃발은 두 색이 또렷이 갈린다.
+                Assert.Greater(C("FlagCream").grayscale - C("FlagBrown").grayscale, 0.25f, "체크 두 색 대비가 작다");
+
+                bool Mapped(string fbx, string slot) =>
+                    ((ModelImporter)AssetImporter.GetAtPath($"Assets/Art/Models/Mine/{fbx}.fbx")).GetExternalObjectMap()
+                        .Any(kv => kv.Key.type == typeof(Material) && kv.Key.name == slot && kv.Value == M(slot));
+                Assert.IsTrue(Mapped("CliffEdge", "CliffSun"), "CliffEdge.fbx의 CliffSun 슬롯이 리매핑 안 됐다");
+                Assert.IsTrue(Mapped("CliffEdge", "Strata"), "CliffEdge.fbx의 Strata 슬롯이 리매핑 안 됐다(월드 UV 바위)");
+                Assert.IsTrue(Mapped("FinishFlag", "FlagCream") && Mapped("FinishFlag", "FlagBrown") && Mapped("FinishFlag", "Timber"),
+                              "FinishFlag.fbx 슬롯이 리매핑 안 됐다");
+                Assert.IsTrue(Mapped("ExitSign", "SignWood") && Mapped("ExitSign", "SignInlay") && Mapped("ExitSign", "Iron"),
+                              "ExitSign.fbx 슬롯(EntranceSign과 같은 재질)이 리매핑 안 됐다");
+            }
+            finally
+            {
+                Object.DestroyImmediate(look);
+            }
+        }
+
         [Test]
         public void 굴_입구_안개_띠는_바깥_안개에서_굴_안개로_섞인다()
         {

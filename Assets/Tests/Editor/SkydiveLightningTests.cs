@@ -187,6 +187,22 @@ namespace LOP.Tests
             }
         }
 
+        [Test]
+        public void 번개_번쩍은_출구_번쩍에_더해지지_않는다()
+        {
+            //  다시 시작 자리(315)는 출구(295) 20m 위 — 번개 번쩍이 걷히기 전에 출구 번쩍이 온다. 더하면 화면이 날아간다.
+            var exitFlash = new SkydiveMoodKey { Exposure = 1.4f, Bloom = 3.5f };
+            var flashed = SkydiveLightning.WithFlash(exitFlash, 1f);
+            Assert.LessOrEqual(flashed.Exposure, Mathf.Max(exitFlash.Exposure, SkydiveLightning.FlashExposure));
+            Assert.LessOrEqual(flashed.Bloom, Mathf.Max(exitFlash.Bloom, SkydiveLightning.FlashBloom));
+            //  어두운 곳에선 번쩍이 보인다
+            var dark = new SkydiveMoodKey { Exposure = -0.35f, Bloom = 0.4f };
+            Assert.AreEqual(SkydiveLightning.FlashExposure, SkydiveLightning.WithFlash(dark, 1f).Exposure, 1e-5f);
+            Assert.AreEqual(dark.Exposure, SkydiveLightning.WithFlash(dark, 0f).Exposure, 1e-5f);
+            Assert.AreEqual(dark.Bloom, SkydiveLightning.WithFlash(dark, 0f).Bloom, 1e-5f);
+            Assert.That(SkydiveLightning.FlashExposure, Is.LessThanOrEqualTo(1.4f), "번개 번쩍은 출구 번쩍보다 세지 않다");
+        }
+
         private class FakePlayerContext : IPlayerContext
         {
             public GameFramework.ISession session { get; set; }

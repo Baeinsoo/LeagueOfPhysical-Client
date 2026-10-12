@@ -13,8 +13,8 @@ namespace LOP
         public const float BoltSeconds = 0.45f;
         public const float FlashHold = 0.15f;
         public const float FlashFade = 0.45f;
-        public const float FlashExposure = 4f;
-        public const float FlashBloom = 3f;
+        public const float FlashExposure = 1.4f;   // 출구 번쩍과 같은 세기 — 더 세면 화면이 날아간다
+        public const float FlashBloom = 3.5f;
         public const float ShakeSeconds = 0.6f;
         public const float ShakeAmplitude = 0.25f;
         public const float BoltHeight = 160f;
@@ -39,6 +39,16 @@ namespace LOP
         }
 
         /// <summary>내 화면 하얀 번쩍 — 잠깐 꽉 찼다가 걷힌다. 0..1.</summary>
+        /// <summary>
+        /// 번쩍을 분위기에 얹는다 — 더하지 않고 밝은 쪽을 쓴다. 다시 시작 자리가 출구 바로 위라 출구 번쩍과 겹치기 때문.
+        /// </summary>
+        public static SkydiveMoodKey WithFlash(SkydiveMoodKey m, float flash)
+        {
+            m.Exposure = Mathf.Max(m.Exposure, Mathf.Lerp(m.Exposure, FlashExposure, flash));
+            m.Bloom = Mathf.Max(m.Bloom, Mathf.Lerp(m.Bloom, FlashBloom, flash));
+            return m;
+        }
+
         public static float FlashBoost(float elapsed)
         {
             if (elapsed < 0f) return 0f;

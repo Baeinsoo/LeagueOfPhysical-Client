@@ -197,8 +197,9 @@ namespace LOP
             }
             EnsurePost();
             float flash = FlashAt(Time.time);
-            if (bloom != null) { bloom.intensity.Override(m.Bloom + flash * SkydiveLightning.FlashBloom); }
-            if (colorAdjust != null) { colorAdjust.postExposure.Override(m.Exposure + flash * SkydiveLightning.FlashExposure); }
+            var lit = SkydiveLightning.WithFlash(m, flash);
+            if (bloom != null) { bloom.intensity.Override(lit.Bloom); }
+            if (colorAdjust != null) { colorAdjust.postExposure.Override(lit.Exposure); }
         }
 
         private void FindMoodIfScenesChanged()

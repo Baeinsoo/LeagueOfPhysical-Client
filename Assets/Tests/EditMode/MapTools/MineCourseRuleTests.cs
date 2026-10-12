@@ -69,7 +69,8 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(300.5f, gates[27].X, 0.002f);
             Assert.AreEqual(12f, gates[27].Width, 1e-4f);
             Assert.AreEqual(3.1f, gates[27].Gap, 1e-4f);
-            Assert.AreEqual(-76.895f, gates[27].GapCenter, 0.002f);
+            //  10-12 몸통 공 + 둘째 갱·굴뚝 28 → 24 m(게임 커널 검사: 28 m 갱은 최대 낙하로도 못 내려가고, 굴뚝은 초당 4번 가까이 쳐야 했다) — 그 사이 4 m 위로.
+            Assert.AreEqual(-72.895f, gates[27].GapCenter, 0.002f);
             var last = gates[gates.Count - 1];
             Assert.AreEqual(377.725f, last.X, 0.002f);
             Assert.AreEqual(-51.607f, last.GapCenter, 0.002f);
@@ -186,7 +187,7 @@ namespace LOP.MapTools.Tests
             var c = Layout();
             var expect = new (float x, float center, float half)[]
             {
-                (0f, 0f, 7.28f), (100f, -49f, 7.28f), (130f, -52.189f, 2.2f), (200f, -49f, 7.28f), (300f, -77f, 7.28f), (380f, -49f, 7.28f),
+                (0f, 0f, 7.28f), (100f, -49f, 7.28f), (130f, -52.189f, 2.2f), (200f, -49f, 7.28f), (300f, -73f, 7.28f), (380f, -49f, 7.28f),
             };
             foreach (var e in expect)
             {
@@ -194,12 +195,12 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(e.half, c.HalfAt(e.x), 0.01f, $"x={e.x} 반 높이");
             }
 
-            //  수직 갱 둘: 좁은 구간 [a−2, b+4], a = 24.8(8 m에 22 m) · 266.25(10 m에 28 m). 굴뚝: [a−2, b+2], a = 315.35(21 m에 28 m).
+            //  수직 갱 둘: 좁은 구간 [a−2, b+4], a = 24.8(8 m에 22 m) · 266.25(10 m에 24 m). 굴뚝: [a−2, b+2], a = 315.35(21 m에 24 m).
             Assert.AreEqual(2.8f, c.HalfAt(24.8f + 4f), 0.01f);
             Assert.AreEqual(2.8f, c.HalfAt(266.25f + 4f), 0.01f);
             Assert.AreEqual(1.4f, c.HalfAt(315.35f + 8f), 0.01f);
             Assert.AreEqual(-22f, c.CenterAt(24.8f + 8f), 0.01f, "첫 갱 바닥");
-            Assert.AreEqual(-77f, c.CenterAt(266.25f + 10f), 0.01f, "깊은 갱 바닥");
+            Assert.AreEqual(-73f, c.CenterAt(266.25f + 10f), 0.01f, "깊은 갱 바닥");
             Assert.AreEqual(-49f, c.CenterAt(315.35f + 21f), 0.01f, "굴뚝 꼭대기");
             //  경계(좁은 구간 시작) 1.5 m 밖 = 3 m 전이의 한가운데.
             Assert.AreEqual((MineCourse.BaseHalf + 2.8f) / 2f, c.HalfAt(24.8f - 2f - 1.5f), 0.01f);

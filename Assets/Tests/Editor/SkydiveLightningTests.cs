@@ -142,5 +142,29 @@ namespace LOP.Tests
             d.Clear();
             Assert.IsFalse(d.Observe("a", 315f, false, 0.04f, Zones));   // 지운 뒤 첫 프레임
         }
+
+        [Test]
+        public void 분위기는_친_뒤에만_번쩍을_더한다()
+        {
+            var atmosphere = new SkydiveAtmosphere(new FakePlayerContext(), new GameFramework.World.EntityRegistry());
+            try
+            {
+                Assert.AreEqual(0f, atmosphere.FlashAt(5f));   // 아직 안 쳤다
+                atmosphere.Strike(5f);
+                Assert.AreEqual(1f, atmosphere.FlashAt(5.1f));
+                Assert.AreEqual(0f, atmosphere.FlashAt(5f + SkydiveLightning.FlashHold + SkydiveLightning.FlashFade), 1e-5f);   // 부동소수 오차 허용
+            }
+            finally
+            {
+                atmosphere.Dispose();
+            }
+        }
+
+        private class FakePlayerContext : IPlayerContext
+        {
+            public GameFramework.ISession session { get; set; }
+            public string entityId { get; set; }
+            public LOPActor actor { get; set; }
+        }
     }
 }

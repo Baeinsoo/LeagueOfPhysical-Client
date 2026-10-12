@@ -90,6 +90,8 @@ namespace LOP.EditorTools
             "StrataPatchDark", "StrataPatchLight", "TimberDim",
             //  10-12 fix1: 결승선 체크무늬 띠(FinishFlag 천과 같은 두 색).
             "FlagCream", "FlagBrown",
+            //  10-12 결승선 시안 B: 통로를 가로지르는 반투명 줄(같은 두 색, 알파 FinishStripeAlpha).
+            "FlagCreamFade", "FlagBrownFade",
         };
 
         /// <summary>
@@ -479,7 +481,10 @@ namespace LOP.EditorTools
         {
             if (p.Kind == MinePartKind.FinishBanner)
             {
-                return CheckerBanner(parent, materials["FlagCream"], materials["FlagBrown"], p);
+                //  Layer 2 = 통로를 가로지르는 결승선 줄 — 반투명(뒤 노을이 비친다). 위·아래 띠는 불투명.
+                return p.Layer == 2
+                    ? CheckerBanner(parent, materials["FlagCreamFade"], materials["FlagBrownFade"], p)
+                    : CheckerBanner(parent, materials["FlagCream"], materials["FlagBrown"], p);
             }
             string model = ModelName(p.Kind);
             GameObject go = Place(parent, models[model], p, p.Z);

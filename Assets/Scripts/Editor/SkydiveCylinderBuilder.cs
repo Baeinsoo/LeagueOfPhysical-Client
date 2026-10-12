@@ -181,21 +181,6 @@ namespace LOP.EditorTools
 
             //  번개 치는 먹구름 바다 — 정령 아래 바닥. 닿으면 다시 떨어진다(번개 그림은 단계 2). 단단하게 둔다 — 정령을 잡은 사람은 구름 위에 내려선다.
             MeshBody(root, "CloudFloor", StormSeaMaterial(), Sector("CylCloudFloor", 0f, Y.CloudFloorRadius, 0f, 360f, Vector3.zero), new Vector3(0f, -Y.Thickness * 0.5f, 0f));
-            var puffs = new GameObject("CloudPuffs").transform;
-            puffs.SetParent(root, false);
-            var puffMat = StormPuffMaterial();
-            var rng = new System.Random(20261007);
-            for (int i = 0; i < 18; i++)
-            {
-                float deg = (float)rng.NextDouble() * 360f, r = 70f + (float)rng.NextDouble() * 170f, size = 18f + (float)rng.NextDouble() * 26f;
-                var puff = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                Object.DestroyImmediate(puff.GetComponent<Collider>());   // 꾸밈 — 밟히지 않는다
-                puff.name = $"Puff_{i}";
-                puff.transform.SetParent(puffs, false);
-                puff.transform.localPosition = Y.OnCircle(r, deg, size * 0.15f);
-                puff.transform.localScale = new Vector3(size, size * 0.35f, size * 0.8f);
-                puff.GetComponent<MeshRenderer>().sharedMaterial = puffMat;
-            }
             //  먼 대지 — 3막 수평선. 납작한 덩어리, 충돌 없음.
             var lands = new GameObject("FarLands").transform;
             lands.SetParent(root, false);
@@ -389,8 +374,6 @@ namespace LOP.EditorTools
 
         /// <summary>벽의 위·아래 높이 — Build가 쓰는 값 그대로(굽지 않고 시험하려고 따로 뺐다).</summary>
         internal static (float top, float bottom) WallSpan() => (Y.SpawnY + Y.WallAboveSpawn, Y.ExitY);
-
-        internal static Material StormPuffMaterial() => SkydiveMapKit.Toon("CylStormPuff", "#E4E9F2");
 
         internal static Material StormSeaMaterial()
         {

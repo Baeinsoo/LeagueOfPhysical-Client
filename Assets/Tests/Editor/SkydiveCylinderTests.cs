@@ -283,12 +283,5 @@ namespace LOP.Tests
             Assert.Greater(flash.b, flash.r, "밝은 구름 위에서도 보이는 푸른 번쩍");
             Assert.Greater(flash.maxColorComponent, 2f, "밝은 구름 위에서도 보이는 푸른 번쩍");
         }
-
-        [Test]
-        public void 구름_덩이_재질은_밝다()
-        {
-            var puff = SkydiveCylinderBuilder.StormPuffMaterial();
-            Assert.Greater(puff.GetColor("_BaseColor").grayscale, 0.8f, "구름 덩이가 어두우면 밝은 바다 위에서 얼룩진다");
-        }
     }
 }

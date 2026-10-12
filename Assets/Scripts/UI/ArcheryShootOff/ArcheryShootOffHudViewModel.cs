@@ -457,9 +457,9 @@ namespace LOP.UI
         private void OnChickenScared(string shooterId) => commentary.TrySay(ArcheryLine.Chicken, NameOf(shooterId), 0, now);
 
         /// <summary>
-        /// 나면 "당신", 남이면 "{n}P 선수". 클라 엔티티엔 표시 이름이 없어서 <b>엔티티 id 서수 순서</b>로
-        /// 번호를 매긴다(나 포함) — 어느 클라에서 봐도 같은 사람이 같은 번호이고, 화면 좌우 배치
-        /// (<see cref="ArcheryShootOffSeats"/>의 명단)와 같은 순서다.
+        /// 나면 "당신", 남은 몸에 룩(표시 이름)이 있으면 그 이름, 없으면 "{n}P 선수". 번호는
+        /// <b>엔티티 id 서수 순서</b>로 매긴다(나 포함) — 어느 클라에서 봐도 같은 사람이 같은 번호이고,
+        /// 화면 좌우 배치(<see cref="ArcheryShootOffSeats"/>의 명단)와 같은 순서다.
         /// </summary>
         private string NameOf(string entityId)
         {
@@ -477,8 +477,7 @@ namespace LOP.UI
                 }
             }
             roster.Sort(string.CompareOrdinal);
-            int at = roster.IndexOf(entityId);
-            return at >= 0 ? $"{at + 1}P 선수" : "선수";
+            return ArcheryShootOffResultLayout.NameOf(entityRegistry, roster, entityId);
         }
 
         //  점수 1등. 동점이면 id 서수가 앞선 사람.

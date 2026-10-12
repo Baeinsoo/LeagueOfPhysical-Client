@@ -147,5 +147,29 @@ namespace LOP.Tests
             Assert.AreEqual("4cm", ArcheryShootOffResultLayout.DistanceText(true, 0.04f));
             Assert.AreEqual("빗나감", ArcheryShootOffResultLayout.DistanceText(false, 9f));
         }
+
+        // ArcheryShootOffHudViewModel.NameOf가 쓰는 식 그대로 — 룩(표시 이름)이 없으면 번호, 있으면 그 이름.
+        [Test]
+        public void 이름은_룩이_없으면_번호()
+        {
+            var registry = new GameFramework.World.EntityRegistry();
+            var roster = ArcheryShootOffResultLayout.Roster(new[] { "b", "a" });
+            Assert.AreEqual("1P 선수", ArcheryShootOffResultLayout.NameOf(registry, roster, "a"));
+            Assert.AreEqual("2P 선수", ArcheryShootOffResultLayout.NameOf(registry, roster, "b"));
+        }
+
+        [Test]
+        public void 이름은_룩이_있으면_그_이름이고_번호가_아니다()
+        {
+            var registry = new GameFramework.World.EntityRegistry();
+            var entity = new GameFramework.World.Entity("a");
+            entity.Add(new PlayerLook(null, "Kim", 1));
+            registry.Add(entity);
+
+            var roster = ArcheryShootOffResultLayout.Roster(new[] { "b", "a" });
+            string name = ArcheryShootOffResultLayout.NameOf(registry, roster, "a");
+            Assert.AreEqual("Kim", name);
+            Assert.IsFalse(name.Contains("1P"));
+        }
     }
 }

@@ -88,7 +88,7 @@ namespace LOP.UI
             newLines.Clear();
             captionDirector.Observe(at, roster, gameDataStore.userEntityId, newLines);
             foreach (var line in newLines) captionQueue.Push(line);
-            foreach (var change in presenceChanges) captionQueue.Push(DodgeCaptions.PresenceLine(state.PlayerIds, change));
+            foreach (var change in presenceChanges) captionQueue.Push(DodgeCaptions.PresenceLine(world.EntityRegistry, state.PlayerIds, change));
             presenceChanges.Clear();
             captionText.Value = captionQueue.Tick(tick / (double)DodgeConfig.TicksPerSecond);
         }

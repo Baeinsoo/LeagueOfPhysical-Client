@@ -20,13 +20,16 @@ namespace LOP
         private readonly PlayerPresenceStore store;
         private readonly IWindowManager windowManager;
         private readonly PresenceDisplaySettings settings;
+        private readonly GameFramework.World.EntityRegistry registry;
         private PresenceToastView view;
 
-        public PresenceToastCoordinator(PlayerPresenceStore store, IWindowManager windowManager, PresenceDisplaySettings settings)
+        public PresenceToastCoordinator(PlayerPresenceStore store, IWindowManager windowManager, PresenceDisplaySettings settings,
+                                        GameFramework.World.EntityRegistry registry)
         {
             this.store = store;
             this.windowManager = windowManager;
             this.settings = settings;
+            this.registry = registry;
         }
 
         protected override void Subscribe()
@@ -35,7 +38,7 @@ namespace LOP
             Track(store.Changes.Subscribe(change =>
             {
                 view ??= windowManager.Open<PresenceToastView>();
-                view.Show(PresenceText.For(change));
+                view.Show(PresenceText.For(registry, change));
             }));
         }
     }

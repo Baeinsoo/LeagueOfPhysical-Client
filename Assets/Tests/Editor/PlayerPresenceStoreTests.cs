@@ -54,17 +54,31 @@ namespace LOP.Tests
         [Test]
         public void 알림_문구()
         {
-            Assert.AreEqual("2P 선수 연결 끊김", PresenceText.For(new PresenceChange("e2", 2, true)));
-            Assert.AreEqual("2P 선수 재접속", PresenceText.For(new PresenceChange("e2", 2, false)));
+            var registry = new GameFramework.World.EntityRegistry();
+            Assert.AreEqual("2P 선수 연결 끊김", PresenceText.For(registry, new PresenceChange("e2", 2, true)));
+            Assert.AreEqual("2P 선수 재접속", PresenceText.For(registry, new PresenceChange("e2", 2, false)));
+        }
+
+        //  룩(표시 이름)이 있는 몸이면 번호 대신 그 이름으로 — PlayerNames가 토스트에 꽂혀 있는지 확인.
+        [Test]
+        public void 알림_문구는_룩이_있으면_이름으로()
+        {
+            var registry = new GameFramework.World.EntityRegistry();
+            var entity = new GameFramework.World.Entity("e2");
+            entity.Add(new PlayerLook(null, "Kim", 1));
+            registry.Add(entity);
+
+            Assert.AreEqual("Kim 연결 끊김", PresenceText.For(registry, new PresenceChange("e2", 2, true)));
         }
 
         //  피하기는 토스트 대신 중계 자막 — 이름은 자막이 늘 쓰는 "nP 선수"(엔티티 id 순)를 따른다.
         [Test]
         public void 피하기_자막은_자막의_선수_이름으로()
         {
+            var registry = new GameFramework.World.EntityRegistry();
             var ids = new[] { "b", "a" };
-            Assert.AreEqual("2P 선수 연결 끊김", DodgeCaptions.PresenceLine(ids, new PresenceChange("b", 1, true)));
-            Assert.AreEqual("1P 선수 재접속", DodgeCaptions.PresenceLine(ids, new PresenceChange("a", 2, false)));
+            Assert.AreEqual("2P 선수 연결 끊김", DodgeCaptions.PresenceLine(registry, ids, new PresenceChange("b", 1, true)));
+            Assert.AreEqual("1P 선수 재접속", DodgeCaptions.PresenceLine(registry, ids, new PresenceChange("a", 2, false)));
         }
 
         [Test]

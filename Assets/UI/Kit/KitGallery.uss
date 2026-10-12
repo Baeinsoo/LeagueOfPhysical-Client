@@ -1,0 +1,8 @@
+/* 키트 확인 창 배치 — 1920×1080 기준 */
+.kit-gallery { width: 1920px; height: 1080px; padding: 40px; background-color: #262458; }
+.kit-gallery__row { flex-shrink: 0; flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 40px; }
+.kit-gallery__row > * { margin-right: 28px; }
+.kit-gallery__tiers { flex-direction: row; }
+.kit-gallery__tiers .tier-shape { margin-right: 10px; }
+.kit-gallery__badge-host { position: relative; }
+.kit-gallery__ticker { width: 1200px; }

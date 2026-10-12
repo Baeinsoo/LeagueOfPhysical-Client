@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using LOP.EditorTools;
 using NUnit.Framework;
 using UnityEditor;
@@ -18,6 +20,30 @@ namespace LOP.Tests
         public void TearDown()
         {
             if (composed != null) { Object.DestroyImmediate(composed); }
+        }
+
+        [Test]
+        public void 스폰_자리는_찾은_순서가_아니라_Order_순서로_위에서부터()
+        {
+            //  10-12: FindObjectsByType(None)이 굽기마다 다른 순서로 돌려줘 Order 1~4의 높이가 굽기마다 섞였다(씬: 위에서 2·4·3·1).
+            composed = new GameObject("SpawnHolder");
+            var spawns = new List<LOP.SpawnPoint>();
+            foreach (int order in new[] { 2, 4, 1, 3 })
+            {
+                var go = new GameObject($"PlayerSpawn_{order}");
+                go.transform.SetParent(composed.transform);
+                var sp = go.AddComponent<LOP.SpawnPoint>();
+                sp.Order = order;
+                spawns.Add(sp);
+            }
+
+            FlappyClassicCourseBuilder.PlaceSpawns(spawns, -7f, 7f, 3.75f, 0f);
+
+            float[] ys = spawns.OrderBy(sp => sp.Order).Select(sp => sp.transform.position.y).ToArray();
+            for (int i = 1; i < ys.Length; i++)
+            {
+                Assert.Greater(ys[i - 1], ys[i], $"Order {i}이 Order {i + 1}보다 위가 아니다: {string.Join(", ", ys)}");
+            }
         }
 
         [Test]

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -1333,9 +1334,16 @@ namespace LOP.EditorTools
                 Debug.LogWarning("[전통 코스] SpawnPoint 마커가 없다 — 자리를 못 옮겼다.");
                 return;
             }
+            PlaceSpawns(spawns, floorY, ceilingY, window, firstGapCenter);
+        }
+
+        //  Order 1이 맨 위. 찾아오는 순서(FindObjectsSortMode.None)는 굽기마다 달라 그대로 쓰면 자리가 섞인다(10-12 씬: 위에서 2·4·3·1).
+        internal static void PlaceSpawns(IEnumerable<LOP.SpawnPoint> found, float floorY, float ceilingY, float window, float firstGapCenter)
+        {
+            var spawns = found.OrderBy(sp => sp.Order).ThenBy(sp => sp.name, System.StringComparer.Ordinal).ToList();
             float step = 1.6f;
-            float top = firstGapCenter + (spawns.Length - 1) * step * 0.5f;
-            for (int i = 0; i < spawns.Length; i++)
+            float top = firstGapCenter + (spawns.Count - 1) * step * 0.5f;
+            for (int i = 0; i < spawns.Count; i++)
             {
                 float y = Mathf.Clamp(top - i * step, floorY + window * 0.5f, ceilingY - window * 0.5f);
                 Undo.RecordObject(spawns[i].transform, "Build classic course");

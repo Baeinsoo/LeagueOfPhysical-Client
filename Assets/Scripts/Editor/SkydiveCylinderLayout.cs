@@ -167,8 +167,8 @@ namespace LOP.EditorTools
             MoodKey(600f, "#2A2A33", 0.0030f, "#33313A", "#8A8896", 0.35f, 0.4f, -0.3f),     // 2막 — 먹구름
             MoodKey(330f, "#22202A", 0.0032f, "#2C2930", "#7A7480", 0.3f, 0.4f, -0.35f),     // 가장 어둡게 — 터지기 직전
             MoodKey(295f, "#FFFFFF", 0.0003f, "#E8EEF5", "#FFFFFF", 2.0f, 3.5f, 1.4f),    // 빠져나오는 순간 — 하얗게 번쩍(어둠에서 나와 눈이 부신 것처럼)
-            MoodKey(240f, "#CFE6FF", 0.0003f, "#B8C8DA", "#FFFFFF", 1.3f, 1.4f, 0.4f),    // 눈이 적응하며 맑은 하늘이 보인다
-            MoodKey(0f, "#B4D8FF", 0.0003f, "#A8BCD0", "#FFFFFF", 1.2f, 1.1f, 0.25f),
+            MoodKey(240f, "#CFE6FF", 0.0003f, "#B8C8DA", "#FFFFFF", 1.1f, 0.7f, 0.1f),    // 눈이 적응하며 맑은 하늘이 보인다
+            MoodKey(0f, "#B4D8FF", 0.0003f, "#A8BCD0", "#FFFFFF", 1.0f, 0.35f, 0f),     // 정령만 빛나게 — 흰 구름이 블룸 문턱(0.9)을 넘지 않는다(사용자 10-12)
         };
 
         private static SkydiveMoodKey MoodKey(float alt, string fog, float density, string ambient, string sun, float sunIntensity, float bloom, float exposure)

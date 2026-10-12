@@ -49,6 +49,8 @@ namespace LOP
         private UnityEngine.Rendering.VolumeProfile profileInstance;
         private UnityEngine.Rendering.Universal.Bloom bloom;
         private UnityEngine.Rendering.Universal.ColorAdjustments colorAdjust;
+        //  번개를 맞은 시각 — 내 화면을 잠깐 하얗게. 아직 안 맞았으면 아주 먼 과거.
+        private float strikeAt = float.NegativeInfinity;
 
         public SkydiveAtmosphere(IPlayerContext playerContext,
                                  GameFramework.World.EntityRegistry entityRegistry)
@@ -140,6 +142,12 @@ namespace LOP
             Apply(transform.Position.Y);
         }
 
+        /// <summary>내가 바닥 구름에서 번개를 맞았다 — 잠깐 하얗게 번쩍인다.</summary>
+        public void Strike(float now) => strikeAt = now;
+
+        /// <summary>지금 노출·블룸에 더하는 번쩍 세기(0..1).</summary>
+        public float FlashAt(float now) => SkydiveLightning.FlashBoost(now - strikeAt);
+
         /// <summary>고도 하나로 대기 전체가 정해진다. 테스트가 이 문으로 들어온다.</summary>
         public void Apply(float altitude)
         {
@@ -188,8 +196,10 @@ namespace LOP
                 sun.intensity = m.SunIntensity;
             }
             EnsurePost();
-            if (bloom != null) { bloom.intensity.Override(m.Bloom); }
-            if (colorAdjust != null) { colorAdjust.postExposure.Override(m.Exposure); }
+            float flash = FlashAt(Time.time);
+            var lit = SkydiveLightning.WithFlash(m, flash);
+            if (bloom != null) { bloom.intensity.Override(lit.Bloom); }
+            if (colorAdjust != null) { colorAdjust.postExposure.Override(lit.Exposure); }
         }
 
         private void FindMoodIfScenesChanged()

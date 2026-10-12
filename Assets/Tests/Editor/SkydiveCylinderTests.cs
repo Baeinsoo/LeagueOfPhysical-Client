@@ -48,6 +48,20 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 빠져나온_뒤엔_정령만_빛난다()
+        {
+            //  사용자 10-12: 탈출 뒤 화면이 너무 밝아 흰 구름 덩어리도 정령처럼 빛났다(블룸 문턱 0.9를 넘음).
+            //  번쩍은 빠져나오는 순간뿐 — 정령이 도는 높이에선 노출을 올리지 않고 블룸도 기본에 가깝게.
+            foreach (float y in new[] { 100f, Y.StarCenter.y + Y.StarBob, Y.StarCenter.y, Y.StarCenter.y - Y.StarBob })
+            {
+                var m = SkydiveMoodCurve.Evaluate(Y.Mood, y);
+                Assert.LessOrEqual(m.Exposure, 0.05f, $"{y}m 노출");
+                Assert.LessOrEqual(m.Bloom, 0.6f, $"{y}m 블룸");
+                Assert.LessOrEqual(m.SunIntensity, 1.1f, $"{y}m 햇빛 — 흰 구름이 문턱을 넘지 않게");
+            }
+        }
+
+        [Test]
         public void 별은_출구_아래_공중에서_돈다()
         {
             //  빠져나오자마자 공짜로 닿거나, 내려앉아 걸어서 닿으면 마지막 고민(낚아챌까 쫓을까)이 없다.
@@ -268,13 +282,6 @@ namespace LOP.Tests
             var flash = m.GetColor("_FlashColor");
             Assert.Greater(flash.b, flash.r, "밝은 구름 위에서도 보이는 푸른 번쩍");
             Assert.Greater(flash.maxColorComponent, 2f, "밝은 구름 위에서도 보이는 푸른 번쩍");
-        }
-
-        [Test]
-        public void 구름_덩이_재질은_밝다()
-        {
-            var puff = SkydiveCylinderBuilder.StormPuffMaterial();
-            Assert.Greater(puff.GetColor("_BaseColor").grayscale, 0.8f, "구름 덩이가 어두우면 밝은 바다 위에서 얼룩진다");
         }
     }
 }

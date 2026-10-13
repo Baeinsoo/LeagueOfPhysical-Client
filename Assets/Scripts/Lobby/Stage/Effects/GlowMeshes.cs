@@ -31,12 +31,16 @@ namespace LOP
             return mesh;
         }
 
-        /// <summary>윗변이 x=±width/2, 꼭짓점이 아래(y=−height)인 삼각형. 툰 셰이더가 뒷면을 버려서 뒤집은 한 장을 더 둔다.</summary>
+        /// <summary>윗변이 x=±width/2, 꼭짓점이 아래(y=−height)인 삼각형. 툰 셰이더가 뒷면을 버려서 뒤집은 한 장을 더 둔다(꼭짓점·법선 따로).</summary>
         public static Mesh Triangle(float width, float height)
         {
-            var v = new[] { new Vector3(-width / 2f, 0f, 0f), new Vector3(width / 2f, 0f, 0f), new Vector3(0f, -height, 0f) };
-            var mesh = new Mesh { name = "BuntingFlag", vertices = v, triangles = new[] { 0, 1, 2, 0, 2, 1 } };
-            mesh.RecalculateNormals();
+            //  앞뒤 면이 꼭짓점을 같이 쓰면 법선이 서로 지워져 검게 나온다 — 면마다 꼭짓점을 따로 둔다.
+            var a = new Vector3(-width / 2f, 0f, 0f);
+            var b = new Vector3(width / 2f, 0f, 0f);
+            var c = new Vector3(0f, -height, 0f);
+            var v = new[] { a, b, c, a, b, c };
+            var n = new[] { Vector3.back, Vector3.back, Vector3.back, Vector3.forward, Vector3.forward, Vector3.forward };
+            var mesh = new Mesh { name = "BuntingFlag", vertices = v, normals = n, triangles = new[] { 0, 1, 2, 3, 5, 4 } };
             mesh.RecalculateBounds();
             return mesh;
         }

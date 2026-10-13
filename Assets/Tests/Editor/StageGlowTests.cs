@@ -32,6 +32,7 @@ namespace LOP.Tests
         {
             var mesh = GlowMeshes.Triangle(0.26f, 0.3f);
             Assert.AreEqual(6, mesh.triangles.Length);
+            Assert.AreEqual(6, mesh.vertexCount, "앞뒤 면이 꼭짓점을 같이 쓰면 법선이 지워져 검게 나온다");
             Object.DestroyImmediate(mesh);
         }
     }

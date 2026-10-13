@@ -16,6 +16,7 @@ namespace LOP.EditorTools
 
         [SerializeField] private bool _ranked;
         [SerializeField] private bool _longName;
+        [SerializeField] private int _width = 1920;
         [SerializeField] private int _height = 1080;
 
         [MenuItem("LOP/UI/로비 미리보기 (일반)")]
@@ -25,34 +26,23 @@ namespace LOP.EditorTools
         public static void OpenRanked() => Show(true, false);
 
         [MenuItem("LOP/UI/로비 미리보기 PNG 저장")]
-        public static void SavePngs()
+        public static void SavePngs() => UiSnapshot.SaveAll(new (System.Func<EditorWindow>, string, int, int)[]
         {
-            //  창 하나를 차례로 바꿔 가며 찍는다 — 한 장 찍는 데 1초 남짓.
-            UiSnapshot.Save(Show(false, false), "output/lobby-casual.png");
-            EditorApplication.delayCall += () => Delay(1.5, () => UiSnapshot.Save(Show(true, false), "output/lobby-ranked.png"));
-            EditorApplication.delayCall += () => Delay(3.0, () => UiSnapshot.Save(Show(false, true), "output/lobby-longname.png"));
-            //  20:9 폰 — 패널은 폭을 1920에 맞추므로 높이가 864가 된다.
-            EditorApplication.delayCall += () => Delay(4.5, () => UiSnapshot.Save(Show(false, false, 864), "output/lobby-short.png"));
-            EditorApplication.delayCall += () => Delay(6.0, () => UiSnapshot.Save(Show(true, false, 864), "output/lobby-short-ranked.png"));
-        }
+            (() => Show(false, false), "output/lobby-casual.png", 1920, 1080),
+            (() => Show(true, false), "output/lobby-ranked.png", 1920, 1080),
+            (() => Show(false, true), "output/lobby-longname.png", 1920, 1080),
+            //  패널은 Expand — 20:9 폰은 2400×1080, 4:3 태블릿은 1920×1440이 된다.
+            (() => Show(false, false, 2400, 1080), "output/lobby-20x9.png", 2400, 1080),
+            (() => Show(true, false, 2400, 1080), "output/lobby-20x9-ranked.png", 2400, 1080),
+            (() => Show(false, false, 1920, 1440), "output/lobby-4x3.png", 1920, 1440),
+        });
 
-        private static void Delay(double seconds, System.Action action)
-        {
-            double at = EditorApplication.timeSinceStartup + seconds;
-            void Tick()
-            {
-                if (EditorApplication.timeSinceStartup < at) return;
-                EditorApplication.update -= Tick;
-                action();
-            }
-            EditorApplication.update += Tick;
-        }
-
-        private static LobbyPreviewWindow Show(bool ranked, bool longName, int height = 1080)
+        private static LobbyPreviewWindow Show(bool ranked, bool longName, int width = 1920, int height = 1080)
         {
             var w = GetWindow<LobbyPreviewWindow>("로비 미리보기");
             w._ranked = ranked;
             w._longName = longName;
+            w._width = width;
             w._height = height;
             w.rootVisualElement.Clear();
             w.CreateGUI();
@@ -68,16 +58,12 @@ namespace LOP.EditorTools
                 var sheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(p);
                 if (sheet != null) root.styleSheets.Add(sheet);
             }
-            var host = new VisualElement();
-            host.style.width = 1920;
-            host.style.height = _height;
+            var host = UiSnapshot.AddHost(root, _width, _height);
             AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(Uxml).CloneTree(host);
-            root.Add(host);
 
             var lobbyRoot = host.Q("lobbyhome-root");
             lobbyRoot.EnableInClassList("ranked", _ranked);
             lobbyRoot.EnableInClassList("has-tier", true);
-            lobbyRoot.EnableInClassList(LobbyLayout.ShortClass, LobbyLayout.IsShort(_height));
             host.Q("queue-casual").EnableInClassList("kit-toggle__opt--on", !_ranked);
             host.Q("queue-ranked").EnableInClassList("kit-toggle__opt--on", _ranked);
             host.Q<Label>("play-label").text = _ranked ? "출전" : "PLAY";

@@ -56,9 +56,6 @@ namespace LOP.UI
             //  이름 바꾸기는 로비 위 창에서 일어나고 스토어는 알림을 내지 않는다 — 가볍게 자주 다시 읽는다.
             _nameItem = Root.schedule.Execute(RefreshName).Every(NameRefreshMs);
 
-            var root = Root.Q("lobbyhome-root");
-            root.RegisterCallback<GeometryChangedEvent>(_ => root.EnableInClassList(LobbyLayout.ShortClass, LobbyLayout.IsShort(root.layout.height)));
-
             _breather = new Breather(Root.Q("play-button"), CasualHalfBreathMs);
             _tickerItem = Root.schedule.Execute(AdvanceTicker).Every(TickerIntervalMs);
 

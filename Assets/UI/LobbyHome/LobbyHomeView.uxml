@@ -40,7 +40,7 @@
                     <ui:Label name="lower-player" class="kit-title lobbyhome-lower__player" />
                     <ui:Label name="lower-rank" class="kit-title lobbyhome-lower__rank" />
                 </ui:VisualElement>
-                <ui:VisualElement class="lobbyhome-lower__stats">
+                <ui:VisualElement name="lower-stats" class="lobbyhome-lower__stats">
                     <ui:VisualElement name="lower-form" class="lobbyhome-lower__form">
                         <ui:Label text="최근 5경기" class="lobbyhome-lower__label" />
                         <ui:VisualElement name="lower-chips" class="lobbyhome-lower__chips" />

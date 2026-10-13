@@ -23,6 +23,8 @@ namespace LOP.Tests
             var uss = File.ReadAllText("Assets/UI/LobbyHome/LobbyHomeView.uss");
             StringAssert.Contains(".lobbyhome-lower { position: absolute;", uss);
             StringAssert.Contains(".ranked .lobbyhome-lower { translate: 0 0; }", uss);
+            //  % 이동은 자막 폭에 따라 달라 짧은 자막이 화면 왼쪽에 남는다 — 고정 거리로 밀어 낸다.
+            StringAssert.Contains("translate: -800px 0;", uss);
             StringAssert.Contains(".ranked .lobbyhome-broadcast { opacity: 1; }", uss);
         }
 

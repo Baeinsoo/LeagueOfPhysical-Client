@@ -22,6 +22,8 @@ namespace LOP.UI
         private readonly LOP.MasterData.LOPMasterData _masterData;
         private readonly IUserDataStore _userDataStore;
         private readonly CancellationTokenSource _cts = new();
+        private readonly LatestOnly _rankRequests = new();
+        private readonly LatestOnly _recentRequests = new();
 
         private readonly ReactiveProperty<bool> _isMatching = new(false);
         private readonly Subject<CancellationReason> _matchmakingFailed = new();
@@ -128,6 +130,8 @@ namespace LOP.UI
         /// <summary>일반/랭크 전환 커맨드. 랭크로 오면 내 랭크를 다시 받아온다(판을 하고 와서 바뀌었을 수 있다).</summary>
         public void SelectQueue(QueueKind kind)
         {
+            //  이미 고른 모드를 다시 누르면 아무 일도 없다 — 같은 요청을 겹쳐 보내지 않는다.
+            if (_selectedQueue.Value == kind) return;
             _selectedQueue.Value = kind;
             if (kind == QueueKind.Ranked)
             {
@@ -143,6 +147,7 @@ namespace LOP.UI
         {
             string userId = _userDataStore.user?.id;
             if (string.IsNullOrEmpty(userId)) return;
+            int ticket = _recentRequests.Begin();
             GetMatchHistoryResponse response = null;
             try
             {
@@ -156,7 +161,7 @@ namespace LOP.UI
             {
                 UnityEngine.Debug.LogWarning($"Failed to load match history. Error: {e.Message}");
             }
-            if (_cts.IsCancellationRequested) return;
+            if (_cts.IsCancellationRequested || !_recentRequests.IsLatest(ticket)) return;
             int rankedQueueId = QueueChoice.QueueId(QueueKind.Ranked, _masterData.Tables.TbQueue);
             _recentPlacements.Value = RecentForm.From(response?.matches, userId, rankedQueueId, RecentFormCount);
         }
@@ -167,6 +172,7 @@ namespace LOP.UI
         {
             string userId = _userDataStore.user?.id;
             if (string.IsNullOrEmpty(userId)) return;
+            int ticket = _rankRequests.Begin();
 
             GetRankResponse response = null;
             try
@@ -181,7 +187,7 @@ namespace LOP.UI
             {
                 UnityEngine.Debug.LogWarning($"Failed to load rank. Error: {e.Message}");
             }
-            if (_cts.IsCancellationRequested) return;
+            if (_cts.IsCancellationRequested || !_rankRequests.IsLatest(ticket)) return;
 
             var divisions = _masterData.Tables.TbRankDivision;
             _rankSummary.Value = response?.rank == null ? RankLoadFailed : RankFormat.Summary(response.rank, divisions);

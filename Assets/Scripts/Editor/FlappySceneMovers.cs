@@ -19,6 +19,14 @@ namespace LOP.EditorTools
         private readonly List<(Transform t, Vector3 pos, Quaternion rot)> rest = new List<(Transform, Vector3, Quaternion)>();
         private readonly List<(float x, float period)> periods = new List<(float, float)>();
         private long posedTick = long.MinValue;
+        //  장애물마다 콜라이더 묶음 — 맵 검사기의 정적 훑기가 이것을 빼고 재고(풍차를 빼는 것과 같은 규칙),
+        //  관문이 움직이는 장애물에 걸치는지를 x 범위로 가른다.
+        private readonly List<Collider[]> groups = new List<Collider[]>();
+        private readonly HashSet<Collider> colliders = new HashSet<Collider>();
+        private readonly List<(float min, float max)> xExtents = new List<(float, float)>();
+
+        /// <summary>장애물 콜라이더 전부(진자 팔·매단 수레, 승강기 우리, 낙석 바위).</summary>
+        public IReadOnlyCollection<Collider> Colliders => colliders;
 
         public int Count => pendulums.Count + lifts.Count + rockfalls.Count;
         public int Lifts => lifts.Count;
@@ -34,20 +42,82 @@ namespace LOP.EditorTools
                 m.Remember(p.transform, p.transform.position.x, p.Period);
                 //  필드는 매단 수레(Upright)도 반대로 돌린다 — 이것도 안 돌려놓으면 구운 자세가 샌다.
                 if (p.Upright != null) { m.rest.Add((p.Upright, p.Upright.localPosition, p.Upright.localRotation)); }
+                m.AddGroup(p.transform, p.Upright);
             }
             foreach (var l in Object.FindObjectsByType<LOP.FlappyLift>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
             {
                 if (l.Cage == null) { continue; }
                 m.lifts.Add(l);
                 m.Remember(l.Cage, l.transform.position.x, l.Period);
+                m.AddGroup(l.Cage, null);
             }
             foreach (var r in Object.FindObjectsByType<LOP.FlappyRockfall>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
             {
                 if (r.Rock == null) { continue; }
                 m.rockfalls.Add(r);
                 m.Remember(r.Rock, r.transform.position.x, r.Period);
+                m.AddGroup(r.Rock, null);
             }
             return m;
+        }
+
+        private void AddGroup(Transform a, Transform b)
+        {
+            var set = new HashSet<Collider>(a.GetComponentsInChildren<Collider>(includeInactive: true));
+            //  매단 수레가 팔 밑에 없을 수도 있으니 따로 긁는다(겹치면 집합이 거른다).
+            if (b != null) { set.UnionWith(b.GetComponentsInChildren<Collider>(includeInactive: true)); }
+            var arr = new Collider[set.Count];
+            set.CopyTo(arr);
+            groups.Add(arr);
+            colliders.UnionWith(arr);
+        }
+
+        /// <summary>
+        /// 장애물마다 한 주기 동안 콜라이더가 쓸고 지나가는 x 범위를 잰다(<see cref="ExtentPoseStride"/>틱마다 세워 bounds를 합친다).
+        /// 구운 자세 하나의 bounds만 보면 ±2.5 m 흔들리는 진자 광차가 걸친 관문을 놓친다. 끝나면 구운 자세로 되돌린다 —
+        /// 부르는 쪽이 자세 캐시(마지막으로 세운 틱)를 들고 있으면 이 뒤에 비워야 한다.
+        /// </summary>
+        public void MeasureXExtents(float tickSeconds)
+        {
+            xExtents.Clear();
+            var mins = new float[groups.Count];
+            var maxs = new float[groups.Count];
+            for (int g = 0; g < groups.Count; g++) { mins[g] = float.MaxValue; maxs[g] = float.MinValue; }
+            int space = PhaseSpaceTicks(tickSeconds);
+            for (int tick = 0; tick <= space; tick += ExtentPoseStride)
+            {
+                PoseForTick(tick, tickSeconds);
+                for (int g = 0; g < groups.Count; g++)
+                {
+                    foreach (var c in groups[g])
+                    {
+                        if (c == null) { continue; }
+                        Bounds bounds = c.bounds;
+                        mins[g] = Mathf.Min(mins[g], bounds.min.x);
+                        maxs[g] = Mathf.Max(maxs[g], bounds.max.x);
+                    }
+                }
+            }
+            for (int g = 0; g < groups.Count; g++)
+            {
+                if (mins[g] > maxs[g]) { continue; }
+                //  틱 사이에 지나친 끝자락 몫 — 0.1초 사이 광차가 가는 거리보다 넉넉하다.
+                xExtents.Add((mins[g] - ExtentPad, maxs[g] + ExtentPad));
+            }
+            Restore();
+        }
+
+        private const int ExtentPoseStride = 5;
+        private const float ExtentPad = 0.5f;
+
+        /// <summary>[startX, endX]에 움직이는 장애물이 한 주기 중 한 번이라도 걸치나(<see cref="MeasureXExtents"/> 뒤에만 의미가 있다).</summary>
+        public bool OverlapsX(float startX, float endX)
+        {
+            foreach (var (min, max) in xExtents)
+            {
+                if (max >= startX && min <= endX) { return true; }
+            }
+            return false;
         }
 
         private void Remember(Transform t, float x, float period)

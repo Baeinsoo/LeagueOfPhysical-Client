@@ -17,10 +17,7 @@ namespace LOP
             var pillar = MakeMaterial("#3D3A86");
             var floor = MakeMaterial("#262458");
             var stripe = MakeMaterial("#FFD23F");
-            var glow = MakeMaterial("#FFF8E8");
-            //  끝 빛은 그림자 없이 밝게 — 그림자색을 바탕색과 같게, 외곽선 없음.
-            if (glow.HasProperty("_ShadowColor")) glow.SetColor("_ShadowColor", glow.GetColor("_BaseColor"));
-            if (glow.HasProperty("_OutlineWidth")) glow.SetFloat("_OutlineWidth", 0f);
+            var glow = MakeGlowMaterial("#FFF8E8");
 
             float w = layout.Width, h = layout.Height, len = layout.Length, half = w / 2f;
             Box(root, "Floor", floor, new Vector3(0f, -0.05f, len / 2f), new Vector3(w + 0.4f, 0.1f, len));
@@ -34,7 +31,7 @@ namespace LOP
                 Box(root, $"PillarR_{z}", pillar, new Vector3(px, h / 2f, z), new Vector3(layout.PillarSize, h, layout.PillarSize));
                 Box(root, $"Beam_{z}", pillar, new Vector3(0f, layout.BeamY, z), new Vector3(w, layout.BeamThickness, layout.PillarSize));
             }
-            Box(root, "FloorStripe", stripe, new Vector3(0f, 0.005f, len / 2f), new Vector3(layout.FloorStripeWidth, 0.01f, len));
+            Box(root, "FloorStripe", stripe, new Vector3(0f, 0.01f, len / 2f), new Vector3(layout.FloorStripeWidth, 0.02f, len));
 
             var end = GameObject.CreatePrimitive(PrimitiveType.Quad);
             end.name = "EndGlow";
@@ -55,7 +52,9 @@ namespace LOP
             foreach (var r in root.GetComponentsInChildren<Renderer>(true))
             {
                 var m = r.sharedMaterial;
-                if (m != null && seen.Add(m)) Object.Destroy(m);
+                if (m == null || !seen.Add(m)) continue;
+                if (UnityEngine.Application.isPlaying) Object.Destroy(m);
+                else Object.DestroyImmediate(m);   // 에디터 미리보기
             }
         }
 
@@ -70,6 +69,15 @@ namespace LOP
             go.GetComponent<Renderer>().sharedMaterial = material;
         }
 
+        /// <summary>빛나는 면(끝 빛·발밑 원) 재질 — 그림자색을 바탕색과 같게 해 조명과 상관없이 밝고, 외곽선이 없다.</summary>
+        public static Material MakeGlowMaterial(string hex)
+        {
+            var m = MakeMaterial(hex);
+            if (m.HasProperty("_ShadowColor")) m.SetColor("_ShadowColor", m.GetColor("_BaseColor"));
+            if (m.HasProperty("_OutlineWidth")) m.SetFloat("_OutlineWidth", 0f);
+            return m;
+        }
+
         private static Material MakeMaterial(string hex)
         {
             var shader = Shader.Find("LOP/Toon");
@@ -81,6 +89,8 @@ namespace LOP
             var m = new Material(shader);
             ColorUtility.TryParseHtmlString(hex, out var c);
             if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
+            //  가장자리 빛(림)은 캐릭터용 — 비스듬히 보이는 바닥·벽이 회색으로 떠 버린다.
+            if (m.HasProperty("_RimStrength")) m.SetFloat("_RimStrength", 0f);
             return m;
         }
     }

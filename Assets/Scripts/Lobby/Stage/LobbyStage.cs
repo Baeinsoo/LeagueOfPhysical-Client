@@ -15,6 +15,7 @@ namespace LOP
 
         private readonly CompositeDisposable _subscriptions = new CompositeDisposable();
         private GameObject _tunnel;
+        private StageLights _lights;
 
         private void Start()
         {
@@ -22,7 +23,7 @@ namespace LOP
 
             _tunnel = LobbyTunnel.Build(transform, new TunnelLayout(), out var glow);
             var sun = FindFirstObjectByType<Light>();
-            var lights = CreateLights(transform, glow, sun != null && sun.type == LightType.Directional ? sun : null);
+            var lights = _lights = CreateLights(transform, glow, sun != null && sun.type == LightType.Directional ? sun : null);
             var lighting = gameObject.AddComponent<LobbyLighting>();
             lighting.Init(lights, _matchmaking.SelectedQueue.CurrentValue == QueueKind.Ranked);
             _matchmaking.SelectedQueue.Subscribe(q => lighting.SetRanked(q == QueueKind.Ranked)).AddTo(_subscriptions);
@@ -39,6 +40,7 @@ namespace LOP
         {
             _subscriptions.Dispose();
             LobbyTunnel.DestroyMaterials(_tunnel);
+            if (_lights?.FootPool != null) LobbyTunnel.DestroyMaterials(_lights.FootPool.gameObject);
         }
 
         /// <summary>고정 카메라 — 선수는 화면 가운데 아래, 터널 소실점은 머리 위(spec §5 시작값).</summary>
@@ -79,7 +81,16 @@ namespace LOP
             ColorUtility.TryParseHtmlString("#FFF8E8", out var cream);
             spot.color = cream;
 
-            return new StageLights { Sun = sun, EndPoint = end, Spot = spot, EndGlow = endGlow };
+            var pool = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pool.name = "FootPool";
+            Object.DestroyImmediate(pool.GetComponent<Collider>());
+            pool.transform.SetParent(parent, false);
+            pool.transform.position = LobbyPlayer.StandPosition + new Vector3(0f, 0.025f, 0f);
+            pool.transform.localScale = new Vector3(1.6f, 0.005f, 1.6f);
+            var poolRenderer = pool.GetComponent<Renderer>();
+            poolRenderer.sharedMaterial = LobbyTunnel.MakeGlowMaterial("#FFF8E8");
+
+            return new StageLights { Sun = sun, EndPoint = end, Spot = spot, EndGlow = endGlow, FootPool = poolRenderer };
         }
     }
 }

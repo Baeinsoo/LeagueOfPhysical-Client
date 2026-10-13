@@ -33,6 +33,7 @@ namespace LOP
 
             _rig = StageRig.Build(transform, layout);
             _rig.Signs = StageSigns.Build(_rig.transform, layout);
+            _rig.Crowd = CrowdAmbience.Build(_rig.transform);
             _matchmaking.RankCard.Subscribe(card => _rig.Signs.SetRank(card)).AddTo(_subscriptions);
             var effects = gameObject.AddComponent<StageEffects>();
             effects.Init(_rig, lighting, cam, ranked);

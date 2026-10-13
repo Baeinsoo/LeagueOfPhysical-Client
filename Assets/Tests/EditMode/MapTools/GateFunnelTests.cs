@@ -448,6 +448,30 @@ namespace LOP.MapTools.Tests
                                        StringComparison.Ordinal) >= 0, text);
         }
 
+        //  움직이는 지형이 걸친 관문은 깔때기가 그것을 뺀 그림이다 — "안"이라고 겨냥·봇 탓으로 단정하면
+        //  흔들리는 광차가 막은 자리를 봇 문제로 오진한다(10-13 실측: x 185 광차 관문이 "봇 문제다"로 찍혔다).
+        [Test]
+        public void 움직이는_관문의_깔때기_안_실패는_봇_탓으로_단정하지_않는다()
+        {
+            GateReport report = Verdict(OpenGate(),
+                passes: new[] { (-10f, 20f) }, fails: new[] { (-10f, -8f), (-12f, -6f) });
+            report.Rotating = true;
+            string text = Section(report);
+            Assert.IsTrue(text.IndexOf("'깔때기 안' 실패는 겨냥이 아니라 그 장애물에 걸린 것일 수 있다",
+                                       StringComparison.Ordinal) >= 0, text);
+            Assert.IsTrue(text.IndexOf("겨냥이거나 움직이는 장애물이다", StringComparison.Ordinal) >= 0, text);
+            Assert.IsTrue(text.IndexOf("봇 문제다", StringComparison.Ordinal) < 0, text);
+        }
+
+        [Test]
+        public void 안_움직이는_관문의_깔때기_안_실패는_봇_문제다()
+        {
+            string text = Section(Verdict(OpenGate(),
+                passes: new[] { (-10f, 20f) }, fails: new[] { (-10f, -8f), (-12f, -6f) }));
+            Assert.IsTrue(text.IndexOf("봇 문제다", StringComparison.Ordinal) >= 0, text);
+            Assert.IsTrue(text.IndexOf("걸린 것일 수 있다", StringComparison.Ordinal) < 0, text);
+        }
+
         //  하나는 안, 하나는 밖인 관문. 창 [0, 1.3]에서 y=0.35로 들어오면 vy=−2는 지나고
         //  vy=−4는 못 지난다(위 두 경계 테스트가 손으로 푼 값) — 그래서 둘을 갈라 적어야 한다.
         [Test]
@@ -510,7 +534,7 @@ namespace LOP.MapTools.Tests
         {
             string text = Section(SampleReport());
             Assert.IsTrue(text.IndexOf("도착 시점과 무관", StringComparison.Ordinal) >= 0);
-            Assert.IsTrue(text.IndexOf("⚠️ 이 관문엔 도는 지형이 있다", StringComparison.Ordinal) < 0);
+            Assert.IsTrue(text.IndexOf("⚠️ 이 관문엔 움직이는 지형", StringComparison.Ordinal) < 0);
         }
 
         [Test]
@@ -519,7 +543,7 @@ namespace LOP.MapTools.Tests
             GateReport report = SampleReport();
             report.Rotating = true;
             string text = Section(report);
-            Assert.IsTrue(text.IndexOf("⚠️ 이 관문엔 도는 지형이 있다", StringComparison.Ordinal) >= 0);
+            Assert.IsTrue(text.IndexOf("⚠️ 이 관문엔 움직이는 지형", StringComparison.Ordinal) >= 0);
             Assert.IsTrue(text.IndexOf("도착 시점과 무관", StringComparison.Ordinal) < 0);
         }
 

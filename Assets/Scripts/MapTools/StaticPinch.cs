@@ -453,7 +453,7 @@ namespace LOP.MapTools
             text.AppendLine($"   대칭 포물선의 최대 체공이 t=√(8R/{gravity:F0})이라 통과 가능 길이는 L_max = {forwardSpeed:F0}×t다.)");
             text.AppendLine($"  (x는 {sampleStep:F2}m 간격으로 훑고 구간 길이는 그만큼 보수적으로 잡는다 — 간격보다 짧은 좁힘은");
             text.AppendLine("   놓칠 수 있다. 위아래가 다 막힌 띠만 센다: 하늘이나 맵 밑 허공으로 트인 띠에는 천장이 없어");
-            text.AppendLine("   좁힐 것이 없다. 풍차는 빼고 잰다 — 돌아가는 것은 ②-b가 본다.)");
+            text.AppendLine("   좁힐 것이 없다. 풍차·진자·승강기·낙석은 빼고 잰다 — 풍차는 ②-b가, 광산 장애물은 구간 통과 검사가 본다.)");
 
             if (pinches == null || pinches.Count == 0)
             {

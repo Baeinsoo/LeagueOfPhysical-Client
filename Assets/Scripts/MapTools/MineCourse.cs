@@ -69,10 +69,11 @@ namespace LOP.MapTools
         public readonly float X0, X1, Base;
         public readonly bool TunnelUp;
         public readonly MineRect TunnelLane;
+        public readonly ForkShape Shape;
 
-        public MineFork(float x0, float x1, float baseY, bool tunnelUp, MineRect tunnelLane)
+        public MineFork(float x0, float x1, float baseY, bool tunnelUp, MineRect tunnelLane, ForkShape shape = ForkShape.Arc)
         {
-            X0 = x0; X1 = x1; Base = baseY; TunnelUp = tunnelUp; TunnelLane = tunnelLane;
+            X0 = x0; X1 = x1; Base = baseY; TunnelUp = tunnelUp; TunnelLane = tunnelLane; Shape = shape;
         }
     }
 
@@ -85,6 +86,47 @@ namespace LOP.MapTools
         public MineSection(string name, float x)
         {
             Name = name; X = x;
+        }
+    }
+
+    /// <summary>고수 길(굴) 모양(10-13): 날갯짓 두 번 굴 · 무너진 갱도(곧은 굴 + 받침목) · 광차 레일 굴(두 번 솟았다 내려온다).</summary>
+    public enum ForkShape { Arc, Collapse, Rail }
+
+    /// <summary>승강기 관문 하나(흔들리는 계단·승강기). <see cref="Gate"/>는 쉬는 자리(가운데). <see cref="Phase"/>는 도.</summary>
+    public readonly struct MineLift
+    {
+        public readonly MineGate Gate;
+        public readonly float Amplitude, Period, Phase;
+
+        public MineLift(MineGate gate, float amplitude, float period, float phase)
+        {
+            Gate = gate; Amplitude = amplitude; Period = period; Phase = phase;
+        }
+    }
+
+    /// <summary>
+    /// 매단 광차 하나 = 진자 하나. 축(<see cref="PivotX"/>, <see cref="PivotY"/>) = 천장 + 1.2, <see cref="Length"/> = 축 ~ 광차 가운데,
+    /// <see cref="Amplitude"/>·<see cref="Phase"/>는 도. 광차는 흔들려도 기울지 않는다(수평 사각형 — 사람 판을 받은 시안 그대로).
+    /// </summary>
+    public readonly struct MinePendulum
+    {
+        public readonly float PivotX, PivotY, Length, Amplitude, Period, Phase, CartWidth, CartHeight;
+
+        public MinePendulum(float pivotX, float pivotY, float length, float amplitude, float period, float phase, float cartWidth, float cartHeight)
+        {
+            PivotX = pivotX; PivotY = pivotY; Length = length; Amplitude = amplitude; Period = period; Phase = phase;
+            CartWidth = cartWidth; CartHeight = cartHeight;
+        }
+    }
+
+    /// <summary>낙석 줄 하나. <see cref="X"/> = 바위 가운데 x, <see cref="Ceiling"/> = 천장선, <see cref="Drop"/> = 통로 높이 + 바위. <see cref="Phase"/>는 도.</summary>
+    public readonly struct MineRockfall
+    {
+        public readonly float X, Ceiling, Drop, Size, Speed, Period, Phase;
+
+        public MineRockfall(float x, float ceiling, float drop, float size, float speed, float period, float phase)
+        {
+            X = x; Ceiling = ceiling; Drop = drop; Size = size; Speed = speed; Period = period; Phase = phase;
         }
     }
 
@@ -112,6 +154,12 @@ namespace LOP.MapTools
         public IReadOnlyList<MinePad> Pads;
         public IReadOnlyList<MineFork> Forks;
         public IReadOnlyList<MineSection> Sections;
+        //  움직이는 지형(10-13). 빈 목록으로 시작한다 — 리플렉션으로 만든 합성 코스·옷 테스트의 손 코스가 null로 깨지지 않게.
+        public IReadOnlyList<MineLift> Lifts = new List<MineLift>();
+        public IReadOnlyList<MinePendulum> Pendulums = new List<MinePendulum>();
+        public IReadOnlyList<MineRockfall> Rockfalls = new List<MineRockfall>();
+        /// <summary>무너진 갱도 받침목(판정 고체).</summary>
+        public IReadOnlyList<MineRect> Props = new List<MineRect>();
         public float Length;
 
         //  통로 모양 원자료 — CenterAt/HalfAt/Breaks가 쓴다. 내부는 double(프로토타입과 같은 셈).
@@ -220,14 +268,15 @@ namespace LOP.MapTools
     /// 3막용으로 다시 짰다 — mode 10, 시드 17은 <see cref="Seed"/> 참고). 생성기·소비 순서가 같아야
     /// "프로토타입에서 해 본 그 코스"가 나온다(테스트가 지킨다).
     ///
-    /// <para>순서(10-09 3막, 10-10 슬라럼 자리를 계단 내리막으로): 출발 2관문 → 1막 하강(수직 갱 22 m → 계단 내리막 6(4.5 m씩) → 갈림길⬇) → 2막 갱 바닥(낮은 천장 24 m →
-    /// 롤러코스터 55 m → 급반전 → 갈림길⬆ → 깊은 갱 24 m) → 3막 탈출(긴 통로 → 굴뚝 24 m → 갈림길⬆) → 출구. 통과 가능성 증명은 맵 검사 몫이다.
+    /// <para>순서(10-13 동적 지형 1차, 시안 v10 PLAN_ORDER — 446 m): 출발 2관문 → 1막 하강(수직 갱 22 m → 흔들리는 계단 6(4.5 m씩) → 낙석 4줄
+    /// → 갈림길⬇ 무너진 갱도) → 2막 갱 바닥(진자 광차 3자리 → 롤러코스터 30 m → 급반전 → 갈림길⬆ 두 번 굴 → 깊은 갱 24 m)
+    /// → 3막 탈출(승강기 4 → 굴뚝 24 m → 갈림길⬆ 레일 굴) → 출구. 통과 가능성 증명은 맵 검사 몫이다.
     /// 깊은 갱·굴뚝은 10-12에 28 → 24 m(게임 이동 커널 검사: 10 m에 28 m는 최대 낙하 속도로도 못 내려가고, 굴뚝 28 m는 초당 4번 가까이 쳐야 했다.
     /// 24 m면 초당 3.3번으로 지나간다). 둘이 같이 줄어 출구 높이·구간 x는 그대로다.
     /// 갱 기울기는 최대 낙하(1 m 갈 때 2.5 m)보다 <b>조금 완만하게</b> 2.4(첫 갱 22 m를 8 → 9.2 m, 둘째 갱 24 m/10 m 그대로, 10-12):
     /// 더 가파르면(첫 갱 2.75) 손 떼고 떨어져도 천장이 먼저 내려와 박고(맵 검사기 봇 전부·사람 판), 훨씬 완만하면(2.0) 벽보다 빨리 떨어지는데
     /// 좁은 갱에서 날갯짓 한 번(+10)이 내려오는 천장에 비해 5 m를 튀어 올라 브레이크가 없다 — 둘 다 못 지나간다(게임 커널 검사).
-    /// 슬라럼 코드는 순서에서 빠졌지만 남겨 둔다.</para>
+    /// 슬라럼·낮은 천장·긴 통로 코드는 순서에서 빠졌지만 남겨 둔다.</para>
     /// </summary>
     public static class MineCourseRule
     {
@@ -237,8 +286,15 @@ namespace LOP.MapTools
         /// <summary>파이프 두께 · 관문 틈 · 관문 사이 빈 거리(원조 간격 5.4 m − 두께).</summary>
         const double PW = 1.95, GAP = 3.75, FREE = 5.4 - PW;
 
-        /// <summary>갈림길 2번 점프 굴의 틈(10-12 사람 판 3.1 → 3.4 — "무조건 부딪힌다". 완벽 비행 한계는 2.9~3.0).</summary>
-        const double TunnelGap = 3.4;
+        /// <summary>날갯짓 두 번 굴의 틈(10-12 사람 판 3.1 → 3.4 — "무조건 부딪힌다", 10-13 동적 지형 3.4 → 2.8 — 공 몸통 한계 2.4 + 0.4).</summary>
+        const double ArcGap = 2.8;
+        /// <summary>무너진 갱도·레일 굴의 틈(한계 3.2 + 0.4).</summary>
+        const double ExpertGap = 3.6;
+        /// <summary>무너진 갱도: 길이 · 첫 받침목 · 받침목 사이 · 튀어나온 길이 · 폭 · 개수.</summary>
+        const double CollapseLen = 10, CollapseFirst = 1.5, CollapseSpacing = 3, CollapseProp = 0.8, CollapsePropWidth = 0.6;
+        const int CollapseProps = 3;
+        /// <summary>광차 레일 굴: 길이 · 솟는 높이 · 한 번 솟았다 내려오는 길이.</summary>
+        const double RailLen = 12, RailRise = 1.6, RailPer = 6;
 
         /// <summary>고수 길 패드 방의 틈(10-10): 굴을 빠져나오면 땅으로 둘러싸인 조금 넓은 방 → 칸막이 끝에서 합류.</summary>
         const double ChamberGap = 4.6;
@@ -264,18 +320,41 @@ namespace LOP.MapTools
         /// <summary>계단 내리막: 관문마다 기준 높이를 내리는 폭(10-10, 4.5 통과 · 5.5 막힘 — 초당 4번 날갯짓 검사).</summary>
         const double StairDown = 4.5;
         /// <summary>계단 관문 사이를 보통(5.4 m)보다 더 띄우는 거리(10-12 사람 판 "무조건 부딪힌다"): 5.4 m 간격에선 4.5 m를 떨어진 뒤 다음 틈 앞에서
-        /// 속도를 못 죽여 파이프에 박았다(맵 검사기 봇 전부 — 지형 판정). 8 m면 떨어지고 → 한 번 쳐서 → 꼭대기에서 틈을 지난다.</summary>
-        const double StairExtra = 2.6;
+        /// 속도를 못 죽여 파이프에 박았다(맵 검사기 봇 전부 — 지형 판정). 8 m면 떨어지고 → 한 번 쳐서 → 꼭대기에서 틈을 지난다.
+        /// 10-13 사람 판 +2.6 → +1.4(간격 6.8 m). 계단 틈은 흔들린다(진폭·주기·관문마다 위상).</summary>
+        const double StairExtra = 1.4, StairWobble = 1.0, StairPeriod = 3.0, StairPhaseStep = 60;
         /// <summary>급반전 오르내림(예전 ±4.0).</summary>
         //  10-12 사람 판 5.5 → 4.5: 낮은 관문에서 나와 다음 높은 관문까지 5.5 m를 못 올라 맵 검사기 봇 7/10이 박았다(깔때기 0.3 m 밖).
         const double Flip = 4.5;
-        /// <summary>급반전 관문 사이를 더 띄우는 거리(10-12, 계단과 같은 이유 — 5.4 m에 ±5.5 m는 맵 검사기 봇이 다음 파이프에 박았다).</summary>
-        const double FlipExtra = 2.6;
+        /// <summary>급반전 관문 사이를 더 띄우는 거리(10-12, 계단과 같은 이유 — 5.4 m에 ±5.5 m는 맵 검사기 봇이 다음 파이프에 박았다.
+        /// 10-13 +2.6 → +1.4). 흔들림은 없다 — ±4.5 m 위에 얹으면 박자 절반에서 불가능(시안 검사 6/12).</summary>
+        const double FlipExtra = 1.4;
+        /// <summary>급반전 앞 보통 관문 → 첫 급반전 관문 사이를 더 띄우는 거리(10-13 검사: 0 → 2.6, 간격 5.4 → 8 m). 급반전 안 간격(6.8 m)은 그대로다.
+        /// 앞 보통 관문 틈이 난수로 1.5 m 낮게 나와 5.4 m 안에 6 m를 올라야 했다 — 그 관문 뒤 살아남는 높이가 0.2 m뿐이라(구간 검사는 통과)
+        /// 맵 검사기 봇 8/9가 첫 급반전 관문에 박았다. 6.8 m(+1.4)로는 살아남는 높이 2.1 m까지 넓어졌지만 봇 4/9가 여전히 여기서 박았다.</summary>
+        const double FlipLead = 2.6;
         /// <summary>갈림길 끝(칸막이 끝)과 다음 관문 사이에 더 두는 거리(10-12): 위 칸은 칸막이 끝까지 못 내려오는데
         /// 다음 보통 관문이 몇 m 아래 4 m 뒤에 있으면 떨어지다 못 멈춰 박았다(맵 검사기 봇).</summary>
         const double ForkMergeRoom = 3.0;
-        /// <summary>롤러코스터 굴 틈(예전 5.0 → 10-07 4.85 → 10-09 3막 4.8. 4.7은 검사에서 거의 못 지난다).</summary>
-        const double CoasterGap = 4.8;
+        /// <summary>롤러코스터 굴 틈(예전 5.0 → 10-07 4.85 → 10-09 3막 4.8. 4.7은 검사에서 거의 못 지난다.
+        /// 10-13 4.8 → 4.4 — 길이 30 m 물결 한 번이라 짧다).</summary>
+        const double CoasterGap = 4.4;
+
+        /// <summary>승강기: 관문 수 · 관문 사이 더 띄우는 거리(보통 5.4 + 2.6 = 8) · 진폭 · 주기 · 관문마다 위상.</summary>
+        const int LiftGates = 4;
+        const double LiftExtra = 2.6, LiftAmp = 1.8, LiftPeriod = 3.5, LiftPhaseStep = 90;
+
+        /// <summary>진자 광차: 자리 수 · 자리마다 광차 수 · 자리 사이 · 자리 앞 여유 · 축 높이(천장 위) · 앞뒤 흔들림 · 주기 · 광차마다/자리마다 위상 · 광차 크기.</summary>
+        const int PendulumStations = 3, CartsPerStation = 4;
+        const double StationGap = 10, StationLead = 4, PivotRise = 1.2, CartSwing = 2.5, PendulumPeriod = 2.4;
+        const double CartPhaseStep = 90, StationPhaseStep = 180 / Math.PI;   // 자리마다 1 rad(57.3°) — 시안 i·1.0
+        const double CartW = 1.6, CartH = 1.2;
+        //  줄이 아주 짧을 때 asin이 1을 넘지 않게(시안과 같은 상한 — 지금 값에선 안 걸린다).
+        const double MaxSwingSin = 0.95;
+
+        /// <summary>낙석: 줄 수 · 줄 앞 여유 · 줄 사이 · 바위 · 낙하 속도 · 주기 · 줄마다 위상(0.5초 = 90°).</summary>
+        const int RockRows = 4;
+        const double RockLead = 1, RockSpacing = 4.5, RockSize = 1.2, RockSpeed = 9, RockPeriod = 2, RockPhaseStep = 90;
         /// <summary>갈림길 굴 쪽 칸 중심 — 통로가 좁아져 위 굴은 위로 ForkTunnelUp, 아래 굴은 아래로 ForkTunnelDown(비대칭, 예전 둘 다 4.5).</summary>
         const double ForkTunnelUp = 2.6, ForkTunnelDown = 4.6;
         /// <summary>갈림길 반대쪽 보통 칸 관문 틈 중심(통로 중심에서 ±ForkOther, 예전 ±4.5).</summary>
@@ -291,6 +370,8 @@ namespace LOP.MapTools
             public int? Gates;
             public double? Length;
             public double? Rise;
+            /// <summary>갈림길 고수 길 모양(10-13). 비우면 날갯짓 두 번 굴.</summary>
+            public ForkShape? Shape;
         }
 
         /// <summary>
@@ -306,6 +387,10 @@ namespace LOP.MapTools
             var pads = new List<MinePad>();
             var forks = new List<MineFork>();
             var sections = new List<MineSection>();
+            var lifts = new List<MineLift>();
+            var pendulums = new List<MinePendulum>();
+            var rockfalls = new List<MineRockfall>();
+            var props = new List<MineRect>();
             var pts = c.Points;
             pts.Add((0, 0));
 
@@ -322,6 +407,14 @@ namespace LOP.MapTools
                 pts.Add((cur + w / 2, baseY));
                 cur += w + FREE;
             }
+            //  움직이는 관문: Put과 같은 자리·같은 통로 꺾은선, 다만 Gates가 아니라 Lifts에 넣는다(Gates를 도는 굽기·옷이 고정 파이프를 굽지 않게).
+            void Lift(double center, double amp, double period, double phaseDeg)
+            {
+                lifts.Add(new MineLift(new MineGate((float)(cur + PW / 2), (float)PW, (float)center, (float)GAP),
+                                       (float)amp, (float)period, (float)phaseDeg));
+                pts.Add((cur + PW / 2, baseY));
+                cur += PW + FREE;
+            }
             void Norm(int n) { for (int i = 0; i < n; i++) { Put(PW, baseY + (Rnd() - 0.5) * ConnBand); } }
             void Tube(double x0, double x1, Func<double, double> center, double gap, double low = double.NaN, double high = double.NaN)
             {
@@ -332,29 +425,59 @@ namespace LOP.MapTools
             //  날갯짓 → 같은 높이로 돌아오는 틱 수. 프로토타입 정의(반올림, 30)라 FlapArc.TicksPerArc(31)와 다르다.
             int arcT = (int)Math.Round(2.0 * p.Flap / p.Gravity / p.Tick);
 
-            //  고수 갈림길: 가운데 칸막이로 위·아래가 갈린다. 한쪽은 날갯짓 정확히 2번짜리 포물선 굴(틈 폭 일정) + 끝에 ⚡ 패드,
+            //  고수 갈림길: 가운데 칸막이로 위·아래가 갈린다. 한쪽은 고수 길 굴(모양은 갈림길마다 — 10-13) + 끝에 ⚡ 패드,
             //  반대쪽은 보통 관문. 굴을 나오면 패드 방(틈 4.6)에서 칸막이 끝과 함께 합류.
-            void Fork(bool up)
+            void Fork(bool up, ForkShape shape)
             {
                 double side = up ? 1 : -1, fx = cur, laneC = baseY + (up ? ForkTunnelUp : -ForkTunnelDown);
                 double top = baseY + MineCourse.BaseHalf + 1, bot = baseY - MineCourse.BaseHalf - 1;
 
-                //  굴 중심선: 입구에서 날갯짓, arcT틱 뒤 다시 날갯짓 — 같은 높이로 두 번 튀어 오른다.
-                var path = new List<(double x, double y)>();
+                double ax0 = fx + 3.0, ax1;
+                double laneLo = up ? baseY + 0.6 : bot, laneHi = up ? top : baseY - 0.6;
+                switch (shape)
                 {
-                    double y = laneC, vy = 0, x = fx + 3.0;
-                    path.Add((x, y));
-                    for (int k = 0; k < 2 * arcT; k++)
+                    //  날갯짓 두 번 굴: 입구에서 날갯짓, arcT틱 뒤 다시 — 같은 높이로 두 번 튀어 오른다(한 방 타이밍).
+                    case ForkShape.Arc:
                     {
-                        vy = (k % arcT == 0) ? p.Flap : Math.Max(-(double)p.MaxFall, vy - (double)p.Gravity * p.Tick);
-                        y += vy * p.Tick;
-                        x += (double)p.Forward * p.Tick;
+                        var path = new List<(double x, double y)>();
+                        double y = laneC, vy = 0, x = ax0;
                         path.Add((x, y));
+                        for (int k = 0; k < 2 * arcT; k++)
+                        {
+                            vy = (k % arcT == 0) ? p.Flap : Math.Max(-(double)p.MaxFall, vy - (double)p.Gravity * p.Tick);
+                            y += vy * p.Tick;
+                            x += (double)p.Forward * p.Tick;
+                            path.Add((x, y));
+                        }
+                        ax1 = path[path.Count - 1].x;
+                        Tube(ax0, ax1, q => PathAt(path, q), ArcGap, laneLo, laneHi);
+                        break;
+                    }
+                    //  무너진 갱도: 곧은 갱도에 받침목이 위·아래 번갈아 튀어나왔다 — 미리 높이를 바꿔 피한다.
+                    case ForkShape.Collapse:
+                    {
+                        ax1 = ax0 + CollapseLen;
+                        double lc = laneC;
+                        Tube(ax0, ax1, _ => lc, ExpertGap, laneLo, laneHi);
+                        for (int j = 0; j < CollapseProps; j++)
+                        {
+                            double a = ax0 + CollapseFirst + j * CollapseSpacing;
+                            bool fromTop = j % 2 == 0;
+                            double edge = fromTop ? lc + ExpertGap / 2 : lc - ExpertGap / 2;
+                            double y0 = fromTop ? edge - CollapseProp : edge, y1 = fromTop ? edge : edge + CollapseProp;
+                            props.Add(new MineRect((float)a, (float)(a + CollapsePropWidth), (float)y0, (float)y1));
+                        }
+                        break;
+                    }
+                    //  광차 레일 굴: 바닥에 레일, 굴이 두 번 솟았다 내려온다 — 높이 바꾸기. 끝 높이 = 칸 중심(패드 방).
+                    default:
+                    {
+                        ax1 = ax0 + RailLen;
+                        double lc = laneC;
+                        Tube(ax0, ax1, q => lc + RailRise * (1 - Math.Cos(2 * Math.PI * (q - ax0) / RailPer)) / 2, ExpertGap, laneLo, laneHi);
+                        break;
                     }
                 }
-                double ax1 = path[path.Count - 1].x;
-                double laneLo = up ? baseY + 0.6 : bot, laneHi = up ? top : baseY - 0.6;
-                Tube(fx + 3.0, ax1, x => PathAt(path, x), TunnelGap, laneLo, laneHi);
 
                 double padX = ax1 + 0.3;
                 pads.Add(new MinePad(new MineRect((float)padX, (float)(padX + 1.2), (float)(laneC - 1.4), (float)(laneC + 1.4)), PadDuration));
@@ -370,7 +493,7 @@ namespace LOP.MapTools
                                            (float)(up ? bot : baseY + 0.6), (float)(up ? baseY - 0.6 : top)));
                 }
                 forks.Add(new MineFork((float)fx, (float)fx1, (float)baseY, up,
-                                       new MineRect((float)fx, (float)fx1, (float)laneLo, (float)laneHi)));
+                                       new MineRect((float)fx, (float)fx1, (float)laneLo, (float)laneHi), shape));
                 pts.Add((fx1, baseY));
                 cur = fx1 + FREE + ForkMergeRoom;
             }
@@ -382,10 +505,48 @@ namespace LOP.MapTools
                     case "긴 통로":
                         Put(12, baseY + (Rnd() - 0.5) * 1.5, LongGap);
                         break;
-                    //  계단 내리막: 관문마다 4.5 m씩 뚝뚝 — 손 떼고 떨어지다 다음 틈에서 잡는 게 연속으로 온다. 통로도 계단처럼 따라 내려간다.
+                    //  흔들리는 계단(10-13): 관문마다 4.5 m씩 뚝뚝 — 틈이 천천히 오르내려 들어갈 때를 읽는다. 통로도 계단처럼 따라 내려간다.
                     case "계단 내리막":
-                        for (int i = 0; i < (o?.Gates ?? 6); i++) { baseY -= StairDown; Put(PW, baseY); cur += StairExtra; }
+                        for (int i = 0; i < (o?.Gates ?? 6); i++) { baseY -= StairDown; Lift(baseY, StairWobble, StairPeriod, i * StairPhaseStep); cur += StairExtra; }
                         break;
+                    //  승강기(10-13, 긴 통로 자리): 보통 틈이 위아래로 천천히 — 관문 사이 8 m에서 움직임을 읽고 들어간다.
+                    case "승강기":
+                        for (int i = 0; i < LiftGates; i++) { Lift(baseY, LiftAmp, LiftPeriod, i * LiftPhaseStep); cur += LiftExtra; }
+                        break;
+                    //  진자 광차(10-13, 낮은 천장 자리): 한 자리에 작은 광차 넷을 통로 높이 전체에 매달아 다른 박자로 흔든다 — 어느 높이가 비는지 읽는다.
+                    case "진자 광차":
+                    {
+                        for (int i = 0; i < PendulumStations; i++)
+                        {
+                            double px = cur + StationLead, ceiling = baseY + MineCourse.BaseHalf;
+                            for (int k = 0; k < CartsPerStation; k++)
+                            {
+                                double cy = ceiling - (2 * MineCourse.BaseHalf / CartsPerStation) * (k + 0.5);
+                                double len = ceiling - cy + PivotRise;
+                                double amp = Math.Asin(Math.Min(MaxSwingSin, CartSwing / len)) * 180 / Math.PI;
+                                pendulums.Add(new MinePendulum((float)px, (float)(ceiling + PivotRise), (float)len, (float)amp, (float)PendulumPeriod,
+                                                               (float)(k * CartPhaseStep + i * StationPhaseStep), (float)CartW, (float)CartH));
+                            }
+                            pts.Add((px, baseY));
+                            cur += StationGap;
+                        }
+                        cur += FREE;
+                        break;
+                    }
+                    //  낙석(10-13): 천장에서 바위가 곧게 떨어진다. 예고 없음 — 줄마다 박자를 어긋나게.
+                    case "낙석":
+                    {
+                        for (int i = 0; i < RockRows; i++)
+                        {
+                            double x0 = cur + RockLead, ceiling = baseY + MineCourse.BaseHalf;
+                            rockfalls.Add(new MineRockfall((float)(x0 + RockSize / 2), (float)ceiling, (float)(2 * MineCourse.BaseHalf + RockSize),
+                                                           (float)RockSize, (float)RockSpeed, (float)RockPeriod, (float)(i * RockPhaseStep)));
+                            pts.Add((x0 + RockSize / 2, baseY));
+                            cur += RockSpacing;
+                        }
+                        cur += FREE;
+                        break;
+                    }
                     case "슬라럼":
                         for (int i = 0; i < (o?.Gates ?? 6); i++) { Put(PW, baseY + (i % 2 == 1 ? Slalom : -Slalom)); }
                         break;
@@ -398,6 +559,7 @@ namespace LOP.MapTools
                         break;
                     }
                     case "급반전":
+                        cur += FlipLead;
                         for (int i = 0; i < 4; i++) { baseY += (i % 2 == 0) ? Flip : -Flip; Put(PW, baseY); cur += FlipExtra; }
                         break;
                     case "낮은 천장":
@@ -435,8 +597,8 @@ namespace LOP.MapTools
                         cur = a + len + FREE;
                         break;
                     }
-                    case "고수 갈림길 ⬆굴": Fork(true); break;
-                    case "고수 갈림길 ⬇굴": Fork(false); break;
+                    case "고수 갈림길 ⬆굴": Fork(true, o?.Shape ?? ForkShape.Arc); break;
+                    case "고수 갈림길 ⬇굴": Fork(false, o?.Shape ?? ForkShape.Arc); break;
                     default: throw new ArgumentException(name);
                 }
             }
@@ -445,12 +607,16 @@ namespace LOP.MapTools
             //  1막 하강 — 노을 입구에서 곧장 수직 갱. 2막 갱 바닥 — 롤러코스터 중심, 더 깊은 두 번째 갱으로 끝. 3막 탈출 — 가장 긴 굴뚝 → 마지막 갈림길.
             //  1막의 갱 바닥 다음은 10-10부터 계단 내리막 6(4.5 m씩, 프로토타입 v31) — 슬라럼 8을 대신한다(슬라럼 코드는 남긴다).
             //  물결 터널은 낮은 천장과 겹쳐 뺐다(코드는 남긴다). 깊은 갱·굴뚝 24 m는 위 요약 주석 참고(10-12, 프로토타입은 28).
+            //  10-13 동적 지형 1차(spec 2026-10-13, 시안 v10 PLAN_ORDER): 막마다 움직이는 구간 하나 + 갈림길마다 다른 고수 길.
+            //  낮은 천장 → 진자 광차, 긴 통로 → 승강기(같은 높이 왕복은 루즈 — 사람 판 10-10). 두 구간 코드는 남긴다.
             var order = new (string name, int after, SectionOptions o)[]
             {
-                ("수직 갱 낙하", 1, new SectionOptions { Length = 9.2 }), ("계단 내리막", 1, new SectionOptions { Gates = 6 }), ("고수 갈림길 ⬇굴", 2, null),
-                ("낮은 천장", 1, new SectionOptions { Length = 24 }), ("레일 롤러코스터", 1, new SectionOptions { Length = 55 }), ("급반전", 1, null),
-                ("고수 갈림길 ⬆굴", 0, null), ("수직 갱 낙하", 2, new SectionOptions { Length = 10, Rise = 24 }),
-                ("긴 통로", 1, null), ("굴뚝 오르기", 0, new SectionOptions { Length = 21, Rise = 24 }), ("고수 갈림길 ⬆굴", 3, null),
+                ("수직 갱 낙하", 1, new SectionOptions { Length = 9.2 }), ("계단 내리막", 1, new SectionOptions { Gates = 6 }), ("낙석", 1, null),
+                ("고수 갈림길 ⬇굴", 2, new SectionOptions { Shape = ForkShape.Collapse }),
+                ("진자 광차", 1, null), ("레일 롤러코스터", 1, new SectionOptions { Length = 30 }), ("급반전", 1, null),
+                ("고수 갈림길 ⬆굴", 0, new SectionOptions { Shape = ForkShape.Arc }), ("수직 갱 낙하", 2, new SectionOptions { Length = 10, Rise = 24 }),
+                ("승강기", 1, null), ("굴뚝 오르기", 0, new SectionOptions { Length = 21, Rise = 24 }),
+                ("고수 갈림길 ⬆굴", 3, new SectionOptions { Shape = ForkShape.Rail }),
             };
             Norm(2);
             foreach (var (name, after, o) in order)
@@ -461,6 +627,7 @@ namespace LOP.MapTools
             }
 
             c.Gates = gates; c.Tubes = tubes; c.Walls = walls; c.Pads = pads; c.Forks = forks; c.Sections = sections;
+            c.Lifts = lifts; c.Pendulums = pendulums; c.Rockfalls = rockfalls; c.Props = props;
             c.Length = (float)(cur + 4);
             return c;
         }
@@ -498,6 +665,26 @@ namespace LOP.MapTools
                     {
                         return $"x={g.X:F2} 관문의 틈({lo:F2}~{hi:F2})이 통로({center - half:F2}~{center + half:F2}) 밖으로 나간다.";
                     }
+                }
+            }
+
+            //  승강기는 흔들린 끝(틈 ± 진폭)까지 통로 안이어야 한다 — 밖이면 그 박자엔 틈이 벽 속이다.
+            foreach (MineLift l in c.Lifts)
+            {
+                double lo = l.Gate.GapCenter - l.Gate.Gap / 2.0 - l.Amplitude, hi = l.Gate.GapCenter + l.Gate.Gap / 2.0 + l.Amplitude;
+                double center = c.CenterAtD(l.Gate.X), half = c.HalfAtD(l.Gate.X);
+                if (lo < center - half - 1e-4 || hi > center + half + 1e-4)
+                {
+                    return $"x={l.Gate.X:F2} 승강기 틈이 흔들리면({lo:F2}~{hi:F2}) 통로({center - half:F2}~{center + half:F2}) 밖으로 나간다.";
+                }
+            }
+            foreach (MineRockfall r in c.Rockfalls)
+            {
+                double floor = c.CenterAtD(r.X) - c.HalfAtD(r.X);
+                //  다 떨어진 뒤 바위 윗면(천장 − 낙하 거리)이 바닥선 밑이어야 숨기 직전에 통로에서 사라진다.
+                if (r.Ceiling - r.Drop > floor + 1e-4)
+                {
+                    return $"x={r.X:F2} 낙석이 바닥 밑까지 안 빠진다(낙하 {r.Drop:F2}).";
                 }
             }
 

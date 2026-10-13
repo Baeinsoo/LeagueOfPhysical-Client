@@ -74,6 +74,9 @@ namespace LOP.EditorTools
         //  틱 각도를 따르는데 앞을 본 값은 다른 틱 각도의 것이 된다.
         private static LOP.FlappyWindmillField Windmills;
 
+        //  광산 움직이는 장애물(10-13: 진자 광차·승강기·낙석). 풍차와 같은 자리에서 같은 틱으로 세운다 — 안 세우면 봇이 굳은 벽을 본다.
+        private static FlappySceneMovers MineMovers;
+
         //  문지기(spec 2026-10-03). 기존 검사(① 봇·전수 탐색·② 스캔)는 문지기를 <b>끈 채</b> 돈다 — 봇의 틱별
         //  빈 공간 캐시가 셔터를 모른다. 켜는 곳은 "갈림길 없이" 재생과 🚪 절 둘뿐이다.
         private sealed class GuardInstance
@@ -93,7 +96,8 @@ namespace LOP.EditorTools
         private static void SetGuardsActive(bool active)
         {
             foreach (GuardInstance g in Guards) { g.Root.SetActive(active); }
-            moversLive = (active && Guards.Count > 0) || (Windmills != null && Windmills.Count > 0);
+            moversLive = (active && Guards.Count > 0) || (Windmills != null && Windmills.Count > 0)
+                         || (MineMovers != null && MineMovers.Count > 0);
             Physics.SyncTransforms();
             posedTick = long.MinValue;   // 켜고 끈 뒤엔 자세를 다시 세운다
         }
@@ -123,12 +127,13 @@ namespace LOP.EditorTools
 
         private static void PoseWindmills(long tick)
         {
-            if ((Windmills == null && Guards.Count == 0) || posedTick == tick)
+            if ((Windmills == null && Guards.Count == 0 && MineMovers == null) || posedTick == tick)
             {
                 return;
             }
             Windmills?.PoseForTick(tick, TickSeconds);
             GuardShutters?.PoseForTick(tick, TickSeconds);
+            MineMovers?.PoseForTick(tick, TickSeconds);
             posedTick = tick;
         }
 
@@ -231,6 +236,16 @@ namespace LOP.EditorTools
             //  맵 씬은 커밋하지 않는 로컬 픽스처라, 자세가 남으면 진단이 diff로 새어 나간다.
             Windmills = CollectWindmills(out var windmillPoses, out var windmillSpecs,
                                          out var windmillInstances);
+            MineMovers = FlappySceneMovers.Collect();
+            if (MineMovers.Count > 0)
+            {
+                Debug.Log($"[맵 검사] 움직이는 장애물 {MineMovers.Count}개 — 틱마다 자세를 다시 세운다.");
+                //  관문이 장애물에 걸치는지 가를 x 범위 — 한 주기를 세워 보고 구운 자세로 되돌린다(아래 posedTick 초기화가 캐시를 비운다).
+                MineMovers.MeasureXExtents(TickSeconds);
+            }
+            //  리포트는 아래 finally가 MineMovers를 비운 뒤에 쓰므로 거기서 쓸 값은 지금 적어 둔다.
+            int mineMoverCount = MineMovers.Count;
+            int minePhaseTicks = MineMovers.Count > 0 ? MineMovers.PhaseSpaceTicks(TickSeconds) : 0;
             CollectGuards();
             SetGuardsActive(false);
             posedTick = long.MinValue;
@@ -464,7 +479,7 @@ namespace LOP.EditorTools
                 {
                     var phaseWatch = System.Diagnostics.Stopwatch.StartNew();
                     phaseSweep = SweepPhases(spawns, finishX, shape, mapMask, query, botGrid,
-                                             PhaseSpaceOf(windmillSpecs), PhaseSweepStride,
+                                             PhaseSpaceOf(windmillSpecs, minePhaseTicks), PhaseSweepStride,
                                              out phaseSweepCancelNote);
                     phaseWatch.Stop();
                     Debug.Log($"[맵 검사] 위상 훑기 {phaseSweep.Count}자리 — {phaseWatch.ElapsedMilliseconds}ms");
@@ -497,7 +512,8 @@ namespace LOP.EditorTools
                 //  ②-c 정적 좁힘 — 코스 전체를 세로로 훑으므로 여기는 진행률이 필요하다.
                 var pinchWatch = System.Diagnostics.Stopwatch.StartNew();
                 var pinchColumns = SweepStaticPinches(spawns[0].Position.x, finishX, mapMask,
-                                                      windmillInstances, out pinchSweepCancelNote,
+                                                      windmillInstances, MineMovers?.Colliders,
+                                                      out pinchSweepCancelNote,
                                                       out var enclosedPerColumn);
                 pinches = LOP.MapTools.StaticPinchRule.Segments(pinchColumns, requiredBand, PinchSampleStep);
                 //  ②-d 관문 박자 — 같은 훑기 결과를 다시 쓴다(새로 훑지 않는다).
@@ -521,7 +537,7 @@ namespace LOP.EditorTools
                 //  "접기 전 창"과 이미 난 비행의 궤적만 쓰므로 새로 날리는 비행이 없다.
                 var gateWatch = System.Diagnostics.Stopwatch.StartNew();
                 gateSection = BuildGateSection(gateFlights, spawns[0].Position.x, enclosedPerColumn,
-                                               shape, requiredBand, windmillInstances,
+                                               shape, requiredBand, windmillInstances, MineMovers,
                                                out approachSection);
                 gateWatch.Stop();
                 Debug.Log($"[맵 검사] 관문 통과 진단 — {gateWatch.ElapsedMilliseconds}ms");
@@ -532,6 +548,8 @@ namespace LOP.EditorTools
             {
                 EditorUtility.ClearProgressBar();
                 RestoreWindmills(windmillPoses);
+                MineMovers?.Restore();
+                MineMovers = null;
                 RestoreGuards();
                 Windmills = null;
                 moversLive = false;
@@ -623,13 +641,19 @@ namespace LOP.EditorTools
             //  도는 장애물이 있으면 이 리포트의 두 답이 서로 다른 정확도를 갖는다 — 그 사실을
             //  리포트 안에 적어 둔다. 화면을 떠나 붙여넣기로 돌아다니는 문자열이 스스로
             //  "어디까지 믿을 수 있는지"를 말해야 한다.
-            if (windmillSpecs.Count > 0)
+            if (windmillSpecs.Count > 0 || mineMoverCount > 0)
             {
                 var note = new StringBuilder();
-                note.AppendLine($"회전 장애물: 풍차 {windmillSpecs.Count}개 ({DescribeWindmillSpeeds(windmillSpecs)}). "
+                string movers = windmillSpecs.Count > 0
+                    ? $"풍차 {windmillSpecs.Count}개 ({DescribeWindmillSpeeds(windmillSpecs)})" : "풍차 없음";
+                if (mineMoverCount > 0)
+                {
+                    movers += $" · 진자·승강기·낙석 {mineMoverCount}개";
+                }
+                note.AppendLine($"회전 장애물: {movers}. "
                               + "이 검사는 틱 0을 스폰으로 잡은 한 위상만 본다 —");
                 note.AppendLine($"             \"가능한 한 판\"이지 \"실제 그 판\"이 아니다"
-                              + $"(실제 판의 틱 0은 GameplayStartTick이라 각도가 다르다). {DescribePhaseSpace(windmillSpecs)}");
+                              + $"(실제 판의 틱 0은 GameplayStartTick이라 각도가 다르다). {DescribePhaseSpace(windmillSpecs, minePhaseTicks)}");
                 note.AppendLine(skipPhaseSweep
                     ? "             ⛔ 나머지 위상은 이 리포트가 안 본다 — 빠름 모드라 \"① 위상 훑기\"를 안 돌렸다."
                     : "             나머지 위상은 아래 \"① 위상 훑기\" 절이 보여 준다 — 판정(✅/🟡/❌)은 여전히 틱 0 하나다.");
@@ -642,6 +666,8 @@ namespace LOP.EditorTools
                 note.AppendLine("    탐색은 '몇 틱째에 그 자리에 닿는가'를 들고 있지 않아 물어볼 틱 자체가 없다.");
                 note.AppendLine("    ⚠️ 따라서 🟡·❌는 회전을 반영하지 않은 판정이다 — 실제로는 열려 있을 수 있다.");
                 note.AppendLine("  · ②의 낌 스캔도 각 씨앗을 틱 0부터 굴린다 — 실제 판의 위상과는 다르다.");
+                note.AppendLine("  · ②-c 정적 좁힘·②-d 관문 박자는 움직이는 장애물(풍차·진자·승강기·낙석)을 빼고 잰다.");
+                note.AppendLine("    ① 관문 통과 절은 그것이 걸친 관문에 ⚠️를 달고, 그 창·깔때기는 장애물을 뺀 정적 지형의 그림이다.");
                 note.AppendLine();
                 report = note.ToString() + report;
             }
@@ -1571,16 +1597,23 @@ namespace LOP.EditorTools
 
         //  코스 x 전체를 훑어 x마다 "가장 넓은 갇힌 띠"를 낸다. 풍차는 없는 셈 친다 —
         //  이 절이 답하는 것은 <b>정적</b> 지형이고, 돌아가는 것은 ②-b가 본다.
+        //  광산 장애물(진자·승강기·낙석, <paramref name="moverColliders"/>)도 같은 규칙으로 뺀다 — 틱 0 자세로
+        //  재면 흔들리는 광차가 "정적 칸막이"로 찍혀 처방이 엉뚱한 곳을 가리킨다(10-13 실측: ②-c 9곳 전부가 그랬다).
         //  <paramref name="enclosedPerColumn"/>은 x마다의 <b>갇힌 창 전부</b>다. PinchColumn이
         //  "가장 넓은 것 하나"로 접기 <i>전</i>의 값이라, 회랑을 가로로 가르는 칸막이가 여기엔
         //  남아 있다 — 관문 절(GateFunnelRule)이 그것을 본다. 같은 훑기에서 공짜로 나온다.
         private static List<LOP.MapTools.PinchColumn> SweepStaticPinches(
             float startX, float finishX, int mapMask, List<LOP.FlappyWindmill> windmills,
+            IReadOnlyCollection<Collider> moverColliders,
             out string cancelNote, out List<List<LOP.MapTools.GateWindow>> enclosedPerColumn)
         {
             cancelNote = null;
             enclosedPerColumn = new List<List<LOP.MapTools.GateWindow>>();
             var ignore = new HashSet<Collider>();
+            if (moverColliders != null)
+            {
+                ignore.UnionWith(moverColliders);
+            }
             for (int i = 0; windmills != null && i < windmills.Count; i++)
             {
                 if (windmills[i] == null)
@@ -1701,6 +1734,7 @@ namespace LOP.EditorTools
                                                List<List<LOP.MapTools.GateWindow>> enclosedPerColumn,
                                                in FlappyShape shape, float requiredBand,
                                                List<LOP.FlappyWindmill> windmills,
+                                               FlappySceneMovers movers,
                                                out string approachSection)
         {
             approachSection = null;
@@ -1763,7 +1797,9 @@ namespace LOP.EditorTools
                     StopCount = clusters[g].StopCount,
                     Columns = columns,
                     Runout = runout,
-                    Rotating = WindmillsOverlap(windmills, columns[0].X, columns[columns.Count - 1].X),
+                    //  광산 장애물도 "도는 지형"과 같은 취급 — 정적 훑기가 빼고 쟀으니 창 그림이 그것을 뺀 값이라고 밝혀야 한다.
+                    Rotating = WindmillsOverlap(windmills, columns[0].X, columns[columns.Count - 1].X)
+                               || (movers != null && movers.OverlapsX(columns[0].X, columns[columns.Count - 1].X)),
                 };
                 report.FaceIndex = LOP.MapTools.GateFunnelRule.FaceColumn(columns, shape.Height);
                 for (int i = 0; i < flights.Count; i++)
@@ -1909,9 +1945,11 @@ namespace LOP.EditorTools
         //  훑어야 할 위상의 수. 씬에서 계산한다 — 숫자를 손으로 적으면 풍차 속도를 바꾼 날
         //  훑기가 조용히 일부만 보게 된다. 속도·날개가 섞이면 <b>가장 긴</b> 것을 쓴다:
         //  그보다 짧게 훑으면 다른 풍차의 못 본 각도가 남는다.
-        private static int PhaseSpaceOf(List<(float RotSpeed, int Arms)> specs)
+        //  minePhaseTicks: 광산 장애물의 가장 긴 주기(틱, 없으면 0). 광산 장애물도 같은 규칙 — 섞인 주기의
+        //  최소공배수(84초면 완주 4200회)가 아니라 가장 긴 주기. 장애물끼리의 위상 조합 전수는 구간 통과 검사가 구간마다 본다.
+        private static int PhaseSpaceOf(List<(float RotSpeed, int Arms)> specs, int minePhaseTicks)
         {
-            int longest = 1;
+            int longest = Mathf.Max(1, minePhaseTicks);
             for (int i = 0; i < specs.Count; i++)
             {
                 longest = Mathf.Max(longest, LOP.MapTools.WindmillPhase.SpaceTicks(
@@ -1920,9 +1958,21 @@ namespace LOP.EditorTools
             return longest;
         }
 
-        private static string DescribePhaseSpace(List<(float RotSpeed, int Arms)> specs)
+        //  minePhaseTicks: 광산 장애물의 가장 긴 주기(틱, 없으면 0). 리포트는 MineMovers를 비운 뒤에 쓰므로 값으로 받는다.
+        private static string DescribePhaseSpace(List<(float RotSpeed, int Arms)> specs, int minePhaseTicks)
         {
-            int longest = PhaseSpaceOf(specs);
+            string prefix = minePhaseTicks > 0
+                ? $"움직이는 장애물 가장 긴 주기 {minePhaseTicks * TickSeconds:F1}초 · " : "";
+            if (specs.Count == 0)
+            {
+                return prefix + $"위상 공간은 {minePhaseTicks}틱(섞인 주기의 최소공배수가 아니라 가장 긴 것 — 조합 전수는 구간 통과 검사가 본다).";
+            }
+            return prefix + DescribeWindmillPhaseSpace(specs, minePhaseTicks);
+        }
+
+        private static string DescribeWindmillPhaseSpace(List<(float RotSpeed, int Arms)> specs, int minePhaseTicks)
+        {
+            int longest = PhaseSpaceOf(specs, minePhaseTicks);
             bool uniform = true;
             for (int i = 0; i < specs.Count; i++)
             {

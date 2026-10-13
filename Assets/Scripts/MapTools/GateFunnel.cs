@@ -800,7 +800,7 @@ namespace LOP.MapTools
             //  도는 지형이면 이 절의 기하가 한 위상의 것이다 — 안 돌면 그렇지 않다는 것도
             //  적어야 읽는 사람이 "혹시 도착 시점 탓인가"를 스스로 배제할 수 있다.
             text.AppendLine(gate.Rotating
-                ? "    ⚠️ 이 관문엔 도는 지형이 있다 — 아래 창은 틱 0 자세의 것이다(도착 시점에 따라 달라진다)."
+                ? "    ⚠️ 이 관문엔 움직이는 지형(풍차·진자·승강기·낙석)이 있다 — 아래 창·깔때기는 그것을 뺀 정적 지형의 그림이다(실제 창은 도착 시점에 따라 달라진다)."
                 : "    이 관문은 돌지 않는 지형이다 — 창은 언제 도착하든 같다(도착 시점과 무관).");
             AppendRunoutNote(text, gate, kernel);
             int passable = 0;
@@ -894,6 +894,12 @@ namespace LOP.MapTools
             if (failCount > 0)
             {
                 text.AppendLine($"      {Blame(failCount, failInFunnel)}");
+                //  깔때기가 움직이는 것을 뺀 그림이면 "안"이라고 겨냥 탓이 되지 않는다 — 그 장애물에 걸렸을 수 있다.
+                if (gate.Rotating && failInFunnel > 0)
+                {
+                    text.AppendLine("      ⚠️ 움직이는 지형이 걸친 관문이라 '깔때기 안' 실패는 겨냥이 아니라 그 장애물에 걸린 것일 수 있다"
+                                  + " — 깔때기는 그것을 뺀 그림이다.");
+                }
                 AppendPrescription(text, gate, kernel, outside, failCount, failInFunnel);
             }
         }
@@ -914,8 +920,11 @@ namespace LOP.MapTools
         {
             if (outside.Count == 0)
             {
-                text.AppendLine("      → 지형은 충분하다 — 봇이 그 상태에서 못 고른다."
-                              + " (처방 없음: 맵이 아니라 봇 문제다.)");
+                text.AppendLine(gate.Rotating
+                    ? "      → 정적 지형은 충분하다 — 막은 것은 겨냥이거나 움직이는 장애물이다(이 깔때기는 둘을 못 가른다)."
+                      + " (처방 없음: 장애물 위상은 구간 통과 검사가 본다.)"
+                    : "      → 지형은 충분하다 — 봇이 그 상태에서 못 고른다."
+                      + " (처방 없음: 맵이 아니라 봇 문제다.)");
                 return;
             }
             float pivotX = gate.Columns != null && gate.Columns.Count > 0 ? gate.Columns[0].X : 0f;

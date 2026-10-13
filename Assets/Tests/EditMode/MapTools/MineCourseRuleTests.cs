@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using LOP.MapTools;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace LOP.MapTools.Tests
 {
@@ -13,6 +14,8 @@ namespace LOP.MapTools.Tests
     /// <para>10-12 사람 판 레이아웃 변경으로 배치는 프로토타입 v33에서 일부러 갈라졌다(사람이 지나가게 — 첫 갱 9.2 m, 갱 반 높이 4.3, 낮은 천장 진폭 2.5,
     /// 굴 틈 3.4, 계단·급반전 간격 +2.6, 급반전 ±4.5, 갈림길 뒤 여유 3 m). 난수 소비 순서는 그대로라 틈 중심 난수값은 같고, x·길이가 그만큼 밀렸다.
     /// 아래 x·길이 기준값은 그 새 배치에서 뽑았다.</para>
+    /// 10-13 동적 지형 1차: 기준값은 시안 v10 "설계안"(PLAN_ORDER) 덤프 — 길이 445.95.
+    /// 시안 v10에서 갈라짐(10-13 검사): 급반전 앞 보통 관문 → 첫 급반전 간격 5.4 → 8 m(FlipLead 2.6) — 급반전부터 뒤는 x·길이가 2.6씩 밀렸다(448.55).
     /// </summary>
     public class MineCourseRuleTests
     {
@@ -30,19 +33,18 @@ namespace LOP.MapTools.Tests
         static List<MineGate> Gates(MineCourse c) => c.Gates.ToList();
 
         [Test]
-        //  10-12 사람 판 레이아웃 변경: 프로토타입 v33(386.15)에서 갈라졌다 — 사람이 지나가게 간격을 벌려 422.35.
-        public void 길이는_프로토타입과_같다() => Assert.AreEqual(422.35f, Layout().Length, 0.01f);
+        public void 길이는_시안과_같다() => Assert.AreEqual(448.55f, Layout().Length, 0.01f);   // 시안 v10 445.95에서 갈라짐(10-13 검사, +2.6)
 
         [Test]
         public void 구간_순서와_시작점()
         {
-            //  3막: 1막 하강(갱 → 계단 내리막 → 갈림길⬇) · 2막 갱 바닥(낮은 천장 → 롤러코스터 → 급반전 → 갈림길⬆ → 깊은 갱) · 3막 탈출(긴 통로 → 굴뚝 → 갈림길⬆).
-            //  10-12 사람 판 레이아웃 변경: 첫 갱 9.2 m · 계단·급반전 간격 +2.6 · 갈림길 뒤 +3 m로 첫 갱 뒤가 전부 밀렸다.
+            //  1막(갱 → 흔들리는 계단 → 낙석 → 갈림길⬇ 무너진 갱도) · 2막(진자 광차 → 짧은 롤러코스터 → 조인 급반전 → 갈림길⬆ 두 번 굴 → 깊은 갱)
+            //  · 3막(승강기 → 굴뚝 → 갈림길⬆ 레일 굴).
             var expect = new (string name, float x)[]
             {
-                ("수직 갱 낙하", 24.8f), ("계단 내리막", 46.85f), ("고수 갈림길 ⬇굴", 100.25f),
-                ("낮은 천장", 138.2f), ("레일 롤러코스터", 171.05f), ("급반전", 234.9f), ("고수 갈림길 ⬆굴", 272.3f), ("수직 갱 낙하", 299.45f),
-                ("긴 통로", 327.7f), ("굴뚝 오르기", 348.55f), ("고수 갈림길 ⬆굴", 375f),
+                ("수직 갱 낙하", 24.8f), ("계단 내리막", 46.85f), ("낙석", 93.05f), ("고수 갈림길 ⬇굴", 119.9f),
+                ("진자 광차", 162.45f), ("레일 롤러코스터", 201.3f), ("급반전", 240.15f), ("고수 갈림길 ⬆굴", 275.35f), ("수직 갱 낙하", 302.5f),
+                ("승강기", 330.75f), ("굴뚝 오르기", 368.15f), ("고수 갈림길 ⬆굴", 394.6f),
             };
             var secs = Layout().Sections;
             Assert.AreEqual(expect.Length, secs.Count);
@@ -54,146 +56,254 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
-        public void 첫_관문들이_같은_난수로_선다()
+        public void 고정_관문들이_같은_난수로_선다()
         {
             var gates = Gates(Layout());
-            Assert.AreEqual(35, gates.Count);
-            //  출발 관문 2 → 갱 바닥(−22)의 사이 관문 1 → 계단 내리막 첫 관문(−22 − 4.5).
-            //  10-12 사람 판 레이아웃 변경: 첫 갱 8 → 9.2 m라 관문 2부터 x가 1.2 m 밀렸다(틈 중심 난수는 그대로).
-            var expect = new (float x, float c, float w)[]
+            //  시안 덤프 42개 중 승강기 10개를 뺀 32개.
+            Assert.AreEqual(32, gates.Count);
+            var expect = new (float x, float c)[]
             {
-                (14.975f, -1.364f, 1.95f), (20.375f, 1.699f, 1.95f), (42.425f, -22.214f, 1.95f), (47.825f, -26.5f, 1.95f),
+                (14.975f, -1.364f), (20.375f, 1.699f), (42.425f, -22.214f), (88.625f, -50.075f), (115.475f, -47.866f),
             };
             for (int i = 0; i < expect.Length; i++)
             {
                 Assert.AreEqual(expect[i].x, gates[i].X, 0.002f, $"관문 {i} x");
                 Assert.AreEqual(expect[i].c, gates[i].GapCenter, 0.002f, $"관문 {i} 틈 중심");
-                Assert.AreEqual(expect[i].w, gates[i].Width, 0.002f, $"관문 {i} 두께");
                 Assert.AreEqual(3.75f, gates[i].Gap, 1e-4f, $"관문 {i} 틈");
             }
-            //  관문 27 = 긴 통로(12 m, 틈 3.1). 10-12 사람 판 레이아웃 변경으로 x 300.5 → 333.7.
-            Assert.AreEqual(333.7f, gates[27].X, 0.002f);
-            Assert.AreEqual(12f, gates[27].Width, 1e-4f);
-            Assert.AreEqual(3.1f, gates[27].Gap, 1e-4f);
-            //  10-12 몸통 공 + 둘째 갱·굴뚝 28 → 24 m(게임 커널 검사: 28 m 갱은 최대 낙하로도 못 내려가고, 굴뚝은 초당 4번 가까이 쳐야 했다) — 그 사이 4 m 위로.
-            Assert.AreEqual(-72.895f, gates[27].GapCenter, 0.002f);
             var last = gates[gates.Count - 1];
-            Assert.AreEqual(413.925f, last.X, 0.002f);   // 10-12 사람 판 레이아웃 변경(377.725 → 413.925)
-            Assert.AreEqual(-51.607f, last.GapCenter, 0.002f);
+            Assert.AreEqual(440.125f, last.X, 0.002f);
+            Assert.AreEqual(-48.192f, last.GapCenter, 0.002f);
         }
 
         [Test]
-        public void 난이도_값이_프로토타입과_같다()
+        public void 급반전은_간격_6_8_흔들림_없음()
         {
-            //  10-12 사람 판 레이아웃 변경으로 프로토타입 v33과 갈라졌다(사람이 지나가게) — 아래 값은 새 배치 기준이다.
             var c = Layout();
             var gates = Gates(c);
-
-            //  계단 내리막 6개(관문 3~8): 갱 바닥(−22)에서 관문마다 4.5 m씩 내려 −26.5 … −49. 틈은 보통(3.75).
-            //  통로도 계단을 따라 내려간다 — 그 관문 x의 통로 중심 = 틈 중심.
-            //  10-12 사람 판 레이아웃 변경: 관문 간격 5.4 → 8 m(StairExtra 2.6), 첫 관문 x는 첫 갱 9.2 m로 46.625 → 47.825.
-            for (int i = 0; i < 6; i++)
-            {
-                float x = 47.825f + 8f * i, step = -22f - 4.5f * (i + 1);
-                Assert.AreEqual(x, gates[3 + i].X, 0.002f, $"계단 {i} x");
-                Assert.AreEqual(step, gates[3 + i].GapCenter, 1e-4f, $"계단 {i} 틈 중심");
-                Assert.AreEqual(3.75f, gates[3 + i].Gap, 1e-4f, $"계단 {i} 틈");
-                Assert.AreEqual(step, c.CenterAt(x), 1e-3f, $"계단 {i} 통로 중심");
-            }
-            //  급반전(관문 17~20): −49에서 +4.5 / −4.5 번갈아, 간격 8 m.
-            //  10-12 사람 판 레이아웃 변경: ±5.5 → ±4.5, 간격 5.4 → 8 m(FlipExtra 2.6), 시작 x 216.075 → 235.875.
-            var flip = new[] { -44.5f, -49f, -44.5f, -49f };
+            float flipX = c.Sections.Single(s => s.Name == "급반전").X;
+            var flip = gates.Where(g => g.X > flipX && g.X < flipX + 4 * 6.8f).ToList();
+            Assert.AreEqual(4, flip.Count);
+            var centers = new[] { -44.5f, -49f, -44.5f, -49f };
             for (int i = 0; i < 4; i++)
             {
-                Assert.AreEqual(235.875f + 8f * i, gates[17 + i].X, 0.002f, $"급반전 {i} x");
-                Assert.AreEqual(flip[i], gates[17 + i].GapCenter, 1e-4f, $"급반전 {i} 틈 중심");
+                Assert.AreEqual(243.725f + 6.8f * i, flip[i].X, 0.002f, $"급반전 {i} x");
+                Assert.AreEqual(centers[i], flip[i].GapCenter, 1e-4f, $"급반전 {i} 틈 중심");
             }
-            //  갈림길 보통 관문 — 틈 3.3, 폭 3 m 난수 띠(첫 갈림길 ⬇굴이라 보통 길은 위, 관문 10~12).
-            var fork = new[] { -44.458f, -45.601f, -44.586f };
-            for (int i = 0; i < 3; i++)
-            {
-                Assert.AreEqual(fork[i], gates[10 + i].GapCenter, 0.002f, $"갈림길 관문 {i}");
-                Assert.AreEqual(3.3f, gates[10 + i].Gap, 1e-4f, $"갈림길 관문 {i} 틈");
-            }
-
-            //  물결 터널은 빠졌다 — 굴은 롤러코스터 1 + 갈림길 굴 3 + 패드 방 3.
-            Assert.AreEqual(7, c.Tubes.Count);
-            //  구간 시작 x는 코스에서 찾는다(값 자체는 구간_순서와_시작점이 지킨다).
-            float coasterX = c.Sections.Single(s => s.Name == "레일 롤러코스터").X;
-            float lowX = c.Sections.Single(s => s.Name == "낮은 천장").X;
-            MineTube coaster = c.Tubes.Single(t => Math.Abs(t.X0 - coasterX) < 0.01f);
-            Assert.AreEqual(4.8f, coaster.Gap, 1e-5f);
-            Assert.AreEqual(coasterX + 55f, coaster.X1, 0.01f, "롤러코스터 55 m");
-
-            //  낮은 천장(24 m): 반 높이 2.2, 중심선 물결 진폭 2.5 · 주기 17(¼ 주기에서 꼭대기). 계단 끝 바닥 −49.
-            //  10-12 사람 판 레이아웃 변경: 진폭 3.5 → 2.5.
-            Assert.AreEqual(2.2f, c.HalfAt(lowX + 10f), 1e-4f);
-            Assert.AreEqual(-49f + 2.5f, c.CenterAt(lowX + 17f / 4f), 0.01f);
-            Assert.AreEqual(MineCourse.BaseHalf, c.HalfAt(lowX + 24f + 3.5f), 1e-4f, "24 m 뒤 3 m 전이 밖은 넓은 통로");
+            //  첫 급반전 앞은 8 m(10-13 검사, 시안 v10 5.4에서 갈라짐) — 앞 보통 관문에서 6 m를 오를 여유.
+            var before = gates.Last(g => g.X < flipX);
+            Assert.AreEqual(8f, flip[0].X - before.X, 0.002f, "앞 보통 관문 → 첫 급반전");
+            Assert.IsFalse(c.Lifts.Any(l => l.Gate.X > flipX && l.Gate.X < flipX + 30f), "급반전은 흔들리지 않는다");
         }
 
         [Test]
-        public void 갈림길은_아래_위_위이고_패드는_굴_뒤에()
+        public void 흔들리는_계단은_승강기_관문_여섯()
         {
             var c = Layout();
-            //  10-12 사람 판 레이아웃 변경으로 x가 밀렸다(83.45 / 242.1 / 341.8 → 100.25 / 272.3 / 375).
-            var expectForks = new (float x0, float x1, float b, bool up)[] { (100.25f, 120.95f, -49f, false), (272.3f, 293f, -49f, true), (375f, 395.7f, -49f, true) };
-            var expectPads = new (float x0, float y0, float y1)[] { (108.95f, -55.0f, -52.2f), (281f, -47.8f, -45.0f), (383.7f, -47.8f, -45.0f) };
+            float stairX = c.Sections.Single(s => s.Name == "계단 내리막").X;
+            var stairs = c.Lifts.Where(l => l.Gate.X > stairX && l.Gate.X < stairX + 6 * 6.8f).ToList();
+            Assert.AreEqual(6, stairs.Count);
+            for (int i = 0; i < 6; i++)
+            {
+                MineLift l = stairs[i];
+                Assert.AreEqual(47.825f + 6.8f * i, l.Gate.X, 0.002f, $"계단 {i} x");
+                Assert.AreEqual(-26.5f - 4.5f * i, l.Gate.GapCenter, 1e-4f, $"계단 {i} 틈 중심");
+                Assert.AreEqual(3.75f, l.Gate.Gap, 1e-4f);
+                Assert.AreEqual(1.0f, l.Amplitude, 1e-5f);
+                Assert.AreEqual(3.0f, l.Period, 1e-5f);
+                Assert.AreEqual(60f * i, l.Phase, 1e-4f);
+                Assert.AreEqual(l.Gate.GapCenter, c.CenterAt(l.Gate.X), 1e-3f, $"계단 {i} 통로가 따라 내려간다");
+            }
+        }
+
+        [Test]
+        public void 승강기는_관문_넷_간격_8()
+        {
+            var c = Layout();
+            float liftX = c.Sections.Single(s => s.Name == "승강기").X;
+            var lifts = c.Lifts.Where(l => l.Gate.X > liftX).ToList();
+            Assert.AreEqual(4, lifts.Count);
+            for (int i = 0; i < 4; i++)
+            {
+                Assert.AreEqual(331.725f + 8f * i, lifts[i].Gate.X, 0.002f, $"승강기 {i} x");
+                Assert.AreEqual(-73f, lifts[i].Gate.GapCenter, 1e-4f);
+                Assert.AreEqual(3.75f, lifts[i].Gate.Gap, 1e-4f);
+                Assert.AreEqual(1.8f, lifts[i].Amplitude, 1e-5f);
+                Assert.AreEqual(3.5f, lifts[i].Period, 1e-5f);
+                Assert.AreEqual(90f * i, lifts[i].Phase, 1e-4f);
+            }
+            Assert.AreEqual(10, c.Lifts.Count, "계단 6 + 승강기 4");
+        }
+
+        [Test]
+        public void 진자_광차는_세_자리_네_대()
+        {
+            var c = Layout();
+            Assert.AreEqual(12, c.Pendulums.Count);
+            const float top = -49f + MineCourse.BaseHalf;   // 천장 −41.72
+            for (int i = 0; i < 3; i++)
+            {
+                for (int k = 0; k < 4; k++)
+                {
+                    MinePendulum p = c.Pendulums[i * 4 + k];
+                    float cy = top - (2f * MineCourse.BaseHalf / 4f) * (k + 0.5f);
+                    float len = top - cy + 1.2f;
+                    Assert.AreEqual(166.45f + 10f * i, p.PivotX, 0.002f, $"자리 {i}");
+                    Assert.AreEqual(top + 1.2f, p.PivotY, 1e-3f);
+                    Assert.AreEqual(len, p.Length, 1e-3f, $"자리 {i} 광차 {k} 줄");
+                    Assert.AreEqual(Mathf.Asin(2.5f / len) * Mathf.Rad2Deg, p.Amplitude, 1e-2f, $"자리 {i} 광차 {k} 각도");
+                    Assert.AreEqual(2.4f, p.Period, 1e-5f);
+                    Assert.AreEqual(k * 90f + i * Mathf.Rad2Deg, p.Phase, 1e-3f, "위상 = k·90° + 자리·1rad(57.3°)");
+                    Assert.AreEqual(1.6f, p.CartWidth, 1e-5f);
+                    Assert.AreEqual(1.2f, p.CartHeight, 1e-5f);
+                }
+            }
+            //  맨 아래 광차 밑 빈 띠(1.22 m)에서 몸(지름 0.9)을 빼면 0.32 m — 날갯짓 한 번 높이(1.52 m)보다 훨씬 좁아
+            //  바닥을 기어 그냥 피해 갈 수 없다(intent 성공 판정 2). 맨 위도 같은 간격이다.
+            MinePendulum bottom = c.Pendulums[3];
+            float cartBottom = bottom.PivotY - bottom.Length - bottom.CartHeight / 2f;
+            float flapHeight = 10.125f * 10.125f / (2f * 33.75f);
+            Assert.Less(cartBottom - (-49f - MineCourse.BaseHalf) - 0.9f, flapHeight);
+        }
+
+        [Test]
+        public void 낙석은_네_줄_간격_4_5()
+        {
+            var c = Layout();
+            Assert.AreEqual(4, c.Rockfalls.Count);
+            for (int i = 0; i < 4; i++)
+            {
+                MineRockfall r = c.Rockfalls[i];
+                Assert.AreEqual(94.65f + 4.5f * i, r.X, 0.002f, $"줄 {i} x");
+                Assert.AreEqual(-49f + MineCourse.BaseHalf, r.Ceiling, 1e-3f);
+                Assert.AreEqual(2f * MineCourse.BaseHalf + 1.2f, r.Drop, 1e-3f);
+                Assert.AreEqual(1.2f, r.Size, 1e-5f);
+                Assert.AreEqual(9f, r.Speed, 1e-5f);
+                Assert.AreEqual(2f, r.Period, 1e-5f);
+                Assert.AreEqual(90f * i, r.Phase, 1e-4f, "줄마다 +0.5초 = 90°");
+            }
+        }
+
+        [Test]
+        public void 갈림길마다_고수_길_모양이_다르다()
+        {
+            var c = Layout();
+            var shapes = c.Forks.Select(f => f.Shape).ToArray();
+            CollectionAssert.AreEqual(new[] { ForkShape.Collapse, ForkShape.Arc, ForkShape.Rail }, shapes);
+            var expectForks = new (float x0, float x1, bool up)[] { (119.9f, 145.2f, false), (275.35f, 296.05f, true), (394.6f, 421.9f, true) };
+            var expectPadX = new[] { 133.2f, 284.05f, 409.9f };
+            for (int i = 0; i < 3; i++)
+            {
+                Assert.AreEqual(expectForks[i].x0, c.Forks[i].X0, 0.01f, $"갈림길 {i} X0");
+                Assert.AreEqual(expectForks[i].x1, c.Forks[i].X1, 0.01f, $"갈림길 {i} X1");
+                Assert.AreEqual(expectForks[i].up, c.Forks[i].TunnelUp);
+                Assert.AreEqual(expectPadX[i], c.Pads[i].Rect.X0, 0.01f, $"패드 {i}");
+            }
+            MineTube Tunnel(int i) => c.Tubes.Single(t => Math.Abs(t.X0 - (c.Forks[i].X0 + 3f)) < 0.01f);
+            Assert.AreEqual(3.6f, Tunnel(0).Gap, 1e-5f, "무너진 갱도 3.6");
+            Assert.AreEqual(10f, Tunnel(0).X1 - Tunnel(0).X0, 0.01f);
+            Assert.AreEqual(2.8f, Tunnel(1).Gap, 1e-5f, "두 번 굴 2.8");
+            Assert.AreEqual(3.6f, Tunnel(2).Gap, 1e-5f, "레일 굴 3.6");
+            Assert.AreEqual(12f, Tunnel(2).X1 - Tunnel(2).X0, 0.01f);
+        }
+
+        [Test]
+        public void 무너진_갱도_받침목은_위아래_번갈아_셋()
+        {
+            var c = Layout();
+            MineFork f = c.Forks[0];
+            float ax0 = f.X0 + 3f, laneC = f.Base - 4.6f;
+            Assert.AreEqual(3, c.Props.Count);
+            for (int j = 0; j < 3; j++)
+            {
+                MineRect p = c.Props[j];
+                Assert.AreEqual(ax0 + 1.5f + 3f * j, p.X0, 1e-3f, $"받침목 {j} x");
+                Assert.AreEqual(0.6f, p.X1 - p.X0, 1e-4f, "폭 0.6");
+                Assert.AreEqual(0.8f, p.Y1 - p.Y0, 1e-4f, "0.8 튀어나옴");
+                bool fromTop = j % 2 == 0;
+                Assert.AreEqual(fromTop ? laneC + 1.8f : laneC - 1.8f, fromTop ? p.Y1 : p.Y0, 1e-3f, $"받침목 {j}는 굴 가장자리에 붙는다");
+            }
+        }
+
+        [Test]
+        public void 레일_굴은_두_번_솟았다_내려온다()
+        {
+            var c = Layout();
+            MineFork f = c.Forks[2];
+            MineTube t = c.Tubes.Single(x => Math.Abs(x.X0 - (f.X0 + 3f)) < 0.01f);
+            float laneC = f.Base + 2.6f;
+            Assert.AreEqual(laneC, t.Center(t.X0), 1e-4f);
+            Assert.AreEqual(laneC + 1.6f, t.Center(t.X0 + 3f), 1e-3f, "반 주기에 꼭대기 1.6");
+            Assert.AreEqual(laneC, t.Center(t.X0 + 6f), 1e-3f);
+            Assert.AreEqual(laneC + 1.6f, t.Center(t.X0 + 9f), 1e-3f);
+            Assert.AreEqual(laneC, t.Center(t.X1), 1e-3f);
+        }
+
+        [Test]
+        public void 고수_굴_끝은_패드_방_틈_안에서_나온다()
+        {
+            //  끝 높이가 어긋나면 패드 방 벽에 막힌다(시안 10-12). 두 번 굴은 두 번 튀어 0.4 m 높아 끝나지만 방(4.6) 틈 안이다.
+            var c = Layout();
+            foreach (MineFork f in c.Forks)
+            {
+                MineTube tunnel = c.Tubes.Single(t => Math.Abs(t.X0 - (f.X0 + 3f)) < 0.01f);
+                MineTube room = c.Tubes.Single(t => Math.Abs(t.X0 - tunnel.X1) < 0.01f && t != tunnel);
+                float end = tunnel.Center(tunnel.X1), roomC = room.Center(room.X0);
+                Assert.GreaterOrEqual(end - tunnel.Gap / 2f, roomC - room.Gap / 2f - 1e-4f, $"x={f.X0} 굴 끝 아래");
+                Assert.LessOrEqual(end + tunnel.Gap / 2f, roomC + room.Gap / 2f + 1e-4f, $"x={f.X0} 굴 끝 위");
+                if (f.Shape != ForkShape.Arc) { Assert.AreEqual(roomC, end, 1e-3f, "곧은·레일 굴은 칸 중심으로 끝난다"); }
+            }
+        }
+
+        [Test]
+        public void 패드는_굴_뒤_방_안이고_부스트는_칸막이_안에서_끝난다()
+        {
+            //  옛 갈림길 기준값 테스트(10-12)가 지키던 불변식 — 굴 모양이 갈림길마다 달라져도 그대로여야 한다. 값은 코스에서 찾는다.
+            var c = Layout();
             Assert.AreEqual(3, c.Forks.Count);
             Assert.AreEqual(3, c.Pads.Count);
             Assert.AreEqual(3, c.Walls.Count);
             for (int i = 0; i < 3; i++)
             {
                 MineFork f = c.Forks[i];
-                Assert.AreEqual(expectForks[i].x0, f.X0, 0.01f, $"갈림길 {i} X0");
-                Assert.AreEqual(expectForks[i].x1, f.X1, 0.01f, $"갈림길 {i} X1");
-                Assert.AreEqual(expectForks[i].b, f.Base, 0.01f, $"갈림길 {i} Base");
-                Assert.AreEqual(expectForks[i].up, f.TunnelUp, $"갈림길 {i} 굴 방향");
-
                 MinePad pad = c.Pads[i];
-                Assert.AreEqual(expectPads[i].x0, pad.Rect.X0, 0.01f, $"패드 {i} x0");
-                Assert.AreEqual(expectPads[i].y0, pad.Rect.Y0, 0.01f, $"패드 {i} y0");
-                Assert.AreEqual(expectPads[i].y1, pad.Rect.Y1, 0.01f, $"패드 {i} y1");
+                MineTube tunnel = c.Tubes.Single(t => Math.Abs(t.X0 - (f.X0 + 3f)) < 0.01f);
+                MineTube room = c.Tubes.Single(t => Math.Abs(t.X0 - tunnel.X1) < 0.01f && t != tunnel);
                 Assert.AreEqual(1.1f, pad.Duration, 1e-5f);
-
-                //  패드는 굴을 빠져나온 뒤에, 부스트 직선(게임과 같은 대시 곡선으로 적분) + 코끝은 칸막이 안에서 끝난다.
-                MineTube tube = c.Tubes.Single(t => Math.Abs(t.X0 - (f.X0 + 3f)) < 0.01f);
-                Assert.Greater(pad.Rect.X0, tube.X1, $"패드 {i}가 굴 뒤");
+                Assert.Greater(pad.Rect.X0, tunnel.X1, $"패드 {i}가 굴 뒤");
+                Assert.AreEqual(f.X1, room.X1, 1e-4f, $"방 {i}은 칸막이와 같이 끝난다");
+                Assert.AreEqual(4.6f, room.Gap, 1e-5f, $"방 {i} 틈");
+                Assert.AreEqual(room.Center(room.X0), room.Center(room.X1), 1e-4f, $"방 {i} 수평");
+                float roomC = room.Center(room.X0);
+                Assert.Greater(pad.Rect.X0, room.X0); Assert.Less(pad.Rect.X1, room.X1);
+                Assert.Greater(pad.Rect.Y0, roomC - 2.3f); Assert.Less(pad.Rect.Y1, roomC + 2.3f);
                 float boost = LOP.FlappyDashCurve.Distance(P.Forward, pad.Duration, DashDuration, DashMult, P.Tick);
                 Assert.Less(pad.Rect.X0 + boost + NoseHalfLength, f.X1, $"패드 {i} 부스트가 칸막이 안");
             }
         }
 
         [Test]
-        public void 고수_길은_굴을_나오면_땅에_둘러싸인_패드_방에서_합류한다()
+        public void 롤러코스터는_30_m_물결_한_번_틈_4_4()
         {
             var c = Layout();
-            //  웹 v33: 굴 끝(ax1) ~ 칸막이 끝(fx1), 굴 칸 중심 높이, 틈 4.6, 위·아래 끝은 굴과 같은 칸 끝.
-            //  10-12 사람 판 레이아웃 변경으로 x만 밀렸다(굴 틈 3.4라도 굴 길이는 궤적이 정한다).
-            var expect = new (float x0, float x1, float center, float low, float high)[]
-            {
-                (108.65f, 120.95f, -53.6f, -49f - MineCourse.BaseHalf - 1f, -49.6f),  // ⬇굴
-                (280.7f, 293f, -46.4f, -48.4f, -49f + MineCourse.BaseHalf + 1f),      // ⬆굴
-                (383.4f, 395.7f, -46.4f, -48.4f, -49f + MineCourse.BaseHalf + 1f),    // ⬆굴
-            };
-            for (int i = 0; i < 3; i++)
-            {
-                MineFork f = c.Forks[i];
-                MineTube tunnel = c.Tubes.Single(t => Math.Abs(t.X0 - (f.X0 + 3f)) < 0.01f);
-                MineTube room = c.Tubes.Single(t => Math.Abs(t.X0 - tunnel.X1) < 0.01f && t != tunnel);
-                Assert.AreEqual(expect[i].x0, room.X0, 0.01f, $"방 {i} X0");
-                Assert.AreEqual(expect[i].x1, room.X1, 0.01f, $"방 {i} X1 = 칸막이 끝");
-                Assert.AreEqual(f.X1, room.X1, 1e-4f, $"방 {i}은 칸막이와 같이 끝난다");
-                Assert.AreEqual(4.6f, room.Gap, 1e-5f, $"방 {i} 틈");
-                Assert.AreEqual(expect[i].center, room.Center(room.X0), 1e-4f, $"방 {i} 중심(시작)");
-                Assert.AreEqual(expect[i].center, room.Center(room.X1), 1e-4f, $"방 {i} 중심(끝) — 수평");
-                Assert.AreEqual(expect[i].low, room.Low, 1e-4f, $"방 {i} Low");
-                Assert.AreEqual(expect[i].high, room.High, 1e-4f, $"방 {i} High");
-                //  패드는 방 안에.
-                MinePad pad = c.Pads[i];
-                Assert.Greater(pad.Rect.X0, room.X0); Assert.Less(pad.Rect.X1, room.X1);
-                Assert.Greater(pad.Rect.Y0, expect[i].center - 2.3f); Assert.Less(pad.Rect.Y1, expect[i].center + 2.3f);
-            }
+            float x = c.Sections.Single(s => s.Name == "레일 롤러코스터").X;
+            MineTube t = c.Tubes.Single(q => Math.Abs(q.X0 - x) < 0.01f);
+            Assert.AreEqual(4.4f, t.Gap, 1e-5f);
+            Assert.AreEqual(x + 30f, t.X1, 0.01f);
+            Assert.AreEqual(c.CenterAt(t.X1 + 1f), t.Center(t.X1), 1e-3f, "끝 높이가 기준선 — 다음 관문과 잇는다");
+        }
+
+        [Test]
+        public void Validate는_통로_밖으로_흔들리는_승강기를_잡는다()
+        {
+            var c = Layout();
+            var lifts = c.Lifts.ToList();
+            MineLift l = lifts[0];
+            lifts[0] = new MineLift(l.Gate, 10f, l.Period, l.Phase);
+            c.Lifts = lifts;
+            string msg = MineCourseRule.Validate(c);
+            Assert.IsNotNull(msg);
+            Assert.GreaterOrEqual(msg.IndexOf("승강기", StringComparison.Ordinal), 0, msg);
         }
 
         [Test]
@@ -202,9 +312,10 @@ namespace LOP.MapTools.Tests
             var c = Layout();
             //  10-12 사람 판 레이아웃 변경: 낮은 천장이 138.2 ~ 162.2(진폭 2.5)로, 깊은 갱이 299.45 ~ 309.45로 밀려
             //  표본 x를 옮겼다(130 → 150: 낮은 천장 안, 300 → 330: 깊은 갱 바닥 긴 통로).
+            //  10-13 동적 지형: 낮은 천장이 빠져 150 → 170(진자 광차의 평평한 통로), 380은 굴뚝 한가운데가 되어 430(마지막 갈림길 뒤).
             var expect = new (float x, float center, float half)[]
             {
-                (0f, 0f, 7.28f), (100f, -49f, 7.28f), (150f, -51.347f, 2.2f), (200f, -49f, 7.28f), (330f, -73f, 7.28f), (380f, -49f, 7.28f),
+                (0f, 0f, 7.28f), (100f, -49f, 7.28f), (170f, -49f, 7.28f), (200f, -49f, 7.28f), (330f, -73f, 7.28f), (430f, -49f, 7.28f),
             };
             foreach (var e in expect)
             {
@@ -310,7 +421,7 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(y, tube.Center(x), 1e-3f, $"틱 {k}");
             }
             Assert.AreEqual(x, tube.X1, 1e-3f);
-            Assert.AreEqual(3.4f, tube.Gap, 1e-5f);   // 10-12 사람 판 레이아웃 변경(3.1 → 3.4)
+            Assert.AreEqual(2.8f, tube.Gap, 1e-5f);   // 10-12 사람 판 레이아웃 변경(3.1 → 3.4), 10-13 동적 지형: 3.4 → 2.8
             //  위 굴: 칸막이 위 ~ 천장(BaseHalf + 1).
             Assert.AreEqual(-49f + 0.6f, tube.Low, 1e-4f);
             Assert.AreEqual(-49f + MineCourse.BaseHalf + 1f, tube.High, 1e-4f);

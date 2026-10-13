@@ -135,7 +135,7 @@ class Part:
         res = bmesh.ops.triangulate(bm, faces=[f])
         return self._faces(res['faces'], mat, closed=False)
 
-    def slab(self, outline, z0, z1, mat):
+    def slab(self, outline, z0, z1, mat, uvo=0.0):
         """xy 외곽선(오목 가능)을 z0~z1로 두께를 준 판. 앞뒤 면은 삼각형으로 쪼갠다."""
         bm = self.bm
         v0 = [bm.verts.new(B((p[0], p[1], z0))) for p in outline]
@@ -144,7 +144,7 @@ class Part:
         sides = [bm.faces.new((v0[i], v0[(i + 1) % n], v1[(i + 1) % n], v1[i])) for i in range(n)]
         front = bm.faces.new(v0); back = bm.faces.new(list(reversed(v1)))
         tri = bmesh.ops.triangulate(bm, faces=[front, back])['faces']
-        return self._faces(sides + tri, mat)
+        return self._faces(sides + tri, mat, uvo)
 
     # ── 마무리 ──
     def tris(self):
@@ -810,8 +810,139 @@ def rail_scrap():
 DECOR_PARTS = [strata_lens, rock_seam, timber_set, cribbing, ore_vein, rail_scrap]
 
 
+# ════════════════════════ 펼치기 3차(10-13) — 움직이는 지형 ════════════════════════
+#  승강기·매단 광차·낙석·무너진 받침목. 닿는 부품(LiftCage·HangingCart·FallingRock·CollapsedProp)은 경계가 판정 상자 그대로
+#  (MineDressingLayout 상수 옆 주석과 레이아웃 테스트가 이 크기를 가정한다). y로 늘려 쓰는 부품(LiftCage·LiftFrame·CartChain)은
+#  세로로 끝없이 이어지는 모양만 — 가로 띠·볼트는 늘어나 두꺼워지므로 넣지 않는다. 나무결은 늘어난 뒤에 알맞게 타일을 잘게 잡는다.
+LIFT_HALF = 0.975       # 파이프 폭 1.95의 반(GatePlank와 같다)
+LIFT_DEPTH = 0.65       # 관문 판자와 같은 깊이(z ±0.65)
+
+
+def lift_cage():
+    """LiftCage — 승강기 파이프 하나를 덮는 철창 기둥. 원점 = 아래 끝 가운데: x ∈ [−0.975, 0.975], y ∈ [0, 1](y 축척 = 파이프 길이),
+    z ∈ [−0.65, 0.65]. 네 모서리 쇠 기둥, 뒤 판자벽(Timber, 세로 판자 셋), 앞 세로 쇠창살 다섯, 옆 판자. 가로 띠는 없다(y로 늘어나므로) —
+    틈 쪽 끝 쇠테는 굽기가 GateCap을 따로 얹는다."""
+    p = Part('LiftCage')
+    p.tile['Timber'] = 0.15                       # 파이프 길이 6~9 m로 늘어나도 나무결이 1 m에 여러 줄
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            p.prism_y(chamfer_rect(sx * (LIFT_HALF - 0.08), sz * (LIFT_DEPTH - 0.1), 0.16, 0.2, 0.03), 0.0, 1.0, 'Iron')
+        p.prism_y(chamfer_rect(sx * (LIFT_HALF - 0.05), 0.0, 0.08, 0.9, 0.02), 0.0, 1.0, 'Timber', uvo=0.4 * (sx > 0))   # 옆 판자
+    for i, bx in enumerate((-0.54, 0.0, 0.54)):
+        p.prism_y(chamfer_rect(bx, 0.42, 0.52, 0.16, 0.03), 0.0, 1.0, 'Timber', uvo=0.23 * i)                   # 뒤 판자벽 z 0.34~0.5
+    for bx in (-0.6, -0.3, 0.0, 0.3, 0.6):
+        p.prism_y(chamfer_rect(bx, -0.56, 0.06, 0.08, 0.01), 0.0, 1.0, 'Strap')                                 # 앞 쇠창살 z −0.6~−0.52
+    return p
+
+
+def lift_frame():
+    """LiftFrame — 승강기 안내 틀(판정면 뒤, 판정 없음). 원점 = 아래 가운데: x ∈ [−1.3, 1.3], y ∈ [0, 1](y 축척 = 통로 높이 + 진폭 × 2),
+    z ∈ [0.3, 0.9]. 파이프(±0.975) 바로 바깥 양쪽에 갱목 기둥(x ±1.0~±1.3)과 안쪽 면 쇠 레일. 가로 버팀목은 통로를 가로질러 장애물로 읽히므로 없다."""
+    p = Part('LiftFrame')
+    p.tile['Timber'] = 0.06                       # 통로 높이 18 m 안팎으로 늘어난다
+    for sx in (-1, 1):
+        p.prism_y(chamfer_rect(sx * 1.15, 0.6, 0.3, 0.6, 0.04), 0.0, 1.0, 'Timber', uvo=0.3 * (sx > 0))
+        p.prism_y(chamfer_rect(sx * 0.985, 0.6, 0.03, 0.14, 0.005), 0.0, 1.0, 'Iron')
+    return p
+
+
+CART_HALF_W, CART_HALF_H, CART_HALF_D = 0.8, 0.6, 0.6
+
+
+def hanging_cart():
+    """HangingCart — 매단 작은 광차. 가운데가 원점: x ∈ [−0.8, 0.8], y ∈ [−0.6, 0.6](광차 1.6 × 1.2), z ∈ [−0.6, 0.6].
+    아래가 조금(0.08) 좁은 나무 통(Wood) + 위 쇠테(Iron, y 0.45~0.6 — 판정 상자 위 끝) + 앞 세로 쇠띠 둘 + 아래 모서리 작은 바퀴 둘.
+    위에 줄을 거는 가로대·고리(Iron)는 테 안쪽(y ≤ 0.6) — 경계가 CartBox 그대로다. 줄(CartChain)은 판정면 뒤에서 내려와 고리에 닿는다."""
+    p = Part('HangingCart')
+    w, h, d = CART_HALF_W, CART_HALF_H, CART_HALF_D
+    p.slab([(-0.72, -h), (0.72, -h), (0.77, 0.45), (-0.77, 0.45)], -0.55, 0.55, 'Wood')   # 아래가 조금만 좁다 — 판정 상자 모서리를 거의 다 채운다
+    p.box((0.0, 0.525, 0.0), (2 * w, 0.15, 2 * d), 'Iron')
+    for sx in (-1, 1):
+        p.strut((sx * 0.44, -h + 0.1), (sx * 0.5, 0.45), 0.09, 0.03, -0.565, 'Strap')
+        p.cyl((sx * 0.48, -h + 0.13, 0.0), 0.13, 2 * d, 'z', 12, 'Iron')   # 12각 — 아래 끝이 꼭짓점이라 y −0.6에 정확히
+    p.cyl((0.0, 0.5, 0.0), 0.04, 1.1, 'z', 6, 'Iron')                       # 줄 거는 가로대(앞뒤로)
+    p.cyl((0.0, 0.55, 0.25), 0.05, 0.1, 'z', 8, 'Iron')                      # 고리 — 줄이 내려오는 깊이(z 0.25)
+    for i, (lx, lz) in enumerate(((-0.35, -0.2), (0.05, 0.15), (0.38, -0.15))):
+        p.lump((lx, 0.43, lz), 0.14, (1.0, 0.8, 1.0), 'RockDark', seed=120 + i)   # 실은 광석 — 테 위로 안 나온다(y ≤ 0.57)
+    return p
+
+
+def cart_chain():
+    """CartChain — 광차를 매단 줄(판정 없음). 원점 = 위 끝(진자 축): y ∈ [−1, 0](y 축척 = 줄 길이 − 광차 반 높이 0.6), z ∈ [0.2, 0.3](판정면 뒤).
+    진자 루트에 달아 줄째 흔들린다. 가는 줄 하나(Rope) — 마디는 늘어나 타원이 되므로 넣지 않는다."""
+    p = Part('CartChain')
+    p.cyl((0.0, -0.5, 0.25), 0.05, 1.0, 'y', 6, 'Rope')
+    return p
+
+
+ROCK_HALF = 0.6
+
+
+def falling_rock():
+    """FallingRock — 떨어지는 바위 덩이. 가운데가 원점: x, y ∈ [−0.6, 0.6](RockBox 1.2 그대로), z ∈ [−0.6, 0.6].
+    모서리를 조금(0.07) 깎은 사각 덩이(RockDark, z −0.55~0.6) 앞면(z −0.6~−0.55)에 각진 면 조각 다섯(Rock). 실루엣이 상자 그대로라 그림 = 판정."""
+    p = Part('FallingRock')
+    r, c = ROCK_HALF, 0.07
+    body = [(-r + c, -r), (r - c, -r), (r, -r + c), (r, r - c), (r - c, r), (-r + c, r), (-r, r - c), (-r, -r + c)]
+    #  앞면을 각진 면 다섯으로 나누고(P0·P1·P2 안쪽 꼭짓점을 같이 쓴다) 면마다 가운데 쪽으로 0.025 줄인다 — 사이로 보이는 어두운 몸통이 금이 된다.
+    p.slab(body, -0.55, r, 'RockDark')
+    P0, P1, P2 = (-0.1, -0.15), (0.08, 0.27), (0.15, -0.25)
+    facets = [[(-r, -0.05), P0, P1, (-0.25, r), (-r + c, r), (-r, r - c)],
+              [(-r, -r + c), (-r + c, -r), (0.25, -r), P2, P0, (-r, -0.05)],
+              [(0.25, -r), (r - c, -r), (r, -r + c), (r, 0.3), P1, P2],
+              [P0, P2, P1],
+              [P1, (r, 0.3), (r, r - c), (r - c, r), (-0.25, r)]]
+    for k, pts in enumerate(facets):
+        cx = sum(q[0] for q in pts) / len(pts); cy = sum(q[1] for q in pts) / len(pts)
+        shrunk = []
+        for qx, qy in pts:
+            L = math.hypot(cx - qx, cy - qy)
+            shrunk.append((qx + 0.025 * (cx - qx) / L, qy + 0.025 * (cy - qy) / L))
+        p.slab(shrunk, -r, -0.55, 'Rock', uvo=0.21 * k)
+    return p
+
+
+def ceiling_crack():
+    """CeilingCrack — 낙석 줄 위 천장 바위의 금 간 자리(장식, 늘 같은 모양 — 박자 예고가 아니다). 원점 = 아래 가운데(= 천장선):
+    x ∈ [−1.0, 1.0], y ∈ [0.13, 0.6](천장 밝은 테 0~0.12는 가리지 않는다), z ∈ [−0.3, −0.29](판정면 앞, 바위 띠·테 바로 앞).
+    가운데 어두운 들쭉날쭉한 구멍 자국 + 양옆·위로 뻗는 가는 금(전부 RockDark)."""
+    p = Part('CeilingCrack')
+    z0, z1 = -0.3, -0.29
+    p.slab([(-0.5, 0.13), (0.48, 0.13), (0.42, 0.22), (0.5, 0.3), (0.3, 0.38), (0.12, 0.34), (-0.05, 0.44),
+            (-0.22, 0.36), (-0.42, 0.33), (-0.38, 0.24)], z0, z1, 'RockDark')
+    for pts in (([(-0.48, 0.2), (-0.75, 0.22), (-1.0, 0.16)], [0.018, 0.012, 0.003]),
+                ([(0.47, 0.24), (0.72, 0.3), (1.0, 0.27)], [0.018, 0.012, 0.003]),
+                ([(-0.05, 0.42), (-0.12, 0.52), (-0.04, 0.597)], [0.016, 0.01, 0.003]),
+                ([(0.3, 0.36), (0.42, 0.47), (0.55, 0.52)], [0.014, 0.009, 0.003])):
+        p.slab(_ribbon(*pts), z0, z1, 'RockDark')
+    return p
+
+
+PROP_W, PROP_H, PROP_D = 0.6, 0.8, 0.35
+
+
+def collapsed_prop():
+    """CollapsedProp — 무너진 갱도의 부러진 받침목. 원점 = 왼끝 붙은 쪽(갱도 벽): x ∈ [0, 0.6], y ∈ [0, 0.8](끝이 통로 쪽),
+    z ∈ [−0.35, 0.35]. 위에서 튀어나오는 받침목은 Z축 180° 돌려 쓴다. 비스듬히 부러진 두 동강(Timber) — 사이 틈 0.04 말고는
+    판정 사각형을 빈틈없이 채운다(끝도 반듯 — 들쭉날쭉 쪼개진 끝은 판정과 그림이 어긋난다). 붙은 쪽 쇠띠(Strap)·볼트(Iron), 부러진 자리 앞 쐐기 조각."""
+    p = Part('CollapsedProp')
+    w, h, d = PROP_W, PROP_H, PROP_D
+    p.slab([(0.0, 0.0), (w, 0.0), (w, 0.42), (0.0, 0.56)], -d + 0.02, d, 'Timber')
+    p.slab([(0.0, 0.6), (w, 0.46), (w, h), (0.0, h)], -d + 0.02, d, 'Timber', uvo=0.37)
+    p.box((w / 2, 0.11, -d + 0.0125), (w, 0.1, 0.015), 'Strap')                 # z −0.345~−0.33
+    for bx in (0.15, 0.45):
+        p.cyl((bx, 0.11, -d + 0.0025), 0.03, 0.005, 'z', 8, 'Iron')            # 볼트 z −0.35~−0.345
+    for a, b, c in (((0.05, 0.55), (0.2, 0.5), (0.12, 0.66)), ((0.3, 0.5), (0.45, 0.46), (0.38, 0.62)), ((0.42, 0.44), (0.56, 0.42), (0.5, 0.34))):
+        wedge(p, a, b, c, -d, -d + 0.02, 'Timber', uvo=0.6)
+    return p
+
+
+SPREAD3_PARTS = [lift_cage, lift_frame, hanging_cart, cart_chain, falling_rock, ceiling_crack, collapsed_prop]
+
+
 PARTS = [gate_plank, gate_strap, gate_cap, trestle_bay, rail_span, ceiling_rock, cave_mouth, beam,
-         bg_frame, ladder, walkway, bg_trestle_bay, mine_cart, lantern, silhouette_strip] + NEW_PARTS + DECOR_PARTS + SPREAD2_PARTS
+         bg_frame, ladder, walkway, bg_trestle_bay, mine_cart, lantern, silhouette_strip] + NEW_PARTS + DECOR_PARTS + SPREAD2_PARTS \
+    + SPREAD3_PARTS
 
 
 def export(part):

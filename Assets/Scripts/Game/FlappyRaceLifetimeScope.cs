@@ -35,6 +35,9 @@ namespace LOP
             // 진자·셔터 마커도 맵 로드 때 여기 들어온다. 양쪽 다 등록해야 한다 — 한쪽만 돌리면 곧장 갈린다.
             builder.Register<FlappyPendulumField>(Lifetime.Singleton);
             builder.Register<FlappyShutterField>(Lifetime.Singleton);
+            // 승강기·낙석 마커도 맵 로드 때 여기 들어온다(진자·셔터와 같은 이유) — 클·서 양쪽 다 등록해야 한다.
+            builder.Register<FlappyLiftField>(Lifetime.Singleton);
+            builder.Register<FlappyRockfallField>(Lifetime.Singleton);
             // 부스트 패드도 같은 이유로 등록이 필요하다. 이건 특히 양쪽 다 해야 한다 — 한쪽만
             // 등록하면 그쪽만 패드를 밟아 전진 속도가 갈린다.
             builder.Register<FlappyBoostPadField>(Lifetime.Singleton);
@@ -60,7 +63,8 @@ namespace LOP
                 c.Resolve<FlappyBoostPadField>(),
                 c.Resolve<GameFramework.Physics.ICollisionQuery>(),
                 c.Resolve<GameFramework.World.IMotionBridge>(),
-                LayerMask.GetMask("Default", FlappyHologram.LayerName), c.Resolve<FlappyPendulumField>(), c.Resolve<FlappyShutterField>()), Lifetime.Singleton)
+                LayerMask.GetMask("Default", FlappyHologram.LayerName), c.Resolve<FlappyPendulumField>(), c.Resolve<FlappyShutterField>(),
+                c.Resolve<FlappyLiftField>(), c.Resolve<FlappyRockfallField>()), Lifetime.Singleton)
                 .As<GameFramework.World.IWorld>().AsSelf();
             builder.Register<ICharacterCreator, FlappyBirdCreator>(Lifetime.Singleton);
             //  스턴은 서버 권위다. 내 새는 클라가 굴리므로 "내가 맵에 부딪혔나"를 예측하게 되는데,

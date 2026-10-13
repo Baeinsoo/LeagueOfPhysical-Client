@@ -66,23 +66,52 @@ namespace LOP.EditorTools
             posedTick = tick;
         }
 
-        /// <summary>[x0, x1] 근처 장애물 중 가장 긴 주기(초). 없으면 0 — 그 구간은 출발 박자가 상관없다.</summary>
-        public float LongestPeriodNear(float x0, float x1)
+        /// <summary>
+        /// [x0, x1] 근처 장애물이 다 같이 처음 자세로 돌아오는 틱 수 — 주기마다 틱으로 반올림한 값의 최소공배수.
+        /// 출발 박자를 이만큼 훑어야 장애물끼리의 위상 조합을 다 본다(가장 긴 주기만 보면 계단 3초 + 낙석 2초처럼
+        /// 섞인 구간은 6초 중 절반만 본다). 근처에 없으면 0 — 그 구간은 출발 박자가 상관없다.
+        /// </summary>
+        public int CycleTicksNear(float x0, float x1, float tickSeconds)
         {
-            float longest = 0f;
+            long cycle = 0;
             foreach (var (x, period) in periods)
             {
-                if (x >= x0 - NearMargin && x <= x1 + NearMargin) { longest = Mathf.Max(longest, period); }
+                if (x < x0 - NearMargin || x > x1 + NearMargin) { continue; }
+                long ticks = TicksOf(period, tickSeconds);
+                cycle = cycle == 0 ? ticks : cycle / Gcd(cycle, ticks) * ticks;
             }
+            return (int)System.Math.Min(int.MaxValue, cycle);
+        }
+
+        /// <summary>맵 전체에서 훑어야 할 위상 수(틱) — 가장 긴 주기. 섞인 주기의 최소공배수가 아니라 가장 긴 것(풍차 위상 공간과 같은 규칙,
+        /// 비용 때문 — 맵 전체 최소공배수는 수십 초다). 구간 검사는 구간 근처만 보므로 <see cref="CycleTicksNear"/>로 최소공배수를 쓴다.</summary>
+        public int PhaseSpaceTicks(float tickSeconds)
+        {
+            int longest = 1;
+            foreach (var (_, period) in periods) { longest = Mathf.Max(longest, TicksOf(period, tickSeconds)); }
             return longest;
         }
 
-        /// <summary>훑어야 할 위상 수(틱) — 가장 긴 주기. 섞인 주기의 최소공배수가 아니라 가장 긴 것(풍차 위상 공간과 같은 규칙, 비용 때문).</summary>
-        public int PhaseSpaceTicks(float tickSeconds)
+        //  주기(초) → 틱. 틱 정수배가 아닌 주기는 가장 가까운 틱으로 — 위상 훑기의 단위가 틱이다.
+        private static int TicksOf(float period, float tickSeconds) => Mathf.Max(1, Mathf.RoundToInt(period / tickSeconds));
+
+        private static long Gcd(long a, long b)
         {
-            float longest = 0f;
-            foreach (var (_, period) in periods) { longest = Mathf.Max(longest, period); }
-            return Mathf.Max(1, Mathf.CeilToInt(longest / tickSeconds - 1e-4f));
+            while (b != 0) { (a, b) = (b, a % b); }
+            return a;
+        }
+
+        /// <summary>구운 자세에서 벗어난 Transform 수 — <see cref="Restore"/> 뒤 0이어야 한다.
+        /// 스크립트로 바꾼 자세는 씬을 더티로 만들지 않아 isDirty로는 새는 걸 못 본다.</summary>
+        public int PoseMismatches()
+        {
+            int n = 0;
+            foreach (var (t, pos, rot) in rest)
+            {
+                if (t == null) { continue; }
+                if ((t.localPosition - pos).sqrMagnitude > 1e-10f || Quaternion.Angle(t.localRotation, rot) > 1e-3f) { n++; }
+            }
+            return n;
         }
 
         public void Restore()

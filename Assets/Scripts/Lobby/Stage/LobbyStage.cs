@@ -21,9 +21,9 @@ namespace LOP
         {
             if (Camera.main != null) ConfigureCamera(Camera.main);
 
-            _tunnel = LobbyTunnel.Build(transform, new TunnelLayout(), out var glow);
+            _tunnel = LobbyTunnel.Build(transform, new TunnelLayout(), out var arena);
             var sun = FindFirstObjectByType<Light>();
-            var lights = _lights = CreateLights(transform, glow, sun != null && sun.type == LightType.Directional ? sun : null);
+            var lights = _lights = CreateLights(transform, arena, sun != null && sun.type == LightType.Directional ? sun : null);
             var lighting = gameObject.AddComponent<LobbyLighting>();
             lighting.Init(lights, _matchmaking.SelectedQueue.CurrentValue == QueueKind.Ranked);
             _matchmaking.SelectedQueue.Subscribe(q => lighting.SetRanked(q == QueueKind.Ranked)).AddTo(_subscriptions);
@@ -56,7 +56,7 @@ namespace LOP
         }
 
         /// <summary>방향광(씬에 있으면 그것)·끝 빛 점광·발밑 스포트라이트를 만든다.</summary>
-        public static StageLights CreateLights(Transform parent, Renderer endGlow, Light existingSun)
+        public static StageLights CreateLights(Transform parent, Renderer arena, Light existingSun)
         {
             var sun = existingSun;
             if (sun == null)
@@ -71,7 +71,7 @@ namespace LOP
             var end = new GameObject("EndPointLight").AddComponent<Light>();
             end.transform.SetParent(parent, false);
             end.type = LightType.Point;
-            end.transform.position = new Vector3(0f, 2f, endGlow.transform.position.z - 1f);
+            end.transform.position = new Vector3(0f, 2f, new TunnelLayout().Length + 1f);   // 출구 바로 너머
 
             var spot = new GameObject("FootSpot").AddComponent<Light>();
             spot.transform.SetParent(parent, false);
@@ -92,7 +92,7 @@ namespace LOP
             poolRenderer.sharedMaterial = LobbyTunnel.MakeGlowMaterial("#FFF8E8");
             poolRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-            return new StageLights { Sun = sun, EndPoint = end, Spot = spot, EndGlow = endGlow, FootPool = poolRenderer };
+            return new StageLights { Sun = sun, EndPoint = end, Spot = spot, EndGlow = arena, FootPool = poolRenderer };
         }
     }
 }

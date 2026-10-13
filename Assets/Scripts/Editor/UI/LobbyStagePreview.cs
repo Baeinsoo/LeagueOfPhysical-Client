@@ -24,8 +24,8 @@ namespace LOP.EditorTools
             {
                 root = new GameObject("PreviewStage");
                 SceneManager.MoveGameObjectToScene(root, scene);
-                LobbyTunnel.Build(root.transform, new TunnelLayout(), out var glow);
-                var lights = LobbyStage.CreateLights(root.transform, glow, null);
+                LobbyTunnel.Build(root.transform, new TunnelLayout(), out var arena);
+                var lights = LobbyStage.CreateLights(root.transform, arena, null);
 
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(LobbyPlayer.ChibiKey);
                 var face = AssetDatabase.LoadAssetAtPath<Material>(LobbyPlayer.FaceKey);

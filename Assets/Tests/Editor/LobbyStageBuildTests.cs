@@ -32,7 +32,7 @@ namespace LOP.Tests
             LobbyTunnel.Build(_root.transform, new TunnelLayout(), out var glow);
             var lights = LobbyStage.CreateLights(_root.transform, glow, null);
             LobbyLighting.Apply(StageLighting.For(true), lights);
-            Assert.AreEqual(0.35f, lights.Sun.intensity, 1e-4);
+            Assert.AreEqual(0.6f, lights.Sun.intensity, 1e-4);
             Assert.IsTrue(lights.Spot.enabled);
             //  툰 셰이더는 방향광만 받는다 — 발밑 조명은 바닥의 밝은 원으로 보인다.
             Assert.IsTrue(lights.FootPool.enabled);

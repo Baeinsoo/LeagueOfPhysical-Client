@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace LOP
 {
-    /// <summary>로비 터널 조명 값 — 일반은 밝은 터널에 노란 끝 빛, 랭크는 어두운 터널에 붉은 끝 빛과 발밑 스포트라이트(1부 spec §3.8).</summary>
+    /// <summary>로비 터널 조명 값 — 일반은 밝은 터널에 노란 끝 빛, 랭크는 어두운 터널에 경기장 흰빛과 발밑 스포트라이트. 빨간 끝 빛은 출전 버튼과 겹쳐 경고등처럼 읽혀 뺐다(사용자 10-13).</summary>
     public readonly struct StageLighting
     {
         public readonly float SunIntensity;
@@ -32,7 +32,7 @@ namespace LOP
         }
 
         public static StageLighting For(bool ranked) => ranked
-            ? new StageLighting(0.35f, Hex("#8E8AC0"), Hex("#1F1D4A"), Hex("#E8322F"), Hex("#E8322F"), 3f, 14f, 6f, 30f, true)
+            ? new StageLighting(0.6f, Hex("#D8D4F0"), Hex("#1F1D4A"), Hex("#EAF1FF"), Hex("#EAF1FF"), 3f, 14f, 6f, 30f, true)
             : new StageLighting(1.0f, Hex("#FFF8E8"), Hex("#3D3A86"), Hex("#FFF8E8"), Hex("#FFD23F"), 3f, 14f, 0f, 30f, false);
 
         /// <summary>두 값 사이. 스포트라이트는 세기로 섞고, 세기가 남아 있는 동안 켜 둔다(꺼질 때도 0으로 내려간 뒤 꺼지게).</summary>

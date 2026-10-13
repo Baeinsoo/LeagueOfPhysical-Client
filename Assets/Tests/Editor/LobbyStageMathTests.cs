@@ -22,12 +22,14 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 랭크는_어둡고_끝_빛이_붉고_발밑_조명이_켜진다()
+        public void 랭크는_어둡고_끝_빛은_흰빛이고_발밑_조명이_켜진다()
         {
             var casual = StageLighting.For(false);
             var ranked = StageLighting.For(true);
             Assert.Less(ranked.SunIntensity, casual.SunIntensity);
-            Assert.Greater(ranked.EndGlow.r, ranked.EndGlow.b + 0.5f);
+            //  빨간 끝 빛은 출전 버튼·RANKED 띠와 겹쳐 경고등처럼 읽혔다(사용자 10-13) — 경기장 흰빛.
+            Assert.Greater(ranked.EndGlow.b, 0.9f);
+            Assert.Greater(ranked.EndGlow.g, 0.9f);
             Assert.IsTrue(ranked.Spotlight);
             Assert.IsFalse(casual.Spotlight);
         }
@@ -36,7 +38,7 @@ namespace LOP.Tests
         public void 섞으면_중간값이_나온다()
         {
             var mid = StageLighting.Lerp(StageLighting.For(false), StageLighting.For(true), 0.5f);
-            Assert.AreEqual((1.0f + 0.35f) / 2f, mid.SunIntensity, 1e-4);
+            Assert.AreEqual((1.0f + 0.6f) / 2f, mid.SunIntensity, 1e-4);
         }
 
         [Test]

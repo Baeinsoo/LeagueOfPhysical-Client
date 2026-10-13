@@ -67,6 +67,22 @@ namespace LOP.MapTools
         /// 바위 띠 끝 옆면(어두운 세로선, 캡처 x ≈ 283.3)을 가린다 — 판에는 옆면이 없어 새 선이 생기지 않는다.
         /// </summary>
         RockVeneer,
+
+        //  ── 펼치기 3차(10-13) 움직이는 지형 — 원점·크기는 MineDressingLayout 상수 옆 주석(블렌더 mine_parts.py SPREAD3_PARTS) ──
+        /// <summary>승강기 파이프 하나를 덮는 철창 기둥(아래 끝 가운데, 폭 1.95, y 축척 = 파이프 길이). 승강기 Cage의 자식 Look에 놓는다.</summary>
+        LiftCage,
+        /// <summary>승강기 안내 틀(아래 가운데, x ±1.3, y 축척 = 통로 높이 + 진폭 × 2, 판정면 뒤 z 0.3~0.9). 고정 그림.</summary>
+        LiftFrame,
+        /// <summary>매단 광차(가운데, 1.6 × 1.2). 진자 Upright의 자식 Look — 진자가 흔들려도 수평이다.</summary>
+        HangingCart,
+        /// <summary>광차 줄(위 끝 = 진자 축, y 축척 = 줄 길이 − 광차 반 높이, 판정면 뒤). 진자 루트의 자식 Look — 줄째 흔들린다.</summary>
+        CartChain,
+        /// <summary>떨어지는 바위(가운데, 1.2 × 1.2). 낙석 Rock의 자식 Look.</summary>
+        FallingRock,
+        /// <summary>낙석 줄 위 천장 바위의 금 간 자리(아래 가운데 = 천장선). 늘 같은 모양의 고정 그림 — 박자 예고가 아니다.</summary>
+        CeilingCrack,
+        /// <summary>무너진 갱도의 부러진 받침목(왼끝 붙은 쪽, 0.6 × 0.8). 위에서 튀어나오면 <see cref="MinePiece.Flipped"/>.</summary>
+        CollapsedProp,
     }
 
     /// <summary>
@@ -2290,6 +2306,149 @@ namespace LOP.MapTools
                     list.Add(new MinePiece(MinePartKind.Lantern, lx, hang, LanternZ, 0f, LanternWidth, LanternWidth, 1f, 1f));
                 }
             }
+        }
+
+        // ── 펼치기 3차(10-13): 움직이는 지형 ──
+        //  움직이는 그림은 움직이는 Transform(승강기 Cage · 광차 Upright · 진자 루트 · 낙석 Rock)의 자식 Look에 굽는다 — 게임에서 필드가 자세를 대입하면
+        //  그림도 같이 움직인다(spec §5). *Local 함수는 그 자식 기준 자리, 나머지는 고정 그림이라 월드 좌표. 숫자는 전부 판정 사각형에서 그대로 가져온다.
+
+        /// <summary>
+        /// LiftCage(블렌더 LiftCage: 아래 끝 가운데, x ±0.975 · y 0~1 · z ±0.65) 폭. 놓는 z는 관문 판자와 같은 깊이(<c>FlappyMineDressing.GateZ</c>) —
+        /// 앞면 −1.38. 틈 쪽 끝 쇠테(GateCap)도 같은 z.
+        /// </summary>
+        public const float LiftCageWidth = 1.95f, LiftCageZ = -0.73f;
+        /// <summary>LiftFrame(블렌더 LiftFrame: 아래 가운데, x ±1.3, y 0~1, z 0.3~0.9 — 메시가 이미 판정면 뒤라 0에 놓는다).</summary>
+        public const float LiftFrameZ = 0f;
+        /// <summary>HangingCart(블렌더 HangingCart: 가운데, 1.6 × 1.2, z ±0.6) — 놓는 z는 광차 상자 앞(z −1.3~−0.1).</summary>
+        public const float HangingCartWidth = 1.6f, HangingCartHeight = 1.2f, HangingCartZ = -0.7f;
+        /// <summary>CartChain(블렌더 CartChain: 위 끝 원점, y −1~0, z 0.2~0.3 — 판정면 뒤라 0에 놓는다).</summary>
+        public const float CartChainZ = 0f;
+        /// <summary>
+        /// FallingRock(블렌더 FallingRock: 가운데, 1.2 × 1.2, z ±0.6) — 놓는 z −0.65(z −1.25~−0.05): 판정면 앞, 비계 데크 앞면(−1.3)보다 조금 뒤 —
+        /// 바닥 밑으로 빠질 때 데크와 같은 깊이에서 깜빡이지 않고 데크 뒤로 들어간다.
+        /// </summary>
+        public const float FallingRockSize = 1.2f, FallingRockZ = -0.65f;
+        /// <summary>CeilingCrack(블렌더 CeilingCrack: 아래 가운데 = 천장선, x ±1.0, y 0.13~0.6, z −0.3~−0.29 — 천장 바위 띠·테 바로 앞, 메시 z가 최종이라 0에 놓는다).</summary>
+        public const float CeilingCrackZ = 0f;
+        /// <summary>CollapsedProp(블렌더 CollapsedProp: 왼끝 붙은 쪽, x 0~0.6 · y 0~0.8 · z ±0.35) — 놓는 z는 굴 바위 띠(−0.26)·테(−0.28) 앞(z −0.75~−0.05).</summary>
+        public const float CollapsedPropWidth = 0.6f, CollapsedPropHeight = 0.8f, CollapsedPropZ = -0.4f;
+
+        /// <summary>
+        /// 승강기 관문 파이프가 닿는 바닥·천장 높이 — 관문 폭 양끝·가운데에서 가장 낮은 바닥, 가장 높은 천장(<c>FlappyMineMoverBake</c>와 같은 셈).
+        /// 여기에 <see cref="GatePipeBury"/> + 진폭을 더 묻은 것이 파이프 끝이다.
+        /// </summary>
+        public static (float floor, float ceiling) LiftReach(MineCourse c, MineLift l)
+        {
+            MineGate g = l.Gate;
+            float half = g.Width * 0.5f;
+            float F(float x) => c.CenterAt(x) - c.HalfAt(x);
+            float C(float x) => c.CenterAt(x) + c.HalfAt(x);
+            return (Math.Min(Math.Min(F(g.X - half), F(g.X)), F(g.X + half)), Math.Max(Math.Max(C(g.X - half), C(g.X)), C(g.X + half)));
+        }
+
+        /// <summary>
+        /// 승강기 Cage 자식 기준 그림 — 아래·위 파이프(<c>LiftPipeLow/High</c>)마다 철창 기둥(LiftCage, y 축척 = 파이프 길이) 하나와 틈 쪽 끝 쇠테(GateCap) 하나.
+        /// Cage는 관문 x에 있고 y 0에서 오르내리므로 x 0, y는 쉬는 자리의 월드 높이 그대로다. 파이프 = [바닥 − 묻기 − 진폭, 틈 아래]·[틈 위, 천장 + 묻기 + 진폭].
+        /// </summary>
+        public static List<MinePiece> LiftCageLocal(MineLift l, float floorAt, float ceilingAt)
+        {
+            MineGate g = l.Gate;
+            float low = floorAt - GatePipeBury - l.Amplitude, high = ceilingAt + GatePipeBury + l.Amplitude;
+            float a = g.GapCenter - g.Gap * 0.5f, b = g.GapCenter + g.Gap * 0.5f;
+            float sx = g.Width / LiftCageWidth;
+            return new List<MinePiece>
+            {
+                new MinePiece(MinePartKind.LiftCage, 0f, low, LiftCageZ, 0f, g.Width, a - low, sx, a - low),
+                //  GateCap은 윗면이 원점(두께 0.4 아래로) — 아래 파이프는 그대로 틈 아래 끝에, 위 파이프는 뒤집어 틈 위 끝에(관문과 같다).
+                new MinePiece(MinePartKind.GateCap, 0f, a, LiftCageZ, 0f, g.Width, g.Width, sx, 1f),
+                new MinePiece(MinePartKind.LiftCage, 0f, b, LiftCageZ, 0f, g.Width, high - b, sx, high - b),
+                new MinePiece(MinePartKind.GateCap, 0f, b, LiftCageZ, 0f, g.Width, g.Width, sx, 1f, flipped: true),
+            };
+        }
+
+        /// <summary>승강기 안내 틀(고정, 판정면 뒤) — 관문 x, 그 자리 바닥 − 진폭 ~ 천장 + 진폭(케이지가 오르내리는 폭 전부).</summary>
+        public static List<MinePiece> LiftFrames(MineCourse c)
+        {
+            var list = new List<MinePiece>();
+            foreach (MineLift l in c.Lifts)
+            {
+                float x = l.Gate.X, floor = c.CenterAt(x) - c.HalfAt(x), ceiling = c.CenterAt(x) + c.HalfAt(x);
+                float h = ceiling - floor + 2f * l.Amplitude;
+                list.Add(new MinePiece(MinePartKind.LiftFrame, x, floor - l.Amplitude, LiftFrameZ, 0f, 2.6f, h, 1f, h));
+            }
+            return list;
+        }
+
+        /// <summary>
+        /// 광차 Upright 자식 기준 그림 — Upright가 줄 끝(광차 가운데)이라 (0, 0). 축척 = 광차 상자 크기 / 부품 크기.
+        /// Upright는 필드가 진자 각도만큼 거꾸로 돌리므로 광차 그림도 늘 수평이다.
+        /// </summary>
+        public static MinePiece HangingCartLocal(MinePendulum p) =>
+            new MinePiece(MinePartKind.HangingCart, 0f, 0f, HangingCartZ, 0f, p.CartWidth, p.CartWidth,
+                          p.CartWidth / HangingCartWidth, p.CartHeight / HangingCartHeight);
+
+        /// <summary>진자 루트(축) 자식 기준 줄 — 축에서 광차 윗면까지(y 축척 = 줄 길이 − 광차 반 높이). 루트와 같이 돌아 줄째 흔들린다.</summary>
+        public static MinePiece CartChainLocal(MinePendulum p)
+        {
+            float len = p.Length - p.CartHeight * 0.5f;
+            return new MinePiece(MinePartKind.CartChain, 0f, 0f, CartChainZ, 0f, 0.1f, len, 1f, len);
+        }
+
+        /// <summary>낙석 Rock 자식 기준 바위 — Rock이 바위 가운데라 (0, 0), 축척 = 바위 크기 / 1.2.</summary>
+        public static MinePiece FallingRockLocal(MineRockfall r) =>
+            new MinePiece(MinePartKind.FallingRock, 0f, 0f, FallingRockZ, 0f, r.Size, r.Size, r.Size / FallingRockSize, r.Size / FallingRockSize);
+
+        /// <summary>낙석 줄마다 바로 위 천장선에 금 간 자리(고정, 모든 줄 같은 모양·크기 — 박자를 알리지 않는다).</summary>
+        public static List<MinePiece> CeilingCracks(MineCourse c)
+        {
+            var list = new List<MinePiece>();
+            foreach (MineRockfall r in c.Rockfalls)
+            {
+                list.Add(new MinePiece(MinePartKind.CeilingCrack, r.X, r.Ceiling, CeilingCrackZ, 0f, 2f, 2f, 1f, 1f));
+            }
+            return list;
+        }
+
+        /// <summary>
+        /// 무너진 갱도 받침목 그림 = 받침목 사각형 그대로(축척 = 폭 / 0.6 · 높이 / 0.8). 붙은 쪽(굴 벽)이 원점 — 굴 아래 벽에서 솟은 것은 (X0, Y0),
+        /// 굴 위 벽에서 내려온 것은 Z축 180°로 뒤집어 (X1, Y1). 어느 벽인지는 받침목이 든 굴의 가장자리로 가른다(없으면 MineCourseRule처럼 짝수 = 위).
+        /// </summary>
+        public static List<MinePiece> CollapsedProps(MineCourse c)
+        {
+            var list = new List<MinePiece>();
+            for (int j = 0; j < c.Props.Count; j++)
+            {
+                MineRect r = c.Props[j];
+                float w = r.X1 - r.X0, h = r.Y1 - r.Y0, xm = (r.X0 + r.X1) * 0.5f;
+                MineTube t = c.Tubes.FirstOrDefault(q => xm > q.X0 && xm < q.X1);
+                bool fromTop = t != null
+                    ? Math.Abs(r.Y1 - (t.Center(xm) + t.Gap * 0.5f)) < Math.Abs(r.Y0 - (t.Center(xm) - t.Gap * 0.5f))
+                    : j % 2 == 0;
+                list.Add(fromTop
+                    ? new MinePiece(MinePartKind.CollapsedProp, r.X1, r.Y1, CollapsedPropZ, 0f, w, w, w / CollapsedPropWidth, h / CollapsedPropHeight, flipped: true)
+                    : new MinePiece(MinePartKind.CollapsedProp, r.X0, r.Y0, CollapsedPropZ, 0f, w, w, w / CollapsedPropWidth, h / CollapsedPropHeight));
+            }
+            return list;
+        }
+
+        /// <summary>
+        /// 광차 레일 굴(<see cref="ForkShape.Rail"/>) 바닥 현을 따라 까는 레일 — 롤러코스터 굴과 같은 규칙(<see cref="AddCoasterRail"/>: 레일 윗면 = 판정선).
+        /// 갈림길 안 첫 굴(레일 굴)만 — 그 뒤 패드 방은 ⚡ 발판 자리라 깔지 않는다. 받침 기둥은 빼고 레일만(굴 바닥 바위가 칸막이까지 0.2 m라 기둥이 칸막이에 박힌다).
+        /// </summary>
+        public static List<MinePiece> ExpertRails(MineCourse c)
+        {
+            var list = new List<MinePiece>();
+            foreach (MineFork f in c.Forks)
+            {
+                if (f.Shape != ForkShape.Rail) { continue; }
+                MineTube t = c.Tubes.Where(q => q.X0 >= f.X0 - 1e-3f && q.X1 <= f.X1 + 1e-3f).OrderBy(q => q.X0).FirstOrDefault();
+                if (t == null) { continue; }
+                var runs = CoarsenFloor(TubeEdgeRuns(c, t, -1, t.X0, t.X1));
+                var rails = new List<MinePiece>();
+                AddCoasterRail(runs, t.X0, t.X1, rails);
+                list.AddRange(rails.Where(p => p.Kind == MinePartKind.CoasterRail));
+            }
+            return list;
         }
 
         // ── 회색 박스와 그림의 경계(스펙 §6) ──

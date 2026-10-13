@@ -25,7 +25,8 @@ namespace LOP.EditorTools
     /// 안개 그러데이션은 입구·출구 문틀 자리, 하늘(z 30)은 시차 때문에 입구 문틀 끝 ± 20 m · 출구 문틀 끝 ± 20 m.</para>
     ///
     /// <para>전부 렌더 전용이다: 콜라이더 없음, 그림자 끔, 정적 배칭. 결과는 <c>ComposedMap/Dressing</c> 하나에 모이고
-    /// 굽기마다 지우고 새로 만든다.</para>
+    /// 굽기마다 지우고 새로 만든다. 예외는 움직이는 지형(10-13)의 움직이는 그림 — 승강기 Cage·광차 Upright·진자 루트·낙석 Rock 아래
+    /// <c>Look</c>에 굽고 정적 배칭을 걸지 않는다(게임에서 필드가 그 Transform에 자세를 대입하면 그림도 같이 움직인다).</para>
     /// </summary>
     public static class FlappyMineDressing
     {
@@ -77,7 +78,12 @@ namespace LOP.EditorTools
             "StrataLens", "RockSeam", "TimberSet", "Cribbing", "OreVein", "RailScrap",
             //  10-12 펼치기 2차 출구·결승선.
             "ExitSign", "CliffEdge", "FinishFlag",
+            //  10-13 펼치기 3차 움직이는 지형.
+            "LiftCage", "LiftFrame", "HangingCart", "CartChain", "FallingRock", "CeilingCrack", "CollapsedProp",
         };
+
+        //  움직이는 그림 묶음 이름 — 움직이는 Transform(Cage·Upright·진자 루트·Rock)마다 하나. 굽기마다 지우고 새로 만든다.
+        private const string LookName = "Look";
 
         private static readonly string[] MaterialNames =
         {
@@ -162,7 +168,8 @@ namespace LOP.EditorTools
                         trimmed++;
                     }
                 }
-                else if (n.StartsWith("TubeRoof_") || n.StartsWith("TubeFloor_") || n.StartsWith("ForkWall_") || n.StartsWith("BoostPad_"))
+                else if (n.StartsWith("TubeRoof_") || n.StartsWith("TubeFloor_") || n.StartsWith("ForkWall_") || n.StartsWith("BoostPad_")
+                         || n.StartsWith("CollapsedProp_"))
                 {
                     Bounds b = r.bounds;
                     if (MineDressingLayout.SpanInside(b.min.x, b.max.x, dressFrom, dressTo))
@@ -226,6 +233,24 @@ namespace LOP.EditorTools
                     forks++;
                 }
             }
+
+            //  2b. 움직이는 지형(10-13) — 고정 그림(승강기 안내 틀·천장 금·부러진 받침목·레일 굴 바닥 레일)은 Dressing 아래 정적 그림,
+            //      움직이는 그림(철창·광차·줄·바위)은 마커의 움직이는 Transform 아래 Look에(필드가 자세를 대입하면 같이 움직인다).
+            int movers = 0;
+            foreach (List<MinePiece> fixedPieces in new[]
+            {
+                MineDressingLayout.LiftFrames(course), MineDressingLayout.CeilingCracks(course),
+                MineDressingLayout.CollapsedProps(course), MineDressingLayout.ExpertRails(course),
+            })
+            {
+                foreach (MinePiece p in fixedPieces)
+                {
+                    if (p.X < dressFrom || p.X > dressTo) { continue; }
+                    PlacePiece(g.Movers, models, glowQuad, materials, p, ref lanterns);
+                    movers++;
+                }
+            }
+            int looks = DressMovers(composedMap, course, models, ref hidden);
 
             //  3. 바닥·천장(배치 규칙이 갱목·바위 단 구간을 빼고, 곧고 완만한 곳은 비계·바위 천장, 굽은 곳은 바위 띠 + 밝은 테로 고른다).
             //     비계 칸마다 같은 자리에 레일(RailSpan). 레일 윗면이 바닥선 위 0.28인 것은 10-08부터 그대로다.
@@ -328,7 +353,8 @@ namespace LOP.EditorTools
             Debug.Log($"[광산 옷] 범위 {dressFrom:F2}~{dressTo:F2} ({zones}) · 걸친 회색 조각 {trimmed}개는 범위 밖만 남김"
                     + $" · 관문 파이프 {gates}개 · 바닥 {floor}조각 · 천장 {ceiling}조각"
                     + $" · 문틀 {entrance} · 출구 {exit} · 결승선 {finish} · 갱도 {shaft} · 굴뚝 {chimney} · 계단 {stairs} · 갈림길 {forks}"
-                    + $" · 바위 면 장식 {decorCount} · 배경 {background}개 · 랜턴 {lanterns}"
+                    + $" · 바위 면 장식 {decorCount} · 움직이는 지형 고정 그림 {movers} · 움직이는 그림 {looks}"
+                    + $" · 배경 {background}개 · 랜턴 {lanterns}"
                     + $" · 하늘·안개 띠 {strips}개 · 월드 UV 바위 {worldUv}개 · 끈 회색 렌더러 {hidden}개");
             return true;
         }
@@ -590,6 +616,133 @@ namespace LOP.EditorTools
             return go;
         }
 
+        // ---- 움직이는 지형(10-13) ----
+
+        //  씬의 승강기·진자 광차·낙석 마커(ComposedMap 바로 아래)마다 옛 Look을 지우고 새 Look에 그림을 놓은 뒤, 그 자리 회색 렌더러
+        //  (LiftPipe*·CartBox·RockBox)를 끈다(콜라이더는 그대로). 마커는 x(광차는 x 다음 줄 길이)로 정렬해 코스 목록과 짝을 맞춘다 —
+        //  개수나 자리가 어긋나면 그 묶음만 건너뛰고 에러를 남긴다(회색 상자 그대로 — 그림이 판정과 어긋나는 것보다 낫다).
+        //  돌려주는 값 = 놓은 그림 조각 수.
+        private static int DressMovers(Transform composedMap, MineCourse course, Dictionary<string, GameObject> models, ref int hidden)
+        {
+            var lifts = new List<LOP.FlappyLift>();
+            var carts = new List<LOP.FlappyPendulum>();
+            var rocks = new List<LOP.FlappyRockfall>();
+            for (int i = 0; i < composedMap.childCount; i++)
+            {
+                Transform t = composedMap.GetChild(i);
+                var lift = t.GetComponent<LOP.FlappyLift>();
+                if (lift != null && lift.Cage != null) { lifts.Add(lift); }
+                var pendulum = t.GetComponent<LOP.FlappyPendulum>();
+                if (pendulum != null && pendulum.Upright != null && t.name.StartsWith("Cart_")) { carts.Add(pendulum); }
+                var rockfall = t.GetComponent<LOP.FlappyRockfall>();
+                if (rockfall != null && rockfall.Rock != null) { rocks.Add(rockfall); }
+            }
+            lifts.Sort((a, b) => a.transform.position.x.CompareTo(b.transform.position.x));
+            //  한 자리 광차 넷은 축이 같다 — 줄이 짧은(Upright가 덜 내려간) 것부터(코스 목록이 k = 0..3, 천장 쪽부터).
+            carts.Sort((a, b) =>
+            {
+                int byX = a.transform.position.x.CompareTo(b.transform.position.x);
+                return byX != 0 ? byX : b.Upright.localPosition.y.CompareTo(a.Upright.localPosition.y);
+            });
+            rocks.Sort((a, b) => a.transform.position.x.CompareTo(b.transform.position.x));
+
+            int placed = 0;
+            if (Matches("승강기", lifts.Count, course.Lifts.Count, i => Mathf.Abs(lifts[i].transform.position.x - course.Lifts[i].Gate.X)))
+            {
+                for (int i = 0; i < lifts.Count; i++)
+                {
+                    MineLift l = course.Lifts[i];
+                    var (floor, ceiling) = MineDressingLayout.LiftReach(course, l);
+                    Transform look = NewLook(lifts[i].Cage);
+                    foreach (MinePiece p in MineDressingLayout.LiftCageLocal(l, floor, ceiling)) { PlaceLocal(look, models[p.Kind.ToString()], p); placed++; }
+                    MakeRenderOnlyMoving(look.gameObject);
+                    hidden += HideGray(lifts[i].Cage, "LiftPipe");
+                }
+            }
+            if (Matches("진자 광차", carts.Count, course.Pendulums.Count, i =>
+                    Mathf.Abs(carts[i].transform.position.x - course.Pendulums[i].PivotX) + Mathf.Abs(carts[i].Upright.localPosition.y + course.Pendulums[i].Length)))
+            {
+                for (int i = 0; i < carts.Count; i++)
+                {
+                    MinePendulum pen = course.Pendulums[i];
+                    //  광차는 Upright 아래(필드가 진자 각도만큼 거꾸로 돌려 수평), 줄은 진자 루트 아래(줄째 흔들린다).
+                    Transform cartLook = NewLook(carts[i].Upright);
+                    PlaceLocal(cartLook, models["HangingCart"], MineDressingLayout.HangingCartLocal(pen));
+                    MakeRenderOnlyMoving(cartLook.gameObject);
+                    Transform chainLook = NewLook(carts[i].transform);
+                    PlaceLocal(chainLook, models["CartChain"], MineDressingLayout.CartChainLocal(pen));
+                    MakeRenderOnlyMoving(chainLook.gameObject);
+                    placed += 2;
+                    hidden += HideGray(carts[i].Upright, "CartBox");
+                }
+            }
+            if (Matches("낙석", rocks.Count, course.Rockfalls.Count, i => Mathf.Abs(rocks[i].transform.position.x - course.Rockfalls[i].X)))
+            {
+                for (int i = 0; i < rocks.Count; i++)
+                {
+                    Transform look = NewLook(rocks[i].Rock);
+                    PlaceLocal(look, models["FallingRock"], MineDressingLayout.FallingRockLocal(course.Rockfalls[i]));
+                    MakeRenderOnlyMoving(look.gameObject);
+                    placed++;
+                    hidden += HideGray(rocks[i].Rock, "RockBox");
+                }
+            }
+            return placed;
+        }
+
+        //  씬 마커와 코스 목록의 짝이 맞나(개수 같고 짝마다 자리 차 < 1e-3). 아니면 에러를 남기고 false.
+        private static bool Matches(string what, int scene, int course, System.Func<int, float> error)
+        {
+            if (scene != course)
+            {
+                Debug.LogError($"[광산 옷] {what} 마커 {scene}개 ≠ 코스 {course}개 — 이 묶음은 그림 없이 회색 상자로 둔다(다시 굽기).");
+                return false;
+            }
+            for (int i = 0; i < scene; i++)
+            {
+                if (error(i) > 1e-3f)
+                {
+                    Debug.LogError($"[광산 옷] {what} {i}번 마커 자리가 코스와 {error(i):F4} 어긋난다 — 이 묶음은 그림 없이 회색 상자로 둔다(다시 굽기).");
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        //  움직이는 Transform 아래 옛 Look을 지우고 새로 만든다(바로 아래 자식만 찾는다 — 진자 루트의 Look과 Upright의 Look은 따로).
+        private static Transform NewLook(Transform parent)
+        {
+            Transform old = parent.Find(LookName);
+            if (old != null) { Undo.DestroyObjectImmediate(old.gameObject); }
+            var go = new GameObject(LookName);
+            go.layer = parent.gameObject.layer;
+            go.transform.SetParent(parent, worldPositionStays: false);
+            Undo.RegisterCreatedObjectUndo(go, "Dress mine course");
+            return go.transform;
+        }
+
+        //  부모(움직이는 Transform) 기준 자리 — MinePiece의 X·Y·Z가 국소 좌표다.
+        private static void PlaceLocal(Transform parent, GameObject model, MinePiece p)
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(model, parent);
+            go.transform.localPosition = new Vector3(p.X, p.Y, p.Z);
+            go.transform.localRotation = Quaternion.Euler(0f, 0f, p.AngleDegrees + (p.Flipped ? 180f : 0f));
+            go.transform.localScale = new Vector3(p.ScaleX, p.ScaleY, MineDressingLayout.DepthScale(p.Kind));
+        }
+
+        //  parent 아래 이름이 prefix로 시작하는 회색 렌더러를 끈다(콜라이더는 그대로). 끈 수.
+        private static int HideGray(Transform parent, string prefix)
+        {
+            int n = 0;
+            foreach (MeshRenderer r in parent.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                if (r.name.StartsWith(prefix) == false || r.enabled == false) { continue; }
+                Hide(r);
+                n++;
+            }
+            return n;
+        }
+
         // ---- 관문 ----
 
         //  파이프 사각형 하나를 판자 칸·쇠띠·쇠테로 정확히 채운다. 가로는 1.95 이하 칸으로 이어 깐다(긴 관문도 늘이지 않는다).
@@ -748,6 +901,24 @@ namespace LOP.EditorTools
             }
         }
 
+        //  움직이는 그림(Look) — MakeRenderOnly와 같되 정적 배칭은 걸지 않는다(걸면 부모가 움직여도 그림이 제자리에 남는다).
+        private static void MakeRenderOnlyMoving(GameObject root)
+        {
+            foreach (Collider c in root.GetComponentsInChildren<Collider>(true))
+            {
+                Object.DestroyImmediate(c);
+            }
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                r.shadowCastingMode = ShadowCastingMode.Off;
+                r.receiveShadows = false;
+            }
+            foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+            {
+                GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+            }
+        }
+
         // ---- 부품·재질 ----
 
         private static bool TryLoadKit(out Dictionary<string, GameObject> models, out Dictionary<string, Material> materials)
@@ -776,7 +947,7 @@ namespace LOP.EditorTools
         //  Dressing 아래 층별 묶음.
         private sealed class Groups
         {
-            public readonly Transform Gates, Floor, Ceiling, Entrance, Exit, Finish, Shaft, Chimney, Stairs, Forks, Decor, Far, Mid, Silhouettes, Sky, Haze, Lights;
+            public readonly Transform Gates, Floor, Ceiling, Entrance, Exit, Finish, Shaft, Chimney, Stairs, Forks, Decor, Movers, Far, Mid, Silhouettes, Sky, Haze, Lights;
 
             public Groups(Transform dressing)
             {
@@ -791,6 +962,7 @@ namespace LOP.EditorTools
                 Stairs = Child(dressing, "Stairs");
                 Forks = Child(dressing, "Forks");
                 Decor = Child(dressing, "Decor");
+                Movers = Child(dressing, "Movers");
                 Transform background = Child(dressing, "Background");
                 Far = Child(background, "Far");
                 Mid = Child(background, "Mid");

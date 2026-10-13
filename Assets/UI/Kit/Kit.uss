@@ -1,0 +1,184 @@
+/* 출시 UI 키트 — 새 토큰은 .kit 아래에만 둔다. 옛 화면(:root 토큰)은 그대로다.
+ * 값의 출처: league-of-physical docs/archive/specs/2026-10-10-release-ui-concept-design.md §3 */
+.kit {
+    --lop-ink: #2C2A6B;
+    --lop-ink-deep: #1F1D4A;
+    --lop-face: #FFF8E8;
+    --lop-primary: #FF8A00;
+    --lop-primary-shade: #B85E00;
+    --lop-reward: #FFD23F;
+    --lop-reward-ink: #3A2A00;
+    --lop-live: #E8322F;
+    --lop-live-shade: #8E1A17;
+    --lop-info: #4A9FE0;
+    --lop-info-shade: #2C6FA8;
+    --lop-scrim: rgba(31, 29, 74, 0.55);
+    color: var(--lop-ink);
+}
+
+.kit-title {
+    -unity-font-definition: url("project://database/Assets/UI/Kit/Fonts/BlackHanSans-Regular%20SDF%20Dynamic.asset?fileID=11400000&guid=da5712ebc3331f74c927a6ca7626e5e2&type=2#BlackHanSans-Regular SDF Dynamic");
+}
+
+.kit-text {
+    color: var(--lop-ink);
+    -unity-text-outline-width: 0;
+}
+
+/* 버튼 껍데기를 지우고 안의 스티커가 모양을 맡는다 */
+.kit-press {
+    background-color: rgba(255, 255, 255, 0);
+    border-width: 0;
+    padding: 0;
+    margin: 0;
+}
+/* 유니티 기본 테마의 .unity-button:hover:enabled 가 특이도로 이겨 버튼 바탕 직사각형이 비치던 것을 막는다 */
+.kit-press:hover, .kit-press:active,
+.kit-press:hover:enabled, .kit-press:active:enabled, .kit-press:hover:active:enabled, .kit-press:focus {
+    background-color: rgba(255, 255, 255, 0);
+    border-color: rgba(255, 255, 255, 0);
+}
+
+.sticker {
+    --sticker-face: var(--lop-face);
+    --sticker-back: var(--lop-ink);
+}
+
+.sticker__face {
+    transition-property: translate;
+    transition-duration: 70ms;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 눌림: 앞면이 뒷면 두께만큼 내려가 뒷면이 가려진다 */
+.kit-press:active .sticker__face {
+    translate: 6px 9px;
+}
+.kit-press:active .sticker--card .sticker__face {
+    translate: 4px 7px;
+}
+
+/* 도형은 줄어들지 않는다 — 좁으면 옆의 이름이 잘린다 */
+.tier-shape { width: 40px; height: 40px; flex-shrink: 0; }
+.tier-shape--iron { --tier-color: #7a6a62; }
+.tier-shape--bronze { --tier-color: #b0703a; }
+.tier-shape--silver { --tier-color: #8a949e; }
+.tier-shape--gold { --tier-color: #d9a520; }
+.tier-shape--platinum { --tier-color: #3fb8a8; }
+.tier-shape--emerald { --tier-color: #2fae5f; }
+.tier-shape--diamond { --tier-color: #5b8dee; }
+.tier-shape--master { --tier-color: #b25ad6; }
+
+/* 주·보조 버튼 — 색면이면 뒷면도 같은 색의 진한 톤. 글자는 본문 글꼴(주아) 흰색 (시안 kit.css .stk.live/.info) */
+.kit-btn { height: 72px; }
+.kit-btn .sticker { flex-grow: 1; }
+.kit-btn .sticker__face { padding: 0 36px; }
+.kit-btn--primary .sticker { --sticker-face: var(--lop-primary); --sticker-back: var(--lop-primary-shade); }
+.kit-btn--info .sticker { --sticker-face: var(--lop-info); --sticker-back: var(--lop-info-shade); }
+.kit-btn__label { font-size: 30px; color: #FFFFFF; -unity-text-outline-width: 0; }
+
+/* 세로 네비 버튼 156×132 — 크림 면, 인디고 글자 */
+.kit-nav { width: 156px; height: 132px; margin-bottom: 16px; }
+.kit-nav .sticker { flex-grow: 1; }
+.kit-nav__icon { width: 48px; height: 48px; font-size: 40px; -unity-text-align: middle-center; }
+.kit-nav__label { font-size: 26px; color: var(--lop-ink); -unity-text-outline-width: 0; }
+
+/* PLAY 460×192 — 주황 면, 숨쉬기는 Breather가 클래스를 토글 */
+.kit-play { width: 460px; height: 192px; transition-property: scale; transition-duration: 900ms; transition-timing-function: ease-in-out; }
+.kit-play .sticker { flex-grow: 1; --sticker-face: var(--lop-primary); --sticker-back: var(--lop-primary-shade); }
+.kit-play--breath { scale: 1.03 1.03; }
+.kit-play__label { font-size: 72px; color: #FFFFFF; -unity-text-outline-width: 0; letter-spacing: 2px; }
+.ranked .kit-play { transition-duration: 1300ms; }
+.ranked .kit-play .sticker { --sticker-face: var(--lop-live); --sticker-back: var(--lop-live-shade); }
+
+/* 일반/랭크 전환 칩 — 반투명 크림 알약, 고른 쪽 크림(랭크면 빨강) (시안 kit.css .chip) */
+.kit-toggle { flex-direction: row; height: 72px; padding: 6px; border-radius: 36px; background-color: rgba(255, 248, 232, 0.25); }
+.kit-toggle__opt { height: 60px; padding: 0 32px; border-radius: 30px; border-width: 0; margin: 0; background-color: rgba(255, 255, 255, 0); font-size: 30px; color: #FFFFFF; -unity-text-align: middle-center; }
+.kit-toggle__opt:hover, .kit-toggle__opt:hover:enabled, .kit-toggle__opt:active:enabled { background-color: rgba(255, 255, 255, 0); border-color: rgba(255, 255, 255, 0); }
+.kit-toggle__opt--on, .kit-toggle__opt--on:hover, .kit-toggle__opt--on:active, .kit-toggle__opt--on:hover:enabled, .kit-toggle__opt--on:active:enabled { background-color: var(--lop-face); color: var(--lop-ink); }
+.ranked .kit-toggle__opt--on, .ranked .kit-toggle__opt--on:hover, .ranked .kit-toggle__opt--on:active, .ranked .kit-toggle__opt--on:hover:enabled, .ranked .kit-toggle__opt--on:active:enabled { background-color: var(--lop-live); color: #FFFFFF; }
+
+/* 알약 칩 — 종목 칩·경기장 칩·코인. 넘치면 말줄임(KitEllipsis가 max-width로 자름) */
+.kit-chip { flex-direction: row; align-items: center; height: 64px; padding: 0 28px; border-radius: 32px; border-width: 0; background-color: var(--lop-face); }
+.kit-chip__text { font-size: 26px; color: var(--lop-ink); -unity-text-outline-width: 0; overflow: hidden; white-space: nowrap; max-width: 520px; }
+.kit-chip--picked { border-width: 4px; border-color: var(--lop-reward); }
+
+/* 종목 카드 — 곧은 판, 모서리 10, 뒷면 4·7. 그림이 위를 채우고 이름은 남색 띠 (시안 kit.css .card) */
+.sticker--card { --sticker-radius: 10; --sticker-back-x: 4; --sticker-back-y: 7; }
+.kit-card { width: 300px; margin: 0 20px; }
+.kit-card .sticker { flex-grow: 1; }
+.kit-card .sticker__face { justify-content: flex-start; align-items: stretch; padding: 0; }
+.kit-card__art { height: 180px; border-top-left-radius: 10px; border-top-right-radius: 10px; justify-content: center; align-items: center; }
+.kit-card__art-text { font-size: 96px; color: #FFFFFF; }
+.kit-card__name { font-size: 30px; padding: 10px 16px; background-color: var(--lop-ink); color: var(--lop-face); -unity-text-align: middle-center; overflow: hidden; white-space: nowrap; max-width: 300px; }
+.kit-card__desc { min-height: 52px; font-size: 26px; padding: 10px 16px; color: var(--lop-ink); -unity-text-align: middle-center; overflow: hidden; white-space: nowrap; max-width: 300px; }
+/* 고른 카드 — 바깥 노란 테두리. 앞면에 두면 Painter2D 앞면이 테두리를 덮는다. 폭·여백을 6씩 늘리고 줄여 옆 카드가 안 밀린다 */
+.kit-card--picked { width: 312px; margin: -6px 14px; border-width: 6px; border-color: var(--lop-reward); border-radius: 16px; }
+
+/* 경기장 칩 — 기울인 스티커, 고른 것은 노란 면 (시안 modes.html .maps) */
+/* 카드 줄 넘김(KitCarousel) — 화살표는 줄 양 끝 위에 뜬다. 넘길 곳이 없으면 숨는다 */
+.kit-carousel { justify-content: center; }
+.kit-carousel__arrow { position: absolute; width: 88px; height: 120px; }
+.kit-carousel__arrow .sticker { flex-grow: 1; }
+.kit-carousel__arrow--prev { left: 16px; }
+.kit-carousel__arrow--next { right: 16px; }
+.kit-carousel__arrow-text { font-size: 40px; color: var(--lop-ink); }
+.kit-carousel__arrow--off { display: none; }
+.kit-carousel__dots { flex-direction: row; justify-content: center; height: 24px; margin-top: 8px; }
+.kit-carousel__dot { width: 16px; height: 16px; margin: 0 8px; border-radius: 8px; background-color: rgba(255, 248, 232, 0.35); }
+.kit-carousel__dot--on { width: 40px; background-color: var(--lop-reward); }
+
+.kit-mapchip { height: 72px; margin: 0 12px; }
+.kit-mapchip .sticker { flex-grow: 1; }
+.kit-mapchip .sticker__face { padding: 0 36px; }
+.kit-mapchip__text { font-size: 30px; color: var(--lop-ink); overflow: hidden; white-space: nowrap; max-width: 420px; }
+.kit-mapchip--picked .sticker { --sticker-face: var(--lop-reward); }
+.kit-mapchip--picked .kit-mapchip__text { color: var(--lop-reward-ink); }
+.kit-card__art--0 { background-color: #FF4F5E; }
+.kit-card__art--1 { background-color: #2EC4A6; }
+.kit-card__art--2 { background-color: #6C63FF; }
+.kit-card__art--3 { background-color: #F59E0B; }
+.kit-card__art--4 { background-color: #4A9FE0; }
+
+/* LIVE 띠 — 화면 폭 남색 띠. 왼쪽 빨간 태그·오른쪽 노란 시즌 칸은 기운 스티커(뒷면 없음) (시안 kit.css .ticker) */
+.kit-ticker { height: 60px; flex-direction: row; background-color: var(--lop-ink); }
+.kit-ticker__tag { --sticker-face: var(--lop-live); --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; margin-left: -16px; }
+.kit-ticker__tag .sticker__face { flex-direction: row; padding-left: 96px; padding-right: 44px; }
+.kit-ticker__dot { width: 14px; height: 14px; border-radius: 7px; background-color: #FFFFFF; margin-right: 12px; }
+.kit-ticker__tag-text { font-size: 26px; color: #FFFFFF; letter-spacing: 2px; }
+.kit-ticker__text { flex-grow: 1; flex-shrink: 1; padding: 0 32px; font-size: 26px; color: var(--lop-face); -unity-text-align: middle-left; overflow: hidden; white-space: nowrap; max-width: 1300px; }
+/* 글자 칸은 말줄임 때문에 최대 폭이 있어 넓은 화면에선 다 못 채운다 — 시즌 라벨은 auto 여백으로 오른쪽 끝에 붙인다(시안 lobby.html) */
+.kit-ticker__season { --sticker-face: var(--lop-reward); --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; margin-left: auto; margin-right: -16px; }
+.kit-ticker__season .sticker__face { padding-left: 48px; padding-right: 96px; }
+.kit-ticker__season-text { font-size: 26px; color: var(--lop-reward-ink); }
+
+/* 알림 배지 — 흰 테두리 빨간 원, 글자는 .kit-title과 함께 쓴다(데이터가 생기기 전까지 숨김) */
+.kit-badge { position: absolute; top: -14px; right: -14px; min-width: 44px; height: 44px; padding: 0 10px; border-radius: 22px; border-width: 4px; border-color: #FFFFFF; background-color: var(--lop-live); color: #FFFFFF; font-size: 24px; -unity-text-align: middle-center; display: none; }
+.kit-badge--on { display: flex; }
+
+/* 이름표 — 기운 크림 스티커: 이름 · Lv · 티어 도형 (시안 lobby.html .top .who) */
+.kit-plate { min-height: 72px; max-width: 640px; }
+.kit-plate .sticker { flex-grow: 1; }
+.kit-plate .sticker__face { flex-direction: row; justify-content: flex-start; padding: 14px 36px; }
+/* 이름 폭 380 = 글자 영역 568 − 메타 약 130 − 도형 44 — 라벨이 줄어들면 "..."이 잘려 나가므로 처음부터 들어가게 둔다 */
+.kit-plate__name { font-size: 30px; color: var(--lop-ink); overflow: hidden; white-space: nowrap; flex-shrink: 0; max-width: 380px; }
+.kit-plate__meta { flex-shrink: 0; font-size: 30px; color: var(--lop-ink); margin-left: 10px; margin-right: 10px; white-space: nowrap; }
+
+/* 코인 — 노란 스티커 (시안 .stk.reward) */
+.kit-coin { height: 72px; }
+.kit-coin .sticker { flex-grow: 1; --sticker-face: var(--lop-reward); }
+.kit-coin .sticker__face { flex-direction: row; padding: 0 36px; }
+.kit-coin__text { font-size: 30px; color: var(--lop-reward-ink); white-space: nowrap; }
+
+/* 종목 칩 — 기운 크림 스티커 "🎯 종목 · 경기장 ▾" (시안 lobby.html .play) */
+.kit-gamechip { height: 72px; }
+.kit-gamechip .sticker { flex-grow: 1; }
+.kit-gamechip .sticker__face { padding: 0 36px; }
+.kit-gamechip__text { font-size: 30px; color: var(--lop-ink); overflow: hidden; white-space: nowrap; max-width: 520px; }
+
+/* 토스트 */
+.kit-toast-root { position: absolute; left: 0; right: 0; top: 140px; align-items: center; }
+.kit-toast { height: 88px; min-width: 360px; }
+.kit-toast .sticker__face { padding: 0 40px; }
+.kit-toast__text { font-size: 30px; }

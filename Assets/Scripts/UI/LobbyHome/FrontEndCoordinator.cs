@@ -1,5 +1,7 @@
+using Cysharp.Threading.Tasks;
 using R3;
 using System;
+using System.Threading;
 using VContainer.Unity;
 
 namespace LOP.UI
@@ -18,6 +20,9 @@ namespace LOP.UI
         private IDisposable _subscription;
         private ShellView _currentShell;
         private MatchResultView _matchResultView;
+        private readonly ToastSlot<KitToastView> _toast = new();
+        private GameSelectView _gameSelect;
+        private readonly CancellationTokenSource _cts = new();
 
         public FrontEndCoordinator(
             IWindowManager windowManager,
@@ -67,6 +72,17 @@ namespace LOP.UI
 
         private void OnNavigationRequested(FrontEndDestination destination)
         {
+            if (FrontEndRoutes.IsComingSoon(destination))
+            {
+                ShowToast(FrontEndRoutes.ComingSoonText);
+                return;
+            }
+            if (destination == FrontEndDestination.GameSelect)
+            {
+                OpenGameSelect();
+                return;
+            }
+
             CloseCurrentShell();
 
             _currentShell = destination switch
@@ -78,6 +94,39 @@ namespace LOP.UI
             };
 
             _currentShell?.SetBackCallback(CloseCurrentShell);
+        }
+
+        private void OpenGameSelect()
+        {
+            if (_gameSelect != null) return;   //  두 번 눌러도 한 장만
+            _gameSelect = _windowManager.Open<GameSelectView>();
+            _gameSelect.SetCloseCallback(CloseGameSelect);
+        }
+
+        private void CloseGameSelect()
+        {
+            if (_gameSelect == null) return;
+            _windowManager.Close(_gameSelect);
+            _gameSelect = null;
+        }
+
+        //  토스트는 하나만 — 새 것이 오면 이전 것을 바로 닫는다.
+        private void ShowToast(string text)
+        {
+            var view = _windowManager.Open<KitToastView>();
+            view.Show(text);
+            var previous = _toast.Replace(view);
+            if (previous != null) _windowManager.Close(previous);
+            CloseToastLater(view).Forget();
+        }
+
+        private async UniTaskVoid CloseToastLater(KitToastView view)
+        {
+            bool cancelled = await UniTask.Delay(1500, cancellationToken: _cts.Token).SuppressCancellationThrow();
+            if (cancelled) return;   //  로비가 내려갔다 — Dispose가 이미 닫았다
+            //  그 사이 새 토스트가 왔으면 Clear가 null — 새 것을 닫지 않는다.
+            var expired = _toast.Clear(view);
+            if (expired != null) _windowManager.Close(expired);
         }
 
         private void CloseCurrentShell()
@@ -92,6 +141,11 @@ namespace LOP.UI
         public void Dispose()
         {
             _subscription?.Dispose();
+            _cts.Cancel();
+            _cts.Dispose();
+            var toast = _toast.Clear(_toast.Current);
+            if (toast != null) _windowManager.Close(toast);
+            CloseGameSelect();
             CloseCurrentShell();
 
             if (_matchResultView != null)

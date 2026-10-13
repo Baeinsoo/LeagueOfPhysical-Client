@@ -1,39 +1,74 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="lobbyhome-root" class="lobbyhome-root">
-        <!-- 상단 코인·레벨 칩. 값은 EconomyStore 구독으로 채운다(LobbyHomeView). -->
-        <ui:VisualElement name="lobbyhome-topbar" class="lobbyhome-topbar">
-            <ui:VisualElement name="coin-chip" class="lobbyhome-chip">
-                <ui:Label name="coin-icon" text="코인" class="lobbyhome-chip__icon" />
-                <ui:Label name="coin-value" text="0" class="lobbyhome-chip__value" />
-            </ui:VisualElement>
-            <ui:VisualElement name="level-chip" class="lobbyhome-chip">
-                <ui:Label name="level-value" text="Lv 1" class="lobbyhome-chip__value" />
-            </ui:VisualElement>
-        </ui:VisualElement>
-
-        <ui:VisualElement name="lobbyhome-center" class="lobbyhome-center">
-            <!-- 선택은 시작 버튼 안에 들어 있다. 칩을 누르면 그 클릭은 칩이 먹고(전파 차단),
-                 그 밖의 면적은 전부 시작이다. -->
-            <ui:Button name="play-button" class="btn btn--primary lobbyhome-play">
-                <ui:Label name="play-label" text="PLAY" class="lobbyhome-play__text" />
-                <ui:VisualElement name="play-picks" class="lobbyhome-picks">
-                    <!-- 일반/랭크. 랭크면 아래 두 드롭다운 대신 내 티어를 보여 준다(게임은 서버가 고른다). -->
-                    <ui:VisualElement name="queue-picks" class="lobbyhome-queues">
-                        <ui:Button name="queue-casual" text="일반" class="lobbyhome-queue" />
-                        <ui:Button name="queue-ranked" text="랭크" class="lobbyhome-queue" />
-                    </ui:VisualElement>
-                    <ui:DropdownField name="game-pick" class="lobbyhome-pick" />
-                    <ui:DropdownField name="map-pick" class="lobbyhome-pick" />
-                    <ui:Label name="rank-summary" class="lobbyhome-rank" />
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 로비 홈 (1부 시안 lobby.html). 랭크면 루트에 .ranked가 붙어 톤만 바뀐다. -->
+    <ui:VisualElement name="lobbyhome-root" class="kit lobbyhome-root">
+        <!-- 무대: 3부 선수 입장 터널 전까지 벽·바닥·조명 판으로 자리만 잡는다 -->
+        <ui:VisualElement class="lobbyhome-stage" picking-mode="Ignore">
+            <ui:VisualElement class="lobbyhome-stage__wall lobbyhome-stage__wall--left" picking-mode="Ignore" />
+            <ui:VisualElement class="lobbyhome-stage__wall lobbyhome-stage__wall--right" picking-mode="Ignore" />
+            <ui:VisualElement class="lobbyhome-stage__light" picking-mode="Ignore">
+                <ui:VisualElement class="lobbyhome-stage__glow" picking-mode="Ignore">
+                    <ui:VisualElement class="lobbyhome-stage__core" picking-mode="Ignore" />
                 </ui:VisualElement>
-            </ui:Button>
+            </ui:VisualElement>
+            <ui:VisualElement class="lobbyhome-stage__floor" picking-mode="Ignore" />
         </ui:VisualElement>
 
-        <!-- 하단 네비바: 레이아웃만. 실제 동작은 Slice C에서 배선. -->
-        <ui:VisualElement name="nav-bar" class="lobbyhome-navbar">
-            <ui:Button name="nav-shop" text="상점" class="btn btn--secondary lobbyhome-nav" />
-            <ui:Button name="nav-profile" text="프로필" class="btn btn--nav2 lobbyhome-nav" />
-            <ui:Button name="nav-settings" text="설정" class="btn btn--nav3 lobbyhome-nav" />
+        <ui:VisualElement class="lobbyhome-safe" picking-mode="Ignore">
+            <!-- 왼쪽 위: 이름표(일반) / 티어 카드(랭크) -->
+            <ui:Button name="player-plate" class="kit-press kit-plate lobbyhome-plate">
+                <lop:StickerElement>
+                    <ui:Label name="player-name" class="kit-plate__name" />
+                    <ui:Label name="player-meta" class="kit-plate__meta" />
+                    <lop:TierShapeElement name="player-tier" />
+                    <ui:VisualElement name="rank-card" class="lobbyhome-rankcard">
+                        <lop:TierShapeElement name="rank-tier" class="lobbyhome-rankcard__emblem" />
+                        <ui:VisualElement class="lobbyhome-rankcard__text">
+                            <ui:Label name="rank-head" class="kit-title lobbyhome-rankcard__head" />
+                            <ui:Label name="rank-sub" class="lobbyhome-rankcard__sub" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </lop:StickerElement>
+            </ui:Button>
+            <!-- 오른쪽 위: 코인 -->
+            <ui:VisualElement class="kit-coin lobbyhome-coin">
+                <lop:StickerElement><ui:Label name="coin-value" text="🪙 -" class="kit-coin__text" /></lop:StickerElement>
+            </ui:VisualElement>
+            <!-- 왼쪽 줄 -->
+            <ui:VisualElement class="lobbyhome-col lobbyhome-col--left">
+                <ui:Button name="nav-shop" class="kit-press kit-nav"><lop:StickerElement><ui:Label text="🛍️" class="kit-nav__icon" /><ui:Label text="상점" class="kit-nav__label" /></lop:StickerElement><ui:Label class="kit-title kit-badge" /></ui:Button>
+                <ui:Button name="nav-locker" class="kit-press kit-nav"><lop:StickerElement><ui:Label text="👕" class="kit-nav__icon" /><ui:Label text="라커룸" class="kit-nav__label" /></lop:StickerElement></ui:Button>
+                <ui:Button name="nav-records" class="kit-press kit-nav"><lop:StickerElement><ui:Label text="📊" class="kit-nav__icon" /><ui:Label text="기록" class="kit-nav__label" /></lop:StickerElement></ui:Button>
+            </ui:VisualElement>
+            <!-- 오른쪽 줄 -->
+            <ui:VisualElement class="lobbyhome-col lobbyhome-col--right">
+                <ui:Button name="nav-missions" class="kit-press kit-nav"><lop:StickerElement><ui:Label text="🎯" class="kit-nav__icon" /><ui:Label text="미션" class="kit-nav__label" /></lop:StickerElement><ui:Label class="kit-title kit-badge" /></ui:Button>
+                <ui:Button name="nav-season" class="kit-press kit-nav"><lop:StickerElement><ui:Label text="🏆" class="kit-nav__icon" /><ui:Label text="시즌" class="kit-nav__label" /></lop:StickerElement></ui:Button>
+                <ui:Button name="nav-settings" class="kit-press kit-nav"><lop:StickerElement><ui:Label text="⚙️" class="kit-nav__icon" /><ui:Label text="설정" class="kit-nav__label" /></lop:StickerElement></ui:Button>
+            </ui:VisualElement>
+            <!-- 오른쪽 아래: 전환 칩 → PLAY → 종목 칩(랭크면 안내 칩) -->
+            <ui:VisualElement class="lobbyhome-play-group" picking-mode="Ignore">
+                <ui:VisualElement class="kit-toggle">
+                    <ui:Button name="queue-casual" text="일반" class="kit-toggle__opt" />
+                    <ui:Button name="queue-ranked" text="랭크" class="kit-toggle__opt" />
+                </ui:VisualElement>
+                <ui:Button name="play-button" class="kit-press kit-play">
+                    <lop:StickerElement><ui:Label name="play-label" text="PLAY" class="kit-title kit-play__label" /></lop:StickerElement>
+                </ui:Button>
+                <ui:Button name="game-chip" class="kit-press kit-gamechip lobbyhome-gamechip">
+                    <lop:StickerElement><ui:Label name="game-chip-text" class="kit-gamechip__text" /></lop:StickerElement>
+                </ui:Button>
+                <!-- 랭크면 같은 자리에 안내 칩 — PLAY 위치가 일반과 같게 남는다 -->
+                <ui:VisualElement name="ranked-chip" class="kit-gamechip lobbyhome-rankedchip">
+                    <lop:StickerElement><ui:Label text="🎲 종목 랜덤 · 실력 맞춤" class="kit-gamechip__text" /></lop:StickerElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- 맨 아래: 띠 -->
+        <ui:VisualElement class="kit-ticker lobbyhome-ticker">
+            <lop:StickerElement class="kit-ticker__tag"><ui:VisualElement class="kit-ticker__dot" /><ui:Label name="ticker-tag" text="LIVE" class="kit-title kit-ticker__tag-text" /></lop:StickerElement>
+            <ui:Label name="ticker-text" class="kit-ticker__text" />
+            <lop:StickerElement class="kit-ticker__season"><ui:Label text="시즌 1" class="kit-ticker__season-text" /></lop:StickerElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

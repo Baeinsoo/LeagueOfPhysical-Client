@@ -1,0 +1,29 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 종목 선택 (시안 modes.html 상태 1). 카드·경기장 칩은 GameSelectView가 VM 값으로 채운다. -->
+    <ui:VisualElement name="gameselect-root" class="kit gameselect-root">
+        <ui:VisualElement class="gameselect-header">
+            <ui:Button name="back-button" class="kit-press kit-btn">
+                <lop:StickerElement><ui:Label text="◀ 뒤로" class="kit-text gameselect-back__label" /></lop:StickerElement>
+            </ui:Button>
+            <ui:Label text="종목" class="kit-title gameselect-title" />
+        </ui:VisualElement>
+        <!-- 종목이 늘면 좌우로 넘긴다(밀기·화살표) — 다 들어가면 가운데, 화살표·점은 숨는다 -->
+        <ui:VisualElement class="kit-carousel gameselect-carousel">
+            <ui:ScrollView name="card-row" mode="Horizontal" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Hidden" class="gameselect-cards" />
+            <ui:Button name="card-prev" class="kit-press kit-carousel__arrow kit-carousel__arrow--prev">
+                <lop:StickerElement><ui:Label text="◀" class="kit-carousel__arrow-text" /></lop:StickerElement>
+            </ui:Button>
+            <ui:Button name="card-next" class="kit-press kit-carousel__arrow kit-carousel__arrow--next">
+                <lop:StickerElement><ui:Label text="▶" class="kit-carousel__arrow-text" /></lop:StickerElement>
+            </ui:Button>
+        </ui:VisualElement>
+        <ui:VisualElement name="card-dots" class="kit-carousel__dots" picking-mode="Ignore" />
+        <ui:VisualElement class="gameselect-maps">
+            <ui:Label text="경기장" class="kit-text gameselect-map-label" />
+            <ui:VisualElement name="map-row" class="gameselect-map-row" />
+        </ui:VisualElement>
+        <ui:Button name="confirm-button" class="kit-press kit-play gameselect-confirm">
+            <lop:StickerElement><ui:Label text="고르기" class="kit-title kit-play__label gameselect-confirm__label" /></lop:StickerElement>
+        </ui:Button>
+    </ui:VisualElement>
+</ui:UXML>

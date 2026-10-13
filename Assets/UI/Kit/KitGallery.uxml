@@ -1,0 +1,93 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 키트 확인 화면: HTML 키트 시안과 나란히 비교하는 용도. 두 번째 줄은 랭크 모드(.ranked). -->
+    <ui:VisualElement name="kit-gallery" class="kit kit-gallery">
+        <ui:VisualElement class="kit-gallery__row">
+            <ui:Button class="kit-press kit-btn kit-btn--primary">
+                <lop:StickerElement><ui:Label text="확인" class="kit-btn__label" /></lop:StickerElement>
+            </ui:Button>
+            <ui:Button class="kit-press kit-btn kit-btn--info">
+                <lop:StickerElement><ui:Label text="친구 초대" class="kit-btn__label" /></lop:StickerElement>
+            </ui:Button>
+            <ui:Button class="kit-press kit-nav">
+                <lop:StickerElement>
+                    <ui:Label text="🛒" class="kit-nav__icon" />
+                    <ui:Label text="상점" class="kit-text kit-nav__label" />
+                </lop:StickerElement>
+            </ui:Button>
+            <ui:Button class="kit-press kit-play">
+                <lop:StickerElement><ui:Label text="PLAY" class="kit-title kit-play__label" /></lop:StickerElement>
+            </ui:Button>
+            <ui:VisualElement class="kit-toggle">
+                <ui:Button text="일반" class="kit-toggle__opt kit-toggle__opt--on" />
+                <ui:Button text="랭크" class="kit-toggle__opt" />
+            </ui:VisualElement>
+            <ui:Button class="kit-chip">
+                <ui:Label text="🎯 활쏘기 · 기본 경기장" class="kit-chip__text kit-ellipsis" />
+            </ui:Button>
+            <ui:VisualElement class="kit-gallery__tiers">
+                <lop:TierShapeElement class="kit-gallery__tier" />
+                <lop:TierShapeElement class="kit-gallery__tier" />
+                <lop:TierShapeElement class="kit-gallery__tier" />
+                <lop:TierShapeElement class="kit-gallery__tier" />
+                <lop:TierShapeElement class="kit-gallery__tier" />
+                <lop:TierShapeElement class="kit-gallery__tier" />
+                <lop:TierShapeElement class="kit-gallery__tier" />
+                <lop:TierShapeElement class="kit-gallery__tier" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="kit-gallery__row ranked">
+            <ui:Button class="kit-press kit-card">
+                <lop:StickerElement class="sticker--card">
+                    <ui:VisualElement class="kit-card__art kit-card__art--0"><ui:Label text="활" class="kit-title kit-card__art-text" /></ui:VisualElement>
+                    <ui:Label text="활쏘기" class="kit-card__name" />
+                    <ui:Label text="바람을 읽고 과녁 한가운데를 노려요" class="kit-text kit-card__desc kit-ellipsis" />
+                </lop:StickerElement>
+            </ui:Button>
+            <ui:Button class="kit-press kit-card kit-card--picked">
+                <lop:StickerElement class="sticker--card">
+                    <ui:VisualElement class="kit-card__art kit-card__art--1"><ui:Label text="피" class="kit-title kit-card__art-text" /></ui:VisualElement>
+                    <ui:Label text="피하기" class="kit-card__name" />
+                    <ui:Label text="날아오는 공을 끝까지 피해요" class="kit-text kit-card__desc kit-ellipsis" />
+                </lop:StickerElement>
+            </ui:Button>
+            <ui:Button class="kit-press kit-play">
+                <lop:StickerElement><ui:Label text="출전" class="kit-title kit-play__label" /></lop:StickerElement>
+            </ui:Button>
+            <ui:VisualElement class="kit-toggle">
+                <ui:Button text="일반" class="kit-toggle__opt" />
+                <ui:Button text="랭크" class="kit-toggle__opt kit-toggle__opt--on" />
+            </ui:VisualElement>
+            <ui:VisualElement class="kit-gallery__badge-host">
+                <ui:Button class="kit-press kit-nav">
+                    <lop:StickerElement>
+                        <ui:Label text="🎁" class="kit-nav__icon" />
+                        <ui:Label text="미션" class="kit-text kit-nav__label" />
+                    </lop:StickerElement>
+                </ui:Button>
+                <ui:Label text="3" class="kit-title kit-badge kit-badge--on" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="kit-gallery__row">
+            <ui:VisualElement class="kit-ticker kit-gallery__ticker">
+                <lop:StickerElement class="kit-ticker__tag"><ui:VisualElement class="kit-ticker__dot" /><ui:Label text="LIVE" class="kit-title kit-ticker__tag-text" /></lop:StickerElement>
+                <ui:Label text="시즌 1 진행 중 · 오늘도 한 판 붙어 볼까요" class="kit-text kit-ticker__text kit-ellipsis" />
+                <lop:StickerElement class="kit-ticker__season"><ui:Label text="시즌 1" class="kit-ticker__season-text" /></lop:StickerElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="kit-gallery__row">
+            <ui:VisualElement class="kit-plate">
+                <lop:StickerElement>
+                    <ui:Label text="가나다라마바사아자차카타가나다라" class="kit-text kit-plate__name kit-ellipsis" />
+                    <ui:Label text="Lv 7" class="kit-text kit-plate__meta" />
+                    <lop:TierShapeElement class="kit-gallery__tier" />
+                </lop:StickerElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="kit-coin">
+                <lop:StickerElement><ui:Label text="🪙 12,340" class="kit-coin__text" /></lop:StickerElement>
+            </ui:VisualElement>
+            <lop:StickerElement class="kit-toast">
+                <ui:Label text="곧 열려요" class="kit-text kit-toast__text" />
+            </lop:StickerElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

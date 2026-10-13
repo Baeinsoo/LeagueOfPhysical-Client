@@ -6,5 +6,9 @@ namespace LOP.UI
         Shop,
         Settings,
         Profile,
+        Locker,
+        Missions,
+        Season,
+        GameSelect,
     }
 }

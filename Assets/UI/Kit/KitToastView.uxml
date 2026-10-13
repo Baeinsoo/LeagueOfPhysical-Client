@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <ui:VisualElement name="toast-root" class="kit kit-toast-root" picking-mode="Ignore">
+        <lop:StickerElement class="kit-toast">
+            <ui:Label name="toast-text" text="곧 열려요" class="kit-text kit-toast__text" />
+        </lop:StickerElement>
+    </ui:VisualElement>
+</ui:UXML>

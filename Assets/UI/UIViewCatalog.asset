@@ -94,3 +94,9 @@ MonoBehaviour:
   - viewName: ServerUnreachableView
     uxml: {fileID: 9197481963319205126, guid: aa78b3895e9ae6747921fa247ed4dcc5, type: 3}
     uss: {fileID: 7433441132597879392, guid: ee3fbcc68d8978d4192b3b08a41a8019, type: 3}
+  - viewName: KitToastView
+    uxml: {fileID: 9197481963319205126, guid: d251942f12064234b841c24ae0ad858d, type: 3}
+    uss: {fileID: 0}
+  - viewName: GameSelectView
+    uxml: {fileID: 9197481963319205126, guid: 1e8a3b953fe65064f9c87d6c7ceb1969, type: 3}
+    uss: {fileID: 7433441132597879392, guid: 3d8dca4705f0f7240ba916cec389327f, type: 3}

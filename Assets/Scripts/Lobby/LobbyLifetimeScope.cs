@@ -16,6 +16,8 @@ namespace LOP
         private IDisposable _profileViewRegistration;
         private IDisposable _matchResultViewRegistration;
         private IDisposable _changeDisplayNameViewRegistration;
+        private IDisposable _kitToastViewRegistration;
+        private IDisposable _gameSelectViewRegistration;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -61,6 +63,19 @@ namespace LOP
             //  View와 함께 Transient — 열 때마다 그 시점의 이름을 입력란 시작값으로 읽어야 한다.
             builder.Register<ChangeDisplayNameViewModel>(Lifetime.Transient);
             builder.Register<ChangeDisplayNameView>(Lifetime.Transient);
+            builder.Register<KitToastView>(Lifetime.Transient);
+
+            //  종목 선택은 열 때마다 새 VM — 연 순간의 로비 선택에서 시작하고, 고르기를 눌러야만 로비에 넘긴다.
+            builder.Register(resolver =>
+            {
+                var matchmaking = resolver.Resolve<MatchmakingViewModel>();
+                return new GameSelectViewModel(
+                    matchmaking.Games,
+                    matchmaking.SelectedGameIndex.CurrentValue,
+                    matchmaking.SelectedMapIndex.CurrentValue,
+                    (game, map) => { matchmaking.SelectGame(game); matchmaking.SelectMap(map); });
+            }, Lifetime.Transient);
+            builder.Register<GameSelectView>(Lifetime.Transient);
             builder.RegisterEntryPoint<FrontEndCoordinator>();
 
             builder.RegisterBuildCallback(container =>
@@ -78,6 +93,8 @@ namespace LOP
                 _profileViewRegistration = windowManager.RegisterViewFactory<ProfileView>(() => container.Resolve<ProfileView>());
                 _matchResultViewRegistration = windowManager.RegisterViewFactory<MatchResultView>(() => container.Resolve<MatchResultView>());
                 _changeDisplayNameViewRegistration = windowManager.RegisterViewFactory<ChangeDisplayNameView>(() => container.Resolve<ChangeDisplayNameView>());
+                _kitToastViewRegistration = windowManager.RegisterViewFactory<KitToastView>(() => container.Resolve<KitToastView>());
+                _gameSelectViewRegistration = windowManager.RegisterViewFactory<GameSelectView>(() => container.Resolve<GameSelectView>());
 
                 windowManager.Open<LobbyHomeView>();
 
@@ -97,6 +114,8 @@ namespace LOP
             _profileViewRegistration?.Dispose();
             _matchResultViewRegistration?.Dispose();
             _changeDisplayNameViewRegistration?.Dispose();
+            _kitToastViewRegistration?.Dispose();
+            _gameSelectViewRegistration?.Dispose();
             base.OnDestroy();
         }
 

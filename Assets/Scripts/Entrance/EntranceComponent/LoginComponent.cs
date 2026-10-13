@@ -31,8 +31,16 @@ namespace LOP
 
             if (session == null)
             {
-                //  저장된 자격증명이 없다 — 사용자가 로그인 방식을 고르게 한다.
-                session = await windowManager.OpenModalAsync<LoginView, AuthSession>();
+                //  저장된 자격증명이 없다 — 사용자가 로그인 방식을 고르게 한다. 그동안 타이틀은 진행 막대를 비켜 준다.
+                progress.SetAwaitingInput(true);
+                try
+                {
+                    session = await windowManager.OpenModalAsync<LoginView, AuthSession>();
+                }
+                finally
+                {
+                    progress.SetAwaitingInput(false);
+                }
             }
 
             userDataStore.user.id = session.UserId;

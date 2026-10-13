@@ -1,0 +1,42 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 타이틀 (시안 title-a.html A1). 무대 + 스티커 로고 + 진행 막대 + LIVE 띠. 그림 파일 없음 -->
+    <ui:VisualElement name="title-root" class="kit title-root">
+        <ui:VisualElement class="kit-stage" picking-mode="Ignore">
+            <ui:VisualElement class="kit-stage__wall kit-stage__wall--left" picking-mode="Ignore" />
+            <ui:VisualElement class="kit-stage__wall kit-stage__wall--right" picking-mode="Ignore" />
+            <ui:VisualElement class="kit-stage__light" picking-mode="Ignore">
+                <ui:VisualElement class="kit-stage__glow" picking-mode="Ignore">
+                    <ui:VisualElement class="kit-stage__core" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="kit-stage__floor" picking-mode="Ignore" />
+        </ui:VisualElement>
+
+        <!-- 로고 묶음 — 통째로 -4° 기울여 위 가운데에 -->
+        <ui:VisualElement name="title-logo" class="title-logo" picking-mode="Ignore">
+            <lop:StickerElement class="title-logo__top"><ui:Label text="LEAGUE OF" class="kit-title title-logo__top-text" /></lop:StickerElement>
+            <lop:StickerElement class="title-logo__big"><ui:Label text="PHYSICAL" class="kit-title title-logo__big-text" /></lop:StickerElement>
+            <ui:VisualElement class="kit-lt title-logo__sub">
+                <lop:StickerElement class="kit-lt__tag"><ui:Label text="피지컬 리그" class="kit-title kit-lt__tag-text" /></lop:StickerElement>
+                <lop:StickerElement class="kit-lt__body"><ui:Label text="종목 · 선수 · 중계" class="kit-lt__body-text" /></lop:StickerElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- 진행 막대 + 단계 글자 (로그인 버튼이 뜨면 숨는다 — 같은 자리) -->
+        <ui:VisualElement name="title-progress" class="title-progress" picking-mode="Ignore">
+            <ui:VisualElement class="kit-progress title-progress__bar">
+                <lop:StickerElement class="kit-progress__track" />
+                <ui:VisualElement class="kit-progress__inner"><lop:StickerElement name="title-progress-fill" class="kit-progress__fill" /></ui:VisualElement>
+            </ui:VisualElement>
+            <ui:Label name="title-step" class="title-progress__step" />
+        </ui:VisualElement>
+
+        <ui:Label name="title-version" class="title-version" />
+
+        <ui:VisualElement class="kit-ticker title-ticker">
+            <lop:StickerElement class="kit-ticker__tag"><ui:VisualElement class="kit-ticker__dot" /><ui:Label text="LIVE" class="kit-title kit-ticker__tag-text" /></lop:StickerElement>
+            <ui:Label name="ticker-text" class="kit-ticker__text" />
+            <lop:StickerElement class="kit-ticker__season"><ui:Label text="시즌 1" class="kit-ticker__season-text" /></lop:StickerElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

@@ -17,6 +17,9 @@ namespace LOP
         [Inject]
         private AppStateMachine appStateMachine;
 
+        [Inject]
+        private EntranceProgress entranceProgress;
+
         private async void Start()
         {
             if (await ExecuteEntranceComponents())
@@ -29,11 +32,14 @@ namespace LOP
         {
             try
             {
-                foreach (var entranceComponent in entranceComponents)
+                var components = entranceComponents.ToList();
+                for (int i = 0; i < components.Count; i++)
                 {
-                    await entranceComponent.Execute();
+                    entranceProgress.Begin(i, components.Count, components[i].StepLabel);
+                    await components[i].Execute();
                 }
 
+                entranceProgress.Complete();
                 return true;
             }
             catch (Exception exception)

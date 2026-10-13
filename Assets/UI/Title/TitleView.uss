@@ -1,0 +1,20 @@
+/* 타이틀 — 시안 title-a.html A1. 1920×1080 기준, 패널 Expand(ADR 0019)라 위·아래 가운데 묶음은 비율과 상관없이 가운데에 선다 */
+.title-root { flex-grow: 1; background-color: #262458; }
+.title-root .kit-stage__light { left: 24%; width: 52%; top: 10%; height: 80%; }
+
+.title-logo { position: absolute; left: 0; right: 0; top: 150px; align-items: center; rotate: -4deg; }
+.title-logo__top { margin-bottom: -18px; }
+.title-logo__top .sticker__face { padding: 10px 56px; }
+.title-logo__top-text { font-size: 64px; color: var(--lop-ink); letter-spacing: 6px; }
+.title-logo__big { --sticker-face: var(--lop-reward); --sticker-back-x: 12; --sticker-back-y: 18; }
+.title-logo__big .sticker__face { padding: 10px 90px 0 90px; }
+.title-logo__big-text { font-size: 190px; color: var(--lop-ink); letter-spacing: 4px; }
+.title-logo__sub { margin-top: 34px; }
+
+.title-progress { position: absolute; left: 0; right: 0; bottom: 150px; align-items: center; }
+.title-progress__bar { width: 900px; }
+.title-progress__step { margin-top: 16px; font-size: 30px; color: var(--lop-face); text-shadow: 2px 3px 0 var(--lop-ink-deep); -unity-text-align: middle-center; }
+
+.title-version { position: absolute; left: 80px; bottom: 76px; font-size: 22px; color: var(--lop-face); opacity: 0.7; }
+
+.title-ticker { position: absolute; left: 0; right: 0; bottom: 0; }

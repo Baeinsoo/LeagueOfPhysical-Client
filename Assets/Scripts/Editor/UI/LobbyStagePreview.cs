@@ -26,6 +26,7 @@ namespace LOP.EditorTools
                 SceneManager.MoveGameObjectToScene(root, scene);
                 LobbyTunnel.Build(root.transform, new TunnelLayout(), out var arena);
                 var lights = LobbyStage.CreateLights(root.transform, arena, null);
+                var rig = StageRig.Build(root.transform, new TunnelLayout());
 
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(LobbyPlayer.ChibiKey);
                 var face = AssetDatabase.LoadAssetAtPath<Material>(LobbyPlayer.FaceKey);
@@ -49,11 +50,21 @@ namespace LOP.EditorTools
                 {
                     foreach (bool ranked in new[] { false, true })
                     {
+                        var weights = new StageEffectWeights(ranked);
                         LobbyLighting.Apply(StageLighting.For(ranked), lights);
+                        rig.Pose(1.3f, weights, float.PositiveInfinity);
+                        var pose = StageCameraPose.For(ranked);
+                        cam.transform.position = pose.Position;
+                        cam.transform.LookAt(pose.LookAt);
                         Save(cam, w, h, $"output/lobby3d-{(ranked ? "ranked" : "casual")}-{tag}.png");
                     }
                 }
-                Debug.Log("로비 3D 미리보기 6장 저장: output/lobby3d-*.png");
+                //  랭크 조명 쇼 도중(0.8초) 한 장
+                var showWeights = new StageEffectWeights(true);
+                LobbyLighting.Apply(StageLighting.For(true), lights, LightShowCurve.Dim(0.8f));
+                rig.Pose(1.3f, showWeights, 0.8f);
+                Save(cam, 1920, 1080, "output/lobby3d-ranked-show-16x9.png");
+                Debug.Log("로비 3D 미리보기 7장 저장: output/lobby3d-*.png");
             }
             finally
             {

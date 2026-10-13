@@ -11,6 +11,7 @@ namespace LOP.UI
         private Action _onClose;
         private VisualElement _cards;
         private VisualElement _maps;
+        private KitCarousel _carousel;
 
         public GameSelectView(GameSelectViewModel vm) => _vm = vm;
 
@@ -31,6 +32,7 @@ namespace LOP.UI
             };
 
             BuildCards();
+            _carousel = new KitCarousel((ScrollView)_cards, Root.Q<Button>("card-prev"), Root.Q<Button>("card-next"), Root.Q("card-dots"));
             _vm.GameIndex.Subscribe(OnGameChanged).AddTo(Disposables);
             _vm.MapIndex.Subscribe(_ => MarkPickedMap()).AddTo(Disposables);
         }
@@ -77,12 +79,8 @@ namespace LOP.UI
             {
                 _cards[i].EnableInClassList("kit-card--picked", i == gameIndex);
             }
-            //  고른 카드가 화면 밖(여섯째 이후)이면 보이게 넘긴다 — 레이아웃이 끝난 다음 틱에.
-            if (_cards is ScrollView scroll && gameIndex >= 0 && gameIndex < _cards.childCount)
-            {
-                var picked = _cards[gameIndex];
-                scroll.schedule.Execute(() => scroll.ScrollTo(picked));
-            }
+            //  고른 카드가 화면 밖(여섯째 이후)이면 보이게 넘긴다.
+            _carousel.Reveal(gameIndex);
 
             _maps.Clear();
             for (int i = 0; i < _vm.Maps.Count; i++)
@@ -114,7 +112,11 @@ namespace LOP.UI
 
         protected override void Dispose(bool disposing)
         {
-            if (!_disposed && disposing) _vm.Dispose();
+            if (!_disposed && disposing)
+            {
+                _carousel?.Dispose();
+                _vm.Dispose();
+            }
             _disposed = true;
             base.Dispose(disposing);
         }

@@ -3,10 +3,10 @@
 .gameselect-header { flex-direction: row; align-items: center; height: 110px; }
 .gameselect-root .gameselect-back__label { font-size: 30px; }
 .gameselect-title { font-size: 72px; color: var(--lop-face); margin-left: 32px; text-shadow: 3px 4px 0 var(--lop-ink-deep); }
-.gameselect-cards { margin-top: 46px; margin-left: -80px; margin-right: -80px; flex-shrink: 0; }
+.gameselect-carousel { margin-top: 46px; margin-left: -80px; margin-right: -80px; flex-shrink: 0; }
 /* 고른 카드 테두리(-6)·뒷면(+7)이 잘리지 않게 위아래 여유, 화면 끝까지 밀 수 있게 좌우 80 */
 .gameselect-cards .unity-scroll-view__content-container { flex-direction: row; justify-content: center; align-items: flex-start; min-width: 100%; padding: 12px 80px 16px 80px; }
-.gameselect-maps { flex-direction: row; justify-content: center; align-items: center; margin-top: 60px; }
+.gameselect-maps { flex-direction: row; justify-content: center; align-items: center; margin-top: 40px; }
 .gameselect-map-label { font-size: 22px; color: var(--lop-face); margin-right: 12px; }
 .gameselect-map-row { flex-direction: row; }
 .gameselect-root .gameselect-confirm { position: absolute; right: 80px; bottom: 120px; width: 360px; height: 140px; }

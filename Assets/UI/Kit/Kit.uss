@@ -117,6 +117,18 @@
 .kit-card--picked { width: 312px; margin: -6px 14px; border-width: 6px; border-color: var(--lop-reward); border-radius: 16px; }
 
 /* 경기장 칩 — 기울인 스티커, 고른 것은 노란 면 (시안 modes.html .maps) */
+/* 카드 줄 넘김(KitCarousel) — 화살표는 줄 양 끝 위에 뜬다. 넘길 곳이 없으면 숨는다 */
+.kit-carousel { justify-content: center; }
+.kit-carousel__arrow { position: absolute; width: 88px; height: 120px; }
+.kit-carousel__arrow .sticker { flex-grow: 1; }
+.kit-carousel__arrow--prev { left: 16px; }
+.kit-carousel__arrow--next { right: 16px; }
+.kit-carousel__arrow-text { font-size: 40px; color: var(--lop-ink); }
+.kit-carousel__arrow--off { display: none; }
+.kit-carousel__dots { flex-direction: row; justify-content: center; height: 24px; margin-top: 8px; }
+.kit-carousel__dot { width: 16px; height: 16px; margin: 0 8px; border-radius: 8px; background-color: rgba(255, 248, 232, 0.35); }
+.kit-carousel__dot--on { width: 40px; background-color: var(--lop-reward); }
+
 .kit-mapchip { height: 72px; margin: 0 12px; }
 .kit-mapchip .sticker { flex-grow: 1; }
 .kit-mapchip .sticker__face { padding: 0 36px; }

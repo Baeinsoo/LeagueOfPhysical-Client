@@ -23,16 +23,22 @@ namespace LOP.EditorTools
             //  패널은 Expand — 20:9 폰은 2400×1080, 4:3 태블릿은 1920×1440.
             (() => Open(2400, 1080), "output/game-select-20x9.png", 2400, 1080),
             (() => Open(1920, 1440), "output/game-select-4x3.png", 1920, 1440),
+            //  종목이 늘었을 때 — 화살표·쪽 점, 뒤쪽 카드를 고른 채로 열기.
+            (() => Open(1920, 1080, 12, 8), "output/game-select-many.png", 1920, 1080),
         });
 
         [SerializeField] private int _width = 1920;
         [SerializeField] private int _height = 1080;
+        [SerializeField] private int _extraGames;
+        [SerializeField] private int _picked;
 
-        private static GameSelectPreviewWindow Open(int width, int height)
+        private static GameSelectPreviewWindow Open(int width, int height, int gameCount = 6, int picked = 0)
         {
             var w = Open();
             w._width = width;
             w._height = height;
+            w._extraGames = gameCount - 6;
+            w._picked = picked;
             w.Rebuild();
             return w;
         }
@@ -43,10 +49,10 @@ namespace LOP.EditorTools
         {
             _view?.Dispose();
             rootVisualElement.Clear();
-            _view = Build(rootVisualElement, _width, _height);
+            _view = Build(rootVisualElement, _width, _height, _extraGames, _picked);
         }
 
-        private static GameSelectView Build(VisualElement root, int width, int height)
+        private static GameSelectView Build(VisualElement root, int width, int height, int extraGames, int picked)
         {
             foreach (var p in new[] { "Assets/UI/Theme/Theme.uss", "Assets/UI/Kit/Kit.uss", Uss })
             {
@@ -66,7 +72,8 @@ namespace LOP.EditorTools
                 //  설명 없는 종목 — 카드 높이가 같아야 한다. 여섯째라 1920에 다 안 들어가 좌우로 넘긴다.
                 new(6, "플랩왕", "", new[] { new MapChoice(60, "광산") }),
             };
-            var view = new GameSelectView(new GameSelectViewModel(games, 0, 0, (g, m) => Debug.Log($"고르기: {g}/{m}")));
+            for (int i = 0; i < extraGames; i++) games.Add(new(100 + i, $"새 종목 {i + 1}", "곧 열려요", new[] { new MapChoice(1000 + i, "경기장") }));
+            var view = new GameSelectView(new GameSelectViewModel(games, picked, 0, (g, m) => Debug.Log($"고르기: {g}/{m}")));
             view.Initialize(host);
             view.OnOpen();
             return view;

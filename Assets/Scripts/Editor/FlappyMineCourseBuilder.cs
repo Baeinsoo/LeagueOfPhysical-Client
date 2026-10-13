@@ -95,6 +95,9 @@ namespace LOP.EditorTools
                     FlappyClassicCourseBuilder.BoxPolygon(new Box2(w.X0, w.Y0, w.X1, w.Y1)), skin);
             }
 
+            //  움직이는 장애물(승강기·진자 광차·낙석)과 무너진 갱도 받침목 — 값은 코스 규칙에서(spec §3).
+            FlappyMineMoverBake.Counts movers = FlappyMineMoverBake.Build(root, course, skin, FloorAt, CeilingAt);
+
             //  패드 사각형이 곧 판정 사각형(FlappyBoostPad) — 크기는 배치 그대로(폭 1.2 · 높이 2.8).
             //  다만 판정은 발밑 점으로 하고 규칙의 사각형은 몸 중심 기준(프로토타입)이라, 몸 반지름만큼 내려 놓는다.
             foreach (MinePad pad in course.Pads)
@@ -161,6 +164,7 @@ namespace LOP.EditorTools
             Debug.Log($"[광산 코스] 관문 {course.Gates.Count}개 (파이프 {pipes}개) · 굴 {course.Tubes.Count}개 (조각 {strips}개)"
                     + $" · 패드 {course.Pads.Count}개 · 갈림길 {course.Forks.Count}개 · 칸막이 {course.Walls.Count}개"
                     + $" · 바닥·천장 조각 {slabs}개 · 길이 {course.Length:F0}m"
+                    + $" · 승강기 {movers.Lifts} · 광차 {movers.Carts} · 낙석 {movers.Rockfalls} · 받침목 {movers.Props}"
                     + $" (예상 {course.Length / config.ForwardSpeed:F0}초 @ {config.ForwardSpeed:F1}m/s)");
         }
 

@@ -117,6 +117,8 @@ namespace LOP.EditorTools
             Rect(pw - 80 - 156, 150, 156, 3 * 132 + 2 * 16);         // 오른쪽 버튼 줄
             Rect(pw - 80 - 460, ph - 92 - 366, 460, 366);            // PLAY 묶음(전환 칩·PLAY·종목 칩)
             Rect(0, ph - 60, pw, 60);                                // LIVE 띠
+            Rect(80, ph - 92 - 190, 640, 190);                        // 방송 선수 소개 자막(랭크)
+            Rect(pw / 2f - 210, 44, 420, 52);                         // 중계 표시(랭크)
         }
 
         private static void Px(Texture2D tex, int x, int yTop, int h)

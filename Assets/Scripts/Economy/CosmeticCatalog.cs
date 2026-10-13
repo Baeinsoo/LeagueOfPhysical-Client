@@ -96,6 +96,8 @@ namespace LOP
             return null;
         }
 
+        public CosmeticSlot SlotById(int id) => _slotsById.TryGetValue(id, out var slot) ? slot : null;
+
         public CosmeticSlot SlotByCode(string code) => code != null && _slotsByCode.TryGetValue(code, out var slot) ? slot : null;
 
         /// <summary>표시 순서(display_order)대로 슬롯 전체. 상점 탭을 이 순서로 그린다.</summary>

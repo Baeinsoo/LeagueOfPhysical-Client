@@ -598,12 +598,13 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(24.8f, z.EntranceEnd, 0.01f, "갱 입구 문틀 끝 = 첫 수직 갱 낙하");
             //  10-12 펼치기 2차: 옷 범위 끝 = 코스 끝 + 결승선 뒤 여유(옛 값은 첫 레일 롤러코스터 151.25).
             //  10-12 사람 판 레이아웃 변경: 코스 끝 386.15 → 422.35, 마지막 갈림길 끝 362.5 → 395.7.
-            Assert.AreEqual(422.35f + 20f, z.DressEnd, 0.01f, "옷 범위 끝 = 코스 끝 + 결승선 뒤 여유");
+            //  10-13 동적 지형: 코스 끝 422.35 → 445.95, 마지막 갈림길 끝 395.7 → 419.3(레일 굴 12 m).
+            Assert.AreEqual(445.95f + 20f, z.DressEnd, 0.01f, "옷 범위 끝 = 코스 끝 + 결승선 뒤 여유");
             Assert.AreEqual(Course().Length + MineDressingLayout.EndMargin, z.DressEnd, 1e-3f);
             //  출구 문틀 = 마지막 고수 갈림길 끝 ~ +5 m.
-            Assert.AreEqual(395.7f, z.ExitStart, 0.01f, "출구 문틀 시작 = 마지막 고수 갈림길 끝");
+            Assert.AreEqual(419.3f, z.ExitStart, 0.01f, "출구 문틀 시작 = 마지막 고수 갈림길 끝");
             Assert.AreEqual(Course().Forks.Last().X1, z.ExitStart, 1e-3f, "출구 문틀 시작 = 마지막 고수 갈림길 끝");
-            Assert.AreEqual(400.7f, z.ExitEnd, 0.01f, "출구 문틀 끝 = 시작 + 5");
+            Assert.AreEqual(424.3f, z.ExitEnd, 0.01f, "출구 문틀 끝 = 시작 + 5");
         }
 
         [Test]
@@ -730,9 +731,12 @@ namespace LOP.MapTools.Tests
             //  3막 계단 내리막: 관문 6개, 칸 = 갱 바닥 관문(관문 2) ~ 마지막 계단 관문(관문 8), 관문 간격씩.
             //  10-12 사람 판 레이아웃 변경: 계단 관문 사이 5.4 → 8 m(StairExtra 2.6, 갱 바닥 관문 → 첫 계단 관문만 5.4 그대로),
             //  41.225 ~ 73.625 → 42.425 ~ 87.825. 관문 x는 코스에서 찾는다.
-            var gates = c.Gates;
+            //  10-13 동적 지형: 계단 관문은 흔들리는 승강기라 Gates가 아니라 Lifts에 있고 간격 8 → 6.8 m. 칸 끝 = 갱 바닥 관문 + 계단 승강기 6개(쉬는 자리).
+            //  아래 칸 검사가 쓰는 번호(2~8)를 그대로 두려고 앞 두 칸은 비워 둔다.
+            var gates = new List<MineGate> { default, default, c.Gates[2] };
+            gates.AddRange(c.Lifts.Take(6).Select(l => l.Gate));
             Assert.AreEqual(5.4f, gates[3].X - gates[2].X, 0.01f, "갱 바닥 관문 → 첫 계단 관문");
-            for (int i = 3; i < 8; i++) { Assert.AreEqual(8f, gates[i + 1].X - gates[i].X, 0.01f, $"계단 관문 {i} → {i + 1} 간격"); }
+            for (int i = 3; i < 8; i++) { Assert.AreEqual(6.8f, gates[i + 1].X - gates[i].X, 0.01f, $"계단 관문 {i} → {i + 1} 간격"); }
             Assert.AreEqual(6, floorBenches.Count);
             Assert.AreEqual(6, ceilBenches.Count);
             Assert.AreEqual(gates[2].X, floorBenches[0].X, 0.01f);
@@ -1188,11 +1192,13 @@ namespace LOP.MapTools.Tests
             {
                 Assert.LessOrEqual(Math.Abs(b.AngleDegrees), MineDressingLayout.TrestleMaxSlopeDegrees + 1e-3, $"{b} 기운 칸에 비계");
             }
-            //  낮은 천장 물결(24 m ± 전이 3 m)·입구 오르막(19.8~22.8)에는 비계가 없고 바위 띠 + 밝은 테가 바닥선을 맡는다.
+            //  굽은 바닥(입구 오르막 19.8~22.8)에는 비계가 없고 바위 띠 + 밝은 테가 바닥선을 맡는다.
             //  10-12 사람 판 레이아웃 변경: 낮은 천장 118.4 → 138.2, 롤러코스터 151.25 → 171.05 — 구간 x는 코스에서 찾는다.
-            float lowX = c.Sections.Single(sec => sec.Name == "낮은 천장").X;
+            //  10-13 동적 지형: 낮은 천장 물결이 순서에서 빠져(진자 광차 자리) 그 표본을 지웠다. 대신 진자 광차의 평평한 바닥엔 비계가 선다.
+            float pendulumX = c.Sections.Single(sec => sec.Name == "진자 광차").X;
             float coasterX = c.Sections.Single(sec => sec.Name == "레일 롤러코스터").X;
-            foreach (var (a, b) in new[] { (19.8f, 22.8f), (lowX - 3f, lowX + 24f + 3f) })
+            Assert.IsTrue(bays.Any(p => p.X > pendulumX && p.X < coasterX), $"[{pendulumX}, {coasterX}] 평평한 진자 광차 바닥에 비계가 없다");
+            foreach (var (a, b) in new[] { (19.8f, 22.8f) })
             {
                 Assert.IsFalse(bays.Any(p => p.X > a + 0.01f && p.X < b - 0.01f), $"[{a}, {b}] 굽은 바닥에 비계");
                 Assert.IsTrue(fc.Any(p => p.Layer == 0 && p.Kind == MinePartKind.EdgeRim && p.X > a && p.X < b), $"[{a}, {b}] 바닥 밝은 테가 없다");
@@ -1203,7 +1209,7 @@ namespace LOP.MapTools.Tests
             Assert.IsFalse(fc.Any(p => p.Kind == MinePartKind.CeilingRock || p.Kind == MinePartKind.GateCap), "바닥·천장에 천장 바위·쇠테가 있다");
             var rims = fc.Where(p => p.Kind == MinePartKind.EdgeRim).ToList();
             var judge = new Judge(c);
-            foreach (var (a, b, layer) in new[] { (19.85, 22.75, 0), (lowX - 2.95, lowX + 26.95, 0), (24.85, coasterX - 0.05, 1) })
+            foreach (var (a, b, layer) in new[] { (19.85, 22.75, 0), (24.85, coasterX - 0.05, 1) })
             {
                 for (double x = a; x < b; x += 0.05)
                 {
@@ -1918,14 +1924,15 @@ namespace LOP.MapTools.Tests
             var judge = new Judge(c);
             var t = Coaster(c);
             //  10-12 사람 판 레이아웃 변경: 151.25~206.25 → 171.05~226.05 — 구간 x에서 찾는다.
+            //  10-13 동적 지형: 55 m → 30 m(물결 한 번).
             float coasterX = c.Sections.Single(sec => sec.Name == "레일 롤러코스터").X;
             Assert.AreEqual(coasterX, t.X0, 0.01f);
-            Assert.AreEqual(coasterX + 55f, t.X1, 0.01f);
+            Assert.AreEqual(coasterX + 30f, t.X1, 0.01f);
             var fc = MineDressingLayout.FloorAndCeiling(c, z, From, z.DressEnd);
             double Bottom(double x) => JudgedCenter(t, x) - t.Gap / 2.0;
             double Top(double x) => JudgedCenter(t, x) + t.Gap / 2.0;
 
-            //  1차 규칙(완만 ≤ 15°·길이 ≥ 1.2 → 비계)이 55 m 물결의 바닥(굴 아래 가장자리)에 그대로: 마루·골마다 비계.
+            //  1차 규칙(완만 ≤ 15°·길이 ≥ 1.2 → 비계)이 물결의 바닥(굴 아래 가장자리)에 그대로: 마루·골마다 비계.
             var bays = fc.Where(p => p.Kind == MinePartKind.TrestleBay && p.X > t.X0 && p.X < t.X1).ToList();
             Assert.GreaterOrEqual(bays.Count, 6, "물결의 완만한 칸에 비계가 없다");
             double share = bays.Sum(p => p.Width) / (t.X1 - t.X0);
@@ -2022,7 +2029,8 @@ namespace LOP.MapTools.Tests
             Assert.IsTrue(bays.Where(p => p.X < t.X0 - 1f || p.X > t.X1 + 1f).All(p => !MineDressingLayout.InCoaster(c, p.X)), "굴 밖 비계가 레일을 잃는다");
 
             //  받침 기둥: 바위 띠 칸 밑에 성기게(비계 칸은 다리가 있다), 곧게 서서(−90°) 레일 아래로 바위에 박힌다 — 통로 안엔 없다.
-            Assert.Greater(posts.Count, 8, "받침 기둥이 없다");
+            //  10-13 동적 지형: 롤러코스터 55 → 30 m라 기둥도 그만큼 준다(30 m에 8개) — 문턱 8 → 4.
+            Assert.Greater(posts.Count, 4, "받침 기둥이 없다");
             foreach (var p in posts)
             {
                 Assert.AreEqual(-90f, p.AngleDegrees, Eps, $"{p} 기둥이 기울었다");

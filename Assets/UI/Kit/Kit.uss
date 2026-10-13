@@ -84,11 +84,12 @@
 .kit-nav__icon { width: 48px; height: 48px; font-size: 40px; -unity-text-align: middle-center; }
 .kit-nav__label { font-size: 26px; color: var(--lop-ink); -unity-text-outline-width: 0; }
 
-/* PLAY 460×192 — 주황 면, 숨쉬기는 Breather가 클래스를 토글 */
+/* PLAY 460×192 — 주황 면, 숨쉬기는 Breather가 클래스를 토글.
+ * 글자 간격(letter-spacing)을 준 글자는 폭이 좁게 재져 끝 글자가 다음 줄로 넘어간다 — 고정 문구는 nowrap */
 .kit-play { width: 460px; height: 192px; transition-property: scale; transition-duration: 900ms; transition-timing-function: ease-in-out; }
 .kit-play .sticker { flex-grow: 1; --sticker-face: var(--lop-primary); --sticker-back: var(--lop-primary-shade); }
 .kit-play--breath { scale: 1.03 1.03; }
-.kit-play__label { font-size: 72px; color: #FFFFFF; -unity-text-outline-width: 0; letter-spacing: 2px; }
+.kit-play__label { font-size: 72px; color: #FFFFFF; -unity-text-outline-width: 0; letter-spacing: 2px; white-space: nowrap; }
 .ranked .kit-play { transition-duration: 1300ms; }
 .ranked .kit-play .sticker { --sticker-face: var(--lop-live); --sticker-back: var(--lop-live-shade); }
 
@@ -146,7 +147,7 @@
 .kit-ticker__tag { --sticker-face: var(--lop-live); --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; margin-left: -16px; }
 .kit-ticker__tag .sticker__face { flex-direction: row; padding-left: 96px; padding-right: 44px; }
 .kit-ticker__dot { width: 14px; height: 14px; border-radius: 7px; background-color: #FFFFFF; margin-right: 12px; }
-.kit-ticker__tag-text { font-size: 26px; color: #FFFFFF; letter-spacing: 2px; }
+.kit-ticker__tag-text { font-size: 26px; color: #FFFFFF; letter-spacing: 2px; white-space: nowrap; }
 .kit-ticker__text { flex-grow: 1; flex-shrink: 1; padding: 0 32px; font-size: 26px; color: var(--lop-face); -unity-text-align: middle-left; overflow: hidden; white-space: nowrap; max-width: 1300px; }
 /* 글자 칸은 말줄임 때문에 최대 폭이 있어 넓은 화면에선 다 못 채운다 — 시즌 라벨은 auto 여백으로 오른쪽 끝에 붙인다(시안 lobby.html) */
 .kit-ticker__season { --sticker-face: var(--lop-reward); --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; margin-left: auto; margin-right: -16px; }
@@ -182,3 +183,38 @@
 .kit-toast { height: 88px; min-width: 360px; }
 .kit-toast .sticker__face { padding: 0 40px; }
 .kit-toast__text { font-size: 30px; }
+
+/* 무대 — 그라데이션 대신 판 몇 장(벽·조명·바닥). 로비 홈과 타이틀이 같이 쓴다. 3부 터널(4부)이 오면 바뀐다 */
+.kit-stage { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
+.kit-stage__wall { position: absolute; top: 0; bottom: 0; width: 30%; background-color: #2D2B66; }
+.kit-stage__wall--left { left: 0; }
+.kit-stage__wall--right { right: 0; }
+.kit-stage__light { position: absolute; left: 27%; width: 46%; top: 14%; height: 74%; border-top-left-radius: 50%; border-top-right-radius: 50%; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; background-color: rgba(74, 159, 224, 0.55); justify-content: center; align-items: center; }
+.kit-stage__glow { width: 60%; height: 60%; border-radius: 50%; background-color: rgba(255, 210, 63, 0.8); justify-content: center; align-items: center; }
+.kit-stage__core { width: 50%; height: 50%; border-radius: 50%; background-color: rgba(255, 248, 232, 0.85); }
+.kit-stage__floor { position: absolute; left: 0; right: 0; bottom: 0; height: 26%; background-color: #3D3A86; }
+.ranked .kit-stage__wall { background-color: #221F50; }
+.ranked .kit-stage__light { background-color: rgba(31, 29, 74, 0.6); }
+.ranked .kit-stage__glow { background-color: rgba(232, 50, 47, 0.7); }
+.ranked .kit-stage__floor { background-color: #2D2B66; }
+
+/* 진행 막대 — 크림 트랙 스티커(잉크 뒷면) 위 안쪽 칸에 노란 채움 스티커(뒷면 없음). 채움 폭은 KitProgress가 퍼센트로 준다 */
+.kit-progress { height: 36px; }
+.kit-progress__track { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
+.kit-progress__inner { position: absolute; left: 6px; right: 6px; top: 6px; bottom: 6px; }
+/* 채움은 안쪽 칸(트랙 안 6px 여백) 기준 퍼센트 — 100%여도 트랙 밖으로 넘지 않는다 */
+.kit-progress__fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; max-width: 100%; --sticker-face: var(--lop-reward); --sticker-back: var(--lop-reward); --sticker-back-x: 0; --sticker-back-y: 0; }
+
+/* 자막 띠(하단 자막) — 색 딱지 + 크림 본문, 둘 다 기운 스티커(뒷면 없음). 본문이 딱지 밑으로 20 겹친다 (시안 kit.css .lt) */
+.kit-lt { flex-direction: row; height: 72px; }
+.kit-lt__tag { --sticker-face: var(--lop-primary); --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; }
+.kit-lt__tag .sticker__face { padding: 0 40px 0 28px; }
+.kit-lt__tag-text { font-size: 30px; color: #FFFFFF; white-space: nowrap; }
+.kit-lt__body { margin-left: -20px; --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; }
+.kit-lt__body .sticker__face { padding: 0 52px 0 40px; }
+.kit-lt__body-text { font-size: 30px; color: var(--lop-ink); -unity-text-outline-width: 0; white-space: nowrap; }
+
+/* 큰 판 — 평평한 크림 면, 모서리 10, 밑면 어긋남 6·9. box-shadow가 없어 같은 크기 잉크 판을 뒤에 깐다. 질감 없음 */
+.kit-panel { }
+.kit-panel__back { position: absolute; left: 6px; top: 9px; right: -6px; bottom: -9px; border-radius: 10px; background-color: var(--lop-ink); }
+.kit-panel__face { padding: 48px; border-radius: 10px; background-color: var(--lop-face); align-items: center; }

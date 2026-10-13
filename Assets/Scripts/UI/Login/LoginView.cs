@@ -12,6 +12,7 @@ namespace LOP.UI
         private Button _gpgsButton;
         private Button _gamecenterButton;
         private Label _errorLabel;
+        private Label _noteLabel;
 
         public LoginView(LoginViewModel viewModel)
         {
@@ -20,6 +21,9 @@ namespace LOP.UI
 
         /// <summary>로그인은 임의로 닫을 수 없는 필수 모달.</summary>
         public override bool AutoClose => false;
+
+        /// <summary>타이틀 위에 버튼만 얹는다 — 뒤를 어둡게 덮지 않는다(입력은 백드롭이 막는다).</summary>
+        public override bool DimsBackground => false;
 
         public UniTask<AuthSession> ResultAsync => _viewModel.ResultAsync;
 
@@ -31,6 +35,7 @@ namespace LOP.UI
             _gpgsButton = Root.Q<Button>("gpgs-login");
             _gamecenterButton = Root.Q<Button>("gamecenter-login");
             _errorLabel = Root.Q<Label>("login-error");
+            _noteLabel = Root.Q<Label>("login-note");
 
             SetVisible(_guestButton, _viewModel.ShowGuest);
             SetVisible(_gpgsButton, _viewModel.ShowGpgs);
@@ -68,8 +73,16 @@ namespace LOP.UI
                 return;
             }
 
-            _errorLabel.text = _viewModel.ErrorMessage;
-            SetVisible(_errorLabel, string.IsNullOrEmpty(_viewModel.ErrorMessage) == false);
+            ShowError(_errorLabel, _noteLabel, _viewModel.ErrorMessage);
+        }
+
+        /// <summary>실패 문구가 있으면 안내 글 자리에 대신 보인다(둘이 함께 쌓이면 버튼 줄이 위로 밀린다).</summary>
+        public static void ShowError(Label error, VisualElement note, string message)
+        {
+            bool hasError = string.IsNullOrEmpty(message) == false;
+            error.text = message ?? string.Empty;
+            SetVisible(error, hasError);
+            SetVisible(note, !hasError);
         }
 
         //  로그인 진행 중엔 버튼을 눌러도 반응하지 않게 막는다 — 느린 연결에서 두 번째 클릭이

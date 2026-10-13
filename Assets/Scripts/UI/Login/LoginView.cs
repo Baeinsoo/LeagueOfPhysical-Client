@@ -21,6 +21,9 @@ namespace LOP.UI
         /// <summary>로그인은 임의로 닫을 수 없는 필수 모달.</summary>
         public override bool AutoClose => false;
 
+        /// <summary>타이틀 위에 버튼만 얹는다 — 뒤를 어둡게 덮지 않는다(입력은 백드롭이 막는다).</summary>
+        public override bool DimsBackground => false;
+
         public UniTask<AuthSession> ResultAsync => _viewModel.ResultAsync;
 
         public override void OnOpen()

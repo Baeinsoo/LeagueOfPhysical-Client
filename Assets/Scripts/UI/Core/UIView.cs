@@ -19,6 +19,9 @@ namespace LOP.UI
         /// <summary>아래로의 입력을 막는지. 기본은 모달 여부. 전체화면 오버레이(로딩/매칭)는 모달이 아니어도 true로 override.</summary>
         public virtual bool BlocksUnderlyingInput => IsModal;
 
+        /// <summary>모달일 때 뒤를 어둡게 덮는지. false여도 백드롭은 깔려 아래 입력을 막는다(로그인처럼 뒤 화면이 보여야 할 때).</summary>
+        public virtual bool DimsBackground => true;
+
         protected CompositeDisposable Disposables { get; } = new();
 
         /// <summary>UIManager가 UXML 클론 직후 1회 호출. 파생은 base 호출 후 바인딩.</summary>

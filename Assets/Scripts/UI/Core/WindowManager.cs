@@ -203,10 +203,15 @@ namespace LOP.UI
             backdrop.RemoveFromHierarchy();
             if (topModal == null || !_roots.TryGetValue(topModal, out var topRoot)) return;
 
+            backdrop.style.backgroundColor = BackdropColorFor(topModal);
             int idx = band.IndexOf(topRoot);
             if (idx < 0) idx = band.childCount;
             band.Insert(idx, backdrop);
         }
+
+        /// <summary>맨 위 모달이 뒤를 어둡게 덮는지에 따른 백드롭 색.</summary>
+        public static Color BackdropColorFor(UIView topModal) =>
+            topModal != null && topModal.DimsBackground ? new Color(0f, 0f, 0f, 0.5f) : new Color(0f, 0f, 0f, 0f);
 
         private VisualElement CreateBackdrop(UILayer layer)
         {
@@ -216,7 +221,6 @@ namespace LOP.UI
             b.style.right = 0;
             b.style.top = 0;
             b.style.bottom = 0;
-            b.style.backgroundColor = new Color(0f, 0f, 0f, 0.5f);
             b.pickingMode = PickingMode.Position; // 하단 입력 차단
             b.RegisterCallback<PointerDownEvent>(_ =>
             {

@@ -15,6 +15,7 @@ namespace LOP.MapTools.Tests
     /// 굴 틈 3.4, 계단·급반전 간격 +2.6, 급반전 ±4.5, 갈림길 뒤 여유 3 m). 난수 소비 순서는 그대로라 틈 중심 난수값은 같고, x·길이가 그만큼 밀렸다.
     /// 아래 x·길이 기준값은 그 새 배치에서 뽑았다.</para>
     /// 10-13 동적 지형 1차: 기준값은 시안 v10 "설계안"(PLAN_ORDER) 덤프 — 길이 445.95.
+    /// 시안 v10에서 갈라짐(10-13 검사): 급반전 앞 보통 관문 → 첫 급반전 간격 5.4 → 8 m(FlipLead 2.6) — 급반전부터 뒤는 x·길이가 2.6씩 밀렸다(448.55).
     /// </summary>
     public class MineCourseRuleTests
     {
@@ -32,7 +33,7 @@ namespace LOP.MapTools.Tests
         static List<MineGate> Gates(MineCourse c) => c.Gates.ToList();
 
         [Test]
-        public void 길이는_시안과_같다() => Assert.AreEqual(445.95f, Layout().Length, 0.01f);
+        public void 길이는_시안과_같다() => Assert.AreEqual(448.55f, Layout().Length, 0.01f);   // 시안 v10 445.95에서 갈라짐(10-13 검사, +2.6)
 
         [Test]
         public void 구간_순서와_시작점()
@@ -42,8 +43,8 @@ namespace LOP.MapTools.Tests
             var expect = new (string name, float x)[]
             {
                 ("수직 갱 낙하", 24.8f), ("계단 내리막", 46.85f), ("낙석", 93.05f), ("고수 갈림길 ⬇굴", 119.9f),
-                ("진자 광차", 162.45f), ("레일 롤러코스터", 201.3f), ("급반전", 240.15f), ("고수 갈림길 ⬆굴", 272.75f), ("수직 갱 낙하", 299.9f),
-                ("승강기", 328.15f), ("굴뚝 오르기", 365.55f), ("고수 갈림길 ⬆굴", 392f),
+                ("진자 광차", 162.45f), ("레일 롤러코스터", 201.3f), ("급반전", 240.15f), ("고수 갈림길 ⬆굴", 275.35f), ("수직 갱 낙하", 302.5f),
+                ("승강기", 330.75f), ("굴뚝 오르기", 368.15f), ("고수 갈림길 ⬆굴", 394.6f),
             };
             var secs = Layout().Sections;
             Assert.AreEqual(expect.Length, secs.Count);
@@ -71,7 +72,7 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(3.75f, gates[i].Gap, 1e-4f, $"관문 {i} 틈");
             }
             var last = gates[gates.Count - 1];
-            Assert.AreEqual(437.525f, last.X, 0.002f);
+            Assert.AreEqual(440.125f, last.X, 0.002f);
             Assert.AreEqual(-48.192f, last.GapCenter, 0.002f);
         }
 
@@ -86,9 +87,12 @@ namespace LOP.MapTools.Tests
             var centers = new[] { -44.5f, -49f, -44.5f, -49f };
             for (int i = 0; i < 4; i++)
             {
-                Assert.AreEqual(241.125f + 6.8f * i, flip[i].X, 0.002f, $"급반전 {i} x");
+                Assert.AreEqual(243.725f + 6.8f * i, flip[i].X, 0.002f, $"급반전 {i} x");
                 Assert.AreEqual(centers[i], flip[i].GapCenter, 1e-4f, $"급반전 {i} 틈 중심");
             }
+            //  첫 급반전 앞은 8 m(10-13 검사, 시안 v10 5.4에서 갈라짐) — 앞 보통 관문에서 6 m를 오를 여유.
+            var before = gates.Last(g => g.X < flipX);
+            Assert.AreEqual(8f, flip[0].X - before.X, 0.002f, "앞 보통 관문 → 첫 급반전");
             Assert.IsFalse(c.Lifts.Any(l => l.Gate.X > flipX && l.Gate.X < flipX + 30f), "급반전은 흔들리지 않는다");
         }
 
@@ -121,7 +125,7 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(4, lifts.Count);
             for (int i = 0; i < 4; i++)
             {
-                Assert.AreEqual(329.125f + 8f * i, lifts[i].Gate.X, 0.002f, $"승강기 {i} x");
+                Assert.AreEqual(331.725f + 8f * i, lifts[i].Gate.X, 0.002f, $"승강기 {i} x");
                 Assert.AreEqual(-73f, lifts[i].Gate.GapCenter, 1e-4f);
                 Assert.AreEqual(3.75f, lifts[i].Gate.Gap, 1e-4f);
                 Assert.AreEqual(1.8f, lifts[i].Amplitude, 1e-5f);
@@ -186,8 +190,8 @@ namespace LOP.MapTools.Tests
             var c = Layout();
             var shapes = c.Forks.Select(f => f.Shape).ToArray();
             CollectionAssert.AreEqual(new[] { ForkShape.Collapse, ForkShape.Arc, ForkShape.Rail }, shapes);
-            var expectForks = new (float x0, float x1, bool up)[] { (119.9f, 145.2f, false), (272.75f, 293.45f, true), (392f, 419.3f, true) };
-            var expectPadX = new[] { 133.2f, 281.45f, 407.3f };
+            var expectForks = new (float x0, float x1, bool up)[] { (119.9f, 145.2f, false), (275.35f, 296.05f, true), (394.6f, 421.9f, true) };
+            var expectPadX = new[] { 133.2f, 284.05f, 409.9f };
             for (int i = 0; i < 3; i++)
             {
                 Assert.AreEqual(expectForks[i].x0, c.Forks[i].X0, 0.01f, $"갈림길 {i} X0");

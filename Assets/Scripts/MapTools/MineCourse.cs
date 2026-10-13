@@ -329,6 +329,10 @@ namespace LOP.MapTools
         /// <summary>급반전 관문 사이를 더 띄우는 거리(10-12, 계단과 같은 이유 — 5.4 m에 ±5.5 m는 맵 검사기 봇이 다음 파이프에 박았다.
         /// 10-13 +2.6 → +1.4). 흔들림은 없다 — ±4.5 m 위에 얹으면 박자 절반에서 불가능(시안 검사 6/12).</summary>
         const double FlipExtra = 1.4;
+        /// <summary>급반전 앞 보통 관문 → 첫 급반전 관문 사이를 더 띄우는 거리(10-13 검사: 0 → 2.6, 간격 5.4 → 8 m). 급반전 안 간격(6.8 m)은 그대로다.
+        /// 앞 보통 관문 틈이 난수로 1.5 m 낮게 나와 5.4 m 안에 6 m를 올라야 했다 — 그 관문 뒤 살아남는 높이가 0.2 m뿐이라(구간 검사는 통과)
+        /// 맵 검사기 봇 8/9가 첫 급반전 관문에 박았다. 6.8 m(+1.4)로는 살아남는 높이 2.1 m까지 넓어졌지만 봇 4/9가 여전히 여기서 박았다.</summary>
+        const double FlipLead = 2.6;
         /// <summary>갈림길 끝(칸막이 끝)과 다음 관문 사이에 더 두는 거리(10-12): 위 칸은 칸막이 끝까지 못 내려오는데
         /// 다음 보통 관문이 몇 m 아래 4 m 뒤에 있으면 떨어지다 못 멈춰 박았다(맵 검사기 봇).</summary>
         const double ForkMergeRoom = 3.0;
@@ -555,6 +559,7 @@ namespace LOP.MapTools
                         break;
                     }
                     case "급반전":
+                        cur += FlipLead;
                         for (int i = 0; i < 4; i++) { baseY += (i % 2 == 0) ? Flip : -Flip; Put(PW, baseY); cur += FlipExtra; }
                         break;
                     case "낮은 천장":

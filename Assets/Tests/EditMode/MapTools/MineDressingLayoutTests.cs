@@ -599,12 +599,13 @@ namespace LOP.MapTools.Tests
             //  10-12 펼치기 2차: 옷 범위 끝 = 코스 끝 + 결승선 뒤 여유(옛 값은 첫 레일 롤러코스터 151.25).
             //  10-12 사람 판 레이아웃 변경: 코스 끝 386.15 → 422.35, 마지막 갈림길 끝 362.5 → 395.7.
             //  10-13 동적 지형: 코스 끝 422.35 → 445.95, 마지막 갈림길 끝 395.7 → 419.3(레일 굴 12 m).
-            Assert.AreEqual(445.95f + 20f, z.DressEnd, 0.01f, "옷 범위 끝 = 코스 끝 + 결승선 뒤 여유");
+            //  시안 v10에서 갈라짐(10-13 검사): 첫 급반전 앞 +2.6 — 448.55, 421.9.
+            Assert.AreEqual(448.55f + 20f, z.DressEnd, 0.01f, "옷 범위 끝 = 코스 끝 + 결승선 뒤 여유");
             Assert.AreEqual(Course().Length + MineDressingLayout.EndMargin, z.DressEnd, 1e-3f);
             //  출구 문틀 = 마지막 고수 갈림길 끝 ~ +5 m.
-            Assert.AreEqual(419.3f, z.ExitStart, 0.01f, "출구 문틀 시작 = 마지막 고수 갈림길 끝");
+            Assert.AreEqual(421.9f, z.ExitStart, 0.01f, "출구 문틀 시작 = 마지막 고수 갈림길 끝");
             Assert.AreEqual(Course().Forks.Last().X1, z.ExitStart, 1e-3f, "출구 문틀 시작 = 마지막 고수 갈림길 끝");
-            Assert.AreEqual(424.3f, z.ExitEnd, 0.01f, "출구 문틀 끝 = 시작 + 5");
+            Assert.AreEqual(426.9f, z.ExitEnd, 0.01f, "출구 문틀 끝 = 시작 + 5");
         }
 
         [Test]
@@ -655,8 +656,8 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(2, spans.Count, string.Join(", ", spans));
             Assert.AreEqual(24.8f, spans[0].from, 1e-3f);
             Assert.AreEqual(drop1 + 9.2f + 4f + 3f, spans[0].to, 1e-3f);    // 41.0
-            Assert.AreEqual(drop2 - 2f - 3f, spans[1].from, 1e-3f);          // 294.45
-            Assert.AreEqual(drop2 + 10f + 4f + 3f, spans[1].to, 1e-3f);     // 316.45
+            Assert.AreEqual(drop2 - 2f - 3f, spans[1].from, 1e-3f);          // 297.05
+            Assert.AreEqual(drop2 + 10f + 4f + 3f, spans[1].to, 1e-3f);     // 319.05
             //  갱목 첫 줄(천장 쪽은 원점이 판정선 위 왼끝)이 이 구간을 양끝까지 채운다 — 굽기는 이 구간에서 바닥·천장 조각을 빼므로 틈이 생기면 안 된다.
             var timbers = MineDressingLayout.ShaftWalls(c, z, LookTimberSpacing).Where(p => p.Kind == MinePartKind.ShaftTimber && p.X < spans[0].to + 3f).ToList();
             var ceilingRow = timbers.Where(p => Math.Abs(p.Y - Ceiling(c, p.X)) < 1e-3f).ToList();

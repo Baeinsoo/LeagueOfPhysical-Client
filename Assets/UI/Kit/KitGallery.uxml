@@ -89,5 +89,23 @@
                 <ui:Label text="곧 열려요" class="kit-text kit-toast__text" />
             </lop:StickerElement>
         </ui:VisualElement>
+        <ui:VisualElement class="kit-gallery__row">
+            <ui:VisualElement class="kit-progress kit-gallery__progress">
+                <lop:StickerElement class="kit-progress__track" />
+                <ui:VisualElement class="kit-progress__inner"><lop:StickerElement name="gallery-progress-40" class="kit-progress__fill" style="width: 40%;" /></ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="kit-progress kit-gallery__progress">
+                <lop:StickerElement class="kit-progress__track" />
+                <ui:VisualElement class="kit-progress__inner"><lop:StickerElement class="kit-progress__fill" style="width: 100%;" /></ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="kit-lt">
+                <lop:StickerElement class="kit-lt__tag"><ui:Label text="피지컬 리그" class="kit-title kit-lt__tag-text" /></lop:StickerElement>
+                <lop:StickerElement class="kit-lt__body"><ui:Label text="종목 · 선수 · 중계" class="kit-lt__body-text" /></lop:StickerElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="kit-panel kit-gallery__panel">
+                <ui:VisualElement class="kit-panel__back" />
+                <ui:VisualElement class="kit-panel__face"><ui:Label text="경기장에 닿지 않아요" class="kit-title kit-text" style="font-size: 48px;" /></ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

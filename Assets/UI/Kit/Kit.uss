@@ -182,3 +182,38 @@
 .kit-toast { height: 88px; min-width: 360px; }
 .kit-toast .sticker__face { padding: 0 40px; }
 .kit-toast__text { font-size: 30px; }
+
+/* 무대 — 그라데이션 대신 판 몇 장(벽·조명·바닥). 로비 홈과 타이틀이 같이 쓴다. 3부 터널(4부)이 오면 바뀐다 */
+.kit-stage { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
+.kit-stage__wall { position: absolute; top: 0; bottom: 0; width: 30%; background-color: #2D2B66; }
+.kit-stage__wall--left { left: 0; }
+.kit-stage__wall--right { right: 0; }
+.kit-stage__light { position: absolute; left: 27%; width: 46%; top: 14%; height: 74%; border-top-left-radius: 50%; border-top-right-radius: 50%; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; background-color: rgba(74, 159, 224, 0.55); justify-content: center; align-items: center; }
+.kit-stage__glow { width: 60%; height: 60%; border-radius: 50%; background-color: rgba(255, 210, 63, 0.8); justify-content: center; align-items: center; }
+.kit-stage__core { width: 50%; height: 50%; border-radius: 50%; background-color: rgba(255, 248, 232, 0.85); }
+.kit-stage__floor { position: absolute; left: 0; right: 0; bottom: 0; height: 26%; background-color: #3D3A86; }
+.ranked .kit-stage__wall { background-color: #221F50; }
+.ranked .kit-stage__light { background-color: rgba(31, 29, 74, 0.6); }
+.ranked .kit-stage__glow { background-color: rgba(232, 50, 47, 0.7); }
+.ranked .kit-stage__floor { background-color: #2D2B66; }
+
+/* 진행 막대 — 크림 트랙 스티커(잉크 뒷면) 위 안쪽 칸에 노란 채움 스티커(뒷면 없음). 채움 폭은 KitProgress가 퍼센트로 준다 */
+.kit-progress { height: 36px; }
+.kit-progress__track { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
+.kit-progress__inner { position: absolute; left: 6px; right: 6px; top: 6px; bottom: 6px; }
+/* 채움은 안쪽 칸(트랙 안 6px 여백) 기준 퍼센트 — 100%여도 트랙 밖으로 넘지 않는다 */
+.kit-progress__fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; max-width: 100%; --sticker-face: var(--lop-reward); --sticker-back: var(--lop-reward); --sticker-back-x: 0; --sticker-back-y: 0; }
+
+/* 자막 띠(하단 자막) — 색 딱지 + 크림 본문, 둘 다 기운 스티커(뒷면 없음). 본문이 딱지 밑으로 20 겹친다 (시안 kit.css .lt) */
+.kit-lt { flex-direction: row; height: 72px; }
+.kit-lt__tag { --sticker-face: var(--lop-primary); --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; }
+.kit-lt__tag .sticker__face { padding: 0 40px 0 28px; }
+.kit-lt__tag-text { font-size: 30px; color: #FFFFFF; }
+.kit-lt__body { margin-left: -20px; --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; }
+.kit-lt__body .sticker__face { padding: 0 52px 0 40px; }
+.kit-lt__body-text { font-size: 30px; color: var(--lop-ink); -unity-text-outline-width: 0; }
+
+/* 큰 판 — 평평한 크림 면, 모서리 10, 밑면 어긋남 6·9. box-shadow가 없어 같은 크기 잉크 판을 뒤에 깐다. 질감 없음 */
+.kit-panel { }
+.kit-panel__back { position: absolute; left: 6px; top: 9px; right: -6px; bottom: -9px; border-radius: 10px; background-color: var(--lop-ink); }
+.kit-panel__face { padding: 48px; border-radius: 10px; background-color: var(--lop-face); align-items: center; }

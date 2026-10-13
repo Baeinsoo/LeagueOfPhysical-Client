@@ -2,15 +2,15 @@
     <!-- 로비 홈 (1부 시안 lobby.html). 랭크면 루트에 .ranked가 붙어 톤만 바뀐다. -->
     <ui:VisualElement name="lobbyhome-root" class="kit lobbyhome-root">
         <!-- 무대: 3부 선수 입장 터널 전까지 벽·바닥·조명 판으로 자리만 잡는다 -->
-        <ui:VisualElement class="lobbyhome-stage" picking-mode="Ignore">
-            <ui:VisualElement class="lobbyhome-stage__wall lobbyhome-stage__wall--left" picking-mode="Ignore" />
-            <ui:VisualElement class="lobbyhome-stage__wall lobbyhome-stage__wall--right" picking-mode="Ignore" />
-            <ui:VisualElement class="lobbyhome-stage__light" picking-mode="Ignore">
-                <ui:VisualElement class="lobbyhome-stage__glow" picking-mode="Ignore">
-                    <ui:VisualElement class="lobbyhome-stage__core" picking-mode="Ignore" />
+        <ui:VisualElement class="kit-stage" picking-mode="Ignore">
+            <ui:VisualElement class="kit-stage__wall kit-stage__wall--left" picking-mode="Ignore" />
+            <ui:VisualElement class="kit-stage__wall kit-stage__wall--right" picking-mode="Ignore" />
+            <ui:VisualElement class="kit-stage__light" picking-mode="Ignore">
+                <ui:VisualElement class="kit-stage__glow" picking-mode="Ignore">
+                    <ui:VisualElement class="kit-stage__core" picking-mode="Ignore" />
                 </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement class="lobbyhome-stage__floor" picking-mode="Ignore" />
+            <ui:VisualElement class="kit-stage__floor" picking-mode="Ignore" />
         </ui:VisualElement>
 
         <ui:VisualElement class="lobbyhome-safe" picking-mode="Ignore">

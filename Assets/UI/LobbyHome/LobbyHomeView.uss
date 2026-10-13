@@ -2,15 +2,7 @@
  * 패널은 Expand라 높이가 1080보다 작아지지 않는다 — 넓은 폰은 가로만, 태블릿은 세로만 늘고 버튼은 모서리에 붙어 있다 */
 .lobbyhome-root { flex-grow: 1; background-color: #262458; }
 
-/* 무대 — 그라데이션 대신 판 몇 장. 3부 터널이 오면 통째로 바뀐다 */
-.lobbyhome-stage { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
-.lobbyhome-stage__wall { position: absolute; top: 0; bottom: 0; width: 30%; background-color: #2D2B66; }
-.lobbyhome-stage__wall--left { left: 0; }
-.lobbyhome-stage__wall--right { right: 0; }
-.lobbyhome-stage__light { position: absolute; left: 27%; width: 46%; top: 14%; height: 74%; border-top-left-radius: 50%; border-top-right-radius: 50%; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; background-color: rgba(74, 159, 224, 0.55); justify-content: center; align-items: center; }
-.lobbyhome-stage__glow { width: 60%; height: 60%; border-radius: 50%; background-color: rgba(255, 210, 63, 0.8); justify-content: center; align-items: center; }
-.lobbyhome-stage__core { width: 50%; height: 50%; border-radius: 50%; background-color: rgba(255, 248, 232, 0.85); }
-.lobbyhome-stage__floor { position: absolute; left: 0; right: 0; bottom: 0; height: 26%; background-color: #3D3A86; }
+/* 무대는 키트 .kit-stage(3부 타이틀과 같이 쓴다). 3부 터널이 오면 통째로 바뀐다 */
 
 .lobbyhome-safe { position: absolute; left: 80px; right: 80px; top: 32px; bottom: 0; }
 
@@ -38,10 +30,6 @@
 
 /* 랭크 — 배치는 같고 톤만 가라앉는다(1부 §3.8) */
 .ranked.lobbyhome-root { background-color: #1F1D4A; }
-.ranked .lobbyhome-stage__wall { background-color: #221F50; }
-.ranked .lobbyhome-stage__light { background-color: rgba(31, 29, 74, 0.6); }
-.ranked .lobbyhome-stage__glow { background-color: rgba(232, 50, 47, 0.7); }
-.ranked .lobbyhome-stage__floor { background-color: #2D2B66; }
 .ranked .lobbyhome-rankcard { display: flex; }
 .ranked .lobbyhome-plate .kit-plate__name, .ranked .lobbyhome-plate .kit-plate__meta, .ranked.has-tier #player-tier, .ranked #player-tier { display: none; }
 .ranked .lobbyhome-gamechip { display: none; }

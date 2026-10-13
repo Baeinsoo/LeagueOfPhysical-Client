@@ -6,3 +6,5 @@
 .kit-gallery__tiers .tier-shape { margin-right: 10px; }
 .kit-gallery__badge-host { position: relative; }
 .kit-gallery__ticker { width: 1200px; }
+.kit-gallery__progress { width: 420px; }
+.kit-gallery__panel { width: 640px; }

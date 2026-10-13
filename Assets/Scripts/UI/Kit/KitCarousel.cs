@@ -6,18 +6,20 @@ namespace LOP.UI
 {
     /// <summary>
     /// 가로 ScrollView에 화살표·쪽 점·카드 맞춤 멈춤을 붙인다. 계산은 CarouselPaging이 하고 여기선 화면만 움직인다.
-    /// 카드는 모두 같은 폭이라고 본다(간격은 첫 두 카드 위치 차이로 잰다).
+    /// 카드는 모두 같은 바깥 크기(폭 + 좌우 여백)라고 본다.
     /// </summary>
     public sealed class KitCarousel : IDisposable
     {
         private const long TickMs = 16;
+        //  범위가 늦게 잡혀 끝까지 못 가도 이만큼 해 보고 그만둔다 — 계속 붙잡으면 손으로 미는 걸 덮는다.
+        private const int RevealTries = 30;
         private const float GlideSeconds = 0.22f;
         //  손을 떼고 관성으로 흐르다 이만큼 멈춰 있으면 가까운 카드에 맞춘다.
         private const float SettleSeconds = 0.12f;
 
         private readonly ScrollView _scroll;
-        private readonly VisualElement _prev;
-        private readonly VisualElement _next;
+        private readonly Button _prev;
+        private readonly Button _next;
         private readonly VisualElement _dots;
         private readonly IVisualElementScheduledItem _tick;
 
@@ -29,6 +31,7 @@ namespace LOP.UI
         private float _lastOffset = float.NaN;
         private float _idleTime;
         private int _pendingReveal = -1;
+        private int _revealTriesLeft;
 
         public KitCarousel(ScrollView scroll, Button prev, Button next, VisualElement dots)
         {
@@ -36,12 +39,15 @@ namespace LOP.UI
             _prev = prev;
             _next = next;
             _dots = dots;
-            prev.clicked += () => GlideTo(Paging.Step(Offset, -1));
-            next.clicked += () => GlideTo(Paging.Step(Offset, +1));
+            prev.clicked += OnPrev;
+            next.clicked += OnNext;
             _scroll.RegisterCallback<PointerDownEvent>(OnPointerDown, TrickleDown.TrickleDown);
             _scroll.RegisterCallback<PointerUpEvent>(OnPointerUp, TrickleDown.TrickleDown);
             _scroll.RegisterCallback<PointerCancelEvent>(OnPointerCancel, TrickleDown.TrickleDown);
-            _scroll.RegisterCallback<GeometryChangedEvent>(_ => OnGeometryChanged());
+            //  창 밖에서 손을 떼거나 화면이 사라지면 Up이 안 온다 — 그대로 두면 다시는 맞춰 멈추지 않는다.
+            _scroll.RegisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut, TrickleDown.TrickleDown);
+            _scroll.RegisterCallback<DetachFromPanelEvent>(OnDetach);
+            _scroll.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
             _tick = _scroll.schedule.Execute(Tick).Every(TickMs);
         }
 
@@ -52,8 +58,11 @@ namespace LOP.UI
                 var content = _scroll.contentContainer;
                 int count = content.childCount;
                 float stride = 0;
-                if (count >= 2) stride = content[1].layout.x - content[0].layout.x;
-                else if (count == 1) stride = content[0].layout.width + content[0].resolvedStyle.marginLeft + content[0].resolvedStyle.marginRight;
+                if (count > 0)
+                {
+                    var card = content[0];
+                    stride = CarouselPaging.MeasureStride(card.layout.width, card.resolvedStyle.marginLeft, card.resolvedStyle.marginRight);
+                }
                 float padding = content.resolvedStyle.paddingLeft;
                 return new CarouselPaging(_scroll.contentViewport.layout.width, stride, padding, count);
             }
@@ -61,43 +70,60 @@ namespace LOP.UI
 
         private float Offset => _scroll.scrollOffset.x;
 
+        //  ScrollView가 실제로 갈 수 있는 끝. 계산값과 어긋나도 목표는 이 안으로 자른다.
+        private float RealMax
+        {
+            get
+            {
+                float max = _scroll.contentContainer.layout.width - _scroll.contentViewport.layout.width;
+                return float.IsNaN(max) || max < 0 ? 0f : max;
+            }
+        }
+
+        private bool LaidOut => _scroll.contentViewport.layout.width > 0 && _scroll.contentContainer.layout.width > 0;
+
         /// <summary>index번 카드가 보이게 바로 옮긴다(화면을 열 때 고른 카드로).</summary>
         public void Reveal(int index)
         {
             _pendingReveal = index;
+            _revealTriesLeft = RevealTries;
             TryRevealPending();
         }
 
         //  폭은 레이아웃이 잡힌 뒤에야 안다 — 그 전이면 미뤄 뒀다가 GeometryChanged에서 옮긴다.
         private void TryRevealPending()
         {
-            if (_pendingReveal < 0) return;
-            var content = _scroll.contentContainer;
-            if (_scroll.contentViewport.layout.width <= 0 || content.childCount == 0 || float.IsNaN(content.layout.width) || content.layout.width <= 0) return;
+            if (_pendingReveal < 0 || !LaidOut || _scroll.contentContainer.childCount == 0) return;
             _gliding = false;
-            float target = Paging.Reveal(_pendingReveal, Offset);
+            float target = Mathf.Min(Paging.Reveal(_pendingReveal, Offset), RealMax);
             SetOffset(target);
-            //  스크롤 범위가 아직 안 늘었으면 잘려 들어간다 — 다음 틱에 다시.
-            if (Mathf.Abs(Offset - target) <= 1f) _pendingReveal = -1;
+            //  스크롤 범위가 아직 안 늘었으면 잘려 들어간다 — 몇 틱 더 해 본다.
+            if (Mathf.Abs(Offset - target) <= 1f || --_revealTriesLeft <= 0) _pendingReveal = -1;
         }
 
-        private void OnGeometryChanged()
+        private void OnGeometryChanged(GeometryChangedEvent e)
         {
             TryRevealPending();
             Refresh();
         }
 
+        private void OnPrev() => GlideTo(Paging.Step(Offset, -1));
+
+        private void OnNext() => GlideTo(Paging.Step(Offset, +1));
+
         private void GlideTo(float target)
         {
+            if (float.IsNaN(target)) return;
             _glideFrom = Offset;
-            _glideTo = target;
+            _glideTo = Mathf.Clamp(target, 0f, RealMax);
             _glideTime = 0;
             _gliding = !Mathf.Approximately(_glideFrom, _glideTo);
         }
 
-        private void Tick()
+        private void Tick(TimerState timer)
         {
-            float dt = TickMs / 1000f;
+            //  느린 프레임엔 틱이 덜 온다 — 정해진 16ms가 아니라 실제로 흐른 시간으로 센다.
+            float dt = timer.deltaTime / 1000f;
             TryRevealPending();
             if (_gliding)
             {
@@ -111,8 +137,7 @@ namespace LOP.UI
             {
                 if (Mathf.Approximately(Offset, _lastOffset)) _idleTime += dt;
                 else _idleTime = 0;
-                var paging = Paging;
-                float snap = paging.Snap(Offset);
+                float snap = Mathf.Min(Paging.Snap(Offset), RealMax);
                 if (_idleTime >= SettleSeconds && Mathf.Abs(snap - Offset) > 0.5f) GlideTo(snap);
             }
             if (!Mathf.Approximately(Offset, _lastOffset)) Refresh();
@@ -151,12 +176,21 @@ namespace LOP.UI
 
         private void OnPointerCancel(PointerCancelEvent e) => _pointerDown = false;
 
+        private void OnPointerCaptureOut(PointerCaptureOutEvent e) => _pointerDown = false;
+
+        private void OnDetach(DetachFromPanelEvent e) => _pointerDown = false;
+
         public void Dispose()
         {
             _tick.Pause();
+            _prev.clicked -= OnPrev;
+            _next.clicked -= OnNext;
             _scroll.UnregisterCallback<PointerDownEvent>(OnPointerDown, TrickleDown.TrickleDown);
             _scroll.UnregisterCallback<PointerUpEvent>(OnPointerUp, TrickleDown.TrickleDown);
             _scroll.UnregisterCallback<PointerCancelEvent>(OnPointerCancel, TrickleDown.TrickleDown);
+            _scroll.UnregisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut, TrickleDown.TrickleDown);
+            _scroll.UnregisterCallback<DetachFromPanelEvent>(OnDetach);
+            _scroll.UnregisterCallback<GeometryChangedEvent>(OnGeometryChanged);
         }
     }
 }

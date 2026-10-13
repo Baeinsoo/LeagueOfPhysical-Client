@@ -11,13 +11,13 @@ namespace LOP.Tests
         private static string KitUss => File.ReadAllText("Assets/UI/Kit/Kit.uss");
 
         [Test]
-        public void 무대는_키트에_있고_로비_USS엔_없다()
+        public void 무대는_키트에_있고_타이틀이_쓴다()
         {
             StringAssert.Contains(".kit-stage__light", KitUss);
             StringAssert.Contains(".ranked .kit-stage__glow", KitUss);
             StringAssert.DoesNotContain("lobbyhome-stage", File.ReadAllText("Assets/UI/LobbyHome/LobbyHomeView.uss"));
             StringAssert.DoesNotContain("lobbyhome-stage", File.ReadAllText("Assets/UI/LobbyHome/LobbyHomeView.uxml"));
-            StringAssert.Contains("kit-stage__floor", File.ReadAllText("Assets/UI/LobbyHome/LobbyHomeView.uxml"));
+            StringAssert.Contains("kit-stage__floor", File.ReadAllText("Assets/UI/Title/TitleView.uxml"));
         }
 
         [Test]

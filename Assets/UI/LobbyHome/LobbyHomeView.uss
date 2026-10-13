@@ -1,8 +1,8 @@
 /* 로비 홈 — 1부 시안 lobby.html. 1920×1080 기준, 좌우 80 · 위 32.
  * 패널은 Expand라 높이가 1080보다 작아지지 않는다 — 넓은 폰은 가로만, 태블릿은 세로만 늘고 버튼은 모서리에 붙어 있다 */
-.lobbyhome-root { flex-grow: 1; background-color: #262458; }
+.lobbyhome-root { flex-grow: 1; background-color: rgba(0, 0, 0, 0); }
 
-/* 무대는 키트 .kit-stage(3부 타이틀과 같이 쓴다). 3부 터널이 오면 통째로 바뀐다 */
+/* 가운데는 3D 선수 입장 터널(LobbyStage)이 그린다 — 여긴 배경을 두지 않는다 */
 
 .lobbyhome-safe { position: absolute; left: 80px; right: 80px; top: 32px; bottom: 0; }
 
@@ -29,7 +29,6 @@
 .lobbyhome-ticker { position: absolute; left: 0; right: 0; bottom: 0; }
 
 /* 랭크 — 배치는 같고 톤만 가라앉는다(1부 §3.8) */
-.ranked.lobbyhome-root { background-color: #1F1D4A; }
 .ranked .lobbyhome-rankcard { display: flex; }
 .ranked .lobbyhome-plate .kit-plate__name, .ranked .lobbyhome-plate .kit-plate__meta, .ranked.has-tier #player-tier, .ranked #player-tier { display: none; }
 .ranked .lobbyhome-gamechip { display: none; }

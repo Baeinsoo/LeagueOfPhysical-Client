@@ -1,6 +1,6 @@
 /* LOP 캐주얼 UI 테마 — 토큰
  *
- * 색은 Assets/UI/Title/title_screen.png(타이틀 로고)에서 뽑았다.
+ * 색은 예전 타이틀 키아트(title_screen.png — 10-13 Entrance uGUI와 함께 삭제, git 기록에 있음)에서 뽑았다.
  * 로고와 UI가 같은 색을 쓰게 해서 "로고 따로 UI 따로"인 상태를 없애는 게 목적.
  *
  * 치수는 1920x1080 기준이다 (PanelSettings가 이 해상도 기준으로 스케일).

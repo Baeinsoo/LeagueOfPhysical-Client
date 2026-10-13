@@ -73,5 +73,24 @@ namespace LOP.Tests
             Assert.AreEqual(340f * 3, p.Reveal(3, 2000f), "앞쪽 카드 — 맨 왼쪽에 보이게");
             Assert.AreEqual(2320f, p.Reveal(11, 0f));
         }
+
+        [Test]
+        public void 고른_카드도_같은_간격으로_잰다()
+        {
+            //  보통 카드 300 + 20·20, 고른 카드 312 + 14·14(테두리 6). 위치 차이로 재면 346·334가 나왔다.
+            Assert.AreEqual(340f, CarouselPaging.MeasureStride(300f, 20f, 20f));
+            Assert.AreEqual(340f, CarouselPaging.MeasureStride(312f, 14f, 14f));
+        }
+
+        [Test]
+        public void 레이아웃_전에는_넘길_곳이_없다()
+        {
+            var p = new CarouselPaging(float.NaN, float.NaN, float.NaN, 12);
+            Assert.AreEqual(0f, p.MaxOffset);
+            Assert.AreEqual(1, p.PageCount);
+            Assert.AreEqual(0, p.PageIndex(0));
+            Assert.AreEqual(0f, p.Step(0, +1));
+            Assert.AreEqual(0f, p.Snap(0));
+        }
     }
 }

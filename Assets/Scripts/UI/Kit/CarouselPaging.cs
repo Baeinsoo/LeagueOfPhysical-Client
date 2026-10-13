@@ -20,11 +20,20 @@ namespace LOP.UI
 
         public CarouselPaging(float viewport, float stride, float padding, int count)
         {
-            Viewport = viewport;
-            Stride = stride;
-            Padding = padding;
-            Count = count;
+            //  레이아웃 전에는 폭이 NaN이다 — 0으로 두면 "넘길 곳 없음"이 된다.
+            Viewport = Finite(viewport);
+            Stride = Finite(stride);
+            Padding = Finite(padding);
+            Count = Math.Max(0, count);
         }
+
+        /// <summary>
+        /// 카드 한 장의 가로 길이 = 폭 + 좌우 여백. 고른 카드는 테두리 때문에 폭과 여백이 달라도 합은 같다 —
+        /// 그래서 두 카드의 위치 차이가 아니라 한 장의 바깥 크기로 잰다.
+        /// </summary>
+        public static float MeasureStride(float width, float marginLeft, float marginRight) => Finite(width + marginLeft + marginRight);
+
+        private static float Finite(float v) => float.IsNaN(v) || float.IsInfinity(v) || v < 0 ? 0f : v;
 
         public float ContentWidth => Padding * 2 + Stride * Count;
         public float MaxOffset => Math.Max(0f, ContentWidth - Viewport);
@@ -35,11 +44,12 @@ namespace LOP.UI
         public bool CanPrev(float offset) => offset > Slack;
         public bool CanNext(float offset) => offset < MaxOffset - Slack;
 
-        public int PageCount => MaxOffset <= Slack ? 1 : (int)Math.Ceiling((MaxOffset - Slack) / PageWidth) + 1;
+        public int PageCount => MaxOffset <= Slack || PageWidth <= 0 ? 1 : (int)Math.Ceiling((MaxOffset - Slack) / PageWidth) + 1;
 
         public int PageIndex(float offset)
         {
             if (!CanNext(offset)) return PageCount - 1;
+            if (PageWidth <= 0) return 0;
             return Math.Min(PageCount - 1, (int)Math.Round(offset / PageWidth));
         }
 

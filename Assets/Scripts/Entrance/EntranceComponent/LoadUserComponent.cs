@@ -6,6 +6,8 @@ namespace LOP
     /// <summary>로그인으로 확보한 userId로 유저 부속 데이터를 읽어 온다. 계정 생성은 /auth 몫이다.</summary>
     public class LoadUserComponent : IEntranceComponent
     {
+        public string StepLabel => "선수 기록 불러오는 중";
+
         private readonly IUserDataStore userDataStore;
         private readonly IUserLocationService userLocationService;
 

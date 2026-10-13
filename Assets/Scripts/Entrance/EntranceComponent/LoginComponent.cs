@@ -7,14 +7,18 @@ namespace LOP
 {
     public class LoginComponent : IEntranceComponent
     {
+        public string StepLabel => "선수 확인 중";
+
         private readonly IWindowManager windowManager;
         private readonly AuthenticationService authenticationService;
         private readonly IUserDataStore userDataStore;
         private readonly ServerGate serverGate;
+        private readonly EntranceProgress progress;
 
         public LoginComponent(IWindowManager windowManager, AuthenticationService authenticationService, IUserDataStore userDataStore,
-                              ServerGate serverGate)
+                              ServerGate serverGate, EntranceProgress progress)
         {
+            this.progress = progress;
             this.serverGate = serverGate;
             this.windowManager = windowManager;
             this.authenticationService = authenticationService;

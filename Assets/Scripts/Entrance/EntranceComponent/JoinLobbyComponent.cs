@@ -9,6 +9,8 @@ namespace LOP
 {
     public class JoinLobbyComponent : IEntranceComponent
     {
+        public string StepLabel => "경기장 연결 중";
+
         private readonly IUserDataStore userDataStore;
 
         public JoinLobbyComponent(IUserDataStore userDataStore)

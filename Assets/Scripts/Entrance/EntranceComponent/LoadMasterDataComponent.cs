@@ -7,6 +7,8 @@ namespace LOP
 {
     public class LoadMasterDataComponent : IEntranceComponent
     {
+        public string StepLabel => "데이터 불러오는 중";
+
         private readonly LOP.MasterData.LOPMasterData masterData;
 
         public LoadMasterDataComponent(LOP.MasterData.LOPMasterData masterData)

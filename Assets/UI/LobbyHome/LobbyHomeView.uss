@@ -40,7 +40,7 @@
 .ranked .lobbyhome-lower { translate: 0 0; }
 .lobbyhome-lower__tag { align-self: flex-start; background-color: #E8322F; color: #FFF8E8; font-size: 22px; padding: 4px 18px; letter-spacing: 3px; white-space: nowrap; }
 .lobbyhome-lower__name { flex-direction: row; align-items: flex-end; background-color: #FFF8E8; padding: 6px 24px 2px 24px; }
-.lobbyhome-lower__player { font-size: 46px; color: #2C2A6B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
+.lobbyhome-lower__player { font-size: 46px; color: #2C2A6B; white-space: nowrap; overflow: hidden; max-width: 300px; }
 .lobbyhome-lower__rank { font-size: 26px; color: #B8860B; margin-left: 16px; margin-bottom: 6px; white-space: nowrap; }
 .lobbyhome-lower__stats { flex-direction: row; align-items: center; background-color: #2C2A6B; padding: 8px 24px; margin-top: 8px; }
 .lobbyhome-lower__form { flex-direction: row; align-items: center; margin-right: 22px; }

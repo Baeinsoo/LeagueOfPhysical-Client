@@ -32,6 +32,8 @@ namespace LOP
             lighting.Init(lights, ranked);
 
             _rig = StageRig.Build(transform, layout);
+            _rig.Signs = StageSigns.Build(_rig.transform, layout);
+            _matchmaking.RankCard.Subscribe(card => _rig.Signs.SetRank(card)).AddTo(_subscriptions);
             var effects = gameObject.AddComponent<StageEffects>();
             effects.Init(_rig, lighting, cam, ranked);
             _matchmaking.SelectedQueue.Subscribe(q =>

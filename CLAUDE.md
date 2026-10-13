@@ -18,6 +18,7 @@
 - @../league-of-physical/docs/superpowers/specs/2026-09-28-dodge-game-mode-design.md
 
 > 진행 중인 슬라이스의 spec은 **작업하는 동안만** `@../league-of-physical/docs/superpowers/specs/…` 줄을 더하고, 닫을 때 뺀다.
+- @../league-of-physical/docs/superpowers/specs/2026-10-13-release-ui-title-login-design.md
 
 ## UnityMCP instance targeting
 

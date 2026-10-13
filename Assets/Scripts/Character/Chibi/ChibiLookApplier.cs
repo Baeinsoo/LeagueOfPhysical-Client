@@ -153,6 +153,10 @@ namespace LOP
                     {
                         DestroySafely(oldRenderer.sharedMaterial);
                     }
+                    //  플레이 중 Destroy는 프레임 끝까지 미뤄진다 — 같은 프레임에 다시 입히면 Find가 이 옛 것을
+                    //  또 찾아 새로 만든 것이 남는다. 이름을 바꾸고 꺼서 다시는 찾히지 않게 한다.
+                    existing.name = childName + "(removed)";
+                    existing.gameObject.SetActive(false);
                     DestroySafely(existing.gameObject);
                 }
             }

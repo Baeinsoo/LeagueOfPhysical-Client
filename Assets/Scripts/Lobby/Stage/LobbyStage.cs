@@ -65,6 +65,7 @@ namespace LOP
                 sun.transform.SetParent(parent, false);
                 sun.type = LightType.Directional;
                 sun.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+                sun.shadows = LightShadows.Soft;   // Lobby 씬의 해와 같게 — 미리보기가 실행 화면과 같은 그림자를 보도록
             }
 
             var end = new GameObject("EndPointLight").AddComponent<Light>();
@@ -89,6 +90,7 @@ namespace LOP
             pool.transform.localScale = new Vector3(1.6f, 0.005f, 1.6f);
             var poolRenderer = pool.GetComponent<Renderer>();
             poolRenderer.sharedMaterial = LobbyTunnel.MakeGlowMaterial("#FFF8E8");
+            poolRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
             return new StageLights { Sun = sun, EndPoint = end, Spot = spot, EndGlow = endGlow, FootPool = poolRenderer };
         }

@@ -20,6 +20,9 @@ namespace LOP.Tests
             //  바닥1·벽2·천장1·기둥16·보8·바닥 줄1·끝 빛1
             Assert.AreEqual(30, tunnel.transform.childCount);
             Assert.AreEqual(0, tunnel.GetComponentsInChildren<Collider>().Length);
+            //  닫힌 천장이 씬 해의 그림자를 터널 전체에 드리우지 않게 — 그림자는 선수만 만든다.
+            foreach (var r in tunnel.GetComponentsInChildren<Renderer>())
+                Assert.AreEqual(UnityEngine.Rendering.ShadowCastingMode.Off, r.shadowCastingMode, r.name);
             Assert.AreEqual(layout.EndGlowZ, glow.transform.position.z, 1e-3);
         }
 
@@ -76,6 +79,24 @@ namespace LOP.Tests
             player.AttachVisual(body);
             Assert.AreSame(look, player.AppliedLook);
             Assert.AreEqual(LobbyPlayer.StandPosition, body.transform.position);
+        }
+
+        [Test]
+        public void 같은_룩이_다시_오면_다시_입히지_않는다()
+        {
+            //  상점을 열면 진행도·장착이 한 프레임에 연달아 바뀐다. 같은 룩을 두 번 입히면 플레이 중엔
+            //  옛 모자가 프레임 끝까지 남아 있어 새 모자가 하나씩 쌓인다(리뷰 지적).
+            var player = _root.AddComponent<LobbyPlayer>();
+            var body = new GameObject("body");
+            body.transform.SetParent(_root.transform);
+            player.AttachVisual(body);
+            var first = new PlayerLook(new System.Collections.Generic.Dictionary<string, string> { ["hat"] = "hat_cube_red" }, "a", 3);
+            player.SetLook(first);
+            player.SetLook(new PlayerLook(new System.Collections.Generic.Dictionary<string, string> { ["hat"] = "hat_cube_red" }, "a", 4));
+            Assert.AreSame(first, player.AppliedLook, "슬롯이 같으면 다시 입히지 않는다");
+            var changed = new PlayerLook(new System.Collections.Generic.Dictionary<string, string>(), "a", 4);
+            player.SetLook(changed);
+            Assert.AreSame(changed, player.AppliedLook, "슬롯이 바뀌면 다시 입힌다");
         }
     }
 }

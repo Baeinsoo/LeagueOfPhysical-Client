@@ -50,8 +50,23 @@ namespace LOP
 
         public void SetLook(PlayerLook look)
         {
+            //  상점을 열면 진행도·장착이 한 프레임에 연달아 바뀌어 같은 룩이 두 번 온다. 다시 입히지 않는다 —
+            //  플레이 중 옛 모자는 프레임 끝에야 지워져서, 같은 프레임에 또 입히면 모자가 하나씩 쌓인다.
+            if (AppliedLook != null && SameSlots(AppliedLook, look))
+            {
+                _look = look;
+                return;
+            }
             _look = look;
             Dress();
+        }
+
+        private static bool SameSlots(PlayerLook a, PlayerLook b)
+        {
+            if (b == null || a.Slots.Count != b.Slots.Count) return false;
+            foreach (var kv in a.Slots)
+                if (b.SlotOrNull(kv.Key) != kv.Value) return false;
+            return true;
         }
 
         public void AttachVisual(GameObject visual)

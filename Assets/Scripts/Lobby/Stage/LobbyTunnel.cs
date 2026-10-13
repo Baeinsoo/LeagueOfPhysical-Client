@@ -41,6 +41,7 @@ namespace LOP
             end.transform.localScale = new Vector3(w, h, 1f);
             endGlow = end.GetComponent<Renderer>();
             endGlow.sharedMaterial = glow;
+            endGlow.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             return root;
         }
 
@@ -66,7 +67,10 @@ namespace LOP
             go.transform.SetParent(root.transform, false);
             go.transform.localPosition = position;
             go.transform.localScale = size;
-            go.GetComponent<Renderer>().sharedMaterial = material;
+            var r = go.GetComponent<Renderer>();
+            r.sharedMaterial = material;
+            //  닫힌 천장·벽이 씬 해의 그림자를 터널 전체에 드리운다 — 그림자는 선수만 만든다.
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
         /// <summary>빛나는 면(끝 빛·발밑 원) 재질 — 그림자색을 바탕색과 같게 해 조명과 상관없이 밝고, 외곽선이 없다.</summary>

@@ -1,9 +1,15 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="unreachable-root" class="unreachable-root">
-        <ui:VisualElement class="card unreachable-card">
-            <ui:Label text="연결 실패" class="title unreachable-title" />
-            <ui:Label name="unreachable-message" text="" class="unreachable-message" />
-            <ui:Button name="unreachable-retry" text="다시 시도" class="btn btn--primary unreachable-button" />
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 서버 연결 실패 (시안 title.html 공통). 타이틀 위 크림 판, 뒤는 어둡게(기본 백드롭) -->
+    <ui:VisualElement name="unreachable-root" class="kit unreachable-root">
+        <ui:VisualElement class="kit-panel unreachable-panel">
+            <ui:VisualElement class="kit-panel__back" />
+            <ui:VisualElement class="kit-panel__face">
+                <ui:Label text="경기장에 닿지 않아요" class="kit-title unreachable-title" />
+                <ui:Label name="unreachable-message" text="" class="kit-text unreachable-message" />
+                <ui:Button name="unreachable-retry" class="kit-press kit-play unreachable-retry">
+                    <lop:StickerElement><ui:Label text="다시 시도" class="kit-title kit-play__label unreachable-retry__label" /></lop:StickerElement>
+                </ui:Button>
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

@@ -1,10 +1,19 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="login-root" class="login-root">
-        <ui:VisualElement name="login-card" class="card login-card">
-            <ui:Label text="LEAGUE OF PHYSICAL" class="title login-title" />
-            <ui:Button name="guest-login" text="Guest Login" class="btn btn--primary login-button" />
-            <ui:Button name="gpgs-login" text="Google Play" class="btn btn--secondary login-button" />
-            <ui:Button name="gamecenter-login" text="Game Center" class="btn btn--secondary login-button" />
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 로그인 (시안 title.html A-2). 타이틀 위, 진행 막대 자리에 버튼 줄. 뒤를 어둡게 덮지 않는다(LoginView.DimsBackground) -->
+    <ui:VisualElement name="login-root" class="kit login-root" picking-mode="Ignore">
+        <ui:VisualElement class="login-group">
+            <ui:VisualElement class="login-row">
+                <ui:Button name="guest-login" class="kit-press kit-play login-guest">
+                    <lop:StickerElement><ui:Label text="입장" class="kit-title kit-play__label login-guest__label" /></lop:StickerElement>
+                </ui:Button>
+                <ui:Button name="gpgs-login" class="kit-press kit-btn kit-btn--info login-alt">
+                    <lop:StickerElement><ui:Label text="Google Play로 시작" class="kit-btn__label" /></lop:StickerElement>
+                </ui:Button>
+                <ui:Button name="gamecenter-login" class="kit-press kit-btn kit-btn--info login-alt">
+                    <lop:StickerElement><ui:Label text="Game Center로 시작" class="kit-btn__label" /></lop:StickerElement>
+                </ui:Button>
+            </ui:VisualElement>
+            <ui:Label text="입장을 누르면 게스트로 바로 시작합니다" class="login-note" />
             <ui:Label name="login-error" text="" class="login-error" style="display: none;" />
         </ui:VisualElement>
     </ui:VisualElement>

@@ -43,6 +43,49 @@ namespace LOP.Tests
             Assert.IsFalse(rig.transform.Find("Bunting").gameObject.activeSelf);
         }
 
+        [Test]
+        public void 현수막은_기둥_조명_띠보다_안쪽에_있다()
+        {
+            //  띠가 현수막 앞을 지나가면 티어 도형·이름을 가로지른다(리뷰 지적).
+            var layout = new TunnelLayout();
+            var rig = StageRig.Build(_root.transform, layout);
+            var signs = StageSigns.Build(_root.transform, layout);
+            float stripInner = float.MaxValue;
+            foreach (Transform t in rig.transform.Find("PillarStrips"))
+                stripInner = Mathf.Min(stripInner, Mathf.Abs(t.localPosition.x) - t.localScale.x / 2f);
+            int n = 0;
+            foreach (Transform t in signs.transform)
+            {
+                if (t.name != "Sign_pennant") continue;
+                n++;
+                Assert.Less(Mathf.Abs(t.localPosition.x), stripInner);
+            }
+            Assert.AreEqual(4, n);
+        }
+
+        [Test]
+        public void 조명_쇼가_어두울_땐_빛나는_부품도_어둡다()
+        {
+            var rig = StageRig.Build(_root.transform, new TunnelLayout());
+            var w = new StageEffectWeights(ranked: true);
+            rig.Pose(1f, w, float.PositiveInfinity);
+            float lit = Brightest(rig, "Runway");
+            rig.Pose(1f, w, 0.8f);
+            Assert.Less(Brightest(rig, "Runway"), lit * 0.2f, "쇼의 어두운 순간엔 런웨이도 꺼진다");
+        }
+
+        private static float Brightest(StageRig rig, string group)
+        {
+            var mpb = new MaterialPropertyBlock();
+            float max = 0f;
+            foreach (var r in rig.transform.Find(group).GetComponentsInChildren<Renderer>())
+            {
+                r.GetPropertyBlock(mpb);
+                max = Mathf.Max(max, mpb.GetColor("_BaseColor").maxColorComponent);
+            }
+            return max;
+        }
+
         private StageEffects MakeEffects(bool ranked, out LobbyLighting lighting)
         {
             var rig = StageRig.Build(_root.transform, new TunnelLayout());

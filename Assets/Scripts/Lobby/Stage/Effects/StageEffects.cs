@@ -57,7 +57,7 @@ namespace LOP
             if (_rig != null)
             {
                 _rig.Pose(_time, Weights, ShowT);
-                if (_rig.Signs != null) _rig.Signs.SetWeight(Weights.Weight(StageEffect.Signs));
+                if (_rig.Signs != null) _rig.Signs.SetWeight(Weights.Weight(StageEffect.Signs) * LightShowCurve.Dim(ShowT));
                 if (_rig.Crowd != null) _rig.Crowd.Tick(dt, Weights.Weight(StageEffect.Crowd));
             }
             if (_camT < 1f) _camT = Mathf.Min(1f, _camT + dt / CameraBlendSeconds);

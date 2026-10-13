@@ -101,8 +101,10 @@ namespace LOP.UI
             Root.Q<TierShapeElement>("player-tier").SetTier(card.TierCode);
             //  표시 여부는 USS가 정한다(.has-tier, 랭크면 숨김) — 인라인 display는 USS를 이겨서 쓰지 않는다.
             Root.Q("lobbyhome-root").EnableInClassList("has-tier", card.TierCode != null);
-            Root.Q<Label>("lower-rank").text = string.IsNullOrEmpty(card.Headline) ? string.Empty : $"★ {card.Headline}";
-            Root.Q<Label>("lower-sub").text = card.Subline ?? string.Empty;
+            var lower = LowerThirdText.From(card);
+            KitEllipsis.SetText(Root.Q<Label>("lower-rank"), lower.Rank);
+            Root.Q<Label>("lower-sub").text = lower.Sub;
+            RefreshLowerStats();
         }
 
         private void RefreshName()
@@ -174,6 +176,15 @@ namespace LOP.UI
             }
             //  랭크 판이 하나도 없으면 "최근 5경기" 줄을 숨긴다 — 빈 칸으로 두지 않는다.
             Root.Q("lower-form").style.display = placements.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            RefreshLowerStats();
+        }
+
+        //  아래 줄에 쓸 것이 하나도 없으면(랭크 판 없음 + 부가 문구 없음) 빈 남색 띠를 남기지 않고 숨긴다.
+        private void RefreshLowerStats()
+        {
+            bool hasForm = Root.Q("lower-chips").childCount > 0;
+            bool hasSub = !string.IsNullOrEmpty(Root.Q<Label>("lower-sub").text);
+            Root.Q("lower-stats").style.display = hasForm || hasSub ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
         private void BlinkLive()

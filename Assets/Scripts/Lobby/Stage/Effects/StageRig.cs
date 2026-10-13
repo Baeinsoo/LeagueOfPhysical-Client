@@ -172,6 +172,8 @@ namespace LOP
             float bunting = w.Weight(StageEffect.Bunting), confetti = w.Weight(StageEffect.Confetti);
             float runway = w.Weight(StageEffect.Runway), search = w.Weight(StageEffect.Searchlights);
             float flash = w.Weight(StageEffect.Flashes), show = w.Weight(StageEffect.LightShow);
+            //  쇼의 어두운 순간엔 빛나는 부품도 함께 꺼진다 — 기둥 띠만 차례로 켜져야 쇼가 읽힌다.
+            float dim = LightShowCurve.Dim(showT);
 
             _bunting.SetActive(bunting > 0.5f);
             _confetti.SetActive(confetti > 0.01f);
@@ -188,7 +190,7 @@ namespace LOP
             _runway.SetActive(runway > 0.01f);
             if (runway > 0.01f)
                 foreach (var r in _runwayTiles)
-                    SetGlow(r, Color.Lerp(RunwayOff, StageWhite, RunwayPulse.Brightness(r.transform.localPosition.z, time) * runway));
+                    SetGlow(r, Color.Lerp(RunwayOff, StageWhite, RunwayPulse.Brightness(r.transform.localPosition.z, time) * runway) * dim);
 
             _strips.SetActive(show > 0.01f);
             if (show > 0.01f)
@@ -203,7 +205,7 @@ namespace LOP
                 foreach (var b in _beams)
                 {
                     b.pivot.localRotation = Quaternion.Euler(-14f + Mathf.Sin(time * 0.4f + b.phase) * 7f, 0f, Mathf.Sin(time * 0.6f * b.dir + b.phase) * 31.5f);
-                    SetStageGlow(b.r, new Color(0.92f, 0.95f, 1f, 0.2f * search));
+                    SetStageGlow(b.r, new Color(0.92f, 0.95f, 1f, 0.2f * search * dim));
                 }
 
             _flashes.SetActive(flash > 0.5f);
@@ -218,7 +220,7 @@ namespace LOP
                     var tr = _flashDots[i].transform;
                     tr.localPosition = new Vector3(side * (_layout.Width / 2f - 0.02f), 1.2f + Hash(i, cycle + 7) * 1.6f, 6f + Hash(i, cycle + 13) * 14f);
                     tr.localRotation = Quaternion.Euler(0f, side * -90f, 0f);
-                    SetStageGlow(_flashDots[i], new Color(1f, 1f, 1f, Mathf.Max(0f, 1f - local / 0.12f)));
+                    SetStageGlow(_flashDots[i], new Color(1f, 1f, 1f, Mathf.Max(0f, 1f - local / 0.12f) * dim));
                 }
         }
 

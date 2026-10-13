@@ -90,7 +90,8 @@ namespace LOP
             {
                 lights.FootPool.enabled = v.Spotlight;
                 //  꺼질 때·켜질 때 세기를 따라 바닥색에서 크림색으로 차오른다.
-                var pool = Color.Lerp(FloorColor, PoolColor, Mathf.Clamp01(v.SpotIntensity / StageLighting.For(true).SpotIntensity));
+                var pool = Color.Lerp(FloorColor, PoolColor, Mathf.Clamp01(v.SpotIntensity / StageLighting.For(true).SpotIntensity)) * dim;   // 조명 쇼의 어두운 순간엔 발밑 원도 꺼진다
+                pool.a = 1f;
                 var m = lights.FootPool.sharedMaterial;
                 if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", pool);
                 if (m.HasProperty("_ShadowColor")) m.SetColor("_ShadowColor", pool);

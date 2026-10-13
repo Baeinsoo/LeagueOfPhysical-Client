@@ -36,12 +36,12 @@
 .ranked .kit-ticker__tag-text { letter-spacing: 3px; }
 
 /* 방송 선수 소개 자막 — 랭크에서 왼쪽 밖에서 미끄러져 들어온다(0.25초 뒤, 0.55초) */
-.lobbyhome-lower { position: absolute; left: 0; bottom: 92px; max-width: 640px; translate: -130% 0; transition-property: translate; transition-duration: 0.55s; transition-delay: 0.25s; transition-timing-function: ease-out-cubic; }
+.lobbyhome-lower { position: absolute; left: 0; bottom: 92px; max-width: 640px; translate: -800px 0; transition-property: translate; transition-duration: 0.55s; transition-delay: 0.25s; transition-timing-function: ease-out-cubic; }
 .ranked .lobbyhome-lower { translate: 0 0; }
 .lobbyhome-lower__tag { align-self: flex-start; background-color: #E8322F; color: #FFF8E8; font-size: 22px; padding: 4px 18px; letter-spacing: 3px; white-space: nowrap; }
 .lobbyhome-lower__name { flex-direction: row; align-items: flex-end; background-color: #FFF8E8; padding: 6px 24px 2px 24px; }
-.lobbyhome-lower__player { font-size: 46px; color: #2C2A6B; white-space: nowrap; overflow: hidden; max-width: 300px; }
-.lobbyhome-lower__rank { font-size: 26px; color: #B8860B; margin-left: 16px; margin-bottom: 6px; white-space: nowrap; }
+.lobbyhome-lower__player { font-size: 46px; color: #2C2A6B; white-space: nowrap; overflow: hidden; max-width: 260px; flex-shrink: 0; }
+.lobbyhome-lower__rank { font-size: 26px; color: #B8860B; margin-left: 16px; margin-bottom: 6px; white-space: nowrap; overflow: hidden; max-width: 300px; flex-shrink: 0; }
 .lobbyhome-lower__stats { flex-direction: row; align-items: center; background-color: #2C2A6B; padding: 8px 24px; margin-top: 8px; }
 .lobbyhome-lower__form { flex-direction: row; align-items: center; margin-right: 22px; }
 .lobbyhome-lower__label { color: #FFF8E8; font-size: 22px; margin-right: 10px; white-space: nowrap; }

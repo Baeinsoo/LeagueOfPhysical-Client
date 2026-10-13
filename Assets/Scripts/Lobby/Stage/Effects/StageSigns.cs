@@ -30,7 +30,8 @@ namespace LOP
                 Debug.LogWarning($"[StageSigns] 리소스를 못 찾아 간판 없이 간다: {PanelSettingsResource} / {UxmlResource}");
                 return signs;
             }
-            float px = layout.Width / 2f - layout.PillarSize / 2f - 0.26f;
+            //  기둥 조명 띠(안쪽 면 −0.27, 폭 0.05)보다 안쪽 — 띠가 현수막 앞을 지나가면 티어 도형·이름을 가로지른다.
+            float px = layout.Width / 2f - layout.PillarSize / 2f - 0.33f;
             signs.Add(panel, uxml, "board", new Vector2(720, 180), new Vector3(0f, layout.BeamY - 0.65f, 11.6f), 0f, 3.6f / 7.2f);   // 뒤쪽 보 바로 앞 — 앞 보(z=9)는 히어로 카메라에 너무 커 중계 표시를 가렸다
             foreach (float z in new[] { 6f, 12f })
                 foreach (float s in new[] { -1f, 1f })

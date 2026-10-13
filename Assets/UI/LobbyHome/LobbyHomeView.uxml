@@ -33,6 +33,21 @@
                 <ui:Button name="nav-season" class="kit-press kit-nav"><lop:StickerElement><ui:Label text="🏆" class="kit-nav__icon" /><ui:Label text="시즌" class="kit-nav__label" /></lop:StickerElement></ui:Button>
                 <ui:Button name="nav-settings" class="kit-press kit-nav"><lop:StickerElement><ui:Label text="⚙️" class="kit-nav__icon" /><ui:Label text="설정" class="kit-nav__label" /></lop:StickerElement></ui:Button>
             </ui:VisualElement>
+            <!-- 왼쪽 아래: 방송 선수 소개 자막(랭크에서만 들어온다) -->
+            <ui:VisualElement name="lower-third" class="lobbyhome-lower" picking-mode="Ignore">
+                <ui:Label text="RANKED · 출전 대기" class="kit-title lobbyhome-lower__tag" />
+                <ui:VisualElement class="lobbyhome-lower__name">
+                    <ui:Label name="lower-player" class="kit-title lobbyhome-lower__player" />
+                    <ui:Label name="lower-rank" class="kit-title lobbyhome-lower__rank" />
+                </ui:VisualElement>
+                <ui:VisualElement class="lobbyhome-lower__stats">
+                    <ui:VisualElement name="lower-form" class="lobbyhome-lower__form">
+                        <ui:Label text="최근 5경기" class="lobbyhome-lower__label" />
+                        <ui:VisualElement name="lower-chips" class="lobbyhome-lower__chips" />
+                    </ui:VisualElement>
+                    <ui:Label name="lower-sub" class="lobbyhome-lower__sub" />
+                </ui:VisualElement>
+            </ui:VisualElement>
             <!-- 오른쪽 아래: 전환 칩 → PLAY → 종목 칩(랭크면 안내 칩) -->
             <ui:VisualElement class="lobbyhome-play-group" picking-mode="Ignore">
                 <ui:VisualElement class="kit-toggle">
@@ -51,6 +66,16 @@
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
+
+        <!-- 중계 표시(랭크에서만): 위 가운데 LIVE 띠 + 화면 모서리 프레임 -->
+        <ui:VisualElement name="broadcast" class="lobbyhome-broadcast" picking-mode="Ignore">
+            <ui:Label name="broadcast-live" text="● LIVE" class="kit-title lobbyhome-broadcast__live" />
+            <ui:Label text="LOP 아레나 · 리그 경기" class="lobbyhome-broadcast__text" />
+        </ui:VisualElement>
+        <ui:VisualElement class="lobbyhome-corner lobbyhome-corner--tl" picking-mode="Ignore" />
+        <ui:VisualElement class="lobbyhome-corner lobbyhome-corner--tr" picking-mode="Ignore" />
+        <ui:VisualElement class="lobbyhome-corner lobbyhome-corner--bl" picking-mode="Ignore" />
+        <ui:VisualElement class="lobbyhome-corner lobbyhome-corner--br" picking-mode="Ignore" />
 
         <!-- 맨 아래: 띠 -->
         <ui:VisualElement class="kit-ticker lobbyhome-ticker">

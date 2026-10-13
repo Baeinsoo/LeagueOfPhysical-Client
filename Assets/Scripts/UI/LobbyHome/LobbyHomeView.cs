@@ -13,6 +13,7 @@ namespace LOP.UI
         private const long RankedHalfBreathMs = 1300;
         private const long TickerIntervalMs = 4000;
         private const long NameRefreshMs = 500;
+        private const long LiveBlinkMs = 600;
 
         private static readonly string[] CasualTicker = { "오늘의 경기 · 피지컬 리그", "새 시즌 진행 중" };
         private const string RankedTicker = "리그 경기 · 승점이 걸려 있습니다 · 나가면 꼴찌로 기록";
@@ -26,6 +27,8 @@ namespace LOP.UI
         private Breather _breather;
         private IVisualElementScheduledItem _tickerItem;
         private IVisualElementScheduledItem _nameItem;
+        private IVisualElementScheduledItem _liveItem;
+        private bool _liveOn = true;
         private string _shownName;
         private int _tickerIndex;
 
@@ -63,6 +66,8 @@ namespace LOP.UI
             _matchmaking.SelectedGameIndex.Subscribe(_ => RefreshGameChip()).AddTo(_subscriptions);
             _matchmaking.SelectedMapIndex.Subscribe(_ => RefreshGameChip()).AddTo(_subscriptions);
             _matchmaking.RankCard.Subscribe(OnRankCard).AddTo(_subscriptions);
+            _matchmaking.RecentPlacements.Subscribe(OnRecentPlacements).AddTo(_subscriptions);
+            _liveItem = Root.schedule.Execute(BlinkLive).Every(LiveBlinkMs);
 
             _economy.Progress.CombineLatest(_economy.Coins, (progress, coins) => CoinChipText(progress, coins))
                 .Subscribe(text => Root.Q<Label>("coin-value").text = $"🪙 {text}").AddTo(_subscriptions);
@@ -96,6 +101,8 @@ namespace LOP.UI
             Root.Q<TierShapeElement>("player-tier").SetTier(card.TierCode);
             //  표시 여부는 USS가 정한다(.has-tier, 랭크면 숨김) — 인라인 display는 USS를 이겨서 쓰지 않는다.
             Root.Q("lobbyhome-root").EnableInClassList("has-tier", card.TierCode != null);
+            Root.Q<Label>("lower-rank").text = string.IsNullOrEmpty(card.Headline) ? string.Empty : $"★ {card.Headline}";
+            Root.Q<Label>("lower-sub").text = card.Subline ?? string.Empty;
         }
 
         private void RefreshName()
@@ -104,6 +111,7 @@ namespace LOP.UI
             if (name == _shownName) return;
             _shownName = name;
             KitEllipsis.SetText(Root.Q<Label>("player-name"), name);
+            KitEllipsis.SetText(Root.Q<Label>("lower-player"), name);
         }
 
         private void RefreshGameChip()
@@ -146,7 +154,32 @@ namespace LOP.UI
             _tickerItem = null;
             _nameItem?.Pause();
             _nameItem = null;
+            _liveItem?.Pause();
+            _liveItem = null;
             base.OnClose();
+        }
+
+        public static string PlacementChipText(int placement) => $"{placement}위";
+
+        private void OnRecentPlacements(System.Collections.Generic.IReadOnlyList<int> placements)
+        {
+            var chips = Root.Q("lower-chips");
+            chips.Clear();
+            foreach (int p in placements)
+            {
+                var chip = new Label(PlacementChipText(p));
+                chip.AddToClassList("lobbyhome-lower__chip");
+                if (p == 1) chip.AddToClassList("lobbyhome-lower__chip--first");
+                chips.Add(chip);
+            }
+            //  랭크 판이 하나도 없으면 "최근 5경기" 줄을 숨긴다 — 빈 칸으로 두지 않는다.
+            Root.Q("lower-form").style.display = placements.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        private void BlinkLive()
+        {
+            _liveOn = !_liveOn;
+            Root.Q("broadcast-live").style.visibility = _liveOn ? Visibility.Visible : Visibility.Hidden;
         }
 
         private void OnPlayClicked() => _matchmaking.Play();

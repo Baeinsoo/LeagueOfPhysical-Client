@@ -31,7 +31,7 @@ namespace LOP
                 return signs;
             }
             float px = layout.Width / 2f - layout.PillarSize / 2f - 0.26f;
-            signs.Add(panel, uxml, "board", new Vector2(720, 180), new Vector3(0f, layout.BeamY - 0.65f, 9f), 0f, 3.6f / 7.2f);
+            signs.Add(panel, uxml, "board", new Vector2(720, 180), new Vector3(0f, layout.BeamY - 0.65f, 11.6f), 0f, 3.6f / 7.2f);   // 뒤쪽 보 바로 앞 — 앞 보(z=9)는 히어로 카메라에 너무 커 중계 표시를 가렸다
             foreach (float z in new[] { 6f, 12f })
                 foreach (float s in new[] { -1f, 1f })
                     signs.Add(panel, uxml, "pennant", new Vector2(140, 350), new Vector3(s * px, 2.6f, z), s * 90f, 0.7f / 1.4f);

@@ -84,11 +84,12 @@
 .kit-nav__icon { width: 48px; height: 48px; font-size: 40px; -unity-text-align: middle-center; }
 .kit-nav__label { font-size: 26px; color: var(--lop-ink); -unity-text-outline-width: 0; }
 
-/* PLAY 460×192 — 주황 면, 숨쉬기는 Breather가 클래스를 토글 */
+/* PLAY 460×192 — 주황 면, 숨쉬기는 Breather가 클래스를 토글.
+ * 글자 간격(letter-spacing)을 준 글자는 폭이 좁게 재져 끝 글자가 다음 줄로 넘어간다 — 고정 문구는 nowrap */
 .kit-play { width: 460px; height: 192px; transition-property: scale; transition-duration: 900ms; transition-timing-function: ease-in-out; }
 .kit-play .sticker { flex-grow: 1; --sticker-face: var(--lop-primary); --sticker-back: var(--lop-primary-shade); }
 .kit-play--breath { scale: 1.03 1.03; }
-.kit-play__label { font-size: 72px; color: #FFFFFF; -unity-text-outline-width: 0; letter-spacing: 2px; }
+.kit-play__label { font-size: 72px; color: #FFFFFF; -unity-text-outline-width: 0; letter-spacing: 2px; white-space: nowrap; }
 .ranked .kit-play { transition-duration: 1300ms; }
 .ranked .kit-play .sticker { --sticker-face: var(--lop-live); --sticker-back: var(--lop-live-shade); }
 
@@ -146,7 +147,7 @@
 .kit-ticker__tag { --sticker-face: var(--lop-live); --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; margin-left: -16px; }
 .kit-ticker__tag .sticker__face { flex-direction: row; padding-left: 96px; padding-right: 44px; }
 .kit-ticker__dot { width: 14px; height: 14px; border-radius: 7px; background-color: #FFFFFF; margin-right: 12px; }
-.kit-ticker__tag-text { font-size: 26px; color: #FFFFFF; letter-spacing: 2px; }
+.kit-ticker__tag-text { font-size: 26px; color: #FFFFFF; letter-spacing: 2px; white-space: nowrap; }
 .kit-ticker__text { flex-grow: 1; flex-shrink: 1; padding: 0 32px; font-size: 26px; color: var(--lop-face); -unity-text-align: middle-left; overflow: hidden; white-space: nowrap; max-width: 1300px; }
 /* 글자 칸은 말줄임 때문에 최대 폭이 있어 넓은 화면에선 다 못 채운다 — 시즌 라벨은 auto 여백으로 오른쪽 끝에 붙인다(시안 lobby.html) */
 .kit-ticker__season { --sticker-face: var(--lop-reward); --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; margin-left: auto; margin-right: -16px; }
@@ -208,10 +209,10 @@
 .kit-lt { flex-direction: row; height: 72px; }
 .kit-lt__tag { --sticker-face: var(--lop-primary); --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; }
 .kit-lt__tag .sticker__face { padding: 0 40px 0 28px; }
-.kit-lt__tag-text { font-size: 30px; color: #FFFFFF; }
+.kit-lt__tag-text { font-size: 30px; color: #FFFFFF; white-space: nowrap; }
 .kit-lt__body { margin-left: -20px; --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; }
 .kit-lt__body .sticker__face { padding: 0 52px 0 40px; }
-.kit-lt__body-text { font-size: 30px; color: var(--lop-ink); -unity-text-outline-width: 0; }
+.kit-lt__body-text { font-size: 30px; color: var(--lop-ink); -unity-text-outline-width: 0; white-space: nowrap; }
 
 /* 큰 판 — 평평한 크림 면, 모서리 10, 밑면 어긋남 6·9. box-shadow가 없어 같은 크기 잉크 판을 뒤에 깐다. 질감 없음 */
 .kit-panel { }

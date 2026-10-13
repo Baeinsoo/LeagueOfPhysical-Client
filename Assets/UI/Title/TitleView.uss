@@ -5,10 +5,10 @@
 .title-logo { position: absolute; left: 0; right: 0; top: 150px; align-items: center; rotate: -4deg; }
 .title-logo__top { margin-bottom: -18px; }
 .title-logo__top .sticker__face { padding: 10px 56px; }
-.title-logo__top-text { font-size: 64px; color: var(--lop-ink); letter-spacing: 6px; }
+.title-logo__top-text { font-size: 64px; color: var(--lop-ink); letter-spacing: 6px; white-space: nowrap; }
 .title-logo__big { --sticker-face: var(--lop-reward); --sticker-back-x: 12; --sticker-back-y: 18; }
 .title-logo__big .sticker__face { padding: 10px 90px 0 90px; }
-.title-logo__big-text { font-size: 190px; color: var(--lop-ink); letter-spacing: 4px; }
+.title-logo__big-text { font-size: 190px; color: var(--lop-ink); letter-spacing: 4px; white-space: nowrap; }
 .title-logo__sub { margin-top: 34px; }
 
 .title-progress { position: absolute; left: 0; right: 0; bottom: 150px; align-items: center; }

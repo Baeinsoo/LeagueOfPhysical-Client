@@ -1,6 +1,6 @@
 /* 로비 터널 간판 — 월드 공간 패널(100px = 1m)에 그린다 */
 .stage-board { width: 720px; height: 180px; background-color: #15133A; border-width: 10px; border-color: #FFD23F; align-items: center; justify-content: center; }
-.stage-board__title { font-size: 96px; color: #FFD23F; white-space: nowrap; }
+.stage-board__title { font-size: 80px; color: #FFD23F; white-space: nowrap; }
 .stage-board__sub { font-size: 40px; color: #FFF8E8; white-space: nowrap; }
 .stage-pennant { width: 140px; height: 350px; background-color: #3D3A86; align-items: center; justify-content: center; border-bottom-left-radius: 70px; border-bottom-right-radius: 70px; }
 .stage-pennant__tier { width: 90px; height: 90px; --tier-color: #FFF2B8; }

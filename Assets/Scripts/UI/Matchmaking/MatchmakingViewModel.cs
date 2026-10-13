@@ -30,6 +30,7 @@ namespace LOP.UI
         private readonly ReactiveProperty<QueueKind> _selectedQueue = new(QueueKind.Casual);
         private readonly ReactiveProperty<string> _rankSummary = new(string.Empty);
         private readonly ReactiveProperty<RankCard> _rankCard = new(default);
+        private readonly ReactiveProperty<IReadOnlyList<int>> _recentPlacements = new(System.Array.Empty<int>());
 
         /// <summary>일반/랭크. 랭크면 게임·맵 대신 내 티어를 보여 준다(서버가 게임을 고른다).</summary>
         public ReadOnlyReactiveProperty<QueueKind> SelectedQueue => _selectedQueue;
@@ -38,6 +39,8 @@ namespace LOP.UI
         public ReadOnlyReactiveProperty<string> RankSummary => _rankSummary;
         /// <summary>로비 랭크 모드의 티어 카드. 받기 전엔 default(Headline null — 빈 칸).</summary>
         public ReadOnlyReactiveProperty<RankCard> RankCard => _rankCard;
+        /// <summary>최근 랭크 판의 내 순위(최근 것부터, 최대 5). 못 받으면 빈 목록.</summary>
+        public ReadOnlyReactiveProperty<IReadOnlyList<int>> RecentPlacements => _recentPlacements;
 
         /// <summary>대기 화면에 보여 줄 큐 이름.</summary>
         public string CurrentQueueName => QueueChoice.Name(_selectedQueue.Value, _masterData.Tables.TbQueue);
@@ -129,7 +132,33 @@ namespace LOP.UI
             if (kind == QueueKind.Ranked)
             {
                 RefreshRankAsync().Forget();
+                RefreshRecentAsync().Forget();
             }
+        }
+
+        private const int RecentFormCount = 5;
+        private const int RecentFormFetch = 20;
+
+        private async UniTaskVoid RefreshRecentAsync()
+        {
+            string userId = _userDataStore.user?.id;
+            if (string.IsNullOrEmpty(userId)) return;
+            GetMatchHistoryResponse response = null;
+            try
+            {
+                response = await WebAPI.GetMatchHistory(userId, RecentFormFetch, _cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;   //  로비를 떠났다 — 쓸 곳이 없다.
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogWarning($"Failed to load match history. Error: {e.Message}");
+            }
+            if (_cts.IsCancellationRequested) return;
+            int rankedQueueId = QueueChoice.QueueId(QueueKind.Ranked, _masterData.Tables.TbQueue);
+            _recentPlacements.Value = RecentForm.From(response?.matches, userId, rankedQueueId, RecentFormCount);
         }
 
         private const string RankLoadFailed = "랭크 정보를 불러오지 못했습니다";
@@ -245,6 +274,7 @@ namespace LOP.UI
             if (_selectedQueue.Value == QueueKind.Ranked)
             {
                 RefreshRankAsync().Forget();
+                RefreshRecentAsync().Forget();
             }
         }
 
@@ -308,6 +338,7 @@ namespace LOP.UI
             _selectedQueue.Dispose();
             _rankSummary.Dispose();
             _rankCard.Dispose();
+            _recentPlacements.Dispose();
             _isMatching.Dispose();
             _matchmakingFailed.Dispose();
             _selectedGameIndex.Dispose();

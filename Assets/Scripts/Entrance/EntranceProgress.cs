@@ -1,4 +1,5 @@
 using System;
+using Cysharp.Threading.Tasks;
 using R3;
 
 namespace LOP
@@ -43,6 +44,20 @@ namespace LOP
         }
 
         public void SetAwaitingInput(bool waiting) => _awaitingInput.Value = waiting;
+
+        /// <summary>사용자 입력을 기다리는 동안 AwaitingInput을 켠다. 결과든 예외든 끝나면 반드시 끈다.</summary>
+        public async UniTask<T> AwaitInputAsync<T>(Func<UniTask<T>> wait)
+        {
+            SetAwaitingInput(true);
+            try
+            {
+                return await wait();
+            }
+            finally
+            {
+                SetAwaitingInput(false);
+            }
+        }
 
         public void Dispose()
         {

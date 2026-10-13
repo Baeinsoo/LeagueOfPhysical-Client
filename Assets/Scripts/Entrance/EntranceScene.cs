@@ -32,14 +32,7 @@ namespace LOP
         {
             try
             {
-                var components = entranceComponents.ToList();
-                for (int i = 0; i < components.Count; i++)
-                {
-                    entranceProgress.Begin(i, components.Count, components[i].StepLabel);
-                    await components[i].Execute();
-                }
-
-                entranceProgress.Complete();
+                await EntranceRunner.RunAsync(entranceComponents.ToList(), entranceProgress);
                 return true;
             }
             catch (Exception exception)

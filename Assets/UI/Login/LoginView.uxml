@@ -13,7 +13,7 @@
                     <lop:StickerElement><ui:Label text="Game Center로 시작" class="kit-btn__label" /></lop:StickerElement>
                 </ui:Button>
             </ui:VisualElement>
-            <ui:Label text="입장을 누르면 게스트로 바로 시작합니다" class="login-note" />
+            <ui:Label name="login-note" text="입장을 누르면 게스트로 바로 시작합니다" class="login-note" />
             <ui:Label name="login-error" text="" class="login-error" style="display: none;" />
         </ui:VisualElement>
     </ui:VisualElement>

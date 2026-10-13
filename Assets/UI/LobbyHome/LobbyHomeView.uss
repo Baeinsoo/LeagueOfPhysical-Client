@@ -34,3 +34,30 @@
 .ranked .lobbyhome-gamechip { display: none; }
 .ranked .lobbyhome-rankedchip { display: flex; }
 .ranked .kit-ticker__tag-text { letter-spacing: 3px; }
+
+/* 방송 선수 소개 자막 — 랭크에서 왼쪽 밖에서 미끄러져 들어온다(0.25초 뒤, 0.55초) */
+.lobbyhome-lower { position: absolute; left: 0; bottom: 92px; max-width: 640px; translate: -800px 0; transition-property: translate; transition-duration: 0.55s; transition-delay: 0.25s; transition-timing-function: ease-out-cubic; }
+.ranked .lobbyhome-lower { translate: 0 0; }
+.lobbyhome-lower__tag { align-self: flex-start; background-color: #E8322F; color: #FFF8E8; font-size: 22px; padding: 4px 18px; letter-spacing: 3px; white-space: nowrap; }
+.lobbyhome-lower__name { flex-direction: row; align-items: flex-end; background-color: #FFF8E8; padding: 6px 24px 2px 24px; }
+.lobbyhome-lower__player { font-size: 46px; color: #2C2A6B; white-space: nowrap; overflow: hidden; max-width: 260px; flex-shrink: 0; }
+.lobbyhome-lower__rank { font-size: 26px; color: #B8860B; margin-left: 16px; margin-bottom: 6px; white-space: nowrap; overflow: hidden; max-width: 300px; flex-shrink: 0; }
+.lobbyhome-lower__stats { flex-direction: row; align-items: center; background-color: #2C2A6B; padding: 8px 24px; margin-top: 8px; }
+.lobbyhome-lower__form { flex-direction: row; align-items: center; margin-right: 22px; }
+.lobbyhome-lower__label { color: #FFF8E8; font-size: 22px; margin-right: 10px; white-space: nowrap; }
+.lobbyhome-lower__chips { flex-direction: row; }
+.lobbyhome-lower__chip { min-width: 46px; height: 30px; margin-right: 6px; border-radius: 15px; background-color: #4B4878; color: #FFF8E8; font-size: 18px; -unity-text-align: middle-center; }
+.lobbyhome-lower__chip--first { background-color: #FFD23F; color: #3A2A00; }
+.lobbyhome-lower__sub { color: #FFF8E8; font-size: 22px; white-space: nowrap; }
+
+/* 중계 표시 — 랭크에서만 */
+.lobbyhome-broadcast { position: absolute; top: 44px; left: 50%; translate: -50% 0; max-width: 420px; flex-direction: row; align-items: center; background-color: rgba(14, 12, 42, 0.82); border-radius: 6px; padding: 8px 22px; opacity: 0; transition-property: opacity; transition-duration: 0.4s; }
+.ranked .lobbyhome-broadcast { opacity: 1; }
+.lobbyhome-broadcast__live { color: #FF4B47; font-size: 22px; letter-spacing: 3px; margin-right: 14px; white-space: nowrap; }
+.lobbyhome-broadcast__text { color: #FFF8E8; font-size: 22px; white-space: nowrap; }
+.lobbyhome-corner { position: absolute; width: 64px; height: 64px; border-color: rgba(255, 248, 232, 0.7); opacity: 0; transition-property: opacity; transition-duration: 0.4s; }
+.ranked .lobbyhome-corner { opacity: 1; }
+.lobbyhome-corner--tl { left: 22px; top: 18px; border-top-width: 4px; border-left-width: 4px; }
+.lobbyhome-corner--tr { right: 22px; top: 18px; border-top-width: 4px; border-right-width: 4px; }
+.lobbyhome-corner--bl { left: 22px; bottom: 78px; border-bottom-width: 4px; border-left-width: 4px; }
+.lobbyhome-corner--br { right: 22px; bottom: 78px; border-bottom-width: 4px; border-right-width: 4px; }

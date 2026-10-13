@@ -13,17 +13,18 @@ namespace LOP.Tests
         [TearDown] public void TearDown() => Object.DestroyImmediate(_root);
 
         [Test]
-        public void 터널은_부품_30개에_콜라이더가_없다()
+        public void 터널은_부품_31개에_출구가_열려_있고_콜라이더가_없다()
         {
             var layout = new TunnelLayout();
-            var tunnel = LobbyTunnel.Build(_root.transform, layout, out var glow);
-            //  바닥1·벽2·천장1·기둥16·보8·바닥 줄1·끝 빛1
-            Assert.AreEqual(30, tunnel.transform.childCount);
+            var tunnel = LobbyTunnel.Build(_root.transform, layout, out var arena);
+            //  바닥1·벽2·천장1·기둥16·보8·바닥 줄1·경기장 배경1·경기장 바닥1
+            Assert.AreEqual(31, tunnel.transform.childCount);
+            Assert.IsNull(tunnel.transform.Find("EndGlow"), "출구를 막던 끝 빛 판은 없다");
             Assert.AreEqual(0, tunnel.GetComponentsInChildren<Collider>().Length);
-            //  닫힌 천장이 씬 해의 그림자를 터널 전체에 드리우지 않게 — 그림자는 선수만 만든다.
             foreach (var r in tunnel.GetComponentsInChildren<Renderer>())
                 Assert.AreEqual(UnityEngine.Rendering.ShadowCastingMode.Off, r.shadowCastingMode, r.name);
-            Assert.AreEqual(layout.EndGlowZ, glow.transform.position.z, 1e-3);
+            Assert.AreEqual(layout.ArenaZ, arena.transform.position.z, 1e-3);
+            Assert.AreEqual("ArenaBackdrop", arena.name);
         }
 
         [Test]
@@ -39,6 +40,8 @@ namespace LOP.Tests
             LobbyLighting.Apply(StageLighting.For(false), lights);
             Assert.IsFalse(lights.Spot.enabled);
             Assert.IsFalse(lights.FootPool.enabled);
+            LobbyLighting.Apply(StageLighting.For(false), lights, dim: 0.5f);
+            Assert.AreEqual(0.5f, lights.Sun.intensity, 1e-4, "어둡게 하기는 해 세기에 곱한다");
         }
 
         [Test]

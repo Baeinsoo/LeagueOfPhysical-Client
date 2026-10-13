@@ -16,17 +16,33 @@ namespace LOP
         private readonly CompositeDisposable _subscriptions = new CompositeDisposable();
         private GameObject _tunnel;
         private StageLights _lights;
+        private StageRig _rig;
 
         private void Start()
         {
-            if (Camera.main != null) ConfigureCamera(Camera.main);
+            var cam = Camera.main;
+            if (cam != null) ConfigureCamera(cam);
 
-            _tunnel = LobbyTunnel.Build(transform, new TunnelLayout(), out var glow);
+            var layout = new TunnelLayout();
+            _tunnel = LobbyTunnel.Build(transform, layout, out var arena);
             var sun = FindFirstObjectByType<Light>();
-            var lights = _lights = CreateLights(transform, glow, sun != null && sun.type == LightType.Directional ? sun : null);
+            var lights = _lights = CreateLights(transform, arena, sun != null && sun.type == LightType.Directional ? sun : null);
+            bool ranked = _matchmaking.SelectedQueue.CurrentValue == QueueKind.Ranked;
             var lighting = gameObject.AddComponent<LobbyLighting>();
-            lighting.Init(lights, _matchmaking.SelectedQueue.CurrentValue == QueueKind.Ranked);
-            _matchmaking.SelectedQueue.Subscribe(q => lighting.SetRanked(q == QueueKind.Ranked)).AddTo(_subscriptions);
+            lighting.Init(lights, ranked);
+
+            _rig = StageRig.Build(transform, layout);
+            _rig.Signs = StageSigns.Build(_rig.transform, layout);
+            _rig.Crowd = CrowdAmbience.Build(_rig.transform);
+            _matchmaking.RankCard.Subscribe(card => _rig.Signs.SetRank(card)).AddTo(_subscriptions);
+            var effects = gameObject.AddComponent<StageEffects>();
+            effects.Init(_rig, lighting, cam, ranked);
+            _matchmaking.SelectedQueue.Subscribe(q =>
+            {
+                bool r = q == QueueKind.Ranked;
+                lighting.SetRanked(r);
+                effects.SetRanked(r);
+            }).AddTo(_subscriptions);
 
             var player = new GameObject("LobbyPlayer").AddComponent<LobbyPlayer>();
             player.transform.SetParent(transform, false);
@@ -41,6 +57,7 @@ namespace LOP
             _subscriptions.Dispose();
             LobbyTunnel.DestroyMaterials(_tunnel);
             if (_lights?.FootPool != null) LobbyTunnel.DestroyMaterials(_lights.FootPool.gameObject);
+            if (_rig != null) LobbyTunnel.DestroyMaterials(_rig.gameObject);
         }
 
         /// <summary>고정 카메라 — 선수는 화면 가운데 아래, 터널 소실점은 머리 위(spec §5 시작값).</summary>
@@ -56,7 +73,7 @@ namespace LOP
         }
 
         /// <summary>방향광(씬에 있으면 그것)·끝 빛 점광·발밑 스포트라이트를 만든다.</summary>
-        public static StageLights CreateLights(Transform parent, Renderer endGlow, Light existingSun)
+        public static StageLights CreateLights(Transform parent, Renderer arena, Light existingSun)
         {
             var sun = existingSun;
             if (sun == null)
@@ -71,7 +88,7 @@ namespace LOP
             var end = new GameObject("EndPointLight").AddComponent<Light>();
             end.transform.SetParent(parent, false);
             end.type = LightType.Point;
-            end.transform.position = new Vector3(0f, 2f, endGlow.transform.position.z - 1f);
+            end.transform.position = new Vector3(0f, 2f, new TunnelLayout().Length + 1f);   // 출구 바로 너머
 
             var spot = new GameObject("FootSpot").AddComponent<Light>();
             spot.transform.SetParent(parent, false);
@@ -92,7 +109,7 @@ namespace LOP
             poolRenderer.sharedMaterial = LobbyTunnel.MakeGlowMaterial("#FFF8E8");
             poolRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-            return new StageLights { Sun = sun, EndPoint = end, Spot = spot, EndGlow = endGlow, FootPool = poolRenderer };
+            return new StageLights { Sun = sun, EndPoint = end, Spot = spot, EndGlow = arena, FootPool = poolRenderer };
         }
     }
 }

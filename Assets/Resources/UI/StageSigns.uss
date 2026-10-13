@@ -1,0 +1,17 @@
+/* 로비 터널 간판 — 월드 공간 패널(100px = 1m)에 그린다 */
+.stage-board { width: 720px; height: 180px; background-color: #15133A; border-width: 10px; border-color: #FFD23F; align-items: center; justify-content: center; }
+.stage-board__title { font-size: 80px; color: #FFD23F; white-space: nowrap; }
+.stage-board__sub { font-size: 40px; color: #FFF8E8; white-space: nowrap; }
+.stage-pennant { width: 140px; height: 350px; background-color: #3D3A86; align-items: center; justify-content: center; border-bottom-left-radius: 70px; border-bottom-right-radius: 70px; }
+.stage-pennant__tier { width: 90px; height: 90px; --tier-color: #FFF2B8; }
+.stage-pennant__label { margin-top: 24px; font-size: 40px; color: #FFF8E8; white-space: nowrap; }
+.stage-exit { width: 840px; height: 210px; background-color: #FFD23F; align-items: center; justify-content: center; }
+.stage-exit__title { font-size: 120px; color: #2C2A6B; white-space: nowrap; }
+.stage-exit__sub { font-size: 48px; color: #2C2A6B; white-space: nowrap; }
+.stage-tifo { width: 1400px; height: 900px; background-color: #EAF1FF; justify-content: flex-end; }
+.stage-tifo__crowd { position: absolute; left: 0; right: 0; bottom: 0; height: 560px; background-color: #1A1846; flex-direction: row; flex-wrap: wrap; align-content: flex-start; padding: 12px; }
+.stage-tifo__dot { width: 10px; height: 10px; margin: 4px; border-radius: 5px; background-color: #5A57A8; opacity: 0.6; }
+.stage-tifo__dot--face { background-color: #FFF8E8; }
+.stage-tifo__flag { position: absolute; left: 520px; bottom: 210px; width: 360px; height: 260px; background-color: #3D3A86; align-items: center; justify-content: center; }
+.stage-tifo__tier { width: 130px; height: 130px; --tier-color: #FFF2B8; }
+.stage-tifo__label { font-size: 56px; color: #2C2A6B; white-space: nowrap; }

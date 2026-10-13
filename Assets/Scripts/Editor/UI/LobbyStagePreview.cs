@@ -24,8 +24,9 @@ namespace LOP.EditorTools
             {
                 root = new GameObject("PreviewStage");
                 SceneManager.MoveGameObjectToScene(root, scene);
-                LobbyTunnel.Build(root.transform, new TunnelLayout(), out var glow);
-                var lights = LobbyStage.CreateLights(root.transform, glow, null);
+                LobbyTunnel.Build(root.transform, new TunnelLayout(), out var arena);
+                var lights = LobbyStage.CreateLights(root.transform, arena, null);
+                var rig = StageRig.Build(root.transform, new TunnelLayout());
 
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(LobbyPlayer.ChibiKey);
                 var face = AssetDatabase.LoadAssetAtPath<Material>(LobbyPlayer.FaceKey);
@@ -49,11 +50,21 @@ namespace LOP.EditorTools
                 {
                     foreach (bool ranked in new[] { false, true })
                     {
+                        var weights = new StageEffectWeights(ranked);
                         LobbyLighting.Apply(StageLighting.For(ranked), lights);
+                        rig.Pose(1.3f, weights, float.PositiveInfinity);
+                        var pose = StageCameraPose.For(ranked);
+                        cam.transform.position = pose.Position;
+                        cam.transform.LookAt(pose.LookAt);
                         Save(cam, w, h, $"output/lobby3d-{(ranked ? "ranked" : "casual")}-{tag}.png");
                     }
                 }
-                Debug.Log("로비 3D 미리보기 6장 저장: output/lobby3d-*.png");
+                //  랭크 조명 쇼 도중(0.8초) 한 장
+                var showWeights = new StageEffectWeights(true);
+                LobbyLighting.Apply(StageLighting.For(true), lights, LightShowCurve.Dim(0.8f));
+                rig.Pose(1.3f, showWeights, 0.8f);
+                Save(cam, 1920, 1080, "output/lobby3d-ranked-show-16x9.png");
+                Debug.Log("로비 3D 미리보기 7장 저장: output/lobby3d-*.png");
             }
             finally
             {
@@ -106,6 +117,8 @@ namespace LOP.EditorTools
             Rect(pw - 80 - 156, 150, 156, 3 * 132 + 2 * 16);         // 오른쪽 버튼 줄
             Rect(pw - 80 - 460, ph - 92 - 366, 460, 366);            // PLAY 묶음(전환 칩·PLAY·종목 칩)
             Rect(0, ph - 60, pw, 60);                                // LIVE 띠
+            Rect(80, ph - 92 - 190, 640, 190);                        // 방송 선수 소개 자막(랭크)
+            Rect(pw / 2f - 210, 44, 420, 52);                         // 중계 표시(랭크)
         }
 
         private static void Px(Texture2D tex, int x, int yTop, int h)

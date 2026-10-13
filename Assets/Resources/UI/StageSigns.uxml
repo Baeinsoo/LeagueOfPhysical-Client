@@ -1,0 +1,27 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <Style src="../../UI/Kit/Kit.uss" />
+    <Style src="StageSigns.uss" />
+    <!-- 보 위 전광판 -->
+    <ui:VisualElement name="board" class="kit stage-board">
+        <ui:Label text="RANKED MATCH" class="kit-title stage-board__title" />
+        <ui:Label text="SEASON 1 · 리그 경기" class="stage-board__sub" />
+    </ui:VisualElement>
+    <!-- 기둥 현수막 -->
+    <ui:VisualElement name="pennant" class="kit stage-pennant">
+        <lop:TierShapeElement name="pennant-tier" class="stage-pennant__tier" />
+        <ui:Label name="pennant-label" class="kit-title stage-pennant__label" />
+    </ui:VisualElement>
+    <!-- 출구 간판 -->
+    <ui:VisualElement name="exit" class="kit stage-exit">
+        <ui:Label text="LOP LEAGUE" class="kit-title stage-exit__title" />
+        <ui:Label text="SEASON 1" class="kit-title stage-exit__sub" />
+    </ui:VisualElement>
+    <!-- 관중석 티포 -->
+    <ui:VisualElement name="tifo" class="kit stage-tifo">
+        <ui:VisualElement name="tifo-crowd" class="stage-tifo__crowd" />
+        <ui:VisualElement name="tifo-flag" class="stage-tifo__flag">
+            <lop:TierShapeElement name="tifo-tier" class="stage-tifo__tier" />
+            <ui:Label name="tifo-label" class="kit-title stage-tifo__label" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

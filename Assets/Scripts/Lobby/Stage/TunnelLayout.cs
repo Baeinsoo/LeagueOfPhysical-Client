@@ -24,5 +24,8 @@ namespace LOP
 
         public float BeamY => Height - BeamDrop;
         public float EndGlowZ => Length;
+
+        /// <summary>출구 너머 경기장 배경 판의 z — 출구(Length)와 배경 사이로 서치라이트가 지나간다.</summary>
+        public float ArenaZ => 44f;
     }
 }

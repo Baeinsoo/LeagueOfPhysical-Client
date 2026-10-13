@@ -8,7 +8,7 @@ namespace LOP
     {
         public const string RootName = "LobbyTunnel";
 
-        public static GameObject Build(Transform parent, TunnelLayout layout, out Renderer endGlow)
+        public static GameObject Build(Transform parent, TunnelLayout layout, out Renderer arena)
         {
             var root = new GameObject(RootName);
             root.transform.SetParent(parent, false);
@@ -33,15 +33,17 @@ namespace LOP
             }
             Box(root, "FloorStripe", stripe, new Vector3(0f, 0.01f, len / 2f), new Vector3(layout.FloorStripeWidth, 0.02f, len));
 
-            var end = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            end.name = "EndGlow";
-            Object.DestroyImmediate(end.GetComponent<Collider>());
-            end.transform.SetParent(root.transform, false);
-            end.transform.localPosition = new Vector3(0f, h / 2f, layout.EndGlowZ);
-            end.transform.localScale = new Vector3(w, h, 1f);
-            endGlow = end.GetComponent<Renderer>();
-            endGlow.sharedMaterial = glow;
-            endGlow.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            //  출구는 열어 둔다. 그 너머에 경기장 바닥과 빛나는 배경 판 — 일반 크림, 랭크 흰빛(조명이 색을 정한다).
+            Box(root, "ArenaFloor", pillar, new Vector3(0f, -0.05f, (len + layout.ArenaZ) / 2f + 0.5f), new Vector3(60f, 0.1f, layout.ArenaZ - len + 1f));
+            var back = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            back.name = "ArenaBackdrop";
+            Object.DestroyImmediate(back.GetComponent<Collider>());
+            back.transform.SetParent(root.transform, false);
+            back.transform.localPosition = new Vector3(0f, 4f, layout.ArenaZ);
+            back.transform.localScale = new Vector3(60f, 30f, 1f);
+            arena = back.GetComponent<Renderer>();
+            arena.sharedMaterial = glow;
+            arena.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             return root;
         }
 
@@ -79,6 +81,20 @@ namespace LOP
             var m = MakeMaterial(hex);
             if (m.HasProperty("_ShadowColor")) m.SetColor("_ShadowColor", m.GetColor("_BaseColor"));
             if (m.HasProperty("_OutlineWidth")) m.SetFloat("_OutlineWidth", 0f);
+            return m;
+        }
+
+        /// <summary>더하기 섞기 반투명 빛(서치라이트·플래시). LOP/StageGlow를 못 찾으면 경고 후 불투명 빛 재질.</summary>
+        public static Material MakeStageGlowMaterial(Color color)
+        {
+            var shader = Shader.Find("LOP/StageGlow");
+            if (shader == null)
+            {
+                Debug.LogWarning("[LobbyTunnel] LOP/StageGlow 셰이더를 못 찾아 불투명 빛 재질로 대신한다.");
+                return MakeGlowMaterial("#" + ColorUtility.ToHtmlStringRGB(color));
+            }
+            var m = new Material(shader);
+            m.SetColor("_BaseColor", color);
             return m;
         }
 

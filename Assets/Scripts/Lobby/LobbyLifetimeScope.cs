@@ -96,6 +96,11 @@ namespace LOP
                 _kitToastViewRegistration = windowManager.RegisterViewFactory<KitToastView>(() => container.Resolve<KitToastView>());
                 _gameSelectViewRegistration = windowManager.RegisterViewFactory<GameSelectView>(() => container.Resolve<GameSelectView>());
 
+                //  로비 가운데 3D 무대. 씬 파일을 고치지 않으려고 여기서 만든다 — 씬과 함께 사라진다.
+                var stage = new UnityEngine.GameObject("LobbyStage").AddComponent<LobbyStage>();
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(stage.gameObject, gameObject.scene);
+                container.InjectGameObject(stage.gameObject);
+
                 windowManager.Open<LobbyHomeView>();
 
                 //  로비 들어올 때 한 번 받아 둔다 — 코인·레벨 칩이 바로 뜨려면 열기 전에 기다릴 필요

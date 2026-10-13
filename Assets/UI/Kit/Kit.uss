@@ -136,7 +136,8 @@
 .kit-ticker__dot { width: 14px; height: 14px; border-radius: 7px; background-color: #FFFFFF; margin-right: 12px; }
 .kit-ticker__tag-text { font-size: 26px; color: #FFFFFF; letter-spacing: 2px; }
 .kit-ticker__text { flex-grow: 1; flex-shrink: 1; padding: 0 32px; font-size: 26px; color: var(--lop-face); -unity-text-align: middle-left; overflow: hidden; white-space: nowrap; max-width: 1300px; }
-.kit-ticker__season { --sticker-face: var(--lop-reward); --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; margin-right: -16px; }
+/* 글자 칸은 말줄임 때문에 최대 폭이 있어 넓은 화면에선 다 못 채운다 — 시즌 라벨은 auto 여백으로 오른쪽 끝에 붙인다(시안 lobby.html) */
+.kit-ticker__season { --sticker-face: var(--lop-reward); --sticker-tail: 16; --sticker-back-x: 0; --sticker-back-y: 0; margin-left: auto; margin-right: -16px; }
 .kit-ticker__season .sticker__face { padding-left: 48px; padding-right: 96px; }
 .kit-ticker__season-text { font-size: 26px; color: var(--lop-reward-ink); }
 

@@ -1,4 +1,5 @@
-/* 로비 홈 — 1부 시안 lobby.html. 1920×1080, 좌우 80 · 위 32 */
+/* 로비 홈 — 1부 시안 lobby.html. 1920×1080 기준, 좌우 80 · 위 32.
+ * 패널은 Expand라 높이가 1080보다 작아지지 않는다 — 넓은 폰은 가로만, 태블릿은 세로만 늘고 버튼은 모서리에 붙어 있다 */
 .lobbyhome-root { flex-grow: 1; background-color: #262458; }
 
 /* 무대 — 그라데이션 대신 판 몇 장. 3부 터널이 오면 통째로 바뀐다 */
@@ -46,10 +47,3 @@
 .ranked .lobbyhome-gamechip { display: none; }
 .ranked .lobbyhome-rankedchip { display: flex; }
 .ranked .kit-ticker__tag-text { letter-spacing: 3px; }
-
-/* 낮은 화면(20:9 등, 패널 높이 < 1070) — 버튼을 줄이고 전환 칩·종목 칩을 PLAY 왼쪽으로. LobbyLayout이 .short를 붙인다
- * 오른쪽 줄 아래 = 150 + 3×120 + 2×12 = 534, PLAY 위 = 높이 − 92 − 192 (21:9 높이 823에서도 539) */
-.short .kit-nav { height: 120px; margin-bottom: 12px; }
-.short .lobbyhome-play-group > * { margin-top: 0; }
-.short .lobbyhome-play-group .kit-toggle { position: absolute; right: 476px; bottom: 88px; }
-.short .lobbyhome-play-group .lobbyhome-gamechip, .short .lobbyhome-play-group .lobbyhome-rankedchip { position: absolute; right: 476px; bottom: 0; }

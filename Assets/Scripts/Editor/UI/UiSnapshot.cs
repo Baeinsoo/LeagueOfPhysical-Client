@@ -1,7 +1,10 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
 namespace LOP.EditorTools
@@ -12,9 +15,31 @@ namespace LOP.EditorTools
     /// </summary>
     public static class UiSnapshot
     {
+        private const int MaxWidth = 1920;
+        private const int MaxHeight = 1080;
+
+        //  20:9(2400×1080)·4:3(1920×1440) 패널은 모니터보다 커서 1920×1080 창에 들어가게 줄여 그린다.
+        private static float FitScale(int width, int height) => Mathf.Min(1f, Mathf.Min((float)MaxWidth / width, (float)MaxHeight / height));
+
+        /// <summary>패널 크기(width×height)의 바탕을 root에 붙인다. 창보다 크면 줄여 그린다(배치는 원래 크기 그대로).</summary>
+        public static VisualElement AddHost(VisualElement root, int width, int height)
+        {
+            var host = new VisualElement();
+            host.style.width = width;
+            host.style.height = height;
+            host.style.flexShrink = 0;
+            float s = FitScale(width, height);
+            host.style.transformOrigin = new TransformOrigin(0, 0);
+            host.style.scale = new Scale(new Vector3(s, s, 1));
+            root.Add(host);
+            return host;
+        }
+
+        /// <summary>창을 패널 크기(width×height, 줄인 크기)로 맞춘 뒤 1초 뒤에 PNG로 저장한다.</summary>
         public static void Save(EditorWindow w, string relativePath, int width = 1920, int height = 1080)
         {
-            w.position = new Rect(40, 40, width, height + 22);
+            float s = FitScale(width, height);
+            w.position = new Rect(40, 40, Mathf.Round(width * s), Mathf.Round(height * s) + 22);
             w.Repaint();
             double at = EditorApplication.timeSinceStartup + 1.0;
             void Tick()
@@ -22,6 +47,29 @@ namespace LOP.EditorTools
                 if (EditorApplication.timeSinceStartup < at) return;
                 EditorApplication.update -= Tick;
                 Grab(w, relativePath);
+            }
+            EditorApplication.update += Tick;
+        }
+
+        /// <summary>
+        /// 여러 장을 차례로 찍는다 — 앞 장을 저장한 뒤 다음 장 창을 띄운다. show는 찍을 그림을 띄운 창을 돌려준다.
+        /// </summary>
+        public static void SaveAll(IReadOnlyList<(Func<EditorWindow> show, string path, int width, int height)> shots)
+        {
+            int next = 0;
+            double at = 0;
+            void Tick()
+            {
+                if (EditorApplication.timeSinceStartup < at) return;
+                if (next >= shots.Count)
+                {
+                    EditorApplication.update -= Tick;
+                    return;
+                }
+                var shot = shots[next++];
+                Save(shot.show(), shot.path, shot.width, shot.height);
+                //  Save는 1초 뒤에 찍는다 — 그 전에 창을 바꾸면 다음 그림이 찍힌다.
+                at = EditorApplication.timeSinceStartup + 1.5;
             }
             EditorApplication.update += Tick;
         }

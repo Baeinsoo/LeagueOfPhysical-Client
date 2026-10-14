@@ -40,6 +40,9 @@ namespace LOP
             // 상점(구매·로드아웃 응답 반영)이 같은 인스턴스를 공유해야 값이 어긋나지 않는다.
             builder.Register<EconomyStore>(Lifetime.Scoped);
 
+            //  출전 연출 지휘. 생성자에서 로딩판 문을 건다 — 빌드 콜백 첫 줄에서 바로 만들어 둔다.
+            builder.Register<RunOutDirector>(Lifetime.Scoped).AsSelf().As<IRunOutDirector>();
+
             // 마지막으로 플레이한 게임·맵 기억(기기 로컬). VM이 생성될 때 복원해 쓴다.
             builder.Register<LastPlayedSelectionStore>(Lifetime.Scoped);
 
@@ -80,6 +83,7 @@ namespace LOP
 
             builder.RegisterBuildCallback(container =>
             {
+                container.Resolve<RunOutDirector>();
                 container.InjectSceneObjects(gameObject.scene);
 
                 // 전역 WindowManager에 LobbyHomeView 팩토리 기여: Open<LobbyHomeView>가 이 스코프 resolver로

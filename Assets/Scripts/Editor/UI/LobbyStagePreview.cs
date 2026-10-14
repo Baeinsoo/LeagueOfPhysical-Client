@@ -28,11 +28,12 @@ namespace LOP.EditorTools
                 var lights = LobbyStage.CreateLights(root.transform, arena, null);
                 var rig = StageRig.Build(root.transform, new TunnelLayout());
 
+                GameObject body = null;
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(LobbyPlayer.ChibiKey);
                 var face = AssetDatabase.LoadAssetAtPath<Material>(LobbyPlayer.FaceKey);
                 if (prefab != null)
                 {
-                    var body = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
+                    body = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
                     body.transform.position = LobbyPlayer.StandPosition;
                     body.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
                     var idle = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Characters/Chibi/Anim/Idle.anim");
@@ -64,6 +65,22 @@ namespace LOP.EditorTools
                 LobbyLighting.Apply(StageLighting.For(true), lights, LightShowCurve.Dim(0.8f));
                 rig.Pose(1.3f, showWeights, 0.8f);
                 Save(cam, 1920, 1080, "output/lobby3d-ranked-show-16x9.png");
+
+                //  출전 도중(0.8초) 한 장 — 선수가 돌아서 달리고 카메라가 뒤따른다
+                var run = RunOutTimeline.Evaluate(0.8f, LobbyPlayer.StandPosition.z);
+                if (body != null)
+                {
+                    body.transform.position = new Vector3(0f, 0f, run.PlayerZ);
+                    body.transform.rotation = Quaternion.Euler(0f, run.PlayerYaw, 0f);
+                    var runClip = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Characters/Chibi/Anim/Run.anim");
+                    if (runClip != null) runClip.SampleAnimation(body, 0.2f);
+                }
+                LobbyLighting.Apply(StageLighting.For(false), lights);
+                rig.Pose(1.3f, new StageEffectWeights(false), float.PositiveInfinity);
+                var runCam = RunOutCamera.At(StageCameraPose.For(false), run.PlayerZ, 0.8f);
+                cam.transform.position = runCam.Position;
+                cam.transform.LookAt(runCam.LookAt);
+                Save(cam, 1920, 1080, "output/lobby3d-runout-16x9.png");
                 Debug.Log("로비 3D 미리보기 7장 저장: output/lobby3d-*.png");
             }
             finally

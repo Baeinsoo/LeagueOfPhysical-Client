@@ -6,7 +6,7 @@ namespace LOP
     public static class RunOutCamera
     {
         public static StageCameraPose Behind(float playerZ) =>
-            new StageCameraPose(new Vector3(0.35f, 1.45f, playerZ - 2.4f), new Vector3(0f, 1.3f, playerZ + 10f));
+            new StageCameraPose(new Vector3(0.5f, 1.9f, playerZ - 3.6f), new Vector3(0f, 1.0f, playerZ + 12f));
 
         public static StageCameraPose At(StageCameraPose start, float playerZ, float t) =>
             StageCameraPose.Lerp(start, Behind(playerZ), Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / RunOutTimeline.TurnEnd)));

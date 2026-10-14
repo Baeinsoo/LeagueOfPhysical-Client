@@ -22,6 +22,7 @@ namespace LOP.UI
         private readonly LobbyHomeViewModel _viewModel;
         private readonly EconomyStore _economy;
         private readonly IUserDataStore _userData;
+        private readonly IRunOutDirector _runOut;
         private readonly CompositeDisposable _subscriptions = new CompositeDisposable();
 
         private Breather _breather;
@@ -32,12 +33,13 @@ namespace LOP.UI
         private string _shownName;
         private int _tickerIndex;
 
-        public LobbyHomeView(MatchmakingViewModel matchmaking, LobbyHomeViewModel viewModel, EconomyStore economy, IUserDataStore userData)
+        public LobbyHomeView(MatchmakingViewModel matchmaking, LobbyHomeViewModel viewModel, EconomyStore economy, IUserDataStore userData, IRunOutDirector runOut)
         {
             _matchmaking = matchmaking;
             _viewModel = viewModel;
             _economy = economy;
             _userData = userData;
+            _runOut = runOut;
         }
 
         public override UILayer Layer => UILayer.Window;
@@ -72,6 +74,14 @@ namespace LOP.UI
             _economy.Progress.CombineLatest(_economy.Coins, (progress, coins) => CoinChipText(progress, coins))
                 .Subscribe(text => Root.Q<Label>("coin-value").text = $"🪙 {text}").AddTo(_subscriptions);
             _economy.Progress.Subscribe(progress => Root.Q<Label>("player-meta").text = $"· {LevelChipText(progress)}").AddTo(_subscriptions);
+
+            //  출전 중엔 로비 UI가 사라지고 입력도 받지 않는다(연출 중 PLAY를 다시 누르지 못하게).
+            _runOut.Running.Subscribe(running =>
+            {
+                var root = Root.Q("lobbyhome-root");
+                root.EnableInClassList("runout", running);
+                root.SetEnabled(!running);
+            }).AddTo(_subscriptions);
         }
 
         //  한 번도 못 받았으면 "0"·"Lv 1"이 아니라 "-" — 실패한 조회를 진짜 0원으로 보이게 하지 않는다.

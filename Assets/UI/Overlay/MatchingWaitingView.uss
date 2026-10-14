@@ -1,24 +1,7 @@
-.matching-root {
-    flex-grow: 1;
-    align-items: center;
-    justify-content: center;
-}
-
-.matching-card {
-    width: 680px;
-}
-
-.matching-title {
-    font-size: 48px;
-    margin-bottom: 16px;
-}
-
-.matching-message {
-    font-size: 30px;
-    margin-bottom: 36px;
-}
-
-.matching-cancel {
-    height: 100px;
-    font-size: 34px;
-}
+/* 매칭 대기 알약 — 1920×1080 기준 위쪽(이름표·중계 표시 아래) */
+.matching-root { flex-grow: 1; align-items: center; }
+.matching-pill { margin-top: 118px; flex-direction: row; align-items: center; background-color: rgba(21, 19, 58, 0.92); border-width: 4px; border-color: #FFF8E8; border-radius: 16px; padding: 12px 14px 12px 32px; }
+.matching-title { font-size: 34px; color: #FFF8E8; white-space: nowrap; }
+.matching-elapsed { margin-left: 18px; font-size: 34px; color: #FFD23F; white-space: nowrap; }
+.matching-queue { margin-left: 18px; font-size: 26px; color: #A9A6D6; white-space: nowrap; }
+.matching-cancel { margin-left: 28px; height: 60px; padding: 0 26px; border-width: 0; border-radius: 12px; background-color: #E8322F; color: #FFF8E8; font-size: 26px; }

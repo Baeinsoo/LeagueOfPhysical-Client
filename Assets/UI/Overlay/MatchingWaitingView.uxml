@@ -1,10 +1,11 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="matching-root" class="scrim matching-root">
-        <ui:VisualElement name="matching-card" class="card matching-card">
-            <ui:Label text="MATCHING" class="title matching-title" />
-            <ui:Label name="matching-queue" class="card-text matching-message" />
-            <ui:Label name="matching-elapsed" text="0:00" class="card-text matching-message" />
-            <ui:Button name="cancel-button" text="Cancel" class="btn btn--secondary matching-cancel" />
+    <!-- 매칭 대기 — 위쪽 알약. 화면을 어둡게 덮지 않아 대기 중에도 터널이 보인다(입력은 백드롭이 막는다) -->
+    <ui:VisualElement name="matching-root" class="kit matching-root" picking-mode="Ignore">
+        <ui:VisualElement name="matching-card" class="matching-pill">
+            <ui:Label text="매칭 중" class="kit-title matching-title" />
+            <ui:Label name="matching-elapsed" text="0:00" class="kit-title matching-elapsed" />
+            <ui:Label name="matching-queue" class="matching-queue" />
+            <ui:Button name="cancel-button" text="취소" class="kit-press matching-cancel" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

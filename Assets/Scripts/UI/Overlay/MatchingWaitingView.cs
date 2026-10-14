@@ -16,6 +16,8 @@ namespace LOP.UI
 
         public override UILayer Layer => UILayer.Loading;
         public override bool BlocksUnderlyingInput => true;
+        //  화면을 어둡게 덮지 않는다 — 대기 중에도 터널이 보인다(입력은 백드롭이 막는다).
+        public override bool DimsBackground => false;
 
         public void SetCancelCallback(System.Action onCancel) => _onCancel = onCancel;
 
@@ -23,7 +25,7 @@ namespace LOP.UI
         public void SetQueueName(string queueName)
         {
             _queueName = queueName ?? string.Empty;
-            if (_queueLabel != null) _queueLabel.text = $"{_queueName} 매칭 중";
+            if (_queueLabel != null) _queueLabel.text = _queueName;   // 제목이 이미 "매칭 중"
         }
 
         /// <summary>"m:ss".</summary>

@@ -11,6 +11,7 @@ namespace LOP.UI
     public sealed class MatchLoadingViewModel : IDisposable
     {
         private readonly ReactiveProperty<bool> _isLoading = new(false);
+        private bool _holdForRunOut;
         private readonly IDisposable _subscription;
 
         private bool _inGameRoom;   // 위치 관찰 결과
@@ -39,7 +40,12 @@ namespace LOP.UI
             Recompute();
         }
 
-        private void Recompute() => _isLoading.Value = _inGameRoom && !_gameLive;
+        /// <summary>출전 연출이 덮을 동안 로딩판을 미룬다. 로비가 생길 때 걸고, 연출이 하얀 빛에 닿으면 푼다.</summary>
+        public void HoldForRunOut() { _holdForRunOut = true; Recompute(); }
+
+        public void ReleaseRunOut() { _holdForRunOut = false; Recompute(); }
+
+        private void Recompute() => _isLoading.Value = _inGameRoom && !_gameLive && !_holdForRunOut;
 
         public void Dispose()
         {

@@ -208,6 +208,20 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 갈림길_반대쪽_보통_관문_틈은_3_3()
+        {
+            //  10-14 리뷰 T5: 사람 판으로 정한 "안전하지만 느린 길"(굴 3.1보다 넉넉한 3.3) 단언이 빠졌던 걸 되살린다.
+            var c = Layout();
+            var gates = Gates(c);
+            foreach (MineFork f in c.Forks)
+            {
+                var near = gates.Where(g => g.X > f.X0 && g.X < f.X1).ToList();
+                Assert.IsNotEmpty(near, $"갈림길 x={f.X0} 반대쪽 보통 관문이 없다");
+                foreach (MineGate g in near) { Assert.AreEqual(3.3f, g.Gap, 1e-4f, $"갈림길 x={f.X0} 반대쪽 관문 x={g.X} 틈"); }
+            }
+        }
+
+        [Test]
         public void 무너진_갱도_받침목은_위아래_번갈아_셋()
         {
             var c = Layout();

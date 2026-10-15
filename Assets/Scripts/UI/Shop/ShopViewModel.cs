@@ -8,7 +8,7 @@ using UnityEngine;
 namespace LOP.UI
 {
     /// <summary>품목 하나의 표시 상태(뱃지). 보유도 장착도 아니면 NotOwned, 장착 안 된 그 슬롯의 공짜 기본값이면 Default.
-    /// 장착할 수 있는지는 상태가 아니라 <see cref="ShopItem.CanEquip"/>로 본다 — 기본 품목도 보유했으면 장착(=벗기)할 수 있다.</summary>
+    /// 장착은 상점이 아니라 라커룸(LockerViewModel)이 맡는다.</summary>
     public enum ItemState
     {
         NotOwned,
@@ -27,17 +27,14 @@ namespace LOP.UI
         public readonly ItemState State;
         /// <summary>안 가졌고 파는 품목이고 가격이 있고 지갑이 충분하면 true.</summary>
         public readonly bool CanBuy;
-        /// <summary>보유했고 지금 장착 중이 아니면 true. 기본 품목도 포함한다.</summary>
-        public readonly bool CanEquip;
 
-        public ShopItem(int cosmeticId, string name, long? coinPrice, ItemState state, bool canBuy, bool canEquip)
+        public ShopItem(int cosmeticId, string name, long? coinPrice, ItemState state, bool canBuy)
         {
             CosmeticId = cosmeticId;
             Name = name;
             CoinPrice = coinPrice;
             State = state;
             CanBuy = canBuy;
-            CanEquip = canEquip;
         }
     }
 
@@ -55,8 +52,9 @@ namespace LOP.UI
     }
 
     /// <summary>
-    /// 상점 ViewModel. 슬롯 탭을 고르면 그 슬롯의 품목·상태를 보여주고, 품목을 골라 사거나(코인)
-    /// 가진 걸 장착한다. 상태(기본/보유/장착)는 전부 <see cref="EconomyStore"/>(로드아웃·보유목록·코인)에서
+    /// 상점 ViewModel. 슬롯 탭을 고르면 그 슬롯의 품목·상태를 보여주고, 품목을 골라 산다(코인).
+    /// 입기는 라커룸이 맡는다 — 산 직후 입기만 구매 요청의 equip 플래그로 한다.
+    /// 상태(기본/보유/장착)는 전부 <see cref="EconomyStore"/>(로드아웃·보유목록·코인)에서
     /// 파생한다 — 이 ViewModel은 자기 플래그를 따로 들지 않는다.
     /// </summary>
     public sealed class ShopViewModel : IDisposable
@@ -65,7 +63,6 @@ namespace LOP.UI
         private readonly CosmeticCatalog _catalog;
         private readonly IUserDataStore _users;
         private readonly Func<string, PurchaseCosmeticRequest, CancellationToken, UniTask<PurchaseCosmeticResponse>> _purchase;
-        private readonly Func<string, SetLoadoutRequest, CancellationToken, UniTask<SetLoadoutResponse>> _setLoadout;
         private readonly CancellationTokenSource _cts = new();
         private readonly CompositeDisposable _subscriptions = new();
 
@@ -86,33 +83,30 @@ namespace LOP.UI
         public ReadOnlyReactiveProperty<IReadOnlyList<ShopItem>> Items => _items;
         public ReadOnlyReactiveProperty<string> Message => _message;
 
-        /// <summary>구매/장착 요청이 응답을 기다리는 동안 true. View가 이동안 두 버튼을 잠근다 —
+        /// <summary>구매 요청이 응답을 기다리는 동안 true. View가 이동안 두 버튼을 잠근다 —
         /// 안 그러면 응답 오기 전에 한 번 더 눌러 같은 멱등키로 중복 요청을 보낸다.</summary>
         public ReadOnlyReactiveProperty<bool> Busy => _busy;
 
         [VContainer.Inject]
         public ShopViewModel(EconomyStore store, CosmeticCatalog catalog, IUserDataStore users)
-            : this(store, catalog, users, null, null)
+            : this(store, catalog, users, null)
         {
         }
 
         /// <param name="purchase">(userId, 요청, ct) → 구매. 시험이 가짜를 꽂는다. 기본은 WebAPI.PurchaseCosmetic.</param>
-        /// <param name="setLoadout">(userId, 요청, ct) → 로드아웃 설정. 기본은 WebAPI.SetLoadout.</param>
         public ShopViewModel(EconomyStore store, CosmeticCatalog catalog, IUserDataStore users,
-            Func<string, PurchaseCosmeticRequest, CancellationToken, UniTask<PurchaseCosmeticResponse>> purchase = null,
-            Func<string, SetLoadoutRequest, CancellationToken, UniTask<SetLoadoutResponse>> setLoadout = null)
+            Func<string, PurchaseCosmeticRequest, CancellationToken, UniTask<PurchaseCosmeticResponse>> purchase = null)
         {
             _store = store;
             _catalog = catalog;
             _users = users;
             _purchase = purchase ?? WebAPI.PurchaseCosmetic;
-            _setLoadout = setLoadout ?? WebAPI.SetLoadout;
 
             var slots = new List<SlotTab>(catalog.Slots.Count);
             foreach (var slot in catalog.Slots) slots.Add(new SlotTab(slot.Id, slot.Name));
             Slots = slots;
 
-            //  로드아웃·보유목록·코인이 바뀌면(구매·장착 응답, 또는 다른 화면의 조회) 지금 보이는
+            //  로드아웃·보유목록·코인이 바뀌면(구매 응답, 또는 다른 화면의 조회) 지금 보이는
             //  품목 상태를 다시 파생한다 — 로컬 플래그를 따로 안 두는 이유다.
             _subscriptions.Add(_store.Loadout.Subscribe(_ => RebuildItems()));
             _subscriptions.Add(_store.Owned.Subscribe(_ => RebuildItems()));
@@ -185,7 +179,7 @@ namespace LOP.UI
                 {
                     Debug.LogWarning($"[ShopViewModel] Failed to purchase. error: {e.Message}");
                     if (_cts.IsCancellationRequested) return;
-                    _message.Value = MessageFor(0);
+                    _message.Value = EconomyMessages.For(0);
                     //  서버는 커밋했는데 응답만 잃었을 수 있다 — 진실은 다시 물어봐야 안다.
                     RefreshStore();
                     return;
@@ -202,67 +196,12 @@ namespace LOP.UI
                 }
 
                 int code = response?.code ?? 0;
-                _message.Value = MessageFor(code);
+                _message.Value = EconomyMessages.For(code);
                 if (MeansStoreIsStale(code)) RefreshStore();
             }
             finally
             {
                 //  성공·거절·예외·취소 어느 경로든 반드시 풀어준다 — 안 풀면 버튼이 영영 잠긴다.
-                if (!_disposed) _busy.Value = false;
-            }
-        }
-
-        public async UniTask EquipAsync()
-        {
-            int cosmeticId = _selectedCosmeticId.Value;
-            if (cosmeticId <= 0) return;
-
-            string userId = _users.user?.id;
-            if (string.IsNullOrEmpty(userId)) return;
-
-            var item = _catalog.ById(cosmeticId);
-            if (item == null) return;
-
-            string userCosmeticId = FindOwnedInstanceId(cosmeticId);
-            if (userCosmeticId == null) return;
-
-            var request = new SetLoadoutRequest { slotId = item.SlotId, userCosmeticId = userCosmeticId };
-
-            _busy.Value = true;
-            try
-            {
-                SetLoadoutResponse response;
-                try
-                {
-                    response = await _setLoadout(userId, request, _cts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    return;
-                }
-                catch (Exception e)
-                {
-                    Debug.LogWarning($"[ShopViewModel] Failed to set loadout. error: {e.Message}");
-                    if (_cts.IsCancellationRequested) return;
-                    _message.Value = MessageFor(0);
-                    RefreshStore();
-                    return;
-                }
-                if (_cts.IsCancellationRequested) return;
-
-                if (response != null && response.code == ResponseCode.SUCCESS)
-                {
-                    _message.Value = string.Empty;
-                    _store.ApplyLoadout(response);
-                    return;
-                }
-
-                int code = response?.code ?? 0;
-                _message.Value = MessageFor(code);
-                if (MeansStoreIsStale(code)) RefreshStore();
-            }
-            finally
-            {
                 if (!_disposed) _busy.Value = false;
             }
         }
@@ -274,15 +213,6 @@ namespace LOP.UI
             code == ResponseCode.COSMETIC_ALREADY_OWNED
             || code == ResponseCode.PRICE_MISMATCH
             || code == ResponseCode.IDEMPOTENCY_CONFLICT;
-
-        private string FindOwnedInstanceId(int cosmeticId)
-        {
-            foreach (var owned in _store.Owned.CurrentValue)
-            {
-                if (owned.cosmeticId == cosmeticId) return owned.id;
-            }
-            return null;
-        }
 
         private void RebuildItems()
         {
@@ -318,26 +248,11 @@ namespace LOP.UI
                     : ItemState.NotOwned;
 
                 bool canBuy = state == ItemState.NotOwned && item.Purchasable && price.HasValue && coins >= price.Value;
-                bool canEquip = owned && !equipped;
-
-                list.Add(new ShopItem(item.Id, item.Name, price, state, canBuy, canEquip));
+                list.Add(new ShopItem(item.Id, item.Name, price, state, canBuy));
             }
 
             _items.Value = list;
         }
-
-        //  거절 코드 → 안내 문구. 백엔드 responseCode.interface.ts의 Economy 영역과 짝이다.
-        private static string MessageFor(int code) => code switch
-        {
-            ResponseCode.INSUFFICIENT_FUNDS => "코인이 부족합니다",
-            ResponseCode.COSMETIC_ALREADY_OWNED => "이미 가진 품목",
-            ResponseCode.COSMETIC_NOT_PURCHASABLE => "살 수 없는 품목",
-            ResponseCode.PRICE_MISMATCH => "가격이 바뀌었습니다. 앱을 업데이트해 주세요",
-            ResponseCode.ACCOUNT_FROZEN => "계정이 일시 정지 상태",
-            ResponseCode.ECONOMY_DISABLED => "지금은 상점을 쓸 수 없습니다",
-            ResponseCode.WALLET_FULL => "지갑이 가득 찼습니다",
-            _ => "잠시 뒤 다시 시도",
-        };
 
         private bool _disposed;
 

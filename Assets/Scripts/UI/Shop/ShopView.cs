@@ -19,7 +19,6 @@ namespace LOP.UI
         private Label _detailPrice;
         private Label _message;
         private Button _buyButton;
-        private Button _equipButton;
 
         public ShopView(ShopViewModel viewModel)
         {
@@ -38,10 +37,8 @@ namespace LOP.UI
             _detailPrice = Root.Q<Label>("detail-price");
             _message = Root.Q<Label>("shop-message");
             _buyButton = Root.Q<Button>("buy-button");
-            _equipButton = Root.Q<Button>("equip-button");
 
             _buyButton.clicked += OnBuyClicked;
-            _equipButton.clicked += OnEquipClicked;
 
             BuildTabs();
 
@@ -66,16 +63,12 @@ namespace LOP.UI
         public override void OnClose()
         {
             if (_buyButton != null) _buyButton.clicked -= OnBuyClicked;
-            if (_equipButton != null) _equipButton.clicked -= OnEquipClicked;
 
             base.OnClose();
         }
 
-        //  BuyAsync(true) — 산 품목은 사자마자 장착한다. 이미 가진 품목을 다시 장착하는 길은
-        //  별도의 equip-button(EquipAsync)이다.
+        //  BuyAsync(true) — 산 품목은 사자마자 장착한다. 이미 가진 품목 입기는 라커룸이 맡는다.
         private void OnBuyClicked() => _viewModel.BuyAsync(true).Forget();
-
-        private void OnEquipClicked() => _viewModel.EquipAsync().Forget();
 
         private void BuildTabs()
         {
@@ -172,7 +165,6 @@ namespace LOP.UI
                 _detailName.text = string.Empty;
                 _detailPrice.text = string.Empty;
                 _buyButton.SetEnabled(false);
-                _equipButton.SetEnabled(false);
                 return;
             }
 
@@ -184,7 +176,6 @@ namespace LOP.UI
             //  같은 멱등키로 중복 요청을 보낸다.
             bool busy = _viewModel.Busy.CurrentValue;
             _buyButton.SetEnabled(!busy && selectedItem.CanBuy);
-            _equipButton.SetEnabled(!busy && selectedItem.CanEquip);
         }
 
         //  "300 코인" / 비매품 기본 품목은 "기본" / 그 외 가격이 없으면 "-"(현재 데이터엔 안 나오지만

@@ -26,7 +26,7 @@ namespace LOP
 
         public void OnSceneLoaded(Scene scene, LoadSceneMode mode) => TryDress();
 
-        //  땅(Ground)이 없는 맵(원형 사대 등)이면 아무것도 안 한다.
+        //  땅(Ground)이 없는 맵이면 아무것도 안 한다.
         private void TryDress()
         {
             if (dressed)

@@ -62,9 +62,11 @@ namespace LOP
             if (lobVolley != v) { BuildLobs(v, start); }
             var lane = course.SharedLane.Value;
             Vector3 right = ArcheryTargetMotion.ShooterRightAxis(-lane.Forward);
-            float k = (float)((tick - cue) / (double)System.Math.Max(1L, launch - cue));
+            float k = ArcheryCatapultMachines.LobProgress(tick, cue, launch);
             for (int i = 0; i < lobs.Count; i++)
             {
+                lobs[i].SetActive(k >= 0f);   // 놓기 전엔 바구니 안 — 안 보인다
+                if (k < 0f) { continue; }
                 float lateral = Vector3.Dot(volley[i].Origin - lane.ShooterPosition, right);
                 int side = ArcheryCatapultMachines.SideOf(lateral);
                 lobs[i].transform.position = ArcheryCatapultMachines.Lob(buckets[side < 0 ? 0 : 1], volley[i].Origin, k);
@@ -103,7 +105,8 @@ namespace LOP
                 arm.transform.SetParent(holder, false);
                 parts.Add(arm);
                 arms[i] = holder;
-                buckets[i] = at + Vector3.up * 3.5f;   // 휘두른 바구니 높이쯤에서 출발해 보이게
+                //  놓는 순간(다 휘두른 자세)의 바구니에서 출발한다.
+                buckets[i] = pivot.TransformPoint(Quaternion.Euler(ArcheryCatapultMachines.ArmFiredDeg, 0f, 0f) * ArcheryCatapultMachines.BucketLocal);
             }
             return true;
         }

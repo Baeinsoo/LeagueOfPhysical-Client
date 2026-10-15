@@ -14,8 +14,12 @@ namespace LOP
         public const float ArmCockedDeg = -20f;
         public const float ArmFiredDeg = 110f;
         public const float LobApexM = 7f;
-        private const int SwingTicks = 8;       // 0.16초에 휘두른다
-        private const int SettleTicks = 40;     // 0.8초에 제자리로
+        //  던지기 전체가 "준비" 안에서 끝난다 — 앞 30%에 젖히고, 45%까지 휘둘러 놓는다. 그림은 놓는 순간
+        //  바구니를 떠나 발사 틱에 출발점에 닿는다(팔보다 그림이 먼저 날면 거꾸로 읽힌다).
+        private const float CockEnd = 0.3f;
+        private const float ReleaseAt = 0.45f;
+        private const int SettleTicks = 40;     // 발사 뒤 0.8초에 제자리로
+        public static readonly Vector3 BucketLocal = new Vector3(0f, 0f, -2.45f);   // 팔 축 기준 바구니(0도 = 뒤로 누움)
 
         public static Vector3 Position(int side, Vector3 laneOrigin, Vector3 forward, Vector3 right)
             => laneOrigin + right * (side * SideOffsetM) + forward * ForwardM;
@@ -30,17 +34,28 @@ namespace LOP
             }
             if (tick < launchTick)
             {
-                float k = (tick - cueTick) / (float)Mathf.Max(1, launchTick - cueTick);
-                return Mathf.Lerp(ArmRestDeg, ArmCockedDeg, k);
+                float k = CueFraction(tick, cueTick, launchTick);
+                if (k < CockEnd)
+                {
+                    return Mathf.Lerp(ArmRestDeg, ArmCockedDeg, k / CockEnd);
+                }
+                return k < ReleaseAt
+                    ? Mathf.Lerp(ArmCockedDeg, ArmFiredDeg, (k - CockEnd) / (ReleaseAt - CockEnd))
+                    : ArmFiredDeg;
             }
             long since = tick - launchTick;
-            if (since < SwingTicks)
-            {
-                return Mathf.Lerp(ArmCockedDeg, ArmFiredDeg, since / (float)SwingTicks);
-            }
-            since -= SwingTicks;
             return since < SettleTicks ? Mathf.Lerp(ArmFiredDeg, ArmRestDeg, since / (float)SettleTicks) : ArmRestDeg;
         }
+
+        /// <summary>그림이 바구니를 떠난 뒤 얼마나 왔나(0 = 놓는 순간, 1 = 발사 틱). 놓기 전이면 음수.</summary>
+        public static float LobProgress(long tick, long cueTick, long launchTick)
+        {
+            float k = CueFraction(tick, cueTick, launchTick);
+            return (k - ReleaseAt) / (1f - ReleaseAt);
+        }
+
+        private static float CueFraction(long tick, long cueTick, long launchTick)
+            => (tick - cueTick) / (float)System.Math.Max(1L, launchTick - cueTick);
 
         /// <summary>바구니에서 출발점까지(s = 0~1). 두 점을 잇는 직선 위에 4·꼭대기·s(1−s)만큼 띄운다.</summary>
         public static Vector3 Lob(Vector3 bucket, Vector3 origin, float s)

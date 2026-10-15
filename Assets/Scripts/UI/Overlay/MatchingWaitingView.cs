@@ -15,6 +15,8 @@ namespace LOP.UI
         private IVisualElementScheduledItem _ticker;
 
         public override UILayer Layer => UILayer.Loading;
+        //  모달 — 창 관리자가 뒤를 어둡게 덮고 입력을 막는다. 작게 떠 있으면 로비 버튼이 눌릴 것처럼 보였다.
+        public override bool IsModal => true;
         public override bool BlocksUnderlyingInput => true;
 
         public void SetCancelCallback(System.Action onCancel) => _onCancel = onCancel;

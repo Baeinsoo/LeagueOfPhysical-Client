@@ -1,46 +1,15 @@
-.cdn-root {
-    flex-grow: 1;
-    align-items: center;
-    justify-content: center;
-}
+/* 이름 바꾸기 모달(키트) — 가운데 크림 판(720), 입력란은 크림 바탕·인디고 글자. 뒤를 어둡게 하는 건 창 관리자 백드롭. */
+.cdn-root { flex-grow: 1; align-items: center; justify-content: center; }
+.cdn-card { width: 720px; }
+.cdn-face { align-items: stretch; padding: 44px 48px; }
+.cdn-title { font-size: 48px; color: var(--lop-ink); margin-bottom: 24px; -unity-text-align: middle-center; }
 
-.cdn-card {
-    width: 680px;
-}
+.cdn-input { height: 88px; margin: 0 0 16px 0; }
+.cdn-input > .unity-text-field__input { font-size: 32px; color: var(--lop-ink); background-color: var(--lop-face); border-width: 4px; border-color: var(--lop-ink); border-radius: 10px; padding: 0 20px; }
 
-.cdn-title {
-    font-size: 48px;
-    margin-bottom: 24px;
-}
+.cdn-hint { font-size: 26px; color: var(--lop-ink); opacity: 0.7; white-space: normal; margin-bottom: 8px; }
+.cdn-message { font-size: 26px; color: var(--lop-live); -unity-font-style: bold; white-space: normal; margin-bottom: 8px; }
 
-.cdn-input {
-    height: 96px;
-    font-size: 34px;
-    margin-bottom: 16px;
-}
-
-.cdn-hint {
-    font-size: 24px;
-    opacity: 0.7;
-    margin-bottom: 8px;
-}
-
-.cdn-message {
-    font-size: 26px;
-    color: rgb(255, 120, 120);
-    margin-bottom: 8px;
-}
-
-.cdn-actions {
-    flex-direction: row;
-    justify-content: space-between;
-    margin-top: 24px;
-}
-
-.cdn-button {
-    height: 100px;
-    font-size: 34px;
-    flex-grow: 1;
-    margin-left: 8px;
-    margin-right: 8px;
-}
+.cdn-actions { flex-direction: row; justify-content: center; margin-top: 24px; }
+.cdn-button { margin: 0 16px; }
+.cdn-cancel .kit-btn__label { color: var(--lop-ink); }

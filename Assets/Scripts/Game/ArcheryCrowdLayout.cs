@@ -49,6 +49,9 @@ namespace LOP
     public sealed class ArcheryCrowdLayout
     {
         public const float SideOffset = 8.5f;
+        //  투석기 판은 표적이 가로 ±16 m까지 난다 — 8.5 m 관중석은 낮은 옆 표적으로 가는 화살 길을 막아
+        //  클라에선 관중에 꽂히는데 서버는 점수를 준다. 그래서 표적 길 바깥에 앉힌다.
+        public const float CatapultSideOffset = 17f;
         public const int Rows = 2;
         public const float RowRise = 0.6f;
         public const float RowDepth = 1.2f;
@@ -76,7 +79,7 @@ namespace LOP
         public IReadOnlyList<ArcheryCrowdBox> Volumes => volumes;
         public Vector3 Right { get; private set; }
 
-        public static ArcheryCrowdLayout Build(Vector3 shooterPosition, Vector3 forward)
+        public static ArcheryCrowdLayout Build(Vector3 shooterPosition, Vector3 forward, float sideOffset = SideOffset)
         {
             forward.y = 0f;
             forward = forward.sqrMagnitude > 1e-8f ? forward.normalized : Vector3.forward;
@@ -94,7 +97,7 @@ namespace LOP
                 var facing = Quaternion.LookRotation(-layout.Right * side);   // 레인 쪽을 본다
                 for (int row = 0; row < Rows; row++)
                 {
-                    float lateral = side * (SideOffset + row * RowDepth);
+                    float lateral = side * (sideOffset + row * RowDepth);
                     float top = (row + 1) * RowRise;
                     Vector3 rowCenter = shooterPosition + layout.Right * lateral + forward * mid;
                     layout.steps.Add(new ArcheryCrowdBox(rowCenter + Vector3.up * (top * 0.5f),

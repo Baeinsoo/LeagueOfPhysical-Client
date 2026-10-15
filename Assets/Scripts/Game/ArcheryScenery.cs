@@ -14,8 +14,15 @@ namespace LOP
     {
         private readonly List<(Renderer renderer, Material original)> swapped = new List<(Renderer, Material)>();
         private readonly List<Object> created = new List<Object>();
+        private readonly ArcheryCourse course;
         private bool dressed;
         private bool listening;
+
+        //  코스가 없으면(편집 모드 시험) 투석기 잔디 판을 안 깐다.
+        public ArcheryScenery(ArcheryCourse course = null)
+        {
+            this.course = course;
+        }
 
         public void Start()
         {
@@ -53,7 +60,17 @@ namespace LOP
             var root = new GameObject("ArcheryScenery").transform;
             created.Add(root.gameObject);
             var bounds = ground.bounds;
-            foreach (var p in TreeSpots(bounds))
+            var treeBounds = bounds;
+            if (course != null && course.IsCatapult && course.SharedLane is ArcheryRangeLayout.Lane lane)
+            {
+                //  씬 땅(x −6~30)은 왼쪽 표적 길(−16 m)을 못 덮는다 — 사대 기준 양옆 32 m까지 잔디를 더 깐다.
+                //  씬 땅보다 살짝 낮게 깔아 겹치는 곳은 씬 땅이 보인다(같은 색이라 이음매가 안 보인다).
+                var pad = CatapultGrass(lane.ShooterPosition, lane.Forward, bounds.max.y);
+                Prim(root, PrimitiveType.Cube, grass, pad.center, pad.size, Quaternion.LookRotation(Flat(lane.Forward)));
+                //  나무도 넓힌 잔디 밖으로 — 땅 바로 옆(−12 m)이면 왼쪽 표적 길 한가운데 선다.
+                treeBounds = pad.bounds;
+            }
+            foreach (var p in TreeSpots(treeBounds))
             {
                 Prim(root, PrimitiveType.Cylinder, wood, p + new Vector3(0f, 0.9f, 0f), new Vector3(0.7f, 0.9f, 0.7f));
                 Prim(root, PrimitiveType.Sphere, leaf, p + new Vector3(0f, 3f, 0f), Vector3.one * 3.4f);
@@ -118,6 +135,25 @@ namespace LOP
             };
         }
 
+        /// <summary>투석기 판 잔디 — 사대 기준 가로 −32~32 m, 앞뒤 −4~70 m, 윗면은 땅보다 1 cm 낮다.</summary>
+        public static (Vector3 center, Vector3 size, Bounds bounds) CatapultGrass(Vector3 shooter, Vector3 forward, float groundTop)
+        {
+            forward = Flat(forward);
+            const float thickness = 0.2f;
+            Vector3 size = new Vector3(64f, thickness, 74f);
+            Vector3 center = new Vector3(shooter.x, groundTop - 0.01f - thickness * 0.5f, shooter.z) + forward * 33f;
+            Vector3 right = Vector3.Cross(Vector3.up, forward);
+            Vector3 extent = new Vector3(Mathf.Abs(right.x) * 32f + Mathf.Abs(forward.x) * 37f, thickness * 0.5f,
+                                         Mathf.Abs(right.z) * 32f + Mathf.Abs(forward.z) * 37f);
+            return (center, size, new Bounds(center, extent * 2f));
+        }
+
+        private static Vector3 Flat(Vector3 v)
+        {
+            v.y = 0f;
+            return v.sqrMagnitude > 1e-8f ? v.normalized : Vector3.forward;
+        }
+
         private Material Keep(Material m)
         {
             created.Add(m);
@@ -130,12 +166,14 @@ namespace LOP
             renderer.sharedMaterial = material;
         }
 
-        private static void Prim(Transform parent, PrimitiveType type, Material material, Vector3 position, Vector3 scale)
+        private static void Prim(Transform parent, PrimitiveType type, Material material, Vector3 position, Vector3 scale,
+                                 Quaternion? rotation = null)
         {
             var go = GameObject.CreatePrimitive(type);
             Object.DestroyImmediate(go.GetComponent<Collider>());   // 판정 무관 — 화살이 걸리면 안 된다(바로 지워 한 프레임도 안 남긴다)
             go.transform.SetParent(parent, false);
             go.transform.position = position;
+            go.transform.rotation = rotation ?? Quaternion.identity;
             go.transform.localScale = scale;
             var renderer = go.GetComponent<Renderer>();
             renderer.sharedMaterial = material;

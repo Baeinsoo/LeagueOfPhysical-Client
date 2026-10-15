@@ -8,7 +8,7 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// 한 발 승부의 관중석 — 사대 양옆에 코드 인형 관중을 세우고, 경기에 반응하게 한다.
+    /// 한 발 승부·투석기 사냥의 관중석 — 사대 양옆에 코드 인형 관중을 세우고, 경기에 반응하게 한다.
     /// 화살이 관중석에 실제로 꽂히면 가장 가까운 관객 머리에 화살을 붙인다. 모두 연출이다(판정 무관).
     /// 맵 씬이 뜬 뒤(<see cref="ArcheryCourse.SharedLane"/>이 생긴 뒤) 처음 도는 프레임에 만든다.
     /// </summary>
@@ -101,7 +101,7 @@ namespace LOP
 
         public void Apply()
         {
-            if (course.IsShootOff == false)
+            if (course.UsesSharedLane == false)
             {
                 return;
             }
@@ -121,8 +121,9 @@ namespace LOP
             int index = course.IndexAt(tick, start);
             bool inRound = index >= 0 && index < course.StepCount;
 
-            //  마지막 라운드는 결과가 나올 때까지만 조용하다.
-            bool hush = inRound && course.MultiplierAt(index) >= 2 && tick < course.RoundCloseTick(index, start);
+            //  마지막 라운드는 결과가 나올 때까지만 조용하다. 한 발 승부만의 연출이다 —
+            //  투석기는 과녁 줄이 없어 MultiplierAt·RoundCloseTick을 부르면 안 된다.
+            bool hush = course.IsShootOff && inRound && course.MultiplierAt(index) >= 2 && tick < course.RoundCloseTick(index, start);
             director.BaseMood = hush ? ArcheryCrowdMood.Hush : ArcheryCrowdMood.Idle;
 
             if (hasIndex && index != lastIndex && index >= course.StepCount && lastIndex >= 0 && lastIndex < course.StepCount)
@@ -160,7 +161,8 @@ namespace LOP
             {
                 return false;
             }
-            layout = ArcheryCrowdLayout.Build(lane.Value.ShooterPosition, lane.Value.Forward);
+            layout = ArcheryCrowdLayout.Build(lane.Value.ShooterPosition, lane.Value.Forward,
+                                              course.IsCatapult ? ArcheryCrowdLayout.CatapultSideOffset : ArcheryCrowdLayout.SideOffset);
             director = new ArcheryCrowdDirector(layout.Seats.Count, () => Random.value);
             root = new GameObject("ArcheryCrowd");
 
@@ -314,6 +316,19 @@ namespace LOP
                         continue;
                     }
                     var hit = (ArcheryTargetHitEvent)WorldEventWire.FromWire(rec);
+                    if (course.IsCatapult)
+                    {
+                        float now = Time.time;
+                        if (hit.stunUntilTick > 0)
+                        {
+                            director.React(ArcheryCrowdMood.Boo, 0.7f, 1.5f, now);   // 왕의 깃발·꽃바구니를 쏘다니
+                        }
+                        else if (hit.points >= 5)
+                        {
+                            director.React(ArcheryCrowdMood.Cheer, 0.8f, 1.6f, now); // 황금 성배
+                        }
+                        continue;   // 같은 묶음의 다음 사건도 봐야 한다
+                    }
                     director.OnBandHit(hit.points, Time.time);
                 }
                 else if (rec.EventCase == WorldEventToC.EventOneofCase.ArcheryRoundResult)

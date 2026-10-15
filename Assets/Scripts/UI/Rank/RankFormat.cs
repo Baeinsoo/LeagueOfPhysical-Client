@@ -54,6 +54,26 @@ namespace LOP.UI
                 : $"{before} {c.lpBefore} → {after} {c.lpAfter} LP ({sign})";
         }
 
+        /// <summary>결과판 랭크 줄 — (태그, 본문). 판정 순서는 ResultLine과 같다(배치 완료 → 배치 → 승급 → 강등 → 같은 티어).</summary>
+        public static (string tag, string body) ResultCaption(RankChangeDto c, LOP.MasterData.TbRankDivision divisions)
+        {
+            string after = DivisionName(c.divisionAfter, divisions);
+            if (c.wasPlacement && c.placementPlayed >= c.placementGames) return ("배치 완료", after);
+            if (c.wasPlacement || !c.divisionBefore.HasValue)
+            {
+                return ("배치", $"배치 경기 {c.placementPlayed} / {c.placementGames} · 임시 티어 {after}");
+            }
+
+            string before = DivisionName(c.divisionBefore.Value, divisions);
+            if (c.promoted) return ("승급", $"{before} → {after}  {LpDelta(c)}");
+            if (c.demoted) return ("강등", $"{before} → {after}  {LpDelta(c)}");
+
+            string sign = Signed(NetLp(c));
+            return before == after
+                ? ("랭크", $"{after}  {c.lpBefore} → {c.lpAfter} LP ({sign})")
+                : ("랭크", $"{before} {c.lpBefore} → {after} {c.lpAfter} LP ({sign})");
+        }
+
         /// <summary>티어 색 USS 클래스("rank-tier--gold"). 표에 없으면 빈 문자열.</summary>
         public static string TierClass(int divisionIndex, LOP.MasterData.TbRankDivision divisions)
         {

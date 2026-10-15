@@ -47,6 +47,21 @@ namespace LOP.UI
         }
     }
 
+    /// <summary>등수표 순서 — 등수 오름차순, 같은 등수는 userId 서수(실행마다 흔들리지 않게). 판과 시상대가 같은 순서를 쓴다.</summary>
+    public static class MatchResultOrder
+    {
+        public static List<MatchParticipantResult> Sort(MatchParticipantResult[] participants)
+        {
+            var sorted = new List<MatchParticipantResult>(participants ?? Array.Empty<MatchParticipantResult>());
+            sorted.Sort((left, right) =>
+            {
+                int byPlacement = left.placement.CompareTo(right.placement);
+                return byPlacement != 0 ? byPlacement : string.CompareOrdinal(left.userId, right.userId);
+            });
+            return sorted;
+        }
+    }
+
     /// <summary>
     /// 결과 화면 ViewModel. 스토어에 남은 직전 매치 결과를 표시용 줄 목록으로 바꾸고, 랭크 판이면
     /// 로비에 그 매치의 내 결과를 물어 티어·LP 줄을 만든다(게임 서버 메시지엔 랭크가 없다).
@@ -162,16 +177,7 @@ namespace LOP.UI
                 return rows;
             }
 
-            var sorted = new List<MatchParticipantResult>(participants);
-
-            //  동점끼리의 순서가 실행마다 흔들리지 않게 userId로 갈라 준다(서수 비교 = 바이트 순).
-            sorted.Sort((left, right) =>
-            {
-                int byPlacement = left.placement.CompareTo(right.placement);
-                return byPlacement != 0
-                    ? byPlacement
-                    : string.CompareOrdinal(left.userId, right.userId);
-            });
+            var sorted = MatchResultOrder.Sort(participants);
 
             var placements = new List<int>(sorted.Count);
             foreach (var participant in sorted) { placements.Add(participant.placement); }
@@ -232,6 +238,13 @@ namespace LOP.UI
                 if (p == placement) { count++; }
             }
             return count;
+        }
+
+        /// <summary>결과판 등수 칸 — 숫자만("1"), 2위 이하 동점이면 "공동 2", 무승부면 "-".</summary>
+        public static string FormatRank(int placement, bool isDraw, int tiedCount)
+        {
+            if (isDraw) return "-";
+            return tiedCount > 1 ? $"공동 {placement}" : placement.ToString();
         }
 
         /// <summary>

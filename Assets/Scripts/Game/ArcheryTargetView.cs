@@ -19,6 +19,7 @@ namespace LOP
         private readonly ArcheryConsumed consumed;
         private readonly IUserDataStore userDataStore;
         private readonly LOP.MasterData.LOPMasterData md;
+        private readonly ArcheryFestivalKit kit;
 
         private readonly List<ArcheryTarget> targets = new List<ArcheryTarget>();
         private readonly Dictionary<(int wave, int slot), GameObject> drawn
@@ -41,7 +42,8 @@ namespace LOP
                                  ArcheryCourse course,
                                  ArcheryConsumed consumed,
                                  IUserDataStore userDataStore,
-                                 LOP.MasterData.LOPMasterData md)
+                                 LOP.MasterData.LOPMasterData md,
+                                 ArcheryFestivalKit kit)
         {
             this.runner = runner;
             this.world = world;
@@ -49,6 +51,7 @@ namespace LOP
             this.consumed = consumed;
             this.userDataStore = userDataStore;
             this.md = md;
+            this.kit = kit;
         }
 
         public void LateTick()
@@ -97,7 +100,14 @@ namespace LOP
                     string code = course.IsCatapult ? md.Tables.TbArcheryTarget.GetOrDefault(targets[i].KindId)?.Code : null;
                     if (code != null && ArcheryCatapultLooks.IsFestival(code))
                     {
-                        visual = ArcheryCatapultLooks.BuildPlaceholder(code, targets[i].Radius);
+                        if (kit.TryBuild(code, out var modeled))
+                        {
+                            visual = modeled;
+                        }
+                        else
+                        {
+                            visual = ArcheryCatapultLooks.BuildPlaceholder(code, targets[i].Radius);
+                        }
                     }
                     else if (targets[i].Shape == ArcheryTargetShape.Face)
                     {

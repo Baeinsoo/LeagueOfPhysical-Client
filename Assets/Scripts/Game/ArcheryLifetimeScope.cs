@@ -13,9 +13,12 @@ namespace LOP
         private const float TickInterval = 0.02f;
 
         [SerializeField] private CameraController cameraController;
+        //  투석기 축제 소품. 비어 있으면 표적이 회색 도형으로 그려진다(슬라이스 1 모양).
+        [SerializeField] private ArcheryFestivalKit festivalKit;
 
         protected override void ConfigureGame(IContainerBuilder builder)
         {
+            builder.RegisterInstance(festivalKit != null ? festivalKit : ScriptableObject.CreateInstance<ArcheryFestivalKit>());
             builder.Register<ArcheryConfigProvider>(Lifetime.Singleton);
             builder.Register<ArcheryConfig>(c => c.Resolve<ArcheryConfigProvider>().Get(), Lifetime.Singleton);
             builder.Register<ArcheryConsumed>(Lifetime.Singleton);

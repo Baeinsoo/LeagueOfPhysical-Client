@@ -1,57 +1,43 @@
-.matchresult-root {
-    flex-grow: 1;
-    align-items: center;
-    justify-content: center;
-}
+/* 결과판 — 1920×1080 기준. 왼쪽 판(920), 아래 중계 자막 줄, 오른쪽 아래 확인. 오른쪽 절반은 3D 시상대 자리 */
+.matchresult-root { flex-grow: 1; }
+.matchresult-board { position: absolute; left: 64px; top: 48px; width: 920px; transition-property: translate, rotate, opacity; transition-duration: 0.35s; transition-timing-function: ease-out-back; }
+.matchresult-board--out { translate: -140px 0; rotate: -2deg; opacity: 0; }
+.matchresult-face { padding: 26px 36px; align-items: stretch; }
+.matchresult-head { flex-direction: row; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.matchresult-tag { background-color: #E8322F; color: #FFF8E8; font-size: 22px; padding: 3px 14px; letter-spacing: 3px; margin-right: 14px; white-space: nowrap; }
+.matchresult-title { font-size: 38px; color: #2C2A6B; margin-right: 14px; white-space: nowrap; }
+.matchresult-subtitle { font-size: 24px; color: #2C2A6B; opacity: 0.7; white-space: nowrap; }
+.matchresult-draw { background-color: #2C2A6B; color: #FFF8E8; font-size: 22px; padding: 3px 14px; margin-left: 14px; white-space: nowrap; display: none; }
+.matchresult-row { flex-direction: row; align-items: center; height: 60px; padding-left: 16px; padding-right: 16px; border-bottom-width: 2px; border-color: rgba(44, 42, 107, 0.15); transition-property: translate, opacity; transition-duration: 0.25s; }
+.matchresult-row--out { translate: -40px 0; opacity: 0; }
+.matchresult-row--me { border-left-width: 6px; border-right-width: 6px; border-top-width: 6px; border-bottom-width: 6px; border-color: #FFD23F; padding-left: 10px; padding-right: 10px; }   /* 테두리 6px만큼 여백을 줄여 글자 줄을 맞춘다 */
+.matchresult-row--gone { opacity: 0.5; }
+.matchresult-row__rank { width: 96px; font-size: 36px; color: #2C2A6B; white-space: nowrap; }
+.matchresult-row__name { flex-grow: 1; flex-shrink: 1; max-width: 560px; font-size: 27px; color: #2C2A6B; overflow: hidden; white-space: nowrap; }
+.matchresult-row__left { font-size: 23px; color: #E8322F; margin-left: 12px; white-space: nowrap; }
+.matchresult-row__score { font-size: 27px; color: #2C2A6B; margin-left: 12px; white-space: nowrap; }
+.matchresult-empty { font-size: 56px; color: #2C2A6B; margin-top: 40px; margin-bottom: 40px; -unity-text-align: middle-center; display: none; }
+.matchresult-lines { position: absolute; left: 64px; bottom: 70px; }
+.matchresult-lt { flex-direction: row; height: 68px; margin-top: 14px; transition-property: translate, opacity; transition-duration: 0.3s; }
+.matchresult-lt--out { translate: -60px 0; opacity: 0; }
+.matchresult-lt__tag { background-color: #2C2A6B; color: #FFF8E8; font-size: 26px; padding: 0 20px; -unity-text-align: middle-center; white-space: nowrap; }
+.matchresult-lt__tag--promoted { background-color: #E8322F; }
+.matchresult-lt__tag--demoted { background-color: #4A9FE0; }
+.matchresult-lt__tag--reward { background-color: #FF8A00; color: #2C2A6B; }
+.matchresult-lt__body { background-color: #FFF8E8; color: #2C2A6B; font-size: 27px; padding: 0 22px; -unity-text-align: middle-left; white-space: nowrap; }
+.matchresult-confirm { position: absolute; right: 70px; bottom: 70px; width: 280px; transition-property: opacity; transition-duration: 0.25s; }
+.matchresult-confirm--out { opacity: 0; }
+.matchresult-flash { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: #FFFFFF; opacity: 0; transition-property: opacity; transition-duration: 0.3s; }
+.matchresult-flash--on { opacity: 1; }
 
-.matchresult-card {
-    width: 680px;
-}
-
-.matchresult-title {
-    font-size: 48px;
-    margin-bottom: 16px;
-}
-
-.matchresult-message {
-    font-size: 30px;
-    margin-bottom: 36px;
-}
-
-.matchresult-confirm {
-    height: 100px;
-    font-size: 34px;
-}
-
-.matchresult-rows {
-    flex-direction: column;
-    margin-top: 8px;
-    margin-bottom: 8px;
-}
-
-.matchresult-row {
-    flex-direction: row;
-    justify-content: space-between;
-    padding-top: 4px;
-    padding-bottom: 4px;
-}
-
-.matchresult-row--me {
-    -unity-font-style: bold;
-}
-
-.matchresult-row-score {
-    opacity: 0.85;
-}
-
-.matchresult-rating {
-    flex-direction: row;
-    justify-content: space-between;
-    margin-bottom: 8px;
-}
-
-.matchresult-reward {
-    flex-direction: row;
-    justify-content: space-between;
-    margin-bottom: 8px;
-}
+/* 랭크 반전판 — 인디고 판·크림 글자, 내 줄 빨강, 나감 노랑, 랭크 줄 크게(1부 §3.8) */
+.ranked .matchresult-board .kit-panel__face { background-color: #2C2A6B; }
+.ranked .matchresult-board .kit-panel__back { background-color: #1F1D4A; }
+.ranked .matchresult-title, .ranked .matchresult-subtitle, .ranked .matchresult-row__rank, .ranked .matchresult-row__name, .ranked .matchresult-row__score, .ranked .matchresult-empty { color: #FFF8E8; }
+.ranked .matchresult-draw { background-color: #FFF8E8; color: #2C2A6B; }
+.ranked .matchresult-row { border-color: rgba(255, 248, 232, 0.15); }
+.ranked .matchresult-row--me { border-color: #E8322F; }
+.ranked .matchresult-row__left { color: #FFD23F; }
+.ranked .matchresult-lt--rank { height: 92px; }
+.ranked .matchresult-lt--rank .matchresult-lt__tag { font-size: 40px; }
+.ranked .matchresult-lt--rank .matchresult-lt__body { font-size: 36px; }

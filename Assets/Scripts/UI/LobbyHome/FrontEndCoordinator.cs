@@ -9,65 +9,29 @@ namespace LOP.UI
     /// <summary>
     /// 프론트엔드 네비게이션 담당. LobbyHomeViewModel의 네비 신호를 구독해 상점/설정/프로필 셸 윈도우를 열고,
     /// 셸의 back으로 닫는다(로비 홈 위 push/pop). VM은 신호만 노출, 화면 교체는 여기서(작은 흐름=VM / 큰 흐름=코디네이터).
-    /// 직전 매치 결과가 남아 있으면 로비 진입 직후 결과 화면도 한 번 띄운다.
     /// </summary>
     public class FrontEndCoordinator : IStartable, IDisposable
     {
         private readonly IWindowManager _windowManager;
         private readonly LobbyHomeViewModel _viewModel;
-        private readonly IMatchResultDataStore _matchResultDataStore;
 
         private IDisposable _subscription;
         private ShellView _currentShell;
-        private MatchResultView _matchResultView;
         private readonly ToastSlot<KitToastView> _toast = new();
         private GameSelectView _gameSelect;
         private readonly CancellationTokenSource _cts = new();
 
         public FrontEndCoordinator(
             IWindowManager windowManager,
-            LobbyHomeViewModel viewModel,
-            IMatchResultDataStore matchResultDataStore)
+            LobbyHomeViewModel viewModel)
         {
             _windowManager = windowManager;
             _viewModel = viewModel;
-            _matchResultDataStore = matchResultDataStore;
         }
 
         public void Start()
         {
             _subscription = _viewModel.NavigationRequested.Subscribe(OnNavigationRequested);
-
-            ShowPendingMatchResult();
-        }
-
-        // 직전 매치 결과가 있으면 로비 진입 직후 한 번 보여준다.
-        // VContainer는 IStartable을 플레이어 루프로 돌리므로 이 시점엔 LobbyLifetimeScope의 빌드 콜백이 이미 끝나 있다
-        // (= 뷰 팩토리 등록·로비 홈 오픈 완료). 이 로직을 IInitializable 같은 더 이른 훅으로 옮기면
-        // 팩토리 미등록 resolve 실패 또는 로비 홈이 결과 창 위로 올라오는 z-순서 역전이 난다.
-        private void ShowPendingMatchResult()
-        {
-            if (_matchResultDataStore.result == null)
-            {
-                return;
-            }
-
-            _matchResultView = _windowManager.Open<MatchResultView>();
-            _matchResultView.SetConfirmCallback(CloseMatchResult);
-
-            // 띄우는 순간 소비한다. ViewModel이 Open 안에서 값을 이미 복사해 갔으므로 화면에는 영향이 없다.
-            // [확인]을 누를 때 비우면, 그 전에 창이 닫히는 경로(로비 스코프가 내려가는 등)에서 결과가
-            // 남아 다음 판 결과 화면에 지난 판 등수와 점수가 뜬다.
-            _matchResultDataStore.Clear();
-        }
-
-        private void CloseMatchResult()
-        {
-            if (_matchResultView != null)
-            {
-                _windowManager.Close(_matchResultView);
-                _matchResultView = null;
-            }
         }
 
         private void OnNavigationRequested(FrontEndDestination destination)
@@ -147,12 +111,6 @@ namespace LOP.UI
             if (toast != null) _windowManager.Close(toast);
             CloseGameSelect();
             CloseCurrentShell();
-
-            if (_matchResultView != null)
-            {
-                _windowManager.Close(_matchResultView);
-                _matchResultView = null;
-            }
         }
     }
 }

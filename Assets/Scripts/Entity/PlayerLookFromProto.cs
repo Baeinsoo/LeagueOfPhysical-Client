@@ -9,18 +9,22 @@ namespace LOP
     /// </summary>
     public static class PlayerLookFromProto
     {
-        public static PlayerLook Convert(global::CharacterCreationData proto)
+        public static PlayerLook Convert(global::CharacterCreationData proto) =>
+            From(proto.Look, proto.DisplayName, proto.AccountLevel);
+
+        /// <summary>룩·이름·레벨이 전부 비면 null — 사람이 아닌 몸이거나 옛 서버다.</summary>
+        public static PlayerLook From(IEnumerable<KeyValuePair<string, string>> look, string displayName, int accountLevel)
         {
-            bool hasLook = proto.Look.Count > 0
-                || !string.IsNullOrEmpty(proto.DisplayName)
-                || proto.AccountLevel != 0;
-            if (!hasLook)
+            var slots = new Dictionary<string, string>();
+            if (look != null)
+            {
+                foreach (var kv in look) slots[kv.Key] = kv.Value;
+            }
+            if (slots.Count == 0 && string.IsNullOrEmpty(displayName) && accountLevel == 0)
             {
                 return null;
             }
-
-            var slots = new Dictionary<string, string>(proto.Look);
-            return new PlayerLook(slots, proto.DisplayName, proto.AccountLevel);
+            return new PlayerLook(slots, displayName, accountLevel);
         }
     }
 }

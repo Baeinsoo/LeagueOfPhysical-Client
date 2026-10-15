@@ -1,18 +1,32 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="matchresult-root" class="scrim matchresult-root">
-        <ui:VisualElement name="matchresult-card" class="card matchresult-card">
-            <ui:Label text="결과" class="title matchresult-title" />
-            <ui:Label name="matchresult-message" text="매치 종료" class="card-text matchresult-message" />
-            <ui:VisualElement name="matchresult-rows" class="matchresult-rows" />
-            <ui:VisualElement name="matchresult-rating" class="matchresult-rating">
-                <ui:Label text="랭크" class="card-text matchresult-rating-label" />
-                <ui:Label name="matchresult-rating-value" class="card-text matchresult-rating-value" />
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 결과판 — 왼쪽 키트 큰 판 + 아래 중계 자막 줄 + 오른쪽 아래 확인. 오른쪽 절반은 비워 3D 시상대가 보이게 -->
+    <ui:VisualElement name="matchresult-root" class="kit matchresult-root">
+        <ui:VisualElement name="matchresult-board" class="kit-panel matchresult-board matchresult-board--out">
+            <ui:VisualElement class="kit-panel__back" />
+            <ui:VisualElement class="kit-panel__face matchresult-face">
+                <ui:VisualElement class="matchresult-head">
+                    <ui:Label name="matchresult-tag" text="LIVE" class="matchresult-tag" />
+                    <ui:Label name="matchresult-title" text="경기 결과" class="kit-title matchresult-title" />
+                    <ui:Label name="matchresult-subtitle" class="matchresult-subtitle" />
+                    <ui:Label name="matchresult-draw" text="무승부" class="matchresult-draw" />
+                </ui:VisualElement>
+                <ui:VisualElement name="matchresult-rows" class="matchresult-rows" />
+                <ui:Label name="matchresult-empty" text="경기 종료" class="kit-title matchresult-empty" />
             </ui:VisualElement>
-            <ui:VisualElement name="matchresult-reward" class="matchresult-reward">
-                <ui:Label text="보상" class="card-text matchresult-reward-label" />
-                <ui:Label name="matchresult-reward-value" class="card-text matchresult-reward-value" />
-            </ui:VisualElement>
-            <ui:Button name="confirm-button" text="확인" class="btn btn--primary matchresult-confirm" />
         </ui:VisualElement>
+        <ui:VisualElement name="matchresult-lines" class="matchresult-lines">
+            <ui:VisualElement name="matchresult-rank" class="matchresult-lt matchresult-lt--rank matchresult-lt--out">
+                <ui:Label name="matchresult-rank-tag" class="matchresult-lt__tag" />
+                <ui:Label name="matchresult-rank-body" class="matchresult-lt__body" />
+            </ui:VisualElement>
+            <ui:VisualElement name="matchresult-reward" class="matchresult-lt matchresult-lt--out">
+                <ui:Label text="보상" class="matchresult-lt__tag matchresult-lt__tag--reward" />
+                <ui:Label name="matchresult-reward-body" class="matchresult-lt__body" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:Button name="confirm-button" class="kit-press kit-btn kit-btn--primary matchresult-confirm matchresult-confirm--out">
+            <lop:StickerElement><ui:Label text="확인" class="kit-btn__label" /></lop:StickerElement>
+        </ui:Button>
+        <ui:VisualElement name="matchresult-flash" class="matchresult-flash matchresult-flash--on" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

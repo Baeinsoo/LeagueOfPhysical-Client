@@ -15,6 +15,9 @@ EditorBuildSettings:
     path: Assets/Scenes/Room.unity
     guid: bfb79512a6763e3489c45212c43fa3a2
   - enabled: 1
+    path: Assets/Scenes/Result.unity
+    guid: 27faced8c2175ed4e91eccef8cbb6ffa
+  - enabled: 1
     path: Assets/Scenes/FlapWang.unity
     guid: cd2fa4a9cc7efd343ac3edb0a05ee00e
   - enabled: 1

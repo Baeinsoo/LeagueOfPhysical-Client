@@ -63,6 +63,20 @@ namespace LOP.EditorTools
             var sections = new List<(string name, float x)>();
             foreach (MineSection s in course.Sections) { sections.Add((s.Name, s.X)); }
             sections.Add(("결승", course.Length));
+            //  onlySection 오타(10-14 리뷰 M2) — 맞는 구간이 0개면 아래 루프가 전부 건너뛰어 failures = 0("막힘 0건")으로 조용히 끝난다.
+            //  --detach 폴링으로 반복 돌릴 때 그걸 "통과"로 읽으면 안 되니, 여기서 미리 큰 소리로 실패시킨다.
+            if (onlySection != null)
+            {
+                bool found = false;
+                for (int i = 0; i + 1 < sections.Count; i++) { if (sections[i].name == onlySection) { found = true; break; } }
+                if (!found)
+                {
+                    failures = -1;
+                    var names = new StringBuilder();
+                    for (int i = 0; i + 1 < sections.Count; i++) { names.Append(i > 0 ? ", " : "").Append(sections[i].name); }
+                    return WriteLog($"[광산 구간 검사] onlySection=\"{onlySection}\"에 맞는 구간이 없다(이름을 확인해라) — 있는 구간: {names}\n");
+                }
+            }
             //  구간마다 훑을 한 바퀴(근처 장애물 주기의 최소공배수) — 너무 길면 돌리기 전에 멈춘다(10-13 리뷰 판정: 30초 넘으면 사람이 정한다).
             var cycles = new int[sections.Count];
             var tooLong = new StringBuilder();
@@ -131,8 +145,9 @@ namespace LOP.EditorTools
                                 MineTube t = tunnel;
                                 keep = (x, y) => x <= t.X0 + 0.7f || x >= t.X1 || (y + cfg.BodyRadius >= t.Low && y + cfg.BodyRadius <= t.High);
                             }
-                            //  합격선(초당 3.3번)은 모든 출발 박자를, 초당 4번은 0틱 한 번만(진단).
-                            var ticks = limit == ReferenceLimit ? starts : new List<long> { 0 };
+                            //  합격선(초당 3.3번)은 0.1초 간격 출발 박자 전부를, 초당 4번은 0틱 한 번만(진단 — 사람 한계 근처를 참고로만 본다).
+                            bool diagnosticOnly = limit != ReferenceLimit;
+                            var ticks = diagnosticOnly ? new List<long> { 0 } : starts;
                             int blocked = 0;
                             float firstBlockX = float.MaxValue;
                             long firstBlockStart = 0;
@@ -146,9 +161,11 @@ namespace LOP.EditorTools
                                 if (r.BlockedX < firstBlockX) { firstBlockX = r.BlockedX; firstBlockStart = t0; }
                             }
                             float perSecond = 1f / (limit * TickSeconds);
+                            //  진단 줄은 0틱만 본 값이다 — 뒤에 붙이는 표시가 없으면 전 위상에서 통과했다고 잘못 읽힌다(10-14 리뷰 M1).
+                            string diagNote = diagnosticOnly ? "(0틱만, 진단)" : "";
                             line.Append(blocked == 0
-                                ? $"  초당 {perSecond:F1}번 ✔"
-                                : $"  초당 {perSecond:F1}번 ✘ 출발 박자 {blocked}/{ticks.Count} 막힘(가장 이른 x≈{firstBlockX:F1}, 출발 {firstBlockStart * TickSeconds:F1}초)");
+                                ? $"  초당 {perSecond:F1}번 ✔{diagNote}"
+                                : $"  초당 {perSecond:F1}번 ✘{diagNote} 출발 박자 {blocked}/{ticks.Count} 막힘(가장 이른 x≈{firstBlockX:F1}, 출발 {firstBlockStart * TickSeconds:F1}초)");
                             if (blocked > 0) { failures++; }
                         }
                         sb.AppendLine(line.ToString());

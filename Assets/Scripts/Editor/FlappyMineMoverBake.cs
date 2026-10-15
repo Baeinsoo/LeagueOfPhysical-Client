@@ -12,8 +12,6 @@ namespace LOP.EditorTools
     /// </summary>
     internal static class FlappyMineMoverBake
     {
-        //  승강기 파이프 끝을 바닥·천장 속으로 묻는 거리 — 관문 굽기(FlappyMineCourseBuilder.PipeBury)와 같다. 여기에 진폭을 더 묻는다.
-        private const float PipeBury = 1f;
         private const string UndoName = "Build mine course";
 
         internal readonly struct Counts
@@ -34,9 +32,11 @@ namespace LOP.EditorTools
                 lift.Amplitude = l.Amplitude; lift.Period = l.Period; lift.Phase = l.Phase; lift.Cage = cage;
 
                 //  케이지가 진폭만큼 오르내려도 파이프 끝이 통로에 드러나지 않게 진폭만큼 더 묻는다.
+                //  묻는 거리는 MineDressingLayout.GatePipeBury 하나만 본다(10-14 리뷰 T6) — 옷(LiftCageLocal)도 같은 상수를 쓰므로
+                //  굽기(판정 콜라이더)와 그림이 한쪽만 바뀌어 벌어질 일이 없다.
                 float half = g.Width * 0.5f;
-                float low = Mathf.Min(floorAt(g.X - half), floorAt(g.X), floorAt(g.X + half)) - PipeBury - l.Amplitude;
-                float high = Mathf.Max(ceilingAt(g.X - half), ceilingAt(g.X), ceilingAt(g.X + half)) + PipeBury + l.Amplitude;
+                float low = Mathf.Min(floorAt(g.X - half), floorAt(g.X), floorAt(g.X + half)) - MineDressingLayout.GatePipeBury - l.Amplitude;
+                float high = Mathf.Max(ceilingAt(g.X - half), ceilingAt(g.X), ceilingAt(g.X + half)) + MineDressingLayout.GatePipeBury + l.Amplitude;
                 float a = g.GapCenter - g.Gap * 0.5f, b = g.GapCenter + g.Gap * 0.5f;
                 FlappyClassicCourseBuilder.Pipe(cage, $"LiftPipeLow_{g.X:F1}", g.X, low, a, skin, g.Width);
                 FlappyClassicCourseBuilder.Pipe(cage, $"LiftPipeHigh_{g.X:F1}", g.X, b, high, skin, g.Width);

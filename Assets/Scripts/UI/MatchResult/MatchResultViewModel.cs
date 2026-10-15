@@ -74,6 +74,8 @@ namespace LOP.UI
 
         private readonly ReactiveProperty<string> _rankLine = new(string.Empty);
         private readonly ReactiveProperty<string> _rewardLine = new(string.Empty);
+        private readonly ReactiveProperty<string> _subtitle = new(string.Empty);
+        private readonly ReactiveProperty<(string tag, string body)> _rankCaption = new((string.Empty, string.Empty));
         private readonly CancellationTokenSource _cts = new();
 
         public IReadOnlyList<MatchResultRow> Rows { get; }
@@ -88,30 +90,53 @@ namespace LOP.UI
         /// 빈 문자열(줄을 숨긴다). 랭크 줄과 같은 조회(GetMyMatch)에서 함께 채워진다 — 게임서버 메시지엔 보상이 없다.</summary>
         public ReadOnlyReactiveProperty<string> RewardLine => _rewardLine;
 
+        /// <summary>판·무대 색. 연 순간 저장된 큐로 정하고 응답이 와도 안 바꾼다 — 크림으로 떴다 인디고로 바뀌는 깜빡임 금지.</summary>
+        public bool IsRanked { get; }
+
+        /// <summary>머리띠 부제 "{종목} · {맵}". 저장값으로 시작하고, 모르면 조회 응답으로 채운다. 끝내 모르면 빈 문자열.</summary>
+        public ReadOnlyReactiveProperty<string> Subtitle => _subtitle;
+
+        /// <summary>결과판 랭크 줄 (태그, 본문). 랭크 큐 판이고 응답이 왔을 때만 채운다 — 아니면 빈 값(줄을 숨긴다).</summary>
+        public ReadOnlyReactiveProperty<(string tag, string body)> RankCaption => _rankCaption;
+
         [VContainer.Inject]
         public MatchResultViewModel(IMatchResultDataStore matchResultDataStore, IUserDataStore userDataStore, LOP.MasterData.LOPMasterData masterData)
-            : this(matchResultDataStore, userDataStore, masterData.Tables.TbQueue, masterData.Tables.TbRankDivision, WebAPI.GetMyMatch)
+            : this(matchResultDataStore, userDataStore, masterData.Tables.TbQueue, masterData.Tables.TbRankDivision,
+                masterData.Tables.TbGameMode, masterData.Tables.TbMap, WebAPI.GetMyMatch)
         {
         }
 
+        public MatchResultViewModel(IMatchResultDataStore matchResultDataStore, IUserDataStore userDataStore,
+            LOP.MasterData.TbQueue queues, LOP.MasterData.TbRankDivision divisions,
+            Func<string, string, CancellationToken, UniTask<GetMyMatchResponse>> fetchMatch)
+            : this(matchResultDataStore, userDataStore, queues, divisions, null, null, fetchMatch)
+        {
+        }
+
+        /// <param name="modes">종목 이름 표. 없으면(시험) 부제를 비운다.</param>
         /// <param name="fetchMatch">(userId, matchId, ct) → 그 매치의 내 결과. 시험이 가짜를 꽂는다.</param>
         public MatchResultViewModel(IMatchResultDataStore matchResultDataStore, IUserDataStore userDataStore,
             LOP.MasterData.TbQueue queues, LOP.MasterData.TbRankDivision divisions,
+            LOP.MasterData.TbGameMode modes, LOP.MasterData.TbMap maps,
             Func<string, string, CancellationToken, UniTask<GetMyMatchResponse>> fetchMatch)
         {
             var result = matchResultDataStore.result;
             string myUserId = userDataStore.user?.id;
+            string myName = string.IsNullOrEmpty(userDataStore.user?.displayName) ? MyName : userDataStore.user.displayName;
 
-            Rows = BuildRows(result?.participants, myUserId);
+            Rows = BuildRows(result?.participants, myUserId, myName);
             IsDraw = Rows.Count > 0 && Rows[0].IsDraw;
+            IsRanked = result != null && queues.GetOrDefault(result.queueId)?.HasVisibleRank == true;
+            _subtitle.Value = ComposeSubtitle(modes, maps, result?.gameModeId ?? 0, result?.mapId ?? 0);
 
-            LoadMatchAsync(result?.matchId, myUserId, queues, divisions, fetchMatch).Forget();
+            LoadMatchAsync(result?.matchId, myUserId, queues, divisions, modes, maps, fetchMatch).Forget();
         }
 
         //  랭크 줄과 보상 줄은 같은 조회(GetMyMatch) 한 번으로 채운다 — 랭크 큐 여부와 무관하게
         //  보상은 항상 찾는다(캐주얼도 보상이 있다), 랭크 줄만 랭크 큐일 때 채운다.
         private async UniTaskVoid LoadMatchAsync(string matchId, string myUserId,
             LOP.MasterData.TbQueue queues, LOP.MasterData.TbRankDivision divisions,
+            LOP.MasterData.TbGameMode modes, LOP.MasterData.TbMap maps,
             Func<string, string, CancellationToken, UniTask<GetMyMatchResponse>> fetchMatch)
         {
             if (string.IsNullOrEmpty(matchId) || string.IsNullOrEmpty(myUserId)) return;
@@ -123,6 +148,12 @@ namespace LOP.UI
 
                 bool showRank = queues.GetOrDefault(response.match.queueId)?.HasVisibleRank == true;
 
+                var rounds = response.match.rounds;
+                if (string.IsNullOrEmpty(_subtitle.Value) && rounds != null && rounds.Length > 0)
+                {
+                    _subtitle.Value = ComposeSubtitle(modes, maps, rounds[0].gameModeId, rounds[0].mapId);
+                }
+
                 foreach (var p in response.match.participants ?? Array.Empty<MatchHistoryParticipantDto>())
                 {
                     if (p.userId != myUserId) continue;
@@ -130,6 +161,7 @@ namespace LOP.UI
                     if (showRank && p.rank != null)
                     {
                         _rankLine.Value = RankFormat.ResultLine(p.rank, divisions);
+                        _rankCaption.Value = RankFormat.ResultCaption(p.rank, divisions);
                     }
 
                     _rewardLine.Value = RewardFormat.Line(p.reward);
@@ -157,6 +189,19 @@ namespace LOP.UI
             _cts.Dispose();
             _rankLine.Dispose();
             _rewardLine.Dispose();
+            _subtitle.Dispose();
+            _rankCaption.Dispose();
+        }
+
+        //  "{종목} · {맵}". 표가 없거나(시험) 모르는 번호면 아는 것만, 둘 다 모르면 빈칸.
+        private static string ComposeSubtitle(LOP.MasterData.TbGameMode modes, LOP.MasterData.TbMap maps, int gameModeId, int mapId)
+        {
+            var parts = new List<string>(2);
+            var mode = gameModeId == 0 ? null : modes?.GetOrDefault(gameModeId);
+            if (mode != null) parts.Add(mode.Name);
+            var map = mapId == 0 ? null : maps?.GetOrDefault(mapId);
+            if (map != null) parts.Add(map.Name);
+            return string.Join(" · ", parts);
         }
 
         /// <summary>서버가 자루에 "나감" 표시를 실었나.</summary>
@@ -164,10 +209,10 @@ namespace LOP.UI
             stats != null && stats.TryGetValue(MatchStatKeys.Left, out int left) && left != 0;
 
         /// <summary>
-        /// 등수 오름차순으로 정렬해 줄을 만든다. 본인은 "나", 나머지는 정렬 순서대로 "플레이어 1·2…".
-        /// 닉네임 개념이 아직 없어 userId를 그대로 띄우지 않기 위한 표기다.
+        /// 등수 오름차순으로 정렬해 줄을 만든다. 이름은 서버가 결과에 실어 준 것을 쓰고, 없으면(옛 서버)
+        /// 본인은 내 표시 이름, 나머지는 정렬 순서대로 "플레이어 1·2…" — userId를 그대로 띄우지 않는다.
         /// </summary>
-        private static IReadOnlyList<MatchResultRow> BuildRows(MatchParticipantResult[] participants, string myUserId)
+        private static IReadOnlyList<MatchResultRow> BuildRows(MatchParticipantResult[] participants, string myUserId, string myName)
         {
             var rows = new List<MatchResultRow>();
 
@@ -187,7 +232,9 @@ namespace LOP.UI
             foreach (var participant in sorted)
             {
                 bool isMe = participant.userId == myUserId;
-                string displayName = isMe ? MyName : $"플레이어 {++otherNumber}";
+                string displayName = !string.IsNullOrEmpty(participant.displayName)
+                    ? participant.displayName
+                    : isMe ? myName : $"플레이어 {++otherNumber}";
                 var (hasScore, score, gained, lost) = ExtractScore(participant.stats);
 
                 rows.Add(new MatchResultRow(participant.placement, displayName, isMe, isDraw,

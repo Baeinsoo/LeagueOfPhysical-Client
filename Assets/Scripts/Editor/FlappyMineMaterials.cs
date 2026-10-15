@@ -99,6 +99,10 @@ namespace LOP.EditorTools
             Color ropeLightColor = ToColor(0xc9, 0xb2, 0x8a);
             Color ropeDarkColor = ToColor(0x8a, 0x75, 0x52);
             Color capCreamColor = ToColor(0xe3, 0xc7, 0x9a);
+            //  밧줄의 그늘 색은 툰 셰이더의 중간 단(그늘색을 흰색 쪽으로 0.6 — LOPToonLighting의 midTint)과 같게 둔다(10-15).
+            //  해가 오른쪽 위라 기둥 왼 옆면(−x)은 그늘 단에 떨어지는데, 보통 그늘색(푸른 보라)을 곱하면 크림 밧줄이 회색이 돼
+            //  짙은 나무 위에서 안 보였다. 오른 옆면(중간 단)과 같은 색으로 읽히게 밧줄만 그늘을 옅게 한다.
+            Color ropeShadow = Color.Lerp(shadow, Color.white, 0.6f);
 
             //  슬롯 이름(Task 3 보고) → 재질. FBX 리매핑은 이 이름으로 찾는다.
             var slots = new Dictionary<string, Material>
@@ -148,8 +152,8 @@ namespace LOP.EditorTools
                 //  10-15 승강기 "L" — LiftPlank·LiftLash·LiftCap.
                 ["WoodDark"] = Toon("WoodDark", Grain(look, woodDarkColor), wood, shadow),
                 ["WoodDarkGroove"] = Toon("WoodDarkGroove", woodDarkGrooveColor, null, shadow),
-                ["RopeLight"] = Toon("RopeLight", ropeLightColor, null, shadow),
-                ["RopeDark"] = Toon("RopeDark", ropeDarkColor, null, shadow),
+                ["RopeLight"] = Toon("RopeLight", ropeLightColor, null, ropeShadow),
+                ["RopeDark"] = Toon("RopeDark", ropeDarkColor, null, ropeShadow),
                 ["CapCream"] = Toon("CapCream", capCreamColor, null, shadow),
             };
             Toon("StrataPatchLight", ScaleRgb(rockBase, 1f + look.decorContrast), null, shadow);

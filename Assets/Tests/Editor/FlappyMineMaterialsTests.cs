@@ -237,6 +237,34 @@ namespace LOP.Tests
             }
         }
 
+        //  10-15: 해가 오른쪽 위라 승강기 기둥 왼 옆면(−x)은 그늘 단이다. 밧줄이 보통 그늘색(푸른 보라)을 받으면 회색이 돼
+        //  짙은 나무 위에서 사라졌다 — 밧줄만 그늘을 중간 단 색(그늘색을 흰색 쪽으로 0.6)으로 옅게 한다. 나무는 그대로.
+        [Test]
+        public void 밧줄은_그늘이_중간_단_색이고_나무는_보통_그늘색이다()
+        {
+            var look = Look();
+            try
+            {
+                look.shadowColor = new Color(0.5f, 0.4f, 0.7f, 1f);   // 실물 값과 달라야 "look을 따른다"까지 본다
+                FlappyMineMaterials.Ensure(look);
+                Color rope = Color.Lerp(look.shadowColor, Color.white, 0.6f);
+                foreach (string name in new[] { "RopeLight", "RopeDark" })
+                {
+                    Color c = AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/{name}.mat").GetColor("_ShadowColor");
+                    Assert.AreEqual(rope.r, c.r, 0.002f, $"{name} 그늘 r");
+                    Assert.AreEqual(rope.g, c.g, 0.002f, $"{name} 그늘 g");
+                    Assert.AreEqual(rope.b, c.b, 0.002f, $"{name} 그늘 b");
+                }
+                Color wood = AssetDatabase.LoadAssetAtPath<Material>($"{MaterialDir}/WoodDark.mat").GetColor("_ShadowColor");
+                Assert.AreEqual(look.shadowColor.r, wood.r, 0.002f, "WoodDark 그늘이 보통 그늘색이 아니다");
+                Assert.AreEqual(look.shadowColor.b, wood.b, 0.002f, "WoodDark 그늘이 보통 그늘색이 아니다");
+            }
+            finally
+            {
+                Object.DestroyImmediate(look);
+            }
+        }
+
         [Test]
         public void Strata_슬롯은_칠한_바위_텍스처를_반복으로_쓰고_평균은_바위색_밝은_테보다_어둡다()
         {

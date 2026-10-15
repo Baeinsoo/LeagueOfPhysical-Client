@@ -22,6 +22,11 @@ namespace LOP
         private bool _started;
         private bool _left;
 
+#if UNITY_EDITOR
+        /// <summary>에디터 전용 — 가짜 결과 메뉴가 확인 때 로비로 돌아가는 길을 대신 건다(앱 상태가 로비 그대로라서).</summary>
+        public static System.Action LeaveOverride;
+#endif
+
         /// <summary>결과 자체가 없으면(직접 열기·두 번째 불러오기) 보여 줄 것이 없다 — 곧바로 로비. 등수 없는 판(보고 실패)은 "경기 종료"를 보여 준다.</summary>
         public static bool ShouldLeaveImmediately(MatchResult result) => result == null;
 
@@ -70,6 +75,15 @@ namespace LOP
         {
             if (_left) return;
             _left = true;
+#if UNITY_EDITOR
+            if (LeaveOverride != null)
+            {
+                var leave = LeaveOverride;
+                LeaveOverride = null;
+                leave();
+                return;
+            }
+#endif
             _app.Fire(AppEvent.ResultClosed);
         }
     }

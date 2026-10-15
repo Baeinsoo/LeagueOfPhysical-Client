@@ -8,9 +8,9 @@
 .matchresult-title { font-size: 38px; color: #2C2A6B; margin-right: 14px; white-space: nowrap; }
 .matchresult-subtitle { font-size: 24px; color: #2C2A6B; opacity: 0.7; white-space: nowrap; }
 .matchresult-draw { background-color: #2C2A6B; color: #FFF8E8; font-size: 22px; padding: 3px 14px; margin-left: 14px; white-space: nowrap; display: none; }
-.matchresult-row { flex-direction: row; align-items: center; height: 60px; border-bottom-width: 2px; border-color: rgba(44, 42, 107, 0.15); transition-property: translate, opacity; transition-duration: 0.25s; }
+.matchresult-row { flex-direction: row; align-items: center; height: 60px; padding-left: 16px; padding-right: 16px; border-bottom-width: 2px; border-color: rgba(44, 42, 107, 0.15); transition-property: translate, opacity; transition-duration: 0.25s; }
 .matchresult-row--out { translate: -40px 0; opacity: 0; }
-.matchresult-row--me { border-left-width: 6px; border-right-width: 6px; border-top-width: 6px; border-bottom-width: 6px; border-color: #FFD23F; padding-left: 10px; }
+.matchresult-row--me { border-left-width: 6px; border-right-width: 6px; border-top-width: 6px; border-bottom-width: 6px; border-color: #FFD23F; padding-left: 10px; padding-right: 10px; }   /* 테두리 6px만큼 여백을 줄여 글자 줄을 맞춘다 */
 .matchresult-row--gone { opacity: 0.5; }
 .matchresult-row__rank { width: 96px; font-size: 36px; color: #2C2A6B; white-space: nowrap; }
 .matchresult-row__name { flex-grow: 1; flex-shrink: 1; max-width: 560px; font-size: 27px; color: #2C2A6B; overflow: hidden; white-space: nowrap; }

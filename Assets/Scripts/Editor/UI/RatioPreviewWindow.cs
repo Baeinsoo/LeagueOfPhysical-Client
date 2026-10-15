@@ -39,15 +39,25 @@ namespace LOP.EditorTools
                     shots.Add((() =>
                     {
                         var w = GetWindow<RatioPreviewWindow>("비율 미리보기");
-                        w.Build(uxml, uss, width, height);
+                        w.Build(uxml, uss, width, height, view, ranked: false);
                         return w;
                     }, $"output/ratio/{view}-{tag}.png", width, height));
+                    //  결과판은 랭크 반전판도 따로 본다.
+                    if (view == nameof(MatchResultView))
+                    {
+                        shots.Add((() =>
+                        {
+                            var w = GetWindow<RatioPreviewWindow>("비율 미리보기");
+                            w.Build(uxml, uss, width, height, view, ranked: true);
+                            return w;
+                        }, $"output/ratio/{view}-ranked-{tag}.png", width, height));
+                    }
                 }
             }
             UiSnapshot.SaveAll(shots);
         }
 
-        private void Build(VisualTreeAsset uxml, StyleSheet uss, int width, int height)
+        private void Build(VisualTreeAsset uxml, StyleSheet uss, int width, int height, string view, bool ranked)
         {
             var root = rootVisualElement;
             root.Clear();
@@ -68,6 +78,50 @@ namespace LOP.EditorTools
             viewRoot.style.bottom = 0;
             if (uss != null) viewRoot.styleSheets.Add(uss);
             host.Add(viewRoot);
+            if (view == nameof(MatchResultView)) FillResultBoard(viewRoot, ranked);
+        }
+
+        //  결과판은 하얀 덮개·숨김으로 시작한다 — 등장이 끝난 모습을 가짜 8인 결과(나 2위, 1명 나감)로 채운다.
+        private static void FillResultBoard(VisualElement root, bool ranked)
+        {
+            root.Q("matchresult-root")?.EnableInClassList("ranked", ranked);
+            root.Q("matchresult-flash")?.RemoveFromClassList("matchresult-flash--on");
+            root.Q("matchresult-board")?.RemoveFromClassList("matchresult-board--out");
+            root.Q("confirm-button")?.RemoveFromClassList("matchresult-confirm--out");
+            root.Query(className: "matchresult-lt--out").ForEach(e => e.RemoveFromClassList("matchresult-lt--out"));
+            root.Q<Label>("matchresult-tag").text = ranked ? "RANKED" : "LIVE";
+            root.Q<Label>("matchresult-title").text = ranked ? "리그 경기 결과" : "경기 결과";
+            root.Q<Label>("matchresult-subtitle").text = ranked ? "스카이다이브 · 피라미드" : "플래피 레이스 · 광산";
+            root.Q<Label>("matchresult-rank-tag").text = "승급";
+            root.Q<Label>("matchresult-rank-tag").AddToClassList("matchresult-lt__tag--promoted");
+            root.Q<Label>("matchresult-rank-body").text = "골드 II → 골드 I  +18 LP";
+            root.Q("matchresult-rank").style.display = ranked ? DisplayStyle.Flex : DisplayStyle.None;
+            root.Q<Label>("matchresult-reward-body").text = "오늘 첫 승 ×3 · +150 코인 · +360 XP · Lv 7 → 8";
+
+            var rows = root.Q("matchresult-rows");
+            string[] names = { "가나다라마바사아자차카타#1234", "재나르도#1234", "3P 선수", "4P 선수", "5P 선수", "6P 선수", "7P 선수", "8P 선수" };
+            for (int i = 0; i < names.Length; i++)
+            {
+                var line = new VisualElement();
+                line.AddToClassList("matchresult-row");
+                if (i == 1) line.AddToClassList("matchresult-row--me");
+                if (i == 7) line.AddToClassList("matchresult-row--gone");
+                var rank = new Label((i + 1).ToString());
+                rank.AddToClassList("kit-title");
+                rank.AddToClassList("matchresult-row__rank");
+                line.Add(rank);
+                var name = new Label();
+                name.AddToClassList("matchresult-row__name");
+                line.Add(name);
+                KitEllipsis.SetText(name, names[i]);
+                if (i == 7)
+                {
+                    var left = new Label("나감");
+                    left.AddToClassList("matchresult-row__left");
+                    line.Add(left);
+                }
+                rows.Add(line);
+            }
         }
     }
 }

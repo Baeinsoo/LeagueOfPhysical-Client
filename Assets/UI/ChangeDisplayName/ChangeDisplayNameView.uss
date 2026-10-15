@@ -5,11 +5,12 @@
 .cdn-title { font-size: 48px; color: var(--lop-ink); margin-bottom: 24px; -unity-text-align: middle-center; }
 
 .cdn-input { height: 88px; margin: 0 0 16px 0; }
-.cdn-input > .unity-text-field__input { font-size: 32px; color: var(--lop-ink); background-color: var(--lop-face); border-width: 4px; border-color: var(--lop-ink); border-radius: 10px; padding: 0 20px; }
+.cdn-input > .unity-text-field__input { font-size: 32px; color: var(--lop-ink); background-color: var(--lop-face); border-width: 4px; border-color: var(--lop-ink); border-radius: 10px; padding: 0 20px; flex-grow: 1; justify-content: center; -unity-text-align: middle-left; }
 
 .cdn-hint { font-size: 26px; color: var(--lop-ink); opacity: 0.7; white-space: normal; margin-bottom: 8px; }
 .cdn-message { font-size: 26px; color: var(--lop-live); -unity-font-style: bold; white-space: normal; margin-bottom: 8px; }
 
 .cdn-actions { flex-direction: row; justify-content: center; margin-top: 24px; }
 .cdn-button { margin: 0 16px; }
-.cdn-cancel .kit-btn__label { color: var(--lop-ink); }
+.cdn-cancel .sticker { --sticker-face: var(--lop-ink); --sticker-back: var(--lop-ink-deep); }
+.cdn-cancel .kit-btn__label { color: var(--lop-face); }

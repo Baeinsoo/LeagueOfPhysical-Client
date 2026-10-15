@@ -8,7 +8,8 @@
 .profile-small-btn { height: 64px; flex-shrink: 0; }
 .profile-small-btn .sticker__face { padding: 0 24px; }
 .profile-small-btn .kit-btn__label { font-size: 26px; }
-.profile-identity .profile-small-btn .kit-btn__label { color: var(--lop-ink); }
+.profile-identity .profile-small-btn .sticker { --sticker-face: var(--lop-ink); --sticker-back: var(--lop-ink-deep); }
+.profile-identity .profile-small-btn .kit-btn__label { color: var(--lop-face); }
 .profile-status { font-size: 28px; color: var(--lop-ink); margin-bottom: 12px; }
 .profile-level { font-size: 32px; color: var(--lop-ink); margin-bottom: 16px; }
 .profile-rank { margin-bottom: 16px; }

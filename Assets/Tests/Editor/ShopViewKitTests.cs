@@ -18,7 +18,7 @@ namespace LOP.Tests
             {
                 StringAssert.Contains($"name=\"{n}\"", x);
             }
-            StringAssert.Contains("<ui:Toggle name=\"confirm-equip\"", x);
+            StringAssert.Contains("name=\"confirm-equip-mark\"", x);
             StringAssert.DoesNotContain("equip-button", x);
         }
 

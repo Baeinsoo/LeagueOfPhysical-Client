@@ -4,8 +4,8 @@
 .shop-tab { margin-right: 16px; }
 
 .shop-grid { flex-grow: 1; }
-.shop-grid > .unity-scroll-view__content-container { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; padding: 8px 0; }
-.shop-card { height: 300px; margin: 8px 20px 16px 20px; }
+.shop-grid .unity-scroll-view__content-container { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; padding: 8px 0; }
+.shop-card { height: 300px; flex-shrink: 0; margin: 8px 20px 16px 20px; }
 .shop-card__state--dim { opacity: 0.45; }
 .shop-card--picked { width: 312px; margin: 2px 14px 10px 14px; border-width: 6px; border-color: var(--lop-primary); border-radius: 16px; }
 
@@ -23,8 +23,12 @@
 .shop-confirm__face { padding: 48px 56px; }
 .shop-confirm__question { font-size: 40px; color: var(--lop-ink); white-space: normal; -unity-text-align: middle-center; margin-bottom: 16px; }
 .shop-confirm__remaining { font-size: 28px; color: var(--lop-ink); margin-bottom: 24px; }
-.shop-confirm__equip { font-size: 28px; color: var(--lop-ink); margin-bottom: 32px; }
-.shop-confirm__equip .unity-toggle__label { font-size: 28px; color: var(--lop-ink); min-width: 0; }
+/* "사면 바로 끼운다" 체크 — 기본 Toggle은 크림 판 위에서 체크가 안 보여 직접 그린다 */
+.shop-confirm__equip { flex-direction: row; align-items: center; margin: 0 0 32px 0; padding: 0; border-width: 0; background-color: rgba(255, 255, 255, 0); }
+.shop-confirm__mark { width: 44px; height: 44px; margin-right: 14px; border-width: 4px; border-color: var(--lop-ink); border-radius: 8px; background-color: var(--lop-face); font-size: 30px; color: var(--lop-ink); -unity-text-align: middle-center; padding: 0; }
+.shop-confirm__equip-text { font-size: 28px; color: var(--lop-ink); }
 .shop-confirm__buttons { flex-direction: row; }
 .shop-confirm__no { margin-right: 32px; }
-.shop-confirm__no .kit-btn__label { color: var(--lop-ink); }
+.shop-confirm__no .sticker { --sticker-face: var(--lop-ink); --sticker-back: var(--lop-ink-deep); }
+.shop-confirm__no .kit-btn__label { color: var(--lop-face); }
+

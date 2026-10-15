@@ -25,7 +25,9 @@ namespace LOP.UI
         private VisualElement _confirm;
         private Label _confirmQuestion;
         private Label _confirmRemaining;
-        private Toggle _confirmEquip;
+        private Button _confirmEquip;
+        private Label _confirmEquipMark;
+        private bool _equipAfterBuy = true;
         private Button _confirmNo;
         private Button _confirmYes;
 
@@ -54,7 +56,8 @@ namespace LOP.UI
             _confirm = Root.Q<VisualElement>("shop-confirm");
             _confirmQuestion = Root.Q<Label>("confirm-question");
             _confirmRemaining = Root.Q<Label>("confirm-remaining");
-            _confirmEquip = Root.Q<Toggle>("confirm-equip");
+            _confirmEquip = Root.Q<Button>("confirm-equip");
+            _confirmEquipMark = Root.Q<Label>("confirm-equip-mark");
             _confirmNo = Root.Q<Button>("confirm-no");
             _confirmYes = Root.Q<Button>("confirm-yes");
 
@@ -62,6 +65,7 @@ namespace LOP.UI
             _toLocker.clicked += OnLockerClicked;
             _confirmNo.clicked += CloseConfirm;
             _confirmYes.clicked += OnConfirmYes;
+            _confirmEquip.clicked += ToggleEquipAfterBuy;
 
             BuildTabs();
 
@@ -95,6 +99,7 @@ namespace LOP.UI
             if (_toLocker != null) _toLocker.clicked -= OnLockerClicked;
             if (_confirmNo != null) _confirmNo.clicked -= CloseConfirm;
             if (_confirmYes != null) _confirmYes.clicked -= OnConfirmYes;
+            if (_confirmEquip != null) _confirmEquip.clicked -= ToggleEquipAfterBuy;
 
             base.OnClose();
         }
@@ -244,7 +249,7 @@ namespace LOP.UI
 
             _confirmQuestion.text = ShopFormat.ConfirmQuestion(item.Name, price);
             _confirmRemaining.text = ShopFormat.RemainingCoins(_viewModel.Coins.CurrentValue, price);
-            _confirmEquip.SetValueWithoutNotify(true);
+            SetEquipAfterBuy(true);
             _confirm.AddToClassList("shop-confirm--open");
             RefreshConfirmButtons();
         }
@@ -258,9 +263,18 @@ namespace LOP.UI
             bool busy = _viewModel.Busy.CurrentValue;
             _confirmYes.SetEnabled(!busy);
             _confirmNo.SetEnabled(!busy);
+            _confirmEquip.SetEnabled(!busy);
         }
 
-        private void OnConfirmYes() => BuyAndCloseAsync(_confirmEquip.value).Forget();
+        private void ToggleEquipAfterBuy() => SetEquipAfterBuy(!_equipAfterBuy);
+
+        private void SetEquipAfterBuy(bool on)
+        {
+            _equipAfterBuy = on;
+            _confirmEquipMark.text = on ? "✓" : string.Empty;
+        }
+
+        private void OnConfirmYes() => BuyAndCloseAsync(_equipAfterBuy).Forget();
 
         //  성공·거절 어느 쪽이든 닫는다 — 거절 문구는 막대 위 메시지 줄에 남는다.
         private async UniTaskVoid BuyAndCloseAsync(bool equip)

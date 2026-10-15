@@ -156,7 +156,7 @@ namespace LOP.UI
         }
 
         /// <summary>판 카드 — 머리줄(종목·부제·내 결과·시각)을 누르면 등수 줄(결과판과 같은 표기)이 펼쳐진다.</summary>
-        private static VisualElement BuildMatchCard(ProfileMatchEntry match, bool open)
+        internal static VisualElement BuildMatchCard(ProfileMatchEntry match, bool open)
         {
             var card = new VisualElement();
             card.AddToClassList("profile-match");

@@ -4,37 +4,60 @@ using UnityEngine.UIElements;
 
 namespace LOP.UI
 {
-    /// <summary>프로필 셸. ViewModel이 받아온 큐별 전적을 그린다.</summary>
+    /// <summary>
+    /// 선수 카드 셸. 왼쪽 정보 판(이름·레벨·랭크·기록·장착), 오른쪽 최근 전적(판을 누르면 등수 줄 펼침).
+    /// 값은 전부 ProfileViewModel 그대로 — 받지 못한 값은 줄째 숨기고 가짜 값으로 채우지 않는다.
+    /// </summary>
     public class ProfileView : ShellView
     {
         private readonly ProfileViewModel _viewModel;
+        private System.Action _onLocker;
 
         private Button _renameButton;
+        private Button _toLocker;
 
         public ProfileView(ProfileViewModel viewModel)
         {
             _viewModel = viewModel;
         }
 
-        protected override string Title => "프로필";
+        protected override string Title => "선수 카드";
 
         /// <summary>[라커룸]을 누르면 부를 동작. 여는 쪽(FrontEndCoordinator)이 셸 교체로 잇는다.</summary>
         public void SetLockerCallback(System.Action onLocker) => _onLocker = onLocker;
 
-        private System.Action _onLocker;
+        /// <summary>큐 하나의 기록 한 줄. 기록이 없으면 그렇게 말한다.</summary>
+        public static string RecordLine(ProfileQueueStats stats) =>
+            stats.HasRecord && stats.GamesPlayed > 0
+                ? $"{stats.QueueName} {stats.GamesPlayed}전 {stats.FirstPlaces}회 1위 · 평균 {stats.AveragePlacement}등"
+                : $"{stats.QueueName} 아직 기록이 없습니다";
+
+        /// <summary>"Lv 3 · XP 120 / 500". 아직 못 받았으면 빈 문자열(줄을 숨긴다).</summary>
+        public static string LevelLine(string level, string xp)
+        {
+            if (string.IsNullOrEmpty(level)) return string.Empty;
+            return string.IsNullOrEmpty(xp) ? level : $"{level} · XP {xp}";
+        }
 
         public override void OnOpen()
         {
             base.OnOpen();
 
-            var status = Root.Q<Label>("profile-status");
-            var queues = Root.Q<VisualElement>("profile-queues");
-
             var name = Root.Q<Label>("profile-name");
+            var status = Root.Q<Label>("profile-status");
+            var level = Root.Q<Label>("profile-level");
+            var rank = Root.Q<VisualElement>("profile-rank");
+            var records = Root.Q<VisualElement>("profile-records");
+            var equipped = Root.Q<Label>("profile-equipped");
+            var historyTitle = Root.Q<Label>("profile-history-title");
+            var history = Root.Q<ScrollView>("profile-history");
+
             _renameButton = Root.Q<Button>("profile-rename");
             _renameButton.clicked += OnRenameClicked;
+            _toLocker = Root.Q<Button>("profile-to-locker");
+            _toLocker.clicked += OnLockerClicked;
 
-            Disposables.Add(_viewModel.Identity.Subscribe(text => name.text = text));
+            Disposables.Add(_viewModel.Identity.Subscribe(text => KitEllipsis.SetText(name, text)));
 
             Disposables.Add(_viewModel.Status.Subscribe(text =>
             {
@@ -42,44 +65,46 @@ namespace LOP.UI
                 status.style.display = string.IsNullOrEmpty(text) ? DisplayStyle.None : DisplayStyle.Flex;
             }));
 
-            var progress = Root.Q<VisualElement>("profile-progress");
-
-            //  레벨·경험치는 받기 전엔 숨긴다 — "레벨: Lv 1" 같은 거짓값이나 "경험치: "만 남은 빈 줄이 뜨지 않게.
-            Disposables.Add(_viewModel.LevelText.CombineLatest(_viewModel.XpText, (level, xp) => (level, xp)).Subscribe(t =>
+            Disposables.Add(_viewModel.LevelText.CombineLatest(_viewModel.XpText, LevelLine).Subscribe(text =>
             {
-                progress.Clear();
-                if (!string.IsNullOrEmpty(t.level))
-                {
-                    progress.Add(BuildStat("레벨", t.level));
-                }
-                if (!string.IsNullOrEmpty(t.xp))
-                {
-                    progress.Add(BuildStat("경험치", t.xp));
-                }
+                level.text = text;
+                level.style.display = string.IsNullOrEmpty(text) ? DisplayStyle.None : DisplayStyle.Flex;
             }));
 
-            var equippedTitle = Root.Q<Label>("profile-equipped-title");
-            var equipped = Root.Q<VisualElement>("profile-equipped");
-
+            //  장착은 슬롯마다 한 줄로 오지만 판이 좁아 " · "로 잇는다.
             Disposables.Add(_viewModel.EquippedText.Subscribe(text =>
+                KitEllipsis.SetText(equipped, string.IsNullOrEmpty(text) ? string.Empty : $"장착 중 · {text.Replace("\n", " · ")}")));
+
+            Disposables.Add(_viewModel.Stats.Subscribe(stats =>
             {
-                equipped.Clear();
+                rank.Clear();
+                records.Clear();
+                if (stats == null) return;
 
-                bool has = !string.IsNullOrEmpty(text);
-                equippedTitle.style.display = has ? DisplayStyle.Flex : DisplayStyle.None;
-                equipped.style.display = has ? DisplayStyle.Flex : DisplayStyle.None;
-                if (!has) return;
-
-                foreach (var line in text.Split('\n'))
+                foreach (var queue in stats)
                 {
-                    var lineLabel = new Label(line);
-                    lineLabel.AddToClassList("profile-stat-label");
-                    equipped.Add(lineLabel);
+                    //  랭크 줄은 VM이 랭크 큐에만 준다(배치 중이면 "배치 2/5" 같은 VM 문구 그대로).
+                    if (!string.IsNullOrEmpty(queue.RankLine))
+                    {
+                        var line = new Label(queue.RankLine);
+                        line.AddToClassList("kit-title");
+                        line.AddToClassList("profile-rank__line");
+                        if (!string.IsNullOrEmpty(queue.TierClass)) line.AddToClassList(queue.TierClass);
+                        rank.Add(line);
+                        if (!string.IsNullOrEmpty(queue.PeakLine))
+                        {
+                            var peak = new Label(queue.PeakLine);
+                            peak.AddToClassList("profile-rank__peak");
+                            rank.Add(peak);
+                        }
+                    }
+
+                    var record = new Label();
+                    record.AddToClassList("profile-records__line");
+                    KitEllipsis.SetText(record, RecordLine(queue));
+                    records.Add(record);
                 }
             }));
-
-            var historyTitle = Root.Q<Label>("profile-history-title");
-            var history = Root.Q<ScrollView>("profile-history");
 
             Disposables.Add(_viewModel.Matches.Subscribe(matches =>
             {
@@ -91,20 +116,10 @@ namespace LOP.UI
                 history.style.display = has ? DisplayStyle.Flex : DisplayStyle.None;
                 if (!has) return;
 
-                foreach (var match in matches)
+                for (int i = 0; i < matches.Count; i++)
                 {
-                    history.Add(BuildMatchCard(match));
-                }
-            }));
-
-            Disposables.Add(_viewModel.Stats.Subscribe(stats =>
-            {
-                queues.Clear();
-                if (stats == null) return;
-
-                foreach (var queue in stats)
-                {
-                    queues.Add(BuildQueue(queue));
+                    //  가장 최근 판만 펼쳐 둔다 — 나머지는 머리줄만 보이고 누르면 펼친다.
+                    history.Add(BuildMatchCard(matches[i], open: i == 0));
                 }
             }));
         }
@@ -112,11 +127,14 @@ namespace LOP.UI
         public override void OnClose()
         {
             if (_renameButton != null) _renameButton.clicked -= OnRenameClicked;
+            if (_toLocker != null) _toLocker.clicked -= OnLockerClicked;
 
             base.OnClose();
         }
 
         private void OnRenameClicked() => _viewModel.RequestRename();
+
+        private void OnLockerClicked() => _onLocker?.Invoke();
 
         private bool _disposed;
 
@@ -137,129 +155,90 @@ namespace LOP.UI
             base.Dispose(disposing);
         }
 
-        private static VisualElement BuildMatchCard(ProfileMatchEntry match)
+        /// <summary>판 카드 — 머리줄(종목·부제·내 결과·시각)을 누르면 등수 줄(결과판과 같은 표기)이 펼쳐진다.</summary>
+        private static VisualElement BuildMatchCard(ProfileMatchEntry match, bool open)
         {
             var card = new VisualElement();
             card.AddToClassList("profile-match");
 
-            var header = new VisualElement();
-            header.AddToClassList("profile-match-header");
+            var rows = new VisualElement();
+            rows.AddToClassList("profile-match__rows");
+            rows.EnableInClassList("profile-match__rows--open", open);
+
+            var head = new Button(() => rows.ToggleInClassList("profile-match__rows--open"));
+            head.AddToClassList("profile-match__head");
 
             var mode = new Label(match.GameModeName);
-            mode.AddToClassList("profile-match-mode");
-
-            var date = new Label(match.EndedAt);
-            date.AddToClassList("profile-match-date");
-
-            header.Add(mode);
-            header.Add(date);
-            card.Add(header);
+            mode.AddToClassList("kit-title");
+            mode.AddToClassList("profile-match__mode");
+            head.Add(mode);
 
             //  큐·맵을 못 찾으면(마스터데이터가 옛 판의 id를 더 이상 안 갖는 경우) 줄 자체를 안 넣는다.
             if (!string.IsNullOrEmpty(match.Subtitle))
             {
-                var subtitle = new Label(match.Subtitle);
-                subtitle.AddToClassList("profile-match-subtitle");
-                card.Add(subtitle);
+                var subtitle = new Label();
+                subtitle.AddToClassList("profile-match__sub");
+                KitEllipsis.SetText(subtitle, match.Subtitle);
+                head.Add(subtitle);
             }
 
             if (match.HasMyResult)
             {
                 var mine = new Label(match.MyResult);
-                mine.AddToClassList("profile-match-mine");
-                card.Add(mine);
+                mine.AddToClassList("kit-title");
+                mine.AddToClassList("profile-match__mine");
+                head.Add(mine);
             }
+
+            var date = new Label(match.EndedAt);
+            date.AddToClassList("profile-match__date");
+            //  내 결과가 없으면 시각이 오른쪽 끝으로 간다.
+            if (!match.HasMyResult) date.style.marginLeft = new StyleLength(StyleKeyword.Auto);
+            head.Add(date);
 
             //  "공동 N등" 표기는 그 등수에 몇 명이 몰려 있는지로 정한다 — 결과 화면과 같은 판정.
             var placements = new List<int>(match.Rows.Count);
-            foreach (var row in match.Rows) { placements.Add(row.Placement); }
+            foreach (var row in match.Rows) placements.Add(row.Placement);
 
             foreach (var row in match.Rows)
             {
                 var line = new VisualElement();
-                line.AddToClassList("profile-stat");
-                if (row.IsMe) line.AddToClassList("matchresult-row--me");
+                line.AddToClassList("profile-row");
+                line.EnableInClassList("profile-row--me", row.IsMe);
+                line.EnableInClassList("profile-row--gone", row.IsLeft);
 
                 int tiedCount = MatchResultViewModel.TiedCount(placements, row.Placement);
                 var placement = new Label(MatchResultViewModel.FormatPlacement(row.Placement, row.IsDraw, tiedCount));
-                placement.AddToClassList("profile-stat-label");
-
-                var name = new Label(row.IsLeft ? $"{row.DisplayName} · 나감" : row.DisplayName);
-                name.AddToClassList("profile-stat-value");
-
+                placement.AddToClassList("kit-title");
+                placement.AddToClassList("profile-row__rank");
                 line.Add(placement);
+
+                var name = new Label();
+                name.AddToClassList("profile-row__name");
+                KitEllipsis.SetText(name, row.DisplayName);
                 line.Add(name);
+
+                if (row.IsLeft)
+                {
+                    var left = new Label("나감");
+                    left.AddToClassList("profile-row__left");
+                    line.Add(left);
+                }
 
                 //  점수 없는 모드는 이 자리가 아예 안 보여야 한다 — 빈칸도 "0점"도 아니라 없는 것이다.
                 if (row.HasScore)
                 {
                     var score = new Label(MatchResultViewModel.FormatScore(row.Score, row.Gained, row.Lost));
-                    score.AddToClassList("profile-stat-value");
+                    score.AddToClassList("profile-row__score");
                     line.Add(score);
                 }
 
-                card.Add(line);
+                rows.Add(line);
             }
 
+            card.Add(head);
+            card.Add(rows);
             return card;
-        }
-
-        private static VisualElement BuildQueue(ProfileQueueStats stats)
-        {
-            var block = new VisualElement();
-            block.AddToClassList("profile-queue");
-
-            var name = new Label(stats.QueueName);
-            name.AddToClassList("profile-queue-name");
-            block.Add(name);
-
-            if (!stats.HasRecord)
-            {
-                var empty = new Label("아직 기록이 없습니다.");
-                empty.AddToClassList("profile-stat-label");
-                block.Add(empty);
-                return block;
-            }
-
-            //  랭크 칸은 티어·LP를 맨 위에 크게. 숨은 점수는 어느 칸에도 안 보인다.
-            if (!string.IsNullOrEmpty(stats.RankLine))
-            {
-                var tier = new Label(stats.RankLine);
-                tier.AddToClassList("profile-rank");
-                if (!string.IsNullOrEmpty(stats.TierClass)) tier.AddToClassList(stats.TierClass);
-                block.Add(tier);
-            }
-            if (!string.IsNullOrEmpty(stats.PeakLine))
-            {
-                var peak = new Label(stats.PeakLine);
-                peak.AddToClassList("profile-stat-label");
-                block.Add(peak);
-            }
-
-            if (stats.GamesPlayed > 0)
-            {
-                block.Add(BuildStat("판수", $"{stats.GamesPlayed}판"));
-                block.Add(BuildStat("1등", $"{stats.FirstPlaces}회"));
-                block.Add(BuildStat("평균 등수", $"{stats.AveragePlacement}등"));
-            }
-
-            return block;
-        }
-
-        private static VisualElement BuildStat(string label, string value)
-        {
-            var row = new VisualElement();
-            row.AddToClassList("profile-stat");
-
-            var labelElement = new Label(label);
-            labelElement.AddToClassList("profile-stat-label");
-
-            var valueElement = new Label(value);
-            valueElement.AddToClassList("profile-stat-value");
-
-            row.Add(labelElement);
-            row.Add(valueElement);
-            return row;
         }
     }
 }

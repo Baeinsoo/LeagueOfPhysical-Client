@@ -1,0 +1,41 @@
+/* 키트 선수 카드 — 1920×1080 기준. 왼쪽 정보 판(900), 오른쪽 최근 전적(판 카드, 누르면 등수 줄 펼침). */
+.profile-body { flex-direction: row; align-items: flex-start; }
+
+.profile-card { width: 900px; flex-shrink: 0; margin-right: 40px; }
+.profile-card__face { align-items: stretch; padding: 36px 44px; }
+.profile-identity { flex-direction: row; align-items: center; margin-bottom: 16px; }
+.profile-name { font-size: 48px; color: var(--lop-ink); flex-shrink: 1; max-width: 560px; overflow: hidden; white-space: nowrap; margin-right: 24px; }
+.profile-small-btn { height: 64px; flex-shrink: 0; }
+.profile-small-btn .sticker__face { padding: 0 24px; }
+.profile-small-btn .kit-btn__label { font-size: 26px; }
+.profile-identity .profile-small-btn .kit-btn__label { color: var(--lop-ink); }
+.profile-status { font-size: 28px; color: var(--lop-ink); margin-bottom: 12px; }
+.profile-level { font-size: 32px; color: var(--lop-ink); margin-bottom: 16px; }
+.profile-rank { margin-bottom: 16px; }
+.profile-rank__line { font-size: 40px; }
+.profile-rank__peak { font-size: 26px; color: var(--lop-ink); opacity: 0.7; }
+.profile-records { margin-bottom: 20px; }
+.profile-records__line { font-size: 28px; color: var(--lop-ink); margin-bottom: 6px; max-width: 800px; overflow: hidden; white-space: nowrap; }
+.profile-equipped-row { flex-direction: row; align-items: center; border-top-width: 2px; border-color: rgba(44, 42, 107, 0.15); padding-top: 20px; }
+.profile-equipped { flex-grow: 1; flex-shrink: 1; font-size: 28px; color: var(--lop-ink); max-width: 620px; overflow: hidden; white-space: nowrap; margin-right: 16px; }
+
+.profile-side { flex-grow: 1; flex-shrink: 1; align-self: stretch; }
+.profile-side__title { font-size: 40px; color: var(--lop-face); margin-bottom: 12px; }
+.profile-history { flex-grow: 1; }
+
+.profile-match { background-color: var(--lop-face); border-radius: 10px; margin-bottom: 16px; padding: 0; }
+.profile-match__head { flex-direction: row; align-items: center; height: 76px; padding: 0 24px; margin: 0; border-width: 0; background-color: rgba(255, 255, 255, 0); }
+.profile-match__mode { font-size: 30px; color: var(--lop-ink); margin-right: 16px; white-space: nowrap; }
+.profile-match__sub { font-size: 24px; color: var(--lop-ink); opacity: 0.7; flex-shrink: 1; max-width: 300px; overflow: hidden; white-space: nowrap; }
+.profile-match__mine { font-size: 28px; color: var(--lop-ink); margin-left: auto; white-space: nowrap; }
+.profile-match__date { font-size: 22px; color: var(--lop-ink); opacity: 0.6; margin-left: 16px; white-space: nowrap; }
+.profile-match__rows { display: none; padding: 0 16px 12px 16px; }
+.profile-match__rows--open { display: flex; }
+
+.profile-row { flex-direction: row; align-items: center; height: 56px; padding: 0 16px; border-bottom-width: 2px; border-color: rgba(44, 42, 107, 0.15); }
+.profile-row--me { border-left-width: 6px; border-right-width: 6px; border-top-width: 6px; border-bottom-width: 6px; border-color: var(--lop-reward); padding: 0 10px; }
+.profile-row--gone { opacity: 0.5; }
+.profile-row__rank { width: 110px; font-size: 30px; color: var(--lop-ink); white-space: nowrap; }
+.profile-row__name { flex-grow: 1; flex-shrink: 1; max-width: 460px; font-size: 26px; color: var(--lop-ink); overflow: hidden; white-space: nowrap; }
+.profile-row__left { font-size: 22px; color: var(--lop-live); margin-left: 12px; white-space: nowrap; }
+.profile-row__score { font-size: 26px; color: var(--lop-ink); margin-left: 12px; white-space: nowrap; }

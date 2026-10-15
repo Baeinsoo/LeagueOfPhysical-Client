@@ -195,9 +195,11 @@ def gate_plank():
 
 
 def gate_strap():
-    """GateStrap — 쇠띠. 가운데가 원점: y ∈ [−0.08, 0.08], x는 파이프 폭 그대로(±0.975), 앞뒤로 0.04씩 튀어나온다."""
+    """GateStrap — 쇠띠. 가운데가 원점: y ∈ [−0.08, 0.08], x ∈ [−0.985, 0.985], 앞뒤로 0.04씩 튀어나온다.
+    x는 파이프 폭(±0.975)보다 1 cm 밖(그림 = 판정 ± 0.01 안) — 끝 마개가 판자 옆면(±0.975)과 한 평면이면 카메라가 움직일 때
+    옆면의 쇠띠가 판자 색과 번갈아 보였다 사라졌다(10-15 번쩍임). 판자 옆면 밖으로 내밀어 같은 방향 겹면을 없앤다."""
     p = Part('GateStrap')
-    p.prism_x(chamfer_rect(0.0, 0.0, 0.16, 1.38, 0.03), -0.975, 0.975, 'Strap')
+    p.prism_x(chamfer_rect(0.0, 0.0, 0.16, 1.38, 0.03), -0.985, 0.985, 'Strap')
     return p
 
 
@@ -841,12 +843,12 @@ LASH_PITCH = 0.075
 
 
 def lift_lash():
-    """LiftLash — 밧줄 감기(GateStrap 자리). 가운데 원점: 네 바퀴 y ∈ [−0.15, 0.15], x ∈ [−0.98, 0.98](판자 옆면 ±0.975와 한 평면이 되지 않게
-    5 mm 밖 — 그림 = 판정 ± 0.01 안), z ∈ [−0.72, 0.72](판자 앞뒤로 0.07, 앞면 밧줄 가닥 위로 감긴다). 바퀴마다 밝은·어두운 밧줄이 번갈아."""
+    """LiftLash — 밧줄 감기(GateStrap 자리). 가운데 원점: 네 바퀴 y ∈ [−0.15, 0.15], x ∈ [−0.985, 0.985](판자 옆면 ±0.975와 한 평면이
+    되지 않게 1 cm 밖 — 그림 = 판정 ± 0.01 안. GateStrap과 같은 여유), z ∈ [−0.72, 0.72](판자 앞뒤로 0.07, 앞면 밧줄 가닥 위로 감긴다). 바퀴마다 밝은·어두운 밧줄이 번갈아."""
     p = Part('LiftLash')
     for k in range(LASH_WRAPS):
         y = (k - (LASH_WRAPS - 1) / 2) * LASH_PITCH
-        p.prism_x(chamfer_rect(y, 0.0, LASH_PITCH - 0.005, 1.44, 0.028), -0.98, 0.98, 'RopeLight' if k % 2 == 0 else 'RopeDark')
+        p.prism_x(chamfer_rect(y, 0.0, LASH_PITCH - 0.005, 1.44, 0.028), -0.985, 0.985, 'RopeLight' if k % 2 == 0 else 'RopeDark')
     return p
 
 

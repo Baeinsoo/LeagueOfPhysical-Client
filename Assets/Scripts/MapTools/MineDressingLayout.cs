@@ -74,7 +74,7 @@ namespace LOP.MapTools
         /// 아래 끝 가운데, x ±0.975 · y 0~1 · z ±0.65, 기둥 높이만큼 1 m씩 쌓는다. 승강기 Cage의 자식 Look에 놓는다.
         /// </summary>
         LiftPlank,
-        /// <summary>승강기 밧줄 감기(가운데 원점, 네 바퀴 y ±0.15, x ±0.98). 관문 쇠띠(GateStrap) 자리에 — 틈 쪽 끝에서 2 m마다.</summary>
+        /// <summary>승강기 밧줄 감기(가운데 원점, 네 바퀴 y ±0.15, x ±0.985). 관문 쇠띠(GateStrap) 자리에 — 틈 쪽 끝에서 2 m마다.</summary>
         LiftLash,
         /// <summary>승강기 틈 쪽 끝 크림색 테(GateCap과 같은 틀: 윗면 원점, 두께 0.4, x ±0.975). 쇠 볼트 대신 나무 못.</summary>
         LiftCap,
@@ -267,7 +267,7 @@ namespace LOP.MapTools
         /// 카메라 거리 비(45/33 ≈ 1.36)만큼 키운다 — 띠 하나가 덮는 폭 = 20 × 1.36.
         /// </summary>
         public const float SilhouetteScaleX = 1.36f, SilhouetteWidth = 20f * SilhouetteScaleX;
-        /// <summary>GatePlank·GateStrap·GateCap x ±0.975 — 보통 관문 폭.</summary>
+        /// <summary>GatePlank·GateCap x ±0.975 — 보통 관문 폭(GateStrap 메시만 ±0.985 — 끝 마개가 판자 옆면과 한 평면이 되지 않게).</summary>
         public const float GateUnitWidth = 1.95f;
         /// <summary>BgFrame x ±3.3(윗면 원점), Walkway x ±3.0(윗면 원점), Ladder 위 끝 원점.</summary>
         public const float BgFrameWidth = 6.6f, WalkwayWidth = 6f, LadderWidth = 0.82f, LanternWidth = 0.6f, MineCartWidth = 1.95f;
@@ -2337,7 +2337,7 @@ namespace LOP.MapTools
         //  그림도 같이 움직인다(spec §5). *Local 함수는 그 자식 기준 자리, 나머지는 고정 그림이라 월드 좌표. 숫자는 전부 판정 사각형에서 그대로 가져온다.
 
         /// <summary>
-        /// 승강기 기둥(10-15 "L") — LiftPlank(블렌더: 아래 끝 가운데, x ±0.975 · y 0~1 · z ±0.65)·LiftLash(가운데, x ±0.98 · y ±0.15 · z ±0.72)·
+        /// 승강기 기둥(10-15 "L") — LiftPlank(블렌더: 아래 끝 가운데, x ±0.975 · y 0~1 · z ±0.65)·LiftLash(가운데, x ±0.985 · y ±0.15 · z ±0.72)·
         /// LiftCap(윗면 원점, x ±0.975 · y −0.4~0 · z ±0.73) 폭. 놓는 z는 관문 판자와 같은 깊이(<c>FlappyMineDressing.GateZ</c>) — 앞면 −1.38.
         /// 칸·감기·테 자리는 관문 기둥과 같은 셈(<see cref="GateStack"/>)이다.
         /// </summary>

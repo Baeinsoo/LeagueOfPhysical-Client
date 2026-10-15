@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using GameFramework;
 using MessagePipe;
 
@@ -31,26 +30,7 @@ namespace LOP
 
         private void OnMatchEnded(MatchEndedToC message)
         {
-            var participants = new MatchParticipantResult[message.Placements.Count];
-            for (int i = 0; i < message.Placements.Count; i++)
-            {
-                //  proto map은 null이 아니라 빈 컬렉션으로 온다 — 그대로 복사해도 안전하다.
-                participants[i] = new MatchParticipantResult
-                {
-                    userId = message.Placements[i].UserId,
-                    placement = message.Placements[i].Placement,
-                    stats = new Dictionary<string, int>(message.Placements[i].Stats),
-                };
-            }
-
-            matchResultDataStore.result = new MatchResult
-            {
-                matchId = roomDataStore.room?.matchId,
-                participants = participants,
-                hasRatingChange = message.HasRatingChange,
-                myMmrBefore = message.MyMmrBefore,
-                myMmrAfter = message.MyMmrAfter,
-            };
+            matchResultDataStore.result = MatchResultCapture.From(message, roomDataStore.room?.matchId, roomDataStore.match);
 
             runner.EndMatch();
         }

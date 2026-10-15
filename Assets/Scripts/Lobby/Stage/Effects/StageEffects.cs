@@ -21,6 +21,9 @@ namespace LOP
         public StageEffectWeights Weights { get; private set; }
         public float ShowT { get; private set; } = float.PositiveInfinity;
 
+        /// <summary>출전 연출이 카메라를 넘겨받는 동안 true — 무대 카메라 자세를 쓰지 않는다.</summary>
+        public bool CameraOverride { get; set; }
+
         public void Init(StageRig rig, LobbyLighting lighting, Camera cam, bool ranked)
         {
             _rig = rig;
@@ -62,7 +65,7 @@ namespace LOP
             }
             if (_camT < 1f) _camT = Mathf.Min(1f, _camT + dt / CameraBlendSeconds);
             _camNow = StageCameraPose.Lerp(_camFrom, _camTo, Mathf.SmoothStep(0f, 1f, _camT));
-            if (_camera != null)
+            if (_camera != null && !CameraOverride)
             {
                 _camera.transform.position = _camNow.Position + StageCameraPose.Sway(_time, Weights.Weight(StageEffect.HeroCamera));
                 _camera.transform.LookAt(_camNow.LookAt);

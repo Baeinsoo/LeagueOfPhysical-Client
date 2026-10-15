@@ -61,3 +61,7 @@
 .lobbyhome-corner--tr { right: 22px; top: 18px; border-top-width: 4px; border-right-width: 4px; }
 .lobbyhome-corner--bl { left: 22px; bottom: 78px; border-bottom-width: 4px; border-left-width: 4px; }
 .lobbyhome-corner--br { right: 22px; bottom: 78px; border-bottom-width: 4px; border-right-width: 4px; }
+
+/* 출전 — 로비 UI가 0.25초에 사라진다 */
+.lobbyhome-root { transition-property: opacity; transition-duration: 0.25s; }
+.runout.lobbyhome-root { opacity: 0; }

@@ -1,10 +1,16 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="matching-root" class="scrim matching-root">
-        <ui:VisualElement name="matching-card" class="card matching-card">
-            <ui:Label text="MATCHING" class="title matching-title" />
-            <ui:Label name="matching-queue" class="card-text matching-message" />
-            <ui:Label name="matching-elapsed" text="0:00" class="card-text matching-message" />
-            <ui:Button name="cancel-button" text="Cancel" class="btn btn--secondary matching-cancel" />
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 매칭 대기 — 가운데 크림 판(키트), 뒤는 어둡게(기본 백드롭). 모달로 읽혀야 다른 버튼을 누르려 하지 않는다 -->
+    <ui:VisualElement name="matching-root" class="kit matching-root">
+        <ui:VisualElement name="matching-card" class="kit-panel matching-panel">
+            <ui:VisualElement class="kit-panel__back" />
+            <ui:VisualElement class="kit-panel__face matching-face">
+                <ui:Label text="매칭 중" class="kit-title matching-title" />
+                <ui:Label name="matching-queue" class="matching-queue" />
+                <ui:Label name="matching-elapsed" text="0:00" class="kit-title matching-elapsed" />
+                <ui:Button name="cancel-button" class="kit-press kit-btn matching-cancel">
+                    <lop:StickerElement><ui:Label text="취소" class="kit-btn__label" /></lop:StickerElement>
+                </ui:Button>
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

@@ -1,12 +1,17 @@
-.loading-root {
-    flex-grow: 1;
-    align-items: center;
-    justify-content: flex-end;
-    background-image: url("loading_screen.png");
-    -unity-background-scale-mode: scale-and-crop;
-}
+/* 로딩판 — 잉크 바탕 + 가운데 크림 판(키트 .kit-panel) + 아래 띠. 1920×1080 기준 */
+.loading-root { flex-grow: 1; background-color: #2C2A6B; align-items: center; justify-content: center; }
+.loading-board { width: 980px; }
+.loading-board__face { padding: 56px 64px 48px 64px; }
+.loading-tag { background-color: #4A9FE0; color: #FFF8E8; font-size: 26px; padding: 6px 22px; letter-spacing: 2px; white-space: nowrap; }
+.loading-tag--ranked { background-color: #E8322F; }
+.loading-title { margin-top: 26px; font-size: 96px; color: #2C2A6B; white-space: nowrap; }
+.loading-map { margin-top: 6px; font-size: 36px; color: #3D3A86; white-space: nowrap; }
+.loading-desc { margin-top: 22px; max-width: 820px; font-size: 30px; color: #2C2A6B; white-space: normal; -unity-text-align: middle-center; }
+.loading-dots { margin-top: 30px; font-size: 34px; color: #FF8A00; white-space: nowrap; }
+.loading-ticker { position: absolute; left: 0; right: 0; bottom: 0; }
 
-.loading-text {
-    font-size: 56px;
-    margin-bottom: 72px;
-}
+/* 하얀 빛 — 판 전체가 하양을 덮은 채 투명에서 차오르고(0.35초, 3D 위로 하얀 빛), 그다음 하양이 걷힌다(0.35초) */
+.loading-root { transition-property: opacity; transition-duration: 0.35s; }
+.loading-root--enter { opacity: 0; }
+.loading-flash { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: #FFFFFF; opacity: 0; transition-property: opacity; transition-duration: 0.35s; }
+.loading-flash--on { opacity: 1; }

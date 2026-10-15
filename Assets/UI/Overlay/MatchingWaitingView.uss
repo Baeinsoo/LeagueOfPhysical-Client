@@ -1,24 +1,9 @@
-.matching-root {
-    flex-grow: 1;
-    align-items: center;
-    justify-content: center;
-}
-
-.matching-card {
-    width: 680px;
-}
-
-.matching-title {
-    font-size: 48px;
-    margin-bottom: 16px;
-}
-
-.matching-message {
-    font-size: 30px;
-    margin-bottom: 36px;
-}
-
-.matching-cancel {
-    height: 100px;
-    font-size: 34px;
-}
+/* 매칭 대기 — 가운데 큰 크림 판(키트 .kit-panel), 1920×1080 기준. 뒤는 백드롭이 어둡게 덮는다 */
+.matching-root { flex-grow: 1; align-items: center; justify-content: center; }
+.matching-panel { width: 640px; }
+.matching-face { padding: 48px 56px; }
+.matching-title { font-size: 56px; color: #2C2A6B; white-space: nowrap; }
+.matching-queue { margin-top: 6px; font-size: 30px; color: #3D3A86; white-space: nowrap; }
+.matching-elapsed { margin-top: 18px; font-size: 96px; color: #FF8A00; white-space: nowrap; }
+.matching-cancel { margin-top: 28px; width: 280px; }
+.matching-cancel .sticker { --sticker-face: var(--lop-live); --sticker-back: var(--lop-live-shade); }

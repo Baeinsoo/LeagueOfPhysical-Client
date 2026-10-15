@@ -77,6 +77,36 @@ namespace LOP
             Dress();
         }
 
+        /// <summary>출전 중 자세 — 출구 쪽으로 돌아서 달린다. 몸이 아직 없으면 아무것도 하지 않는다.</summary>
+        public void PoseRunOut(float z, float yaw, bool running)
+        {
+            if (Visual == null) return;
+            Visual.transform.position = new Vector3(StandPosition.x, StandPosition.y, z);
+            Visual.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            SetRun(running);
+        }
+
+        /// <summary>출전을 되돌린다(방 접속 실패) — 제자리에서 카메라를 본다.</summary>
+        public void ResetRunOut()
+        {
+            if (Visual == null) return;
+            Visual.transform.position = StandPosition;
+            Visual.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            SetRun(false);
+        }
+
+        private void SetRun(bool on)
+        {
+            var animator = Visual.GetComponentInChildren<Animator>();
+            if (animator == null || animator.runtimeAnimatorController == null) return;
+            foreach (var p in animator.parameters)
+            {
+                if (p.name != "Run" || p.type != AnimatorControllerParameterType.Bool) continue;
+                animator.SetBool("Run", on);
+                return;
+            }
+        }
+
         public void AttachFace(Material face)
         {
             _face = face;

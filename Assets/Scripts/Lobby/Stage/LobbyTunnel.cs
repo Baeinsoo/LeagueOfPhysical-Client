@@ -8,6 +8,9 @@ namespace LOP
     {
         public const string RootName = "LobbyTunnel";
 
+        /// <summary>이 코드가 만든 재질의 이름 앞머리. 정리할 때 이 이름표가 있는 것만 지운다.</summary>
+        public const string OwnedMaterialPrefix = "LobbyStage/";
+
         public static GameObject Build(Transform parent, TunnelLayout layout, out Renderer arena)
         {
             var root = new GameObject(RootName);
@@ -47,7 +50,7 @@ namespace LOP
             return root;
         }
 
-        /// <summary>Build가 코드로 만든 재질을 지운다 — 오브젝트와 달리 씬이 내려가도 남는다.</summary>
+        /// <summary>이 코드가 만든 재질(이름표 OwnedMaterialPrefix)을 지운다 — 오브젝트와 달리 씬이 내려가도 남는다.</summary>
         public static void DestroyMaterials(GameObject root)
         {
             if (root == null) return;
@@ -55,7 +58,9 @@ namespace LOP
             foreach (var r in root.GetComponentsInChildren<Renderer>(true))
             {
                 var m = r.sharedMaterial;
-                if (m == null || !seen.Add(m)) continue;
+                //  남의 재질은 건드리지 않는다 — 월드 공간 UI(간판)의 Renderer는 UI Toolkit 공용 재질을 쓰고, 그걸 지우면
+                //  게임·에디터 UI가 통째로 안 그려진다.
+                if (m == null || !m.name.StartsWith(OwnedMaterialPrefix) || !seen.Add(m)) continue;
                 if (UnityEngine.Application.isPlaying) Object.Destroy(m);
                 else Object.DestroyImmediate(m);   // 에디터 미리보기
             }
@@ -93,7 +98,7 @@ namespace LOP
                 Debug.LogWarning("[LobbyTunnel] LOP/StageGlow 셰이더를 못 찾아 불투명 빛 재질로 대신한다.");
                 return MakeGlowMaterial("#" + ColorUtility.ToHtmlStringRGB(color));
             }
-            var m = new Material(shader);
+            var m = new Material(shader) { name = OwnedMaterialPrefix + "StageGlow" };
             m.SetColor("_BaseColor", color);
             return m;
         }
@@ -106,7 +111,7 @@ namespace LOP
                 Debug.LogWarning("[LobbyTunnel] LOP/Toon 셰이더를 못 찾아 URP Lit로 대신한다.");
                 shader = Shader.Find("Universal Render Pipeline/Lit");
             }
-            var m = new Material(shader);
+            var m = new Material(shader) { name = OwnedMaterialPrefix + hex };
             ColorUtility.TryParseHtmlString(hex, out var c);
             if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
             //  가장자리 빛(림)은 캐릭터용 — 비스듬히 보이는 바닥·벽이 회색으로 떠 버린다.

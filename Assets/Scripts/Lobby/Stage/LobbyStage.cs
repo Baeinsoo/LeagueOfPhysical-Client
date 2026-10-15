@@ -6,21 +6,26 @@ using VContainer;
 namespace LOP
 {
     /// <summary>로비 3D 무대 — 카메라를 고정하고 터널·조명·내 선수를 세운다. LobbyLifetimeScope가 만들어 주입한다.</summary>
-    public sealed class LobbyStage : MonoBehaviour
+    public sealed class LobbyStage : MonoBehaviour, IRunOutStage
     {
         [Inject] private MatchmakingViewModel _matchmaking;
         [Inject] private EconomyStore _economy;
         [Inject] private IUserDataStore _userData;
         [Inject] private CosmeticCatalog _catalog;
+        [Inject] private RunOutDirector _runOut;
 
         private readonly CompositeDisposable _subscriptions = new CompositeDisposable();
         private GameObject _tunnel;
         private StageLights _lights;
         private StageRig _rig;
+        private LobbyPlayer _player;
+        private StageEffects _effects;
+        private Camera _cam;
+        private StageCameraPose _runStart;
 
         private void Start()
         {
-            var cam = Camera.main;
+            var cam = _cam = Camera.main;
             if (cam != null) ConfigureCamera(cam);
 
             var layout = new TunnelLayout();
@@ -35,7 +40,7 @@ namespace LOP
             _rig.Signs = StageSigns.Build(_rig.transform, layout);
             _rig.Crowd = CrowdAmbience.Build(_rig.transform);
             _matchmaking.RankCard.Subscribe(card => _rig.Signs.SetRank(card)).AddTo(_subscriptions);
-            var effects = gameObject.AddComponent<StageEffects>();
+            var effects = _effects = gameObject.AddComponent<StageEffects>();
             effects.Init(_rig, lighting, cam, ranked);
             _matchmaking.SelectedQueue.Subscribe(q =>
             {
@@ -44,20 +49,43 @@ namespace LOP
                 effects.SetRanked(r);
             }).AddTo(_subscriptions);
 
-            var player = new GameObject("LobbyPlayer").AddComponent<LobbyPlayer>();
+            var player = _player = new GameObject("LobbyPlayer").AddComponent<LobbyPlayer>();
             player.transform.SetParent(transform, false);
             player.Init(_userData.user?.id, _catalog);
             _economy.Loadout.CombineLatest(_economy.Progress, (loadout, progress) => (loadout, progress))
                 .Subscribe(x => player.SetLook(LobbyLook.From(x.loadout, _catalog, _userData.user?.displayName, x.progress?.level ?? 1)))
                 .AddTo(_subscriptions);
+            _runOut?.Attach(this);
         }
 
         private void OnDestroy()
         {
+            _runOut?.Detach(this);
             _subscriptions.Dispose();
             LobbyTunnel.DestroyMaterials(_tunnel);
             if (_lights?.FootPool != null) LobbyTunnel.DestroyMaterials(_lights.FootPool.gameObject);
             if (_rig != null) LobbyTunnel.DestroyMaterials(_rig.gameObject);
+        }
+
+        public void BeginRunOut()
+        {
+            if (_cam != null) _runStart = new StageCameraPose(_cam.transform.position, _cam.transform.position + _cam.transform.forward * 10f);
+            if (_effects != null) _effects.CameraOverride = true;
+        }
+
+        public void PoseRunOut(RunOutPose pose, float t)
+        {
+            if (_player != null) _player.PoseRunOut(pose.PlayerZ, pose.PlayerYaw, pose.Running);
+            if (_cam == null) return;
+            var c = RunOutCamera.At(_runStart, pose.PlayerZ, t);
+            _cam.transform.position = c.Position;
+            _cam.transform.LookAt(c.LookAt);
+        }
+
+        public void ResetRunOut()
+        {
+            if (_player != null) _player.ResetRunOut();
+            if (_effects != null) _effects.CameraOverride = false;
         }
 
         /// <summary>고정 카메라 — 선수는 화면 가운데 아래, 터널 소실점은 머리 위(spec §5 시작값).</summary>

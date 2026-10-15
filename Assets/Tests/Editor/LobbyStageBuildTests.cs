@@ -28,6 +28,23 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 정리는_우리가_만든_재질만_지운다()
+        {
+            //  월드 공간 UI(간판)는 UI Toolkit 공용 재질을 쓰는 Renderer를 갖는다 — 그걸 지우면 게임·에디터 UI가 통째로
+            //  안 그려진다(로비를 내렸다 올리면 UI가 사라진 버그). 남의 재질은 건드리지 않는다.
+            var tunnel = LobbyTunnel.Build(_root.transform, new TunnelLayout(), out _);
+            var ours = tunnel.GetComponentInChildren<MeshRenderer>().sharedMaterial;
+            var foreignGo = new GameObject("foreign");
+            foreignGo.transform.SetParent(_root.transform);
+            var foreign = new Material(Shader.Find("LOP/StageGlow"));
+            foreignGo.AddComponent<LineRenderer>().sharedMaterial = foreign;
+            LobbyTunnel.DestroyMaterials(_root);
+            Assert.IsTrue(foreign != null, "남의 재질은 지우지 않는다");
+            Assert.IsTrue(ours == null, "우리가 만든 재질은 지운다");
+            Object.DestroyImmediate(foreign);
+        }
+
+        [Test]
         public void 조명_값이_빛에_들어간다()
         {
             LobbyTunnel.Build(_root.transform, new TunnelLayout(), out var glow);

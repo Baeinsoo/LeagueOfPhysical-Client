@@ -35,8 +35,9 @@ class Part:
             f.material_index = self.slots.index(mat)
             f.smooth = smooth
 
-    def lathe(self, profile, mat, segs=24, center=(0, 0, 0), axis='y', smooth=True):
-        """profile = [(반지름, 높이)] 아래→위. axis 'y'면 세로, 'z'면 앞뒤(원판·방패)."""
+    def lathe(self, profile, mat, segs=24, center=(0, 0, 0), axis='y', smooth=True, caps=True):
+        """profile = [(반지름, 높이)] 아래→위. axis 'y'면 세로, 'z'면 앞뒤(원판·방패).
+        caps=False면 양 끝을 막지 않는다 — 고리(방패 테두리)가 안쪽 면을 원판으로 덮지 않게."""
         rings = []
         for (r, h) in profile:
             ring = []
@@ -53,9 +54,9 @@ class Part:
             a, b = rings[k], rings[k + 1]
             for i in range(segs):
                 faces.append(self.bm.faces.new((a[i], a[(i + 1) % segs], b[(i + 1) % segs], b[i])))
-        if profile[0][0] > 1e-4:
+        if caps and profile[0][0] > 1e-4:
             faces.append(self.bm.faces.new(list(reversed(rings[0]))))
-        if profile[-1][0] > 1e-4:
+        if caps and profile[-1][0] > 1e-4:
             faces.append(self.bm.faces.new(rings[-1]))
         bmesh.ops.recalc_face_normals(self.bm, faces=faces)
         self._mat(faces, mat, smooth)
@@ -77,6 +78,29 @@ class Part:
         bmesh.ops.translate(self.bm, vec=B(c), verts=verts)
         self._mat(list({f for v in verts for f in v.link_faces}), mat)
 
+    def tube(self, path, r, mat, sides=8):
+        """path = 게임 좌표 점 목록(xy 평면 곡선). 반지름 r 관을 끊김 없이 훑고 양 끝을 막는다."""
+        rings = []
+        for i, c in enumerate(path):
+            a, b = path[max(i - 1, 0)], path[min(i + 1, len(path) - 1)]
+            t = Vector((b[0] - a[0], b[1] - a[1], 0)).normalized()
+            n = Vector((-t.y, t.x, 0))
+            ring = []
+            for k in range(sides):
+                q = 2 * math.pi * k / sides
+                o = n * (r * math.cos(q)) + Vector((0, 0, r * math.sin(q)))
+                ring.append(self.bm.verts.new(B((c[0] + o.x, c[1] + o.y, c[2] + o.z))))
+            rings.append(ring)
+        faces = []
+        for j in range(len(rings) - 1):
+            a, b = rings[j], rings[j + 1]
+            for k in range(sides):
+                faces.append(self.bm.faces.new((a[k], a[(k + 1) % sides], b[(k + 1) % sides], b[k])))
+        faces.append(self.bm.faces.new(list(reversed(rings[0]))))
+        faces.append(self.bm.faces.new(rings[-1]))
+        bmesh.ops.recalc_face_normals(self.bm, faces=faces)
+        self._mat(faces, mat)
+
     def bound_radius(self):
         return max((v.co.length for v in self.bm.verts), default=0.0)
 
@@ -84,7 +108,7 @@ class Part:
 def shield():
     p = Part('Shield')
     p.lathe([(0.0, -0.06), (1.14, -0.06), (1.14, 0.06), (0.0, 0.06)], 'Wood', segs=32, axis='z', smooth=False)
-    p.lathe([(1.08, -0.07), (1.16, -0.07), (1.16, 0.08), (1.08, 0.08)], 'Metal', segs=32, axis='z')
+    p.lathe([(1.08, -0.07), (1.16, -0.07), (1.16, 0.08), (1.08, 0.08)], 'Metal', segs=32, axis='z', caps=False)
     p.sphere((0, 0, 0.08), 0.24, 'Metal', squash=(1, 1, 0.6))
     for x in (-0.38, 0.38):
         p.box((x, 0, 0.065), (0.04, 2.1, 0.01), 'WoodDark')
@@ -126,9 +150,14 @@ def apple():
 def apple_half():
     p = Part('AppleHalf')   # 쪼갠 반쪽 — 자른 면(x=0)이 흰 속살
     p.lathe([(0.0, -0.5), (0.3, -0.42), (0.5, -0.1), (0.5, 0.15), (0.32, 0.45), (0.0, 0.5)], 'Red', segs=20)
+    bmesh.ops.remove_doubles(p.bm, verts=p.bm.verts[:], dist=1e-5)   # 극점(반지름 0 고리)을 한 점으로
     bmesh.ops.bisect_plane(p.bm, geom=p.bm.verts[:] + p.bm.edges[:] + p.bm.faces[:], plane_co=(0, 0, 0),
                            plane_no=(1, 0, 0), clear_inner=True)
-    p.box((0.005, 0, 0), (0.01, 0.9, 0.9), 'White')
+    # 자른 단면 = 잘린 윤곽 그대로 메운다(사각 판이면 옆에서 사과 밖으로 삐져나온다)
+    rim = [e for e in p.bm.edges if e.is_boundary]
+    cut = bmesh.ops.holes_fill(p.bm, edges=rim, sides=0)['faces']
+    bmesh.ops.recalc_face_normals(p.bm, faces=p.bm.faces[:])
+    p._mat(cut, 'White', smooth=False)
     return p
 
 
@@ -160,11 +189,9 @@ def king_flag():
 def flower_basket():
     p = Part('FlowerBasket')
     p.lathe([(0.0, -0.4), (0.36, -0.4), (0.5, -0.05), (0.52, 0.0), (0.48, 0.0), (0.0, -0.36)], 'Straw', smooth=False)
-    seg = 12
-    for i in range(seg):   # 손잡이 고리
-        a0, a1 = math.pi * i / seg, math.pi * (i + 1) / seg
-        c = ((math.cos(a0) + math.cos(a1)) * 0.22, 0.02 + (math.sin(a0) + math.sin(a1)) * 0.33, 0)
-        p.box(c, (0.05, 0.1, 0.05), 'Rope', rot_z_deg=0)
+    seg = 24   # 손잡이 = 끊김 없는 반타원 관. 양 끝은 테두리 안으로 조금 묻는다
+    arc = [math.pi * (-0.04 + 1.08 * i / seg) for i in range(seg + 1)]
+    p.tube([(0.44 * math.cos(a), 0.02 + 0.66 * math.sin(a), 0) for a in arc], 0.03, 'Rope')
     for k, (x, z) in enumerate([(-0.25, 0.1), (0.0, -0.15), (0.22, 0.12), (-0.05, 0.25), (0.28, -0.1)]):
         p.sphere((x, 0.06, z), 0.11, 'Petal' if k % 2 == 0 else 'White', segs=8)
     return p

@@ -1,35 +1,16 @@
-.shell-root {
-    flex-grow: 1;
-    background-color: var(--lop-surface);
-}
+/* 메뉴 공통 셸 틀 — 1920×1080 기준. 위 머리띠(뒤로·제목·코인), 몸통, 아래 LIVE 띠.
+ * 셸은 3D 무대 위가 아니라 화면을 덮으므로 바탕을 칠한다(USS엔 그라데이션이 없어 터널 인디고 단색). */
+.shell-root { flex-grow: 1; background-color: var(--lop-ink-deep); }
+.shell-head { flex-direction: row; align-items: center; height: 120px; padding: 0 32px; flex-shrink: 0; }
+.shell-back .kit-btn__label { color: var(--lop-ink); }
+.shell-title { font-size: 56px; color: var(--lop-face); margin-left: 24px; flex-shrink: 1; }
+.shell-coin { margin-left: auto; }
+.shell-body { flex-grow: 1; padding: 0 32px 16px 32px; }
+.shell-soon { font-size: 48px; color: var(--lop-face); align-self: center; margin-top: 200px; }
+.shell-ticker { flex-shrink: 0; }
 
-.shell-header {
-    flex-direction: row;
-    align-items: center;
-    height: 130px;
-    padding: 20px;
-}
-
-.shell-back {
-    width: 220px;
-    height: 90px;
-    font-size: 32px;
-}
-
-.shell-title {
-    flex-grow: 1;
-    font-size: 48px;
-}
-
-.shell-body {
-    flex-grow: 1;
-    justify-content: center;
-    align-items: center;
-}
-
-.shell-placeholder {
-    font-size: 34px;
-}
+/* ── 아래는 옛 선수 카드 화면 규칙(ProfileView.uxml이 아직 쓴다 — 선수 카드 키트화 때 ProfileView.uss로 옮긴다) ── */
+.shell-header { flex-direction: row; align-items: center; height: 130px; padding: 20px; }
 
 /* 프로필 셸 본문. 다른 셸은 이 클래스를 안 쓰므로 규칙만 있고 대상이 없다. */
 .profile-body {

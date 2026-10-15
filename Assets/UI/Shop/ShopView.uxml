@@ -1,20 +1,40 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 상점 = 사는 곳. 셸 틀(머리띠·띠)은 ShellView.uxml과 같은 마크업. 입기는 라커룸. -->
     <Style src="../Shell/ShellView.uss" />
-    <ui:VisualElement name="shell-root" class="shell-root">
-        <ui:VisualElement name="shell-header" class="shell-header">
-            <ui:Button name="back-button" text="◀ 뒤로" class="btn btn--secondary shell-back" />
-            <ui:Label name="shell-title" text="" class="title shell-title" />
+    <ui:VisualElement name="shell-root" class="kit shell-root">
+        <ui:VisualElement class="shell-head">
+            <ui:Button name="back-button" class="kit-press kit-btn shell-back"><lop:StickerElement><ui:Label text="◀ 뒤로" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+            <ui:Label name="shell-title" class="kit-title shell-title" />
+            <ui:VisualElement name="shell-coin" class="kit-coin shell-coin"><lop:StickerElement><ui:Label name="shell-coin-text" text="🪙 -" class="kit-coin__text" /></lop:StickerElement></ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="shell-body" class="shell-body shop-body">
             <ui:VisualElement name="shop-tabs" class="shop-tabs" />
             <ui:ScrollView name="shop-grid" class="shop-grid" />
-            <ui:Label name="shop-message" text="" class="card-text shop-message" />
-            <ui:VisualElement name="shop-detail" class="shop-detail">
-                <ui:Label name="detail-name" text="" class="title shop-detail-name" />
-                <ui:Label name="detail-price" text="" class="card-text shop-detail-price" />
-                <ui:VisualElement name="shop-detail-actions" class="shop-detail-actions">
-                    <ui:Button name="buy-button" text="구매" class="btn btn--primary shop-action" />
-                    <ui:Button name="equip-button" text="장착" class="btn btn--secondary shop-action" />
+            <ui:Label name="shop-message" class="shop-message" />
+            <ui:VisualElement name="shop-bar" class="shop-bar">
+                <ui:Label name="shop-bar-name" class="kit-title shop-bar__name" />
+                <ui:Label name="shop-bar-state" class="shop-bar__state" />
+                <ui:Label name="shop-owned-hint" text="라커룸에서 입을 수 있어요" class="shop-bar__hint" />
+                <ui:Button name="buy-button" class="kit-press kit-btn kit-btn--primary shop-bar__buy"><lop:StickerElement><ui:Label text="구매" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+                <ui:Button name="shop-to-locker" class="kit-press kit-btn kit-btn--info shop-bar__locker"><lop:StickerElement><ui:Label text="라커룸으로 ▶" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="shell-ticker" class="kit-ticker shell-ticker">
+            <lop:StickerElement class="kit-ticker__tag"><ui:VisualElement class="kit-ticker__dot" /><ui:Label text="LIVE" class="kit-title kit-ticker__tag-text" /></lop:StickerElement>
+            <ui:Label text="피지컬 리그" class="kit-ticker__text" />
+        </ui:VisualElement>
+        <!-- 구매 확인 겹창: 상점 VM의 고른 품목·잔액을 그대로 써야 해서 창 관리자 모달이 아니라 상점 안에 둔다. -->
+        <ui:VisualElement name="shop-confirm" class="shop-confirm">
+            <ui:VisualElement class="kit-panel shop-confirm__panel">
+                <ui:VisualElement class="kit-panel__back" />
+                <ui:VisualElement class="kit-panel__face shop-confirm__face">
+                    <ui:Label name="confirm-question" class="kit-title shop-confirm__question" />
+                    <ui:Label name="confirm-remaining" class="shop-confirm__remaining" />
+                    <ui:Toggle name="confirm-equip" label="사면 바로 끼운다" value="true" class="shop-confirm__equip" />
+                    <ui:VisualElement class="shop-confirm__buttons">
+                        <ui:Button name="confirm-no" class="kit-press kit-btn shop-confirm__no"><lop:StickerElement><ui:Label text="아니요" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+                        <ui:Button name="confirm-yes" class="kit-press kit-btn kit-btn--primary shop-confirm__yes"><lop:StickerElement><ui:Label text="산다" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+                    </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>

@@ -408,5 +408,14 @@ namespace LOP.Tests
             Assert.AreEqual(100, item.CoinPrice);
             Assert.IsFalse(item.CanBuy);
         }
+
+        [Test]
+        public void 코인은_스토어_값을_그대로_보인다()
+        {
+            var (vm, store) = NewViewModel(coins: 1240);
+
+            Assert.AreEqual(1240, vm.Coins.CurrentValue);
+            Assert.AreSame(store.Coins, vm.Coins);
+        }
     }
 }

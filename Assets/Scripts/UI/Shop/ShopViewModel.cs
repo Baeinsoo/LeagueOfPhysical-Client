@@ -83,6 +83,9 @@ namespace LOP.UI
         public ReadOnlyReactiveProperty<IReadOnlyList<ShopItem>> Items => _items;
         public ReadOnlyReactiveProperty<string> Message => _message;
 
+        /// <summary>지갑 코인(스토어 값 그대로). 카드 상태 줄의 흐림과 구매 확인 창의 "남는 코인"이 쓴다.</summary>
+        public ReadOnlyReactiveProperty<long> Coins => _store.Coins;
+
         /// <summary>구매 요청이 응답을 기다리는 동안 true. View가 이동안 두 버튼을 잠근다 —
         /// 안 그러면 응답 오기 전에 한 번 더 눌러 같은 멱등키로 중복 요청을 보낸다.</summary>
         public ReadOnlyReactiveProperty<bool> Busy => _busy;

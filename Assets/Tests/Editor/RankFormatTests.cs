@@ -78,5 +78,36 @@ namespace LOP.Tests
         }
 
         [Test] public void 티어_색_클래스() => Assert.AreEqual("rank-tier--gold", RankFormat.TierClass(14, D));
+
+        //  ── 결과판 랭크 줄(태그, 본문). 입력은 위 ResultLine 시험과 같다.
+        [Test]
+        public void 결과_문구_승급() =>
+            Assert.AreEqual(("승급", "실버 I → 골드 IV  +20 LP"), RankFormat.ResultCaption(
+                new RankChangeDto { divisionBefore = 11, lpBefore = 90, divisionAfter = 12, lpAfter = 10, placementPlayed = 5, placementGames = 5, promoted = true }, D));
+
+        [Test]
+        public void 결과_문구_강등() =>
+            Assert.AreEqual(("강등", "골드 IV → 실버 I  -30 LP"), RankFormat.ResultCaption(
+                new RankChangeDto { divisionBefore = 12, lpBefore = 5, divisionAfter = 11, lpAfter = 75, placementPlayed = 5, placementGames = 5, demoted = true }, D));
+
+        [Test]
+        public void 결과_문구_배치_중() =>
+            Assert.AreEqual(("배치", "배치 경기 1 / 5 · 임시 티어 브론즈 IV"), RankFormat.ResultCaption(
+                new RankChangeDto { divisionBefore = null, lpBefore = 0, divisionAfter = 4, lpAfter = 80, placementPlayed = 1, placementGames = 5, wasPlacement = true }, D));
+
+        [Test]
+        public void 결과_문구_배치_완료() =>
+            Assert.AreEqual(("배치 완료", "골드 IV"), RankFormat.ResultCaption(
+                new RankChangeDto { divisionBefore = 10, lpBefore = 20, divisionAfter = 12, lpAfter = 5, placementPlayed = 5, placementGames = 5, wasPlacement = true }, D));
+
+        [Test]
+        public void 결과_문구_같은_티어() =>
+            Assert.AreEqual(("랭크", "골드 II  45 → 63 LP (+18)"), RankFormat.ResultCaption(
+                new RankChangeDto { divisionBefore = 14, lpBefore = 45, divisionAfter = 14, lpAfter = 63, placementPlayed = 5, placementGames = 5 }, D));
+
+        [Test]
+        public void 결과_문구_표시_없이_티어가_바뀜() =>
+            Assert.AreEqual(("랭크", "골드 II 45 → 골드 I 3 LP (+58)"), RankFormat.ResultCaption(
+                new RankChangeDto { divisionBefore = 14, lpBefore = 45, divisionAfter = 15, lpAfter = 3, placementPlayed = 5, placementGames = 5 }, D));
     }
 }

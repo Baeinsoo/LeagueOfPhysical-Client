@@ -50,5 +50,34 @@ namespace LOP.Tests
                 finally { Object.DestroyImmediate(go); }
             }
         }
+
+        [Test]
+        public void 회색_도형을_지우면_따로_만든_재질도_지운다()
+        {
+            //  적중·무리마다 회색 도형이 생겼다 지워진다 — 재질을 남기면 판이 길어질수록 쌓인다.
+            var go = ArcheryCatapultLooks.BuildPlaceholder("Apple", 0.6f);
+            var materials = new System.Collections.Generic.List<Material>();
+            foreach (var r in go.GetComponentsInChildren<Renderer>()) { materials.Add(r.sharedMaterial); }
+            Assert.IsNotEmpty(materials);
+            ArcheryCatapultLooks.DestroyVisual(go);
+            Assert.IsTrue(go == null, "그림이 지워져야 한다");
+            foreach (var m in materials) { Assert.IsTrue(m == null, "재질이 남았다"); }
+        }
+
+        [Test]
+        public void 키트_그림을_지워도_에셋_재질은_남긴다()
+        {
+            //  축제 키트 재질은 에셋이다 — 지우면 다음 표적부터 분홍이 된다.
+            var shared = LOPToonMaterials.Create(Color.white);
+            try
+            {
+                var go = new GameObject("catapult-Shield");
+                go.AddComponent<MeshRenderer>().sharedMaterial = shared;
+                ArcheryCatapultLooks.DestroyVisual(go);
+                Assert.IsTrue(go == null);
+                Assert.IsTrue(shared != null, "남의 재질을 지웠다");
+            }
+            finally { Object.DestroyImmediate(shared); }
+        }
     }
 }

@@ -171,27 +171,9 @@ namespace LOP
             }
             for (int i = 0; i < stale.Count; i++)
             {
-                DestroyVisual(drawn[stale[i]]);
+                ArcheryCatapultLooks.DestroyVisual(drawn[stale[i]]);
                 drawn.Remove(stale[i]);
             }
-        }
-
-        //  회색 그림(이름 끝 "-placeholder")은 재질을 스스로 만들었으니 같이 지운다.
-        //  축제 키트의 재질은 에셋이라 지우면 안 된다 — 그래서 이름으로 가른다.
-        private static void DestroyVisual(GameObject visual)
-        {
-            if (visual == null)
-            {
-                return;
-            }
-            if (visual.name.EndsWith("-placeholder"))
-            {
-                foreach (var renderer in visual.GetComponentsInChildren<Renderer>())
-                {
-                    Object.Destroy(renderer.sharedMaterial);
-                }
-            }
-            Object.Destroy(visual);
         }
 
         //  판은 띠마다 원판을 하나씩 겹쳐 그린다. 가장 바깥이 뒤, 가운데가 앞이다.
@@ -286,7 +268,7 @@ namespace LOP
         {
             foreach (var pair in drawn)
             {
-                DestroyVisual(pair.Value);
+                ArcheryCatapultLooks.DestroyVisual(pair.Value);
             }
             drawn.Clear();
 

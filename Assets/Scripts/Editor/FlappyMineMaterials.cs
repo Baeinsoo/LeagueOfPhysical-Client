@@ -92,6 +92,13 @@ namespace LOP.EditorTools
             Color flagCreamColor = ToColor(0xc9, 0xb0, 0x8a);
             Color flagBrownColor = ToColor(0x6a, 0x46, 0x30);
             Color cliffSunColor = Color.Lerp(rockBase, look.skySunsetBottomColor, CliffSunWarmth);
+            //  10-15 승강기 "L"(웹 시안 색 그대로): 보통 관문 판자(plankColor ≈ 시안 #c98c55)보다 짙고 붉은 나무, 홈, 밧줄 두 색,
+            //  보통 쇠테(ironBandColor)와 밝기가 같고 조금 따뜻한 크림색 테. 쇠는 없다.
+            Color woodDarkColor = ToColor(0x8a, 0x4a, 0x2c);
+            Color woodDarkGrooveColor = ToColor(0x6c, 0x38, 0x20);
+            Color ropeLightColor = ToColor(0xc9, 0xb2, 0x8a);
+            Color ropeDarkColor = ToColor(0x8a, 0x75, 0x52);
+            Color capCreamColor = ToColor(0xe3, 0xc7, 0x9a);
 
             //  슬롯 이름(Task 3 보고) → 재질. FBX 리매핑은 이 이름으로 찾는다.
             var slots = new Dictionary<string, Material>
@@ -137,6 +144,13 @@ namespace LOP.EditorTools
                 ["CliffSun"] = Toon("CliffSun", cliffSunColor, null, shadow),
                 ["FlagCream"] = Toon("FlagCream", flagCreamColor, null, shadow),
                 ["FlagBrown"] = Toon("FlagBrown", flagBrownColor, null, shadow),
+
+                //  10-15 승강기 "L" — LiftPlank·LiftLash·LiftCap.
+                ["WoodDark"] = Toon("WoodDark", Grain(look, woodDarkColor), wood, shadow),
+                ["WoodDarkGroove"] = Toon("WoodDarkGroove", woodDarkGrooveColor, null, shadow),
+                ["RopeLight"] = Toon("RopeLight", ropeLightColor, null, shadow),
+                ["RopeDark"] = Toon("RopeDark", ropeDarkColor, null, shadow),
+                ["CapCream"] = Toon("CapCream", capCreamColor, null, shadow),
             };
             Toon("StrataPatchLight", ScaleRgb(rockBase, 1f + look.decorContrast), null, shadow);
             //  결승선 반투명 줄(10-12 시안 B) — 깃발 두 색에 알파. Toon은 투명이 없어 URP Unlit 투명(안개 막과 같은 방식).

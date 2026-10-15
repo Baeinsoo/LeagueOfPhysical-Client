@@ -27,7 +27,7 @@ AXIS_FORWARD = 'Z'
 AXIS_UP = 'Y'
 
 # 무늬 텍스처 한 장이 덮는 길이(m). UV = 상자 투영 / 이 값.
-UV_TILE = {'Plank': 1.0, 'Wood': 1.0, 'Tie': 1.0, 'Rock': 2.0, 'RockDark': 2.0,
+UV_TILE = {'Plank': 1.0, 'WoodDark': 1.0, 'Wood': 1.0, 'Tie': 1.0, 'Rock': 2.0, 'RockDark': 2.0,
            'Timber': 1.0, 'SignWood': 1.0, 'Strata': 1.0, 'TimberDim': 1.0}
 
 HALF = 7.28   # 통로 반 높이(MineCourse.BaseHalf) — CaveMouth 안쪽 선
@@ -811,27 +811,52 @@ DECOR_PARTS = [strata_lens, rock_seam, timber_set, cribbing, ore_vein, rail_scra
 
 
 # ════════════════════════ 펼치기 3차(10-13) — 움직이는 지형 ════════════════════════
-#  승강기·매단 광차·낙석·무너진 받침목. 닿는 부품(LiftCage·HangingCart·FallingRock·CollapsedProp)은 경계가 판정 상자 그대로
-#  (MineDressingLayout 상수 옆 주석과 레이아웃 테스트가 이 크기를 가정한다). y로 늘려 쓰는 부품(LiftCage·LiftFrame·CartChain)은
+#  승강기·매단 광차·낙석·무너진 받침목. 닿는 부품(LiftPlank·LiftLash·LiftCap·HangingCart·FallingRock·CollapsedProp)은 경계가 판정 상자 그대로
+#  (MineDressingLayout 상수 옆 주석과 레이아웃 테스트가 이 크기를 가정한다). y로 늘려 쓰는 부품(LiftFrame·CartChain)은
 #  세로로 끝없이 이어지는 모양만 — 가로 띠·볼트는 늘어나 두꺼워지므로 넣지 않는다. 나무결은 늘어난 뒤에 알맞게 타일을 잘게 잡는다.
 LIFT_HALF = 0.975       # 파이프 폭 1.95의 반(GatePlank와 같다)
 LIFT_DEPTH = 0.65       # 관문 판자와 같은 깊이(z ±0.65)
 
 
-def lift_cage():
-    """LiftCage — 승강기 파이프 하나를 덮는 철창 기둥. 원점 = 아래 끝 가운데: x ∈ [−0.975, 0.975], y ∈ [0, 1](y 축척 = 파이프 길이),
-    z ∈ [−0.65, 0.65]. 네 모서리 쇠 기둥, 뒤 판자벽(Timber, 세로 판자 셋), 앞 세로 쇠창살 다섯, 옆 판자. 가로 띠는 없다(y로 늘어나므로) —
-    틈 쪽 끝 쇠테는 굽기가 GateCap을 따로 얹는다."""
-    p = Part('LiftCage')
-    p.tile['Timber'] = 0.15                       # 파이프 길이 6~9 m로 늘어나도 나무결이 1 m에 여러 줄
+def lift_plank():
+    """LiftPlank — 승강기 기둥 판자 칸(10-15 "L": 짙은 붉은 갈색 나무 + 밧줄). GatePlank와 같은 틀: 원점 = 아래 끝 가운데,
+    x ∈ [−0.975, 0.975], y ∈ [0, 1](1 m씩 쌓고 마지막 칸만 y 축척), z ∈ [−0.65, 0.65].
+    세로 판자 넉 장(WoodDark) 사이 홈 셋 너머로 어두운 안판(WoodDarkGroove)이 보이고, 앞면에 세로 밧줄 두 가닥(RopeLight)이
+    양옆에서 안쪽으로 들어와 기둥 끝까지 달린다(칸마다 이어져 끊김이 없다). 위아래로 깎지 않아 쌓아도 이음매가 없다.
+    틈 쪽 끝 테(LiftCap)와 밧줄 감기(LiftLash)는 굽기가 따로 얹는다(감기는 y로 늘면 굵어지므로)."""
+    p = Part('LiftPlank')
+    n, groove = 4, 0.03
+    w = (2 * LIFT_HALF - (n - 1) * groove) / n
+    for i in range(n):
+        cx = -LIFT_HALF + w / 2 + i * (w + groove)
+        p.prism_y(chamfer_rect(cx, 0.0, w, 2 * LIFT_DEPTH, 0.035), 0.0, 1.0, 'WoodDark', uvo=0.29 * i)
+    p.box((0.0, 0.5, 0.0), (2 * LIFT_HALF - 0.1, 1.0, 2 * LIFT_DEPTH - 0.2), 'WoodDarkGroove')   # 안판 x ±0.925, z ±0.55
     for sx in (-1, 1):
-        for sz in (-1, 1):
-            p.prism_y(chamfer_rect(sx * (LIFT_HALF - 0.08), sz * (LIFT_DEPTH - 0.1), 0.16, 0.2, 0.03), 0.0, 1.0, 'Iron')
-        p.prism_y(chamfer_rect(sx * (LIFT_HALF - 0.05), 0.0, 0.08, 0.9, 0.02), 0.0, 1.0, 'Timber', uvo=0.4 * (sx > 0))   # 옆 판자
-    for i, bx in enumerate((-0.54, 0.0, 0.54)):
-        p.prism_y(chamfer_rect(bx, 0.42, 0.52, 0.16, 0.03), 0.0, 1.0, 'Timber', uvo=0.23 * i)                   # 뒤 판자벽 z 0.34~0.5
-    for bx in (-0.6, -0.3, 0.0, 0.3, 0.6):
-        p.prism_y(chamfer_rect(bx, -0.56, 0.06, 0.08, 0.01), 0.0, 1.0, 'Strap')                                 # 앞 쇠창살 z −0.6~−0.52
+        p.cyl((sx * 0.55, 0.5, -LIFT_DEPTH - 0.015), 0.035, 1.0, 'y', 8, 'RopeLight')                               # 밧줄 z −0.70~−0.63
+    return p
+
+
+LASH_WRAPS = 4
+LASH_PITCH = 0.075
+
+
+def lift_lash():
+    """LiftLash — 밧줄 감기(GateStrap 자리). 가운데 원점: 네 바퀴 y ∈ [−0.15, 0.15], x ∈ [−0.98, 0.98](판자 옆면 ±0.975와 한 평면이 되지 않게
+    5 mm 밖 — 그림 = 판정 ± 0.01 안), z ∈ [−0.72, 0.72](판자 앞뒤로 0.07, 앞면 밧줄 가닥 위로 감긴다). 바퀴마다 밝은·어두운 밧줄이 번갈아."""
+    p = Part('LiftLash')
+    for k in range(LASH_WRAPS):
+        y = (k - (LASH_WRAPS - 1) / 2) * LASH_PITCH
+        p.prism_x(chamfer_rect(y, 0.0, LASH_PITCH - 0.005, 1.44, 0.028), -0.98, 0.98, 'RopeLight' if k % 2 == 0 else 'RopeDark')
+    return p
+
+
+def lift_cap():
+    """LiftCap — 승강기 틈 쪽 끝 테(GateCap과 같은 틀). 위 끝이 원점: y ∈ [−0.4, 0], x ∈ [−0.975, 0.975], z ∈ [−0.73, 0.73].
+    보통 관문 쇠테보다 조금 따뜻한 크림색(CapCream). 쇠 볼트 대신 짙은 나무 못 둘(앞 −z). 위 기둥에는 z축 180°로 돌려 쓴다."""
+    p = Part('LiftCap')
+    p.prism_x(chamfer_rect(-0.2, 0.0, 0.4, 1.46, 0.05), -LIFT_HALF, LIFT_HALF, 'CapCream')
+    for bx in (-0.7, 0.7):
+        p.cyl((bx, -0.2, -0.75), 0.06, 0.1, 'z', 8, 'WoodDarkGroove')
     return p
 
 
@@ -937,7 +962,7 @@ def collapsed_prop():
     return p
 
 
-SPREAD3_PARTS = [lift_cage, lift_frame, hanging_cart, cart_chain, falling_rock, ceiling_crack, collapsed_prop]
+SPREAD3_PARTS = [lift_plank, lift_lash, lift_cap, lift_frame, hanging_cart, cart_chain, falling_rock, ceiling_crack, collapsed_prop]
 
 
 PARTS = [gate_plank, gate_strap, gate_cap, trestle_bay, rail_span, ceiling_rock, cave_mouth, beam,

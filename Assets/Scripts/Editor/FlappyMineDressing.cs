@@ -79,7 +79,7 @@ namespace LOP.EditorTools
             //  10-12 펼치기 2차 출구·결승선.
             "ExitSign", "CliffEdge", "FinishFlag",
             //  10-13 펼치기 3차 움직이는 지형.
-            "LiftCage", "LiftFrame", "HangingCart", "CartChain", "FallingRock", "CeilingCrack", "CollapsedProp",
+            "LiftPlank", "LiftLash", "LiftCap", "LiftFrame", "HangingCart", "CartChain", "FallingRock", "CeilingCrack", "CollapsedProp",
         };
 
         //  움직이는 그림 묶음 이름 — 움직이는 Transform(Cage·Upright·진자 루트·Rock)마다 하나. 굽기마다 지우고 새로 만든다.
@@ -654,7 +654,7 @@ namespace LOP.EditorTools
                     MineLift l = course.Lifts[i];
                     var (floor, ceiling) = MineDressingLayout.LiftReach(course, l);
                     Transform look = NewLook(lifts[i].Cage);
-                    foreach (MinePiece p in MineDressingLayout.LiftCageLocal(l, floor, ceiling)) { PlaceLocal(look, models[p.Kind.ToString()], p); placed++; }
+                    foreach (MinePiece p in MineDressingLayout.LiftPillarLocal(l, floor, ceiling)) { PlaceLocal(look, models[p.Kind.ToString()], p); placed++; }
                     MakeRenderOnlyMoving(look.gameObject);
                     hidden += HideGray(lifts[i].Cage, "LiftPipe");
                 }
@@ -745,7 +745,7 @@ namespace LOP.EditorTools
 
         // ---- 관문 ----
 
-        //  파이프 사각형 하나를 판자 칸·쇠띠·쇠테로 정확히 채운다. 가로는 1.95 이하 칸으로 이어 깐다(긴 관문도 늘이지 않는다).
+        //  파이프 사각형 하나를 판자 칸·쇠띠·쇠테로 정확히 채운다(판자는 쇠테 밑면까지 — GateStack 주석, 10-15 번쩍임). 가로는 1.95 이하 칸으로 이어 깐다(긴 관문도 늘이지 않는다).
         private static void DressGate(Transform parent, Dictionary<string, GameObject> models,
                                       float x, float width, float bottom, float top, bool capAtTop)
         {
@@ -761,7 +761,7 @@ namespace LOP.EditorTools
                 {
                     Instance(parent, models["GateStrap"], new Vector3(cx, y, GateZ), 0f, new Vector3(sx, 1f, 1f));
                 }
-                if (stack.Cells.Count > 0)
+                if (stack.HasCap)
                 {
                     //  위 관문(틈이 아래)은 Z축 180° — 원점(윗면)이 아래 끝에 오고 두께가 위로 간다. 볼트(앞 −z)는 그대로 앞이다.
                     Instance(parent, models["GateCap"], new Vector3(cx, stack.CapY, GateZ), stack.CapFlipped ? 180f : 0f, new Vector3(sx, 1f, 1f));

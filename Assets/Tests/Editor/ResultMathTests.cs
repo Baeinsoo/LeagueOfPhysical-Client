@@ -7,12 +7,21 @@ namespace LOP.Tests
     public class ResultMathTests
     {
         //  ── 반응 규칙
-        [TestCase(1, false, ResultReaction.Happy)]
-        [TestCase(3, false, ResultReaction.Sad)]
-        [TestCase(1, true, ResultReaction.None)]
-        [TestCase(8, false, ResultReaction.Sad)]
-        public void 반응_규칙(int placement, bool draw, ResultReaction expected) =>
-            Assert.AreEqual(expected, ResultReactionRule.For(placement, draw));
+        //  기뻐함은 1위만. 시상대 몫(1~3위, 단 꼴찌는 빼고 — min(3, 인원−1))은 덤덤, 그 뒤와 나간 선수는 아쉬워함(사용자 10-15).
+        [TestCase(1, 8, false, false, ResultReaction.Happy)]
+        [TestCase(2, 8, false, false, ResultReaction.None)]
+        [TestCase(3, 8, false, false, ResultReaction.None)]
+        [TestCase(4, 8, false, false, ResultReaction.Sad)]
+        [TestCase(8, 8, false, false, ResultReaction.Sad)]
+        [TestCase(2, 3, false, false, ResultReaction.None)]   // 3명 판 2위는 덤덤
+        [TestCase(3, 3, false, false, ResultReaction.Sad)]
+        [TestCase(1, 2, false, false, ResultReaction.Happy)]
+        [TestCase(2, 2, false, false, ResultReaction.Sad)]    // 2명 판 2위는 아쉬워함
+        [TestCase(2, 8, true, false, ResultReaction.Sad)]     // 나간 선수는 등수와 상관없이 아쉬워함
+        [TestCase(1, 4, false, true, ResultReaction.None)]    // 전원 무승부
+        [TestCase(1, 1, false, false, ResultReaction.Happy)]  // 혼자 한 판
+        public void 반응_규칙(int placement, int playerCount, bool left, bool draw, ResultReaction expected) =>
+            Assert.AreEqual(expected, ResultReactionRule.For(placement, playerCount, left, draw));
 
         //  ── 등장 시각표
         [Test]

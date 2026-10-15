@@ -44,6 +44,7 @@ namespace LOP.EditorTools
                 var placements = new int[count];
                 for (int i = 0; i < count; i++) placements[i] = i + 1;
                 var stage = new CommonPodiumSet().Build(root.transform, new PodiumContext(ranked, placements, false));
+                stage.OnReveal?.Invoke();   // 장식(색종이·서치라이트)이 켜진 모습
 
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(LobbyPlayer.ChibiKey);
                 var face = AssetDatabase.LoadAssetAtPath<Material>(LobbyPlayer.FaceKey);

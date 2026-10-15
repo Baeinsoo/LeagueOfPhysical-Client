@@ -46,9 +46,10 @@ namespace LOP
                 var figure = _figureFactory(root, p.userId);
                 figure.Stand(slot.Position, slot.Yaw, slot.Scale);
                 figure.SetLook(p.look);
-                figure.SetAbsent(MatchResultViewModel.IsLeft(p.stats));
+                bool left = MatchResultViewModel.IsLeft(p.stats);
+                figure.SetAbsent(left);
                 _figures.Add(figure);
-                _reactions.Add(ResultReactionRule.For(p.placement, isDraw));
+                _reactions.Add(ResultReactionRule.For(p.placement, sorted.Count, left, isDraw));
             }
         }
 

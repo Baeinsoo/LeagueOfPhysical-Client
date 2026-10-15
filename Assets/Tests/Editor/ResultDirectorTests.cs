@@ -111,6 +111,35 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 세_명이면_가운데는_덤덤()
+        {
+            var (d, _, figs) = Make();
+            d.Begin(_root.transform, Result(("a", 1, false), ("b", 2, false), ("c", 3, false)), false);
+            d.Reveal();
+            Assert.AreEqual((ResultReaction.Happy, ResultReaction.None, ResultReaction.Sad), (figs[0].Reaction, figs[1].Reaction, figs[2].Reaction));
+        }
+
+        [Test]
+        public void 여덟_명이면_2_3위_덤덤_4위부터_아쉬워함()
+        {
+            var (d, _, figs) = Make();
+            d.Begin(_root.transform, Result(("a", 1, false), ("b", 2, false), ("c", 3, false), ("d", 4, false),
+                ("e", 5, false), ("f", 6, false), ("g", 7, false), ("h", 8, false)), false);
+            d.Reveal();
+            Assert.AreEqual((ResultReaction.Happy, ResultReaction.None, ResultReaction.None, ResultReaction.Sad),
+                (figs[0].Reaction, figs[1].Reaction, figs[2].Reaction, figs[3].Reaction));
+        }
+
+        [Test]
+        public void 나간_선수는_아쉬워함()
+        {
+            var (d, _, figs) = Make();
+            d.Begin(_root.transform, Result(("a", 1, false), ("b", 2, true), ("c", 3, false), ("d", 4, false)), false);
+            d.Reveal();
+            Assert.AreEqual(ResultReaction.Sad, figs[1].Reaction);
+        }
+
+        [Test]
         public void 무승부면_반응_없음()
         {
             var (d, _, figs) = Make();

@@ -37,6 +37,15 @@ namespace LOP
         /// <summary>반응 트리거를 실제로 걸었나 — 컨트롤러에 그 트리거가 없으면 false로 남는다.</summary>
         public bool ReactionApplied { get; private set; }
 
+        /// <summary>반응 트리거를 건 횟수(기뻐하는 선수는 되풀이한다).</summary>
+        public int ReactionTriggers { get; private set; }
+
+        /// <summary>기뻐하는 선수가 기쁨 동작을 다시 하는 간격(동작 2초 + 쉼).</summary>
+        public const float CelebrateEverySeconds = 3f;
+
+        private bool _celebrating;
+        private float _celebrateTimer;
+
         public void Init(string userId, CosmeticCatalog catalog)
         {
             if (!string.IsNullOrEmpty(userId)) _userId = userId;
@@ -131,8 +140,15 @@ namespace LOP
 
         private void ApplyReaction(ResultReaction reaction)
         {
+            ApplyFace();
             if (reaction == ResultReaction.None) return;
-            string trigger = reaction == ResultReaction.Happy ? "Happy" : "Sad";
+            _celebrating = reaction == ResultReaction.Happy;
+            _celebrateTimer = 0f;
+            FireTrigger(reaction == ResultReaction.Happy ? "Happy" : "Sad");
+        }
+
+        private void FireTrigger(string trigger)
+        {
             var animator = Visual.GetComponentInChildren<Animator>();
             if (animator == null || animator.runtimeAnimatorController == null) return;
             foreach (var p in animator.parameters)
@@ -140,9 +156,31 @@ namespace LOP
                 if (p.name != trigger || p.type != AnimatorControllerParameterType.Trigger) continue;
                 animator.SetTrigger(trigger);
                 ReactionApplied = true;
+                ReactionTriggers++;
                 return;
             }
         }
+
+        //  결과 반응 표정은 판이 떠 있는 동안 유지한다(환호 / 낙담, 덤덤은 기본 표정 그대로). 얼굴은 입히기 뒤에 생겨 그때도 다시 건다.
+        private void ApplyFace()
+        {
+            if (Visual == null || LastReaction == ResultReaction.None) return;
+            var face = Visual.GetComponent<ChibiFace>();
+            if (face == null) return;
+            face.SetReaction(LastReaction == ResultReaction.Happy ? ChibiExpression.Cheer : ChibiExpression.Despair);
+        }
+
+        /// <summary>기뻐하는 선수는 간격마다 기쁨 동작을 다시 한다. 매 프레임 Update가 부른다(시험은 직접 부른다).</summary>
+        public void TickCelebration(float dt)
+        {
+            if (!_celebrating || Visual == null) return;
+            _celebrateTimer += dt;
+            if (_celebrateTimer < CelebrateEverySeconds) return;
+            _celebrateTimer = 0f;
+            FireTrigger("Happy");
+        }
+
+        private void Update() => TickCelebration(Time.deltaTime);
 
         //  나간 선수는 어둡게 — 툰 셰이더의 바탕색에 곱한다. 그 속성이 없는 재질은 그대로 둔다.
         private void ApplyAbsent()
@@ -201,6 +239,7 @@ namespace LOP
             if (ChibiDresser.IsChibi(Visual)) ChibiDresser.Dress(_userId, Visual, _face, _look, _catalog);
             AppliedLook = _look;
             ApplyAbsent();   // 입히기가 재질을 바꿔도 회색이 남게
+            ApplyFace();
         }
 
         private void OnDestroy()

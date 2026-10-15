@@ -28,6 +28,15 @@ namespace LOP
         private void HandleGetMatch(GetMatchResponse response)
         {
             match = MapperConfig.mapper.Map<Match>(response.match);
+#if UNITY_EDITOR
+            //  로컬 검증 전용 — 배포 전 맵(백엔드가 아직 모르는 맵)을 에디터에서 띄운다. 메뉴 LOP/Debug/다음 매치 맵 강제.
+            int forced = UnityEditor.EditorPrefs.GetInt("LOP.Debug.ForceMapId", 0);
+            if (forced > 0 && match?.rounds != null && match.rounds.Length > 0)
+            {
+                UnityEngine.Debug.LogWarning($"[Debug] 매치 맵을 {match.rounds[0].mapId} → {forced}로 바꾼다(에디터 전용)");
+                match.rounds[0].mapId = forced;
+            }
+#endif
         }
 
         private void HandleRoomJoinable(RoomJoinableResponse response)

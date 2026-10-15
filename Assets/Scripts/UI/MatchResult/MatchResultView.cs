@@ -27,6 +27,14 @@ namespace LOP.UI
 
         public void SetConfirmCallback(System.Action onConfirm) => _onConfirm = onConfirm;
 
+        private System.Action _onReact;
+
+        /// <summary>등장 중 선수 반응을 걸 시각에 부른다(결과 단계 지휘자).</summary>
+        public void SetReactCallback(System.Action onReact) => _onReact = onReact;
+
+        /// <summary>선수가 준비되면 부른다 — 등장 시작.</summary>
+        public void BeginReveal() => _onReact?.Invoke();
+
         public override void OnOpen()
         {
             base.OnOpen();

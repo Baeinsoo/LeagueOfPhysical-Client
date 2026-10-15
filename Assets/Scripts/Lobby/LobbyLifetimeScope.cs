@@ -14,7 +14,6 @@ namespace LOP
         private IDisposable _shopViewRegistration;
         private IDisposable _settingsViewRegistration;
         private IDisposable _profileViewRegistration;
-        private IDisposable _matchResultViewRegistration;
         private IDisposable _changeDisplayNameViewRegistration;
         private IDisposable _kitToastViewRegistration;
         private IDisposable _gameSelectViewRegistration;
@@ -60,9 +59,6 @@ namespace LOP
             // View와 함께 Transient — 프로필을 열 때마다 전적을 다시 받아온다.
             builder.Register<ProfileViewModel>(Lifetime.Transient);
             builder.Register<ProfileView>(Lifetime.Transient);
-            //  View와 함께 Transient — 결과 화면을 열 때마다 그 시점의 스토어 값을 읽어야 한다.
-            builder.Register<MatchResultViewModel>(Lifetime.Transient);
-            builder.Register<MatchResultView>(Lifetime.Transient);
             //  View와 함께 Transient — 열 때마다 그 시점의 이름을 입력란 시작값으로 읽어야 한다.
             builder.Register<ChangeDisplayNameViewModel>(Lifetime.Transient);
             builder.Register<ChangeDisplayNameView>(Lifetime.Transient);
@@ -95,7 +91,6 @@ namespace LOP
                 _shopViewRegistration = windowManager.RegisterViewFactory<ShopView>(() => container.Resolve<ShopView>());
                 _settingsViewRegistration = windowManager.RegisterViewFactory<SettingsView>(() => container.Resolve<SettingsView>());
                 _profileViewRegistration = windowManager.RegisterViewFactory<ProfileView>(() => container.Resolve<ProfileView>());
-                _matchResultViewRegistration = windowManager.RegisterViewFactory<MatchResultView>(() => container.Resolve<MatchResultView>());
                 _changeDisplayNameViewRegistration = windowManager.RegisterViewFactory<ChangeDisplayNameView>(() => container.Resolve<ChangeDisplayNameView>());
                 _kitToastViewRegistration = windowManager.RegisterViewFactory<KitToastView>(() => container.Resolve<KitToastView>());
                 _gameSelectViewRegistration = windowManager.RegisterViewFactory<GameSelectView>(() => container.Resolve<GameSelectView>());
@@ -121,7 +116,6 @@ namespace LOP
             _shopViewRegistration?.Dispose();
             _settingsViewRegistration?.Dispose();
             _profileViewRegistration?.Dispose();
-            _matchResultViewRegistration?.Dispose();
             _changeDisplayNameViewRegistration?.Dispose();
             _kitToastViewRegistration?.Dispose();
             _gameSelectViewRegistration?.Dispose();

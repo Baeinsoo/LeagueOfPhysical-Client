@@ -49,6 +49,18 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 프리팹_원래_크기를_지킨다()
+        {
+            //  치비 프리팹 뿌리는 크기 3이다 — 자리 크기는 그 위에 곱해야 로비 선수가 작아지지 않는다.
+            var player = Make(false);
+            _body.transform.localScale = Vector3.one * 3f;
+            player.AttachVisual(_body);
+            Assert.AreEqual(3f, _body.transform.localScale.x, 1e-4);
+            player.Stand(Vector3.zero, 180f, 0.6f);
+            Assert.AreEqual(1.8f, _body.transform.localScale.x, 1e-4);
+        }
+
+        [Test]
         public void 몸이_붙기_전_반응은_붙을_때_건다()
         {
             var player = Make(true);

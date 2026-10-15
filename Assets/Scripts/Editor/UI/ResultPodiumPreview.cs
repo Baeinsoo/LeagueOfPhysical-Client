@@ -57,7 +57,7 @@ namespace LOP.EditorTools
                         body.transform.SetParent(root.transform, false);
                         body.transform.position = slot.Position;
                         body.transform.rotation = Quaternion.Euler(0f, slot.Yaw, 0f);
-                        body.transform.localScale = Vector3.one * slot.Scale;
+                        body.transform.localScale = prefab.transform.localScale * slot.Scale;   // 치비 뿌리는 크기 3
                         if (idle != null) idle.SampleAnimation(body, 0f);
                         if (ChibiDresser.IsChibi(body)) ChibiDresser.Dress($"preview-{i}", body, face);
                     }

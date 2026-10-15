@@ -16,6 +16,7 @@ if not ART or not os.path.isdir(ART):
     raise SystemExit('usage: blender -b -P festival_parts.py -- <Assets/Art 절대경로>')
 OUT = os.path.join(ART, 'Models', 'Festival')
 AXIS_FORWARD, AXIS_UP = 'Z', 'Y'
+PARENT = {'ShieldHalf': 'shield', 'AppleHalf': 'apple'}   # 조각은 원본과 같은 비율로 축척한다
 RADIUS = {'Shield': 1.2, 'Helmet': 0.9, 'Apple': 0.6, 'Grail': 0.5, 'KingFlag': 0.85, 'FlowerBasket': 0.85}
 
 
@@ -212,6 +213,13 @@ def export(part):
     return path
 
 
+def parent_scale(make):
+    whole = make()
+    k = RADIUS[whole.name] / whole.bound_radius()
+    whole.bm.free()
+    return k
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     for make in PARTS:
@@ -227,6 +235,10 @@ def main():
             # 보이는 크기 = 맞는 크기: 손치수를 판정 반지름에 맞춰 통째로 늘이거나 줄인다
             raw = part.bound_radius()
             k = want / raw
+            bmesh.ops.scale(part.bm, vec=(k, k, k), verts=part.bm.verts[:])
+        elif part.name in PARENT:
+            # 깨진 조각이 원본보다 크거나 작아 보이지 않게 원본과 같은 비율을 쓴다
+            k = parent_scale(globals()[PARENT[part.name]])
             bmesh.ops.scale(part.bm, vec=(k, k, k), verts=part.bm.verts[:])
         r = part.bound_radius()
         flag = '' if want is None or 0.95 * want <= r <= 1.05 * want else '  <-- 크기 규칙 밖'

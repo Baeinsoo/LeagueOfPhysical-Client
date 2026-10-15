@@ -92,10 +92,11 @@ namespace LOP.EditorTools
             Color flagCreamColor = ToColor(0xc9, 0xb0, 0x8a);
             Color flagBrownColor = ToColor(0x6a, 0x46, 0x30);
             Color cliffSunColor = Color.Lerp(rockBase, look.skySunsetBottomColor, CliffSunWarmth);
-            //  10-15 승강기 "L"(웹 시안 색 그대로): 보통 관문 판자(plankColor ≈ 시안 #c98c55)보다 짙고 붉은 나무, 홈, 밧줄 두 색,
+            //  10-15 승강기 "L": 보통 관문 판자(plankColor ≈ 시안 #c98c55)보다 짙은 나무, 홈, 밧줄 두 색,
             //  보통 쇠테(ironBandColor)와 밝기가 같고 조금 따뜻한 크림색 테. 쇠는 없다.
-            Color woodDarkColor = ToColor(0x8a, 0x4a, 0x2c);
-            Color woodDarkGrooveColor = ToColor(0x6c, 0x38, 0x20);
+            //  나무색은 사람 판(10-15)으로 시안 #8a4a2c → 짙은 무채 갈색 #6b4a32 — 시안 색은 게임에서 벽돌처럼 붉게 보였다. 홈 = 나무 × 0.8.
+            Color woodDarkColor = ToColor(0x6b, 0x4a, 0x32);
+            Color woodDarkGrooveColor = ToColor(0x56, 0x3b, 0x28);
             Color ropeLightColor = ToColor(0xc9, 0xb2, 0x8a);
             Color ropeDarkColor = ToColor(0x8a, 0x75, 0x52);
             Color capCreamColor = ToColor(0xe3, 0xc7, 0x9a);

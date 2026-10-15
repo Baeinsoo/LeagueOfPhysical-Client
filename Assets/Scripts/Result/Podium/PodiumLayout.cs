@@ -10,9 +10,9 @@ namespace LOP
     /// </summary>
     public static class PodiumLayout
     {
-        public static readonly Vector3 Center = new Vector3(2.9f, 0f, 0f);
-        public const float StepWidth = 1.4f, StepDepth = 1.2f, FirstStepHeight = 0.9f;
-        public const float FrontRowZ = -1.6f, FrontRowScale = 0.6f, FrontRowGap = 0.8f;
+        public static readonly Vector3 Center = new Vector3(1.65f, 0f, 0f);
+        public const float StepWidth = 0.75f, StepDepth = 0.7f, FirstStepHeight = 0.45f;
+        public const float FrontRowZ = -0.75f, FrontRowScale = 0.6f, FrontRowGap = 0.42f;
         public const float FacingYaw = 180f;   // 카메라(-z 쪽)를 본다
 
         private static readonly float[] HeightRatio = { 1f, 0.7f, 0.45f };

@@ -11,8 +11,8 @@ namespace LOP
         private const string UxmlResource = "UI/PodiumSigns";
         private const int PaperCount = 80;
         //  월드 공간 패널은 100px = 1m — 현수막 680px를 6.8m로 두면 너무 크다.
-        private const float BannerScale = 0.4f;
-        private const float StepLabelScale = 0.25f;
+        private const float BannerScale = 0.6f;
+        private const float StepLabelScale = 0.5f;
 
         private readonly List<(Transform t, float speed, float spin, float x)> _paper = new List<(Transform, float, float, float)>();
         private readonly List<(Transform pivot, float phase, float dir)> _beams = new List<(Transform, float, float)>();
@@ -29,7 +29,7 @@ namespace LOP
             var uxml = Resources.Load<VisualTreeAsset>(UxmlResource);
             if (panel != null && uxml != null)
             {
-                var banner = Sign(panel, uxml, "banner", new Vector2(680, 90), new Vector3(PodiumLayout.Center.x, 1.75f, 1.2f), BannerScale);
+                var banner = Sign(panel, uxml, "banner", new Vector2(680, 90), new Vector3(PodiumLayout.Center.x, 3.9f, 1.5f), BannerScale);
                 banner.transform.localRotation = Quaternion.Euler(0f, 0f, 2f);
                 banner.rootVisualElement.Q("banner")?.EnableInClassList("podium-banner--ranked", context.Ranked);
                 var label = banner.rootVisualElement.Q<Label>("banner-label");
@@ -86,27 +86,27 @@ namespace LOP
                 p.name = $"Paper_{i}";
                 Object.DestroyImmediate(p.GetComponent<Collider>());
                 p.transform.SetParent(transform, false);
-                float x = PodiumLayout.Center.x + ((float)rnd.NextDouble() - 0.5f) * 3.6f;
-                p.transform.localPosition = new Vector3(x, 3f + (float)rnd.NextDouble() * 1.5f, ((float)rnd.NextDouble() - 0.5f) * 1.6f);
-                p.transform.localScale = new Vector3(0.05f, 0.075f, 0.003f);
+                float x = PodiumLayout.Center.x + ((float)rnd.NextDouble() - 0.5f) * 7f;
+                p.transform.localPosition = new Vector3(x, 6f + (float)rnd.NextDouble() * 3f, ((float)rnd.NextDouble() - 0.5f) * 3f);
+                p.transform.localScale = new Vector3(0.08f, 0.12f, 0.004f);
                 var r = p.GetComponent<Renderer>();
                 r.sharedMaterial = mats[i % mats.Length];
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 p.SetActive(false);
-                _paper.Add((p.transform, 0.7f + (float)rnd.NextDouble() * 0.8f, (float)rnd.NextDouble() * 360f, x));
+                _paper.Add((p.transform, 1.2f + (float)rnd.NextDouble() * 1.4f, (float)rnd.NextDouble() * 360f, x));
             }
         }
 
         private void BuildBeams()
         {
-            var mesh = GlowMeshes.Cone(0.08f, 0.9f, 7f, 20);
+            var mesh = GlowMeshes.Cone(0.12f, 1.6f, 12f, 20);
             _meshes.Add(mesh);
-            float[] xs = { PodiumLayout.Center.x - 1.8f, PodiumLayout.Center.x + 1.8f };
+            float[] xs = { PodiumLayout.Center.x - 3.4f, PodiumLayout.Center.x + 3.4f };
             for (int i = 0; i < xs.Length; i++)
             {
                 var pivot = new GameObject($"Beam_{i}").transform;
                 pivot.SetParent(transform, false);
-                pivot.localPosition = new Vector3(xs[i], 0f, 2.5f);
+                pivot.localPosition = new Vector3(xs[i], 0f, 3.5f);
                 var cone = new GameObject("Cone");
                 cone.transform.SetParent(pivot, false);
                 cone.AddComponent<MeshFilter>().sharedMesh = mesh;
@@ -137,7 +137,7 @@ namespace LOP
                 if (!p.t.gameObject.activeSelf) continue;
                 var pos = p.t.localPosition;
                 pos.y -= p.speed * Time.deltaTime;
-                pos.x = p.x + Mathf.Sin(_t * 2f + p.spin) * 0.15f;
+                pos.x = p.x + Mathf.Sin(_t * 2f + p.spin) * 0.25f;
                 if (pos.y < -0.2f)
                 {
                     p.t.gameObject.SetActive(false);

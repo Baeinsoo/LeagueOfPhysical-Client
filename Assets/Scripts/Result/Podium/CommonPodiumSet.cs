@@ -9,7 +9,7 @@ namespace LOP
     public sealed class CommonPodiumSet : IPodiumSet
     {
         //  단 무리가 화면 오른쪽 절반 가운데에 오는 고정 카메라(시작값 — 미리보기 그림으로 맞춘다).
-        public static readonly StageCameraPose CameraPose = new StageCameraPose(new Vector3(-0.2f, 1.15f, -5.6f), new Vector3(-0.2f, 0.6f, 0f));
+        public static readonly StageCameraPose CameraPose = new StageCameraPose(new Vector3(0f, 2f, -10f), new Vector3(0f, 1f, 0f));
 
         public PodiumStage Build(Transform root, PodiumContext context)
         {

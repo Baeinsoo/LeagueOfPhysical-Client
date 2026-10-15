@@ -10,9 +10,11 @@ namespace LOP
     /// </summary>
     public static class PodiumLayout
     {
-        public static readonly Vector3 Center = new Vector3(1.65f, 0f, 0f);
-        public const float StepWidth = 0.75f, StepDepth = 0.7f, FirstStepHeight = 0.45f;
-        public const float FrontRowZ = -0.75f, FrontRowScale = 0.6f, FrontRowGap = 0.42f;
+        public static readonly Vector3 Center = new Vector3(2.6f, 0f, 0f);
+        public const float StepWidth = 1.5f, StepDepth = 1.2f, FirstStepHeight = 0.9f;
+        public const float FrontRowZ = -3f, FrontRowScale = 0.45f, FrontRowGap = 0.8f;
+        //  앞줄은 카메라에 가까워 원근으로 바깥쪽에 쏠려 보인다 — 가운데를 단 무리보다 조금 안쪽에 둔다.
+        public const float FrontRowCenterX = 2.2f;
         public const float FacingYaw = 180f;   // 카메라(-z 쪽)를 본다
 
         private static readonly float[] HeightRatio = { 1f, 0.7f, 0.45f };
@@ -40,7 +42,7 @@ namespace LOP
             }
 
             int rest = n - onSteps;
-            float left = Center.x - FrontRowGap * (rest - 1) / 2f;
+            float left = FrontRowCenterX - FrontRowGap * (rest - 1) / 2f;
             for (int k = 0; k < rest; k++)
             {
                 var pos = new Vector3(left + FrontRowGap * k, 0f, FrontRowZ);

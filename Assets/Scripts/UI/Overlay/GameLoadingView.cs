@@ -33,9 +33,11 @@ namespace LOP.UI
         public override void OnOpen()
         {
             base.OnOpen();
+            var root = Root.Q("loading-root");
             var flash = Root.Q("loading-flash");
-            //  같은 프레임에 클래스를 붙이면 전환이 안 생긴다 — 한 프레임 뒤 하얗게, 0.5초 뒤 걷는다.
-            Root.schedule.Execute(() => flash.AddToClassList("loading-flash--on")).StartingIn(FlashInDelayMs);
+            //  판은 하양을 덮은 채 투명하게 시작한다. 한 프레임 뒤 투명을 풀면(같은 프레임엔 전환이 안 생긴다) 0.35초에
+            //  걸쳐 3D 위로 하얀 빛이 차오르고, 0.5초 뒤 하양이 걷히며 판이 드러난다.
+            Root.schedule.Execute(() => root.RemoveFromClassList("loading-root--enter")).StartingIn(FlashInDelayMs);
             Root.schedule.Execute(() => flash.RemoveFromClassList("loading-flash--on")).StartingIn(FlashOutDelayMs);
             Refresh();
             _refresh = Root.schedule.Execute(Refresh).Every(RefreshMs);
@@ -49,15 +51,20 @@ namespace LOP.UI
             base.OnClose();
         }
 
+        /// <summary>로딩판 글자. 마스터데이터가 아직 없으면(재접속 — 입구 씬) 던지지 않고 "경기장 입장 중…".</summary>
+        public static LoadingBoardText ComposeText(int queueId, int gameModeId, int mapId, Match match, LOP.MasterData.Tables tables)
+        {
+            if (tables == null) return LoadingBoardText.From(false, null, null, null);
+            int rankedQueueId = QueueChoice.QueueId(QueueKind.Ranked, tables.TbQueue);
+            var (ranked, modeId, mapId2) = LoadingBoardSource.Resolve(queueId, gameModeId, mapId, match, rankedQueueId);
+            var mode = modeId == 0 ? null : tables.TbGameMode.GetOrDefault(modeId);
+            var map = mapId2 == 0 ? null : tables.TbMap.GetOrDefault(mapId2);
+            return LoadingBoardText.From(ranked, mode?.Name, map?.Name, mode?.Description);
+        }
+
         private void Refresh()
         {
-            var tables = _masterData.Tables;
-            int rankedQueueId = QueueChoice.QueueId(QueueKind.Ranked, tables.TbQueue);
-            var (ranked, modeId, mapId) = LoadingBoardSource.Resolve(
-                _matchmaking.queueId, _matchmaking.gameModeId, _matchmaking.mapId, _room.match, rankedQueueId);
-            var mode = modeId == 0 ? null : tables.TbGameMode.GetOrDefault(modeId);
-            var map = mapId == 0 ? null : tables.TbMap.GetOrDefault(mapId);
-            var text = LoadingBoardText.From(ranked, mode?.Name, map?.Name, mode?.Description);
+            var text = ComposeText(_matchmaking.queueId, _matchmaking.gameModeId, _matchmaking.mapId, _room.match, _masterData.Tables);
 
             var tag = Root.Q<Label>("loading-tag");
             tag.text = text.Tag;

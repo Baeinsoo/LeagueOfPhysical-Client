@@ -140,6 +140,19 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 접속이_실패하면_연출을_기다리지_않고_바로_되돌린다()
+        {
+            //  끝까지 달린 뒤 하얀 빛·로딩판이 뜨고 나서야 되돌아가면, 다시 시도할 때마다 깜박인다(리뷰 지적).
+            var connect = new UniTaskCompletionSource<bool>();
+            var fake = new FakeDirector();
+            var task = RunOutEntry.EnterAsync(connect.Task, fake, CancellationToken.None);
+            connect.TrySetResult(false);
+            Assert.AreEqual(UniTaskStatus.Succeeded, task.Status, "연출이 끝나길 기다리지 않는다");
+            Assert.IsFalse(task.GetAwaiter().GetResult());
+            Assert.AreEqual(1, fake.Resets);
+        }
+
+        [Test]
         public void 접속이_던지면_되돌리고_다시_던진다()
         {
             var connect = new UniTaskCompletionSource<bool>();

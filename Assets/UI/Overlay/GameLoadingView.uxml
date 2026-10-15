@@ -1,6 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <!-- 로딩판 — 출전 연출의 하얀 빛에서 이어지는 종목 소개판. 경기가 실제로 시작되면 닫힌다 -->
-    <ui:VisualElement name="loading-root" class="kit loading-root">
+    <ui:VisualElement name="loading-root" class="kit loading-root loading-root--enter">
         <ui:VisualElement class="kit-panel loading-board">
             <ui:VisualElement class="kit-panel__back" />
             <ui:VisualElement class="kit-panel__face loading-board__face">
@@ -14,6 +14,6 @@
         <ui:VisualElement class="kit-ticker loading-ticker">
             <ui:Label text="곧 경기가 시작됩니다" class="kit-ticker__text" />
         </ui:VisualElement>
-        <ui:VisualElement name="loading-flash" class="loading-flash" picking-mode="Ignore" />
+        <ui:VisualElement name="loading-flash" class="loading-flash loading-flash--on" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

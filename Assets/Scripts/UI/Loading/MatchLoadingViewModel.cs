@@ -11,7 +11,9 @@ namespace LOP.UI
     public sealed class MatchLoadingViewModel : IDisposable
     {
         private readonly ReactiveProperty<bool> _isLoading = new(false);
-        private bool _holdForRunOut;
+        //  처음부터 걸려 있다 — 재접속이면 입구 씬에서 이미 방에 있는데, 방 입장은 늘 로비의 출전 연출이 풀어 준다.
+        //  (로비가 내려가면 연출 지휘가 풀고, 다음 로비가 생기면 다시 건다.)
+        private bool _holdForRunOut = true;
         private readonly IDisposable _subscription;
 
         private bool _inGameRoom;   // 위치 관찰 결과

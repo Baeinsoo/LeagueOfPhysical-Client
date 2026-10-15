@@ -11,6 +11,8 @@ namespace LOP.Tests
         public void 뒤를_어둡게_덮는_모달이다()
         {
             var view = new MatchingWaitingView();
+            //  창 관리자는 모달인 창만 뒤를 어둡게 덮는다 — DimsBackground만으로는 아무 일도 없다(리뷰 지적).
+            Assert.IsTrue(view.IsModal);
             Assert.IsTrue(view.DimsBackground);
             Assert.IsTrue(view.BlocksUnderlyingInput);
         }

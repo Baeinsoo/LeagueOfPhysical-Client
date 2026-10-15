@@ -10,6 +10,8 @@
 .loading-dots { margin-top: 30px; font-size: 34px; color: #FF8A00; white-space: nowrap; }
 .loading-ticker { position: absolute; left: 0; right: 0; bottom: 0; }
 
-/* 하얀 빛 — 열린 다음 프레임에 하얗게 차올랐다가(0.35초) 걷힌다. 출전 연출의 끝과 이어진다 */
+/* 하얀 빛 — 판 전체가 하양을 덮은 채 투명에서 차오르고(0.35초, 3D 위로 하얀 빛), 그다음 하양이 걷힌다(0.35초) */
+.loading-root { transition-property: opacity; transition-duration: 0.35s; }
+.loading-root--enter { opacity: 0; }
 .loading-flash { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: #FFFFFF; opacity: 0; transition-property: opacity; transition-duration: 0.35s; }
 .loading-flash--on { opacity: 1; }

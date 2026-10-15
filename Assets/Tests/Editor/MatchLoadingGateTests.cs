@@ -37,11 +37,14 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 걸지_않으면_지금처럼_바로_뜬다()
+        public void 앱이_켜질_땐_걸려_있다()
         {
+            //  재접속이면 입구 씬에서 이미 방에 있다 — 로비가 연출로 덮기 전에 로딩판이 먼저 번쩍이면 안 된다(리뷰 지적).
             var loc = new FakeLocation();
             var vm = new MatchLoadingViewModel(loc);
             loc.Enter();
+            Assert.IsFalse(vm.IsLoading.CurrentValue);
+            vm.ReleaseRunOut();
             Assert.IsTrue(vm.IsLoading.CurrentValue);
         }
     }

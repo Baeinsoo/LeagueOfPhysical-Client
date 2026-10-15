@@ -286,12 +286,16 @@ namespace LOP.MapTools
         /// <summary>파이프 두께 · 관문 틈 · 관문 사이 빈 거리(원조 간격 5.4 m − 두께).</summary>
         const double PW = 1.95, GAP = 3.75, FREE = 5.4 - PW;
 
-        /// <summary>날갯짓 두 번 굴의 틈(10-12 사람 판 3.1 → 3.4 — "무조건 부딪힌다", 10-13 동적 지형 3.4 → 2.8 — 공 몸통 한계 2.4 + 0.4).</summary>
-        const double ArcGap = 2.8;
+        /// <summary>날갯짓 두 번 굴의 틈(10-12 사람 판 3.1 → 3.4 — "무조건 부딪힌다", 10-13 동적 지형 3.4 → 2.8 — 공 몸통 한계 2.4 + 0.4,
+        /// 10-15 폰 사람 판 "통과 가능한가 싶을 정도" 2.8 → 3.1).</summary>
+        const double ArcGap = 3.1;
         /// <summary>무너진 갱도·레일 굴의 틈(한계 3.2 + 0.4).</summary>
         const double ExpertGap = 3.6;
-        /// <summary>무너진 갱도: 길이 · 첫 받침목 · 받침목 사이 · 튀어나온 길이 · 폭 · 개수.</summary>
-        const double CollapseLen = 10, CollapseFirst = 1.5, CollapseSpacing = 3, CollapseProp = 0.8, CollapsePropWidth = 0.6;
+        /// <summary>무너진 갱도: 길이 · 첫 받침목 · 받침목 사이 · 튀어나온 길이 · 폭 · 개수.
+        /// 10-15 폰 사람 판 "두 번 굴만큼 어렵다": 사이 3 → 4, 튀어나옴 0.8 → 0.6. 사이 4면 셋째 받침목이 9.5 ~ 10.1로 굴 끝(10)을 넘어
+        /// 길이 10 → 11, 첫 받침목 1.5 → 1.0(받침목 1.0 · 5.0 · 9.0, 나가는 여유 1.9 → 1.4). 길이 12면 여유가 그대로지만
+        /// 반대쪽 보통 관문이 하나 늘어 난수 소비가 밀리고 뒤 관문 틈이 전부 바뀐다 — 11까지는 관문 4개 그대로다.</summary>
+        const double CollapseLen = 11, CollapseFirst = 1.0, CollapseSpacing = 4, CollapseProp = 0.6, CollapsePropWidth = 0.6;
         const int CollapseProps = 3;
         /// <summary>광차 레일 굴: 길이 · 솟는 높이 · 한 번 솟았다 내려오는 길이.</summary>
         const double RailLen = 12, RailRise = 1.6, RailPer = 6;

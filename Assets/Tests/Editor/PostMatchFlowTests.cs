@@ -43,6 +43,17 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 판에_들어가면_지난_결과를_비운다()
+        {
+            //  결과 단계를 못 거친 지난 판 결과(나가기 직전에 도착 등)가 남아 있으면, 이번 판이 접속 오류로 끝날 때
+            //  지난 판 시상대가 뜬다(리뷰 Important).
+            var (inMatch, results) = Make();
+            results.result = new MatchResult();
+            inMatch.Enter();
+            Assert.IsInstanceOf<FrontEnd>(inMatch.GetNextState(AppEvent.MatchEnded));
+        }
+
+        [Test]
         public void 나가기는_결과가_있어도_로비로()
         {
             var (inMatch, results) = Make();

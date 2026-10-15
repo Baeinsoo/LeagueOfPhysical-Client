@@ -96,6 +96,51 @@ namespace LOP.Tests
             Assert.AreEqual(1, player.ReactionTriggers);
         }
 
+        //  옷 색은 입히기(ChibiOutfit)가 MaterialPropertyBlock에 쓴다 — 회색 처리가 그 블록을 지우면 옷 색이 사라진다(리뷰 Critical).
+        private MeshRenderer ToonPart(out Material material)
+        {
+            var part = new GameObject("part");
+            part.transform.SetParent(_body.transform, false);
+            var r = part.AddComponent<MeshRenderer>();
+            material = new Material(Shader.Find("LOP/Toon"));
+            r.sharedMaterial = material;
+            var block = new MaterialPropertyBlock();
+            block.SetColor("_TopColor", Color.red);
+            r.SetPropertyBlock(block);
+            return r;
+        }
+
+        [Test]
+        public void 나가지_않은_선수는_옷_색이_남는다()
+        {
+            var player = Make(false);
+            var r = ToonPart(out var m);
+            player.AttachVisual(_body);
+            player.SetAbsent(false);
+            var block = new MaterialPropertyBlock();
+            r.GetPropertyBlock(block);
+            Assert.AreEqual(Color.red, block.GetColor("_TopColor"));
+            Object.DestroyImmediate(m);
+        }
+
+        [Test]
+        public void 회색은_되돌려도_옷_색이_남는다()
+        {
+            var player = Make(false);
+            var r = ToonPart(out var m);
+            player.AttachVisual(_body);
+            player.SetAbsent(true);
+            var block = new MaterialPropertyBlock();
+            r.GetPropertyBlock(block);
+            Assert.Less(block.GetColor("_BaseColor").r, m.GetColor("_BaseColor").r + 1e-4f);
+            Assert.AreNotEqual(m.GetColor("_BaseColor"), block.GetColor("_BaseColor"));
+            player.SetAbsent(false);
+            r.GetPropertyBlock(block);
+            Assert.AreEqual(m.GetColor("_BaseColor"), block.GetColor("_BaseColor"));
+            Assert.AreEqual(Color.red, block.GetColor("_TopColor"));
+            Object.DestroyImmediate(m);
+        }
+
         [Test]
         public void 트리거_없는_컨트롤러면_아무_일_없다()
         {

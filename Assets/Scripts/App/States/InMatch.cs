@@ -21,7 +21,12 @@ namespace LOP
             this.results = results;
         }
 
-        protected override void OnEnter() => sceneLoader.Load(RoomSceneName);
+        protected override void OnEnter()
+        {
+            //  지난 판 결과가 남아 있으면(결과 단계를 못 거친 판) 이번 판이 오류로 끝날 때 그 시상대가 뜬다 — 들어올 때 비운다.
+            results.Clear();
+            sceneLoader.Load(RoomSceneName);
+        }
 
         public override IState<AppEvent> GetNextState(AppEvent ev)
         {

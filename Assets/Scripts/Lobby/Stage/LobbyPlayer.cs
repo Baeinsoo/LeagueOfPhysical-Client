@@ -28,6 +28,7 @@ namespace LOP
         private Vector3 _bodyScale = Vector3.one;
         private ResultReaction _pendingReaction = ResultReaction.None;
         private bool _absent;
+        private bool _greyed;   // 지금 회색이 칠해져 있나 — 칠한 적 없으면 블록을 건드리지 않는다
 
         public GameObject Visual { get; private set; }
         public PlayerLook AppliedLook { get; private set; }
@@ -183,19 +184,21 @@ namespace LOP
         private void Update() => TickCelebration(Time.deltaTime);
 
         //  나간 선수는 어둡게 — 툰 셰이더의 바탕색에 곱한다. 그 속성이 없는 재질은 그대로 둔다.
+        //  블록은 옷 색(ChibiOutfit)도 함께 쓰므로 지우지 않고 _BaseColor 한 칸만 바꾼다.
         private void ApplyAbsent()
         {
-            if (Visual == null) return;
+            if (Visual == null || !_absent && !_greyed) return;
             var block = new MaterialPropertyBlock();
             foreach (var r in Visual.GetComponentsInChildren<Renderer>(true))
             {
                 var m = r.sharedMaterial;
                 if (m == null || !m.HasProperty("_BaseColor")) continue;
                 r.GetPropertyBlock(block);
-                if (_absent) block.SetColor("_BaseColor", m.GetColor("_BaseColor") * new Color(0.45f, 0.45f, 0.5f, 1f));
-                else block.Clear();
+                var baseColor = m.GetColor("_BaseColor");
+                block.SetColor("_BaseColor", _absent ? baseColor * new Color(0.45f, 0.45f, 0.5f, 1f) : baseColor);
                 r.SetPropertyBlock(block);
             }
+            _greyed = _absent;
         }
 
         /// <summary>출전 중 자세 — 출구 쪽으로 돌아서 달린다. 몸이 아직 없으면 아무것도 하지 않는다.</summary>

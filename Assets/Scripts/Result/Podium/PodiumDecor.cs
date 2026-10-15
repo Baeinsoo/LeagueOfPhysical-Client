@@ -15,7 +15,7 @@ namespace LOP
         private const float StepLabelScale = 0.5f;
 
         private readonly List<(Transform t, float speed, float spin, float x)> _paper = new List<(Transform, float, float, float)>();
-        private readonly List<(Transform pivot, float phase, float dir)> _beams = new List<(Transform, float, float)>();
+        private readonly List<(Transform pivot, Quaternion aim, float phase)> _beams = new List<(Transform, Quaternion, float)>();
         private readonly List<Mesh> _meshes = new List<Mesh>();
         private bool _revealed;
         private float _t;
@@ -97,26 +97,30 @@ namespace LOP
             }
         }
 
+        //  위에서 1위 단을 비추는 두 줄기 스포트라이트. 원뿔은 +Y로 자라므로 광원(위)에서 1위 쪽을 향하게 돌린다.
         private void BuildBeams()
         {
-            var mesh = GlowMeshes.Cone(0.12f, 1.6f, 12f, 20);
+            var mesh = GlowMeshes.Cone(0.08f, 0.9f, 8f, 24);
             _meshes.Add(mesh);
-            float[] xs = { PodiumLayout.Center.x - 3.4f, PodiumLayout.Center.x + 3.4f };
+            var target = new Vector3(PodiumLayout.StepX(0, 3), PodiumLayout.FirstStepHeight, PodiumLayout.Center.z);
+            float[] xs = { PodiumLayout.Center.x - 2.2f, PodiumLayout.Center.x + 2.2f };
             for (int i = 0; i < xs.Length; i++)
             {
                 var pivot = new GameObject($"Beam_{i}").transform;
                 pivot.SetParent(transform, false);
-                pivot.localPosition = new Vector3(xs[i], 0f, 3.5f);
+                pivot.localPosition = new Vector3(xs[i], 7.5f, 1.2f);
                 var cone = new GameObject("Cone");
                 cone.transform.SetParent(pivot, false);
                 cone.AddComponent<MeshFilter>().sharedMesh = mesh;
                 var r = cone.AddComponent<MeshRenderer>();
-                var mat = LobbyTunnel.MakeStageGlowMaterial(new Color(0.92f, 0.95f, 1f, 0.22f));
-                if (mat.HasProperty("_FadeAlongV")) mat.SetFloat("_FadeAlongV", 0.8f);
+                var mat = LobbyTunnel.MakeStageGlowMaterial(new Color(0.92f, 0.95f, 1f, 0.09f));
+                if (mat.HasProperty("_FadeAlongV")) mat.SetFloat("_FadeAlongV", 0.6f);
                 r.sharedMaterial = mat;
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                var aim = Quaternion.FromToRotation(Vector3.up, target - pivot.localPosition);
+                pivot.localRotation = aim;
                 pivot.gameObject.SetActive(false);
-                _beams.Add((pivot, i * 1.3f, i == 0 ? 1f : -1f));
+                _beams.Add((pivot, aim, i * 1.3f));
             }
         }
 
@@ -148,7 +152,7 @@ namespace LOP
             }
             foreach (var b in _beams)
             {
-                b.pivot.localRotation = Quaternion.Euler(0f, 0f, b.dir * (12f + Mathf.Sin(_t * 0.9f + b.phase) * 14f));
+                b.pivot.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(_t * 0.9f + b.phase) * 5f) * b.aim;   // 1위 둘레를 살짝 흔든다
             }
         }
 

@@ -74,6 +74,29 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 기뻐하는_선수는_되풀이한다()
+        {
+            var player = Make(true);
+            player.AttachVisual(_body);
+            player.React(ResultReaction.Happy);
+            Assert.AreEqual(1, player.ReactionTriggers);
+            player.TickCelebration(LobbyPlayer.CelebrateEverySeconds - 0.1f);
+            Assert.AreEqual(1, player.ReactionTriggers);
+            player.TickCelebration(0.2f);
+            Assert.AreEqual(2, player.ReactionTriggers);
+        }
+
+        [Test]
+        public void 아쉬워하는_선수는_한_번만()
+        {
+            var player = Make(true);
+            player.AttachVisual(_body);
+            player.React(ResultReaction.Sad);
+            player.TickCelebration(LobbyPlayer.CelebrateEverySeconds * 3f);
+            Assert.AreEqual(1, player.ReactionTriggers);
+        }
+
+        [Test]
         public void 트리거_없는_컨트롤러면_아무_일_없다()
         {
             var player = Make(false);

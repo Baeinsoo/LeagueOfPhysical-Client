@@ -1,0 +1,18 @@
+/* 키트 라커룸 — 1920×1080 기준. 왼쪽 슬롯 줄(560), 오른쪽 가진 것 그리드(상점 카드 꼴), 아래 버튼 줄. */
+.locker-body { justify-content: flex-start; align-items: stretch; }
+.locker-main { flex-direction: row; flex-grow: 1; }
+
+.locker-slots { width: 560px; flex-shrink: 0; margin-right: 32px; }
+.locker-slot { height: 120px; margin: 8px 12px 16px 0; }
+.locker-slot .sticker { flex-grow: 1; }
+.locker-slot .sticker__face { align-items: flex-start; justify-content: center; padding: 0 28px; }
+.locker-slot--picked { border-width: 6px; border-color: var(--lop-reward); border-radius: 16px; }
+.locker-slot__name { font-size: 24px; color: var(--lop-ink); opacity: 0.6; white-space: nowrap; }
+.locker-slot__equipped { font-size: 34px; color: var(--lop-ink); max-width: 480px; overflow: hidden; white-space: nowrap; }
+
+.locker-grid { flex-grow: 1; }
+
+.locker-bar { flex-direction: row; align-items: center; flex-shrink: 0; height: 96px; }
+.locker-message { flex-grow: 1; flex-shrink: 1; font-size: 28px; color: var(--lop-live); -unity-font-style: bold; white-space: nowrap; }
+.locker-reset { margin-right: 24px; }
+.locker-reset .kit-btn__label { color: var(--lop-ink); }

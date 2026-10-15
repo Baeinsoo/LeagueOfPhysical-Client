@@ -1,0 +1,27 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 라커룸 = 가진 것만 입는 곳. 셸 틀(머리띠·띠)은 ShellView.uxml과 같은 마크업, 카드는 상점과 같은 꼴. -->
+    <Style src="../Shell/ShellView.uss" />
+    <Style src="../Shop/ShopView.uss" />
+    <ui:VisualElement name="shell-root" class="kit shell-root">
+        <ui:VisualElement class="shell-head">
+            <ui:Button name="back-button" class="kit-press kit-btn shell-back"><lop:StickerElement><ui:Label text="◀ 뒤로" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+            <ui:Label name="shell-title" class="kit-title shell-title" />
+            <ui:VisualElement name="shell-coin" class="kit-coin shell-coin"><lop:StickerElement><ui:Label name="shell-coin-text" text="🪙 -" class="kit-coin__text" /></lop:StickerElement></ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="shell-body" class="shell-body locker-body">
+            <ui:VisualElement class="locker-main">
+                <ui:ScrollView name="locker-slots" class="locker-slots" />
+                <ui:ScrollView name="locker-grid" class="shop-grid locker-grid" />
+            </ui:VisualElement>
+            <ui:VisualElement class="locker-bar">
+                <ui:Label name="locker-message" class="locker-message" />
+                <ui:Button name="locker-reset" class="kit-press kit-btn locker-reset"><lop:StickerElement><ui:Label text="전부 기본으로" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+                <ui:Button name="locker-to-shop" class="kit-press kit-btn kit-btn--info"><lop:StickerElement><ui:Label text="상점으로 ▶" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="shell-ticker" class="kit-ticker shell-ticker">
+            <lop:StickerElement class="kit-ticker__tag"><ui:VisualElement class="kit-ticker__dot" /><ui:Label text="LIVE" class="kit-title kit-ticker__tag-text" /></lop:StickerElement>
+            <ui:Label text="피지컬 리그" class="kit-ticker__text" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

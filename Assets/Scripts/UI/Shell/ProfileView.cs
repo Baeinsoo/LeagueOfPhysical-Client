@@ -18,6 +18,11 @@ namespace LOP.UI
 
         protected override string Title => "프로필";
 
+        /// <summary>[라커룸]을 누르면 부를 동작. 여는 쪽(FrontEndCoordinator)이 셸 교체로 잇는다.</summary>
+        public void SetLockerCallback(System.Action onLocker) => _onLocker = onLocker;
+
+        private System.Action _onLocker;
+
         public override void OnOpen()
         {
             base.OnOpen();

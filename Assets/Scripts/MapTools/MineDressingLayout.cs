@@ -69,8 +69,15 @@ namespace LOP.MapTools
         RockVeneer,
 
         //  ── 펼치기 3차(10-13) 움직이는 지형 — 원점·크기는 MineDressingLayout 상수 옆 주석(블렌더 mine_parts.py SPREAD3_PARTS) ──
-        /// <summary>승강기 파이프 하나를 덮는 철창 기둥(아래 끝 가운데, 폭 1.95, y 축척 = 파이프 길이). 승강기 Cage의 자식 Look에 놓는다.</summary>
-        LiftCage,
+        /// <summary>
+        /// 승강기 기둥 판자 칸(10-15 "L": 짙은 붉은 갈색 나무 넉 장 + 앞면 세로 밧줄 두 가닥). <c>GatePlank</c>와 같은 틀 —
+        /// 아래 끝 가운데, x ±0.975 · y 0~1 · z ±0.65, 기둥 높이만큼 1 m씩 쌓는다. 승강기 Cage의 자식 Look에 놓는다.
+        /// </summary>
+        LiftPlank,
+        /// <summary>승강기 밧줄 감기(가운데 원점, 네 바퀴 y ±0.15, x ±0.98). 관문 쇠띠(GateStrap) 자리에 — 틈 쪽 끝에서 2 m마다.</summary>
+        LiftLash,
+        /// <summary>승강기 틈 쪽 끝 크림색 테(GateCap과 같은 틀: 윗면 원점, 두께 0.4, x ±0.975). 쇠 볼트 대신 나무 못.</summary>
+        LiftCap,
         /// <summary>승강기 안내 틀(아래 가운데, x ±1.3, y 축척 = 통로 높이 + 진폭 × 2, 판정면 뒤 z 0.3~0.9). 고정 그림.</summary>
         LiftFrame,
         /// <summary>매단 광차(가운데, 1.6 × 1.2). 진자 Upright의 자식 Look — 진자가 흔들려도 수평이다.</summary>
@@ -177,8 +184,13 @@ namespace LOP.MapTools
     /// <summary>관문 기둥 하나(파이프 한 개)를 채우는 판자 칸·쇠띠·쇠테 자리.</summary>
     public sealed class GateStackLayout
     {
-        /// <summary>아래부터 위로. 마지막 칸만 1 m보다 짧을 수 있다.</summary>
+        /// <summary>
+        /// 아래부터 위로. 마지막 칸만 1 m보다 짧을 수 있다. 칸은 파이프 전체가 아니라 쇠테 밑면까지만 채운다
+        /// (<see cref="MineDressingLayout.GateStack"/> — 판자 끝 면이 쇠테 윗면과 한 평면이면 z-fighting으로 번쩍인다).
+        /// </summary>
         public readonly List<GateCell> Cells = new List<GateCell>();
+        /// <summary>쇠테를 놓는가 — 파이프 높이가 0보다 크면. 쇠테보다 짧은 기둥은 칸 없이 쇠테만.</summary>
+        public bool HasCap;
         /// <summary>GateStrap(가운데 원점) y. 틈 쪽 끝에서 2 m마다, 기둥 안에 완전히 드는 것만.</summary>
         public readonly List<float> StrapYs = new List<float>();
         /// <summary>
@@ -458,21 +470,33 @@ namespace LOP.MapTools
 
         /// <summary>
         /// 파이프 하나 [<paramref name="bottom"/>, <paramref name="top"/>]를 채우는 기둥. <paramref name="capAtTop"/> = 틈이 위
-        /// (아래 관문). 칸은 아래부터 1 m씩, 마지막 칸만 남은 높이(y 축척). 높이가 0 이하면 칸이 없다.
+        /// (아래 관문). 칸은 아래부터 1 m씩, 마지막 칸만 남은 높이(y 축척). 높이가 0 이하면 칸도 쇠테도 없다.
+        ///
+        /// <para><b>판자는 쇠테 밑면에서 멈춘다</b>(10-15 번쩍임): 판자가 틈 쪽 끝까지 차면 판자 윗면(z ±0.65)이 쇠테 윗면(z ±0.68)과
+        /// 한 평면이라, 카메라가 움직일 때 그 3~5 px 띠가 크림색 쇠테와 주황 판자 사이를 오가며 깜빡였다(림 0.35가 거의 흰색으로 밝힌다).
+        /// 쇠테(두께 <see cref="CapThickness"/>, 판자보다 앞뒤로 넓다)가 그 끝을 덮으므로 판자를 그만큼 덜 채워도 그림·판정 경계는 그대로다 —
+        /// 틈 쪽 경계는 여전히 쇠테 윗면이고, 판자 끝 면은 쇠테 밑면(반대 방향)과 맞닿아 같은 방향 겹면이 없다(옆면도 겹치지 않는다).</para>
         /// </summary>
         public static GateStackLayout GateStack(float bottom, float top, bool capAtTop)
         {
             var s = new GateStackLayout { CapY = capAtTop ? top : bottom, CapFlipped = !capAtTop };
             double h = (double)top - bottom;
             if (h <= 1e-4) { return s; }
+            s.HasCap = true;
 
-            //  1e-3 여유로 올림 — 딱 3 m가 float 오차로 3.0000002가 되어 0에 가까운 빈 칸이 생기지 않게.
-            int n = Math.Max(1, (int)Math.Ceiling(h / PlankCell - 1e-3));
-            for (int i = 0; i < n; i++)
+            //  판자 칸이 채우는 범위 = 파이프에서 틈 쪽 끝 쇠테 두께만큼 뺀 곳.
+            double lo = capAtTop ? bottom : bottom + (double)CapThickness, hi = capAtTop ? top - (double)CapThickness : top;
+            double ph = hi - lo;
+            if (ph > 1e-4)
             {
-                double y0 = bottom + i * (double)PlankCell;
-                double height = i < n - 1 ? PlankCell : h - (n - 1) * (double)PlankCell;
-                s.Cells.Add(new GateCell((float)y0, (float)height));
+                //  1e-3 여유로 올림 — 딱 3 m가 float 오차로 3.0000002가 되어 0에 가까운 빈 칸이 생기지 않게.
+                int n = Math.Max(1, (int)Math.Ceiling(ph / PlankCell - 1e-3));
+                for (int i = 0; i < n; i++)
+                {
+                    double y0 = lo + i * (double)PlankCell;
+                    double height = i < n - 1 ? PlankCell : ph - (n - 1) * (double)PlankCell;
+                    s.Cells.Add(new GateCell((float)y0, (float)height));
+                }
             }
 
             //  쇠띠: 틈 쪽 끝(쇠테)에서 2 m마다 반대쪽으로 — 보이는 끝에서 고르게. 기둥 끝에 걸치는 것은 뺀다.
@@ -2313,10 +2337,11 @@ namespace LOP.MapTools
         //  그림도 같이 움직인다(spec §5). *Local 함수는 그 자식 기준 자리, 나머지는 고정 그림이라 월드 좌표. 숫자는 전부 판정 사각형에서 그대로 가져온다.
 
         /// <summary>
-        /// LiftCage(블렌더 LiftCage: 아래 끝 가운데, x ±0.975 · y 0~1 · z ±0.65) 폭. 놓는 z는 관문 판자와 같은 깊이(<c>FlappyMineDressing.GateZ</c>) —
-        /// 앞면 −1.38. 틈 쪽 끝 쇠테(GateCap)도 같은 z.
+        /// 승강기 기둥(10-15 "L") — LiftPlank(블렌더: 아래 끝 가운데, x ±0.975 · y 0~1 · z ±0.65)·LiftLash(가운데, x ±0.98 · y ±0.15 · z ±0.72)·
+        /// LiftCap(윗면 원점, x ±0.975 · y −0.4~0 · z ±0.73) 폭. 놓는 z는 관문 판자와 같은 깊이(<c>FlappyMineDressing.GateZ</c>) — 앞면 −1.38.
+        /// 칸·감기·테 자리는 관문 기둥과 같은 셈(<see cref="GateStack"/>)이다.
         /// </summary>
-        public const float LiftCageWidth = 1.95f, LiftCageZ = -0.73f;
+        public const float LiftUnitWidth = 1.95f, LiftPillarZ = -0.73f;
         /// <summary>LiftFrame(블렌더 LiftFrame: 아래 가운데, x ±1.3, y 0~1, z 0.3~0.9 — 메시가 이미 판정면 뒤라 0에 놓는다).</summary>
         public const float LiftFrameZ = 0f;
         /// <summary>HangingCart(블렌더 HangingCart: 가운데, 1.6 × 1.2, z ±0.6) — 놓는 z는 광차 상자 앞(z −1.3~−0.1).</summary>
@@ -2347,23 +2372,35 @@ namespace LOP.MapTools
         }
 
         /// <summary>
-        /// 승강기 Cage 자식 기준 그림 — 아래·위 파이프(<c>LiftPipeLow/High</c>)마다 철창 기둥(LiftCage, y 축척 = 파이프 길이) 하나와 틈 쪽 끝 쇠테(GateCap) 하나.
+        /// 승강기 Cage 자식 기준 그림 — 아래·위 파이프(<c>LiftPipeLow/High</c>)마다 관문 기둥과 같은 셈(<see cref="GateStack"/>)으로
+        /// 짙은 나무 칸(LiftPlank, 1 m씩), 밧줄 감기(LiftLash, 틈 쪽 끝에서 2 m마다), 틈 쪽 끝 크림색 테(LiftCap).
         /// Cage는 관문 x에 있고 y 0에서 오르내리므로 x 0, y는 쉬는 자리의 월드 높이 그대로다. 파이프 = [바닥 − 묻기 − 진폭, 틈 아래]·[틈 위, 천장 + 묻기 + 진폭].
+        /// 10-15 "L"(웹 시안에서 사용자가 골랐다): 철창(LiftCage — 판자 + 세로 쇠창살)을 갈아 끼웠다. 쇠창살·도르래 없음.
         /// </summary>
-        public static List<MinePiece> LiftCageLocal(MineLift l, float floorAt, float ceilingAt)
+        public static List<MinePiece> LiftPillarLocal(MineLift l, float floorAt, float ceilingAt)
         {
             MineGate g = l.Gate;
             float low = floorAt - GatePipeBury - l.Amplitude, high = ceilingAt + GatePipeBury + l.Amplitude;
             float a = g.GapCenter - g.Gap * 0.5f, b = g.GapCenter + g.Gap * 0.5f;
-            float sx = g.Width / LiftCageWidth;
-            return new List<MinePiece>
+            float sx = g.Width / LiftUnitWidth;
+            var list = new List<MinePiece>();
+            foreach (GateStackLayout s in new[] { GateStack(low, a, capAtTop: true), GateStack(b, high, capAtTop: false) })
             {
-                new MinePiece(MinePartKind.LiftCage, 0f, low, LiftCageZ, 0f, g.Width, a - low, sx, a - low),
-                //  GateCap은 윗면이 원점(두께 0.4 아래로) — 아래 파이프는 그대로 틈 아래 끝에, 위 파이프는 뒤집어 틈 위 끝에(관문과 같다).
-                new MinePiece(MinePartKind.GateCap, 0f, a, LiftCageZ, 0f, g.Width, g.Width, sx, 1f),
-                new MinePiece(MinePartKind.LiftCage, 0f, b, LiftCageZ, 0f, g.Width, high - b, sx, high - b),
-                new MinePiece(MinePartKind.GateCap, 0f, b, LiftCageZ, 0f, g.Width, g.Width, sx, 1f, flipped: true),
-            };
+                foreach (GateCell cell in s.Cells)
+                {
+                    list.Add(new MinePiece(MinePartKind.LiftPlank, 0f, cell.Y0, LiftPillarZ, 0f, g.Width, cell.Height, sx, cell.Height));
+                }
+                foreach (float y in s.StrapYs)
+                {
+                    list.Add(new MinePiece(MinePartKind.LiftLash, 0f, y, LiftPillarZ, 0f, g.Width, 2f * StrapHalf, sx, 1f));
+                }
+                //  LiftCap은 윗면이 원점(두께 0.4 아래로) — 아래 파이프는 그대로 틈 아래 끝에, 위 파이프는 뒤집어 틈 위 끝에(관문과 같다).
+                if (s.HasCap)
+                {
+                    list.Add(new MinePiece(MinePartKind.LiftCap, 0f, s.CapY, LiftPillarZ, 0f, g.Width, CapThickness, sx, 1f, flipped: s.CapFlipped));
+                }
+            }
+            return list;
         }
 
         /// <summary>승강기 안내 틀(고정, 판정면 뒤) — 관문 x, 그 자리 바닥 − 진폭 ~ 천장 + 진폭(케이지가 오르내리는 폭 전부).</summary>

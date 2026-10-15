@@ -32,7 +32,7 @@ namespace LOP.EditorTools
                 lift.Amplitude = l.Amplitude; lift.Period = l.Period; lift.Phase = l.Phase; lift.Cage = cage;
 
                 //  케이지가 진폭만큼 오르내려도 파이프 끝이 통로에 드러나지 않게 진폭만큼 더 묻는다.
-                //  묻는 거리는 MineDressingLayout.GatePipeBury 하나만 본다(10-14 리뷰 T6) — 옷(LiftCageLocal)도 같은 상수를 쓰므로
+                //  묻는 거리는 MineDressingLayout.GatePipeBury 하나만 본다(10-14 리뷰 T6) — 옷(LiftPillarLocal)도 같은 상수를 쓰므로
                 //  굽기(판정 콜라이더)와 그림이 한쪽만 바뀌어 벌어질 일이 없다.
                 float half = g.Width * 0.5f;
                 float low = Mathf.Min(floorAt(g.X - half), floorAt(g.X), floorAt(g.X + half)) - MineDressingLayout.GatePipeBury - l.Amplitude;

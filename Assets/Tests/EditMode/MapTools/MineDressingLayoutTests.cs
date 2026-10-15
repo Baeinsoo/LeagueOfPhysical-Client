@@ -39,12 +39,15 @@ namespace LOP.MapTools.Tests
         [TestCase(-7.28f, -1.2f, true)]
         [TestCase(2.55f, 7.28f, false)]
         [TestCase(0f, 3f, true)]
-        [TestCase(0f, 0.4f, false)]
-        public void 기둥_칸_높이_합은_기둥_높이고_마지막_칸만_1_미만(float bottom, float top, bool capAtTop)
+        [TestCase(0f, 0.9f, false)]
+        public void 기둥_칸_높이_합은_기둥에서_쇠테_두께를_뺀_높이고_마지막_칸만_1_미만(float bottom, float top, bool capAtTop)
         {
             var s = MineDressingLayout.GateStack(bottom, top, capAtTop);
-            Assert.AreEqual(top - bottom, s.Cells.Sum(cell => cell.Height), Eps);
-            Assert.AreEqual(bottom, s.Cells[0].Y0, Eps);
+            float cap = MineDressingLayout.CapThickness;
+            Assert.AreEqual(top - bottom - cap, s.Cells.Sum(cell => cell.Height), Eps);
+            //  묻힌 쪽 끝은 파이프 끝, 틈 쪽 끝은 쇠테 밑면(틈 쪽 끝 − 쇠테 두께).
+            Assert.AreEqual(capAtTop ? bottom : bottom + cap, s.Cells[0].Y0, Eps);
+            Assert.AreEqual(capAtTop ? top - cap : top, s.Cells[s.Cells.Count - 1].Y0 + s.Cells[s.Cells.Count - 1].Height, Eps);
             for (int i = 0; i < s.Cells.Count; i++)
             {
                 var cell = s.Cells[i];
@@ -61,9 +64,14 @@ namespace LOP.MapTools.Tests
         [Test]
         public void 기둥_칸_수는_올림()
         {
-            Assert.AreEqual(6, MineDressingLayout.GateStack(-7.28f, -1.8f, true).Cells.Count);   // 5.48 m
-            Assert.AreEqual(3, MineDressingLayout.GateStack(0f, 3f, true).Cells.Count);          // 딱 3 m — 빈 마지막 칸 없음
+            Assert.AreEqual(6, MineDressingLayout.GateStack(-7.28f, -1.8f, true).Cells.Count);   // 5.48 − 0.4 = 5.08 m
+            Assert.AreEqual(3, MineDressingLayout.GateStack(0f, 3.4f, true).Cells.Count);        // 판자 딱 3 m — 빈 마지막 칸 없음
             Assert.AreEqual(0, MineDressingLayout.GateStack(1f, 1f, true).Cells.Count);
+            Assert.IsFalse(MineDressingLayout.GateStack(1f, 1f, true).HasCap, "높이 0이면 쇠테도 없다");
+            //  쇠테보다 짧은 기둥은 판자 없이 쇠테만.
+            var shortStack = MineDressingLayout.GateStack(0f, 0.3f, false);
+            Assert.AreEqual(0, shortStack.Cells.Count);
+            Assert.IsTrue(shortStack.HasCap);
         }
 
         [Test]
@@ -77,6 +85,39 @@ namespace LOP.MapTools.Tests
             var high = MineDressingLayout.GateStack(2.55f, 7.28f, false);
             Assert.AreEqual(2.55f, high.CapY, Eps);
             Assert.IsTrue(high.CapFlipped);
+        }
+
+        //  10-15 번쩍임: 판자 끝 면이 쇠테 윗면과 한 평면이면 z-fighting(크림 ↔ 주황 띠가 깜빡, 림이 거의 흰색으로). 실제 코스의 관문 파이프마다 —
+        //  틈 쪽 경계(그림 = 판정)는 쇠테 윗면 그대로, 판자는 쇠테 밑면에서 멈춰 쇠테가 덮는다(같은 방향 겹면 없음).
+        [Test]
+        public void 판자는_쇠테_밑면에서_멈추고_쇠테_윗면이_틈_끝이다()
+        {
+            var c = Course();
+            Assert.Greater(c.Gates.Count, 0);
+            float cap = MineDressingLayout.CapThickness;
+            int checkedPipes = 0;
+            foreach (MineGate g in c.Gates)
+            {
+                float a = g.GapCenter - g.Gap / 2f, b = g.GapCenter + g.Gap / 2f;
+                float floor = Floor(c, g.X) - MineDressingLayout.GatePipeBury, ceiling = Ceiling(c, g.X) + MineDressingLayout.GatePipeBury;
+                foreach (var (bottom, top, capAtTop, gapEdge) in new[] { (floor, a, true, a), (b, ceiling, false, b) })
+                {
+                    if (top - bottom <= cap) { continue; }
+                    var s = MineDressingLayout.GateStack(bottom, top, capAtTop);
+                    Assert.IsTrue(s.HasCap);
+                    //  쇠테 윗면(뒤집힌 위 관문은 아랫면) = 틈 끝 = 판정 경계.
+                    Assert.AreEqual(gapEdge, s.CapY, 0.01f, $"관문 x {g.X} 쇠테가 틈 끝에 없다");
+                    float plankEnd = capAtTop ? s.Cells[s.Cells.Count - 1].Y0 + s.Cells[s.Cells.Count - 1].Height : s.Cells[0].Y0;
+                    float capFace = s.CapY, capBack = capAtTop ? s.CapY - cap : s.CapY + cap;
+                    //  판자 끝은 쇠테 면에서 떨어져(같은 평면 아님) 쇠테 두께 안 — 쇠테 밑면과 같다.
+                    Assert.Greater(Math.Abs(capFace - plankEnd), 0.03f, $"관문 x {g.X} 판자 끝이 쇠테 면과 한 평면이다");
+                    Assert.AreEqual(capBack, plankEnd, 1e-3f, $"관문 x {g.X} 판자가 쇠테 밑면에서 멈추지 않는다(틈이 생기거나 겹면)");
+                    //  판자는 쇠테 밖(틈 쪽)으로 나가지 않는다.
+                    Assert.IsTrue(s.Cells.All(cell => cell.Y0 >= bottom - Eps && cell.Y0 + cell.Height <= top + Eps), $"관문 x {g.X} 판자가 파이프 밖");
+                    checkedPipes++;
+                }
+            }
+            Assert.Greater(checkedPipes, c.Gates.Count, "아래·위 파이프 둘 다 재야 한다");
         }
 
         [Test]
@@ -600,12 +641,13 @@ namespace LOP.MapTools.Tests
             //  10-12 사람 판 레이아웃 변경: 코스 끝 386.15 → 422.35, 마지막 갈림길 끝 362.5 → 395.7.
             //  10-13 동적 지형: 코스 끝 422.35 → 445.95, 마지막 갈림길 끝 395.7 → 419.3(레일 굴 12 m).
             //  시안 v10에서 갈라짐(10-13 검사): 첫 급반전 앞 +2.6 — 448.55, 421.9.
-            Assert.AreEqual(448.55f + 20f, z.DressEnd, 0.01f, "옷 범위 끝 = 코스 끝 + 결승선 뒤 여유");
+            //  10-15 무너진 갱도 길이 10 → 11: +1 — 449.55, 422.9.
+            Assert.AreEqual(449.55f + 20f, z.DressEnd, 0.01f, "옷 범위 끝 = 코스 끝 + 결승선 뒤 여유");
             Assert.AreEqual(Course().Length + MineDressingLayout.EndMargin, z.DressEnd, 1e-3f);
             //  출구 문틀 = 마지막 고수 갈림길 끝 ~ +5 m.
-            Assert.AreEqual(421.9f, z.ExitStart, 0.01f, "출구 문틀 시작 = 마지막 고수 갈림길 끝");
+            Assert.AreEqual(422.9f, z.ExitStart, 0.01f, "출구 문틀 시작 = 마지막 고수 갈림길 끝");
             Assert.AreEqual(Course().Forks.Last().X1, z.ExitStart, 1e-3f, "출구 문틀 시작 = 마지막 고수 갈림길 끝");
-            Assert.AreEqual(426.9f, z.ExitEnd, 0.01f, "출구 문틀 끝 = 시작 + 5");
+            Assert.AreEqual(427.9f, z.ExitEnd, 0.01f, "출구 문틀 끝 = 시작 + 5");
         }
 
         [Test]
@@ -656,8 +698,8 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(2, spans.Count, string.Join(", ", spans));
             Assert.AreEqual(24.8f, spans[0].from, 1e-3f);
             Assert.AreEqual(drop1 + 9.2f + 4f + 3f, spans[0].to, 1e-3f);    // 41.0
-            Assert.AreEqual(drop2 - 2f - 3f, spans[1].from, 1e-3f);          // 297.05
-            Assert.AreEqual(drop2 + 10f + 4f + 3f, spans[1].to, 1e-3f);     // 319.05
+            Assert.AreEqual(drop2 - 2f - 3f, spans[1].from, 1e-3f);          // 298.05
+            Assert.AreEqual(drop2 + 10f + 4f + 3f, spans[1].to, 1e-3f);     // 320.05
             //  갱목 첫 줄(천장 쪽은 원점이 판정선 위 왼끝)이 이 구간을 양끝까지 채운다 — 굽기는 이 구간에서 바닥·천장 조각을 빼므로 틈이 생기면 안 된다.
             var timbers = MineDressingLayout.ShaftWalls(c, z, LookTimberSpacing).Where(p => p.Kind == MinePartKind.ShaftTimber && p.X < spans[0].to + 3f).ToList();
             var ceilingRow = timbers.Where(p => Math.Abs(p.Y - Ceiling(c, p.X)) < 1e-3f).ToList();
@@ -2141,7 +2183,7 @@ namespace LOP.MapTools.Tests
         }
 
         // ══ 펼치기 3차(10-13): 움직이는 지형 — 그림 = 판정 ± 0.01 ══
-        //  부품 크기(블렌더 SPREAD3_PARTS, mine_parts.py 출력으로 확인): LiftCage 1.95 × 1(아래 끝 가운데), HangingCart 1.6 × 1.2(가운데),
+        //  부품 크기(블렌더 SPREAD3_PARTS, mine_parts.py 출력으로 확인): LiftPlank 1.95 × 1(아래 끝 가운데)·LiftLash ±0.98·LiftCap 0.4(윗면 원점), HangingCart 1.6 × 1.2(가운데),
         //  FallingRock 1.2(가운데), CollapsedProp 0.6 × 0.8(왼끝 붙은 쪽), GateCap 두께 0.4(윗면 원점).
         const float PartTol = 0.01f;
 
@@ -2222,10 +2264,11 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
-        public void 승강기_철창은_파이프_사각형_그대로_쇠테는_틈_쪽_끝()
+        public void 승강기_기둥은_파이프_사각형_그대로_테는_틈_쪽_끝()
         {
             var c = Course();
             Assert.Greater(c.Lifts.Count, 0);
+            float cap = MineDressingLayout.CapThickness;
             foreach (MineLift l in c.Lifts)
             {
                 MineGate g = l.Gate;
@@ -2238,24 +2281,53 @@ namespace LOP.MapTools.Tests
                 float a = g.GapCenter - g.Gap / 2f, b = g.GapCenter + g.Gap / 2f;
                 var pipes = new[] { (lo: floor - 1f - l.Amplitude, hi: a), (lo: b, hi: ceiling + 1f + l.Amplitude) };
 
-                var pieces = MineDressingLayout.LiftCageLocal(l, rf, rc);
-                var cages = pieces.Where(p => p.Kind == MinePartKind.LiftCage).OrderBy(p => p.Y).ToList();
-                Assert.AreEqual(2, cages.Count);
+                var pieces = MineDressingLayout.LiftPillarLocal(l, rf, rc);
+                Assert.IsFalse(pieces.Any(p => p.Kind == MinePartKind.GateCap), "옛 쇠테(GateCap)는 쓰지 않는다 — 크림색 LiftCap");
+                Assert.IsTrue(pieces.All(p => Math.Abs(p.Z - pieces[0].Z) < 1e-4f && p.Z + 0.65f < 0f), "관문 판자처럼 판정면 앞 한 깊이");
+                //  폭: 모든 조각이 관문 폭(± 0.975 × 축척 — 감기는 메시가 ±0.98이라 0.005 m 밖, ± 0.01 안).
+                foreach (MinePiece p in pieces)
+                {
+                    Assert.AreEqual(-half, p.X - 0.975f * p.ScaleX, PartTol, $"{p.Kind} 왼끝");
+                    Assert.AreEqual(half, p.X + 0.975f * p.ScaleX, PartTol, $"{p.Kind} 오른끝");
+                }
+
+                var caps = pieces.Where(p => p.Kind == MinePartKind.LiftCap).OrderBy(p => p.Y).ToList();
+                Assert.AreEqual(2, caps.Count);
+                Assert.AreEqual(a, caps[0].Y, PartTol); Assert.IsFalse(caps[0].Flipped, "아래 파이프 테는 윗면이 틈 아래 끝");
+                Assert.AreEqual(b, caps[1].Y, PartTol); Assert.IsTrue(caps[1].Flipped, "위 파이프 테는 뒤집어 아랫면이 틈 위 끝");
+
+                var planks = pieces.Where(p => p.Kind == MinePartKind.LiftPlank).OrderBy(p => p.Y).ToList();
+                var lashes = pieces.Where(p => p.Kind == MinePartKind.LiftLash).ToList();
                 for (int i = 0; i < 2; i++)
                 {
-                    MinePiece p = cages[i];
-                    //  Cage는 관문 x(y 0)에 있으므로 x는 0 기준, y는 월드 그대로.
-                    Assert.AreEqual(-half, p.X - 0.975f * p.ScaleX, PartTol, "왼끝");
-                    Assert.AreEqual(half, p.X + 0.975f * p.ScaleX, PartTol, "오른끝");
-                    Assert.AreEqual(pipes[i].lo, p.Y, PartTol, $"{i} 파이프 아래 끝");
-                    Assert.AreEqual(pipes[i].hi, p.Y + p.ScaleY, PartTol, $"{i} 파이프 위 끝");
-                    Assert.IsFalse(p.Flipped);
+                    var (lo, hi) = pipes[i];
+                    var mine = planks.Where(p => p.Y >= lo - Eps && p.Y < hi).ToList();
+                    Assert.Greater(mine.Count, 1, $"{i} 파이프에 판자 칸이 없다");
+                    //  묻힌 끝 = 파이프 끝, 틈 쪽 끝 = 테 밑면(테가 덮는다 — 테 윗면과 한 평면이 아니다), 칸 사이 빈틈 없음.
+                    float first = mine[0].Y, last = mine[mine.Count - 1].Y + mine[mine.Count - 1].ScaleY;
+                    Assert.AreEqual(i == 0 ? lo : b + cap, first, PartTol, $"{i} 판자 아래 끝");
+                    Assert.AreEqual(i == 0 ? a - cap : hi, last, PartTol, $"{i} 판자 위 끝");
+                    for (int k = 0; k + 1 < mine.Count; k++)
+                    {
+                        Assert.AreEqual(mine[k].Y + mine[k].ScaleY, mine[k + 1].Y, 1e-3f, $"{i} 칸 {k} 사이가 벌어졌다");
+                        Assert.LessOrEqual(mine[k].ScaleY, 1f + Eps);
+                    }
+                    //  그림 사각형 = 파이프 사각형: 판자 묻힌 끝 ~ 테 바깥 면.
+                    float artLo = i == 0 ? first : caps[1].Y, artHi = i == 0 ? caps[0].Y : last;
+                    Assert.AreEqual(lo, artLo, PartTol, $"{i} 그림 아래 끝 = 파이프 아래 끝");
+                    Assert.AreEqual(hi, artHi, PartTol, $"{i} 그림 위 끝 = 파이프 위 끝");
+
+                    //  밧줄 감기: 틈 쪽 끝에서 2 m마다, 파이프 안. 승강기 파이프는 늘 2 m보다 길어 하나 이상.
+                    float gapEnd = i == 0 ? a : b, dir = i == 0 ? -1f : 1f;
+                    var ys = lashes.Where(p => p.Y > lo && p.Y < hi).Select(p => p.Y).OrderBy(y => dir * y).ToList();
+                    Assert.Greater(ys.Count, 0, $"{i} 밧줄 감기가 없다");
+                    for (int k = 0; k < ys.Count; k++)
+                    {
+                        Assert.AreEqual(gapEnd + dir * 2f * (k + 1), ys[k], 1e-3f, $"{i} 감기 {k} 자리");
+                    }
                 }
-                var caps = pieces.Where(p => p.Kind == MinePartKind.GateCap).OrderBy(p => p.Y).ToList();
-                Assert.AreEqual(2, caps.Count);
-                Assert.AreEqual(a, caps[0].Y, PartTol); Assert.IsFalse(caps[0].Flipped, "아래 파이프 쇠테는 윗면이 틈 아래 끝");
-                Assert.AreEqual(b, caps[1].Y, PartTol); Assert.IsTrue(caps[1].Flipped, "위 파이프 쇠테는 뒤집어 아랫면이 틈 위 끝");
-                Assert.IsTrue(pieces.All(p => Math.Abs(p.Z - pieces[0].Z) < 1e-4f && p.Z + 0.65f < 0f), "관문 판자처럼 판정면 앞 한 깊이");
+                Assert.AreEqual(planks.Count, pieces.Count(p => p.Kind == MinePartKind.LiftPlank));
+                Assert.AreEqual(pieces.Count, planks.Count + lashes.Count + caps.Count, "판자·감기·테 말고 다른 조각은 없다");
             }
         }
 

@@ -33,7 +33,7 @@ namespace LOP.MapTools.Tests
         static List<MineGate> Gates(MineCourse c) => c.Gates.ToList();
 
         [Test]
-        public void 길이는_시안과_같다() => Assert.AreEqual(448.55f, Layout().Length, 0.01f);   // 시안 v10 445.95에서 갈라짐(10-13 검사, +2.6)
+        public void 길이는_시안과_같다() => Assert.AreEqual(449.55f, Layout().Length, 0.01f);   // 시안 v10 445.95에서 갈라짐(10-13 검사, +2.6 · 10-15 무너진 갱도 길이 10 → 11, +1)
 
         [Test]
         public void 구간_순서와_시작점()
@@ -43,8 +43,8 @@ namespace LOP.MapTools.Tests
             var expect = new (string name, float x)[]
             {
                 ("수직 갱 낙하", 24.8f), ("계단 내리막", 46.85f), ("낙석", 93.05f), ("고수 갈림길 ⬇굴", 119.9f),
-                ("진자 광차", 162.45f), ("레일 롤러코스터", 201.3f), ("급반전", 240.15f), ("고수 갈림길 ⬆굴", 275.35f), ("수직 갱 낙하", 302.5f),
-                ("승강기", 330.75f), ("굴뚝 오르기", 368.15f), ("고수 갈림길 ⬆굴", 394.6f),
+                ("진자 광차", 163.45f), ("레일 롤러코스터", 202.3f), ("급반전", 241.15f), ("고수 갈림길 ⬆굴", 276.35f), ("수직 갱 낙하", 303.5f),
+                ("승강기", 331.75f), ("굴뚝 오르기", 369.15f), ("고수 갈림길 ⬆굴", 395.6f),
             };
             var secs = Layout().Sections;
             Assert.AreEqual(expect.Length, secs.Count);
@@ -72,7 +72,7 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(3.75f, gates[i].Gap, 1e-4f, $"관문 {i} 틈");
             }
             var last = gates[gates.Count - 1];
-            Assert.AreEqual(440.125f, last.X, 0.002f);
+            Assert.AreEqual(441.125f, last.X, 0.002f);
             Assert.AreEqual(-48.192f, last.GapCenter, 0.002f);
         }
 
@@ -87,7 +87,7 @@ namespace LOP.MapTools.Tests
             var centers = new[] { -44.5f, -49f, -44.5f, -49f };
             for (int i = 0; i < 4; i++)
             {
-                Assert.AreEqual(243.725f + 6.8f * i, flip[i].X, 0.002f, $"급반전 {i} x");
+                Assert.AreEqual(244.725f + 6.8f * i, flip[i].X, 0.002f, $"급반전 {i} x");
                 Assert.AreEqual(centers[i], flip[i].GapCenter, 1e-4f, $"급반전 {i} 틈 중심");
             }
             //  첫 급반전 앞은 8 m(10-13 검사, 시안 v10 5.4에서 갈라짐) — 앞 보통 관문에서 6 m를 오를 여유.
@@ -125,7 +125,7 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(4, lifts.Count);
             for (int i = 0; i < 4; i++)
             {
-                Assert.AreEqual(331.725f + 8f * i, lifts[i].Gate.X, 0.002f, $"승강기 {i} x");
+                Assert.AreEqual(332.725f + 8f * i, lifts[i].Gate.X, 0.002f, $"승강기 {i} x");
                 Assert.AreEqual(-73f, lifts[i].Gate.GapCenter, 1e-4f);
                 Assert.AreEqual(3.75f, lifts[i].Gate.Gap, 1e-4f);
                 Assert.AreEqual(1.8f, lifts[i].Amplitude, 1e-5f);
@@ -148,7 +148,7 @@ namespace LOP.MapTools.Tests
                     MinePendulum p = c.Pendulums[i * 4 + k];
                     float cy = top - (2f * MineCourse.BaseHalf / 4f) * (k + 0.5f);
                     float len = top - cy + 1.2f;
-                    Assert.AreEqual(166.45f + 10f * i, p.PivotX, 0.002f, $"자리 {i}");
+                    Assert.AreEqual(167.45f + 10f * i, p.PivotX, 0.002f, $"자리 {i}");
                     Assert.AreEqual(top + 1.2f, p.PivotY, 1e-3f);
                     Assert.AreEqual(len, p.Length, 1e-3f, $"자리 {i} 광차 {k} 줄");
                     Assert.AreEqual(Mathf.Asin(2.5f / len) * Mathf.Rad2Deg, p.Amplitude, 1e-2f, $"자리 {i} 광차 {k} 각도");
@@ -190,8 +190,8 @@ namespace LOP.MapTools.Tests
             var c = Layout();
             var shapes = c.Forks.Select(f => f.Shape).ToArray();
             CollectionAssert.AreEqual(new[] { ForkShape.Collapse, ForkShape.Arc, ForkShape.Rail }, shapes);
-            var expectForks = new (float x0, float x1, bool up)[] { (119.9f, 145.2f, false), (275.35f, 296.05f, true), (394.6f, 421.9f, true) };
-            var expectPadX = new[] { 133.2f, 284.05f, 409.9f };
+            var expectForks = new (float x0, float x1, bool up)[] { (119.9f, 146.2f, false), (276.35f, 297.05f, true), (395.6f, 422.9f, true) };
+            var expectPadX = new[] { 134.2f, 285.05f, 410.9f };
             for (int i = 0; i < 3; i++)
             {
                 Assert.AreEqual(expectForks[i].x0, c.Forks[i].X0, 0.01f, $"갈림길 {i} X0");
@@ -201,8 +201,8 @@ namespace LOP.MapTools.Tests
             }
             MineTube Tunnel(int i) => c.Tubes.Single(t => Math.Abs(t.X0 - (c.Forks[i].X0 + 3f)) < 0.01f);
             Assert.AreEqual(3.6f, Tunnel(0).Gap, 1e-5f, "무너진 갱도 3.6");
-            Assert.AreEqual(10f, Tunnel(0).X1 - Tunnel(0).X0, 0.01f);
-            Assert.AreEqual(2.8f, Tunnel(1).Gap, 1e-5f, "두 번 굴 2.8");
+            Assert.AreEqual(11f, Tunnel(0).X1 - Tunnel(0).X0, 0.01f);
+            Assert.AreEqual(3.1f, Tunnel(1).Gap, 1e-5f, "두 번 굴 3.1");
             Assert.AreEqual(3.6f, Tunnel(2).Gap, 1e-5f, "레일 굴 3.6");
             Assert.AreEqual(12f, Tunnel(2).X1 - Tunnel(2).X0, 0.01f);
         }
@@ -231,9 +231,9 @@ namespace LOP.MapTools.Tests
             for (int j = 0; j < 3; j++)
             {
                 MineRect p = c.Props[j];
-                Assert.AreEqual(ax0 + 1.5f + 3f * j, p.X0, 1e-3f, $"받침목 {j} x");
+                Assert.AreEqual(ax0 + 1.0f + 4f * j, p.X0, 1e-3f, $"받침목 {j} x");   // 10-15 1.5 + 3j → 1.0 + 4j
                 Assert.AreEqual(0.6f, p.X1 - p.X0, 1e-4f, "폭 0.6");
-                Assert.AreEqual(0.8f, p.Y1 - p.Y0, 1e-4f, "0.8 튀어나옴");
+                Assert.AreEqual(0.6f, p.Y1 - p.Y0, 1e-4f, "0.6 튀어나옴");   // 10-15 0.8 → 0.6
                 bool fromTop = j % 2 == 0;
                 Assert.AreEqual(fromTop ? laneC + 1.8f : laneC - 1.8f, fromTop ? p.Y1 : p.Y0, 1e-3f, $"받침목 {j}는 굴 가장자리에 붙는다");
             }
@@ -435,7 +435,7 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(y, tube.Center(x), 1e-3f, $"틱 {k}");
             }
             Assert.AreEqual(x, tube.X1, 1e-3f);
-            Assert.AreEqual(2.8f, tube.Gap, 1e-5f);   // 10-12 사람 판 레이아웃 변경(3.1 → 3.4), 10-13 동적 지형: 3.4 → 2.8
+            Assert.AreEqual(3.1f, tube.Gap, 1e-5f);   // 10-12 사람 판 레이아웃 변경(3.1 → 3.4), 10-13 동적 지형: 3.4 → 2.8, 10-15 폰 사람 판: 2.8 → 3.1
             //  위 굴: 칸막이 위 ~ 천장(BaseHalf + 1).
             Assert.AreEqual(-49f + 0.6f, tube.Low, 1e-4f);
             Assert.AreEqual(-49f + MineCourse.BaseHalf + 1f, tube.High, 1e-4f);

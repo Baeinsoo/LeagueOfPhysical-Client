@@ -92,13 +92,18 @@ namespace LOP.EditorTools
             Color flagCreamColor = ToColor(0xc9, 0xb0, 0x8a);
             Color flagBrownColor = ToColor(0x6a, 0x46, 0x30);
             Color cliffSunColor = Color.Lerp(rockBase, look.skySunsetBottomColor, CliffSunWarmth);
-            //  10-15 승강기 "L"(웹 시안 색 그대로): 보통 관문 판자(plankColor ≈ 시안 #c98c55)보다 짙고 붉은 나무, 홈, 밧줄 두 색,
+            //  10-15 승강기 "L": 보통 관문 판자(plankColor ≈ 시안 #c98c55)보다 짙은 나무, 홈, 밧줄 두 색,
             //  보통 쇠테(ironBandColor)와 밝기가 같고 조금 따뜻한 크림색 테. 쇠는 없다.
-            Color woodDarkColor = ToColor(0x8a, 0x4a, 0x2c);
-            Color woodDarkGrooveColor = ToColor(0x6c, 0x38, 0x20);
+            //  나무색은 사람 판(10-15)으로 시안 #8a4a2c → 짙은 무채 갈색 #6b4a32 — 시안 색은 게임에서 벽돌처럼 붉게 보였다. 홈 = 나무 × 0.8.
+            Color woodDarkColor = ToColor(0x6b, 0x4a, 0x32);
+            Color woodDarkGrooveColor = ToColor(0x56, 0x3b, 0x28);
             Color ropeLightColor = ToColor(0xc9, 0xb2, 0x8a);
             Color ropeDarkColor = ToColor(0x8a, 0x75, 0x52);
             Color capCreamColor = ToColor(0xe3, 0xc7, 0x9a);
+            //  밧줄의 그늘 색은 툰 셰이더의 중간 단(그늘색을 흰색 쪽으로 0.6 — LOPToonLighting의 midTint)과 같게 둔다(10-15).
+            //  해가 오른쪽 위라 기둥 왼 옆면(−x)은 그늘 단에 떨어지는데, 보통 그늘색(푸른 보라)을 곱하면 크림 밧줄이 회색이 돼
+            //  짙은 나무 위에서 안 보였다. 오른 옆면(중간 단)과 같은 색으로 읽히게 밧줄만 그늘을 옅게 한다.
+            Color ropeShadow = Color.Lerp(shadow, Color.white, 0.6f);
 
             //  슬롯 이름(Task 3 보고) → 재질. FBX 리매핑은 이 이름으로 찾는다.
             var slots = new Dictionary<string, Material>
@@ -148,8 +153,8 @@ namespace LOP.EditorTools
                 //  10-15 승강기 "L" — LiftPlank·LiftLash·LiftCap.
                 ["WoodDark"] = Toon("WoodDark", Grain(look, woodDarkColor), wood, shadow),
                 ["WoodDarkGroove"] = Toon("WoodDarkGroove", woodDarkGrooveColor, null, shadow),
-                ["RopeLight"] = Toon("RopeLight", ropeLightColor, null, shadow),
-                ["RopeDark"] = Toon("RopeDark", ropeDarkColor, null, shadow),
+                ["RopeLight"] = Toon("RopeLight", ropeLightColor, null, ropeShadow),
+                ["RopeDark"] = Toon("RopeDark", ropeDarkColor, null, ropeShadow),
                 ["CapCream"] = Toon("CapCream", capCreamColor, null, shadow),
             };
             Toon("StrataPatchLight", ScaleRgb(rockBase, 1f + look.decorContrast), null, shadow);

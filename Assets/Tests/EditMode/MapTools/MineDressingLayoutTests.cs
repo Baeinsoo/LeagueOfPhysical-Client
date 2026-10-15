@@ -2183,7 +2183,7 @@ namespace LOP.MapTools.Tests
         }
 
         // ══ 펼치기 3차(10-13): 움직이는 지형 — 그림 = 판정 ± 0.01 ══
-        //  부품 크기(블렌더 SPREAD3_PARTS, mine_parts.py 출력으로 확인): LiftPlank 1.95 × 1(아래 끝 가운데)·LiftLash ±0.98·LiftCap 0.4(윗면 원점), HangingCart 1.6 × 1.2(가운데),
+        //  부품 크기(블렌더 SPREAD3_PARTS, mine_parts.py 출력으로 확인): LiftPlank 1.95 × 1(아래 끝 가운데)·LiftLash ±0.985·LiftCap 0.4(윗면 원점), HangingCart 1.6 × 1.2(가운데),
         //  FallingRock 1.2(가운데), CollapsedProp 0.6 × 0.8(왼끝 붙은 쪽), GateCap 두께 0.4(윗면 원점).
         const float PartTol = 0.01f;
 
@@ -2284,7 +2284,7 @@ namespace LOP.MapTools.Tests
                 var pieces = MineDressingLayout.LiftPillarLocal(l, rf, rc);
                 Assert.IsFalse(pieces.Any(p => p.Kind == MinePartKind.GateCap), "옛 쇠테(GateCap)는 쓰지 않는다 — 크림색 LiftCap");
                 Assert.IsTrue(pieces.All(p => Math.Abs(p.Z - pieces[0].Z) < 1e-4f && p.Z + 0.65f < 0f), "관문 판자처럼 판정면 앞 한 깊이");
-                //  폭: 모든 조각이 관문 폭(± 0.975 × 축척 — 감기는 메시가 ±0.98이라 0.005 m 밖, ± 0.01 안).
+                //  폭: 모든 조각이 관문 폭(± 0.975 × 축척 — 감기·쇠띠는 메시가 ±0.985라 판자 옆면과 한 평면이 아니고, ± 0.01 안).
                 foreach (MinePiece p in pieces)
                 {
                     Assert.AreEqual(-half, p.X - 0.975f * p.ScaleX, PartTol, $"{p.Kind} 왼끝");

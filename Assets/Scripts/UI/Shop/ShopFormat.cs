@@ -18,6 +18,10 @@ namespace LOP.UI
 
         public static string RemainingCoins(long coins, long price) => $"남는 코인 🪙 {Coins(coins - price)}";
 
+        /// <summary>열린 구매 확인 창의 "남는 코인". 그 사이 더 못 사게 됐으면(이미 가짐·잔액 부족) null — 창을 닫는다.</summary>
+        public static string ConfirmRemainingOrNull(ShopItem item, long coins) =>
+            item.CanBuy && item.CoinPrice is long price ? RemainingCoins(coins, price) : null;
+
         private static string Coins(long value) => value.ToString("N0", CultureInfo.InvariantCulture);
     }
 }

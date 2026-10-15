@@ -169,34 +169,33 @@ namespace LOP.UI
             _busy.Value = true;
             try
             {
+                //  상점을 닫아도 요청은 끝까지 기다린다 — 서버는 이미 샀을 수 있고, 스토어는 로비까지 살아 있어
+                //  로비 코인 칩이 서버 잔액과 같아야 한다. 닫힌 뒤엔 이 VM의 값만 건드리지 않는다.
                 PurchaseCosmeticResponse response;
                 try
                 {
-                    response = await _purchase(userId, request, _cts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    return;
+                    response = await _purchase(userId, request, CancellationToken.None);
                 }
                 catch (Exception e)
                 {
                     Debug.LogWarning($"[ShopViewModel] Failed to purchase. error: {e.Message}");
-                    if (_cts.IsCancellationRequested) return;
+                    if (_disposed) return;
                     _message.Value = EconomyMessages.For(0);
                     //  서버는 커밋했는데 응답만 잃었을 수 있다 — 진실은 다시 물어봐야 안다.
                     RefreshStore();
                     return;
                 }
-                if (_cts.IsCancellationRequested) return;
-
                 if (response != null && response.code == ResponseCode.SUCCESS)
                 {
+                    _store.ApplyPurchase(response);
+                    if (_disposed) return;
                     //  성공했으니 이 거래는 끝 — 다음 구매는 새 멱등키로 시작한다.
                     _purchaseKey = null;
                     _message.Value = string.Empty;
-                    _store.ApplyPurchase(response);
                     return;
                 }
+
+                if (_disposed) return;
 
                 int code = response?.code ?? 0;
                 _message.Value = EconomyMessages.For(code);

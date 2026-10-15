@@ -417,5 +417,28 @@ namespace LOP.Tests
             Assert.AreEqual(1240, vm.Coins.CurrentValue);
             Assert.AreSame(store.Coins, vm.Coins);
         }
+
+        [Test]
+        public void 응답_전에_상점을_닫아도_산_결과는_스토어에_남는다()
+        {
+            var hat = Catalog.SlotByCode("hat");
+            var red = Catalog.ByCode("hat_cube_red");
+            var pending = new UniTaskCompletionSource<PurchaseCosmeticResponse>();
+            var (vm, store) = NewViewModel(coins: 700, purchase: (u, r, c) => pending.Task);
+            vm.SelectSlot(hat.Id);
+            vm.Select(red.Id);
+            vm.BuyAsync(true).Forget();
+
+            vm.Dispose();
+            pending.TrySetResult(new PurchaseCosmeticResponse
+            {
+                code = ResponseCode.SUCCESS,
+                wallets = new[] { new WalletDto { currencyId = Catalog.CoinCurrencyId, balance = 400 } },
+                owned = new OwnedCosmeticDto { id = "u-red", cosmeticId = red.Id, source = "purchase", acquiredAt = "2026-10-16T00:00:00.000Z" },
+            });
+
+            Assert.AreEqual(400, store.Coins.CurrentValue, "로비 코인 칩이 서버 잔액과 같아야 한다");
+            Assert.AreEqual(1, store.Owned.CurrentValue.Count);
+        }
     }
 }

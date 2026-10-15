@@ -60,10 +60,13 @@ namespace LOP
             string userId = _users.user?.id;
             if (string.IsNullOrEmpty(userId)) return;
 
+            int startedAt = _changes;
             try
             {
                 var response = await _fetch(userId, cancellationToken);
                 if (cancellationToken.IsCancellationRequested) return;
+                //  조회가 떠난 뒤 구매·장착 응답이 먼저 반영됐다 — 이 스냅샷은 그보다 낡았다.
+                if (_changes != startedAt) return;
 
                 if (response == null || response.code != ResponseCode.SUCCESS)
                 {
@@ -88,6 +91,7 @@ namespace LOP
         {
             if (response == null || response.code != ResponseCode.SUCCESS) return;
 
+            _changes++;
             ApplyWallets(response.wallets);
             if (response.loadout != null) _loadout.Value = response.loadout;
             if (response.owned != null) AddOwned(response.owned);
@@ -97,6 +101,7 @@ namespace LOP
         public void ApplyLoadout(SetLoadoutResponse response)
         {
             if (response == null || response.code != ResponseCode.SUCCESS) return;
+            _changes++;
             if (response.loadout != null) _loadout.Value = response.loadout;
         }
 
@@ -141,6 +146,10 @@ namespace LOP
             var updated = new List<OwnedCosmeticDto>(current) { newItem };
             _owned.Value = updated;
         }
+
+        //  구매·장착 응답을 반영할 때마다 하나씩 는다. 조회는 떠날 때 값을 기억해 두고, 돌아왔을 때
+        //  달라졌으면 버린다.
+        private int _changes;
 
         public void Dispose()
         {

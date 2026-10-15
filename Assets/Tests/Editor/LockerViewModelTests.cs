@@ -251,5 +251,41 @@ namespace LOP.Tests
 
             CollectionAssert.AreEquivalent(new[] { HatNone.Id, Red.Id, Blue.Id }, OwnedIds(vm));
         }
+
+        [Test]
+        public void 받기_전에는_입은_것을_지어내지_않는다()
+        {
+            var users = new FakeUserDataStore { user = new User { id = "me" } };
+            var never = new UniTaskCompletionSource<GetEconomyResponse>();
+            var store = new EconomyStore(users, Catalog, (userId, ct) => never.Task);
+            var vm = new LockerViewModel(store, Catalog, users, null);
+
+            Assert.IsNotEmpty(vm.Rows.CurrentValue, "슬롯 줄은 카탈로그가 정한다");
+            foreach (var row in vm.Rows.CurrentValue)
+            {
+                Assert.AreEqual(string.Empty, row.EquippedName, "서버가 아직 안 알려 준 입은 것을 기본 품목으로 채우지 않는다");
+            }
+            vm.Dispose();
+        }
+
+        [Test]
+        public void 응답_전에_화면을_닫아도_서버가_바꾼_장착은_스토어에_남는다()
+        {
+            var pending = new UniTaskCompletionSource<SetLoadoutResponse>();
+            var (vm, store) = NewViewModel(RedHatLoadout(), DefaultOwned(), (u, r, c) => pending.Task);
+            vm.SelectSlot(Hat.Id);
+            vm.EquipAsync(HatNone.Id).Forget();
+
+            vm.Dispose();
+            pending.TrySetResult(new SetLoadoutResponse
+            {
+                code = ResponseCode.SUCCESS,
+                loadout = new[] { Wear(Hat, "u-none", HatNone), Wear(Top, "u-top", TopDefault) },
+            });
+
+            int hatId = 0;
+            foreach (var slot in store.Loadout.CurrentValue) if (slot.slotId == Hat.Id) hatId = slot.cosmeticId;
+            Assert.AreEqual(HatNone.Id, hatId, "로비로 돌아가도 서버와 같은 장착이 보여야 한다");
+        }
     }
 }

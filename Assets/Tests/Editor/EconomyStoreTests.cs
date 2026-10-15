@@ -145,5 +145,22 @@ namespace LOP.Tests
             Assert.AreEqual(1700.ToString("N0"), LOP.UI.LobbyHomeView.CoinChipText(store.Progress.CurrentValue, store.Coins.CurrentValue));
             Assert.AreEqual("Lv 3", LOP.UI.LobbyHomeView.LevelChipText(store.Progress.CurrentValue));
         }
+
+        [Test]
+        public void 늦게_온_조회는_그_사이_바뀐_로드아웃을_덮지_않는다()
+        {
+            var pending = new UniTaskCompletionSource<GetEconomyResponse>();
+            var store = NewStore((userId, ct) => pending.Task);
+            store.RefreshAsync(CancellationToken.None).Forget();
+
+            var worn = new LoadoutSlotDto { slotId = 1, userCosmeticId = "u-new", cosmeticId = 2 };
+            store.ApplyLoadout(new SetLoadoutResponse { code = ResponseCode.SUCCESS, loadout = new[] { worn } });
+
+            //  조회는 장착 전에 떠났다 — 그 스냅샷(빈 로드아웃)이 장착 결과를 되돌리면 안 된다.
+            pending.TrySetResult(SuccessResponse(700, 3));
+
+            Assert.AreEqual(1, store.Loadout.CurrentValue.Count);
+            Assert.AreEqual("u-new", store.Loadout.CurrentValue[0].userCosmeticId);
+        }
     }
 }

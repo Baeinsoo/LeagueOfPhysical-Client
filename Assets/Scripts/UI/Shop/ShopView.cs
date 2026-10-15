@@ -158,6 +158,18 @@ namespace LOP.UI
 
             MarkSelectedCard();
             RefreshBar();
+            RefreshConfirm();
+        }
+
+        //  확인 창이 열린 채 코인·보유가 바뀌면(열 때 받은 조회, 다른 경로의 응답) 남는 코인을 다시 세고,
+        //  더 못 사게 됐으면 닫는다. 구매 응답을 기다리는 중이면 그 끝에서 닫히니 건드리지 않는다.
+        private void RefreshConfirm()
+        {
+            if (_confirm == null || !_confirm.ClassListContains("shop-confirm--open") || _viewModel.Busy.CurrentValue) return;
+
+            string remaining = TryGetSelected(out var item) ? ShopFormat.ConfirmRemainingOrNull(item, _viewModel.Coins.CurrentValue) : null;
+            if (remaining == null) CloseConfirm();
+            else _confirmRemaining.text = remaining;
         }
 
         /// <summary>상점·라커룸이 같이 쓰는 카드 — 아이콘 자리(이름 첫 글자), 이름(말줄임), 상태 줄.</summary>

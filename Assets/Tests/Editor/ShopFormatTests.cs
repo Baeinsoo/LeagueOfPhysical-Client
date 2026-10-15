@@ -23,5 +23,18 @@ namespace LOP.Tests
         }
 
         [Test] public void 거절_문구_공용() => Assert.AreEqual("코인이 부족합니다", EconomyMessages.For(ResponseCode.INSUFFICIENT_FUNDS));
+
+        [Test]
+        public void 확인_창은_더_못_사게_되면_닫히고_아니면_남는_코인을_다시_센다()
+        {
+            var buyable = new ShopItem(1, "x", 300, ItemState.NotOwned, canBuy: true);
+            Assert.AreEqual("남는 코인 🪙 200", ShopFormat.ConfirmRemainingOrNull(buyable, 500));
+
+            var owned = new ShopItem(1, "x", 300, ItemState.Owned, canBuy: false);
+            Assert.IsNull(ShopFormat.ConfirmRemainingOrNull(owned, 500), "이미 가졌으면 창을 닫는다");
+
+            var poor = new ShopItem(1, "x", 300, ItemState.NotOwned, canBuy: false);
+            Assert.IsNull(ShopFormat.ConfirmRemainingOrNull(poor, 100), "잔액이 모자라게 됐으면 창을 닫는다");
+        }
     }
 }

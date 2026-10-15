@@ -86,6 +86,7 @@ namespace LOP.UI
             //  상점에서 사고 돌아오거나 장착 응답이 오면 스토어가 바뀐다 — 그때마다 다시 파생한다.
             _subscriptions.Add(_store.Loadout.Subscribe(_ => Rebuild()));
             _subscriptions.Add(_store.Owned.Subscribe(_ => Rebuild()));
+            _subscriptions.Add(_store.Progress.Subscribe(_ => Rebuild()));
 
             _store.RefreshAsync(_cts.Token).Forget();
         }
@@ -150,33 +151,32 @@ namespace LOP.UI
 
             var request = new SetLoadoutRequest { slotId = slotId, userCosmeticId = userCosmeticId };
 
+            //  화면을 닫아도 요청은 끝까지 기다린다 — 서버는 이미 바꿨을 수 있고, 스토어는 로비까지 살아 있어
+            //  로비 칩·캐릭터가 서버와 같아야 한다. 닫힌 뒤엔 이 VM의 값만 건드리지 않는다.
             SetLoadoutResponse response;
             try
             {
-                response = await _setLoadout(userId, request, _cts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                return false;
+                response = await _setLoadout(userId, request, CancellationToken.None);
             }
             catch (Exception e)
             {
                 Debug.LogWarning($"[LockerViewModel] Failed to set loadout. error: {e.Message}");
-                if (_cts.IsCancellationRequested) return false;
+                if (_disposed) return false;
                 _message.Value = EconomyMessages.For(0);
                 //  서버는 바꿨는데 응답만 잃었을 수 있다 — 진실은 다시 물어봐야 안다.
                 RefreshStore();
                 return false;
             }
-            if (_cts.IsCancellationRequested) return false;
 
             if (response != null && response.code == ResponseCode.SUCCESS)
             {
-                _message.Value = string.Empty;
                 _store.ApplyLoadout(response);
+                if (_disposed) return false;
+                _message.Value = string.Empty;
                 return true;
             }
 
+            if (_disposed) return false;
             _message.Value = EconomyMessages.For(response?.code ?? 0);
             RefreshStore();
             return false;
@@ -194,8 +194,11 @@ namespace LOP.UI
         }
 
         //  로드아웃에 그 슬롯 줄이 없으면 기본 품목을 입은 것으로 본다(캐릭터도 기본으로 그린다).
+        //  단 아직 한 번도 못 받았으면(진행도 없음) 아무것도 입지 않은 것으로 둔다 — 지어내지 않는다.
         private int EquippedIdOf(int slotId)
         {
+            if (_store.Progress.CurrentValue == null) return 0;
+
             foreach (var slot in _store.Loadout.CurrentValue)
             {
                 if (slot.slotId == slotId) return slot.cosmeticId;

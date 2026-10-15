@@ -99,6 +99,8 @@ namespace LOP
             builder.Register<ArcheryPadView>(Lifetime.Transient);
             builder.Register<ArcheryShootOffHudViewModel>(Lifetime.Transient);
             builder.Register<ArcheryShootOffHudView>(Lifetime.Transient);
+            builder.Register<ArcheryCatapultHudViewModel>(Lifetime.Transient);
+            builder.Register<ArcheryCatapultHudView>(Lifetime.Transient);
 
             //  화살이 생긴 *뒤*에 봐야 하므로 world.Tick 다음인 End에 문다(서버와 같은 자리).
             builder.RegisterBuildCallback(container =>
@@ -115,6 +117,8 @@ namespace LOP
                 () => container.Resolve<ArcheryPadView>()));
             sink.Add(windowManager.RegisterViewFactory<ArcheryShootOffHudView>(
                 () => container.Resolve<ArcheryShootOffHudView>()));
+            sink.Add(windowManager.RegisterViewFactory<ArcheryCatapultHudView>(
+                () => container.Resolve<ArcheryCatapultHudView>()));
         }
     }
 }

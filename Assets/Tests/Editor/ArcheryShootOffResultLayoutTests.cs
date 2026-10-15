@@ -21,10 +21,15 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 다섯_번째_사람은_첫_색으로_돈다()
+        public void 여덟_명까지는_모두_다른_색이고_아홉_번째는_첫_색으로_돈다()
         {
-            var roster = ArcheryShootOffResultLayout.Roster(new[] { "1", "2", "3", "4", "5" });
-            Assert.AreEqual(ArcheryShootOffResultLayout.ColorOf(roster, "1"), ArcheryShootOffResultLayout.ColorOf(roster, "5"));
+            var roster = ArcheryShootOffResultLayout.Roster(new[] { "1", "2", "3", "4", "5", "6", "7", "8", "9" });
+            var seen = new HashSet<Color>();
+            for (int i = 1; i <= 8; i++)
+            {
+                Assert.IsTrue(seen.Add(ArcheryShootOffResultLayout.ColorOf(roster, i.ToString())), $"{i}번째 색이 겹친다");
+            }
+            Assert.AreEqual(ArcheryShootOffResultLayout.ColorOf(roster, "1"), ArcheryShootOffResultLayout.ColorOf(roster, "9"));
         }
 
         [Test]

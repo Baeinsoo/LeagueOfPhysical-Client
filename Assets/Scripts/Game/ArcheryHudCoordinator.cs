@@ -43,6 +43,10 @@ namespace LOP
             {
                 windowManager.Open<ArcheryShootOffHudView>();
             }
+            else if (course.IsCatapult)
+            {
+                windowManager.Open<ArcheryCatapultHudView>();
+            }
             windowManager.Open<DebugHudView>();
             _opened = true;
         }

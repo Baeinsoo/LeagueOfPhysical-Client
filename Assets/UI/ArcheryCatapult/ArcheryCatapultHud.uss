@@ -1,0 +1,96 @@
+.catapult-root {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+
+/* 라운드 · 남은 시간. 조작 패드의 점수(위 24px)·남은 화살(72px) 아래에 놓는다(한 발 승부 HUD와 같은 자리). */
+.catapult-top {
+    position: absolute;
+    top: 108px;
+    left: 0; right: 0;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+.catapult-round {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: rgb(255, 236, 150);
+    margin-right: 16px;
+}
+.catapult-time {
+    width: 220px;
+    height: 10px;
+    background-color: rgba(12, 16, 20, 0.55);
+    border-top-left-radius: 5px; border-top-right-radius: 5px;
+    border-bottom-left-radius: 5px; border-bottom-right-radius: 5px;
+    overflow: hidden;
+}
+.catapult-time-fill {
+    height: 100%;
+    width: 100%;
+    background-color: rgb(255, 236, 150);
+}
+
+/* 라운드 결과 — 위쪽 가운데 반투명 판. 아래쪽 사대가 보이게 화면 전체를 덮지 않는다. */
+.catapult-result {
+    position: absolute;
+    top: 216px;
+    align-self: center;
+    padding: 14px 20px;
+    background-color: rgba(12, 16, 20, 0.72);
+    border-top-left-radius: 16px; border-top-right-radius: 16px;
+    border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;
+    display: none;
+}
+.catapult-result-title {
+    font-size: 34px;
+    -unity-font-style: bold;
+    color: rgb(255, 194, 61);
+    -unity-text-align: middle-center;
+    margin-bottom: 8px;
+}
+.catapult-result-list {
+    flex-grow: 1;
+}
+.catapult-result-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    min-width: 320px;
+    font-size: 26px;
+    color: rgb(240, 236, 228);
+    margin-top: 6px;
+    margin-bottom: 6px;
+}
+
+/* 라운드 소개 — 자리가 바뀌는 순간 화면을 덮는다. 보이고 말고는 View가 display로 정한다. */
+.catapult-intro {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background-color: rgba(20, 24, 32, 0.85);
+    align-items: center;
+    justify-content: center;
+    display: none;
+}
+.catapult-intro-title {
+    font-size: 64px;
+    -unity-font-style: bold;
+    color: rgb(255, 236, 150);
+    -unity-text-align: middle-center;
+}
+.catapult-intro-detail {
+    font-size: 30px;
+    color: rgb(235, 235, 235);
+    -unity-text-align: middle-center;
+    margin-top: 12px;
+}
+
+.catapult-cue { position: absolute; top: 18%; width: 100%; -unity-text-align: middle-center; font-size: 44px; color: rgb(255, 255, 255); -unity-text-outline-width: 2px; -unity-text-outline-color: rgba(0, 0, 0, 0.6); display: none; }
+.catapult-stun { position: absolute; bottom: 22%; width: 100%; align-items: center; display: none; }
+.catapult-stun-text { font-size: 30px; color: rgb(255, 90, 90); -unity-text-outline-width: 2px; -unity-text-outline-color: rgba(0, 0, 0, 0.7); }
+.catapult-stun-bar { width: 220px; height: 10px; background-color: rgba(0, 0, 0, 0.45); border-radius: 5px; }
+.catapult-stun-fill { height: 100%; background-color: rgb(255, 90, 90); border-radius: 5px; }
+.catapult-popups { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.catapult-popup { position: absolute; font-size: 28px; -unity-font-style: bold; -unity-text-outline-width: 2px; -unity-text-outline-color: rgba(0, 0, 0, 0.7); translate: -50% -100%; }
+.catapult-ring { position: absolute; width: 20px; height: 20px; border-width: 3px; border-radius: 50%; translate: -50% -50%; }

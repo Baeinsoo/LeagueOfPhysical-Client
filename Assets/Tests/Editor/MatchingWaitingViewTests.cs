@@ -4,23 +4,27 @@ using NUnit.Framework;
 
 namespace LOP.Tests
 {
-    /// <summary>매칭 대기 창 — 화면을 어둡게 덮지 않는 위쪽 알약(대기 중에도 터널이 보인다).</summary>
+    /// <summary>매칭 대기 창 — 가운데 큰 키트 판, 뒤는 어둡게(모달로 읽혀야 다른 버튼을 누르려 하지 않는다. 사용자 10-15).</summary>
     public class MatchingWaitingViewTests
     {
         [Test]
-        public void 화면을_어둡게_덮지_않는다()
+        public void 뒤를_어둡게_덮는_모달이다()
         {
-            Assert.IsFalse(new MatchingWaitingView().DimsBackground);
+            var view = new MatchingWaitingView();
+            Assert.IsTrue(view.DimsBackground);
+            Assert.IsTrue(view.BlocksUnderlyingInput);
         }
 
         [Test]
-        public void 키트_알약_요소()
+        public void 가운데_키트_판_요소()
         {
             var uxml = File.ReadAllText("Assets/UI/Overlay/MatchingWaitingView.uxml");
-            StringAssert.Contains("matching-pill", uxml);
+            StringAssert.Contains("kit-panel", uxml);
             foreach (var name in new[] { "matching-queue", "matching-elapsed", "cancel-button" })
                 StringAssert.Contains($"name=\"{name}\"", uxml);
-            StringAssert.DoesNotContain("scrim", uxml);
+            StringAssert.DoesNotContain("matching-pill", uxml);
+            StringAssert.Contains(".matching-root { flex-grow: 1; align-items: center; justify-content: center; }",
+                File.ReadAllText("Assets/UI/Overlay/MatchingWaitingView.uss"));
         }
     }
 }

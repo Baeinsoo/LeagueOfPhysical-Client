@@ -30,5 +30,14 @@ namespace LOP.Tests
         {
             Assert.AreEqual("+10", LOP.UI.ArcheryPadViewModel.PopupTextFor(ArcheryCourseKind.Range, 10));
         }
+
+        [Test]
+        public void 투석기는_기록판과_패드_팝업을_끈다()
+        {
+            //  "OO +3"은 투석기 HUD가 띄운다 — 패드까지 띄우면 같은 점수가 두 번 뜬다.
+            Assert.IsFalse(LOP.UI.ArcheryPadViewModel.ShowsImpactPlot(ArcheryCourseKind.Catapult));
+            Assert.IsFalse(LOP.UI.ArcheryPadViewModel.ShowsHitPopups(ArcheryCourseKind.Catapult));
+            Assert.IsTrue(LOP.UI.ArcheryPadViewModel.ShowsHitPopups(ArcheryCourseKind.ShootOff));
+        }
     }
 }

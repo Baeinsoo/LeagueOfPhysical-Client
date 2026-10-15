@@ -289,6 +289,7 @@ namespace LOP.UI
         //  "어디를 맞혔길래 그 점수인가"가 읽힌다.
         private void SpawnHitPopups()
         {
+            if (_viewModel.ShowHitPopups == false) { return; }
             var shots = _viewModel.Impacts;
             int wave = _viewModel.ImpactWave;
             _poppedCount = ArcheryImpactLog.FirstUnshown(_poppedWave, _poppedCount, wave, shots.Count);

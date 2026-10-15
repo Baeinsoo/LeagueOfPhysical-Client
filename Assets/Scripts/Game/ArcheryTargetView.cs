@@ -18,6 +18,7 @@ namespace LOP
         private readonly ArcheryCourse course;
         private readonly ArcheryConsumed consumed;
         private readonly IUserDataStore userDataStore;
+        private readonly LOP.MasterData.LOPMasterData md;
 
         private readonly List<ArcheryTarget> targets = new List<ArcheryTarget>();
         private readonly Dictionary<(int wave, int slot), GameObject> drawn
@@ -39,13 +40,15 @@ namespace LOP
                                  GameFramework.World.IWorld world,
                                  ArcheryCourse course,
                                  ArcheryConsumed consumed,
-                                 IUserDataStore userDataStore)
+                                 IUserDataStore userDataStore,
+                                 LOP.MasterData.LOPMasterData md)
         {
             this.runner = runner;
             this.world = world;
             this.course = course;
             this.consumed = consumed;
             this.userDataStore = userDataStore;
+            this.md = md;
         }
 
         public void LateTick()
@@ -91,7 +94,12 @@ namespace LOP
                 //  가리지 않는 이름을 쓴다(sphere라는 이름의 변수가 판을 들고 있으면 헷갈린다).
                 if (drawn.TryGetValue(key, out var visual) == false || visual == null)
                 {
-                    if (targets[i].Shape == ArcheryTargetShape.Face)
+                    string code = course.IsCatapult ? md.Tables.TbArcheryTarget.GetOrDefault(targets[i].KindId)?.Code : null;
+                    if (code != null && ArcheryCatapultLooks.IsFestival(code))
+                    {
+                        visual = ArcheryCatapultLooks.BuildPlaceholder(code, targets[i].Radius);
+                    }
+                    else if (targets[i].Shape == ArcheryTargetShape.Face)
                     {
                         visual = BuildFace(targets[i]);
                     }
@@ -101,6 +109,17 @@ namespace LOP
                         Object.Destroy(visual.GetComponent<Collider>());   // 그림일 뿐이다 — 판정은 서버가 한다
                     }
                     drawn[key] = visual;
+                }
+
+                //  투석기 그림은 색·크기를 스스로 정했다 — 자리와 방향만 준다.
+                bool festival = visual.name.StartsWith("catapult-");
+                if (festival)
+                {
+                    visual.transform.position = ArcheryTargetMotion.PositionAt(targets[i], renderTick, (float)interval);
+                    //  그림의 앞면(로컬 +z)이 사수 쪽을 보게 한다.
+                    visual.transform.rotation = Quaternion.LookRotation(
+                        targets[i].Facing == Vector3.zero ? Vector3.back : targets[i].Facing);
+                    continue;
                 }
 
                 if (targets[i].Shape == ArcheryTargetShape.Face)
@@ -142,9 +161,27 @@ namespace LOP
             }
             for (int i = 0; i < stale.Count; i++)
             {
-                Object.Destroy(drawn[stale[i]]);
+                DestroyVisual(drawn[stale[i]]);
                 drawn.Remove(stale[i]);
             }
+        }
+
+        //  회색 그림(이름 끝 "-placeholder")은 재질을 스스로 만들었으니 같이 지운다.
+        //  축제 키트의 재질은 에셋이라 지우면 안 된다 — 그래서 이름으로 가른다.
+        private static void DestroyVisual(GameObject visual)
+        {
+            if (visual == null)
+            {
+                return;
+            }
+            if (visual.name.EndsWith("-placeholder"))
+            {
+                foreach (var renderer in visual.GetComponentsInChildren<Renderer>())
+                {
+                    Object.Destroy(renderer.sharedMaterial);
+                }
+            }
+            Object.Destroy(visual);
         }
 
         //  판은 띠마다 원판을 하나씩 겹쳐 그린다. 가장 바깥이 뒤, 가운데가 앞이다.
@@ -239,7 +276,7 @@ namespace LOP
         {
             foreach (var pair in drawn)
             {
-                Object.Destroy(pair.Value);
+                DestroyVisual(pair.Value);
             }
             drawn.Clear();
 

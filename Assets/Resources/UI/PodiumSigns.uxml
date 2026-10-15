@@ -1,0 +1,12 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="../../UI/Kit/Kit.uss" />
+    <Style src="PodiumSigns.uss" />
+    <!-- 시상식 현수막 -->
+    <ui:VisualElement name="banner" class="kit podium-banner">
+        <ui:Label name="banner-label" class="kit-title podium-banner__label" />
+    </ui:VisualElement>
+    <!-- 단 앞면 번호 -->
+    <ui:VisualElement name="step" class="kit podium-step">
+        <ui:Label name="step-label" class="kit-title podium-step__label" />
+    </ui:VisualElement>
+</ui:UXML>

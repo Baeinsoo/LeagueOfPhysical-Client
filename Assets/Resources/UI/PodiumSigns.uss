@@ -1,0 +1,7 @@
+/* 시상대 글자 — 월드 공간(100px = 1m). 일반 주황 현수막 / 랭크 빨강(1부 §3.8) */
+.podium-banner { width: 680px; height: 90px; align-items: center; justify-content: center; background-color: #FF8A00; }
+.podium-banner__label { font-size: 52px; color: #2C2A6B; white-space: nowrap; letter-spacing: 2px; }
+.podium-banner--ranked { background-color: #E8322F; }
+.podium-banner--ranked .podium-banner__label { color: #FFF8E8; }
+.podium-step { width: 120px; height: 120px; align-items: center; justify-content: center; }
+.podium-step__label { font-size: 96px; color: #2C2A6B; }

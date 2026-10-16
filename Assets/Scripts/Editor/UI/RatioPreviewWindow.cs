@@ -73,11 +73,10 @@ namespace LOP.EditorTools
             root.Clear();
             root.styleSheets.Clear();
             root.style.backgroundColor = Color.black;
-            foreach (var p in new[] { "Assets/UI/Theme/Theme.uss", "Assets/UI/Kit/Kit.uss" })
-            {
-                var sheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(p);
-                if (sheet != null) root.styleSheets.Add(sheet);
-            }
+            //  게임과 같은 테마(유니티 기본 테마 + Theme + Kit)를 쓴다 — 기본 테마가 빠지면 꺼진 버튼처럼
+            //  기본 테마 규칙이 이기는 모습을 미리보기에서 못 본다.
+            var theme = AssetDatabase.LoadAssetAtPath<StyleSheet>("Assets/UI/Theme/LopTheme.tss");
+            if (theme != null) root.styleSheets.Add(theme);
             var host = UiSnapshot.AddHost(root, width, height);
             //  WindowManager.Open과 같은 모양 — 화면 전체에 absolute로 깔고 뷰 USS를 붙인다.
             var viewRoot = uxml.Instantiate();
@@ -152,6 +151,8 @@ namespace LOP.EditorTools
             root.Q<Label>("shop-bar-state").text = "🪙 1,200";
             root.Q<Label>("shop-message").text = "코인이 부족합니다";
             root.Q<Label>("shop-message").style.display = DisplayStyle.Flex;
+            //  꺼진 버튼 모양도 본다(잔액 부족이라 [구매] 잠김).
+            root.Q<Button>("buy-button").SetEnabled(false);
 
             if (!confirmOpen) return;
             root.Q("shop-confirm").AddToClassList("shop-confirm--open");
@@ -192,6 +193,9 @@ namespace LOP.EditorTools
                 grid.Add(card);
             }
             root.Q<Label>("locker-message").text = "잠시 뒤 다시 시도";
+            //  응답을 기다리는 동안의 모습 — [전부 기본으로]와 카드가 꺼진다.
+            root.Q<Button>("locker-reset").SetEnabled(false);
+            foreach (var child in grid.Children()) child.SetEnabled(false);
         }
 
         private static void FillProfile(VisualElement root)

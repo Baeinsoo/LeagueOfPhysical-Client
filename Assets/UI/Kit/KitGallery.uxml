@@ -21,7 +21,7 @@
                 <ui:Button text="일반" class="kit-toggle__opt kit-toggle__opt--on" />
                 <ui:Button text="랭크" class="kit-toggle__opt" />
             </ui:VisualElement>
-            <ui:Button class="kit-chip">
+            <ui:Button class="kit-press kit-chip">
                 <ui:Label text="🎯 활쏘기 · 기본 경기장" class="kit-chip__text kit-ellipsis" />
             </ui:Button>
             <ui:VisualElement class="kit-gallery__tiers">

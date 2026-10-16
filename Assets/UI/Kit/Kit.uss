@@ -38,6 +38,11 @@
     background-color: rgba(255, 255, 255, 0);
     border-color: rgba(255, 255, 255, 0);
 }
+/* 꺼진 버튼도 같다 — .unity-button:disabled 가 회색 직사각형을 깔았다. 흐려지는 것(opacity)은 기본 테마 그대로 둔다 */
+.kit-press:disabled, .kit-press:hover:disabled, .kit-press:active:disabled {
+    background-color: rgba(255, 255, 255, 0);
+    border-color: rgba(255, 255, 255, 0);
+}
 
 .sticker {
     --sticker-face: var(--lop-face);
@@ -99,6 +104,10 @@
 .kit-toggle__opt:hover, .kit-toggle__opt:hover:enabled, .kit-toggle__opt:active:enabled { background-color: rgba(255, 255, 255, 0); border-color: rgba(255, 255, 255, 0); }
 .kit-toggle__opt--on, .kit-toggle__opt--on:hover, .kit-toggle__opt--on:active, .kit-toggle__opt--on:hover:enabled, .kit-toggle__opt--on:active:enabled { background-color: var(--lop-face); color: var(--lop-ink); }
 .ranked .kit-toggle__opt--on, .ranked .kit-toggle__opt--on:hover, .ranked .kit-toggle__opt--on:active, .ranked .kit-toggle__opt--on:hover:enabled, .ranked .kit-toggle__opt--on:active:enabled { background-color: var(--lop-live); color: #FFFFFF; }
+/* 출전 연출 중 로비가 통째로 꺼질 때 — 기본 테마의 회색 바탕 대신 고른 쪽 색을 지킨다 */
+.kit-toggle__opt:disabled { background-color: rgba(255, 255, 255, 0); border-color: rgba(255, 255, 255, 0); }
+.kit-toggle__opt--on:disabled { background-color: var(--lop-face); color: var(--lop-ink); }
+.ranked .kit-toggle__opt--on:disabled { background-color: var(--lop-live); color: #FFFFFF; }
 
 /* 알약 칩 — 종목 칩·경기장 칩·코인. 넘치면 말줄임(KitEllipsis가 max-width로 자름) */
 .kit-chip { flex-direction: row; align-items: center; height: 64px; padding: 0 28px; border-radius: 32px; border-width: 0; background-color: var(--lop-face); }

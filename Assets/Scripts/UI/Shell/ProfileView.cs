@@ -166,6 +166,7 @@ namespace LOP.UI
             rows.EnableInClassList("profile-match__rows--open", open);
 
             var head = new Button(() => rows.ToggleInClassList("profile-match__rows--open"));
+            head.AddToClassList("kit-press");
             head.AddToClassList("profile-match__head");
 
             var mode = new Label(match.GameModeName);

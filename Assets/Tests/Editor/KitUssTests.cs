@@ -63,5 +63,19 @@ namespace LOP.Tests
             }).ToList();
             CollectionAssert.IsEmpty(bad);
         }
+
+        [TestCase("Assets/UI/Kit/Kit.uss", ".kit-card--picked")]
+        [TestCase("Assets/UI/Shop/ShopView.uss", ".shop-card--picked")]
+        [TestCase("Assets/UI/Locker/LockerView.uss", ".locker-slot--picked")]
+        public void 스티커_버튼의_고름_표시는_모양을_따라_그린다(string path, string picked)
+        {
+            //  버튼 테두리(border)는 늘 직사각형이라 기운 스티커와 어긋나고, 높이를 먹어 카드 아래가 잘렸다(10-16 사용자 Play).
+            //  고름 표시는 스티커가 자기 모양 둘레에 그리는 테두리(--sticker-ring)로 한다.
+            var rules = Regex.Matches(File.ReadAllText(path), Regex.Escape(picked) + @"[^{]*\{[^}]*\}")
+                .Cast<System.Text.RegularExpressions.Match>().Select(m => m.Value).ToList();
+            Assert.IsNotEmpty(rules, picked);
+            Assert.IsTrue(rules.Any(r => r.Contains("--sticker-ring")), picked + " 는 --sticker-ring 으로 그린다");
+            Assert.IsFalse(rules.Any(r => r.Contains("border-width")), picked + " 는 버튼 테두리를 쓰지 않는다");
+        }
     }
 }

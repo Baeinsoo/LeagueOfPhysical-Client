@@ -124,7 +124,8 @@
 .kit-card__name { font-size: 30px; padding: 10px 16px; background-color: var(--lop-ink); color: var(--lop-face); -unity-text-align: middle-center; overflow: hidden; white-space: nowrap; max-width: 300px; }
 .kit-card__desc { min-height: 52px; font-size: 26px; padding: 10px 16px; color: var(--lop-ink); -unity-text-align: middle-center; overflow: hidden; white-space: nowrap; max-width: 300px; }
 /* 고른 카드 — 바깥 노란 테두리. 앞면에 두면 Painter2D 앞면이 테두리를 덮는다. 폭·여백을 6씩 늘리고 줄여 옆 카드가 안 밀린다 */
-.kit-card--picked { width: 312px; margin: -6px 14px; border-width: 6px; border-color: var(--lop-reward); border-radius: 16px; }
+/* 고른 카드 — 스티커가 앞면 둘레에 테두리를 그린다(버튼 border는 직사각형이라 그림자와 어긋나고 크기를 먹는다) */
+.kit-card--picked .sticker { --sticker-ring: var(--lop-reward); --sticker-ring-width: 6; }
 
 /* 경기장 칩 — 기울인 스티커, 고른 것은 노란 면 (시안 modes.html .maps) */
 /* 카드 줄 넘김(KitCarousel) — 화살표는 줄 양 끝 위에 뜬다. 넘길 곳이 없으면 숨는다 */

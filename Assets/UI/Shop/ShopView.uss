@@ -7,7 +7,7 @@
 .shop-grid .unity-scroll-view__content-container { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; padding: 8px 0; }
 .shop-card { height: 300px; flex-shrink: 0; margin: 8px 20px 16px 20px; }
 .shop-card__state--dim { opacity: 0.45; }
-.shop-card--picked { width: 312px; margin: 2px 14px 10px 14px; border-width: 6px; border-color: var(--lop-primary); border-radius: 16px; }
+.shop-card--picked .sticker { --sticker-ring: var(--lop-primary); --sticker-ring-width: 6; }
 
 .shop-message { flex-shrink: 0; font-size: 28px; color: var(--lop-live); -unity-font-style: bold; margin-bottom: 8px; display: none; }
 

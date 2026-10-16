@@ -5,7 +5,7 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// 한 발 승부에서 보이는 몸이 치비면 얼굴 판·저지를 입히고, 리액션 신호에 맞춰 애니·표정을 바꾼다.
+    /// 사대 한 줄 코스(한 발 승부·투석기)에서 보이는 몸이 치비면 얼굴 판·저지를 입히고, 리액션 신호에 맞춰 애니·표정을 바꾼다.
     /// 치비가 아닌 몸(기사)은 건드리지 않는다. 몸 튕김은 <see cref="ArcheryShootOffReactionView"/>가 따로 얹는다.
     /// </summary>
     public class ArcheryChibiView : IStartable, ILateTickable, System.IDisposable
@@ -40,7 +40,7 @@ namespace LOP
 
         public void Start()
         {
-            if (course.IsShootOff == false)
+            if (course.UsesSharedLane == false)
             {
                 return;
             }
@@ -58,7 +58,7 @@ namespace LOP
 
         public void LateTick()
         {
-            if (course.IsShootOff == false)
+            if (course.UsesSharedLane == false)
             {
                 return;
             }

@@ -70,7 +70,7 @@ namespace LOP
 
         public void Apply()
         {
-            if (course.IsShootOff == false || cameraController == null)
+            if (course.UsesSharedLane == false || cameraController == null)
             {
                 return;
             }

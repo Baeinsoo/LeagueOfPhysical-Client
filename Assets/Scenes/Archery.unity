@@ -368,6 +368,7 @@ MonoBehaviour:
   autoInjectGameObjects: []
   runner: {fileID: 1216527341}
   cameraController: {fileID: 1835644559}
+  festivalKit: {fileID: 11400000, guid: a79e1dcad4e5b4a2eb6a6983a1981774, type: 2}
 --- !u!1 &1625307423
 GameObject:
   m_ObjectHideFlags: 0

@@ -41,7 +41,9 @@ namespace LOP
             foreach (var row in System.Linq.Enumerable.OrderBy(md.Tables.TbArcheryTarget.DataList, x => x.Id))
             {
                 kinds.Add(new ArcheryTargetKind(row.Radius, row.Points, row.Weight, row.IsTrap,
-                    (ArcheryTargetShape)row.Shape, BandsOf(md, row.Id)));
+                    (ArcheryTargetShape)row.Shape, BandsOf(md, row.Id),
+                    id: row.Id, distanceMinM: row.DistanceMinM, distanceMaxM: row.DistanceMaxM,
+                    driftMinMps: row.DriftMinMps, driftMaxMps: row.DriftMaxMps, stunTicks: row.StunTicks));
             }
             if (kinds.Count == 0)
             {
@@ -53,10 +55,10 @@ namespace LOP
             //  모르는 값을 그냥 두면 캐스트가 조용히 통과해 웨이브로 굴러간다 — 사거리 맵이
             //  원형처럼 돌면서 에러는 하나도 안 난다. 여기서 크게 터뜨린다.
             if (courseKind != ArcheryCourseKind.Wave && courseKind != ArcheryCourseKind.Range
-                                                      && courseKind != ArcheryCourseKind.ShootOff)
+                && courseKind != ArcheryCourseKind.ShootOff && courseKind != ArcheryCourseKind.Catapult)
             {
                 throw new System.InvalidOperationException(
-                    $"맵 {mapId}의 course_kind({r.CourseKind})를 모른다 — 0(웨이브)·1(사거리)·2(한 발 승부)여야 한다");
+                    $"맵 {mapId}의 course_kind({r.CourseKind})를 모른다 — 0(웨이브)·1(사거리)·2(한 발 승부)·3(투석기)여야 한다");
             }
 
             var range = ArcheryRangeSettings.None;
@@ -97,6 +99,22 @@ namespace LOP
                     r.BoxHalfWidthM, r.BoxHalfDepthM, r.MoveSpeedMps);
             }
 
+            var catapult = ArcheryCatapultSettings.None;
+            if (courseKind == ArcheryCourseKind.Catapult)
+            {
+                //  투석기는 거리대가 적힌 종류만 쓴다 — 한 발 승부 판(RangeFace)은 거리대가 0이라 빠진다.
+                kinds = kinds.FindAll(k => k.DistanceMaxM > 0f);
+                if (kinds.Count == 0)
+                {
+                    throw new System.InvalidOperationException(
+                        $"맵 {mapId}은 투석기 코스인데 거리대(distance_max_m)가 적힌 표적 종류가 없다 — 표적이 영영 안 뜬다");
+                }
+                catapult = new ArcheryCatapultSettings(
+                    r.RoundCount, r.RoundIntroTicks, r.RoundHuntTicks, r.RoundResultTicks,
+                    r.VolleyPeriodTicks, r.VolleyCueTicks, r.VolleyQuietTicks, r.TargetLifeTicks,
+                    r.TrapChance, r.SpawnRadius);
+            }
+
             return new ArcheryConfig(
                 r.WavePeriodTicks, r.MinTargets, r.MaxTargets,
                 r.SpawnRadius, r.SpawnMinY, r.SpawnMaxY, r.MinSeparation,
@@ -109,7 +127,7 @@ namespace LOP
                 //  (C# 제약 — 위 주석 참고) — 여기서도 그 자리에 맞춰 마지막에 넘긴다.
                 r.ShakeBaseRatio,
                 //  0이면 예전 화살 속도(ArcheryAimSystem.MinSpeed/MaxSpeed)다 — 한 발 승부만 느리게 적는다.
-                r.ArrowMinSpeedMps, r.ArrowMaxSpeedMps);
+                r.ArrowMinSpeedMps, r.ArrowMaxSpeedMps, catapult);
         }
 
         //  그 과녁 종류의 띠를 중심에서 바깥 순서로 모은다. 순서가 뒤집히면 바깥 띠가 먼저

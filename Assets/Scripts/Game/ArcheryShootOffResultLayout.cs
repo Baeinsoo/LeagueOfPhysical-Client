@@ -17,6 +17,11 @@ namespace LOP
             new Color(0x2E / 255f, 0xC4 / 255f, 0xA6 / 255f),
             new Color(0x6C / 255f, 0x63 / 255f, 0xFF / 255f),
             new Color(0xF5 / 255f, 0x9E / 255f, 0x0B / 255f),
+            //  투석기는 최대 8명이 한 사대에 서고 "누가 맞혔나"를 색으로 읽는다 — 앞 넷(한 발 승부)은 그대로 둔다.
+            new Color(0x38 / 255f, 0xBD / 255f, 0xF8 / 255f),
+            new Color(0xF4 / 255f, 0x72 / 255f, 0xB6 / 255f),
+            new Color(0xA3 / 255f, 0xE6 / 255f, 0x35 / 255f),
+            new Color(0xC0 / 255f, 0x84 / 255f, 0x57 / 255f),
         };
 
         //  엔티티 id 순서 — 누구 화면에서 줄 세워도 같은 순서다(서는 자리와는 별개다, 자리는 라운드마다 돈다).

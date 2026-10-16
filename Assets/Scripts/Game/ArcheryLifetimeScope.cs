@@ -13,9 +13,12 @@ namespace LOP
         private const float TickInterval = 0.02f;
 
         [SerializeField] private CameraController cameraController;
+        //  투석기 축제 소품. 비어 있으면 표적이 회색 도형으로 그려진다(슬라이스 1 모양).
+        [SerializeField] private ArcheryFestivalKit festivalKit;
 
         protected override void ConfigureGame(IContainerBuilder builder)
         {
+            builder.RegisterInstance(festivalKit != null ? festivalKit : ScriptableObject.CreateInstance<ArcheryFestivalKit>());
             builder.Register<ArcheryConfigProvider>(Lifetime.Singleton);
             builder.Register<ArcheryConfig>(c => c.Resolve<ArcheryConfigProvider>().Get(), Lifetime.Singleton);
             builder.Register<ArcheryConsumed>(Lifetime.Singleton);
@@ -76,7 +79,7 @@ namespace LOP
             builder.RegisterEntryPoint<ArcheryShootOffReactionView>().AsSelf();
             //  한 발 승부 카메라 — 평소 3인칭, 당기는 동안만 1인칭.
             builder.RegisterEntryPoint<ArcheryShootOffCameraRig>().AsSelf();
-            //  한 발 승부 관중석·깃발(다른 모드에선 아무것도 안 만든다).
+            //  한 발 승부·투석기 관중석(다른 모드에선 아무것도 안 만든다).
             builder.RegisterEntryPoint<ArcheryCrowdView>().AsSelf();
             //  새 룩(슬라이스 2): 한 발 승부 치비 표정·애니, 활쏘기 원경·하늘.
             builder.RegisterEntryPoint<ArcheryComicFxView>().AsSelf();
@@ -90,6 +93,8 @@ namespace LOP
             builder.RegisterEntryPoint<ArcheryChickenView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryArrowView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryTargetView>().AsSelf();
+            builder.RegisterEntryPoint<ArcheryCatapultBreakView>().AsSelf();   // 투석기 표적이 맞으면 깨진다
+            builder.RegisterEntryPoint<ArcheryCatapultMachineView>().AsSelf();   // 사대 너머 양옆 투석기와 날아 들어오는 길
             builder.RegisterEntryPoint<ArcheryRemoteShotHandler>();
             builder.RegisterEntryPoint<ArcheryHitHandler>();
             builder.RegisterEntryPoint<ArcheryStateHandler>();
@@ -99,6 +104,8 @@ namespace LOP
             builder.Register<ArcheryPadView>(Lifetime.Transient);
             builder.Register<ArcheryShootOffHudViewModel>(Lifetime.Transient);
             builder.Register<ArcheryShootOffHudView>(Lifetime.Transient);
+            builder.Register<ArcheryCatapultHudViewModel>(Lifetime.Transient);
+            builder.Register<ArcheryCatapultHudView>(Lifetime.Transient);
 
             //  화살이 생긴 *뒤*에 봐야 하므로 world.Tick 다음인 End에 문다(서버와 같은 자리).
             builder.RegisterBuildCallback(container =>
@@ -115,6 +122,8 @@ namespace LOP
                 () => container.Resolve<ArcheryPadView>()));
             sink.Add(windowManager.RegisterViewFactory<ArcheryShootOffHudView>(
                 () => container.Resolve<ArcheryShootOffHudView>()));
+            sink.Add(windowManager.RegisterViewFactory<ArcheryCatapultHudView>(
+                () => container.Resolve<ArcheryCatapultHudView>()));
         }
     }
 }

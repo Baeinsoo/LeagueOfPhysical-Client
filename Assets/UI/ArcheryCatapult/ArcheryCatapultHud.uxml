@@ -1,0 +1,28 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="ArcheryCatapultHud.uss" />
+    <!-- 보여 주기만 한다 — 아래 조작 패드의 입력을 막지 않게 전부 picking-mode="Ignore". -->
+    <ui:VisualElement name="catapult-root" class="catapult-root" picking-mode="Ignore">
+        <ui:VisualElement class="catapult-top" picking-mode="Ignore">
+            <ui:Label name="round" class="catapult-round" picking-mode="Ignore" />
+            <ui:VisualElement class="catapult-time" picking-mode="Ignore">
+                <ui:VisualElement name="time-fill" class="catapult-time-fill" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:Label name="cue" text="준비…" class="catapult-cue" picking-mode="Ignore" />
+        <ui:VisualElement name="stun" class="catapult-stun" picking-mode="Ignore">
+            <ui:Label text="활을 못 든다!" class="catapult-stun-text" picking-mode="Ignore" />
+            <ui:VisualElement class="catapult-stun-bar" picking-mode="Ignore">
+                <ui:VisualElement name="stun-fill" class="catapult-stun-fill" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="popups" class="catapult-popups" picking-mode="Ignore" />
+        <ui:VisualElement name="result" class="catapult-result" picking-mode="Ignore">
+            <ui:Label text="라운드 결과" class="catapult-result-title" picking-mode="Ignore" />
+            <ui:VisualElement name="result-list" class="catapult-result-list" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:VisualElement name="intro" class="catapult-intro" picking-mode="Ignore">
+            <ui:Label name="intro-title" class="catapult-intro-title" picking-mode="Ignore" />
+            <ui:Label name="intro-detail" class="catapult-intro-detail" picking-mode="Ignore" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

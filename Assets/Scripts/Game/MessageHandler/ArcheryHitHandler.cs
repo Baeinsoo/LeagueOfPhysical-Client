@@ -17,16 +17,21 @@ namespace LOP
         private readonly ArcheryArrowStickSystem stickSystem;
         private readonly ArcheryImpactLog impactLog;
         private readonly IPlayerContext playerContext;
+        private readonly ArcheryWorld world;
+        private readonly GameFramework.World.EntityRegistry entityRegistry;
 
         public ArcheryHitHandler(ArcheryConsumed consumed, ISubscriber<WorldEventBatchToC> batchSubscriber,
                                  ArcheryArrowStickSystem stickSystem, ArcheryImpactLog impactLog,
-                                 IPlayerContext playerContext)
+                                 IPlayerContext playerContext,
+                                 ArcheryWorld world, GameFramework.World.EntityRegistry entityRegistry)
         {
             this.consumed = consumed;
             this.batchSubscriber = batchSubscriber;
             this.stickSystem = stickSystem;
             this.impactLog = impactLog;
             this.playerContext = playerContext;
+            this.world = world;
+            this.entityRegistry = entityRegistry;
         }
 
         protected override void Subscribe() => Track(batchSubscriber.Subscribe(OnWorldEventBatchToC));
@@ -46,6 +51,7 @@ namespace LOP
                 //  이 사건은 "어느 화살이 박혔나"와 "누가 몇 점을 먹었나"만 말해 준다.
                 consumed.MarkArrow(hit.shooterId, hit.fireTick);
                 RecordMyImpact(hit);
+                ApplyStun(hit);
             }
         }
 
@@ -78,6 +84,27 @@ namespace LOP
 
             var offset = ArcheryImpactLog.ToFaceOffset(impact.OffsetFromTarget, target.Facing, target.Radius);
             impactLog.Add(impact.Wave, new ArcheryImpactLog.Shot(offset, hit.points, world));
+        }
+
+        /// <summary>
+        /// 쏘면 안 되는 것을 맞힌 벌을 내 세계에도 건다. 서버는 이미 그 틱부터 활을 막았다 — 사건이 늦게 오므로
+        /// 그 사이 내가 예측으로 쏜 화살은 서버에 없다. 화면에서 지운다(<see cref="ArcheryWorld.CancelShots"/>).
+        /// </summary>
+        private void ApplyStun(ArcheryTargetHitEvent hit)
+        {
+            if (hit.stunUntilTick <= 0)
+            {
+                return;
+            }
+            var aim = entityRegistry.Get(hit.shooterId)?.Get<ArcheryAim>();
+            if (aim != null && aim.StunnedUntilTick < hit.stunUntilTick)
+            {
+                aim.StunnedUntilTick = hit.stunUntilTick;
+            }
+            if (hit.shooterId == playerContext.entityId)
+            {
+                world.CancelShots(hit.shooterId, hit.hitTick, hit.stunUntilTick);
+            }
         }
     }
 }

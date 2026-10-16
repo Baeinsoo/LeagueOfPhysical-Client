@@ -112,6 +112,68 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 투석기_관중석은_어느_자리에서_어느_표적_모서리로_쏴도_화살_길을_안_막는다()
+        {
+            //  관중석 상자는 클라에서 화살을 멈춘다(서버는 점수를 준다) — 표적 길(±16 m)로 가는 직선과 만나면 안 된다.
+            var layout = ArcheryCrowdLayout.Build(Vector3.zero, Vector3.forward, ArcheryCrowdLayout.CatapultSideOffset);
+            Assert.AreEqual(0, BlockedShots(layout), "투석기 관중석이 화살 길을 막는다");
+        }
+
+        [Test]
+        public void 한_발_승부_간격이면_같은_재기가_막힌_길을_찾는다()
+        {
+            //  양성 대조 — 재기가 아무것도 안 재는 게 아님을 보인다(8.5 m 관중석은 낮은 옆 표적 길을 막는다).
+            Assert.Greater(BlockedShots(Straight()), 0);
+        }
+
+        //  8자리 × 눈높이 셋에서 표적 길의 모서리(가로 ±16 m, 거리 30·55 m, 높이 3.5·14.5 m)로 가는 선분 중 상자와 만나는 수.
+        private static int BlockedShots(ArcheryCrowdLayout layout)
+        {
+            int blocked = 0;
+            for (int slot = 0; slot < 8; slot++)
+            {
+                foreach (float eye in new[] { 1.0f, 1.5f, 1.8f })
+                {
+                    var from = new Vector3(ArcheryShootOffSeats.LateralOffset(slot, 8), eye, 0f);
+                    foreach (float x in new[] { -16f, 16f })
+                    foreach (float z in new[] { 30f, 55f })
+                    foreach (float y in new[] { 3.5f, 14.5f })
+                    {
+                        var to = new Vector3(x, y, z);
+                        foreach (var box in layout.Steps) { if (SegmentHitsBox(from, to, box)) { blocked++; } }
+                        foreach (var box in layout.Volumes) { if (SegmentHitsBox(from, to, box)) { blocked++; } }
+                    }
+                }
+            }
+            return blocked;
+        }
+
+        //  상자 좌표로 옮겨 축마다 들어가고 나가는 비율을 좁힌다(slab).
+        private static bool SegmentHitsBox(Vector3 from, Vector3 to, ArcheryCrowdBox box)
+        {
+            var inverse = Quaternion.Inverse(box.Rotation);
+            Vector3 a = inverse * (from - box.Center);
+            Vector3 d = inverse * (to - box.Center) - a;
+            Vector3 half = box.Size * 0.5f;
+            float enter = 0f, exit = 1f;
+            for (int axis = 0; axis < 3; axis++)
+            {
+                if (Mathf.Abs(d[axis]) < 1e-6f)
+                {
+                    if (Mathf.Abs(a[axis]) > half[axis]) { return false; }
+                    continue;
+                }
+                float t0 = (-half[axis] - a[axis]) / d[axis];
+                float t1 = (half[axis] - a[axis]) / d[axis];
+                if (t0 > t1) { (t0, t1) = (t1, t0); }
+                enter = Mathf.Max(enter, t0);
+                exit = Mathf.Min(exit, t1);
+                if (enter > exit) { return false; }
+            }
+            return true;
+        }
+
+        [Test]
         public void 모두_맞았으면_아무도_없다()
         {
             var points = new List<Vector3> { Vector3.zero, Vector3.one };

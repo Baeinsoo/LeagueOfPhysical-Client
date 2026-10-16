@@ -1,15 +1,19 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="ArcheryPad.uss" />
     <ui:VisualElement name="archery-pad-root" class="archery-pad-root">
-        <!-- 조작면. 누르면 활이 올라오고, 누른 채 움직이면 겨눈다.
-             화면 전체를 덮되, 아래 걷기 스틱이 *그 위에* 얹혀 자기 구석만 가져간다. -->
+        <!-- 조작면. 화면 전체를 덮고, 손가락이 처음 닿은 쪽으로 할 일을 나눈다(ArcheryPointerRouter) —
+             왼쪽 절반은 끌어서 겨누기, 오른쪽 절반은 활을 들고 쏘기. -->
         <ui:VisualElement name="surface" class="pad-surface" />
-        <!-- 걷기 스틱: 왼쪽 아래. 누른 자리에 떠오르는 떠다니는 스틱이다.
-             조작면보다 **뒤에** 적어야 위로 올라와 그 구석의 손가락을 먼저 받는다. -->
-        <ui:VisualElement name="move-area" class="move-area">
-            <ui:VisualElement name="move-bg" class="move-bg" picking-mode="Ignore">
-                <ui:VisualElement name="move-handle" class="move-handle" picking-mode="Ignore" />
+        <!-- 끌기 방식의 시위: 오른손을 누른 자리에서 아래로 늘어난다. 자리·길이는 View가 써 넣는다.
+             줄(string)은 손가락을 따라가는 꾸밈, 막대(fill)는 시뮬의 진짜 당김으로 찬다. -->
+        <ui:VisualElement name="pull-gauge" class="pull-gauge" picking-mode="Ignore">
+            <ui:VisualElement name="pull-track" class="pull-track" picking-mode="Ignore">
+                <ui:VisualElement name="pull-fill" class="pull-fill" picking-mode="Ignore" />
             </ui:VisualElement>
+            <ui:VisualElement name="pull-threshold" class="pull-threshold" picking-mode="Ignore" />
+            <ui:VisualElement name="pull-string" class="pull-string" picking-mode="Ignore" />
+            <ui:VisualElement name="pull-anchor" class="pull-anchor" picking-mode="Ignore" />
+            <ui:VisualElement name="pull-knob" class="pull-knob" picking-mode="Ignore" />
         </ui:VisualElement>
         <!-- 내려놓기: 누른 자리 아래에 뜨는 원. 잡고 있는 동안만 보이고, 여기서 떼면 안 쏜다.
              자리와 크기는 ArcheryPadView가 ViewModel 값으로 정한다 — USS에 적지 않는다. -->
@@ -31,5 +35,8 @@
         <ui:VisualElement name="hit-popups" class="hit-popups" picking-mode="Ignore" />
         <ui:Label name="score" class="archery-score" text="0" picking-mode="Ignore" />
         <ui:Label name="arrows" class="archery-arrows" text="" picking-mode="Ignore" />
+        <!-- 당기기 방식 토글(누르기/끌기). 개발 빌드·에디터에서만 View가 켠다.
+             조작면보다 뒤에 적어야 위에 얹혀 누름을 먼저 받는다. -->
+        <ui:Button name="draw-style-toggle" class="draw-style-toggle" text="당기기: 누르기" />
     </ui:VisualElement>
 </ui:UXML>

@@ -4,9 +4,9 @@ using UnityEngine.UIElements;
 namespace LOP.UI
 {
     /// <summary>
-    /// Archery 조작 화면. 화면 전체가 조작면이다 — 누르면 활이 올라오고, 누른 채 움직이면
-    /// 그 손가락이 겨눈다. <b>누른 자리 아래에 뜨는 원</b>에서 떼면 취소.
-    /// ViewModel 커맨드로 넘기기만 하는 얇은 바인더다.
+    /// Archery 조작 화면. <b>두 손으로 나눈다</b> — 왼쪽 절반은 끌어서 겨누기만(활을 안 들었을 때도),
+    /// 오른쪽 절반은 활을 들고 쏜다(누르기 / 끌기 두 방식). 오른손이 <b>누른 자리 아래에 뜨는 원</b>에서
+    /// 떼면 취소. ViewModel 커맨드로 넘기기만 하는 얇은 바인더다.
     /// </summary>
     public class ArcheryPadView : UIView
     {
@@ -18,6 +18,15 @@ namespace LOP.UI
         private VisualElement _plotFace;
         private Label _plotLabel;
         private VisualElement _popups;
+        private Button _styleToggle;
+
+        //  끌기 방식의 시위 그림.
+        private VisualElement _pullGauge;
+        private VisualElement _pullTrack;
+        private VisualElement _pullFill;
+        private VisualElement _pullThreshold;
+        private VisualElement _pullString;
+        private VisualElement _pullKnob;
 
         //  기록판에 이미 그린 발수와 자리. 이 둘이 그대로면 다시 안 그린다.
         private int _plottedCount = -1;
@@ -32,25 +41,13 @@ namespace LOP.UI
         private bool _cancelTargetPlaced;
         private IVisualElementScheduledItem _tick;
 
-        //  지금 당김을 시작한 손가락의 id. -1이면 아무도 안 당기고 있다.
+        //  손가락마다 맡은 일(겨누기/당기기). 처음 닿은 쪽이 정하고 뗄 때까지 안 바뀐다.
         //
-        //  <para>모바일에선 손가락이 둘 이상 화면에 닿을 수 있다 — 오른손 엄지가 만작 중인데
-        //  왼손 손가락이 살짝 스치기만 해도 그 손가락의 PointerUpEvent가 발사 판정을 불러
-        //  오른손이 아직 잡고 있는 화살이 나가 버린다. 더 나쁜 경우는 오른손이 내려놓기 원
-        //  안에 있을 때 — 두 번째 탭이 판정을 뒤집어 취소였어야 할 손짓이 발사가 된다.
-        //  당김을 시작한 손가락만 기억해 그 손가락 이외의 입력은 통째로 무시한다.</para>
-        private int _drawPointerId = -1;
-
-        //  걷기 스틱. 당김과 **다른 손가락**이라 id를 따로 기억한다.
-        private VisualElement _moveArea;
-        private VisualElement _moveBg;
-        private VisualElement _moveHandle;
-        private int _movePointerId = -1;
-        private Vector2 _moveCenter;
-
-        //  손잡이가 배경 안에서 벗어날 수 있는 최대 거리. 배경의 테두리 안쪽 칸에서
-        //  손잡이 크기를 뺀 절반이다.
-        private float MoveMaxRadius => (_moveBg.contentRect.width - _moveHandle.resolvedStyle.width) / 2f;
+        //  <para>모바일에선 손가락이 둘 이상 화면에 닿는다 — 오른손 엄지가 만작 중인데 왼손 엄지가
+        //  겨누다 떼면, 그 PointerUpEvent가 발사 판정으로 가서 오른손이 아직 잡고 있는 화살이 나가
+        //  버린다. 더 나쁜 경우는 오른손이 내려놓기 원 안에 있을 때 — 왼손의 뗌이 판정을 뒤집어
+        //  취소였어야 할 손짓이 발사가 된다. 그래서 <b>당기는 손가락의 뗌만</b> 발사 판정으로 보낸다.</para>
+        private readonly ArcheryPointerRouter _router = new ArcheryPointerRouter();
 
 
         public ArcheryPadView(ArcheryPadViewModel viewModel)
@@ -74,83 +71,93 @@ namespace LOP.UI
             _score = Root.Q<Label>("score");
             _arrows = Root.Q<Label>("arrows");
             _reticle = Root.Q<VisualElement>("reticle");
-            _moveArea = Root.Q<VisualElement>("move-area");
-            _moveBg = Root.Q<VisualElement>("move-bg");
-            _moveHandle = Root.Q<VisualElement>("move-handle");
+            _pullGauge = Root.Q<VisualElement>("pull-gauge");
+            _pullTrack = Root.Q<VisualElement>("pull-track");
+            _pullFill = Root.Q<VisualElement>("pull-fill");
+            _pullThreshold = Root.Q<VisualElement>("pull-threshold");
+            _pullString = Root.Q<VisualElement>("pull-string");
+            _pullKnob = Root.Q<VisualElement>("pull-knob");
 
-            WireMoveStick();
+            WireStyleToggle();
 
-            // 누르면 활이 올라온다 — 어디를 눌러도 된다. 이미 당기는 손가락이 있으면(다른
-            // pointerId) 통째로 무시한다 — 두 번째 손가락이 첫 손가락의 당김을 가로채면 안 된다.
+            //  닿은 쪽으로 역할을 정한다. 같은 쪽에 이미 손가락이 있으면 통째로 무시한다 —
+            //  두 번째 손가락이 첫 손가락의 당김을 가로채면 안 된다.
             surface.RegisterCallback<PointerDownEvent>(evt =>
             {
-                if (_drawPointerId != -1)
+                Vector2 panel = PanelSize();
+                var role = _router.Down(evt.pointerId, evt.position.x, panel.x);
+                if (role == ArcheryPointerRole.None)
                 {
                     return;
                 }
-                _drawPointerId = evt.pointerId;
                 surface.CapturePointer(evt.pointerId);
-                Vector2 panel = PanelSize();
-                _viewModel.BeginPress(InHeights(evt.position),
-                    panel.y > 0f ? panel.x / panel.y : 16f / 9f);
+                if (role == ArcheryPointerRole.Draw)
+                {
+                    _viewModel.BeginPress(InHeights(evt.position),
+                        panel.y > 0f ? panel.x / panel.y : 16f / 9f);
+                }
             });
 
-            //  같은 손가락이 겨눈다. 끈 만큼(화면 대비 비율)을 조준으로 넘기고, 지금 자리는
-            //  내려놓기 판정에 쓴다 — 두 가지를 한 번에 받는 유일한 자리다.
-            //  당김을 시작한 손가락이 아니면 무시한다(다른 손가락이 움직여도 조준이 안 흔들려야 한다).
             surface.RegisterCallback<PointerMoveEvent>(evt =>
             {
-                if (evt.pointerId != _drawPointerId || surface.HasPointerCapture(evt.pointerId) == false)
+                var role = _router.RoleOf(evt.pointerId);
+                if (role == ArcheryPointerRole.None || surface.HasPointerCapture(evt.pointerId) == false)
                 {
                     return;
                 }
                 //  패널 좌표는 **아래로 갈수록 y가 커진다.** ViewModel은 "양수 = 위"를 받으므로
                 //  여기서 뒤집는다. 안 뒤집으면 가로는 손가락을 따라가는데 세로만 반대로 도는,
                 //  어느 게임에도 없는 조합이 된다(옛 경로가 그랬고 그대로 옮겨졌다).
-                //  활인지 시야인지는 ViewModel이 정한다 — 화면은 움직임과 자리만 넘긴다.
                 Vector2 size = PanelSize();
-                if (size.x > 0f && size.y > 0f)
+                if (size.x <= 0f || size.y <= 0f)
                 {
-                    _viewModel.MovePointer(
-                        new Vector2(evt.deltaPosition.x / size.x, -evt.deltaPosition.y / size.y),
-                        InHeights(evt.position));
+                    return;
+                }
+                var delta = new Vector2(evt.deltaPosition.x / size.x, -evt.deltaPosition.y / size.y);
+                if (role == ArcheryPointerRole.Aim)
+                {
+                    _viewModel.LookBy(delta);
+                }
+                else
+                {
+                    //  오른손이 겨누는지(누르기)·끄는지(끌기)는 ViewModel이 정한다.
+                    _viewModel.MovePointer(delta, InHeights(evt.position));
                 }
             });
 
-            //  당김을 시작한 손가락이 뗄 때만 발사 판정을 한다 — 다른 손가락이 살짝 스치고
-            //  떼는 것으로 발사되면 안 된다.
+            //  당기는 손가락이 뗄 때만 발사 판정을 한다 — 겨누던 왼손을 떼는 것은 아무 일도 아니다.
+            //  역할을 먼저 지운다 — 캡처를 놓으면 곧바로 아래 CaptureOut이 올 수 있는데, 그때 이 손가락을
+            //  아직 당기는 손으로 알면 쏘려던 화살을 내려놓는다.
             surface.RegisterCallback<PointerUpEvent>(evt =>
             {
-                if (evt.pointerId != _drawPointerId)
+                var role = _router.Up(evt.pointerId);
+                if (role == ArcheryPointerRole.None)
                 {
                     return;
                 }
                 surface.ReleasePointer(evt.pointerId);
-                _drawPointerId = -1;
-                _viewModel.EndPress();
+                if (role == ArcheryPointerRole.Draw)
+                {
+                    _viewModel.EndPress();
+                }
             });
             // 손가락이 화면 밖으로 나가거나 OS가 터치를 가져가면(알림 스와이프·전화·앱 전환)
             // 위의 Up이 안 온다 — 그대로 두면 활을 든 채 영영 멈춘다. 그렇다고 EndPress로
             // 보내면 **화살이 나가 버린다.** 터치를 뺏긴 건 "쏘겠다"는 뜻이 아니므로 내려놓는다.
             surface.RegisterCallback<PointerCaptureOutEvent>(evt =>
             {
-                if (evt.pointerId != _drawPointerId)
+                if (_router.Up(evt.pointerId) == ArcheryPointerRole.Draw)
                 {
-                    return;
+                    _viewModel.Cancel();
                 }
-                _drawPointerId = -1;
-                _viewModel.Cancel();
             });
 
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.
-            // 손가락 하나로 당김과 조준을 같이 하므로, 화면을 눌러 당기지 않고 시점만 돌리고
-            // 싶을 때(WASD) 마우스 대신 키보드를 쓸 수 있게 한다.
+            // 마우스는 하나라 당기는 동안 왼쪽을 끌 수 없다 — 데스크톱에선 키보드가 그 일을 한다.
             // 점수도 같은 스케줄러로 pull한다 — 서버 스냅샷이 채우는 값이라 R3 이벤트가 없다.
             _tick = Root.schedule.Execute(_ =>
             {
                 _viewModel.PollKeyboard();
-                //  스틱을 놓은 뒤의 0도 밀어야 캐릭이 선다 — 잡고 있을 때만 밀면 안 된다.
-                _viewModel.FeedMove();
                 _viewModel.Tick(Time.deltaTime);
                 _score.text = _viewModel.Score.ToString();
 
@@ -195,7 +202,62 @@ namespace LOP.UI
                 {
                     _cancelTargetPlaced = false;
                 }
+
+                SyncPullGauge();
             }).Every(0);
+        }
+
+        //  당기기 방식 토글 — 개발 빌드·에디터에서만 보인다. 왼쪽 위라 오른손 조작과 안 겹친다.
+        //  버튼이 조작면의 형제라 누름이 조작면으로 안 내려간다(겨누기로 안 읽힌다).
+        private void WireStyleToggle()
+        {
+            _styleToggle = Root.Q<Button>("draw-style-toggle");
+            if (ArcheryPadViewModel.DrawStyleToggleAvailable == false)
+            {
+                _styleToggle.style.display = DisplayStyle.None;
+                return;
+            }
+            _styleToggle.text = _viewModel.DrawStyleLabel;
+            _styleToggle.clicked += () =>
+            {
+                _viewModel.ToggleDrawStyle();
+                _styleToggle.text = _viewModel.DrawStyleLabel;
+            };
+        }
+
+        //  끌기 방식의 시위 — 누른 자리에서 손가락 쪽으로 늘어나는 줄과, 그 옆을 채우는 막대.
+        //  줄 길이는 손가락을 따라가는 **꾸밈**이고(정해진 길이에서 멈춘다), 막대는 시뮬의 진짜 당김
+        //  (DrawRatio)으로 찬다 — 빨리 끈다고 막대가 빨리 차지 않는다는 것이 그대로 보인다.
+        private void SyncPullGauge()
+        {
+            bool visible = _viewModel.PullGaugeVisible;
+            _pullGauge.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            if (visible == false)
+            {
+                return;
+            }
+
+            Vector2 size = PanelSize();
+            if (size.y <= 0f)
+            {
+                return;
+            }
+
+            float full = ArcheryDrawHand.PullGaugeFullInHeights * size.y;
+            Vector2 press = _viewModel.PressInHeights;
+            _pullGauge.style.left = press.x * size.y;
+            _pullGauge.style.top = (1f - press.y) * size.y;
+            _pullTrack.style.height = full;
+            _pullThreshold.style.top = ArcheryDrawHand.PullStartInHeights * size.y;
+
+            float pulled = _viewModel.PullInHeights * size.y;
+            _pullString.style.height = pulled;
+            _pullKnob.style.top = pulled;
+
+            float ratio = Mathf.Clamp01(_viewModel.DrawRatio);
+            _pullFill.style.height = full * ratio;
+            _pullGauge.EnableInClassList("is-drawing", _viewModel.Holding);
+            _pullGauge.EnableInClassList("is-full", ratio >= 1f);
         }
 
         //  기록판을 지금 자리의 착탄점으로 맞춘다. 자리나 발수가 바뀐 프레임에만 다시 그린다 —
@@ -385,104 +447,6 @@ namespace LOP.UI
                 return new Vector2(0.5f, 0.5f);
             }
             return new Vector2(panelPosition.x / size.y, (size.y - panelPosition.y) / size.y);
-        }
-
-        /// <summary>
-        /// 걷기 스틱을 잇는다. 누른 자리에 떠오르는 <b>떠다니는 스틱</b>이다 — 구석 어디를
-        /// 잡아도 그 자리가 한가운데가 되므로, 엄지를 보지 않고 쓸 수 있다.
-        ///
-        /// <para>당김(오른손)과 <b>다른 손가락</b>이므로 id를 따로 잡는다. 안 그러면 한쪽이
-        /// 다른 쪽의 뗌을 자기 것으로 읽어, 걷다 손을 뗐을 뿐인데 화살이 나간다.</para>
-        /// </summary>
-        private void WireMoveStick()
-        {
-            _moveArea.RegisterCallback<PointerDownEvent>(evt =>
-            {
-                if (_movePointerId != -1)
-                {
-                    return;   // 이미 다른 손가락이 스틱을 잡고 있다
-                }
-
-                _movePointerId = evt.pointerId;
-                _moveArea.CapturePointer(evt.pointerId);
-
-                _moveCenter = (Vector2)evt.localPosition;
-                float outer = _moveBg.resolvedStyle.width;
-                _moveBg.style.visibility = Visibility.Visible;
-                _moveBg.style.left = _moveCenter.x - outer / 2f;
-                _moveBg.style.top = _moveCenter.y - outer / 2f;
-
-                UpdateMoveStick((Vector2)evt.localPosition);
-
-                //  겨누는 면이 이 누름을 당김으로 읽지 않게 막는다.
-                evt.StopPropagation();
-            });
-
-            _moveArea.RegisterCallback<PointerMoveEvent>(evt =>
-            {
-                if (evt.pointerId != _movePointerId)
-                {
-                    return;
-                }
-                UpdateMoveStick((Vector2)evt.localPosition);
-            });
-
-            _moveArea.RegisterCallback<PointerUpEvent>(evt =>
-            {
-                if (evt.pointerId != _movePointerId)
-                {
-                    return;
-                }
-                _moveArea.ReleasePointer(evt.pointerId);
-                ReleaseMoveStick();
-            });
-
-            //  손가락이 창 밖으로 나가거나 캡처를 잃으면 그대로 걷게 두면 안 된다.
-            _moveArea.RegisterCallback<PointerCaptureOutEvent>(evt =>
-            {
-                if (evt.pointerId != _movePointerId)
-                {
-                    return;
-                }
-                ReleaseMoveStick();
-            });
-        }
-
-        private void ReleaseMoveStick()
-        {
-            _movePointerId = -1;
-            _viewModel.ClearMove();
-            _moveBg.style.visibility = Visibility.Hidden;
-            PlaceMoveHandle(Vector2.zero);
-        }
-
-        private void UpdateMoveStick(Vector2 localPosition)
-        {
-            float maxRadius = MoveMaxRadius;
-            if (maxRadius <= 0f)
-            {
-                return;   // 레이아웃이 아직 안 잡혔다 — 다음 프레임에 다시 온다
-            }
-
-            Vector2 delta = localPosition - _moveCenter;
-            if (delta.magnitude > maxRadius)
-            {
-                delta = delta.normalized * maxRadius;
-            }
-            PlaceMoveHandle(delta);
-
-            //  얼마나 밀었나를 0~1로 넘긴다 — 살짝 밀면 천천히 간다.
-            //  화면 y는 아래로 증가하므로 뒤집어야 "위로 밀면 앞으로"가 된다.
-            Vector2 push = delta / maxRadius;
-            _viewModel.SetMove(new Vector2(push.x, -push.y));
-        }
-
-        //  손잡이는 배경의 자식이라 테두리 안쪽 좌표를 쓴다. 그 한가운데에서 민 만큼 벗어난다.
-        private void PlaceMoveHandle(Vector2 offset)
-        {
-            float maxRadius = MoveMaxRadius;
-            _moveHandle.style.left = maxRadius + offset.x;
-            _moveHandle.style.top = maxRadius + offset.y;
         }
 
         private bool _disposed;

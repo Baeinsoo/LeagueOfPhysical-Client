@@ -3,43 +3,105 @@
     left: 0; right: 0; top: 0; bottom: 0;
 }
 
-/* 조작면은 화면 전체다. 걷기 스틱이 그 위에 얹혀 왼쪽 아래 구석만 가져간다 —
-   그래서 겨누는 것은 나머지 어디서든 시작할 수 있다. */
+/* 조작면은 화면 전체다. 왼쪽 절반 = 겨누기, 오른쪽 절반 = 당기기(나누는 일은 코드가 한다). */
 .pad-surface {
     position: absolute;
     left: 0; right: 0; top: 0; bottom: 0;
 }
 
-/* 걷기 스틱이 사는 구석. 오른손 엄지가 겨누는 동안 왼손 엄지가 여기를 쓴다.
-   취소 원은 누른 자리(오른쪽) 기준이라 이 구석과 겹치지 않는다. */
-.move-area {
+/* ── 끌기 방식의 시위 ──────────────────────────────────────────────
+   상자 자체는 크기 0으로 누른 자리에 놓이고(View가 left/top을 써 넣는다), 안의 것들이
+   그 점에서 아래로 그려진다. 길이(height/top)는 View가 화면 비율로 써 넣는다. */
+.pull-gauge {
     position: absolute;
-    left: 0; bottom: 0;
-    width: 38%;
-    height: 55%;
+    display: none;
+    width: 0;
+    height: 0;
 }
-
-/* 누른 자리에 떠오른다(떠다니는 스틱) — 자리는 View가 써 넣는다. */
-.move-bg {
+.pull-track {
     position: absolute;
-    visibility: hidden;
-    width: 200px;
-    height: 200px;
-    border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.16);
-    border-width: 2px;
-    border-color: rgba(255, 255, 255, 0.45);
+    left: 22px;
+    top: 0;
+    width: 10px;
+    border-top-left-radius: 5px; border-top-right-radius: 5px;
+    border-bottom-left-radius: 5px; border-bottom-right-radius: 5px;
+    background-color: rgba(20, 24, 26, 0.42);
+    overflow: hidden;
 }
-
-.move-handle {
+.pull-fill {
     position: absolute;
-    left: 55px; top: 55px;
-    width: 90px;
-    height: 90px;
-    border-radius: 50%;
+    left: 0; right: 0; top: 0;
+    background-color: rgba(255, 236, 150, 0.75);
+}
+.pull-gauge.is-full .pull-fill {
+    background-color: rgb(255, 214, 90);
+}
+/* 이만큼 끌어야 활이 올라온다는 표시. */
+.pull-threshold {
+    position: absolute;
+    left: -16px;
+    width: 32px;
+    height: 2px;
+    background-color: rgba(255, 255, 255, 0.45);
+}
+/* 누른 자리에서 손가락까지의 시위. 당기는 중엔 밝아진다. */
+.pull-string {
+    position: absolute;
+    left: -1.5px;
+    top: 0;
+    width: 3px;
+    background-color: rgba(255, 255, 255, 0.4);
+}
+.pull-gauge.is-drawing .pull-string {
+    background-color: rgba(255, 236, 150, 0.95);
+}
+.pull-anchor {
+    position: absolute;
+    left: -7px; top: -7px;
+    width: 14px; height: 14px;
+    border-top-left-radius: 7px; border-top-right-radius: 7px;
+    border-bottom-left-radius: 7px; border-bottom-right-radius: 7px;
     background-color: rgba(255, 255, 255, 0.55);
-    border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.7);
+}
+.pull-knob {
+    position: absolute;
+    left: -18px;
+    width: 36px; height: 36px;
+    margin-top: -18px;
+    border-top-left-radius: 18px; border-top-right-radius: 18px;
+    border-bottom-left-radius: 18px; border-bottom-right-radius: 18px;
+    border-left-width: 2px; border-right-width: 2px;
+    border-top-width: 2px; border-bottom-width: 2px;
+    border-left-color: rgba(255, 255, 255, 0.7);
+    border-right-color: rgba(255, 255, 255, 0.7);
+    border-top-color: rgba(255, 255, 255, 0.7);
+    border-bottom-color: rgba(255, 255, 255, 0.7);
+    background-color: rgba(255, 255, 255, 0.12);
+}
+.pull-gauge.is-drawing .pull-knob {
+    border-left-color: rgb(255, 236, 150);
+    border-right-color: rgb(255, 236, 150);
+    border-top-color: rgb(255, 236, 150);
+    border-bottom-color: rgb(255, 236, 150);
+}
+
+/* 당기기 방식 토글 — 왼쪽 위 작은 단추. 개발 빌드·에디터에서만 보인다. */
+.draw-style-toggle {
+    position: absolute;
+    top: 24px; left: 24px;
+    padding-left: 14px; padding-right: 14px;
+    padding-top: 6px; padding-bottom: 6px;
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.85);
+    background-color: rgba(20, 24, 26, 0.55);
+    border-left-width: 1px; border-right-width: 1px;
+    border-top-width: 1px; border-bottom-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.3);
+    border-right-color: rgba(255, 255, 255, 0.3);
+    border-top-color: rgba(255, 255, 255, 0.3);
+    border-bottom-color: rgba(255, 255, 255, 0.3);
+    border-top-left-radius: 8px; border-top-right-radius: 8px;
+    border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;
 }
 
 /* 내려놓기 원 — 누른 자리 아래에 뜬다. 잡고 있는 동안만 View가 켠다.

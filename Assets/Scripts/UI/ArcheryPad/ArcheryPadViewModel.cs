@@ -16,12 +16,11 @@ namespace LOP.UI
         private readonly ArcheryImpactLog impactLog;
         private readonly ArcheryConfig config;
 
-        //  걷기 스틱을 민 양. 스틱을 놓으면 0이 되고, 그 0도 매 프레임 밀어야 캐릭이 선다.
-        private Vector2 moveStick;
+        //  오른손. 방식(누르기/끌기)을 바꾸면 새로 만든다.
+        private ArcheryDrawHand drawHand;
 
-        //  WASD로 민 양. 스틱과 따로 두고, 스틱이 놀고 있을 때만 쓴다 — 한 변수에 둘 다
-        //  쓰면 손가락이 스틱을 놓는 순간 키보드 값까지 0으로 지워진다.
-        private Vector2 keyMove;
+        /// <summary>당기기 방식을 저장하는 PlayerPrefs 키.</summary>
+        public const string DrawStyleKey = "LOP.Archery.DrawStyle";
 
         //  겨누는 속도(도/초). 아래 화각을 기준으로 정한 값이고, 당겨서 화면이 좁아지면 그
         //  비율만큼 같이 줄어든다 — 그래야 손동작 하나가 **화면 위에서** 늘 같은 거리를 움직인다.
@@ -63,6 +62,28 @@ namespace LOP.UI
             this.playerContext = playerContext;
             this.impactLog = impactLog;
             this.config = config;
+
+            drawHand = new ArcheryDrawHand(
+                ArcheryDrawHand.ResolveStyle(PlayerPrefs.GetInt(DrawStyleKey, -1), DrawStyleToggleAvailable));
+        }
+
+        /// <summary>당기기 방식 토글을 보이나. 끌기는 손맛을 보는 시험용이라 개발 빌드와 에디터에서만.</summary>
+        public static bool DrawStyleToggleAvailable => Debug.isDebugBuild || UnityEngine.Application.isEditor;
+
+        public ArcheryDrawStyle DrawStyle => drawHand.Style;
+
+        public string DrawStyleLabel => ArcheryDrawHand.LabelOf(drawHand.Style);
+
+        /// <summary>
+        /// 당기기 방식을 바꾼다(토글). 들고 있던 활은 <b>쏘지 않고 내려놓는다</b> — 다른 손가락으로
+        /// 토글을 눌렀을 뿐인데 화살이 나가면 안 된다.
+        /// </summary>
+        public void ToggleDrawStyle()
+        {
+            Cancel();
+            drawHand = new ArcheryDrawHand(ArcheryDrawHand.Next(drawHand.Style));
+            PlayerPrefs.SetInt(DrawStyleKey, (int)drawHand.Style);
+            PlayerPrefs.Save();
         }
 
         /// <summary>
@@ -135,10 +156,9 @@ namespace LOP.UI
         }
 
         /// <summary>
-        /// 데스크톱 편의: WASD(방향키도 같이)로 시점을 돌린다. 손가락(마우스) 하나로 화면을
-        /// 누르면 활도 함께 당겨지므로, 화살을 메기지 않고 시점만 둘러보고 싶을 때 WASD를 쓴다.
-        /// 이 게임엔 이동이 없어 WASD가 비어 있어 이 용도로 쓸 수 있다. 매 프레임 호출된다.
-        /// 선례: <see cref="SkydivePadViewModel"/>의 같은 이름 메서드.
+        /// 데스크톱 편의: 화살표(WASD도 같이)로 시점을 돌린다. 마우스는 하나라 활을 당기는 동안
+        /// 왼쪽 절반을 끌 수 없다 — 당긴 채 겨누는 일은 키보드가 맡는다. 활쏘기엔 걷기가 없어
+        /// WASD가 비어 있다. 매 프레임 호출된다. 선례: <see cref="SkydivePadViewModel"/>의 같은 이름 메서드.
         /// </summary>
         public void PollKeyboard()
         {
@@ -146,26 +166,16 @@ namespace LOP.UI
             if (keyboard == null)
             {
                 lookRamp = 0f;
-                keyMove = Vector2.zero;
                 return;   // 키보드가 없는 기기(모바일)
             }
 
-            //  WASD = 걷기. 화면 스틱과 같은 값으로 넘긴다.
-            var walk = Vector2.zero;
-            if (keyboard.dKey.isPressed) { walk.x += 1f; }
-            if (keyboard.aKey.isPressed) { walk.x -= 1f; }
-            if (keyboard.wKey.isPressed) { walk.y += 1f; }
-            if (keyboard.sKey.isPressed) { walk.y -= 1f; }
-            keyMove = walk.sqrMagnitude > 1f ? walk.normalized : walk;
-
-            //  화살표 = 조준. 겨누는 데는 **멈춘 채 아주 조금씩** 움직이는 조작이 필요한데
-            //  (90m 10점 링이 0.04°다) 마우스 드래그로는 그 크기를 내기 어렵다. 그래서
-            //  키보드 미세 조준은 남겨 두고 걷기와 손가락만 나눈다.
+            //  겨누는 데는 **멈춘 채 아주 조금씩** 움직이는 조작이 필요한데(90m 10점 링이 0.04°다)
+            //  마우스 드래그로는 그 크기를 내기 어렵다. 그래서 키보드 미세 조준을 둔다.
             var look = Vector2.zero;
-            if (keyboard.rightArrowKey.isPressed) { look.x += 1f; }
-            if (keyboard.leftArrowKey.isPressed) { look.x -= 1f; }
-            if (keyboard.upArrowKey.isPressed) { look.y += 1f; }
-            if (keyboard.downArrowKey.isPressed) { look.y -= 1f; }
+            if (keyboard.rightArrowKey.isPressed || keyboard.dKey.isPressed) { look.x += 1f; }
+            if (keyboard.leftArrowKey.isPressed || keyboard.aKey.isPressed) { look.x -= 1f; }
+            if (keyboard.upArrowKey.isPressed || keyboard.wKey.isPressed) { look.y += 1f; }
+            if (keyboard.downArrowKey.isPressed || keyboard.sKey.isPressed) { look.y -= 1f; }
 
             if (look == Vector2.zero)
             {
@@ -176,7 +186,7 @@ namespace LOP.UI
             float deltaSeconds = Mathf.Min(Time.deltaTime, MaxLookDeltaSeconds);
             lookRamp = Mathf.Min(1f, lookRamp + deltaSeconds / LookRampSeconds);
             float degreesPerSecond = Mathf.Lerp(FineDegreesPerSecond, MaxDegreesPerSecond, lookRamp);
-            AimBy(look.normalized * (degreesPerSecond * FovScale * deltaSeconds));
+            AimByOtherHand(look.normalized * (degreesPerSecond * FovScale * deltaSeconds));
         }
 
         /// <summary>지금 화각(도). 당길수록 좁아진다 — 카메라가 없으면 기준값으로 친다.</summary>
@@ -189,22 +199,19 @@ namespace LOP.UI
             }
         }
 
-        /// <summary>가로 화각(도). 세로 화각을 화면 가로세로 비율로 늘린 값이다.</summary>
-        private float HorizontalFov
-        {
-            get
-            {
-                var camera = cameraController.MainCamera;
-                if (camera == null)
-                {
-                    return ReferenceFov;
-                }
-                float halfVertical = camera.fieldOfView * 0.5f * Mathf.Deg2Rad;
-                return 2f * Mathf.Atan(Mathf.Tan(halfVertical) * camera.aspect) * Mathf.Rad2Deg;
-            }
-        }
-
         private float FovScale => CurrentFov / ReferenceFov;
+
+        /// <summary>
+        /// 끈 만큼(화면 대비 비율)을 도로 바꾼다. <b>화면에서 끈 만큼 그림이 따라오게</b> — 화면 높이만큼
+        /// 끌면 세로 화각만큼, 폭만큼 끌면 가로 화각만큼 돈다. 그래서 넓게 볼 땐 빠르고(판 건너편으로 휙)
+        /// 당겨서 좁아지면 저절로 곱다(저격 게임의 "줌 감도 보정"과 같은 것).
+        /// </summary>
+        public static Vector2 DragToDegrees(Vector2 deltaFraction, float verticalFov, float aspect)
+        {
+            float halfVertical = verticalFov * 0.5f * Mathf.Deg2Rad;
+            float horizontalFov = 2f * Mathf.Atan(Mathf.Tan(halfVertical) * aspect) * Mathf.Rad2Deg;
+            return new Vector2(deltaFraction.x * horizontalFov, deltaFraction.y * verticalFov);
+        }
 
         //  속도를 쌓지 않는 경로로 넣는다 — 부른 만큼만 돌고 떼면 그 자리에 선다.
         private void AimBy(Vector2 degrees)
@@ -212,10 +219,31 @@ namespace LOP.UI
             cameraController.AimBy(degrees);
         }
 
+        //  당기는 손가락이 **아닌** 것(왼손·키보드)이 겨눈다. 내려놓을 때 돌아갈 자리도 같이 옮긴다 —
+        //  되돌리기는 "당기는 손가락이 끌고 간 만큼"만 무르는 일이다. 안 옮기면 왼손으로 표적을
+        //  따라가다 내려놓는 순간 조준이 활을 들던 자리로 끌려간다.
+        private void AimByOtherHand(Vector2 degrees)
+        {
+            AimBy(degrees);
+            aimAtPressYaw += degrees.x;
+            aimAtPressPitch -= degrees.y;   // 유니티 부호(양수가 아래) — CameraController.AimBy와 같다
+        }
+
+        /// <summary>
+        /// 왼손이 끌었다. <b>언제든</b> 겨눈다 — 활을 안 들었을 때도(넓게 보며 표적 쪽으로 돌리기).
+        /// <paramref name="deltaFraction"/>은 화면 크기 대비 비율, x 양수가 오른쪽·y 양수가 위다.
+        /// </summary>
+        public void LookBy(Vector2 deltaFraction)
+        {
+            var camera = cameraController.MainCamera;
+            float aspect = camera != null ? camera.aspect : 16f / 9f;
+            AimByOtherHand(DragToDegrees(deltaFraction, CurrentFov, aspect));
+        }
+
         //  ── 내려놓기 자리 ────────────────────────────────────────────────
         //
-        //  손가락 하나가 당김과 조준을 다 하므로 "떼기"는 발사일 수밖에 없다. 그래서 취소는
-        //  따로 제스처를 줘야 하는데, 남은 재료가 움직임뿐이고 그 움직임은 이미 조준이 쓴다.
+        //  오른손에게 "떼기"는 발사일 수밖에 없다. 그래서 취소는 따로 제스처를 줘야 하는데,
+        //  남은 재료가 움직임뿐이고 누르기 방식에선 그 움직임을 곱게 겨누기가 쓴다.
         //
         //  그래서 취소 자리를 **조준이 실제로 쓰지 않는 곳**에 둔다. 당긴 상태(화각 22°)에서
         //  조준이 도는 거리는 홀드오버 1.12° + 미세조정 ±3° 정도 = 화면 세로의 14% 남짓이다.
@@ -282,7 +310,7 @@ namespace LOP.UI
         public bool OverCancelTarget { get; private set; }
 
         /// <summary>화면이 원을 그릴 자리. 잡고 있는 동안에만 쓴다.</summary>
-        public Vector2 CancelTargetCenterInHeights => CancelTargetCenter(pressInHeights, screenWidthInHeights);
+        public Vector2 CancelTargetCenterInHeights => CancelTargetCenter(drawHand.PressInHeights, screenWidthInHeights);
 
         /// <summary>
         /// 지금 얼마나 당겨졌나(0~1). <b>시뮬 값을 읽는다</b> — 화면이 따로 세면 클라와 서버가
@@ -304,9 +332,6 @@ namespace LOP.UI
         private float aimAtPressYaw;
         private float aimAtPressPitch;
 
-        //  손가락을 처음 댄 자리. 내려놓기 원이 여기를 기준으로 선다.
-        private Vector2 pressInHeights;
-
         //  세로를 1로 봤을 때의 가로 길이. 원이 화면 밖으로 안 나가게 하는 데 쓴다.
         private float screenWidthInHeights = 16f / 9f;
 
@@ -320,160 +345,87 @@ namespace LOP.UI
         private bool returningAim;
         private float returnElapsed;
 
-        //  누른 손가락이 무엇을 하려는지 아직 모르는 상태를 거친다.
-        //  <b>가만히 있으면 활, 곧바로 끌면 시야</b> — 길게 누르기와 쓸기를 가르는 표준 방식이다.
-        //  이게 없으면 화면을 쓸어 둘러보려 할 때마다 활이 당겨지고, 화살이 유한한 사거리 맵에서는
-        //  그게 곧 손해다.
-        private enum Press
-        {
-            None,
-            Deciding,   // 눌렀는데 아직 활인지 시야인지 모른다
-            Looking,    // 곧바로 끌었다 — 이 제스처는 끝까지 시야만 돌린다
-            Drawing,    // 가만히 버텼다 — 활이 올라왔다
-        }
-        private Press press = Press.None;
-
-        /// <summary>이만큼 가만히 있으면 활이 올라오기 시작한다(초).</summary>
-        public const float PressHoldSeconds = 0.15f;
-
-        /// <summary>그 안에 이만큼(화면 높이 대비) 움직이면 "시야를 돌리려던 것"으로 본다.</summary>
-        public const float DragSlopFraction = 0.02f;
-
-        /// <summary>누름이 무엇이 될지.</summary>
-        public enum PressIntent { Undecided, Look, Draw }
-
         /// <summary>
-        /// 누른 뒤 <paramref name="travelFraction"/>만큼 움직이고 <paramref name="heldSeconds"/>가
-        /// 지났을 때 이 누름이 무엇이 되는가.
-        ///
-        /// <para><b>움직임이 먼저다</b> — 슬롭을 넘겼으면 그 뒤로 아무리 오래 눌러도 시야다.
-        /// 반대로 두면 "쓸어 둘러보다 손가락을 잠깐 멈췄는데 활이 올라오는" 일이 생긴다.</para>
-        /// </summary>
-        public static PressIntent Decide(float travelFraction, float heldSeconds)
-        {
-            if (travelFraction >= DragSlopFraction)
-            {
-                return PressIntent.Look;
-            }
-            return heldSeconds >= PressHoldSeconds ? PressIntent.Draw : PressIntent.Undecided;
-        }
-
-        private float pressSeconds;
-        private float pressTravel;
-
-        /// <summary>
-        /// 손가락을 댔다. 활인지 시야인지는 아직 정하지 않는다.
+        /// 오른손 손가락을 댔다. 누르기면 곧바로 활이 올라오고, 끌기면 아래로 끌 때까지 기다린다.
         /// 받는 값은 <b>화면 세로를 1로 본 좌표</b>이고 y 양수가 위다(가로는 1을 넘는다).
         /// </summary>
         public void BeginPress(Vector2 positionInHeights, float screenWidthInHeights)
         {
-            press = Press.Deciding;
             this.screenWidthInHeights = screenWidthInHeights;
-            pressSeconds = 0f;
-            pressTravel = 0f;
             OverCancelTarget = false;
-            pressInHeights = positionInHeights;
             aimAtPressYaw = cameraController.Yaw;
             aimAtPressPitch = cameraController.Pitch;
 
             //  새로 겨누려는 것이니 앞선 되돌리기는 여기서 끝낸다.
             returningAim = false;
+
+            drawHand.Begin(positionInHeights);
+            SyncDrawing();
         }
 
         /// <summary>
-        /// 손가락이 움직였다. <paramref name="deltaFraction"/>은 화면 크기 대비 비율,
+        /// 오른손 손가락이 움직였다. <paramref name="deltaFraction"/>은 화면 크기 대비 비율,
         /// <paramref name="positionInHeights"/>는 화면 세로를 1로 본 좌표다.
         /// 둘 다 <b>x 양수가 오른쪽, y 양수가 위</b>로 같은 관습을 쓴다.
         /// </summary>
         public void MovePointer(Vector2 deltaFraction, Vector2 positionInHeights)
         {
-            if (press == Press.None)
+            if (drawHand.Holding == false)
             {
                 return;
             }
 
-            if (press == Press.Deciding)
-            {
-                pressTravel += deltaFraction.magnitude;
-                if (Decide(pressTravel, pressSeconds) == PressIntent.Look)
-                {
-                    press = Press.Looking;   // 활은 안 든다 — 이 제스처가 끝날 때까지
-                }
-            }
-
-            if (press == Press.Looking)
-            {
-                AimByDrag(deltaFraction);
-                return;
-            }
-
-            if (press != Press.Drawing)
-            {
-                return;   // 아직 Deciding — 움직임이 슬롭 안이라 아무것도 안 한다
-            }
+            drawHand.Move(positionInHeights);
+            SyncDrawing();
 
             //  원 안에 있는지는 **화면에 알려 주기 위해서만** 본다. 활을 내리지도, 조준을
             //  멈추지도 않는다 — 그래야 원 위를 지나 더 아래로 겨눌 수 있다.
-            OverCancelTarget = InsideCancelTarget(pressInHeights, positionInHeights, screenWidthInHeights);
+            OverCancelTarget = drawHand.Drawing
+                && InsideCancelTarget(drawHand.PressInHeights, positionInHeights, screenWidthInHeights);
 
-            AimByDrag(deltaFraction);
+            if (drawHand.FingerAims)
+            {
+                var camera = cameraController.MainCamera;
+                AimBy(DragToDegrees(deltaFraction, CurrentFov, camera != null ? camera.aspect : 16f / 9f));
+            }
         }
 
-        /// <summary>
-        /// 걷기 스틱을 민 양(−1~1). 화면이 스틱을 잡고 있는 동안 갱신한다.
-        /// </summary>
-        public void SetMove(Vector2 stick)
+        //  오른손 상태가 바뀌었을 때만 입력을 고친다. 끌기에서 위로 되돌려 내려놓는 것도 여기로 온다 —
+        //  Drawing만 꺼지고 Release는 안 보내므로 화살이 안 나간다.
+        private bool sentDrawing;
+
+        private void SyncDrawing()
         {
-            moveStick = stick;
+            if (drawHand.Drawing == sentDrawing)
+            {
+                return;
+            }
+            sentDrawing = drawHand.Drawing;
+            input.SetDrawing(sentDrawing);
+            if (sentDrawing)
+            {
+                input.SetDrawRatio(drawHand.DrawRatioToSend);
+            }
         }
 
-        /// <summary>스틱에서 손을 뗐다.</summary>
-        public void ClearMove()
-        {
-            moveStick = Vector2.zero;
-        }
-
-        /// <summary>
-        /// 지금 스틱 값을 이동 입력으로 밀어 넣는다. <b>매 프레임</b> 불러야 한다 —
-        /// 손을 뗐을 때의 0도 밀어야 캐릭터가 선다(안 밀면 마지막 방향으로 계속 걷는다).
-        /// </summary>
-        public void FeedMove()
-        {
-            //  손가락이 스틱을 잡고 있으면 그쪽이 이긴다 — 데스크톱 WASD는 스틱이 놀 때만.
-            Vector2 stick = moveStick.sqrMagnitude > 0f ? moveStick : keyMove;
-            Vector3 world = MoveStickDirection.ToWorld(stick, Camera.transform.eulerAngles.y);
-            input.SetMovement(world.x, world.z);
-        }
-
-        /// <summary>매 프레임. 누름이 무엇이 될지 정하고, 내려놓는 동안 조준을 되돌린다.</summary>
+        /// <summary>매 프레임. 내려놓은 뒤 조준을 되돌린다.</summary>
         public void Tick(float deltaSeconds)
         {
             if (deltaSeconds <= 0f)
             {
                 return;
             }
-
-            if (press == Press.Deciding)
-            {
-                pressSeconds += deltaSeconds;
-                if (Decide(pressTravel, pressSeconds) == PressIntent.Draw)
-                {
-                    press = Press.Drawing;
-                    input.SetDrawing(true);
-                    input.SetDrawRatio(1f);
-                }
-                return;
-            }
-
             ReturnAimAfterCancel(deltaSeconds);
         }
 
         /// <summary>
         /// 내려놓은 <b>뒤에</b> 조준을 활을 들기 직전 자리로 되돌린다.
         ///
-        /// <para><b>왜 필요한가</b>: 취소하려면 손가락을 원까지 내려야 하는데, 그 손가락이 곧
-        /// 조준이라 내려간 만큼(화면 세로의 31% = 당긴 상태에서 <b>아래로 6.8°</b>) 조준도 같이
-        /// 끌려 내려간다. 90m 홀드오버 전체가 1.1°이니 그냥 두면 조준이 통째로 날아간다.</para>
+        /// <para><b>왜 필요한가</b>: 누르기 방식에서 취소하려면 손가락을 원까지 내려야 하는데, 그 손가락이
+        /// 곧 조준이라 내려간 만큼(화면 세로의 31% = 당긴 상태에서 <b>아래로 6.8°</b>) 조준도 같이
+        /// 끌려 내려간다. 90m 홀드오버 전체가 1.1°이니 그냥 두면 조준이 통째로 날아간다.
+        /// 그동안 왼손이 겨눈 만큼은 돌아갈 자리에 더해 두므로(<see cref="AimByOtherHand"/>) 무르지 않는다.
+        /// 끌기 방식은 끄는 손이 겨누지 않아 돌아갈 거리가 없다.</para>
         ///
         /// <para>판정이 <b>뗄 때</b> 나므로 되돌리기도 뗀 뒤에 돈다 — 잡고 있는 동안 돌리면
         /// 겨누는 손가락과 싸운다.</para>
@@ -502,29 +454,22 @@ namespace LOP.UI
                 aimAtPressYaw, aimAtPressPitch, k));
         }
 
-        //  끈 만큼 시야를 돌린다. 화각으로 감도가 보정돼 당길수록 저절로 정밀해진다.
-        private void AimByDrag(Vector2 deltaFraction)
-        {
-            AimBy(new Vector2(deltaFraction.x * HorizontalFov, deltaFraction.y * CurrentFov));
-        }
-
-        /// <summary>두 번 불려도 한 번만 쏜다 — 아래 View가 뗌을 두 경로로 받기 때문이다.</summary>
+        /// <summary>오른손을 뗐다. 두 번 불려도 한 번만 쏜다.</summary>
         public void EndPress()
         {
-            if (press == Press.None)
+            if (drawHand.Holding == false)
             {
                 return;
             }
 
-            bool wasDrawing = press == Press.Drawing;
-            press = Press.None;
+            bool wasDrawing = drawHand.Drawing;
+            drawHand.End();
+            SyncDrawing();
 
             if (wasDrawing == false)
             {
-                return;   // 시야만 돌렸거나, 활이 올라오기 전에 뗐다 — 화살은 없다
+                return;   // 끌기에서 문턱을 안 넘겼거나 위로 되돌려 내려놓았다 — 화살은 없다
             }
-
-            input.SetDrawing(false);
 
             //  내려놓기 원 안에서 뗐거나 시위가 안 걸렸으면 쏘라는 신호를 아예 안 보낸다.
             if (OverCancelTarget == false && DrawArmed)
@@ -544,22 +489,20 @@ namespace LOP.UI
         /// </summary>
         public void Cancel()
         {
-            if (press == Press.None)
+            if (drawHand.Holding == false)
             {
                 return;
             }
 
-            bool wasDrawing = press == Press.Drawing;
-            press = Press.None;
+            bool wasDrawing = drawHand.Drawing;
+            drawHand.End();
+            SyncDrawing();
             OverCancelTarget = false;
 
-            if (wasDrawing == false)
+            if (wasDrawing)
             {
-                return;
+                BeginAimReturn();
             }
-
-            input.SetDrawing(false);
-            BeginAimReturn();
         }
 
         private void BeginAimReturn()
@@ -568,8 +511,16 @@ namespace LOP.UI
             returnElapsed = 0f;
         }
 
-        /// <summary>지금 활을 들고 있나. 화면이 띠와 조준점을 켜는 데 쓴다.</summary>
-        public bool Holding => press == Press.Drawing;
+        /// <summary>지금 활을 들고 있나. 화면이 내려놓기 원을 켜는 데 쓴다.</summary>
+        public bool Holding => drawHand.Drawing;
 
+        /// <summary>끌기 방식에서 오른손이 닿아 있나. 화면이 시위를 그리는 데 쓴다.</summary>
+        public bool PullGaugeVisible => drawHand.Style == ArcheryDrawStyle.Pull && drawHand.Holding;
+
+        /// <summary>오른손을 처음 댄 자리(화면 세로를 1로 본 좌표).</summary>
+        public Vector2 PressInHeights => drawHand.PressInHeights;
+
+        /// <summary>끌기: 그릴 시위 길이(화면 세로 대비). 꾸밈이다 — 당김은 <see cref="DrawRatio"/>가 정한다.</summary>
+        public float PullInHeights => drawHand.PullInHeights;
     }
 }

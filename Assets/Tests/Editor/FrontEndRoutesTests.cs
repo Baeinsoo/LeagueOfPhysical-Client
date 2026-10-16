@@ -24,8 +24,11 @@ namespace LOP.Tests
             var soon = System.Enum.GetValues(typeof(FrontEndDestination)).Cast<FrontEndDestination>()
                 .Where(FrontEndRoutes.IsComingSoon).ToArray();
             CollectionAssert.AreEquivalent(
-                new[] { FrontEndDestination.Locker, FrontEndDestination.Missions, FrontEndDestination.Season }, soon);
+                new[] { FrontEndDestination.Missions, FrontEndDestination.Season }, soon);
         }
+
+        [Test]
+        public void 라커룸은_곧_열려요가_아니다() => Assert.IsFalse(FrontEndRoutes.IsComingSoon(FrontEndDestination.Locker));
 
         [Test]
         public void 토스트_문구() => Assert.AreEqual("곧 열려요", FrontEndRoutes.ComingSoonText);

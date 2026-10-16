@@ -52,12 +52,21 @@ namespace LOP.UI
             _currentShell = destination switch
             {
                 FrontEndDestination.Shop => _windowManager.Open<ShopView>(),
+                FrontEndDestination.Locker => _windowManager.Open<LockerView>(),
                 FrontEndDestination.Settings => _windowManager.Open<SettingsView>(),
                 FrontEndDestination.Profile => _windowManager.Open<ProfileView>(),
                 _ => null,
             };
 
             _currentShell?.SetBackCallback(CloseCurrentShell);
+
+            //  상점↔라커룸, 선수 카드→라커룸은 셸 교체다(셸은 한 번에 하나만 열린다).
+            switch (_currentShell)
+            {
+                case ShopView shop: shop.SetLockerCallback(() => OnNavigationRequested(FrontEndDestination.Locker)); break;
+                case LockerView locker: locker.SetShopCallback(() => OnNavigationRequested(FrontEndDestination.Shop)); break;
+                case ProfileView profile: profile.SetLockerCallback(() => OnNavigationRequested(FrontEndDestination.Locker)); break;
+            }
         }
 
         private void OpenGameSelect()

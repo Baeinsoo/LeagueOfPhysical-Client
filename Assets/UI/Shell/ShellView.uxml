@@ -1,11 +1,17 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="shell-root" class="shell-root">
-        <ui:VisualElement name="shell-header" class="shell-header">
-            <ui:Button name="back-button" text="◀ 뒤로" class="btn btn--secondary shell-back" />
-            <ui:Label name="shell-title" text="" class="title shell-title" />
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 메뉴 공통 셸 틀(설정). 상점·라커룸·선수 카드도 같은 머리띠·띠를 쓰고 몸통만 다르다. -->
+    <ui:VisualElement name="shell-root" class="kit shell-root">
+        <ui:VisualElement class="shell-head">
+            <ui:Button name="back-button" class="kit-press kit-btn shell-back"><lop:StickerElement><ui:Label text="◀ 뒤로" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+            <ui:Label name="shell-title" class="kit-title shell-title" />
+            <ui:VisualElement name="shell-coin" class="kit-coin shell-coin"><lop:StickerElement><ui:Label name="shell-coin-text" text="🪙 -" class="kit-coin__text" /></lop:StickerElement></ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="shell-body" class="shell-body">
-            <ui:Label text="(준비 중)" class="card-text shell-placeholder" />
+            <ui:Label text="곧 열려요" class="kit-title shell-soon" />
+        </ui:VisualElement>
+        <ui:VisualElement name="shell-ticker" class="kit-ticker shell-ticker">
+            <lop:StickerElement class="kit-ticker__tag"><ui:VisualElement class="kit-ticker__dot" /><ui:Label text="LIVE" class="kit-title kit-ticker__tag-text" /></lop:StickerElement>
+            <ui:Label text="피지컬 리그" class="kit-ticker__text" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

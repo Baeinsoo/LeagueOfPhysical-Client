@@ -6,20 +6,30 @@ using UnityEngine.UIElements;
 namespace LOP.UI
 {
     /// <summary>
-    /// 상점 셸. 슬롯 탭을 고르면 그 슬롯의 품목 그리드가 뜨고, 칸을 고르면 아래 상세(이름·가격)와
-    /// 구매/장착 버튼이 그 품목 기준으로 바뀐다. 전부 ViewModel의 R3 상태를 구독하는 얇은 바인더다.
+    /// 상점 셸 = 사는 곳. 슬롯 탭 → 카드 그리드(상태 줄) → 고른 품목 막대 → [구매] → 구매 확인 겹창.
+    /// 입기는 라커룸이 맡는다(산 직후 입기만 겹창의 "사면 바로 끼운다"). ViewModel R3 상태를 구독하는 얇은 바인더다.
     /// </summary>
     public class ShopView : ShellView
     {
         private readonly ShopViewModel _viewModel;
+        private System.Action _onLocker;
 
         private VisualElement _tabs;
-        private VisualElement _grid;
-        private Label _detailName;
-        private Label _detailPrice;
+        private ScrollView _grid;
         private Label _message;
+        private Label _barName;
+        private Label _barState;
+        private Label _ownedHint;
         private Button _buyButton;
-        private Button _equipButton;
+        private Button _toLocker;
+        private VisualElement _confirm;
+        private Label _confirmQuestion;
+        private Label _confirmRemaining;
+        private Button _confirmEquip;
+        private Label _confirmEquipMark;
+        private bool _equipAfterBuy = true;
+        private Button _confirmNo;
+        private Button _confirmYes;
 
         public ShopView(ShopViewModel viewModel)
         {
@@ -28,34 +38,53 @@ namespace LOP.UI
 
         protected override string Title => "상점";
 
+        /// <summary>[라커룸으로 ▶]를 누르면 부를 동작. 여는 쪽(FrontEndCoordinator)이 셸 교체로 잇는다.</summary>
+        public void SetLockerCallback(System.Action onLocker) => _onLocker = onLocker;
+
         public override void OnOpen()
         {
             base.OnOpen();
 
             _tabs = Root.Q<VisualElement>("shop-tabs");
-            _grid = Root.Q<VisualElement>("shop-grid");
-            _detailName = Root.Q<Label>("detail-name");
-            _detailPrice = Root.Q<Label>("detail-price");
+            _grid = Root.Q<ScrollView>("shop-grid");
             _message = Root.Q<Label>("shop-message");
+            _barName = Root.Q<Label>("shop-bar-name");
+            _barState = Root.Q<Label>("shop-bar-state");
+            _ownedHint = Root.Q<Label>("shop-owned-hint");
             _buyButton = Root.Q<Button>("buy-button");
-            _equipButton = Root.Q<Button>("equip-button");
+            _toLocker = Root.Q<Button>("shop-to-locker");
+            _confirm = Root.Q<VisualElement>("shop-confirm");
+            _confirmQuestion = Root.Q<Label>("confirm-question");
+            _confirmRemaining = Root.Q<Label>("confirm-remaining");
+            _confirmEquip = Root.Q<Button>("confirm-equip");
+            _confirmEquipMark = Root.Q<Label>("confirm-equip-mark");
+            _confirmNo = Root.Q<Button>("confirm-no");
+            _confirmYes = Root.Q<Button>("confirm-yes");
 
-            _buyButton.clicked += OnBuyClicked;
-            _equipButton.clicked += OnEquipClicked;
+            _buyButton.clicked += OpenConfirm;
+            _toLocker.clicked += OnLockerClicked;
+            _confirmNo.clicked += CloseConfirm;
+            _confirmYes.clicked += OnConfirmYes;
+            _confirmEquip.clicked += ToggleEquipAfterBuy;
 
             BuildTabs();
 
             Disposables.Add(_viewModel.SelectedSlotId.Subscribe(_ => MarkSelectedTab()));
-            //  Items 구독만으로 그리드+상세를 같이 새로 그린다. SelectedCosmeticId에만 묶으면
-            //  "선택은 그대로인데 그 품목의 State/CanBuy만 바뀐" 경우(구매·장착 성공 직후)를
-            //  놓쳐 버튼·가격이 낡은 채로 남는다 — 리뷰에서 지적된 버그.
+            //  Items 구독만으로 그리드+막대를 같이 새로 그린다 — 선택은 그대로인데 그 품목 상태만 바뀐 경우
+            //  (구매 성공 직후, 코인 변화)를 SelectedCosmeticId 구독만으론 놓친다.
             Disposables.Add(_viewModel.Items.Subscribe(RebuildGrid));
             Disposables.Add(_viewModel.SelectedCosmeticId.Subscribe(_ =>
             {
-                MarkSelectedCell();
-                RefreshDetail();
+                //  고른 품목이 바뀌면 이전 품목의 확인 창은 의미가 없다.
+                CloseConfirm();
+                MarkSelectedCard();
+                RefreshBar();
             }));
-            Disposables.Add(_viewModel.Busy.Subscribe(_ => RefreshDetail()));
+            Disposables.Add(_viewModel.Busy.Subscribe(_ =>
+            {
+                RefreshBar();
+                RefreshConfirmButtons();
+            }));
             Disposables.Add(_viewModel.Message.Subscribe(text =>
             {
                 _message.text = text;
@@ -65,17 +94,17 @@ namespace LOP.UI
 
         public override void OnClose()
         {
-            if (_buyButton != null) _buyButton.clicked -= OnBuyClicked;
-            if (_equipButton != null) _equipButton.clicked -= OnEquipClicked;
+            CloseConfirm();
+            if (_buyButton != null) _buyButton.clicked -= OpenConfirm;
+            if (_toLocker != null) _toLocker.clicked -= OnLockerClicked;
+            if (_confirmNo != null) _confirmNo.clicked -= CloseConfirm;
+            if (_confirmYes != null) _confirmYes.clicked -= OnConfirmYes;
+            if (_confirmEquip != null) _confirmEquip.clicked -= ToggleEquipAfterBuy;
 
             base.OnClose();
         }
 
-        //  BuyAsync(true) — 산 품목은 사자마자 장착한다. 이미 가진 품목을 다시 장착하는 길은
-        //  별도의 equip-button(EquipAsync)이다.
-        private void OnBuyClicked() => _viewModel.BuyAsync(true).Forget();
-
-        private void OnEquipClicked() => _viewModel.EquipAsync().Forget();
+        private void OnLockerClicked() => _onLocker?.Invoke();
 
         private void BuildTabs()
         {
@@ -83,10 +112,14 @@ namespace LOP.UI
             foreach (var slot in _viewModel.Slots)
             {
                 int slotId = slot.SlotId;
-                var tab = new Button(() => _viewModel.SelectSlot(slotId)) { text = slot.Name };
-                tab.AddToClassList("btn");
-                tab.AddToClassList("btn--secondary");
+                var tab = new Button(() => _viewModel.SelectSlot(slotId));
+                tab.AddToClassList("kit-press");
+                tab.AddToClassList("kit-chip");
                 tab.AddToClassList("shop-tab");
+                var text = new Label();
+                text.AddToClassList("kit-chip__text");
+                KitEllipsis.SetText(text, slot.Name);
+                tab.Add(text);
                 tab.userData = slotId;
                 _tabs.Add(tab);
             }
@@ -101,8 +134,7 @@ namespace LOP.UI
             int selected = _viewModel.SelectedSlotId.CurrentValue;
             foreach (var child in _tabs.Children())
             {
-                bool isSelected = child.userData is int slotId && slotId == selected;
-                child.EnableInClassList("shop-tab--selected", isSelected);
+                child.EnableInClassList("kit-chip--picked", child.userData is int slotId && slotId == selected);
             }
         }
 
@@ -111,97 +143,157 @@ namespace LOP.UI
             _grid.Clear();
             if (items == null) return;
 
-            foreach (var item in items)
+            long coins = _viewModel.Coins.CurrentValue;
+            for (int i = 0; i < items.Count; i++)
             {
+                var item = items[i];
                 int cosmeticId = item.CosmeticId;
-                var cell = new Button(() => _viewModel.Select(cosmeticId));
-                cell.AddToClassList("shop-cell");
-                cell.userData = cosmeticId;
-
-                var name = new Label(item.Name);
-                name.AddToClassList("item-name");
-                cell.Add(name);
-
-                var price = new Label(FormatPrice(item));
-                price.AddToClassList("item-price");
-                cell.Add(price);
-
-                string badgeText = BadgeText(item.State);
-                if (!string.IsNullOrEmpty(badgeText))
-                {
-                    var badge = new Label(badgeText);
-                    badge.AddToClassList("item-badge");
-                    cell.Add(badge);
-                }
-
-                _grid.Add(cell);
+                var card = BuildCard(item.Name, i, () => _viewModel.Select(cosmeticId), out var state);
+                var (text, dim) = ShopFormat.StateLine(item, coins);
+                state.text = text;
+                state.EnableInClassList("shop-card__state--dim", dim);
+                card.userData = cosmeticId;
+                _grid.Add(card);
             }
 
-            MarkSelectedCell();
-            RefreshDetail();
+            MarkSelectedCard();
+            RefreshBar();
+            RefreshConfirm();
         }
 
-        private void MarkSelectedCell()
+        //  확인 창이 열린 채 코인·보유가 바뀌면(열 때 받은 조회, 다른 경로의 응답) 남는 코인을 다시 세고,
+        //  더 못 사게 됐으면 닫는다. 구매 응답을 기다리는 중이면 그 끝에서 닫히니 건드리지 않는다.
+        private void RefreshConfirm()
+        {
+            if (_confirm == null || !_confirm.ClassListContains("shop-confirm--open") || _viewModel.Busy.CurrentValue) return;
+
+            string remaining = TryGetSelected(out var item) ? ShopFormat.ConfirmRemainingOrNull(item, _viewModel.Coins.CurrentValue) : null;
+            if (remaining == null) CloseConfirm();
+            else _confirmRemaining.text = remaining;
+        }
+
+        /// <summary>상점·라커룸이 같이 쓰는 카드 — 아이콘 자리(이름 첫 글자), 이름(말줄임), 상태 줄.</summary>
+        internal static Button BuildCard(string itemName, int index, System.Action onClick, out Label state)
+        {
+            var card = new Button(onClick);
+            card.AddToClassList("kit-press");
+            card.AddToClassList("kit-card");
+            card.AddToClassList("shop-card");
+            var sticker = new StickerElement();
+            sticker.AddToClassList("sticker--card");
+
+            //  아이템 그림이 아직 없어 이름 첫 글자를 색 판 위에 둔다(종목 카드와 같은 자리).
+            var art = new VisualElement();
+            art.AddToClassList("kit-card__art");
+            art.AddToClassList($"kit-card__art--{index % 5}");
+            var initial = new Label(string.IsNullOrEmpty(itemName) ? "?" : itemName.Substring(0, 1));
+            initial.AddToClassList("kit-title");
+            initial.AddToClassList("kit-card__art-text");
+            art.Add(initial);
+
+            var name = new Label();
+            name.AddToClassList("kit-card__name");
+            KitEllipsis.SetText(name, itemName);
+
+            state = new Label();
+            state.AddToClassList("kit-card__desc");
+
+            sticker.Add(art);
+            sticker.Add(name);
+            sticker.Add(state);
+            card.Add(sticker);
+            return card;
+        }
+
+        private void MarkSelectedCard()
         {
             if (_grid == null) return;
 
             int selected = _viewModel.SelectedCosmeticId.CurrentValue;
             foreach (var child in _grid.Children())
             {
-                bool isSelected = child.userData is int cosmeticId && cosmeticId == selected;
-                child.EnableInClassList("shop-cell--selected", isSelected);
+                child.EnableInClassList("shop-card--picked", child.userData is int cosmeticId && cosmeticId == selected);
             }
         }
 
-        private void RefreshDetail()
+        private bool TryGetSelected(out ShopItem selected)
         {
-            int selected = _viewModel.SelectedCosmeticId.CurrentValue;
-
-            ShopItem? found = null;
+            int selectedId = _viewModel.SelectedCosmeticId.CurrentValue;
             foreach (var item in _viewModel.Items.CurrentValue)
             {
-                if (item.CosmeticId == selected)
+                if (item.CosmeticId == selectedId)
                 {
-                    found = item;
-                    break;
+                    selected = item;
+                    return true;
                 }
             }
+            selected = default;
+            return false;
+        }
 
-            if (found == null)
+        private void RefreshBar()
+        {
+            if (_barName == null) return;
+
+            if (!TryGetSelected(out var item))
             {
-                _detailName.text = string.Empty;
-                _detailPrice.text = string.Empty;
-                _buyButton.SetEnabled(false);
-                _equipButton.SetEnabled(false);
+                KitEllipsis.SetText(_barName, string.Empty);
+                _barState.text = string.Empty;
+                _buyButton.style.display = DisplayStyle.None;
+                _ownedHint.style.display = DisplayStyle.None;
                 return;
             }
 
-            var selectedItem = found.Value;
-            _detailName.text = selectedItem.Name;
-            _detailPrice.text = FormatPrice(selectedItem);
+            KitEllipsis.SetText(_barName, item.Name);
+            _barState.text = ShopFormat.StateLine(item, _viewModel.Coins.CurrentValue).text;
 
-            //  요청이 응답을 기다리는 동안(Busy)은 둘 다 잠근다 — 안 그러면 응답 전에 또 눌러
-            //  같은 멱등키로 중복 요청을 보낸다.
+            //  가진 것(보유·장착 중·기본)은 여기서 살 게 없다 — 입는 곳(라커룸)을 알려 준다.
+            bool notOwned = item.State == ItemState.NotOwned;
+            _buyButton.style.display = notOwned ? DisplayStyle.Flex : DisplayStyle.None;
+            _ownedHint.style.display = notOwned ? DisplayStyle.None : DisplayStyle.Flex;
+            //  응답을 기다리는 동안(Busy)은 잠근다 — 안 그러면 같은 멱등키로 중복 요청을 보낸다.
+            _buyButton.SetEnabled(!_viewModel.Busy.CurrentValue && item.CanBuy);
+        }
+
+        private void OpenConfirm()
+        {
+            if (!TryGetSelected(out var item) || !item.CanBuy || item.CoinPrice is not long price) return;
+
+            _confirmQuestion.text = ShopFormat.ConfirmQuestion(item.Name, price);
+            _confirmRemaining.text = ShopFormat.RemainingCoins(_viewModel.Coins.CurrentValue, price);
+            SetEquipAfterBuy(true);
+            _confirm.AddToClassList("shop-confirm--open");
+            RefreshConfirmButtons();
+        }
+
+        private void CloseConfirm() => _confirm?.RemoveFromClassList("shop-confirm--open");
+
+        private void RefreshConfirmButtons()
+        {
+            if (_confirmYes == null) return;
+
             bool busy = _viewModel.Busy.CurrentValue;
-            _buyButton.SetEnabled(!busy && selectedItem.CanBuy);
-            _equipButton.SetEnabled(!busy && selectedItem.CanEquip);
+            _confirmYes.SetEnabled(!busy);
+            _confirmNo.SetEnabled(!busy);
+            _confirmEquip.SetEnabled(!busy);
         }
 
-        //  "300 코인" / 비매품 기본 품목은 "기본" / 그 외 가격이 없으면 "-"(현재 데이터엔 안 나오지만
-        //  방어적으로 둔다).
-        private static string FormatPrice(ShopItem item)
+        private void ToggleEquipAfterBuy() => SetEquipAfterBuy(!_equipAfterBuy);
+
+        private void SetEquipAfterBuy(bool on)
         {
-            if (item.CoinPrice.HasValue) return $"{item.CoinPrice.Value} 코인";
-            return item.State == ItemState.Default ? "기본" : "-";
+            _equipAfterBuy = on;
+            _confirmEquipMark.text = on ? "✓" : string.Empty;
         }
 
-        private static string BadgeText(ItemState state) => state switch
+        private void OnConfirmYes() => BuyAndCloseAsync(_equipAfterBuy).Forget();
+
+        //  성공·거절 어느 쪽이든 닫는다 — 거절 문구는 막대 위 메시지 줄에 남는다.
+        private async UniTaskVoid BuyAndCloseAsync(bool equip)
         {
-            ItemState.Owned => "보유",
-            ItemState.Equipped => "장착",
-            ItemState.Default => "기본",
-            _ => string.Empty,
-        };
+            await _viewModel.BuyAsync(equip);
+            CloseConfirm();
+        }
 
         private bool _disposed;
 

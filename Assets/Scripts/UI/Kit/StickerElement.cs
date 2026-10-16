@@ -7,6 +7,8 @@ namespace LOP.UI
     /// 스티커 한 장: 남색 뒷면(이 요소가 그림) 위에 기울어진 크림 앞면(자식 Face가 그림).
     /// USS로는 기울인 모양·어긋난 그림자를 못 그려 Painter2D로 칠한다.
     /// 눌림은 USS가 Face만 뒷면 쪽으로 옮겨서 낸다(.kit-press:active .sticker__face).
+    /// 고름 표시는 앞면 둘레 바깥에 그리는 테두리(--sticker-ring 색, --sticker-ring-width 보이는 두께)다 —
+    /// 버튼 border는 늘 직사각형이라 기운 앞면과 어긋난다.
     /// </summary>
     [UxmlElement]
     public partial class StickerElement : VisualElement
@@ -18,6 +20,8 @@ namespace LOP.UI
         private static readonly CustomStyleProperty<float> BackYProp = new("--sticker-back-y");
         private static readonly CustomStyleProperty<Color> FaceProp = new("--sticker-face");
         private static readonly CustomStyleProperty<Color> BackProp = new("--sticker-back");
+        private static readonly CustomStyleProperty<Color> RingProp = new("--sticker-ring");
+        private static readonly CustomStyleProperty<float> RingWidthProp = new("--sticker-ring-width");
 
         public VisualElement Face { get; }
         public override VisualElement contentContainer => Face;
@@ -29,6 +33,8 @@ namespace LOP.UI
         public float BackY = 9f;
         public Color FaceColor = new Color32(0xFF, 0xF8, 0xE8, 0xFF);
         public Color BackColor = new Color32(0x2C, 0x2A, 0x6B, 0xFF);
+        public Color RingColor = new Color32(0xFF, 0xD2, 0x3F, 0xFF);
+        public float RingWidth;
 
         public StickerElement()
         {
@@ -57,6 +63,9 @@ namespace LOP.UI
             if (s.TryGetValue(BackYProp, out var by)) BackY = by;
             if (s.TryGetValue(FaceProp, out var fc)) FaceColor = fc;
             if (s.TryGetValue(BackProp, out var bc)) BackColor = bc;
+            if (s.TryGetValue(RingProp, out var rc)) RingColor = rc;
+            //  고름이 풀리면 이 값이 사라진다 — 없으면 0으로 돌려 테두리를 지운다.
+            RingWidth = s.TryGetValue(RingWidthProp, out var rw) ? rw : 0f;
             MarkDirtyRepaint();
             Face.MarkDirtyRepaint();
         }
@@ -68,6 +77,17 @@ namespace LOP.UI
             var face = Shape(Box(this));
             if (face.Length == 0) return;
             Fill(ctx.painter2D, StickerGeometry.Offset(face, BackX, BackY), BackColor, Box(this), BackX, BackY);
+            if (RingWidth > 0f)
+            {
+                //  앞면 아래 층에 두 배 굵기로 그린다 — 안쪽 반은 앞면·그림이 덮고 바깥 반(RingWidth)만 고르게 보인다.
+                //  앞면 위에 그리면 그림 칸이 덮는 위쪽만 얇아진다.
+                var p = ctx.painter2D;
+                p.strokeColor = RingColor;
+                p.lineWidth = RingWidth * 2f;
+                p.lineJoin = LineJoin.Round;
+                BuildPath(p, face, Box(this), 0f, 0f);
+                p.Stroke();
+            }
         }
 
         private void DrawFace(MeshGenerationContext ctx)
@@ -83,6 +103,12 @@ namespace LOP.UI
         private void Fill(Painter2D p, Vector2[] pts, Color color, Rect r, float dx, float dy)
         {
             p.fillColor = color;
+            BuildPath(p, pts, r, dx, dy);
+            p.Fill();
+        }
+
+        private void BuildPath(Painter2D p, Vector2[] pts, Rect r, float dx, float dy)
+        {
             p.BeginPath();
             if (Radius > 0f)
             {
@@ -104,7 +130,6 @@ namespace LOP.UI
                 for (int i = 1; i < pts.Length; i++) p.LineTo(pts[i]);
             }
             p.ClosePath();
-            p.Fill();
         }
     }
 }

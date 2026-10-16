@@ -12,6 +12,7 @@ namespace LOP
         // 전역 WindowManager에 로비 스코프 View 팩토리를 기여한 핸들(OnDestroy에서 해제).
         private IDisposable _lobbyHomeViewRegistration;
         private IDisposable _shopViewRegistration;
+        private IDisposable _lockerViewRegistration;
         private IDisposable _settingsViewRegistration;
         private IDisposable _profileViewRegistration;
         private IDisposable _changeDisplayNameViewRegistration;
@@ -55,6 +56,8 @@ namespace LOP
             //  View와 함께 Transient — 상점을 열 때마다 그 시점의 스토어 값으로 품목 상태를 다시 센다.
             builder.Register<ShopViewModel>(Lifetime.Transient);
             builder.Register<ShopView>(Lifetime.Transient);
+            builder.Register<LockerViewModel>(Lifetime.Transient);
+            builder.Register<LockerView>(Lifetime.Transient);
             builder.Register<SettingsView>(Lifetime.Transient);
             // View와 함께 Transient — 프로필을 열 때마다 전적을 다시 받아온다.
             builder.Register<ProfileViewModel>(Lifetime.Transient);
@@ -89,6 +92,7 @@ namespace LOP
 
                 // 셸도 같은 방식으로 기여: FrontEndCoordinator의 Open<T>가 이 스코프 resolver로 셸을 만든다.
                 _shopViewRegistration = windowManager.RegisterViewFactory<ShopView>(() => container.Resolve<ShopView>());
+                _lockerViewRegistration = windowManager.RegisterViewFactory<LockerView>(() => container.Resolve<LockerView>());
                 _settingsViewRegistration = windowManager.RegisterViewFactory<SettingsView>(() => container.Resolve<SettingsView>());
                 _profileViewRegistration = windowManager.RegisterViewFactory<ProfileView>(() => container.Resolve<ProfileView>());
                 _changeDisplayNameViewRegistration = windowManager.RegisterViewFactory<ChangeDisplayNameView>(() => container.Resolve<ChangeDisplayNameView>());
@@ -114,6 +118,7 @@ namespace LOP
             // 정리는 그 컨테이너 dispose에서 함께 일어난다.
             _lobbyHomeViewRegistration?.Dispose();
             _shopViewRegistration?.Dispose();
+            _lockerViewRegistration?.Dispose();
             _settingsViewRegistration?.Dispose();
             _profileViewRegistration?.Dispose();
             _changeDisplayNameViewRegistration?.Dispose();

@@ -1,21 +1,38 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="shell-root" class="shell-root">
-        <ui:VisualElement name="shell-header" class="shell-header">
-            <ui:Button name="back-button" text="◀ 뒤로" class="btn btn--secondary shell-back" />
-            <ui:Label name="shell-title" text="" class="title shell-title" />
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 선수 카드. 셸 틀(머리띠·띠)은 ShellView.uxml과 같은 마크업. 왼쪽 정보 판, 오른쪽 최근 전적. -->
+    <Style src="ShellView.uss" />
+    <ui:VisualElement name="shell-root" class="kit shell-root">
+        <ui:VisualElement class="shell-head">
+            <ui:Button name="back-button" class="kit-press kit-btn shell-back"><lop:StickerElement><ui:Label text="◀ 뒤로" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+            <ui:Label name="shell-title" class="kit-title shell-title" />
+            <ui:VisualElement name="shell-coin" class="kit-coin shell-coin"><lop:StickerElement><ui:Label name="shell-coin-text" text="🪙 -" class="kit-coin__text" /></lop:StickerElement></ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="shell-body" class="shell-body profile-body">
-            <ui:VisualElement name="profile-identity" class="profile-identity">
-                <ui:Label name="profile-name" text="" class="title profile-name" />
-                <ui:Button name="profile-rename" text="이름 바꾸기" class="btn btn--secondary profile-rename" />
+            <ui:VisualElement name="profile-card" class="kit-panel profile-card">
+                <ui:VisualElement class="kit-panel__back" />
+                <ui:VisualElement class="kit-panel__face profile-card__face">
+                    <ui:VisualElement class="profile-identity">
+                        <ui:Label name="profile-name" class="kit-title profile-name" />
+                        <ui:Button name="profile-rename" class="kit-press kit-btn profile-small-btn"><lop:StickerElement><ui:Label text="이름 바꾸기" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+                    </ui:VisualElement>
+                    <ui:Label name="profile-status" text="불러오는 중…" class="profile-status" />
+                    <ui:Label name="profile-level" class="profile-level" />
+                    <ui:VisualElement name="profile-rank" class="profile-rank" />
+                    <ui:VisualElement name="profile-records" class="profile-records" />
+                    <ui:VisualElement class="profile-equipped-row">
+                        <ui:Label name="profile-equipped" class="profile-equipped" />
+                        <ui:Button name="profile-to-locker" class="kit-press kit-btn kit-btn--info profile-small-btn"><lop:StickerElement><ui:Label text="라커룸" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+                    </ui:VisualElement>
+                </ui:VisualElement>
             </ui:VisualElement>
-            <ui:Label name="profile-status" text="불러오는 중…" class="card-text profile-status" />
-            <ui:VisualElement name="profile-progress" class="profile-queue" />
-            <ui:VisualElement name="profile-queues" class="profile-queues" />
-            <ui:Label name="profile-equipped-title" text="장착" class="card-text profile-queue-name" />
-            <ui:VisualElement name="profile-equipped" class="profile-queue" />
-            <ui:Label name="profile-history-title" text="최근 전적" class="card-text profile-queue-name" />
-            <ui:ScrollView name="profile-history" class="profile-history" />
+            <ui:VisualElement class="profile-side">
+                <ui:Label name="profile-history-title" text="최근 기록" class="kit-title profile-side__title" />
+                <ui:ScrollView name="profile-history" class="profile-history" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="shell-ticker" class="kit-ticker shell-ticker">
+            <lop:StickerElement class="kit-ticker__tag"><ui:VisualElement class="kit-ticker__dot" /><ui:Label text="LIVE" class="kit-title kit-ticker__tag-text" /></lop:StickerElement>
+            <ui:Label text="피지컬 리그" class="kit-ticker__text" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

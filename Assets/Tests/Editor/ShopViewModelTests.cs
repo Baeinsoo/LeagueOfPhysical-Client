@@ -9,9 +9,9 @@ using R3;
 namespace LOP.Tests
 {
     /// <summary>
-    /// 상점 ViewModel — 슬롯 선택 → 품목 상태(기본/보유/장착), 구매·장착 응답 반영, 거절 코드 → 문구,
+    /// 상점 ViewModel — 슬롯 선택 → 품목 상태(기본/보유/장착), 구매 응답 반영, 거절 코드 → 문구,
     /// 멱등키 재사용. 실제 배포 .bytes 카탈로그(CosmeticCatalogTests와 같은 소스)를 쓰고
-    /// 조회·구매·장착은 가짜를 주입한다(MatchResultRankTests와 같은 방식).
+    /// 조회·구매는 가짜를 주입한다(MatchResultRankTests와 같은 방식).
     /// </summary>
     public class ShopViewModelTests
     {
@@ -40,15 +40,14 @@ namespace LOP.Tests
             long coins = 700,
             LoadoutSlotDto[] loadout = null,
             OwnedCosmeticDto[] owned = null,
-            Func<string, PurchaseCosmeticRequest, CancellationToken, UniTask<PurchaseCosmeticResponse>> purchase = null,
-            Func<string, SetLoadoutRequest, CancellationToken, UniTask<SetLoadoutResponse>> setLoadout = null)
+            Func<string, PurchaseCosmeticRequest, CancellationToken, UniTask<PurchaseCosmeticResponse>> purchase = null)
         {
             var users = new FakeUserDataStore { user = new User { id = "me" } };
             var store = new EconomyStore(users, Catalog,
                 (userId, ct) => UniTask.FromResult(EconomyResponse(coins, loadout, owned)));
             store.RefreshAsync(CancellationToken.None).Forget();
 
-            var vm = new ShopViewModel(store, Catalog, users, purchase, setLoadout);
+            var vm = new ShopViewModel(store, Catalog, users, purchase);
             return (vm, store);
         }
 
@@ -157,34 +156,6 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 장착_진행_중에도_Busy가_true다()
-        {
-            var hat = Catalog.SlotByCode("hat");
-            var red = Catalog.ByCode("hat_cube_red");
-            var completion = new UniTaskCompletionSource<SetLoadoutResponse>();
-
-            Func<string, SetLoadoutRequest, CancellationToken, UniTask<SetLoadoutResponse>> setLoadout =
-                (userId, request, ct) => completion.Task;
-
-            var (vm, _) = NewViewModel(
-                owned: new[] { new OwnedCosmeticDto { id = "u1", cosmeticId = red.Id, source = "purchase", acquiredAt = "2026-10-11T00:00:00.000Z" } },
-                setLoadout: setLoadout);
-            vm.SelectSlot(hat.Id);
-            vm.Select(red.Id);
-
-            vm.EquipAsync().Forget();
-            Assert.IsTrue(vm.Busy.CurrentValue);
-
-            completion.TrySetResult(new SetLoadoutResponse
-            {
-                code = ResponseCode.SUCCESS,
-                loadout = new[] { new LoadoutSlotDto { slotId = hat.Id, userCosmeticId = "u1", cosmeticId = red.Id } },
-            });
-
-            Assert.IsFalse(vm.Busy.CurrentValue);
-        }
-
-        [Test]
         public void 코인_부족_거절은_문구를_띄우고_store를_바꾸지_않으며_같은_멱등키로_재시도한다()
         {
             var hat = Catalog.SlotByCode("hat");
@@ -244,39 +215,6 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 장착_요청은_슬롯과_보유_인스턴스_id를_담는다()
-        {
-            var hat = Catalog.SlotByCode("hat");
-            var red = Catalog.ByCode("hat_cube_red");
-            SetLoadoutRequest seenRequest = null;
-
-            Func<string, SetLoadoutRequest, CancellationToken, UniTask<SetLoadoutResponse>> setLoadout =
-                (userId, request, ct) =>
-                {
-                    seenRequest = request;
-                    return UniTask.FromResult(new SetLoadoutResponse
-                    {
-                        code = ResponseCode.SUCCESS,
-                        loadout = new[] { new LoadoutSlotDto { slotId = hat.Id, userCosmeticId = "u1", cosmeticId = red.Id } },
-                    });
-                };
-
-            var (vm, _) = NewViewModel(
-                owned: new[] { new OwnedCosmeticDto { id = "u1", cosmeticId = red.Id, source = "purchase", acquiredAt = "2026-10-11T00:00:00.000Z" } },
-                setLoadout: setLoadout);
-            vm.SelectSlot(hat.Id);
-            vm.Select(red.Id);
-
-            vm.EquipAsync().Forget();
-
-            Assert.IsNotNull(seenRequest);
-            Assert.AreEqual(hat.Id, seenRequest.slotId);
-            Assert.AreEqual("u1", seenRequest.userCosmeticId);
-            Assert.AreEqual(ItemState.Equipped, Find(vm.Items.CurrentValue, red.Id).State);
-            Assert.AreEqual(string.Empty, vm.Message.CurrentValue);
-        }
-
-        [Test]
         public void 거절_코드마다_정해진_문구를_띄운다()
         {
             var hat = Catalog.SlotByCode("hat");
@@ -321,13 +259,12 @@ namespace LOP.Tests
         }
 
         private static (ShopViewModel vm, EconomyStore store) NewViewModelWith(CountingFetch fetch,
-            Func<string, PurchaseCosmeticRequest, CancellationToken, UniTask<PurchaseCosmeticResponse>> purchase = null,
-            Func<string, SetLoadoutRequest, CancellationToken, UniTask<SetLoadoutResponse>> setLoadout = null)
+            Func<string, PurchaseCosmeticRequest, CancellationToken, UniTask<PurchaseCosmeticResponse>> purchase = null)
         {
             var users = new FakeUserDataStore { user = new User { id = "me" } };
             var store = new EconomyStore(users, Catalog, fetch.Fetch);
             store.RefreshAsync(CancellationToken.None).Forget();
-            var vm = new ShopViewModel(store, Catalog, users, purchase, setLoadout);
+            var vm = new ShopViewModel(store, Catalog, users, purchase);
             return (vm, store);
         }
 
@@ -339,7 +276,7 @@ namespace LOP.Tests
             var store = new EconomyStore(users, Catalog, fetch.Fetch);
 
             Assert.AreEqual(0, fetch.Calls);
-            var vm = new ShopViewModel(store, Catalog, users, null, null);
+            var vm = new ShopViewModel(store, Catalog, users, null);
 
             //  로비 진입 때 조회가 실패했어도 상점을 여는 순간 다시 받아 온다.
             Assert.AreEqual(1, fetch.Calls);
@@ -463,7 +400,7 @@ namespace LOP.Tests
 
             var users = new FakeUserDataStore { user = new User { id = "me" } };
             var store = new EconomyStore(users, catalog, (userId, ct) => UniTask.FromResult(EconomyResponse(700, null, null)));
-            var vm = new ShopViewModel(store, catalog, users, null, null);
+            var vm = new ShopViewModel(store, catalog, users, null);
             store.RefreshAsync(CancellationToken.None).Forget();
             vm.SelectSlot(hat.Id);
 
@@ -473,47 +410,35 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 기본_품목을_장착하면_모자를_벗는다()
+        public void 코인은_스토어_값을_그대로_보인다()
+        {
+            var (vm, store) = NewViewModel(coins: 1240);
+
+            Assert.AreEqual(1240, vm.Coins.CurrentValue);
+            Assert.AreSame(store.Coins, vm.Coins);
+        }
+
+        [Test]
+        public void 응답_전에_상점을_닫아도_산_결과는_스토어에_남는다()
         {
             var hat = Catalog.SlotByCode("hat");
-            var none = Catalog.ByCode("hat_none");
             var red = Catalog.ByCode("hat_cube_red");
-            SetLoadoutRequest seenRequest = null;
-
-            Func<string, SetLoadoutRequest, CancellationToken, UniTask<SetLoadoutResponse>> setLoadout =
-                (userId, request, ct) =>
-                {
-                    seenRequest = request;
-                    return UniTask.FromResult(new SetLoadoutResponse
-                    {
-                        code = ResponseCode.SUCCESS,
-                        loadout = new[] { new LoadoutSlotDto { slotId = hat.Id, userCosmeticId = "u-none", cosmeticId = none.Id } },
-                    });
-                };
-
-            //  백엔드가 기본 품목도 보유 행으로 깔아 둔다(bootstrap) — 그 인스턴스로 장착하는 것이 "벗기"다.
-            var (vm, _) = NewViewModel(
-                loadout: new[] { new LoadoutSlotDto { slotId = hat.Id, userCosmeticId = "u-red", cosmeticId = red.Id } },
-                owned: new[]
-                {
-                    new OwnedCosmeticDto { id = "u-none", cosmeticId = none.Id, source = "default", acquiredAt = "2026-10-11T00:00:00.000Z" },
-                    new OwnedCosmeticDto { id = "u-red", cosmeticId = red.Id, source = "purchase", acquiredAt = "2026-10-11T00:00:00.000Z" },
-                },
-                setLoadout: setLoadout);
+            var pending = new UniTaskCompletionSource<PurchaseCosmeticResponse>();
+            var (vm, store) = NewViewModel(coins: 700, purchase: (u, r, c) => pending.Task);
             vm.SelectSlot(hat.Id);
-            vm.Select(none.Id);
+            vm.Select(red.Id);
+            vm.BuyAsync(true).Forget();
 
-            var noneItem = Find(vm.Items.CurrentValue, none.Id);
-            Assert.AreEqual(ItemState.Default, noneItem.State, "기본 표시는 그대로 둔다");
-            Assert.IsTrue(noneItem.CanEquip, "보유했고 장착 안 된 기본 품목은 장착할 수 있어야 한다");
-            Assert.IsFalse(Find(vm.Items.CurrentValue, red.Id).CanEquip, "이미 장착한 품목은 또 장착할 게 없다");
+            vm.Dispose();
+            pending.TrySetResult(new PurchaseCosmeticResponse
+            {
+                code = ResponseCode.SUCCESS,
+                wallets = new[] { new WalletDto { currencyId = Catalog.CoinCurrencyId, balance = 400 } },
+                owned = new OwnedCosmeticDto { id = "u-red", cosmeticId = red.Id, source = "purchase", acquiredAt = "2026-10-16T00:00:00.000Z" },
+            });
 
-            vm.EquipAsync().Forget();
-
-            Assert.IsNotNull(seenRequest);
-            Assert.AreEqual(hat.Id, seenRequest.slotId);
-            Assert.AreEqual("u-none", seenRequest.userCosmeticId);
-            Assert.AreEqual(ItemState.Equipped, Find(vm.Items.CurrentValue, none.Id).State);
+            Assert.AreEqual(400, store.Coins.CurrentValue, "로비 코인 칩이 서버 잔액과 같아야 한다");
+            Assert.AreEqual(1, store.Owned.CurrentValue.Count);
         }
     }
 }

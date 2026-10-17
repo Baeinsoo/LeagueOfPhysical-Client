@@ -93,6 +93,9 @@ namespace LOP.EditorTools
             if (view == nameof(LockerView)) FillLocker(viewRoot);
             if (view == nameof(ProfileView)) FillProfile(viewRoot);
             if (view == nameof(ChangeDisplayNameView)) FillRename(viewRoot);
+            //  작은 창: 가장 긴 출전 취소 사유, 관전 상태.
+            if (view == nameof(MatchmakingFailedView)) viewRoot.Q<Label>("mmf-message").text = MatchmakingCoordinator.MessageFor(CancellationReason.Internal);
+            if (view == nameof(RaceSpectateView)) viewRoot.Q<Label>("spectate-status").text = "관전 2 / 7";
             FillShell(viewRoot, view);
         }
 

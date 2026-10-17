@@ -50,5 +50,18 @@ namespace LOP.Tests
         [TestCase(CancellationReason.User, "출전이 취소됐어요.")]
         public void 출전_취소_사유_문구(CancellationReason reason, string expected) =>
             Assert.AreEqual(expected, LOP.UI.MatchmakingCoordinator.MessageFor(reason));
+
+        [Test]
+        public void 관전_막대는_키트_막대이고_경기_입력을_막지_않는다()
+        {
+            var x = File.ReadAllText("Assets/UI/RaceSpectate/RaceSpectateView.uxml");
+            AssertNames(x, "spectate-root", "spectate-leave", "spectate-bar", "spectate-prev", "spectate-status", "spectate-next");
+            StringAssert.Contains("name=\"spectate-root\" class=\"kit spectate-root\" picking-mode=\"Ignore\"", x);
+            StringAssert.Contains("name=\"spectate-bar\" class=\"spectate-bar\" picking-mode=\"Ignore\"", x);
+            AssertNoOldClasses(x);
+            var s = File.ReadAllText("Assets/UI/RaceSpectate/RaceSpectateView.uss");
+            StringAssert.Contains("min-width", s);   // 후보가 없어 상태가 빈칸이어도 스티커가 찌그러지지 않게
+            StringAssert.DoesNotContain("#000", s);
+        }
     }
 }

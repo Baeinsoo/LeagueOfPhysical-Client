@@ -5,7 +5,9 @@ namespace LOP.UI
     /// <summary>
     /// 마스터데이터에서 "지금 실제로 입장할 수 있는 게임" 목록을 뽑는 side-local 어댑터.
     ///
-    /// 두 조건을 모두 만족해야 목록에 넣는다. 둘 다 없으면 골라도 못 들어가기 때문이다:
+    /// 세 조건을 모두 만족해야 목록에 넣는다:
+    ///   - 일반 큐(TbQueue Casual)의 허용 목록에 있어야 한다. 매칭 서버도 이 목록대로만 맞추니,
+    ///     목록에 없는 종목은 골라도 매치가 안 잡힌다. 어떤 종목을 내보일지는 이 데이터가 정한다.
     ///   - 게임 씬 경로가 있어야 한다. 비어 있으면 로더가 그대로 예외를 던진다(MatchSceneResolver).
     ///   - 그 게임에 속한 맵이 하나는 있어야 한다. 없으면 티켓에 실을 mapId가 없다.
     /// 그래서 아직 만들지 않은 게임(씬 경로가 빈 행)은 저절로 빠진다.
@@ -34,8 +36,16 @@ namespace LOP.UI
                 maps.Sort((left, right) => left.MapId.CompareTo(right.MapId));
             }
 
+            var casual = md.Tables.TbQueue.GetOrDefault(QueueChoice.QueueId(QueueKind.Casual, md.Tables.TbQueue));
+            var allowed = casual != null ? new HashSet<int>(casual.AllowedGameModeIds) : new HashSet<int>();
+
             foreach (var gameMode in md.Tables.TbGameMode.DataList)
             {
+                if (allowed.Contains(gameMode.Id) == false)
+                {
+                    continue;
+                }
+
                 if (string.IsNullOrEmpty(gameMode.ScenePath))
                 {
                     continue;

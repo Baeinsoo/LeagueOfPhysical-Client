@@ -22,6 +22,16 @@ namespace LOP
         //  22도면 같은 거리에서 약 3.5%가 된다.
         private const float DrawnFov = 22f;
 
+        //  투석기는 덜 좁힌다. 과녁이 좌우 ±30°·위로 25°까지 퍼져 있어 22°면 다음 과녁이 화면 밖이고,
+        //  엄지가 거기까지 갈 거리도 모자란다. 과녁이 크고 가까워 크게 볼 이유도 적다.
+        private const float CatapultDrawnFov = 40f;
+
+        /// <summary>
+        /// 만작일 때의 화각. 화면만 바뀐다 — 조준은 카메라가 보는 방향(각도)이라 시뮬·판정은 화각을 모른다.
+        /// </summary>
+        public static float DrawnFovFor(ArcheryCourseKind kind)
+            => kind == ArcheryCourseKind.Catapult ? CatapultDrawnFov : DrawnFov;
+
         private const float FovLerpPerSecond = 8f;
 
         //  화면이 따라가는 당김이 한 프레임에 이만큼보다 빨리 변하지 않는다(초당 비율).
@@ -91,7 +101,7 @@ namespace LOP
 
             camera.fieldOfView = Mathf.Lerp(
                 camera.fieldOfView,
-                Mathf.Lerp(WideFov, DrawnFov, shownDrawRatio),
+                Mathf.Lerp(WideFov, DrawnFovFor(config.CourseKind), shownDrawRatio),
                 Time.deltaTime * FovLerpPerSecond);
         }
 

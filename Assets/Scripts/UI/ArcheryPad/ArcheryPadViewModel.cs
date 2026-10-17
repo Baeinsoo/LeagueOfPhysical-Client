@@ -15,6 +15,7 @@ namespace LOP.UI
         private readonly IPlayerContext playerContext;
         private readonly ArcheryImpactLog impactLog;
         private readonly ArcheryConfig config;
+        private readonly ArcheryCourse course;
 
         //  걷기 스틱을 민 양. 스틱을 놓으면 0이 되고, 그 0도 매 프레임 밀어야 캐릭이 선다.
         private Vector2 moveStick;
@@ -48,6 +49,13 @@ namespace LOP.UI
         //  지금 얼마나 오래 누르고 있나(0~1).
         private float lookRamp;
 
+        //  조준 가속. 손가락 빠르기를 재고, 지난 움직임 뒤로 흐른 시간을 센다.
+        private readonly ArcheryAimAccel.FingerSpeed fingerSpeed = new ArcheryAimAccel.FingerSpeed();
+        private float secondsSinceMove;
+
+        //  이번 움직임에 곱할 배율. 끈 거리를 각도로 바꾸는 AimByDrag가 쓴다.
+        private float dragGain = 1f;
+
 
         public ArcheryPadViewModel(
             PlayerInputManager input,
@@ -55,7 +63,8 @@ namespace LOP.UI
             GameFramework.World.EntityRegistry entityRegistry,
             IPlayerContext playerContext,
             ArcheryImpactLog impactLog,
-            ArcheryConfig config)
+            ArcheryConfig config,
+            ArcheryCourse course)
         {
             this.input = input;
             this.cameraController = cameraController;
@@ -63,7 +72,25 @@ namespace LOP.UI
             this.playerContext = playerContext;
             this.impactLog = impactLog;
             this.config = config;
+            this.course = course;
+            AimAccel = ArcheryAimAccel.LoadStrength();
         }
+
+        /// <summary>조준 가속 세기. 개발 빌드에서만 화면 버튼으로 바꾼다.</summary>
+        public ArcheryAimAccel.Strength AimAccel { get; private set; }
+
+        public string AimAccelLabel => ArcheryAimAccel.LabelOf(AimAccel);
+
+        /// <summary>다음 세기로 넘기고 저장한다(개발 빌드만 저장된다).</summary>
+        public void CycleAimAccel()
+        {
+            AimAccel = ArcheryAimAccel.Next(AimAccel);
+            ArcheryAimAccel.SaveStrength(AimAccel);
+        }
+
+        /// <summary>걷기 스틱을 보이나. 걷는 속도가 0인 코스(한 발 승부·투석기·원형)는 숨긴다 —
+        /// 그 구석을 스틱이 가져가면 거기서 누른 손가락이 활을 못 든다.</summary>
+        public bool ShowMoveStick => course.MoveSpeed > 0f;
 
         /// <summary>
         /// 지금 화면을 그리는 카메라. 화면이 "+10"을 맞은 자리에 띄우려면 월드→화면 투영이 필요하다.
@@ -373,6 +400,8 @@ namespace LOP.UI
             pressTravel = 0f;
             OverCancelTarget = false;
             pressInHeights = positionInHeights;
+            fingerSpeed.Reset();
+            secondsSinceMove = 0f;
             aimAtPressYaw = cameraController.Yaw;
             aimAtPressPitch = cameraController.Pitch;
 
@@ -391,6 +420,13 @@ namespace LOP.UI
             {
                 return;
             }
+
+            //  빠르기는 세로를 1로 본 같은 자로 잰다 — 가로를 가로 길이로 나눈 값을 그대로 쓰면
+            //  같은 빠르기라도 가로로 그을 때 느리게 읽힌다.
+            Vector2 moveInHeights = new Vector2(deltaFraction.x * screenWidthInHeights, deltaFraction.y);
+            float speed = fingerSpeed.Add(moveInHeights.magnitude, secondsSinceMove);
+            secondsSinceMove = 0f;
+            dragGain = ArcheryAimAccel.Gain(speed, ArcheryAimAccel.MaxGainOf(AimAccel));
 
             if (press == Press.Deciding)
             {
@@ -443,6 +479,18 @@ namespace LOP.UI
             Vector2 stick = moveStick.sqrMagnitude > 0f ? moveStick : keyMove;
             Vector3 world = MoveStickDirection.ToWorld(stick, Camera.transform.eulerAngles.y);
             input.SetMovement(world.x, world.z);
+        }
+
+        /// <summary>
+        /// 매 프레임, 손가락 빠르기를 재는 시계를 민다. <b>실제 시간</b>을 넣는다 — 게임 시간이 멈추거나
+        /// 느려져도 손가락은 그대로 움직이므로, 게임 시간으로 재면 빠르기가 부풀어 조준이 튄다.
+        /// </summary>
+        public void AdvanceFingerClock(float unscaledDeltaSeconds)
+        {
+            if (unscaledDeltaSeconds > 0f)
+            {
+                secondsSinceMove += unscaledDeltaSeconds;
+            }
         }
 
         /// <summary>매 프레임. 누름이 무엇이 될지 정하고, 내려놓는 동안 조준을 되돌린다.</summary>
@@ -502,10 +550,11 @@ namespace LOP.UI
                 aimAtPressYaw, aimAtPressPitch, k));
         }
 
-        //  끈 만큼 시야를 돌린다. 화각으로 감도가 보정돼 당길수록 저절로 정밀해진다.
+        //  끈 만큼 시야를 돌린다. 화각으로 감도가 보정돼 당길수록 저절로 정밀해지고,
+        //  빨리 그은 만큼 가속 배율이 위에 곱해진다(천천히 움직이면 1배).
         private void AimByDrag(Vector2 deltaFraction)
         {
-            AimBy(new Vector2(deltaFraction.x * HorizontalFov, deltaFraction.y * CurrentFov));
+            AimBy(new Vector2(deltaFraction.x * HorizontalFov, deltaFraction.y * CurrentFov) * dragGain);
         }
 
         /// <summary>두 번 불려도 한 번만 쏜다 — 아래 View가 뗌을 두 경로로 받기 때문이다.</summary>

@@ -182,3 +182,17 @@
     margin-left: -70px;
 }
 
+
+/* 개발 빌드 전용: 조준 가속 세기 버튼. 작게, 왼쪽 위 구석에. */
+.aim-accel-toggle {
+    position: absolute;
+    left: 12px; top: 12px;
+    margin: 0;
+    padding: 4px 10px;
+    font-size: 16px;
+    color: rgb(255, 255, 255);
+    background-color: rgba(0, 0, 0, 0.45);
+    border-width: 0;
+    border-top-left-radius: 6px; border-top-right-radius: 6px;
+    border-bottom-left-radius: 6px; border-bottom-right-radius: 6px;
+}

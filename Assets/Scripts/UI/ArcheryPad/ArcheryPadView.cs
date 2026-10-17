@@ -79,6 +79,10 @@ namespace LOP.UI
             _moveHandle = Root.Q<VisualElement>("move-handle");
 
             WireMoveStick();
+            //  걷지 않는 코스면 스틱을 아예 치운다 — 남겨 두면 그 구석에서 누른 손가락이 활을 못 든다.
+            _moveArea.style.display = _viewModel.ShowMoveStick ? DisplayStyle.Flex : DisplayStyle.None;
+
+            AddAimAccelToggle();
 
             // 누르면 활이 올라온다 — 어디를 눌러도 된다. 이미 당기는 손가락이 있으면(다른
             // pointerId) 통째로 무시한다 — 두 번째 손가락이 첫 손가락의 당김을 가로채면 안 된다.
@@ -152,6 +156,7 @@ namespace LOP.UI
                 //  스틱을 놓은 뒤의 0도 밀어야 캐릭이 선다 — 잡고 있을 때만 밀면 안 된다.
                 _viewModel.FeedMove();
                 _viewModel.Tick(Time.deltaTime);
+                _viewModel.AdvanceFingerClock(Time.unscaledDeltaTime);
                 _score.text = _viewModel.Score.ToString();
 
                 //  무제한인 맵에서는 아예 안 보이게 한다 — 늘 같은 숫자가 떠 있으면 눈만 시끄럽다.
@@ -365,6 +370,24 @@ namespace LOP.UI
             _cancelTarget.style.borderBottomRightRadius = radius;
 
             _cancelTargetPlaced = true;
+        }
+
+        //  개발 빌드(에디터 포함)에서만 왼쪽 위에 조준 가속 세기 버튼을 띄운다. 누를 때마다 끔→약→중→강.
+        //  조작면보다 위에 얹혀 이 버튼을 누른 손가락은 활을 들지 않는다.
+        private void AddAimAccelToggle()
+        {
+            if (Debug.isDebugBuild == false)
+            {
+                return;
+            }
+            var toggle = new Button { text = _viewModel.AimAccelLabel };
+            toggle.AddToClassList("aim-accel-toggle");
+            toggle.clicked += () =>
+            {
+                _viewModel.CycleAimAccel();
+                toggle.text = _viewModel.AimAccelLabel;
+            };
+            Root.Q<VisualElement>("archery-pad-root").Add(toggle);
         }
 
         //  UI Toolkit의 evt.position은 **패널** 좌표다 — 그래서 패널을 잰다. Screen 픽셀과

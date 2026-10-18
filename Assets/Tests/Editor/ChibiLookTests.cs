@@ -14,6 +14,8 @@ namespace LOP.Tests
         private static CosmeticCatalog NewCatalog() =>
             new CosmeticCatalog(TestEconomyTables.Cosmetics, TestEconomyTables.CosmeticSlots, TestEconomyTables.Currencies);
 
+        private static AppearanceColorPalette NewPalette() => new AppearanceColorPalette(TestEconomyTables.AppearanceColors);
+
         private static PlayerLook LookWith(params (string slot, string item)[] entries)
         {
             var slots = new Dictionary<string, string>();
@@ -90,35 +92,88 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 상의_틴트가_있으면_덮고_하의는_기본값_그대로다()
+        public void 상의_틴트가_있으면_덮고_하의는_기본_옷_색이다()
         {
-            var catalog = NewCatalog();
             var look = LookWith(("top", "top_tint_green"));
 
-            var colors = ChibiLookApplier.ColorsFor("entity-1", look, catalog);
+            var colors = ChibiLookApplier.ColorsFor(look, NewCatalog(), NewPalette());
 
             Assert.AreEqual(ColorFromHtml("#3CB371"), colors.Top);
-            Assert.AreEqual(ChibiOutfit.ColorsFor("entity-1").Bottom, colors.Bottom);
+            Assert.AreEqual(ColorFromHtml("#3A3450"), colors.Bottom);
         }
 
         [Test]
-        public void 마스터데이터에_없는_코드는_기본_색이다()
+        public void 마스터데이터에_없는_코드는_기본_옷_색이다()
         {
-            var catalog = NewCatalog();
             var look = LookWith(("top", "no_such_item"));
 
-            var colors = ChibiLookApplier.ColorsFor("entity-1", look, catalog);
+            var colors = ChibiLookApplier.ColorsFor(look, NewCatalog(), NewPalette());
 
-            Assert.AreEqual(ChibiOutfit.ColorsFor("entity-1").Top, colors.Top);
+            Assert.AreEqual(ColorFromHtml("#3B82F6"), colors.Top);
+        }
+
+        //  사람 아닌 몸이나 옛 서버 — 기본 옷(마스터데이터 기본 품목)과 기본 피부·머리.
+        [Test]
+        public void 룩이_없으면_모두_기본값이다()
+        {
+            var colors = ChibiLookApplier.ColorsFor(null, NewCatalog(), NewPalette());
+
+            Assert.AreEqual(ColorFromHtml("#3B82F6"), colors.Top);
+            Assert.AreEqual(ColorFromHtml("#3A3450"), colors.Bottom);
+            Assert.AreEqual(ColorFromHtml("#F7D2AE"), colors.Skin);
+            Assert.AreEqual(ColorFromHtml("#4A3222"), colors.Hair);
         }
 
         [Test]
-        public void 룩이_없으면_기본_치비_색이다()
+        public void 캐릭터_외형의_피부_머리를_입힌다()
         {
-            var colors = ChibiLookApplier.ColorsFor("entity-1", null, null);
+            var look = new PlayerLook(null, "Kim", 1, new CharacterAppearance(104, 203));
 
-            Assert.AreEqual(ChibiOutfit.ColorsFor("entity-1").Top, colors.Top);
-            Assert.AreEqual(ChibiOutfit.ColorsFor("entity-1").Bottom, colors.Bottom);
+            var colors = ChibiLookApplier.ColorsFor(look, NewCatalog(), NewPalette());
+
+            Assert.AreEqual(ColorFromHtml("#E3B089"), colors.Skin);
+            Assert.AreEqual(ColorFromHtml("#8A5A3B"), colors.Hair);
+        }
+
+        //  같은 사람이면 어느 화면·어느 판에서든 같은 색 — 엔티티 번호가 끼어들 자리가 없다.
+        [Test]
+        public void 같은_룩이면_늘_같은_색이다()
+        {
+            var a = new PlayerLook(new Dictionary<string, string> { ["top"] = "top_tint_gold" }, "Kim", 1, new CharacterAppearance(102, 204));
+            var b = new PlayerLook(new Dictionary<string, string> { ["top"] = "top_tint_gold" }, "Kim", 1, new CharacterAppearance(102, 204));
+
+            var ca = ChibiLookApplier.ColorsFor(a, NewCatalog(), NewPalette());
+            var cb = ChibiLookApplier.ColorsFor(b, NewCatalog(), NewPalette());
+
+            Assert.AreEqual(ca.Top, cb.Top);
+            Assert.AreEqual(ca.Skin, cb.Skin);
+            Assert.AreEqual(ca.Hair, cb.Hair);
+        }
+
+        //  에디터 미리보기처럼 자료가 없을 때 — 오류 색이 아니라 기본값 상수로 그린다.
+        [Test]
+        public void 자료가_없으면_기본값_상수다()
+        {
+            var colors = ChibiLookApplier.ColorsFor(null, null, null);
+
+            Assert.AreEqual(ChibiLookApplier.FallbackTop, colors.Top);
+            Assert.AreEqual(ChibiLookApplier.FallbackBottom, colors.Bottom);
+            Assert.AreEqual(ChibiLookApplier.FallbackSkin, colors.Skin);
+            Assert.AreEqual(ChibiLookApplier.FallbackHair, colors.Hair);
+        }
+
+        //  기본값 상수는 자료가 없을 때만 쓴다 — 마스터데이터 기본값과 어긋나면 미리보기와 실제가 다르게 보인다.
+        [Test]
+        public void 기본값_상수는_마스터데이터_기본값과_같다()
+        {
+            var catalog = NewCatalog();
+            var palette = NewPalette();
+            Assert.IsTrue(ChibiLookApplier.TryParseHex(catalog.DefaultOf(catalog.SlotByCode("top").Id).AssetKey, out var top));
+            Assert.IsTrue(ChibiLookApplier.TryParseHex(catalog.DefaultOf(catalog.SlotByCode("bottom").Id).AssetKey, out var bottom));
+            Assert.AreEqual(top, ChibiLookApplier.FallbackTop);
+            Assert.AreEqual(bottom, ChibiLookApplier.FallbackBottom);
+            Assert.AreEqual(palette.Skin(0), ChibiLookApplier.FallbackSkin);
+            Assert.AreEqual(palette.Hair(0), ChibiLookApplier.FallbackHair);
         }
 
         [Test]

@@ -17,6 +17,8 @@ namespace LOP
         private readonly DodgeClientState state;
         private readonly DodgeConfig config;
         private readonly DodgePropKit kit;
+        private readonly CosmeticCatalog catalog;
+        private readonly AppearanceColorPalette palette;
         private readonly List<DodgeShape> shapes = new List<DodgeShape>();
         private readonly Dictionary<string, List<Transform>> pools = new Dictionary<string, List<Transform>>();
         private readonly Dictionary<string, int> used = new Dictionary<string, int>();
@@ -24,12 +26,19 @@ namespace LOP
         private GameObject root;
         private GameObject chibiPrefab;
 
-        public DodgePropView(GameFramework.Runner.IRunner runner, DodgeClientState state, DodgeConfig config, DodgePropKit kit)
+        /// <summary>줄넘기 거인의 정해진 모습 — 금빛 상의.</summary>
+        public static readonly PlayerLook GiantLook = new PlayerLook(
+            new Dictionary<string, string> { ["top"] = "top_tint_gold" }, "", 1, new CharacterAppearance(105, 204));
+
+        public DodgePropView(GameFramework.Runner.IRunner runner, DodgeClientState state, DodgeConfig config, DodgePropKit kit,
+                             CosmeticCatalog catalog, AppearanceColorPalette palette)
         {
             this.runner = runner;
             this.state = state;
             this.config = config;
             this.kit = kit;
+            this.catalog = catalog;
+            this.palette = palette;
         }
 
         public void Start()
@@ -169,7 +178,7 @@ namespace LOP
                 var g = UnityEngine.Object.Instantiate(chibiPrefab, root.transform);
                 g.name = "DodgeGiant";
                 g.transform.localScale = chibiPrefab.transform.localScale * DodgePropPose.GiantScale;
-                ChibiOutfit.Apply(g, ChibiOutfit.ColorsFor("dodge-giant"));
+                ChibiOutfit.Apply(g, ChibiLookApplier.ColorsFor(GiantLook, catalog, palette));
                 giants.Add(g);
             }
             var giant = giants[index];

@@ -14,8 +14,8 @@ namespace LOP
         public const string FaceKey = "Assets/Characters/Chibi/Materials/ChibiFace.mat";
         public static readonly Vector3 StandPosition = new Vector3(0f, 0f, 4f);
 
-        private string _userId = "lobby";
         private CosmeticCatalog _catalog;
+        private AppearanceColorPalette _palette;
         private Material _face;
         private PlayerLook _look;
         private AsyncOperationHandle<GameObject> _bodyHandle;
@@ -47,10 +47,10 @@ namespace LOP
         private bool _celebrating;
         private float _celebrateTimer;
 
-        public void Init(string userId, CosmeticCatalog catalog)
+        public void Init(CosmeticCatalog catalog, AppearanceColorPalette palette)
         {
-            if (!string.IsNullOrEmpty(userId)) _userId = userId;
             _catalog = catalog;
+            _palette = palette;
             _faceHandle = Addressables.LoadAssetAsync<Material>(FaceKey);
             _faceHandle.Completed += h =>
             {
@@ -239,7 +239,7 @@ namespace LOP
         private void Dress()
         {
             if (Visual == null) return;
-            if (ChibiDresser.IsChibi(Visual)) ChibiDresser.Dress(_userId, Visual, _face, _look, _catalog);
+            if (ChibiDresser.IsChibi(Visual)) ChibiDresser.Dress(Visual, _face, _look, _catalog, _palette);
             AppliedLook = _look;
             ApplyAbsent();   // 입히기가 재질을 바꿔도 회색이 남게
             ApplyFace();

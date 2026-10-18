@@ -19,6 +19,7 @@ namespace LOP
         private readonly GameFramework.Runner.IRunner runner;
         private readonly ArcheryComicFxView comicFx;
         private readonly CosmeticCatalog catalog;
+        private readonly AppearanceColorPalette palette;
 
         private readonly Dictionary<string, (GameObject visual, ArcheryReactionCue cue)> dressed =
             new Dictionary<string, (GameObject, ArcheryReactionCue)>();
@@ -27,7 +28,8 @@ namespace LOP
         public ArcheryChibiView(ArcheryCourse course, ActorRegistry actorRegistry,
                                 GameFramework.World.EntityRegistry entityRegistry,
                                 ArcheryShootOffResultTracker resultTracker, GameFramework.Runner.IRunner runner,
-                                ArcheryComicFxView comicFx, CosmeticCatalog catalog)
+                                ArcheryComicFxView comicFx, CosmeticCatalog catalog,
+                                AppearanceColorPalette palette)
         {
             this.comicFx = comicFx;
             this.course = course;
@@ -36,6 +38,7 @@ namespace LOP
             this.resultTracker = resultTracker;
             this.runner = runner;
             this.catalog = catalog;
+            this.palette = palette;
         }
 
         public void Start()
@@ -78,7 +81,7 @@ namespace LOP
                 }
                 if (dressed.TryGetValue(entity.Id, out var last) == false || last.visual != visual)
                 {
-                    ChibiDresser.Dress(entity.Id, visual, faceMaterial, entity.Get<PlayerLook>(), catalog);
+                    ChibiDresser.Dress(visual, faceMaterial, entity.Get<PlayerLook>(), catalog, palette);
                     last = (visual, ArcheryReactionCue.None);
                 }
                 var cue = resultTracker.CueOf(entity.Id, now, renderTick);

@@ -12,6 +12,7 @@ namespace LOP
         [Inject] private EconomyStore _economy;
         [Inject] private IUserDataStore _userData;
         [Inject] private CosmeticCatalog _catalog;
+        [Inject] private AppearanceColorPalette _palette;
         [Inject] private RunOutDirector _runOut;
 
         private readonly CompositeDisposable _subscriptions = new CompositeDisposable();
@@ -51,7 +52,7 @@ namespace LOP
 
             var player = _player = new GameObject("LobbyPlayer").AddComponent<LobbyPlayer>();
             player.transform.SetParent(transform, false);
-            player.Init(_userData.user?.id, _catalog);
+            player.Init(_catalog, _palette);
             _economy.Loadout.CombineLatest(_economy.Progress, (loadout, progress) => (loadout, progress))
                 .Subscribe(x => player.SetLook(LobbyLook.From(x.loadout, _catalog, _userData.user?.displayName, x.progress?.level ?? 1)))
                 .AddTo(_subscriptions);

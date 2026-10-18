@@ -20,6 +20,14 @@ namespace LOP
         private const string AccessoryChildName = "Look_accessory";
         private const float AccessoryForwardDistance = 0.08f;
 
+        //  자료(카탈로그·색표)가 없을 때만 쓰는 색 — 에디터 미리보기, 또는 기본 품목 색이 빠진 데이터 오류.
+        //  값은 마스터데이터 기본값(기본 상의·하의, 기본 피부·머리)과 같게 둔다.
+        public static readonly Color FallbackTop = Hex("#3B82F6");
+        public static readonly Color FallbackBottom = Hex("#3A3450");
+        public static readonly Color FallbackSkin = Hex("#F7D2AE");
+        public static readonly Color FallbackHair = Hex("#4A3222");
+        private static readonly Color Shoe = Color.white;
+
         public readonly struct PrimitiveSpec
         {
             public readonly PrimitiveType Type;
@@ -78,29 +86,42 @@ namespace LOP
             return true;
         }
 
-        /// <summary>엔티티 기본 색에서 시작해, 룩의 상·하의 틴트 품목이 있으면 그 슬롯만 덮는다.</summary>
-        public static ChibiColors ColorsFor(string entityId, PlayerLook look, CosmeticCatalog catalog)
+        /// <summary>
+        /// 그 사람의 색 — 상·하의는 입은 틴트 품목(없으면 그 슬롯의 기본 품목), 피부·머리는 캐릭터 외형 번호.
+        /// 사람마다 데이터로만 정해지므로 어느 화면·어느 판에서든 같은 사람은 같은 색이다.
+        /// 룩이 없으면(사람이 아닌 몸·옛 서버) 전부 기본값.
+        /// </summary>
+        public static ChibiColors ColorsFor(PlayerLook look, CosmeticCatalog catalog, AppearanceColorPalette palette)
         {
-            var baseColors = ChibiOutfit.ColorsFor(entityId);
-            if (look == null || catalog == null)
-            {
-                return baseColors;
-            }
-
-            var top = TintOverride(look, catalog, TopSlotCode) ?? baseColors.Top;
-            var bottom = TintOverride(look, catalog, BottomSlotCode) ?? baseColors.Bottom;
-            return new ChibiColors(top, baseColors.Skin, baseColors.Hair, bottom, baseColors.Shoe);
+            var top = Tint(look, catalog, TopSlotCode) ?? FallbackTop;
+            var bottom = Tint(look, catalog, BottomSlotCode) ?? FallbackBottom;
+            int skinId = look?.CharacterAppearance.SkinColorId ?? 0;
+            int hairId = look?.CharacterAppearance.HairColorId ?? 0;
+            var skin = palette != null ? palette.Skin(skinId) : FallbackSkin;
+            var hair = palette != null ? palette.Hair(hairId) : FallbackHair;
+            return new ChibiColors(top, skin, hair, bottom, Shoe);
         }
 
-        private static Color? TintOverride(PlayerLook look, CosmeticCatalog catalog, string slotCode)
+        //  입은 품목이 틴트면 그 색, 아니면 그 슬롯 기본 품목의 틴트.
+        private static Color? Tint(PlayerLook look, CosmeticCatalog catalog, string slotCode)
         {
-            var item = catalog.ByCode(look.SlotOrNull(slotCode));
-            if (item != null && item.AssetKind == "tint" && TryParseHex(item.AssetKey, out var color))
+            if (catalog == null)
             {
-                return color;
+                return null;
             }
-            return null;
+            var worn = look != null ? catalog.ByCode(look.SlotOrNull(slotCode)) : null;
+            if (TintOf(worn) is Color wornColor)
+            {
+                return wornColor;
+            }
+            var slot = catalog.SlotByCode(slotCode);
+            return slot != null ? TintOf(catalog.DefaultOf(slot.Id)) : null;
         }
+
+        private static Color? TintOf(LOP.MasterData.Cosmetic item) =>
+            item != null && item.AssetKind == "tint" && TryParseHex(item.AssetKey, out var color) ? color : (Color?)null;
+
+        private static Color Hex(string hex) => TryParseHex(hex, out var c) ? c : Color.magenta;
 
         /// <summary>룩의 얼굴 품목이 표정(expression)이고 코드가 <see cref="ChibiExpression"/> 이름이면 그 표정, 아니면 기본(Normal).</summary>
         public static ChibiExpression ExpressionFor(PlayerLook look, CosmeticCatalog catalog)

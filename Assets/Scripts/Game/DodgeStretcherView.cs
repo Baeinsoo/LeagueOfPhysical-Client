@@ -21,6 +21,7 @@ namespace LOP
         private readonly DodgePropKit kit;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly CosmeticCatalog catalog;
+        private readonly AppearanceColorPalette palette;
         private readonly Dictionary<string, Vector2> lastSeen = new Dictionary<string, Vector2>();
         private readonly Dictionary<string, PlayerLook> lastLook = new Dictionary<string, PlayerLook>();
         private readonly HashSet<string> gone = new HashSet<string>();
@@ -31,13 +32,15 @@ namespace LOP
         private bool seeded;
 
         public DodgeStretcherView(DodgeClientState state, ActorRegistry actorRegistry, DodgePropKit kit,
-                                  GameFramework.World.EntityRegistry entityRegistry, CosmeticCatalog catalog)
+                                  GameFramework.World.EntityRegistry entityRegistry, CosmeticCatalog catalog,
+                                  AppearanceColorPalette palette)
         {
             this.state = state;
             this.actorRegistry = actorRegistry;
             this.kit = kit;
             this.entityRegistry = entityRegistry;
             this.catalog = catalog;
+            this.palette = palette;
         }
 
         public void Start()
@@ -108,7 +111,7 @@ namespace LOP
                 var animator = body.GetComponent<Animator>();
                 if (animator != null) animator.enabled = false;
                 // 룩은 몸이 살아 있을 때 기억해 둔다 — 탈락과 디스폰이 같이 와서 순서에 따라 엔티티가 먼저 사라진다.
-                ChibiDresser.Dress(id, body, faceMaterial, lastLook.TryGetValue(id, out var look) ? look : null, catalog);
+                ChibiDresser.Dress(body, faceMaterial, lastLook.TryGetValue(id, out var look) ? look : null, catalog, palette);
             }
             rides.Add((root, from, exit, 0f));
         }

@@ -38,7 +38,7 @@ namespace LOP.EditorTools
                     body.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
                     var idle = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Characters/Chibi/Anim/Idle.anim");
                     if (idle != null) idle.SampleAnimation(body, 0f);
-                    if (ChibiDresser.IsChibi(body)) ChibiDresser.Dress("preview-user", body, face);
+                    if (ChibiDresser.IsChibi(body)) ChibiDresser.Dress(body, face, null, null, null);
                 }
 
                 var camGo = new GameObject("PreviewCamera");

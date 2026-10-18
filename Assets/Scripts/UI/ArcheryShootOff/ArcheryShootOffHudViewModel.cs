@@ -24,6 +24,7 @@ namespace LOP.UI
         private readonly ArcheryCourse course;
         private readonly IGameDataStore gameDataStore;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly AppearanceColorPalette palette;
         private readonly IDisposable subscription;
 
         private readonly ArcheryShootOffResultTracker resultTracker;
@@ -83,8 +84,9 @@ namespace LOP.UI
                                            CameraController cameraController,
                                            ArcheryArrowStickSystem stickSystem,
                                            ArcheryArrowLandings landings, ArcheryChickenView chickenView,
-                                           ArcheryCutInFreeze freeze)
+                                           ArcheryCutInFreeze freeze, AppearanceColorPalette palette)
         {
+            this.palette = palette;
             this.freeze = freeze;
             this.runner = runner;
             this.config = config;
@@ -411,7 +413,7 @@ namespace LOP.UI
                 cutInsUsed++;
                 CutInShout = ArcheryGrandTitles.Shout(pick.Kind);
                 CutInName = ArcheryGrandTitles.Name(pick.Kind, n => UnityEngine.Random.Range(0, n));
-                var colors = ChibiOutfit.ColorsFor(pick.SubjectId);
+                var colors = ChibiLookApplier.ColorsFor(entityRegistry.Get(pick.SubjectId)?.Get<PlayerLook>(), null, palette);
                 CutInSkin = colors.Skin;
                 CutInHair = colors.Hair;
             }

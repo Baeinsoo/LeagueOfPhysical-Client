@@ -54,35 +54,38 @@ namespace LOP
         }
 
         /// <summary>서버에서 재화·진행도·로드아웃·보유목록을 통째로 받아온다. 실패(네트워크·비정상
-        /// 코드)하면 이전 값을 그대로 두고 경고만 남긴다.</summary>
-        public async UniTask RefreshAsync(CancellationToken cancellationToken)
+        /// 코드)하면 이전 값을 그대로 두고 경고만 남긴다. 받았으면(또는 더 새 값이 이미 있으면) true.</summary>
+        public async UniTask<bool> RefreshAsync(CancellationToken cancellationToken)
         {
             string userId = _users.user?.id;
-            if (string.IsNullOrEmpty(userId)) return;
+            if (string.IsNullOrEmpty(userId)) return false;
 
             int startedAt = _changes;
             try
             {
                 var response = await _fetch(userId, cancellationToken);
-                if (cancellationToken.IsCancellationRequested) return;
+                if (cancellationToken.IsCancellationRequested) return false;
                 //  조회가 떠난 뒤 구매·장착 응답이 먼저 반영됐다 — 이 스냅샷은 그보다 낡았다.
-                if (_changes != startedAt) return;
+                if (_changes != startedAt) return true;
 
                 if (response == null || response.code != ResponseCode.SUCCESS)
                 {
                     UnityEngine.Debug.LogWarning($"[EconomyStore] Failed to refresh economy. code: {response?.code}");
-                    return;
+                    return false;
                 }
 
                 Apply(response);
+                return true;
             }
             catch (OperationCanceledException)
             {
                 //  화면이 먼저 닫혔다 — 쓸 곳이 없다.
+                return false;
             }
             catch (Exception e)
             {
                 UnityEngine.Debug.LogWarning($"[EconomyStore] Failed to refresh economy. error: {e.Message}");
+                return false;
             }
         }
 

@@ -4,8 +4,9 @@ using UnityEngine.UIElements;
 namespace LOP.UI
 {
     /// <summary>
-    /// Archery 조작 화면. 화면을 끌면 <b>겨누기만</b> 한다. 오른쪽 아래 <b>활 버튼</b>을 누르면 활이
-    /// 올라오고, 쥔 채 끌면 그 손가락도 겨누고, 떼면 쏜다. 버튼 옆에 뜨는 원에서 떼면 취소.
+    /// Archery 조작 화면. 화면을 끌면 <b>겨누기만</b> 한다. 오른쪽 <b>활 버튼</b>을 누르면 활이
+    /// 올라오고, 쥔 채 끌면 그 손가락도 겨누고, 떼면 쏜다. 왼쪽 아래 <b>취소 버튼</b>은 당기는 중에
+    /// 다른 손가락으로 누르거나, 활 손가락을 끌어와 그 위에서 떼면 안 쏘고 내려놓는다.
     /// ViewModel 커맨드로 넘기기만 하는 얇은 바인더다.
     /// </summary>
     public class ArcheryPadView : UIView
@@ -14,7 +15,6 @@ namespace LOP.UI
         private Label _score;
         private Label _arrows;
         private VisualElement _reticle;
-        private VisualElement _cancelTarget;
         private VisualElement _plotFace;
         private Label _plotLabel;
         private VisualElement _popups;
@@ -28,15 +28,18 @@ namespace LOP.UI
         private int _poppedCount;
         private int _poppedWave = -2;
 
-        //  원은 누른 자리에 한 번만 놓는다 — 그 자리는 누름이 끝날 때까지 안 움직인다.
-        private bool _cancelTargetPlaced;
         private IVisualElementScheduledItem _tick;
 
         //  활 버튼. 바깥(누르는 자리)이 보이는 원보다 조금 넓다. 자리는 화면 크기·안전 영역에 맞춰 코드가 정한다.
         private VisualElement _bowHit;
         private VisualElement _bowFace;
         private Vector2 _bowCenter;
-        private Vector2 _bowLaidOutFor;
+        private Vector2 _buttonsLaidOutFor;
+
+        //  취소 버튼. 왼쪽 아래에 늘 서 있고, 활을 든 동안만 또렷해진다. 자리는 활 버튼처럼 코드가 정한다.
+        private VisualElement _cancelHit;
+        private VisualElement _cancelFace;
+        private Vector2 _cancelCenter;
 
         //  걷기 스틱. 당김과 **다른 손가락**이라 id를 따로 기억한다.
         private VisualElement _moveArea;
@@ -62,7 +65,6 @@ namespace LOP.UI
             base.OnOpen();
 
             var surface = Root.Q<VisualElement>("surface");
-            _cancelTarget = Root.Q<VisualElement>("cancel-target");
             _plotFace = Root.Q<VisualElement>("plot-face");
             _plotLabel = Root.Q<Label>("plot-label");
             Root.Q<VisualElement>("impact-plot").style.display =
@@ -82,19 +84,20 @@ namespace LOP.UI
             AddAimAccelToggle();
 
             //  화면은 겨누기만, 버튼은 활. 어느 손가락이 무엇을 하는지는 ViewModel이 손가락 id로 정한다.
-            WirePointer(surface, _ => false);
+            WirePointer(surface, _ => false, _ => false);
             _bowHit = Root.Q<VisualElement>("bow-button");
             _bowFace = Root.Q<VisualElement>("bow-face");
+            _cancelHit = Root.Q<VisualElement>("cancel-button");
+            _cancelFace = Root.Q<VisualElement>("cancel-face");
             //  누르는 자리는 네모 요소지만 판정은 원으로 한다 — 모서리를 누른 손가락은 화면처럼 겨누기만 한다.
-            WirePointer(_bowHit, panelPosition =>
-                (panelPosition - _bowCenter).sqrMagnitude <=
-                Sq(ArcheryPointerRouter.BowButtonHitRadius(PanelSize())));
+            WirePointer(_bowHit, OnBowButton, _ => false);
+            WirePointer(_cancelHit, _ => false, OnCancelButton);
 
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.
             // 점수도 같은 스케줄러로 pull한다 — 서버 스냅샷이 채우는 값이라 R3 이벤트가 없다.
             _tick = Root.schedule.Execute(_ =>
             {
-                LayoutBowButton();
+                LayoutButtons();
                 _viewModel.PollKeyboard();
                 //  스틱을 놓은 뒤의 0도 밀어야 캐릭이 선다 — 잡고 있을 때만 밀면 안 된다.
                 _viewModel.FeedMove();
@@ -131,21 +134,11 @@ namespace LOP.UI
                 _bowFace.EnableInClassList("is-drawing", _viewModel.Holding);
                 _bowFace.EnableInClassList("is-armed", _viewModel.Holding && armed);
 
-                //  내려놓기 원은 버튼을 쥐고 있는 동안만 보인다 — 안 그러면 빈 화면에 원이 떠 있다.
-                bool holding = _viewModel.ShowCancelTarget;
-                _cancelTarget.style.display = holding ? DisplayStyle.Flex : DisplayStyle.None;
-                if (holding)
-                {
-                    if (_cancelTargetPlaced == false)
-                    {
-                        PlaceCancelTarget();
-                    }
-                    _cancelTarget.EnableInClassList("is-over", _viewModel.OverCancelTarget);
-                }
-                else
-                {
-                    _cancelTargetPlaced = false;
-                }
+                //  취소 버튼은 늘 보이되 안 당길 땐 흐리다 — 어디 있는지 손이 미리 익히게 한다.
+                //  활 손가락이 그 위에 오면 붉어진다(지금 떼면 안 나간다는 뜻).
+                bool cancelActive = _viewModel.CancelActive;
+                _cancelFace.EnableInClassList("is-active", cancelActive);
+                _cancelFace.EnableInClassList("is-over", cancelActive && _viewModel.OverCancelButton);
             }).Every(0);
         }
 
@@ -291,20 +284,23 @@ namespace LOP.UI
         }
 
         /// <summary>
-        /// 손가락 입력을 ViewModel로 넘긴다. <paramref name="onBowButton"/>이 누른 자리가 활 버튼인지 말한다.
+        /// 손가락 입력을 ViewModel로 넘긴다. <paramref name="onBowButton"/>·<paramref name="onCancelButton"/>이
+        /// 누른 자리가 활 버튼·취소 버튼인지 말한다(패널 좌표를 받는다).
         ///
         /// <para>누른 손가락은 그 요소가 붙잡는다(캡처) — 버튼에서 시작해 화면 위로 끌어도 같은 손가락의
         /// 움직임이 계속 들어온다. 쏠지 말지는 손가락 id로 ViewModel이 정하므로, 겨누던 손가락을 떼도
         /// 화살이 나가지 않는다.</para>
         /// </summary>
-        private void WirePointer(VisualElement element, System.Func<Vector2, bool> onBowButton)
+        private void WirePointer(VisualElement element, System.Func<Vector2, bool> onBowButton,
+            System.Func<Vector2, bool> onCancelButton)
         {
             element.RegisterCallback<PointerDownEvent>(evt =>
             {
                 Vector2 panel = PanelSize();
                 element.CapturePointer(evt.pointerId);
-                _viewModel.PointerDown(evt.pointerId, onBowButton((Vector2)evt.position),
-                    InHeights(evt.position), panel.y > 0f ? panel.x / panel.y : 16f / 9f);
+                Vector2 at = evt.position;
+                _viewModel.PointerDown(evt.pointerId, onBowButton(at), onCancelButton(at),
+                    panel.y > 0f ? panel.x / panel.y : 16f / 9f);
                 //  아래 조작면이 같은 누름을 또 받지 않게 막는다.
                 evt.StopPropagation();
             });
@@ -322,7 +318,7 @@ namespace LOP.UI
                 {
                     _viewModel.PointerMove(evt.pointerId,
                         new Vector2(evt.deltaPosition.x / size.x, -evt.deltaPosition.y / size.y),
-                        InHeights(evt.position));
+                        OnCancelButton(evt.position));
                 }
             });
 
@@ -344,69 +340,58 @@ namespace LOP.UI
 
         private static float Sq(float v) => v * v;
 
-        //  활 버튼을 화면 크기와 안전 영역(노치·홈 막대를 뺀 곳)에 맞춰 놓는다. 크기가 바뀐 프레임에만 다시 놓는다.
-        private void LayoutBowButton()
+        private bool OnBowButton(Vector2 panelPosition) =>
+            (panelPosition - _bowCenter).sqrMagnitude <= Sq(ArcheryPointerRouter.BowButtonHitRadius(PanelSize()));
+
+        //  누를 때도, 활 손가락을 끌어와 뗄 때도 같은 원으로 잰다 — 붉게 켜지는 자리와 판정하는 자리가 하나다.
+        private bool OnCancelButton(Vector2 panelPosition) =>
+            (panelPosition - _cancelCenter).sqrMagnitude <= Sq(ArcheryPointerRouter.CancelButtonHitRadius(PanelSize()));
+
+        //  두 버튼을 화면 크기와 안전 영역(노치·홈 막대를 뺀 곳)에 맞춰 놓는다. 크기가 바뀐 프레임에만 다시 놓는다.
+        private void LayoutButtons()
         {
             Vector2 size = PanelSize();
-            if (size.x <= 0f || size.y <= 0f || size == _bowLaidOutFor)
+            if (size.x <= 0f || size.y <= 0f || size == _buttonsLaidOutFor)
             {
                 return;
             }
-            _bowLaidOutFor = size;
+            _buttonsLaidOutFor = size;
 
             //  안전 영역은 화면 픽셀이고 원점이 왼쪽 아래다 — 패널 단위로 옮긴다.
-            float rightInset = 0f, bottomInset = 0f;
+            float leftInset = 0f, rightInset = 0f, bottomInset = 0f;
             if (Screen.width > 0 && Screen.height > 0)
             {
                 Rect safe = Screen.safeArea;
+                leftInset = safe.xMin * size.x / Screen.width;
                 rightInset = (Screen.width - safe.xMax) * size.x / Screen.width;
                 bottomInset = safe.yMin * size.y / Screen.height;
             }
 
             _bowCenter = ArcheryPointerRouter.BowButtonCenter(size, rightInset, bottomInset);
-            float hit = ArcheryPointerRouter.BowButtonHitRadius(size);
-            float face = ArcheryPointerRouter.BowButtonRadius(size);
+            PlaceButton(_bowHit, _bowFace, "bow-label", _bowCenter,
+                ArcheryPointerRouter.BowButtonHitRadius(size), ArcheryPointerRouter.BowButtonRadius(size), 0.8f);
 
-            _bowHit.style.left = _bowCenter.x - hit;
-            _bowHit.style.top = _bowCenter.y - hit;
-            _bowHit.style.width = hit * 2f;
-            _bowHit.style.height = hit * 2f;
-
-            _bowFace.style.width = face * 2f;
-            _bowFace.style.height = face * 2f;
-            _bowFace.style.borderTopLeftRadius = face;
-            _bowFace.style.borderTopRightRadius = face;
-            _bowFace.style.borderBottomLeftRadius = face;
-            _bowFace.style.borderBottomRightRadius = face;
-            _bowFace.Q<Label>("bow-label").style.fontSize = face * 0.8f;
+            _cancelCenter = ArcheryPointerRouter.CancelButtonCenter(size, leftInset, bottomInset);
+            PlaceButton(_cancelHit, _cancelFace, "cancel-label", _cancelCenter,
+                ArcheryPointerRouter.CancelButtonHitRadius(size), ArcheryPointerRouter.CancelButtonRadius(size), 0.5f);
         }
 
-        //  원을 버튼을 누른 자리 옆에 놓는다. 자리와 크기를 **ViewModel의 값에서만** 가져오므로
-        //  보이는 원과 판정하는 원이 갈라질 수가 없다 — 옛 띠는 높이가 코드와 USS 두 곳에
-        //  적혀 있어 어긋날 수 있었다.
-        private void PlaceCancelTarget()
+        //  바깥(누르는 자리) 네모와 안쪽(보이는) 원을 한가운데에 맞춰 놓는다. 글자 크기는 원에 비례한다.
+        private static void PlaceButton(VisualElement hitArea, VisualElement face, string labelName,
+            Vector2 center, float hit, float radius, float fontOfRadius)
         {
-            Vector2 size = PanelSize();
-            if (size.y <= 0f)
-            {
-                return;   // 레이아웃이 아직 안 잡혔다 — 다음 프레임에 다시 시도한다
-            }
+            hitArea.style.left = center.x - hit;
+            hitArea.style.top = center.y - hit;
+            hitArea.style.width = hit * 2f;
+            hitArea.style.height = hit * 2f;
 
-            Vector2 center = _viewModel.CancelTargetCenterInHeights;
-            float radius = ArcheryPadViewModel.CancelRadiusInHeights * size.y;
-            float panelX = center.x * size.y;
-            float panelY = (1f - center.y) * size.y;   // 다시 "아래로 증가"하는 패널 좌표로
-
-            _cancelTarget.style.left = panelX - radius;
-            _cancelTarget.style.top = panelY - radius;
-            _cancelTarget.style.width = radius * 2f;
-            _cancelTarget.style.height = radius * 2f;
-            _cancelTarget.style.borderTopLeftRadius = radius;
-            _cancelTarget.style.borderTopRightRadius = radius;
-            _cancelTarget.style.borderBottomLeftRadius = radius;
-            _cancelTarget.style.borderBottomRightRadius = radius;
-
-            _cancelTargetPlaced = true;
+            face.style.width = radius * 2f;
+            face.style.height = radius * 2f;
+            face.style.borderTopLeftRadius = radius;
+            face.style.borderTopRightRadius = radius;
+            face.style.borderBottomLeftRadius = radius;
+            face.style.borderBottomRightRadius = radius;
+            face.Q<Label>(labelName).style.fontSize = radius * fontOfRadius;
         }
 
         //  개발 빌드(에디터 포함)에서만 왼쪽 위에 조준 가속 세기 버튼을 띄운다. 누를 때마다 끔→약→중→강.
@@ -434,19 +419,6 @@ namespace LOP.UI
         private Vector2 PanelSize()
         {
             return Root.panel?.visualTree.layout.size ?? Vector2.zero;
-        }
-
-        //  ViewModel은 **화면 세로를 1로 본 좌표**를 받는다 — 거리를 원으로 재려면 가로·세로가
-        //  같은 자로 재져야 하기 때문이다(각각 0~1로 정규화하면 가로로 찌그러진 타원이 된다).
-        //  가로 화면에서 x는 1을 넘는다(16:9면 0~1.78). y는 **위가 양수**로 뒤집어 AimBy와 맞춘다.
-        private Vector2 InHeights(Vector2 panelPosition)
-        {
-            Vector2 size = PanelSize();
-            if (size.y <= 0f)
-            {
-                return new Vector2(0.5f, 0.5f);
-            }
-            return new Vector2(panelPosition.x / size.y, (size.y - panelPosition.y) / size.y);
         }
 
         /// <summary>

@@ -155,7 +155,7 @@ namespace LOP.UI
         }
 
         /// <summary>
-        /// 데스크톱 편의: WASD = 걷기, 화살표 = 미세 조준, 스페이스 = 활 버튼. 매 프레임 호출된다.
+        /// 데스크톱 편의: WASD = 걷기, 화살표 = 미세 조준, 스페이스 = 활 버튼, Escape = 취소. 매 프레임 호출된다.
         /// 선례: <see cref="SkydivePadViewModel"/>의 같은 이름 메서드.
         /// </summary>
         public void PollKeyboard()
@@ -231,90 +231,14 @@ namespace LOP.UI
             cameraController.AimBy(degrees);
         }
 
-        //  ── 내려놓기 자리 ────────────────────────────────────────────────
-        //
-        //  활 버튼을 쥔 손가락이 끌면 겨누고 떼면 쏘므로, 취소는 따로 제스처를 줘야 한다.
-        //  남은 재료가 움직임뿐이고 그 움직임은 이미 조준이 쓴다.
-        //
-        //  그래서 취소 자리를 **조준이 실제로 쓰지 않는 곳**에 둔다. 당긴 상태(화각 22°)에서
-        //  조준이 도는 거리는 홀드오버 1.12° + 미세조정 ±3° 정도 = 화면 세로의 14% 남짓이다.
-        //  원의 안쪽 가장자리가 20%라 그 밖이다.
-        //
-        //  자리는 **화면 아래가 아니라 버튼을 누른 자리 기준**이다 — 그래야 엄지가 갈 거리가 늘 같다.
-        //  (화면 아래 띠였을 땐 위에서 누르면 35mm, 아래에서 누르면 0mm였다.)
-
-        /// <summary>누른 자리에서 아래로 이만큼 떨어진 곳이 내려놓기 자리다(화면 세로를 1로 본 값).
-        /// 6.1인치 가로 기준 약 20mm — 엄지가 한 번 접으면 닿는 거리다.</summary>
-        public const float CancelBelowPressInHeights = 0.31f;
-
         /// <summary>
-        /// 내려놓기 원의 반지름(화면 세로를 1로 본 값). 폰에서 약 5mm = <b>지름 10mm</b>.
-        ///
-        /// <para>⚠️ 화면 <b>비율</b>이라 큰 화면에서는 그만큼 커 보인다 — 에디터 Game 뷰에서
-        /// 터무니없이 크게 보이는 건 정상이고, 폰에서는 엄지만 하다. 비율로 잡는 이유는
-        /// <b>정확성이 비율에 달려 있기 때문</b>이다(위 14% 계산은 각도라 화면 비율이다).
-        /// 손가락 크기는 화면 크기에 안 비례하므로, 줄이더라도 폰 기준 <b>지름 7~8mm</b>가
-        /// 바닥이다 — 애플 44pt·구글 48dp가 그쯤이고 그 아래로는 보지 않고 못 누른다.</para>
-        /// </summary>
-        public const float CancelRadiusInHeights = 0.075f;
-
-        /// <summary>
-        /// 내려놓기 원의 한가운데. 화면이 원을 그리는 자리이자 판정하는 자리다 —
-        /// 둘이 같은 값에서 나와야 "원 밖에서 뗐는데 안 나간다"가 안 생긴다.
-        ///
-        /// <para><paramref name="screenWidthInHeights"/>는 세로를 1로 봤을 때의 가로 길이다
-        /// (16:9 가로 화면이면 1.78). 화면 끝을 알아야 밖으로 나가는 걸 막는다.</para>
-        /// </summary>
-        public static Vector2 CancelTargetCenter(Vector2 pressInHeights, float screenWidthInHeights)
-        {
-            //  기본은 아래다. 활 버튼은 화면 아래쪽(세로 74%)이라 거기선 "아래로 31%"가 화면 밖이다 —
-            //  그럴 땐 **왼쪽**에 선다(위로 세우면 오른손 엄지가 화면을 가리며 올라가야 한다).
-            //  왼쪽에도 자리가 없을 때만 위로 뒤집는다. 거리는 어느 쪽이든 같으므로 조준이 쓰는 범위
-            //  밖이라는 성질이 유지된다. (가까이 당겨 붙이면 안 된다. 그러면 겨누다 취소된다.)
-            float r = CancelRadiusInHeights;
-            float below = pressInHeights.y - CancelBelowPressInHeights;
-            if (below >= r)
-            {
-                return new Vector2(ClampX(pressInHeights.x, screenWidthInHeights), below);
-            }
-
-            float left = pressInHeights.x - CancelBelowPressInHeights;
-            if (left >= r)
-            {
-                //  위아래로 삐져나가면 안쪽으로 민다. 미는 건 거리를 **늘리기만** 하므로 안전하다.
-                return new Vector2(left, Mathf.Clamp(pressInHeights.y, r, Mathf.Max(r, 1f - r)));
-            }
-
-            return new Vector2(ClampX(pressInHeights.x, screenWidthInHeights),
-                pressInHeights.y + CancelBelowPressInHeights);
-        }
-
-        //  가로로 삐져나가면 안쪽으로 민다. 미는 건 거리를 **늘리기만** 하므로 안전하다.
-        private static float ClampX(float x, float screenWidthInHeights)
-        {
-            float maxX = Mathf.Max(CancelRadiusInHeights, screenWidthInHeights - CancelRadiusInHeights);
-            return Mathf.Clamp(x, CancelRadiusInHeights, maxX);
-        }
-
-        /// <summary>그 원 안인가.</summary>
-        public static bool InsideCancelTarget(Vector2 pressInHeights, Vector2 pointInHeights,
-            float screenWidthInHeights)
-        {
-            return (pointInHeights - CancelTargetCenter(pressInHeights, screenWidthInHeights)).sqrMagnitude
-                   <= CancelRadiusInHeights * CancelRadiusInHeights;
-        }
-
-        /// <summary>
-        /// 손가락이 지금 내려놓기 자리 안에 있나. 화면이 원을 붉게 켜는 데 쓴다.
+        /// 활을 든 손가락이 지금 취소 버튼 위에 있나. 화면이 버튼을 붉게 켜는 데 쓴다.
         ///
         /// <para><b>여기 있다고 활이 내려가지는 않는다</b> — 판정은 <b>뗄 때만</b> 한다.
-        /// 그래서 원 위를 지나 더 아래로 겨누는 것이 막히지 않는다. 누를 때가 아니라 뗄 때가
+        /// 그래서 버튼 위를 지나 더 겨누는 것이 막히지 않는다. 누를 때가 아니라 뗄 때가
         /// 결정한다는 건 터치 버튼의 표준 동작이기도 하다(WCAG 2.5.2).</para>
         /// </summary>
-        public bool OverCancelTarget { get; private set; }
-
-        /// <summary>화면이 원을 그릴 자리. 잡고 있는 동안에만 쓴다.</summary>
-        public Vector2 CancelTargetCenterInHeights => CancelTargetCenter(pressInHeights, screenWidthInHeights);
+        public bool OverCancelButton { get; private set; }
 
         /// <summary>
         /// 지금 얼마나 당겨졌나(0~1). <b>시뮬 값을 읽는다</b> — 화면이 따로 세면 클라와 서버가
@@ -336,10 +260,7 @@ namespace LOP.UI
         private float aimAtPressYaw;
         private float aimAtPressPitch;
 
-        //  활 버튼을 누른 자리. 내려놓기 원이 여기를 기준으로 선다.
-        private Vector2 pressInHeights;
-
-        //  세로를 1로 봤을 때의 가로 길이. 원이 화면 밖으로 안 나가게 하는 데 쓴다.
+        //  세로를 1로 봤을 때의 가로 길이. 손가락 빠르기를 가로·세로 같은 자로 재는 데 쓴다.
         private float screenWidthInHeights = 16f / 9f;
 
         //  돌아가는 데 걸리는 시간(초). 활을 내리는 동안 화각도 22°→60°로 넓어지므로
@@ -370,21 +291,26 @@ namespace LOP.UI
 
         /// <summary>
         /// 손가락이 닿았다. <paramref name="onBowButton"/>이면 활을 들고, 아니면 그 손가락은 끝까지 겨누기만 한다.
-        /// 받는 값은 <b>화면 세로를 1로 본 좌표</b>이고 y 양수가 위다(가로는 1을 넘는다).
+        /// <paramref name="onCancelButton"/>이면 겨누지 않고, 활을 든 중이면 <b>안 쏘고 내려놓는다</b>.
+        /// <paramref name="screenWidthInHeights"/>는 세로를 1로 봤을 때의 가로 길이다(16:9 가로면 1.78).
         /// </summary>
-        public void PointerDown(int pointerId, bool onBowButton, Vector2 positionInHeights, float screenWidthInHeights)
+        public void PointerDown(int pointerId, bool onBowButton, bool onCancelButton, float screenWidthInHeights)
         {
-            var role = router.Down(pointerId, onBowButton);
+            this.screenWidthInHeights = screenWidthInHeights;
+            var role = router.Down(pointerId, onBowButton, onCancelButton);
             fingers[pointerId] = new Finger();
 
+            if (role == ArcheryPointerRouter.Role.Cancel)
+            {
+                Finish(ArcheryPointerRouter.Ending.PutDown);
+                return;
+            }
             if (role != ArcheryPointerRouter.Role.Bow)
             {
                 return;
             }
 
-            this.screenWidthInHeights = screenWidthInHeights;
-            pressInHeights = positionInHeights;
-            OverCancelTarget = false;
+            OverCancelButton = false;
             aimAtPressYaw = cameraController.Yaw;
             aimAtPressPitch = cameraController.Pitch;
 
@@ -396,11 +322,10 @@ namespace LOP.UI
         }
 
         /// <summary>
-        /// 손가락이 움직였다. <paramref name="deltaFraction"/>은 화면 크기 대비 비율,
-        /// <paramref name="positionInHeights"/>는 화면 세로를 1로 본 좌표다.
-        /// 둘 다 <b>x 양수가 오른쪽, y 양수가 위</b>로 같은 관습을 쓴다.
+        /// 손가락이 움직였다. <paramref name="deltaFraction"/>은 화면 크기 대비 비율이고
+        /// <b>x 양수가 오른쪽, y 양수가 위</b>다. <paramref name="overCancelButton"/>은 손가락이 지금 취소 버튼 위인지.
         /// </summary>
-        public void PointerMove(int pointerId, Vector2 deltaFraction, Vector2 positionInHeights)
+        public void PointerMove(int pointerId, Vector2 deltaFraction, bool overCancelButton)
         {
             if (router.Aims(pointerId) == false || fingers.TryGetValue(pointerId, out var finger) == false)
             {
@@ -416,9 +341,9 @@ namespace LOP.UI
 
             if (router.RoleOf(pointerId) == ArcheryPointerRouter.Role.Bow)
             {
-                //  원 안에 있는지는 **화면에 알려 주기 위해서만** 본다. 활을 내리지도, 조준을
-                //  멈추지도 않는다 — 그래야 원 위를 지나 더 겨눌 수 있다.
-                OverCancelTarget = InsideCancelTarget(pressInHeights, positionInHeights, screenWidthInHeights);
+                //  취소 버튼 위인지는 **화면에 알려 주기 위해서만** 본다. 활을 내리지도, 조준을
+                //  멈추지도 않는다 — 그래야 버튼 위를 지나 더 겨눌 수 있다.
+                OverCancelButton = overCancelButton;
             }
 
             //  내려놓은 뒤 조준이 되돌아가는 중에 다른 손가락이 겨누면, 그 손가락이 이긴다.
@@ -430,7 +355,7 @@ namespace LOP.UI
         public void PointerUp(int pointerId)
         {
             fingers.Remove(pointerId);
-            Finish(router.Up(pointerId, DrawArmed, OverCancelTarget));
+            Finish(router.Up(pointerId, DrawArmed, OverCancelButton));
         }
 
         /// <summary>
@@ -459,13 +384,19 @@ namespace LOP.UI
             {
                 BeginAimReturn();
             }
-            OverCancelTarget = false;
+            OverCancelButton = false;
         }
 
         //  데스크톱 편의: 스페이스를 누르고 있는 동안 활 버튼을 누른 것과 같다. 마우스로는 화면을
         //  끌어 겨눈다 — 마우스 하나로 버튼을 누르면 겨누는 손이 없어지기 때문이다.
+        //  Escape는 취소 버튼이다 — 당기는 중이면 안 쏘고 내려놓고, 그 뒤 스페이스를 떼도 안 쏜다.
         private void PollSpace(UnityEngine.InputSystem.Keyboard keyboard)
         {
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            {
+                Finish(router.Cancel());
+            }
+
             bool held = keyboard != null && keyboard.spaceKey.isPressed;
             if (held == spaceHeld)
             {
@@ -474,7 +405,7 @@ namespace LOP.UI
             spaceHeld = held;
             if (held)
             {
-                PointerDown(ArcheryPointerRouter.KeyboardPointerId, true, pressInHeights, screenWidthInHeights);
+                PointerDown(ArcheryPointerRouter.KeyboardPointerId, true, false, screenWidthInHeights);
             }
             else
             {
@@ -538,9 +469,9 @@ namespace LOP.UI
         /// <summary>
         /// 내려놓은 <b>뒤에</b> 조준을 활을 들기 직전 자리로 되돌린다.
         ///
-        /// <para><b>왜 필요한가</b>: 취소하려면 손가락을 원까지 내려야 하는데, 그 손가락이 곧
-        /// 조준이라 내려간 만큼(화면 세로의 31% = 당긴 상태에서 <b>아래로 6.8°</b>) 조준도 같이
-        /// 끌려 내려간다. 90m 홀드오버 전체가 1.1°이니 그냥 두면 조준이 통째로 날아간다.</para>
+        /// <para><b>왜 필요한가</b>: 활 손가락을 왼쪽 취소 버튼까지 끌어오면 그 손가락이 곧
+        /// 조준이라 끈 만큼 조준도 같이 끌려간다. 90m 홀드오버 전체가 1.1°이니 그냥 두면 조준이
+        /// 통째로 날아간다. 다른 손가락으로 톡 쳐서 취소했어도 들기 전 자리로 돌아가는 편이 같은 손맛이다.</para>
         ///
         /// <para>판정이 <b>뗄 때</b> 나므로 되돌리기도 뗀 뒤에 돈다 — 잡고 있는 동안 돌리면
         /// 겨누는 손가락과 싸운다.</para>
@@ -591,8 +522,8 @@ namespace LOP.UI
         /// <summary>지금 활을 들고 있나. 화면이 버튼을 밝히는 데 쓴다.</summary>
         public bool Holding => router.Drawing;
 
-        /// <summary>내려놓기 원을 띄우나. 스페이스로 든 활은 손가락 자리가 없어 원을 안 띄운다.</summary>
-        public bool ShowCancelTarget => router.Drawing && router.DrawingByKeyboard == false;
+        /// <summary>취소 버튼이 지금 먹히나. 화면이 버튼을 흐리게/또렷하게 그리는 데 쓴다.</summary>
+        public bool CancelActive => router.Drawing;
 
     }
 }

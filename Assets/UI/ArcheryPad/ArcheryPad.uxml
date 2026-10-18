@@ -11,17 +11,20 @@
                 <ui:VisualElement name="move-handle" class="move-handle" picking-mode="Ignore" />
             </ui:VisualElement>
         </ui:VisualElement>
-        <!-- 활 버튼: 오른쪽 아래. 누르면 활이 올라오고, 쥔 채 끌면 겨누고, 떼면 쏜다.
+        <!-- 활 버튼: 오른쪽(가로 78%·세로 62%). 누르면 활이 올라오고, 쥔 채 끌면 겨누고, 떼면 쏜다.
              자리·크기는 ArcheryPadView가 화면 크기·안전 영역에 맞춰 정한다. 바깥이 누르는 자리, 안쪽이 보이는 원이다. -->
         <ui:VisualElement name="bow-button" class="bow-button-hit">
             <ui:VisualElement name="bow-face" class="bow-button" picking-mode="Ignore">
                 <ui:Label name="bow-label" class="bow-label" text="활" picking-mode="Ignore" />
             </ui:VisualElement>
         </ui:VisualElement>
-        <!-- 내려놓기: 버튼을 누른 자리 옆(아래, 자리가 없으면 왼쪽)에 뜨는 원. 잡고 있는 동안만 보이고, 여기서 떼면 안 쏜다.
-             자리와 크기는 ArcheryPadView가 ViewModel 값으로 정한다 — USS에 적지 않는다. -->
-        <ui:VisualElement name="cancel-target" class="cancel-target" picking-mode="Ignore">
-            <ui:Label name="cancel-label" class="cancel-label" text="내려놓기" picking-mode="Ignore" />
+        <!-- 취소 버튼: 왼쪽 아래(가로 12%·세로 74%)에 늘 서 있다. 당기는 중에 다른 손가락으로 누르거나,
+             활 손가락을 끌어와 그 위에서 떼면 안 쏘고 내려놓는다. 안 당길 땐 흐리고, 눌러도 아무 일 없다.
+             걷기 스틱 구석과 겹치므로 그보다 **뒤에** 적어 이 자리의 손가락을 먼저 받는다. -->
+        <ui:VisualElement name="cancel-button" class="cancel-button-hit">
+            <ui:VisualElement name="cancel-face" class="cancel-button" picking-mode="Ignore">
+                <ui:Label name="cancel-label" class="cancel-label" text="취소" picking-mode="Ignore" />
+            </ui:VisualElement>
         </ui:VisualElement>
         <!-- 조준점: 화면 한가운데, 시위가 걸린 동안만 뜬다. 바깥 원 + 가운데 점. -->
         <ui:VisualElement name="reticle" class="archery-reticle" picking-mode="Ignore">

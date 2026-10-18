@@ -11,7 +11,7 @@
 }
 
 /* 걷기 스틱이 사는 구석. 오른손 엄지가 겨누는 동안 왼손 엄지가 여기를 쓴다.
-   취소 원은 누른 자리(오른쪽) 기준이라 이 구석과 겹치지 않는다. */
+   취소 버튼이 이 구석 안에 서 있어 그 원 자리만은 취소 버튼이 가져간다. */
 .move-area {
     position: absolute;
     left: 0; bottom: 0;
@@ -42,7 +42,7 @@
     border-color: rgba(255, 255, 255, 0.7);
 }
 
-/* 활 버튼 — 오른쪽 아래. 자리·크기·둥글기는 View가 화면에 맞춰 써 넣는다.
+/* 활 버튼 — 오른쪽. 자리·크기·둥글기는 View가 화면에 맞춰 써 넣는다.
    바깥(.bow-button-hit)은 투명한 누르는 자리, 안쪽(.bow-button)이 보이는 원이다. */
 .bow-button-hit {
     position: absolute;
@@ -73,34 +73,42 @@
     -unity-text-align: middle-center;
 }
 
-/* 내려놓기 원 — 활 버튼을 누른 자리 옆에 뜬다. 잡고 있는 동안만 View가 켠다.
-   자리·크기·모서리 둥글기는 View가 ViewModel 값으로 써 넣는다(여기 적으면 두 곳이 어긋난다).
-   손가락이 안에 들어오면 붉어지지만, 들어왔다고 활이 내려가지는 않는다 — 뗄 때만 판정한다. */
-.cancel-target {
+/* 취소 버튼 — 왼쪽 아래에 늘 서 있다. 자리·크기·둥글기는 View가 화면에 맞춰 써 넣는다.
+   안 당길 땐 흐리고(.is-active 없음), 당기는 동안 또렷해지고, 활 손가락이 위에 오면 붉어진다.
+   위에 왔다고 활이 내려가지는 않는다 — 뗄 때만 판정한다. */
+.cancel-button-hit {
     position: absolute;
-    display: none;
     align-items: center;
     justify-content: center;
-    background-color: rgba(20, 24, 26, 0.42);
-    border-left-width: 2px; border-right-width: 2px;
-    border-top-width: 2px; border-bottom-width: 2px;
-    border-left-color: rgba(255, 255, 255, 0.34);
-    border-right-color: rgba(255, 255, 255, 0.34);
-    border-top-color: rgba(255, 255, 255, 0.34);
-    border-bottom-color: rgba(255, 255, 255, 0.34);
 }
-.cancel-target.is-over {
-    background-color: rgba(200, 54, 47, 0.42);
+.cancel-button {
+    align-items: center;
+    justify-content: center;
+    opacity: 0.35;
+    background-color: rgba(20, 24, 26, 0.42);
+    border-left-width: 3px; border-right-width: 3px;
+    border-top-width: 3px; border-bottom-width: 3px;
+    border-left-color: rgba(255, 255, 255, 0.6);
+    border-right-color: rgba(255, 255, 255, 0.6);
+    border-top-color: rgba(255, 255, 255, 0.6);
+    border-bottom-color: rgba(255, 255, 255, 0.6);
+}
+.cancel-button.is-active {
+    opacity: 1;
+}
+.cancel-button.is-over {
+    background-color: rgba(200, 54, 47, 0.55);
     border-left-color: rgba(232, 110, 92, 0.95);
     border-right-color: rgba(232, 110, 92, 0.95);
     border-top-color: rgba(232, 110, 92, 0.95);
     border-bottom-color: rgba(232, 110, 92, 0.95);
 }
 .cancel-label {
-    font-size: 26px;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgb(255, 255, 255);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
 }
-.cancel-target.is-over .cancel-label {
+.cancel-button.is-over .cancel-label {
     color: rgb(255, 225, 220);
 }
 

@@ -97,7 +97,7 @@ namespace LOP
                 //  가리지 않는 이름을 쓴다(sphere라는 이름의 변수가 판을 들고 있으면 헷갈린다).
                 if (drawn.TryGetValue(key, out var visual) == false || visual == null)
                 {
-                    string code = course.IsCatapult ? md.Tables.TbArcheryTarget.GetOrDefault(targets[i].KindId)?.Code : null;
+                    string code = CodeOf(targets[i]);
                     if (code != null && ArcheryCatapultLooks.IsFestival(code))
                     {
                         if (kit.TryBuild(code, out var modeled))
@@ -125,10 +125,10 @@ namespace LOP
                 bool festival = visual.name.StartsWith("catapult-");
                 if (festival)
                 {
-                    visual.transform.position = ArcheryTargetMotion.PositionAt(targets[i], renderTick, (float)interval);
-                    //  그림의 앞면(로컬 +z)이 사수 쪽을 보게 한다.
-                    visual.transform.rotation = Quaternion.LookRotation(
-                        targets[i].Facing == Vector3.zero ? Vector3.back : targets[i].Facing);
+                    var target = targets[i];
+                    visual.transform.position = ArcheryTargetMotion.PositionAt(target, renderTick, (float)interval);
+                    //  접시는 판정과 같은 각으로 돌고 종·피냐타는 흔들린다 — 조합은 한 곳(RotationAt)에만 둔다.
+                    visual.transform.rotation = ArcheryCatapultLooks.RotationAt(target, CodeOf(target), renderTick, (float)interval);
                     continue;
                 }
 
@@ -175,6 +175,10 @@ namespace LOP
                 drawn.Remove(stale[i]);
             }
         }
+
+        //  표적 종류 id → 데이터 code. 투석기가 아니면 null(웨이브·사거리·한 발 승부 과녁은 생김새가 없다).
+        private string CodeOf(in ArcheryTarget target)
+            => course.IsCatapult ? md.Tables.TbArcheryTarget.GetOrDefault(target.KindId)?.Code : null;
 
         //  판은 띠마다 원판을 하나씩 겹쳐 그린다. 가장 바깥이 뒤, 가운데가 앞이다.
         //  유니티 실린더는 y축으로 2만큼 길고 반지름이 0.5라, 지름 배율은 (반경 x 2)이고

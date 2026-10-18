@@ -59,7 +59,7 @@ namespace LOP
             foreach (var arm in arms) { arm.localRotation = Quaternion.Euler(angle, 0f, 0f); }
 
             if (tick >= launch) { ClearLobs(); return; }
-            if (lobVolley != v) { BuildLobs(v, start); }
+            if (lobVolley != v) { BuildLobs(v, start, launch, (float)interval); }
             var lane = course.SharedLane.Value;
             Vector3 right = ArcheryTargetMotion.ShooterRightAxis(-lane.Forward);
             float k = ArcheryCatapultMachines.LobProgress(tick, cue, launch);
@@ -111,7 +111,7 @@ namespace LOP
             return true;
         }
 
-        private void BuildLobs(int v, long start)
+        private void BuildLobs(int v, long start, long launch, float tickInterval)
         {
             ClearLobs();
             course.Fill(volley, v, start);
@@ -119,7 +119,8 @@ namespace LOP
             {
                 string code = md.Tables.TbArcheryTarget.GetOrDefault(t.KindId)?.Code;
                 GameObject go = kit.TryBuild(code, out var modeled) ? modeled : ArcheryCatapultLooks.BuildPlaceholder(code, t.Radius);
-                go.transform.rotation = Quaternion.LookRotation(t.Facing == Vector3.zero ? Vector3.back : t.Facing);
+                //  발사 틱의 각으로 날아 들어온다 — 진짜 표적으로 바뀌는 순간 접시·종이 안 튄다.
+                go.transform.rotation = ArcheryCatapultLooks.RotationAt(t, code, launch, tickInterval);
                 lobs.Add(go);
             }
             lobVolley = v;

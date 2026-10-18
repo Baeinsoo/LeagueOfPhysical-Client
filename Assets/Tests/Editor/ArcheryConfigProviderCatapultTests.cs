@@ -87,5 +87,29 @@ namespace LOP.Tests
             CollectionAssert.AreEqual(banded, config.Kinds.Select(k => k.Id).ToArray());
             Assert.IsTrue(config.Kinds.All(k => k.DistanceMaxM > 0f));
         }
+
+        [Test]
+        public void 투석기_표적의_움직임과_대박_칸을_제자리에_옮긴다()
+        {
+            var md = RealMasterData();
+            var config = CatapultConfig(md);
+            Assert.AreEqual(md.Tables.TbArcheryConfig.GetOrDefault(CatapultMapId).JackpotChance, config.Catapult.JackpotChance);
+            Assert.Greater(config.Catapult.JackpotChance, 0f, "맵 13의 대박 확률이 0이면 이 시험이 아무것도 못 지킨다");
+            foreach (var k in config.Kinds)
+            {
+                var row = md.Tables.TbArcheryTarget.GetOrDefault(k.Id);
+                string c = row.Code;
+                Assert.AreEqual(row.IsJackpot, k.IsJackpot, c);
+                Assert.AreEqual(row.HeightMinM, k.Motion.HeightMinM, c); Assert.AreEqual(row.HeightMaxM, k.Motion.HeightMaxM, c);
+                Assert.AreEqual(row.ArcMinM, k.Motion.ArcMinM, c); Assert.AreEqual(row.ArcMaxM, k.Motion.ArcMaxM, c);
+                Assert.AreEqual(row.ClimbMinMps, k.Motion.ClimbMinMps, c); Assert.AreEqual(row.ClimbMaxMps, k.Motion.ClimbMaxMps, c);
+                Assert.AreEqual(row.BobAmpM, k.Motion.BobAmplitudeM, c); Assert.AreEqual(row.BobHz, k.Motion.BobHz, c);
+                Assert.AreEqual(row.SpinHz, k.Motion.SpinHz, c); Assert.AreEqual(row.LateralHalfM, k.Motion.LateralHalfM, c);
+            }
+            //  역할이 실제로 갈리는지 — 다 같으면 위 비교가 칸 바꿔치기를 못 잡는다.
+            Assert.AreEqual(4, config.NormalKinds.Count);
+            Assert.AreEqual(2, config.JackpotKinds.Count);
+            Assert.AreEqual(3, config.TrapKinds.Count);
+        }
     }
 }

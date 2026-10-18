@@ -202,8 +202,10 @@ namespace LOP
                 }
 
                 Vector3 candidateTargetAt = ArcheryTargetMotion.PositionAt(targets[i], at, tickInterval);
+                //  서버 판정과 같은 반지름 — 도는 접시가 누운 순간 그 옆에 꽂히는 일이 없게.
+                float radius = ArcheryTargetMotion.RadiusAt(targets[i], at, tickInterval);
 
-                if (ArcheryHitTest.SegmentHitsTarget(from, to, candidateTargetAt, targets[i], out float t, out _))
+                if (ArcheryHitTest.SegmentHitsTarget(from, to, candidateTargetAt, targets[i], radius, out float t, out _))
                 {
                     slot = targets[i].SlotIndex;
                     atSeconds = Mathf.Lerp(fromSeconds, toSeconds, t);

@@ -18,9 +18,11 @@
                 <ui:Label name="bow-label" class="bow-label" text="활" picking-mode="Ignore" />
             </ui:VisualElement>
         </ui:VisualElement>
-        <!-- 취소 버튼: 왼쪽 아래(가로 12%·세로 74%)에 늘 서 있다. 당기는 중에 다른 손가락으로 누르거나,
-             활 손가락을 끌어와 그 위에서 떼면 안 쏘고 내려놓는다. 안 당길 땐 흐리고, 눌러도 아무 일 없다.
-             걷기 스틱 구석과 겹치므로 그보다 **뒤에** 적어 이 자리의 손가락을 먼저 받는다. -->
+        <!-- 취소 버튼: 왼쪽 아래(가로 12%·세로 74%). 활을 든 동안만 보인다(View가 display:none으로 감춘다).
+             당기는 중에 다른 손가락으로 누르거나, 활 손가락을 끌어와 그 위에서 떼면 안 쏘고 내려놓는다.
+             안 당길 땐 안 보이고, 그 자리에서 시작한 손가락은 평범한 화면 손가락처럼 겨눈다
+             (판정은 ArcheryPointerRouter.Down이 한다). 누르는 자리는 안 보여도 그대로 있으므로
+             걷기 스틱 구석과 겹쳐도 그보다 **뒤에** 적어 이 자리의 손가락을 먼저 받는다. -->
         <ui:VisualElement name="cancel-button" class="cancel-button-hit">
             <ui:VisualElement name="cancel-face" class="cancel-button" picking-mode="Ignore">
                 <ui:Label name="cancel-label" class="cancel-label" text="취소" picking-mode="Ignore" />

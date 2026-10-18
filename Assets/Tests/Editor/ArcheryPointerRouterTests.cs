@@ -260,16 +260,18 @@ namespace LOP.Tests
             Assert.IsFalse(router.Aims(Other), "취소 버튼을 누른 손가락이 겨눈다");
         }
 
-        //  활을 안 들었을 땐 취소 버튼은 그냥 막힌 자리다 — 겨누지도, 활을 들지도 않는다.
+        //  활을 안 들었을 땐 취소 버튼이 안 보인다(View가 display:none) — 그 자리에서 시작한
+        //  손가락은 평범한 화면 손가락과 같다. onCancelButton이 true로 들어와도 무시한다.
         [Test]
-        public void 안_당길_때_취소_버튼에서_시작한_손가락은_아무것도_안_한다()
+        public void 안_당길_때_취소_버튼에서_시작한_손가락은_화면처럼_겨눈다()
         {
             var router = new Router();
 
-            Assert.AreEqual(Role.Inert, router.Down(Thumb, onBowButton: false, onCancelButton: true));
-            Assert.IsFalse(router.Aims(Thumb), "취소 버튼에서 시작한 손가락이 겨눈다");
+            Assert.AreEqual(Role.Look, router.Down(Thumb, onBowButton: false, onCancelButton: true));
+            Assert.IsTrue(router.Aims(Thumb), "취소 버튼 자리에서 시작한 손가락이 겨누지 못한다");
             Assert.IsFalse(router.Drawing);
-            Assert.AreEqual(Ending.None, router.Up(Thumb, drawArmed: true, overCancelButton: true));
+            Assert.AreEqual(Ending.None, router.Up(Thumb, drawArmed: true, overCancelButton: true),
+                "겨누기만 하던 손가락을 뗐는데 화살이 나갔다");
             Assert.AreEqual(Ending.None, router.Lost(Thumb));
         }
 

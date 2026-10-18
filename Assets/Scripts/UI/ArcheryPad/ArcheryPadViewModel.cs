@@ -522,7 +522,7 @@ namespace LOP.UI
         /// <summary>지금 활을 들고 있나. 화면이 버튼을 밝히는 데 쓴다.</summary>
         public bool Holding => router.Drawing;
 
-        /// <summary>취소 버튼이 지금 먹히나. 화면이 버튼을 흐리게/또렷하게 그리는 데 쓴다.</summary>
+        /// <summary>취소 버튼이 지금 먹히나. 화면이 버튼을 보일지/숨길지(display:none) 정하는 데 쓴다.</summary>
         public bool CancelActive => router.Drawing;
 
     }

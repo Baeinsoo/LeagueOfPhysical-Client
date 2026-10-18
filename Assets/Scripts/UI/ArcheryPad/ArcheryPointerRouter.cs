@@ -20,7 +20,8 @@ namespace LOP.UI
             Look,     // 끌어서 겨누기만 한다
             Bow,      // 활을 든 손가락 — 끌면 겨누고, 떼면 쏜다
             Cancel,   // 당기는 중에 취소 버튼을 눌러 활을 내려놓은 손가락 — 그 뒤로 아무것도 안 한다
-            Inert,    // 아무것도 안 하는 손가락 — 안 당길 때 취소 버튼을 눌렀거나, 취소당한 활 손가락
+            Inert,    // 아무것도 안 하는 손가락 — 취소당한 활 손가락. 취소 버튼은 안 당길 땐 안 보이므로
+                      // 그 위에서 시작한 손가락은 더는 여기로 오지 않는다(화면 손가락으로 간다).
         }
 
         /// <summary>손가락을 뗐을 때 일어날 일.</summary>
@@ -47,9 +48,11 @@ namespace LOP.UI
         /// 손가락이 닿았다. 버튼 위이고 아직 아무도 활을 안 들었으면 활, 아니면 겨누기다 —
         /// 두 번째 손가락이 버튼에 닿아도 첫 손가락의 당김을 가로채지 않는다.
         ///
-        /// <para>취소 버튼 위면 겨누지 않는다. 활을 든 중이면 <b>누르는 순간</b> 내려놓고
-        /// <see cref="Role.Cancel"/>을 돌려준다 — 부른 쪽이 조준을 되돌린다. 안 든 중이면
-        /// <see cref="Role.Inert"/> — 막힌 자리일 뿐이다.</para>
+        /// <para>취소 버튼은 활을 든 동안만 보인다. 그래서 취소 버튼 위라는 것은
+        /// <b>활을 든 중일 때만</b> 뜻이 있다 — 그때는 <b>누르는 순간</b> 내려놓고
+        /// <see cref="Role.Cancel"/>을 돌려준다(부른 쪽이 조준을 되돌린다). 안 든 중이면
+        /// 버튼이 안 보이니 그 자리는 그냥 화면이다 — <paramref name="onCancelButton"/>을
+        /// 무시하고 보통 손가락(겨누기)으로 받는다.</para>
         /// </summary>
         public Role Down(int pointerId, bool onBowButton, bool onCancelButton = false)
         {
@@ -58,7 +61,7 @@ namespace LOP.UI
                 return existing;   // 같은 누름이 두 번 들어왔다
             }
 
-            if (onCancelButton)
+            if (onCancelButton && Drawing)
             {
                 Role pressed = Cancel() == Ending.PutDown ? Role.Cancel : Role.Inert;
                 roles[pointerId] = pressed;

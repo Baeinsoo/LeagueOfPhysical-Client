@@ -5,9 +5,10 @@ namespace LOP.UI
 {
     /// <summary>
     /// Archery 조작 화면. 화면을 끌면 <b>겨누기만</b> 한다. 오른쪽 <b>활 버튼</b>을 누르면 활이
-    /// 올라오고, 쥔 채 끌면 그 손가락도 겨누고, 떼면 쏜다. 왼쪽 아래 <b>취소 버튼</b>은 당기는 중에
-    /// 다른 손가락으로 누르거나, 활 손가락을 끌어와 그 위에서 떼면 안 쏘고 내려놓는다.
-    /// ViewModel 커맨드로 넘기기만 하는 얇은 바인더다.
+    /// 올라오고, 쥔 채 끌면 그 손가락도 겨누고, 떼면 쏜다. 왼쪽 아래 <b>취소 버튼</b>은 활을 든
+    /// 동안만 보이고, 당기는 중에 다른 손가락으로 누르거나 활 손가락을 끌어와 그 위에서 떼면
+    /// 안 쏘고 내려놓는다. 안 당길 땐 안 보이므로 그 자리에서 시작한 손가락은 평범한 화면
+    /// 손가락처럼 겨눈다. ViewModel 커맨드로 넘기기만 하는 얇은 바인더다.
     /// </summary>
     public class ArcheryPadView : UIView
     {
@@ -134,10 +135,12 @@ namespace LOP.UI
                 _bowFace.EnableInClassList("is-drawing", _viewModel.Holding);
                 _bowFace.EnableInClassList("is-armed", _viewModel.Holding && armed);
 
-                //  취소 버튼은 늘 보이되 안 당길 땐 흐리다 — 어디 있는지 손이 미리 익히게 한다.
+                //  취소 버튼은 활을 든 동안만 보인다 — 안 당길 땐 아예 없다(display:none).
+                //  누르는 자리(_cancelHit)는 그대로 남아 있지만, 그 위에서 시작한 손가락은
+                //  라우터가 평범한 화면 손가락으로 받는다(ArcheryPointerRouter.Down 참고).
                 //  활 손가락이 그 위에 오면 붉어진다(지금 떼면 안 나간다는 뜻).
                 bool cancelActive = _viewModel.CancelActive;
-                _cancelFace.EnableInClassList("is-active", cancelActive);
+                _cancelFace.style.display = cancelActive ? DisplayStyle.Flex : DisplayStyle.None;
                 _cancelFace.EnableInClassList("is-over", cancelActive && _viewModel.OverCancelButton);
             }).Every(0);
         }

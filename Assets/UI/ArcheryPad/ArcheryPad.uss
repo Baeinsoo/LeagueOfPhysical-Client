@@ -73,8 +73,8 @@
     -unity-text-align: middle-center;
 }
 
-/* 취소 버튼 — 왼쪽 아래에 늘 서 있다. 자리·크기·둥글기는 View가 화면에 맞춰 써 넣는다.
-   안 당길 땐 흐리고(.is-active 없음), 당기는 동안 또렷해지고, 활 손가락이 위에 오면 붉어진다.
+/* 취소 버튼 — 왼쪽 아래. 자리·크기·둥글기는 View가 화면에 맞춰 써 넣는다.
+   안 당길 땐 display:none으로 아예 없고, 당기는 동안만 보이며, 활 손가락이 위에 오면 붉어진다.
    위에 왔다고 활이 내려가지는 않는다 — 뗄 때만 판정한다. */
 .cancel-button-hit {
     position: absolute;
@@ -84,7 +84,6 @@
 .cancel-button {
     align-items: center;
     justify-content: center;
-    opacity: 0.35;
     background-color: rgba(20, 24, 26, 0.42);
     border-left-width: 3px; border-right-width: 3px;
     border-top-width: 3px; border-bottom-width: 3px;
@@ -92,9 +91,6 @@
     border-right-color: rgba(255, 255, 255, 0.6);
     border-top-color: rgba(255, 255, 255, 0.6);
     border-bottom-color: rgba(255, 255, 255, 0.6);
-}
-.cancel-button.is-active {
-    opacity: 1;
 }
 .cancel-button.is-over {
     background-color: rgba(200, 54, 47, 0.55);

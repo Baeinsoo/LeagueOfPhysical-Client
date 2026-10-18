@@ -11,7 +11,7 @@
 }
 
 /* 걷기 스틱이 사는 구석. 오른손 엄지가 겨누는 동안 왼손 엄지가 여기를 쓴다.
-   취소 원은 누른 자리(오른쪽) 기준이라 이 구석과 겹치지 않는다. */
+   시위 풀기 버튼이 이 구석 안에 서 있어 그 원 자리만은 시위 풀기 버튼이 가져간다. */
 .move-area {
     position: absolute;
     left: 0; bottom: 0;
@@ -42,35 +42,111 @@
     border-color: rgba(255, 255, 255, 0.7);
 }
 
-/* 내려놓기 원 — 누른 자리 아래에 뜬다. 잡고 있는 동안만 View가 켠다.
-   자리·크기·모서리 둥글기는 View가 ViewModel 값으로 써 넣는다(여기 적으면 두 곳이 어긋난다).
-   손가락이 안에 들어오면 붉어지지만, 들어왔다고 활이 내려가지는 않는다 — 뗄 때만 판정한다. */
-.cancel-target {
+/* 활 버튼 — 기본은 오른쪽. 자리·크기·둥글기는 View가 화면에 맞춰 써 넣는다.
+   바깥(.bow-button-hit)은 투명한 누르는 자리, 안쪽(.bow-button)이 보이는 원이다. */
+.bow-button-hit {
     position: absolute;
-    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.bow-button {
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.28);
+    border-left-width: 3px; border-right-width: 3px;
+    border-top-width: 3px; border-bottom-width: 3px;
+    border-left-color: rgba(255, 255, 255, 0.85);
+    border-right-color: rgba(255, 255, 255, 0.85);
+    border-top-color: rgba(255, 255, 255, 0.85);
+    border-bottom-color: rgba(255, 255, 255, 0.85);
+}
+/* 쥐고 있는 동안 노랗게 켜진다. 시위가 걸리면 더 진해진다 — 지금 떼면 나간다는 뜻이다. */
+.bow-button.is-drawing {
+    background-color: rgba(255, 225, 77, 0.35);
+}
+.bow-button.is-armed {
+    background-color: rgba(255, 225, 77, 0.55);
+}
+/* 활 아이콘(화살을 건 활) — 원의 65%. 그림은 Tools/Icons/archery_pad_icons.py가 뽑는다. */
+.bow-icon {
+    width: 65%;
+    height: 65%;
+    background-image: url("project://database/Assets/UI/ArcheryPad/Icons/bow_drawn.png");
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* 시위 풀기 버튼 — 기본은 왼쪽 아래. 자리·크기·둥글기는 View가 화면에 맞춰 써 넣는다.
+   안 당길 땐 display:none으로 아예 없고, 당기는 동안만 보이며, 활 손가락이 위에 오면 붉어진다.
+   위에 왔다고 활이 내려가지는 않는다 — 뗄 때만 판정한다. */
+.cancel-button-hit {
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+}
+.cancel-button {
     align-items: center;
     justify-content: center;
     background-color: rgba(20, 24, 26, 0.42);
-    border-left-width: 2px; border-right-width: 2px;
-    border-top-width: 2px; border-bottom-width: 2px;
-    border-left-color: rgba(255, 255, 255, 0.34);
-    border-right-color: rgba(255, 255, 255, 0.34);
-    border-top-color: rgba(255, 255, 255, 0.34);
-    border-bottom-color: rgba(255, 255, 255, 0.34);
+    border-left-width: 3px; border-right-width: 3px;
+    border-top-width: 3px; border-bottom-width: 3px;
+    border-left-color: rgba(255, 255, 255, 0.6);
+    border-right-color: rgba(255, 255, 255, 0.6);
+    border-top-color: rgba(255, 255, 255, 0.6);
+    border-bottom-color: rgba(255, 255, 255, 0.6);
 }
-.cancel-target.is-over {
-    background-color: rgba(200, 54, 47, 0.42);
+.cancel-button.is-over {
+    background-color: rgba(200, 54, 47, 0.55);
     border-left-color: rgba(232, 110, 92, 0.95);
     border-right-color: rgba(232, 110, 92, 0.95);
     border-top-color: rgba(232, 110, 92, 0.95);
     border-bottom-color: rgba(232, 110, 92, 0.95);
 }
-.cancel-label {
-    font-size: 26px;
-    color: rgba(255, 255, 255, 0.6);
+/* 위에 느슨한 시위의 활, 아래에 작은 글씨. 글자 크기는 View가 원에 비례해 써 넣는다. */
+.cancel-icon {
+    width: 50%;
+    height: 50%;
+    background-image: url("project://database/Assets/UI/ArcheryPad/Icons/bow_slack.png");
+    -unity-background-scale-mode: scale-to-fit;
 }
-.cancel-target.is-over .cancel-label {
+.cancel-label {
+    color: rgb(255, 255, 255);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    margin-top: 2px;
+    padding: 0;
+}
+.cancel-button.is-over .cancel-label {
     color: rgb(255, 225, 220);
+}
+
+/* 옮기기 손잡이 — 버튼 오른쪽 위에 걸친 작은 반투명 원. 늘 보인다. 자리·크기는 View가 써 넣는다. */
+.layout-handle-hit {
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+}
+.layout-handle {
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.38);
+    border-left-width: 2px; border-right-width: 2px;
+    border-top-width: 2px; border-bottom-width: 2px;
+    border-left-color: rgba(255, 255, 255, 0.55);
+    border-right-color: rgba(255, 255, 255, 0.55);
+    border-top-color: rgba(255, 255, 255, 0.55);
+    border-bottom-color: rgba(255, 255, 255, 0.55);
+    opacity: 0.8;
+}
+/* 잡고 있는 동안 또렷하게 — 지금 버튼을 옮기는 중이라는 뜻이다. */
+.layout-handle.is-dragging {
+    opacity: 1;
+    background-color: rgba(255, 225, 77, 0.55);
+}
+.layout-handle-icon {
+    width: 62%;
+    height: 62%;
+    background-image: url("project://database/Assets/UI/ArcheryPad/Icons/move.png");
+    -unity-background-scale-mode: scale-to-fit;
 }
 
 /* 점수는 화면 위 가운데. 조작을 가리면 안 되므로 입력은 통과시킨다. */
@@ -112,6 +188,16 @@
     border-bottom-left-radius: 22px; border-bottom-right-radius: 22px;
     align-items: center;
     justify-content: center;
+}
+
+/* 당김 고리 — 조준점 바로 바깥. 조준점은 44px이고 시위가 막 걸렸을 때 1.28배(56px)로 떠서 만작에 1배로
+   조여든다. 지름 64px면 가장 클 때도 틈이 4px 남고, 만작이면 10px 바깥에서 고리가 조준점을 감싼다.
+   선 굵기는 ArcheryDrawRingElement.LineWidth(2.5px)이고 그림은 코드가 그린다. */
+.archery-draw-ring {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 64px; height: 64px;
+    margin-left: -32px; margin-top: -32px;
 }
 
 .archery-reticle-dot {
@@ -182,3 +268,17 @@
     margin-left: -70px;
 }
 
+
+/* 개발 빌드 전용: 조준 가속 세기 버튼. 작게, 왼쪽 위 구석에. */
+.aim-accel-toggle {
+    position: absolute;
+    left: 12px; top: 12px;
+    margin: 0;
+    padding: 4px 10px;
+    font-size: 16px;
+    color: rgb(255, 255, 255);
+    background-color: rgba(0, 0, 0, 0.45);
+    border-width: 0;
+    border-top-left-radius: 6px; border-top-right-radius: 6px;
+    border-bottom-left-radius: 6px; border-bottom-right-radius: 6px;
+}

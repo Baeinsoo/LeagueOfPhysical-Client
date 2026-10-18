@@ -43,7 +43,15 @@ namespace LOP
                 kinds.Add(new ArcheryTargetKind(row.Radius, row.Points, row.Weight, row.IsTrap,
                     (ArcheryTargetShape)row.Shape, BandsOf(md, row.Id),
                     id: row.Id, distanceMinM: row.DistanceMinM, distanceMaxM: row.DistanceMaxM,
-                    driftMinMps: row.DriftMinMps, driftMaxMps: row.DriftMaxMps, stunTicks: row.StunTicks));
+                    driftMinMps: row.DriftMinMps, driftMaxMps: row.DriftMaxMps, stunTicks: row.StunTicks,
+                    isJackpot: row.IsJackpot,
+                    //  이름 있는 인수로만 옮긴다 — float 칸 열 개라 자리로 넘기면 둘을 바꿔 적어도 컴파일된다.
+                    motion: new ArcheryCatapultMotion(
+                        heightMinM: row.HeightMinM, heightMaxM: row.HeightMaxM,
+                        arcMinM: row.ArcMinM, arcMaxM: row.ArcMaxM,
+                        climbMinMps: row.ClimbMinMps, climbMaxMps: row.ClimbMaxMps,
+                        bobAmplitudeM: row.BobAmpM, bobHz: row.BobHz,
+                        spinHz: row.SpinHz, lateralHalfM: row.LateralHalfM)));
             }
             if (kinds.Count == 0)
             {
@@ -112,7 +120,7 @@ namespace LOP
                 catapult = new ArcheryCatapultSettings(
                     r.RoundCount, r.RoundIntroTicks, r.RoundHuntTicks, r.RoundResultTicks,
                     r.VolleyPeriodTicks, r.VolleyCueTicks, r.VolleyQuietTicks, r.TargetLifeTicks,
-                    r.TrapChance, r.SpawnRadius);
+                    r.TrapChance, r.SpawnRadius, jackpotChance: r.JackpotChance);
             }
 
             return new ArcheryConfig(

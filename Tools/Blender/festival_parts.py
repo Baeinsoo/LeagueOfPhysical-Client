@@ -1,10 +1,11 @@
-"""축제 표적·조각·투석기 — 원점 기준 FBX로 뽑는다(투석기 사냥 슬라이스 2).
+"""축제 표적·투석기 — 원점 기준 FBX로 뽑는다(투석기 사냥 2차 — 손맛 표적 9종).
 
 실행:  blender -b -P Tools/Blender/festival_parts.py -- <LeagueOfPhysical-Client/Assets/Art 절대경로> [부품 이름 ...]
 출력:  <Art>/Models/Festival/<부품>.fbx  (이름을 주면 그 부품만 — FBX는 뽑을 때마다 바이트가 달라진다)
 
 좌표는 게임(유니티) 좌표: x 오른쪽, y 위, +z = 사수 쪽(앞면). 원점 = 판정 구 중심.
 크기 규칙: 감싸는 구 반지름 = 판정 반지름 × 0.95~1.05 (보이는 크기 = 맞는 크기). 재질은 슬롯 이름만.
+꾸밈 슬롯(String·Tassel)은 재지 않는다.
 """
 import bpy, bmesh, math, os, sys
 from mathutils import Vector, Matrix
@@ -16,8 +17,10 @@ if not ART or not os.path.isdir(ART):
     raise SystemExit('usage: blender -b -P festival_parts.py -- <Assets/Art 절대경로>')
 OUT = os.path.join(ART, 'Models', 'Festival')
 AXIS_FORWARD, AXIS_UP = 'Z', 'Y'
-PARENT = {'ShieldHalf': 'shield', 'AppleHalf': 'apple'}   # 조각은 원본과 같은 비율로 축척한다
-RADIUS = {'Shield': 1.2, 'Helmet': 0.9, 'Apple': 0.6, 'Grail': 0.5, 'KingFlag': 0.85, 'FlowerBasket': 0.85}
+RADIUS = {'WaterBalloon': 1.0, 'Watermelon': 0.75, 'Plate': 0.85, 'Rocket': 0.45, 'GoldenBell': 0.8,
+          'Pinata': 0.95, 'BirdNest': 0.75, 'CheerFlag': 0.8, 'KidBalloon': 0.8}
+# 가는 꾸밈(풍선 줄·피냐타 술) — 감싸는 구에서 뺀다. 넣으면 몸이 줄 길이만큼 작아져 "안 맞을 것 같은데 맞음"이 된다.
+DECOR = {'String', 'Tassel'}
 
 
 def B(p):
@@ -71,12 +74,26 @@ class Part:
         faces = list({f for v in verts for f in v.link_faces})
         self._mat(faces, mat, smooth=False)
 
-    def sphere(self, c, r, mat, squash=(1, 1, 1), segs=16):
+    def sphere(self, c, r, mat, squash=(1, 1, 1), segs=16, rot_y_deg=0.0):
         res = bmesh.ops.create_uvsphere(self.bm, u_segments=segs, v_segments=segs // 2, radius=r)
         verts = res['verts']
         bmesh.ops.scale(self.bm, vec=B(squash), verts=verts)
+        if rot_y_deg:
+            bmesh.ops.rotate(self.bm, matrix=Matrix.Rotation(math.radians(rot_y_deg), 4, 'Z'), verts=verts)  # 게임 y = 블렌더 z
         bmesh.ops.translate(self.bm, vec=B(c), verts=verts)
         self._mat(list({f for v in verts for f in v.link_faces}), mat)
+
+    def prism(self, outline, depth, mat):
+        """outline = 게임 xy 평면의 볼록하지 않아도 되는 다각형(반시계). z = ±depth/2로 뽑아 옆면을 잇는다."""
+        front = [self.bm.verts.new(B((x, y, depth / 2))) for x, y in outline]
+        back = [self.bm.verts.new(B((x, y, -depth / 2))) for x, y in outline]
+        faces = [self.bm.faces.new(front), self.bm.faces.new(list(reversed(back)))]
+        n = len(outline)
+        for i in range(n):
+            j = (i + 1) % n
+            faces.append(self.bm.faces.new((front[i], back[i], back[j], front[j])))
+        bmesh.ops.recalc_face_normals(self.bm, faces=faces)
+        self._mat(faces, mat, smooth=False)
 
     def tube(self, path, r, mat, sides=8):
         """path = 게임 좌표 점 목록(xy 평면 곡선). 반지름 r 관을 끊김 없이 훑고 양 끝을 막는다."""
@@ -102,98 +119,106 @@ class Part:
         self._mat(faces, mat)
 
     def bound_radius(self):
-        return max((v.co.length for v in self.bm.verts), default=0.0)
+        """몸만 잰다 — 꾸밈 슬롯(DECOR) 면의 정점은 뺀다."""
+        body = set()
+        for f in self.bm.faces:
+            if self.slots[f.material_index] not in DECOR:
+                body.update(f.verts)
+        return max((v.co.length for v in body), default=0.0)
+
+    def decor_count(self):
+        return sum(1 for f in self.bm.faces if self.slots[f.material_index] in DECOR)
 
 
-def shield():
-    p = Part('Shield')
-    p.lathe([(0.0, -0.06), (1.14, -0.06), (1.14, 0.06), (0.0, 0.06)], 'Wood', segs=32, axis='z', smooth=False)
-    p.lathe([(1.08, -0.07), (1.16, -0.07), (1.16, 0.08), (1.08, 0.08)], 'Metal', segs=32, axis='z', caps=False)
-    p.sphere((0, 0, 0.08), 0.24, 'Metal', squash=(1, 1, 0.6))
-    for x in (-0.38, 0.38):
-        p.box((x, 0, 0.065), (0.04, 2.1, 0.01), 'WoodDark')
+def water_balloon():
+    p = Part('WaterBalloon')   # 살짝 위아래로 긴 물방울 + 하이라이트 + 묶은 꼭지
+    p.sphere((0, 0.02, 0), 0.5, 'Water', squash=(1, 1.08, 1), segs=24)
+    p.sphere((-0.17, 0.22, 0.38), 0.12, 'WaterLight', squash=(0.8, 1.2, 0.4), segs=10)
+    p.lathe([(0.0, -0.62), (0.07, -0.58), (0.03, -0.52)], 'WaterDark', segs=10)
     return p
 
 
-def shield_half():
-    p = Part('ShieldHalf')   # 오른쪽 반(x ≥ 0). 왼쪽 반은 유니티에서 x 배율 −1.
-    segs = 16
-    prof = [(1.14 * math.cos(math.pi * (i / segs - 0.5)), 1.14 * math.sin(math.pi * (i / segs - 0.5))) for i in range(segs + 1)]
-    front = [p.bm.verts.new(B((x, y, 0.06))) for x, y in prof]
-    back = [p.bm.verts.new(B((x, y, -0.06))) for x, y in prof]
-    faces = [p.bm.faces.new(front), p.bm.faces.new(list(reversed(back)))]
-    for i in range(segs):
-        faces.append(p.bm.faces.new((front[i], back[i], back[i + 1], front[i + 1])))
-    faces.append(p.bm.faces.new((front[-1], back[-1], back[0], front[0])))
-    bmesh.ops.recalc_face_normals(p.bm, faces=faces)
-    p._mat(faces, 'Wood', smooth=False)
+def watermelon():
+    p = Part('Watermelon')     # 옆으로 조금 긴 통수박 + 짙은 줄무늬(세로 타원 여섯 겹)
+    p.sphere((0, 0, 0), 0.5, 'Melon', squash=(1.1, 1, 1), segs=24)
+    for k in range(6):
+        p.sphere((0, 0, 0), 0.505, 'MelonDark', squash=(0.13, 1.0, 1.1), segs=16, rot_y_deg=30 * k)
     return p
 
 
-def helmet():
-    p = Part('Helmet')   # 기사 통투구 — 세로 원기둥 + 둥근 꼭대기, 앞(+z)에 눈 틈
-    p.lathe([(0.0, -0.62), (0.55, -0.62), (0.58, 0.2), (0.5, 0.48), (0.3, 0.64), (0.0, 0.68)], 'Metal')
-    p.box((0, 0.12, 0.56), (0.7, 0.08, 0.06), 'MetalDark')
-    p.box((0, -0.15, 0.57), (0.06, 0.4, 0.04), 'MetalDark')
-    p.box((0, 0.66, 0), (0.08, 0.14, 0.7), 'Red')   # 볏
+def plate():
+    p = Part('Plate')          # 사수를 향한 얕은 접시(+z가 안쪽 면) + 파란 테
+    p.lathe([(0.0, -0.03), (0.3, -0.03), (0.5, 0.02), (0.5, 0.05), (0.46, 0.05), (0.32, 0.0), (0.0, 0.0)],
+            'Porcelain', segs=32, axis='z', smooth=False)
+    p.lathe([(0.38, 0.012), (0.43, 0.035), (0.43, 0.04), (0.38, 0.017)], 'PorcelainBlue', segs=32, axis='z', caps=False)
     return p
 
 
-def apple():
-    p = Part('Apple')
-    p.sphere((0, -0.02, 0), 0.55, 'Red', squash=(1, 0.92, 1), segs=20)
-    p.box((0, 0.55, 0), (0.04, 0.12, 0.04), 'WoodDark')
-    p.sphere((0.1, 0.55, 0), 0.08, 'Green', squash=(1.6, 0.3, 0.8), segs=8)
+def rocket():
+    p = Part('Rocket')         # 세운 로켓: 몸통·흰 띠·뾰족 머리·날개 셋. 불꽃 꼬리는 연출(파티클)이 그린다
+    p.lathe([(0.0, -0.3), (0.09, -0.3), (0.09, 0.2), (0.0, 0.2)], 'RocketRed', segs=16)
+    p.lathe([(0.092, -0.02), (0.092, 0.05)], 'White', segs=16, caps=False)
+    p.lathe([(0.09, 0.2), (0.0, 0.38)], 'Gold', segs=16)
+    for x in (-0.12, 0.12):                     # 날개 넷 — box는 게임 z축으로만 돌리므로 x·z 방향으로 따로 세운다
+        p.box((x, -0.25, 0), (0.08, 0.12, 0.015), 'Gold')
+    for z in (-0.12, 0.12):
+        p.box((0, -0.25, z), (0.015, 0.12, 0.08), 'Gold')
     return p
 
 
-def apple_half():
-    p = Part('AppleHalf')   # 쪼갠 반쪽 — 자른 면(x=0)이 흰 속살
-    p.lathe([(0.0, -0.5), (0.3, -0.42), (0.5, -0.1), (0.5, 0.15), (0.32, 0.45), (0.0, 0.5)], 'Red', segs=20)
-    bmesh.ops.remove_doubles(p.bm, verts=p.bm.verts[:], dist=1e-5)   # 극점(반지름 0 고리)을 한 점으로
-    bmesh.ops.bisect_plane(p.bm, geom=p.bm.verts[:] + p.bm.edges[:] + p.bm.faces[:], plane_co=(0, 0, 0),
-                           plane_no=(1, 0, 0), clear_inner=True)
-    # 자른 단면 = 잘린 윤곽 그대로 메운다(사각 판이면 옆에서 사과 밖으로 삐져나온다)
-    rim = [e for e in p.bm.edges if e.is_boundary]
-    cut = bmesh.ops.holes_fill(p.bm, edges=rim, sides=0)['faces']
-    bmesh.ops.recalc_face_normals(p.bm, faces=p.bm.faces[:])
-    p._mat(cut, 'White', smooth=False)
+def golden_bell():
+    p = Part('GoldenBell')     # 종 몸(아래가 벌어진 회전체) + 추 + 고리
+    p.lathe([(0.0, 0.42), (0.14, 0.42), (0.22, 0.32), (0.25, 0.1), (0.3, -0.15), (0.45, -0.34), (0.48, -0.38),
+             (0.44, -0.38), (0.0, -0.3)], 'Gold', segs=28)
+    p.sphere((0, -0.4, 0), 0.08, 'GoldDark', segs=10)
+    p.lathe([(0.06, 0.42), (0.08, 0.5), (0.06, 0.56), (0.03, 0.5)], 'GoldDark', segs=12, caps=False)
     return p
 
 
-def grail():
-    p = Part('Grail')   # 받침 → 기둥 → 잔. 높이 0.9, 감싸는 구 ≈ 0.48
-    p.lathe([(0.0, -0.45), (0.28, -0.45), (0.3, -0.4), (0.08, -0.32), (0.06, -0.05), (0.12, 0.0),
-             (0.3, 0.2), (0.32, 0.4), (0.27, 0.42), (0.0, 0.3)], 'Gold')
-    p.lathe([(0.1, -0.2), (0.12, -0.2), (0.12, -0.14), (0.1, -0.14)], 'GoldDark')
+def pinata():
+    p = Part('Pinata')         # 다섯 뿔 별(두께 0.3) + 뿔 끝 색 술(꾸밈)
+    pts = []
+    for i in range(10):
+        a = math.pi / 2 + i * math.pi / 5
+        r = 0.5 if i % 2 == 0 else 0.24
+        pts.append((r * math.cos(a), r * math.sin(a)))
+    p.prism(pts, 0.3, 'PinataOrange')
+    for i, mat in enumerate(['PinataPink', 'PinataGreen', 'PinataBlue', 'PinataPink', 'PinataGreen']):
+        a = math.pi / 2 + i * 2 * math.pi / 5
+        p.box((0.36 * math.cos(a), 0.36 * math.sin(a), 0.155), (0.06, 0.2, 0.01), mat, rot_z_deg=math.degrees(a) - 90)
+        tip = (0.5 * math.cos(a), 0.5 * math.sin(a), 0)
+        p.tube([tip, (0.66 * math.cos(a + 0.1), 0.66 * math.sin(a + 0.1), 0)], 0.02, 'Tassel', sides=6)
     return p
 
 
-def coin():
-    p = Part('Coin')
-    p.lathe([(0.0, -0.012), (0.08, -0.012), (0.08, 0.012), (0.0, 0.012)], 'Gold', segs=12, axis='z')
+def bird_nest():
+    p = Part('BirdNest')       # 나뭇가지 둥지(얕은 그릇) + 하늘색 알 셋
+    p.lathe([(0.0, -0.2), (0.4, -0.16), (0.5, 0.02), (0.44, 0.1), (0.36, 0.04), (0.0, -0.08)], 'NestBrown', segs=20, smooth=False)
+    for x, z in ((-0.17, 0.0), (0.0, 0.08), (0.17, 0.0)):
+        p.sphere((x, 0.08, z), 0.12, 'EggBlue', squash=(1, 1.3, 1), segs=12)
+    for a in (20, 80, 140, 200, 260, 320):      # 테두리에 삐죽 나온 잔가지(작은 토막)
+        p.box((0.46 * math.cos(math.radians(a)), 0.03, 0.46 * math.sin(math.radians(a))), (0.1, 0.03, 0.1), 'NestDark')
     return p
 
 
-def king_flag():
-    p = Part('KingFlag')   # 깃대 + 왕관 문양 천. 금지 표시는 유니티에서 따로(회색 판과 같은 "forbid")
-    p.lathe([(0.03, -0.8), (0.03, 0.75)], 'WoodDark', segs=8, center=(-0.45, 0, 0))
-    p.sphere((-0.45, 0.78, 0), 0.06, 'Gold')
-    p.box((0.0, 0.42, 0.0), (0.86, 0.56, 0.02), 'Cloth')
-    p.box((0.0, 0.42, 0.015), (0.3, 0.14, 0.01), 'Gold')
-    for x in (-0.12, 0.0, 0.12):
-        p.box((x, 0.53, 0.015), (0.05, 0.1, 0.01), 'Gold')
+def cheer_flag():
+    p = Part('CheerFlag')      # 막대 + 파랑·흰 줄무늬 천(네 줄) + 금 꼭지
+    p.lathe([(0.03, -0.75), (0.03, 0.72)], 'WoodDark', segs=8, center=(-0.45, 0, 0))
+    p.sphere((-0.45, 0.75, 0), 0.05, 'Gold', segs=10)
+    for i in range(4):
+        p.box((0.02, 0.62 - i * 0.14, 0.0), (0.9, 0.14, 0.02), 'FlagBlue' if i % 2 == 0 else 'White')
     return p
 
 
-def flower_basket():
-    p = Part('FlowerBasket')
-    p.lathe([(0.0, -0.4), (0.36, -0.4), (0.5, -0.05), (0.52, 0.0), (0.48, 0.0), (0.0, -0.36)], 'Straw', smooth=False)
-    seg = 24   # 손잡이 = 끊김 없는 반타원 관. 양 끝은 테두리 안으로 조금 묻는다
-    arc = [math.pi * (-0.04 + 1.08 * i / seg) for i in range(seg + 1)]
-    p.tube([(0.44 * math.cos(a), 0.02 + 0.66 * math.sin(a), 0) for a in arc], 0.03, 'Rope')
-    for k, (x, z) in enumerate([(-0.25, 0.1), (0.0, -0.15), (0.22, 0.12), (-0.05, 0.25), (0.28, -0.1)]):
-        p.sphere((x, 0.06, z), 0.11, 'Petal' if k % 2 == 0 else 'White', segs=8)
+def kid_balloon():
+    p = Part('KidBalloon')     # 노란 웃는 얼굴 풍선 + 줄(꾸밈)
+    p.sphere((0, 0.05, 0), 0.5, 'KidYellow', segs=24)
+    for x in (-0.15, 0.15):
+        p.sphere((x, 0.13, 0.46), 0.05, 'Ink', squash=(1, 1.3, 0.5), segs=8)
+    seg = 12
+    p.tube([(0.22 * math.cos(math.pi * (1.15 + 0.7 * i / seg)), 0.0 + 0.22 * math.sin(math.pi * (1.15 + 0.7 * i / seg)), 0.47)
+            for i in range(seg + 1)], 0.02, 'Ink', sides=6)
+    p.tube([(0, -0.45, 0), (0.04, -0.7, 0), (-0.03, -0.95, 0), (0.02, -1.15, 0)], 0.01, 'String', sides=6)
     return p
 
 
@@ -218,7 +243,8 @@ def catapult_arm():
     return p
 
 
-PARTS = [shield, shield_half, helmet, apple, apple_half, grail, coin, king_flag, flower_basket, catapult_frame, catapult_arm]
+PARTS = [water_balloon, watermelon, plate, rocket, golden_bell, pinata, bird_nest, cheer_flag, kid_balloon,
+         catapult_frame, catapult_arm]
 
 
 def export(part):
@@ -240,13 +266,6 @@ def export(part):
     return path
 
 
-def parent_scale(make):
-    whole = make()
-    k = RADIUS[whole.name] / whole.bound_radius()
-    whole.bm.free()
-    return k
-
-
 def main():
     os.makedirs(OUT, exist_ok=True)
     for make in PARTS:
@@ -263,14 +282,11 @@ def main():
             raw = part.bound_radius()
             k = want / raw
             bmesh.ops.scale(part.bm, vec=(k, k, k), verts=part.bm.verts[:])
-        elif part.name in PARENT:
-            # 깨진 조각이 원본보다 크거나 작아 보이지 않게 원본과 같은 비율을 쓴다
-            k = parent_scale(globals()[PARENT[part.name]])
-            bmesh.ops.scale(part.bm, vec=(k, k, k), verts=part.bm.verts[:])
         r = part.bound_radius()
         flag = '' if want is None or 0.95 * want <= r <= 1.05 * want else '  <-- 크기 규칙 밖'
+        decor = part.decor_count()   # export가 bmesh를 비우므로 먼저 센다
         path = export(part)
-        print(f'PART {part.name:14s} tris={tris:5d} r={r:.3f} want={want}{flag}{"" if raw is None else f"  (손치수 {raw:.3f})"} -> {os.path.relpath(path, ART)}')
+        print(f'PART {part.name:14s} tris={tris:5d} r={r:.3f} want={want} decor={decor}{flag}{"" if raw is None else f"  (손치수 {raw:.3f})"} -> {os.path.relpath(path, ART)}')
     print('festival_parts: DONE')
 
 

@@ -163,6 +163,19 @@ jobs:
           aws s3 cp latest.json "s3://lop-client/builds/$BUILD_ENV/latest.json"
           echo "보존: $DEST/ , builds/$BUILD_ENV/latest.json -> $SHA"
 
+      - name: 러너 맥에 사본 (무선 adb 설치용)
+        #  러너가 개발 맥에서 돈다 — 여기 두면 빌드가 끝나자마자 `adb install -r`로 폰에 바로 깐다
+        #  (QR·다운로드 없이). 환경별 최신 하나 + sha별로 남긴다. 실패해도 배포는 멈추지 않는다.
+        env:
+          BUILD_ENV: ${{ inputs.environment }}
+        run: |
+          D="$HOME/lop-builds/$BUILD_ENV"
+          mkdir -p "$D" \
+            && cp Build/lop.apk "$D/${{ steps.tag.outputs.sha }}.apk" \
+            && cp Build/lop.apk "$D/latest.apk" \
+            && echo "$D/latest.apk <- ${{ steps.tag.outputs.sha }}" \
+            || echo "::warning::러너 맥 사본을 못 남겼다 — 배포에는 영향 없음."
+
       - name: 시험·빌드 로그 업로드
         if: always()
         uses: actions/upload-artifact@v4

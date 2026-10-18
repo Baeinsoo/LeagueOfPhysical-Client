@@ -26,6 +26,10 @@ namespace LOP
             builder.Register<ArcheryImpactLog>(Lifetime.Singleton);
             //  화살이 과녁·땅·관중석에 꽂혔다는 알림 — 관중·닭·해설이 듣는다.
             builder.Register<ArcheryArrowLandings>(Lifetime.Singleton);
+            //  손 진동. 폰(안드로이드)만 실제로 울리고 에디터·데스크톱은 아무것도 안 하는 것이 끼워진다.
+            //  쏠 때는 조작 패드가, 내 적중은 ArcheryHitHandler가 부른다.
+            builder.Register<IHaptics>(_ => Haptics.ForThisDevice(), Lifetime.Singleton);
+            builder.Register<ArcheryHaptics>(Lifetime.Singleton);
 
             //  과녁이 언제 어디 서는지를 정하는 한 곳. 명단은 매치 시작 시점의 것을 그대로 쓴다 —
             //  중간에 나간 사람이 있어도 과녁 주인이 밀리지 않게(스펙 6.2절).
@@ -93,7 +97,7 @@ namespace LOP
             builder.RegisterEntryPoint<ArcheryChickenView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryArrowView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryTargetView>().AsSelf();
-            builder.RegisterEntryPoint<ArcheryCatapultBreakView>().AsSelf();   // 투석기 표적이 맞으면 깨진다
+            builder.RegisterEntryPoint<ArcheryCatapultHitFxView>().AsSelf();   // 투석기 표적이 맞으면 표적마다 다르게 터진다
             builder.RegisterEntryPoint<ArcheryCatapultMachineView>().AsSelf();   // 사대 너머 양옆 투석기와 날아 들어오는 길
             builder.RegisterEntryPoint<ArcheryRemoteShotHandler>();
             builder.RegisterEntryPoint<ArcheryHitHandler>();

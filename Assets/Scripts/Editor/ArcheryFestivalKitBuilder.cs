@@ -15,13 +15,25 @@ namespace LOP.EditorTools
         private const string KitDir = "Assets/Archery/Festival";
         private const string KitPath = KitDir + "/ArcheryFestivalKit.asset";
         private const string ToonShader = "Assets/Shaders/LOP/LOPToon.shader";
+        private const string FxShader = "Assets/Shaders/LOP/LOPFxParticle.shader";
 
         private static readonly Dictionary<string, string> SlotColors = new Dictionary<string, string>
         {
-            ["Wood"] = "#8B5E34", ["WoodDark"] = "#5E3B1F", ["Metal"] = "#A7ADB5", ["MetalDark"] = "#5B6168",
-            ["Red"] = "#D9342B", ["Green"] = "#3E9B45", ["Gold"] = "#F2C230", ["GoldDark"] = "#B8861B",
-            ["White"] = "#F4F1E8", ["Cloth"] = "#2F5DA8", ["Straw"] = "#D8B36A", ["Petal"] = "#F28DB2", ["Rope"] = "#CDB58A",
+            //  투석기
+            ["Wood"] = "#8B5E34", ["WoodDark"] = "#5E3B1F", ["Metal"] = "#A7ADB5", ["Rope"] = "#CDB58A",
+            //  2차 표적(시안 색)
+            ["Water"] = "#3FB3FF", ["WaterLight"] = "#CFF0FF", ["WaterDark"] = "#1D86C9",
+            ["Melon"] = "#2F9E44", ["MelonDark"] = "#14632A",
+            ["Porcelain"] = "#F6F3EC", ["PorcelainBlue"] = "#3B6FD8",
+            ["RocketRed"] = "#E8433A", ["White"] = "#F4F1E8", ["Gold"] = "#F2C230", ["GoldDark"] = "#B8861B",
+            ["PinataOrange"] = "#FF8A3D", ["PinataPink"] = "#FF4D8D", ["PinataGreen"] = "#44D17A", ["PinataBlue"] = "#4AA8FF",
+            ["Tassel"] = "#B97BFF",
+            ["NestBrown"] = "#8A5A2B", ["NestDark"] = "#5E3B1F", ["EggBlue"] = "#BFE3FF",
+            ["FlagBlue"] = "#3B5BFF", ["KidYellow"] = "#FFD23F", ["Ink"] = "#2A231C", ["String"] = "#8A8A8A",
         };
+
+        //  색표에 없는 슬롯 — 분홍으로 만들고 빌드 끝에 한 번 알린다(블렌더 슬롯 이름 오타를 놓치지 않게).
+        private static readonly SortedSet<string> missingSlots = new SortedSet<string>();
 
         [MenuItem("LOP/Archery/Build Festival Kit")]
         public static void Build()
@@ -35,17 +47,24 @@ namespace LOP.EditorTools
                 AssetDatabase.CreateAsset(kit, KitPath);
             }
 
-            var codes = new[] { "Shield", "Helmet", "Apple", "Grail", "KingFlag", "FlowerBasket" };
-            kit.targets = codes.Select(c => new ArcheryFestivalKit.Entry
+            missingSlots.Clear();
+            kit.targets = ArcheryCatapultLooks.Codes.Select(c =>
             {
-                code = c, mesh = MeshOf(c), materials = MaterialsOf(c),
+                var mesh = MeshOf(c);
+                var materials = MaterialsOf(c);
+                return new ArcheryFestivalKit.Entry { code = c, mesh = mesh, materials = materials, radius = BodyRadius(mesh, materials) };
             }).ToArray();
             kit.forbid = Toon("Festival_Forbid", "#E5484D");
-            kit.shieldHalf = MeshOf("ShieldHalf"); kit.shieldHalfMaterials = MaterialsOf("ShieldHalf");
-            kit.appleHalf = MeshOf("AppleHalf"); kit.appleHalfMaterials = MaterialsOf("AppleHalf");
-            kit.coin = MeshOf("Coin"); kit.coinMaterial = MaterialsOf("Coin")[0];
             kit.catapultFrame = MeshOf("CatapultFrame"); kit.catapultFrameMaterials = MaterialsOf("CatapultFrame");
             kit.catapultArm = MeshOf("CatapultArm"); kit.catapultArmMaterials = MaterialsOf("CatapultArm");
+
+            //  연출 재질 — 섞기: 5 = SrcAlpha, 10 = OneMinusSrcAlpha, 1 = One(더하기).
+            //  번쩍임만 정점 색을 안 쓴다 — 정점 색이 없는 표적 메시에 씌우므로 곱하면 검게 나온다.
+            kit.fxSolid = Fx("Fx_Solid", shape: 0, dst: 10, vertexColor: true);
+            kit.fxDot = Fx("Fx_Dot", shape: 1, dst: 10, vertexColor: true);
+            kit.fxSpark = Fx("Fx_Spark", shape: 1, dst: 1, vertexColor: true);
+            kit.fxRing = Fx("Fx_Ring", shape: 2, dst: 10, vertexColor: true);
+            kit.fxFlash = Fx("Fx_Flash", shape: 0, dst: 10, vertexColor: false);
             EditorUtility.SetDirty(kit);
             AssetDatabase.SaveAssets();
 
@@ -60,7 +79,42 @@ namespace LOP.EditorTools
             }
             EditorSceneManager.SaveScene(scene);
             EditorSceneManager.CloseScene(scene, true);
+            foreach (var name in missingSlots)
+            {
+                Debug.LogWarning("[FestivalKit] 색표에 없는 슬롯: " + name);
+            }
             Debug.Log("[FestivalKit] 만들었다: " + KitPath);
+        }
+
+        //  몸만 잰다(키트 시험과 같은 규칙) — 꾸밈 슬롯 서브메시의 정점은 뺀다.
+        private static float BodyRadius(Mesh mesh, Material[] materials)
+        {
+            float r = 0f;
+            var vertices = mesh.vertices;
+            for (int s = 0; s < mesh.subMeshCount; s++)
+            {
+                if (s < materials.Length && ArcheryFestivalKit.IsDecorSlot(materials[s].name)) { continue; }
+                foreach (int i in mesh.GetIndices(s)) { r = Mathf.Max(r, vertices[i].magnitude); }
+            }
+            return r;
+        }
+
+        private static Material Fx(string name, int shape, int dst, bool vertexColor)
+        {
+            string path = $"{MaterialDir}/{name}.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(AssetDatabase.LoadAssetAtPath<Shader>(FxShader));
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            mat.SetColor("_Color", Color.white);
+            mat.SetFloat("_Shape", shape);
+            mat.SetFloat("_SrcBlend", 5f);
+            mat.SetFloat("_DstBlend", dst);
+            mat.SetFloat("_UseVertexColor", vertexColor ? 1f : 0f);
+            EditorUtility.SetDirty(mat);
+            return mat;
         }
 
         private static Mesh MeshOf(string part)
@@ -71,7 +125,15 @@ namespace LOP.EditorTools
         {
             var go = AssetDatabase.LoadAssetAtPath<GameObject>($"{ModelDir}/{part}.fbx");
             var slots = go.GetComponentInChildren<MeshRenderer>().sharedMaterials;
-            return slots.Select(m => Toon("Festival_" + m.name, SlotColors.TryGetValue(m.name, out var hex) ? hex : "#FF00FF")).ToArray();
+            return slots.Select(m =>
+            {
+                if (!SlotColors.TryGetValue(m.name, out var hex))
+                {
+                    missingSlots.Add(m.name);
+                    hex = "#FF00FF";
+                }
+                return Toon("Festival_" + m.name, hex);
+            }).ToArray();
         }
 
         private static Material Toon(string name, string hex)

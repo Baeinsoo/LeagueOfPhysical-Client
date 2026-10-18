@@ -107,7 +107,7 @@ namespace LOP
         /// <summary>
         /// 투석기 그림 하나를 지운다. 회색 그림(이름 끝 <c>-placeholder</c>)은 재질을 스스로 만들었으니 같이 지운다 —
         /// 안 지우면 적중·무리마다 재질이 쌓인다. 축제 키트의 재질은 에셋이라 지우면 안 된다 — 그래서 이름으로 가른다.
-        /// 표적 그림·깨진 조각·투석기가 모두 이것으로 지운다.
+        /// 표적 그림·터짐 번쩍임·투석기가 모두 이것으로 지운다.
         /// </summary>
         public static void DestroyVisual(GameObject visual)
         {

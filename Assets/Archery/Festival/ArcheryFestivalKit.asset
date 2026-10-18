@@ -13,53 +13,72 @@ MonoBehaviour:
   m_Name: ArcheryFestivalKit
   m_EditorClassIdentifier: Assembly-CSharp::LOP.ArcheryFestivalKit
   targets:
-  - code: Shield
-    mesh: {fileID: -1272481795433867914, guid: b023dd1ce8e6a4abda868cf28ee549d5, type: 3}
+  - code: WaterBalloon
+    mesh: {fileID: -6675370710298900320, guid: 8fdfed622faf5459e8f47a9c54d5255e, type: 3}
     materials:
-    - {fileID: 2100000, guid: bec7db78d6ff9478ba9e2ffc92d62a6a, type: 2}
-    - {fileID: 2100000, guid: ca7383e3d84b846d99667178b10a2a13, type: 2}
-    - {fileID: 2100000, guid: 52565c4ef6caf48c19f3a03a1e91680f, type: 2}
-  - code: Helmet
-    mesh: {fileID: 6041377522765385347, guid: 406fbfd26f9ad4e409e928fcd5006d06, type: 3}
+    - {fileID: 2100000, guid: ed729a314da1c4ce988e2833c4a4c8dd, type: 2}
+    - {fileID: 2100000, guid: 398056b0418e84b979d1de3dbb2b0335, type: 2}
+    - {fileID: 2100000, guid: 7c536b3c437714797841f47800b031e6, type: 2}
+    radius: 1
+  - code: Watermelon
+    mesh: {fileID: -3500872997411817233, guid: 78f41ab897c314f3a946f2a7c83b1709, type: 3}
     materials:
-    - {fileID: 2100000, guid: ca7383e3d84b846d99667178b10a2a13, type: 2}
-    - {fileID: 2100000, guid: 5b547085693694adfa1dbd1b2eae0c3f, type: 2}
-    - {fileID: 2100000, guid: 0a3b0b77a6cd9421286315076960b4ca, type: 2}
-  - code: Apple
-    mesh: {fileID: -472147775963580301, guid: 7d3ae4be22fca4ecea039ffa769537b3, type: 3}
+    - {fileID: 2100000, guid: a64c8945787024d249a319dcf3171998, type: 2}
+    - {fileID: 2100000, guid: e9c1f156f0fa44c2db324b21761c46c3, type: 2}
+    radius: 0.75
+  - code: Plate
+    mesh: {fileID: 3736213754101489272, guid: c5885aee445714b018d2224195ca2d4d, type: 3}
     materials:
-    - {fileID: 2100000, guid: 0a3b0b77a6cd9421286315076960b4ca, type: 2}
-    - {fileID: 2100000, guid: 52565c4ef6caf48c19f3a03a1e91680f, type: 2}
-    - {fileID: 2100000, guid: e6619996ee8b448a2bf37fe237ba025b, type: 2}
-  - code: Grail
-    mesh: {fileID: -8006840990786832273, guid: bd9b2540cc17d4a7ba8aca67b11a9296, type: 3}
+    - {fileID: 2100000, guid: f031e07d3d92046d09cfe922c8579892, type: 2}
+    - {fileID: 2100000, guid: 050b7d96c2ec84c8d90a9da979cd4bfa, type: 2}
+    radius: 0.85
+  - code: Rocket
+    mesh: {fileID: 1988216149656743765, guid: 98030b2b0119d4e6ba7e5721340bc8bd, type: 3}
+    materials:
+    - {fileID: 2100000, guid: 83d6a81b12a4240b79bbb47d16b89de8, type: 2}
+    - {fileID: 2100000, guid: cc5f80553dfae4710a6e0eb76207928d, type: 2}
+    - {fileID: 2100000, guid: d57d9bd86c8a14214b0b7eb4c945c24b, type: 2}
+    radius: 0.45
+  - code: GoldenBell
+    mesh: {fileID: 2852842230497831274, guid: a941c727f90f14876848ce3166c0212d, type: 3}
     materials:
     - {fileID: 2100000, guid: d57d9bd86c8a14214b0b7eb4c945c24b, type: 2}
     - {fileID: 2100000, guid: c3aac94725dd84c06a6cf308c3ab7216, type: 2}
-  - code: KingFlag
-    mesh: {fileID: 3761928789982918473, guid: 483e2a672e76043809a9cd2770cdea64, type: 3}
+    radius: 0.8
+  - code: Pinata
+    mesh: {fileID: -8650755196959599718, guid: fb6995d2cda53461bbe36f278cf47940, type: 3}
+    materials:
+    - {fileID: 2100000, guid: 34a798b2ff035407181746483ebbe91f, type: 2}
+    - {fileID: 2100000, guid: 4bad4a7bf739a47a2bbcdeeca8c6aad8, type: 2}
+    - {fileID: 2100000, guid: 6754548f92be045509b247abe594c451, type: 2}
+    - {fileID: 2100000, guid: fdd0097c2dc574a70834afd08a62e77f, type: 2}
+    - {fileID: 2100000, guid: ddde63b471eef4d438b3453fc872711c, type: 2}
+    radius: 0.95
+  - code: BirdNest
+    mesh: {fileID: -3238238249473015002, guid: 9744a5be68b814a63bc77d802f7b712f, type: 3}
+    materials:
+    - {fileID: 2100000, guid: 00f5557c237b1497db8be5ef75ad2c0b, type: 2}
+    - {fileID: 2100000, guid: 6d98ef7713ecc4668bf89d8d6dfa7dd4, type: 2}
+    - {fileID: 2100000, guid: a72fa03a0d17f4290a76d2c4a0b47cc6, type: 2}
+    radius: 0.75000006
+  - code: CheerFlag
+    mesh: {fileID: 1042900656474600049, guid: 7546162f1dba1494381ccd459ba2f6b4, type: 3}
     materials:
     - {fileID: 2100000, guid: 52565c4ef6caf48c19f3a03a1e91680f, type: 2}
     - {fileID: 2100000, guid: d57d9bd86c8a14214b0b7eb4c945c24b, type: 2}
-    - {fileID: 2100000, guid: e34c5145b10264e47a5fcaeca3c41887, type: 2}
-  - code: FlowerBasket
-    mesh: {fileID: -1563627746339510882, guid: 320498e011a7b471595248b76c316aba, type: 3}
-    materials:
-    - {fileID: 2100000, guid: 86192bbb342d74318aa3c14f2ee3d48b, type: 2}
-    - {fileID: 2100000, guid: 316c2509bfff4466c90e1be5ca88bce3, type: 2}
-    - {fileID: 2100000, guid: 1faab3cb2112748698de6435bdcf8527, type: 2}
+    - {fileID: 2100000, guid: 3ae6d91e49f0f4a02be28ac206b2e895, type: 2}
     - {fileID: 2100000, guid: cc5f80553dfae4710a6e0eb76207928d, type: 2}
+    radius: 0.8
+  - code: KidBalloon
+    mesh: {fileID: -4318987133517304152, guid: a13feddb651b84050b61247e33a7708a, type: 3}
+    materials:
+    - {fileID: 2100000, guid: 7d4ad16c54f1f44c4bd9840b808778c5, type: 2}
+    - {fileID: 2100000, guid: 457397113d32d40308ecfbd48b9f2157, type: 2}
+    - {fileID: 2100000, guid: 5c30dd6ea4aca415da693da1d1cd8f94, type: 2}
+    radius: 0.79999995
   forbid: {fileID: 2100000, guid: cf64457c7f16a422e88f0dbc398f5d70, type: 2}
-  shieldHalf: {fileID: -7533971103685945759, guid: 2114fc16ace53479794aa21252c04f0f, type: 3}
-  appleHalf: {fileID: 8975998059120496870, guid: 1d198ca0757e84a9c848c1e5d47695d7, type: 3}
-  coin: {fileID: -5216581434543980006, guid: 4ce20f8bec0e04001b240ed492bb4863, type: 3}
   catapultFrame: {fileID: 1983466217513295781, guid: 2efed2941be784ef78be12350e889e9e, type: 3}
   catapultArm: {fileID: 518126959361634714, guid: 89eafe38dbffd4a6eb59e7e971f0f22b, type: 3}
-  shieldHalfMaterials:
-  - {fileID: 2100000, guid: bec7db78d6ff9478ba9e2ffc92d62a6a, type: 2}
-  appleHalfMaterials:
-  - {fileID: 2100000, guid: 0a3b0b77a6cd9421286315076960b4ca, type: 2}
-  - {fileID: 2100000, guid: cc5f80553dfae4710a6e0eb76207928d, type: 2}
   catapultFrameMaterials:
   - {fileID: 2100000, guid: bec7db78d6ff9478ba9e2ffc92d62a6a, type: 2}
   - {fileID: 2100000, guid: 52565c4ef6caf48c19f3a03a1e91680f, type: 2}
@@ -67,4 +86,8 @@ MonoBehaviour:
   catapultArmMaterials:
   - {fileID: 2100000, guid: bec7db78d6ff9478ba9e2ffc92d62a6a, type: 2}
   - {fileID: 2100000, guid: 316c2509bfff4466c90e1be5ca88bce3, type: 2}
-  coinMaterial: {fileID: 2100000, guid: d57d9bd86c8a14214b0b7eb4c945c24b, type: 2}
+  fxSolid: {fileID: 2100000, guid: 1cf2141776aef4f85ae450dbbaef247c, type: 2}
+  fxDot: {fileID: 2100000, guid: a13c10ce8e55b4709974888f52b9d796, type: 2}
+  fxSpark: {fileID: 2100000, guid: 0dd49d77e71114a3782bcd34745a47c4, type: 2}
+  fxRing: {fileID: 2100000, guid: 7ec035ccc44a44ca7934847d4026c5c9, type: 2}
+  fxFlash: {fileID: 2100000, guid: ab5364227ef0b4a9a82ca62c5c057f89, type: 2}

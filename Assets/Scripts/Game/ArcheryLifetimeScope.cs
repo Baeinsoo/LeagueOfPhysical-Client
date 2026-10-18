@@ -97,7 +97,6 @@ namespace LOP
             builder.RegisterEntryPoint<ArcheryChickenView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryArrowView>().AsSelf();
             builder.RegisterEntryPoint<ArcheryTargetView>().AsSelf();
-            builder.RegisterEntryPoint<ArcheryCatapultBreakView>().AsSelf();   // 투석기 표적이 맞으면 깨진다
             builder.RegisterEntryPoint<ArcheryCatapultMachineView>().AsSelf();   // 사대 너머 양옆 투석기와 날아 들어오는 길
             builder.RegisterEntryPoint<ArcheryRemoteShotHandler>();
             builder.RegisterEntryPoint<ArcheryHitHandler>();

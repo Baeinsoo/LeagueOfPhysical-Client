@@ -1,10 +1,11 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="spectate-root" class="spectate-root" picking-mode="Ignore">
-        <ui:Button name="spectate-leave" text="나가기" class="btn btn--secondary spectate-leave" />
-        <ui:VisualElement name="spectate-bar" class="spectate-bar">
-            <ui:Button name="spectate-prev" text="◀" class="btn spectate-arrow" />
-            <ui:Label name="spectate-status" text="" class="spectate-status" picking-mode="Ignore" />
-            <ui:Button name="spectate-next" text="▶" class="btn spectate-arrow" />
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 관전 막대(키트). 경기 화면을 가리지 않게 빈 곳은 입력을 통과시킨다. 요소 이름은 RaceSpectateView가 찾는 그대로. -->
+    <ui:VisualElement name="spectate-root" class="kit spectate-root" picking-mode="Ignore">
+        <ui:Button name="spectate-leave" class="kit-press kit-btn spectate-leave"><lop:StickerElement><ui:Label text="나가기" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+        <ui:VisualElement name="spectate-bar" class="spectate-bar" picking-mode="Ignore">
+            <ui:Button name="spectate-prev" class="kit-press spectate-arrow"><lop:StickerElement><ui:Label text="◀" class="kit-carousel__arrow-text" /></lop:StickerElement></ui:Button>
+            <lop:StickerElement class="spectate-status-plate"><ui:Label name="spectate-status" text="" class="kit-title spectate-status" picking-mode="Ignore" /></lop:StickerElement>
+            <ui:Button name="spectate-next" class="kit-press spectate-arrow"><lop:StickerElement><ui:Label text="▶" class="kit-carousel__arrow-text" /></lop:StickerElement></ui:Button>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

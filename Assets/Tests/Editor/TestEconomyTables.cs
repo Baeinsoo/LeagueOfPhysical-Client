@@ -18,6 +18,8 @@ namespace LOP.Tests
 
         public static LOP.MasterData.TbCurrency Currencies => new LOP.MasterData.TbCurrency(Read("tbcurrency"));
 
+        public static LOP.MasterData.TbAppearanceColor AppearanceColors => new LOP.MasterData.TbAppearanceColor(Read("tbappearancecolor"));
+
         private static ByteBuf Read(string file) => new ByteBuf(File.ReadAllBytes(Path.GetFullPath(Folder + file + ".bytes")));
     }
 }

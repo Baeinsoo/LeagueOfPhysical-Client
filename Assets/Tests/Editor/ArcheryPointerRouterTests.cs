@@ -172,7 +172,7 @@ namespace LOP.Tests
             var center = Router.BowButtonCenter(Wide, rightInset: 0f, bottomInset: 0f);
 
             Assert.AreEqual(1080f * 0.24f, Router.BowButtonRadius(Wide) * 2f, 0.5f);
-            Assert.AreEqual(1920f * 0.78f, center.x, 0.5f, "가로 78% 자리가 아니다");
+            Assert.AreEqual(1920f * 0.80f, center.x, 0.5f, "가로 80% 자리가 아니다");
             Assert.AreEqual(1080f * 0.62f, center.y, 0.5f, "세로 62% 자리가 아니다(패널 좌표, 아래로 증가)");
         }
 

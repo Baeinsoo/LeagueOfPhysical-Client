@@ -148,8 +148,8 @@ namespace LOP.UI
         public const float BowButtonHitSlack = 1.15f;
 
         //  오른손 엄지가 쉬는 곳. 10-18 폰 판 "버튼을 쥔 채 끌 자리가 없다" — 86%·74%(구석)에서
-        //  왼쪽 위로 당겨 사방으로 끌 틈을 남긴다.
-        private const float CenterXOfWidth = 0.78f;
+        //  왼쪽 위로 당겨 사방으로 끌 틈을 남긴다. 같은 날 "너무 안쪽" — 가로만 78% → 80%.
+        private const float CenterXOfWidth = 0.80f;
         private const float CenterYOfHeight = 0.62f;
 
         //  안전 영역 가장자리와 누르는 자리 사이에 남길 틈(패널 픽셀).

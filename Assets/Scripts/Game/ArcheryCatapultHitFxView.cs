@@ -443,12 +443,14 @@ namespace LOP
         }
 
         //  조각 = 납작한 삼각형 하나(색은 정점 색 = 파티클 색). UV는 가운데라 Solid 모양이 그대로 칠한다.
+        //  정점 색은 colors32로 넣는다 — float colors로 넣으면 메시 파티클이 파티클 색을 잃고 거의 검게(하늘에 묻혀) 그려졌다.
         private static Mesh TriangleMesh()
         {
             var m = new Mesh { name = "catapult-fx-shard" };
             m.vertices = new[] { new Vector3(-0.5f, -0.3f, 0f), new Vector3(0.5f, -0.1f, 0f), new Vector3(-0.1f, 0.5f, 0f) };
             m.uv = new[] { new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f) };
-            m.colors = new[] { Color.white, Color.white, Color.white };
+            var white = new Color32(255, 255, 255, 255);
+            m.colors32 = new[] { white, white, white };
             m.triangles = new[] { 0, 1, 2 };
             m.RecalculateBounds();
             return m;

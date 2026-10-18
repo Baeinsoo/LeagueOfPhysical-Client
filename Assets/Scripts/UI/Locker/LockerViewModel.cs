@@ -7,48 +7,62 @@ using UnityEngine;
 
 namespace LOP.UI
 {
-    /// <summary>라커룸 왼쪽 슬롯 한 줄 — 슬롯 이름과 지금 입은 것.</summary>
+    /// <summary>라커룸 왼쪽 한 줄 — 옷 슬롯이면 입은 것, 외형 줄(피부·머리)이면 지금 색 이름.</summary>
     public readonly struct LockerRow
     {
         public readonly int SlotId;
         public readonly string SlotName;
         public readonly string EquippedName;
+        /// <summary>외형 줄(피부·머리)이면 true. 이때 <see cref="SlotId"/>는 <see cref="LockerViewModel.SkinRowId"/>·<see cref="LockerViewModel.HairRowId"/>다.</summary>
+        public readonly bool IsAppearance;
 
-        public LockerRow(int slotId, string slotName, string equippedName)
+        public LockerRow(int slotId, string slotName, string equippedName, bool isAppearance = false)
         {
             SlotId = slotId;
             SlotName = slotName;
             EquippedName = equippedName;
+            IsAppearance = isAppearance;
         }
     }
 
-    /// <summary>라커룸 오른쪽 그리드 한 칸 — 고른 슬롯에서 내가 가진 품목.</summary>
+    /// <summary>라커룸 오른쪽 그리드 한 칸 — 고른 슬롯에서 내가 가진 품목, 또는 외형 줄의 색 하나.</summary>
     public readonly struct LockerItem
     {
+        /// <summary>옷이면 품목 번호, 외형 색이면 색 번호(TbAppearanceColor.id).</summary>
         public readonly int CosmeticId;
         public readonly string Name;
         public readonly bool Equipped;
         public readonly bool IsDefault;
+        /// <summary>외형 색 칸이면 그 색 — 카드에 색 칩을 그린다.</summary>
+        public readonly Color? Swatch;
 
-        public LockerItem(int cosmeticId, string name, bool equipped, bool isDefault)
+        public LockerItem(int cosmeticId, string name, bool equipped, bool isDefault, Color? swatch = null)
         {
             CosmeticId = cosmeticId;
             Name = name;
             Equipped = equipped;
             IsDefault = isDefault;
+            Swatch = swatch;
         }
     }
 
     /// <summary>
-    /// 라커룸 ViewModel. 가진 것만 보여 주고 누르면 바로 입는다(사는 것은 상점).
-    /// 입은 것·가진 것은 전부 <see cref="EconomyStore"/>에서 파생한다 — 자기 플래그를 따로 들지 않는다.
+    /// 라커룸 ViewModel. 맨 위 외형 줄(피부·머리)은 색표에서 고르고, 옷 슬롯은 가진 것만 보여 주고 누르면 바로 입는다(사는 것은 상점).
+    /// 입은 것·가진 것·외형은 전부 스토어(<see cref="EconomyStore"/>·<see cref="CharacterAppearanceStore"/>)에서 파생한다 — 자기 플래그를 따로 들지 않는다.
     /// </summary>
     public sealed class LockerViewModel : IDisposable
     {
+        /// <summary>외형 줄의 자리 번호 — 카탈로그 슬롯 번호(양수)와 겹치지 않게 음수.</summary>
+        public const int SkinRowId = -1;
+        public const int HairRowId = -2;
+
         private readonly EconomyStore _store;
         private readonly CosmeticCatalog _catalog;
         private readonly IUserDataStore _users;
+        private readonly CharacterAppearanceStore _appearance;
+        private readonly AppearanceColorPalette _palette;
         private readonly Func<string, SetLoadoutRequest, CancellationToken, UniTask<SetLoadoutResponse>> _setLoadout;
+        private readonly Func<string, SetCharacterAppearanceRequest, CancellationToken, UniTask<CharacterAppearanceResponse>> _setAppearance;
         private readonly CancellationTokenSource _cts = new();
         private readonly CompositeDisposable _subscriptions = new();
 
@@ -67,19 +81,26 @@ namespace LOP.UI
         public ReadOnlyReactiveProperty<bool> Busy => _busy;
 
         [VContainer.Inject]
-        public LockerViewModel(EconomyStore store, CosmeticCatalog catalog, IUserDataStore users)
-            : this(store, catalog, users, null)
+        public LockerViewModel(EconomyStore store, CosmeticCatalog catalog, IUserDataStore users,
+            CharacterAppearanceStore appearance, AppearanceColorPalette palette)
+            : this(store, catalog, users, appearance, palette, null, null)
         {
         }
 
         /// <param name="setLoadout">(userId, 요청, ct) → 로드아웃 설정. 시험이 가짜를 꽂는다. 기본은 WebAPI.SetLoadout.</param>
+        /// <param name="setAppearance">(userId, 요청, ct) → 외형 저장. 시험이 가짜를 꽂는다. 기본은 WebAPI.SetCharacterAppearance.</param>
         public LockerViewModel(EconomyStore store, CosmeticCatalog catalog, IUserDataStore users,
-            Func<string, SetLoadoutRequest, CancellationToken, UniTask<SetLoadoutResponse>> setLoadout)
+            CharacterAppearanceStore appearance, AppearanceColorPalette palette,
+            Func<string, SetLoadoutRequest, CancellationToken, UniTask<SetLoadoutResponse>> setLoadout,
+            Func<string, SetCharacterAppearanceRequest, CancellationToken, UniTask<CharacterAppearanceResponse>> setAppearance)
         {
             _store = store;
             _catalog = catalog;
             _users = users;
+            _appearance = appearance;
+            _palette = palette;
             _setLoadout = setLoadout ?? WebAPI.SetLoadout;
+            _setAppearance = setAppearance ?? WebAPI.SetCharacterAppearance;
 
             if (catalog.Slots.Count > 0) _selectedSlotId.Value = catalog.Slots[0].Id;
 
@@ -87,8 +108,37 @@ namespace LOP.UI
             _subscriptions.Add(_store.Loadout.Subscribe(_ => Rebuild()));
             _subscriptions.Add(_store.Owned.Subscribe(_ => Rebuild()));
             _subscriptions.Add(_store.Progress.Subscribe(_ => Rebuild()));
+            _subscriptions.Add(_appearance.Current.Subscribe(_ => Rebuild()));
 
             _store.RefreshAsync(_cts.Token).Forget();
+            _appearance.RefreshAsync(_cts.Token).Forget();
+        }
+
+        /// <summary>그리드 칸을 눌렀다 — 외형 줄이면 그 색을 고르고, 옷 슬롯이면 그 품목을 입는다.</summary>
+        public UniTask SelectItemAsync(int id) => _selectedSlotId.Value switch
+        {
+            SkinRowId => ChooseColorAsync(AppearanceColorPalette.SkinPart, id),
+            HairRowId => ChooseColorAsync(AppearanceColorPalette.HairPart, id),
+            _ => EquipAsync(id),
+        };
+
+        public async UniTask ChooseColorAsync(string part, int colorId)
+        {
+            if (_busy.Value || !AppearanceKnown) return;
+            var (skin, hair) = CurrentAppearanceIds();
+            if ((part == AppearanceColorPalette.SkinPart ? skin : hair) == colorId) return;
+
+            _busy.Value = true;
+            try
+            {
+                if (part == AppearanceColorPalette.SkinPart) skin = colorId;
+                else hair = colorId;
+                await SetAppearanceAsync(skin, hair);
+            }
+            finally
+            {
+                if (!_disposed) _busy.Value = false;
+            }
         }
 
         public void SelectSlot(int slotId)
@@ -125,6 +175,13 @@ namespace LOP.UI
             _busy.Value = true;
             try
             {
+                if (AppearanceKnown)
+                {
+                    int defaultSkin = _palette.DefaultId(AppearanceColorPalette.SkinPart);
+                    int defaultHair = _palette.DefaultId(AppearanceColorPalette.HairPart);
+                    if (CurrentAppearanceIds() != (defaultSkin, defaultHair) && !await SetAppearanceAsync(defaultSkin, defaultHair)) return;
+                }
+
                 foreach (var slot in _catalog.Slots)
                 {
                     var defaultItem = _catalog.DefaultOf(slot.Id);
@@ -184,6 +241,51 @@ namespace LOP.UI
 
         private void RefreshStore() => _store.RefreshAsync(_cts.Token).Forget();
 
+        private async UniTask<bool> SetAppearanceAsync(int skin, int hair)
+        {
+            string userId = _users.user?.id;
+            if (string.IsNullOrEmpty(userId)) return false;
+
+            var request = new SetCharacterAppearanceRequest { skinColorId = skin, hairColorId = hair };
+            //  옷과 같은 이유로 화면을 닫아도 끝까지 기다린다 — 로비 치비가 서버와 같아야 한다.
+            CharacterAppearanceResponse response;
+            try
+            {
+                response = await _setAppearance(userId, request, CancellationToken.None);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[LockerViewModel] Failed to set appearance. error: {e.Message}");
+                if (_disposed) return false;
+                _message.Value = EconomyMessages.For(0);
+                _appearance.RefreshAsync(_cts.Token).Forget();
+                return false;
+            }
+
+            if (response != null && response.code == ResponseCode.SUCCESS)
+            {
+                _appearance.Apply(response);
+                if (_disposed) return false;
+                _message.Value = string.Empty;
+                return true;
+            }
+
+            if (_disposed) return false;
+            _message.Value = EconomyMessages.For(response?.code ?? 0);
+            _appearance.RefreshAsync(_cts.Token).Forget();
+            return false;
+        }
+
+        //  아직 못 받았으면(0,0) 모른다 — 지금 색을 지어내지 않는다. 받은 값은 백엔드가 늘 채워 준다.
+        private bool AppearanceKnown => _appearance.Current.CurrentValue != default;
+
+        private (int skin, int hair) CurrentAppearanceIds()
+        {
+            var current = _appearance.Current.CurrentValue;
+            return (_palette.Resolve(AppearanceColorPalette.SkinPart, current.SkinColorId),
+                    _palette.Resolve(AppearanceColorPalette.HairPart, current.HairColorId));
+        }
+
         private string FindOwnedInstanceId(int cosmeticId)
         {
             foreach (var owned in _store.Owned.CurrentValue)
@@ -208,7 +310,10 @@ namespace LOP.UI
 
         private void Rebuild()
         {
-            var rows = new List<LockerRow>(_catalog.Slots.Count);
+            var rows = new List<LockerRow>(_catalog.Slots.Count + 2);
+            var (skin, hair) = AppearanceKnown ? CurrentAppearanceIds() : (0, 0);
+            rows.Add(new LockerRow(SkinRowId, "피부", _palette.NameOf(skin), isAppearance: true));
+            rows.Add(new LockerRow(HairRowId, "머리", _palette.NameOf(hair), isAppearance: true));
             foreach (var slot in _catalog.Slots)
             {
                 rows.Add(new LockerRow(slot.Id, slot.Name, _catalog.ById(EquippedIdOf(slot.Id))?.Name ?? string.Empty));
@@ -216,6 +321,20 @@ namespace LOP.UI
             _rows.Value = rows;
 
             int slotId = _selectedSlotId.Value;
+            if (slotId == SkinRowId || slotId == HairRowId)
+            {
+                string part = slotId == SkinRowId ? AppearanceColorPalette.SkinPart : AppearanceColorPalette.HairPart;
+                int current = slotId == SkinRowId ? skin : hair;
+                int defaultId = _palette.DefaultId(part);
+                var colors = new List<LockerItem>();
+                foreach (var option in _palette.Options(part))
+                {
+                    colors.Add(new LockerItem(option.Id, option.Name, option.Id == current, option.Id == defaultId, option.Color));
+                }
+                _owned.Value = colors;
+                return;
+            }
+
             int equippedId = EquippedIdOf(slotId);
             var ownedIds = new HashSet<int>();
             foreach (var owned in _store.Owned.CurrentValue) ownedIds.Add(owned.cosmeticId);

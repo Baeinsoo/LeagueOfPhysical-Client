@@ -79,9 +79,48 @@ namespace LOP.Tests
                 owned = owned,
             }));
             store.RefreshAsync(CancellationToken.None).Forget();
-            var vm = new LockerViewModel(store, Catalog, users, setLoadout);
+            var appearance = new CharacterAppearanceStore(users, (userId, ct) => UniTask.FromResult(AppearanceOk(0, 0)));
+            var vm = new LockerViewModel(store, Catalog, users, appearance, Palette, setLoadout, null);
             return (vm, store);
         }
+
+        private static readonly AppearanceColorPalette Palette = new AppearanceColorPalette(TestEconomyTables.AppearanceColors);
+
+        private static CharacterAppearanceResponse AppearanceOk(int skin, int hair) => new CharacterAppearanceResponse
+        {
+            code = ResponseCode.SUCCESS,
+            characterAppearance = new CharacterAppearanceDto { skinColorId = skin, hairColorId = hair },
+        };
+
+        //  외형 시험용 — 서버가 준 외형(skin, hair)으로 시작한다. (0, 0)은 아직 못 받은 상태.
+        private static (LockerViewModel vm, CharacterAppearanceStore appearance) NewAppearanceViewModel(
+            int skin, int hair,
+            Func<string, SetCharacterAppearanceRequest, CancellationToken, UniTask<CharacterAppearanceResponse>> setAppearance)
+        {
+            var users = new FakeUserDataStore { user = new User { id = "me" } };
+            var store = new EconomyStore(users, Catalog, (userId, ct) => UniTask.FromResult(new GetEconomyResponse
+            {
+                code = ResponseCode.SUCCESS,
+                wallets = new[] { new WalletDto { currencyId = Catalog.CoinCurrencyId, balance = 0 } },
+                progress = new ProgressDto { level = 1 },
+                loadout = RedHatLoadout(),
+                owned = DefaultOwned(),
+            }));
+            store.RefreshAsync(CancellationToken.None).Forget();
+            var appearance = new CharacterAppearanceStore(users, (userId, ct) => UniTask.FromResult(AppearanceOk(skin, hair)));
+            appearance.RefreshAsync(CancellationToken.None).Forget();
+            var vm = new LockerViewModel(store, Catalog, users, appearance, Palette, null, setAppearance);
+            return (vm, appearance);
+        }
+
+        //  성공 응답: 받은 요청을 기록하고 그대로 저장된 것처럼 돌려준다.
+        private static Func<string, SetCharacterAppearanceRequest, CancellationToken, UniTask<CharacterAppearanceResponse>> SaveAppearance(
+            List<SetCharacterAppearanceRequest> seen) =>
+            (userId, request, ct) =>
+            {
+                seen.Add(request);
+                return UniTask.FromResult(AppearanceOk(request.skinColorId, request.hairColorId));
+            };
 
         //  성공 응답: 받은 요청을 기록하고, 지금 로드아웃에서 그 슬롯만 바꿔 돌려준다(서버와 같은 모양).
         private static Func<string, SetLoadoutRequest, CancellationToken, UniTask<SetLoadoutResponse>> Succeed(
@@ -258,7 +297,8 @@ namespace LOP.Tests
             var users = new FakeUserDataStore { user = new User { id = "me" } };
             var never = new UniTaskCompletionSource<GetEconomyResponse>();
             var store = new EconomyStore(users, Catalog, (userId, ct) => never.Task);
-            var vm = new LockerViewModel(store, Catalog, users, null);
+            var appearance = new CharacterAppearanceStore(users, (userId, ct) => new UniTaskCompletionSource<CharacterAppearanceResponse>().Task);
+            var vm = new LockerViewModel(store, Catalog, users, appearance, Palette, null, null);
 
             Assert.IsNotEmpty(vm.Rows.CurrentValue, "슬롯 줄은 카탈로그가 정한다");
             foreach (var row in vm.Rows.CurrentValue)
@@ -286,6 +326,148 @@ namespace LOP.Tests
             int hatId = 0;
             foreach (var slot in store.Loadout.CurrentValue) if (slot.slotId == Hat.Id) hatId = slot.cosmeticId;
             Assert.AreEqual(HatNone.Id, hatId, "로비로 돌아가도 서버와 같은 장착이 보여야 한다");
+        }
+
+        [Test]
+        public void 맨_위에_피부_머리_줄이_있고_지금_색_이름이다()
+        {
+            var (vm, _) = NewAppearanceViewModel(104, 0, SaveAppearance(new List<SetCharacterAppearanceRequest>()));
+
+            var rows = vm.Rows.CurrentValue;
+            Assert.AreEqual(LockerViewModel.SkinRowId, rows[0].SlotId);
+            Assert.AreEqual(LockerViewModel.HairRowId, rows[1].SlotId);
+            Assert.AreEqual("피부", rows[0].SlotName);
+            Assert.AreEqual("구릿빛", rows[0].EquippedName);
+            Assert.AreEqual("갈색", rows[1].EquippedName, "고른 적 없으면 기본 머리");
+            Assert.IsTrue(rows[0].IsAppearance);
+            Assert.IsFalse(RowOf(vm, Hat.Id).IsAppearance);
+        }
+
+        [Test]
+        public void 피부_줄을_고르면_색표_다섯_칸과_지금_색_표시()
+        {
+            var (vm, _) = NewAppearanceViewModel(103, 202, SaveAppearance(new List<SetCharacterAppearanceRequest>()));
+
+            vm.SelectSlot(LockerViewModel.SkinRowId);
+
+            var items = vm.Owned.CurrentValue;
+            Assert.AreEqual(5, items.Count);
+            Assert.AreEqual(101, items[0].CosmeticId);
+            Assert.IsTrue(items[0].Swatch.HasValue);
+            Assert.IsTrue(items[2].Equipped);
+            Assert.IsFalse(items[0].Equipped);
+        }
+
+        [Test]
+        public void 색을_고르면_다른_부위는_지금_값으로_한_번_저장하고_반영한다()
+        {
+            var seen = new List<SetCharacterAppearanceRequest>();
+            var (vm, appearance) = NewAppearanceViewModel(103, 202, SaveAppearance(seen));
+            vm.SelectSlot(LockerViewModel.HairRowId);
+
+            vm.SelectItemAsync(204).Forget();
+
+            Assert.AreEqual(1, seen.Count);
+            Assert.AreEqual((103, 204), (seen[0].skinColorId, seen[0].hairColorId));
+            Assert.AreEqual(new CharacterAppearance(103, 204), appearance.Current.CurrentValue);
+            Assert.AreEqual("금발", vm.Rows.CurrentValue[1].EquippedName);
+        }
+
+        //  백엔드는 고른 적 없는 사람에게도 기본값을 채워 준다 — 0은 "아직 못 받음"뿐이다. 그때 고르면
+        //  다른 부위 값을 지어내 덮어쓰게 되므로 요청하지 않는다.
+        [Test]
+        public void 받기_전엔_색을_골라도_요청하지_않는다()
+        {
+            var seen = new List<SetCharacterAppearanceRequest>();
+            var (vm, _) = NewAppearanceViewModel(0, 0, SaveAppearance(seen));
+            vm.SelectSlot(LockerViewModel.HairRowId);
+
+            vm.SelectItemAsync(202).Forget();
+
+            Assert.AreEqual(0, seen.Count);
+            Assert.AreEqual(string.Empty, vm.Rows.CurrentValue[1].EquippedName);
+        }
+
+        [Test]
+        public void 지금_색을_다시_누르면_요청하지_않는다()
+        {
+            var seen = new List<SetCharacterAppearanceRequest>();
+            var (vm, _) = NewAppearanceViewModel(103, 202, SaveAppearance(seen));
+            vm.SelectSlot(LockerViewModel.SkinRowId);
+
+            vm.SelectItemAsync(103).Forget();
+
+            Assert.AreEqual(0, seen.Count);
+        }
+
+        [Test]
+        public void 외형_응답을_기다리는_동안_두_번_요청_없음()
+        {
+            var seen = new List<SetCharacterAppearanceRequest>();
+            var pending = new UniTaskCompletionSource<CharacterAppearanceResponse>();
+            var (vm, _) = NewAppearanceViewModel(103, 202, (userId, request, ct) => { seen.Add(request); return pending.Task; });
+            vm.SelectSlot(LockerViewModel.SkinRowId);
+
+            vm.SelectItemAsync(104).Forget();
+            vm.SelectItemAsync(105).Forget();
+
+            Assert.AreEqual(1, seen.Count);
+            Assert.IsTrue(vm.Busy.CurrentValue);
+            pending.TrySetResult(AppearanceOk(104, 202));
+            Assert.IsFalse(vm.Busy.CurrentValue);
+        }
+
+        [Test]
+        public void 고를_수_없는_색이면_안내하고_그대로다()
+        {
+            var (vm, appearance) = NewAppearanceViewModel(103, 202,
+                (userId, request, ct) => UniTask.FromResult(new CharacterAppearanceResponse { code = ResponseCode.INVALID_APPEARANCE_COLOR }));
+            vm.SelectSlot(LockerViewModel.SkinRowId);
+
+            vm.SelectItemAsync(104).Forget();
+
+            Assert.AreEqual("고를 수 없는 색이에요", vm.Message.CurrentValue);
+            Assert.AreEqual(new CharacterAppearance(103, 202), appearance.Current.CurrentValue);
+        }
+
+        [Test]
+        public void 전부_기본으로는_외형도_기본값으로_한_번_저장한다()
+        {
+            var seen = new List<SetCharacterAppearanceRequest>();
+            var (vm, appearance) = NewAppearanceViewModel(104, 203, SaveAppearance(seen));
+
+            vm.ResetAllAsync().Forget();
+
+            Assert.AreEqual(1, seen.Count);
+            Assert.AreEqual((101, 201), (seen[0].skinColorId, seen[0].hairColorId));
+            Assert.AreEqual(new CharacterAppearance(101, 201), appearance.Current.CurrentValue);
+        }
+
+        [Test]
+        public void 외형이_이미_기본이면_전부_기본으로가_외형을_요청하지_않는다()
+        {
+            var seen = new List<SetCharacterAppearanceRequest>();
+            var (vm, _) = NewAppearanceViewModel(101, 201, SaveAppearance(seen));
+
+            vm.ResetAllAsync().Forget();
+
+            Assert.AreEqual(0, seen.Count);
+        }
+
+        [Test]
+        public void 옷_칸을_고르면_옷_장착으로_간다()
+        {
+            var seen = new List<SetLoadoutRequest>();
+            EconomyStore store = null;
+            var owned = DefaultOwned();
+            var made = NewViewModel(RedHatLoadout(), owned, Succeed(seen, () => store, owned));
+            store = made.store;
+            made.vm.SelectSlot(Hat.Id);
+
+            made.vm.SelectItemAsync(HatNone.Id).Forget();
+
+            Assert.AreEqual(1, seen.Count);
+            Assert.AreEqual(Hat.Id, seen[0].slotId);
         }
     }
 }

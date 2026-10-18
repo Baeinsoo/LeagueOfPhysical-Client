@@ -108,19 +108,33 @@ namespace LOP.UI
             for (int i = 0; i < items.Count; i++)
             {
                 var item = items[i];
-                int cosmeticId = item.CosmeticId;
-                var card = ShopView.BuildCard(item.Name, i, () => _viewModel.EquipAsync(cosmeticId).Forget(), out var state);
+                int id = item.CosmeticId;
+                var card = ShopView.BuildCard(item.Name, i, () => _viewModel.SelectItemAsync(id).Forget(), out var state);
                 state.text = StateLine(item);
                 card.EnableInClassList("shop-card--picked", item.Equipped);
+                if (item.Swatch is UnityEngine.Color swatch) AddSwatch(card, swatch);
                 _grid.Add(card);
             }
 
             RefreshEnabled();
         }
 
-        /// <summary>라커룸 카드 아래 한 줄 — 입은 것 / 기본 / 그 밖에 가진 것.</summary>
+        /// <summary>라커룸 카드 아래 한 줄 — 입은 것 / 기본 / 그 밖에 가진 것(외형 색은 고를 수 있음).</summary>
         public static string StateLine(LockerItem item) =>
-            item.Equipped ? "★ 장착 중" : item.IsDefault ? "기본" : "✓ 보유";
+            item.Equipped ? "★ 장착 중" : item.IsDefault ? "기본" : item.Swatch.HasValue ? "고르기" : "✓ 보유";
+
+        //  외형 색 카드 — 이름 첫 글자 자리를 그 색으로 칠한 칩으로 바꾼다.
+        internal static void AddSwatch(UnityEngine.UIElements.VisualElement card, UnityEngine.Color color)
+        {
+            var art = card.Q(className: "kit-card__art");
+            if (art == null) return;
+            art.Clear();
+            art.AddToClassList("locker-swatch-art");
+            var chip = new VisualElement();
+            chip.AddToClassList("locker-swatch");
+            chip.style.backgroundColor = color;
+            art.Add(chip);
+        }
 
         //  응답을 기다리는 동안(Busy)은 다른 요청을 막는다 — VM도 무시하지만 눌리는 모양부터 막는다.
         private void RefreshEnabled()

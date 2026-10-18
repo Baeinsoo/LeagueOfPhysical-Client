@@ -19,11 +19,13 @@ namespace LOP
         private readonly IPlayerContext playerContext;
         private readonly ArcheryWorld world;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly ArcheryHaptics haptics;
 
         public ArcheryHitHandler(ArcheryConsumed consumed, ISubscriber<WorldEventBatchToC> batchSubscriber,
                                  ArcheryArrowStickSystem stickSystem, ArcheryImpactLog impactLog,
                                  IPlayerContext playerContext,
-                                 ArcheryWorld world, GameFramework.World.EntityRegistry entityRegistry)
+                                 ArcheryWorld world, GameFramework.World.EntityRegistry entityRegistry,
+                                 ArcheryHaptics haptics)
         {
             this.consumed = consumed;
             this.batchSubscriber = batchSubscriber;
@@ -32,6 +34,7 @@ namespace LOP
             this.playerContext = playerContext;
             this.world = world;
             this.entityRegistry = entityRegistry;
+            this.haptics = haptics;
         }
 
         protected override void Subscribe() => Track(batchSubscriber.Subscribe(OnWorldEventBatchToC));
@@ -52,6 +55,8 @@ namespace LOP
                 consumed.MarkArrow(hit.shooterId, hit.fireTick);
                 RecordMyImpact(hit);
                 ApplyStun(hit);
+                //  내 적중만 손에 알린다 — 성한 과녁은 한 번, 함정은 짧게 두 번(ArcheryHapticRules).
+                haptics.Hit(hit, playerContext.entityId);
             }
         }
 

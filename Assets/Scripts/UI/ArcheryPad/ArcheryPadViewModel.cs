@@ -16,6 +16,8 @@ namespace LOP.UI
         private readonly ArcheryImpactLog impactLog;
         private readonly ArcheryConfig config;
         private readonly ArcheryCourse course;
+        private readonly ArcheryAimView aimView;
+        private readonly ArcheryHaptics haptics;
 
         //  걷기 스틱을 민 양. 스틱을 놓으면 0이 되고, 그 0도 매 프레임 밀어야 캐릭이 선다.
         private Vector2 moveStick;
@@ -57,7 +59,9 @@ namespace LOP.UI
             IPlayerContext playerContext,
             ArcheryImpactLog impactLog,
             ArcheryConfig config,
-            ArcheryCourse course)
+            ArcheryCourse course,
+            ArcheryAimView aimView,
+            ArcheryHaptics haptics)
         {
             this.input = input;
             this.cameraController = cameraController;
@@ -66,6 +70,8 @@ namespace LOP.UI
             this.impactLog = impactLog;
             this.config = config;
             this.course = course;
+            this.aimView = aimView;
+            this.haptics = haptics;
             AimAccel = ArcheryAimAccel.LoadStrength();
         }
 
@@ -256,6 +262,12 @@ namespace LOP.UI
         /// <summary>임계치를 넘겨 시위가 걸렸나. 못 넘으면 떼도 안 쏜다.</summary>
         public bool DrawArmed => DrawRatio >= ArcheryAimSystem.DrawThreshold;
 
+        /// <summary>
+        /// 손떨림이 얼마나 자랐나(0~1). 여유 시간 안이거나 손떨림이 없는 코스면 0. 당김 고리가 만작의
+        /// 노란색을 이만큼 빨강 쪽으로 민다(<see cref="ArcheryDrawRing.ShakeLevel"/>).
+        /// </summary>
+        public float ShakeLevel => ArcheryDrawRing.ShakeLevel(aimView?.MyHeldSeconds ?? 0f, config);
+
         //  활을 들기 직전에 보던 곳. 내려놓으면 여기로 돌아온다 — 아래 ReturnAimAfterCancel 참고.
         private float aimAtPressYaw;
         private float aimAtPressPitch;
@@ -383,6 +395,9 @@ namespace LOP.UI
             input.SetDrawing(false);
             if (ending == ArcheryPointerRouter.Ending.Fire)
             {
+                //  화살이 실제로 나갈 놓기에만 "톡". 시위가 걸렸나는 이 순간의 시뮬 값으로 본다 —
+                //  시뮬은 다음 틱에 같은 값(drawAtRelease)으로 쏠지 말지를 정한다.
+                haptics?.Released(DrawArmed, ArrowsLeft);
                 input.SetRelease();
             }
             else if (ending == ArcheryPointerRouter.Ending.PutDown)

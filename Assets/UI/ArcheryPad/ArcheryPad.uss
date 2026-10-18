@@ -190,6 +190,16 @@
     justify-content: center;
 }
 
+/* 당김 고리 — 조준점 바로 바깥. 조준점은 44px이고 시위가 막 걸렸을 때 1.28배(56px)로 떠서 만작에 1배로
+   조여든다. 지름 64px면 가장 클 때도 틈이 4px 남고, 만작이면 10px 바깥에서 고리가 조준점을 감싼다.
+   선 굵기는 ArcheryDrawRingElement.LineWidth(2.5px)이고 그림은 코드가 그린다. */
+.archery-draw-ring {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 64px; height: 64px;
+    margin-left: -32px; margin-top: -32px;
+}
+
 .archery-reticle-dot {
     width: 5px; height: 5px;
     background-color: rgba(255, 255, 255, 0.95);

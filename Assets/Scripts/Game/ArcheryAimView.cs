@@ -124,6 +124,19 @@ namespace LOP
             return new Vector2(offset.x, -offset.y);
         }
 
+        /// <summary>
+        /// 내가 지금 시위를 잡고 버틴 시간(초). 안 당기면 0. 조작 패드의 당김 고리가 손떨림이 얼마나
+        /// 자랐는지 그리는 데 읽는다 — 화면 흔들림과 같은 시계(렌더 시각)를 써야 고리와 화면이 함께 간다.
+        /// </summary>
+        public float MyHeldSeconds
+        {
+            get
+            {
+                var aim = MyAim();
+                return aim != null && aim.Drawing ? CurrentHeldSeconds(aim) : 0f;
+            }
+        }
+
         //  화면은 정수 틱 사이도 물어보므로 렌더 시각(소수 틱)을 쓴다.
         private float CurrentHeldSeconds(ArcheryAim aim)
         {

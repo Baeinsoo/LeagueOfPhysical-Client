@@ -17,6 +17,11 @@ namespace LOP.UI
         private Label _score;
         private Label _arrows;
         private VisualElement _reticle;
+        private ArcheryDrawRingElement _drawRing;
+
+        //  당김 고리의 지난 프레임 단계와 만작에 닿은 실제 시각. 번쩍임은 만작에 막 닿은 때 한 번만 시작한다.
+        private ArcheryDrawRing.Phase _ringPhase = ArcheryDrawRing.Phase.Hidden;
+        private float _fullSince = float.NegativeInfinity;
         private VisualElement _plotFace;
         private Label _plotLabel;
         private VisualElement _popups;
@@ -79,6 +84,7 @@ namespace LOP.UI
             _score = Root.Q<Label>("score");
             _arrows = Root.Q<Label>("arrows");
             _reticle = Root.Q<VisualElement>("reticle");
+            _drawRing = Root.Q<ArcheryDrawRingElement>("draw-ring");
             _moveArea = Root.Q<VisualElement>("move-area");
             _moveBg = Root.Q<VisualElement>("move-bg");
             _moveHandle = Root.Q<VisualElement>("move-handle");
@@ -137,6 +143,7 @@ namespace LOP.UI
                     _reticle.style.scale = new StyleScale(new Scale(new Vector2(scale, scale)));
                 }
 
+                SyncDrawRing();
                 SyncImpactPlot();
                 SpawnHitPopups();
 
@@ -152,6 +159,36 @@ namespace LOP.UI
                 _cancelFace.style.display = cancelActive || movingCancel ? DisplayStyle.Flex : DisplayStyle.None;
                 _cancelFace.EnableInClassList("is-over", cancelActive && _viewModel.OverCancelButton);
             }).Every(0);
+        }
+
+        //  당김 고리. 활을 든 동안만 보이고(뗀 뒤 시위가 풀리는 동안은 안 보인다 — 쏜 다음엔 "당기는 중"이 아니다),
+        //  당김 단계에 따라 흐린 흰색 → 진한 흰색 → 노란색. 번쩍임은 실제 시간으로 잰다 — 게임 시간이
+        //  멈춰도(컷인) 번쩍임이 화면에 얼어붙지 않게.
+        private void SyncDrawRing()
+        {
+            if (_drawRing == null)
+            {
+                return;
+            }
+            var phase = ArcheryDrawRing.PhaseOf(_viewModel.Holding, _viewModel.DrawRatio, ArcheryAimSystem.DrawThreshold);
+            if (ArcheryDrawRing.JustFull(_ringPhase, phase))
+            {
+                _fullSince = Time.unscaledTime;
+            }
+            _ringPhase = phase;
+
+            if (phase == ArcheryDrawRing.Phase.Hidden)
+            {
+                _drawRing.style.display = DisplayStyle.None;
+                return;
+            }
+            _drawRing.style.display = DisplayStyle.Flex;
+            //  손떨림 색은 만작에만 쓰이므로 그때만 묻는다.
+            float shake = phase == ArcheryDrawRing.Phase.Full ? _viewModel.ShakeLevel : 0f;
+            float flash = phase == ArcheryDrawRing.Phase.Full
+                ? ArcheryDrawRing.FlashAmount(Time.unscaledTime - _fullSince)
+                : 0f;
+            _drawRing.Set(ArcheryDrawRing.FillOf(_viewModel.DrawRatio), ArcheryDrawRing.ColorOf(phase, shake), flash);
         }
 
         //  기록판을 지금 자리의 착탄점으로 맞춘다. 자리나 발수가 바뀐 프레임에만 다시 그린다 —

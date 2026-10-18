@@ -52,6 +52,16 @@ namespace LOP.EditorTools
                             return w;
                         }, $"output/ratio/{view}-confirm-{tag}.png", width, height));
                     }
+                    //  라커룸은 외형(피부) 줄을 고른 모습도 따로 본다.
+                    if (view == nameof(LockerView))
+                    {
+                        shots.Add((() =>
+                        {
+                            var w = GetWindow<RatioPreviewWindow>("비율 미리보기");
+                            w.Build(uxml, uss, width, height, view, ranked: true);
+                            return w;
+                        }, $"output/ratio/{view}-appearance-{tag}.png", width, height));
+                    }
                     //  결과판은 랭크 반전판도 따로 본다.
                     if (view == nameof(MatchResultView))
                     {
@@ -90,7 +100,7 @@ namespace LOP.EditorTools
             if (view == nameof(MatchResultView)) FillResultBoard(viewRoot, ranked);
             //  메뉴 셸은 긴 이름을 섞은 가짜 값으로 채운다(넘침·겹침 확인용). ranked = 상점의 확인 창 열린 판.
             if (view == nameof(ShopView)) FillShop(viewRoot, confirmOpen: ranked);
-            if (view == nameof(LockerView)) FillLocker(viewRoot);
+            if (view == nameof(LockerView)) FillLocker(viewRoot, appearance: ranked);
             if (view == nameof(ProfileView)) FillProfile(viewRoot);
             if (view == nameof(ChangeDisplayNameView)) FillRename(viewRoot);
             //  작은 창: 가장 긴 출전 취소 사유, 관전 상태.
@@ -98,6 +108,8 @@ namespace LOP.EditorTools
             if (view == nameof(RaceSpectateView)) viewRoot.Q<Label>("spectate-status").text = "관전 2 / 7";
             FillShell(viewRoot, view);
         }
+
+        private static Color Hex(string hex) { ColorUtility.TryParseHtmlString(hex, out var c); return c; }
 
         private const string LongItem = "아주아주 긴 이름의 반짝반짝 황금 왕관 모자";
         private const string LongPlayer = "가나다라마바사아자차카타#1234";
@@ -163,16 +175,17 @@ namespace LOP.EditorTools
             root.Q<Label>("confirm-remaining").text = ShopFormat.RemainingCoins(12340, 1200);
         }
 
-        private static void FillLocker(VisualElement root)
+        private static void FillLocker(VisualElement root, bool appearance)
         {
             var slots = root.Q<ScrollView>("locker-slots");
-            (string slot, string item)[] rows = { ("모자", LongItem), ("상의", "초록 셔츠"), ("하의", "기본 바지"), ("신발", "기본 신발"), ("장갑", "기본 장갑") };
+            (string slot, string item)[] rows = { ("피부", "밝은 살구"), ("머리", "갈색"), ("모자", LongItem), ("상의", "초록 셔츠"), ("하의", "기본 바지"), ("장식", "없음") };
+            int picked = appearance ? 0 : 2;
             for (int i = 0; i < rows.Length; i++)
             {
                 var button = new Button();
                 button.AddToClassList("kit-press");
                 button.AddToClassList("locker-slot");
-                if (i == 0) button.AddToClassList("locker-slot--picked");
+                if (i == picked) button.AddToClassList("locker-slot--picked");
                 var sticker = new StickerElement();
                 var name = new Label(rows[i].slot);
                 name.AddToClassList("locker-slot__name");
@@ -187,12 +200,20 @@ namespace LOP.EditorTools
             }
 
             var grid = root.Q<ScrollView>("locker-grid");
-            var items = new[] { new LockerItem(1, "모자 없음", false, true), new LockerItem(2, LongItem, true, false), new LockerItem(3, "빨간 큐브 모자", false, false), new LockerItem(4, "초록 모자", false, false) };
+            var items = appearance
+                ? new[]
+                {
+                    new LockerItem(101, "밝은 살구", true, true, Hex("#F7D2AE")), new LockerItem(102, "밝은", false, false, Hex("#FFE0BD")),
+                    new LockerItem(103, "중간", false, false, Hex("#F3C9A0")), new LockerItem(104, "구릿빛", false, false, Hex("#E3B089")),
+                    new LockerItem(105, "갈색", false, false, Hex("#C68642")),
+                }
+                : new[] { new LockerItem(1, "모자 없음", false, true), new LockerItem(2, LongItem, true, false), new LockerItem(3, "빨간 큐브 모자", false, false), new LockerItem(4, "초록 모자", false, false) };
             for (int i = 0; i < items.Length; i++)
             {
                 var card = ShopView.BuildCard(items[i].Name, i, null, out var state);
                 state.text = LockerView.StateLine(items[i]);
                 card.EnableInClassList("shop-card--picked", items[i].Equipped);
+                if (items[i].Swatch is Color swatch) LockerView.AddSwatch(card, swatch);
                 grid.Add(card);
             }
             root.Q<Label>("locker-message").text = "잠시 뒤 다시 시도";

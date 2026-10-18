@@ -64,7 +64,8 @@ namespace LOP
 
         public void Build()
         {
-            var animator = GetComponentInParent<Animator>();
+            //  얼굴 판은 몸 뿌리에 붙고 애니메이터는 그 아래 Model에 있다(옛 몸은 뿌리에).
+            var animator = GetComponentInParent<Animator>() ?? ChibiRig.AnimatorOf(gameObject);
             Transform head = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Head) : null;
             if (head == null || faceMaterial == null)
             {

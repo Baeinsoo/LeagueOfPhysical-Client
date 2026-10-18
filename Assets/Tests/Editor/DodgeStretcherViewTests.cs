@@ -51,7 +51,7 @@ namespace LOP.Tests
             entityRegistry.Add(entity);
 
             var catalog = new CosmeticCatalog(TestEconomyTables.Cosmetics, TestEconomyTables.CosmeticSlots, TestEconomyTables.Currencies);
-            var view = new DodgeStretcherView(state, new ActorRegistry(), null, entityRegistry, catalog);
+            var view = new DodgeStretcherView(state, new ActorRegistry(), null, entityRegistry, catalog, new AppearanceColorPalette(TestEconomyTables.AppearanceColors));
             SetChibiPrefab(view);
 
             // 1틱: 몸(엔티티)이 아직 살아 있다 — 여기서 룩을 기억해 둬야 한다.

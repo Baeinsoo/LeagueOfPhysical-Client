@@ -18,7 +18,7 @@ namespace LOP
                     //  proto map은 null이 아니라 빈 컬렉션으로 온다 — 그대로 복사해도 안전하다.
                     stats = new Dictionary<string, int>(p.Stats),
                     displayName = p.DisplayName ?? string.Empty,
-                    look = PlayerLookFromProto.From(p.Look, p.DisplayName, p.AccountLevel),
+                    look = PlayerLookFromProto.From(p.Look, p.DisplayName, p.AccountLevel, p.CharacterAppearance),
                 };
             }
 

@@ -14,7 +14,7 @@ namespace LOP.Tests
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Path);
             Assert.IsNotNull(prefab, Path);
-            var animator = prefab.GetComponent<Animator>();
+            var animator = ChibiRig.AnimatorOf(prefab);
             Assert.IsNotNull(animator);
             Assert.IsTrue(animator.avatar != null && animator.avatar.isHuman);
             var controller = (UnityEditor.Animations.AnimatorController)animator.runtimeAnimatorController;
@@ -41,7 +41,21 @@ namespace LOP.Tests
             Assert.AreEqual("LOP/Toon", body.sharedMaterial.shader.name);
             Assert.AreEqual(1f, body.sharedMaterial.GetFloat("_UseRegions"));
             Assert.IsTrue(body.sharedMaterial.GetShaderPassEnabled("SRPDefaultUnlit"));
-            Assert.AreEqual(3f, prefab.transform.localScale.x, 1e-4f);
+        }
+
+        //  뿌리는 크기 1 — 쓰는 화면(로비 자리·거인·경기)이 뿌리 크기를 정한다. 모델 배율(0.49m → 1.47m)은 자식이 맡는다.
+        [Test]
+        public void 뿌리는_크기_1이고_모델_자식이_배율과_애니메이터를_가진다()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Path);
+            Assert.AreEqual(Vector3.one, prefab.transform.localScale);
+            Assert.AreEqual(1, prefab.GetComponents<Component>().Length, "뿌리는 Transform뿐");
+
+            var model = prefab.transform.Find("Model");
+            Assert.IsNotNull(model, "자식 Model");
+            Assert.AreEqual(3f, model.localScale.x, 1e-4f);
+            Assert.IsNotNull(model.GetComponent<Animator>());
+            Assert.AreSame(model.GetComponent<Animator>(), ChibiRig.AnimatorOf(prefab));
         }
 
         [Test]
@@ -59,7 +73,7 @@ namespace LOP.Tests
         {
             //  PolyOne "Jumping Down"은 루프가 아니다 — 빌더가 루프를 켠 복사본(Fall)을 만들어 쓴다(원본은 안 건드림).
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Path);
-            var controller = (UnityEditor.Animations.AnimatorController)prefab.GetComponent<Animator>().runtimeAnimatorController;
+            var controller = (UnityEditor.Animations.AnimatorController)ChibiRig.AnimatorOf(prefab).runtimeAnimatorController;
             CollectionAssert.Contains(controller.parameters.Select(p => p.name).ToArray(), "Falling");
             var fall = controller.layers[0].stateMachine.states.Select(s => s.state).FirstOrDefault(s => s.name == "Fall");
             Assert.IsNotNull(fall);
@@ -72,7 +86,7 @@ namespace LOP.Tests
         {
             //  PolyOne Run(0.63초)·Idle은 루프가 꺼져 있어 한 번 돌고 마지막 자세로 멈췄다(스카이다이브 착지 뒤 걷기에서 드러남).
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Path);
-            var controller = (UnityEditor.Animations.AnimatorController)prefab.GetComponent<Animator>().runtimeAnimatorController;
+            var controller = (UnityEditor.Animations.AnimatorController)ChibiRig.AnimatorOf(prefab).runtimeAnimatorController;
             foreach (var name in new[] { "Run", "Idle" })
             {
                 var state = controller.layers[0].stateMachine.states.Select(s => s.state).FirstOrDefault(s => s.name == name);

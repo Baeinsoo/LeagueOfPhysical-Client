@@ -17,18 +17,21 @@ namespace LOP
         private readonly ActorRegistry actorRegistry;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly CosmeticCatalog catalog;
+        private readonly AppearanceColorPalette palette;
         private readonly Dictionary<string, GameObject> dressed = new Dictionary<string, GameObject>();
         private Material faceMaterial;
         private readonly HashSet<string> players = new HashSet<string>();
 
         public DodgeChibiView(GameFramework.Runner.IRunner runner, DodgeClientState state, ActorRegistry actorRegistry,
-                              GameFramework.World.EntityRegistry entityRegistry, CosmeticCatalog catalog)
+                              GameFramework.World.EntityRegistry entityRegistry, CosmeticCatalog catalog,
+                              AppearanceColorPalette palette)
         {
             this.runner = runner;
             this.state = state;
             this.actorRegistry = actorRegistry;
             this.entityRegistry = entityRegistry;
             this.catalog = catalog;
+            this.palette = palette;
         }
 
         public void Start()
@@ -63,7 +66,7 @@ namespace LOP
                 }
                 if (!dressed.TryGetValue(id, out var last) || last != visual)
                 {
-                    ChibiDresser.Dress(id, visual, faceMaterial, entityRegistry.Get(id)?.Get<PlayerLook>(), catalog);
+                    ChibiDresser.Dress(visual, faceMaterial, entityRegistry.Get(id)?.Get<PlayerLook>(), catalog, palette);
                     dressed[id] = visual;
                 }
                 var face = visual.GetComponent<ChibiFace>();
@@ -81,13 +84,15 @@ namespace LOP
                 if (!ChibiDresser.IsChibi(visual)) continue;
                 if (!dressed.TryGetValue(actor.entityId, out var last) || last != visual)
                 {
-                    ChibiDresser.Dress(RefereeOutfitId, visual, faceMaterial);
+                    ChibiDresser.Dress(visual, faceMaterial, RefereeLook, catalog, palette);
                     dressed[actor.entityId] = visual;
                 }
             }
         }
 
-        /// <summary>심판 옷 색을 고르는 열쇠 — 엔티티 id가 판마다 달라도 늘 같은 옷.</summary>
-        public const string RefereeOutfitId = "dodge-referee";
+        /// <summary>심판의 정해진 모습 — 선수 기본 옷(파랑)과 구별되게 초록 상의.</summary>
+        public static readonly PlayerLook RefereeLook = new PlayerLook(
+            new System.Collections.Generic.Dictionary<string, string> { ["top"] = "top_tint_green" }, "", 1,
+            new CharacterAppearance(102, 202));
     }
 }

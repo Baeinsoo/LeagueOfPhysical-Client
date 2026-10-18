@@ -67,5 +67,16 @@ namespace LOP.Tests
             Assert.IsTrue(r.hasRatingChange);
             Assert.AreEqual(2, r.myMmrAfter);
         }
+
+        [Test]
+        public void 캐릭터_외형을_저장한다()
+        {
+            var m = Message();
+            m.Placements[0].CharacterAppearance = new CharacterAppearanceInfo { SkinColorId = 105, HairColorId = 202 };
+
+            var a = MatchResultCapture.From(m, "M1", Match()).participants[0];
+
+            Assert.AreEqual(new CharacterAppearance(105, 202), a.look.CharacterAppearance);
+        }
     }
 }

@@ -9,6 +9,22 @@ namespace LOP.Tests
         private const string ChibiPath = "Assets/Characters/Chibi/Chibi.prefab";
         private const string FacePath = "Assets/Characters/Chibi/Materials/ChibiFace.mat";
 
+        private static CosmeticCatalog Catalog() =>
+            new CosmeticCatalog(TestEconomyTables.Cosmetics, TestEconomyTables.CosmeticSlots, TestEconomyTables.Currencies);
+
+        private static AppearanceColorPalette Palette() => new AppearanceColorPalette(TestEconomyTables.AppearanceColors);
+
+        private static void AssertTop(GameObject go, Color want)
+        {
+            var block = new MaterialPropertyBlock();
+            go.GetComponentInChildren<SkinnedMeshRenderer>().GetPropertyBlock(block);
+            //  블록은 색을 선형 공간으로 돌려 담아 소수점 끝자리가 다르다 — 채널별로 비교한다.
+            Color got = block.GetColor("_TopColor");
+            Assert.AreEqual(want.r, got.r, 1e-3f);
+            Assert.AreEqual(want.g, got.g, 1e-3f);
+            Assert.AreEqual(want.b, got.b, 1e-3f);
+        }
+
 
         [Test]
         public void 치비_프리팹은_치비다()
@@ -37,16 +53,10 @@ namespace LOP.Tests
             try
             {
                 var faceMat = AssetDatabase.LoadAssetAtPath<Material>(FacePath);
-                ChibiDresser.Dress("e1", go, faceMat);
-                ChibiDresser.Dress("e1", go, faceMat);
+                ChibiDresser.Dress(go, faceMat, null, Catalog(), Palette());
+                ChibiDresser.Dress(go, faceMat, null, Catalog(), Palette());
                 Assert.AreEqual(1, go.GetComponentsInChildren<ChibiFace>(true).Length);
-                var block = new MaterialPropertyBlock();
-                go.GetComponentInChildren<SkinnedMeshRenderer>().GetPropertyBlock(block);
-                //  블록은 색을 선형 공간으로 돌려 담아 소수점 끝자리가 다르다 — 채널별로 비교한다.
-                Color want = ChibiOutfit.ColorsFor("e1").Top, got = block.GetColor("_TopColor");
-                Assert.AreEqual(want.r, got.r, 1e-3f);
-                Assert.AreEqual(want.g, got.g, 1e-3f);
-                Assert.AreEqual(want.b, got.b, 1e-3f);
+                AssertTop(go, ChibiLookApplier.ColorsFor(null, Catalog(), Palette()).Top);
             }
             finally { Object.DestroyImmediate(go); }
         }
@@ -58,14 +68,13 @@ namespace LOP.Tests
             try
             {
                 var faceMat = AssetDatabase.LoadAssetAtPath<Material>(FacePath);
-                var catalog = new CosmeticCatalog(TestEconomyTables.Cosmetics, TestEconomyTables.CosmeticSlots, TestEconomyTables.Currencies);
                 var look = new PlayerLook(
                     new System.Collections.Generic.Dictionary<string, string> { ["hat"] = "hat_cube_red", ["face"] = "face_dummy_b" },
                     "테스터", 1);
 
-                ChibiDresser.Dress("e1", go, faceMat, look, catalog);
+                ChibiDresser.Dress(go, faceMat, look, Catalog(), Palette());
 
-                var head = go.GetComponent<Animator>().GetBoneTransform(HumanBodyBones.Head);
+                var head = ChibiRig.AnimatorOf(go).GetBoneTransform(HumanBodyBones.Head);
                 Assert.IsNotNull(head.Find("Look_hat"));
                 Assert.AreEqual(ChibiExpression.Cheer, go.GetComponent<ChibiFace>().expression);
             }
@@ -73,32 +82,25 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 룩_없이_다시_입히면_모자_표정_색이_그_엔티티_기본으로_돌아간다()
+        public void 룩_없이_다시_입히면_모자_표정_색이_기본으로_돌아간다()
         {
             var go = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(ChibiPath));
             try
             {
                 var faceMat = AssetDatabase.LoadAssetAtPath<Material>(FacePath);
-                var catalog = new CosmeticCatalog(TestEconomyTables.Cosmetics, TestEconomyTables.CosmeticSlots, TestEconomyTables.Currencies);
                 var look = new PlayerLook(
-                    new System.Collections.Generic.Dictionary<string, string> { ["hat"] = "hat_cube_red", ["face"] = "face_dummy_b" },
+                    new System.Collections.Generic.Dictionary<string, string> { ["hat"] = "hat_cube_red", ["face"] = "face_dummy_b", ["top"] = "top_tint_gold" },
                     "테스터", 1);
-                Assume.That(ChibiOutfit.ColorsFor("referee").Top, Is.Not.EqualTo(ChibiOutfit.ColorsFor("e1").Top), "두 엔티티 기본 색이 같으면 이 시험이 아무것도 못 가른다");
 
-                ChibiDresser.Dress("e1", go, faceMat, look, catalog);
-                var head = go.GetComponent<Animator>().GetBoneTransform(HumanBodyBones.Head);
+                ChibiDresser.Dress(go, faceMat, look, Catalog(), Palette());
+                var head = ChibiRig.AnimatorOf(go).GetBoneTransform(HumanBodyBones.Head);
                 Assert.IsNotNull(head.Find("Look_hat"), "전제: 룩으로 먼저 모자가 붙어 있어야 한다");
 
-                ChibiDresser.Dress("referee", go, faceMat);
+                ChibiDresser.Dress(go, faceMat, null, Catalog(), Palette());
 
                 Assert.AreEqual(ChibiExpression.Normal, go.GetComponent<ChibiFace>().expression);
                 Assert.IsNull(head.Find("Look_hat"));
-                var block = new MaterialPropertyBlock();
-                go.GetComponentInChildren<SkinnedMeshRenderer>().GetPropertyBlock(block);
-                Color want = ChibiOutfit.ColorsFor("referee").Top, got = block.GetColor("_TopColor");
-                Assert.AreEqual(want.r, got.r, 1e-3f);
-                Assert.AreEqual(want.g, got.g, 1e-3f);
-                Assert.AreEqual(want.b, got.b, 1e-3f);
+                AssertTop(go, ChibiLookApplier.ColorsFor(null, Catalog(), Palette()).Top);
             }
             finally { Object.DestroyImmediate(go); }
         }

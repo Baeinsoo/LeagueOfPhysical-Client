@@ -101,5 +101,42 @@ namespace LOP.Tests
             Assert.IsNotNull(entity);
             Assert.IsNull(entity.Get<PlayerLook>());
         }
+
+        [Test]
+        public void 캐릭터_외형을_받는다()
+        {
+            var proto = new global::CharacterCreationData
+            {
+                DisplayName = "Kim",
+                AccountLevel = 2,
+                CharacterAppearance = new CharacterAppearanceInfo { SkinColorId = 103, HairColorId = 204 },
+            };
+
+            var look = PlayerLookFromProto.Convert(proto);
+
+            Assert.AreEqual(new CharacterAppearance(103, 204), look.CharacterAppearance);
+        }
+
+        //  옛 서버는 칸을 비워 보낸다 — 0(모름)으로 받아 그리는 쪽이 기본값으로 바꾼다. 끊기지 않는다.
+        [Test]
+        public void 외형_칸이_없으면_0이다()
+        {
+            var proto = new global::CharacterCreationData { DisplayName = "Kim", AccountLevel = 2 };
+
+            var look = PlayerLookFromProto.Convert(proto);
+
+            Assert.AreEqual(default(CharacterAppearance), look.CharacterAppearance);
+        }
+
+        [Test]
+        public void 다른_칸이_비어도_외형이_있으면_룩이_있다()
+        {
+            var proto = new global::CharacterCreationData
+            {
+                CharacterAppearance = new CharacterAppearanceInfo { SkinColorId = 102, HairColorId = 201 },
+            };
+
+            Assert.IsNotNull(PlayerLookFromProto.Convert(proto));
+        }
     }
 }

@@ -14,8 +14,8 @@ namespace LOP
         public const string FaceKey = "Assets/Characters/Chibi/Materials/ChibiFace.mat";
         public static readonly Vector3 StandPosition = new Vector3(0f, 0f, 4f);
 
-        private string _userId = "lobby";
         private CosmeticCatalog _catalog;
+        private AppearanceColorPalette _palette;
         private Material _face;
         private PlayerLook _look;
         private AsyncOperationHandle<GameObject> _bodyHandle;
@@ -24,7 +24,7 @@ namespace LOP
         private Vector3 _standPosition = StandPosition;
         private float _standYaw = 180f;   // 카메라(-z 쪽)를 본다
         private float _standScale = 1f;
-        //  몸 프리팹 뿌리의 원래 크기(치비는 3) — 자리 크기는 이 위에 곱한다.
+        //  몸 프리팹 뿌리의 원래 크기 — 새 치비는 1, 옛 원격 프리팹은 3. 자리 크기는 이 위에 곱한다.
         private Vector3 _bodyScale = Vector3.one;
         private ResultReaction _pendingReaction = ResultReaction.None;
         private bool _absent;
@@ -47,10 +47,10 @@ namespace LOP
         private bool _celebrating;
         private float _celebrateTimer;
 
-        public void Init(string userId, CosmeticCatalog catalog)
+        public void Init(CosmeticCatalog catalog, AppearanceColorPalette palette)
         {
-            if (!string.IsNullOrEmpty(userId)) _userId = userId;
             _catalog = catalog;
+            _palette = palette;
             _faceHandle = Addressables.LoadAssetAsync<Material>(FaceKey);
             _faceHandle.Completed += h =>
             {
@@ -75,7 +75,7 @@ namespace LOP
         {
             //  상점을 열면 진행도·장착이 한 프레임에 연달아 바뀌어 같은 룩이 두 번 온다. 다시 입히지 않는다 —
             //  플레이 중 옛 모자는 프레임 끝에야 지워져서, 같은 프레임에 또 입히면 모자가 하나씩 쌓인다.
-            if (AppliedLook != null && SameSlots(AppliedLook, look))
+            if (AppliedLook != null && SameLook(AppliedLook, look))
             {
                 _look = look;
                 return;
@@ -84,9 +84,9 @@ namespace LOP
             Dress();
         }
 
-        private static bool SameSlots(PlayerLook a, PlayerLook b)
+        private static bool SameLook(PlayerLook a, PlayerLook b)
         {
-            if (b == null || a.Slots.Count != b.Slots.Count) return false;
+            if (b == null || a.Slots.Count != b.Slots.Count || a.CharacterAppearance != b.CharacterAppearance) return false;
             foreach (var kv in a.Slots)
                 if (b.SlotOrNull(kv.Key) != kv.Value) return false;
             return true;
@@ -239,7 +239,7 @@ namespace LOP
         private void Dress()
         {
             if (Visual == null) return;
-            if (ChibiDresser.IsChibi(Visual)) ChibiDresser.Dress(_userId, Visual, _face, _look, _catalog);
+            if (ChibiDresser.IsChibi(Visual)) ChibiDresser.Dress(Visual, _face, _look, _catalog, _palette);
             AppliedLook = _look;
             ApplyAbsent();   // 입히기가 재질을 바꿔도 회색이 남게
             ApplyFace();

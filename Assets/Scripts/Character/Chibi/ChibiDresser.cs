@@ -10,7 +10,7 @@ namespace LOP
     {
         public static bool IsChibi(GameObject visual)
         {
-            var animator = visual != null ? visual.GetComponent<Animator>() : null;
+            var animator = ChibiRig.AnimatorOf(visual);
             if (animator == null || animator.isHuman == false || animator.runtimeAnimatorController == null)
             {
                 return false;
@@ -26,13 +26,13 @@ namespace LOP
         }
 
         /// <summary>
-        /// 얼굴 판·저지를 입힌다. 이미 얼굴 판이 있으면 새로 붙이지 않는다. <paramref name="look"/>이 있으면
-        /// 상·하의 색·표정·모자·장식에 룩을 반영한다 — 없으면(심판·들것 등) 엔티티 기본 색만 입힌다.
+        /// 얼굴 판·옷 색을 입힌다. 이미 얼굴 판이 있으면 새로 붙이지 않는다. <paramref name="look"/>이 있으면
+        /// 색·표정·모자·장식에 룩을 반영한다 — 없으면 전부 기본값.
         /// </summary>
-        public static void Dress(string entityId, GameObject visual, Material faceMaterial,
-            PlayerLook look = null, CosmeticCatalog catalog = null)
+        public static void Dress(GameObject visual, Material faceMaterial,
+            PlayerLook look, CosmeticCatalog catalog, AppearanceColorPalette palette)
         {
-            ChibiOutfit.Apply(visual, ChibiLookApplier.ColorsFor(entityId, look, catalog));
+            ChibiOutfit.Apply(visual, ChibiLookApplier.ColorsFor(look, catalog, palette));
 
             if (faceMaterial != null && visual.GetComponent<ChibiFace>() == null)
             {

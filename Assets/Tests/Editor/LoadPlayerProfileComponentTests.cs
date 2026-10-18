@@ -41,13 +41,26 @@ namespace LOP.Tests
             characterAppearance = new CharacterAppearanceDto { skinColorId = 104, hairColorId = 203 },
         };
 
-        private static (LoadPlayerProfileComponent component, EconomyStore economy, CharacterAppearanceStore appearance) Make(
-            GetEconomyResponse economyResponse, CharacterAppearanceResponse appearanceResponse)
+        private sealed class Rig
         {
+            public LoadPlayerProfileComponent Component;
+            public EconomyStore Economy;
+            public CharacterAppearanceStore Appearance;
+            public int EconomyCalls, AppearanceCalls, RetryPrompts;
+        }
+
+        //  응답은 부를 때마다 차례로 꺼내고, 다 쓰면 마지막 것을 되풀이한다. 다시 시도 팝업은 바로 닫힌 셈 친다.
+        private static Rig Make(GetEconomyResponse[] economyResponses, CharacterAppearanceResponse[] appearanceResponses)
+        {
+            var rig = new Rig();
             var users = new FakeUserDataStore();
-            var economy = new EconomyStore(users, Catalog, (userId, ct) => UniTask.FromResult(economyResponse));
-            var appearance = new CharacterAppearanceStore(users, (userId, ct) => UniTask.FromResult(appearanceResponse));
-            return (new LoadPlayerProfileComponent(() => economy, () => appearance), economy, appearance);
+            rig.Economy = new EconomyStore(users, Catalog,
+                (userId, ct) => UniTask.FromResult(economyResponses[Math.Min(rig.EconomyCalls++, economyResponses.Length - 1)]));
+            rig.Appearance = new CharacterAppearanceStore(users,
+                (userId, ct) => UniTask.FromResult(appearanceResponses[Math.Min(rig.AppearanceCalls++, appearanceResponses.Length - 1)]));
+            rig.Component = new LoadPlayerProfileComponent(() => rig.Economy, () => rig.Appearance,
+                () => { rig.RetryPrompts++; return UniTask.CompletedTask; });
+            return rig;
         }
 
         //  메인 스레드를 막고 기다리면(GetResult) 끝내는 데 필요한 메인 스레드가 비지 않아 에디터가 멈춘다 —
@@ -77,38 +90,62 @@ namespace LOP.Tests
         [UnityTest]
         public IEnumerator 둘_다_받으면_스토어가_채워진다()
         {
-            var (component, economy, appearance) = Make(EconomyOk(), AppearanceOk());
+            var rig = Make(new[] { EconomyOk() }, new[] { AppearanceOk() });
 
-            var task = component.Execute();
+            var task = rig.Component.Execute();
             yield return Run(task);
 
             Assert.IsFalse(task.IsFaulted, task.Exception?.ToString());
-            Assert.AreEqual(700, economy.Coins.CurrentValue);
-            Assert.AreEqual(new CharacterAppearance(104, 203), appearance.Current.CurrentValue);
+            Assert.AreEqual(700, rig.Economy.Coins.CurrentValue);
+            Assert.AreEqual(new CharacterAppearance(104, 203), rig.Appearance.Current.CurrentValue);
+            Assert.AreEqual(0, rig.RetryPrompts);
         }
 
         [UnityTest]
-        public IEnumerator 재화를_못_받으면_부팅을_멈춘다()
+        public IEnumerator 재화를_못_받으면_다시_시도를_묻고_재화만_다시_받는다()
         {
-            var (component, _, _) = Make(new GetEconomyResponse { code = ResponseCode.USER_NOT_EXIST }, AppearanceOk());
+            var rig = Make(new[] { new GetEconomyResponse { code = ResponseCode.USER_NOT_EXIST }, EconomyOk() }, new[] { AppearanceOk() });
             UnityEngine.TestTools.LogAssert.ignoreFailingMessages = true;
 
-            var task = component.Execute();
+            var task = rig.Component.Execute();
             yield return Run(task);
 
-            Assert.IsTrue(task.IsFaulted, "부팅을 멈춰야 한다");
+            Assert.IsFalse(task.IsFaulted, task.Exception?.ToString());
+            Assert.AreEqual(1, rig.RetryPrompts);
+            Assert.AreEqual(2, rig.EconomyCalls);
+            Assert.AreEqual(1, rig.AppearanceCalls, "받은 외형은 다시 받지 않는다");
+            Assert.AreEqual(700, rig.Economy.Coins.CurrentValue);
         }
 
         [UnityTest]
-        public IEnumerator 외형을_못_받으면_부팅을_멈춘다()
+        public IEnumerator 외형을_못_받으면_다시_시도를_묻고_외형만_다시_받는다()
         {
-            var (component, _, _) = Make(EconomyOk(), new CharacterAppearanceResponse { code = ResponseCode.USER_NOT_EXIST });
+            var rig = Make(new[] { EconomyOk() }, new[] { new CharacterAppearanceResponse { code = ResponseCode.USER_NOT_EXIST }, AppearanceOk() });
             UnityEngine.TestTools.LogAssert.ignoreFailingMessages = true;
 
-            var task = component.Execute();
+            var task = rig.Component.Execute();
             yield return Run(task);
 
-            Assert.IsTrue(task.IsFaulted, "부팅을 멈춰야 한다");
+            Assert.IsFalse(task.IsFaulted, task.Exception?.ToString());
+            Assert.AreEqual(1, rig.RetryPrompts);
+            Assert.AreEqual(1, rig.EconomyCalls, "받은 재화는 다시 받지 않는다");
+            Assert.AreEqual(2, rig.AppearanceCalls);
+            Assert.AreEqual(new CharacterAppearance(104, 203), rig.Appearance.Current.CurrentValue);
+        }
+
+        [UnityTest]
+        public IEnumerator 받을_때까지_다음_단계로_넘어가지_않는다()
+        {
+            var failing = new GetEconomyResponse { code = ResponseCode.USER_NOT_EXIST };
+            var rig = Make(new[] { failing, failing, failing, EconomyOk() }, new[] { AppearanceOk() });
+            UnityEngine.TestTools.LogAssert.ignoreFailingMessages = true;
+
+            var task = rig.Component.Execute();
+            yield return Run(task);
+
+            Assert.IsFalse(task.IsFaulted, task.Exception?.ToString());
+            Assert.AreEqual(3, rig.RetryPrompts);
+            Assert.AreEqual(700, rig.Economy.Coins.CurrentValue);
         }
     }
 }

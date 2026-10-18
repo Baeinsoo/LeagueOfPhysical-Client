@@ -7,7 +7,6 @@ namespace LOP.UI
     /// <summary>투석기 사냥 HUD. 보여 주기만 하는 얇은 바인더 — 매 프레임 ViewModel 값을 옮긴다.</summary>
     public class ArcheryCatapultHudView : UIView
     {
-        private const int PopupMs = 1100;   // 시제품의 팝업 수명(1.1초)
         private readonly ArcheryCatapultHudViewModel _viewModel;
         private Label _round, _introTitle, _introDetail;
         private VisualElement _timeFill, _cue, _stun, _stunFill, _popups, _result, _resultList, _intro;
@@ -49,9 +48,9 @@ namespace LOP.UI
             Show(_result, _viewModel.ResultVisible);
             if (_viewModel.ResultVisible) { DrawRows(); } else { _drawnRows = null; }
 
-            while (_viewModel.TryTakePopup(out var world, out var color, out var text))
+            while (_viewModel.TryTakePopup(out var world, out var color, out var text, out var style))
             {
-                SpawnPopup(world, color, text);
+                SpawnPopup(world, color, text, style);
             }
         }
 
@@ -91,8 +90,12 @@ namespace LOP.UI
         }
 
         //  터진 자리에 쏜 사람 색 고리 + 글. 표적은 계속 날아가지만 글은 맞은 자리에 남아야 "어디서 뺏겼나"가 읽힌다.
-        private void SpawnPopup(Vector3 world, Color color, string text)
+        //  대박은 글·고리를 크게 오래 띄우고, 종의 "땡~"은 점수 팝업 위에 글만 띄운다(고리가 둘이면 어지럽다).
+        private void SpawnPopup(Vector3 world, Color color, string text, ArcheryCatapultPopupStyle style)
         {
+            int ms = ArcheryCatapultHudText.DurationMs(style);
+            bool jackpot = style == ArcheryCatapultPopupStyle.Jackpot;
+            bool withRing = style != ArcheryCatapultPopupStyle.Ding;
             var camera = _viewModel.Camera;
             if (camera == null || Screen.width <= 0 || Screen.height <= 0) { return; }
             Vector3 screen = camera.WorldToScreenPoint(world);
@@ -100,30 +103,46 @@ namespace LOP.UI
             var at = new Vector2(screen.x / Screen.width * Root.layout.width,
                                  (1f - screen.y / Screen.height) * Root.layout.height);
 
-            var ring = new VisualElement { pickingMode = PickingMode.Ignore };
-            ring.AddToClassList("catapult-ring");
-            ring.style.left = at.x; ring.style.top = at.y;
-            ring.style.borderTopColor = ring.style.borderBottomColor = ring.style.borderLeftColor = ring.style.borderRightColor = color;
+            VisualElement ring = null;
+            if (withRing)
+            {
+                ring = new VisualElement { pickingMode = PickingMode.Ignore };
+                ring.AddToClassList("catapult-ring");
+                ring.style.left = at.x; ring.style.top = at.y;
+                ring.style.borderTopColor = ring.style.borderBottomColor = ring.style.borderLeftColor = ring.style.borderRightColor = color;
+                _popups.Add(ring);
+            }
             var label = new Label(text) { pickingMode = PickingMode.Ignore };
             label.AddToClassList("catapult-popup");
+            string cls = ArcheryCatapultHudText.ClassOf(style);
+            if (cls.Length > 0) { label.AddToClassList(cls); }
             label.style.color = color;
             label.style.left = at.x; label.style.top = at.y - 18f;
-            _popups.Add(ring);
             _popups.Add(label);
 
             var list = new List<StylePropertyName> { "top", "opacity", "width", "height" };
-            var time = new List<TimeValue> { new TimeValue(PopupMs, TimeUnit.Millisecond), new TimeValue(PopupMs, TimeUnit.Millisecond),
-                                             new TimeValue(PopupMs, TimeUnit.Millisecond), new TimeValue(PopupMs, TimeUnit.Millisecond) };
-            ring.style.transitionProperty = label.style.transitionProperty = new StyleList<StylePropertyName>(list);
-            ring.style.transitionDuration = label.style.transitionDuration = new StyleList<TimeValue>(time);
+            var time = new List<TimeValue> { new TimeValue(ms, TimeUnit.Millisecond), new TimeValue(ms, TimeUnit.Millisecond),
+                                             new TimeValue(ms, TimeUnit.Millisecond), new TimeValue(ms, TimeUnit.Millisecond) };
+            label.style.transitionProperty = new StyleList<StylePropertyName>(list);
+            label.style.transitionDuration = new StyleList<TimeValue>(time);
+            if (ring != null)
+            {
+                ring.style.transitionProperty = new StyleList<StylePropertyName>(list);
+                ring.style.transitionDuration = new StyleList<TimeValue>(time);
+            }
+            float rise = jackpot ? 48f : 33f;      // 시제품: 1.1초에 30 px 남짓 떠오른다, 대박은 더 높이
+            float ringEnd = jackpot ? 180f : 100f;
             label.schedule.Execute(() =>
             {
-                label.style.top = at.y - 18f - 33f;   // 시제품: 1.1초에 30 px 남짓 떠오른다
+                label.style.top = at.y - 18f - rise;
                 label.style.opacity = 0f;
-                ring.style.width = 100f; ring.style.height = 100f;
-                ring.style.opacity = 0f;
+                if (ring != null)
+                {
+                    ring.style.width = ringEnd; ring.style.height = ringEnd;
+                    ring.style.opacity = 0f;
+                }
             }).StartingIn(16);
-            label.schedule.Execute(() => { ring.RemoveFromHierarchy(); label.RemoveFromHierarchy(); }).StartingIn(PopupMs + 50);
+            label.schedule.Execute(() => { ring?.RemoveFromHierarchy(); label.RemoveFromHierarchy(); }).StartingIn(ms + 50);
         }
 
         private static void Show(VisualElement element, bool visible)

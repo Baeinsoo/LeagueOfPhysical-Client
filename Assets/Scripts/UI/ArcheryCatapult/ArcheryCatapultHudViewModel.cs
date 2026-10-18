@@ -29,12 +29,14 @@ namespace LOP.UI
         private readonly IGameDataStore gameDataStore;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly CameraController cameraController;
+        private readonly LOP.MasterData.LOPMasterData md;
         private readonly IDisposable subscription;
 
         private readonly List<string> roster = new List<string>();
         private readonly List<Row> rows = new List<Row>();
         private readonly List<ArcheryTarget> scratch = new List<ArcheryTarget>();
-        private readonly Queue<(Vector3 world, Color color, string text)> popups = new Queue<(Vector3, Color, string)>();
+        private readonly Queue<(Vector3 world, Color color, string text, ArcheryCatapultPopupStyle style)> popups
+            = new Queue<(Vector3, Color, string, ArcheryCatapultPopupStyle)>();
         private readonly Dictionary<string, int> roundStartScore = new Dictionary<string, int>();
         private int baselineRound = -1;
 
@@ -58,6 +60,7 @@ namespace LOP.UI
                                            ArcheryConfig config, IGameDataStore gameDataStore,
                                            GameFramework.World.EntityRegistry entityRegistry,
                                            CameraController cameraController,
+                                           LOP.MasterData.LOPMasterData md,
                                            ISubscriber<WorldEventBatchToC> batchSubscriber)
         {
             this.runner = runner;
@@ -67,6 +70,7 @@ namespace LOP.UI
             this.gameDataStore = gameDataStore;
             this.entityRegistry = entityRegistry;
             this.cameraController = cameraController;
+            this.md = md;
             subscription = batchSubscriber.Subscribe(OnWorldEventBatch);
         }
 
@@ -125,14 +129,14 @@ namespace LOP.UI
             StunLeft01 = StunVisible ? Mathf.Clamp01((myStunUntilTick - tick) / (float)myStunTicks) : 0f;
         }
 
-        public bool TryTakePopup(out Vector3 worldPosition, out Color color, out string text)
+        public bool TryTakePopup(out Vector3 worldPosition, out Color color, out string text, out ArcheryCatapultPopupStyle style)
         {
             if (popups.Count == 0)
             {
-                worldPosition = default; color = default; text = null;
+                worldPosition = default; color = default; text = null; style = default;
                 return false;
             }
-            (worldPosition, color, text) = popups.Dequeue();
+            (worldPosition, color, text, style) = popups.Dequeue();
             return true;
         }
 
@@ -153,7 +157,7 @@ namespace LOP.UI
                 }
                 if (runner?.tickUpdater == null
                     || ArcheryCatapultHits.TryLocate(course, world.GameplayStartTick, (float)runner.tickUpdater.interval,
-                                                     hit, scratch, out _, out var at) == false)
+                                                     hit, scratch, out var target, out var at) == false)
                 {
                     continue;
                 }
@@ -162,7 +166,14 @@ namespace LOP.UI
                     FillRoster();
                     rosterFilled = true;
                 }
-                popups.Enqueue((at, ColorOf(hit.shooterId), ArcheryCatapultHudText.PopupText(NameOf(hit.shooterId), hit.points)));
+                var style = target.IsJackpot ? ArcheryCatapultPopupStyle.Jackpot : ArcheryCatapultPopupStyle.Normal;
+                popups.Enqueue((at, ColorOf(hit.shooterId), ArcheryCatapultHudText.PopupText(NameOf(hit.shooterId), hit.points), style));
+                //  종은 "땡~"을 금색으로 위에 하나 더 — 소리를 끄고 하는 사람이 많다(spec 2차 §4, 시각 우선).
+                string code = md.Tables.TbArcheryTarget.GetOrDefault(target.KindId)?.Code;
+                if (ArcheryHitFxRecipe.For(code).Ding)
+                {
+                    popups.Enqueue((at + Vector3.up * 1.2f, new Color(1f, 0.84f, 0.3f), ArcheryCatapultHudText.DingText, ArcheryCatapultPopupStyle.Ding));
+                }
             }
         }
 

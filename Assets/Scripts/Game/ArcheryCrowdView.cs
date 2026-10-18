@@ -321,11 +321,11 @@ namespace LOP
                         float now = Time.time;
                         if (hit.stunUntilTick > 0)
                         {
-                            director.React(ArcheryCrowdMood.Boo, 0.7f, 1.5f, now);   // 왕의 깃발·꽃바구니를 쏘다니
+                            director.React(ArcheryCrowdMood.Boo, 0.7f, 1.5f, now);   // 새 둥지·응원 깃발·어린이 풍선을 쏘다니
                         }
                         else if (hit.points >= 5)
                         {
-                            director.React(ArcheryCrowdMood.Cheer, 0.8f, 1.6f, now); // 황금 성배
+                            director.React(ArcheryCrowdMood.Cheer, 0.8f, 1.6f, now); // 대박(황금 종·피냐타)
                         }
                         continue;   // 같은 묶음의 다음 사건도 봐야 한다
                     }

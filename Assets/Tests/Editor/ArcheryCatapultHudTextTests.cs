@@ -12,5 +12,16 @@ namespace LOP.Tests
         [Test] public void 라운드_득점() => Assert.AreEqual("+7", ArcheryCatapultHudText.GainText(7));
         [Test] public void 라운드_손해() => Assert.AreEqual("-3", ArcheryCatapultHudText.GainText(-3));
         [Test] public void 라운드_영점() => Assert.AreEqual("0", ArcheryCatapultHudText.GainText(0));
+
+        [Test]
+        public void 대박_팝업은_보통보다_오래_크게_뜬다()
+        {
+            Assert.AreEqual(1100, ArcheryCatapultHudText.DurationMs(ArcheryCatapultPopupStyle.Normal));
+            Assert.AreEqual(1600, ArcheryCatapultHudText.DurationMs(ArcheryCatapultPopupStyle.Jackpot));
+            Assert.AreEqual(1300, ArcheryCatapultHudText.DurationMs(ArcheryCatapultPopupStyle.Ding));
+            Assert.AreEqual(string.Empty, ArcheryCatapultHudText.ClassOf(ArcheryCatapultPopupStyle.Normal));
+            Assert.AreEqual("catapult-popup--big", ArcheryCatapultHudText.ClassOf(ArcheryCatapultPopupStyle.Jackpot));
+            Assert.AreEqual("catapult-popup--ding", ArcheryCatapultHudText.ClassOf(ArcheryCatapultPopupStyle.Ding));
+        }
     }
 }

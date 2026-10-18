@@ -51,6 +51,7 @@ namespace LOP
             builder.RegisterOrderedMessageBroker<ArcheryStateToC>();
             builder.RegisterOrderedMessageBroker<DodgeStateToC>();
             builder.RegisterOrderedMessageBroker<PlayerPresenceToC>();
+            builder.RegisterOrderedMessageBroker<LeaveMatchToC>();
             builder.RegisterOrderedMessageBroker<MatchEndedToC>();
             builder.RegisterOrderedMessageBroker<MatchStartToC>();
             builder.Register<NetworkMessageDispatcher>(Lifetime.Singleton);

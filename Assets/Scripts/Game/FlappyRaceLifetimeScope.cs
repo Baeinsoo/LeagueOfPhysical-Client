@@ -1,4 +1,6 @@
 using LOP.UI;
+using MessagePipe;
+using Mirror;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -144,6 +146,8 @@ namespace LOP
             builder.Register<RaceSpectateView>(Lifetime.Transient);
             builder.Register<LeaveMatchConfirmViewModel>(Lifetime.Transient);
             builder.Register<LeaveMatchConfirmView>(Lifetime.Transient);
+            builder.Register(c => new MatchLeaveRequester(c.Resolve<ISubscriber<LeaveMatchToC>>(),
+                message => NetworkClient.Send(new CustomMirrorMessage { payload = message })), Lifetime.Singleton);
         }
 
         protected override void RegisterViewFactories(

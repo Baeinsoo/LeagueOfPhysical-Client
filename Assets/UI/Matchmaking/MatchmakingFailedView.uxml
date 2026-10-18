@@ -1,9 +1,13 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="mmf-root" class="scrim mmf-root">
-        <ui:VisualElement name="mmf-card" class="card mmf-card">
-            <ui:Label text="안내" class="title mmf-title" />
-            <ui:Label name="mmf-message" text="상대를 찾지 못했습니다." class="card-text mmf-message" />
-            <ui:Button name="mmf-confirm" text="확인" class="btn btn--primary mmf-confirm" />
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 출전 취소 안내(키트 모달). 요소 이름은 MatchmakingFailedView가 찾는 그대로. -->
+    <ui:VisualElement name="mmf-root" class="kit mmf-root">
+        <ui:VisualElement name="mmf-card" class="kit-panel mmf-card">
+            <ui:VisualElement class="kit-panel__back" />
+            <ui:VisualElement class="kit-panel__face mmf-face">
+                <ui:Label text="출전 취소" class="kit-title mmf-title" />
+                <ui:Label name="mmf-message" text="상대를 찾지 못했어요." class="mmf-message" />
+                <ui:Button name="mmf-confirm" class="kit-press kit-btn kit-btn--primary mmf-confirm"><lop:StickerElement><ui:Label text="확인" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

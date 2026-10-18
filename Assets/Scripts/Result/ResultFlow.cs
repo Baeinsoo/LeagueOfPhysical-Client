@@ -14,6 +14,7 @@ namespace LOP
         [Inject] private IWindowManager _windows;
         [Inject] private AppStateMachine _app;
         [Inject] private CosmeticCatalog _catalog;
+        [Inject] private AppearanceColorPalette _palette;
         [Inject] private LOP.MasterData.LOPMasterData _masterData;
 
         private ResultDirector _director;
@@ -44,7 +45,7 @@ namespace LOP
             {
                 var player = new GameObject($"PodiumPlayer_{userId}").AddComponent<LobbyPlayer>();
                 player.transform.SetParent(parent, false);
-                player.Init(userId, _catalog);
+                player.Init(_catalog, _palette);
                 return player;
             });
             _director.Begin(transform, result, ranked);

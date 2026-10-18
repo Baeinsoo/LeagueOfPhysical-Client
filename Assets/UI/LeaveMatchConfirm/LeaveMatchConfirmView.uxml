@@ -1,11 +1,15 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="leave-root" class="scrim leave-root">
-        <ui:VisualElement name="leave-card" class="card leave-card">
-            <ui:Label text="판을 떠납니다" class="title leave-title" />
-            <ui:Label text="다시 들어올 수 없고, 결과 화면도 볼 수 없습니다." class="card-text leave-message" />
-            <ui:VisualElement name="leave-actions" class="leave-actions">
-                <ui:Button name="leave-cancel" text="취소" class="btn btn--secondary leave-button" />
-                <ui:Button name="leave-confirm" text="나가기" class="btn btn--primary leave-button" />
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 나가기 확인(키트 모달). 요소 이름은 LeaveMatchConfirmView가 찾는 그대로 — leave-card 밖을 누르면 취소. -->
+    <ui:VisualElement name="leave-root" class="kit leave-root">
+        <ui:VisualElement name="leave-card" class="kit-panel leave-card">
+            <ui:VisualElement class="kit-panel__back" />
+            <ui:VisualElement class="kit-panel__face leave-face">
+                <ui:Label text="판을 떠날까요?" class="kit-title leave-title" />
+                <ui:Label text="다시 들어올 수 없고, 결과도 볼 수 없어요." class="leave-message" />
+                <ui:VisualElement name="leave-actions" class="leave-actions">
+                    <ui:Button name="leave-cancel" class="kit-press kit-btn leave-button leave-cancel"><lop:StickerElement><ui:Label text="취소" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+                    <ui:Button name="leave-confirm" class="kit-press kit-btn kit-btn--primary leave-button"><lop:StickerElement><ui:Label text="나가기" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+                </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

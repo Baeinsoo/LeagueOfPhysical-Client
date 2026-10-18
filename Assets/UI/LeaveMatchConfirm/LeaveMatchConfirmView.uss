@@ -1,19 +1,10 @@
-.leave-root {
-    flex-grow: 1;
-    justify-content: center;
-    align-items: center;
-}
-
-.leave-card {
-    width: 460px;
-}
-
-.leave-actions {
-    flex-direction: row;
-    justify-content: flex-end;
-    margin-top: 16px;
-}
-
-.leave-button {
-    margin-left: 12px;
-}
+/* 나가기 확인(키트 모달) — 가운데 크림 판 720. 뒤를 어둡게 하는 건 창 관리자 백드롭. */
+.leave-root { flex-grow: 1; align-items: center; justify-content: center; }
+.leave-card { width: 720px; }
+.leave-face { align-items: stretch; padding: 44px 48px; }
+.leave-title { font-size: 48px; color: var(--lop-ink); -unity-text-align: middle-center; margin-bottom: 16px; }
+.leave-message { font-size: 28px; color: var(--lop-ink); white-space: normal; -unity-text-align: middle-center; }
+.leave-actions { flex-direction: row; justify-content: center; margin-top: 32px; }
+.leave-button { margin: 0 16px; }
+.leave-cancel .sticker { --sticker-face: var(--lop-ink); --sticker-back: var(--lop-ink-deep); }
+.leave-cancel .kit-btn__label { color: var(--lop-face); }

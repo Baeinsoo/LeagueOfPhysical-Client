@@ -15,6 +15,7 @@ namespace LOP
         private readonly ActorRegistry actorRegistry;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly CosmeticCatalog catalog;
+        private readonly AppearanceColorPalette palette;
         private readonly Dictionary<string, GameObject> dressed = new Dictionary<string, GameObject>();
         //  옛 원격 에셋의 치비엔 Falling이 없다 — 없는 파라미터를 매 프레임 부르면 경고가 쌓인다. 몸마다 한 번 확인.
         private readonly Dictionary<GameObject, bool> hasFalling = new Dictionary<GameObject, bool>();
@@ -22,11 +23,13 @@ namespace LOP
         private readonly Dictionary<string, float> hitAt = new Dictionary<string, float>();
         private Material faceMaterial;
 
-        public SkydiveChibiView(ActorRegistry actorRegistry, GameFramework.World.EntityRegistry entityRegistry, CosmeticCatalog catalog)
+        public SkydiveChibiView(ActorRegistry actorRegistry, GameFramework.World.EntityRegistry entityRegistry, CosmeticCatalog catalog,
+                                AppearanceColorPalette palette)
         {
             this.actorRegistry = actorRegistry;
             this.entityRegistry = entityRegistry;
             this.catalog = catalog;
+            this.palette = palette;
         }
 
         public void Start()
@@ -59,11 +62,11 @@ namespace LOP
                 }
                 if (dressed.TryGetValue(entity.Id, out var last) == false || last != visual)
                 {
-                    ChibiDresser.Dress(entity.Id, visual, faceMaterial, entity.Get<PlayerLook>(), catalog);
+                    ChibiDresser.Dress(visual, faceMaterial, entity.Get<PlayerLook>(), catalog, palette);
                     dressed[entity.Id] = visual;
                 }
 
-                var animator = visual.GetComponent<Animator>();
+                var animator = ChibiRig.AnimatorOf(visual);
                 if (hasFalling.TryGetValue(visual, out bool canFall) == false)
                 {
                     canFall = false;

@@ -143,7 +143,7 @@ namespace LOP
                 return false;
             }
             var visual = actor.visualGameObject;
-            var animator = visual.GetComponent<Animator>();
+            var animator = ChibiRig.AnimatorOf(visual);
             var head = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Head) : null;
             position = head != null ? head.position + Vector3.up * HeadClearance : visual.transform.position + Vector3.up * FallbackHeight;
             return true;

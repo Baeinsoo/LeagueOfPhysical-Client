@@ -29,7 +29,7 @@ namespace LOP.Tests
                 face.enabled = true;
                 face.enabled = false;
                 face.enabled = true;
-                var head = go.GetComponent<Animator>().GetBoneTransform(HumanBodyBones.Head);
+                var head = ChibiRig.AnimatorOf(go).GetBoneTransform(HumanBodyBones.Head);
                 int plates = 0;
                 foreach (Transform child in head) { if (child.name == "FacePlate") { plates++; } }
                 Assert.AreEqual(1, plates);
@@ -128,7 +128,7 @@ namespace LOP.Tests
                 var catalog = new CosmeticCatalog(TestEconomyTables.Cosmetics, TestEconomyTables.CosmeticSlots, TestEconomyTables.Currencies);
                 var look = new PlayerLook(new System.Collections.Generic.Dictionary<string, string> { ["face"] = "face_dummy_b" }, "테스터", 1);
 
-                ChibiDresser.Dress("e1", go, faceMat, look, catalog);
+                ChibiDresser.Dress(go, faceMat, look, catalog, new AppearanceColorPalette(TestEconomyTables.AppearanceColors));
                 var face = go.GetComponent<ChibiFace>();
                 face.SetReaction(ChibiExpression.Normal);
 

@@ -1,33 +1,12 @@
-.spectate-root {
-    flex-grow: 1;
-}
-
-/* 오른쪽 위 — ◀ ▶ 와 멀리 떼어 오탭을 줄인다 */
-.spectate-leave {
-    position: absolute;
-    right: 24px;
-    top: 24px;
-}
-
-.spectate-bar {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 48px;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-}
-
-.spectate-arrow {
-    width: 88px;
-    height: 72px;
-    font-size: 32px;
-}
-
-.spectate-status {
-    width: 180px;
-    font-size: 28px;
-    color: rgba(255, 255, 255, 0.85);
-    -unity-text-align: middle-center;
-}
+/* 관전 막대(키트) — 오른쪽 위 [나가기], 아래 가운데 ◀ 관전 n / m ▶. 배경 없음: 경기 화면이 주인공이다. */
+.spectate-root { flex-grow: 1; }
+/* ◀ ▶ 와 멀리 떼어 오탭을 줄인다 */
+.spectate-leave { position: absolute; right: 32px; top: 32px; }
+.spectate-leave .kit-btn__label { color: var(--lop-ink); }
+.spectate-bar { position: absolute; left: 0; right: 0; bottom: 48px; flex-direction: row; justify-content: center; align-items: center; }
+.spectate-arrow { width: 88px; height: 96px; }
+.spectate-arrow .sticker { flex-grow: 1; }
+/* 후보가 없어 상태가 빈칸이어도 판이 찌그러지지 않게 최소 폭을 둔다 */
+.spectate-status-plate { --sticker-face: var(--lop-ink); --sticker-back: var(--lop-ink-deep); height: 72px; min-width: 240px; margin: 0 24px; }
+.spectate-status-plate .sticker__face { padding: 0 32px; }
+.spectate-status { font-size: 30px; color: var(--lop-face); white-space: nowrap; -unity-text-align: middle-center; }

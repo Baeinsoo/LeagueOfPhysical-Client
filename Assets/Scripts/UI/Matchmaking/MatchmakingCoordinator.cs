@@ -67,13 +67,14 @@ namespace LOP.UI
 
         //  사유마다 다르게 말한다. 확정 실패에 "상대를 찾지 못했습니다"라고 하면 거짓말이다 —
         //  상대는 찾았고 게임 방을 못 만든 것이다.
-        private static string MessageFor(CancellationReason reason)
+        /// <summary>출전 취소 안내의 사유 문구(1부 말투 ~요).</summary>
+        public static string MessageFor(CancellationReason reason)
         {
             return reason switch
             {
-                CancellationReason.Timeout => "상대를 찾지 못했습니다.",
-                CancellationReason.Internal => "게임 준비에 실패했습니다. 다시 시도해 주세요.",
-                _ => "매칭이 종료되었습니다.",
+                CancellationReason.Timeout => "상대를 찾지 못했어요.",
+                CancellationReason.Internal => "경기장 준비에 실패했어요. 다시 해 주세요.",
+                _ => "출전이 취소됐어요.",
             };
         }
 

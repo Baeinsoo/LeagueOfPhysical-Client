@@ -2,10 +2,11 @@ using System.Collections.Generic;
 
 namespace LOP
 {
-    /// <summary>로비가 받은 장착 정보(슬롯 번호 → 품목 번호)를 경기 화면이 쓰는 룩(슬롯 코드 → 품목 코드)으로 바꾼다.</summary>
+    /// <summary>로비가 받은 장착 정보(슬롯 번호 → 품목 번호)와 캐릭터 외형을 경기 화면이 쓰는 룩(슬롯 코드 → 품목 코드)으로 바꾼다.</summary>
     public static class LobbyLook
     {
-        public static PlayerLook From(IReadOnlyList<LoadoutSlotDto> loadout, CosmeticCatalog catalog, string displayName, int level)
+        public static PlayerLook From(IReadOnlyList<LoadoutSlotDto> loadout, CharacterAppearance appearance, CosmeticCatalog catalog,
+            string displayName, int level)
         {
             var slots = new Dictionary<string, string>();
             if (loadout != null && catalog != null)
@@ -20,7 +21,7 @@ namespace LOP
                     slots[slotCode] = itemCode;
                 }
             }
-            return new PlayerLook(slots, displayName, level);
+            return new PlayerLook(slots, displayName, level, appearance);
         }
     }
 }

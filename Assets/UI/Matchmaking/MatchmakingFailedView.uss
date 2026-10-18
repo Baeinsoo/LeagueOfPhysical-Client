@@ -1,26 +1,7 @@
-.mmf-root {
-    flex-grow: 1;
-    align-items: center;
-    justify-content: center;
-}
-
-.mmf-card {
-    width: 680px;
-}
-
-.mmf-title {
-    font-size: 48px;
-    margin-bottom: 16px;
-}
-
-.mmf-message {
-    font-size: 30px;
-    margin-bottom: 36px;
-    /* 사유에 따라 문구 길이가 다르다 — 안 감싸면 긴 문구가 카드 밖으로 잘려 나간다. */
-    white-space: normal;
-}
-
-.mmf-confirm {
-    height: 100px;
-    font-size: 34px;
-}
+/* 출전 취소 안내(키트 모달) — 가운데 크림 판 720. 뒤를 어둡게 하는 건 창 관리자 백드롭. */
+.mmf-root { flex-grow: 1; align-items: center; justify-content: center; }
+.mmf-card { width: 720px; }
+.mmf-face { align-items: center; padding: 44px 48px; }
+.mmf-title { font-size: 48px; color: var(--lop-ink); margin-bottom: 16px; }
+/* 사유에 따라 문구 길이가 다르다 — 안 감싸면 긴 문구가 판 밖으로 잘린다. */
+.mmf-message { font-size: 28px; color: var(--lop-ink); white-space: normal; -unity-text-align: middle-center; margin-bottom: 32px; }

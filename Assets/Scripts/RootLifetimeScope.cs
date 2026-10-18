@@ -51,6 +51,7 @@ namespace LOP
             builder.RegisterOrderedMessageBroker<ArcheryStateToC>();
             builder.RegisterOrderedMessageBroker<DodgeStateToC>();
             builder.RegisterOrderedMessageBroker<PlayerPresenceToC>();
+            builder.RegisterOrderedMessageBroker<LeaveMatchToC>();
             builder.RegisterOrderedMessageBroker<MatchEndedToC>();
             builder.RegisterOrderedMessageBroker<MatchStartToC>();
             builder.Register<NetworkMessageDispatcher>(Lifetime.Singleton);
@@ -71,6 +72,7 @@ namespace LOP
             // 주입받는 쪽(Lobby/Room/게임 스코프)은 전부 Entrance가 끝난 뒤에만 생기므로 테이블은
             // 이미 차 있다 — Root가 뜨는 시점엔 아무도 resolve하지 않는다.
             builder.Register<CosmeticCatalog>(Lifetime.Singleton);
+            builder.Register<AppearanceColorPalette>(Lifetime.Singleton);
 
             //  자격증명 보관소는 프로필(인스턴스)마다, 그리고 환경마다 칸이 달라야 해서 인스턴스로
             //  등록한다. 환경이 빠지면 dev 계정과 local 계정이 한 칸을 나눠 쓰고, 환경을 바꿔

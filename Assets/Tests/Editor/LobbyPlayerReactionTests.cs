@@ -151,5 +151,17 @@ namespace LOP.Tests
             Assert.DoesNotThrow(() => player.React(ResultReaction.Sad));
             Assert.IsFalse(player.ReactionApplied);
         }
+
+        //  옛 원격 프리팹(뿌리 3)이 와도 크기가 맞아야 한다 — 새 코드가 옛 콘텐츠를 받는 동안(배포 사이)에도 1/3로 줄면 안 된다.
+        [Test]
+        public void 옛_프리팹_뿌리_크기도_지킨다()
+        {
+            var player = Make(false);
+            _body.transform.localScale = Vector3.one * 3f;
+            player.AttachVisual(_body);
+            Assert.AreEqual(3f, _body.transform.localScale.x, 1e-4);
+            player.Stand(Vector3.zero, 180f, 0.6f);
+            Assert.AreEqual(1.8f, _body.transform.localScale.x, 1e-4);
+        }
     }
 }

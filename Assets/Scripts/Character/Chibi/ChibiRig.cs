@@ -8,7 +8,15 @@ namespace LOP
     /// </summary>
     public static class ChibiRig
     {
-        public static Animator AnimatorOf(GameObject visual) =>
-            visual != null ? visual.GetComponentInChildren<Animator>(true) : null;
+        public const string ModelChildName = "Model";
+
+        //  더 깊이 찾지 않는다 — 소품(경험치 구슬 등) 안쪽에 붙은 애니메이터는 몸 애니메이터가 아니다.
+        public static Animator AnimatorOf(GameObject visual)
+        {
+            if (visual == null) return null;
+            if (visual.TryGetComponent<Animator>(out var onRoot)) return onRoot;
+            var model = visual.transform.Find(ModelChildName);
+            return model != null && model.TryGetComponent<Animator>(out var onModel) ? onModel : null;
+        }
     }
 }

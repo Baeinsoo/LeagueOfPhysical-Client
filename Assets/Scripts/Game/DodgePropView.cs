@@ -177,7 +177,8 @@ namespace LOP
             {
                 var g = UnityEngine.Object.Instantiate(chibiPrefab, root.transform);
                 g.name = "DodgeGiant";
-                g.transform.localScale = Vector3.one * DodgePropPose.GiantScale;
+                //  뿌리 크기를 곱한다 — 새 치비는 1이지만 옛 원격 프리팹(3)이 와도 거인 크기가 맞게.
+                g.transform.localScale = chibiPrefab.transform.localScale * DodgePropPose.GiantScale;
                 ChibiOutfit.Apply(g, ChibiLookApplier.ColorsFor(GiantLook, catalog, palette));
                 giants.Add(g);
             }

@@ -125,14 +125,16 @@ namespace LOP.UI
         public async UniTask ChooseColorAsync(string part, int colorId)
         {
             if (_busy.Value || !AppearanceKnown) return;
-            var (skin, hair) = CurrentAppearanceIds();
-            if ((part == AppearanceColorPalette.SkinPart ? skin : hair) == colorId) return;
+            var (shownSkin, shownHair) = CurrentAppearanceIds();
+            if ((part == AppearanceColorPalette.SkinPart ? shownSkin : shownHair) == colorId) return;
 
             _busy.Value = true;
             try
             {
-                if (part == AppearanceColorPalette.SkinPart) skin = colorId;
-                else hair = colorId;
+                //  안 바꾼 부위는 받은 값 그대로 보낸다 — 이 클라 색표에 없는 색(새 마스터데이터)이어도 지우지 않게.
+                var stored = _appearance.Current.CurrentValue;
+                int skin = part == AppearanceColorPalette.SkinPart ? colorId : stored.SkinColorId;
+                int hair = part == AppearanceColorPalette.HairPart ? colorId : stored.HairColorId;
                 await SetAppearanceAsync(skin, hair);
             }
             finally
@@ -179,7 +181,9 @@ namespace LOP.UI
                 {
                     int defaultSkin = _palette.DefaultId(AppearanceColorPalette.SkinPart);
                     int defaultHair = _palette.DefaultId(AppearanceColorPalette.HairPart);
-                    if (CurrentAppearanceIds() != (defaultSkin, defaultHair) && !await SetAppearanceAsync(defaultSkin, defaultHair)) return;
+                    //  받은 값 그대로 비교한다 — 모르는 색이 기본색으로 보여도 서버엔 그 색이 남아 있다.
+                    var stored = _appearance.Current.CurrentValue;
+                    if ((stored.SkinColorId, stored.HairColorId) != (defaultSkin, defaultHair) && !await SetAppearanceAsync(defaultSkin, defaultHair)) return;
                 }
 
                 foreach (var slot in _catalog.Slots)

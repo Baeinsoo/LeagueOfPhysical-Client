@@ -24,7 +24,8 @@ namespace LOP
         private Vector3 _standPosition = StandPosition;
         private float _standYaw = 180f;   // 카메라(-z 쪽)를 본다
         private float _standScale = 1f;
-        //  몸 프리팹 뿌리의 원래 크기(치비는 3) — 자리 크기는 이 위에 곱한다.
+        //  몸 프리팹 뿌리의 원래 크기 — 새 치비는 1, 옛 원격 프리팹은 3. 자리 크기는 이 위에 곱한다.
+        private Vector3 _bodyScale = Vector3.one;
         private ResultReaction _pendingReaction = ResultReaction.None;
         private bool _absent;
         private bool _greyed;   // 지금 회색이 칠해져 있나 — 칠한 적 없으면 블록을 건드리지 않는다
@@ -94,6 +95,7 @@ namespace LOP
         public void AttachVisual(GameObject visual)
         {
             Visual = visual;
+            _bodyScale = visual.transform.localScale;
             PlaceVisual();
             Dress();
             if (_pendingReaction != ResultReaction.None)
@@ -134,7 +136,7 @@ namespace LOP
         {
             Visual.transform.position = _standPosition;
             Visual.transform.rotation = Quaternion.Euler(0f, _standYaw, 0f);
-            Visual.transform.localScale = Vector3.one * _standScale;
+            Visual.transform.localScale = _bodyScale * _standScale;
         }
 
         private void ApplyReaction(ResultReaction reaction)

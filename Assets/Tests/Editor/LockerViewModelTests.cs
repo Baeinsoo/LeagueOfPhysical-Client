@@ -469,5 +469,30 @@ namespace LOP.Tests
             Assert.AreEqual(1, seen.Count);
             Assert.AreEqual(Hat.Id, seen[0].slotId);
         }
+
+        //  서버엔 이 클라 색표에 없는 색(새 마스터데이터)이 저장돼 있을 수 있다 — 안 바꾼 부위는 받은 값 그대로 보낸다.
+        [Test]
+        public void 모르는_색이_저장돼_있어도_안_바꾼_부위는_그대로_보낸다()
+        {
+            var seen = new List<SetCharacterAppearanceRequest>();
+            var (vm, _) = NewAppearanceViewModel(106, 202, SaveAppearance(seen));
+            vm.SelectSlot(LockerViewModel.HairRowId);
+
+            vm.SelectItemAsync(204).Forget();
+
+            Assert.AreEqual((106, 204), (seen[0].skinColorId, seen[0].hairColorId));
+        }
+
+        [Test]
+        public void 모르는_색이_저장돼_있으면_전부_기본으로가_외형을_되돌린다()
+        {
+            var seen = new List<SetCharacterAppearanceRequest>();
+            var (vm, _) = NewAppearanceViewModel(106, 201, SaveAppearance(seen));
+
+            vm.ResetAllAsync().Forget();
+
+            Assert.AreEqual(1, seen.Count);
+            Assert.AreEqual((101, 201), (seen[0].skinColorId, seen[0].hairColorId));
+        }
     }
 }

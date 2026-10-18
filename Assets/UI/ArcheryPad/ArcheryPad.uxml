@@ -1,8 +1,8 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="ArcheryPad.uss" />
     <ui:VisualElement name="archery-pad-root" class="archery-pad-root">
-        <!-- 조작면. 누르면 활이 올라오고, 누른 채 움직이면 겨눈다.
-             화면 전체를 덮되, 아래 걷기 스틱이 *그 위에* 얹혀 자기 구석만 가져간다. -->
+        <!-- 조작면. 끌면 겨누기만 한다 — 여기서는 활을 들지도 쏘지도 않는다.
+             화면 전체를 덮되, 아래 걷기 스틱·활 버튼이 *그 위에* 얹혀 자기 자리만 가져간다. -->
         <ui:VisualElement name="surface" class="pad-surface" />
         <!-- 걷기 스틱: 왼쪽 아래. 누른 자리에 떠오르는 떠다니는 스틱이다.
              조작면보다 **뒤에** 적어야 위로 올라와 그 구석의 손가락을 먼저 받는다. -->
@@ -11,7 +11,14 @@
                 <ui:VisualElement name="move-handle" class="move-handle" picking-mode="Ignore" />
             </ui:VisualElement>
         </ui:VisualElement>
-        <!-- 내려놓기: 누른 자리 아래에 뜨는 원. 잡고 있는 동안만 보이고, 여기서 떼면 안 쏜다.
+        <!-- 활 버튼: 오른쪽 아래. 누르면 활이 올라오고, 쥔 채 끌면 겨누고, 떼면 쏜다.
+             자리·크기는 ArcheryPadView가 화면 크기·안전 영역에 맞춰 정한다. 바깥이 누르는 자리, 안쪽이 보이는 원이다. -->
+        <ui:VisualElement name="bow-button" class="bow-button-hit">
+            <ui:VisualElement name="bow-face" class="bow-button" picking-mode="Ignore">
+                <ui:Label name="bow-label" class="bow-label" text="활" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <!-- 내려놓기: 버튼을 누른 자리 옆(아래, 자리가 없으면 왼쪽)에 뜨는 원. 잡고 있는 동안만 보이고, 여기서 떼면 안 쏜다.
              자리와 크기는 ArcheryPadView가 ViewModel 값으로 정한다 — USS에 적지 않는다. -->
         <ui:VisualElement name="cancel-target" class="cancel-target" picking-mode="Ignore">
             <ui:Label name="cancel-label" class="cancel-label" text="내려놓기" picking-mode="Ignore" />

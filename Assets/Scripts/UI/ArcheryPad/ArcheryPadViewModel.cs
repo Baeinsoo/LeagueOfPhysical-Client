@@ -49,13 +49,6 @@ namespace LOP.UI
         //  지금 얼마나 오래 누르고 있나(0~1).
         private float lookRamp;
 
-        //  조준 가속. 손가락 빠르기를 재고, 지난 움직임 뒤로 흐른 시간을 센다.
-        private readonly ArcheryAimAccel.FingerSpeed fingerSpeed = new ArcheryAimAccel.FingerSpeed();
-        private float secondsSinceMove;
-
-        //  이번 움직임에 곱할 배율. 끈 거리를 각도로 바꾸는 AimByDrag가 쓴다.
-        private float dragGain = 1f;
-
 
         public ArcheryPadViewModel(
             PlayerInputManager input,
@@ -162,14 +155,13 @@ namespace LOP.UI
         }
 
         /// <summary>
-        /// 데스크톱 편의: WASD(방향키도 같이)로 시점을 돌린다. 손가락(마우스) 하나로 화면을
-        /// 누르면 활도 함께 당겨지므로, 화살을 메기지 않고 시점만 둘러보고 싶을 때 WASD를 쓴다.
-        /// 이 게임엔 이동이 없어 WASD가 비어 있어 이 용도로 쓸 수 있다. 매 프레임 호출된다.
+        /// 데스크톱 편의: WASD = 걷기, 화살표 = 미세 조준, 스페이스 = 활 버튼. 매 프레임 호출된다.
         /// 선례: <see cref="SkydivePadViewModel"/>의 같은 이름 메서드.
         /// </summary>
         public void PollKeyboard()
         {
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            PollSpace(keyboard);
             if (keyboard == null)
             {
                 lookRamp = 0f;
@@ -241,14 +233,14 @@ namespace LOP.UI
 
         //  ── 내려놓기 자리 ────────────────────────────────────────────────
         //
-        //  손가락 하나가 당김과 조준을 다 하므로 "떼기"는 발사일 수밖에 없다. 그래서 취소는
-        //  따로 제스처를 줘야 하는데, 남은 재료가 움직임뿐이고 그 움직임은 이미 조준이 쓴다.
+        //  활 버튼을 쥔 손가락이 끌면 겨누고 떼면 쏘므로, 취소는 따로 제스처를 줘야 한다.
+        //  남은 재료가 움직임뿐이고 그 움직임은 이미 조준이 쓴다.
         //
         //  그래서 취소 자리를 **조준이 실제로 쓰지 않는 곳**에 둔다. 당긴 상태(화각 22°)에서
         //  조준이 도는 거리는 홀드오버 1.12° + 미세조정 ±3° 정도 = 화면 세로의 14% 남짓이다.
         //  원의 안쪽 가장자리가 20%라 그 밖이다.
         //
-        //  자리는 **화면 아래가 아니라 누른 자리 기준**이다 — 그래야 엄지가 갈 거리가 늘 같다.
+        //  자리는 **화면 아래가 아니라 버튼을 누른 자리 기준**이다 — 그래야 엄지가 갈 거리가 늘 같다.
         //  (화면 아래 띠였을 땐 위에서 누르면 35mm, 아래에서 누르면 0mm였다.)
 
         /// <summary>누른 자리에서 아래로 이만큼 떨어진 곳이 내려놓기 자리다(화면 세로를 1로 본 값).
@@ -275,20 +267,33 @@ namespace LOP.UI
         /// </summary>
         public static Vector2 CancelTargetCenter(Vector2 pressInHeights, float screenWidthInHeights)
         {
-            //  기본은 아래다. 다만 가로로 쥐면 엄지가 낮게 쉬어서 화면 아래쪽을 누르는 일이
-            //  잦은데, 거기선 "아래로 31%"가 화면 밖이다. 그럴 땐 **위로 뒤집는다** —
-            //  거리는 어느 쪽이든 같으므로 조준이 쓰는 범위 밖이라는 성질이 유지된다.
-            //  (가까이 당겨 붙이면 안 된다. 그러면 겨누다 취소된다.)
+            //  기본은 아래다. 활 버튼은 화면 아래쪽(세로 74%)이라 거기선 "아래로 31%"가 화면 밖이다 —
+            //  그럴 땐 **왼쪽**에 선다(위로 세우면 오른손 엄지가 화면을 가리며 올라가야 한다).
+            //  왼쪽에도 자리가 없을 때만 위로 뒤집는다. 거리는 어느 쪽이든 같으므로 조준이 쓰는 범위
+            //  밖이라는 성질이 유지된다. (가까이 당겨 붙이면 안 된다. 그러면 겨누다 취소된다.)
+            float r = CancelRadiusInHeights;
             float below = pressInHeights.y - CancelBelowPressInHeights;
-            float y = below >= CancelRadiusInHeights
-                ? below
-                : pressInHeights.y + CancelBelowPressInHeights;
+            if (below >= r)
+            {
+                return new Vector2(ClampX(pressInHeights.x, screenWidthInHeights), below);
+            }
 
-            //  가로로 삐져나가면 안쪽으로 민다. 미는 건 거리를 **늘리기만** 하므로 안전하다.
+            float left = pressInHeights.x - CancelBelowPressInHeights;
+            if (left >= r)
+            {
+                //  위아래로 삐져나가면 안쪽으로 민다. 미는 건 거리를 **늘리기만** 하므로 안전하다.
+                return new Vector2(left, Mathf.Clamp(pressInHeights.y, r, Mathf.Max(r, 1f - r)));
+            }
+
+            return new Vector2(ClampX(pressInHeights.x, screenWidthInHeights),
+                pressInHeights.y + CancelBelowPressInHeights);
+        }
+
+        //  가로로 삐져나가면 안쪽으로 민다. 미는 건 거리를 **늘리기만** 하므로 안전하다.
+        private static float ClampX(float x, float screenWidthInHeights)
+        {
             float maxX = Mathf.Max(CancelRadiusInHeights, screenWidthInHeights - CancelRadiusInHeights);
-            float x = Mathf.Clamp(pressInHeights.x, CancelRadiusInHeights, maxX);
-
-            return new Vector2(x, y);
+            return Mathf.Clamp(x, CancelRadiusInHeights, maxX);
         }
 
         /// <summary>그 원 안인가.</summary>
@@ -331,7 +336,7 @@ namespace LOP.UI
         private float aimAtPressYaw;
         private float aimAtPressPitch;
 
-        //  손가락을 처음 댄 자리. 내려놓기 원이 여기를 기준으로 선다.
+        //  활 버튼을 누른 자리. 내려놓기 원이 여기를 기준으로 선다.
         private Vector2 pressInHeights;
 
         //  세로를 1로 봤을 때의 가로 길이. 원이 화면 밖으로 안 나가게 하는 데 쓴다.
@@ -347,68 +352,47 @@ namespace LOP.UI
         private bool returningAim;
         private float returnElapsed;
 
-        //  누른 손가락이 무엇을 하려는지 아직 모르는 상태를 거친다.
-        //  <b>가만히 있으면 활, 곧바로 끌면 시야</b> — 길게 누르기와 쓸기를 가르는 표준 방식이다.
-        //  이게 없으면 화면을 쓸어 둘러보려 할 때마다 활이 당겨지고, 화살이 유한한 사거리 맵에서는
-        //  그게 곧 손해다.
-        private enum Press
+        //  손가락마다 역할을 나눈다 — 활 버튼에서 시작한 손가락만 활을 다루고, 나머지는 겨누기만 한다.
+        private readonly ArcheryPointerRouter router = new ArcheryPointerRouter();
+
+        //  손가락마다 따로 재는 빠르기. 두 손가락이 같이 움직일 때 한 값으로 섞으면
+        //  천천히 다듬는 손가락에도 다른 손가락의 빠르기만큼 가속이 붙는다.
+        private sealed class Finger
         {
-            None,
-            Deciding,   // 눌렀는데 아직 활인지 시야인지 모른다
-            Looking,    // 곧바로 끌었다 — 이 제스처는 끝까지 시야만 돌린다
-            Drawing,    // 가만히 버텼다 — 활이 올라왔다
+            public readonly ArcheryAimAccel.FingerSpeed Speed = new ArcheryAimAccel.FingerSpeed();
+            public float SecondsSinceMove;
         }
-        private Press press = Press.None;
+        private readonly System.Collections.Generic.Dictionary<int, Finger> fingers =
+            new System.Collections.Generic.Dictionary<int, Finger>();
 
-        /// <summary>이만큼 가만히 있으면 활이 올라오기 시작한다(초). 10-18 폰 사람 판 "시야만 돌리려는데 자꾸 시위가 당겨진다"
-        /// 를 0.3·0.24초로 늘려 봤지만 느렸다 — 문제는 시간이 아니라 끄는 움직임을 늦게 알아챈 것이라, 시간은 원래 0.15초로 두고
-        /// 아래 움직임 문턱만 낮췄다.</summary>
-        public const float PressHoldSeconds = 0.15f;
-
-        /// <summary>그 안에 이만큼(화면 높이 대비) 움직이면 "시야를 돌리려던 것"으로 본다(10-18 2% → 1.2%, 같은 이유).</summary>
-        public const float DragSlopFraction = 0.012f;
-
-        /// <summary>누름이 무엇이 될지.</summary>
-        public enum PressIntent { Undecided, Look, Draw }
+        //  스페이스를 지난 프레임에 누르고 있었나. 누른 순간과 뗀 순간만 골라낸다.
+        private bool spaceHeld;
 
         /// <summary>
-        /// 누른 뒤 <paramref name="travelFraction"/>만큼 움직이고 <paramref name="heldSeconds"/>가
-        /// 지났을 때 이 누름이 무엇이 되는가.
-        ///
-        /// <para><b>움직임이 먼저다</b> — 슬롭을 넘겼으면 그 뒤로 아무리 오래 눌러도 시야다.
-        /// 반대로 두면 "쓸어 둘러보다 손가락을 잠깐 멈췄는데 활이 올라오는" 일이 생긴다.</para>
-        /// </summary>
-        public static PressIntent Decide(float travelFraction, float heldSeconds)
-        {
-            if (travelFraction >= DragSlopFraction)
-            {
-                return PressIntent.Look;
-            }
-            return heldSeconds >= PressHoldSeconds ? PressIntent.Draw : PressIntent.Undecided;
-        }
-
-        private float pressSeconds;
-        private float pressTravel;
-
-        /// <summary>
-        /// 손가락을 댔다. 활인지 시야인지는 아직 정하지 않는다.
+        /// 손가락이 닿았다. <paramref name="onBowButton"/>이면 활을 들고, 아니면 그 손가락은 끝까지 겨누기만 한다.
         /// 받는 값은 <b>화면 세로를 1로 본 좌표</b>이고 y 양수가 위다(가로는 1을 넘는다).
         /// </summary>
-        public void BeginPress(Vector2 positionInHeights, float screenWidthInHeights)
+        public void PointerDown(int pointerId, bool onBowButton, Vector2 positionInHeights, float screenWidthInHeights)
         {
-            press = Press.Deciding;
+            var role = router.Down(pointerId, onBowButton);
+            fingers[pointerId] = new Finger();
+
+            if (role != ArcheryPointerRouter.Role.Bow)
+            {
+                return;
+            }
+
             this.screenWidthInHeights = screenWidthInHeights;
-            pressSeconds = 0f;
-            pressTravel = 0f;
-            OverCancelTarget = false;
             pressInHeights = positionInHeights;
-            fingerSpeed.Reset();
-            secondsSinceMove = 0f;
+            OverCancelTarget = false;
             aimAtPressYaw = cameraController.Yaw;
             aimAtPressPitch = cameraController.Pitch;
 
             //  새로 겨누려는 것이니 앞선 되돌리기는 여기서 끝낸다.
             returningAim = false;
+
+            input.SetDrawing(true);
+            input.SetDrawRatio(1f);
         }
 
         /// <summary>
@@ -416,9 +400,9 @@ namespace LOP.UI
         /// <paramref name="positionInHeights"/>는 화면 세로를 1로 본 좌표다.
         /// 둘 다 <b>x 양수가 오른쪽, y 양수가 위</b>로 같은 관습을 쓴다.
         /// </summary>
-        public void MovePointer(Vector2 deltaFraction, Vector2 positionInHeights)
+        public void PointerMove(int pointerId, Vector2 deltaFraction, Vector2 positionInHeights)
         {
-            if (press == Press.None)
+            if (router.Aims(pointerId) == false || fingers.TryGetValue(pointerId, out var finger) == false)
             {
                 return;
             }
@@ -426,35 +410,76 @@ namespace LOP.UI
             //  빠르기는 세로를 1로 본 같은 자로 잰다 — 가로를 가로 길이로 나눈 값을 그대로 쓰면
             //  같은 빠르기라도 가로로 그을 때 느리게 읽힌다.
             Vector2 moveInHeights = new Vector2(deltaFraction.x * screenWidthInHeights, deltaFraction.y);
-            float speed = fingerSpeed.Add(moveInHeights.magnitude, secondsSinceMove);
-            secondsSinceMove = 0f;
-            dragGain = ArcheryAimAccel.Gain(speed, ArcheryAimAccel.MaxGainOf(AimAccel));
+            float speed = finger.Speed.Add(moveInHeights.magnitude, finger.SecondsSinceMove);
+            finger.SecondsSinceMove = 0f;
+            float gain = ArcheryAimAccel.Gain(speed, ArcheryAimAccel.MaxGainOf(AimAccel));
 
-            if (press == Press.Deciding)
+            if (router.RoleOf(pointerId) == ArcheryPointerRouter.Role.Bow)
             {
-                pressTravel += deltaFraction.magnitude;
-                if (Decide(pressTravel, pressSeconds) == PressIntent.Look)
-                {
-                    press = Press.Looking;   // 활은 안 든다 — 이 제스처가 끝날 때까지
-                }
+                //  원 안에 있는지는 **화면에 알려 주기 위해서만** 본다. 활을 내리지도, 조준을
+                //  멈추지도 않는다 — 그래야 원 위를 지나 더 겨눌 수 있다.
+                OverCancelTarget = InsideCancelTarget(pressInHeights, positionInHeights, screenWidthInHeights);
             }
 
-            if (press == Press.Looking)
+            //  내려놓은 뒤 조준이 되돌아가는 중에 다른 손가락이 겨누면, 그 손가락이 이긴다.
+            returningAim = false;
+            AimByDrag(deltaFraction, gain);
+        }
+
+        /// <summary>손가락을 뗐다. 활을 든 손가락일 때만 쏘거나 내린다 — 겨누던 손가락은 아무 일 없다.</summary>
+        public void PointerUp(int pointerId)
+        {
+            fingers.Remove(pointerId);
+            Finish(router.Up(pointerId, DrawArmed, OverCancelTarget));
+        }
+
+        /// <summary>
+        /// 터치를 뺏겼다(화면 밖·알림 스와이프·전화·앱 전환). 활을 들고 있었다면 <b>쏘지 않고</b> 내린다 —
+        /// 터치를 뺏긴 건 "쏘겠다"는 뜻이 아니다.
+        /// </summary>
+        public void PointerLost(int pointerId)
+        {
+            fingers.Remove(pointerId);
+            Finish(router.Lost(pointerId));
+        }
+
+        private void Finish(ArcheryPointerRouter.Ending ending)
+        {
+            if (ending == ArcheryPointerRouter.Ending.None)
             {
-                AimByDrag(deltaFraction);
                 return;
             }
 
-            if (press != Press.Drawing)
+            input.SetDrawing(false);
+            if (ending == ArcheryPointerRouter.Ending.Fire)
             {
-                return;   // 아직 Deciding — 움직임이 슬롭 안이라 아무것도 안 한다
+                input.SetRelease();
             }
+            else if (ending == ArcheryPointerRouter.Ending.PutDown)
+            {
+                BeginAimReturn();
+            }
+            OverCancelTarget = false;
+        }
 
-            //  원 안에 있는지는 **화면에 알려 주기 위해서만** 본다. 활을 내리지도, 조준을
-            //  멈추지도 않는다 — 그래야 원 위를 지나 더 아래로 겨눌 수 있다.
-            OverCancelTarget = InsideCancelTarget(pressInHeights, positionInHeights, screenWidthInHeights);
-
-            AimByDrag(deltaFraction);
+        //  데스크톱 편의: 스페이스를 누르고 있는 동안 활 버튼을 누른 것과 같다. 마우스로는 화면을
+        //  끌어 겨눈다 — 마우스 하나로 버튼을 누르면 겨누는 손이 없어지기 때문이다.
+        private void PollSpace(UnityEngine.InputSystem.Keyboard keyboard)
+        {
+            bool held = keyboard != null && keyboard.spaceKey.isPressed;
+            if (held == spaceHeld)
+            {
+                return;
+            }
+            spaceHeld = held;
+            if (held)
+            {
+                PointerDown(ArcheryPointerRouter.KeyboardPointerId, true, pressInHeights, screenWidthInHeights);
+            }
+            else
+            {
+                PointerUp(ArcheryPointerRouter.KeyboardPointerId);
+            }
         }
 
         /// <summary>
@@ -489,29 +514,21 @@ namespace LOP.UI
         /// </summary>
         public void AdvanceFingerClock(float unscaledDeltaSeconds)
         {
-            if (unscaledDeltaSeconds > 0f)
+            if (unscaledDeltaSeconds <= 0f)
             {
-                secondsSinceMove += unscaledDeltaSeconds;
+                return;
+            }
+            foreach (var finger in fingers.Values)
+            {
+                finger.SecondsSinceMove += unscaledDeltaSeconds;
             }
         }
 
-        /// <summary>매 프레임. 누름이 무엇이 될지 정하고, 내려놓는 동안 조준을 되돌린다.</summary>
+        /// <summary>매 프레임. 내려놓은 뒤 조준을 되돌린다.</summary>
         public void Tick(float deltaSeconds)
         {
             if (deltaSeconds <= 0f)
             {
-                return;
-            }
-
-            if (press == Press.Deciding)
-            {
-                pressSeconds += deltaSeconds;
-                if (Decide(pressTravel, pressSeconds) == PressIntent.Draw)
-                {
-                    press = Press.Drawing;
-                    input.SetDrawing(true);
-                    input.SetDrawRatio(1f);
-                }
                 return;
             }
 
@@ -560,63 +577,9 @@ namespace LOP.UI
         /// <summary>위아래만 더 곱한다 — 엄지가 위아래로 움직일 수 있는 거리가 좌우보다 짧다.</summary>
         public const float DragPitchExtra = 1.25f;
 
-        private void AimByDrag(Vector2 deltaFraction)
+        private void AimByDrag(Vector2 deltaFraction, float accelGain)
         {
-            AimBy(new Vector2(deltaFraction.x * HorizontalFov, deltaFraction.y * CurrentFov * DragPitchExtra) * (DragBaseGain * dragGain));
-        }
-
-        /// <summary>두 번 불려도 한 번만 쏜다 — 아래 View가 뗌을 두 경로로 받기 때문이다.</summary>
-        public void EndPress()
-        {
-            if (press == Press.None)
-            {
-                return;
-            }
-
-            bool wasDrawing = press == Press.Drawing;
-            press = Press.None;
-
-            if (wasDrawing == false)
-            {
-                return;   // 시야만 돌렸거나, 활이 올라오기 전에 뗐다 — 화살은 없다
-            }
-
-            input.SetDrawing(false);
-
-            //  내려놓기 원 안에서 뗐거나 시위가 안 걸렸으면 쏘라는 신호를 아예 안 보낸다.
-            if (OverCancelTarget == false && DrawArmed)
-            {
-                input.SetRelease();
-            }
-            else if (OverCancelTarget)
-            {
-                BeginAimReturn();
-            }
-            OverCancelTarget = false;
-        }
-
-        /// <summary>
-        /// 쏘지 않고 활을 내린다. 화면 밖으로 손가락이 나가 터치를 뺏겼을 때도 이리로 온다 —
-        /// <b>알림을 쓸어 내리거나 전화가 와서 화살이 나가면 안 되기 때문이다.</b>
-        /// </summary>
-        public void Cancel()
-        {
-            if (press == Press.None)
-            {
-                return;
-            }
-
-            bool wasDrawing = press == Press.Drawing;
-            press = Press.None;
-            OverCancelTarget = false;
-
-            if (wasDrawing == false)
-            {
-                return;
-            }
-
-            input.SetDrawing(false);
-            BeginAimReturn();
+            AimBy(new Vector2(deltaFraction.x * HorizontalFov, deltaFraction.y * CurrentFov * DragPitchExtra) * (DragBaseGain * accelGain));
         }
 
         private void BeginAimReturn()
@@ -625,8 +588,11 @@ namespace LOP.UI
             returnElapsed = 0f;
         }
 
-        /// <summary>지금 활을 들고 있나. 화면이 띠와 조준점을 켜는 데 쓴다.</summary>
-        public bool Holding => press == Press.Drawing;
+        /// <summary>지금 활을 들고 있나. 화면이 버튼을 밝히는 데 쓴다.</summary>
+        public bool Holding => router.Drawing;
+
+        /// <summary>내려놓기 원을 띄우나. 스페이스로 든 활은 손가락 자리가 없어 원을 안 띄운다.</summary>
+        public bool ShowCancelTarget => router.Drawing && router.DrawingByKeyboard == false;
 
     }
 }

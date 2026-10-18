@@ -4,8 +4,8 @@ using UnityEngine.UIElements;
 namespace LOP.UI
 {
     /// <summary>
-    /// Archery 조작 화면. 화면 전체가 조작면이다 — 누르면 활이 올라오고, 누른 채 움직이면
-    /// 그 손가락이 겨눈다. <b>누른 자리 아래에 뜨는 원</b>에서 떼면 취소.
+    /// Archery 조작 화면. 화면을 끌면 <b>겨누기만</b> 한다. 오른쪽 아래 <b>활 버튼</b>을 누르면 활이
+    /// 올라오고, 쥔 채 끌면 그 손가락도 겨누고, 떼면 쏜다. 버튼 옆에 뜨는 원에서 떼면 취소.
     /// ViewModel 커맨드로 넘기기만 하는 얇은 바인더다.
     /// </summary>
     public class ArcheryPadView : UIView
@@ -32,14 +32,11 @@ namespace LOP.UI
         private bool _cancelTargetPlaced;
         private IVisualElementScheduledItem _tick;
 
-        //  지금 당김을 시작한 손가락의 id. -1이면 아무도 안 당기고 있다.
-        //
-        //  <para>모바일에선 손가락이 둘 이상 화면에 닿을 수 있다 — 오른손 엄지가 만작 중인데
-        //  왼손 손가락이 살짝 스치기만 해도 그 손가락의 PointerUpEvent가 발사 판정을 불러
-        //  오른손이 아직 잡고 있는 화살이 나가 버린다. 더 나쁜 경우는 오른손이 내려놓기 원
-        //  안에 있을 때 — 두 번째 탭이 판정을 뒤집어 취소였어야 할 손짓이 발사가 된다.
-        //  당김을 시작한 손가락만 기억해 그 손가락 이외의 입력은 통째로 무시한다.</para>
-        private int _drawPointerId = -1;
+        //  활 버튼. 바깥(누르는 자리)이 보이는 원보다 조금 넓다. 자리는 화면 크기·안전 영역에 맞춰 코드가 정한다.
+        private VisualElement _bowHit;
+        private VisualElement _bowFace;
+        private Vector2 _bowCenter;
+        private Vector2 _bowLaidOutFor;
 
         //  걷기 스틱. 당김과 **다른 손가락**이라 id를 따로 기억한다.
         private VisualElement _moveArea;
@@ -79,79 +76,25 @@ namespace LOP.UI
             _moveHandle = Root.Q<VisualElement>("move-handle");
 
             WireMoveStick();
-            //  걷지 않는 코스면 스틱을 아예 치운다 — 남겨 두면 그 구석에서 누른 손가락이 활을 못 든다.
+            //  걷지 않는 코스면 스틱을 아예 치운다 — 남겨 두면 그 구석에서 누른 손가락이 겨누지 못한다.
             _moveArea.style.display = _viewModel.ShowMoveStick ? DisplayStyle.Flex : DisplayStyle.None;
 
             AddAimAccelToggle();
 
-            // 누르면 활이 올라온다 — 어디를 눌러도 된다. 이미 당기는 손가락이 있으면(다른
-            // pointerId) 통째로 무시한다 — 두 번째 손가락이 첫 손가락의 당김을 가로채면 안 된다.
-            surface.RegisterCallback<PointerDownEvent>(evt =>
-            {
-                if (_drawPointerId != -1)
-                {
-                    return;
-                }
-                _drawPointerId = evt.pointerId;
-                surface.CapturePointer(evt.pointerId);
-                Vector2 panel = PanelSize();
-                _viewModel.BeginPress(InHeights(evt.position),
-                    panel.y > 0f ? panel.x / panel.y : 16f / 9f);
-            });
-
-            //  같은 손가락이 겨눈다. 끈 만큼(화면 대비 비율)을 조준으로 넘기고, 지금 자리는
-            //  내려놓기 판정에 쓴다 — 두 가지를 한 번에 받는 유일한 자리다.
-            //  당김을 시작한 손가락이 아니면 무시한다(다른 손가락이 움직여도 조준이 안 흔들려야 한다).
-            surface.RegisterCallback<PointerMoveEvent>(evt =>
-            {
-                if (evt.pointerId != _drawPointerId || surface.HasPointerCapture(evt.pointerId) == false)
-                {
-                    return;
-                }
-                //  패널 좌표는 **아래로 갈수록 y가 커진다.** ViewModel은 "양수 = 위"를 받으므로
-                //  여기서 뒤집는다. 안 뒤집으면 가로는 손가락을 따라가는데 세로만 반대로 도는,
-                //  어느 게임에도 없는 조합이 된다(옛 경로가 그랬고 그대로 옮겨졌다).
-                //  활인지 시야인지는 ViewModel이 정한다 — 화면은 움직임과 자리만 넘긴다.
-                Vector2 size = PanelSize();
-                if (size.x > 0f && size.y > 0f)
-                {
-                    _viewModel.MovePointer(
-                        new Vector2(evt.deltaPosition.x / size.x, -evt.deltaPosition.y / size.y),
-                        InHeights(evt.position));
-                }
-            });
-
-            //  당김을 시작한 손가락이 뗄 때만 발사 판정을 한다 — 다른 손가락이 살짝 스치고
-            //  떼는 것으로 발사되면 안 된다.
-            surface.RegisterCallback<PointerUpEvent>(evt =>
-            {
-                if (evt.pointerId != _drawPointerId)
-                {
-                    return;
-                }
-                surface.ReleasePointer(evt.pointerId);
-                _drawPointerId = -1;
-                _viewModel.EndPress();
-            });
-            // 손가락이 화면 밖으로 나가거나 OS가 터치를 가져가면(알림 스와이프·전화·앱 전환)
-            // 위의 Up이 안 온다 — 그대로 두면 활을 든 채 영영 멈춘다. 그렇다고 EndPress로
-            // 보내면 **화살이 나가 버린다.** 터치를 뺏긴 건 "쏘겠다"는 뜻이 아니므로 내려놓는다.
-            surface.RegisterCallback<PointerCaptureOutEvent>(evt =>
-            {
-                if (evt.pointerId != _drawPointerId)
-                {
-                    return;
-                }
-                _drawPointerId = -1;
-                _viewModel.Cancel();
-            });
+            //  화면은 겨누기만, 버튼은 활. 어느 손가락이 무엇을 하는지는 ViewModel이 손가락 id로 정한다.
+            WirePointer(surface, _ => false);
+            _bowHit = Root.Q<VisualElement>("bow-button");
+            _bowFace = Root.Q<VisualElement>("bow-face");
+            //  누르는 자리는 네모 요소지만 판정은 원으로 한다 — 모서리를 누른 손가락은 화면처럼 겨누기만 한다.
+            WirePointer(_bowHit, panelPosition =>
+                (panelPosition - _bowCenter).sqrMagnitude <=
+                Sq(ArcheryPointerRouter.BowButtonHitRadius(PanelSize())));
 
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.
-            // 손가락 하나로 당김과 조준을 같이 하므로, 화면을 눌러 당기지 않고 시점만 돌리고
-            // 싶을 때(WASD) 마우스 대신 키보드를 쓸 수 있게 한다.
             // 점수도 같은 스케줄러로 pull한다 — 서버 스냅샷이 채우는 값이라 R3 이벤트가 없다.
             _tick = Root.schedule.Execute(_ =>
             {
+                LayoutBowButton();
                 _viewModel.PollKeyboard();
                 //  스틱을 놓은 뒤의 0도 밀어야 캐릭이 선다 — 잡고 있을 때만 밀면 안 된다.
                 _viewModel.FeedMove();
@@ -185,8 +128,11 @@ namespace LOP.UI
                 SyncImpactPlot();
                 SpawnHitPopups();
 
-                //  내려놓기 원은 잡고 있는 동안만 보인다 — 안 그러면 빈 화면에 원이 떠 있다.
-                bool holding = _viewModel.Holding;
+                _bowFace.EnableInClassList("is-drawing", _viewModel.Holding);
+                _bowFace.EnableInClassList("is-armed", _viewModel.Holding && armed);
+
+                //  내려놓기 원은 버튼을 쥐고 있는 동안만 보인다 — 안 그러면 빈 화면에 원이 떠 있다.
+                bool holding = _viewModel.ShowCancelTarget;
                 _cancelTarget.style.display = holding ? DisplayStyle.Flex : DisplayStyle.None;
                 if (holding)
                 {
@@ -344,7 +290,98 @@ namespace LOP.UI
             label.schedule.Execute(() => label.RemoveFromHierarchy()).ExecuteLater(durationMs + 120);
         }
 
-        //  원을 누른 자리 아래에 놓는다. 자리와 크기를 **ViewModel의 값에서만** 가져오므로
+        /// <summary>
+        /// 손가락 입력을 ViewModel로 넘긴다. <paramref name="onBowButton"/>이 누른 자리가 활 버튼인지 말한다.
+        ///
+        /// <para>누른 손가락은 그 요소가 붙잡는다(캡처) — 버튼에서 시작해 화면 위로 끌어도 같은 손가락의
+        /// 움직임이 계속 들어온다. 쏠지 말지는 손가락 id로 ViewModel이 정하므로, 겨누던 손가락을 떼도
+        /// 화살이 나가지 않는다.</para>
+        /// </summary>
+        private void WirePointer(VisualElement element, System.Func<Vector2, bool> onBowButton)
+        {
+            element.RegisterCallback<PointerDownEvent>(evt =>
+            {
+                Vector2 panel = PanelSize();
+                element.CapturePointer(evt.pointerId);
+                _viewModel.PointerDown(evt.pointerId, onBowButton((Vector2)evt.position),
+                    InHeights(evt.position), panel.y > 0f ? panel.x / panel.y : 16f / 9f);
+                //  아래 조작면이 같은 누름을 또 받지 않게 막는다.
+                evt.StopPropagation();
+            });
+
+            element.RegisterCallback<PointerMoveEvent>(evt =>
+            {
+                if (element.HasPointerCapture(evt.pointerId) == false)
+                {
+                    return;
+                }
+                //  패널 좌표는 **아래로 갈수록 y가 커진다.** ViewModel은 "양수 = 위"를 받으므로
+                //  여기서 뒤집는다. 안 뒤집으면 가로는 손가락을 따라가는데 세로만 반대로 돈다.
+                Vector2 size = PanelSize();
+                if (size.x > 0f && size.y > 0f)
+                {
+                    _viewModel.PointerMove(evt.pointerId,
+                        new Vector2(evt.deltaPosition.x / size.x, -evt.deltaPosition.y / size.y),
+                        InHeights(evt.position));
+                }
+            });
+
+            //  ViewModel에 먼저 알리고 캡처를 놓는다 — 거꾸로 하면 아래 "뺏겼다"가 먼저 불려 쏴야 할 화살이 내려간다.
+            element.RegisterCallback<PointerUpEvent>(evt =>
+            {
+                _viewModel.PointerUp(evt.pointerId);
+                if (element.HasPointerCapture(evt.pointerId))
+                {
+                    element.ReleasePointer(evt.pointerId);
+                }
+            });
+
+            // 손가락이 화면 밖으로 나가거나 OS가 터치를 가져가면(알림 스와이프·전화·앱 전환)
+            // 위의 Up이 안 온다. 터치를 뺏긴 건 "쏘겠다"는 뜻이 아니므로 쏘지 않고 내려놓는다.
+            // (정상적으로 뗀 손가락은 이미 잊혔으므로 여기서 아무 일도 안 일어난다.)
+            element.RegisterCallback<PointerCaptureOutEvent>(evt => _viewModel.PointerLost(evt.pointerId));
+        }
+
+        private static float Sq(float v) => v * v;
+
+        //  활 버튼을 화면 크기와 안전 영역(노치·홈 막대를 뺀 곳)에 맞춰 놓는다. 크기가 바뀐 프레임에만 다시 놓는다.
+        private void LayoutBowButton()
+        {
+            Vector2 size = PanelSize();
+            if (size.x <= 0f || size.y <= 0f || size == _bowLaidOutFor)
+            {
+                return;
+            }
+            _bowLaidOutFor = size;
+
+            //  안전 영역은 화면 픽셀이고 원점이 왼쪽 아래다 — 패널 단위로 옮긴다.
+            float rightInset = 0f, bottomInset = 0f;
+            if (Screen.width > 0 && Screen.height > 0)
+            {
+                Rect safe = Screen.safeArea;
+                rightInset = (Screen.width - safe.xMax) * size.x / Screen.width;
+                bottomInset = safe.yMin * size.y / Screen.height;
+            }
+
+            _bowCenter = ArcheryPointerRouter.BowButtonCenter(size, rightInset, bottomInset);
+            float hit = ArcheryPointerRouter.BowButtonHitRadius(size);
+            float face = ArcheryPointerRouter.BowButtonRadius(size);
+
+            _bowHit.style.left = _bowCenter.x - hit;
+            _bowHit.style.top = _bowCenter.y - hit;
+            _bowHit.style.width = hit * 2f;
+            _bowHit.style.height = hit * 2f;
+
+            _bowFace.style.width = face * 2f;
+            _bowFace.style.height = face * 2f;
+            _bowFace.style.borderTopLeftRadius = face;
+            _bowFace.style.borderTopRightRadius = face;
+            _bowFace.style.borderBottomLeftRadius = face;
+            _bowFace.style.borderBottomRightRadius = face;
+            _bowFace.Q<Label>("bow-label").style.fontSize = face * 0.8f;
+        }
+
+        //  원을 버튼을 누른 자리 옆에 놓는다. 자리와 크기를 **ViewModel의 값에서만** 가져오므로
         //  보이는 원과 판정하는 원이 갈라질 수가 없다 — 옛 띠는 높이가 코드와 USS 두 곳에
         //  적혀 있어 어긋날 수 있었다.
         private void PlaceCancelTarget()
@@ -373,7 +410,7 @@ namespace LOP.UI
         }
 
         //  개발 빌드(에디터 포함)에서만 왼쪽 위에 조준 가속 세기 버튼을 띄운다. 누를 때마다 끔→약→중→강.
-        //  조작면보다 위에 얹혀 이 버튼을 누른 손가락은 활을 들지 않는다.
+        //  조작면보다 위에 얹혀 이 버튼을 누른 손가락은 겨누지 않는다.
         private void AddAimAccelToggle()
         {
             if (Debug.isDebugBuild == false)
@@ -382,6 +419,8 @@ namespace LOP.UI
             }
             var toggle = new Button { text = _viewModel.AimAccelLabel };
             toggle.AddToClassList("aim-accel-toggle");
+            //  포커스를 안 받게 한다 — 받으면 활 대신 스페이스가 이 버튼을 눌러 세기가 바뀐다.
+            toggle.focusable = false;
             toggle.clicked += () =>
             {
                 _viewModel.CycleAimAccel();
@@ -437,7 +476,7 @@ namespace LOP.UI
 
                 UpdateMoveStick((Vector2)evt.localPosition);
 
-                //  겨누는 면이 이 누름을 당김으로 읽지 않게 막는다.
+                //  겨누는 면이 이 누름을 겨누기로 읽지 않게 막는다.
                 evt.StopPropagation();
             });
 

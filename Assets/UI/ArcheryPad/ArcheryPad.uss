@@ -42,7 +42,38 @@
     border-color: rgba(255, 255, 255, 0.7);
 }
 
-/* 내려놓기 원 — 누른 자리 아래에 뜬다. 잡고 있는 동안만 View가 켠다.
+/* 활 버튼 — 오른쪽 아래. 자리·크기·둥글기는 View가 화면에 맞춰 써 넣는다.
+   바깥(.bow-button-hit)은 투명한 누르는 자리, 안쪽(.bow-button)이 보이는 원이다. */
+.bow-button-hit {
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+}
+.bow-button {
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.28);
+    border-left-width: 3px; border-right-width: 3px;
+    border-top-width: 3px; border-bottom-width: 3px;
+    border-left-color: rgba(255, 255, 255, 0.85);
+    border-right-color: rgba(255, 255, 255, 0.85);
+    border-top-color: rgba(255, 255, 255, 0.85);
+    border-bottom-color: rgba(255, 255, 255, 0.85);
+}
+/* 쥐고 있는 동안 노랗게 켜진다. 시위가 걸리면 더 진해진다 — 지금 떼면 나간다는 뜻이다. */
+.bow-button.is-drawing {
+    background-color: rgba(255, 225, 77, 0.35);
+}
+.bow-button.is-armed {
+    background-color: rgba(255, 225, 77, 0.55);
+}
+.bow-label {
+    color: rgb(255, 255, 255);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+/* 내려놓기 원 — 활 버튼을 누른 자리 옆에 뜬다. 잡고 있는 동안만 View가 켠다.
    자리·크기·모서리 둥글기는 View가 ViewModel 값으로 써 넣는다(여기 적으면 두 곳이 어긋난다).
    손가락이 안에 들어오면 붉어지지만, 들어왔다고 활이 내려가지는 않는다 — 뗄 때만 판정한다. */
 .cancel-target {

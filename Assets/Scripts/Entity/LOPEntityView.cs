@@ -95,7 +95,7 @@ namespace LOP
                 return;
             }
 
-            Animator animator = visualGameObject.GetComponent<Animator>();
+            Animator animator = ChibiRig.AnimatorOf(visualGameObject);
             if (animator == null)
             {
                 return;
@@ -154,7 +154,7 @@ namespace LOP
                 return;
             }
 
-            Animator animator = visualGameObject.GetComponent<Animator>();
+            Animator animator = ChibiRig.AnimatorOf(visualGameObject);
             if (animator == null)
             {
                 return;
@@ -175,7 +175,7 @@ namespace LOP
                 return;
             }
 
-            Animator animator = visualGameObject.GetComponent<Animator>();
+            Animator animator = ChibiRig.AnimatorOf(visualGameObject);
             if (animator != null)
             {
                 animator.SetTrigger("Hit");

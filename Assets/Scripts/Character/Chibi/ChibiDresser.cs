@@ -10,7 +10,7 @@ namespace LOP
     {
         public static bool IsChibi(GameObject visual)
         {
-            var animator = visual != null ? visual.GetComponent<Animator>() : null;
+            var animator = ChibiRig.AnimatorOf(visual);
             if (animator == null || animator.isHuman == false || animator.runtimeAnimatorController == null)
             {
                 return false;

@@ -177,7 +177,7 @@ namespace LOP
             {
                 var g = UnityEngine.Object.Instantiate(chibiPrefab, root.transform);
                 g.name = "DodgeGiant";
-                g.transform.localScale = chibiPrefab.transform.localScale * DodgePropPose.GiantScale;
+                g.transform.localScale = Vector3.one * DodgePropPose.GiantScale;
                 ChibiOutfit.Apply(g, ChibiLookApplier.ColorsFor(GiantLook, catalog, palette));
                 giants.Add(g);
             }

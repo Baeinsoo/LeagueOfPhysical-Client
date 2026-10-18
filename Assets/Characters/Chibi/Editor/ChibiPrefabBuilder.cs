@@ -34,17 +34,20 @@ namespace LOP.CharacterEditor
             var controller = BuildController(Dir + "/ChibiArcher.controller");
 
             var model = AssetDatabase.LoadAssetAtPath<GameObject>(Model);
-            var go = (GameObject)PrefabUtility.InstantiatePrefab(model);
-            PrefabUtility.UnpackPrefabInstance(go, PrefabUnpackMode.OutermostRoot, InteractionMode.AutomatedAction);
-            go.name = "Chibi";
-            go.transform.localScale = Vector3.one * 3f;   // 모델 키 0.49m → 약 1.47m(캡슐 1.5m)
+            //  뿌리는 크기 1 — 쓰는 화면(로비 자리·거인·경기)이 뿌리 크기를 정한다. 모델 배율은 자식 Model이 맡는다.
+            var go = new GameObject("Chibi");
+            var modelGo = (GameObject)PrefabUtility.InstantiatePrefab(model);
+            PrefabUtility.UnpackPrefabInstance(modelGo, PrefabUnpackMode.OutermostRoot, InteractionMode.AutomatedAction);
+            modelGo.name = "Model";
+            modelGo.transform.SetParent(go.transform, false);
+            modelGo.transform.localScale = Vector3.one * 3f;   // 모델 키 0.49m → 약 1.47m(캡슐 1.5m)
             var regions = AssetDatabase.LoadAssetAtPath<Mesh>(RegionsMesh);
-            foreach (var smr in go.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            foreach (var smr in modelGo.GetComponentsInChildren<SkinnedMeshRenderer>(true))
             {
                 smr.sharedMaterial = body;
                 if (smr.name == "SM_Chibi_Body") { smr.sharedMesh = regions; }
             }
-            var animator = go.GetComponent<Animator>();
+            var animator = modelGo.GetComponent<Animator>();
             animator.runtimeAnimatorController = controller;
             animator.applyRootMotion = false;
             animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;

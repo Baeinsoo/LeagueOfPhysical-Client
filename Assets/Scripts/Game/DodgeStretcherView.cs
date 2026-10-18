@@ -108,7 +108,7 @@ namespace LOP
                 var body = UnityEngine.Object.Instantiate(chibiPrefab, root.transform, false);
                 body.transform.localPosition = new Vector3(0f, BoardHeight + 0.05f, 0.75f);
                 body.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
-                var animator = body.GetComponent<Animator>();
+                var animator = ChibiRig.AnimatorOf(body);
                 if (animator != null) animator.enabled = false;
                 // 룩은 몸이 살아 있을 때 기억해 둔다 — 탈락과 디스폰이 같이 와서 순서에 따라 엔티티가 먼저 사라진다.
                 ChibiDresser.Dress(body, faceMaterial, lastLook.TryGetValue(id, out var look) ? look : null, catalog, palette);

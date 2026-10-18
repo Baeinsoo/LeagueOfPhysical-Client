@@ -74,7 +74,7 @@ namespace LOP.Tests
 
                 ChibiDresser.Dress(go, faceMat, look, Catalog(), Palette());
 
-                var head = go.GetComponent<Animator>().GetBoneTransform(HumanBodyBones.Head);
+                var head = ChibiRig.AnimatorOf(go).GetBoneTransform(HumanBodyBones.Head);
                 Assert.IsNotNull(head.Find("Look_hat"));
                 Assert.AreEqual(ChibiExpression.Cheer, go.GetComponent<ChibiFace>().expression);
             }
@@ -93,7 +93,7 @@ namespace LOP.Tests
                     "테스터", 1);
 
                 ChibiDresser.Dress(go, faceMat, look, Catalog(), Palette());
-                var head = go.GetComponent<Animator>().GetBoneTransform(HumanBodyBones.Head);
+                var head = ChibiRig.AnimatorOf(go).GetBoneTransform(HumanBodyBones.Head);
                 Assert.IsNotNull(head.Find("Look_hat"), "전제: 룩으로 먼저 모자가 붙어 있어야 한다");
 
                 ChibiDresser.Dress(go, faceMat, null, Catalog(), Palette());

@@ -235,7 +235,7 @@ namespace LOP
 
         private static Transform FindBone(GameObject visual, HumanBodyBones bone, string fallbackName)
         {
-            var animator = visual != null ? visual.GetComponent<Animator>() : null;
+            var animator = ChibiRig.AnimatorOf(visual);
             if (animator != null && animator.isHuman)
             {
                 var transform = animator.GetBoneTransform(bone);

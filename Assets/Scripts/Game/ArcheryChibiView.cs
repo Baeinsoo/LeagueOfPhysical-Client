@@ -89,7 +89,7 @@ namespace LOP
                 string trigger = ChibiReaction.TriggerOnChange(last.cue, cue);
                 if (trigger != null)
                 {
-                    visual.GetComponent<Animator>().SetTrigger(trigger);
+                    ChibiRig.AnimatorOf(visual).SetTrigger(trigger);
                 }
                 var face = visual.GetComponent<ChibiFace>();
                 if (face != null)

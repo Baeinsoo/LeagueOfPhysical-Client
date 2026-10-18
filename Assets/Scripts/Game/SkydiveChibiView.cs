@@ -66,7 +66,7 @@ namespace LOP
                     dressed[entity.Id] = visual;
                 }
 
-                var animator = visual.GetComponent<Animator>();
+                var animator = ChibiRig.AnimatorOf(visual);
                 if (hasFalling.TryGetValue(visual, out bool canFall) == false)
                 {
                     canFall = false;

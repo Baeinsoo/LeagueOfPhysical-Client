@@ -37,7 +37,7 @@ namespace LOP.EditorTools
                     body.transform.position = LobbyPlayer.StandPosition;
                     body.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
                     var idle = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Characters/Chibi/Anim/Idle.anim");
-                    if (idle != null) idle.SampleAnimation(body, 0f);
+                    if (idle != null) idle.SampleAnimation(ChibiRig.AnimatorOf(body).gameObject, 0f);
                     if (ChibiDresser.IsChibi(body)) ChibiDresser.Dress(body, face, null, null, null);
                 }
 
@@ -73,7 +73,7 @@ namespace LOP.EditorTools
                     body.transform.position = new Vector3(0f, 0f, run.PlayerZ);
                     body.transform.rotation = Quaternion.Euler(0f, run.PlayerYaw, 0f);
                     var runClip = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Characters/Chibi/Anim/Run.anim");
-                    if (runClip != null) runClip.SampleAnimation(body, 0.2f);
+                    if (runClip != null) runClip.SampleAnimation(ChibiRig.AnimatorOf(body).gameObject, 0.2f);
                 }
                 LobbyLighting.Apply(StageLighting.For(false), lights);
                 rig.Pose(1.3f, new StageEffectWeights(false), float.PositiveInfinity);

@@ -49,15 +49,17 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 프리팹_원래_크기를_지킨다()
+        public void 자리_크기가_뿌리_크기이고_모델_배율은_그대로다()
         {
-            //  치비 프리팹 뿌리는 크기 3이다 — 자리 크기는 그 위에 곱해야 로비 선수가 작아지지 않는다.
+            //  치비 뿌리는 크기 1, 모델 배율(3)은 자식 Model이 갖는다 — 자리 크기를 뿌리에 그대로 쓴다.
             var player = Make(false);
-            _body.transform.localScale = Vector3.one * 3f;
+            var model = new GameObject("Model");
+            model.transform.SetParent(_body.transform, false);
+            model.transform.localScale = Vector3.one * 3f;
             player.AttachVisual(_body);
-            Assert.AreEqual(3f, _body.transform.localScale.x, 1e-4);
             player.Stand(Vector3.zero, 180f, 0.6f);
-            Assert.AreEqual(1.8f, _body.transform.localScale.x, 1e-4);
+            Assert.AreEqual(0.6f, _body.transform.localScale.x, 1e-4);
+            Assert.AreEqual(3f, model.transform.localScale.x, 1e-4);
         }
 
         [Test]

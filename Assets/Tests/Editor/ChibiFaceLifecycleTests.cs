@@ -29,7 +29,7 @@ namespace LOP.Tests
                 face.enabled = true;
                 face.enabled = false;
                 face.enabled = true;
-                var head = go.GetComponent<Animator>().GetBoneTransform(HumanBodyBones.Head);
+                var head = ChibiRig.AnimatorOf(go).GetBoneTransform(HumanBodyBones.Head);
                 int plates = 0;
                 foreach (Transform child in head) { if (child.name == "FacePlate") { plates++; } }
                 Assert.AreEqual(1, plates);

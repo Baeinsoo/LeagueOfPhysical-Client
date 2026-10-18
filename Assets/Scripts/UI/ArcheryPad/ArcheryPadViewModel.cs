@@ -360,11 +360,12 @@ namespace LOP.UI
         }
         private Press press = Press.None;
 
-        /// <summary>이만큼 가만히 있으면 활이 올라오기 시작한다(초).</summary>
-        public const float PressHoldSeconds = 0.15f;
+        /// <summary>이만큼 가만히 있으면 활이 올라오기 시작한다(초). 10-18 폰 사람 판 "시야만 돌리려는데 자꾸 시위가 당겨진다"
+        /// — 0.15초는 엄지를 대고 움직이기 시작하기에 빠듯해 0.3초로.</summary>
+        public const float PressHoldSeconds = 0.3f;
 
-        /// <summary>그 안에 이만큼(화면 높이 대비) 움직이면 "시야를 돌리려던 것"으로 본다.</summary>
-        public const float DragSlopFraction = 0.02f;
+        /// <summary>그 안에 이만큼(화면 높이 대비) 움직이면 "시야를 돌리려던 것"으로 본다(10-18 2% → 1.2%, 같은 이유).</summary>
+        public const float DragSlopFraction = 0.012f;
 
         /// <summary>누름이 무엇이 될지.</summary>
         public enum PressIntent { Undecided, Look, Draw }

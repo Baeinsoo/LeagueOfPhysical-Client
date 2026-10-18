@@ -17,6 +17,7 @@ namespace LOP
             builder.Register<IEntranceComponent, LoadUserComponent>(Lifetime.Transient);
             builder.Register<IEntranceComponent, JoinLobbyComponent>(Lifetime.Transient);
             builder.Register<IEntranceComponent, LoadMasterDataComponent>(Lifetime.Transient);
+            builder.Register<IEntranceComponent, LoadPlayerProfileComponent>(Lifetime.Transient);   // 마스터데이터 뒤(코인 통화표)
 
             builder.Register<EntranceProgress>(Lifetime.Singleton);
             builder.Register<TitleViewModel>(Lifetime.Transient);

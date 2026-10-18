@@ -73,6 +73,9 @@ namespace LOP
             // 이미 차 있다 — Root가 뜨는 시점엔 아무도 resolve하지 않는다.
             builder.Register<CosmeticCatalog>(Lifetime.Singleton);
             builder.Register<AppearanceColorPalette>(Lifetime.Singleton);
+            //  플레이어 프로필(재화·장착·외형) — 입장 때 받고 로비·경기·결과를 오가도 유지한다(ADR 0021).
+            builder.Register<EconomyStore>(Lifetime.Singleton);
+            builder.Register<CharacterAppearanceStore>(Lifetime.Singleton);
 
             //  자격증명 보관소는 프로필(인스턴스)마다, 그리고 환경마다 칸이 달라야 해서 인스턴스로
             //  등록한다. 환경이 빠지면 dev 계정과 local 계정이 한 칸을 나눠 쓰고, 환경을 바꿔

@@ -6,7 +6,7 @@ using R3;
 namespace LOP
 {
     /// <summary>
-    /// 로비가 보는 "내 캐릭터 외형"(피부·머리 색 번호). 조회와 라커룸 변경 응답을 한곳에 모은다.
+    /// "내 캐릭터 외형"(피부·머리 색 번호). 앱 범위 — 입장 때 받고 라커룸 변경 응답을 반영한다(ADR 0021).
     /// 조회가 실패하면 이전 값을 그대로 둔다. 받기 전엔 0(모름) — 그리는 쪽이 기본값으로 그린다.
     /// </summary>
     public class CharacterAppearanceStore : IDisposable
@@ -32,27 +32,30 @@ namespace LOP
             _fetch = fetch ?? WebAPI.GetCharacterAppearance;
         }
 
-        public async UniTask RefreshAsync(CancellationToken cancellationToken)
+        /// <summary>받았으면(또는 더 새 값이 이미 있으면) true. 실패하면 이전 값을 그대로 둔다.</summary>
+        public async UniTask<bool> RefreshAsync(CancellationToken cancellationToken)
         {
             string userId = _users.user?.id;
-            if (string.IsNullOrEmpty(userId)) return;
+            if (string.IsNullOrEmpty(userId)) return false;
 
             int startedAt = _changes;
             try
             {
                 var response = await _fetch(userId, cancellationToken);
-                if (cancellationToken.IsCancellationRequested || _changes != startedAt) return;
-                if (!TrySet(response))
-                {
-                    UnityEngine.Debug.LogWarning($"[CharacterAppearanceStore] Failed to refresh. code: {response?.code}");
-                }
+                if (cancellationToken.IsCancellationRequested) return false;
+                if (_changes != startedAt) return true;
+                if (TrySet(response)) return true;
+                UnityEngine.Debug.LogWarning($"[CharacterAppearanceStore] Failed to refresh. code: {response?.code}");
+                return false;
             }
             catch (OperationCanceledException)
             {
+                return false;
             }
             catch (Exception e)
             {
                 UnityEngine.Debug.LogWarning($"[CharacterAppearanceStore] Failed to refresh. error: {e.Message}");
+                return false;
             }
         }
 

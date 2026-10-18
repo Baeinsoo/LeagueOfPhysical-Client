@@ -361,8 +361,9 @@ namespace LOP.UI
         private Press press = Press.None;
 
         /// <summary>이만큼 가만히 있으면 활이 올라오기 시작한다(초). 10-18 폰 사람 판 "시야만 돌리려는데 자꾸 시위가 당겨진다"
-        /// — 0.15초는 엄지를 대고 움직이기 시작하기에 빠듯해 0.3초로, 에디터에서 해 보니 살짝 길어 0.24초로(같은 날).</summary>
-        public const float PressHoldSeconds = 0.24f;
+        /// 를 0.3·0.24초로 늘려 봤지만 느렸다 — 문제는 시간이 아니라 끄는 움직임을 늦게 알아챈 것이라, 시간은 원래 0.15초로 두고
+        /// 아래 움직임 문턱만 낮췄다.</summary>
+        public const float PressHoldSeconds = 0.15f;
 
         /// <summary>그 안에 이만큼(화면 높이 대비) 움직이면 "시야를 돌리려던 것"으로 본다(10-18 2% → 1.2%, 같은 이유).</summary>
         public const float DragSlopFraction = 0.012f;
@@ -553,9 +554,15 @@ namespace LOP.UI
 
         //  끈 만큼 시야를 돌린다. 화각으로 감도가 보정돼 당길수록 저절로 정밀해지고,
         //  빨리 그은 만큼 가속 배율이 위에 곱해진다(천천히 움직이면 1배).
+        /// <summary>끈 거리 → 각도의 기본 배율. 1이면 손가락 밑 물체가 손가락을 그대로 따라온다(1:1).
+        /// 10-18 사람 판 "더 빠릿하게" — 투석기 표적이 넓게 흩어져 1:1로는 엄지가 못 따라간다.</summary>
+        public const float DragBaseGain = 1.6f;
+        /// <summary>위아래만 더 곱한다 — 엄지가 위아래로 움직일 수 있는 거리가 좌우보다 짧다.</summary>
+        public const float DragPitchExtra = 1.25f;
+
         private void AimByDrag(Vector2 deltaFraction)
         {
-            AimBy(new Vector2(deltaFraction.x * HorizontalFov, deltaFraction.y * CurrentFov) * dragGain);
+            AimBy(new Vector2(deltaFraction.x * HorizontalFov, deltaFraction.y * CurrentFov * DragPitchExtra) * (DragBaseGain * dragGain));
         }
 
         /// <summary>두 번 불려도 한 번만 쏜다 — 아래 View가 뗌을 두 경로로 받기 때문이다.</summary>

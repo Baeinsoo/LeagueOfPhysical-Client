@@ -50,6 +50,7 @@ namespace LOP
             public Quaternion Rotation;   // 맞은 틱의 그림 회전 — 떠 있던 그림과 각이 이어진다
             public float Radius, StartedAt, Scale, Alpha;
             public bool Burst;
+            public bool? ShameRed;   // 금지물 빨간 깜빡임의 마지막 상태 — 바뀔 때만 재질을 다시 꽂는다
             public (Renderer renderer, Material[] original)[] Renderers;
         }
 
@@ -127,6 +128,10 @@ namespace LOP
 
         private void Play(string code, in ArcheryTarget target, Vector3 at, Quaternion rotation, bool mine)
         {
+            if (root == null)   // 씬이 이미 정리된 뒤 적중 사건이 들어온 경우
+            {
+                return;
+            }
             var recipe = ArcheryHitFxRecipe.For(code);
             var ghost = new Ghost
             {
@@ -208,7 +213,12 @@ namespace LOP
             if (g.Recipe.Shame)
             {
                 g.Visual.transform.SetPositionAndRotation(g.At + ArcheryHitFxRecipe.ShameOffset(since), g.Rotation);
-                SetAll(g, ArcheryHitFxRecipe.ShameIsRed(since) ? Red() : null);
+                bool red = ArcheryHitFxRecipe.ShameIsRed(since);
+                if (g.ShameRed != red)   // 빨강↔원래 재질이 바뀔 때만 다시 꽂는다 — 매 프레임 할 일이 아니다
+                {
+                    SetAll(g, red ? Red() : null);
+                    g.ShameRed = red;
+                }
             }
             else if (g.Recipe.Swing)
             {
@@ -339,7 +349,8 @@ namespace LOP
 
         private void UpdateShake(float now)
         {
-            if (shakeStartedAt < 0f || cameraController == null)
+            //  남의 적중만 돌고 있으면 흔들림이 없다 — 이미 0인 ShakeOffset을 매 프레임 다시 쓸 일이 아니다.
+            if (shakeStartedAt < 0f || cameraController == null || shakeMine == false)
             {
                 return;
             }

@@ -104,6 +104,33 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 금지_판정은_셋만_참이고_나머지_여섯은_거짓이다()
+        {
+            foreach (var code in new[] { "BirdNest", "CheerFlag", "KidBalloon" })
+            {
+                Assert.IsTrue(ArcheryCatapultLooks.IsForbidden(code), code);
+            }
+            foreach (var code in Festival.Select(f => f.code).Except(new[] { "BirdNest", "CheerFlag", "KidBalloon" }))
+            {
+                Assert.IsFalse(ArcheryCatapultLooks.IsForbidden(code), code);
+            }
+        }
+
+        [Test]
+        public void 접시_회전축은_사수_기준_가로다()
+        {
+            //  판정과 같은 회전은 로컬 x축(사수 기준 가로)을 돈다 — "위" 방향이 회전각의 코사인만큼 눕는다.
+            //  로컬 y축(세로)으로 돌면 "위"가 그 축 자신이라 늘 그대로 서 있다 — 틀린 축이면 이 식이 깨진다.
+            var t = Catapult(spinHz: 1.1f, phase: 0.2f);
+            for (double tick = 100; tick < 230; tick += 11)
+            {
+                float spinRad = ArcheryTargetMotion.SpinAngleAt(t, tick, 0.02f);
+                Vector3 up = ArcheryCatapultLooks.RotationAt(t, "Plate", tick, 0.02f) * Vector3.up;
+                Assert.AreEqual(Mathf.Cos(spinRad), up.y, 1e-3f, $"tick {tick}");
+            }
+        }
+
+        [Test]
         public void 회색_도형을_지우면_따로_만든_재질도_지운다()
         {
             //  적중·무리마다 회색 도형이 생겼다 지워진다 — 재질을 남기면 판이 길어질수록 쌓인다.

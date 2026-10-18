@@ -47,7 +47,7 @@ namespace LOP.Tests
             var catalog = Catalog();
             var hat = catalog.ByCode("hat_cube_red");
             var hatSlot = catalog.SlotByCode("hat");
-            var look = LobbyLook.From(new List<LoadoutSlotDto> { new LoadoutSlotDto { slotId = hatSlot.Id, cosmeticId = hat.Id } }, catalog, "선수", 7);
+            var look = LobbyLook.From(new List<LoadoutSlotDto> { new LoadoutSlotDto { slotId = hatSlot.Id, cosmeticId = hat.Id } }, default, catalog, "선수", 7);
             Assert.AreEqual("hat_cube_red", look.SlotOrNull("hat"));
             Assert.AreEqual("선수", look.DisplayName);
             Assert.AreEqual(7, look.AccountLevel);
@@ -62,14 +62,21 @@ namespace LOP.Tests
             {
                 new LoadoutSlotDto { slotId = 99999, cosmeticId = catalog.ByCode("hat_cube_red").Id },
                 new LoadoutSlotDto { slotId = hatSlot.Id, cosmeticId = 99999 },
-            }, catalog, "a", 1);
+            }, default, catalog, "a", 1);
             Assert.AreEqual(0, look.Slots.Count);
+        }
+
+        [Test]
+        public void 캐릭터_외형을_싣는다()
+        {
+            var look = LobbyLook.From(new List<LoadoutSlotDto>(), new CharacterAppearance(103, 204), Catalog(), "선수", 2);
+            Assert.AreEqual(new CharacterAppearance(103, 204), look.CharacterAppearance);
         }
 
         [Test]
         public void 장착이_비어도_이름과_레벨은_있다()
         {
-            var look = LobbyLook.From(new List<LoadoutSlotDto>(), Catalog(), null, 0);
+            var look = LobbyLook.From(new List<LoadoutSlotDto>(), default, Catalog(), null, 0);
             Assert.AreEqual(0, look.Slots.Count);
             Assert.AreEqual(string.Empty, look.DisplayName);
             Assert.AreEqual(1, look.AccountLevel);

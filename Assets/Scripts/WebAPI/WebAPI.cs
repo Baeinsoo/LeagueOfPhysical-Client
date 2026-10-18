@@ -132,6 +132,17 @@ namespace LOP
                 HttpRequestMessage.Put($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/economy/loadout", request), cancellationToken);
         #endregion
 
+        #region CharacterAppearance
+        //  발행하지 않는다 — 받는 쪽(CharacterAppearanceStore·라커룸 VM)이 반환값을 그대로 쓴다.
+        public static UniTask<CharacterAppearanceResponse> GetCharacterAppearance(string userId, CancellationToken cancellationToken = default)
+            => authorized.SendAsync<CharacterAppearanceResponse>(
+                HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/character-appearance"), cancellationToken);
+
+        public static UniTask<CharacterAppearanceResponse> SetCharacterAppearance(string userId, SetCharacterAppearanceRequest request, CancellationToken cancellationToken = default)
+            => authorized.SendAsync<CharacterAppearanceResponse>(
+                HttpRequestMessage.Put($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/character-appearance", request), cancellationToken);
+        #endregion
+
         #region Room
 
         public static UniTask<RoomJoinableResponse> CheckRoomJoinable(string roomId, CancellationToken cancellationToken = default)

@@ -118,5 +118,22 @@ namespace LOP.Tests
             player.SetLook(changed);
             Assert.AreSame(changed, player.AppliedLook, "슬롯이 바뀌면 다시 입힌다");
         }
+
+        //  라커룸에서 피부·머리만 바꾸면 슬롯은 그대로다 — 그래도 다시 입혀야 로비에 바로 보인다.
+        [Test]
+        public void 외형만_바뀌어도_다시_입힌다()
+        {
+            var player = _root.AddComponent<LobbyPlayer>();
+            var body = new GameObject("body");
+            body.transform.SetParent(_root.transform);
+            player.AttachVisual(body);
+            var slots = new System.Collections.Generic.Dictionary<string, string> { ["hat"] = "hat_cube_red" };
+            player.SetLook(new PlayerLook(slots, "a", 3, new CharacterAppearance(101, 201)));
+
+            var recolored = new PlayerLook(slots, "a", 3, new CharacterAppearance(104, 203));
+            player.SetLook(recolored);
+
+            Assert.AreSame(recolored, player.AppliedLook);
+        }
     }
 }

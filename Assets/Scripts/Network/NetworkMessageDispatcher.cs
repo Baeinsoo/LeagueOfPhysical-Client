@@ -31,7 +31,8 @@ namespace LOP
             IPublisher<DodgeStateToC> dodgeState,
             IPublisher<PlayerPresenceToC> playerPresence,
             IPublisher<MatchEndedToC> matchEnded,
-            IPublisher<MatchStartToC> matchStart)
+            IPublisher<MatchStartToC> matchStart,
+            IPublisher<LeaveMatchToC> leaveMatch)
         {
             Register(gameInfo);
             Register(worldEventBatch);
@@ -48,6 +49,7 @@ namespace LOP
             Register(playerPresence);
             Register(matchEnded);
             Register(matchStart);
+            Register(leaveMatch);
         }
 
         private void Register<T>(IPublisher<T> publisher) where T : IMessage

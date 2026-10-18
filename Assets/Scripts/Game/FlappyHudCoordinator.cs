@@ -1,8 +1,11 @@
 using Cysharp.Threading.Tasks;
 using GameFramework;
+using System;
+using System.Threading;
 using LOP.Event.Entity;
 using LOP.UI;
 using MessagePipe;
+using UnityEngine;
 using VContainer.Unity;
 
 namespace LOP
@@ -27,9 +30,15 @@ namespace LOP
         private readonly ISubscriber<EntityCreated> entityCreatedSubscriber;
         private readonly ISubscriber<EntityDestroyed> entityDestroyedSubscriber;
         private readonly ISubscriber<MatchEndedToC> matchEndedSubscriber;
+        private readonly MatchLeaveRequester leaveRequester;
+
+        //  서버가 로비 위치를 비울 시간. 넘기면 그냥 나간다(같은 방으로 다시 들어갈 수 있다 — 나가기 전과 같은 결과).
+        private static readonly TimeSpan LeaveReplyTimeout = TimeSpan.FromSeconds(3);
+        private readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
 
         private bool _opened;
         private bool _matchEnded;
+        private bool _leaving;
         private FlapPadView _flapPad;
         private RaceSpectateView _spectateView;
         private string _cameraTargetId;
@@ -42,7 +51,8 @@ namespace LOP
             AppStateMachine appStateMachine,
             ISubscriber<EntityCreated> entityCreatedSubscriber,
             ISubscriber<EntityDestroyed> entityDestroyedSubscriber,
-            ISubscriber<MatchEndedToC> matchEndedSubscriber)
+            ISubscriber<MatchEndedToC> matchEndedSubscriber,
+            MatchLeaveRequester leaveRequester)
         {
             this.gameDataStore = gameDataStore;
             this.windowManager = windowManager;
@@ -54,6 +64,7 @@ namespace LOP
             this.entityCreatedSubscriber = entityCreatedSubscriber;
             this.entityDestroyedSubscriber = entityDestroyedSubscriber;
             this.matchEndedSubscriber = matchEndedSubscriber;
+            this.leaveRequester = leaveRequester;
         }
 
         protected override void Subscribe()
@@ -166,15 +177,38 @@ namespace LOP
 
         private async UniTaskVoid AskAndLeaveAsync()
         {
-            bool leave = await windowManager.OpenModalAsync<LeaveMatchConfirmView, bool>();
-            if (leave == false)
+            //  확인 창이 떠 있거나 서버 답을 기다리는 동안 [나가기]를 또 누르면 무시한다.
+            if (_leaving)
             {
                 return;
             }
+            _leaving = true;
 
-            //  서버에는 아무것도 안 보낸다. 씬이 내려가며 연결이 끊기고, 서버는 이미 나간 사람을
-            //  제대로 처리한다 — 완주 기록은 FinishOrderTracker가, 탈락 기록은 추격자 시스템이 들고 있다.
+            bool leave = await windowManager.OpenModalAsync<LeaveMatchConfirmView, bool>();
+            if (leave == false)
+            {
+                _leaving = false;
+                return;
+            }
+
+            //  서버가 로비 위치를 비운 뒤에 로비로 간다 — 먼저 가면 로비가 아직 "게임 방"인 위치를 보고
+            //  같은 방으로 다시 들여보낸다. 등수는 서버가 그대로 들고 있다(완주·탈락 기록).
+            bool released = await leaveRequester.RequestAsync(LeaveReplyTimeout, _lifetime.Token);
+            if (_lifetime.IsCancellationRequested)
+            {
+                return;   // 기다리는 사이 판이 끝나 씬이 내려갔다 — 화면 흐름은 이미 다른 쪽이 맡았다.
+            }
+            if (released == false)
+            {
+                Debug.LogWarning("[LeaveMatch] 서버가 로비 위치를 비우지 못했다(거절·시간 초과) — 그래도 나간다.");
+            }
             appStateMachine.Fire(AppEvent.MatchLeft);
+        }
+
+        public override void Dispose()
+        {
+            _lifetime.Cancel();
+            base.Dispose();
         }
     }
 }

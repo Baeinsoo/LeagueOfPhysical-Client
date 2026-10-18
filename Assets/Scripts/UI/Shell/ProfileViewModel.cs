@@ -218,7 +218,7 @@ namespace LOP.UI
             _status.Dispose();
             _matches.Dispose();
             _identity.Dispose();
-            //  Level은 EconomyStore 소유라 여기서 dispose하지 않는다(스토어는 Scoped로 더 길게 산다).
+            //  Level은 EconomyStore 소유라 여기서 dispose하지 않는다(스토어는 앱 범위로 더 길게 산다).
             _levelText.Dispose();
             _xpText.Dispose();
             _equippedText.Dispose();

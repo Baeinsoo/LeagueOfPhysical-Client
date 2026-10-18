@@ -36,10 +36,6 @@ namespace LOP
             // 고를 수 있는 게임 목록. 마스터데이터를 한 번 훑어 만들어 두므로 Scoped면 충분하다.
             builder.Register<PlayableGameProvider>(Lifetime.Scoped);
 
-            // 로비 전체가 보는 내 재화·레벨 단일 진실원본. Scoped — 코인·레벨 칩(LobbyHomeView)과
-            // 상점(구매·로드아웃 응답 반영)이 같은 인스턴스를 공유해야 값이 어긋나지 않는다.
-            builder.Register<EconomyStore>(Lifetime.Scoped);
-            builder.Register<CharacterAppearanceStore>(Lifetime.Scoped);
 
             //  출전 연출 지휘. 생성자에서 로딩판 문을 건다 — 빌드 콜백 첫 줄에서 바로 만들어 둔다.
             builder.Register<RunOutDirector>(Lifetime.Scoped).AsSelf().As<IRunOutDirector>();
@@ -107,10 +103,9 @@ namespace LOP
 
                 windowManager.Open<LobbyHomeView>();
 
-                //  로비 들어올 때 한 번 받아 둔다 — 코인·레벨 칩이 바로 뜨려면 열기 전에 기다릴 필요
-                //  없이 기본값(0코인·Lv1)으로 먼저 보이고 도착하면 갱신되는 쪽을 택한다.
+                //  재화·장착은 경기 보상으로 서버가 바꾼다 — 돌아올 때마다 조용히 다시 받는다. 받는 동안은 앱 범위
+                //  스토어의 옛 값(입장 때 받은 것)이 그대로 보인다. 외형은 내가 바꿀 때만 바뀌어 다시 받지 않는다(ADR 0021).
                 container.Resolve<EconomyStore>().RefreshAsync(destroyCancellationToken).Forget();
-                container.Resolve<CharacterAppearanceStore>().RefreshAsync(destroyCancellationToken).Forget();
             });
         }
 

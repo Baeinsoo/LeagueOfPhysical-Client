@@ -232,7 +232,7 @@ namespace LOP.UI
         }
 
         /// <summary>
-        /// 활을 든 손가락이 지금 취소 버튼 위에 있나. 화면이 버튼을 붉게 켜는 데 쓴다.
+        /// 활을 든 손가락이 지금 시위 풀기 버튼 위에 있나. 화면이 버튼을 붉게 켜는 데 쓴다.
         ///
         /// <para><b>여기 있다고 활이 내려가지는 않는다</b> — 판정은 <b>뗄 때만</b> 한다.
         /// 그래서 버튼 위를 지나 더 겨누는 것이 막히지 않는다. 누를 때가 아니라 뗄 때가
@@ -290,24 +290,25 @@ namespace LOP.UI
         private bool spaceHeld;
 
         /// <summary>
-        /// 손가락이 닿았다. <paramref name="onBowButton"/>이면 활을 들고, 아니면 그 손가락은 끝까지 겨누기만 한다.
-        /// <paramref name="onCancelButton"/>이면 겨누지 않고, 활을 든 중이면 <b>안 쏘고 내려놓는다</b>.
+        /// 손가락이 닿았다. <paramref name="hit"/>이 활 버튼이면 활을 들고, 화면이면 그 손가락은 끝까지 겨누기만 한다.
+        /// 시위 풀기 버튼이면 겨누지 않고, 활을 든 중이면 <b>안 쏘고 내려놓는다</b>. 손잡이면 아무것도 안 하고
+        /// <see cref="ArcheryPointerRouter.Role.Handle"/>을 돌려준다 — 버튼 옮기기는 화면이 한다.
         /// <paramref name="screenWidthInHeights"/>는 세로를 1로 봤을 때의 가로 길이다(16:9 가로면 1.78).
         /// </summary>
-        public void PointerDown(int pointerId, bool onBowButton, bool onCancelButton, float screenWidthInHeights)
+        public ArcheryPointerRouter.Role PointerDown(int pointerId, ArcheryButtonLayout.Hit hit, float screenWidthInHeights)
         {
             this.screenWidthInHeights = screenWidthInHeights;
-            var role = router.Down(pointerId, onBowButton, onCancelButton);
+            var role = router.Down(pointerId, hit);
             fingers[pointerId] = new Finger();
 
             if (role == ArcheryPointerRouter.Role.Cancel)
             {
                 Finish(ArcheryPointerRouter.Ending.PutDown);
-                return;
+                return role;
             }
             if (role != ArcheryPointerRouter.Role.Bow)
             {
-                return;
+                return role;
             }
 
             OverCancelButton = false;
@@ -319,11 +320,15 @@ namespace LOP.UI
 
             input.SetDrawing(true);
             input.SetDrawRatio(1f);
+            return role;
         }
+
+        /// <summary>이 손가락이 지금 버튼을 옮기고 있나. 활을 들면 옮기던 손잡이 손가락도 멈춘다.</summary>
+        public bool MovesButton(int pointerId) => router.RoleOf(pointerId) == ArcheryPointerRouter.Role.Handle;
 
         /// <summary>
         /// 손가락이 움직였다. <paramref name="deltaFraction"/>은 화면 크기 대비 비율이고
-        /// <b>x 양수가 오른쪽, y 양수가 위</b>다. <paramref name="overCancelButton"/>은 손가락이 지금 취소 버튼 위인지.
+        /// <b>x 양수가 오른쪽, y 양수가 위</b>다. <paramref name="overCancelButton"/>은 손가락이 지금 시위 풀기 버튼 위인지.
         /// </summary>
         public void PointerMove(int pointerId, Vector2 deltaFraction, bool overCancelButton)
         {
@@ -341,7 +346,7 @@ namespace LOP.UI
 
             if (router.RoleOf(pointerId) == ArcheryPointerRouter.Role.Bow)
             {
-                //  취소 버튼 위인지는 **화면에 알려 주기 위해서만** 본다. 활을 내리지도, 조준을
+                //  시위 풀기 버튼 위인지는 **화면에 알려 주기 위해서만** 본다. 활을 내리지도, 조준을
                 //  멈추지도 않는다 — 그래야 버튼 위를 지나 더 겨눌 수 있다.
                 OverCancelButton = overCancelButton;
             }
@@ -389,7 +394,7 @@ namespace LOP.UI
 
         //  데스크톱 편의: 스페이스를 누르고 있는 동안 활 버튼을 누른 것과 같다. 마우스로는 화면을
         //  끌어 겨눈다 — 마우스 하나로 버튼을 누르면 겨누는 손이 없어지기 때문이다.
-        //  Escape는 취소 버튼이다 — 당기는 중이면 안 쏘고 내려놓고, 그 뒤 스페이스를 떼도 안 쏜다.
+        //  Escape는 시위 풀기 버튼이다 — 당기는 중이면 안 쏘고 내려놓고, 그 뒤 스페이스를 떼도 안 쏜다.
         private void PollSpace(UnityEngine.InputSystem.Keyboard keyboard)
         {
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
@@ -405,7 +410,7 @@ namespace LOP.UI
             spaceHeld = held;
             if (held)
             {
-                PointerDown(ArcheryPointerRouter.KeyboardPointerId, true, false, screenWidthInHeights);
+                PointerDown(ArcheryPointerRouter.KeyboardPointerId, ArcheryButtonLayout.Hit.Bow, screenWidthInHeights);
             }
             else
             {
@@ -469,7 +474,7 @@ namespace LOP.UI
         /// <summary>
         /// 내려놓은 <b>뒤에</b> 조준을 활을 들기 직전 자리로 되돌린다.
         ///
-        /// <para><b>왜 필요한가</b>: 활 손가락을 왼쪽 취소 버튼까지 끌어오면 그 손가락이 곧
+        /// <para><b>왜 필요한가</b>: 활 손가락을 왼쪽 시위 풀기 버튼까지 끌어오면 그 손가락이 곧
         /// 조준이라 끈 만큼 조준도 같이 끌려간다. 90m 홀드오버 전체가 1.1°이니 그냥 두면 조준이
         /// 통째로 날아간다. 다른 손가락으로 톡 쳐서 취소했어도 들기 전 자리로 돌아가는 편이 같은 손맛이다.</para>
         ///
@@ -522,7 +527,7 @@ namespace LOP.UI
         /// <summary>지금 활을 들고 있나. 화면이 버튼을 밝히는 데 쓴다.</summary>
         public bool Holding => router.Drawing;
 
-        /// <summary>취소 버튼이 지금 먹히나. 화면이 버튼을 보일지/숨길지(display:none) 정하는 데 쓴다.</summary>
+        /// <summary>시위 풀기 버튼이 지금 먹히나. 화면이 버튼을 보일지/숨길지(display:none) 정하는 데 쓴다.</summary>
         public bool CancelActive => router.Drawing;
 
     }

@@ -1,12 +1,13 @@
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace LOP.UI
 {
     /// <summary>
     /// 손가락마다 할 일을 정한다. <b>활 버튼에서 시작한 손가락 하나만</b> 활을 들고 쏘고,
     /// 그 밖의 손가락은 끌어서 겨누기만 한다 — 떼도, 터치를 뺏겨도 아무 일이 없다.
-    /// 왼쪽 아래 <b>취소 버튼</b>은 활을 든 동안 누르면 안 쏘고 내려놓는다.
+    /// 왼쪽 아래 <b>시위 풀기 버튼</b>은 활을 든 동안 누르면 안 쏘고 내려놓는다.
+    /// 버튼마다 붙은 <b>손잡이</b>를 잡은 손가락은 버튼 자리만 옮기고 그 밖엔 아무것도 안 한다.
+    /// 어디를 눌렀는지는 <see cref="ArcheryButtonLayout.HitTest"/>가 정한다.
     ///
     /// <para>모바일에선 손가락이 둘 이상 닿는다. 왼손으로 화면을 끌며 겨누고 오른손 엄지로 버튼을
     /// 쥐는 것이 이 조작의 기본 자세라, 손가락 id로 역할을 나눠 두지 않으면 겨누던 손을 떼는 순간
@@ -19,9 +20,10 @@ namespace LOP.UI
             None,
             Look,     // 끌어서 겨누기만 한다
             Bow,      // 활을 든 손가락 — 끌면 겨누고, 떼면 쏜다
-            Cancel,   // 당기는 중에 취소 버튼을 눌러 활을 내려놓은 손가락 — 그 뒤로 아무것도 안 한다
-            Inert,    // 아무것도 안 하는 손가락 — 취소당한 활 손가락. 취소 버튼은 안 당길 땐 안 보이므로
-                      // 그 위에서 시작한 손가락은 더는 여기로 오지 않는다(화면 손가락으로 간다).
+            Cancel,   // 당기는 중에 시위 풀기 버튼을 눌러 활을 내려놓은 손가락 — 그 뒤로 아무것도 안 한다
+            Handle,   // 손잡이를 잡은 손가락 — 버튼 자리만 옮긴다(겨누지도, 들지도, 쏘지도 않는다)
+            Inert,    // 아무것도 안 하는 손가락 — 취소당한 활 손가락, 당기는 중에 닿은 손잡이 손가락,
+                      // 활을 들어 멈춘 손잡이 손가락, 두 번째 손잡이 손가락.
         }
 
         /// <summary>손가락을 뗐을 때 일어날 일.</summary>
@@ -29,7 +31,7 @@ namespace LOP.UI
         {
             None,      // 겨누기만 하던 손가락 — 아무 일 없다
             Fire,      // 시위가 걸린 채 뗐다 — 쏜다
-            PutDown,   // 취소 버튼 위에서 뗐거나 취소됐거나 터치를 뺏겼다 — 안 쏘고 조준을 되돌린다
+            PutDown,   // 시위 풀기 버튼 위에서 뗐거나 취소됐거나 터치를 뺏겼다 — 안 쏘고 조준을 되돌린다
             Lowered,   // 시위가 걸리기 전에 뗐다 — 안 쏘고 활만 내린다
         }
 
@@ -48,33 +50,65 @@ namespace LOP.UI
         /// 손가락이 닿았다. 버튼 위이고 아직 아무도 활을 안 들었으면 활, 아니면 겨누기다 —
         /// 두 번째 손가락이 버튼에 닿아도 첫 손가락의 당김을 가로채지 않는다.
         ///
-        /// <para>취소 버튼은 활을 든 동안만 보인다. 그래서 취소 버튼 위라는 것은
-        /// <b>활을 든 중일 때만</b> 뜻이 있다 — 그때는 <b>누르는 순간</b> 내려놓고
-        /// <see cref="Role.Cancel"/>을 돌려준다(부른 쪽이 조준을 되돌린다). 안 든 중이면
-        /// 버튼이 안 보이니 그 자리는 그냥 화면이다 — <paramref name="onCancelButton"/>을
-        /// 무시하고 보통 손가락(겨누기)으로 받는다.</para>
+        /// <para>시위 풀기 버튼은 활을 든 동안만 보인다. 그래서 그 위라는 것은 <b>활을 든 중일 때만</b>
+        /// 뜻이 있다 — 그때는 <b>누르는 순간</b> 내려놓고 <see cref="Role.Cancel"/>을 돌려준다(부른 쪽이
+        /// 조준을 되돌린다). 안 든 중이면 버튼이 안 보이니 그 자리는 그냥 화면이다(겨누기).</para>
+        ///
+        /// <para>손잡이는 <b>안 당길 때만</b> 잡힌다. 당기는 중에 닿은 손잡이 손가락은 아무것도 안 한다 —
+        /// 쏘려는 사이에 버튼이 손가락 밑에서 움직이면 안 되고, 시위 풀기 손잡이를 스친 것이 활을 내려서도
+        /// 안 된다. 손잡이는 한 번에 하나만 잡힌다.</para>
         /// </summary>
-        public Role Down(int pointerId, bool onBowButton, bool onCancelButton = false)
+        public Role Down(int pointerId, ArcheryButtonLayout.Hit hit)
         {
             if (roles.TryGetValue(pointerId, out Role existing))
             {
                 return existing;   // 같은 누름이 두 번 들어왔다
             }
 
-            if (onCancelButton && Drawing)
+            Role role;
+            switch (hit)
             {
-                Role pressed = Cancel() == Ending.PutDown ? Role.Cancel : Role.Inert;
-                roles[pointerId] = pressed;
-                return pressed;
+                case ArcheryButtonLayout.Hit.BowHandle:
+                case ArcheryButtonLayout.Hit.CancelHandle:
+                    role = Drawing || HoldsHandle() ? Role.Inert : Role.Handle;
+                    break;
+                case ArcheryButtonLayout.Hit.Cancel when Drawing:
+                    role = Cancel() == Ending.PutDown ? Role.Cancel : Role.Inert;
+                    break;
+                case ArcheryButtonLayout.Hit.Bow when Drawing == false:
+                    role = Role.Bow;
+                    bowPointerId = pointerId;
+                    //  활을 드는 순간 옮기던 손잡이는 멈춘다 — 당기는 중엔 버튼이 안 움직인다.
+                    StopHandles();
+                    break;
+                default:
+                    role = Role.Look;
+                    break;
             }
-
-            Role role = onBowButton && Drawing == false ? Role.Bow : Role.Look;
             roles[pointerId] = role;
-            if (role == Role.Bow)
-            {
-                bowPointerId = pointerId;
-            }
             return role;
+        }
+
+        private bool HoldsHandle()
+        {
+            foreach (Role role in roles.Values)
+            {
+                if (role == Role.Handle) { return true; }
+            }
+            return false;
+        }
+
+        private void StopHandles()
+        {
+            var handles = new List<int>();
+            foreach (var pair in roles)
+            {
+                if (pair.Value == Role.Handle) { handles.Add(pair.Key); }
+            }
+            foreach (int id in handles)
+            {
+                roles[id] = Role.Inert;
+            }
         }
 
         public Role RoleOf(int pointerId) => roles.TryGetValue(pointerId, out Role role) ? role : Role.None;
@@ -87,7 +121,7 @@ namespace LOP.UI
         }
 
         /// <summary>
-        /// 활을 든 중이면 안 쏘고 내려놓는다(취소 버튼·에디터 Escape). 활 손가락은 남아 있지만
+        /// 활을 든 중이면 안 쏘고 내려놓는다(시위 풀기 버튼·에디터 Escape). 활 손가락은 남아 있지만
         /// <see cref="Role.Inert"/>가 돼 그 뒤로 떼도 안 쏘고 겨누지도 않는다.
         /// </summary>
         public Ending Cancel()
@@ -136,66 +170,6 @@ namespace LOP.UI
                 bowPointerId = NoPointer;
             }
             return role;
-        }
-
-        //  ── 버튼 자리 ───────────────────────────────────────────────
-        //  좌표는 모두 패널 좌표(왼쪽 위가 0, 아래로 갈수록 y가 커진다)다.
-
-        /// <summary>보이는 원의 지름 = 화면 세로의 24%. 폰 가로에서 엄지 하나가 넉넉히 덮는다.</summary>
-        public const float BowButtonDiameterOfHeight = 0.24f;
-
-        /// <summary>누르는 자리는 보이는 원보다 조금 넓다 — 가장자리를 살짝 빗겨 눌러도 활이 올라온다.</summary>
-        public const float BowButtonHitSlack = 1.15f;
-
-        //  오른손 엄지가 쉬는 곳. 10-18 폰 판 "버튼을 쥔 채 끌 자리가 없다" — 86%·74%(구석)에서
-        //  왼쪽 위로 당겨 사방으로 끌 틈을 남긴다. 같은 날 "너무 안쪽" — 가로만 78% → 80%.
-        private const float CenterXOfWidth = 0.80f;
-        private const float CenterYOfHeight = 0.62f;
-
-        //  안전 영역 가장자리와 누르는 자리 사이에 남길 틈(패널 픽셀).
-        private const float EdgeGap = 8f;
-
-        public static float BowButtonRadius(Vector2 panelSize) => panelSize.y * BowButtonDiameterOfHeight * 0.5f;
-
-        public static float BowButtonHitRadius(Vector2 panelSize) => BowButtonRadius(panelSize) * BowButtonHitSlack;
-
-        /// <summary>
-        /// 버튼 한가운데. 기본은 가로 78%·세로 62%이고, 노치·홈 막대(안전 영역 밖)에 누르는 자리가
-        /// 걸리면 그만큼 안쪽으로 당긴다. <paramref name="rightInset"/>·<paramref name="bottomInset"/>은
-        /// 안전 영역 밖으로 잘린 오른쪽·아래 폭이다.
-        /// </summary>
-        public static Vector2 BowButtonCenter(Vector2 panelSize, float rightInset, float bottomInset)
-        {
-            float r = BowButtonHitRadius(panelSize);
-            float x = Mathf.Min(panelSize.x * CenterXOfWidth, panelSize.x - rightInset - r - EdgeGap);
-            float y = Mathf.Min(panelSize.y * CenterYOfHeight, panelSize.y - bottomInset - r - EdgeGap);
-            return new Vector2(x, y);
-        }
-    
-        //  ── 취소 버튼 자리 ──────────────────────────────────────────
-        //  왼손 엄지가 닿는 왼쪽 아래에 늘 서 있다. 활을 든 손가락을 끌어와도 되고, 다른 손가락으로 톡 쳐도 된다.
-
-        /// <summary>보이는 원의 지름 = 화면 세로의 18%. 활 버튼보다 작다 — 덜 쓰는 버튼이다.</summary>
-        public const float CancelButtonDiameterOfHeight = 0.18f;
-
-        private const float CancelCenterXOfWidth = 0.12f;
-        private const float CancelCenterYOfHeight = 0.74f;
-
-        public static float CancelButtonRadius(Vector2 panelSize) => panelSize.y * CancelButtonDiameterOfHeight * 0.5f;
-
-        /// <summary>누르는 자리는 활 버튼처럼 보이는 원보다 조금 넓다.</summary>
-        public static float CancelButtonHitRadius(Vector2 panelSize) => CancelButtonRadius(panelSize) * BowButtonHitSlack;
-
-        /// <summary>
-        /// 취소 버튼 한가운데. 기본은 가로 12%·세로 74%이고, 안전 영역 밖(왼쪽 노치·홈 막대)에
-        /// 누르는 자리가 걸리면 그만큼 안쪽으로 민다.
-        /// </summary>
-        public static Vector2 CancelButtonCenter(Vector2 panelSize, float leftInset, float bottomInset)
-        {
-            float r = CancelButtonHitRadius(panelSize);
-            float x = Mathf.Max(panelSize.x * CancelCenterXOfWidth, leftInset + r + EdgeGap);
-            float y = Mathf.Min(panelSize.y * CancelCenterYOfHeight, panelSize.y - bottomInset - r - EdgeGap);
-            return new Vector2(x, y);
         }
     }
 }

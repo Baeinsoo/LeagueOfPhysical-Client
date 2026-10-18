@@ -11,7 +11,7 @@
 }
 
 /* 걷기 스틱이 사는 구석. 오른손 엄지가 겨누는 동안 왼손 엄지가 여기를 쓴다.
-   취소 버튼이 이 구석 안에 서 있어 그 원 자리만은 취소 버튼이 가져간다. */
+   시위 풀기 버튼이 이 구석 안에 서 있어 그 원 자리만은 시위 풀기 버튼이 가져간다. */
 .move-area {
     position: absolute;
     left: 0; bottom: 0;
@@ -42,7 +42,7 @@
     border-color: rgba(255, 255, 255, 0.7);
 }
 
-/* 활 버튼 — 오른쪽. 자리·크기·둥글기는 View가 화면에 맞춰 써 넣는다.
+/* 활 버튼 — 기본은 오른쪽. 자리·크기·둥글기는 View가 화면에 맞춰 써 넣는다.
    바깥(.bow-button-hit)은 투명한 누르는 자리, 안쪽(.bow-button)이 보이는 원이다. */
 .bow-button-hit {
     position: absolute;
@@ -67,13 +67,15 @@
 .bow-button.is-armed {
     background-color: rgba(255, 225, 77, 0.55);
 }
-.bow-label {
-    color: rgb(255, 255, 255);
-    -unity-font-style: bold;
-    -unity-text-align: middle-center;
+/* 활 아이콘(화살을 건 활) — 원의 65%. 그림은 Tools/Icons/archery_pad_icons.py가 뽑는다. */
+.bow-icon {
+    width: 65%;
+    height: 65%;
+    background-image: url("project://database/Assets/UI/ArcheryPad/Icons/bow_drawn.png");
+    -unity-background-scale-mode: scale-to-fit;
 }
 
-/* 취소 버튼 — 왼쪽 아래. 자리·크기·둥글기는 View가 화면에 맞춰 써 넣는다.
+/* 시위 풀기 버튼 — 기본은 왼쪽 아래. 자리·크기·둥글기는 View가 화면에 맞춰 써 넣는다.
    안 당길 땐 display:none으로 아예 없고, 당기는 동안만 보이며, 활 손가락이 위에 오면 붉어진다.
    위에 왔다고 활이 내려가지는 않는다 — 뗄 때만 판정한다. */
 .cancel-button-hit {
@@ -99,13 +101,52 @@
     border-top-color: rgba(232, 110, 92, 0.95);
     border-bottom-color: rgba(232, 110, 92, 0.95);
 }
+/* 위에 느슨한 시위의 활, 아래에 작은 글씨. 글자 크기는 View가 원에 비례해 써 넣는다. */
+.cancel-icon {
+    width: 50%;
+    height: 50%;
+    background-image: url("project://database/Assets/UI/ArcheryPad/Icons/bow_slack.png");
+    -unity-background-scale-mode: scale-to-fit;
+}
 .cancel-label {
     color: rgb(255, 255, 255);
     -unity-font-style: bold;
     -unity-text-align: middle-center;
+    margin-top: 2px;
+    padding: 0;
 }
 .cancel-button.is-over .cancel-label {
     color: rgb(255, 225, 220);
+}
+
+/* 옮기기 손잡이 — 버튼 오른쪽 위에 걸친 작은 반투명 원. 늘 보인다. 자리·크기는 View가 써 넣는다. */
+.layout-handle-hit {
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+}
+.layout-handle {
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.38);
+    border-left-width: 2px; border-right-width: 2px;
+    border-top-width: 2px; border-bottom-width: 2px;
+    border-left-color: rgba(255, 255, 255, 0.55);
+    border-right-color: rgba(255, 255, 255, 0.55);
+    border-top-color: rgba(255, 255, 255, 0.55);
+    border-bottom-color: rgba(255, 255, 255, 0.55);
+    opacity: 0.8;
+}
+/* 잡고 있는 동안 또렷하게 — 지금 버튼을 옮기는 중이라는 뜻이다. */
+.layout-handle.is-dragging {
+    opacity: 1;
+    background-color: rgba(255, 225, 77, 0.55);
+}
+.layout-handle-icon {
+    width: 62%;
+    height: 62%;
+    background-image: url("project://database/Assets/UI/ArcheryPad/Icons/move.png");
+    -unity-background-scale-mode: scale-to-fit;
 }
 
 /* 점수는 화면 위 가운데. 조작을 가리면 안 되므로 입력은 통과시킨다. */

@@ -7,9 +7,9 @@ namespace LOP.Tests
     public class ArcheryDrawnFovTests
     {
         [Test]
-        public void 투석기는_40도까지만_좁힌다()
+        public void 투석기는_30도까지만_좁힌다()
         {
-            Assert.AreEqual(40f, ArcheryAimView.DrawnFovFor(ArcheryCourseKind.Catapult));
+            Assert.AreEqual(30f, ArcheryAimView.DrawnFovFor(ArcheryCourseKind.Catapult));
         }
 
         [Test]

@@ -23,8 +23,9 @@ namespace LOP
         private const float DrawnFov = 22f;
 
         //  투석기는 덜 좁힌다. 과녁이 좌우 ±30°·위로 25°까지 퍼져 있어 22°면 다음 과녁이 화면 밖이고,
-        //  엄지가 거기까지 갈 거리도 모자란다. 과녁이 크고 가까워 크게 볼 이유도 적다.
-        private const float CatapultDrawnFov = 40f;
+        //  엄지가 거기까지 갈 거리도 모자란다. 다만 난이도를 낮추려고 40°에서 30°로
+        //  더 좁혀 표적을 크게 보인다 — 표적이 더 오래 떠 있어(3.6초) 다음 과녁으로 옮겨 갈 여유가 있다.
+        private const float CatapultDrawnFov = 30f;
 
         /// <summary>
         /// 만작일 때의 화각. 화면만 바뀐다 — 조준은 카메라가 보는 방향(각도)이라 시뮬·판정은 화각을 모른다.

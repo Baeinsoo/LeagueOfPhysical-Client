@@ -11,9 +11,11 @@ namespace LOP.Tests
     /// <summary>경기 씬을 다시 띄울 때 — 옛 씬의 늦은 정리가 새 씬의 방 정보를 지우지 않고, 접속 대기는 시간 안에 끝난다.</summary>
     public class RoomReloadSafetyTests
     {
+        //  실제 시간으로 기다린다 — CI 배치 모드는 그리지 않아 프레임이 매우 빨라, 프레임 수로 재면 0.2초 제한이 오기 전에 끝난다.
         private static IEnumerator Run(Task task)
         {
-            for (int frame = 0; frame < 600 && !task.IsCompleted; frame++) yield return null;
+            double giveUpAt = UnityEngine.Time.realtimeSinceStartupAsDouble + 5;
+            while (!task.IsCompleted && UnityEngine.Time.realtimeSinceStartupAsDouble < giveUpAt) yield return null;
             Assert.IsTrue(task.IsCompleted, "끝나지 않는다(멈춤)");
         }
 

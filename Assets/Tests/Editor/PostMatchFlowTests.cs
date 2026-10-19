@@ -24,7 +24,7 @@ namespace LOP.Tests
             var results = new FakeResults();
             var frontEnd = new FrontEnd(() => null, loader);
             var postMatch = new PostMatch(() => frontEnd, loader);
-            return (new InMatch(() => frontEnd, () => postMatch, loader, results), results);
+            return (new InMatch(() => frontEnd, () => postMatch, () => null, loader, results), results);
         }
 
         [Test]

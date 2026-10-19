@@ -100,6 +100,12 @@ MonoBehaviour:
   - viewName: KitToastView
     uxml: {fileID: 9197481963319205126, guid: d251942f12064234b841c24ae0ad858d, type: 3}
     uss: {fileID: 0}
+  - viewName: ReconnectingOverlayView
+    uxml: {fileID: 9197481963319205126, guid: eae96f22dfee7c642a339840238080af, type: 3}
+    uss: {fileID: 7433441132597879392, guid: 4667b7ef16c78e54899aa24b6d86dc37, type: 3}
+  - viewName: ReconnectFailedView
+    uxml: {fileID: 9197481963319205126, guid: d68d5466b6ade084bbad9241354febf5, type: 3}
+    uss: {fileID: 7433441132597879392, guid: 5452288c59ccb6b45a6086a3554e90ba, type: 3}
   - viewName: GameSelectView
     uxml: {fileID: 9197481963319205126, guid: 1e8a3b953fe65064f9c87d6c7ceb1969, type: 3}
     uss: {fileID: 7433441132597879392, guid: 3d8dca4705f0f7240ba916cec389327f, type: 3}

@@ -23,6 +23,11 @@ namespace LOP.UI
             builder.Register<ServerUnreachableViewModel>(Lifetime.Transient);
             builder.Register<ServerUnreachableView>(Lifetime.Transient);
 
+            //  경기 중 끊김 — 덮개와 재접속 실패 팝업. 창은 앱 범위라 씬이 바뀌면 감시가 닫는다.
+            builder.Register<ReconnectingOverlayView>(Lifetime.Transient);
+            builder.Register<ReconnectFailedViewModel>(Lifetime.Transient);
+            builder.Register<ReconnectFailedView>(Lifetime.Transient);
+
             builder.Register<GameLoadingView>(Lifetime.Transient);
             builder.Register<MatchingWaitingView>(Lifetime.Transient);
             builder.Register<MatchmakingFailedView>(Lifetime.Transient);

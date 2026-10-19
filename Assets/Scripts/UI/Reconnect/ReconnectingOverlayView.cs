@@ -10,6 +10,9 @@ namespace LOP.UI
 
         public override bool AutoClose => false;
 
+        //  로딩판(Loading 층) 위에 뜬다 — 처음 입장·다시 들어가기 중에 끊기면 로딩판이 떠 있다.
+        public override UILayer Layer => UILayer.System;
+
         public override void OnOpen()
         {
             base.OnOpen();

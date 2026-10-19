@@ -46,6 +46,14 @@ namespace LOP.Tests
             button.SendEvent(evt);
         }
 
+        //  처음 입장·다시 들어가기 중에는 로딩판(Loading 층, 입력 막음)이 떠 있다 — 그 아래 깔리면 팝업을 못 누른다.
+        [Test]
+        public void 덮개와_팝업은_로딩판보다_위에_뜬다()
+        {
+            Assert.Greater(new ReconnectingOverlayView().Layer, UILayer.Loading);
+            Assert.Greater(new ReconnectFailedView(new ReconnectFailedViewModel()).Layer, UILayer.Loading);
+        }
+
         [Test]
         public void 덮개는_눌러도_닫히지_않고_문구를_보여_준다()
         {

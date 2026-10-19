@@ -128,5 +128,14 @@ namespace LOP.Tests
             Assert.IsNotEmpty(guid, "키트 에셋이 없다");
             StringAssert.Contains("festivalKit: {fileID: 11400000, guid: " + guid + ",", text);
         }
+
+        [Test]
+        public void 키트에_투석기_칸이_남아_있지_않다()
+        {
+            //  3차에서 투석기를 뺐다 — 옛 칸이 에셋 YAML에 남으면 지운 FBX·재질 GUID를 계속 가리킨다(끊긴 참조).
+            string yaml = System.IO.File.ReadAllText(KitPath);
+            Assert.IsFalse(yaml.Contains("catapultFrame"), "catapultFrame 칸이 남았다");
+            Assert.IsFalse(yaml.Contains("catapultArm"), "catapultArm 칸이 남았다");
+        }
     }
 }

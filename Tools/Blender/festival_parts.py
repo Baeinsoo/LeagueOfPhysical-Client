@@ -1,4 +1,4 @@
-"""축제 표적·투석기 — 원점 기준 FBX로 뽑는다(투석기 사냥 2차 — 손맛 표적 9종).
+"""축제 표적 — 원점 기준 FBX로 뽑는다(투석기 사냥 2차 — 손맛 표적 9종).
 
 실행:  blender -b -P Tools/Blender/festival_parts.py -- <LeagueOfPhysical-Client/Assets/Art 절대경로> [부품 이름 ...]
 출력:  <Art>/Models/Festival/<부품>.fbx  (이름을 주면 그 부품만 — FBX는 뽑을 때마다 바이트가 달라진다)
@@ -222,29 +222,7 @@ def kid_balloon():
     return p
 
 
-def catapult_frame():
-    p = Part('CatapultFrame')   # 원점 = 바닥 가운데. 축 높이 1.2 m, +z = 던지는 쪽
-    for x in (-0.7, 0.7):
-        p.box((x, 0.15, 0), (0.18, 0.18, 2.6), 'Wood')
-        p.box((x, 0.7, -0.2), (0.16, 1.2, 0.16), 'Wood')
-        p.box((x, 0.75, 0.35), (0.14, 1.3, 0.14), 'WoodDark', rot_z_deg=0)
-    p.box((0, 1.2, -0.2), (1.6, 0.14, 0.14), 'Metal')
-    p.box((0, 1.6, 0.6), (1.5, 0.16, 0.16), 'WoodDark')   # 멈추개
-    for z in (-1.1, 1.1):
-        for x in (-0.8, 0.8):
-            p.lathe([(0.32, -0.06), (0.32, 0.06)], 'WoodDark', segs=12, center=(x, 0.32, z), axis='z')
-    return p
-
-
-def catapult_arm():
-    p = Part('CatapultArm')   # 원점 = 축. 팔은 뒤(−z)로 누운 자세가 0도, 바구니가 끝에
-    p.box((0, 0, -1.2), (0.14, 0.14, 2.6), 'Wood')
-    p.lathe([(0.0, 0.0), (0.32, 0.08), (0.34, 0.24)], 'Rope', segs=12, center=(0, 0.05, -2.45))
-    return p
-
-
-PARTS = [water_balloon, watermelon, plate, rocket, golden_bell, pinata, bird_nest, cheer_flag, kid_balloon,
-         catapult_frame, catapult_arm]
+PARTS = [water_balloon, watermelon, plate, rocket, golden_bell, pinata, bird_nest, cheer_flag, kid_balloon]
 
 
 def export(part):

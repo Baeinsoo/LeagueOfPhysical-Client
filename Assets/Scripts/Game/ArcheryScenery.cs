@@ -63,7 +63,7 @@ namespace LOP
             var treeBounds = bounds;
             if (course != null && course.IsCatapult && course.SharedLane is ArcheryRangeLayout.Lane lane)
             {
-                //  씬 땅(x −6~30)은 왼쪽 표적 길(−16 m)을 못 덮는다 — 사대 기준 양옆 32 m까지 잔디를 더 깐다.
+                //  씬 땅(x −6~30)은 왼쪽으로 날아가는 표적(−24 m 언저리)을 못 덮는다 — 사대 기준 양옆 32 m까지 잔디를 더 깐다.
                 //  씬 땅보다 살짝 낮게 깔아 겹치는 곳은 씬 땅이 보인다(같은 색이라 이음매가 안 보인다).
                 var pad = CatapultGrass(lane.ShooterPosition, lane.Forward, bounds.max.y);
                 Prim(root, PrimitiveType.Cube, grass, pad.center, pad.size, Quaternion.LookRotation(Flat(lane.Forward)));

@@ -4,7 +4,7 @@ using UnityEngine;
 namespace LOP
 {
     /// <summary>
-    /// 투석기 사냥 축제 소품(표적 모델·재질·투석기·터지는 연출 재질). 게임 씬 스코프가 잡고 있어서 빌드에 따라간다 — 맵 씬(서버도 쓰는 원격 에셋)은
+    /// 투석기 사냥 축제 소품(표적 모델·재질·터지는 연출 재질). 게임 씬 스코프가 잡고 있어서 빌드에 따라간다 — 맵 씬(서버도 쓰는 원격 에셋)은
     /// 건드리지 않는다. 빈 키트(칸이 비었으면)는 아무것도 안 만들고, 그러면 화면이 회색 도형으로, 연출은 번쩍임만으로 돌아간다.
     /// 만드는 곳: 메뉴 LOP/Archery/Build Festival Kit.
     /// </summary>
@@ -23,8 +23,6 @@ namespace LOP
 
         public Entry[] targets = Array.Empty<Entry>();
         public Material forbid;   // 쏘면 안 되는 것의 빨간 고리·빗금
-        public Mesh catapultFrame, catapultArm;
-        public Material[] catapultFrameMaterials, catapultArmMaterials;
 
         //  터지는 연출(LOP/FxParticle). 조각·색종이 = Solid, 물방울 = Dot, 불티 = Spark(더하기), 고리 = Ring, 번쩍임 = Flash(흰색 꽉 참).
         public Material fxSolid, fxDot, fxSpark, fxRing, fxFlash;

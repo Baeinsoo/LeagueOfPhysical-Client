@@ -19,9 +19,8 @@ namespace LOP.EditorTools
 
         private static readonly Dictionary<string, string> SlotColors = new Dictionary<string, string>
         {
-            //  투석기
-            ["Wood"] = "#8B5E34", ["WoodDark"] = "#5E3B1F", ["Metal"] = "#A7ADB5", ["Rope"] = "#CDB58A",
-            //  2차 표적(시안 색)
+            //  2차 표적(시안 색). WoodDark는 응원 깃발 막대(투석기는 3차에서 뺐다).
+            ["WoodDark"] = "#5E3B1F",
             ["Water"] = "#3FB3FF", ["WaterLight"] = "#CFF0FF", ["WaterDark"] = "#1D86C9",
             ["Melon"] = "#2F9E44", ["MelonDark"] = "#14632A",
             ["Porcelain"] = "#F6F3EC", ["PorcelainBlue"] = "#3B6FD8",
@@ -55,8 +54,6 @@ namespace LOP.EditorTools
                 return new ArcheryFestivalKit.Entry { code = c, mesh = mesh, materials = materials, radius = BodyRadius(mesh, materials) };
             }).ToArray();
             kit.forbid = Toon("Festival_Forbid", "#E5484D");
-            kit.catapultFrame = MeshOf("CatapultFrame"); kit.catapultFrameMaterials = MaterialsOf("CatapultFrame");
-            kit.catapultArm = MeshOf("CatapultArm"); kit.catapultArmMaterials = MaterialsOf("CatapultArm");
 
             //  연출 재질 — 섞기: 5 = SrcAlpha, 10 = OneMinusSrcAlpha, 1 = One(더하기).
             //  번쩍임만 정점 색을 안 쓴다 — 정점 색이 없는 표적 메시에 씌우므로 곱하면 검게 나온다.

@@ -44,12 +44,12 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 투석기_잔디는_표적_길과_관중석과_투석기를_덮고_땅보다_낮다()
+        public void 투석기_잔디는_표적이_나는_곳과_관중석을_덮고_땅보다_낮다()
         {
             var pad = ArcheryScenery.CatapultGrass(Vector3.zero, Vector3.forward, 0f);
-            //  표적 길 ±16 m, 투석기 관중석 바깥 끝(17 + 1.2·2), 투석기(±22 m) 받침까지.
-            Assert.LessOrEqual(pad.bounds.min.x, -ArcheryCatapultMachines.SideOffsetM - 2f);
-            Assert.GreaterOrEqual(pad.bounds.max.x, ArcheryCatapultMachines.SideOffsetM + 2f);
+            //  3차: 표적은 ±12 m 안에서 나와 옆으로 날아 ±24 m 언저리까지 간다(수박 12 + 3.5 × 3.6) — 그 아래가 허공이면 안 된다.
+            Assert.LessOrEqual(pad.bounds.min.x, -24f);
+            Assert.GreaterOrEqual(pad.bounds.max.x, 24f);
             Assert.LessOrEqual(pad.bounds.min.z, ArcheryCrowdLayout.BackFrom - 1f);
             Assert.GreaterOrEqual(pad.bounds.max.z, 56f);
             Assert.Less(pad.bounds.max.y, 0f, "씬 땅과 같은 높이면 깜빡인다");

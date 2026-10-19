@@ -25,6 +25,9 @@ namespace LOP
 
         public bool initialized { get; private set; }
 
+        //  시작할 때 본 방 정보. 다시 띄우는 중이면 새 씬이 다른 객체로 채워 둔다.
+        private Room ownedRoom;
+
         private async void Awake()
         {
             try
@@ -59,6 +62,8 @@ namespace LOP
 
         public async Task InitializeAsync()
         {
+            ownedRoom = roomDataStore.room;
+
             var getMatch = await WebAPI.GetMatch(roomDataStore.room.matchId);
             if (getMatch.code != ResponseCode.SUCCESS)
             {
@@ -81,7 +86,11 @@ namespace LOP
             await gameFactory.DestroyAsync();
             runner = null;
 
-            roomDataStore.Clear();
+            //  다시 띄우는 중이면 새 씬이 방 정보를 이미 새로 채웠다 — 그때는 지우지 않는다.
+            if (RoomStartup.ShouldClearRoomStore(ownedRoom, roomDataStore.room))
+            {
+                roomDataStore.Clear();
+            }
             gameDataStore.Clear();
 
             initialized = false;
@@ -116,9 +125,12 @@ namespace LOP
             //  토큰 갱신을 여기서 끝낸다 — 접속 인증 콜백은 동기라 그 안에서는 기다릴 수 없다.
             await ((LOPNetworkAuthenticator)networkManager.authenticator).PrepareCredentialAsync(destroyCancellationToken);
 
+            //  옛 씬의 연결이 아직 "끊는 중"일 수 있다 — 완전히 내려간 뒤 새로 붙는다.
+            await RoomStartup.WaitOrThrowAsync(() => NetworkClient.active == false, RoomStartup.ConnectTimeoutSeconds, "이전 연결 정리", destroyCancellationToken);
+
             networkManager.StartClient();
 
-            await UniTask.WaitUntil(() => NetworkClient.ready);
+            await RoomStartup.WaitOrThrowAsync(() => NetworkClient.ready, RoomStartup.ConnectTimeoutSeconds, "방 접속", destroyCancellationToken);
         }
 
         private async Task JoinRoomServerAsync()
@@ -129,7 +141,7 @@ namespace LOP
             };
             NetworkClient.Send(message);
 
-            await UniTask.WaitUntil(() => gameDataStore.gameInfo != null);
+            await RoomStartup.WaitOrThrowAsync(() => gameDataStore.gameInfo != null, RoomStartup.GameInfoTimeoutSeconds, "첫 상태", destroyCancellationToken);
         }
 
         private async Task DisconnectRoomServerAsync()

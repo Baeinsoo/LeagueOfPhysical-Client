@@ -1,0 +1,7 @@
+/* 재접속 실패 — 서버 연결 실패 판과 같은 가운데 크림 판(.kit-panel). 문구는 ReconnectFailedViewModel 그대로 */
+.reconnect-root { flex-grow: 1; align-items: center; justify-content: center; }
+.reconnect-panel { width: 900px; }
+.reconnect-title { font-size: 48px; color: var(--lop-ink); margin-bottom: 24px; }
+.reconnect-message { font-size: 30px; white-space: normal; -unity-text-align: middle-center; margin-bottom: 32px; }
+.reconnect-root .reconnect-retry { width: 360px; height: 120px; }
+.reconnect-root .reconnect-retry__label { font-size: 48px; }

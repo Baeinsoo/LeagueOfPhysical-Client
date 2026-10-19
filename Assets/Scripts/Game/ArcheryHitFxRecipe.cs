@@ -143,7 +143,9 @@ namespace LOP
 
         //  등장 "뿅"(3차 spec §1): 색종이 + 흰 고리, 흔들림 없음. 색종이에 그 표적의 색 하나를 두 번 넣어(비율을 높여) 무엇이 나오는지 색으로 읽힌다.
         //  색은 손으로 옮겨 왔다 — 출처는 키트 빌더의 몸 색(Assets/Scripts/Editor/ArcheryFestivalKitBuilder.cs의 SlotColors). 거기를 바꾸면 여기도 같이 바꾼다.
-        //  한 무리에 여덟까지 같이 터지므로 24개로 작게.
+        //  한 무리에 여덟까지 같이 터지므로 개수는 24개로 적게. 대신 조각은 맞힌 연출보다 훨씬 크다 —
+        //  뿅은 사수에게서 44~55 m 떨어져 터져서, 맞힌 연출 크기(0.08~0.16 m)로는 폰 화면에 2~3 px밖에 안 됐다.
+        //  0.4~0.55 m면 넓은 시야(60°)·1080 px 높이에서 45 m에 8~12 px쯤 된다. 조각이 커진 만큼 더 멀리 퍼뜨린다.
         private static readonly Dictionary<string, ArcheryHitFxRecipe> PopByCode = BuildPops();
         private static readonly ArcheryHitFxRecipe PopFallback = Pop("#FFFFFF");
 
@@ -157,11 +159,14 @@ namespace LOP
             ["BirdNest"] = Pop("#8A5A2B"), ["CheerFlag"] = Pop("#3B5BFF"), ["KidBalloon"] = Pop("#FFD23F"),
         };
 
+        public const float PopConfettiSizeMin = 0.4f;
+        public const float PopConfettiSizeMax = 0.55f;
+
         private static ArcheryHitFxRecipe Pop(string kind) => new ArcheryHitFxRecipe
         {
             Bursts = new[]
             {
-                new ArcheryFxBurst(ArcheryFxChannel.Confetti, 24, 2f, 5f, 1.5f, 0.5f, 0.8f, 0.08f, 0.16f,
+                new ArcheryFxBurst(ArcheryFxChannel.Confetti, 24, 3f, 7f, 2f, 0.5f, 0.8f, PopConfettiSizeMin, PopConfettiSizeMax,
                                    P(kind, kind, "#FFFFFF", "#FF4D8D", "#FFD23F", "#44D17A")),
             },
             Rings = new[] { new ArcheryFxRing(0f, 0.3f, 0.6f, 2f, new Color32(255, 255, 255, 255)) },

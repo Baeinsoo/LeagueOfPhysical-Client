@@ -7,7 +7,7 @@ using UnityEngine;
 namespace LOP.UI
 {
     /// <summary>
-    /// 투석기 사냥 HUD — 라운드 소개(내 자리), "준비…", 남은 시간, 라운드 결과판, "OO +3" 팝업, 사격 금지.
+    /// 투석기 사냥 HUD — 라운드 소개(내 자리), "준비!", 남은 시간, 라운드 결과판, "OO +3" 팝업, 사격 금지.
     /// 무리·라운드 시각은 <see cref="ArcheryCatapultSchedule"/>이, 점수는 스냅샷이, 누가 맞혔는지는 적중 사건이 준다.
     /// View가 매 프레임 <see cref="Tick"/>을 부르고 값을 읽어 간다(한 발 승부 HUD와 같은 꼴).
     /// </summary>

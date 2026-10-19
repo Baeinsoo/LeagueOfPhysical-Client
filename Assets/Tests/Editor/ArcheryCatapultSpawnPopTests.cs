@@ -1,5 +1,6 @@
 using System.Linq;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace LOP.Tests
 {
@@ -47,6 +48,23 @@ namespace LOP.Tests
                 Assert.LessOrEqual(r.ParticleCount, 40, code + " — 8인 판엔 한 무리에 여덟이 같이 터진다");
                 Assert.AreEqual(0f, r.ShakeMeters, code);
                 Assert.IsFalse(r.Shame || r.Swing || r.Ding || r.Slow || r.Firework.HasValue, code);
+            }
+        }
+
+        [Test]
+        public void 뿅의_색종이는_먼_출발점에서도_화면에_보이는_크기다()
+        {
+            //  뿅은 사수에게서 44~55 m 떨어져 터진다. 넓은 시야(60°)·1080 px 높이 폰에서 45 m의 1 m는 약 21 px다.
+            //  맞힌 연출 크기(0.08~0.16 m)를 그대로 쓰면 2~3 px라 색종이가 안 보였다 — 가장 작은 조각도 8 px는 되어야 한다.
+            float pxPerMetre = 1080f / (2f * 45f * Mathf.Tan(30f * Mathf.Deg2Rad));
+            foreach (var code in ArcheryCatapultLooks.Codes)
+            {
+                foreach (var b in ArcheryHitFxRecipe.PopFor(code).Bursts)
+                {
+                    if (b.Channel != ArcheryFxChannel.Confetti) { continue; }
+                    Assert.GreaterOrEqual(b.SizeMin * pxPerMetre, 8f, code + " — 가장 작은 조각이 45 m에서 8 px보다 작다");
+                    Assert.AreEqual(24, b.Count, code + " — 여덟이 같이 터지므로 개수는 늘리지 않는다");
+                }
             }
         }
 

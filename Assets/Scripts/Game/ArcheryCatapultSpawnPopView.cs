@@ -92,7 +92,11 @@ namespace LOP
                 shownCodes.Add(key);
                 hitFx.Pop(code, t.Origin, t.Radius);
             }
-            poppedVolley = v;
+            //  목록이 비면 맵 씬이 아직 안 뜬 것이다 — 터뜨렸다고 적지 않아야 씬이 뜬 뒤 이 무리도 뿅이 나온다.
+            if (volley.Count > 0)
+            {
+                poppedVolley = v;
+            }
         }
 
         private GameObject Take(string key, string code, float radius)

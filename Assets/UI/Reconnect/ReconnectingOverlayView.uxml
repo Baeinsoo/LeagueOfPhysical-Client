@@ -1,0 +1,12 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <!-- 경기 중 끊김 덮개. 화면 전체를 막고 가운데 키트 판 -->
+    <ui:VisualElement name="reconnecting-root" class="kit reconnect-root">
+        <ui:VisualElement class="kit-panel reconnect-panel">
+            <ui:VisualElement class="kit-panel__back" />
+            <ui:VisualElement class="kit-panel__face">
+                <ui:Label name="reconnecting-title" text="" class="kit-title reconnect-title" />
+                <ui:Label name="reconnecting-message" text="" class="kit-text reconnect-message" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

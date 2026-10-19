@@ -20,10 +20,15 @@ namespace LOP
         [Inject] private IUserDataStore userDataStore;
         [Inject] private NetworkMessageDispatcher dispatcher;
         [Inject] private AppStateMachine appStateMachine;
+        [Inject] private MatchConnectionWatcher connectionWatcher;
+        [Inject] private ReconnectSession reconnectSession;
 
         public IRunner runner { get; private set; }
 
         public bool initialized { get; private set; }
+
+        //  시작할 때 본 방 정보. 다시 띄우는 중이면 새 씬이 다른 객체로 채워 둔다.
+        private Room ownedRoom;
 
         private async void Awake()
         {
@@ -43,22 +48,53 @@ namespace LOP
                 // 여기서 보내는 이유: 맵이 떴고, 내 새가 있고, 시계가 안정됐고, 러너가 돌고 있다.
                 // 더 일찍 보내면 시계가 어긋난 채 출발선을 긋게 된다(WaitForClockSettleAsync 주석 참고).
                 NetworkClient.Send(new CustomMirrorMessage { payload = new MatchReadyToS() });
+
+                //  경기에 제대로 들어왔다 — 다음 끊김은 처음부터 센다.
+                reconnectSession.Reset();
+            }
+            catch (OperationCanceledException)
+            {
+                //  씬이 내려가는 중 — 할 일 없다.
             }
             catch (Exception e)
             {
+                //  접속이 안 됐거나 시작 중 끊겼다. 로비로 바로 보내지 않고 재접속에 맡긴다 —
+                //  판이 이미 끝났으면 재접속이 위치를 보고 로비로 보낸다.
                 Debug.LogError(e);
-                appStateMachine.Fire(AppEvent.MatchEnded);
+                connectionWatcher.Begin();
             }
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            connectionWatcher?.OnApplicationPause(paused);
         }
 
         private async void OnDestroy()
         {
-            await DisconnectRoomServerAsync();
-            await DeinitializeAsync();
+            await LeaveAsync();
         }
+
+        /// <summary>
+        /// 방을 나가는 정리(연결 끊기 → 게임 정리). 몇 번 불러도 한 번만 돈다 —
+        /// 재접속이 먼저 끝까지 기다린 뒤 씬을 다시 띄우고, 그때 OnDestroy는 끝난 정리를 그대로 받는다.
+        /// </summary>
+        public UniTask LeaveAsync()
+        {
+            leave ??= UniTask.Lazy(async () =>
+            {
+                await DisconnectRoomServerAsync();
+                await DeinitializeAsync();
+            });
+            return leave.Task;
+        }
+
+        private AsyncLazy leave;
 
         public async Task InitializeAsync()
         {
+            ownedRoom = roomDataStore.room;
+
             var getMatch = await WebAPI.GetMatch(roomDataStore.room.matchId);
             if (getMatch.code != ResponseCode.SUCCESS)
             {
@@ -75,13 +111,21 @@ namespace LOP
 
         public async Task DeinitializeAsync()
         {
-            await runner.DeinitializeAsync();
-            runner.onGameStateChanged -= OnGameStateChanged;
+            //  시작 도중 끊겼으면 게임이 아직 없다.
+            if (runner != null)
+            {
+                await runner.DeinitializeAsync();
+                runner.onGameStateChanged -= OnGameStateChanged;
 
-            await gameFactory.DestroyAsync();
-            runner = null;
+                await gameFactory.DestroyAsync();
+                runner = null;
+            }
 
-            roomDataStore.Clear();
+            //  다시 띄우는 중이면 새 씬이 방 정보를 이미 새로 채웠다 — 그때는 지우지 않는다.
+            if (RoomStartup.ShouldClearRoomStore(ownedRoom, roomDataStore.room))
+            {
+                roomDataStore.Clear();
+            }
             gameDataStore.Clear();
 
             initialized = false;
@@ -116,9 +160,12 @@ namespace LOP
             //  토큰 갱신을 여기서 끝낸다 — 접속 인증 콜백은 동기라 그 안에서는 기다릴 수 없다.
             await ((LOPNetworkAuthenticator)networkManager.authenticator).PrepareCredentialAsync(destroyCancellationToken);
 
+            //  옛 씬의 연결이 아직 "끊는 중"일 수 있다 — 완전히 내려간 뒤 새로 붙는다.
+            await RoomStartup.WaitOrThrowAsync(() => NetworkClient.active == false, RoomStartup.ConnectTimeoutSeconds, "이전 연결 정리", destroyCancellationToken);
+
             networkManager.StartClient();
 
-            await UniTask.WaitUntil(() => NetworkClient.ready);
+            await RoomStartup.WaitOrThrowAsync(() => NetworkClient.ready, RoomStartup.ConnectTimeoutSeconds, "방 접속", destroyCancellationToken);
         }
 
         private async Task JoinRoomServerAsync()
@@ -129,7 +176,7 @@ namespace LOP
             };
             NetworkClient.Send(message);
 
-            await UniTask.WaitUntil(() => gameDataStore.gameInfo != null);
+            await RoomStartup.WaitOrThrowAsync(() => gameDataStore.gameInfo != null, RoomStartup.GameInfoTimeoutSeconds, "첫 상태", destroyCancellationToken);
         }
 
         private async Task DisconnectRoomServerAsync()

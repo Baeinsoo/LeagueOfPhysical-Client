@@ -25,6 +25,9 @@ namespace LOP
 
             builder.Register<IGameFactory, LOPGameFactory>(Lifetime.Singleton);
 
+            //  경기 중 내 연결 끊김 감시 — 끊기면 덮개를 띄우고 같은 판에 다시 들어간다.
+            builder.RegisterEntryPoint<MatchConnectionWatcher>().AsSelf();
+
             #region RegisterBuildCallback
             builder.RegisterBuildCallback(container =>
             {

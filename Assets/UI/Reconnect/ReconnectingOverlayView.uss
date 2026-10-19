@@ -1,0 +1,5 @@
+/* 경기 중 끊김 덮개 — 화면 전체를 덮어 뒤에서 혼자 도는 경기를 가리고 입력을 막는다 */
+.reconnect-root { position: absolute; left: 0; right: 0; top: 0; bottom: 0; align-items: center; justify-content: center; }
+.reconnect-panel { width: 900px; }
+.reconnect-title { font-size: 48px; color: var(--lop-ink); margin-bottom: 24px; }
+.reconnect-message { font-size: 30px; white-space: normal; -unity-text-align: middle-center; }

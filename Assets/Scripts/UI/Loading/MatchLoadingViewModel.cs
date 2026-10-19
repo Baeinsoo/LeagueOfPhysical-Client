@@ -42,6 +42,13 @@ namespace LOP.UI
             Recompute();
         }
 
+        /// <summary>같은 판에 다시 들어간다 — 게임이 다시 뜰 때까지 로딩판을 띄운다.</summary>
+        public void NotifyGameNotLive()
+        {
+            _gameLive = false;
+            Recompute();
+        }
+
         /// <summary>출전 연출이 덮을 동안 로딩판을 미룬다. 로비가 생길 때 걸고, 연출이 하얀 빛에 닿으면 푼다.</summary>
         public void HoldForRunOut() { _holdForRunOut = true; Recompute(); }
 

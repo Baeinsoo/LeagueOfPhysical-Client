@@ -18,6 +18,7 @@ namespace LOP
         private readonly LOP.MasterData.LOPMasterData masterData;
 
         private string loadedScenePath;
+        private Scene loadedScene;
 
         public LOPGameFactory(IRoomDataStore roomDataStore, LOP.MasterData.LOPMasterData masterData)
         {
@@ -36,23 +37,26 @@ namespace LOP
                 await SceneManager.LoadSceneAsync(loadedScenePath, LoadSceneMode.Additive).ToUniTask();
             }
 
+            //  경기 씬을 다시 띄울 때 옛 정리가 새로 올라온 같은 경로의 씬을 내리지 않게, 내가 올린 씬 핸들을 쥔다.
+            loadedScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+            if (loadedScene.path != loadedScenePath)
+            {
+                UnityEngine.Debug.LogError($"[LOPGameFactory] 마지막 씬이 방금 올린 게임 씬이 아니다: {loadedScene.path} (기대 {loadedScenePath})");
+                loadedScene = SceneManager.GetSceneByPath(loadedScenePath);
+            }
+
             var gameScope = LifetimeScope.Find<GameLifetimeScope>();
             return gameScope.Container.Resolve<IRunner>();
         }
 
         public async Task DestroyAsync()
         {
-            if (string.IsNullOrEmpty(loadedScenePath))
+            if (loadedScene.IsValid() && loadedScene.isLoaded)
             {
-                return;
+                await SceneManager.UnloadSceneAsync(loadedScene).ToUniTask();
             }
 
-            var scene = SceneManager.GetSceneByPath(loadedScenePath);
-            if (scene.isLoaded)
-            {
-                await SceneManager.UnloadSceneAsync(scene).ToUniTask();
-            }
-
+            loadedScene = default;
             loadedScenePath = null;
         }
 

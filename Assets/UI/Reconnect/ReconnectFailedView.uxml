@@ -1,0 +1,15 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 재접속 실패 (서버 연결 실패 판과 같은 키트 판). 뒤는 어둡게(기본 백드롭) -->
+    <ui:VisualElement name="reconnect-failed-root" class="kit reconnect-root">
+        <ui:VisualElement class="kit-panel reconnect-panel">
+            <ui:VisualElement class="kit-panel__back" />
+            <ui:VisualElement class="kit-panel__face">
+                <ui:Label text="경기장에 다시 닿지 않아요" class="kit-title reconnect-title" />
+                <ui:Label name="reconnect-failed-message" text="" class="kit-text reconnect-message" />
+                <ui:Button name="reconnect-failed-retry" class="kit-press kit-play reconnect-retry">
+                    <lop:StickerElement><ui:Label text="다시 시도" class="kit-title kit-play__label reconnect-retry__label" /></lop:StickerElement>
+                </ui:Button>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

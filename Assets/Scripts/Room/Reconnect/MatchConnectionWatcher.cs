@@ -29,6 +29,7 @@ namespace LOP
             public Action stopClient;
             public Func<double> now;
             public Action beforeRejoin;
+            public Action resetSession;
             public Action<Action> subscribeStopClient;
             public Action<Action> unsubscribeStopClient;
         }
@@ -53,15 +54,16 @@ namespace LOP
             IUserDataStore users,
             IRoomDataStore rooms,
             LobbyNotice lobbyNotice,
-            MatchLoadingViewModel matchLoading)
-            : this(Build(networkManager, appStateMachine, results, windowManager, users, rooms, lobbyNotice, matchLoading))
+            MatchLoadingViewModel matchLoading,
+            ReconnectSession session)
+            : this(Build(networkManager, appStateMachine, results, windowManager, users, rooms, lobbyNotice, matchLoading, session))
         {
         }
 
         private static Deps Build(
             LOPNetworkManager networkManager, AppStateMachine appStateMachine, IMatchResultDataStore results,
             IWindowManager windowManager, IUserDataStore users, IRoomDataStore rooms, LobbyNotice lobbyNotice,
-            MatchLoadingViewModel matchLoading)
+            MatchLoadingViewModel matchLoading, ReconnectSession session)
         {
             //  이 경기 씬을 연 상태 — 앱 흐름이 다른 상태로 넘어갔으면 씬이 내려가는 중이다.
             var myState = appStateMachine.currentState;
@@ -76,10 +78,12 @@ namespace LOP
                 runReconnect = ct => new MatchReconnector(
                     c => RejoinProbe.AskLobbyAsync(users.user?.id, roomId, c),
                     (s, c) => UniTask.Delay(TimeSpan.FromSeconds(s), DelayType.Realtime, cancellationToken: c),
+                    (s, c) => UniTask.Delay(TimeSpan.FromSeconds(s), DelayType.Realtime, cancellationToken: c),
                     () => Time.realtimeSinceStartupAsDouble,
                     () => random.NextDouble(),
                     c => windowManager.OpenModalAsync<ReconnectFailedView, bool>().AttachExternalCancellation(c),
-                    () => results.result != null).RunAsync(ct),
+                    () => results.result != null,
+                    session).RunAsync(ct),
                 showOverlay = () => overlay ??= windowManager.Open<ReconnectingOverlayView>(),
                 hideOverlay = () =>
                 {
@@ -92,6 +96,7 @@ namespace LOP
                 stopClient = networkManager.StopClient,
                 now = () => Time.realtimeSinceStartupAsDouble,
                 beforeRejoin = matchLoading.NotifyGameNotLive,
+                resetSession = session.Reset,
                 subscribeStopClient = h => networkManager.onStopClient += h,
                 unsubscribeStopClient = h => networkManager.onStopClient -= h,
             };
@@ -140,11 +145,13 @@ namespace LOP
                         deps.fire(AppEvent.MatchRejoin);
                         break;
                     case ReconnectOutcome.MatchOver:
+                        deps.resetSession();
                         deps.postLobbyNotice(MatchEndedNotice);
                         deps.fire(AppEvent.MatchLeft);
                         break;
                     case ReconnectOutcome.ResultArrived:
                         //  끊김이 오판이었다 — 기존 결과 흐름이 결과 화면으로 데려간다.
+                        deps.resetSession();
                         HideOverlay();
                         break;
                 }
@@ -157,6 +164,7 @@ namespace LOP
             {
                 //  멈춘 화면보다 로비가 낫다 — 판이 진행 중이면 로비가 다시 넣어 준다.
                 Debug.LogError($"[Reconnect] 재접속 중 예외: {e}");
+                deps.resetSession();
                 deps.postLobbyNotice(MatchEndedNotice);
                 deps.fire(AppEvent.MatchLeft);
             }

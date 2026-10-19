@@ -22,19 +22,37 @@ namespace LOP.Tests
             public bool ResultArrived;
             public readonly Queue<Func<RejoinAnswer>> Answers = new();
             public RejoinAnswer Fallback = RejoinAnswer.NotReady;
+            public RejoinAnswer AfterPrompt = RejoinAnswer.Joinable;
+            public int HangingProbes;                 //  이만큼은 응답이 오지 않는다(먹통 망)
+            public ReconnectSession Session = new();
+            private bool hanging;
 
             public MatchReconnector Make() => new MatchReconnector(
                 ct =>
                 {
                     AttemptTimes.Add(Clock);
+                    hanging = HangingProbes > 0;
+                    if (hanging)
+                    {
+                        HangingProbes--;
+                        return new UniTaskCompletionSource<RejoinAnswer>().Task;
+                    }
                     var next = Answers.Count > 0 ? Answers.Dequeue() : () => Fallback;
                     return UniTask.FromResult(next());
                 },
                 (seconds, ct) => { Delays.Add(seconds); Clock += seconds; return UniTask.CompletedTask; },
+                //  묻기 제한 시간 — 응답이 오면 그쪽이 먼저 끝나므로, 먹통일 때만 시계를 마감까지 민다.
+                (seconds, ct) =>
+                {
+                    if (hanging == false) return new UniTaskCompletionSource().Task;
+                    Clock += seconds;
+                    return UniTask.CompletedTask;
+                },
                 () => Clock,
                 () => Random,
-                ct => { Prompts++; Fallback = RejoinAnswer.Joinable; return UniTask.CompletedTask; },
-                () => ResultArrived);
+                ct => { Prompts++; Fallback = AfterPrompt; return UniTask.CompletedTask; },
+                () => ResultArrived,
+                Session);
         }
 
         //  메인 스레드를 막고 기다리면(GetResult) 에디터가 멈춘다 — 프레임을 넘기며 끝나기를 기다린다.
@@ -121,11 +139,39 @@ namespace LOP.Tests
             var reconnector = new MatchReconnector(
                 ct => { cts.Cancel(); return UniTask.FromResult(RejoinAnswer.NotReady); },
                 (s, ct) => UniTask.Delay(TimeSpan.FromSeconds(s), cancellationToken: ct),
-                () => 0, () => 1, ct => UniTask.CompletedTask, () => false);
+                (s, ct) => UniTask.Delay(TimeSpan.FromSeconds(s), cancellationToken: ct),
+                () => 0, () => 1, ct => UniTask.CompletedTask, () => false, new ReconnectSession());
             var task = reconnector.RunAsync(cts.Token).AsTask();
             yield return Run(task);
             //  UniTask를 Task로 바꾸면 취소가 "실패 + 취소 예외"로 실린다 — 취소 예외가 올라왔는지만 본다.
             Assert.IsInstanceOf<OperationCanceledException>(task.Exception?.InnerException);
+        }
+
+        [UnityTest]
+        public IEnumerator 응답이_오지_않아도_20초에_묻는다()
+        {
+            //  먹통 망 — 요청이 끝나지 않는다. 요청 제한(30초 × 2)을 기다리지 않고 20초에 묻는다.
+            var rig = new Rig { HangingProbes = 1 };
+            var task = rig.Make().RunAsync(CancellationToken.None).AsTask();
+            yield return Run(task);
+            CollectionAssert.AreEqual(new[] { 0.0, 20 }, rig.AttemptTimes);
+            Assert.AreEqual(1, rig.Prompts);
+            Assert.AreEqual(ReconnectOutcome.Rejoin, task.Result);
+        }
+
+        [UnityTest]
+        public IEnumerator 경기_씬을_다시_띄워도_간격과_20초를_이어간다()
+        {
+            //  로비는 들어갈 수 있다는데 방 접속이 매번 실패하는 경우 — 씬마다 새 진행자가 생겨도 처음부터 다시 세지 않는다.
+            var rig = new Rig { Fallback = RejoinAnswer.Joinable };
+            for (int scene = 0; scene < 7; scene++)
+            {
+                var task = rig.Make().RunAsync(CancellationToken.None).AsTask();
+                yield return Run(task);
+                Assert.AreEqual(ReconnectOutcome.Rejoin, task.Result);
+            }
+            CollectionAssert.AreEqual(new[] { 0.0, 1, 3, 7, 15, 23, 23 }, rig.AttemptTimes);
+            Assert.AreEqual(1, rig.Prompts, "20초가 지나면 다시 들어가지 않고 묻는다");
         }
     }
 }

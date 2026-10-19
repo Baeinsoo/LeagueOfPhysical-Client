@@ -21,6 +21,7 @@ namespace LOP
         [Inject] private NetworkMessageDispatcher dispatcher;
         [Inject] private AppStateMachine appStateMachine;
         [Inject] private MatchConnectionWatcher connectionWatcher;
+        [Inject] private ReconnectSession reconnectSession;
 
         public IRunner runner { get; private set; }
 
@@ -47,6 +48,9 @@ namespace LOP
                 // 여기서 보내는 이유: 맵이 떴고, 내 새가 있고, 시계가 안정됐고, 러너가 돌고 있다.
                 // 더 일찍 보내면 시계가 어긋난 채 출발선을 긋게 된다(WaitForClockSettleAsync 주석 참고).
                 NetworkClient.Send(new CustomMirrorMessage { payload = new MatchReadyToS() });
+
+                //  경기에 제대로 들어왔다 — 다음 끊김은 처음부터 센다.
+                reconnectSession.Reset();
             }
             catch (OperationCanceledException)
             {

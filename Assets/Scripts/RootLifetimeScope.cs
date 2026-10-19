@@ -75,6 +75,8 @@ namespace LOP
             builder.Register<AppearanceColorPalette>(Lifetime.Singleton);
             //  경기 씬이 맡긴 한 번짜리 안내(예: 끊긴 사이 판이 끝남) — 로비 홈이 꺼내 보여 준다.
             builder.Register<LobbyNotice>(Lifetime.Singleton);
+            //  끊김 한 번이 이어지는 동안의 재접속 기록 — 경기 씬을 다시 띄워도 이어서 센다.
+            builder.Register<ReconnectSession>(Lifetime.Singleton);
             //  플레이어 프로필(재화·장착·외형) — 입장 때 받고 로비·경기·결과를 오가도 유지한다(ADR 0021).
             builder.Register<EconomyStore>(Lifetime.Singleton);
             builder.Register<CharacterAppearanceStore>(Lifetime.Singleton);

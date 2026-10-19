@@ -14,7 +14,7 @@ namespace LOP.Tests
             public bool StillThisMatch = true;
             public bool ResultArrived;
             public double Clock;
-            public int Runs, Overlays, Hides, Stops, BeforeRejoins;
+            public int Runs, Overlays, Hides, Stops, BeforeRejoins, SessionResets;
             public readonly List<AppEvent> Fired = new();
             public readonly List<string> Notices = new();
             public readonly UniTaskCompletionSource<ReconnectOutcome> Outcome = new();
@@ -31,6 +31,7 @@ namespace LOP.Tests
                 stopClient = () => Stops++,
                 now = () => Clock,
                 beforeRejoin = () => BeforeRejoins++,
+                resetSession = () => SessionResets++,
             });
         }
 
@@ -50,6 +51,7 @@ namespace LOP.Tests
             yield return Frames();
             Assert.AreEqual(1, rig.BeforeRejoins);
             CollectionAssert.AreEqual(new[] { AppEvent.MatchRejoin }, rig.Fired);
+            Assert.AreEqual(0, rig.SessionResets, "다시 띄운 씬이 이어서 센다");
             watcher.Dispose();
         }
 
@@ -63,6 +65,7 @@ namespace LOP.Tests
             yield return Frames();
             CollectionAssert.AreEqual(new[] { MatchConnectionWatcher.MatchEndedNotice }, rig.Notices);
             CollectionAssert.AreEqual(new[] { AppEvent.MatchLeft }, rig.Fired);
+            Assert.AreEqual(1, rig.SessionResets, "로비로 떠나면 다음 끊김은 처음부터 센다");
             watcher.Dispose();
         }
 
@@ -76,6 +79,7 @@ namespace LOP.Tests
             yield return Frames();
             Assert.AreEqual(1, rig.Hides);
             Assert.IsEmpty(rig.Fired);
+            Assert.AreEqual(1, rig.SessionResets);
             watcher.Dispose();
         }
 

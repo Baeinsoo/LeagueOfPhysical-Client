@@ -73,6 +73,8 @@ namespace LOP
             // 이미 차 있다 — Root가 뜨는 시점엔 아무도 resolve하지 않는다.
             builder.Register<CosmeticCatalog>(Lifetime.Singleton);
             builder.Register<AppearanceColorPalette>(Lifetime.Singleton);
+            //  경기 씬이 맡긴 한 번짜리 안내(예: 끊긴 사이 판이 끝남) — 로비 홈이 꺼내 보여 준다.
+            builder.Register<LobbyNotice>(Lifetime.Singleton);
             //  플레이어 프로필(재화·장착·외형) — 입장 때 받고 로비·경기·결과를 오가도 유지한다(ADR 0021).
             builder.Register<EconomyStore>(Lifetime.Singleton);
             builder.Register<CharacterAppearanceStore>(Lifetime.Singleton);

@@ -14,6 +14,7 @@ namespace LOP.UI
     {
         private readonly IWindowManager _windowManager;
         private readonly LobbyHomeViewModel _viewModel;
+        private readonly LobbyNotice _lobbyNotice;
 
         private IDisposable _subscription;
         private ShellView _currentShell;
@@ -23,15 +24,21 @@ namespace LOP.UI
 
         public FrontEndCoordinator(
             IWindowManager windowManager,
-            LobbyHomeViewModel viewModel)
+            LobbyHomeViewModel viewModel,
+            LobbyNotice lobbyNotice)
         {
             _windowManager = windowManager;
             _viewModel = viewModel;
+            _lobbyNotice = lobbyNotice;
         }
 
         public void Start()
         {
             _subscription = _viewModel.NavigationRequested.Subscribe(OnNavigationRequested);
+
+            //  경기 씬이 맡긴 안내(예: 끊긴 사이 판이 끝남)를 로비에 들어오자마자 한 번 보여 준다.
+            var notice = _lobbyNotice.Take();
+            if (notice != null) ShowToast(notice);
         }
 
         private void OnNavigationRequested(FrontEndDestination destination)

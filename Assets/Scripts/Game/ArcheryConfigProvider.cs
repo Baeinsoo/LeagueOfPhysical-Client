@@ -45,13 +45,16 @@ namespace LOP
                     id: row.Id, distanceMinM: row.DistanceMinM, distanceMaxM: row.DistanceMaxM,
                     driftMinMps: row.DriftMinMps, driftMaxMps: row.DriftMaxMps, stunTicks: row.StunTicks,
                     isJackpot: row.IsJackpot,
-                    //  이름 있는 인수로만 옮긴다 — float 칸 열 개라 자리로 넘기면 둘을 바꿔 적어도 컴파일된다.
+                    //  이름 있는 인수로만 옮긴다 — float 칸이 열 넷이라 자리로 넘기면 둘을 바꿔 적어도 컴파일된다.
                     motion: new ArcheryCatapultMotion(
                         heightMinM: row.HeightMinM, heightMaxM: row.HeightMaxM,
                         arcMinM: row.ArcMinM, arcMaxM: row.ArcMaxM,
                         climbMinMps: row.ClimbMinMps, climbMaxMps: row.ClimbMaxMps,
                         bobAmplitudeM: row.BobAmpM, bobHz: row.BobHz,
-                        spinHz: row.SpinHz, lateralHalfM: row.LateralHalfM)));
+                        spinHz: row.SpinHz, lateralHalfM: row.LateralHalfM,
+                        spawnSideMinM: row.SpawnSideMinM, spawnSideMaxM: row.SpawnSideMaxM,
+                        lifeTicks: row.LifeTicks,
+                        swingAmplitudeM: row.SwingAmpM, swingDipM: row.SwingDipM)));
             }
             if (kinds.Count == 0)
             {

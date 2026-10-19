@@ -29,6 +29,7 @@ namespace LOP
             public Action stopClient;
             public Func<double> now;
             public Action beforeRejoin;
+            public Func<UniTask> leaveRoom;
             public Action resetSession;
             public Action<Action> subscribeStopClient;
             public Action<Action> unsubscribeStopClient;
@@ -55,15 +56,16 @@ namespace LOP
             IRoomDataStore rooms,
             LobbyNotice lobbyNotice,
             MatchLoadingViewModel matchLoading,
-            ReconnectSession session)
-            : this(Build(networkManager, appStateMachine, results, windowManager, users, rooms, lobbyNotice, matchLoading, session))
+            ReconnectSession session,
+            IObjectResolver resolver)
+            : this(Build(networkManager, appStateMachine, results, windowManager, users, rooms, lobbyNotice, matchLoading, session, resolver))
         {
         }
 
         private static Deps Build(
             LOPNetworkManager networkManager, AppStateMachine appStateMachine, IMatchResultDataStore results,
             IWindowManager windowManager, IUserDataStore users, IRoomDataStore rooms, LobbyNotice lobbyNotice,
-            MatchLoadingViewModel matchLoading, ReconnectSession session)
+            MatchLoadingViewModel matchLoading, ReconnectSession session, IObjectResolver resolver)
         {
             //  이 경기 씬을 연 상태 — 앱 흐름이 다른 상태로 넘어갔으면 씬이 내려가는 중이다.
             var myState = appStateMachine.currentState;
@@ -96,6 +98,8 @@ namespace LOP
                 stopClient = networkManager.StopClient,
                 now = () => Time.realtimeSinceStartupAsDouble,
                 beforeRejoin = matchLoading.NotifyGameNotLive,
+                //  룸이 이 감시자를 주입받으므로 만들 때가 아니라 쓸 때 꺼낸다.
+                leaveRoom = () => resolver.Resolve<LOPRoom>().LeaveAsync(),
                 resetSession = session.Reset,
                 subscribeStopClient = h => networkManager.onStopClient += h,
                 unsubscribeStopClient = h => networkManager.onStopClient -= h,
@@ -141,6 +145,7 @@ namespace LOP
                 switch (outcome)
                 {
                     case ReconnectOutcome.Rejoin:
+                        await LeaveRoomAsync();
                         deps.beforeRejoin();
                         deps.fire(AppEvent.MatchRejoin);
                         break;
@@ -171,6 +176,21 @@ namespace LOP
             finally
             {
                 running = false;
+            }
+        }
+
+        //  나가는 정리를 끝까지 마친 뒤 일반 입장으로 다시 들어간다 — 겹치면 옛 판이 새 판의 물리 설정을 되돌린다.
+        private async UniTask LeaveRoomAsync()
+        {
+            if (deps.leaveRoom == null) return;
+            try
+            {
+                await deps.leaveRoom();
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                //  정리가 덜 됐어도 멈춘 화면보다 다시 들어가는 편이 낫다.
+                Debug.LogError($"[Reconnect] 옛 룸 정리 실패: {e}");
             }
         }
 

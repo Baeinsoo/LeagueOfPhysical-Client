@@ -18,9 +18,12 @@ namespace LOP.Tests
             public readonly List<AppEvent> Fired = new();
             public readonly List<string> Notices = new();
             public readonly UniTaskCompletionSource<ReconnectOutcome> Outcome = new();
+            public UniTaskCompletionSource Leave;
+            public int Leaves;
 
             public MatchConnectionWatcher Make() => new MatchConnectionWatcher(new MatchConnectionWatcher.Deps
             {
+                leaveRoom = () => { Leaves++; return Leave?.Task ?? UniTask.CompletedTask; },
                 stillThisMatch = () => StillThisMatch,
                 resultArrived = () => ResultArrived,
                 runReconnect = ct => { Runs++; return Outcome.Task; },
@@ -52,6 +55,39 @@ namespace LOP.Tests
             Assert.AreEqual(1, rig.BeforeRejoins);
             CollectionAssert.AreEqual(new[] { AppEvent.MatchRejoin }, rig.Fired);
             Assert.AreEqual(0, rig.SessionResets, "다시 띄운 씬이 이어서 센다");
+            watcher.Dispose();
+        }
+
+        [UnityTest]
+        public IEnumerator 옛_룸_정리가_끝난_뒤에_다시_들어간다()
+        {
+            //  옛 룸 정리와 새 룸 시작이 겹치면 옛 룸이 새 판의 물리 설정을 되돌린다.
+            var rig = new Rig { Leave = new UniTaskCompletionSource() };
+            var watcher = rig.Make();
+            watcher.Begin();
+            rig.Outcome.TrySetResult(ReconnectOutcome.Rejoin);
+            yield return Frames();
+            Assert.AreEqual(1, rig.Leaves);
+            Assert.IsEmpty(rig.Fired, "정리가 끝나기 전에 다시 띄우면 안 된다");
+
+            rig.Leave.TrySetResult();
+            yield return Frames();
+            CollectionAssert.AreEqual(new[] { AppEvent.MatchRejoin }, rig.Fired);
+            watcher.Dispose();
+        }
+
+        [UnityTest]
+        public IEnumerator 옛_룸_정리가_실패해도_다시_들어간다()
+        {
+            var rig = new Rig { Leave = new UniTaskCompletionSource() };
+            var watcher = rig.Make();
+            watcher.Begin();
+            rig.Outcome.TrySetResult(ReconnectOutcome.Rejoin);
+            yield return Frames();
+            LogAssert.Expect(UnityEngine.LogType.Error, new System.Text.RegularExpressions.Regex("옛 룸 정리"));
+            rig.Leave.TrySetException(new System.InvalidOperationException("정리 실패"));
+            yield return Frames();
+            CollectionAssert.AreEqual(new[] { AppEvent.MatchRejoin }, rig.Fired);
             watcher.Dispose();
         }
 

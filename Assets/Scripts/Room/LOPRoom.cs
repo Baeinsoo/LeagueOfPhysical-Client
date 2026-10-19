@@ -72,9 +72,24 @@ namespace LOP
 
         private async void OnDestroy()
         {
-            await DisconnectRoomServerAsync();
-            await DeinitializeAsync();
+            await LeaveAsync();
         }
+
+        /// <summary>
+        /// 방을 나가는 정리(연결 끊기 → 게임 정리). 몇 번 불러도 한 번만 돈다 —
+        /// 재접속이 먼저 끝까지 기다린 뒤 씬을 다시 띄우고, 그때 OnDestroy는 끝난 정리를 그대로 받는다.
+        /// </summary>
+        public UniTask LeaveAsync()
+        {
+            leave ??= UniTask.Lazy(async () =>
+            {
+                await DisconnectRoomServerAsync();
+                await DeinitializeAsync();
+            });
+            return leave.Task;
+        }
+
+        private AsyncLazy leave;
 
         public async Task InitializeAsync()
         {
@@ -96,11 +111,15 @@ namespace LOP
 
         public async Task DeinitializeAsync()
         {
-            await runner.DeinitializeAsync();
-            runner.onGameStateChanged -= OnGameStateChanged;
+            //  시작 도중 끊겼으면 게임이 아직 없다.
+            if (runner != null)
+            {
+                await runner.DeinitializeAsync();
+                runner.onGameStateChanged -= OnGameStateChanged;
 
-            await gameFactory.DestroyAsync();
-            runner = null;
+                await gameFactory.DestroyAsync();
+                runner = null;
+            }
 
             //  다시 띄우는 중이면 새 씬이 방 정보를 이미 새로 채웠다 — 그때는 지우지 않는다.
             if (RoomStartup.ShouldClearRoomStore(ownedRoom, roomDataStore.room))

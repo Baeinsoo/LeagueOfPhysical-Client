@@ -20,6 +20,7 @@ namespace LOP
         [Inject] private IUserDataStore userDataStore;
         [Inject] private NetworkMessageDispatcher dispatcher;
         [Inject] private AppStateMachine appStateMachine;
+        [Inject] private MatchConnectionWatcher connectionWatcher;
 
         public IRunner runner { get; private set; }
 
@@ -47,11 +48,22 @@ namespace LOP
                 // 더 일찍 보내면 시계가 어긋난 채 출발선을 긋게 된다(WaitForClockSettleAsync 주석 참고).
                 NetworkClient.Send(new CustomMirrorMessage { payload = new MatchReadyToS() });
             }
+            catch (OperationCanceledException)
+            {
+                //  씬이 내려가는 중 — 할 일 없다.
+            }
             catch (Exception e)
             {
+                //  접속이 안 됐거나 시작 중 끊겼다. 로비로 바로 보내지 않고 재접속에 맡긴다 —
+                //  판이 이미 끝났으면 재접속이 위치를 보고 로비로 보낸다.
                 Debug.LogError(e);
-                appStateMachine.Fire(AppEvent.MatchEnded);
+                connectionWatcher.Begin();
             }
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            connectionWatcher?.OnApplicationPause(paused);
         }
 
         private async void OnDestroy()

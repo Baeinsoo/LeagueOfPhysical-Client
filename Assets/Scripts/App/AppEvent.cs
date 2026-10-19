@@ -10,5 +10,7 @@ namespace LOP
         MatchLeft,
         //  결과 단계에서 확인을 눌렀다(또는 보여 줄 결과가 없었다) — 로비로.
         ResultClosed,
+        //  경기 중 끊겼다가 같은 판에 다시 들어간다 — 경기 씬을 새로 띄운다.
+        MatchRejoin,
     }
 }

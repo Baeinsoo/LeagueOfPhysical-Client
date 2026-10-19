@@ -20,7 +20,7 @@ namespace LOP
         public override IState<AppEvent> initState => new Boot(CreateFrontEnd);
 
         private FrontEnd CreateFrontEnd() => new FrontEnd(CreateInMatch, sceneLoader);
-        private InMatch CreateInMatch() => new InMatch(CreateFrontEnd, CreatePostMatch, sceneLoader, results);
+        private InMatch CreateInMatch() => new InMatch(CreateFrontEnd, CreatePostMatch, CreateInMatch, sceneLoader, results);
         private PostMatch CreatePostMatch() => new PostMatch(CreateFrontEnd, sceneLoader);
     }
 }

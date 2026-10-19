@@ -61,6 +61,42 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 드러나는_동안_목록은_아직_앞_무리이고_뿅은_다음_무리를_본다()
+        {
+            //  발사 12틱 전(0.24초) — 판정·화면 목록(IndexAt)은 앞 무리가 수명을 채우는 중이라 그대로다.
+            //  뿅 화면이 IndexAt을 쓰면 앞 무리 자리에서 터진다. 그래서 "준비" 기준 무리(VolleyIndexAt)를 쓴다.
+            const long start = 1000;
+            var s = new ArcheryCatapultSettings(3, 80, 1260, 110, 180, 35, 145, 180, 0.6f, 16f);
+            var course = new ArcheryCourse(CatapultConfig(s), new MatchSeed(), new[] { "u1" }, Dt, () => null);
+            for (int v = 1; v < s.VolleyCount; v++)
+            {
+                long launch = ArcheryCatapultSchedule.LaunchTick(s, v, start);
+                long tick = launch - 12;
+                Assert.AreEqual(v - 1, course.IndexAt(tick, start), $"무리 {v} — 목록은 앞 무리");
+                Assert.AreEqual(v, ArcheryCatapultSchedule.VolleyIndexAt(s, tick, start), $"무리 {v} — 준비 기준은 이 무리");
+                Assert.IsTrue(ArcheryCatapultSpawnPop.IsRevealing(tick, launch, Dt), $"무리 {v} — 드러나는 중");
+            }
+        }
+
+        private static ArcheryConfig CatapultConfig(ArcheryCatapultSettings catapult)
+        {
+            var kinds = new[]
+            {
+                new ArcheryTargetKind(1.2f, 1, 50, false, ArcheryTargetShape.Sphere, new[] { new ArcheryRingBand(1f, 1) },
+                                      id: 8, distanceMinM: 30f, distanceMaxM: 38f, driftMinMps: 2f, driftMaxMps: 3f, stunTicks: 0),
+            };
+            return new ArcheryConfig(
+                wavePeriodTicks: 0, minTargets: 0, maxTargets: 0,
+                spawnRadius: 16f, spawnMinY: 3.5f, spawnMaxY: 13f, minSeparation: 0f,
+                trapRatioMin: 0f, trapRatioMax: 0f,
+                shakeFreeSeconds: 0f, shakeRampSeconds: 2.5f, shakeMaxDegrees: 0f,
+                riseHeightMin: 0.5f, riseHeightMax: 1.5f, staggerTicks: 0, restTicks: 0,
+                kinds: kinds, courseKind: ArcheryCourseKind.Catapult,
+                arrowMinSpeedMps: 90f, arrowMaxSpeedMps: 180f,
+                catapult: catapult);
+        }
+
+        [Test]
         public void 모르는_표적도_뿅은_한다()
         {
             Assert.Greater(ArcheryHitFxRecipe.PopFor(null).ParticleCount, 0);

@@ -23,6 +23,7 @@ namespace LOP.UI
             _round = Root.Q<Label>("round");
             _timeFill = Root.Q<VisualElement>("time-fill");
             _cue = Root.Q<VisualElement>("cue");
+            Root.Q<Label>("cue").text = ArcheryCatapultHudText.CueText;
             _stun = Root.Q<VisualElement>("stun");
             _stunFill = Root.Q<VisualElement>("stun-fill");
             _popups = Root.Q<VisualElement>("popups");

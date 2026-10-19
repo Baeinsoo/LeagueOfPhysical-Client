@@ -126,6 +126,29 @@ namespace LOP
             Play(code, fake, at, ArcheryCatapultLooks.RotationAt(fake, code, 0, 0.02f), mine);
         }
 
+        /// <summary>
+        /// 표적이 나오는 자리의 "뿅"(3차 spec §1) — 색종이·흰 고리만 뿜는다. 그림·번쩍임·흔들림은 없다
+        /// (커지는 그림은 <see cref="ArcheryCatapultSpawnPopView"/>가 그린다). 파티클 채널·고리 쿼드 풀을 맞힌 연출과 같이 쓴다.
+        /// </summary>
+        public void Pop(string code, Vector3 at, float radius)
+        {
+            if (root == null)   // 투석기 판이 아니거나 이미 정리됐다
+            {
+                return;
+            }
+            var recipe = ArcheryHitFxRecipe.PopFor(code);
+            //  인터페이스 foreach는 열거자를 만든다 — 무리마다 여덟 번 부르므로 인덱스로 돈다.
+            for (int i = 0; i < recipe.Bursts.Count; i++)
+            {
+                var b = recipe.Bursts[i];
+                Emit(b, at, b.Palette, 1f, 1f);
+            }
+            for (int i = 0; i < recipe.Rings.Count; i++)
+            {
+                AddRing(recipe.Rings[i], at, radius, 1f, 1f);
+            }
+        }
+
         private void Play(string code, in ArcheryTarget target, Vector3 at, Quaternion rotation, bool mine)
         {
             if (root == null)   // 씬이 이미 정리된 뒤 적중 사건이 들어온 경우

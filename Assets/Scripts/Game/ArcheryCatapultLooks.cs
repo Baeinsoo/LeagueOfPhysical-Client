@@ -37,7 +37,7 @@ namespace LOP
         /// <summary>
         /// 투석기 그림의 그 시각 회전. 앞면(로컬 +z)이 사수를 보고, 접시는 판정과 같은 회전각으로 로컬 x축(사수 기준 가로)을 돈다 —
         /// 보이는 납작함이 곧 판정 크기다. 종·피냐타의 흔들림은 그림만(로컬 z축 굴림).
-        /// 떠 있는 표적·발사 직전 날아오는 그림·맞은 뒤 남는 그림이 모두 이것을 불러야 넘어가는 순간 각이 안 튄다.
+        /// 떠 있는 표적·발사 직전 커지는 그림(뿅)·맞은 뒤 남는 그림이 모두 이것을 불러야 넘어가는 순간 각이 안 튄다.
         /// </summary>
         public static Quaternion RotationAt(in ArcheryTarget target, string code, double tick, float tickInterval)
         {

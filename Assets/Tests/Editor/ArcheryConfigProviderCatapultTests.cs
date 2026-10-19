@@ -50,6 +50,18 @@ namespace LOP.Tests
             var row = md.Tables.TbArcheryConfig.GetOrDefault(CatapultMapId);
             Assert.IsNotNull(row, "TbArcheryConfig에 맵 13 행이 없다");
 
+            //  맵 13은 무리 간격과 수명이 같은 값이라(둘 다 3.6초) 그대로면 그 두 칸을 바꿔 넘겨도 못 잡는다.
+            //  이 시험에서만 수명을 다른 칸과 겹치지 않는 값으로 옮겨 놓는다 — 제공자가 옮기는 자리만 보면 되므로 값 자체는 상관없다.
+            var others = new HashSet<int>
+            {
+                row.RoundCount, row.RoundIntroTicks, row.RoundHuntTicks, row.RoundResultTicks,
+                row.VolleyPeriodTicks, row.VolleyCueTicks, row.VolleyQuietTicks,
+            };
+            int life = row.TargetLifeTicks;
+            while (others.Contains(life)) { life++; }
+            typeof(LOP.MasterData.ArcheryConfig).GetField(nameof(row.TargetLifeTicks)).SetValue(row, life);
+            Assert.AreEqual(life, row.TargetLifeTicks, "수명 칸을 옮겨 놓지 못했다 — 이 시험이 간격·수명 바꿈을 못 잡는다");
+
             //  정수 칸 값이 서로 다를 때만 순서 바꿈이 잡힌다 — 같아지면 이 시험이 아무것도 못 지킨다.
             var ints = new[]
             {

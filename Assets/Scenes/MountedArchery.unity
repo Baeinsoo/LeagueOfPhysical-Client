@@ -507,7 +507,7 @@ MonoBehaviour:
   zoomDamping: 10
   zoomMaxSpeed: 100
   pivotHeight: 0
-  alignYawToTarget: 0
+  alignYawToTarget: 1
   followTarget: 1
   minPitch: -20
   maxPitch: 80

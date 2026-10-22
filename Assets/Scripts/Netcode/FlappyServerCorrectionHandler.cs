@@ -29,7 +29,18 @@ namespace LOP
             }
             return StunMatches(predicted.StunRemaining, predicted.InvulnRemaining,
                                snap.stunEndTick, snap.invulnEndTick, tick)
-                && DashMatches(predicted.DashRemaining, snap.dashEndTick, tick);
+                && DashMatches(predicted.DashRemaining, snap.dashEndTick, tick)
+                && DashStacksMatch(predicted.DashCharge, snap.dashCharge);
+        }
+
+        /// <summary>
+        /// 쓸 수 있는 칸 수(게이지의 정수 부분)가 같나. 알갱이 판정의 경계에서 클라만 한 알 더 먹어 한 칸이
+        /// 찼다고 믿으면, 버튼은 켜졌는데 눌러도 서버에서 안 나간다 — 그래서 칸 수가 갈리면 되돌린다.
+        /// 칸 안의 소수점 차이는 비교하지 않는다(다음 알갱이·충전에 묻힌다).
+        /// </summary>
+        public static bool DashStacksMatch(float predictedCharge, float snapCharge)
+        {
+            return (int)predictedCharge == (int)snapCharge;
         }
 
         /// <summary>켜짐/꺼짐만 본다. 남은 시간의 미세한 차이는 다음 틱 시뮬이 알아서 좁힌다.</summary>

@@ -473,6 +473,39 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 알갱이_무더기는_1막_고정_관문에만_있고_틈_안에_있다()
+        {
+            //  spec 2026-10-23 §3.2 시험 배치. 알갱이가 벽 속에 있으면 아무도 못 먹고, 움직이는 관문에 붙으면 묻힌다.
+            var c = Layout();
+            float act2 = c.Sections.First(s => s.Name == "진자 광차").X;
+            Assert.Greater(c.Motes.Count, 3, "1막에 무더기가 몇 개는 있어야 한다");
+            foreach (MineMoteCluster m in c.Motes)
+            {
+                Assert.Less(m.X, act2, "1막 밖에 무더기가 있다");
+                MineGate g = c.Gates.First(gg => Math.Abs(gg.X - m.X) < 1e-4f);   // 고정 관문(Gates)에 붙어 있다
+                foreach (var (dx, dy) in m.Points)
+                {
+                    Assert.LessOrEqual(Math.Abs(dy), g.Gap * 0.5f - 0.04f, $"x={m.X} 알갱이가 벽에 묻혔다");
+                    Assert.LessOrEqual(Math.Abs(dx), (g.Width + 0.6f) * 0.5f + 1e-4f);
+                }
+            }
+            Assert.IsFalse(c.Lifts.Any(l => c.Motes.Any(m => Math.Abs(l.Gate.X - m.X) < 1e-3f)), "흔들리는 관문에 무더기가 붙었다");
+        }
+
+        [Test]
+        public void 금빛_큰_무더기는_하나_갈림길_합류_뒤_벽에_바짝_붙어_있다()
+        {
+            var c = Layout();
+            var big = c.Motes.Where(m => m.Big).ToList();
+            Assert.AreEqual(1, big.Count);
+            Assert.Greater(big[0].X, c.Forks[0].X1);
+            Assert.AreEqual(MineCourseRule.BigMotes, big[0].Points.Count);
+            MineGate g = c.Gates.First(gg => Math.Abs(gg.X - big[0].X) < 1e-4f);
+            //  벽(아래 끝)에서 0.47 m 안 — 바짝 붙어야 다 먹는다.
+            Assert.IsTrue(big[0].Points.All(p => p.dy + g.Gap * 0.5f <= 0.47f + 1e-4f));
+        }
+
+        [Test]
         public void 자를_x는_정렬되고_양끝을_포함한다()
         {
             var c = Layout();

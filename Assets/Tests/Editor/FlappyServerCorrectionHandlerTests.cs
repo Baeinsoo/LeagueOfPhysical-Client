@@ -43,6 +43,20 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 쓸_수_있는_칸_수가_다르면_틀리다()
+        {
+            //  알갱이 경계에서 클라만 한 알 더 먹어 한 칸이 찼다고 믿는 경우 — 버튼은 켜졌는데 서버에선 안 나간다.
+            Assert.IsFalse(FlappyServerCorrectionHandler.DashStacksMatch(predictedCharge: 1.01f, snapCharge: 0.99f));
+        }
+
+        [Test]
+        public void 칸_수가_같으면_소수점이_달라도_맞는다()
+        {
+            Assert.IsTrue(FlappyServerCorrectionHandler.DashStacksMatch(predictedCharge: 1.4f, snapCharge: 1.1f));
+            Assert.IsTrue(FlappyServerCorrectionHandler.DashStacksMatch(predictedCharge: 0.2f, snapCharge: 0.9f));
+        }
+
+        [Test]
         public void 둘_다_안_멈췄으면_맞는다()
         {
             Assert.IsTrue(FlappyServerCorrectionHandler.StunMatches(

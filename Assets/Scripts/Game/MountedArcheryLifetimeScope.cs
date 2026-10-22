@@ -52,6 +52,7 @@ namespace LOP
             // 외삽 대상이 없어 값은 안 쓰이지만 EntityBinder의 생성자 의존이라 등록은 필요하다.
             builder.Register<IExtrapolationAcceleration, ZeroExtrapolationAcceleration>(Lifetime.Singleton);
 
+            builder.RegisterEntryPoint<MountedAimView>().AsSelf();
             builder.RegisterEntryPoint<MountedArcheryRemoteShotHandler>();
             builder.RegisterEntryPoint<MountedArcheryHudCoordinator>();
             builder.Register<IArcheryPadViewModel, MountedArcheryPadViewModel>(Lifetime.Transient);

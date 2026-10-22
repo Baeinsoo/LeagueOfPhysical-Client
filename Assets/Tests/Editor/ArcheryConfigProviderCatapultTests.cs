@@ -105,8 +105,10 @@ namespace LOP.Tests
         {
             var md = RealMasterData();
             var config = CatapultConfig(md);
-            Assert.AreEqual(md.Tables.TbArcheryConfig.GetOrDefault(CatapultMapId).JackpotChance, config.Catapult.JackpotChance);
+            var row13 = md.Tables.TbArcheryConfig.GetOrDefault(CatapultMapId);
+            Assert.AreEqual(row13.JackpotChance, config.Catapult.JackpotChance);
             Assert.Greater(config.Catapult.JackpotChance, 0f, "맵 13의 대박 확률이 0이면 이 시험이 아무것도 못 지킨다");
+            Assert.AreNotEqual(row13.TrapChance, row13.JackpotChance, "두 확률이 같으면 둘을 바꿔 넘겨도 못 잡는다");
             foreach (var k in config.Kinds)
             {
                 var row = md.Tables.TbArcheryTarget.GetOrDefault(k.Id);
@@ -117,11 +119,19 @@ namespace LOP.Tests
                 Assert.AreEqual(row.ClimbMinMps, k.Motion.ClimbMinMps, c); Assert.AreEqual(row.ClimbMaxMps, k.Motion.ClimbMaxMps, c);
                 Assert.AreEqual(row.BobAmpM, k.Motion.BobAmplitudeM, c); Assert.AreEqual(row.BobHz, k.Motion.BobHz, c);
                 Assert.AreEqual(row.SpinHz, k.Motion.SpinHz, c); Assert.AreEqual(row.LateralHalfM, k.Motion.LateralHalfM, c);
+                //  3차 칸.
+                Assert.AreEqual(row.SpawnSideMinM, k.Motion.SpawnSideMinM, c); Assert.AreEqual(row.SpawnSideMaxM, k.Motion.SpawnSideMaxM, c);
+                Assert.AreEqual(row.LifeTicks, k.Motion.LifeTicks, c);
+                Assert.AreEqual(row.SwingAmpM, k.Motion.SwingAmplitudeM, c); Assert.AreEqual(row.SwingDipM, k.Motion.SwingDipM, c);
             }
             //  역할이 실제로 갈리는지 — 다 같으면 위 비교가 칸 바꿔치기를 못 잡는다.
             Assert.AreEqual(4, config.NormalKinds.Count);
             Assert.AreEqual(2, config.JackpotKinds.Count);
             Assert.AreEqual(3, config.TrapKinds.Count);
+            //  3차 칸끼리 값이 달라야 자리 바꿈이 잡힌다(바깥 띠 min ≠ max, 그네 폭 ≠ 깊이, 수명이 있는 것과 없는 것).
+            Assert.IsTrue(config.Kinds.Any(k => k.Motion.SpawnSideMinM > 0f && k.Motion.SpawnSideMinM != k.Motion.SpawnSideMaxM));
+            Assert.IsTrue(config.Kinds.Any(k => k.Motion.SwingAmplitudeM > 0f && k.Motion.SwingAmplitudeM != k.Motion.SwingDipM));
+            Assert.IsTrue(config.Kinds.Any(k => k.Motion.LifeTicks > 0) && config.Kinds.Any(k => k.Motion.LifeTicks == 0));
         }
     }
 }

@@ -37,7 +37,7 @@ namespace LOP
         /// <summary>
         /// 투석기 그림의 그 시각 회전. 앞면(로컬 +z)이 사수를 보고, 접시는 판정과 같은 회전각으로 로컬 x축(사수 기준 가로)을 돈다 —
         /// 보이는 납작함이 곧 판정 크기다. 종·피냐타의 흔들림은 그림만(로컬 z축 굴림).
-        /// 떠 있는 표적·발사 직전 날아오는 그림·맞은 뒤 남는 그림이 모두 이것을 불러야 넘어가는 순간 각이 안 튄다.
+        /// 떠 있는 표적·발사 직전 커지는 그림(뿅)·맞은 뒤 남는 그림이 모두 이것을 불러야 넘어가는 순간 각이 안 튄다.
         /// </summary>
         public static Quaternion RotationAt(in ArcheryTarget target, string code, double tick, float tickInterval)
         {
@@ -107,7 +107,7 @@ namespace LOP
         /// <summary>
         /// 투석기 그림 하나를 지운다. 회색 그림(이름 끝 <c>-placeholder</c>)은 재질을 스스로 만들었으니 같이 지운다 —
         /// 안 지우면 적중·무리마다 재질이 쌓인다. 축제 키트의 재질은 에셋이라 지우면 안 된다 — 그래서 이름으로 가른다.
-        /// 표적 그림·터짐 번쩍임·투석기가 모두 이것으로 지운다.
+        /// 표적 그림·터짐 번쩍임이 모두 이것으로 지운다.
         /// </summary>
         public static void DestroyVisual(GameObject visual)
         {

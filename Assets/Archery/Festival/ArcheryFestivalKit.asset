@@ -77,15 +77,6 @@ MonoBehaviour:
     - {fileID: 2100000, guid: 5c30dd6ea4aca415da693da1d1cd8f94, type: 2}
     radius: 0.79999995
   forbid: {fileID: 2100000, guid: cf64457c7f16a422e88f0dbc398f5d70, type: 2}
-  catapultFrame: {fileID: 1983466217513295781, guid: 2efed2941be784ef78be12350e889e9e, type: 3}
-  catapultArm: {fileID: 518126959361634714, guid: 89eafe38dbffd4a6eb59e7e971f0f22b, type: 3}
-  catapultFrameMaterials:
-  - {fileID: 2100000, guid: bec7db78d6ff9478ba9e2ffc92d62a6a, type: 2}
-  - {fileID: 2100000, guid: 52565c4ef6caf48c19f3a03a1e91680f, type: 2}
-  - {fileID: 2100000, guid: ca7383e3d84b846d99667178b10a2a13, type: 2}
-  catapultArmMaterials:
-  - {fileID: 2100000, guid: bec7db78d6ff9478ba9e2ffc92d62a6a, type: 2}
-  - {fileID: 2100000, guid: 316c2509bfff4466c90e1be5ca88bce3, type: 2}
   fxSolid: {fileID: 2100000, guid: 1cf2141776aef4f85ae450dbbaef247c, type: 2}
   fxDot: {fileID: 2100000, guid: a13c10ce8e55b4709974888f52b9d796, type: 2}
   fxSpark: {fileID: 2100000, guid: 0dd49d77e71114a3782bcd34745a47c4, type: 2}

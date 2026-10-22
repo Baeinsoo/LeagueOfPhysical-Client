@@ -12,6 +12,8 @@ namespace LOP.UI
         public static string GainText(int gain) => gain > 0 ? "+" + gain : gain.ToString();
 
         public const string DingText = "땡~";
+        /// <summary>무리 신호(발사 0.7초 전, 화면 가운데). 어디서 나올지는 안 알려 준다(3차 spec §1).</summary>
+        public const string CueText = "준비!";
 
         public static int DurationMs(ArcheryCatapultPopupStyle style)
             => style == ArcheryCatapultPopupStyle.Jackpot ? 1600 : style == ArcheryCatapultPopupStyle.Ding ? 1300 : 1100;

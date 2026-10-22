@@ -8,7 +8,7 @@
                 <ui:VisualElement name="time-fill" class="catapult-time-fill" picking-mode="Ignore" />
             </ui:VisualElement>
         </ui:VisualElement>
-        <ui:Label name="cue" text="준비…" class="catapult-cue" picking-mode="Ignore" />
+        <ui:Label name="cue" text="준비!" class="catapult-cue" picking-mode="Ignore" />
         <ui:VisualElement name="stun" class="catapult-stun" picking-mode="Ignore">
             <ui:Label text="활을 못 든다!" class="catapult-stun-text" picking-mode="Ignore" />
             <ui:VisualElement class="catapult-stun-bar" picking-mode="Ignore">

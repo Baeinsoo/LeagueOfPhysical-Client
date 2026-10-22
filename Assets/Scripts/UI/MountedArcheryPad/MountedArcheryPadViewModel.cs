@@ -23,7 +23,7 @@ namespace LOP.UI
             this.cameraController = cameraController;
             this.entityRegistry = entityRegistry;
             this.playerContext = playerContext;
-            controls = new ArcheryBowControls(input, cameraController, ReadDrawRatio, null);
+            controls = new ArcheryBowControls(input, cameraController, ReadDrawRatio, null, MountedCameraZoom.WideFov);
         }
 
         private float ReadDrawRatio()

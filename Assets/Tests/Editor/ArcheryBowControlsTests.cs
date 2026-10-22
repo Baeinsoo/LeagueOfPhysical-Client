@@ -33,6 +33,14 @@ namespace LOP.Tests
             => new LOP.UI.ArcheryBowControls(input, cam, () => draw[0], armed => released?.Add(armed));
 
         [Test]
+        public void 감도_기준_화각은_기본이_활쏘기_넓은_화각이고_모드가_바꿀_수_있다()
+        {
+            Assert.AreEqual(ArcheryAimView.WideFov, Make(new FakeInput(), new FakeCamera(), new[] { 0f }, null).ReferenceFov);
+            var mounted = new LOP.UI.ArcheryBowControls(new FakeInput(), new FakeCamera(), () => 0f, null, MountedCameraZoom.WideFov);
+            Assert.AreEqual(MountedCameraZoom.WideFov, mounted.ReferenceFov);
+        }
+
+        [Test]
         public void 활_손가락을_시위가_걸린_뒤_떼면_쏜다()
         {
             var input = new FakeInput();

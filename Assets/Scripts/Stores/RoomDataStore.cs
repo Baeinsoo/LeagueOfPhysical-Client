@@ -36,6 +36,13 @@ namespace LOP
                 UnityEngine.Debug.LogWarning($"[Debug] 매치 맵을 {match.rounds[0].mapId} → {forced}로 바꾼다(에디터 전용)");
                 match.rounds[0].mapId = forced;
             }
+            //  게임 모드도 같은 방식 — 메뉴 LOP/Debug/다음 매치 게임 모드 강제.
+            int forcedMode = UnityEditor.EditorPrefs.GetInt("LOP.Debug.ForceGameModeId", 0);
+            if (forcedMode > 0 && match?.rounds != null && match.rounds.Length > 0)
+            {
+                UnityEngine.Debug.LogWarning($"[Debug] 매치 게임 모드를 {match.rounds[0].gameModeId} → {forcedMode}로 바꾼다(에디터 전용)");
+                match.rounds[0].gameModeId = forcedMode;
+            }
 #endif
         }
 

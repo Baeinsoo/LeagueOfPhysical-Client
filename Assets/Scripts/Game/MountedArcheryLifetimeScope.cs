@@ -53,6 +53,8 @@ namespace LOP
             builder.Register<IExtrapolationAcceleration, ZeroExtrapolationAcceleration>(Lifetime.Singleton);
 
             builder.RegisterEntryPoint<MountedAimView>().AsSelf();
+            builder.RegisterEntryPoint<MountedHorseView>().AsSelf();
+            builder.RegisterEntryPoint<MountedArrowView>().AsSelf();
             builder.RegisterEntryPoint<MountedArcheryRemoteShotHandler>();
             builder.RegisterEntryPoint<MountedArcheryHudCoordinator>();
             builder.Register<IArcheryPadViewModel, MountedArcheryPadViewModel>(Lifetime.Transient);

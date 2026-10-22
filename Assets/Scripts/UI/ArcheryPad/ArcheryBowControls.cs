@@ -43,7 +43,8 @@ namespace LOP.UI
         //  겨누는 속도(도/초). 아래 화각을 기준으로 정한 값이고, 당겨서 화면이 좁아지면 그
         //  비율만큼 같이 줄어든다 — 그래야 손동작 하나가 **화면 위에서** 늘 같은 거리를 움직인다.
         //  (저격 게임의 "줌 감도 보정"과 같은 것. 안 하면 줌인할수록 손이 미쳐 날뛴다.)
-        private const float ReferenceFov = ArcheryAimView.WideFov;
+        //  모드마다 넓은 화각이 달라서(말 활쏘기는 62도) 그 모드의 넓은 화각을 받는다.
+        public float ReferenceFov { get; }
 
         //  톡 쳤을 때의 속도. 당긴 상태(화각 22도)에서 약 2.2도/초가 되는데, 90m 과녁의 10점
         //  링(0.25도)을 건너는 데 7프레임쯤 걸리는 속도다 — 미세조정이 되는 하한선.
@@ -67,8 +68,11 @@ namespace LOP.UI
 
         /// <param name="drawRatio">시뮬이 가진 지금 당김(0~1). 화면이 따로 세지 않는다.</param>
         /// <param name="onRelease">화살이 실제로 나갈 놓기에 부른다. 인수 = 그 순간 시위가 걸렸나. null 가능.</param>
-        public ArcheryBowControls(IBowInput input, IAimCamera camera, System.Func<float> drawRatio, System.Action<bool> onRelease)
+        /// <param name="referenceFov">겨누는 속도의 기준 화각 = 그 모드의 당기지 않은 화각(도).</param>
+        public ArcheryBowControls(IBowInput input, IAimCamera camera, System.Func<float> drawRatio, System.Action<bool> onRelease,
+                                  float referenceFov = ArcheryAimView.WideFov)
         {
+            ReferenceFov = referenceFov;
             this.input = input;
             this.aimCamera = camera;
             this.drawRatio = drawRatio;

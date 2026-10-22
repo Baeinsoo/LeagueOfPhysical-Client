@@ -28,6 +28,10 @@ public class FlappyMoteFxTests
                             stunTime: 1.2f, invulnTime: 0.6f,
                             dashMult: 2.2f, dashDuration: 0.48f, dashChargeBase: 0f, dashChargeDive: 1.3f);
 
+    private EntityRegistry lastRegistry;
+
+    private Entity MeEntity() => lastRegistry.Get("me");
+
     private Dictionary<string, UnityEngine.Transform> Make(FlappyMoteField field, FlappyMoteFeed feed, bool moteCharge = true)
     {
         var registry = new EntityRegistry();
@@ -40,6 +44,7 @@ public class FlappyMoteFxTests
             entity.Add(new FlappyStun());
             registry.Add(entity);
         }
+        lastRegistry = registry;
         var rules = new FlappyMapRulesField();
         rules.Set(chaser: false, manualDash: true, moteCharge: moteCharge);
         fx = new LOP.FlappyMoteFx(new PlayerContext { entityId = "me" }, registry, field, rules, Config(), feed);
@@ -112,6 +117,23 @@ public class FlappyMoteFxTests
 
         Assert.AreEqual(1, first);
         Assert.AreEqual(1, fx.FlyingCount, "x=1 알갱이를 다시 지났지만 새 복사본은 없다");
+    }
+
+    [Test]
+    public void 상한_두_칸에서_박아도_흩어진다()
+    {
+        //  두 칸에서 절반을 잃으면 감소량이 정확히 1이다 — "대시로 한 칸 썼다"와 헷갈려 흩어짐을 빼먹으면 안 된다.
+        var views = Make(ThreeMotes(), new FlappyMoteFeed());
+        views["me"].position = new Vector3(-10f, -0.45f, 0f);
+        fx.Tick(0.016f);
+        int before = fx.FlyingCount;
+
+        var me = MeEntity();
+        me.Get<FlappyDash>().Charge = 1f;            // 2칸에서 절반을 잃은 뒤
+        me.Get<FlappyStun>().StunRemaining = 1.2f;   // 스턴이 막 걸렸다
+        fx.Tick(0.016f);
+
+        Assert.Greater(fx.FlyingCount, before);
     }
 
     [Test]

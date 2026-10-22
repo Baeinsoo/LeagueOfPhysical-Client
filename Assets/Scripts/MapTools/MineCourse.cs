@@ -77,7 +77,6 @@ namespace LOP.MapTools
         }
     }
 
-    /// <summary>구간 이름과 시작 x(그 구간 첫 장애물의 왼쪽 끝).</summary>
     /// <summary>
     /// 빛 알갱이 무더기 하나(spec 2026-10-23). <see cref="X"/>·<see cref="Y"/>는 붙은 관문의 가운데(파이프 두께 가운데, 틈 중심),
     /// <see cref="Points"/>는 거기서 잰 알갱이 자리. 굽기가 이 값 그대로 <c>FlappyMoteCluster</c> 마커를 세운다.
@@ -94,6 +93,7 @@ namespace LOP.MapTools
         }
     }
 
+    /// <summary>구간 이름과 시작 x(그 구간 첫 장애물의 왼쪽 끝).</summary>
     public readonly struct MineSection
     {
         public readonly string Name;
@@ -655,13 +655,14 @@ namespace LOP.MapTools
             return c;
         }
 
+        /// <summary>작은 무더기·금빛 큰 무더기의 알갱이 수.</summary>
+        public const int SmallMotes = 5, BigMotes = 26;
+        internal const uint MoteSeed = 2023;
+
         /// <summary>빛 알갱이 무더기 시험 배치(spec 2026-10-23 §3.2): 1막의 <b>고정</b> 관문에만 둔다 — 흔들리는 계단은 틈이 움직여
         /// 고정 알갱이가 벽 속에 묻힌다. 세 관문마다 작은 무더기(양쪽 끝), 나머지는 보통 무더기(위·아래 번갈아),
         /// 갈림길⬇이 합류한 뒤 첫 관문에 금빛 큰 무더기 하나.
         /// <para>코스 생성기와 따로 난수를 쓴다 — 같은 LCG를 이어 쓰면 뒤쪽 구간의 모양이 바뀐다(프로토타입과 같은 코스가 깨진다).</para></summary>
-        public const int SmallMotes = 5, BigMotes = 26;
-        internal const uint MoteSeed = 2023;
-
         static List<MineMoteCluster> ActOneMotes(MineCourse c)
         {
             var result = new List<MineMoteCluster>();

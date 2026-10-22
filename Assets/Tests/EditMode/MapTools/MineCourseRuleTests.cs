@@ -489,7 +489,16 @@ namespace LOP.MapTools.Tests
                     Assert.LessOrEqual(Math.Abs(dx), (g.Width + 0.6f) * 0.5f + 1e-4f);
                 }
             }
-            Assert.IsFalse(c.Lifts.Any(l => c.Motes.Any(m => Math.Abs(l.Gate.X - m.X) < 1e-3f)), "흔들리는 관문에 무더기가 붙었다");
+            //  알갱이가 다른 단단한 것(칸막이·받침목) 속에 있으면 아무도 못 먹는다 — 받침목은 판정 고체다.
+            foreach (MineMoteCluster m in c.Motes)
+            {
+                foreach (var (dx, dy) in m.Points)
+                {
+                    float x = m.X + dx, y = m.Y + dy;
+                    Assert.IsFalse(c.Walls.Concat(c.Props).Any(r => x >= r.X0 && x <= r.X1 && y >= r.Y0 && y <= r.Y1),
+                                   $"({x:F2}, {y:F2}) 알갱이가 칸막이·받침목 속에 있다");
+                }
+            }
         }
 
         [Test]

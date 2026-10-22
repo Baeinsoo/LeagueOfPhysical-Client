@@ -50,6 +50,23 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 교정_비교에_칸_수가_실제로_물려_있다()
+        {
+            //  정적 함수만 시험하면 Matches에서 그 줄을 지워도 초록이다 — 저장된 예측과 스냅을 실제로 맞대 본다.
+            var handler = Fixture.Handler(Fixture.NeverHit, out var world, out var bird);
+            bird.Add(new FlappyDash { Charge = 1.2f });
+            world.SaveState(Fixture.SnapTick);
+
+            var oneStack = Fixture.Snap(bird.Id, Fixture.SnapTick);
+            oneStack.dashCharge = 1.9f;
+            var noStack = Fixture.Snap(bird.Id, Fixture.SnapTick);
+            noStack.dashCharge = 0.9f;
+
+            Assert.IsTrue(handler.Matches(Fixture.SnapTick, oneStack));
+            Assert.IsFalse(handler.Matches(Fixture.SnapTick, noStack));
+        }
+
+        [Test]
         public void 칸_수가_같으면_소수점이_달라도_맞는다()
         {
             Assert.IsTrue(FlappyServerCorrectionHandler.DashStacksMatch(predictedCharge: 1.4f, snapCharge: 1.1f));

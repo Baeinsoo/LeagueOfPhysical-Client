@@ -52,7 +52,7 @@ namespace LOP
         private int burstCount;
         private float sinceLastHit;
         private float sinceBlip;
-        private float lastCharge = -1f;
+        private bool wasStunned;
         private float time;
 
         //  테스트 seam — 실제로는 씬의 LOPEntityView, 테스트는 가짜를 끼운다.
@@ -107,6 +107,7 @@ namespace LOP
         {
             if (rules.MoteCharge == false || field.Sets.Count == 0)
             {
+                ClearAll();   // 알갱이 없는 맵으로 바뀌었으면 옛 그림을 걷는다
                 return;
             }
             time += deltaTime;
@@ -129,16 +130,8 @@ namespace LOP
             {
                 return;
             }
-            //  맵이 다시 올라왔다(라운드가 여러 판) — 옛 무더기를 걷고 새로 그린다.
-            for (int i = 0; i < motes.Count; i++)
-            {
-                DestroyObject(motes[i].Renderer.gameObject);
-            }
-            motes.Clear();
-            moteAt.Clear();
-            builtSets.Clear();
-            clusterStarts.Clear();
-            hintsShown = 0;
+            //  맵이 다시 올라왔다(라운드가 여러 판) — 옛 무더기·날던 알갱이·새마다 간 거리를 걷고 새로 그린다.
+            ClearAll();
             EnsureRoot();
             for (int s = 0; s < sets.Count; s++)
             {
@@ -187,13 +180,12 @@ namespace LOP
                     track = new Track();
                     tracks[entity.Id] = track;
                 }
+                //  매 프레임 다시 묻는다 — 그림(visualGameObject)은 비동기로 늦게 붙고, 움직이는 것은 그림뿐이다.
+                //  처음 받은 것을 붙들면 그림이 붙기 전의 루트(안 움직인다)에 묶여 판 내내 스폰 자리에 멈춘다.
+                track.View = viewLookup(entity.Id);
                 if (track.View == null)
                 {
-                    track.View = viewLookup(entity.Id);
-                    if (track.View == null)
-                    {
-                        continue;
-                    }
+                    continue;
                 }
                 //  그림 자리는 발밑이다 — 시뮬과 같이 몸 중심(공 반지름만큼 위)으로 잰다.
                 Vector3 p = track.View.position + Vector3.up * config.BodyRadius;
@@ -265,19 +257,21 @@ namespace LOP
             }
         }
 
-        //  박아서 게이지가 절반으로 줄면 그만큼 알갱이가 흩어진다. 대시로 쓴 한 칸(정확히 1 감소)은 빼고,
-        //  스턴 중일 때만 본다 — 되감기 교정으로 생긴 작은 차이를 손실로 읽지 않게.
+        //  박아서 스턴이 걸리는 순간 잃은 만큼 알갱이가 흩어진다. 규칙이 "절반 잃기"라 잃은 양 = 남은 양이다 —
+        //  게이지 감소량으로 재면 같은 틱에 쓴 대시 한 칸이 섞이거나(1 감소와 구별 불가) 되감기 교정의 흔들림이 섞인다.
         private void WatchMyLoss()
         {
             var entity = string.IsNullOrEmpty(playerContext.entityId) ? null : entityRegistry.Get(playerContext.entityId);
-            float charge = entity?.Get<FlappyDash>()?.Charge ?? -1f;
-            if (charge < 0f)
+            if (entity == null)
             {
                 return;
             }
-            float drop = lastCharge - charge;
+            float charge = entity.Get<FlappyDash>()?.Charge ?? 0f;
             bool stunned = (entity.Get<FlappyStun>()?.StunRemaining ?? 0f) > 0f;
-            if (lastCharge >= 0f && drop > 0.05f && stunned && Mathf.Abs(drop - 1f) > 0.01f)
+            bool justStunned = stunned && wasStunned == false;
+            wasStunned = stunned;
+            float drop = charge;
+            if (justStunned && drop > 0.01f)
             {
                 var me = MyView();
                 if (me != null)
@@ -296,7 +290,6 @@ namespace LOP
                     }
                 }
             }
-            lastCharge = charge;
         }
 
         private void SpawnCopy((float x, float y) at, UnityEngine.Transform target, bool mine)
@@ -467,16 +460,59 @@ namespace LOP
             return clip;
         }
 
-        private static UnityEngine.Transform DefaultViewLookup(string entityId)
+        //  찾은 뷰는 들고 있고, 못 찾은 새가 있으면 씬 훑기는 0.5초에 한 번만 한다(매 프레임 훑으면 비싸다).
+        //  그림이 아직 안 붙었으면 null — 루트는 움직이지 않으므로 대신 쓰지 않는다.
+        private readonly Dictionary<string, LOPEntityView> views = new Dictionary<string, LOPEntityView>();
+        private float nextScan;
+
+        private UnityEngine.Transform DefaultViewLookup(string entityId)
         {
-            foreach (var view in Object.FindObjectsByType<LOPEntityView>(FindObjectsSortMode.None))
+            if (views.TryGetValue(entityId, out var view) == false || view == null)
             {
-                if (view.entityId == entityId)
+                if (time < nextScan)
                 {
-                    return view.visualGameObject != null ? view.visualGameObject.transform : view.transform;
+                    return null;
+                }
+                nextScan = time + 0.5f;
+                views.Clear();
+                foreach (var v in Object.FindObjectsByType<LOPEntityView>(FindObjectsSortMode.None))
+                {
+                    if (string.IsNullOrEmpty(v.entityId) == false)
+                    {
+                        views[v.entityId] = v;
+                    }
+                }
+                if (views.TryGetValue(entityId, out view) == false)
+                {
+                    return null;
                 }
             }
-            return null;
+            return view.visualGameObject != null ? view.visualGameObject.transform : null;
+        }
+
+        private void ClearAll()
+        {
+            if (builtSets.Count == 0 && flyers.Count == 0)
+            {
+                return;
+            }
+            for (int i = 0; i < motes.Count; i++)
+            {
+                DestroyObject(motes[i].Renderer.gameObject);
+            }
+            for (int i = 0; i < flyers.Count; i++)
+            {
+                Return(flyers[i].Renderer);
+            }
+            motes.Clear();
+            moteAt.Clear();
+            flyers.Clear();
+            builtSets.Clear();
+            clusterStarts.Clear();
+            tracks.Clear();
+            hintsShown = 0;
+            burstCount = 0;
+            wasStunned = false;
         }
 
         private static void DestroyObject(Object obj)

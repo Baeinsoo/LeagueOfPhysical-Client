@@ -127,12 +127,7 @@ namespace LOP
         {
             if (_arrowMaterials == null)
             {
-                _arrowMaterials = new[]
-                {
-                    LOPToonMaterials.Create(new Color(0.92f, 0.78f, 0.52f)),   // 나무 대
-                    LOPToonMaterials.Create(new Color(0.3f, 0.3f, 0.34f)),     // 쇠 촉
-                    LOPToonMaterials.Create(new Color(1f, 0.25f, 0.3f)),        // 빨간 깃 — 꽂힌 화살이 눈에 띈다
-                };
+                _arrowMaterials = ArcheryArrowMesh.BuildMaterials();
             }
             return _arrowMaterials;
         }

@@ -4,7 +4,7 @@ using LOP.Event.LOPRunner.Update;
 
 namespace LOP
 {
-    public class PlayerInputManager : ITickSystem
+    public class PlayerInputManager : ITickSystem, LOP.UI.IBowInput
     {
         private const int RedundancyWindow = 3;  // 패킷당 최근 N틱 입력(현재 포함) — sliding-window redundancy
 

@@ -13,7 +13,7 @@ namespace LOP.UI
     /// </summary>
     public class ArcheryPadView : UIView
     {
-        private readonly ArcheryPadViewModel _viewModel;
+        private readonly IArcheryPadViewModel _viewModel;
         private Label _score;
         private Label _arrows;
         private VisualElement _reticle;
@@ -64,7 +64,7 @@ namespace LOP.UI
         private float MoveMaxRadius => (_moveBg.contentRect.width - _moveHandle.resolvedStyle.width) / 2f;
 
 
-        public ArcheryPadView(ArcheryPadViewModel viewModel)
+        public ArcheryPadView(IArcheryPadViewModel viewModel)
         {
             _viewModel = viewModel;
         }
@@ -83,6 +83,11 @@ namespace LOP.UI
             _popups = Root.Q<VisualElement>("hit-popups");
             _score = Root.Q<Label>("score");
             _arrows = Root.Q<Label>("arrows");
+            if (_viewModel.ShowScoreboard == false)
+            {
+                _score.style.display = DisplayStyle.None;
+                _arrows.style.display = DisplayStyle.None;
+            }
             _reticle = Root.Q<VisualElement>("reticle");
             _drawRing = Root.Q<ArcheryDrawRingElement>("draw-ring");
             _moveArea = Root.Q<VisualElement>("move-area");
@@ -118,11 +123,14 @@ namespace LOP.UI
                 _viewModel.Tick(Time.deltaTime);
                 _viewModel.AdvanceFingerClock(Time.unscaledDeltaTime);
                 TickHandleDrag(Time.unscaledDeltaTime);
-                _score.text = _viewModel.Score.ToString();
+                if (_viewModel.ShowScoreboard)
+                {
+                    _score.text = _viewModel.Score.ToString();
+                }
 
                 //  무제한인 맵에서는 아예 안 보이게 한다 — 늘 같은 숫자가 떠 있으면 눈만 시끄럽다.
                 int left = _viewModel.ArrowsLeft;
-                _arrows.style.display = left >= 0 ? DisplayStyle.Flex : DisplayStyle.None;
+                _arrows.style.display = _viewModel.ShowScoreboard && left >= 0 ? DisplayStyle.Flex : DisplayStyle.None;
                 if (left >= 0)
                 {
                     _arrows.text = $"화살 {left}";

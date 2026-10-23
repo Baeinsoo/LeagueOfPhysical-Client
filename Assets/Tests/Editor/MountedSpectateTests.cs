@@ -49,7 +49,8 @@ namespace LOP.Tests
         public void 처치자를_먼저_본다()
         {
             var (spectate, state, _) = Make("a", "b", "c", "me");
-            state.Apply(Msg(1, ("a", -1, ""), ("b", -1, ""), ("c", -1, ""), ("me", 5, "c")));
+            state.Apply(Msg(1, ("a", -1, ""), ("b", -1, ""), ("c", -1, ""), ("me", -1, "")));
+            state.Apply(Msg(2, ("a", -1, ""), ("b", -1, ""), ("c", -1, ""), ("me", 5, "c")));
             spectate.Refresh();
 
             Assert.AreEqual("c", spectate.Current);
@@ -60,12 +61,13 @@ namespace LOP.Tests
         public void 보던_사람이_쓰러지면_다음_사람()
         {
             var (spectate, state, registry) = Make("a", "b", "c", "me");
-            state.Apply(Msg(1, ("a", -1, ""), ("b", -1, ""), ("c", -1, ""), ("me", 5, "a")));
+            state.Apply(Msg(1, ("a", -1, ""), ("b", -1, ""), ("c", -1, ""), ("me", -1, "")));
+            state.Apply(Msg(2, ("a", -1, ""), ("b", -1, ""), ("c", -1, ""), ("me", 5, "a")));
             spectate.Refresh();
             Assert.AreEqual("a", spectate.Current);
 
             registry.Remove("a");
-            state.Apply(Msg(2, ("a", 9, "b"), ("b", -1, ""), ("c", -1, ""), ("me", 5, "a")));
+            state.Apply(Msg(3, ("a", 9, "b"), ("b", -1, ""), ("c", -1, ""), ("me", 5, "a")));
             spectate.Refresh();
 
             Assert.AreEqual("b", spectate.Current);

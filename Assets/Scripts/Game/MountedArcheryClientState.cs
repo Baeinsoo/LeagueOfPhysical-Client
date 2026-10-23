@@ -22,9 +22,14 @@ namespace LOP
             new Dictionary<string, (string, long, string)>();
         private readonly HashSet<string> announced = new HashSet<string>();
 
+        private bool first = true;
+
         public int Version { get; private set; }
 
-        /// <summary>새로 탈락한 사람마다 한 번.</summary>
+        /// <summary>
+        /// 새로 탈락한 사람마다 한 번. <b>처음 받은 상태에 이미 들어 있는 탈락은 알리지 않는다</b> —
+        /// 재접속하면 지난 탈락이 한꺼번에 오는데, 킬 피드에 쏟으면 안 된다. 그래도 <see cref="IsEliminated"/>는 본다.
+        /// </summary>
         public event Action<Elimination> Eliminated;
 
         public int AliveCount
@@ -60,9 +65,11 @@ namespace LOP
                 players[w.EntityId] = (w.DisplayName, w.EliminatedTick, w.KillerEntityId);
             }
 
+            bool silent = first;
+            first = false;
             foreach (var w in message.Players)
             {
-                if (w.EliminatedTick < 0 || announced.Add(w.EntityId) == false)
+                if (w.EliminatedTick < 0 || announced.Add(w.EntityId) == false || silent)
                 {
                     continue;
                 }

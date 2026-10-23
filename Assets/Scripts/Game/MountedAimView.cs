@@ -95,9 +95,10 @@ namespace LOP
                     shownDrawRatio = 0f;
                     camera.fieldOfView = MountedCameraZoom.WideFov;
                     cameraController.DistanceOverride = MountedCameraZoom.WideDistance;
-                    cameraController.PivotOffset = Vector3.up * (eyeHeight - cameraController.PivotHeight)
-                                                   + camera.transform.right * MountedCameraZoom.ShoulderRight;
                 }
+                // 어깨 비킴은 내 기수를 화면 왼쪽에 두려는 것이다. 관전 대상은 가운데에 둔다 — 한 번 잡은 월드 고정
+                // 값을 두면 카메라가 돌 때 화면이 옆으로 치우친다.
+                cameraController.PivotOffset = Vector3.zero;
                 return;
             }
             cameraReset = false;

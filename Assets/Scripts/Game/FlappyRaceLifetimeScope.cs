@@ -127,6 +127,8 @@ namespace LOP
             //  빛 알갱이 그림·빨려 드는 복사본·"+n알"(판정과 무관한 화면 연출). 글자는 우편함을 거쳐 HUD가 띄운다.
             builder.Register<FlappyMoteFeed>(Lifetime.Singleton);
             builder.RegisterEntryPoint<FlappyMoteFx>();
+            //  다이브 충전 연출(기운·빛줄기·고리·충전음·"대시 1칸!") — 판정과 무관한 화면 연출.
+            builder.RegisterEntryPoint<FlappyDiveFx>();
 
             //  낙하 내려다보기(FlappyFallLookDown)는 껐다 — 카메라가 새를 뒤따라 늦게 움직이는 느낌이라
             //  원조처럼 고정된 구도가 낫다(사용자 결정 2026-10-07). 클래스와 시험은 남겨 둔다.

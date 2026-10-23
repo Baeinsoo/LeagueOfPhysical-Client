@@ -137,8 +137,9 @@ namespace LOP.EditorTools
                 FlappyClassicCourseBuilder.MoteCluster(parent, $"MoteCluster_{m.X:F0}", m.X, m.Y, m.GapHalf, m.Big, m.Points);
             }
 
-            //  알갱이 맵: 게이지는 알갱이로만 차고, 쓰는 때는 대시 버튼으로 고른다(spec 2026-10-23 §2.3).
-            FlappyClassicCourseBuilder.ApplyMapRules(composed, chaser: false, manualDash: true, moteCharge: true);
+            //  다이브 충전 맵: 날갯짓을 참고 빠르게 떨어지는 동안 게이지가 차고, 쓰는 때는 대시 버튼으로 고른다
+            //  (spec 2026-10-23-flappy-dive-charge). 알갱이는 끈다.
+            FlappyClassicCourseBuilder.ApplyMapRules(composed, chaser: false, manualDash: true, moteCharge: false, diveCharge: true);
 
             FlappyClassicCourseBuilder.PlaceSpawns(FloorAt(0f), CeilingAt(0f), SpawnWindow,
                                                    course.Gates.Count > 0 ? course.Gates[0].GapCenter : course.CenterAt(0f));

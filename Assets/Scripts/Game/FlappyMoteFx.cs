@@ -20,7 +20,8 @@ namespace LOP
         private const float BigMoteSize = 0.72f;
         private const float CopySize = 0.32f;
         private const float BandHeight = 1.05f;        // 빛 띠 두께 — 먹히는 범위(몸 표면에서 0.5 m)와 거의 맞는다
-        private const float BandMargin = 0.35f;        // 띠가 알갱이 바깥으로 더 뻗는 거리(좌우)
+        private const float BandMargin = 0.2f;         // 띠가 알갱이 바깥으로 더 뻗는 거리(좌우)
+        private const float StreakLength = 0.42f;
         private const int BandStreaks = 5;             // 띠 안에서 벽 → 틈 쪽으로 흐르는 결 줄 수
         private const float ReactRange = 1.4f;         // 몸 표면에서 이만큼 안이면 알갱이가 쏠리기 시작한다
         private const float CopyLifetime = 0.7f;
@@ -43,11 +44,12 @@ namespace LOP
         private readonly FlappyMoteFeed feed;
 
         private GameObject root;
-        private Sprite dot;
         private Sprite star;
         private Sprite bandSprite;
         private Sprite streakSprite;
         private readonly List<Band> bands = new List<Band>();
+        private Vector3 lastMeCenter;
+        private bool warnedNoGapHalf;
         private AudioSource audio;
         private AudioClip blip;
 
@@ -75,6 +77,8 @@ namespace LOP
         internal int BandCount => bands.Count;
         internal float PullOf(int index) => motes[index].Pull;
         internal float HeatOf(int index) => bands[index].Heat;
+        internal (Vector3 position, float scaleY) BandPose(int index)
+            => (bands[index].Renderer.transform.position, bands[index].Renderer.transform.localScale.y);
 
         private class Mote
         {
@@ -202,6 +206,12 @@ namespace LOP
         {
             if (set.GapHalf <= 0f)
             {
+                if (warnedNoGapHalf == false)
+                {
+                    //  콘텐츠 빌드가 GapHalf를 모르는 Shared로 구워지면 이렇게 된다(마커가 값을 잃는다) — 띠만 조용히 사라지지 않게 한 번 알린다.
+                    warnedNoGapHalf = true;
+                    Debug.LogWarning("[FlappyMoteFx] 틈 반 높이(GapHalf)가 없는 알갱이 무더기가 있어 빛 띠를 안 그린다 — 맵 콘텐츠를 Shared 최신으로 다시 구웠는지 확인.");
+                }
                 return;
             }
             for (int side = -1; side <= 1; side += 2)
@@ -401,7 +411,11 @@ namespace LOP
         {
             var me = MyView();
             bool hasMe = me != null && IsMeStunned() == false;
-            Vector3 c0 = hasMe ? me.position + Vector3.up * config.BodyRadius : Vector3.zero;
+            Vector3 c0 = hasMe ? me.position + Vector3.up * config.BodyRadius : lastMeCenter;
+            if (hasMe)
+            {
+                lastMeCenter = c0;   // 스턴이 걸린 순간에도 쏠렸던 알갱이가 서서히 돌아가게 마지막 자리를 들고 있는다
+            }
             for (int i = 0; i < motes.Count; i++)
             {
                 var m = motes[i];
@@ -420,7 +434,8 @@ namespace LOP
                 c.a = Mathf.Clamp01(0.75f + 0.25f * twinkle + boost);
                 m.Renderer.color = c;
                 var t = m.Renderer.transform;
-                Vector3 toward = hasMe ? (c0 - m.Home) * (0.22f * m.Pull) : Vector3.zero;
+                //  쏠림은 0.45 m까지만 — 되감기 교정으로 그림이 멀리 튀어도 알갱이가 끌려가지 않게.
+                Vector3 toward = Vector3.ClampMagnitude((c0 - m.Home) * (0.22f * m.Pull), 0.45f);
                 t.position = m.Home + toward + new Vector3(Mathf.Sin(time * 1.5f + m.Phase) * 0.04f,
                                                            Mathf.Cos(time * 2f + m.Phase) * 0.04f, 0f);
                 t.localRotation = Quaternion.Euler(0f, 0f, (time * 35f + m.Phase * 57f) % 360f);
@@ -431,10 +446,11 @@ namespace LOP
             {
                 var b = bands[i];
                 float inside = 0f;
-                if (hasMe && c0.x > b.X0 - 0.5f && c0.x < b.X1 + 0.5f)
+                if (hasMe && c0.x >= b.X0 && c0.x <= b.X1)
                 {
                     float surface = b.Side > 0 ? (c0.y - config.BodyRadius) - b.Lip : b.Lip - (c0.y + config.BodyRadius);
-                    if (surface < BandHeight)
+                    //  벽 선보다 안쪽(벽 쪽)에 몸이 있으면 띠 안이 아니라 벽에 박으러 가는 중이다 — 밝히지 않는다.
+                    if (surface >= -0.05f && surface < BandHeight)
                     {
                         inside = Mathf.Clamp01(1f - surface / BandHeight);
                     }
@@ -451,8 +467,10 @@ namespace LOP
                     float u = b.StreakPhase[k];
                     var st = b.Streaks[k];
                     float x = b.X0 + width * (k + 0.5f) / b.Streaks.Length;
-                    st.transform.position = new Vector3(x, b.Lip + b.Side * BandHeight * u, 0.07f);
-                    st.transform.localScale = new Vector3(0.5f, 0.42f, 1f);   // 결 그림은 가로 0.125 m — 반으로 줄여 6 cm 선
+                    //  결 한 줄이 통째로 띠 안에 머물게 중심을 반 길이만큼 안쪽에서 움직인다.
+                    float along = StreakLength * 0.5f + (BandHeight - StreakLength) * u;
+                    st.transform.position = new Vector3(x, b.Lip + b.Side * along, 0.07f);
+                    st.transform.localScale = new Vector3(0.5f, StreakLength, 1f);   // 결 그림은 가로 0.125 m — 반으로 줄여 6 cm 선
                     Color sc = b.Big ? BigBandColor : BandColor;
                     sc.a = Mathf.Sin(u * Mathf.PI) * (0.35f + b.Heat * 0.5f);
                     st.color = sc;
@@ -558,7 +576,6 @@ namespace LOP
                 return;
             }
             root = new GameObject("FlappyMotes");
-            dot = MakeDot();
             star = MakeStar();
             bandSprite = MakeBand();
             streakSprite = MakeStreak();
@@ -566,30 +583,6 @@ namespace LOP
             audio.playOnAwake = false;
             audio.spatialBlend = 0f;
             blip = MakeBlip();
-        }
-
-        //  가운데가 밝고 가장자리로 번지는 점 하나. 그림 파일 없이 만든다.
-        private static Sprite MakeDot()
-        {
-            const int size = 64;
-            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, name = "FlappyMoteDot" };
-            var pixels = new Color32[size * size];
-            float half = (size - 1) * 0.5f;
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    float d = Mathf.Sqrt((x - half) * (x - half) + (y - half) * (y - half)) / half;
-                    float core = Mathf.Clamp01(1f - d / 0.28f);
-                    float glow = Mathf.Clamp01(1f - d);
-                    float a = Mathf.Clamp01(core + glow * glow * 0.55f);
-                    byte white = (byte)(255 * Mathf.Clamp01(0.75f + core * 0.25f));
-                    pixels[y * size + x] = new Color32(white, white, white, (byte)(255 * a));
-                }
-            }
-            tex.SetPixels32(pixels);
-            tex.Apply();
-            return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
         }
 
         //  점 + 십자 반짝임. 2.5D 화면에서 점보다 훨씬 잘 보인다(웹 시안 "빛나는 별").
@@ -758,7 +751,7 @@ namespace LOP
                 DestroyObject(blip);
                 blip = null;
             }
-            foreach (var sprite in new[] { dot, star, bandSprite, streakSprite })
+            foreach (var sprite in new[] { star, bandSprite, streakSprite })
             {
                 if (sprite != null)
                 {
@@ -767,7 +760,7 @@ namespace LOP
                     DestroyObject(tex);
                 }
             }
-            dot = star = bandSprite = streakSprite = null;
+            star = bandSprite = streakSprite = null;
             bands.Clear();
             motes.Clear();
             moteAt.Clear();

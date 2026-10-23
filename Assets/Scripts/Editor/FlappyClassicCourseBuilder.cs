@@ -742,13 +742,14 @@ namespace LOP.EditorTools
         }
 
         //  빛 알갱이 무더기 — 콜라이더도 그림도 없는 마커다(그림은 클라 FlappyMoteFx가 판에서 그린다).
-        internal static void MoteCluster(Transform parent, string name, float x, float y, bool big, IReadOnlyList<(float dx, float dy)> points)
+        internal static void MoteCluster(Transform parent, string name, float x, float y, float gapHalf, bool big, IReadOnlyList<(float dx, float dy)> points)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             go.transform.position = new Vector3(x, y, 0f);
             var cluster = go.AddComponent<LOP.FlappyMoteCluster>();
             cluster.Big = big;
+            cluster.GapHalf = gapHalf;
             cluster.Points = new Vector2[points.Count];
             for (int i = 0; i < points.Count; i++)
             {

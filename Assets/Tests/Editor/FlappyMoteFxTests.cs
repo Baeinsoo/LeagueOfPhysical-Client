@@ -215,6 +215,39 @@ public class FlappyMoteFxTests
     }
 
     [Test]
+    public void 띠는_벽에_붙어_틈_쪽으로_뻗고_벽_쪽이_진하다()
+    {
+        //  띠 그림은 아래가 진하다. 아래 끝 띠는 그대로(위로 뻗음), 위 끝 띠는 뒤집혀(아래로 뻗음) 벽 쪽이 진해야 한다.
+        var field = new FlappyMoteField();
+        field.Add(new FlappyMoteSet(new[] { 5f, 5.1f }, new[] { -1.6f, 1.5f }, big: false, originX: 5f, originY: 0f, gapHalf: 1.875f));
+        var views = Make(field, new FlappyMoteFeed());
+        views["me"].position = new Vector3(-10f, 0f, 0f);
+        fx.Tick(0.016f);
+
+        Assert.AreEqual(2, fx.BandCount);
+        var poses = new[] { fx.BandPose(0), fx.BandPose(1) };
+        var bottom = System.Array.Find(poses, p => p.position.y < 0f);
+        var top = System.Array.Find(poses, p => p.position.y > 0f);
+        Assert.AreEqual(-1.875f + 1.05f * 0.5f, bottom.position.y, 1e-4f, "아래 띠는 아래 벽에서 위로 뻗는다");
+        Assert.Greater(bottom.scaleY, 0f, "아래 띠는 뒤집지 않는다(진한 쪽이 아래 벽)");
+        Assert.AreEqual(1.875f - 1.05f * 0.5f, top.position.y, 1e-4f, "위 띠는 위 벽에서 아래로 뻗는다");
+        Assert.Less(top.scaleY, 0f, "위 띠는 뒤집는다(진한 쪽이 위 벽)");
+    }
+
+    [Test]
+    public void 벽_아래쪽에서_다가가면_띠가_밝아지지_않는다()
+    {
+        //  더 높은 틈으로 올라가는 중, 관문 x 근처지만 몸이 아래 벽보다 한참 아래 — 박으러 가는 중이지 띠 안이 아니다.
+        var field = new FlappyMoteField();
+        field.Add(new FlappyMoteSet(new[] { 5f }, new[] { -1.6f }, big: false, originX: 5f, originY: 0f, gapHalf: 1.875f));
+        var views = Make(field, new FlappyMoteFeed());
+        views["me"].position = new Vector3(4.6f, -4.5f, 0f);
+        for (int i = 0; i < 20; i++) { fx.Tick(0.016f); }
+
+        Assert.AreEqual(0f, fx.HeatOf(0), 1e-4f);
+    }
+
+    [Test]
     public void 다가가면_알갱이가_쏠리고_띠가_밝아진다()
     {
         //  아래 끝(-1.875) 근처 알갱이 하나. 내 새 몸 표면이 벽에서 0.3 m — 띠 안이고 알갱이와도 가깝다.
@@ -226,7 +259,7 @@ public class FlappyMoteFxTests
         Assert.AreEqual(0f, fx.PullOf(0), 1e-4f);
         Assert.AreEqual(0f, fx.HeatOf(0), 1e-4f);
 
-        views["me"].position = new Vector3(4.6f, -1.875f + 0.3f, 0f);   // 발밑 = 몸 표면 아래 끝
+        views["me"].position = new Vector3(5f, -1.875f + 0.3f, 0f);   // 발밑 = 몸 표면 아래 끝, 띠 가로 범위 안
         for (int i = 0; i < 20; i++) { fx.Tick(0.016f); }
 
         Assert.Greater(fx.PullOf(0), 0.5f, "가까이 오면 알갱이가 쏠려야 한다");

@@ -18,11 +18,17 @@ namespace LOP
                 throw new System.InvalidOperationException(
                     "TbMountedArcheryConfig id 1 이 없다 — TableFiles에 tbmountedarcheryconfig가 있나");
             }
-            return new MountedArcheryConfig(r.MatchDurationSeconds, r.ArrowMinSpeed, r.ArrowMaxSpeed,
-                r.RiderEyeHeight,
-                new MountSettings(r.MountMaxSpeed, r.MountAcceleration, r.MountDeceleration,
-                                  r.TurnRateStoppedDeg, r.TurnRateAtMaxDeg, r.SharpTurnDeg,
-                                  r.SharpTurnSpeedFactor, r.DrawSpeedFactor));
+            return new MountedArcheryConfig(
+                matchDurationSeconds: r.MatchDurationSeconds,
+                arrowMinSpeed: r.ArrowMinSpeed,
+                arrowMaxSpeed: r.ArrowMaxSpeed,
+                riderEyeHeight: r.RiderEyeHeight,
+                mount: new MountSettings(r.MountMaxSpeed, r.MountAcceleration, r.MountDeceleration,
+                                         r.TurnRateStoppedDeg, r.TurnRateAtMaxDeg, r.SharpTurnDeg,
+                                         r.SharpTurnSpeedFactor, r.DrawSpeedFactor),
+                maxHp: r.MaxHp,
+                arrowDamage: r.ArrowDamage,
+                lagCompMaxSeconds: r.LagCompMaxSeconds);
         }
     }
 }

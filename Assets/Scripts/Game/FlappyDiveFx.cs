@@ -38,7 +38,7 @@ namespace LOP
         private readonly Dictionary<string, LOPEntityView> views = new Dictionary<string, LOPEntityView>();
         private float nextScan;
         private float time;
-        private int lastStacks = -1;
+        private int announcedStacks = -1;   // "대시 1칸!"을 띄운 칸 수 — 경계에서 흔들려도 한 번만
 
         //  테스트 seam — 실제로는 씬의 LOPEntityView 그림, 테스트는 가짜를 끼운다.
         internal System.Func<string, UnityEngine.Transform> viewLookup;
@@ -53,6 +53,7 @@ namespace LOP
             public bool HasLast;
             public float RenderVy;
             public float Strength;   // 0 = 충전 안 함, 0.4~1 = 충전 세기
+            public bool Seen;        // 이번 프레임에 그림을 찾았나
             public SpriteRenderer Aura;
             public SpriteRenderer[] Streaks;
             public float[] Phase;
@@ -84,6 +85,8 @@ namespace LOP
             time += deltaTime;
             EnsureRoot();
             float min = config.MaxFallSpeed * rules.DiveMinFallRatio;
+            foreach (var b in birds.Values) { b.Seen = false; }
+            bool mineSeen = false;
             foreach (var entity in entityRegistry.All)
             {
                 if (entity.Get<EntityKind>()?.Kind != EntityType.Character)
@@ -101,6 +104,7 @@ namespace LOP
                     birds[entity.Id] = bird;
                 }
                 bird.View = view;
+                bird.Seen = true;
                 bool mine = entity.Id == playerContext.entityId;
                 Vector3 center = view.position + Vector3.up * config.BodyRadius;
 
@@ -108,15 +112,21 @@ namespace LOP
                 if (bird.HasLast && deltaTime > 0f)
                 {
                     float vy = (center.y - bird.LastY) / deltaTime;
-                    bird.RenderVy = Mathf.Lerp(bird.RenderVy, vy, Mathf.Min(1f, deltaTime * 20f));
+                    //  스냅 교정·외삽 되돌림으로 그림이 한 프레임에 튀면(최고 낙하의 1.5배 넘게) 속도로 치지 않는다 — 가짜 기운이 깜빡인다.
+                    if (Mathf.Abs(vy) <= config.MaxFallSpeed * 1.5f)
+                    {
+                        bird.RenderVy = Mathf.Lerp(bird.RenderVy, vy, Mathf.Min(1f, deltaTime * 20f));
+                    }
                 }
                 bird.LastY = center.y;
                 bird.HasLast = true;
                 float fall = mine ? -(entity.Get<GameFramework.World.Velocity>()?.Linear.Y ?? 0f) : -bird.RenderVy;
                 bool dashing = (entity.Get<FlappyDash>()?.DashRemaining ?? 0f) > 0f;
-                bool stunned = (entity.Get<FlappyStun>()?.StunRemaining ?? 0f) > 0f;
+                bool stunned = (entity.Get<FlappyStun>()?.StunRemaining ?? 0f) > 0f;   // 남의 새는 스냅이 스턴을 안 채워 늘 false
+                //  내 새 게이지가 꽉 찼으면 시뮬이 더 안 채운다 — "충전 중"을 그리지 않는다.
+                bool full = mine && (entity.Get<FlappyDash>()?.Charge ?? 0f) >= FlappyDash.MaxCharge;
                 float target = 0f;
-                if (dashing == false && stunned == false && fall >= min && config.MaxFallSpeed > min)
+                if (dashing == false && stunned == false && full == false && fall >= min && config.MaxFallSpeed > min)
                 {
                     float k = Mathf.Clamp01((fall - min) / (config.MaxFallSpeed - min));
                     target = 0.4f + 0.6f * k;
@@ -126,9 +136,58 @@ namespace LOP
 
                 if (mine)
                 {
+                    mineSeen = true;
                     UpdateMine(entity, center, bird.Strength, deltaTime);
                 }
             }
+
+            //  그림이 사라진 새(퇴장·그림 교체): 기운·빛줄기를 끄고, 엔티티가 없어졌으면 지운다. 내 새면 고리·웅 소리도 끈다.
+            var gone = new List<string>();
+            foreach (var pair in birds)
+            {
+                if (pair.Value.Seen)
+                {
+                    continue;
+                }
+                pair.Value.Strength = 0f;
+                FadeOut(pair.Value, deltaTime);
+                if (entityRegistry.Get(pair.Key) == null)
+                {
+                    gone.Add(pair.Key);
+                }
+            }
+            foreach (var id in gone)
+            {
+                DestroyBird(birds[id]);
+                birds.Remove(id);
+            }
+            if (mineSeen == false)
+            {
+                ringBack.enabled = false;
+                ringFill.enabled = false;
+                hum.volume = Mathf.MoveTowards(hum.volume, 0f, deltaTime * 2f);
+                if (hum.volume <= 0f && hum.isPlaying) { hum.Stop(); }
+            }
+        }
+
+        private void FadeOut(Bird bird, float deltaTime)
+        {
+            var ac = bird.Aura.color;
+            ac.a = Mathf.MoveTowards(ac.a, 0f, deltaTime * 6f);
+            bird.Aura.color = ac;
+            foreach (var st in bird.Streaks)
+            {
+                var sc = st.color;
+                sc.a = 0f;
+                st.color = sc;
+            }
+            bird.HasLast = false;   // 다시 붙을 때 낡은 높이로 튀지 않게
+        }
+
+        private void DestroyBird(Bird bird)
+        {
+            DestroyObject(bird.Aura != null ? bird.Aura.gameObject : null);
+            foreach (var st in bird.Streaks) { DestroyObject(st != null ? st.gameObject : null); }
         }
 
         private void AnimateBird(Bird bird, Vector3 center, float deltaTime)
@@ -170,14 +229,24 @@ namespace LOP
             hum.volume = Mathf.MoveTowards(hum.volume, vol, deltaTime * 2f);
             hum.pitch = 0.8f + fraction * 1.2f + strength * 0.25f;
             if (hum.volume > 0f && hum.isPlaying == false) { hum.Play(); }
+            if (hum.volume <= 0f && hum.isPlaying) { hum.Stop(); }
 
-            //  칸이 막 찼다 — 글자와 짧은 소리(버튼 튕김은 FlapPadView가 한다).
-            if (lastStacks >= 0 && stacks > lastStacks)
+            //  칸이 막 찼다 — 글자와 짧은 소리(버튼 튕김은 FlapPadView가 한다). 되감기 교정으로 경계에서 흔들려(1.002 → 0.998 → 1.004)
+            //  두 번 뜨지 않게, 띄운 칸 수는 게이지가 반 칸 넘게 줄어야(대시 사용·박음) 내린다.
+            if (announcedStacks < 0)
+            {
+                announcedStacks = stacks;
+            }
+            else if (stacks > announcedStacks)
             {
                 feed.Publish(new FlappyMotePopup(center + Vector3.up * 1.4f, "대시 1칸!", FlappyMotePopupKind.Count));
                 hum.PlayOneShot(blipClip, 0.4f);
+                announcedStacks = stacks;
             }
-            lastStacks = stacks;
+            else if (charge < announcedStacks - 0.5f)
+            {
+                announcedStacks = stacks;
+            }
         }
 
         private static void DrawRing(LineRenderer line, Vector3 center, float fraction, Color color)
@@ -364,16 +433,12 @@ namespace LOP
             {
                 return;
             }
-            foreach (var bird in birds.Values)
-            {
-                DestroyObject(bird.Aura != null ? bird.Aura.gameObject : null);
-                foreach (var st in bird.Streaks) { DestroyObject(st != null ? st.gameObject : null); }
-            }
+            foreach (var bird in birds.Values) { DestroyBird(bird); }
             birds.Clear();
             if (ringBack != null) { ringBack.enabled = false; }
             if (ringFill != null) { ringFill.enabled = false; }
             if (hum != null) { hum.volume = 0f; hum.Stop(); }
-            lastStacks = -1;
+            announcedStacks = -1;
         }
 
         private static void DestroyObject(Object obj)

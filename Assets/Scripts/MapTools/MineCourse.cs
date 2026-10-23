@@ -84,12 +84,14 @@ namespace LOP.MapTools
     public readonly struct MineMoteCluster
     {
         public readonly float X, Y;
+        /// <summary>붙은 관문 틈의 반 높이 — 빛 띠를 벽에 붙여 그리는 데 쓴다.</summary>
+        public readonly float GapHalf;
         public readonly bool Big;
         public readonly IReadOnlyList<(float dx, float dy)> Points;
 
-        public MineMoteCluster(float x, float y, bool big, IReadOnlyList<(float dx, float dy)> points)
+        public MineMoteCluster(float x, float y, float gapHalf, bool big, IReadOnlyList<(float dx, float dy)> points)
         {
-            X = x; Y = y; Big = big; Points = points;
+            X = x; Y = y; GapHalf = gapHalf; Big = big; Points = points;
         }
     }
 
@@ -710,7 +712,7 @@ namespace LOP.MapTools
                     int side = i % 2 == 0 ? +1 : -1;
                     for (int k = 0; k < n; k++) { Add(side, 0.06 + 0.84 * Math.Pow(Rnd(), 1.8), spread); }
                 }
-                result.Add(new MineMoteCluster(g.X, g.GapCenter, big, pts));
+                result.Add(new MineMoteCluster(g.X, g.GapCenter, half, big, pts));
             }
             return result;
         }

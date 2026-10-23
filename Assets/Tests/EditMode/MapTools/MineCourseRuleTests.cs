@@ -479,6 +479,8 @@ namespace LOP.MapTools.Tests
             var c = Layout();
             float act2 = c.Sections.First(s => s.Name == "진자 광차").X;
             Assert.Greater(c.Motes.Count, 3, "1막에 무더기가 몇 개는 있어야 한다");
+            //  빛 띠를 벽에 붙여 그리려면 틈 반 높이가 실려야 한다.
+            Assert.IsTrue(c.Motes.All(m => Math.Abs(m.GapHalf - c.Gates.First(gg => Math.Abs(gg.X - m.X) < 1e-4f).Gap * 0.5f) < 1e-5f));
             foreach (MineMoteCluster m in c.Motes)
             {
                 Assert.Less(m.X, act2, "1막 밖에 무더기가 있다");

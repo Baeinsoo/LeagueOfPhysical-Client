@@ -122,7 +122,7 @@ namespace LOP.EditorTools
             //  빛 알갱이 무더기(spec 2026-10-23) — 판정은 FlappyMoteField가 산술로, 그림은 클라 FlappyMoteFx가 한다.
             foreach (MineMoteCluster m in course.Motes)
             {
-                FlappyClassicCourseBuilder.MoteCluster(root, $"MoteCluster_{m.X:F0}", m.X, m.Y, m.Big, m.Points);
+                FlappyClassicCourseBuilder.MoteCluster(root, $"MoteCluster_{m.X:F0}", m.X, m.Y, m.GapHalf, m.Big, m.Points);
             }
 
             //  알갱이 맵: 게이지는 알갱이로만 차고, 쓰는 때는 대시 버튼으로 고른다(spec 2026-10-23 §2.3).

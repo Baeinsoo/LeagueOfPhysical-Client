@@ -190,6 +190,50 @@ public class FlappyMoteFxTests
     }
 
     [Test]
+    public void 알갱이가_붙은_끝마다_빛_띠가_하나씩_생긴다()
+    {
+        //  틈 중심 0, 반 높이 1.875(틈 3.75). 아래 끝 근처 알갱이 둘, 위 끝 근처 하나.
+        var field = new FlappyMoteField();
+        field.Add(new FlappyMoteSet(new[] { 5f, 5.3f, 5.1f }, new[] { -1.6f, -1.4f, 1.5f }, big: false,
+                                    originX: 5f, originY: 0f, gapHalf: 1.875f));
+        var views = Make(field, new FlappyMoteFeed());
+        views["me"].position = new Vector3(0f, -0.45f, 0f);
+        fx.Tick(0.016f);
+
+        Assert.AreEqual(2, fx.BandCount);
+    }
+
+    [Test]
+    public void 틈_반_높이를_모르는_옛_무더기는_띠_없이_알갱이만_그린다()
+    {
+        var views = Make(ThreeMotes(), new FlappyMoteFeed());
+        views["me"].position = new Vector3(0f, -0.45f, 0f);
+        fx.Tick(0.016f);
+
+        Assert.AreEqual(3, fx.MoteCount);
+        Assert.AreEqual(0, fx.BandCount);
+    }
+
+    [Test]
+    public void 다가가면_알갱이가_쏠리고_띠가_밝아진다()
+    {
+        //  아래 끝(-1.875) 근처 알갱이 하나. 내 새 몸 표면이 벽에서 0.3 m — 띠 안이고 알갱이와도 가깝다.
+        var field = new FlappyMoteField();
+        field.Add(new FlappyMoteSet(new[] { 5f }, new[] { -1.6f }, big: false, originX: 5f, originY: 0f, gapHalf: 1.875f));
+        var views = Make(field, new FlappyMoteFeed());
+        views["me"].position = new Vector3(-10f, 0f, 0f);   // 멀리
+        fx.Tick(0.016f);
+        Assert.AreEqual(0f, fx.PullOf(0), 1e-4f);
+        Assert.AreEqual(0f, fx.HeatOf(0), 1e-4f);
+
+        views["me"].position = new Vector3(4.6f, -1.875f + 0.3f, 0f);   // 발밑 = 몸 표면 아래 끝
+        for (int i = 0; i < 20; i++) { fx.Tick(0.016f); }
+
+        Assert.Greater(fx.PullOf(0), 0.5f, "가까이 오면 알갱이가 쏠려야 한다");
+        Assert.Greater(fx.HeatOf(0), 0.5f, "띠 안에 들어오면 띠가 밝아져야 한다");
+    }
+
+    [Test]
     public void 알갱이_맵이_아니면_아무것도_안_그린다()
     {
         var views = Make(ThreeMotes(), new FlappyMoteFeed(), moteCharge: false);

@@ -504,6 +504,27 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 승강기_무더기는_진폭만큼_오르내려도_통로_안에_있다()
+        {
+            //  관문은 진폭만큼 오르내리고 통로는 기울 수 있다 — 관문 x에서 벗어난 알갱이가 오르내리다 통로 밖으로 나가면 안 된다.
+            var c = Layout();
+            foreach (MineMoteCluster m in c.Motes.Where(m => m.Lift >= 0))
+            {
+                float amp = c.Lifts[m.Lift].Amplitude;
+                foreach (var (dx, dy) in m.Points)
+                {
+                    float x = m.X + dx;
+                    foreach (float off in new[] { -amp, amp })
+                    {
+                        float y = m.Y + dy + off;
+                        Assert.Greater(y, c.CenterAt(x) - c.HalfAt(x) + 0.04f, $"({x:F2}, {y:F2}) 승강기 오프셋 {off:F1}에서 통로 바닥 속");
+                        Assert.Less(y, c.CenterAt(x) + c.HalfAt(x) - 0.04f, $"({x:F2}, {y:F2}) 승강기 오프셋 {off:F1}에서 통로 천장 속");
+                    }
+                }
+            }
+        }
+
+        [Test]
         public void 진자_광차_구간엔_무더기가_없다()
         {
             var c = Layout();
@@ -528,6 +549,7 @@ namespace LOP.MapTools.Tests
             var c = Layout();
             var big = c.Motes.Where(m => m.Big).ToList();
             Assert.AreEqual(c.Forks.Count, big.Count);
+            Assert.IsTrue(big.All(m => m.Points.Count == MineCourseRule.BigMotes), "금빛 무더기는 정해진 수를 다 채운다");
             foreach (MineFork f in c.Forks)
             {
                 MineTube tunnel = c.Tubes.First(t => Math.Abs(t.X0 - (f.X0 + 3f)) < 0.01f);

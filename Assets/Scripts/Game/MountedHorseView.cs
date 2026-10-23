@@ -13,7 +13,8 @@ namespace LOP
     /// </summary>
     public class MountedHorseView : ILateTickable, System.IDisposable
     {
-        public const float SaddleHeight = 1.25f;
+        //  치비 키가 약 0.85m라 1.55m에서는 다리가 높이 0.85m 몸통 상자(윗면 1.825m) 안에 가리고 상체가 등 위로 보인다.
+        public const float SaddleHeight = 1.55f;
         public const float SaddleBack = -0.1f;
 
         private sealed class Seat

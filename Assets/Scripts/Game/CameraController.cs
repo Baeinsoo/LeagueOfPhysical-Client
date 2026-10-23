@@ -3,7 +3,7 @@ using UnityEngine;
 namespace LOP
 {
     [DefaultExecutionOrder(3000)]
-    public class CameraController : MonoBehaviour
+    public class CameraController : MonoBehaviour, LOP.UI.IAimCamera
     {
         [Header("References")]
         [SerializeField] private Camera mainCamera;
@@ -64,6 +64,9 @@ namespace LOP
         /// 시뮬이 같은 흔들림을 또 더하게 된다(이중 적용).
         /// </summary>
         public float Yaw => yaw;
+
+        /// <summary>실제 카메라가 보는 방향(도). 걷기 스틱의 "위"가 이 방향이다.</summary>
+        public float CameraYawDegrees => mainCamera.transform.eulerAngles.y;
 
         /// <summary>Pitch도 Yaw와 같은 이유로 흔들림을 더하기 전 값이다. 유니티 부호(양수가 아래).</summary>
         public float Pitch => pitch;

@@ -25,6 +25,19 @@ namespace LOP
 
         private const int Sides = 6;
 
+        /// <summary>
+        /// 화살 한 벌의 재질. 순서는 위 부분 번호(대·촉·깃)와 같다. 만든 쪽이 다 쓰고 지운다.
+        /// </summary>
+        public static Material[] BuildMaterials()
+        {
+            return new[]
+            {
+                LOPToonMaterials.Create(new Color(0.92f, 0.78f, 0.52f)),   // 나무 대
+                LOPToonMaterials.Create(new Color(0.3f, 0.3f, 0.34f)),     // 쇠 촉
+                LOPToonMaterials.Create(new Color(1f, 0.25f, 0.3f)),        // 빨간 깃 — 꽂힌 화살이 눈에 띈다
+            };
+        }
+
         public static Mesh Build()
         {
             var vertices = new List<Vector3>();

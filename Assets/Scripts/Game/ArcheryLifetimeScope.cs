@@ -104,7 +104,7 @@ namespace LOP
             builder.RegisterEntryPoint<ArcheryStateHandler>();
 
             builder.RegisterEntryPoint<ArcheryHudCoordinator>();
-            builder.Register<ArcheryPadViewModel>(Lifetime.Transient);
+            builder.Register<ArcheryPadViewModel>(Lifetime.Transient).As<IArcheryPadViewModel>();
             builder.Register<ArcheryPadView>(Lifetime.Transient);
             builder.Register<ArcheryShootOffHudViewModel>(Lifetime.Transient);
             builder.Register<ArcheryShootOffHudView>(Lifetime.Transient);

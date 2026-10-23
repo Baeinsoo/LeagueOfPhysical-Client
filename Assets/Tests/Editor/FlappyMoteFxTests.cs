@@ -129,9 +129,13 @@ public class FlappyMoteFxTests
         int before = fx.FlyingCount;
 
         var me = MeEntity();
-        me.Get<FlappyDash>().Charge = 1f;            // 2칸에서 절반을 잃은 뒤
+        me.Get<FlappyDash>().Charge = 1.6f;          // 1칸 + 채우던 0.6
+        fx.Tick(0.016f);
+        int before2 = fx.FlyingCount;
+        me.Get<FlappyDash>().Charge = 1f;            // 박아서 채우던 몫을 잃었다
         me.Get<FlappyStun>().StunRemaining = 1.2f;   // 스턴이 막 걸렸다
         fx.Tick(0.016f);
+        before = before2;
         int afterEdge = fx.FlyingCount;
         fx.Tick(0.016f);   // 스턴이 이어지는 동안 다시 흩어지면 안 된다
 

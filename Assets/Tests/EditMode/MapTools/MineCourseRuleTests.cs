@@ -558,13 +558,15 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
-        public void 한_판_총량은_가운데_2에서_3칸_바짝_7에서_8칸()
+        public void 한_판_총량은_가운데_3에서_4칸_바짝_9에서_10칸_반()
         {
+            //  10-23 사람 판으로 24알 = 1칸(전엔 32) — 같은 배치로 약 1.3배.
             var c = Layout();
             var (center, hug) = MineCourseRule.MoteYield(c);
-            string msg = $"가운데 {center}알({center / 32f:F2}칸) · 바짝 {hug}알({hug / 32f:F2}칸) · 무더기 {c.Motes.Count}";
-            Assert.That(center, Is.InRange(64, 96), msg);
-            Assert.That(hug, Is.InRange(224, 256), msg);
+            float per = 1f / FlappyMapRulesField.DefaultMoteValue;
+            string msg = $"가운데 {center}알({center / per:F2}칸) · 바짝 {hug}알({hug / per:F2}칸) · 무더기 {c.Motes.Count}";
+            Assert.That(center / per, Is.InRange(3f, 4f), msg);
+            Assert.That(hug / per, Is.InRange(9f, 10.5f), msg);
         }
 
         [Test]

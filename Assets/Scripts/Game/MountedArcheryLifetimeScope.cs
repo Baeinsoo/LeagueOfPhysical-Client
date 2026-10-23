@@ -59,6 +59,8 @@ namespace LOP
             builder.RegisterEntryPoint<MountedArcheryHudCoordinator>();
             builder.Register<IArcheryPadViewModel, MountedArcheryPadViewModel>(Lifetime.Transient);
             builder.Register<ArcheryPadView>(Lifetime.Transient);
+            builder.Register<RaceStartViewModel>(Lifetime.Transient);
+            builder.Register<RaceStartView>(Lifetime.Transient);
         }
 
         protected override void RegisterViewFactories(
@@ -66,6 +68,8 @@ namespace LOP
         {
             sink.Add(windowManager.RegisterViewFactory<ArcheryPadView>(
                 () => container.Resolve<ArcheryPadView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceStartView>(
+                () => container.Resolve<RaceStartView>()));
         }
     }
 }

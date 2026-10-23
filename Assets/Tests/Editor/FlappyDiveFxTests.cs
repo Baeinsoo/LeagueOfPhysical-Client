@@ -109,6 +109,58 @@ public class FlappyDiveFxTests
     }
 
     [Test]
+    public void 게이지가_꽉_차면_충전_연출을_안_한다()
+    {
+        Make();
+        var me = registry.Get("me");
+        me.Get<FlappyDash>().Charge = FlappyDash.MaxCharge;
+        me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f, 0f);
+        fx.Tick(0.016f);
+        Assert.AreEqual(0f, fx.StrengthOf("me"), "더 안 차는데 '충전 중'을 그리면 안 된다");
+    }
+
+    [Test]
+    public void 그림이_사라진_새의_기운은_꺼진다()
+    {
+        var views = Make();
+        var me = registry.Get("me");
+        me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f, 0f);
+        for (int i = 0; i < 20; i++) { fx.Tick(0.016f); }
+        Assert.Greater(fx.AuraAlphaOf("me"), 0.5f, "전제: 켜졌다");
+
+        fx.viewLookup = id => null;   // 그림이 사라졌다(퇴장·그림 교체)
+        for (int i = 0; i < 40; i++) { fx.Tick(0.016f); }
+        Assert.AreEqual(0f, fx.AuraAlphaOf("me"), 1e-4f, "마지막 자리에 얼어붙으면 안 된다");
+    }
+
+    [Test]
+    public void 칸_경계에서_흔들려도_대시_1칸_글자는_한_번만()
+    {
+        Make();
+        var popups = new List<FlappyMotePopup>();
+        using var _ = feed.Popups.Subscribe(popups.Add);
+        var me = registry.Get("me");
+        foreach (float c in new[] { 0.99f, 1.002f, 0.998f, 1.004f })   // 되감기 교정으로 경계에서 흔들림
+        {
+            me.Get<FlappyDash>().Charge = c;
+            fx.Tick(0.016f);
+        }
+        Assert.AreEqual(1, popups.FindAll(p => p.Text == "대시 1칸!").Count);
+    }
+
+    [Test]
+    public void 남의_새_그림이_한_번_튀어도_기운이_안_켜진다()
+    {
+        var views = Make();
+        float y = 0f;
+        for (int i = 0; i < 10; i++) { y -= 6f * 0.016f; views["other"].position = new Vector3(0f, y, 0f); fx.Tick(0.016f); }
+        y -= 0.3f;   // 스냅 교정으로 한 프레임에 0.3 m 아래로
+        views["other"].position = new Vector3(0f, y, 0f);
+        fx.Tick(0.016f);
+        Assert.AreEqual(0f, fx.StrengthOf("other"));
+    }
+
+    [Test]
     public void 다이브_맵이_아니면_아무것도_안_한다()
     {
         Make(dive: false);

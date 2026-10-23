@@ -283,6 +283,7 @@ public class FlappyMoteFxTests
         fx.Tick(0.016f);
 
         Assert.AreEqual(1, fx.FlyingCount, "케이지와 같이 올라간 자리(0)에서 먹어야 한다 — 원래 자리(-2)였다면 못 먹는다");
+        Assert.Greater(fx.FlyerPosition(0).y, -1f, "복사본은 보이는 별 자리(0 근처)에서 출발해야 한다 — 원래 자리(-2)가 아니라");
         Assert.AreEqual(1, fx.BandCount, "아래 끝 띠 하나");
         Assert.AreEqual(-0.1f - 1.875f + cage + 1.05f * 0.5f, fx.BandPose(0).position.y, 1e-4f, "띠도 케이지만큼 올라간다");
     }

@@ -73,6 +73,7 @@ namespace LOP
         internal System.Func<string, UnityEngine.Transform> viewLookup;
         internal void UseDefaultViewLookup() => viewLookup = DefaultViewLookup;
         internal int FlyingCount => flyers.Count;
+        internal Vector3 FlyerPosition(int index) => flyers[index].Renderer.transform.position;
         internal int MoteCount => motes.Count;
         internal int BandCount => bands.Count;
         internal float PullOf(int index) => motes[index].Pull;
@@ -397,16 +398,18 @@ namespace LOP
         private void SpawnCopy((float x, float y) at, UnityEngine.Transform target, bool mine)
         {
             Color color = MoteColor;
+            float offset = 0f;
             if (moteAt.TryGetValue(at, out var mote))
             {
                 mote.Flash = 1f;
                 color = mote.Big ? BigColor : MoteColor;
+                offset = mote.Set.CurrentVisualOffset;   // 승강기 위면 보이는 별 자리(케이지만큼 옮긴 곳)에서 출발
             }
             if (mine == false)
             {
                 color.a = 0.7f;   // 남의 것은 조금 옅게 — 내 것이 먼저 읽히게
             }
-            var r = Rent(new Vector3(at.x, at.y, 0f), color, CopySize);
+            var r = Rent(new Vector3(at.x, at.y + offset, 0f), color, CopySize);
             flyers.Add(new Flyer { Renderer = r, Target = target, Age = 0f, Life = CopyLifetime });
         }
 

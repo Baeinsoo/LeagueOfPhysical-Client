@@ -92,9 +92,24 @@ namespace LOP.MapTools
         /// <summary>움직이는 관문(<see cref="MineCourse.Lifts"/>)의 번호 — 굽기가 그 케이지 자식으로 세워 관문과 같이 움직인다. 고정이면 -1.</summary>
         public readonly int Lift;
 
-        public MineMoteCluster(float x, float y, float gapHalf, bool big, IReadOnlyList<(float dx, float dy)> points, int lift = -1)
+        /// <summary>
+        /// 굴·갱 무더기면 그 굴(통로)의 x별 중심·반 틈 — 벽이 기울어 있어 총량 어림이 알갱이마다 그 x의 벽에서 재야 한다.
+        /// 관문 무더기는 null(틈 중심 <see cref="Y"/>, 반 틈 <see cref="GapHalf"/> 그대로).
+        /// </summary>
+        public readonly Func<float, float> PassageCenter, PassageHalf;
+
+        /// <summary>갈림길 칸 안 무더기면 그 갈림길 번호(<see cref="MineCourse.Forks"/>), 아니면 -1. 한 판엔 칸 하나만 지나간다.</summary>
+        public readonly int Fork;
+
+        /// <summary>갈림길의 고수 길 칸(굴) 무더기인가. <see cref="Fork"/>가 -1이면 뜻 없음.</summary>
+        public readonly bool ForkTunnel;
+
+        public MineMoteCluster(float x, float y, float gapHalf, bool big, IReadOnlyList<(float dx, float dy)> points, int lift = -1,
+                               Func<float, float> passageCenter = null, Func<float, float> passageHalf = null,
+                               int fork = -1, bool forkTunnel = false)
         {
             X = x; Y = y; GapHalf = gapHalf; Big = big; Points = points; Lift = lift;
+            PassageCenter = passageCenter; PassageHalf = passageHalf; Fork = fork; ForkTunnel = forkTunnel;
         }
     }
 
@@ -666,7 +681,7 @@ namespace LOP.MapTools
 
         //  한 판 총량 조절 손잡이(spec 2026-10-23-flappy-motes-placement §3 — 가운데 2~3칸, 바짝 7~8칸, 1칸 = 32알).
         //  보통 무더기 = 벽 쪽 알갱이 + 가운데에서도 닿는 꼬리 몇 알. 작은 무더기 = 벽 쪽 몇 알.
-        internal const int GateNear = 3, GateTail = 2, LiftNear = 4, LiftTail = 2, TubeNear = 3, TubeTail = 1, ShaftNear = 2;
+        internal const int GateNear = 3, GateTail = 3, LiftNear = 4, LiftTail = 3, TubeNear = 3, TubeTail = 1, ShaftNear = 3;
         internal const double TubeStep = 8, ShaftStep = 5;
 
         /// <summary>빛 알갱이 무더기 광산 전체 배치(spec 2026-10-23-flappy-motes-placement §1).
@@ -700,6 +715,12 @@ namespace LOP.MapTools
             double Tail(double half) => Math.Max(0.06, Math.Min(half - 0.15, 1.0 + 0.4 * Rnd()));
 
             //  관문(고정·움직이는): 위·아래 번갈아 한쪽 끝에. 원점 = 관문 가운데(틈 중심).
+            int ForkOf(float x)
+            {
+                for (int f = 0; f < c.Forks.Count; f++) { if (x >= c.Forks[f].X0 && x <= c.Forks[f].X1) return f; }
+                return -1;
+            }
+
             void GateCluster(MineGate g, int side, int near, int tail, int lift)
             {
                 float half = g.Gap * 0.5f, spread = g.Width + 0.6f;
@@ -707,11 +728,14 @@ namespace LOP.MapTools
                 void Put(double d) { pts.Add(((float)((Rnd() - 0.5) * spread), side > 0 ? -half + (float)d : half - (float)d)); }
                 for (int k = 0; k < near; k++) { Put(Near()); }
                 for (int k = 0; k < tail; k++) { Put(Tail(half)); }
-                result.Add(new MineMoteCluster(g.X, g.GapCenter, half, false, pts, lift));
+                //  갈림길 칸 안 관문(Low/High가 있다)은 보통 길 칸이다.
+                int fork = float.IsNaN(g.Low) ? -1 : ForkOf(g.X);
+                result.Add(new MineMoteCluster(g.X, g.GapCenter, half, false, pts, lift, fork: fork, forkTunnel: false));
             }
 
             //  굴·갱: 벽이 기울 수 있으니 알갱이마다 그 x의 벽에서 잰다. 원점 = 그 x의 굴(통로) 중심.
-            void WallCluster(double x, Func<double, double> center, Func<double, double> half, int side, int near, int tail, double spread, bool big)
+            void WallCluster(double x, Func<double, double> center, Func<double, double> half, int side, int near, int tail, double spread, bool big,
+                             int fork = -1, bool forkTunnel = false)
             {
                 double cx = center(x);
                 var pts = new List<(float dx, float dy)>();
@@ -727,7 +751,13 @@ namespace LOP.MapTools
                     if (InProp(x + dx, y)) { continue; }
                     pts.Add(((float)dx, (float)(y - cx)));
                 }
-                result.Add(new MineMoteCluster((float)x, (float)cx, (float)half(x), big, pts));
+                //  받침목을 피하느라 정해진 수를 못 채웠으면 조용히 넘기지 않는다 — 굽기·테스트가 바로 안다.
+                if (pts.Count < n)
+                {
+                    throw new InvalidOperationException($"x={x:F1} 무더기에 알갱이 {n}개 중 {pts.Count}개만 놓였다(받침목·벽에 막힘).");
+                }
+                result.Add(new MineMoteCluster((float)x, (float)cx, (float)half(x), big, pts,
+                    passageCenter: q => (float)center(q), passageHalf: q => (float)half(q), fork: fork, forkTunnel: forkTunnel));
             }
 
             //  1) 고정 관문 — 두 관문에 하나.
@@ -763,10 +793,30 @@ namespace LOP.MapTools
                 }
                 else if (Math.Abs(t.X0 - (fork.Value.X0 + 3f)) < 0.01f)
                 {
-                    //  고수 길 굴: 가운데에 금빛 큰 무더기 하나, 아래 벽에 바짝.
-                    WallCluster((t.X0 + t.X1) * 0.5, center, halfGap, +1, BigMotes, 0, 1.2, true);
+                    //  고수 길 굴: 금빛 큰 무더기 하나, 아래 벽에 바짝. 받침목(무너진 갱도)이 있으면 아래 벽 쪽 받침목에서
+                    //  가장 먼 x에 둔다 — 받침목 모서리 바로 뒤에 몰리면 몸이 벽까지 못 내려간다(리뷰 10-23).
+                    double bx = BestBigX(t, center, halfGap);
+                    WallCluster(bx, center, halfGap, +1, BigMotes, 0, 1.2, true, ForkOf(t.X0), true);
                 }
                 //  패드 방(굴 끝 ~ 칸막이 끝)은 비운다 — ⚡패드가 이미 보상이다.
+            }
+
+            double BestBigX(MineTube t, Func<double, double> center, Func<double, double> halfGap)
+            {
+                double best = (t.X0 + t.X1) * 0.5, bestScore = double.MinValue;
+                for (double x = t.X0 + 1.0; x <= t.X1 - 1.0; x += 0.1)
+                {
+                    double wall = center(x) - halfGap(x), score = double.MaxValue;
+                    foreach (MineRect r in c.Props)
+                    {
+                        if (r.Y1 < wall || r.Y0 > wall + 0.8) { continue; }   // 아래 벽 쪽 받침목만
+                        double dist = x < r.X0 ? r.X0 - x : x > r.X1 ? x - r.X1 : 0;
+                        score = Math.Min(score, dist);
+                    }
+                    if (score == double.MaxValue) { score = -Math.Abs(x - (t.X0 + t.X1) * 0.5) + 1000; }   // 받침목 없으면 가운데
+                    if (score > bestScore) { bestScore = score; best = x; }
+                }
+                return best;
             }
 
             //  4) 수직 갱·굴뚝 벽 — 작은 무더기를 띄엄띄엄, 벽 위·아래 번갈아.
@@ -790,19 +840,59 @@ namespace LOP.MapTools
         {
             float r = bodyRadius + reach;
             int center = 0, hug = 0;
+            var forkCenter = new int[c.Forks.Count];
+            var forkHugTunnel = new int[c.Forks.Count];
+            var forkHugOther = new int[c.Forks.Count];
             foreach (MineMoteCluster m in c.Motes)
             {
-                int bottom = 0, top = 0;
-                foreach (var (_, dy) in m.Points)
+                int cc = 0, bottom = 0, top = 0;
+                foreach (var (dx, dy) in m.Points)
                 {
-                    if (Math.Abs(dy) <= r) { center++; }
-                    float yB = -m.GapHalf + bodyRadius + hugGap, yT = m.GapHalf - bodyRadius - hugGap;
-                    if (Math.Abs(dy - yB) <= r) { bottom++; }
-                    if (Math.Abs(dy - yT) <= r) { top++; }
+                    float x = m.X + dx, y = m.Y + dy;
+                    //  알갱이마다 그 x의 굴(통로) 중심·벽에서 잰다 — 기운 갱에서 원점 하나로 재면 기울기만큼 틀린다.
+                    float lc = m.PassageCenter?.Invoke(x) ?? m.Y, lh = m.PassageHalf?.Invoke(x) ?? m.GapHalf;
+                    if (Math.Abs(y - lc) <= r) { cc++; }
+                    //  벽에 바짝 = 벽에서 몸 표면까지 수직 거리 hugGap. 벽이 기울면 세로로는 그만큼 더 떨어진다(1/cos).
+                    float sB = Slope(m, x, -1), sT = Slope(m, x, +1);
+                    float yB = lc - lh + (bodyRadius + hugGap) * (float)Math.Sqrt(1 + sB * sB);
+                    float yT = lc + lh - (bodyRadius + hugGap) * (float)Math.Sqrt(1 + sT * sT);
+                    if (Math.Abs(y - yB) <= r) { bottom++; }
+                    if (Math.Abs(y - yT) <= r) { top++; }
                 }
-                hug += Math.Max(bottom, top);
+                int hh = Math.Max(bottom, top);
+                if (m.Fork < 0)
+                {
+                    center += cc;
+                    hug += hh;
+                }
+                else if (m.ForkTunnel)
+                {
+                    forkHugTunnel[m.Fork] += hh;
+                }
+                else
+                {
+                    forkCenter[m.Fork] += cc;
+                    forkHugOther[m.Fork] += hh;
+                }
+            }
+            //  갈림길에선 한 판에 칸 하나만 지나간다: 가운데 길은 보통 칸, 바짝 길은 더 많이 먹는 칸.
+            for (int f = 0; f < c.Forks.Count; f++)
+            {
+                center += forkCenter[f];
+                hug += Math.Max(forkHugTunnel[f], forkHugOther[f]);
             }
             return (center, hug);
+        }
+
+        //  벽(아래 = 중심 - 반 틈, 위 = 중심 + 반 틈)의 기울기.
+        static float Slope(MineMoteCluster m, float x, int side)
+        {
+            if (m.PassageCenter == null)
+            {
+                return 0f;
+            }
+            float Wall(float q) => m.PassageCenter(q) + side * m.PassageHalf(q);
+            return (Wall(x + 0.05f) - Wall(x - 0.05f)) / 0.1f;
         }
 
         /// <summary>궤적 꺾은선의 선형 보간(프로토타입 pathAt). 양끝 밖은 끝 값.</summary>

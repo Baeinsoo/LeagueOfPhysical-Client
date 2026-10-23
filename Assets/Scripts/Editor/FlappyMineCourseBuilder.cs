@@ -129,8 +129,9 @@ namespace LOP.EditorTools
                     parent = root.Find($"Lift_{course.Lifts[m.Lift].Gate.X:F1}/Cage");
                     if (parent == null)
                     {
-                        Debug.LogError($"[광산 코스] 승강기 케이지(Lift_{course.Lifts[m.Lift].Gate.X:F1}/Cage)를 못 찾아 무더기를 고정으로 둔다.");
-                        parent = root;
+                        //  고정으로 두면 관문이 오르내릴 때 알갱이가 파이프 속에 묻힌다 — 굽기를 실패시킨다.
+                        throw new System.InvalidOperationException(
+                            $"[광산 코스] 승강기 케이지(Lift_{course.Lifts[m.Lift].Gate.X:F1}/Cage)를 못 찾았다 — 무더기를 움직이게 세울 수 없다.");
                     }
                 }
                 FlappyClassicCourseBuilder.MoteCluster(parent, $"MoteCluster_{m.X:F0}", m.X, m.Y, m.GapHalf, m.Big, m.Points);

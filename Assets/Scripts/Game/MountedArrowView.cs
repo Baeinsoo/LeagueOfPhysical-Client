@@ -6,7 +6,7 @@ namespace LOP
 {
     /// <summary>
     /// 말 활쏘기의 화살 그림. 시뮬과 같은 식에 같은 시각을 넣어 놓고, 땅·바위에 닿으면 거기 꽂아 둔다.
-    /// 맞춤 판정은 아직 없어 사람은 뚫고 지나간다(Character 층은 레이캐스트에서 뺀다).
+    /// 사람을 맞히는 연출은 MountedPredictedHits가 한다(Character 층은 레이캐스트에서 뺀다).
     /// </summary>
     public class MountedArrowView : ILateTickable, System.IDisposable
     {
@@ -15,6 +15,7 @@ namespace LOP
 
         private readonly GameFramework.Runner.IRunner runner;
         private readonly MountedArcheryWorld world;
+        private readonly MountedPredictedHits predictedHits;
 
         private readonly int worldLayerMask = LayerMask.GetMask("Default");
 
@@ -29,10 +30,12 @@ namespace LOP
         private Mesh arrowMesh;
         private Material[] arrowMaterials;
 
-        public MountedArrowView(GameFramework.Runner.IRunner runner, MountedArcheryWorld world)
+        public MountedArrowView(GameFramework.Runner.IRunner runner, MountedArcheryWorld world,
+                                MountedPredictedHits predictedHits)
         {
             this.runner = runner;
             this.world = world;
+            this.predictedHits = predictedHits;
         }
 
         public void LateTick()
@@ -56,6 +59,10 @@ namespace LOP
             {
                 var shot = shots[i];
                 var key = (shot.ShooterId, shot.FireTick);
+                if (predictedHits.IsSpent(shot.ShooterId, shot.FireTick))
+                {
+                    continue;   // 맞은 자리에서 사라진다 — alive에 안 넣으면 아래에서 그림이 지워진다
+                }
                 if (landed.ContainsKey(key))
                 {
                     continue;   // 이미 꽂혔다 — 그 그림은 landed가 들고 있다

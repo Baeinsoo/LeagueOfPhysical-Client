@@ -56,6 +56,8 @@ namespace LOP
             builder.RegisterEntryPoint<MountedArcheryStateHandler>();
             builder.RegisterEntryPoint<MountedAimView>().AsSelf();
             builder.RegisterEntryPoint<MountedHorseView>().AsSelf();
+            builder.Register<IHaptics>(_ => Haptics.ForThisDevice(), Lifetime.Singleton);
+            builder.RegisterEntryPoint<MountedPredictedHits>().AsSelf();
             builder.RegisterEntryPoint<MountedArrowView>().AsSelf();
             builder.RegisterEntryPoint<MountedArcheryRemoteShotHandler>();
             builder.RegisterEntryPoint<MountedArcheryHudCoordinator>();
@@ -63,6 +65,8 @@ namespace LOP
             builder.Register<ArcheryPadView>(Lifetime.Transient);
             builder.Register<RaceStartViewModel>(Lifetime.Transient);
             builder.Register<RaceStartView>(Lifetime.Transient);
+            builder.Register<MountedCombatHudViewModel>(Lifetime.Transient);
+            builder.Register<MountedCombatHudView>(Lifetime.Transient);
         }
 
         protected override void RegisterViewFactories(
@@ -72,6 +76,8 @@ namespace LOP
                 () => container.Resolve<ArcheryPadView>()));
             sink.Add(windowManager.RegisterViewFactory<RaceStartView>(
                 () => container.Resolve<RaceStartView>()));
+            sink.Add(windowManager.RegisterViewFactory<MountedCombatHudView>(
+                () => container.Resolve<MountedCombatHudView>()));
         }
     }
 }

@@ -107,7 +107,7 @@ namespace LOP
 #endif
 
             //  카메라와 벽이 같은 답을 봐야 한다 — 주인이 하나여야 하므로 싱글턴.
-            builder.Register<FlappySpectate>(Lifetime.Singleton);
+            builder.Register<FlappySpectate>(Lifetime.Singleton).As<ISpectateTargets>().AsSelf();
 
             //  AsSelf로도 등록한다 — FlapPad가 "추격자까지 몇 m"를 그리려면 벽 위치를 읽어야 하고,
             //  같은 값을 읽어야 숫자와 그림이 어긋나지 않는다.

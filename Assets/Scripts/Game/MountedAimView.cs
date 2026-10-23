@@ -28,6 +28,7 @@ namespace LOP
         private readonly int worldLayerMask = LayerMask.GetMask("Default");
 
         private float shownDrawRatio;
+        private bool cameraReset;
 
         public MountedAimView(PlayerInputManager input, CameraController cameraController,
                               IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry,
@@ -87,8 +88,19 @@ namespace LOP
             var entity = playerContext.entityId != null ? entityRegistry.Get(playerContext.entityId) : null;
             if (entity == null)
             {
-                return;   // 탈락해 몸이 사라졌다 — 조준·화각을 만질 것이 없다
+                // 탈락해 몸이 사라졌다. 당기다 쓰러졌으면 카메라가 확대된 채 남으므로 처음 한 번만 평소로 되돌린다.
+                if (cameraReset == false)
+                {
+                    cameraReset = true;
+                    shownDrawRatio = 0f;
+                    camera.fieldOfView = MountedCameraZoom.WideFov;
+                    cameraController.DistanceOverride = MountedCameraZoom.WideDistance;
+                    cameraController.PivotOffset = Vector3.up * (eyeHeight - cameraController.PivotHeight)
+                                                   + camera.transform.right * MountedCameraZoom.ShoulderRight;
+                }
+                return;
             }
+            cameraReset = false;
 
             input.SetViewTick(ViewTick(entity));
 

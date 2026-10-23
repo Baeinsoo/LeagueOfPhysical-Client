@@ -60,6 +60,7 @@ namespace LOP
             builder.RegisterEntryPoint<MountedPredictedHits>().AsSelf();
             builder.RegisterEntryPoint<MountedArrowView>().AsSelf();
             builder.RegisterEntryPoint<MountedArcheryRemoteShotHandler>();
+            builder.Register<MountedSpectate>(Lifetime.Singleton).As<ISpectateTargets>().AsSelf();
             builder.RegisterEntryPoint<MountedArcheryHudCoordinator>();
             builder.Register<IArcheryPadViewModel, MountedArcheryPadViewModel>(Lifetime.Transient);
             builder.Register<ArcheryPadView>(Lifetime.Transient);
@@ -67,6 +68,9 @@ namespace LOP
             builder.Register<RaceStartView>(Lifetime.Transient);
             builder.Register<MountedCombatHudViewModel>(Lifetime.Transient);
             builder.Register<MountedCombatHudView>(Lifetime.Transient);
+            builder.Register<RaceEliminatedView>(Lifetime.Transient);
+            builder.Register<RaceSpectateViewModel>(Lifetime.Transient);
+            builder.Register<RaceSpectateView>(Lifetime.Transient);
         }
 
         protected override void RegisterViewFactories(
@@ -78,6 +82,10 @@ namespace LOP
                 () => container.Resolve<RaceStartView>()));
             sink.Add(windowManager.RegisterViewFactory<MountedCombatHudView>(
                 () => container.Resolve<MountedCombatHudView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceEliminatedView>(
+                () => container.Resolve<RaceEliminatedView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceSpectateView>(
+                () => container.Resolve<RaceSpectateView>()));
         }
     }
 }

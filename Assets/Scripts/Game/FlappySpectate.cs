@@ -12,7 +12,7 @@ namespace LOP
     /// <para>카메라와 추격자 벽이 <b>같은 답</b>을 봐야 해서 주인을 하나로 둔다. 주인이 둘이면
     /// 자동 추적이 매 틱 수동 선택을 덮어쓴다.</para>
     /// </summary>
-    public class FlappySpectate
+    public class FlappySpectate : ISpectateTargets
     {
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly IGameDataStore gameDataStore;

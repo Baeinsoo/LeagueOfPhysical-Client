@@ -120,9 +120,20 @@ namespace LOP.EditorTools
             }
 
             //  빛 알갱이 무더기(spec 2026-10-23) — 판정은 FlappyMoteField가 산술로, 그림은 클라 FlappyMoteFx가 한다.
+            //  움직이는 관문의 무더기는 그 승강기 케이지 자식으로 — 케이지와 같이 움직이고, 마커가 부모 승강기의 움직임을 읽어 판정에 쓴다.
             foreach (MineMoteCluster m in course.Motes)
             {
-                FlappyClassicCourseBuilder.MoteCluster(root, $"MoteCluster_{m.X:F0}", m.X, m.Y, m.GapHalf, m.Big, m.Points);
+                Transform parent = root;
+                if (m.Lift >= 0)
+                {
+                    parent = root.Find($"Lift_{course.Lifts[m.Lift].Gate.X:F1}/Cage");
+                    if (parent == null)
+                    {
+                        Debug.LogError($"[광산 코스] 승강기 케이지(Lift_{course.Lifts[m.Lift].Gate.X:F1}/Cage)를 못 찾아 무더기를 고정으로 둔다.");
+                        parent = root;
+                    }
+                }
+                FlappyClassicCourseBuilder.MoteCluster(parent, $"MoteCluster_{m.X:F0}", m.X, m.Y, m.GapHalf, m.Big, m.Points);
             }
 
             //  알갱이 맵: 게이지는 알갱이로만 차고, 쓰는 때는 대시 버튼으로 고른다(spec 2026-10-23 §2.3).

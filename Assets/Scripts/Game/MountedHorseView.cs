@@ -29,6 +29,7 @@ namespace LOP
         private readonly ActorRegistry actorRegistry;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly IPlayerContext playerContext;
+        private readonly EntityRenderClock renderClock;
 
         // 몸마다 마지막으로 말을 입힌 그림. 그림이 바뀌면(다시 로드) 다시 입힌다.
         private readonly Dictionary<string, Seat> built = new Dictionary<string, Seat>();
@@ -36,8 +37,9 @@ namespace LOP
         private Material horseMaterial;
 
         public MountedHorseView(ActorRegistry actorRegistry, GameFramework.World.EntityRegistry entityRegistry,
-                                IPlayerContext playerContext)
+                                IPlayerContext playerContext, EntityRenderClock renderClock)
         {
+            this.renderClock = renderClock;
             this.actorRegistry = actorRegistry;
             this.entityRegistry = entityRegistry;
             this.playerContext = playerContext;
@@ -45,6 +47,35 @@ namespace LOP
 
         /// <summary>말 머리 방향에서 조준 방향까지 가까운 쪽으로 잰 각도(도). 기수 모델의 말 기준 회전이다.</summary>
         public static float RiderLocalYaw(float headingYaw, float aimYaw) => Mathf.DeltaAngle(headingYaw, aimYaw);
+
+        /// <summary>
+        /// 남의 조준: 그 몸을 <b>그리는 틱</b> 이하에서 가장 최근에 받은 입력의 조준 방향.
+        /// 남의 입력은 서버를 거쳐 와서 클라의 라이브 틱보다 늦게 도착한다 — 지금 틱의 입력은 아직 없으므로,
+        /// 몸을 그리는(조금 과거) 틱까지 도착한 것 중 마지막 값을 쓴다. 아직 하나도 없으면 false.
+        /// </summary>
+        public static bool TryGetRemoteAimYaw(InputBuffer buffer, long drawnTick, out float yaw)
+        {
+            yaw = 0f;
+            if (buffer == null)
+            {
+                return false;
+            }
+            InputCommand latest = null;
+            foreach (var pair in buffer.Commands)   // 틱 오름차순
+            {
+                if (pair.Key > drawnTick)
+                {
+                    break;
+                }
+                latest = pair.Value;
+            }
+            if (latest == null)
+            {
+                return false;
+            }
+            yaw = latest.AimYaw;
+            return true;
+        }
 
         /// <summary>모델의 원래 자리에서 안장으로 옮긴 자리(뿌리 기준).</summary>
         public static Vector3 SeatLocalPosition(Vector3 restLocalPosition)
@@ -96,7 +127,7 @@ namespace LOP
             }
         }
 
-        // 내 기수는 시뮬의 조준, 남의 기수는 서버가 중계한 남의 입력(마지막으로 받은 것)의 조준 방향을 따른다.
+        // 내 기수는 시뮬의 조준, 남의 기수는 서버가 중계한 남의 입력(몸을 그리는 틱까지 받은 마지막 것)의 조준 방향을 따른다.
         private bool TryGetAimYaw(GameFramework.World.Entity entity, out float yaw)
         {
             if (entity.Id == playerContext.entityId)
@@ -106,10 +137,7 @@ namespace LOP
                 return aim != null;
             }
 
-            var buffer = entity.Get<InputBuffer>();
-            var command = buffer?.Current ?? buffer?.LastReceived;
-            yaw = command != null ? command.AimYaw : 0f;
-            return command != null;
+            return TryGetRemoteAimYaw(entity.Get<InputBuffer>(), renderClock.TickFor(entity.Id), out yaw);
         }
 
         private Seat Dress(GameObject visual)

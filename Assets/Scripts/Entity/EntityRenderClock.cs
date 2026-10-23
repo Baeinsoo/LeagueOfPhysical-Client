@@ -46,7 +46,7 @@ namespace LOP
             return remoteClock.RenderTime;
         }
 
-        public long TickFor(string entityId)
+        public virtual long TickFor(string entityId)
         {
             if (entityId != null && entityId == playerContext.entityId)
             {

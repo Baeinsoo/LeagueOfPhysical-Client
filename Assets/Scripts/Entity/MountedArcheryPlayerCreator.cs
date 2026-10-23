@@ -36,6 +36,8 @@ namespace LOP
             {
                 worldEntity.Add(creationData.look);
             }
+            // 체력이 있어야 서버의 HP 스냅샷을 받아 머리 위 체력 바가 줄어든다.
+            worldEntity.Add(new GameFramework.World.Health(creationData.maxHP) { Current = creationData.currentHP });
             worldEntity.Add(new ArcheryAim());
             worldEntity.Add(new Mount());
             worldEntity.Add(new InputBuffer());

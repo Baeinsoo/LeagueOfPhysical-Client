@@ -6,7 +6,7 @@ namespace LOP
 {
     /// <summary>
     /// 기수 밑에 회색 도형 말을 깔고 기수(치비)를 안장 높이로 올린다. 말은 그림일 뿐이다 —
-    /// 콜라이더가 없고 이동은 시뮬의 캡슐이 한다. 내 기수만 조준 방향으로 몸을 돌린다.
+    /// 콜라이더가 없고 이동은 시뮬의 캡슐이 한다. 기수는 조준 방향으로 상체를 돌린다.
     /// <para>몸 그림의 뿌리(visual)는 보간기가 매 프레임 LateUpdate에서 월드 자세째 덮어쓴다(이 뷰는 그보다 먼저 돈다).
     /// 그래서 뿌리는 건드리지 않는다 — 말은 뿌리의 자식으로 붙여 보간된 자리를 같이 따라가게 하고,
     /// 안장 높이와 상체 회전은 뿌리 아래 모델 자식(<see cref="ChibiRig.ModelChildName"/>)에만 준다.</para>
@@ -88,12 +88,28 @@ namespace LOP
                 }
 
                 // 뿌리의 방향은 직전 프레임에 보간기가 쓴 말 머리다 — 돌고 있을 때 한 프레임 늦을 뿐이다.
-                float localYaw = entity.Id == playerContext.entityId && entity.Get<ArcheryAim>() is ArcheryAim aim
-                    ? RiderLocalYaw(visual.transform.eulerAngles.y, aim.Yaw)
+                float localYaw = TryGetAimYaw(entity, out float aimYaw)
+                    ? RiderLocalYaw(visual.transform.eulerAngles.y, aimYaw)
                     : 0f;
                 seat.Model.localPosition = SeatLocalPosition(seat.RestPosition);
                 seat.Model.localRotation = Quaternion.Euler(0f, localYaw, 0f) * seat.RestRotation;
             }
+        }
+
+        // 내 기수는 시뮬의 조준, 남의 기수는 서버가 중계한 남의 입력(마지막으로 받은 것)의 조준 방향을 따른다.
+        private bool TryGetAimYaw(GameFramework.World.Entity entity, out float yaw)
+        {
+            if (entity.Id == playerContext.entityId)
+            {
+                var aim = entity.Get<ArcheryAim>();
+                yaw = aim != null ? aim.Yaw : 0f;
+                return aim != null;
+            }
+
+            var buffer = entity.Get<InputBuffer>();
+            var command = buffer?.Current ?? buffer?.LastReceived;
+            yaw = command != null ? command.AimYaw : 0f;
+            return command != null;
         }
 
         private Seat Dress(GameObject visual)

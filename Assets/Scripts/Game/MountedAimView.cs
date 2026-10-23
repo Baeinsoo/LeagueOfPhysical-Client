@@ -23,6 +23,7 @@ namespace LOP
         private readonly CameraController cameraController;
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly EntityRenderClock renderClock;
         private readonly float eyeHeight;
         private readonly int worldLayerMask = LayerMask.GetMask("Default");
 
@@ -30,8 +31,9 @@ namespace LOP
 
         public MountedAimView(PlayerInputManager input, CameraController cameraController,
                               IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry,
-                              MountedArcheryConfig config)
+                              MountedArcheryConfig config, EntityRenderClock renderClock)
         {
+            this.renderClock = renderClock;
             this.input = input;
             this.cameraController = cameraController;
             this.playerContext = playerContext;
@@ -58,6 +60,22 @@ namespace LOP
         public static Vector3 AimPoint(Vector3 cameraPosition, Vector3 forward, Vector3 eye, Vector3? hit, float maxDistance)
             => hit ?? RayStart(cameraPosition, forward, eye) + forward * maxDistance;
 
+        /// <summary>
+        /// 내가 지금 보는 틱 — 서버가 남의 몸을 그 시점으로 되감아 맞힘을 잰다.
+        /// 남은 보간 재생 시계(조금 과거)로 그려지므로 남이 있으면 그 틱, 없으면 내 예측 틱.
+        /// </summary>
+        private long ViewTick(GameFramework.World.Entity self)
+        {
+            foreach (var other in entityRegistry.All)
+            {
+                if (other.Id != self.Id && other.Get<Mount>() != null)
+                {
+                    return renderClock.TickFor(other.Id);
+                }
+            }
+            return renderClock.TickFor(self.Id);
+        }
+
         public void LateTick()
         {
             var camera = cameraController.MainCamera;
@@ -67,7 +85,14 @@ namespace LOP
             }
 
             var entity = playerContext.entityId != null ? entityRegistry.Get(playerContext.entityId) : null;
-            if (entity != null && entity.Has<GameFramework.World.Transform>())
+            if (entity == null)
+            {
+                return;   // 탈락해 몸이 사라졌다 — 조준·화각을 만질 것이 없다
+            }
+
+            input.SetViewTick(ViewTick(entity));
+
+            if (entity.Has<GameFramework.World.Transform>())
             {
                 // 화면에 보이는 것은 직전 프레임 카메라가 찍은 그림이다 — 그 카메라의 가운데 줄로 잰다.
                 Vector3 eye = GameFramework.World.EntityMotionExtensions.GetPosition(entity) + Vector3.up * eyeHeight;

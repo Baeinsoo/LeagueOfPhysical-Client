@@ -90,6 +90,7 @@ namespace LOP
                 Drawing = inputCommand.Drawing,
                 Release = inputCommand.Release,
                 DrawRatio = inputCommand.DrawRatio,
+                ViewTick = inputCommand.ViewTick,
             };
         }
     }

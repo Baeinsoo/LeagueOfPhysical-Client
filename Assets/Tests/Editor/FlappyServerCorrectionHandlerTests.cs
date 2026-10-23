@@ -43,6 +43,37 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 쓸_수_있는_칸_수가_다르면_틀리다()
+        {
+            //  알갱이 경계에서 클라만 한 알 더 먹어 한 칸이 찼다고 믿는 경우 — 버튼은 켜졌는데 서버에선 안 나간다.
+            Assert.IsFalse(FlappyServerCorrectionHandler.DashStacksMatch(predictedCharge: 1.01f, snapCharge: 0.99f));
+        }
+
+        [Test]
+        public void 교정_비교에_칸_수가_실제로_물려_있다()
+        {
+            //  정적 함수만 시험하면 Matches에서 그 줄을 지워도 초록이다 — 저장된 예측과 스냅을 실제로 맞대 본다.
+            var handler = Fixture.Handler(Fixture.NeverHit, out var world, out var bird);
+            bird.Add(new FlappyDash { Charge = 1.2f });
+            world.SaveState(Fixture.SnapTick);
+
+            var oneStack = Fixture.Snap(bird.Id, Fixture.SnapTick);
+            oneStack.dashCharge = 1.9f;
+            var noStack = Fixture.Snap(bird.Id, Fixture.SnapTick);
+            noStack.dashCharge = 0.9f;
+
+            Assert.IsTrue(handler.Matches(Fixture.SnapTick, oneStack));
+            Assert.IsFalse(handler.Matches(Fixture.SnapTick, noStack));
+        }
+
+        [Test]
+        public void 칸_수가_같으면_소수점이_달라도_맞는다()
+        {
+            Assert.IsTrue(FlappyServerCorrectionHandler.DashStacksMatch(predictedCharge: 1.4f, snapCharge: 1.1f));
+            Assert.IsTrue(FlappyServerCorrectionHandler.DashStacksMatch(predictedCharge: 0.2f, snapCharge: 0.9f));
+        }
+
+        [Test]
         public void 둘_다_안_멈췄으면_맞는다()
         {
             Assert.IsTrue(FlappyServerCorrectionHandler.StunMatches(

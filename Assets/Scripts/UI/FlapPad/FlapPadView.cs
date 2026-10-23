@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using R3;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace LOP.UI
@@ -48,6 +50,7 @@ namespace LOP.UI
                 .Subscribe(charge => dashFill.style.height = Length.Percent(charge * 100f))
                 .AddTo(_subscriptions);
 
+            int lastStacks = 0;
             _viewModel.DashStacks
                 .Subscribe(stacks =>
                 {
@@ -55,7 +58,17 @@ namespace LOP.UI
                     {
                         dashSlots[i].EnableInClassList(SlotFilledClass, i < stacks);
                     }
+                    //  칸이 막 찬 순간 버튼을 한 번 크게 튕긴다 — "이제 쓸 수 있다"가 눈에 들어오게.
+                    if (stacks > lastStacks)
+                    {
+                        Pulse(dashButton);
+                    }
+                    lastStacks = stacks;
                 })
+                .AddTo(_subscriptions);
+
+            _viewModel.MotePopups
+                .Subscribe(SpawnMotePopup)
                 .AddTo(_subscriptions);
 
             _viewModel.CanDash
@@ -90,6 +103,71 @@ namespace LOP.UI
                 _viewModel.Refresh();
                 _viewModel.PollKeyboard();
             }).Every(0);
+        }
+
+        private static void Pulse(VisualElement button)
+        {
+            button.style.transitionProperty = new StyleList<StylePropertyName>(new List<StylePropertyName> { "scale" });
+            button.style.transitionDuration = new StyleList<TimeValue>(new List<TimeValue> { new TimeValue(120, TimeUnit.Millisecond) });
+            button.style.scale = new Scale(new Vector3(1.18f, 1.18f, 1f));
+            button.schedule.Execute(() => button.style.scale = new Scale(Vector3.one)).StartingIn(130);
+        }
+
+        //  월드 자리에 글자를 띄워 위로 떠오르며 사라지게 한다(활쏘기 투석기 HUD의 팝업과 같은 방식).
+        private void SpawnMotePopup(FlappyMotePopup popup) => SpawnMotePopup(popup, 0);
+
+        private void SpawnMotePopup(FlappyMotePopup popup, int retries)
+        {
+            var camera = Camera.main;
+            if (camera == null || Screen.width <= 0 || Screen.height <= 0 || Root == null || _disposed)
+            {
+                return;
+            }
+            //  화면이 막 열린 직후엔 레이아웃이 아직 안 나와 크기가 NaN이다 — 그대로 쓰면 글자 자리가 NaN이라 안 보인다.
+            //  몇 프레임 기다렸다 다시 띄운다(10번이면 포기).
+            if (float.IsNaN(Root.layout.width) || Root.layout.width <= 0f || float.IsNaN(Root.layout.height) || Root.layout.height <= 0f)
+            {
+                if (retries < 10)
+                {
+                    Root.schedule.Execute(() => SpawnMotePopup(popup, retries + 1)).StartingIn(50);
+                }
+                return;
+            }
+            Vector3 screen = camera.WorldToScreenPoint(popup.World);
+            if (screen.z <= 0f)
+            {
+                return;
+            }
+            var at = new Vector2(screen.x / Screen.width * Root.layout.width,
+                                 (1f - screen.y / Screen.height) * Root.layout.height);
+
+            bool hint = popup.Kind == FlappyMotePopupKind.Hint;
+            bool plenty = popup.Kind == FlappyMotePopupKind.Plenty;
+            int ms = hint ? 1800 : 900;
+            float width = hint ? 360f : 220f;
+            var label = new Label(popup.Text) { pickingMode = PickingMode.Ignore };
+            label.style.position = Position.Absolute;
+            label.style.width = width;
+            label.style.left = at.x - width * 0.5f;
+            label.style.top = at.y - 20f;
+            label.style.unityTextAlign = TextAnchor.MiddleCenter;
+            label.style.fontSize = hint ? 26f : (plenty ? 40f : 32f);
+            label.style.color = plenty ? new Color(1f, 0.84f, 0.29f) : new Color(0.75f, 0.96f, 1f);
+            label.style.unityTextOutlineColor = new Color(0.06f, 0.035f, 0.02f, 0.9f);
+            label.style.unityTextOutlineWidth = 0.18f;
+            label.style.whiteSpace = WhiteSpace.Normal;
+            label.style.transitionProperty = new StyleList<StylePropertyName>(new List<StylePropertyName> { "top", "opacity" });
+            label.style.transitionDuration = new StyleList<TimeValue>(new List<TimeValue>
+            {
+                new TimeValue(ms, TimeUnit.Millisecond), new TimeValue(ms, TimeUnit.Millisecond),
+            });
+            Root.Add(label);
+            label.schedule.Execute(() =>
+            {
+                label.style.top = at.y - 20f - (hint ? 18f : 46f);
+                label.style.opacity = 0f;
+            }).StartingIn(hint ? 900 : 60);
+            label.schedule.Execute(() => label.RemoveFromHierarchy()).StartingIn(ms + (hint ? 900 : 60) + 50);
         }
 
         private bool _disposed;

@@ -15,6 +15,7 @@ namespace LOP.UI
         private readonly GameFramework.World.EntityRegistry _entityRegistry;
         private readonly FlappyChaserView _chaserView;
         private readonly FlappyMapRulesField _rules;
+        private readonly FlappyMoteFeed _moteFeed;
 
         private readonly ReactiveProperty<float> _dashCharge = new ReactiveProperty<float>(0f);
         private readonly ReactiveProperty<int> _dashStacks = new ReactiveProperty<int>(0);
@@ -46,17 +47,22 @@ namespace LOP.UI
         /// 벽이 화면 밖에 있으므로 숫자도 같이 숨긴다.</summary>
         public ReadOnlyReactiveProperty<bool> ShowChaserGap => _showChaserGap;
 
+        /// <summary>빛 알갱이 연출이 띄워 달라는 글자("+12알", 안내 한 줄). 월드 자리를 화면 자리로 바꾸는 것은 View가 한다.</summary>
+        public Observable<FlappyMotePopup> MotePopups => _moteFeed.Popups;
+
         public FlapPadViewModel(PlayerInputManager playerInputManager,
                                 IPlayerContext playerContext,
                                 GameFramework.World.EntityRegistry entityRegistry,
                                 FlappyChaserView chaserView,
-                                FlappyMapRulesField rules)
+                                FlappyMapRulesField rules,
+                                FlappyMoteFeed moteFeed)
         {
             _playerInputManager = playerInputManager;
             _playerContext = playerContext;
             _entityRegistry = entityRegistry;
             _chaserView = chaserView;
             _rules = rules;
+            _moteFeed = moteFeed;
         }
 
         /// <summary>날갯짓. 와이어에는 기존 Jump 입력으로 실린다 — 서버 입력 버퍼는 그대로 쓴다.</summary>

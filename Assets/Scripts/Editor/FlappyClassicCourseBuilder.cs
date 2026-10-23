@@ -343,7 +343,7 @@ namespace LOP.EditorTools
 
         //  맵 룰 마커(추격자·수동 대시)를 ComposedMap 자체에 둔다 — 자식은 굽기마다 지워지지만 이건 살아남는다.
         //  없으면 붙이고, 있으면 값만 바꾼다. 마커가 없는 맵은 둘 다 꺼진 것과 같지만, 굽기는 뜻을 씬에 남긴다.
-        internal static void ApplyMapRules(GameObject composed, bool chaser, bool manualDash)
+        internal static void ApplyMapRules(GameObject composed, bool chaser, bool manualDash, bool moteCharge = false)
         {
             var rules = composed.GetComponent<LOP.FlappyMapRules>();
             if (rules == null)
@@ -353,6 +353,7 @@ namespace LOP.EditorTools
             Undo.RecordObject(rules, "Build course map rules");
             rules.Chaser = chaser;
             rules.ManualDash = manualDash;
+            rules.MoteCharge = moteCharge;
             EditorUtility.SetDirty(rules);
         }
 
@@ -738,6 +739,21 @@ namespace LOP.EditorTools
             pad.Width = width;
             pad.Height = height;
             pad.Duration = duration;
+        }
+
+        //  빛 알갱이 무더기 — 콜라이더도 그림도 없는 마커다(그림은 클라 FlappyMoteFx가 판에서 그린다).
+        internal static void MoteCluster(Transform parent, string name, float x, float y, bool big, IReadOnlyList<(float dx, float dy)> points)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.position = new Vector3(x, y, 0f);
+            var cluster = go.AddComponent<LOP.FlappyMoteCluster>();
+            cluster.Big = big;
+            cluster.Points = new Vector2[points.Count];
+            for (int i = 0; i < points.Count; i++)
+            {
+                cluster.Points[i] = new Vector2(points[i].dx, points[i].dy);
+            }
         }
 
         internal static void Pipe(Transform parent, string name, float x, float bottom, float top,

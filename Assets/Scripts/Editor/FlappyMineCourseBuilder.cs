@@ -119,7 +119,14 @@ namespace LOP.EditorTools
                 FlappyClassicCourseBuilder.AreaMarker(root, branch.MarkerName, new Box2(lane.X0, lane.Y0, lane.X1, lane.Y1));
             }
 
-            FlappyClassicCourseBuilder.ApplyMapRules(composed, chaser: false, manualDash: false);
+            //  빛 알갱이 무더기(spec 2026-10-23) — 판정은 FlappyMoteField가 산술로, 그림은 클라 FlappyMoteFx가 한다.
+            foreach (MineMoteCluster m in course.Motes)
+            {
+                FlappyClassicCourseBuilder.MoteCluster(root, $"MoteCluster_{m.X:F0}", m.X, m.Y, m.Big, m.Points);
+            }
+
+            //  알갱이 맵: 게이지는 알갱이로만 차고, 쓰는 때는 대시 버튼으로 고른다(spec 2026-10-23 §2.3).
+            FlappyClassicCourseBuilder.ApplyMapRules(composed, chaser: false, manualDash: true, moteCharge: true);
 
             FlappyClassicCourseBuilder.PlaceSpawns(FloorAt(0f), CeilingAt(0f), SpawnWindow,
                                                    course.Gates.Count > 0 ? course.Gates[0].GapCenter : course.CenterAt(0f));

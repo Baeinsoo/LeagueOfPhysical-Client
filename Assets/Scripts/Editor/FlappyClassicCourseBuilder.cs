@@ -354,6 +354,9 @@ namespace LOP.EditorTools
             rules.Chaser = chaser;
             rules.ManualDash = manualDash;
             rules.MoteCharge = moteCharge;
+            //  알갱이 값·손 닿는 거리도 지금 기본값으로 다시 쓴다 — 안 쓰면 옛 굽기에 저장된 값(예: 1/32)이 남는다.
+            rules.MoteValue = LOP.FlappyMapRulesField.DefaultMoteValue;
+            rules.MoteReach = LOP.FlappyMapRulesField.DefaultMoteReach;
             EditorUtility.SetDirty(rules);
         }
 

@@ -67,6 +67,7 @@ namespace LOP
         private float sinceLastHit;
         private float sinceBlip;
         private bool wasStunned;
+        private float lastCharge = -1f;
         private float time;
 
         //  테스트 seam — 실제로는 씬의 LOPEntityView, 테스트는 가짜를 끼운다.
@@ -360,8 +361,8 @@ namespace LOP
             }
         }
 
-        //  박아서 스턴이 걸리는 순간 잃은 만큼 알갱이가 흩어진다. 규칙이 "절반 잃기"라 잃은 양 = 남은 양이다 —
-        //  게이지 감소량으로 재면 같은 틱에 쓴 대시 한 칸이 섞이거나(1 감소와 구별 불가) 되감기 교정의 흔들림이 섞인다.
+        //  박아서 스턴이 걸리는 순간 잃은 만큼 알갱이가 흩어진다. 규칙이 "채우던 칸만 잃기"라 잃은 양 = 스턴 직전 게이지의
+        //  칸 안 몫이다. 직전 프레임 게이지를 들고 있다가 스턴이 막 걸린 순간의 감소량으로 센다(같은 순간 쓴 대시 한 칸은 빼고).
         private void WatchMyLoss()
         {
             var entity = string.IsNullOrEmpty(playerContext.entityId) ? null : entityRegistry.Get(playerContext.entityId);
@@ -373,25 +374,33 @@ namespace LOP
             bool stunned = (entity.Get<FlappyStun>()?.StunRemaining ?? 0f) > 0f;
             bool justStunned = stunned && wasStunned == false;
             wasStunned = stunned;
-            float drop = charge;
-            if (justStunned && drop > 0.01f)
+            float before = lastCharge;
+            lastCharge = charge;
+            if (justStunned == false || before < 0f)
             {
-                var me = MyView();
-                if (me != null)
+                return;
+            }
+            float drop = before - (float)System.Math.Floor(before);   // 채우던 몫 — 그만큼을 잃었다
+            if (drop <= 0.01f || charge >= before)
+            {
+                return;
+            }
+            var me = MyView();
+            if (me == null)
+            {
+                return;
+            }
+            int n = Mathf.Clamp(Mathf.RoundToInt(drop / Mathf.Max(0.001f, rules.MoteValue)), 1, 30);
+            for (int i = 0; i < n; i++)
+            {
+                float a = Random.Range(0f, Mathf.PI * 2f);
+                float speed = Random.Range(2f, 6f);
+                var r = Rent(me.position + Vector3.up * config.BodyRadius, MoteColor, CopySize);
+                flyers.Add(new Flyer
                 {
-                    int n = Mathf.Clamp(Mathf.RoundToInt(drop / Mathf.Max(0.001f, rules.MoteValue)), 1, 30);
-                    for (int i = 0; i < n; i++)
-                    {
-                        float a = Random.Range(0f, Mathf.PI * 2f);
-                        float speed = Random.Range(2f, 6f);
-                        var r = Rent(me.position + Vector3.up * config.BodyRadius, MoteColor, CopySize);
-                        flyers.Add(new Flyer
-                        {
-                            Renderer = r, Target = null, Scatter = true, Age = 0f, Life = Random.Range(0.6f, 0.9f),
-                            Velocity = new Vector3(Mathf.Cos(a) * speed, Mathf.Sin(a) * speed + 2f, 0f),
-                        });
-                    }
-                }
+                    Renderer = r, Target = null, Scatter = true, Age = 0f, Life = Random.Range(0.6f, 0.9f),
+                    Velocity = new Vector3(Mathf.Cos(a) * speed, Mathf.Sin(a) * speed + 2f, 0f),
+                });
             }
         }
 
@@ -735,6 +744,7 @@ namespace LOP
             hintsShown = 0;
             burstCount = 0;
             wasStunned = false;
+            lastCharge = -1f;
         }
 
         private static void DestroyObject(Object obj)

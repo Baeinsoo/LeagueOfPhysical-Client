@@ -67,6 +67,21 @@ namespace LOP
             base.Dispose();
         }
 
+        /// <summary>
+        /// 내 몸이 한 번도 안 생겼는데 이미 관전 화면을 열어야 하는가. 탈락한 뒤 재접속하면 서버가 내 엔티티 배정을
+        /// 지워 두어 GameInfo의 엔티티 id가 비고 몸도 영영 안 생긴다 — 그 상태로 판 상태만 오면 관전이다.
+        /// (처음부터 구경꾼이어도 같은 모양이라 같이 관전으로 보낸다.)
+        /// </summary>
+        public static bool ShouldSpectateWithoutBody(bool opened, bool spectating, bool gameInfoReceived,
+                                                     bool stateReceived, string userEntityId, bool meEliminated)
+        {
+            if (opened || spectating || gameInfoReceived == false || stateReceived == false)
+            {
+                return false;
+            }
+            return string.IsNullOrEmpty(userEntityId) || meEliminated;
+        }
+
         private void OnEliminated(MountedArcheryClientState.Elimination e)
         {
             if (_opened == false || _spectating || e.VictimId != gameDataStore.userEntityId)
@@ -74,6 +89,11 @@ namespace LOP
                 return;
             }
 
+            EnterSpectate();
+        }
+
+        private void EnterSpectate()
+        {
             _spectating = true;
             if (_pad != null)
             {
@@ -117,6 +137,12 @@ namespace LOP
         //  보는 대상이 바뀐 틱에만 카메라를 옮긴다. SetTarget은 매번 거리·각도를 다시 잡는다.
         public void Tick()
         {
+            if (ShouldSpectateWithoutBody(_opened, _spectating, gameDataStore.gameInfo != null, state.Version > 0,
+                                          gameDataStore.userEntityId, state.IsEliminated(gameDataStore.userEntityId)))
+            {
+                EnterSpectate();
+            }
+
             if (_spectating == false)
             {
                 return;

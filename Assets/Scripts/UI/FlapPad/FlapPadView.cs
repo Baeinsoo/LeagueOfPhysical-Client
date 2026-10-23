@@ -114,11 +114,23 @@ namespace LOP.UI
         }
 
         //  월드 자리에 글자를 띄워 위로 떠오르며 사라지게 한다(활쏘기 투석기 HUD의 팝업과 같은 방식).
-        private void SpawnMotePopup(FlappyMotePopup popup)
+        private void SpawnMotePopup(FlappyMotePopup popup) => SpawnMotePopup(popup, 0);
+
+        private void SpawnMotePopup(FlappyMotePopup popup, int retries)
         {
             var camera = Camera.main;
-            if (camera == null || Screen.width <= 0 || Screen.height <= 0 || Root == null)
+            if (camera == null || Screen.width <= 0 || Screen.height <= 0 || Root == null || _disposed)
             {
+                return;
+            }
+            //  화면이 막 열린 직후엔 레이아웃이 아직 안 나와 크기가 NaN이다 — 그대로 쓰면 글자 자리가 NaN이라 안 보인다.
+            //  몇 프레임 기다렸다 다시 띄운다(10번이면 포기).
+            if (float.IsNaN(Root.layout.width) || Root.layout.width <= 0f || float.IsNaN(Root.layout.height) || Root.layout.height <= 0f)
+            {
+                if (retries < 10)
+                {
+                    Root.schedule.Execute(() => SpawnMotePopup(popup, retries + 1)).StartingIn(50);
+                }
                 return;
             }
             Vector3 screen = camera.WorldToScreenPoint(popup.World);

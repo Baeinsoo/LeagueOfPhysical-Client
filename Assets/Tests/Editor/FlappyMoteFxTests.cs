@@ -132,8 +132,11 @@ public class FlappyMoteFxTests
         me.Get<FlappyDash>().Charge = 1f;            // 2칸에서 절반을 잃은 뒤
         me.Get<FlappyStun>().StunRemaining = 1.2f;   // 스턴이 막 걸렸다
         fx.Tick(0.016f);
+        int afterEdge = fx.FlyingCount;
+        fx.Tick(0.016f);   // 스턴이 이어지는 동안 다시 흩어지면 안 된다
 
-        Assert.Greater(fx.FlyingCount, before);
+        Assert.Greater(afterEdge, before);
+        Assert.LessOrEqual(fx.FlyingCount, afterEdge, "스턴이 이어지는 동안 또 흩어졌다");
     }
 
     [Test]
@@ -163,6 +166,27 @@ public class FlappyMoteFxTests
         fx.Tick(0.016f);
 
         Assert.AreEqual(3, fx.FlyingCount, "그림을 따라 알갱이 셋을 지났다");
+    }
+
+    [Test]
+    public void 안내는_출발하기_전에는_안_뜨고_움직이기_시작하면_뜬다()
+    {
+        //  광산 첫 무더기는 스폰에서 14 m 안이라, 출발 전(카운트다운 화면 밑)에 안내가 떠서 버려졌다(재리뷰 10-23).
+        var feed = new FlappyMoteFeed();
+        var popups = new List<FlappyMotePopup>();
+        using var _ = feed.Popups.Subscribe(popups.Add);
+        var field = new FlappyMoteField();
+        field.Add(new FlappyMoteSet(new[] { 10f }, new[] { 0f }, big: false));
+        var views = Make(field, feed);
+        views["me"].position = new Vector3(0f, -0.45f, 0f);
+        for (int i = 0; i < 60; i++) { fx.Tick(0.016f); }   // 출발선에서 기다린다
+
+        Assert.IsFalse(popups.Exists(p => p.Kind == FlappyMotePopupKind.Hint), "출발 전에 안내가 떴다");
+
+        views["me"].position = new Vector3(2f, -0.45f, 0f);   // 출발했다
+        fx.Tick(0.016f);
+
+        Assert.IsTrue(popups.Exists(p => p.Kind == FlappyMotePopupKind.Hint));
     }
 
     [Test]

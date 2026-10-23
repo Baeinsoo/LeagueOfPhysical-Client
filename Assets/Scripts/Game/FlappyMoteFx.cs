@@ -74,6 +74,7 @@ namespace LOP
         {
             public UnityEngine.Transform View;
             public float MaxX;
+            public float StartX;
             public float LastY;
             public bool Started;
         }
@@ -85,6 +86,7 @@ namespace LOP
             public Vector3 Velocity;
             public float Age;
             public float Life;
+            public bool Scatter;   // 박아서 흩어지는 알갱이(중력으로 떨어진다)
         }
 
         public FlappyMoteFx(IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry,
@@ -195,6 +197,7 @@ namespace LOP
                 {
                     track.Started = true;
                     track.MaxX = p.x;
+                    track.StartX = p.x;
                     track.LastY = p.y;
                     continue;
                 }
@@ -220,7 +223,9 @@ namespace LOP
                     track.MaxX = p.x;
                 }
                 track.LastY = p.y;
-                if (mine)
+                //  출발선에서 기다리는 동안(카운트다운 화면이 덮고 있다)은 띄우지 않는다 — 첫 무더기가 스폰에서
+                //  안내 거리 안이라 출발 전에 떠서 버려졌다. 실제로 1 m 넘게 나아간 뒤부터 본다.
+                if (mine && p.x - track.StartX >= 1f)
                 {
                     MaybeHint(p);
                 }
@@ -277,7 +282,7 @@ namespace LOP
                 var me = MyView();
                 if (me != null)
                 {
-                    int n = Mathf.Clamp(Mathf.RoundToInt(drop / Mathf.Max(0.001f, rules.MoteValue)), 4, 30);
+                    int n = Mathf.Clamp(Mathf.RoundToInt(drop / Mathf.Max(0.001f, rules.MoteValue)), 1, 30);
                     for (int i = 0; i < n; i++)
                     {
                         float a = Random.Range(0f, Mathf.PI * 2f);
@@ -285,7 +290,7 @@ namespace LOP
                         var r = Rent(me.position + Vector3.up * config.BodyRadius, MoteColor, CopySize);
                         flyers.Add(new Flyer
                         {
-                            Renderer = r, Target = null, Age = 0f, Life = Random.Range(0.6f, 0.9f),
+                            Renderer = r, Target = null, Scatter = true, Age = 0f, Life = Random.Range(0.6f, 0.9f),
                             Velocity = new Vector3(Mathf.Cos(a) * speed, Mathf.Sin(a) * speed + 2f, 0f),
                         });
                     }
@@ -335,7 +340,11 @@ namespace LOP
                 f.Age += deltaTime;
                 var t = f.Renderer.transform;
                 bool done = f.Age >= f.Life;
-                if (f.Target != null)
+                if (f.Scatter == false && f.Target == null)
+                {
+                    done = true;   // 날아가던 새의 그림이 사라졌다(그림 교체·퇴장) — 떨어뜨리지 말고 거둔다
+                }
+                else if (f.Scatter == false)
                 {
                     //  처음엔 천천히, 점점 빨리 — 새에게 "빨려 드는" 느낌.
                     float k = Mathf.Min(1f, deltaTime * (3f + f.Age * 26f));
@@ -533,6 +542,11 @@ namespace LOP
                 if (UnityEngine.Application.isPlaying) { Object.Destroy(root); }
                 else { Object.DestroyImmediate(root); }
                 root = null;
+            }
+            if (blip != null)
+            {
+                DestroyObject(blip);
+                blip = null;
             }
             if (dot != null)
             {

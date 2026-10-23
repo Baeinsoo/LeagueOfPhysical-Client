@@ -22,7 +22,7 @@ namespace LOP.UI
         private readonly MountedArcheryClientState state;
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
-        private readonly Func<float> clock;
+
         private readonly CompositeDisposable disposables = new CompositeDisposable();
 
         private readonly ReactiveProperty<bool> hitMarker = new ReactiveProperty<bool>(false);
@@ -34,6 +34,9 @@ namespace LOP.UI
         private float hitMarkerUntil;
         private float damageFromUntil;
 
+        /// <summary>시험이 시간을 직접 몰기 위한 자리. 컨테이너가 만드는 생성자에는 넣지 않는다(선택 인자는 해석이 실패한다).</summary>
+        public Func<float> Clock { get; set; } = () => Time.unscaledTime;
+
         public ReadOnlyReactiveProperty<bool> HitMarker => hitMarker;
 
         /// <summary>내가 맞았을 때 쏜 사람이 있는 방위(도, 월드 +z가 0, +x가 90). 없으면 null.</summary>
@@ -43,13 +46,13 @@ namespace LOP.UI
 
         public MountedCombatHudViewModel(MountedPredictedHits predictedHits, MountedArcheryClientState state,
                                          IPlayerContext playerContext, ISubscriber<WorldEventBatchToC> batchSubscriber,
-                                         GameFramework.World.EntityRegistry entityRegistry, Func<float> clock = null)
+                                         GameFramework.World.EntityRegistry entityRegistry)
         {
             this.predictedHits = predictedHits;
             this.state = state;
             this.playerContext = playerContext;
             this.entityRegistry = entityRegistry;
-            this.clock = clock ?? (() => Time.unscaledTime);
+
 
             if (predictedHits != null)
             {
@@ -71,13 +74,13 @@ namespace LOP.UI
 
         public void OnPredictedHit()
         {
-            hitMarkerUntil = clock() + HitMarkerSeconds;
+            hitMarkerUntil = Clock() + HitMarkerSeconds;
             hitMarker.Value = true;
         }
 
         public void OnDamaged(float bearingDeg)
         {
-            damageFromUntil = clock() + DamageFromSeconds;
+            damageFromUntil = Clock() + DamageFromSeconds;
             damageFromBearing.Value = bearingDeg;
         }
 
@@ -86,7 +89,7 @@ namespace LOP.UI
             string text = string.IsNullOrEmpty(e.KillerId)
                 ? $"{e.VictimName} 구역 밖에서 쓰러짐"
                 : $"{e.KillerName} → {e.VictimName}";
-            lines.Add((text, clock() + KillLineSeconds));
+            lines.Add((text, Clock() + KillLineSeconds));
             while (lines.Count > MaxKillLines)
             {
                 lines.RemoveAt(0);
@@ -97,7 +100,7 @@ namespace LOP.UI
         /// <summary>시간이 지난 표시를 거둔다.</summary>
         public void Tick()
         {
-            float now = clock();
+            float now = Clock();
             if (hitMarker.Value && now >= hitMarkerUntil)
             {
                 hitMarker.Value = false;

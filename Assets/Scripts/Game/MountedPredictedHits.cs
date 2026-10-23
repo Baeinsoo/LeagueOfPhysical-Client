@@ -35,6 +35,9 @@ namespace LOP
         private readonly MountedArcheryClientState state;
 
         private readonly HashSet<(string, long)> spent = new HashSet<(string, long)>();
+        // 지형에 꽂힌 화살 — 서버처럼 더는 사람을 재지 않는다(맞은 것과 달리 그림은 꽂힌 채 남는다).
+        private readonly HashSet<(string, long)> blocked = new HashSet<(string, long)>();
+        private readonly int terrainMask = LayerMask.GetMask("Default");
         private readonly Dictionary<(string, long), Vector3> lastPosition = new Dictionary<(string, long), Vector3>();
         private readonly HashSet<(string, long)> present = new HashSet<(string, long)>();
         private readonly List<(string, long)> scratch = new List<(string, long)>();
@@ -64,7 +67,8 @@ namespace LOP
         /// 맞으면 접점을 <paramref name="point"/>에 주고 참(그 발당 한 번만).
         /// </summary>
         public bool Evaluate(in ArcheryShot shot, string myId, float seconds, float deltaSeconds,
-                             IReadOnlyList<Target> bodies, out Vector3 point)
+                             IReadOnlyList<Target> bodies, Func<Vector3, Vector3, float?> obstacleAlong,
+                             out Vector3 point)
         {
             point = default;
             // 남의 화살은 예측하지 않는다 — 서버 확정을 기다린다.
@@ -81,11 +85,14 @@ namespace LOP
             }
             lastPosition[key] = current;
 
-            if (spent.Contains(key))
+            if (spent.Contains(key) || blocked.Contains(key))
             {
                 return false;
             }
 
+            float? obstacle = obstacleAlong?.Invoke(previous, current);
+            int nearest = -1;
+            float nearestAlong = float.MaxValue;
             for (int i = 0; i < bodies.Count; i++)
             {
                 var body = bodies[i];
@@ -93,14 +100,38 @@ namespace LOP
                 {
                     continue;
                 }
-                if (MountedArcheryHitTest.SegmentHits(previous, current, body.Position, body.HeadingDeg, out float along))
+                if (MountedArcheryHitTest.SegmentHits(previous, current, body.Position, body.HeadingDeg, out float along)
+                    && along < nearestAlong)
                 {
-                    spent.Add(key);
-                    point = Vector3.Lerp(previous, current, along);
-                    return true;
+                    nearest = i;
+                    nearestAlong = along;
                 }
             }
+
+            // 사람보다 지형이 먼저면 화살은 거기 꽂힌 것이다.
+            if (obstacle.HasValue && (nearest < 0 || nearestAlong >= obstacle.Value))
+            {
+                blocked.Add(key);
+                return false;
+            }
+            if (nearest >= 0)
+            {
+                spent.Add(key);
+                point = Vector3.Lerp(previous, current, nearestAlong);
+                return true;
+            }
             return false;
+        }
+
+        // 구간 위 0~1에서 처음 막는 지형의 자리. 서버의 obstacleAlong과 같은 모양이다.
+        private float? TerrainAlong(Vector3 from, Vector3 to)
+        {
+            if (Physics.Linecast(from, to, out RaycastHit hit, terrainMask, QueryTriggerInteraction.Ignore) == false)
+            {
+                return null;
+            }
+            float length = (to - from).magnitude;
+            return length < 1e-6f ? 0f : hit.distance / length;
         }
 
         public void LateTick()
@@ -131,7 +162,7 @@ namespace LOP
                 present.Add((shot.ShooterId, shot.FireTick));
 
                 float seconds = Mathf.Max(0f, (float)((renderTick - shot.FireTick) * interval));
-                if (Evaluate(shot, myId, seconds, Time.deltaTime, targets, out Vector3 point))
+                if (Evaluate(shot, myId, seconds, Time.deltaTime, targets, TerrainAlong, out Vector3 point))
                 {
                     OnHit(point);
                 }
@@ -174,6 +205,7 @@ namespace LOP
             {
                 lastPosition.Remove(key);
                 spent.Remove(key);
+                blocked.Remove(key);
             }
         }
 

@@ -14,7 +14,7 @@ namespace LOP.Tests
         {
             now = 0f;
             state = new MountedArcheryClientState();
-            vm = new MountedCombatHudViewModel(null, state, null, null, null, () => now);
+            vm = new MountedCombatHudViewModel(null, state, null, null, null) { Clock = () => now };
         }
 
         [TearDown]

@@ -1,7 +1,11 @@
+using Cysharp.Threading.Tasks;
 using GameFramework;
+using System;
+using System.Threading;
 using LOP.Event.Entity;
 using LOP.UI;
 using MessagePipe;
+using UnityEngine;
 using VContainer.Unity;
 
 namespace LOP
@@ -21,6 +25,14 @@ namespace LOP
         private readonly ActorRegistry actorRegistry;
         private readonly CameraController cameraController;
 
+        private readonly AppStateMachine appStateMachine;
+        private readonly MatchLeaveRequester leaveRequester;
+
+        //  서버가 로비 위치를 비울 시간. 넘기면 그냥 나간다(FlappyHudCoordinator와 같다).
+        private static readonly TimeSpan LeaveReplyTimeout = TimeSpan.FromSeconds(3);
+        private readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
+
+        private bool _leaving;
         private bool _opened;
         private bool _spectating;
         private ArcheryPadView _pad;
@@ -28,8 +40,11 @@ namespace LOP
 
         public MountedArcheryHudCoordinator(IGameDataStore gameDataStore, IWindowManager windowManager,
             ISubscriber<EntityCreated> entityCreatedSubscriber, MountedArcheryClientState state,
-            MountedSpectate spectate, ActorRegistry actorRegistry, CameraController cameraController)
+            MountedSpectate spectate, ActorRegistry actorRegistry, CameraController cameraController,
+            AppStateMachine appStateMachine, MatchLeaveRequester leaveRequester)
         {
+            this.appStateMachine = appStateMachine;
+            this.leaveRequester = leaveRequester;
             this.state = state;
             this.spectate = spectate;
             this.actorRegistry = actorRegistry;
@@ -47,6 +62,7 @@ namespace LOP
 
         public override void Dispose()
         {
+            _lifetime.Cancel();
             state.Eliminated -= OnEliminated;
             base.Dispose();
         }
@@ -65,7 +81,37 @@ namespace LOP
                 _pad = null;
             }
             windowManager.Open<RaceEliminatedView>();
-            windowManager.Open<RaceSpectateView>();
+            windowManager.Open<RaceSpectateView>().SetLeaveCallback(OnLeaveRequested);
+        }
+
+        private void OnLeaveRequested() => AskAndLeaveAsync().Forget();
+
+        private async UniTaskVoid AskAndLeaveAsync()
+        {
+            if (_leaving)
+            {
+                return;
+            }
+            _leaving = true;
+
+            bool leave = await windowManager.OpenModalAsync<LeaveMatchConfirmView, bool>();
+            if (leave == false)
+            {
+                _leaving = false;
+                return;
+            }
+
+            //  서버가 로비 위치를 비운 뒤에 로비로 간다 — 먼저 가면 로비가 같은 방으로 다시 들여보낸다.
+            bool released = await leaveRequester.RequestAsync(LeaveReplyTimeout, _lifetime.Token);
+            if (_lifetime.IsCancellationRequested)
+            {
+                return;
+            }
+            if (released == false)
+            {
+                Debug.LogWarning("[LeaveMatch] 서버가 로비 위치를 비우지 못했다(거절·시간 초과) — 그래도 나간다.");
+            }
+            appStateMachine.Fire(AppEvent.MatchLeft);
         }
 
         //  보는 대상이 바뀐 틱에만 카메라를 옮긴다. SetTarget은 매번 거리·각도를 다시 잡는다.

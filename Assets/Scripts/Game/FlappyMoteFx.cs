@@ -57,6 +57,7 @@ namespace LOP
 
         //  테스트 seam — 실제로는 씬의 LOPEntityView, 테스트는 가짜를 끼운다.
         internal System.Func<string, UnityEngine.Transform> viewLookup;
+        internal void UseDefaultViewLookup() => viewLookup = DefaultViewLookup;
         internal int FlyingCount => flyers.Count;
         internal int MoteCount => motes.Count;
 

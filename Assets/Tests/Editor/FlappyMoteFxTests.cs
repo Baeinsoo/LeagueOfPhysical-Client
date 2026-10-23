@@ -137,6 +137,35 @@ public class FlappyMoteFxTests
     }
 
     [Test]
+    public void 그림이_늦게_붙어도_그림을_따라간다()
+    {
+        //  실제 뷰 찾기(가짜 seam 없이). 그림(visualGameObject)은 비동기로 늦게 붙고 움직이는 것은 그림뿐이다 —
+        //  그림이 붙기 전의 루트를 붙들면 판 내내 스폰 자리에 멈춘다(리뷰 지적, 10-23).
+        Make(ThreeMotes(), new FlappyMoteFeed());
+        fx.viewLookup = null;
+        fx.UseDefaultViewLookup();
+
+        var root = new GameObject("view_me");
+        spawned.Add(root);
+        var view = root.AddComponent<LOPEntityView>();
+        view.SetEntityId("me");
+        root.transform.position = new Vector3(0f, -0.45f, 0f);
+        fx.Tick(0.016f);   // 아직 그림이 없다
+
+        var visual = new GameObject("visual_me");
+        spawned.Add(visual);
+        typeof(LOPEntityView).GetField("_visualGameObject",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(view, visual);
+        visual.transform.position = new Vector3(0f, -0.45f, 0f);
+        fx.Tick(0.016f);   // 그림이 붙었다 — 여기서 자리를 잡는다
+
+        visual.transform.position = new Vector3(3.5f, -0.45f, 0f);   // 루트는 그대로, 그림만 움직인다
+        fx.Tick(0.016f);
+
+        Assert.AreEqual(3, fx.FlyingCount, "그림을 따라 알갱이 셋을 지났다");
+    }
+
+    [Test]
     public void 알갱이_맵이_아니면_아무것도_안_그린다()
     {
         var views = Make(ThreeMotes(), new FlappyMoteFeed(), moteCharge: false);

@@ -267,6 +267,27 @@ public class FlappyMoteFxTests
     }
 
     [Test]
+    public void 움직이는_무더기는_케이지_오프셋만큼_옮겨_그리고_그_자리에서_먹는다()
+    {
+        //  승강기 위 무더기: 원래 높이 -2, 케이지가 지금 +2 올라가 있다 → 그림도 판정도 0 높이.
+        float cage = 2f;
+        var field = new FlappyMoteField();
+        var set = new FlappyMoteSet(new[] { 1f }, new[] { -2f }, big: false, originX: 1f, originY: -0.1f, gapHalf: 1.875f,
+                                    moveAmplitude: 2f, movePeriod: 3.5f, movePhase: 0f);
+        set.VisualOffset = () => cage;
+        field.Add(set);
+        var views = Make(field, new FlappyMoteFeed());
+        views["me"].position = new Vector3(0f, -0.45f, 0f);   // 몸 중심 0
+        fx.Tick(0.016f);
+        views["me"].position = new Vector3(1.5f, -0.45f, 0f);
+        fx.Tick(0.016f);
+
+        Assert.AreEqual(1, fx.FlyingCount, "케이지와 같이 올라간 자리(0)에서 먹어야 한다 — 원래 자리(-2)였다면 못 먹는다");
+        Assert.AreEqual(1, fx.BandCount, "아래 끝 띠 하나");
+        Assert.AreEqual(-0.1f - 1.875f + cage + 1.05f * 0.5f, fx.BandPose(0).position.y, 1e-4f, "띠도 케이지만큼 올라간다");
+    }
+
+    [Test]
     public void 알갱이_맵이_아니면_아무것도_안_그린다()
     {
         var views = Make(ThreeMotes(), new FlappyMoteFeed(), moteCharge: false);

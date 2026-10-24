@@ -12,9 +12,10 @@ namespace LOP
         /// <summary>적의 "가슴" = 그려진 말 뿌리 위 이 높이. 판정 구(기수 2.1, 말 몸 1.4) 사이를 겨눈다.</summary>
         public const float ChestHeight = 1.75f;
 
-        /// <summary>원뿔(<paramref name="coneDeg"/>은 반각) 안에서 조준 방향과 각이 가장 작은 적. yaw/pitch는 카메라에서 그 가슴을 본 각(pitch 양수가 위).</summary>
+        /// <summary>원뿔(<paramref name="coneDeg"/>은 반각) 안에서 지형에 가려지지 않은 조준 방향과 각이 가장 작은 적. yaw/pitch는 카메라에서 그 가슴을 본 각(pitch 양수가 위).</summary>
         public static bool TryPick(Vector3 cameraPos, Vector3 aimDir, IReadOnlyList<(string id, Vector3 chest)> targets,
-                                   float coneDeg, float range, out string id, out float yawDeg, out float pitchDeg)
+                                   float coneDeg, float range, System.Func<Vector3, Vector3, bool> isVisible,
+                                   out string id, out float yawDeg, out float pitchDeg)
         {
             id = null;
             yawDeg = 0f;
@@ -29,7 +30,8 @@ namespace LOP
                     continue;
                 }
                 float angle = Vector3.Angle(aimDir, to);
-                if (angle <= coneDeg && angle < best)
+                // 가장 가까운 후보부터 쓰려고 각이 좋을 때만 가림 검사를 한다(레이캐스트 아낌).
+                if (angle <= coneDeg && angle < best && isVisible(cameraPos, targets[i].chest))
                 {
                     best = angle;
                     id = targets[i].id;

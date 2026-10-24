@@ -81,3 +81,15 @@
     height: 180px;
     margin-top: 6px;
 }
+
+/* 원 밖에 있을 때 화면 가장자리를 붉게 두른다. 깜박임(opacity)은 코드가 준다. */
+.zone-warning {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    display: none;
+    border-width: 36px;
+    border-color: rgba(230, 30, 30, 0.55);
+}

@@ -7,6 +7,7 @@ namespace LOP.Tests
     public class MountedAimAssistTests
     {
         private static readonly Vector3 Cam = Vector3.zero;
+        private static bool Visible(Vector3 from, Vector3 to) => true;
 
         private static IReadOnlyList<(string id, Vector3 chest)> Targets(params (string, Vector3)[] t)
             => new List<(string, Vector3)>(t);
@@ -16,12 +17,12 @@ namespace LOP.Tests
         {
             // 정면(+z)을 겨누는데 적은 5° 옆, 원뿔은 4°
             var chest = Quaternion.Euler(0f, 5f, 0f) * Vector3.forward * 30f;
-            bool picked = MountedAimAssist.TryPick(Cam, Vector3.forward, Targets(("a", chest)), 4f, 90f, out _, out _, out _);
+            bool picked = MountedAimAssist.TryPick(Cam, Vector3.forward, Targets(("a", chest)), 4f, 90f, Visible, out _, out _, out _);
             Assert.IsFalse(picked);
 
             // 양성 대조: 3°면 잡는다
             var near = Quaternion.Euler(0f, 3f, 0f) * Vector3.forward * 30f;
-            Assert.IsTrue(MountedAimAssist.TryPick(Cam, Vector3.forward, Targets(("a", near)), 4f, 90f, out _, out _, out _));
+            Assert.IsTrue(MountedAimAssist.TryPick(Cam, Vector3.forward, Targets(("a", near)), 4f, 90f, Visible, out _, out _, out _));
         }
 
         [Test]
@@ -30,7 +31,7 @@ namespace LOP.Tests
             var far = Quaternion.Euler(0f, 1f, 0f) * Vector3.forward * 30f;
             var close = Quaternion.Euler(0f, -3f, 0f) * Vector3.forward * 60f;
             Assert.IsTrue(MountedAimAssist.TryPick(Cam, Vector3.forward, Targets(("far", far), ("close", close)), 4f, 90f,
-                out string id, out float yaw, out _));
+                Visible, out string id, out float yaw, out _));
             Assert.AreEqual("far", id);
             Assert.AreEqual(1f, yaw, 1e-2f);
         }
@@ -38,8 +39,8 @@ namespace LOP.Tests
         [Test]
         public void 거리_밖은_안_잡는다()
         {
-            Assert.IsFalse(MountedAimAssist.TryPick(Cam, Vector3.forward, Targets(("a", new Vector3(0f, 0f, 91f))), 4f, 90f, out _, out _, out _));
-            Assert.IsTrue(MountedAimAssist.TryPick(Cam, Vector3.forward, Targets(("a", new Vector3(0f, 0f, 89f))), 4f, 90f, out _, out _, out _));
+            Assert.IsFalse(MountedAimAssist.TryPick(Cam, Vector3.forward, Targets(("a", new Vector3(0f, 0f, 91f))), 4f, 90f, Visible, out _, out _, out _));
+            Assert.IsTrue(MountedAimAssist.TryPick(Cam, Vector3.forward, Targets(("a", new Vector3(0f, 0f, 89f))), 4f, 90f, Visible, out _, out _, out _));
         }
 
         [Test]
@@ -101,6 +102,28 @@ namespace LOP.Tests
             Assert.IsFalse(MountedAimAssist.ShouldTrack(true, false));
             Assert.IsTrue(MountedAimAssist.ShouldTrack(true, true));
             Assert.IsFalse(MountedAimAssist.ShouldTrack(false, true));
+        }
+
+        [Test]
+        public void 가려진_적은_잡지_않는다()
+        {
+            var chest = Vector3.forward * 30f;
+            Assert.IsFalse(MountedAimAssist.TryPick(Cam, Vector3.forward, Targets(("a", chest)), 4f, 90f,
+                (from, to) => false, out _, out _, out _));
+
+            // 양성 대조: 보이면 잡는다
+            Assert.IsTrue(MountedAimAssist.TryPick(Cam, Vector3.forward, Targets(("a", chest)), 4f, 90f,
+                (from, to) => true, out _, out _, out _));
+        }
+
+        [Test]
+        public void 가려진_가까운_적_대신_보이는_적을_잡는다()
+        {
+            var hidden = Quaternion.Euler(0f, 1f, 0f) * Vector3.forward * 30f;
+            var seen = Quaternion.Euler(0f, 3f, 0f) * Vector3.forward * 30f;
+            Assert.IsTrue(MountedAimAssist.TryPick(Cam, Vector3.forward, Targets(("hidden", hidden), ("seen", seen)), 4f, 90f,
+                (from, to) => to != hidden, out string id, out _, out _));
+            Assert.AreEqual("seen", id);
         }
     }
 }

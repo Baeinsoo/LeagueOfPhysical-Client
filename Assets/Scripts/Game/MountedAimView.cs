@@ -217,7 +217,7 @@ namespace LOP
                 assistTargets.Add((bodies[i].Id, bodies[i].Position + Vector3.up * MountedAimAssist.ChestHeight));
             }
             bool locked = MountedAimAssist.TryPick(origin, forward, assistTargets, config.AimAssistConeDeg,
-                                                   config.AimAssistRange, out string id, out _, out _);
+                                                   config.AimAssistRange, NotBlockedByTerrain, out string id, out _, out _);
             Vector3 chest = default;
             for (int i = 0; locked && i < assistTargets.Count; i++)
             {
@@ -235,6 +235,9 @@ namespace LOP
             assistState.TargetId = locked ? id : null;
             assistState.LastChest = chest;
         }
+
+        // 지형(바위·나무·땅)이 가슴 점을 가리면 그 적은 겨눌 수 없다. 사람 몸은 MountedTerrain이 이미 뺀다.
+        private static bool NotBlockedByTerrain(Vector3 from, Vector3 to) => MountedTerrain.Linecast(from, to, out _) == false;
 
         public void Dispose()
         {

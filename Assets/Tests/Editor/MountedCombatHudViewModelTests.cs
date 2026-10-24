@@ -85,5 +85,66 @@ namespace LOP.Tests
             Assert.AreEqual(270f, MountedCombatHudViewModel.ScreenAngle(0f, 90f), 0.001f);
             Assert.AreEqual(0f, MountedCombatHudViewModel.ScreenAngle(90f, 90f), 0.001f);
         }
+
+        private static MountedArcheryStateToC StateWith(int version, params (string id, long eliminatedTick)[] players)
+        {
+            var m = new MountedArcheryStateToC { Version = version };
+            foreach (var (id, e) in players)
+            {
+                m.Players.Add(new MountedArcheryPlayerWire { EntityId = id, DisplayName = id, EliminatedTick = e });
+            }
+            return m;
+        }
+
+        private static MountedZoneStageWire Stage(int index, long reveal, long shrinkStart, long shrinkEnd)
+            => new MountedZoneStageWire
+            {
+                Index = index, RevealTick = reveal, ShrinkStartTick = shrinkStart, ShrinkEndTick = shrinkEnd,
+                FromRadius = 100f, ToRadius = 60f,
+            };
+
+        [Test]
+        public void 구역_문구는_단계에_따라_바뀐다()
+        {
+            // 틱 간격 0.1초, 첫 공개 틱 100, 마지막 단계는 2.
+            state.SetZoneClock(0, 0.1f, 100, 2, 100f);
+            vm.Tick();
+            Assert.AreEqual("구역 공개까지 10초", vm.ZoneText.CurrentValue);
+
+            var msg = StateWith(1, ("a", -1));
+            msg.ZoneStages.Add(Stage(1, 100, 220, 300));
+            state.Apply(msg);
+
+            state.SetZoneClock(150, 0.1f, 100, 2, 100f);
+            vm.Tick();
+            Assert.AreEqual("구역 축소까지 7초", vm.ZoneText.CurrentValue);
+
+            state.SetZoneClock(250, 0.1f, 100, 2, 100f);
+            vm.Tick();
+            Assert.AreEqual("구역 축소 중", vm.ZoneText.CurrentValue);
+
+            var msg2 = StateWith(2, ("a", -1));
+            msg2.ZoneStages.Add(Stage(1, 100, 220, 300));
+            msg2.ZoneStages.Add(Stage(2, 300, 300, 400));
+            state.Apply(msg2);
+            state.SetZoneClock(320, 0.1f, 100, 2, 100f);
+            vm.Tick();
+            Assert.AreEqual("마지막 원", vm.ZoneText.CurrentValue);
+        }
+
+        [Test]
+        public void 생존_수는_상태를_따른다()
+        {
+            vm.Tick();
+            Assert.AreEqual("", vm.AliveText.CurrentValue);
+
+            state.Apply(StateWith(1, ("a", -1), ("b", -1), ("c", 50)));
+            vm.Tick();
+            Assert.AreEqual("생존 2", vm.AliveText.CurrentValue);
+
+            state.Apply(StateWith(2, ("a", -1), ("b", 80), ("c", 50)));
+            vm.Tick();
+            Assert.AreEqual("생존 1", vm.AliveText.CurrentValue);
+        }
     }
 }

@@ -44,6 +44,52 @@ namespace LOP.UI
 
         public ReadOnlyReactiveProperty<IReadOnlyList<string>> KillFeed => killFeed;
 
+        private readonly ReactiveProperty<string> zoneText = new ReactiveProperty<string>("");
+        private readonly ReactiveProperty<string> aliveText = new ReactiveProperty<string>("");
+
+        public ReadOnlyReactiveProperty<string> ZoneText => zoneText;
+        public ReadOnlyReactiveProperty<string> AliveText => aliveText;
+
+        public struct Minimap
+        {
+            public Vector2 CurrentCenter;
+            public float CurrentRadius;
+            public bool HasNext;
+            public Vector2 NextCenter;
+            public float NextRadius;
+            public float InitialRadius;
+            public List<Vector2> Others;
+            public bool HasMe;
+            public Vector2 Me;
+        }
+
+        /// <summary>
+        /// 원 문구. 정수 틱 하나로 정한다. 다음 단계 공개는 앞 단계 축소가 끝나는 순간이라
+        /// 단계 사이에 빈 틈은 없고, 마지막 단계는 길이가 따로 없어 항상 "마지막 원"이다.
+        /// </summary>
+        public static string ZoneTextFor(IReadOnlyList<ZoneStage> stages, long tick, float interval,
+                                         long firstRevealTick, int lastStageIndex)
+        {
+            ZoneStage? latest = null;
+            for (int i = stages.Count - 1; i >= 0; i--)
+            {
+                if (stages[i].revealTick <= tick) { latest = stages[i]; break; }
+            }
+            if (latest == null)
+            {
+                if (firstRevealTick == long.MaxValue) return "";
+                return $"구역 공개까지 {SecondsLeft(firstRevealTick - tick, interval)}초";
+            }
+            var s = latest.Value;
+            if (s.index >= lastStageIndex && lastStageIndex > 0) return "마지막 원";
+            if (tick < s.shrinkStartTick) return $"구역 축소까지 {SecondsLeft(s.shrinkStartTick - tick, interval)}초";
+            if (tick < s.shrinkEndTick) return "구역 축소 중";
+            return "구역 공개 대기";
+        }
+
+        private static int SecondsLeft(long ticks, float interval)
+            => Mathf.Max(0, Mathf.CeilToInt(ticks * interval - 1e-4f));
+
         public MountedCombatHudViewModel(MountedPredictedHits predictedHits, MountedArcheryClientState state,
                                          IPlayerContext playerContext, ISubscriber<WorldEventBatchToC> batchSubscriber,
                                          GameFramework.World.EntityRegistry entityRegistry)
@@ -97,9 +143,51 @@ namespace LOP.UI
             PublishFeed();
         }
 
+        /// <summary>미니맵에 그릴 값. 위치는 월드 (x, z)다.</summary>
+        public Minimap BuildMinimap()
+        {
+            double tick = state.RenderTick;
+            var cur = state.CircleAtRender(tick);
+            var map = new Minimap
+            {
+                CurrentCenter = cur.center,
+                CurrentRadius = cur.radius,
+                InitialRadius = state.InitialRadius,
+                Others = new List<Vector2>(),
+            };
+            if (state.TryGetNextCircle((long)System.Math.Floor(tick), out var next))
+            {
+                map.HasNext = true;
+                map.NextCenter = next.center;
+                map.NextRadius = next.radius;
+            }
+            string myId = playerContext?.entityId;
+            foreach (var id in state.AliveIds)
+            {
+                var t = entityRegistry?.Get(id)?.Get<GameFramework.World.Transform>();
+                if (t == null) continue;
+                var pos = new Vector2(t.Position.X, t.Position.Z);
+                if (id == myId) { map.HasMe = true; map.Me = pos; }
+                else map.Others.Add(pos);
+            }
+            return map;
+        }
+
+        private void RefreshZone()
+        {
+            long tick = (long)System.Math.Floor(state.RenderTick);
+            zoneText.Value = ZoneTextFor(state.ZoneStages, tick, state.TickInterval,
+                                         state.FirstRevealTick, state.LastStageIndex);
+            aliveText.Value = state.PlayerCount == 0 ? "" : $"생존 {state.AliveCount}";
+        }
+
         /// <summary>시간이 지난 표시를 거둔다.</summary>
         public void Tick()
         {
+            if (state != null)
+            {
+                RefreshZone();
+            }
             float now = Clock();
             if (hitMarker.Value && now >= hitMarkerUntil)
             {
@@ -169,6 +257,8 @@ namespace LOP.UI
             hitMarker.Dispose();
             damageFromBearing.Dispose();
             killFeed.Dispose();
+            zoneText.Dispose();
+            aliveText.Dispose();
         }
     }
 }

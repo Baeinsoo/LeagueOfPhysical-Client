@@ -362,6 +362,7 @@ namespace LOP.EditorTools
             rules.DiveCharge = diveCharge;
             rules.DiveMinFallRatio = LOP.FlappyMapRulesField.DefaultDiveMinFallRatio;
             rules.DiveRate = LOP.FlappyMapRulesField.DefaultDiveRate;
+            rules.StunLoss = LOP.FlappyMapRulesField.DefaultStunLoss;
             EditorUtility.SetDirty(rules);
         }
 

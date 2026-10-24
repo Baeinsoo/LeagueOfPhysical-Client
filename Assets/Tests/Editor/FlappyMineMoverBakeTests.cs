@@ -28,8 +28,8 @@ public class FlappyMineMoverBakeTests
     public void 마커_수가_코스와_같다()
     {
         Assert.AreEqual(course.Lifts.Count, root.GetComponentsInChildren<LOP.FlappyLift>().Length);       // 10
-        Assert.AreEqual(course.Pendulums.Count, root.GetComponentsInChildren<LOP.FlappyPendulum>().Length); // 12
-        Assert.AreEqual(course.Rockfalls.Count, root.GetComponentsInChildren<LOP.FlappyRockfall>().Length); // 4
+        Assert.AreEqual(course.Pendulums.Count, root.GetComponentsInChildren<LOP.FlappyPendulum>().Length); // 20
+        Assert.AreEqual(course.Rockfalls.Count, root.GetComponentsInChildren<LOP.FlappyRockfall>().Length); // 7
         Assert.AreEqual(course.Props.Count, root.transform.Cast<Transform>().Count(t => t.name.StartsWith("CollapsedProp_")));
     }
 

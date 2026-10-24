@@ -387,7 +387,7 @@ namespace LOP.MapTools
         const double LiftExtra = 2.6, LiftAmp = 1.8, LiftPeriod = 3.5, LiftPhaseStep = 90;
 
         /// <summary>진자 광차: 자리 수 · 자리마다 광차 수 · 자리 사이 · 자리 앞 여유 · 축 높이(천장 위) · 앞뒤 흔들림 · 주기 · 광차마다/자리마다 위상 · 광차 크기.</summary>
-        const int PendulumStations = 3, CartsPerStation = 4;
+        const int PendulumStations = 5, CartsPerStation = 4;   // 10-24 사람 판: 3 → 5자리(코스 늘리기)
         const double StationGap = 10, StationLead = 4, PivotRise = 1.2, CartSwing = 2.5, PendulumPeriod = 2.4;
         const double CartPhaseStep = 90, StationPhaseStep = 180 / Math.PI;   // 자리마다 1 rad(57.3°) — 시안 i·1.0
         const double CartW = 1.6, CartH = 1.2;
@@ -395,7 +395,7 @@ namespace LOP.MapTools
         const double MaxSwingSin = 0.95;
 
         /// <summary>낙석: 줄 수 · 줄 앞 여유 · 줄 사이 · 바위 · 낙하 속도 · 주기 · 줄마다 위상(0.5초 = 90°).</summary>
-        const int RockRows = 4;
+        const int RockRows = 7;   // 10-24 사람 판: 4 → 7줄(코스 늘리기)
         const double RockLead = 1, RockSpacing = 4.5, RockSize = 1.2, RockSpeed = 9, RockPeriod = 2, RockPhaseStep = 90;
         /// <summary>갈림길 굴 쪽 칸 중심 — 통로가 좁아져 위 굴은 위로 ForkTunnelUp, 아래 굴은 아래로 ForkTunnelDown(비대칭, 예전 둘 다 4.5).</summary>
         const double ForkTunnelUp = 2.6, ForkTunnelDown = 4.6;

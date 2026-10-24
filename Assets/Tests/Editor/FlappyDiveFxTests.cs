@@ -92,7 +92,7 @@ public class FlappyDiveFxTests
     }
 
     [Test]
-    public void 칸이_차면_대시_1칸_글자가_뜨고_고리는_칸_안_몫을_그린다()
+    public void 칸이_차면_대시_1칸_글자가_뜬다()
     {
         Make();
         var popups = new List<FlappyMotePopup>();
@@ -100,12 +100,54 @@ public class FlappyDiveFxTests
         var me = registry.Get("me");
         me.Get<FlappyDash>().Charge = 0.9f;
         fx.Tick(0.016f);
-        Assert.AreEqual(0.9f, fx.RingFraction, 1e-4f);
-
         me.Get<FlappyDash>().Charge = 1.2f;
         fx.Tick(0.016f);
         Assert.IsTrue(popups.Exists(p => p.Text == "대시 1칸!"));
-        Assert.AreEqual(0.2f, fx.RingFraction, 1e-4f);
+    }
+
+    [Test]
+    public void 같은_순간_쓴_대시_한_칸은_잃은_양으로_치지_않는다()
+    {
+        //  1.2칸에서 대시를 쓰고(1칸) 그 대시로 박아 0.2칸을 잃음 → 흩어지는 건 0.2칸어치(약 6알)뿐(태스크 리뷰 10-24).
+        Make();
+        var me = registry.Get("me");
+        me.Get<FlappyDash>().Charge = 1.2f;
+        fx.Tick(0.016f);
+        me.Get<FlappyDash>().Charge = 0f;
+        me.Get<FlappyStun>().StunRemaining = 1.2f;
+        fx.Tick(0.016f);
+        Assert.Greater(fx.ScatterCount, 0);
+        Assert.LessOrEqual(fx.ScatterCount, 7, "쓴 대시 한 칸까지 흩어지면 안 된다");
+    }
+
+    [Test]
+    public void 교정으로_게이지가_크게_바뀌어도_흩어짐은_잃는_양_상한까지만()
+    {
+        Make();
+        var me = registry.Get("me");
+        me.Get<FlappyDash>().Charge = 0.9f;
+        fx.Tick(0.016f);
+        me.Get<FlappyDash>().Charge = 0.2f;          // 서버 교정으로 0.7 줄어든 채 스턴이 들어왔다
+        me.Get<FlappyStun>().StunRemaining = 1.2f;
+        fx.Tick(0.016f);
+        Assert.LessOrEqual(fx.ScatterCount, 9, "박아서 잃는 양은 0.3칸이 상한");
+    }
+
+    [Test]
+    public void 박아서_잃으면_알갱이가_흩어진다()
+    {
+        Make();
+        var me = registry.Get("me");
+        me.Get<FlappyDash>().Charge = 1.6f;
+        fx.Tick(0.016f);
+        me.Get<FlappyDash>().Charge = 1.3f;          // 0.3칸 잃음
+        me.Get<FlappyStun>().StunRemaining = 1.2f;   // 스턴이 막 걸렸다
+        fx.Tick(0.016f);
+        int burst = fx.ScatterCount;
+        fx.Tick(0.016f);                             // 스턴이 이어지는 동안 또 흩어지면 안 된다
+
+        Assert.Greater(burst, 0);
+        Assert.LessOrEqual(fx.ScatterCount, burst);
     }
 
     [Test]

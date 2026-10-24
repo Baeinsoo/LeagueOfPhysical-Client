@@ -72,13 +72,17 @@ namespace LOP
 
         /// <summary>
         /// 가운데 줄(<paramref name="start"/>에서 <paramref name="forward"/>로 <paramref name="maxDistance"/>까지)이
-        /// 처음 닿는 남의 몸의 점. 내 몸은 뺀다. 없으면 null.
+        /// 처음 닿는 남의 몸에서 겨눌 점. 내 몸은 뺀다. 없으면 null.
+        /// <para>표면 접점이 아니라 처음 닿은 구를 지나는 구간의 가운데를 고른다 — 화살은 줄에서 0.9 m 옆의 눈에서 떠나므로,
+        /// 가장자리를 겨누면 경계에 걸려 맞을지가 운이 된다. 줄이 이미 그 몸 안에서 시작하면(나란히 달릴 때) 그 몸은 뺀다 —
+        /// 시작점을 겨누면 옆으로 쏜다.</para>
         /// </summary>
         public static Vector3? NearestBodyPoint(Vector3 start, Vector3 forward, float maxDistance,
                                                 IReadOnlyList<MountedPredictedHits.Target> bodies, string myId)
         {
             Vector3 end = start + forward * maxDistance;
-            float best = float.MaxValue;
+            float bestEnter = float.MaxValue;
+            float bestMiddle = 0f;
             for (int i = 0; i < bodies.Count; i++)
             {
                 var body = bodies[i];
@@ -86,13 +90,14 @@ namespace LOP
                 {
                     continue;
                 }
-                if (MountedArcheryHitTest.SegmentHits(start, end, body.Position, body.HeadingDeg, out float along)
-                    && along < best)
+                if (MountedArcheryHitTest.SegmentChord(start, end, body.Position, body.HeadingDeg, out float enter, out float exit)
+                    && enter > 0f && enter < bestEnter)
                 {
-                    best = along;
+                    bestEnter = enter;
+                    bestMiddle = (enter + exit) * 0.5f;
                 }
             }
-            return best < float.MaxValue ? Vector3.Lerp(start, end, best) : (Vector3?)null;
+            return bestEnter < float.MaxValue ? Vector3.Lerp(start, end, bestMiddle) : (Vector3?)null;
         }
 
         /// <summary>두 후보 중 <paramref name="start"/>에 가까운 점. 둘 다 없으면 null.</summary>

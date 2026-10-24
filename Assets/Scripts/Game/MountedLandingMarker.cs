@@ -26,6 +26,8 @@ namespace LOP
         private readonly int terrainMask = LayerMask.GetMask("Default");
         private readonly List<MountedPredictedHits.Target> bodies = new List<MountedPredictedHits.Target>();
 
+        private readonly Func<Vector3, Vector3, Vector3?> firstContact;
+
         private GameObject marker;
         private Material material;
 
@@ -39,6 +41,7 @@ namespace LOP
             this.state = state;
             this.cameraController = cameraController;
             this.config = config;
+            firstContact = FirstContact;
         }
 
         /// <summary>
@@ -69,7 +72,8 @@ namespace LOP
             var entity = playerContext.entityId != null ? entityRegistry.Get(playerContext.entityId) : null;
             var aim = entity?.Get<ArcheryAim>();
             var camera = cameraController.MainCamera;
-            if (aim == null || aim.Drawing == false || camera == null || entity.Has<GameFramework.World.Transform>() == false)
+            // 문턱 아래에서 떼면 화살이 안 나간다 — 나가지 않을 발의 자리는 찍지 않는다.
+            if (aim == null || aim.Drawing == false || aim.DrawRatio < ArcheryAimSystem.DrawThreshold || camera == null || entity.Has<GameFramework.World.Transform>() == false)
             {
                 Hide();
                 return;
@@ -80,7 +84,7 @@ namespace LOP
             Vector3 velocity = ArcheryTrajectory.DirectionFrom(aim.Yaw, aim.Pitch) * speed;
 
             MountedPredictedHits.CollectDrawnTargets(actorRegistry, state, entity.Id, bodies);
-            Vector3? point = LandingPoint(origin, velocity, ArcheryTrajectory.LifetimeSeconds, StepSeconds, FirstContact);
+            Vector3? point = LandingPoint(origin, velocity, ArcheryTrajectory.LifetimeSeconds, StepSeconds, firstContact);
             if (point.HasValue == false)
             {
                 Hide();

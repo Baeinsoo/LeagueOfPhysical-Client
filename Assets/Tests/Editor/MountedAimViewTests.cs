@@ -87,8 +87,9 @@ namespace LOP.Tests
 
             Assert.IsTrue(point.HasValue);
             Assert.AreEqual(0.9f, point.Value.x, 1e-3f);
-            Assert.Less(point.Value.z, 30f);
-            Assert.Greater(point.Value.z, 29f);
+            //  표면 접점이 아니라 구를 지나는 구간의 가운데 — 가장자리를 겨눠도 눈에서 쏜 화살이 몸 안을 지난다.
+            var (riderCenter, riderRadius) = MountedArcheryHitTest.WorldShape(0, new Vector3(0.9f, 0f, 30f), 90f);
+            Assert.Less(Vector3.Distance(point.Value, riderCenter), riderRadius * 0.5f);
 
             //  눈에서 그 점으로 쏘면 그 몸을 지난다.
             var aim = MountedAimView.AimAngles(Eye, point.Value);
@@ -116,6 +117,16 @@ namespace LOP.Tests
             Assert.AreEqual(near, MountedAimView.Nearer(start, near, far));
             Assert.AreEqual(far, MountedAimView.Nearer(start, null, far));
             Assert.IsNull(MountedAimView.Nearer(start, null, null));
+        }
+        // 나란히 달리는 남의 몸 안에서 줄이 시작하면 접점이 시작점 자체가 된다 — 그 점을 겨누면 옆으로 쏜다.
+        [Test]
+        public void 줄이_남의_몸_안에서_시작하면_그_몸은_겨누지_않는다()
+        {
+            var bodies = new List<MountedPredictedHits.Target>
+            {
+                new MountedPredictedHits.Target("other", new Vector3(0.9f, 0f, 0.1f), 0f),
+            };
+            Assert.IsFalse(MountedAimView.NearestBodyPoint(new Vector3(0.9f, 2.1f, 0f), Vector3.forward, 300f, bodies, "me").HasValue);
         }
     }
 }

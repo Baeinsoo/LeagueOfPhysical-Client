@@ -17,6 +17,7 @@ namespace LOP
         private const int StreakCount = 8;
         private const float AuraSize = 2.2f;
         private const float GoldFrom = 0.9f;   // 세기(문턱 0 ~ 최고 낙하 1)가 이 위면 금빛 — "끝까지 참았다"
+        private const float GoldUntil = 0.8f;  // 금빛에서 나가려면 이 아래로 — 경계에서 속도가 흔들려도 깜빡이지 않게
 
         private static readonly Color Cyan = new Color(0.5f, 0.94f, 1f, 1f);
         //  세기 단계 색(10-24 사람 판 "채워지는 정도에 따라 강약·색을 다르게"): 옅은 하늘 → 진한 하늘 → 금빛(최고 낙하).
@@ -58,6 +59,8 @@ namespace LOP
         internal float AuraAlphaOf(string entityId) => birds.TryGetValue(entityId, out var b) && b.Aura != null ? b.Aura.color.a : 0f;
         internal Color AuraColorOf(string entityId) => birds.TryGetValue(entityId, out var b) && b.Aura != null ? b.Aura.color : Color.clear;
         internal int ActiveStreaksOf(string entityId) => birds.TryGetValue(entityId, out var b) ? b.ActiveStreaks : 0;
+        internal int GoldFlashesOf(string entityId) => birds.TryGetValue(entityId, out var b) ? b.GoldFlashes : 0;
+        internal Vector3 StreakPositionOf(string entityId, int index) => birds[entityId].Streaks[index].transform.position;
         internal int ScatterCount => scatters.Count;
 
         private class Bird
@@ -72,6 +75,7 @@ namespace LOP
             public int ActiveStreaks;
             public bool WasGold;
             public float Flash;      // 금빛에 막 닿았을 때 한 번 번쩍
+            public int GoldFlashes;  // 번쩍인 횟수(테스트용)
             public SpriteRenderer Aura;
             public SpriteRenderer[] Streaks;
             public float[] Phase;
@@ -199,6 +203,9 @@ namespace LOP
                 st.color = sc;
             }
             bird.HasLast = false;   // 다시 붙을 때 낡은 높이로 튀지 않게
+            bird.WasGold = false;   // 다시 붙어 금빛에 닿으면 번쩍이 뜨게
+            bird.Flash = 0f;
+            bird.Tint = LightCyan;
         }
 
         private void DestroyBird(Bird bird)
@@ -224,15 +231,17 @@ namespace LOP
         {
             bool on = bird.Strength > 0f;
             float level = Level(bird.Strength);
-            bool gold = on && level >= GoldFrom;
+            //  금빛은 0.9에 들어가 0.8 아래로 내려가야 나간다(히스테리시스) — 경계에서 흔들려도 번쩍이 다시 안 터진다.
+            bool gold = on && (bird.WasGold ? level >= GoldUntil : level >= GoldFrom);
             if (gold && bird.WasGold == false)
             {
                 bird.Flash = 1f;   // 금빛에 막 닿았다 — 한 번 크게 번쩍
+                bird.GoldFlashes++;
             }
             bird.WasGold = gold;
             bird.Flash = Mathf.MoveTowards(bird.Flash, 0f, deltaTime * 4f);
-            //  색은 단계 색으로 부드럽게 옮겨 간다 — 속도가 문턱을 오가며 깜빡이지 않게.
-            Color target = on ? TierColor(level) : bird.Tint;
+            //  색은 단계 색으로 부드럽게 옮겨 간다. 꺼지면 다음 충전이 옅은 하늘부터 시작하게 그쪽으로 되돌린다.
+            Color target = on ? (gold ? Gold : TierColor(Mathf.Min(level, GoldFrom - 0.001f))) : LightCyan;
             bird.Tint = Color.Lerp(bird.Tint, target, Mathf.Min(1f, deltaTime * 12f));
 
             var ac = bird.Tint;
@@ -249,7 +258,8 @@ namespace LOP
             for (int i = 0; i < bird.Streaks.Length; i++)
             {
                 bird.Phase[i] = (bird.Phase[i] + deltaTime * (2f + 4f * level)) % 1f;
-                float ang = i / (float)bird.Streaks.Length * Mathf.PI * 2f;
+                //  켜진 줄 수만큼 몸 둘레를 고르게 나눈다 — 고정 8칸으로 나누면 줄이 적을 때 한쪽에 몰린다.
+                float ang = i / (float)Mathf.Max(1, bird.ActiveStreaks) * Mathf.PI * 2f;
                 var st = bird.Streaks[i];
                 st.transform.position = new Vector3(center.x + Mathf.Cos(ang) * 0.45f - 0.15f,
                                                     center.y + 0.4f + bird.Phase[i] * (1.4f + 0.8f * level), center.z + 0.2f);

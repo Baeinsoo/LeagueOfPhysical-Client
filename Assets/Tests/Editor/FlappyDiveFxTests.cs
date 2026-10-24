@@ -225,6 +225,36 @@ public class FlappyDiveFxTests
     }
 
     [Test]
+    public void 금빛_경계에서_속도가_흔들려도_번쩍은_한_번()
+    {
+        //  세기가 금빛 문턱(0.9)을 오가도 매 틱 다시 번쩍이면 깜빡임이 된다(태스크 리뷰 10-24).
+        Make();
+        var me = registry.Get("me");
+        float min = 11.25f * 0.75f, span = 11.25f - min;
+        for (int i = 0; i < 60; i++)
+        {
+            float level = i % 2 == 0 ? 0.92f : 0.88f;
+            me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -(min + span * level), 0f);
+            fx.Tick(0.016f);
+        }
+        Assert.AreEqual(1, fx.GoldFlashesOf("me"));
+    }
+
+    [Test]
+    public void 빛줄기가_적어도_몸_둘레에_고르게_퍼진다()
+    {
+        //  2줄이면 서로 반대편(0°·180°)이어야 한다 — 한쪽에 몰리면 비대칭으로 보인다(태스크 리뷰 10-24).
+        var views = Make();
+        var me = registry.Get("me");
+        me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f * 0.751f, 0f);   // 문턱 바로 위 → 2줄
+        fx.Tick(0.016f);
+        Assert.AreEqual(2, fx.ActiveStreaksOf("me"));
+        float cx = views["me"].position.x - 0.15f;
+        float a = fx.StreakPositionOf("me", 0).x - cx, b = fx.StreakPositionOf("me", 1).x - cx;
+        Assert.Less(a * b, 0f, "두 줄이 몸 양쪽에 있어야 한다");
+    }
+
+    [Test]
     public void 다이브_맵이_아니면_아무것도_안_한다()
     {
         Make(dive: false);

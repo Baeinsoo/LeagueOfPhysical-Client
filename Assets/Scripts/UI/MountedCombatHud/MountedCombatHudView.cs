@@ -13,6 +13,9 @@ namespace LOP.UI
         private VisualElement hitMarker;
         private VisualElement damageArc;
         private VisualElement killFeed;
+        private Label zoneText;
+        private Label aliveText;
+        private MountedMinimapElement minimap;
         private IVisualElementScheduledItem tick;
         private float? shownBearing;
 
@@ -31,6 +34,13 @@ namespace LOP.UI
             damageArc = Root.Q<VisualElement>("damage-arc");
             killFeed = Root.Q<VisualElement>("kill-feed");
 
+            zoneText = Root.Q<Label>("zone-text");
+            aliveText = Root.Q<Label>("alive-text");
+            minimap = new MountedMinimapElement { style = { flexGrow = 1 } };
+            Root.Q<VisualElement>("minimap-host").Add(minimap);
+
+            viewModel.ZoneText.Subscribe(t => zoneText.text = t).AddTo(Disposables);
+            viewModel.AliveText.Subscribe(t => aliveText.text = t).AddTo(Disposables);
             viewModel.HitMarker.Subscribe(on => hitMarker.style.display = on ? DisplayStyle.Flex : DisplayStyle.None)
                 .AddTo(Disposables);
             viewModel.DamageFromBearing.Subscribe(b =>
@@ -44,6 +54,7 @@ namespace LOP.UI
             tick = Root.schedule.Execute(_ =>
             {
                 viewModel.Tick();
+                minimap.Set(viewModel.BuildMinimap(), Camera.main != null ? Camera.main.transform.eulerAngles.y : 0f);
                 if (shownBearing.HasValue)
                 {
                     float cameraYaw = Camera.main != null ? Camera.main.transform.eulerAngles.y : 0f;

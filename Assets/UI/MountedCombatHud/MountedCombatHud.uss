@@ -58,3 +58,26 @@
     margin-bottom: 4px;
     border-radius: 6px;
 }
+
+/* 킬 피드와 겹치지 않게 왼쪽 위에 둔다. */
+.zone-panel {
+    position: absolute;
+    left: 24px;
+    top: 24px;
+    align-items: flex-start;
+}
+
+.zone-text, .alive-text {
+    font-size: 26px;
+    color: rgb(255, 255, 255);
+    background-color: rgba(0, 0, 0, 0.45);
+    padding: 4px 12px;
+    margin-bottom: 4px;
+    border-radius: 6px;
+}
+
+.minimap-host {
+    width: 180px;
+    height: 180px;
+    margin-top: 6px;
+}

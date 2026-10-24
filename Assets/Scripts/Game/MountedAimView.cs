@@ -31,6 +31,11 @@ namespace LOP
         private readonly MountedArcheryClientState state;
         private readonly GameFramework.Runner.IRunner runner;
         private readonly float eyeHeight;
+        private readonly MountedArcheryConfig config;
+        private readonly MountedAimAssistState assistState;
+        private readonly List<(string id, Vector3 chest)> assistTargets = new List<(string id, Vector3 chest)>();
+        private string assistId;
+        private Vector2 assistAngles;
         private readonly List<MountedPredictedHits.Target> bodies = new List<MountedPredictedHits.Target>();
 
         private float shownDrawRatio;
@@ -40,8 +45,10 @@ namespace LOP
                               IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry,
                               MountedArcheryConfig config, EntityRenderClock renderClock,
                               ActorRegistry actorRegistry, MountedArcheryClientState state,
-                              GameFramework.Runner.IRunner runner)
+                              GameFramework.Runner.IRunner runner, MountedAimAssistState assistState)
         {
+            this.config = config;
+            this.assistState = assistState;
             this.runner = runner;
             this.renderClock = renderClock;
             this.actorRegistry = actorRegistry;
@@ -179,6 +186,7 @@ namespace LOP
                 Vector3? hit = Nearer(start, terrain, NearestBodyPoint(start, forward, MaxAimDistance, bodies, entity.Id));
                 Vector2 angles = AimAngles(eye, AimPoint(origin, forward, eye, hit, MaxAimDistance));
                 input.SetAim(angles.x, angles.y);
+                ApplyAssist(camera, origin, forward);
             }
             else
             {
@@ -198,6 +206,26 @@ namespace LOP
             // 기수가 화면 왼쪽 아래로 가게 한다.
             cameraController.PivotOffset = Vector3.up * (eyeHeight - cameraController.PivotHeight)
                                            + camera.transform.right * MountedCameraZoom.ShoulderRight;
+        }
+
+        // 서버에 보내는 조준(위)은 건드리지 않고 카메라만 돌린다.
+        private void ApplyAssist(Camera camera, Vector3 origin, Vector3 forward)
+        {
+            assistTargets.Clear();
+            for (int i = 0; i < bodies.Count; i++)
+            {
+                assistTargets.Add((bodies[i].Id, bodies[i].Position + Vector3.up * MountedAimAssist.ChestHeight));
+            }
+            bool locked = MountedAimAssist.TryPick(origin, forward, assistTargets, config.AimAssistConeDeg,
+                                                   config.AimAssistRange, out string id, out float yaw, out float pitch);
+            assistState.Locked = locked;
+            var now = new Vector2(yaw, pitch);
+            if (locked)
+            {
+                cameraController.AimBy(MountedAimAssist.Track(assistAngles, now, id == assistId, config.AimAssistTrack));
+            }
+            assistId = locked ? id : null;
+            assistAngles = now;
         }
 
         public void Dispose()

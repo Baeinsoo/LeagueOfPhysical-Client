@@ -2178,7 +2178,8 @@ namespace LOP.MapTools.Tests
                                     || (p.Kind == MinePartKind.Lantern && Math.Abs(p.Z - MineDressingLayout.LanternZ) < Eps)
                                     || (p.Kind == MinePartKind.MineCart && Math.Abs(p.Z - MineDressingLayout.MidZ) < Eps)).ToList();
             Assert.IsTrue(mid.Any(p => p.X > 330f), "굴 끝 쪽 가운데 층이 없다");
-            var outsideMid = mid.Where(p => p.X > z.ExitEnd + Eps).Select(p => $"{p.Kind}@{p.X:F2}").ToList();
+            //  중심이 아니라 오른쪽 끝으로 잰다 — 틀(±3.3·m)·발판(±3·m)은 중심이 안이어도 몸이 출구 밖으로 삐진다(10-24 리뷰).
+            var outsideMid = mid.Where(p => p.X + p.Width / 2f > z.ExitEnd + Eps).Select(p => $"{p.Kind}@{p.X:F2}+{p.Width / 2f:F2}").ToList();
             Assert.IsEmpty(outsideMid, $"가운데 층이 출구 문틀 끝({z.ExitEnd:F2}) 뒤(노을 바깥)에");
             //  먼 비계(협곡 다리)는 노을 바깥에도.
             Assert.IsTrue(bg.Any(p => p.Kind == MinePartKind.BgTrestleBay && p.X > z.ExitEnd + 5f));

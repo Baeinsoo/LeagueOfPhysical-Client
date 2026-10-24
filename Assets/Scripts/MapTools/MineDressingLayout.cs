@@ -2299,20 +2299,25 @@ namespace LOP.MapTools
                     if (x < start) { continue; }
                     //  축척 m = MidScale. 틀 윗면·발판·사다리 위 끝 높이는 그대로 두고 크기만 줄인다(틀 다리는 데크 아래로 숨는다).
                     float fx = (float)x, center = c.CenterAt(fx), m = d.MidScale;
-                    list.Add(new MinePiece(MinePartKind.BgFrame, fx, center + FrameTop, MidZ, 0f, BgFrameWidth * m, BgFrameWidth * m, m, m));
+                    //  틀(가장 넓다, ±3.3·m)이 끝(출구 문틀 끝) 안에 다 들어가야 이 자리를 세운다 — 중심만 안이면 몸이 노을 바깥으로 삐진다.
+                    //  발판·광차·사다리는 틀 폭 안에 있어 같이 따른다. 난수는 세우든 말든 똑같이 뽑는다 — 뒤 소품이 안 밀리게(10-24 리뷰).
+                    bool fits = fx + BgFrameWidth * m / 2f <= hi;
                     float walk = WalkLow + rng.Range(0f, WalkRange);
+                    bool cart = cartRng.Next() < d.MidCartChance;
+                    bool ladder = rng.Next() < d.LadderChance;
+                    if (fits == false) { continue; }
+                    list.Add(new MinePiece(MinePartKind.BgFrame, fx, center + FrameTop, MidZ, 0f, BgFrameWidth * m, BgFrameWidth * m, m, m));
                     list.Add(new MinePiece(MinePartKind.Walkway, fx, center + walk, MidZ, 0f, WalkwayWidth * m, WalkwayWidth * m, m, m));
                     //  발판 위 광차(Fix 1b): 틀 기둥(±3.3·m)과 사다리(+1.2·m) 사이, 발판 왼쪽 반에. 따로 뽑는 난수라 다른 소품이 안 밀린다.
-                    if (cartRng.Next() < d.MidCartChance)
+                    if (cart)
                     {
                         float cx = fx - MidCartOffsetX * m;
                         list.Add(new MinePiece(MinePartKind.MineCart, cx, center + walk, MidZ, 0f, MineCartWidth * m, MineCartWidth * m, m, m));
                     }
-                    //  확률은 항상 뽑는다 — 사다리 비율을 바꿔도 뒤 소품의 난수가 밀리지 않게.
-                    //  사다리는 틀 오른쪽에 붙어 마지막 틀이 끝(출구 문틀 끝)에 바짝 서면 노을 바깥으로 삐진다 — 그때는 안 세운다(10-24, 코스를 늘리다 드러남).
-                    float lx = fx + LadderOffsetX * m;
-                    if (rng.Next() < d.LadderChance && lx <= hi)
+                    //  확률은 항상 뽑는다(위) — 사다리 비율을 바꿔도 뒤 소품의 난수가 밀리지 않게.
+                    if (ladder)
                     {
+                        float lx = fx + LadderOffsetX * m;
                         list.Add(new MinePiece(MinePartKind.Ladder, lx, c.CenterAt(lx) + LadderTop, MidZ + LadderDz, 0f, LadderWidth * m, LadderWidth * m, m, m));
                     }
                 }

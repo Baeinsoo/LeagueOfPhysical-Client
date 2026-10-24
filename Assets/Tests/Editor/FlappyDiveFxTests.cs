@@ -203,6 +203,28 @@ public class FlappyDiveFxTests
     }
 
     [Test]
+    public void 세기에_따라_색과_빛줄기가_달라진다_최고_낙하면_금빛()
+    {
+        //  10-24 사람 판: 채워지는 정도에 따라 강약·색을 다르게.
+        Make();
+        var me = registry.Get("me");
+        me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f * 0.76f, 0f);   // 문턱 바로 위
+        for (int i = 0; i < 40; i++) { fx.Tick(0.016f); }
+        Color weak = fx.AuraColorOf("me");
+        int weakStreaks = fx.ActiveStreaksOf("me");
+
+        me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f, 0f);           // 최고 낙하
+        for (int i = 0; i < 40; i++) { fx.Tick(0.016f); }
+        Color strong = fx.AuraColorOf("me");
+        int strongStreaks = fx.ActiveStreaksOf("me");
+
+        Assert.Greater(weak.b, 0.9f, "문턱 근처는 하늘색");
+        Assert.Greater(strong.r, 0.9f, "최고 낙하는 금빛");
+        Assert.Less(strong.b, 0.5f, "최고 낙하는 금빛");
+        Assert.Less(weakStreaks, strongStreaks, "빛줄기도 세기만큼 늘어난다");
+    }
+
+    [Test]
     public void 다이브_맵이_아니면_아무것도_안_한다()
     {
         Make(dive: false);

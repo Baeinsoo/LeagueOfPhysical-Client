@@ -93,3 +93,37 @@
     border-width: 36px;
     border-color: rgba(230, 30, 30, 0.55);
 }
+
+/* 화면 아래 가운데 내 체력 바. 채움 너비(%)는 코드가 준다. */
+.hp-bar {
+    position: absolute;
+    left: 50%;
+    bottom: 40px;
+    width: 360px;
+    height: 32px;
+    margin-left: -180px;
+    display: none;
+    background-color: rgba(0, 0, 0, 0.55);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.hp-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    background-color: rgb(80, 200, 90);
+}
+
+.hp-text {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    -unity-text-align: middle-center;
+    font-size: 22px;
+    color: rgb(255, 255, 255);
+}

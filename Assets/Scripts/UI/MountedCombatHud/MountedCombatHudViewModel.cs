@@ -55,6 +55,17 @@ namespace LOP.UI
         /// <summary>내 몸이 지금 원 밖이고 그 자리 구역 피해가 0보다 크면 true. 화면 가장자리 경고를 켠다.</summary>
         public ReadOnlyReactiveProperty<bool> OutsideZone => outsideZone;
 
+        private readonly ReactiveProperty<float> hpRatio = new ReactiveProperty<float>(0f);
+        private readonly ReactiveProperty<string> hpText = new ReactiveProperty<string>("");
+        private readonly ReactiveProperty<bool> hpVisible = new ReactiveProperty<bool>(false);
+
+        /// <summary>내 체력 비율(0~1). 값은 서버 스냅샷이 내 몸의 Health에 써 준 것을 읽기만 한다.</summary>
+        public ReadOnlyReactiveProperty<float> HpRatio => hpRatio;
+        public ReadOnlyReactiveProperty<string> HpText => hpText;
+
+        /// <summary>내 몸이 없으면(탈락·관전) 체력 바를 숨긴다.</summary>
+        public ReadOnlyReactiveProperty<bool> HpVisible => hpVisible;
+
         public struct Minimap
         {
             public Vector2 CurrentCenter;
@@ -206,9 +217,24 @@ namespace LOP.UI
             outsideZone.Value = warn;
         }
 
+        private void RefreshHp()
+        {
+            string myId = playerContext?.entityId;
+            var health = myId == null ? null : entityRegistry?.Get(myId)?.Get<GameFramework.World.Health>();
+            if (health == null)
+            {
+                hpVisible.Value = false;
+                return;
+            }
+            hpVisible.Value = true;
+            hpRatio.Value = health.Max > 0 ? Mathf.Clamp01((float)health.Current / health.Max) : 0f;
+            hpText.Value = $"HP {health.Current}";
+        }
+
         /// <summary>시간이 지난 표시를 거둔다.</summary>
         public void Tick()
         {
+            RefreshHp();
             if (state != null)
             {
                 RefreshZone();
@@ -285,6 +311,9 @@ namespace LOP.UI
             zoneText.Dispose();
             aliveText.Dispose();
             outsideZone.Dispose();
+            hpRatio.Dispose();
+            hpText.Dispose();
+            hpVisible.Dispose();
         }
     }
 }

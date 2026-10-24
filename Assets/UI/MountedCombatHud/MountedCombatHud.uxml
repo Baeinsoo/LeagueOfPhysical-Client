@@ -10,6 +10,10 @@
             <ui:Label name="alive-text" class="alive-text" picking-mode="Ignore" />
             <ui:VisualElement name="minimap-host" class="minimap-host" picking-mode="Ignore" />
         </ui:VisualElement>
+        <ui:VisualElement name="hp-bar" class="hp-bar" picking-mode="Ignore">
+            <ui:VisualElement name="hp-fill" class="hp-fill" picking-mode="Ignore" />
+            <ui:Label name="hp-text" class="hp-text" picking-mode="Ignore" />
+        </ui:VisualElement>
         <ui:VisualElement name="kill-feed" class="kill-feed" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

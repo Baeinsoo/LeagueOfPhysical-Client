@@ -21,6 +21,7 @@ namespace LOP
         private float heldAimPitch;
         private bool heldDrawing;     // 연속 — 손가락을 대고 있는 동안 참
         private float heldDrawRatio;  // 연속 — 얼마나 끌었나(0~1)
+        private long heldViewTick;  // 지금 화면이 보는 틱 — 서버 래그 보상 근거
         private bool pendingRelease;  // 이산 — 소비 후 리셋
         private IRunner runner;
         private IPlayerContext playerContext;
@@ -84,6 +85,7 @@ namespace LOP
                 AimPitch = heldAimPitch,
                 Drawing = heldDrawing,
                 DrawRatio = heldDrawRatio,
+                ViewTick = heldViewTick,
                 Release = pendingRelease,
             };
 
@@ -154,6 +156,7 @@ namespace LOP
                 Drawing = command.Drawing,
                 Release = command.Release,
                 DrawRatio = command.DrawRatio,
+                ViewTick = command.ViewTick,
             };
         }
 
@@ -213,6 +216,12 @@ namespace LOP
         public void SetDrawRatio(float ratio)
         {
             heldDrawRatio = UnityEngine.Mathf.Clamp01(ratio);
+        }
+
+        /// <summary>지금 화면이 보는 틱. 매 프레임 갱신하면 틱마다 샘플돼 입력에 실린다.</summary>
+        public void SetViewTick(long tick)
+        {
+            heldViewTick = tick;
         }
 
         /// <summary>손을 뗀 순간 한 번 부른다. 다음 틱 커맨드에 실려 나간다.</summary>

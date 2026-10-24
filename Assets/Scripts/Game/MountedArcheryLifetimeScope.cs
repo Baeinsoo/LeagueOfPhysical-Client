@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using LOP.UI;
+using MessagePipe;
+using Mirror;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -52,15 +54,29 @@ namespace LOP
             // 외삽 대상이 없어 값은 안 쓰이지만 EntityBinder의 생성자 의존이라 등록은 필요하다.
             builder.Register<IExtrapolationAcceleration, ZeroExtrapolationAcceleration>(Lifetime.Singleton);
 
+            builder.Register<MountedArcheryClientState>(Lifetime.Singleton);
+            builder.RegisterEntryPoint<MountedArcheryStateHandler>();
             builder.RegisterEntryPoint<MountedAimView>().AsSelf();
             builder.RegisterEntryPoint<MountedHorseView>().AsSelf();
+            builder.Register<IHaptics>(_ => Haptics.ForThisDevice(), Lifetime.Singleton);
+            builder.RegisterEntryPoint<MountedPredictedHits>().AsSelf();
             builder.RegisterEntryPoint<MountedArrowView>().AsSelf();
             builder.RegisterEntryPoint<MountedArcheryRemoteShotHandler>();
+            builder.Register<MountedSpectate>(Lifetime.Singleton).As<ISpectateTargets>().AsSelf();
             builder.RegisterEntryPoint<MountedArcheryHudCoordinator>();
             builder.Register<IArcheryPadViewModel, MountedArcheryPadViewModel>(Lifetime.Transient);
             builder.Register<ArcheryPadView>(Lifetime.Transient);
             builder.Register<RaceStartViewModel>(Lifetime.Transient);
             builder.Register<RaceStartView>(Lifetime.Transient);
+            builder.Register<MountedCombatHudViewModel>(Lifetime.Transient);
+            builder.Register<MountedCombatHudView>(Lifetime.Transient);
+            builder.Register<RaceEliminatedView>(Lifetime.Transient);
+            builder.Register<RaceSpectateViewModel>(Lifetime.Transient);
+            builder.Register<RaceSpectateView>(Lifetime.Transient);
+            builder.Register<LeaveMatchConfirmViewModel>(Lifetime.Transient);
+            builder.Register<LeaveMatchConfirmView>(Lifetime.Transient);
+            builder.Register(c => new MatchLeaveRequester(c.Resolve<ISubscriber<LeaveMatchToC>>(),
+                message => NetworkClient.Send(new CustomMirrorMessage { payload = message })), Lifetime.Singleton);
         }
 
         protected override void RegisterViewFactories(
@@ -70,6 +86,14 @@ namespace LOP
                 () => container.Resolve<ArcheryPadView>()));
             sink.Add(windowManager.RegisterViewFactory<RaceStartView>(
                 () => container.Resolve<RaceStartView>()));
+            sink.Add(windowManager.RegisterViewFactory<MountedCombatHudView>(
+                () => container.Resolve<MountedCombatHudView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceEliminatedView>(
+                () => container.Resolve<RaceEliminatedView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceSpectateView>(
+                () => container.Resolve<RaceSpectateView>()));
+            sink.Add(windowManager.RegisterViewFactory<LeaveMatchConfirmView>(
+                () => container.Resolve<LeaveMatchConfirmView>()));
         }
     }
 }

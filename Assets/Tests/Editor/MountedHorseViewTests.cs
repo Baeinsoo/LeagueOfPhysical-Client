@@ -50,7 +50,7 @@ namespace LOP.Tests
             var actors = new ActorRegistry();
             actors.Add(actor);
             var context = new FakePlayerContext { entityId = local ? Id : "someone-else" };
-            return (new MountedHorseView(actors, registry, context), visual.transform, model.transform, aim);
+            return (new MountedHorseView(actors, registry, context, new FixedRenderClock(context)), visual.transform, model.transform, aim);
         }
 
         // 보간기가 하는 일: 뿌리의 월드 위치·회전을 통째로 덮는다.
@@ -113,6 +113,49 @@ namespace LOP.Tests
             Assert.AreEqual(rest.x, seat.x, 1e-6f);
             Assert.AreEqual(rest.y + MountedHorseView.SaddleHeight, seat.y, 1e-6f);
             Assert.AreEqual(rest.z + MountedHorseView.SaddleBack, seat.z, 1e-6f);
+        }
+
+        // TickFor만 고정값으로 바꾼 시계 — 뷰 시험은 시계의 속 사정을 모른다.
+        private sealed class FixedRenderClock : EntityRenderClock
+        {
+            public FixedRenderClock(IPlayerContext context) : base(context, null, null, null) { }
+            public override long TickFor(string entityId) => 0;
+        }
+
+        private static InputBuffer BufferWith(params (long tick, float yaw)[] commands)
+        {
+            var buffer = new InputBuffer();
+            foreach (var c in commands)
+            {
+                buffer.Commands.Add(c.tick, new InputCommand { AimYaw = c.yaw });
+            }
+            return buffer;
+        }
+
+        // 남의 입력은 클라 라이브 틱보다 늦게 오므로 Current/LastReceived로는 못 읽는다 — 그리는 틱 이하의 최근 입력을 본다.
+        [Test]
+        public void 남의_조준은_그리는_틱_이하의_가장_최근_입력이다()
+        {
+            var buffer = BufferWith((100, 90f));
+            Assert.IsTrue(MountedHorseView.TryGetRemoteAimYaw(buffer, 110, out float yaw));
+            Assert.AreEqual(90f, yaw, 1e-4f);
+        }
+
+        [Test]
+        public void 그리는_틱보다_뒤의_입력은_안_쓰고_없으면_없다()
+        {
+            var buffer = BufferWith((100, 90f));
+            Assert.IsFalse(MountedHorseView.TryGetRemoteAimYaw(buffer, 95, out _));
+            Assert.IsFalse(MountedHorseView.TryGetRemoteAimYaw(new InputBuffer(), 95, out _));
+            Assert.IsFalse(MountedHorseView.TryGetRemoteAimYaw(null, 95, out _));
+        }
+
+        [Test]
+        public void 여러_입력이_있으면_그리는_틱_이하_중_마지막이다()
+        {
+            var buffer = BufferWith((100, 10f), (105, 20f), (112, 30f));
+            Assert.IsTrue(MountedHorseView.TryGetRemoteAimYaw(buffer, 110, out float yaw));
+            Assert.AreEqual(20f, yaw, 1e-4f);
         }
 
         private class FakePlayerContext : IPlayerContext

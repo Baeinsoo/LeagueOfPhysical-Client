@@ -7,9 +7,9 @@ namespace LOP.UI
     /// </summary>
     public class RaceSpectateViewModel
     {
-        private readonly FlappySpectate _spectate;
+        private readonly ISpectateTargets _spectate;
 
-        public RaceSpectateViewModel(FlappySpectate spectate)
+        public RaceSpectateViewModel(ISpectateTargets spectate)
         {
             _spectate = spectate;
         }

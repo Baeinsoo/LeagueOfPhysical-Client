@@ -6,7 +6,7 @@ namespace LOP
 {
     /// <summary>
     /// 기수 밑에 회색 도형 말을 깔고 기수(치비)를 안장 높이로 올린다. 말은 그림일 뿐이다 —
-    /// 콜라이더가 없고 이동은 시뮬의 캡슐이 한다. 내 기수만 조준 방향으로 몸을 돌린다.
+    /// 콜라이더가 없고 이동은 시뮬의 캡슐이 한다. 기수는 조준 방향으로 상체를 돌린다.
     /// <para>몸 그림의 뿌리(visual)는 보간기가 매 프레임 LateUpdate에서 월드 자세째 덮어쓴다(이 뷰는 그보다 먼저 돈다).
     /// 그래서 뿌리는 건드리지 않는다 — 말은 뿌리의 자식으로 붙여 보간된 자리를 같이 따라가게 하고,
     /// 안장 높이와 상체 회전은 뿌리 아래 모델 자식(<see cref="ChibiRig.ModelChildName"/>)에만 준다.</para>
@@ -29,6 +29,7 @@ namespace LOP
         private readonly ActorRegistry actorRegistry;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly IPlayerContext playerContext;
+        private readonly EntityRenderClock renderClock;
 
         // 몸마다 마지막으로 말을 입힌 그림. 그림이 바뀌면(다시 로드) 다시 입힌다.
         private readonly Dictionary<string, Seat> built = new Dictionary<string, Seat>();
@@ -36,8 +37,9 @@ namespace LOP
         private Material horseMaterial;
 
         public MountedHorseView(ActorRegistry actorRegistry, GameFramework.World.EntityRegistry entityRegistry,
-                                IPlayerContext playerContext)
+                                IPlayerContext playerContext, EntityRenderClock renderClock)
         {
+            this.renderClock = renderClock;
             this.actorRegistry = actorRegistry;
             this.entityRegistry = entityRegistry;
             this.playerContext = playerContext;
@@ -45,6 +47,35 @@ namespace LOP
 
         /// <summary>말 머리 방향에서 조준 방향까지 가까운 쪽으로 잰 각도(도). 기수 모델의 말 기준 회전이다.</summary>
         public static float RiderLocalYaw(float headingYaw, float aimYaw) => Mathf.DeltaAngle(headingYaw, aimYaw);
+
+        /// <summary>
+        /// 남의 조준: 그 몸을 <b>그리는 틱</b> 이하에서 가장 최근에 받은 입력의 조준 방향.
+        /// 남의 입력은 서버를 거쳐 와서 클라의 라이브 틱보다 늦게 도착한다 — 지금 틱의 입력은 아직 없으므로,
+        /// 몸을 그리는(조금 과거) 틱까지 도착한 것 중 마지막 값을 쓴다. 아직 하나도 없으면 false.
+        /// </summary>
+        public static bool TryGetRemoteAimYaw(InputBuffer buffer, long drawnTick, out float yaw)
+        {
+            yaw = 0f;
+            if (buffer == null)
+            {
+                return false;
+            }
+            InputCommand latest = null;
+            foreach (var pair in buffer.Commands)   // 틱 오름차순
+            {
+                if (pair.Key > drawnTick)
+                {
+                    break;
+                }
+                latest = pair.Value;
+            }
+            if (latest == null)
+            {
+                return false;
+            }
+            yaw = latest.AimYaw;
+            return true;
+        }
 
         /// <summary>모델의 원래 자리에서 안장으로 옮긴 자리(뿌리 기준).</summary>
         public static Vector3 SeatLocalPosition(Vector3 restLocalPosition)
@@ -88,12 +119,25 @@ namespace LOP
                 }
 
                 // 뿌리의 방향은 직전 프레임에 보간기가 쓴 말 머리다 — 돌고 있을 때 한 프레임 늦을 뿐이다.
-                float localYaw = entity.Id == playerContext.entityId && entity.Get<ArcheryAim>() is ArcheryAim aim
-                    ? RiderLocalYaw(visual.transform.eulerAngles.y, aim.Yaw)
+                float localYaw = TryGetAimYaw(entity, out float aimYaw)
+                    ? RiderLocalYaw(visual.transform.eulerAngles.y, aimYaw)
                     : 0f;
                 seat.Model.localPosition = SeatLocalPosition(seat.RestPosition);
                 seat.Model.localRotation = Quaternion.Euler(0f, localYaw, 0f) * seat.RestRotation;
             }
+        }
+
+        // 내 기수는 시뮬의 조준, 남의 기수는 서버가 중계한 남의 입력(몸을 그리는 틱까지 받은 마지막 것)의 조준 방향을 따른다.
+        private bool TryGetAimYaw(GameFramework.World.Entity entity, out float yaw)
+        {
+            if (entity.Id == playerContext.entityId)
+            {
+                var aim = entity.Get<ArcheryAim>();
+                yaw = aim != null ? aim.Yaw : 0f;
+                return aim != null;
+            }
+
+            return TryGetRemoteAimYaw(entity.Get<InputBuffer>(), renderClock.TickFor(entity.Id), out yaw);
         }
 
         private Seat Dress(GameObject visual)

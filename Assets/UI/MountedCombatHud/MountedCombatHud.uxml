@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="combat-root" class="combat-root" picking-mode="Ignore">
+        <ui:VisualElement name="damage-arc" class="damage-arc" picking-mode="Ignore">
+            <ui:VisualElement class="damage-arc-bar" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:Label name="hit-marker" class="hit-marker" text="✕" picking-mode="Ignore" />
+        <ui:VisualElement name="kill-feed" class="kill-feed" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

@@ -1,0 +1,60 @@
+.combat-root {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+}
+
+.hit-marker {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 80px;
+    height: 80px;
+    margin-left: -40px;
+    margin-top: -40px;
+    display: none;
+    -unity-text-align: middle-center;
+    font-size: 64px;
+    -unity-font-style: bold;
+    color: rgb(255, 255, 255);
+    -unity-text-outline-width: 2px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.8);
+}
+
+/* 화면 가운데를 축으로 도는 상자. 위쪽 가장자리에 붉은 막대가 있고, 각도는 코드가 준다. */
+.damage-arc {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 0;
+    display: none;
+}
+
+.damage-arc-bar {
+    position: absolute;
+    left: -90px;
+    top: -240px;
+    width: 180px;
+    height: 14px;
+    border-radius: 7px;
+    background-color: rgba(230, 40, 40, 0.85);
+}
+
+.kill-feed {
+    position: absolute;
+    right: 24px;
+    top: 24px;
+    align-items: flex-end;
+}
+
+.kill-line {
+    font-size: 26px;
+    color: rgb(255, 255, 255);
+    background-color: rgba(0, 0, 0, 0.45);
+    padding: 4px 12px;
+    margin-bottom: 4px;
+    border-radius: 6px;
+}

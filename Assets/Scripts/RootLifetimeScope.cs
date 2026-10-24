@@ -50,6 +50,7 @@ namespace LOP
             builder.RegisterOrderedMessageBroker<PanchigiStateToC>();
             builder.RegisterOrderedMessageBroker<ArcheryStateToC>();
             builder.RegisterOrderedMessageBroker<DodgeStateToC>();
+            builder.RegisterOrderedMessageBroker<MountedArcheryStateToC>();
             builder.RegisterOrderedMessageBroker<PlayerPresenceToC>();
             builder.RegisterOrderedMessageBroker<LeaveMatchToC>();
             builder.RegisterOrderedMessageBroker<MatchEndedToC>();

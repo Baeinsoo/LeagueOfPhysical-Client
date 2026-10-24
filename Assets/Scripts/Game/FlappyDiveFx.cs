@@ -6,16 +6,14 @@ namespace LOP
 {
     /// <summary>
     /// 다이브 충전 연출(클라 전용, spec 2026-10-23-flappy-dive-charge §2). 날갯짓을 참고 빠르게 떨어지는 동안
-    /// 새 둘레에 하늘색 기운이 감기고 위로 빛줄기가 끌린다 — 남의 새도 보인다. 내 새는 둘레 고리 게이지·충전음·"대시 1칸!".
+    /// 새 둘레에 하늘색 기운이 감기고 위로 빛줄기가 끌린다 — 남의 새도 보인다. 내 새는 충전음·"대시 1칸!"·박아서 잃을 때 흩어짐.
+    /// (둘레 고리 게이지는 10-24 사람 판 "굳이 없어도 된다"로 뺐다 — 게이지는 대시 버튼이 보여 준다.)
     ///
     /// <para><b>판정·게이지와 무관하다.</b> 게이지는 시뮬(<see cref="FlappyDashSystem"/>)이 정한다. 충전 중인지는 시뮬과 같은 문턱으로
     /// 보되, 내 새는 시뮬 속도로, 남의 새는 그림 자리의 세로 속도로 본다(남의 새는 시뮬하지 않는다).</para>
     /// </summary>
     public class FlappyDiveFx : ITickable, System.IDisposable
     {
-        private const float RingRadius = 0.78f;
-        private const float RingWidth = 0.1f;
-        private const int RingSegments = 48;
         private const int StreakCount = 6;
         private const float AuraSize = 2.2f;
 
@@ -30,8 +28,6 @@ namespace LOP
         private GameObject root;
         private Sprite glow;
         private Sprite streak;
-        private Material lineMaterial;
-        private LineRenderer ringBack, ringFill;
         private AudioSource hum;
         private AudioClip humClip, blipClip;
         private readonly Dictionary<string, Bird> birds = new Dictionary<string, Bird>();
@@ -39,12 +35,23 @@ namespace LOP
         private float nextScan;
         private float time;
         private int announcedStacks = -1;   // "대시 1칸!"을 띄운 칸 수 — 경계에서 흔들려도 한 번만
+        private float lastCharge = -1f;
+        private bool wasStunned;
+        private readonly List<Scatter> scatters = new List<Scatter>();
+
+        //  박아서 잃은 게이지만큼 새에서 사방으로 흩어지는 알갱이.
+        private class Scatter
+        {
+            public SpriteRenderer Renderer;
+            public Vector3 Velocity;
+            public float Age, Life;
+        }
 
         //  테스트 seam — 실제로는 씬의 LOPEntityView 그림, 테스트는 가짜를 끼운다.
         internal System.Func<string, UnityEngine.Transform> viewLookup;
         internal float StrengthOf(string entityId) => birds.TryGetValue(entityId, out var b) ? b.Strength : 0f;
         internal float AuraAlphaOf(string entityId) => birds.TryGetValue(entityId, out var b) && b.Aura != null ? b.Aura.color.a : 0f;
-        internal float RingFraction { get; private set; }
+        internal int ScatterCount => scatters.Count;
 
         private class Bird
         {
@@ -161,10 +168,9 @@ namespace LOP
                 DestroyBird(birds[id]);
                 birds.Remove(id);
             }
+            AnimateScatters(deltaTime);
             if (mineSeen == false)
             {
-                ringBack.enabled = false;
-                ringFill.enabled = false;
                 hum.volume = Mathf.MoveTowards(hum.volume, 0f, deltaTime * 2f);
                 if (hum.volume <= 0f && hum.isPlaying) { hum.Stop(); }
             }
@@ -218,11 +224,15 @@ namespace LOP
             float charge = entity.Get<FlappyDash>()?.Charge ?? 0f;
             int stacks = Mathf.FloorToInt(charge + 1e-6f);
             float fraction = charge >= FlappyDash.MaxCharge ? 1f : charge - stacks;
-            RingFraction = fraction;
-            DrawRing(ringBack, center, 1f, new Color(1f, 1f, 1f, 0.12f));
-            var fc = Cyan;
-            fc.a = 0.6f + 0.4f * strength;
-            DrawRing(ringFill, center, fraction, fc);
+
+            //  박아서 잃었다 — 스턴이 막 걸린 순간, 직전 프레임보다 줄어든 만큼 알갱이가 흩어진다.
+            bool stunned = (entity.Get<FlappyStun>()?.StunRemaining ?? 0f) > 0f;
+            if (stunned && wasStunned == false && lastCharge >= 0f && lastCharge - charge > 0.01f)
+            {
+                SpawnScatter(center, lastCharge - charge);
+            }
+            wasStunned = stunned;
+            lastCharge = charge;
 
             //  충전음: 차는 동안 웅, 칸 안 몫이 찰수록 높아진다.
             float vol = strength > 0f && fraction < 1f ? 0.12f * (0.5f + strength) : 0f;
@@ -249,22 +259,39 @@ namespace LOP
             }
         }
 
-        private static void DrawRing(LineRenderer line, Vector3 center, float fraction, Color color)
+        private void SpawnScatter(Vector3 center, float lost)
         {
-            int n = Mathf.Max(2, Mathf.CeilToInt(RingSegments * Mathf.Clamp01(fraction)) + 1);
-            line.enabled = fraction > 0.005f;
-            if (line.enabled == false)
-            {
-                return;
-            }
-            line.positionCount = n;
+            //  0.3칸이면 약 9알 — 잃은 양이 눈에 들어오게.
+            int n = Mathf.Clamp(Mathf.RoundToInt(lost * 30f), 3, 24);
             for (int i = 0; i < n; i++)
             {
-                //  12시에서 시계 방향으로.
-                float a = Mathf.PI * 0.5f - Mathf.PI * 2f * fraction * i / (n - 1);
-                line.SetPosition(i, new Vector3(center.x + Mathf.Cos(a) * RingRadius, center.y + Mathf.Sin(a) * RingRadius, center.z - 0.05f));
+                float a = Random.Range(0f, Mathf.PI * 2f);
+                float speed = Random.Range(2f, 6f);
+                var r = MakeSprite("DiveLoss", glow, 3, Cyan);
+                r.transform.position = center;
+                r.transform.localScale = Vector3.one * 0.35f;
+                scatters.Add(new Scatter { Renderer = r, Velocity = new Vector3(Mathf.Cos(a) * speed, Mathf.Sin(a) * speed + 2f, 0f), Life = Random.Range(0.6f, 0.9f) });
             }
-            line.startColor = line.endColor = color;
+            hum.PlayOneShot(blipClip, 0.25f);
+        }
+
+        private void AnimateScatters(float deltaTime)
+        {
+            for (int i = scatters.Count - 1; i >= 0; i--)
+            {
+                var sc = scatters[i];
+                sc.Age += deltaTime;
+                sc.Velocity += Vector3.down * 18f * deltaTime;
+                sc.Renderer.transform.position += sc.Velocity * deltaTime;
+                var c = sc.Renderer.color;
+                c.a = Mathf.Clamp01(1f - sc.Age / sc.Life);
+                sc.Renderer.color = c;
+                if (sc.Age >= sc.Life)
+                {
+                    DestroyObject(sc.Renderer.gameObject);
+                    scatters.RemoveAt(i);
+                }
+            }
         }
 
         private Bird MakeBird()
@@ -300,9 +327,6 @@ namespace LOP
             root = new GameObject("FlappyDiveFx");
             glow = MakeGlow();
             streak = MakeStreak();
-            lineMaterial = new Material(Shader.Find("Sprites/Default")) { name = "FlappyDiveRing" };
-            ringBack = MakeLine("DiveRingBack");
-            ringFill = MakeLine("DiveRingFill");
             hum = root.AddComponent<AudioSource>();
             hum.playOnAwake = false;
             hum.loop = true;
@@ -311,20 +335,6 @@ namespace LOP
             humClip = MakeHum();
             blipClip = MakeBlip();
             hum.clip = humClip;
-        }
-
-        private LineRenderer MakeLine(string name)
-        {
-            var go = new GameObject(name);
-            go.transform.SetParent(root.transform, false);
-            var line = go.AddComponent<LineRenderer>();
-            line.sharedMaterial = lineMaterial;
-            line.useWorldSpace = true;
-            line.widthMultiplier = RingWidth;
-            line.numCapVertices = 2;
-            line.sortingOrder = 3;
-            line.enabled = false;
-            return line;
         }
 
         //  번지는 빛 한 점(가운데 밝고 가장자리로 사라짐).
@@ -429,15 +439,17 @@ namespace LOP
 
         private void ClearAll()
         {
-            if (birds.Count == 0 && root == null)
+            if (birds.Count == 0 && scatters.Count == 0 && root == null)
             {
                 return;
             }
             foreach (var bird in birds.Values) { DestroyBird(bird); }
             birds.Clear();
-            if (ringBack != null) { ringBack.enabled = false; }
-            if (ringFill != null) { ringFill.enabled = false; }
+            foreach (var sc in scatters) { DestroyObject(sc.Renderer != null ? sc.Renderer.gameObject : null); }
+            scatters.Clear();
             if (hum != null) { hum.volume = 0f; hum.Stop(); }
+            lastCharge = -1f;
+            wasStunned = false;
             announcedStacks = -1;
         }
 
@@ -466,10 +478,8 @@ namespace LOP
                 }
             }
             glow = streak = null;
-            DestroyObject(lineMaterial);
             DestroyObject(humClip);
             DestroyObject(blipClip);
-            lineMaterial = null;
             humClip = blipClip = null;
             views.Clear();
         }

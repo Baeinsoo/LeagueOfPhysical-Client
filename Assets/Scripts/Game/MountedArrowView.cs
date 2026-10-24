@@ -6,7 +6,7 @@ namespace LOP
 {
     /// <summary>
     /// 말 활쏘기의 화살 그림. 시뮬과 같은 식에 같은 시각을 넣어 놓고, 땅·바위에 닿으면 거기 꽂아 둔다.
-    /// 사람을 맞히는 연출은 MountedPredictedHits가 한다(Character 층은 레이캐스트에서 뺀다).
+    /// 사람을 맞히는 연출은 MountedPredictedHits가 한다. 몸의 이동용 캡슐은 지형으로 치지 않는다(<see cref="MountedTerrain"/>).
     /// </summary>
     public class MountedArrowView : ILateTickable, System.IDisposable
     {
@@ -16,8 +16,6 @@ namespace LOP
         private readonly GameFramework.Runner.IRunner runner;
         private readonly MountedArcheryWorld world;
         private readonly MountedPredictedHits predictedHits;
-
-        private readonly int worldLayerMask = LayerMask.GetMask("Default");
 
         // 목록의 자리(index)가 아니라 쏜 사람+쏜 틱으로 알아본다 — 앞 화살이 빠지면 자리가 당겨진다.
         private readonly Dictionary<(string shooterId, long fireTick), GameObject> flying =
@@ -83,8 +81,7 @@ namespace LOP
                 // 지난 프레임에서 지금까지 지나온 구간이 땅·바위를 통과했으면 거기서 멈춘다.
                 float previousSeconds = Mathf.Max(0f, seconds - Time.deltaTime);
                 if (previousSeconds < seconds
-                    && Physics.Linecast(ArcheryTrajectory.PositionAt(shot, previousSeconds), position,
-                                        out RaycastHit hit, worldLayerMask, QueryTriggerInteraction.Ignore))
+                    && MountedTerrain.Linecast(ArcheryTrajectory.PositionAt(shot, previousSeconds), position, out RaycastHit hit))
                 {
                     // 촉이 표면에 닿고 몸통은 밖에 남게 살짝 앞으로 밀어 넣는다.
                     arrow.transform.position = hit.point + heading * 0.1f;

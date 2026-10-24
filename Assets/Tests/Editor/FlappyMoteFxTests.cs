@@ -132,7 +132,7 @@ public class FlappyMoteFxTests
         me.Get<FlappyDash>().Charge = 1.6f;          // 1칸 + 채우던 0.6
         fx.Tick(0.016f);
         int before2 = fx.FlyingCount;
-        me.Get<FlappyDash>().Charge = 1f;            // 박아서 채우던 몫을 잃었다
+        me.Get<FlappyDash>().Charge = 1.3f;          // 박아서 0.3칸 잃었다
         me.Get<FlappyStun>().StunRemaining = 1.2f;   // 스턴이 막 걸렸다
         fx.Tick(0.016f);
         before = before2;

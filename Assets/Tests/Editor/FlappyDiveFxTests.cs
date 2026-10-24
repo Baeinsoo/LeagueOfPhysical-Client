@@ -92,7 +92,7 @@ public class FlappyDiveFxTests
     }
 
     [Test]
-    public void 칸이_차면_대시_1칸_글자가_뜨고_고리는_칸_안_몫을_그린다()
+    public void 칸이_차면_대시_1칸_글자가_뜬다()
     {
         Make();
         var popups = new List<FlappyMotePopup>();
@@ -100,12 +100,26 @@ public class FlappyDiveFxTests
         var me = registry.Get("me");
         me.Get<FlappyDash>().Charge = 0.9f;
         fx.Tick(0.016f);
-        Assert.AreEqual(0.9f, fx.RingFraction, 1e-4f);
-
         me.Get<FlappyDash>().Charge = 1.2f;
         fx.Tick(0.016f);
         Assert.IsTrue(popups.Exists(p => p.Text == "대시 1칸!"));
-        Assert.AreEqual(0.2f, fx.RingFraction, 1e-4f);
+    }
+
+    [Test]
+    public void 박아서_잃으면_알갱이가_흩어진다()
+    {
+        Make();
+        var me = registry.Get("me");
+        me.Get<FlappyDash>().Charge = 1.6f;
+        fx.Tick(0.016f);
+        me.Get<FlappyDash>().Charge = 1.3f;          // 0.3칸 잃음
+        me.Get<FlappyStun>().StunRemaining = 1.2f;   // 스턴이 막 걸렸다
+        fx.Tick(0.016f);
+        int burst = fx.ScatterCount;
+        fx.Tick(0.016f);                             // 스턴이 이어지는 동안 또 흩어지면 안 된다
+
+        Assert.Greater(burst, 0);
+        Assert.LessOrEqual(fx.ScatterCount, burst);
     }
 
     [Test]

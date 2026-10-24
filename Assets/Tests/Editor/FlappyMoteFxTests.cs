@@ -132,7 +132,7 @@ public class FlappyMoteFxTests
         me.Get<FlappyDash>().Charge = 1.6f;          // 1칸 + 채우던 0.6
         fx.Tick(0.016f);
         int before2 = fx.FlyingCount;
-        me.Get<FlappyDash>().Charge = 1f;            // 박아서 채우던 몫을 잃었다
+        me.Get<FlappyDash>().Charge = 1.3f;          // 박아서 0.3칸 잃었다
         me.Get<FlappyStun>().StunRemaining = 1.2f;   // 스턴이 막 걸렸다
         fx.Tick(0.016f);
         before = before2;
@@ -290,6 +290,20 @@ public class FlappyMoteFxTests
         Assert.Greater(fx.FlyerPosition(0).y, -1f, "복사본은 보이는 별 자리(0 근처)에서 출발해야 한다 — 원래 자리(-2)가 아니라");
         Assert.AreEqual(1, fx.BandCount, "아래 끝 띠 하나");
         Assert.AreEqual(-0.1f - 1.875f + cage + 1.05f * 0.5f, fx.BandPose(0).position.y, 1e-4f, "띠도 케이지만큼 올라간다");
+    }
+
+    [Test]
+    public void 같은_순간_쓴_대시는_흩어짐에_안_친다()
+    {
+        Make(ThreeMotes(), new FlappyMoteFeed());
+        var me = MeEntity();
+        me.Get<FlappyDash>().Charge = 1f;
+        fx.Tick(0.016f);
+        int before = fx.FlyingCount;
+        me.Get<FlappyDash>().Charge = 0f;            // 대시로 정확히 한 칸 쓰고, 박았지만 잃을 게 없었다
+        me.Get<FlappyStun>().StunRemaining = 1.2f;
+        fx.Tick(0.016f);
+        Assert.AreEqual(before, fx.FlyingCount, "쓴 대시를 잃은 것으로 흩뿌리면 안 된다");
     }
 
     [Test]

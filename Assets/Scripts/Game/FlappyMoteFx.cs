@@ -361,8 +361,8 @@ namespace LOP
             }
         }
 
-        //  박아서 스턴이 걸리는 순간 잃은 만큼 알갱이가 흩어진다. 규칙이 "채우던 칸만 잃기"라 잃은 양 = 스턴 직전 게이지의
-        //  칸 안 몫이다. 직전 프레임 게이지를 들고 있다가 스턴이 막 걸린 순간의 감소량으로 센다(같은 순간 쓴 대시 한 칸은 빼고).
+        //  박아서 스턴이 걸리는 순간 잃은 만큼 알갱이가 흩어진다. 직전 프레임 게이지를 들고 있다가 스턴이 막 걸린 순간의
+        //  감소량으로 센다.
         private void WatchMyLoss()
         {
             var entity = string.IsNullOrEmpty(playerContext.entityId) ? null : entityRegistry.Get(playerContext.entityId);
@@ -380,8 +380,9 @@ namespace LOP
             {
                 return;
             }
-            float drop = before - (float)System.Math.Floor(before);   // 채우던 몫 — 그만큼을 잃었다
-            if (drop <= 0.01f || charge >= before)
+            //  박아서 잃은 몫만(같은 틱 쓴 대시 한 칸은 빼고, 교정으로 큰 변화는 상한에서 자름).
+            float drop = FlappyDiveFx.LostOnStun(before - charge, rules.StunLoss);
+            if (drop <= 0.01f)
             {
                 return;
             }

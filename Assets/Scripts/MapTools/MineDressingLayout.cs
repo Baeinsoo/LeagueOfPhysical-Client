@@ -2309,9 +2309,10 @@ namespace LOP.MapTools
                         list.Add(new MinePiece(MinePartKind.MineCart, cx, center + walk, MidZ, 0f, MineCartWidth * m, MineCartWidth * m, m, m));
                     }
                     //  확률은 항상 뽑는다 — 사다리 비율을 바꿔도 뒤 소품의 난수가 밀리지 않게.
-                    if (rng.Next() < d.LadderChance)
+                    //  사다리는 틀 오른쪽에 붙어 마지막 틀이 끝(출구 문틀 끝)에 바짝 서면 노을 바깥으로 삐진다 — 그때는 안 세운다(10-24, 코스를 늘리다 드러남).
+                    float lx = fx + LadderOffsetX * m;
+                    if (rng.Next() < d.LadderChance && lx <= hi)
                     {
-                        float lx = fx + LadderOffsetX * m;
                         list.Add(new MinePiece(MinePartKind.Ladder, lx, c.CenterAt(lx) + LadderTop, MidZ + LadderDz, 0f, LadderWidth * m, LadderWidth * m, m, m));
                     }
                 }

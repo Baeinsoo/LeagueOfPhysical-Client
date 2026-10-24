@@ -33,7 +33,7 @@ namespace LOP.MapTools.Tests
         static List<MineGate> Gates(MineCourse c) => c.Gates.ToList();
 
         [Test]
-        public void 길이는_시안과_같다() => Assert.AreEqual(449.55f, Layout().Length, 0.01f);   // 시안 v10 445.95에서 갈라짐(10-13 검사, +2.6 · 10-15 무너진 갱도 길이 10 → 11, +1)
+        public void 길이는_시안과_같다() => Assert.AreEqual(483.05f, Layout().Length, 0.01f);   // 시안 v10 445.95에서 갈라짐(10-13 검사, +2.6 · 10-15 무너진 갱도 길이 10 → 11, +1 · 10-24 낙석 +3줄 13.5 · 진자 +2자리 20)
 
         [Test]
         public void 구간_순서와_시작점()
@@ -42,9 +42,9 @@ namespace LOP.MapTools.Tests
             //  · 3막(승강기 → 굴뚝 → 갈림길⬆ 레일 굴).
             var expect = new (string name, float x)[]
             {
-                ("수직 갱 낙하", 24.8f), ("계단 내리막", 46.85f), ("낙석", 93.05f), ("고수 갈림길 ⬇굴", 119.9f),
-                ("진자 광차", 163.45f), ("레일 롤러코스터", 202.3f), ("급반전", 241.15f), ("고수 갈림길 ⬆굴", 276.35f), ("수직 갱 낙하", 303.5f),
-                ("승강기", 331.75f), ("굴뚝 오르기", 369.15f), ("고수 갈림길 ⬆굴", 395.6f),
+                ("수직 갱 낙하", 24.8f), ("계단 내리막", 46.85f), ("낙석", 93.05f), ("고수 갈림길 ⬇굴", 133.4f),
+                ("진자 광차", 176.95f), ("레일 롤러코스터", 235.8f), ("급반전", 274.65f), ("고수 갈림길 ⬆굴", 309.85f), ("수직 갱 낙하", 337f),
+                ("승강기", 365.25f), ("굴뚝 오르기", 402.65f), ("고수 갈림길 ⬆굴", 429.1f),
             };
             var secs = Layout().Sections;
             Assert.AreEqual(expect.Length, secs.Count);
@@ -63,7 +63,7 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(32, gates.Count);
             var expect = new (float x, float c)[]
             {
-                (14.975f, -1.364f), (20.375f, 1.699f), (42.425f, -22.214f), (88.625f, -50.075f), (115.475f, -47.866f),
+                (14.975f, -1.364f), (20.375f, 1.699f), (42.425f, -22.214f), (88.625f, -50.075f), (128.975f, -47.866f),
             };
             for (int i = 0; i < expect.Length; i++)
             {
@@ -72,7 +72,7 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(3.75f, gates[i].Gap, 1e-4f, $"관문 {i} 틈");
             }
             var last = gates[gates.Count - 1];
-            Assert.AreEqual(441.125f, last.X, 0.002f);
+            Assert.AreEqual(474.625f, last.X, 0.002f);
             Assert.AreEqual(-48.192f, last.GapCenter, 0.002f);
         }
 
@@ -87,7 +87,7 @@ namespace LOP.MapTools.Tests
             var centers = new[] { -44.5f, -49f, -44.5f, -49f };
             for (int i = 0; i < 4; i++)
             {
-                Assert.AreEqual(244.725f + 6.8f * i, flip[i].X, 0.002f, $"급반전 {i} x");
+                Assert.AreEqual(278.225f + 6.8f * i, flip[i].X, 0.002f, $"급반전 {i} x");
                 Assert.AreEqual(centers[i], flip[i].GapCenter, 1e-4f, $"급반전 {i} 틈 중심");
             }
             //  첫 급반전 앞은 8 m(10-13 검사, 시안 v10 5.4에서 갈라짐) — 앞 보통 관문에서 6 m를 오를 여유.
@@ -125,7 +125,7 @@ namespace LOP.MapTools.Tests
             Assert.AreEqual(4, lifts.Count);
             for (int i = 0; i < 4; i++)
             {
-                Assert.AreEqual(332.725f + 8f * i, lifts[i].Gate.X, 0.002f, $"승강기 {i} x");
+                Assert.AreEqual(366.225f + 8f * i, lifts[i].Gate.X, 0.002f, $"승강기 {i} x");
                 Assert.AreEqual(-73f, lifts[i].Gate.GapCenter, 1e-4f);
                 Assert.AreEqual(3.75f, lifts[i].Gate.Gap, 1e-4f);
                 Assert.AreEqual(1.8f, lifts[i].Amplitude, 1e-5f);
@@ -136,19 +136,19 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
-        public void 진자_광차는_세_자리_네_대()
+        public void 진자_광차는_다섯_자리_네_대()
         {
             var c = Layout();
-            Assert.AreEqual(12, c.Pendulums.Count);
+            Assert.AreEqual(20, c.Pendulums.Count, "10-24 사람 판: 3 → 5자리로 늘림");
             const float top = -49f + MineCourse.BaseHalf;   // 천장 −41.72
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 5; i++)
             {
                 for (int k = 0; k < 4; k++)
                 {
                     MinePendulum p = c.Pendulums[i * 4 + k];
                     float cy = top - (2f * MineCourse.BaseHalf / 4f) * (k + 0.5f);
                     float len = top - cy + 1.2f;
-                    Assert.AreEqual(167.45f + 10f * i, p.PivotX, 0.002f, $"자리 {i}");
+                    Assert.AreEqual(180.95f + 10f * i, p.PivotX, 0.002f, $"자리 {i}");
                     Assert.AreEqual(top + 1.2f, p.PivotY, 1e-3f);
                     Assert.AreEqual(len, p.Length, 1e-3f, $"자리 {i} 광차 {k} 줄");
                     Assert.AreEqual(Mathf.Asin(2.5f / len) * Mathf.Rad2Deg, p.Amplitude, 1e-2f, $"자리 {i} 광차 {k} 각도");
@@ -167,11 +167,11 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
-        public void 낙석은_네_줄_간격_4_5()
+        public void 낙석은_일곱_줄_간격_4_5()
         {
             var c = Layout();
-            Assert.AreEqual(4, c.Rockfalls.Count);
-            for (int i = 0; i < 4; i++)
+            Assert.AreEqual(7, c.Rockfalls.Count, "10-24 사람 판: 4 → 7줄로 늘림");
+            for (int i = 0; i < 7; i++)
             {
                 MineRockfall r = c.Rockfalls[i];
                 Assert.AreEqual(94.65f + 4.5f * i, r.X, 0.002f, $"줄 {i} x");
@@ -190,8 +190,8 @@ namespace LOP.MapTools.Tests
             var c = Layout();
             var shapes = c.Forks.Select(f => f.Shape).ToArray();
             CollectionAssert.AreEqual(new[] { ForkShape.Collapse, ForkShape.Arc, ForkShape.Rail }, shapes);
-            var expectForks = new (float x0, float x1, bool up)[] { (119.9f, 146.2f, false), (276.35f, 297.05f, true), (395.6f, 422.9f, true) };
-            var expectPadX = new[] { 134.2f, 285.05f, 410.9f };
+            var expectForks = new (float x0, float x1, bool up)[] { (133.4f, 159.7f, false), (309.85f, 330.55f, true), (429.1f, 456.4f, true) };
+            var expectPadX = new[] { 147.7f, 318.55f, 444.4f };
             for (int i = 0; i < 3; i++)
             {
                 Assert.AreEqual(expectForks[i].x0, c.Forks[i].X0, 0.01f, $"갈림길 {i} X0");
@@ -327,9 +327,10 @@ namespace LOP.MapTools.Tests
             //  10-12 사람 판 레이아웃 변경: 낮은 천장이 138.2 ~ 162.2(진폭 2.5)로, 깊은 갱이 299.45 ~ 309.45로 밀려
             //  표본 x를 옮겼다(130 → 150: 낮은 천장 안, 300 → 330: 깊은 갱 바닥 긴 통로).
             //  10-13 동적 지형: 낮은 천장이 빠져 150 → 170(진자 광차의 평평한 통로), 380은 굴뚝 한가운데가 되어 430(마지막 갈림길 뒤).
+            //  10-24 낙석·진자를 늘려 낙석 뒤는 +13.5, 진자 뒤는 +33.5 밀었다(170 → 183.5, 200 → 233.5, 330 → 363.5, 430 → 463.5).
             var expect = new (float x, float center, float half)[]
             {
-                (0f, 0f, 7.28f), (100f, -49f, 7.28f), (170f, -49f, 7.28f), (200f, -49f, 7.28f), (330f, -73f, 7.28f), (430f, -49f, 7.28f),
+                (0f, 0f, 7.28f), (100f, -49f, 7.28f), (183.5f, -49f, 7.28f), (233.5f, -49f, 7.28f), (363.5f, -73f, 7.28f), (463.5f, -49f, 7.28f),
             };
             foreach (var e in expect)
             {

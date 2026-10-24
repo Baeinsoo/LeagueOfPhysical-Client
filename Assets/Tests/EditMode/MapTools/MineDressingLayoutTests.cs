@@ -642,12 +642,13 @@ namespace LOP.MapTools.Tests
             //  10-13 동적 지형: 코스 끝 422.35 → 445.95, 마지막 갈림길 끝 395.7 → 419.3(레일 굴 12 m).
             //  시안 v10에서 갈라짐(10-13 검사): 첫 급반전 앞 +2.6 — 448.55, 421.9.
             //  10-15 무너진 갱도 길이 10 → 11: +1 — 449.55, 422.9.
-            Assert.AreEqual(449.55f + 20f, z.DressEnd, 0.01f, "옷 범위 끝 = 코스 끝 + 결승선 뒤 여유");
+            //  10-24 낙석 +3줄·진자 +2자리: +33.5 — 483.05, 456.4.
+            Assert.AreEqual(483.05f + 20f, z.DressEnd, 0.01f, "옷 범위 끝 = 코스 끝 + 결승선 뒤 여유");
             Assert.AreEqual(Course().Length + MineDressingLayout.EndMargin, z.DressEnd, 1e-3f);
             //  출구 문틀 = 마지막 고수 갈림길 끝 ~ +5 m.
-            Assert.AreEqual(422.9f, z.ExitStart, 0.01f, "출구 문틀 시작 = 마지막 고수 갈림길 끝");
+            Assert.AreEqual(456.4f, z.ExitStart, 0.01f, "출구 문틀 시작 = 마지막 고수 갈림길 끝");
             Assert.AreEqual(Course().Forks.Last().X1, z.ExitStart, 1e-3f, "출구 문틀 시작 = 마지막 고수 갈림길 끝");
-            Assert.AreEqual(427.9f, z.ExitEnd, 0.01f, "출구 문틀 끝 = 시작 + 5");
+            Assert.AreEqual(461.4f, z.ExitEnd, 0.01f, "출구 문틀 끝 = 시작 + 5");
         }
 
         [Test]
@@ -2177,7 +2178,8 @@ namespace LOP.MapTools.Tests
                                     || (p.Kind == MinePartKind.Lantern && Math.Abs(p.Z - MineDressingLayout.LanternZ) < Eps)
                                     || (p.Kind == MinePartKind.MineCart && Math.Abs(p.Z - MineDressingLayout.MidZ) < Eps)).ToList();
             Assert.IsTrue(mid.Any(p => p.X > 330f), "굴 끝 쪽 가운데 층이 없다");
-            Assert.IsTrue(mid.All(p => p.X <= z.ExitEnd + Eps), "가운데 층이 출구 문틀 끝 뒤(노을 바깥)에");
+            var outsideMid = mid.Where(p => p.X > z.ExitEnd + Eps).Select(p => $"{p.Kind}@{p.X:F2}").ToList();
+            Assert.IsEmpty(outsideMid, $"가운데 층이 출구 문틀 끝({z.ExitEnd:F2}) 뒤(노을 바깥)에");
             //  먼 비계(협곡 다리)는 노을 바깥에도.
             Assert.IsTrue(bg.Any(p => p.Kind == MinePartKind.BgTrestleBay && p.X > z.ExitEnd + 5f));
         }

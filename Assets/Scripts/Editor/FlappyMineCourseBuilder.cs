@@ -120,13 +120,26 @@ namespace LOP.EditorTools
             }
 
             //  빛 알갱이 무더기(spec 2026-10-23) — 판정은 FlappyMoteField가 산술로, 그림은 클라 FlappyMoteFx가 한다.
+            //  움직이는 관문의 무더기는 그 승강기 케이지 자식으로 — 케이지와 같이 움직이고, 마커가 부모 승강기의 움직임을 읽어 판정에 쓴다.
             foreach (MineMoteCluster m in course.Motes)
             {
-                FlappyClassicCourseBuilder.MoteCluster(root, $"MoteCluster_{m.X:F0}", m.X, m.Y, m.GapHalf, m.Big, m.Points);
+                Transform parent = root;
+                if (m.Lift >= 0)
+                {
+                    parent = root.Find($"Lift_{course.Lifts[m.Lift].Gate.X:F1}/Cage");
+                    if (parent == null)
+                    {
+                        //  고정으로 두면 관문이 오르내릴 때 알갱이가 파이프 속에 묻힌다 — 굽기를 실패시킨다.
+                        throw new System.InvalidOperationException(
+                            $"[광산 코스] 승강기 케이지(Lift_{course.Lifts[m.Lift].Gate.X:F1}/Cage)를 못 찾았다 — 무더기를 움직이게 세울 수 없다.");
+                    }
+                }
+                FlappyClassicCourseBuilder.MoteCluster(parent, $"MoteCluster_{m.X:F0}", m.X, m.Y, m.GapHalf, m.Big, m.Points);
             }
 
-            //  알갱이 맵: 게이지는 알갱이로만 차고, 쓰는 때는 대시 버튼으로 고른다(spec 2026-10-23 §2.3).
-            FlappyClassicCourseBuilder.ApplyMapRules(composed, chaser: false, manualDash: true, moteCharge: true);
+            //  다이브 충전 맵: 날갯짓을 참고 빠르게 떨어지는 동안 게이지가 차고, 쓰는 때는 대시 버튼으로 고른다
+            //  (spec 2026-10-23-flappy-dive-charge). 알갱이는 끈다.
+            FlappyClassicCourseBuilder.ApplyMapRules(composed, chaser: false, manualDash: true, moteCharge: false, diveCharge: true);
 
             FlappyClassicCourseBuilder.PlaceSpawns(FloorAt(0f), CeilingAt(0f), SpawnWindow,
                                                    course.Gates.Count > 0 ? course.Gates[0].GapCenter : course.CenterAt(0f));

@@ -67,12 +67,14 @@ namespace LOP
         private float sinceLastHit;
         private float sinceBlip;
         private bool wasStunned;
+        private float lastCharge = -1f;
         private float time;
 
         //  테스트 seam — 실제로는 씬의 LOPEntityView, 테스트는 가짜를 끼운다.
         internal System.Func<string, UnityEngine.Transform> viewLookup;
         internal void UseDefaultViewLookup() => viewLookup = DefaultViewLookup;
         internal int FlyingCount => flyers.Count;
+        internal Vector3 FlyerPosition(int index) => flyers[index].Renderer.transform.position;
         internal int MoteCount => motes.Count;
         internal int BandCount => bands.Count;
         internal float PullOf(int index) => motes[index].Pull;
@@ -84,6 +86,7 @@ namespace LOP
         {
             public SpriteRenderer Renderer;
             public Vector3 Home;
+            public FlappyMoteSet Set;   // 움직이는 무더기면 케이지 오프셋을 묻는다
             public float Phase;
             public float Flash;
             public float Pull;     // 내 새가 가까워 쏠리는 정도(0~1)
@@ -100,6 +103,7 @@ namespace LOP
             public int Side;       // +1 = 아래 끝(위로 뻗는다), -1 = 위 끝(아래로 뻗는다)
             public bool Big;
             public float Heat;     // 내 새가 띠 안에 들어온 정도(0~1)
+            public FlappyMoteSet Set;
         }
 
         private class Track
@@ -186,7 +190,7 @@ namespace LOP
                     var home = new Vector3(set.Xs[i], set.Ys[i], 0f);
                     go.transform.position = home;
                     go.transform.localScale = Vector3.one * (set.Big ? BigMoteSize : MoteSize);
-                    var mote = new Mote { Renderer = renderer, Home = home, Phase = Random.Range(0f, 6.28f), Big = set.Big };
+                    var mote = new Mote { Renderer = renderer, Home = home, Set = set, Phase = Random.Range(0f, 6.28f), Big = set.Big };
                     renderer.color = set.Big ? BigColor : MoteColor;
                     motes.Add(mote);
                     moteAt[(set.Xs[i], set.Ys[i])] = mote;
@@ -233,7 +237,7 @@ namespace LOP
                 }
                 var band = new Band
                 {
-                    X0 = x0 - BandMargin, X1 = x1 + BandMargin, Side = side, Big = set.Big,
+                    X0 = x0 - BandMargin, X1 = x1 + BandMargin, Side = side, Big = set.Big, Set = set,
                     Lip = side > 0 ? set.OriginY - set.GapHalf : set.OriginY + set.GapHalf,
                     Streaks = new SpriteRenderer[BandStreaks], StreakPhase = new float[BandStreaks],
                 };
@@ -298,7 +302,8 @@ namespace LOP
                 if (p.x > track.MaxX)
                 {
                     hits.Clear();
-                    int n = field.CountCrossed(track.MaxX, track.LastY, p.x, p.y, reach, hits);
+                    //  움직이는 무더기는 지금 그려진 자리(케이지 오프셋)로 — 그림과 같은 자리에서 먹는 게 보이게.
+                    int n = field.CountCrossedVisual(track.MaxX, track.LastY, p.x, p.y, reach, hits);
                     for (int i = 0; i < n; i++)
                     {
                         SpawnCopy(hits[i], track.View, mine);
@@ -356,8 +361,8 @@ namespace LOP
             }
         }
 
-        //  박아서 스턴이 걸리는 순간 잃은 만큼 알갱이가 흩어진다. 규칙이 "절반 잃기"라 잃은 양 = 남은 양이다 —
-        //  게이지 감소량으로 재면 같은 틱에 쓴 대시 한 칸이 섞이거나(1 감소와 구별 불가) 되감기 교정의 흔들림이 섞인다.
+        //  박아서 스턴이 걸리는 순간 잃은 만큼 알갱이가 흩어진다. 규칙이 "채우던 칸만 잃기"라 잃은 양 = 스턴 직전 게이지의
+        //  칸 안 몫이다. 직전 프레임 게이지를 들고 있다가 스턴이 막 걸린 순간의 감소량으로 센다(같은 순간 쓴 대시 한 칸은 빼고).
         private void WatchMyLoss()
         {
             var entity = string.IsNullOrEmpty(playerContext.entityId) ? null : entityRegistry.Get(playerContext.entityId);
@@ -369,41 +374,51 @@ namespace LOP
             bool stunned = (entity.Get<FlappyStun>()?.StunRemaining ?? 0f) > 0f;
             bool justStunned = stunned && wasStunned == false;
             wasStunned = stunned;
-            float drop = charge;
-            if (justStunned && drop > 0.01f)
+            float before = lastCharge;
+            lastCharge = charge;
+            if (justStunned == false || before < 0f)
             {
-                var me = MyView();
-                if (me != null)
+                return;
+            }
+            float drop = before - (float)System.Math.Floor(before);   // 채우던 몫 — 그만큼을 잃었다
+            if (drop <= 0.01f || charge >= before)
+            {
+                return;
+            }
+            var me = MyView();
+            if (me == null)
+            {
+                return;
+            }
+            int n = Mathf.Clamp(Mathf.RoundToInt(drop / Mathf.Max(0.001f, rules.MoteValue)), 1, 30);
+            for (int i = 0; i < n; i++)
+            {
+                float a = Random.Range(0f, Mathf.PI * 2f);
+                float speed = Random.Range(2f, 6f);
+                var r = Rent(me.position + Vector3.up * config.BodyRadius, MoteColor, CopySize);
+                flyers.Add(new Flyer
                 {
-                    int n = Mathf.Clamp(Mathf.RoundToInt(drop / Mathf.Max(0.001f, rules.MoteValue)), 1, 30);
-                    for (int i = 0; i < n; i++)
-                    {
-                        float a = Random.Range(0f, Mathf.PI * 2f);
-                        float speed = Random.Range(2f, 6f);
-                        var r = Rent(me.position + Vector3.up * config.BodyRadius, MoteColor, CopySize);
-                        flyers.Add(new Flyer
-                        {
-                            Renderer = r, Target = null, Scatter = true, Age = 0f, Life = Random.Range(0.6f, 0.9f),
-                            Velocity = new Vector3(Mathf.Cos(a) * speed, Mathf.Sin(a) * speed + 2f, 0f),
-                        });
-                    }
-                }
+                    Renderer = r, Target = null, Scatter = true, Age = 0f, Life = Random.Range(0.6f, 0.9f),
+                    Velocity = new Vector3(Mathf.Cos(a) * speed, Mathf.Sin(a) * speed + 2f, 0f),
+                });
             }
         }
 
         private void SpawnCopy((float x, float y) at, UnityEngine.Transform target, bool mine)
         {
             Color color = MoteColor;
+            float offset = 0f;
             if (moteAt.TryGetValue(at, out var mote))
             {
                 mote.Flash = 1f;
                 color = mote.Big ? BigColor : MoteColor;
+                offset = mote.Set.CurrentVisualOffset;   // 승강기 위면 보이는 별 자리(케이지만큼 옮긴 곳)에서 출발
             }
             if (mine == false)
             {
                 color.a = 0.7f;   // 남의 것은 조금 옅게 — 내 것이 먼저 읽히게
             }
-            var r = Rent(new Vector3(at.x, at.y, 0f), color, CopySize);
+            var r = Rent(new Vector3(at.x, at.y + offset, 0f), color, CopySize);
             flyers.Add(new Flyer { Renderer = r, Target = target, Age = 0f, Life = CopyLifetime });
         }
 
@@ -420,11 +435,12 @@ namespace LOP
             {
                 var m = motes[i];
                 m.Flash = Mathf.Max(0f, m.Flash - deltaTime * 4f);
+                Vector3 home = m.Home + Vector3.up * m.Set.CurrentVisualOffset;   // 승강기 위면 케이지와 같이 오르내린다
                 //  다가가면 반응: 손 닿는 거리 근처에 들면 미리 밝아지고 내 새 쪽으로 살짝 쏠린다 — "지금 채워지는 곳"을 먹기 전부터 보여 준다.
                 float target = 0f;
-                if (hasMe && m.Home.x > c0.x - 0.3f)
+                if (hasMe && home.x > c0.x - 0.3f)
                 {
-                    float dist = Vector2.Distance(m.Home, c0) - config.BodyRadius;
+                    float dist = Vector2.Distance(home, c0) - config.BodyRadius;
                     target = Mathf.Clamp01((ReactRange - dist) / 1f);
                 }
                 m.Pull = Mathf.MoveTowards(m.Pull, target, deltaTime * 10f);
@@ -435,8 +451,8 @@ namespace LOP
                 m.Renderer.color = c;
                 var t = m.Renderer.transform;
                 //  쏠림은 0.45 m까지만 — 되감기 교정으로 그림이 멀리 튀어도 알갱이가 끌려가지 않게.
-                Vector3 toward = Vector3.ClampMagnitude((c0 - m.Home) * (0.22f * m.Pull), 0.45f);
-                t.position = m.Home + toward + new Vector3(Mathf.Sin(time * 1.5f + m.Phase) * 0.04f,
+                Vector3 toward = Vector3.ClampMagnitude((c0 - home) * (0.22f * m.Pull), 0.45f);
+                t.position = home + toward + new Vector3(Mathf.Sin(time * 1.5f + m.Phase) * 0.04f,
                                                            Mathf.Cos(time * 2f + m.Phase) * 0.04f, 0f);
                 t.localRotation = Quaternion.Euler(0f, 0f, (time * 35f + m.Phase * 57f) % 360f);
                 float size = (m.Big ? BigMoteSize : MoteSize) * (0.9f + 0.15f * twinkle) * (1f + boost * 0.6f);
@@ -445,10 +461,12 @@ namespace LOP
             for (int i = 0; i < bands.Count; i++)
             {
                 var b = bands[i];
+                float lip = b.Lip + b.Set.CurrentVisualOffset;
+                b.Renderer.transform.position = new Vector3((b.X0 + b.X1) * 0.5f, lip + b.Side * BandHeight * 0.5f, 0.05f);
                 float inside = 0f;
                 if (hasMe && c0.x >= b.X0 && c0.x <= b.X1)
                 {
-                    float surface = b.Side > 0 ? (c0.y - config.BodyRadius) - b.Lip : b.Lip - (c0.y + config.BodyRadius);
+                    float surface = b.Side > 0 ? (c0.y - config.BodyRadius) - lip : lip - (c0.y + config.BodyRadius);
                     //  벽 선보다 안쪽(벽 쪽)에 몸이 있으면 띠 안이 아니라 벽에 박으러 가는 중이다 — 밝히지 않는다.
                     if (surface >= -0.05f && surface < BandHeight)
                     {
@@ -469,7 +487,7 @@ namespace LOP
                     float x = b.X0 + width * (k + 0.5f) / b.Streaks.Length;
                     //  결 한 줄이 통째로 띠 안에 머물게 중심을 반 길이만큼 안쪽에서 움직인다.
                     float along = StreakLength * 0.5f + (BandHeight - StreakLength) * u;
-                    st.transform.position = new Vector3(x, b.Lip + b.Side * along, 0.07f);
+                    st.transform.position = new Vector3(x, lip + b.Side * along, 0.07f);
                     st.transform.localScale = new Vector3(0.5f, StreakLength, 1f);   // 결 그림은 가로 0.125 m — 반으로 줄여 6 cm 선
                     Color sc = b.Big ? BigBandColor : BandColor;
                     sc.a = Mathf.Sin(u * Mathf.PI) * (0.35f + b.Heat * 0.5f);
@@ -726,6 +744,7 @@ namespace LOP
             hintsShown = 0;
             burstCount = 0;
             wasStunned = false;
+            lastCharge = -1f;
         }
 
         private static void DestroyObject(Object obj)

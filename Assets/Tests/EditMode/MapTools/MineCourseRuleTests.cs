@@ -473,47 +473,10 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
-        public void 알갱이_무더기는_1막_고정_관문에만_있고_틈_안에_있다()
+        public void 광산엔_알갱이_무더기를_놓지_않는다()
         {
-            //  spec 2026-10-23 §3.2 시험 배치. 알갱이가 벽 속에 있으면 아무도 못 먹고, 움직이는 관문에 붙으면 묻힌다.
-            var c = Layout();
-            float act2 = c.Sections.First(s => s.Name == "진자 광차").X;
-            Assert.Greater(c.Motes.Count, 3, "1막에 무더기가 몇 개는 있어야 한다");
-            //  빛 띠를 벽에 붙여 그리려면 틈 반 높이가 실려야 한다.
-            Assert.IsTrue(c.Motes.All(m => Math.Abs(m.GapHalf - c.Gates.First(gg => Math.Abs(gg.X - m.X) < 1e-4f).Gap * 0.5f) < 1e-5f));
-            foreach (MineMoteCluster m in c.Motes)
-            {
-                Assert.Less(m.X, act2, "1막 밖에 무더기가 있다");
-                MineGate g = c.Gates.First(gg => Math.Abs(gg.X - m.X) < 1e-4f);   // 고정 관문(Gates)에 붙어 있다
-                foreach (var (dx, dy) in m.Points)
-                {
-                    Assert.LessOrEqual(Math.Abs(dy), g.Gap * 0.5f - 0.04f, $"x={m.X} 알갱이가 벽에 묻혔다");
-                    Assert.LessOrEqual(Math.Abs(dx), (g.Width + 0.6f) * 0.5f + 1e-4f);
-                }
-            }
-            //  알갱이가 다른 단단한 것(칸막이·받침목) 속에 있으면 아무도 못 먹는다 — 받침목은 판정 고체다.
-            foreach (MineMoteCluster m in c.Motes)
-            {
-                foreach (var (dx, dy) in m.Points)
-                {
-                    float x = m.X + dx, y = m.Y + dy;
-                    Assert.IsFalse(c.Walls.Concat(c.Props).Any(r => x >= r.X0 && x <= r.X1 && y >= r.Y0 && y <= r.Y1),
-                                   $"({x:F2}, {y:F2}) 알갱이가 칸막이·받침목 속에 있다");
-                }
-            }
-        }
-
-        [Test]
-        public void 금빛_큰_무더기는_하나_갈림길_합류_뒤_벽에_바짝_붙어_있다()
-        {
-            var c = Layout();
-            var big = c.Motes.Where(m => m.Big).ToList();
-            Assert.AreEqual(1, big.Count);
-            Assert.Greater(big[0].X, c.Forks[0].X1);
-            Assert.AreEqual(MineCourseRule.BigMotes, big[0].Points.Count);
-            MineGate g = c.Gates.First(gg => Math.Abs(gg.X - big[0].X) < 1e-4f);
-            //  벽(아래 끝)에서 0.47 m 안 — 바짝 붙어야 다 먹는다.
-            Assert.IsTrue(big[0].Points.All(p => p.dy + g.Gap * 0.5f <= 0.47f + 1e-4f));
+            //  spec 2026-10-23-flappy-dive-charge: 광산은 다이브 충전 맵 — 금빛 보너스도 뺐다(사용자 10-23).
+            Assert.AreEqual(0, Layout().Motes.Count);
         }
 
         [Test]

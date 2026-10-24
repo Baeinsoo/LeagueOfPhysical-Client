@@ -344,7 +344,8 @@ namespace LOP.EditorTools
         //  맵 룰 마커(추격자·수동 대시)를 ComposedMap 자체에 둔다 — 자식은 굽기마다 지워지지만 이건 살아남는다.
         //  없으면 붙이고, 있으면 값만 바꾼다. 마커가 없는 맵은 둘 다 꺼진 것과 같지만, 굽기는 뜻을 씬에 남긴다.
         internal static void ApplyMapRules(GameObject composed, bool chaser, bool manualDash, bool moteCharge = false,
-                                           float? moteValue = null, float? moteReach = null, bool diveCharge = false)
+                                           float? moteValue = null, float? moteReach = null, bool diveCharge = false,
+                                           float? stunLoss = null)
         {
             var rules = composed.GetComponent<LOP.FlappyMapRules>();
             if (rules == null)
@@ -362,7 +363,7 @@ namespace LOP.EditorTools
             rules.DiveCharge = diveCharge;
             rules.DiveMinFallRatio = LOP.FlappyMapRulesField.DefaultDiveMinFallRatio;
             rules.DiveRate = LOP.FlappyMapRulesField.DefaultDiveRate;
-            rules.StunLoss = LOP.FlappyMapRulesField.DefaultStunLoss;
+            rules.StunLoss = stunLoss ?? LOP.FlappyMapRulesField.DefaultStunLoss;   // 박아서 잃는 칸 — 맵마다 바꾸려면 이 인자로
             EditorUtility.SetDirty(rules);
         }
 

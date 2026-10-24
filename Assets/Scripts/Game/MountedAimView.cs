@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -9,7 +10,9 @@ namespace LOP
     /// 시위를 당기면 화각을 좁히고 카메라를 가까이 당긴다. 당긴 정도는 시뮬 상태를 읽는다.
     /// <para>화살은 기수 눈(발밑 + <see cref="MountedArcheryConfig.RiderEyeHeight"/>)에서 떠나는데 카메라는
     /// 어깨 옆으로 비켜 있다. 카메라 각을 그대로 넘기면 화살이 가운데 줄과 나란히 비켜 날아가 겨눈 데에 안 꽂힌다 —
-    /// 그래서 가운데 줄이 맞히는 점을 찾고, 눈에서 그 점을 향한 각을 조준으로 쓴다.</para>
+    /// 그래서 가운데 줄이 맞히는 점을 찾고, 눈에서 그 점을 향한 각을 조준으로 쓴다.
+    /// 가운데 줄은 땅·바위뿐 아니라 <b>화면에 그려진 남의 말·기수</b>(서버와 같은 판정 구)에도 걸린다 —
+    /// 사람을 빼면 줄이 몸을 뚫고 먼 땅을 잡아 화살이 몸 옆으로 비켜 간다.</para>
     /// </summary>
     public class MountedAimView : ILateTickable, IDisposable
     {
@@ -24,7 +27,10 @@ namespace LOP
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly EntityRenderClock renderClock;
+        private readonly ActorRegistry actorRegistry;
+        private readonly MountedArcheryClientState state;
         private readonly float eyeHeight;
+        private readonly List<MountedPredictedHits.Target> bodies = new List<MountedPredictedHits.Target>();
         private readonly int worldLayerMask = LayerMask.GetMask("Default");
 
         private float shownDrawRatio;
@@ -32,9 +38,12 @@ namespace LOP
 
         public MountedAimView(PlayerInputManager input, CameraController cameraController,
                               IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry,
-                              MountedArcheryConfig config, EntityRenderClock renderClock)
+                              MountedArcheryConfig config, EntityRenderClock renderClock,
+                              ActorRegistry actorRegistry, MountedArcheryClientState state)
         {
             this.renderClock = renderClock;
+            this.actorRegistry = actorRegistry;
+            this.state = state;
             this.input = input;
             this.cameraController = cameraController;
             this.playerContext = playerContext;
@@ -60,6 +69,39 @@ namespace LOP
         /// <summary>가운데 줄이 맞힌 점, 없으면 줄을 따라 <paramref name="maxDistance"/>만큼 간 점.</summary>
         public static Vector3 AimPoint(Vector3 cameraPosition, Vector3 forward, Vector3 eye, Vector3? hit, float maxDistance)
             => hit ?? RayStart(cameraPosition, forward, eye) + forward * maxDistance;
+
+        /// <summary>
+        /// 가운데 줄(<paramref name="start"/>에서 <paramref name="forward"/>로 <paramref name="maxDistance"/>까지)이
+        /// 처음 닿는 남의 몸의 점. 내 몸은 뺀다. 없으면 null.
+        /// </summary>
+        public static Vector3? NearestBodyPoint(Vector3 start, Vector3 forward, float maxDistance,
+                                                IReadOnlyList<MountedPredictedHits.Target> bodies, string myId)
+        {
+            Vector3 end = start + forward * maxDistance;
+            float best = float.MaxValue;
+            for (int i = 0; i < bodies.Count; i++)
+            {
+                var body = bodies[i];
+                if (body.Id == myId)
+                {
+                    continue;
+                }
+                if (MountedArcheryHitTest.SegmentHits(start, end, body.Position, body.HeadingDeg, out float along)
+                    && along < best)
+                {
+                    best = along;
+                }
+            }
+            return best < float.MaxValue ? Vector3.Lerp(start, end, best) : (Vector3?)null;
+        }
+
+        /// <summary>두 후보 중 <paramref name="start"/>에 가까운 점. 둘 다 없으면 null.</summary>
+        public static Vector3? Nearer(Vector3 start, Vector3? a, Vector3? b)
+        {
+            if (a.HasValue == false) return b;
+            if (b.HasValue == false) return a;
+            return (a.Value - start).sqrMagnitude <= (b.Value - start).sqrMagnitude ? a : b;
+        }
 
         /// <summary>
         /// 내가 지금 보는 틱 — 서버가 남의 몸을 그 시점으로 되감아 맞힘을 잰다.
@@ -111,10 +153,13 @@ namespace LOP
                 Vector3 eye = GameFramework.World.EntityMotionExtensions.GetPosition(entity) + Vector3.up * eyeHeight;
                 Vector3 origin = camera.transform.position;
                 Vector3 forward = camera.transform.forward;
-                Vector3? hit = Physics.Raycast(RayStart(origin, forward, eye), forward, out RaycastHit info,
-                                               MaxAimDistance, worldLayerMask, QueryTriggerInteraction.Ignore)
+                Vector3 start = RayStart(origin, forward, eye);
+                Vector3? terrain = Physics.Raycast(start, forward, out RaycastHit info,
+                                                   MaxAimDistance, worldLayerMask, QueryTriggerInteraction.Ignore)
                     ? info.point
                     : (Vector3?)null;
+                MountedPredictedHits.CollectDrawnTargets(actorRegistry, state, entity.Id, bodies);
+                Vector3? hit = Nearer(start, terrain, NearestBodyPoint(start, forward, MaxAimDistance, bodies, entity.Id));
                 Vector2 angles = AimAngles(eye, AimPoint(origin, forward, eye, hit, MaxAimDistance));
                 input.SetAim(angles.x, angles.y);
             }

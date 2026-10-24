@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -70,6 +71,51 @@ namespace LOP.Tests
             var hitPoint = new Vector3(0.9f, 2.5f, 20f);
             var target = MountedAimView.AimPoint(new Vector3(0.9f, 2.5f, -5f), Vector3.forward, Eye, hitPoint, 300f);
             Assert.AreEqual(hitPoint, target);
+        }
+        // 가운데 줄이 남의 말에 걸리면 그 몸의 점을 겨눈다 — 사람을 빼고 땅만 보면 줄이 몸을 뚫고 먼 땅을 잡아,
+        // 눈에서 그 먼 점으로 쏜 화살이 몸 옆으로 비켜 간다(어깨 비킴 0.9 m가 거의 그대로 남는다).
+        [Test]
+        public void 가운데_줄이_남의_몸에_걸리면_그_몸을_겨눈다()
+        {
+            var start = new Vector3(0.9f, 2.1f, 0f);
+            var bodies = new List<MountedPredictedHits.Target>
+            {
+                new MountedPredictedHits.Target("other", new Vector3(0.9f, 0f, 30f), 90f),
+            };
+
+            Vector3? point = MountedAimView.NearestBodyPoint(start, Vector3.forward, 300f, bodies, "me");
+
+            Assert.IsTrue(point.HasValue);
+            Assert.AreEqual(0.9f, point.Value.x, 1e-3f);
+            Assert.Less(point.Value.z, 30f);
+            Assert.Greater(point.Value.z, 29f);
+
+            //  눈에서 그 점으로 쏘면 그 몸을 지난다.
+            var aim = MountedAimView.AimAngles(Eye, point.Value);
+            var direction = ArcheryTrajectory.DirectionFrom(aim.x, aim.y);
+            Assert.IsTrue(MountedArcheryHitTest.SegmentHits(Eye, Eye + direction * 40f, new Vector3(0.9f, 0f, 30f), 90f, out _));
+        }
+
+        [Test]
+        public void 내_몸은_겨누지_않는다()
+        {
+            var bodies = new List<MountedPredictedHits.Target>
+            {
+                new MountedPredictedHits.Target("me", new Vector3(0.9f, 0f, 2f), 0f),
+            };
+            Assert.IsFalse(MountedAimView.NearestBodyPoint(new Vector3(0.9f, 2.1f, 0f), Vector3.forward, 300f, bodies, "me").HasValue);
+        }
+
+        [Test]
+        public void 땅과_몸_중_가까운_쪽을_겨눈다()
+        {
+            var start = Vector3.zero;
+            var near = new Vector3(0f, 0f, 10f);
+            var far = new Vector3(0f, 0f, 40f);
+            Assert.AreEqual(near, MountedAimView.Nearer(start, far, near));
+            Assert.AreEqual(near, MountedAimView.Nearer(start, near, far));
+            Assert.AreEqual(far, MountedAimView.Nearer(start, null, far));
+            Assert.IsNull(MountedAimView.Nearer(start, null, null));
         }
     }
 }

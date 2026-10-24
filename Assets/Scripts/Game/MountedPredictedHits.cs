@@ -148,7 +148,7 @@ namespace LOP
             double renderTick = (runner.tickUpdater.elapsedTime - interval) / interval;
             string myId = playerContext.entityId;
 
-            CollectTargets(myId);
+            CollectDrawnTargets(actorRegistry, state, myId, targets);
 
             var shots = world.Shots;
             present.Clear();
@@ -171,9 +171,11 @@ namespace LOP
             Prune();
         }
 
-        private void CollectTargets(string myId)
+        /// <summary>남의 몸이 <b>지금 화면에 그려진</b> 자리와 말 머리 방향을 모은다. 나와 탈락한 사람은 뺀다.</summary>
+        public static void CollectDrawnTargets(ActorRegistry actorRegistry, MountedArcheryClientState state,
+                                               string myId, List<Target> into)
         {
-            targets.Clear();
+            into.Clear();
             foreach (var actor in actorRegistry.All)
             {
                 if (actor == null || actor.entityId == myId || state.IsEliminated(actor.entityId))
@@ -186,7 +188,7 @@ namespace LOP
                     continue;
                 }
                 var t = visual.transform;
-                targets.Add(new Target(actor.entityId, t.position, t.eulerAngles.y));
+                into.Add(new Target(actor.entityId, t.position, t.eulerAngles.y));
             }
         }
 

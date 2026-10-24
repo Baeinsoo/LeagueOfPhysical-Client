@@ -50,6 +50,9 @@ namespace LOP.UI
         public ReadOnlyReactiveProperty<string> ZoneText => zoneText;
         public ReadOnlyReactiveProperty<string> AliveText => aliveText;
 
+        // 매 프레임 새 목록을 만들지 않으려고 재사용한다.
+        private readonly List<Vector2> minimapOthers = new List<Vector2>();
+
         public struct Minimap
         {
             public Vector2 CurrentCenter;
@@ -84,7 +87,7 @@ namespace LOP.UI
             if (s.index >= lastStageIndex && lastStageIndex > 0) return "마지막 원";
             if (tick < s.shrinkStartTick) return $"구역 축소까지 {SecondsLeft(s.shrinkStartTick - tick, interval)}초";
             if (tick < s.shrinkEndTick) return "구역 축소 중";
-            return "구역 공개 대기";
+            return "구역 축소 중";   // 다음 단계 메시지가 오기 전 한두 틱 — 문구가 깜박이지 않게 그대로 둔다
         }
 
         private static int SecondsLeft(long ticks, float interval)
@@ -146,6 +149,7 @@ namespace LOP.UI
         /// <summary>미니맵에 그릴 값. 위치는 월드 (x, z)다.</summary>
         public Minimap BuildMinimap()
         {
+            minimapOthers.Clear();
             double tick = state.RenderTick;
             var cur = state.CircleAtRender(tick);
             var map = new Minimap
@@ -153,7 +157,7 @@ namespace LOP.UI
                 CurrentCenter = cur.center,
                 CurrentRadius = cur.radius,
                 InitialRadius = state.InitialRadius,
-                Others = new List<Vector2>(),
+                Others = minimapOthers,
             };
             if (state.TryGetNextCircle((long)System.Math.Floor(tick), out var next))
             {

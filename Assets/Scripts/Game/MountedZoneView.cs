@@ -84,15 +84,15 @@ namespace LOP
             {
                 return;
             }
-            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+            // 빌드에 항상 들어가는 셰이더(양면·알파 혼합이 기본). URP Unlit을 런타임에 투명으로 바꾸면 변형이 잘려 나갈 수 있다.
+            var shader = Shader.Find("Sprites/Default");
             if (shader == null)
             {
-                return;   // 셰이더가 빌드에 없으면 원을 안 그린다 — 판정은 서버가 한다
+                return;   // 없으면 원을 안 그린다 — 판정은 서버가 한다
             }
 
-            wallMaterial = MakeTransparent(shader, new Color(0.15f, 0.4f, 1f, 0.28f));
-            lineMaterial = new Material(shader);
-            lineMaterial.SetColor("_BaseColor", Color.white);
+            wallMaterial = new Material(shader) { color = new Color(0.15f, 0.4f, 1f, 0.28f) };
+            lineMaterial = new Material(shader) { color = Color.white };
 
             wallMesh = BuildTube();
             wall = new GameObject("MountedZoneWall");
@@ -112,22 +112,6 @@ namespace LOP
             line.sharedMaterial = lineMaterial;
             line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             line.enabled = false;
-        }
-
-        private static Material MakeTransparent(Shader shader, Color color)
-        {
-            var m = new Material(shader);
-            m.SetFloat("_Surface", 1f);
-            m.SetFloat("_Blend", 0f);
-            m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            m.SetFloat("_ZWrite", 0f);
-            m.SetFloat("_Cull", 0f);   // 원 안에서도 벽이 보여야 한다
-            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            m.SetOverrideTag("RenderType", "Transparent");
-            m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-            m.SetColor("_BaseColor", color);
-            return m;
         }
 
         // 반지름 1·높이 1짜리 뚜껑 없는 통. 크기는 스케일로 준다.

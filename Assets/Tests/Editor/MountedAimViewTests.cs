@@ -128,5 +128,19 @@ namespace LOP.Tests
             };
             Assert.IsFalse(MountedAimView.NearestBodyPoint(new Vector3(0.9f, 2.1f, 0f), Vector3.forward, 300f, bodies, "me").HasValue);
         }
+        // 서버는 화살의 지금 자리 옆에 "쏜 틱 − 보던 틱"만큼 지난 남을 놓고 잰다. 화면은 화살을 한 틱 늦게(소수 틱) 그리므로,
+        // 보던 틱은 "화면에서 화살과 남이 몇 틱 떨어져 그려지나"로 보내야 서버와 화면이 같은 짝을 잰다(실측: 1~2틱 어긋남).
+        [Test]
+        public void 보던_틱은_화면의_화살과_남의_간격으로_잰다()
+        {
+            //  다음 입력은 2185틱 것, 내 화살은 2184.3틱, 남은 2165.0틱에 그려진다 → 간격 19.3 → 19틱 → 2166.
+            Assert.AreEqual(2166, MountedAimView.ViewTickFor(2185, 2184.3, 2165.0));
+        }
+
+        [Test]
+        public void 보던_틱의_간격은_반올림한다()
+        {
+            Assert.AreEqual(2165, MountedAimView.ViewTickFor(2185, 2184.6, 2165.0));
+        }
     }
 }

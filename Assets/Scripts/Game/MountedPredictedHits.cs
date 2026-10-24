@@ -37,7 +37,6 @@ namespace LOP
         private readonly HashSet<(string, long)> spent = new HashSet<(string, long)>();
         // 지형에 꽂힌 화살 — 서버처럼 더는 사람을 재지 않는다(맞은 것과 달리 그림은 꽂힌 채 남는다).
         private readonly HashSet<(string, long)> blocked = new HashSet<(string, long)>();
-        private readonly int terrainMask = LayerMask.GetMask("Default");
         private readonly Dictionary<(string, long), Vector3> lastPosition = new Dictionary<(string, long), Vector3>();
         private readonly HashSet<(string, long)> present = new HashSet<(string, long)>();
         private readonly List<(string, long)> scratch = new List<(string, long)>();
@@ -126,7 +125,7 @@ namespace LOP
         // 구간 위 0~1에서 처음 막는 지형의 자리. 서버의 obstacleAlong과 같은 모양이다.
         private float? TerrainAlong(Vector3 from, Vector3 to)
         {
-            if (Physics.Linecast(from, to, out RaycastHit hit, terrainMask, QueryTriggerInteraction.Ignore) == false)
+            if (MountedTerrain.Linecast(from, to, out RaycastHit hit) == false)
             {
                 return null;
             }

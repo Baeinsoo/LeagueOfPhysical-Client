@@ -146,5 +146,19 @@ namespace LOP.Tests
             vm.Tick();
             Assert.AreEqual("생존 1", vm.AliveText.CurrentValue);
         }
+
+        [Test]
+        public void 다음_단계가_오기_전엔_공개_대기를_띄우지_않는다()
+        {
+            var msg = StateWith(1, ("a", -1));
+            msg.ZoneStages.Add(Stage(1, 100, 220, 300));
+            state.Apply(msg);
+
+            // 1단계 축소가 끝난 뒤인데 2단계 메시지는 아직 안 왔다.
+            state.SetZoneClock(305, 0.1f, 100, 2, 100f);
+            vm.Tick();
+
+            Assert.AreEqual("구역 축소 중", vm.ZoneText.CurrentValue);
+        }
     }
 }

@@ -293,6 +293,20 @@ public class FlappyMoteFxTests
     }
 
     [Test]
+    public void 같은_순간_쓴_대시는_흩어짐에_안_친다()
+    {
+        Make(ThreeMotes(), new FlappyMoteFeed());
+        var me = MeEntity();
+        me.Get<FlappyDash>().Charge = 1f;
+        fx.Tick(0.016f);
+        int before = fx.FlyingCount;
+        me.Get<FlappyDash>().Charge = 0f;            // 대시로 정확히 한 칸 쓰고, 박았지만 잃을 게 없었다
+        me.Get<FlappyStun>().StunRemaining = 1.2f;
+        fx.Tick(0.016f);
+        Assert.AreEqual(before, fx.FlyingCount, "쓴 대시를 잃은 것으로 흩뿌리면 안 된다");
+    }
+
+    [Test]
     public void 알갱이_맵이_아니면_아무것도_안_그린다()
     {
         var views = Make(ThreeMotes(), new FlappyMoteFeed(), moteCharge: false);

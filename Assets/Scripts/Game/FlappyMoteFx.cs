@@ -380,7 +380,8 @@ namespace LOP
             {
                 return;
             }
-            float drop = before - charge;   // 박아서 잃은 양(일정량, 찬 칸은 지킴 — 10-24)
+            //  박아서 잃은 몫만(같은 틱 쓴 대시 한 칸은 빼고, 교정으로 큰 변화는 상한에서 자름).
+            float drop = FlappyDiveFx.LostOnStun(before - charge, rules.StunLoss);
             if (drop <= 0.01f)
             {
                 return;

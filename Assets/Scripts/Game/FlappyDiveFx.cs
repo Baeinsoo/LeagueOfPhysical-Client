@@ -227,9 +227,13 @@ namespace LOP
 
             //  박아서 잃었다 — 스턴이 막 걸린 순간, 직전 프레임보다 줄어든 만큼 알갱이가 흩어진다.
             bool stunned = (entity.Get<FlappyStun>()?.StunRemaining ?? 0f) > 0f;
-            if (stunned && wasStunned == false && lastCharge >= 0f && lastCharge - charge > 0.01f)
+            if (stunned && wasStunned == false && lastCharge >= 0f)
             {
-                SpawnScatter(center, lastCharge - charge);
+                float lost = LostOnStun(lastCharge - charge, rules.StunLoss);
+                if (lost > 0.01f)
+                {
+                    SpawnScatter(center, lost);
+                }
             }
             wasStunned = stunned;
             lastCharge = charge;
@@ -257,6 +261,20 @@ namespace LOP
             {
                 announcedStacks = stacks;
             }
+        }
+
+        /// <summary>
+        /// 스턴이 막 걸린 순간 줄어든 양에서 박아서 잃은 몫만 뽑는다. 같은 틱에 쓴 대시 한 칸(정수 부분)은 빼고 —
+        /// 박아서 잃는 양은 늘 한 칸보다 작다 — 서버 교정으로 크게 바뀐 몫은 상한(StunLoss)에서 자른다(태스크 리뷰 10-24).
+        /// </summary>
+        internal static float LostOnStun(float drop, float stunLoss)
+        {
+            if (drop <= 0f)
+            {
+                return 0f;
+            }
+            float frac = drop - Mathf.Floor(drop + 1e-4f);
+            return Mathf.Clamp(frac, 0f, stunLoss);
         }
 
         private void SpawnScatter(Vector3 center, float lost)

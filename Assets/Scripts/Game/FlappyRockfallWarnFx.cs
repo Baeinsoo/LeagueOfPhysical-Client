@@ -32,7 +32,9 @@ namespace LOP
         private Sprite dot;
         private Texture2D dotTexture;
         private IReadOnlyList<FlappyRockfall> rockfalls = Array.Empty<FlappyRockfall>();
-        private float rescanIn;
+        private float searchClock, nextSearchAt;
+        private int searches;
+        private const int MaxSearches = 6;   // 스코프 시작 + 1초 간격 5초 — 낙석 없는 맵에서 영원히 뒤지지 않게
         private readonly Dictionary<FlappyRockfall, float> spawnDebt = new Dictionary<FlappyRockfall, float>();
         private readonly List<Mote> pool = new List<Mote>();
         private System.Random random = new System.Random(1013);
@@ -45,9 +47,11 @@ namespace LOP
             public bool Alive;
         }
 
+        //  바위는 내 예측 틱으로 선다(FlappyWorld가 그 틱에 PoseForTick) — 예고도 같은 틱을 읽는다.
+        //  EntityRenderClock.TickFor는 내 엔티티 id가 아니면 남의 새용 지연 시계(~0.23초 뒤)를 돌려주므로 쓰지 않는다(10-24 리뷰).
         [VContainer.Inject]
-        public FlappyRockfallWarnFx(EntityRenderClock renderClock)
-            : this(() => renderClock.TickFor(null), () => renderClock.SecondsPerTick, FindInScene)
+        public FlappyRockfallWarnFx(GameFramework.Runner.IRunner runner, EntityRenderClock renderClock)
+            : this(() => runner.tickUpdater?.tick ?? 0, () => renderClock.SecondsPerTick, FindInScene)
         {
         }
 
@@ -105,12 +109,28 @@ namespace LOP
             {
                 return;   // 게임 정보 전 — 박자를 모른다
             }
-            rescanIn -= deltaTime;
-            if (rockfalls.Count == 0 || rescanIn <= 0f || HasDestroyed())
+            if (HasDestroyed())
             {
-                //  맵은 따로 올라온다(라운드마다 다시 로드) — 비어 있으면 가끔 다시 찾는다.
+                //  맵이 다시 올라왔다(라운드마다 다시 로드) — 처음부터 다시 찾는다.
+                rockfalls = Array.Empty<FlappyRockfall>();
+                searches = 0;
+                searchClock = nextSearchAt = 0f;
+            }
+            if (rockfalls.Count == 0)
+            {
+                //  맵은 따로 올라온다 — 못 찾으면 1초 간격으로 몇 번만 다시 찾고 그만둔다(FlappyHologramFx와 같은 꼴).
+                searchClock += deltaTime;
+                if (searches >= MaxSearches || searchClock < nextSearchAt)
+                {
+                    return;
+                }
+                searches++;
+                nextSearchAt = searchClock + 1f;
                 rockfalls = findRockfalls() ?? Array.Empty<FlappyRockfall>();
-                rescanIn = 1f;
+                if (rockfalls.Count == 0)
+                {
+                    return;
+                }
             }
             long tick = currentTick();
             foreach (var rf in rockfalls)

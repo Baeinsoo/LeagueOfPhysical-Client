@@ -97,4 +97,25 @@ public class FlappyRockfallWarnFxTests
         for (int i = 0; i < 10; i++) { fx.Tick(0.016f); }
         Assert.AreEqual(0, fx.ActiveDust);
     }
+
+    [Test]
+    public void 낙석_없는_맵에선_몇_번_찾다_그만둔다()
+    {
+        //  모든 Flappy 맵에 붙는다 — 낙석이 없는 맵에서 매 프레임 씬을 뒤지면 안 된다(10-24 리뷰).
+        int searches = 0;
+        fx = new FlappyRockfallWarnFx(() => 95, () => Dt, () => { searches++; return System.Array.Empty<FlappyRockfall>(); });
+        for (int i = 0; i < 600; i++) { fx.Tick(0.016f); }   // 약 10초
+        Assert.LessOrEqual(searches, 6, "1초 간격으로 5초까지만 찾는다");
+        Assert.Greater(searches, 1, "맵이 늦게 올라올 수 있어 한 번에 포기하진 않는다");
+    }
+
+    [Test]
+    public void 찾은_뒤엔_다시_뒤지지_않는다()
+    {
+        var rf = MakeRockfall(0f, 0f);
+        int searches = 0;
+        fx = new FlappyRockfallWarnFx(() => 95, () => Dt, () => { searches++; return new[] { rf }; });
+        for (int i = 0; i < 600; i++) { fx.Tick(0.016f); }
+        Assert.AreEqual(1, searches, "낙석이 그대로 있으면 다시 찾을 일이 없다");
+    }
 }

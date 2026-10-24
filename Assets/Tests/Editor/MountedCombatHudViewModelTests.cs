@@ -1,3 +1,4 @@
+using GameFramework;
 using NUnit.Framework;
 using LOP.UI;
 
@@ -100,7 +101,7 @@ namespace LOP.Tests
             => new MountedZoneStageWire
             {
                 Index = index, RevealTick = reveal, ShrinkStartTick = shrinkStart, ShrinkEndTick = shrinkEnd,
-                FromRadius = 100f, ToRadius = 60f,
+                FromRadius = 100f, ToRadius = 60f, DamagePerSecond = 4f,
             };
 
         [Test]
@@ -159,6 +160,55 @@ namespace LOP.Tests
             vm.Tick();
 
             Assert.AreEqual("구역 축소 중", vm.ZoneText.CurrentValue);
+        }
+
+        private sealed class Ctx : IPlayerContext
+        {
+            public ISession session { get; set; }
+            public string entityId { get; set; }
+            public LOPActor actor { get; set; }
+        }
+
+        private MountedCombatHudViewModel WithBody(float x, float z)
+        {
+            var registry = new GameFramework.World.EntityRegistry();
+            var e = new GameFramework.World.Entity("me");
+            e.Add(new GameFramework.World.Transform { Position = new System.Numerics.Vector3(x, 0f, z) });
+            registry.Add(e);
+            var msg = StateWith(1, ("me", -1));
+            msg.ZoneStages.Add(Stage(1, 100, 220, 300));
+            state.Apply(msg);
+            state.SetZoneClock(250, 0.1f, 100, 2, 100f);
+            return new MountedCombatHudViewModel(null, state, new Ctx { entityId = "me" }, null, registry) { Clock = () => now };
+        }
+
+        [Test]
+        public void 원_밖이면_경고가_켜진다()
+        {
+            // 단계 1은 반지름 100 -> 60, 틱 250이면 원 안쪽 반지름이 약 80. 중심 (0,0)에서 95m 떨어짐.
+            using var outside = WithBody(95f, 0f);
+            outside.Tick();
+            Assert.IsTrue(outside.OutsideZone.CurrentValue);
+        }
+
+        [Test]
+        public void 원_안이면_꺼진다()
+        {
+            using var inside = WithBody(10f, 0f);
+            inside.Tick();
+            Assert.IsFalse(inside.OutsideZone.CurrentValue);
+        }
+
+        [Test]
+        public void 마지막_원이_다_줄면_피해_증가_문구()
+        {
+            var msg = StateWith(1, ("a", -1));
+            msg.ZoneStages.Add(Stage(1, 100, 220, 300));
+            msg.ZoneStages.Add(Stage(2, 300, 300, 400));
+            state.Apply(msg);
+            state.SetZoneClock(450, 0.1f, 100, 2, 100f);
+            vm.Tick();
+            Assert.AreEqual("구역 피해 증가 중", vm.ZoneText.CurrentValue);
         }
     }
 }

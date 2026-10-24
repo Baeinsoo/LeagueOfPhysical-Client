@@ -52,6 +52,7 @@ namespace LOP
             long firstReveal = start == long.MaxValue
                 ? long.MaxValue
                 : start + (long)System.Math.Ceiling(config.ZoneFirstRevealSeconds / interval);
+            state.OvertimeDpsGrowth = config.ZoneOvertimeDpsGrowth;
             state.SetZoneClock(renderTick, (float)interval, firstReveal, config.ZoneStages.Count, config.ZoneInitialRadius);
 
             EnsureObjects();
@@ -134,6 +135,10 @@ namespace LOP
             }
             var mesh = new Mesh { name = "MountedZoneTube", vertices = vertices, triangles = triangles };
             // 크기를 스케일로 키우므로 경계 상자도 넉넉히 — 작으면 카메라가 벽 쪽을 안 보는 줄 알고 잘라낸다.
+            // Sprites/Default는 정점 색을 곱하므로 비워 두면 일부 그래픽스 API에서 투명하게 나온다.
+            var colors = new Color32[vertices.Length];
+            for (int i = 0; i < colors.Length; i++) { colors[i] = new Color32(255, 255, 255, 255); }
+            mesh.colors32 = colors;
             mesh.bounds = new Bounds(new Vector3(0f, 0.5f, 0f), new Vector3(4f, 1f, 4f));
             return mesh;
         }

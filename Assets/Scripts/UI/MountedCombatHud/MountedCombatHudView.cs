@@ -13,6 +13,7 @@ namespace LOP.UI
         private VisualElement hitMarker;
         private VisualElement damageArc;
         private VisualElement killFeed;
+        private VisualElement zoneWarning;
         private Label zoneText;
         private Label aliveText;
         private MountedMinimapElement minimap;
@@ -33,6 +34,7 @@ namespace LOP.UI
             hitMarker = Root.Q<VisualElement>("hit-marker");
             damageArc = Root.Q<VisualElement>("damage-arc");
             killFeed = Root.Q<VisualElement>("kill-feed");
+            zoneWarning = Root.Q<VisualElement>("zone-warning");
 
             zoneText = Root.Q<Label>("zone-text");
             aliveText = Root.Q<Label>("alive-text");
@@ -48,12 +50,21 @@ namespace LOP.UI
                 shownBearing = b;
                 damageArc.style.display = b.HasValue ? DisplayStyle.Flex : DisplayStyle.None;
             }).AddTo(Disposables);
+            viewModel.OutsideZone.Subscribe(on =>
+            {
+                zoneWarning.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+            }).AddTo(Disposables);
             viewModel.KillFeed.Subscribe(RenderFeed).AddTo(Disposables);
 
             // 시간 만료와 호의 방향(카메라가 돌면 따라 돈다)은 매 프레임 갱신한다.
             tick = Root.schedule.Execute(_ =>
             {
                 viewModel.Tick();
+                // USS 전환은 반복이 안 돼서 깜박임은 코드로 준다.
+                if (viewModel.OutsideZone.CurrentValue)
+                {
+                    zoneWarning.style.opacity = 0.55f + 0.45f * Mathf.Sin(Time.unscaledTime * 6f);
+                }
                 minimap.Set(viewModel.BuildMinimap(), Camera.main != null ? Camera.main.transform.eulerAngles.y : 0f);
                 if (shownBearing.HasValue)
                 {

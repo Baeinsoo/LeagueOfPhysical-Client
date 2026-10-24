@@ -3,6 +3,7 @@
         <ui:VisualElement name="damage-arc" class="damage-arc" picking-mode="Ignore">
             <ui:VisualElement class="damage-arc-bar" picking-mode="Ignore" />
         </ui:VisualElement>
+        <ui:VisualElement name="zone-warning" class="zone-warning" picking-mode="Ignore" />
         <ui:Label name="hit-marker" class="hit-marker" text="✕" picking-mode="Ignore" />
         <ui:VisualElement name="zone-panel" class="zone-panel" picking-mode="Ignore">
             <ui:Label name="zone-text" class="zone-text" picking-mode="Ignore" />

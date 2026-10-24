@@ -41,6 +41,9 @@ namespace LOP
         public int LastStageIndex { get; private set; }
         public float InitialRadius { get; private set; }
 
+        /// <summary>마지막 원이 다 줄어든 뒤 초마다 더해지는 구역 피해. 서버와 같은 값으로 경고 여부를 잰다.</summary>
+        public float OvertimeDpsGrowth { get; set; }
+
         public void SetZoneClock(double renderTick, float tickInterval, long firstRevealTick, int lastStageIndex, float initialRadius)
         {
             RenderTick = renderTick;

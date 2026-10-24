@@ -50,8 +50,10 @@ namespace LOP.UI
         public ReadOnlyReactiveProperty<string> ZoneText => zoneText;
         public ReadOnlyReactiveProperty<string> AliveText => aliveText;
 
-        // 매 프레임 새 목록을 만들지 않으려고 재사용한다.
-        private readonly List<Vector2> minimapOthers = new List<Vector2>();
+        private readonly ReactiveProperty<bool> outsideZone = new ReactiveProperty<bool>(false);
+
+        /// <summary>내 몸이 지금 원 밖이고 그 자리 구역 피해가 0보다 크면 true. 화면 가장자리 경고를 켠다.</summary>
+        public ReadOnlyReactiveProperty<bool> OutsideZone => outsideZone;
 
         public struct Minimap
         {
@@ -61,7 +63,6 @@ namespace LOP.UI
             public Vector2 NextCenter;
             public float NextRadius;
             public float InitialRadius;
-            public List<Vector2> Others;
             public bool HasMe;
             public Vector2 Me;
         }
@@ -84,7 +85,11 @@ namespace LOP.UI
                 return $"구역 공개까지 {SecondsLeft(firstRevealTick - tick, interval)}초";
             }
             var s = latest.Value;
-            if (s.index >= lastStageIndex && lastStageIndex > 0) return "마지막 원";
+            if (s.index >= lastStageIndex && lastStageIndex > 0)
+            {
+                // 마지막 원이 다 줄고 나면 가만히 있어도 피해가 커진다 — 그걸 알려 준다.
+                return tick >= s.shrinkEndTick ? "구역 피해 증가 중" : "마지막 원";
+            }
             if (tick < s.shrinkStartTick) return $"구역 축소까지 {SecondsLeft(s.shrinkStartTick - tick, interval)}초";
             if (tick < s.shrinkEndTick) return "구역 축소 중";
             return "구역 축소 중";   // 다음 단계 메시지가 오기 전 한두 틱 — 문구가 깜박이지 않게 그대로 둔다
@@ -149,7 +154,6 @@ namespace LOP.UI
         /// <summary>미니맵에 그릴 값. 위치는 월드 (x, z)다.</summary>
         public Minimap BuildMinimap()
         {
-            minimapOthers.Clear();
             double tick = state.RenderTick;
             var cur = state.CircleAtRender(tick);
             var map = new Minimap
@@ -157,7 +161,6 @@ namespace LOP.UI
                 CurrentCenter = cur.center,
                 CurrentRadius = cur.radius,
                 InitialRadius = state.InitialRadius,
-                Others = minimapOthers,
             };
             if (state.TryGetNextCircle((long)System.Math.Floor(tick), out var next))
             {
@@ -165,16 +168,23 @@ namespace LOP.UI
                 map.NextCenter = next.center;
                 map.NextRadius = next.radius;
             }
-            string myId = playerContext?.entityId;
-            foreach (var id in state.AliveIds)
+            if (TryGetMyPosition(out var me))
             {
-                var t = entityRegistry?.Get(id)?.Get<GameFramework.World.Transform>();
-                if (t == null) continue;
-                var pos = new Vector2(t.Position.X, t.Position.Z);
-                if (id == myId) { map.HasMe = true; map.Me = pos; }
-                else map.Others.Add(pos);
+                map.HasMe = true;
+                map.Me = me;
             }
             return map;
+        }
+
+        private bool TryGetMyPosition(out Vector2 position)
+        {
+            position = default;
+            string myId = playerContext?.entityId;
+            if (myId == null) return false;
+            var t = entityRegistry?.Get(myId)?.Get<GameFramework.World.Transform>();
+            if (t == null) return false;
+            position = new Vector2(t.Position.X, t.Position.Z);
+            return true;
         }
 
         private void RefreshZone()
@@ -183,6 +193,17 @@ namespace LOP.UI
             zoneText.Value = ZoneTextFor(state.ZoneStages, tick, state.TickInterval,
                                          state.FirstRevealTick, state.LastStageIndex);
             aliveText.Value = state.PlayerCount == 0 ? "" : $"생존 {state.AliveCount}";
+
+            // 내 몸이 이미 쓰러졌으면 경고할 이유가 없다.
+            bool warn = false;
+            string myId = playerContext?.entityId;
+            if (myId != null && state.IsEliminated(myId) == false && TryGetMyPosition(out var me))
+            {
+                var circle = state.CircleAtRender(state.RenderTick);
+                float dps = MountedArcheryZone.DamagePerSecondAt(state.ZoneStages, tick, state.OvertimeDpsGrowth, state.TickInterval);
+                warn = dps > 0f && MountedArcheryZone.IsOutside(me, circle);
+            }
+            outsideZone.Value = warn;
         }
 
         /// <summary>시간이 지난 표시를 거둔다.</summary>
@@ -263,6 +284,7 @@ namespace LOP.UI
             killFeed.Dispose();
             zoneText.Dispose();
             aliveText.Dispose();
+            outsideZone.Dispose();
         }
     }
 }

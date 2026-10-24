@@ -37,11 +37,17 @@ namespace LOP
         /// 쓸 수 있는 칸 수(게이지의 정수 부분)가 같나. 알갱이 판정의 경계에서 클라만 한 알 더 먹어 한 칸이
         /// 찼다고 믿으면, 버튼은 켜졌는데 눌러도 서버에서 안 나간다 — 그래서 칸 수가 갈리면 되돌린다.
         /// 칸 안의 소수점 차이는 비교하지 않는다(다음 알갱이·충전에 묻힌다).
+        /// <para>다만 차이가 아주 작으면(<see cref="StackTolerance"/> 안) 칸 경계를 사이에 둬도 맞는 것으로 본다 — 다이브는 매 틱 조금씩
+        /// 차서 경계를 넘는 틱마다 한 틱 몫 어긋날 수 있고, 그때마다 되돌리면 버튼·글자가 깜빡인다(재리뷰 10-23).
+        /// 그 사이 버튼을 눌러 서버가 거절하면 대시 켜짐이 갈려 그쪽 비교가 되돌린다.</para>
         /// </summary>
         public static bool DashStacksMatch(float predictedCharge, float snapCharge)
         {
-            return (int)predictedCharge == (int)snapCharge;
+            return (int)predictedCharge == (int)snapCharge || System.Math.Abs(predictedCharge - snapCharge) < StackTolerance;
         }
+
+        /// <summary>칸 경계를 사이에 둬도 같다고 볼 게이지 차이. 다이브 최고 세기의 한 틱 몫(0.011)보다 크게.</summary>
+        public const float StackTolerance = 0.02f;
 
         /// <summary>켜짐/꺼짐만 본다. 남은 시간의 미세한 차이는 다음 틱 시뮬이 알아서 좁힌다.</summary>
         public static bool StunMatches(float predictedStun, float predictedInvuln,

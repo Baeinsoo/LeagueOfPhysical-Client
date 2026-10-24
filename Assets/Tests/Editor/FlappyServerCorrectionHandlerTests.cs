@@ -46,7 +46,15 @@ namespace LOP.Tests
         public void 쓸_수_있는_칸_수가_다르면_틀리다()
         {
             //  알갱이 경계에서 클라만 한 알 더 먹어 한 칸이 찼다고 믿는 경우 — 버튼은 켜졌는데 서버에선 안 나간다.
-            Assert.IsFalse(FlappyServerCorrectionHandler.DashStacksMatch(predictedCharge: 1.01f, snapCharge: 0.99f));
+            Assert.IsFalse(FlappyServerCorrectionHandler.DashStacksMatch(predictedCharge: 1.06f, snapCharge: 0.99f));
+        }
+
+        [Test]
+        public void 칸_경계를_아주_조금_사이에_두면_되돌리지_않는다()
+        {
+            //  다이브는 매 틱 조금씩 차서 칸 경계를 넘는 앵커 틱마다 한 틱 몫(0.005 안팎) 어긋날 수 있다 — 그때마다 되돌리면
+            //  버튼·글자가 깜빡인다(재리뷰 10-23). 아주 작은 차이는 다음 틱 시뮬이 좁힌다.
+            Assert.IsTrue(FlappyServerCorrectionHandler.DashStacksMatch(predictedCharge: 1.004f, snapCharge: 0.998f));
         }
 
         [Test]

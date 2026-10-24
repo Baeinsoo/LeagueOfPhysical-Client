@@ -9,7 +9,8 @@ namespace LOP
     public static class MountedTerrain
     {
         private static readonly int Mask = LayerMask.GetMask("Default");
-        private static readonly RaycastHit[] Buffer = new RaycastHit[32];
+        // 서버 지형 판정과 같은 크기 — 넘치면 가까운 것이 빠질 수 있는데, 그 일도 클·서가 같이 겪어야 한다.
+        private static readonly RaycastHit[] Buffer = new RaycastHit[16];
 
         public static bool Linecast(Vector3 from, Vector3 to, out RaycastHit hit)
         {

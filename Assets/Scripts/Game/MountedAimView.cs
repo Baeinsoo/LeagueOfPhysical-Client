@@ -31,7 +31,6 @@ namespace LOP
         private readonly MountedArcheryClientState state;
         private readonly float eyeHeight;
         private readonly List<MountedPredictedHits.Target> bodies = new List<MountedPredictedHits.Target>();
-        private readonly int worldLayerMask = LayerMask.GetMask("Default");
 
         private float shownDrawRatio;
         private bool cameraReset;
@@ -159,8 +158,7 @@ namespace LOP
                 Vector3 origin = camera.transform.position;
                 Vector3 forward = camera.transform.forward;
                 Vector3 start = RayStart(origin, forward, eye);
-                Vector3? terrain = Physics.Raycast(start, forward, out RaycastHit info,
-                                                   MaxAimDistance, worldLayerMask, QueryTriggerInteraction.Ignore)
+                Vector3? terrain = MountedTerrain.Raycast(start, forward, MaxAimDistance, out RaycastHit info)
                     ? info.point
                     : (Vector3?)null;
                 MountedPredictedHits.CollectDrawnTargets(actorRegistry, state, entity.Id, bodies);

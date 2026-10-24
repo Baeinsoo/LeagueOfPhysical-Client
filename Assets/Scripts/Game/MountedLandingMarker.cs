@@ -23,7 +23,6 @@ namespace LOP
         private readonly MountedArcheryClientState state;
         private readonly CameraController cameraController;
         private readonly MountedArcheryConfig config;
-        private readonly int terrainMask = LayerMask.GetMask("Default");
         private readonly List<MountedPredictedHits.Target> bodies = new List<MountedPredictedHits.Target>();
 
         private readonly Func<Vector3, Vector3, Vector3?> firstContact;
@@ -96,7 +95,7 @@ namespace LOP
 
         private Vector3? FirstContact(Vector3 from, Vector3 to)
         {
-            Vector3? terrain = Physics.Linecast(from, to, out RaycastHit hit, terrainMask, QueryTriggerInteraction.Ignore)
+            Vector3? terrain = MountedTerrain.Linecast(from, to, out RaycastHit hit)
                 ? hit.point
                 : (Vector3?)null;
             Vector3? body = null;

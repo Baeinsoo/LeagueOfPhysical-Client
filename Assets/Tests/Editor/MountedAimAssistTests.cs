@@ -66,5 +66,41 @@ namespace LOP.Tests
             Assert.AreEqual(0.6f, MountedAimAssist.Friction(true, 0.6f), 1e-6f);
             Assert.AreEqual(1f, MountedAimAssist.Friction(false, 0.6f), 1e-6f);
         }
+
+        [Test]
+        public void 내가_움직여도_서_있는_적은_따라가지_않는다()
+        {
+            var chest = new Vector3(5f, 1.75f, 30f);
+            var move = MountedAimAssist.TrackTarget(new Vector3(8f, 2f, 10f), chest, chest, true, 0.5f);
+            Assert.AreEqual(Vector2.zero, move);
+        }
+
+        [Test]
+        public void 적이_움직인_만큼_절반_따라간다()
+        {
+            var cam = Vector3.zero;
+            var last = new Vector3(0f, 0f, 30f);
+            var now = new Vector3(30f, 0f, 30f); // 정면 → 오른쪽 45도
+            var move = MountedAimAssist.TrackTarget(cam, last, now, true, 0.5f);
+            Assert.AreEqual(22.5f, move.x, 1e-3f);
+            Assert.AreEqual(0f, move.y, 1e-3f);
+        }
+
+        [Test]
+        public void 탈락하면_보정이_풀린다()
+        {
+            var state = new MountedAimAssistState { Locked = true, TargetId = "a" };
+            state.Clear();
+            Assert.IsFalse(state.Locked);
+            Assert.IsNull(state.TargetId);
+        }
+
+        [Test]
+        public void 당기지_않으면_따라가지_않는다()
+        {
+            Assert.IsFalse(MountedAimAssist.ShouldTrack(true, false));
+            Assert.IsTrue(MountedAimAssist.ShouldTrack(true, true));
+            Assert.IsFalse(MountedAimAssist.ShouldTrack(false, true));
+        }
     }
 }

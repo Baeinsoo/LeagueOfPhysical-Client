@@ -46,6 +46,9 @@ namespace LOP
             return true;
         }
 
+        /// <summary>적을 잡았고 시위를 당긴 동안에만 따라간다(조준경을 들여다볼 때만 붙는 방식).</summary>
+        public static bool ShouldTrack(bool locked, bool drawing) => locked && drawing;
+
         /// <summary>끌기 감도에 곱할 값. 잠기면 <paramref name="friction"/>, 아니면 1.</summary>
         public static float Friction(bool locked, float friction) => locked ? friction : 1f;
 
@@ -59,11 +62,27 @@ namespace LOP
             return new Vector2(Mathf.DeltaAngle(lastTargetAngles.x, nowTargetAngles.x) * track,
                                (nowTargetAngles.y - lastTargetAngles.y) * track);
         }
+
+        /// <summary>
+        /// 적 자신이 움직인 만큼만 따라간다. 지난 자리와 지금 자리를 <b>같은(지금) 카메라 자리</b>에서 잰 각으로 비교하므로
+        /// 내가 달려 지나가거나 카메라가 돌아서 생기는 각 변화는 들어가지 않는다.
+        /// </summary>
+        public static Vector2 TrackTarget(Vector3 cameraPos, Vector3 lastChest, Vector3 nowChest, bool sameTarget, float track)
+            => Track(MountedAimView.AimAngles(cameraPos, lastChest), MountedAimView.AimAngles(cameraPos, nowChest), sameTarget, track);
     }
 
     /// <summary>조준 보정이 지금 적을 잡고 있는지. <see cref="MountedAimView"/>가 쓰고 조작판이 읽는다.</summary>
     public class MountedAimAssistState
     {
         public bool Locked;
+        public string TargetId;
+        public Vector3 LastChest;
+
+        /// <summary>잡은 적과 따라가던 기억을 모두 버린다(몸이 사라졌을 때 등).</summary>
+        public void Clear()
+        {
+            Locked = false;
+            TargetId = null;
+        }
     }
 }

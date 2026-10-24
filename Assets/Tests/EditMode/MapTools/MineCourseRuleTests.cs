@@ -180,7 +180,7 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(1.2f, r.Size, 1e-5f);
                 Assert.AreEqual(9f, r.Speed, 1e-5f);
                 Assert.AreEqual(2f, r.Period, 1e-5f);
-                Assert.AreEqual(90f * i, r.Phase, 1e-4f, "줄마다 +0.5초 = 90°");
+                Assert.AreEqual(45f * i, r.Phase, 1e-4f, "줄마다 +0.25초 = 45° — 10-24 사람 판: 0.5초면 줄마다 평균 3.5 m를 오르내려야 해 '무조건 맞는' 느낌, 0.25초면 빈 자리가 물결처럼 2 m 안쪽으로 움직인다");
             }
         }
 

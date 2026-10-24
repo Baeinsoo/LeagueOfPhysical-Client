@@ -203,9 +203,9 @@ public class FlappyDiveFxTests
     }
 
     [Test]
-    public void 세기에_따라_색과_빛줄기가_달라진다_최고_낙하면_금빛()
+    public void 세기에_따라_하늘색이_짙어지고_빛줄기가_늘어난다()
     {
-        //  10-24 사람 판: 채워지는 정도에 따라 강약·색을 다르게.
+        //  10-24 사람 판: 채워지는 정도에 따라 강약·색을 다르게. 금빛·번쩍은 과해서 뺐다(같은 날) — 하늘색 안에서만.
         Make();
         var me = registry.Get("me");
         me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f * 0.76f, 0f);   // 문턱 바로 위
@@ -219,25 +219,11 @@ public class FlappyDiveFxTests
         int strongStreaks = fx.ActiveStreaksOf("me");
 
         Assert.Greater(weak.b, 0.9f, "문턱 근처는 하늘색");
-        Assert.Greater(strong.r, 0.9f, "최고 낙하는 금빛");
-        Assert.Less(strong.b, 0.5f, "최고 낙하는 금빛");
+        Assert.Greater(strong.b, 0.9f, "최고 낙하도 하늘색이다(금빛 없음)");
+        Assert.Less(strong.r, 0.4f, "최고 낙하는 진한 하늘 — 금빛이면 빨강이 높다");
+        Assert.Less(strong.r, weak.r, "세기가 셀수록 짙어진다");
+        Assert.Less(fx.AuraScaleOf("me"), 2.2f * 1.3f, "최고 세기에도 기운은 몸 둘레 정도 — 과하지 않게");
         Assert.Less(weakStreaks, strongStreaks, "빛줄기도 세기만큼 늘어난다");
-    }
-
-    [Test]
-    public void 금빛_경계에서_속도가_흔들려도_번쩍은_한_번()
-    {
-        //  세기가 금빛 문턱(0.9)을 오가도 매 틱 다시 번쩍이면 깜빡임이 된다(태스크 리뷰 10-24).
-        Make();
-        var me = registry.Get("me");
-        float min = 11.25f * 0.75f, span = 11.25f - min;
-        for (int i = 0; i < 60; i++)
-        {
-            float level = i % 2 == 0 ? 0.92f : 0.88f;
-            me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -(min + span * level), 0f);
-            fx.Tick(0.016f);
-        }
-        Assert.AreEqual(1, fx.GoldFlashesOf("me"));
     }
 
     [Test]

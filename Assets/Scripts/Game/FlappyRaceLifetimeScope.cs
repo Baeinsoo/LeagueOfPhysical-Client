@@ -129,6 +129,8 @@ namespace LOP
             builder.RegisterEntryPoint<FlappyMoteFx>();
             //  다이브 충전 연출(기운·빛줄기·고리·충전음·"대시 1칸!") — 판정과 무관한 화면 연출.
             builder.RegisterEntryPoint<FlappyDiveFx>();
+            //  낙석 예고(떨어지기 직전 균열에서 먼지·돌가루) — 판정과 무관한 화면 연출(10-24).
+            builder.RegisterEntryPoint<FlappyRockfallWarnFx>();
 
             //  낙하 내려다보기(FlappyFallLookDown)는 껐다 — 카메라가 새를 뒤따라 늦게 움직이는 느낌이라
             //  원조처럼 고정된 구도가 낫다(사용자 결정 2026-10-07). 클래스와 시험은 남겨 둔다.

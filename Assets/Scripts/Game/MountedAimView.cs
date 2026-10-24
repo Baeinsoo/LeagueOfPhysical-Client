@@ -29,6 +29,7 @@ namespace LOP
         private readonly EntityRenderClock renderClock;
         private readonly ActorRegistry actorRegistry;
         private readonly MountedArcheryClientState state;
+        private readonly GameFramework.Runner.IRunner runner;
         private readonly float eyeHeight;
         private readonly List<MountedPredictedHits.Target> bodies = new List<MountedPredictedHits.Target>();
 
@@ -38,8 +39,10 @@ namespace LOP
         public MountedAimView(PlayerInputManager input, CameraController cameraController,
                               IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry,
                               MountedArcheryConfig config, EntityRenderClock renderClock,
-                              ActorRegistry actorRegistry, MountedArcheryClientState state)
+                              ActorRegistry actorRegistry, MountedArcheryClientState state,
+                              GameFramework.Runner.IRunner runner)
         {
+            this.runner = runner;
             this.renderClock = renderClock;
             this.actorRegistry = actorRegistry;
             this.state = state;
@@ -108,16 +111,27 @@ namespace LOP
         }
 
         /// <summary>
-        /// 내가 지금 보는 틱 — 서버가 남의 몸을 그 시점으로 되감아 맞힘을 잰다.
-        /// 남은 보간 재생 시계(조금 과거)로 그려지므로 남이 있으면 그 틱, 없으면 내 예측 틱.
+        /// 서버에 보낼 "보던 틱". 서버는 화살의 지금 자리 옆에 <c>쏜 틱 − 보던 틱</c>만큼 지난 남을 놓고 잰다.
+        /// 화면은 내 화살을 <paramref name="arrowRenderTick"/>(한 틱 늦은 소수 틱)에, 남을 <paramref name="remoteRenderTick"/>에
+        /// 그리므로, 그 간격을 그대로 넘겨야 서버가 화면과 같은 짝을 잰다. 남의 그림 틱 자체를 넘기면 1~2틱(달리는 말 0.3~0.5 m) 어긋난다.
         /// </summary>
+        public static long ViewTickFor(long nextCommandTick, double arrowRenderTick, double remoteRenderTick)
+            => nextCommandTick - (long)Math.Round(arrowRenderTick - remoteRenderTick);
+
         private long ViewTick(GameFramework.World.Entity self)
         {
+            var updater = runner?.tickUpdater;
+            double interval = renderClock.SecondsPerTick;
+            if (updater == null || interval <= 0d)
+            {
+                return renderClock.TickFor(self.Id);
+            }
+            double arrowRenderTick = (updater.elapsedTime - updater.interval) / updater.interval;
             foreach (var other in entityRegistry.All)
             {
                 if (other.Id != self.Id && other.Get<Mount>() != null)
                 {
-                    return renderClock.TickFor(other.Id);
+                    return ViewTickFor(updater.tick, arrowRenderTick, renderClock.TimeFor(other.Id) / interval);
                 }
             }
             return renderClock.TickFor(self.Id);

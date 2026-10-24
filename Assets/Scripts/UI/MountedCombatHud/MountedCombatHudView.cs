@@ -54,6 +54,13 @@ namespace LOP.UI
             {
                 zoneWarning.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
             }).AddTo(Disposables);
+            var hpBar = Root.Q<VisualElement>("hp-bar");
+            var hpFill = Root.Q<VisualElement>("hp-fill");
+            var hpText = Root.Q<Label>("hp-text");
+            viewModel.HpVisible.Subscribe(on => hpBar.style.display = on ? DisplayStyle.Flex : DisplayStyle.None)
+                .AddTo(Disposables);
+            viewModel.HpRatio.Subscribe(r => hpFill.style.width = Length.Percent(r * 100f)).AddTo(Disposables);
+            viewModel.HpText.Subscribe(t => hpText.text = t).AddTo(Disposables);
             viewModel.KillFeed.Subscribe(RenderFeed).AddTo(Disposables);
 
             // 시간 만료와 호의 방향(카메라가 돌면 따라 돈다)은 매 프레임 갱신한다.

@@ -210,5 +210,42 @@ namespace LOP.Tests
             vm.Tick();
             Assert.AreEqual("구역 피해 증가 중", vm.ZoneText.CurrentValue);
         }
+
+        [Test]
+        public void 내_체력_바는_내_몸의_체력을_따른다()
+        {
+            var registry = new GameFramework.World.EntityRegistry();
+            var e = new GameFramework.World.Entity("me");
+            var health = new GameFramework.World.Health(100) { Current = 66 };
+            e.Add(health);
+            registry.Add(e);
+            using var hud = new MountedCombatHudViewModel(null, state, new Ctx { entityId = "me" }, null, registry);
+
+            hud.Tick();
+            Assert.IsTrue(hud.HpVisible.CurrentValue);
+            Assert.AreEqual(0.66f, hud.HpRatio.CurrentValue, 0.001f);
+            Assert.AreEqual("HP 66", hud.HpText.CurrentValue);
+
+            health.Current = 30;
+            hud.Tick();
+            Assert.AreEqual(0.3f, hud.HpRatio.CurrentValue, 0.001f);
+            Assert.AreEqual("HP 30", hud.HpText.CurrentValue);
+        }
+
+        [Test]
+        public void 몸이_없으면_체력_바를_숨긴다()
+        {
+            var registry = new GameFramework.World.EntityRegistry();
+            var e = new GameFramework.World.Entity("me");
+            e.Add(new GameFramework.World.Health(100));
+            registry.Add(e);
+            using var hud = new MountedCombatHudViewModel(null, state, new Ctx { entityId = "me" }, null, registry);
+            hud.Tick();
+            Assert.IsTrue(hud.HpVisible.CurrentValue);
+
+            registry.Remove("me");
+            hud.Tick();
+            Assert.IsFalse(hud.HpVisible.CurrentValue);
+        }
     }
 }

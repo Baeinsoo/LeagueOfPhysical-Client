@@ -56,11 +56,13 @@ namespace LOP
 
             builder.Register<MountedArcheryClientState>(Lifetime.Singleton);
             builder.RegisterEntryPoint<MountedArcheryStateHandler>();
+            builder.Register<MountedAimAssistState>(Lifetime.Singleton);
             builder.RegisterEntryPoint<MountedAimView>().AsSelf();
             builder.RegisterEntryPoint<MountedHorseView>().AsSelf();
             builder.Register<IHaptics>(_ => Haptics.ForThisDevice(), Lifetime.Singleton);
             builder.RegisterEntryPoint<MountedPredictedHits>().AsSelf();
             builder.RegisterEntryPoint<MountedArrowView>().AsSelf();
+            builder.RegisterEntryPoint<MountedZoneView>();
             builder.RegisterEntryPoint<MountedLandingMarker>();
             builder.RegisterEntryPoint<MountedHitShapeDebugView>();
             builder.RegisterEntryPoint<MountedArcheryRemoteShotHandler>();

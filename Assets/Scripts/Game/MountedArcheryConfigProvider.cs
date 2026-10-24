@@ -28,7 +28,27 @@ namespace LOP
                                          r.SharpTurnSpeedFactor, r.DrawSpeedFactor),
                 maxHp: r.MaxHp,
                 arrowDamage: r.ArrowDamage,
-                lagCompMaxSeconds: r.LagCompMaxSeconds);
+                lagCompMaxSeconds: r.LagCompMaxSeconds,
+                zoneInitialRadius: r.ZoneInitialRadius,
+                zoneFirstRevealSeconds: r.ZoneFirstRevealSeconds,
+                zoneStages: ZoneStages(),
+                aimAssistConeDeg: r.AimAssistConeDeg,
+                aimAssistRange: r.AimAssistRange,
+                aimAssistFriction: r.AimAssistFriction,
+                aimAssistTrack: r.AimAssistTrack,
+                zoneOvertimeDpsGrowth: r.ZoneOvertimeDpsGrowth);
+        }
+
+        //  엑셀 줄이 옮겨져도 1단계부터 순서대로 나가도록 id로 정렬한다.
+        private System.Collections.Generic.List<MountedArcheryZoneStageConfig> ZoneStages()
+        {
+            var stages = new System.Collections.Generic.List<MountedArcheryZoneStageConfig>();
+            foreach (var row in System.Linq.Enumerable.OrderBy(md.Tables.TbMountedArcheryZone.DataList, x => x.Id))
+            {
+                stages.Add(new MountedArcheryZoneStageConfig(
+                    row.RestSeconds, row.ShrinkSeconds, row.EndRadius, row.DamagePerSecond));
+            }
+            return stages;
         }
     }
 }

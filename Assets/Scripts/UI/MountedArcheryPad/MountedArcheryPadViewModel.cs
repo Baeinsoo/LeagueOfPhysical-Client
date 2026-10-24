@@ -18,12 +18,35 @@ namespace LOP.UI
         private readonly ArcheryBowControls controls;
 
         public MountedArcheryPadViewModel(PlayerInputManager input, CameraController cameraController,
-            GameFramework.World.EntityRegistry entityRegistry, IPlayerContext playerContext)
+            GameFramework.World.EntityRegistry entityRegistry, IPlayerContext playerContext,
+            MountedArcheryConfig config, MountedAimAssistState assistState)
         {
             this.cameraController = cameraController;
             this.entityRegistry = entityRegistry;
             this.playerContext = playerContext;
-            controls = new ArcheryBowControls(input, cameraController, ReadDrawRatio, null, MountedCameraZoom.WideFov);
+            controls = new ArcheryBowControls(input,
+                new FrictionAimCamera(cameraController, assistState, config.AimAssistFriction), ReadDrawRatio, null, MountedCameraZoom.WideFov);
+        }
+
+        /// <summary>손가락 끌기만 둔하게 한다 — 적이 조준 원뿔 안이면 돌리는 각에 감도를 곱한다.</summary>
+        private sealed class FrictionAimCamera : IAimCamera
+        {
+            private readonly IAimCamera inner;
+            private readonly MountedAimAssistState state;
+            private readonly float friction;
+
+            public FrictionAimCamera(IAimCamera inner, MountedAimAssistState state, float friction)
+            {
+                this.inner = inner;
+                this.state = state;
+                this.friction = friction;
+            }
+
+            public float Yaw => inner.Yaw;
+            public float Pitch => inner.Pitch;
+            public float CameraYawDegrees => inner.CameraYawDegrees;
+            public Camera MainCamera => inner.MainCamera;
+            public void AimBy(Vector2 degrees) => inner.AimBy(degrees * MountedAimAssist.Friction(state.Locked, friction));
         }
 
         private float ReadDrawRatio()

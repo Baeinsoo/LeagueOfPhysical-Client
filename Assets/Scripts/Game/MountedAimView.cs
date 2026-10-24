@@ -31,6 +31,9 @@ namespace LOP
         private readonly MountedArcheryClientState state;
         private readonly GameFramework.Runner.IRunner runner;
         private readonly float eyeHeight;
+        private readonly MountedArcheryConfig config;
+        private readonly MountedAimAssistState assistState;
+        private readonly List<(string id, Vector3 chest)> assistTargets = new List<(string id, Vector3 chest)>();
         private readonly List<MountedPredictedHits.Target> bodies = new List<MountedPredictedHits.Target>();
 
         private float shownDrawRatio;
@@ -40,8 +43,10 @@ namespace LOP
                               IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry,
                               MountedArcheryConfig config, EntityRenderClock renderClock,
                               ActorRegistry actorRegistry, MountedArcheryClientState state,
-                              GameFramework.Runner.IRunner runner)
+                              GameFramework.Runner.IRunner runner, MountedAimAssistState assistState)
         {
+            this.config = config;
+            this.assistState = assistState;
             this.runner = runner;
             this.renderClock = renderClock;
             this.actorRegistry = actorRegistry;
@@ -148,6 +153,7 @@ namespace LOP
             var entity = playerContext.entityId != null ? entityRegistry.Get(playerContext.entityId) : null;
             if (entity == null)
             {
+                assistState.Clear();
                 // 탈락해 몸이 사라졌다. 당기다 쓰러졌으면 카메라가 확대된 채 남으므로 처음 한 번만 평소로 되돌린다.
                 if (cameraReset == false)
                 {
@@ -179,11 +185,13 @@ namespace LOP
                 Vector3? hit = Nearer(start, terrain, NearestBodyPoint(start, forward, MaxAimDistance, bodies, entity.Id));
                 Vector2 angles = AimAngles(eye, AimPoint(origin, forward, eye, hit, MaxAimDistance));
                 input.SetAim(angles.x, angles.y);
+                ApplyAssist(origin, forward, entity.Get<ArcheryAim>()?.Drawing == true);
             }
             else
             {
                 // 유니티의 x 회전은 양수가 아래를 보고 조준 각도는 양수가 위라 부호를 뒤집는다(ArcheryAimView와 같다).
                 input.SetAim(cameraController.Yaw, -cameraController.Pitch);
+                assistState.Clear();
             }
 
             var aim = entity?.Get<ArcheryAim>();
@@ -200,8 +208,40 @@ namespace LOP
                                            + camera.transform.right * MountedCameraZoom.ShoulderRight;
         }
 
+        // 서버에 보내는 조준은 건드리지 않고 카메라만 돌린다. 따라가기는 시위를 당긴 동안에만 한다.
+        private void ApplyAssist(Vector3 origin, Vector3 forward, bool drawing)
+        {
+            assistTargets.Clear();
+            for (int i = 0; i < bodies.Count; i++)
+            {
+                assistTargets.Add((bodies[i].Id, bodies[i].Position + Vector3.up * MountedAimAssist.ChestHeight));
+            }
+            bool locked = MountedAimAssist.TryPick(origin, forward, assistTargets, config.AimAssistConeDeg,
+                                                   config.AimAssistRange, NotBlockedByTerrain, out string id, out _, out _);
+            Vector3 chest = default;
+            for (int i = 0; locked && i < assistTargets.Count; i++)
+            {
+                if (assistTargets[i].id == id)
+                {
+                    chest = assistTargets[i].chest;
+                }
+            }
+            if (MountedAimAssist.ShouldTrack(locked, drawing))
+            {
+                cameraController.AimBy(MountedAimAssist.TrackTarget(origin, assistState.LastChest, chest,
+                                                                     id == assistState.TargetId, config.AimAssistTrack));
+            }
+            assistState.Locked = locked;
+            assistState.TargetId = locked ? id : null;
+            assistState.LastChest = chest;
+        }
+
+        // 지형(바위·나무·땅)이 가슴 점을 가리면 그 적은 겨눌 수 없다. 사람 몸은 MountedTerrain이 이미 뺀다.
+        private static bool NotBlockedByTerrain(Vector3 from, Vector3 to) => MountedTerrain.Linecast(from, to, out _) == false;
+
         public void Dispose()
         {
+            assistState.Clear();
             if (cameraController != null)
             {
                 cameraController.DistanceOverride = null;

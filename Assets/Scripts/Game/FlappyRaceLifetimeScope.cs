@@ -167,6 +167,9 @@ namespace LOP
             //  기절 별 셋(spec §3) — 내 새·남의 새 모두. 판정과 무관한 화면 연출.
             builder.RegisterEntryPoint<FlappyStunStars>();
 
+            //  판의 큰 순간 — 배경음 시작·정지, 결승 느려짐·꽃가루(결승음·도장은 RaceFinishView).
+            builder.RegisterEntryPoint<FlappyRaceCues>();
+
             //  낙하 내려다보기(FlappyFallLookDown)는 껐다 — 카메라가 새를 뒤따라 늦게 움직이는 느낌이라
             //  원조처럼 고정된 구도가 낫다(사용자 결정 2026-10-07). 클래스와 시험은 남겨 둔다.
 

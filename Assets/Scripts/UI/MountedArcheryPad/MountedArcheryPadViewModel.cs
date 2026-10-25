@@ -25,7 +25,8 @@ namespace LOP.UI
             this.entityRegistry = entityRegistry;
             this.playerContext = playerContext;
             controls = new ArcheryBowControls(input,
-                new FrictionAimCamera(cameraController, assistState, config.AimAssistFriction), ReadDrawRatio, null, MountedCameraZoom.WideFov);
+                new FrictionAimCamera(cameraController, assistState, config.AimAssistFriction), ReadDrawRatio, null, MountedCameraZoom.WideFov,
+                bodyRelativeMove: true);
         }
 
         /// <summary>손가락 끌기만 둔하게 한다 — 적이 조준 원뿔 안이면 돌리는 각에 감도를 곱한다.</summary>

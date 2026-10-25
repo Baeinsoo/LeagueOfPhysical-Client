@@ -40,6 +40,8 @@ namespace LOP.UI
         //  쓰면 손가락이 스틱을 놓는 순간 키보드 값까지 0으로 지워진다.
         private Vector2 keyMove;
 
+        private readonly bool bodyRelativeMove;
+
         //  겨누는 속도(도/초). 아래 화각을 기준으로 정한 값이고, 당겨서 화면이 좁아지면 그
         //  비율만큼 같이 줄어든다 — 그래야 손동작 하나가 **화면 위에서** 늘 같은 거리를 움직인다.
         //  (저격 게임의 "줌 감도 보정"과 같은 것. 안 하면 줌인할수록 손이 미쳐 날뛴다.)
@@ -69,10 +71,12 @@ namespace LOP.UI
         /// <param name="drawRatio">시뮬이 가진 지금 당김(0~1). 화면이 따로 세지 않는다.</param>
         /// <param name="onRelease">화살이 실제로 나갈 놓기에 부른다. 인수 = 그 순간 시위가 걸렸나. null 가능.</param>
         /// <param name="referenceFov">겨누는 속도의 기준 화각 = 그 모드의 당기지 않은 화각(도).</param>
+        /// <param name="bodyRelativeMove">참이면 스틱을 카메라 기준으로 돌리지 않고 그대로 넘긴다(말 활쏘기: 위 = 말 앞, 좌우 = 돌리기).</param>
         public ArcheryBowControls(IBowInput input, IAimCamera camera, System.Func<float> drawRatio, System.Action<bool> onRelease,
-                                  float referenceFov = ArcheryAimView.WideFov)
+                                  float referenceFov = ArcheryAimView.WideFov, bool bodyRelativeMove = false)
         {
             ReferenceFov = referenceFov;
+            this.bodyRelativeMove = bodyRelativeMove;
             this.input = input;
             this.aimCamera = camera;
             this.drawRatio = drawRatio;
@@ -374,6 +378,11 @@ namespace LOP.UI
         {
             //  손가락이 스틱을 잡고 있으면 그쪽이 이긴다 — 데스크톱 WASD는 스틱이 놀 때만.
             Vector2 stick = moveStick.sqrMagnitude > 0f ? moveStick : keyMove;
+            if (bodyRelativeMove)
+            {
+                input.SetMovement(stick.x, stick.y);
+                return;
+            }
             Vector3 world = MoveStickDirection.ToWorld(stick, aimCamera.CameraYawDegrees);
             input.SetMovement(world.x, world.z);
         }

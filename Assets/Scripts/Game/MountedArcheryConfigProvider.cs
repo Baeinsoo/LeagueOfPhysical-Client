@@ -25,7 +25,7 @@ namespace LOP
                 riderEyeHeight: r.RiderEyeHeight,
                 mount: new MountSettings(r.MountMaxSpeed, r.MountAcceleration, r.MountDeceleration,
                                          r.TurnRateStoppedDeg, r.TurnRateAtMaxDeg, r.SharpTurnDeg,
-                                         r.SharpTurnSpeedFactor, r.DrawSpeedFactor),
+                                         r.SharpTurnSpeedFactor, r.DrawSpeedFactor, r.MountReverseSpeed),
                 maxHp: r.MaxHp,
                 arrowDamage: r.ArrowDamage,
                 lagCompMaxSeconds: r.LagCompMaxSeconds,

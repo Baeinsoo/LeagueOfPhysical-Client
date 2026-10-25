@@ -117,5 +117,33 @@ namespace LOP.Tests
             Assert.AreEqual(1f, input.Movement.x, 1e-4f);
             Assert.AreEqual(0f, input.Movement.y, 1e-4f);
         }
+
+        [Test]
+        public void 다른_활쏘기_모드는_카메라_기준_그대로()
+        {
+            var input = new FakeInput();
+            var cam = new FakeCamera { CameraYawDegrees = 180f };
+            var controls = new LOP.UI.ArcheryBowControls(input, cam, () => 0f, null);
+
+            controls.SetMove(new Vector2(0f, 1f));
+            controls.FeedMove();
+
+            Assert.AreEqual(0f, input.Movement.x, 1e-4f);
+            Assert.AreEqual(-1f, input.Movement.y, 1e-4f, "카메라가 뒤를 보면 스틱 위는 월드 -z");
+        }
+
+        [Test]
+        public void 카메라와_상관없이_스틱_위는_말_앞이다()
+        {
+            var input = new FakeInput();
+            var cam = new FakeCamera { CameraYawDegrees = 180f };
+            var controls = new LOP.UI.ArcheryBowControls(input, cam, () => 0f, null, bodyRelativeMove: true);
+
+            controls.SetMove(new Vector2(0.3f, 1f));
+            controls.FeedMove();
+
+            Assert.AreEqual(0.3f, input.Movement.x, 1e-4f);
+            Assert.AreEqual(1f, input.Movement.y, 1e-4f);
+        }
     }
 }

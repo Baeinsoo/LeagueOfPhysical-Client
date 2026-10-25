@@ -1,0 +1,37 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 설정. 셸 틀(머리띠·띠)은 ShellView.uxml과 같은 마크업. 몸통에 항목 줄 — 왼쪽 이름·설명, 오른쪽 두 칸 토글. -->
+    <Style src="ShellView.uss" />
+    <ui:VisualElement name="shell-root" class="kit shell-root">
+        <ui:VisualElement class="shell-head">
+            <ui:Button name="back-button" class="kit-press kit-btn shell-back"><lop:StickerElement><ui:Label text="◀ 뒤로" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+            <ui:Label name="shell-title" class="kit-title shell-title" />
+            <ui:VisualElement name="shell-coin" class="kit-coin shell-coin"><lop:StickerElement><ui:Label name="shell-coin-text" text="🪙 -" class="kit-coin__text" /></lop:StickerElement></ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="shell-body" class="shell-body settings-body">
+            <ui:VisualElement name="settings-shake-row" class="settings-row">
+                <ui:VisualElement class="settings-row__text">
+                    <ui:Label text="화면 흔들림" class="kit-title settings-row__label" />
+                    <ui:Label text="부딪히거나 대시할 때 화면이 흔들려요" class="settings-row__hint" />
+                </ui:VisualElement>
+                <ui:VisualElement class="kit-toggle">
+                    <ui:Button name="settings-shake-on" text="켜기" class="kit-toggle__opt" />
+                    <ui:Button name="settings-shake-off" text="끄기" class="kit-toggle__opt" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="settings-names-row" class="settings-row">
+                <ui:VisualElement class="settings-row__text">
+                    <ui:Label text="상대 이름 보기" class="kit-title settings-row__label" />
+                    <ui:Label text="플래피 레이스에서 상대 새 위에 이름을 띄워요 · 다음 판부터" class="settings-row__hint" />
+                </ui:VisualElement>
+                <ui:VisualElement class="kit-toggle">
+                    <ui:Button name="settings-names-hide" text="숨기기" class="kit-toggle__opt" />
+                    <ui:Button name="settings-names-show" text="보기" class="kit-toggle__opt" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="shell-ticker" class="kit-ticker shell-ticker">
+            <lop:StickerElement class="kit-ticker__tag"><ui:VisualElement class="kit-ticker__dot" /><ui:Label text="LIVE" class="kit-title kit-ticker__tag-text" /></lop:StickerElement>
+            <ui:Label text="피지컬 리그" class="kit-ticker__text" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

@@ -40,5 +40,34 @@ namespace LOP.Tests
             Assert.AreEqual(62f, under.fov, 1e-4f);
             Assert.AreEqual(5.6f, under.distance, 1e-4f);
         }
+
+        [Test]
+        public void 누르고_0점15초면_거의_다_확대된다()
+        {
+            //  시위는 0.35초에 만작(초당 1/0.35)으로 차오르고 화면은 매 프레임 그걸 따라간다.
+            float draw = 0f, shown = 0f;
+            const float dt = 1f / 60f;
+            for (int i = 0; i < 9; i++)   // 0.15초
+            {
+                draw = UnityEngine.Mathf.MoveTowards(draw, 1f, dt / 0.35f);
+                shown = MountedCameraZoom.Step(shown, draw, dt);
+            }
+            Assert.GreaterOrEqual(shown, 0.95f);
+        }
+
+        [Test]
+        public void 놓으면_천천히_풀린다()
+        {
+            //  쏘는 순간 시위가 0으로 떨어져도 한 프레임에 화각이 튀지 않고, 0.1초 뒤에도 절반 넘게 남는다.
+            const float dt = 1f / 60f;
+            float shown = MountedCameraZoom.Step(1f, 0f, dt);
+            Assert.Greater(shown, 0.95f);
+            for (int i = 1; i < 6; i++)
+            {
+                shown = MountedCameraZoom.Step(shown, 0f, dt);
+            }
+            Assert.Greater(shown, 0.7f);
+            Assert.Less(shown, 1f);
+        }
     }
 }

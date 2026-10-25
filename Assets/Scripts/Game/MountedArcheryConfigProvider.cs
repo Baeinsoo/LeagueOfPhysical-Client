@@ -40,7 +40,8 @@ namespace LOP
                 botAimErrorDeg: r.BotAimErrorDeg,
                 botReactionMinSeconds: r.BotReactionMinSeconds,
                 botReactionMaxSeconds: r.BotReactionMaxSeconds,
-                botEngageRange: r.BotEngageRange);
+                botEngageRange: r.BotEngageRange,
+                fullDrawSeconds: r.FullDrawSeconds);
         }
 
         //  엑셀 줄이 옮겨져도 1단계부터 순서대로 나가도록 id로 정렬한다.

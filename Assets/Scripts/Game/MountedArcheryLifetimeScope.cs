@@ -26,11 +26,7 @@ namespace LOP
                 c => c.Resolve<MountedArcheryConfigProvider>().Get(), Lifetime.Singleton);
 
             builder.Register(c => new MountSystem(c.Resolve<MountedArcheryConfig>().Mount), Lifetime.Singleton);
-            builder.Register(c =>
-            {
-                var cfg = c.Resolve<MountedArcheryConfig>();
-                return new ArcheryAimSystem(cfg.ToBowConfig(), cfg.RiderEyeHeight, turnBodyToAim: false);
-            }, Lifetime.Singleton);
+            builder.Register(c => c.Resolve<MountedArcheryConfig>().CreateAimSystem(), Lifetime.Singleton);
 
             builder.Register<MountedArcheryWorld>(c => new MountedArcheryWorld(
                 c.Resolve<GameFramework.World.EntityRegistry>(),

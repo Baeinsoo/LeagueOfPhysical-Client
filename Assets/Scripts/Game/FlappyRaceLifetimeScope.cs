@@ -142,6 +142,9 @@ namespace LOP
             //  상대 새의 차분한 색(spec §2) — 머티리얼 주인인 StunAppearance에 평소 칠로 맡긴다. 판정과 무관.
             builder.RegisterEntryPoint<FlappyOpponentTint>();
 
+            //  내 새 흰 테두리·노란 화살표(spec §2) — 판정과 무관한 클라 전용 연출.
+            builder.RegisterEntryPoint<FlappyMyBirdMarker>();
+
             //  낙하 내려다보기(FlappyFallLookDown)는 껐다 — 카메라가 새를 뒤따라 늦게 움직이는 느낌이라
             //  원조처럼 고정된 구도가 낫다(사용자 결정 2026-10-07). 클래스와 시험은 남겨 둔다.
 

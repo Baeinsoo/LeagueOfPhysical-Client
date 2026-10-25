@@ -29,13 +29,6 @@ namespace LOP
         // 캐릭터가 아니면(아이템 등) null — StunAppearance는 캐릭터에만 붙는다.
         public StunAppearance stunAppearance { get; set; }
 
-        /// <summary>
-        /// 보이는 몸만 이만큼(초) 더 늦게 그린다. 기본 0. 플래피의 멈칫·결승 느려짐이 쓴다(<see cref="FlappyVisualTimeWarp"/>) —
-        /// 시뮬·판정은 그대로 가고 그림(과 그 그림을 따라가는 카메라)만 잠깐 섰다가 따라잡는다.
-        /// 저장 샘플이 20개라(50 Hz면 0.4초) 0.2초를 넘기지 않는다(<see cref="VisualTimeWarp.MaxDelay"/>).
-        /// </summary>
-        public double renderDelaySeconds { get; set; }
-
         private struct RenderSample
         {
             public double time;
@@ -113,8 +106,8 @@ namespace LOP
                 return;
             }
 
-            // 한 틱 뒤 연속 시각에서 그린다(외삽 대신 과거 두 샘플 사이 보간). 연출이 그림을 늦추면 그만큼 더 과거.
-            double renderTime = runner.tickUpdater.elapsedTime - runner.tickUpdater.interval - renderDelaySeconds;
+            // 한 틱 뒤 연속 시각에서 그린다(외삽 대신 과거 두 샘플 사이 보간).
+            double renderTime = runner.tickUpdater.elapsedTime - runner.tickUpdater.interval;
 
             sampleTimes.Clear();
             for (int i = 0; i < samples.Count; i++)

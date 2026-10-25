@@ -139,11 +139,8 @@ namespace LOP
             //  카메라 흔들림 주인 하나(대시 몫 + 충돌 트라우마, "흔들림 끄기"). 대시·충돌 연출이 주입받으므로 AsSelf.
             builder.RegisterEntryPoint<FlappyCameraShake>().AsSelf();
 
-            //  충돌 묶음(spec §3) — 멈칫·트라우마·파편·쿵. 그림 지연보다 먼저 등록해 같은 프레임에 멈칫이 시작된다.
+            //  충돌 묶음(spec §3) — 트라우마·파편·쿵.
             builder.RegisterEntryPoint<FlappyCrashFx>();
-
-            //  멈칫·결승 느려짐 — 시계가 아니라 내 새 그림만 늦춘다(판정 무관). 충돌·결승 연출이 주입받으므로 AsSelf.
-            builder.RegisterEntryPoint<FlappyVisualTimeWarp>().AsSelf();
 
             //  새마다 그림·기절 읽기 한 곳 — 충돌 묶음과 기절 별이 같은 답을 봐야 한다.
             builder.Register<IFlappyBirdLooks, FlappyBirdLooks>(Lifetime.Singleton);
@@ -167,7 +164,7 @@ namespace LOP
             //  기절 별 셋(spec §3) — 내 새·남의 새 모두. 판정과 무관한 화면 연출.
             builder.RegisterEntryPoint<FlappyStunStars>();
 
-            //  판의 큰 순간 — 배경음 시작·정지, 결승 느려짐·꽃가루(결승음·도장은 RaceFinishView).
+            //  판의 큰 순간 — 배경음 시작·정지, 꽃가루(결승음·도장은 RaceFinishView).
             builder.RegisterEntryPoint<FlappyRaceCues>();
 
             //  낙하 내려다보기(FlappyFallLookDown)는 껐다 — 카메라가 새를 뒤따라 늦게 움직이는 느낌이라

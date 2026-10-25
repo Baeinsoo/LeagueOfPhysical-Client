@@ -6,7 +6,7 @@ using UnityEngine;
 namespace LOP.Tests
 {
     /// <summary>
-    /// 판의 큰 순간: 내 새가 생기면 배경음, 결승하면 음악을 끄고(결승음은 도장 창이 낸다) 0.25초 0.4배 느려짐 + 꽃가루 한 번,
+    /// 판의 큰 순간: 내 새가 생기면 배경음, 결승하면 음악을 끄고(결승음은 도장 창이 낸다) 꽃가루 한 번,
     /// 탈락하면 음악만 끈다. 이미 결승한 채로 들어오면(재접속) 아무것도 안 한다.
     /// </summary>
     public class FlappyRaceCuesTests
@@ -22,7 +22,6 @@ namespace LOP.Tests
         private ActorRegistry actors;
         private FakeGameDataStore store;
         private FakeFlappyAudio audio;
-        private FlappyVisualTimeWarp warp;
         private FlappyBurstFx bursts;
         private FlappyRaceCues cues;
         private FinishState finish;
@@ -40,10 +39,8 @@ namespace LOP.Tests
             actors = new ActorRegistry();
             store = new FakeGameDataStore { userEntityId = "me" };
             audio = new FakeFlappyAudio();
-            warp = new FlappyVisualTimeWarp(actors, store);
-            warp.applyDelay = _ => { };
             bursts = new FlappyBurstFx();
-            cues = new FlappyRaceCues(registry, actors, store, audio, warp, bursts, Config());
+            cues = new FlappyRaceCues(registry, actors, store, audio, bursts, Config());
         }
 
         [TearDown]
@@ -90,7 +87,7 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 결승하면_음악을_끄고_느리게_꽃가루()
+        public void 결승하면_음악을_끄고_꽃가루()
         {
             MyBird();
             cues.Tick();
@@ -101,7 +98,6 @@ namespace LOP.Tests
 
             Assert.AreEqual(1, audio.MusicStops);
             Assert.AreEqual(4 * FlappyRaceCues.ConfettiPerColor, bursts.Count, "4색 × 14조각, 한 번만");
-            Assert.AreEqual(0.15f, warp.Warp.Advance(0.25f), 1e-4f, "0.25초 동안 그림 0.4배");
         }
 
         [Test]
@@ -115,7 +111,6 @@ namespace LOP.Tests
 
             Assert.AreEqual(1, audio.MusicStops);
             Assert.AreEqual(0, bursts.Count);
-            Assert.AreEqual(0f, warp.Warp.Advance(0.1f));
         }
 
         [Test]

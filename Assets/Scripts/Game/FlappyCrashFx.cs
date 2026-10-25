@@ -7,8 +7,8 @@ namespace LOP
 {
     /// <summary>
     /// 충돌 묶음(spec §3). 내 새가 기절에 <b>들어가는 순간</b>(예측 기준 — 서버 교정으로 기절이 생겨도 같은 값으로 들어온다):
-    /// 멈칫 0.06초(그림만) + 트라우마 +0.55 + 돌 파편 + 쿵 소리(음악 잠깐 낮춤). 남의 새가 기절하면 작은 파편 + <b>지금 보는 새</b>와
-    /// 14 m 안이면 작은 쿵. 판정과 무관한 화면·소리 연출이다.
+    /// 트라우마 +0.55 + 돌 파편 + 쿵 소리(음악 잠깐 낮춤). 남의 새가 기절하면 작은 파편 + <b>지금 보는 새</b>와
+    /// 14 m 안이면 작은 쿵. 판정과 무관한 화면·소리 연출이다(10-25: 그림은 늘 실제 위치를 그리므로 멈칫은 없다).
     /// <para>"지금 보는 새"는 내가 달리는 동안은 늘 나 자신이지만, 완주한 뒤 관전 중엔 다른 새가 된다
     /// (<see cref="FlappySpectate"/>). 그래서 기준점을 내 새가 아니라 관전 대상으로 잡는다 — 안 그러면 관전 중인 화면과
     /// 먼 내 완주 자리를 기준으로 가깝고 먼지를 재서 코앞 충돌이 조용하다.</para>
@@ -17,7 +17,6 @@ namespace LOP
     /// </summary>
     public class FlappyCrashFx : ITickable
     {
-        internal const float HitstopSeconds = 0.06f;
         internal const float TraumaKick = 0.55f;
         internal const float FarSoundRange = 14f;
 
@@ -27,7 +26,6 @@ namespace LOP
 
         private readonly IFlappyBirdLooks looks;
         private readonly FlappyCameraShake shake;
-        private readonly FlappyVisualTimeWarp warp;
         private readonly FlappyBurstFx bursts;
         private readonly IFlappyAudio audio;
         private readonly FlappyConfig config;
@@ -43,12 +41,11 @@ namespace LOP
         //  이중으로 흐른다), 그래서 여기선 읽기만 한다.
         internal Func<string> watchedEntityId;
 
-        public FlappyCrashFx(IFlappyBirdLooks looks, FlappyCameraShake shake, FlappyVisualTimeWarp warp,
+        public FlappyCrashFx(IFlappyBirdLooks looks, FlappyCameraShake shake,
                              FlappyBurstFx bursts, IFlappyAudio audio, FlappyConfig config, FlappySpectate spectate)
         {
             this.looks = looks;
             this.shake = shake;
-            this.warp = warp;
             this.bursts = bursts;
             this.audio = audio;
             this.config = config;
@@ -108,7 +105,6 @@ namespace LOP
 
         private void OnMyCrash(Vector3 at)
         {
-            warp.Hitstop(HitstopSeconds);
             shake.AddTrauma(TraumaKick);
             bursts.Burst(at, Dust, 22, 9f, 0.6f, 0.2f);
             bursts.Burst(at, Spark, 8, 6f, 0.4f, 0.14f);

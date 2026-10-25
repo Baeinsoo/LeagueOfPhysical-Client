@@ -39,7 +39,7 @@ namespace LOP.Tests
         {
             var spectate = new FlappySpectate(registry, new FakeGameDataStore { userEntityId = myEntityId });
             //  0초짜리 틱으로 돌려 결승 붙잡기 타이머가 시험 사이에서 실제 UnityEngine.Time에
-            //  휘둘리지 않게 한다(아래 FlappyVisualTimeWarp·FlappyAudio 시험과 같은 자리).
+            //  휘둘리지 않게 한다(아래 FlappyAudio 시험과 같은 자리).
             spectate.Refresh(0f);
             return spectate;
         }
@@ -136,7 +136,7 @@ namespace LOP.Tests
         {
             //  내 새의 통과는 클라 시뮬이 직접 판정한다(FinishState). 후보에서는 바로 빠지지만
             //  결승 도장이 사라지는 2.2초(global-constraints §결승 도장)까지는 Current가 나를 붙잡아 둔다 —
-            //  그래야 결승 느려짐(FlappyVisualTimeWarp.Slow)·꽃가루(FlappyRaceCues)가 화면에 보인다.
+            //  그래야 꽃가루(FlappyRaceCues)가 화면에 보인다.
             var mine = Bird("me", 50f);
             mine.Add(new FinishState { FinishedTick = 100 });
             var registry = Registry(mine, Bird("other", 10f));

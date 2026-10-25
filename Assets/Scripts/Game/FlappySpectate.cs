@@ -10,10 +10,10 @@ namespace LOP
     /// 직접 고를 수 있다.
     ///
     /// <para>내가 결승선을 넘은 바로 뒤 <see cref="FinishHoldSeconds"/>(결승 도장이 사라지는 시간)
-    /// 동안은 후보에서 빠졌어도 계속 나를 붙잡아 둔다 — 그동안 내 새에 거는 결승 느려짐
-    /// (<see cref="FlappyVisualTimeWarp.Slow"/>)과 꽃가루(<see cref="FlappyRaceCues"/>)가 화면
-    /// 밖에서 터지면 아무도 못 본다. 탈락처럼 엔티티 자체가 사라지는 경우는 이 창과 무관하게
-    /// 바로 바뀐다 — Rebuild가 나를 아예 후보에도 못 올리기 때문이다.</para>
+    /// 동안은 후보에서 빠졌어도 계속 나를 붙잡아 둔다 — 그동안 내 새에 터지는
+    /// 꽃가루(<see cref="FlappyRaceCues"/>)가 화면 밖에서 터지면 아무도 못 본다. 탈락처럼
+    /// 엔티티 자체가 사라지는 경우는 이 창과 무관하게 바로 바뀐다 — Rebuild가 나를 아예
+    /// 후보에도 못 올리기 때문이다.</para>
     ///
     /// <para>카메라와 추격자 벽이 <b>같은 답</b>을 봐야 해서 주인을 하나로 둔다. 주인이 둘이면
     /// 자동 추적이 매 틱 수동 선택을 덮어쓴다.</para>
@@ -59,7 +59,7 @@ namespace LOP
         public void Refresh() => Refresh(UnityEngine.Time.deltaTime);
 
         //  시험 이음매 — 결승 붙잡기 타이머를 실제 UnityEngine.Time 없이 결정적으로 돌린다
-        //  (FlappyVisualTimeWarp.Tick(float)·FlappyAudio.Tick(float)과 같은 자리).
+        //  (FlappyAudio.Tick(float)과 같은 자리).
         internal void Refresh(float deltaTime)
         {
             Rebuild();

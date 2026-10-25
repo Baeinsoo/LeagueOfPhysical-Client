@@ -6,14 +6,13 @@ namespace LOP
 {
     /// <summary>
     /// 판의 큰 순간에 소리·연출을 건다. 내 새가 생기면 배경음(spec §6), 결승하면 음악을 끄고(spec §5 "결승하면 음악이 끝난다")
-    /// 0.25초 동안 그림 0.4배 + 꽃가루 한 번(spec §3), 탈락하면 음악만 끈다. 결승음·도장음은 도장 창(<see cref="LOP.UI.RaceFinishViewModel"/>)이 낸다.
+    /// 꽃가루 한 번(spec §3), 탈락하면 음악만 끈다. 결승음·도장음은 도장 창(<see cref="LOP.UI.RaceFinishViewModel"/>)이 낸다.
+    /// 그림은 늘 실제 위치를 그리므로 결승 느려짐은 없다(사용자 결정 2026-10-25).
     /// <para>결승은 알림이 없다 — 매 틱 바뀌는 상태(FinishState)라 <see cref="FlappyHudCoordinator"/>처럼 여기서도 본다. "달리는 걸 본 뒤"의
     /// 결승만 연출한다 — 이미 결승한 채로 들어오면(재접속) 지난 순간을 다시 터뜨리지 않는다.</para>
     /// </summary>
     public class FlappyRaceCues : ITickable, IDisposable
     {
-        internal const float SlowSeconds = 0.25f;
-        internal const float SlowRate = 0.4f;
         internal const int ConfettiPerColor = 14;
 
         //  시제품 꽃가루 4색.
@@ -29,7 +28,6 @@ namespace LOP
         private readonly ActorRegistry actorRegistry;
         private readonly IGameDataStore gameDataStore;
         private readonly IFlappyAudio audio;
-        private readonly FlappyVisualTimeWarp warp;
         private readonly FlappyBurstFx bursts;
         private readonly FlappyConfig config;
 
@@ -41,14 +39,13 @@ namespace LOP
         internal Func<float> random = () => UnityEngine.Random.value;
 
         public FlappyRaceCues(GameFramework.World.EntityRegistry entityRegistry, ActorRegistry actorRegistry,
-                              IGameDataStore gameDataStore, IFlappyAudio audio, FlappyVisualTimeWarp warp,
+                              IGameDataStore gameDataStore, IFlappyAudio audio,
                               FlappyBurstFx bursts, FlappyConfig config)
         {
             this.entityRegistry = entityRegistry;
             this.actorRegistry = actorRegistry;
             this.gameDataStore = gameDataStore;
             this.audio = audio;
-            this.warp = warp;
             this.bursts = bursts;
             this.config = config;
         }
@@ -86,7 +83,6 @@ namespace LOP
 
         private void OnMyFinish(string id)
         {
-            warp.Slow(SlowSeconds, SlowRate);
             var actor = actorRegistry.Get(id);
             var visual = actor != null ? actor.visualGameObject : null;
             if (visual == null)

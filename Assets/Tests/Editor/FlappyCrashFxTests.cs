@@ -4,7 +4,7 @@ using UnityEngine;
 namespace LOP.Tests
 {
     /// <summary>
-    /// 충돌 묶음(spec §3): 내 새가 기절에 <b>들어가는 순간</b> 멈칫·트라우마·파편·쿵·음악 낮추기가 한 번. 남의 새는 작은 파편 +
+    /// 충돌 묶음(spec §3): 내 새가 기절에 <b>들어가는 순간</b> 트라우마·파편·쿵·음악 낮추기가 한 번. 남의 새는 작은 파편 +
     /// 가까우면(14 m) 작은 쿵. 처음 본 새가 이미 기절 중이면 터뜨리지 않는다(늦은 로드·재접속).
     /// </summary>
     public class FlappyCrashFxTests
@@ -19,7 +19,6 @@ namespace LOP.Tests
         private FakeFlappyBirdLooks looks;
         private FakeFlappyAudio audio;
         private FlappyCameraShake shake;
-        private FlappyVisualTimeWarp warp;
         private FlappyBurstFx bursts;
         private FlappyCrashFx crash;
         private GameObject meGo;
@@ -37,10 +36,8 @@ namespace LOP.Tests
             audio = new FakeFlappyAudio();
             shake = new FlappyCameraShake(null) { ShakeOff = false };
             shake.applyOffset = _ => { };
-            warp = new FlappyVisualTimeWarp(new ActorRegistry(), new FakeGameDataStore());
-            warp.applyDelay = _ => { };
             bursts = new FlappyBurstFx();
-            crash = new FlappyCrashFx(looks, shake, warp, bursts, audio, Config(),
+            crash = new FlappyCrashFx(looks, shake, bursts, audio, Config(),
                                        new FlappySpectate(new GameFramework.World.EntityRegistry(), new FakeGameDataStore()));
             //  시험 이음매로 "지금 보는 새"를 직접 고른다 — 평소(관전 안 함·내가 달리는 중)엔 나를 본다.
             crash.watchedEntityId = () => "me";
@@ -79,7 +76,6 @@ namespace LOP.Tests
             Assert.AreEqual(1, audio.Ducks, "쿵 소리에 음악을 잠깐 낮춘다");
             Assert.AreEqual(FlappyCrashFx.TraumaKick, shake.Trauma, 1e-5f);
             Assert.AreEqual(30, bursts.Count, "흙 22 + 불티 8");
-            Assert.AreEqual(0.02f, warp.Warp.Advance(0.02f), 1e-5f, "멈칫 — 그림이 서 있다");
         }
 
         [Test]

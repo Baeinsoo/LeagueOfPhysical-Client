@@ -140,5 +140,28 @@ namespace LOP.Tests
 
             Assert.AreSame(body, bodyRenderer.sharedMaterial, "칠을 안 받은 새(내 새)는 복제 없이 원본");
         }
+
+        //  내 새 표시(FlappyMyBirdMarker)는 그림의 자식이라 GetComponentsInChildren에 같이 걸린다.
+        //  StunAppearanceIgnore를 단 장식은 기절색·칠이 안 묻어야 하고, 표시가 먼저 사라져도(Destroy) 정리가 안 죽어야 한다.
+        [Test]
+        public void 표시_장식은_기절색을_안_받고_지워져도_정리가_안_죽는다()
+        {
+            var markerRoot = new GameObject("Marker");
+            markerRoot.transform.SetParent(actorGo.transform.Find("Visual"), false);
+            markerRoot.AddComponent<StunAppearanceIgnore>();
+            var markerGo = new GameObject("MarkerSprite");
+            markerGo.transform.SetParent(markerRoot.transform, false);
+            var markerRenderer = markerGo.AddComponent<SpriteRenderer>();
+            var markerOriginalMaterial = markerRenderer.sharedMaterial;
+
+            appearance.SetState(StunVisual.Stunned);
+
+            Assert.AreSame(markerOriginalMaterial, markerRenderer.sharedMaterial, "표시는 StunAppearance가 건드리지 않는다");
+
+            Object.DestroyImmediate(markerGo);
+            Assert.DoesNotThrow(() => appearance.Cleanup(), "표시가 먼저 사라져도 정리는 죽지 않는다");
+
+            Object.DestroyImmediate(markerRoot);
+        }
     }
 }

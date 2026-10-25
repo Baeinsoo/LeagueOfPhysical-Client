@@ -99,6 +99,8 @@ namespace LOP
             disk = disk != null ? disk : MakeDisk();
             triangle = triangle != null ? triangle : MakeDownTriangle();
             root = new GameObject("FlappyMyBirdMarker");
+            //  그림의 자식이라 StunAppearance의 GetComponentsInChildren에도 걸린다 — 머티리얼 주인이 아니니 빼 달라는 표시.
+            root.AddComponent<StunAppearanceIgnore>();
             silhouette = MakeSprite("MyBirdSilhouette", disk, Color.white);
             arrow = MakeSprite("MyBirdArrow", triangle, ArrowColor);
         }

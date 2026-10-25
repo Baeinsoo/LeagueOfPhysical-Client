@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using GameFramework;
 using UnityEngine;
 
@@ -132,7 +133,10 @@ namespace LOP
                 return false;
             }
 
-            renderers = visual.GetComponentsInChildren<Renderer>(true);
+            //  내 새 표시(FlappyMyBirdMarker) 같은 장식은 그림의 자식이라 여기 같이 걸린다 — 머티리얼 주인이
+            //  다르므로(StunAppearanceIgnore) 걸러낸다. 안 걸러내면 기절색·칠이 장식에도 묻고, 장식이 먼저
+            //  사라지면(Destroy) Cleanup이 죽은 렌더러에 쓰려다 죽는다.
+            renderers = FilterIgnored(visual.GetComponentsInChildren<Renderer>(true));
             originalMaterials = new Material[renderers.Length];
             for (int i = 0; i < renderers.Length; i++)
             {
@@ -146,6 +150,20 @@ namespace LOP
                 Show(BaseMaterials());
             }
             return renderers.Length > 0;
+        }
+
+        //  StunAppearanceIgnore가 붙은(또는 그 자식인) 렌더러는 뺀다 — 장식용이라 머티리얼 주인이 StunAppearance가 아니다.
+        private static Renderer[] FilterIgnored(Renderer[] all)
+        {
+            var kept = new List<Renderer>(all.Length);
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (all[i].GetComponentInParent<StunAppearanceIgnore>(true) == null)
+                {
+                    kept.Add(all[i]);
+                }
+            }
+            return kept.ToArray();
         }
 
         /// <summary>지금 그릴 상태. 같은 값을 매 틱 다시 넣어도 된다.</summary>
@@ -239,6 +257,12 @@ namespace LOP
             shown = materials;
             for (int i = 0; i < renderers.Length; i++)
             {
+                //  이 배열에 걸린 렌더러가 StunAppearance 바깥에서 먼저 파괴됐을 수 있다(예: 장식이 StunAppearanceIgnore로
+                //  걸러지지 않은 채 Destroy됐거나, 모델이 안전하지 않은 순서로 바뀐 경우) — 파괴된 레퍼런스에 쓰면 죽는다.
+                if (renderers[i] == null)
+                {
+                    continue;
+                }
                 // sharedMaterial "쓰기"는 그 렌더러가 참조할 에셋을 바꿀 뿐 복제를 유발하지 않는다
                 // (복제는 오직 .material을 "읽을" 때만 일어난다) — 원래대로 되돌릴 때도 복사본이
                 // 아니라 진짜 원본 레퍼런스로 되돌아간다.

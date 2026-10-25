@@ -1,6 +1,14 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <!-- 결승 도장(spec §3) — FINISH! 뒤 0.45초에 순위 도장. 도장이 사라지면 위쪽 작은 판에 등수가 남는다.
+         전부 표시 전용(picking 통과) — 관전 막대와 남은 경기를 가리지 않는다. -->
     <ui:VisualElement name="race-finish-root" class="race-finish-root" picking-mode="Ignore">
-        <ui:Label name="race-finish-place" class="race-finish-place" text="" picking-mode="Ignore" />
-        <ui:Label name="race-finish-note" class="race-finish-note" text="완주" picking-mode="Ignore" />
+        <ui:Label name="race-finish-stamp" class="kit-title race-finish-stamp" text="FINISH!" picking-mode="Ignore" />
+        <ui:VisualElement name="race-finish-rank-stamp" class="race-finish-rank-stamp" picking-mode="Ignore">
+            <ui:Label name="race-finish-rank-sub" class="kit-title race-finish-rank-sub" text="우승!" picking-mode="Ignore" />
+            <ui:Label name="race-finish-rank-text" class="kit-title race-finish-rank-text" text="" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:VisualElement name="race-finish-settled" class="race-finish-settled" picking-mode="Ignore">
+            <ui:Label name="race-finish-place" class="kit-title race-finish-place" text="" picking-mode="Ignore" />
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

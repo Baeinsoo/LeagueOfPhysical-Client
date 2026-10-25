@@ -145,6 +145,9 @@ namespace LOP
             //  새마다 그림·기절 읽기 한 곳 — 충돌 묶음과 기절 별이 같은 답을 봐야 한다.
             builder.Register<IFlappyBirdLooks, FlappyBirdLooks>(Lifetime.Singleton);
 
+            //  파편·꽃가루 조각 — 충돌 묶음과 결승 연출이 주입받으므로 AsSelf.
+            builder.RegisterEntryPoint<FlappyBurstFx>().AsSelf();
+
             //  대시 흔들림·속도선·꼬리 — 판정과 무관한 클라 전용 연출.
             builder.RegisterEntryPoint<FlappyDashFx>();
             //  빛 알갱이 그림·빨려 드는 복사본·"+n알"(판정과 무관한 화면 연출). 글자는 우편함을 거쳐 HUD가 띄운다.

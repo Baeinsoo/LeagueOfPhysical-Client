@@ -182,6 +182,8 @@ namespace LOP
             builder.RegisterEntryPoint<FlappyCorridorCamera>();
 
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
+            //  날갯짓 소리 — 입력면이 누른 순간 부른다(사용자 결정 10-25).
+            builder.Register<FlappyFlapSound>(Lifetime.Singleton);
             builder.Register<FlapPadViewModel>(Lifetime.Transient);
             builder.Register<FlapPadView>(Lifetime.Transient);
             //  정보 HUD(진행 막대·순위·기록 시간). 소스는 출발 x를 한 번 정해 판 내내 쥐므로 싱글턴.

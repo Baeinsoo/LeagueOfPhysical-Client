@@ -20,6 +20,8 @@ namespace LOP.UI
         public float FinishX;
         /// <summary>출발 x와 결승선 x를 둘 다 알고 결승선이 앞에 있다.</summary>
         public bool HasCourse;
+        /// <summary>맵의 구간 표식(x 오름차순). 표식이 없는 맵(전통)이면 비어 있다.</summary>
+        public readonly List<CourseSection> Sections = new List<CourseSection>();
 
         public void Clear()
         {
@@ -32,6 +34,7 @@ namespace LOP.UI
             StartX = 0f;
             FinishX = 0f;
             HasCourse = false;
+            Sections.Clear();
         }
     }
 

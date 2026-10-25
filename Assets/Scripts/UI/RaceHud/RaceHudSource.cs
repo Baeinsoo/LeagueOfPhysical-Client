@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace LOP.UI
@@ -24,6 +25,12 @@ namespace LOP.UI
 
         //  한 번 정하면 판 내내 그대로 둔다 — 새가 앞으로 가도 출발 x가 따라오면 막대가 줄어든다.
         private float? _startX;
+
+        //  테스트 seam — 실제로는 맵 씬의 FlappyCourseSection을 x 순으로(spec §5).
+        internal Func<List<CourseSection>> courseSections = CourseSections.FindInScene;
+
+        //  맵이 올라온 뒤 한 번 찾아 판 내내 쥔다. null = 아직 안 찾음.
+        private List<CourseSection> _sections;
 
         public RaceHudSource(GameFramework.World.EntityRegistry entityRegistry,
                              ActorRegistry actorRegistry,
@@ -87,6 +94,17 @@ namespace LOP.UI
             //  결승 판정이 앞면(min.x)에 닿는 순간이라 막대 끝도 앞면이다(FlappyChaserView의 정지선과 같은 값).
             frame.FinishX = hasFinish ? bounds.min.x : 0f;
             frame.HasCourse = _startX != null && hasFinish && frame.FinishX > frame.StartX;
+
+            //  구간 표식은 맵이 올라온 뒤(결승선을 안 뒤 — FinishLine이 맵 로드 때 스스로 등록한다) 한 번만 찾는다.
+            //  그 전에 찾으면 빈 목록을 판 내내 쥐고, 매 프레임 찾으면 표식 없는 전통 맵에서 씬을 프레임마다 훑는다.
+            if (_sections == null && hasFinish)
+            {
+                _sections = courseSections() ?? new List<CourseSection>();
+            }
+            if (_sections != null)
+            {
+                frame.Sections.AddRange(_sections);
+            }
         }
 
         private static float? FindSpawnStartX()

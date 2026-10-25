@@ -98,6 +98,27 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 치운_뒤엔_되살아나지_않는다()
+        {
+            //  Play·StartMusic·SetFinalStretch가 모두 Initialize()를 느슨하게 부른다 — disposed 깃발이
+            //  없으면 치운 뒤에도 GameObject·클립을 다시 지어 되살아난다(이번 수정 전 버그).
+            audio = new FlappyAudio(new FlappySoundBankSlot(null));
+            audio.Initialize();
+            var played = new List<AudioClip>();
+            audio.playOneShot = played.Add;
+
+            audio.Dispose();
+
+            Assert.DoesNotThrow(() => audio.Play(FlappySfx.Go));
+            Assert.DoesNotThrow(() => audio.StartMusic());
+            Assert.DoesNotThrow(() => audio.SetFinalStretch(true));
+
+            Assert.IsEmpty(played, "치운 뒤엔 소리가 나지 않는다");
+            Assert.IsFalse(audio.MusicPlaying, "치운 뒤엔 배경음도 켜지지 않는다");
+            Assert.IsNull(audio.MusicClip, "클립도 다시 짓지 않는다 — Initialize가 되살리면 안 된다");
+        }
+
+        [Test]
         public void 치우면_합성_클립만_지운다()
         {
             bank = ScriptableObject.CreateInstance<FlappySoundBank>();

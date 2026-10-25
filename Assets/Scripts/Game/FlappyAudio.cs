@@ -34,6 +34,9 @@ namespace LOP
         private AudioSource musicSource;
         private AudioClip musicClip;
         private float duckAge = float.MaxValue;
+        //  치운 뒤엔 되살아나지 않는다 — Play·StartMusic·SetFinalStretch가 느슨하게 부르는
+        //  Initialize()가 치운 GameObject·클립을 다시 짓지 못하게 막는다.
+        private bool disposed;
 
         //  시험 이음매 — 실제로는 효과음 AudioSource.PlayOneShot. 시험은 무엇이 불렸는지만 본다.
         internal Action<AudioClip> playOneShot;
@@ -57,7 +60,7 @@ namespace LOP
         /// <summary>경기 스코프가 지어질 때 클립을 다 짓는다 — 첫 쿵에서 짓느라 한 프레임 끊기지 않게.</summary>
         public void Initialize()
         {
-            if (root != null)
+            if (disposed || root != null)
             {
                 return;
             }
@@ -82,11 +85,19 @@ namespace LOP
 
         public void Play(FlappySfx sfx)
         {
+            if (disposed)
+            {
+                return;
+            }
             playOneShot(ClipOf(sfx));
         }
 
         public void StartMusic()
         {
+            if (disposed)
+            {
+                return;
+            }
             Initialize();
             if (MusicPlaying)
             {
@@ -110,6 +121,10 @@ namespace LOP
 
         public void SetFinalStretch(bool on)
         {
+            if (disposed)
+            {
+                return;
+            }
             Initialize();
             musicSource.pitch = on ? FinalStretchPitch : 1f;
         }
@@ -165,6 +180,7 @@ namespace LOP
 
         public void Dispose()
         {
+            disposed = true;
             if (musicSource != null)
             {
                 musicSource.Stop();

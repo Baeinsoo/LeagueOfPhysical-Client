@@ -136,6 +136,9 @@ namespace LOP
             builder.RegisterInstance(new FlappySoundBankSlot(soundBank));
             builder.RegisterEntryPoint<FlappyAudio>();
 
+            //  카메라 흔들림 주인 하나(대시 몫 + 충돌 트라우마, "흔들림 끄기"). 대시·충돌 연출이 주입받으므로 AsSelf.
+            builder.RegisterEntryPoint<FlappyCameraShake>().AsSelf();
+
             //  대시 흔들림·속도선·꼬리 — 판정과 무관한 클라 전용 연출.
             builder.RegisterEntryPoint<FlappyDashFx>();
             //  빛 알갱이 그림·빨려 드는 복사본·"+n알"(판정과 무관한 화면 연출). 글자는 우편함을 거쳐 HUD가 띄운다.

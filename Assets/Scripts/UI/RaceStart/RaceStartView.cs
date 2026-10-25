@@ -1,13 +1,18 @@
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace LOP.UI
 {
     /// <summary>
-    /// 출발 전 안내를 화면 가운데 큰 글자로 띄운다. 아래 입력을 막지 않는다 —
-    /// 카운트다운 중 탭은 월드가 어차피 무시하므로 굳이 차단할 이유가 없다.
+    /// 출발 전 안내를 화면 가운데 큰 글자로 띄운다. 플래피는 spec §3대로 3·2·1이 숫자마다 1.5배에서 팝, GO!는 초록으로 0.8초에 걸쳐
+    /// 사라진다(변형 클래스 --pop·--go). 기마 궁술은 예전 모양 그대로(<see cref="IRaceStartLook"/> — 사용자 결정 10-25).
+    /// 아래 입력을 막지 않는다 — 카운트다운 중 탭은 월드가 어차피 무시하므로 굳이 차단할 이유가 없다.
     /// </summary>
     public class RaceStartView : UIView
     {
+        private const string PopClass = "race-start-text--pop";
+        private const string GoClass = "race-start-text--go";
+
         private readonly RaceStartViewModel _viewModel;
 
         private Label _text;
@@ -30,16 +35,28 @@ namespace LOP.UI
 
             _text = Root.Q<Label>("race-start-text");
 
-            //  UIView에는 Update가 없다 — 패널 스케줄러로 매 프레임 값을 가져온다
-            //  (카운트다운은 변경 이벤트가 없는 샘플링 값이라 DebugHudView와 같은 방식).
-            //  문구가 없어지면 display:None으로 "숨길" 뿐 창을 닫지 않는다 — 스케줄러는 레이스가
-            //  끝날 때까지 계속 돌며(값을 매 프레임 확인), 창을 닫는 건 윈도우 매니저의 몫이다.
-            _tick = Root.schedule.Execute(_ =>
+            //  UIView에는 Update가 없다 — 패널 스케줄러로 매 프레임 값을 가져온다.
+            //  문구가 없어지면 display:None으로 "숨길" 뿐 창을 닫지 않는다 — 창을 닫는 건 윈도우 매니저의 몫이다.
+            _tick = Root.schedule.Execute(_ => Draw()).Every(0);
+        }
+
+        private void Draw()
+        {
+            _viewModel.Refresh();
+            string text = _viewModel.Text;
+            bool show = string.IsNullOrEmpty(text) == false;
+            Root.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+            if (show == false)
             {
-                string text = _viewModel.CurrentText();
-                _text.text = text;
-                Root.style.display = string.IsNullOrEmpty(text) ? DisplayStyle.None : DisplayStyle.Flex;
-            }).Every(0);
+                return;
+            }
+            _text.text = text;
+            //  예전 모양(기마 궁술)이면 IsPop·IsGo가 늘 거짓, 크기·투명도 늘 1 — 기본 규칙 그대로 보인다.
+            _text.EnableInClassList(PopClass, _viewModel.IsPop);
+            _text.EnableInClassList(GoClass, _viewModel.IsGo);
+            float s = _viewModel.TextScale;
+            _text.style.scale = new Scale(new Vector3(s, s, 1f));
+            _text.style.opacity = _viewModel.Alpha;
         }
 
         private bool _disposed;

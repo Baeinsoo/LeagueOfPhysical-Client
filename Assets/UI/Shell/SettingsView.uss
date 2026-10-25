@@ -1,0 +1,6 @@
+/* 설정 — 1920×1080 기준. 셸 틀(ShellView.uss) 위에 항목 줄만 더한다. 토글 모양은 키트(.kit-toggle) 그대로. */
+.settings-body { align-items: center; padding-top: 48px; }
+.settings-row { flex-direction: row; align-items: center; justify-content: space-between; width: 1200px; padding: 28px 40px; margin-bottom: 24px; border-radius: 24px; background-color: rgba(255, 248, 232, 0.08); }
+.settings-row__text { flex-shrink: 1; margin-right: 32px; }
+.settings-row__label { font-size: 44px; color: var(--lop-face); }
+.settings-row__hint { font-size: 26px; color: rgba(255, 248, 232, 0.6); margin-top: 6px; }

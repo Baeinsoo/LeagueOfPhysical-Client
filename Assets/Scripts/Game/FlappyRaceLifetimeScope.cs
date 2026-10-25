@@ -14,6 +14,9 @@ namespace LOP
     {
         [SerializeField] private CameraController cameraController;
 
+        //  소리 파일 칸(spec §6). 비어 있으면 코드로 지은 임시 클립을 쓴다 — 씬에서 비워 둔 채로 둔다.
+        [SerializeField] private FlappySoundBank soundBank;
+
         //  새 몸엔 체력이 없다 — HP 막대를 켜 두면 늘 가득 찬 막대가 머리 위에 뜬다.
         protected override bool ShowHealthBars => false;
 
@@ -129,6 +132,22 @@ namespace LOP
             //  빌딩 앞벽 반투명 — 판정과 무관한 클라 전용 화면 효과.
             builder.RegisterEntryPoint<FlappyBuildingFacadeFx>();
 
+            //  경기 소리(spec §6) — 효과음·배경음 한 곳. 진입점이라 IFlappyAudio로도 풀린다(AsImplementedInterfaces).
+            builder.RegisterInstance(new FlappySoundBankSlot(soundBank));
+            builder.RegisterEntryPoint<FlappyAudio>();
+
+            //  카메라 흔들림 주인 하나(대시 몫 + 충돌 트라우마, "흔들림 끄기"). 대시·충돌 연출이 주입받으므로 AsSelf.
+            builder.RegisterEntryPoint<FlappyCameraShake>().AsSelf();
+
+            //  충돌 묶음(spec §3) — 트라우마·파편·쿵.
+            builder.RegisterEntryPoint<FlappyCrashFx>();
+
+            //  새마다 그림·기절 읽기 한 곳 — 충돌 묶음과 기절 별이 같은 답을 봐야 한다.
+            builder.Register<IFlappyBirdLooks, FlappyBirdLooks>(Lifetime.Singleton);
+
+            //  파편·꽃가루 조각 — 충돌 묶음과 결승 연출이 주입받으므로 AsSelf.
+            builder.RegisterEntryPoint<FlappyBurstFx>().AsSelf();
+
             //  대시 흔들림·속도선·꼬리 — 판정과 무관한 클라 전용 연출.
             builder.RegisterEntryPoint<FlappyDashFx>();
             //  빛 알갱이 그림·빨려 드는 복사본·"+n알"(판정과 무관한 화면 연출). 글자는 우편함을 거쳐 HUD가 띄운다.
@@ -142,6 +161,12 @@ namespace LOP
             //  내 새 흰 테두리·노란 화살표(spec §2) — 판정과 무관한 클라 전용 연출.
             builder.RegisterEntryPoint<FlappyMyBirdMarker>();
 
+            //  기절 별 셋(spec §3) — 내 새·남의 새 모두. 판정과 무관한 화면 연출.
+            builder.RegisterEntryPoint<FlappyStunStars>();
+
+            //  판의 큰 순간 — 배경음 시작·정지, 꽃가루(결승음·도장은 RaceFinishView).
+            builder.RegisterEntryPoint<FlappyRaceCues>();
+
             //  낙하 내려다보기(FlappyFallLookDown)는 껐다 — 카메라가 새를 뒤따라 늦게 움직이는 느낌이라
             //  원조처럼 고정된 구도가 낫다(사용자 결정 2026-10-07). 클래스와 시험은 남겨 둔다.
 
@@ -154,6 +179,8 @@ namespace LOP
             builder.RegisterEntryPoint<FlappyCorridorCamera>();
 
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
+            //  날갯짓 소리 — 입력면이 누른 순간 부른다(사용자 결정 10-25).
+            builder.Register<FlappyFlapSound>(Lifetime.Singleton);
             builder.Register<FlapPadViewModel>(Lifetime.Transient);
             builder.Register<FlapPadView>(Lifetime.Transient);
             //  정보 HUD(진행 막대·순위·기록 시간). 소스는 출발 x를 한 번 정해 판 내내 쥐므로 싱글턴.
@@ -161,6 +188,8 @@ namespace LOP
             builder.Register<IRaceHudSource, RaceHudSource>(Lifetime.Singleton);
             builder.Register<RaceHudViewModel>(Lifetime.Transient);
             builder.Register<RaceHudView>(Lifetime.Transient);
+            //  카운트다운 모양·박자 — 창은 기마 궁술과 같이 쓰므로 개편(팝·GO 초록·소리)은 플래피 스코프가 꽂는다.
+            builder.Register<IRaceStartLook, FlappyRaceStartLook>(Lifetime.Singleton);
             builder.Register<RaceStartViewModel>(Lifetime.Transient);
             builder.Register<RaceStartView>(Lifetime.Transient);
             builder.Register<RaceEliminatedView>(Lifetime.Transient);

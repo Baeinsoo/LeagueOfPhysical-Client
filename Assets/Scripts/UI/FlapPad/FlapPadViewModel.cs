@@ -16,6 +16,7 @@ namespace LOP.UI
         private readonly FlappyChaserView _chaserView;
         private readonly FlappyMapRulesField _rules;
         private readonly FlappyMoteFeed _moteFeed;
+        private readonly FlappyFlapSound _flapSound;
 
         private readonly ReactiveProperty<float> _dashCharge = new ReactiveProperty<float>(0f);
         private readonly ReactiveProperty<int> _dashStacks = new ReactiveProperty<int>(0);
@@ -60,7 +61,8 @@ namespace LOP.UI
                                 GameFramework.World.EntityRegistry entityRegistry,
                                 FlappyChaserView chaserView,
                                 FlappyMapRulesField rules,
-                                FlappyMoteFeed moteFeed)
+                                FlappyMoteFeed moteFeed,
+                                FlappyFlapSound flapSound)
         {
             _playerInputManager = playerInputManager;
             _playerContext = playerContext;
@@ -68,12 +70,15 @@ namespace LOP.UI
             _chaserView = chaserView;
             _rules = rules;
             _moteFeed = moteFeed;
+            _flapSound = flapSound;
         }
 
         /// <summary>날갯짓. 와이어에는 기존 Jump 입력으로 실린다 — 서버 입력 버퍼는 그대로 쓴다.</summary>
         public void Flap()
         {
             _playerInputManager.SetJump(true);
+            //  누른 순간 소리 — 날갯짓이 먹히지 않는 때(출발 전·기절·결승 뒤)는 소리 쪽이 거른다.
+            _flapSound.OnFlap();
             _hint.Count();
             _showFlapHint.Value = _hint.Visible;
         }

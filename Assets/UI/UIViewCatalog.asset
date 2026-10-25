@@ -41,8 +41,8 @@ MonoBehaviour:
     uxml: {fileID: 9197481963319205126, guid: 32e2d08f82056bf4ea67605b11b8e307, type: 3}
     uss: {fileID: 7433441132597879392, guid: 774d7da3151ad73458b713ccff048027, type: 3}
   - viewName: SettingsView
-    uxml: {fileID: 9197481963319205126, guid: 795ad2e2a2e5bc6449f49df672905dc1, type: 3}
-    uss: {fileID: 7433441132597879392, guid: 64b5309e1b6199948be0ee42192e8d22, type: 3}
+    uxml: {fileID: 9197481963319205126, guid: 24ed21fbedcc24756aed1aeacbd02767, type: 3}
+    uss: {fileID: 7433441132597879392, guid: fdbc94317a1784118ad56000cd07620a, type: 3}
   - viewName: ProfileView
     uxml: {fileID: 9197481963319205126, guid: 32e3170f8356815429ac56979567bfba, type: 3}
     uss: {fileID: 7433441132597879392, guid: 6fac4c63e2c1ffc4a956646a1449f180, type: 3}

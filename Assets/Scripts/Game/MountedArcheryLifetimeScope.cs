@@ -70,6 +70,8 @@ namespace LOP
             builder.RegisterEntryPoint<MountedArcheryHudCoordinator>();
             builder.Register<IArcheryPadViewModel, MountedArcheryPadViewModel>(Lifetime.Transient);
             builder.Register<ArcheryPadView>(Lifetime.Transient);
+            //  카운트다운은 예전 모양 그대로, 무음(사용자 결정 10-25 — 개편은 플래피만).
+            builder.Register<IRaceStartLook, PlainRaceStartLook>(Lifetime.Singleton);
             builder.Register<RaceStartViewModel>(Lifetime.Transient);
             builder.Register<RaceStartView>(Lifetime.Transient);
             builder.Register<MountedCombatHudViewModel>(Lifetime.Transient);

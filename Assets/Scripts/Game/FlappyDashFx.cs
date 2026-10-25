@@ -6,7 +6,8 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// 대시 연출(클라 전용). 내 새: 대시 시작에 카메라 흔들림 한 번 + 대시 중 화면 가로 속도선. 모든 새: 대시 중 불꽃 꼬리 —
+    /// 대시 연출(클라 전용). 내 새: 대시 시작에 카메라 흔들림 한 번(설정 "흔들림 끄기"면 없음 — 흔들림 주인
+    /// <see cref="FlappyCameraShake"/>가 거른다) + 대시 중 화면 가로 속도선. 모든 새: 대시 중 불꽃 꼬리 —
     /// 남이 대시한 것도 읽힌다. 카메라 거리는 여기서 건드리지 않는다 — 내 대시 중 3m 빠지는 줌은
     /// <see cref="FlappyCameraDistance"/>가 따로 맡는다(2026-09-29 결정은 2026-10-07에 뒤집혔다). FOV는 여전히 안 바꾼다.
     /// 판정·시뮬과 무관하다.
@@ -42,13 +43,15 @@ namespace LOP
         internal TrailRenderer TrailOf(string entityId) => trails.TryGetValue(entityId, out var t) ? t : null;
 
         public FlappyDashFx(IPlayerContext playerContext, GameFramework.World.EntityRegistry entityRegistry,
-                            FlappyConfig config, CameraController cameraController)
+                            FlappyConfig config, FlappyCameraShake cameraShake)
         {
             this.playerContext = playerContext;
             this.entityRegistry = entityRegistry;
             this.config = config;
             viewLookup = DefaultViewLookup;
-            applyShake = v => { if (cameraController != null) { cameraController.ShakeOffset = v; } };
+            //  카메라에 직접 쓰지 않는다 — 흔들림 주인(FlappyCameraShake)에게 대시 몫만 건넨다. 충돌 흔들림과 같은 프레임에
+            //  서로 덮지 않고, "흔들림 끄기"도 그쪽 한 곳에서 지킨다.
+            applyShake = v => cameraShake?.SetDashOffset(v);
         }
 
         public void Tick()

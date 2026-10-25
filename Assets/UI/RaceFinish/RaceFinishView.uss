@@ -1,19 +1,76 @@
-/* 아래 화면을 가리지 않는다 — 남은 사람들이 계속 보여야 한다 */
+/* 결승 도장 — 1920×1080 기준, 수치는 시제품(960×540) × 2. 아래 화면을 가리지 않는다(남은 새들이 계속 보여야 한다). */
 .race-finish-root {
-    flex-grow: 1;
-    justify-content: flex-start;
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+/* FINISH! — 글자 가운데가 화면 높이 36%(389px). 흰 글자 + 검은 외곽, −3.5°. 찍힘(1.8배 → 1배)은 코드가 scale로. */
+.race-finish-stamp {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 309px;
+    height: 160px;
+    font-size: 128px;
+    color: rgb(243, 235, 226);
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 6px;
+    -unity-text-outline-color: rgb(27, 18, 8);
+    transform-origin: center;
+    rotate: -3.5deg;
+}
+
+/* 순위 도장 — 판 가운데가 화면 높이 56%(605px), 440×172(시제품 220×86). 바탕은 순위색(코드), 검은 글자, +3°. */
+.race-finish-rank-stamp {
+    position: absolute;
+    left: 50%;
+    margin-left: -220px;
+    top: 519px;
+    width: 440px;
+    height: 172px;
+    border-radius: 28px;
+    justify-content: center;
     align-items: center;
-    padding-top: 80px;
+    transform-origin: center;
+    rotate: 3deg;
 }
 
+/* 1위면 판 위쪽에 "우승!". */
+.race-finish-rank-sub {
+    position: absolute;
+    top: 6px;
+    left: 0;
+    right: 0;
+    font-size: 32px;
+    color: rgb(27, 18, 8);
+    -unity-text-align: middle-center;
+}
+
+.race-finish-rank-text {
+    margin-top: 20px;
+    font-size: 116px;
+    color: rgb(27, 18, 8);
+    -unity-text-align: middle-center;
+}
+
+/* 도장이 사라진 뒤 — 진행 막대(위 24 + 높이 76) 바로 아래 가운데 작은 판. 오른쪽 위 [나가기]와 안 겹친다. */
+.race-finish-settled {
+    position: absolute;
+    top: 116px;
+    left: 0;
+    right: 0;
+    align-items: center;
+}
+
+/* 최대 폭 640px(가운데 640~1280px) — [나가기](오른쪽 32px)와 떨어져 있다(사용자 결정 10-25). */
 .race-finish-place {
-    font-size: 88px;
-    color: rgb(255, 214, 92);
-    -unity-text-align: middle-center;
-}
-
-.race-finish-note {
-    font-size: 26px;
-    color: rgba(255, 255, 255, 0.6);
-    -unity-text-align: middle-center;
+    max-width: 640px;
+    padding: 8px 28px;
+    border-radius: 20px;
+    background-color: rgba(17, 14, 12, 0.72);
+    font-size: 36px;
+    color: rgb(243, 235, 226);
 }

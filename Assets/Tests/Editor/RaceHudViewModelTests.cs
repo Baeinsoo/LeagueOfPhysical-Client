@@ -39,6 +39,45 @@ namespace LOP.Tests
             f.Birds.AddRange(birds);
         }
 
+        //  광산처럼 표식 셋(출발 0 → 결승 100): 20 m 1막, 50 m 2막, 80 m 3막(마지막).
+        private static void Mine(RaceHudFrame f)
+        {
+            f.Sections.Add(new CourseSection("계단 내리막", 1, false, 20f));
+            f.Sections.Add(new CourseSection("진자 광차", 2, false, 50f));
+            f.Sections.Add(new CourseSection("고수 갈림길", 3, true, 80f));
+        }
+
+        [Test]
+        public void 구간_띠는_구간_시작부터_다음_구간까지_막_색()
+        {
+            source.Next = f => { Course(f, 5d, new RaceBirdSample("me", 0, 10f)); Mine(f); };
+
+            viewModel.Refresh();
+
+            var bands = viewModel.Bands;
+            Assert.AreEqual(3, bands.Count);
+            Assert.AreEqual(0.2f, bands[0].From, 1e-5f);
+            Assert.AreEqual(0.5f, bands[0].To, 1e-5f);
+            Assert.AreEqual(FlappyRacePalette.ActColor(1), bands[0].Color);
+            Assert.AreEqual(0.5f, bands[1].From, 1e-5f);
+            Assert.AreEqual(0.8f, bands[1].To, 1e-5f);
+            Assert.AreEqual(FlappyRacePalette.ActColor(2), bands[1].Color);
+            Assert.AreEqual(0.8f, bands[2].From, 1e-5f);
+            Assert.AreEqual(1f, bands[2].To, 1e-5f, "마지막 띠는 결승선까지");
+            Assert.AreEqual(FlappyRacePalette.ActColor(3), bands[2].Color);
+        }
+
+        [Test]
+        public void 구간이_없으면_띠도_없다()
+        {
+            //  전통 맵 — 막대는 지금처럼 단색(spec §1 "없으면 단색").
+            source.Next = f => Course(f, 5d, new RaceBirdSample("me", 0, 10f));
+
+            viewModel.Refresh();
+
+            Assert.AreEqual(0, viewModel.Bands.Count);
+        }
+
         [Test]
         public void 시계는_출발부터_재고_결승하면_멈춘다()
         {

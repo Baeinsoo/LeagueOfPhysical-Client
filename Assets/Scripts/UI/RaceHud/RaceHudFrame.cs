@@ -58,4 +58,19 @@ namespace LOP.UI
             Color = color;
         }
     }
+
+    /// <summary>진행 막대 바탕의 구간 띠 하나(spec §1·§5). 비율은 막대 위 자리(0 = 출발, 1 = 결승선).</summary>
+    public readonly struct RaceHudBand
+    {
+        public readonly float From;
+        public readonly float To;
+        public readonly Color Color;
+
+        public RaceHudBand(float from, float to, Color color)
+        {
+            From = from;
+            To = to;
+            Color = color;
+        }
+    }
 }

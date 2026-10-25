@@ -14,6 +14,7 @@ namespace LOP.UI
         private readonly RaceHudFrame _frame = new RaceHudFrame();
         private readonly RankChangeDebounce _rankGate = new RankChangeDebounce();
         private readonly List<RaceHudDot> _dots = new List<RaceHudDot>();
+        private readonly List<RaceHudBand> _bands = new List<RaceHudBand>();
 
         private readonly ReactiveProperty<string> _clockText = new ReactiveProperty<string>(RaceClock.Format(0d));
         private readonly ReactiveProperty<int> _rank = new ReactiveProperty<int>(0);
@@ -48,6 +49,9 @@ namespace LOP.UI
 
         /// <summary>막대의 점들. 남 먼저, 나 마지막 — 그리는 순서가 곧 겹침 순서라 내 점이 위에 온다.</summary>
         public IReadOnlyList<RaceHudDot> Dots => _dots;
+
+        /// <summary>진행 막대 바탕의 구간 띠(막 색). 표식이 없는 맵이면 비어 있다.</summary>
+        public IReadOnlyList<RaceHudBand> Bands => _bands;
 
         public RaceHudViewModel(IRaceHudSource source)
         {
@@ -94,6 +98,24 @@ namespace LOP.UI
                 _dots.Add(new RaceHudDot(mine, true, FlappyRacePalette.Mine));
             }
             _myProgress.Value = mine;
+            UpdateBands();
+        }
+
+        //  띠는 구간 시작 → 다음 구간 시작(마지막은 결승선). 출발 ~ 첫 구간은 띠가 없다(막대 바탕 그대로) — 시제품도 그랬다.
+        private void UpdateBands()
+        {
+            _bands.Clear();
+            if (_frame.HasCourse == false)
+            {
+                return;
+            }
+            var sections = _frame.Sections;
+            for (int i = 0; i < sections.Count; i++)
+            {
+                float from = RaceProgress.Ratio(sections[i].X, _frame.StartX, _frame.FinishX);
+                float to = i + 1 < sections.Count ? RaceProgress.Ratio(sections[i + 1].X, _frame.StartX, _frame.FinishX) : 1f;
+                _bands.Add(new RaceHudBand(from, to, FlappyRacePalette.ActColor(sections[i].Act)));
+            }
         }
     }
 }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using GameFramework;
 using UnityEngine;
 
 namespace LOP.UI
@@ -16,6 +17,7 @@ namespace LOP.UI
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly IPlayerContext playerContext;
         private readonly ArcheryBowControls controls;
+        private readonly MountedCameraRecenter recenter = new MountedCameraRecenter();
 
         public MountedArcheryPadViewModel(PlayerInputManager input, CameraController cameraController,
             GameFramework.World.EntityRegistry entityRegistry, IPlayerContext playerContext,
@@ -77,7 +79,27 @@ namespace LOP.UI
         public void ClearMove() => controls.ClearMove();
         public void FeedMove() => controls.FeedMove();
         public void AdvanceFingerClock(float unscaledDeltaSeconds) => controls.AdvanceFingerClock(unscaledDeltaSeconds);
-        public void Tick(float deltaSeconds) => controls.Tick(deltaSeconds);
+        public void Tick(float deltaSeconds)
+        {
+            controls.Tick(deltaSeconds);
+            RecenterCamera(deltaSeconds);
+        }
+
+        private void RecenterCamera(float deltaSeconds)
+        {
+            var transform = playerContext.entityId == null
+                ? null : entityRegistry.Get(playerContext.entityId)?.Get<GameFramework.World.Transform>();
+            if (transform == null)
+            {
+                return;
+            }
+            float horseYaw = Mathf.DeltaAngle(0f, transform.Rotation.ToUnity().eulerAngles.y);
+            float add = recenter.Step(cameraController.Yaw, horseYaw, controls.AimBusy, deltaSeconds);
+            if (add != 0f)
+            {
+                cameraController.AimBy(new Vector2(add, 0f));
+            }
+        }
         public bool Holding => controls.Holding;
         public bool CancelActive => controls.CancelActive;
 

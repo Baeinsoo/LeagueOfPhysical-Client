@@ -117,7 +117,8 @@ namespace LOP.UI
             if (keyboard.aKey.isPressed) { walk.x -= 1f; }
             if (keyboard.wKey.isPressed) { walk.y += 1f; }
             if (keyboard.sKey.isPressed) { walk.y -= 1f; }
-            keyMove = walk.sqrMagnitude > 1f ? walk.normalized : walk;
+            //  말 기준 조작은 정규화하지 않는다 — W+D가 최고 속도로 돌며 달려야 한다.
+            keyMove = (walk.sqrMagnitude > 1f && bodyRelativeMove == false) ? walk.normalized : walk;
 
             //  화살표 = 조준. 겨누는 데는 **멈춘 채 아주 조금씩** 움직이는 조작이 필요한데
             //  (90m 10점 링이 0.04°다) 마우스 드래그로는 그 크기를 내기 어렵다. 그래서
@@ -469,6 +470,9 @@ namespace LOP.UI
 
         /// <summary>지금 활을 들고 있나. 화면이 버튼을 밝히는 데 쓴다.</summary>
         public bool Holding => router.Drawing;
+
+        /// <summary>조준 손가락이 닿아 있거나 활을 당기는 중이다.</summary>
+        public bool AimBusy => fingers.Count > 0 || router.Drawing || DrawRatio > 0f;
 
         /// <summary>시위 풀기 버튼이 지금 먹히나. 화면이 버튼을 보일지/숨길지(display:none) 정하는 데 쓴다.</summary>
         public bool CancelActive => router.Drawing;

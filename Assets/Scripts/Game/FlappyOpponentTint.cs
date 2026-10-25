@@ -33,6 +33,13 @@ namespace LOP
 
         public void Tick()
         {
+            //  아이디를 아직 모르면(경기 시작 직후 등) "나"를 아무 id와도 구분 못 해 내 새까지 칠하고 tinted에
+            //  넣을 수 있다 — tinted.Contains로 다음부터 걸려서 나중에 진짜 id를 알아도 내 새가 영원히 칠해진 채 남는다.
+            if (string.IsNullOrEmpty(gameDataStore.userEntityId))
+            {
+                return;
+            }
+
             foreach (var entity in entityRegistry.All)
             {
                 if (entity.Get<EntityKind>()?.Kind != EntityType.Character

@@ -105,6 +105,25 @@ namespace LOP.Tests
             Assert.AreSame(body, thing.sharedMaterial);
         }
 
+        //  경기 시작 직후처럼 gameDataStore.userEntityId를 아직 모를 때(빈 문자열)는 "나"를 아무 id와도 구분 못 해
+        //  내 새까지 칠하고 tinted에 넣어 버릴 수 있다 — 나중에 진짜 id를 알아도 tinted.Contains로 걸려 영원히 칠해진 채로 남는다.
+        [Test]
+        public void 내_아이디를_모르면_아무도_칠하지_않고_나중에_알아도_내_새는_그대로()
+        {
+            var store = new FakeGameDataStore { userEntityId = "" };
+            tint = new FlappyOpponentTint(registry, actors, store, colors);
+            var mine = Bird("me");
+
+            tint.Tick();
+
+            Assert.AreSame(body, mine.sharedMaterial, "아이디를 모르는 틱에선 내 새도 칠하면 안 된다");
+
+            store.userEntityId = "me";
+            tint.Tick();
+
+            Assert.AreSame(body, mine.sharedMaterial, "나중에 내 아이디를 알게 된 뒤에도 내 새는 그대로여야 한다");
+        }
+
         [Test]
         public void 몸_머티리얼만_칠_대상이다()
         {

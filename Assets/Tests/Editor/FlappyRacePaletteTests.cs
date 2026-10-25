@@ -3,7 +3,8 @@ using UnityEngine;
 
 namespace LOP.Tests
 {
-    /// <summary>색표(시제품 MUTED·rankColor)와 상대 색 칸. 막대의 점 색과 화면 속 새 색이 같아야 "저 점이 저 새"로 읽힌다.</summary>
+    /// <summary>색표(시제품 MUTED·rankColor). 게임은 더 이상 선수에게 색을 배정하지 않는다(사용자 결정 10-25) —
+    /// 내 점만 노랑으로 남고, 상대는 모두 같은 중립색을 쓴다.</summary>
     public class FlappyRacePaletteTests
     {
         private static Color Hex(byte r, byte g, byte b) => new Color32(r, g, b, 255);
@@ -26,35 +27,17 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 상대_색은_시제품_MUTED_다섯()
+        public void 내_색은_시제품_MUTED_첫칸()
         {
-            Assert.AreEqual(5, FlappyRacePalette.Opponents.Length);
-            AreClose(Hex(0x8a, 0xa7, 0xb8), FlappyRacePalette.Opponents[0]);
-            AreClose(Hex(0xbc, 0x9c, 0x83), FlappyRacePalette.Opponents[4]);
             AreClose(Hex(0xff, 0xd2, 0x57), FlappyRacePalette.Mine);
         }
 
+        //  사용자 결정(10-25): 게임이 색을 배정하지 않는다 — 새 모습은 옷이 정한다. 그래서 상대는 전원
+        //  칸별 색이 아니라 어두운 막대 위에서 읽히는 차분한 중립색 하나를 같이 쓴다.
         [Test]
-        public void 같은_상대는_늘_같은_색()
+        public void 상대_색은_중립_한_칸뿐이다()
         {
-            var colors = new FlappyOpponentColors();
-            Color first = colors.ColorOf("a");
-            colors.ColorOf("b");
-
-            AreClose(first, colors.ColorOf("a"));
-        }
-
-        [Test]
-        public void 다섯_상대는_서로_다른_색_여섯째는_되돌아_쓴다()
-        {
-            var colors = new FlappyOpponentColors();
-            string[] ids = { "a", "b", "c", "d", "e" };
-            for (int i = 0; i < ids.Length; i++)
-            {
-                AreClose(FlappyRacePalette.Opponents[i], colors.ColorOf(ids[i]));
-            }
-
-            AreClose(FlappyRacePalette.Opponents[0], colors.ColorOf("f"));
+            AreClose(Hex(0xa9, 0xa2, 0x9a), FlappyRacePalette.OpponentNeutral);
         }
     }
 }

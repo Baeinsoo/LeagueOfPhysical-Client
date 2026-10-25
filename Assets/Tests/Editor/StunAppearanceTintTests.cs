@@ -5,8 +5,9 @@ using UnityEngine;
 namespace LOP.Tests
 {
     /// <summary>
-    /// 상대 새의 차분한 색(spec §2)을 <see cref="StunAppearance"/>가 같이 쥔다. 머티리얼을 갈아 끼우는 주인이 둘이면
-    /// 기절이 풀릴 때 "원본"으로 되돌리며 칠을 지운다 — 주인을 하나로 둔 것을 고정한다.
+    /// 평소 모습의 칠을 <see cref="StunAppearance"/>가 같이 쥔다. 지금은 아무도 안 부르지만(사용자 결정 10-25 —
+    /// 게임이 선수에게 색을 배정하지 않는다) 장차 코스튬 색을 입힐 자리라 메서드와 시험은 남긴다. 머티리얼을
+    /// 갈아 끼우는 주인이 둘이면 기절이 풀릴 때 "원본"으로 되돌리며 칠을 지운다 — 주인을 하나로 둔 것을 고정한다.
     /// </summary>
     public class StunAppearanceTintTests
     {

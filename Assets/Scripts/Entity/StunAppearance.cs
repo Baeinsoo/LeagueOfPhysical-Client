@@ -64,7 +64,8 @@ namespace LOP
         private Material[] stunMaterials;
         private Material[] flashMaterials;
 
-        //  평소 모습의 칠(Flappy 상대 새의 차분한 색 — FlappyOpponentTint가 넣는다). null이면 원본 그대로.
+        //  평소 모습의 칠. 지금은 아무도 안 부른다(사용자 결정 10-25 — 게임이 선수에게 색을 배정하지 않는다) — 장차
+        //  코스튬(옷) 색을 입힐 자리로 남겨 둔다. null이면 원본 그대로.
         //  칠을 이 클래스가 같이 쥐는 이유: 새 머티리얼을 갈아 끼우는 주인이 둘이면, 기절이 풀릴 때 이 클래스가
         //  "원본"으로 되돌리면서 칠을 지운다. 주인이 하나여야 기절·깜빡임 뒤에도 칠이 남는다.
         private Color? baseTint;

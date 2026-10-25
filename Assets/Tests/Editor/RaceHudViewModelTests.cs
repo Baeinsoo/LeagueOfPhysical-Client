@@ -23,7 +23,7 @@ namespace LOP.Tests
         public void SetUp()
         {
             source = new FakeSource();
-            viewModel = new RaceHudViewModel(source, new FlappyOpponentColors());
+            viewModel = new RaceHudViewModel(source);
         }
 
         //  출발 틱 100(2초), 틱 0.02초, 출발 x 0 → 결승 x 100.
@@ -103,11 +103,30 @@ namespace LOP.Tests
             Assert.AreEqual(2, viewModel.Dots.Count);
             Assert.IsFalse(viewModel.Dots[0].Mine);
             Assert.AreEqual(0.5f, viewModel.Dots[0].Ratio, 1e-5f);
-            Assert.AreEqual(FlappyRacePalette.Opponents[0], viewModel.Dots[0].Color);
+            Assert.AreEqual(FlappyRacePalette.OpponentNeutral, viewModel.Dots[0].Color);
             Assert.IsTrue(viewModel.Dots[1].Mine, "내 점이 마지막이라 겹쳐도 위에 그려진다");
             Assert.AreEqual(0.25f, viewModel.Dots[1].Ratio, 1e-5f);
             Assert.AreEqual(FlappyRacePalette.Mine, viewModel.Dots[1].Color);
             Assert.AreEqual(0.25f, viewModel.MyProgress.CurrentValue, 1e-5f);
+        }
+
+        //  사용자 결정(10-25): 게임이 선수에게 색을 배정하지 않는다 — 상대는 누구든 같은 중립색이다(옷이 생기면 그쪽이 이긴다).
+        [Test]
+        public void 상대가_여럿이어도_모두_같은_중립색이다()
+        {
+            source.Next = f => Course(f, 5d,
+                new RaceBirdSample("me", 0, 10f), new RaceBirdSample("a", 0, 20f), new RaceBirdSample("b", 0, 30f));
+
+            viewModel.Refresh();
+
+            int opponentCount = 0;
+            foreach (var dot in viewModel.Dots)
+            {
+                if (dot.Mine) { continue; }
+                opponentCount++;
+                Assert.AreEqual(FlappyRacePalette.OpponentNeutral, dot.Color);
+            }
+            Assert.AreEqual(2, opponentCount);
         }
 
         [Test]

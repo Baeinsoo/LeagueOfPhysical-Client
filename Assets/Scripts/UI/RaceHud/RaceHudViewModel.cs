@@ -11,7 +11,6 @@ namespace LOP.UI
     public class RaceHudViewModel
     {
         private readonly IRaceHudSource _source;
-        private readonly FlappyOpponentColors _colors;
         private readonly RaceHudFrame _frame = new RaceHudFrame();
         private readonly RankChangeDebounce _rankGate = new RankChangeDebounce();
         private readonly List<RaceHudDot> _dots = new List<RaceHudDot>();
@@ -50,10 +49,9 @@ namespace LOP.UI
         /// <summary>막대의 점들. 남 먼저, 나 마지막 — 그리는 순서가 곧 겹침 순서라 내 점이 위에 온다.</summary>
         public IReadOnlyList<RaceHudDot> Dots => _dots;
 
-        public RaceHudViewModel(IRaceHudSource source, FlappyOpponentColors colors)
+        public RaceHudViewModel(IRaceHudSource source)
         {
             _source = source;
-            _colors = colors;
         }
 
         public void Refresh()
@@ -88,7 +86,8 @@ namespace LOP.UI
                     hasMine = true;
                     continue;
                 }
-                _dots.Add(new RaceHudDot(ratio, false, _colors.ColorOf(bird.Id)));
+                //  사용자 결정(10-25): 상대는 칸별 색이 아니라 전원 같은 중립색이다 — 게임이 색을 배정하지 않는다.
+                _dots.Add(new RaceHudDot(ratio, false, FlappyRacePalette.OpponentNeutral));
             }
             if (hasMine)
             {

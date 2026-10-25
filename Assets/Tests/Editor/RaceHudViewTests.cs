@@ -47,6 +47,10 @@ namespace LOP.Tests
             var root = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(Uxml).Instantiate();
             var track = root.Q("race-progress-track");
 
+            //  IndexOf는 못 찾은 요소에도 예외 없이 -1을 돌려준다 — 둘 다 track의 자식인지 먼저 본다(아니면
+            //  "앞에 있다"는 비교가 우연히 통과한다).
+            Assert.AreSame(track, root.Q("race-progress-bands").parent);
+            Assert.AreSame(track, root.Q("race-progress-fill").parent);
             Assert.Less(track.IndexOf(root.Q("race-progress-bands")), track.IndexOf(root.Q("race-progress-fill")));
         }
 

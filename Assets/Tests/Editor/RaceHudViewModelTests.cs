@@ -356,5 +356,22 @@ namespace LOP.Tests
             Assert.AreEqual(string.Empty, viewModel.DeltaText, "1.25초 — 사라졌다");
             Assert.AreEqual(0f, viewModel.DeltaAlpha);
         }
+
+        [Test]
+        public void 추월_뒤_결승하면_표시가_지워진다()
+        {
+            //  1.2초(DeltaTotal) 안인데도 결승하면 UpdateDelta가 finished를 먼저 본다 — 순위판이 숨는 것과 같은 순간.
+            source.Next = f => Course(f, 5.0d, new RaceBirdSample("me", 0, 50f), new RaceBirdSample("a", 0, 60f));
+            viewModel.Refresh();
+            source.Next = f => Course(f, 5.1d, new RaceBirdSample("me", 0, 61f), new RaceBirdSample("a", 0, 60f));
+            viewModel.Refresh();
+            Assert.AreEqual("+1", viewModel.DeltaText, "결승 전 — 추월 표시가 먼저 뜬다");
+
+            source.Next = f => { Course(f, 5.2d, new RaceBirdSample("me", 0, 100f), new RaceBirdSample("a", 0, 60f)); f.MyFinishedTick = 260; };
+            viewModel.Refresh();
+
+            Assert.AreEqual(string.Empty, viewModel.DeltaText, "결승하면 추월 표시도 지운다");
+            Assert.AreEqual(0f, viewModel.DeltaAlpha);
+        }
     }
 }

@@ -131,7 +131,7 @@ namespace LOP.Tests
             state.SetZoneClock(320, 0.1f, 100, 2, 100f);
             vm.Tick();
             //  마지막 원이 줄어드는 동안 미리 알린다 — 다 줄면 몇 초 만에 쓰러지므로 그때 알려서는 늦다.
-            Assert.AreEqual("마지막 원 — 닫히면 피해가 계속 커집니다", vm.ZoneText.CurrentValue);
+            Assert.AreEqual("마지막 원 · 닫히면 피해 증가", vm.ZoneText.CurrentValue);
         }
 
         [Test]

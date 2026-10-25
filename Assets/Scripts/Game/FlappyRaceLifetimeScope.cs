@@ -14,6 +14,9 @@ namespace LOP
     {
         [SerializeField] private CameraController cameraController;
 
+        //  소리 파일 칸(spec §6). 비어 있으면 코드로 지은 임시 클립을 쓴다 — 씬에서 비워 둔 채로 둔다.
+        [SerializeField] private FlappySoundBank soundBank;
+
         //  새 몸엔 체력이 없다 — HP 막대를 켜 두면 늘 가득 찬 막대가 머리 위에 뜬다.
         protected override bool ShowHealthBars => false;
 
@@ -128,6 +131,10 @@ namespace LOP
 
             //  빌딩 앞벽 반투명 — 판정과 무관한 클라 전용 화면 효과.
             builder.RegisterEntryPoint<FlappyBuildingFacadeFx>();
+
+            //  경기 소리(spec §6) — 효과음·배경음 한 곳. 진입점이라 IFlappyAudio로도 풀린다(AsImplementedInterfaces).
+            builder.RegisterInstance(new FlappySoundBankSlot(soundBank));
+            builder.RegisterEntryPoint<FlappyAudio>();
 
             //  대시 흔들림·속도선·꼬리 — 판정과 무관한 클라 전용 연출.
             builder.RegisterEntryPoint<FlappyDashFx>();

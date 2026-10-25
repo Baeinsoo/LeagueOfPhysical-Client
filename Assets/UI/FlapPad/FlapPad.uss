@@ -95,11 +95,11 @@
     background-color: rgb(255, 170, 40);
 }
 
-/* 추격자까지 남은 거리 — 곡선을 튜닝하려면 이 숫자를 봐야 한다 */
+/* 추격자 간격 — 기록 시간 판(왼쪽 위 108,16 · 192×64) 바로 아래. 추격자 꺼진 맵에선 코드가 숨긴다. */
 .chaser-gap {
     position: absolute;
-    left: 32px;
-    top: 32px;
+    left: 108px;
+    top: 92px;
     font-size: 30px;
     color: rgba(255, 255, 255, 0.7);
 }

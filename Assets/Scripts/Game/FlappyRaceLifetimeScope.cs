@@ -146,6 +146,12 @@ namespace LOP
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             builder.Register<FlapPadViewModel>(Lifetime.Transient);
             builder.Register<FlapPadView>(Lifetime.Transient);
+            //  정보 HUD(진행 막대·순위·기록 시간). 소스는 출발 x를 한 번 정해 판 내내 쥐므로 싱글턴,
+            //  색 칸은 HUD 점과 새 칠(FlappyOpponentTint)이 같은 답을 봐야 하므로 싱글턴.
+            builder.Register<FlappyOpponentColors>(Lifetime.Singleton);
+            builder.Register<IRaceHudSource, RaceHudSource>(Lifetime.Singleton);
+            builder.Register<RaceHudViewModel>(Lifetime.Transient);
+            builder.Register<RaceHudView>(Lifetime.Transient);
             builder.Register<RaceStartViewModel>(Lifetime.Transient);
             builder.Register<RaceStartView>(Lifetime.Transient);
             builder.Register<RaceEliminatedView>(Lifetime.Transient);
@@ -163,6 +169,7 @@ namespace LOP
             IObjectResolver container, IWindowManager windowManager, List<IDisposable> sink)
         {
             sink.Add(windowManager.RegisterViewFactory<FlapPadView>(() => container.Resolve<FlapPadView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceHudView>(() => container.Resolve<RaceHudView>()));
             sink.Add(windowManager.RegisterViewFactory<RaceStartView>(() => container.Resolve<RaceStartView>()));
             sink.Add(windowManager.RegisterViewFactory<RaceEliminatedView>(() => container.Resolve<RaceEliminatedView>()));
             sink.Add(windowManager.RegisterViewFactory<RaceFinishView>(() => container.Resolve<RaceFinishView>()));

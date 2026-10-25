@@ -148,3 +148,84 @@
     font-size: 22px;
     color: rgb(169, 156, 143);
 }
+
+/* 구간 띠 층(spec §5) — 트랙 전체. 띠 하나 = 막 색 0.25 + 구간 시작 눈금 4px(시제품 ACT_COL·2px). 자리·폭·색은 코드가 정한다. */
+.race-progress-bands {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.race-band {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left-width: 4px;
+    border-left-color: rgb(17, 14, 12);
+}
+
+/* 추월 ±1 — 순위 판 바로 왼쪽(시제품 W-112 → 오른쪽 224px), 44px. 색·투명도·떠오름은 코드가 정한다. */
+.race-rank-delta {
+    position: absolute;
+    right: 224px;
+    top: 36px;
+    font-size: 44px;
+    -unity-text-align: upper-right;
+}
+
+/* 구간 배너 — "n막" 24px · 이름 60px · 막 색 띠 360×8. 투명도는 코드가 정한다.
+   top은 20%(216px, 1080 기준)다 — 이름 기준선이 화면 높이 28%(302px)쯤(시제품 H×0.28)이어야 하는데,
+   배너 자체는 "n막" 줄 위에서 시작해 그 아래로 이름이 쌓인다: 20%(216) + "n막" 줄(~30, 24px 글자 +
+   줄 간격) + 이름 글자가 기준선까지 차는 몫(~60, 60px 글자의 베이스라인 오프셋) ≈ 306px ≈ 28%. */
+.race-banner {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 20%;
+    align-items: center;
+}
+
+.race-banner-act {
+    font-size: 24px;
+    color: rgb(169, 156, 143);
+    -unity-text-align: middle-center;
+}
+
+.race-banner-title {
+    font-size: 60px;
+    color: rgb(243, 235, 226);
+    -unity-text-align: middle-center;
+}
+
+.race-banner-bar {
+    width: 360px;
+    height: 8px;
+    margin-top: 8px;
+}
+
+/* LAST STRETCH! — 화면 높이 30% 가운데, 분홍 판 680×112, −2.86°(시제품 −0.05 rad). 크기·투명도는 코드가 정한다. */
+.race-stretch {
+    display: none;
+    position: absolute;
+    left: 50%;
+    top: 30%;
+    width: 680px;
+    height: 112px;
+    margin-left: -340px;
+    margin-top: -56px;
+    border-radius: 20px;
+    background-color: rgb(255, 143, 177);
+    justify-content: center;
+    align-items: center;
+    rotate: -2.86deg;
+    transform-origin: center;
+}
+
+.race-stretch-text {
+    font-size: 68px;
+    color: rgb(27, 18, 8);
+    -unity-text-align: middle-center;
+}

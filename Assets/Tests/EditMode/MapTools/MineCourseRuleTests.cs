@@ -56,6 +56,21 @@ namespace LOP.MapTools.Tests
         }
 
         [Test]
+        public void 구간마다_막_번호()
+        {
+            //  10-09 3막: 1막 하강(갱 → 계단 → 낙석 → 갈림길⬇ 무너진 갱도) · 2막 갱 바닥(진자 광차 → 롤러코스터 → 급반전 → 갈림길⬆ → 깊은 갱)
+            //  · 3막 탈출(승강기 → 굴뚝 → 갈림길⬆ 레일 굴). 막마다 움직이는 구간이 하나씩(낙석·진자 광차·승강기) 든다(10-13).
+            //  HUD 구간 배너의 "n막"과 진행 막대 띠 색이 이 값이다(spec §5).
+            int[] expect = { 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3 };
+            var secs = Layout().Sections;
+            Assert.AreEqual(expect.Length, secs.Count);
+            for (int i = 0; i < expect.Length; i++)
+            {
+                Assert.AreEqual(expect[i], secs[i].Act, $"구간 {i} {secs[i].Name}");
+            }
+        }
+
+        [Test]
         public void 고정_관문들이_같은_난수로_선다()
         {
             var gates = Gates(Layout());

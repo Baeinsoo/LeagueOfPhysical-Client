@@ -198,5 +198,51 @@ namespace LOP.Tests
 
             Assert.AreEqual(1, Fill().Birds.Count);
         }
+
+        [Test]
+        public void 구간은_결승선을_안_뒤_한_번만_찾아_싣는다()
+        {
+            int finds = 0;
+            source.courseSections = () =>
+            {
+                finds++;
+                return new System.Collections.Generic.List<CourseSection>
+                {
+                    new CourseSection("낙석", 1, false, 93f),
+                    new CourseSection("고수 갈림길", 3, true, 429f),
+                };
+            };
+            Bird("me", 20f);
+
+            Fill();
+            Assert.AreEqual(0, finds, "맵(결승선)이 오기 전엔 찾지 않는다 — 그때 찾으면 빈 목록을 판 내내 쥔다");
+
+            finish.Register(new Bounds(new Vector3(483f, 0f, 0f), new Vector3(2f, 10f, 10f)));
+            Fill();
+            var frame = Fill();
+
+            Assert.AreEqual(1, finds, "판마다 한 번 — 매 프레임 씬을 훑지 않는다");
+            Assert.AreEqual(2, frame.Sections.Count, "프레임은 매번 비우므로 매 장 다시 싣는다");
+            Assert.IsTrue(frame.Sections[1].Final);
+        }
+
+        [Test]
+        public void 표식이_없는_맵은_빈_구간이고_다시_찾지_않는다()
+        {
+            int finds = 0;
+            source.courseSections = () =>
+            {
+                finds++;
+                return new System.Collections.Generic.List<CourseSection>();
+            };
+            Bird("me", 20f);
+            finish.Register(new Bounds(new Vector3(110f, 0f, 0f), Vector3.zero));
+
+            Fill();
+            var frame = Fill();
+
+            Assert.AreEqual(1, finds, "전통 맵 — 빈 목록도 쥔다");
+            Assert.AreEqual(0, frame.Sections.Count);
+        }
     }
 }

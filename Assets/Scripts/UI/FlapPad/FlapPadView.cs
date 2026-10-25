@@ -97,6 +97,12 @@ namespace LOP.UI
                 .Subscribe(show => chaserGap.style.display = show ? DisplayStyle.Flex : DisplayStyle.None)
                 .AddTo(_subscriptions);
 
+            //  안내는 날갯짓 3번 뒤 0.3초에 걸쳐 사라진다(전환은 USS). 다시 켜지는 일은 없다.
+            var flapHint = Root.Q<Label>("flap-hint");
+            _viewModel.ShowFlapHint
+                .Subscribe(show => flapHint.style.opacity = show ? 1f : 0f)
+                .AddTo(_subscriptions);
+
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.
             _tick = Root.schedule.Execute(_ =>
             {

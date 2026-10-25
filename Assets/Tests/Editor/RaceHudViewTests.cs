@@ -13,8 +13,10 @@ namespace LOP.Tests
         private static readonly string[] Names =
         {
             "race-hud-root", "race-clock-plate", "race-clock", "race-progress", "race-progress-track",
-            "race-progress-fill", "race-progress-goal", "race-progress-dots",
-            "race-rank-plate", "race-rank", "race-rank-unit", "race-rank-total",
+            "race-progress-bands", "race-progress-fill", "race-progress-goal", "race-progress-dots",
+            "race-rank-plate", "race-rank", "race-rank-unit", "race-rank-total", "race-rank-delta",
+            "race-banner", "race-banner-act", "race-banner-title", "race-banner-bar",
+            "race-stretch", "race-stretch-text",
         };
 
         [Test]
@@ -36,6 +38,16 @@ namespace LOP.Tests
             {
                 Assert.AreEqual(PickingMode.Ignore, root.Q(name).pickingMode, name);
             }
+        }
+
+        [Test]
+        public void 구간_띠는_내_진행_채움_아래에_깔린다()
+        {
+            //  UI Toolkit은 형제 순서대로 그린다 — 띠가 채움 뒤에 오면 내 진행 호박색을 막 색이 덮는다.
+            var root = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(Uxml).Instantiate();
+            var track = root.Q("race-progress-track");
+
+            Assert.Less(track.IndexOf(root.Q("race-progress-bands")), track.IndexOf(root.Q("race-progress-fill")));
         }
 
         [Test]

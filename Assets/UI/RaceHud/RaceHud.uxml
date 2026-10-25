@@ -1,5 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <!-- Flappy 정보 HUD(spec §1) — 위쪽은 정보, 아래쪽 엄지는 FlapPad. 전부 표시 전용(picking 통과). -->
+    <!-- Flappy 정보 HUD(spec §1·§5) — 위쪽은 정보, 아래쪽 엄지는 FlapPad. 전부 표시 전용(picking 통과). -->
     <Style src="RaceHud.uss" />
     <ui:VisualElement name="race-hud-root" class="race-hud-root" picking-mode="Ignore">
         <ui:VisualElement name="race-clock-plate" class="race-clock-plate" picking-mode="Ignore">
@@ -7,6 +7,8 @@
         </ui:VisualElement>
         <ui:VisualElement name="race-progress" class="race-progress" picking-mode="Ignore">
             <ui:VisualElement name="race-progress-track" class="race-progress-track" picking-mode="Ignore">
+                <!-- 구간 띠는 채움보다 먼저 — 내 진행 호박색이 띠 위에 그려진다. -->
+                <ui:VisualElement name="race-progress-bands" class="race-progress-bands" picking-mode="Ignore" />
                 <ui:VisualElement name="race-progress-fill" class="race-progress-fill" picking-mode="Ignore" />
                 <ui:VisualElement name="race-progress-goal" class="race-progress-goal" picking-mode="Ignore" />
                 <ui:VisualElement name="race-progress-dots" class="race-progress-dots" picking-mode="Ignore" />
@@ -18,6 +20,15 @@
                 <ui:Label name="race-rank-unit" class="race-rank-unit" text="위" picking-mode="Ignore" />
                 <ui:Label name="race-rank-total" class="race-rank-total" text="" picking-mode="Ignore" />
             </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:Label name="race-rank-delta" class="kit-title race-rank-delta" text="" picking-mode="Ignore" />
+        <ui:VisualElement name="race-banner" class="race-banner" picking-mode="Ignore">
+            <ui:Label name="race-banner-act" class="race-banner-act" text="" picking-mode="Ignore" />
+            <ui:Label name="race-banner-title" class="kit-title race-banner-title" text="" picking-mode="Ignore" />
+            <ui:VisualElement name="race-banner-bar" class="race-banner-bar" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:VisualElement name="race-stretch" class="race-stretch" picking-mode="Ignore">
+            <ui:Label name="race-stretch-text" class="kit-title race-stretch-text" text="LAST STRETCH!" picking-mode="Ignore" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

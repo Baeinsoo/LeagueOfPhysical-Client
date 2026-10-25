@@ -19,12 +19,23 @@ namespace LOP.UI
         //  시제품: 1 + 0.35 × (1 → 0을 0.25초에).
         private const float PopScale = 1.35f;
         private const int PopBackMs = 250;
+        private const string BandClass = "race-band";
+        //  시제품: 막 색 띠 투명도 0.25.
+        private const float BandAlpha = 0.25f;
 
         private readonly RaceHudViewModel _viewModel;
         private readonly CompositeDisposable _subscriptions = new CompositeDisposable();
         private readonly List<VisualElement> _dots = new List<VisualElement>();
+        private readonly List<VisualElement> _bands = new List<VisualElement>();
 
         private VisualElement _dotLayer;
+        private VisualElement _bandLayer;
+        private Label _delta;
+        private VisualElement _banner;
+        private Label _bannerAct;
+        private Label _bannerTitle;
+        private VisualElement _bannerBar;
+        private VisualElement _stretch;
         private IVisualElementScheduledItem _tick;
         private bool _disposed;
 
@@ -46,6 +57,13 @@ namespace LOP.UI
             var rankPlate = Root.Q<VisualElement>("race-rank-plate");
             var rank = Root.Q<Label>("race-rank");
             var total = Root.Q<Label>("race-rank-total");
+            _bandLayer = Root.Q<VisualElement>("race-progress-bands");
+            _delta = Root.Q<Label>("race-rank-delta");
+            _banner = Root.Q<VisualElement>("race-banner");
+            _bannerAct = Root.Q<Label>("race-banner-act");
+            _bannerTitle = Root.Q<Label>("race-banner-title");
+            _bannerBar = Root.Q<VisualElement>("race-banner-bar");
+            _stretch = Root.Q<VisualElement>("race-stretch");
 
             _viewModel.ClockText
                 .Subscribe(text => clock.text = text)
@@ -97,7 +115,10 @@ namespace LOP.UI
             _tick = Root.schedule.Execute(_ =>
             {
                 _viewModel.Refresh();
+                DrawBands();
                 DrawDots();
+                DrawBanner();
+                DrawDelta();
             }).Every(0);
         }
 
@@ -129,6 +150,64 @@ namespace LOP.UI
                 dot.style.backgroundColor = dots[i].Color;
                 dot.EnableInClassList(MineDotClass, dots[i].Mine);
             }
+        }
+
+        //  막 색 띠 + 구간 시작 눈금. 개수가 바뀔 때만 만들고 나머지는 자리·폭·색만 고친다(점과 같은 요령).
+        private void DrawBands()
+        {
+            var bands = _viewModel.Bands;
+            while (_bands.Count < bands.Count)
+            {
+                var band = new VisualElement { pickingMode = PickingMode.Ignore };
+                band.AddToClassList(BandClass);
+                _bandLayer.Add(band);
+                _bands.Add(band);
+            }
+
+            for (int i = 0; i < _bands.Count; i++)
+            {
+                var band = _bands[i];
+                if (i >= bands.Count)
+                {
+                    band.style.display = DisplayStyle.None;
+                    continue;
+                }
+                band.style.display = DisplayStyle.Flex;
+                band.style.left = Length.Percent(bands[i].From * 100f);
+                band.style.width = Length.Percent((bands[i].To - bands[i].From) * 100f);
+                Color color = bands[i].Color;
+                color.a = BandAlpha;
+                band.style.backgroundColor = color;
+            }
+        }
+
+        //  한 번에 하나만 보인다 — 구간 배너 아니면 LAST STRETCH!.
+        private void DrawBanner()
+        {
+            var kind = _viewModel.BannerKind;
+            _banner.style.display = kind == HudBannerKind.Section ? DisplayStyle.Flex : DisplayStyle.None;
+            _stretch.style.display = kind == HudBannerKind.LastStretch ? DisplayStyle.Flex : DisplayStyle.None;
+            if (kind == HudBannerKind.Section)
+            {
+                _bannerAct.text = _viewModel.BannerActText;
+                _bannerTitle.text = _viewModel.BannerTitle;
+                _bannerBar.style.backgroundColor = _viewModel.BannerColor;
+                _banner.style.opacity = _viewModel.BannerAlpha;
+            }
+            else if (kind == HudBannerKind.LastStretch)
+            {
+                float scale = _viewModel.BannerScale;
+                _stretch.style.scale = new Scale(new Vector3(scale, scale, 1f));
+                _stretch.style.opacity = _viewModel.BannerAlpha;
+            }
+        }
+
+        private void DrawDelta()
+        {
+            _delta.text = _viewModel.DeltaText;
+            _delta.style.color = _viewModel.DeltaColor;
+            _delta.style.opacity = _viewModel.DeltaAlpha;
+            _delta.style.translate = new Translate(new Length(0f), new Length(-_viewModel.DeltaRise));
         }
 
         //  한 번에 1.35배로 키우고, 다음 프레임에 0.25초에 걸쳐 1배로 돌아간다. 0.8초 안의 재변화는

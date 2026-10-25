@@ -17,7 +17,10 @@ namespace LOP
     public class FlappyMyBirdMarker : ILateTickable, IDisposable
     {
         internal const float RingWidth = 0.15f;
-        internal const float BehindZ = 0.6f;
+        //  처음엔 0.6 m였다. 투영(perspective) 카메라가 통로 가운데를 보므로, 가운데가 아닌 통로 가장자리에서는
+        //  몸 뒤 0.6 m 떨어진 평면이 화면에서 ~0.15 m나 옆으로 밀려 보여 테두리 한쪽이 지워졌다(원판이 몸 밖으로
+        //  나가 가려지는 역할을 못 함). 0.05 m로 줄여 그 밀림을 테두리 폭(0.15 m)보다 훨씬 작게 둔다.
+        internal const float BehindZ = 0.05f;
         internal const float ArrowGap = 0.27f;
         internal const float ArrowWidth = 0.47f;
         internal const float ArrowHeight = 0.33f;

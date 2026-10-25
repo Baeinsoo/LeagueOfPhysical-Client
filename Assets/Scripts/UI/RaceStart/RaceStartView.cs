@@ -36,7 +36,8 @@ namespace LOP.UI
             //  끝날 때까지 계속 돌며(값을 매 프레임 확인), 창을 닫는 건 윈도우 매니저의 몫이다.
             _tick = Root.schedule.Execute(_ =>
             {
-                string text = _viewModel.CurrentText();
+                _viewModel.Refresh();
+                string text = _viewModel.Text;
                 _text.text = text;
                 Root.style.display = string.IsNullOrEmpty(text) ? DisplayStyle.None : DisplayStyle.Flex;
             }).Every(0);

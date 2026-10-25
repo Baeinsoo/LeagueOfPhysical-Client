@@ -2,7 +2,10 @@ using System;
 
 namespace LOP.UI
 {
-    /// <summary>대기 인원과 카운트다운을 화면 문구로 바꾼다.</summary>
+    /// <summary>
+    /// 대기 인원과 카운트다운을 화면 값으로 바꾼다. 플래피(<see cref="IRaceStartLook.Animated"/>)는 spec §3대로 팝 크기·GO 사라짐·박자 소리,
+    /// 기마 궁술은 <see cref="CurrentText"/>(예전 계산) 그대로. View가 매 프레임 <see cref="Refresh"/>를 부른다(변경 알림이 없는 샘플링 값).
+    /// </summary>
     public class RaceStartViewModel
     {
         //  숫자를 띄우는 구간. 출발까지 이보다 더 남았으면 아직 "대기 중"으로 보여준다 —
@@ -12,14 +15,82 @@ namespace LOP.UI
 
         private readonly MatchStartState state;
         private readonly GameFramework.Runner.IRunner runner;
+        private readonly IRaceStartLook look;
+        private readonly CountdownCue cue = new CountdownCue();
 
-        public RaceStartViewModel(MatchStartState state, GameFramework.Runner.IRunner runner)
+        public RaceStartViewModel(MatchStartState state, GameFramework.Runner.IRunner runner, IRaceStartLook look)
         {
             this.state = state;
             this.runner = runner;
+            this.look = look;
         }
 
-        /// <summary>지금 화면에 띄울 문구. 빈 문자열이면 아무것도 안 띄운다.</summary>
+        /// <summary>지금 띄울 문구. 빈 문자열이면 아무것도 안 띄운다.</summary>
+        public string Text { get; private set; } = string.Empty;
+
+        /// <summary>팝 크기(1.5 → 1). 예전 모양이면 늘 1.</summary>
+        public float TextScale { get; private set; } = 1f;
+
+        public float Alpha { get; private set; } = 1f;
+
+        /// <summary>플래피 숫자·GO 글씨(큰 팝 글씨)인가. 대기 문구와 예전 모양은 거짓.</summary>
+        public bool IsPop { get; private set; }
+
+        /// <summary>플래피 GO!(초록)인가.</summary>
+        public bool IsGo { get; private set; }
+
+        public void Refresh()
+        {
+            if (look.Animated == false)
+            {
+                //  예전 모양 그대로(기마 궁술) — 문구 계산도 예전 그대로 한 곳(CurrentText).
+                Text = CurrentText();
+                TextScale = 1f;
+                Alpha = 1f;
+                IsPop = false;
+                IsGo = false;
+                return;
+            }
+
+            var ticker = runner.tickUpdater;
+            bool running = runner.gameState == GameFramework.Runner.RunnerState.Playing;
+            var frame = RaceCountdown.At(state.StartTick.CurrentValue, ticker?.interval ?? 0d, ticker?.elapsedTime ?? 0d, running);
+
+            switch (cue.Observe(frame))
+            {
+                case CountdownSound.Beat: look.Beat(); break;
+                case CountdownSound.Go: look.Go(); break;
+            }
+
+            IsPop = frame.Kind == CountdownKind.Number || frame.Kind == CountdownKind.Go;
+            IsGo = frame.Kind == CountdownKind.Go;
+            switch (frame.Kind)
+            {
+                case CountdownKind.Waiting:
+                    Text = WaitingText();
+                    TextScale = 1f;
+                    Alpha = 1f;
+                    break;
+                case CountdownKind.Number:
+                    Text = frame.Number.ToString();
+                    TextScale = RaceCountdown.Scale(frame.SecondsIn);
+                    Alpha = 1f;
+                    break;
+                case CountdownKind.Go:
+                    Text = "GO!";
+                    TextScale = RaceCountdown.Scale(frame.SecondsIn);
+                    Alpha = RaceCountdown.GoAlpha(frame.SecondsIn);
+                    break;
+                default:
+                    //  출발 뒤 0.8초가 지나면 비운다(창을 닫지 않고 View가 숨긴다) — 계속 띄우면 레이스 내내 화면을 덮는다.
+                    Text = string.Empty;
+                    TextScale = 1f;
+                    Alpha = 0f;
+                    break;
+            }
+        }
+
+        /// <summary>예전 문구 계산(기마 궁술이 쓴다). 틱으로 세고 GO는 1초. 빈 문자열이면 아무것도 안 띄운다.</summary>
         public string CurrentText()
         {
             long startTick = state.StartTick.CurrentValue;

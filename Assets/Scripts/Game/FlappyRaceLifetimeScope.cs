@@ -186,6 +186,8 @@ namespace LOP
             builder.Register<IRaceHudSource, RaceHudSource>(Lifetime.Singleton);
             builder.Register<RaceHudViewModel>(Lifetime.Transient);
             builder.Register<RaceHudView>(Lifetime.Transient);
+            //  카운트다운 모양·박자 — 창은 기마 궁술과 같이 쓰므로 개편(팝·GO 초록·소리)은 플래피 스코프가 꽂는다.
+            builder.Register<IRaceStartLook, FlappyRaceStartLook>(Lifetime.Singleton);
             builder.Register<RaceStartViewModel>(Lifetime.Transient);
             builder.Register<RaceStartView>(Lifetime.Transient);
             builder.Register<RaceEliminatedView>(Lifetime.Transient);

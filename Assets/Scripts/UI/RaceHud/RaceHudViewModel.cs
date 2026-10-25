@@ -34,6 +34,10 @@ namespace LOP.UI
         private bool _hasBanner;
         private bool _finalStretchOn;
 
+        private RankChange _delta;
+        private double _deltaStart;
+        private bool _hasDelta;
+
         /// <summary>왼쪽 위 기록 시간(`m:ss.s`).</summary>
         public ReadOnlyReactiveProperty<string> ClockText => _clockText;
 
@@ -80,6 +84,21 @@ namespace LOP.UI
         /// <summary>LAST STRETCH! 크기(1.5배 → 1배). 구간 배너는 늘 1.</summary>
         public float BannerScale { get; private set; } = 1f;
 
+        public const string RankUpText = "+1";
+
+        //  화면 글꼴(블랙한산스·주아)에 진짜 빼기(U+2212)가 없고 대체 글꼴도 없다 — 시제품의 "−1" 대신 하이픈.
+        public const string RankDownText = "-1";
+
+        /// <summary>순위 숫자 옆 "+1"/"-1"(spec §5 추월). 없으면 빈 문자열.</summary>
+        public string DeltaText { get; private set; } = string.Empty;
+
+        public Color DeltaColor { get; private set; }
+
+        public float DeltaAlpha { get; private set; }
+
+        /// <summary>떠오른 높이(px, 위로).</summary>
+        public float DeltaRise { get; private set; }
+
         public RaceHudViewModel(IRaceHudSource source, IFlappyAudio audio)
         {
             _source = source;
@@ -97,10 +116,17 @@ namespace LOP.UI
             RaceStandings.Order(_frame.Birds);
             int rank = RaceStandings.RankOf(_frame.Birds, _frame.MyId);
             bool finished = _frame.MyFinishedTick != FinishState.NotFinished;
-            if (_rankGate.Observe(rank, elapsed, finished) != RankChange.None)
+            //  튕김·±1·소리가 같은 판정 하나를 쓴다 — 출발 2.5초·0.8초 거르기, 결승 뒤 변화는 추월이 아님(RankChangeDebounce).
+            RankChange change = _rankGate.Observe(rank, elapsed, finished);
+            if (change != RankChange.None)
             {
                 _rankPopped.OnNext(Unit.Default);
+                _delta = change;
+                _deltaStart = _frame.NowSeconds;
+                _hasDelta = true;
+                _audio.Play(change == RankChange.Up ? FlappySfx.RankUp : FlappySfx.RankDown);
             }
+            UpdateDelta(finished);
             _rank.Value = rank;
             _total.Value = _frame.Birds.Count;
             _showRank.Value = !finished;
@@ -210,6 +236,25 @@ namespace LOP.UI
                 return;
             }
             _audio.Play(FlappySfx.Section);
+        }
+
+        //  1.2초 동안 투명도 1 → 0, 초당 20 px 떠오름(시제품 rankDelta). 결승하면 지운다 — 순위 판도 숨는다.
+        private void UpdateDelta(bool finished)
+        {
+            float t = _hasDelta ? (float)(_frame.NowSeconds - _deltaStart) : HudBannerTimeline.DeltaTotal;
+            if (finished || t >= HudBannerTimeline.DeltaTotal)
+            {
+                _hasDelta = false;
+                DeltaText = string.Empty;
+                DeltaAlpha = 0f;
+                DeltaRise = 0f;
+                return;
+            }
+            bool up = _delta == RankChange.Up;
+            DeltaText = up ? RankUpText : RankDownText;
+            DeltaColor = up ? FlappyRacePalette.RankUp : FlappyRacePalette.RankDown;
+            DeltaAlpha = HudBannerTimeline.DeltaAlpha(t);
+            DeltaRise = HudBannerTimeline.DeltaRise(t);
         }
     }
 }

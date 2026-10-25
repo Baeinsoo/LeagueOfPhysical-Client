@@ -294,5 +294,67 @@ namespace LOP.Tests
             Assert.AreEqual(0, audio.Played.Count);
             Assert.IsFalse(audio.FinalStretch);
         }
+
+        [Test]
+        public void 추월하면_초록_플러스1과_두_음()
+        {
+            //  5.0초: 나 2위. 5.1초: 나 1위(출발 3.1초 — 2.5초 유예 밖).
+            source.Next = f => Course(f, 5.0d, new RaceBirdSample("me", 0, 50f), new RaceBirdSample("a", 0, 60f));
+            viewModel.Refresh();
+            source.Next = f => Course(f, 5.1d, new RaceBirdSample("me", 0, 61f), new RaceBirdSample("a", 0, 60f));
+            viewModel.Refresh();
+
+            Assert.AreEqual(RaceHudViewModel.RankUpText, viewModel.DeltaText);
+            Assert.AreEqual("+1", viewModel.DeltaText);
+            Assert.AreEqual(FlappyRacePalette.RankUp, viewModel.DeltaColor);
+            Assert.AreEqual(1f, viewModel.DeltaAlpha, 1e-4f);
+            CollectionAssert.AreEqual(new[] { FlappySfx.RankUp }, audio.Played);
+        }
+
+        [Test]
+        public void 밀리면_빨강_마이너스1과_낮은_음()
+        {
+            source.Next = f => Course(f, 5.0d, new RaceBirdSample("me", 0, 61f), new RaceBirdSample("a", 0, 60f));
+            viewModel.Refresh();
+            source.Next = f => Course(f, 5.1d, new RaceBirdSample("me", 0, 61f), new RaceBirdSample("a", 0, 62f));
+            viewModel.Refresh();
+
+            //  화면 글꼴(블랙한산스·주아)에 진짜 빼기(U+2212)가 없다 — 하이픈이어야 빈 네모가 안 뜬다.
+            Assert.AreEqual("-1", viewModel.DeltaText);
+            Assert.AreEqual(FlappyRacePalette.RankDown, viewModel.DeltaColor);
+            CollectionAssert.AreEqual(new[] { FlappySfx.RankDown }, audio.Played);
+        }
+
+        [Test]
+        public void 출발_2_5초_안엔_표시도_소리도_없다()
+        {
+            //  now 3.0·3.1초 = 출발 1.0·1.1초 — 출발 직후 줄 서기 소음(spec §5).
+            source.Next = f => Course(f, 3.0d, new RaceBirdSample("me", 0, 5f), new RaceBirdSample("a", 0, 6f));
+            viewModel.Refresh();
+            source.Next = f => Course(f, 3.1d, new RaceBirdSample("me", 0, 7f), new RaceBirdSample("a", 0, 6f));
+            viewModel.Refresh();
+
+            Assert.AreEqual(string.Empty, viewModel.DeltaText);
+            Assert.AreEqual(0, audio.Played.Count);
+        }
+
+        [Test]
+        public void 추월_표시는_1_2초_동안_떠오르며_사라진다()
+        {
+            source.Next = f => Course(f, 5.0d, new RaceBirdSample("me", 0, 50f), new RaceBirdSample("a", 0, 60f));
+            viewModel.Refresh();
+            source.Next = f => Course(f, 5.1d, new RaceBirdSample("me", 0, 61f), new RaceBirdSample("a", 0, 60f));
+            viewModel.Refresh();
+
+            source.Next = f => Course(f, 5.7d, new RaceBirdSample("me", 0, 64f), new RaceBirdSample("a", 0, 60f));
+            viewModel.Refresh();
+            Assert.AreEqual(0.5f, viewModel.DeltaAlpha, 1e-4f);
+            Assert.AreEqual(12f, viewModel.DeltaRise, 1e-3f, "0.6초 × 초당 20 px");
+
+            source.Next = f => Course(f, 6.35d, new RaceBirdSample("me", 0, 67f), new RaceBirdSample("a", 0, 60f));
+            viewModel.Refresh();
+            Assert.AreEqual(string.Empty, viewModel.DeltaText, "1.25초 — 사라졌다");
+            Assert.AreEqual(0f, viewModel.DeltaAlpha);
+        }
     }
 }

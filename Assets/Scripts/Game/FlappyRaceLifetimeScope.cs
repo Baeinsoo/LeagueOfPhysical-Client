@@ -14,6 +14,13 @@ namespace LOP
     {
         [SerializeField] private CameraController cameraController;
 
+        //  새 몸엔 체력이 없다 — HP 막대를 켜 두면 늘 가득 찬 막대가 머리 위에 뜬다.
+        protected override bool ShowHealthBars => false;
+
+        //  상대 이름은 기본 숨김(spec §2, 폴가이즈 문법) — 이름 여섯 줄이 좁은 통로를 덮는다. 설정 "상대 이름 보기"를
+        //  켜면 이름표만 다시 켠다(HP 막대는 위에서 계속 꺼져 있다). 내 이름표도 같이 숨는다 — 내 새는 테두리·화살표가 찾아 준다.
+        protected override bool ShowNameplates => FlappyDisplayPrefs.ShowOpponentNames;
+
         protected override void ConfigureGame(IContainerBuilder builder)
         {
             builder.RegisterComponent(cameraController);

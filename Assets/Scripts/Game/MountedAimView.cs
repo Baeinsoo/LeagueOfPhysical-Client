@@ -16,10 +16,6 @@ namespace LOP
     /// </summary>
     public class MountedAimView : ILateTickable, IDisposable
     {
-        // 쏘는 순간 시뮬은 당김을 0으로 한 번에 떨어뜨린다 — 그대로 따라가면 화각이 튄다.
-        private const float RisePerSecond = 6f;
-        private const float FallPerSecond = 2.5f;
-
         public const float MaxAimDistance = 300f;
 
         private readonly PlayerInputManager input;
@@ -36,6 +32,7 @@ namespace LOP
         private readonly List<(string id, Vector3 chest)> assistTargets = new List<(string id, Vector3 chest)>();
         private readonly List<MountedPredictedHits.Target> bodies = new List<MountedPredictedHits.Target>();
 
+        // 보이는 확대 정도(0~1). 시위 비율이 아니라 MountedCameraZoom.ZoomTarget을 따라간다.
         private float shownDrawRatio;
         private bool cameraReset;
 
@@ -196,8 +193,7 @@ namespace LOP
 
             var aim = entity?.Get<ArcheryAim>();
             float target = aim != null && aim.Drawing ? aim.DrawRatio : 0f;
-            float rate = target > shownDrawRatio ? RisePerSecond : FallPerSecond;
-            shownDrawRatio = Mathf.MoveTowards(shownDrawRatio, target, rate * Time.deltaTime);
+            shownDrawRatio = MountedCameraZoom.Step(shownDrawRatio, target, Time.deltaTime);
 
             var (fov, distance) = MountedCameraZoom.For(shownDrawRatio);
             camera.fieldOfView = fov;

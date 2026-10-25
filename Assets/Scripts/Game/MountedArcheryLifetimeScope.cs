@@ -29,7 +29,8 @@ namespace LOP
             builder.Register(c =>
             {
                 var cfg = c.Resolve<MountedArcheryConfig>();
-                return new ArcheryAimSystem(cfg.ToBowConfig(), cfg.RiderEyeHeight, turnBodyToAim: false);
+                return new ArcheryAimSystem(cfg.ToBowConfig(), cfg.RiderEyeHeight, turnBodyToAim: false,
+                                           fullDrawSeconds: cfg.FullDrawSeconds);
             }, Lifetime.Singleton);
 
             builder.Register<MountedArcheryWorld>(c => new MountedArcheryWorld(

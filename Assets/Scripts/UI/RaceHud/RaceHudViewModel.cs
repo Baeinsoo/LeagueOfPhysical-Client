@@ -21,6 +21,7 @@ namespace LOP.UI
         private readonly ReactiveProperty<int> _total = new ReactiveProperty<int>(0);
         private readonly ReactiveProperty<float> _myProgress = new ReactiveProperty<float>(0f);
         private readonly ReactiveProperty<bool> _showProgress = new ReactiveProperty<bool>(false);
+        private readonly ReactiveProperty<bool> _showRank = new ReactiveProperty<bool>(true);
         private readonly Subject<Unit> _rankPopped = new Subject<Unit>();
 
         /// <summary>왼쪽 위 기록 시간(`m:ss.s`).</summary>
@@ -37,6 +38,11 @@ namespace LOP.UI
 
         /// <summary>막대를 보일지. 결승선을 모르는 맵에서 점을 0에 몰아 두느니 숨긴다.</summary>
         public ReadOnlyReactiveProperty<bool> ShowProgress => _showProgress;
+
+        /// <summary>순위판을 보일지. 내가 결승하면 숨긴다 — 결승·결과 화면이 등수를 보여 주고, 관전 화면의
+        /// "나가기" 버튼이 이 판과 같은 자리(오른쪽 위)에 겹친다(RaceHud.uss .race-rank-plate vs
+        /// RaceSpectateView.uss .spectate-leave).</summary>
+        public ReadOnlyReactiveProperty<bool> ShowRank => _showRank;
 
         /// <summary>순위 숫자를 튕길 때(<see cref="RankChangeDebounce"/>가 허락한 변화).</summary>
         public Observable<Unit> RankPopped => _rankPopped;
@@ -67,6 +73,7 @@ namespace LOP.UI
             }
             _rank.Value = rank;
             _total.Value = _frame.Birds.Count;
+            _showRank.Value = !finished;
 
             _showProgress.Value = _frame.HasCourse;
             _dots.Clear();

@@ -60,13 +60,28 @@ namespace LOP.UI
                 .Subscribe(ratio => fill.style.width = Length.Percent(ratio * 100f))
                 .AddTo(_subscriptions);
 
+            //  순위 판을 보일지는 두 값이 같이 정한다: 내 새가 있어야(Rank > 0) 하고, 아직 결승하지 않아야(ShowRank) 한다.
+            //  내가 결승한 뒤엔 결승·결과 화면이 등수를 보여 주는데, 관전 화면의 "나가기" 버튼이 이 판과 같은
+            //  오른쪽 위 자리에 겹친다(RaceHud.uss .race-rank-plate vs RaceSpectateView.uss .spectate-leave).
+            bool showRank = _viewModel.ShowRank.CurrentValue;
+            void UpdateRankPlateVisibility(int rankValue) =>
+                rankPlate.style.display = rankValue > 0 && showRank ? DisplayStyle.Flex : DisplayStyle.None;
+
             _viewModel.Rank
                 .Subscribe(value =>
                 {
                     //  내 새가 없으면(탈락 뒤 관전) 순위 판을 통째로 숨긴다 — 빈 숫자 판은 고장처럼 보인다.
-                    rankPlate.style.display = value > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+                    UpdateRankPlateVisibility(value);
                     rank.text = value > 0 ? value.ToString() : string.Empty;
                     rank.style.color = FlappyRacePalette.RankColor(value);
+                })
+                .AddTo(_subscriptions);
+
+            _viewModel.ShowRank
+                .Subscribe(value =>
+                {
+                    showRank = value;
+                    UpdateRankPlateVisibility(_viewModel.Rank.CurrentValue);
                 })
                 .AddTo(_subscriptions);
 

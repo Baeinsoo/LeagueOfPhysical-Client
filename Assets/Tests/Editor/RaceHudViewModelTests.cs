@@ -121,6 +121,19 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 내가_결승하면_순위판을_숨긴다()
+        {
+            source.Next = f => Course(f, 5d, new RaceBirdSample("me", 0, 100f));
+            viewModel.Refresh();
+            Assert.IsTrue(viewModel.ShowRank.CurrentValue, "결승 전엔 순위판을 보인다");
+
+            source.Next = f => { Course(f, 5d, new RaceBirdSample("me", 0, 100f)); f.MyFinishedTick = 200; };
+            viewModel.Refresh();
+
+            Assert.IsFalse(viewModel.ShowRank.CurrentValue, "결승·결과 화면이 등수를 보여 주니 순위판은 숨긴다(관전 나가기 버튼과 겹침)");
+        }
+
+        [Test]
         public void 프레임은_매번_비우고_다시_채운다()
         {
             source.Next = f => Course(f, 5d, new RaceBirdSample("me", 0, 25f), new RaceBirdSample("a", 0, 50f));

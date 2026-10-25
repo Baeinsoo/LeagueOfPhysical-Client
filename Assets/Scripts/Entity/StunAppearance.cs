@@ -82,6 +82,12 @@ namespace LOP
 
         private float flashTimer;
 
+        /// <summary>
+        /// 지금 그리고 있는 상태. 그림이 아직 안 붙었으면 None. 남의 새 기절을 읽는 유일한 창구다 — 남의 새는 스냅이
+        /// FlappyStun을 채우지 않고, 스냅의 기절 끝 틱은 보간기가 여기로만 넘긴다(<see cref="FlappyBirdLooks"/>가 읽는다).
+        /// </summary>
+        public StunVisual State => state;
+
         public void SetEntity(LOPActor actor)
         {
             this.actor = actor;

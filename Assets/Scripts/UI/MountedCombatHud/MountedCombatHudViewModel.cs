@@ -80,7 +80,7 @@ namespace LOP.UI
 
         /// <summary>
         /// 원 문구. 정수 틱 하나로 정한다. 다음 단계 공개는 앞 단계 축소가 끝나는 순간이라
-        /// 단계 사이에 빈 틈은 없고, 마지막 단계는 길이가 따로 없어 항상 "마지막 원"이다.
+        /// 단계 사이에 빈 틈은 없고, 마지막 단계는 줄어드는 동안 경고, 다 줄면 "구역 피해 증가 중"이다.
         /// </summary>
         public static string ZoneTextFor(IReadOnlyList<ZoneStage> stages, long tick, float interval,
                                          long firstRevealTick, int lastStageIndex)
@@ -98,8 +98,8 @@ namespace LOP.UI
             var s = latest.Value;
             if (s.index >= lastStageIndex && lastStageIndex > 0)
             {
-                // 마지막 원이 다 줄고 나면 가만히 있어도 피해가 커진다 — 그걸 알려 준다.
-                return tick >= s.shrinkEndTick ? "구역 피해 증가 중" : "마지막 원";
+                // 마지막 원이 다 줄고 나면 가만히 있어도 피해가 커져 몇 초 만에 쓰러진다 — 줄어드는 동안 미리 알린다.
+                return tick >= s.shrinkEndTick ? "구역 피해 증가 중" : "마지막 원 — 닫히면 피해가 계속 커집니다";
             }
             if (tick < s.shrinkStartTick) return $"구역 축소까지 {SecondsLeft(s.shrinkStartTick - tick, interval)}초";
             if (tick < s.shrinkEndTick) return "구역 축소 중";

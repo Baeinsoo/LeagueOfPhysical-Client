@@ -17,13 +17,15 @@ namespace LOP.Tests
         }
 
         private FakeSource source;
+        private FakeFlappyAudio audio;
         private RaceHudViewModel viewModel;
 
         [SetUp]
         public void SetUp()
         {
             source = new FakeSource();
-            viewModel = new RaceHudViewModel(source);
+            audio = new FakeFlappyAudio();
+            viewModel = new RaceHudViewModel(source, audio);
         }
 
         //  출발 틱 100(2초), 틱 0.02초, 출발 x 0 → 결승 x 100.
@@ -201,6 +203,96 @@ namespace LOP.Tests
 
             Assert.AreEqual(1, viewModel.Total.CurrentValue, "떠난 새가 남아 있지 않다");
             Assert.AreEqual(1, viewModel.Dots.Count);
+        }
+
+        [Test]
+        public void 구간을_넘으면_막과_이름_배너와_구간_소리()
+        {
+            source.Next = f => { Course(f, 5.0d, new RaceBirdSample("me", 0, 45f)); Mine(f); };
+            viewModel.Refresh();
+            Assert.AreEqual(HudBannerKind.None, viewModel.BannerKind, "처음 본 장 — 이미 지난 20 m 구간은 안 알린다");
+
+            source.Next = f => { Course(f, 5.1d, new RaceBirdSample("me", 0, 51f)); Mine(f); };
+            viewModel.Refresh();
+
+            Assert.AreEqual(HudBannerKind.Section, viewModel.BannerKind);
+            Assert.AreEqual("진자 광차", viewModel.BannerTitle);
+            Assert.AreEqual("2막", viewModel.BannerActText);
+            Assert.AreEqual(FlappyRacePalette.ActColor(2), viewModel.BannerColor);
+            CollectionAssert.AreEqual(new[] { FlappySfx.Section }, audio.Played);
+            Assert.IsFalse(audio.FinalStretch);
+        }
+
+        [Test]
+        public void 마지막_구간은_LAST_STRETCH와_팡파르_음악을_올린다()
+        {
+            source.Next = f => { Course(f, 5.0d, new RaceBirdSample("me", 0, 75f)); Mine(f); };
+            viewModel.Refresh();
+            source.Next = f => { Course(f, 5.1d, new RaceBirdSample("me", 0, 81f)); Mine(f); };
+            viewModel.Refresh();
+
+            Assert.AreEqual(HudBannerKind.LastStretch, viewModel.BannerKind);
+            Assert.AreEqual(1.5f, viewModel.BannerScale, 1e-4f, "넘은 그 장은 1.5배에서 찍힌다");
+            CollectionAssert.AreEqual(new[] { FlappySfx.LastStretch }, audio.Played, "구간 소리 대신 팡파르만(시제품)");
+            Assert.IsTrue(audio.FinalStretch, "음악이 빨라지고 높아진다");
+        }
+
+        [Test]
+        public void 구간_배너는_1_6초_뒤_사라진다()
+        {
+            source.Next = f => { Course(f, 5.0d, new RaceBirdSample("me", 0, 45f)); Mine(f); };
+            viewModel.Refresh();
+            source.Next = f => { Course(f, 5.1d, new RaceBirdSample("me", 0, 51f)); Mine(f); };
+            viewModel.Refresh();
+
+            source.Next = f => { Course(f, 5.9d, new RaceBirdSample("me", 0, 54f)); Mine(f); };
+            viewModel.Refresh();
+            Assert.AreEqual(HudBannerKind.Section, viewModel.BannerKind);
+            Assert.AreEqual(1f, viewModel.BannerAlpha, 1e-4f, "0.8초 — 머무는 중");
+
+            source.Next = f => { Course(f, 6.75d, new RaceBirdSample("me", 0, 58f)); Mine(f); };
+            viewModel.Refresh();
+            Assert.AreEqual(HudBannerKind.None, viewModel.BannerKind, "1.65초 — 사라졌다");
+        }
+
+        [Test]
+        public void 출발_전에는_넘어도_배너가_없다()
+        {
+            //  now 1.0초 < 출발 2.0초 — 줄 서기 중.
+            source.Next = f => { Course(f, 1.0d, new RaceBirdSample("me", 0, 45f)); Mine(f); };
+            viewModel.Refresh();
+            source.Next = f => { Course(f, 1.1d, new RaceBirdSample("me", 0, 51f)); Mine(f); };
+            viewModel.Refresh();
+
+            Assert.AreEqual(HudBannerKind.None, viewModel.BannerKind);
+            Assert.AreEqual(0, audio.Played.Count);
+        }
+
+        [Test]
+        public void 결승하면_배너를_거둔다()
+        {
+            source.Next = f => { Course(f, 5.0d, new RaceBirdSample("me", 0, 45f)); Mine(f); };
+            viewModel.Refresh();
+            source.Next = f => { Course(f, 5.1d, new RaceBirdSample("me", 0, 51f)); Mine(f); };
+            viewModel.Refresh();
+
+            source.Next = f => { Course(f, 5.2d, new RaceBirdSample("me", 0, 100f)); Mine(f); f.MyFinishedTick = 255; };
+            viewModel.Refresh();
+
+            Assert.AreEqual(HudBannerKind.None, viewModel.BannerKind, "결승 도장·관전 화면과 겹치지 않게");
+        }
+
+        [Test]
+        public void 표식이_없는_맵은_배너도_소리도_없다()
+        {
+            source.Next = f => Course(f, 5.0d, new RaceBirdSample("me", 0, 45f));
+            viewModel.Refresh();
+            source.Next = f => Course(f, 5.1d, new RaceBirdSample("me", 0, 95f));
+            viewModel.Refresh();
+
+            Assert.AreEqual(HudBannerKind.None, viewModel.BannerKind);
+            Assert.AreEqual(0, audio.Played.Count);
+            Assert.IsFalse(audio.FinalStretch);
         }
     }
 }

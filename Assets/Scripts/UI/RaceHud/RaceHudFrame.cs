@@ -73,4 +73,14 @@ namespace LOP.UI
             Color = color;
         }
     }
+
+    /// <summary>지금 HUD에 뜬 큰 글자 띠(spec §5). 한 번에 하나다.</summary>
+    public enum HudBannerKind
+    {
+        None,
+        /// <summary>"n막" + 구간 이름 + 막 색 띠.</summary>
+        Section,
+        /// <summary>마지막 구간 — 분홍 띠 LAST STRETCH!.</summary>
+        LastStretch,
+    }
 }

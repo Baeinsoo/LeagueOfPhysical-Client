@@ -15,3 +15,18 @@
     -unity-text-outline-width: 3px;
     -unity-text-outline-color: rgba(0, 0, 0, 0.7);
 }
+
+/* ── 플래피 카운트다운(spec §3) — 플래피 스코프(IRaceStartLook.Animated)일 때만 코드가 붙인다. 기마 궁술은 위 기본 규칙 그대로. ── */
+
+/* 3·2·1·GO! — 시제품 110px × 2. 팝(1.5배 → 1배)은 코드가 scale로 준다. */
+.race-start-text--pop {
+    font-size: 220px;
+    color: rgb(243, 235, 226);
+    -unity-text-outline-width: 4px;
+    transform-origin: center;
+}
+
+/* GO! — 초록(#7be08a). 0.8초에 걸친 사라짐은 코드가 opacity로 준다. */
+.race-start-text--go {
+    color: rgb(123, 224, 138);
+}

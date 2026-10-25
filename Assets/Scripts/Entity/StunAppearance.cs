@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using GameFramework;
 using UnityEngine;
 
@@ -63,6 +64,16 @@ namespace LOP
         private Material[] stunMaterials;
         private Material[] flashMaterials;
 
+        //  평소 모습의 칠. 지금은 아무도 안 부른다(사용자 결정 10-25 — 게임이 선수에게 색을 배정하지 않는다) — 장차
+        //  코스튬(옷) 색을 입힐 자리로 남겨 둔다. null이면 원본 그대로.
+        //  칠을 이 클래스가 같이 쥐는 이유: 새 머티리얼을 갈아 끼우는 주인이 둘이면, 기절이 풀릴 때 이 클래스가
+        //  "원본"으로 되돌리면서 칠을 지운다. 주인이 하나여야 기절·깜빡임 뒤에도 칠이 남는다.
+        private Color? baseTint;
+        private System.Predicate<Material> baseTintTarget;
+
+        //  칠한 칸만 복제, 나머지 칸은 원본 레퍼런스 그대로(부리·눈은 안 건드린다).
+        private Material[] tintedMaterials;
+
         private StunVisual state = StunVisual.None;
 
         // 지금 렌더러에 물려 있는 배열. 무적 깜빡임이 매 프레임 이 값을 오가므로,
@@ -74,6 +85,26 @@ namespace LOP
         public void SetEntity(LOPActor actor)
         {
             this.actor = actor;
+        }
+
+        /// <summary>
+        /// 평소 모습을 이 색으로 칠한다(target이 참인 머티리얼만). 기절색·무적 밝은색은 여전히 그 위를 덮고,
+        /// 풀리면 원본이 아니라 이 칠로 돌아온다. 그림이 아직 안 붙었으면 붙는 순간 칠한다.
+        /// </summary>
+        public void SetBaseTint(Color tint, System.Predicate<Material> target)
+        {
+            baseTint = tint;
+            baseTintTarget = target;
+            if (renderers != null && shown == tintedMaterials)
+            {
+                Show(originalMaterials);   // 지금 보이는 칠을 지우기 전에 원본으로 돌려 둔다
+            }
+            ReleaseTinted();
+
+            if (TryResolveRenderers() && state == StunVisual.None)
+            {
+                Show(BaseMaterials());
+            }
         }
 
         // 렌더러는 모델이 실제로 붙은 뒤에야(pull) 뽑는다 — SetEntity가 불리는 시점엔 앵커
@@ -103,13 +134,37 @@ namespace LOP
                 return false;
             }
 
-            renderers = visual.GetComponentsInChildren<Renderer>(true);
+            //  내 새 표시(FlappyMyBirdMarker) 같은 장식은 그림의 자식이라 여기 같이 걸린다 — 머티리얼 주인이
+            //  다르므로(StunAppearanceIgnore) 걸러낸다. 안 걸러내면 기절색·칠이 장식에도 묻고, 장식이 먼저
+            //  사라지면(Destroy) Cleanup이 죽은 렌더러에 쓰려다 죽는다.
+            renderers = FilterIgnored(visual.GetComponentsInChildren<Renderer>(true));
             originalMaterials = new Material[renderers.Length];
             for (int i = 0; i < renderers.Length; i++)
             {
                 originalMaterials[i] = renderers[i].sharedMaterial;
             }
+
+            //  새 모델은 원본 머티리얼을 달고 온다. 칠이 있으면 여기서 바로 입힌다 — 상태는 방금 None으로 돌렸으므로
+            //  보간기가 SetState(None)을 불러도 "같은 상태"라 아무것도 안 한다.
+            if (renderers.Length > 0 && baseTint != null)
+            {
+                Show(BaseMaterials());
+            }
             return renderers.Length > 0;
+        }
+
+        //  StunAppearanceIgnore가 붙은(또는 그 자식인) 렌더러는 뺀다 — 장식용이라 머티리얼 주인이 StunAppearance가 아니다.
+        private static Renderer[] FilterIgnored(Renderer[] all)
+        {
+            var kept = new List<Renderer>(all.Length);
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (all[i].GetComponentInParent<StunAppearanceIgnore>(true) == null)
+                {
+                    kept.Add(all[i]);
+                }
+            }
+            return kept.ToArray();
         }
 
         /// <summary>지금 그릴 상태. 같은 값을 매 틱 다시 넣어도 된다.</summary>
@@ -134,7 +189,7 @@ namespace LOP
                     break;
 
                 default:
-                    Show(originalMaterials);
+                    Show(BaseMaterials());
                     break;
             }
         }
@@ -152,7 +207,7 @@ namespace LOP
                 return;
             }
             flashTimer -= FlashInterval;
-            Show(shown == originalMaterials ? FlashMaterials() : originalMaterials);
+            Show(shown == BaseMaterials() ? FlashMaterials() : BaseMaterials());
         }
 
         private Material[] StunMaterials()
@@ -165,6 +220,27 @@ namespace LOP
         {
             flashMaterials = flashMaterials ?? Tinted(InvulnFlashColor);
             return flashMaterials;
+        }
+
+        //  평소에 보여 줄 배열. 칠이 없으면 원본 그 자체(복제 0개 — 내 새·다른 모드는 지금과 똑같다).
+        private Material[] BaseMaterials()
+        {
+            if (baseTint == null)
+            {
+                return originalMaterials;
+            }
+            if (tintedMaterials == null)
+            {
+                tintedMaterials = new Material[renderers.Length];
+                for (int i = 0; i < renderers.Length; i++)
+                {
+                    Material original = originalMaterials[i];
+                    tintedMaterials[i] = original != null && baseTintTarget(original)
+                        ? new Material(original) { color = baseTint.Value }
+                        : original;
+                }
+            }
+            return tintedMaterials;
         }
 
         private Material[] Tinted(Color color)
@@ -182,6 +258,12 @@ namespace LOP
             shown = materials;
             for (int i = 0; i < renderers.Length; i++)
             {
+                //  이 배열에 걸린 렌더러가 StunAppearance 바깥에서 먼저 파괴됐을 수 있다(예: 장식이 StunAppearanceIgnore로
+                //  걸러지지 않은 채 Destroy됐거나, 모델이 안전하지 않은 순서로 바뀐 경우) — 파괴된 레퍼런스에 쓰면 죽는다.
+                if (renderers[i] == null)
+                {
+                    continue;
+                }
                 // sharedMaterial "쓰기"는 그 렌더러가 참조할 에셋을 바꿀 뿐 복제를 유발하지 않는다
                 // (복제는 오직 .material을 "읽을" 때만 일어난다) — 원래대로 되돌릴 때도 복사본이
                 // 아니라 진짜 원본 레퍼런스로 되돌아간다.
@@ -193,6 +275,27 @@ namespace LOP
         {
             Release(ref stunMaterials);
             Release(ref flashMaterials);
+            ReleaseTinted();
+        }
+
+        //  칠한 배열엔 원본 레퍼런스가 섞여 있다 — 복제한 칸만 지운다(원본 에셋을 지우면 모든 새가 분홍이 된다).
+        //  originalMaterials가 아직 옛 모델 것일 때 불러야 한다(TryResolveRenderers가 그 순서로 부른다).
+        private void ReleaseTinted()
+        {
+            if (tintedMaterials == null)
+            {
+                return;
+            }
+            for (int i = 0; i < tintedMaterials.Length; i++)
+            {
+                bool cloned = originalMaterials == null || i >= originalMaterials.Length
+                    || tintedMaterials[i] != originalMaterials[i];
+                if (cloned)
+                {
+                    DestroyMaterial(tintedMaterials[i]);
+                }
+            }
+            tintedMaterials = null;
         }
 
         private void Release(ref Material[] materials)
@@ -203,14 +306,36 @@ namespace LOP
             }
             for (int i = 0; i < materials.Length; i++)
             {
-                Destroy(materials[i]);
+                DestroyMaterial(materials[i]);
             }
             materials = null;
         }
 
+        //  에디터 시험(재생 아님)에선 Destroy가 에러를 낸다 — FlappyDiveFx.DestroyObject와 같은 갈래.
+        private static void DestroyMaterial(Material material)
+        {
+            if (material == null)
+            {
+                return;
+            }
+            if (UnityEngine.Application.isPlaying)   // LOP 네임스페이스의 Application 싱글톤과 이름이 겹친다(FlappyDiveFx.DestroyObject와 같다)
+            {
+                Destroy(material);
+            }
+            else
+            {
+                DestroyImmediate(material);
+            }
+        }
+
         public void Cleanup()
         {
-            SetState(StunVisual.None);
+            //  칠한 복제본을 지우기 전에 원본으로 돌려 둔다 — 지워진 머티리얼을 단 렌더러는 분홍으로 그려진다.
+            if (renderers != null && originalMaterials != null)
+            {
+                Show(originalMaterials);
+            }
+            state = StunVisual.None;
             ReleaseDerivedMaterials();
         }
     }

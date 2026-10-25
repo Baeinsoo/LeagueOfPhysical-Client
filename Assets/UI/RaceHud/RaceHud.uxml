@@ -1,0 +1,23 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <!-- Flappy 정보 HUD(spec §1) — 위쪽은 정보, 아래쪽 엄지는 FlapPad. 전부 표시 전용(picking 통과). -->
+    <Style src="RaceHud.uss" />
+    <ui:VisualElement name="race-hud-root" class="race-hud-root" picking-mode="Ignore">
+        <ui:VisualElement name="race-clock-plate" class="race-clock-plate" picking-mode="Ignore">
+            <ui:Label name="race-clock" class="kit-title race-clock" text="0:00.0" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:VisualElement name="race-progress" class="race-progress" picking-mode="Ignore">
+            <ui:VisualElement name="race-progress-track" class="race-progress-track" picking-mode="Ignore">
+                <ui:VisualElement name="race-progress-fill" class="race-progress-fill" picking-mode="Ignore" />
+                <ui:VisualElement name="race-progress-goal" class="race-progress-goal" picking-mode="Ignore" />
+                <ui:VisualElement name="race-progress-dots" class="race-progress-dots" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="race-rank-plate" class="race-rank-plate" picking-mode="Ignore">
+            <ui:Label name="race-rank" class="kit-title race-rank" text="" picking-mode="Ignore" />
+            <ui:VisualElement class="race-rank-side" picking-mode="Ignore">
+                <ui:Label name="race-rank-unit" class="race-rank-unit" text="위" picking-mode="Ignore" />
+                <ui:Label name="race-rank-total" class="race-rank-total" text="" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

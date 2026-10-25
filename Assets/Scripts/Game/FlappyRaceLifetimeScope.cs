@@ -14,6 +14,13 @@ namespace LOP
     {
         [SerializeField] private CameraController cameraController;
 
+        //  새 몸엔 체력이 없다 — HP 막대를 켜 두면 늘 가득 찬 막대가 머리 위에 뜬다.
+        protected override bool ShowHealthBars => false;
+
+        //  상대 이름은 기본 숨김(spec §2, 폴가이즈 문법) — 이름 여섯 줄이 좁은 통로를 덮는다. 설정 "상대 이름 보기"를
+        //  켜면 이름표만 다시 켠다(HP 막대는 위에서 계속 꺼져 있다). 내 이름표도 같이 숨는다 — 내 새는 테두리·화살표가 찾아 준다.
+        protected override bool ShowNameplates => FlappyDisplayPrefs.ShowOpponentNames;
+
         protected override void ConfigureGame(IContainerBuilder builder)
         {
             builder.RegisterComponent(cameraController);
@@ -132,6 +139,9 @@ namespace LOP
             //  낙석 예고(떨어지기 직전 균열에서 먼지·돌가루) — 판정과 무관한 화면 연출(10-24).
             builder.RegisterEntryPoint<FlappyRockfallWarnFx>();
 
+            //  내 새 흰 테두리·노란 화살표(spec §2) — 판정과 무관한 클라 전용 연출.
+            builder.RegisterEntryPoint<FlappyMyBirdMarker>();
+
             //  낙하 내려다보기(FlappyFallLookDown)는 껐다 — 카메라가 새를 뒤따라 늦게 움직이는 느낌이라
             //  원조처럼 고정된 구도가 낫다(사용자 결정 2026-10-07). 클래스와 시험은 남겨 둔다.
 
@@ -146,6 +156,11 @@ namespace LOP
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             builder.Register<FlapPadViewModel>(Lifetime.Transient);
             builder.Register<FlapPadView>(Lifetime.Transient);
+            //  정보 HUD(진행 막대·순위·기록 시간). 소스는 출발 x를 한 번 정해 판 내내 쥐므로 싱글턴.
+            //  상대 점 색은 이제 FlappyRacePalette.OpponentNeutral 하나뿐이라 색 칸을 둘 이유가 없다(사용자 결정 10-25).
+            builder.Register<IRaceHudSource, RaceHudSource>(Lifetime.Singleton);
+            builder.Register<RaceHudViewModel>(Lifetime.Transient);
+            builder.Register<RaceHudView>(Lifetime.Transient);
             builder.Register<RaceStartViewModel>(Lifetime.Transient);
             builder.Register<RaceStartView>(Lifetime.Transient);
             builder.Register<RaceEliminatedView>(Lifetime.Transient);
@@ -163,6 +178,7 @@ namespace LOP
             IObjectResolver container, IWindowManager windowManager, List<IDisposable> sink)
         {
             sink.Add(windowManager.RegisterViewFactory<FlapPadView>(() => container.Resolve<FlapPadView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceHudView>(() => container.Resolve<RaceHudView>()));
             sink.Add(windowManager.RegisterViewFactory<RaceStartView>(() => container.Resolve<RaceStartView>()));
             sink.Add(windowManager.RegisterViewFactory<RaceEliminatedView>(() => container.Resolve<RaceEliminatedView>()));
             sink.Add(windowManager.RegisterViewFactory<RaceFinishView>(() => container.Resolve<RaceFinishView>()));

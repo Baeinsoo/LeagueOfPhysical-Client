@@ -132,6 +132,9 @@ namespace LOP
 
             // 입력면을 먼저 열어 Window 밴드 최하단에 깐다(전체화면이라 위 위젯 입력을 막지 않도록).
             _flapPad = windowManager.Open<FlapPadView>();
+            //  정보 HUD는 입력면 바로 위 — 입력을 안 잡으므로 엄지를 막지 않는다. 완주·탈락 뒤에도 닫지 않는다
+            //  (관전 중에도 막대가 남은 새들을 보여 준다. 내 새가 없으면 순위 판만 숨는다).
+            windowManager.Open<RaceHudView>();
             windowManager.Open<DebugHudView>();
             windowManager.Open<RaceStartView>();
             _opened = true;

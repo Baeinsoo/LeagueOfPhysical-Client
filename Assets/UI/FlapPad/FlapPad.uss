@@ -19,6 +19,9 @@
     -unity-text-align: middle-center;
     font-size: 28px;
     color: rgba(255, 255, 255, 0.55);
+    /* 날갯짓 3번 뒤 0.3초에 걸쳐 사라진다(spec §1) — 값은 FlapPadView가 opacity로 넣는다. */
+    transition-property: opacity;
+    transition-duration: 0.3s;
 }
 
 /* 대시 버튼 — 카트라이더 부스터와 같은 구조다. 버튼 안의 채움은 "다음 한 칸까지" 진행만 보여 주고
@@ -95,11 +98,11 @@
     background-color: rgb(255, 170, 40);
 }
 
-/* 추격자까지 남은 거리 — 곡선을 튜닝하려면 이 숫자를 봐야 한다 */
+/* 추격자 간격 — 기록 시간 판(왼쪽 위 108,16 · 192×64) 바로 아래. 추격자 꺼진 맵에선 코드가 숨긴다. */
 .chaser-gap {
     position: absolute;
-    left: 32px;
-    top: 32px;
+    left: 108px;
+    top: 92px;
     font-size: 30px;
     color: rgba(255, 255, 255, 0.7);
 }

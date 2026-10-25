@@ -39,13 +39,6 @@ namespace LOP.UI
         private VisualElement _panel;
         private Button _toggleButton;
 
-        /// <summary>
-        /// 숨김 여부를 기억하는 자리. 판마다 다시 켜야 하면 토글이 있으나 마나다.
-        /// <b>기본은 보임</b> — 넷코드를 볼 때 쓰던 도구라, 한 번도 안 누른 사람에게서
-        /// 말없이 사라지면 안 된다.
-        /// </summary>
-        private const string HiddenPref = "lop.debugHud.hidden";
-
         //  데스크톱 단축키. 이 게임의 조작이 WASD·방향키·포인터를 쓰므로 안 겹치고,
         //  디버그 HUD 토글은 F1이 업계 관용이다. **모바일용 손잡이는 버튼이 따로 있다.**
         private const UnityEngine.InputSystem.Key ToggleKey = UnityEngine.InputSystem.Key.F1;
@@ -91,9 +84,20 @@ namespace LOP.UI
 
             _panel = Root.Q<VisualElement>("debug-panel");
             _toggleButton = Root.Q<Button>("debug-toggle");
+
+            //  릴리스 빌드엔 디버그 HUD가 없다(사용자 결정 10-25) — 손잡이도 패널도 숨기고, 버튼 연결·매 프레임 갱신(F1 포함)도
+            //  하지 않는다. 창은 그대로 열려 있지만 아무것도 그리지도 듣지도 않는다. Dispose는 null을 견딘다(_tick?, _resetButton 검사).
+            if (DebugHudPrefs.HandleVisible(UnityEngine.Application.isEditor, UnityEngine.Debug.isDebugBuild) == false)
+            {
+                _toggleButton.style.display = DisplayStyle.None;
+                _panel.style.display = DisplayStyle.None;
+                return;
+            }
+
             //  모바일엔 F1이 없다 — 손가락으로 누를 손잡이가 늘 있어야 한다.
             _toggleButton.clicked += () => SetHidden(Hidden == false);
-            SetHidden(UnityEngine.PlayerPrefs.GetInt(HiddenPref, 0) != 0);
+            //  기본은 숨김 — 키·이유는 DebugHudPrefs.
+            SetHidden(DebugHudPrefs.LoadHidden());
 
             _tick = Root.schedule.Execute(Refresh).Every(0);
         }
@@ -104,7 +108,7 @@ namespace LOP.UI
             _panel.style.display = hidden ? DisplayStyle.None : DisplayStyle.Flex;
             //  지금 무엇을 하게 되는지를 글자가 말한다 — 감춰져 있으면 "켜기"다.
             _toggleButton.text = hidden ? "디버그" : "디버그 ✕";
-            UnityEngine.PlayerPrefs.SetInt(HiddenPref, hidden ? 1 : 0);
+            DebugHudPrefs.SaveHidden(hidden);
         }
 
         private bool Hidden => _panel.style.display.value == DisplayStyle.None;

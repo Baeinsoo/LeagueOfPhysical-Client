@@ -23,6 +23,8 @@ namespace LOP.UI
         private readonly ReactiveProperty<float> _chaserGap = new ReactiveProperty<float>(0f);
         private readonly ReactiveProperty<bool> _showDash = new ReactiveProperty<bool>(false);
         private readonly ReactiveProperty<bool> _showChaserGap = new ReactiveProperty<bool>(false);
+        private readonly FlapHintCounter _hint = new FlapHintCounter();
+        private readonly ReactiveProperty<bool> _showFlapHint = new ReactiveProperty<bool>(true);
 
         /// <summary>지금 채우고 있는 칸이 얼마나 찼나(0~1). 버튼이 이만큼 차오른다.
         /// <para>쌓아 둔 칸은 <see cref="DashStacks"/>가 버튼 위 칸 아이콘으로 따로 보여 준다 — 카트라이더 부스터 칸과 같은 모양이다.
@@ -47,6 +49,9 @@ namespace LOP.UI
         /// 벽이 화면 밖에 있으므로 숫자도 같이 숨긴다.</summary>
         public ReadOnlyReactiveProperty<bool> ShowChaserGap => _showChaserGap;
 
+        /// <summary>"화면을 누르면 날갯짓" 안내를 보이나. 날갯짓 3번 뒤 꺼진다(<see cref="FlapHintCounter"/>).</summary>
+        public ReadOnlyReactiveProperty<bool> ShowFlapHint => _showFlapHint;
+
         /// <summary>빛 알갱이 연출이 띄워 달라는 글자("+12알", 안내 한 줄). 월드 자리를 화면 자리로 바꾸는 것은 View가 한다.</summary>
         public Observable<FlappyMotePopup> MotePopups => _moteFeed.Popups;
 
@@ -66,7 +71,12 @@ namespace LOP.UI
         }
 
         /// <summary>날갯짓. 와이어에는 기존 Jump 입력으로 실린다 — 서버 입력 버퍼는 그대로 쓴다.</summary>
-        public void Flap() => _playerInputManager.SetJump(true);
+        public void Flap()
+        {
+            _playerInputManager.SetJump(true);
+            _hint.Count();
+            _showFlapHint.Value = _hint.Visible;
+        }
 
         /// <summary>
         /// 대시. 게이지가 덜 찼으면 아무 일도 하지 않는다 — 눌러도 안 나가는 것을 화면이 먼저

@@ -29,7 +29,11 @@ namespace LOP.UI
             _place = Root.Q<Label>("race-finish-place");
 
             //  등수는 변경 알림이 없는 샘플링 값이라 매 프레임 읽는다(RaceStartView와 같은 방식).
-            _tick = Root.schedule.Execute(_ => _place.text = _viewModel.PlacementText()).Every(0);
+            _tick = Root.schedule.Execute(_ =>
+            {
+                _viewModel.Refresh(UnityEngine.Time.deltaTime);
+                _place.text = _viewModel.PlacementText;
+            }).Every(0);
         }
 
         private bool _disposed;

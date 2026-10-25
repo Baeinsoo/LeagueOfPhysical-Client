@@ -164,5 +164,25 @@ namespace LOP.Tests
 
             Object.DestroyImmediate(markerRoot);
         }
+
+        //  위 시험은 StunAppearanceIgnore로 걸러져 renderers 배열에 처음부터 안 들어간 경우다. 여기는 다른 틈:
+        //  Ignore가 없는 평범한 렌더러가 일단 배열에 모인(collect) 뒤, StunAppearance 모르는 다른 코드가 그
+        //  GameObject를 파괴하면 배열엔 죽은 레퍼런스만 남는다 — Show가 그 칸을 건너뛰지 않으면 다음 상태
+        //  전환이 파괴된 레퍼런스에 쓰려다 죽는다.
+        [Test]
+        public void 모은_뒤_바깥에서_파괴된_렌더러는_Show에서_건너뛴다()
+        {
+            var extraGo = new GameObject("ExtraBody");
+            extraGo.transform.SetParent(actorGo.transform.Find("Visual"), false);
+            var extraRenderer = extraGo.AddComponent<MeshRenderer>();
+            extraRenderer.sharedMaterial = body;
+
+            appearance.SetState(StunVisual.Stunned);   // 첫 수집 — Ignore가 없으니 extra도 renderers에 들어간다
+
+            Object.DestroyImmediate(extraGo);   // StunAppearance 바깥에서, 모르게 파괴
+
+            Assert.DoesNotThrow(() => appearance.Cleanup(), "수집된 뒤 파괴된 렌더러가 있어도 정리는 죽지 않는다");
+            Assert.AreSame(body, bodyRenderer.sharedMaterial, "남은 렌더러는 정상적으로 원본으로 돌아온다");
+        }
     }
 }

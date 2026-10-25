@@ -40,7 +40,10 @@ namespace LOP.Tests
             warp = new FlappyVisualTimeWarp(new ActorRegistry(), new FakeGameDataStore());
             warp.applyDelay = _ => { };
             bursts = new FlappyBurstFx();
-            crash = new FlappyCrashFx(looks, shake, warp, bursts, audio, Config());
+            crash = new FlappyCrashFx(looks, shake, warp, bursts, audio, Config(),
+                                       new FlappySpectate(new GameFramework.World.EntityRegistry(), new FakeGameDataStore()));
+            //  시험 이음매로 "지금 보는 새"를 직접 고른다 — 평소(관전 안 함·내가 달리는 중)엔 나를 본다.
+            crash.watchedEntityId = () => "me";
             meGo = new GameObject("me");
             otherGo = new GameObject("other");
         }
@@ -134,6 +137,40 @@ namespace LOP.Tests
 
             Assert.IsEmpty(audio.Played);
             Assert.AreEqual(10, bursts.Count);
+        }
+
+        [Test]
+        public void 내가_완주해도_관전_중인_새_기준으로_먼_쿵을_잰다()
+        {
+            //  완주한 뒤 다른 새를 관전 중이면, 남의 충돌은 더 이상 내 위치(x=0)가 아니라
+            //  지금 보는 새 기준으로 가깝고 먼지를 잰다(FlappyCrashFx.cs ~111 수정).
+            crash.watchedEntityId = () => "watched";
+
+            var watchedGo = new GameObject("watched");
+            watchedGo.transform.position = new Vector3(50f, 0f, 0f);
+            var farCrasherGo = new GameObject("farCrasher");
+            try
+            {
+                void Setup(bool crasherStunned, float crasherX)
+                {
+                    farCrasherGo.transform.position = new Vector3(crasherX, 0f, 0f);
+                    looks.Birds.Clear();
+                    looks.Birds.Add(new FlappyBirdLook("me", true, false, meGo.transform));
+                    looks.Birds.Add(new FlappyBirdLook("watched", false, false, watchedGo.transform));
+                    looks.Birds.Add(new FlappyBirdLook("far", false, crasherStunned, farCrasherGo.transform));
+                    crash.Tick();
+                }
+
+                Setup(false, 55f);
+                Setup(true, 55f);   // 관전 중인 새(50)에서 5m — 가깝다. 내 위치(0)에서는 55m — 멀다.
+
+                CollectionAssert.AreEqual(new[] { FlappySfx.CrashFar }, audio.Played);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(watchedGo);
+                UnityEngine.Object.DestroyImmediate(farCrasherGo);
+            }
         }
     }
 }

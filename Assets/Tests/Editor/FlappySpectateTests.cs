@@ -38,7 +38,9 @@ namespace LOP.Tests
         private static FlappySpectate Spectate(EntityRegistry registry, string myEntityId)
         {
             var spectate = new FlappySpectate(registry, new FakeGameDataStore { userEntityId = myEntityId });
-            spectate.Refresh();
+            //  0초짜리 틱으로 돌려 결승 붙잡기 타이머가 시험 사이에서 실제 UnityEngine.Time에
+            //  휘둘리지 않게 한다(아래 FlappyVisualTimeWarp·FlappyAudio 시험과 같은 자리).
+            spectate.Refresh(0f);
             return spectate;
         }
 
@@ -130,16 +132,26 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 내_새가_완주하면_후보에서_빠진다()
+        public void 내_새가_완주하면_후보에서_빠지지만_2_2초_동안은_계속_나를_본다()
         {
-            //  내 새의 통과는 클라 시뮬이 직접 판정한다(FinishState).
+            //  내 새의 통과는 클라 시뮬이 직접 판정한다(FinishState). 후보에서는 바로 빠지지만
+            //  결승 도장이 사라지는 2.2초(global-constraints §결승 도장)까지는 Current가 나를 붙잡아 둔다 —
+            //  그래야 결승 느려짐(FlappyVisualTimeWarp.Slow)·꽃가루(FlappyRaceCues)가 화면에 보인다.
             var mine = Bird("me", 50f);
             mine.Add(new FinishState { FinishedTick = 100 });
+            var registry = Registry(mine, Bird("other", 10f));
+            var spectate = new FlappySpectate(registry, new FakeGameDataStore { userEntityId = "me" });
 
-            var spectate = Spectate(Registry(mine, Bird("other", 10f)), "me");
+            spectate.Refresh(0f);   // 결승 프레임
 
-            Assert.AreEqual("other", spectate.Current);
+            Assert.AreEqual("me", spectate.Current, "결승 프레임에도 아직 나를 본다");
             CollectionAssert.DoesNotContain(spectate.Candidates, "me");
+
+            spectate.Refresh(FlappySpectate.FinishHoldSeconds - 0.01f);
+            Assert.AreEqual("me", spectate.Current, "2.2초가 되기 전엔 계속 나를 본다");
+
+            spectate.Refresh(0.02f);   // 누적 2.2초를 넘긴다
+            Assert.AreEqual("other", spectate.Current, "2.2초가 지나면 남은 사람으로 바뀐다");
         }
 
         [Test]
@@ -164,7 +176,7 @@ namespace LOP.Tests
             Assert.AreEqual("a", spectate.Current);
 
             registry.Remove("a");
-            spectate.Refresh();
+            spectate.Refresh(0f);
 
             Assert.AreEqual("b", spectate.Current, "사라졌으면 꼴찌 규칙으로 돌아간다");
         }
@@ -178,8 +190,8 @@ namespace LOP.Tests
             spectate.Next();
             Assert.AreEqual("a", spectate.Current);
 
-            spectate.Refresh();
-            spectate.Refresh();
+            spectate.Refresh(0f);
+            spectate.Refresh(0f);
 
             Assert.AreEqual("a", spectate.Current);
         }
@@ -187,22 +199,41 @@ namespace LOP.Tests
         [Test]
         public void 내가_완주한_뒤_고른_사람이_유지된다()
         {
-            //  이 기능의 핵심 약속이다. 완주하면 나는 후보에서 빠지지만 레지스트리에는 남아 있는데,
+            //  이 기능의 핵심 약속이다. 결승 붙잡기 창(2.2초)이 끝나면 나는 후보에서 빠지고 레지스트리에는 남아 있는데,
             //  "내가 후보에 있으면 나" 가드가 그 상태까지 잡아채면 ◀ ▶ 가 매 틱 무효가 된다.
             var mine = Bird("me", 90f);
             mine.Add(new FinishState { FinishedTick = 100 });
             var registry = Registry(mine, Bird("a", 50f), Bird("b", 10f));
             var spectate = new FlappySpectate(registry, new FakeGameDataStore { userEntityId = "me" });
-            spectate.Refresh();
-            Assert.AreEqual("b", spectate.Current, "완주한 나는 후보에서 빠지고 꼴찌부터 본다");
+            spectate.Refresh(0f);
+            Assert.AreEqual("me", spectate.Current, "결승 직후 2.2초는 계속 나를 본다");
+
+            spectate.Refresh(FlappySpectate.FinishHoldSeconds);   // 붙잡기 창을 지난다
+            Assert.AreEqual("b", spectate.Current, "창이 끝나면 완주한 나는 후보에서 빠지고 꼴찌부터 본다");
 
             spectate.Next();
             Assert.AreEqual("a", spectate.Current);
 
-            spectate.Refresh();
-            spectate.Refresh();
+            spectate.Refresh(0f);
+            spectate.Refresh(0f);
 
             Assert.AreEqual("a", spectate.Current);
+        }
+
+        [Test]
+        public void 내_엔티티가_탈락으로_사라지면_붙잡기_창과_무관하게_바로_바뀐다()
+        {
+            //  완주와 달리 탈락은 엔티티가 레지스트리에서 완전히 사라진다 — Rebuild가 나를 아예 못 보므로
+            //  결승 붙잡기 창(2.2초)과 상관없이 바로 바뀐다.
+            var registry = Registry(Bird("me", 50f), Bird("other", 10f));
+            var spectate = new FlappySpectate(registry, new FakeGameDataStore { userEntityId = "me" });
+            spectate.Refresh(0f);
+            Assert.AreEqual("me", spectate.Current);
+
+            registry.Remove("me");
+            spectate.Refresh(0f);
+
+            Assert.AreEqual("other", spectate.Current, "탈락은 즉시 바뀐다");
         }
 
         [Test]
@@ -212,12 +243,12 @@ namespace LOP.Tests
             //  그 선택이 굳어 버리면 내가 달리는 내내 남을 보게 된다.
             var registry = Registry(Bird("other", 10f));
             var spectate = new FlappySpectate(registry, new FakeGameDataStore { userEntityId = "me" });
-            spectate.Refresh();
+            spectate.Refresh(0f);
             Assert.AreEqual("other", spectate.Current);
 
             //  내 새는 선두다 — 꼴찌 폴백이 아니라 "나" 규칙이 골랐음을 가른다.
             registry.Add(Bird("me", 50f));
-            spectate.Refresh();
+            spectate.Refresh(0f);
 
             Assert.AreEqual("me", spectate.Current);
         }

@@ -9,11 +9,21 @@ namespace LOP
     /// 아무 일도 안 일어난다). 완주·탈락한 뒤에는 사람이 <see cref="Next"/>/<see cref="Prev"/>로
     /// 직접 고를 수 있다.
     ///
+    /// <para>내가 결승선을 넘은 바로 뒤 <see cref="FinishHoldSeconds"/>(결승 도장이 사라지는 시간)
+    /// 동안은 후보에서 빠졌어도 계속 나를 붙잡아 둔다 — 그동안 내 새에 거는 결승 느려짐
+    /// (<see cref="FlappyVisualTimeWarp.Slow"/>)과 꽃가루(<see cref="FlappyRaceCues"/>)가 화면
+    /// 밖에서 터지면 아무도 못 본다. 탈락처럼 엔티티 자체가 사라지는 경우는 이 창과 무관하게
+    /// 바로 바뀐다 — Rebuild가 나를 아예 후보에도 못 올리기 때문이다.</para>
+    ///
     /// <para>카메라와 추격자 벽이 <b>같은 답</b>을 봐야 해서 주인을 하나로 둔다. 주인이 둘이면
     /// 자동 추적이 매 틱 수동 선택을 덮어쓴다.</para>
     /// </summary>
     public class FlappySpectate : ISpectateTargets
     {
+        /// <summary>결승 직후 나를 붙잡아 두는 시간(초). 결승 도장이 1.8초부터 0.4초에 걸쳐
+        /// 사라지므로(global-constraints §결승 도장) 그 끝과 맞춘다.</summary>
+        internal const float FinishHoldSeconds = 2.2f;
+
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly IGameDataStore gameDataStore;
 
@@ -22,6 +32,10 @@ namespace LOP
         private readonly List<string> candidates = new List<string>();
 
         private static readonly Comparison<Ranked> LeaderFirst = CompareLeaderFirst;
+
+        //  결승 붙잡기 타이머 — 내가 결승한 채로 이어지는 동안 흐른 시간을 쌓는다.
+        private float elapsedSinceFinish;
+        private bool wasMineFinished;
 
         private struct Ranked
         {
@@ -42,9 +56,28 @@ namespace LOP
         }
 
         /// <summary>후보를 다시 만들고, 보던 사람이 사라졌으면 다시 고른다. 매 틱 부른다.</summary>
-        public void Refresh()
+        public void Refresh() => Refresh(UnityEngine.Time.deltaTime);
+
+        //  시험 이음매 — 결승 붙잡기 타이머를 실제 UnityEngine.Time 없이 결정적으로 돌린다
+        //  (FlappyVisualTimeWarp.Tick(float)·FlappyAudio.Tick(float)과 같은 자리).
+        internal void Refresh(float deltaTime)
         {
             Rebuild();
+
+            string mine = gameDataStore.userEntityId;
+            var mineEntity = string.IsNullOrEmpty(mine) ? null : entityRegistry.Get(mine);
+            bool mineFinishedNow = mineEntity != null && Finished(mineEntity);
+
+            //  결승 상태가 이어지는 동안만 흐른 시간을 쌓는다. 탈락처럼 엔티티가 아예 사라지면
+            //  mineFinishedNow가 false가 되어 바로 0으로 돌아가고, 아래에서 후보 규칙을 그대로 탄다.
+            elapsedSinceFinish = mineFinishedNow && wasMineFinished ? elapsedSinceFinish + deltaTime : 0f;
+            wasMineFinished = mineFinishedNow;
+
+            if (mineFinishedNow && elapsedSinceFinish < FinishHoldSeconds)
+            {
+                Current = mine;
+                return;
+            }
 
             if (candidates.Count == 0)
             {
@@ -55,7 +88,6 @@ namespace LOP
             //  내가 아직 달리고 있으면 무조건 나를 본다. 관전 조작은 내가 빠진 뒤에만 열리므로
             //  이때 붙잡아 둘 수동 선택이란 것이 없고, 이 가드가 없으면 내 새가 등록되기 전에
             //  한 틱이라도 돌았을 때 남을 고른 채로 굳어 버린다(스폰 순서는 보장되지 않는다).
-            string mine = gameDataStore.userEntityId;
             if (string.IsNullOrEmpty(mine) == false && candidates.Contains(mine))
             {
                 Current = mine;

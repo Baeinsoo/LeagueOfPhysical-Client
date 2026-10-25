@@ -139,6 +139,9 @@ namespace LOP
             //  카메라 흔들림 주인 하나(대시 몫 + 충돌 트라우마, "흔들림 끄기"). 대시·충돌 연출이 주입받으므로 AsSelf.
             builder.RegisterEntryPoint<FlappyCameraShake>().AsSelf();
 
+            //  충돌 묶음(spec §3) — 멈칫·트라우마·파편·쿵. 그림 지연보다 먼저 등록해 같은 프레임에 멈칫이 시작된다.
+            builder.RegisterEntryPoint<FlappyCrashFx>();
+
             //  멈칫·결승 느려짐 — 시계가 아니라 내 새 그림만 늦춘다(판정 무관). 충돌·결승 연출이 주입받으므로 AsSelf.
             builder.RegisterEntryPoint<FlappyVisualTimeWarp>().AsSelf();
 

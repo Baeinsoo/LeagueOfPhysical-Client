@@ -206,26 +206,27 @@
     margin-top: 8px;
 }
 
-/* LAST STRETCH! — 화면 높이 30% 가운데, 분홍 판 680×112, −2.86°(시제품 −0.05 rad). 크기·투명도는 코드가 정한다. */
+/* LAST STRETCH! — 10-26 사용자 피드백: 너무 크고 복도 가운데를 가린다. 위 진행 막대 바로 아래(top 24 + 76)로
+   내려 복도 시야를 트고, 분홍 판·글자를 가로세로·글자 크기 모두 반(340×56, 34px)으로 줄이고, 기울기도 조금
+   줄인다(−2.86° → −2°), 판은 살짝 비치게(배경 알파 0.85) — 타이밍(1.8초)·소리는 그대로. */
 .race-stretch {
     display: none;
     position: absolute;
     left: 50%;
-    top: 30%;
-    width: 680px;
-    height: 112px;
-    margin-left: -340px;
-    margin-top: -56px;
+    top: 112px;
+    width: 340px;
+    height: 56px;
+    margin-left: -170px;
     border-radius: 20px;
-    background-color: rgb(255, 143, 177);
+    background-color: rgba(255, 143, 177, 0.85);
     justify-content: center;
     align-items: center;
-    rotate: -2.86deg;
+    rotate: -2deg;
     transform-origin: center;
 }
 
 .race-stretch-text {
-    font-size: 68px;
+    font-size: 34px;
     color: rgb(27, 18, 8);
     -unity-text-align: middle-center;
 }

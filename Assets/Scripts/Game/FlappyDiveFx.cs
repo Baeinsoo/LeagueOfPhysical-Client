@@ -28,30 +28,26 @@ namespace LOP
         private readonly FlappyConfig config;
         private readonly FlappyMoteFeed feed;
 
-        //  충전음(반짝 차오름, 10-26 사용자 선택): 작은 종소리가 5음 음계를 따라 올라간다 — 시제품
-        //  dive-sounds.html의 HUM.chime과 같은 음계·박자·세기 공식.
-        private static readonly float[] ChimeScale =
-        {
-            523.25f, 587.33f, 659.25f, 783.99f, 880f, 1046.5f, 1174.66f, 1318.5f, 1568f, 1760f,
-        };
-        private const float ChimeMainDuration = 0.35f;
-        private const float ChimeOctaveDuration = 0.2f;
-        private const float ChimeOctaveRatio = 0.32f;   // 시제품: 옥타브 게인은 세기와 무관하게 원음의 ~0.32배로 거의 일정하다
-        private const float ChimeDecayRate = 8f;        // 0.35초에 걸쳐 지수로 잦아든다(이전 삐- 소리와 같은 단순 지수 감쇠)
-        //  시제품 웹오디오 게인(0.05~0.11)은 유니티 AudioSource 기준으로 작게 들려 기존 효과음(대시 1칸 0.4·흩어짐 0.25) 선에 맞춘다.
-        private const float ChimeVolumeScale = 3f;
+        //  다이브 충전음(10-26 사용자: 반짝 차오름이 별로 — 작게, 일반 게이지 차는 소리로): 조용한 사인파가 칸이
+        //  찰수록 음이 조금씩 올라간다. 칸이 완성되면 fraction이 되감겨 음이 뚝 떨어지고 그 자리에 완성음(blipClip)이 튄다.
+        private const float FillVolumeStep = 0.04f;
+        private const float FillVolumeStrengthScale = 0.03f;
+        private const float FillVolumeMax = 0.07f;       // 일부러 작게 — "그냥 게이지가 찬다" 정도
+        private const float FillFadeRate = 0.6f;
+        private const float FillPitchBase = 0.75f;       // 440Hz 클립 기준 330Hz부터
+        private const float FillPitchRange = 0.75f;      // ~660Hz까지
 
         private GameObject root;
         private Sprite glow;
         private Sprite streak;
         private AudioSource sfx;
-        private AudioClip[] chimeClips;
+        private AudioSource fill;
+        private AudioClip fillClip;
         private AudioClip blipClip;
         private readonly Dictionary<string, Bird> birds = new Dictionary<string, Bird>();
         private readonly Dictionary<string, LOPEntityView> views = new Dictionary<string, LOPEntityView>();
         private float nextScan;
         private float time;
-        private float nextChimeTime;        // this.time 기준 다음 종소리 시각(시제품의 next와 같다)
         private int announcedStacks = -1;   // "대시 1칸!"을 띄운 칸 수 — 경계에서 흔들려도 한 번만
         private float lastCharge = -1f;
         private bool wasStunned;
@@ -74,7 +70,8 @@ namespace LOP
         internal float AuraScaleOf(string entityId) => birds.TryGetValue(entityId, out var b) && b.Aura != null ? b.Aura.transform.localScale.x : 0f;
         internal Vector3 StreakPositionOf(string entityId, int index) => birds[entityId].Streaks[index].transform.position;
         internal int ScatterCount => scatters.Count;
-        internal int ChimeNoteCount { get; private set; }   // 테스트 seam — 반짝 차오름 종소리가 울린 횟수
+        internal float FillVolume => fill != null ? fill.volume : 0f;   // 테스트 seam — 게이지 차는 소리 크기
+        internal float FillPitch => fill != null ? fill.pitch : 0f;     // 테스트 seam — 게이지 차는 소리 높이
 
         private class Bird
         {
@@ -117,6 +114,7 @@ namespace LOP
             time += deltaTime;
             EnsureRoot();
             float min = config.MaxFallSpeed * rules.DiveMinFallRatio;
+            bool mineSeen = false;
             foreach (var b in birds.Values) { b.Seen = false; }
             foreach (var entity in entityRegistry.All)
             {
@@ -155,7 +153,7 @@ namespace LOP
                 bool dashing = (entity.Get<FlappyDash>()?.DashRemaining ?? 0f) > 0f;
                 bool stunned = (entity.Get<FlappyStun>()?.StunRemaining ?? 0f) > 0f;   // 남의 새는 스냅이 스턴을 안 채워 늘 false
                 //  10-26 사람 판: 게이지가 꽉 차도 다이빙 중엔 기운·빛줄기를 계속 보여준다 — 더 안 차는 것과 "떨어지는 느낌"은 별개다.
-                //  소리만 끈다(UpdateMine의 fraction 문턱이 이미 꽉 찼을 때 종소리를 막는다).
+                //  소리만 끈다(UpdateMine의 fraction 문턱이 이미 꽉 찼을 때 게이지 차는 소리를 막는다).
                 float target = 0f;
                 if (dashing == false && stunned == false && fall >= min && config.MaxFallSpeed > min)
                 {
@@ -167,7 +165,8 @@ namespace LOP
 
                 if (mine)
                 {
-                    UpdateMine(entity, center, bird.Strength);
+                    mineSeen = true;
+                    UpdateMine(entity, center, bird.Strength, deltaTime);
                 }
             }
 
@@ -192,8 +191,21 @@ namespace LOP
                 birds.Remove(id);
             }
             AnimateScatters(deltaTime);
-            //  10-26: 충전음이 한 번씩 튕기는 종소리(PlayOneShot)로 바뀌어 전처럼 계속 울리는 소리가 없다 —
-            //  내 새가 안 보일 땐 UpdateMine을 안 불러 충전 조건이 저절로 꺼진다. mineSeen을 여기서 더 쓸 일이 없다.
+            //  내 새가 이번 틱에 안 보였다(퇴장·그림 교체) — UpdateMine을 안 불렀으니 게이지 소리를 직접 끈다.
+            if (mineSeen == false)
+            {
+                FadeFill(deltaTime);
+            }
+        }
+
+        //  게이지 차는 소리를 목표 0으로 서서히 줄이고, 다 줄면 멈춘다(내 새가 안 보일 때 전용).
+        private void FadeFill(float deltaTime)
+        {
+            fill.volume = Mathf.MoveTowards(fill.volume, 0f, deltaTime * FillFadeRate);
+            if (fill.volume <= 0f && fill.isPlaying)
+            {
+                fill.Stop();
+            }
         }
 
         private void FadeOut(Bird bird, float deltaTime)
@@ -257,7 +269,7 @@ namespace LOP
             }
         }
 
-        private void UpdateMine(GameFramework.World.Entity entity, Vector3 center, float strength)
+        private void UpdateMine(GameFramework.World.Entity entity, Vector3 center, float strength, float deltaTime)
         {
             float charge = entity.Get<FlappyDash>()?.Charge ?? 0f;
             int stacks = Mathf.FloorToInt(charge + 1e-6f);
@@ -276,16 +288,20 @@ namespace LOP
             wasStunned = stunned;
             lastCharge = charge;
 
-            //  충전음(반짝 차오름, 10-26): 차는 동안(fraction < 1f가 꽉 찼을 때 끈다 — 기운은 그대로, 소리만) 종이
-            //  (0.2 − 0.11×세기)초마다 한 번씩 울린다. 음은 칸 안 몫(fraction)으로 음계를 오른다 — 칸이 찰수록 높아진다.
+            //  게이지 차는 소리(10-26 사용자: 반짝 차오름이 별로 — 작게, 일반 게이지 차는 소리로): 차는 동안
+            //  (fraction < 1f, 꽉 찼을 때 끈다 — 기운은 그대로, 소리만) 조용한 사인파를 조금씩 키운다. 세기가 셀수록
+            //  살짝 더 크게(최대 0.07로 일부러 작게). 음높이는 칸 안 몫(fraction)으로 올라가다가 칸이 완성되면 뚝 떨어진다.
             bool charging = strength > 0f && fraction < 1f;
-            if (charging && time >= nextChimeTime)
+            float targetVolume = charging ? Mathf.Min(FillVolumeMax, FillVolumeStep + FillVolumeStrengthScale * strength) : 0f;
+            fill.volume = Mathf.MoveTowards(fill.volume, targetVolume, deltaTime * FillFadeRate);
+            fill.pitch = FillPitchBase + FillPitchRange * fraction;
+            if (fill.volume > 0f && fill.isPlaying == false)
             {
-                int idx = Mathf.Clamp(Mathf.FloorToInt(fraction * ChimeScale.Length), 0, ChimeScale.Length - 1);
-                float vol = (0.05f + 0.06f * strength) * ChimeVolumeScale;
-                sfx.PlayOneShot(chimeClips[idx], vol);
-                ChimeNoteCount++;
-                nextChimeTime = time + (0.2f - 0.11f * strength);
+                fill.Play();
+            }
+            else if (fill.volume <= 0f && fill.isPlaying)
+            {
+                fill.Stop();
             }
 
             //  칸이 막 찼다 — 글자와 짧은 소리(버튼 튕김은 FlapPadView가 한다). 되감기 교정으로 경계에서 흔들려(1.002 → 0.998 → 1.004)
@@ -391,12 +407,15 @@ namespace LOP
             sfx = root.AddComponent<AudioSource>();
             sfx.playOnAwake = false;
             sfx.spatialBlend = 0f;
-            //  충전음이 종소리 PlayOneShot으로 바뀌어 더는 돌려 트는(loop) 클립이 없다 — 음계 10개를 한 번만 구워 둔다.
-            chimeClips = new AudioClip[ChimeScale.Length];
-            for (int i = 0; i < ChimeScale.Length; i++)
-            {
-                chimeClips[i] = MakeChimeNote(ChimeScale[i], "FlappyDiveChime" + i);
-            }
+            //  게이지 차는 소리는 계속 도는(loop) 조용한 사인파라 전용 AudioSource가 하나 더 필요하다 — sfx는 한 번
+            //  튕기는 소리(완성음·흩어짐)만 쓴다.
+            fill = root.AddComponent<AudioSource>();
+            fill.loop = true;
+            fill.playOnAwake = false;
+            fill.spatialBlend = 0f;
+            fill.volume = 0f;
+            fillClip = MakeFillClip();
+            fill.clip = fillClip;
             blipClip = MakeSlotPop();
         }
 
@@ -443,23 +462,19 @@ namespace LOP
             return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), Mathf.Max(w, h));
         }
 
-        //  충전음 한 음: 종(원음) + 한 옥타브 위를 옅게 겹친다 — 시제품 HUM.chime과 같은 비율(약 0.32배)로,
-        //  세기(strength)에 따른 볼륨은 재생할 때 PlayOneShot의 volumeScale로 준다(클립 자체는 세기와 무관).
-        private static AudioClip MakeChimeNote(float freq, string name)
+        //  게이지 차는 소리 클립: 440Hz + 옅은 880Hz(9%)를 섞은 조용한 사인파 1초. 정수 주기라 루프 이음매가
+        //  안 들린다 — AudioSource.loop가 이 클립을 매끄럽게 계속 돈다. pitch로 음높이를 바꿔 쓴다.
+        private static AudioClip MakeFillClip()
         {
             const int rate = 44100;
-            int length = (int)(rate * ChimeMainDuration);
+            const int length = rate;   // 1초
             var data = new float[length];
             for (int i = 0; i < length; i++)
             {
                 float t = i / (float)rate;
-                float main = Mathf.Sin(2f * Mathf.PI * freq * t) * Mathf.Exp(-t * ChimeDecayRate);
-                float octave = t <= ChimeOctaveDuration
-                    ? Mathf.Sin(2f * Mathf.PI * freq * 2f * t) * Mathf.Exp(-t * ChimeDecayRate * (ChimeMainDuration / ChimeOctaveDuration)) * ChimeOctaveRatio
-                    : 0f;
-                data[i] = main + octave;
+                data[i] = 0.6f * Mathf.Sin(2f * Mathf.PI * 440f * t) + 0.09f * Mathf.Sin(2f * Mathf.PI * 880f * t);
             }
-            var clip = AudioClip.Create(name, length, 1, rate, false);
+            var clip = AudioClip.Create("FlappyDiveFill", length, 1, rate, false);
             clip.SetData(data, 0);
             return clip;
         }
@@ -538,7 +553,11 @@ namespace LOP
             lastCharge = -1f;
             wasStunned = false;
             announcedStacks = -1;
-            nextChimeTime = 0f;
+            if (fill != null)
+            {
+                fill.volume = 0f;
+                fill.Stop();
+            }
         }
 
         private static void DestroyObject(Object obj)
@@ -566,11 +585,8 @@ namespace LOP
                 }
             }
             glow = streak = null;
-            if (chimeClips != null)
-            {
-                foreach (var clip in chimeClips) { DestroyObject(clip); }
-                chimeClips = null;
-            }
+            DestroyObject(fillClip);
+            fillClip = null;
             DestroyObject(blipClip);
             blipClip = null;
             views.Clear();

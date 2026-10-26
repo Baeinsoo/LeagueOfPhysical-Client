@@ -180,10 +180,10 @@ namespace LOP
 
             //  개인 기록(spec §7) — 완주 시간을 게임 공용 기록지에 적는다(서버 등수가 와야). 판정과 무관하다.
             builder.RegisterEntryPoint<FlappyFinishRecorder>();
-            //  연속 날갯짓(spec §7) — 먹힌 날갯짓을 세고 최고를 기록지에 적는다. 머리 위 "+N"이 읽으므로 AsSelf.
+            //  연속 날갯짓(spec §7) — 먹힌 날갯짓을 세고 최고를 기록지에 적는다. 연출이 읽으므로 AsSelf.
             builder.RegisterEntryPoint<FlappyFlapStreak>().AsSelf();
-            //  머리 위 "+N" 그림 — 내 새를 따라가기만 하는 월드 공간 UI(실행순서 3100). 판정과 무관하다.
-            builder.RegisterEntryPoint<FlappyFlapStreakFx>();
+            //  연속 날갯짓 연출 "집중형"(10-26) — "+N"·깃털·꼬리·고비 한마디를 내 새 뒤·위에 그리는 화면 공간 판(실행순서 3100). 판정과 무관하다.
+            builder.RegisterEntryPoint<FlappyFlapComboFx>();
 
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             //  날갯짓 소리 — 입력면이 누른 순간 부른다(사용자 결정 10-25).

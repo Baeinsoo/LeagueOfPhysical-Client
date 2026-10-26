@@ -163,15 +163,46 @@ public class FlappyDiveFxTests
     }
 
     [Test]
-    public void 게이지가_꽉_차면_웅_소리_목표는_0이다()
+    public void 충전_중이면_반짝_차오름_소리가_난다()
     {
-        //  기운·빛줄기는 그대로 보여도 소리는 지금은 그대로 끈다(소리 교체는 다른 작업에서 다룬다).
+        //  10-26 사용자 선택: 충전음을 "반짝 차오름"(종소리가 음계를 오름)으로 바꿨다 — 1초 충전하면 여러 번 울려야 한다.
+        Make();
+        var me = registry.Get("me");
+        me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f, 0f);   // 최고 낙하
+        for (int i = 0; i < 62; i++) { fx.Tick(0.016f); }   // 약 1초
+        Assert.Greater(fx.ChimeNoteCount, 3, "1초 충전이면 종이 여러 번 울려야 한다");
+    }
+
+    [Test]
+    public void 게이지가_꽉_차면_반짝_차오름_소리는_안_난다()
+    {
+        //  기운·빛줄기는 그대로 보여도(태스크 리뷰 10-26) 소리는 그대로 끈다.
         Make();
         var me = registry.Get("me");
         me.Get<FlappyDash>().Charge = FlappyDash.MaxCharge;
         me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f, 0f);
-        for (int i = 0; i < 20; i++) { fx.Tick(0.016f); }
-        Assert.AreEqual(0f, fx.HumVolume, 1e-4f, "꽉 찼을 땐 웅 소리가 안 나야 한다");
+        for (int i = 0; i < 62; i++) { fx.Tick(0.016f); }
+        Assert.AreEqual(0, fx.ChimeNoteCount, "꽉 찼을 땐 종소리가 안 나야 한다");
+    }
+
+    [Test]
+    public void 세기가_강할수록_반짝임이_더_잦다()
+    {
+        //  시제품 HUM.chime: 박자 간격이 (0.2 − 0.11×세기)초 — 세기가 셀수록 촘촘하게 울린다.
+        Make();
+        var weakMe = registry.Get("me");
+        weakMe.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f * 0.76f, 0f);   // 문턱 바로 위(세기 약 0.4)
+        for (int i = 0; i < 62; i++) { fx.Tick(0.016f); }
+        int weakCount = fx.ChimeNoteCount;
+        fx.Dispose();
+
+        Make();
+        var strongMe = registry.Get("me");
+        strongMe.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f, 0f);         // 최고 낙하(세기 1)
+        for (int i = 0; i < 62; i++) { fx.Tick(0.016f); }
+        int strongCount = fx.ChimeNoteCount;
+
+        Assert.Greater(strongCount, weakCount, "세기가 셀수록 1초 동안 더 많이 울려야 한다");
     }
 
     [Test]

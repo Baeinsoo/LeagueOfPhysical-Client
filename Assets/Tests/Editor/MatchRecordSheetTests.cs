@@ -37,6 +37,20 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 저장값이_없는_새_기기의_첫_판은_연속_날갯짓도_경신이_아니다()
+        {
+            //  운영 경로(final-review T1): 빈 저장소에서 Commit은 TryGetBest의 out 값 0을 previous로 넘긴다.
+            //  횟수(높을수록 좋음) 지표는 가드가 없으면 5 > 0이라 새 기기의 첫 판마다 NEW BEST!가 뜬다.
+            var sheet = Sheet();
+            sheet.Set(Streak, 14d);
+
+            var outcomes = sheet.Commit();
+
+            Assert.IsFalse(outcomes[0].IsNewBest);
+            Assert.IsFalse(LOP.UI.RecordCard.AnyNewBest(sheet.Commit()));
+        }
+
+        [Test]
         public void 더_좋으면_경신하고_저장한다()
         {
             store.Values[KeyOf(Time)] = 52.4d;
@@ -136,18 +150,30 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 치울_때_아직이면_비교하고_저장한다()
+        public void 치우기만_해도_비교하고_저장한다()
         {
-            //  판 중에 나가면 매치 종료 메시지가 없다 — 결과 화면은 없어도 기록은 남는다.
+            //  판 중에 나가면 매치 종료 메시지가 없다 — Commit을 따로 부르지 않는 판 중 나가기 경로 그대로(final-review T2, 사보타주 #6).
             var sheet = Sheet();
             sheet.Set(Streak, 14d);
 
             sheet.Dispose();
+
+            Assert.IsTrue(sheet.Committed);
+            Assert.AreEqual(1, store.Saves);
+            Assert.AreEqual(14d, store.Values[KeyOf(Streak)]);
+        }
+
+        [Test]
+        public void 확정_뒤에_치우면_다시_저장하지_않는다()
+        {
+            var sheet = Sheet();
+            sheet.Set(Streak, 14d);
+
             sheet.Commit();
+            sheet.Dispose();
             sheet.Dispose();
 
             Assert.AreEqual(1, store.Saves);
-            Assert.AreEqual(14d, store.Values[KeyOf(Streak)]);
         }
 
         [Test]

@@ -194,6 +194,9 @@ namespace LOP.UI
             //  NEW BEST! 배지를 지표 줄 전부보다 아래로 — 이미 트리에 있는 요소를 다시 Add하면 맨 뒤로 옮겨져
             //  어느 지표 줄과도 겹치지 않는 전용 줄이 된다.
             if (_newBest != null) container.Add(_newBest);
+            //  경신하지 않은 판(대부분)엔 "--out"이 투명·확대로만 숨길 뿐 자리를 차지한다 — display로 아예 접는다.
+            //  경신한 판은 Flex로 둬야 StampNewBest의 "--out" 제거(스케일·투명도 전환)가 보인다.
+            if (_newBest != null) _newBest.style.display = _viewModel.HasNewBest ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
         private static void Show(VisualElement e, string block) => e?.RemoveFromClassList(block + Out);

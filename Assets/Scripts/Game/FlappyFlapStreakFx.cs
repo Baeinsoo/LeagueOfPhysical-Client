@@ -51,9 +51,11 @@ namespace LOP
                          _streak.Frame, MyVisual, _config.BodyRadius);
         }
 
-        private Transform MyVisual()
+        internal Transform MyVisual()
         {
-            var actor = _actorRegistry.Get(_gameDataStore.userEntityId);
+            //  판 시작 직후엔 내 id가 비어 있다 — 사전에 null 키를 넣으면 터진다.
+            string id = _gameDataStore.userEntityId;
+            var actor = string.IsNullOrEmpty(id) ? null : _actorRegistry.Get(id);
             if (actor == null)
             {
                 return null;

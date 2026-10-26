@@ -68,6 +68,19 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 횟수도_저장값이_없으면_첫_기록이고_경신이_아니다()
+        {
+            //  기록지는 저장값이 없을 때 previous=0을 넘긴다 — 횟수(높을수록 좋음)는 5 > 0이라 HasPrevious 가드가
+            //  없으면 경신으로 읽힌다(final-review T1, 사보타주 #2). Time 지표(0:00:52 < 0 - 0.005가 거짓)로는 안 걸린다.
+            var o = new RecordOutcome(Count, 5d, compared: true, hasPrevious: false, previous: 0d);
+
+            Assert.IsTrue(o.IsFirst);
+            Assert.IsFalse(o.IsNewBest);
+            Assert.IsTrue(o.ShouldSave);
+            Assert.AreEqual("첫 기록", o.DiffText);
+        }
+
+        [Test]
         public void 더_좋으면_경신_같거나_나쁘면_아님()
         {
             var better = new RecordOutcome(Count, 21d, true, true, 20d);

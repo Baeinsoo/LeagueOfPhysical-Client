@@ -56,7 +56,15 @@ namespace LOP
                 c => new KnockbackServerCorrectionHandler(c.Resolve<KnockbackWorld>()), Lifetime.Singleton);
             builder.Register<IExtrapolationAcceleration, ZeroExtrapolationAcceleration>(Lifetime.Singleton);
 
+            // 서버가 알려 주는 판 상태와 남의 발사·맞음. 상태는 칸·원·라벨·조작판이 함께 읽는다.
+            builder.Register<KnockbackClientState>(Lifetime.Singleton);
+            builder.RegisterEntryPoint<KnockbackStateHandler>();
+            builder.RegisterEntryPoint<KnockbackRemoteShotHandler>();
+
             builder.RegisterEntryPoint<KnockbackFloorView>();
+            builder.RegisterEntryPoint<KnockbackShotView>();
+            builder.RegisterEntryPoint<KnockbackZoneView>();
+            builder.RegisterEntryPoint<KnockbackDamageLabel>();
             builder.RegisterEntryPoint<KnockbackHudCoordinator>();
             builder.Register<KnockbackPadViewModel>(Lifetime.Transient);
             builder.Register<KnockbackPadView>(Lifetime.Transient);

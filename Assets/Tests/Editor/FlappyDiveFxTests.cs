@@ -151,14 +151,27 @@ public class FlappyDiveFxTests
     }
 
     [Test]
-    public void 게이지가_꽉_차면_충전_연출을_안_한다()
+    public void 게이지가_꽉_차도_빠르게_떨어지면_기운은_그대로_켜진다()
     {
+        //  10-26 사람 판: 더 안 차는 것과 "떨어지는 느낌"은 별개 — 꽉 차도 다이빙 중엔 기운·빛줄기를 계속 보여준다.
         Make();
         var me = registry.Get("me");
         me.Get<FlappyDash>().Charge = FlappyDash.MaxCharge;
         me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f, 0f);
-        fx.Tick(0.016f);
-        Assert.AreEqual(0f, fx.StrengthOf("me"), "더 안 차는데 '충전 중'을 그리면 안 된다");
+        for (int i = 0; i < 20; i++) { fx.Tick(0.016f); }
+        Assert.Greater(fx.StrengthOf("me"), 0f, "꽉 차도 빠르게 떨어지면 기운이 켜져야 한다");
+    }
+
+    [Test]
+    public void 게이지가_꽉_차면_웅_소리_목표는_0이다()
+    {
+        //  기운·빛줄기는 그대로 보여도 소리는 지금은 그대로 끈다(소리 교체는 다른 작업에서 다룬다).
+        Make();
+        var me = registry.Get("me");
+        me.Get<FlappyDash>().Charge = FlappyDash.MaxCharge;
+        me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f, 0f);
+        for (int i = 0; i < 20; i++) { fx.Tick(0.016f); }
+        Assert.AreEqual(0f, fx.HumVolume, 1e-4f, "꽉 찼을 땐 웅 소리가 안 나야 한다");
     }
 
     [Test]

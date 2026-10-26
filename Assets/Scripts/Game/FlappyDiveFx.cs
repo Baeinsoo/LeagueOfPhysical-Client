@@ -59,6 +59,7 @@ namespace LOP
         internal float AuraScaleOf(string entityId) => birds.TryGetValue(entityId, out var b) && b.Aura != null ? b.Aura.transform.localScale.x : 0f;
         internal Vector3 StreakPositionOf(string entityId, int index) => birds[entityId].Streaks[index].transform.position;
         internal int ScatterCount => scatters.Count;
+        internal float HumVolume => hum != null ? hum.volume : 0f;
 
         private class Bird
         {
@@ -139,10 +140,10 @@ namespace LOP
                 float fall = mine ? -(entity.Get<GameFramework.World.Velocity>()?.Linear.Y ?? 0f) : -bird.RenderVy;
                 bool dashing = (entity.Get<FlappyDash>()?.DashRemaining ?? 0f) > 0f;
                 bool stunned = (entity.Get<FlappyStun>()?.StunRemaining ?? 0f) > 0f;   // 남의 새는 스냅이 스턴을 안 채워 늘 false
-                //  내 새 게이지가 꽉 찼으면 시뮬이 더 안 채운다 — "충전 중"을 그리지 않는다.
-                bool full = mine && (entity.Get<FlappyDash>()?.Charge ?? 0f) >= FlappyDash.MaxCharge;
+                //  10-26 사람 판: 게이지가 꽉 차도 다이빙 중엔 기운·빛줄기를 계속 보여준다 — 더 안 차는 것과 "떨어지는 느낌"은 별개다.
+                //  소리만 끈다(UpdateMine의 fraction 문턱이 이미 꽉 찼을 때 웅 소리를 막는다).
                 float target = 0f;
-                if (dashing == false && stunned == false && full == false && fall >= min && config.MaxFallSpeed > min)
+                if (dashing == false && stunned == false && fall >= min && config.MaxFallSpeed > min)
                 {
                     float k = Mathf.Clamp01((fall - min) / (config.MaxFallSpeed - min));
                     target = 0.4f + 0.6f * k;
@@ -265,7 +266,7 @@ namespace LOP
             wasStunned = stunned;
             lastCharge = charge;
 
-            //  충전음: 차는 동안 웅, 칸 안 몫이 찰수록 높아진다.
+            //  충전음: 차는 동안 웅, 칸 안 몫이 찰수록 높아진다. fraction < 1f가 꽉 찼을 때(10-26: 기운은 그대로, 소리만) 끈다.
             float vol = strength > 0f && fraction < 1f ? 0.12f * (0.5f + strength) : 0f;
             hum.volume = Mathf.MoveTowards(hum.volume, vol, deltaTime * 2f);
             hum.pitch = 0.8f + fraction * 1.2f + Level(strength) * 0.4f;

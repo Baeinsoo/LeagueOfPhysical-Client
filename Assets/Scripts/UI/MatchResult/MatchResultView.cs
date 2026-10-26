@@ -191,6 +191,9 @@ namespace LOP.UI
                 }
                 container.Add(row);
             }
+            //  NEW BEST! 배지를 지표 줄 전부보다 아래로 — 이미 트리에 있는 요소를 다시 Add하면 맨 뒤로 옮겨져
+            //  어느 지표 줄과도 겹치지 않는 전용 줄이 된다.
+            if (_newBest != null) container.Add(_newBest);
         }
 
         private static void Show(VisualElement e, string block) => e?.RemoveFromClassList(block + Out);

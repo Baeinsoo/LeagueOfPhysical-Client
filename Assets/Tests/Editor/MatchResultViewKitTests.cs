@@ -33,5 +33,21 @@ namespace LOP.Tests
 
         [Test]
         public void 무대를_어둡게_덮지_않는다() => Assert.IsFalse(new MatchResultView(null).DimsBackground);
+
+        [Test]
+        public void 내_기록_카드와_NEW_BEST_도장()
+        {
+            var x = File.ReadAllText(Uxml);
+            foreach (var n in new[] { "matchresult-record", "matchresult-record-rows", "matchresult-newbest" })
+            {
+                StringAssert.Contains($"name=\"{n}\"", x);
+            }
+            StringAssert.Contains("NEW BEST!", x);
+            var s = File.ReadAllText(Uss);
+            StringAssert.Contains(".matchresult-newbest--out", s);
+            StringAssert.Contains(".matchresult-record__diff--better", s);
+            //  화면 글꼴에 없는 빼기(U+2212)를 새 글자에 쓰지 않는다 — Ordinal로 찾는다(문화권 비교는 특수 문자에 늘 맞는다).
+            Assert.AreEqual(-1, x.IndexOf('−'));
+        }
     }
 }

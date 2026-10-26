@@ -8,6 +8,7 @@ namespace LOP.UI
     /// 결과판(키트). 왼쪽 판에 머리띠·등수표, 아래에 랭크·보상 중계 자막 줄, 오른쪽 아래 확인. 오른쪽 절반은 3D 시상대 자리.
     /// 하얀 덮개를 쓴 채 열리고, 결과 단계가 <see cref="BeginReveal"/>을 부르면 덮개가 걷히며 시각표대로 차례로 붙는다.
     /// 화면 아무 데나 누르면 남은 등장을 건너뛴다(첫 탭은 건너뛰기, 확인은 그다음).
+    /// 아래 줄 다음엔 종목이 실어 준 "내 기록" 카드와 경신 도장(spec §7).
     /// </summary>
     public class MatchResultView : UIView
     {
@@ -25,15 +26,25 @@ namespace LOP.UI
         private VisualElement _board;
         private VisualElement _rankLine;
         private VisualElement _rewardLine;
+        private readonly IResultSound _sound;
+        private VisualElement _recordLine;
+        private VisualElement _newBest;
+        private bool _stamped;
         private ResultReveal _reveal;
         private float _startTime = -1f;
         private bool _skipped;
         private bool _reacted;
         private bool _finished;
 
-        public MatchResultView(MatchResultViewModel viewModel)
+        public MatchResultView(MatchResultViewModel viewModel) : this(viewModel, null)
+        {
+        }
+
+        [VContainer.Inject]
+        public MatchResultView(MatchResultViewModel viewModel, IResultSound sound)
         {
             _viewModel = viewModel;
+            _sound = sound;
         }
 
         public override UILayer Layer => UILayer.Window;
@@ -54,6 +65,8 @@ namespace LOP.UI
             _board = Root.Q("matchresult-board");
             _rankLine = Root.Q("matchresult-rank");
             _rewardLine = Root.Q("matchresult-reward");
+            _recordLine = Root.Q("matchresult-record");
+            _newBest = Root.Q("matchresult-newbest");
 
             _root.EnableInClassList("ranked", _viewModel.IsRanked);
             Root.Q<Label>("matchresult-tag").text = _viewModel.IsRanked ? "RANKED" : "LIVE";
@@ -66,8 +79,9 @@ namespace LOP.UI
             _root.RegisterCallback<PointerDownEvent>(OnTap, TrickleDown.TrickleDown);
 
             BuildRows();
+            BuildRecords();
             Bind();
-            _reveal = new ResultReveal(_viewModel.Rows.Count);
+            _reveal = new ResultReveal(_viewModel.Rows.Count, _viewModel.Records.Count > 0, _viewModel.HasNewBest);
         }
 
         public override void OnClose()
@@ -101,6 +115,8 @@ namespace LOP.UI
             }
             if (t >= _reveal.LineAt(0)) Show(_rankLine, "matchresult-lt");
             if (t >= _reveal.LineAt(1)) Show(_rewardLine, "matchresult-lt");
+            if (t >= _reveal.RecordAt) Show(_recordLine, "matchresult-lt");
+            if (_reveal.NewBestShown(t, _skipped)) StampNewBest();
             if (_reveal.ConfirmEnabled(t, _skipped)) FinishConfirm();
         }
 
@@ -113,6 +129,8 @@ namespace LOP.UI
             foreach (var row in _rows) Show(row, "matchresult-row");
             Show(_rankLine, "matchresult-lt");
             Show(_rewardLine, "matchresult-lt");
+            Show(_recordLine, "matchresult-lt");
+            if (_reveal.NewBestShown(0f, skipped: true)) StampNewBest();
             React();
             FinishConfirm();
             evt.StopImmediatePropagation();
@@ -131,6 +149,48 @@ namespace LOP.UI
             if (_reacted) return;
             _reacted = true;
             _onReact?.Invoke();
+        }
+
+        //  도장은 한 번만 — 건너뛰기와 시각표가 둘 다 부를 수 있다. 소리도 한 번.
+        private void StampNewBest()
+        {
+            if (_stamped) return;
+            _stamped = true;
+            _newBest?.RemoveFromClassList("matchresult-newbest--out");
+            _sound?.PlayNewBest();
+        }
+
+        //  "내 기록" 카드 — 종목이 선언한 지표마다 한 줄. 기록이 없는 판(다른 종목·못 적음)은 카드를 아예 숨긴다.
+        private void BuildRecords()
+        {
+            var records = _viewModel.Records;
+            if (_recordLine == null) return;
+            _recordLine.style.display = records.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            var container = Root.Q<VisualElement>("matchresult-record-rows");
+            foreach (var record in records)
+            {
+                var row = new VisualElement();
+                row.AddToClassList("matchresult-record__row");
+
+                var label = new Label(record.Label);
+                label.AddToClassList("matchresult-record__label");
+                row.Add(label);
+
+                var value = new Label(record.ValueText);
+                value.AddToClassList("kit-title");
+                value.AddToClassList("matchresult-record__value");
+                row.Add(value);
+
+                //  비교 못 한 판(종목·맵 모름)은 차이 칸이 없다 — 빈칸도 "+0"도 아니라 없는 것이다.
+                if (!string.IsNullOrEmpty(record.DiffText))
+                {
+                    var diff = new Label(record.DiffText);
+                    diff.AddToClassList("matchresult-record__diff");
+                    diff.EnableInClassList("matchresult-record__diff--better", record.Improved);
+                    row.Add(diff);
+                }
+                container.Add(row);
+            }
         }
 
         private static void Show(VisualElement e, string block) => e?.RemoveFromClassList(block + Out);

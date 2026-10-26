@@ -24,6 +24,17 @@
 .matchresult-lt__tag--promoted { background-color: #E8322F; }
 .matchresult-lt__tag--demoted { background-color: #4A9FE0; }
 .matchresult-lt__tag--reward { background-color: #FF8A00; color: #2C2A6B; }
+
+/* 내 기록 카드(spec §7) — 줄 수만큼 높아진다. 초록은 경신(실제 보상)에만 */
+.matchresult-lt--record { height: auto; min-height: 68px; }
+.matchresult-record__rows { flex-direction: column; justify-content: center; padding: 8px 22px; }
+.matchresult-record__row { flex-direction: row; align-items: center; height: 40px; }
+.matchresult-record__label { font-size: 24px; color: #2C2A6B; margin-right: 16px; }
+.matchresult-record__value { font-size: 30px; color: #2C2A6B; margin-right: 14px; }
+.matchresult-record__diff { font-size: 24px; color: #8A8478; }
+.matchresult-record__diff--better { color: #2E9E4A; }
+.matchresult-newbest { position: absolute; right: -28px; top: -30px; background-color: #7BE08A; color: #2C2A6B; font-size: 40px; padding: 4px 18px; rotate: -3deg; scale: 1 1; opacity: 1; transition-property: scale, opacity; transition-duration: 0.15s; }
+.matchresult-newbest--out { scale: 1.5 1.5; opacity: 0; }
 .matchresult-lt__body { background-color: #FFF8E8; color: #2C2A6B; font-size: 27px; padding: 0 22px; -unity-text-align: middle-left; white-space: nowrap; }
 .matchresult-confirm { position: absolute; right: 70px; bottom: 70px; width: 280px; transition-property: opacity; transition-duration: 0.25s; }
 .matchresult-confirm--out { opacity: 0; }

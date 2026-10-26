@@ -68,6 +68,12 @@ namespace LOP.EditorTools
                 gameModeId = gameModeId,
                 mapId = mapId,
                 participants = participants.ToArray(),
+                //  "내 기록" 카드 보기(spec §7) — 경신 한 줄(도장), 첫 기록 한 줄.
+                myRecords = new[]
+                {
+                    new RecordOutcome(FlappyRecordMetrics.FinishTime, 52.04d, compared: true, hasPrevious: true, previous: 52.4d),
+                    new RecordOutcome(FlappyRecordMetrics.FlapStreak, 18d, compared: true, hasPrevious: false, previous: 0d),
+                },
             };
             ResultFlow.LeaveOverride = () => SceneManager.LoadScene("Lobby");
             SceneManager.LoadScene(PostMatch.ResultSceneName);

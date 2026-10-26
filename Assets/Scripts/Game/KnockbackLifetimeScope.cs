@@ -51,8 +51,9 @@ namespace LOP
             builder.Register<IEntitySyncPolicy>(c =>
                 new OwnerPredictedSyncPolicy(() => c.Resolve<IGameDataStore>().userEntityId), Lifetime.Singleton);
 
-            // 스냅에서 위치 말고 맞춰야 할 게 없다 — 그래도 EntityBinder의 생성자 의존이라 등록은 필요하다.
-            builder.Register<IServerCorrectionHandler, NoServerCorrection>(Lifetime.Singleton);
+            // 위치 말고도 날림 여부·피해 %를 서버 결과에 맞춘다.
+            builder.Register<IServerCorrectionHandler>(
+                c => new KnockbackServerCorrectionHandler(c.Resolve<KnockbackWorld>()), Lifetime.Singleton);
             builder.Register<IExtrapolationAcceleration, ZeroExtrapolationAcceleration>(Lifetime.Singleton);
 
             builder.RegisterEntryPoint<KnockbackFloorView>();

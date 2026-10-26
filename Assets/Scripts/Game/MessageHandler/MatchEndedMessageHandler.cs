@@ -4,7 +4,7 @@ using MessagePipe;
 namespace LOP
 {
     /// <summary>
-    /// 서버의 매치 종료 통보를 받아 ① 결과를 Root 스토어에 남기고 ② 러너를 종료 상태로 보낸다.
+    /// 서버의 매치 종료 통보를 받아 ① 결과를 Root 스토어에 남기고(이번 판 개인 기록 포함) ② 러너를 종료 상태로 보낸다.
     /// 로비 씬 로드는 LOPRoom이 러너 상태 변화를 보고 수행하므로 여기서 씬을 만지지 않는다.
     /// </summary>
     public class MatchEndedMessageHandler : MessageHandlerBase
@@ -13,24 +13,29 @@ namespace LOP
         private readonly IRoomDataStore roomDataStore;
         private readonly IMatchResultDataStore matchResultDataStore;
         private readonly ISubscriber<MatchEndedToC> matchEndedSubscriber;
+        private readonly MatchRecordSheet recordSheet;
 
         public MatchEndedMessageHandler(
             LOPRunner runner,
             IRoomDataStore roomDataStore,
             IMatchResultDataStore matchResultDataStore,
-            ISubscriber<MatchEndedToC> matchEndedSubscriber)
+            ISubscriber<MatchEndedToC> matchEndedSubscriber,
+            MatchRecordSheet recordSheet)
         {
             this.runner = runner;
             this.roomDataStore = roomDataStore;
             this.matchResultDataStore = matchResultDataStore;
             this.matchEndedSubscriber = matchEndedSubscriber;
+            this.recordSheet = recordSheet;
         }
 
         protected override void Subscribe() => Track(matchEndedSubscriber.Subscribe(OnMatchEnded));
 
         private void OnMatchEnded(MatchEndedToC message)
         {
-            matchResultDataStore.result = MatchResultCapture.From(message, roomDataStore.room?.matchId, roomDataStore.match);
+            //  개인 기록은 여기서 판마다 한 번 확정한다(spec §7) — 결과 씬은 실린 목록만 그린다.
+            matchResultDataStore.result = MatchResultCapture.From(
+                message, roomDataStore.room?.matchId, roomDataStore.match, recordSheet.Commit());
 
             runner.EndMatch();
         }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace LOP
@@ -6,6 +7,10 @@ namespace LOP
     public static class MatchResultCapture
     {
         public static MatchResult From(MatchEndedToC message, string matchId, Match match)
+            => From(message, matchId, match, null);
+
+        /// <param name="myRecords">이번 판 내 개인 기록(<see cref="MatchRecordSheet.Commit"/>). null이면 빈 목록.</param>
+        public static MatchResult From(MatchEndedToC message, string matchId, Match match, IReadOnlyList<RecordOutcome> myRecords)
         {
             var participants = new MatchParticipantResult[message.Placements.Count];
             for (int i = 0; i < participants.Length; i++)
@@ -30,6 +35,7 @@ namespace LOP
                 myMmrBefore = message.MyMmrBefore,
                 myMmrAfter = message.MyMmrAfter,
                 queueId = match?.queueId ?? 0,
+                myRecords = myRecords ?? Array.Empty<RecordOutcome>(),
             };
 
             var rounds = match?.rounds;

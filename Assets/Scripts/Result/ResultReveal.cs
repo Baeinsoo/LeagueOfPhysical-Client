@@ -3,8 +3,8 @@ namespace LOP
     /// <summary>
     /// 결과판 등장 시각표(초, 하얀 빛이 걷히는 순간 = 0). 아래 줄(랭크·보상) 자리는 늘 둘을 잡아 둔다 —
     /// 응답이 늦게 와도 그 줄 시각이 이미 지났으면 바로 붙는다.
-    /// <para>개인 기록이 실린 판이면 그다음 자리에 "내 기록" 카드, 깼으면 카드가 선 뒤 0.3초에 NEW BEST! 도장, 그 뒤 확인(spec §7 —
-    /// 등급·숫자 → 신기록 강조 순). 기록이 없으면 지금 시각표 그대로다.</para>
+    /// <para>개인 기록이 실린 판이면 "내 기록" 카드가 등수 첫 줄과 <b>함께</b> 들어온다(사용자 결정 10-26 — 랭크·보상 줄 뒤에 두었더니
+    /// 결과판을 일찍 닫으면 못 봤다). 깼으면 카드가 선 뒤 0.3초에 NEW BEST! 도장, 확인은 모든 등장이 끝난 뒤. 기록이 없으면 지금 시각표 그대로다.</para>
     /// </summary>
     public sealed class ResultReveal
     {
@@ -30,8 +30,8 @@ namespace LOP
 
         public float LineAt(int j) => FirstRow + RowGap * _rows + LinePause + LineGap * j;
 
-        /// <summary>"내 기록" 카드 — 아래 줄 둘 다음 자리.</summary>
-        public float RecordAt => LineAt(LineSlots);
+        /// <summary>"내 기록" 카드 — 등수 첫 줄과 같은 자리.</summary>
+        public float RecordAt => RowAt(0);
 
         public float NewBestAt => RecordAt + RecordSettle + NewBestPause;
 
@@ -39,9 +39,12 @@ namespace LOP
         {
             get
             {
-                float last = _newBest ? NewBestAt + NewBestIn
-                    : _records ? RecordAt + RecordSettle
-                    : LineAt(LineSlots - 1);
+                //  카드가 일찍 들어오니 제일 늦은 등장은 판마다 다르다 — 아래 줄·카드·도장 중 늦은 것.
+                float last = LineAt(LineSlots - 1);
+                if (_records)
+                {
+                    last = UnityEngine.Mathf.Max(last, _newBest ? NewBestAt + NewBestIn : RecordAt + RecordSettle);
+                }
                 return last + OkPause;
             }
         }

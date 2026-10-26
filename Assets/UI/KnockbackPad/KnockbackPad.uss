@@ -13,3 +13,26 @@
     position: absolute; width: 64px; height: 64px;
     border-radius: 32px; background-color: rgba(255, 255, 255, 0.45);
 }
+
+.fire-button {
+    position: absolute; right: 48px; bottom: 56px; width: 140px; height: 140px;
+    border-radius: 70px; background-color: rgba(255, 90, 70, 0.35);
+    border-width: 4px; border-color: rgba(255, 255, 255, 0.55);
+    align-items: center; justify-content: center;
+}
+.fire-handle {
+    width: 56px; height: 56px; border-radius: 28px; background-color: rgba(255, 255, 255, 0.7);
+}
+
+/* 탄 수 막대 — 버튼 위에 칸마다 하나. 차는 중인 칸은 아래부터 채운다. */
+.ammo-bar {
+    position: absolute; right: 48px; bottom: 212px; width: 140px; height: 16px;
+    flex-direction: row; justify-content: space-between;
+}
+.ammo-cell {
+    width: 42px; height: 16px; border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.35); border-width: 2px; border-color: rgba(255, 255, 255, 0.6);
+    overflow: hidden; flex-direction: row;
+}
+.ammo-fill { width: 0%; height: 100%; background-color: rgb(255, 214, 90); }
+.ammo-fill--full { width: 100%; }

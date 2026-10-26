@@ -24,7 +24,7 @@ namespace LOP
 
         public void Start()
         {
-            var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            var shader = Shader.Find("Universal Render Pipeline/Lit");
             light = new Material(shader) { color = new Color32(0xE9, 0xC4, 0x6A, 0xFF) };
             dark = new Material(shader) { color = new Color32(0xD4, 0xAE, 0x52, 0xFF) };
 

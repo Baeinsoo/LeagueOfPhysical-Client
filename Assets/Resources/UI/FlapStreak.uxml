@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="FlapStreak.uss" />
+    <!-- 내 새 머리 위 연속 날갯짓 "+N" (spec §7) — 작게, 한 가지 따뜻한 흰색 -->
+    <ui:VisualElement name="streak-root" class="streak-root" picking-mode="Ignore">
+        <ui:Label name="streak-text" class="streak-text" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

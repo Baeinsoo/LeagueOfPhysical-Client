@@ -182,6 +182,8 @@ namespace LOP
             builder.RegisterEntryPoint<FlappyFinishRecorder>();
             //  연속 날갯짓(spec §7) — 먹힌 날갯짓을 세고 최고를 기록지에 적는다. 머리 위 "+N"이 읽으므로 AsSelf.
             builder.RegisterEntryPoint<FlappyFlapStreak>().AsSelf();
+            //  머리 위 "+N" 그림 — 내 새를 따라가기만 하는 월드 공간 UI(실행순서 3100). 판정과 무관하다.
+            builder.RegisterEntryPoint<FlappyFlapStreakFx>();
 
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             //  날갯짓 소리 — 입력면이 누른 순간 부른다(사용자 결정 10-25).

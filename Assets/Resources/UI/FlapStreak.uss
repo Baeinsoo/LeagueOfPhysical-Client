@@ -1,0 +1,14 @@
+.streak-root {
+    flex-grow: 1;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 판 없이 테두리로 배경과 가른다. 소리·번쩍임 없음 — 보상이 아니라 리듬 표시다(연출 절제 10-24). */
+.streak-text {
+    font-size: 40px;
+    color: #F3EBE2;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 3px;
+    -unity-text-outline-color: rgba(40, 20, 5, 0.9);
+}

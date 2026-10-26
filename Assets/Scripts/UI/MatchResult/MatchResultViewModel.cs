@@ -99,6 +99,12 @@ namespace LOP.UI
         /// <summary>결과판 랭크 줄 (태그, 본문). 랭크 큐 판이고 응답이 왔을 때만 채운다 — 아니면 빈 값(줄을 숨긴다).</summary>
         public ReadOnlyReactiveProperty<(string tag, string body)> RankCaption => _rankCaption;
 
+        /// <summary>"내 기록" 카드 줄(spec §7). 기록을 안 적는 종목이면 비어 있다 — 화면이 카드를 안 띄운다.</summary>
+        public IReadOnlyList<RecordLine> Records { get; }
+
+        /// <summary>이번 판 기록 하나라도 깼나 — NEW BEST! 도장. 첫 기록은 아니다.</summary>
+        public bool HasNewBest { get; }
+
         [VContainer.Inject]
         public MatchResultViewModel(IMatchResultDataStore matchResultDataStore, IUserDataStore userDataStore, LOP.MasterData.LOPMasterData masterData)
             : this(matchResultDataStore, userDataStore, masterData.Tables.TbQueue, masterData.Tables.TbRankDivision,
@@ -128,6 +134,8 @@ namespace LOP.UI
             IsDraw = Rows.Count > 0 && Rows[0].IsDraw;
             IsRanked = result != null && queues.GetOrDefault(result.queueId)?.HasVisibleRank == true;
             _subtitle.Value = ComposeSubtitle(modes, maps, result?.gameModeId ?? 0, result?.mapId ?? 0);
+            Records = RecordCard.Lines(result?.myRecords);
+            HasNewBest = RecordCard.AnyNewBest(result?.myRecords);
 
             LoadMatchAsync(result?.matchId, myUserId, queues, divisions, modes, maps, fetchMatch).Forget();
         }

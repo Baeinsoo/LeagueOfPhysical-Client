@@ -20,6 +20,8 @@ namespace LOP.UI
         public float FinishX;
         /// <summary>출발 x와 결승선 x를 둘 다 알고 결승선이 앞에 있다.</summary>
         public bool HasCourse;
+        /// <summary>맵의 구간 표식(x 오름차순). 표식이 없는 맵(전통)이면 비어 있다.</summary>
+        public readonly List<CourseSection> Sections = new List<CourseSection>();
 
         public void Clear()
         {
@@ -32,6 +34,7 @@ namespace LOP.UI
             StartX = 0f;
             FinishX = 0f;
             HasCourse = false;
+            Sections.Clear();
         }
     }
 
@@ -54,5 +57,30 @@ namespace LOP.UI
             Mine = mine;
             Color = color;
         }
+    }
+
+    /// <summary>진행 막대 바탕의 구간 띠 하나(spec §1·§5). 비율은 막대 위 자리(0 = 출발, 1 = 결승선).</summary>
+    public readonly struct RaceHudBand
+    {
+        public readonly float From;
+        public readonly float To;
+        public readonly Color Color;
+
+        public RaceHudBand(float from, float to, Color color)
+        {
+            From = from;
+            To = to;
+            Color = color;
+        }
+    }
+
+    /// <summary>지금 HUD에 뜬 큰 글자 띠(spec §5). 한 번에 하나다.</summary>
+    public enum HudBannerKind
+    {
+        None,
+        /// <summary>"n막" + 구간 이름 + 막 색 띠.</summary>
+        Section,
+        /// <summary>마지막 구간 — 분홍 띠 LAST STRETCH!.</summary>
+        LastStretch,
     }
 }

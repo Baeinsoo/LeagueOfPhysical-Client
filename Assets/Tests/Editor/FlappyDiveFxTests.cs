@@ -151,14 +151,58 @@ public class FlappyDiveFxTests
     }
 
     [Test]
-    public void 게이지가_꽉_차면_충전_연출을_안_한다()
+    public void 게이지가_꽉_차도_빠르게_떨어지면_기운은_그대로_켜진다()
     {
+        //  10-26 사람 판: 더 안 차는 것과 "떨어지는 느낌"은 별개 — 꽉 차도 다이빙 중엔 기운·빛줄기를 계속 보여준다.
         Make();
         var me = registry.Get("me");
         me.Get<FlappyDash>().Charge = FlappyDash.MaxCharge;
         me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f, 0f);
+        for (int i = 0; i < 20; i++) { fx.Tick(0.016f); }
+        Assert.Greater(fx.StrengthOf("me"), 0f, "꽉 차도 빠르게 떨어지면 기운이 켜져야 한다");
+    }
+
+    [Test]
+    public void 충전_중이면_게이지_차는_소리가_조용히_난다()
+    {
+        //  10-26 사용자: "반짝 차오름"이 별로 — 작게, 일반 게이지 차는 소리로. 1초 충전하면 소리가 켜져야 하되
+        //  일부러 작게(상한 0.07)만 켜져야 한다.
+        Make();
+        var me = registry.Get("me");
+        me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f, 0f);   // 최고 낙하
+        for (int i = 0; i < 62; i++) { fx.Tick(0.016f); }   // 약 1초
+        Assert.Greater(fx.FillVolume, 0f, "충전 중이면 게이지 소리가 켜져야 한다");
+        Assert.LessOrEqual(fx.FillVolume, 0.07f, "일부러 작게 — 0.07을 넘으면 안 된다");
+    }
+
+    [Test]
+    public void 게이지가_꽉_차면_차는_소리는_안_난다()
+    {
+        //  기운·빛줄기는 그대로 보여도(태스크 리뷰 10-26) 소리는 그대로 끈다.
+        Make();
+        var me = registry.Get("me");
+        me.Get<FlappyDash>().Charge = FlappyDash.MaxCharge;
+        me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f, 0f);
+        for (int i = 0; i < 62; i++) { fx.Tick(0.016f); }
+        Assert.AreEqual(0f, fx.FillVolume, "꽉 찼을 땐 게이지 소리가 안 나야 한다");
+    }
+
+    [Test]
+    public void 칸이_더_찰수록_소리가_높아진다()
+    {
+        //  음높이는 칸 안 몫(fraction)으로 올라간다 — 0.8칸 몫이 0.2칸 몫보다 높아야 한다.
+        Make();
+        var me = registry.Get("me");
+        me.Get<Velocity>().Linear = new System.Numerics.Vector3(0f, -11.25f, 0f);   // 최고 낙하 — 계속 충전 중
+        me.Get<FlappyDash>().Charge = 0.2f;
         fx.Tick(0.016f);
-        Assert.AreEqual(0f, fx.StrengthOf("me"), "더 안 차는데 '충전 중'을 그리면 안 된다");
+        float lowPitch = fx.FillPitch;
+
+        me.Get<FlappyDash>().Charge = 0.8f;
+        fx.Tick(0.016f);
+        float highPitch = fx.FillPitch;
+
+        Assert.Greater(highPitch, lowPitch, "칸 안 몫이 클수록 소리가 높아져야 한다");
     }
 
     [Test]

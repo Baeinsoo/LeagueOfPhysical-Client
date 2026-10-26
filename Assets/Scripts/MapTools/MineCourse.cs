@@ -113,15 +113,18 @@ namespace LOP.MapTools
         }
     }
 
-    /// <summary>구간 이름과 시작 x(그 구간 첫 장애물의 왼쪽 끝).</summary>
+    /// <summary>구간 이름과 시작 x(그 구간 첫 장애물의 왼쪽 끝), 몇 막인가.</summary>
     public readonly struct MineSection
     {
         public readonly string Name;
         public readonly float X;
 
-        public MineSection(string name, float x)
+        /// <summary>몇 막인가(1 하강 · 2 갱 바닥 · 3 탈출, 10-09 3막). 맵의 구간 표식(<c>FlappyCourseSection.Act</c>)으로 구워진다.</summary>
+        public readonly int Act;
+
+        public MineSection(string name, float x, int act)
         {
-            Name = name; X = x;
+            Name = name; X = x; Act = act;
         }
     }
 
@@ -653,19 +656,20 @@ namespace LOP.MapTools
             //  물결 터널은 낮은 천장과 겹쳐 뺐다(코드는 남긴다). 깊은 갱·굴뚝 24 m는 위 요약 주석 참고(10-12, 프로토타입은 28).
             //  10-13 동적 지형 1차(spec 2026-10-13, 시안 v10 PLAN_ORDER): 막마다 움직이는 구간 하나 + 갈림길마다 다른 고수 길.
             //  낮은 천장 → 진자 광차, 긴 통로 → 승강기(같은 높이 왕복은 루즈 — 사람 판 10-10). 두 구간 코드는 남긴다.
-            var order = new (string name, int after, SectionOptions o)[]
+            //  넷째 칸 = 막 번호(HUD 구간 배너·막대 띠 색, spec 2026-10-25 레이스 포장 §5).
+            var order = new (string name, int after, SectionOptions o, int act)[]
             {
-                ("수직 갱 낙하", 1, new SectionOptions { Length = 9.2 }), ("계단 내리막", 1, new SectionOptions { Gates = 6 }), ("낙석", 1, null),
-                ("고수 갈림길 ⬇굴", 2, new SectionOptions { Shape = ForkShape.Collapse }),
-                ("진자 광차", 1, null), ("레일 롤러코스터", 1, new SectionOptions { Length = 30 }), ("급반전", 1, null),
-                ("고수 갈림길 ⬆굴", 0, new SectionOptions { Shape = ForkShape.Arc }), ("수직 갱 낙하", 2, new SectionOptions { Length = 10, Rise = 24 }),
-                ("승강기", 1, null), ("굴뚝 오르기", 0, new SectionOptions { Length = 21, Rise = 24 }),
-                ("고수 갈림길 ⬆굴", 3, new SectionOptions { Shape = ForkShape.Rail }),
+                ("수직 갱 낙하", 1, new SectionOptions { Length = 9.2 }, 1), ("계단 내리막", 1, new SectionOptions { Gates = 6 }, 1), ("낙석", 1, null, 1),
+                ("고수 갈림길 ⬇굴", 2, new SectionOptions { Shape = ForkShape.Collapse }, 1),
+                ("진자 광차", 1, null, 2), ("레일 롤러코스터", 1, new SectionOptions { Length = 30 }, 2), ("급반전", 1, null, 2),
+                ("고수 갈림길 ⬆굴", 0, new SectionOptions { Shape = ForkShape.Arc }, 2), ("수직 갱 낙하", 2, new SectionOptions { Length = 10, Rise = 24 }, 2),
+                ("승강기", 1, null, 3), ("굴뚝 오르기", 0, new SectionOptions { Length = 21, Rise = 24 }, 3),
+                ("고수 갈림길 ⬆굴", 3, new SectionOptions { Shape = ForkShape.Rail }, 3),
             };
             Norm(2);
-            foreach (var (name, after, o) in order)
+            foreach (var (name, after, o, act) in order)
             {
-                sections.Add(new MineSection(name, (float)cur));
+                sections.Add(new MineSection(name, (float)cur, act));
                 Section(name, o);
                 Norm(after);
             }

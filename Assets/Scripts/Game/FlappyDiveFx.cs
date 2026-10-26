@@ -28,11 +28,22 @@ namespace LOP
         private readonly FlappyConfig config;
         private readonly FlappyMoteFeed feed;
 
+        //  다이브 충전음(10-26 사용자: 반짝 차오름이 별로 — 작게, 일반 게이지 차는 소리로): 조용한 사인파가 칸이
+        //  찰수록 음이 조금씩 올라간다. 칸이 완성되면 fraction이 되감겨 음이 뚝 떨어지고 그 자리에 완성음(blipClip)이 튄다.
+        private const float FillVolumeStep = 0.04f;
+        private const float FillVolumeStrengthScale = 0.03f;
+        private const float FillVolumeMax = 0.07f;       // 일부러 작게 — "그냥 게이지가 찬다" 정도
+        private const float FillFadeRate = 0.6f;
+        private const float FillPitchBase = 0.75f;       // 440Hz 클립 기준 330Hz부터
+        private const float FillPitchRange = 0.75f;      // ~660Hz까지
+
         private GameObject root;
         private Sprite glow;
         private Sprite streak;
-        private AudioSource hum;
-        private AudioClip humClip, blipClip;
+        private AudioSource sfx;
+        private AudioSource fill;
+        private AudioClip fillClip;
+        private AudioClip blipClip;
         private readonly Dictionary<string, Bird> birds = new Dictionary<string, Bird>();
         private readonly Dictionary<string, LOPEntityView> views = new Dictionary<string, LOPEntityView>();
         private float nextScan;
@@ -59,6 +70,8 @@ namespace LOP
         internal float AuraScaleOf(string entityId) => birds.TryGetValue(entityId, out var b) && b.Aura != null ? b.Aura.transform.localScale.x : 0f;
         internal Vector3 StreakPositionOf(string entityId, int index) => birds[entityId].Streaks[index].transform.position;
         internal int ScatterCount => scatters.Count;
+        internal float FillVolume => fill != null ? fill.volume : 0f;   // 테스트 seam — 게이지 차는 소리 크기
+        internal float FillPitch => fill != null ? fill.pitch : 0f;     // 테스트 seam — 게이지 차는 소리 높이
 
         private class Bird
         {
@@ -101,8 +114,8 @@ namespace LOP
             time += deltaTime;
             EnsureRoot();
             float min = config.MaxFallSpeed * rules.DiveMinFallRatio;
-            foreach (var b in birds.Values) { b.Seen = false; }
             bool mineSeen = false;
+            foreach (var b in birds.Values) { b.Seen = false; }
             foreach (var entity in entityRegistry.All)
             {
                 if (entity.Get<EntityKind>()?.Kind != EntityType.Character)
@@ -139,10 +152,10 @@ namespace LOP
                 float fall = mine ? -(entity.Get<GameFramework.World.Velocity>()?.Linear.Y ?? 0f) : -bird.RenderVy;
                 bool dashing = (entity.Get<FlappyDash>()?.DashRemaining ?? 0f) > 0f;
                 bool stunned = (entity.Get<FlappyStun>()?.StunRemaining ?? 0f) > 0f;   // 남의 새는 스냅이 스턴을 안 채워 늘 false
-                //  내 새 게이지가 꽉 찼으면 시뮬이 더 안 채운다 — "충전 중"을 그리지 않는다.
-                bool full = mine && (entity.Get<FlappyDash>()?.Charge ?? 0f) >= FlappyDash.MaxCharge;
+                //  10-26 사람 판: 게이지가 꽉 차도 다이빙 중엔 기운·빛줄기를 계속 보여준다 — 더 안 차는 것과 "떨어지는 느낌"은 별개다.
+                //  소리만 끈다(UpdateMine의 fraction 문턱이 이미 꽉 찼을 때 게이지 차는 소리를 막는다).
                 float target = 0f;
-                if (dashing == false && stunned == false && full == false && fall >= min && config.MaxFallSpeed > min)
+                if (dashing == false && stunned == false && fall >= min && config.MaxFallSpeed > min)
                 {
                     float k = Mathf.Clamp01((fall - min) / (config.MaxFallSpeed - min));
                     target = 0.4f + 0.6f * k;
@@ -157,7 +170,7 @@ namespace LOP
                 }
             }
 
-            //  그림이 사라진 새(퇴장·그림 교체): 기운·빛줄기를 끄고, 엔티티가 없어졌으면 지운다. 내 새면 고리·웅 소리도 끈다.
+            //  그림이 사라진 새(퇴장·그림 교체): 기운·빛줄기를 끄고, 엔티티가 없어졌으면 지운다.
             var gone = new List<string>();
             foreach (var pair in birds)
             {
@@ -178,10 +191,20 @@ namespace LOP
                 birds.Remove(id);
             }
             AnimateScatters(deltaTime);
+            //  내 새가 이번 틱에 안 보였다(퇴장·그림 교체) — UpdateMine을 안 불렀으니 게이지 소리를 직접 끈다.
             if (mineSeen == false)
             {
-                hum.volume = Mathf.MoveTowards(hum.volume, 0f, deltaTime * 2f);
-                if (hum.volume <= 0f && hum.isPlaying) { hum.Stop(); }
+                FadeFill(deltaTime);
+            }
+        }
+
+        //  게이지 차는 소리를 목표 0으로 서서히 줄이고, 다 줄면 멈춘다(내 새가 안 보일 때 전용).
+        private void FadeFill(float deltaTime)
+        {
+            fill.volume = Mathf.MoveTowards(fill.volume, 0f, deltaTime * FillFadeRate);
+            if (fill.volume <= 0f && fill.isPlaying)
+            {
+                fill.Stop();
             }
         }
 
@@ -265,12 +288,21 @@ namespace LOP
             wasStunned = stunned;
             lastCharge = charge;
 
-            //  충전음: 차는 동안 웅, 칸 안 몫이 찰수록 높아진다.
-            float vol = strength > 0f && fraction < 1f ? 0.12f * (0.5f + strength) : 0f;
-            hum.volume = Mathf.MoveTowards(hum.volume, vol, deltaTime * 2f);
-            hum.pitch = 0.8f + fraction * 1.2f + Level(strength) * 0.4f;
-            if (hum.volume > 0f && hum.isPlaying == false) { hum.Play(); }
-            if (hum.volume <= 0f && hum.isPlaying) { hum.Stop(); }
+            //  게이지 차는 소리(10-26 사용자: 반짝 차오름이 별로 — 작게, 일반 게이지 차는 소리로): 차는 동안
+            //  (fraction < 1f, 꽉 찼을 때 끈다 — 기운은 그대로, 소리만) 조용한 사인파를 조금씩 키운다. 세기가 셀수록
+            //  살짝 더 크게(최대 0.07로 일부러 작게). 음높이는 칸 안 몫(fraction)으로 올라가다가 칸이 완성되면 뚝 떨어진다.
+            bool charging = strength > 0f && fraction < 1f;
+            float targetVolume = charging ? Mathf.Min(FillVolumeMax, FillVolumeStep + FillVolumeStrengthScale * strength) : 0f;
+            fill.volume = Mathf.MoveTowards(fill.volume, targetVolume, deltaTime * FillFadeRate);
+            fill.pitch = FillPitchBase + FillPitchRange * fraction;
+            if (fill.volume > 0f && fill.isPlaying == false)
+            {
+                fill.Play();
+            }
+            else if (fill.volume <= 0f && fill.isPlaying)
+            {
+                fill.Stop();
+            }
 
             //  칸이 막 찼다 — 글자와 짧은 소리(버튼 튕김은 FlapPadView가 한다). 되감기 교정으로 경계에서 흔들려(1.002 → 0.998 → 1.004)
             //  두 번 뜨지 않게, 띄운 칸 수는 게이지가 반 칸 넘게 줄어야(대시 사용·박음) 내린다.
@@ -281,7 +313,7 @@ namespace LOP
             else if (stacks > announcedStacks)
             {
                 feed.Publish(new FlappyMotePopup(center + Vector3.up * 1.4f, "대시 1칸!", FlappyMotePopupKind.Count));
-                hum.PlayOneShot(blipClip, 0.4f);
+                sfx.PlayOneShot(blipClip, 0.4f);
                 announcedStacks = stacks;
             }
             else if (charge < announcedStacks - 0.5f)
@@ -317,7 +349,7 @@ namespace LOP
                 r.transform.localScale = Vector3.one * 0.35f;
                 scatters.Add(new Scatter { Renderer = r, Velocity = new Vector3(Mathf.Cos(a) * speed, Mathf.Sin(a) * speed + 2f, 0f), Life = Random.Range(0.6f, 0.9f) });
             }
-            hum.PlayOneShot(blipClip, 0.25f);
+            sfx.PlayOneShot(blipClip, 0.25f);
         }
 
         private void AnimateScatters(float deltaTime)
@@ -372,14 +404,19 @@ namespace LOP
             root = new GameObject("FlappyDiveFx");
             glow = MakeGlow();
             streak = MakeStreak();
-            hum = root.AddComponent<AudioSource>();
-            hum.playOnAwake = false;
-            hum.loop = true;
-            hum.spatialBlend = 0f;
-            hum.volume = 0f;
-            humClip = MakeHum();
-            blipClip = MakeBlip();
-            hum.clip = humClip;
+            sfx = root.AddComponent<AudioSource>();
+            sfx.playOnAwake = false;
+            sfx.spatialBlend = 0f;
+            //  게이지 차는 소리는 계속 도는(loop) 조용한 사인파라 전용 AudioSource가 하나 더 필요하다 — sfx는 한 번
+            //  튕기는 소리(완성음·흩어짐)만 쓴다.
+            fill = root.AddComponent<AudioSource>();
+            fill.loop = true;
+            fill.playOnAwake = false;
+            fill.spatialBlend = 0f;
+            fill.volume = 0f;
+            fillClip = MakeFillClip();
+            fill.clip = fillClip;
+            blipClip = MakeSlotPop();
         }
 
         //  번지는 빛 한 점(가운데 밝고 가장자리로 사라짐).
@@ -425,35 +462,56 @@ namespace LOP
             return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), Mathf.Max(w, h));
         }
 
-        //  충전 웅 소리 — 끊김 없이 되풀이되는 부드러운 세모파(1초, 정수 주기라 이음매가 없다).
-        private static AudioClip MakeHum()
+        //  게이지 차는 소리 클립: 440Hz + 옅은 880Hz(9%)를 섞은 조용한 사인파 1초. 정수 주기라 루프 이음매가
+        //  안 들린다 — AudioSource.loop가 이 클립을 매끄럽게 계속 돈다. pitch로 음높이를 바꿔 쓴다.
+        private static AudioClip MakeFillClip()
         {
             const int rate = 44100;
-            var data = new float[rate];
-            for (int i = 0; i < rate; i++)
-            {
-                float t = i / (float)rate;
-                data[i] = 0.6f * Mathf.Sin(2f * Mathf.PI * 220f * t) + 0.25f * Mathf.Sin(2f * Mathf.PI * 440f * t);
-            }
-            var clip = AudioClip.Create("FlappyDiveHum", rate, 1, rate, false);
-            clip.SetData(data, 0);
-            return clip;
-        }
-
-        private static AudioClip MakeBlip()
-        {
-            const int rate = 44100;
-            int length = (int)(rate * 0.18f);
+            const int length = rate;   // 1초
             var data = new float[length];
             for (int i = 0; i < length; i++)
             {
                 float t = i / (float)rate;
-                float f = t < 0.08f ? 880f : 1320f;
-                data[i] = Mathf.Sin(2f * Mathf.PI * f * t) * Mathf.Exp(-t * 14f) * 0.8f;
+                data[i] = 0.6f * Mathf.Sin(2f * Mathf.PI * 440f * t) + 0.09f * Mathf.Sin(2f * Mathf.PI * 880f * t);
             }
-            var clip = AudioClip.Create("FlappyDiveSlot", length, 1, rate, false);
+            var clip = AudioClip.Create("FlappyDiveFill", length, 1, rate, false);
             clip.SetData(data, 0);
             return clip;
+        }
+
+        //  칸 완성음 "톡 + 반짝"(시제품 SLOT.pop, 10-26 사용자 선택): 세모파 톡 한 번 + 사인 반짝 + 반짝이 셋이
+        //  차례로 울린다. 다섯 소리를 한 클립에 겹쳐 굽는다 — PlayOneShot 한 번으로 전부 재생되게.
+        private static AudioClip MakeSlotPop()
+        {
+            const int rate = 44100;
+            const float total = 0.16f + 0.3f;   // 마지막 반짝 시작(0.16) + 길이(0.3)
+            int length = (int)(rate * total);
+            var data = new float[length];
+            AddPopTone(data, rate, 420f, 0.07f, 0.28f, 0f, triangle: true);
+            AddPopTone(data, rate, 980f, 0.05f, 0.12f, 0.01f);
+            AddPopTone(data, rate, 1568f, 0.3f, 0.06f, 0.06f);
+            AddPopTone(data, rate, 2093f, 0.3f, 0.06f, 0.11f);
+            AddPopTone(data, rate, 2637f, 0.3f, 0.06f, 0.16f);
+            var clip = AudioClip.Create("FlappyDiveSlotPop", length, 1, rate, false);
+            clip.SetData(data, 0);
+            return clip;
+        }
+
+        //  칸 완성음의 소리 한 조각을 섞어 더한다 — 지속시간에 반비례한 감쇠율(이전 삐- 소리의 exp(-14t)/0.18초와
+        //  같은 꼬리 느낌)로 짧은 소리는 빠르게, 긴 반짝임은 느리게 잦아든다.
+        private static void AddPopTone(float[] data, int rate, float freq, float duration, float volume, float startTime, bool triangle = false)
+        {
+            int start = Mathf.RoundToInt(startTime * rate);
+            int length = Mathf.RoundToInt(duration * rate);
+            float decayRate = 2.52f / duration;
+            for (int i = 0; i < length && start + i < data.Length; i++)
+            {
+                float t = i / (float)rate;
+                float wave = triangle
+                    ? 2f / Mathf.PI * Mathf.Asin(Mathf.Sin(2f * Mathf.PI * freq * t))
+                    : Mathf.Sin(2f * Mathf.PI * freq * t);
+                data[start + i] += wave * volume * Mathf.Exp(-t * decayRate);
+            }
         }
 
         //  찾은 뷰는 들고 있고, 못 찾은 새가 있으면 씬 훑기는 0.5초에 한 번만. 그림이 아직 안 붙었으면 null(루트는 안 움직인다).
@@ -492,10 +550,14 @@ namespace LOP
             birds.Clear();
             foreach (var sc in scatters) { DestroyObject(sc.Renderer != null ? sc.Renderer.gameObject : null); }
             scatters.Clear();
-            if (hum != null) { hum.volume = 0f; hum.Stop(); }
             lastCharge = -1f;
             wasStunned = false;
             announcedStacks = -1;
+            if (fill != null)
+            {
+                fill.volume = 0f;
+                fill.Stop();
+            }
         }
 
         private static void DestroyObject(Object obj)
@@ -523,9 +585,10 @@ namespace LOP
                 }
             }
             glow = streak = null;
-            DestroyObject(humClip);
+            DestroyObject(fillClip);
+            fillClip = null;
             DestroyObject(blipClip);
-            humClip = blipClip = null;
+            blipClip = null;
             views.Clear();
         }
     }

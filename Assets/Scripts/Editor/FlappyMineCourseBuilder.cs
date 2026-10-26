@@ -42,6 +42,9 @@ namespace LOP.EditorTools
         //  10-12 펼치기 2차: 1차는 첫 "레일 롤러코스터"(151.25)까지였다.
         private const float DressFrom = -EndMargin;
 
+        /// <summary>구간 표식 GameObject 이름 앞머리 — 굽기 확인 스크립트가 이 이름으로 센다.</summary>
+        internal const string SectionMarkerPrefix = "CourseSection_";
+
         [MenuItem("LOP/Debug/Flappy 광산 코스 굽기")]
         public static void Build()
         {
@@ -177,6 +180,10 @@ namespace LOP.EditorTools
                 }
             }
 
+            //  구간 표식(spec 2026-10-25 레이스 포장 §5) — 클라 HUD가 구간 배너·LAST STRETCH!·막대 띠를 읽는다. 판정·그림이 없다.
+            //  옷 입히기 뒤에 세운다 — 옷이 범위 안 자식을 다시 세워도 표식이 다치지 않게.
+            int sectionMarkers = BakeSections(root, course.Sections);
+
             //  물리 동기를 직접 관리하는 프로젝트라, 부르지 않으면 콜라이더가 만들 때 자리에 남는다(전통 굽기 참고).
             Physics.SyncTransforms();
 
@@ -185,6 +192,7 @@ namespace LOP.EditorTools
                     + $" · 패드 {course.Pads.Count}개 · 갈림길 {course.Forks.Count}개 · 칸막이 {course.Walls.Count}개"
                     + $" · 바닥·천장 조각 {slabs}개 · 길이 {course.Length:F0}m"
                     + $" · 승강기 {movers.Lifts} · 광차 {movers.Carts} · 낙석 {movers.Rockfalls} · 받침목 {movers.Props}"
+                    + $" · 구간 표식 {sectionMarkers}개"
                     + $" (예상 {course.Length / config.ForwardSpeed:F0}초 @ {config.ForwardSpeed:F1}m/s)");
         }
 
@@ -243,6 +251,33 @@ namespace LOP.EditorTools
                 }
             }
             return count;
+        }
+
+        //  구간 표식: 구간마다 하나, ComposedMap 자식(굽기마다 지워지고 다시 선다 — 전통 굽기도 자식을 다 지우므로 거기선 저절로 빠진다).
+        //  x = 구간 시작. y·z는 0 — 그림·판정이 없어 높이를 쓰지 않는다. 마지막 구간만 Final(LAST STRETCH!).
+        internal static int BakeSections(Transform root, IReadOnlyList<MineSection> sections)
+        {
+            for (int i = 0; i < sections.Count; i++)
+            {
+                MineSection s = sections[i];
+                var go = new GameObject($"{SectionMarkerPrefix}{i:00}_{s.X:F0}");
+                go.transform.SetParent(root, false);
+                go.transform.position = new Vector3(s.X, 0f, 0f);
+                var marker = go.AddComponent<LOP.FlappyCourseSection>();
+                marker.Title = BannerTitle(s.Name);
+                marker.Act = s.Act;
+                marker.Final = i == sections.Count - 1;
+                Undo.RegisterCreatedObjectUndo(go, "Build mine course");
+            }
+            return sections.Count;
+        }
+
+        //  갈림길 꼬리표(⬆굴·⬇굴)는 떼어 셋 모두 "고수 갈림길"로 보인다(사용자 결정 10-25). ⬆·⬇는 화면 글꼴(블랙한산스·주아)에도
+        //  없어서 그대로 구우면 배너에 빈 네모가 뜬다.
+        //  코스 규칙의 이름(MineCourseRule)은 그대로 둔다 — 검사기·옷 배치가 그 이름으로 구간을 찾는다.
+        internal static string BannerTitle(string sectionName)
+        {
+            return sectionName.Replace(" ⬇굴", string.Empty).Replace(" ⬆굴", string.Empty);
         }
 
         //  통로 중심선 표시 — 없으면 붙이고 있으면 점만 갈아 끼운다(FlappyMapRules와 같은 요령).

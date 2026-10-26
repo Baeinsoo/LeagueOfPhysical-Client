@@ -39,5 +39,22 @@ namespace LOP.Tests
         {
             AreClose(Hex(0xa9, 0xa2, 0x9a), FlappyRacePalette.OpponentNeutral);
         }
+
+        [Test]
+        public void 막_색은_호박_하늘_분홍()
+        {
+            //  시제품 ACT_COL — 진행 막대 띠와 구간 배너 띠가 같이 쓴다.
+            AreClose(Hex(0xff, 0xb3, 0x47), FlappyRacePalette.ActColor(1));
+            AreClose(Hex(0x5f, 0xd3, 0xff), FlappyRacePalette.ActColor(2));
+            AreClose(Hex(0xff, 0x8f, 0xb1), FlappyRacePalette.ActColor(3));
+            AreClose(FlappyRacePalette.ActColor(1), FlappyRacePalette.ActColor(0));
+        }
+
+        [Test]
+        public void 추월은_초록_밀림은_빨강()
+        {
+            AreClose(Hex(0x7b, 0xe0, 0x8a), FlappyRacePalette.RankUp);
+            AreClose(Hex(0xff, 0x5a, 0x4e), FlappyRacePalette.RankDown);
+        }
     }
 }

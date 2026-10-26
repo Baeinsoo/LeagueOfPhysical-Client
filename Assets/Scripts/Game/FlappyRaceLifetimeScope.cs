@@ -178,6 +178,9 @@ namespace LOP
             //  계산은 CameraController.BeforeFollow에서 한다(그려진 몸 위치 기준).
             builder.RegisterEntryPoint<FlappyCorridorCamera>();
 
+            //  개인 기록(spec §7) — 완주 시간을 게임 공용 기록지에 적는다(서버 등수가 와야). 판정과 무관하다.
+            builder.RegisterEntryPoint<FlappyFinishRecorder>();
+
             builder.RegisterEntryPoint<FlappyHudCoordinator>();
             //  날갯짓 소리 — 입력면이 누른 순간 부른다(사용자 결정 10-25).
             builder.Register<FlappyFlapSound>(Lifetime.Singleton);

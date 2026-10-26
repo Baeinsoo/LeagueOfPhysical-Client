@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -14,7 +13,6 @@ namespace LOP
         private const float Gap = 0.96f;
 
         private readonly KnockbackWorld world;
-        private readonly List<GameObject> tiles = new List<GameObject>();
         private Material light;
         private Material dark;
         private GameObject root;
@@ -38,13 +36,12 @@ namespace LOP
                 var tile = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 tile.name = $"Tile_{x}_{z}";
                 // 판정은 계산이라 콜라이더가 있으면 안 된다(몸 이동 충돌과 섞인다).
-                UnityEngine.Object.Destroy(tile.GetComponent<Collider>());
+                UnityEngine.Object.DestroyImmediate(tile.GetComponent<Collider>());
                 tile.transform.SetParent(root.transform, false);
                 var c = floor.TileCenter(x, z);
                 tile.transform.position = new Vector3(c.x, c.y - Thickness * 0.5f, c.z);
                 tile.transform.localScale = new Vector3(s * Gap, Thickness, s * Gap);
                 tile.GetComponent<MeshRenderer>().sharedMaterial = ((x + z) & 1) == 0 ? light : dark;
-                tiles.Add(tile);
             }
         }
 
@@ -53,7 +50,6 @@ namespace LOP
             if (root != null) UnityEngine.Object.Destroy(root);
             if (light != null) UnityEngine.Object.Destroy(light);
             if (dark != null) UnityEngine.Object.Destroy(dark);
-            tiles.Clear();
         }
     }
 }

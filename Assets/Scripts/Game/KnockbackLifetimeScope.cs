@@ -29,12 +29,20 @@ namespace LOP
                 c.Resolve<GameFramework.Physics.ICollisionQuery>(),
                 LayerMask.GetMask("Default", "Character")), Lifetime.Singleton);
 
+            builder.Register(c => new KnockbackFireSystem(c.Resolve<KnockbackConfig>()), Lifetime.Singleton);
+            builder.Register(c => new BodyCollisionSystem(
+                BodySizes.CharacterRadius, BodySizes.CharacterHeight,
+                c.Resolve<KnockbackConfig>().BodyRestitution, new UnityEngine.Vector3(1, 0, 1)), Lifetime.Singleton);
+
             builder.Register<KnockbackWorld>(c => new KnockbackWorld(
                 c.Resolve<GameFramework.World.EntityRegistry>(),
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
                 c.Resolve<KnockbackMoveSystem>(),
                 c.Resolve<GameFramework.World.IMotionBridge>(),
-                c.Resolve<KnockbackFloor>()), Lifetime.Singleton)
+                c.Resolve<KnockbackFloor>(),
+                c.Resolve<KnockbackFireSystem>(),
+                c.Resolve<BodyCollisionSystem>(),
+                c.Resolve<KnockbackConfig>()), Lifetime.Singleton)
                 .As<GameFramework.World.IWorld>().AsSelf();
 
             builder.Register<ICharacterCreator, KnockbackPlayerCreator>(Lifetime.Singleton);

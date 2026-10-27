@@ -1,0 +1,5 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="FlapCombo.uss" />
+    <!-- 연속 날갯짓 연출 "집중형"(spec §7) — 화면 공간 판 하나. 글자·깃털·꼬리는 코드가 풀에서 꺼내 그린다. 아무것도 누르지 않는다. -->
+    <ui:VisualElement name="combo-root" class="combo-root" picking-mode="Ignore" />
+</ui:UXML>

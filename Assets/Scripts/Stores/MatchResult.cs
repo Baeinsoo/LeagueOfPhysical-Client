@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace LOP
@@ -15,6 +16,10 @@ namespace LOP
         public int queueId;
         public int gameModeId;
         public int mapId;
+
+        //  이번 판 내 개인 기록(spec §7) — 종목이 선언한 지표마다 이번 값과 그 전 최고. 기록을 안 적는 종목은 빈 목록.
+        //  결과판의 "내 기록" 카드가 이것만 보고 그린다(종목을 모른다).
+        public IReadOnlyList<RecordOutcome> myRecords = Array.Empty<RecordOutcome>();
     }
 
     public class MatchParticipantResult

@@ -103,6 +103,15 @@ namespace LOP
                         Part.Tone(988f, 0.18f, Wave.Triangle, 0.16f, 0.08f),
                         Part.Tone(1319f, 0.18f, Wave.Triangle, 0.16f, 0.16f),
                     };
+                case FlappySfx.Milestone:
+                    //  연속 날갯짓 고비(시제품 flap-plus chord): 784 Hz 장화음 + 옥타브를 0.05초씩 굴린다. 추월 소리보다 조용·짧게(10-26).
+                    return new[]
+                    {
+                        Part.Tone(784f, 0.35f, Wave.Triangle, 0.06f, 0f),
+                        Part.Tone(980f, 0.35f, Wave.Triangle, 0.06f, 0.05f),
+                        Part.Tone(1176f, 0.35f, Wave.Triangle, 0.06f, 0.1f),
+                        Part.Tone(1568f, 0.35f, Wave.Triangle, 0.06f, 0.15f),
+                    };
                 case FlappySfx.LastStretch:
                     return new[] { Part.Tone(784f, 0.12f, Wave.Square, 0.1f), Part.Tone(1047f, 0.2f, Wave.Square, 0.1f, 0.1f) };
                 default:

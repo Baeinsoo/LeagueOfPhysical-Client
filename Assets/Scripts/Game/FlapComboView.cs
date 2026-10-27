@@ -153,7 +153,8 @@ namespace LOP
                 float font = FlapComboLook.NumberFont * _unit * FlapComboLook.NumberSize(p.Count);
                 label.text = FlapComboLook.Text(p.Count);
                 Place(label, p.Corner - new Vector2(0f, FlapComboLook.NumberRise * _unit * k), font,
-                      FlapComboLook.NumberPop(k), FlapComboLook.NumberAlpha(k), FlapComboLook.TierColor(p.Count));
+                      FlapComboLook.NumberPop(k), FlapComboLook.NumberAlpha(k), FlapComboLook.TierColor(p.Count),
+                      FlapComboLook.NumberOutlineRatio, shadow: true);
             }
         }
 
@@ -168,20 +169,35 @@ namespace LOP
             float k = _fx.WordAge / FlapComboLook.WordLife;
             _word.text = _fx.WordText;
             Vector2 corner = FlapComboLook.WordCorner(birdPx, _rPx, _unit) - new Vector2(0f, FlapComboLook.WordRise * _unit * k);
-            Place(_word, corner, FlapComboLook.WordFont * _unit, FlapComboLook.WordPop(k), FlapComboLook.WordAlpha(k), _fx.WordColor);
+            Place(_word, corner, FlapComboLook.WordFont * _unit, FlapComboLook.WordPop(k), FlapComboLook.WordAlpha(k), _fx.WordColor,
+                  FlapComboLook.WordOutlineRatio, shadow: false);
         }
 
-        private static void Place(Label label, Vector2 corner, float font, float scale, float alpha, Color color)
+        //  시제품 테두리 lineWidth = 글자 × 0.2(바깥 반만 보임) — UI 테두리는 안팎으로 걸치니 그 반. 숫자는 10-27 피드백으로 더 두껍게,
+        //  어두운 그림자도 깔아 더 묵직해 보이게 한다(한마디는 그대로 — 사용자 요청 범위 밖).
+        private static void Place(Label label, Vector2 corner, float font, float scale, float alpha, Color color, float outlineRatio, bool shadow)
         {
             label.style.display = DisplayStyle.Flex;
             label.style.left = corner.x;
             label.style.top = corner.y;
             label.style.fontSize = font;
-            //  시제품 테두리 lineWidth = 글자 × 0.2(바깥 반만 보임) — UI 테두리는 안팎으로 걸치니 그 반.
-            label.style.unityTextOutlineWidth = font * 0.1f;
+            label.style.unityTextOutlineWidth = font * outlineRatio;
             label.style.scale = new Scale(new Vector2(scale, scale));
             label.style.opacity = alpha;
             label.style.color = color;
+            if (shadow)
+            {
+                label.style.textShadow = new TextShadow
+                {
+                    offset = new Vector2(0f, font * FlapComboLook.NumberShadowOffsetRatio),
+                    blurRadius = font * FlapComboLook.NumberShadowBlurRatio,
+                    color = FlapComboLook.NumberShadow,
+                };
+            }
+            else
+            {
+                label.style.textShadow = StyleKeyword.Null;
+            }
         }
 
         private void RenderFeathers()

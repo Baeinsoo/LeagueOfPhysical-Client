@@ -16,10 +16,19 @@ namespace LOP
         public const float StageHeight = 545f;
 
         public const float NumberLife = 0.45f;
-        /// <summary>"+N" 글자 크기(u) — 시제품 <c>max(18, H×0.055)</c>.</summary>
-        public const float NumberFont = 30f;
+        /// <summary>"+N" 글자 크기(u) — 시제품 <c>max(18, H×0.055)</c>의 1.3배(사용자 피드백 10-27: 더 묵직하게).</summary>
+        public const float NumberFont = 39f;
         /// <summary>사는 동안 떠오르는 높이(u) — 시제품 <c>H×0.04</c>.</summary>
         public const float NumberRise = 21.8f;
+
+        /// <summary>테두리 두께 = 글자 × 이 값. 한마디(<see cref="WordOutlineRatio"/>)보다 두껍게(10-27).</summary>
+        public const float NumberOutlineRatio = 0.16f;
+        /// <summary>고비 한마디 테두리 두께 = 글자 × 이 값 — 시제품 테두리 lineWidth(글자×0.2, 바깥 반만 보임)의 반.</summary>
+        public const float WordOutlineRatio = 0.1f;
+        /// <summary>숫자 아래 그림자 — 글자 크기의 이 비율만큼 아래로(10-27).</summary>
+        public const float NumberShadowOffsetRatio = 0.06f;
+        /// <summary>숫자 아래 그림자 — 글자 크기의 이 비율만큼 부드럽게 퍼진다(10-27).</summary>
+        public const float NumberShadowBlurRatio = 0.05f;
 
         public const float WordLife = 1.1f;
         /// <summary>고비 한마디 글자 크기(u) — 시제품 <c>max(16, H×0.045)</c>.</summary>
@@ -39,10 +48,12 @@ namespace LOP
 
         public static readonly Color Outline = Hex(0x2a1a0c);
         public static readonly Color FeatherColor = Hex(0xf5e9d6);
+        /// <summary>숫자 그림자 색 — 테두리와 같은 어두운 색, 60% 불투명(10-27).</summary>
+        public static readonly Color NumberShadow = Hex(0x2a1a0c, 0.6f);
 
         private static readonly Color Tier0 = Hex(0xfff6e6), Tier1 = Hex(0xffd257), Tier2 = Hex(0xff9a3c), Tier3 = Hex(0xff6a3d);
 
-        private static Color Hex(int rgb) => new Color32((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb, 255);
+        private static Color Hex(int rgb, float a = 1f) => new Color((rgb >> 16 & 0xFF) / 255f, (rgb >> 8 & 0xFF) / 255f, (rgb & 0xFF) / 255f, a);
 
         public static float Unit(float panelHeight) => panelHeight / StageHeight;
 
@@ -67,16 +78,16 @@ namespace LOP
         /// <summary>연속이 길수록 조금 크게 — 60에서 멈춘다.</summary>
         public static float NumberSize(int n) => 0.62f + Mathf.Min(n, 60) / 300f;
 
-        /// <summary>k = 나이/수명. 0.6 → 1.2(15%) → 1.0(30%).</summary>
+        /// <summary>k = 나이/수명. 0.6 → 1.3(15%) → 1.0(30%) — 10-27 피드백으로 더 세게 튄다.</summary>
         public static float NumberPop(float k)
         {
             if (k < 0.15f)
             {
-                return 0.6f + k / 0.15f * 0.6f;
+                return 0.6f + k / 0.15f * 0.7f;
             }
             if (k < 0.3f)
             {
-                return 1.2f - (k - 0.15f) / 0.15f * 0.2f;
+                return 1.3f - (k - 0.15f) / 0.15f * 0.3f;
             }
             return 1f;
         }
@@ -90,11 +101,11 @@ namespace LOP
         public static float WordAlpha(float k) => k < 0.7f ? 1f : Mathf.Clamp01(1f - (k - 0.7f) / 0.3f);
 
         /// <summary>
-        /// "+N" 판의 오른쪽 아래 모서리. 몸 가운데보다 반지름 반만큼 뒤, 몸 꼭대기보다 2u 위 — 판이 왼쪽 위로 자라서
-        /// 앞길(오른쪽)과 몸을 가리지 않는다. 노란 화살표(몸 바로 위 가운데)와도 비켜 선다.
+        /// "+N" 판의 오른쪽 아래 모서리. 몸 가운데보다 반지름 반만큼 뒤, 몸 꼭대기보다 2u 위, 거기서 몸 지름(2r)만큼 더 위
+        /// (10-27 피드백: 더 높게) — 판이 왼쪽 위로 자라서 앞길(오른쪽)과 몸을 가리지 않는다. 노란 화살표(몸 바로 위 가운데)와도 비켜 선다.
         /// </summary>
         public static Vector2 NumberCorner(Vector2 birdPx, float rPx, float u)
-            => new Vector2(birdPx.x - 0.5f * rPx, birdPx.y - rPx - 2f * u);
+            => new Vector2(birdPx.x - 0.5f * rPx, birdPx.y - 3f * rPx - 2f * u);
 
         /// <summary>고비 한마디 판의 오른쪽 아래 모서리 — 숫자 위.</summary>
         public static Vector2 WordCorner(Vector2 birdPx, float rPx, float u)

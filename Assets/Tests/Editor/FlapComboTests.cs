@@ -42,11 +42,12 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 숫자는_0_6에서_1_2로_튀었다가_30퍼센트에_1배()
+        public void 숫자는_0_6에서_1_3으로_튀었다가_30퍼센트에_1배()
         {
+            //  10-27 피드백: 더 묵직하게 — 정점을 1.2에서 1.3으로 올렸다(같은 타이밍).
             Assert.AreEqual(0.6f, FlapComboLook.NumberPop(0f), 1e-4f);
-            Assert.AreEqual(1.2f, FlapComboLook.NumberPop(0.15f), 1e-4f);
-            Assert.AreEqual(1.1f, FlapComboLook.NumberPop(0.225f), 1e-4f);
+            Assert.AreEqual(1.3f, FlapComboLook.NumberPop(0.15f), 1e-4f);
+            Assert.AreEqual(1.15f, FlapComboLook.NumberPop(0.225f), 1e-4f);
             Assert.AreEqual(1f, FlapComboLook.NumberPop(0.3f), 1e-4f);
             Assert.AreEqual(1f, FlapComboLook.NumberPop(0.8f), 1e-4f);
         }
@@ -80,6 +81,36 @@ namespace LOP.Tests
             Vector2 word = FlapComboLook.WordCorner(Bird, RPx, U);
             Assert.Less(word.x, Bird.x);
             Assert.Less(word.y, number.y, "한마디는 숫자 위");
+        }
+
+        [Test]
+        public void 숫자_자리는_몸_지름만큼_더_위로_올라갔다()
+        {
+            //  10-27 피드백: 더 높게 — 몸 꼭대기 위 2u에서, 몸 지름(2r)만큼 더 위로. 가로는 그대로(반지름 반만큼 뒤).
+            Vector2 number = FlapComboLook.NumberCorner(Bird, RPx, U);
+            Assert.AreEqual(Bird.x - 0.5f * RPx, number.x, 1e-4f);
+            Assert.AreEqual(Bird.y - 3f * RPx - 2f * U, number.y, 1e-4f);
+
+            //  한마디는 숫자 자리를 그대로 따라가므로 같이 올라간다 — 둘 사이 간격(WordAbove)은 그대로.
+            Vector2 word = FlapComboLook.WordCorner(Bird, RPx, U);
+            Assert.AreEqual(number.y - FlapComboLook.WordAbove * U, word.y, 1e-4f);
+        }
+
+        [Test]
+        public void 숫자는_글자가_크고_테두리가_두껍고_그림자가_있다()
+        {
+            //  10-27 피드백: 더 묵직하게 — 기존 30u의 1.3배, 테두리는 한마디(0.1)보다 두껍게(0.16), 그림자는 숫자에만.
+            Assert.AreEqual(39f, FlapComboLook.NumberFont, 1e-4f);
+            Assert.AreEqual(0.16f, FlapComboLook.NumberOutlineRatio, 1e-4f);
+            Assert.AreEqual(0.1f, FlapComboLook.WordOutlineRatio, 1e-4f);
+            Assert.Greater(FlapComboLook.NumberOutlineRatio, FlapComboLook.WordOutlineRatio);
+            Assert.AreEqual(0.06f, FlapComboLook.NumberShadowOffsetRatio, 1e-4f);
+            Assert.Greater(FlapComboLook.NumberShadowOffsetRatio, 0f);
+            Assert.Greater(FlapComboLook.NumberShadowBlurRatio, 0f);
+            Assert.AreEqual(0.6f, FlapComboLook.NumberShadow.a, 1e-4f, "은은하게 — 테두리처럼 진하지 않다");
+            Assert.AreEqual(FlapComboLook.Outline.r, FlapComboLook.NumberShadow.r, 1e-4f, "테두리와 같은 어두운 색");
+            Assert.AreEqual(FlapComboLook.Outline.g, FlapComboLook.NumberShadow.g, 1e-4f);
+            Assert.AreEqual(FlapComboLook.Outline.b, FlapComboLook.NumberShadow.b, 1e-4f);
         }
 
         [Test]

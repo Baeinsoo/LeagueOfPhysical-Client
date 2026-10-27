@@ -78,5 +78,23 @@ namespace LOP.Tests
 
             Assert.AreEqual(new CharacterAppearance(105, 202), a.look.CharacterAppearance);
         }
+
+        [Test]
+        public void 기록지_결과를_싣는다()
+        {
+            var records = new[] { new RecordOutcome(FlappyRecordMetrics.FinishTime, 50d, true, false, 0d) };
+
+            var r = MatchResultCapture.From(Message(), "M1", Match(), records);
+
+            Assert.AreSame(records, r.myRecords);
+        }
+
+        [Test]
+        public void 기록이_없으면_빈_목록()
+        {
+            //  기록을 안 적는 종목 — 결과판은 카드를 안 띄운다. null이면 결과판이 매번 null을 따져야 한다.
+            Assert.IsNotNull(MatchResultCapture.From(Message(), "M1", Match()).myRecords);
+            Assert.AreEqual(0, MatchResultCapture.From(Message(), "M1", Match(), null).myRecords.Count);
+        }
     }
 }

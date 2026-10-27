@@ -129,5 +129,21 @@ namespace LOP.Tests
             marker.LateTick(0f);
             Assert.IsFalse(marker.Visible);
         }
+
+        [Test]
+        public void 내_id가_비어_있어도_예외_없이_숨긴다()
+        {
+            //  앱을 켠 뒤 첫 판은 GameInfoToC가 오기 전까지 id가 null — 사전에 null 키를 넣으면 ArgumentNullException(10-26 콘솔 12번).
+            var empty = new FlappyMyBirdMarker(actors, new FakeGameDataStore { userEntityId = null }, Config());
+            try
+            {
+                Assert.DoesNotThrow(() => empty.LateTick(0.016f));
+                Assert.IsFalse(empty.Visible);
+            }
+            finally
+            {
+                empty.Dispose();
+            }
+        }
     }
 }

@@ -19,6 +19,7 @@ namespace LOP
         LastStretch,
         Rumble,
         NewBest,
+        Milestone,
     }
 
     /// <summary>

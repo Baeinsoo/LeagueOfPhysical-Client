@@ -76,5 +76,14 @@ namespace LOP.Tests
             Assert.AreEqual(0.12f, FlappySynth.Envelope(0.01f, 0.12f, 0.12f), 1e-4f);
             Assert.AreEqual(0.0001f, FlappySynth.Envelope(0.12f, 0.12f, 0.12f), 1e-5f);
         }
+
+        [Test]
+        public void 고비_화음은_추월_소리보다_조용하고_짧다()
+        {
+            //  10-26 사용자: 집중을 깨지 않게 — 연속 날갯짓 고비(10·25·50·100)엔 조용한 짧은 화음 한 번.
+            float[] milestone = FlappySynth.Render(FlappySfx.Milestone);
+            Assert.Less(Peak(milestone), Peak(FlappySynth.Render(FlappySfx.RankUp)));
+            Assert.Less(milestone.Length, Mathf.CeilToInt(0.6f * FlappySynth.Rate));
+        }
     }
 }

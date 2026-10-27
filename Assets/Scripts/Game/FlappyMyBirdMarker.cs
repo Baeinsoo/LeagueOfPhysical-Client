@@ -58,7 +58,9 @@ namespace LOP
         internal void LateTick(float deltaTime)
         {
             time += deltaTime;
-            var visual = actorRegistry.Get(gameDataStore.userEntityId)?.visualGameObject;
+            //  판 시작 직후엔 내 id가 비어 있다 — 사전에 null 키를 넣으면 터진다.
+            string id = gameDataStore.userEntityId;
+            var visual = string.IsNullOrEmpty(id) ? null : actorRegistry.Get(id)?.visualGameObject;
             if (visual == null)
             {
                 //  잡혔거나 아직 그림이 안 붙었다. 그림의 자식이었다면 그림과 함께 이미 사라졌다(root == null).

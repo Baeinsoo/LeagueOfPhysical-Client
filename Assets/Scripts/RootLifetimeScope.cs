@@ -115,6 +115,10 @@ namespace LOP
                 .As<IDataStore>()
                 .AsSelf();
 
+            //  개인 기록(spec §7) — 지금은 기기 저장. 게임 스코프의 기록지가 판마다 한 번 비교·저장한다.
+            //  서버 저장으로 옮길 때 이 줄만 바꾼다.
+            builder.Register<IPersonalRecordStore, PlayerPrefsRecordStore>(Lifetime.Singleton);
+
             //  유저 위치를 물어보는 유일한 곳. 로딩 VM이 Root 싱글턴이고 씬 경계(로비→룸)를 넘으므로
             //  이것도 Root에 둔다. 로비 스코프의 FSM 상태들이 이 인스턴스를 주입받는다.
             builder.Register<UserLocationService>(Lifetime.Singleton)

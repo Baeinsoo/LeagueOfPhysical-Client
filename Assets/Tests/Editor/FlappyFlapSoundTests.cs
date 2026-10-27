@@ -144,5 +144,20 @@ namespace LOP.Tests
 
             CollectionAssert.AreEqual(new[] { FlappySfx.Flap }, audio.Played);
         }
+
+        [Test]
+        public void 먹히는_날갯짓만_알린다()
+        {
+            //  연속 날갯짓이 이 알림으로 센다 — "소리는 안 나는데 +N이 오름"이 없게 조건을 한 곳에 둔다.
+            int live = 0;
+            sound.LiveFlap += () => live++;
+
+            stun.StunRemaining = 0.8f;
+            sound.OnFlap();
+            stun.StunRemaining = 0f;
+            sound.OnFlap();
+
+            Assert.AreEqual(1, live);
+        }
     }
 }

@@ -1,0 +1,44 @@
+.combo-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.combo-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+/* "+N"·고비 한마디: 오른쪽 아래 모서리를 left/top에 두고 왼쪽 위로 자란다(새 뒤쪽 위). 색은 단계별로 코드가 넣는다. */
+.combo-text {
+    position: absolute;
+    -unity-font-definition: url("project://database/Assets/UI/Kit/Fonts/BlackHanSans-Regular%20SDF%20Dynamic.asset?fileID=11400000&guid=da5712ebc3331f74c927a6ca7626e5e2&type=2#BlackHanSans-Regular SDF Dynamic");
+    -unity-text-align: lower-right;
+    -unity-text-outline-color: #2A1A0C;
+    translate: -100% -100%;
+    transform-origin: right bottom;
+    padding: 0;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.combo-feather {
+    position: absolute;
+    translate: -50% -50%;
+    border-top-left-radius: 50%;
+    border-top-right-radius: 50%;
+    border-bottom-left-radius: 50%;
+    border-bottom-right-radius: 50%;
+}
+
+.combo-feather--spark {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}

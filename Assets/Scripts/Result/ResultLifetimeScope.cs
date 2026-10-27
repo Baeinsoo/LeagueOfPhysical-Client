@@ -22,6 +22,9 @@ namespace LOP
             builder.Register<MatchResultViewModel>(Lifetime.Transient);
             builder.Register<MatchResultView>(Lifetime.Transient);
 
+            //  NEW BEST 소리(spec §7) — 경기 소리는 경기 스코프라 여기선 없다. 씬이 닫히면 VContainer가 치운다.
+            builder.Register<IResultSound, ResultSound>(Lifetime.Singleton);
+
             builder.RegisterBuildCallback(container =>
             {
                 var windowManager = container.Resolve<IWindowManager>();

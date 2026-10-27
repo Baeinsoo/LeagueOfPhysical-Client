@@ -59,6 +59,9 @@ namespace LOP
             builder.RegisterEntryPoint<RemoteInputMessageHandler>();
             builder.Register<RemoteInputSystem>(Lifetime.Singleton);
             builder.RegisterEntryPoint<GameWorldEventMessageHandler>();
+            //  이번 판 개인 기록지(spec §7) — 종목 공용. 종목이 값을 적고 매치 종료 처리기가 한 번 확정한다.
+            //  스코프가 치워질 때(판 중 나가기) 아직이면 그때 확정한다(IDisposable — VContainer가 부른다).
+            builder.Register<MatchRecordSheet>(Lifetime.Singleton);
             builder.RegisterEntryPoint<MatchEndedMessageHandler>();
             builder.RegisterEntryPoint<MatchStartMessageHandler>();
             //  판 도중 끊긴 사람 — 모든 게임 공통. 알리는 방법(토스트/자막)은 스코프가 정한다.

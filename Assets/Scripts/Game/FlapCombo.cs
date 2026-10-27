@@ -59,19 +59,24 @@ namespace LOP
 
         public static Color TierColor(int n) => n >= 50 ? Tier3 : n >= 25 ? Tier2 : n >= 10 ? Tier1 : Tier0;
 
-        public static string Word(int n)
-        {
-            switch (n)
-            {
-                case 10: return "좋아!";
-                case 25: return "멋져!";
-                case 50: return "미쳤다!";
-                case 100: return "전설!";
-                default: return null;
-            }
-        }
+        private static readonly string[] Words = { "좋아!", "멋져!", "미쳤다!", "전설!" };
+
+        /// <summary>몇 번째 고비(0부터)의 한마디. 넷째 뒤로는 "전설!". 고비가 아니면(−1) null.
+        /// 맵마다 고비 수가 달라도 순서로 고른다(spec 2026-10-27 §5).</summary>
+        public static string WordAt(int milestone) => milestone < 0 ? null : Words[Mathf.Min(milestone, Words.Length - 1)];
+
+        /// <summary>기본 고비(10·25·50·100)의 한마디 — 모양 시험용. 실제 판은 맵 고비 번호로 <see cref="WordAt"/>을 쓴다.</summary>
+        public static string Word(int n) => WordAt(FlappyFlapComboRules.Default.MilestoneIndex(n));
 
         public static bool IsMilestone(int n) => Word(n) != null;
+
+        /// <summary>고비가 대시 게이지를 줬을 때 한마디 뒤에 붙는 작은 글자.</summary>
+        public const string DashCue = "대시+";
+
+        /// <summary>한마디의 60% 크기, 대시 칸 색(<c>FlapPad.uss</c> <c>dash-slot--filled</c> #ffaa28) — 게이지와 같은 색이라 "저게 찼다"로 읽힌다.</summary>
+        public const string DashCueRichText = " <size=60%><color=#FFAA28>" + DashCue + "</color></size>";
+
+        public static string WordWithCue(string word, bool dashCue) => dashCue && word != null ? word + DashCueRichText : word;
 
         public static string Text(int n) => "+" + n.ToString(CultureInfo.InvariantCulture);
 
@@ -172,8 +177,16 @@ namespace LOP
             public float Age;
         }
 
+        //  밀린 날갯짓 하나 — 수, 맵 규칙의 몇 번째 고비인지(−1 = 아님), 그 고비가 게이지를 줬는지.
+        private struct Beat
+        {
+            public int Count;
+            public int Milestone;
+            public bool DashGain;
+        }
+
         private readonly System.Random _rng;
-        private readonly List<int> _pending = new List<int>();
+        private readonly List<Beat> _pending = new List<Beat>();
         private float _wordAge = float.PositiveInfinity;
 
         public readonly List<Number> Numbers = new List<Number>();
@@ -194,10 +207,16 @@ namespace LOP
         public float WordAge => _wordAge;
         public bool WordVisible => _wordAge < FlapComboLook.WordLife;
 
-        /// <summary>먹힌 날갯짓 하나(연속 수 n).</summary>
-        public void Queue(int count)
+        /// <summary>지금 한마디의 고비가 대시 게이지를 줬나 — 그리는 쪽이 "대시+"를 붙인다.</summary>
+        public bool WordDashCue { get; private set; }
+
+        /// <summary>먹힌 날갯짓 하나(연속 수 n) — 고비는 기본 고비(10·25·50·100)로 본다. 모양 시험용.</summary>
+        public void Queue(int count) => Queue(count, FlappyFlapComboRules.Default.MilestoneIndex(count), false);
+
+        /// <summary>시뮬이 받은 날갯짓 하나 — 그 수, 맵 규칙의 몇 번째 고비인지(−1 = 아님), 그 고비가 게이지를 줬는지.</summary>
+        public void Queue(int count, int milestone, bool dashGain)
         {
-            _pending.Add(count);
+            _pending.Add(new Beat { Count = count, Milestone = milestone, DashGain = dashGain });
             Count = count;
         }
 
@@ -207,15 +226,16 @@ namespace LOP
         /// <summary>그 장에 그려진 새 자리(패널 px)로 밀린 날갯짓을 낸다.</summary>
         public void Resolve(Vector2 birdPx, float rPx, float u)
         {
-            foreach (int n in _pending)
+            foreach (var beat in _pending)
             {
-                Spawn(n, birdPx, rPx, u);
+                Spawn(beat, birdPx, rPx, u);
             }
             _pending.Clear();
         }
 
-        private void Spawn(int n, Vector2 birdPx, float rPx, float u)
+        private void Spawn(Beat beat, Vector2 birdPx, float rPx, float u)
         {
+            int n = beat.Count;
             if (Numbers.Count >= MaxNumbers)
             {
                 Numbers.RemoveAt(0);
@@ -245,9 +265,10 @@ namespace LOP
                 });
             }
 
-            if (FlapComboLook.IsMilestone(n))
+            if (beat.Milestone >= 0)
             {
-                WordText = FlapComboLook.Word(n);
+                WordText = FlapComboLook.WordAt(beat.Milestone);
+                WordDashCue = beat.DashGain;
                 WordColor = FlapComboLook.TierColor(n);
                 _wordAge = 0f;
                 Rings.Add(new Ring { Center = birdPx, Color = FlapComboLook.TierColor(n) });

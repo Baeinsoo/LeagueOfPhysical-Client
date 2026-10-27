@@ -149,6 +149,25 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 보상이_0인_고비는_한마디만_뜨고_대시_보상은_아니다()
+        {
+            //  마커가 고비는 두되 보상을 0칸으로 줄 수 있다(FlappyFlapComboRules.TryCreate은 0을 허용,
+            //  "값이_이상하면_기본으로_간다"의 음수·2칸 넘음과는 다른 경우) — 이땐 한마디(화면)는 떠도
+            //  시뮬이 게이지를 준 게 아니니 "대시+"가 붙으면 거짓말이다. 버튼 있음·게이지 안 가득인 채로 본다
+            //  (버튼 없음·가득 찬 게이지로 DashGain이 false인 위 시험과는 원인이 다르다).
+            FlappyFlapComboRules.TryCreate(new[] { 3 }, new[] { 0f }, out var custom);
+            rules.Set(chaser: false, manualDash: true, diveCharge: true, flapCombo: custom);
+            combo.Count = 0;
+            streak.Tick();
+            beats.Clear();
+
+            Climb(3);
+
+            Assert.AreEqual(0, BeatAt(3).Milestone, "고비 번호는 뜬다");
+            Assert.IsFalse(BeatAt(3).DashGain, "이 고비의 보상은 0이라 대시+는 아니다");
+        }
+
+        [Test]
         public void 버튼이_없는_맵이나_가득_찬_게이지면_대시_보상이_아니다()
         {
             rules.Set(chaser: false, manualDash: false);

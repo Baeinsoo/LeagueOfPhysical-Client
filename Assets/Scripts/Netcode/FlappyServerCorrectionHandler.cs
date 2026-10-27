@@ -27,10 +27,13 @@ namespace LOP
             {
                 return true;
             }
+            //  연속 날갯짓 수는 정확히 같아야 한다 — 고비 보상이 이 수에서 나와, 하나만 달라도 고비가 서버와 다른 날갯짓에 걸린다.
+            //  수가 갈리는 때(날갯짓 입력이 서버에 늦게 닿음·서버만 기절을 봄)는 대개 위치도 갈려 이것 때문에 되돌리기가 늘지 않는다.
             return StunMatches(predicted.StunRemaining, predicted.InvulnRemaining,
                                snap.stunEndTick, snap.invulnEndTick, tick)
                 && DashMatches(predicted.DashRemaining, snap.dashEndTick, tick)
-                && DashStacksMatch(predicted.DashCharge, snap.dashCharge);
+                && DashStacksMatch(predicted.DashCharge, snap.dashCharge)
+                && predicted.FlapCombo == snap.flapCombo;
         }
 
         /// <summary>
@@ -102,6 +105,14 @@ namespace LOP
             {
                 dash.DashRemaining = FlappyTickDuration.RemainingSeconds(snap.dashEndTick, snap.tick, deltaTime);
                 dash.Charge = snap.dashCharge;
+            }
+
+            //  연속 날갯짓 수도 서버 것으로 — 게이지와 짝이다. 게이지만 덮고 수를 남기면 재생이 고비를 한 번 더 지나거나 건너뛴다.
+            //  개수라 끝 틱 변환(FlappyTickDuration)을 거치지 않는다.
+            var combo = entity.Get<FlappyFlapCombo>();
+            if (combo != null)
+            {
+                combo.Count = snap.flapCombo;
             }
         }
     }

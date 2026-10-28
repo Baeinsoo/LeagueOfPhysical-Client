@@ -9,7 +9,7 @@ namespace LOP
     /// 내 탄이 화면 속 남의 그려진 몸에 닿으면 바로 숨긴다 — 서버 확정(KnockbackHitEvent)이 오기 전의 연출이라
     /// 서버가 빗나갔다고 하더라도 되돌리지 않고 그냥 사라진 채 둔다.
     /// </summary>
-    public class KnockbackShotView : ILateTickable, System.IDisposable
+    public class KnockbackShotView : IStartable, System.IDisposable
     {
         private const float Diameter = 0.56f;
         private const float BodyHitRadius = 0.88f;
@@ -30,6 +30,7 @@ namespace LOP
 
         private Material material;
         private Transform root;
+        private KnockbackLateUpdateDriver driver;
 
         public KnockbackShotView(GameFramework.Runner.IRunner runner, KnockbackWorld world, KnockbackConfig config,
                                  ActorRegistry actors, IPlayerContext playerContext, KnockbackClientState state)
@@ -42,7 +43,13 @@ namespace LOP
             this.state = state;
         }
 
-        public void LateTick()
+        // 남의 그려진 몸 자리를 읽으므로 보간기 뒤(3100)에서 돈다.
+        public void Start()
+        {
+            driver = KnockbackLateUpdateDriver.Create("KnockbackShotViewDriver", Place);
+        }
+
+        private void Place()
         {
             if (runner?.tickUpdater == null)
             {
@@ -157,6 +164,7 @@ namespace LOP
 
         public void Dispose()
         {
+            if (driver != null) Object.Destroy(driver.gameObject);
             if (root != null) Object.Destroy(root.gameObject);
             if (material != null) Object.Destroy(material);
         }

@@ -48,8 +48,11 @@ namespace LOP
             builder.Register<ICharacterCreator, KnockbackPlayerCreator>(Lifetime.Singleton);
 
             // 내 몸만 예측한다 — 남은 보간으로 충분하다.
+            // 내 몸 보정은 0.1초 녹인다: 남이 쏜 넉백은 서버가 정해 늦게 알게 되므로 되감으면 2~3m씩 옮겨져
+            // 순간이동으로 보였다(소스 엔진 cl_smooth와 같은 처리). 날아가는 중엔 조작이 원래 약해 잃는 게 적다.
             builder.Register<IEntitySyncPolicy>(c =>
-                new OwnerPredictedSyncPolicy(() => c.Resolve<IGameDataStore>().userEntityId), Lifetime.Singleton);
+                new OwnerPredictedSyncPolicy(() => c.Resolve<IGameDataStore>().userEntityId, localCorrectionSmoothTime: 0.1f),
+                Lifetime.Singleton);
 
             // 위치 말고도 날림 여부·피해 %를 서버 결과에 맞춘다.
             builder.Register<IServerCorrectionHandler>(

@@ -8,5 +8,11 @@ namespace LOP
     public interface IEntitySyncPolicy
     {
         EntitySyncMode For(GameFramework.World.Entity entity);
+
+        /// <summary>
+        /// 내 몸의 서버 보정을 화면에서 녹이는 시간(초). 0이면 녹이지 않고 바로 맞춘다 — 내가 조종하는 몸을
+        /// 녹이면 그동안 손과 화면이 어긋나기 때문이다. 서버가 정한 사건으로 내 몸이 크게 옮겨지는 모드만 켠다.
+        /// </summary>
+        float LocalCorrectionSmoothTime { get; }
     }
 }

@@ -10,10 +10,13 @@ namespace LOP
     {
         private readonly Func<string> _localEntityId;
 
-        public OwnerPredictedSyncPolicy(Func<string> localEntityId)
+        public OwnerPredictedSyncPolicy(Func<string> localEntityId, float localCorrectionSmoothTime = 0f)
         {
             _localEntityId = localEntityId;
+            LocalCorrectionSmoothTime = localCorrectionSmoothTime;
         }
+
+        public float LocalCorrectionSmoothTime { get; }
 
         public EntitySyncMode For(GameFramework.World.Entity entity)
         {

@@ -41,14 +41,13 @@ namespace LOP
         //  (리스폰·스폰 직후·큰 랙) — 녹이면 맵을 가로질러 미끄러지므로 즉시 간다.
         private const float NoSmoothUpdateDistance = 8f;
 
-        //  0 = 스무딩 끔(언리얼 NetworkSmoothingMode.Disabled).
-        private const float LocalSmoothTime = 0f;
-
         /// <param name="local">내가 조작하는 엔티티인가.</param>
-        public GameFramework.Netcode.RenderCorrectionSmoother Create(bool local)
+        /// <param name="localSmoothTime">내 몸을 녹이는 시간 — 게임의 동기화 정책이 정한다. 0이면 끔
+        /// (언리얼 NetworkSmoothingMode.Disabled).</param>
+        public GameFramework.Netcode.RenderCorrectionSmoother Create(bool local, float localSmoothTime)
         {
             return new GameFramework.Netcode.RenderCorrectionSmoother(
-                local ? LocalSmoothTime : SmoothTime,
+                local ? localSmoothTime : SmoothTime,
                 MinCorrection, MaxSmoothUpdateDistance, NoSmoothUpdateDistance);
         }
     }

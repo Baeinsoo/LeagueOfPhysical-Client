@@ -93,6 +93,19 @@ namespace LOP.Tests
             Assert.AreEqual("+12 코인 (콤보 +12) · +312 XP", LOP.UI.RewardFormat.Line(reward));
         }
 
+        //  리뷰 사보타주 16 공백 — 판 보상·XP 둘 다 0이어도 콤보가 있으면 숨지 않아야 한다.
+        //  위 시험(coins=0, xp=312)은 xp!=0이라 숨김 조건의 extraCoins==0 자리를 지우는 사보타주를 못 잡는다.
+        [Test]
+        public void 판_보상과_XP_둘_다_0이어도_콤보가_있으면_보인다()
+        {
+            var reward = new MatchRewardDto
+            {
+                coins = 0, xp = 0, reason = "ok", levelBefore = 9, levelAfter = 9,
+                extras = new[] { new MatchRewardExtraDto { kind = "combo", coins = 12 } },
+            };
+            Assert.AreEqual("+12 코인 (콤보 +12) · +0 XP", LOP.UI.RewardFormat.Line(reward));
+        }
+
         [Test]
         public void 영_이하_줄은_건너뛰고_모르는_종류는_보너스로_센다()
         {

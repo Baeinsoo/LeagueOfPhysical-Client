@@ -101,6 +101,31 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 콤보_코인_칸을_읽는다()
+        {
+            const string json = "{\"userId\":\"U1\",\"displayName\":\"a\",\"placement\":1,\"mmrBefore\":1000,\"mmrAfter\":1010,\"stats\":{\"flapCombo10\":2},"
+                + "\"reward\":{\"coins\":25,\"xp\":120,\"firstWin\":false,\"levelBefore\":1,\"levelAfter\":1,\"xpAfter\":120,\"reason\":\"ok\","
+                + "\"extras\":[{\"kind\":\"combo\",\"coins\":7}]}}";
+
+            var p = HttpJson.DeserializeObject<MatchHistoryParticipantDto>(json);
+
+            Assert.AreEqual(1, p.reward.extras.Length);
+            Assert.AreEqual("combo", p.reward.extras[0].kind);
+            Assert.AreEqual(7, p.reward.extras[0].coins);
+            Assert.AreEqual(25, p.reward.coins, "coins는 판 보상만 — 합계는 화면이 낸다");
+        }
+
+        [Test]
+        public void 콤보_칸이_없는_옛_응답은_extras가_null이다()
+        {
+            const string json = "{\"userId\":\"U1\",\"placement\":1,\"reward\":{\"coins\":50,\"xp\":120,\"reason\":\"ok\"}}";
+
+            var p = HttpJson.DeserializeObject<MatchHistoryParticipantDto>(json);
+
+            Assert.IsNull(p.reward.extras);
+        }
+
+        [Test]
         public void 이코노미_응답_코드가_백엔드_값과_같다()
         {
             //  responseCode.interface.ts의 Economy region과 1:1 — 값이 어긋나면 클라가 다른 사유로 오해한다.

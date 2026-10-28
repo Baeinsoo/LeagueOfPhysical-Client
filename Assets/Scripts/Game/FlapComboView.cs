@@ -167,7 +167,7 @@ namespace LOP
                 return;
             }
             float k = _fx.WordAge / FlapComboLook.WordLife;
-            _word.text = _fx.WordText;
+            _word.text = FlapComboLook.WordWithCue(_fx.WordText, _fx.WordDashCue);
             Vector2 corner = FlapComboLook.WordCorner(birdPx, _rPx, _unit) - new Vector2(0f, FlapComboLook.WordRise * _unit * k);
             Place(_word, corner, FlapComboLook.WordFont * _unit, FlapComboLook.WordPop(k), FlapComboLook.WordAlpha(k), _fx.WordColor,
                   FlapComboLook.WordOutlineRatio, shadow: false);

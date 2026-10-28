@@ -15,10 +15,10 @@ namespace LOP.Tests
     {
         private ActorRegistry actors;
         private RigGameDataStore store;
-        private RigTickUpdater clock;
-        private FlappyFlapSound sound;
         private FakeFlappyAudio audio;
         private FlappyStun stun;
+        private FlappyFlapCombo combo;
+        private FlappyMapRulesField rules;
         private FlappyFlapStreak streak;
         private FlappyFlapComboFx fx;
         private GameObject actorGo;
@@ -29,17 +29,17 @@ namespace LOP.Tests
             var registry = new EntityRegistry();
             var me = new Entity("me");
             stun = new FlappyStun();
+            combo = new FlappyFlapCombo();
             me.Add(stun);
             me.Add(new FinishState());
+            me.Add(new FlappyDash { Charge = 0f });
+            me.Add(combo);
             registry.Add(me);
             store = new RigGameDataStore { userEntityId = "me" };
-            var start = new MatchStartState();
-            start.Update(100, 2, 2);
-            clock = new RigTickUpdater { interval = 0.02d, tick = 150 };
-            var runner = new RigRunner { tickUpdater = clock };
+            rules = new FlappyMapRulesField();
+            rules.Set(chaser: false, manualDash: true);
             audio = new FakeFlappyAudio();
-            sound = new FlappyFlapSound(registry, store, start, runner, audio);
-            streak = new FlappyFlapStreak(registry, store, runner, sound,
+            streak = new FlappyFlapStreak(registry, store, rules,
                                           new MatchRecordSheet(() => (6, 2), new FakePersonalRecordStore()));
             streak.Tick();
             actors = new ActorRegistry();
@@ -50,16 +50,16 @@ namespace LOP.Tests
         public void TearDown()
         {
             fx.Dispose();
-            streak.Dispose();
-            if (actorGo != null) { Object.DestroyImmediate(actorGo); }
+            if (actorGo != null) { UnityEngine.Object.DestroyImmediate(actorGo); }
         }
 
+        //  시뮬이 한 틱에 하나씩 받은 것처럼 — 장마다 읽힌다.
         private void Flaps(int count)
         {
             for (int i = 0; i < count; i++)
             {
-                clock.tick++;
-                sound.OnFlap();
+                combo.Count++;
+                streak.Tick();
             }
         }
 
@@ -86,12 +86,13 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 날갯짓_소리는_콤보와_무관하게_같은_소리()
+        public void 연출은_고비_화음만_내고_날갯짓_소리는_건드리지_않는다()
         {
-            //  10-26 사용자: 올라가는 음 없음 — 날갯짓마다 같은 Flap 한 번.
+            //  10-26 사용자: 올라가는 음 없음 — 날갯짓 소리는 FlappyFlapSound가 누를 때마다 같은 소리로 낸다. 연출은 고비 화음만.
             Flaps(30);
-            Assert.AreEqual(30, audio.Played.Count(s => s == FlappySfx.Flap));
-            Assert.IsTrue(audio.Played.All(s => s == FlappySfx.Flap || s == FlappySfx.Milestone));
+
+            Assert.AreEqual(2, audio.Played.Count, "10·25");
+            Assert.IsTrue(audio.Played.All(s => s == FlappySfx.Milestone));
         }
 
         [Test]
@@ -103,6 +104,7 @@ namespace LOP.Tests
             Assert.AreEqual(1, fx.Fx.Trail.Count);
 
             stun.StunRemaining = 0.8f;
+            combo.Count = 0;   //  시뮬이 새로 기절하며 끊었다
             streak.Tick();
 
             Assert.AreEqual(0, fx.Fx.Trail.Count);
@@ -137,6 +139,28 @@ namespace LOP.Tests
             actors.Add(actor);
 
             Assert.AreSame(visual.transform, fx.MyVisual());
+        }
+
+        [Test]
+        public void 게이지를_준_고비는_연출에_대시플러스로_넘긴다()
+        {
+            Flaps(10);
+            fx.Fx.Resolve(new Vector2(500f, 400f), 18f, 2f);
+
+            Assert.AreEqual("좋아!", fx.Fx.WordText);
+            Assert.IsTrue(fx.Fx.WordDashCue);
+        }
+
+        [Test]
+        public void 맵_고비에서_화음을_낸다()
+        {
+            FlappyFlapComboRules.TryCreate(new[] { 3 }, new[] { 1f }, out var custom);
+            rules.Set(chaser: false, manualDash: true, flapCombo: custom);
+
+            Flaps(3);
+            Assert.AreEqual(1, audio.Played.Count(s => s == FlappySfx.Milestone), "3");
+            Flaps(7);
+            Assert.AreEqual(1, audio.Played.Count(s => s == FlappySfx.Milestone), "10은 이 맵의 고비가 아니다");
         }
     }
 }

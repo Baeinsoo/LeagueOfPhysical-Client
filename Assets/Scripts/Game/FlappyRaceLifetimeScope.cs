@@ -37,6 +37,8 @@ namespace LOP
             builder.Register<FlappyMoveSystem>(Lifetime.Singleton);
             builder.Register<FlappyStunSystem>(Lifetime.Singleton);
             builder.Register<FlappyDashSystem>(Lifetime.Singleton);
+            //  연속 날갯짓 세기·고비 보상. 양쪽(클·서) 다 등록하고 월드에 넘겨야 한다 — 한쪽만 세면 고비마다 게이지가 갈린다.
+            builder.Register<FlappyFlapComboSystem>(Lifetime.Singleton);
             //  새는 +x로 달린다. 폴백을 주지 않는다 — 마커가 없으면 룰이 Initialize에서 터뜨린다.
             builder.Register(c => new FinishLineBounds(FinishAxis.X), Lifetime.Singleton);
             builder.Register(c => new FinishSystem(
@@ -78,7 +80,8 @@ namespace LOP
                 c.Resolve<GameFramework.Physics.ICollisionQuery>(),
                 c.Resolve<GameFramework.World.IMotionBridge>(),
                 LayerMask.GetMask("Default", FlappyHologram.LayerName), c.Resolve<FlappyPendulumField>(), c.Resolve<FlappyShutterField>(),
-                c.Resolve<FlappyLiftField>(), c.Resolve<FlappyRockfallField>(), c.Resolve<FlappyMoteField>()), Lifetime.Singleton)
+                c.Resolve<FlappyLiftField>(), c.Resolve<FlappyRockfallField>(), c.Resolve<FlappyMoteField>(),
+                c.Resolve<FlappyFlapComboSystem>()), Lifetime.Singleton)
                 .As<GameFramework.World.IWorld>().AsSelf();
             builder.Register<ICharacterCreator, FlappyBirdCreator>(Lifetime.Singleton);
             //  스턴은 서버 권위다. 내 새는 클라가 굴리므로 "내가 맵에 부딪혔나"를 예측하게 되는데,

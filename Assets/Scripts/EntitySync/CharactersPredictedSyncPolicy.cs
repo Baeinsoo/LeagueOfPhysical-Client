@@ -6,6 +6,8 @@ namespace LOP
     /// </summary>
     public class CharactersPredictedSyncPolicy : IEntitySyncPolicy
     {
+        public float LocalCorrectionSmoothTime => 0f;
+
         public EntitySyncMode For(GameFramework.World.Entity entity)
         {
             return entity.Get<EntityKind>()?.Kind == EntityType.Character

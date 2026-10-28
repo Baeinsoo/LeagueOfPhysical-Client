@@ -6,6 +6,8 @@ namespace LOP
     /// </summary>
     public class AllInterpolatedSyncPolicy : IEntitySyncPolicy
     {
+        public float LocalCorrectionSmoothTime => 0f;
+
         public EntitySyncMode For(GameFramework.World.Entity entity)
         {
             return EntitySyncMode.Interpolated;

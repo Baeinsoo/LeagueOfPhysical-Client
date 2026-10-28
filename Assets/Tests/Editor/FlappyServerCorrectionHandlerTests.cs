@@ -306,8 +306,9 @@ namespace LOP.Tests
         [Test]
         public void 서버가_날갯짓_하나를_못_받았으면_보정_뒤_서버와_같은_날갯짓에서_고비를_맞는다()
         {
-            //  예측은 101~110틱 열 번을 다 받아 110틱에 고비(¼칸)를 맞았다. 서버는 한 번을 늦게 받아 105틱에 4번이다.
-            //  보정(되돌리기 → 서버 값 덮기 → 재생, Reconciler와 같은 순서)이 끝나면 9번·0칸이고, 다음 날갯짓(111틱)이 서버와 같은 고비다.
+            //  10-28부터 기본 10은 보상 0이라 이 시험은 25로 본다.
+            //  예측은 101~125틱 스물다섯 번을 다 받아 125틱에 고비(¼칸)를 맞았다. 서버는 한 번을 늦게 받아 116틱에 15번이다.
+            //  보정(되돌리기 → 서버 값 덮기 → 재생, Reconciler와 같은 순서)이 끝나면 24번·0칸이고, 다음 날갯짓(126틱)이 서버와 같은 고비다.
             var handler = Fixture.HandlerWithCombo(out var world, out var bird);
             var combo = bird.Get<FlappyFlapCombo>();
             var dash = bird.Get<FlappyDash>();
@@ -318,27 +319,27 @@ namespace LOP.Tests
                 world.Tick(t, Fixture.TickInterval);
                 world.SaveState(t);
             }
-            for (long t = 101; t <= 110; t++)
+            for (long t = 101; t <= 125; t++)
             {
                 Live(t);
             }
-            Assert.AreEqual(10, combo.Count);
+            Assert.AreEqual(25, combo.Count);
             Assert.AreEqual(0.25f, dash.Charge);
 
-            var snap = Fixture.Snap(bird.Id, 105);
-            snap.flapCombo = 4;
-            Assert.IsFalse(handler.Matches(105, snap), "수가 갈렸다 — 되돌린다");
-            Assert.IsTrue(world.LoadState(105));
+            var snap = Fixture.Snap(bird.Id, 116);
+            snap.flapCombo = 15;
+            Assert.IsFalse(handler.Matches(116, snap), "수가 갈렸다 — 되돌린다");
+            Assert.IsTrue(world.LoadState(116));
             handler.ApplyAuthoritative(bird, snap, Fixture.TickInterval);
-            for (long t = 106; t <= 110; t++)
+            for (long t = 117; t <= 125; t++)
             {
                 Live(t);
             }
 
-            Assert.AreEqual(9, combo.Count);
+            Assert.AreEqual(24, combo.Count);
             Assert.AreEqual(0f, dash.Charge, "예측이 먼저 받은 ¼칸은 서버 수로 다시 세며 사라진다");
-            Live(111);
-            Assert.AreEqual(10, combo.Count);
+            Live(126);
+            Assert.AreEqual(25, combo.Count);
             Assert.AreEqual(0.25f, dash.Charge, "서버와 같은 날갯짓에서 한 번");
         }
     }

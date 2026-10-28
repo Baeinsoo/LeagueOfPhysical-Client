@@ -6,8 +6,8 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// 연속 날갯짓 연출 "집중형"의 주인(spec §7, 사용자 결정 10-26). 먹힌 날갯짓마다 흐름(<see cref="FlapComboFx"/>)에 수를 넣고,
-    /// 고비(10·25·50·100)엔 조용한 화음(<see cref="FlappySfx.Milestone"/>)을 한 번 낸다. 내 새가 기절에 들어가면 꼬리를 끈다.
+    /// 연속 날갯짓 연출 "집중형"의 주인(spec §7, 사용자 결정 10-26). 시뮬이 받은 날갯짓마다 흐름(<see cref="FlapComboFx"/>)에 걸음을 넣고,
+    /// 맵 고비(spec 2026-10-27)엔 조용한 화음(<see cref="FlappySfx.Milestone"/>)을 한 번 낸다. 내 새가 기절에 들어가면 꼬리를 끈다.
     /// <para>날갯짓 소리는 <see cref="FlappyFlapSound"/>의 원래 소리 그대로다 — 콤보마다 음을 올리지 않는다(사용자 결정).</para>
     /// <para>경기가 시작될 때 화면 공간 판 하나를 만들어 <see cref="FlapComboView"/>에 흐름과 내 새 그림을 물린다. 판정과 무관한 화면 연출이다.</para>
     /// </summary>
@@ -37,10 +37,10 @@ namespace LOP
             _streak.Crashed += OnCrashed;
         }
 
-        private void OnFlapped(int count)
+        private void OnFlapped(FlapComboBeat beat)
         {
-            Fx.Queue(count);
-            if (FlapComboLook.IsMilestone(count))
+            Fx.Queue(beat.Count, beat.Milestone, beat.DashGain);
+            if (beat.Milestone >= 0)
             {
                 _audio.Play(FlappySfx.Milestone);
             }

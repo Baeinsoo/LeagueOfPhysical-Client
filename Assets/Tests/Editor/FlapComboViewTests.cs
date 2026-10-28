@@ -87,5 +87,17 @@ namespace LOP.Tests
             Assert.AreEqual(0, fx.Numbers.Count);
             Assert.AreEqual(DisplayStyle.None, view.Word.style.display.value);
         }
+
+        [Test]
+        public void 게이지를_준_고비는_한마디_글자에_대시플러스가_붙는다()
+        {
+            var (view, fx) = Make();
+            fx.Queue(10, 0, true);
+
+            view.Step(0.016f);
+
+            Assert.AreEqual(DisplayStyle.Flex, view.Word.style.display.value);
+            Assert.AreEqual(FlapComboLook.WordWithCue("좋아!", true), view.Word.text);
+        }
     }
 }

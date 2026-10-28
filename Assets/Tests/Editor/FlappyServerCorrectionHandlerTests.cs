@@ -271,5 +271,75 @@ namespace LOP.Tests
 
             Assert.AreEqual(0f, dash.DashRemaining, 1e-4f);
         }
+
+        [Test]
+        public void 연속_수가_다르면_되돌린다()
+        {
+            //  고비 보상이 이 수에서 나온다 — 하나만 달라도 고비가 서버와 다른 날갯짓에 걸린다(spec 2026-10-27 §4).
+            var handler = Fixture.Handler(Fixture.NeverHit, out var world, out var bird);
+            bird.Add(new FlappyFlapCombo { Count = 12 });
+            world.SaveState(Fixture.SnapTick);
+
+            var same = Fixture.Snap(bird.Id, Fixture.SnapTick);
+            same.flapCombo = 12;
+            var behind = Fixture.Snap(bird.Id, Fixture.SnapTick);
+            behind.flapCombo = 11;
+
+            Assert.IsTrue(handler.Matches(Fixture.SnapTick, same));
+            Assert.IsFalse(handler.Matches(Fixture.SnapTick, behind));
+        }
+
+        [Test]
+        public void 권위_값으로_연속_수를_덮는다()
+        {
+            var handler = Fixture.Handler(Fixture.NeverHit, out _, out var bird);
+            var combo = new FlappyFlapCombo { Count = 12 };
+            bird.Add(combo);
+            var snap = Fixture.Snap(bird.Id, Fixture.SnapTick);
+            snap.flapCombo = 4;
+
+            handler.ApplyAuthoritative(bird, snap, Fixture.TickInterval);
+
+            Assert.AreEqual(4, combo.Count);
+        }
+
+        [Test]
+        public void 서버가_날갯짓_하나를_못_받았으면_보정_뒤_서버와_같은_날갯짓에서_고비를_맞는다()
+        {
+            //  예측은 101~110틱 열 번을 다 받아 110틱에 고비(¼칸)를 맞았다. 서버는 한 번을 늦게 받아 105틱에 4번이다.
+            //  보정(되돌리기 → 서버 값 덮기 → 재생, Reconciler와 같은 순서)이 끝나면 9번·0칸이고, 다음 날갯짓(111틱)이 서버와 같은 고비다.
+            var handler = Fixture.HandlerWithCombo(out var world, out var bird);
+            var combo = bird.Get<FlappyFlapCombo>();
+            var dash = bird.Get<FlappyDash>();
+            var input = bird.Get<InputBuffer>();
+            void Live(long t)
+            {
+                input.Current = new InputCommand { Jump = true };
+                world.Tick(t, Fixture.TickInterval);
+                world.SaveState(t);
+            }
+            for (long t = 101; t <= 110; t++)
+            {
+                Live(t);
+            }
+            Assert.AreEqual(10, combo.Count);
+            Assert.AreEqual(0.25f, dash.Charge);
+
+            var snap = Fixture.Snap(bird.Id, 105);
+            snap.flapCombo = 4;
+            Assert.IsFalse(handler.Matches(105, snap), "수가 갈렸다 — 되돌린다");
+            Assert.IsTrue(world.LoadState(105));
+            handler.ApplyAuthoritative(bird, snap, Fixture.TickInterval);
+            for (long t = 106; t <= 110; t++)
+            {
+                Live(t);
+            }
+
+            Assert.AreEqual(9, combo.Count);
+            Assert.AreEqual(0f, dash.Charge, "예측이 먼저 받은 ¼칸은 서버 수로 다시 세며 사라진다");
+            Live(111);
+            Assert.AreEqual(10, combo.Count);
+            Assert.AreEqual(0.25f, dash.Charge, "서버와 같은 날갯짓에서 한 번");
+        }
     }
 }

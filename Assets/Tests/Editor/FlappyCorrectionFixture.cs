@@ -45,6 +45,32 @@ namespace LOP.Tests
             return new FlappyServerCorrectionHandler(world);
         }
 
+        /// <summary>
+        /// 연속 날갯짓까지 세는 월드와 핸들러(spec 2026-10-27). 규칙은 광산과 같은 수동 대시 + 다이브 충전 — 날갯짓을 이어 가면
+        /// 다이브로는 안 차서 게이지 변화가 고비 보상뿐이다. 새는 게이지 0에서 시작한다.
+        /// </summary>
+        public static FlappyServerCorrectionHandler HandlerWithCombo(out FlappyWorld world, out GameFramework.World.Entity bird)
+        {
+            var registry = new GameFramework.World.EntityRegistry();
+            bird = Bird("bird-1");
+            bird.Add(new FlappyDash { Charge = 0f });
+            bird.Add(new FlappyFlapCombo());
+            registry.Add(bird);
+            var rules = new FlappyMapRulesField();
+            rules.Set(chaser: false, manualDash: true, diveCharge: true);
+            var dash = new FlappyDashSystem(Config(), rules);
+            world = new FlappyWorld(registry, new GameFramework.World.WorldEventBuffer(),
+                new FlappyMoveSystem(Config()),
+                new FlappyStunSystem(Config()),
+                dash,
+                new FinishSystem(new FinishLineBounds(FinishAxis.X), FinishAxis.X, increasing: true),
+                new FlappyWindmillField(), new FlappyBoostPadField(),
+                NeverHit, new NoopMotionBridge(), layerMask: ~0,
+                flapCombo: new FlappyFlapComboSystem(dash, rules));
+            world.GameplayStartTick = 0;
+            return new FlappyServerCorrectionHandler(world);
+        }
+
         public static EntitySnap Snap(string entityId, long tick, long stunEndTick = 0, long invulnEndTick = 0)
             => new EntitySnap
             {

@@ -42,6 +42,27 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 한마디는_고비_순서로_고르고_넷째_뒤는_전설()
+        {
+            //  맵마다 고비 수가 달라도 몇 번째 고비인지로 고른다(spec 2026-10-27 §5).
+            Assert.AreEqual("좋아!", FlapComboLook.WordAt(0));
+            Assert.AreEqual("멋져!", FlapComboLook.WordAt(1));
+            Assert.AreEqual("미쳤다!", FlapComboLook.WordAt(2));
+            Assert.AreEqual("전설!", FlapComboLook.WordAt(3));
+            Assert.AreEqual("전설!", FlapComboLook.WordAt(5));
+            Assert.IsNull(FlapComboLook.WordAt(-1));
+        }
+
+        [Test]
+        public void 대시_보상이면_한마디_뒤에_작은_대시플러스()
+        {
+            //  대시 칸 색(FlapPad.uss dash-slot--filled #ffaa28), 한마디의 60% — 새 판·번쩍임 없이 글자 하나(절제).
+            Assert.AreEqual("좋아! <size=60%><color=#FFAA28>대시+</color></size>", FlapComboLook.WordWithCue("좋아!", true));
+            Assert.AreEqual("좋아!", FlapComboLook.WordWithCue("좋아!", false));
+            Assert.IsNull(FlapComboLook.WordWithCue(null, true));
+        }
+
+        [Test]
         public void 숫자는_0_6에서_1_3으로_튀었다가_30퍼센트에_1배()
         {
             //  10-27 피드백: 더 묵직하게 — 정점을 1.2에서 1.3으로 올렸다(같은 타이밍).
@@ -229,6 +250,35 @@ namespace LOP.Tests
 
             Assert.IsFalse(fx.WordVisible);
             Assert.AreEqual(0, fx.Rings.Count);
+        }
+
+        [Test]
+        public void 고비는_수가_아니라_맵_고비_번호로_뜬다()
+        {
+            var atThree = Fx();
+            atThree.Queue(3, 0, true);   //  고비가 3인 맵의 첫 고비
+            atThree.Resolve(Bird, RPx, U);
+            Assert.IsTrue(atThree.WordVisible);
+            Assert.AreEqual("좋아!", atThree.WordText);
+            Assert.IsTrue(atThree.WordDashCue);
+            Assert.AreEqual(1, atThree.Rings.Count);
+
+            var tenNotMilestone = Fx();
+            tenNotMilestone.Queue(10, -1, false);   //  그 맵에선 10이 고비가 아니다
+            tenNotMilestone.Resolve(Bird, RPx, U);
+            Assert.IsFalse(tenNotMilestone.WordVisible);
+            Assert.AreEqual(0, tenNotMilestone.Rings.Count);
+        }
+
+        [Test]
+        public void 게이지를_안_준_고비엔_대시플러스가_없다()
+        {
+            var fx = Fx();
+            fx.Queue(25, 1, false);   //  버튼 없는 맵이거나 게이지가 가득이었다
+            fx.Resolve(Bird, RPx, U);
+
+            Assert.AreEqual("멋져!", fx.WordText);
+            Assert.IsFalse(fx.WordDashCue);
         }
 
         [Test]

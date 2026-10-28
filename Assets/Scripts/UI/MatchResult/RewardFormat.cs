@@ -10,6 +10,8 @@ namespace LOP.UI
     /// 보상 자체가 없던 사람(나감·너무 짧음·동결·지급 꺼짐)은 빈 문자열 — 줄을 숨긴다.
     /// 코인·XP가 0이면 사유에 따라 "너무 짧았다"/"나갔다"만 짧게 말하고, 그 밖의 사유(운영 쪽
     /// 집계 문제인 noPlayedSeconds 포함)는 선수에게 할 말이 없어 그냥 숨긴다.
+    /// 판 보상·XP가 둘 다 0이어도 콤보 몫이 있으면 줄은 보이되(위 숨김 조건에 걸리지 않음), XP는
+    /// "+0 XP"로 할 말이 없는 숫자라 그 칸 자체를 생략한다 — 코인·콤보 몫만 보인다(최종 리뷰 I3).
     /// </summary>
     public static class RewardFormat
     {
@@ -41,11 +43,21 @@ namespace LOP.UI
             {
                 coins += $" ({string.Join(" · ", extraParts)})";
             }
-            string xp = $"+{Number(reward.xp)} XP";
 
-            string line = reward.firstWin
-                ? $"오늘 첫 승 ×3 · {coins} · {xp}"
-                : $"{coins} · {xp}";
+            //  XP가 0이고 콤보 등 extras로만 줄이 보이는 경우 "+0 XP"는 할 말이 없어 칸을 생략한다.
+            //  xp != 0이면(기존 동작) 그대로 보인다.
+            string line;
+            if (reward.xp == 0 && extraParts.Count > 0)
+            {
+                line = reward.firstWin ? $"오늘 첫 승 ×3 · {coins}" : coins;
+            }
+            else
+            {
+                string xp = $"+{Number(reward.xp)} XP";
+                line = reward.firstWin
+                    ? $"오늘 첫 승 ×3 · {coins} · {xp}"
+                    : $"{coins} · {xp}";
+            }
 
             if (reward.levelAfter > reward.levelBefore)
             {

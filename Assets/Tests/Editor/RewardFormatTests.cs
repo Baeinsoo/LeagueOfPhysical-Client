@@ -95,6 +95,7 @@ namespace LOP.Tests
 
         //  리뷰 사보타주 16 공백 — 판 보상·XP 둘 다 0이어도 콤보가 있으면 숨지 않아야 한다.
         //  위 시험(coins=0, xp=312)은 xp!=0이라 숨김 조건의 extraCoins==0 자리를 지우는 사보타주를 못 잡는다.
+        //  최종 리뷰 I3 → 사용자 지시로 보강: "+0 XP"는 할 말이 없는 숫자라 XP 칸 자체를 생략한다.
         [Test]
         public void 판_보상과_XP_둘_다_0이어도_콤보가_있으면_보인다()
         {
@@ -103,7 +104,19 @@ namespace LOP.Tests
                 coins = 0, xp = 0, reason = "ok", levelBefore = 9, levelAfter = 9,
                 extras = new[] { new MatchRewardExtraDto { kind = "combo", coins = 12 } },
             };
-            Assert.AreEqual("+12 코인 (콤보 +12) · +0 XP", LOP.UI.RewardFormat.Line(reward));
+            Assert.AreEqual("+12 코인 (콤보 +12)", LOP.UI.RewardFormat.Line(reward));
+        }
+
+        //  같은 생략 규칙이 첫 승 문구 뒤에서도 지켜져야 한다(가지가 다른 코드 경로).
+        [Test]
+        public void 첫_승이고_XP가_0이어도_콤보가_있으면_XP칸을_생략한다()
+        {
+            var reward = new MatchRewardDto
+            {
+                coins = 0, xp = 0, firstWin = true, reason = "ok", levelBefore = 9, levelAfter = 9,
+                extras = new[] { new MatchRewardExtraDto { kind = "combo", coins = 12 } },
+            };
+            Assert.AreEqual("오늘 첫 승 ×3 · +12 코인 (콤보 +12)", LOP.UI.RewardFormat.Line(reward));
         }
 
         [Test]

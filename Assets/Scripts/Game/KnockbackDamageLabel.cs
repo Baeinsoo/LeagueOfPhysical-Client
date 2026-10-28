@@ -10,7 +10,7 @@ namespace LOP
     /// 월드 공간 UI 패널 방식 — 화면을 보는 방향으로 세우고 거리에 비례해 키워 화면에서 크기가 일정하다.
     /// 값은 몸의 KnockbackBody.DamagePercent다: 남은 서버 스냅이 쓰고, 나는 예측한 뒤 서버 결과로 보정된다.
     /// </summary>
-    public class KnockbackDamageLabel : ILateTickable, System.IDisposable
+    public class KnockbackDamageLabel : IStartable, System.IDisposable
     {
         private const string PanelSettingsResource = "UI/WorldSpaceNameplatePanelSettings";
         private const string UxmlResource = "UI/KnockbackDamageLabel";
@@ -37,6 +37,7 @@ namespace LOP
         private PanelSettings panelSettings;
         private VisualTreeAsset uxml;
         private Camera camera;
+        private KnockbackLateUpdateDriver driver;
 
         public KnockbackDamageLabel(ActorRegistry actors, GameFramework.World.EntityRegistry entityRegistry, KnockbackClientState state)
         {
@@ -52,7 +53,13 @@ namespace LOP
             return Color.white;
         }
 
-        public void LateTick()
+        // 몸(보간기 0)과 카메라(3000)가 다 움직인 뒤에 놓아야 한 프레임 늦어 떨리지 않는다.
+        public void Start()
+        {
+            driver = KnockbackLateUpdateDriver.Create("KnockbackDamageLabelDriver", Place);
+        }
+
+        private void Place()
         {
             if (camera == null)
             {
@@ -128,6 +135,7 @@ namespace LOP
 
         public void Dispose()
         {
+            if (driver != null) Object.Destroy(driver.gameObject);
             foreach (var entry in entries.Values)
             {
                 if (entry.go != null) Object.Destroy(entry.go);

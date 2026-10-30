@@ -306,8 +306,8 @@ namespace LOP.Tests
         [Test]
         public void 서버가_날갯짓_하나를_못_받았으면_보정_뒤_서버와_같은_날갯짓에서_고비를_맞는다()
         {
-            //  10-28부터 기본 10은 보상 0이라 이 시험은 25로 본다.
-            //  예측은 101~125틱 스물다섯 번을 다 받아 125틱에 고비(¼칸)를 맞았다. 서버는 한 번을 늦게 받아 116틱에 15번이다.
+            //  10-30부터 기본 10도 0.1칸을 준다 — 예측은 101~125틱 스물다섯 번을 다 받아 110틱에 10고비(0.1칸),
+            //  125틱에 25고비(¼칸)를 맞아 합 0.35칸이다. 서버는 한 번을 늦게 받아 116틱에 15번이다.
             //  보정(되돌리기 → 서버 값 덮기 → 재생, Reconciler와 같은 순서)이 끝나면 24번·0칸이고, 다음 날갯짓(126틱)이 서버와 같은 고비다.
             var handler = Fixture.HandlerWithCombo(out var world, out var bird);
             var combo = bird.Get<FlappyFlapCombo>();
@@ -324,7 +324,7 @@ namespace LOP.Tests
                 Live(t);
             }
             Assert.AreEqual(25, combo.Count);
-            Assert.AreEqual(0.25f, dash.Charge);
+            Assert.AreEqual(0.35f, dash.Charge);
 
             var snap = Fixture.Snap(bird.Id, 116);
             snap.flapCombo = 15;

@@ -155,7 +155,8 @@ namespace LOP.UI
             {
                 return false;
             }
-            // 내 몸은 보간 없이 예측 위치가 곧 그려진 자리라 월드 값을 쓴다.
+            // 탄은 서버가 재는 자리(시뮬 위치)에서 나가야 하므로 그려진 몸이 아니라 월드 값을 쓴다.
+            // 보정 직후 0.1초 동안은 그려진 몸과 조금 떨어져 있을 수 있다(소스 엔진도 같다).
             var body = entityRegistry.Get(id);
             if (body == null)
             {

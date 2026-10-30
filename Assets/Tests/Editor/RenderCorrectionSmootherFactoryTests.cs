@@ -51,8 +51,26 @@ namespace LOP.Tests
             smoother.Target(new Vector3(0, 0, 0));
             smoother.OnCorrection(new Vector3(0, 0, 0), new Vector3(2.9f, 0, 0), Vector3.Zero, 0f);
 
-            var rendered = smoother.Target(new Vector3(2.9f, 0, 0));
-            Assert.Less(rendered.X, 2.9f - 0.5f, "2.9m 넉백 보정이 한 프레임에 찍히면 안 된다");
+            Assert.AreEqual(0f, smoother.Target(new Vector3(2.9f, 0, 0)).X, 1e-4f, "2.9m 넉백 보정이 한 프레임에 찍히면 안 된다");
+            smoother.Advance(0.05f);
+            Assert.AreEqual(1.45f, smoother.Target(new Vector3(2.9f, 0, 0)).X, 1e-4f, "0.1초에 걸쳐 일정하게 줄어 절반 시점엔 절반");
+            smoother.Advance(0.05f);
+            Assert.AreEqual(2.9f, smoother.Target(new Vector3(2.9f, 0, 0)).X, 1e-4f);
+        }
+
+        //  판 후반 큰 넉백: 남의 몸용 목줄(5m)·즉시 채택(8m)에 걸리면 첫 프레임에 건너뛴다.
+        [Test]
+        public void 내_몸은_9m_넉백도_녹이고_10m_넘으면_바로_간다()
+        {
+            var big = new RenderCorrectionSmootherFactory().Create(local: true, localSmoothTime: 0.1f);
+            big.Target(new Vector3(0, 0, 0));
+            big.OnCorrection(new Vector3(0, 0, 0), new Vector3(9f, 0, 0), Vector3.Zero, 0f);
+            Assert.AreEqual(0f, big.Target(new Vector3(9f, 0, 0)).X, 1e-4f);
+
+            var teleport = new RenderCorrectionSmootherFactory().Create(local: true, localSmoothTime: 0.1f);
+            teleport.Target(new Vector3(0, 0, 0));
+            teleport.OnCorrection(new Vector3(0, 0, 0), new Vector3(11f, 0, 0), Vector3.Zero, 0f);
+            Assert.AreEqual(11f, teleport.Target(new Vector3(11f, 0, 0)).X, 1e-4f);
         }
 
         [Test]

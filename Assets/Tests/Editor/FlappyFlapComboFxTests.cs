@@ -144,10 +144,11 @@ namespace LOP.Tests
         [Test]
         public void 게이지를_준_고비는_연출에_대시플러스로_넘긴다()
         {
-            Flaps(10);
+            //  10-28 조정: 기본 고비 10은 보상 0(한마디만) — 게이지를 주는 첫 기본 고비는 25다.
+            Flaps(25);
             fx.Fx.Resolve(new Vector2(500f, 400f), 18f, 2f);
 
-            Assert.AreEqual("좋아!", fx.Fx.WordText);
+            Assert.AreEqual("멋져!", fx.Fx.WordText);
             Assert.IsTrue(fx.Fx.WordDashCue);
         }
 

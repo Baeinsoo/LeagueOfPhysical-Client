@@ -24,7 +24,7 @@ namespace LOP
 
         // 내 것이냐 남의 것이냐에 따라 설정이 달라서 EntityBinder가 만들어 건넨다
         // (<see cref="RenderCorrectionSmootherFactory"/>에 그 이유가 적혀 있다).
-        public GameFramework.Netcode.RenderCorrectionSmoother renderCorrectionSmoother { get; set; }
+        public GameFramework.Netcode.IRenderCorrectionSmoother renderCorrectionSmoother { get; set; }
 
         // 캐릭터가 아니면(아이템 등) null — StunAppearance는 캐릭터에만 붙는다.
         public StunAppearance stunAppearance { get; set; }

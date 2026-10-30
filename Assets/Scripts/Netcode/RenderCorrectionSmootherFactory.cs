@@ -41,14 +41,22 @@ namespace LOP
         //  (리스폰·스폰 직후·큰 랙) — 녹이면 맵을 가로질러 미끄러지므로 즉시 간다.
         private const float NoSmoothUpdateDistance = 8f;
 
+        //  내 몸이 이보다 멀리 옮겨지면 녹이지 않고 바로 간다(리스폰·큰 랙). 유니티 넷코드
+        //  DefaultTranslationSmoothingAction의 maxDist 기본값과 같다. 넉백 보정 실측 최대 5.1m 위.
+        private const float LocalTeleportDistance = 10f;
+
         /// <param name="local">내가 조작하는 엔티티인가.</param>
         /// <param name="localSmoothTime">내 몸을 녹이는 시간 — 게임의 동기화 정책이 정한다. 0이면 끔
         /// (언리얼 NetworkSmoothingMode.Disabled).</param>
-        public GameFramework.Netcode.RenderCorrectionSmoother Create(bool local, float localSmoothTime)
+        public GameFramework.Netcode.IRenderCorrectionSmoother Create(bool local, float localSmoothTime)
         {
+            if (local)
+            {
+                //  내 몸은 소스 엔진 cl_smooth 방식 — 남은 오차에 새 오차를 더해 일정하게 줄인다.
+                return new GameFramework.Netcode.PredictionErrorSmoother(localSmoothTime, MinCorrection, LocalTeleportDistance);
+            }
             return new GameFramework.Netcode.RenderCorrectionSmoother(
-                local ? localSmoothTime : SmoothTime,
-                MinCorrection, MaxSmoothUpdateDistance, NoSmoothUpdateDistance);
+                SmoothTime, MinCorrection, MaxSmoothUpdateDistance, NoSmoothUpdateDistance);
         }
     }
 }

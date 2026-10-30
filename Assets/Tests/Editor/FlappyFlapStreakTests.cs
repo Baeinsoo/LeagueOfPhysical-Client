@@ -132,11 +132,11 @@ namespace LOP.Tests
         [Test]
         public void 맵_규칙의_고비에_번호와_대시_보상을_싣는다()
         {
-            //  10-28부터 기본 10은 보상 0(말만) — 게이지를 실제로 주는 첫 고비는 25다.
+            //  10-30부터 기본 10도 0.1칸을 준다 — 25는 그대로 4분의1칸.
             Climb(25);
             Assert.AreEqual(-1, BeatAt(9).Milestone);
             Assert.AreEqual(0, BeatAt(10).Milestone);
-            Assert.IsFalse(BeatAt(10).DashGain, "기본값 10은 보상 0");
+            Assert.IsTrue(BeatAt(10).DashGain, "기본값 10도 0.1칸을 준다");
             Assert.AreEqual(1, BeatAt(25).Milestone);
             Assert.IsTrue(BeatAt(25).DashGain, "기본값 25는 보상 4분의1칸");
 
@@ -172,7 +172,7 @@ namespace LOP.Tests
         [Test]
         public void 버튼이_없는_맵이나_가득_찬_게이지면_대시_보상이_아니다()
         {
-            //  10-28부터 기본 10은 보상 0이라 "주는데 못 받는다"를 보려면 보상 있는 고비(25)로 본다.
+            //  10·25 모두 보상이 있지만 "주는데 못 받는다"는 복수 알림을 줄이려 고비 하나(25)로 본다.
             rules.Set(chaser: false, manualDash: false);
             Climb(25);
             Assert.AreEqual(1, BeatAt(25).Milestone, "한마디는 뜬다");

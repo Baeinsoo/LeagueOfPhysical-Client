@@ -24,6 +24,9 @@ namespace LOP
         public int score { get; set; }
         public long knockbackEndTick { get; set; } // Knockback: 날림이 끝나는 절대 틱. 0 = 날리는 중 아님
         public int damagePercent { get; set; }     // Knockback: 누적 피해 %
+        public int knockbackAmmo { get; set; }     // Knockback: 남은 탄
+        public long knockbackNextReloadTick { get; set; }   // Knockback: 다음 탄이 차는 틱. 가득이면 long.MaxValue
+        public long knockbackCooldownEndTick { get; set; }  // Knockback: 다시 쏠 수 있는 틱
         public float postureAxis { get; set; }    // Skydive: 0 = 대자, 1 = 다이브
         public bool gliding { get; set; }         // Skydive: 패러세일을 폈나
         public float stamina { get; set; }        // Skydive: 남은 활공 자원

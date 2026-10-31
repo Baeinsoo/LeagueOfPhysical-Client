@@ -1,11 +1,16 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="KnockbackPad.uss" />
     <ui:VisualElement name="knockback-pad-root" class="knockback-pad-root" picking-mode="Ignore">
-        <!-- 조작은 이동 하나다. 화면 왼쪽 아래 어디를 눌러도 그 자리가 스틱 중심이 된다. -->
+        <!-- 왼쪽 아래 어디를 눌러도 그 자리가 스틱 중심이 된다. -->
         <ui:VisualElement name="joystick-area" class="joystick-area">
             <ui:VisualElement name="joystick-bg" class="joystick-bg" picking-mode="Ignore">
                 <ui:VisualElement name="joystick-handle" class="joystick-handle" picking-mode="Ignore" />
             </ui:VisualElement>
+        </ui:VisualElement>
+        <!-- 오른쪽 아래 발사 버튼. 톡 = 자동 조준, 끌기 = 그 방향으로 놓을 때 발사. -->
+        <ui:VisualElement name="ammo-bar" class="ammo-bar" picking-mode="Ignore" />
+        <ui:VisualElement name="fire-button" class="fire-button">
+            <ui:VisualElement name="fire-handle" class="fire-handle" picking-mode="Ignore" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

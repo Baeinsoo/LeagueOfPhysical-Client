@@ -15,6 +15,8 @@ namespace LOP
             _localEntityId = localEntityId;
         }
 
+        public float LocalCorrectionSmoothTime => 0f;
+
         public EntitySyncMode For(GameFramework.World.Entity entity)
         {
             if (entity.Get<EntityKind>()?.Kind != EntityType.Character)

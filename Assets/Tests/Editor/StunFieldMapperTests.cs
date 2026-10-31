@@ -28,5 +28,18 @@ namespace LOP.Tests
 
             Assert.AreEqual(5678, mapped.invulnEndTick);
         }
+
+        [Test]
+        public void 넉백_총_상태가_와이어와_AutoMapper를_건넌다()
+        {
+            var sent = new global::EntitySnap { KnockbackAmmo = 2, KnockbackNextReloadTick = long.MaxValue, KnockbackCooldownEndTick = 77 };
+            var proto = global::EntitySnap.Parser.ParseFrom(Google.Protobuf.MessageExtensions.ToByteArray(sent));
+
+            EntitySnap mapped = MapperConfig.mapper.Map<EntitySnap>(proto);
+
+            Assert.AreEqual(2, mapped.knockbackAmmo);
+            Assert.AreEqual(long.MaxValue, mapped.knockbackNextReloadTick);
+            Assert.AreEqual(77, mapped.knockbackCooldownEndTick);
+        }
     }
 }

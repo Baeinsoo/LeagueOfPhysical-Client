@@ -23,6 +23,7 @@ namespace LOP
         private float heldDrawRatio;  // 연속 — 얼마나 끌었나(0~1)
         private long heldViewTick;  // 지금 화면이 보는 틱 — 서버 래그 보상 근거
         private bool pendingRelease;  // 이산 — 소비 후 리셋
+        private bool pendingFire;     // 이산 — 소비 후 리셋
         private IRunner runner;
         private IPlayerContext playerContext;
         private AbilityActivator abilityActivator;
@@ -87,6 +88,7 @@ namespace LOP
                 DrawRatio = heldDrawRatio,
                 ViewTick = heldViewTick,
                 Release = pendingRelease,
+                Fire = pendingFire,
             };
 
             // 대시 등 조작 불가 상태에선 이동 입력을 무시한다(전송·예측 모두 0 → 보정 간섭 방지).
@@ -111,6 +113,7 @@ namespace LOP
             pendingDash = false;
             pendingAbilityId = 0;
             pendingRelease = false;
+            pendingFire = false;
         }
 
         // 와이어(proto) 변환은 여기(송신 어댑터)부터 — 도메인은 InputCommand만 다룬다.
@@ -155,6 +158,7 @@ namespace LOP
                 AimPitch = command.AimPitch,
                 Drawing = command.Drawing,
                 Release = command.Release,
+                Fire = command.Fire,
                 DrawRatio = command.DrawRatio,
                 ViewTick = command.ViewTick,
             };
@@ -228,6 +232,13 @@ namespace LOP
         public void SetRelease()
         {
             pendingRelease = true;
+        }
+
+        /// <summary>쏜 순간 한 번 부른다. 방향(yaw, 도)을 조준 각도에 실어 다음 틱 커맨드로 보낸다.</summary>
+        public void SetFire(float yaw)
+        {
+            pendingFire = true;
+            heldAimYaw = yaw;
         }
 
         /// <summary>슬롯으로 어빌리티 입력을 예약한다. 슬롯을 내 부여 기록으로 풀어 id를 와이어에 싣는다

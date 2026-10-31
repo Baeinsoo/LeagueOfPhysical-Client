@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="KnockbackDamageLabel.uss" />
+    <ui:VisualElement name="label-root" class="label-root">
+        <ui:Label name="percent-text" class="percent-text" />
+    </ui:VisualElement>
+</ui:UXML>

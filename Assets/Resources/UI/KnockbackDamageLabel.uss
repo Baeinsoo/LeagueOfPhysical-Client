@@ -1,0 +1,15 @@
+.label-root {
+    flex-grow: 1;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 월드 위에 뜨는 글자라 배경 판 대신 테두리로 배경과 분리한다. 색은 코드가 피해에 따라 바꾼다. */
+.percent-text {
+    font-size: 40px;
+    color: rgb(255, 255, 255);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 3px;
+    -unity-text-outline-color: rgba(30, 10, 5, 0.95);
+}

@@ -208,6 +208,14 @@ namespace LOP
                 groundState.IsGrounded = serverEntitySnap.Grounded;
             }
 
+            //  남의 몸 머리 위 피해 %는 스냅에서 온다(내 몸은 보정 핸들러가 맞춘다).
+            var knockbackBody = targetEntity?.Get<KnockbackBody>();
+            if (knockbackBody != null)
+            {
+                knockbackBody.DamagePercent = entitySnap.damagePercent;
+                knockbackBody.KnockbackEndTick = entitySnap.knockbackEndTick;
+            }
+
             Abilities remoteAbilities = targetEntity?.Get<Abilities>();
             if (remoteAbilities != null)
             {

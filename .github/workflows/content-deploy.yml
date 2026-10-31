@@ -83,7 +83,7 @@ jobs:
               TARGET=main
               git -C "$r" fetch --depth 1 origin "$TARGET"
             fi
-            git -C "$r" checkout -q -B ci-build FETCH_HEAD
+            git -C "$r" checkout -q -f -B ci-build FETCH_HEAD  # -f: 빌드용 사본 — 남은 추적 안 된 .meta가 막지 않게
           done
 
       - name: NuGet 패키지 복원 (NuGetForUnity CLI, packages.config 기반)
@@ -162,7 +162,7 @@ jobs:
               TARGET=main
               git -C "$r" fetch --depth 1 origin "$TARGET"
             fi
-            git -C "$r" checkout -q -B ci-build FETCH_HEAD
+            git -C "$r" checkout -q -f -B ci-build FETCH_HEAD  # -f: 빌드용 사본 — 남은 추적 안 된 .meta가 막지 않게
             echo "$r @ $(git -C "$r" rev-parse --short HEAD)"
           done
 
@@ -262,7 +262,7 @@ jobs:
               TARGET=main
               git -C "$r" fetch --depth 1 origin "$TARGET"
             fi
-            git -C "$r" checkout -q -B ci-build FETCH_HEAD
+            git -C "$r" checkout -q -f -B ci-build FETCH_HEAD  # -f: 빌드용 사본 — 남은 추적 안 된 .meta가 막지 않게
           done
 
       - name: NuGet 패키지 복원 (NuGetForUnity CLI, packages.config 기반)

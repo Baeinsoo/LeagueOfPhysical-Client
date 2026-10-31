@@ -16,10 +16,13 @@ namespace LOP
         public string reason;
 
         /// <summary>
-        /// 판 보상 말고 따로 들어온 코인 줄(장부 사유가 따로다) — 지금은 연속 날갯짓 고비 코인(<c>"combo"</c>)뿐.
+        /// 판 보상 말고 따로 들어온 코인 줄(장부 사유가 따로다) — 연속 날갯짓 고비 코인(<c>"combo"</c>)·퀘스트(<c>"quest"</c>).
         /// 없으면 null(옛 서버·콤보 0). <see cref="coins"/>에는 안 들어 있다 — 합계는 화면이 낸다.
         /// </summary>
         public MatchRewardExtraDto[] extras;
+
+        /// <summary>이번 판에 오른 퀘스트 칸. 없으면 null(옛 서버·오른 칸 없음·남의 줄).</summary>
+        public MatchQuestProgressDto[] quests;
     }
 
     [Serializable]
@@ -27,5 +30,7 @@ namespace LOP
     {
         public string kind;
         public long coins;
+        //  퀘스트 몫만 XP가 있다(콤보는 0). 판 XP(MatchRewardDto.xp)에는 안 들어 있다 — 합계는 화면이 낸다.
+        public long xp;
     }
 }

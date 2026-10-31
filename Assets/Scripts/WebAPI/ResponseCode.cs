@@ -61,6 +61,10 @@ namespace LOP
         public const int WALLET_FULL = 80010;
         //  내부 API(역분개) 전용이지만 같은 번호대라 클라 사본에도 함께 둔다.
         public const int ALREADY_REVERSED = 80011;
+        //  퀘스트(spec 2026-10-30 §6) — 백엔드 server-core ResponseCode와 같은 값.
+        public const int QUEST_NOT_FOUND = 80012;
+        public const int QUEST_ALREADY_COMPLETED = 80013;
+        public const int QUEST_REROLL_UNAVAILABLE = 80014;
         #endregion
 
         public const int UNKNOWN_ERROR = 5000000;

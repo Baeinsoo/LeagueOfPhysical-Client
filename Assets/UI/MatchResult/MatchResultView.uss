@@ -41,6 +41,12 @@
 .matchresult-flash { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: #FFFFFF; opacity: 0; transition-property: opacity; transition-duration: 0.3s; }
 .matchresult-flash--on { opacity: 1; }
 
+/* 퀘스트 줄 — 오른 칸 하나에 한 줄(최대 3). 내 기록 카드처럼 높이를 내용에 맞춘다. */
+.matchresult-lt--quest { height: auto; min-height: 68px; }
+.matchresult-lt__tag--quest { background-color: #FF8A00; color: #2C2A6B; }
+.matchresult-quest__rows { flex-direction: column; justify-content: center; }
+.matchresult-quest__row { height: 40px; -unity-text-align: middle-left; }
+
 /* 랭크 반전판 — 인디고 판·크림 글자, 내 줄 빨강, 나감 노랑, 랭크 줄 크게(1부 §3.8) */
 .ranked .matchresult-board .kit-panel__face { background-color: #2C2A6B; }
 .ranked .matchresult-board .kit-panel__back { background-color: #1F1D4A; }

@@ -49,5 +49,17 @@ namespace LOP.Tests
             //  화면 글꼴에 없는 빼기(U+2212)를 새 글자에 쓰지 않는다 — Ordinal로 찾는다(문화권 비교는 특수 문자에 늘 맞는다).
             Assert.AreEqual(-1, x.IndexOf('−'));
         }
+
+        [Test]
+        public void 퀘스트_줄()
+        {
+            var x = File.ReadAllText(Uxml);
+            foreach (var n in new[] { "matchresult-quest", "matchresult-quest-rows" })
+            {
+                StringAssert.Contains($"name=\"{n}\"", x);
+            }
+            StringAssert.Contains("text=\"퀘스트\"", x);
+            StringAssert.Contains(".matchresult-quest__row", File.ReadAllText(Uss));
+        }
     }
 }

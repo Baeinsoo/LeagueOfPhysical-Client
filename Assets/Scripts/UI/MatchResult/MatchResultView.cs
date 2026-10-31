@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 namespace LOP.UI
 {
     /// <summary>
-    /// 결과판(키트). 왼쪽 판에 머리띠·등수표, 아래에 랭크·보상 중계 자막 줄, 오른쪽 아래 확인. 오른쪽 절반은 3D 시상대 자리.
+    /// 결과판(키트). 왼쪽 판에 머리띠·등수표, 아래에 랭크·보상·퀘스트 중계 자막 줄, 오른쪽 아래 확인. 오른쪽 절반은 3D 시상대 자리.
     /// 하얀 덮개를 쓴 채 열리고, 결과 단계가 <see cref="BeginReveal"/>을 부르면 덮개가 걷히며 시각표대로 차례로 붙는다.
     /// 화면 아무 데나 누르면 남은 등장을 건너뛴다(첫 탭은 건너뛰기, 확인은 그다음).
     /// 아래 줄 다음엔 종목이 실어 준 "내 기록" 카드와 경신 도장(spec §7).
@@ -28,6 +28,7 @@ namespace LOP.UI
         private VisualElement _rewardLine;
         private readonly IResultSound _sound;
         private VisualElement _recordLine;
+        private VisualElement _questLine;
         private VisualElement _newBest;
         private bool _stamped;
         private ResultReveal _reveal;
@@ -66,6 +67,7 @@ namespace LOP.UI
             _rankLine = Root.Q("matchresult-rank");
             _rewardLine = Root.Q("matchresult-reward");
             _recordLine = Root.Q("matchresult-record");
+            _questLine = Root.Q("matchresult-quest");
             _newBest = Root.Q("matchresult-newbest");
 
             _root.EnableInClassList("ranked", _viewModel.IsRanked);
@@ -115,6 +117,7 @@ namespace LOP.UI
             }
             if (t >= _reveal.LineAt(0)) Show(_rankLine, "matchresult-lt");
             if (t >= _reveal.LineAt(1)) Show(_rewardLine, "matchresult-lt");
+            if (t >= _reveal.LineAt(2)) Show(_questLine, "matchresult-lt");
             if (t >= _reveal.RecordAt) Show(_recordLine, "matchresult-lt");
             if (_reveal.NewBestShown(t, _skipped)) StampNewBest();
             if (_reveal.ConfirmEnabled(t, _skipped)) FinishConfirm();
@@ -129,6 +132,7 @@ namespace LOP.UI
             foreach (var row in _rows) Show(row, "matchresult-row");
             Show(_rankLine, "matchresult-lt");
             Show(_rewardLine, "matchresult-lt");
+            Show(_questLine, "matchresult-lt");
             Show(_recordLine, "matchresult-lt");
             if (_reveal.NewBestShown(0f, skipped: true)) StampNewBest();
             React();
@@ -282,6 +286,19 @@ namespace LOP.UI
             {
                 rewardBody.text = line;
                 _rewardLine.style.display = string.IsNullOrEmpty(line) ? DisplayStyle.None : DisplayStyle.Flex;
+            }));
+
+            var questRows = Root.Q<VisualElement>("matchresult-quest-rows");
+            _subscriptions.Add(_viewModel.QuestLines.Subscribe(lines =>
+            {
+                questRows.Clear();
+                foreach (var line in lines)
+                {
+                    var label = new Label(line);
+                    label.AddToClassList("matchresult-quest__row");
+                    questRows.Add(label);
+                }
+                _questLine.style.display = lines.Count == 0 ? DisplayStyle.None : DisplayStyle.Flex;
             }));
         }
 

@@ -74,6 +74,7 @@ namespace LOP.UI
 
         private readonly ReactiveProperty<string> _rankLine = new(string.Empty);
         private readonly ReactiveProperty<string> _rewardLine = new(string.Empty);
+        private readonly ReactiveProperty<IReadOnlyList<string>> _questLines = new(Array.Empty<string>());
         private readonly ReactiveProperty<string> _subtitle = new(string.Empty);
         private readonly ReactiveProperty<(string tag, string body)> _rankCaption = new((string.Empty, string.Empty));
         private readonly CancellationTokenSource _cts = new();
@@ -89,6 +90,9 @@ namespace LOP.UI
         /// <summary>"+50 코인 · +120 XP" 같은 보상 줄. 캐주얼·랭크 모두 뜬다. 보상이 없거나 아직·못 받았으면
         /// 빈 문자열(줄을 숨긴다). 랭크 줄과 같은 조회(GetMyMatch)에서 함께 채워진다 — 게임서버 메시지엔 보상이 없다.</summary>
         public ReadOnlyReactiveProperty<string> RewardLine => _rewardLine;
+
+        /// <summary>결과판 "퀘스트" 줄 — 이번 판에 오른 퀘스트 칸(spec 2026-10-30 §7). 없거나 아직·못 받았으면 빈 목록(줄을 숨긴다).</summary>
+        public ReadOnlyReactiveProperty<IReadOnlyList<string>> QuestLines => _questLines;
 
         /// <summary>판·무대 색. 연 순간 저장된 큐로 정하고 응답이 와도 안 바꾼다 — 크림으로 떴다 인디고로 바뀌는 깜빡임 금지.</summary>
         public bool IsRanked { get; }
@@ -173,6 +177,7 @@ namespace LOP.UI
                     }
 
                     _rewardLine.Value = RewardFormat.Line(p.reward);
+                    _questLines.Value = QuestFormat.ResultLines(p.reward?.quests);
                     return;
                 }
             }
@@ -197,6 +202,7 @@ namespace LOP.UI
             _cts.Dispose();
             _rankLine.Dispose();
             _rewardLine.Dispose();
+            _questLines.Dispose();
             _subtitle.Dispose();
             _rankCaption.Dispose();
         }

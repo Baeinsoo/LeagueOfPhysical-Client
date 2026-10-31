@@ -1,0 +1,35 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:lop="LOP.UI">
+    <!-- 퀘스트 = 오늘 3칸 · 이번 주 4칸(spec 2026-10-30 §7). 셸 틀(머리띠·띠)은 ShellView.uxml과 같은 마크업. 카드는 코드가 만든다. -->
+    <Style src="../Shell/ShellView.uss" />
+    <ui:VisualElement name="shell-root" class="kit shell-root">
+        <ui:VisualElement class="shell-head">
+            <ui:Button name="back-button" class="kit-press kit-btn shell-back"><lop:StickerElement><ui:Label text="◀ 뒤로" class="kit-btn__label" /></lop:StickerElement></ui:Button>
+            <ui:Label name="shell-title" class="kit-title shell-title" />
+            <ui:VisualElement name="shell-coin" class="kit-coin shell-coin"><lop:StickerElement><ui:Label name="shell-coin-text" text="🪙 -" class="kit-coin__text" /></lop:StickerElement></ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="shell-body" class="shell-body quest-body">
+            <ui:Label name="quest-message" class="quest-message" />
+            <ui:ScrollView name="quest-scroll" class="quest-scroll">
+                <ui:VisualElement class="quest-section">
+                    <ui:VisualElement class="quest-section__head">
+                        <ui:Label text="오늘" class="kit-title quest-section__title" />
+                        <ui:Label name="quest-daily-remaining" class="quest-section__remaining" />
+                        <ui:Label name="quest-reroll-left" class="quest-section__reroll" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="quest-daily-list" class="quest-list" />
+                </ui:VisualElement>
+                <ui:VisualElement class="quest-section">
+                    <ui:VisualElement class="quest-section__head">
+                        <ui:Label text="이번 주" class="kit-title quest-section__title" />
+                        <ui:Label name="quest-weekly-remaining" class="quest-section__remaining" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="quest-weekly-list" class="quest-list" />
+                </ui:VisualElement>
+            </ui:ScrollView>
+        </ui:VisualElement>
+        <ui:VisualElement name="shell-ticker" class="kit-ticker shell-ticker">
+            <lop:StickerElement class="kit-ticker__tag"><ui:VisualElement class="kit-ticker__dot" /><ui:Label text="LIVE" class="kit-title kit-ticker__tag-text" /></lop:StickerElement>
+            <ui:Label text="피지컬 리그" class="kit-ticker__text" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

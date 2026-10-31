@@ -18,6 +18,7 @@ namespace LOP
         private IDisposable _changeDisplayNameViewRegistration;
         private IDisposable _kitToastViewRegistration;
         private IDisposable _gameSelectViewRegistration;
+        private IDisposable _questViewRegistration;
 
         protected override void Configure(IContainerBuilder builder)
         {
@@ -77,6 +78,12 @@ namespace LOP
             builder.Register<GameSelectView>(Lifetime.Transient);
             builder.RegisterEntryPoint<FrontEndCoordinator>();
 
+            //  퀘스트 — 스토어는 로비 범위(로비 배지와 퀘스트 판이 같은 값을 본다), 판·VM은 열 때마다 새로(spec 2026-10-30 §7).
+            builder.Register<PlayerPrefsQuestSeenStore>(Lifetime.Scoped).As<IQuestSeenStore>();
+            builder.Register<QuestStore>(Lifetime.Scoped);
+            builder.Register<QuestViewModel>(Lifetime.Transient);
+            builder.Register<QuestView>(Lifetime.Transient);
+
             builder.RegisterBuildCallback(container =>
             {
                 container.Resolve<RunOutDirector>();
@@ -95,6 +102,7 @@ namespace LOP
                 _changeDisplayNameViewRegistration = windowManager.RegisterViewFactory<ChangeDisplayNameView>(() => container.Resolve<ChangeDisplayNameView>());
                 _kitToastViewRegistration = windowManager.RegisterViewFactory<KitToastView>(() => container.Resolve<KitToastView>());
                 _gameSelectViewRegistration = windowManager.RegisterViewFactory<GameSelectView>(() => container.Resolve<GameSelectView>());
+                _questViewRegistration = windowManager.RegisterViewFactory<QuestView>(() => container.Resolve<QuestView>());
 
                 //  로비 가운데 3D 무대. 씬 파일을 고치지 않으려고 여기서 만든다 — 씬과 함께 사라진다.
                 var stage = new UnityEngine.GameObject("LobbyStage").AddComponent<LobbyStage>();
@@ -106,6 +114,9 @@ namespace LOP
                 //  재화·장착은 경기 보상으로 서버가 바꾼다 — 돌아올 때마다 조용히 다시 받는다. 받는 동안은 앱 범위
                 //  스토어의 옛 값(입장 때 받은 것)이 그대로 보인다. 외형은 내가 바꿀 때만 바뀌어 다시 받지 않는다(ADR 0021).
                 container.Resolve<EconomyStore>().RefreshAsync(destroyCancellationToken).Forget();
+
+                //  퀘스트 진행은 경기 뒤 서버가 바꾼다 — 로비에 올 때마다 조용히 다시 받는다(배지가 맞게).
+                container.Resolve<QuestStore>().RefreshAsync(destroyCancellationToken).Forget();
             });
         }
 
@@ -121,6 +132,7 @@ namespace LOP
             _changeDisplayNameViewRegistration?.Dispose();
             _kitToastViewRegistration?.Dispose();
             _gameSelectViewRegistration?.Dispose();
+            _questViewRegistration?.Dispose();
             base.OnDestroy();
         }
 

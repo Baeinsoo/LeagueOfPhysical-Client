@@ -7,7 +7,7 @@ namespace LOP.UI
         Settings,
         Profile,
         Locker,
-        Missions,
+        Quests,
         Season,
         GameSelect,
     }

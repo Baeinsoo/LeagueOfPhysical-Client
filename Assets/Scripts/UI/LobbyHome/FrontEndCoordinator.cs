@@ -62,6 +62,7 @@ namespace LOP.UI
                 FrontEndDestination.Locker => _windowManager.Open<LockerView>(),
                 FrontEndDestination.Settings => _windowManager.Open<SettingsView>(),
                 FrontEndDestination.Profile => _windowManager.Open<ProfileView>(),
+                FrontEndDestination.Quests => _windowManager.Open<QuestView>(),
                 _ => null,
             };
 

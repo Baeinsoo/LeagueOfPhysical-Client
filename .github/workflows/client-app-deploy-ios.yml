@@ -71,7 +71,7 @@ jobs:
             #  공유되는데 그쪽이 upstream 없는 로컬 브랜치(ci-build)에 올려두므로, @{u}에 기대면
             #  "no upstream configured"로 죽는다. 원하는 ref를 명시해 가져오고 고정 이름으로 붙인다.
             git -C "$r" fetch --depth 1 origin main
-            git -C "$r" checkout -q -B ci-build FETCH_HEAD
+            git -C "$r" checkout -q -f -B ci-build FETCH_HEAD  # -f: 빌드용 사본 — 남은 추적 안 된 .meta가 막지 않게
             echo "$r @ $(git -C "$r" rev-parse --short HEAD)"
           done
 

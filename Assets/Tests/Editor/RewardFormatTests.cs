@@ -129,7 +129,7 @@ namespace LOP.Tests
                 {
                     new MatchRewardExtraDto { kind = "combo", coins = 0 },
                     null,
-                    new MatchRewardExtraDto { kind = "quest", coins = 5 },
+                    new MatchRewardExtraDto { kind = "season", coins = 5 },
                 },
             };
             Assert.AreEqual("+55 코인 (보너스 +5) · +120 XP", LOP.UI.RewardFormat.Line(reward));
@@ -142,6 +142,44 @@ namespace LOP.Tests
             var empty = new MatchRewardDto { coins = 50, xp = 120, reason = "ok", levelBefore = 7, levelAfter = 7, extras = new MatchRewardExtraDto[0] };
             Assert.AreEqual("+50 코인 · +120 XP", LOP.UI.RewardFormat.Line(none));
             Assert.AreEqual("+50 코인 · +120 XP", LOP.UI.RewardFormat.Line(empty));
+        }
+
+        //  퀘스트(spec 2026-10-30 §7) — 코인은 괄호 몫, XP는 합계에 넣는다(reward.xp는 판 XP만).
+        [Test]
+        public void 퀘스트_몫은_콤보_옆에_서고_XP는_합계에_든다()
+        {
+            var reward = new MatchRewardDto
+            {
+                coins = 25, xp = 120, reason = "ok", levelBefore = 3, levelAfter = 3,
+                extras = new[]
+                {
+                    new MatchRewardExtraDto { kind = "combo", coins = 7 },
+                    new MatchRewardExtraDto { kind = "quest", coins = 100, xp = 200 },
+                },
+            };
+            Assert.AreEqual("+132 코인 (콤보 +7 · 퀘스트 +100) · +320 XP", LOP.UI.RewardFormat.Line(reward));
+        }
+
+        [Test]
+        public void 퀘스트가_XP만_주면_괄호_몫은_없고_XP와_레벨에_보인다()
+        {
+            var reward = new MatchRewardDto
+            {
+                coins = 40, xp = 50, reason = "ok", levelBefore = 1, levelAfter = 2,
+                extras = new[] { new MatchRewardExtraDto { kind = "quest", coins = 0, xp = 500 } },
+            };
+            Assert.AreEqual("+40 코인 · +550 XP · Lv 1 → 2", LOP.UI.RewardFormat.Line(reward));
+        }
+
+        [Test]
+        public void 판_보상이_다_0이어도_퀘스트_XP가_있으면_줄이_보인다()
+        {
+            var reward = new MatchRewardDto
+            {
+                coins = 0, xp = 0, reason = "ok", levelBefore = 4, levelAfter = 4,
+                extras = new[] { new MatchRewardExtraDto { kind = "quest", coins = 0, xp = 300 } },
+            };
+            Assert.AreEqual("+0 코인 · +300 XP", LOP.UI.RewardFormat.Line(reward));
         }
     }
 }

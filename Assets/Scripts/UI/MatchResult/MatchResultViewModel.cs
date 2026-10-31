@@ -72,6 +72,10 @@ namespace LOP.UI
     {
         private const string MyName = "나";
 
+        //  M2 — 가장 큰 방(랭크 8줄 + 내 기록 2줄 + 퀘스트 3줄)에서 matchresult-lines(절대 위치)가 등수표 마지막
+        //  줄과 겹친다(실측 PNG로 확인). 결과판에서만 둘로 줄인다 — spec §7 기본값(셋)은 QuestFormat 쪽 그대로.
+        private const int MaxResultQuestLines = 2;
+
         private readonly ReactiveProperty<string> _rankLine = new(string.Empty);
         private readonly ReactiveProperty<string> _rewardLine = new(string.Empty);
         private readonly ReactiveProperty<IReadOnlyList<string>> _questLines = new(Array.Empty<string>());
@@ -177,7 +181,9 @@ namespace LOP.UI
                     }
 
                     _rewardLine.Value = RewardFormat.Line(p.reward);
-                    _questLines.Value = QuestFormat.ResultLines(p.reward?.quests);
+                    //  M2: 결과판 아래 줄 묶음은 절대 위치라 가장 큰 방(8줄+내 기록+랭크)에서 자리가 모자라 겹친다 —
+                    //  여기서만 둘로 줄인다(spec §7 기본 셋은 QuestFormat.ResultLines 그대로 둔다).
+                    _questLines.Value = QuestFormat.ResultLines(p.reward?.quests, MaxResultQuestLines);
                     return;
                 }
             }

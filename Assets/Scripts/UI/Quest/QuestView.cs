@@ -28,17 +28,23 @@ namespace LOP.UI
             var dailyList = Root.Q<VisualElement>("quest-daily-list");
             var weeklyList = Root.Q<VisualElement>("quest-weekly-list");
             var message = Root.Q<Label>("quest-message");
+            var scroll = Root.Q<VisualElement>("quest-scroll");
+            var dailyRemaining = Root.Q<Label>("quest-daily-remaining");
+            var weeklyRemaining = Root.Q<Label>("quest-weekly-remaining");
+            var rerollLeft = Root.Q<Label>("quest-reroll-left");
 
             Disposables.Add(_viewModel.Daily.Subscribe(cards => Fill(dailyList, cards)));
             Disposables.Add(_viewModel.Weekly.Subscribe(cards => Fill(weeklyList, cards)));
-            Disposables.Add(_viewModel.DailyRemaining.Subscribe(t => Root.Q<Label>("quest-daily-remaining").text = t));
-            Disposables.Add(_viewModel.WeeklyRemaining.Subscribe(t => Root.Q<Label>("quest-weekly-remaining").text = t));
-            Disposables.Add(_viewModel.RerollText.Subscribe(t => Root.Q<Label>("quest-reroll-left").text = t));
+            Disposables.Add(_viewModel.DailyRemaining.Subscribe(t => dailyRemaining.text = t));
+            Disposables.Add(_viewModel.WeeklyRemaining.Subscribe(t => weeklyRemaining.text = t));
+            Disposables.Add(_viewModel.RerollText.Subscribe(t => rerollLeft.text = t));
             Disposables.Add(_viewModel.Message.Subscribe(t =>
             {
                 message.text = t;
                 message.style.display = string.IsNullOrEmpty(t) ? DisplayStyle.None : DisplayStyle.Flex;
             }));
+            //  m3: 아직·못 받았으면(일일·주간 둘 다 null) "오늘"·"이번 주" 빈 머리를 안 보인다.
+            Disposables.Add(_viewModel.HasData.Subscribe(has => scroll.style.display = has ? DisplayStyle.Flex : DisplayStyle.None));
 
             _viewModel.Tick();
             _tick = Root.schedule.Execute(_viewModel.Tick).Every(TickMs);
@@ -64,6 +70,17 @@ namespace LOP.UI
             root.AddToClassList("quest-card");
             root.EnableInClassList("quest-card--done", card.Completed);
 
+            //  I1: kit-panel은 모양이 없다 — back·face 자식이 바탕을 그린다(ShopView.uxml:28-30과 같은 짜임).
+            //  code-built라 자식을 직접 만든다. 내용은 face에 넣는다.
+            var back = new VisualElement();
+            back.AddToClassList("kit-panel__back");
+            root.Add(back);
+
+            var face = new VisualElement();
+            face.AddToClassList("kit-panel__face");
+            face.AddToClassList("quest-card__face");
+            root.Add(face);
+
             var head = new VisualElement();
             head.AddToClassList("quest-card__head");
             var tier = new Label(card.TierText);
@@ -74,7 +91,7 @@ namespace LOP.UI
             KitEllipsis.SetText(title, card.Title);
             head.Add(tier);
             head.Add(title);
-            root.Add(head);
+            face.Add(head);
 
             //  진행 막대 — 키트 .kit-progress와 같은 마크업(타이틀 화면 부팅 막대).
             var bar = new VisualElement();
@@ -90,7 +107,7 @@ namespace LOP.UI
             inner.Add(fill);
             bar.Add(track);
             bar.Add(inner);
-            root.Add(bar);
+            face.Add(bar);
 
             var foot = new VisualElement();
             foot.AddToClassList("quest-card__foot");
@@ -107,13 +124,17 @@ namespace LOP.UI
                 stamp.AddToClassList("quest-card__stamp");
                 foot.Add(stamp);
             }
-            else if (card.CanReroll)
+            else if (card.ShowReroll)
             {
+                //  m1: 바꾸는 동안·남은 횟수 0이면 "잠김"(spec §7) — 버튼은 그대로 두고 SetEnabled(false) + 흐림으로 잠근다.
+                //  끝난 칸만 버튼이 없다(위 if에서 이미 갈렸다).
                 string id = card.Id;
                 var reroll = new Button(() => _viewModel.RerollAsync(id).Forget());
                 reroll.AddToClassList("kit-press");
                 reroll.AddToClassList("kit-btn");
                 reroll.AddToClassList("quest-card__reroll");
+                //  .kit-press:disabled(Kit.uss)가 기본 테마의 흐림을 그대로 쓴다 — 버튼은 남고 흐려질 뿐이다.
+                reroll.SetEnabled(card.CanReroll);
                 var sticker = new StickerElement();
                 var label = new Label("바꾸기");
                 label.AddToClassList("kit-btn__label");
@@ -121,7 +142,7 @@ namespace LOP.UI
                 reroll.Add(sticker);
                 foot.Add(reroll);
             }
-            root.Add(foot);
+            face.Add(foot);
             return root;
         }
 

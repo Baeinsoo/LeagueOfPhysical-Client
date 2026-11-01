@@ -101,7 +101,8 @@ namespace LOP
 
         private void LateUpdate()
         {
-            if (actor.visualGameObject == null || samples.Count == 0)
+            //  방이 내려가는 동안 러너가 틱 시계를 먼저 비운다 — 그 프레임은 그리지 않는다.
+            if (actor.visualGameObject == null || samples.Count == 0 || runner?.tickUpdater == null)
             {
                 return;
             }

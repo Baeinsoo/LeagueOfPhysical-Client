@@ -44,11 +44,8 @@ namespace LOP
         private void OnGameStateChanged(RunnerState gameState)
         {
             // 로딩 화면은 룸 연결 시점(위치=GameRoom)부터 이미 떠 있다.
-            // 게임이 실제로 시작되면 그 사실만 보고하고, 창을 내리는 판단은 VM/코디네이터가 한다.
-            if (gameState == RunnerState.Playing)
-            {
-                matchLoadingViewModel.NotifyGameLive();
-            }
+            // 상태 변화를 사실로만 보고하고, 창을 내리는 판단은 VM/코디네이터가 한다.
+            matchLoadingViewModel.OnGameStateChanged(gameState);
         }
 
         private async void OnGameInfoToC(GameInfoToC gameInfoToC)

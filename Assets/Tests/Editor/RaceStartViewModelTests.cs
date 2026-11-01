@@ -164,5 +164,13 @@ namespace LOP.Tests
             Assert.IsFalse(new PlainRaceStartLook().Animated);
             CollectionAssert.AreEqual(new[] { FlappySfx.CountBeat, FlappySfx.Go }, audio.Played);
         }
+
+        [Test]
+        public void tickUpdater가_없으면_예외_없이_빈_문자열()
+        {
+            //  방이 내려갈 때 러너가 DeinitializeAsync에서 tickUpdater에 null을 넣는다 — 그 순간을 null로 재현한다.
+            var gone = new RaceStartViewModel(start, new FakeRunner { tickUpdater = null }, look);
+            Assert.AreEqual(string.Empty, gone.CurrentText());
+        }
     }
 }

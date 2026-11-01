@@ -15,6 +15,15 @@ namespace LOP
     /// </summary>
     public class EntityBinder : MessageHandlerBase
     {
+        /// <summary>
+        /// 내 캐릭터를 못 알아보는 것이 비정상인 경우만 true. 탈락 뒤 재접속한 관전자는 몸이 없는 게 정상이라
+        /// (서버가 옛 몸 id만 준다) 에러로 치지 않는다. 단 서버는 몸이 살아 있을 때도 옛 몸 id를 채우므로,
+        /// 그 옛 몸이 지금 묶이는데 내 몸 id가 비었다면 진짜 문제다.
+        /// </summary>
+        public static bool ShouldReportMissingUserEntity(string userEntityId, string formerEntityId, string boundEntityId, bool isCharacter)
+            => isCharacter && string.IsNullOrEmpty(userEntityId)
+               && (string.IsNullOrEmpty(formerEntityId) || formerEntityId == boundEntityId);
+
         private readonly IObjectResolver objectResolver;
         private readonly ISubscriber<EntityCreated> entityCreatedSubscriber;
         private readonly ISubscriber<EntityDestroyed> entityDestroyedSubscriber;
@@ -88,7 +97,8 @@ namespace LOP
 
             // 내 캐릭터 판정(아래 isUserEntity)과 예측 대상 판정이 둘 다 이 값에 달려 있다.
             // 비어 있으면 내 캐릭터를 못 알아보고 조작이 안 되므로, 조용히 넘어가지 않고 알린다.
-            if (kind.Kind == EntityType.Character && string.IsNullOrEmpty(gameDataStore.userEntityId))
+            if (ShouldReportMissingUserEntity(gameDataStore.userEntityId, gameDataStore.formerEntityId, entityCreated.entityId,
+                    kind.Kind == EntityType.Character))
             {
                 Debug.LogError($"userEntityId가 비어 있는 채로 캐릭터 {entityCreated.entityId}를 바인딩한다 — 내 캐릭터를 인식하지 못한다.");
             }

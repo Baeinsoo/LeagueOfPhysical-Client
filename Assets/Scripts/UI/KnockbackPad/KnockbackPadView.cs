@@ -146,7 +146,7 @@ namespace LOP.UI
             }
             _firePointer = evt.pointerId;
             _fireOrigin = evt.position;
-            MoveFireButtonTo(_fireOrigin);
+            MoveFireButtonTo(_fireButton.parent.WorldToLocal(evt.position));
             _fireDrag = Vector2.zero;
             _fireMaxDrag01 = 0f;
             _fireDownTime = Time.unscaledTime;
@@ -204,7 +204,7 @@ namespace LOP.UI
             RestoreFireButton();
         }
 
-        // 발사 스틱 그림을 누른 자리로 옮긴다. 루트가 화면을 꽉 채워 패널 좌표가 곧 루트 좌표다.
+        // 발사 스틱 그림을 누른 자리로 옮긴다. left/top은 부모 기준이라 넘기는 좌표는 부모 로컬 좌표여야 한다.
         private void MoveFireButtonTo(Vector2 center)
         {
             if (_fireButton == null)

@@ -41,5 +41,14 @@ namespace LOP.Tests
             Assert.IsFalse(KnockbackShotView.TouchesDrawnBody(new Vector2(10.2f, 0f), "a", Bodies, Radius));
             Assert.IsFalse(KnockbackShotView.TouchesDrawnBody(new Vector2(15f, 0f), "a", Bodies, Radius), "아무 몸에도 안 닿는 자리");
         }
+
+        [Test]
+        public void 서_있는_기둥의_반지름과_탄_반지름_안이면_숨는다()
+        {
+            var standing = new List<Vector2> { new Vector2(5f, 5f) };
+            Assert.IsTrue(KnockbackShotView.InsideStandingPillar(new Vector2(5f, 5.9f), standing, 1f));
+            Assert.IsFalse(KnockbackShotView.InsideStandingPillar(new Vector2(5f, 6.1f), standing, 1f));
+            Assert.IsFalse(KnockbackShotView.InsideStandingPillar(new Vector2(5f, 5f), new List<Vector2>(), 1f));
+        }
     }
 }

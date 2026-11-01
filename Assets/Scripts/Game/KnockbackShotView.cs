@@ -20,12 +20,14 @@ namespace LOP
         private readonly KnockbackConfig config;
         private readonly ActorRegistry actors;
         private readonly KnockbackClientState state;
+        private readonly KnockbackPillars pillars;
 
         private readonly Dictionary<(string shooterId, long fireTick), GameObject> spheres =
             new Dictionary<(string, long), GameObject>();
         private readonly HashSet<(string, long)> hidden = new HashSet<(string, long)>();
         private readonly HashSet<(string, long)> alive = new HashSet<(string, long)>();
         private readonly List<(string, long)> scratch = new List<(string, long)>();
+        private readonly List<Vector2> standingPillars = new List<Vector2>();
         private readonly List<(string id, Vector2 position)> drawnBodies = new List<(string, Vector2)>();
         private readonly Stack<GameObject> pool = new Stack<GameObject>();
 
@@ -34,13 +36,14 @@ namespace LOP
         private KnockbackLateUpdateDriver driver;
 
         public KnockbackShotView(GameFramework.Runner.IRunner runner, KnockbackWorld world, KnockbackConfig config,
-                                 ActorRegistry actors, KnockbackClientState state)
+                                 ActorRegistry actors, KnockbackClientState state, KnockbackPillars pillars)
         {
             this.runner = runner;
             this.world = world;
             this.config = config;
             this.actors = actors;
             this.state = state;
+            this.pillars = pillars;
         }
 
         // 남의 그려진 몸 자리를 읽으므로 보간기 뒤(3100)에서 돈다.
@@ -64,6 +67,9 @@ namespace LOP
 
             EnsureObjects();
             CollectDrawnBodies();
+            // 기둥은 틱 단위 사실이라 정수 틱으로 묻는다(바닥 그림과 같은 값).
+            pillars.CollectStanding((long)System.Math.Floor(renderTick), standingPillars);
+            float pillarReach = pillars.Radius + config.ShotRadius;
             var shots = world.Shots.Shots;
             alive.Clear();
             for (int i = 0; i < shots.Count; i++)
@@ -77,7 +83,8 @@ namespace LOP
                 }
 
                 var p = PositionAt(shot, renderTick);
-                if (TouchesDrawnBody(p, shot.ShooterId, drawnBodies, BodyHitRadius))
+                if (InsideStandingPillar(p, standingPillars, pillarReach)
+                    || TouchesDrawnBody(p, shot.ShooterId, drawnBodies, BodyHitRadius))
                 {
                     hidden.Add(key);
                     Release(key);
@@ -136,6 +143,17 @@ namespace LOP
             {
                 if (bodies[i].id == shooterId) continue;
                 if ((bodies[i].position - p).sqrMagnitude <= sq) return true;
+            }
+            return false;
+        }
+
+        /// <summary>탄 자리가 서 있는 기둥 안인가(기둥 반지름 + 탄 반지름). 서버가 기둥에 막힌 탄을 지우기 전의 연출이다.</summary>
+        public static bool InsideStandingPillar(Vector2 p, IReadOnlyList<Vector2> standing, float reach)
+        {
+            float sq = reach * reach;
+            for (int i = 0; i < standing.Count; i++)
+            {
+                if ((standing[i] - p).sqrMagnitude <= sq) return true;
             }
             return false;
         }

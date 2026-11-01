@@ -46,8 +46,8 @@ unity cmd automation_step --project-path $P --step '{"op":"log","message":"여�
 
 `automation_step`의 결과(읽은 글자·스크린샷 경로)는 그 실행의 `report.json`에 있다(`automation_status`의 `report`).
 
-기록은 `Logs/automation/`(git 무시)
-단계가 바꾼 설정은 실행이 끝나면 되돌아간다 — 오래 바꾸려면 메뉴를
+기록은 `Logs/automation/`(git 무시).
+단계가 바꾼 설정은 실행이 끝나면 되돌아간다 — 오래 바꾸려면 메뉴(`LOP/Environment/…`, `LOP/Debug/Auto Flap`)를 쓴다.
 
 ## 재생이 켜진 채 끝나는 경우
 의도된 동작이고 둘뿐이다 — 끝나면 직접 재생을 끈다(에디터에서 또는 `automation_step play_exit`).
@@ -60,3 +60,17 @@ unity cmd automation_step --project-path $P --step '{"op":"log","message":"여�
 - `input_tap`의 `x`·`y`는 화면 픽셀이고 원점은 **왼쪽 아래**(Input System 화면 좌표 규약). 왼쪽 위로 재면 좌우는 맞고 위아래가 뒤집힌다.
 - "맨 위" 판정(`ui_click`·`ui_wait clickable`)은 그 요소가 속한 `UIDocument`(패널) 안에서만 본다 — **다른 `UIDocument`(다른 `PanelSettings`) 위에 뜬 덮개**는 이 Pick으로 못 잡는다.
 - 대상이 `pickingMode=Ignore`면 그 요소 자신 대신 가장 가까운 Pick 가능한 조상을 기준으로 맨 위를 본다(순수 장식용 Label이 보통 Ignore다).
+- `input_tap`의 키(와 터치)는 Game 뷰에 OS 초점이 있어야 게임에 간다(11-01 연기 확인에서 재현) — 아래 매크로 확장에서 고친다.
+
+## 다음: 매크로 확장(계획 중 — 아직 없다)
+
+monkeyrunner식 매크로로 넓힌다(계획 `league-of-physical/docs/superpowers/plans/2026-11-01-editor-automation-macro.md`, 브랜치 `feature/automation-macro`).
+머지되면 이 절을 실제 사용법으로 바꾼다. 무작위 몽키(아무 버튼이나 누르기)는 하지 않는다(사용자 11-01 결정).
+
+- 새 단계: `touch`·`long_press`·`drag`(좌표는 0..1 정규화, 왼쪽 위 원점 — `ui_query`가 `x`·`y`를 준다), `ui_type`(글자 칸, 칠 글자는 `value`),
+  `input_text`, `snapshot_compare`(기준 그림과 픽셀 비교, 허용치·비율·구역·제외 구역·다시 찍기, 실패 땐 지금 그림·차이 그림). 단계 공통 칸 `note`.
+- 새 명령: `automation_record_start --name x`·`automation_record_stop`·`automation_record_status`(재생 중 손으로 한 것을
+  `Automation/Scenarios/x.json`으로 — 선택자 우선, 안 되면 좌표, F9 스크린샷, F10 체크포인트), `automation_baseline --scenario x | --run <실행>`(기준 그림 만들기·받아들이기).
+  메뉴 `LOP/Automation/녹화 시작`·`녹화 멈춤`.
+- 초점 고치기: 입력 단계가 실행 동안 Input System을 "모든 입력이 게임으로"로 바꾸고 끝에 되돌린다 — Game 뷰 초점이 필요 없어진다.
+- 기준 그림은 `Automation/Baselines/`에 커밋한다. 화면 비교를 쓰려면 Game 뷰 해상도를 고정한다.

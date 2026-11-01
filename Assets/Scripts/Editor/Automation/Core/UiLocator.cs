@@ -57,12 +57,25 @@ namespace LOP.EditorTools.Automation
         public static bool IsOnTop(VisualElement element)
         {
             if (element.panel == null) return false;
+            //  pickingMode=Ignore인 요소는 Pick이 절대 돌려주지 않는다 — 가장 가까운 Pick 가능한 조상을 기준으로 본다.
+            //  다른 PanelSettings 위의 덮개(다른 UIDocument)는 이 Pick으로 못 잡는다 — 알려진 한계다(README에 적어 둔다).
+            var target = NearestPickable(element);
+            if (target == null) return false;
             var picked = element.panel.Pick(element.worldBound.center);
             for (var v = picked; v != null; v = v.hierarchy.parent)
             {
-                if (v == element) return true;
+                if (v == target) return true;
             }
             return false;
+        }
+
+        private static VisualElement NearestPickable(VisualElement element)
+        {
+            for (var v = element; v != null; v = v.hierarchy.parent)
+            {
+                if (v.pickingMode != PickingMode.Ignore) return v;
+            }
+            return null;
         }
 
         public static UiElementInfo Describe(VisualElement element)

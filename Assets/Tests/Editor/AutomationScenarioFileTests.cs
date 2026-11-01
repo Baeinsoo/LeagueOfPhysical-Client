@@ -37,6 +37,12 @@ namespace LOP.Tests
             Assert.AreEqual("play_exit", s.Teardown.Single().Op);
             //  퀘스트 판은 아직 없을 수 있다(B2b 전) — 그 단계는 실패해도 멈추지 않아야 한다.
             Assert.IsTrue(s.Loop.Where(x => (x.Str("name") ?? string.Empty).StartsWith("quest") || x.Str("name") == "nav-quests").All(x => x.Optional));
+
+            //  L6: 누가 시간 제한을 줄이면 바로 잡히게 — 매칭·판 진행에 필요한 만큼의 하한을 본다.
+            var inMatch = s.Loop.Single(x => x.Op == "wait_state" && x.Str("state") == "InMatch");
+            Assert.GreaterOrEqual(inMatch.TimeoutSeconds, 120);
+            var postMatch = s.Loop.Single(x => x.Op == "wait_state" && x.Str("state") == "PostMatch");
+            Assert.GreaterOrEqual(postMatch.TimeoutSeconds, 120);
         }
     }
 }

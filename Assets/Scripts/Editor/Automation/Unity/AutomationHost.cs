@@ -24,7 +24,9 @@ namespace LOP.EditorTools.Automation
             EditorApplication.update += Update;
             UnityEngine.Application.logMessageReceived += OnLog;
             AssemblyReloadEvents.beforeAssemblyReload += Session.Flush;
-            EditorApplication.delayCall += Session.Resume;
+            //  이어 돌 실행을 붙이고, 그 사이(또는 명령이 delayCall보다 먼저 와 EnsureResumed가 대신 붙인 뒤) 쌓인
+            //  끊긴 실행 폴더를 전부 interrupted로 닫는다(M1) — 하나만 보던 옛 Status()와 다르다.
+            EditorApplication.delayCall += () => Session.ResumeAndSweep(DateTime.UtcNow);
         }
 
         private static void Update()

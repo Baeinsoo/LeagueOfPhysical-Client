@@ -38,7 +38,19 @@ namespace LOP.Tests
 
             Assert.IsFalse(ScenarioFiles.TryResolve("../x.json", _project, out _, out var why));
             StringAssert.Contains("밖", why);
-            Assert.IsFalse(ScenarioFiles.TryResolve("/etc/hosts.json", _project, out _, out _));
+
+            //  L6: /etc/hosts.json은 애초에 없는 파일이라 "경계" 검사가 없어도 false가 된다 —
+            //  진짜 거절 이유가 "밖"인지(없어서가 아니라)까지 본다.
+            Assert.IsFalse(ScenarioFiles.TryResolve("/etc/hosts.json", _project, out _, out var whyAbsolute));
+            StringAssert.Contains("밖", whyAbsolute);
+        }
+
+        [Test]
+        public void 이름형_인자의_탈출도_거절한다()
+        {
+            // L6: .json 없이 이름으로 줘도(Automation/Scenarios/<이름>.json로 합쳐진 뒤) 프로젝트 밖으로 못 나간다.
+            Assert.IsFalse(ScenarioFiles.TryResolve("../../../x", _project, out _, out var why));
+            StringAssert.Contains("밖", why);
         }
 
         [Test]

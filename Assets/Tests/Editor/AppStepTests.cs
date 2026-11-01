@@ -146,5 +146,31 @@ namespace LOP.Tests
             StringAssert.Contains("game_mode_id", errors[0]);
             StringAssert.Contains("queue", errors[1]);
         }
+
+        [Test]
+        public void select_game은_로비_스코프나_게임_목록이_아직_없으면_시간_제한까지_기다린다()
+        {
+            // L2: 로비 진입 직후엔 스코프·목록이 비동기로 채워질 수 있다 — 바로 실패시키면 안 된다.
+            _kit.Driver.SelectGameWhy = "로비 스코프가 없다 — 로비에서만 고를 수 있다";
+            var waiting = new SelectGameStep().Tick(_kit.Ctx("select_game", "{\"game_mode_id\":6}"));
+            Assert.AreEqual(StepStatus.Running, waiting.Status);
+            Assert.IsNull(_kit.Driver.Selected);
+
+            _kit.Driver.SelectGameWhy = "게임 6이 고를 수 있는 목록에 없다";
+            var stillWaiting = new SelectGameStep().Tick(_kit.Ctx("select_game", "{\"game_mode_id\":6}"));
+            Assert.AreEqual(StepStatus.Running, stillWaiting.Status);
+            Assert.IsNull(_kit.Driver.Selected);
+        }
+
+        [Test]
+        public void select_game은_맵이_없으면_기다리지_않고_바로_실패한다()
+        {
+            // L2: 맵 없음은 시나리오 설정 실수라 기다릴 이유가 없다.
+            _kit.Driver.SelectGameWhy = "게임 6에 맵 99이 없다";
+
+            var result = new SelectGameStep().Tick(_kit.Ctx("select_game", "{\"game_mode_id\":6,\"map_id\":99}"));
+
+            Assert.AreEqual(StepStatus.Failed, result.Status);
+        }
     }
 }

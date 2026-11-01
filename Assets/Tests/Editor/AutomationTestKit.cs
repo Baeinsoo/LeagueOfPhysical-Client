@@ -55,8 +55,16 @@ namespace LOP.Tests
             (string.IsNullOrEmpty(s.TextContains) || (e.Text ?? string.Empty).IndexOf(s.TextContains, StringComparison.Ordinal) >= 0);
 
         public (int gameModeId, int? mapId, bool ranked)? Selected;
+        //  null이면 성공(Selected를 적는다). 아니면 SelectGame이 그 이유로 실패한다 — "스코프/목록 없음"(기다림)과
+        //  "맵 없음"(바로 실패) 두 경로를 L2 시험에서 가른다.
+        public string SelectGameWhy;
         public bool SelectGame(int gameModeId, int? mapId, bool ranked, out string why)
         {
+            if (SelectGameWhy != null)
+            {
+                why = SelectGameWhy;
+                return false;
+            }
             Selected = (gameModeId, mapId, ranked);
             why = null;
             return true;

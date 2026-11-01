@@ -115,7 +115,8 @@ namespace LOP.EditorTools.Automation
     public sealed class SelectGameStep : IStepHandler
     {
         public string Op => "select_game";
-        public double DefaultTimeoutSeconds(ScenarioStep step) => 10;
+        //  로비 스코프·게임 목록은 로비 진입 직후 아직 안 채워졌을 수 있다 — 기다릴 몫을 10s보다 넉넉히 둔다.
+        public double DefaultTimeoutSeconds(ScenarioStep step) => 30;
 
         public void Validate(ScenarioStep step, List<string> errors)
         {
@@ -132,9 +133,16 @@ namespace LOP.EditorTools.Automation
 
             int gameModeId = ctx.Step.Int("game_mode_id").Value;
             bool ranked = ctx.Step.Str("queue") == "ranked";
-            return ctx.Driver.SelectGame(gameModeId, ctx.Step.Int("map_id"), ranked, out var why)
-                ? StepResult.Done($"게임 {gameModeId}")
-                : StepResult.Fail(why);
+            if (ctx.Driver.SelectGame(gameModeId, ctx.Step.Int("map_id"), ranked, out var why)) return StepResult.Done($"게임 {gameModeId}");
+
+            //  로비 스코프·게임 목록이 아직 안 채워졌으면(로비 진입 직후) 기다린다 — 시간 제한이 실패를 낸다.
+            //  맵이 없다는 건 시나리오 설정 실수라 기다릴 이유가 없어 바로 실패시킨다.
+            if (why != null && (why.Contains("스코프") || why.Contains("목록에")))
+            {
+                ctx.Waiting = why;
+                return StepResult.Running;
+            }
+            return StepResult.Fail(why);
         }
     }
 }

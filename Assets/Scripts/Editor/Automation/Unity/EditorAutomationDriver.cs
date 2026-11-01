@@ -42,9 +42,18 @@ namespace LOP.EditorTools.Automation
             get
             {
                 if (!EditorApplication.isPlaying) return null;
-                var root = LifetimeScope.Find<RootLifetimeScope>();
-                if (root == null || root.Container == null) return null;
-                return root.Container.Resolve<AppStateMachine>()?.currentState?.GetType().Name;
+                try
+                {
+                    var root = LifetimeScope.Find<RootLifetimeScope>();
+                    if (root == null || root.Container == null) return null;
+                    return root.Container.Resolve<AppStateMachine>()?.currentState?.GetType().Name;
+                }
+                catch (Exception)
+                {
+                    //  씬 전환·컨테이너 정리 중에는 Resolve가 던질 수 있다 — "아직 모른다"(null)로 보고 wait_state가
+                    //  시간 제한까지 기다리게 한다. 여기서 던지면 AutomationRunner가 그대로 필수 단계를 실패시킨다.
+                    return null;
+                }
             }
         }
 

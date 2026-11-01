@@ -40,3 +40,8 @@ unity cmd automation_step --project-path $P --step '{"op":"log","message":"여�
 
 기록은 `Logs/automation/`(git 무시)
 단계가 바꾼 설정은 실행이 끝나면 되돌아간다 — 오래 바꾸려면 메뉴를
+
+## 알려진 한계
+- `input_tap`의 `x`·`y`는 화면 픽셀이고 원점은 **왼쪽 아래**(Input System 화면 좌표 규약). 왼쪽 위로 재면 좌우는 맞고 위아래가 뒤집힌다.
+- "맨 위" 판정(`ui_click`·`ui_wait clickable`)은 그 요소가 속한 `UIDocument`(패널) 안에서만 본다 — **다른 `UIDocument`(다른 `PanelSettings`) 위에 뜬 덮개**는 이 Pick으로 못 잡는다.
+- 대상이 `pickingMode=Ignore`면 그 요소 자신 대신 가장 가까운 Pick 가능한 조상을 기준으로 맨 위를 본다(순수 장식용 Label이 보통 Ignore다).

@@ -65,6 +65,31 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 우리_팀이_먼저_나온다()
+        {
+            var (spectate, state, _) = Make(Body("me"), Body("a"), Body("b"), Body("c"));
+            var m = new KnockbackStateToC { Version = 1, TeamCount = 2 };
+            m.Players.Add(new KnockbackPlayerWire { EntityId = "me", EliminatedTick = -1, Team = 1 });
+            m.Players.Add(new KnockbackPlayerWire { EntityId = "a", EliminatedTick = -1, Team = 2 });
+            m.Players.Add(new KnockbackPlayerWire { EntityId = "b", EliminatedTick = -1, Team = 2 });
+            m.Players.Add(new KnockbackPlayerWire { EntityId = "c", EliminatedTick = -1, Team = 1 });
+            state.Apply(m);
+            spectate.Refresh();
+            CollectionAssert.AreEqual(new[] { "c", "a", "b" }, spectate.Candidates);
+        }
+
+        [Test]
+        public void 개인전은_id_순_그대로()
+        {
+            var (spectate, state, _) = Make(Body("me"), Body("b"), Body("a"));
+            var m = new KnockbackStateToC { Version = 1 };
+            m.Players.Add(new KnockbackPlayerWire { EntityId = "a", EliminatedTick = -1 });
+            state.Apply(m);
+            spectate.Refresh();
+            CollectionAssert.AreEqual(new[] { "a", "b" }, spectate.Candidates);
+        }
+
+        [Test]
         public void 후보가_없으면_Current는_null()
         {
             var (spectate, _, _) = Make(Body("me"));

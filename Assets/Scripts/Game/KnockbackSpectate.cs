@@ -43,7 +43,17 @@ namespace LOP
                 candidates.Add(entity.Id);
             }
 
-            candidates.Sort(string.CompareOrdinal);
+            // 팀전이면 우리 팀을 먼저 보여 준다. 개인전(내 팀 0)은 id 순 그대로.
+            int myTeam = state.TeamCount >= 2 ? state.MyTeamOf(mine) : 0;
+            candidates.Sort((a, b) =>
+            {
+                if (myTeam != 0)
+                {
+                    int byTeam = (state.TeamOf(a) == myTeam ? 0 : 1).CompareTo(state.TeamOf(b) == myTeam ? 0 : 1);
+                    if (byTeam != 0) return byTeam;
+                }
+                return string.CompareOrdinal(a, b);
+            });
 
             if (candidates.Count == 0)
             {

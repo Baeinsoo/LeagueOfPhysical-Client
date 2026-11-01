@@ -19,7 +19,6 @@
     { "op": "wait_state", "state": "InMatch", "timeout_s": 180 },
     { "op": "wait_state", "state": "PostMatch", "scene": "Result", "timeout_s": 600 },
     { "op": "ui_wait", "name": "confirm-button", "clickable": true, "timeout_s": 30 },
-    { "op": "ui_read", "name": "matchresult-rank-body", "as": "rank", "optional": true, "timeout_s": 5 },
     { "op": "ui_read", "name": "matchresult-reward-body", "as": "reward", "optional": true, "timeout_s": 5 },
     { "op": "ui_read", "name": "matchresult-quest-rows", "as": "quest_lines", "optional": true, "timeout_s": 5 },
     { "op": "screenshot", "as": "result" },

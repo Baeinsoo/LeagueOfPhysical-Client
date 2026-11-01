@@ -57,7 +57,7 @@ namespace LOP.EditorTools.Automation
     }
 
     /// <summary>
-    /// 키 하나 또는 화면 한 점을 hold_ms 동안 눌렀다 뗀다 — Input System 장치에 상태 이벤트를 넣는, 진짜 장치와 같은 길(spec §8.2).
+    /// 키 하나 또는 화면 한 점을 hold_ms 동안 눌렀다 뗀다 — Input System 장치에 상태 이벤트를 넣는, 진짜 장치와 같은 길(spec §8.2·§8.3).
     /// 누름과 뗌을 다른 프레임에 둔다: 한 번에 넣으면 "이번 프레임에 눌렸나"를 보는 코드가 놓친다.
     /// </summary>
     public sealed class InputTapStep : IStepHandler
@@ -77,6 +77,8 @@ namespace LOP.EditorTools.Automation
             double holdSeconds = (ctx.Step.Int("hold_ms") ?? 120) / 1000.0;
             if (ctx.Scratch["down_at"] == null)
             {
+                //  Game 뷰 초점이 없어도 게임이 받게(spec §8.3) — 11-01 연기 확인 S7에서 초점 없이 안 먹던 것을 고친다.
+                if (!InputRules.EnsureGameInput(ctx, out var whyInput)) return StepResult.Fail(whyInput);
                 if (!Press(ctx, true, out var why)) return StepResult.Fail(why);
                 ctx.Scratch["down_at"] = ctx.ElapsedSeconds;
                 return StepResult.Running;

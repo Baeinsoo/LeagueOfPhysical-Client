@@ -1,0 +1,22 @@
+{
+  "name": "knockback-team-spectate",
+  "description": "넉백 팀전(4:4, 봇 채움) 입장 → 서서 탈락할 때까지 기다림 → 관전 화면 스크린샷. 재생은 켠 채로 둔다 — 이어서 연결을 끊어 재접속 관전자의 팀 표시를 확인할 때 쓴다",
+  "repeat": 1,
+  "setup": [
+    { "op": "play_exit" },
+    { "op": "set_environment", "env": "local-k8s" },
+    { "op": "play_enter" },
+    { "op": "boot_to_lobby", "timeout_s": 120 }
+  ],
+  "loop": [
+    { "op": "select_game", "game_mode_id": 12, "queue": "casual" },
+    { "op": "ui_click", "name": "play-button", "timeout_s": 20 },
+    { "op": "wait_state", "state": "InMatch", "timeout_s": 180 },
+    { "op": "wait", "seconds": 10 },
+    { "op": "screenshot", "as": "playing" },
+    { "op": "ui_wait", "text_contains": "관전", "timeout_s": 120 },
+    { "op": "wait", "seconds": 2 },
+    { "op": "screenshot", "as": "spectating" }
+  ],
+  "teardown": []
+}

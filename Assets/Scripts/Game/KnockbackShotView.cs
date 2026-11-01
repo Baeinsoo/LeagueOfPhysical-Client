@@ -84,7 +84,7 @@ namespace LOP
 
                 var p = PositionAt(shot, renderTick);
                 if (InsideStandingPillar(p, standingPillars, pillarReach)
-                    || TouchesDrawnBody(p, shot.ShooterId, drawnBodies, BodyHitRadius))
+                    || TouchesDrawnBody(p, shot.ShooterId, drawnBodies, BodyHitRadius, state.TeamOf))
                 {
                     hidden.Add(key);
                     Release(key);
@@ -134,14 +134,17 @@ namespace LOP
             }
         }
 
-        /// <summary>탄 자리가 쏜 사람이 아닌 그려진 몸에 닿았나. 그려진 몸 목록은 탈락·그림 없는 몸을 뺀 것이다.</summary>
+        /// <summary>탄 자리가 쏜 사람이 아닌 그려진 몸에 닿았나. 그려진 몸 목록은 탈락·그림 없는 몸을 뺀 것이다. 같은 팀 몸은 지나간다(서버 판정과 같게).</summary>
         public static bool TouchesDrawnBody(Vector2 p, string shooterId,
-                                            IReadOnlyList<(string id, Vector2 position)> bodies, float radius)
+                                            IReadOnlyList<(string id, Vector2 position)> bodies, float radius,
+                                            System.Func<string, int> teamOf)
         {
             float sq = radius * radius;
+            int shooterTeam = teamOf(shooterId);
             for (int i = 0; i < bodies.Count; i++)
             {
                 if (bodies[i].id == shooterId) continue;
+                if (KnockbackTeams.SameTeam(shooterTeam, teamOf(bodies[i].id))) continue;
                 if ((bodies[i].position - p).sqrMagnitude <= sq) return true;
             }
             return false;

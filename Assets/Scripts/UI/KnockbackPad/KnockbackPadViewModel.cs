@@ -162,46 +162,61 @@ namespace LOP.UI
 
         /// <summary>
         /// 발사 버튼을 잡고 있는 동안 매 프레임 불러 조준 표시 상태를 갱신한다. 손을 떼면 held=false로 불러 끈다.
+        /// 표시는 "지금 놓으면 무슨 일이 일어나나"(<see cref="OutcomeOnRelease"/>)를 그대로 보여 준다.
         /// </summary>
-        public void UpdateAim(bool held, Vector2 drag, bool everDragged)
+        public void UpdateAim(bool held, float heldSeconds, float maxDrag01, Vector2 drag)
         {
-            if (!held)
+            var camera = cameraController.MainCamera;
+            if (!held || camera == null)
             {
                 aimState.Clear();
                 return;
             }
             bool hasTarget = TryFindAutoTarget(out var me, out var target);
-            var kind = AimIndicatorState(drag.magnitude, true, hasTarget, everDragged);
+            float? yaw = AimYaw(drag, camera.transform.eulerAngles.y);
+            var kind = AimIndicatorState(heldSeconds, maxDrag01, drag.magnitude, hasTarget);
+            // 방향이 없으면(끌기 0) 조준선을 그릴 수 없다.
+            if (kind == AimKind.Aim && !yaw.HasValue)
+            {
+                kind = AimKind.None;
+            }
             aimState.Kind = kind;
-            aimState.AimYaw = AimYaw(drag, cameraController.MainCamera.transform.eulerAngles.y) ?? 0f;
+            aimState.AimYaw = yaw ?? 0f;
             aimState.TargetXZ = target;
         }
 
         public enum AimKind { None, Cancel, Aim, AutoTarget }
 
-        /// <summary>이만큼 이상 끌어야 "끌었다"로 본다. 손가락이 살짝 떨리는 것까지 끌기로 치지 않게.</summary>
-        public const float AimDeadZone01 = 0.05f;
+        public enum ReleaseOutcome { Nothing, Auto, Fire, Cancel }
 
         /// <summary>
-        /// 조준 표시 종류. 놓으면 쏘는 끌기(임계 이상) = Aim, 끌었지만 임계 미만이라 놓으면 취소 = Cancel,
-        /// 아직 안 끌고 누르고만 있음 = 자동 조준 대상(없으면 None).
-        /// everDragged: 끌었다가 가운데로 되돌려 놓은 경우도 취소라서 Cancel로 둔다.
+        /// 지금 손을 떼면 일어날 일. 놓는 처리(OnFireUp)와 조준 표시가 같은 함수를 쓴다.
+        /// 끌기(최대 끌기가 임계 이상)면 현재 끌기가 임계 이상일 때만 발사, 아니면 취소.
+        /// 안 끌고 짧게 눌렀으면 자동 조준 발사, 오래 눌렀으면 아무 일도 없다.
         /// </summary>
-        public static AimKind AimIndicatorState(float drag01, bool held, bool hasTarget, bool everDragged = false)
+        public static ReleaseOutcome OutcomeOnRelease(float heldSeconds, float maxDrag01, float currentDrag01)
         {
-            if (!held)
+            switch (Classify(heldSeconds, maxDrag01))
             {
-                return AimKind.None;
+                case TapOrDrag.Drag:
+                    return currentDrag01 >= DragThreshold ? ReleaseOutcome.Fire : ReleaseOutcome.Cancel;
+                case TapOrDrag.Tap:
+                    return ReleaseOutcome.Auto;
+                default:
+                    return ReleaseOutcome.Nothing;
             }
-            if (drag01 >= DragThreshold)
+        }
+
+        /// <summary>조준 표시 종류. 놓았을 때의 결과(<see cref="OutcomeOnRelease"/>)를 표시로 옮긴 것.</summary>
+        public static AimKind AimIndicatorState(float heldSeconds, float maxDrag01, float currentDrag01, bool hasTarget)
+        {
+            switch (OutcomeOnRelease(heldSeconds, maxDrag01, currentDrag01))
             {
-                return AimKind.Aim;
+                case ReleaseOutcome.Fire: return AimKind.Aim;
+                case ReleaseOutcome.Cancel: return AimKind.Cancel;
+                case ReleaseOutcome.Auto: return hasTarget ? AimKind.AutoTarget : AimKind.None;
+                default: return AimKind.None;
             }
-            if (everDragged || drag01 > AimDeadZone01)
-            {
-                return AimKind.Cancel;
-            }
-            return hasTarget ? AimKind.AutoTarget : AimKind.None;
         }
 
         /// <summary>마우스가 가리키는 바닥점 쪽으로 쏜다(PC).</summary>

@@ -36,6 +36,30 @@ namespace LOP.EditorTools.Automation
         /// <summary>요소 가운데를 누르면 그 요소(또는 그 안쪽)가 받는다 — 모달·덮개에 가려지지 않았다.</summary>
         [JsonProperty("onTop")] public bool OnTop;
         [JsonProperty("clickable")] public bool Clickable => Visible && Enabled && OnTop;
+        /// <summary>요소 가운데의 화면 위치(0..1, 왼쪽 위 원점) — 좌표 단계(touch·drag)를 손으로 쓸 때 본다. 패널 밖이면 -1.</summary>
+        [JsonProperty("x")] public float X = -1f;
+        [JsonProperty("y")] public float Y = -1f;
+    }
+
+    /// <summary>좌표 단계가 쓰는 장치(spec §8.4). 에디터에서 사람이 쓰는 것은 마우스 — 기본값이다.</summary>
+    public enum PointerDevice
+    {
+        Mouse,
+        Touch,
+    }
+
+    public enum PointerPhase
+    {
+        Down,
+        Move,
+        Up,
+    }
+
+    /// <summary>Input System이 Game 뷰 초점을 따르는 방식 — "backgroundBehavior/editorInputBehaviorInPlayMode"(spec §8.3).</summary>
+    public static class GameInputModes
+    {
+        /// <summary>초점과 상관없이 모든 장치 입력이 게임으로. 둘 다여야 Input System이 "초점 없어도 받는다"로 본다.</summary>
+        public const string AlwaysToGame = "IgnoreFocus/AllDeviceInputAlwaysGoesToGameView";
     }
 
     /// <summary>
@@ -75,5 +99,20 @@ namespace LOP.EditorTools.Automation
         void RemoveSyntheticTouchscreen();
 
         bool SaveScreenshot(string absolutePath, int width, int height, out string why);
+
+        //  ── 매크로 확장(spec §8.3~§8.5·§15) ──
+
+        /// <summary>지금 입력 모드(<see cref="GameInputModes"/> 꼴).</summary>
+        string GameInputMode { get; }
+        bool SetGameInputMode(string mode, out string why);
+        /// <summary>정규화 좌표(0..1, 왼쪽 위 원점)의 포인터 이벤트를 Input System에 넣는다 — 게임 코드와 UI가 사람 손처럼 받는다.</summary>
+        bool QueuePointer(PointerDevice device, Vector2 normalized, PointerPhase phase, out string why);
+        /// <summary>Input System 키보드에 글자 이벤트를 넣는다(Keyboard.onTextInput).</summary>
+        bool QueueText(string text, out string why);
+        /// <summary>선택자가 가리키는 글자 칸에 KeyDownEvent로 친다. 다 친 뒤 칸 글자가 기대와 다르면 실패.</summary>
+        bool TypeIntoField(UiSelector selector, string value, bool clear, bool submit, out string why);
+        bool CapturePng(int width, int height, out byte[] png, out string why);
+        /// <summary>기준 그림 폴더(절대 경로) — 프로젝트의 Automation/Baselines.</summary>
+        string BaselineRoot { get; }
     }
 }

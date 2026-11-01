@@ -74,7 +74,7 @@ namespace LOP.Tests
             new InputTapStep().Tick(_kit.Ctx("input_tap", "{\"x\":100,\"y\":200}"));
 
             CollectionAssert.AreEqual(new[] { "touch(100,200):down" }, _kit.Driver.Inputs);
-            Assert.AreEqual(RestoreKinds.Touchscreen, _kit.State.Restores.Single().Kind);
+            CollectionAssert.AreEqual(new[] { RestoreKinds.GameInput, RestoreKinds.Touchscreen }, _kit.State.Restores.Select(r => r.Kind).ToArray());
         }
 
         [Test]

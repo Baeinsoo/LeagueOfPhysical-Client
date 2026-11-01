@@ -10,11 +10,12 @@ namespace LOP.Tests
     public class AutomationScenarioFileTests
     {
         [Test]
-        public void 카탈로그는_열네_단계를_op로_가진다()
+        public void 카탈로그는_정한_op를_모두_가진다()
         {
             CollectionAssert.AreEquivalent(
                 new[] { "ui_wait", "ui_click", "ui_read", "input_tap", "wait_state", "play_enter", "play_exit", "boot_to_lobby",
-                        "select_game", "auto_flap", "set_environment", "screenshot", "log", "wait" },
+                        "select_game", "auto_flap", "set_environment", "screenshot", "log", "wait",
+                        "touch", "long_press", "drag", "ui_type", "input_text", "snapshot_compare" },
                 StepCatalog.CreateAll().Keys.ToArray());
         }
 

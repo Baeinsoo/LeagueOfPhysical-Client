@@ -36,7 +36,10 @@ namespace LOP.UI
             _input.value = _viewModel.CurrentDisplayName;
             _input.Focus();
 
-            _input.RegisterCallback<KeyDownEvent>(OnKeyDown);
+            //  TrickleDown으로 등록해야 한다 — 안쪽 TextElement(KeyboardTextEditorEventHandler)가 진짜 Enter를
+            //  AtTarget 단계에서 StopPropagation으로 삼켜 버블이 여기까지 안 올라온다. TrickleDown은 그보다 먼저
+            //  (루트→타깃 내려가는 길에) 한 번만 불리므로, 그 StopPropagation과 상관없이 정확히 한 번 깨어난다.
+            _input.RegisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
             _confirmButton.clicked += OnConfirmClicked;
             _cancelButton.clicked += OnCancelClicked;
             _viewModel.MessageChanged += OnMessageChanged;
@@ -48,7 +51,7 @@ namespace LOP.UI
 
         public override void OnClose()
         {
-            if (_input != null) _input.UnregisterCallback<KeyDownEvent>(OnKeyDown);
+            if (_input != null) _input.UnregisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
             if (_confirmButton != null) _confirmButton.clicked -= OnConfirmClicked;
             if (_cancelButton != null) _cancelButton.clicked -= OnCancelClicked;
             _viewModel.MessageChanged -= OnMessageChanged;

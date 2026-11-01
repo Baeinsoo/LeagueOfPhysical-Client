@@ -71,5 +71,20 @@ namespace LOP.Tests
             Assert.AreEqual("20261101-093006-a-b",
                 RunNames.NewRunId("a b", new DateTime(2026, 11, 1, 9, 30, 6), _ => false));
         }
+
+        [Test]
+        public void 실행_폴더_이름은_슬래시_없는_하나만_되고_루트_밖으로_못_나간다()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "lop-automation-tests", "runs");
+
+            Assert.IsTrue(RunNames.TryResolveRunDir(root, "20261101-153005-lobby-tour", out var path, out _));
+            Assert.AreEqual(Path.GetFullPath(Path.Combine(root, "20261101-153005-lobby-tour")), path);
+
+            foreach (var bad in new[] { null, "", ".", "..", "a/b", "a\\b", "../x", "/abs", "C:foo", "C:\\foo" })
+            {
+                Assert.IsFalse(RunNames.TryResolveRunDir(root, bad, out _, out var why), bad);
+                Assert.IsNotNull(why, bad);
+            }
+        }
     }
 }

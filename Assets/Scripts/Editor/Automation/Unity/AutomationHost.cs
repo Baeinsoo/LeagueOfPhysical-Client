@@ -26,6 +26,8 @@ namespace LOP.EditorTools.Automation
 
         static AutomationHost()
         {
+            //  녹화 중엔 실행을 안 받는다 — 실행의 합성 입력이 녹화에 섞인다(spec §7.1). 반대(실행 중 녹화 시작)는 MacroRecorderHost가 막는다.
+            Session.BlockReason = () => MacroRecorderHost.IsRecording ? "녹화 중이다 — automation_record_stop 뒤에" : null;
             EditorApplication.update += Update;
             UnityEngine.Application.logMessageReceived += OnLog;
             AssemblyReloadEvents.beforeAssemblyReload += Session.Flush;

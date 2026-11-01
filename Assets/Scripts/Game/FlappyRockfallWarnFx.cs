@@ -22,22 +22,27 @@ namespace LOP
     public class FlappyRockfallWarnFx : ITickable, IDisposable
     {
         /// <summary>떨어지기 몇 초 전부터 예고하나. 숨는 시간(0.24초)보다 길어 앞 바위가 바닥 근처일 때 시작한다 — 균열은 천장이라 겹쳐 보이지 않는다.
-        /// 0.45 → 0.7초(11-01 공정성 분석): 낙하 0.64초 전엔 어느 높이에서도 이미 못 피하는 상태가 0%라, 예고를 보고 0.2초 뒤에 움직여도
-        /// 천장 근처까지 다 피할 수 있다(0.45초였을 땐 천장 띠의 6%가 못 피했다).</summary>
+        /// 0.45 → 0.7초(11-01 공정성 분석, 진짜 맵·판정, 위상 90° — Logs/rockfall-fairness/telegraph.txt): 예고 시작(낙하 0.70초 전)과
+        /// 예고를 보고 0.2초 뒤(0.50초 전) 모두, 모든 높이에서 이미 못 피하는 상태가 0%였다. 0.45초 예고 + 0.2초(0.24초 전)엔 천장 띠의 7.1%가 못 피했다.</summary>
         public const float WarnSeconds = 0.7f;
         /// <summary>그림용 바위가 비집고 나와 떠는 시간(떨어지기 직전 몇 초).</summary>
         public const float PeekSeconds = 0.35f;
-        /// <summary>그림용 바위 아랫면이 천장선 밑으로 나오는 최대 깊이(m).</summary>
-        public const float PeekDepthMax = 0.45f;
+        /// <summary>그림용 바위 아랫면이 천장선 밑으로 나오는 최대 깊이(m). 판정 없는 그림이라 얕게 — 11-01 리뷰: 0.45 m면 천장에 붙어 나는 새가
+        /// 그림 바위를 그대로 뚫고 지나가 "닿았는데 안 맞았다"가 됐다(같은 PR에서 바위 그림을 판정 상자와 맞춘 것과 반대 방향의 어긋남).</summary>
+        public const float PeekDepthMax = 0.15f;
         /// <summary>떨기 최대 폭(m, 좌우 한쪽) · 빠르기(Hz). 나올수록 세진다 — 색은 안 바꾸고 크기로만.</summary>
         public const float ShakeAmplitude = 0.05f, ShakeHz = 14f;
-        /// <summary>우르르는 내 새 바로 다음 줄(앞쪽으로 가장 가까운 줄)이 이 거리(m) 안일 때만.</summary>
+        /// <summary>우르르는 내 새 바로 다음 줄(아직 나를 칠 수 있는 줄 중 가장 가까운 줄)이 이 거리(m) 안일 때만.</summary>
         public const float RumbleRange = 18f;
-        //  복사본을 진짜 바위보다 조금 뒤에 — 떨어지기 시작한 두세 틱 겹칠 때 같은 면끼리 깜빡이지 않게.
-        private const float PeekBehindZ = 0.02f;
+        /// <summary>새 몸 반지름(FlappyConfig.BodyRadius) — 줄 x가 내 새보다 바위 반 변 + 이만큼 뒤까지는 아직 나를 칠 수 있다.</summary>
+        public const float RumbleBodyRadius = 0.45f;
+        //  복사본을 진짜 바위 그림보다 뒤에 — 바위 앞면 조각 두께(0.05)보다 두껍게 밀어 겹쳐도 금 자리에 복사본 조각이 비치지 않게(11-01 리뷰 M1).
+        internal const float PeekBehindZ = 0.06f;
         private const int PoolSize = 48;
         private const float SpreadX = 0.55f;            // 균열 폭(±1 m) 안쪽에서
-        private const float DustZ = -0.9f;              // 판정면·바위(−0.65) 앞, 천장 바위 띠(−1.35) 뒤
+        //  바위 앞면(가운데 −0.65 − 반 변 0.6 = −1.25, 그림 바위는 +0.06 뒤 −1.19) 앞, 천장 바위 띠(−1.35) 뒤.
+        //  11-01 리뷰 I2: −0.9였을 땐 바위 앞면보다 뒤라 마지막 0.35초(먼지가 가장 셀 때) 그림 바위에 가려졌다.
+        private const float DustZ = -1.3f;
         private const float DustRatePerSecond = 70f;    // 예고 최고 세기에서 초당 먼지 수
         private static readonly Color DustColor = new Color(0.78f, 0.7f, 0.6f, 1f);
         private static readonly Color GritColor = new Color(0.42f, 0.36f, 0.3f, 1f);
@@ -57,7 +62,7 @@ namespace LOP
         private const int MaxSearches = 6;   // 스코프 시작 + 1초 간격 5초 — 낙석 없는 맵에서 영원히 뒤지지 않게
         private readonly Dictionary<FlappyRockfall, float> spawnDebt = new Dictionary<FlappyRockfall, float>();
         private readonly Dictionary<FlappyRockfall, GameObject> peeks = new Dictionary<FlappyRockfall, GameObject>();
-        private readonly Dictionary<FlappyRockfall, long> rumbledCycle = new Dictionary<FlappyRockfall, long>();
+        private readonly Dictionary<FlappyRockfall, long> windowSeen = new Dictionary<FlappyRockfall, long>();
         private readonly List<float> rowXs = new List<float>();
         private readonly List<Mote> pool = new List<Mote>();
         private System.Random random = new System.Random(1013);
@@ -147,8 +152,8 @@ namespace LOP
         /// <summary>
         /// 그림용 바위 자세: 아랫면이 천장선 밑으로 나온 깊이(m)와 좌우 떨림(m). 보일 때만 true.
         /// 떨어지기 <see cref="PeekSeconds"/> 전부터 0에서 <see cref="PeekDepthMax"/> 쪽으로 빠르게 나왔다가 천천히 다 나오고(1 − (1 − p)²),
-        /// 떨림 폭도 나온 만큼 커진다. 진짜 바위가 떨어지기 시작하면 떨림을 멈추고 그 자리에 있다가, 진짜 바위 아랫면이
-        /// 복사본 아랫면을 지나면(두세 틱) 사라진다 — 진짜 바위가 0에서 나오느라 그림이 위로 튀어 보이지 않게.
+        /// 떨림 폭도 나온 만큼 커진다. 진짜 바위가 떨어지기 시작한 틱엔 바로 숨는다(진짜 바위 아랫면이 천장선에서 다시 나오므로
+        /// 0.15 m 위로 한 번 튀어 보이지만, 판정 없는 그림이 판정보다 앞서 있는 것보다 낫다 — 11-01 리뷰 I1).
         /// </summary>
         internal static bool PeekPose(float periodSeconds, float fallSpeed, float dropDistance, float phaseDegrees,
                                       long tick, float tickSeconds, out float depth, out float shake)
@@ -161,14 +166,8 @@ namespace LOP
             }
             if (until > PeekSeconds)
             {
-                //  막 떨어지기 시작한 두세 틱 — 엿보던 자리에 멈춰 있다가 진짜 바위가 지나가면 사라진다.
-                //  창을 먼저 본다: 엿보기 창 앞쪽 몇 틱엔 앞 바위가 아직 바닥 근처로 떨어지는 중이라, 낙하부터 보면 엿보기가 늦게 시작한다.
-                if (FlappyRockfallCurve.FallingAt(periodSeconds, fallSpeed, dropDistance, phaseDegrees, tick, tickSeconds, out float fallen)
-                    && fallen < PeekDepthMax)
-                {
-                    depth = PeekDepthMax;
-                    return true;
-                }
+                //  창 밖 — 낙하가 시작된 틱(until = 한 주기)부터는 진짜 바위가 보이므로 바로 숨는다. 그림이 판정을 앞서지 않게(11-01 리뷰 I1).
+                //  창 앞쪽 몇 틱엔 앞 바위가 아직 바닥 근처로 떨어지는 중이지만 창은 남은 시간만 보므로 엿보기를 막지 않는다.
                 return false;
             }
             float p = Mathf.Clamp01(1f - (float)(until / PeekSeconds) + tickSeconds / PeekSeconds);
@@ -178,23 +177,23 @@ namespace LOP
             return true;
         }
 
-        /// <summary>우르르를 낼 거리인가: 내 새보다 앞(0 초과)이고 <see cref="RumbleRange"/> 안.</summary>
-        internal static bool InRumbleRange(float rowX, float birdX)
+        /// <summary>우르르를 낼 거리인가: 아직 나를 칠 수 있고(줄이 바위 반 변 + 몸 반지름보다 덜 뒤) <see cref="RumbleRange"/> 안.</summary>
+        internal static bool InRumbleRange(float rowX, float birdX, float rowHalf)
         {
             float ahead = rowX - birdX;
-            return ahead > 0f && ahead <= RumbleRange;
+            return ahead > -(rowHalf + RumbleBodyRadius) && ahead <= RumbleRange;
         }
 
         /// <summary>
-        /// 우르르를 낼 줄 하나: 내 새 앞 <see cref="RumbleRange"/> 안에서 가장 가까운 줄. 없으면 -1.
+        /// 우르르를 낼 줄 하나: 아직 나를 칠 수 있는 줄 중(<see cref="InRumbleRange"/>) 가장 앞쪽(x가 가장 작은) 줄. 없으면 -1.
         /// 11-01 판정: 90°면 범위 안 줄들이 0.5초마다 번갈아 떨어져 우르르가 쉬지 않았다 — 바로 다음 줄만 울린다(그림은 모든 줄 그대로).
         /// </summary>
-        internal static int NextRumbleRow(IReadOnlyList<float> rowXs, float birdX)
+        internal static int NextRumbleRow(IReadOnlyList<float> rowXs, float birdX, float rowHalf)
         {
             int best = -1;
             for (int i = 0; i < rowXs.Count; i++)
             {
-                if (InRumbleRange(rowXs[i], birdX) && (best < 0 || rowXs[i] < rowXs[best]))
+                if (InRumbleRange(rowXs[i], birdX, rowHalf) && (best < 0 || rowXs[i] < rowXs[best]))
                 {
                     best = i;
                 }
@@ -234,7 +233,9 @@ namespace LOP
             double spt = secondsPerTick();
             if (spt <= 0d)
             {
-                return;   // 게임 정보 전 — 박자를 모른다
+                //  게임 정보 전·잃음(재접속 등) — 박자를 모른다. 엿보던 그림 바위가 통로에 얼어 있지 않게 숨긴다(11-01 리뷰 M4).
+                foreach (var copy in peeks.Values) { if (copy != null) { copy.SetActive(false); } }
+                return;
             }
             if (HasDestroyed())
             {
@@ -267,7 +268,9 @@ namespace LOP
             {
                 rowXs.Clear();
                 foreach (var rf in rockfalls) { rowXs.Add(rf != null ? RowX(rf) : float.MaxValue); }
-                int next = NextRumbleRow(rowXs, birdX.Value);
+                float rowHalf = 0f;
+                foreach (var rf in rockfalls) { if (rf != null) { rowHalf = Mathf.Max(rowHalf, rf.Size * 0.5f); } }
+                int next = NextRumbleRow(rowXs, birdX.Value, rowHalf);
                 rumbleRow = next >= 0 ? rockfalls[next] : null;
             }
             foreach (var rf in rockfalls)
@@ -277,13 +280,16 @@ namespace LOP
                     continue;
                 }
                 bool peeking = UpdatePeek(rf, tick, (float)spt);
-                //  우르르: 내 새 바로 다음 줄만, 그 줄 낙하마다 한 번.
-                if (peeking && audio != null && rf == rumbleRow
-                    && UntilFall(rf.Period, rf.Phase, tick, (float)spt, out double until, out long nextFall) && until <= PeekSeconds
-                    && (rumbledCycle.TryGetValue(rf, out long last) == false || last != nextFall))
+                //  우르르: 그 줄 엿보기가 시작될 때(처음 본 창 틱) 그 줄이 내 새 바로 다음 줄이면 한 번 울린다. 결정은 그 낙하 동안 잠근다 —
+                //  창 중간에 다음 줄이 바뀌어도 울리지 않는다(낙하 직전 뒷북 방지, 11-01 리뷰 I3).
+                if (peeking && UntilFall(rf.Period, rf.Phase, tick, (float)spt, out double until, out long nextFall) && until <= PeekSeconds
+                    && (windowSeen.TryGetValue(rf, out long seen) == false || seen != nextFall))
                 {
-                    rumbledCycle[rf] = nextFall;
-                    audio.Play(FlappySfx.Rumble);
+                    windowSeen[rf] = nextFall;
+                    if (audio != null && rf == rumbleRow)
+                    {
+                        audio.Play(FlappySfx.Rumble);
+                    }
                 }
                 float level = WarnLevel(rf.Period, rf.Speed, rf.Drop, rf.Phase, tick, (float)spt, WarnSeconds);
                 if (level <= 0f)
@@ -351,7 +357,7 @@ namespace LOP
         {
             foreach (var copy in peeks.Values) { DestroyObject(copy); }
             peeks.Clear();
-            rumbledCycle.Clear();
+            windowSeen.Clear();
             spawnDebt.Clear();
         }
 

@@ -34,6 +34,8 @@ namespace LOP
             // 조작면을 먼저 열어 Window 밴드 맨 아래에 깐다(전체화면이라 위 위젯 입력을 막지 않게).
             windowManager.Open<KnockbackPadView>();
             windowManager.Open<DebugHudView>();
+            windowManager.Open<KnockbackHudView>();
+            windowManager.Open<RaceStartView>();   // 출발 전엔 못 움직이고 못 쏜다 — 대기·카운트다운을 보여 준다
             _opened = true;
         }
     }

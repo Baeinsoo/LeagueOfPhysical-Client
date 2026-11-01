@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="hud-root" class="hud-root" picking-mode="Ignore">
+        <ui:VisualElement name="top-panel" class="top-panel" picking-mode="Ignore">
+            <ui:Label name="alive-text" class="info-text" picking-mode="Ignore" />
+            <ui:Label name="zone-text" class="info-text" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:Label name="damage-text" class="damage-text" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

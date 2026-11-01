@@ -1,0 +1,35 @@
+.hud-root {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+}
+
+.top-panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 24px;
+    align-items: center;
+}
+
+.info-text {
+    font-size: 26px;
+    color: rgb(255, 255, 255);
+    background-color: rgba(0, 0, 0, 0.45);
+    padding: 4px 12px;
+    margin-bottom: 4px;
+    border-radius: 6px;
+}
+
+.damage-text {
+    position: absolute;
+    left: 24px;
+    top: 24px;
+    font-size: 72px;
+    -unity-font-style: bold;
+    color: rgb(255, 255, 255);
+    -unity-text-outline-width: 2px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.8);
+}

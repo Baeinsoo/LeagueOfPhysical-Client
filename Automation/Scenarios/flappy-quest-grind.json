@@ -1,0 +1,32 @@
+{
+  "name": "flappy-quest-grind",
+  "description": "로그인 → 퀘스트 판 읽기 → Flappy 매칭 → 자동 비행 완주 → 결과판 기록·스크린샷 → 로비, repeat번",
+  "repeat": 3,
+  "setup": [
+    { "op": "set_environment", "env": "local-k8s" },
+    { "op": "auto_flap", "on": true },
+    { "op": "play_enter" },
+    { "op": "boot_to_lobby", "timeout_s": 120 }
+  ],
+  "loop": [
+    { "op": "ui_click", "name": "nav-quests", "optional": true, "timeout_s": 10 },
+    { "op": "ui_read", "name": "quest-daily-list", "text_contains": "/", "as": "quests_daily", "optional": true, "timeout_s": 10 },
+    { "op": "ui_read", "name": "quest-weekly-list", "text_contains": "/", "as": "quests_weekly", "optional": true, "timeout_s": 5 },
+    { "op": "screenshot", "as": "quests", "optional": true },
+    { "op": "ui_click", "name": "back-button", "optional": true, "timeout_s": 10 },
+    { "op": "select_game", "game_mode_id": 6, "queue": "casual" },
+    { "op": "ui_click", "name": "play-button", "timeout_s": 20 },
+    { "op": "wait_state", "state": "InMatch", "timeout_s": 180 },
+    { "op": "wait_state", "state": "PostMatch", "scene": "Result", "timeout_s": 600 },
+    { "op": "ui_wait", "name": "confirm-button", "clickable": true, "timeout_s": 30 },
+    { "op": "ui_read", "name": "matchresult-reward-body", "as": "reward", "optional": true, "timeout_s": 5 },
+    { "op": "ui_read", "name": "matchresult-quest-rows", "as": "quest_lines", "optional": true, "timeout_s": 5 },
+    { "op": "screenshot", "as": "result" },
+    { "op": "ui_click", "name": "confirm-button", "timeout_s": 10 },
+    { "op": "wait_state", "state": "FrontEnd", "scene": "Lobby", "timeout_s": 60 },
+    { "op": "ui_wait", "name": "play-button", "clickable": true, "timeout_s": 60 }
+  ],
+  "teardown": [
+    { "op": "play_exit" }
+  ]
+}

@@ -57,10 +57,11 @@ public class FlappyRockfallWarnFxTests
     [Test]
     public void 예고는_보고_0_2초_뒤에_움직여도_천장_근처까지_피할_만큼_길다()
     {
-        //  11-01 공정성 분석(진짜 맵·판정): 낙하 0.44초 전엔 어느 높이에서도 이미 못 피하는 상태가 0%, 0.24초 전엔 천장 띠의 6%.
-        //  예고를 보고 0.2초 뒤에 움직이는 사람이 늦지 않으려면 예고 − 0.2초가 0.44초를 넘어야 한다(0.45초 예고는 0.25초라 모자랐다).
-        const float Reaction = 0.2f, SafeBeforeFall = 0.44f;
-        Assert.GreaterOrEqual(FlappyRockfallWarnFx.WarnSeconds - Reaction, SafeBeforeFall);
+        //  11-01 공정성 분석(진짜 맵·판정, 위상 90°·예고 0.7초 — Logs/rockfall-fairness/telegraph.txt): 예고 시작(낙하 0.70초 전)과
+        //  예고 + 반응 0.2초(0.50초 전) 모두, 모든 높이에서 이미 못 피하는 상태가 0%였다. 옛 0.45초 예고 + 0.2초(0.24초 전)엔 천장 띠 7.1%.
+        //  아래 0.5초는 그 측정에서 0%를 확인한 마지막 시점이다 — 예고를 줄이면 이 측정 밖으로 나간다(다시 재야 한다).
+        const float Reaction = 0.2f, MeasuredSafeBeforeFall = 0.5f;
+        Assert.GreaterOrEqual(FlappyRockfallWarnFx.WarnSeconds - Reaction, MeasuredSafeBeforeFall - 1e-4f);
         Assert.Greater(Level(100 - Mathf.RoundToInt(0.68f / Dt)), 0f, "낙하 0.68초 전엔 이미 먼지가 난다");
     }
 
@@ -80,11 +81,11 @@ public class FlappyRockfallWarnFxTests
         {
             Assert.IsTrue(Peek(t, out float d, out _), $"틱 {t}");
             Assert.GreaterOrEqual(d, prev, "나오기만 한다(도로 들어가지 않는다)");
-            Assert.LessOrEqual(d, FlappyRockfallWarnFx.PeekDepthMax + 1e-6f, "0.45 m까지만");
+            Assert.LessOrEqual(d, FlappyRockfallWarnFx.PeekDepthMax + 1e-6f, "PeekDepthMax까지만");
             prev = d;
         }
         Assert.Greater(prev, 0.9f * FlappyRockfallWarnFx.PeekDepthMax, "떨어지기 직전엔 거의 다 나왔다");
-        Assert.AreEqual(0.45f, FlappyRockfallWarnFx.PeekDepthMax, 1e-6f, "사용자 결정 0.45 m");
+        Assert.AreEqual(0.15f, FlappyRockfallWarnFx.PeekDepthMax, 1e-6f, "11-01 리뷰 판정 0.15 m(처음 0.45 m는 판정 없는 바위를 새가 뚫고 지나갔다)");
     }
 
     [Test]
@@ -103,15 +104,43 @@ public class FlappyRockfallWarnFxTests
     }
 
     [Test]
-    public void 진짜_바위가_지나가면_그림용_바위는_사라진다()
+    public void 그림용_바위는_판정을_앞서지_않는다()
     {
-        //  떨어지기 시작한 틱: 진짜 바위 아랫면은 천장선(0), 복사본은 0.45 m 밑 — 복사본을 바로 지우면 바위가 위로 튀어 보인다.
-        Assert.IsTrue(Peek(100, out float d0, out float s0));
-        Assert.AreEqual(FlappyRockfallWarnFx.PeekDepthMax, d0, 1e-6f, "엿보던 자리에 멈춘다");
-        Assert.AreEqual(0f, s0, "떨기는 멈춘다");
-        Assert.IsTrue(Peek(102, out _, out _), "틱 102: 진짜 바위 아랫면 0.36 m — 아직 복사본 위");
-        Assert.IsFalse(Peek(103, out _, out _), "틱 103: 진짜 바위 아랫면 0.54 m — 복사본을 덮었다");
-        Assert.IsFalse(Peek(150, out _, out _), "떨어지는 중엔 없다");
+        //  11-01 리뷰 I1: 그림용 바위는 판정이 없다. 깊게 나오거나 낙하가 시작된 뒤에도 남아 있으면 "닿았는데 안 맞았다"가 된다.
+        //  모든 위상·틱에서: 보이면 깊이 ≤ 0.15 m, 그 줄 바위가 천장에서 나오기 시작했으면(통로 위쪽에 있으면) 절대 안 보인다.
+        //  (엿보기 창 앞쪽 몇 틱엔 앞 주기 바위가 바닥 밑으로 빠지는 중이라 FallingAt이 참이다 — 그건 바닥 근처라 따로 친다.)
+        for (float phase = 0f; phase <= 540f; phase += 90f)
+        {
+            for (long t = 0; t < 300; t++)
+            {
+                bool visible = FlappyRockfallWarnFx.PeekPose(2f, 9f, 15.76f, phase, t, Dt, out float depth, out _);
+                bool falling = FlappyRockfallCurve.FallingAt(2f, 9f, 15.76f, phase, t, Dt, out float fallen);
+                if (visible == false) { continue; }
+                Assert.LessOrEqual(depth, 0.15f + 1e-6f, $"위상 {phase} 틱 {t}");
+                Assert.IsFalse(falling && fallen < 15.76f / 2f, $"위상 {phase} 틱 {t}: 진짜 바위가 떨어지기 시작했는데 그림 바위가 남아 있다");
+            }
+        }
+        Assert.IsFalse(Peek(100, out _, out _), "떨어지기 시작한 틱엔 바로 숨는다");
+        Assert.IsFalse(Peek(101, out _, out _));
+    }
+
+    [Test]
+    public void 남은_시간은_Shared_낙하_곡선과_같은_틱에_감긴다()
+    {
+        //  11-01 리뷰 M2: 주기 위치 계산을 Shared FallingAt에서 옮겨 썼다 — 씬의 360·450·540°와 다른 틱 길이에서도 같은 틱인지 맞댄다.
+        foreach (float ts in new[] { 0.02f, 1f / 30f, 1f / 60f })
+        {
+            for (float phase = 0f; phase <= 540f; phase += 90f)
+            {
+                for (long t = 1; t < 400; t++)
+                {
+                    bool startsShared = FlappyRockfallCurve.FallingAt(2f, 9f, 15.76f, phase, t, ts, out float fallen) && fallen == 0f;
+                    FlappyRockfallWarnFx.UntilFall(2f, phase, t - 1, ts, out double untilPrev, out _);
+                    bool startsHere = System.Math.Abs(untilPrev - ts) < 1e-6;
+                    Assert.AreEqual(startsShared, startsHere, $"틱 길이 {ts} 위상 {phase} 틱 {t}");
+                }
+            }
+        }
     }
 
     [Test]
@@ -126,17 +155,19 @@ public class FlappyRockfallWarnFxTests
     [Test]
     public void 우르르는_내_새_앞_18m_안의_줄만()
     {
-        Assert.IsTrue(FlappyRockfallWarnFx.InRumbleRange(118f, 100f), "18 m 앞");
-        Assert.IsFalse(FlappyRockfallWarnFx.InRumbleRange(118.5f, 100f), "18.5 m 앞은 너무 멀다");
-        Assert.IsFalse(FlappyRockfallWarnFx.InRumbleRange(99.5f, 100f), "지나는 중·지나간 줄은 조용히 — 다음 줄을 알린다");
-        Assert.IsFalse(FlappyRockfallWarnFx.InRumbleRange(98f, 100f));
+        const float Half = 0.6f;
+        Assert.IsTrue(FlappyRockfallWarnFx.InRumbleRange(118f, 100f, Half), "18 m 앞");
+        Assert.IsFalse(FlappyRockfallWarnFx.InRumbleRange(118.5f, 100f, Half), "18.5 m 앞은 너무 멀다");
+        Assert.IsTrue(FlappyRockfallWarnFx.InRumbleRange(99.5f, 100f, Half), "11-01 리뷰 I3: 지금 내 새와 겹치는 줄(바위 반 변 + 몸 반지름 안)도 칠 수 있다");
+        Assert.IsFalse(FlappyRockfallWarnFx.InRumbleRange(98.9f, 100f, Half), "다 지나간 줄(1.05 m 넘게 뒤)은 조용히");
     }
 
     [Test]
     public void 우르르_줄은_내_새_앞에서_가장_가까운_줄_하나()
     {
-        Assert.AreEqual(2, FlappyRockfallWarnFx.NextRumbleRow(new[] { 99f, 112f, 104.5f, 121f }, 100f), "앞쪽 가장 가까운 104.5");
-        Assert.AreEqual(-1, FlappyRockfallWarnFx.NextRumbleRow(new[] { 99f, 119f }, 100f), "다음 줄이 18 m 밖이면 없음");
+        Assert.AreEqual(2, FlappyRockfallWarnFx.NextRumbleRow(new[] { 98f, 112f, 104.5f, 121f }, 100f, 0.6f), "앞쪽 가장 가까운 104.5");
+        Assert.AreEqual(0, FlappyRockfallWarnFx.NextRumbleRow(new[] { 99.5f, 104.5f }, 100f, 0.6f), "지금 겹친 줄이 먼저");
+        Assert.AreEqual(-1, FlappyRockfallWarnFx.NextRumbleRow(new[] { 98f, 119f }, 100f, 0.6f), "다음 줄이 18 m 밖이면 없음");
     }
 
     private FlappyRockfall MakeRockfall(float x, float ceiling, bool withLook = false)
@@ -244,6 +275,37 @@ public class FlappyRockfallWarnFxTests
     }
 
     [Test]
+    public void 지금_겹친_줄도_우르르를_낸다()
+    {
+        //  11-01 리뷰 I3 (A): 새 x 105.1, 줄 105 — 새를 칠 수 있는 줄인데 "앞 줄만"이라 침묵했다.
+        var row = MakeRockfall(105f, 5f);
+        var after = MakeRockfall(109.5f, 5f);
+        after.Phase = 180f;
+        var audio = new FakeFlappyAudio();
+        fx = new FlappyRockfallWarnFx(() => tick, () => Dt, () => new[] { row, after }, () => 105.1f, audio);
+        for (tick = 60; tick < 83; tick++) { fx.Tick(0.016f); }
+        Assert.IsEmpty(audio.Played);
+        fx.Tick(0.016f);   // 틱 83 — 줄 105 엿보기 시작
+        Assert.AreEqual(new[] { FlappySfx.Rumble }, audio.Played);
+    }
+
+    [Test]
+    public void 엿보기_창_중간에_다음_줄이_바뀌면_울리지_않는다()
+    {
+        //  11-01 리뷰 I3 (B): 우르르 줄은 그 줄 엿보기가 시작될 때 정하고 잠근다 — 창 중간에 다음 줄이 되면 낙하 직전 뒷북이 난다.
+        var near = MakeRockfall(104f, 5f);             // 위상 0 — 엿보기 틱 83
+        var next = MakeRockfall(108.5f, 5f);           // 위상 90 — 틱 75 낙하, 엿보기 틱 58~74
+        next.Phase = 90f;
+        float birdX = 104.9f;                          // 줄 104와 겹침(0.9 < 1.05) → 다음 줄은 104
+        var audio = new FakeFlappyAudio();
+        fx = new FlappyRockfallWarnFx(() => tick, () => Dt, () => new[] { near, next }, () => birdX, audio);
+        for (tick = 50; tick < 73; tick++) { fx.Tick(0.016f); }
+        birdX = 105.2f;                                // 틱 73: 줄 104를 벗어남 → 다음 줄이 108.5(이미 창 안)
+        for (; tick < 80; tick++) { fx.Tick(0.016f); }
+        Assert.IsEmpty(audio.Played, "창 시작 뒤에 다음 줄이 된 줄은 그 낙하엔 울리지 않는다");
+    }
+
+    [Test]
     public void 같은_틱에_두_줄이_엿보면_우르르는_한_번()
     {
         //  위상 90°씩이면 줄 0과 줄 4(18 m 떨어짐)가 같은 틱에 떨어진다 — 소리가 겹쳐 두 배로 커지지 않게.
@@ -253,6 +315,65 @@ public class FlappyRockfallWarnFxTests
         fx = new FlappyRockfallWarnFx(() => tick, () => Dt, () => new[] { a, b }, () => 100f, audio);
         for (tick = 60; tick < 110; tick++) { fx.Tick(0.016f); }
         Assert.AreEqual(1, audio.Played.Count);
+    }
+
+    [Test]
+    public void 먼지는_그림_바위_앞에_그린다()
+    {
+        //  11-01 리뷰 I2: 먼지(z −0.9)가 바위 앞면(−1.25)보다 뒤라 마지막 0.35초(먼지가 가장 센 때) 그림 바위 실루엣에 가려졌다.
+        var rf = MakeRockfall(10f, 5f, withLook: true);
+        fx = new FlappyRockfallWarnFx(() => tick, () => Dt, () => new[] { rf });
+        for (tick = 80; tick <= 95; tick++) { fx.Tick(0.016f); }
+        GameObject copy = fx.PeekOf(rf);
+        Assert.IsNotNull(copy);
+        float copyFront = float.MaxValue;
+        foreach (Renderer r in copy.GetComponentsInChildren<Renderer>()) { copyFront = Mathf.Min(copyFront, r.bounds.min.z); }
+        Assert.Greater(fx.ActiveDust, 0);
+        foreach (Vector3 p in fx.DustPositions())
+        {
+            Assert.Less(p.z, copyFront, "먼지는 그림 바위 앞면보다 카메라 쪽");
+        }
+    }
+
+    [Test]
+    public void 그림_바위는_진짜_바위_조각_두께보다_뒤로_민다()
+    {
+        //  11-01 리뷰 M1: 앞면 조각 두께 0.05(z −0.6~−0.55)보다 얇게 밀면 겹칠 때 금 자리에 복사본 조각이 비친다.
+        Assert.GreaterOrEqual(FlappyRockfallWarnFx.PeekBehindZ, 0.06f);
+        Assert.Greater(FlappyRockfallWarnFx.PeekBehindZ, 0.05f * LOP.MapTools.MineDressingLayout.DepthScale(LOP.MapTools.MinePartKind.FallingRock));
+    }
+
+    [Test]
+    public void 박자를_모르게_되면_그림_바위를_숨긴다()
+    {
+        //  11-01 리뷰 M4: 재접속 등으로 틱 길이를 잃으면 엿보던 복사본이 통로에 얼어 있었다.
+        var rf = MakeRockfall(10f, 5f, withLook: true);
+        double spt = Dt;
+        fx = new FlappyRockfallWarnFx(() => tick, () => spt, () => new[] { rf });
+        tick = 95;
+        fx.Tick(0.016f);
+        Assert.IsNotNull(fx.PeekOf(rf));
+        spt = 0d;
+        fx.Tick(0.016f);
+        Assert.IsNull(fx.PeekOf(rf));
+    }
+
+    [Test]
+    public void 맵이_다시_올라오면_옛_그림_바위는_남지_않는다()
+    {
+        //  11-01 리뷰 M6: 엿보는 중 라운드가 바뀌어 맵이 다시 올라오면 옛 복사본이 새 판 통로에 얼어 붙으면 안 된다.
+        var old = MakeRockfall(10f, 5f, withLook: true);
+        FlappyRockfall[] current = { old };
+        fx = new FlappyRockfallWarnFx(() => tick, () => Dt, () => current);
+        tick = 95;
+        fx.Tick(0.016f);
+        Assert.IsNotNull(fx.PeekOf(old));
+        Object.DestroyImmediate(old.gameObject);
+        current = new[] { MakeRockfall(10f, 5f) };     // 새 맵(그림 없는 마커 — 새 복사본은 안 생긴다)
+        for (int i = 0; i < 120; i++) { fx.Tick(0.016f); }
+        int peeks = 0;
+        foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None)) { if (t.name == "RockfallPeek") peeks++; }
+        Assert.AreEqual(0, peeks);
     }
 
     [Test]

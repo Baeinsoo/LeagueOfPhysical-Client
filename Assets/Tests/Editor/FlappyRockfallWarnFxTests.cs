@@ -128,8 +128,15 @@ public class FlappyRockfallWarnFxTests
     {
         Assert.IsTrue(FlappyRockfallWarnFx.InRumbleRange(118f, 100f), "18 m 앞");
         Assert.IsFalse(FlappyRockfallWarnFx.InRumbleRange(118.5f, 100f), "18.5 m 앞은 너무 멀다");
-        Assert.IsTrue(FlappyRockfallWarnFx.InRumbleRange(99.5f, 100f), "지나는 중인 줄(바로 머리 위)");
-        Assert.IsFalse(FlappyRockfallWarnFx.InRumbleRange(98f, 100f), "지나간 줄은 조용히");
+        Assert.IsFalse(FlappyRockfallWarnFx.InRumbleRange(99.5f, 100f), "지나는 중·지나간 줄은 조용히 — 다음 줄을 알린다");
+        Assert.IsFalse(FlappyRockfallWarnFx.InRumbleRange(98f, 100f));
+    }
+
+    [Test]
+    public void 우르르_줄은_내_새_앞에서_가장_가까운_줄_하나()
+    {
+        Assert.AreEqual(2, FlappyRockfallWarnFx.NextRumbleRow(new[] { 99f, 112f, 104.5f, 121f }, 100f), "앞쪽 가장 가까운 104.5");
+        Assert.AreEqual(-1, FlappyRockfallWarnFx.NextRumbleRow(new[] { 99f, 119f }, 100f), "다음 줄이 18 m 밖이면 없음");
     }
 
     private FlappyRockfall MakeRockfall(float x, float ceiling, bool withLook = false)
@@ -217,6 +224,23 @@ public class FlappyRockfallWarnFxTests
         fx = new FlappyRockfallWarnFx(() => tick, () => Dt, () => new[] { near }, () => null, audio);
         for (tick = 60; tick < 110; tick++) { fx.Tick(0.016f); }
         Assert.IsEmpty(audio.Played, "내 새를 모르면(판 시작 전·관전) 조용");
+    }
+
+    [Test]
+    public void 범위_안이어도_다음_줄이_아니면_우르르는_안_난다()
+    {
+        //  11-01 판정: 90°면 범위 안 줄들이 0.5초마다 번갈아 떨어져 우르르가 쉬지 않았다 — 바로 다음 줄만 울린다.
+        var next = MakeRockfall(105f, 5f);               // 위상 0 — 틱 100에 떨어진다(엿보기 틱 83)
+        var farther = MakeRockfall(112f, 5f, withLook: true);   // 범위 안, 위상 90° — 틱 75에 떨어진다(엿보기 틱 58)
+        farther.Phase = 90f;
+        var audio = new FakeFlappyAudio();
+        fx = new FlappyRockfallWarnFx(() => tick, () => Dt, () => new[] { next, farther }, () => 100f, audio);
+        for (tick = 50; tick <= 70; tick++) { fx.Tick(0.016f); }
+        Assert.IsNotNull(fx.PeekOf(farther), "먼 줄도 엿보기 그림은 그대로");
+        for (; tick < 83; tick++) { fx.Tick(0.016f); }
+        Assert.IsEmpty(audio.Played, "먼 줄(112 m)이 엿봐도 우르르는 없다");
+        fx.Tick(0.016f);   // 틱 83 — 다음 줄 엿보기
+        Assert.AreEqual(new[] { FlappySfx.Rumble }, audio.Played, "다음 줄(105 m)만 울린다");
     }
 
     [Test]

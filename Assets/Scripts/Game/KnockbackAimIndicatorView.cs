@@ -24,7 +24,7 @@ namespace LOP
         private readonly ActorRegistry actors;
         private readonly KnockbackClientState state;
         private readonly KnockbackConfig config;
-        private readonly IGameDataStore gameDataStore;
+        private readonly IPlayerContext playerContext;
 
         private Mesh lineMesh;
         private Mesh ringMesh;
@@ -34,13 +34,13 @@ namespace LOP
         private KnockbackLateUpdateDriver driver;
 
         public KnockbackAimIndicatorView(KnockbackAimState aim, ActorRegistry actors, KnockbackClientState state,
-                                         KnockbackConfig config, IGameDataStore gameDataStore)
+                                         KnockbackConfig config, IPlayerContext playerContext)
         {
             this.aim = aim;
             this.actors = actors;
             this.state = state;
             this.config = config;
-            this.gameDataStore = gameDataStore;
+            this.playerContext = playerContext;
         }
 
         /// <summary>이 표시 종류에 칠할 색. 그리지 않는 종류는 null.</summary>
@@ -70,7 +70,11 @@ namespace LOP
             line.SetActive(false);
             ring.SetActive(false);
 
-            string me = gameDataStore?.userEntityId;
+            if (material == null)
+            {
+                return;
+            }
+            string me = playerContext.entityId;
             var kind = aim.Kind;
             if (kind == KnockbackPadViewModel.AimKind.None || string.IsNullOrEmpty(me) || state.IsEliminated(me))
             {
@@ -139,7 +143,12 @@ namespace LOP
 
         private static Material CreateTransparentMaterial()
         {
-            var m = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            var shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Sprites/Default");
+            if (shader == null)
+            {
+                return null;
+            }
+            var m = new Material(shader);
             m.SetFloat("_Surface", 1f);
             m.SetFloat("_Blend", 0f);
             m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);

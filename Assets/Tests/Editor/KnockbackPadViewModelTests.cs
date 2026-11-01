@@ -128,30 +128,45 @@ namespace LOP.Tests
             Assert.IsFalse(LOP.UI.KnockbackPadViewModel.AimYaw(Vector2.zero, 30f).HasValue);
         }
 
-        [Test]
-        public void 조준표시_안_누르면_없음()
+        // 표시 상태와 놓을 때의 결과가 모든 경계에서 일치해야 한다.
+        [TestCase(0.2f, 0.1f, 0.1f, 1, 3)]
+        [TestCase(0.3f, 0.1f, 0.1f, 0, 0)]
+        [TestCase(0.2f, 0.35f, 0.1f, 3, 1)]
+        [TestCase(0.3f, 0.35f, 0.1f, 3, 1)]
+        [TestCase(0.2f, 0.35f, 0.35f, 2, 2)]
+        [TestCase(0.3f, 0.35f, 0.35f, 2, 2)]
+        [TestCase(0.2f, 0.29f, 0.29f, 1, 3)]
+        [TestCase(0.2f, 0.3f, 0.3f, 2, 2)]
+        [TestCase(0.2f, 0.9f, 0.29f, 3, 1)]
+        public void 조준표시는_놓을_때의_결과와_일치(float held, float max, float cur, int release, int aim)
         {
-            Assert.AreEqual(LOP.UI.KnockbackPadViewModel.AimKind.None, LOP.UI.KnockbackPadViewModel.AimIndicatorState(0.9f, false, true));
+            Assert.AreEqual(release, (int)LOP.UI.KnockbackPadViewModel.OutcomeOnRelease(held, max, cur));
+            Assert.AreEqual(aim, (int)LOP.UI.KnockbackPadViewModel.AimIndicatorState(held, max, cur, true));
         }
 
         [Test]
-        public void 조준표시_경계_029는_취소_03은_조준()
+        public void 조준표시_대상이_없으면_고리_없음()
         {
-            Assert.AreEqual(LOP.UI.KnockbackPadViewModel.AimKind.Cancel, LOP.UI.KnockbackPadViewModel.AimIndicatorState(0.29f, true, true));
-            Assert.AreEqual(LOP.UI.KnockbackPadViewModel.AimKind.Aim, LOP.UI.KnockbackPadViewModel.AimIndicatorState(0.3f, true, true));
+            Assert.AreEqual(LOP.UI.KnockbackPadViewModel.AimKind.None, LOP.UI.KnockbackPadViewModel.AimIndicatorState(0.1f, 0f, 0f, false));
+            // 양성 대조: 같은 입력에 대상이 있으면 고리.
+            Assert.AreEqual(LOP.UI.KnockbackPadViewModel.AimKind.AutoTarget, LOP.UI.KnockbackPadViewModel.AimIndicatorState(0.1f, 0f, 0f, true));
         }
 
+        // 발사 경로와 조준선 경로가 같은 방향 함수(AimYaw)를 거치는지 소스로 지킨다 — 한쪽이 자기 식을 쓰기 시작하면 빨강.
         [Test]
-        public void 조준표시_안_끌고_누르고만_있으면_대상이_있을_때만_고리()
+        public void 발사와_조준선은_둘_다_AimYaw를_거친다()
         {
-            Assert.AreEqual(LOP.UI.KnockbackPadViewModel.AimKind.AutoTarget, LOP.UI.KnockbackPadViewModel.AimIndicatorState(0f, true, true));
-            Assert.AreEqual(LOP.UI.KnockbackPadViewModel.AimKind.None, LOP.UI.KnockbackPadViewModel.AimIndicatorState(0f, true, false));
-        }
-
-        [Test]
-        public void 조준표시_끌었다_가운데로_되돌리면_취소()
-        {
-            Assert.AreEqual(LOP.UI.KnockbackPadViewModel.AimKind.Cancel, LOP.UI.KnockbackPadViewModel.AimIndicatorState(0f, true, true, true));
+            var path = System.IO.Path.Combine(UnityEngine.Application.dataPath, "Scripts/UI/KnockbackPad/KnockbackPadViewModel.cs");
+            var src = System.IO.File.ReadAllText(path);
+            foreach (var method in new[] { "public void FireTowardScreenDirection(", "public void UpdateAim(" })
+            {
+                int start = src.IndexOf(method, System.StringComparison.Ordinal);
+                Assert.GreaterOrEqual(start, 0, method);
+                //  메서드 본문 = 다음 public 선언 앞까지(줄끝이 CRLF여도 같다).
+                int end = src.IndexOf("public ", start + method.Length, System.StringComparison.Ordinal);
+                if (end < 0) end = src.Length;
+                StringAssert.Contains("AimYaw(", src.Substring(start, end - start), method);
+            }
         }
 
         [Test]

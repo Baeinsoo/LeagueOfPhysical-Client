@@ -195,7 +195,43 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(1.2f, r.Size, 1e-5f);
                 Assert.AreEqual(9f, r.Speed, 1e-5f);
                 Assert.AreEqual(2f, r.Period, 1e-5f);
-                Assert.AreEqual(45f * i, r.Phase, 1e-4f, "줄마다 +0.25초 = 45° — 10-24 사람 판: 0.5초면 줄마다 평균 3.5 m를 오르내려야 해 '무조건 맞는' 느낌, 0.25초면 빈 자리가 물결처럼 2 m 안쪽으로 움직인다");
+                Assert.AreEqual(90f * i, r.Phase, 1e-4f, "줄마다 +0.5초 = 90° — 11-01 사용자 결정: 10-24의 45°는 차례로 떨어지는 물결로 보여 예전 값으로 되돌렸다");
+            }
+        }
+
+        [Test]
+        public void 저장된_맵_씬의_낙석_마커는_코스와_같다()
+        {
+            //  위상만 바꿀 땐 맵을 통째로 다시 굽지 않고 씬 YAML의 Phase 줄만 고친다(11-01, DiveRate 때와 같은 방식).
+            //  손으로 고친 값이 굽기가 낼 값과 똑같은지 저장된 파일로 확인한다 — 어긋나면 서버·클라가 코스 상수와 다른 박자로 돈다.
+            string text = System.IO.File.ReadAllText(System.IO.Path.Combine(Application.dataPath, "Art/Scenes/FlappyRaceMap.unity"));
+            string[] docs = System.Text.RegularExpressions.Regex.Split(text, "\n--- ");
+            var names = new Dictionary<string, string>();
+            foreach (string d in docs)
+            {
+                var go = System.Text.RegularExpressions.Regex.Match(d, @"^!u!1 &(\d+)");
+                if (go.Success) { names[go.Groups[1].Value] = System.Text.RegularExpressions.Regex.Match(d, @"m_Name: (.*)").Groups[1].Value.Trim(); }
+            }
+            float Field(string d, string key) => float.Parse(System.Text.RegularExpressions.Regex.Match(d, $@"\n  {key}: (\S+)").Groups[1].Value,
+                                                             System.Globalization.CultureInfo.InvariantCulture);
+            var scene = new Dictionary<string, string>();
+            foreach (string d in docs)
+            {
+                if (d.Contains("\n  HiddenRise: ") == false) { continue; }
+                string owner = System.Text.RegularExpressions.Regex.Match(d, @"m_GameObject: \{fileID: (\d+)\}").Groups[1].Value;
+                scene[names[owner]] = d;
+            }
+            var c = Layout();
+            Assert.AreEqual(c.Rockfalls.Count, scene.Count, "씬 낙석 마커 수 = 코스 줄 수");
+            foreach (MineRockfall r in c.Rockfalls)
+            {
+                string name = $"Rockfall_{r.X:F1}";
+                Assert.IsTrue(scene.TryGetValue(name, out string d), $"{name} 마커가 씬에 없다");
+                Assert.AreEqual(r.Phase, Field(d, "Phase"), 0f, $"{name} 위상");
+                Assert.AreEqual(r.Period, Field(d, "Period"), 0f, $"{name} 주기");
+                Assert.AreEqual(r.Speed, Field(d, "Speed"), 0f, $"{name} 속도");
+                Assert.AreEqual(r.Drop, Field(d, "Drop"), 1e-5f, $"{name} 낙하 거리");
+                Assert.AreEqual(r.Size, Field(d, "Size"), 1e-6f, $"{name} 크기");
             }
         }
 

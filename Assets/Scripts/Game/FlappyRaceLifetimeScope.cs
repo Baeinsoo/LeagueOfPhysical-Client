@@ -158,7 +158,7 @@ namespace LOP
             builder.RegisterEntryPoint<FlappyMoteFx>();
             //  다이브 충전 연출(기운·빛줄기·고리·충전음·"대시 1칸!") — 판정과 무관한 화면 연출.
             builder.RegisterEntryPoint<FlappyDiveFx>();
-            //  낙석 예고(떨어지기 직전 균열에서 먼지·돌가루) — 판정과 무관한 화면 연출(10-24).
+            //  낙석 예고(떨어지기 0.7초 전 균열에서 먼지 → 0.35초 전 판정 없는 그림 바위가 비집고 나와 떪 + 우르르) — 판정과 무관한 화면·소리 연출(10-24, 11-01).
             builder.RegisterEntryPoint<FlappyRockfallWarnFx>();
 
             //  내 새 흰 테두리·노란 화살표(spec §2) — 판정과 무관한 클라 전용 연출.

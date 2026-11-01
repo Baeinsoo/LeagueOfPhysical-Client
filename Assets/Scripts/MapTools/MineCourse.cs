@@ -397,11 +397,12 @@ namespace LOP.MapTools
         //  줄이 아주 짧을 때 asin이 1을 넘지 않게(시안과 같은 상한 — 지금 값에선 안 걸린다).
         const double MaxSwingSin = 0.95;
 
-        /// <summary>낙석: 줄 수 · 줄 앞 여유 · 줄 사이 · 바위 · 낙하 속도 · 주기 · 줄마다 위상(0.25초 = 45°).
-        /// 위상 간격(10-24 사람 판): 0.5초(90°)면 다음 줄 바위 높이가 위아래로 크게 엇갈려 줄마다 평균 3.5 m를 오르내려야 했다
-        /// ("어느 높이든 무조건 맞는다"). 0.25초면 바위가 비스듬한 물결로 떨어져 빈 자리가 한 방향으로 2 m 안쪽씩 움직인다.</summary>
+        /// <summary>낙석: 줄 수 · 줄 앞 여유 · 줄 사이 · 바위 · 낙하 속도 · 주기 · 줄마다 위상(0.5초 = 90°).
+        /// 위상 간격: 10-24에 0.25초(45°)로 줄였다가 11-01 사용자 결정으로 0.5초(90°)로 되돌렸다 — 45°는 줄줄이 차례로 떨어지는
+        /// 물결로 보였고, 예전처럼 들쭉날쭉 떨어지는 쪽이 낫다. 공정성 분석(11-01): 주기·위상은 "천장에서 갑자기 나와 못 피함"을
+        /// 거의 못 바꾼다 — 그건 예고 길이로 푼다(<c>FlappyRockfallWarnFx</c> 0.7초 + 비집고 나와 떠는 바위).</summary>
         const int RockRows = 7;   // 10-24 사람 판: 4 → 7줄(코스 늘리기)
-        const double RockLead = 1, RockSpacing = 4.5, RockSize = 1.2, RockSpeed = 9, RockPeriod = 2, RockPhaseStep = 45;
+        const double RockLead = 1, RockSpacing = 4.5, RockSize = 1.2, RockSpeed = 9, RockPeriod = 2, RockPhaseStep = 90;
         /// <summary>갈림길 굴 쪽 칸 중심 — 통로가 좁아져 위 굴은 위로 ForkTunnelUp, 아래 굴은 아래로 ForkTunnelDown(비대칭, 예전 둘 다 4.5).</summary>
         const double ForkTunnelUp = 2.6, ForkTunnelDown = 4.6;
         /// <summary>갈림길 반대쪽 보통 칸 관문 틈 중심(통로 중심에서 ±ForkOther, 예전 ±4.5).</summary>

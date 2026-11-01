@@ -31,7 +31,7 @@ namespace LOP.Tests
             Assert.AreEqual(0.45f, r.RowAt(0), 1e-4);
             Assert.AreEqual(0.94f, r.RowAt(7), 1e-4);
             Assert.AreEqual(0.94f + 0.07f + 0.15f, r.LineAt(0), 1e-4);
-            Assert.AreEqual(r.LineAt(1) + 0.10f, r.Ok, 1e-4);
+            Assert.AreEqual(r.LineAt(2) + 0.10f, r.Ok, 1e-4);
         }
 
         [Test]
@@ -39,7 +39,17 @@ namespace LOP.Tests
         {
             var r = new ResultReveal(0);
             Assert.Greater(r.LineAt(0), ResultReveal.Board);
-            Assert.Greater(r.Ok, r.LineAt(1));
+            Assert.Greater(r.Ok, r.LineAt(2));
+        }
+
+        //  퀘스트 줄(spec 2026-10-30 §7) — 보상 줄 다음 자리, 맨 마지막. 확인은 그 뒤.
+        [Test]
+        public void 퀘스트_줄은_보상_줄_다음_자리다()
+        {
+            var r = new ResultReveal(4);
+            Assert.AreEqual(3, ResultReveal.LineSlots);
+            Assert.AreEqual(r.LineAt(1) + ResultReveal.LineGap, r.LineAt(2), 1e-5f);
+            Assert.AreEqual(r.LineAt(2) + ResultReveal.OkPause, r.Ok, 1e-5f);
         }
 
         [Test]

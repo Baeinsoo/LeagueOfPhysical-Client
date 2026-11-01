@@ -29,7 +29,7 @@
             </ui:VisualElement>
             <!-- 오른쪽 줄 -->
             <ui:VisualElement class="lobbyhome-col lobbyhome-col--right">
-                <ui:Button name="nav-missions" class="kit-press kit-nav"><lop:StickerElement><ui:Label text="🎯" class="kit-nav__icon" /><ui:Label text="미션" class="kit-nav__label" /></lop:StickerElement><ui:Label class="kit-title kit-badge" /></ui:Button>
+                <ui:Button name="nav-quests" class="kit-press kit-nav"><lop:StickerElement><ui:Label text="🎯" class="kit-nav__icon" /><ui:Label text="퀘스트" class="kit-nav__label" /></lop:StickerElement><ui:Label class="kit-title kit-badge" /></ui:Button>
                 <ui:Button name="nav-season" class="kit-press kit-nav"><lop:StickerElement><ui:Label text="🏆" class="kit-nav__icon" /><ui:Label text="시즌" class="kit-nav__label" /></lop:StickerElement></ui:Button>
                 <ui:Button name="nav-settings" class="kit-press kit-nav"><lop:StickerElement><ui:Label text="⚙️" class="kit-nav__icon" /><ui:Label text="설정" class="kit-nav__label" /></lop:StickerElement></ui:Button>
             </ui:VisualElement>

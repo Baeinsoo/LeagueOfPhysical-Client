@@ -23,6 +23,7 @@ namespace LOP.UI
         private readonly EconomyStore _economy;
         private readonly IUserDataStore _userData;
         private readonly IRunOutDirector _runOut;
+        private readonly QuestStore _quests;
         private readonly CompositeDisposable _subscriptions = new CompositeDisposable();
 
         private Breather _breather;
@@ -33,13 +34,14 @@ namespace LOP.UI
         private string _shownName;
         private int _tickerIndex;
 
-        public LobbyHomeView(MatchmakingViewModel matchmaking, LobbyHomeViewModel viewModel, EconomyStore economy, IUserDataStore userData, IRunOutDirector runOut)
+        public LobbyHomeView(MatchmakingViewModel matchmaking, LobbyHomeViewModel viewModel, EconomyStore economy, IUserDataStore userData, IRunOutDirector runOut, QuestStore quests)
         {
             _matchmaking = matchmaking;
             _viewModel = viewModel;
             _economy = economy;
             _userData = userData;
             _runOut = runOut;
+            _quests = quests;
         }
 
         public override UILayer Layer => UILayer.Window;
@@ -74,6 +76,15 @@ namespace LOP.UI
             _economy.Progress.CombineLatest(_economy.Coins, (progress, coins) => CoinChipText(progress, coins))
                 .Subscribe(text => Root.Q<Label>("coin-value").text = $"🪙 {text}").AddTo(_subscriptions);
             _economy.Progress.Subscribe(progress => Root.Q<Label>("player-meta").text = $"· {LevelChipText(progress)}").AddTo(_subscriptions);
+
+            //  🎯 배지 = 새로 끝난 퀘스트 수(spec 2026-10-30 §5). 퀘스트 판을 열면 스토어가 0으로 만든다.
+            var questBadge = Root.Q<Button>("nav-quests").Q<Label>(className: "kit-badge");
+            _quests.UnseenCompleted.Subscribe(n =>
+            {
+                var (text, on) = QuestBadge(n);
+                questBadge.text = text;
+                questBadge.EnableInClassList("kit-badge--on", on);
+            }).AddTo(_subscriptions);
 
             //  출전 중엔 로비 UI가 사라지고 입력도 받지 않는다(연출 중 PLAY를 다시 누르지 못하게).
             _runOut.Running.Subscribe(running =>
@@ -172,6 +183,10 @@ namespace LOP.UI
         }
 
         public static string PlacementChipText(int placement) => $"{placement}위";
+
+        /// <summary>🎯 배지 표기. 0이면 숨기고, 두 자리는 자리를 넘쳐 "9+".</summary>
+        public static (string text, bool on) QuestBadge(int unseen) =>
+            unseen <= 0 ? (string.Empty, false) : (unseen > 9 ? "9+" : unseen.ToString(), true);
 
         private void OnRecentPlacements(System.Collections.Generic.IReadOnlyList<int> placements)
         {

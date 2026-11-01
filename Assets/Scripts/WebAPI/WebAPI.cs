@@ -132,6 +132,17 @@ namespace LOP
                 HttpRequestMessage.Put($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/economy/loadout", request), cancellationToken);
         #endregion
 
+        #region Quest
+        //  발행하지 않는다 — 받는 쪽은 QuestStore 하나라 반환값을 그대로 쓴다(GetEconomy와 같은 이유).
+        public static UniTask<GetQuestsResponse> GetQuests(string userId, CancellationToken cancellationToken = default)
+            => authorized.SendAsync<GetQuestsResponse>(
+                HttpRequestMessage.Get($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/quests"), cancellationToken);
+
+        public static UniTask<RerollQuestResponse> RerollQuest(string userId, RerollQuestRequest request, CancellationToken cancellationToken = default)
+            => authorized.SendAsync<RerollQuestResponse>(
+                HttpRequestMessage.Post($"{EnvironmentSettings.active.lobbyBaseURL}/user/{userId}/quests/reroll", request), cancellationToken);
+        #endregion
+
         #region CharacterAppearance
         //  발행하지 않는다 — 받는 쪽(CharacterAppearanceStore·라커룸 VM)이 반환값을 그대로 쓴다.
         public static UniTask<CharacterAppearanceResponse> GetCharacterAppearance(string userId, CancellationToken cancellationToken = default)

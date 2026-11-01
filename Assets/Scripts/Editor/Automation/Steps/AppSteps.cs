@@ -76,12 +76,15 @@ namespace LOP.EditorTools.Automation
 
     /// <summary>
     /// 입구에서 로비까지. 저장된 자격증명이 있으면 조용히 지나가고, 로그인 창이 뜨면 "입장"(게스트)을 한 번 누른다.
+    /// 재생 진입 직후 첫 서버 접속 확인이 실패하면(콜드스타트) "경기장에 닿지 않아요" 대화상자가 뜨는데, 뜰 때마다
+    /// 다시 시도를 눌러 넘긴다(Task 6 S8에서 재현 — 매번 뜨고 한 번 누르면 넘어간다).
     /// 앱이 FrontEnd이고 Lobby 씬이 섰고 PLAY를 누를 수 있으면 끝.
     /// </summary>
     public sealed class BootToLobbyStep : IStepHandler
     {
         public const string GuestButton = "guest-login";
         public const string PlayButton = "play-button";
+        public const string RetryButton = "unreachable-retry";
 
         public string Op => "boot_to_lobby";
         public double DefaultTimeoutSeconds(ScenarioStep step) => 120;
@@ -95,6 +98,13 @@ namespace LOP.EditorTools.Automation
             var play = ctx.Driver.FindElement(new UiSelector { Name = PlayButton });
             if (lobby && play != null && play.Clickable)
                 return StepResult.Done(ctx.Scratch["guest"] != null ? "게스트 로그인" : "자동 로그인");
+
+            //  접속 실패 대화상자는 재시도해도 다시 뜰 수 있다(연속 실패) — 매번 다시 누른다(한 번만이 아니다).
+            var retry = ctx.Driver.FindElement(new UiSelector { Name = RetryButton });
+            if (retry != null && retry.Clickable)
+            {
+                if (!ctx.Driver.Click(new UiSelector { Name = RetryButton }, out var retryWhy)) return StepResult.Fail(retryWhy);
+            }
 
             var guest = ctx.Driver.FindElement(new UiSelector { Name = GuestButton });
             //  한 번만 — 실패하면 창이 오류 문구와 함께 남는데, 계속 누르면 요청만 쌓인다.

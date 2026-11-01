@@ -106,6 +106,28 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void boot_to_lobby는_경기장_접속_실패_대화상자가_뜨면_다시_시도를_누른다()
+        {
+            // Task 6 S8에서 재현: 재생 진입 직후 첫 서버 접속 확인이 실패하면(콜드스타트) "경기장에 닿지 않아요"
+            // 대화상자가 뜬다 — boot_to_lobby가 이걸 모르면 로그인 창도 안 뜨고 120초를 그냥 날린다.
+            _kit.Driver.IsPlaying = true;
+            _kit.Driver.AppState = "Boot";
+            _kit.Driver.Elements.Add(FakeAutomationDriver.Element(BootToLobbyStep.RetryButton, "다시 시도"));
+            var step = new BootToLobbyStep();
+
+            Assert.AreEqual(StepStatus.Running, step.Tick(_kit.Ctx("boot_to_lobby")).Status);
+            CollectionAssert.AreEqual(new[] { BootToLobbyStep.RetryButton }, _kit.Driver.Clicks);
+
+            _kit.Driver.Elements.Clear();
+            _kit.Driver.AppState = "FrontEnd";
+            _kit.Driver.LoadedScenes.Add("Lobby");
+            _kit.Driver.Elements.Add(FakeAutomationDriver.Element(BootToLobbyStep.PlayButton));
+            var done = step.Tick(_kit.Ctx("boot_to_lobby"));
+
+            Assert.AreEqual(StepStatus.Done, done.Status);
+        }
+
+        [Test]
         public void boot_to_lobby는_재생_중이_아니면_바로_실패한다()
         {
             Assert.AreEqual(StepStatus.Failed, new BootToLobbyStep().Tick(_kit.Ctx("boot_to_lobby")).Status);

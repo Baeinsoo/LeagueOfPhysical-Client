@@ -94,7 +94,7 @@ namespace LOP.EditorTools.Automation
         }
 
         //  여러 UI 문서(화면 UI·월드 UI)를 그리는 순서대로 — 뒤에 오는 것이 위에 그려진다.
-        private static IEnumerable<VisualElement> Roots() =>
+        internal static IEnumerable<VisualElement> Roots() =>
             UnityEngine.Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None)
                 .Where(d => d != null && d.isActiveAndEnabled && d.rootVisualElement?.panel != null)
                 .OrderBy(d => d.panelSettings != null ? d.panelSettings.sortingOrder : 0f)
@@ -361,6 +361,35 @@ namespace LOP.EditorTools.Automation
             }
             size = Handles.GetMainGameViewSize();
             return size.x >= 1f && size.y >= 1f;
+        }
+
+        //  ── 녹화기가 쓴다(spec §14.2) ──
+
+        /// <summary>선택자가 지금 가리키는 요소(운전수의 고르기 규칙 그대로) — 녹화기가 "다시 정확히 가리키나"를 본다.</summary>
+        internal static VisualElement Resolve(UiSelector selector) => Best(selector).element;
+
+        /// <summary>정규화 좌표 아래 맨 위 요소 — 위에 그려지는 패널부터 Pick한다(EventSystem도 맨 위 패널이 먼저 받는다).</summary>
+        internal static VisualElement PickAt(Vector2 normalized)
+        {
+            foreach (var panel in Roots().Select(r => r.panel).Distinct().Reverse())
+            {
+                var screen = panel.visualTree.worldBound;
+                var picked = panel.Pick(new Vector2(screen.x + normalized.x * screen.width, screen.y + normalized.y * screen.height));
+                if (picked != null && picked != panel.visualTree) return picked;
+            }
+            return null;
+        }
+
+        /// <summary>Input System 화면 픽셀(왼쪽 아래 원점) → 정규화(왼쪽 위 원점). inside = Game 뷰 안이었나(밖이면 가장자리로 자른다).</summary>
+        internal static bool TryNormalize(Vector2 pixel, out Vector2 normalized, out bool inside)
+        {
+            normalized = default;
+            inside = false;
+            if (!TryGameViewSize(out var size)) return false;
+            var raw = new Vector2(pixel.x / size.x, 1f - pixel.y / size.y);
+            inside = raw.x >= 0f && raw.x <= 1f && raw.y >= 0f && raw.y <= 1f;
+            normalized = new Vector2(Mathf.Clamp01(raw.x), Mathf.Clamp01(raw.y));
+            return true;
         }
     }
 }

@@ -24,7 +24,8 @@ namespace LOP.UI
         private readonly KnockbackConfig config;
         private readonly GameFramework.Runner.IRunner runner;
 
-        private readonly List<Vector2> enemyScratch = new List<Vector2>();
+        private readonly List<Vector2> bodyScratch = new List<Vector2>();
+        private readonly List<int> teamScratch = new List<int>();
 
         public KnockbackPadViewModel(PlayerInputManager input, CameraController cameraController,
                                      ActorRegistry actors, IPlayerContext playerContext,
@@ -102,7 +103,9 @@ namespace LOP.UI
             {
                 return false;
             }
-            enemyScratch.Clear();
+            bodyScratch.Clear();
+            teamScratch.Clear();
+            int myTeam = state.TeamCount >= 2 ? state.MyTeamOf(playerContext.entityId) : 0;
             foreach (var actor in actors.All)
             {
                 if (actor.entityId == playerContext.entityId || state.IsEliminated(actor.entityId) || actor.visualGameObject == null)
@@ -110,9 +113,10 @@ namespace LOP.UI
                     continue;
                 }
                 var p = actor.visualGameObject.transform.position;
-                enemyScratch.Add(new Vector2(p.x, p.z));
+                bodyScratch.Add(new Vector2(p.x, p.z));
+                teamScratch.Add(state.TeamOf(actor.entityId));
             }
-            float? yaw = AutoAimYaw(me, enemyScratch, AutoAimRange);
+            float? yaw = AutoAimYaw(me, bodyScratch, teamScratch, myTeam, AutoAimRange);
             if (!yaw.HasValue)
             {
                 return false;
@@ -175,12 +179,22 @@ namespace LOP.UI
 
         /// <summary>사거리 안에서 가장 가까운 적 쪽의 yaw. 없으면 null. 같은 자리의 적은 방향이 없어 거른다.</summary>
         public static float? AutoAimYaw(Vector2 me, IReadOnlyList<Vector2> enemies, float maxRange)
+            => AutoAimYaw(me, enemies, null, 0, maxRange);
+
+        /// <summary>
+        /// 위와 같되 내 팀(myTeam)과 같은 팀인 몸은 건너뛴다. teams는 bodies와 같은 순서(null = 모두 적).
+        /// </summary>
+        public static float? AutoAimYaw(Vector2 me, IReadOnlyList<Vector2> bodies, IReadOnlyList<int> teams, int myTeam, float maxRange)
         {
             float best = maxRange * maxRange;
             Vector2? target = null;
-            for (int i = 0; i < enemies.Count; i++)
+            for (int i = 0; i < bodies.Count; i++)
             {
-                var d = enemies[i] - me;
+                if (teams != null && KnockbackTeams.SameTeam(myTeam, teams[i]))
+                {
+                    continue;
+                }
+                var d = bodies[i] - me;
                 float sq = d.sqrMagnitude;
                 if (sq < 1e-6f || sq > best)
                 {

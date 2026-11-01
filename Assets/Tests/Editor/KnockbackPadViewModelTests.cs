@@ -31,6 +31,33 @@ namespace LOP.Tests
             Assert.AreEqual(90f, yaw.Value, 1e-3f);   // +x가 90도 — 가까운 쪽(3, 0)
         }
 
+        //  팀전은 몸싸움으로 아군이 붙어 다녀 가장 가까운 몸이 아군인 일이 흔하다 — 서버는 아군을 통과시킨다.
+        [Test]
+        public void 자동_조준은_가까운_아군보다_먼_적을_고른다()
+        {
+            var bodies = new System.Collections.Generic.List<Vector2> { new Vector2(3f, 0f), new Vector2(0f, 8f) };
+            var teams = new System.Collections.Generic.List<int> { 1, 2 };
+            float? yaw = LOP.UI.KnockbackPadViewModel.AutoAimYaw(Vector2.zero, bodies, teams, 1, 15f);
+            Assert.IsTrue(yaw.HasValue);
+            Assert.AreEqual(0f, yaw.Value, 1e-3f);   // 먼 적(0, 8) 쪽
+        }
+
+        [Test]
+        public void 자동_조준_개인전은_가장_가까운_몸_그대로()
+        {
+            var bodies = new System.Collections.Generic.List<Vector2> { new Vector2(3f, 0f), new Vector2(0f, 8f) };
+            var teams = new System.Collections.Generic.List<int> { 0, 0 };
+            Assert.AreEqual(90f, LOP.UI.KnockbackPadViewModel.AutoAimYaw(Vector2.zero, bodies, teams, 0, 15f).Value, 1e-3f);
+        }
+
+        [Test]
+        public void 자동_조준은_아군만_있으면_쏘지_않는다()
+        {
+            var bodies = new System.Collections.Generic.List<Vector2> { new Vector2(3f, 0f) };
+            var teams = new System.Collections.Generic.List<int> { 2 };
+            Assert.IsNull(LOP.UI.KnockbackPadViewModel.AutoAimYaw(Vector2.zero, bodies, teams, 2, 15f));
+        }
+
         [Test]
         public void 자동_조준_0도는_z_앞쪽()
         {

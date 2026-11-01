@@ -77,9 +77,20 @@ namespace LOP.UI
                 : start + (long)System.Math.Ceiling(config.ZoneFirstRevealSeconds / interval);
         }
 
+        public static string TeamAliveText(int mine, int theirs) => $"우리 팀 {mine} · 상대 {theirs}";
+
+        private string AliveTextNow()
+        {
+            if (state.PlayerCount == 0) return "";
+            int team = state.TeamCount >= 2 ? state.MyTeamOf(gameDataStore?.userEntityId) : 0;
+            return team == 0
+                ? $"남은 사람 {state.AliveCount}"
+                : TeamAliveText(state.AliveCountOfTeam(team), state.AliveCountOfOtherTeams(team));
+        }
+
         public void Tick()
         {
-            aliveText.Value = state.PlayerCount == 0 ? "" : $"남은 사람 {state.AliveCount}";
+            aliveText.Value = AliveTextNow();
 
             var tickUpdater = runner?.tickUpdater;
             if (tickUpdater != null && tickUpdater.interval > 0d)

@@ -63,6 +63,39 @@ namespace LOP
         public int TeamOf(string entityId)
             => entityId != null && players.TryGetValue(entityId, out var p) ? p.team : 0;
 
+        private int myTeam;
+
+        /// <summary>
+        /// 내 팀. 한 번 알면 기억한다 — 탈락해 내 몸이 사라진 뒤에도 관전 중 "우리 팀"은 내 팀이다. 모르면 0.
+        /// </summary>
+        public int MyTeamOf(string myEntityId)
+        {
+            if (myTeam == 0) myTeam = TeamOf(myEntityId);
+            return myTeam;
+        }
+
+        /// <summary>그 팀(1·2…)의 살아 있는 수.</summary>
+        public int AliveCountOfTeam(int team)
+        {
+            int n = 0;
+            foreach (var p in players.Values)
+            {
+                if (p.eliminatedTick < 0 && p.team == team) n++;
+            }
+            return n;
+        }
+
+        /// <summary>내 팀이 아닌 팀(팀 번호 0 제외)의 살아 있는 수.</summary>
+        public int AliveCountOfOtherTeams(int team)
+        {
+            int n = 0;
+            foreach (var p in players.Values)
+            {
+                if (p.eliminatedTick < 0 && p.team != 0 && p.team != team) n++;
+            }
+            return n;
+        }
+
         /// <summary>팀 수(0 = 개인전, 첫 상태를 받기 전에도 0).</summary>
         public int TeamCount { get; private set; }
 

@@ -8,6 +8,7 @@ namespace LOP
     {
         public GameInfo gameInfo { get; set; }
         public string userEntityId { get; set; }
+        public string formerEntityId { get; set; }
 
         private readonly IDisposable subscription;
 
@@ -28,6 +29,7 @@ namespace LOP
         {
             gameInfo = gameInfoToC.GameInfo;
             userEntityId = gameInfoToC.EntityId;
+            formerEntityId = gameInfoToC.FormerEntityId;
         }
 
         public void Clear()

@@ -89,5 +89,20 @@ namespace LOP.Tests
             Assert.AreEqual(2, state.AliveCountOfOtherTeams(1));
             Assert.AreEqual(1, state.MyTeamOf("a"));
         }
+
+        [Test]
+        public void 내_몸_id가_비어도_옛_몸_id로_내_팀을_찾는다()
+        {
+            var m = new KnockbackStateToC { Version = 1, TeamCount = 2 };
+            m.Players.Add(new KnockbackPlayerWire { EntityId = "e1", EliminatedTick = 9, Team = 2 });
+            var withFormer = new KnockbackClientState();
+            withFormer.Apply(m);
+            Assert.AreEqual(2, withFormer.MyTeamOf("", "e1"));
+
+            var noFormer = new KnockbackClientState();
+            noFormer.Apply(m);
+            Assert.AreEqual(0, noFormer.MyTeamOf("", ""));
+            Assert.AreEqual(0, noFormer.MyTeamOf("", "모르는몸"));
+        }
     }
 }

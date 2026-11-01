@@ -44,7 +44,7 @@ namespace LOP
             }
 
             // 팀전이면 우리 팀을 먼저 보여 준다. 개인전(내 팀 0)은 id 순 그대로.
-            int myTeam = state.TeamCount >= 2 ? state.MyTeamOf(mine) : 0;
+            int myTeam = state.TeamCount >= 2 ? state.MyTeamOf(mine, gameDataStore.formerEntityId) : 0;
             candidates.Sort((a, b) =>
             {
                 if (myTeam != 0)

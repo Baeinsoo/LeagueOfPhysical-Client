@@ -75,6 +75,7 @@ namespace LOP.UI
             }
 
             PollDesktopFire();
+            _viewModel.UpdateAim(_firePointer != -1, Time.unscaledTime - _fireDownTime, _fireMaxDrag01, _fireDrag);
             UpdateAmmoBar();
         }
 
@@ -170,17 +171,17 @@ namespace LOP.UI
                 return;
             }
             // 놓는 순간의 값을 먼저 챙긴다 — 캡처를 풀면 CaptureOut이 ResetFire로 값을 지운다.
-            var kind = KnockbackPadViewModel.Classify(Time.unscaledTime - _fireDownTime, _fireMaxDrag01);
+            var outcome = KnockbackPadViewModel.OutcomeOnRelease(Time.unscaledTime - _fireDownTime, _fireMaxDrag01, _fireDrag.magnitude);
             Vector2 drag = _fireDrag;
             ((VisualElement)evt.currentTarget).ReleasePointer(evt.pointerId);
 
-            if (kind == KnockbackPadViewModel.TapOrDrag.Tap)
+            // 끌다가 가운데로 돌아와 놓으면 취소(Cancel)라 아무것도 안 쏜다.
+            if (outcome == KnockbackPadViewModel.ReleaseOutcome.Auto)
             {
                 _viewModel.FireAuto();
             }
-            else if (kind == KnockbackPadViewModel.TapOrDrag.Drag && drag.magnitude >= KnockbackPadViewModel.DragThreshold)
+            else if (outcome == KnockbackPadViewModel.ReleaseOutcome.Fire)
             {
-                // 끌다가 가운데로 돌아와 놓으면(위 조건이 거짓) 취소다.
                 _viewModel.FireTowardScreenDirection(drag);
             }
             ResetFire();
@@ -191,6 +192,7 @@ namespace LOP.UI
             _firePointer = -1;
             _fireDrag = Vector2.zero;
             _fireMaxDrag01 = 0f;
+            _viewModel.UpdateAim(false, 0f, 0f, Vector2.zero);
             if (_fireHandle != null)
             {
                 _fireHandle.style.translate = new Translate(0, 0);

@@ -85,6 +85,9 @@ namespace LOP.EditorTools.Automation
             [CliArg("text_contains", "글자 일부")] string textContains = null)
         {
             if (AutomationHost.Session.IsRunning) throw new InvalidOperationException("자동화 실행이 도는 중이다 — 끝나거나 멈춘 뒤에");
+            //  UiClicker는 패널 이벤트라 녹화기의 Input System 엿보기(MacroRecorder.OnEvent)에 안 걸린다 — 녹화 중에 쓰면
+            //  그 클릭이 시나리오에서 조용히 빠진다(Review L2). 녹화에 안 남을 바엔 거절한다.
+            if (MacroRecorderHost.IsRecording) throw new InvalidOperationException("녹화 중이다 — ui_click은 녹화에 안 남는다, automation_record_stop 뒤에");
             var selector = Selector(name, text, textContains);
             var driver = new EditorAutomationDriver();
             var found = driver.FindElement(selector);

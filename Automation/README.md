@@ -93,6 +93,8 @@ unity cmd automation_baseline --project-path $P --run 20261101-153005-lobby-tour
 - 녹화 파일은 손으로 쓴 시나리오와 똑같은 모양이다 — 열어서 고쳐 써도 된다(이름 바꾸기, 기다림 조정, `ui_wait` 더하기…).
 - 녹화와 실행은 **동시에 못 한다** — 녹화 중엔 `automation_start`·`automation_step`·`automation_baseline --scenario`를 거절하고, 실행 중엔
   녹화 시작을 거절한다. 재생을 끄거나 스크립트가 다시 불러와지면 그 자리까지 자동으로 닫는다.
+- `ui_click`도 녹화 중엔 거절한다 — `UiClicker`는 패널 이벤트라 녹화기의 Input System 엿보기에 안 걸려, 쓰면 그 클릭이
+  시나리오에서 조용히 빠지기 때문이다(기다리는 길인 `automation_step`의 `ui_click`을 쓰거나, 손으로 눌러 녹화에 남긴다).
 - `--all_input true`로 시작하면 Game 뷰에 OS 초점이 없어도 들어온 입력을 게임이 받고 녹화한다(`simulate_pointer`·`simulate_key` 연기
   확인용) — 멈추면 되돌린다.
 
@@ -120,8 +122,8 @@ unity cmd automation_baseline --project-path $P --run 20261101-153005-lobby-tour
 - 키 조합(Shift+클릭 등)은 녹화가 따로 적지 않는다 — 누른 각 키가 따로 `input_tap`이 된다.
 - 재생은 에디터 틱(초당 10번) 단위다 — 프레임 정밀한 조작은 안 된다. 녹화는 틱이 아니라 Input System 이벤트 시각을 그대로 적지만,
   누르고 있는 동안의 움직임(`PointerMove`)은 0.05초 표본이라 그보다 빠른 궤적은 뭉개진다.
-- 녹화 중 글자 칸에 초점이 있으면 **F9·F10도 글자로 먹힌다**(먼저 걸리는 검사가 글자 칸 쪽) — 스크린샷·체크포인트를 찍으려면 칸 밖을
-  한 번 눌러 초점을 뺀 뒤 누른다.
+- 녹화 중 글자 칸에 초점이 있으면 **F9·F10은 칸에 안 들어가고 그냥 버려진다**(먼저 걸리는 검사가 글자 칸 쪽이라 `_keysDown`에도
+  안 남아 뗄 때도 무시된다) — 스크린샷·체크포인트를 찍으려면 칸 밖을 한 번 눌러 초점을 뺀 뒤 누른다.
 - 도메인이 다시 불러와져 녹화가 자동으로 닫히면(`beforeAssemblyReload`) 그 결과(`_last`)는 다시 불러온 뒤 비어 있다 — 파일은 남으니
   `Automation/Scenarios/`에서 찾는다.
 - 실행 동안(`EnsureGameInput`이 입력 모드를 바꾼 뒤)엔 Game 뷰 초점과 상관없이 모든 장치 입력이 게임으로 간다 — 다른 창에 친 키·마우스도

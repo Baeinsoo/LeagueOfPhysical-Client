@@ -37,7 +37,7 @@ namespace LOP.EditorTools.Automation
                 return false;
             }
             //  이름 바꾸기 모달처럼 KeyCode.Return을 확인으로 받는 칸이 있다.
-            if (submit) Send(field, new UnityEngine.Event { type = EventType.KeyDown, keyCode = KeyCode.Return });
+            if (submit) SendSubmit(field);
             why = null;
             return true;
         }
@@ -53,11 +53,27 @@ namespace LOP.EditorTools.Automation
 
         private static void Send(TextField field, UnityEngine.Event imgui)
         {
-            //  TextField는 초점을 안쪽 글자 입력 요소에 넘긴다 — 키 이벤트는 그 초점 요소가 받아야 한다.
+            //  TextField는 초점을 안쪽 글자 입력 요소에 넘긴다 — 키 이벤트는 그 초점 요소가 받아야 한다(글자가 거기서 들어간다).
             var target = field.panel?.focusController?.focusedElement as VisualElement ?? field;
             using (var evt = KeyDownEvent.GetPooled(imgui))
             {
                 target.SendEvent(evt);
+            }
+        }
+
+        private static void SendSubmit(TextField field)
+        {
+            //  Return/KeypadEnter는 안쪽 글자 입력 요소(TextElement, 초점 요소)의 KeyboardTextEditorEventHandler가
+            //  항상 StopPropagation으로 삼킨다(Unity 6000.3 — 실제 Enter도 같다, KeyboardTextEditor.cs의 single-line
+            //  분기가 조건 없이 그렇다) — 그 요소를 target으로 보내면 TextField 자신에 등록된
+            //  RegisterCallback<KeyDownEvent>(확인 동작, ChangeDisplayNameView.OnKeyDown과 같은 등록)까지 절대 안 번진다.
+            //  TextField 자신을 target으로 지정하면 전파 경로가 안쪽 요소(자손)를 거치지 않고 바로 TextField에서
+            //  AtTarget으로 핸들러를 깨운다 — EventBase.target은 public 세터라 여기서 직접 지정할 수 있다.
+            var imgui = new UnityEngine.Event { type = EventType.KeyDown, keyCode = KeyCode.Return };
+            using (var evt = KeyDownEvent.GetPooled(imgui))
+            {
+                evt.target = field;
+                field.SendEvent(evt);
             }
         }
     }

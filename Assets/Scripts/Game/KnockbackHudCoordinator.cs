@@ -110,6 +110,10 @@ namespace LOP
                 windowManager.Close(_pad);   // 지켜보는 동안엔 조작이 없다
                 _pad = null;
             }
+            if (_opened == false)
+            {
+                windowManager.Open<KnockbackHudView>();   // 몸 없이 재접속한 관전자도 남은 사람 수·원 안내를 본다
+            }
             windowManager.Open<RaceEliminatedView>();
             windowManager.Open<RaceSpectateView>().SetLeaveCallback(() => AskAndLeaveAsync().Forget());
         }

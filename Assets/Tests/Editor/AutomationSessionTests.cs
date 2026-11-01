@@ -169,6 +169,27 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 정리_사이에_명령이_끼지_않아도_쌓인_끊긴_실행_여러_개를_한꺼번에_닫는다()
+        {
+            // M1 진짜 재현: 위 시험은 Start를 부를 때마다(크래시 사이사이) 정리가 끼어 매번 하나씩만
+            // 닫아도 통과한다 — "가장 최근 폴더 하나만" 보는 옛 버그를 못 잡는다. 여기선 Start·Status를
+            // 전혀 거치지 않고 끊긴 실행 폴더 두 개를 먼저 쌓은 뒤, 단 한 번의 Status 호출로 둘 다 닫히는지 본다.
+            var scenario = ScenarioParser.Parse(Never, Handlers(), new List<string>());
+            string dir1 = Path.Combine(_root, "run1");
+            string dir2 = Path.Combine(_root, "run2");
+            RunStateStore.Save(AutomationRunner.NewState("run1", dir1, "a.json", Never, scenario, 1, _now));
+            RunStateStore.Save(AutomationRunner.NewState("run2", dir2, "a.json", Never, scenario, 1, _now.AddSeconds(5)));
+
+            NewSession().Status(_now.AddSeconds(10));   //  단 한 번 — 사이에 다른 명령이 없다
+
+            foreach (var dir in new[] { dir1, dir2 })
+            {
+                var report = JObject.Parse(File.ReadAllText(Path.Combine(dir, RunStateStore.ReportFile)));
+                Assert.AreEqual("interrupted", (string)report["status"], dir);
+            }
+        }
+
+        [Test]
         public void 재시작_뒤_status_없이_바로_start해도_끊긴_실행의_설정을_원래_값으로_되돌린다()
         {
             // M1: status를 한 번도 안 부르고 곧장 automation_start(또는 automation_step)를 부르는 실제 시나리오.

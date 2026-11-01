@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using LOP.UI;
+using MessagePipe;
+using Mirror;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -75,6 +77,7 @@ namespace LOP
             builder.RegisterEntryPoint<KnockbackShotView>();
             builder.RegisterEntryPoint<KnockbackZoneView>();
             builder.RegisterEntryPoint<KnockbackDamageLabel>();
+            builder.Register<KnockbackSpectate>(Lifetime.Singleton).As<ISpectateTargets>().AsSelf();
             builder.RegisterEntryPoint<KnockbackHudCoordinator>();
             builder.Register<KnockbackPadViewModel>(Lifetime.Transient);
             builder.Register<KnockbackPadView>(Lifetime.Transient);
@@ -83,6 +86,13 @@ namespace LOP
             builder.Register<IRaceStartLook, PlainRaceStartLook>(Lifetime.Singleton);
             builder.Register<RaceStartViewModel>(Lifetime.Transient);
             builder.Register<RaceStartView>(Lifetime.Transient);
+            builder.Register<RaceEliminatedView>(Lifetime.Transient);
+            builder.Register<RaceSpectateViewModel>(Lifetime.Transient);
+            builder.Register<RaceSpectateView>(Lifetime.Transient);
+            builder.Register<LeaveMatchConfirmViewModel>(Lifetime.Transient);
+            builder.Register<LeaveMatchConfirmView>(Lifetime.Transient);
+            builder.Register(c => new MatchLeaveRequester(c.Resolve<ISubscriber<LeaveMatchToC>>(),
+                message => NetworkClient.Send(new CustomMirrorMessage { payload = message })), Lifetime.Singleton);
         }
 
         protected override void RegisterViewFactories(
@@ -91,6 +101,9 @@ namespace LOP
             sink.Add(windowManager.RegisterViewFactory<KnockbackPadView>(() => container.Resolve<KnockbackPadView>()));
             sink.Add(windowManager.RegisterViewFactory<KnockbackHudView>(() => container.Resolve<KnockbackHudView>()));
             sink.Add(windowManager.RegisterViewFactory<RaceStartView>(() => container.Resolve<RaceStartView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceEliminatedView>(() => container.Resolve<RaceEliminatedView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceSpectateView>(() => container.Resolve<RaceSpectateView>()));
+            sink.Add(windowManager.RegisterViewFactory<LeaveMatchConfirmView>(() => container.Resolve<LeaveMatchConfirmView>()));
         }
     }
 }

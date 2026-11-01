@@ -68,5 +68,26 @@ namespace LOP.Tests
             Assert.AreEqual(3, state.PlayerCount);
             Assert.AreEqual(2, state.AliveCount);
         }
+
+        [Test]
+        public void 팀전_남은_사람_글자()
+        {
+            Assert.AreEqual("우리 팀 2 · 상대 3", KnockbackHudViewModel.TeamAliveText(2, 3));
+        }
+
+        [Test]
+        public void 팀별_살아_있는_수는_탈락자를_뺀다()
+        {
+            var state = new KnockbackClientState();
+            var m = new KnockbackStateToC { Version = 1, TeamCount = 2 };
+            m.Players.Add(new KnockbackPlayerWire { EntityId = "a", EliminatedTick = -1, Team = 1 });
+            m.Players.Add(new KnockbackPlayerWire { EntityId = "b", EliminatedTick = 9, Team = 1 });
+            m.Players.Add(new KnockbackPlayerWire { EntityId = "c", EliminatedTick = -1, Team = 2 });
+            m.Players.Add(new KnockbackPlayerWire { EntityId = "d", EliminatedTick = -1, Team = 2 });
+            state.Apply(m);
+            Assert.AreEqual(1, state.AliveCountOfTeam(1));
+            Assert.AreEqual(2, state.AliveCountOfOtherTeams(1));
+            Assert.AreEqual(1, state.MyTeamOf("a"));
+        }
     }
 }

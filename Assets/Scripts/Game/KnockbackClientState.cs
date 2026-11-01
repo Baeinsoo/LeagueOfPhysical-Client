@@ -10,8 +10,8 @@ namespace LOP
     /// </summary>
     public class KnockbackClientState
     {
-        private readonly Dictionary<string, (long eliminatedTick, int damagePercent)> players =
-            new Dictionary<string, (long, int)>();
+        private readonly Dictionary<string, (long eliminatedTick, int damagePercent, int team)> players =
+            new Dictionary<string, (long, int, int)>();
         private readonly List<ZoneStage> zoneStages = new List<ZoneStage>();
 
         public int Version { get; private set; }
@@ -59,6 +59,46 @@ namespace LOP
         public int DamageOf(string entityId)
             => entityId != null && players.TryGetValue(entityId, out var p) ? p.damagePercent : 0;
 
+        /// <summary>그 몸의 팀(0 = 개인전·모르는 몸).</summary>
+        public int TeamOf(string entityId)
+            => entityId != null && players.TryGetValue(entityId, out var p) ? p.team : 0;
+
+        private int myTeam;
+
+        /// <summary>
+        /// 내 팀. 한 번 알면 기억한다 — 탈락해 내 몸이 사라진 뒤에도 관전 중 "우리 팀"은 내 팀이다. 모르면 0.
+        /// </summary>
+        public int MyTeamOf(string myEntityId)
+        {
+            if (myTeam == 0) myTeam = TeamOf(myEntityId);
+            return myTeam;
+        }
+
+        /// <summary>그 팀(1·2…)의 살아 있는 수.</summary>
+        public int AliveCountOfTeam(int team)
+        {
+            int n = 0;
+            foreach (var p in players.Values)
+            {
+                if (p.eliminatedTick < 0 && p.team == team) n++;
+            }
+            return n;
+        }
+
+        /// <summary>내 팀이 아닌 팀(팀 번호 0 제외)의 살아 있는 수.</summary>
+        public int AliveCountOfOtherTeams(int team)
+        {
+            int n = 0;
+            foreach (var p in players.Values)
+            {
+                if (p.eliminatedTick < 0 && p.team != 0 && p.team != team) n++;
+            }
+            return n;
+        }
+
+        /// <summary>팀 수(0 = 개인전, 첫 상태를 받기 전에도 0).</summary>
+        public int TeamCount { get; private set; }
+
         /// <summary>판본이 지금보다 낮거나 같으면 버린다(늦게 온 옛 상태가 새 상태를 덮지 않게).</summary>
         public bool Apply(KnockbackStateToC message)
         {
@@ -71,8 +111,9 @@ namespace LOP
             players.Clear();
             foreach (var w in message.Players)
             {
-                players[w.EntityId] = (w.EliminatedTick, w.DamagePercent);
+                players[w.EntityId] = (w.EliminatedTick, w.DamagePercent, w.Team);
             }
+            TeamCount = message.TeamCount;
 
             zoneStages.Clear();
             foreach (var z in message.ZoneStages)

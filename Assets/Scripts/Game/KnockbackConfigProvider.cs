@@ -4,10 +4,22 @@ namespace LOP
     public class KnockbackConfigProvider
     {
         private readonly LOP.MasterData.LOPMasterData md;
+        private readonly IRoomDataStore roomDataStore;
 
-        public KnockbackConfigProvider(LOP.MasterData.LOPMasterData md)
+        public KnockbackConfigProvider(LOP.MasterData.LOPMasterData md, IRoomDataStore roomDataStore)
         {
             this.md = md;
+            this.roomDataStore = roomDataStore;
+        }
+
+        //  지금 판의 게임 모드 id로 팀 수를 찾는다. 표에 없으면 개인전.
+        public KnockbackMatchMode GetMatchMode()
+        {
+            var rounds = roomDataStore.match?.rounds;
+            if (rounds == null || rounds.Length == 0) return KnockbackMatchMode.Solo;
+            var round = rounds[MatchSceneResolver.CurrentRoundIndex(rounds.Length)];
+            var row = md.Tables.TbKnockbackMode.GetOrDefault(round.gameModeId);
+            return row == null ? KnockbackMatchMode.Solo : new KnockbackMatchMode(row.TeamCount);
         }
 
         public KnockbackConfig Get()

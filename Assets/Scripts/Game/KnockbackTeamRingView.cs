@@ -12,6 +12,7 @@ namespace LOP
     {
         private const float Diameter = 1.4f;
         private const float Height = 0.02f;
+        private const float FallingY = -0.05f;
         private static readonly Color Blue = new Color(0.25f, 0.55f, 1f);
         private static readonly Color Red = new Color(1f, 0.3f, 0.25f);
 
@@ -40,6 +41,9 @@ namespace LOP
             return myTeam == bodyTeam ? Blue : Red;
         }
 
+        /// <summary>몸이 바닥 아래로 내려가기 시작하면(관전 후보에서 빠지는 높이와 같다) 고리를 숨긴다.</summary>
+        public static bool ShowsRing(float bodyY) => bodyY >= FallingY;
+
         public void Start()
         {
             var shader = Shader.Find("Universal Render Pipeline/Unlit");
@@ -56,7 +60,8 @@ namespace LOP
             {
                 string id = actor.entityId;
                 var model = actor.visualGameObject;
-                var color = model == null || state.IsEliminated(id) ? null : RingColor(myTeam, state.TeamOf(id));
+                var color = model == null || state.IsEliminated(id) || !ShowsRing(model.transform.position.y)
+                    ? null : RingColor(myTeam, state.TeamOf(id));
                 rings.TryGetValue(id, out var ring);
                 if (color == null)
                 {

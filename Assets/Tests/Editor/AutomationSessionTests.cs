@@ -172,21 +172,41 @@ namespace LOP.Tests
         public void 정리_사이에_명령이_끼지_않아도_쌓인_끊긴_실행_여러_개를_한꺼번에_닫는다()
         {
             // M1 진짜 재현: 위 시험은 Start를 부를 때마다(크래시 사이사이) 정리가 끼어 매번 하나씩만
-            // 닫아도 통과한다 — "가장 최근 폴더 하나만" 보는 옛 버그를 못 잡는다. 여기선 Start·Status를
-            // 전혀 거치지 않고 끊긴 실행 폴더 두 개를 먼저 쌓은 뒤, 단 한 번의 Status 호출로 둘 다 닫히는지 본다.
+            // 닫아도 통과한다 — "가장 최근 폴더 하나만" 보는 옛 버그를 못 잡는다. 여기선 Start·ResumeAndSweep을
+            // 전혀 거치지 않고 끊긴 실행 폴더 두 개를 먼저 쌓은 뒤, 도메인 다시 불러오기 뒤(delayCall)
+            // 단 한 번의 ResumeAndSweep 호출로 둘 다 닫히는지 본다. L2: sweep은 더는 Status에서 안 돈다
+            // — Status를 자주 불러도 느려지지 않게 Start·ResumeAndSweep에만 남았다.
             var scenario = ScenarioParser.Parse(Never, Handlers(), new List<string>());
             string dir1 = Path.Combine(_root, "run1");
             string dir2 = Path.Combine(_root, "run2");
             RunStateStore.Save(AutomationRunner.NewState("run1", dir1, "a.json", Never, scenario, 1, _now));
             RunStateStore.Save(AutomationRunner.NewState("run2", dir2, "a.json", Never, scenario, 1, _now.AddSeconds(5)));
 
-            NewSession().Status(_now.AddSeconds(10));   //  단 한 번 — 사이에 다른 명령이 없다
+            NewSession().ResumeAndSweep(_now.AddSeconds(10));   //  단 한 번 — 사이에 다른 명령이 없다
 
             foreach (var dir in new[] { dir1, dir2 })
             {
                 var report = JObject.Parse(File.ReadAllText(Path.Combine(dir, RunStateStore.ReportFile)));
                 Assert.AreEqual("interrupted", (string)report["status"], dir);
             }
+        }
+
+        [Test]
+        public void status만_거듭_불러서는_끊긴_실행을_닫지_않는다()
+        {
+            // L2: 옛 코드는 automation_status를 부를 때마다 Logs/automation/* 전체를 역직렬화해 끊긴 실행을
+            // 찾아 닫았다 — 기록이 쌓일수록(README 대기 루프는 15s마다 부른다) 메인 스레드가 느려진다.
+            // sweep은 이제 Start·ResumeAndSweep(delayCall)에만 있다 — ResumeAndSweep 없이 Status만 거듭
+            // 불러서는 끊긴 실행 폴더가 그대로(running) 남아 있어야 한다(끝내는 건 delayCall이 한다).
+            var scenario = ScenarioParser.Parse(Never, Handlers(), new List<string>());
+            string dir = Path.Combine(_root, "run1");
+            RunStateStore.Save(AutomationRunner.NewState("run1", dir, "a.json", Never, scenario, 1, _now));
+
+            var session = NewSession();
+            for (int i = 0; i < 5; i++) session.Status(_now.AddSeconds(i));
+
+            var report = JObject.Parse(File.ReadAllText(Path.Combine(dir, RunStateStore.ReportFile)));
+            Assert.AreEqual("running", (string)report["status"]);
         }
 
         [Test]
@@ -247,7 +267,9 @@ namespace LOP.Tests
             Assert.AreEqual(true, _driver.Prefs["k"]);
 
             _memory.ActiveRunDir = null;   //  에디터 재시작 — SessionState가 비었다
-            var status = NewSession().Status(_now);
+            var after = NewSession();
+            after.ResumeAndSweep(_now);   //  L2: sweep은 Status가 아니라 AutomationHost의 delayCall(ResumeAndSweep)이 한다
+            var status = after.Status(_now);
 
             Assert.AreEqual("interrupted", status.Status);
             Assert.IsTrue(status.Done);

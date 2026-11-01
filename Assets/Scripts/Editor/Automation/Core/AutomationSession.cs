@@ -61,7 +61,7 @@ namespace LOP.EditorTools.Automation
 
         public AutomationStatus Start(string scenarioJson, string scenarioPath, int repeatOverride, DateTime nowUtc)
         {
-            EnsureResumed();
+            //  IsRunning(속성)이 EnsureResumed를 거친다 — 여기서 또 부르면 죽은 코드가 된다(I1).
             if (IsRunning) throw new InvalidOperationException($"이미 도는 실행이 있다: {_runner.State.RunId} — automation_stop으로 멈춘 뒤 다시");
             if (_driver.IsBusy) throw new InvalidOperationException("에디터가 컴파일·재생 전환 중이다 — 잠시 뒤 다시");
             //  여기 도달했으면 도는 실행이 없다 — 남은 폴더는 모두 끊긴 것이니 전부 interrupted로 닫고 설정을 되돌린다.
@@ -88,7 +88,7 @@ namespace LOP.EditorTools.Automation
 
         public bool Stop()
         {
-            EnsureResumed();
+            //  IsRunning(속성)이 EnsureResumed를 거친다 — 여기서 또 부르면 죽은 코드가 된다(I1).
             if (!IsRunning) return false;
             _runner.RequestStop();
             return true;
@@ -152,15 +152,15 @@ namespace LOP.EditorTools.Automation
 
         public AutomationStatus Status(DateTime nowUtc)
         {
+            //  sweep은 Start·ResumeAndSweep에서만 돈다(L2) — 여기서 매번 돌면 기록 폴더가 쌓일수록
+            //  메인 스레드가 느려진다(README 대기 루프가 15 s마다 이걸 부른다).
             EnsureResumed();
-            SweepInterrupted(nowUtc);
             if (_runner != null) return StatusOf(_runner.State, nowUtc);
 
             string latest = LatestRunDir();
             if (latest == null) return AutomationStatus.Idle;
             var state = RunStateStore.Load(latest);
             if (state == null) return AutomationStatus.Idle;
-            //  SweepInterrupted가 끝나지 않은 실행을 전부 이미 interrupted로 적었다 — latest는 그 결과를 읽기만 한다.
             return StatusOf(state, nowUtc);
         }
 

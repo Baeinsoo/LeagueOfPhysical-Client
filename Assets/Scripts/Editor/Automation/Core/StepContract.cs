@@ -55,6 +55,8 @@ namespace LOP.EditorTools.Automation
         public const string PlayStartScene = "play_start_scene";
         public const string Touchscreen = "touchscreen";
         public const string KeyUp = "key_up";
+        public const string GameInput = "game_input";
+        public const string PointerUp = "pointer_up";
     }
 
     public sealed class StepContext
@@ -79,6 +81,8 @@ namespace LOP.EditorTools.Automation
         public RunRecorder Recorder { get; }
         /// <summary>기다리는 이유. 시간이 넘으면 실패 문구에 붙는다.</summary>
         public string Waiting { get; set; }
+        /// <summary>기준 그림 만들기 실행(automation_baseline --scenario) — snapshot_compare가 비교 대신 지금 그림을 기준으로 쓴다.</summary>
+        public bool BaselineMode { get; set; }
 
         public void RememberRestore(string kind, string key, string value, bool hadValue)
         {

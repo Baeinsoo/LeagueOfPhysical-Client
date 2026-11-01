@@ -26,6 +26,7 @@ namespace LOP.EditorTools.Automation
         [JsonProperty("stepSeconds")] public double StepSeconds;
         [JsonProperty("failReason")] public string FailReason;
         [JsonProperty("report")] public string Report;
+        [JsonProperty("baselineMode")] public bool BaselineMode;
 
         public static AutomationStatus Idle => new AutomationStatus { Status = "idle", Done = true };
     }
@@ -41,6 +42,9 @@ namespace LOP.EditorTools.Automation
         private readonly IRunMemory _memory;
         private readonly Func<IReadOnlyDictionary<string, IStepHandler>> _createHandlers;
         private AutomationRunner _runner;
+
+        /// <summary>시작을 막을 이유(예: 녹화 중). null이면 시작해도 된다 — 에디터 쪽(AutomationHost)이 꽂는다.</summary>
+        public Func<string> BlockReason { get; set; }
 
         public AutomationSession(IAutomationDriver driver, string runsRoot, IRunMemory memory, Func<IReadOnlyDictionary<string, IStepHandler>> createHandlers)
         {
@@ -59,10 +63,12 @@ namespace LOP.EditorTools.Automation
             }
         }
 
-        public AutomationStatus Start(string scenarioJson, string scenarioPath, int repeatOverride, DateTime nowUtc)
+        public AutomationStatus Start(string scenarioJson, string scenarioPath, int repeatOverride, DateTime nowUtc, bool baselineMode = false)
         {
             //  IsRunning(속성)이 EnsureResumed를 거친다 — 여기서 또 부르면 죽은 코드가 된다(I1).
             if (IsRunning) throw new InvalidOperationException($"이미 도는 실행이 있다: {_runner.State.RunId} — automation_stop으로 멈춘 뒤 다시");
+            string blocked = BlockReason?.Invoke();
+            if (blocked != null) throw new InvalidOperationException(blocked);
             if (_driver.IsBusy) throw new InvalidOperationException("에디터가 컴파일·재생 전환 중이다 — 잠시 뒤 다시");
             //  여기 도달했으면 도는 실행이 없다 — 남은 폴더는 모두 끊긴 것이니 전부 interrupted로 닫고 설정을 되돌린다.
             SweepInterrupted(nowUtc);
@@ -71,7 +77,8 @@ namespace LOP.EditorTools.Automation
             var errors = new List<string>();
             var scenario = ScenarioParser.Parse(scenarioJson, handlers, errors);
             if (scenario == null) throw new ArgumentException("시나리오 오류:\n" + string.Join("\n", errors));
-            int repeat = repeatOverride > 0 ? repeatOverride : scenario.Repeat;
+            //  기준 만들기는 한 번이면 된다 — 반복하면 마지막 반복의 그림이 기준이 될 뿐이다.
+            int repeat = baselineMode ? 1 : repeatOverride > 0 ? repeatOverride : scenario.Repeat;
 
             string runId = RunNames.NewRunId(scenario.Name, nowUtc.ToLocalTime(), id => Directory.Exists(Path.Combine(_runsRoot, id)));
             string dir = Path.Combine(_runsRoot, runId);
@@ -79,10 +86,11 @@ namespace LOP.EditorTools.Automation
             File.WriteAllText(Path.Combine(dir, "scenario.json"), scenarioJson);
 
             var state = AutomationRunner.NewState(runId, dir, scenarioPath, scenarioJson, scenario, repeat, nowUtc);
+            state.BaselineMode = baselineMode;
             _runner = new AutomationRunner(state, scenario, handlers, _driver, RunStateStore.Save);
             RunStateStore.Save(state);
             _memory.ActiveRunDir = dir;
-            _runner.Recorder.Log($"시작: {scenario.Name} ×{repeat} ({scenarioPath})");
+            _runner.Recorder.Log($"시작: {scenario.Name} ×{repeat} ({scenarioPath})" + (baselineMode ? " — 기준 그림 만들기" : string.Empty));
             return Status(nowUtc);
         }
 
@@ -216,6 +224,7 @@ namespace LOP.EditorTools.Automation
             StepSeconds = s.Phase == RunPhase.Finished ? 0 : Math.Round((nowUtc - s.StepStartedUtc).TotalSeconds, 1),
             FailReason = s.FailReason,
             Report = Path.GetFullPath(Path.Combine(s.RunDir, RunStateStore.ReportFile)),
+            BaselineMode = s.BaselineMode,
         };
     }
 }

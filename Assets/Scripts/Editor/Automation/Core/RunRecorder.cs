@@ -47,6 +47,12 @@ namespace LOP.EditorTools.Automation
             (iteration != null ? iteration.Screenshots : _state.Report.Screenshots).Add(relative);
         }
 
+        public void AddSnapshot(SnapshotRecord record)
+        {
+            record.Iteration = _state.Phase == RunPhase.Loop ? _state.Iteration : 0;
+            _state.Report.Snapshots.Add(record);
+        }
+
         public void Error(string message)
         {
             _state.Report.ErrorCount++;

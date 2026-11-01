@@ -27,6 +27,12 @@ namespace LOP.EditorTools.Automation
                 case RestoreKinds.KeyUp:
                     driver.SetKey(entry.Key, false, out _);
                     break;
+                case RestoreKinds.GameInput:
+                    driver.SetGameInputMode(entry.Value, out _);
+                    break;
+                case RestoreKinds.PointerUp:
+                    if (PointerArgs.TryParsePoint(entry.Value, out var at)) driver.QueuePointer(PointerArgs.ParseDevice(entry.Key), at, PointerPhase.Up, out _);
+                    break;
                 default:
                     throw new ArgumentException($"모르는 되돌리기 '{entry.Kind}'");
             }

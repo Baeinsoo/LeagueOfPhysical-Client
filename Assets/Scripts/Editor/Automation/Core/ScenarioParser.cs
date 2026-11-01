@@ -83,6 +83,9 @@ namespace LOP.EditorTools.Automation
                 args.Remove("op");
                 args.Remove("optional");
                 args.Remove("timeout_s");
+                //  note는 사람용 메모(녹화기가 줄인 기다림 등) — 단계 인자가 아니다.
+                if (item["note"] != null && item["note"].Type != JTokenType.String) errors.Add($"{where}: note는 글자여야 한다");
+                args.Remove("note");
                 bool optional = item["optional"]?.Type == JTokenType.Boolean && (bool)item["optional"];
                 var step = new ScenarioStep(where, op, args, optional);
 

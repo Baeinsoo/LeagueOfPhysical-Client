@@ -104,6 +104,63 @@ namespace LOP.Tests
             return true;
         }
 
+        //  ── 매크로 확장(spec §8.3~§8.5·§15) ──
+
+        public string GameInputMode { get; set; } = "ResetAndDisableNonBackgroundDevices/PointersAndKeyboardsRespectGameViewFocus";
+        public readonly List<string> GameInputChanges = new List<string>();
+        /// <summary>입력 모드 바꾸기와 포인터 이벤트를 한 줄로 — 되돌리기 순서를 본다.</summary>
+        public readonly List<string> Order = new List<string>();
+
+        public bool SetGameInputMode(string mode, out string why)
+        {
+            GameInputMode = mode;
+            GameInputChanges.Add(mode);
+            Order.Add("mode:" + mode);
+            why = null;
+            return true;
+        }
+
+        public bool QueuePointer(PointerDevice device, Vector2 normalized, PointerPhase phase, out string why)
+        {
+            string entry = $"{PointerArgs.DeviceName(device)}({PointerArgs.Format(normalized)}):{phase.ToString().ToLowerInvariant()}";
+            Inputs.Add(entry);
+            Order.Add(entry);
+            why = null;
+            return true;
+        }
+
+        public bool QueueText(string text, out string why)
+        {
+            Inputs.Add("text:" + text);
+            why = null;
+            return true;
+        }
+
+        public readonly List<string> Typed = new List<string>();
+        public bool TypeIntoField(UiSelector selector, string value, bool clear, bool submit, out string why)
+        {
+            var e = FindElement(selector);
+            if (e == null || !e.Clickable)
+            {
+                why = "누를 수 없음";
+                return false;
+            }
+            Typed.Add($"{e.Name}={value}" + (clear ? " clear" : string.Empty) + (submit ? " submit" : string.Empty));
+            why = null;
+            return true;
+        }
+
+        /// <summary>CapturePng가 차례로 돌려줄 PNG들. 비면 실패한다.</summary>
+        public readonly Queue<byte[]> Captures = new Queue<byte[]>();
+        public bool CapturePng(int width, int height, out byte[] png, out string why)
+        {
+            png = Captures.Count > 0 ? Captures.Dequeue() : null;
+            why = png == null ? "캡처할 그림이 없다(시험)" : null;
+            return png != null;
+        }
+
+        public string BaselineRoot { get; set; }
+
         public static UiElementInfo Element(string name, string text = null, bool visible = true, bool enabled = true, bool onTop = true) =>
             new UiElementInfo { Name = name, Type = "Button", Text = text, Visible = visible, Enabled = enabled, OnTop = onTop };
     }
@@ -151,6 +208,7 @@ namespace LOP.Tests
             };
             State.Report.Iterations.Add(new IterationRecord { Index = 1 });
             Recorder = new RunRecorder(State);
+            Driver.BaselineRoot = Path.Combine(State.RunDir, "baselines");
         }
 
         public IterationRecord Iteration => State.Report.Iterations[0];

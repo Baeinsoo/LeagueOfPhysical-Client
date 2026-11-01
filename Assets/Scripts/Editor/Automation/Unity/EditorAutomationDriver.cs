@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using LOP.UI;
 using Unity.Pipeline.Editor.Commands.Capture;
 using UnityEditor;
@@ -199,20 +200,168 @@ namespace LOP.EditorTools.Automation
 
         public bool SaveScreenshot(string absolutePath, int width, int height, out string why)
         {
+            if (!CapturePng(width, height, out var png, out why)) return false;
+            Directory.CreateDirectory(Path.GetDirectoryName(absolutePath));
+            File.WriteAllBytes(absolutePath, png);
+            return true;
+        }
+
+        public bool CapturePng(int width, int height, out byte[] png, out string why)
+        {
             try
             {
-                //  재생 중엔 합성된 화면(UI Toolkit 포함), 아니면 카메라 그림. 파일은 직접 쓴다 — 파이프라인의 save_path는 Assets 아래로 묶여 있다.
+                //  재생 중엔 합성된 화면(UI Toolkit 포함), 아니면 카메라 그림. 파이프라인의 save_path는 Assets 아래로 묶여 있어 바이트로 받는다.
                 var capture = CaptureCommands.CaptureGameView(width, height, null, null, false, 0, EditorApplication.isPlaying ? "screen" : "camera");
-                Directory.CreateDirectory(Path.GetDirectoryName(absolutePath));
-                File.WriteAllBytes(absolutePath, Convert.FromBase64String(capture.Base64));
+                png = Convert.FromBase64String(capture.Base64);
                 why = null;
                 return true;
             }
             catch (Exception e)
             {
-                why = $"스크린샷 실패: {e.Message}";
+                png = null;
+                why = $"화면 캡처 실패: {e.Message}";
                 return false;
             }
+        }
+
+        //  ── 매크로 확장(spec §8.3~§8.5·§15) ──
+
+        public string BaselineRoot => Path.Combine(Directory.GetCurrentDirectory(), BaselineFolder);
+        private const string BaselineFolder = "Automation/Baselines";
+
+        public string GameInputMode
+        {
+            get
+            {
+                var settings = InputSystem.settings;
+                return $"{settings.backgroundBehavior}/{settings.editorInputBehaviorInPlayMode}";
+            }
+        }
+
+        public bool SetGameInputMode(string mode, out string why)
+        {
+            var parts = (mode ?? string.Empty).Split('/');
+            if (parts.Length != 2 ||
+                !Enum.TryParse(parts[0], out InputSettings.BackgroundBehavior background) ||
+                !Enum.TryParse(parts[1], out InputSettings.EditorInputBehaviorInPlayMode editor))
+            {
+                why = $"모르는 입력 모드 '{mode}'";
+                return false;
+            }
+
+            var settings = InputSystem.settings;
+            //  설정이 프로젝트 에셋이면 고치는 순간 에셋이 바뀐다 — 지금은 에셋이 없다(spec §3). 생기면 멈추고 알린다.
+            if (AssetDatabase.Contains(settings))
+            {
+                why = $"Input System 설정이 프로젝트 에셋이다({AssetDatabase.GetAssetPath(settings)}) — 자동화가 고치면 에셋이 바뀐다(spec §8.3)";
+                return false;
+            }
+
+            settings.backgroundBehavior = background;
+            settings.editorInputBehaviorInPlayMode = editor;
+            if (mode == GameInputModes.AlwaysToGame)
+            {
+                //  초점을 잃을 때 "배경 동안 끔"이 된 키보드·포인터는 설정만 바꿔서는 다시 켜지지 않는다.
+                foreach (var device in InputSystem.devices.Where(d => !d.enabled && (d is Keyboard || d is UnityEngine.InputSystem.Pointer)).ToList())
+                {
+                    InputSystem.EnableDevice(device);
+                }
+            }
+            why = null;
+            return true;
+        }
+
+        public bool QueuePointer(PointerDevice device, Vector2 normalized, PointerPhase phase, out string why)
+        {
+            if (!TryGameViewSize(out var size))
+            {
+                why = "Game 뷰 크기를 모른다 — Game 뷰가 열려 있나";
+                return false;
+            }
+            //  정규화(왼쪽 위 원점) → Input System 화면 픽셀(왼쪽 아래 원점).
+            var pixel = new Vector2(normalized.x * size.x, (1f - normalized.y) * size.y);
+
+            if (device == PointerDevice.Touch)
+            {
+                var touchscreen = Touchscreen.current ?? InputSystem.AddDevice<Touchscreen>(SyntheticTouchscreenName);
+                var touchPhase = phase == PointerPhase.Down ? UnityEngine.InputSystem.TouchPhase.Began
+                    : phase == PointerPhase.Move ? UnityEngine.InputSystem.TouchPhase.Moved
+                    : UnityEngine.InputSystem.TouchPhase.Ended;
+                InputSystem.QueueStateEvent(touchscreen, new TouchState { touchId = 1, phase = touchPhase, position = pixel });
+                why = null;
+                return true;
+            }
+
+            var mouse = Mouse.current;
+            if (mouse == null)
+            {
+                why = "마우스 장치가 없다";
+                return false;
+            }
+            //  지금 상태를 떠서 위치·왼쪽 버튼만 바꾼다(파이프라인 simulate_pointer와 같은 꼴) — 다른 칸은 그대로.
+            using (StateEvent.From(mouse, out var eventPtr))
+            {
+                mouse.position.WriteValueIntoEvent(pixel, eventPtr);
+                mouse.leftButton.WriteValueIntoEvent(phase == PointerPhase.Up ? 0f : 1f, eventPtr);
+                InputSystem.QueueEvent(eventPtr);
+            }
+            why = null;
+            return true;
+        }
+
+        public bool QueueText(string text, out string why)
+        {
+            var keyboard = Keyboard.current;
+            if (keyboard == null)
+            {
+                why = "키보드 장치가 없다";
+                return false;
+            }
+            foreach (char c in text ?? string.Empty)
+            {
+                InputSystem.QueueTextEvent(keyboard, c);
+            }
+            why = null;
+            return true;
+        }
+
+        public bool TypeIntoField(UiSelector selector, string value, bool clear, bool submit, out string why)
+        {
+            var (element, info) = Best(selector);
+            if (element == null)
+            {
+                why = $"{selector} 없음";
+                return false;
+            }
+            if (!info.Clickable)
+            {
+                why = $"{selector} 누를 수 없음(보임={info.Visible} 켜짐={info.Enabled} 맨위={info.OnTop})";
+                return false;
+            }
+            return UiTyper.Type(element, value ?? string.Empty, clear, submit, out why);
+        }
+
+        /// <summary>
+        /// Game 뷰 렌더 크기(픽셀). Screen.width는 에디터 코드에서 "지금 그리는 창" 크기라 초점에 따라 틀린다 — 파이프라인 캡처처럼 내부 API를 먼저 본다.
+        /// </summary>
+        internal static bool TryGameViewSize(out Vector2 size)
+        {
+            try
+            {
+                var playModeView = Type.GetType("UnityEditor.PlayModeView,UnityEditor");
+                var method = playModeView?.GetMethod("GetMainPlayModeViewTargetSize", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+                if (method != null)
+                {
+                    size = (Vector2)method.Invoke(null, null);
+                    if (size.x >= 1f && size.y >= 1f) return true;
+                }
+            }
+            catch (Exception)
+            {
+                //  내부 API가 바뀌었다 — 아래 공개 API로.
+            }
+            size = Handles.GetMainGameViewSize();
+            return size.x >= 1f && size.y >= 1f;
         }
     }
 }

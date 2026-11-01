@@ -95,6 +95,7 @@ namespace LOP.EditorTools.Automation
             var scratchBefore = (JObject)State.Scratch.DeepClone();
             int restoresBefore = State.Restores.Count;
             var ctx = new StepContext(step, State.Scratch, elapsed, _driver, Recorder, State.Restores);
+            ctx.BaselineMode = State.BaselineMode;
             StepResult result;
             try
             {

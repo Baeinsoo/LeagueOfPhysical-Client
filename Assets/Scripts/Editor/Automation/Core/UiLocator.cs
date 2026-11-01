@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace LOP.EditorTools.Automation
@@ -81,6 +82,7 @@ namespace LOP.EditorTools.Automation
         public static UiElementInfo Describe(VisualElement element)
         {
             bool visible = IsVisible(element);
+            var center = NormalizedCenter(element);
             return new UiElementInfo
             {
                 Name = element.name,
@@ -89,7 +91,19 @@ namespace LOP.EditorTools.Automation
                 Visible = visible,
                 Enabled = element.enabledInHierarchy,
                 OnTop = visible && IsOnTop(element),
+                X = center.x,
+                Y = center.y,
             };
+        }
+
+        /// <summary>요소 가운데를 패널 크기로 나눈 값(0..1, 왼쪽 위 원점). 화면 패널은 화면을 덮으므로 곧 화면 좌표다. 패널 밖이면 (-1, -1).</summary>
+        public static Vector2 NormalizedCenter(VisualElement element)
+        {
+            if (element.panel == null) return new Vector2(-1f, -1f);
+            var screen = element.panel.visualTree.worldBound;
+            if (!(screen.width > 0f) || !(screen.height > 0f)) return new Vector2(-1f, -1f);
+            var center = element.worldBound.center;
+            return new Vector2((float)System.Math.Round((center.x - screen.x) / screen.width, 4), (float)System.Math.Round((center.y - screen.y) / screen.height, 4));
         }
 
         /// <summary>누를 수 있는 것 > 보이는 것 > 나머지, 같으면 뒤의 것(그리는 순서가 뒤 = 위 밴드·안쪽).</summary>

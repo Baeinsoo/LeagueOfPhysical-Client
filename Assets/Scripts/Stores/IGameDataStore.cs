@@ -17,5 +17,11 @@ namespace LOP
         /// 몸이 <b>있는 동안만</b> 유효한 쪽이 저것이다. 섞어 쓰지 말 것.</para>
         /// </summary>
         string userEntityId { get; set; }
+
+        /// <summary>
+        /// 이 판에서 내가 마지막으로 가졌던 몸 id. 탈락한 뒤 다시 들어오면 <see cref="userEntityId"/>는
+        /// 비지만 이 값은 남아, 팀 표시를 옛 몸으로 찾는 데만 쓴다. 조종 대상 판별에 쓰지 않는다.
+        /// </summary>
+        string formerEntityId { get; set; }
     }
 }

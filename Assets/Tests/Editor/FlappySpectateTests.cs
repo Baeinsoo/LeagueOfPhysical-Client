@@ -14,6 +14,7 @@ namespace LOP.Tests
         {
             public GameInfo gameInfo { get; set; }
             public string userEntityId { get; set; }
+            public string formerEntityId { get; set; }
             public void Clear() { }
         }
 

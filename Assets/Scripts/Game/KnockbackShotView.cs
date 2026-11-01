@@ -14,6 +14,9 @@ namespace LOP
     {
         private const float Diameter = 0.56f;
         private const float BodyHitRadius = 0.88f;
+        private const float TrailSeconds = 0.18f;
+        private const float TrailWidthRatio = 0.8f;
+        private const float TrailHeadAlpha = 0.6f;
 
         private readonly GameFramework.Runner.IRunner runner;
         private readonly KnockbackWorld world;
@@ -30,6 +33,11 @@ namespace LOP
         private readonly List<Vector2> standingPillars = new List<Vector2>();
         private readonly List<(string id, Vector2 position)> drawnBodies = new List<(string, Vector2)>();
         private readonly Stack<GameObject> pool = new Stack<GameObject>();
+        private readonly Dictionary<(string, long), LineRenderer> trails = new Dictionary<(string, long), LineRenderer>();
+        private readonly Stack<LineRenderer> trailPool = new Stack<LineRenderer>();
+        private readonly Dictionary<(string, long), float> firstSeenSeconds = new Dictionary<(string, long), float>();
+        private readonly Vector3[] trailPoints = new Vector3[2];
+        private Material trailMaterial;
 
         private Material material;
         private Transform root;
@@ -97,6 +105,7 @@ namespace LOP
                     spheres[key] = go;
                 }
                 go.transform.position = new Vector3(p.x, 1f, p.y);
+                UpdateTrail(key, shot, renderTick);
             }
 
             // 목록에서 빠진 탄(맞음·사거리 끝)은 그림도 걷는다.
@@ -107,6 +116,54 @@ namespace LOP
             }
             for (int i = 0; i < scratch.Count; i++) Release(scratch[i]);
             hidden.RemoveWhere(k => !alive.Contains(k));
+
+            scratch.Clear();
+            foreach (var key in firstSeenSeconds.Keys)
+            {
+                if (!alive.Contains(key)) scratch.Add(key);
+            }
+            for (int i = 0; i < scratch.Count; i++) firstSeenSeconds.Remove(scratch[i]);
+        }
+
+        // 남의 탄은 비행 중간에 처음 보인다. 그때 이미 흘러 있던 시간을 적어 두고 꼬리를 총구부터 그어 순간이동처럼 안 보이게 한다.
+        private void UpdateTrail((string, long) key, in KnockbackShot shot, double renderTick)
+        {
+            float seconds = Mathf.Max(0f, (float)(renderTick - shot.FireTick)) * KnockbackConfig.TickInterval;
+            if (!firstSeenSeconds.TryGetValue(key, out float firstSeen))
+            {
+                firstSeen = seconds;
+                firstSeenSeconds[key] = seconds;
+            }
+
+            var (head, tail) = TrailEnds(shot.Origin, shot.Direction, config.ShotSpeed, config.ShotRange,
+                                         seconds, firstSeen, TrailSeconds);
+            if ((head - tail).sqrMagnitude < 1e-6f)
+            {
+                ReleaseTrail(key);
+                return;
+            }
+
+            if (!trails.TryGetValue(key, out var line))
+            {
+                line = RentTrail();
+                trails[key] = line;
+            }
+            trailPoints[0] = new Vector3(head.x, 1f, head.y);
+            trailPoints[1] = new Vector3(tail.x, 1f, tail.y);
+            line.SetPositions(trailPoints);
+        }
+
+        /// <summary>
+        /// 꼬리선의 머리(지금 탄 자리)와 끝. 끝은 <see cref="ArcheryArrowDisplay.TrailTailSeconds"/>가 정한 시각의 탄 자리다.
+        /// 둘 다 사거리에서 멈추므로 머리가 멈추면 끝이 따라와 길이가 0이 된다.
+        /// </summary>
+        public static (Vector2 head, Vector2 tail) TrailEnds(Vector2 origin, Vector2 direction, float speed, float range,
+                                                             float seconds, float firstSeen, float trailSeconds)
+        {
+            float tailSeconds = ArcheryArrowDisplay.TrailTailSeconds(seconds, firstSeen, trailSeconds);
+            float headDistance = Mathf.Min(speed * Mathf.Max(0f, seconds), range);
+            float tailDistance = Mathf.Min(speed * Mathf.Max(0f, tailSeconds), range);
+            return (origin + direction * headDistance, origin + direction * tailDistance);
         }
 
         /// <summary>
@@ -166,6 +223,8 @@ namespace LOP
             if (root != null) return;
             root = new GameObject("KnockbackShots").transform;
             material = new Material(Shader.Find("Universal Render Pipeline/Unlit")) { color = Color.white };
+            // 선의 점 색(알파)을 그대로 쓰는 셰이더라야 꼬리가 흐려진다 — Lit은 알파를 무시한다.
+            trailMaterial = new Material(Shader.Find("Sprites/Default"));
         }
 
         private GameObject Rent()
@@ -189,8 +248,45 @@ namespace LOP
             return go;
         }
 
+        private LineRenderer RentTrail()
+        {
+            if (trailPool.Count > 0)
+            {
+                var pooled = trailPool.Pop();
+                pooled.gameObject.SetActive(true);
+                return pooled;
+            }
+            var go = new GameObject("KnockbackShotTrail");
+            go.transform.SetParent(root, false);
+            var line = go.AddComponent<LineRenderer>();
+            line.sharedMaterial = trailMaterial;
+            line.positionCount = 2;
+            line.useWorldSpace = true;
+            line.startWidth = Diameter * TrailWidthRatio;
+            line.endWidth = 0f;
+            var gradient = new Gradient();
+            gradient.SetKeys(
+                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(TrailHeadAlpha, 0f), new GradientAlphaKey(0f, 1f) });
+            line.colorGradient = gradient;
+            line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            line.receiveShadows = false;
+            return line;
+        }
+
+        private void ReleaseTrail((string, long) key)
+        {
+            if (trails.TryGetValue(key, out var line))
+            {
+                line.gameObject.SetActive(false);
+                trailPool.Push(line);
+                trails.Remove(key);
+            }
+        }
+
         private void Release((string, long) key)
         {
+            ReleaseTrail(key);
             if (spheres.TryGetValue(key, out var go))
             {
                 go.SetActive(false);
@@ -204,6 +300,7 @@ namespace LOP
             if (driver != null) Object.Destroy(driver.gameObject);
             if (root != null) Object.Destroy(root.gameObject);
             if (material != null) Object.Destroy(material);
+            if (trailMaterial != null) Object.Destroy(trailMaterial);
         }
     }
 }

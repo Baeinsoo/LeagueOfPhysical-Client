@@ -82,7 +82,7 @@ namespace LOP.UI
         private string AliveTextNow()
         {
             if (state.PlayerCount == 0) return "";
-            int team = state.TeamCount >= 2 ? state.MyTeamOf(gameDataStore?.userEntityId) : 0;
+            int team = state.TeamCount >= 2 ? state.MyTeamOf(gameDataStore?.userEntityId, gameDataStore?.formerEntityId) : 0;
             return team == 0
                 ? $"남은 사람 {state.AliveCount}"
                 : TeamAliveText(state.AliveCountOfTeam(team), state.AliveCountOfOtherTeams(team));

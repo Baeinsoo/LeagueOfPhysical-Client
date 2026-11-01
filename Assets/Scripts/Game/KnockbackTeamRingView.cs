@@ -55,7 +55,7 @@ namespace LOP
 
         private void Place()
         {
-            int myTeam = state.TeamCount >= 2 ? state.MyTeamOf(gameDataStore?.userEntityId) : 0;
+            int myTeam = state.TeamCount >= 2 ? state.MyTeamOf(gameDataStore?.userEntityId, gameDataStore?.formerEntityId) : 0;
             foreach (var actor in actors.All)
             {
                 string id = actor.entityId;

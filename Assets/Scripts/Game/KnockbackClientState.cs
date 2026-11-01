@@ -66,11 +66,13 @@ namespace LOP
         private int myTeam;
 
         /// <summary>
-        /// 내 팀. 한 번 알면 기억한다 — 탈락해 내 몸이 사라진 뒤에도 관전 중 "우리 팀"은 내 팀이다. 모르면 0.
+        /// 내 팀. 한 번 알면 기억한다 — 탈락해 내 몸이 사라진 뒤에도 관전 중 "우리 팀"은 내 팀이다.
+        /// 탈락 뒤 재접속하면 내 몸 id가 비므로, 그땐 서버가 알려 준 옛 몸 id로 찾는다. 모르면 0.
         /// </summary>
-        public int MyTeamOf(string myEntityId)
+        public int MyTeamOf(string myEntityId, string formerEntityId = null)
         {
             if (myTeam == 0) myTeam = TeamOf(myEntityId);
+            if (myTeam == 0) myTeam = TeamOf(formerEntityId);
             return myTeam;
         }
 

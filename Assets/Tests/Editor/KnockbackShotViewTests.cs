@@ -60,5 +60,42 @@ namespace LOP.Tests
             Assert.IsTrue(KnockbackShotView.TouchesDrawnBody(new Vector2(20.5f, 0f), "me", Bodies, Radius, Team), "상대 b");
             Assert.IsTrue(KnockbackShotView.TouchesDrawnBody(new Vector2(10.5f, 0f), "me", Bodies, Radius, id => 0), "개인전은 숨는다");
         }
+
+        const float Speed = 17f;
+        const float Range = 13f;
+        const float Trail = 0.18f;
+        static readonly Vector2 Muzzle = new Vector2(2f, 3f);
+        static readonly Vector2 Dir = new Vector2(1f, 0f);
+
+        [Test]
+        public void 제때_본_탄의_꼬리는_0점18초_뒤()
+        {
+            var (head, tail) = KnockbackShotView.TrailEnds(Muzzle, Dir, Speed, Range, 0.5f, 0f, Trail);
+            Assert.AreEqual(Speed * 0.5f, head.x - Muzzle.x, 1e-3f);
+            Assert.AreEqual(Speed * 0.32f, tail.x - Muzzle.x, 1e-3f);
+        }
+
+        [Test]
+        public void 늦게_본_탄은_총구부터_그린다()
+        {
+            var (_, tail) = KnockbackShotView.TrailEnds(Muzzle, Dir, Speed, Range, 0.25f, 0.25f, Trail);
+            Assert.AreEqual(Muzzle.x, tail.x, 1e-3f);
+        }
+
+        [Test]
+        public void 늦게_본_꼬리는_줄어든다()
+        {
+            var (head, tail) = KnockbackShotView.TrailEnds(Muzzle, Dir, Speed, Range, 0.25f + Trail, 0.25f, Trail);
+            Assert.AreEqual(Speed * Trail, head.x - tail.x, 1e-3f);
+        }
+
+        [Test]
+        public void 사거리_끝에서_꼬리가_머리를_따라잡는다()
+        {
+            float seconds = Range / Speed + Trail + 0.01f;
+            var (head, tail) = KnockbackShotView.TrailEnds(Muzzle, Dir, Speed, Range, seconds, 0f, Trail);
+            Assert.AreEqual(Muzzle.x + Range, head.x, 1e-3f);
+            Assert.AreEqual(head.x, tail.x, 1e-3f);
+        }
     }
 }

@@ -128,6 +128,29 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void boot_to_lobby는_접속_실패_대화상자_다시_시도가_상한을_넘기면_실패한다()
+        {
+            // L3: 서버가 정말 죽었으면 대화상자가 매번 다시 뜬다 — 상한 없이 계속 누르면 120s 시간 제한이
+            // "앱 상태=Boot 로비=False 로그인 창=없음"이라는 무의미한 문구로 진짜 장애를 가린다.
+            _kit.Driver.IsPlaying = true;
+            _kit.Driver.AppState = "Boot";
+            _kit.Driver.Elements.Add(FakeAutomationDriver.Element(BootToLobbyStep.RetryButton, "다시 시도"));
+            var step = new BootToLobbyStep();
+
+            StepResult last = default;
+            for (int i = 0; i < BootToLobbyStep.MaxRetries; i++) last = step.Tick(_kit.Ctx("boot_to_lobby"));
+            Assert.AreEqual(StepStatus.Running, last.Status);
+            Assert.AreEqual(BootToLobbyStep.MaxRetries, _kit.Driver.Clicks.Count);
+
+            var failed = step.Tick(_kit.Ctx("boot_to_lobby"));
+            Assert.AreEqual(StepStatus.Failed, failed.Status);
+            StringAssert.Contains("다시 시도", failed.Detail);
+            StringAssert.Contains(BootToLobbyStep.MaxRetries.ToString(), failed.Detail);
+            //  상한을 넘겼으면 더는 누르지 않는다.
+            Assert.AreEqual(BootToLobbyStep.MaxRetries, _kit.Driver.Clicks.Count);
+        }
+
+        [Test]
         public void boot_to_lobby는_재생_중이_아니면_바로_실패한다()
         {
             Assert.AreEqual(StepStatus.Failed, new BootToLobbyStep().Tick(_kit.Ctx("boot_to_lobby")).Status);

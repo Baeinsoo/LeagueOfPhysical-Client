@@ -85,6 +85,9 @@ namespace LOP.EditorTools.Automation
         public const string GuestButton = "guest-login";
         public const string PlayButton = "play-button";
         public const string RetryButton = "unreachable-retry";
+        //  콜드스타트 재현값(task6)은 매번 뜨고 한 번 누르면 넘어갔다 — 그보다 훨씬 넉넉하게 두되,
+        //  진짜 서버 장애일 땐 120 s 시간 제한보다 먼저 "대화상자를 계속 누르고 있었다"로 실패시킨다(L3).
+        public const int MaxRetries = 20;
 
         public string Op => "boot_to_lobby";
         public double DefaultTimeoutSeconds(ScenarioStep step) => 120;
@@ -99,10 +102,20 @@ namespace LOP.EditorTools.Automation
             if (lobby && play != null && play.Clickable)
                 return StepResult.Done(ctx.Scratch["guest"] != null ? "게스트 로그인" : "자동 로그인");
 
+            int retries = (int?)ctx.Scratch["retries"] ?? 0;
+
             //  접속 실패 대화상자는 재시도해도 다시 뜰 수 있다(연속 실패) — 매번 다시 누른다(한 번만이 아니다).
+            //  단, 상한을 넘기면 서버가 정말 죽은 것으로 보고 실패 이유에 몇 번 눌렀는지 남긴다 — 다시 시도가
+            //  진짜 장애를 "앱 상태=Boot …"라는 무의미한 문구로 가리지 않게.
             var retry = ctx.Driver.FindElement(new UiSelector { Name = RetryButton });
             if (retry != null && retry.Clickable)
             {
+                if (retries >= MaxRetries)
+                    return StepResult.Fail($"접속 실패 대화상자 — 다시 시도 {retries}번으로도 안 됐다");
+
+                retries++;
+                ctx.Scratch["retries"] = retries;
+                ctx.Recorder.Log($"접속 실패 대화상자 — 다시 시도 {retries}번째");
                 if (!ctx.Driver.Click(new UiSelector { Name = RetryButton }, out var retryWhy)) return StepResult.Fail(retryWhy);
             }
 
@@ -114,7 +127,8 @@ namespace LOP.EditorTools.Automation
                 ctx.Scratch["guest"] = true;
             }
 
-            ctx.Waiting = $"앱 상태={ctx.Driver.AppState ?? "-"} 로비={lobby} 로그인 창={(guest?.Visible == true ? "보임" : "없음")}";
+            string retryNote = retries > 0 ? $" 접속 실패 대화상자 다시 시도={retries}번" : string.Empty;
+            ctx.Waiting = $"앱 상태={ctx.Driver.AppState ?? "-"} 로비={lobby} 로그인 창={(guest?.Visible == true ? "보임" : "없음")}{retryNote}";
             return StepResult.Running;
         }
     }

@@ -32,6 +32,8 @@ namespace LOP
 
         private async void Awake()
         {
+            //  미리 꺼내 둔다 — 파괴된 뒤에 처음 꺼내면 토큰 대신 예외가 난다.
+            var destroyed = destroyCancellationToken;
             try
             {
                 await InitializeAsync();
@@ -42,6 +44,10 @@ namespace LOP
                 var clockSettle = WaitForClockSettleAsync();
                 await JoinRoomServerAsync();
                 await clockSettle;
+
+                //  기다리는 사이 판이 끝나 씬이 내려갔을 수 있다(시계 대기는 끊김·취소에 조용히 끝난다) —
+                //  그때 시작하면 파괴된 시계를 만져 오류가 난다. 조용히 그만둔다.
+                destroyed.ThrowIfCancellationRequested();
 
                 await StartGameAsync();
 

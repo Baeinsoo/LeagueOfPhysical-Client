@@ -17,7 +17,7 @@ namespace LOP.UI
         private readonly IDisposable _subscription;
 
         private bool _inGameRoom;   // 위치 관찰 결과
-        private bool _gameLive;     // 게임 씬이 보고한 사실
+        private bool _gameLive;     // 게임 씬이 보고한 사실 — 시작했거나 이미 끝나 더 기다릴 것이 없다
 
         /// <summary>로딩 창을 여닫는 근거. 코디네이터가 구독한다.</summary>
         public ReadOnlyReactiveProperty<bool> IsLoading => _isLoading;
@@ -35,9 +35,12 @@ namespace LOP.UI
             Recompute();
         }
 
-        /// <summary>게임 씬이 "게임이 실제로 시작됨"을 사실로 보고한다.</summary>
-        public void NotifyGameLive()
+        /// <summary>게임 씬이 러너 상태가 바뀔 때마다 보고한다. 시작하거나 끝나면 로딩판을 내린다.</summary>
+        public void OnGameStateChanged(GameFramework.Runner.RunnerState state)
         {
+            //  재접속 직후 판이 끝나면 Playing 없이 바로 GameOver가 온다. 위치는 경기 중에 다시 묻지 않아
+            //  GameRoom 그대로라, 끝을 "더 기다릴 것 없음"으로 치지 않으면 로딩판이 결과 화면을 덮은 채 남는다.
+            if (state != GameFramework.Runner.RunnerState.Playing && state != GameFramework.Runner.RunnerState.GameOver) return;
             _gameLive = true;
             Recompute();
         }

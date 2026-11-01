@@ -49,12 +49,20 @@ namespace LOP.EditorTools.Automation
         }
 
         //  임시 파일에 다 쓴 뒤 바꿔 단다 — 쓰는 도중 도메인이 다시 불러와져도 반쪽 JSON이 남지 않는다.
+        //  File.Replace는 Delete+Move를 한 파일시스템 호출로 묶어 그 사이에 죽는 창을 없앤다.
+        //  대상이 아직 없으면(첫 저장) Replace가 못 쓰므로 Move로 떨어진다.
         private static void WriteReplacing(string path, string text)
         {
             string temp = path + ".tmp";
             File.WriteAllText(temp, text);
-            if (File.Exists(path)) File.Delete(path);
-            File.Move(temp, path);
+            if (File.Exists(path))
+            {
+                File.Replace(temp, path, null);
+            }
+            else
+            {
+                File.Move(temp, path);
+            }
         }
     }
 }

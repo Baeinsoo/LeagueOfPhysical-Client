@@ -13,6 +13,7 @@ namespace LOP.EditorTools.Automation
                 new SelectGameStep(), new AutoFlapStep(), new SetEnvironmentStep(),
                 new ScreenshotStep(), new LogStep(), new WaitStep(),
                 new TouchStep(), new LongPressStep(), new DragStep(), new UiTypeStep(), new InputTextStep(),
+                new SnapshotCompareStep(),
             };
             var map = new Dictionary<string, IStepHandler>();
             foreach (var handler in handlers) map.Add(handler.Op, handler);

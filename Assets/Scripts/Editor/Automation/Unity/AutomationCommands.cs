@@ -45,6 +45,28 @@ namespace LOP.EditorTools.Automation
             ops = StepCatalog.CreateAll().Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray(),
         };
 
+        [CliCommand("automation_baseline", "화면 비교 기준 그림: --scenario면 시나리오를 한 번 돌며 snapshot_compare마다 지금 그림을 기준으로 쓰고(진행은 automation_status), --run이면 그 실행에서 실패한 비교의 지금 그림을 기준으로 받아들인다.", Tags = new[] { Tag })]
+        public static object Baseline(
+            [CliArg("scenario", "기준을 새로 만들 시나리오(automation_start와 같은 꼴)")] string scenario = null,
+            [CliArg("run", "실패한 비교를 받아들일 실행 이름(Logs/automation 아래 폴더 이름)")] string run = null)
+        {
+            if (string.IsNullOrEmpty(scenario) == string.IsNullOrEmpty(run)) throw new ArgumentException("--scenario나 --run 중 하나만 준다");
+
+            if (!string.IsNullOrEmpty(scenario))
+            {
+                if (!ScenarioFiles.TryResolve(scenario, ProjectRoot, out var path, out var why)) throw new ArgumentException(why);
+                return AutomationHost.Session.Start(File.ReadAllText(path), path, 1, DateTime.UtcNow, baselineMode: true);
+            }
+
+            //  폴더 이름 하나만 — 경로를 받으면 프로젝트 밖 state.json을 읽고 그 안의 경로로 복사할 수 있다.
+            if (run.IndexOfAny(new[] { '/', '\\' }) >= 0 || run == "." || run == "..") throw new ArgumentException($"--run은 실행 폴더 이름 하나: {run}");
+            var state = RunStateStore.Load(Path.Combine(ProjectRoot, AutomationHost.RunsRoot, run))
+                        ?? throw new ArgumentException($"실행이 없다: {AutomationHost.RunsRoot}/{run}");
+            var skipped = new List<string>();
+            var accepted = BaselineFiles.AcceptFromRun(state, new EditorAutomationDriver().BaselineRoot, skipped);
+            return new { accepted, skipped };
+        }
+
         [CliCommand("ui_query", "지금 화면의 UI Toolkit 요소를 찾아 보임·켜짐·맨위·글자를 돌려준다(기다리지 않는다)", Tags = new[] { Tag })]
         public static IReadOnlyList<UiElementInfo> UiQuery(
             [CliArg("name", "요소 이름(UXML name)")] string name = null,

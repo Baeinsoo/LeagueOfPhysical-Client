@@ -15,7 +15,7 @@ namespace LOP.Tests
             CollectionAssert.AreEquivalent(
                 new[] { "ui_wait", "ui_click", "ui_read", "input_tap", "wait_state", "play_enter", "play_exit", "boot_to_lobby",
                         "select_game", "auto_flap", "set_environment", "screenshot", "log", "wait",
-                        "touch", "long_press", "drag", "ui_type", "input_text" },
+                        "touch", "long_press", "drag", "ui_type", "input_text", "snapshot_compare" },
                 StepCatalog.CreateAll().Keys.ToArray());
         }
 

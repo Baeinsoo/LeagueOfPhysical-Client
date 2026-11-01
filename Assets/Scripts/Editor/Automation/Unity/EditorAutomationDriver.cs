@@ -226,8 +226,7 @@ namespace LOP.EditorTools.Automation
 
         //  ── 매크로 확장(spec §8.3~§8.5·§15) ──
 
-        public string BaselineRoot => Path.Combine(Directory.GetCurrentDirectory(), BaselineFolder);
-        private const string BaselineFolder = "Automation/Baselines";
+        public string BaselineRoot => Path.Combine(Directory.GetCurrentDirectory(), BaselineFiles.Folder);
 
         public string GameInputMode
         {

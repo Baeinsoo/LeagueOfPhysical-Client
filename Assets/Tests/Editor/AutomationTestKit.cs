@@ -226,4 +226,22 @@ namespace LOP.Tests
             if (Directory.Exists(State.RunDir)) Directory.Delete(State.RunDir, true);
         }
     }
+
+    /// <summary>화면 비교 시험용 그림 — 한 색 바탕에 점 몇 개. 좌표는 텍스처 순서(왼쪽 아래 원점).</summary>
+    internal static class TestPng
+    {
+        public static Color32[] Solid(int width, int height, Color32 color)
+        {
+            var pixels = new Color32[width * height];
+            for (int i = 0; i < pixels.Length; i++) pixels[i] = color;
+            return pixels;
+        }
+
+        public static byte[] Png(int width, int height, Color32 color, params (int x, int y, Color32 color)[] dots)
+        {
+            var pixels = Solid(width, height, color);
+            foreach (var dot in dots) pixels[dot.y * width + dot.x] = dot.color;
+            return PngPixels.Encode(width, height, pixels);
+        }
+    }
 }

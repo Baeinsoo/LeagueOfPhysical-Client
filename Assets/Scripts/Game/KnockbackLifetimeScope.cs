@@ -79,6 +79,8 @@ namespace LOP
             builder.RegisterEntryPoint<KnockbackZoneView>();
             builder.RegisterEntryPoint<KnockbackDamageLabel>();
             builder.RegisterEntryPoint<KnockbackTeamRingView>();
+            builder.Register<LOP.UI.KnockbackAimState>(Lifetime.Singleton);
+            builder.RegisterEntryPoint<KnockbackAimIndicatorView>();
             builder.Register<KnockbackSpectate>(Lifetime.Singleton).As<ISpectateTargets>().AsSelf();
             builder.RegisterEntryPoint<KnockbackHudCoordinator>();
             builder.Register<KnockbackPadViewModel>(Lifetime.Transient);

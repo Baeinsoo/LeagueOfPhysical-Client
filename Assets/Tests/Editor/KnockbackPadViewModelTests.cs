@@ -91,5 +91,76 @@ namespace LOP.Tests
         {
             Assert.AreEqual(LOP.UI.KnockbackPadViewModel.TapOrDrag.None, LOP.UI.KnockbackPadViewModel.Classify(1.0f, 0.1f));
         }
+
+        [Test]
+        public void 위로_끌면_화면_위쪽_월드방향()
+        {
+            var dir = LOP.UI.KnockbackPadViewModel.AimDirection(new Vector2(0f, 1f), 0f);
+            Assert.AreEqual(0f, dir.x, 1e-4f);
+            Assert.AreEqual(1f, dir.y, 1e-4f);
+        }
+
+        [Test]
+        public void 오른쪽으로_끌면_월드_양의_x()
+        {
+            var dir = LOP.UI.KnockbackPadViewModel.AimDirection(new Vector2(1f, 0f), 0f);
+            Assert.AreEqual(1f, dir.x, 1e-4f);
+            Assert.AreEqual(0f, dir.y, 1e-4f);
+        }
+
+        [Test]
+        public void 카메라가_90도_돌면_위로_끌기가_월드_x쪽()
+        {
+            var dir = LOP.UI.KnockbackPadViewModel.AimDirection(new Vector2(0f, 1f), 90f);
+            Assert.AreEqual(1f, dir.x, 1e-4f);
+            Assert.AreEqual(0f, dir.y, 1e-4f);
+        }
+
+        // 발사가 쓰는 yaw와 조준선이 쓰는 yaw는 같은 함수의 결과여야 한다 — 선이 가리킨 곳과 탄이 간 곳이 갈리면 안 된다.
+        [Test]
+        public void 발사_yaw와_조준선_yaw는_같은_함수()
+        {
+            var drag = new Vector2(0.6f, 0.8f);
+            float? yaw = LOP.UI.KnockbackPadViewModel.AimYaw(drag, 30f);
+            var dir = LOP.UI.KnockbackPadViewModel.AimDirection(drag, 30f);
+            Assert.IsTrue(yaw.HasValue);
+            Assert.AreEqual(LOP.UI.KnockbackPadViewModel.YawOf(dir), yaw.Value, 1e-4f);
+            Assert.IsFalse(LOP.UI.KnockbackPadViewModel.AimYaw(Vector2.zero, 30f).HasValue);
+        }
+
+        [Test]
+        public void 조준표시_안_누르면_없음()
+        {
+            Assert.AreEqual(LOP.UI.KnockbackPadViewModel.AimKind.None, LOP.UI.KnockbackPadViewModel.AimIndicatorState(0.9f, false, true));
+        }
+
+        [Test]
+        public void 조준표시_경계_029는_취소_03은_조준()
+        {
+            Assert.AreEqual(LOP.UI.KnockbackPadViewModel.AimKind.Cancel, LOP.UI.KnockbackPadViewModel.AimIndicatorState(0.29f, true, true));
+            Assert.AreEqual(LOP.UI.KnockbackPadViewModel.AimKind.Aim, LOP.UI.KnockbackPadViewModel.AimIndicatorState(0.3f, true, true));
+        }
+
+        [Test]
+        public void 조준표시_안_끌고_누르고만_있으면_대상이_있을_때만_고리()
+        {
+            Assert.AreEqual(LOP.UI.KnockbackPadViewModel.AimKind.AutoTarget, LOP.UI.KnockbackPadViewModel.AimIndicatorState(0f, true, true));
+            Assert.AreEqual(LOP.UI.KnockbackPadViewModel.AimKind.None, LOP.UI.KnockbackPadViewModel.AimIndicatorState(0f, true, false));
+        }
+
+        [Test]
+        public void 조준표시_끌었다_가운데로_되돌리면_취소()
+        {
+            Assert.AreEqual(LOP.UI.KnockbackPadViewModel.AimKind.Cancel, LOP.UI.KnockbackPadViewModel.AimIndicatorState(0f, true, true, true));
+        }
+
+        [Test]
+        public void 자동_조준_대상_위치는_가장_가까운_적_오프셋()
+        {
+            var bodies = new System.Collections.Generic.List<Vector2> { new Vector2(0f, 8f), new Vector2(3f, 0f) };
+            var offset = LOP.UI.KnockbackPadViewModel.AutoAimOffset(Vector2.zero, bodies, null, 0, 15f);
+            Assert.IsTrue(offset.HasValue);
+            Assert.AreEqual(new Vector2(3f, 0f), offset.Value);
+        }
     }
 }

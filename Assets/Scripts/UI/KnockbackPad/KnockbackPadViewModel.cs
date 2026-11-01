@@ -23,6 +23,7 @@ namespace LOP.UI
         private readonly KnockbackClientState state;
         private readonly KnockbackConfig config;
         private readonly GameFramework.Runner.IRunner runner;
+        private readonly KnockbackAimState aimState;
 
         private readonly List<Vector2> bodyScratch = new List<Vector2>();
         private readonly List<int> teamScratch = new List<int>();
@@ -31,8 +32,9 @@ namespace LOP.UI
                                      ActorRegistry actors, IPlayerContext playerContext,
                                      GameFramework.World.EntityRegistry entityRegistry,
                                      KnockbackClientState state, KnockbackConfig config,
-                                     GameFramework.Runner.IRunner runner)
+                                     GameFramework.Runner.IRunner runner, KnockbackAimState aimState)
         {
+            this.aimState = aimState;
             this.input = input;
             this.cameraController = cameraController;
             this.actors = actors;
@@ -89,17 +91,50 @@ namespace LOP.UI
         /// <summary>화면 기준으로 끈 방향(위 = 화면 위쪽, y는 이미 뒤집음)으로 쏜다.</summary>
         public void FireTowardScreenDirection(Vector2 drag)
         {
-            var dir = DodgePadViewModel.CameraRelative(drag, cameraController.MainCamera);
-            if (dir.sqrMagnitude > 1e-6f)
+            float? yaw = AimYaw(drag, cameraController.MainCamera.transform.eulerAngles.y);
+            if (yaw.HasValue)
             {
-                input.SetFire(YawOf(dir));
+                input.SetFire(yaw.Value);
             }
+        }
+
+        /// <summary>
+        /// 화면 끌기 → 월드 방향. 발사와 조준선이 같은 방향을 쓰도록 이 함수 하나만 거친다.
+        /// 식은 <see cref="DodgePadViewModel.CameraRelative"/>와 같다(카메라의 좌우 회전만 본다).
+        /// </summary>
+        public static Vector2 AimDirection(Vector2 drag, float cameraYawDegrees)
+        {
+            if (drag == Vector2.zero)
+            {
+                return Vector2.zero;
+            }
+            Vector3 world = Quaternion.Euler(0f, cameraYawDegrees, 0f) * new Vector3(drag.x, 0f, drag.y);
+            return new Vector2(world.x, world.z);
+        }
+
+        /// <summary>끈 방향의 yaw. 방향이 없으면 null.</summary>
+        public static float? AimYaw(Vector2 drag, float cameraYawDegrees)
+        {
+            var dir = AimDirection(drag, cameraYawDegrees);
+            return dir.sqrMagnitude > 1e-6f ? YawOf(dir) : (float?)null;
         }
 
         /// <summary>가장 가까운 살아 있는 적의 그려진 자리로 쏜다. 적이 없으면 아무 일도 없다.</summary>
         public bool FireAuto()
         {
-            if (!TryGetMyPosition(out var me))
+            if (!TryFindAutoTarget(out var me, out var target))
+            {
+                return false;
+            }
+            input.SetFire(YawOf(target - me));
+            return true;
+        }
+
+        // FireAuto와 조준 표시가 같은 대상을 고르도록 한 곳에서만 찾는다.
+        private bool TryFindAutoTarget(out Vector2 me, out Vector2 target)
+        {
+            target = default;
+            if (!TryGetMyPosition(out me))
             {
                 return false;
             }
@@ -116,13 +151,57 @@ namespace LOP.UI
                 bodyScratch.Add(new Vector2(p.x, p.z));
                 teamScratch.Add(state.TeamOf(actor.entityId));
             }
-            float? yaw = AutoAimYaw(me, bodyScratch, teamScratch, myTeam, AutoAimRange);
-            if (!yaw.HasValue)
+            var offset = AutoAimOffset(me, bodyScratch, teamScratch, myTeam, AutoAimRange);
+            if (!offset.HasValue)
             {
                 return false;
             }
-            input.SetFire(yaw.Value);
+            target = me + offset.Value;
             return true;
+        }
+
+        /// <summary>
+        /// 발사 버튼을 잡고 있는 동안 매 프레임 불러 조준 표시 상태를 갱신한다. 손을 떼면 held=false로 불러 끈다.
+        /// </summary>
+        public void UpdateAim(bool held, Vector2 drag, bool everDragged)
+        {
+            if (!held)
+            {
+                aimState.Clear();
+                return;
+            }
+            bool hasTarget = TryFindAutoTarget(out var me, out var target);
+            var kind = AimIndicatorState(drag.magnitude, true, hasTarget, everDragged);
+            aimState.Kind = kind;
+            aimState.AimYaw = AimYaw(drag, cameraController.MainCamera.transform.eulerAngles.y) ?? 0f;
+            aimState.TargetXZ = target;
+        }
+
+        public enum AimKind { None, Cancel, Aim, AutoTarget }
+
+        /// <summary>이만큼 이상 끌어야 "끌었다"로 본다. 손가락이 살짝 떨리는 것까지 끌기로 치지 않게.</summary>
+        public const float AimDeadZone01 = 0.05f;
+
+        /// <summary>
+        /// 조준 표시 종류. 놓으면 쏘는 끌기(임계 이상) = Aim, 끌었지만 임계 미만이라 놓으면 취소 = Cancel,
+        /// 아직 안 끌고 누르고만 있음 = 자동 조준 대상(없으면 None).
+        /// everDragged: 끌었다가 가운데로 되돌려 놓은 경우도 취소라서 Cancel로 둔다.
+        /// </summary>
+        public static AimKind AimIndicatorState(float drag01, bool held, bool hasTarget, bool everDragged = false)
+        {
+            if (!held)
+            {
+                return AimKind.None;
+            }
+            if (drag01 >= DragThreshold)
+            {
+                return AimKind.Aim;
+            }
+            if (everDragged || drag01 > AimDeadZone01)
+            {
+                return AimKind.Cancel;
+            }
+            return hasTarget ? AimKind.AutoTarget : AimKind.None;
         }
 
         /// <summary>마우스가 가리키는 바닥점 쪽으로 쏜다(PC).</summary>
@@ -184,7 +263,7 @@ namespace LOP.UI
         /// <summary>
         /// 위와 같되 내 팀(myTeam)과 같은 팀인 몸은 건너뛴다. teams는 bodies와 같은 순서(null = 모두 적).
         /// </summary>
-        public static float? AutoAimYaw(Vector2 me, IReadOnlyList<Vector2> bodies, IReadOnlyList<int> teams, int myTeam, float maxRange)
+        public static Vector2? AutoAimOffset(Vector2 me, IReadOnlyList<Vector2> bodies, IReadOnlyList<int> teams, int myTeam, float maxRange)
         {
             float best = maxRange * maxRange;
             Vector2? target = null;
@@ -203,7 +282,13 @@ namespace LOP.UI
                 best = sq;
                 target = d;
             }
-            return target.HasValue ? YawOf(target.Value) : (float?)null;
+            return target;
+        }
+
+        public static float? AutoAimYaw(Vector2 me, IReadOnlyList<Vector2> bodies, IReadOnlyList<int> teams, int myTeam, float maxRange)
+        {
+            var offset = AutoAimOffset(me, bodies, teams, myTeam, maxRange);
+            return offset.HasValue ? YawOf(offset.Value) : (float?)null;
         }
 
         /// <summary>
@@ -232,6 +317,7 @@ namespace LOP.UI
 
         public void Dispose()
         {
+            aimState.Clear();
         }
     }
 }

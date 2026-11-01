@@ -105,16 +105,23 @@ namespace LOP.UI
                 return WaitingText();
             }
 
-            long remainingTicks = startTick - runner.tickUpdater.tick;
+            //  연결이 끊겨 방이 내려가는 동안 틱 시계가 먼저 파괴된다. 그때는 아무것도 띄우지 않는다.
+            var ticker = runner.tickUpdater;
+            if (ticker == null)
+            {
+                return string.Empty;
+            }
+
+            long remainingTicks = startTick - ticker.tick;
             if (remainingTicks <= 0)
             {
                 //  출발 후 1초만 "GO!"를 띄우고 빈 문자열을 반환한다(창을 닫는 게 아니라 View가 숨긴다) —
                 //  계속 띄우면 레이스 내내 화면을 덮는다.
-                double elapsedSinceStart = -remainingTicks * runner.tickUpdater.interval;
+                double elapsedSinceStart = -remainingTicks * ticker.interval;
                 return elapsedSinceStart < 1.0 ? "GO!" : string.Empty;
             }
 
-            double remainingSeconds = remainingTicks * runner.tickUpdater.interval;
+            double remainingSeconds = remainingTicks * ticker.interval;
             if (remainingSeconds > CountdownSeconds)
             {
                 return WaitingText();

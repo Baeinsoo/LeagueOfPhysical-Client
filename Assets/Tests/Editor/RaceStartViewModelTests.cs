@@ -164,5 +164,13 @@ namespace LOP.Tests
             Assert.IsFalse(new PlainRaceStartLook().Animated);
             CollectionAssert.AreEqual(new[] { FlappySfx.CountBeat, FlappySfx.Go }, audio.Played);
         }
+
+        [Test]
+        public void tickUpdater가_없으면_예외_없이_빈_문자열()
+        {
+            //  파괴된 MonoBehaviour는 Unity null 비교에서 null과 같다. 시험에선 파괴체를 못 만들어 null로 대신한다.
+            var gone = new RaceStartViewModel(start, new FakeRunner { tickUpdater = null }, look);
+            Assert.AreEqual(string.Empty, gone.CurrentText());
+        }
     }
 }

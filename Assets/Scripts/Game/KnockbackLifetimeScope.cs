@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using LOP.UI;
+using MessagePipe;
+using Mirror;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -34,6 +36,10 @@ namespace LOP
                 BodySizes.CharacterRadius, BodySizes.CharacterHeight,
                 c.Resolve<KnockbackConfig>().BodyRestitution, new UnityEngine.Vector3(1, 0, 1)), Lifetime.Singleton);
 
+            builder.Register(c => new KnockbackPillars(c.Resolve<KnockbackConfig>().Pillars, c.Resolve<KnockbackFloor>()), Lifetime.Singleton);
+            //  IDisposable이라 스코프가 끝날 때 컨테이너가 기둥 몸(GameObject)을 지운다.
+            builder.Register(c => new KnockbackPillarColliders(c.Resolve<KnockbackPillars>()), Lifetime.Singleton);
+
             builder.Register<KnockbackWorld>(c => new KnockbackWorld(
                 c.Resolve<GameFramework.World.EntityRegistry>(),
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
@@ -42,7 +48,9 @@ namespace LOP
                 c.Resolve<KnockbackFloor>(),
                 c.Resolve<KnockbackFireSystem>(),
                 c.Resolve<BodyCollisionSystem>(),
-                c.Resolve<KnockbackConfig>()), Lifetime.Singleton)
+                c.Resolve<KnockbackConfig>(),
+                c.Resolve<KnockbackPillars>(),
+                c.Resolve<KnockbackPillarColliders>()), Lifetime.Singleton)
                 .As<GameFramework.World.IWorld>().AsSelf();
 
             builder.Register<ICharacterCreator, KnockbackPlayerCreator>(Lifetime.Singleton);
@@ -65,18 +73,37 @@ namespace LOP
             builder.RegisterEntryPoint<KnockbackRemoteShotHandler>();
 
             builder.RegisterEntryPoint<KnockbackFloorView>();
+            builder.RegisterEntryPoint<KnockbackPillarView>();
             builder.RegisterEntryPoint<KnockbackShotView>();
             builder.RegisterEntryPoint<KnockbackZoneView>();
             builder.RegisterEntryPoint<KnockbackDamageLabel>();
+            builder.Register<KnockbackSpectate>(Lifetime.Singleton).As<ISpectateTargets>().AsSelf();
             builder.RegisterEntryPoint<KnockbackHudCoordinator>();
             builder.Register<KnockbackPadViewModel>(Lifetime.Transient);
             builder.Register<KnockbackPadView>(Lifetime.Transient);
+            builder.Register<KnockbackHudViewModel>(Lifetime.Transient);
+            builder.Register<KnockbackHudView>(Lifetime.Transient);
+            builder.Register<IRaceStartLook, PlainRaceStartLook>(Lifetime.Singleton);
+            builder.Register<RaceStartViewModel>(Lifetime.Transient);
+            builder.Register<RaceStartView>(Lifetime.Transient);
+            builder.Register<RaceEliminatedView>(Lifetime.Transient);
+            builder.Register<RaceSpectateViewModel>(Lifetime.Transient);
+            builder.Register<RaceSpectateView>(Lifetime.Transient);
+            builder.Register<LeaveMatchConfirmViewModel>(Lifetime.Transient);
+            builder.Register<LeaveMatchConfirmView>(Lifetime.Transient);
+            builder.Register(c => new MatchLeaveRequester(c.Resolve<ISubscriber<LeaveMatchToC>>(),
+                message => NetworkClient.Send(new CustomMirrorMessage { payload = message })), Lifetime.Singleton);
         }
 
         protected override void RegisterViewFactories(
             IObjectResolver container, IWindowManager windowManager, List<IDisposable> sink)
         {
             sink.Add(windowManager.RegisterViewFactory<KnockbackPadView>(() => container.Resolve<KnockbackPadView>()));
+            sink.Add(windowManager.RegisterViewFactory<KnockbackHudView>(() => container.Resolve<KnockbackHudView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceStartView>(() => container.Resolve<RaceStartView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceEliminatedView>(() => container.Resolve<RaceEliminatedView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceSpectateView>(() => container.Resolve<RaceSpectateView>()));
+            sink.Add(windowManager.RegisterViewFactory<LeaveMatchConfirmView>(() => container.Resolve<LeaveMatchConfirmView>()));
         }
     }
 }

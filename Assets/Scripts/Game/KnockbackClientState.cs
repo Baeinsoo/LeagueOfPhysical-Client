@@ -37,6 +37,22 @@ namespace LOP
             return false;
         }
 
+        public int PlayerCount => players.Count;
+
+        /// <summary>상태에 실린 사람 중 탈락 틱이 없는 수.</summary>
+        public int AliveCount
+        {
+            get
+            {
+                int n = 0;
+                foreach (var p in players.Values)
+                {
+                    if (p.eliminatedTick < 0) n++;
+                }
+                return n;
+            }
+        }
+
         public bool IsEliminated(string entityId)
             => entityId != null && players.TryGetValue(entityId, out var p) && p.eliminatedTick >= 0;
 

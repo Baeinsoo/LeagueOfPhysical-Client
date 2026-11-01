@@ -23,6 +23,7 @@ namespace LOP
 
             builder.Register<KnockbackConfigProvider>(Lifetime.Singleton);
             builder.Register<KnockbackConfig>(c => c.Resolve<KnockbackConfigProvider>().Get(), Lifetime.Singleton);
+            builder.Register<KnockbackMatchMode>(c => c.Resolve<KnockbackConfigProvider>().GetMatchMode(), Lifetime.Singleton);
 
             // 바닥은 월드와 이동 시스템이 같은 한 개를 나눠 쓴다.
             builder.Register<KnockbackFloor>(c => c.Resolve<KnockbackConfig>().CreateFloor(), Lifetime.Singleton);

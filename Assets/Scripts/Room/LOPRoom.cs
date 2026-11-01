@@ -48,6 +48,11 @@ namespace LOP
                 //  기다리는 사이 판이 끝나 씬이 내려갔을 수 있다(시계 대기는 끊김·취소에 조용히 끝난다) —
                 //  그때 시작하면 파괴된 시계를 만져 오류가 난다. 조용히 그만둔다.
                 destroyed.ThrowIfCancellationRequested();
+                //  판 끝(GameOver)과 씬 교체는 같은 프레임이 아니다 — 아직 파괴 전이어도 끝난 판은 시작하지 않는다.
+                if (runner.gameState == RunnerState.GameOver)
+                {
+                    return;
+                }
 
                 await StartGameAsync();
 

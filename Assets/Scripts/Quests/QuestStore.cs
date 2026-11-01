@@ -37,6 +37,11 @@ namespace LOP
         private readonly ReactiveProperty<int> _completedDaily = new(0);
         private TimeSpan _serverOffset = TimeSpan.Zero;
 
+        //  최종 리뷰 m1: 판을 연 직후 GET과 바꾸기가 겹치면, 바꾸기보다 먼저 떠난 GET이 늦게 돌아와 바꾸기 결과를
+        //  덮을 수 있다(바꾸기는 같은 행 id를 고쳐 써서 서버가 그 뒤 또 성공으로 받아들인다). 바꾸기 성공 때마다
+        //  세대를 올리고, GET은 시작할 때의 세대를 기억해 둔다 — 돌아왔을 때 세대가 바뀌었으면 낡은 응답이라 버린다.
+        private int _generation;
+
         public ReadOnlyReactiveProperty<QuestDailyDto> Daily => _daily;
         public ReadOnlyReactiveProperty<QuestWeeklyDto> Weekly => _weekly;
         public ReadOnlyReactiveProperty<QuestLoadState> State => _state;
@@ -75,13 +80,24 @@ namespace LOP
             string userId = _users.user?.id;
             if (string.IsNullOrEmpty(userId)) return false;
 
+            int generationAtStart = _generation;
             try
             {
                 var response = await _fetch(userId, cancellationToken);
                 if (cancellationToken.IsCancellationRequested) return false;
+                if (generationAtStart != _generation)
+                {
+                    //  m1: 받는 동안 바꾸기가 성공해 더 새 값이 이미 있다 — 세대가 바뀐 낡은 응답은 버린다.
+                    UnityEngine.Debug.LogWarning("[QuestStore] Dropped a stale GET — a reroll advanced the generation meanwhile.");
+                    return false;
+                }
                 if (response?.code == ResponseCode.ECONOMY_DISABLED)
                 {
                     _state.Value = QuestLoadState.Disabled;
+                    //  m2: 켜져 있다가 꺼지면 묵은 카드를 치운다 — 판이 빈 목록으로 다시 그려 버튼까지 함께 숨는다.
+                    _daily.Value = null;
+                    _weekly.Value = null;
+                    Recount();
                     return false;
                 }
                 if (response == null || response.code != ResponseCode.SUCCESS || response.daily == null || response.weekly == null)
@@ -123,6 +139,8 @@ namespace LOP
                 if (response?.code == ResponseCode.SUCCESS && response.daily != null)
                 {
                     _daily.Value = response.daily;
+                    //  m1: 세대를 올려 둔다 — 이 바꾸기보다 먼저 떠난 GET이 늦게 와도 RefreshAsync가 버린다.
+                    _generation++;
                     Recount();
                 }
                 return response?.code ?? 0;

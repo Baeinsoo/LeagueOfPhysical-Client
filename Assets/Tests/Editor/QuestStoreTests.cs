@@ -158,5 +158,35 @@ namespace LOP.Tests
             var broken = Store((u, ct) => UniTask.FromResult(Ok(Item("d1"))), reroll: (u, r, ct) => throw new Exception("net"));
             Assert.AreEqual(0, broken.RerollAsync("d1", CancellationToken.None).GetAwaiter().GetResult());
         }
+
+        //  최종 리뷰 m1: 판을 연 직후 GET과 바꾸기가 겹치면, 바꾸기보다 먼저 떠난 GET이 늦게 돌아와 바꾸기 결과를
+        //  덮을 수 있다(같은 행 id라 서버는 성공으로 받아들인다). 세대 번호로 그 낡은 응답을 버린다.
+        [Test]
+        public void 바꾸기_성공_뒤_늦게_온_낡은_GET은_버린다()
+        {
+            var gate = new UniTaskCompletionSource<GetQuestsResponse>();
+            int fetchCalls = 0;
+            var changed = new QuestDailyDto { periodKey = "2026-10-30", endsAt = Server.AddHours(17), rerollsLeft = 0, quests = new[] { Item("d1") } };
+            changed.quests[0].title = "새 퀘스트";
+            var store = Store((u, ct) =>
+                {
+                    fetchCalls++;
+                    //  1번째(판 열 때)는 바로 끝나고, 2번째(겹치는 GET)는 gate가 풀릴 때까지 묶인다.
+                    return fetchCalls == 1 ? UniTask.FromResult(Ok(Item("d1"))) : gate.Task;
+                },
+                reroll: (u, r, ct) => UniTask.FromResult(new RerollQuestResponse { code = ResponseCode.SUCCESS, daily = changed }));
+
+            store.RefreshAsync(CancellationToken.None).GetAwaiter().GetResult();
+            //  겹치는 GET — gate에 묶여 아직 안 끝났다. 아직 안 끝난 UniTask를 블로킹으로 기다리지 않는다
+            //  (TrySetResult가 이어 붙은 콜백을 그 자리에서 다 돌린다 — 다른 시험의 Busy 패턴과 같다).
+            store.RefreshAsync(CancellationToken.None).Forget();
+
+            store.RerollAsync("d1", CancellationToken.None).GetAwaiter().GetResult();
+            Assert.AreEqual("새 퀘스트", store.Daily.CurrentValue.quests[0].title, "바꾸기가 먼저 끝난다");
+
+            gate.TrySetResult(Ok(Item("d1")));   //  바꾸기 전 스냅숏이 뒤늦게 돌아온다
+
+            Assert.AreEqual("새 퀘스트", store.Daily.CurrentValue.quests[0].title, "낡은 GET이 바꾸기 결과를 덮지 않는다");
+        }
     }
 }

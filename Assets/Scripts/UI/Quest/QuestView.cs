@@ -132,6 +132,9 @@ namespace LOP.UI
                 var reroll = new Button(() => _viewModel.RerollAsync(id).Forget());
                 reroll.AddToClassList("kit-press");
                 reroll.AddToClassList("kit-btn");
+                //  사람 확인: --info(또는 --primary) 없이는 스티커 기본 바탕이 크림이라 .kit-btn__label의
+                //  흰 글자가 거의 안 보인다(다른 kit-btn은 전부 --primary나 --info를 쓴다). 파랑 바탕 + 흰 글자로.
+                reroll.AddToClassList("kit-btn--info");
                 reroll.AddToClassList("quest-card__reroll");
                 //  .kit-press:disabled(Kit.uss)가 기본 테마의 흐림을 그대로 쓴다 — 버튼은 남고 흐려질 뿐이다.
                 reroll.SetEnabled(card.CanReroll);

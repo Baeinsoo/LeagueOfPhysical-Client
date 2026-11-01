@@ -62,6 +62,9 @@ namespace LOP.UI
         private readonly ReactiveProperty<string> _message = new(string.Empty);
         private readonly ReactiveProperty<bool> _busy = new(false);
         private readonly ReactiveProperty<bool> _hasData = new(false);
+        //  최종 리뷰 m3: 80014(후보 고갈)를 받은 칸 id — rerollsLeft는 그대로인데 그 칸만 다시 시도해도 또
+        //  80014이므로, 서버에 다시 묻지 않고 그 칸의 버튼만 잠근다.
+        private readonly HashSet<string> _unavailableIds = new();
         private bool _refreshingForReset;
         private DateTime? _resetAttemptedForEndsAt;
         private DateTime _lastResetAttemptAt = DateTime.MinValue;
@@ -83,8 +86,10 @@ namespace LOP.UI
         public QuestViewModel(QuestStore store)
         {
             _store = store;
-            _subscriptions.Add(_store.Daily.Subscribe(_ => Rebuild()));
-            _subscriptions.Add(_store.Weekly.Subscribe(_ => Rebuild()));
+            //  최종 리뷰 m6: 판이 열려 있는 동안 Daily·Weekly가 바뀔 때마다(로비 배경 받기·리셋·바꾸기 전부)
+            //  다시 "봤다"로 적는다 — 열 때 한 번만 적으면 늦게 들어온 완료가 로비 배지로 다시 뜬다.
+            _subscriptions.Add(_store.Daily.Subscribe(_ => { Rebuild(); _store.MarkAllSeen(); }));
+            _subscriptions.Add(_store.Weekly.Subscribe(_ => { Rebuild(); _store.MarkAllSeen(); }));
             _subscriptions.Add(_store.State.Subscribe(OnState));
             _store.MarkAllSeen();
             //  열 때마다 다시 받는다 — 로비 진입 조회가 실패했어도 여기서 회복한다(상점과 같은 이유).
@@ -128,12 +133,18 @@ namespace LOP.UI
                 int code = await _store.RerollAsync(questId, CancellationToken.None);
                 if (_disposed) return;
                 _message.Value = QuestFormat.RerollMessage(code);
-                //  칸이 이미 바뀌었거나 끝났다 — 지금 보이는 판이 낡았다.
-                if (code == ResponseCode.QUEST_NOT_FOUND || code == ResponseCode.QUEST_ALREADY_COMPLETED)
+                //  칸이 이미 바뀌었거나 끝났다 — 지금 보이는 판이 낡았다. 80006(m2)이면 스위치가 꺼진 것이라
+                //  똑같이 다시 받아 Disabled로 옮긴다(스토어가 묵은 카드를 치운다).
+                if (code == ResponseCode.QUEST_NOT_FOUND || code == ResponseCode.QUEST_ALREADY_COMPLETED || code == ResponseCode.ECONOMY_DISABLED)
                 {
                     await _store.RefreshAsync(_cts.Token);
-                    //  m2: 다시 받은 칸 중 끝난 것을 "봤다"로 적는다 — 안 적으면 판에서 본 완료가 로비 배지로 다시 뜬다.
+                    //  다시 받은 칸 중 끝난 것을 "봤다"로 적는다 — 안 적으면 판에서 본 완료가 로비 배지로 다시 뜬다.
                     if (!_disposed) _store.MarkAllSeen();
+                }
+                else if (code == ResponseCode.QUEST_REROLL_UNAVAILABLE)
+                {
+                    //  m3: 80014(후보 고갈) — rerollsLeft는 그대로라 다시 받아도 소용없다. 그 칸만 잠근다.
+                    _unavailableIds.Add(questId);
                 }
             }
             finally
@@ -191,7 +202,7 @@ namespace LOP.UI
             _hasData.Value = daily != null || weekly != null;
         }
 
-        private static IReadOnlyList<QuestCard> Cards(QuestItemDto[] quests, bool eligiblePeriod, bool rerollEnabled)
+        private IReadOnlyList<QuestCard> Cards(QuestItemDto[] quests, bool eligiblePeriod, bool rerollEnabled)
         {
             if (quests == null) return Array.Empty<QuestCard>();
             var cards = new List<QuestCard>(quests.Length);
@@ -199,9 +210,11 @@ namespace LOP.UI
             {
                 if (q == null) continue;
                 bool showReroll = eligiblePeriod && !q.completed;
+                //  m3: 80014를 받은 칸은 버튼 자리는 두되(ShowReroll) 눌러도 안 되게(CanReroll) 잠근다.
+                bool locked = _unavailableIds.Contains(q.id);
                 cards.Add(new QuestCard(q.id, q.title, QuestFormat.Tier(q.tier), QuestFormat.Progress(q.progress, q.target, q.unit),
                     QuestFormat.Ratio(q.progress, q.target), QuestFormat.Reward(q.rewardCoins, q.rewardXp), q.completed,
-                    canReroll: showReroll && rerollEnabled, showReroll));
+                    canReroll: showReroll && rerollEnabled && !locked, showReroll));
             }
             return cards;
         }

@@ -302,5 +302,83 @@ namespace LOP.Tests
             Assert.IsTrue(seen.Ids.Contains("d1"), "리셋으로 다시 받은 뒤 끝난 칸을 본 것으로 적는다");
             Assert.AreEqual(0, store.UnseenCompleted.CurrentValue);
         }
+
+        //  최종 리뷰 m2: 바꾸기가 80006(스위치 꺼짐)을 받으면 "쉬고 있어요" 문구만 붙고 카드·버튼은 그대로였다.
+        //  다시 받아 Disabled로 옮기고, 스토어가 묵은 카드를 치워 판도 비운다.
+        [Test]
+        public void 바꾸기가_80006을_받으면_판이_꺼진다()
+        {
+            int fetches = 0;
+            var (vm, _, _, _) = Build(
+                () => { fetches++; return fetches == 1 ? Ok() : new GetQuestsResponse { code = ResponseCode.ECONOMY_DISABLED }; },
+                () => new RerollQuestResponse { code = ResponseCode.ECONOMY_DISABLED });
+            Assert.AreEqual(2, vm.Daily.CurrentValue.Count, "처음엔 카드가 있다");
+
+            vm.RerollAsync("d1").GetAwaiter().GetResult();
+
+            Assert.AreEqual(0, vm.Daily.CurrentValue.Count, "꺼지면 카드를 치운다");
+            Assert.AreEqual(0, vm.Weekly.CurrentValue.Count);
+            Assert.AreEqual("퀘스트를 쉬고 있어요", vm.Message.CurrentValue);
+            Assert.IsFalse(vm.HasData.CurrentValue, "빈 머리도 숨는다");
+        }
+
+        //  최종 리뷰 m3: 80014(후보 고갈)면 rerollsLeft>0이어도 그 칸만 잠근다 — 다른 칸·남은 횟수는 그대로다.
+        [Test]
+        public void 바꾸기가_80014를_받으면_그_칸만_잠그고_다른_칸은_그대로()
+        {
+            var response = new GetQuestsResponse
+            {
+                code = ResponseCode.SUCCESS, serverNow = Server,
+                daily = new QuestDailyDto
+                {
+                    periodKey = "2026-10-30", endsAt = Server.AddHours(3), rerollsLeft = 1,
+                    quests = new[]
+                    {
+                        new QuestItemDto { id = "d1", tier = 1, title = "d1", unit = "count", progress = 1, target = 2, gameModeIds = new int[0] },
+                        new QuestItemDto { id = "d2", tier = 2, title = "d2", unit = "count", progress = 1, target = 2, gameModeIds = new int[0] },
+                    },
+                },
+                weekly = new QuestWeeklyDto { periodKey = "2026-10-26", endsAt = Server.AddDays(2), quests = new QuestItemDto[0] },
+            };
+            var (vm, _, _, _) = Build(() => response, () => new RerollQuestResponse { code = ResponseCode.QUEST_REROLL_UNAVAILABLE });
+            Assert.IsTrue(vm.Daily.CurrentValue[0].CanReroll);
+            Assert.IsTrue(vm.Daily.CurrentValue[1].CanReroll);
+
+            vm.RerollAsync("d1").GetAwaiter().GetResult();
+
+            Assert.IsFalse(vm.Daily.CurrentValue[0].CanReroll, "80014를 받은 칸은 잠긴다");
+            Assert.IsTrue(vm.Daily.CurrentValue[0].ShowReroll, "버튼 자리는 그대로 — 잠겼을 뿐");
+            Assert.IsTrue(vm.Daily.CurrentValue[1].CanReroll, "다른 칸은 그대로 눌린다");
+            Assert.AreEqual("바꾸기 1번 남음", vm.RerollText.CurrentValue, "남은 횟수는 소모되지 않았다");
+        }
+
+        //  최종 리뷰 m6: 판이 열려 있는 동안 로비 배경 받기(같은 스코프 스토어)가 새로 끝난 칸을 주면, 그때마다
+        //  본 것으로 적는다 — 판을 열 때 한 번만 적으면 늦게 들어온 완료가 로비 배지로 다시 뜬다.
+        [Test]
+        public void 판이_열린_뒤_배경_받기가_끝난_칸을_주면_본_것으로_적는다()
+        {
+            int fetches = 0;
+            GetQuestsResponse Response() => new GetQuestsResponse
+            {
+                code = ResponseCode.SUCCESS, serverNow = Server,
+                daily = new QuestDailyDto
+                {
+                    periodKey = "2026-10-30", endsAt = Server.AddHours(3), rerollsLeft = 1,
+                    quests = new[]
+                    {
+                        new QuestItemDto { id = "d1", tier = 1, title = "d1", unit = "count", progress = fetches == 1 ? 1 : 2, target = 2, completed = fetches != 1, gameModeIds = new int[0] },
+                    },
+                },
+                weekly = new QuestWeeklyDto { periodKey = "2026-10-26", endsAt = Server.AddDays(2), quests = new QuestItemDto[0] },
+            };
+            var (vm, store, seen, _) = Build(() => { fetches++; return Response(); });
+            Assert.IsFalse(seen.Ids.Contains("d1"), "처음엔 안 끝나 본 칸이 아니다");
+
+            //  로비가 같은 스토어로 배경에서 한 번 더 받는다 — 판은 그대로 열려 있다.
+            store.RefreshAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.IsTrue(seen.Ids.Contains("d1"), "판이 열린 채 Daily가 바뀌면 그때 본 것으로 적는다");
+            Assert.AreEqual(0, store.UnseenCompleted.CurrentValue);
+        }
     }
 }

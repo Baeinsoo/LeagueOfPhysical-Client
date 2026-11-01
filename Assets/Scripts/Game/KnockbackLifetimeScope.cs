@@ -78,12 +78,19 @@ namespace LOP
             builder.RegisterEntryPoint<KnockbackHudCoordinator>();
             builder.Register<KnockbackPadViewModel>(Lifetime.Transient);
             builder.Register<KnockbackPadView>(Lifetime.Transient);
+            builder.Register<KnockbackHudViewModel>(Lifetime.Transient);
+            builder.Register<KnockbackHudView>(Lifetime.Transient);
+            builder.Register<IRaceStartLook, PlainRaceStartLook>(Lifetime.Singleton);
+            builder.Register<RaceStartViewModel>(Lifetime.Transient);
+            builder.Register<RaceStartView>(Lifetime.Transient);
         }
 
         protected override void RegisterViewFactories(
             IObjectResolver container, IWindowManager windowManager, List<IDisposable> sink)
         {
             sink.Add(windowManager.RegisterViewFactory<KnockbackPadView>(() => container.Resolve<KnockbackPadView>()));
+            sink.Add(windowManager.RegisterViewFactory<KnockbackHudView>(() => container.Resolve<KnockbackHudView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceStartView>(() => container.Resolve<RaceStartView>()));
         }
     }
 }

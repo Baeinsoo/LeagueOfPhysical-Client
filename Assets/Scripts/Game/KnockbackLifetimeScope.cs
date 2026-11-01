@@ -80,6 +80,7 @@ namespace LOP
             builder.RegisterEntryPoint<KnockbackDamageLabel>();
             builder.RegisterEntryPoint<KnockbackTeamRingView>();
             builder.Register<LOP.UI.KnockbackAimState>(Lifetime.Singleton);
+            builder.Register<IHaptics>(_ => Haptics.ForThisDevice(), Lifetime.Singleton);
             builder.RegisterEntryPoint<KnockbackAimIndicatorView>();
             builder.Register<KnockbackSpectate>(Lifetime.Singleton).As<ISpectateTargets>().AsSelf();
             builder.RegisterEntryPoint<KnockbackHudCoordinator>();

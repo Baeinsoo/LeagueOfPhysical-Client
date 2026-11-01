@@ -24,6 +24,9 @@ namespace LOP.UI
         private readonly KnockbackConfig config;
         private readonly GameFramework.Runner.IRunner runner;
         private readonly KnockbackAimState aimState;
+        private readonly IHaptics haptics;
+        // 직전 프레임에 "지금 놓으면"의 결과. 취소 구간에 막 들어간 순간을 알아내려고 든다.
+        private ReleaseOutcome previousOutcome = ReleaseOutcome.Nothing;
 
         private readonly List<Vector2> bodyScratch = new List<Vector2>();
         private readonly List<int> teamScratch = new List<int>();
@@ -32,8 +35,9 @@ namespace LOP.UI
                                      ActorRegistry actors, IPlayerContext playerContext,
                                      GameFramework.World.EntityRegistry entityRegistry,
                                      KnockbackClientState state, KnockbackConfig config,
-                                     GameFramework.Runner.IRunner runner, KnockbackAimState aimState)
+                                     GameFramework.Runner.IRunner runner, KnockbackAimState aimState, IHaptics haptics)
         {
+            this.haptics = haptics;
             this.aimState = aimState;
             this.input = input;
             this.cameraController = cameraController;
@@ -169,9 +173,16 @@ namespace LOP.UI
             var camera = cameraController.MainCamera;
             if (!held || camera == null)
             {
+                previousOutcome = ReleaseOutcome.Nothing;
                 aimState.Clear();
                 return;
             }
+            var outcome = OutcomeOnRelease(heldSeconds, maxDrag01, drag.magnitude);
+            if (ShouldPulseOnCancelEntry(previousOutcome, outcome))
+            {
+                haptics.Play(HapticPulse.Light);
+            }
+            previousOutcome = outcome;
             bool hasTarget = TryFindAutoTarget(out var me, out var target);
             float? yaw = AimYaw(drag, camera.transform.eulerAngles.y);
             var kind = AimIndicatorState(heldSeconds, maxDrag01, drag.magnitude, hasTarget);
@@ -206,6 +217,16 @@ namespace LOP.UI
                     return ReleaseOutcome.Nothing;
             }
         }
+
+        /// <summary>
+        /// 발사 → 취소로 막 바뀐 순간에만 true. 취소 구간에 들어갔다고 손끝으로 알려 주려는 것이다.
+        /// 취소 구간에 머무는 동안이나 나올 때는 울리지 않고, 나갔다 다시 들어가면 또 울린다.
+        /// </summary>
+        public static bool ShouldPulseOnCancelEntry(ReleaseOutcome previous, ReleaseOutcome current)
+            => previous == ReleaseOutcome.Fire && current == ReleaseOutcome.Cancel;
+
+        /// <summary>발사 영역이 받는 포인터인가. 마우스는 PC 클릭 발사 경로가 따로 처리해서 여기서는 거른다.</summary>
+        public static bool AcceptsFirePointer(string pointerType) => pointerType != "mouse";
 
         /// <summary>조준 표시 종류. 놓았을 때의 결과(<see cref="OutcomeOnRelease"/>)를 표시로 옮긴 것.</summary>
         public static AimKind AimIndicatorState(float heldSeconds, float maxDrag01, float currentDrag01, bool hasTarget)

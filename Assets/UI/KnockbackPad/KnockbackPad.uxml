@@ -7,9 +7,11 @@
                 <ui:VisualElement name="joystick-handle" class="joystick-handle" picking-mode="Ignore" />
             </ui:VisualElement>
         </ui:VisualElement>
-        <!-- 오른쪽 아래 발사 버튼. 톡 = 자동 조준, 끌기 = 그 방향으로 놓을 때 발사. -->
+        <!-- 오른쪽 아래 어디를 눌러도 그 자리가 발사 스틱 중심이 된다. 톡 = 자동 조준, 끌기 = 그 방향으로 놓을 때 발사. -->
+        <ui:VisualElement name="fire-area" class="fire-area" />
         <ui:VisualElement name="ammo-bar" class="ammo-bar" picking-mode="Ignore" />
-        <ui:VisualElement name="fire-button" class="fire-button">
+        <!-- 손가락이 닿기 전에는 "여기서 쏜다"는 안내 자리이고, 누르면 누른 자리로 옮겨 간다. -->
+        <ui:VisualElement name="fire-button" class="fire-button" picking-mode="Ignore">
             <ui:VisualElement name="fire-handle" class="fire-handle" picking-mode="Ignore" />
         </ui:VisualElement>
     </ui:VisualElement>

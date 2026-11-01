@@ -134,4 +134,20 @@ public class FlappyMineMoverBakeTests
         Assert.AreEqual(r.Size, box.size.x, 1e-3f);
         Assert.Greater(box.min.y, r.Ceiling, "숨은 바위는 통로 밖");
     }
+
+    [Test]
+    public void 낙석_바위_그림은_판정_상자의_네_꼭짓점까지_채운다()
+    {
+        //  11-01: 그림이 모서리를 0.07 깎아 상자보다 작게 보여, 모서리를 스치면 "안 닿았는데 맞았다". 굽기가 RockBox(1.2 정사각)를 숨기고
+        //  이 메시만 보여 주므로 메시 실루엣 = 상자여야 한다 — 앞에서 본 xy 네 꼭짓점(±0.6, ±0.6)에 꼭짓점이 있어야 한다.
+        var mesh = UnityEditor.AssetDatabase.LoadAllAssetsAtPath("Assets/Art/Models/Mine/FallingRock.fbx").OfType<Mesh>().Single();
+        float half = MineDressingLayout.FallingRockSize * 0.5f;
+        Assert.AreEqual(half, mesh.bounds.extents.x, 1e-3f);
+        Assert.AreEqual(half, mesh.bounds.extents.y, 1e-3f);
+        foreach (var (sx, sy) in new[] { (-1, -1), (1, -1), (1, 1), (-1, 1) })
+        {
+            Assert.IsTrue(mesh.vertices.Any(v => Mathf.Abs(v.x - sx * half) < 1e-3f && Mathf.Abs(v.y - sy * half) < 1e-3f),
+                $"꼭짓점 ({sx * half}, {sy * half})이 깎여 있다 — 그림이 판정보다 작다");
+        }
+    }
 }

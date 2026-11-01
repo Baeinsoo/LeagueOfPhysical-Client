@@ -94,12 +94,18 @@ namespace LOP.EditorTools.Automation
         }
 
         //  여러 UI 문서(화면 UI·월드 UI)를 그리는 순서대로 — 뒤에 오는 것이 위에 그려진다.
-        internal static IEnumerable<VisualElement> Roots() =>
+        internal static IEnumerable<VisualElement> Roots() => Documents().Select(d => d.rootVisualElement);
+
+        private static IEnumerable<UIDocument> Documents() =>
             UnityEngine.Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None)
                 .Where(d => d != null && d.isActiveAndEnabled && d.rootVisualElement?.panel != null)
                 .OrderBy(d => d.panelSettings != null ? d.panelSettings.sortingOrder : 0f)
-                .ThenBy(d => d.sortingOrder)
-                .Select(d => d.rootVisualElement);
+                .ThenBy(d => d.sortingOrder);
+
+        /// <summary>좌표 기반 Pick 후보인가(M1) — 월드 공간 패널(간판·이름표, spec 밖)은 화면 정규화 좌표와 다른 좌표계라 건너뛴다.
+        /// 선택자 길(FindElement·Click)은 그대로 월드 패널도 본다 — 여기(좌표 Pick)만 가린다.</summary>
+        internal static bool IsScreenSpaceDocument(UIDocument document) =>
+            document.panelSettings == null || document.panelSettings.renderMode != PanelRenderMode.WorldSpace;
 
         public bool SelectGame(int gameModeId, int? mapId, bool ranked, out string why)
         {
@@ -368,10 +374,10 @@ namespace LOP.EditorTools.Automation
         /// <summary>선택자가 지금 가리키는 요소(운전수의 고르기 규칙 그대로) — 녹화기가 "다시 정확히 가리키나"를 본다.</summary>
         internal static VisualElement Resolve(UiSelector selector) => Best(selector).element;
 
-        /// <summary>정규화 좌표 아래 맨 위 요소 — 위에 그려지는 패널부터 Pick한다(EventSystem도 맨 위 패널이 먼저 받는다).</summary>
+        /// <summary>정규화 좌표 아래 맨 위 요소 — 위에 그려지는 패널부터 Pick한다(EventSystem도 맨 위 패널이 먼저 받는다). 월드 공간 패널(M1)은 건너뛴다.</summary>
         internal static VisualElement PickAt(Vector2 normalized)
         {
-            foreach (var panel in Roots().Select(r => r.panel).Distinct().Reverse())
+            foreach (var panel in Documents().Where(IsScreenSpaceDocument).Select(d => d.rootVisualElement.panel).Distinct().Reverse())
             {
                 var screen = panel.visualTree.worldBound;
                 var picked = panel.Pick(new Vector2(screen.x + normalized.x * screen.width, screen.y + normalized.y * screen.height));

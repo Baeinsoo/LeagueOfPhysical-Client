@@ -36,6 +36,22 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 허용치와_정확히_같으면_안_세고_채널_최댓값만_본다()
+        {
+            //  Review L4: `>`→`>=` 사보타주와 "채널 합" 사보타주를 둘 다 잡는다.
+            var expected = TestPng.Solid(3, 1, Gray);
+            var actual = TestPng.Solid(3, 1, Gray);
+            actual[0] = new Color32(116, 100, 100, 255);   // 차 16 — tolerance와 같다, >가 아니라 세지 않는다
+            actual[1] = new Color32(110, 110, 110, 255);   // 채널마다 10, 최댓값 10(안 셈) — 채널 합이면 30이라 셈
+            actual[2] = new Color32(117, 100, 100, 255);   // 차 17 — 정상적으로 센다(위 둘이 거짓 통과가 아님을 보증)
+
+            var result = ImageDiff.Compare(expected, actual, 3, 1, 16, null, null, null);
+
+            Assert.AreEqual(1, result.Differing);
+            Assert.AreEqual(3, result.Compared);
+        }
+
+        [Test]
         public void 구역은_왼쪽_위_원점이다()
         {
             //  텍스처의 줄 1(위쪽)·칸 0 = 화면 왼쪽 위.

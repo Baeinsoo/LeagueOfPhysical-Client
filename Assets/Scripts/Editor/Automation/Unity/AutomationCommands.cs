@@ -58,10 +58,12 @@ namespace LOP.EditorTools.Automation
                 return AutomationHost.Session.Start(File.ReadAllText(path), path, 1, DateTime.UtcNow, baselineMode: true);
             }
 
-            //  폴더 이름 하나만 — 경로를 받으면 프로젝트 밖 state.json을 읽고 그 안의 경로로 복사할 수 있다.
-            if (run.IndexOfAny(new[] { '/', '\\' }) >= 0 || run == "." || run == "..") throw new ArgumentException($"--run은 실행 폴더 이름 하나: {run}");
-            var state = RunStateStore.Load(Path.Combine(ProjectRoot, AutomationHost.RunsRoot, run))
-                        ?? throw new ArgumentException($"실행이 없다: {AutomationHost.RunsRoot}/{run}");
+            //  폴더 이름 하나만 — 경로를 받으면 프로젝트 밖 state.json을 읽고 그 안의 경로로 복사할 수 있다(Review L3a).
+            if (!RunNames.TryResolveRunDir(Path.Combine(ProjectRoot, AutomationHost.RunsRoot), run, out var runDir, out var runWhy))
+                throw new ArgumentException(runWhy);
+            var state = RunStateStore.Load(runDir) ?? throw new ArgumentException($"실행이 없다: {AutomationHost.RunsRoot}/{run}");
+            //  state.json 속 RunDir(기록 당시 절대경로, 프로젝트를 옮기면 틀어진다)을 믿지 않고 명령이 고른 폴더로 바꿔 쓴다(Review L3b).
+            state.RunDir = runDir;
             var skipped = new List<string>();
             var accepted = BaselineFiles.AcceptFromRun(state, new EditorAutomationDriver().BaselineRoot, skipped);
             return new { accepted, skipped };

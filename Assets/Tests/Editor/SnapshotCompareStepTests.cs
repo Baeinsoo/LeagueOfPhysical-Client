@@ -168,5 +168,18 @@ namespace LOP.Tests
 
             Assert.AreEqual(StepStatus.Failed, Tick("{\"baseline\":\"a\"}", 0.5).Status);
         }
+
+        [Test]
+        public void 비교할_픽셀이_없으면_조용히_통과하지_않고_실패한다()
+        {
+            //  ignore가 전체를 덮으면 Compared가 0이라 Percent도 0 — 고치기 전엔 그대로 통과했다(Review L1).
+            WriteBaseline("a", GrayWithRed(0));
+            _kit.Driver.Captures.Enqueue(GrayWithRed(4));
+
+            var result = Tick("{\"baseline\":\"a\",\"ignore\":[[0,0,1,1]]}", 0.5);
+
+            Assert.AreEqual(StepStatus.Failed, result.Status);
+            StringAssert.Contains("비교할 픽셀", result.Detail);
+        }
     }
 }

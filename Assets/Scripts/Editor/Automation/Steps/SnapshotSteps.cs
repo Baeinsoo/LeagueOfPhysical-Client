@@ -96,6 +96,8 @@ namespace LOP.EditorTools.Automation
             double max = step.Num("max_diff_percent") ?? DefaultMaxDiffPercent;
             var diffPixels = new Color32[actual.Length];
             var result = ImageDiff.Compare(expected, actual, width, height, tolerance, Region(step), Ignore(step), diffPixels);
+            //  region·ignore가 서로 덮어 비교할 픽셀이 하나도 없으면 Percent가 0으로 나와 조용히 통과한다(Review L1) — 그건 성공이 아니다.
+            if (result.Compared == 0) return StepResult.Fail("비교할 픽셀이 없다 — region·ignore를 확인한다(서로 다 덮었을 수 있다)");
 
             if (result.Percent <= max)
             {

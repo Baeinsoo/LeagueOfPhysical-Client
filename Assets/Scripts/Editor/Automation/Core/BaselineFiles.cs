@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -38,7 +39,11 @@ namespace LOP.EditorTools.Automation
             var accepted = new List<string>();
             foreach (var snapshot in state.Report.Snapshots.Where(s => !s.Passed && !s.Updated))
             {
-                string from = string.IsNullOrEmpty(snapshot.Actual) ? null : Path.Combine(state.RunDir, snapshot.Actual);
+                //  Actual은 이 실행의 shots/ 안이어야 한다(Review L3b) — "../"가 섞이면 실행 폴더 밖 아무 파일이나 기준으로 복사될 수 있다.
+                bool safeActual = !string.IsNullOrEmpty(snapshot.Actual)
+                    && snapshot.Actual.StartsWith("shots/", StringComparison.Ordinal)
+                    && !snapshot.Actual.Contains("..");
+                string from = safeActual ? Path.Combine(state.RunDir, snapshot.Actual) : null;
                 if (from == null || !File.Exists(from))
                 {
                     skipped.Add($"{snapshot.Baseline}: 지금 그림이 없다({snapshot.Actual ?? "-"})");
@@ -51,7 +56,8 @@ namespace LOP.EditorTools.Automation
                 }
                 Directory.CreateDirectory(Path.GetDirectoryName(to));
                 File.Copy(from, to, true);
-                accepted.Add(snapshot.Baseline);
+                //  repeat N 실행에서 같은 기준이 여러 번 실패하면 여기를 여러 번 지난다 — 목록엔 한 번만(Review Nit, 마지막 그림이 이긴다).
+                if (!accepted.Contains(snapshot.Baseline)) accepted.Add(snapshot.Baseline);
             }
             return accepted;
         }

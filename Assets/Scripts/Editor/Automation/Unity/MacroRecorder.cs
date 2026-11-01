@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
@@ -230,8 +231,22 @@ namespace LOP.EditorTools.Automation
                 Warnings.Add($"체크포인트 {baseline}: {why}");
                 return;
             }
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
-            File.WriteAllBytes(path, png);
+            //  디스크 가득·권한 같은 IO 예외가 여기서 나면(Review L2) Stop()까지 전파돼 녹화 전체(사건 목록)가 사라진다 — 경고로만 남긴다.
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllBytes(path, png);
+            }
+            catch (IOException e)
+            {
+                Warnings.Add($"체크포인트 {baseline} 쓰기 실패: {e.Message}");
+                return;
+            }
+            catch (UnauthorizedAccessException e)
+            {
+                Warnings.Add($"체크포인트 {baseline} 쓰기 실패: {e.Message}");
+                return;
+            }
             _events.Add(new RecordedEvent { Kind = RecordedKind.Checkpoint, T = at, Label = baseline });
         }
     }

@@ -80,5 +80,30 @@ namespace LOP.EditorTools.Automation
             for (int n = 2; exists(id); n++) id = $"{baseId}-{n}";
             return id;
         }
+
+        /// <summary>
+        /// 실행 폴더 이름 하나(경로 아님)를 runsRoot 밑으로 푼다(Review L3) — 글자만 보고 막는다(플랫폼마다 다른
+        /// <see cref="Path.IsPathRooted"/> 판정에 안 기댄다): 슬래시·역슬래시·콜론(윈도우 드라이브 상대 경로 `C:foo`가 이걸로 막힌다)
+        /// 금지, `.`·`..` 금지. 그 뒤 또 GetFullPath로 runsRoot 밖으로 안 나가는지 다시 본다(이중 방어).
+        /// </summary>
+        public static bool TryResolveRunDir(string runsRoot, string name, out string path, out string why)
+        {
+            path = null;
+            if (string.IsNullOrEmpty(name) || name.IndexOfAny(new[] { '/', '\\', ':' }) >= 0 || name == "." || name == "..")
+            {
+                why = $"실행 폴더 이름 하나(슬래시·역슬래시·콜론 없이): '{name}'";
+                return false;
+            }
+            string candidate = Path.GetFullPath(Path.Combine(runsRoot, name));
+            string root = Path.GetFullPath(runsRoot).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            if (!candidate.StartsWith(root, StringComparison.Ordinal))
+            {
+                why = $"실행 폴더가 {runsRoot} 밖이다: {name}";
+                return false;
+            }
+            path = candidate;
+            why = null;
+            return true;
+        }
     }
 }

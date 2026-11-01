@@ -48,6 +48,17 @@ unity cmd automation_step --project-path $P --step '{"op":"touch","x":0.5,"y":0.
 unity cmd automation_step --project-path $P --step '{"op":"drag","x":0.2,"y":0.8,"to_x":0.8,"to_y":0.8,"duration_ms":400}'
 unity cmd automation_step --project-path $P --step '{"op":"ui_type","name":"cdn-input","value":"봇01","submit":true}'
 unity cmd automation_step --project-path $P --step '{"op":"snapshot_compare","baseline":"lobby/home","ignore":[[0.8,0,0.2,0.1]]}'
+
+# 녹화 → 재생
+unity cmd automation_record_start  --project-path $P --name lobby-tour --overwrite true --max_wait 8   # Game 뷰에서 손으로. F9 스크린샷, F10 체크포인트
+unity cmd automation_record_status --project-path $P                                                   # 녹화 중인지, 이름·초·이벤트 수
+unity cmd automation_record_stop   --project-path $P
+unity cmd editor_stop              --project-path $P
+unity cmd automation_start         --project-path $P --scenario lobby-tour
+
+# 화면 비교 기준
+unity cmd automation_baseline --project-path $P --scenario lobby-tour     # 비교 단계마다 지금 그림을 기준으로
+unity cmd automation_baseline --project-path $P --run 20261101-153005-lobby-tour   # 그 실행의 실패한 비교를 받아들인다
 ```
 
 `automation_step`의 결과(읽은 글자·스크린샷 경로)는 그 실행의 `report.json`에 있다(`automation_status`의 `report`).
@@ -98,7 +109,8 @@ unity cmd automation_step --project-path $P --step '{"op":"snapshot_compare","ba
 `snapshot_compare`는 실패하면 가장 덜 달랐던 순간의 지금 그림·차이 그림(빨강=다름, 짙은 파랑=안 셈)을 실행 폴더에 남긴다. 기준 그림은
 `Automation/Baselines/`에 **커밋한다**. 기준이 없으면(또는 의도한 화면 변경 뒤) `automation_baseline --scenario <이름>`으로 새로 찍거나,
 `automation_baseline --run <실행 이름>`으로 그 실행에서 실패한 비교의 지금 그림을 기준으로 받아들인다. 화면 비교를 쓰려면 Game 뷰 해상도를
-고정한다(가로세로가 달라지면 "크기가 다르다"로 바로 실패한다 — 늘여서 비교하지 않는다).
+고정한다 — 가로세로 **비율**이 달라져도 캡처는 시나리오의 `width`·`height`(기본 1280×720)로 늘여 찍히므로 크기는 같다, 대신 그림이 늘어나
+거의 모든 픽셀이 달라져 높은 차이 %로 실패한다. "크기가 다르다"는 시나리오의 `width`·`height`가 **기준 그림과 다를 때만** 난다.
 
 ## 알려진 한계
 - "맨 위" 판정(`ui_click`·`ui_wait clickable`)은 그 요소가 속한 `UIDocument`(패널) 안에서만 본다 — **다른 `UIDocument`(다른 `PanelSettings`) 위에 뜬 덮개**는 이 Pick으로 못 잡는다.
@@ -106,6 +118,11 @@ unity cmd automation_step --project-path $P --step '{"op":"snapshot_compare","ba
 - 녹화는 마우스·키보드만 본다(게임패드·펜 같은 다른 장치는 안 잡는다).
 - 끌기(drag) 녹화는 시작·끝 점만 남긴다 — 중간 궤적은 버린다.
 - 키 조합(Shift+클릭 등)은 녹화가 따로 적지 않는다 — 누른 각 키가 따로 `input_tap`이 된다.
-- 녹화·재생 모두 에디터 틱(초당 10번) 단위다 — 프레임 정밀한 조작은 안 된다.
+- 재생은 에디터 틱(초당 10번) 단위다 — 프레임 정밀한 조작은 안 된다. 녹화는 틱이 아니라 Input System 이벤트 시각을 그대로 적지만,
+  누르고 있는 동안의 움직임(`PointerMove`)은 0.05초 표본이라 그보다 빠른 궤적은 뭉개진다.
+- 녹화 중 글자 칸에 초점이 있으면 **F9·F10도 글자로 먹힌다**(먼저 걸리는 검사가 글자 칸 쪽) — 스크린샷·체크포인트를 찍으려면 칸 밖을
+  한 번 눌러 초점을 뺀 뒤 누른다.
+- 도메인이 다시 불러와져 녹화가 자동으로 닫히면(`beforeAssemblyReload`) 그 결과(`_last`)는 다시 불러온 뒤 비어 있다 — 파일은 남으니
+  `Automation/Scenarios/`에서 찾는다.
 - 실행 동안(`EnsureGameInput`이 입력 모드를 바꾼 뒤)엔 Game 뷰 초점과 상관없이 모든 장치 입력이 게임으로 간다 — 다른 창에 친 키·마우스도
   게임이 받을 수 있다는 뜻이니, 자동화가 도는 동안은 다른 작업을 자제한다.

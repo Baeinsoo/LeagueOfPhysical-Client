@@ -76,25 +76,59 @@ namespace LOP.EditorTools.Automation
             //  번역기가 만든 것이 지금 단계 목록으로 읽히는지 — 안 읽혀도 파일은 쓴다(사람이 고친다).
             var errors = new List<string>();
             ScenarioParser.Parse(json, StepCatalog.CreateAll(), errors);
-            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(recorder.OutputPath));
-            File.WriteAllText(recorder.OutputPath, json);
+
+            //  정해진 자리에 못 쓰면(디스크 가득·권한, Review L2) 녹화(사건 목록은 이미 메모리 안에 있다)를 통째로 잃지 않게
+            //  대체 경로에라도 쓴다 — beforeAssemblyReload 안에서 조용히 사라지는 것보다, 파일이 어디 있는지 모르는 게 낫다.
+            string writtenPath = recorder.OutputPath;
+            string writeError = TryWrite(recorder.OutputPath, json);
+            if (writeError != null)
+            {
+                writtenPath = System.IO.Path.Combine(Directory.GetCurrentDirectory(), AutomationHost.RunsRoot, $"rec-{recorder.Name}-{DateTime.Now:yyyyMMdd-HHmmss}.json");
+                string fallbackError = TryWrite(writtenPath, json);
+                if (fallbackError != null) writtenPath = null;
+            }
 
             var warnings = new List<string>(recorder.Warnings);
             warnings.AddRange(macro.Warnings);
+            if (writeError != null)
+            {
+                warnings.Add(writtenPath != null
+                    ? $"{recorder.OutputPath}에 못 썼다({writeError}) — 대체 경로에 남겼다: {writtenPath}"
+                    : $"{recorder.OutputPath}에도, 대체 경로에도 못 썼다({writeError}) — 녹화를 잃었다");
+            }
             _last = new RecordStatus
             {
                 Recording = false,
                 Name = recorder.Name,
                 Seconds = Math.Round(recorder.Seconds, 1),
                 Events = events.Count,
-                Path = recorder.OutputPath,
+                Path = writtenPath,
                 Steps = macro.Steps.Count,
                 Reason = reason,
                 Warnings = warnings,
                 Errors = errors,
             };
-            Debug.Log($"[Automation] 녹화 끝({reason}): {recorder.OutputPath} — 단계 {macro.Steps.Count}, 경고 {warnings.Count}, 오류 {errors.Count}");
+            Debug.Log($"[Automation] 녹화 끝({reason}): {writtenPath ?? "(못 씀)"} — 단계 {macro.Steps.Count}, 경고 {warnings.Count}, 오류 {errors.Count}");
             return _last;
+        }
+
+        /// <summary>path에 쓴다. 성공이면 null, 실패면 메시지(디스크 가득·권한 — Review L2는 이게 녹화를 통째로 날리면 안 된다고 했다).</summary>
+        private static string TryWrite(string path, string content)
+        {
+            try
+            {
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+                File.WriteAllText(path, content);
+                return null;
+            }
+            catch (IOException e)
+            {
+                return e.Message;
+            }
+            catch (UnauthorizedAccessException e)
+            {
+                return e.Message;
+            }
         }
 
         public static RecordStatus Status()

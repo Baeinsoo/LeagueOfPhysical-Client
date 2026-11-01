@@ -52,5 +52,19 @@ namespace LOP.Tests
             Assert.AreNotEqual(UnityEngine.Color.white, KnockbackDamageLabel.ColorFor(48));
             Assert.AreNotEqual(KnockbackDamageLabel.ColorFor(79), KnockbackDamageLabel.ColorFor(80));
         }
+
+        [Test]
+        public void 팀은_상태에서_저장되고_모르면_0()
+        {
+            var state = new KnockbackClientState();
+            Assert.AreEqual(0, state.TeamCount);
+            var m = new KnockbackStateToC { Version = 1, TeamCount = 2 };
+            m.Players.Add(new KnockbackPlayerWire { EntityId = "a", EliminatedTick = -1, Team = 2 });
+            Assert.IsTrue(state.Apply(m));
+            Assert.AreEqual(2, state.TeamOf("a"));
+            Assert.AreEqual(2, state.TeamCount);
+            Assert.AreEqual(0, state.TeamOf("x"));
+            Assert.AreEqual(0, state.TeamOf(null));
+        }
     }
 }

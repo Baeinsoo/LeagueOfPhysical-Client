@@ -10,8 +10,8 @@ namespace LOP
     /// </summary>
     public class KnockbackClientState
     {
-        private readonly Dictionary<string, (long eliminatedTick, int damagePercent)> players =
-            new Dictionary<string, (long, int)>();
+        private readonly Dictionary<string, (long eliminatedTick, int damagePercent, int team)> players =
+            new Dictionary<string, (long, int, int)>();
         private readonly List<ZoneStage> zoneStages = new List<ZoneStage>();
 
         public int Version { get; private set; }
@@ -59,6 +59,13 @@ namespace LOP
         public int DamageOf(string entityId)
             => entityId != null && players.TryGetValue(entityId, out var p) ? p.damagePercent : 0;
 
+        /// <summary>그 몸의 팀(0 = 개인전·모르는 몸).</summary>
+        public int TeamOf(string entityId)
+            => entityId != null && players.TryGetValue(entityId, out var p) ? p.team : 0;
+
+        /// <summary>팀 수(0 = 개인전, 첫 상태를 받기 전에도 0).</summary>
+        public int TeamCount { get; private set; }
+
         /// <summary>판본이 지금보다 낮거나 같으면 버린다(늦게 온 옛 상태가 새 상태를 덮지 않게).</summary>
         public bool Apply(KnockbackStateToC message)
         {
@@ -71,8 +78,9 @@ namespace LOP
             players.Clear();
             foreach (var w in message.Players)
             {
-                players[w.EntityId] = (w.EliminatedTick, w.DamagePercent);
+                players[w.EntityId] = (w.EliminatedTick, w.DamagePercent, w.Team);
             }
+            TeamCount = message.TeamCount;
 
             zoneStages.Clear();
             foreach (var z in message.ZoneStages)

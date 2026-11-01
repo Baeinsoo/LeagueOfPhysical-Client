@@ -12,7 +12,7 @@ namespace LOP
     /// <list type="number">
     /// <item>떨어지기 <see cref="WarnSeconds"/> 전부터 그 줄의 천장 균열 아래로 먼지·돌가루가 점점 세게 떨어진다.</item>
     /// <item>마지막 <see cref="PeekSeconds"/> 동안 그림용 바위(판정 없는 복사본)가 균열에서 <see cref="PeekDepthMax"/>까지 비집고 나오며
-    /// 좌우로 떨고, 내 새 앞 <see cref="RumbleRange"/> 안의 줄이면 우르르(<see cref="FlappySfx.Rumble"/>)가 주기마다 한 번 난다.</item>
+    /// 좌우로 떨고, 내 새 바로 다음 줄이 <see cref="RumbleRange"/> 안이면 그 줄만 우르르(<see cref="FlappySfx.Rumble"/>)를 낙하마다 한 번 낸다.</item>
     /// </list>
     ///
     /// <para><b>그림·소리만이다.</b> 판정·박자(<see cref="FlappyRockfallCurve"/>)는 그대로고, 박자는 시뮬과 같은 곡선을 내 예측 틱으로 읽는다
@@ -31,8 +31,8 @@ namespace LOP
         public const float PeekDepthMax = 0.45f;
         /// <summary>떨기 최대 폭(m, 좌우 한쪽) · 빠르기(Hz). 나올수록 세진다 — 색은 안 바꾸고 크기로만.</summary>
         public const float ShakeAmplitude = 0.05f, ShakeHz = 14f;
-        /// <summary>우르르는 내 새 앞 이 거리(m) 안의 줄만 — 뒤로는 바위 반 폭 + 몸 반지름만큼(지나는 중인 줄)까지.</summary>
-        public const float RumbleRange = 18f, RumbleBehind = 1.05f;
+        /// <summary>우르르는 내 새 바로 다음 줄(앞쪽으로 가장 가까운 줄)이 이 거리(m) 안일 때만.</summary>
+        public const float RumbleRange = 18f;
         //  복사본을 진짜 바위보다 조금 뒤에 — 떨어지기 시작한 두세 틱 겹칠 때 같은 면끼리 깜빡이지 않게.
         private const float PeekBehindZ = 0.02f;
         private const int PoolSize = 48;
@@ -58,6 +58,7 @@ namespace LOP
         private readonly Dictionary<FlappyRockfall, float> spawnDebt = new Dictionary<FlappyRockfall, float>();
         private readonly Dictionary<FlappyRockfall, GameObject> peeks = new Dictionary<FlappyRockfall, GameObject>();
         private readonly Dictionary<FlappyRockfall, long> rumbledCycle = new Dictionary<FlappyRockfall, long>();
+        private readonly List<float> rowXs = new List<float>();
         private readonly List<Mote> pool = new List<Mote>();
         private System.Random random = new System.Random(1013);
 
@@ -177,11 +178,28 @@ namespace LOP
             return true;
         }
 
-        /// <summary>우르르를 낼 거리인가: 내 새 앞 <see cref="RumbleRange"/> 안, 뒤로는 지나는 중인 줄(<see cref="RumbleBehind"/>)까지.</summary>
+        /// <summary>우르르를 낼 거리인가: 내 새보다 앞(0 초과)이고 <see cref="RumbleRange"/> 안.</summary>
         internal static bool InRumbleRange(float rowX, float birdX)
         {
             float ahead = rowX - birdX;
-            return ahead >= -RumbleBehind && ahead <= RumbleRange;
+            return ahead > 0f && ahead <= RumbleRange;
+        }
+
+        /// <summary>
+        /// 우르르를 낼 줄 하나: 내 새 앞 <see cref="RumbleRange"/> 안에서 가장 가까운 줄. 없으면 -1.
+        /// 11-01 판정: 90°면 범위 안 줄들이 0.5초마다 번갈아 떨어져 우르르가 쉬지 않았다 — 바로 다음 줄만 울린다(그림은 모든 줄 그대로).
+        /// </summary>
+        internal static int NextRumbleRow(IReadOnlyList<float> rowXs, float birdX)
+        {
+            int best = -1;
+            for (int i = 0; i < rowXs.Count; i++)
+            {
+                if (InRumbleRange(rowXs[i], birdX) && (best < 0 || rowXs[i] < rowXs[best]))
+                {
+                    best = i;
+                }
+            }
+            return best;
         }
 
         /// <summary>
@@ -243,8 +261,15 @@ namespace LOP
                 }
             }
             long tick = currentTick();
+            FlappyRockfall rumbleRow = null;
             float? birdX = myBirdX();
-            bool rumbled = false;
+            if (birdX.HasValue)
+            {
+                rowXs.Clear();
+                foreach (var rf in rockfalls) { rowXs.Add(rf != null ? RowX(rf) : float.MaxValue); }
+                int next = NextRumbleRow(rowXs, birdX.Value);
+                rumbleRow = next >= 0 ? rockfalls[next] : null;
+            }
             foreach (var rf in rockfalls)
             {
                 if (rf == null)
@@ -252,17 +277,13 @@ namespace LOP
                     continue;
                 }
                 bool peeking = UpdatePeek(rf, tick, (float)spt);
-                //  우르르: 그 줄 낙하마다 한 번, 내 새 앞 줄만. 같은 틱에 두 줄이 들어와도 한 번만 낸다(겹쳐 커지지 않게).
-                if (peeking && audio != null && birdX.HasValue && InRumbleRange(RowX(rf), birdX.Value)
+                //  우르르: 내 새 바로 다음 줄만, 그 줄 낙하마다 한 번.
+                if (peeking && audio != null && rf == rumbleRow
                     && UntilFall(rf.Period, rf.Phase, tick, (float)spt, out double until, out long nextFall) && until <= PeekSeconds
                     && (rumbledCycle.TryGetValue(rf, out long last) == false || last != nextFall))
                 {
                     rumbledCycle[rf] = nextFall;
-                    if (rumbled == false)
-                    {
-                        audio.Play(FlappySfx.Rumble);
-                        rumbled = true;
-                    }
+                    audio.Play(FlappySfx.Rumble);
                 }
                 float level = WarnLevel(rf.Period, rf.Speed, rf.Drop, rf.Phase, tick, (float)spt, WarnSeconds);
                 if (level <= 0f)

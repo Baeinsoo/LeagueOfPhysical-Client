@@ -75,6 +75,7 @@ namespace LOP.UI
             }
 
             PollDesktopFire();
+            _viewModel.UpdateAim(_firePointer != -1, _fireDrag, _fireMaxDrag01 > KnockbackPadViewModel.AimDeadZone01);
             UpdateAmmoBar();
         }
 
@@ -191,6 +192,7 @@ namespace LOP.UI
             _firePointer = -1;
             _fireDrag = Vector2.zero;
             _fireMaxDrag01 = 0f;
+            _viewModel.UpdateAim(false, Vector2.zero, false);
             if (_fireHandle != null)
             {
                 _fireHandle.style.translate = new Translate(0, 0);

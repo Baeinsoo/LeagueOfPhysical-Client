@@ -177,5 +177,27 @@ namespace LOP.Tests
             Assert.IsTrue(offset.HasValue);
             Assert.AreEqual(new Vector2(3f, 0f), offset.Value);
         }
+
+        // 진동은 "취소 구간에 막 들어간 순간"에만. 들어가 있는 동안 계속 울리면 안 된다.
+        [TestCase(2, 3, true)]   // Fire -> Cancel
+        [TestCase(3, 3, false)]  // Cancel -> Cancel
+        [TestCase(3, 2, false)]  // Cancel -> Fire (나올 때는 안 울림)
+        [TestCase(1, 3, false)]  // Auto -> Cancel
+        [TestCase(0, 3, false)]  // Nothing -> Cancel
+        [TestCase(2, 2, false)]  // Fire -> Fire
+        public void 취소_구간에_들어갈_때만_진동한다(int prev, int now, bool expected)
+        {
+            Assert.AreEqual(expected, LOP.UI.KnockbackPadViewModel.ShouldPulseOnCancelEntry(
+                (LOP.UI.KnockbackPadViewModel.ReleaseOutcome)prev, (LOP.UI.KnockbackPadViewModel.ReleaseOutcome)now));
+        }
+
+        // 마우스는 PC 클릭 발사 경로가 따로 처리하므로 발사 영역은 터치·펜만 받는다.
+        [TestCase("mouse", false)]
+        [TestCase("touch", true)]
+        [TestCase("pen", true)]
+        public void 발사_영역은_마우스를_받지_않는다(string pointerType, bool expected)
+        {
+            Assert.AreEqual(expected, LOP.UI.KnockbackPadViewModel.AcceptsFirePointer(pointerType));
+        }
     }
 }

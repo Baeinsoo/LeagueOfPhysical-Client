@@ -3,7 +3,9 @@
     left: 0; right: 0; top: 0; bottom: 0;
 }
 
-.joystick-area { position: absolute; left: 0; width: 60%; bottom: 0; height: 50%; }
+.joystick-area { position: absolute; left: 0; width: 50%; bottom: 0; height: 50%; }
+/* 위쪽 HUD를 가리지 않게 화면 아래 65%만 받는다. */
+.fire-area { position: absolute; right: 0; width: 50%; bottom: 0; height: 65%; }
 
 .joystick-bg {
     position: absolute; width: 160px; height: 160px;

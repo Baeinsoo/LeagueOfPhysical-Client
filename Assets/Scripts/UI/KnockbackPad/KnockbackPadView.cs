@@ -21,6 +21,7 @@ namespace LOP.UI
         private VisualElement _joystickHandle;
         private VisualElement _fireButton;
         private VisualElement _fireHandle;
+        private VisualElement _fireArea;
         private VisualElement _stickArea;
         private readonly List<VisualElement> _ammoFills = new List<VisualElement>();
         private int _firePointer = -1;
@@ -56,10 +57,11 @@ namespace LOP.UI
 
             _fireButton = Root.Q<VisualElement>("fire-button");
             _fireHandle = Root.Q<VisualElement>("fire-handle");
-            _fireButton.RegisterCallback<PointerDownEvent>(OnFireDown);
-            _fireButton.RegisterCallback<PointerMoveEvent>(OnFireMove);
-            _fireButton.RegisterCallback<PointerUpEvent>(OnFireUp);
-            _fireButton.RegisterCallback<PointerCaptureOutEvent>(_ => ResetFire());
+            _fireArea = Root.Q<VisualElement>("fire-area");
+            _fireArea.RegisterCallback<PointerDownEvent>(OnFireDown);
+            _fireArea.RegisterCallback<PointerMoveEvent>(OnFireMove);
+            _fireArea.RegisterCallback<PointerUpEvent>(OnFireUp);
+            _fireArea.RegisterCallback<PointerCaptureOutEvent>(_ => ResetFire());
             BuildAmmoBar();
 
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다.
@@ -79,7 +81,8 @@ namespace LOP.UI
             UpdateAmmoBar();
         }
 
-        // PC: 스페이스 = 자동 조준, 마우스 왼쪽 = 마우스 바닥점 방향. 버튼·스틱 위의 클릭은 그쪽 조작이라 거른다.
+        // PC: 스페이스 = 자동 조준, 마우스 왼쪽 = 마우스 바닥점 방향. 이동 스틱 영역의 클릭은 스틱 조작이라 거른다.
+        // 발사 영역은 거르지 않는다 — 마우스는 그 영역이 받지 않고 여기서 쏜다.
         private void PollDesktopFire()
         {
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
@@ -103,7 +106,7 @@ namespace LOP.UI
                 return false;
             }
             var panel = new Vector2(screen.x * layout.width / Screen.width, (Screen.height - screen.y) * layout.height / Screen.height);
-            return _fireButton.worldBound.Contains(panel) || _stickArea.worldBound.Contains(panel);
+            return _stickArea.worldBound.Contains(panel);
         }
 
         private void BuildAmmoBar()
@@ -137,12 +140,13 @@ namespace LOP.UI
 
         private void OnFireDown(PointerDownEvent evt)
         {
-            if (_firePointer != -1)
+            if (_firePointer != -1 || !KnockbackPadViewModel.AcceptsFirePointer(evt.pointerType))
             {
                 return;
             }
             _firePointer = evt.pointerId;
             _fireOrigin = evt.position;
+            MoveFireButtonTo(_fireOrigin);
             _fireDrag = Vector2.zero;
             _fireMaxDrag01 = 0f;
             _fireDownTime = Time.unscaledTime;
@@ -197,6 +201,32 @@ namespace LOP.UI
             {
                 _fireHandle.style.translate = new Translate(0, 0);
             }
+            RestoreFireButton();
+        }
+
+        // 발사 스틱 그림을 누른 자리로 옮긴다. 루트가 화면을 꽉 채워 패널 좌표가 곧 루트 좌표다.
+        private void MoveFireButtonTo(Vector2 center)
+        {
+            if (_fireButton == null)
+            {
+                return;
+            }
+            _fireButton.style.right = StyleKeyword.Auto;
+            _fireButton.style.bottom = StyleKeyword.Auto;
+            Place(_fireButton, center);
+        }
+
+        // 놓으면 스타일시트에 적힌 원래 자리(오른쪽 아래 안내 자리)로 돌아간다.
+        private void RestoreFireButton()
+        {
+            if (_fireButton == null)
+            {
+                return;
+            }
+            _fireButton.style.left = StyleKeyword.Null;
+            _fireButton.style.top = StyleKeyword.Null;
+            _fireButton.style.right = StyleKeyword.Null;
+            _fireButton.style.bottom = StyleKeyword.Null;
         }
 
         private void OnStickDown(PointerDownEvent evt)

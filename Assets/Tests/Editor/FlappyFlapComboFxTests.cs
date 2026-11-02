@@ -116,7 +116,7 @@ namespace LOP.Tests
         [Test]
         public void 기절하면_꼬리를_끈다()
         {
-            Flaps(25);
+            Flaps(30);
             fx.Fx.Resolve(new Vector2(500f, 400f), 18f, 2f);
             fx.Fx.RecordTrail(Vector3.zero, racing: true);
             Assert.AreEqual(1, fx.Fx.Trail.Count);

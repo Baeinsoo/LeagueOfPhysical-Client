@@ -44,7 +44,7 @@ namespace LOP
         public const float FeatherSpeedXMin = 60f, FeatherSpeedXMax = 180f, FeatherSpeedYMin = 40f, FeatherSpeedYMax = 120f;
         public const float FeatherLift = 30f, FeatherGravity = 260f, FeatherDrift = 194f;
 
-        public const int TrailFrom = 25;
+        public const int TrailFrom = 30;
 
         public static readonly Color Outline = Hex(0x2a1a0c);
         public static readonly Color FeatherColor = Hex(0xf5e9d6);
@@ -57,7 +57,8 @@ namespace LOP
 
         public static float Unit(float panelHeight) => panelHeight / StageHeight;
 
-        public static Color TierColor(int n) => n >= 50 ? Tier3 : n >= 25 ? Tier2 : n >= 10 ? Tier1 : Tier0;
+        /// <summary>단계(색·깃털·꼬리)는 화면 고비 10·30·50에 맞춘다(11-02, 옛 25). 코인·퀘스트는 여전히 25를 센다.</summary>
+        public static Color TierColor(int n) => n >= 50 ? Tier3 : n >= 30 ? Tier2 : n >= 10 ? Tier1 : Tier0;
 
         private static readonly string[] Words = { "좋아!", "멋져!", "미쳤다!", "전설!" };
 
@@ -116,7 +117,7 @@ namespace LOP
 
         public static float RingWidth(float k, float u) => (4f * (1f - k) + 1f) * u;
 
-        public static int FeatherCount(int n) => 2 + Mathf.Min(2, n / 25);
+        public static int FeatherCount(int n) => n >= 50 ? 4 : n >= 30 ? 3 : 2;
 
         /// <summary>꼬리 점이 남는 시간(초) — 길이. 80에서 멈춘다.</summary>
         public static float TrailLife(int n) => 0.15f + Mathf.Min(n, 80) / 160f;
@@ -127,7 +128,7 @@ namespace LOP
         public static Color TrailColor(int n, float a)
         {
             Color c = TierColor(n);
-            c.a = a * (n >= 50 ? 0.8f : n >= 25 ? 0.7f : 0.6f);
+            c.a = a * (n >= 50 ? 0.8f : n >= 30 ? 0.7f : 0.6f);
             return c;
         }
     }
@@ -306,7 +307,7 @@ namespace LOP
             _wordAge += dt;
         }
 
-        /// <summary>그 장의 새 가운데(월드). 25부터 달리는 동안만 꼬리 점을 더한다 — 결승 뒤엔 남은 점이 제 수명대로 사라진다.</summary>
+        /// <summary>그 장의 새 가운데(월드). 30부터 달리는 동안만 꼬리 점을 더한다 — 결승 뒤엔 남은 점이 제 수명대로 사라진다.</summary>
         public void RecordTrail(Vector3 world, bool racing)
         {
             if (racing && Count >= FlapComboLook.TrailFrom)

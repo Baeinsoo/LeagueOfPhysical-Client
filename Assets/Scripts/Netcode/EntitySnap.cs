@@ -27,6 +27,7 @@ namespace LOP
         public int knockbackAmmo { get; set; }     // Knockback: 남은 탄
         public long knockbackNextReloadTick { get; set; }   // Knockback: 다음 탄이 차는 틱. 가득이면 long.MaxValue
         public long knockbackCooldownEndTick { get; set; }  // Knockback: 다시 쏠 수 있는 틱
+        public bool knockbackHasBomb { get; set; }          // Knockback: 다음 탄이 충격파 폭탄인가
         public float postureAxis { get; set; }    // Skydive: 0 = 대자, 1 = 다이브
         public bool gliding { get; set; }         // Skydive: 패러세일을 폈나
         public float stamina { get; set; }        // Skydive: 남은 활공 자원

@@ -11,6 +11,9 @@ namespace LOP.UI
         /// <summary>자동 조준 대상의 바닥 위치(x, z).</summary>
         public UnityEngine.Vector2 TargetXZ;
 
+        /// <summary>다음 탄이 충격파 폭탄인가. 조준선 색을 정한다.</summary>
+        public bool HasBomb;
+
         public void Clear() => Kind = KnockbackPadViewModel.AimKind.None;
     }
 }

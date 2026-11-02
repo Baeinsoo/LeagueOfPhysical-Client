@@ -42,7 +42,8 @@ namespace LOP
                                        r.ShotSpeed, r.ShotRange, r.ShotRadius, r.HitRadius, r.AmmoMax, r.ReloadSeconds, r.FireCooldownSeconds, r.Recoil, r.DamagePerHit, r.KnockbackBase, r.KnockbackScale, r.KnockbackCarry, r.StunBase, r.StunScale, r.StunGain, r.BodyRestitution, r.ZoneFirstRevealSeconds,
                                        ZoneStages(),
                                        new KnockbackPillarLayout(r.PillarCount, r.PillarRingRadius, r.PillarRadius, r.PillarHeight),
-                                       edgeMode, r.HazardDamagePerSecond, r.HazardSpeedScale);
+                                       edgeMode, r.HazardDamagePerSecond, r.HazardSpeedScale,
+                                       r.CrateFirstSeconds, r.CrateIntervalSeconds, r.CrateWarnSeconds, r.CratePickupRadius, r.BlastRadius);
         }
 
         //  엑셀 줄이 옮겨져도 1단계부터 순서대로 나가도록 id로 정렬한다. 원 밖 피해는 이 모드에 없다(0).

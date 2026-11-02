@@ -29,7 +29,8 @@ namespace LOP
                 && predicted.DamagePercent == snap.damagePercent
                 && predicted.Ammo == snap.knockbackAmmo
                 && predicted.NextReloadTick == snap.knockbackNextReloadTick
-                && predicted.CooldownEndTick == snap.knockbackCooldownEndTick;
+                && predicted.CooldownEndTick == snap.knockbackCooldownEndTick
+                && predicted.HasBomb == snap.knockbackHasBomb;
         }
 
         public void ApplyAuthoritative(GameFramework.World.Entity entity, EntitySnap snap, float deltaTime)
@@ -46,6 +47,7 @@ namespace LOP
                 gun.Ammo = snap.knockbackAmmo;
                 gun.NextReloadTick = snap.knockbackNextReloadTick;
                 gun.CooldownEndTick = snap.knockbackCooldownEndTick;
+                gun.HasBomb = snap.knockbackHasBomb;
             }
         }
     }

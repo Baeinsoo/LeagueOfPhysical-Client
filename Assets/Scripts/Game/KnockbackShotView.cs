@@ -13,6 +13,9 @@ namespace LOP
     public class KnockbackShotView : IStartable, System.IDisposable
     {
         private const float Diameter = 0.56f;
+        private const float BombScale = 1.8f;
+        private static readonly Color BombColor = new Color(1f, 0.35f, 0.1f);
+        private static readonly Color BombTrailColor = new Color(1f, 0.4f, 0.1f);
         private const float BodyHitRadius = 0.88f;
         private const float TrailSeconds = 0.18f;
         private const float TrailWidthRatio = 0.8f;
@@ -20,6 +23,31 @@ namespace LOP
         public const float FadeSeconds = 0.12f;
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
+
+        /// <summary>탄 그림 지름. 폭탄은 1.8배.</summary>
+        public static float DiameterOf(bool isBomb) => isBomb ? Diameter * BombScale : Diameter;
+
+        /// <summary>탄 그림 색. 폭탄은 주황빨강.</summary>
+        public static Color ColorOf(bool isBomb) => isBomb ? BombColor : Color.white;
+
+        /// <summary>
+        /// 이미 그려 둔 그림의 종류와 지금 탄의 종류가 다르면 다시 입혀야 한다. 되감기로 같은 (쏜 사람, 쏜 틱)의 탄이
+        /// 보통 탄에서 폭탄으로(또는 반대로) 바뀌어 다시 들어올 수 있다.
+        /// </summary>
+        public static bool NeedsRestyle(bool drawnAsBomb, bool shotIsBomb) => drawnAsBomb != shotIsBomb;
+
+        public static Color TrailColorOf(bool isBomb) => isBomb ? BombTrailColor : Color.white;
+
+        private static Gradient MakeTrailGradient(Color color)
+        {
+            var gradient = new Gradient();
+            gradient.SetKeys(
+                new[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) },
+                new[] { new GradientAlphaKey(TrailHeadAlpha, 0f), new GradientAlphaKey(0f, 1f) });
+            return gradient;
+        }
+        private static readonly Gradient NormalTrailGradient = MakeTrailGradient(TrailColorOf(false));
+        private static readonly Gradient BombTrailGradient = MakeTrailGradient(TrailColorOf(true));
 
         private readonly GameFramework.Runner.IRunner runner;
         private readonly KnockbackWorld world;
@@ -38,6 +66,9 @@ namespace LOP
         private readonly List<(string id, Vector2 position)> drawnBodies = new List<(string, Vector2)>();
         private readonly Stack<GameObject> pool = new Stack<GameObject>();
         private readonly Dictionary<(string, long), LineRenderer> trails = new Dictionary<(string, long), LineRenderer>();
+        //  지금 폭탄 모양으로 입혀 둔 구와 꼬리의 키. 없으면 보통 모양이다.
+        private readonly HashSet<(string, long)> bombSpheres = new HashSet<(string, long)>();
+        private readonly HashSet<(string, long)> bombTrails = new HashSet<(string, long)>();
         private readonly Stack<LineRenderer> trailPool = new Stack<LineRenderer>();
         private readonly Dictionary<(string, long), float> firstSeenSeconds = new Dictionary<(string, long), float>();
         private readonly Vector3[] trailPoints = new Vector3[2];
@@ -51,11 +82,13 @@ namespace LOP
             public GameObject go;
             public Renderer renderer;
             public float startedAt;
+            public bool isBomb;
         }
         private readonly Dictionary<(string, long), Fading> fading = new Dictionary<(string, long), Fading>();
         private readonly List<(string, long)> fadeDone = new List<(string, long)>();
 
         private Material material;
+        private Material bombMaterial;
         private Transform root;
         private KnockbackLateUpdateDriver driver;
 
@@ -119,8 +152,14 @@ namespace LOP
 
                 if (!spheres.TryGetValue(key, out var go))
                 {
-                    go = Rent();
+                    go = Rent(shot.IsBomb);
                     spheres[key] = go;
+                    SetBombMark(bombSpheres, key, shot.IsBomb);
+                }
+                else if (NeedsRestyle(bombSpheres.Contains(key), shot.IsBomb))
+                {
+                    StyleSphere(go, shot.IsBomb);
+                    SetBombMark(bombSpheres, key, shot.IsBomb);
                 }
                 go.transform.position = new Vector3(p.x, 1f, p.y);
                 UpdateTrail(key, shot, renderTick);
@@ -168,8 +207,14 @@ namespace LOP
 
             if (!trails.TryGetValue(key, out var line))
             {
-                line = RentTrail();
+                line = RentTrail(shot.IsBomb);
                 trails[key] = line;
+                SetBombMark(bombTrails, key, shot.IsBomb);
+            }
+            else if (NeedsRestyle(bombTrails.Contains(key), shot.IsBomb))
+            {
+                StyleTrail(line, shot.IsBomb);
+                SetBombMark(bombTrails, key, shot.IsBomb);
             }
             trailPoints[0] = new Vector3(head.x, 1f, head.y);
             trailPoints[1] = new Vector3(tail.x, 1f, tail.y);
@@ -250,52 +295,71 @@ namespace LOP
             trailMaterial = new Material(Shader.Find("Sprites/Default"));
             // 사라지는 연출용 — 알파 혼합이 되는 재질(스프라이트 셰이더는 처음부터 알파 혼합이다).
             fadeMaterial = new Material(Shader.Find("Sprites/Default")) { color = Color.white };
+            bombMaterial = new Material(Shader.Find("Universal Render Pipeline/Unlit")) { color = ColorOf(true) };
         }
 
-        private GameObject Rent()
+        // 풀에서 꺼낸 구는 보통 탄/폭탄 어느 쪽이었는지 모르니 꺼낼 때마다 크기·재질을 다시 정한다.
+        private GameObject Rent(bool isBomb)
         {
             GameObject go;
             if (pool.Count > 0)
             {
                 go = pool.Pop();
                 go.SetActive(true);
-                return go;
             }
-            go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            Object.Destroy(go.GetComponent<Collider>());
-            go.name = "KnockbackShot";
-            go.transform.SetParent(root, false);
-            go.transform.localScale = Vector3.one * Diameter;
-            var r = go.GetComponent<MeshRenderer>();
-            r.sharedMaterial = material;
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            r.receiveShadows = false;
+            else
+            {
+                go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                Object.Destroy(go.GetComponent<Collider>());
+                go.name = "KnockbackShot";
+                go.transform.SetParent(root, false);
+                var r = go.GetComponent<MeshRenderer>();
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                r.receiveShadows = false;
+            }
+            StyleSphere(go, isBomb);
             return go;
         }
 
-        private LineRenderer RentTrail()
+        private static void SetBombMark(HashSet<(string, long)> marks, (string, long) key, bool isBomb)
         {
+            if (isBomb) marks.Add(key);
+            else marks.Remove(key);
+        }
+
+        private void StyleSphere(GameObject go, bool isBomb)
+        {
+            go.transform.localScale = Vector3.one * DiameterOf(isBomb);
+            go.GetComponent<MeshRenderer>().sharedMaterial = isBomb ? bombMaterial : material;
+        }
+
+        private static void StyleTrail(LineRenderer line, bool isBomb)
+        {
+            line.startWidth = DiameterOf(isBomb) * TrailWidthRatio;
+            line.colorGradient = isBomb ? BombTrailGradient : NormalTrailGradient;
+        }
+
+        private LineRenderer RentTrail(bool isBomb)
+        {
+            LineRenderer line;
             if (trailPool.Count > 0)
             {
-                var pooled = trailPool.Pop();
-                pooled.gameObject.SetActive(true);
-                return pooled;
+                line = trailPool.Pop();
+                line.gameObject.SetActive(true);
             }
-            var go = new GameObject("KnockbackShotTrail");
-            go.transform.SetParent(root, false);
-            var line = go.AddComponent<LineRenderer>();
-            line.sharedMaterial = trailMaterial;
-            line.positionCount = 2;
-            line.useWorldSpace = true;
-            line.startWidth = Diameter * TrailWidthRatio;
-            line.endWidth = 0f;
-            var gradient = new Gradient();
-            gradient.SetKeys(
-                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-                new[] { new GradientAlphaKey(TrailHeadAlpha, 0f), new GradientAlphaKey(0f, 1f) });
-            line.colorGradient = gradient;
-            line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            line.receiveShadows = false;
+            else
+            {
+                var go = new GameObject("KnockbackShotTrail");
+                go.transform.SetParent(root, false);
+                line = go.AddComponent<LineRenderer>();
+                line.sharedMaterial = trailMaterial;
+                line.positionCount = 2;
+                line.useWorldSpace = true;
+                line.endWidth = 0f;
+                line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                line.receiveShadows = false;
+            }
+            StyleTrail(line, isBomb);
             return line;
         }
 
@@ -306,6 +370,7 @@ namespace LOP
                 line.gameObject.SetActive(false);
                 trailPool.Push(line);
                 trails.Remove(key);
+                bombTrails.Remove(key);
             }
         }
 
@@ -317,7 +382,9 @@ namespace LOP
             ReleaseTrail(key);
             if (!spheres.TryGetValue(key, out var go)) return;
             spheres.Remove(key);
-            var f = new Fading { go = go, renderer = go.GetComponent<Renderer>(), startedAt = Time.unscaledTime };
+            var renderer = go.GetComponent<Renderer>();
+            // 목록에서 이미 빠진 탄이라 폭탄이었는지는 마지막으로 입혀 둔 모양으로 안다.
+            var f = new Fading { go = go, renderer = renderer, startedAt = Time.unscaledTime, isBomb = bombSpheres.Remove(key) };
             f.renderer.sharedMaterial = fadeMaterial;
             fading[key] = f;
         }
@@ -330,8 +397,8 @@ namespace LOP
             {
                 float remaining = FadeRemaining(Time.unscaledTime - pair.Value.startedAt);
                 if (remaining <= 0f) { fadeDone.Add(pair.Key); continue; }
-                pair.Value.go.transform.localScale = Vector3.one * (Diameter * remaining);
-                var c = Color.white;
+                pair.Value.go.transform.localScale = Vector3.one * (DiameterOf(pair.Value.isBomb) * remaining);
+                var c = ColorOf(pair.Value.isBomb);
                 c.a = remaining;
                 pair.Value.renderer.GetPropertyBlock(fadeBlock);
                 fadeBlock.SetColor(BaseColorId, c);
@@ -363,6 +430,7 @@ namespace LOP
                 go.SetActive(false);
                 pool.Push(go);
                 spheres.Remove(key);
+                bombSpheres.Remove(key);
             }
         }
 
@@ -373,6 +441,7 @@ namespace LOP
             if (material != null) Object.Destroy(material);
             if (trailMaterial != null) Object.Destroy(trailMaterial);
             if (fadeMaterial != null) Object.Destroy(fadeMaterial);
+            if (bombMaterial != null) Object.Destroy(bombMaterial);
         }
     }
 }

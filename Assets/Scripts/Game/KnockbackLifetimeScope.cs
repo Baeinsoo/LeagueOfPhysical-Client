@@ -76,6 +76,8 @@ namespace LOP
             builder.RegisterEntryPoint<KnockbackFloorView>();
             builder.RegisterEntryPoint<KnockbackPillarView>();
             builder.RegisterEntryPoint<KnockbackShotView>();
+            builder.RegisterEntryPoint<KnockbackCrateView>();
+            builder.RegisterEntryPoint<KnockbackBlastView>();
             builder.RegisterEntryPoint<KnockbackZoneView>();
             builder.RegisterEntryPoint<KnockbackDamageLabel>();
             builder.RegisterEntryPoint<KnockbackTeamRingView>();

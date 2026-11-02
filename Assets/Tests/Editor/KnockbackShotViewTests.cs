@@ -18,6 +18,15 @@ namespace LOP.Tests
         };
 
         [Test]
+        public void 되감기로_탄_종류가_바뀌면_다시_입힌다()
+        {
+            Assert.IsTrue(KnockbackShotView.NeedsRestyle(false, true), "보통 탄으로 그렸는데 폭탄이 됨");
+            Assert.IsTrue(KnockbackShotView.NeedsRestyle(true, false), "폭탄으로 그렸는데 보통 탄이 됨");
+            Assert.IsFalse(KnockbackShotView.NeedsRestyle(true, true));
+            Assert.IsFalse(KnockbackShotView.NeedsRestyle(false, false));
+        }
+
+        [Test]
         public void 내_탄은_남의_몸에_닿으면_숨는다()
         {
             Assert.IsTrue(KnockbackShotView.TouchesDrawnBody(new Vector2(10.5f, 0f), "me", Bodies, Radius, NoTeams));

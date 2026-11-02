@@ -37,7 +37,7 @@ namespace LOP
                         {
                             break;
                         }
-                        world.IngestRemoteShot(new KnockbackShot(fired.shooterId, fired.fireTick, fired.origin, fired.direction));
+                        world.IngestRemoteShot(new KnockbackShot(fired.shooterId, fired.fireTick, fired.origin, fired.direction, fired.isBomb));
                         break;
                     }
                     case WorldEventToC.EventOneofCase.KnockbackHit:

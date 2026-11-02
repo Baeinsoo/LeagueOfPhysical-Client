@@ -30,6 +30,17 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 폭탄_보유가_와이어와_AutoMapper를_건넌다()
+        {
+            var sent = new global::EntitySnap { KnockbackHasBomb = true };
+            var proto = global::EntitySnap.Parser.ParseFrom(Google.Protobuf.MessageExtensions.ToByteArray(sent));
+
+            EntitySnap mapped = MapperConfig.mapper.Map<EntitySnap>(proto);
+
+            Assert.IsTrue(mapped.knockbackHasBomb);
+        }
+
+        [Test]
         public void 넉백_총_상태가_와이어와_AutoMapper를_건넌다()
         {
             var sent = new global::EntitySnap { KnockbackAmmo = 2, KnockbackNextReloadTick = long.MaxValue, KnockbackCooldownEndTick = 77 };

@@ -59,12 +59,21 @@ namespace LOP.UI
 
         private void OnFinished(Vector3? _) => finishText.Value = "경기 종료!";
 
-        private void OnKo(KoAnnouncement a)
+        private void OnKo(KoAnnouncement a) => AddLine(KoLine(a), KoLineSeconds);
+
+        private void AddLine(string text, float seconds)
         {
-            koLines.Insert(0, (KoLine(a), Time.unscaledTime + KoLineSeconds));
+            koLines.Insert(0, (text, Time.unscaledTime + seconds));
             if (koLines.Count > KoLineMax) koLines.RemoveRange(KoLineMax, koLines.Count - KoLineMax);
             RenderKo();
         }
+
+        public const string CrateNoticeText = "보급 상자! 주우면 다음 탄이 충격파 폭탄";
+        private const float CrateNoticeSeconds = 5f;
+        private bool crateAnnounced;
+
+        /// <summary>첫 상자가 예고될 때 한 번만 안내한다.</summary>
+        public static bool ShouldAnnounceCrate(bool alreadyAnnounced, bool crateExists) => crateExists && !alreadyAnnounced;
 
         private void RenderKo()
         {
@@ -148,6 +157,12 @@ namespace LOP.UI
         public void Tick()
         {
             if (koLines.RemoveAll(l => Time.unscaledTime >= l.expireAt) > 0) RenderKo();
+
+            if (ShouldAnnounceCrate(crateAnnounced, state.Crate.HasValue))
+            {
+                crateAnnounced = true;
+                AddLine(CrateNoticeText, CrateNoticeSeconds);
+            }
 
             aliveText.Value = AliveTextNow();
 

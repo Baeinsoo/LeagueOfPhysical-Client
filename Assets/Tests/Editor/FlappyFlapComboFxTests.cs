@@ -86,6 +86,21 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 백_뒤_50마다_화음과_전설_한마디를_다시()
+        {
+            //  11-02 — 100 뒤 150·200…도 게이지를 주니 100과 같은 연출이다(절제는 그대로 — 화음 한 번).
+            Flaps(149);
+            Assert.AreEqual(4, audio.Played.Count(s => s == FlappySfx.Milestone), "10·25·50·100");
+            Flaps(1);
+            Assert.AreEqual(5, audio.Played.Count(s => s == FlappySfx.Milestone), "150");
+            fx.Fx.Resolve(new Vector2(500f, 400f), 18f, 2f);
+            Assert.AreEqual("전설!", fx.Fx.WordText);
+            Assert.IsTrue(fx.Fx.WordDashCue, "150도 반 칸을 줬다");
+            Flaps(50);
+            Assert.AreEqual(6, audio.Played.Count(s => s == FlappySfx.Milestone), "200");
+        }
+
+        [Test]
         public void 연출은_고비_화음만_내고_날갯짓_소리는_건드리지_않는다()
         {
             //  10-26 사용자: 올라가는 음 없음 — 날갯짓 소리는 FlappyFlapSound가 누를 때마다 같은 소리로 낸다. 연출은 고비 화음만.

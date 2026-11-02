@@ -54,9 +54,9 @@ namespace LOP
             //  카메라·관전이 같은 답을 봐야 한다 — 주인이 하나여야 하므로 싱글턴(FlappySpectate와 같은 이유).
             builder.Register<CardRushSpectate>(Lifetime.Singleton).As<ISpectateTargets>().AsSelf();
 
-            //  소리 과업(CardRushAudio)은 다른 태스크다 — 그때까지 RaceHudViewModel·RaceFinishViewModel이
-            //  요구하는 IFlappyAudio 자리를 빈 구현으로 채운다(PlainRaceStartLook과 같은 자리끊기).
-            builder.Register<IFlappyAudio, CardRushSilentAudio>(Lifetime.Singleton);
+            //  소리 한 곳 — 내 몸 상태 변화의 소리 + RaceHud·RaceFinish가 부르는 IFlappyAudio 자리.
+            //  진입점이라 IFlappyAudio로도 풀린다(AsImplementedInterfaces, FlappyAudio와 같은 등록).
+            builder.RegisterEntryPoint<CardRushAudio>().AsSelf();
 
             //  카운트다운은 개편(팝·GO 초록) 없이 예전 모양 그대로(기마 궁술·넉백과 같은 선택) — 소리 창구가
             //  없어도 되는 쪽이라 PlainRaceStartLook을 쓴다.
@@ -88,6 +88,8 @@ namespace LOP
             builder.RegisterEntryPoint<CardRushCourseView>().AsSelf();
             //  뒤 위에서 진행 방향을 보는 고정 각 카메라. 관전 대상은 위 코디네이터가 매 틱 고른다.
             builder.RegisterEntryPoint<CardRushCamera>().AsSelf();
+            //  몸개그(풍덩·박치기·폴짝·결승 몸짓) — 몸의 자식 Model만 움직이는 그림. 상태는 읽기만 한다.
+            builder.RegisterEntryPoint<CardRushRunnerFxView>().AsSelf();
         }
 
         protected override void RegisterViewFactories(
@@ -101,16 +103,5 @@ namespace LOP
             sink.Add(windowManager.RegisterViewFactory<RaceSpectateView>(() => container.Resolve<RaceSpectateView>()));
             sink.Add(windowManager.RegisterViewFactory<LeaveMatchConfirmView>(() => container.Resolve<LeaveMatchConfirmView>()));
         }
-    }
-
-    //  CardRushAudio(다른 태스크)가 생기기 전까지 IFlappyAudio 자리를 채우는 빈 구현. 효과음·배경음 없이
-    //  RaceHudViewModel의 순위 추월 소리 호출 등을 그냥 삼킨다 — 예외도, 소리도 안 난다.
-    public sealed class CardRushSilentAudio : IFlappyAudio
-    {
-        public void Play(FlappySfx sfx) { }
-        public void StartMusic() { }
-        public void StopMusic() { }
-        public void SetFinalStretch(bool on) { }
-        public void DuckMusic() { }
     }
 }

@@ -120,16 +120,18 @@ namespace LOP
         }
 
         /// <summary>효과음 한 개의 표본(모노, <see cref="Rate"/>). 길이 = 제일 늦게 끝나는 겹 + 꼬리.</summary>
-        public static float[] Render(FlappySfx sfx)
+        public static float[] Render(FlappySfx sfx) => Render(Recipe(sfx), (int)sfx + 1);
+
+        /// <summary>조리법 하나의 표본 — 다른 모드 소리(카드 러시)도 같은 발진기·잡음으로 짓는다. 잡음 씨앗이 같으면 늘 같은 파형.</summary>
+        internal static float[] Render(Part[] parts, int seed)
         {
-            Part[] parts = Recipe(sfx);
             float end = 0f;
             foreach (var p in parts)
             {
                 end = Mathf.Max(end, p.When + p.Duration);
             }
             var data = new float[Mathf.CeilToInt((end + TailSeconds) * Rate)];
-            var rng = new System.Random((int)sfx + 1);
+            var rng = new System.Random(seed);
             foreach (var p in parts)
             {
                 Write(data, p, rng, wrap: false);

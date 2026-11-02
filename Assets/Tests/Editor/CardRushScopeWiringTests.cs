@@ -120,6 +120,10 @@ namespace LOP.Tests
             Assert.IsNotNull(container.Resolve(typeof(CardRushCourseView)));
             Assert.IsNotNull(container.Resolve(typeof(CardRushCamera)));
             Assert.IsNotNull(container.Resolve(typeof(CardRushHudCoordinator)), "완주 뒤 관전 흐름의 의존(판 끝·나가기)이 다 닿는다");
+            //  소리·몸개그. IFlappyAudio(RaceHud·RaceFinish가 부름)는 빈 구현이 아니라 진짜 소리 하나와 같은 것.
+            Assert.IsNotNull(container.Resolve(typeof(CardRushRunnerFxView)));
+            Assert.IsInstanceOf<CardRushAudio>(container.Resolve(typeof(IFlappyAudio)));
+            Assert.AreSame(container.Resolve(typeof(CardRushAudio)), container.Resolve(typeof(IFlappyAudio)), "소리 주인은 하나");
 
             //  맵 마커가 주입받는 통로가 월드가 보는 것과 같은 하나여야 규칙이 월드에 닿는다.
             var markerGo = new GameObject("card-rush-rules-test");

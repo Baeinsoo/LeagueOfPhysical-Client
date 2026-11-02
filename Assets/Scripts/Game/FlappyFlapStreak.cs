@@ -39,6 +39,10 @@ namespace LOP
         private readonly List<int> _shown = new List<int>();
         private float _lastCharge;
         private bool _racing;
+        private bool _seen;
+        //  이 연속에서 마지막으로 알린 보상 걸음(수). 교정으로 내려갔다 다시 올라도 이보다 높아야 다시 알린다 —
+        //  진짜로 끊길 때(수가 0)만 되돌린다(리뷰 A1·A2, 11-02).
+        private int _lastStep;
 
         /// <summary>시뮬이 받은 날갯짓 하나 — 그 걸음.</summary>
         public event Action<FlapComboBeat> Flapped;
@@ -74,20 +78,41 @@ namespace LOP
             }
 
             int bestBefore = _streak.Best;
+            int before = _streak.Count;
+            bool first = _seen == false;
+            _seen = true;
             _shown.Clear();
             if (_streak.Observe(combo.Count, _shown))
             {
                 Crashed?.Invoke();
             }
             var comboRules = _rules.FlapCombo;
+            if (combo.Count == 0)
+            {
+                _lastStep = 0;
+            }
+            int top = TopStep(comboRules, combo.Count);
+            if (first)
+            {
+                //  재접속으로 이미 센 수까지는 알리지 않는다.
+                _lastStep = top;
+            }
+            else if (_shown.Count == 0 && combo.Count > before && top > before && top > _lastStep)
+            {
+                //  교정이 크게 뛰며 걸음을 넘었다 — 시뮬은 그 걸음에서 게이지를 줬다. 넘은 가장 높은 걸음 하나만 알린다.
+                Announce(comboRules, top);
+            }
             foreach (int n in _shown)
             {
                 //  게이지를 주는 걸음마다(기본 10마다) 한마디·고리·화음 — 단계는 수로 오르고, 50과 그 뒤 50마다만 크게(사용자 결정 11-02).
-                int tier = FlapComboLook.StepTier(comboRules, n);
-                //  가득 찬 게이지엔 더해진 게 없다 — 그때 "대시+"를 붙이면 보이는 것과 받는 것이 갈린다.
-                bool dashGain = tier >= 0 && _rules.ManualDash && comboRules.Gain(n) > 0f
-                                && _lastCharge < FlappyDash.MaxCharge;
-                Flapped?.Invoke(new FlapComboBeat(n, tier, dashGain, FlapComboLook.StepBig(comboRules, n)));
+                if (n > _lastStep && FlapComboLook.StepTier(comboRules, n) >= 0)
+                {
+                    Announce(comboRules, n);
+                }
+                else
+                {
+                    Flapped?.Invoke(new FlapComboBeat(n, -1, false));
+                }
             }
             if (_streak.Best > bestBefore)
             {
@@ -98,5 +123,18 @@ namespace LOP
             bool stunned = (mine.Get<FlappyStun>()?.StunRemaining ?? 0f) > 0f;
             _racing = stunned == false && mine.Get<FinishState>()?.Finished != true;
         }
+
+        private void Announce(FlappyFlapComboRules comboRules, int n)
+        {
+            _lastStep = n;
+            int tier = FlapComboLook.StepTier(comboRules, n);
+            //  가득 찬 게이지엔 더해진 게 없다 — 그때 "대시+"를 붙이면 보이는 것과 받는 것이 갈린다.
+            bool dashGain = _rules.ManualDash && comboRules.Gain(n) > 0f && _lastCharge < FlappyDash.MaxCharge;
+            Flapped?.Invoke(new FlapComboBeat(n, tier, dashGain, FlapComboLook.StepBig(comboRules, n)));
+        }
+
+        //  수 이하에서 가장 높은 보상 걸음. 보상 없는 맵이면 0.
+        private static int TopStep(FlappyFlapComboRules comboRules, int count)
+            => comboRules.Rewards && count > 0 ? count / comboRules.Step * comboRules.Step : 0;
     }
 }

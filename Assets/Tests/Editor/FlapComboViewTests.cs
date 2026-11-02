@@ -11,7 +11,7 @@ namespace LOP.Tests
     public class FlapComboViewTests
     {
         //  시험용 걸음 — 판은 맵 규칙으로 고비 번호를 정한다(FlappyFlapStreak). 여기선 기본 규칙으로 정한다.
-        private static void Beat(FlapComboFx fx, int n) => fx.Queue(n, FlappyFlapComboRules.Default.MilestoneIndex(n), false);
+        private static void Beat(FlapComboFx fx, int n) => fx.Queue(n, FlapComboLook.StepTier(FlappyFlapComboRules.Default, n), false);
 
         private const float R = 0.45f;
         private GameObject viewGo;

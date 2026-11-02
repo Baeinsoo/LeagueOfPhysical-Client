@@ -80,7 +80,7 @@ namespace LOP.Tests
         [Test]
         public void 고비_화음은_추월_소리보다_조용하고_짧다()
         {
-            //  10-26 사용자: 집중을 깨지 않게 — 연속 날갯짓 고비(10·25·50·100)엔 조용한 짧은 화음 한 번.
+            //  10-26 사용자: 집중을 깨지 않게 — 연속 날갯짓 화면 고비(10·30·50·100, 그 뒤 50마다 — 11-02)엔 조용한 짧은 화음 한 번.
             float[] milestone = FlappySynth.Render(FlappySfx.Milestone);
             Assert.Less(Peak(milestone), Peak(FlappySynth.Render(FlappySfx.RankUp)));
             Assert.Less(milestone.Length, Mathf.CeilToInt(0.6f * FlappySynth.Rate));

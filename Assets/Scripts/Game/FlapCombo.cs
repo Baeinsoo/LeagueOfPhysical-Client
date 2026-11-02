@@ -61,14 +61,9 @@ namespace LOP
 
         private static readonly string[] Words = { "좋아!", "멋져!", "미쳤다!", "전설!" };
 
-        /// <summary>몇 번째 고비(0부터)의 한마디. 넷째 뒤로는 "전설!". 고비가 아니면(−1) null.
-        /// 맵마다 고비 수가 달라도 순서로 고른다(spec 2026-10-27 §5).</summary>
+        /// <summary>몇 번째 화면 고비(0부터, <see cref="FlappyFlapComboRules.MilestoneIndex"/> — 10·30·50·100, 그 뒤 50마다는 3)의 한마디.
+        /// 넷째 뒤로는 "전설!". 고비가 아니면(−1) null. 판은 맵 규칙의 번호로만 부른다(기본 규칙 지름길은 두지 않는다).</summary>
         public static string WordAt(int milestone) => milestone < 0 ? null : Words[Mathf.Min(milestone, Words.Length - 1)];
-
-        /// <summary>기본 고비(10·25·50·100, 그 뒤 50마다 — 11-02)의 한마디 — 모양 시험용. 실제 판은 맵 보상 자리 번호로 <see cref="WordAt"/>을 쓴다.</summary>
-        public static string Word(int n) => WordAt(FlappyFlapComboRules.Default.RewardIndex(n));
-
-        public static bool IsMilestone(int n) => Word(n) != null;
 
         /// <summary>고비가 대시 게이지를 줬을 때 한마디 뒤에 붙는 작은 글자.</summary>
         public const string DashCue = "대시+";
@@ -209,9 +204,6 @@ namespace LOP
 
         /// <summary>지금 한마디의 고비가 대시 게이지를 줬나 — 그리는 쪽이 "대시+"를 붙인다.</summary>
         public bool WordDashCue { get; private set; }
-
-        /// <summary>먹힌 날갯짓 하나(연속 수 n) — 고비는 기본 보상 자리(10·25·50·100, 그 뒤 50마다)로 본다. 모양 시험용.</summary>
-        public void Queue(int count) => Queue(count, FlappyFlapComboRules.Default.RewardIndex(count), false);
 
         /// <summary>시뮬이 받은 날갯짓 하나 — 그 수, 맵 규칙의 몇 번째 고비인지(−1 = 아님), 그 고비가 게이지를 줬는지.</summary>
         public void Queue(int count, int milestone, bool dashGain)

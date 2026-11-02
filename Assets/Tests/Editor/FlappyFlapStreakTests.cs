@@ -151,6 +151,19 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 백_뒤_50마다는_마지막_고비처럼_번호와_대시_보상을_싣는다()
+        {
+            //  11-02 — 150·200…도 게이지 반 칸이라 100과 같은 연출(전설!·고리·화음)과 "대시+".
+            Climb(201);
+            Assert.AreEqual(3, BeatAt(150).Milestone, "150은 마지막 고비(100)와 같은 번호");
+            Assert.IsTrue(BeatAt(150).DashGain);
+            Assert.AreEqual(3, BeatAt(200).Milestone);
+            Assert.AreEqual(-1, BeatAt(149).Milestone);
+            Assert.AreEqual(-1, BeatAt(175).Milestone);
+            Assert.AreEqual(-1, BeatAt(201).Milestone);
+        }
+
+        [Test]
         public void 보상이_0인_고비는_한마디만_뜨고_대시_보상은_아니다()
         {
             //  마커가 고비는 두되 보상을 0칸으로 줄 수 있다(FlappyFlapComboRules.TryCreate은 0을 허용,

@@ -79,7 +79,8 @@ namespace LOP
             var comboRules = _rules.FlapCombo;
             foreach (int n in _shown)
             {
-                int milestone = comboRules.MilestoneIndex(n);
+                //  보상 자리(고비 + 마지막 고비 뒤 50마다, 11-02) — 되풀이 자리는 마지막 고비와 같은 연출이다.
+                int milestone = comboRules.RewardIndex(n);
                 //  가득 찬 게이지엔 더해진 게 없다 — 그때 "대시+"를 붙이면 보이는 것과 받는 것이 갈린다.
                 bool dashGain = milestone >= 0 && _rules.ManualDash && comboRules.Gain(n) > 0f
                                 && _lastCharge < FlappyDash.MaxCharge;

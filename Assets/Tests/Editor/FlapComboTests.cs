@@ -28,13 +28,15 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 고비_한마디는_10_25_50_100에만()
+        public void 고비_한마디는_10_25_50_100과_그뒤_50마다()
         {
             Assert.AreEqual("좋아!", FlapComboLook.Word(10));
             Assert.AreEqual("멋져!", FlapComboLook.Word(25));
             Assert.AreEqual("미쳤다!", FlapComboLook.Word(50));
             Assert.AreEqual("전설!", FlapComboLook.Word(100));
-            foreach (int n in new[] { 1, 9, 11, 24, 26, 49, 75, 99, 101, 200 })
+            Assert.AreEqual("전설!", FlapComboLook.Word(150), "11-02: 100 뒤 50마다");
+            Assert.AreEqual("전설!", FlapComboLook.Word(200));
+            foreach (int n in new[] { 1, 9, 11, 24, 26, 49, 75, 99, 101, 149, 175, 201 })
             {
                 Assert.IsNull(FlapComboLook.Word(n), n.ToString());
                 Assert.IsFalse(FlapComboLook.IsMilestone(n), n.ToString());

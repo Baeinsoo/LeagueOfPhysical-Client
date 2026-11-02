@@ -106,7 +106,7 @@ namespace LOP.Tests
             //  개인 기록(CardRushRecordReporter)이 쓴다 — 실제로는 GameplayInstaller가 준다.
             builder.RegisterInstance(new MatchStartState());
             builder.RegisterInstance(new MatchRecordSheet(() => (13, 17), new FakePersonalRecordStore()));
-            //  Space 잡기(CardRushKeyboardGrab)가 쓴다 — 실제로는 GameplayInstaller가 준다. 이 시험은 만들어지는지만 본다.
+            //  탭·Space 잡기(CardRushTapGrab)가 쓴다 — 실제로는 GameplayInstaller가 준다. 이 시험은 만들어지는지만 본다.
             builder.RegisterInstance((PlayerInputManager)System.Runtime.Serialization.FormatterServices
                 .GetUninitializedObject(typeof(PlayerInputManager)));
 
@@ -129,8 +129,8 @@ namespace LOP.Tests
             //  소리·몸개그. IFlappyAudio(RaceHud·RaceFinish가 부름)는 빈 구현이 아니라 진짜 소리 하나와 같은 것.
             Assert.IsNotNull(container.Resolve(typeof(CardRushRunnerFxView)));
             Assert.IsNotNull(container.Resolve(typeof(CardRushRecordReporter)), "개인 기록(완주 시간·연속 정타 최고)이 닿는다");
-            //  Space 잡기는 ITickable(틱 앞)이어야 한다 — 틱 뒤 단계로 옮기면 탭이 한 틱 늦게 붙는다(최종 리뷰 I5).
-            var keyboard = container.Resolve(typeof(CardRushKeyboardGrab));
+            //  탭·Space 잡기는 ITickable(틱 앞)이어야 한다 — 틱 뒤 단계로 옮기면 탭이 한 틱 늦게 붙는다(최종 리뷰 I5).
+            var keyboard = container.Resolve(typeof(CardRushTapGrab));
             Assert.IsInstanceOf<VContainer.Unity.ITickable>(keyboard);
             Assert.IsNotInstanceOf<VContainer.Unity.IPostTickable>(keyboard);
             Assert.IsNotInstanceOf<VContainer.Unity.ILateTickable>(keyboard);

@@ -85,7 +85,7 @@ namespace LOP.Tests
             var input = new PlayerInputManager(new FakeRunner { tickUpdater = clock },
                 new PlayerContext { entityId = "me", session = new FakeSession() }, null, registry, new InputBufferSystem(),
                 new GameFramework.Netcode.SequenceBuffer<InputCommand>(128));
-            var view = new CardRushPadView(new CardRushPadViewModel(input), input, world, registry,
+            var view = new CardRushPadView(new CardRushTapTarget(), input, world, registry,
                                            new FakeGameDataStore { userEntityId = "me" });
 
             //  색 경계 바로 앞 틱을 막 돌렸다(러너가 아직 tick을 안 올린 그 틱 안) — 러너 틱은 경계 −1, 다음 입력 틱은 경계.

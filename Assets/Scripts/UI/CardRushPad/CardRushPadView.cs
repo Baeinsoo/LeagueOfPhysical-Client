@@ -14,12 +14,13 @@ namespace LOP.UI
         private const string BackClass = "card-rush-card--back";
         private static readonly string[] ChipNames = { "card-rush-next-0", "card-rush-next-1", "card-rush-next-2" };
 
-        private readonly CardRushPadViewModel _viewModel;
+        private readonly CardRushTapTarget _tapTarget;
         private readonly PlayerInputManager _input;
         private readonly CardRushWorld _world;
         private readonly GameFramework.World.EntityRegistry _entityRegistry;
         private readonly IGameDataStore _gameDataStore;
 
+        private VisualElement _surface;
         private VisualElement _card;
         private Label _glyph;
         private Label _streak;
@@ -32,10 +33,10 @@ namespace LOP.UI
         private IVisualElementScheduledItem _tick;
         private bool _disposed;
 
-        public CardRushPadView(CardRushPadViewModel viewModel, PlayerInputManager input, CardRushWorld world,
+        public CardRushPadView(CardRushTapTarget tapTarget, PlayerInputManager input, CardRushWorld world,
             GameFramework.World.EntityRegistry entityRegistry, IGameDataStore gameDataStore)
         {
-            _viewModel = viewModel;
+            _tapTarget = tapTarget;
             _input = input;
             _world = world;
             _entityRegistry = entityRegistry;
@@ -48,8 +49,10 @@ namespace LOP.UI
         {
             base.OnOpen();
 
-            var surface = Root.Q<VisualElement>("card-rush-surface");
-            surface.RegisterCallback<PointerDownEvent>(_ => _viewModel.Grab());
+            //  탭은 여기서 듣지 않는다 — PointerDown은 틱 뒤에 와서 한 틱 늦게 붙는다. CardRushTapGrab(틱 앞)이 장치를 직접 읽고
+            //  이 면 위였는지만 여기에 묻는다. 위에 겹친 버튼(나가기 등)이 집히면 잡기가 아니다(PointerDown이 가던 길과 같은 판정).
+            _surface = Root.Q<VisualElement>("card-rush-surface");
+            _tapTarget.HitTest = IsOnSurface;
 
             _card = Root.Q<VisualElement>("card-rush-card");
             _glyph = Root.Q<Label>("card-rush-card-glyph");
@@ -68,9 +71,22 @@ namespace LOP.UI
             _lastStreak = -1;
 
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 그린다(FlapPadView와 같다).
-            // Space 키는 여기서 읽지 않는다: 이 스케줄러는 틱 코루틴 뒤(PreLateUpdate)에 돌아 탭이 한 틱 늦게 붙는다.
-            // 키는 CardRushKeyboardGrab(틱 앞)이 읽는다(최종 리뷰 I5).
+            // 입력(탭·Space)은 여기서 읽지 않는다: 이 스케줄러는 틱 코루틴 뒤(PreLateUpdate)에 돌아 한 틱 늦게 붙는다.
+            // CardRushTapGrab(틱 앞)이 읽는다(최종 리뷰 I5).
             _tick = Root.schedule.Execute(_ => Refresh()).Every(0);
+        }
+
+        private bool IsOnSurface(Vector2 screenPosition)
+        {
+            var panel = _surface?.panel;
+            if (panel == null)
+            {
+                return false;
+            }
+            //  Input System 화면 좌표는 왼쪽 아래 원점, 패널 변환은 위쪽 원점을 받는다.
+            var flipped = new Vector2(screenPosition.x, Screen.height - screenPosition.y);
+            var picked = panel.Pick(RuntimePanelUtils.ScreenToPanel(panel, flipped));
+            return picked == _surface;
         }
 
         private void Refresh()
@@ -193,6 +209,11 @@ namespace LOP.UI
                 if (disposing)
                 {
                     _tick?.Pause();
+                    //  닫힌 조작판 위 탭은 잡기가 아니다 — 다음에 열린 조작판이 다시 채운다.
+                    if (_tapTarget.HitTest == (System.Func<Vector2, bool>)IsOnSurface)
+                    {
+                        _tapTarget.HitTest = null;
+                    }
                 }
             }
 

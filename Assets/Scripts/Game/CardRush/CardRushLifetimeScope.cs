@@ -78,9 +78,10 @@ namespace LOP
                 message => NetworkClient.Send(new CustomMirrorMessage { payload = message })), Lifetime.Singleton);
 
             //  조작판 — 화면 아무 데나 탭하면 잡기. 카드 자체는 매 프레임 PlayerInputManager.NextInputTick으로 그린다(spec §7.3).
-            builder.Register<CardRushPadViewModel>(Lifetime.Transient);
-            //  Space 잡기는 틱 앞(ITickable)에서 읽는다 — 조작판 패널 스케줄러는 틱 뒤라 한 틱 늦다.
-            builder.RegisterEntryPoint<CardRushKeyboardGrab>().AsSelf();
+            //  탭·Space 잡기는 틱 앞(ITickable)에서 읽는다 — UI Toolkit 이벤트·패널 스케줄러는 틱 뒤라 한 틱 늦다.
+            //  탭이 조작판 면 위인지는 열린 조작판이 채우는 CardRushTapTarget에 묻는다.
+            builder.Register<CardRushTapTarget>(Lifetime.Singleton);
+            builder.RegisterEntryPoint<CardRushTapGrab>().AsSelf();
             builder.Register<CardRushPadView>(Lifetime.Transient);
 
             //  정보 HUD(진행 막대·순위·기록 시간) — RaceHudViewModel/View는 Flappy와 그대로, 소스만 갈아 끼운다.

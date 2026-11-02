@@ -191,13 +191,14 @@ namespace LOP.Tests
                 (LOP.UI.KnockbackPadViewModel.ReleaseOutcome)prev, (LOP.UI.KnockbackPadViewModel.ReleaseOutcome)now));
         }
 
-        // 마우스는 PC 클릭 발사 경로가 따로 처리하므로 발사 영역은 터치·펜만 받는다.
-        [TestCase("mouse", false)]
-        [TestCase("touch", true)]
-        [TestCase("pen", true)]
-        public void 발사_영역은_마우스를_받지_않는다(string pointerType, bool expected)
+        // 마우스는 PC 클릭 발사 경로가 따로 처리하므로 발사 영역은 터치·펜만 받는다 — 에디터에선 마우스도 손가락처럼.
+        [TestCase("mouse", false, false)]
+        [TestCase("mouse", true, true)]
+        [TestCase("touch", false, true)]
+        [TestCase("pen", false, true)]
+        public void 발사_영역은_빌드_PC에선_마우스를_받지_않는다(string pointerType, bool mouseActsAsTouch, bool expected)
         {
-            Assert.AreEqual(expected, LOP.UI.KnockbackPadViewModel.AcceptsFirePointer(pointerType));
+            Assert.AreEqual(expected, LOP.UI.KnockbackPadViewModel.AcceptsFirePointer(pointerType, mouseActsAsTouch));
         }
     }
 }

@@ -225,8 +225,12 @@ namespace LOP.UI
         public static bool ShouldPulseOnCancelEntry(ReleaseOutcome previous, ReleaseOutcome current)
             => previous == ReleaseOutcome.Fire && current == ReleaseOutcome.Cancel;
 
-        /// <summary>발사 영역이 받는 포인터인가. 마우스는 PC 클릭 발사 경로가 따로 처리해서 여기서는 거른다.</summary>
-        public static bool AcceptsFirePointer(string pointerType) => pointerType != "mouse";
+        /// <summary>
+        /// 발사 영역이 받는 포인터인가. 마우스는 PC 클릭 발사 경로가 따로 처리해서 거르지만,
+        /// <paramref name="mouseActsAsTouch"/>(에디터)면 마우스도 손가락처럼 받아 폰 조작을 PC에서 그대로 해 볼 수 있다.
+        /// </summary>
+        public static bool AcceptsFirePointer(string pointerType, bool mouseActsAsTouch)
+            => pointerType != "mouse" || mouseActsAsTouch;
 
         /// <summary>조준 표시 종류. 놓았을 때의 결과(<see cref="OutcomeOnRelease"/>)를 표시로 옮긴 것.</summary>
         public static AimKind AimIndicatorState(float heldSeconds, float maxDrag01, float currentDrag01, bool hasTarget)

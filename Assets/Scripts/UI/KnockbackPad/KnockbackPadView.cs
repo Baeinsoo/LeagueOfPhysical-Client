@@ -81,6 +81,9 @@ namespace LOP.UI
             UpdateAmmoBar();
         }
 
+        // 에디터에선 마우스를 손가락처럼 — 발사 영역이 마우스를 받고, 아래 PC 클릭 발사는 쓰지 않는다.
+        private static bool MouseActsAsTouch => UnityEngine.Application.isEditor;
+
         // PC: 스페이스 = 자동 조준, 마우스 왼쪽 = 마우스 바닥점 방향. 이동 스틱 영역의 클릭은 스틱 조작이라 거른다.
         // 발사 영역은 거르지 않는다 — 마우스는 그 영역이 받지 않고 여기서 쏜다.
         private void PollDesktopFire()
@@ -92,7 +95,7 @@ namespace LOP.UI
             }
 
             var mouse = UnityEngine.InputSystem.Mouse.current;
-            if (mouse != null && mouse.leftButton.wasPressedThisFrame && !IsOverPad(mouse.position.ReadValue()))
+            if (!MouseActsAsTouch && mouse != null && mouse.leftButton.wasPressedThisFrame && !IsOverPad(mouse.position.ReadValue()))
             {
                 _viewModel.FireAtGroundPoint(mouse.position.ReadValue());
             }
@@ -140,7 +143,7 @@ namespace LOP.UI
 
         private void OnFireDown(PointerDownEvent evt)
         {
-            if (_firePointer != -1 || !KnockbackPadViewModel.AcceptsFirePointer(evt.pointerType))
+            if (_firePointer != -1 || !KnockbackPadViewModel.AcceptsFirePointer(evt.pointerType, MouseActsAsTouch))
             {
                 return;
             }

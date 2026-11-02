@@ -5,7 +5,7 @@ namespace LOP.Tests
 {
     /// <summary>
     /// 연속 날갯짓 연출 "집중형"(spec §7, 사용자 결정 10-26). 앞길과 화면 가운데를 비운다 — 작은 "+N"은 새 뒤쪽 위에서 0.45초,
-    /// 깃털은 새 뒤로만, 꼬리는 30부터 가늘게, 고비(10·30·50·100, 그 뒤 50마다) 한마디·고리는 새 옆에 작게. 단위 u는 시제품 무대(높이 545px)의 1px.
+    /// 깃털은 새 뒤로만, 꼬리는 30부터 가늘게, 게이지를 주는 걸음(10마다) 한마디·고리는 새 옆에 작게(50과 그 뒤 50마다만 조금 크게). 단위 u는 시제품 무대(높이 545px)의 1px.
     /// </summary>
     public class FlapComboTests
     {
@@ -32,26 +32,58 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 기본_규칙의_고비_한마디는_10_30_50_100과_그뒤_50마다()
+        public void 기본_규칙은_게이지를_주는_10마다_한마디가_뜨고_단계는_30_50_100에서_오른다()
         {
-            //  11-02 — 25 대신 30이 "멋져!". 10마다 주는 게이지 칸은 한마디 없이 "+N"과 게이지만.
-            string Word(int n) => FlapComboLook.WordAt(FlappyFlapComboRules.Default.MilestoneIndex(n));
+            //  11-02 — 10만이 아니라 게이지를 주는 모든 걸음(10마다)이 한마디를 받는다. 단계: 10~20·30~40·50~90·100부터.
+            string Word(int n) => FlapComboLook.WordAt(FlapComboLook.StepTier(FlappyFlapComboRules.Default, n));
             Assert.AreEqual("좋아!", Word(10));
+            Assert.AreEqual("좋아!", Word(20));
             Assert.AreEqual("멋져!", Word(30));
+            Assert.AreEqual("멋져!", Word(40));
             Assert.AreEqual("미쳤다!", Word(50));
+            Assert.AreEqual("미쳤다!", Word(90));
             Assert.AreEqual("전설!", Word(100));
+            Assert.AreEqual("전설!", Word(110));
             Assert.AreEqual("전설!", Word(150));
-            Assert.AreEqual("전설!", Word(200));
-            foreach (int n in new[] { 1, 9, 11, 20, 24, 25, 26, 40, 49, 60, 75, 90, 99, 101, 110, 140, 149, 160, 175, 201 })
+            Assert.AreEqual("전설!", Word(310));
+            foreach (int n in new[] { 0, 1, 9, 11, 19, 21, 25, 49, 75, 99, 101, 149, 175, 201 })
             {
                 Assert.IsNull(Word(n), n.ToString());
             }
         }
 
         [Test]
-        public void 한마디는_고비_순서로_고르고_넷째_뒤는_전설()
+        public void 크게는_50과_그뒤_50마다만()
         {
-            //  맵마다 고비 수가 달라도 몇 번째 고비인지로 고른다(spec 2026-10-27 §5).
+            var rules = FlappyFlapComboRules.Default;
+            foreach (int n in new[] { 50, 100, 150, 200, 250 })
+            {
+                Assert.IsTrue(FlapComboLook.StepBig(rules, n), n.ToString());
+            }
+            foreach (int n in new[] { 10, 20, 30, 40, 60, 90, 110, 140, 160, 49, 51 })
+            {
+                Assert.IsFalse(FlapComboLook.StepBig(rules, n), n.ToString());
+            }
+        }
+
+        [Test]
+        public void 보상_걸음은_맵_규칙의_간격을_본다()
+        {
+            //  간격 4인 맵: 4·8·12…가 걸음이고 10은 아니다. 보상 없는 맵은 아무것도 아니다.
+            FlappyFlapComboRules.TryCreate(4, new[] { 0.1f }, 0.1f, out var four);
+            Assert.AreEqual(0, FlapComboLook.StepTier(four, 4));
+            Assert.AreEqual(1, FlapComboLook.StepTier(four, 32));
+            Assert.AreEqual(-1, FlapComboLook.StepTier(four, 10));
+            Assert.IsFalse(FlapComboLook.StepBig(four, 50), "50은 이 맵의 걸음이 아니다");
+            Assert.IsTrue(FlapComboLook.StepBig(four, 100));
+            Assert.AreEqual(-1, FlapComboLook.StepTier(FlappyFlapComboRules.Off, 10));
+            Assert.IsFalse(FlapComboLook.StepBig(FlappyFlapComboRules.Off, 50));
+        }
+
+        [Test]
+        public void 한마디는_단계_순서로_고르고_넷째_뒤는_전설()
+        {
+            //  단계 번호(StepTier)로 고른다.
             Assert.AreEqual("좋아!", FlapComboLook.WordAt(0));
             Assert.AreEqual("멋져!", FlapComboLook.WordAt(1));
             Assert.AreEqual("미쳤다!", FlapComboLook.WordAt(2));
@@ -173,8 +205,36 @@ namespace LOP.Tests
 
         private static FlapComboFx Fx() => new FlapComboFx(new System.Random(7));
 
-        //  시험용 걸음 — 판은 맵 규칙으로 고비 번호를 정한다(FlappyFlapStreak). 여기선 기본 규칙으로 정한다.
-        private static void Beat(FlapComboFx fx, int n) => fx.Queue(n, FlappyFlapComboRules.Default.MilestoneIndex(n), false);
+        //  시험용 걸음 — 판은 맵 규칙으로 단계를 정한다(FlappyFlapStreak). 여기선 기본 규칙으로 정한다.
+        private static void Beat(FlapComboFx fx, int n)
+            => fx.Queue(n, FlapComboLook.StepTier(FlappyFlapComboRules.Default, n), false, FlapComboLook.StepBig(FlappyFlapComboRules.Default, n));
+
+        [Test]
+        public void 큰_걸음은_한마디와_고리를_크게_작은_걸음은_10처럼()
+        {
+            var small = Fx();
+            Beat(small, 20);
+            small.Resolve(Bird, RPx, U);
+            Assert.AreEqual("좋아!", small.WordText, "20도 10처럼 한마디");
+            Assert.AreEqual(1, small.Rings.Count);
+            Assert.IsFalse(small.WordBig);
+            Assert.IsFalse(small.Rings[0].Big);
+
+            var big = Fx();
+            Beat(big, 50);
+            big.Resolve(Bird, RPx, U);
+            Assert.AreEqual("미쳤다!", big.WordText);
+            Assert.IsTrue(big.WordBig);
+            Assert.IsTrue(big.Rings[0].Big);
+            Assert.Greater(FlapComboLook.RingRadius(1f, RPx, U, big: true), FlapComboLook.RingRadius(1f, RPx, U));
+            Assert.AreEqual(RPx + 4f * U, FlapComboLook.RingRadius(0f, RPx, U, big: true), 1e-4f, "시작 자리는 같다");
+
+            var notStep = Fx();
+            notStep.Queue(55, -1, false, big: true);   //  걸음이 아니면 크게도 없다
+            notStep.Resolve(Bird, RPx, U);
+            Assert.AreEqual(0, notStep.Rings.Count);
+            Assert.IsFalse(notStep.WordBig);
+        }
 
         [Test]
         public void 숫자는_그리는_장의_새_자리에_뜬다()
@@ -253,7 +313,7 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 고비가_아니면_한마디도_고리도_없다()
+        public void 보상_걸음이_아니면_한마디도_고리도_없다()
         {
             var fx = Fx();
             Beat(fx, 11);
@@ -264,10 +324,10 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 고비는_수가_아니라_맵_고비_번호로_뜬다()
+        public void 한마디는_수가_아니라_넘겨받은_단계로_뜬다()
         {
             var atThree = Fx();
-            atThree.Queue(3, 0, true);   //  고비가 3인 맵의 첫 고비
+            atThree.Queue(3, 0, true);   //  간격 3인 맵의 첫 걸음
             atThree.Resolve(Bird, RPx, U);
             Assert.IsTrue(atThree.WordVisible);
             Assert.AreEqual("좋아!", atThree.WordText);
@@ -275,17 +335,17 @@ namespace LOP.Tests
             Assert.AreEqual(1, atThree.Rings.Count);
 
             var tenNotMilestone = Fx();
-            tenNotMilestone.Queue(10, -1, false);   //  그 맵에선 10이 고비가 아니다
+            tenNotMilestone.Queue(10, -1, false);   //  그 맵에선 10이 보상 걸음이 아니다
             tenNotMilestone.Resolve(Bird, RPx, U);
             Assert.IsFalse(tenNotMilestone.WordVisible);
             Assert.AreEqual(0, tenNotMilestone.Rings.Count);
         }
 
         [Test]
-        public void 게이지를_안_준_고비엔_대시플러스가_없다()
+        public void 게이지를_안_준_걸음엔_대시플러스가_없다()
         {
             var fx = Fx();
-            fx.Queue(25, 1, false);   //  버튼 없는 맵이거나 게이지가 가득이었다
+            fx.Queue(30, 1, false);   //  버튼 없는 맵이거나 게이지가 가득이었다
             fx.Resolve(Bird, RPx, U);
 
             Assert.AreEqual("멋져!", fx.WordText);

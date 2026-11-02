@@ -8,7 +8,7 @@ namespace LOP.Tests
 {
     /// <summary>
     /// 연속 날갯짓 연출의 주인(spec §7, 사용자 결정 10-26): 먹힌 날갯짓마다 연출 흐름(<see cref="FlapComboFx"/>)에 수를 넣고,
-    /// 고비(10·30·50·100, 그 뒤 50마다)엔 조용한 화음을 한 번 낸다. 날갯짓 소리는 원래 소리 그대로 — 콤보마다 음이 오르지 않는다.
+    /// 게이지를 주는 걸음(10마다)엔 조용한 화음을 한 번 낸다. 날갯짓 소리는 원래 소리 그대로 — 콤보마다 음이 오르지 않는다.
     /// 내 새가 기절에 들어가면 꼬리를 끈다. 판 시작 직후 내 id가 비어 있어도 예외가 없어야 한다(final-review F1).
     /// </summary>
     public class FlappyFlapComboFxTests
@@ -73,43 +73,53 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 화면_고비에만_조용한_화음을_한_번()
+        public void 게이지를_주는_걸음마다_조용한_화음을_한_번()
         {
-            //  11-02 — 게이지는 10마다 오르지만 화음은 10·30·50·100에만(20·40은 "+N"과 게이지만).
+            //  11-02 개정 — 10마다 모든 걸음이 10처럼 화음(같은 조용한 소리). 사이 수는 조용히.
             Flaps(9);
             Assert.AreEqual(0, audio.Played.Count(s => s == FlappySfx.Milestone));
             Flaps(1);
             Assert.AreEqual(1, audio.Played.Count(s => s == FlappySfx.Milestone), "10");
-            Flaps(10);
-            Assert.AreEqual(1, audio.Played.Count(s => s == FlappySfx.Milestone), "20은 게이지만");
-            Flaps(10);
-            Assert.AreEqual(2, audio.Played.Count(s => s == FlappySfx.Milestone), "30");
-            Flaps(70);
-            Assert.AreEqual(4, audio.Played.Count(s => s == FlappySfx.Milestone), "50·100");
-        }
-
-        [Test]
-        public void 백_뒤_50마다_화음과_전설_한마디를_다시()
-        {
-            //  11-02 — 100 뒤 150·200…은 100과 같은 연출이다(절제는 그대로 — 화음 한 번). 사이 110·120…은 조용히.
-            Flaps(149);
-            Assert.AreEqual(4, audio.Played.Count(s => s == FlappySfx.Milestone), "10·30·50·100");
+            Flaps(9);
+            Assert.AreEqual(1, audio.Played.Count(s => s == FlappySfx.Milestone), "11~19 조용");
             Flaps(1);
-            Assert.AreEqual(5, audio.Played.Count(s => s == FlappySfx.Milestone), "150");
-            fx.Fx.Resolve(new Vector2(500f, 400f), 18f, 2f);
-            Assert.AreEqual("전설!", fx.Fx.WordText);
-            Assert.IsTrue(fx.Fx.WordDashCue, "150도 게이지를 줬다");
-            Flaps(50);
-            Assert.AreEqual(6, audio.Played.Count(s => s == FlappySfx.Milestone), "200");
+            Assert.AreEqual(2, audio.Played.Count(s => s == FlappySfx.Milestone), "20");
+            Flaps(130);
+            Assert.AreEqual(15, audio.Played.Count(s => s == FlappySfx.Milestone), "10~150의 15걸음");
         }
 
         [Test]
-        public void 연출은_고비_화음만_내고_날갯짓_소리는_건드리지_않는다()
+        public void 걸음마다_단계_한마디와_대시플러스_오십마다_크게()
         {
-            //  10-26 사용자: 올라가는 음 없음 — 날갯짓 소리는 FlappyFlapSound가 누를 때마다 같은 소리로 낸다. 연출은 고비 화음만.
+            Flaps(20);
+            fx.Fx.Resolve(new Vector2(500f, 400f), 18f, 2f);
+            Assert.AreEqual("좋아!", fx.Fx.WordText);
+            Assert.IsTrue(fx.Fx.WordDashCue, "20도 게이지를 줬다");
+            Assert.IsFalse(fx.Fx.WordBig);
+
+            Flaps(20);
+            fx.Fx.Resolve(new Vector2(500f, 400f), 18f, 2f);
+            Assert.AreEqual("멋져!", fx.Fx.WordText, "40");
+
+            Flaps(10);
+            fx.Fx.Resolve(new Vector2(500f, 400f), 18f, 2f);
+            Assert.AreEqual("미쳤다!", fx.Fx.WordText, "50");
+            Assert.IsTrue(fx.Fx.WordBig);
+
+            Flaps(60);
+            fx.Fx.Resolve(new Vector2(500f, 400f), 18f, 2f);
+            Assert.AreEqual("전설!", fx.Fx.WordText, "110");
+            Assert.IsFalse(fx.Fx.WordBig, "110은 작게");
+            Assert.IsTrue(fx.Fx.WordDashCue);
+        }
+
+        [Test]
+        public void 연출은_걸음_화음만_내고_날갯짓_소리는_건드리지_않는다()
+        {
+            //  10-26 사용자: 올라가는 음 없음 — 날갯짓 소리는 FlappyFlapSound가 누를 때마다 같은 소리로 낸다. 연출은 걸음 화음만.
             Flaps(30);
 
-            Assert.AreEqual(2, audio.Played.Count, "10·30 — 20의 게이지 칸엔 소리가 없다");
+            Assert.AreEqual(3, audio.Played.Count, "10·20·30");
             Assert.IsTrue(audio.Played.All(s => s == FlappySfx.Milestone));
         }
 
@@ -160,12 +170,12 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 게이지를_준_고비는_연출에_대시플러스로_넘긴다()
+        public void 게이지를_준_걸음은_연출에_대시플러스로_넘긴다()
         {
             Flaps(30);
             fx.Fx.Resolve(new Vector2(500f, 400f), 18f, 2f);
 
-            Assert.AreEqual("멋져!", fx.Fx.WordText, "11-02: 25 대신 30");
+            Assert.AreEqual("멋져!", fx.Fx.WordText, "30");
             Assert.IsTrue(fx.Fx.WordDashCue);
         }
 
@@ -183,17 +193,19 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 대시플러스는_맵_간격이_실제로_준_고비에만()
+        public void 걸음은_맵_간격을_따른다()
         {
-            //  M5 — 간격 4인 맵에선 10이 게이지를 안 준다. 한마디는 뜨지만 "대시+"는 없다(기본 규칙이면 붙는다).
+            //  M5 — 간격 4인 맵: 걸음은 맵 간격(4·8·12)을 따른다. 10은 걸음이 아니라 화음이 없다(기본 규칙이면 난다).
             FlappyFlapComboRules.TryCreate(4, new[] { 0.1f }, 0.1f, out var custom);
             rules.Set(chaser: false, manualDash: true, flapCombo: custom);
 
-            Flaps(10);
+            Flaps(8);
+            Assert.AreEqual(2, audio.Played.Count(s => s == FlappySfx.Milestone), "4·8");
             fx.Fx.Resolve(new Vector2(500f, 400f), 18f, 2f);
-
             Assert.AreEqual("좋아!", fx.Fx.WordText);
-            Assert.IsFalse(fx.Fx.WordDashCue);
+            Assert.IsTrue(fx.Fx.WordDashCue);
+            Flaps(2);
+            Assert.AreEqual(2, audio.Played.Count(s => s == FlappySfx.Milestone), "10은 이 맵의 걸음이 아니다");
         }
     }
 }

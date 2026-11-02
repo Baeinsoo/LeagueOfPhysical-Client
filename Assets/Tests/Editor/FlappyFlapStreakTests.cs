@@ -6,7 +6,7 @@ namespace LOP.Tests
 {
     /// <summary>
     /// 연속 날갯짓 진입점(spec 2026-10-27 §5): 매 장 내 새의 <b>시뮬 수</b>(<see cref="FlappyFlapCombo"/>)를 읽어 걸음(<see cref="FlapComboBeat"/>)을 알린다 —
-    /// 보이는 수가 곧 고비 보상을 받는 수다. 고비는 맵 규칙으로, "대시+"는 그 고비가 게이지를 줬을 때만. 0으로 떨어지면 끊김, 결승·기절이면 달리는 중이 아니다.
+    /// 보이는 수가 곧 고비 보상을 받는 수다. 게이지를 주는 걸음(맵 규칙 간격)마다 단계를, "대시+"는 게이지를 실제로 줬을 때만. 0으로 떨어지면 끊김, 결승·기절이면 달리는 중이 아니다.
     /// 이번 판 최고가 오를 때마다 기록지에 적는다.
     /// </summary>
     public class FlappyFlapStreakTests
@@ -130,46 +130,68 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 화면_고비에_번호와_대시_보상을_싣는다()
+        public void 게이지를_주는_걸음마다_단계와_대시_보상을_싣는다()
         {
-            //  11-02 — 게이지는 10마다, 한마디 번호는 10·30·50·100에만.
-            Climb(30);
-            Assert.AreEqual(-1, BeatAt(9).Milestone);
-            Assert.AreEqual(0, BeatAt(10).Milestone);
+            //  11-02 개정 — 10마다 모든 걸음이 10처럼(한마디·대시+). 단계는 10~20·30~40·50~90·100부터.
+            Climb(60);
+            Assert.AreEqual(-1, BeatAt(9).Tier);
+            Assert.AreEqual(0, BeatAt(10).Tier);
             Assert.IsTrue(BeatAt(10).DashGain, "10은 0.06칸");
-            Assert.AreEqual(-1, BeatAt(20).Milestone, "20은 게이지만 — 한마디 없음");
-            Assert.IsFalse(BeatAt(20).DashGain, "대시+는 한마디에만 붙는다");
-            Assert.AreEqual(-1, BeatAt(25).Milestone, "옛 고비 25는 이제 아니다");
-            Assert.AreEqual(1, BeatAt(30).Milestone);
-            Assert.IsTrue(BeatAt(30).DashGain);
+            Assert.AreEqual(0, BeatAt(20).Tier, "20도 한마디");
+            Assert.IsTrue(BeatAt(20).DashGain, "20도 게이지를 줬다");
+            Assert.AreEqual(-1, BeatAt(25).Tier);
+            Assert.IsFalse(BeatAt(25).DashGain);
+            Assert.AreEqual(1, BeatAt(30).Tier);
+            Assert.AreEqual(1, BeatAt(40).Tier);
+            Assert.AreEqual(2, BeatAt(50).Tier);
+            Assert.AreEqual(2, BeatAt(60).Tier);
+            Assert.IsTrue(BeatAt(60).DashGain);
+            Assert.IsFalse(BeatAt(40).Big);
+            Assert.IsTrue(BeatAt(50).Big, "50은 크게");
+            Assert.IsFalse(BeatAt(60).Big);
+            Assert.AreEqual(1, beats.FindAll(b => b.Count == 20).Count, "걸음 하나에 한 번");
         }
 
         [Test]
-        public void 보상_없는_맵의_수는_고비_번호가_없다()
+        public void 보상_없는_맵의_수는_단계가_없다()
         {
-            //  M5 — 맵 규칙을 본다. 기본 규칙을 보면 10이 0번 고비다.
+            //  M5 — 맵 규칙을 본다. 기본 규칙을 보면 10이 0단계다.
             rules.Set(chaser: false, manualDash: true, diveCharge: true, flapCombo: FlappyFlapComboRules.Off);
             Climb(10);
-            Assert.AreEqual(-1, BeatAt(10).Milestone);
+            Assert.AreEqual(-1, BeatAt(10).Tier);
             Assert.IsFalse(BeatAt(10).DashGain);
         }
 
         [Test]
-        public void 백_뒤_50마다는_마지막_고비처럼_번호와_대시_보상을_싣는다()
+        public void 백부터는_전설이고_50마다만_크게()
         {
-            //  11-02 — 150·200…은 100과 같은 연출(전설!·고리·화음)과 "대시+". 110·160은 게이지만.
             Climb(201);
-            Assert.AreEqual(3, BeatAt(150).Milestone, "150은 마지막 고비(100)와 같은 번호");
-            Assert.IsTrue(BeatAt(150).DashGain);
-            Assert.AreEqual(3, BeatAt(200).Milestone);
-            Assert.AreEqual(-1, BeatAt(110).Milestone);
-            Assert.AreEqual(-1, BeatAt(149).Milestone);
-            Assert.AreEqual(-1, BeatAt(160).Milestone);
-            Assert.AreEqual(-1, BeatAt(201).Milestone);
+            Assert.AreEqual(3, BeatAt(100).Tier);
+            Assert.IsTrue(BeatAt(100).Big);
+            Assert.AreEqual(3, BeatAt(110).Tier, "110도 게이지 걸음");
+            Assert.IsTrue(BeatAt(110).DashGain);
+            Assert.IsFalse(BeatAt(110).Big);
+            Assert.IsTrue(BeatAt(150).Big);
+            Assert.IsTrue(BeatAt(200).Big);
+            Assert.AreEqual(3, BeatAt(160).Tier);
+            Assert.AreEqual(-1, BeatAt(149).Tier);
+            Assert.AreEqual(-1, BeatAt(201).Tier);
         }
 
         [Test]
-        public void 보상이_0인_고비는_한마디만_뜨고_대시_보상은_아니다()
+        public void 되감기_교정으로_다시_오른_걸음은_한_번만_알린다()
+        {
+            //  교정이 크게 뛰면 조용히 따르고(FlapStreak), 그 뒤 새로 오른 걸음만 하나씩 — 20이 두 번 뜨지 않는다.
+            Climb(19);
+            combo.Count = 25;   //  서버 교정(크게 뜀) — 20을 건너뛰었다
+            streak.Tick();
+            Climb(30);
+            Assert.AreEqual(0, beats.FindAll(b => b.Count == 20).Count, "교정 안에서 지나간 걸음은 띄우지 않는다");
+            Assert.AreEqual(1, beats.FindAll(b => b.Count == 30).Count);
+        }
+
+        [Test]
+        public void 보상이_0인_걸음은_한마디만_뜨고_대시_보상은_아니다()
         {
             //  마커가 간격은 두되 칸을 0으로 줄 수 있다(TryCreate은 0을 허용) — 이땐 한마디(화면)는 떠도
             //  시뮬이 게이지를 준 게 아니니 "대시+"가 붙으면 거짓말이다. 버튼 있음·게이지 안 가득인 채로 본다.
@@ -181,7 +203,7 @@ namespace LOP.Tests
 
             Climb(10);
 
-            Assert.AreEqual(0, BeatAt(10).Milestone, "고비 번호는 뜬다");
+            Assert.AreEqual(0, BeatAt(10).Tier, "한마디는 뜬다");
             Assert.IsFalse(BeatAt(10).DashGain, "이 고비의 보상은 0이라 대시+는 아니다");
         }
 
@@ -190,7 +212,7 @@ namespace LOP.Tests
         {
             rules.Set(chaser: false, manualDash: false);
             Climb(30);
-            Assert.AreEqual(1, BeatAt(30).Milestone, "한마디는 뜬다");
+            Assert.AreEqual(1, BeatAt(30).Tier, "한마디는 뜬다");
             Assert.IsFalse(BeatAt(30).DashGain, "버튼이 없다 — 시뮬도 안 줬다");
 
             rules.Set(chaser: false, manualDash: true, diveCharge: true);

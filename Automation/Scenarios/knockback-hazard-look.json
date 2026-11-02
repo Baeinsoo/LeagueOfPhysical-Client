@@ -1,0 +1,38 @@
+{
+  "name": "knockback-hazard-look",
+  "description": "넉백 개인전 한 판을 시간대별로 찍는다 — 원 축소 중 위험 지대 바닥·문구, 맞아서 오른 위험도 색, 마지막 서든데스(바깥부터 무너짐). 탈락하면 관전 화면으로 이어 찍는다",
+  "repeat": 1,
+  "setup": [
+    { "op": "play_exit" },
+    { "op": "set_environment", "env": "local-k8s" },
+    { "op": "play_enter" },
+    { "op": "boot_to_lobby", "timeout_s": 120 }
+  ],
+  "loop": [
+    { "op": "select_game", "game_mode_id": 11, "queue": "casual" },
+    { "op": "ui_click", "name": "play-button", "timeout_s": 20 },
+    { "op": "wait_state", "state": "InMatch", "timeout_s": 180 },
+    { "op": "wait", "seconds": 10 },
+    { "op": "screenshot", "as": "go" },
+    { "op": "wait", "seconds": 20 },
+    { "op": "screenshot", "as": "first-shrink" },
+    { "op": "wait", "seconds": 12 },
+    { "op": "screenshot", "as": "first-shrink-late" },
+    { "op": "wait", "seconds": 30 },
+    { "op": "screenshot", "as": "mid" },
+    { "op": "wait", "seconds": 35 },
+    { "op": "screenshot", "as": "last-stage" },
+    { "op": "wait", "seconds": 8 },
+    { "op": "screenshot", "as": "sudden-death" },
+    { "op": "wait", "seconds": 6 },
+    { "op": "screenshot", "as": "sudden-death-late" },
+    { "op": "wait_state", "state": "PostMatch", "scene": "Result", "timeout_s": 120 },
+    { "op": "ui_wait", "name": "confirm-button", "clickable": true, "timeout_s": 30 },
+    { "op": "screenshot", "as": "result" },
+    { "op": "ui_click", "name": "confirm-button", "timeout_s": 10 },
+    { "op": "wait_state", "state": "FrontEnd", "scene": "Lobby", "timeout_s": 60 }
+  ],
+  "teardown": [
+    { "op": "play_exit" }
+  ]
+}

@@ -169,7 +169,8 @@ namespace LOP
             float k = _fx.WordAge / FlapComboLook.WordLife;
             _word.text = FlapComboLook.WordWithCue(_fx.WordText, _fx.WordDashCue);
             Vector2 corner = FlapComboLook.WordCorner(birdPx, _rPx, _unit) - new Vector2(0f, FlapComboLook.WordRise * _unit * k);
-            Place(_word, corner, FlapComboLook.WordFont * _unit, FlapComboLook.WordPop(k), FlapComboLook.WordAlpha(k), _fx.WordColor,
+            float font = FlapComboLook.WordFont * _unit * (_fx.WordBig ? FlapComboLook.BigWordScale : 1f);
+            Place(_word, corner, font, FlapComboLook.WordPop(k), FlapComboLook.WordAlpha(k), _fx.WordColor,
                   FlapComboLook.WordOutlineRatio, shadow: false);
         }
 
@@ -255,7 +256,7 @@ namespace LOP
                 painter.strokeColor = c;
                 painter.lineWidth = FlapComboLook.RingWidth(k, _unit);
                 painter.BeginPath();
-                painter.Arc(ring.Center, FlapComboLook.RingRadius(k, _rPx, _unit), Angle.Degrees(0f), Angle.Degrees(360f));
+                painter.Arc(ring.Center, FlapComboLook.RingRadius(k, _rPx, _unit, ring.Big), Angle.Degrees(0f), Angle.Degrees(360f));
                 painter.Stroke();
             }
         }

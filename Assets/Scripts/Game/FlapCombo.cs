@@ -62,9 +62,31 @@ namespace LOP
 
         private static readonly string[] Words = { "좋아!", "멋져!", "미쳤다!", "전설!" };
 
-        /// <summary>몇 번째 화면 고비(0부터, <see cref="FlappyFlapComboRules.MilestoneIndex"/> — 10·30·50·100, 그 뒤 50마다는 3)의 한마디.
-        /// 넷째 뒤로는 "전설!". 고비가 아니면(−1) null. 판은 맵 규칙의 번호로만 부른다(기본 규칙 지름길은 두지 않는다).</summary>
-        public static string WordAt(int milestone) => milestone < 0 ? null : Words[Mathf.Min(milestone, Words.Length - 1)];
+        /// <summary>단계 번호(0부터)의 한마디 — 넷째 뒤로는 "전설!". 보상 걸음이 아니면(−1) null.</summary>
+        public static string WordAt(int tier) => tier < 0 ? null : Words[Mathf.Min(tier, Words.Length - 1)];
+
+        /// <summary>
+        /// 게이지를 주는 걸음(맵 규칙 간격의 배수, 11-02 개정)이면 그 단계 번호, 아니면 −1. 모든 보상 걸음이 10처럼 한마디·고리·화음을 받는다(사용자 결정 11-02).
+        /// 단계는 수로 오른다 — 10~20 "좋아!", 30~40 "멋져!", 50~90 "미쳤다!", 100부터 "전설!"(색 단계 <see cref="TierColor"/>와 같은 문턱).
+        /// 판은 맵 규칙(<see cref="FlappyMapRulesField.FlapCombo"/>)으로 부른다 — 보상 없는 맵은 늘 −1.
+        /// </summary>
+        public static int StepTier(FlappyFlapComboRules rules, int n)
+        {
+            if (rules == null || rules.Rewards == false || n <= 0 || n % rules.Step != 0)
+            {
+                return -1;
+            }
+            return n >= 100 ? 3 : n >= 50 ? 2 : n >= 30 ? 1 : 0;
+        }
+
+        /// <summary>보상 걸음 가운데 50과 그 뒤 50마다(맵 규칙의 화면 고비 2번 이상)만 고리·한마디를 크게 — 나머지는 10처럼 작게(절제).</summary>
+        public static bool StepBig(FlappyFlapComboRules rules, int n) => StepTier(rules, n) >= 0 && rules.MilestoneIndex(n) >= 2;
+
+        /// <summary>큰 걸음의 한마디 크기 배율.</summary>
+        public const float BigWordScale = 1.25f;
+
+        /// <summary>큰 걸음의 고리가 퍼지는 거리 배율(작은 고리 36u).</summary>
+        public const float BigRingScale = 1.5f;
 
         /// <summary>고비가 대시 게이지를 줬을 때 한마디 뒤에 붙는 작은 글자.</summary>
         public const string DashCue = "대시+";
@@ -113,7 +135,7 @@ namespace LOP
             => NumberCorner(birdPx, rPx, u) - new Vector2(0f, WordAbove * u);
 
         /// <summary>시제품 고리는 몸 안(0.83r)에서 시작했다 — 화면 위 그림은 새를 덮으니 몸 밖 4u에서 시작해 36u 퍼진다.</summary>
-        public static float RingRadius(float k, float rPx, float u) => rPx + 4f * u + 36f * u * k;
+        public static float RingRadius(float k, float rPx, float u, bool big = false) => rPx + 4f * u + 36f * u * k * (big ? BigRingScale : 1f);
 
         public static float RingWidth(float k, float u) => (4f * (1f - k) + 1f) * u;
 
@@ -165,6 +187,8 @@ namespace LOP
             public Vector2 Center;
             public float Age;
             public Color Color;
+            /// <summary>50과 그 뒤 50마다 — 더 멀리 퍼진다.</summary>
+            public bool Big;
         }
 
         public struct TrailPoint
@@ -173,12 +197,13 @@ namespace LOP
             public float Age;
         }
 
-        //  밀린 날갯짓 하나 — 수, 맵 규칙의 몇 번째 고비인지(−1 = 아님), 그 고비가 게이지를 줬는지.
+        //  밀린 날갯짓 하나 — 수, 보상 걸음의 단계(−1 = 아님), 게이지를 줬는지, 큰 걸음인지.
         private struct Beat
         {
             public int Count;
-            public int Milestone;
+            public int Tier;
             public bool DashGain;
+            public bool Big;
         }
 
         private readonly System.Random _rng;
@@ -203,13 +228,16 @@ namespace LOP
         public float WordAge => _wordAge;
         public bool WordVisible => _wordAge < FlapComboLook.WordLife;
 
-        /// <summary>지금 한마디의 고비가 대시 게이지를 줬나 — 그리는 쪽이 "대시+"를 붙인다.</summary>
+        /// <summary>지금 한마디의 걸음이 대시 게이지를 줬나 — 그리는 쪽이 "대시+"를 붙인다.</summary>
         public bool WordDashCue { get; private set; }
 
-        /// <summary>시뮬이 받은 날갯짓 하나 — 그 수, 맵 규칙의 몇 번째 고비인지(−1 = 아님), 그 고비가 게이지를 줬는지.</summary>
-        public void Queue(int count, int milestone, bool dashGain)
+        /// <summary>지금 한마디가 큰 걸음(50과 그 뒤 50마다)인가 — 그리는 쪽이 <see cref="FlapComboLook.BigWordScale"/>배로 그린다.</summary>
+        public bool WordBig { get; private set; }
+
+        /// <summary>시뮬이 받은 날갯짓 하나 — 그 수, 보상 걸음의 단계(<see cref="FlapComboLook.StepTier"/>, −1 = 아님), 게이지를 줬는지, 큰 걸음인지.</summary>
+        public void Queue(int count, int tier, bool dashGain, bool big = false)
         {
-            _pending.Add(new Beat { Count = count, Milestone = milestone, DashGain = dashGain });
+            _pending.Add(new Beat { Count = count, Tier = tier, DashGain = dashGain, Big = big && tier >= 0 });
             Count = count;
         }
 
@@ -258,13 +286,14 @@ namespace LOP
                 });
             }
 
-            if (beat.Milestone >= 0)
+            if (beat.Tier >= 0)
             {
-                WordText = FlapComboLook.WordAt(beat.Milestone);
+                WordText = FlapComboLook.WordAt(beat.Tier);
                 WordDashCue = beat.DashGain;
+                WordBig = beat.Big;
                 WordColor = FlapComboLook.TierColor(n);
                 _wordAge = 0f;
-                Rings.Add(new Ring { Center = birdPx, Color = FlapComboLook.TierColor(n) });
+                Rings.Add(new Ring { Center = birdPx, Color = FlapComboLook.TierColor(n), Big = beat.Big });
             }
         }
 

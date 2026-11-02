@@ -19,5 +19,12 @@ namespace LOP.Tests
             Assert.AreEqual(KnockbackFloorView.TileLook.Hazard, KnockbackFloorView.Decide(true, true, false, true));
             Assert.AreEqual(KnockbackFloorView.TileLook.Hazard, KnockbackFloorView.Decide(true, true, true, false));
         }
+
+        [Test]
+        public void 곧_무너질_위험_지대_칸은_깜박일_때_밝은_경고색()
+        {
+            Assert.AreEqual(KnockbackFloorView.TileLook.CollapseOn, KnockbackFloorView.Decide(true, true, true, true));
+            Assert.AreEqual(KnockbackFloorView.TileLook.Hidden, KnockbackFloorView.Decide(false, true, true, true));
+        }
     }
 }

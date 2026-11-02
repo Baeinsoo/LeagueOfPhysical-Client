@@ -43,13 +43,33 @@ namespace LOP.Tests
             Assert.AreEqual("원이 줄어듭니다 — 바깥 칸이 무너져요", Text(800, stages: OneStage));
         }
 
+        //  마지막 단계가 반지름 0까지 줄어드는 경우(축소 700~960).
+        static readonly ZoneStage[] ToZeroStage =
+        {
+            new ZoneStage(1, 400, 700, 960, Vector2.zero, 17f, Vector2.zero, 0f, 0f),
+        };
+
         [Test]
         public void 위험_지대_방식_문구()
         {
             Assert.AreEqual("원이 줄어듭니다 — 바깥은 위험 지대", Text(800, stages: OneStage, hazard: true));
-            Assert.AreEqual("마지막 — 전부 위험 지대", Text(800, last: 1, stages: OneStage, hazard: true));
-            Assert.AreEqual("마지막 — 전부 위험 지대", Text(2000, last: 1, stages: OneStage, hazard: true));
             Assert.AreEqual("원이 줄어들기까지 6초", Text(400, stages: OneStage, hazard: true));
+        }
+
+        [Test]
+        public void 위험_지대_마지막_단계는_세_구간으로_나뉜다()
+        {
+            //  마지막 축소 전: 줄어들기까지 / 반지름 0으로 줄어드는 중: 전부 위험 지대 / 끝난 뒤(서든데스): 바닥이 무너진다.
+            Assert.AreEqual("원이 줄어들기까지 6초", Text(400, last: 1, stages: ToZeroStage, hazard: true));
+            Assert.AreEqual("마지막 — 전부 위험 지대", Text(800, last: 1, stages: ToZeroStage, hazard: true));
+            Assert.AreEqual("바닥이 무너집니다 — 가운데로!", Text(960, last: 1, stages: ToZeroStage, hazard: true));
+            Assert.AreEqual("바닥이 무너집니다 — 가운데로!", Text(2000, last: 1, stages: ToZeroStage, hazard: true));
+        }
+
+        [Test]
+        public void 위험_지대_마지막_반지름이_0이_아니면_전부라고_하지_않는다()
+        {
+            Assert.AreEqual("원이 줄어듭니다 — 바깥은 위험 지대", Text(800, last: 1, stages: OneStage, hazard: true));
         }
 
         [Test]

@@ -20,15 +20,18 @@ namespace LOP
 
         // 위험 지대 칸 색. 나중에 맵이 정할 값이라 한 곳에 모은다.
         private static readonly Color32 HazardLightColor = new Color32(0xFF, 0x5A, 0x1F, 0xFF);
+        // 곧 무너질 위험 지대 칸의 깜박임. 주황 위에서 빨강은 안 보여서 거의 흰색으로 한다.
+        private static readonly Color32 CollapseWarningColor = new Color32(0xFF, 0xF4, 0xE0, 0xFF);
         private static readonly Color32 HazardDarkColor = new Color32(0xE6, 0x4A, 0x14, 0xFF);
 
-        public enum TileLook : byte { Hidden, Normal, WarningOn, WarningOff, Hazard }
+        public enum TileLook : byte { Hidden, Normal, WarningOn, WarningOff, Hazard, CollapseOn }
 
         private readonly GameFramework.Runner.IRunner runner;
         private readonly KnockbackWorld world;
         private Material light;
         private Material dark;
         private Material warning;
+        private Material collapseWarning;
         private Material hazardLight;
         private Material hazardDark;
         private GameObject root;
@@ -57,6 +60,7 @@ namespace LOP
             dark = new Material(shader) { color = new Color32(0xD4, 0xAE, 0x52, 0xFF) };
             warning = new Material(shader) { color = new Color32(0xE0, 0x3A, 0x30, 0xFF) };
 
+            collapseWarning = new Material(shader) { color = CollapseWarningColor };
             hazardLight = new Material(shader) { color = HazardLightColor };
             hazardDark = new Material(shader) { color = HazardDarkColor };
 
@@ -110,6 +114,7 @@ namespace LOP
                 t.look = look;
                 t.go.SetActive(look != TileLook.Hidden);
                 t.renderer.sharedMaterial = look == TileLook.WarningOn ? warning
+                    : look == TileLook.CollapseOn ? collapseWarning
                     : look == TileLook.Hazard ? t.hazardMaterial
                     : t.baseMaterial;
             }
@@ -118,7 +123,8 @@ namespace LOP
         public static TileLook Decide(bool solid, bool hazard, bool warningSoon, bool blinkOn)
         {
             if (!solid) return TileLook.Hidden;
-            if (hazard) return TileLook.Hazard;
+            // 위험 지대 칸이 곧 무너지는 경우(서든데스)만 여기서 경고가 겹친다.
+            if (hazard) return warningSoon && blinkOn ? TileLook.CollapseOn : TileLook.Hazard;
             if (!warningSoon) return TileLook.Normal;
             return blinkOn ? TileLook.WarningOn : TileLook.WarningOff;
         }
@@ -129,6 +135,7 @@ namespace LOP
             if (light != null) UnityEngine.Object.Destroy(light);
             if (dark != null) UnityEngine.Object.Destroy(dark);
             if (warning != null) UnityEngine.Object.Destroy(warning);
+            if (collapseWarning != null) UnityEngine.Object.Destroy(collapseWarning);
             if (hazardLight != null) UnityEngine.Object.Destroy(hazardLight);
             if (hazardDark != null) UnityEngine.Object.Destroy(hazardDark);
         }

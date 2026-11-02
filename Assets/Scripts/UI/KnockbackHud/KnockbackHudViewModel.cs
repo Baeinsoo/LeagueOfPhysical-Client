@@ -60,7 +60,14 @@ namespace LOP.UI
             }
             var s = latest.Value;
             if (tick < s.shrinkStartTick) return $"원이 줄어들기까지 {SecondsLeft(s.shrinkStartTick - tick, interval)}초";
-            if (s.index >= lastStageIndex && lastStageIndex > 0) return hazardEdge ? "마지막 — 전부 위험 지대" : "마지막 원";
+            if (s.index >= lastStageIndex && lastStageIndex > 0)
+            {
+                if (!hazardEdge) return "마지막 원";
+                // 마지막 축소가 끝난 뒤에는 바닥이 바깥부터 무너진다(서든데스).
+                if (tick >= s.shrinkEndTick) return "바닥이 무너집니다 — 가운데로!";
+                // 반지름이 0까지 가는 축소 중일 때만 "전부"가 사실이다.
+                if (s.toRadius <= 0f) return "마지막 — 전부 위험 지대";
+            }
             // 축소가 끝나도 다음 단계 메시지가 오기 전 한두 틱은 같은 문구 — 깜박이지 않게.
             return hazardEdge ? "원이 줄어듭니다 — 바깥은 위험 지대" : "원이 줄어듭니다 — 바깥 칸이 무너져요";
         }

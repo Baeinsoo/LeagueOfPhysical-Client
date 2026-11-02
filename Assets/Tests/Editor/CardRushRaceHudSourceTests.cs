@@ -72,8 +72,10 @@ namespace LOP.Tests
             var matchStart = new MatchStartState();
             matchStart.Update(100, 2, 2);
 
-            source = new CardRushRaceHudSource(registry, gameDataStore, matchStart, runner, world,
-                                               new RemoteInterpolationClock(gameDataStore));
+            //  내 몸 = "b"(예측 틱), 남은 스냅이 아직 없어 보간 시계가 내 틱으로 메운다.
+            var renderClock = new EntityRenderClock(new PlayerContext { entityId = "b" }, runner,
+                                                    new RemoteInterpolationClock(gameDataStore), gameDataStore);
+            source = new CardRushRaceHudSource(registry, gameDataStore, matchStart, runner, world, renderClock);
         }
 
         private static Entity Runner(string id, int step, long moveStartTick, int placement = 0)

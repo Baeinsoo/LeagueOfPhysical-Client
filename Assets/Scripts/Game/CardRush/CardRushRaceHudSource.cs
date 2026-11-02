@@ -10,9 +10,8 @@ namespace LOP
     /// Flappy의 <see cref="RaceHudSource"/>처럼 그려진 x(월드 좌표)를 그대로 쓸 수 없다. 대신
     /// <see cref="CardRushLanes.Progress"/>를 (그 몸의 상태, 그림 틱)으로 다시 계산한다.</para>
     ///
-    /// <para>그림 틱: 내 몸은 지금 예측 중인 틱(<c>tickUpdater.tick</c> — 내 상태는 이 틱까지 시뮬된 값이다),
-    /// 남의 몸은 공유 보간 시계(<see cref="RemoteInterpolationClock"/>)가 가리키는 틱 — 내 틱을 그대로 쓰면
-    /// 남이 아직 안 보낸 미래 구간까지 다 간 것처럼 보인다(스냅이 아직 없으면 내 틱으로 메운다).</para>
+    /// <para>그림 틱은 몸마다 <see cref="EntityRenderClock.TickFor"/>에 묻는다 — 내 몸은 예측 중인 틱, 남의 몸은
+    /// 공유 보간 시계의 틱(몸이 그려지는 시점). 내 틱을 그대로 쓰면 남이 아직 안 보낸 미래 구간까지 다 간 것처럼 보인다.</para>
     /// </summary>
     public class CardRushRaceHudSource : IRaceHudSource
     {
@@ -21,21 +20,21 @@ namespace LOP
         private readonly MatchStartState _matchStart;
         private readonly GameFramework.Runner.IRunner _runner;
         private readonly CardRushWorld _world;
-        private readonly RemoteInterpolationClock _remoteClock;
+        private readonly EntityRenderClock _renderClock;
 
         public CardRushRaceHudSource(GameFramework.World.EntityRegistry entityRegistry,
                                      IGameDataStore gameDataStore,
                                      MatchStartState matchStart,
                                      GameFramework.Runner.IRunner runner,
                                      CardRushWorld world,
-                                     RemoteInterpolationClock remoteClock)
+                                     EntityRenderClock renderClock)
         {
             _entityRegistry = entityRegistry;
             _gameDataStore = gameDataStore;
             _matchStart = matchStart;
             _runner = runner;
             _world = world;
-            _remoteClock = remoteClock;
+            _renderClock = renderClock;
         }
 
         public void Fill(RaceHudFrame frame)
@@ -51,11 +50,6 @@ namespace LOP
             int stepCount = course?.StepCount ?? 0;
             int moveTicks = _world.Timing.MoveTicks;
 
-            long myTick = ticker?.tick ?? 0L;
-            long otherTick = _remoteClock.HasSnapshot
-                ? (long)(_remoteClock.RenderTime / CardRushTiming.TickInterval)
-                : myTick;
-
             foreach (var entity in _entityRegistry.All)
             {
                 if (entity.Get<EntityKind>()?.Kind != EntityType.Character)
@@ -69,7 +63,7 @@ namespace LOP
                 }
 
                 bool mine = entity.Id == frame.MyId;
-                long tick = mine ? myTick : otherTick;
+                long tick = _renderClock.TickFor(entity.Id);
                 float x = CardRushLanes.Progress(runner.State, tick, moveTicks);
                 int placement = entity.Get<FinishPlacement>()?.Value ?? 0;
                 frame.Birds.Add(new RaceBirdSample(entity.Id, placement, x));

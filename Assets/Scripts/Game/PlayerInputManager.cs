@@ -24,6 +24,8 @@ namespace LOP
         private long heldViewTick;  // 지금 화면이 보는 틱 — 서버 래그 보상 근거
         private bool pendingRelease;  // 이산 — 소비 후 리셋
         private bool pendingFire;     // 이산 — 소비 후 리셋
+        private bool pendingGrab;     // 이산 — 소비 후 리셋(카드 잡기)
+        private long lastTaggedTick = long.MinValue;   // 마지막으로 명령을 단 틱
         private IRunner runner;
         private IPlayerContext playerContext;
         private AbilityActivator abilityActivator;
@@ -53,6 +55,21 @@ namespace LOP
         public void SetSequenceNumber(long sequenceNumber)
         {
             this.sequenceNumber = sequenceNumber;
+        }
+
+        /// <summary>
+        /// 다음 입력 명령이 달고 갈 틱. 화면이 "지금 누르면 판정될 틱"의 상태를 그릴 때 쓴다(카드 러시의 카드 색) —
+        /// 보간 틱으로 그리면 경계에서 본 색과 판정 색이 한 틱 어긋난다.
+        /// 러너는 틱을 돌린 뒤 tick을 하나 올리므로 틱 사이엔 러너의 tick이 곧 다음 틱이다. 이번 틱 명령을 이미 단 뒤
+        /// (러너가 아직 안 올린 틱 안)에 물으면 그 다음 틱을 준다.
+        /// </summary>
+        public long NextInputTick
+        {
+            get
+            {
+                long runnerTick = runner.tickUpdater?.tick ?? 0;
+                return runnerTick == lastTaggedTick ? runnerTick + 1 : runnerTick;
+            }
         }
 
         public void Tick(long tick, float deltaTime)
@@ -89,6 +106,7 @@ namespace LOP
                 ViewTick = heldViewTick,
                 Release = pendingRelease,
                 Fire = pendingFire,
+                Grab = pendingGrab,
             };
 
             // 대시 등 조작 불가 상태에선 이동 입력을 무시한다(전송·예측 모두 0 → 보정 간섭 방지).
@@ -107,6 +125,7 @@ namespace LOP
             SendToServer(buffer, tick);
 
             inputHistory.Record(tick, command);
+            lastTaggedTick = tick;
 
             // 이산 액션만 소비 — held 이동은 다음 틱까지 유지(연속).
             pendingJump = false;
@@ -114,6 +133,7 @@ namespace LOP
             pendingAbilityId = 0;
             pendingRelease = false;
             pendingFire = false;
+            pendingGrab = false;
         }
 
         // 와이어(proto) 변환은 여기(송신 어댑터)부터 — 도메인은 InputCommand만 다룬다.
@@ -159,6 +179,7 @@ namespace LOP
                 Drawing = command.Drawing,
                 Release = command.Release,
                 Fire = command.Fire,
+                Grab = command.Grab,
                 DrawRatio = command.DrawRatio,
                 ViewTick = command.ViewTick,
             };
@@ -239,6 +260,12 @@ namespace LOP
         {
             pendingFire = true;
             heldAimYaw = yaw;
+        }
+
+        /// <summary>카드를 잡은 순간 한 번 부른다(카드 러시). 다음 틱 커맨드에 한 번만 실린다 — 맞았나는 시뮬이 판정한다.</summary>
+        public void SetGrab()
+        {
+            pendingGrab = true;
         }
 
         /// <summary>슬롯으로 어빌리티 입력을 예약한다. 슬롯을 내 부여 기록으로 풀어 id를 와이어에 싣는다

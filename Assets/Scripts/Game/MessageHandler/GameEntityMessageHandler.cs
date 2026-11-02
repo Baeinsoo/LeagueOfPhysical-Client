@@ -216,6 +216,13 @@ namespace LOP
                 knockbackBody.KnockbackEndTick = entitySnap.knockbackEndTick;
             }
 
+            //  남의 카드 러시 상태도 스냅에서 온다 — 남의 몸은 굴리지 않으니 이게 화면(카드·몸개그)이 읽는 값이다.
+            var cardRunner = targetEntity?.Get<CardRushRunner>();
+            if (cardRunner != null)
+            {
+                CardRushServerCorrectionHandler.ApplyCardState(ref cardRunner.State, entitySnap);
+            }
+
             Abilities remoteAbilities = targetEntity?.Get<Abilities>();
             if (remoteAbilities != null)
             {

@@ -41,6 +41,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Knockback.unity
     guid: 06e1d9a723995a040b255cc132762861
+  - enabled: 1
+    path: Assets/Scenes/CardRush.unity
+    guid: 4b7a89daf02fb4e7db2b931fcb612c14
   m_configObjects:
     com.unity.addressableassets: {fileID: 11400000, guid: 07e2b666ab95bb945a7a4be82df0ab07, type: 2}
   m_UseUCBPForAssetBundles: 0

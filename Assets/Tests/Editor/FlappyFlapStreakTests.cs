@@ -130,53 +130,68 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 맵_규칙의_고비에_번호와_대시_보상을_싣는다()
+        public void 화면_고비에_번호와_대시_보상을_싣는다()
         {
-            //  10-30부터 기본 10도 0.1칸을 준다 — 25는 그대로 4분의1칸.
-            Climb(25);
+            //  11-02 — 게이지는 10마다, 한마디 번호는 10·30·50·100에만.
+            Climb(30);
             Assert.AreEqual(-1, BeatAt(9).Milestone);
             Assert.AreEqual(0, BeatAt(10).Milestone);
-            Assert.IsTrue(BeatAt(10).DashGain, "기본값 10도 0.1칸을 준다");
-            Assert.AreEqual(1, BeatAt(25).Milestone);
-            Assert.IsTrue(BeatAt(25).DashGain, "기본값 25는 보상 4분의1칸");
+            Assert.IsTrue(BeatAt(10).DashGain, "10은 0.06칸");
+            Assert.AreEqual(-1, BeatAt(20).Milestone, "20은 게이지만 — 한마디 없음");
+            Assert.IsFalse(BeatAt(20).DashGain, "대시+는 한마디에만 붙는다");
+            Assert.AreEqual(-1, BeatAt(25).Milestone, "옛 고비 25는 이제 아니다");
+            Assert.AreEqual(1, BeatAt(30).Milestone);
+            Assert.IsTrue(BeatAt(30).DashGain);
+        }
 
-            FlappyFlapComboRules.TryCreate(new[] { 3 }, new[] { 1f }, out var custom);
-            rules.Set(chaser: false, manualDash: true, diveCharge: true, flapCombo: custom);
-            combo.Count = 0;
-            streak.Tick();
-            beats.Clear();
+        [Test]
+        public void 보상_없는_맵의_수는_고비_번호가_없다()
+        {
+            //  M5 — 맵 규칙을 본다. 기본 규칙을 보면 10이 0번 고비다.
+            rules.Set(chaser: false, manualDash: true, diveCharge: true, flapCombo: FlappyFlapComboRules.Off);
             Climb(10);
-            Assert.AreEqual(0, BeatAt(3).Milestone, "이 맵의 고비는 3");
-            Assert.AreEqual(-1, BeatAt(10).Milestone, "기본 고비 10은 이 맵엔 없다");
+            Assert.AreEqual(-1, BeatAt(10).Milestone);
+            Assert.IsFalse(BeatAt(10).DashGain);
+        }
+
+        [Test]
+        public void 백_뒤_50마다는_마지막_고비처럼_번호와_대시_보상을_싣는다()
+        {
+            //  11-02 — 150·200…은 100과 같은 연출(전설!·고리·화음)과 "대시+". 110·160은 게이지만.
+            Climb(201);
+            Assert.AreEqual(3, BeatAt(150).Milestone, "150은 마지막 고비(100)와 같은 번호");
+            Assert.IsTrue(BeatAt(150).DashGain);
+            Assert.AreEqual(3, BeatAt(200).Milestone);
+            Assert.AreEqual(-1, BeatAt(110).Milestone);
+            Assert.AreEqual(-1, BeatAt(149).Milestone);
+            Assert.AreEqual(-1, BeatAt(160).Milestone);
+            Assert.AreEqual(-1, BeatAt(201).Milestone);
         }
 
         [Test]
         public void 보상이_0인_고비는_한마디만_뜨고_대시_보상은_아니다()
         {
-            //  마커가 고비는 두되 보상을 0칸으로 줄 수 있다(FlappyFlapComboRules.TryCreate은 0을 허용,
-            //  "값이_이상하면_기본으로_간다"의 음수·2칸 넘음과는 다른 경우) — 이땐 한마디(화면)는 떠도
-            //  시뮬이 게이지를 준 게 아니니 "대시+"가 붙으면 거짓말이다. 버튼 있음·게이지 안 가득인 채로 본다
-            //  (버튼 없음·가득 찬 게이지로 DashGain이 false인 위 시험과는 원인이 다르다).
-            FlappyFlapComboRules.TryCreate(new[] { 3 }, new[] { 0f }, out var custom);
+            //  마커가 간격은 두되 칸을 0으로 줄 수 있다(TryCreate은 0을 허용) — 이땐 한마디(화면)는 떠도
+            //  시뮬이 게이지를 준 게 아니니 "대시+"가 붙으면 거짓말이다. 버튼 있음·게이지 안 가득인 채로 본다.
+            FlappyFlapComboRules.TryCreate(10, new[] { 0f }, 0f, out var custom);
             rules.Set(chaser: false, manualDash: true, diveCharge: true, flapCombo: custom);
             combo.Count = 0;
             streak.Tick();
             beats.Clear();
 
-            Climb(3);
+            Climb(10);
 
-            Assert.AreEqual(0, BeatAt(3).Milestone, "고비 번호는 뜬다");
-            Assert.IsFalse(BeatAt(3).DashGain, "이 고비의 보상은 0이라 대시+는 아니다");
+            Assert.AreEqual(0, BeatAt(10).Milestone, "고비 번호는 뜬다");
+            Assert.IsFalse(BeatAt(10).DashGain, "이 고비의 보상은 0이라 대시+는 아니다");
         }
 
         [Test]
         public void 버튼이_없는_맵이나_가득_찬_게이지면_대시_보상이_아니다()
         {
-            //  10·25 모두 보상이 있지만 "주는데 못 받는다"는 복수 알림을 줄이려 고비 하나(25)로 본다.
             rules.Set(chaser: false, manualDash: false);
-            Climb(25);
-            Assert.AreEqual(1, BeatAt(25).Milestone, "한마디는 뜬다");
-            Assert.IsFalse(BeatAt(25).DashGain, "버튼이 없다 — 시뮬도 안 줬다");
+            Climb(30);
+            Assert.AreEqual(1, BeatAt(30).Milestone, "한마디는 뜬다");
+            Assert.IsFalse(BeatAt(30).DashGain, "버튼이 없다 — 시뮬도 안 줬다");
 
             rules.Set(chaser: false, manualDash: true, diveCharge: true);
             combo.Count = 0;
@@ -184,8 +199,8 @@ namespace LOP.Tests
             dash.Charge = FlappyDash.MaxCharge;
             streak.Tick();   //  직전 장 게이지를 가득으로 읽힌다
             beats.Clear();
-            Climb(25);
-            Assert.IsFalse(BeatAt(25).DashGain, "가득이라 더해진 게 없다");
+            Climb(30);
+            Assert.IsFalse(BeatAt(30).DashGain, "가득이라 더해진 게 없다");
         }
 
         [Test]

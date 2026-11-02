@@ -5,7 +5,7 @@ namespace LOP.Tests
 {
     /// <summary>
     /// 연속 날갯짓 연출 "집중형"(spec §7, 사용자 결정 10-26). 앞길과 화면 가운데를 비운다 — 작은 "+N"은 새 뒤쪽 위에서 0.45초,
-    /// 깃털은 새 뒤로만, 꼬리는 25부터 가늘게, 고비(10·25·50·100) 한마디·고리는 새 옆에 작게. 단위 u는 시제품 무대(높이 545px)의 1px.
+    /// 깃털은 새 뒤로만, 꼬리는 30부터 가늘게, 고비(10·30·50·100, 그 뒤 50마다) 한마디·고리는 새 옆에 작게. 단위 u는 시제품 무대(높이 545px)의 1px.
     /// </summary>
     public class FlapComboTests
     {
@@ -16,28 +16,35 @@ namespace LOP.Tests
         private static string Hex(Color c) => "#" + ColorUtility.ToHtmlStringRGB(c).ToLowerInvariant();
 
         [Test]
-        public void 단계_색은_10_25_50에서_바뀐다()
+        public void 단계_색은_10_30_50에서_바뀐다()
         {
             Assert.AreEqual("#fff6e6", Hex(FlapComboLook.TierColor(1)));
             Assert.AreEqual("#fff6e6", Hex(FlapComboLook.TierColor(9)));
             Assert.AreEqual("#ffd257", Hex(FlapComboLook.TierColor(10)));
-            Assert.AreEqual("#ff9a3c", Hex(FlapComboLook.TierColor(25)));
+            Assert.AreEqual("#ffd257", Hex(FlapComboLook.TierColor(29)), "리뷰2 M3 — 단계는 화면 고비(30)에 맞춘다");
+            Assert.AreEqual("#ff9a3c", Hex(FlapComboLook.TierColor(30)));
             Assert.AreEqual("#ff6a3d", Hex(FlapComboLook.TierColor(50)));
             Assert.AreEqual("#ff6a3d", Hex(FlapComboLook.TierColor(300)));
             Assert.AreEqual("#2a1a0c", Hex(FlapComboLook.Outline));
+            Assert.AreEqual(0.6f, FlapComboLook.TrailColor(29, 1f).a, 1e-5f);
+            Assert.AreEqual(0.7f, FlapComboLook.TrailColor(30, 1f).a, 1e-5f);
+            Assert.AreEqual(30, FlapComboLook.TrailFrom);
         }
 
         [Test]
-        public void 고비_한마디는_10_25_50_100에만()
+        public void 기본_규칙의_고비_한마디는_10_30_50_100과_그뒤_50마다()
         {
-            Assert.AreEqual("좋아!", FlapComboLook.Word(10));
-            Assert.AreEqual("멋져!", FlapComboLook.Word(25));
-            Assert.AreEqual("미쳤다!", FlapComboLook.Word(50));
-            Assert.AreEqual("전설!", FlapComboLook.Word(100));
-            foreach (int n in new[] { 1, 9, 11, 24, 26, 49, 75, 99, 101, 200 })
+            //  11-02 — 25 대신 30이 "멋져!". 10마다 주는 게이지 칸은 한마디 없이 "+N"과 게이지만.
+            string Word(int n) => FlapComboLook.WordAt(FlappyFlapComboRules.Default.MilestoneIndex(n));
+            Assert.AreEqual("좋아!", Word(10));
+            Assert.AreEqual("멋져!", Word(30));
+            Assert.AreEqual("미쳤다!", Word(50));
+            Assert.AreEqual("전설!", Word(100));
+            Assert.AreEqual("전설!", Word(150));
+            Assert.AreEqual("전설!", Word(200));
+            foreach (int n in new[] { 1, 9, 11, 20, 24, 25, 26, 40, 49, 60, 75, 90, 99, 101, 110, 140, 149, 160, 175, 201 })
             {
-                Assert.IsNull(FlapComboLook.Word(n), n.ToString());
-                Assert.IsFalse(FlapComboLook.IsMilestone(n), n.ToString());
+                Assert.IsNull(Word(n), n.ToString());
             }
         }
 
@@ -135,11 +142,12 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 깃털은_날갯짓마다_둘_25부터_하나씩_넷까지()
+        public void 깃털은_날갯짓마다_둘_30부터_셋_50부터_넷()
         {
             Assert.AreEqual(2, FlapComboLook.FeatherCount(1));
-            Assert.AreEqual(2, FlapComboLook.FeatherCount(24));
-            Assert.AreEqual(3, FlapComboLook.FeatherCount(25));
+            Assert.AreEqual(2, FlapComboLook.FeatherCount(29));
+            Assert.AreEqual(3, FlapComboLook.FeatherCount(30));
+            Assert.AreEqual(3, FlapComboLook.FeatherCount(49));
             Assert.AreEqual(4, FlapComboLook.FeatherCount(50));
             Assert.AreEqual(4, FlapComboLook.FeatherCount(400));
         }
@@ -165,12 +173,15 @@ namespace LOP.Tests
 
         private static FlapComboFx Fx() => new FlapComboFx(new System.Random(7));
 
+        //  시험용 걸음 — 판은 맵 규칙으로 고비 번호를 정한다(FlappyFlapStreak). 여기선 기본 규칙으로 정한다.
+        private static void Beat(FlapComboFx fx, int n) => fx.Queue(n, FlappyFlapComboRules.Default.MilestoneIndex(n), false);
+
         [Test]
         public void 숫자는_그리는_장의_새_자리에_뜬다()
         {
             //  누른 순간(입력)엔 이번 장 보간 전이다 — 그 장 LateUpdate에서 지금 그려진 자리로 낸다(옛 자리 유령 금지, 10-26 디버그).
             var fx = Fx();
-            fx.Queue(3);
+            Beat(fx, 3);
             Assert.AreEqual(0, fx.Numbers.Count, "자리를 알기 전엔 안 낸다");
 
             var drawn = new Vector2(640f, 420f);
@@ -185,11 +196,11 @@ namespace LOP.Tests
         public void 날갯짓마다_새_숫자가_겹쳐_뜨고_먼저_것은_제자리()
         {
             var fx = Fx();
-            fx.Queue(1);
+            Beat(fx, 1);
             fx.Resolve(Bird, RPx, U);
             fx.Advance(0.1f, U);
             var moved = Bird + new Vector2(0f, -60f);
-            fx.Queue(2);
+            Beat(fx, 2);
             fx.Resolve(moved, RPx, U);
 
             Assert.AreEqual(2, fx.Numbers.Count);
@@ -201,7 +212,7 @@ namespace LOP.Tests
         public void 새가_없는_장엔_밀린_날갯짓을_버린다()
         {
             var fx = Fx();
-            fx.Queue(1);
+            Beat(fx, 1);
             fx.DropPending();
             fx.Resolve(Bird, RPx, U);
 
@@ -214,7 +225,7 @@ namespace LOP.Tests
             var fx = Fx();
             for (int n = 1; n <= FlapComboFx.MaxNumbers + 3; n++)
             {
-                fx.Queue(n);
+                Beat(fx, n);
             }
             fx.Resolve(Bird, RPx, U);
 
@@ -226,7 +237,7 @@ namespace LOP.Tests
         public void 수명이_다하면_사라진다()
         {
             var fx = Fx();
-            fx.Queue(10);
+            Beat(fx, 10);
             fx.Resolve(Bird, RPx, U);
             Assert.IsTrue(fx.WordVisible);
             Assert.AreEqual("좋아!", fx.WordText);
@@ -245,7 +256,7 @@ namespace LOP.Tests
         public void 고비가_아니면_한마디도_고리도_없다()
         {
             var fx = Fx();
-            fx.Queue(11);
+            Beat(fx, 11);
             fx.Resolve(Bird, RPx, U);
 
             Assert.IsFalse(fx.WordVisible);
@@ -285,7 +296,7 @@ namespace LOP.Tests
         public void 깃털은_새_뒤에서_뒤로_흩날리며_떨어진다()
         {
             var fx = Fx();
-            fx.Queue(30);
+            Beat(fx, 30);
             fx.Resolve(Bird, RPx, U);
 
             Assert.AreEqual(FlapComboLook.FeatherCount(30), fx.Feathers.Count);
@@ -301,15 +312,15 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 꼬리는_25부터_달리는_동안만_남고_기절하면_꺼진다()
+        public void 꼬리는_30부터_달리는_동안만_남고_기절하면_꺼진다()
         {
             var fx = Fx();
-            fx.Queue(24);
+            Beat(fx, 29);
             fx.Resolve(Bird, RPx, U);
             fx.RecordTrail(Vector3.zero, racing: true);
-            Assert.AreEqual(0, fx.Trail.Count, "24는 아직");
+            Assert.AreEqual(0, fx.Trail.Count, "29는 아직");
 
-            fx.Queue(25);
+            Beat(fx, 30);
             fx.Resolve(Bird, RPx, U);
             fx.RecordTrail(Vector3.zero, racing: true);
             fx.RecordTrail(Vector3.right, racing: true);
@@ -322,17 +333,17 @@ namespace LOP.Tests
             Assert.AreEqual(0, fx.Trail.Count, "기절하면 꼬리를 끈다");
             Assert.AreEqual(0, fx.Count);
             fx.RecordTrail(Vector3.zero, racing: true);
-            Assert.AreEqual(0, fx.Trail.Count, "다시 25까지");
+            Assert.AreEqual(0, fx.Trail.Count, "다시 30까지");
         }
 
         [Test]
         public void 꼬리_점은_길이만큼만_남는다()
         {
             var fx = Fx();
-            fx.Queue(25);
+            Beat(fx, 30);
             fx.Resolve(Bird, RPx, U);
             fx.RecordTrail(Vector3.zero, racing: true);
-            fx.Advance(FlapComboLook.TrailLife(25) + 0.01f, U);
+            fx.Advance(FlapComboLook.TrailLife(30) + 0.01f, U);
 
             Assert.AreEqual(0, fx.Trail.Count);
         }
@@ -341,9 +352,9 @@ namespace LOP.Tests
         public void 기절해도_떠_있는_숫자와_깃털은_조용히_제_수명대로()
         {
             var fx = Fx();
-            fx.Queue(5);
+            Beat(fx, 5);
             fx.Resolve(Bird, RPx, U);
-            fx.Queue(6);
+            Beat(fx, 6);
             fx.Crash();
             fx.Resolve(Bird, RPx, U);
 

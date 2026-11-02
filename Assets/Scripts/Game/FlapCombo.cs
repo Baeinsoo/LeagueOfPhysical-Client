@@ -44,7 +44,7 @@ namespace LOP
         public const float FeatherSpeedXMin = 60f, FeatherSpeedXMax = 180f, FeatherSpeedYMin = 40f, FeatherSpeedYMax = 120f;
         public const float FeatherLift = 30f, FeatherGravity = 260f, FeatherDrift = 194f;
 
-        public const int TrailFrom = 25;
+        public const int TrailFrom = 30;
 
         public static readonly Color Outline = Hex(0x2a1a0c);
         public static readonly Color FeatherColor = Hex(0xf5e9d6);
@@ -57,18 +57,14 @@ namespace LOP
 
         public static float Unit(float panelHeight) => panelHeight / StageHeight;
 
-        public static Color TierColor(int n) => n >= 50 ? Tier3 : n >= 25 ? Tier2 : n >= 10 ? Tier1 : Tier0;
+        /// <summary>단계(색·깃털·꼬리)는 화면 고비 10·30·50에 맞춘다(11-02, 옛 25). 코인·퀘스트는 여전히 25를 센다.</summary>
+        public static Color TierColor(int n) => n >= 50 ? Tier3 : n >= 30 ? Tier2 : n >= 10 ? Tier1 : Tier0;
 
         private static readonly string[] Words = { "좋아!", "멋져!", "미쳤다!", "전설!" };
 
-        /// <summary>몇 번째 고비(0부터)의 한마디. 넷째 뒤로는 "전설!". 고비가 아니면(−1) null.
-        /// 맵마다 고비 수가 달라도 순서로 고른다(spec 2026-10-27 §5).</summary>
+        /// <summary>몇 번째 화면 고비(0부터, <see cref="FlappyFlapComboRules.MilestoneIndex"/> — 10·30·50·100, 그 뒤 50마다는 3)의 한마디.
+        /// 넷째 뒤로는 "전설!". 고비가 아니면(−1) null. 판은 맵 규칙의 번호로만 부른다(기본 규칙 지름길은 두지 않는다).</summary>
         public static string WordAt(int milestone) => milestone < 0 ? null : Words[Mathf.Min(milestone, Words.Length - 1)];
-
-        /// <summary>기본 고비(10·25·50·100)의 한마디 — 모양 시험용. 실제 판은 맵 고비 번호로 <see cref="WordAt"/>을 쓴다.</summary>
-        public static string Word(int n) => WordAt(FlappyFlapComboRules.Default.MilestoneIndex(n));
-
-        public static bool IsMilestone(int n) => Word(n) != null;
 
         /// <summary>고비가 대시 게이지를 줬을 때 한마디 뒤에 붙는 작은 글자.</summary>
         public const string DashCue = "대시+";
@@ -121,7 +117,7 @@ namespace LOP
 
         public static float RingWidth(float k, float u) => (4f * (1f - k) + 1f) * u;
 
-        public static int FeatherCount(int n) => 2 + Mathf.Min(2, n / 25);
+        public static int FeatherCount(int n) => n >= 50 ? 4 : n >= 30 ? 3 : 2;
 
         /// <summary>꼬리 점이 남는 시간(초) — 길이. 80에서 멈춘다.</summary>
         public static float TrailLife(int n) => 0.15f + Mathf.Min(n, 80) / 160f;
@@ -132,7 +128,7 @@ namespace LOP
         public static Color TrailColor(int n, float a)
         {
             Color c = TierColor(n);
-            c.a = a * (n >= 50 ? 0.8f : n >= 25 ? 0.7f : 0.6f);
+            c.a = a * (n >= 50 ? 0.8f : n >= 30 ? 0.7f : 0.6f);
             return c;
         }
     }
@@ -209,9 +205,6 @@ namespace LOP
 
         /// <summary>지금 한마디의 고비가 대시 게이지를 줬나 — 그리는 쪽이 "대시+"를 붙인다.</summary>
         public bool WordDashCue { get; private set; }
-
-        /// <summary>먹힌 날갯짓 하나(연속 수 n) — 고비는 기본 고비(10·25·50·100)로 본다. 모양 시험용.</summary>
-        public void Queue(int count) => Queue(count, FlappyFlapComboRules.Default.MilestoneIndex(count), false);
 
         /// <summary>시뮬이 받은 날갯짓 하나 — 그 수, 맵 규칙의 몇 번째 고비인지(−1 = 아님), 그 고비가 게이지를 줬는지.</summary>
         public void Queue(int count, int milestone, bool dashGain)
@@ -314,7 +307,7 @@ namespace LOP
             _wordAge += dt;
         }
 
-        /// <summary>그 장의 새 가운데(월드). 25부터 달리는 동안만 꼬리 점을 더한다 — 결승 뒤엔 남은 점이 제 수명대로 사라진다.</summary>
+        /// <summary>그 장의 새 가운데(월드). 30부터 달리는 동안만 꼬리 점을 더한다 — 결승 뒤엔 남은 점이 제 수명대로 사라진다.</summary>
         public void RecordTrail(Vector3 world, bool racing)
         {
             if (racing && Count >= FlapComboLook.TrailFrom)

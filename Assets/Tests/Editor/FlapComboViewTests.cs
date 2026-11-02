@@ -10,6 +10,9 @@ namespace LOP.Tests
     /// </summary>
     public class FlapComboViewTests
     {
+        //  시험용 걸음 — 판은 맵 규칙으로 고비 번호를 정한다(FlappyFlapStreak). 여기선 기본 규칙으로 정한다.
+        private static void Beat(FlapComboFx fx, int n) => fx.Queue(n, FlappyFlapComboRules.Default.MilestoneIndex(n), false);
+
         private const float R = 0.45f;
         private GameObject viewGo;
         private GameObject visualGo;
@@ -60,7 +63,7 @@ namespace LOP.Tests
         public void 날갯짓을_그리고_새_그림은_건드리지_않는다()
         {
             var (view, fx) = Make();
-            fx.Queue(10);
+            Beat(fx, 10);
 
             view.Step(0.016f);
 
@@ -80,7 +83,7 @@ namespace LOP.Tests
         {
             var (view, fx) = Make();
             hasBird = false;   //  잡혔거나 아직 그림이 안 붙었다
-            fx.Queue(3);
+            Beat(fx, 3);
 
             view.Step(0.016f);
 

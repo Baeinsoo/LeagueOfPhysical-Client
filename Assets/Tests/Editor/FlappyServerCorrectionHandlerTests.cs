@@ -304,11 +304,11 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 서버가_날갯짓_하나를_못_받았으면_보정_뒤_서버와_같은_날갯짓에서_고비를_맞는다()
+        public void 서버가_날갯짓_하나를_못_받았으면_보정_뒤_서버와_같은_날갯짓에서_보상을_맞는다()
         {
-            //  10-30부터 기본 10도 0.1칸을 준다 — 예측은 101~125틱 스물다섯 번을 다 받아 110틱에 10고비(0.1칸),
-            //  125틱에 25고비(¼칸)를 맞아 합 0.35칸이다. 서버는 한 번을 늦게 받아 116틱에 15번이다.
-            //  보정(되돌리기 → 서버 값 덮기 → 재생, Reconciler와 같은 순서)이 끝나면 24번·0칸이고, 다음 날갯짓(126틱)이 서버와 같은 고비다.
+            //  11-02 표 — 예측은 101~120틱 스무 번을 다 받아 110틱에 10번째(0.06칸), 120틱에 20번째(0.07칸)를 맞아 합 0.13칸이다.
+            //  서버는 한 번을 늦게 받아 116틱에 15번이다. 보정(되돌리기 → 서버 값 덮기 → 재생, Reconciler와 같은 순서)이
+            //  끝나면 19번·0.06칸이고, 다음 날갯짓(121틱)이 서버와 같은 20번째다.
             var handler = Fixture.HandlerWithCombo(out var world, out var bird);
             var combo = bird.Get<FlappyFlapCombo>();
             var dash = bird.Get<FlappyDash>();
@@ -319,28 +319,88 @@ namespace LOP.Tests
                 world.Tick(t, Fixture.TickInterval);
                 world.SaveState(t);
             }
-            for (long t = 101; t <= 125; t++)
+            for (long t = 101; t <= 120; t++)
             {
                 Live(t);
             }
-            Assert.AreEqual(25, combo.Count);
-            Assert.AreEqual(0.35f, dash.Charge);
+            Assert.AreEqual(20, combo.Count);
+            Assert.AreEqual(0.13f, dash.Charge, 1e-4f);
 
             var snap = Fixture.Snap(bird.Id, 116);
             snap.flapCombo = 15;
+            snap.dashCharge = 0.06f;
             Assert.IsFalse(handler.Matches(116, snap), "수가 갈렸다 — 되돌린다");
             Assert.IsTrue(world.LoadState(116));
             handler.ApplyAuthoritative(bird, snap, Fixture.TickInterval);
-            for (long t = 117; t <= 125; t++)
+            for (long t = 117; t <= 120; t++)
             {
                 Live(t);
             }
 
-            Assert.AreEqual(24, combo.Count);
-            Assert.AreEqual(0f, dash.Charge, "예측이 먼저 받은 ¼칸은 서버 수로 다시 세며 사라진다");
-            Live(126);
-            Assert.AreEqual(25, combo.Count);
-            Assert.AreEqual(0.25f, dash.Charge, "서버와 같은 날갯짓에서 한 번");
+            Assert.AreEqual(19, combo.Count);
+            Assert.AreEqual(0.06f, dash.Charge, "예측이 먼저 받은 20번째 칸은 서버 수로 다시 세며 사라진다");
+            Live(121);
+            Assert.AreEqual(20, combo.Count);
+            Assert.AreEqual(0.13f, dash.Charge, 1e-4f, "서버와 같은 날갯짓에서 한 번");
+        }
+
+        //  M4 — 표 끝(150, 0.23칸) 앞뒤에서 서버 값으로 덮고 재생해도 보상은 정확히 한 번(또는 0번)이다.
+        private static void LiveFrom(FlappyServerCorrectionHandler handler, FlappyWorld world, GameFramework.World.Entity bird,
+                                     long from, long to)
+        {
+            var input = bird.Get<InputBuffer>();
+            for (long t = from; t <= to; t++)
+            {
+                input.Current = new InputCommand { Jump = true };
+                world.Tick(t, Fixture.TickInterval);
+                world.SaveState(t);
+            }
+        }
+
+        [Test]
+        public void 서버가_149라고_덮으면_재생은_150에서_꼭_한_번_준다()
+        {
+            var handler = Fixture.HandlerWithCombo(out var world, out var bird);
+            var combo = bird.Get<FlappyFlapCombo>();
+            var dash = bird.Get<FlappyDash>();
+            combo.Count = 140;
+            LiveFrom(handler, world, bird, 101, 115);   //  예측: 110틱에 150(0.23칸), 115틱에 155
+            Assert.AreEqual(155, combo.Count);
+            Assert.AreEqual(0.23f, dash.Charge, 1e-4f);
+
+            var snap = Fixture.Snap(bird.Id, 108);
+            snap.flapCombo = 149;   //  서버는 한 번 더 받아 108틱에 이미 149
+            snap.dashCharge = 0f;
+            Assert.IsFalse(handler.Matches(108, snap));
+            Assert.IsTrue(world.LoadState(108));
+            handler.ApplyAuthoritative(bird, snap, Fixture.TickInterval);
+            LiveFrom(handler, world, bird, 109, 109);
+            Assert.AreEqual(150, combo.Count);
+            Assert.AreEqual(0.23f, dash.Charge, 1e-4f, "서버 수로 150이 되는 109틱에서");
+            LiveFrom(handler, world, bird, 110, 115);
+
+            Assert.AreEqual(156, combo.Count);
+            Assert.AreEqual(0.23f, dash.Charge, 1e-4f, "예측이 110틱에 받았던 것과 겹쳐 두 번 받지 않는다");
+        }
+
+        [Test]
+        public void 서버가_151이라고_덮으면_재생은_150_보상을_다시_주지_않는다()
+        {
+            var handler = Fixture.HandlerWithCombo(out var world, out var bird);
+            var combo = bird.Get<FlappyFlapCombo>();
+            var dash = bird.Get<FlappyDash>();
+            combo.Count = 140;
+            LiveFrom(handler, world, bird, 101, 115);
+
+            var snap = Fixture.Snap(bird.Id, 108);
+            snap.flapCombo = 151;   //  서버는 150을 이미 지났고 그 칸도 이미 받았다
+            snap.dashCharge = 0.23f;
+            Assert.IsTrue(world.LoadState(108));
+            handler.ApplyAuthoritative(bird, snap, Fixture.TickInterval);
+            LiveFrom(handler, world, bird, 109, 115);
+
+            Assert.AreEqual(158, combo.Count);
+            Assert.AreEqual(0.23f, dash.Charge, 1e-4f, "재생 동안 150을 다시 지나지 않으니 0번 — 0.46이면 두 번 준 것");
         }
     }
 }

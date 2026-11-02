@@ -5,7 +5,7 @@ using MessagePipe;
 
 namespace LOP
 {
-    /// <summary>내 몸이 생기면 디버그 HUD를 연다. 카드·조작판은 이 위에 붙는다.</summary>
+    /// <summary>내 몸이 생기면 디버그 HUD + 조작판(<see cref="CardRushPadView"/>) + 정보 HUD(<see cref="RaceHudView"/>)를 연다.</summary>
     public class CardRushHudCoordinator : MessageHandlerBase
     {
         private readonly IGameDataStore gameDataStore;
@@ -31,6 +31,8 @@ namespace LOP
                 return;
             }
             windowManager.Open<DebugHudView>();
+            windowManager.Open<CardRushPadView>();
+            windowManager.Open<RaceHudView>();
             _opened = true;
         }
     }

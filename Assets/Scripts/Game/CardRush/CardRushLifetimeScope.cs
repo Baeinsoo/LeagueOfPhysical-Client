@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using LOP.UI;
+using Mirror;
+using MessagePipe;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
@@ -46,7 +51,61 @@ namespace LOP
             //  외삽 대상이 없다(예측 아니면 보간) — EntityBinder 생성자 의존이라 등록만 한다.
             builder.Register<IExtrapolationAcceleration, ZeroExtrapolationAcceleration>(Lifetime.Singleton);
 
+            //  카메라·관전이 같은 답을 봐야 한다 — 주인이 하나여야 하므로 싱글턴(FlappySpectate와 같은 이유).
+            builder.Register<CardRushSpectate>(Lifetime.Singleton).As<ISpectateTargets>().AsSelf();
+
+            //  소리 과업(CardRushAudio)은 다른 태스크다 — 그때까지 RaceHudViewModel·RaceFinishViewModel이
+            //  요구하는 IFlappyAudio 자리를 빈 구현으로 채운다(PlainRaceStartLook과 같은 자리끊기).
+            builder.Register<IFlappyAudio, CardRushSilentAudio>(Lifetime.Singleton);
+
+            //  카운트다운은 개편(팝·GO 초록) 없이 예전 모양 그대로(기마 궁술·넉백과 같은 선택) — 소리 창구가
+            //  없어도 되는 쪽이라 PlainRaceStartLook을 쓴다.
+            builder.Register<IRaceStartLook, PlainRaceStartLook>(Lifetime.Singleton);
+            builder.Register<RaceStartViewModel>(Lifetime.Transient);
+            builder.Register<RaceStartView>(Lifetime.Transient);
+            builder.Register<RaceEliminatedView>(Lifetime.Transient);
+            builder.Register<RaceFinishViewModel>(Lifetime.Transient);
+            builder.Register<RaceFinishView>(Lifetime.Transient);
+            builder.Register<RaceSpectateViewModel>(Lifetime.Transient);
+            builder.Register<RaceSpectateView>(Lifetime.Transient);
+            builder.Register<LeaveMatchConfirmViewModel>(Lifetime.Transient);
+            builder.Register<LeaveMatchConfirmView>(Lifetime.Transient);
+            builder.Register(c => new MatchLeaveRequester(c.Resolve<ISubscriber<LeaveMatchToC>>(),
+                message => NetworkClient.Send(new CustomMirrorMessage { payload = message })), Lifetime.Singleton);
+
+            //  조작판 — 화면 아무 데나 탭하면 잡기. 카드 자체는 매 프레임 PlayerInputManager.NextInputTick으로 그린다(spec §7.3).
+            builder.Register<CardRushPadViewModel>(Lifetime.Transient);
+            builder.Register<CardRushPadView>(Lifetime.Transient);
+
+            //  정보 HUD(진행 막대·순위·기록 시간) — RaceHudViewModel/View는 Flappy와 그대로, 소스만 갈아 끼운다.
+            builder.Register<IRaceHudSource, CardRushRaceHudSource>(Lifetime.Singleton);
+            builder.Register<RaceHudViewModel>(Lifetime.Transient);
+            builder.Register<RaceHudView>(Lifetime.Transient);
+
             builder.RegisterEntryPoint<CardRushHudCoordinator>();
         }
+
+        protected override void RegisterViewFactories(
+            IObjectResolver container, IWindowManager windowManager, List<IDisposable> sink)
+        {
+            sink.Add(windowManager.RegisterViewFactory<CardRushPadView>(() => container.Resolve<CardRushPadView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceHudView>(() => container.Resolve<RaceHudView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceStartView>(() => container.Resolve<RaceStartView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceEliminatedView>(() => container.Resolve<RaceEliminatedView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceFinishView>(() => container.Resolve<RaceFinishView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceSpectateView>(() => container.Resolve<RaceSpectateView>()));
+            sink.Add(windowManager.RegisterViewFactory<LeaveMatchConfirmView>(() => container.Resolve<LeaveMatchConfirmView>()));
+        }
+    }
+
+    //  CardRushAudio(다른 태스크)가 생기기 전까지 IFlappyAudio 자리를 채우는 빈 구현. 효과음·배경음 없이
+    //  RaceHudViewModel의 순위 추월 소리 호출 등을 그냥 삼킨다 — 예외도, 소리도 안 난다.
+    public sealed class CardRushSilentAudio : IFlappyAudio
+    {
+        public void Play(FlappySfx sfx) { }
+        public void StartMusic() { }
+        public void StopMusic() { }
+        public void SetFinalStretch(bool on) { }
+        public void DuckMusic() { }
     }
 }

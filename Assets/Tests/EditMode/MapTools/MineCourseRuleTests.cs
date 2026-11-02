@@ -195,8 +195,29 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(1.2f, r.Size, 1e-5f);
                 Assert.AreEqual(9f, r.Speed, 1e-5f);
                 Assert.AreEqual(2f, r.Period, 1e-5f);
-                Assert.AreEqual(90f * i, r.Phase, 1e-4f, "줄마다 +0.5초 = 90° — 11-01 사용자 결정: 10-24의 45°는 차례로 떨어지는 물결로 보여 예전 값으로 되돌렸다");
+                Assert.AreEqual(Phases[i], r.Phase, 1e-4f, $"줄 {i} 위상");
             }
+        }
+
+        //  11-02 사용자: 90° 등간격은 도레미처럼 고르게 들린다 — 들쭉날쭉하되 고정(맵 데이터라 클·서 같다).
+        //  공정성 도구로 후보 5개 중 고른 표(관문 진입 막힘 0·기절 뒤 함정 0·예고+0.2초 사각지대 ≈0%·H 살아남는 입력 2.77%).
+        private static readonly float[] Phases = { 0f, 288f, 180f, 90f, 198f, 108f, 216f };
+
+        [Test]
+        public void 낙석_위상은_들쭉날쭉하되_이웃끼리_떨어진다()
+        {
+            var c = Layout();
+            var steps = new HashSet<float>();
+            for (int i = 1; i < c.Rockfalls.Count; i++)
+            {
+                float d = Mathf.Repeat(c.Rockfalls[i].Phase - c.Rockfalls[i - 1].Phase, 360f);
+                float apart = Mathf.Min(d, 360f - d);
+                Assert.GreaterOrEqual(apart, 60f, $"줄 {i - 1}·{i}는 0.33초 이상 어긋난다");
+                Assert.Greater(Mathf.Abs(apart - 180f), 36f, $"줄 {i - 1}·{i}가 반 주기면 새 기준 같은 박자 — 한 높이로 줄곧 지나간다");
+                Assert.AreEqual(0f, Mathf.Repeat(c.Rockfalls[i].Phase, 18f), 1e-4f, "0.1초(18°) 격자 — 틱에 딱 맞는다");
+                steps.Add(d);
+            }
+            Assert.GreaterOrEqual(steps.Count, 3, "간격이 한두 가지면 다시 음계처럼 들린다");
         }
 
         [Test]

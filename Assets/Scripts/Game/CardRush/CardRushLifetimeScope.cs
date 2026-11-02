@@ -58,6 +58,10 @@ namespace LOP
             //  진입점이라 IFlappyAudio로도 풀린다(AsImplementedInterfaces, FlappyAudio와 같은 등록).
             builder.RegisterEntryPoint<CardRushAudio>().AsSelf();
 
+            //  개인 기록(spec §7) — 완주 시간·연속 정타 최고를 게임 공용 기록지에 적는다(서버 확정 값만). 판정과 무관하다.
+            //  스코프 배선 시험이 바로 resolve하므로 AsSelf(이 파일의 다른 진입점과 같은 규칙).
+            builder.RegisterEntryPoint<CardRushRecordReporter>().AsSelf();
+
             //  카운트다운은 개편(팝·GO 초록) 없이 예전 모양 그대로(기마 궁술·넉백과 같은 선택) — 소리 창구가
             //  없어도 되는 쪽이라 PlainRaceStartLook을 쓴다.
             builder.Register<IRaceStartLook, PlainRaceStartLook>(Lifetime.Singleton);

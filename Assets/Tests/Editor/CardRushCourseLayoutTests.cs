@@ -127,6 +127,26 @@ namespace LOP.Tests
             Assert.That(Mathf.Abs(CardRushCourseLayout.DoorWobbleAngle(0.2f)), Is.GreaterThan(3f), "박은 직후 흔들린다");
         }
 
+        [Test]
+        public void 문은_따라가는_몸_뒤로_가면_가라앉아_사라진다()
+        {
+            Assert.AreEqual(1f, CardRushCourseLayout.DoorVisibility(5, 3f), Eps, "앞 문은 그대로");
+            Assert.AreEqual(1f, CardRushCourseLayout.DoorVisibility(2, 2.55f), Eps, "막 지나간 문(0.05칸 뒤)은 아직 그대로");
+            Assert.AreEqual(0.5f, CardRushCourseLayout.DoorVisibility(2, 2.8f), Eps, "0.3칸 뒤 — 반쯤 가라앉음");
+            Assert.AreEqual(0f, CardRushCourseLayout.DoorVisibility(2, 3f), Eps, "몸이 다음 자리에 서면 바로 뒤 문(0.5칸 뒤)도 사라진다 — 카메라 앞을 안 가린다");
+            Assert.AreEqual(0f, CardRushCourseLayout.DoorVisibility(0, 30f), Eps);
+            Assert.AreEqual(1f, CardRushCourseLayout.DoorVisibility(0, float.NaN), Eps, "따라갈 몸이 없으면 다 보인다");
+        }
+
+        [Test]
+        public void ShouldEnterFinish는_판이_안_끝났고_조작판이_있고_내가_완주했을_때만()
+        {
+            Assert.IsTrue(CardRushHudCoordinator.ShouldEnterFinish(matchEnded: false, padOpen: true, mineFinished: true));
+            Assert.IsFalse(CardRushHudCoordinator.ShouldEnterFinish(matchEnded: true, padOpen: true, mineFinished: true), "결과 화면 위에 겹치지 않는다");
+            Assert.IsFalse(CardRushHudCoordinator.ShouldEnterFinish(matchEnded: false, padOpen: false, mineFinished: true), "이미 넘어갔다");
+            Assert.IsFalse(CardRushHudCoordinator.ShouldEnterFinish(matchEnded: false, padOpen: true, mineFinished: false));
+        }
+
         // ── 레인 그림 ─────────────────────────────────────────
 
         private static CardRushCourse Course(int steps = 12) => new CardRushCourse(77UL, steps, CardRushSections.Default);
@@ -199,6 +219,40 @@ namespace LOP.Tests
             //  멈춤이 끝나는 틱엔 제자리.
             lane.Apply(s, 1015, Timing);
             Assert.AreEqual(0f, Quaternion.Angle(Quaternion.identity, lane.Root.transform.Find("Stone 2").localRotation), 0.5f);
+        }
+
+        [Test]
+        public void 뒤집힌_돌은_어두운_아랫면이_위로_온다()
+        {
+            var course = Course();
+            var lane = Lane(CardRushTheme.StoneBridge, course, Vector3.zero, 2.2f);
+            var stone = lane.Root.transform.Find("Stone 2");
+            var under = stone.Find("Under").GetComponent<Renderer>();
+            Assert.AreSame(palette.UndersideOf(course.RequiredColor(2)), under.sharedMaterial);
+            Color.RGBToHSV(CardRushCoursePalette.ColorOf(course.RequiredColor(2)), out float h0, out _, out float v0);
+            Color.RGBToHSV(palette.UndersideOf(course.RequiredColor(2)).GetColor("_BaseColor"), out float h1, out _, out float v1);
+            Assert.AreEqual(h0, h1, 0.02f, "같은 색 계열");
+            Assert.Less(v1, v0, "더 어둡다");
+            Assert.Less(under.bounds.center.y, -0.3f, "평소엔 아래를 본다");
+
+            lane.Apply(new CardRushRunnerState { Step = 2, StunEndTick = 1015 }, 1000, Timing);
+            Assert.Greater(under.bounds.center.y, 0f, "뒤집히면 위로 온다");
+        }
+
+        [Test]
+        public void 문_테마는_따라가는_몸_뒤의_문을_숨긴다()
+        {
+            var course = Course();
+            var lane = Lane(CardRushTheme.DoorDash, course, Vector3.zero, 3.0f);
+            lane.Apply(new CardRushRunnerState { Step = 3 }, 1000, Timing, followedProgress: 3f);
+            Assert.IsFalse(lane.Root.transform.Find("Door 1").gameObject.activeSelf);
+            Assert.IsFalse(lane.Root.transform.Find("Door 2").gameObject.activeSelf, "바로 뒤 문");
+            Assert.IsTrue(lane.Root.transform.Find("Door 3").gameObject.activeSelf, "앞 문");
+
+            //  관전 대상이 뒤로 바뀌면 다시 선다.
+            lane.Apply(new CardRushRunnerState { Step = 3 }, 1000, Timing, followedProgress: 0f);
+            Assert.IsTrue(lane.Root.transform.Find("Door 1").gameObject.activeSelf);
+            Assert.AreEqual(1f, lane.Root.transform.Find("Door 1").localScale.y, Eps);
         }
 
         [Test]

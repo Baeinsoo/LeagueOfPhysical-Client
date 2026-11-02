@@ -82,7 +82,7 @@ namespace LOP
             builder.Register<RaceHudViewModel>(Lifetime.Transient);
             builder.Register<RaceHudView>(Lifetime.Transient);
 
-            builder.RegisterEntryPoint<CardRushHudCoordinator>();
+            builder.RegisterEntryPoint<CardRushHudCoordinator>().AsSelf();
 
             //  돌·문은 씬에 없다 — 몸이 생기면 그 레인에 (칸 수, 코스 색)으로 깐다. 두 테마가 같은 식이다.
             builder.RegisterEntryPoint<CardRushCourseView>().AsSelf();

@@ -19,6 +19,16 @@ namespace LOP
         public const float PassedFade = 0.3f;
 
         /// <summary>
+        /// 문이 따라가는 몸보다 이만큼(칸) 뒤로 가면 가라앉기 시작해 <see cref="DoorHiddenBehindSteps"/>에서 사라진다.
+        /// 카메라가 몸 뒤 약 1칸 위에 서서, 막 지나온 문(몸 뒤 0.5칸)이 화면 아래를 덮는다 — 몸이 다음 자리에 서면 다 사라지게 0.5.
+        /// </summary>
+        public const float DoorSinkBehindSteps = 0.1f;
+        public const float DoorHiddenBehindSteps = 0.5f;
+
+        /// <summary>뒤집힌 돌 아랫면 — 같은 색을 이만큼 어둡게(젖은 바닥).</summary>
+        public const float UndersideDarken = 0.45f;
+
+        /// <summary>
         /// 칸 k의 장애물(돌·문) 자리. 돌다리는 칸을 맞히면 그 돌 위에 서므로 자리 k+1, 문은 두 자리 사이에 서서
         /// 지나가므로 자리 k+0.5다. 출발점은 자리 0.
         /// </summary>
@@ -59,6 +69,21 @@ namespace LOP
             int openTicks = CardRushTiming.Ticks(DoorOpenSeconds);
             float t = Mathf.Clamp01((float)(drawnTick - s.MoveStartTick) / openTicks);
             return DoorOpenDegrees * t;
+        }
+
+        /// <summary>
+        /// 문 칸 k가 얼마나 서 있나(1 = 그대로, 0 = 숨김). 카메라가 따라가는 몸의 그림 진행(<paramref name="followedProgress"/>,
+        /// 칸 단위)에서 문 자리(k+0.5)가 얼마나 뒤인지로 정한다 — 모든 레인이 같은 줄에 있어 같은 기준을 쓴다.
+        /// 따라갈 몸이 없으면(NaN) 다 보인다. 그림만이다: 판정은 문과 무관하다.
+        /// </summary>
+        public static float DoorVisibility(int step, float followedProgress)
+        {
+            if (float.IsNaN(followedProgress))
+            {
+                return 1f;
+            }
+            float behind = followedProgress - (step + ObstacleOffset(CardRushTheme.DoorDash));
+            return 1f - Mathf.Clamp01((behind - DoorSinkBehindSteps) / (DoorHiddenBehindSteps - DoorSinkBehindSteps));
         }
 
         /// <summary>그림 틱이 틀림 멈춤 안이면 그 진행(0~1).</summary>
@@ -116,6 +141,7 @@ namespace LOP
 
         private readonly Material[] colors = new Material[CardColors.Count];
         private readonly Material[] faded = new Material[CardColors.Count];
+        private readonly Material[] underside = new Material[CardColors.Count];
         private readonly Mesh[] shapes = new Mesh[CardColors.Count];
         private readonly List<UnityEngine.Object> owned = new List<UnityEngine.Object>();
 
@@ -132,6 +158,7 @@ namespace LOP
                 colors[i] = Make("CardRush_" + (CardColor)i, c);
                 //  바램 = 흰빛 쪽으로 30% — 색은 아직 알아보되 "끝난 칸"으로 읽힌다.
                 faded[i] = Make("CardRush_" + (CardColor)i + "_Faded", Color.Lerp(c, new Color(0.85f, 0.85f, 0.85f), CardRushCourseLayout.PassedFade));
+                underside[i] = Make("CardRush_" + (CardColor)i + "_Under", Color.Lerp(c, Color.black, CardRushCourseLayout.UndersideDarken));
                 shapes[i] = MakeShape((CardColor)i);
             }
             Decal = Make("CardRush_Decal", Color.white);
@@ -148,6 +175,12 @@ namespace LOP
         };
 
         public Material Of(CardColor color, bool passed) => passed ? faded[(int)color] : colors[(int)color];
+
+        /// <summary>돌 아랫면 — 뒤집히면 이 어두운 면이 위로 와서 "뒤집힘"으로 읽힌다(같은 색 계열).</summary>
+        public Material UndersideOf(CardColor color) => underside[(int)color];
+
+        /// <summary>지름 1 원판 — 빨강 모양(●)이 곧 원이라 같은 그물을 쓴다.</summary>
+        public Mesh Disc => shapes[(int)CardColor.Red];
 
         /// <summary>색마다 모양(빨강 ●, 노랑 ▲, 파랑 ■) — 색을 못 가리는 사람도 모양으로 읽는다(HUD 카드와 같은 짝).</summary>
         public Mesh ShapeOf(CardColor color) => shapes[(int)color];
@@ -267,6 +300,8 @@ namespace LOP
         private readonly CardRushCourse course;
         private readonly Renderer[] bodies;
         private readonly Transform[] movers;   // 돌다리 = 돌, 문 = 문짝 경첩
+        private readonly Transform[] doors;    // 문 테마만 — 문틀과 문짝을 함께 가라앉힌다
+        private readonly float[] doorVisibleNow;
         private readonly bool[] passedNow;
         private readonly float[] angleNow;
 
@@ -281,6 +316,9 @@ namespace LOP
             int count = course.StepCount;
             bodies = new Renderer[count];
             movers = new Transform[count];
+            doors = new Transform[count];
+            doorVisibleNow = new float[count];
+            for (int i = 0; i < count; i++) doorVisibleNow[i] = 1f;
             passedNow = new bool[count];
             angleNow = new float[count];
 
@@ -341,6 +379,17 @@ namespace LOP
             decal.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
             decal.transform.localScale = Vector3.one * (StoneDiameter * 0.6f);
 
+            //  아랫면: 어두운 같은 색 원판(아래를 본다). 뒤집히면 이 면이 위로 온다.
+            var under = new GameObject("Under") { hideFlags = hideFlags };
+            under.transform.SetParent(pivot.transform, false);
+            under.AddComponent<MeshFilter>().sharedMesh = palette.Disc;
+            var underRenderer = under.AddComponent<MeshRenderer>();
+            underRenderer.sharedMaterial = palette.UndersideOf(color);
+            underRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            under.transform.localPosition = new Vector3(0f, -(StoneThickness * 0.5f + 0.01f), 0f);
+            under.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            under.transform.localScale = Vector3.one * StoneDiameter;
+
             bodies[k] = renderer;
             movers[k] = pivot.transform;
         }
@@ -377,6 +426,7 @@ namespace LOP
 
             bodies[k] = renderer;
             movers[k] = hinge.transform;
+            doors[k] = door.transform;
         }
 
         private void Bar(string name, Transform parent, Vector3 localPosition, Vector3 scale, HideFlags hideFlags)
@@ -414,8 +464,11 @@ namespace LOP
             return go;
         }
 
-        /// <summary>그 몸의 상태를 그림 틱에서 읽어 칸 그림만 바꾼다(바램·뒤집힘·문짝). 시뮬 값은 건드리지 않는다.</summary>
-        public void Apply(in CardRushRunnerState s, long drawnTick, CardRushTiming timing)
+        /// <summary>
+        /// 그 몸의 상태를 그림 틱에서 읽어 칸 그림만 바꾼다(바램·뒤집힘·문짝). 시뮬 값은 건드리지 않는다.
+        /// <paramref name="followedProgress"/>는 카메라가 따라가는 몸의 그림 진행 — 문 테마에서 그보다 뒤의 문을 가라앉힌다.
+        /// </summary>
+        public void Apply(in CardRushRunnerState s, long drawnTick, CardRushTiming timing, float followedProgress = float.NaN)
         {
             bool stunned = CardRushCourseLayout.TryStun(s, drawnTick, timing.StunTicks, out float stunT);
             for (int k = 0; k < bodies.Length; k++)
@@ -439,6 +492,18 @@ namespace LOP
                 else
                 {
                     angle = stunned && k == s.Step ? CardRushCourseLayout.StoneFlipAngle(stunT) : 0f;
+                }
+
+                if (doors[k] != null)
+                {
+                    float visible = CardRushCourseLayout.DoorVisibility(k, followedProgress);
+                    if (Mathf.Approximately(visible, doorVisibleNow[k]) == false)
+                    {
+                        doorVisibleNow[k] = visible;
+                        //  바닥으로 가라앉힌다(투명 재질 없이 — 효과 하나, 색 그대로).
+                        doors[k].localScale = new Vector3(1f, visible, 1f);
+                        doors[k].gameObject.SetActive(visible > 0f);
+                    }
                 }
 
                 if (Mathf.Approximately(angle, angleNow[k]) == false)
@@ -472,6 +537,7 @@ namespace LOP
         private readonly CardRushWorld world;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly EntityRenderClock renderClock;
+        private readonly ISpectateTargets spectate;
 
         private readonly Dictionary<string, CardRushLaneView> lanes = new Dictionary<string, CardRushLaneView>();
         private readonly HashSet<string> seen = new HashSet<string>();
@@ -482,8 +548,9 @@ namespace LOP
         private CardRushCourse builtFor;
 
         public CardRushCourseView(CardRushWorld world, GameFramework.World.EntityRegistry entityRegistry,
-                                  EntityRenderClock renderClock)
+                                  EntityRenderClock renderClock, ISpectateTargets spectate)
         {
+            this.spectate = spectate;
             this.world = world;
             this.entityRegistry = entityRegistry;
             this.renderClock = renderClock;
@@ -514,6 +581,7 @@ namespace LOP
                 builtFor = course;
             }
 
+            float followed = FollowedProgress();
             seen.Clear();
             foreach (var entity in entityRegistry.All)
             {
@@ -535,7 +603,7 @@ namespace LOP
                     lanes.Add(entity.Id, lane);
                 }
 
-                lane.Apply(cardRunner.State, renderClock.TickFor(entity.Id), world.Timing);
+                lane.Apply(cardRunner.State, renderClock.TickFor(entity.Id), world.Timing, followed);
             }
 
             gone.Clear();
@@ -551,6 +619,16 @@ namespace LOP
                 lanes[id].Destroy();
                 lanes.Remove(id);
             }
+        }
+
+        //  카메라가 따라가는 몸(관전 대상)의 그림 진행. 없으면 NaN — 문을 숨기지 않는다.
+        private float FollowedProgress()
+        {
+            string id = spectate?.Current;
+            var runner = string.IsNullOrEmpty(id) ? null : entityRegistry.Get(id)?.Get<CardRushRunner>();
+            return runner == null
+                ? float.NaN
+                : CardRushLanes.Progress(runner.State, renderClock.TickFor(id), world.Timing.MoveTicks);
         }
 
         private void ClearLanes()

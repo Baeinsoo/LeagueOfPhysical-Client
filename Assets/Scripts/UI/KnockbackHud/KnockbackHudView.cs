@@ -3,7 +3,7 @@ using UnityEngine.UIElements;
 
 namespace LOP.UI
 {
-    /// <summary>남은 사람·원 안내(위 가운데)와 내 피해 %(왼쪽 위). 입력을 막지 않는다(모두 picking-mode Ignore).</summary>
+    /// <summary>남은 사람·원 안내(위 가운데)와 내 위험도 %(왼쪽 위). 입력을 막지 않는다(모두 picking-mode Ignore).</summary>
     public class KnockbackHudView : UIView
     {
         private readonly KnockbackHudViewModel viewModel;

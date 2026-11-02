@@ -6,7 +6,7 @@ using UnityEngine;
 namespace LOP.UI
 {
     /// <summary>
-    /// 넉백 판 정보 표시: 남은 사람, 원 안내 문구, 내 피해 %.
+    /// 넉백 판 정보 표시: 남은 사람, 원 안내 문구, 내 위험도 %.
     /// 시간 흐름은 <see cref="Tick"/>이 만든다 — 화면(View)이 매 프레임 불러 준다.
     /// </summary>
     public class KnockbackHudViewModel : IDisposable
@@ -46,7 +46,7 @@ namespace LOP.UI
         /// 원 안내 문구. 정수 틱 하나로 정한다. 다음 단계 공개는 앞 단계 축소가 끝나는 순간이라 단계 사이에 빈 틈은 없다.
         /// </summary>
         public static string ZoneTextFor(IReadOnlyList<ZoneStage> stages, long tick, float interval,
-                                         long firstRevealTick, int lastStageIndex)
+                                         long firstRevealTick, int lastStageIndex, bool hazardEdge = false)
         {
             ZoneStage? latest = null;
             for (int i = stages.Count - 1; i >= 0; i--)
@@ -60,9 +60,16 @@ namespace LOP.UI
             }
             var s = latest.Value;
             if (tick < s.shrinkStartTick) return $"원이 줄어들기까지 {SecondsLeft(s.shrinkStartTick - tick, interval)}초";
-            if (s.index >= lastStageIndex && lastStageIndex > 0) return "마지막 원";
+            if (s.index >= lastStageIndex && lastStageIndex > 0)
+            {
+                if (!hazardEdge) return "마지막 원";
+                // 마지막 축소가 끝난 뒤에는 바닥이 바깥부터 무너진다(서든데스).
+                if (tick >= s.shrinkEndTick) return "바닥이 무너집니다 — 가운데로!";
+                // 반지름이 0까지 가는 축소 중일 때만 "전부"가 사실이다.
+                if (s.toRadius <= 0f) return "마지막 — 전부 위험 지대";
+            }
             // 축소가 끝나도 다음 단계 메시지가 오기 전 한두 틱은 같은 문구 — 깜박이지 않게.
-            return "원이 줄어듭니다 — 바깥 칸이 무너져요";
+            return hazardEdge ? "원이 줄어듭니다 — 바깥은 위험 지대" : "원이 줄어듭니다 — 바깥 칸이 무너져요";
         }
 
         private static int SecondsLeft(long ticks, float interval)
@@ -98,7 +105,7 @@ namespace LOP.UI
                 double interval = tickUpdater.interval;
                 double renderTick = (tickUpdater.elapsedTime - interval) / interval;
                 zoneText.Value = ZoneTextFor(state.ZoneStages, (long)System.Math.Floor(renderTick), (float)interval,
-                                             FirstRevealTick(interval), config.ZoneStages.Count);
+                                             FirstRevealTick(interval), config.ZoneStages.Count, config.EdgeMode == 1);
             }
 
             string myId = gameDataStore?.userEntityId;

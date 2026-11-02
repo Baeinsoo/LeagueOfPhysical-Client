@@ -30,11 +30,19 @@ namespace LOP
                 throw new System.InvalidOperationException(
                     "TbKnockbackConfig id 1 이 없다 — TableFiles에 tbknockbackconfig가 있나");
             }
+            // 모르는 값이면 조용히 낭떠러지가 되어 클·서가 갈리지 않도록 소리 내서 알린다.
+            int edgeMode = r.EdgeMode;
+            if (edgeMode != 0 && edgeMode != 1)
+            {
+                UnityEngine.Debug.LogError($"TbKnockbackConfig edge_mode는 0(낭떠러지) 또는 1(위험 지대)이어야 한다: {edgeMode} — 낭떠러지로 처리한다");
+                edgeMode = 0;
+            }
             return new KnockbackConfig(r.MatchDurationSeconds, r.MoveSpeed, r.MoveGain, r.ArenaRadius,
                                        r.TileSize, r.HoleRadius, r.FallDepth, r.SpawnRadius,
                                        r.ShotSpeed, r.ShotRange, r.ShotRadius, r.HitRadius, r.AmmoMax, r.ReloadSeconds, r.FireCooldownSeconds, r.Recoil, r.DamagePerHit, r.KnockbackBase, r.KnockbackScale, r.KnockbackCarry, r.StunBase, r.StunScale, r.StunGain, r.BodyRestitution, r.ZoneFirstRevealSeconds,
                                        ZoneStages(),
-                                       new KnockbackPillarLayout(r.PillarCount, r.PillarRingRadius, r.PillarRadius, r.PillarHeight));
+                                       new KnockbackPillarLayout(r.PillarCount, r.PillarRingRadius, r.PillarRadius, r.PillarHeight),
+                                       edgeMode, r.HazardDamagePerSecond, r.HazardSpeedScale);
         }
 
         //  엑셀 줄이 옮겨져도 1단계부터 순서대로 나가도록 id로 정렬한다. 원 밖 피해는 이 모드에 없다(0).

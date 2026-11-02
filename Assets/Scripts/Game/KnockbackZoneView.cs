@@ -6,7 +6,7 @@ namespace LOP
 {
     /// <summary>
     /// 넉백 판의 원 그림: 지금 원은 빨간 고리(줄어드는 중엔 깜박임), 서버가 공개한 다음 원은 흰 고리.
-    /// 원 밖 칸은 바닥 쪽(<see cref="KnockbackFloorView"/>)에서 무너져 사라지므로 여기선 선만 긋는다.
+    /// 원 밖 칸의 모습(낭떠러지면 사라짐, 위험 지대면 색이 바뀜)은 바닥 쪽(<see cref="KnockbackFloorView"/>)이 그리므로 여기선 선만 긋는다.
     /// 그림일 뿐이라 콜라이더가 없다.
     /// </summary>
     public class KnockbackZoneView : ILateTickable, System.IDisposable

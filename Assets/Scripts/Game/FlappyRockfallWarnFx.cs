@@ -22,7 +22,7 @@ namespace LOP
     public class FlappyRockfallWarnFx : ITickable, IDisposable
     {
         /// <summary>떨어지기 몇 초 전부터 예고하나. 숨는 시간(0.24초)보다 길어 앞 바위가 바닥 근처일 때 시작한다 — 균열은 천장이라 겹쳐 보이지 않는다.
-        /// 0.45 → 0.7초(11-01 공정성 분석, 진짜 맵·판정, 위상 90° — Logs/rockfall-fairness/telegraph.txt): 예고 시작(낙하 0.70초 전)과
+        /// 0.45 → 0.7초(11-01 공정성 분석, 진짜 맵·판정, 당시 위상 90° — Logs/rockfall-fairness/telegraph.txt. 11-02 들쭉날쭉 표에서도 예고+0.2초 사각지대 ≈0%): 예고 시작(낙하 0.70초 전)과
         /// 예고를 보고 0.2초 뒤(0.50초 전) 모두, 모든 높이에서 이미 못 피하는 상태가 0%였다. 0.45초 예고 + 0.2초(0.24초 전)엔 천장 띠의 7.1%가 못 피했다.</summary>
         public const float WarnSeconds = 0.7f;
         /// <summary>그림용 바위가 비집고 나와 떠는 시간(떨어지기 직전 몇 초).</summary>
@@ -186,7 +186,7 @@ namespace LOP
 
         /// <summary>
         /// 우르르를 낼 줄 하나: 아직 나를 칠 수 있는 줄 중(<see cref="InRumbleRange"/>) 가장 앞쪽(x가 가장 작은) 줄. 없으면 -1.
-        /// 11-01 판정: 90°면 범위 안 줄들이 0.5초마다 번갈아 떨어져 우르르가 쉬지 않았다 — 바로 다음 줄만 울린다(그림은 모든 줄 그대로).
+        /// 11-01 판정: 당시 90° 표에선 범위 안 줄들이 0.5초마다 번갈아 떨어져 우르르가 쉬지 않았다 — 위상과 상관없이 바로 다음 줄만 울린다(그림은 모든 줄 그대로).
         /// </summary>
         internal static int NextRumbleRow(IReadOnlyList<float> rowXs, float birdX, float rowHalf)
         {

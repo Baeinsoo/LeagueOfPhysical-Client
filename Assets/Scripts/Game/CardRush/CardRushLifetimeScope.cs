@@ -79,6 +79,8 @@ namespace LOP
 
             //  조작판 — 화면 아무 데나 탭하면 잡기. 카드 자체는 매 프레임 PlayerInputManager.NextInputTick으로 그린다(spec §7.3).
             builder.Register<CardRushPadViewModel>(Lifetime.Transient);
+            //  Space 잡기는 틱 앞(ITickable)에서 읽는다 — 조작판 패널 스케줄러는 틱 뒤라 한 틱 늦다.
+            builder.RegisterEntryPoint<CardRushKeyboardGrab>().AsSelf();
             builder.Register<CardRushPadView>(Lifetime.Transient);
 
             //  정보 HUD(진행 막대·순위·기록 시간) — RaceHudViewModel/View는 Flappy와 그대로, 소스만 갈아 끼운다.

@@ -106,6 +106,9 @@ namespace LOP.Tests
             //  개인 기록(CardRushRecordReporter)이 쓴다 — 실제로는 GameplayInstaller가 준다.
             builder.RegisterInstance(new MatchStartState());
             builder.RegisterInstance(new MatchRecordSheet(() => (13, 17), new FakePersonalRecordStore()));
+            //  Space 잡기(CardRushKeyboardGrab)가 쓴다 — 실제로는 GameplayInstaller가 준다. 이 시험은 만들어지는지만 본다.
+            builder.RegisterInstance((PlayerInputManager)System.Runtime.Serialization.FormatterServices
+                .GetUninitializedObject(typeof(PlayerInputManager)));
 
             typeof(CardRushLifetimeScope).GetMethod("ConfigureGame", BindingFlags.Instance | BindingFlags.NonPublic)
                 .Invoke(scope, new object[] { builder });
@@ -126,6 +129,11 @@ namespace LOP.Tests
             //  소리·몸개그. IFlappyAudio(RaceHud·RaceFinish가 부름)는 빈 구현이 아니라 진짜 소리 하나와 같은 것.
             Assert.IsNotNull(container.Resolve(typeof(CardRushRunnerFxView)));
             Assert.IsNotNull(container.Resolve(typeof(CardRushRecordReporter)), "개인 기록(완주 시간·연속 정타 최고)이 닿는다");
+            //  Space 잡기는 ITickable(틱 앞)이어야 한다 — 틱 뒤 단계로 옮기면 탭이 한 틱 늦게 붙는다(최종 리뷰 I5).
+            var keyboard = container.Resolve(typeof(CardRushKeyboardGrab));
+            Assert.IsInstanceOf<VContainer.Unity.ITickable>(keyboard);
+            Assert.IsNotInstanceOf<VContainer.Unity.IPostTickable>(keyboard);
+            Assert.IsNotInstanceOf<VContainer.Unity.ILateTickable>(keyboard);
             Assert.IsInstanceOf<CardRushAudio>(container.Resolve(typeof(IFlappyAudio)));
             Assert.AreSame(container.Resolve(typeof(CardRushAudio)), container.Resolve(typeof(IFlappyAudio)), "소리 주인은 하나");
 
@@ -143,7 +151,8 @@ namespace LOP.Tests
             var registry = new GameFramework.World.EntityRegistry();
             var store = new FakeGameDataStore { userEntityId = "me" };
             var context = new PlayerContext();
-            var creator = new CardRushRunnerCreator(store, context, registry);
+            //  규칙이 아직 없으면(맵보다 몸이 먼저 오는 비정상 순서) 받은 자리를 그대로 쓴다.
+            var creator = new CardRushRunnerCreator(store, context, registry, new CardRushMapRulesField());
 
             creator.Create(new CharacterCreationData { entityId = "me", position = new Vector3(5.2f, 0f, 1f), visualId = "v", maxHP = 100000, currentHP = 100000 });
             creator.Create(new CharacterCreationData { entityId = "other", position = new Vector3(7.8f, 0f, 1f), visualId = "v", maxHP = 100000, currentHP = 100000 });
@@ -161,5 +170,24 @@ namespace LOP.Tests
             Assert.AreEqual("me", context.entityId, "내 몸이면 손잡이를 잡는다");
             Assert.AreEqual(new Vector3(7.8f, 0f, 1f), registry.Get("other").Get<CardRushRunner>().LaneOrigin);
         }
-    }
+    
+        //  최종 리뷰 I1: 판 도중 다시 들어오면 GameInfo가 몸의 "지금" 자리(칸 20)를 싣는다. 그걸 레인 출발점으로 잡으면
+        //  WritePose가 출발점 + 20칸 + 20칸 자리에 세워 스냅마다 되감긴다 — 출발점은 규칙의 레인 출발점이어야 한다.
+        [Test]
+        public void 재접속해_판_중간_자리로_생겨도_레인_출발점은_출발선()
+        {
+            var rules = new CardRushMapRulesField();
+            rules.Set(CardRushTheme.StoneBridge, 40, 2.2f, 2.6f, CardRushSections.Default, new Vector3(10f, 0f, 5f), Vector3.right);
+            var registry = new GameFramework.World.EntityRegistry();
+            var creator = new CardRushRunnerCreator(new FakeGameDataStore { userEntityId = "me" }, new PlayerContext(), registry, rules);
+
+            var atStep20 = rules.LaneOrigin(3) + Vector3.right * (2.2f * 20f);
+            var midMove = rules.LaneOrigin(6) + Vector3.right * (2.2f * 7.5f) + Vector3.up * 0.3f;
+            creator.Create(new CharacterCreationData { entityId = "me", position = atStep20, visualId = "v", maxHP = 100000, currentHP = 100000 });
+            creator.Create(new CharacterCreationData { entityId = "other", position = midMove, visualId = "v", maxHP = 100000, currentHP = 100000 });
+
+            Assert.AreEqual(0f, Vector3.Distance(rules.LaneOrigin(3), registry.Get("me").Get<CardRushRunner>().LaneOrigin), 1e-4f, "칸 20 자리 → 레인 3 출발점");
+            Assert.AreEqual(0f, Vector3.Distance(rules.LaneOrigin(6), registry.Get("other").Get<CardRushRunner>().LaneOrigin), 1e-4f, "이동 중 자리 → 레인 6 출발점");
+        }
+}
 }

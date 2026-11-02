@@ -41,6 +41,19 @@ namespace LOP
         /// 그림 틱에 칸 k를 이미 건넜나. 맞힌 칸이라도 그 칸으로 가는 이동이 그림 틱에 아직 안 끝났으면 아니다 —
         /// 남의 상태는 최신 스냅이라 그려지는 몸보다 앞서 있다(그림 틱이 이동 시작 전이어도 아직 안 건넌 것으로 본다).
         /// </summary>
+        /// <summary>
+        /// 그림 틱의 칸 단위 진행. 남의 상태는 최신 스냅이라 그려지는 몸보다 앞선다 — 그림 틱이 이동 시작 전이면 아직
+        /// 앞 칸에 서 있다(<see cref="CardRushLanes.Progress"/>는 그때 새 칸을 돌려줘 한 칸 앞섰다가 되돌아간다, 최종 리뷰 M1).
+        /// </summary>
+        public static float DrawnProgress(in CardRushRunnerState s, long drawnTick, int moveTicks)
+        {
+            if (s.MoveStartTick != 0 && drawnTick < s.MoveStartTick)
+            {
+                return System.Math.Max(0, s.Step - 1);
+            }
+            return CardRushLanes.Progress(s, drawnTick, moveTicks);
+        }
+
         public static bool IsPassed(in CardRushRunnerState s, long drawnTick, int moveTicks, int step)
         {
             if (step >= s.Step)
@@ -628,7 +641,7 @@ namespace LOP
             var runner = string.IsNullOrEmpty(id) ? null : entityRegistry.Get(id)?.Get<CardRushRunner>();
             return runner == null
                 ? float.NaN
-                : CardRushLanes.Progress(runner.State, renderClock.TickFor(id), world.Timing.MoveTicks);
+                : CardRushCourseLayout.DrawnProgress(runner.State, renderClock.TickFor(id), world.Timing.MoveTicks);
         }
 
         private void ClearLanes()

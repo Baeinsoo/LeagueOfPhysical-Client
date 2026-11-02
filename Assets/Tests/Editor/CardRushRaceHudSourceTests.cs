@@ -117,5 +117,18 @@ namespace LOP.Tests
             Assert.AreEqual(40f, frame.FinishX, 1e-5f);
             Assert.IsTrue(frame.HasCourse);
         }
-    }
+    
+        //  최종 리뷰 M1: 남의 상태는 최신 스냅이라 그려지는 몸(보간 틱)보다 앞선다. 그림 틱이 이동 시작 전이면 아직 앞 칸에
+        //  서 있다 — 새 칸을 먼저 보여 줬다가 이동 시작 틱에 한 칸 물러서면 진행 막대 점이 튄다.
+        [Test]
+        public void 그림_틱이_이동_시작_전이면_앞_칸()
+        {
+            registry.Add(Runner("x", step: 5, moveStartTick: 1005));   //  그림 틱 1000 < 이동 시작 1005
+
+            var frame = new RaceHudFrame();
+            source.Fill(frame);
+
+            Assert.AreEqual(4f, Find(frame, "x").X, 1e-5f);
+        }
+}
 }

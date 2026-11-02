@@ -99,6 +99,49 @@ namespace LOP.Tests
             Assert.IsFalse(SentFor(501).Grab);
         }
 
+        //  최종 리뷰 I5: 한 프레임 = [VContainer ITickable(Space 읽기)] → [틱 코루틴] → [패널 스케줄러(카드 그림)].
+        //  지난 프레임 카드가 보여 준 틱(NextInputTick)에 탭이 실려야 한다.
+        [Test]
+        public void 스페이스는_카드가_보여_준_틱에_실린다()
+        {
+            clock.tick = 500;
+            long shown = input.NextInputTick;   //  지난 프레임 끝 패널 스케줄러가 이 틱의 색을 그렸다
+
+            bool pressed = true;
+            var keyboard = new CardRushKeyboardGrab(input, () => pressed);
+            keyboard.Tick();     //  이번 프레임 Update 앞
+            pressed = false;
+            RunTick(500);        //  이번 프레임 틱 코루틴
+
+            Assert.IsTrue(history.TryGet(shown, out var cmd) && cmd.Grab, "본 틱에 잡기가 실린다");
+            Assert.IsTrue(history.TryGet(501, out var none) == false || none.Grab == false);
+        }
+
+        //  위 시험의 전제 — Unity 기본 플레이어 루프에서 Update(코루틴 포함)가 UI Toolkit 패널 갱신(스케줄러)보다 앞이고,
+        //  코루틴(ScriptRunDelayedDynamicFrameRate)이 ScriptRunBehaviourUpdate(그 앞에 VContainer가 ITickable을 끼운다) 뒤다.
+        [Test]
+        public void 플레이어_루프는_업데이트_코루틴_패널_순서()
+        {
+            var loop = UnityEngine.LowLevel.PlayerLoop.GetDefaultPlayerLoop();
+            int Phase(System.Type sub)
+            {
+                for (int i = 0; i < loop.subSystemList.Length; i++)
+                {
+                    var list = loop.subSystemList[i].subSystemList;
+                    if (list != null && list.Any(s => s.type == sub)) return i;
+                }
+                return -1;
+            }
+            int Index(System.Type phase, System.Type sub)
+                => System.Array.FindIndex(loop.subSystemList.Single(p => p.type == phase).subSystemList, s => s.type == sub);
+
+            var update = typeof(UnityEngine.PlayerLoop.Update);
+            Assert.Less(Index(update, typeof(UnityEngine.PlayerLoop.Update.ScriptRunBehaviourUpdate)),
+                        Index(update, typeof(UnityEngine.PlayerLoop.Update.ScriptRunDelayedDynamicFrameRate)));
+            Assert.Less(Phase(typeof(UnityEngine.PlayerLoop.Update.ScriptRunDelayedDynamicFrameRate)),
+                        Phase(typeof(UnityEngine.PlayerLoop.PreLateUpdate.UIElementsUpdatePanels)));
+        }
+
         [Test]
         public void 다음_입력_틱은_방금_단_틱_다음()
         {

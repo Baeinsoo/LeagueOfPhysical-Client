@@ -27,7 +27,6 @@ namespace LOP.UI
         private readonly List<Label> _chipGlyphs = new List<Label>();
 
         private bool _lastFaceUp;
-        private CardColor _lastColor;
         private int _lastStreak;
 
         private IVisualElementScheduledItem _tick;
@@ -66,19 +65,29 @@ namespace LOP.UI
             }
 
             _lastFaceUp = false;
-            _lastColor = default;
             _lastStreak = -1;
 
-            // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 돈다(FlapPadView와 같다).
-            _tick = Root.schedule.Execute(_ =>
-            {
-                _viewModel.PollKeyboard();
-                Refresh();
-            }).Every(0);
+            // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 그린다(FlapPadView와 같다).
+            // Space 키는 여기서 읽지 않는다: 이 스케줄러는 틱 코루틴 뒤(PreLateUpdate)에 돌아 탭이 한 틱 늦게 붙는다.
+            // 키는 CardRushKeyboardGrab(틱 앞)이 읽는다(최종 리뷰 I5).
+            _tick = Root.schedule.Execute(_ => Refresh()).Every(0);
         }
 
         private void Refresh()
         {
+            if (TryComputeFace(out var face))
+            {
+                Draw(face);
+            }
+        }
+
+        /// <summary>
+        /// 지금 그릴 카드. 그림 틱은 반드시 <see cref="PlayerInputManager.NextInputTick"/> — 지금 누르면 판정될 틱이다
+        /// (보간 틱으로 그리면 색 경계에서 본 색과 판정 색이 갈린다, spec §7.3).
+        /// </summary>
+        public bool TryComputeFace(out CardRushCardFace face)
+        {
+            face = default;
             var entity = string.IsNullOrEmpty(_gameDataStore.userEntityId)
                 ? null
                 : _entityRegistry.Get(_gameDataStore.userEntityId);
@@ -86,18 +95,22 @@ namespace LOP.UI
             var course = _world.Course;
             if (runner == null || course == null)
             {
-                return;
+                return false;
             }
 
-            var face = CardRushCardHudModel.Compute(runner.State, _input.NextInputTick, _world.GameplayStartTick,
-                                                      course, _world.Timing.MoveTicks);
-            Draw(face);
+            face = CardRushCardHudModel.Compute(runner.State, _input.NextInputTick, _world.GameplayStartTick,
+                                                 course, _world.Timing.MoveTicks);
+            return true;
         }
+
+        /// <summary>넘김은 뒷면 → 앞면에서만(spec §7.3). 앞면인 채 색만 바뀔 때 접으면 새 색이 보이는 첫 순간을 가린다(최종 리뷰 M2).</summary>
+        public static bool ShouldFlip(bool lastFaceUp, in CardRushCardFace face)
+            => face.FaceUp && lastFaceUp == false;
 
         private void Draw(CardRushCardFace face)
         {
-            //  색이 바뀐 뒤에 넘김을 붙인다 — 색 표시를 늦추지 않는다(spec §7.3).
-            bool colorChanged = face.FaceUp && (_lastFaceUp == false || face.Color != _lastColor);
+            //  색을 먼저 바꾸고 넘김을 붙인다 — 색 표시를 늦추지 않는다(spec §7.3).
+            bool flip = ShouldFlip(_lastFaceUp, face);
 
             _card.EnableInClassList(BackClass, face.FaceUp == false);
             if (face.FaceUp)
@@ -106,12 +119,11 @@ namespace LOP.UI
                 _glyph.text = GlyphOf(face.Color);
             }
 
-            if (colorChanged)
+            if (flip)
             {
                 Flip(_card);
             }
             _lastFaceUp = face.FaceUp;
-            _lastColor = face.Color;
 
             for (int i = 0; i < _chips.Count; i++)
             {

@@ -12,7 +12,7 @@ namespace LOP
 {
     /// <summary>
     /// 카드 러시 인게임 화면을 여닫는다(<see cref="FlappyHudCoordinator"/>와 같은 흐름). 내 몸이 생기면 조작판·정보 HUD·
-    /// 카운트다운을 열고, 내가 완주하면 조작판을 닫고 "완주"와 관전 조작면을 띄운다.
+    /// 카운트다운을 열고, 서버가 내 완주를 확정하면(등수가 오면) 조작판을 닫고 "완주"와 관전 조작면을 띄운다.
     /// 매 틱 관전 대상을 새로 고른다 — 카메라(<see cref="CardRushCamera"/>)가 그 답을 읽어 따라간다(SetTarget을 안 쓴다).
     /// </summary>
     public class CardRushHudCoordinator : MessageHandlerBase, ITickable
@@ -75,12 +75,14 @@ namespace LOP
             UpdateFinish();
         }
 
-        //  내 몸의 완주는 시뮬이 안다(내 몸만 굴린다). 등수는 스냅으로 조금 늦게 오므로 화면을 먼저 띄우고
-        //  숫자는 뷰가 오는 대로 채운다(Flappy와 같다).
+        //  예측한 완주로는 닫지 않는다(최종 리뷰 I2) — 마지막 탭이 서버에 늦게 닿아 버려지면 보정이 완주를 되돌리는데,
+        //  그때 조작판이 없으면 그 판에서 다시 누를 길이 없다. 서버 등수(FinishPlacement &gt; 0)가 와야 닫는다.
+        //  카드 러시는 마지막 입력이 정확히 탭 하나라 Flappy보다 이 경로가 잦다. 대가는 완주 화면이 스냅 지연만큼 늦는 것.
         private void UpdateFinish()
         {
             var mine = entityRegistry.Get(gameDataStore.userEntityId);
-            bool finished = mine?.Get<FinishState>()?.Finished == true;
+            bool finished = mine?.Get<FinishState>()?.Finished == true
+                && (mine.Get<FinishPlacement>()?.Value ?? 0) > 0;
             if (ShouldEnterFinish(_matchEnded, _pad != null, finished) == false)
             {
                 return;

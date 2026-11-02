@@ -1,5 +1,3 @@
-using UnityEngine.InputSystem;
-
 namespace LOP.UI
 {
     /// <summary>
@@ -20,21 +18,6 @@ namespace LOP.UI
         public void Grab()
         {
             _playerInputManager.SetGrab();
-        }
-
-        /// <summary>데스크톱 편의: Space로 잡기. View가 매 프레임 부른다.</summary>
-        public void PollKeyboard()
-        {
-            var keyboard = Keyboard.current;
-            if (keyboard == null)
-            {
-                return;
-            }
-
-            if (keyboard.spaceKey.wasPressedThisFrame)
-            {
-                Grab();
-            }
         }
     }
 }

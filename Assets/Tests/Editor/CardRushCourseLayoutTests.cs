@@ -289,6 +289,19 @@ namespace LOP.Tests
             Assert.AreEqual(9f * 1.35f, CardRushCamera.DistanceFor(1080, 1920), Eps, "세로 화면은 멀리");
         }
 
+        // ── 그림 진행(최종 리뷰 M1) ─────────────────────────
+
+        [Test]
+        public void 그림_진행은_이동_시작_전이면_앞_칸이고_그_뒤로는_고르게_간다()
+        {
+            var s = new CardRushRunnerState { Step = 5, MoveStartTick = 1000 };
+            Assert.AreEqual(4f, CardRushCourseLayout.DrawnProgress(s, 995, 20), Eps, "스냅이 앞서 와도 그림 틱엔 아직 칸 4");
+            Assert.AreEqual(4f, CardRushCourseLayout.DrawnProgress(s, 1000, 20), Eps);
+            Assert.AreEqual(4.5f, CardRushCourseLayout.DrawnProgress(s, 1010, 20), Eps);
+            Assert.AreEqual(5f, CardRushCourseLayout.DrawnProgress(s, 1020, 20), Eps);
+            Assert.AreEqual(0f, CardRushCourseLayout.DrawnProgress(new CardRushRunnerState(), 995, 20), Eps, "아직 한 칸도 안 맞혔다");
+        }
+
         // ── 남의 몸 상태 적용(Task 8 리뷰에서 넘어온 빈칸) ────
 
         [Test]

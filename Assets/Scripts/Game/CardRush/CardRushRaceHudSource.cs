@@ -64,7 +64,7 @@ namespace LOP
 
                 bool mine = entity.Id == frame.MyId;
                 long tick = _renderClock.TickFor(entity.Id);
-                float x = CardRushLanes.Progress(runner.State, tick, moveTicks);
+                float x = CardRushCourseLayout.DrawnProgress(runner.State, tick, moveTicks);
                 int placement = entity.Get<FinishPlacement>()?.Value ?? 0;
                 frame.Birds.Add(new RaceBirdSample(entity.Id, placement, x));
 

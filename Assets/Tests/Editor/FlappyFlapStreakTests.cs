@@ -178,16 +178,65 @@ namespace LOP.Tests
             Assert.AreEqual(-1, BeatAt(201).Tier);
         }
 
+        private int StepBeats(int count) => beats.FindAll(b => b.Count == count && b.Tier >= 0).Count;
+
         [Test]
-        public void 되감기_교정으로_다시_오른_걸음은_한_번만_알린다()
+        public void 교정으로_내려갔다_다시_오른_걸음은_한_번만_알린다()
         {
-            //  교정이 크게 뛰면 조용히 따르고(FlapStreak), 그 뒤 새로 오른 걸음만 하나씩 — 20이 두 번 뜨지 않는다.
-            Climb(19);
-            combo.Count = 25;   //  서버 교정(크게 뜀) — 20을 건너뛰었다
+            //  리뷰 A1 — 20에서 알리고, 서버 교정으로 19가 됐다가 다시 20이 돼도 한마디·화음·대시+는 한 번(게이지도 한 번 들어갔다).
+            Climb(20);
+            combo.Count = 19;
             streak.Tick();
-            Climb(30);
-            Assert.AreEqual(0, beats.FindAll(b => b.Count == 20).Count, "교정 안에서 지나간 걸음은 띄우지 않는다");
-            Assert.AreEqual(1, beats.FindAll(b => b.Count == 30).Count);
+            Climb(20);
+
+            Assert.AreEqual(1, StepBeats(20));
+            Assert.AreEqual(0, crashes, "20 → 19는 끊김이 아니다");
+        }
+
+        [Test]
+        public void 교정이_걸음을_건너뛰면_넘은_가장_높은_걸음을_한_번_알린다()
+        {
+            //  리뷰 A2 — 19에서 교정으로 25가 되면 시뮬은 20에서 게이지를 줬다 — 20을 한 번 알린다. 여러 걸음을 넘으면 가장 높은 것 하나만.
+            Climb(19);
+            combo.Count = 25;
+            streak.Tick();
+            Assert.AreEqual(1, beats.FindAll(b => b.Tier >= 0 && b.Count > 10).Count, "10 뒤로는 20 하나");
+            Assert.AreEqual(1, StepBeats(20));
+
+            combo.Count = 47;   //  30·40을 넘었다 — 40만
+            streak.Tick();
+            Assert.AreEqual(0, StepBeats(30));
+            Assert.AreEqual(1, StepBeats(40));
+            Assert.AreEqual(1, beats.FindAll(b => b.Tier >= 0 && b.Count == 40 && b.DashGain).Count, "게이지도 줬다");
+
+            Climb(50);
+            Assert.AreEqual(1, StepBeats(50), "그 뒤 걸음은 평소대로");
+        }
+
+        [Test]
+        public void 진짜로_끊기면_같은_걸음을_다시_알린다()
+        {
+            Climb(10);
+            stun.StunRemaining = 0.8f;
+            combo.Count = 0;
+            streak.Tick();
+            stun.StunRemaining = 0f;
+            Climb(10);
+
+            Assert.AreEqual(2, StepBeats(10), "기절 → 0 → 다시 10");
+        }
+
+        [Test]
+        public void 처음_본_장의_수까지는_알리지_않는다()
+        {
+            //  재접속으로 이미 30 — 30을 알리지 않고, 다음 걸음 40부터.
+            combo.Count = 30;
+            streak = Make();
+            streak.Tick();
+            Climb(40);
+
+            Assert.AreEqual(0, StepBeats(30));
+            Assert.AreEqual(1, StepBeats(40));
         }
 
         [Test]

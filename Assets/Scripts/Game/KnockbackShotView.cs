@@ -17,6 +17,9 @@ namespace LOP
         private const float TrailSeconds = 0.18f;
         private const float TrailWidthRatio = 0.8f;
         private const float TrailHeadAlpha = 0.6f;
+        public const float FadeSeconds = 0.12f;
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int ColorId = Shader.PropertyToID("_Color");
 
         private readonly GameFramework.Runner.IRunner runner;
         private readonly KnockbackWorld world;
@@ -24,6 +27,7 @@ namespace LOP
         private readonly ActorRegistry actors;
         private readonly KnockbackClientState state;
         private readonly KnockbackPillars pillars;
+        private readonly IPlayerContext playerContext;
 
         private readonly Dictionary<(string shooterId, long fireTick), GameObject> spheres =
             new Dictionary<(string, long), GameObject>();
@@ -38,13 +42,26 @@ namespace LOP
         private readonly Dictionary<(string, long), float> firstSeenSeconds = new Dictionary<(string, long), float>();
         private readonly Vector3[] trailPoints = new Vector3[2];
         private Material trailMaterial;
+        private Material fadeMaterial;
+        private readonly MaterialPropertyBlock fadeBlock = new MaterialPropertyBlock();
+
+        //  내 탄이 목록에서 빠지면 바로 지우지 않고 0.12초 동안 작아지며 흐려진다.
+        private class Fading
+        {
+            public GameObject go;
+            public Renderer renderer;
+            public float startedAt;
+        }
+        private readonly Dictionary<(string, long), Fading> fading = new Dictionary<(string, long), Fading>();
+        private readonly List<(string, long)> fadeDone = new List<(string, long)>();
 
         private Material material;
         private Transform root;
         private KnockbackLateUpdateDriver driver;
 
         public KnockbackShotView(GameFramework.Runner.IRunner runner, KnockbackWorld world, KnockbackConfig config,
-                                 ActorRegistry actors, KnockbackClientState state, KnockbackPillars pillars)
+                                 ActorRegistry actors, KnockbackClientState state, KnockbackPillars pillars,
+                                 IPlayerContext playerContext)
         {
             this.runner = runner;
             this.world = world;
@@ -52,6 +69,7 @@ namespace LOP
             this.actors = actors;
             this.state = state;
             this.pillars = pillars;
+            this.playerContext = playerContext;
         }
 
         // 남의 그려진 몸 자리를 읽으므로 보간기 뒤(3100)에서 돈다.
@@ -114,7 +132,12 @@ namespace LOP
             {
                 if (!alive.Contains(key)) scratch.Add(key);
             }
-            for (int i = 0; i < scratch.Count; i++) Release(scratch[i]);
+            for (int i = 0; i < scratch.Count; i++)
+            {
+                if (hidden.Contains(scratch[i]) == false && scratch[i].Item1 == playerContext.entityId) StartFade(scratch[i]);
+                else Release(scratch[i]);
+            }
+            UpdateFades();
             hidden.RemoveWhere(k => !alive.Contains(k));
 
             scratch.Clear();
@@ -225,6 +248,8 @@ namespace LOP
             material = new Material(Shader.Find("Universal Render Pipeline/Unlit")) { color = Color.white };
             // 선의 점 색(알파)을 그대로 쓰는 셰이더라야 꼬리가 흐려진다 — Lit은 알파를 무시한다.
             trailMaterial = new Material(Shader.Find("Sprites/Default"));
+            // 사라지는 연출용 — 알파 혼합이 되는 재질(스프라이트 셰이더는 처음부터 알파 혼합이다).
+            fadeMaterial = new Material(Shader.Find("Sprites/Default")) { color = Color.white };
         }
 
         private GameObject Rent()
@@ -284,6 +309,52 @@ namespace LOP
             }
         }
 
+        /// <summary>사라지는 연출의 진행. 0.12초 동안 크기와 불투명도가 1에서 0으로 줄어든다.</summary>
+        public static float FadeRemaining(float elapsedSeconds) => 1f - Mathf.Clamp01(elapsedSeconds / FadeSeconds);
+
+        private void StartFade((string, long) key)
+        {
+            ReleaseTrail(key);
+            if (!spheres.TryGetValue(key, out var go)) return;
+            spheres.Remove(key);
+            var f = new Fading { go = go, renderer = go.GetComponent<Renderer>(), startedAt = Time.unscaledTime };
+            f.renderer.sharedMaterial = fadeMaterial;
+            fading[key] = f;
+        }
+
+        private void UpdateFades()
+        {
+            if (fading.Count == 0) return;
+            fadeDone.Clear();
+            foreach (var pair in fading)
+            {
+                float remaining = FadeRemaining(Time.unscaledTime - pair.Value.startedAt);
+                if (remaining <= 0f) { fadeDone.Add(pair.Key); continue; }
+                pair.Value.go.transform.localScale = Vector3.one * (Diameter * remaining);
+                var c = Color.white;
+                c.a = remaining;
+                pair.Value.renderer.GetPropertyBlock(fadeBlock);
+                fadeBlock.SetColor(BaseColorId, c);
+                fadeBlock.SetColor(ColorId, c);
+                pair.Value.renderer.SetPropertyBlock(fadeBlock);
+            }
+            for (int i = 0; i < fadeDone.Count; i++)
+            {
+                var f = fading[fadeDone[i]];
+                fading.Remove(fadeDone[i]);
+                EndFade(f);
+            }
+        }
+
+        private void EndFade(Fading f)
+        {
+            f.renderer.sharedMaterial = material;
+            f.renderer.SetPropertyBlock(null);
+            f.go.transform.localScale = Vector3.one * Diameter;
+            f.go.SetActive(false);
+            pool.Push(f.go);
+        }
+
         private void Release((string, long) key)
         {
             ReleaseTrail(key);
@@ -301,6 +372,7 @@ namespace LOP
             if (root != null) Object.Destroy(root.gameObject);
             if (material != null) Object.Destroy(material);
             if (trailMaterial != null) Object.Destroy(trailMaterial);
+            if (fadeMaterial != null) Object.Destroy(fadeMaterial);
         }
     }
 }

@@ -97,5 +97,14 @@ namespace LOP.Tests
             Assert.AreEqual(Muzzle.x + Range, head.x, 1e-3f);
             Assert.AreEqual(head.x, tail.x, 1e-3f);
         }
+
+        [TestCase(0f, 1f)]
+        [TestCase(0.06f, 0.5f)]
+        [TestCase(0.12f, 0f)]
+        [TestCase(1f, 0f)]
+        public void 사라지는_연출은_0점12초에_걸쳐_줄어든다(float elapsed, float expected)
+        {
+            Assert.AreEqual(expected, KnockbackShotView.FadeRemaining(elapsed), 1e-4f);
+        }
     }
 }

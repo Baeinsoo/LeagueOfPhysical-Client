@@ -70,15 +70,25 @@ namespace LOP.UI
             }
         }
 
-        /// <summary>내 몸이 맞아서 날아가는 중인가. 이동·발사 입력은 월드가 버리니 화면도 쏜 것처럼 보이지 않게 한다.</summary>
+        /// <summary>내 몸이 맞아서 날아가는 중이거나 바닥에 서 있지 않은가. 이동·발사 입력은 월드가 버리니 화면도 쏜 것처럼 보이지 않게 한다.</summary>
         public bool IsStunned
         {
             get
             {
-                var body = string.IsNullOrEmpty(playerContext.entityId) ? null : entityRegistry.Get(playerContext.entityId)?.Get<KnockbackBody>();
-                return body != null && runner?.tickUpdater != null && IsStunnedAt(runner.tickUpdater.tick, body.KnockbackEndTick);
+                var entity = string.IsNullOrEmpty(playerContext.entityId) ? null : entityRegistry.Get(playerContext.entityId);
+                var body = entity?.Get<KnockbackBody>();
+                if (body == null || runner?.tickUpdater == null)
+                {
+                    return false;
+                }
+                var ground = entity.Get<GameFramework.World.GroundState>();
+                return CannotAct(runner.tickUpdater.tick, body.KnockbackEndTick, ground == null || ground.IsGrounded);
             }
         }
+
+        /// <summary>날려지는 중이거나 떨어지는 중이면 행동 불가 — 월드의 발사 가드와 같은 기준.</summary>
+        public static bool CannotAct(long tick, long knockbackEndTick, bool grounded)
+            => IsStunnedAt(tick, knockbackEndTick) || !grounded;
 
         /// <summary>날림 끝 틱 전이면 true(끝나는 그 틱부터는 다시 쏠 수 있다 — 월드와 같은 기준).</summary>
         public static bool IsStunnedAt(long tick, long knockbackEndTick) => tick < knockbackEndTick;

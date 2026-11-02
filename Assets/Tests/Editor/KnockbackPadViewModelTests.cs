@@ -15,6 +15,15 @@ namespace LOP.Tests
             Assert.AreEqual(expected, LOP.UI.KnockbackPadViewModel.IsStunnedAt(tick, endTick));
         }
 
+        [TestCase(5L, 10L, true, true)]
+        [TestCase(10L, 10L, true, false)]
+        [TestCase(10L, 10L, false, true)]
+        [TestCase(5L, 10L, false, true)]
+        public void 날림_중이거나_떨어지는_중이면_행동_불가(long tick, long endTick, bool grounded, bool expected)
+        {
+            Assert.AreEqual(expected, LOP.UI.KnockbackPadViewModel.CannotAct(tick, endTick, grounded));
+        }
+
         [Test]
         public void 키보드_대각선은_길이_1()
         {

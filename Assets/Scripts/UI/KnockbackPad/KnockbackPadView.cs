@@ -14,6 +14,7 @@ namespace LOP.UI
         private const float StickRadius = 80f;
         // 발사 버튼을 끌 때 끝까지 끈 것으로 치는 거리(px).
         private const float FireDragRadius = 90f;
+        private const float StunnedFireOpacity = 0.35f;
 
         private readonly KnockbackPadViewModel _viewModel;
 
@@ -78,6 +79,8 @@ namespace LOP.UI
 
             PollDesktopFire();
             _viewModel.UpdateAim(_firePointer != -1, Time.unscaledTime - _fireDownTime, _fireMaxDrag01, _fireDrag);
+            // 날아가는 동안엔 못 쏜다는 걸 버튼이 흐려져서 알려 준다.
+            _fireButton.style.opacity = _viewModel.IsStunned ? StunnedFireOpacity : 1f;
             UpdateAmmoBar();
         }
 

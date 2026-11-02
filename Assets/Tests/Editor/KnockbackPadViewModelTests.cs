@@ -5,6 +5,25 @@ namespace LOP.Tests
 {
     public class KnockbackPadViewModelTests
     {
+        [TestCase(5L, 10L, true)]
+        [TestCase(9L, 10L, true)]
+        [TestCase(10L, 10L, false)]
+        [TestCase(11L, 10L, false)]
+        [TestCase(0L, long.MinValue, false)]
+        public void 날림_중인지는_끝_틱_전만(long tick, long endTick, bool expected)
+        {
+            Assert.AreEqual(expected, LOP.UI.KnockbackPadViewModel.IsStunnedAt(tick, endTick));
+        }
+
+        [TestCase(5L, 10L, true, true)]
+        [TestCase(10L, 10L, true, false)]
+        [TestCase(10L, 10L, false, true)]
+        [TestCase(5L, 10L, false, true)]
+        public void 날림_중이거나_떨어지는_중이면_행동_불가(long tick, long endTick, bool grounded, bool expected)
+        {
+            Assert.AreEqual(expected, LOP.UI.KnockbackPadViewModel.CannotAct(tick, endTick, grounded));
+        }
+
         [Test]
         public void 키보드_대각선은_길이_1()
         {

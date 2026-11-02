@@ -70,6 +70,29 @@ namespace LOP.UI
             }
         }
 
+        /// <summary>내 몸이 맞아서 날아가는 중이거나 바닥에 서 있지 않은가. 이동·발사 입력은 월드가 버리니 화면도 쏜 것처럼 보이지 않게 한다.</summary>
+        public bool IsStunned
+        {
+            get
+            {
+                var entity = string.IsNullOrEmpty(playerContext.entityId) ? null : entityRegistry.Get(playerContext.entityId);
+                var body = entity?.Get<KnockbackBody>();
+                if (body == null || runner?.tickUpdater == null)
+                {
+                    return false;
+                }
+                var ground = entity.Get<GameFramework.World.GroundState>();
+                return CannotAct(runner.tickUpdater.tick, body.KnockbackEndTick, ground == null || ground.IsGrounded);
+            }
+        }
+
+        /// <summary>날려지는 중이거나 떨어지는 중이면 행동 불가 — 월드의 발사 가드와 같은 기준.</summary>
+        public static bool CannotAct(long tick, long knockbackEndTick, bool grounded)
+            => IsStunnedAt(tick, knockbackEndTick) || !grounded;
+
+        /// <summary>날림 끝 틱 전이면 true(끝나는 그 틱부터는 다시 쏠 수 있다 — 월드와 같은 기준).</summary>
+        public static bool IsStunnedAt(long tick, long knockbackEndTick) => tick < knockbackEndTick;
+
         /// <summary>방향 스틱. −1~1로 정규화된 값이 들어온다. 0을 넘겨야 몸이 선다(held 모델).</summary>
         public void Move(Vector2 stick)
         {
@@ -96,7 +119,7 @@ namespace LOP.UI
         public void FireTowardScreenDirection(Vector2 drag)
         {
             float? yaw = AimYaw(drag, cameraController.MainCamera.transform.eulerAngles.y);
-            if (yaw.HasValue)
+            if (yaw.HasValue && !IsStunned)
             {
                 input.SetFire(yaw.Value);
             }
@@ -126,7 +149,7 @@ namespace LOP.UI
         /// <summary>가장 가까운 살아 있는 적의 그려진 자리로 쏜다. 적이 없으면 아무 일도 없다.</summary>
         public bool FireAuto()
         {
-            if (!TryFindAutoTarget(out var me, out var target))
+            if (IsStunned || !TryFindAutoTarget(out var me, out var target))
             {
                 return false;
             }
@@ -171,7 +194,7 @@ namespace LOP.UI
         public void UpdateAim(bool held, float heldSeconds, float maxDrag01, Vector2 drag)
         {
             var camera = cameraController.MainCamera;
-            if (!held || camera == null)
+            if (!held || camera == null || IsStunned)
             {
                 previousOutcome = ReleaseOutcome.Nothing;
                 aimState.Clear();
@@ -248,7 +271,7 @@ namespace LOP.UI
         public void FireAtGroundPoint(Vector2 screenPosition)
         {
             var camera = cameraController.MainCamera;
-            if (camera == null || !TryGetMyPosition(out var me))
+            if (camera == null || IsStunned || !TryGetMyPosition(out var me))
             {
                 return;
             }

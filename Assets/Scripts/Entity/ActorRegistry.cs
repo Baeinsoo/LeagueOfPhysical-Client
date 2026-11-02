@@ -39,5 +39,8 @@ namespace LOP
         public int Count => actors.Count;
 
         public IEnumerable<LOPActor> All => actors.Values;
+
+        /// <summary>매 프레임 도는 곳용 — 열거자를 박싱하지 않아 할당이 없다.</summary>
+        public Dictionary<string, LOPActor>.ValueCollection Values => actors.Values;
     }
 }

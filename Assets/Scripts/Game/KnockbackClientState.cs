@@ -4,6 +4,21 @@ using UnityEngine;
 
 namespace LOP
 {
+    /// <summary>바닥에 예고됐거나 떨어져 있는 보급 상자 하나. Position은 바닥 (x, z).</summary>
+    public readonly struct KnockbackCrateInfo
+    {
+        public readonly int Id;
+        public readonly long LandTick;
+        public readonly Vector2 Position;
+
+        public KnockbackCrateInfo(int id, long landTick, Vector2 position)
+        {
+            Id = id;
+            LandTick = landTick;
+            Position = position;
+        }
+    }
+
     /// <summary>
     /// 서버가 보낸 넉백 판 상태(클라). 누가 탈락했는지·피해 %·공개된 원 단계는 여기서만 읽는다 —
     /// 클라는 맞음이나 탈락을 스스로 판단하지 않는다.
@@ -15,6 +30,9 @@ namespace LOP
         private readonly List<ZoneStage> zoneStages = new List<ZoneStage>();
 
         public int Version { get; private set; }
+
+        /// <summary>지금 있는 상자. 없으면 null(아직 안 나왔거나 주워졌다).</summary>
+        public KnockbackCrateInfo? Crate { get; private set; }
 
         /// <summary>서버가 공개한 원 단계(순서대로). 비어 있으면 아직 원이 줄기 전이다.</summary>
         public IReadOnlyList<ZoneStage> ZoneStages => zoneStages;
@@ -127,6 +145,9 @@ namespace LOP
                 players[w.EntityId] = (w.EliminatedTick, w.DamagePercent, w.Team, w.KoBy, w.KoChain);
             }
             TeamCount = message.TeamCount;
+            Crate = message.Crate == null
+                ? (KnockbackCrateInfo?)null
+                : new KnockbackCrateInfo(message.Crate.Id, message.Crate.LandTick, new Vector2(message.Crate.X, message.Crate.Z));
 
             zoneStages.Clear();
             foreach (var z in message.ZoneStages)

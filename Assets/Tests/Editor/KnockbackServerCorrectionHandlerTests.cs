@@ -49,12 +49,38 @@ namespace LOP.Tests
         }
 
         //  총 값은 새 총(가득, 충전 시계 멈춤, 연사 대기 없음)과 같게 둔다 — 날림·피해 시험이 총 차이로 갈리지 않게.
-        static EntitySnap Snap(long endTick, int percent, int ammo = 3, long nextReload = long.MaxValue, long cooldownEnd = 0)
+        static EntitySnap Snap(long endTick, int percent, int ammo = 3, long nextReload = long.MaxValue, long cooldownEnd = 0, bool hasBomb = false)
             => new EntitySnap
             {
                 entityId = "body-1", tick = Tick, knockbackEndTick = endTick, damagePercent = percent,
                 knockbackAmmo = ammo, knockbackNextReloadTick = nextReload, knockbackCooldownEndTick = cooldownEnd,
+                knockbackHasBomb = hasBomb,
             };
+
+        [Test]
+        public void 폭탄_보유가_다르면_되감는다()
+        {
+            //  서버는 상자를 주워 폭탄을 줬는데 나는 모른다 — 그대로 두면 다음 탄이 보통 탄이 된다.
+            var handler = Make(long.MinValue, 0, out var body);
+            Assert.IsTrue(handler.Matches(Tick, Snap(long.MinValue, 0)), "양성 대조 — 둘 다 없으면 그대로");
+            Assert.IsFalse(handler.Matches(Tick, Snap(long.MinValue, 0, hasBomb: true)), "서버만 들었다");
+
+            body.Get<KnockbackGun>().HasBomb = true;
+            world.SaveState(Tick);
+            Assert.IsTrue(handler.Matches(Tick, Snap(long.MinValue, 0, hasBomb: true)), "둘 다 들었으면 그대로");
+            Assert.IsFalse(handler.Matches(Tick, Snap(long.MinValue, 0)), "나만 들었다");
+        }
+
+        [Test]
+        public void 적용하면_폭탄_보유도_서버_값이_된다()
+        {
+            var handler = Make(long.MinValue, 0, out var body);
+            var gun = body.Get<KnockbackGun>();
+            handler.ApplyAuthoritative(body, Snap(long.MinValue, 0, hasBomb: true), 0.02f);
+            Assert.IsTrue(gun.HasBomb);
+            handler.ApplyAuthoritative(body, Snap(long.MinValue, 0, hasBomb: false), 0.02f);
+            Assert.IsFalse(gun.HasBomb);
+        }
 
         [Test]
         public void 날림이_다르면_되감는다()

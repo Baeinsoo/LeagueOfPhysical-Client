@@ -82,6 +82,35 @@ namespace LOP.UI
             // 날아가는 동안엔 못 쏜다는 걸 버튼이 흐려져서 알려 준다.
             _fireButton.style.opacity = _viewModel.IsStunned ? StunnedFireOpacity : 1f;
             UpdateAmmoBar();
+            UpdateBombGlow();
+        }
+
+        private bool _glowing;
+
+        // 폭탄을 든 동안 버튼 테두리가 주황으로 천천히 깜박인다. 폭탄이 없어지면 원래 스타일시트 값으로 돌린다.
+        private void UpdateBombGlow()
+        {
+            bool bomb = _viewModel.HasBomb;
+            if (bomb)
+            {
+                float glow = KnockbackPadViewModel.FireGlow01(true, Time.unscaledTime);
+                var color = new Color(1f, 0.5f, 0.1f, Mathf.Lerp(0.45f, 1f, glow));
+                _fireButton.style.borderTopColor = color;
+                _fireButton.style.borderBottomColor = color;
+                _fireButton.style.borderLeftColor = color;
+                _fireButton.style.borderRightColor = color;
+                _fireButton.style.backgroundColor = new Color(1f, 0.45f, 0.05f, Mathf.Lerp(0.3f, 0.6f, glow));
+                _glowing = true;
+            }
+            else if (_glowing)
+            {
+                _fireButton.style.borderTopColor = StyleKeyword.Null;
+                _fireButton.style.borderBottomColor = StyleKeyword.Null;
+                _fireButton.style.borderLeftColor = StyleKeyword.Null;
+                _fireButton.style.borderRightColor = StyleKeyword.Null;
+                _fireButton.style.backgroundColor = StyleKeyword.Null;
+                _glowing = false;
+            }
         }
 
         // 에디터에선 마우스를 손가락처럼 — 발사 영역이 마우스를 받고, 아래 PC 클릭 발사는 쓰지 않는다.

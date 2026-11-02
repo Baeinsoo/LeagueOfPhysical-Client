@@ -51,6 +51,13 @@ namespace LOP.UI
 
         public int AmmoMax => config.AmmoMax;
 
+        /// <summary>다음 탄이 충격파 폭탄인가.</summary>
+        public bool HasBomb => MyGun()?.HasBomb ?? false;
+
+        /// <summary>폭탄을 든 동안 발사 버튼이 빛나는 정도(0~1). 1.6초 주기로 천천히 깜박인다. 없으면 0.</summary>
+        public static float FireGlow01(bool hasBomb, float seconds)
+            => hasBomb ? 0.5f + 0.5f * Mathf.Sin(seconds * Mathf.PI * 2f / 1.6f) : 0f;
+
         /// <summary>지금 쏠 수 있는 탄 수.</summary>
         public int Ammo => MyGun()?.Ammo ?? 0;
 
@@ -194,6 +201,7 @@ namespace LOP.UI
         public void UpdateAim(bool held, float heldSeconds, float maxDrag01, Vector2 drag)
         {
             var camera = cameraController.MainCamera;
+            aimState.HasBomb = HasBomb;
             if (!held || camera == null || IsStunned)
             {
                 previousOutcome = ReleaseOutcome.Nothing;

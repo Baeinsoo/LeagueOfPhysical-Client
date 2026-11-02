@@ -19,6 +19,9 @@ namespace LOP
         private static readonly Color AimColor = new Color(1f, 1f, 1f, 0.45f);
         private static readonly Color CancelColor = new Color(0.6f, 0.6f, 0.6f, 0.3f);
         private static readonly Color TargetColor = new Color(1f, 0.85f, 0.3f, 0.7f);
+        // 충격파 폭탄을 든 동안 조준선·대상 고리는 주황 — 다음 탄이 폭탄이라는 걸 겨누는 눈에도 알린다.
+        private static readonly Color BombAimColor = new Color(1f, 0.5f, 0.1f, 0.6f);
+        private static readonly Color BombTargetColor = new Color(1f, 0.45f, 0.1f, 0.8f);
 
         private readonly KnockbackAimState aim;
         private readonly ActorRegistry actors;
@@ -44,13 +47,13 @@ namespace LOP
         }
 
         /// <summary>이 표시 종류에 칠할 색. 그리지 않는 종류는 null.</summary>
-        public static Color? ColorOf(KnockbackPadViewModel.AimKind kind)
+        public static Color? ColorOf(KnockbackPadViewModel.AimKind kind, bool hasBomb = false)
         {
             switch (kind)
             {
-                case KnockbackPadViewModel.AimKind.Aim: return AimColor;
+                case KnockbackPadViewModel.AimKind.Aim: return hasBomb ? BombAimColor : AimColor;
                 case KnockbackPadViewModel.AimKind.Cancel: return CancelColor;
-                case KnockbackPadViewModel.AimKind.AutoTarget: return TargetColor;
+                case KnockbackPadViewModel.AimKind.AutoTarget: return hasBomb ? BombTargetColor : TargetColor;
                 default: return null;
             }
         }
@@ -92,7 +95,7 @@ namespace LOP
                 return;
             }
 
-            var color = ColorOf(kind).Value;
+            var color = ColorOf(kind, aim.HasBomb).Value;
             material.color = color;
             if (kind == KnockbackPadViewModel.AimKind.AutoTarget)
             {
@@ -141,7 +144,7 @@ namespace LOP
             return mesh;
         }
 
-        private static Material CreateTransparentMaterial()
+        internal static Material CreateTransparentMaterial()
         {
             var shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Sprites/Default");
             if (shader == null)

@@ -33,3 +33,36 @@
     -unity-text-outline-width: 2px;
     -unity-text-outline-color: rgba(0, 0, 0, 0.8);
 }
+
+/* 중계 자막: 남은 사람·원 안내 띠 아래 */
+.ko-panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 280px;
+    align-items: center;
+}
+
+.ko-text {
+    font-size: 30px;
+    -unity-font-style: bold;
+    -unity-text-align: upper-center;
+    color: rgb(255, 255, 255);
+    background-color: rgba(0, 0, 0, 0.55);
+    padding: 6px 16px;
+    border-radius: 6px;
+    white-space: normal;
+}
+
+.finish-text {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 38%;
+    font-size: 110px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgb(255, 255, 255);
+    -unity-text-outline-width: 3px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.8);
+}

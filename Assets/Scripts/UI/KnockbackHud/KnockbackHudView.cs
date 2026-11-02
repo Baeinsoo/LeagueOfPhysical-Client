@@ -25,6 +25,10 @@ namespace LOP.UI
             var zoneText = Root.Q<Label>("zone-text");
             var damageText = Root.Q<Label>("damage-text");
 
+            var koText = Root.Q<Label>("ko-text");
+            var finishText = Root.Q<Label>("finish-text");
+            viewModel.KoText.Subscribe(t => { koText.text = t; koText.style.display = t.Length == 0 ? DisplayStyle.None : DisplayStyle.Flex; }).AddTo(Disposables);
+            viewModel.FinishText.Subscribe(t => { finishText.text = t; finishText.style.display = t.Length == 0 ? DisplayStyle.None : DisplayStyle.Flex; }).AddTo(Disposables);
             viewModel.AliveText.Subscribe(t => aliveText.text = t).AddTo(Disposables);
             viewModel.ZoneText.Subscribe(t => zoneText.text = t).AddTo(Disposables);
             viewModel.MyDamageText.Subscribe(t => damageText.text = t).AddTo(Disposables);

@@ -1,0 +1,206 @@
+{
+  "name": "knockback-ko-feed",
+  "description": "넉백 개인전 봇 판 중계 자막·피니시 줌 확인 — 가만히 서서 봇이 떨어지는 장면을 5초 간격으로 찍고, 판이 끝나기 직전 \"경기 종료!\" 줌을 찍는다",
+  "repeat": 1,
+  "setup": [
+    {
+      "op": "play_exit"
+    },
+    {
+      "op": "set_environment",
+      "env": "local-k8s"
+    },
+    {
+      "op": "play_enter"
+    },
+    {
+      "op": "boot_to_lobby",
+      "timeout_s": 120
+    }
+  ],
+  "loop": [
+    {
+      "op": "select_game",
+      "game_mode_id": 11,
+      "queue": "casual"
+    },
+    {
+      "op": "ui_click",
+      "name": "play-button",
+      "timeout_s": 20
+    },
+    {
+      "op": "wait_state",
+      "state": "InMatch",
+      "timeout_s": 180
+    },
+    {
+      "op": "wait",
+      "seconds": 10
+    },
+    {
+      "op": "wait",
+      "seconds": 10
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t015"
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t020"
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t025"
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t030"
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t035"
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t040"
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t045"
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t050"
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t055"
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t060"
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t065"
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t070"
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t075"
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t080"
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t085"
+    },
+    {
+      "op": "wait",
+      "seconds": 5
+    },
+    {
+      "op": "screenshot",
+      "as": "t090"
+    },
+    {
+      "op": "wait_state",
+      "state": "PostMatch",
+      "scene": "Result",
+      "timeout_s": 300
+    },
+    {
+      "op": "ui_wait",
+      "name": "confirm-button",
+      "clickable": true,
+      "timeout_s": 30
+    },
+    {
+      "op": "screenshot",
+      "as": "result"
+    },
+    {
+      "op": "ui_click",
+      "name": "confirm-button",
+      "timeout_s": 10
+    },
+    {
+      "op": "wait_state",
+      "state": "FrontEnd",
+      "scene": "Lobby",
+      "timeout_s": 60
+    }
+  ],
+  "teardown": [
+    {
+      "op": "play_exit"
+    }
+  ]
+}

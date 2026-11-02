@@ -26,6 +26,7 @@ namespace LOP
         private readonly CameraController cameraController;
         private readonly AppStateMachine appStateMachine;
         private readonly MatchLeaveRequester leaveRequester;
+        private readonly KnockbackFinishCamera finishCamera;
 
         //  서버가 로비 위치를 비울 시간. 넘기면 그냥 나간다.
         private static readonly TimeSpan LeaveReplyTimeout = TimeSpan.FromSeconds(3);
@@ -40,7 +41,7 @@ namespace LOP
         public KnockbackHudCoordinator(IGameDataStore gameDataStore, IWindowManager windowManager,
             ISubscriber<EntityCreated> entityCreatedSubscriber, KnockbackClientState state,
             KnockbackSpectate spectate, ActorRegistry actorRegistry, CameraController cameraController,
-            AppStateMachine appStateMachine, MatchLeaveRequester leaveRequester)
+            AppStateMachine appStateMachine, MatchLeaveRequester leaveRequester, KnockbackFinishCamera finishCamera)
         {
             this.gameDataStore = gameDataStore;
             this.windowManager = windowManager;
@@ -51,6 +52,7 @@ namespace LOP
             this.cameraController = cameraController;
             this.appStateMachine = appStateMachine;
             this.leaveRequester = leaveRequester;
+            this.finishCamera = finishCamera;
         }
 
         protected override void Subscribe() => Track(entityCreatedSubscriber.Subscribe(OnEntityCreated));
@@ -87,6 +89,10 @@ namespace LOP
             }
 
             spectate.Refresh();
+            if (finishCamera.Active)
+            {
+                return;   // 피니시 줌이 카메라를 쥐고 있다
+            }
             if (spectate.Current == null || spectate.Current == _cameraTargetId)
             {
                 return;

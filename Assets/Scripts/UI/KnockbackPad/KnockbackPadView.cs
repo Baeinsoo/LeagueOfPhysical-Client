@@ -84,8 +84,8 @@ namespace LOP.UI
         // 에디터에선 마우스를 손가락처럼 — 발사 영역이 마우스를 받고, 아래 PC 클릭 발사는 쓰지 않는다.
         private static bool MouseActsAsTouch => UnityEngine.Application.isEditor;
 
-        // PC: 스페이스 = 자동 조준, 마우스 왼쪽 = 마우스 바닥점 방향. 이동 스틱 영역의 클릭은 스틱 조작이라 거른다.
-        // 발사 영역은 거르지 않는다 — 마우스는 그 영역이 받지 않고 여기서 쏜다.
+        // PC 빌드: 스페이스 = 자동 조준, 마우스 왼쪽 = 마우스 바닥점 방향. 이동 스틱 영역의 클릭은 스틱 조작이라 거른다.
+        // 발사 영역은 거르지 않는다 — 빌드 PC에선 마우스를 그 영역이 받지 않고 여기서 쏜다. 에디터는 폰과 같다(영역 밖 클릭은 아무 일 없음).
         private void PollDesktopFire()
         {
             var keyboard = UnityEngine.InputSystem.Keyboard.current;

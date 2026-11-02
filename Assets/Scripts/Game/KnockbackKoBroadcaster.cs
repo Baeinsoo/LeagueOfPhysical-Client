@@ -44,8 +44,8 @@ namespace LOP
 
         public event Action<KoAnnouncement> Ko;
 
-        /// <summary>판이 끝나는 탈락이 났다. 인자는 마지막으로 탈락한 몸이 원판을 벗어난 자리.</summary>
-        public event Action<Vector3> Finished;
+        /// <summary>판이 끝나는 탈락이 났다. 인자는 마지막으로 탈락한 몸이 원판을 벗어난 자리(기록이 없으면 null).</summary>
+        public event Action<Vector3?> Finished;
 
         public KnockbackKoBroadcaster(KnockbackClientState state, GameFramework.World.EntityRegistry entityRegistry,
                                       IGameDataStore gameDataStore)
@@ -100,7 +100,7 @@ namespace LOP
             if (KnockbackKoFeed.IsFinish(players, state.TeamCount))
             {
                 string last = events[events.Count - 1].VictimId;
-                Finished?.Invoke(lastOnFloor.TryGetValue(last, out var pos) ? pos : Vector3.zero);
+                Finished?.Invoke(lastOnFloor.TryGetValue(last, out var pos) ? pos : (Vector3?)null);
             }
         }
     }

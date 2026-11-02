@@ -46,17 +46,17 @@ namespace LOP.Tests
         [Test]
         public void 문장_셋()
         {
-            Assert.AreEqual("A ▶ B 장외!", KnockbackKoFeed.Line("A", "B", false, 1));
-            Assert.AreEqual("A ▶ B 연쇄 장외!", KnockbackKoFeed.Line("A", "B", true, 1));
+            Assert.AreEqual("A의 한 방! B 장외", KnockbackKoFeed.Line("A", "B", false, 1));
+            Assert.AreEqual("A의 연쇄! B 장외", KnockbackKoFeed.Line("A", "B", true, 1));
             Assert.AreEqual("B 선수, 스스로 장외", KnockbackKoFeed.Line(null, "B", false, 1));
         }
 
         [Test]
         public void 더블_트리플_문장()
         {
-            Assert.AreEqual("A ▶ B 장외! 더블 장외!", KnockbackKoFeed.Line("A", "B", false, 2));
-            Assert.AreEqual("A ▶ B 장외! 트리플 장외!", KnockbackKoFeed.Line("A", "B", false, 3));
-            Assert.AreEqual("A ▶ B 장외! 트리플 장외!", KnockbackKoFeed.Line("A", "B", false, 5));
+            Assert.AreEqual("더블 장외! A의 한 방! B 장외", KnockbackKoFeed.Line("A", "B", false, 2));
+            Assert.AreEqual("트리플 장외! A의 한 방! B 장외", KnockbackKoFeed.Line("A", "B", false, 3));
+            Assert.AreEqual("트리플 장외! A의 한 방! B 장외", KnockbackKoFeed.Line("A", "B", false, 5));
         }
 
         [Test]

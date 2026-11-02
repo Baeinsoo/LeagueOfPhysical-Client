@@ -177,12 +177,6 @@
       "timeout_s": 300
     },
     {
-      "op": "wait_state",
-      "state": "PostMatch",
-      "scene": "Result",
-      "timeout_s": 300
-    },
-    {
       "op": "ui_wait",
       "name": "confirm-button",
       "clickable": true,

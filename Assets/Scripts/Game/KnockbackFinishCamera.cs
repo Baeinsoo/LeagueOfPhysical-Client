@@ -40,13 +40,14 @@ namespace LOP
             focus = null;
         }
 
-        private void OnFinished(Vector3 position)
+        private void OnFinished(Vector3? position)
         {
-            if (Active || camera == null || camera.Target == null) return;
+            //  떨어진 자리를 모르면 엉뚱한 곳으로 당기지 않는다.
+            if (position == null || Active || camera == null || camera.Target == null) return;
 
             focus = new GameObject("KnockbackFinishFocus");
             from = camera.Target.position;
-            to = position;
+            to = position.Value;
             focus.transform.position = from;
             startDistance = camera.DistanceOverride ?? camera.Distance;
             camera.SetTarget(focus.transform);   // 지금 카메라 자리에서 이어받는다 — 튀지 않는다

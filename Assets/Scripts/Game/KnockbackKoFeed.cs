@@ -94,9 +94,10 @@ namespace LOP
         public static string Line(string killerName, string victimName, bool chain, int streak)
         {
             if (killerName == null) return $"{victimName} 선수, 스스로 장외";
-            string text = $"{killerName} ▶ {victimName} {(chain ? "연쇄 " : "")}장외!";
-            if (streak >= 3) return text + " 트리플 장외!";
-            if (streak == 2) return text + " 더블 장외!";
+            //  폰트에 ▶ 같은 기호가 없어 글자만 쓴다.
+            string text = $"{killerName}의 {(chain ? "연쇄" : "한 방")}! {victimName} 장외";
+            if (streak >= 3) return "트리플 장외! " + text;
+            if (streak == 2) return "더블 장외! " + text;
             return text;
         }
 

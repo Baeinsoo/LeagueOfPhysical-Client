@@ -57,7 +57,7 @@ namespace LOP.UI
             koBroadcaster.Finished += OnFinished;
         }
 
-        private void OnFinished(Vector3 _) => finishText.Value = "경기 종료!";
+        private void OnFinished(Vector3? _) => finishText.Value = "경기 종료!";
 
         private void OnKo(KoAnnouncement a)
         {
@@ -77,7 +77,7 @@ namespace LOP.UI
             koText.Value = sb.ToString();
         }
 
-        /// <summary>문장에 팀 색을 입힌다. 이름 속 꺾쇠는 rich text로 읽히지 않게 막는다.</summary>
+        /// <summary>문장에 팀 색을 입힌다. 이름 속 꺾쇠는 rich text로 읽히지 않게 뺀다.</summary>
         public static string KoLine(KoAnnouncement a)
         {
             string line = KnockbackKoFeed.Line(
@@ -88,7 +88,7 @@ namespace LOP.UI
 
         private static string Colorize(string name, Color? color)
         {
-            string safe = name.Replace("<", "‹").Replace(">", "›");
+            string safe = name.Replace("<", "").Replace(">", "");
             return color.HasValue ? $"<color=#{ColorUtility.ToHtmlStringRGB(color.Value)}>{safe}</color>" : safe;
         }
 

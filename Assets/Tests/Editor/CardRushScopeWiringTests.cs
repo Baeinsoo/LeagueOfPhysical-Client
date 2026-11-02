@@ -98,6 +98,8 @@ namespace LOP.Tests
             builder.RegisterInstance<IPlayerContext>(new PlayerContext());
             builder.RegisterInstance<LOP.UI.IWindowManager>(new FakeWindowManager());
             builder.RegisterInstance<MessagePipe.ISubscriber<LOP.Event.Entity.EntityCreated>>(new FakeSubscriber<LOP.Event.Entity.EntityCreated>());
+            builder.RegisterInstance(new ActorRegistry());
+            builder.RegisterInstance(new EntityRenderClock(new PlayerContext(), null, null, new FakeGameDataStore()));
 
             typeof(CardRushLifetimeScope).GetMethod("ConfigureGame", BindingFlags.Instance | BindingFlags.NonPublic)
                 .Invoke(scope, new object[] { builder });
@@ -111,6 +113,9 @@ namespace LOP.Tests
             Assert.IsInstanceOf<OwnerPredictedSyncPolicy>(container.Resolve(typeof(IEntitySyncPolicy)));
             Assert.IsInstanceOf<ZeroExtrapolationAcceleration>(container.Resolve(typeof(IExtrapolationAcceleration)));
             Assert.AreSame(camera, container.Resolve(typeof(CameraController)));
+            //  칸 그림·카메라가 스코프에 걸려 있다 — 빠지면 돌·문이 안 깔리고 카메라가 기본 각에 머문다(에러 없이).
+            Assert.IsNotNull(container.Resolve(typeof(CardRushCourseView)));
+            Assert.IsNotNull(container.Resolve(typeof(CardRushCamera)));
 
             //  맵 마커가 주입받는 통로가 월드가 보는 것과 같은 하나여야 규칙이 월드에 닿는다.
             var markerGo = new GameObject("card-rush-rules-test");

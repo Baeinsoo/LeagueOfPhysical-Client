@@ -83,6 +83,11 @@ namespace LOP
             builder.Register<RaceHudView>(Lifetime.Transient);
 
             builder.RegisterEntryPoint<CardRushHudCoordinator>();
+
+            //  돌·문은 씬에 없다 — 몸이 생기면 그 레인에 (칸 수, 코스 색)으로 깐다. 두 테마가 같은 식이다.
+            builder.RegisterEntryPoint<CardRushCourseView>().AsSelf();
+            //  뒤 위에서 진행 방향을 보는 고정 각 카메라. 관전 대상은 위 코디네이터가 매 틱 고른다.
+            builder.RegisterEntryPoint<CardRushCamera>().AsSelf();
         }
 
         protected override void RegisterViewFactories(

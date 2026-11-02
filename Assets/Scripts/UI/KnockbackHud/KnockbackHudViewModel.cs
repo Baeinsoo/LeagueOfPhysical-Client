@@ -17,6 +17,17 @@ namespace LOP.UI
         private readonly KnockbackClientState state;
         private readonly IGameDataStore gameDataStore;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly KnockbackKoBroadcaster koBroadcaster;
+
+        private const float KoLineSeconds = 3f;
+        private const int KoLineMax = 3;
+        private readonly List<(string text, float expireAt)> koLines = new List<(string, float)>();
+        private readonly ReactiveProperty<string> koText = new ReactiveProperty<string>("");
+        private readonly ReactiveProperty<string> finishText = new ReactiveProperty<string>("");
+
+        /// <summary>중계 자막. 새 줄이 위, 줄바꿈으로 이어 붙인 색 글자(rich text).</summary>
+        public ReadOnlyReactiveProperty<string> KoText => koText;
+        public ReadOnlyReactiveProperty<string> FinishText => finishText;
 
         private readonly ReactiveProperty<string> aliveText = new ReactiveProperty<string>("");
         private readonly ReactiveProperty<string> zoneText = new ReactiveProperty<string>("");
@@ -32,7 +43,8 @@ namespace LOP.UI
 
         public KnockbackHudViewModel(GameFramework.Runner.IRunner runner, KnockbackWorld world, KnockbackConfig config,
                                      KnockbackClientState state, IGameDataStore gameDataStore,
-                                     GameFramework.World.EntityRegistry entityRegistry)
+                                     GameFramework.World.EntityRegistry entityRegistry,
+                                     KnockbackKoBroadcaster koBroadcaster)
         {
             this.runner = runner;
             this.world = world;
@@ -40,6 +52,44 @@ namespace LOP.UI
             this.state = state;
             this.gameDataStore = gameDataStore;
             this.entityRegistry = entityRegistry;
+            this.koBroadcaster = koBroadcaster;
+            koBroadcaster.Ko += OnKo;
+            koBroadcaster.Finished += OnFinished;
+        }
+
+        private void OnFinished(Vector3 _) => finishText.Value = "경기 종료!";
+
+        private void OnKo(KoAnnouncement a)
+        {
+            koLines.Insert(0, (KoLine(a), Time.unscaledTime + KoLineSeconds));
+            if (koLines.Count > KoLineMax) koLines.RemoveRange(KoLineMax, koLines.Count - KoLineMax);
+            RenderKo();
+        }
+
+        private void RenderKo()
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < koLines.Count; i++)
+            {
+                if (i > 0) sb.Append('\n');
+                sb.Append(koLines[i].text);
+            }
+            koText.Value = sb.ToString();
+        }
+
+        /// <summary>문장에 팀 색을 입힌다. 이름 속 꺾쇠는 rich text로 읽히지 않게 막는다.</summary>
+        public static string KoLine(KoAnnouncement a)
+        {
+            string line = KnockbackKoFeed.Line(
+                a.KillerName == null ? null : Colorize(a.KillerName, a.KillerColor),
+                Colorize(a.VictimName, a.VictimColor), a.Chain, a.Streak);
+            return line;
+        }
+
+        private static string Colorize(string name, Color? color)
+        {
+            string safe = name.Replace("<", "‹").Replace(">", "›");
+            return color.HasValue ? $"<color=#{ColorUtility.ToHtmlStringRGB(color.Value)}>{safe}</color>" : safe;
         }
 
         /// <summary>
@@ -97,6 +147,8 @@ namespace LOP.UI
 
         public void Tick()
         {
+            if (koLines.RemoveAll(l => Time.unscaledTime >= l.expireAt) > 0) RenderKo();
+
             aliveText.Value = AliveTextNow();
 
             var tickUpdater = runner?.tickUpdater;
@@ -121,6 +173,10 @@ namespace LOP.UI
 
         public void Dispose()
         {
+            koBroadcaster.Ko -= OnKo;
+            koBroadcaster.Finished -= OnFinished;
+            koText.Dispose();
+            finishText.Dispose();
             aliveText.Dispose();
             zoneText.Dispose();
             myDamageText.Dispose();

@@ -4,6 +4,10 @@
             <ui:Label name="alive-text" class="info-text" picking-mode="Ignore" />
             <ui:Label name="zone-text" class="info-text" picking-mode="Ignore" />
         </ui:VisualElement>
+        <ui:VisualElement name="ko-panel" class="ko-panel" picking-mode="Ignore">
+            <ui:Label name="ko-text" class="ko-text" enable-rich-text="true" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:Label name="finish-text" class="finish-text" picking-mode="Ignore" />
         <ui:Label name="damage-text" class="damage-text" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

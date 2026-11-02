@@ -84,6 +84,8 @@ namespace LOP
             builder.Register<IHaptics>(_ => Haptics.ForThisDevice(), Lifetime.Singleton);
             builder.RegisterEntryPoint<KnockbackAimIndicatorView>();
             builder.Register<KnockbackSpectate>(Lifetime.Singleton).As<ISpectateTargets>().AsSelf();
+            builder.RegisterEntryPoint<KnockbackKoBroadcaster>().AsSelf();
+            builder.RegisterEntryPoint<KnockbackFinishCamera>().AsSelf();
             builder.RegisterEntryPoint<KnockbackHudCoordinator>();
             builder.Register<KnockbackPadViewModel>(Lifetime.Transient);
             builder.Register<KnockbackPadView>(Lifetime.Transient);

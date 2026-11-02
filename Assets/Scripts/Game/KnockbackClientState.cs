@@ -10,8 +10,8 @@ namespace LOP
     /// </summary>
     public class KnockbackClientState
     {
-        private readonly Dictionary<string, (long eliminatedTick, int damagePercent, int team)> players =
-            new Dictionary<string, (long, int, int)>();
+        private readonly Dictionary<string, (long eliminatedTick, int damagePercent, int team, string koBy, bool koChain)> players =
+            new Dictionary<string, (long, int, int, string, bool)>();
         private readonly List<ZoneStage> zoneStages = new List<ZoneStage>();
 
         public int Version { get; private set; }
@@ -38,6 +38,17 @@ namespace LOP
         }
 
         public int PlayerCount => players.Count;
+
+        /// <summary>중계 자막·피니시 판단용 사람별 기록.</summary>
+        public List<KoPlayer> SnapshotKoPlayers()
+        {
+            var list = new List<KoPlayer>(players.Count);
+            foreach (var kv in players)
+            {
+                list.Add(new KoPlayer(kv.Key, kv.Value.eliminatedTick, kv.Value.koBy, kv.Value.koChain, kv.Value.team));
+            }
+            return list;
+        }
 
         /// <summary>상태에 실린 사람 중 탈락 틱이 없는 수.</summary>
         public int AliveCount
@@ -113,7 +124,7 @@ namespace LOP
             players.Clear();
             foreach (var w in message.Players)
             {
-                players[w.EntityId] = (w.EliminatedTick, w.DamagePercent, w.Team);
+                players[w.EntityId] = (w.EliminatedTick, w.DamagePercent, w.Team, w.KoBy, w.KoChain);
             }
             TeamCount = message.TeamCount;
 

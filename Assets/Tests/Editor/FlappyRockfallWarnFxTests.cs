@@ -11,6 +11,8 @@ using UnityEngine;
 public class FlappyRockfallWarnFxTests
 {
     private const float Dt = 0.02f;
+    //  옛 90° 표(0~540, 감김 포함)와 지금 광산 맵 표(MineCourse.RockPhases, 11-02) — 리뷰 B4.
+    private static readonly float[] Phases = { 0f, 90f, 180f, 270f, 360f, 450f, 540f, 144f, 216f, 324f };
     private readonly List<Object> spawned = new List<Object>();
     private FlappyRockfallWarnFx fx;
     private long tick;
@@ -109,7 +111,7 @@ public class FlappyRockfallWarnFxTests
         //  11-01 리뷰 I1: 그림용 바위는 판정이 없다. 깊게 나오거나 낙하가 시작된 뒤에도 남아 있으면 "닿았는데 안 맞았다"가 된다.
         //  모든 위상·틱에서: 보이면 깊이 ≤ 0.15 m, 그 줄 바위가 천장에서 나오기 시작했으면(통로 위쪽에 있으면) 절대 안 보인다.
         //  (엿보기 창 앞쪽 몇 틱엔 앞 주기 바위가 바닥 밑으로 빠지는 중이라 FallingAt이 참이다 — 그건 바닥 근처라 따로 친다.)
-        for (float phase = 0f; phase <= 540f; phase += 90f)
+        foreach (float phase in Phases)
         {
             for (long t = 0; t < 300; t++)
             {
@@ -127,10 +129,10 @@ public class FlappyRockfallWarnFxTests
     [Test]
     public void 남은_시간은_Shared_낙하_곡선과_같은_틱에_감긴다()
     {
-        //  11-01 리뷰 M2: 주기 위치 계산을 Shared FallingAt에서 옮겨 썼다 — 씬의 360·450·540°와 다른 틱 길이에서도 같은 틱인지 맞댄다.
+        //  11-01 리뷰 M2: 주기 위치 계산을 Shared FallingAt에서 옮겨 썼다 — 옛 360·450·540°와 지금 맵 표, 다른 틱 길이에서도 같은 틱인지 맞댄다.
         foreach (float ts in new[] { 0.02f, 1f / 30f, 1f / 60f })
         {
-            for (float phase = 0f; phase <= 540f; phase += 90f)
+            foreach (float phase in Phases)
             {
                 for (long t = 1; t < 400; t++)
                 {
@@ -308,7 +310,7 @@ public class FlappyRockfallWarnFxTests
     [Test]
     public void 같은_틱에_두_줄이_엿보면_우르르는_한_번()
     {
-        //  위상 90°씩이면 줄 0과 줄 4(18 m 떨어짐)가 같은 틱에 떨어진다 — 소리가 겹쳐 두 배로 커지지 않게.
+        //  위상이 같은 두 줄(옛 90° 표의 줄 0·4처럼)은 같은 틱에 떨어진다 — 소리가 겹쳐 두 배로 커지지 않게. 지금 맵 표엔 없지만 맵마다 다를 수 있다.
         var a = MakeRockfall(101f, 5f);
         var b = MakeRockfall(117f, 5f);
         var audio = new FakeFlappyAudio();

@@ -397,12 +397,19 @@ namespace LOP.MapTools
         //  줄이 아주 짧을 때 asin이 1을 넘지 않게(시안과 같은 상한 — 지금 값에선 안 걸린다).
         const double MaxSwingSin = 0.95;
 
-        /// <summary>낙석: 줄 수 · 줄 앞 여유 · 줄 사이 · 바위 · 낙하 속도 · 주기 · 줄마다 위상(0.5초 = 90°).
-        /// 위상 간격: 10-24에 0.25초(45°)로 줄였다가 11-01 사용자 결정으로 0.5초(90°)로 되돌렸다 — 45°는 줄줄이 차례로 떨어지는
-        /// 물결로 보였고, 예전처럼 들쭉날쭉 떨어지는 쪽이 낫다. 공정성 분석(11-01): 주기·위상은 "천장에서 갑자기 나와 못 피함"을
-        /// 거의 못 바꾼다 — 그건 예고 길이로 푼다(<c>FlappyRockfallWarnFx</c> 0.7초 + 비집고 나와 떠는 바위).</summary>
+        /// <summary>낙석: 줄 수 · 줄 앞 여유 · 줄 사이 · 바위 · 낙하 속도 · 주기.
+        /// 공정성 분석(11-01): 주기·위상은 "천장에서 갑자기 나와 못 피함"을 거의 못 바꾼다 — 그건 예고 길이로 푼다
+        /// (<c>FlappyRockfallWarnFx</c> 0.7초 + 비집고 나와 떠는 바위).</summary>
         const int RockRows = 7;   // 10-24 사람 판: 4 → 7줄(코스 늘리기)
-        const double RockLead = 1, RockSpacing = 4.5, RockSize = 1.2, RockSpeed = 9, RockPeriod = 2, RockPhaseStep = 90;
+        const double RockLead = 1, RockSpacing = 4.5, RockSize = 1.2, RockSpeed = 9, RockPeriod = 2;
+
+        /// <summary>줄마다 위상(도, 0.1초 = 18° 격자) — 고정 표, 길이 = <see cref="RockRows"/>. 10-24 45°는 물결, 11-01 90° 등간격은 도레미처럼
+        /// 고르게 들려 11-02 사용자 결정으로 들쭉날쭉한 고정 표로 바꿨다(맵 데이터라 클·서가 같다). 제약(리뷰 B1·B2, 시험이 지킨다):
+        /// ① 두 줄 안 줄끼리 낙하 0.25초 이상 떨어지고, 이웃 세 줄이 0.35초 안 간격으로 차례로 떨어지지 않는다(따다닥 물결 금지).
+        /// ② 새 기준 위상(위상 + 180°·지난 줄 사이 수 — 새는 4.5 m를 1초 = 반 주기에 지난다)이 모든 쌍에서 30° 넘게 다르다(한 높이로 같은 박자 금지).
+        /// 그 제약을 지키는 표 중 5개를 공정성 도구로 재(예고 0.7초) 난도가 90°(H 살아남는 입력 3.61%)에 가장 가까운 것(3.36%)을 골랐다 —
+        /// 관문 진입 막힘 0·기절 뒤 함정 0·예고+0.2초 사각지대 ≈0%. 한 주기 안 낙하 순서: 줄 1→5→2→4→7→3→6.</summary>
+        static readonly double[] RockPhases = { 0, 270, 144, 216, 324, 90, 180 };
         /// <summary>갈림길 굴 쪽 칸 중심 — 통로가 좁아져 위 굴은 위로 ForkTunnelUp, 아래 굴은 아래로 ForkTunnelDown(비대칭, 예전 둘 다 4.5).</summary>
         const double ForkTunnelUp = 2.6, ForkTunnelDown = 4.6;
         /// <summary>갈림길 반대쪽 보통 칸 관문 틈 중심(통로 중심에서 ±ForkOther, 예전 ±4.5).</summary>
@@ -588,7 +595,7 @@ namespace LOP.MapTools
                         {
                             double x0 = cur + RockLead, ceiling = baseY + MineCourse.BaseHalf;
                             rockfalls.Add(new MineRockfall((float)(x0 + RockSize / 2), (float)ceiling, (float)(2 * MineCourse.BaseHalf + RockSize),
-                                                           (float)RockSize, (float)RockSpeed, (float)RockPeriod, (float)(i * RockPhaseStep)));
+                                                           (float)RockSize, (float)RockSpeed, (float)RockPeriod, (float)RockPhases[i]));
                             pts.Add((x0 + RockSize / 2, baseY));
                             cur += RockSpacing;
                         }

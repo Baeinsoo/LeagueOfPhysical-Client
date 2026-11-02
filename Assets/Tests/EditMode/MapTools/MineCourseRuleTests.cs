@@ -195,8 +195,86 @@ namespace LOP.MapTools.Tests
                 Assert.AreEqual(1.2f, r.Size, 1e-5f);
                 Assert.AreEqual(9f, r.Speed, 1e-5f);
                 Assert.AreEqual(2f, r.Period, 1e-5f);
-                Assert.AreEqual(90f * i, r.Phase, 1e-4f, "줄마다 +0.5초 = 90° — 11-01 사용자 결정: 10-24의 45°는 차례로 떨어지는 물결로 보여 예전 값으로 되돌렸다");
+                Assert.AreEqual(Phases[i], r.Phase, 1e-4f, $"줄 {i} 위상");
             }
+        }
+
+        //  11-02 사용자: 90° 등간격은 도레미처럼 고르게 들린다 — 들쭉날쭉하되 고정(맵 데이터라 클·서 같다).
+        //  공정성 도구로 후보 5개 중 고른 표(관문 진입 막힘 0·기절 뒤 함정 0·예고+0.2초 사각지대 ≈0%·H 살아남는 입력 3.36%).
+        private static readonly float[] Phases = { 0f, 270f, 144f, 216f, 324f, 90f, 180f };
+
+        [Test]
+        public void 낙석_위상은_들쭉날쭉하되_이웃끼리_떨어진다()
+        {
+            var c = Layout();
+            var steps = new HashSet<float>();
+            for (int i = 1; i < c.Rockfalls.Count; i++)
+            {
+                float d = Mathf.Repeat(c.Rockfalls[i].Phase - c.Rockfalls[i - 1].Phase, 360f);
+                float apart = Mathf.Min(d, 360f - d);
+                Assert.GreaterOrEqual(apart, 60f, $"줄 {i - 1}·{i}는 0.33초 이상 어긋난다");
+                Assert.Greater(Mathf.Abs(apart - 180f), 36f, $"줄 {i - 1}·{i}가 반 주기면 새 기준 같은 박자 — 한 높이로 줄곧 지나간다");
+                Assert.AreEqual(0f, Mathf.Repeat(c.Rockfalls[i].Phase, 18f), 1e-4f, "0.1초(18°) 격자 — 틱에 딱 맞는다");
+                steps.Add(d);
+            }
+            Assert.GreaterOrEqual(steps.Count, 3, "간격이 한두 가지면 다시 음계처럼 들린다");
+        }
+
+        //  낙하 시작 시각(주기 안 초) — 커브는 위상만큼 앞당긴다(FlappyRockfallCurve: 틱 + 위상틱).
+        private static float FallTime(MineRockfall r) => Mathf.Repeat(-r.Phase / 360f * r.Period, r.Period);
+
+        private static float Apart(float a, float b, float period)
+        {
+            float d = Mathf.Repeat(a - b, period);
+            return Mathf.Min(d, period - d);
+        }
+
+        [Test]
+        public void 가까운_줄끼리는_0_25초_넘게_떨어지고_세_줄_연쇄가_없다()
+        {
+            //  리뷰 B1(11-02) — 세계 시간에서 차례로 따다닥 떨어지는 물결은 사용자가 없애고 싶은 모양이다.
+            var r = Layout().Rockfalls;
+            for (int i = 0; i < r.Count; i++)
+            {
+                for (int j = i + 1; j < r.Count && j <= i + 2; j++)
+                {
+                    Assert.GreaterOrEqual(Apart(FallTime(r[i]), FallTime(r[j]), r[i].Period), 0.25f - 1e-4f, $"줄 {i}·{j} 낙하 간격");
+                }
+            }
+            for (int i = 0; i + 2 < r.Count; i++)
+            {
+                float p = r[i].Period;
+                float a = FallTime(r[i]), b = FallTime(r[i + 1]), c = FallTime(r[i + 2]);
+                bool forward = Mathf.Repeat(b - a, p) < 0.35f && Mathf.Repeat(c - b, p) < 0.35f;
+                bool backward = Mathf.Repeat(a - b, p) < 0.35f && Mathf.Repeat(b - c, p) < 0.35f;
+                Assert.IsFalse(forward || backward, $"줄 {i}~{i + 2}가 0.35초 안 간격으로 차례로 떨어진다");
+            }
+        }
+
+        [Test]
+        public void 새_기준_박자는_모든_줄_쌍이_30도_넘게_다르다()
+        {
+            //  리뷰 B2(11-02) — 새는 줄 사이(4.5 m)를 1초 = 반 주기에 지난다. 새 기준 위상 ψ = 위상 + 180°·(지난 줄 사이 수).
+            //  두 줄이 같은 ψ면 한 높이로 둘 다 같은 박자에 지나간다 — 이웃만이 아니라 모든 쌍을 본다.
+            var r = Layout().Rockfalls;
+            for (int i = 0; i < r.Count; i++)
+            {
+                for (int j = i + 1; j < r.Count; j++)
+                {
+                    float rowsApart = (r[j].X - r[i].X) / 4.5f;
+                    float psi = r[j].Phase - r[i].Phase + 180f * rowsApart;
+                    Assert.GreaterOrEqual(Apart(psi, 0f, 360f), 30f, $"줄 {i}·{j} 새 기준 위상 차");
+                }
+            }
+        }
+
+        [Test]
+        public void 위상_표_길이는_줄_수와_같다()
+        {
+            //  리뷰 B4 — 줄 수만 바꾸면 굽기 때 IndexOutOfRange가 난다.
+            var phases = (double[])typeof(MineCourseRule).GetField("RockPhases", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+            int rows = (int)typeof(MineCourseRule).GetField("RockRows", BindingFlags.NonPublic | BindingFlags.Static).GetRawConstantValue();
+            Assert.AreEqual(rows, phases.Length);
         }
 
         [Test]

@@ -45,12 +45,43 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 피해_라벨_색은_48에서_노랑_80에서_빨강()
+        public void 위험도_색은_0_흰색_60_노랑_120_주황_180_빨강()
         {
-            Assert.AreEqual(UnityEngine.Color.white, KnockbackDamageLabel.ColorFor(47));
-            Assert.AreEqual(KnockbackDamageLabel.ColorFor(48), KnockbackDamageLabel.ColorFor(79));
-            Assert.AreNotEqual(UnityEngine.Color.white, KnockbackDamageLabel.ColorFor(48));
-            Assert.AreNotEqual(KnockbackDamageLabel.ColorFor(79), KnockbackDamageLabel.ColorFor(80));
+            Assert.AreEqual(UnityEngine.Color.white, KnockbackDamageLabel.ColorFor(0));
+            Assert.AreEqual(KnockbackDamageLabel.YellowColor, KnockbackDamageLabel.ColorFor(60));
+            Assert.AreEqual(KnockbackDamageLabel.OrangeColor, KnockbackDamageLabel.ColorFor(120));
+            Assert.AreEqual(KnockbackDamageLabel.RedColor, KnockbackDamageLabel.ColorFor(180));
+            Assert.AreEqual(KnockbackDamageLabel.RedColor, KnockbackDamageLabel.ColorFor(400));
+        }
+
+        [Test]
+        public void 위험도_색은_단계_사이를_보간한다()
+        {
+            var mid = KnockbackDamageLabel.ColorFor(90);
+            var expected = UnityEngine.Color.Lerp(KnockbackDamageLabel.YellowColor, KnockbackDamageLabel.OrangeColor, 0.5f);
+            Assert.AreEqual(expected.g, mid.g, 1e-4f);
+            Assert.AreNotEqual(KnockbackDamageLabel.YellowColor, mid);
+            Assert.AreNotEqual(KnockbackDamageLabel.OrangeColor, mid);
+            var low = KnockbackDamageLabel.ColorFor(30);
+            Assert.AreEqual(UnityEngine.Color.Lerp(UnityEngine.Color.white, KnockbackDamageLabel.YellowColor, 0.5f).b, low.b, 1e-4f);
+        }
+
+        [Test]
+        public void 위험도_180부터_깜박인다()
+        {
+            Assert.IsFalse(KnockbackDamageLabel.IsBlinking(179));
+            Assert.IsTrue(KnockbackDamageLabel.IsBlinking(180));
+            Assert.IsTrue(KnockbackDamageLabel.IsBlinking(999));
+        }
+
+        [Test]
+        public void 몸_가장자리_빛은_0이면_원래_그대로_높을수록_강해진다()
+        {
+            Assert.AreEqual(0f, KnockbackDamageLabel.BodyTintAmount(0), 0f);
+            Assert.Greater(KnockbackDamageLabel.BodyTintAmount(60), 0f);
+            Assert.Greater(KnockbackDamageLabel.BodyTintAmount(120), KnockbackDamageLabel.BodyTintAmount(60));
+            Assert.AreEqual(1f, KnockbackDamageLabel.BodyTintAmount(180), 0f);
+            Assert.AreEqual(1f, KnockbackDamageLabel.BodyTintAmount(500), 0f);
         }
 
         [Test]

@@ -16,8 +16,8 @@ namespace LOP.Tests
             new ZoneStage(1, 400, 700, 960, Vector2.zero, 17f, Vector2.zero, 11f, 0f),
         };
 
-        static string Text(long tick, int last = 4, long firstReveal = 400, IReadOnlyList<ZoneStage> stages = null)
-            => KnockbackHudViewModel.ZoneTextFor(stages ?? new ZoneStage[0], tick, Interval, firstReveal, last);
+        static string Text(long tick, int last = 4, long firstReveal = 400, IReadOnlyList<ZoneStage> stages = null, bool hazard = false)
+            => KnockbackHudViewModel.ZoneTextFor(stages ?? new ZoneStage[0], tick, Interval, firstReveal, last, hazard);
 
         [Test]
         public void 공개_전엔_공개까지_남은_초()
@@ -41,6 +41,15 @@ namespace LOP.Tests
         public void 축소_중엔_바깥_칸이_무너진다고_알린다()
         {
             Assert.AreEqual("원이 줄어듭니다 — 바깥 칸이 무너져요", Text(800, stages: OneStage));
+        }
+
+        [Test]
+        public void 위험_지대_방식_문구()
+        {
+            Assert.AreEqual("원이 줄어듭니다 — 바깥은 위험 지대", Text(800, stages: OneStage, hazard: true));
+            Assert.AreEqual("마지막 — 전부 위험 지대", Text(800, last: 1, stages: OneStage, hazard: true));
+            Assert.AreEqual("마지막 — 전부 위험 지대", Text(2000, last: 1, stages: OneStage, hazard: true));
+            Assert.AreEqual("원이 줄어들기까지 6초", Text(400, stages: OneStage, hazard: true));
         }
 
         [Test]

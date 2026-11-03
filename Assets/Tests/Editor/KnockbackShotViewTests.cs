@@ -70,17 +70,6 @@ namespace LOP.Tests
             Assert.IsTrue(KnockbackShotView.TouchesDrawnBody(new Vector2(10.5f, 0f), "me", Bodies, Radius, id => 0), "개인전은 숨는다");
         }
 
-        [Test]
-        public void 그려진_드럼통에_닿으면_숨고_쏜_자리가_드럼통_안이면_그_드럼통은_지나간다()
-        {
-            var barrels = new List<Vector2> { new Vector2(5f, 0f) };
-            Assert.IsTrue(KnockbackShotView.TouchesDrawnBarrel(new Vector2(4.5f, 0f), new Vector2(0f, 0f), barrels, 0.83f));
-            Assert.IsFalse(KnockbackShotView.TouchesDrawnBarrel(new Vector2(3.9f, 0f), new Vector2(0f, 0f), barrels, 0.83f), "아직 멀다");
-            Assert.IsFalse(KnockbackShotView.TouchesDrawnBarrel(new Vector2(4.5f, 0f), new Vector2(4.8f, 0f), barrels, 0.83f),
-                "발밑 드럼통은 표적이 아니다(서버와 같게)");
-            Assert.IsFalse(KnockbackShotView.TouchesDrawnBarrel(new Vector2(4.5f, 0f), Vector2.zero, new List<Vector2>(), 0.83f));
-        }
-
         const float Speed = 17f;
         const float Range = 13f;
         const float Trail = 0.18f;

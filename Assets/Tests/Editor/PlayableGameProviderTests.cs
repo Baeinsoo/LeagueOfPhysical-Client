@@ -47,5 +47,15 @@ namespace LOP.Tests
 
             Assert.IsFalse(games.Any(g => g.Name == "플랩왕"));
         }
+
+        [Test]
+        public void 카드_러시는_문_박치기_하나()
+        {
+            //  돌다리(맵 19)를 로비에서 뺐다(#Map에서 행 삭제) — 카드 러시(모드 13)는 문 박치기(맵 20) 하나만 남는다.
+            var games = new PlayableGameProvider(RealMasterData()).Games;
+
+            var cardRush = games.FirstOrDefault(g => g.GameModeId == 13);
+            CollectionAssert.AreEqual(new[] { 20 }, cardRush.Maps.Select(m => m.MapId).ToArray());
+        }
     }
 }

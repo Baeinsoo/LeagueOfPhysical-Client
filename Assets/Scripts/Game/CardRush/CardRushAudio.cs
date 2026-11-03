@@ -251,7 +251,7 @@ namespace LOP
             }
             var s = runner.State;
             //  카드 색은 조작판과 같은 틱(내 몸 = 지금 예측 틱 = 틱 사이의 다음 입력 틱)으로 본다 — 본 색과 들은 째깍이 같은 순간.
-            bool faceUp = CardRushCard.TryColorAt(s, renderClock.TickFor(id), world.GameplayStartTick, course, world.Timing.MoveTicks, out var color);
+            bool faceUp = CardRushCard.TryColorAt(s, renderClock.TickFor(id), course, out var color);
             return new CardRushAudioFrame
             {
                 Has = true,

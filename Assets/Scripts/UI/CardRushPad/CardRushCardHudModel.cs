@@ -36,7 +36,7 @@ namespace LOP.UI
         public static CardRushCardFace Compute(in CardRushRunnerState s, long displayTick, long gameplayStartTick,
             CardRushCourse course, int moveTicks, int nextCount = 3)
         {
-            bool faceUp = CardRushCard.TryColorAt(s, displayTick, gameplayStartTick, course, moveTicks, out var color);
+            bool faceUp = CardRushCard.TryColorAt(s, displayTick, course, out var color);
 
             int count = course == null ? 0 : System.Math.Clamp(course.StepCount - s.Step, 0, nextCount);
             var next = count == 0 ? System.Array.Empty<CardColor>() : new CardColor[count];

@@ -38,7 +38,7 @@ namespace LOP.Tests
 
             var face = CardRushCardHudModel.Compute(state, tick, GameplayStartTick, course, MoveTicks);
 
-            Assert.IsTrue(CardRushCard.TryColorAt(state, tick, GameplayStartTick, course, MoveTicks, out var expected));
+            Assert.IsTrue(CardRushCard.TryColorAt(state, tick, course, out var expected));
             Assert.IsTrue(face.FaceUp);
             Assert.AreEqual(expected, face.Color);
         }

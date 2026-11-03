@@ -72,7 +72,7 @@ namespace LOP.UI
         private const float CrateNoticeSeconds = 5f;
         private bool crateAnnounced;
 
-        public const string CrackNoticeText = "금 간 바닥 — 사거리 끝 탄 두 발이면 칸이 무너진다";
+        public static string CrackNoticeText(int hitsToCollapse) => $"금 간 바닥 — 사거리 끝 탄 {hitsToCollapse}발이면 칸이 무너진다";
         private const float CrackNoticeSeconds = 12f;
         private bool crackAnnounced;
 
@@ -174,7 +174,7 @@ namespace LOP.UI
             if (ShouldAnnounceCrack(crackAnnounced, config.CrackEnabled))
             {
                 crackAnnounced = true;
-                AddLine(CrackNoticeText, CrackNoticeSeconds);
+                AddLine(CrackNoticeText(config.CrackHitsToCollapse), CrackNoticeSeconds);
             }
 
             aliveText.Value = AliveTextNow();

@@ -28,6 +28,14 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 금_안내_문구는_무너지는_횟수를_데이터에서_받는다()
+        {
+            StringAssert.Contains("2발", KnockbackHudViewModel.CrackNoticeText(2));
+            StringAssert.Contains("3발", KnockbackHudViewModel.CrackNoticeText(3));
+            StringAssert.DoesNotContain("두 발", KnockbackHudViewModel.CrackNoticeText(3));
+        }
+
+        [Test]
         public void 공개_전엔_공개까지_남은_초()
         {
             Assert.AreEqual("원 공개까지 8초", Text(0));

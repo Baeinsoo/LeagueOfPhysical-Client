@@ -88,6 +88,20 @@ namespace LOP
             actor.SetEntityId(entityCreated.entityId);
             actorRegistry.Add(actor);
 
+            // 드럼통은 물리 몸 없이 보간 + 전용 그림만 붙인다(서버가 굴린 결과를 보여 줄 뿐, 예측하지 않는다).
+            if (kind.Kind == EntityType.Barrel)
+            {
+                var barrelInterpolator = root.AddComponent<SnapshotEntityInterpolator>();
+                objectResolver.Inject(barrelInterpolator);
+                barrelInterpolator.worldEntity = worldEntity;
+                barrelInterpolator.actor = actor;
+
+                var barrelView = root.AddComponent<KnockbackBarrelView>();
+                objectResolver.Inject(barrelView);
+                barrelView.SetEntityId(entityCreated.entityId);
+                return;
+            }
+
             // 물리 팔로워 + PhysicsBody (모든 엔티티 공통). 몸을 어떻게 세울지는 크리에이터가 붙인 PhysicsConfig가 정한다.
             // PhysicsBody는 반드시 이 핸들러 안에서 붙인다: 물리 루프가 매 틱 등록된 엔티티를 돌며 몸을 밀기 때문에,
             // 등록만 되고 몸이 아직 없는 순간이 생기면 그 틱 위치가 한 프레임 어긋난다(동기 발행이라 여기선 그 틈이 없다).

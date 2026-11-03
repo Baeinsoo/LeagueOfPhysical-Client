@@ -41,7 +41,7 @@ namespace LOP
                             break;
                         }
                         world.IngestRemoteShot(new KnockbackShot(fired.shooterId, fired.fireTick, fired.origin, fired.direction, fired.isBomb),
-                                               out long? replayFrom);
+                                               reconciler.ConfirmedTick, out long? replayFrom);
                         if (replayFrom is long from)
                         {
                             reconciler.RequestReplayFrom(from);
@@ -49,7 +49,9 @@ namespace LOP
                         break;
                     }
                     case WorldEventToC.EventOneofCase.KnockbackHit:
-                        world.RemoveShot(rec.KnockbackHit.ShooterId, rec.KnockbackHit.FireTick);
+                        //  내 몸이 맞았다는 확인이면 예측 기록을 남긴다 — 맞기 전으로 되감는 재생이 같은 맞음을 다시 넣게.
+                        world.RemoveShot(rec.KnockbackHit.ShooterId, rec.KnockbackHit.FireTick,
+                                         hitOwnBody: rec.KnockbackHit.VictimId == playerContext.entityId);
                         break;
                 }
             }

@@ -21,6 +21,9 @@ namespace LOP
         private const float TrailWidthRatio = 0.8f;
         private const float TrailHeadAlpha = 0.6f;
         public const float FadeSeconds = 0.12f;
+        //  내 몸에 직접 맞았다고 예측해 장부에서 뺀 폭탄을 맞은 자리에 붙들어 두는 최대 시간(틱). 보통은 서버 터짐·맞음 사건이
+        //  왕복 시간 뒤에 와서 먼저 풀린다. 서버가 다르게 정했으면(안 맞음) 이만큼 뒤에 걷는다.
+        public const long PredictedBombHoldTicks = 30;
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
 
@@ -71,6 +74,7 @@ namespace LOP
         private readonly HashSet<(string, long)> bombTrails = new HashSet<(string, long)>();
         private readonly Stack<LineRenderer> trailPool = new Stack<LineRenderer>();
         private readonly Dictionary<(string, long), float> firstSeenSeconds = new Dictionary<(string, long), float>();
+        private readonly List<(KnockbackShot shot, long hitTick)> pendingBombs = new List<(KnockbackShot, long)>();
         private readonly Vector3[] trailPoints = new Vector3[2];
         private Material trailMaterial;
         private Material fadeMaterial;
@@ -163,6 +167,28 @@ namespace LOP
                 }
                 go.transform.position = new Vector3(p.x, 1f, p.y);
                 UpdateTrail(key, shot, renderTick);
+            }
+
+            // 내 몸에 맞았다고 예측한 폭탄은 서버 터짐(그림은 KnockbackBlastView)이 올 때까지 맞은 자리에 남긴다 —
+            // 터짐 연출 없이 그냥 사라지지 않게.
+            world.CollectPendingPredictedBombs(world.LatestSavedTick ?? (long)System.Math.Floor(renderTick), PredictedBombHoldTicks, pendingBombs);
+            for (int i = 0; i < pendingBombs.Count; i++)
+            {
+                var (bomb, hitTick) = pendingBombs[i];
+                var key = (bomb.ShooterId, bomb.FireTick);
+                if (alive.Add(key) == false)
+                {
+                    continue;
+                }
+                var p = PositionAt(bomb, System.Math.Min(renderTick, hitTick));
+                if (!spheres.TryGetValue(key, out var go))
+                {
+                    go = Rent(true);
+                    spheres[key] = go;
+                    SetBombMark(bombSpheres, key, true);
+                }
+                go.transform.position = new Vector3(p.x, 1f, p.y);
+                ReleaseTrail(key);
             }
 
             // 목록에서 빠진 탄(맞음·사거리 끝)은 그림도 걷는다.

@@ -90,12 +90,16 @@ namespace LOP
 
         /// <summary>
         /// 다음 <see cref="Reconcile"/>에서 그 틱 상태로 되감아 지금까지 다시 계산하게 한다(서버 스냅 되감기와 같은 재생).
-        /// 같은 때 서버 스냅으로 되감으면 그쪽이 맡는다.
+        /// 같은 때 서버 스냅으로 되감으면 그쪽이 맡는다. 서버가 이미 확정한 틱(<see cref="ConfirmedTick"/>)보다 이른 요청은
+        /// 버린다 — 그 구간은 서버 값이 이미 담고 있고, 그 앞 저장본은 보정 전 예측값이라 되감으면 서버 확정을 지운다.
         /// </summary>
         public void RequestReplayFrom(long tick)
         {
             pendingReplayFrom = pendingReplayFrom is long existing ? System.Math.Min(existing, tick) : tick;
         }
+
+        /// <summary>서버 스냅으로 확정 처리한 가장 최신 틱. 이 틱의 저장본은 서버 값(또는 서버와 맞은 예측)이다.</summary>
+        public long ConfirmedTick => lastReconciledTick;
 
         /// <summary>서버 스냅 수신(예측 대상 전부). 가장 새 틱의 배치만 남긴다.</summary>
         public void AddServerSnap(EntitySnap snap)
@@ -292,6 +296,12 @@ namespace LOP
             }
             Physics.SyncTransforms();
 
+            // 앵커 틱 저장본도 서버 값으로 바꿔 둔다 — 뒤에 이 틱부터 되감는 요청이 보정 전 예측값을 불러오지 않게.
+            if (restored)
+            {
+                world.SaveState(anchorTick);
+            }
+
             if (tooOld || currentTick - anchorTick > MaxReplayTicks)
             {
                 NotifyRenderCorrections(entityId, deltaTime);
@@ -376,7 +386,8 @@ namespace LOP
             string entityId = playerContext.entityId;
             var worldEntity = entityId != null ? entityRegistry.Get(entityId) : null;
             var inputBuffer = worldEntity?.Get<InputBuffer>();
-            if (inputBuffer == null || anchorTick >= currentTick - 1 || currentTick - anchorTick > MaxReplayTicks)
+            if (inputBuffer == null || anchorTick < lastReconciledTick
+                || anchorTick >= currentTick - 1 || currentTick - anchorTick > MaxReplayTicks)
             {
                 return;
             }

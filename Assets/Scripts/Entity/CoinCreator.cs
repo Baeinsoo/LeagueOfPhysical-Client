@@ -26,16 +26,6 @@ namespace LOP
                 Rotation = Quaternion.Euler(creationData.rotation).ToNumerics(),
             });
             worldEntity.Add(new GameFramework.World.Velocity { Linear = creationData.velocity.ToNumerics() });
-
-            // 드럼통도 동전과 같은 생성 메시지로 온다. 서버가 굴리는 결과만 받아 그리므로 몸·모양 없이 데이터만 둔다.
-            if (creationData.visualId == KnockbackBarrel.VisualId)
-            {
-                worldEntity.Add(new EntityKind(EntityType.Barrel));
-                entityRegistry.Add(worldEntity);
-                Debug.Log($"[World] Registered barrel {worldEntity.Id}");
-                return;
-            }
-
             worldEntity.Add(new EntityKind(EntityType.Coin));
             worldEntity.Add(new Appearance(creationData.visualId));
             worldEntity.Add(new GameFramework.World.DiscShape(0.15f, 0.04f));

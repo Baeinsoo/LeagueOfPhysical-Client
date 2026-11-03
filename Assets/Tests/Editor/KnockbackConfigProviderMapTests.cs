@@ -5,7 +5,7 @@ using NUnit.Framework;
 
 namespace LOP.Tests
 {
-    /// <summary>넉백 설정은 맵 id의 행을 읽는다 - 기본 원판(15·16)과 드럼통 창고(17·18)는 드럼통만 다르다. 쌍둥이 시험이 서버 쪽에도 있다.</summary>
+    /// <summary>넉백 설정은 맵 id의 행을 읽는다 - 행이 없는 맵은 크게 실패한다. 쌍둥이 시험이 서버 쪽에도 있다.</summary>
     public class KnockbackConfigProviderMapTests
     {
         private const string Folder = "Packages/com.baegames.lop.masterdata.client/Runtime.Generated/StreamingAssets/MasterData/";
@@ -39,37 +39,10 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 기본_원판_맵은_드럼통이_없다()
+        public void 기본_원판_맵은_자기_id의_행을_읽는다()
         {
-            Assert.AreEqual(0, ConfigOf(15).Barrels.Count);
-            Assert.AreEqual(0, ConfigOf(16, 12).Barrels.Count);
-        }
-
-        [Test]
-        public void 드럼통_창고_맵은_드럼통_넷과_표의_값을_읽는다()
-        {
-            foreach (var (map, mode) in new[] { (17, 11), (18, 12) })
-            {
-                var b = ConfigOf(map, mode).Barrels;
-                Assert.AreEqual(4, b.Count, $"맵 {map}");
-                Assert.AreEqual(0.55f, b.Radius, 1e-5f);
-                Assert.AreEqual(9f, b.RingRadius, 1e-5f);
-                Assert.AreEqual(2.5f, b.Friction, 1e-5f);
-                Assert.AreEqual(0.6f, b.Restitution, 1e-5f);
-                Assert.AreEqual(6f, b.ShotImpulse, 1e-5f);
-                Assert.AreEqual(1f, b.HitScale, 1e-5f);
-            }
-        }
-
-        [Test]
-        public void 두_맵의_나머지_값은_같다()
-        {
-            var plain = ConfigOf(15);
-            var barrels = ConfigOf(17);
-            Assert.AreEqual(plain.ArenaRadius, barrels.ArenaRadius);
-            Assert.AreEqual(plain.ShotRange, barrels.ShotRange);
-            Assert.AreEqual(plain.Pillars.Count, barrels.Pillars.Count);
-            Assert.AreEqual(plain.BlastRadius, barrels.BlastRadius);
+            Assert.AreEqual(4, ConfigOf(15).Pillars.Count);
+            Assert.AreEqual(4, ConfigOf(16, 12).Pillars.Count);
         }
 
         [Test]

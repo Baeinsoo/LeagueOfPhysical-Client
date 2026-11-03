@@ -84,6 +84,23 @@ namespace LOP
             this.remoteInput = remoteInput;
         }
 
+        // 서버 스냅 없이 "이 틱 상태로 되감아 다시 계산하라"는 요청 중 가장 이른 틱. 없으면 null.
+        // 늦게 안 사실(남의 탄이 이미 지나간 틱에 내 몸을 맞혔어야 함)을 같은 되감기·재생으로 반영한다.
+        private long? pendingReplayFrom;
+
+        /// <summary>
+        /// 다음 <see cref="Reconcile"/>에서 그 틱 상태로 되감아 지금까지 다시 계산하게 한다(서버 스냅 되감기와 같은 재생).
+        /// 같은 때 서버 스냅으로 되감으면 그쪽이 맡는다. 서버가 이미 확정한 틱(<see cref="ConfirmedTick"/>)보다 이른 요청은
+        /// 버린다 — 그 구간은 서버 값이 이미 담고 있고, 그 앞 저장본은 보정 전 예측값이라 되감으면 서버 확정을 지운다.
+        /// </summary>
+        public void RequestReplayFrom(long tick)
+        {
+            pendingReplayFrom = pendingReplayFrom is long existing ? System.Math.Min(existing, tick) : tick;
+        }
+
+        /// <summary>서버 스냅으로 확정 처리한 가장 최신 틱. 이 틱의 저장본은 서버 값(또는 서버와 맞은 예측)이다.</summary>
+        public long ConfirmedTick => lastReconciledTick;
+
         /// <summary>서버 스냅 수신(예측 대상 전부). 가장 새 틱의 배치만 남긴다.</summary>
         public void AddServerSnap(EntitySnap snap)
         {
@@ -106,8 +123,14 @@ namespace LOP
         /// <summary>틱 앞에서 호출. 대기 스냅 배치가 있고 예측이 어긋났으면 복원+재생.</summary>
         public void Reconcile(long currentTick, float deltaTime)
         {
+            long? replayFrom = pendingReplayFrom;
+            pendingReplayFrom = null;
             if (pendingSnaps.Count == 0)
             {
+                if (replayFrom is long from)
+                {
+                    ReplayOnly(from, currentTick, deltaTime);
+                }
                 return;
             }
             long anchorTick = pendingTick;
@@ -127,37 +150,6 @@ namespace LOP
 
             // 보정 전 예측 위치를 엔티티마다 기억해 둔다(렌더 보정 통지가 "전→후" 차이를 알아야 한다).
             preCorrectionPositions.Clear();
-
-            // 하드 보정으로 시뮬 위치가 튄 것을 렌더 스무더에 알린다. 스무더가 보이는 위치를
-            // (보정 전 예측 → 보정 후 권위)만큼 부드럽게 흡수한다(시뮬 무영향). 크기별 스냅/무시는 스무더가 판단.
-            // 권위 값을 덮은 뒤 빠져나가는 길은 재생을 하든 말든 전부 이걸 부른다 — 안 부르면 화면이 순간이동한다.
-            void NotifyRenderCorrections()
-            {
-                foreach (var pair in preCorrectionPositions)
-                {
-                    if (actorRegistry.TryGet(pair.Key, out var actor) == false)
-                    {
-                        continue;
-                    }
-                    var target = entityRegistry.Get(pair.Key);
-                    if (target == null)
-                    {
-                        continue;
-                    }
-                    var after = GameFramework.World.EntityMotionExtensions.GetPosition(target).ToNumerics();
-                    if (pair.Key != entityId)
-                    {
-                        // [진단용 임시] 되감기 재생이 "지금 화면 자리"를 얼마나 옮겼나 = 눈에 보이는 튐.
-                        // 앵커 틱의 오차와는 다른 값이다 — 거긴 입력이 다 도착해 늘 0에 가깝다.
-                        RemoteSyncProbe.Corrected(pair.Key, System.Numerics.Vector3.Distance(pair.Value, after));
-                    }
-                    actor.GetComponent<PredictedEntityInterpolator>()?.OnCorrection(
-                        pair.Value, after,
-                        GameFramework.World.EntityMotionExtensions.GetVelocity(target).ToNumerics(),
-                        deltaTime,
-                        teleportedThisBatch.Contains(pair.Key));
-                }
-            }
 
             // 텔레포트 관측은 아래 errorGate보다 먼저다. 게이트는 "예측이 서버와 얼마나 먼가"로
             // 판단하는데, 짧은 텔레포트는 그 문턱 아래라 게이트가 닫히고 스냅을 적용하는 루프가
@@ -247,6 +239,10 @@ namespace LOP
             {
                 lastReconciledTick = anchorTick;
                 pendingSnaps.Clear();
+                if (replayFrom is long from)
+                {
+                    ReplayOnly(from, currentTick, deltaTime);
+                }
                 return;
             }
 
@@ -300,9 +296,15 @@ namespace LOP
             }
             Physics.SyncTransforms();
 
+            // 앵커 틱 저장본도 서버 값으로 바꿔 둔다 — 뒤에 이 틱부터 되감는 요청이 보정 전 예측값을 불러오지 않게.
+            if (restored)
+            {
+                world.SaveState(anchorTick);
+            }
+
             if (tooOld || currentTick - anchorTick > MaxReplayTicks)
             {
-                NotifyRenderCorrections();
+                NotifyRenderCorrections(entityId, deltaTime);
                 pendingSnaps.Clear();
                 return;
             }
@@ -314,10 +316,52 @@ namespace LOP
             var inputBuffer = worldEntity.Get<InputBuffer>();   // 입력 버퍼 (WorldEventBuffer 아님 — 이름 구분)
             if (inputBuffer == null)
             {
-                NotifyRenderCorrections();
+                NotifyRenderCorrections(entityId, deltaTime);
                 pendingSnaps.Clear();
                 return;
             }
+            Replay(anchorTick, currentTick, deltaTime, inputBuffer);
+
+            NotifyRenderCorrections(entityId, deltaTime);
+            pendingSnaps.Clear();
+        }
+
+        // 하드 보정으로 시뮬 위치가 튄 것을 렌더 스무더에 알린다. 스무더가 보이는 위치를
+        // (보정 전 예측 → 보정 후 권위)만큼 부드럽게 흡수한다(시뮬 무영향). 크기별 스냅/무시는 스무더가 판단.
+        // 권위 값을 덮은 뒤 빠져나가는 길은 재생을 하든 말든 전부 이걸 부른다 — 안 부르면 화면이 순간이동한다.
+        private void NotifyRenderCorrections(string entityId, float deltaTime)
+        {
+            foreach (var pair in preCorrectionPositions)
+            {
+                if (actorRegistry.TryGet(pair.Key, out var actor) == false)
+                {
+                    continue;
+                }
+                var target = entityRegistry.Get(pair.Key);
+                if (target == null)
+                {
+                    continue;
+                }
+                var after = GameFramework.World.EntityMotionExtensions.GetPosition(target).ToNumerics();
+                if (pair.Key != entityId)
+                {
+                    // [진단용 임시] 되감기 재생이 "지금 화면 자리"를 얼마나 옮겼나 = 눈에 보이는 튐.
+                    // 앵커 틱의 오차와는 다른 값이다 — 거긴 입력이 다 도착해 늘 0에 가깝다.
+                    RemoteSyncProbe.Corrected(pair.Key, System.Numerics.Vector3.Distance(pair.Value, after));
+                }
+                actor.GetComponent<PredictedEntityInterpolator>()?.OnCorrection(
+                    pair.Value, after,
+                    GameFramework.World.EntityMotionExtensions.GetVelocity(target).ToNumerics(),
+                    deltaTime,
+                    teleportedThisBatch.Contains(pair.Key));
+            }
+        }
+
+        // 이미 예측했던 과거 틱(anchor+1 ~ currentTick-1)을 이동+물리로 재구성.
+        // 내 입력은 inputHistory에서, 남의 입력은 서버가 되뿌려 준 것에서 꺼내 매 틱 다시
+        // 먹인다 — 라이브와 재생이 같은 입력을 봐야 같은 답이 나온다.
+        private void Replay(long anchorTick, long currentTick, float deltaTime, InputBuffer inputBuffer)
+        {
             // 재생이 만든 연출 이벤트(cue 등)는 이미 라이브 때 방출됐으므로 버린다.
             using (worldEventBuffer.Suppress())
             {
@@ -333,9 +377,46 @@ namespace LOP
                     world.SaveState(t);
                 }
             }
+        }
 
-            NotifyRenderCorrections();
-            pendingSnaps.Clear();
+        // 서버 스냅 없이 내 예측 상태로 되감아 다시 계산한다(서버가 아니라 늦게 안 사실 때문이라 보정 횟수로 세지 않는다).
+        // 되감을 상태가 없거나 너무 멀면 하지 않는다 — 서버 결과가 고친다.
+        private void ReplayOnly(long anchorTick, long currentTick, float deltaTime)
+        {
+            string entityId = playerContext.entityId;
+            var worldEntity = entityId != null ? entityRegistry.Get(entityId) : null;
+            var inputBuffer = worldEntity?.Get<InputBuffer>();
+            if (inputBuffer == null || anchorTick < lastReconciledTick
+                || anchorTick >= currentTick - 1 || currentTick - anchorTick > MaxReplayTicks)
+            {
+                return;
+            }
+
+            preCorrectionPositions.Clear();
+            foreach (var entity in entityRegistry.All)
+            {
+                if (entity.Has<GameFramework.World.Simulated>())
+                {
+                    preCorrectionPositions[entity.Id] = GameFramework.World.EntityMotionExtensions.GetPosition(entity).ToNumerics();
+                }
+            }
+
+            if (world.LoadState(anchorTick) == false)
+            {
+                return;
+            }
+            foreach (var entity in entityRegistry.All)
+            {
+                if (entity.Has<GameFramework.World.Simulated>())
+                {
+                    motionBridge.PushMotion(entity);
+                }
+            }
+            Physics.SyncTransforms();
+
+            teleportedThisBatch.Clear();
+            Replay(anchorTick, currentTick, deltaTime, inputBuffer);
+            NotifyRenderCorrections(entityId, deltaTime);
         }
 
         /// <summary>주어진 위치 반경 <see cref="NearRadius"/> 안에 나 말고 캐릭터가 있나(몸싸움 근접도).</summary>

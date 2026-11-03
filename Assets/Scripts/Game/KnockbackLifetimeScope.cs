@@ -25,42 +25,15 @@ namespace LOP
             builder.Register<KnockbackConfig>(c => c.Resolve<KnockbackConfigProvider>().Get(), Lifetime.Singleton);
             builder.Register<KnockbackMatchMode>(c => c.Resolve<KnockbackConfigProvider>().GetMatchMode(), Lifetime.Singleton);
 
-            // 바닥은 월드와 이동 시스템이 같은 한 개를 나눠 쓴다.
-            builder.Register<KnockbackFloor>(c => c.Resolve<KnockbackConfig>().CreateFloor(), Lifetime.Singleton);
-            builder.Register<KnockbackMoveSystem>(c => c.Resolve<KnockbackConfig>().CreateMoveSystem(
-                c.Resolve<KnockbackFloor>(),
-                c.Resolve<GameFramework.Physics.ICollisionQuery>(),
-                LayerMask.GetMask("Default", "Character")), Lifetime.Singleton);
-
-            builder.Register(c => new KnockbackFireSystem(c.Resolve<KnockbackConfig>()), Lifetime.Singleton);
-            builder.Register(c => new BodyCollisionSystem(
-                BodySizes.CharacterRadius, BodySizes.CharacterHeight,
-                c.Resolve<KnockbackConfig>().BodyRestitution, new UnityEngine.Vector3(1, 0, 1)), Lifetime.Singleton);
-
-            builder.Register(c => new KnockbackPillars(c.Resolve<KnockbackConfig>().Pillars, c.Resolve<KnockbackFloor>(), c.Resolve<IMatchSeed>()), Lifetime.Singleton);
-            //  IDisposable이라 스코프가 끝날 때 컨테이너가 기둥 몸(GameObject)을 지운다.
-            builder.Register(c => new KnockbackPillarColliders(c.Resolve<KnockbackPillars>()), Lifetime.Singleton);
-
-            builder.Register<KnockbackWorld>(c => new KnockbackWorld(
-                c.Resolve<GameFramework.World.EntityRegistry>(),
-                c.Resolve<GameFramework.World.WorldEventBuffer>(),
-                c.Resolve<KnockbackMoveSystem>(),
-                c.Resolve<GameFramework.World.IMotionBridge>(),
-                c.Resolve<KnockbackFloor>(),
-                c.Resolve<KnockbackFireSystem>(),
-                c.Resolve<BodyCollisionSystem>(),
-                c.Resolve<KnockbackConfig>(),
-                c.Resolve<KnockbackPillars>(),
-                c.Resolve<KnockbackPillarColliders>()), Lifetime.Singleton)
-                .As<GameFramework.World.IWorld>().AsSelf();
+            RegisterWorld(builder);
 
             builder.Register<ICharacterCreator, KnockbackPlayerCreator>(Lifetime.Singleton);
 
             // 내 몸만 예측한다 — 남은 보간으로 충분하다.
-            // 내 몸 보정은 0.1초 녹인다: 남이 쏜 넉백은 서버가 정해 늦게 알게 되므로 되감으면 2~3m씩 옮겨져
-            // 순간이동으로 보였다(소스 엔진 cl_smooth와 같은 처리). 날아가는 중엔 조작이 원래 약해 잃는 게 적다.
+            // 내 몸 보정은 0.2초 녹인다: 맞음을 예측해도 서버와 어긋나면(남의 몸이 먼저 막음 등) 되감아 옮겨지는데,
+            // 업계 서버 권위 게임처럼 150~250ms에 녹여 순간이동으로 안 보이게 한다(§3.3.2). 크게 어긋나면 바로 옮긴다.
             builder.Register<IEntitySyncPolicy>(c =>
-                new OwnerPredictedSyncPolicy(() => c.Resolve<IGameDataStore>().userEntityId, localCorrectionSmoothTime: 0.1f),
+                new OwnerPredictedSyncPolicy(() => c.Resolve<IGameDataStore>().userEntityId, localCorrectionSmoothTime: 0.2f),
                 Lifetime.Singleton);
 
             // 위치 말고도 날림 여부·피해 %를 서버 결과에 맞춘다.
@@ -103,6 +76,55 @@ namespace LOP
             builder.Register<LeaveMatchConfirmView>(Lifetime.Transient);
             builder.Register(c => new MatchLeaveRequester(c.Resolve<ISubscriber<LeaveMatchToC>>(),
                 message => NetworkClient.Send(new CustomMirrorMessage { payload = message })), Lifetime.Singleton);
+        }
+
+        /// <summary>
+        /// 월드와 월드가 쓰는 시스템을 등록한다. 설정(KnockbackConfig·KnockbackMatchMode)과 공용 서비스는 부르는 쪽이 등록한다.
+        /// 시험이 실제 배선을 지나도록 따로 뺐다.
+        /// </summary>
+        public static void RegisterWorld(IContainerBuilder builder)
+        {
+            // 바닥은 월드와 이동 시스템이 같은 한 개를 나눠 쓴다.
+            builder.Register<KnockbackFloor>(c => c.Resolve<KnockbackConfig>().CreateFloor(), Lifetime.Singleton);
+            builder.Register<KnockbackMoveSystem>(c => c.Resolve<KnockbackConfig>().CreateMoveSystem(
+                c.Resolve<KnockbackFloor>(),
+                c.Resolve<GameFramework.Physics.ICollisionQuery>(),
+                LayerMask.GetMask("Default", "Character")), Lifetime.Singleton);
+
+            builder.Register(c => new KnockbackFireSystem(c.Resolve<KnockbackConfig>()), Lifetime.Singleton);
+            builder.Register(c => new BodyCollisionSystem(
+                BodySizes.CharacterRadius, BodySizes.CharacterHeight,
+                c.Resolve<KnockbackConfig>().BodyRestitution, new UnityEngine.Vector3(1, 0, 1)), Lifetime.Singleton);
+
+            builder.Register(c => new KnockbackPillars(c.Resolve<KnockbackConfig>().Pillars, c.Resolve<KnockbackFloor>(), c.Resolve<IMatchSeed>()), Lifetime.Singleton);
+            //  IDisposable이라 스코프가 끝날 때 컨테이너가 기둥 몸(GameObject)을 지운다.
+            builder.Register(c => new KnockbackPillarColliders(c.Resolve<KnockbackPillars>()), Lifetime.Singleton);
+
+            builder.Register<KnockbackWorld>(c => new KnockbackWorld(
+                c.Resolve<GameFramework.World.EntityRegistry>(),
+                c.Resolve<GameFramework.World.WorldEventBuffer>(),
+                c.Resolve<KnockbackMoveSystem>(),
+                c.Resolve<GameFramework.World.IMotionBridge>(),
+                c.Resolve<KnockbackFloor>(),
+                c.Resolve<KnockbackFireSystem>(),
+                c.Resolve<BodyCollisionSystem>(),
+                c.Resolve<KnockbackConfig>(),
+                c.Resolve<KnockbackPillars>(),
+                c.Resolve<KnockbackPillarColliders>(),
+                //  클라만 켠다 — 서버 스코프는 이 인자를 주지 않는다.
+                OwnHitPrediction(c)), Lifetime.Singleton)
+                .As<GameFramework.World.IWorld>().AsSelf();
+        }
+
+        //  내 몸이 남의 탄에 맞는 것을 서버와 같은 식으로 미리 넣는다(§3.3.2). 같은 팀 탄은 지나가고,
+        //  팀전에서 팀을 아직 모르면 예측하지 않는다. 내 팀은 다른 화면처럼 옛 몸 id까지 보고 기억한다.
+        private static KnockbackOwnHitPrediction OwnHitPrediction(IObjectResolver c)
+        {
+            var state = c.Resolve<KnockbackClientState>();
+            var store = c.Resolve<IGameDataStore>();
+            return new KnockbackOwnHitPrediction(
+                id => id != null && id == store.userEntityId ? state.MyTeamOf(store.userEntityId, store.formerEntityId) : state.TeamOf(id),
+                c.Resolve<KnockbackMatchMode>().IsTeam);
         }
 
         protected override void RegisterViewFactories(

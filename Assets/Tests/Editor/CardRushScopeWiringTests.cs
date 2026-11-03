@@ -128,6 +128,7 @@ namespace LOP.Tests
             Assert.IsNotNull(container.Resolve(typeof(CardRushHudCoordinator)), "완주 뒤 관전 흐름의 의존(판 끝·나가기)이 다 닿는다");
             //  소리·몸개그. IFlappyAudio(RaceHud·RaceFinish가 부름)는 빈 구현이 아니라 진짜 소리 하나와 같은 것.
             Assert.IsNotNull(container.Resolve(typeof(CardRushRunnerFxView)));
+            Assert.IsNotNull(container.Resolve(typeof(CardRushHeadCardView)), "머리 위 카드(다음 입력 틱·카메라)가 닿는다");
             Assert.IsNotNull(container.Resolve(typeof(CardRushRecordReporter)), "개인 기록(완주 시간·연속 정타 최고)이 닿는다");
             //  탭·Space 잡기는 ITickable(틱 앞)이어야 한다 — 틱 뒤 단계로 옮기면 탭이 한 틱 늦게 붙는다(최종 리뷰 I5).
             var keyboard = container.Resolve(typeof(CardRushTapGrab));

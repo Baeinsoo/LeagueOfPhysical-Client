@@ -77,9 +77,10 @@ namespace LOP
     {
         /// <summary>카드 째깍 — 아주 작게. 리듬을 귀로도 읽게 하되 거슬리지 않게(spec §7.5 −18 dB).</summary>
         public const float TickVolumeDb = -18f;
-        public const float WhooshVolumeDb = -8f;
-        public const float ThunkVolumeDb = -4f;
-        public const float MissVolumeDb = -2f;
+        public const float WhooshVolumeDb = -10f;
+        public const float ThunkVolumeDb = -8f;
+        public const float SlapVolumeDb = -6f;
+        public const float MissVolumeDb = -2f;   //  돌다리 풍덩
         public const float FanfareVolumeDb = -3f;
         public const float RaceUiVolumeDb = 0f;
 
@@ -99,6 +100,7 @@ namespace LOP
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly IGameDataStore gameDataStore;
         private readonly EntityRenderClock renderClock;
+        private readonly PlayerInputManager input;
         private readonly Dictionary<CardRushSfx, AudioClip> clips = new Dictionary<CardRushSfx, AudioClip>();
         private readonly Dictionary<FlappySfx, AudioClip> raceClips = new Dictionary<FlappySfx, AudioClip>();
         private readonly List<AudioClip> synthesized = new List<AudioClip>();
@@ -113,8 +115,9 @@ namespace LOP
         internal Action<AudioClip, float> playOneShot;
 
         public CardRushAudio(CardRushWorld world, GameFramework.World.EntityRegistry entityRegistry,
-                             IGameDataStore gameDataStore, EntityRenderClock renderClock)
+                             IGameDataStore gameDataStore, EntityRenderClock renderClock, PlayerInputManager input)
         {
+            this.input = input;
             this.world = world;
             this.entityRegistry = entityRegistry;
             this.gameDataStore = gameDataStore;
@@ -165,18 +168,15 @@ namespace LOP
                         FlappySynth.Part.Tone(2400f, 0.03f, FlappySynth.Wave.Sine, 0.4f),
                     };
                 case CardRushSfx.Whoosh:
-                    //  카드가 손을 떠나는 휙 — 높은 대역 잡음이 짧게 스친다(연속이 길어져도 같은 소리).
-                    return new[]
-                    {
-                        FlappySynth.Part.Noise(0.12f, 0.7f, 1800f, 1.1f),
-                        FlappySynth.Part.Noise(0.08f, 0.35f, 4200f, 1.6f, 0.02f),
-                    };
+                    //  카드가 손을 떠나는 휙 — 걸러 낸 잡음의 대역 가운데를 0.12초에 1.2 → 3 kHz로 훑는다. 잡음 겹은 필터가 고정이라
+                    //  가운데를 등비로 올린 짧은 겹 넷을 겹쳐 훑기를 만든다(연속이 길어져도 같은 소리).
+                    return WhooshSweep(1200f, 3000f, 0.12f, 4);
                 case CardRushSfx.Thunk:
-                    //  문에 꽂히는 탁 — 짧은 나무 두드림(낮은 음 + 짧은 잡음).
+                    //  문에 꽂히는 탁 — 짧은 사인 220 Hz + 잡음 파열 0.06초(마른 나무).
                     return new[]
                     {
-                        FlappySynth.Part.Tone(330f, 0.06f, FlappySynth.Wave.Triangle, 0.7f, 0f, 0.6f),
-                        FlappySynth.Part.Noise(0.04f, 0.6f, 1200f, 1.0f),
+                        FlappySynth.Part.Tone(220f, 0.06f, FlappySynth.Wave.Sine, 0.8f, 0f, 0.7f),
+                        FlappySynth.Part.Noise(0.06f, 0.6f, 1400f, 1.0f),
                     };
                 case CardRushSfx.Splash:
                     //  걸러 낸 잡음 0.35초 — 낮은 첨벙 + 위에 흩어지는 물방울.
@@ -187,12 +187,13 @@ namespace LOP
                     };
                 case CardRushSfx.Slap:
                 {
-                    //  얼굴에 철썩(밝은 잡음 터짐 + 낮은 퍽), 그리고 일어설 때 용수철 미끄럼음(뾰잉 — 위로 미끄러지는 세모파).
+                    //  얼굴에 철썩 — 넓은 잡음 파열 0.08초(낮은 Q, 빠른 감쇠: 짧은 앞 겹이 손바닥 터짐), 그리고 일어설 때
+                    //  용수철 미끄럼음(뾰잉 — 위로 미끄러지는 세모파, 멈춤의 0.75).
                     float standUp = SlapStandUpDelay(stunSeconds);
                     return new[]
                     {
-                        FlappySynth.Part.Noise(0.06f, 1.0f, 2600f, 0.8f),
-                        FlappySynth.Part.Tone(160f, 0.1f, FlappySynth.Wave.Sine, 0.6f, 0f, 0.5f),
+                        FlappySynth.Part.Noise(0.08f, 0.9f, 2200f, 0.35f),
+                        FlappySynth.Part.Noise(0.025f, 0.8f, 3500f, 0.5f),
                         FlappySynth.Part.Tone(260f, 0.22f, FlappySynth.Wave.Triangle, 0.35f, standUp, 2.6f),
                     };
                 }
@@ -209,13 +210,28 @@ namespace LOP
             }
         }
 
+        /// <summary>대역 가운데를 from → to(등비)로 훑는 잡음 — 겹 count개가 duration을 나눠 조금씩 겹친다.</summary>
+        internal static FlappySynth.Part[] WhooshSweep(float from, float to, float duration, int count)
+        {
+            var parts = new FlappySynth.Part[count];
+            float slot = duration / count;
+            for (int i = 0; i < count; i++)
+            {
+                float f = from * Mathf.Pow(to / from, count == 1 ? 0f : i / (float)(count - 1));
+                //  가운데 겹이 가장 크다 — 휙 하고 부풀었다 사라진다.
+                float v = 0.5f + 0.4f * Mathf.Sin(Mathf.PI * (i + 0.5f) / count);
+                parts[i] = FlappySynth.Part.Noise(slot * 1.6f, v, f, 1.2f, i * slot);
+            }
+            return parts;
+        }
+
         internal static float VolumeOf(CardRushSfx sfx) => sfx switch
         {
             CardRushSfx.CardTick => Gain(TickVolumeDb),
             CardRushSfx.Whoosh => Gain(WhooshVolumeDb),
             CardRushSfx.Thunk => Gain(ThunkVolumeDb),
             CardRushSfx.Splash => Gain(MissVolumeDb),
-            CardRushSfx.Slap => Gain(MissVolumeDb),
+            CardRushSfx.Slap => Gain(SlapVolumeDb),
             _ => Gain(FanfareVolumeDb),
         };
 
@@ -279,7 +295,8 @@ namespace LOP
             }
         }
 
-        private CardRushAudioFrame ReadFrame(string id)
+        /// <summary>내 몸 한 장면. 시험은 이것으로 째깍의 틱 기준을 본다.</summary>
+        internal CardRushAudioFrame ReadFrame(string id)
         {
             var runner = string.IsNullOrEmpty(id) ? null : entityRegistry.Get(id)?.Get<CardRushRunner>();
             var course = world.Course;
@@ -289,8 +306,10 @@ namespace LOP
             }
             var s = runner.State;
             long drawnTick = renderClock.TickFor(id);
-            //  카드 색은 조작판과 같은 틱(내 몸 = 지금 예측 틱 = 틱 사이의 다음 입력 틱)으로 본다 — 본 색과 들은 째깍이 같은 순간.
-            bool faceUp = CardRushCard.TryColorAt(s, drawnTick, course, out var color);
+            //  카드 색은 머리 위 카드와 같은 틱(PlayerInputManager.NextInputTick)으로 본다 — 본 색과 들은 째깍이 같은 순간.
+            //  러너 틱으로 보면 이번 틱 입력을 단 뒤엔 머리 위 카드보다 한 틱 늦게 째깍인다.
+            long cardTick = input != null ? input.NextInputTick : drawnTick;
+            var card = CardRushHeadCard.Compute(s, cardTick, world.GameplayStartTick, course, world.Timing);
             return new CardRushAudioFrame
             {
                 Has = true,
@@ -300,8 +319,8 @@ namespace LOP
                 StunTicks = world.Timing.StunTicks,
                 DrawnTick = drawnTick,
                 Finished = s.IsFinished(course.StepCount),
-                FaceUp = faceUp,
-                Color = color,
+                FaceUp = card.Visible && card.FaceUp,
+                Color = card.Color,
             };
         }
 

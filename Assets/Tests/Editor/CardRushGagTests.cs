@@ -268,7 +268,7 @@ namespace LOP.Tests
         [Test]
         public void 소리는_정한_크기로_나고_연속이_길어도_같은_휙()
         {
-            var audio = new CardRushAudio(null, null, null, null);
+            var audio = new CardRushAudio(null, null, null, null, null);
             var played = new List<(AudioClip clip, float volume)>();
             audio.playOneShot = (c, v) => played.Add((c, v));
             try
@@ -285,6 +285,12 @@ namespace LOP.Tests
                 Assert.AreSame(audio.ClipOf(CardRushSfx.Whoosh), played[1].clip);
                 Assert.AreSame(played[1].clip, played[2].clip, "연속이 길어져도 음을 올리지 않는다");
                 Assert.AreEqual(played[1].volume, played[2].volume);
+                Assert.AreEqual(Mathf.Pow(10f, -10f / 20f), played[1].volume, 1e-4f, "휙 −10 dB");
+
+                audio.Play(CardRushSfx.Thunk);
+                audio.Play(CardRushSfx.Slap);
+                Assert.AreEqual(Mathf.Pow(10f, -8f / 20f), played[3].volume, 1e-4f, "탁 −8 dB");
+                Assert.AreEqual(Mathf.Pow(10f, -6f / 20f), played[4].volume, 1e-4f, "철썩 −6 dB");
             }
             finally
             {
@@ -295,7 +301,7 @@ namespace LOP.Tests
         [Test]
         public void 공용_경기_화면_소리도_나고_완주_팡파르는_한_번만()
         {
-            var audio = new CardRushAudio(null, null, null, null);
+            var audio = new CardRushAudio(null, null, null, null, null);
             var played = new List<AudioClip>();
             audio.playOneShot = (c, v) => played.Add(c);
             try
@@ -317,7 +323,7 @@ namespace LOP.Tests
         [Test]
         public void 소리는_다_지어진다_철썩_뒤_뾰잉은_벌떡_서는_순간()
         {
-            var audio = new CardRushAudio(null, null, null, null);
+            var audio = new CardRushAudio(null, null, null, null, null);
             try
             {
                 foreach (CardRushSfx sfx in System.Enum.GetValues(typeof(CardRushSfx)))
@@ -329,6 +335,13 @@ namespace LOP.Tests
                 //  뾰잉은 몸개그가 벌떡 서는 순간(멈춤의 0.75 = 0.45초)에. 클립은 철썩(던짐 + 7틱 = 0.14초)에 시작하니 클립 안에선 0.31초.
                 var slap = CardRushAudio.Recipe(CardRushSfx.Slap, 0.6f);
                 Assert.AreEqual(0.31f, slap[slap.Length - 1].When, 1e-4f);
+
+                //  휙은 대역 가운데를 1.2 → 3 kHz로 0.12초에 훑는다(겹마다 가운데가 오른다).
+                var whoosh = CardRushAudio.Recipe(CardRushSfx.Whoosh, 0.6f);
+                Assert.AreEqual(1200f, whoosh[0].Freq, 1e-2f);
+                Assert.AreEqual(3000f, whoosh[whoosh.Length - 1].Freq, 1e-2f);
+                for (int i = 1; i < whoosh.Length; i++) Assert.Greater(whoosh[i].Freq, whoosh[i - 1].Freq);
+                Assert.AreEqual(0.12f, whoosh[whoosh.Length - 1].When + 0.12f / whoosh.Length, 1e-4f, "마지막 겹이 0.12초에 맞춰 시작");
             }
             finally
             {

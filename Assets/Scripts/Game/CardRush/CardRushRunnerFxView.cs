@@ -29,7 +29,21 @@ namespace LOP
             public ModelRest Rest;
             public bool Posed;
             public CardRushGagFx Fx;
+            public string Id;
+            public CardRushCardPlate Thrown;
         }
+
+        //  던진 카드(spec 2026-11-03 §5.3): 손 = 몸 오른쪽 0.3 m·높이 1.0 m, 튕겨 돌아올 때 포물선 높이 0.3 m.
+        public const float HandRight = 0.3f;
+        public const float HandHeight = 1.0f;
+        public const float BounceArc = 0.3f;
+        public const float FaceForward = 0.35f;   //  철썩 — 얼굴 앞(치비 머리가 커서 뼈에서 이만큼)
+        public const float FaceUp = 0.25f;        //  머리 뼈(목 쪽)에서 얼굴 가운데까지
+        public const float SlapDrop = 0.6f;       //  얼굴에서 떨어지는 거리
+        public const float SlapCardOfHead = 1.0f;
+        /// <summary>손 → 문 비행의 위로 휨(m) — 곧게 날면 뒤 위 카메라에서 큰 머리에 가려 안 보였다(실제 판).</summary>
+        public const float ThrowArc = 0.7f;
+        public const float SlapHold01 = 0.75f;    //  철썩 뒤 이 몫 동안 얼굴에 붙어 있다
 
         private readonly CardRushWorld world;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
@@ -38,7 +52,11 @@ namespace LOP
         private readonly EntityRenderClock renderClock;
         private readonly Dictionary<string, Entry> entries = new Dictionary<string, Entry>();
         private readonly List<string> gone = new List<string>();
+        //  몸마다 마지막으로 본 돌기 시작 틱 — 던지면 상태에서 지워지므로 틀린 카드의 던진 색을 다시 세려면 기억해야 한다.
+        private readonly Dictionary<string, long> spinStarts = new Dictionary<string, long>();
         private CardRushGagFxMaterials materials;
+        private CardRushCoursePalette palette;
+        private CardRushCardMaterials cardMaterials;
         private GameObject root;
 
         public CardRushRunnerFxView(CardRushWorld world, GameFramework.World.EntityRegistry entityRegistry, ActorRegistry actors,
@@ -54,6 +72,8 @@ namespace LOP
         public void Start()
         {
             materials = new CardRushGagFxMaterials();
+            palette = new CardRushCoursePalette();
+            cardMaterials = new CardRushCardMaterials(palette);
             root = new GameObject("CardRushGagFx");
         }
 
@@ -76,13 +96,23 @@ namespace LOP
                     continue;
                 }
 
+                var state = runner.State;
+                if (state.SpinStartTick != 0)
+                {
+                    spinStarts[actor.entityId] = state.SpinStartTick;
+                }
+
                 //  내 몸 그림은 예측 시각의 한 틱 뒤에 서 있다(KnockbackFlightFxView와 같은 식).
                 double drawnTick = renderClock.TimeFor(actor.entityId) / interval - (actor.entityId == me ? 1d : 0d);
-                var (kind, t01) = CardRushGag.Phase(rules.Theme, runner.State, drawnTick, world.Timing, rules.StepCount);
+                var (kind, t01) = CardRushGag.Phase(rules.Theme, state, drawnTick, world.Timing, rules.StepCount);
+                //  던지는 카드는 문 테마만(돌다리는 로비에서 빠졌고 풍덩이 그대로다).
+                var (throwKind, since) = rules.Theme == CardRushTheme.DoorDash
+                    ? CardRushThrowFx.Phase(state, drawnTick, world.Timing)
+                    : (CardRushThrowKind.None, 0d);
 
                 if (entries.TryGetValue(actor.entityId, out var entry) == false || entry.Visual != visual.transform)
                 {
-                    if (kind == CardRushGagKind.None)
+                    if (kind == CardRushGagKind.None && throwKind == CardRushThrowKind.None)
                     {
                         continue;   // 쉬는 몸은 만들 것도 없다
                     }
@@ -93,15 +123,15 @@ namespace LOP
                     }
                 }
 
-                if (kind == CardRushGagKind.None && entry.Posed == false)
+                if (kind != CardRushGagKind.None || entry.Posed)
                 {
-                    continue;   // 이미 원래 자세 — 다른 연출과 다투지 않게 쓰지도 않는다
+                    var pose = CardRushGag.PoseAt(kind, t01, rules.StepSpacing);
+                    ApplyPose(entry.Visual, entry.Model, entry.Rest, pose, rules.Forward);
+                    entry.Posed = kind != CardRushGagKind.None;
+                    entry.Fx.Show(kind, t01, entry.Visual.position, rules.Forward, rules.StepSpacing, HeadPosition(entry));
                 }
-
-                var pose = CardRushGag.PoseAt(kind, t01, rules.StepSpacing);
-                ApplyPose(entry.Visual, entry.Model, entry.Rest, pose, rules.Forward);
-                entry.Posed = kind != CardRushGagKind.None;
-                entry.Fx.Show(kind, t01, entry.Visual.position, rules.Forward, rules.StepSpacing, HeadPosition(entry));
+                //  카드는 자세를 준 뒤에 놓는다 — 철썩 카드는 이번 프레임 머리(젖혀진 자리)에 붙는다.
+                DrawThrown(entry, state, runner.LaneOrigin, throwKind, since, actor.entityId == me, rules);
             }
 
             gone.Clear();
@@ -115,13 +145,93 @@ namespace LOP
             foreach (var id in gone)
             {
                 entries[id].Fx.Destroy();
+                entries[id].Thrown?.Destroy();
                 entries.Remove(id);
+                spinStarts.Remove(id);
             }
+        }
+
+        /// <summary>
+        /// 날아가는 카드 한 장(spec 2026-11-03 §5.3). 맞음: 손 → 그 칸 문짝 가운데로 직선 + 두 바퀴(꽂힌 뒤는 <see cref="CardRushCourseView"/>가
+        /// 문짝에 그린다). 틀림: 문까지 같고, 문 → 얼굴 포물선, 철썩 뒤 얼굴에서 떨어지며 작아져 사라진다. 색: 맞음 = 그 칸 요구 색,
+        /// 틀림 = 던진 색(원장 판정, <see cref="CardRushThrowFx.TryThrownColor"/>) — 돌기 시작 틱을 못 봤으면 뒷면.
+        /// </summary>
+        private void DrawThrown(Entry entry, in CardRushRunnerState s, Vector3 laneOrigin, CardRushThrowKind kind, double since,
+                                bool mine, CardRushMapRulesField rules)
+        {
+            if (kind == CardRushThrowKind.None)
+            {
+                entry.Thrown?.SetVisible(false);
+                return;
+            }
+            var course = world.Course;
+            if (course == null)
+            {
+                return;
+            }
+            entry.Thrown ??= new CardRushCardPlate(root.transform, "Thrown " + entry.Id, cardMaterials);
+
+            int step = CardRushThrowFx.IsRightThrow(s, world.Timing) ? s.Step - 1 : s.Step;
+            spinStarts.TryGetValue(entry.Id, out long spinStart);
+            bool faceUp = CardRushThrowFx.TryThrownColor(s, spinStart, course, world.Timing, out var color);
+
+            var f = CardRushLanes.Flat(rules.Forward);
+            var rightAxis = Vector3.Cross(Vector3.up, f);
+            var body = entry.Visual.position;
+            var hand = body + rightAxis * HandRight + Vector3.up * HandHeight;
+            var door = CardRushCourseLayout.ObstacleAt(rules.Theme, laneOrigin, f, rules.StepSpacing, Mathf.Clamp(step, 0, course.StepCount - 1));
+            //  문짝 가운데의 꽂힐 자리(닫힌 문 기준 — 문 로컬 x 0, 문짝 앞면 조금 앞).
+            var hit = door + Vector3.up * CardRushLaneView.StuckCardLocal.y + f * CardRushLaneView.StuckCardLocal.z;
+            //  얼굴은 자세를 따른다 — 벌러덩하면 얼굴이 하늘을 보고, 붙은 카드가 뒤 위 카메라에 보인다.
+            var modelForward = entry.Model.forward;
+            var modelUp = entry.Model.up;
+            var face = HeadPosition(entry) + modelUp * FaceUp + modelForward * FaceForward;
+            float startHeight = mine ? CardRushHeadCardView.MineHeight : CardRushHeadCardView.OtherHeight;
+            var facing = Quaternion.LookRotation(f, Vector3.up);   //  보는 쪽(-z)이 뒤의 카메라를 본다
+
+            var (at, height, roll) = ThrownPlacement(since, hand, hit, face, startHeight);
+            if (height <= 0.01f)
+            {
+                entry.Thrown.SetVisible(false);
+                return;
+            }
+            entry.Thrown.SetVisible(true);
+            entry.Thrown.SetFace(faceUp, color, false);
+            var basis = since >= CardRushThrowFx.SlapTick ? Quaternion.LookRotation(modelForward, modelUp) : facing;
+            entry.Thrown.Root.SetPositionAndRotation(at, basis * Quaternion.AngleAxis(roll, Vector3.forward));
+            entry.Thrown.Root.localScale = Vector3.one * height;
+        }
+
+        /// <summary>
+        /// 던진 카드의 자리·높이·기울기(도) — 던짐에서 since틱. 0~3 손 → 문(두 바퀴 돌아 꽂힌 기울기로 닿음), 3~7 문 → 얼굴 포물선,
+        /// 7~12 얼굴에 붙었다가 떨어지며 작아져 0. 그림만 정하는 순수 식.
+        /// </summary>
+        public static (Vector3 at, float height, float roll) ThrownPlacement(double since, Vector3 hand, Vector3 hit, Vector3 face, float startHeight)
+        {
+            float stuckHeight = CardRushLaneView.StuckCardHeight;
+            float roll0 = CardRushLaneView.StuckCardRoll;
+            if (since < CardRushThrowFx.FlightTicks)
+            {
+                float u = Mathf.Clamp01((float)(since / CardRushThrowFx.FlightTicks));
+                return (Vector3.Lerp(hand, hit, u) + Vector3.up * (4f * ThrowArc * u * (1f - u)),
+                        Mathf.Lerp(startHeight, stuckHeight, u), roll0 + 720f * (1f - u));
+            }
+            if (since < CardRushThrowFx.SlapTick)
+            {
+                float u = (float)((since - CardRushThrowFx.FlightTicks) / CardRushThrowFx.BounceTicks);
+                return (Vector3.Lerp(hit, face, u) + Vector3.up * (4f * BounceArc * u * (1f - u)),
+                        Mathf.Lerp(stuckHeight, startHeight * SlapCardOfHead, u), roll0 - 360f * u);
+            }
+            float w = Mathf.Clamp01((float)((since - CardRushThrowFx.SlapTick) / CardRushThrowFx.DropTicks));
+            //  처음 SlapHold01은 얼굴에 붙어 있다가 떨어지며 작아진다.
+            float fall = Mathf.Clamp01((w - SlapHold01) / (1f - SlapHold01));
+            return (face + Vector3.down * (SlapDrop * fall * fall), startHeight * SlapCardOfHead * (1f - fall), roll0 - 360f - 40f * fall);
         }
 
         private Entry Dress(string id, Transform visual, Entry old)
         {
             old?.Fx.Destroy();
+            old?.Thrown?.Destroy();
             entries.Remove(id);
             var model = visual.Find(ChibiRig.ModelChildName);
             if (model == null)
@@ -131,6 +241,7 @@ namespace LOP
             var animator = ChibiRig.AnimatorOf(visual.gameObject);
             var entry = new Entry
             {
+                Id = id,
                 Visual = visual,
                 Model = model,
                 Head = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Head) : null,
@@ -177,12 +288,18 @@ namespace LOP
                     ApplyPose(entry.Visual, entry.Model, entry.Rest, CardRushPose.Rest, Vector3.forward);
                 }
                 entry.Fx.Destroy();
+                entry.Thrown?.Destroy();
             }
             entries.Clear();
+            spinStarts.Clear();
             CardRushGagFx.DestroyObject(root);
             root = null;
             materials?.Dispose();
             materials = null;
+            cardMaterials?.Dispose();
+            cardMaterials = null;
+            palette?.Dispose();
+            palette = null;
         }
     }
 

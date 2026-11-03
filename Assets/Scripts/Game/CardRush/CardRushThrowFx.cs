@@ -11,7 +11,9 @@ namespace LOP
         public const int FlightTicks = 3;   // 손 → 문
         public const int BounceTicks = 4;   // 틀림: 문 → 얼굴
         public const int SlapTick = FlightTicks + BounceTicks;
-        public const int DropTicks = 5;     // 철썩 뒤 얼굴에서 떨어져 사라지기까지
+        //  철썩 뒤 얼굴에 붙어 있다가 떨어져 사라지기까지. 몸이 뒤로 벌러덩(멈춤 0.30~0.45)하며 얼굴이 하늘을 볼 때까지 붙어 있어야
+        //  뒤 위 카메라에 "얼굴에 카드" 가 보인다 — 5틱이면 얼굴이 앞(문 쪽)을 보는 동안 다 떨어져 몸에 가렸다(실제 판 스크린샷).
+        public const int DropTicks = 14;
 
         /// <summary>
         /// 날아가는 카드가 지금 어디쯤인가. <c>BackToFace</c>에서 <c>since &lt; SlapTick</c>이면 문 → 얼굴 비행,
@@ -66,6 +68,10 @@ namespace LOP
             color = course.RequiredColor(s.Step - 1);
             return true;
         }
+
+        /// <summary>마지막 던짐이 맞음인가(맞음이면 날아간 문은 칸 Step − 1, 틀림이면 칸 Step).</summary>
+        public static bool IsRightThrow(in CardRushRunnerState s, in CardRushTiming timing)
+            => s.MoveStartTick != 0 && s.MoveStartTick > WrongThrowTick(s, timing);
 
         //  둘 다 있으면 더 늦은 던짐이 지금 것이다(맞음과 틀림은 같은 틱에 날 수 없다).
         private static long WrongThrowTick(in CardRushRunnerState s, in CardRushTiming timing)

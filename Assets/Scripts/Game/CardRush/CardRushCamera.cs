@@ -14,8 +14,9 @@ namespace LOP
     /// 피벗을 직접 놓는다 — 관전 대상이 바뀌어도 SetTarget이 거리·각을 다시 잡으며 튀지 않고, 같은 따라가기로 넘어간다.</para>
     ///
     /// <para>각 35°·앞 0.75칸(처음엔 30°·1.5칸): 그때는 몸의 발이 화면 아래 0.21에 와서 카드 띠(0.39까지) 뒤에 숨었고,
-    /// 문 맵에선 지나온 문틀까지 겹쳐 내 박치기가 안 보였다. 지금은 발이 띠(<see cref="LOP.UI.CardRushPadLayout.BandTop01"/>)
-    /// 위로 오고, 조금 더 내려다봐 지나온 문틀 너머로 몸이 보인다. 화면 위쪽엔 여전히 앞 코스가 넉넉히 보인다.</para>
+    /// 문 맵에선 지나온 문틀까지 겹쳐 내 박치기가 안 보였다. 지금은 발이 옛 띠 위 끝(<see cref="KeepClearBottom01"/>)
+    /// 위로 오고, 조금 더 내려다봐 지나온 문틀 너머로 몸이 보인다. 화면 위쪽엔 여전히 앞 코스가 넉넉히 보인다.
+    /// 2차(spec 2026-11-03 §5.2)에서 아래 띠를 지웠지만 각·거리는 그대로 둔다.</para>
     /// </summary>
     public class CardRushCamera : IStartable, System.IDisposable
     {
@@ -24,6 +25,12 @@ namespace LOP
         public const float PortraitDistanceScale = 1.35f;
         public const float LookAheadSteps = 0.75f;
         public const float FollowSharpness = 10f;
+
+        /// <summary>
+        /// 몸·몸개그를 이 높이(화면 아래 0, 위 1)보다 위에 둔다 — 지운 카드 띠(가로 1080p)의 위 끝 값 그대로. 띠는 없어졌지만
+        /// 아래 "연속 N" 글과 손가락 자리를 비우고, 카메라 각·거리를 바꾸지 않았다는 기준으로 남긴다.
+        /// </summary>
+        public const float KeepClearBottom01 = 0.235f;
 
         private readonly CameraController cameraController;
         private readonly CardRushMapRulesField rules;

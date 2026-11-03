@@ -11,113 +11,14 @@
     bottom: 0;
 }
 
-/* 큰 카드 — 화면 아래 가운데 띠. 자리·크기는 CardRushPadView가 화면 비율마다 CardRushPadLayout으로 다시 놓는다
-   (띠 위는 내 몸 자리). 아래 값은 1920×1080에서 그 계산과 같은 첫 그림용이다. */
-.card-rush-card {
-    position: absolute;
-    left: 795px;
-    width: 329px;
-    bottom: 27px;
-    height: 227px;
-    border-radius: 27px;
-    border-width: 6px;
-    border-color: rgba(17, 14, 12, 0.6);
-    justify-content: center;
-    align-items: center;
-    background-color: rgb(120, 120, 120);
-    transform-origin: center;
-}
-
-.card-rush-card-glyph {
-    font-size: 136px;
-    color: rgba(17, 14, 12, 0.85);
-    -unity-text-align: middle-center;
-}
-
-/* 뒷면 — 색이 아니라 중립 무늬(색맹 대응과 같은 이유로 색만으로 "앞/뒤"를 구분하지 않는다). */
-.card-rush-card-back {
-    display: none;
-    position: absolute;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    justify-content: center;
-    align-items: center;
-}
-
-.card-rush-card--back .card-rush-card-back {
-    display: flex;
-}
-
-.card-rush-card--back .card-rush-card-glyph {
-    display: none;
-}
-
-.card-rush-card--back {
-    background-color: rgb(58, 54, 50);
-}
-
-/* 마름모 셋 — 뒷면의 무늬. 가운데가 가장 크다. */
-.card-rush-card-back-mark {
-    width: 54px;
-    height: 54px;
-    rotate: 45deg;
-    border-width: 4px;
-    border-color: rgba(243, 235, 226, 0.35);
-}
-
-/* 다음 칩 — 카드 오른쪽, 지금 요구 색 하나(크게) + 그다음 둘(작게)(spec §7.3). 카드 위에 두면 띠가 높아져 몸을 가린다. */
-.card-rush-next {
-    position: absolute;
-    left: 1136px;
-    bottom: 99px;
-    width: 229px;
-    height: 82px;
-    flex-direction: row;
-    justify-content: flex-start;
-    align-items: center;
-}
-
-.card-rush-chip {
-    width: 56px;
-    height: 56px;
-    margin-left: 6px;
-    margin-right: 6px;
-    border-radius: 14px;
-    border-width: 3px;
-    border-color: rgba(17, 14, 12, 0.6);
-    justify-content: center;
-    align-items: center;
-    background-color: rgb(120, 120, 120);
-}
-
-.card-rush-chip Label {
-    font-size: 30px;
-    color: rgba(17, 14, 12, 0.85);
-    -unity-text-align: middle-center;
-}
-
-.card-rush-chip--now {
-    width: 76px;
-    height: 76px;
-    border-width: 4px;
-    border-color: rgb(243, 235, 226);
-}
-
-.card-rush-chip--now Label {
-    font-size: 40px;
-}
-
-/* 연속 정타 — 카드 왼쪽(spec §7.3), 카드 쪽으로 붙인다. 통통 튀는 건 코드가 scale로 한다. */
+/* 연속 정타 — 화면 아래 가운데, 바탕 없음(카드는 머리 위로 옮겼다). 통통 튀는 건 코드가 scale로 한다. */
 .card-rush-streak {
     position: absolute;
-    left: 12px;
-    bottom: 104px;
-    width: 771px;
-    height: 74px;
-    font-size: 37px;
+    bottom: 3%;
+    left: 0;
+    right: 0;
+    font-size: 40px;
     color: rgb(243, 235, 226);
-    -unity-text-align: middle-right;
-    transform-origin: right;
+    -unity-text-align: middle-center;
+    transform-origin: center;
 }

@@ -68,7 +68,10 @@ namespace LOP
             return s.MoveStartTick == 0 || drawnTick >= s.MoveStartTick + moveTicks;
         }
 
-        /// <summary>문 칸 k의 문짝 열림 각(도). 맞힌 이동의 앞 0.1초에 0 → 100°, 건넌 문은 열린 채, 아직 안 맞힌 문은 닫힘.</summary>
+        /// <summary>
+        /// 문 칸 k의 문짝 열림 각(도). 던진 카드가 문에 꽂히는 틱(맞힌 틱 + <see cref="CardRushThrowFx.FlightTicks"/>)부터
+        /// 0.1초에 0 → 100°, 건넌 문은 열린 채, 아직 안 맞힌 문은 닫힘. 그림만이다 — 몸은 맞힌 틱부터 시뮬대로 간다.
+        /// </summary>
         public static float DoorOpenAngle(in CardRushRunnerState s, long drawnTick, int moveTicks, int step)
         {
             if (step >= s.Step)
@@ -80,7 +83,7 @@ namespace LOP
                 return DoorOpenDegrees;
             }
             int openTicks = CardRushTiming.Ticks(DoorOpenSeconds);
-            float t = Mathf.Clamp01((float)(drawnTick - s.MoveStartTick) / openTicks);
+            float t = Mathf.Clamp01((float)(drawnTick - (s.MoveStartTick + CardRushThrowFx.FlightTicks)) / openTicks);
             return DoorOpenDegrees * t;
         }
 
@@ -307,10 +310,19 @@ namespace LOP
         public const float DoorWidth = 2.2f;
         public const float DoorHeight = 2.2f;
         public const float FrameThickness = 0.16f;
+        public const float LeafHeight = DoorHeight - FrameThickness * 0.5f - 0.04f;
+
+        /// <summary>문에 꽂힌 카드(spec 2026-11-03 §5.3) — 문 로컬 자리(문짝 가운데, 다가오는 쪽 면 조금 앞)·높이·기울기.</summary>
+        public static readonly Vector3 StuckCardLocal = new Vector3(0f, LeafHeight * 0.5f + 0.02f, -0.075f);
+        public const float StuckCardHeight = 0.45f;
+        public const float StuckCardRoll = 15f;
 
         private readonly CardRushTheme theme;
         private readonly CardRushCoursePalette palette;
         private readonly CardRushCourse course;
+        private readonly CardRushCardMaterials cards;
+        private readonly HideFlags hideFlags;
+        private readonly CardRushCardPlate[] stuck;   //  문마다 꽂힌 카드 — 처음 꽂힐 때 만든다(문짝 경첩의 자식이라 같이 열리고 가라앉는다)
         private readonly Renderer[] bodies;
         private readonly Transform[] movers;   // 돌다리 = 돌, 문 = 문짝 경첩
         private readonly Transform[] doors;    // 문 테마만 — 문틀과 문짝을 함께 가라앉힌다
@@ -321,12 +333,16 @@ namespace LOP
         public GameObject Root { get; }
 
         public CardRushLaneView(Transform parent, string name, CardRushTheme theme, Vector3 laneOrigin, Vector3 forward,
-                                float stepSpacing, CardRushCourse course, CardRushCoursePalette palette, HideFlags hideFlags = HideFlags.None)
+                                float stepSpacing, CardRushCourse course, CardRushCoursePalette palette, HideFlags hideFlags = HideFlags.None,
+                                CardRushCardMaterials cards = null)
         {
             this.theme = theme;
             this.palette = palette;
             this.course = course;
+            this.cards = cards;
+            this.hideFlags = hideFlags;
             int count = course.StepCount;
+            stuck = new CardRushCardPlate[count];
             bodies = new Renderer[count];
             movers = new Transform[count];
             doors = new Transform[count];
@@ -424,7 +440,7 @@ namespace LOP
             hinge.transform.localPosition = new Vector3(-half + FrameThickness * 0.5f, 0f, 0f);
 
             float leafWidth = DoorWidth - FrameThickness;
-            float leafHeight = DoorHeight - FrameThickness * 0.5f - 0.04f;
+            float leafHeight = LeafHeight;
             var leaf = Primitive(PrimitiveType.Cube, "Leaf", hinge.transform, hideFlags);
             leaf.transform.localPosition = new Vector3(leafWidth * 0.5f, leafHeight * 0.5f + 0.02f, 0f);
             leaf.transform.localScale = new Vector3(leafWidth, leafHeight, 0.08f);
@@ -519,6 +535,11 @@ namespace LOP
                     }
                 }
 
+                if (theme == CardRushTheme.DoorDash && cards != null)
+                {
+                    ShowStuck(k, CardRushThrowFx.IsStuckIn(s, drawnTick, k));
+                }
+
                 if (Mathf.Approximately(angle, angleNow[k]) == false)
                 {
                     angleNow[k] = angle;
@@ -529,6 +550,30 @@ namespace LOP
                 }
             }
         }
+
+        /// <summary>문 칸 k에 꽂힌 카드를 켜고 끈다. 맞힌 칸이라 색은 그 칸 요구 색이다.</summary>
+        private void ShowStuck(int k, bool on)
+        {
+            if (on == false)
+            {
+                stuck[k]?.SetVisible(false);
+                return;
+            }
+            if (stuck[k] == null)
+            {
+                var hinge = movers[k];
+                var plate = new CardRushCardPlate(hinge, "StuckCard", cards, hideFlags);
+                plate.Root.localPosition = StuckCardLocal - hinge.localPosition;
+                plate.Root.localRotation = Quaternion.AngleAxis(StuckCardRoll, Vector3.forward);
+                plate.Root.localScale = Vector3.one * StuckCardHeight;
+                plate.SetFace(true, course.RequiredColor(k), false);
+                stuck[k] = plate;
+            }
+            stuck[k].SetVisible(true);
+        }
+
+        /// <summary>문 칸 k에 꽂힌 카드가 보이나 — 시험·진단용.</summary>
+        public bool IsStuckVisible(int k) => stuck[k] != null && stuck[k].Visible;
 
         public void Destroy()
         {
@@ -545,7 +590,9 @@ namespace LOP
     /// <para>몸마다 그 몸이 그려지는 틱(<see cref="EntityRenderClock.TickFor"/>)으로 읽는다 — 남의 상태는 최신 스냅이라
     /// 보간된 몸보다 앞서 있어서, 지금 틱으로 읽으면 몸이 닿기 전에 문이 열리고 돌이 뒤집힌다.</para>
     /// </summary>
-    public class CardRushCourseView : IStartable, ITickable, IDisposable
+    /// <remarks>틱·보간 뒤(IPostLateTickable)에서, 몸개그·던지는 카드와 같은 그림 틱(<see cref="CardRushRunnerFxView.DrawnTick"/>)으로 칠한다 —
+    /// 날아가는 카드가 닿는 그 틱에 꽂힌 카드가 켜진다(리뷰 L1·최종 리뷰 I1).</remarks>
+    public class CardRushCourseView : IStartable, IPostLateTickable, IDisposable
     {
         private readonly CardRushWorld world;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
@@ -557,12 +604,17 @@ namespace LOP
         private readonly List<string> gone = new List<string>();
 
         private CardRushCoursePalette palette;
+        private CardRushCardMaterials cards;
         private GameObject root;
         private CardRushCourse builtFor;
+        private readonly IPlayerContext playerContext;
+
+        private long Drawn(string id) => (long)System.Math.Floor(CardRushRunnerFxView.DrawnTick(renderClock, id, playerContext?.entityId));
 
         public CardRushCourseView(CardRushWorld world, GameFramework.World.EntityRegistry entityRegistry,
-                                  EntityRenderClock renderClock, ISpectateTargets spectate)
+                                  EntityRenderClock renderClock, ISpectateTargets spectate, IPlayerContext playerContext)
         {
+            this.playerContext = playerContext;
             this.spectate = spectate;
             this.world = world;
             this.entityRegistry = entityRegistry;
@@ -575,10 +627,11 @@ namespace LOP
         public void Start()
         {
             palette = new CardRushCoursePalette();
+            cards = new CardRushCardMaterials(palette);
             root = new GameObject("CardRushCourse");
         }
 
-        public void Tick()
+        public void PostLateTick()
         {
             var course = world.Course;
             var rules = world.Rules;
@@ -612,11 +665,11 @@ namespace LOP
                 if (lanes.TryGetValue(entity.Id, out var lane) == false)
                 {
                     lane = new CardRushLaneView(root.transform, "Lane " + entity.Id, rules.Theme, cardRunner.LaneOrigin,
-                                                rules.Forward, rules.StepSpacing, course, palette);
+                                                rules.Forward, rules.StepSpacing, course, palette, HideFlags.None, cards);
                     lanes.Add(entity.Id, lane);
                 }
 
-                lane.Apply(cardRunner.State, renderClock.TickFor(entity.Id), world.Timing, followed);
+                lane.Apply(cardRunner.State, Drawn(entity.Id), world.Timing, followed);
             }
 
             gone.Clear();
@@ -641,7 +694,7 @@ namespace LOP
             var runner = string.IsNullOrEmpty(id) ? null : entityRegistry.Get(id)?.Get<CardRushRunner>();
             return runner == null
                 ? float.NaN
-                : CardRushCourseLayout.DrawnProgress(runner.State, renderClock.TickFor(id), world.Timing.MoveTicks);
+                : CardRushCourseLayout.DrawnProgress(runner.State, Drawn(id), world.Timing.MoveTicks);
         }
 
         private void ClearLanes()
@@ -662,6 +715,8 @@ namespace LOP
                 else UnityEngine.Object.DestroyImmediate(root);
                 root = null;
             }
+            cards?.Dispose();
+            cards = null;
             palette?.Dispose();
             palette = null;
         }

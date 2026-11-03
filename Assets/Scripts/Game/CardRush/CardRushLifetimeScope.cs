@@ -81,7 +81,7 @@ namespace LOP
             builder.Register(c => new MatchLeaveRequester(c.Resolve<ISubscriber<LeaveMatchToC>>(),
                 message => NetworkClient.Send(new CustomMirrorMessage { payload = message })), Lifetime.Singleton);
 
-            //  조작판 — 화면 아무 데나 탭하면 잡기. 카드 자체는 매 프레임 PlayerInputManager.NextInputTick으로 그린다(spec §7.3).
+            //  조작판 — 화면 아무 데나 탭하면 잡기(+ 아래 "연속 N"). 카드는 머리 위 카드 뷰가 그린다(spec 2026-11-03 §5.1).
             //  탭·Space 잡기는 틱 앞(ITickable)에서 읽는다 — UI Toolkit 이벤트·패널 스케줄러는 틱 뒤라 한 틱 늦다.
             //  탭이 조작판 면 위인지는 열린 조작판이 채우는 CardRushTapTarget에 묻는다.
             builder.Register<CardRushTapTarget>(Lifetime.Singleton);
@@ -99,8 +99,10 @@ namespace LOP
             builder.RegisterEntryPoint<CardRushCourseView>().AsSelf();
             //  뒤 위에서 진행 방향을 보는 고정 각 카메라. 관전 대상은 위 코디네이터가 매 틱 고른다.
             builder.RegisterEntryPoint<CardRushCamera>().AsSelf();
-            //  몸개그(풍덩·박치기·폴짝·결승 몸짓) — 몸의 자식 Model만 움직이는 그림. 상태는 읽기만 한다.
+            //  몸개그(풍덩·철썩·폴짝·결승 몸짓)와 던지는 카드 — 몸의 자식 Model만 움직이는 그림. 상태는 읽기만 한다.
             builder.RegisterEntryPoint<CardRushRunnerFxView>().AsSelf();
+            //  머리 위 카드 — 내 것은 다음 입력 틱으로 칠한다(본 색 = 판정 색). 남의 것은 그림 틱, 내 레인 ±3만.
+            builder.RegisterEntryPoint<CardRushHeadCardView>().AsSelf();
         }
 
         protected override void RegisterViewFactories(

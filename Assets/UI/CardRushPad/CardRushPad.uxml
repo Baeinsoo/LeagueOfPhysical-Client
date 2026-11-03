@@ -2,23 +2,6 @@
     <Style src="CardRushPad.uss" />
     <ui:VisualElement name="card-rush-root" class="card-rush-root" picking-mode="Ignore">
         <ui:VisualElement name="card-rush-surface" class="card-rush-surface" />
-        <ui:VisualElement name="card-rush-next" class="card-rush-next" picking-mode="Ignore">
-            <ui:VisualElement name="card-rush-next-0" class="card-rush-chip card-rush-chip--now" picking-mode="Ignore">
-                <ui:Label text="" picking-mode="Ignore" />
-            </ui:VisualElement>
-            <ui:VisualElement name="card-rush-next-1" class="card-rush-chip" picking-mode="Ignore">
-                <ui:Label text="" picking-mode="Ignore" />
-            </ui:VisualElement>
-            <ui:VisualElement name="card-rush-next-2" class="card-rush-chip" picking-mode="Ignore">
-                <ui:Label text="" picking-mode="Ignore" />
-            </ui:VisualElement>
-        </ui:VisualElement>
-        <ui:VisualElement name="card-rush-card" class="card-rush-card" picking-mode="Ignore">
-            <ui:Label name="card-rush-card-glyph" class="card-rush-card-glyph" text="" picking-mode="Ignore" />
-            <ui:VisualElement name="card-rush-card-back" class="card-rush-card-back" picking-mode="Ignore">
-                <ui:VisualElement class="card-rush-card-back-mark" picking-mode="Ignore" />
-            </ui:VisualElement>
-        </ui:VisualElement>
         <ui:Label name="card-rush-streak" class="card-rush-streak" text="연속 0" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

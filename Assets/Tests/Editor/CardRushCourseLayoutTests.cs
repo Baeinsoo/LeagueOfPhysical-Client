@@ -88,15 +88,19 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 문짝은_이동_앞_0_1초에_100도까지_열리고_건넌_문은_열린_채()
+        public void 문짝은_카드가_꽂힌_뒤_0_1초에_100도까지_열리고_건넌_문은_열린_채()
         {
             var s = new CardRushRunnerState { Step = 5, MoveStartTick = 1000 };
             int openTicks = CardRushTiming.Ticks(CardRushCourseLayout.DoorOpenSeconds);
             Assert.AreEqual(5, openTicks);
+            long stuck = 1000 + CardRushThrowFx.FlightTicks;   // 던진 카드가 문에 닿는 틱
+            Assert.AreEqual(1003, stuck);
 
             Assert.AreEqual(0f, CardRushCourseLayout.DoorOpenAngle(s, 1000, MoveTicks, 4), Eps);
-            Assert.AreEqual(40f, CardRushCourseLayout.DoorOpenAngle(s, 1002, MoveTicks, 4), Eps, "5틱 중 2틱");
-            Assert.AreEqual(100f, CardRushCourseLayout.DoorOpenAngle(s, 1000 + openTicks, MoveTicks, 4), Eps);
+            Assert.AreEqual(0f, CardRushCourseLayout.DoorOpenAngle(s, 1002, MoveTicks, 4), Eps, "카드가 날아가는 동안은 닫혀 있다");
+            Assert.AreEqual(0f, CardRushCourseLayout.DoorOpenAngle(s, stuck, MoveTicks, 4), Eps, "꽂히는 틱에 열리기 시작");
+            Assert.AreEqual(40f, CardRushCourseLayout.DoorOpenAngle(s, stuck + 2, MoveTicks, 4), Eps, "5틱 중 2틱");
+            Assert.AreEqual(100f, CardRushCourseLayout.DoorOpenAngle(s, stuck + openTicks, MoveTicks, 4), Eps, "던짐 + 8틱에 활짝");
             Assert.AreEqual(100f, CardRushCourseLayout.DoorOpenAngle(s, 1000 + MoveTicks + 50, MoveTicks, 4), Eps, "건넌 문은 열린 채");
             Assert.AreEqual(100f, CardRushCourseLayout.DoorOpenAngle(s, 1000, MoveTicks, 2), Eps, "그 전 문도 열린 채");
             Assert.AreEqual(0f, CardRushCourseLayout.DoorOpenAngle(s, 1000 + MoveTicks, MoveTicks, 5), Eps, "앞 문은 닫힘");
@@ -149,7 +153,7 @@ namespace LOP.Tests
 
         // ── 레인 그림 ─────────────────────────────────────────
 
-        private static CardRushCourse Course(int steps = 12) => new CardRushCourse(77UL, steps, CardRushSections.Default);
+        private static CardRushCourse Course(int steps = 12) => new CardRushCourse(77UL, steps);
 
         private CardRushLaneView Lane(CardRushTheme theme, CardRushCourse course, Vector3 origin, float spacing)
         {
@@ -255,6 +259,53 @@ namespace LOP.Tests
             Assert.AreEqual(1f, lane.Root.transform.Find("Door 1").localScale.y, Eps);
         }
 
+        //  spec 2026-11-03 §5.3: 맞힌 카드는 날아가(3틱) 문짝에 꽂혀 남는다 — 문짝의 자식이라 같이 열리고 가라앉는다.
+        [Test]
+        public void 꽂힌_카드는_날아가_닿은_뒤부터_문짝에_남는다()
+        {
+            var course = Course();
+            palette ??= new CardRushCoursePalette();
+            var cards = new CardRushCardMaterials(palette);
+            try
+            {
+                var parent = new GameObject("lane-test");
+                spawned.Add(parent);
+                var lane = new CardRushLaneView(parent.transform, "Lane", CardRushTheme.DoorDash, Vector3.zero, Vector3.forward, 3f,
+                                                course, palette, HideFlags.None, cards);
+                var s = new CardRushRunnerState { Step = 2, MoveStartTick = 1000 };
+
+                lane.Apply(s, 1000 + CardRushThrowFx.FlightTicks - 1, Timing);
+                Assert.IsTrue(lane.IsStuckVisible(0), "건넌 문엔 그대로 꽂혀 있다");
+                Assert.IsFalse(lane.IsStuckVisible(1), "방금 던진 카드는 아직 날아가는 중");
+                Assert.IsFalse(lane.IsStuckVisible(2), "안 맞힌 문");
+
+                lane.Apply(s, 1000 + CardRushThrowFx.FlightTicks, Timing);
+                Assert.IsTrue(lane.IsStuckVisible(1));
+                var card = lane.Root.transform.Find("Door 1/Hinge/StuckCard");
+                Assert.IsNotNull(card, "문짝 경첩의 자식 — 문이 열리고 가라앉을 때 같이 간다");
+                Assert.AreEqual(course.RequiredColor(1), ColorOfPlate(card, palette), "맞힌 칸 = 그 칸 요구 색");
+
+                //  같은 칸에서 틀리면(멈춤) 꽂히지 않는다.
+                lane.Apply(new CardRushRunnerState { Step = 2, MoveStartTick = 1000, StunEndTick = 2030, Attempt = 1 }, 2010, Timing);
+                Assert.IsFalse(lane.IsStuckVisible(2));
+            }
+            finally
+            {
+                cards.Dispose();
+            }
+        }
+
+        private static CardColor ColorOfPlate(Transform card, CardRushCoursePalette palette)
+        {
+            var material = card.Find("Body/Plate").GetComponent<Renderer>().sharedMaterial;
+            for (int i = 0; i < CardColors.Count; i++)
+            {
+                if (palette.Of((CardColor)i, false) == material) return (CardColor)i;
+            }
+            Assert.Fail("앞면 색 재질이 아니다: " + material.name);
+            return default;
+        }
+
         [Test]
         public void 문짝은_맞힌_이동에서_앞으로_열린다()
         {
@@ -298,12 +349,8 @@ namespace LOP.Tests
             => CardRushCamera.ViewportY(-CardRushCamera.LookAheadSteps * StepSpacing + forward, up,
                                         CardRushCamera.PitchDegrees, CardRushCamera.DistanceFor(screenW, screenH), SceneFov);
 
-        //  패널은 1920×1080 Expand — 세로 화면에선 폭 1920에 높이가 길어진다.
-        private static float BandTop(int screenW, int screenH)
-        {
-            float scale = Mathf.Min(screenW / 1920f, screenH / 1080f);
-            return LOP.UI.CardRushPadLayout.Compute(screenW / scale, screenH / scale).BandTop01;
-        }
+        //  아래 카드 띠는 2차에서 지웠다 — 그 띠 위 끝(가로 0.235)을 비워 둘 기준으로 남긴다(세로 띠는 더 낮았다).
+        private static float BandTop(int screenW, int screenH) => CardRushCamera.KeepClearBottom01;
 
         //  실제 판 스크린샷(맵 17·18)에서 카드가 내 몸을 다 덮었다 — 발이 0.21, 카드 띠 위 끝이 0.39였다.
         //  가로·세로 모두 내 몸(발·머리)과 몸개그 중 가장 낮은 자세(풍덩: 반 칸 앞, 1.1 m 아래)가 띠 위에 와야 한다.
@@ -322,7 +369,20 @@ namespace LOP.Tests
 
             float splashForward = 0.5f * StepSpacing;
             Assert.Greater(BodyY(splashForward, -CardRushGag.SplashDepth, w, h), band + Clear, "풍덩 — 물에 잠긴 발");
-            Assert.Greater(BodyY(CardRushGag.BonkLurchSteps * StepSpacing, 0f, w, h), band + Clear, "박치기 — 앞으로 쏠린 발");
+        }
+
+        //  2차: 카드가 머리 위로 올라갔다(spec 2026-11-03 §5.1 위험 "화면 위로 잘림") — 각·거리를 그대로 둬도 내 카드 위 끝
+        //  (머리 + 띄움 + 카드 높이, 링은 그 조금 바깥)이 위 HUD(진행 막대) 밑에 남아야 한다.
+        [TestCase(1920, 1080)]
+        [TestCase(2400, 1080)]
+        [TestCase(1080, 1920)]
+        [TestCase(1080, 2400)]
+        public void 내_머리_위_카드는_위_HUD_밑에_보인다(int w, int h)
+        {
+            //  머리 높이를 몸 키로 넉넉히 잡는다(실제 머리 뼈는 그보다 낮다).
+            float cardTop = BodySizes.CharacterHeight + CardRushHeadCardView.HeadTopAboveBone + CardRushHeadCardView.HeadCardLift + CardRushHeadCardView.MineHeight;
+            float ringTop = cardTop - CardRushHeadCardView.MineHeight * 0.5f + CardRushHeadCardView.MineHeight * CardRushHeadCardView.RingRadius;
+            Assert.Less(BodyY(0f, Mathf.Max(cardTop, ringTop), w, h), 0.88f, "카드·링 위 끝");
         }
 
         [Test]

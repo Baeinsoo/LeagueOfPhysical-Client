@@ -33,6 +33,7 @@ namespace LOP
         public long cardMoveStartTick { get; set; }  // CardRush: 마지막으로 맞힌 틱. 0 = 없음
         public long cardStunEndTick { get; set; }    // CardRush: 멈춤이 끝나는 틱. 0 = 없음
         public int cardStreak { get; set; }          // CardRush: 이어 맞힌 수
+        public long cardSpinStartTick { get; set; }  // CardRush: 카드가 돌기 시작한 틱. 0 = 대기(뒷면)
         public float postureAxis { get; set; }    // Skydive: 0 = 대자, 1 = 다이브
         public bool gliding { get; set; }         // Skydive: 패러세일을 폈나
         public float stamina { get; set; }        // Skydive: 남은 활공 자원

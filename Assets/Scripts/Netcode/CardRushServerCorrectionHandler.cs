@@ -14,7 +14,7 @@ namespace LOP
         }
 
         //  같은 시점끼리 비교한다 — 그 틱에 내가 예측했던 상태 vs 서버가 그 틱에 가진 상태.
-        //  다섯 칸 모두 본다. 하나라도 빠지면 그 칸만 다른 어긋남을 영영 못 고친다.
+        //  여섯 칸 모두 본다(돌기 시작 틱 = 스냅 37 — 다르면 같은 틱에 다른 색을 보고 다른 틱에 자동으로 던진다). 하나라도 빠지면 그 칸만 다른 어긋남을 영영 못 고친다.
         public bool Matches(long tick, EntitySnap snap)
         {
             if (!world.TryGetSaved(tick, snap.entityId, out var predicted))
@@ -25,7 +25,8 @@ namespace LOP
                 && predicted.Attempt == snap.cardAttempt
                 && predicted.MoveStartTick == snap.cardMoveStartTick
                 && predicted.StunEndTick == snap.cardStunEndTick
-                && predicted.Streak == snap.cardStreak;
+                && predicted.Streak == snap.cardStreak
+                && predicted.SpinStartTick == snap.cardSpinStartTick;
         }
 
         public void ApplyAuthoritative(GameFramework.World.Entity entity, EntitySnap snap, float deltaTime)
@@ -39,7 +40,7 @@ namespace LOP
         }
 
         /// <summary>
-        /// 스냅의 다섯 칸을 상태에 넣는다. 최고 연속·틀린 수는 서버가 안 보내므로 지금 값을 지킨다
+        /// 스냅의 여섯 칸을 상태에 넣는다. 최고 연속·틀린 수는 서버가 안 보내므로 지금 값을 지킨다
         /// (최고 연속은 지금 연속보다 작을 수 없어 max로 맞춘다). 남의 몸에도 같은 식을 쓴다.
         /// 이 최고 연속은 <b>예측값</b>이다(되감기 앵커의 예측 정타가 남을 수 있다) — 기록은 <see cref="CardRushServerStreak"/>를 본다.
         /// </summary>
@@ -50,6 +51,7 @@ namespace LOP
             state.MoveStartTick = snap.cardMoveStartTick;
             state.StunEndTick = snap.cardStunEndTick;
             state.Streak = snap.cardStreak;
+            state.SpinStartTick = snap.cardSpinStartTick;
             state.BestStreak = System.Math.Max(state.BestStreak, snap.cardStreak);
         }
     }

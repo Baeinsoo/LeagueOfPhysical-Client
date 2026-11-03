@@ -80,6 +80,11 @@ namespace LOP
         //  카드 러시는 마지막 입력이 정확히 탭 하나라 Flappy보다 이 경로가 잦다. 대가는 완주 화면이 스냅 지연만큼 늦는 것.
         private void UpdateFinish()
         {
+            //  GameInfo(내 몸 id)가 오기 전에도 틱은 돈다 — null 키로 찾으면 레지스트리가 예외를 던진다.
+            if (string.IsNullOrEmpty(gameDataStore.userEntityId))
+            {
+                return;
+            }
             var mine = entityRegistry.Get(gameDataStore.userEntityId);
             bool finished = mine?.Get<FinishState>()?.Finished == true
                 && (mine.Get<FinishPlacement>()?.Value ?? 0) > 0;

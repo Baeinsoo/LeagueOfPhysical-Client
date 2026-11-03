@@ -104,6 +104,16 @@ namespace LOP.Tests
             Assert.AreEqual(atBoundary.Color, face.Color, "지금 누르면 판정될 틱(경계)의 색이어야 한다");
         }
 
+        //  WindowManager.Open은 카탈로그에서 UXML을 찾는다 — 없으면 조작판이 안 열리고 모든 탭이 무시된다(Task 14 실제 판).
+        [Test]
+        public void 창_목록에_조작판이_있다()
+        {
+            var catalog = UnityEditor.AssetDatabase.LoadAssetAtPath<UIViewCatalog>("Assets/UI/UIViewCatalog.asset");
+            Assert.IsTrue(catalog.TryGet(nameof(CardRushPadView), out var entry), "카탈로그에 CardRushPadView 매핑");
+            Assert.IsNotNull(entry.uxml);
+            Assert.IsNotNull(entry.uss);
+        }
+
         [Test]
         public void 뒷면에서_앞면이_될_때만_넘긴다()
         {

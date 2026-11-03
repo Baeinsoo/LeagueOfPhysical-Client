@@ -104,6 +104,25 @@ namespace LOP.Tests
             return null;
         }
 
+        //  GameInfo(내 몸 id)가 오기 전에도 틱은 돈다 — 그때 null id로 레지스트리를 찾으면 매 틱 예외가 난다(Task 14 실제 판).
+        [Test]
+        public void 내_몸_id가_오기_전_틱은_조용히_넘어간다()
+        {
+            var early = new CardRushHudCoordinator(new FakeGameDataStore { userEntityId = null }, new RecordingWindowManager(),
+                new EntityRegistry(), new CapturingSubscriber<EntityCreated>(), new CapturingSubscriber<MatchEndedToC>(),
+                new NoSpectate(), new AppStateMachine(null, null),
+                new MatchLeaveRequester(new CapturingSubscriber<LeaveMatchToC>(), _ => { }));
+            ((VContainer.Unity.IInitializable)early).Initialize();
+            try
+            {
+                Assert.DoesNotThrow(() => early.Tick());
+            }
+            finally
+            {
+                early.Dispose();
+            }
+        }
+
         [Test]
         public void 예측_완주만으로는_조작판을_닫지_않는다()
         {

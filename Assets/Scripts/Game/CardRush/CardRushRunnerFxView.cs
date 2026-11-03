@@ -11,7 +11,8 @@ namespace LOP
     /// 내 몸은 예측 시각에서 한 틱 뒤(그려지는 자리), 남의 몸은 보간 재생 시각.
     /// <para>물보라·별도 (자세, t01)의 함수라 멈춤이 끝나는 틱에 같이 사라진다. 시뮬 상태는 읽기만 한다.</para>
     /// </summary>
-    public class CardRushRunnerFxView : IStartable, ITickable, IDisposable
+    /// <remarks>틱·보간 뒤(IPostLateTickable)에서 칠한다 — 손·얼굴 자리가 이번 프레임 몸 자리를 따른다(최종 리뷰 I1).</remarks>
+    public class CardRushRunnerFxView : IStartable, IPostLateTickable, IDisposable
     {
         public readonly struct ModelRest
         {
@@ -77,7 +78,7 @@ namespace LOP
             root = new GameObject("CardRushGagFx");
         }
 
-        public void Tick()
+        public void PostLateTick()
         {
             var rules = world.Rules;
             double interval = renderClock.SecondsPerTick;
@@ -97,13 +98,10 @@ namespace LOP
                 }
 
                 var state = runner.State;
-                if (state.SpinStartTick != 0)
-                {
-                    spinStarts[actor.entityId] = CardRushSpinMemory.Of(state);
-                }
+                spinStarts.TryGetValue(actor.entityId, out var memory);
+                spinStarts[actor.entityId] = CardRushSpinMemory.Observe(memory, state, world.Timing);
 
-                //  내 몸 그림은 예측 시각의 한 틱 뒤에 서 있다(KnockbackFlightFxView와 같은 식).
-                double drawnTick = renderClock.TimeFor(actor.entityId) / interval - (actor.entityId == me ? 1d : 0d);
+                double drawnTick = DrawnTick(renderClock, actor.entityId, me);
                 var (kind, t01) = CardRushGag.Phase(rules.Theme, state, drawnTick, world.Timing, rules.StepCount);
                 //  던지는 카드는 문 테마만(돌다리는 로비에서 빠졌고 풍덩이 그대로다).
                 var (throwKind, since) = rules.Theme == CardRushTheme.DoorDash
@@ -125,10 +123,11 @@ namespace LOP
 
                 if (kind != CardRushGagKind.None || entry.Posed)
                 {
-                    var pose = CardRushGag.PoseAt(kind, t01, rules.StepSpacing);
+                    var pose = CardRushGag.PoseAt(kind, t01, rules.StepSpacing, world.Timing.StunTicks);
                     ApplyPose(entry.Visual, entry.Model, entry.Rest, pose, rules.Forward);
                     entry.Posed = kind != CardRushGagKind.None;
-                    entry.Fx.Show(kind, t01, entry.Visual.position, rules.Forward, rules.StepSpacing, HeadPosition(entry));
+                    entry.Fx.Show(kind, t01, entry.Visual.position, rules.Forward, rules.StepSpacing, HeadPosition(entry),
+                                  CardRushGag.SlapFall01(world.Timing.StunTicks));
                 }
                 //  카드는 자세를 준 뒤에 놓는다 — 철썩 카드는 이번 프레임 머리(젖혀진 자리)에 붙는다.
                 DrawThrown(entry, state, runner.LaneOrigin, throwKind, since, actor.entityId == me, rules);
@@ -173,7 +172,7 @@ namespace LOP
 
             int step = CardRushThrowFx.IsRightThrow(s, world.Timing) ? s.Step - 1 : s.Step;
             //  꽂힌 판이 켜진 틱이면(코스 그림 틱) 날아가는 판은 끈다 — 한 프레임 두 장 방지.
-            if (CardRushThrowFx.FlyingHiddenByStuck(s, renderClock.TickFor(entry.Id), world.Timing))
+            if (CardRushThrowFx.FlyingHiddenByStuck(s, (long)System.Math.Floor(DrawnTick(renderClock, entry.Id, playerContext.entityId)), world.Timing))
             {
                 entry.Thrown.SetVisible(false);
                 return;
@@ -256,6 +255,20 @@ namespace LOP
             };
             entries[id] = entry;
             return entry;
+        }
+
+        /// <summary>
+        /// 몸이 그려지는 틱(연속값) — 내 몸 그림은 예측 시각의 한 틱 뒤에 서 있고(KnockbackFlightFxView와 같은 식), 남은 보간 재생 시각.
+        /// 몸개그·던지는 카드·문(열림·꽂힌 카드)이 모두 이 하나를 쓴다 — 기준이 다르면 날아가는 카드와 꽂힌 카드가 겹치거나 비었다.
+        /// </summary>
+        public static double DrawnTick(EntityRenderClock clock, string id, string me)
+        {
+            double interval = clock.SecondsPerTick;
+            if (interval <= 0d)
+            {
+                return clock.TickFor(id);
+            }
+            return clock.TimeFor(id) / interval - (id == me ? 1d : 0d);
         }
 
         /// <summary>머리 위 별 자리 — 사람형이면 머리 뼈, 아니면 몸 위쪽 대략.</summary>
@@ -455,10 +468,11 @@ namespace LOP
         }
 
         /// <summary>그 순간의 효과를 놓는다. 풍덩·철썩 밖이면 다 숨긴다.</summary>
-        public void Show(CardRushGagKind kind, float t01, Vector3 bodyRoot, Vector3 forward, float stepSpacing, Vector3 head)
+        public void Show(CardRushGagKind kind, float t01, Vector3 bodyRoot, Vector3 forward, float stepSpacing, Vector3 head,
+                         float starStart = StarStart)
         {
             bool splash = kind == CardRushGagKind.Splash && t01 >= SplashStart && t01 < RingEnd;
-            bool slap = kind == CardRushGagKind.Slap && t01 >= StarStart && t01 < StarEnd;
+            bool slap = kind == CardRushGagKind.Slap && t01 >= starStart && t01 < StarEnd;
             if (splash == false && slap == false)
             {
                 SetVisible(false);
@@ -479,7 +493,7 @@ namespace LOP
             }
             if (slap)
             {
-                PlaceStars(t01, head);
+                PlaceStars(t01, head, starStart);
             }
         }
 
@@ -513,9 +527,9 @@ namespace LOP
             Tint(ringRenderer, CardRushGagFxMaterials.Ring, 0.7f * (1f - w));
         }
 
-        private void PlaceStars(float t01, Vector3 head)
+        private void PlaceStars(float t01, Vector3 head, float starStart)
         {
-            float w = (t01 - StarStart) / (StarEnd - StarStart);
+            float w = (t01 - starStart) / (StarEnd - starStart);
             //  나타날 때·사라질 때 크기로만 들고 난다(깜빡임 없이).
             float grow = Mathf.Clamp01(w / 0.12f) * Mathf.Clamp01((1f - w) / 0.12f);
             var cam = Camera.main;

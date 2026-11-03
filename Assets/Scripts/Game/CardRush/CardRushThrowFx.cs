@@ -2,14 +2,41 @@ namespace LOP
 {
     public enum CardRushThrowKind { None, ToDoor, BackToFace }
 
-    /// <summary>그리는 쪽이 기억한 돌기 시작 — 어느 (칸, 시도)에서 돌기 시작했나와 그 틱. Tick 0 = 못 봤다.</summary>
+    /// <summary>
+    /// 그리는 쪽이 기억한 돌기 시작 — 어느 (칸, 시도)에서 돌기 시작했나와 그 틱. Tick 0 = 못 봤다.
+    /// <see cref="BoundThrow"/>는 그 시작 뒤 처음 본 틀린 던짐 틱(0 = 아직) — 보정이 던짐을 다른 틱으로 바꾸면 그 시작은 이 던짐의 것이
+    /// 아니다(예측의 시작이 서버에서 버려졌다, 최종 리뷰 m1).
+    /// </summary>
     public readonly struct CardRushSpinMemory
     {
         public readonly int Step;
         public readonly int Attempt;
         public readonly long Tick;
-        public CardRushSpinMemory(int step, int attempt, long tick) { Step = step; Attempt = attempt; Tick = tick; }
+        public readonly long BoundThrow;
+        public CardRushSpinMemory(int step, int attempt, long tick, long boundThrow = 0) { Step = step; Attempt = attempt; Tick = tick; BoundThrow = boundThrow; }
         public static CardRushSpinMemory Of(in CardRushRunnerState s) => new CardRushSpinMemory(s.Step, s.Attempt, s.SpinStartTick);
+
+        /// <summary>
+        /// 이 프레임의 상태로 기억을 고친다. 돌고 있으면 그 시작을 기억하고, 틀린 던짐을 처음 보면 그 던짐에 묶고,
+        /// 묶인 던짐과 다른 틀린 던짐이 보이면(보정) 버린다.
+        /// </summary>
+        public static CardRushSpinMemory Observe(in CardRushSpinMemory memory, in CardRushRunnerState s, in CardRushTiming timing)
+        {
+            if (s.SpinStartTick != 0)
+            {
+                return Of(s);
+            }
+            if (memory.Tick == 0 || s.StunEndTick == 0 || CardRushThrowFx.IsRightThrow(s, timing))
+            {
+                return memory;
+            }
+            long wrongAt = s.StunEndTick - timing.StunTicks;
+            if (memory.BoundThrow == 0)
+            {
+                return memory.Tick <= wrongAt ? new CardRushSpinMemory(memory.Step, memory.Attempt, memory.Tick, wrongAt) : memory;
+            }
+            return memory.BoundThrow == wrongAt ? memory : default;
+        }
     }
 
     /// <summary>
@@ -92,6 +119,7 @@ namespace LOP
             {
                 long wrongAt = WrongThrowTick(s, timing);
                 bool sameThrow = memory.Tick != 0 && memory.Step == s.Step && memory.Attempt == s.Attempt - 1
+                                 && (memory.BoundThrow == 0 || memory.BoundThrow == wrongAt)
                                  && memory.Tick <= wrongAt && wrongAt - memory.Tick <= CardRushCard.WindowTicks;
                 spin = sameThrow ? memory.Tick : 0;
             }

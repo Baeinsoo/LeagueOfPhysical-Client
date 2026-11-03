@@ -70,6 +70,7 @@ namespace LOP.Tests
             public PlayerContext Context;
             public FakeRunner Runner;
             public long Boundary;
+            public GameFramework.Netcode.SequenceBuffer<InputCommand> History;
         }
 
         private static Rig AtBoundary()
@@ -89,14 +90,14 @@ namespace LOP.Tests
             var clock = new FakeTickUpdater();
             var runner = new FakeRunner { tickUpdater = clock };
             var context = new PlayerContext { entityId = "me", session = new FakeSession() };
-            var input = new PlayerInputManager(runner, context, null, registry, new InputBufferSystem(),
-                new GameFramework.Netcode.SequenceBuffer<InputCommand>(128));
+            var history = new GameFramework.Netcode.SequenceBuffer<InputCommand>(128);
+            var input = new PlayerInputManager(runner, context, null, registry, new InputBufferSystem(), history);
 
             long boundary = Start + CardRushCard.DwellTicks;
             clock.tick = boundary - 1;
             input.Tick(boundary - 1, 0.02f);
             Assert.AreEqual(boundary, input.NextInputTick);
-            return new Rig { Registry = registry, World = world, Input = input, Context = context, Runner = runner, Boundary = boundary };
+            return new Rig { Registry = registry, World = world, Input = input, Context = context, Runner = runner, Boundary = boundary, History = history };
         }
         private const long Start = 1000;
         private static readonly CardRushCourse course = new CardRushCourse(77, 40);
@@ -228,6 +229,105 @@ namespace LOP.Tests
             Assert.AreEqual(3, CardRushHeadCardView.LaneGap(new UnityEngine.Vector3(7.8f, 0f, 0f), UnityEngine.Vector3.zero, UnityEngine.Vector3.forward, 2.6f));
             Assert.AreEqual(4, CardRushHeadCardView.LaneGap(new UnityEngine.Vector3(-10.4f, 0f, 5f), UnityEngine.Vector3.zero, UnityEngine.Vector3.forward, 2.6f),
                 "앞뒤 거리는 세지 않는다");
+        }
+
+        // ── 최종 리뷰 I1: 칠하는 단계 ──
+
+        //  Unity 한 프레임 안의 자리(단계, 그 안 순서). 틱 코루틴(TickUpdaterBase, yield null)은 Update.ScriptRunDelayedDynamicFrameRate,
+        //  보간기(Snapshot/PredictedEntityInterpolator)는 PreLateUpdate.ScriptRunBehaviourLateUpdate에서 돈다. VContainer는
+        //  ITickable을 Update.ScriptRunBehaviourUpdate 앞에, IPostTickable을 Update 끝에, ILateTickable을 ScriptRunBehaviourLateUpdate 앞에,
+        //  IPostLateTickable을 PreLateUpdate 끝에 끼운다(PlayerLoopHelper). 자리는 Unity의 실제 기본 루프에서 잰다.
+        private static (int phase, float order) SlotOf(System.Type stage)
+        {
+            var loop = UnityEngine.LowLevel.PlayerLoop.GetDefaultPlayerLoop();
+            int Phase(System.Type t) { for (int i = 0; i < loop.subSystemList.Length; i++) if (loop.subSystemList[i].type == t) return i; throw new System.Exception(t.Name); }
+            float Index(System.Type parent, System.Type child)
+            {
+                var subs = loop.subSystemList[Phase(parent)].subSystemList;
+                for (int i = 0; i < subs.Length; i++) if (subs[i].type == child) return i;
+                throw new System.Exception(child.Name + " not in " + parent.Name);
+            }
+            int End(System.Type parent) => loop.subSystemList[Phase(parent)].subSystemList.Length;
+            var update = typeof(UnityEngine.PlayerLoop.Update);
+            var late = typeof(UnityEngine.PlayerLoop.PreLateUpdate);
+            if (stage == typeof(VContainer.Unity.ITickable)) return (Phase(update), Index(update, typeof(UnityEngine.PlayerLoop.Update.ScriptRunBehaviourUpdate)) - 0.5f);
+            if (stage == typeof(VContainer.Unity.IPostTickable)) return (Phase(update), End(update));
+            if (stage == typeof(VContainer.Unity.ILateTickable)) return (Phase(late), Index(late, typeof(UnityEngine.PlayerLoop.PreLateUpdate.ScriptRunBehaviourLateUpdate)) - 0.5f);
+            if (stage == typeof(VContainer.Unity.IPostLateTickable)) return (Phase(late), End(late));
+            if (stage == typeof(GameFramework.Runner.ITickUpdater)) return (Phase(update), Index(update, typeof(UnityEngine.PlayerLoop.Update.ScriptRunDelayedDynamicFrameRate)));
+            if (stage == typeof(UnityEngine.MonoBehaviour)) return (Phase(late), Index(late, typeof(UnityEngine.PlayerLoop.PreLateUpdate.ScriptRunBehaviourLateUpdate)));
+            throw new System.ArgumentException(stage.Name);
+        }
+
+        private static (int, float) StageOf(System.Type viewType)
+        {
+            var stages = new[] { typeof(VContainer.Unity.ITickable), typeof(VContainer.Unity.IPostTickable), typeof(VContainer.Unity.ILateTickable), typeof(VContainer.Unity.IPostLateTickable) };
+            var found = System.Array.FindAll(stages, s => s.IsAssignableFrom(viewType));
+            Assert.AreEqual(1, found.Length, viewType.Name + "는 한 단계에서만 돈다");
+            return SlotOf(found[0]);
+        }
+
+        private static bool After((int phase, float order) a, (int phase, float order) b) => a.phase > b.phase || (a.phase == b.phase && a.order > b.order);
+
+        //  카드를 틱 앞에서 칠하면 그 프레임 틱이 돌아 화면 색이 판정 틱보다 한 틱 늦다(60 fps에서 프레임 대부분).
+        //  몸 자리·머리 뼈는 보간기 LateUpdate가 옮기므로 그 뒤여야 카드·손 자리가 몸에 붙는다. 탭은 틱 앞에서 읽는다.
+        [Test]
+        public void 카드_째깍_몸개그는_틱과_보간_뒤에_칠하고_탭은_틱_앞에서_읽는다()
+        {
+            var tick = SlotOf(typeof(GameFramework.Runner.ITickUpdater));
+            var interpolator = SlotOf(typeof(UnityEngine.MonoBehaviour));
+            foreach (var view in new[] { typeof(CardRushHeadCardView), typeof(CardRushAudio), typeof(CardRushRunnerFxView), typeof(CardRushCourseView) })
+            {
+                var at = StageOf(view);
+                Assert.IsTrue(After(at, tick), view.Name + "는 그 프레임 틱 뒤");
+                Assert.IsTrue(After(at, interpolator), view.Name + "는 보간기 LateUpdate 뒤");
+            }
+            Assert.IsFalse(After(StageOf(typeof(CardRushTapGrab)), tick), "탭은 틱 앞(그 프레임 첫 틱에 실린다)");
+        }
+
+        //  프레임 F: (틱 앞 탭 없음) → 틱 N → (틱·보간 뒤) 카드를 칠한다. 프레임 F+1: 틱 앞 탭 → 틱 N+1.
+        //  화면에 보인 색이 그 탭이 실린 틱의 판정 색이어야 한다.
+        [Test]
+        public void 탭은_지난_프레임_카드가_보여준_틱에_실린다()
+        {
+            var rig = AtBoundary();   //  러너가 경계 − 1 틱을 막 돌렸다(F의 틱)
+            var clock = (FakeTickUpdater)rig.Runner.tickUpdater;
+            clock.tick = rig.Boundary;   //  틱 코루틴이 틱을 돌린 뒤 러너 틱을 올린다
+            var view = new CardRushHeadCardView(rig.World, rig.Registry, new ActorRegistry(), rig.Context,
+                new EntityRenderClock(rig.Context, rig.Runner, null, new FakeGameDataStore { userEntityId = "me" }), rig.Input, null);
+            Assert.IsTrue(view.TryComputeMine(out var shown));
+
+            var grab = new CardRushTapGrab(rig.Input, new CardRushTapTarget(), () => true, _ => { });
+            grab.Tick();                                 //  F+1 틱 앞
+            rig.Input.Tick(clock.tick, 0.02f);           //  F+1 첫 틱
+            Assert.IsTrue(rig.History.TryGet(rig.Boundary, out var command) && command.Grab, "탭은 경계 틱에 실린다");
+            Assert.IsTrue(CardRushCard.TryColorAt(rig.Registry.Get("me").Get<CardRushRunner>().State, rig.Boundary, rig.World.Course, out var judged));
+            Assert.AreEqual(judged, shown.Color, "본 색 = 판정 색");
+        }
+
+        // ── 최종 리뷰 m3: 남의 카드는 던지기 전에 사라지지 않는다 ──
+
+        //  남의 상태는 최신 스냅이라 그려지는 몸보다 앞선다 — 그림 틱이 던짐 전이면 던지기 전 상태로 칠한다.
+        [Test]
+        public void 남의_카드는_그림_틱이_던짐_전이면_돌던_카드를_보인다()
+        {
+            var right = new CardRushRunnerState { Step = 3, MoveStartTick = 1000 };
+            var memory = new CardRushSpinMemory(2, 0, 900);
+            var f = CardRushHeadCard.ComputeDrawn(right, 997, Start - 500, course, timing, memory);
+            Assert.IsTrue(f.Visible); Assert.IsTrue(f.FaceUp);
+            Assert.IsTrue(CardRushCard.TryColorAt(new CardRushRunnerState { Step = 2, SpinStartTick = 900 }, 997, course, out var c));
+            Assert.AreEqual(c, f.Color, "던지기 전 상태(칸 2, 시작 900)의 그 틱 색");
+            Assert.IsFalse(CardRushHeadCard.ComputeDrawn(right, 1000, Start - 500, course, timing, memory).Visible, "던진 틱부터는 손을 떠났다");
+
+            var noMemory = CardRushHeadCard.ComputeDrawn(right, 997, Start - 500, course, timing, default);
+            Assert.IsTrue(noMemory.Visible, "시작을 못 봤어도 사라지지 않고 뒷면으로 남는다");
+            Assert.IsFalse(noMemory.FaceUp);
+
+            var wrong = new CardRushRunnerState { Step = 3, Attempt = 1, StunEndTick = 1030, MoveStartTick = 500 };
+            var w = CardRushHeadCard.ComputeDrawn(wrong, 998, Start - 500, course, timing, new CardRushSpinMemory(3, 0, 950));
+            Assert.IsTrue(w.Visible && w.FaceUp, "틀린 던짐 전에도");
+            Assert.AreEqual(At(new CardRushRunnerState { Step = 3, Attempt = 1, StunEndTick = 1030 }, 1040).Visible,
+                CardRushHeadCard.ComputeDrawn(wrong, 1040, Start - 500, course, timing, default).Visible, "그림 틱이 따라잡으면 보통 식과 같다");
         }
     }
 }

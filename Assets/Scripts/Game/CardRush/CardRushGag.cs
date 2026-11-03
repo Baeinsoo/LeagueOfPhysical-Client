@@ -59,8 +59,20 @@ namespace LOP
             return (CardRushGagKind.None, 0f);
         }
 
+        /// <summary>멈춤 기본 틱 수(0.6초) — 설정이 없을 때만 쓴다. 판에서는 설정(#CardRushConfig.stunSeconds)의 틱 수를 넘긴다.</summary>
+        public const int DefaultStunTicks = 30;
+
+        /// <summary>철썩 순간(멈춤 안 비율) — 던진 카드가 얼굴에 닿는 틱(던짐 + <see cref="CardRushThrowFx.SlapTick"/>) ÷ 멈춤 틱.</summary>
+        public static float SlapHit01(int stunTicks)
+            => UnityEngine.Mathf.Clamp((float)CardRushThrowFx.SlapTick / UnityEngine.Mathf.Max(1, stunTicks), 0.12f, 0.6f);
+
+        /// <summary>철썩 뒤 벌러덩이 시작하는 비율 — 젖힘 0.07 뒤. 별도 이때부터 돈다.</summary>
+        public static float SlapFall01(int stunTicks) => SlapHit01(stunTicks) + 0.07f;
+
+        public static CardRushPose PoseAt(CardRushGagKind kind, float t01, float stepSpacing) => PoseAt(kind, t01, stepSpacing, DefaultStunTicks);
+
         /// <summary>몸개그 자세. 0과 1에서 Rest — 멈춤·이동이 끝나는 틱에 그림이 시뮬 자리로 돌아온다.</summary>
-        public static CardRushPose PoseAt(CardRushGagKind kind, float t01, float stepSpacing)
+        public static CardRushPose PoseAt(CardRushGagKind kind, float t01, float stepSpacing, int stunTicks)
         {
             t01 = UnityEngine.Mathf.Clamp01(t01);
             if (t01 <= 0f || t01 >= 1f) return CardRushPose.Rest;
@@ -89,12 +101,14 @@ namespace LOP
                 {
                     // 0~0.10 던지며 앞으로 숙임 / 0.10~0.23 섬(카드가 돌아오는 걸 본다) / 0.23~0.30 철썩 — 머리가 뒤로 젖혀지고 찌그러짐 /
                     // 0.30~0.75 발은 제자리, 뒤로 벌러덩 / 0.75~1 벌떡(넘침 후 섬). 뒤로 미끄러지지 않는다(카메라 밖으로 나간다).
-                    // 철썩 0.23 = 던짐 뒤 SlapTick(7틱) ÷ 멈춤 30틱 — 카드가 얼굴에 닿는 그 틱.
+                    // 철썩 = 던짐 뒤 SlapTick(7틱) ÷ 설정의 멈춤 틱(30틱이면 0.23) — 카드가 얼굴에 닿는 그 틱(최종 리뷰 m4).
+                    float hit = SlapHit01(stunTicks);
+                    float fallAt = hit + 0.07f;
                     float lean = SlapLeanDegrees * Bump(t01, 0f, 0.05f, 0.10f);
-                    float snap = SlapSnapDegrees * Plateau(t01, 0.23f, 0.26f, 0.30f, 0.34f);
-                    float fall = Plateau(t01, 0.30f, 0.45f, 0.75f, 0.92f) * SlapFallDegrees;
+                    float snap = SlapSnapDegrees * Plateau(t01, hit, hit + 0.03f, fallAt, fallAt + 0.04f);
+                    float fall = Plateau(t01, fallAt, fallAt + 0.15f, 0.75f, 0.92f) * SlapFallDegrees;
                     float overshoot = t01 > 0.92f ? -8f * UnityEngine.Mathf.Sin((t01 - 0.92f) / 0.08f * UnityEngine.Mathf.PI) : 0f;
-                    float squash = t01 > 0.23f && t01 < 0.30f ? 0.9f : 1f;
+                    float squash = t01 > hit && t01 < fallAt ? 0.9f : 1f;
                     return new CardRushPose(UnityEngine.Vector3.zero, new UnityEngine.Vector3(lean - snap - fall + overshoot, 0, 0), squash);
                 }
                 case CardRushGagKind.Finish:

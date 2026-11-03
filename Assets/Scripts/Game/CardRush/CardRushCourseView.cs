@@ -590,7 +590,9 @@ namespace LOP
     /// <para>몸마다 그 몸이 그려지는 틱(<see cref="EntityRenderClock.TickFor"/>)으로 읽는다 — 남의 상태는 최신 스냅이라
     /// 보간된 몸보다 앞서 있어서, 지금 틱으로 읽으면 몸이 닿기 전에 문이 열리고 돌이 뒤집힌다.</para>
     /// </summary>
-    public class CardRushCourseView : IStartable, ITickable, IDisposable
+    /// <remarks>틱·보간 뒤(IPostLateTickable)에서, 몸개그·던지는 카드와 같은 그림 틱(<see cref="CardRushRunnerFxView.DrawnTick"/>)으로 칠한다 —
+    /// 날아가는 카드가 닿는 그 틱에 꽂힌 카드가 켜진다(리뷰 L1·최종 리뷰 I1).</remarks>
+    public class CardRushCourseView : IStartable, IPostLateTickable, IDisposable
     {
         private readonly CardRushWorld world;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
@@ -605,10 +607,14 @@ namespace LOP
         private CardRushCardMaterials cards;
         private GameObject root;
         private CardRushCourse builtFor;
+        private readonly IPlayerContext playerContext;
+
+        private long Drawn(string id) => (long)System.Math.Floor(CardRushRunnerFxView.DrawnTick(renderClock, id, playerContext?.entityId));
 
         public CardRushCourseView(CardRushWorld world, GameFramework.World.EntityRegistry entityRegistry,
-                                  EntityRenderClock renderClock, ISpectateTargets spectate)
+                                  EntityRenderClock renderClock, ISpectateTargets spectate, IPlayerContext playerContext)
         {
+            this.playerContext = playerContext;
             this.spectate = spectate;
             this.world = world;
             this.entityRegistry = entityRegistry;
@@ -625,7 +631,7 @@ namespace LOP
             root = new GameObject("CardRushCourse");
         }
 
-        public void Tick()
+        public void PostLateTick()
         {
             var course = world.Course;
             var rules = world.Rules;
@@ -663,7 +669,7 @@ namespace LOP
                     lanes.Add(entity.Id, lane);
                 }
 
-                lane.Apply(cardRunner.State, renderClock.TickFor(entity.Id), world.Timing, followed);
+                lane.Apply(cardRunner.State, Drawn(entity.Id), world.Timing, followed);
             }
 
             gone.Clear();
@@ -688,7 +694,7 @@ namespace LOP
             var runner = string.IsNullOrEmpty(id) ? null : entityRegistry.Get(id)?.Get<CardRushRunner>();
             return runner == null
                 ? float.NaN
-                : CardRushCourseLayout.DrawnProgress(runner.State, renderClock.TickFor(id), world.Timing.MoveTicks);
+                : CardRushCourseLayout.DrawnProgress(runner.State, Drawn(id), world.Timing.MoveTicks);
         }
 
         private void ClearLanes()

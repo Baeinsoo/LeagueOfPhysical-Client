@@ -196,6 +196,52 @@ namespace LOP.Tests
             }
         }
 
+        //  최종 리뷰 m4: 철썩(머리 젖힘·찌그러짐)은 카드가 얼굴에 닿는 틱(던짐 + SlapTick) — 멈춤 틱 수는 설정에서 온다.
+        [Test]
+        public void 철썩_순간은_설정의_멈춤_틱으로_정한다()
+        {
+            Assert.AreEqual(7f / 40f, CardRushGag.SlapHit01(40), 1e-6f);
+            Assert.AreEqual(7f / 30f, CardRushGag.SlapHit01(30), 1e-6f);
+            float justAfter40 = 7f / 40f + 0.01f;
+            Assert.AreEqual(0.9f, CardRushGag.PoseAt(CardRushGagKind.Slap, justAfter40, 3f, 40).Squash, 1e-5f, "멈춤 40틱이면 0.185에 찌그러짐");
+            Assert.AreEqual(1f, CardRushGag.PoseAt(CardRushGagKind.Slap, justAfter40, 3f, 30).Squash, 1e-5f, "멈춤 30틱이면 아직 안 맞았다");
+            Assert.AreEqual(0.9f, CardRushGag.PoseAt(CardRushGagKind.Slap, 7f / 30f + 0.01f, 3f, 30).Squash, 1e-5f);
+        }
+
+        //  최종 리뷰 m2: 보정이 틀림을 맞음으로 바꾸거나 던짐 틱을 옮기면 같은 던짐이다 — 휙·탁이 두 번 나지 않는다.
+        [Test]
+        public void 보정으로_바뀐_같은_던짐은_다시_울리지_않는다()
+        {
+            var mem = new CardRushAudioMemory();
+            var cues = new List<CardRushSfx>();
+            var waiting = new CardRushAudioFrame { Has = true, Step = 3, StunTicks = 30, MoveTicks = 15, DrawnTick = 2999 };
+            var predictedMiss = waiting; predictedMiss.StunEndTick = 3030; predictedMiss.DrawnTick = 3000;
+            CardRushAudioCues.Detect(waiting, predictedMiss, CardRushTheme.DoorDash, cues, ref mem);
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Whoosh }, cues);
+
+            cues.Clear();
+            var correctedHit = waiting; correctedHit.Step = 4; correctedHit.MoveStartTick = 3001; correctedHit.DrawnTick = 3002;
+            CardRushAudioCues.Detect(predictedMiss, correctedHit, CardRushTheme.DoorDash, cues, ref mem);
+            CollectionAssert.DoesNotContain(cues, CardRushSfx.Whoosh, "같은 던짐 — 휙은 한 번");
+
+            cues.Clear();
+            var landed = correctedHit; landed.DrawnTick = 3004;
+            CardRushAudioCues.Detect(correctedHit, landed, CardRushTheme.DoorDash, cues, ref mem);
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Thunk }, cues);
+
+            //  보정이 맞음 틱을 3001 → 3003으로 옮겨 착지를 다시 지나도 탁은 한 번.
+            cues.Clear();
+            var moved = landed; moved.MoveStartTick = 3003; moved.DrawnTick = 3006;
+            CardRushAudioCues.Detect(landed, moved, CardRushTheme.DoorDash, cues, ref mem);
+            CollectionAssert.IsEmpty(cues);
+
+            //  다음 진짜 던짐(이동 15틱 + 시작 1틱 뒤)은 운다.
+            cues.Clear();
+            var next = moved; next.Step = 5; next.MoveStartTick = 3020; next.DrawnTick = 3020;
+            CardRushAudioCues.Detect(moved, next, CardRushTheme.DoorDash, cues, ref mem);
+            CollectionAssert.Contains(cues, CardRushSfx.Whoosh);
+        }
+
         // ── 소리 ──
 
         private static CardRushAudioFrame Frame(int step = 3, long stunEnd = 0, bool faceUp = true, CardColor color = CardColor.Red, bool finished = false)

@@ -10,8 +10,11 @@ namespace LOP
     /// 그림은 <see cref="CardRushHeadCard.Compute"/>의 결과를 그리기만 한다: 내 카드는 <see cref="PlayerInputManager.NextInputTick"/>
     /// (지금 누르면 판정될 틱 — 본 색 = 판정 색), 남의 카드는 그림 틱(<see cref="CardRushRunnerFxView"/>와 같은 식).
     /// 남의 카드는 내 레인 ±<see cref="OtherLaneRange"/>만, 작게. 남은 시간 링은 내 카드에만. 시뮬 상태는 읽기만 한다.
+    /// <para>틱·보간 뒤(<see cref="IPostLateTickable"/>, PreLateUpdate 끝)에서 칠한다 — 그 프레임 틱이 이미 돌았고 보간기 LateUpdate가 몸을
+    /// 옮긴 뒤다. 그래서 내 카드의 <c>NextInputTick</c> = 다음 프레임 틱 앞 탭(CardRushTapGrab)이 실릴 틱이고(본 색 = 판정 색), 카드·손 자리가
+    /// 몸에 붙는다. ITickable(Update 맨 앞)이면 그 프레임 틱이 돈 뒤 화면이 한 틱 늦은 색이었다(최종 리뷰 I1).</para>
     /// </summary>
-    public class CardRushHeadCardView : IStartable, ITickable, IDisposable
+    public class CardRushHeadCardView : IStartable, IPostLateTickable, IDisposable
     {
         public const float HeadCardLift = 0.55f;   //  머리 위로 이만큼 띄운 자리가 카드 아래 끝
         public const float MineHeight = 0.7f;
@@ -58,6 +61,8 @@ namespace LOP
         private readonly PlayerInputManager input;
         private readonly CameraController cameraController;
         private readonly Dictionary<string, Entry> entries = new Dictionary<string, Entry>();
+        //  남의 몸마다 마지막으로 본 돌기 시작 — 그림 틱이 던짐 전일 때 던지기 전 카드를 칠한다(최종 리뷰 m3).
+        private readonly Dictionary<string, CardRushSpinMemory> spinStarts = new Dictionary<string, CardRushSpinMemory>();
         private readonly List<string> gone = new List<string>();
         private readonly Vector3[] ringPoints = new Vector3[RingSegments + 1];
         private CardRushCoursePalette palette;
@@ -113,7 +118,7 @@ namespace LOP
             return Mathf.RoundToInt(Mathf.Abs(Vector3.Dot(a - b, right)) / laneSpacing);
         }
 
-        public void Tick()
+        public void PostLateTick()
         {
             var rules = world.Rules;
             var course = world.Course;
@@ -136,6 +141,9 @@ namespace LOP
                     continue;
                 }
                 bool mine = actor.entityId == me;
+                spinStarts.TryGetValue(actor.entityId, out var memory);
+                memory = CardRushSpinMemory.Observe(memory, runner.State, world.Timing);
+                spinStarts[actor.entityId] = memory;
 
                 CardRushHeadCardFace face;
                 if (mine)
@@ -150,7 +158,7 @@ namespace LOP
                 {
                     //  남의 몸 그림 틱 = 보간 재생 시각(FxView와 같은 식).
                     long drawnTick = interval > 0d ? (long)(renderClock.TimeFor(actor.entityId) / interval) : renderClock?.TickFor(actor.entityId) ?? 0;
-                    face = CardRushHeadCard.Compute(runner.State, drawnTick, world.GameplayStartTick, course, world.Timing);
+                    face = CardRushHeadCard.ComputeDrawn(runner.State, drawnTick, world.GameplayStartTick, course, world.Timing, memory);
                 }
 
                 if (entries.TryGetValue(actor.entityId, out var entry) == false || entry.Visual != visual.transform)
@@ -177,6 +185,7 @@ namespace LOP
             {
                 entries[id].Plate.Destroy();
                 entries.Remove(id);
+                spinStarts.Remove(id);
             }
         }
 

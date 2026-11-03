@@ -165,5 +165,29 @@ namespace LOP.Tests
             var wrong = new CardRushRunnerState { Step = 4, MoveStartTick = 2000, Attempt = 1, StunEndTick = 3030 };
             Assert.IsFalse(CardRushThrowFx.FlyingHiddenByStuck(wrong, 3010, t), "틀린 카드는 꽂히지 않는다");
         }
+
+        //  최종 리뷰 m1: 기억은 그 시작 뒤 처음 본 던짐에 묶인다. 보정이 던짐을 다른 틱으로 바꾸면(예측의 시작이 서버에서 버려졌다)
+        //  그 시작은 이 던짐의 것이 아니다 — 뒷면.
+        [Test]
+        public void 보정이_던짐을_바꾸면_기억한_시작은_버린다()
+        {
+            var course = new CardRushCourse(77, 40);
+            var t = new CardRushTiming(15, 30);
+            var m = default(CardRushSpinMemory);
+            //  예측: 칸 3 시도 0, 시작 S=2900 → 틀림 T=2950 (멈춤 끝 2980).
+            m = CardRushSpinMemory.Observe(m, new CardRushRunnerState { Step = 3, SpinStartTick = 2900 }, t);
+            var predicted = new CardRushRunnerState { Step = 3, Attempt = 1, StunEndTick = 2980 };
+            m = CardRushSpinMemory.Observe(m, predicted, t);
+            Assert.IsTrue(CardRushThrowFx.TryThrownFace(predicted, m, course, t, out _), "예측대로면 그 시작으로 던진 색");
+
+            //  보정: 서버는 S를 버렸고 T를 시작, U=3000에 틀림 — 상태가 곧장 "U 틀림, 시도 1"이다.
+            var corrected = new CardRushRunnerState { Step = 3, Attempt = 1, StunEndTick = 3030 };
+            m = CardRushSpinMemory.Observe(m, corrected, t);
+            Assert.IsFalse(CardRushThrowFx.TryThrownFace(corrected, m, course, t, out _), "S는 U 던짐의 시작이 아니다 — 거짓 색 대신 뒷면");
+
+            //  새로 돌기 시작하면 다시 기억한다.
+            m = CardRushSpinMemory.Observe(m, new CardRushRunnerState { Step = 3, Attempt = 1, StunEndTick = 3030, SpinStartTick = 3040 }, t);
+            Assert.AreEqual(3040, m.Tick);
+        }
     }
 }

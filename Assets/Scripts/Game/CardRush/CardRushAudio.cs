@@ -15,6 +15,7 @@ namespace LOP
         public long MoveStartTick;
         public long StunEndTick;
         public int StunTicks;       // 틀린 던짐 틱 = StunEndTick − StunTicks
+        public int MoveTicks;       // 진짜 던짐 둘 사이는 이보다 멀다(이동이 끝나야 다음 시작) — 그보다 가까우면 보정이 옮긴 같은 던짐
         public double DrawnTick;    // 이 장면의 그림 틱 — 꽂힘·철썩은 이 틱이 착지 틱을 넘는 장면에서 한 번 낸다
         public bool Finished;
         public bool FaceUp;
@@ -25,10 +26,40 @@ namespace LOP
     /// 앞뒤 장면을 비교해 낼 소리를 고른다(spec §7.5, 2026-11-03 §5.3). 던짐(휙)은 상태가 바뀐 장면에서,
     /// 꽂힘(탁)·철썩은 그림 틱이 착지 틱을 넘는 장면에서 한 번 — 같은 장면은 몇 번 봐도 조용하다.
     /// </summary>
+    /// <summary>마지막으로 울린 휙·탁·철썩의 던짐 틱 — 보정이 던짐 결과·틱을 바꿔도 같은 던짐은 한 번만 울린다(최종 리뷰 m2). 0 = 없음.</summary>
+    public struct CardRushAudioMemory
+    {
+        public long Whoosh;
+        public long Thunk;
+        public long Slap;
+    }
+
     public static class CardRushAudioCues
     {
         public static void Detect(in CardRushAudioFrame prev, in CardRushAudioFrame now, CardRushTheme theme, List<CardRushSfx> into)
         {
+            var memory = new CardRushAudioMemory();
+            Detect(prev, now, theme, into, ref memory);
+        }
+
+        /// <summary>
+        /// 같은 던짐인가 — 진짜 던짐 둘은 이동(MoveTicks)보다 멀리 떨어진다(맞음 뒤 이동이 끝나야, 틀림 뒤 멈춤이 끝나야 다음 시작).
+        /// 그보다 가까운 던짐 틱은 보정이 옮긴(또는 틀림 ↔ 맞음으로 바꾼) 같은 던짐이다.
+        /// </summary>
+        private static bool SameThrow(long last, long at, int gap) => gap > 0 && last != 0 && System.Math.Abs(at - last) < gap;
+
+        //  같은 던짐이면 소리 없이 기억만 옮기고, 아니면 울리고 기억한다.
+        private static bool Fresh(ref long last, long at, int gap)
+        {
+            bool fresh = SameThrow(last, at, gap) == false;
+            last = at;
+            return fresh;
+        }
+
+        public static void Detect(in CardRushAudioFrame prev, in CardRushAudioFrame now, CardRushTheme theme, List<CardRushSfx> into,
+                                  ref CardRushAudioMemory memory)
+        {
+            int gap = now.MoveTicks;
             //  첫 장면은 기준만 잡는다 — 들어오자마자(재접속 등) 지난 일로 소리를 내지 않게.
             if (prev.Has == false || now.Has == false)
             {
@@ -36,22 +67,27 @@ namespace LOP
             }
             if (now.Step > prev.Step)
             {
-                //  마지막 맞힘이 곧 완주 — 휙 대신 팡파르 하나.
-                into.Add(now.Finished ? CardRushSfx.Fanfare : CardRushSfx.Whoosh);
+                //  마지막 맞힘이 곧 완주 — 휙 대신 팡파르 하나(완주는 한 번뿐이라 늘 운다).
+                if (now.Finished) into.Add(CardRushSfx.Fanfare);
+                else if (Fresh(ref memory.Whoosh, now.MoveStartTick, gap)) into.Add(CardRushSfx.Whoosh);
             }
             if (now.StunEndTick > prev.StunEndTick)
             {
-                into.Add(theme == CardRushTheme.StoneBridge ? CardRushSfx.Splash : CardRushSfx.Whoosh);
+                long wrongAt = now.StunEndTick - now.StunTicks;
+                if (theme == CardRushTheme.StoneBridge) into.Add(CardRushSfx.Splash);
+                else if (Fresh(ref memory.Whoosh, wrongAt, gap)) into.Add(CardRushSfx.Whoosh);
             }
             //  맞은 카드가 문에 꽂히는 틱(완주 땐 팡파르만).
             if (now.MoveStartTick != 0 && now.Finished == false
-                && Crossed(prev.DrawnTick, now.DrawnTick, now.MoveStartTick + CardRushThrowFx.FlightTicks))
+                && Crossed(prev.DrawnTick, now.DrawnTick, now.MoveStartTick + CardRushThrowFx.FlightTicks)
+                && Fresh(ref memory.Thunk, now.MoveStartTick, gap))
             {
                 into.Add(CardRushSfx.Thunk);
             }
             //  틀린 카드가 문에 튕겨 얼굴에 닿는 틱 — 문 박치기 테마만(돌다리는 풍덩 그대로).
             if (theme == CardRushTheme.DoorDash && now.StunEndTick != 0
-                && Crossed(prev.DrawnTick, now.DrawnTick, now.StunEndTick - now.StunTicks + CardRushThrowFx.SlapTick))
+                && Crossed(prev.DrawnTick, now.DrawnTick, now.StunEndTick - now.StunTicks + CardRushThrowFx.SlapTick)
+                && Fresh(ref memory.Slap, now.StunEndTick - now.StunTicks, gap))
             {
                 into.Add(CardRushSfx.Slap);
             }
@@ -73,7 +109,8 @@ namespace LOP
     /// 단 <see cref="FlappySfx.Finish"/>는 삼킨다: 완주 팡파르는 이 모드의 세 음이 상태에서 이미 냈다(두 번 울리지 않게).
     /// 배경음은 이 모드에 없다(spec §7.5 표에 없음) — 음악 메서드는 아무것도 안 한다.</para>
     /// </summary>
-    public class CardRushAudio : IFlappyAudio, IInitializable, ITickable, IDisposable
+    /// <remarks>틱·보간 뒤(IPostLateTickable)에서 듣는다 — 째깍이 머리 위 카드와 같은 순간·같은 틱(최종 리뷰 I1).</remarks>
+    public class CardRushAudio : IFlappyAudio, IInitializable, IPostLateTickable, IDisposable
     {
         /// <summary>카드 째깍 — 아주 작게. 리듬을 귀로도 읽게 하되 거슬리지 않게(spec §7.5 −18 dB).</summary>
         public const float TickVolumeDb = -18f;
@@ -109,6 +146,7 @@ namespace LOP
         private AudioSource source;
         private bool disposed;
         private CardRushAudioFrame last;
+        private CardRushAudioMemory cueMemory;
         private string lastEntityId;
 
         //  시험 이음매 — 실제로는 AudioSource.PlayOneShot(클립, 크기). 시험은 무엇이 어떤 크기로 불렸는지만 본다.
@@ -271,7 +309,7 @@ namespace LOP
         public void SetFinalStretch(bool on) { }
         public void DuckMusic() { }
 
-        public void Tick()
+        public void PostLateTick()
         {
             string id = gameDataStore?.userEntityId;
             if (id != lastEntityId)
@@ -279,6 +317,7 @@ namespace LOP
                 //  몸이 바뀌면(재접속) 기준을 새로 잡는다.
                 lastEntityId = id;
                 last = default;
+                cueMemory = default;
             }
             Observe(ReadFrame(id));
         }
@@ -287,7 +326,7 @@ namespace LOP
         internal void Observe(in CardRushAudioFrame frame)
         {
             cues.Clear();
-            CardRushAudioCues.Detect(last, frame, world != null && world.Rules != null ? world.Rules.Theme : CardRushTheme.StoneBridge, cues);
+            CardRushAudioCues.Detect(last, frame, world != null && world.Rules != null ? world.Rules.Theme : CardRushTheme.StoneBridge, cues, ref cueMemory);
             last = frame;
             foreach (var sfx in cues)
             {
@@ -317,6 +356,7 @@ namespace LOP
                 MoveStartTick = s.MoveStartTick,
                 StunEndTick = s.StunEndTick,
                 StunTicks = world.Timing.StunTicks,
+                MoveTicks = world.Timing.MoveTicks,
                 DrawnTick = drawnTick,
                 Finished = s.IsFinished(course.StepCount),
                 FaceUp = card.Visible && card.FaceUp,

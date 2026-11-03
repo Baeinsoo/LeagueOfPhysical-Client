@@ -46,6 +46,24 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 금_가는_바닥_맵만_금을_켠다()
+        {
+            Assert.IsTrue(ConfigOf(21).CrackEnabled);
+            Assert.IsTrue(ConfigOf(22, 12).CrackEnabled);
+            Assert.IsFalse(ConfigOf(15).CrackEnabled);
+            Assert.IsFalse(ConfigOf(16, 12).CrackEnabled);
+        }
+
+        [Test]
+        public void 금_설정_값은_두_번에_1초()
+        {
+            var c = ConfigOf(21);
+            Assert.AreEqual(2, c.CrackHitsToCollapse);
+            Assert.AreEqual(1f, c.CrackCollapseSeconds);
+            Assert.AreEqual(50, c.CrackCollapseTicks);
+        }
+
+        [Test]
         public void 설정_행이_없는_맵은_크게_실패한다()
         {
             var e = Assert.Throws<System.InvalidOperationException>(() => ConfigOf(999));

@@ -11,6 +11,58 @@ namespace LOP.Tests
             return m;
         }
 
+        static KnockbackStateToC WithCrack(int version, int tile, int cracks, long collapseTick)
+        {
+            var m = new KnockbackStateToC { Version = version };
+            m.Cracks.Add(new KnockbackCrackWire { Tile = tile, Cracks = cracks, CollapseTick = collapseTick });
+            return m;
+        }
+
+        static KnockbackFloor Floor() => new KnockbackFloor(6f, 1.5f, 0f, false, 0, 50);
+
+        [Test]
+        public void 금_목록은_상태에_실린다()
+        {
+            var state = new KnockbackClientState();
+            state.Apply(WithCrack(1, 3, 1, -1));
+            Assert.AreEqual(1, state.CrackCountOf(3));
+            Assert.AreEqual(0, state.CrackCountOf(4));
+            state.Apply(new KnockbackStateToC { Version = 2 });
+            Assert.AreEqual(0, state.CrackCountOf(3));
+        }
+
+        [Test]
+        public void 무너지는_틱은_바닥_사실에_들어간다()
+        {
+            var state = new KnockbackClientState();
+            var floor = Floor();
+            state.Apply(WithCrack(1, 2, 2, 500));
+            KnockbackStateHandler.ApplyCracks(floor, state.Cracks);
+            var (x, z) = floor.Tiles[2];
+            Assert.AreEqual(500L, floor.CollapseTickOf(2));
+            Assert.IsTrue(floor.IsTileSolid(x, z, 499));
+            Assert.IsFalse(floor.IsTileSolid(x, z, 500));
+            Assert.IsTrue(floor.IsWarning(x, z, 460, 50));
+        }
+
+        [Test]
+        public void 무너질_때가_안_정해진_금은_바닥을_안_건드리고_빠진_칸은_지워진다()
+        {
+            var state = new KnockbackClientState();
+            var floor = Floor();
+            state.Apply(WithCrack(1, 1, 1, -1));
+            KnockbackStateHandler.ApplyCracks(floor, state.Cracks);
+            Assert.AreEqual(KnockbackFloor.NoCollapse, floor.CollapseTickOf(1));
+
+            state.Apply(WithCrack(2, 1, 2, 300));
+            KnockbackStateHandler.ApplyCracks(floor, state.Cracks);
+            Assert.AreEqual(300L, floor.CollapseTickOf(1));
+
+            state.Apply(new KnockbackStateToC { Version = 3 });
+            KnockbackStateHandler.ApplyCracks(floor, state.Cracks);
+            Assert.AreEqual(KnockbackFloor.NoCollapse, floor.CollapseTickOf(1));
+        }
+
         [Test]
         public void 상태는_판본이_낮으면_버린다()
         {

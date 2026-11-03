@@ -19,6 +19,21 @@ namespace LOP
         }
     }
 
+    /// <summary>금이 간 칸 하나. CollapseTick이 -1이면 아직 무너질 때가 안 정해졌다.</summary>
+    public readonly struct KnockbackCrackInfo
+    {
+        public readonly int Tile;
+        public readonly int Cracks;
+        public readonly long CollapseTick;
+
+        public KnockbackCrackInfo(int tile, int cracks, long collapseTick)
+        {
+            Tile = tile;
+            Cracks = cracks;
+            CollapseTick = collapseTick;
+        }
+    }
+
     /// <summary>
     /// 서버가 보낸 넉백 판 상태(클라). 누가 탈락했는지·피해 %·공개된 원 단계는 여기서만 읽는다 —
     /// 클라는 맞음이나 탈락을 스스로 판단하지 않는다.
@@ -28,6 +43,8 @@ namespace LOP
         private readonly Dictionary<string, (long eliminatedTick, int damagePercent, int team, string koBy, bool koChain)> players =
             new Dictionary<string, (long, int, int, string, bool)>();
         private readonly List<ZoneStage> zoneStages = new List<ZoneStage>();
+        private readonly List<KnockbackCrackInfo> cracks = new List<KnockbackCrackInfo>();
+        private readonly Dictionary<int, int> crackCountByTile = new Dictionary<int, int>();
 
         public int Version { get; private set; }
 
@@ -36,6 +53,12 @@ namespace LOP
 
         /// <summary>서버가 공개한 원 단계(순서대로). 비어 있으면 아직 원이 줄기 전이다.</summary>
         public IReadOnlyList<ZoneStage> ZoneStages => zoneStages;
+
+        /// <summary>금 간 칸 목록(번호는 바닥 칸 목록 순서).</summary>
+        public IReadOnlyList<KnockbackCrackInfo> Cracks => cracks;
+
+        /// <summary>그 칸의 금 수(없으면 0).</summary>
+        public int CrackCountOf(int tileIndex) => crackCountByTile.TryGetValue(tileIndex, out var n) ? n : 0;
 
         /// <summary>적용될 때마다 한 번.</summary>
         public event Action Changed;
@@ -154,6 +177,14 @@ namespace LOP
             {
                 zoneStages.Add(new ZoneStage(z.Index, z.RevealTick, z.ShrinkStartTick, z.ShrinkEndTick,
                     new Vector2(z.FromX, z.FromZ), z.FromRadius, new Vector2(z.ToX, z.ToZ), z.ToRadius, z.DamagePerSecond));
+            }
+
+            cracks.Clear();
+            crackCountByTile.Clear();
+            foreach (var c in message.Cracks)
+            {
+                cracks.Add(new KnockbackCrackInfo(c.Tile, c.Cracks, c.CollapseTick));
+                crackCountByTile[c.Tile] = c.Cracks;
             }
 
             Changed?.Invoke();

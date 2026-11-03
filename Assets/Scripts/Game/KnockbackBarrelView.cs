@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using VContainer;
 
@@ -15,6 +16,24 @@ namespace LOP
         private const float DefaultRadius = 0.55f;
         private static readonly Color BodyRed = new Color(0.6f, 0.08f, 0.08f);
         private static readonly Color BandBlue = new Color(0.1f, 0.25f, 0.7f);
+
+        //  화면에 그려진 드럼통들. 탄 그림이 "드럼통에 닿았나"를 물을 때 읽는다.
+        private static readonly List<KnockbackBarrelView> Drawn = new List<KnockbackBarrelView>();
+
+        /// <summary>지금 화면에 그려진 드럼통의 바닥 자리(x, z)를 목록에 채운다. 할당 없음.</summary>
+        public static void CollectDrawnPositions(List<Vector2> into)
+        {
+            into.Clear();
+            for (int i = 0; i < Drawn.Count; i++)
+            {
+                var view = Drawn[i];
+                if (view.body != null && view.body.gameObject.activeSelf)
+                {
+                    var p = view.body.position;
+                    into.Add(new Vector2(p.x, p.z));
+                }
+            }
+        }
 
         [Inject] private GameFramework.World.EntityRegistry entityRegistry;
         [Inject] private IObjectResolver resolver;
@@ -70,6 +89,10 @@ namespace LOP
             body.gameObject.SetActive(true);
             body.SetPositionAndRotation(position + Vector3.up * radius, KnockbackBarrelPose.Rotation(axis, roll));
         }
+
+        private void OnEnable() => Drawn.Add(this);
+
+        private void OnDisable() => Drawn.Remove(this);
 
         private void OnDestroy()
         {

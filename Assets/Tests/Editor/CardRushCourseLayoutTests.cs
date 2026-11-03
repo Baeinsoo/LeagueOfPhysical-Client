@@ -88,15 +88,19 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 문짝은_이동_앞_0_1초에_100도까지_열리고_건넌_문은_열린_채()
+        public void 문짝은_카드가_꽂힌_뒤_0_1초에_100도까지_열리고_건넌_문은_열린_채()
         {
             var s = new CardRushRunnerState { Step = 5, MoveStartTick = 1000 };
             int openTicks = CardRushTiming.Ticks(CardRushCourseLayout.DoorOpenSeconds);
             Assert.AreEqual(5, openTicks);
+            long stuck = 1000 + CardRushThrowFx.FlightTicks;   // 던진 카드가 문에 닿는 틱
+            Assert.AreEqual(1003, stuck);
 
             Assert.AreEqual(0f, CardRushCourseLayout.DoorOpenAngle(s, 1000, MoveTicks, 4), Eps);
-            Assert.AreEqual(40f, CardRushCourseLayout.DoorOpenAngle(s, 1002, MoveTicks, 4), Eps, "5틱 중 2틱");
-            Assert.AreEqual(100f, CardRushCourseLayout.DoorOpenAngle(s, 1000 + openTicks, MoveTicks, 4), Eps);
+            Assert.AreEqual(0f, CardRushCourseLayout.DoorOpenAngle(s, 1002, MoveTicks, 4), Eps, "카드가 날아가는 동안은 닫혀 있다");
+            Assert.AreEqual(0f, CardRushCourseLayout.DoorOpenAngle(s, stuck, MoveTicks, 4), Eps, "꽂히는 틱에 열리기 시작");
+            Assert.AreEqual(40f, CardRushCourseLayout.DoorOpenAngle(s, stuck + 2, MoveTicks, 4), Eps, "5틱 중 2틱");
+            Assert.AreEqual(100f, CardRushCourseLayout.DoorOpenAngle(s, stuck + openTicks, MoveTicks, 4), Eps, "던짐 + 8틱에 활짝");
             Assert.AreEqual(100f, CardRushCourseLayout.DoorOpenAngle(s, 1000 + MoveTicks + 50, MoveTicks, 4), Eps, "건넌 문은 열린 채");
             Assert.AreEqual(100f, CardRushCourseLayout.DoorOpenAngle(s, 1000, MoveTicks, 2), Eps, "그 전 문도 열린 채");
             Assert.AreEqual(0f, CardRushCourseLayout.DoorOpenAngle(s, 1000 + MoveTicks, MoveTicks, 5), Eps, "앞 문은 닫힘");
@@ -322,7 +326,6 @@ namespace LOP.Tests
 
             float splashForward = 0.5f * StepSpacing;
             Assert.Greater(BodyY(splashForward, -CardRushGag.SplashDepth, w, h), band + Clear, "풍덩 — 물에 잠긴 발");
-            Assert.Greater(BodyY(CardRushGag.BonkLurchSteps * StepSpacing, 0f, w, h), band + Clear, "박치기 — 앞으로 쏠린 발");
         }
 
         [Test]

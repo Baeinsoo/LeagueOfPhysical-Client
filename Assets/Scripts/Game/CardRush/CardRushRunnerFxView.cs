@@ -278,8 +278,8 @@ namespace LOP
 
         //  물보라: 빠지는 순간(0.25)부터 0.35 동안 튀고, 물결은 허우적 끝(0.75)까지 퍼졌다 사라진다.
         private const float SplashStart = 0.25f, SplashDropletSpan = 0.35f, RingEnd = 0.80f;
-        //  별: 나자빠지는 동안(0.20~0.75) 머리 위를 두 바퀴 돈다.
-        private const float StarStart = 0.20f, StarEnd = 0.75f, StarTurns = 2f, StarRadius = 0.42f, StarLift = 0.38f, StarSize = 0.7f;
+        //  별: 철썩 맞고 나자빠지는 동안(0.30~0.75) 머리 위를 두 바퀴 돈다.
+        private const float StarStart = 0.30f, StarEnd = 0.75f, StarTurns = 2f, StarRadius = 0.42f, StarLift = 0.38f, StarSize = 0.7f;
 
         private readonly GameObject root;
         private readonly Transform[] droplets = new Transform[DropletCount];
@@ -331,12 +331,12 @@ namespace LOP
             return go;
         }
 
-        /// <summary>그 순간의 효과를 놓는다. 풍덩·박치기 밖이면 다 숨긴다.</summary>
+        /// <summary>그 순간의 효과를 놓는다. 풍덩·철썩 밖이면 다 숨긴다.</summary>
         public void Show(CardRushGagKind kind, float t01, Vector3 bodyRoot, Vector3 forward, float stepSpacing, Vector3 head)
         {
             bool splash = kind == CardRushGagKind.Splash && t01 >= SplashStart && t01 < RingEnd;
-            bool bonk = kind == CardRushGagKind.Bonk && t01 >= StarStart && t01 < StarEnd;
-            if (splash == false && bonk == false)
+            bool slap = kind == CardRushGagKind.Slap && t01 >= StarStart && t01 < StarEnd;
+            if (splash == false && slap == false)
             {
                 SetVisible(false);
                 return;
@@ -345,7 +345,7 @@ namespace LOP
 
             for (int i = 0; i < DropletCount; i++) droplets[i].gameObject.SetActive(splash);
             ring.gameObject.SetActive(splash);
-            for (int i = 0; i < StarCount; i++) stars[i].gameObject.SetActive(bonk);
+            for (int i = 0; i < StarCount; i++) stars[i].gameObject.SetActive(slap);
 
             if (splash)
             {
@@ -354,7 +354,7 @@ namespace LOP
                 center.y = bodyRoot.y + WaterSurfaceY;
                 PlaceSplash(t01, center, f);
             }
-            if (bonk)
+            if (slap)
             {
                 PlaceStars(t01, head);
             }

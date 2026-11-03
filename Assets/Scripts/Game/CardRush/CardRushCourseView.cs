@@ -68,7 +68,10 @@ namespace LOP
             return s.MoveStartTick == 0 || drawnTick >= s.MoveStartTick + moveTicks;
         }
 
-        /// <summary>문 칸 k의 문짝 열림 각(도). 맞힌 이동의 앞 0.1초에 0 → 100°, 건넌 문은 열린 채, 아직 안 맞힌 문은 닫힘.</summary>
+        /// <summary>
+        /// 문 칸 k의 문짝 열림 각(도). 던진 카드가 문에 꽂히는 틱(맞힌 틱 + <see cref="CardRushThrowFx.FlightTicks"/>)부터
+        /// 0.1초에 0 → 100°, 건넌 문은 열린 채, 아직 안 맞힌 문은 닫힘. 그림만이다 — 몸은 맞힌 틱부터 시뮬대로 간다.
+        /// </summary>
         public static float DoorOpenAngle(in CardRushRunnerState s, long drawnTick, int moveTicks, int step)
         {
             if (step >= s.Step)
@@ -80,7 +83,7 @@ namespace LOP
                 return DoorOpenDegrees;
             }
             int openTicks = CardRushTiming.Ticks(DoorOpenSeconds);
-            float t = Mathf.Clamp01((float)(drawnTick - s.MoveStartTick) / openTicks);
+            float t = Mathf.Clamp01((float)(drawnTick - (s.MoveStartTick + CardRushThrowFx.FlightTicks)) / openTicks);
             return DoorOpenDegrees * t;
         }
 

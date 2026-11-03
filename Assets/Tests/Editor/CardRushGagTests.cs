@@ -29,7 +29,7 @@ namespace LOP.Tests
 
         [Test]
         public void 멈춤_끝_직전은_원래_자세에_가깝다_튀지_않는다(
-            [Values(CardRushGagKind.Splash, CardRushGagKind.Bonk, CardRushGagKind.DoorRun, CardRushGagKind.Finish)] CardRushGagKind kind)
+            [Values(CardRushGagKind.Splash, CardRushGagKind.Slap, CardRushGagKind.DoorRun, CardRushGagKind.Finish)] CardRushGagKind kind)
         {
             var p = CardRushGag.PoseAt(kind, 0.999f, Spacing);
             Assert.Less(p.Offset.magnitude, 0.05f, kind + " 오프셋");
@@ -49,17 +49,31 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 박치기는_가운데에서_뒤로_누움()
+        public void 철썩은_카드가_닿을_때_젖혀지고_가운데에서_뒤로_누움()
         {
-            var p = CardRushGag.PoseAt(CardRushGagKind.Bonk, 0.55f, 3.0f);
+            var p = CardRushGag.PoseAt(CardRushGagKind.Slap, 0.55f, 3.0f);
             Assert.LessOrEqual(p.EulerDeg.x, -70f);
-            Assert.AreEqual(CardRushGag.BonkLurchSteps * 3.0f, p.Offset.z, 1e-4f, "발은 문 앞에 붙은 채 뒤로 눕는다");
-            Assert.Greater(CardRushGag.PoseAt(CardRushGagKind.Bonk, 0.15f, 3.0f).Offset.z, 0.3f * 3.0f, "박는 순간엔 문 쪽으로 돌진해 있다");
+            Assert.AreEqual(0f, p.Offset.magnitude, 1e-5f, "발은 제자리 — 앞뒤로 안 간다");
+            Assert.Greater(CardRushGag.PoseAt(CardRushGagKind.Slap, 0.05f, 3.0f).EulerDeg.x, 5f, "던지며 앞으로 숙인다");
+            //  철썩 0.23 = 던짐 + SlapTick(7) ÷ 멈춤 30틱 — 카드가 얼굴에 닿는 틱에 머리가 젖혀지고 찌그러진다.
+            Assert.AreEqual(0.23f, (float)CardRushThrowFx.SlapTick / Timing.StunTicks, 0.01f);
+            var hit = CardRushGag.PoseAt(CardRushGagKind.Slap, 0.27f, 3.0f);
+            Assert.Less(hit.EulerDeg.x, -15f);
+            Assert.AreEqual(0.9f, hit.Squash, 1e-5f);
+            Assert.AreEqual(1f, CardRushGag.PoseAt(CardRushGagKind.Slap, 0.2f, 3.0f).Squash, 1e-5f, "닿기 전엔 멀쩡");
+        }
+
+        [Test]
+        public void 문_틀림은_철썩()
+        {
+            var s = new CardRushRunnerState { StunEndTick = 3030, Attempt = 1 };
+            Assert.AreEqual(CardRushGagKind.Slap, CardRushGag.Phase(CardRushTheme.DoorDash, s, 3010, new CardRushTiming(15, 30), 40).kind);
+            Assert.AreEqual(CardRushGagKind.Splash, CardRushGag.Phase(CardRushTheme.StoneBridge, s, 3010, new CardRushTiming(15, 30), 40).kind, "돌다리 그림은 남겨 둔다");
         }
 
         [Test]
         public void 틀림_몸개그는_몸_뒤로_안_간다_카메라_아래로_안_사라진다(
-            [Values(CardRushGagKind.Splash, CardRushGagKind.Bonk)] CardRushGagKind kind)
+            [Values(CardRushGagKind.Splash, CardRushGagKind.Slap)] CardRushGagKind kind)
         {
             //  카메라가 몸 바로 뒤 위에 있어 몸 뒤쪽 땅은 화면 밖이다 — 뒤로 가면 내 몸개그가 안 보인다.
             for (int i = 0; i <= 100; i++)
@@ -82,7 +96,7 @@ namespace LOP.Tests
 
             Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(CardRushTheme.StoneBridge, s, 1030, Timing, 40).kind);
             Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(CardRushTheme.StoneBridge, s, 999.9, Timing, 40).kind);
-            Assert.AreEqual(CardRushGagKind.Bonk, CardRushGag.Phase(CardRushTheme.DoorDash, s, 1010, Timing, 40).kind);
+            Assert.AreEqual(CardRushGagKind.Slap, CardRushGag.Phase(CardRushTheme.DoorDash, s, 1010, Timing, 40).kind);
         }
 
         [Test]
@@ -163,11 +177,14 @@ namespace LOP.Tests
                 fx.Show(CardRushGagKind.Splash, 0.1f, Vector3.zero, Vector3.forward, Spacing, Vector3.up);
                 Assert.AreEqual(0, fx.ActiveDroplets, "뛰어오르는 중엔 아직 없다");
 
-                fx.Show(CardRushGagKind.Bonk, 0.5f, Vector3.zero, Vector3.forward, 3f, Vector3.up);
+                fx.Show(CardRushGagKind.Slap, 0.25f, Vector3.zero, Vector3.forward, 3f, Vector3.up);
+                Assert.AreEqual(0, fx.ActiveStars, "철썩 맞기 전엔 별이 없다");
+
+                fx.Show(CardRushGagKind.Slap, 0.5f, Vector3.zero, Vector3.forward, 3f, Vector3.up);
                 Assert.AreEqual(CardRushGagFx.StarCount, fx.ActiveStars);
                 Assert.AreEqual(0, fx.ActiveDroplets);
 
-                fx.Show(CardRushGagKind.Bonk, 0.9f, Vector3.zero, Vector3.forward, 3f, Vector3.up);
+                fx.Show(CardRushGagKind.Slap, 0.9f, Vector3.zero, Vector3.forward, 3f, Vector3.up);
                 Assert.AreEqual(0, fx.ActiveStars, "벌떡 일어설 땐 별이 없다");
                 fx.Show(CardRushGagKind.None, 0f, Vector3.zero, Vector3.forward, 3f, Vector3.up);
                 Assert.AreEqual(0, fx.ActiveStars + fx.ActiveDroplets);
@@ -201,17 +218,55 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 맞으면_딩_틀리면_테마별_완주는_팡파르()
+        public void 던지면_휙_돌다리_틀림은_풍덩_완주는_팡파르()
         {
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Ding }, Cues(Frame(step: 3), Frame(step: 4, faceUp: false)));
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Whoosh }, Cues(Frame(step: 3), Frame(step: 4, faceUp: false)));
             CollectionAssert.AreEqual(new[] { CardRushSfx.Splash }, Cues(Frame(stunEnd: 0), Frame(stunEnd: 1030, faceUp: false)));
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Bonk }, Cues(Frame(stunEnd: 0), Frame(stunEnd: 1030, faceUp: false), CardRushTheme.DoorDash));
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Whoosh }, Cues(Frame(stunEnd: 0), Frame(stunEnd: 1030, faceUp: false), CardRushTheme.DoorDash));
             CollectionAssert.AreEqual(new[] { CardRushSfx.Fanfare }, Cues(Frame(step: 39), Frame(step: 40, faceUp: false, finished: true)));
             CollectionAssert.IsEmpty(Cues(default, Frame(step: 10, stunEnd: 500)), "첫 장면은 기준만 — 지난 일로 소리 내지 않음");
         }
 
         [Test]
-        public void 소리는_정한_크기로_나고_연속이_길어도_같은_딩()
+        public void 던지면_휙_꽂히면_탁_한_번()
+        {
+            var cues = new System.Collections.Generic.List<CardRushSfx>();
+            var a = new CardRushAudioFrame { Has = true, Step = 3, MoveStartTick = 1000, DrawnTick = 1999 };
+            var b = new CardRushAudioFrame { Has = true, Step = 4, MoveStartTick = 2000, DrawnTick = 2000 };
+            CardRushAudioCues.Detect(a, b, CardRushTheme.DoorDash, cues);
+            CollectionAssert.Contains(cues, CardRushSfx.Whoosh); CollectionAssert.DoesNotContain(cues, CardRushSfx.Thunk);
+            cues.Clear();
+            var c = b; c.DrawnTick = 2003;
+            CardRushAudioCues.Detect(b, c, CardRushTheme.DoorDash, cues);
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Thunk }, cues);
+            cues.Clear();
+            var d = c; d.DrawnTick = 2010;
+            CardRushAudioCues.Detect(c, d, CardRushTheme.DoorDash, cues);
+            CollectionAssert.IsEmpty(cues, "이미 지난 꽂힘은 다시 안 낸다");
+        }
+
+        [Test]
+        public void 틀리면_휙_뒤_7틱에_철썩()
+        {
+            var cues = new System.Collections.Generic.List<CardRushSfx>();
+            var a = new CardRushAudioFrame { Has = true, Step = 3, StunEndTick = 0, StunTicks = 30, DrawnTick = 2999 };
+            var b = new CardRushAudioFrame { Has = true, Step = 3, StunEndTick = 3030, StunTicks = 30, DrawnTick = 3000 };
+            CardRushAudioCues.Detect(a, b, CardRushTheme.DoorDash, cues);
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Whoosh }, cues);
+            cues.Clear();
+            var c = b; c.DrawnTick = 3007.2;
+            CardRushAudioCues.Detect(b, c, CardRushTheme.DoorDash, cues);
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Slap }, cues);
+            cues.Clear();
+            var d = c; d.DrawnTick = 3020;
+            CardRushAudioCues.Detect(c, d, CardRushTheme.StoneBridge, cues);
+            CollectionAssert.IsEmpty(cues);
+            CardRushAudioCues.Detect(b, c, CardRushTheme.StoneBridge, cues);
+            CollectionAssert.IsEmpty(cues, "돌다리는 풍덩 하나 — 철썩 없음");
+        }
+
+        [Test]
+        public void 소리는_정한_크기로_나고_연속이_길어도_같은_휙()
         {
             var audio = new CardRushAudio(null, null, null, null);
             var played = new List<(AudioClip clip, float volume)>();
@@ -227,7 +282,7 @@ namespace LOP.Tests
                 audio.Observe(Frame(step: 4, faceUp: false));
                 audio.Observe(Frame(step: 30, faceUp: false));
                 Assert.AreEqual(3, played.Count);
-                Assert.AreSame(audio.ClipOf(CardRushSfx.Ding), played[1].clip);
+                Assert.AreSame(audio.ClipOf(CardRushSfx.Whoosh), played[1].clip);
                 Assert.AreSame(played[1].clip, played[2].clip, "연속이 길어져도 음을 올리지 않는다");
                 Assert.AreEqual(played[1].volume, played[2].volume);
             }
@@ -260,7 +315,7 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 소리는_다_지어진다_딩은_880Hz_0_12초()
+        public void 소리는_다_지어진다_철썩_뒤_뾰잉은_벌떡_서는_순간()
         {
             var audio = new CardRushAudio(null, null, null, null);
             try
@@ -271,13 +326,9 @@ namespace LOP.Tests
                     Assert.IsNotNull(clip, sfx.ToString());
                     Assert.Greater(clip.samples, 0, sfx.ToString());
                 }
-                var ding = CardRushAudio.Recipe(CardRushSfx.Ding, 0.6f);
-                Assert.AreEqual(1, ding.Length);
-                Assert.AreEqual(880f, ding[0].Freq);
-                Assert.AreEqual(0.12f, ding[0].Duration, 1e-6f);
-                //  뾰잉은 몸개그가 벌떡 서는 순간(멈춤의 0.70)에.
-                var bonk = CardRushAudio.Recipe(CardRushSfx.Bonk, 0.6f);
-                Assert.AreEqual(0.42f, bonk[bonk.Length - 1].When, 1e-4f);
+                //  뾰잉은 몸개그가 벌떡 서는 순간(멈춤의 0.75 = 0.45초)에. 클립은 철썩(던짐 + 7틱 = 0.14초)에 시작하니 클립 안에선 0.31초.
+                var slap = CardRushAudio.Recipe(CardRushSfx.Slap, 0.6f);
+                Assert.AreEqual(0.31f, slap[slap.Length - 1].When, 1e-4f);
             }
             finally
             {

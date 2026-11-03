@@ -3,7 +3,7 @@ using NUnit.Framework;
 namespace LOP.Tests
 {
     /// <summary>
-    /// 카드 러시 보정 — 서버가 보낸 다섯 칸(칸·시도·이동 시작·멈춤 끝·연속) 중 하나라도 내 예측과 다르면 되감는다.
+    /// 카드 러시 보정 — 서버가 보낸 여섯 칸(칸·시도·이동 시작·멈춤 끝·연속·돌기 시작) 중 하나라도 내 예측과 다르면 되감는다.
     /// 자리는 상태에서 계산되므로, 한 칸을 안 보면 "상태는 틀렸는데 자리는 아직 같은" 틱을 놓친다.
     /// </summary>
     public class CardRushServerCorrectionHandlerTests
@@ -15,7 +15,7 @@ namespace LOP.Tests
 
         private static readonly CardRushRunnerState Saved = new CardRushRunnerState
         {
-            Step = 7, Attempt = 2, MoveStartTick = 1234, StunEndTick = 1300, Streak = 0, BestStreak = 5, Misses = 3,
+            Step = 7, Attempt = 2, MoveStartTick = 1234, StunEndTick = 1300, SpinStartTick = 1290, Streak = 0, BestStreak = 5, Misses = 3,
         };
 
         private static CardRushServerCorrectionHandler Make(out GameFramework.World.Entity runner)
@@ -34,15 +34,15 @@ namespace LOP.Tests
             return new CardRushServerCorrectionHandler(world);
         }
 
-        private static EntitySnap Snap(int step = 7, int attempt = 2, long moveStart = 1234, long stunEnd = 1300, int streak = 0)
+        private static EntitySnap Snap(int step = 7, int attempt = 2, long moveStart = 1234, long stunEnd = 1300, int streak = 0, long spinStart = 1290)
             => new EntitySnap
             {
                 entityId = Id, tick = Tick,
-                cardStep = step, cardAttempt = attempt, cardMoveStartTick = moveStart, cardStunEndTick = stunEnd, cardStreak = streak,
+                cardStep = step, cardAttempt = attempt, cardMoveStartTick = moveStart, cardStunEndTick = stunEnd, cardStreak = streak, cardSpinStartTick = spinStart,
             };
 
         [Test]
-        public void 다섯_칸이_같으면_그대로()
+        public void 여섯_칸이_같으면_그대로()
         {
             var handler = Make(out _);
             Assert.IsTrue(handler.Matches(Tick, Snap()));
@@ -53,6 +53,7 @@ namespace LOP.Tests
         [TestCase("MoveStartTick")]
         [TestCase("StunEndTick")]
         [TestCase("Streak")]
+        [TestCase("SpinStartTick")]
         public void 한_칸만_달라도_되감는다(string field)
         {
             var handler = Make(out _);
@@ -63,6 +64,7 @@ namespace LOP.Tests
                 "MoveStartTick" => Snap(moveStart: 1235),
                 "StunEndTick" => Snap(stunEnd: 1301),
                 "Streak" => Snap(streak: 1),
+                "SpinStartTick" => Snap(spinStart: 1291),
                 _ => throw new System.ArgumentException(field),
             };
             Assert.IsFalse(handler.Matches(Tick, snap), $"{field}가 다른데 맞다고 했다");
@@ -92,11 +94,11 @@ namespace LOP.Tests
             Assert.AreEqual(3, s.Misses, "서버가 안 보내는 값");
         }
 
-        //  다섯 칸은 ForMember 없이 이름만으로 옮겨진다 — 이름이 어긋나면 클라가 늘 0을 보고 매 스냅 되감는다.
+        //  여섯 칸은 ForMember 없이 이름만으로 옮겨진다 — 이름이 어긋나면 클라가 늘 0을 보고 매 스냅 되감는다.
         [Test]
-        public void 다섯_칸이_와이어와_AutoMapper를_건넌다()
+        public void 여섯_칸이_와이어와_AutoMapper를_건넌다()
         {
-            var sent = new global::EntitySnap { CardStep = 7, CardAttempt = 2, CardMoveStartTick = 1234, CardStunEndTick = 1300, CardStreak = 4 };
+            var sent = new global::EntitySnap { CardStep = 7, CardAttempt = 2, CardMoveStartTick = 1234, CardStunEndTick = 1300, CardStreak = 4, CardSpinStartTick = 1290 };
             var proto = global::EntitySnap.Parser.ParseFrom(Google.Protobuf.MessageExtensions.ToByteArray(sent));
 
             EntitySnap mapped = MapperConfig.mapper.Map<EntitySnap>(proto);
@@ -106,6 +108,15 @@ namespace LOP.Tests
             Assert.AreEqual(1234, mapped.cardMoveStartTick);
             Assert.AreEqual(1300, mapped.cardStunEndTick);
             Assert.AreEqual(4, mapped.cardStreak);
+            Assert.AreEqual(1290, mapped.cardSpinStartTick);
+        }
+
+        [Test]
+        public void 스냅_적용은_시작_틱도_옮긴다()
+        {
+            var state = new CardRushRunnerState();
+            CardRushServerCorrectionHandler.ApplyCardState(ref state, Snap(spinStart: 777));
+            Assert.AreEqual(777, state.SpinStartTick);
         }
 
         [Test]

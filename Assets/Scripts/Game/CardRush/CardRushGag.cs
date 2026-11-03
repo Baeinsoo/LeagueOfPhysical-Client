@@ -1,6 +1,6 @@
 namespace LOP
 {
-    public enum CardRushGagKind { None, Hop, DoorRun, Splash, Bonk, Finish }
+    public enum CardRushGagKind { None, Hop, DoorRun, Splash, Slap, Finish }
 
     /// <summary>몸개그 자세 — 몸 뿌리(시뮬 자리)에서의 오프셋과 기울기. 시작·끝은 늘 원래 자세다.</summary>
     public readonly struct CardRushPose
@@ -20,8 +20,11 @@ namespace LOP
     {
         public const float HopHeight = 0.8f;
         public const float SplashDepth = 1.1f;
-        public const float BonkLurchSteps = 0.35f;
-        public const float BonkFallDegrees = 80f;
+
+        /// <summary>철썩(문 박치기 테마의 틀림) — 던지며 숙이는 각, 카드에 맞아 머리가 젖혀지는 각, 뒤로 벌러덩 눕는 각.</summary>
+        public const float SlapLeanDegrees = 10f;
+        public const float SlapSnapDegrees = 20f;
+        public const float SlapFallDegrees = 80f;
 
         /// <summary>풍덩 첫머리에 앞 돌 쪽으로 반쯤 뛰어오르는 높이 — 폴짝(0.8 m)보다 낮게 "가다 만" 느낌.</summary>
         public const float SplashLeapHeight = 0.5f;
@@ -41,7 +44,7 @@ namespace LOP
         public static (CardRushGagKind kind, float t01) Phase(CardRushTheme theme, in CardRushRunnerState s, double drawnTick, in CardRushTiming timing, int stepCount)
         {
             if (s.StunEndTick != 0 && drawnTick >= s.StunEndTick - timing.StunTicks && drawnTick < s.StunEndTick)
-                return (theme == CardRushTheme.StoneBridge ? CardRushGagKind.Splash : CardRushGagKind.Bonk,
+                return (theme == CardRushTheme.StoneBridge ? CardRushGagKind.Splash : CardRushGagKind.Slap,
                         (float)((drawnTick - (s.StunEndTick - timing.StunTicks)) / timing.StunTicks));
             if (s.MoveStartTick != 0 && drawnTick >= s.MoveStartTick && drawnTick < s.MoveStartTick + timing.MoveTicks)
                 return (theme == CardRushTheme.StoneBridge ? CardRushGagKind.Hop : CardRushGagKind.DoorRun,
@@ -82,15 +85,17 @@ namespace LOP
                     float flail = (t01 > 0.40f && t01 < 0.75f) ? 20f * UnityEngine.Mathf.Sin((t01 - 0.40f) * 40f) : 0f;
                     return new CardRushPose(new UnityEngine.Vector3(0, leap - down + bob + pop, fwd), new UnityEngine.Vector3(25f * Plateau(t01, 0.2f, 0.35f, 0.75f, 0.9f), 0, flail), 1f);
                 }
-                case CardRushGagKind.Bonk:
+                case CardRushGagKind.Slap:
                 {
-                    // 0~0.15 돌진 / 0.15~0.20 얼굴 박음(앞으로 쏠림·찌그러짐) / 0.20~0.70 발은 문 앞에 붙은 채 뒤로 벌러덩 / 0.70~1 벌떡(넘침 후 섬)하며 제자리로.
-                    // 몸 뒤로 미끄러지지 않는다 — 카메라가 몸 바로 뒤 위에 있어 뒤로 가면 내 몸이 화면 아래로 사라진다(스크린샷 확인).
-                    float fwd = Plateau(t01, 0f, 0.15f, 0.70f, 0.95f) * BonkLurchSteps * stepSpacing;
-                    float fall = Plateau(t01, 0.20f, 0.40f, 0.70f, 0.90f) * BonkFallDegrees;
-                    float smack = 12f * Bump(t01, 0.05f, 0.15f, 0.22f);
-                    float overshoot = (t01 > 0.90f) ? -8f * UnityEngine.Mathf.Sin((t01 - 0.90f) / 0.10f * UnityEngine.Mathf.PI) : 0f;
-                    return new CardRushPose(new UnityEngine.Vector3(0, 0, fwd), new UnityEngine.Vector3(smack - fall + overshoot, 0, 0), t01 > 0.15f && t01 < 0.22f ? 0.85f : 1f);
+                    // 0~0.10 던지며 앞으로 숙임 / 0.10~0.23 섬(카드가 돌아오는 걸 본다) / 0.23~0.30 철썩 — 머리가 뒤로 젖혀지고 찌그러짐 /
+                    // 0.30~0.75 발은 제자리, 뒤로 벌러덩 / 0.75~1 벌떡(넘침 후 섬). 뒤로 미끄러지지 않는다(카메라 밖으로 나간다).
+                    // 철썩 0.23 = 던짐 뒤 SlapTick(7틱) ÷ 멈춤 30틱 — 카드가 얼굴에 닿는 그 틱.
+                    float lean = SlapLeanDegrees * Bump(t01, 0f, 0.05f, 0.10f);
+                    float snap = SlapSnapDegrees * Plateau(t01, 0.23f, 0.26f, 0.30f, 0.34f);
+                    float fall = Plateau(t01, 0.30f, 0.45f, 0.75f, 0.92f) * SlapFallDegrees;
+                    float overshoot = t01 > 0.92f ? -8f * UnityEngine.Mathf.Sin((t01 - 0.92f) / 0.08f * UnityEngine.Mathf.PI) : 0f;
+                    float squash = t01 > 0.23f && t01 < 0.30f ? 0.9f : 1f;
+                    return new CardRushPose(UnityEngine.Vector3.zero, new UnityEngine.Vector3(lean - snap - fall + overshoot, 0, 0), squash);
                 }
                 case CardRushGagKind.Finish:
                 {

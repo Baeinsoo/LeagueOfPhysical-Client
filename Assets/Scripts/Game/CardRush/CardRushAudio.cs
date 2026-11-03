@@ -5,20 +5,26 @@ using VContainer.Unity;
 
 namespace LOP
 {
-    public enum CardRushSfx { CardTick, Ding, Splash, Bonk, Fanfare }
+    public enum CardRushSfx { CardTick, Whoosh, Thunk, Slap, Splash, Fanfare }
 
     /// <summary>소리를 정할 때 보는 내 몸 한 장면. <see cref="Has"/>가 거짓이면 몸·코스가 아직 없다.</summary>
     public struct CardRushAudioFrame
     {
         public bool Has;
         public int Step;
+        public long MoveStartTick;
         public long StunEndTick;
+        public int StunTicks;       // 틀린 던짐 틱 = StunEndTick − StunTicks
+        public double DrawnTick;    // 이 장면의 그림 틱 — 꽂힘·철썩은 이 틱이 착지 틱을 넘는 장면에서 한 번 낸다
         public bool Finished;
         public bool FaceUp;
         public CardColor Color;
     }
 
-    /// <summary>앞뒤 장면을 비교해 낼 소리를 고른다(spec §7.5). 상태가 바뀐 것만 듣는다 — 같은 장면은 몇 번 봐도 조용하다.</summary>
+    /// <summary>
+    /// 앞뒤 장면을 비교해 낼 소리를 고른다(spec §7.5, 2026-11-03 §5.3). 던짐(휙)은 상태가 바뀐 장면에서,
+    /// 꽂힘(탁)·철썩은 그림 틱이 착지 틱을 넘는 장면에서 한 번 — 같은 장면은 몇 번 봐도 조용하다.
+    /// </summary>
     public static class CardRushAudioCues
     {
         public static void Detect(in CardRushAudioFrame prev, in CardRushAudioFrame now, CardRushTheme theme, List<CardRushSfx> into)
@@ -30,19 +36,34 @@ namespace LOP
             }
             if (now.Step > prev.Step)
             {
-                //  마지막 맞힘이 곧 완주 — 딩 대신 팡파르 하나.
-                into.Add(now.Finished ? CardRushSfx.Fanfare : CardRushSfx.Ding);
+                //  마지막 맞힘이 곧 완주 — 휙 대신 팡파르 하나.
+                into.Add(now.Finished ? CardRushSfx.Fanfare : CardRushSfx.Whoosh);
             }
             if (now.StunEndTick > prev.StunEndTick)
             {
-                into.Add(theme == CardRushTheme.StoneBridge ? CardRushSfx.Splash : CardRushSfx.Bonk);
+                into.Add(theme == CardRushTheme.StoneBridge ? CardRushSfx.Splash : CardRushSfx.Whoosh);
             }
-            //  HUD 카드가 통통 튀는 조건과 같다: 새로 앞면이 되거나 색이 바뀌면.
+            //  맞은 카드가 문에 꽂히는 틱(완주 땐 팡파르만).
+            if (now.MoveStartTick != 0 && now.Finished == false
+                && Crossed(prev.DrawnTick, now.DrawnTick, now.MoveStartTick + CardRushThrowFx.FlightTicks))
+            {
+                into.Add(CardRushSfx.Thunk);
+            }
+            //  틀린 카드가 문에 튕겨 얼굴에 닿는 틱 — 문 박치기 테마만(돌다리는 풍덩 그대로).
+            if (theme == CardRushTheme.DoorDash && now.StunEndTick != 0
+                && Crossed(prev.DrawnTick, now.DrawnTick, now.StunEndTick - now.StunTicks + CardRushThrowFx.SlapTick))
+            {
+                into.Add(CardRushSfx.Slap);
+            }
+            //  머리 위 카드가 통통 튀는 조건과 같다: 새로 앞면이 되거나 색이 바뀌면.
             if (now.FaceUp && (prev.FaceUp == false || now.Color != prev.Color))
             {
                 into.Add(CardRushSfx.CardTick);
             }
         }
+
+        //  (prev, now] — 착지 틱을 막 넘은 장면에서만.
+        private static bool Crossed(double prevTick, double nowTick, double at) => prevTick < at && at <= nowTick;
     }
 
     /// <summary>
@@ -56,17 +77,21 @@ namespace LOP
     {
         /// <summary>카드 째깍 — 아주 작게. 리듬을 귀로도 읽게 하되 거슬리지 않게(spec §7.5 −18 dB).</summary>
         public const float TickVolumeDb = -18f;
-        public const float DingVolumeDb = -4f;
+        public const float WhooshVolumeDb = -8f;
+        public const float ThunkVolumeDb = -4f;
         public const float MissVolumeDb = -2f;
         public const float FanfareVolumeDb = -3f;
         public const float RaceUiVolumeDb = 0f;
 
-        /// <summary>맞음 "딩" — 연속이 길어져도 음을 올리지 않는다(플래피 콤보와 같은 결정).</summary>
-        public const float DingHz = 880f;
-        public const float DingSeconds = 0.12f;
+        /// <summary>
+        /// 철썩 뒤 "뾰잉"을 멈춤의 이 비율에 낸다 — 몸개그가 벌떡 일어서는 순간(<see cref="CardRushGag"/> Slap 0.75).
+        /// 철썩 소리 자체가 던짐 + <see cref="CardRushThrowFx.SlapTick"/>에 나므로 클립 안에선 그만큼 당겨 둔다.
+        /// </summary>
+        public const float SlapStandUpAt = 0.75f;
 
-        /// <summary>박치기 뒤 "뾰잉"을 멈춤의 이 비율에 낸다 — 몸개그가 벌떡 일어서는 순간(<see cref="CardRushGag"/> Bonk 0.70).</summary>
-        public const float BonkStandUpAt = 0.70f;
+        /// <summary>클립 안 뾰잉 시각(초) — 철썩이 난 뒤 벌떡 일어서기까지.</summary>
+        public static float SlapStandUpDelay(float stunSeconds)
+            => Mathf.Max(0f, stunSeconds * SlapStandUpAt - CardRushThrowFx.SlapTick * CardRushTiming.TickInterval);
 
         public static float Gain(float db) => Mathf.Pow(10f, db / 20f);
 
@@ -139,8 +164,20 @@ namespace LOP
                         FlappySynth.Part.Noise(0.025f, 0.9f, 3800f, 1.4f),
                         FlappySynth.Part.Tone(2400f, 0.03f, FlappySynth.Wave.Sine, 0.4f),
                     };
-                case CardRushSfx.Ding:
-                    return new[] { FlappySynth.Part.Tone(DingHz, DingSeconds, FlappySynth.Wave.Sine, 0.6f) };
+                case CardRushSfx.Whoosh:
+                    //  카드가 손을 떠나는 휙 — 높은 대역 잡음이 짧게 스친다(연속이 길어져도 같은 소리).
+                    return new[]
+                    {
+                        FlappySynth.Part.Noise(0.12f, 0.7f, 1800f, 1.1f),
+                        FlappySynth.Part.Noise(0.08f, 0.35f, 4200f, 1.6f, 0.02f),
+                    };
+                case CardRushSfx.Thunk:
+                    //  문에 꽂히는 탁 — 짧은 나무 두드림(낮은 음 + 짧은 잡음).
+                    return new[]
+                    {
+                        FlappySynth.Part.Tone(330f, 0.06f, FlappySynth.Wave.Triangle, 0.7f, 0f, 0.6f),
+                        FlappySynth.Part.Noise(0.04f, 0.6f, 1200f, 1.0f),
+                    };
                 case CardRushSfx.Splash:
                     //  걸러 낸 잡음 0.35초 — 낮은 첨벙 + 위에 흩어지는 물방울.
                     return new[]
@@ -148,14 +185,14 @@ namespace LOP
                         FlappySynth.Part.Noise(0.35f, 1.0f, 700f, 0.6f),
                         FlappySynth.Part.Noise(0.28f, 0.45f, 2600f, 0.9f, 0.03f),
                     };
-                case CardRushSfx.Bonk:
+                case CardRushSfx.Slap:
                 {
-                    //  낮은 쿵 0.2초, 그리고 일어설 때 용수철 미끄럼음(뾰잉 — 위로 미끄러지는 세모파).
-                    float standUp = stunSeconds * BonkStandUpAt;
+                    //  얼굴에 철썩(밝은 잡음 터짐 + 낮은 퍽), 그리고 일어설 때 용수철 미끄럼음(뾰잉 — 위로 미끄러지는 세모파).
+                    float standUp = SlapStandUpDelay(stunSeconds);
                     return new[]
                     {
-                        FlappySynth.Part.Tone(120f, 0.2f, FlappySynth.Wave.Sine, 0.9f, 0f, 0.45f),
-                        FlappySynth.Part.Noise(0.07f, 0.6f, 500f, 0.8f),
+                        FlappySynth.Part.Noise(0.06f, 1.0f, 2600f, 0.8f),
+                        FlappySynth.Part.Tone(160f, 0.1f, FlappySynth.Wave.Sine, 0.6f, 0f, 0.5f),
                         FlappySynth.Part.Tone(260f, 0.22f, FlappySynth.Wave.Triangle, 0.35f, standUp, 2.6f),
                     };
                 }
@@ -175,9 +212,10 @@ namespace LOP
         internal static float VolumeOf(CardRushSfx sfx) => sfx switch
         {
             CardRushSfx.CardTick => Gain(TickVolumeDb),
-            CardRushSfx.Ding => Gain(DingVolumeDb),
+            CardRushSfx.Whoosh => Gain(WhooshVolumeDb),
+            CardRushSfx.Thunk => Gain(ThunkVolumeDb),
             CardRushSfx.Splash => Gain(MissVolumeDb),
-            CardRushSfx.Bonk => Gain(MissVolumeDb),
+            CardRushSfx.Slap => Gain(MissVolumeDb),
             _ => Gain(FanfareVolumeDb),
         };
 
@@ -250,13 +288,17 @@ namespace LOP
                 return default;
             }
             var s = runner.State;
+            long drawnTick = renderClock.TickFor(id);
             //  카드 색은 조작판과 같은 틱(내 몸 = 지금 예측 틱 = 틱 사이의 다음 입력 틱)으로 본다 — 본 색과 들은 째깍이 같은 순간.
-            bool faceUp = CardRushCard.TryColorAt(s, renderClock.TickFor(id), course, out var color);
+            bool faceUp = CardRushCard.TryColorAt(s, drawnTick, course, out var color);
             return new CardRushAudioFrame
             {
                 Has = true,
                 Step = s.Step,
+                MoveStartTick = s.MoveStartTick,
                 StunEndTick = s.StunEndTick,
+                StunTicks = world.Timing.StunTicks,
+                DrawnTick = drawnTick,
                 Finished = s.IsFinished(course.StepCount),
                 FaceUp = faceUp,
                 Color = color,

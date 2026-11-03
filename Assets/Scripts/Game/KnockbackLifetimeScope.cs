@@ -51,16 +51,18 @@ namespace LOP
                 c.Resolve<BodyCollisionSystem>(),
                 c.Resolve<KnockbackConfig>(),
                 c.Resolve<KnockbackPillars>(),
-                c.Resolve<KnockbackPillarColliders>()), Lifetime.Singleton)
+                c.Resolve<KnockbackPillarColliders>(),
+                //  내 몸이 남의 탄에 맞는 것을 서버와 같은 식으로 미리 넣는다(§3.3.2). 같은 팀 탄은 지나간다.
+                new KnockbackOwnHitPrediction(c.Resolve<KnockbackClientState>().TeamOf)), Lifetime.Singleton)
                 .As<GameFramework.World.IWorld>().AsSelf();
 
             builder.Register<ICharacterCreator, KnockbackPlayerCreator>(Lifetime.Singleton);
 
             // 내 몸만 예측한다 — 남은 보간으로 충분하다.
-            // 내 몸 보정은 0.1초 녹인다: 남이 쏜 넉백은 서버가 정해 늦게 알게 되므로 되감으면 2~3m씩 옮겨져
-            // 순간이동으로 보였다(소스 엔진 cl_smooth와 같은 처리). 날아가는 중엔 조작이 원래 약해 잃는 게 적다.
+            // 내 몸 보정은 0.2초 녹인다: 맞음을 예측해도 서버와 어긋나면(남의 몸이 먼저 막음 등) 되감아 옮겨지는데,
+            // 업계 서버 권위 게임처럼 150~250ms에 녹여 순간이동으로 안 보이게 한다(§3.3.2). 크게 어긋나면 바로 옮긴다.
             builder.Register<IEntitySyncPolicy>(c =>
-                new OwnerPredictedSyncPolicy(() => c.Resolve<IGameDataStore>().userEntityId, localCorrectionSmoothTime: 0.1f),
+                new OwnerPredictedSyncPolicy(() => c.Resolve<IGameDataStore>().userEntityId, localCorrectionSmoothTime: 0.2f),
                 Lifetime.Singleton);
 
             // 위치 말고도 날림 여부·피해 %를 서버 결과에 맞춘다.

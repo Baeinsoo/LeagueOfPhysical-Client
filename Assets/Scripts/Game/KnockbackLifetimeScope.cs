@@ -37,7 +37,7 @@ namespace LOP
                 BodySizes.CharacterRadius, BodySizes.CharacterHeight,
                 c.Resolve<KnockbackConfig>().BodyRestitution, new UnityEngine.Vector3(1, 0, 1)), Lifetime.Singleton);
 
-            builder.Register(c => new KnockbackPillars(c.Resolve<KnockbackConfig>().Pillars, c.Resolve<KnockbackFloor>()), Lifetime.Singleton);
+            builder.Register(c => new KnockbackPillars(c.Resolve<KnockbackConfig>().Pillars, c.Resolve<KnockbackFloor>(), c.Resolve<IMatchSeed>()), Lifetime.Singleton);
             //  IDisposable이라 스코프가 끝날 때 컨테이너가 기둥 몸(GameObject)을 지운다.
             builder.Register(c => new KnockbackPillarColliders(c.Resolve<KnockbackPillars>()), Lifetime.Singleton);
 

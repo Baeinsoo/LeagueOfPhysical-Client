@@ -1,6 +1,6 @@
 namespace LOP
 {
-    /// <summary>TbKnockbackConfig id=1 → 공용 KnockbackConfig. 클·서가 같은 행을 읽어야 바닥과 속도가 같다.</summary>
+    /// <summary>TbKnockbackConfig(id = 맵 id) → 공용 KnockbackConfig. 클·서가 같은 행을 읽어야 바닥과 속도가 같다.</summary>
     public class KnockbackConfigProvider
     {
         private readonly LOP.MasterData.LOPMasterData md;
@@ -22,13 +22,26 @@ namespace LOP
             return row == null ? KnockbackMatchMode.Solo : new KnockbackMatchMode(row.TeamCount);
         }
 
+        //  씬을 고를 때와 같은 출처를 쓴다 - 두 곳이 다른 라운드를 보면 맵과 설정이 어긋난다.
+        private int CurrentMapId()
+        {
+            var rounds = roomDataStore.match?.rounds;
+            if (rounds == null || rounds.Length == 0)
+            {
+                throw new System.InvalidOperationException("매치 라운드가 없어 넉백 맵 설정을 고를 수 없다");
+            }
+            return rounds[MatchSceneResolver.CurrentRoundIndex(rounds.Length)].mapId;
+        }
+
         public KnockbackConfig Get()
         {
-            var r = md.Tables.TbKnockbackConfig.GetOrDefault(1);
+            //  설정은 맵마다 다르다 - 이번 라운드가 가리키는 맵의 행을 읽는다(씬을 고를 때와 같은 출처).
+            int mapId = CurrentMapId();
+            var r = md.Tables.TbKnockbackConfig.GetOrDefault(mapId);
             if (r == null)
             {
                 throw new System.InvalidOperationException(
-                    "TbKnockbackConfig id 1 이 없다 — TableFiles에 tbknockbackconfig가 있나");
+                    $"TbKnockbackConfig에 맵 {mapId}의 행이 없다 - 넉백 맵을 추가했으면 설정 행도 같이 넣어야 한다(TableFiles에 tbknockbackconfig가 있나도 확인)");
             }
             // 모르는 값이면 조용히 낭떠러지가 되어 클·서가 갈리지 않도록 소리 내서 알린다.
             int edgeMode = r.EdgeMode;
@@ -43,7 +56,9 @@ namespace LOP
                                        ZoneStages(),
                                        new KnockbackPillarLayout(r.PillarCount, r.PillarRingRadius, r.PillarRadius, r.PillarHeight),
                                        edgeMode, r.HazardDamagePerSecond, r.HazardSpeedScale,
-                                       r.CrateFirstSeconds, r.CrateIntervalSeconds, r.CrateWarnSeconds, r.CratePickupRadius, r.BlastRadius);
+                                       r.CrateFirstSeconds, r.CrateIntervalSeconds, r.CrateWarnSeconds, r.CratePickupRadius, r.BlastRadius,
+                                       new KnockbackBarrelLayout(r.BarrelCount, r.BarrelRadius, r.BarrelRingRadius, r.BarrelFriction,
+                                                                 r.BarrelRestitution, r.BarrelShotImpulse, r.BarrelHitScale));
         }
 
         //  엑셀 줄이 옮겨져도 1단계부터 순서대로 나가도록 id로 정렬한다. 원 밖 피해는 이 모드에 없다(0).

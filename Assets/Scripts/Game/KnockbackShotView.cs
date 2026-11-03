@@ -6,7 +6,7 @@ namespace LOP
 {
     /// <summary>
     /// 넉백 탄의 그림. 월드의 탄 목록과 화면 시각(소수 틱)만으로 자리를 계산해 흰 구를 놓는다.
-    /// 탄이 화면 속 그려진 몸(쏜 사람 빼고)에 닿으면 바로 숨긴다 — 서버 확정(KnockbackHitEvent)이 오기 전의 연출이라
+    /// 탄이 화면 속 그려진 몸(쏜 사람 빼고)이나 드럼통(서버가 드럼통을 몸보다 앞세우므로)에 닿으면 바로 숨긴다 — 서버 확정(KnockbackHitEvent)이 오기 전의 연출이라
     /// 서버가 빗나갔다고 하더라도 되돌리지 않고 그냥 사라진 채 둔다. 남이 쏜 탄도 같다: 탄은 앞선 예측 시계로,
     /// 남의 몸은 뒤처진 보간 시계로 그려져서, 숨기지 않으면 탄이 맞을 몸을 몇 m 뚫고 지나간 뒤에야 사라진다.
     /// </summary>
@@ -64,6 +64,7 @@ namespace LOP
         private readonly List<(string, long)> scratch = new List<(string, long)>();
         private readonly List<Vector2> standingPillars = new List<Vector2>();
         private readonly List<(string id, Vector2 position)> drawnBodies = new List<(string, Vector2)>();
+        private readonly List<Vector2> drawnBarrels = new List<Vector2>();
         private readonly Stack<GameObject> pool = new Stack<GameObject>();
         private readonly Dictionary<(string, long), LineRenderer> trails = new Dictionary<(string, long), LineRenderer>();
         //  지금 폭탄 모양으로 입혀 둔 구와 꼬리의 키. 없으면 보통 모양이다.
@@ -126,6 +127,8 @@ namespace LOP
 
             EnsureObjects();
             CollectDrawnBodies();
+            KnockbackBarrelView.CollectDrawnPositions(drawnBarrels);
+            float barrelReach = config.Barrels.Radius + config.ShotRadius;
             // 기둥은 틱 단위 사실이라 정수 틱으로 묻는다(바닥 그림과 같은 값).
             pillars.CollectStanding((long)System.Math.Floor(renderTick), standingPillars);
             float pillarReach = pillars.Radius + config.ShotRadius;
@@ -143,6 +146,7 @@ namespace LOP
 
                 var p = PositionAt(shot, renderTick);
                 if (InsideStandingPillar(p, standingPillars, pillarReach)
+                    || TouchesDrawnBarrel(p, shot.Origin, drawnBarrels, barrelReach)
                     || TouchesDrawnBody(p, shot.ShooterId, drawnBodies, BodyHitRadius, state.TeamOf))
                 {
                     hidden.Add(key);
@@ -271,6 +275,18 @@ namespace LOP
                 if (bodies[i].id == shooterId) continue;
                 if (KnockbackTeams.SameTeam(shooterTeam, teamOf(bodies[i].id))) continue;
                 if ((bodies[i].position - p).sqrMagnitude <= sq) return true;
+            }
+            return false;
+        }
+
+        /// <summary>탄 자리가 그려진 드럼통에 닿았나. 쏜 자리가 드럼통 안이면 그 드럼통은 건너뛴다 - 서버의 발밑 드럼통 제외와 같다.</summary>
+        public static bool TouchesDrawnBarrel(Vector2 p, Vector2 origin, IReadOnlyList<Vector2> barrels, float reach)
+        {
+            float sq = reach * reach;
+            for (int i = 0; i < barrels.Count; i++)
+            {
+                if ((barrels[i] - origin).sqrMagnitude < sq) continue;
+                if ((barrels[i] - p).sqrMagnitude <= sq) return true;
             }
             return false;
         }

@@ -56,7 +56,8 @@ namespace LOP
                                        ZoneStages(),
                                        new KnockbackPillarLayout(r.PillarCount, r.PillarRingRadius, r.PillarRadius, r.PillarHeight),
                                        edgeMode, r.HazardDamagePerSecond, r.HazardSpeedScale,
-                                       r.CrateFirstSeconds, r.CrateIntervalSeconds, r.CrateWarnSeconds, r.CratePickupRadius, r.BlastRadius);
+                                       r.CrateFirstSeconds, r.CrateIntervalSeconds, r.CrateWarnSeconds, r.CratePickupRadius, r.BlastRadius,
+                                       r.CrackEnabled, r.CrackHitsToCollapse, r.CrackCollapseSeconds);
         }
 
         //  엑셀 줄이 옮겨져도 1단계부터 순서대로 나가도록 id로 정렬한다. 원 밖 피해는 이 모드에 없다(0).

@@ -20,6 +20,14 @@ namespace LOP.Tests
             => KnockbackHudViewModel.ZoneTextFor(stages ?? new ZoneStage[0], tick, Interval, firstReveal, last, hazard);
 
         [Test]
+        public void 금_안내는_금_가는_맵에서_한_번만()
+        {
+            Assert.IsTrue(KnockbackHudViewModel.ShouldAnnounceCrack(false, true));
+            Assert.IsFalse(KnockbackHudViewModel.ShouldAnnounceCrack(true, true));
+            Assert.IsFalse(KnockbackHudViewModel.ShouldAnnounceCrack(false, false));
+        }
+
+        [Test]
         public void 공개_전엔_공개까지_남은_초()
         {
             Assert.AreEqual("원 공개까지 8초", Text(0));

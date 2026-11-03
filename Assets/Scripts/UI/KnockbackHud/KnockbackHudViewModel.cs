@@ -72,6 +72,13 @@ namespace LOP.UI
         private const float CrateNoticeSeconds = 5f;
         private bool crateAnnounced;
 
+        public const string CrackNoticeText = "금 간 바닥 — 사거리 끝 탄 두 발이면 칸이 무너진다";
+        private const float CrackNoticeSeconds = 6f;
+        private bool crackAnnounced;
+
+        /// <summary>금 가는 바닥 맵에서 처음 한 번만 안내한다.</summary>
+        public static bool ShouldAnnounceCrack(bool alreadyAnnounced, bool crackEnabled) => crackEnabled && !alreadyAnnounced;
+
         /// <summary>첫 상자가 예고될 때 한 번만 안내한다.</summary>
         public static bool ShouldAnnounceCrate(bool alreadyAnnounced, bool crateExists) => crateExists && !alreadyAnnounced;
 
@@ -162,6 +169,12 @@ namespace LOP.UI
             {
                 crateAnnounced = true;
                 AddLine(CrateNoticeText, CrateNoticeSeconds);
+            }
+
+            if (ShouldAnnounceCrack(crackAnnounced, config.CrackEnabled))
+            {
+                crackAnnounced = true;
+                AddLine(CrackNoticeText, CrackNoticeSeconds);
             }
 
             aliveText.Value = AliveTextNow();

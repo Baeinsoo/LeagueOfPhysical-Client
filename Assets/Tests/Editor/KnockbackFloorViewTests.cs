@@ -26,5 +26,14 @@ namespace LOP.Tests
             Assert.AreEqual(KnockbackFloorView.TileLook.CollapseOn, KnockbackFloorView.Decide(true, true, true, true));
             Assert.AreEqual(KnockbackFloorView.TileLook.Hidden, KnockbackFloorView.Decide(false, true, true, true));
         }
+    
+        [Test]
+        public void 금_무늬는_서_있는_금_간_칸에만()
+        {
+            Assert.IsTrue(KnockbackFloorView.ShouldShowCrack(true, 1));
+            Assert.IsTrue(KnockbackFloorView.ShouldShowCrack(true, 2));
+            Assert.IsFalse(KnockbackFloorView.ShouldShowCrack(true, 0));
+            Assert.IsFalse(KnockbackFloorView.ShouldShowCrack(false, 2));
+        }
     }
 }

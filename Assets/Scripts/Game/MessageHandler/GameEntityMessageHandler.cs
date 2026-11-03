@@ -144,25 +144,7 @@ namespace LOP
 
                 GameFramework.World.Entity targetEntity = entityRegistry.Get(serverEntitySnap.EntityId);
 
-                //  등수는 서버가 정한 값 하나뿐이라 내 새든 남의 새든 같다 — 예측·보간 갈래로
-                //  나뉘기 전에 적는다. 시뮬이 안 쓰는 표시값이라 되돌리기 대상도 아니다.
-                var finishPlacement = targetEntity?.Get<FinishPlacement>();
-                if (finishPlacement != null)
-                {
-                    finishPlacement.Value = entitySnap.finishPlacement;
-                }
-
-                var archeryScore = targetEntity?.Get<ArcheryScore>();
-                if (archeryScore != null)
-                {
-                    //  스냅샷은 **합계만** 준다 — 클라는 획득/벌점 내역을 모른다. Value가
-                    //  Gained-Lost 파생값이라 합계를 Gained에 넣고 Lost를 0으로 둬서 Value를 맞춘다.
-                    //  ⚠️ 그래서 클라의 Gained는 "획득 합"이 아니라 그냥 합계다. 내역이 필요하면
-                    //  결과 메시지의 stats 자루를 보라(MatchResultViewModel.ExtractScore).
-                    //  벌점이 생겨도 이 식은 그대로 맞는다 — 서버가 이미 뺀 값을 보내기 때문이다.
-                    archeryScore.Gained = entitySnap.score;
-                    archeryScore.Lost = 0;
-                }
+                ApplyServerOnlyValues(targetEntity, entitySnap);
 
                 // 모드는 엔티티가 생길 때 한 번 정해졌다(EntityBinder) — 그때 붙인 팔로워 컴포넌트가 곧
                 // 그 판정 결과다. 여기서 정책에 다시 물으면 그 사이 정책의 답이 바뀐 경우(예: 로컬 id가
@@ -183,6 +165,35 @@ namespace LOP
                     reconciler.AddServerSnap(entitySnap);
                 }
             }
+        }
+
+        /// <summary>
+        /// 서버만 아는 표시·기록값 — 내 몸이든 남의 몸이든 같아서 예측·보간 갈래로 나뉘기 전에 <b>모든 스냅</b>에서 적는다.
+        /// 시뮬이 안 쓰는 값이라 되돌리기 대상도 아니다. 내 몸은 보정이 없는 스냅(예측이 맞은 틱)도 여기는 지난다.
+        /// </summary>
+        public static void ApplyServerOnlyValues(GameFramework.World.Entity targetEntity, EntitySnap entitySnap)
+        {
+            //  등수는 서버가 정한 값 하나뿐이다.
+            var finishPlacement = targetEntity?.Get<FinishPlacement>();
+            if (finishPlacement != null)
+            {
+                finishPlacement.Value = entitySnap.finishPlacement;
+            }
+
+            var archeryScore = targetEntity?.Get<ArcheryScore>();
+            if (archeryScore != null)
+            {
+                //  스냅샷은 **합계만** 준다 — 클라는 획득/벌점 내역을 모른다. Value가
+                //  Gained-Lost 파생값이라 합계를 Gained에 넣고 Lost를 0으로 둬서 Value를 맞춘다.
+                //  ⚠️ 그래서 클라의 Gained는 "획득 합"이 아니라 그냥 합계다. 내역이 필요하면
+                //  결과 메시지의 stats 자루를 보라(MatchResultViewModel.ExtractScore).
+                //  벌점이 생겨도 이 식은 그대로 맞는다 — 서버가 이미 뺀 값을 보내기 때문이다.
+                archeryScore.Gained = entitySnap.score;
+                archeryScore.Lost = 0;
+            }
+
+            //  카드 러시 "연속 정타 최고" 기록은 서버가 확정한 연속만 센다(예측 BestStreak는 서버가 버린 탭으로 부풀 수 있다).
+            CardRushServerStreak.Observe(targetEntity, entitySnap.cardStreak);
         }
 
         // 외삽·보간 둘 다 "서버 권위 상태를 그대로 반영"은 동일하다(굴리지 않으니 예측이 틀릴 일도 없다) —
@@ -214,6 +225,13 @@ namespace LOP
             {
                 knockbackBody.DamagePercent = entitySnap.damagePercent;
                 knockbackBody.KnockbackEndTick = entitySnap.knockbackEndTick;
+            }
+
+            //  남의 카드 러시 상태도 스냅에서 온다 — 남의 몸은 굴리지 않으니 이게 화면(카드·몸개그)이 읽는 값이다.
+            var cardRunner = targetEntity?.Get<CardRushRunner>();
+            if (cardRunner != null)
+            {
+                CardRushServerCorrectionHandler.ApplyCardState(ref cardRunner.State, entitySnap);
             }
 
             Abilities remoteAbilities = targetEntity?.Get<Abilities>();

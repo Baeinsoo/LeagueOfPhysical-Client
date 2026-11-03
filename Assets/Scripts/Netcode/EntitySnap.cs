@@ -28,6 +28,11 @@ namespace LOP
         public long knockbackNextReloadTick { get; set; }   // Knockback: 다음 탄이 차는 틱. 가득이면 long.MaxValue
         public long knockbackCooldownEndTick { get; set; }  // Knockback: 다시 쏠 수 있는 틱
         public bool knockbackHasBomb { get; set; }          // Knockback: 다음 탄이 충격파 폭탄인가
+        public int cardStep { get; set; }            // CardRush: 지금 잡으려는 칸
+        public int cardAttempt { get; set; }         // CardRush: 이 칸에서 틀린 횟수(시작 색 씨앗)
+        public long cardMoveStartTick { get; set; }  // CardRush: 마지막으로 맞힌 틱. 0 = 없음
+        public long cardStunEndTick { get; set; }    // CardRush: 멈춤이 끝나는 틱. 0 = 없음
+        public int cardStreak { get; set; }          // CardRush: 이어 맞힌 수
         public float postureAxis { get; set; }    // Skydive: 0 = 대자, 1 = 다이브
         public bool gliding { get; set; }         // Skydive: 패러세일을 폈나
         public float stamina { get; set; }        // Skydive: 남은 활공 자원

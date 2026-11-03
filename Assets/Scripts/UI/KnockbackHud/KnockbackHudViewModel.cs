@@ -73,7 +73,7 @@ namespace LOP.UI
         private bool crateAnnounced;
 
         public const string CrackNoticeText = "금 간 바닥 — 사거리 끝 탄 두 발이면 칸이 무너진다";
-        private const float CrackNoticeSeconds = 6f;
+        private const float CrackNoticeSeconds = 12f;
         private bool crackAnnounced;
 
         /// <summary>금 가는 바닥 맵에서 처음 한 번만 안내한다.</summary>

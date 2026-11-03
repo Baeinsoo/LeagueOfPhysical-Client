@@ -1,0 +1,189 @@
+{
+  "name": "knockback-crack",
+  "description": "넉백 금 가는 바닥(맵 21) — 판 시작 직후 같은 방향으로 두 번 쏴 사거리 끝 칸에 금을 두 번 내고, 금 무늬 -> 곧 무너지는 깜박임 -> 칸이 사라짐을 스크린샷으로 남긴다. 금 안내 문구도 첫 화면에 찍힌다",
+  "repeat": 1,
+  "setup": [
+    {
+      "op": "play_exit"
+    },
+    {
+      "op": "set_environment",
+      "env": "local-k8s"
+    },
+    {
+      "op": "play_enter"
+    },
+    {
+      "op": "boot_to_lobby",
+      "timeout_s": 120
+    }
+  ],
+  "loop": [
+    {
+      "op": "select_game",
+      "game_mode_id": 11,
+      "map_id": 21,
+      "queue": "casual"
+    },
+    {
+      "op": "ui_click",
+      "name": "play-button",
+      "timeout_s": 20
+    },
+    {
+      "op": "wait_state",
+      "state": "InMatch",
+      "timeout_s": 180
+    },
+    {
+      "op": "screenshot",
+      "as": "notice"
+    },
+    {
+      "op": "wait",
+      "seconds": 6
+    },
+    {
+      "op": "screenshot",
+      "as": "hud-notice"
+    },
+    {
+      "op": "wait",
+      "seconds": 7.5
+    },
+    {
+      "op": "drag",
+      "device": "touch",
+      "x": 0.58,
+      "y": 0.45,
+      "to_x": 0.48,
+      "to_y": 0.55,
+      "duration_ms": 150
+    },
+    {
+      "op": "drag",
+      "device": "touch",
+      "x": 0.58,
+      "y": 0.45,
+      "to_x": 0.48,
+      "to_y": 0.55,
+      "duration_ms": 150
+    },
+    {
+      "op": "drag",
+      "device": "touch",
+      "x": 0.58,
+      "y": 0.45,
+      "to_x": 0.48,
+      "to_y": 0.55,
+      "duration_ms": 150
+    },
+    {
+      "op": "screenshot",
+      "as": "fired"
+    },
+    {
+      "op": "wait",
+      "seconds": 1.0
+    },
+    {
+      "op": "drag",
+      "device": "touch",
+      "x": 0.58,
+      "y": 0.45,
+      "to_x": 0.48,
+      "to_y": 0.55,
+      "duration_ms": 150
+    },
+    {
+      "op": "drag",
+      "device": "touch",
+      "x": 0.58,
+      "y": 0.45,
+      "to_x": 0.48,
+      "to_y": 0.55,
+      "duration_ms": 150
+    },
+    {
+      "op": "drag",
+      "device": "touch",
+      "x": 0.58,
+      "y": 0.45,
+      "to_x": 0.48,
+      "to_y": 0.55,
+      "duration_ms": 150
+    },
+    {
+      "op": "screenshot",
+      "as": "fired-2"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.4
+    },
+    {
+      "op": "screenshot",
+      "as": "cracked"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.3
+    },
+    {
+      "op": "screenshot",
+      "as": "warning-a"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.3
+    },
+    {
+      "op": "screenshot",
+      "as": "warning-b"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.3
+    },
+    {
+      "op": "screenshot",
+      "as": "warning-c"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.5
+    },
+    {
+      "op": "screenshot",
+      "as": "collapsed"
+    },
+    {
+      "op": "wait_state",
+      "state": "PostMatch",
+      "scene": "Result",
+      "timeout_s": 300
+    },
+    {
+      "op": "ui_wait",
+      "name": "confirm-button",
+      "clickable": true,
+      "timeout_s": 30
+    },
+    {
+      "op": "ui_click",
+      "name": "confirm-button",
+      "timeout_s": 10
+    },
+    {
+      "op": "wait_state",
+      "state": "FrontEnd",
+      "scene": "Lobby",
+      "timeout_s": 60
+    }
+  ],
+  "teardown": [
+    {
+      "op": "play_exit"
+    }
+  ]
+}

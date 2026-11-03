@@ -177,7 +177,7 @@ namespace LOP.Tests
         public void 재접속해_판_중간_자리로_생겨도_레인_출발점은_출발선()
         {
             var rules = new CardRushMapRulesField();
-            rules.Set(CardRushTheme.StoneBridge, 40, 2.2f, 2.6f, CardRushSections.Default, new Vector3(10f, 0f, 5f), Vector3.right);
+            rules.Set(CardRushTheme.StoneBridge, 40, 2.2f, 2.6f, new Vector3(10f, 0f, 5f), Vector3.right);
             var registry = new GameFramework.World.EntityRegistry();
             var creator = new CardRushRunnerCreator(new FakeGameDataStore { userEntityId = "me" }, new PlayerContext(), registry, rules);
 

@@ -58,7 +58,7 @@ namespace LOP.EditorTools
             var marker = markers[0];
 
             var field = new CardRushMapRulesField();
-            field.Set(marker.theme, marker.stepCount, marker.stepSpacing, marker.laneSpacing, marker.sections,
+            field.Set(marker.theme, marker.stepCount, marker.stepSpacing, marker.laneSpacing,
                       marker.transform.position, marker.transform.forward);
             if (field.Validate(out var error) == false)
             {
@@ -68,7 +68,7 @@ namespace LOP.EditorTools
 
             Clear();
             palette = new CardRushCoursePalette();
-            var course = new CardRushCourse(PreviewSeed, field.StepCount, field.Sections);
+            var course = new CardRushCourse(PreviewSeed, field.StepCount);
             const HideFlags flags = HideFlags.HideAndDontSave;
             var root = new GameObject(RootName) { hideFlags = flags };
             for (int lane = 0; lane < CardRushLanes.MaxLanes; lane++)

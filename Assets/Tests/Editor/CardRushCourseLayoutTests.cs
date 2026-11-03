@@ -149,7 +149,7 @@ namespace LOP.Tests
 
         // ── 레인 그림 ─────────────────────────────────────────
 
-        private static CardRushCourse Course(int steps = 12) => new CardRushCourse(77UL, steps, CardRushSections.Default);
+        private static CardRushCourse Course(int steps = 12) => new CardRushCourse(77UL, steps);
 
         private CardRushLaneView Lane(CardRushTheme theme, CardRushCourse course, Vector3 origin, float spacing)
         {

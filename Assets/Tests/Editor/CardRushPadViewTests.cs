@@ -75,7 +75,7 @@ namespace LOP.Tests
             registry.Add(me);
 
             var rules = new CardRushMapRulesField();
-            rules.Set(CardRushTheme.StoneBridge, 40, 2.2f, 2.6f, CardRushSections.Default, UnityEngine.Vector3.zero, UnityEngine.Vector3.forward);
+            rules.Set(CardRushTheme.StoneBridge, 40, 2.2f, 2.6f, UnityEngine.Vector3.zero, UnityEngine.Vector3.forward);
             var world = new CardRushWorld(registry, new WorldEventBuffer(), rules, new FixedSeed(), new CardRushTiming(15, 30));
             world.Tick(1, 0.02f);   //  코스를 만든다(Simulated 몸이 없어 아무도 안 움직인다)
             world.GameplayStartTick = Start;
@@ -89,7 +89,7 @@ namespace LOP.Tests
                                            new FakeGameDataStore { userEntityId = "me" });
 
             //  색 경계 바로 앞 틱을 막 돌렸다(러너가 아직 tick을 안 올린 그 틱 안) — 러너 틱은 경계 −1, 다음 입력 틱은 경계.
-            long boundary = Start + world.Course.DwellTicks(0);
+            long boundary = Start + CardRushCard.DwellTicks;
             clock.tick = boundary - 1;
             input.Tick(boundary - 1, 0.02f);
             Assert.AreEqual(boundary, input.NextInputTick);

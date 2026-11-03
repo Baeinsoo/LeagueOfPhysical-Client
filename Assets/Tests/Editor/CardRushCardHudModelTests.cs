@@ -14,7 +14,7 @@ namespace LOP.Tests
         private const int MoveTicks = 20;
 
         private static CardRushCourse Course(int stepCount = 40)
-            => new CardRushCourse(matchSeed: 777, stepCount, CardRushSections.Default);
+            => new CardRushCourse(matchSeed: 777, stepCount);
 
         [Test]
         public void 이동_중엔_뒷면()
@@ -66,7 +66,7 @@ namespace LOP.Tests
         {
             var course = Course();
             var state = new CardRushRunnerState { Step = 0 };
-            long dwell = course.DwellTicks(0);
+            long dwell = CardRushCard.DwellTicks;
             long boundary = GameplayStartTick + dwell;   //  색 경계 틱 — 이 틱부터 다음 색(경계는 그 틱 자신)
 
             var atBoundary = CardRushCardHudModel.Compute(state, boundary, GameplayStartTick, course, MoveTicks);

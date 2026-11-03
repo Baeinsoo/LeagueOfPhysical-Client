@@ -2,6 +2,16 @@ namespace LOP
 {
     public enum CardRushThrowKind { None, ToDoor, BackToFace }
 
+    /// <summary>그리는 쪽이 기억한 돌기 시작 — 어느 (칸, 시도)에서 돌기 시작했나와 그 틱. Tick 0 = 못 봤다.</summary>
+    public readonly struct CardRushSpinMemory
+    {
+        public readonly int Step;
+        public readonly int Attempt;
+        public readonly long Tick;
+        public CardRushSpinMemory(int step, int attempt, long tick) { Step = step; Attempt = attempt; Tick = tick; }
+        public static CardRushSpinMemory Of(in CardRushRunnerState s) => new CardRushSpinMemory(s.Step, s.Attempt, s.SpinStartTick);
+    }
+
     /// <summary>
     /// 던진 카드의 그림 시간표(spec 2026-11-03 §5.3) — 상태의 던짐 틱(맞음 = MoveStartTick, 틀림 = StunEndTick − StunTicks)에서 잰다.
     /// 그림만이다: 몸 이동·멈춤은 시뮬대로 그 틱부터 간다.
@@ -68,6 +78,32 @@ namespace LOP
             color = course.RequiredColor(s.Step - 1);
             return true;
         }
+
+        /// <summary>
+        /// 날아가는 카드의 앞면 색(뷰가 부르는 길). 맞음이면 그 칸 요구 색. 틀림이면 기억한 시작이 바로 그 던짐의 것일 때만
+        /// (같은 칸, 시도 = 지금 − 1, 던짐 틱에서 창 <see cref="CardRushCard.WindowTicks"/> 안) 던진 색을 센다 — 남의 몸에서 시작을 못 보고
+        /// 앞 시도의 시작이 남았으면 거짓 색 대신 뒷면(false).
+        /// </summary>
+        public static bool TryThrownFace(in CardRushRunnerState s, in CardRushSpinMemory memory, CardRushCourse course,
+                                         in CardRushTiming timing, out CardColor color)
+        {
+            long spin = 0;
+            if (IsRightThrow(s, timing) == false)
+            {
+                long wrongAt = WrongThrowTick(s, timing);
+                bool sameThrow = memory.Tick != 0 && memory.Step == s.Step && memory.Attempt == s.Attempt - 1
+                                 && memory.Tick <= wrongAt && wrongAt - memory.Tick <= CardRushCard.WindowTicks;
+                spin = sameThrow ? memory.Tick : 0;
+            }
+            return TryThrownColor(s, spin, course, timing, out color);
+        }
+
+        /// <summary>
+        /// 맞힌 카드가 문에 꽂혀 보이기 시작했나 — 꽂힌 판은 코스 그림 틱(<paramref name="courseTick"/>)으로 켜진다.
+        /// 날아가는 판을 그 틱에 숨겨, 두 그림 틱 기준이 1틱 달라도 두 장이 겹치지 않게 한다.
+        /// </summary>
+        public static bool FlyingHiddenByStuck(in CardRushRunnerState s, long courseTick, in CardRushTiming timing)
+            => IsRightThrow(s, timing) && s.Step >= 1 && IsStuckIn(s, courseTick, s.Step - 1);
 
         /// <summary>마지막 던짐이 맞음인가(맞음이면 날아간 문은 칸 Step − 1, 틀림이면 칸 Step).</summary>
         public static bool IsRightThrow(in CardRushRunnerState s, in CardRushTiming timing)

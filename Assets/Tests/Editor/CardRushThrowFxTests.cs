@@ -125,5 +125,45 @@ namespace LOP.Tests
             Assert.IsTrue(CardRushThrowFx.IsRightThrow(new CardRushRunnerState { Step = 4, MoveStartTick = 2600, StunEndTick = 2530, Attempt = 0 }, t));
             Assert.IsFalse(CardRushThrowFx.IsRightThrow(new CardRushRunnerState(), t), "아직 안 던졌다");
         }
+
+        //  리뷰 M2·L2: 뷰가 기억한 돌기 시작 틱은 (칸, 시도)와 함께다 — 남의 몸에서 "시작 + 틀린 던짐"이 스냅 하나 사이에
+        //  끝나 새 시작을 못 봤으면 앞 시도의 시작 틱이 남는다. 그걸로 세면 그럴듯한 거짓 색이 나오므로 뒷면이어야 한다.
+        [Test]
+        public void 날아가는_카드_색은_그_시도의_시작_틱으로만_센다()
+        {
+            var course = new CardRushCourse(77, 40);
+            var t = new CardRushTiming(15, 30);
+            //  칸 3, 시도 1에서 틀림(던짐 틱 3000) — 던지기 전엔 칸 3, 시도 0.
+            var s = new CardRushRunnerState { Step = 3, Attempt = 1, StunEndTick = 3030, MoveStartTick = 2000 };
+
+            var same = new CardRushSpinMemory(3, 0, 2950);
+            Assert.IsTrue(CardRushThrowFx.TryThrownFace(s, same, course, t, out var c));
+            Assert.IsTrue(CardRushThrowFx.TryThrownColor(s, 2950, course, t, out var expected));
+            Assert.AreEqual(expected, c, "그 시도의 시작 틱이면 던진 색");
+
+            Assert.IsFalse(CardRushThrowFx.TryThrownFace(s, new CardRushSpinMemory(2, 0, 1900), course, t, out _), "앞 칸의 시작 틱");
+            Assert.IsFalse(CardRushThrowFx.TryThrownFace(s, new CardRushSpinMemory(3, 1, 2950), course, t, out _), "시도가 안 맞는다");
+            Assert.IsFalse(CardRushThrowFx.TryThrownFace(s, new CardRushSpinMemory(3, 0, 3000 - CardRushCard.WindowTicks - 1), course, t, out _),
+                "창(300틱)보다 오래된 시작은 이 던짐일 수 없다");
+            Assert.IsTrue(CardRushThrowFx.TryThrownFace(s, new CardRushSpinMemory(3, 0, 3000 - CardRushCard.WindowTicks), course, t, out _), "자동 던짐 = 창 끝");
+            Assert.IsFalse(CardRushThrowFx.TryThrownFace(s, default, course, t, out _), "못 봤으면 뒷면");
+
+            //  맞음은 기억과 무관하게 그 칸 요구 색.
+            var right = new CardRushRunnerState { Step = 4, MoveStartTick = 3100, StunEndTick = 3030, Attempt = 0 };
+            Assert.IsTrue(CardRushThrowFx.TryThrownFace(right, default, course, t, out var rc));
+            Assert.AreEqual(course.RequiredColor(3), rc);
+        }
+
+        //  리뷰 L1: 꽂힌 카드(코스 그림 틱)가 켜지는 틱엔 날아가는 카드를 숨긴다 — 내 몸은 두 틱 기준이 1틱 달라 한 프레임 두 장이었다.
+        [Test]
+        public void 꽂힌_카드가_보이면_날아가는_카드는_숨는다()
+        {
+            var t = new CardRushTiming(15, 30);
+            var s = new CardRushRunnerState { Step = 4, MoveStartTick = 3000 };
+            Assert.IsFalse(CardRushThrowFx.FlyingHiddenByStuck(s, 3000 + CardRushThrowFx.FlightTicks - 1, t));
+            Assert.IsTrue(CardRushThrowFx.FlyingHiddenByStuck(s, 3000 + CardRushThrowFx.FlightTicks, t));
+            var wrong = new CardRushRunnerState { Step = 4, MoveStartTick = 2000, Attempt = 1, StunEndTick = 3030 };
+            Assert.IsFalse(CardRushThrowFx.FlyingHiddenByStuck(wrong, 3010, t), "틀린 카드는 꽂히지 않는다");
+        }
     }
 }

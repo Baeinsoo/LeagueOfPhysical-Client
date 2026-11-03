@@ -11,12 +11,19 @@
     bottom: 0;
 }
 
-/* 연속 정타 — 화면 아래 가운데, 바탕 없음(카드는 머리 위로 옮겼다). 통통 튀는 건 코드가 scale로 한다. */
+/* 연속 정타 — 화면 아래 가운데, 작은 어두운 알약 바탕(베이지 바닥 위 대비, 리뷰 L3). 카드는 머리 위로 옮겼다.
+   통통 튀는 건 코드가 scale로 한다. 탭은 아래 면이 받는다(picking-mode Ignore). */
 .card-rush-streak {
     position: absolute;
     bottom: 3%;
-    left: 0;
-    right: 0;
+    left: 50%;
+    translate: -50% 0;
+    padding-left: 22px;
+    padding-right: 22px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    border-radius: 28px;
+    background-color: rgba(28, 22, 16, 0.45);
     font-size: 40px;
     color: rgb(243, 235, 226);
     -unity-text-align: middle-center;

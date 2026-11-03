@@ -28,8 +28,12 @@ namespace LOP
         public const int BrightFrames = 2;         //  색이 바뀌면 그 색 밝은 판으로 2프레임
         public const float RingWidthOfHeight = 0.04f;
         public const int RingSegments = 48;
-        /// <summary>링 반지름(카드 높이 1 기준) — 카드 모서리(테두리 포함) 바로 바깥.</summary>
-        public const float RingRadius = 0.66f;
+        /// <summary>
+        /// 링 반지름(카드 높이 1 기준) — 테두리 포함 모서리(√(0.43² + 0.58²) ≈ 0.72) 바로 바깥. 0.66이면 링이 모서리를 가로질렀다(리뷰 L4).
+        /// </summary>
+        public const float RingRadius = 0.76f;
+        /// <summary>링 밑에 까는 어두운 외곽선 굵기 배수 — 노랑 문 앞에서도 금 링이 묻히지 않게(리뷰 M1).</summary>
+        public const float RingOutlineScale = 1.9f;
 
         private sealed class Entry
         {
@@ -38,6 +42,7 @@ namespace LOP
             public Transform Head;
             public CardRushCardPlate Plate;
             public LineRenderer Ring;
+            public LineRenderer RingOutline;
             public bool LastFaceUp;
             public CardColor LastColor;
             public float FlipStart = -1f;
@@ -188,20 +193,23 @@ namespace LOP
                 Head = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Head) : null,
                 Plate = new CardRushCardPlate(root.transform, "HeadCard " + id, materials),
             };
-            entry.Ring = MakeRing(entry.Plate.Root);
+            entry.RingOutline = MakeRing(entry.Plate.Root, materials.RingOutline, RingOutlineScale, "RingOutline");
+            entry.Ring = MakeRing(entry.Plate.Root, materials.Ring, 1f, "Ring");
             entries[id] = entry;
             return entry;
         }
 
-        private LineRenderer MakeRing(Transform parent)
+        private LineRenderer MakeRing(Transform parent, Material material, float widthScale, string name)
         {
-            var go = new GameObject("Ring");
+            var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var ring = go.AddComponent<LineRenderer>();
             ring.useWorldSpace = false;
             ring.loop = false;
-            ring.sharedMaterial = materials.Ring;
-            ring.widthMultiplier = MineHeight * RingWidthOfHeight;
+            ring.sharedMaterial = material;
+            ring.widthMultiplier = MineHeight * RingWidthOfHeight * widthScale;
+            //  외곽선은 카메라에서 조금 먼 쪽(+z)에 깔아 금 링이 위에 그려진다.
+            if (widthScale > 1f) go.transform.localPosition = new Vector3(0f, 0f, 0.01f);
             ring.numCapVertices = 2;
             ring.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             ring.receiveShadows = false;
@@ -215,6 +223,7 @@ namespace LOP
             {
                 entry.Plate.SetVisible(false);
                 entry.Ring.enabled = false;
+                entry.RingOutline.enabled = false;
                 entry.LastFaceUp = false;
                 return;
             }
@@ -255,11 +264,14 @@ namespace LOP
 
             bool ring = mine && face.FaceUp;
             entry.Ring.enabled = ring;
+            entry.RingOutline.enabled = ring;
             if (ring)
             {
                 int n = RingArc(face.Remaining01, ringPoints);
                 entry.Ring.positionCount = n;
                 entry.Ring.SetPositions(ringPoints);
+                entry.RingOutline.positionCount = n;
+                entry.RingOutline.SetPositions(ringPoints);
             }
         }
 
@@ -332,6 +344,9 @@ namespace LOP
         public Material BackPlate { get; }
         public Material BackMarkMaterial { get; }
         public Material Ring { get; }
+        public Material RingOutline { get; }
+        /// <summary>링 외곽선 — 진한 밤색(금과 같은 계열의 어두운 쪽).</summary>
+        public static readonly Color RingDark = new Color(0.24f, 0.16f, 0.05f);
         public Mesh Diamond { get; }
 
         public CardRushCardMaterials(CardRushCoursePalette palette)
@@ -345,7 +360,9 @@ namespace LOP
                 var c = CardRushCoursePalette.ColorOf((CardColor)i);
                 bright[i] = Make("CardRush_CardBright_" + (CardColor)i, Color.Lerp(c, Color.white, BrightLift));
             }
-            Ring = MakeRingMaterial(new Color(Gold.r * 1.2f, Gold.g * 1.2f, Gold.b * 1.2f, 0.8f));
+            //  링은 테두리와 같은 진한 금, 불투명(α 1) — 반투명 밝은 금은 노랑 문 앞에서 묻혔다(리뷰 M1).
+            Ring = MakeRingMaterial(new Color(Gold.r, Gold.g, Gold.b, 1f));
+            RingOutline = MakeRingMaterial(new Color(RingDark.r, RingDark.g, RingDark.b, 0.85f));
             Diamond = MakeDiamond();
         }
 

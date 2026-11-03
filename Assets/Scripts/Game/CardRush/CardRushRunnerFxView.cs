@@ -53,7 +53,7 @@ namespace LOP
         private readonly Dictionary<string, Entry> entries = new Dictionary<string, Entry>();
         private readonly List<string> gone = new List<string>();
         //  몸마다 마지막으로 본 돌기 시작 틱 — 던지면 상태에서 지워지므로 틀린 카드의 던진 색을 다시 세려면 기억해야 한다.
-        private readonly Dictionary<string, long> spinStarts = new Dictionary<string, long>();
+        private readonly Dictionary<string, CardRushSpinMemory> spinStarts = new Dictionary<string, CardRushSpinMemory>();
         private CardRushGagFxMaterials materials;
         private CardRushCoursePalette palette;
         private CardRushCardMaterials cardMaterials;
@@ -99,7 +99,7 @@ namespace LOP
                 var state = runner.State;
                 if (state.SpinStartTick != 0)
                 {
-                    spinStarts[actor.entityId] = state.SpinStartTick;
+                    spinStarts[actor.entityId] = CardRushSpinMemory.Of(state);
                 }
 
                 //  내 몸 그림은 예측 시각의 한 틱 뒤에 서 있다(KnockbackFlightFxView와 같은 식).
@@ -172,8 +172,14 @@ namespace LOP
             entry.Thrown ??= new CardRushCardPlate(root.transform, "Thrown " + entry.Id, cardMaterials);
 
             int step = CardRushThrowFx.IsRightThrow(s, world.Timing) ? s.Step - 1 : s.Step;
-            spinStarts.TryGetValue(entry.Id, out long spinStart);
-            bool faceUp = CardRushThrowFx.TryThrownColor(s, spinStart, course, world.Timing, out var color);
+            //  꽂힌 판이 켜진 틱이면(코스 그림 틱) 날아가는 판은 끈다 — 한 프레임 두 장 방지.
+            if (CardRushThrowFx.FlyingHiddenByStuck(s, renderClock.TickFor(entry.Id), world.Timing))
+            {
+                entry.Thrown.SetVisible(false);
+                return;
+            }
+            spinStarts.TryGetValue(entry.Id, out var spinMemory);
+            bool faceUp = CardRushThrowFx.TryThrownFace(s, spinMemory, course, world.Timing, out var color);
 
             var f = CardRushLanes.Flat(rules.Forward);
             var rightAxis = Vector3.Cross(Vector3.up, f);

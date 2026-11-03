@@ -17,6 +17,10 @@ namespace LOP
         //  체력이 의미 없는 모드다 — 늘 가득 찬 막대가 머리 위에 뜨지 않게 끈다.
         protected override bool ShowHealthBars => false;
 
+        //  상대 이름은 플래피와 같은 설정을 따른다(기본 숨김) — 이름 여덟 줄이 돌·문을 덮고, 앞서 가는 봇 이름표가 오른쪽 위
+        //  순위 HUD와 겹쳤다. 내 몸은 카메라 가운데라 이름 없이도 찾는다. 설정 "상대 이름 보기"를 켜면 다시 뜬다.
+        protected override bool ShowNameplates => FlappyDisplayPrefs.ShowOpponentNames;
+
         protected override void ConfigureGame(IContainerBuilder builder)
         {
             builder.RegisterComponent(cameraController);

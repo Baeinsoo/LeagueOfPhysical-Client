@@ -21,6 +21,8 @@ namespace LOP.UI
         private readonly IGameDataStore _gameDataStore;
 
         private VisualElement _surface;
+        private VisualElement _layoutRoot;
+        private VisualElement _next;
         private VisualElement _card;
         private Label _glyph;
         private Label _streak;
@@ -57,6 +59,7 @@ namespace LOP.UI
             _card = Root.Q<VisualElement>("card-rush-card");
             _glyph = Root.Q<Label>("card-rush-card-glyph");
             _streak = Root.Q<Label>("card-rush-streak");
+            _next = Root.Q<VisualElement>("card-rush-next");
 
             _chips.Clear();
             _chipGlyphs.Clear();
@@ -70,10 +73,88 @@ namespace LOP.UI
             _lastFaceUp = false;
             _lastStreak = -1;
 
+            //  크기·자리는 화면 비율마다 다시 잰다(가로·세로) — 띠 위를 내 몸 자리로 비워 둔다(CardRushPadLayout).
+            _layoutRoot = Root.Q<VisualElement>("card-rush-root") ?? Root;
+            _layoutRoot.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+            ApplyLayout(_layoutRoot.layout.size);
+
             // UIView는 MonoBehaviour가 아니라 Update가 없다 — 패널 스케줄러로 매 프레임 그린다(FlapPadView와 같다).
             // 입력(탭·Space)은 여기서 읽지 않는다: 이 스케줄러는 틱 코루틴 뒤(PreLateUpdate)에 돌아 한 틱 늦게 붙는다.
             // CardRushTapGrab(틱 앞)이 읽는다(최종 리뷰 I5).
             _tick = Root.schedule.Execute(_ => Refresh()).Every(0);
+        }
+
+        private void OnGeometryChanged(GeometryChangedEvent e) => ApplyLayout(e.newRect.size);
+
+        private void ApplyLayout(Vector2 size)
+        {
+            if (float.IsNaN(size.x) || float.IsNaN(size.y) || size.x <= 0f || size.y <= 0f)
+            {
+                return;
+            }
+            var l = CardRushPadLayout.Compute(size.x, size.y);
+
+            Place(_card, l.Card);
+            if (_card != null)
+            {
+                SetRadius(_card, l.Card.height * 0.12f);
+            }
+            if (_glyph != null)
+            {
+                _glyph.style.fontSize = l.GlyphFontSize;
+            }
+
+            Place(_next, l.Chips);
+            if (_next != null)
+            {
+                _next.style.marginLeft = 0f;
+                _next.style.justifyContent = Justify.FlexStart;
+            }
+            for (int i = 0; i < _chips.Count; i++)
+            {
+                var chip = _chips[i];
+                if (chip == null)
+                {
+                    continue;
+                }
+                float side = i == 0 ? l.NowChip : l.NextChip;
+                chip.style.width = side;
+                chip.style.height = side;
+                chip.style.marginLeft = 0f;
+                chip.style.marginRight = i < _chips.Count - 1 ? l.ChipGap : 0f;
+                SetRadius(chip, side * 0.2f);
+                if (_chipGlyphs[i] != null)
+                {
+                    _chipGlyphs[i].style.fontSize = side * 0.52f;
+                }
+            }
+
+            Place(_streak, l.Streak);
+            if (_streak != null)
+            {
+                _streak.style.fontSize = l.StreakFontSize;
+            }
+        }
+
+        private static void Place(VisualElement e, Rect r)
+        {
+            if (e == null)
+            {
+                return;
+            }
+            e.style.position = Position.Absolute;
+            e.style.left = r.x;
+            e.style.bottom = r.y;
+            e.style.width = r.width;
+            e.style.height = r.height;
+        }
+
+        private static void SetRadius(VisualElement e, float r)
+        {
+            e.style.borderTopLeftRadius = r;
+            e.style.borderTopRightRadius = r;
+            e.style.borderBottomLeftRadius = r;
+            e.style.borderBottomRightRadius = r;
         }
 
         private bool IsOnSurface(Vector2 screenPosition)
@@ -129,9 +210,11 @@ namespace LOP.UI
             bool flip = ShouldFlip(_lastFaceUp, face);
 
             _card.EnableInClassList(BackClass, face.FaceUp == false);
+            //  뒷면은 USS의 중립 바탕이다 — 인라인 색을 남기면 클래스 색을 덮어, 이동·멈춤 중에 지난 색이 "뒷면 무늬 + 옛 색"으로
+            //  남아 지금 색처럼 읽혔다(실제 판 스크린샷: 틀린 직후 카드가 그 틀린 색 그대로).
+            _card.style.backgroundColor = CardBackground(face);
             if (face.FaceUp)
             {
-                _card.style.backgroundColor = ColorOf(face.Color);
                 _glyph.text = GlyphOf(face.Color);
             }
 
@@ -165,6 +248,10 @@ namespace LOP.UI
             }
             _lastStreak = face.Streak;
         }
+
+        /// <summary>카드 바탕 인라인 색. 뒷면이면 비운다(USS <c>.card-rush-card--back</c>의 중립 바탕이 보이게).</summary>
+        public static StyleColor CardBackground(in CardRushCardFace face)
+            => face.FaceUp ? new StyleColor(ColorOf(face.Color)) : new StyleColor(StyleKeyword.Null);
 
         //  색맹 대응 — 색 + 모양을 늘 같이 쓴다(spec §1.1): 빨강 ●, 노랑 ▲, 파랑 ■.
         private static Color ColorOf(CardColor c) => c switch
@@ -209,6 +296,7 @@ namespace LOP.UI
                 if (disposing)
                 {
                     _tick?.Pause();
+                    _layoutRoot?.UnregisterCallback<GeometryChangedEvent>(OnGeometryChanged);
                     //  닫힌 조작판 위 탭은 잡기가 아니다 — 다음에 열린 조작판이 다시 채운다.
                     if (_tapTarget.HitTest == (System.Func<Vector2, bool>)IsOnSurface)
                     {

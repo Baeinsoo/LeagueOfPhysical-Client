@@ -11,14 +11,15 @@
     bottom: 0;
 }
 
-/* 큰 카드 — 화면 아래 가운데, 폭 28%(spec §7.3). 1920 기준 폭 약 538px, 높이는 카드 비율. */
+/* 큰 카드 — 화면 아래 가운데 띠. 자리·크기는 CardRushPadView가 화면 비율마다 CardRushPadLayout으로 다시 놓는다
+   (띠 위는 내 몸 자리). 아래 값은 1920×1080에서 그 계산과 같은 첫 그림용이다. */
 .card-rush-card {
     position: absolute;
-    left: 36%;
-    width: 28%;
-    bottom: 120px;
-    height: 300px;
-    border-radius: 28px;
+    left: 795px;
+    width: 329px;
+    bottom: 27px;
+    height: 227px;
+    border-radius: 27px;
     border-width: 6px;
     border-color: rgba(17, 14, 12, 0.6);
     justify-content: center;
@@ -28,7 +29,7 @@
 }
 
 .card-rush-card-glyph {
-    font-size: 140px;
+    font-size: 136px;
     color: rgba(17, 14, 12, 0.85);
     -unity-text-align: middle-center;
 }
@@ -66,15 +67,15 @@
     border-color: rgba(243, 235, 226, 0.35);
 }
 
-/* 다음 칩 — 카드 바로 위, 가운데. 지금 요구 색 하나(크게) + 그다음 둘(작게)(spec §7.3). */
+/* 다음 칩 — 카드 오른쪽, 지금 요구 색 하나(크게) + 그다음 둘(작게)(spec §7.3). 카드 위에 두면 띠가 높아져 몸을 가린다. */
 .card-rush-next {
     position: absolute;
-    left: 50%;
-    bottom: 440px;
-    width: 220px;
-    margin-left: -110px;
+    left: 1136px;
+    bottom: 99px;
+    width: 229px;
+    height: 82px;
     flex-direction: row;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
 }
 
@@ -108,13 +109,15 @@
     font-size: 40px;
 }
 
-/* 연속 정타 — 카드 옆(spec §7.3). 통통 튀는 건 코드가 scale로 한다. */
+/* 연속 정타 — 카드 왼쪽(spec §7.3), 카드 쪽으로 붙인다. 통통 튀는 건 코드가 scale로 한다. */
 .card-rush-streak {
     position: absolute;
-    left: 66%;
-    bottom: 200px;
-    font-size: 36px;
+    left: 12px;
+    bottom: 104px;
+    width: 771px;
+    height: 74px;
+    font-size: 37px;
     color: rgb(243, 235, 226);
-    -unity-text-align: middle-center;
-    transform-origin: center;
+    -unity-text-align: middle-right;
+    transform-origin: right;
 }

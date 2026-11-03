@@ -21,7 +21,7 @@
             <ui:VisualElement name="settings-names-row" class="settings-row">
                 <ui:VisualElement class="settings-row__text">
                     <ui:Label text="상대 이름 보기" class="kit-title settings-row__label" />
-                    <ui:Label text="플래피 레이스에서 상대 새 위에 이름을 띄워요 · 다음 판부터" class="settings-row__hint" />
+                    <ui:Label text="플래피 레이스·카드 러시에서 상대 위에 이름을 띄워요 · 다음 판부터" class="settings-row__hint" />
                 </ui:VisualElement>
                 <ui:VisualElement class="kit-toggle">
                     <ui:Button name="settings-names-hide" text="숨기기" class="kit-toggle__opt" />

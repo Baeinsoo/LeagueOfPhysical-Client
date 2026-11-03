@@ -272,9 +272,9 @@ namespace LOP.Tests
         // ── 카메라 식 ─────────────────────────────────────────
 
         [Test]
-        public void 카메라_피벗은_몸_앞_1_5칸이고_10초당_비율로_따라간다()
+        public void 카메라_피벗은_몸_앞_0_75칸이고_10초당_비율로_따라간다()
         {
-            Near(new Vector3(1f, 0f, 2f + 2.2f * 1.5f), CardRushCamera.PivotTarget(new Vector3(1f, 0f, 2f), Vector3.forward, 2.2f));
+            Near(new Vector3(1f, 0f, 2f + 2.2f * 0.75f), CardRushCamera.PivotTarget(new Vector3(1f, 0f, 2f), Vector3.forward, 2.2f));
 
             var next = CardRushCamera.Follow(Vector3.zero, new Vector3(10f, 0f, 0f), 0.02f);
             Assert.AreEqual(10f * (1f - Mathf.Exp(-10f * 0.02f)), next.x, Eps);
@@ -287,6 +287,55 @@ namespace LOP.Tests
             Assert.AreEqual(90f, CardRushCamera.YawDegrees(Vector3.right), Eps);
             Assert.AreEqual(9f, CardRushCamera.DistanceFor(1920, 1080), Eps);
             Assert.AreEqual(9f * 1.35f, CardRushCamera.DistanceFor(1080, 1920), Eps, "세로 화면은 멀리");
+        }
+
+        //  CardRush.unity 메인 카메라의 field of view(세로). 씬 값이 바뀌면 여기도 같이 바꾼다.
+        private const float SceneFov = 50f;
+        private const float StepSpacing = 2.2f;   //  두 맵의 칸 간격(CardRushMapRules 기본값)
+
+        //  화면 높이(아래 0) — 내 몸 자리 = 피벗에서 진행 방향 −앞보기만큼 뒤.
+        private static float BodyY(float forward, float up, int screenW, int screenH)
+            => CardRushCamera.ViewportY(-CardRushCamera.LookAheadSteps * StepSpacing + forward, up,
+                                        CardRushCamera.PitchDegrees, CardRushCamera.DistanceFor(screenW, screenH), SceneFov);
+
+        //  패널은 1920×1080 Expand — 세로 화면에선 폭 1920에 높이가 길어진다.
+        private static float BandTop(int screenW, int screenH)
+        {
+            float scale = Mathf.Min(screenW / 1920f, screenH / 1080f);
+            return LOP.UI.CardRushPadLayout.Compute(screenW / scale, screenH / scale).BandTop01;
+        }
+
+        //  실제 판 스크린샷(맵 17·18)에서 카드가 내 몸을 다 덮었다 — 발이 0.21, 카드 띠 위 끝이 0.39였다.
+        //  가로·세로 모두 내 몸(발·머리)과 몸개그 중 가장 낮은 자세(풍덩: 반 칸 앞, 1.1 m 아래)가 띠 위에 와야 한다.
+        [TestCase(1920, 1080)]
+        [TestCase(2400, 1080)]
+        [TestCase(1080, 1920)]
+        [TestCase(1080, 2400)]
+        public void 내_몸과_몸개그는_카드_띠_위에_보인다(int w, int h)
+        {
+            float band = BandTop(w, h);
+            const float Clear = 0.05f;   //  발 밑 그림자·물보라 자리
+
+            Assert.Greater(BodyY(0f, 0f, w, h), band + Clear, "서 있는 발");
+            Assert.Greater(BodyY(0f, BodySizes.CharacterHeight, w, h), band + Clear, "머리");
+            Assert.Less(BodyY(0f, BodySizes.CharacterHeight, w, h), 0.9f, "머리가 위 HUD(진행 막대) 밑에 남는다");
+
+            float splashForward = 0.5f * StepSpacing;
+            Assert.Greater(BodyY(splashForward, -CardRushGag.SplashDepth, w, h), band + Clear, "풍덩 — 물에 잠긴 발");
+            Assert.Greater(BodyY(CardRushGag.BonkLurchSteps * StepSpacing, 0f, w, h), band + Clear, "박치기 — 앞으로 쏠린 발");
+        }
+
+        [Test]
+        public void 화면_높이_식은_피벗이_가운데다()
+        {
+            Assert.AreEqual(0.5f, CardRushCamera.ViewportY(0f, 0f, 35f, 9f, 50f), Eps);
+            //  피벗 바로 앞(진행 방향)은 화면 위로, 아래(땅 밑)는 화면 아래로.
+            Assert.Greater(CardRushCamera.ViewportY(2f, 0f, 35f, 9f, 50f), 0.5f);
+            Assert.Less(CardRushCamera.ViewportY(0f, -1f, 35f, 9f, 50f), 0.5f);
+            //  시야각 끝 — 카메라 위쪽 축으로 거리×tan(25°)만큼 올린 점은 화면 맨 위(1).
+            float up = 9f * Mathf.Tan(25f * Mathf.Deg2Rad);
+            float p = 35f * Mathf.Deg2Rad;
+            Assert.AreEqual(1f, CardRushCamera.ViewportY(up * Mathf.Sin(p), up * Mathf.Cos(p), 35f, 9f, 50f), 1e-3f);
         }
 
         // ── 그림 진행(최종 리뷰 M1) ─────────────────────────

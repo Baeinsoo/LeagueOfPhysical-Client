@@ -50,5 +50,28 @@ namespace LOP.Tests
             Assert.IsNotNull(typeof(FlappyRaceLifetimeScope).GetProperty("ShowHealthBars", flags));
             Assert.IsNotNull(typeof(FlappyRaceLifetimeScope).GetProperty("ShowNameplates", flags));
         }
+
+        //  카드 러시도 같은 설정을 따른다 — 봇 이름표가 오른쪽 위 순위 HUD와 겹치고 돌·문 위를 덮었다(실제 판 스크린샷).
+        [Test]
+        public void 카드_러시도_상대_이름_설정을_따른다()
+        {
+            var go = new GameObject("CardRushScopeProbe");
+            go.SetActive(false);   //  Awake(컨테이너 짓기)를 막는다 — 속성 값만 본다
+            try
+            {
+                var scope = go.AddComponent<CardRushLifetimeScope>();
+                var prop = typeof(CardRushLifetimeScope).GetProperty("ShowNameplates",
+                    BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+                Assert.IsNotNull(prop, "override가 빠지면 기본값(켬)이 조용히 쓰인다");
+
+                Assert.IsFalse((bool)prop.GetValue(scope), "기본 숨김");
+                FlappyDisplayPrefs.SetShowOpponentNames(true);
+                Assert.IsTrue((bool)prop.GetValue(scope), "설정을 켜면 보인다");
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
     }
 }

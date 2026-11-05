@@ -72,18 +72,52 @@ namespace LOP.CharacterEditor
             animator.applyRootMotion = false;
             animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
 
-            //  모자는 이 자리 위에 얹힌다(ChibiLookApplier). 위 = 세상 위, 앞 = 몸 앞(기본 자세 기준).
-            var head = animator.GetBoneTransform(HumanBodyBones.Head);
-            var hatSpot = new GameObject(LOP.ChibiLookApplier.HatAnchorName).transform;
-            hatSpot.SetParent(head, false);
-            hatSpot.position = modelGo.transform.TransformPoint(HatSpotInModel);
-            hatSpot.rotation = modelGo.transform.rotation;
+            //  모자·머리 위 카드·별은 정수리 자리를, 철썩 카드는 얼굴 자리를 따른다(ChibiHeadSpots). 위 = 세상 위, 앞 = 몸 앞(기본 자세 기준).
+            AddHeadSpot(animator, LOP.ChibiHeadSpots.HatAnchorName, HatSpotInModel, Quaternion.identity);
+            var faceFront = FaceFrontInModel(modelGo.GetComponentInChildren<SkinnedMeshRenderer>(true));
+            AddHeadSpot(animator, LOP.ChibiHeadSpots.FaceAnchorName, faceFront, Quaternion.identity);
 
             //  지우지 않고 덮어쓴다 — 지우면 GUID가 바뀌어 원격 에셋(Addressables) 등록이 끊긴다(서버·클라가 치비를 못 찾는다).
             PrefabUtility.SaveAsPrefabAsset(go, PrefabPath);
             Object.DestroyImmediate(go);
             AssetDatabase.SaveAssets();
             Debug.Log("[Chibi] 프리팹 완료: " + PrefabPath);
+        }
+
+        /// <summary>
+        /// 머리 뼈 아래에 연출 자리(정수리·얼굴 앞)를 둔다. 위치·방향은 모델(기본 자세) 좌표.
+        /// 머리 뼈를 못 찾으면(휴머노이드가 아니거나 Head 매핑이 빠짐) 멈춘다 — 그냥 두면 자리가 프리팹 밖에 생겨 조용히 빠진다.
+        /// </summary>
+        public static Transform AddHeadSpot(Animator animator, string name, Vector3 positionInModel, Quaternion rotationInModel)
+        {
+            var head = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Head) : null;
+            if (head == null)
+            {
+                throw new System.InvalidOperationException("[Chibi] 머리 뼈를 못 찾았다 — 모델 아바타가 휴머노이드이고 Head가 매핑됐는지 본다: " + Model);
+            }
+            var model = animator.transform;
+            var spot = new GameObject(name).transform;
+            spot.SetParent(head, false);
+            spot.SetPositionAndRotation(model.TransformPoint(positionInModel), model.rotation * rotationInModel);
+            return spot;
+        }
+
+        //  얼굴 그림 면(서브메시 1)의 앞 가운데 — 높이·좌우는 면의 가운데, 앞뒤는 가장 앞(기본 자세, 모델 좌표).
+        private static Vector3 FaceFrontInModel(SkinnedMeshRenderer body)
+        {
+            var baked = new Mesh();
+            body.BakeMesh(baked, true);
+            var verts = baked.vertices;
+            var model = body.GetComponentInParent<Animator>().transform;
+            Vector3 min = Vector3.positiveInfinity, max = Vector3.negativeInfinity;
+            foreach (int i in baked.GetTriangles(1))
+            {
+                var p = model.InverseTransformPoint(body.transform.TransformPoint(verts[i]));
+                min = Vector3.Min(min, p);
+                max = Vector3.Max(max, p);
+            }
+            Object.DestroyImmediate(baked);
+            return new Vector3((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f, max.z);
         }
 
         private static AnimatorController BuildController(string path)

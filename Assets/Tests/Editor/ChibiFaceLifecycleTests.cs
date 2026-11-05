@@ -145,6 +145,45 @@ namespace LOP.Tests
             }
         }
 
+        //  약속: 몸 렌더러의 블록은 얼굴 칸·옷 색·위험도 빛·회색이 함께 쓴다 — 누구든 Get → 값 하나 → Set으로만 고친다.
+        //  얼굴은 같은 표정이면 다시 쓰지 않으므로, 블록을 새로 만들어 덮는 쪽이 생기면 얼굴이 기본 칸으로 굳는다.
+        [Test]
+        public void 얼굴_뒤에_옷_색을_다시_입혀도_표정_칸이_남는다()
+        {
+            var go = BodyWithFaceMaterial(out var renderer, out _);
+            try
+            {
+                var face = go.AddComponent<ChibiFace>();
+                face.Build();
+                face.SetExpression(ChibiExpression.Despair);
+
+                ChibiOutfit.Apply(go, new ChibiColors(Color.red, Color.white, Color.black, Color.blue, Color.white));
+
+                Assert.AreEqual(ChibiFaceAtlas.CellST(ChibiExpression.Despair), FaceCell(renderer));
+            }
+            finally
+            {
+                foreach (var m in renderer.sharedMaterials) Object.DestroyImmediate(m);
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void 얼굴_그림_셰이더도_회색과_테두리_빛을_받는다()
+        {
+            //  나간 선수 회색(_BaseColor)·넉백 위험도 빛(_RimColor·_RimStrength)은 몸 렌더러 블록 하나로 들어간다 — 얼굴 그림만 빠지면 눈·볼만 밝게 남는다.
+            var decal = new Material(Shader.Find("LOP/ToonDecal"));
+            try
+            {
+                foreach (var p in new[] { "_BaseColor", "_RimColor", "_RimStrength", "_RimPower" })
+                {
+                    Assert.IsTrue(decal.HasProperty(p), p);
+                }
+                Assert.AreEqual(Color.white, decal.GetColor("_BaseColor"));
+            }
+            finally { Object.DestroyImmediate(decal); }
+        }
+
         [Test]
         public void 재조립은_플레이_중이거나_저장_안_된_씬이_있으면_거절한다()
         {

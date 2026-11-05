@@ -152,6 +152,9 @@ namespace LOP
         }
 
         //  재질은 여러 몸이 같이 쓰는 에셋이라 고치지 않는다 — 렌더러 블록에 칸만 넣는다(옷 색 값은 그대로 둔다).
+        //  약속: 몸 렌더러의 블록은 얼굴 칸·옷 색(ChibiOutfit)·위험도 빛(KnockbackDamageLabel)·회색(LobbyPlayer)이 함께 쓴다.
+        //  누구든 GetPropertyBlock → 값 하나 → SetPropertyBlock으로만 고친다. 새 블록으로 덮거나 null을 넣으면 칸이 지워지는데,
+        //  같은 표정 요청은 다시 쓰지 않으므로(SetExpression의 빠른 귀환) 얼굴이 기본 칸(보통)으로 굳는다.
         private void ApplyModelFace()
         {
             block ??= new MaterialPropertyBlock();

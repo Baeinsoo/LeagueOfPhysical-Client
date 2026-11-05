@@ -53,6 +53,22 @@ namespace LOP.Tests
             Assert.AreSame(body, ChibiFace.ModelFaceRenderer(prefab));
         }
 
+        //  에디터(기본 설정)와 기기·서버 번들(플랫폼 설정)이 같은 크기로 줄여 가져와야 화면에서 본 얼굴 화질이 기기와 같다.
+        //  3072×2048 원본 → 2048×1365, 칸 하나 약 682 px(얼굴은 화면에서 300 px 안팎이라 충분).
+        [Test]
+        public void 표정_아틀라스는_모든_빌드에서_2048로_같게_들어간다()
+        {
+            var importer = (TextureImporter)AssetImporter.GetAtPath("Assets/Art/Characters/RodinA/Textures/RodinA_FaceAtlas.png");
+            Assert.IsNotNull(importer);
+            Assert.AreEqual(2048, importer.GetDefaultPlatformTextureSettings().maxTextureSize, "기본(에디터)");
+            foreach (var platform in new[] { "Standalone", "Android", "iPhone" })
+            {
+                var settings = importer.GetPlatformTextureSettings(platform);
+                int effective = settings.overridden ? settings.maxTextureSize : importer.GetDefaultPlatformTextureSettings().maxTextureSize;
+                Assert.AreEqual(2048, effective, platform);
+            }
+        }
+
         //  치비와 같은 키(정수리 0.4753 × 3) — 발은 뿌리 높이(바닥)에 닿는다.
         [Test]
         public void 키는_옛_치비와_같고_발이_바닥에_닿는다()

@@ -3,6 +3,11 @@ Shader "LOP/ToonDecal"
     Properties
     {
         _FaceMap ("Face Atlas", 2D) = "white" {}
+        //  몸과 같은 렌더러 블록으로 들어오는 값 — 나간 선수 회색(_BaseColor)·위험도 빛(_Rim*). 기본값이면 지금 그대로 그린다.
+        [MainColor] _BaseColor ("Base Color", Color) = (1, 1, 1, 1)
+        _RimColor ("Rim Color", Color) = (1, 0.96, 0.88, 1)
+        _RimPower ("Rim Power", Range(0.5, 8)) = 3
+        _RimStrength ("Rim Strength", Range(0, 1)) = 0
         _ShadowColor ("Shadow Color", Color) = (0.62, 0.64, 0.86, 1)
         _MidThreshold ("Mid Threshold", Range(0, 1)) = 0.45
         _LightThreshold ("Light Threshold", Range(0, 1)) = 0.72
@@ -16,6 +21,10 @@ Shader "LOP/ToonDecal"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         CBUFFER_START(UnityPerMaterial)
             float4 _FaceMap_ST;
+            half4 _BaseColor;
+            half4 _RimColor;
+            half _RimPower;
+            half _RimStrength;
             half4 _ShadowColor;
             half _MidThreshold;
             half _LightThreshold;
@@ -69,8 +78,8 @@ Shader "LOP/ToonDecal"
                 half4 tex = SAMPLE_TEXTURE2D(_FaceMap, sampler_FaceMap, i.uv);
                 half3 n = normalize(i.normalWS);
                 half3 v = GetWorldSpaceNormalizeViewDir(i.positionWS);
-                half3 c = LOPToonShade(i.positionWS, n, v, tex.rgb, _ShadowColor.rgb, _MidThreshold, _LightThreshold,
-                                       _Softness, half3(0, 0, 0), 1.0h, 0.0h);
+                half3 c = LOPToonShade(i.positionWS, n, v, tex.rgb * _BaseColor.rgb, _ShadowColor.rgb, _MidThreshold, _LightThreshold,
+                                       _Softness, _RimColor.rgb, _RimPower, _RimStrength);
                 return half4(MixFog(c, i.fog), tex.a);
             }
             ENDHLSL

@@ -38,8 +38,6 @@ namespace LOP
         public const float HandRight = 0.3f;
         public const float HandHeight = 1.0f;
         public const float BounceArc = 0.3f;
-        public const float FaceForward = 0.35f;   //  철썩 — 얼굴 앞(치비 머리가 커서 뼈에서 이만큼)
-        public const float FaceUp = 0.25f;        //  머리 뼈(목 쪽)에서 얼굴 가운데까지
         public const float SlapDrop = 0.6f;       //  얼굴에서 떨어지는 거리
         public const float SlapCardOfHead = 1.0f;
         /// <summary>손 → 문 비행의 위로 휨(m) — 곧게 날면 뒤 위 카메라에서 큰 머리에 가려 안 보였다(실제 판).</summary>
@@ -126,7 +124,7 @@ namespace LOP
                     var pose = CardRushGag.PoseAt(kind, t01, rules.StepSpacing, world.Timing.StunTicks);
                     ApplyPose(entry.Visual, entry.Model, entry.Rest, pose, rules.Forward);
                     entry.Posed = kind != CardRushGagKind.None;
-                    entry.Fx.Show(kind, t01, entry.Visual.position, rules.Forward, rules.StepSpacing, HeadPosition(entry),
+                    entry.Fx.Show(kind, t01, entry.Visual.position, rules.Forward, rules.StepSpacing, ChibiHeadSpots.Crown(entry.Model, entry.Head),
                                   CardRushGag.SlapFall01(world.Timing.StunTicks));
                 }
                 //  카드는 자세를 준 뒤에 놓는다 — 철썩 카드는 이번 프레임 머리(젖혀진 자리)에 붙는다.
@@ -190,7 +188,7 @@ namespace LOP
             //  얼굴은 자세를 따른다 — 벌러덩하면 얼굴이 하늘을 보고, 붙은 카드가 뒤 위 카메라에 보인다.
             var modelForward = entry.Model.forward;
             var modelUp = entry.Model.up;
-            var face = HeadPosition(entry) + modelUp * FaceUp + modelForward * FaceForward;
+            var face = ChibiHeadSpots.FaceFront(entry.Model, entry.Head);
             float startHeight = mine ? CardRushHeadCardView.MineHeight : CardRushHeadCardView.OtherHeight;
             var facing = Quaternion.LookRotation(f, Vector3.up);   //  보는 쪽(-z)이 뒤의 카메라를 본다
 
@@ -271,11 +269,6 @@ namespace LOP
             return clock.TimeFor(id) / interval - (id == me ? 1d : 0d);
         }
 
-        /// <summary>머리 위 별 자리 — 사람형이면 머리 뼈, 아니면 몸 위쪽 대략.</summary>
-        public static Vector3 HeadPosition(Transform model, Transform head)
-            => head != null ? head.position : model.position + model.up * 1.1f;
-
-        private static Vector3 HeadPosition(Entry e) => HeadPosition(e.Model, e.Head);
 
         /// <summary>
         /// 자세를 모델에 준다. 오프셋·기울기는 진행 방향 기준(월드)이라 몸 뿌리의 회전·크기를 벗겨 모델 로컬로 바꾼다.
@@ -415,7 +408,7 @@ namespace LOP
         //  물보라: 빠지는 순간(0.25)부터 0.35 동안 튀고, 물결은 허우적 끝(0.75)까지 퍼졌다 사라진다.
         private const float SplashStart = 0.25f, SplashDropletSpan = 0.35f, RingEnd = 0.80f;
         //  별: 철썩 맞고 나자빠지는 동안(0.30~0.75) 머리 위를 두 바퀴 돈다.
-        private const float StarStart = 0.30f, StarEnd = 0.75f, StarTurns = 2f, StarRadius = 0.42f, StarLift = 0.38f, StarSize = 0.7f;
+        private const float StarStart = 0.30f, StarEnd = 0.75f, StarTurns = 2f, StarRadius = 0.42f, StarBelowCrown = 0.40f, StarSize = 0.7f;
 
         private readonly GameObject root;
         private readonly Transform[] droplets = new Transform[DropletCount];
@@ -468,7 +461,7 @@ namespace LOP
         }
 
         /// <summary>그 순간의 효과를 놓는다. 풍덩·철썩 밖이면 다 숨긴다.</summary>
-        public void Show(CardRushGagKind kind, float t01, Vector3 bodyRoot, Vector3 forward, float stepSpacing, Vector3 head,
+        public void Show(CardRushGagKind kind, float t01, Vector3 bodyRoot, Vector3 forward, float stepSpacing, Vector3 crown,
                          float starStart = StarStart)
         {
             bool splash = kind == CardRushGagKind.Splash && t01 >= SplashStart && t01 < RingEnd;
@@ -493,7 +486,7 @@ namespace LOP
             }
             if (slap)
             {
-                PlaceStars(t01, head, starStart);
+                PlaceStars(t01, crown, starStart);
             }
         }
 
@@ -527,7 +520,8 @@ namespace LOP
             Tint(ringRenderer, CardRushGagFxMaterials.Ring, 0.7f * (1f - w));
         }
 
-        private void PlaceStars(float t01, Vector3 head, float starStart)
+        //  별은 머리 둘레를 돈다 — 옛 치비의 "머리 뼈 + 0.38"을 정수리 기준(정수리 − 0.40)으로 옮겼다.
+        private void PlaceStars(float t01, Vector3 crown, float starStart)
         {
             float w = (t01 - starStart) / (StarEnd - starStart);
             //  나타날 때·사라질 때 크기로만 들고 난다(깜빡임 없이).
@@ -537,7 +531,7 @@ namespace LOP
             for (int i = 0; i < StarCount; i++)
             {
                 float a = w * StarTurns * 2f * Mathf.PI + i * (2f * Mathf.PI / StarCount);
-                stars[i].position = head + Vector3.up * StarLift + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * StarRadius;
+                stars[i].position = crown - Vector3.up * StarBelowCrown + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * StarRadius;
                 stars[i].rotation = face * Quaternion.AngleAxis(a * Mathf.Rad2Deg * 0.5f, Vector3.forward);
                 float size = StarSize * grow;
                 stars[i].localScale = new Vector3(size, size, size);

@@ -1,6 +1,6 @@
 {
   "name": "rodin-player-look",
-  "description": "선수 몸(RodinA) 확인 — 판(봇 채움)에서 카운트다운 뒤 바로 걷고(긴 끌기, 아래 = 판 가운데 쪽) 쏘고, 결과 시상대(표정)와 로비까지 스크린샷. 걷는 동안의 몸은 이 시나리오를 돌리는 동안 따로 unity cmd screenshot(게임 뷰)으로 찍는다. game_mode_id: 11 넉백 개인전 · 12 팀전 · 9 피하기",
+  "description": "선수 몸(RodinA) 확인 — 판(봇 채움)에서 카운트다운 뒤 바로 걷고(긴 끌기, 아래 = 판 가운데 쪽) 쏘고, 결과 시상대(표정)와 로비까지 스크린샷. 걷는 동안의 몸은 이 시나리오를 돌리는 동안 따로 unity cmd screenshot(게임 뷰)으로 찍는다. game_mode_id: 11 넉백 개인전 · 12 팀전 · 9 피하기 · 13 카드 러시",
   "repeat": 1,
   "setup": [
     {

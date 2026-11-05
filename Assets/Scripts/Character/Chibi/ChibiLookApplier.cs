@@ -18,8 +18,8 @@ namespace LOP
 
         private const string HatChildName = "Look_hat";
 
-        /// <summary>몸 프리팹이 머리 뼈 아래에 두는 정수리 자리(위 = 로컬 +Y, 앞 = 로컬 +Z). 없으면 PolyOne 머리 관례(<see cref="ChibiHeadFrame"/>)로 얹는다.</summary>
-        public const string HatAnchorName = "HatAnchor";
+        /// <summary>몸 프리팹이 머리 뼈 아래에 두는 정수리 자리(<see cref="ChibiHeadSpots"/>). 없으면 PolyOne 머리 관례(<see cref="ChibiHeadFrame"/>)로 얹는다.</summary>
+        public const string HatAnchorName = ChibiHeadSpots.HatAnchorName;
         private const string AccessoryChildName = "Look_accessory";
         private const float AccessoryForwardDistance = 0.08f;
 

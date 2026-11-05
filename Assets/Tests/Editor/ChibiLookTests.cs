@@ -303,6 +303,36 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 머리에_모자_자리가_있으면_그_자리_위에_그_방향으로_얹힌다()
+        {
+            var root = new GameObject("Root");
+            var head = new GameObject("Head");
+            head.transform.SetParent(root.transform);
+            head.transform.rotation = Quaternion.Euler(0f, 0f, -90f);
+            //  몸마다 정수리 자리가 다르다(RodinA는 프리팹이 이 자리를 갖고 온다) — 일부러 기울여 둔다.
+            var spot = new GameObject(ChibiLookApplier.HatAnchorName).transform;
+            spot.SetParent(head.transform, false);
+            spot.localPosition = new Vector3(-0.2f, 0.03f, 0.01f);
+            spot.localRotation = Quaternion.Euler(10f, 20f, 30f);
+            try
+            {
+                ChibiLookApplier.ApplyPrimitives(root, LookWith(("hat", "hat_cube_red")), NewCatalog());   // 0.25 큐브
+
+                var hat = head.transform.Find("Look_hat");
+                Assert.IsNotNull(hat);
+                Vector3 want = spot.position + spot.up * 0.125f;
+                Assert.That(Vector3.Distance(hat.position, want), Is.LessThan(1e-4f), "모자가 모자 자리 위에 있지 않다");
+                Assert.That(Vector3.Dot(hat.up, spot.up), Is.GreaterThan(0.9999f));
+                Assert.That(Vector3.Dot(hat.forward, spot.forward), Is.GreaterThan(0.9999f));
+                Object.DestroyImmediate(hat.GetComponent<MeshRenderer>().sharedMaterial);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void 모자는_돌아간_머리_뼈에서도_월드_위쪽에_얹힌다()
         {
             var root = new GameObject("Root");

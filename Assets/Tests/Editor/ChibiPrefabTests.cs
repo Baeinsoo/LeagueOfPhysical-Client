@@ -32,18 +32,68 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 몸은_영역_메시와_외곽선_켠_툰_재질이다()
+        public void 몸은_RodinA_영역_메시와_외곽선_켠_툰_재질이고_얼굴_면에_피부와_표정_그림을_겹친다()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Path);
             Assert.IsNotNull(prefab, Path);
-            var body = prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true).Single(r => r.name == "SM_Chibi_Body");
-            Assert.AreEqual("SM_Chibi_Regions", body.sharedMesh.name);
-            Assert.AreEqual("LOP/Toon", body.sharedMaterial.shader.name);
-            Assert.AreEqual(1f, body.sharedMaterial.GetFloat("_UseRegions"));
-            Assert.IsTrue(body.sharedMaterial.GetShaderPassEnabled("SRPDefaultUnlit"));
+            var body = prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true).Single();
+            Assert.AreEqual("RodinA_Body", body.sharedMesh.name);
+            Assert.AreEqual(2, body.sharedMesh.subMeshCount);
+            var mats = body.sharedMaterials;
+            Assert.AreEqual(3, mats.Length, "몸 · 얼굴 피부 · 얼굴 그림(마지막 서브메시를 한 번 더 그린다)");
+            Assert.AreEqual("LOP/Toon", mats[0].shader.name);
+            Assert.AreEqual(1f, mats[0].GetFloat("_UseRegions"));
+            Assert.IsTrue(mats[0].GetShaderPassEnabled("SRPDefaultUnlit"));
+            Assert.IsNotNull(mats[0].GetTexture("_BaseMap"), "흑백 디테일");
+            Assert.AreEqual("LOP/Toon", mats[1].shader.name);
+            Assert.AreEqual(1f, mats[1].GetFloat("_UseRegions"));
+            Assert.IsNull(mats[1].GetTexture("_BaseMap"), "얼굴 UV는 디테일 텍스처와 다른 자리라 바탕 그림 없이 피부색만");
+            Assert.AreEqual("LOP/ToonDecal", mats[2].shader.name);
+            Assert.AreEqual(ChibiFaceAtlas.CellST(ChibiExpression.Normal), mats[2].GetVector("_FaceMap_ST"));
+            Assert.AreSame(body, ChibiFace.ModelFaceRenderer(prefab));
         }
 
-        //  뿌리는 크기 1 — 쓰는 화면(로비 자리·거인·경기)이 뿌리 크기를 정한다. 모델 배율(0.49m → 1.47m)은 자식이 맡는다.
+        //  치비와 같은 키(정수리 0.4753 × 3) — 발은 뿌리 높이(바닥)에 닿는다.
+        [Test]
+        public void 키는_옛_치비와_같고_발이_바닥에_닿는다()
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(Path));
+            try
+            {
+                var body = go.GetComponentsInChildren<SkinnedMeshRenderer>(true).Single();
+                var baked = new Mesh();
+                body.BakeMesh(baked, true);
+                float min = float.MaxValue, max = float.MinValue;
+                foreach (var v in baked.vertices)
+                {
+                    float y = body.transform.TransformPoint(v).y;
+                    min = Mathf.Min(min, y);
+                    max = Mathf.Max(max, y);
+                }
+                Object.DestroyImmediate(baked);
+                Assert.AreEqual(0f, min, 0.01f, "발");
+                Assert.AreEqual(0.4753f * 3f, max, 0.01f, "정수리");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void 머리_뼈에_모자_자리가_정수리에_있다()
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(Path));
+            try
+            {
+                var head = ChibiRig.AnimatorOf(go).GetBoneTransform(HumanBodyBones.Head);
+                var spot = head.Find(ChibiLookApplier.HatAnchorName);
+                Assert.IsNotNull(spot);
+                Assert.That(Vector3.Dot(spot.up, Vector3.up), Is.GreaterThan(0.999f), "모자 자리의 위가 세상 위");
+                Assert.That(Vector3.Dot(spot.forward, Vector3.forward), Is.GreaterThan(0.999f), "모자 자리의 앞이 몸 앞");
+                Assert.AreEqual(1.40f, spot.position.y, 0.03f, "정수리 높이(바보털 빼고)");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        //  뿌리는 크기 1 — 쓰는 화면(로비 자리·거인·경기)이 뿌리 크기를 정한다. 모델 배율(0.475m → 1.43m)은 자식이 맡는다.
         [Test]
         public void 뿌리는_크기_1이고_모델_자식이_배율과_애니메이터를_가진다()
         {

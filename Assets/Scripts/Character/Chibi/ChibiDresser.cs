@@ -26,7 +26,7 @@ namespace LOP
         }
 
         /// <summary>
-        /// 얼굴 판·옷 색을 입힌다. 이미 얼굴 판이 있으면 새로 붙이지 않는다. <paramref name="look"/>이 있으면
+        /// 얼굴(판 또는 몸의 얼굴 그림)·옷 색을 입힌다. 이미 얼굴이 있으면 새로 붙이지 않는다. <paramref name="look"/>이 있으면
         /// 색·표정·모자·장식에 룩을 반영한다 — 없으면 전부 기본값.
         /// </summary>
         public static void Dress(GameObject visual, Material faceMaterial,
@@ -34,7 +34,9 @@ namespace LOP
         {
             ChibiOutfit.Apply(visual, ChibiLookApplier.ColorsFor(look, catalog, palette));
 
-            if (faceMaterial != null && visual.GetComponent<ChibiFace>() == null)
+            //  RodinA처럼 얼굴 그림이 몸에 들어 있으면 판 재질 없이도 표정을 고를 수 있다.
+            bool canShowFace = faceMaterial != null || ChibiFace.ModelFaceRenderer(visual) != null;
+            if (canShowFace && visual.GetComponent<ChibiFace>() == null)
             {
                 var face = visual.AddComponent<ChibiFace>();
                 face.faceMaterial = faceMaterial;

@@ -1,3 +1,4 @@
+using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -42,6 +43,28 @@ namespace LOP.Tests
             {
                 Assert.IsFalse(ChibiDresser.IsChibi(go));
                 Assert.IsNull(go.GetComponentInChildren<ChibiFace>(true));
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void 얼굴_그림이_든_몸은_판_재질_없이도_얼굴이_붙고_룩_표정이_칸으로_간다()
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(ChibiPath));
+            try
+            {
+                var look = new PlayerLook(new System.Collections.Generic.Dictionary<string, string> { ["face"] = "face_dummy_b" }, "테스터", 1);
+                ChibiDresser.Dress(go, null, look, Catalog(), Palette());
+
+                var face = go.GetComponent<ChibiFace>();
+                Assert.IsNotNull(face, "얼굴 그림이 몸에 있는데 표정을 고를 ChibiFace가 없다");
+                Assert.AreEqual(ChibiExpression.Cheer, face.expression);
+                var renderer = ChibiFace.ModelFaceRenderer(go);
+                Assert.IsNotNull(renderer);
+                var block = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(block);
+                Assert.AreEqual(ChibiFaceAtlas.CellST(ChibiExpression.Cheer), block.GetVector("_FaceMap_ST"));
+                Assert.IsTrue(go.GetComponentsInChildren<MeshRenderer>(true).All(r => r.name != "FacePlate"));
             }
             finally { Object.DestroyImmediate(go); }
         }

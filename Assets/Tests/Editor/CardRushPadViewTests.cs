@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 namespace LOP.Tests
 {
     /// <summary>
-    /// 카드 조작판(탭 면 + "연속 N")의 배선. 카드를 다음 입력 틱으로 칠하는 시험은 머리 위 카드(<see cref="CardRushHeadCardTests"/>)로 옮겼다.
+    /// 카드 조작판(탭 면 + "무사 N")의 배선. 카드를 다음 입력 틱으로 칠하는 시험은 머리 위 카드(<see cref="CardRushHeadCardTests"/>)로 옮겼다.
     /// </summary>
     public class CardRushPadViewTests
     {
@@ -29,7 +29,16 @@ namespace LOP.Tests
             Assert.IsNull(root.Q("card-rush-card"), "큰 카드");
             Assert.IsNull(root.Q("card-rush-next"), "요구 색 칩");
             Assert.IsNotNull(root.Q("card-rush-surface"), "탭 면");
-            Assert.IsNotNull(root.Q<Label>("card-rush-streak"), "연속 글");
+            Assert.IsNotNull(root.Q<Label>("card-rush-streak"), "무사 글");
+        }
+
+        //  3차(spec 2026-11-05 §11.5): 아래 글은 지금 연속 무사 통과 — 2차 "연속 N"(정타) 자리.
+        [Test]
+        public void 아래_글은_무사_N()
+        {
+            Assert.AreEqual("무사 7", CardRushPadView.StreakText(7));
+            var uxml = UnityEditor.AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/UI/CardRushPad/CardRushPad.uxml");
+            Assert.AreEqual("무사 0", uxml.Instantiate().Q<Label>("card-rush-streak").text, "판 시작 전 글");
         }
     }
 }

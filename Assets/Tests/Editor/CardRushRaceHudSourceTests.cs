@@ -7,8 +7,8 @@ using NUnit.Framework;
 namespace LOP.Tests
 {
     /// <summary>
-    /// 카드 러시 정보 HUD 소스 — 몸마다 x를 <see cref="CardRushLanes.Progress"/>로 다시 계산한다(칸 단위라
-    /// 레인 방향과 무관, Flappy의 <see cref="RaceHudSource"/>와 달리 그려진 좌표를 그대로 읽지 않는다).
+    /// 카드 러시 정보 HUD 소스 — 진행은 출발선에서 간 거리(<see cref="CardRushRunnerState.PosMm"/>), 끝은 코스 길이(TrackMm).
+    /// 레인 방향과 무관하다(Flappy의 <see cref="RaceHudSource"/>와 달리 그려진 좌표를 읽지 않는다).
     /// </summary>
     public class CardRushRaceHudSourceTests
     {
@@ -72,17 +72,14 @@ namespace LOP.Tests
             var matchStart = new MatchStartState();
             matchStart.Update(100, 2, 2);
 
-            //  내 몸 = "b"(예측 틱), 남은 스냅이 아직 없어 보간 시계가 내 틱으로 메운다.
-            var renderClock = new EntityRenderClock(new PlayerContext { entityId = "b" }, runner,
-                                                    new RemoteInterpolationClock(gameDataStore), gameDataStore);
-            source = new CardRushRaceHudSource(registry, gameDataStore, matchStart, runner, world, renderClock);
+            source = new CardRushRaceHudSource(registry, gameDataStore, matchStart, runner, world);
         }
 
-        private static Entity Runner(string id, int step, long moveStartTick, int placement = 0)
+        private static Entity Runner(string id, int posMm, int placement = 0)
         {
             var e = new Entity(id);
             e.Add(new EntityKind(EntityType.Character));
-            e.Add(new CardRushRunner { State = new CardRushRunnerState { Step = step, MoveStartTick = moveStartTick } });
+            e.Add(new CardRushRunner { State = new CardRushRunnerState { PosMm = posMm } });
             e.Add(new FinishPlacement { Value = placement });
             return e;
         }
@@ -101,34 +98,21 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 세_몸의_걸음_진행이_x_값이_된다()
+        public void 진행은_간_거리_끝은_코스_길이()
         {
-            registry.Add(Runner("a", step: 0, moveStartTick: 0));                  //  출발선 그대로
-            registry.Add(Runner("b", step: 10, moveStartTick: 994));               //  tick 1000, moveTicks 15 → 0.4
-            registry.Add(Runner("c", step: 40, moveStartTick: 0, placement: 1));   //  완주
+            registry.Add(Runner("a", 0));                         //  출발선 그대로
+            registry.Add(Runner("b", 61234));
+            registry.Add(Runner("c", 140000, placement: 1));      //  완주
 
             var frame = new RaceHudFrame();
             source.Fill(frame);
 
             Assert.AreEqual(0f, Find(frame, "a").X, 1e-5f);
-            Assert.AreEqual(9.4f, Find(frame, "b").X, 1e-5f);
-            Assert.AreEqual(40f, Find(frame, "c").X, 1e-5f);
+            Assert.AreEqual(61234f, Find(frame, "b").X, 1e-5f);
+            Assert.AreEqual(140000f, Find(frame, "c").X, 1e-5f);
             Assert.AreEqual(0f, frame.StartX);
-            Assert.AreEqual(40f, frame.FinishX, 1e-5f);
+            Assert.AreEqual(140000f, frame.FinishX, 1e-5f, "시작 튜닝 140 m");
             Assert.IsTrue(frame.HasCourse);
-        }
-    
-        //  최종 리뷰 M1: 남의 상태는 최신 스냅이라 그려지는 몸(보간 틱)보다 앞선다. 그림 틱이 이동 시작 전이면 아직 앞 칸에
-        //  서 있다 — 새 칸을 먼저 보여 줬다가 이동 시작 틱에 한 칸 물러서면 진행 막대 점이 튄다.
-        [Test]
-        public void 그림_틱이_이동_시작_전이면_앞_칸()
-        {
-            registry.Add(Runner("x", step: 5, moveStartTick: 1005));   //  그림 틱 1000 < 이동 시작 1005
-
-            var frame = new RaceHudFrame();
-            source.Fill(frame);
-
-            Assert.AreEqual(4f, Find(frame, "x").X, 1e-5f);
         }
 }
 }

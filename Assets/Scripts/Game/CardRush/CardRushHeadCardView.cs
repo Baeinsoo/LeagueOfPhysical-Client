@@ -63,8 +63,6 @@ namespace LOP
         private readonly PlayerInputManager input;
         private readonly CameraController cameraController;
         private readonly Dictionary<string, Entry> entries = new Dictionary<string, Entry>();
-        //  남의 몸마다 마지막으로 본 돌기 시작 — 그림 틱이 던짐 전일 때 던지기 전 카드를 칠한다(최종 리뷰 m3).
-        private readonly Dictionary<string, CardRushSpinMemory> spinStarts = new Dictionary<string, CardRushSpinMemory>();
         private readonly List<string> gone = new List<string>();
         private readonly Vector3[] ringPoints = new Vector3[RingSegments + 1];
         private CardRushCoursePalette palette;
@@ -100,12 +98,12 @@ namespace LOP
             face = default;
             string me = playerContext?.entityId;
             var runner = string.IsNullOrEmpty(me) ? null : entityRegistry.Get(me)?.Get<CardRushRunner>();
-            var course = world.Course;
-            if (runner == null || course == null || input == null)
+            var track = world.Track;
+            if (runner == null || track == null || input == null)
             {
                 return false;
             }
-            face = CardRushHeadCard.Compute(runner.State, input.NextInputTick, world.GameplayStartTick, course, world.Timing);
+            face = CardRushHeadCard.Compute(runner.State, input.NextInputTick, world.GameplayStartTick, runner.Lane, track);
             return true;
         }
 
@@ -123,8 +121,8 @@ namespace LOP
         public void PostLateTick()
         {
             var rules = world.Rules;
-            var course = world.Course;
-            if (root == null || rules == null || rules.HasRules == false || course == null)
+            var track = world.Track;
+            if (root == null || rules == null || rules.HasRules == false || track == null)
             {
                 return;
             }
@@ -143,10 +141,6 @@ namespace LOP
                     continue;
                 }
                 bool mine = actor.entityId == me;
-                spinStarts.TryGetValue(actor.entityId, out var memory);
-                memory = CardRushSpinMemory.Observe(memory, runner.State, world.Timing);
-                spinStarts[actor.entityId] = memory;
-
                 CardRushHeadCardFace face;
                 if (mine)
                 {
@@ -160,7 +154,7 @@ namespace LOP
                 {
                     //  남의 몸 그림 틱 = 보간 재생 시각(FxView와 같은 식).
                     long drawnTick = interval > 0d ? (long)(renderClock.TimeFor(actor.entityId) / interval) : renderClock?.TickFor(actor.entityId) ?? 0;
-                    face = CardRushHeadCard.ComputeDrawn(runner.State, drawnTick, world.GameplayStartTick, course, world.Timing, memory);
+                    face = CardRushHeadCard.ComputeOther(runner.State, drawnTick, world.GameplayStartTick, runner.Lane, track);
                 }
 
                 if (entries.TryGetValue(actor.entityId, out var entry) == false || entry.Visual != visual.transform)
@@ -187,7 +181,6 @@ namespace LOP
             {
                 entries[id].Plate.Destroy();
                 entries.Remove(id);
-                spinStarts.Remove(id);
             }
         }
 
@@ -272,12 +265,13 @@ namespace LOP
 
             entry.Plate.Body.localScale = new Vector3(FlipWidth(now - entry.FlipStart), 1f, 1f) * PopSize(now - entry.PopStart);
 
-            bool ring = mine && face.FaceUp;
+            //  3차엔 자동 던짐 시간이 없다 — 남은 시간 링은 그리지 않는다(Task 6에서 지움).
+            bool ring = false;
             entry.Ring.enabled = ring;
             entry.RingOutline.enabled = ring;
             if (ring)
             {
-                int n = RingArc(face.Remaining01, ringPoints);
+                int n = RingArc(1f, ringPoints);
                 entry.Ring.positionCount = n;
                 entry.Ring.SetPositions(ringPoints);
                 entry.RingOutline.positionCount = n;

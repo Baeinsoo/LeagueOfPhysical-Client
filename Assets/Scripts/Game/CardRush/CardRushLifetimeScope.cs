@@ -62,7 +62,7 @@ namespace LOP
             //  진입점이라 IFlappyAudio로도 풀린다(AsImplementedInterfaces, FlappyAudio와 같은 등록).
             builder.RegisterEntryPoint<CardRushAudio>().AsSelf();
 
-            //  개인 기록(spec §7) — 완주 시간·연속 정타 최고를 게임 공용 기록지에 적는다(서버 확정 값만). 판정과 무관하다.
+            //  개인 기록(spec §7) — 완주 시간·연속 무사 통과를 게임 공용 기록지에 적는다(서버 확정 값만). 판정과 무관하다.
             //  스코프 배선 시험이 바로 resolve하므로 AsSelf(이 파일의 다른 진입점과 같은 규칙).
             builder.RegisterEntryPoint<CardRushRecordReporter>().AsSelf();
 
@@ -81,7 +81,7 @@ namespace LOP
             builder.Register(c => new MatchLeaveRequester(c.Resolve<ISubscriber<LeaveMatchToC>>(),
                 message => NetworkClient.Send(new CustomMirrorMessage { payload = message })), Lifetime.Singleton);
 
-            //  조작판 — 화면 아무 데나 탭하면 잡기(+ 아래 "연속 N"). 카드는 머리 위 카드 뷰가 그린다(spec 2026-11-03 §5.1).
+            //  조작판 — 화면 아무 데나 탭하면 잡기(+ 아래 "무사 N"). 카드는 머리 위 카드 뷰가 그린다(spec 2026-11-03 §5.1).
             //  탭·Space 잡기는 틱 앞(ITickable)에서 읽는다 — UI Toolkit 이벤트·패널 스케줄러는 틱 뒤라 한 틱 늦다.
             //  탭이 조작판 면 위인지는 열린 조작판이 채우는 CardRushTapTarget에 묻는다.
             builder.Register<CardRushTapTarget>(Lifetime.Singleton);

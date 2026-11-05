@@ -367,8 +367,6 @@ namespace LOP.Tests
             Assert.Greater(BodyY(0f, BodySizes.CharacterHeight, w, h), band + Clear, "머리");
             Assert.Less(BodyY(0f, BodySizes.CharacterHeight, w, h), 0.9f, "머리가 위 HUD(진행 막대) 밑에 남는다");
 
-            float splashForward = 0.5f * StepSpacing;
-            Assert.Greater(BodyY(splashForward, -CardRushGag.SplashDepth, w, h), band + Clear, "풍덩 — 물에 잠긴 발");
         }
 
         //  2차: 카드가 머리 위로 올라갔다(spec 2026-11-03 §5.1 위험 "화면 위로 잘림") — 각·거리를 그대로 둬도 내 카드 위 끝

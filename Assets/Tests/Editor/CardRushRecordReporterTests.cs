@@ -4,9 +4,9 @@ using NUnit.Framework;
 namespace LOP.Tests
 {
     /// <summary>
-    /// 카드 러시의 개인 기록(spec §7): 완주 시간은 출발 틱부터 서버가 확정한 마지막 정타 틱까지(틱 0.02초),
+    /// 카드 러시의 개인 기록(spec 2026-11-05 §10·§12): 완주 시간은 출발 틱부터 완주 틱까지(틱 0.02초),
     /// 서버가 등수를 확정하면(<see cref="FinishPlacement"/> &gt; 0) 한 번 적는다. 연속 최고는 서버 확정 상태
-    /// (<see cref="CardRushRunnerState.BestStreak"/> — 보정으로도 줄지 않는 Task 8 값)를 본 값들의 최댓값으로 적는다.
+    /// (스냅의 연속 무사 통과 — <see cref="CardRushServerStreak"/>)를 본 값들의 최댓값으로 적는다.
     ///
     /// <para>완주 시간은 <see cref="FinishRecordGate"/>를 그대로 재사용한다(Flappy와 같은 넷코드 모양 — 리뷰 판정 11-02):
     /// 처음 본 틱에 이미 등수가 있으면 재접속 전 판이라 안 적고, 등수가 아예 없으면(DNF) 영원히 안 적는다.</para>
@@ -17,7 +17,7 @@ namespace LOP.Tests
             => new CardRushRecordReporter(registry, new RigGameDataStore { userEntityId = "me" }, start, sheet);
 
         [Test]
-        public void 완주_시간은_출발부터_마지막_정타까지()
+        public void 완주_시간은_출발부터_완주_틱까지()
         {
             var registry = new EntityRegistry();
             var me = new Entity("me");
@@ -35,7 +35,7 @@ namespace LOP.Tests
             var reporter = MakeReporter(registry, start, sheet);
 
             //  아직 등수가 없으면 적지 않는다 — 이 장이 게이트의 기준(처음 본 틱)이 된다.
-            runner.State.MoveStartTick = 4000;
+            runner.State.FinishTick = 4000;
             reporter.Tick();
 
             //  서버가 등수를 확정하고 월드가 결승 틱을 적은 장(CardRushWorld가 실제로 하는 일).
@@ -59,7 +59,7 @@ namespace LOP.Tests
             //  이 세션이 본 판이 아니므로 적지 않는다(FlappyFinishRecorder의 M-3과 같은 규칙).
             var registry = new EntityRegistry();
             var me = new Entity("me");
-            var runner = new CardRushRunner { State = new CardRushRunnerState { MoveStartTick = 4000 } };
+            var runner = new CardRushRunner { State = new CardRushRunnerState { FinishTick = 4000 } };
             var finish = new FinishState { FinishedTick = 4000 };
             var placement = new FinishPlacement { Value = 1 };
             me.Add(runner);
@@ -85,7 +85,7 @@ namespace LOP.Tests
             //  등수가 끝까지 안 생기면(완주 못 함) 아무리 틱이 돌아도 적지 않는다.
             var registry = new EntityRegistry();
             var me = new Entity("me");
-            var runner = new CardRushRunner { State = new CardRushRunnerState { MoveStartTick = 3500 } };
+            var runner = new CardRushRunner { State = new CardRushRunnerState { PosMm = 90000 } };
             me.Add(runner);
             me.Add(new FinishState());
             me.Add(new FinishPlacement());
@@ -109,6 +109,17 @@ namespace LOP.Tests
         private static void ServerSnap(Entity entity, int streak)
             => GameEntityMessageHandler.ApplyServerOnlyValues(entity, new EntitySnap { entityId = entity.Id, cardCleanStreak = streak });
 
+        //  3차는 옛 문 40칸과 다른 경기라 새 키로 시작한다 — 옛 키와 비교하면 안 된다.
+        [Test]
+        public void 지표는_3차_새_키()
+        {
+            Assert.AreEqual("cardrush.v3.finishTime", CardRushRecordMetrics.FinishTime.Id);
+            Assert.AreEqual("완주 시간", CardRushRecordMetrics.FinishTime.Label);
+            Assert.AreEqual("cardrush.v3.cleanBest", CardRushRecordMetrics.CleanBest.Id);
+            Assert.AreEqual("연속 무사 통과", CardRushRecordMetrics.CleanBest.Label);
+            Assert.AreEqual(RecordDirection.HigherIsBetter, CardRushRecordMetrics.CleanBest.Direction);
+        }
+
         [Test]
         public void 연속_최고는_서버가_보낸_연속의_최댓값()
         {
@@ -127,21 +138,21 @@ namespace LOP.Tests
             foreach (int streak in new[] { 3, 7, 0, 5 })
             {
                 ServerSnap(me, streak);
-                runner.State.Streak = streak;
-                runner.State.BestStreak = System.Math.Max(runner.State.BestStreak, streak);
+                runner.State.CleanStreak = streak;
+                runner.State.BestCleanStreak = System.Math.Max(runner.State.BestCleanStreak, streak);
                 reporter.Tick();
             }
 
             var outcomes = sheet.Commit();
             Assert.AreEqual(1, outcomes.Count);
-            Assert.AreSame(CardRushRecordMetrics.StreakBest, outcomes[0].Metric);
+            Assert.AreSame(CardRushRecordMetrics.CleanBest, outcomes[0].Metric);
             Assert.AreEqual(7d, outcomes[0].Value, 1e-9d);
         }
     
         //  최종 리뷰 I3: 연속 9에서 무사 통과를 예측했다(최고 10). 서버는 그 탭을 못 받아 연속 9 그대로다.
         //  되감기는 앵커의 예측 상태(최고 10)를 되살리고 보정은 그 최고를 지킨다 — 기록지에 10이 가면 안 된다.
         [Test]
-        public void 서버가_버린_예측_정타는_기록지에_안_간다()
+        public void 서버가_버린_예측_통과는_기록지에_안_간다()
         {
             var registry = new EntityRegistry();
             var me = new Entity("me");
@@ -169,7 +180,7 @@ namespace LOP.Tests
 
             var outcomes = sheet.Commit();
             Assert.AreEqual(1, outcomes.Count);
-            Assert.AreSame(CardRushRecordMetrics.StreakBest, outcomes[0].Metric);
+            Assert.AreSame(CardRushRecordMetrics.CleanBest, outcomes[0].Metric);
             Assert.AreEqual(9d, outcomes[0].Value, 1e-9d, "서버가 확정한 연속은 9뿐이다");
         }
 

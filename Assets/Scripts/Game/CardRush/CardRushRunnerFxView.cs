@@ -100,7 +100,7 @@ namespace LOP
                 spinStarts[actor.entityId] = CardRushSpinMemory.Observe(memory, state, world.Timing);
 
                 double drawnTick = DrawnTick(renderClock, actor.entityId, me);
-                var (kind, t01) = CardRushGag.Phase(rules.Theme, state, drawnTick, world.Timing, rules.StepCount);
+                var (kind, t01) = CardRushGag.Phase(state, drawnTick, world.Tuning, world.Track);
                 //  던지는 카드는 문 테마만(돌다리는 로비에서 빠졌고 풍덩이 그대로다).
                 var (throwKind, since) = rules.Theme == CardRushTheme.DoorDash
                     ? CardRushThrowFx.Phase(state, drawnTick, world.Timing)
@@ -121,11 +121,10 @@ namespace LOP
 
                 if (kind != CardRushGagKind.None || entry.Posed)
                 {
-                    var pose = CardRushGag.PoseAt(kind, t01, rules.StepSpacing, world.Timing.StunTicks);
+                    var pose = CardRushGag.PoseAt(kind, t01);
                     ApplyPose(entry.Visual, entry.Model, entry.Rest, pose, rules.Forward);
                     entry.Posed = kind != CardRushGagKind.None;
-                    entry.Fx.Show(kind, t01, entry.Visual.position, rules.Forward, rules.StepSpacing, ChibiHeadSpots.Crown(entry.Model, entry.Head),
-                                  CardRushGag.SlapFall01(world.Timing.StunTicks));
+                    entry.Fx.Show(kind, t01, entry.Visual.position, rules.Forward, rules.StepSpacing, ChibiHeadSpots.Crown(entry.Model, entry.Head));
                 }
                 //  카드는 자세를 준 뒤에 놓는다 — 철썩 카드는 이번 프레임 머리(젖혀진 자리)에 붙는다.
                 DrawThrown(entry, state, runner.LaneOrigin, throwKind, since, actor.entityId == me, rules);
@@ -461,11 +460,19 @@ namespace LOP
         }
 
         /// <summary>그 순간의 효과를 놓는다. 풍덩·철썩 밖이면 다 숨긴다.</summary>
-        public void Show(CardRushGagKind kind, float t01, Vector3 bodyRoot, Vector3 forward, float stepSpacing, Vector3 crown,
-                         float starStart = StarStart)
+        public void Show(CardRushGagKind kind, float t01, Vector3 bodyRoot, Vector3 forward, float stepSpacing, Vector3 crown)
         {
-            bool splash = kind == CardRushGagKind.Splash && t01 >= SplashStart && t01 < RingEnd;
-            bool slap = kind == CardRushGagKind.Slap && t01 >= starStart && t01 < StarEnd;
+            float starStart = StarStart, starEnd = StarEnd;
+            //  3차엔 물이 없다. 별은 꽈당 엉덩방아(0.6~0.85)·으악 납작(0.1~0.7) 동안.
+            bool splash = false;
+            bool slap = (kind == CardRushGagKind.Tumble && t01 >= CardRushGag.TumbleRollEnd && t01 < CardRushGag.TumbleSitEnd)
+                     || (kind == CardRushGagKind.Squash && t01 >= CardRushGag.SquashPressEnd && t01 < CardRushGag.SquashFlatEnd);
+            if (slap)
+            {
+                (starStart, starEnd) = kind == CardRushGagKind.Tumble
+                    ? (CardRushGag.TumbleRollEnd, CardRushGag.TumbleSitEnd)
+                    : (CardRushGag.SquashPressEnd, CardRushGag.SquashFlatEnd);
+            }
             if (splash == false && slap == false)
             {
                 SetVisible(false);
@@ -486,7 +493,7 @@ namespace LOP
             }
             if (slap)
             {
-                PlaceStars(t01, crown, starStart);
+                PlaceStars(t01, crown, starStart, starEnd);
             }
         }
 
@@ -521,9 +528,9 @@ namespace LOP
         }
 
         //  별은 머리 둘레를 돈다 — 옛 치비의 "머리 뼈 + 0.38"을 정수리 기준(정수리 − 0.40)으로 옮겼다.
-        private void PlaceStars(float t01, Vector3 crown, float starStart)
+        private void PlaceStars(float t01, Vector3 crown, float starStart, float starEnd)
         {
-            float w = (t01 - starStart) / (StarEnd - starStart);
+            float w = (t01 - starStart) / (starEnd - starStart);
             //  나타날 때·사라질 때 크기로만 들고 난다(깜빡임 없이).
             float grow = Mathf.Clamp01(w / 0.12f) * Mathf.Clamp01((1f - w) / 0.12f);
             var cam = Camera.main;

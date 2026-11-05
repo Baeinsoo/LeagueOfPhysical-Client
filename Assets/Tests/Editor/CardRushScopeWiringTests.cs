@@ -152,8 +152,10 @@ namespace LOP.Tests
             var registry = new GameFramework.World.EntityRegistry();
             var store = new FakeGameDataStore { userEntityId = "me" };
             var context = new PlayerContext();
-            //  규칙이 아직 없으면(맵보다 몸이 먼저 오는 비정상 순서) 받은 자리를 그대로 쓴다.
+            //  규칙이 아직 없으면(맵보다 몸이 먼저 오는 비정상 순서) 받은 자리를 그대로 쓰고, 몸마다 크게 알린다.
             var creator = new CardRushRunnerCreator(store, context, registry, new CardRushMapRulesField());
+            UnityEngine.TestTools.LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("CardRushRunnerCreator"));
+            UnityEngine.TestTools.LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("CardRushRunnerCreator"));
 
             creator.Create(new CharacterCreationData { entityId = "me", position = new Vector3(5.2f, 0f, 1f), visualId = "v", maxHP = 100000, currentHP = 100000 });
             creator.Create(new CharacterCreationData { entityId = "other", position = new Vector3(7.8f, 0f, 1f), visualId = "v", maxHP = 100000, currentHP = 100000 });

@@ -67,15 +67,15 @@ namespace LOP
         /// <summary>
         /// 받은 자리 → 레인 번호와 그 레인 출발점. 번호는 서버(<c>CardRushRunnerCreator</c>)와 같은 Shared 식
         /// <see cref="CardRushLanes.LaneIndexOf"/>로 구한다 — 첫 장 씨앗이라 갈리면 카드가 서버와 다르다.
-        /// 규칙이 아직 없으면(맵이 몸보다 늦은 비정상 순서) 받은 자리를 그대로 출발점으로 쓴다.
+        /// 규칙이 아직 없으면(맵이 몸보다 늦은 비정상 순서) 받은 자리를 그대로 출발점으로 두고, 레인은 규칙이 오면 월드가 다시 구한다.
         /// </summary>
         public static CardRushRunner NewRunner(CardRushMapRulesField rules, Vector3 position)
         {
             int lane = CardRushLanes.LaneIndexOf(rules, position);
             if (rules == null || rules.HasRules == false || rules.LaneSpacing <= 0f)
             {
-                Debug.LogWarning("[CardRushRunnerCreator] 맵 규칙 없이 몸이 생겼다 — 받은 자리를 레인 출발점으로 쓴다");
-                return new CardRushRunner { LaneOrigin = position, Lane = lane };
+                Debug.LogError("[CardRushRunnerCreator] 맵 규칙 없이 몸이 생겼다 — 규칙이 올 때까지 레인을 못 정한다(첫 장 씨앗)");
+                return new CardRushRunner { LaneOrigin = position, Lane = lane, LanePending = true };
             }
             return new CardRushRunner { LaneOrigin = rules.LaneOrigin(lane), Lane = lane };
         }

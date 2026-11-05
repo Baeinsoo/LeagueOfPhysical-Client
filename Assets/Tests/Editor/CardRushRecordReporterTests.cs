@@ -105,9 +105,9 @@ namespace LOP.Tests
             Assert.IsEmpty(outcomes);
         }
 
-        //  스냅이 실어 온 연속(card_streak)이 실제로 지나는 길 — 메시지 처리기가 모든 스냅에 부르는 그것.
+        //  스냅이 실어 온 연속(card_clean_streak)이 실제로 지나는 길 — 메시지 처리기가 모든 스냅에 부르는 그것.
         private static void ServerSnap(Entity entity, int streak)
-            => GameEntityMessageHandler.ApplyServerOnlyValues(entity, new EntitySnap { entityId = entity.Id, cardStreak = streak });
+            => GameEntityMessageHandler.ApplyServerOnlyValues(entity, new EntitySnap { entityId = entity.Id, cardCleanStreak = streak });
 
         [Test]
         public void 연속_최고는_서버가_보낸_연속의_최댓값()
@@ -138,8 +138,8 @@ namespace LOP.Tests
             Assert.AreEqual(7d, outcomes[0].Value, 1e-9d);
         }
     
-        //  최종 리뷰 I3: 연속 9에서 정타를 예측했다(BestStreak 10). 서버는 그 탭을 못 받아 연속 9 그대로다.
-        //  되감기는 앵커의 예측 상태(BestStreak 10)를 되살리고 보정은 그 최고를 지킨다 — 기록지에 10이 가면 안 된다.
+        //  최종 리뷰 I3: 연속 9에서 무사 통과를 예측했다(최고 10). 서버는 그 탭을 못 받아 연속 9 그대로다.
+        //  되감기는 앵커의 예측 상태(최고 10)를 되살리고 보정은 그 최고를 지킨다 — 기록지에 10이 가면 안 된다.
         [Test]
         public void 서버가_버린_예측_정타는_기록지에_안_간다()
         {
@@ -147,20 +147,20 @@ namespace LOP.Tests
             var me = new Entity("me");
             me.Add(new GameFramework.World.Transform());
             me.Add(new GameFramework.World.Simulated());
-            var runner = new CardRushRunner { State = new CardRushRunnerState { Step = 10, Streak = 10, BestStreak = 10, MoveStartTick = 1290 } };
+            var runner = new CardRushRunner { State = new CardRushRunnerState { PosMm = 20000, CleanStreak = 10, BestCleanStreak = 10, ObstacleIndex = 10, ObstacleEventTick = 1290 } };
             me.Add(runner);
             me.Add(new CardRushServerStreak());
             me.Add(new FinishPlacement());
             registry.Add(me);
-            var world = new CardRushWorld(registry, new WorldEventBuffer(), new CardRushMapRulesField(), new Seed(), new CardRushTiming(15, 30))
+            var world = new CardRushWorld(registry, new WorldEventBuffer(), new CardRushMapRulesField(), new Seed(), CardRushServerCorrectionHandlerTests.Config)
                 { GameplayStartTick = 0 };
             world.SaveState(1300);   //  예측 앵커: 연속 10
             var handler = new CardRushServerCorrectionHandler(world);
             var sheet = new MatchRecordSheet(() => (13, 17), new FakePersonalRecordStore());
             var reporter = MakeReporter(registry, new MatchStartState(), sheet);
 
-            //  서버 스냅: 칸 9·연속 9. 메시지 처리기 → 되감기(앵커 복원) → 권위 적용 순서 그대로.
-            var snap = new EntitySnap { entityId = "me", tick = 1300, cardStep = 9, cardStreak = 9 };
+            //  서버 스냅: 장애물 9·연속 9. 메시지 처리기 → 되감기(앵커 복원) → 권위 적용 순서 그대로.
+            var snap = new EntitySnap { entityId = "me", tick = 1300, cardPosMm = 20000, cardObstacleIndex = 9, cardCleanStreak = 9, cardObstacleEventTick = 1290 };
             GameEntityMessageHandler.ApplyServerOnlyValues(me, snap);
             Assert.IsFalse(handler.Matches(1300, snap));
             world.LoadState(1300);

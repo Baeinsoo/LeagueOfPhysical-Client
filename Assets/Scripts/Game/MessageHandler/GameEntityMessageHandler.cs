@@ -192,8 +192,8 @@ namespace LOP
                 archeryScore.Lost = 0;
             }
 
-            //  카드 러시 "연속 정타 최고" 기록은 서버가 확정한 연속만 센다(예측 BestStreak는 서버가 버린 탭으로 부풀 수 있다).
-            CardRushServerStreak.Observe(targetEntity, entitySnap.cardStreak);
+            //  카드 러시 "연속 무사 통과 최고" 기록은 서버가 확정한 연속만 센다(예측 최고는 서버가 버린 탭으로 부풀 수 있다).
+            CardRushServerStreak.Observe(targetEntity, entitySnap.cardCleanStreak);
         }
 
         // 외삽·보간 둘 다 "서버 권위 상태를 그대로 반영"은 동일하다(굴리지 않으니 예측이 틀릴 일도 없다) —

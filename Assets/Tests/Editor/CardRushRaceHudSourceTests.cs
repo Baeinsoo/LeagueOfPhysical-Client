@@ -64,7 +64,7 @@ namespace LOP.Tests
             var rules = new CardRushMapRulesField();
             rules.Set(CardRushTheme.StoneBridge, 40, 2.2f, 2.6f,
                       UnityEngine.Vector3.zero, UnityEngine.Vector3.forward);
-            var world = new CardRushWorld(registry, new WorldEventBuffer(), rules, new FixedSeed(), new CardRushTiming(20, 30));
+            var world = new CardRushWorld(registry, new WorldEventBuffer(), rules, new FixedSeed(), CardRushServerCorrectionHandlerTests.Config);
             world.Tick(1, 0.02f);   //  Mutation이 EnsureCourse를 돌려 Course를 만든다(Simulated 몸이 없어 아무도 안 움직인다)
 
             var gameDataStore = new FakeGameDataStore { userEntityId = "b" };
@@ -104,14 +104,14 @@ namespace LOP.Tests
         public void 세_몸의_걸음_진행이_x_값이_된다()
         {
             registry.Add(Runner("a", step: 0, moveStartTick: 0));                  //  출발선 그대로
-            registry.Add(Runner("b", step: 10, moveStartTick: 990));               //  tick 1000, moveTicks 20 → 절반
+            registry.Add(Runner("b", step: 10, moveStartTick: 994));               //  tick 1000, moveTicks 15 → 0.4
             registry.Add(Runner("c", step: 40, moveStartTick: 0, placement: 1));   //  완주
 
             var frame = new RaceHudFrame();
             source.Fill(frame);
 
             Assert.AreEqual(0f, Find(frame, "a").X, 1e-5f);
-            Assert.AreEqual(9.5f, Find(frame, "b").X, 1e-5f);
+            Assert.AreEqual(9.4f, Find(frame, "b").X, 1e-5f);
             Assert.AreEqual(40f, Find(frame, "c").X, 1e-5f);
             Assert.AreEqual(0f, frame.StartX);
             Assert.AreEqual(40f, frame.FinishX, 1e-5f);

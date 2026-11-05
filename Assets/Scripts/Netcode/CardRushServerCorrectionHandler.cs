@@ -1,8 +1,8 @@
 namespace LOP
 {
     /// <summary>
-    /// 카드 러시의 서버 보정 — 맞힘·틀림 판정은 서버가 정한다. 내 몸은 클라가 예측하지만, 탭이 서버에 늦게 닿아
-    /// 다른 틱에 판정되면 칸·멈춤이 갈린다. 자리는 상태에서 계산되므로 위치가 아직 같아도 상태가 다르면 되감는다.
+    /// 카드 러시의 서버 보정 — 판정은 서버가 정한다. 내 몸은 클라가 예측하지만, 탭이 서버에 늦게 닿아 서버가 버리면
+    /// 카드·장애물·거리가 갈린다. 자리는 상태에서 계산되므로 위치가 아직 같아도 상태가 다르면 되감는다.
     /// </summary>
     public class CardRushServerCorrectionHandler : IServerCorrectionHandler
     {
@@ -14,19 +14,29 @@ namespace LOP
         }
 
         //  같은 시점끼리 비교한다 — 그 틱에 내가 예측했던 상태 vs 서버가 그 틱에 가진 상태.
-        //  여섯 칸 모두 본다(돌기 시작 틱 = 스냅 37 — 다르면 같은 틱에 다른 색을 보고 다른 틱에 자동으로 던진다). 하나라도 빠지면 그 칸만 다른 어긋남을 영영 못 고친다.
+        //  와이어 16칸을 모두 본다. 하나라도 빠지면 그 칸만 다른 어긋남을 영영 못 고친다(결과 칸도 — 되감기가 그림·소리까지 맞춘다).
         public bool Matches(long tick, EntitySnap snap)
         {
             if (!world.TryGetSaved(tick, snap.entityId, out var predicted))
             {
                 return true;
             }
-            return predicted.Step == snap.cardStep
-                && predicted.Attempt == snap.cardAttempt
-                && predicted.MoveStartTick == snap.cardMoveStartTick
+            return predicted.PosMm == snap.cardPosMm
+                && predicted.UseCount == snap.cardUseCount
+                && predicted.SpinStartTick == snap.cardSpinStartTick
+                && predicted.DashStartTick == snap.cardDashStartTick
+                && predicted.BlockEndTick == snap.cardBlockEndTick
                 && predicted.StunEndTick == snap.cardStunEndTick
-                && predicted.Streak == snap.cardStreak
-                && predicted.SpinStartTick == snap.cardSpinStartTick;
+                && predicted.ObstacleIndex == snap.cardObstacleIndex
+                && predicted.ObstacleTick == snap.cardObstacleTick
+                && predicted.ZoneIndex == snap.cardZoneIndex
+                && predicted.ZoneTick == snap.cardZoneTick
+                && predicted.ObstacleEvent == snap.cardObstacleEvent
+                && predicted.ObstacleEventTick == snap.cardObstacleEventTick
+                && predicted.ZoneEvent == snap.cardZoneEvent
+                && predicted.ZoneEventTick == snap.cardZoneEventTick
+                && predicted.FinishTick == snap.cardFinishTick
+                && predicted.CleanStreak == snap.cardCleanStreak;
         }
 
         public void ApplyAuthoritative(GameFramework.World.Entity entity, EntitySnap snap, float deltaTime)
@@ -40,19 +50,29 @@ namespace LOP
         }
 
         /// <summary>
-        /// 스냅의 여섯 칸을 상태에 넣는다. 최고 연속·틀린 수는 서버가 안 보내므로 지금 값을 지킨다
+        /// 스냅의 16칸을 상태에 넣는다. 최고 연속·맞은 수는 서버가 안 보내므로 지금 값을 지킨다
         /// (최고 연속은 지금 연속보다 작을 수 없어 max로 맞춘다). 남의 몸에도 같은 식을 쓴다.
-        /// 이 최고 연속은 <b>예측값</b>이다(되감기 앵커의 예측 정타가 남을 수 있다) — 기록은 <see cref="CardRushServerStreak"/>를 본다.
+        /// 이 최고 연속은 <b>예측값</b>이다(되감기 앵커의 예측 통과가 남을 수 있다) — 기록은 <see cref="CardRushServerStreak"/>를 본다.
         /// </summary>
         public static void ApplyCardState(ref CardRushRunnerState state, EntitySnap snap)
         {
-            state.Step = snap.cardStep;
-            state.Attempt = snap.cardAttempt;
-            state.MoveStartTick = snap.cardMoveStartTick;
-            state.StunEndTick = snap.cardStunEndTick;
-            state.Streak = snap.cardStreak;
+            state.PosMm = snap.cardPosMm;
+            state.UseCount = snap.cardUseCount;
             state.SpinStartTick = snap.cardSpinStartTick;
-            state.BestStreak = System.Math.Max(state.BestStreak, snap.cardStreak);
+            state.DashStartTick = snap.cardDashStartTick;
+            state.BlockEndTick = snap.cardBlockEndTick;
+            state.StunEndTick = snap.cardStunEndTick;
+            state.ObstacleIndex = snap.cardObstacleIndex;
+            state.ObstacleTick = snap.cardObstacleTick;
+            state.ZoneIndex = snap.cardZoneIndex;
+            state.ZoneTick = snap.cardZoneTick;
+            state.ObstacleEvent = snap.cardObstacleEvent;
+            state.ObstacleEventTick = snap.cardObstacleEventTick;
+            state.ZoneEvent = snap.cardZoneEvent;
+            state.ZoneEventTick = snap.cardZoneEventTick;
+            state.FinishTick = snap.cardFinishTick;
+            state.CleanStreak = snap.cardCleanStreak;
+            state.BestCleanStreak = System.Math.Max(state.BestCleanStreak, snap.cardCleanStreak);
         }
     }
 }

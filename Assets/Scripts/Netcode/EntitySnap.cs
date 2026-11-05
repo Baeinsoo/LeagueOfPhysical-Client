@@ -28,12 +28,22 @@ namespace LOP
         public long knockbackNextReloadTick { get; set; }   // Knockback: 다음 탄이 차는 틱. 가득이면 long.MaxValue
         public long knockbackCooldownEndTick { get; set; }  // Knockback: 다시 쏠 수 있는 틱
         public bool knockbackHasBomb { get; set; }          // Knockback: 다음 탄이 충격파 폭탄인가
-        public int cardStep { get; set; }            // CardRush: 지금 잡으려는 칸
-        public int cardAttempt { get; set; }         // CardRush: 이 칸에서 틀린 횟수(시작 색 씨앗)
-        public long cardMoveStartTick { get; set; }  // CardRush: 마지막으로 맞힌 틱. 0 = 없음
-        public long cardStunEndTick { get; set; }    // CardRush: 멈춤이 끝나는 틱. 0 = 없음
-        public int cardStreak { get; set; }          // CardRush: 이어 맞힌 수
-        public long cardSpinStartTick { get; set; }  // CardRush: 카드가 돌기 시작한 틱. 0 = 대기(뒷면)
+        public long cardStunEndTick { get; set; }       // CardRush: 기절이 끝나는 틱. 0 = 없음
+        public long cardSpinStartTick { get; set; }     // CardRush: 카드가 (다시) 도는 틱. 0 = 아직 안 씀
+        public int cardPosMm { get; set; }              // CardRush: 출발선에서 간 거리(mm)
+        public int cardUseCount { get; set; }           // CardRush: 카드 쓴 횟수(첫 장 씨앗)
+        public long cardDashStartTick { get; set; }     // CardRush: 대시를 쓴 틱. 0 = 대시 중 아님
+        public long cardBlockEndTick { get; set; }      // CardRush: 방패가 끝나는 틱. 0 = 없음
+        public int cardObstacleIndex { get; set; }      // CardRush: 지금 상대하는 장애물 번호
+        public long cardObstacleTick { get; set; }      // CardRush: 바리케이드 닿은 틱 / 굴러오기 시작한 틱. 0 = 아직
+        public int cardZoneIndex { get; set; }          // CardRush: 지금 상대하는 구역 번호
+        public long cardZoneTick { get; set; }          // CardRush: 구역 경고가 켜진 틱. 0 = 아직
+        public int cardObstacleEvent { get; set; }      // CardRush: 마지막 장애물 결과(CardRushObstacleEvent)
+        public long cardObstacleEventTick { get; set; }
+        public int cardZoneEvent { get; set; }          // CardRush: 마지막 구역 결과(CardRushZoneEvent)
+        public long cardZoneEventTick { get; set; }
+        public long cardFinishTick { get; set; }        // CardRush: 완주 틱. 0 = 아직
+        public int cardCleanStreak { get; set; }        // CardRush: 지금 연속 무사 통과
         public float postureAxis { get; set; }    // Skydive: 0 = 대자, 1 = 다이브
         public bool gliding { get; set; }         // Skydive: 패러세일을 폈나
         public float stamina { get; set; }        // Skydive: 남은 활공 자원

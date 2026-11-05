@@ -83,7 +83,7 @@ namespace LOP.Tests
 
             var rules = new CardRushMapRulesField();
             rules.Set(CardRushTheme.DoorDash, 40, 2.2f, 2.6f, UnityEngine.Vector3.zero, UnityEngine.Vector3.forward);
-            var world = new CardRushWorld(registry, new WorldEventBuffer(), rules, new FixedSeed(), timing);
+            var world = new CardRushWorld(registry, new WorldEventBuffer(), rules, new FixedSeed(), CardRushServerCorrectionHandlerTests.Config);
             world.Tick(1, 0.02f);   //  코스를 만든다(Simulated 몸이 없어 아무도 안 움직인다)
             world.GameplayStartTick = Start - 100;
 

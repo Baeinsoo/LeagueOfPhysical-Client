@@ -3,8 +3,9 @@ using UnityEngine;
 namespace LOP
 {
     /// <summary>
-    /// 머리 앞에 곡면 얼굴 판을 붙이고 표정 칸을 고른다. 모델의 원래 눈 메시는 끈다.
-    /// 반지름·중심·방향은 머리 뼈 로컬 좌표 — 기본값은 <see cref="ChibiHeadFrame"/>(PolyOne 치비 관례)다.
+    /// 표정 칸을 고른다. 몸 메시에 얼굴 그림 재질(<c>_FaceMap</c>)이 이미 달려 있으면(RodinA) 그 재질의 칸만 바꾸고,
+    /// 없으면(PolyOne 치비 등) 머리 앞에 곡면 얼굴 판을 붙이고 모델의 원래 눈 메시는 끈다.
+    /// 판의 반지름·중심·방향은 머리 뼈 로컬 좌표 — 기본값은 <see cref="ChibiHeadFrame"/>(PolyOne 치비 관례)다.
     /// </summary>
     [ExecuteAlways]
     public class ChibiFace : MonoBehaviour
@@ -23,9 +24,13 @@ namespace LOP
         [Range(20f, 140f)] public float pitchSpan = 80f;
         public string hiddenEyeMesh = "SM_Chibi_Eye";
 
+        private const string FaceMapST = "_FaceMap_ST";
+
         private GameObject plate;
         private Mesh mesh;
         private Material instance;
+        private SkinnedMeshRenderer modelFace;
+        private MaterialPropertyBlock block;
 
         private void OnEnable()
         {
@@ -62,10 +67,31 @@ namespace LOP
             if (instance != null) { DestroyImmediate(instance); }
         }
 
+        /// <summary>몸 메시 중 얼굴 그림 재질(<c>_FaceMap</c>)을 단 렌더러. 없으면 null — 그때는 얼굴 판을 붙인다.</summary>
+        public static SkinnedMeshRenderer ModelFaceRenderer(GameObject body)
+        {
+            if (body == null) return null;
+            foreach (var r in body.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                foreach (var m in r.sharedMaterials)
+                {
+                    if (m != null && m.HasProperty("_FaceMap")) return r;
+                }
+            }
+            return null;
+        }
+
         public void Build()
         {
             //  얼굴 판은 몸 뿌리에 붙고 애니메이터는 그 아래 Model에 있다(옛 몸은 뿌리에).
             var animator = GetComponentInParent<Animator>() ?? ChibiRig.AnimatorOf(gameObject);
+            modelFace = ModelFaceRenderer(animator != null ? animator.gameObject : gameObject) ?? ModelFaceRenderer(gameObject);
+            if (modelFace != null)
+            {
+                if (plate != null) { plate.GetComponent<MeshRenderer>().enabled = false; }
+                ApplyModelFace();
+                return;
+            }
             Transform head = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Head) : null;
             if (head == null || faceMaterial == null)
             {
@@ -105,11 +131,16 @@ namespace LOP
         /// <summary>판을 다시 만들지 않고 표정 칸만 바꾼다 — 리액션이 매 프레임 불러도 싸다.</summary>
         public void SetExpression(ChibiExpression next)
         {
-            if (expression == next && instance != null)
+            if (expression == next && (instance != null || modelFace != null))
             {
                 return;
             }
             expression = next;
+            if (modelFace != null)
+            {
+                ApplyModelFace();
+                return;
+            }
             if (instance == null)
             {
                 Build();
@@ -118,6 +149,18 @@ namespace LOP
             Vector4 st = ChibiFaceAtlas.CellST(expression);
             instance.SetTextureScale("_FaceMap", new Vector2(st.x, st.y));
             instance.SetTextureOffset("_FaceMap", new Vector2(st.z, st.w));
+        }
+
+        //  재질은 여러 몸이 같이 쓰는 에셋이라 고치지 않는다 — 렌더러 블록에 칸만 넣는다(옷 색 값은 그대로 둔다).
+        //  약속: 몸 렌더러의 블록은 얼굴 칸·옷 색(ChibiOutfit)·위험도 빛(KnockbackDamageLabel)·회색(LobbyPlayer)이 함께 쓴다.
+        //  누구든 GetPropertyBlock → 값 하나 → SetPropertyBlock으로만 고친다. 새 블록으로 덮거나 null을 넣으면 칸이 지워지는데,
+        //  같은 표정 요청은 다시 쓰지 않으므로(SetExpression의 빠른 귀환) 얼굴이 기본 칸(보통)으로 굳는다.
+        private void ApplyModelFace()
+        {
+            block ??= new MaterialPropertyBlock();
+            modelFace.GetPropertyBlock(block);
+            block.SetVector(FaceMapST, ChibiFaceAtlas.CellST(expression));
+            modelFace.SetPropertyBlock(block);
         }
 
         /// <summary>

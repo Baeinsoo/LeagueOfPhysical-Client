@@ -12,7 +12,8 @@ namespace LOP
     /// </summary>
     public class ArcheryComicFxView : IStartable, ILateTickable, System.IDisposable
     {
-        private const float HeadClearance = 0.55f;
+        //  그림 아래 끝 = 정수리 − 0.23 m. 옛 치비에서 맞춘 "머리 뼈 + 0.55"(정수리 = 뼈 + 0.78)를 정수리 기준으로 옮겼다.
+        private const float BelowCrown = 0.23f;
         private const float FallbackHeight = 1.9f;
 
         private readonly ArcheryCourse course;
@@ -145,7 +146,9 @@ namespace LOP
             var visual = actor.visualGameObject;
             var animator = ChibiRig.AnimatorOf(visual);
             var head = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Head) : null;
-            position = head != null ? head.position + Vector3.up * HeadClearance : visual.transform.position + Vector3.up * FallbackHeight;
+            position = head != null
+                ? ChibiHeadSpots.Crown(animator.transform, head) - Vector3.up * BelowCrown
+                : visual.transform.position + Vector3.up * FallbackHeight;
             return true;
         }
     }

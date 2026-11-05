@@ -379,8 +379,8 @@ namespace LOP.Tests
         [TestCase(1080, 2400)]
         public void 내_머리_위_카드는_위_HUD_밑에_보인다(int w, int h)
         {
-            //  머리 높이를 몸 키로 넉넉히 잡는다(실제 머리 뼈는 그보다 낮다).
-            float cardTop = BodySizes.CharacterHeight + CardRushHeadCardView.HeadTopAboveBone + CardRushHeadCardView.HeadCardLift + CardRushHeadCardView.MineHeight;
+            //  정수리를 몸 키로 넉넉히 잡는다(실제 정수리는 그보다 낮다).
+            float cardTop = BodySizes.CharacterHeight + CardRushHeadCardView.HeadCardLift + CardRushHeadCardView.MineHeight;
             float ringTop = cardTop - CardRushHeadCardView.MineHeight * 0.5f + CardRushHeadCardView.MineHeight * CardRushHeadCardView.RingRadius;
             Assert.Less(BodyY(0f, Mathf.Max(cardTop, ringTop), w, h), 0.88f, "카드·링 위 끝");
         }

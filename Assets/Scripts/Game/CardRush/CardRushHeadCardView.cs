@@ -16,14 +16,16 @@ namespace LOP
     /// </summary>
     public class CardRushHeadCardView : IStartable, IPostLateTickable, IDisposable
     {
-        public const float HeadCardLift = 0.55f;   //  머리 위로 이만큼 띄운 자리가 카드 아래 끝
+        /// <summary>정수리(<see cref="ChibiHeadSpots.Crown"/>) 위로 이만큼 띄운 자리가 카드 아래 끝.</summary>
+        public const float HeadCardLift = 0.22f;
         public const float MineHeight = 0.7f;
         public const float OtherHeight = 0.4f;
         public const int OtherLaneRange = 3;
-        /// <summary>머리 뼈(목 쪽)에서 정수리까지 — 치비 머리가 커서 뼈 + 띄움만으로는 카드 아래가 머리에 가렸다(실제 판).</summary>
-        public const float HeadTopAboveBone = 0.45f;
         /// <summary>카메라 쪽으로 당기는 거리 — 뒤 위에서 보면 카드가 머리 뒤에 서 있어 아래가 가린다. 화면 자리는 거의 그대로다.</summary>
         public const float TowardCamera = 0.6f;
+
+        /// <summary>카드 가운데(카메라 쪽으로 당기기 전). 옛 치비에서 맞춘 "머리 뼈 + 1.0 m" = 정수리 + 0.22 m를 정수리 기준으로 옮겼다.</summary>
+        public static Vector3 CardCenter(Vector3 crown, float height) => crown + Vector3.up * (HeadCardLift + height * 0.5f);
 
         public const float FlipSeconds = 0.06f;    //  뒷면 → 앞면 넘김(가로 찌그러짐)
         public const float PopScale = 1.06f;       //  색이 바뀌는 프레임에 6% 커졌다 돌아온다
@@ -238,8 +240,7 @@ namespace LOP
             }
 
             float height = mine ? MineHeight : OtherHeight;
-            var head = CardRushRunnerFxView.HeadPosition(entry.Model, entry.Head);
-            var center = head + Vector3.up * (HeadTopAboveBone + HeadCardLift + height * 0.5f);
+            var center = CardCenter(ChibiHeadSpots.Crown(entry.Model, entry.Head), height);
             if (cam != null)
             {
                 center += (cam.transform.position - center).normalized * TowardCamera;

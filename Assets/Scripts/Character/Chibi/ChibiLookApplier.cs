@@ -17,6 +17,9 @@ namespace LOP
         private const string FaceSlotCode = "face";
 
         private const string HatChildName = "Look_hat";
+
+        /// <summary>몸 프리팹이 머리 뼈 아래에 두는 정수리 자리(<see cref="ChibiHeadSpots"/>). 없으면 PolyOne 머리 관례(<see cref="ChibiHeadFrame"/>)로 얹는다.</summary>
+        public const string HatAnchorName = ChibiHeadSpots.HatAnchorName;
         private const string AccessoryChildName = "Look_accessory";
         private const float AccessoryForwardDistance = 0.08f;
 
@@ -142,8 +145,16 @@ namespace LOP
         public static void ApplyPrimitives(GameObject visual, PlayerLook look, CosmeticCatalog catalog)
         {
             var head = FindHead(visual);
+            var hatSpot = head != null ? head.Find(HatAnchorName) : null;
             ApplySlot(look, catalog, HatSlotCode, HatChildName, head, (go, spec) =>
             {
+                if (hatSpot != null)
+                {
+                    //  몸마다 정수리 높이·머리 뼈 기울기가 다르다 — 프리팹이 둔 자리 위에 그 방향으로 얹는다.
+                    go.transform.localPosition = hatSpot.localPosition + hatSpot.localRotation * Vector3.up * (spec.Size * 0.5f);
+                    go.transform.localRotation = hatSpot.localRotation;
+                    return;
+                }
                 //  머리 뼈 축은 PolyOne 관례(위 = −X)라 뼈 로컬 +Y를 위로 쓰면 뒤통수에 붙는다 — 얼굴 판과 같은 값을 쓴다.
                 go.transform.localPosition = ChibiHeadFrame.Center + ChibiHeadFrame.Up * (ChibiHeadFrame.Radius + spec.Size * 0.5f);
                 go.transform.localRotation = Quaternion.LookRotation(ChibiHeadFrame.Facing, ChibiHeadFrame.Up);

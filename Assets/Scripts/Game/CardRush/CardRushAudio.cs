@@ -14,6 +14,7 @@ namespace LOP
         public bool Has;
         public int ObstacleEvent;
         public long ObstacleEventTick;
+        public long WhiffTick;
         public int ZoneEvent;
         public long ZoneEventTick;
         public long ZoneTick;
@@ -28,6 +29,7 @@ namespace LOP
             Has = true,
             ObstacleEvent = s.ObstacleEvent,
             ObstacleEventTick = s.ObstacleEventTick,
+            WhiffTick = s.WhiffTick,
             ZoneEvent = s.ZoneEvent,
             ZoneEventTick = s.ZoneEventTick,
             ZoneTick = s.ZoneTick,
@@ -47,6 +49,7 @@ namespace LOP
     {
         public int ObstacleEvent;
         public long ObstacleTick;
+        public long WhiffTick;
         public int ZoneEvent;
         public long ZoneEventTick;
         public long ZoneOnTick;
@@ -79,11 +82,17 @@ namespace LOP
                 into.Add(ev switch
                 {
                     CardRushObstacleEvent.Smashed => CardRushSfx.Smash,
-                    CardRushObstacleEvent.Whiff => CardRushSfx.Whiff,
                     CardRushObstacleEvent.Lifted => CardRushSfx.Lift,
                     CardRushObstacleEvent.Blocked => CardRushSfx.Clang,
                     _ => CardRushSfx.Tumble,
                 });
+            }
+
+            //  헛방은 결과 칸과 따로 — 막음·올라감 직후 헛방이 그 결과를 다시 울리지 않는다.
+            if (now.WhiffTick != 0 && now.WhiffTick > memory.WhiffTick)
+            {
+                memory.WhiffTick = now.WhiffTick;
+                into.Add(CardRushSfx.Whiff);
             }
 
             var zone = (CardRushZoneEvent)now.ZoneEvent;
@@ -136,6 +145,7 @@ namespace LOP
         {
             ObstacleEvent = now.ObstacleEvent,
             ObstacleTick = now.ObstacleEventTick,
+            WhiffTick = now.WhiffTick,
             ZoneEvent = now.ZoneEvent,
             ZoneEventTick = now.ZoneEventTick,
             ZoneOnTick = now.ZoneTick,

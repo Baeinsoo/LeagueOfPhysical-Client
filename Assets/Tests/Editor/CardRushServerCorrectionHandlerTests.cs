@@ -3,7 +3,7 @@ using NUnit.Framework;
 namespace LOP.Tests
 {
     /// <summary>
-    /// 카드 러시 보정 — 서버가 보낸 16칸 중 하나라도 내 예측과 다르면 되감는다.
+    /// 카드 러시 보정 — 서버가 보낸 17칸 중 하나라도 내 예측과 다르면 되감는다.
     /// 자리는 상태에서 계산되므로, 한 칸을 안 보면 "상태는 틀렸는데 자리는 아직 같은" 틱을 놓친다.
     /// </summary>
     public class CardRushServerCorrectionHandlerTests
@@ -23,7 +23,7 @@ namespace LOP.Tests
             PosMm = 12345, UseCount = 17, SpinStartTick = 1281, DashStartTick = 1282, BlockEndTick = 1283,
             StunEndTick = 1284, ObstacleIndex = 5, ObstacleTick = 1286, ZoneIndex = 3, ZoneTick = 1288,
             ObstacleEvent = (int)CardRushObstacleEvent.Smashed, ObstacleEventTick = 1290,
-            ZoneEvent = (int)CardRushZoneEvent.Dodged, ZoneEventTick = 1292, FinishTick = 1293, CleanStreak = 4,
+            ZoneEvent = (int)CardRushZoneEvent.Dodged, ZoneEventTick = 1292, FinishTick = 1293, CleanStreak = 4, WhiffTick = 1294,
             BestCleanStreak = 9, Hits = 3,
         };
 
@@ -52,11 +52,11 @@ namespace LOP.Tests
             cardObstacleIndex = s.ObstacleIndex, cardObstacleTick = s.ObstacleTick, cardZoneIndex = s.ZoneIndex,
             cardZoneTick = s.ZoneTick, cardObstacleEvent = s.ObstacleEvent, cardObstacleEventTick = s.ObstacleEventTick,
             cardZoneEvent = s.ZoneEvent, cardZoneEventTick = s.ZoneEventTick, cardFinishTick = s.FinishTick,
-            cardCleanStreak = s.CleanStreak,
+            cardCleanStreak = s.CleanStreak, cardWhiffTick = s.WhiffTick,
         };
 
         [Test]
-        public void 열여섯_칸이_같으면_그대로()
+        public void 열일곱_칸이_같으면_그대로()
         {
             var handler = Make(out _);
             Assert.IsTrue(handler.Matches(Tick, SnapOf(Saved)));
@@ -79,6 +79,7 @@ namespace LOP.Tests
         [TestCase("ZoneEventTick")]
         [TestCase("FinishTick")]
         [TestCase("CleanStreak")]
+        [TestCase("WhiffTick")]
         public void 한_칸만_달라도_되감는다(string field)
         {
             var handler = Make(out _);
@@ -101,6 +102,7 @@ namespace LOP.Tests
                 case "ZoneEventTick": snap.cardZoneEventTick += 1; break;
                 case "FinishTick": snap.cardFinishTick = 0; break;                      // 서버는 아직 못 들어옴
                 case "CleanStreak": snap.cardCleanStreak = 0; break;
+                case "WhiffTick": snap.cardWhiffTick += 1; break;
                 default: throw new System.ArgumentException(field);
             }
             Assert.IsFalse(handler.Matches(Tick, snap), $"{field}가 다른데 맞다고 했다");
@@ -116,7 +118,7 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 서버_값_16칸을_넣고_최고_연속과_맞은_수는_지킨다()
+        public void 서버_값_17칸을_넣고_최고_연속과_맞은_수는_지킨다()
         {
             var handler = Make(out var runner);
             var server = new CardRushRunnerState
@@ -124,7 +126,7 @@ namespace LOP.Tests
                 PosMm = 54321, UseCount = 22, SpinStartTick = 2001, DashStartTick = 2002, BlockEndTick = 2003,
                 StunEndTick = 2004, ObstacleIndex = 7, ObstacleTick = 2006, ZoneIndex = 4, ZoneTick = 2008,
                 ObstacleEvent = (int)CardRushObstacleEvent.Tumbled, ObstacleEventTick = 2010,
-                ZoneEvent = (int)CardRushZoneEvent.Held, ZoneEventTick = 2012, FinishTick = 2013, CleanStreak = 2,
+                ZoneEvent = (int)CardRushZoneEvent.Held, ZoneEventTick = 2012, FinishTick = 2013, CleanStreak = 2, WhiffTick = 2014,
             };
 
             handler.ApplyAuthoritative(runner, SnapOf(server), 0.02f);
@@ -146,25 +148,26 @@ namespace LOP.Tests
             Assert.AreEqual(2012, s.ZoneEventTick);
             Assert.AreEqual(2013, s.FinishTick);
             Assert.AreEqual(2, s.CleanStreak);
+            Assert.AreEqual(2014, s.WhiffTick);
             Assert.AreEqual(9, s.BestCleanStreak, "서버가 안 보내는 값 — 0으로 지워지면 결과 통계가 틀린다");
             Assert.AreEqual(3, s.Hits, "서버가 안 보내는 값");
 
             //  적용한 뒤엔 같은 스냅과 맞는다 — 적용과 비교가 같은 칸을 본다.
             server.BestCleanStreak = s.BestCleanStreak;
             server.Hits = s.Hits;
-            Assert.AreEqual(server, s, "16칸 + 지킨 두 칸 = 상태 전부");
+            Assert.AreEqual(server, s, "17칸 + 지킨 두 칸 = 상태 전부");
         }
 
-        //  16칸은 ForMember 없이 이름만으로 옮겨진다 — 이름이 어긋나면 클라가 늘 0을 보고 매 스냅 되감는다.
+        //  17칸은 ForMember 없이 이름만으로 옮겨진다 — 이름이 어긋나면 클라가 늘 0을 보고 매 스냅 되감는다.
         [Test]
-        public void 열여섯_칸이_와이어와_AutoMapper를_건넌다()
+        public void 열일곱_칸이_와이어와_AutoMapper를_건넌다()
         {
             var sent = new global::EntitySnap
             {
                 CardPosMm = 12345, CardUseCount = 17, CardSpinStartTick = 1281, CardDashStartTick = 1282, CardBlockEndTick = 1283,
                 CardStunEndTick = 1284, CardObstacleIndex = 5, CardObstacleTick = 1286, CardZoneIndex = 3, CardZoneTick = 1288,
                 CardObstacleEvent = 1, CardObstacleEventTick = 1290, CardZoneEvent = 2, CardZoneEventTick = 1292,
-                CardFinishTick = 1293, CardCleanStreak = 4,
+                CardFinishTick = 1293, CardCleanStreak = 4, CardWhiffTick = 1294,
             };
             var proto = global::EntitySnap.Parser.ParseFrom(Google.Protobuf.MessageExtensions.ToByteArray(sent));
 
@@ -186,6 +189,7 @@ namespace LOP.Tests
             Assert.AreEqual(1292, m.cardZoneEventTick);
             Assert.AreEqual(1293, m.cardFinishTick);
             Assert.AreEqual(4, m.cardCleanStreak);
+            Assert.AreEqual(1294, m.cardWhiffTick);
         }
 
         [Test]
@@ -203,14 +207,14 @@ namespace LOP.Tests
         // ── 남의 몸 상태 적용(Task 8 리뷰에서 넘어온 빈칸) ────
 
         [Test]
-        public void 남의_몸_스냅은_카드_러시_상태_16칸을_넣는다()
+        public void 남의_몸_스냅은_카드_러시_상태_17칸을_넣는다()
         {
             var entity = new GameFramework.World.Entity("other");
             entity.Add(new CardRushRunner { State = new CardRushRunnerState { BestCleanStreak = 9, Hits = 4 } });
             var snap = new EntitySnap
             {
                 entityId = "other", cardPosMm = 12345, cardUseCount = 6, cardStunEndTick = 1300, cardObstacleIndex = 2,
-                cardZoneEvent = (int)CardRushZoneEvent.Hit, cardFinishTick = 1500, cardCleanStreak = 3,
+                cardZoneEvent = (int)CardRushZoneEvent.Hit, cardFinishTick = 1500, cardCleanStreak = 3, cardWhiffTick = 1450,
             };
 
             //  핸들러는 의존이 스무 개 넘는다 — 이 경로는 그중 아무것도 안 쓰므로 생성자 없이 만든다.
@@ -219,7 +223,7 @@ namespace LOP.Tests
             typeof(GameEntityMessageHandler).GetMethod("ApplyRemoteSnapState", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                 .Invoke(handler, new object[] { entity, new global::EntitySnap(), snap });
 
-            //  남의 몸도 내 보정과 같은 함수(ApplyCardState)를 지난다 — 16칸 하나하나는 그 시험이 본다.
+            //  남의 몸도 내 보정과 같은 함수(ApplyCardState)를 지난다 — 17칸 하나하나는 그 시험이 본다.
             var s = entity.Get<CardRushRunner>().State;
             Assert.AreEqual(12345, s.PosMm);
             Assert.AreEqual(6, s.UseCount);
@@ -228,6 +232,7 @@ namespace LOP.Tests
             Assert.AreEqual((int)CardRushZoneEvent.Hit, s.ZoneEvent);
             Assert.AreEqual(1500, s.FinishTick);
             Assert.AreEqual(3, s.CleanStreak);
+            Assert.AreEqual(1450, s.WhiffTick, "헛방 틱(52)도 남의 몸에");
             Assert.AreEqual(9, s.BestCleanStreak, "최고 연속은 지킨다");
             Assert.AreEqual(4, s.Hits, "맞은 수는 서버가 안 보낸다 — 그대로");
         }

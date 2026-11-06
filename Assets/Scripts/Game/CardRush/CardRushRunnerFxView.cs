@@ -30,8 +30,10 @@ namespace LOP
         public const float ShieldRimAlpha = 0.85f;
         public static readonly Color ShieldColor = new Color(0.96f, 0.77f, 0.26f);
 
-        /// <summary>대시 — 발밑 뒤로 파란 줄 셋, 0.3초(15틱)에 옅어진다.</summary>
-        public const int StreakTicks = 15;
+        /// <summary>
+        /// 대시 — 발밑 뒤로 파란 줄 셋. 대시 시작 틱은 대시 끝(14틱째)에 상태에서 지워지므로 그 전에 다 옅어지게 12틱(리뷰 m2 — 15틱이면 끝 20%가 툭 꺼졌다).
+        /// </summary>
+        public const int StreakTicks = CardRushRules.DashTicks - 2;
         public const float StreakLength = 1.1f;
         public static readonly Color StreakColor = new Color(0.24f, 0.53f, 0.91f);
 
@@ -324,13 +326,13 @@ namespace LOP
             }
 
             float hammer01 = -1f;
-            bool swung = s.ObstacleEvent == (int)CardRushObstacleEvent.Smashed || s.ObstacleEvent == (int)CardRushObstacleEvent.Whiff;
-            if (swung && d >= s.ObstacleEventTick && d < s.ObstacleEventTick + CardRushGag.SmashTicks)
+            long swing = CardRushGag.SwingTick(s);
+            if (swing != 0 && d >= swing && d < swing + CardRushGag.SmashTicks)
             {
-                hammer01 = (float)((d - s.ObstacleEventTick) / CardRushGag.SmashTicks);
+                hammer01 = (float)((d - swing) / CardRushGag.SmashTicks);
             }
 
-            //  말풍선 — 장애물·구역 결과 중 늦은 것 하나.
+            //  말풍선 — 장애물 결과·구역 결과·헛방 중 늦은 것 하나.
             string text = null;
             bool good = false;
             float bubble01 = 0f;
@@ -345,6 +347,10 @@ namespace LOP
             {
                 text = zoneText; good = zoneGood; at = s.ZoneEventTick;
             }
+            if (In(d, s.WhiffTick) && s.WhiffTick >= at)
+            {
+                text = "헛방"; good = false; at = s.WhiffTick;
+            }
             if (text != null) bubble01 = (float)((d - at) / CardRushRunnerFxView.BubbleTicks);
 
             return new CardRushPropsLook(shield01, shieldAlpha, shieldScale, streak, hammer01, text, good, bubble01);
@@ -358,7 +364,6 @@ namespace LOP
             return ev switch
             {
                 CardRushObstacleEvent.Smashed => "와장창!",
-                CardRushObstacleEvent.Whiff => "헛방",
                 CardRushObstacleEvent.Blocked => "막음!",
                 CardRushObstacleEvent.Tumbled => "꽈당",
                 _ => null,

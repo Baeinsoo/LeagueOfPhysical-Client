@@ -44,6 +44,7 @@ namespace LOP
         public long cardZoneEventTick { get; set; }
         public long cardFinishTick { get; set; }        // CardRush: 완주 틱. 0 = 아직
         public int cardCleanStreak { get; set; }        // CardRush: 지금 연속 무사 통과
+        public long cardWhiffTick { get; set; }         // CardRush: 마지막 헛방 틱. 0 = 없음
         public float postureAxis { get; set; }    // Skydive: 0 = 대자, 1 = 다이브
         public bool gliding { get; set; }         // Skydive: 패러세일을 폈나
         public float stamina { get; set; }        // Skydive: 남은 활공 자원

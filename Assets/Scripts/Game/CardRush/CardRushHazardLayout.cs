@@ -77,16 +77,17 @@ namespace LOP
             if (index == s.ObstacleIndex) return Current(o, s.ObstacleTick, d, tuning);
             if (index < s.ObstacleIndex - 1) return Gone(o.Variant);
 
-            //  바로 앞에 치운 것. 헛방은 번호를 안 바꾸고 결과 칸만 덮어써서 그 장애물의 결과를 잃는다 — 이미 지나간 것으로 본다.
+            //  바로 앞에 치운 것 — 결과 칸은 늘 이 장애물의 결과다(헛방은 따로 WhiffTick).
             var ev = (CardRushObstacleEvent)s.ObstacleEvent;
             long at = s.ObstacleEventTick;
-            if (ev == CardRushObstacleEvent.None || ev == CardRushObstacleEvent.Whiff) return Gone(o.Variant);
+            if (ev == CardRushObstacleEvent.None) return Gone(o.Variant);
 
             if (at > d)
             {
                 //  그림에선 아직 살아 있다(남의 레인 — 상태가 그림보다 앞섰다).
                 if (o.Kind == CardRushObstacleKind.Barricade)
                 {
+                    //  기다리다 부순 바리케이드는 닿은 틱을 모른다(치우면 0) — 남의 레인에선 결과 전 ≤5틱 동안 바닥에 서 있게 그린다(리뷰 m1, 받아들임).
                     //  올라감으로 치웠으면 닿은 틱을 안다(결과 틱 − 기다림) — 올라가는 모습까지 그린다.
                     return ev == CardRushObstacleEvent.Lifted
                         ? Current(o, at - tuning.BarricadeWaitTicks, d, tuning)

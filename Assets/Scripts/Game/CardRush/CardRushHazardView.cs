@@ -324,6 +324,11 @@ namespace LOP
         public const int ZoneBlinkTicks = 4;
         public const int ShardCount = 6;
         public const float RockBehindMeters = 1f;
+        /// <summary>구역 남은 초는 레인 오른쪽 가장자리, 몸 앞 1 m(바닥 안으로 자름) — 바닥 가운데·앞 끝은 그 안에 선 내 몸·머리 위 카드가 가렸다(리뷰 I2).</summary>
+        public const float ZoneLabelAheadMm = 1000f;
+        public static float ZoneLabelRight(float laneSpacing) => laneSpacing * 0.5f;
+        public static float ZoneLabelAlongMm(int fromMm, int toMm, float bodyMm)
+            => float.IsInfinity(bodyMm) ? (fromMm + toMm) * 0.5f : Mathf.Clamp(bodyMm + ZoneLabelAheadMm, fromMm, toMm);
 
         private readonly Transform root;
         private readonly Vector3 origin;
@@ -409,7 +414,7 @@ namespace LOP
                 zones.Add(index, z);
             }
             bool behind = (look.FromMm + look.ToMm) * 0.5f < bodyMm - RockBehindMeters * 1000f;
-            z.Place(look, tick, cam, behind == false);
+            z.Place(look, tick, cam, behind == false, bodyMm);
         }
 
         private void DropObstaclesExcept(HashSet<int> alive)
@@ -771,7 +776,7 @@ namespace LOP
             private Renderer Dash(Vector3 at, Vector3 size)
                 => CardRushDraw.Box("Dash", Root, at, size, lane.materials.Clear, lane.hideFlags).GetComponent<Renderer>();
 
-            public void Place(in CardRushZoneLook look, long tick, Camera cam, bool rockShown)
+            public void Place(in CardRushZoneLook look, long tick, Camera cam, bool rockShown, float bodyMm)
             {
                 var block = lane.block;
                 bool warning = look.Phase == CardRushZonePhase.Warning;
@@ -810,8 +815,9 @@ namespace LOP
 
                 if (label != null)
                 {
-                    //  바닥 앞쪽 끝 — 가운데는 그 안에 선 내 몸·머리 위 카드가 가렸다(실제 판 스크린샷).
-                    var at = Root.position + lane.forward * Mathf.Max(0f, length * 0.5f - 0.4f) + Vector3.up * 0.35f;
+                    var at = Root.position + lane.right * ZoneLabelRight(lane.laneSpacing)
+                           + lane.forward * (ZoneLabelAlongMm(look.FromMm, look.ToMm, bodyMm) - (look.FromMm + look.ToMm) * 0.5f) / 1000f
+                           + Vector3.up * 0.35f;
                     if (warning && cam != null) label.Show(look.SecondsLeft.ToString("0.0"), at, Color.white, 1f, 0.9f, cam);
                     else label.Hide();
                 }

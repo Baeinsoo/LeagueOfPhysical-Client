@@ -94,7 +94,7 @@ namespace LOP.Tests
             Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(dash, 1000 + CardRushRules.DashTicks, Tuning).kind);
             Assert.Greater(CardRushGag.PoseAt(CardRushGagKind.Dash, 0.5f).EulerDeg.x, 19f, "앞으로 20° 숙임");
 
-            var whiff = new CardRushRunnerState { ObstacleEvent = (int)CardRushObstacleEvent.Whiff, ObstacleEventTick = 1000 };
+            var whiff = new CardRushRunnerState { WhiffTick = 1000 };
             Assert.AreEqual(CardRushGagKind.Smash, CardRushGag.Phase(whiff, 1005, Tuning).kind, "헛방도 망치를 내리친다");
             Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(whiff, 1000 + CardRushGag.SmashTicks, Tuning).kind);
 

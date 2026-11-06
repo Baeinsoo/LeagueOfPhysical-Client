@@ -148,8 +148,8 @@ namespace LOP.Tests
         public void 대시_줄_망치_말풍선은_결과_틱에서_잰다()
         {
             var dash = new CardRushRunnerState { DashStartTick = 1000 };
-            Assert.AreEqual(0.5f, CardRushRunnerProps.Look(dash, 1007.5).Streak01, 1e-5f);
-            Assert.Less(CardRushRunnerProps.Look(dash, 1015).Streak01, 0f, "0.3초에 사라진다");
+            Assert.AreEqual(0.5f, CardRushRunnerProps.Look(dash, 1000 + CardRushRunnerFxView.StreakTicks * 0.5).Streak01, 1e-5f);
+            Assert.Less(CardRushRunnerProps.Look(dash, 1000 + CardRushRunnerFxView.StreakTicks).Streak01, 0f, "대시 안에 사라진다");
 
             var smash = new CardRushRunnerState { ObstacleEvent = (int)CardRushObstacleEvent.Smashed, ObstacleEventTick = 2000 };
             var look = CardRushRunnerProps.Look(smash, 2005);
@@ -170,6 +170,46 @@ namespace LOP.Tests
                 "기다려 올라간 건 말풍선 없음");
         }
 
+        //  리뷰 I1: 막음 직후 헛방 — 막음 그림(장애물 결과)은 0.35초 그대로 가고, 망치·말풍선은 헛방을 따른다.
+        [Test]
+        public void 막음_직후_헛방해도_막음_그림은_간다()
+        {
+            var s = new CardRushRunnerState { ObstacleIndex = 2, ObstacleEvent = (int)CardRushObstacleEvent.Blocked, ObstacleEventTick = 5000, WhiffTick = 5005 };
+            Assert.AreEqual(CardRushObstaclePhase.Blocked, CardRushHazardLayout.ObstacleLook(s, 1, 5010, 26000f, track, tuning).Phase);
+            var look = CardRushRunnerProps.Look(s, 5010);
+            Assert.AreEqual("헛방", look.Bubble, "늦은 결과 하나");
+            Assert.AreEqual(0.5f, look.Hammer01, 1e-5f);
+            Assert.AreEqual("막음!", CardRushRunnerProps.Look(s, 5003).Bubble);
+            Assert.Less(CardRushRunnerProps.Look(s, 5003).Hammer01, 0f, "헛방 전엔 망치 없음");
+        }
+
+        //  남의 레인: 올라감 결과가 그림 틱 뒤이고 그 뒤에 헛방이 있어도 그림 틱엔 올라가는 중이다.
+        [Test]
+        public void 남의_레인_올라감_뒤_헛방이_있어도_올라가는_중()
+        {
+            var s = new CardRushRunnerState { ObstacleIndex = 1, ObstacleEvent = (int)CardRushObstacleEvent.Lifted, ObstacleEventTick = 5000, WhiffTick = 5002 };
+            Assert.AreEqual(CardRushObstaclePhase.Lifting, CardRushHazardLayout.ObstacleLook(s, 0, 4997, 19510f, track, tuning).Phase);
+        }
+
+        //  리뷰 m2: 대시 줄은 대시 틱 안에 다 옅어진다 — 끝 틱에 시작 틱이 0이 되며 꺼질 때 이미 투명.
+        [Test]
+        public void 대시_줄은_대시_안에_다_옅어진다()
+        {
+            Assert.LessOrEqual(CardRushRunnerFxView.StreakTicks, CardRushRules.DashTicks - 2);
+            var s = new CardRushRunnerState { DashStartTick = 1000 };
+            Assert.Less(CardRushRunnerProps.Look(s, 1000 + CardRushRules.DashTicks - 2).Streak01, 0f, "시작 틱이 지워지기 전 마지막 그림 틱엔 이미 없다");
+        }
+
+        //  리뷰 I2: 내 바닥의 남은 초가 머리 위 카드에 가렸다 — 레인 오른쪽 가장자리, 몸 앞 1 m(바닥 안으로 자름).
+        [Test]
+        public void 구역_남은_초는_레인_오른쪽_몸_앞_1m()
+        {
+            Assert.AreEqual(1.3f, CardRushLaneHazards.ZoneLabelRight(2.6f), 1e-5f);
+            Assert.AreEqual(16000f, CardRushLaneHazards.ZoneLabelAlongMm(15000, 18500, 15000f), 1e-3f);
+            Assert.AreEqual(15000f, CardRushLaneHazards.ZoneLabelAlongMm(15000, 18500, 13000f), 1e-3f, "바닥 앞이면 바닥 시작");
+            Assert.AreEqual(18500f, CardRushLaneHazards.ZoneLabelAlongMm(15000, 18500, 18000f), 1e-3f, "바닥 끝 너머로 안 간다");
+        }
+
         [Test]
         public void 소품도_콜라이더가_없다()
         {
@@ -179,7 +219,7 @@ namespace LOP.Tests
             try
             {
                 var props = new CardRushRunnerProps(parent.transform, "Props", fxMaterials);
-                var look = CardRushRunnerProps.Look(new CardRushRunnerState { BlockEndTick = 1050, DashStartTick = 1010, ObstacleEvent = (int)CardRushObstacleEvent.Whiff, ObstacleEventTick = 1012 }, 1015);
+                var look = CardRushRunnerProps.Look(new CardRushRunnerState { BlockEndTick = 1050, DashStartTick = 1010, WhiffTick = 1012 }, 1015);
                 props.Place(look, Vector3.zero, Vector3.up * 1.2f, Vector3.forward, null, true, true);
                 Assert.IsTrue(props.ShieldVisible);
                 Assert.IsTrue(props.StreaksVisible);

@@ -169,6 +169,18 @@ namespace LOP.Tests
             Assert.AreEqual(1f, At(s, 1190).FlipT01, 1e-6f, "뒷면은 다 펴진 채");
         }
 
+        //  리뷰 m2: 남의 최신 상태엔 아직 그려지지 않은 꽈당의 기절 끝 틱이 있다 — 기절이 시작한 틱(결과 틱)부터만 흐리게.
+        [Test]
+        public void 남의_카드는_기절이_시작한_뒤에만_흐리다()
+        {
+            var s = new CardRushRunnerState { StunEndTick = 2035, ObstacleEvent = (int)CardRushObstacleEvent.Tumbled, ObstacleEventTick = 2000 };
+            Assert.IsFalse(CardRushHeadCard.ComputeOther(s, 1997, G, Lane, track).Dim, "꽈당 그림 전");
+            Assert.IsTrue(CardRushHeadCard.ComputeOther(s, 2000, G, Lane, track).Dim);
+            var hit = new CardRushRunnerState { StunEndTick = 3050, ZoneEvent = (int)CardRushZoneEvent.Hit, ZoneEventTick = 3000 };
+            Assert.IsFalse(At(hit, 2998).Dim);
+            Assert.IsTrue(At(hit, 3010).Dim);
+        }
+
         //  남의 상태는 최신 스냅 — 그림 틱이 마지막 사용(돌기 시작 − 쿨다운)보다 이르면 그 전 카드는 상태에 없다. 뒷면으로 남는다.
         [Test]
         public void 남의_카드는_그림_틱이_마지막_사용_전이면_뒷면()

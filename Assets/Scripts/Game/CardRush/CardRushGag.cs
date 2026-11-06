@@ -74,9 +74,9 @@ namespace LOP
             if (s.FinishTick != 0 && In(d, s.FinishTick, FinishTicks))
                 return (CardRushGagKind.Finish, Of(d, s.FinishTick, FinishTicks));
 
-            bool swung = s.ObstacleEvent == (int)CardRushObstacleEvent.Smashed || s.ObstacleEvent == (int)CardRushObstacleEvent.Whiff;
-            if (swung && In(d, s.ObstacleEventTick, SmashTicks))
-                return (CardRushGagKind.Smash, Of(d, s.ObstacleEventTick, SmashTicks));
+            long swing = SwingTick(s);
+            if (In(d, swing, SmashTicks))
+                return (CardRushGagKind.Smash, Of(d, swing, SmashTicks));
 
             if (s.BlockEndTick != 0 && In(d, s.BlockEndTick - CardRushRules.BlockTicks, CardRushRules.BlockTicks))
                 return (CardRushGagKind.Block, Of(d, s.BlockEndTick - CardRushRules.BlockTicks, CardRushRules.BlockTicks));
@@ -89,6 +89,13 @@ namespace LOP
                 return (CardRushGagKind.Wait, Of(d, s.ObstacleTick, t.BarricadeWaitTicks));
 
             return (CardRushGagKind.None, 0f);
+        }
+
+        /// <summary>마지막으로 망치를 휘두른 틱 — 와장창(장애물 결과)과 헛방(헛방 틱) 중 늦은 것. 0 = 없음.</summary>
+        public static long SwingTick(in CardRushRunnerState s)
+        {
+            long smashed = s.ObstacleEvent == (int)CardRushObstacleEvent.Smashed ? s.ObstacleEventTick : 0;
+            return System.Math.Max(smashed, s.WhiffTick);
         }
 
         private static bool In(double d, long start, int length) => start != 0 && length > 0 && d >= start && d < start + length;

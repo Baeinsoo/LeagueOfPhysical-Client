@@ -49,7 +49,7 @@ namespace LOP
                 c => new OwnerPredictedSyncPolicy(() => c.Resolve<IGameDataStore>().userEntityId),
                 Lifetime.Singleton);
 
-            //  위치 말고도 거리·카드·장애물·구역 등 16칸을 서버 판정에 맞춘다.
+            //  위치 말고도 거리·카드·장애물·구역 등 17칸을 서버 판정에 맞춘다.
             builder.Register<IServerCorrectionHandler>(
                 c => new CardRushServerCorrectionHandler(c.Resolve<CardRushWorld>()), Lifetime.Singleton);
             //  외삽 대상이 없다(예측 아니면 보간) — EntityBinder 생성자 의존이라 등록만 한다.

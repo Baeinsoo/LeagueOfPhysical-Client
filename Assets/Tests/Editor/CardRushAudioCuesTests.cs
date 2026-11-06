@@ -60,7 +60,8 @@ namespace LOP.Tests
         [Test]
         public void 결과마다_제_소리()
         {
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Whiff }, Step(Obstacle(CardRushObstacleEvent.Whiff, 100)));
+            var whiff = last; whiff.WhiffTick = 100;
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Whiff }, Step(whiff), "헛방은 헛방 틱으로");
             CollectionAssert.AreEqual(new[] { CardRushSfx.Lift }, Step(Obstacle(CardRushObstacleEvent.Lifted, 200)));
             CollectionAssert.AreEqual(new[] { CardRushSfx.Clang }, Step(Obstacle(CardRushObstacleEvent.Blocked, 300)), "막음");
             CollectionAssert.AreEqual(new[] { CardRushSfx.Tumble }, Step(Obstacle(CardRushObstacleEvent.Tumbled, 400)), "꽈당");
@@ -71,6 +72,16 @@ namespace LOP.Tests
             CollectionAssert.AreEqual(new[] { CardRushSfx.Squash }, Step(hit), "으악");
             var dodged = hit; dodged.ZoneEvent = (int)CardRushZoneEvent.Dodged; dodged.ZoneEventTick = 700;
             CollectionAssert.IsEmpty(Step(dodged), "빠져나감은 조용");
+        }
+
+        //  리뷰 I1: 막음 결과 칸은 그대로 두고 헛방 틱만 바뀐다 — 헛방 소리 하나, 막음은 다시 안 운다.
+        [Test]
+        public void 막음_직후_헛방은_헛방만_운다()
+        {
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Clang }, Step(Obstacle(CardRushObstacleEvent.Blocked, 500)));
+            var whiff = Obstacle(CardRushObstacleEvent.Blocked, 500); whiff.WhiffTick = 505;
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Whiff }, Step(whiff));
+            CollectionAssert.IsEmpty(Step(whiff), "되감아 같은 헛방");
         }
 
         [Test]

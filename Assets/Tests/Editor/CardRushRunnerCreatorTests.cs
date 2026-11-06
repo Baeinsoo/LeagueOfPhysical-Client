@@ -14,7 +14,7 @@ namespace LOP.Tests
         {
             var rules = new CardRushMapRulesField();
             //  비스듬한 맵 — 앞 방향이 축과 나란하지 않아도 옆 거리만 본다.
-            rules.Set(CardRushTheme.StoneBridge, 40, 2.2f, 2.6f, new Vector3(5f, 1f, -3f), new Vector3(1f, 0f, 2f));
+            rules.Set(CardRushTheme.StoneBridge, 2.6f, new Vector3(5f, 1f, -3f), new Vector3(1f, 0f, 2f));
             return rules;
         }
 

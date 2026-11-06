@@ -183,7 +183,7 @@ namespace LOP
             tex.Apply();
             owned.Add(tex);
             var shader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (shader == null) shader = Shader.Find("Unlit/Texture");
+            if (shader == null) shader = Shader.Find("Sprites/Default");   //  엔진 리소스라 폰 빌드에도 있다(Unlit/Texture는 안 담긴다)
             var m = new Material(shader) { name = "CardRush_Checker", hideFlags = HideFlags.DontSave };
             if (m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", tex);
             m.mainTexture = tex;

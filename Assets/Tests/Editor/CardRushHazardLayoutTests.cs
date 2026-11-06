@@ -162,5 +162,18 @@ namespace LOP.Tests
             Assert.AreEqual(10 * 0.02f, z.SecondsLeft, 1e-5f);
             Assert.AreEqual(CardRushZonePhase.Hidden, CardRushHazardLayout.ZoneLook(s, 0, 990, track).Phase, "켜지기 전(1070 − 70)");
         }
+
+        //  최종 리뷰 m1: 경고 중에 완주하면 시뮬은 완주 뒤 멈춰 그 구역이 영영 안 터진다(ZoneTick 그대로).
+        //  그림은 결승 틱부터 그 구역을 걷는다 — "0.0초"·바닥에 놓인 바위·화난 술래가 남지 않게. 상태는 그대로 둔다.
+        [Test]
+        public void 경고_중_완주하면_결승_틱부터_그_구역을_안_그린다()
+        {
+            var s = new CardRushRunnerState { ZoneIndex = 0, ZoneTick = 1000, FinishTick = 1030, PosMm = 140000 };
+            Assert.AreEqual(CardRushZonePhase.Warning, CardRushHazardLayout.ZoneLook(s, 0, 1029, track).Phase, "결승 전엔 그대로 경고");
+            var after = CardRushHazardLayout.ZoneLook(s, 0, 1100, track);
+            Assert.AreNotEqual(CardRushZonePhase.Warning, after.Phase);
+            Assert.Less(after.RockHeight, 0f, "바위도 없다");
+            Assert.AreNotEqual(CardRushZonePhase.Warning, CardRushHazardLayout.ZoneLook(s, 0, 1030, track).Phase, "결승 틱부터");
+        }
     }
 }

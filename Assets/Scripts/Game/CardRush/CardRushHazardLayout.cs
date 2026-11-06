@@ -161,7 +161,8 @@ namespace LOP
             var z = track.Zones[index];
 
             if (index > s.ZoneIndex) return Hidden(z);
-            if (index == s.ZoneIndex) return Warning(z, s.ZoneTick, d);
+            //  경고 중에 완주하면 시뮬은 멈춰 이 구역이 영영 안 터진다 — 결승 틱부터는 걷는다("0.0초"·바위·화난 술래가 남지 않게, 최종 리뷰 m1).
+            if (index == s.ZoneIndex) return s.FinishTick != 0 && d >= s.FinishTick ? Hidden(z) : Warning(z, s.ZoneTick, d);
             if (index < s.ZoneIndex - 1) return new CardRushZoneLook(CardRushZonePhase.Gone, z.FromMm, z.ToMm, 0f, 1f, -1f, 1f);
 
             long impact = s.ZoneEventTick;

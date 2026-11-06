@@ -346,6 +346,8 @@ namespace LOP
         private readonly HashSet<int> keep = new HashSet<int>();
 
         public GameObject Root => root.gameObject;
+        /// <summary>이 레인을 깐 출발점. 몸의 출발점이 바뀌면(규칙이 늦게 옴) 뷰가 새로 깐다.</summary>
+        public Vector3 Origin => origin;
 
         public CardRushLaneHazards(Transform parent, string name, Vector3 laneOrigin, Vector3 laneForward, float laneSpacing,
                                    CardRushStageMaterials materials, HideFlags hideFlags = HideFlags.None, bool labels = true)
@@ -903,7 +905,14 @@ namespace LOP
                     continue;
                 }
                 seen.Add(entity.Id);
-                if (lanes.TryGetValue(entity.Id, out var lane) == false)
+                //  규칙보다 먼저 생긴 몸은 규칙이 오면 출발점이 바뀐다 — 옛 출발점에 깐 장애물·구역을 걷고 다시 깐다(최종 리뷰 m3).
+                if (lanes.TryGetValue(entity.Id, out var lane) && lane.Origin != runner.LaneOrigin)
+                {
+                    lane.Destroy();
+                    lanes.Remove(entity.Id);
+                    lane = null;
+                }
+                if (lane == null)
                 {
                     lane = new CardRushLaneHazards(root.transform, "Lane " + entity.Id, runner.LaneOrigin, rules.Forward, rules.LaneSpacing, materials);
                     lanes.Add(entity.Id, lane);

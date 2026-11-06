@@ -149,6 +149,8 @@ namespace LOP
         private readonly CameraController cameraController;
 
         private readonly Dictionary<string, GameObject> lanes = new Dictionary<string, GameObject>();
+        //  줄을 깐 출발점 — 규칙보다 먼저 생긴 몸은 규칙이 오면 출발점이 바뀐다(최종 리뷰 m3). 바뀌면 다시 깐다.
+        private readonly Dictionary<string, Vector3> laneOrigins = new Dictionary<string, Vector3>();
         private readonly HashSet<string> seen = new HashSet<string>();
         private readonly List<string> gone = new List<string>();
         private CardRushStageMaterials materials;
@@ -217,10 +219,16 @@ namespace LOP
                     continue;
                 }
                 seen.Add(entity.Id);
+                if (lanes.TryGetValue(entity.Id, out var built) && laneOrigins[entity.Id] != runner.LaneOrigin)
+                {
+                    CardRushGagFx.DestroyObject(built);
+                    lanes.Remove(entity.Id);
+                }
                 if (lanes.ContainsKey(entity.Id) == false)
                 {
                     lanes.Add(entity.Id, CardRushTrackDecor.BuildLane(root.transform, "Lane " + entity.Id, runner.LaneOrigin, rules.Forward,
                                                                       rules.LaneSpacing, track.TrackMm, materials));
+                    laneOrigins[entity.Id] = runner.LaneOrigin;
                 }
                 if (entity.Id == me)
                 {
@@ -238,6 +246,7 @@ namespace LOP
             {
                 CardRushGagFx.DestroyObject(lanes[id]);
                 lanes.Remove(id);
+                laneOrigins.Remove(id);
             }
 
             var cam = cameraController != null && cameraController.MainCamera != null ? cameraController.MainCamera : Camera.main;
@@ -248,6 +257,7 @@ namespace LOP
         {
             foreach (var lane in lanes.Values) CardRushGagFx.DestroyObject(lane);
             lanes.Clear();
+            laneOrigins.Clear();
             banner?.Destroy();
             banner = null;
             CardRushGagFx.DestroyObject(finish);

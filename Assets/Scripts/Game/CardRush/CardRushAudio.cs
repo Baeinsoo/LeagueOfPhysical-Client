@@ -12,6 +12,8 @@ namespace LOP
     public struct CardRushAudioFrame
     {
         public bool Has;
+        public int ObstacleIndex;       // 상태 그대로 — 결과 칸은 그 앞 장애물(번호 − 1)의 결과다
+        public int ZoneIndex;           // 상태 그대로 — 결과 칸은 그 앞 구역(번호 − 1), 켜짐(ZoneTick)은 이 구역
         public int ObstacleEvent;
         public long ObstacleEventTick;
         public long WhiffTick;
@@ -27,6 +29,8 @@ namespace LOP
         public static CardRushAudioFrame Of(in CardRushRunnerState s, in CardRushHeadCardFace card) => new CardRushAudioFrame
         {
             Has = true,
+            ObstacleIndex = s.ObstacleIndex,
+            ZoneIndex = s.ZoneIndex,
             ObstacleEvent = s.ObstacleEvent,
             ObstacleEventTick = s.ObstacleEventTick,
             WhiffTick = s.WhiffTick,
@@ -42,17 +46,18 @@ namespace LOP
     }
 
     /// <summary>
-    /// 마지막으로 울린 결과의 (종류, 틱) — 갈래마다 하나. 되감기는 같은 결과를 같은 틱에 다시 만들고, 그 사이 장면이 옛 결과로
-    /// 잠깐 돌아갈 수도 있다. 울린 틱보다 늦은 결과(또는 같은 틱 다른 결과)만 새것이다(2차 m2 교훈 — (결과, 결과 틱)으로 거른다).
+    /// 마지막으로 울린 결과 — 장애물·구역은 (번호, 종류), 나머지는 틱. 되감기는 같은 결과를 다시 만들고, 그 사이 장면이 옛 결과로
+    /// 잠깐 돌아갈 수도 있다. 보정은 같은 장애물의 결과 틱을 늦게 옮기기도 한다(늦게 닿은 탭을 서버가 버림). 그래서 장애물·구역은
+    /// 틱이 아니라 번호로 거른다 — 더 뒤 번호이거나, 같은 번호인데 결과 종류가 바뀐 것만 새것이다(최종 리뷰 m2).
     /// </summary>
     public struct CardRushAudioMemory
     {
+        public int ObstacleIndex;       // 마지막으로 울린 장애물 번호(결과가 난 것)
         public int ObstacleEvent;
-        public long ObstacleTick;
         public long WhiffTick;
+        public int ZoneIndex;           // 마지막으로 결과를 울린 구역 번호
         public int ZoneEvent;
-        public long ZoneEventTick;
-        public long ZoneOnTick;
+        public int ZoneOnIndex;         // 마지막으로 켜짐을 울린 구역 번호
         public long ShieldTick;
         public long DashTick;
         public long FinishTick;
@@ -60,7 +65,7 @@ namespace LOP
 
     public static class CardRushAudioCues
     {
-        /// <summary>결과(종류, 틱)마다 소리 하나. 바뀐 장면에서 한 번, 되감아 같은 결과를 다시 봐도 조용하다.</summary>
+        /// <summary>장애물·구역 하나에 결과 소리 하나. 바뀐 장면에서 한 번, 되감아 같은 결과를 다시 봐도·결과 틱만 옮겨도 조용하다.</summary>
         public static void Detect(in CardRushAudioFrame prev, in CardRushAudioFrame now, List<CardRushSfx> into, ref CardRushAudioMemory memory)
         {
             if (now.Has == false)
@@ -75,10 +80,11 @@ namespace LOP
             }
 
             var ev = (CardRushObstacleEvent)now.ObstacleEvent;
-            if (ev != CardRushObstacleEvent.None && Fresh(memory.ObstacleEvent, memory.ObstacleTick, now.ObstacleEvent, now.ObstacleEventTick))
+            int cleared = now.ObstacleIndex - 1;   //  결과 칸은 늘 바로 앞에 치운 장애물의 것
+            if (ev != CardRushObstacleEvent.None && Fresh(memory.ObstacleIndex, memory.ObstacleEvent, cleared, now.ObstacleEvent))
             {
+                memory.ObstacleIndex = cleared;
                 memory.ObstacleEvent = now.ObstacleEvent;
-                memory.ObstacleTick = now.ObstacleEventTick;
                 into.Add(ev switch
                 {
                     CardRushObstacleEvent.Smashed => CardRushSfx.Smash,
@@ -96,18 +102,20 @@ namespace LOP
             }
 
             var zone = (CardRushZoneEvent)now.ZoneEvent;
-            if (zone != CardRushZoneEvent.None && Fresh(memory.ZoneEvent, memory.ZoneEventTick, now.ZoneEvent, now.ZoneEventTick))
+            int resolved = now.ZoneIndex - 1;
+            if (zone != CardRushZoneEvent.None && Fresh(memory.ZoneIndex, memory.ZoneEvent, resolved, now.ZoneEvent))
             {
+                memory.ZoneIndex = resolved;
                 memory.ZoneEvent = now.ZoneEvent;
-                memory.ZoneEventTick = now.ZoneEventTick;
                 //  빠져나간 것은 조용히 — 피한 것까지 울리면 구역마다 소리가 두 번이다(켜짐 + 결과).
                 if (zone == CardRushZoneEvent.Held) into.Add(CardRushSfx.Clang);
                 else if (zone == CardRushZoneEvent.Hit) into.Add(CardRushSfx.Squash);
             }
 
-            if (now.ZoneTick != 0 && now.ZoneTick > memory.ZoneOnTick)
+            //  켜짐은 구역마다 한 번 — 보정이 트리거 밟은 틱을 옮겨도 같은 구역이면 조용하다.
+            if (now.ZoneTick != 0 && now.ZoneIndex > memory.ZoneOnIndex)
             {
-                memory.ZoneOnTick = now.ZoneTick;
+                memory.ZoneOnIndex = now.ZoneIndex;
                 into.Add(CardRushSfx.ZoneOn);
             }
 
@@ -137,18 +145,19 @@ namespace LOP
             }
         }
 
-        //  늦은 틱이면 새 결과. 같은 틱이면 종류가 달라야(보정이 결과를 바꿈) 새것. 이른 틱은 되감기 중 옛 장면이다.
-        private static bool Fresh(int lastKind, long lastTick, int kind, long tick)
-            => tick > lastTick || (tick == lastTick && kind != lastKind);
+        //  뒤 번호면 새 결과. 같은 번호면 종류가 달라야(보정이 결과를 바꿈) 새것. 앞 번호는 되감기 중 옛 장면이다.
+        private static bool Fresh(int lastIndex, int lastKind, int index, int kind)
+            => index > lastIndex || (index == lastIndex && kind != lastKind);
 
         private static CardRushAudioMemory Baseline(in CardRushAudioFrame now) => new CardRushAudioMemory
         {
+            ObstacleIndex = now.ObstacleIndex - 1,
             ObstacleEvent = now.ObstacleEvent,
-            ObstacleTick = now.ObstacleEventTick,
             WhiffTick = now.WhiffTick,
+            ZoneIndex = now.ZoneIndex - 1,
             ZoneEvent = now.ZoneEvent,
-            ZoneEventTick = now.ZoneEventTick,
-            ZoneOnTick = now.ZoneTick,
+            //  켜진 채로 들어왔으면 이 구역은 이미 울린 셈 — 아니면 아직(앞 번호).
+            ZoneOnIndex = now.ZoneTick != 0 ? now.ZoneIndex : now.ZoneIndex - 1,
             ShieldTick = now.BlockEndTick,
             DashTick = now.DashStartTick,
             FinishTick = now.FinishTick,

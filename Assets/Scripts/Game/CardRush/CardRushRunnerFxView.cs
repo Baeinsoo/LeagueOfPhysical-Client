@@ -19,6 +19,13 @@ namespace LOP
             public readonly Quaternion Rotation;
             public readonly Vector3 Scale;
             public ModelRest(Transform model) { Position = model.localPosition; Rotation = model.localRotation; Scale = model.localScale; }
+
+            //  모델마다 처음 본 자세 = 쉴 때 자세. 자세를 주는 이 뷰와 그 자세를 벗겨 보는 머리 위 카드 뷰가 같은 값을 쓴다 —
+            //  누가 먼저 돌든(등록 순서) 몸개그를 받기 전의 값이라 순서에 기대지 않는다(최종 리뷰 m5).
+            private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Transform, object> rests
+                = new System.Runtime.CompilerServices.ConditionalWeakTable<Transform, object>();
+
+            public static ModelRest Of(Transform model) => (ModelRest)rests.GetValue(model, m => new ModelRest(m));
         }
 
         /// <summary>방패 — 노랑 반투명 구(반지름 0.9 m), 테두리만 진하게. 시작 0.06초(3틱) 커지며 나타나고 끝 0.1초(5틱) 옅어진다.</summary>
@@ -173,7 +180,7 @@ namespace LOP
                 Visual = visual,
                 Model = model,
                 Head = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Head) : null,
-                Rest = new ModelRest(model),
+                Rest = ModelRest.Of(model),
                 Fx = new CardRushGagFx(root.transform, "Gag " + id, materials),
                 Props = new CardRushRunnerProps(root.transform, "Props " + id, materials),
             };

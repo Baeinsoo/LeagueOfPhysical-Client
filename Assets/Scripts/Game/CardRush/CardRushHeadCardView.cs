@@ -27,6 +27,21 @@ namespace LOP
         /// <summary>카드 가운데(카메라 쪽으로 당기기 전). 옛 치비에서 맞춘 "머리 뼈 + 1.0 m" = 정수리 + 0.22 m를 정수리 기준으로 옮겼다.</summary>
         public static Vector3 CardCenter(Vector3 crown, float height) => crown + Vector3.up * (HeadCardLift + height * 0.5f);
 
+        /// <summary>
+        /// 카드 기준점 — 몸개그 자세를 벗긴 정수리. 자세를 받은 정수리를 따르면 꽈당 구르기 동안 카드가 몸 둘레를 돌고
+        /// 거꾸로 선 순간 바닥까지 내려간다(최종 리뷰 m5). 기절 중 흐린 카드는 제자리에 떠 있어야 한다.
+        /// 쉴 때 자세는 자세를 주는 뷰와 같은 값(<see cref="CardRushRunnerFxView.ModelRest.Of"/>)이라 두 뷰의 순서에 기대지 않는다.
+        /// </summary>
+        public static Vector3 Anchor(Transform visual, Transform model, Transform head)
+        {
+            if (visual == null || model == null || model == visual)
+            {
+                return ChibiHeadSpots.Crown(model, head);
+            }
+            var rest = CardRushRunnerFxView.ModelRest.Of(model);
+            return ChibiHeadSpots.CrownAtRest(visual, model, head, rest.Position, rest.Rotation, rest.Scale);
+        }
+
         public const float FlipSeconds = 0.06f;    //  뒷면 → 앞면 넘김(가로 찌그러짐)
         /// <summary>흐린 카드의 알파(시안) — 기절 중(돌지만 못 쓴다)·쿨다운 중.</summary>
         public const float DimAlpha = 0.35f;
@@ -196,7 +211,7 @@ namespace LOP
             }
 
             float height = mine ? MineHeight : OtherHeight;
-            var center = CardCenter(ChibiHeadSpots.Crown(entry.Model, entry.Head), height);
+            var center = CardCenter(Anchor(entry.Visual, entry.Model, entry.Head), height);
             if (cam != null)
             {
                 center += (cam.transform.position - center).normalized * TowardCamera;

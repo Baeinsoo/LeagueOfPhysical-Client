@@ -5,8 +5,8 @@ using UnityEngine;
 namespace LOP.Tests
 {
     /// <summary>
-    /// 소리 신호(spec 2026-11-05 §11.5): 결과(종류, 결과 틱) 하나에 소리 하나. 되감기가 같은 결과를 다시 만들어도 안 겹치고,
-    /// 보정이 결과 틱을 옮기면(다른 결과) 새로 운다. 내 몸만 — 남의 소리는 없다.
+    /// 소리 신호(spec 2026-11-05 §11.5): 장애물·구역 하나(번호)에 결과 소리 하나. 되감기가 같은 결과를 다시 만들어도,
+    /// 보정이 결과 틱만 옮겨도 안 겹친다(최종 리뷰 m2). 보정이 결과 종류를 바꾸면 새로 운다. 내 몸만 — 남의 소리는 없다.
     /// </summary>
     public class CardRushAudioCuesTests
     {
@@ -18,8 +18,8 @@ namespace LOP.Tests
         {
             memory = default;
             last = new CardRushAudioFrame { Has = true };
-            //  첫 장면은 기준만 — 시험마다 빈 장면으로 기준을 잡고 시작한다.
-            Step(last);
+            //  첫 장면은 기준만 — 시험마다 빈 장면으로 기준을 잡고 시작한다(앞 장면 없음 = 들어온 직후).
+            CardRushAudioCues.Detect(default, last, new List<CardRushSfx>(), ref memory);
         }
 
         private List<CardRushSfx> Step(CardRushAudioFrame now)
@@ -30,8 +30,9 @@ namespace LOP.Tests
             return into;
         }
 
-        private static CardRushAudioFrame Obstacle(CardRushObstacleEvent ev, long tick)
-            => new CardRushAudioFrame { Has = true, ObstacleEvent = (int)ev, ObstacleEventTick = tick };
+        //  index = 결과가 난 장애물 번호. 상태는 치운 뒤 다음 번호로 넘어가 있다(ObstacleIndex = index + 1).
+        private static CardRushAudioFrame Obstacle(CardRushObstacleEvent ev, long tick, int index = 0)
+            => new CardRushAudioFrame { Has = true, ObstacleEvent = (int)ev, ObstacleEventTick = tick, ObstacleIndex = index + 1 };
 
         [Test]
         public void 와장창은_한_번()
@@ -44,17 +45,25 @@ namespace LOP.Tests
         [Test]
         public void 되감아_같은_결과를_다시_봐도_한_번()
         {
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Smash }, Step(Obstacle(CardRushObstacleEvent.Smashed, 1000)));
-            CollectionAssert.IsEmpty(Step(Obstacle(CardRushObstacleEvent.Lifted, 900)), "되감기 중 옛 결과가 보여도 조용");
-            CollectionAssert.IsEmpty(Step(Obstacle(CardRushObstacleEvent.Smashed, 1000)), "다시 같은 결과");
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Smash }, Step(Obstacle(CardRushObstacleEvent.Smashed, 1000, 4)));
+            CollectionAssert.IsEmpty(Step(Obstacle(CardRushObstacleEvent.Lifted, 900, 3)), "되감기 중 옛 결과(앞 장애물)가 보여도 조용");
+            CollectionAssert.IsEmpty(Step(Obstacle(CardRushObstacleEvent.Smashed, 1000, 4)), "다시 같은 결과");
+        }
+
+        //  최종 리뷰 m2: 늦게 닿은 탭을 서버가 버려 진짜 결과가 더 늦은 틱으로 옮겨도 같은 장애물이면 다시 안 운다(끼익 두 번 금지).
+        [Test]
+        public void 보정이_결과_틱만_옮기면_같은_장애물은_한_번()
+        {
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Lift }, Step(Obstacle(CardRushObstacleEvent.Lifted, 100, 4)));
+            CollectionAssert.IsEmpty(Step(Obstacle(CardRushObstacleEvent.Lifted, 130, 4)), "같은 장애물, 늦은 결과 틱");
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Lift }, Step(Obstacle(CardRushObstacleEvent.Lifted, 400, 5)), "다음 장애물은 운다");
         }
 
         [Test]
-        public void 보정으로_결과_틱이_바뀌면_새_소리()
+        public void 보정이_결과_종류를_바꾸면_새_소리()
         {
-            Step(Obstacle(CardRushObstacleEvent.Smashed, 1000));
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Smash }, Step(Obstacle(CardRushObstacleEvent.Smashed, 1002)));
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Tumble }, Step(Obstacle(CardRushObstacleEvent.Tumbled, 1002)), "같은 틱 다른 결과");
+            Step(Obstacle(CardRushObstacleEvent.Smashed, 1000, 2));
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Tumble }, Step(Obstacle(CardRushObstacleEvent.Tumbled, 1002, 2)), "같은 장애물 다른 결과");
         }
 
         [Test]
@@ -62,15 +71,15 @@ namespace LOP.Tests
         {
             var whiff = last; whiff.WhiffTick = 100;
             CollectionAssert.AreEqual(new[] { CardRushSfx.Whiff }, Step(whiff), "헛방은 헛방 틱으로");
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Lift }, Step(Obstacle(CardRushObstacleEvent.Lifted, 200)));
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Clang }, Step(Obstacle(CardRushObstacleEvent.Blocked, 300)), "막음");
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Tumble }, Step(Obstacle(CardRushObstacleEvent.Tumbled, 400)), "꽈당");
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Lift }, Step(Obstacle(CardRushObstacleEvent.Lifted, 200, 0)));
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Clang }, Step(Obstacle(CardRushObstacleEvent.Blocked, 300, 1)), "막음");
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Tumble }, Step(Obstacle(CardRushObstacleEvent.Tumbled, 400, 2)), "꽈당");
 
-            var held = last; held.ZoneEvent = (int)CardRushZoneEvent.Held; held.ZoneEventTick = 500;
+            var held = last; held.ZoneEvent = (int)CardRushZoneEvent.Held; held.ZoneEventTick = 500; held.ZoneIndex = 1;
             CollectionAssert.AreEqual(new[] { CardRushSfx.Clang }, Step(held), "버팀");
-            var hit = held; hit.ZoneEvent = (int)CardRushZoneEvent.Hit; hit.ZoneEventTick = 600;
+            var hit = held; hit.ZoneEvent = (int)CardRushZoneEvent.Hit; hit.ZoneEventTick = 600; hit.ZoneIndex = 2;
             CollectionAssert.AreEqual(new[] { CardRushSfx.Squash }, Step(hit), "으악");
-            var dodged = hit; dodged.ZoneEvent = (int)CardRushZoneEvent.Dodged; dodged.ZoneEventTick = 700;
+            var dodged = hit; dodged.ZoneEvent = (int)CardRushZoneEvent.Dodged; dodged.ZoneEventTick = 700; dodged.ZoneIndex = 3;
             CollectionAssert.IsEmpty(Step(dodged), "빠져나감은 조용");
         }
 
@@ -87,14 +96,29 @@ namespace LOP.Tests
         [Test]
         public void 구역이_켜지면_띠링_한_번()
         {
-            var on = last; on.ZoneTick = 800;
+            var on = last; on.ZoneTick = 800; on.ZoneIndex = 0;
             CollectionAssert.AreEqual(new[] { CardRushSfx.ZoneOn }, Step(on));
             CollectionAssert.IsEmpty(Step(on));
-            var off = on; off.ZoneTick = 0;
-            CollectionAssert.IsEmpty(Step(off), "터져서 꺼짐");
+            var off = on; off.ZoneTick = 0; off.ZoneIndex = 1; off.ZoneEvent = (int)CardRushZoneEvent.Dodged; off.ZoneEventTick = 870;
+            CollectionAssert.IsEmpty(Step(off), "터져서 꺼짐(빠져나감은 조용)");
             CollectionAssert.IsEmpty(Step(on), "되감아 같은 켜짐");
-            var next = on; next.ZoneTick = 1500;
+            var next = on; next.ZoneTick = 1500; next.ZoneIndex = 1;
             CollectionAssert.AreEqual(new[] { CardRushSfx.ZoneOn }, Step(next), "다음 구역");
+        }
+
+        //  최종 리뷰 m2: 트리거를 밟는 틱이 보정으로 밀려도 같은 구역이면 띠링·쿵은 한 번.
+        [Test]
+        public void 보정이_구역_틱을_옮겨도_같은_구역은_한_번()
+        {
+            var on = last; on.ZoneTick = 800; on.ZoneIndex = 3;
+            CollectionAssert.AreEqual(new[] { CardRushSfx.ZoneOn }, Step(on));
+            var later = on; later.ZoneTick = 830;
+            CollectionAssert.IsEmpty(Step(later), "같은 구역, 늦게 켜짐");
+
+            var hit = later; hit.ZoneTick = 0; hit.ZoneIndex = 4; hit.ZoneEvent = (int)CardRushZoneEvent.Hit; hit.ZoneEventTick = 870;
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Squash }, Step(hit));
+            var hitLater = hit; hitLater.ZoneEventTick = 900;
+            CollectionAssert.IsEmpty(Step(hitLater), "같은 구역, 늦게 터짐");
         }
 
         [Test]

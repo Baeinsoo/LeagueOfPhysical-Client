@@ -174,15 +174,15 @@ namespace LOP.Tests
             try
             {
                 var fx = new CardRushGagFx(parent.transform, "fx", materials);
-                fx.Show(CardRushGagKind.Tumble, 0.3f, Vector3.zero, Vector3.forward, 1f, Vector3.up);
+                fx.Show(CardRushGagKind.Tumble, 0.3f, Vector3.up);
                 Assert.AreEqual(0, fx.ActiveStars, "구르는 중엔 아직 없다");
-                fx.Show(CardRushGagKind.Tumble, 0.7f, Vector3.zero, Vector3.forward, 1f, Vector3.up);
+                fx.Show(CardRushGagKind.Tumble, 0.7f, Vector3.up);
                 Assert.AreEqual(CardRushGagFx.StarCount, fx.ActiveStars, "엉덩방아");
-                fx.Show(CardRushGagKind.Tumble, 0.9f, Vector3.zero, Vector3.forward, 1f, Vector3.up);
+                fx.Show(CardRushGagKind.Tumble, 0.9f, Vector3.up);
                 Assert.AreEqual(0, fx.ActiveStars, "벌떡 일어설 땐 없다");
-                fx.Show(CardRushGagKind.Squash, 0.4f, Vector3.zero, Vector3.forward, 1f, Vector3.up);
+                fx.Show(CardRushGagKind.Squash, 0.4f, Vector3.up);
                 Assert.AreEqual(CardRushGagFx.StarCount, fx.ActiveStars, "납작");
-                fx.Show(CardRushGagKind.Dash, 0.4f, Vector3.zero, Vector3.forward, 1f, Vector3.up);
+                fx.Show(CardRushGagKind.Dash, 0.4f, Vector3.up);
                 Assert.AreEqual(0, fx.ActiveStars);
             }
             finally

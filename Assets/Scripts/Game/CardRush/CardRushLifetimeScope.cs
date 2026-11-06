@@ -95,11 +95,12 @@ namespace LOP
 
             builder.RegisterEntryPoint<CardRushHudCoordinator>().AsSelf();
 
-            //  돌·문은 씬에 없다 — 몸이 생기면 그 레인에 (칸 수, 코스 색)으로 깐다. 두 테마가 같은 식이다.
-            builder.RegisterEntryPoint<CardRushCourseView>().AsSelf();
+            //  트랙(경계선·눈금·결승 문·술래 얼굴)과 장애물·구역은 씬에 없다 — 몸이 생기면 그 레인에 코스(씨앗)에서 깐다.
+            builder.RegisterEntryPoint<CardRushTrackView>().AsSelf();
+            builder.RegisterEntryPoint<CardRushHazardView>().AsSelf();
             //  뒤 위에서 진행 방향을 보는 고정 각 카메라. 관전 대상은 위 코디네이터가 매 틱 고른다.
             builder.RegisterEntryPoint<CardRushCamera>().AsSelf();
-            //  몸개그(풍덩·철썩·폴짝·결승 몸짓)와 던지는 카드 — 몸의 자식 Model만 움직이는 그림. 상태는 읽기만 한다.
+            //  몸개그(꽈당·으악·결승 몸짓)와 방패·대시 줄·망치·말풍선 — 몸의 자식 Model만 움직이는 그림. 상태는 읽기만 한다.
             builder.RegisterEntryPoint<CardRushRunnerFxView>().AsSelf();
             //  머리 위 카드 — 내 것은 다음 입력 틱으로 칠한다(본 색 = 판정 색). 남의 것은 그림 틱, 내 레인 ±3만.
             builder.RegisterEntryPoint<CardRushHeadCardView>().AsSelf();

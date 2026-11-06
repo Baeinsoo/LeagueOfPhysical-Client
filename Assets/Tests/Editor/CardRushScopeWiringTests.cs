@@ -122,14 +122,15 @@ namespace LOP.Tests
             Assert.IsInstanceOf<OwnerPredictedSyncPolicy>(container.Resolve(typeof(IEntitySyncPolicy)));
             Assert.IsInstanceOf<ZeroExtrapolationAcceleration>(container.Resolve(typeof(IExtrapolationAcceleration)));
             Assert.AreSame(camera, container.Resolve(typeof(CameraController)));
-            //  칸 그림·카메라가 스코프에 걸려 있다 — 빠지면 돌·문이 안 깔리고 카메라가 기본 각에 머문다(에러 없이).
-            Assert.IsNotNull(container.Resolve(typeof(CardRushCourseView)));
+            //  트랙·장애물 그림·카메라가 스코프에 걸려 있다 — 빠지면 레인·장애물·구역이 안 깔리고 카메라가 기본 각에 머문다(에러 없이).
+            Assert.IsNotNull(container.Resolve(typeof(CardRushTrackView)));
+            Assert.IsNotNull(container.Resolve(typeof(CardRushHazardView)));
             Assert.IsNotNull(container.Resolve(typeof(CardRushCamera)));
             Assert.IsNotNull(container.Resolve(typeof(CardRushHudCoordinator)), "완주 뒤 관전 흐름의 의존(판 끝·나가기)이 다 닿는다");
             //  소리·몸개그. IFlappyAudio(RaceHud·RaceFinish가 부름)는 빈 구현이 아니라 진짜 소리 하나와 같은 것.
             Assert.IsNotNull(container.Resolve(typeof(CardRushRunnerFxView)));
             Assert.IsNotNull(container.Resolve(typeof(CardRushHeadCardView)), "머리 위 카드(다음 입력 틱·카메라)가 닿는다");
-            Assert.IsNotNull(container.Resolve(typeof(CardRushRecordReporter)), "개인 기록(완주 시간·연속 정타 최고)이 닿는다");
+            Assert.IsNotNull(container.Resolve(typeof(CardRushRecordReporter)), "개인 기록(완주 시간·연속 무사 통과)이 닿는다");
             //  탭·Space 잡기는 ITickable(틱 앞)이어야 한다 — 틱 뒤 단계로 옮기면 탭이 한 틱 늦게 붙는다(최종 리뷰 I5).
             var keyboard = container.Resolve(typeof(CardRushTapGrab));
             Assert.IsInstanceOf<VContainer.Unity.ITickable>(keyboard);

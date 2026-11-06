@@ -249,13 +249,44 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 넘김과_통통은_잠깐이고_끝나면_원래_크기()
+        public void 넘김은_잠깐이고_색이_바뀐_장은_06에서_펴진다()
         {
             Assert.AreEqual(1f, CardRushHeadCardView.FlipWidth(-1f));
             Assert.AreEqual(0.15f, CardRushHeadCardView.FlipWidth(CardRushHeadCardView.FlipSeconds * 0.5f), 1e-4f);
             Assert.AreEqual(1f, CardRushHeadCardView.FlipWidth(CardRushHeadCardView.FlipSeconds));
-            Assert.AreEqual(CardRushHeadCardView.PopScale, CardRushHeadCardView.PopSize(0f), 1e-5f);
-            Assert.AreEqual(1f, CardRushHeadCardView.PopSize(CardRushHeadCardView.PopSeconds));
+            Assert.AreEqual(0.6f, CardRushHeadCardView.ChangeWidth(new CardRushHeadCardFace(true, true, CardColor.Red, false, 0f)), 1e-5f);
+            Assert.AreEqual(1f, CardRushHeadCardView.ChangeWidth(new CardRushHeadCardFace(true, true, CardColor.Red, false, 1f)), 1e-5f);
+            Assert.AreEqual(1f, CardRushHeadCardView.ChangeWidth(new CardRushHeadCardFace(true, false, default, true, 0f)), 1e-5f, "뒷면은 그대로");
+        }
+
+        //  흐린 카드(기절·쿨다운)는 같은 판의 알파 0.35 짝 — 색·모양은 그대로 읽히되 "지금은 못 쓴다"가 보인다.
+        [Test]
+        public void 흐린_카드는_알파_035()
+        {
+            var palette = new CardRushCardPalette();
+            var materials = new CardRushCardMaterials(palette);
+            var parent = new UnityEngine.GameObject("plate-test");
+            try
+            {
+                var plate = new CardRushCardPlate(parent.transform, "Plate", materials);
+                plate.SetFace(true, CardColor.Blue, false);
+                Assert.AreSame(palette.Of(CardColor.Blue), plate.PlateMaterial);
+                plate.SetFace(true, CardColor.Blue, true);
+                var dim = plate.PlateMaterial;
+                Assert.AreNotSame(palette.Of(CardColor.Blue), dim);
+                var c = dim.HasProperty("_BaseColor") ? dim.GetColor("_BaseColor") : dim.color;
+                Assert.AreEqual(CardRushHeadCardView.DimAlpha, c.a, 1e-4f);
+                Assert.AreEqual(CardRushCardPalette.Blue.b, c.b, 1e-4f, "색은 그대로");
+                plate.SetFace(false, default, true);
+                Assert.AreEqual(CardRushHeadCardView.DimAlpha, (plate.PlateMaterial.HasProperty("_BaseColor") ? plate.PlateMaterial.GetColor("_BaseColor") : plate.PlateMaterial.color).a, 1e-4f, "쿨다운 뒷면도 흐리게");
+                Assert.IsFalse(parent.GetComponentInChildren<UnityEngine.Collider>(), "그림 전용 — 콜라이더 없음");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(parent);
+                materials.Dispose();
+                palette.Dispose();
+            }
         }
 
         [Test]
@@ -307,11 +338,11 @@ namespace LOP.Tests
         //  카드를 틱 앞에서 칠하면 그 프레임 틱이 돌아 화면 색이 판정 틱보다 한 틱 늦다(60 fps에서 프레임 대부분).
         //  몸 자리·머리 뼈는 보간기 LateUpdate가 옮기므로 그 뒤여야 카드·손 자리가 몸에 붙는다. 탭은 틱 앞에서 읽는다.
         [Test]
-        public void 카드_째깍_몸개그는_틱과_보간_뒤에_칠하고_탭은_틱_앞에서_읽는다()
+        public void 카드_째깍_몸개그_장애물은_틱과_보간_뒤에_칠하고_탭은_틱_앞에서_읽는다()
         {
             var tick = SlotOf(typeof(GameFramework.Runner.ITickUpdater));
             var interpolator = SlotOf(typeof(UnityEngine.MonoBehaviour));
-            foreach (var view in new[] { typeof(CardRushHeadCardView), typeof(CardRushAudio), typeof(CardRushRunnerFxView), typeof(CardRushCourseView) })
+            foreach (var view in new[] { typeof(CardRushHeadCardView), typeof(CardRushAudio), typeof(CardRushRunnerFxView), typeof(CardRushTrackView), typeof(CardRushHazardView) })
             {
                 var at = StageOf(view);
                 Assert.IsTrue(After(at, tick), view.Name + "는 그 프레임 틱 뒤");

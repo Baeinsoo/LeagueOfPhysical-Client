@@ -199,5 +199,37 @@ namespace LOP.Tests
 
             Assert.AreEqual(12, runner.Get<CardRushRunner>().State.BestCleanStreak);
         }
+
+        // ── 남의 몸 상태 적용(Task 8 리뷰에서 넘어온 빈칸) ────
+
+        [Test]
+        public void 남의_몸_스냅은_카드_러시_상태_16칸을_넣는다()
+        {
+            var entity = new GameFramework.World.Entity("other");
+            entity.Add(new CardRushRunner { State = new CardRushRunnerState { BestCleanStreak = 9, Hits = 4 } });
+            var snap = new EntitySnap
+            {
+                entityId = "other", cardPosMm = 12345, cardUseCount = 6, cardStunEndTick = 1300, cardObstacleIndex = 2,
+                cardZoneEvent = (int)CardRushZoneEvent.Hit, cardFinishTick = 1500, cardCleanStreak = 3,
+            };
+
+            //  핸들러는 의존이 스무 개 넘는다 — 이 경로는 그중 아무것도 안 쓰므로 생성자 없이 만든다.
+            var handler = (GameEntityMessageHandler)System.Runtime.Serialization.FormatterServices
+                .GetUninitializedObject(typeof(GameEntityMessageHandler));
+            typeof(GameEntityMessageHandler).GetMethod("ApplyRemoteSnapState", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .Invoke(handler, new object[] { entity, new global::EntitySnap(), snap });
+
+            //  남의 몸도 내 보정과 같은 함수(ApplyCardState)를 지난다 — 16칸 하나하나는 그 시험이 본다.
+            var s = entity.Get<CardRushRunner>().State;
+            Assert.AreEqual(12345, s.PosMm);
+            Assert.AreEqual(6, s.UseCount);
+            Assert.AreEqual(1300, s.StunEndTick);
+            Assert.AreEqual(2, s.ObstacleIndex);
+            Assert.AreEqual((int)CardRushZoneEvent.Hit, s.ZoneEvent);
+            Assert.AreEqual(1500, s.FinishTick);
+            Assert.AreEqual(3, s.CleanStreak);
+            Assert.AreEqual(9, s.BestCleanStreak, "최고 연속은 지킨다");
+            Assert.AreEqual(4, s.Hits, "맞은 수는 서버가 안 보낸다 — 그대로");
+        }
     }
 }

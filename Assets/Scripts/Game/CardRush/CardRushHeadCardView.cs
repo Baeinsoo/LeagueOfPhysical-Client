@@ -6,10 +6,10 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// 머리 위 카드(spec 2026-11-03 §5.1·§5.5) — 몸마다 카드 판 하나를 머리 위에 띄워 카메라 쪽으로 돌린다(y축만).
+    /// 머리 위 카드(spec 2026-11-05 §11.4) — 몸마다 카드 판 하나를 머리 위에 띄워 카메라 쪽으로 돌린다(y축만).
     /// 그림은 <see cref="CardRushHeadCard.Compute"/>의 결과를 그리기만 한다: 내 카드는 <see cref="PlayerInputManager.NextInputTick"/>
-    /// (지금 누르면 판정될 틱 — 본 색 = 판정 색), 남의 카드는 그림 틱(<see cref="CardRushRunnerFxView"/>와 같은 식).
-    /// 남의 카드는 내 레인 ±<see cref="OtherLaneRange"/>만, 작게. 남은 시간 링은 내 카드에만. 시뮬 상태는 읽기만 한다.
+    /// (지금 누르면 쓰는 틱 — 본 카드 = 쓰는 카드), 남의 카드는 그림 틱(<see cref="CardRushRunnerFxView"/>와 같은 식).
+    /// 남의 카드는 내 레인 ±<see cref="OtherLaneRange"/>만, 작게. 기절·쿨다운 중엔 흐리게(알파 0.35). 시뮬 상태는 읽기만 한다.
     /// <para>틱·보간 뒤(<see cref="IPostLateTickable"/>, PreLateUpdate 끝)에서 칠한다 — 그 프레임 틱이 이미 돌았고 보간기 LateUpdate가 몸을
     /// 옮긴 뒤다. 그래서 내 카드의 <c>NextInputTick</c> = 다음 프레임 틱 앞 탭(CardRushTapGrab)이 실릴 틱이고(본 색 = 판정 색), 카드·손 자리가
     /// 몸에 붙는다. ITickable(Update 맨 앞)이면 그 프레임 틱이 돈 뒤 화면이 한 틱 늦은 색이었다(최종 리뷰 I1).</para>
@@ -28,17 +28,8 @@ namespace LOP
         public static Vector3 CardCenter(Vector3 crown, float height) => crown + Vector3.up * (HeadCardLift + height * 0.5f);
 
         public const float FlipSeconds = 0.06f;    //  뒷면 → 앞면 넘김(가로 찌그러짐)
-        public const float PopScale = 1.06f;       //  색이 바뀌는 프레임에 6% 커졌다 돌아온다
-        public const float PopSeconds = 0.12f;
-        public const int BrightFrames = 2;         //  색이 바뀌면 그 색 밝은 판으로 2프레임
-        public const float RingWidthOfHeight = 0.04f;
-        public const int RingSegments = 48;
-        /// <summary>
-        /// 링 반지름(카드 높이 1 기준) — 테두리 포함 모서리(√(0.43² + 0.58²) ≈ 0.72) 바로 바깥. 0.66이면 링이 모서리를 가로질렀다(리뷰 L4).
-        /// </summary>
-        public const float RingRadius = 0.76f;
-        /// <summary>링 밑에 까는 어두운 외곽선 굵기 배수 — 노랑 문 앞에서도 금 링이 묻히지 않게(리뷰 M1).</summary>
-        public const float RingOutlineScale = 1.9f;
+        /// <summary>흐린 카드의 알파(시안) — 기절 중(돌지만 못 쓴다)·쿨다운 중.</summary>
+        public const float DimAlpha = 0.35f;
 
         private sealed class Entry
         {
@@ -46,13 +37,8 @@ namespace LOP
             public Transform Model;
             public Transform Head;
             public CardRushCardPlate Plate;
-            public LineRenderer Ring;
-            public LineRenderer RingOutline;
             public bool LastFaceUp;
-            public CardColor LastColor;
             public float FlipStart = -1f;
-            public float PopStart = -1f;
-            public int BrightLeft;
         }
 
         private readonly CardRushWorld world;
@@ -64,8 +50,7 @@ namespace LOP
         private readonly CameraController cameraController;
         private readonly Dictionary<string, Entry> entries = new Dictionary<string, Entry>();
         private readonly List<string> gone = new List<string>();
-        private readonly Vector3[] ringPoints = new Vector3[RingSegments + 1];
-        private CardRushCoursePalette palette;
+        private CardRushCardPalette palette;
         private CardRushCardMaterials materials;
         private GameObject root;
 
@@ -84,7 +69,7 @@ namespace LOP
 
         public void Start()
         {
-            palette = new CardRushCoursePalette();
+            palette = new CardRushCardPalette();
             materials = new CardRushCardMaterials(palette);
             root = new GameObject("CardRushHeadCards");
         }
@@ -197,28 +182,8 @@ namespace LOP
                 Head = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Head) : null,
                 Plate = new CardRushCardPlate(root.transform, "HeadCard " + id, materials),
             };
-            entry.RingOutline = MakeRing(entry.Plate.Root, materials.RingOutline, RingOutlineScale, "RingOutline");
-            entry.Ring = MakeRing(entry.Plate.Root, materials.Ring, 1f, "Ring");
             entries[id] = entry;
             return entry;
-        }
-
-        private LineRenderer MakeRing(Transform parent, Material material, float widthScale, string name)
-        {
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            var ring = go.AddComponent<LineRenderer>();
-            ring.useWorldSpace = false;
-            ring.loop = false;
-            ring.sharedMaterial = material;
-            ring.widthMultiplier = MineHeight * RingWidthOfHeight * widthScale;
-            //  외곽선은 카메라에서 조금 먼 쪽(+z)에 깔아 금 링이 위에 그려진다.
-            if (widthScale > 1f) go.transform.localPosition = new Vector3(0f, 0f, 0.01f);
-            ring.numCapVertices = 2;
-            ring.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            ring.receiveShadows = false;
-            ring.enabled = false;
-            return ring;
         }
 
         private void Draw(Entry entry, in CardRushHeadCardFace face, bool mine, Camera cam, float now)
@@ -226,8 +191,6 @@ namespace LOP
             if (face.Visible == false)
             {
                 entry.Plate.SetVisible(false);
-                entry.Ring.enabled = false;
-                entry.RingOutline.enabled = false;
                 entry.LastFaceUp = false;
                 return;
             }
@@ -244,40 +207,21 @@ namespace LOP
             entry.Plate.Root.SetPositionAndRotation(center, rotation);
             entry.Plate.Root.localScale = Vector3.one * height;
 
-            //  넘김은 뒷면 → 앞면에서만. 색은 먼저 바꾸고 넘김을 덧붙인다(원 "구현 중 바뀐 것").
+            //  뒷면 → 앞면은 시간으로 넘기고(0.06초), 색이 바뀐 장은 그림 틱으로 가로 0.6 → 1 펴진다(시안 sq).
             if (face.FaceUp && entry.LastFaceUp == false)
             {
                 entry.FlipStart = now;
             }
-            else if (face.FaceUp && face.Color != entry.LastColor)
-            {
-                entry.BrightLeft = BrightFrames;
-                entry.PopStart = now;
-            }
             entry.Plate.SetVisible(true);
-            entry.Plate.SetFace(face.FaceUp, face.Color, entry.BrightLeft > 0);
-            if (entry.BrightLeft > 0)
-            {
-                entry.BrightLeft--;
-            }
+            entry.Plate.SetFace(face.FaceUp, face.Color, face.Dim);
             entry.LastFaceUp = face.FaceUp;
-            entry.LastColor = face.Color;
 
-            entry.Plate.Body.localScale = new Vector3(FlipWidth(now - entry.FlipStart), 1f, 1f) * PopSize(now - entry.PopStart);
-
-            //  3차엔 자동 던짐 시간이 없다 — 남은 시간 링은 그리지 않는다(Task 6에서 지움).
-            bool ring = false;
-            entry.Ring.enabled = ring;
-            entry.RingOutline.enabled = ring;
-            if (ring)
-            {
-                int n = RingArc(1f, ringPoints);
-                entry.Ring.positionCount = n;
-                entry.Ring.SetPositions(ringPoints);
-                entry.RingOutline.positionCount = n;
-                entry.RingOutline.SetPositions(ringPoints);
-            }
+            entry.Plate.Body.localScale = new Vector3(FlipWidth(now - entry.FlipStart) * ChangeWidth(face), 1f, 1f);
         }
+
+        /// <summary>색이 바뀐 장의 가로 비율 — 뜬 틱 0.6에서 <see cref="CardRushHeadCard.FlipTicks"/>틱에 1. 뒷면이면 1.</summary>
+        public static float ChangeWidth(in CardRushHeadCardFace face)
+            => face.FaceUp ? Mathf.Lerp(CardRushHeadCard.FlipStartWidth, 1f, face.FlipT01) : 1f;
 
         /// <summary>넘김 중 가로 비율 — 0.03초에 0.15로 접혔다가 0.03초에 편다. 넘김 밖이면 1.</summary>
         public static float FlipWidth(float since)
@@ -288,28 +232,6 @@ namespace LOP
             }
             float u = since / FlipSeconds;
             return u < 0.5f ? Mathf.Lerp(1f, 0.15f, u * 2f) : Mathf.Lerp(0.15f, 1f, (u - 0.5f) * 2f);
-        }
-
-        public static float PopSize(float since)
-            => since < 0f || since >= PopSeconds ? 1f : Mathf.Lerp(PopScale, 1f, since / PopSeconds);
-
-        /// <summary>
-        /// 남은 몫만큼의 링 점(카드 높이 1 기준, 카드 평면). 12시에서 시작해 먹힌 몫이 시계 방향으로 자란다 —
-        /// 남은 호는 (12시 − 먹힌 각)에서 시계 방향으로 12시까지. 점 수를 돌려준다(최소 2).
-        /// </summary>
-        public static int RingArc(float remaining01, Vector3[] into)
-        {
-            float r = Mathf.Clamp01(remaining01);
-            int n = Mathf.Clamp(Mathf.CeilToInt(RingSegments * r) + 1, 2, into.Length);
-            float start = 90f - (1f - r) * 360f;
-            float span = r * 360f;
-            for (int i = 0; i < n; i++)
-            {
-                //  보는 쪽(-z)에서 x 오른쪽·y 위 — 시계 방향 = 각이 줄어드는 쪽.
-                float a = (start - span * i / (n - 1)) * Mathf.Deg2Rad;
-                into[i] = new Vector3(Mathf.Cos(a) * RingRadius, Mathf.Sin(a) * RingRadius, -0.02f);
-            }
-            return n;
         }
 
         public void Dispose()
@@ -329,8 +251,8 @@ namespace LOP
     }
 
     /// <summary>
-    /// 카드 판이 함께 쓰는 재질 — 앞면 색은 <see cref="CardRushCoursePalette"/>의 것을 그대로(문·돌과 같은 색), 테두리는 모든 색 공통
-    /// 진한 금 하나, 뒷면은 중립 회색. 밝은 판은 색이 바뀌는 2프레임용(같은 색 계열). 팔레트는 빌려 쓴다(버리지 않는다).
+    /// 카드 판이 함께 쓰는 재질 — 앞면 색은 <see cref="CardRushCardPalette"/>의 것, 테두리는 모든 색 공통 진한 금 하나, 뒷면은 중립 회색.
+    /// 흐린 판(기절·쿨다운)은 같은 색의 반투명 무광 짝(알파 <see cref="CardRushHeadCardView.DimAlpha"/>)으로 갈아 끼운다. 팔레트는 빌려 쓴다.
     /// </summary>
     public sealed class CardRushCardMaterials : IDisposable
     {
@@ -338,74 +260,50 @@ namespace LOP
         public static readonly Color Gold = new Color(0.72f, 0.52f, 0.10f);
         public static readonly Color Back = new Color(0.42f, 0.40f, 0.38f);
         public static readonly Color BackMark = new Color(0.58f, 0.56f, 0.53f);
-        public const float BrightLift = 0.45f;
 
         private readonly List<UnityEngine.Object> owned = new List<UnityEngine.Object>();
-        private readonly Material[] bright = new Material[CardColors.Count];
+        private readonly Material[] dimFaces = new Material[CardColors.Count];
 
-        public CardRushCoursePalette Palette { get; }
+        public CardRushCardPalette Palette { get; }
         public Material Rim { get; }
         public Material BackPlate { get; }
         public Material BackMarkMaterial { get; }
-        public Material Ring { get; }
-        public Material RingOutline { get; }
-        /// <summary>링 외곽선 — 진한 밤색(금과 같은 계열의 어두운 쪽).</summary>
-        public static readonly Color RingDark = new Color(0.24f, 0.16f, 0.05f);
+        public Material DimRim { get; }
+        public Material DimBackPlate { get; }
+        public Material DimBackMark { get; }
+        public Material DimDecal { get; }
         public Mesh Diamond { get; }
 
-        public CardRushCardMaterials(CardRushCoursePalette palette)
+        public CardRushCardMaterials(CardRushCardPalette palette)
         {
             Palette = palette;
             Rim = Make("CardRush_CardRim", Gold);
             BackPlate = Make("CardRush_CardBack", Back);
             BackMarkMaterial = Make("CardRush_CardBackMark", BackMark);
+            DimRim = MakeDim("CardRush_CardRimDim", Gold);
+            DimBackPlate = MakeDim("CardRush_CardBackDim", Back);
+            DimBackMark = MakeDim("CardRush_CardBackMarkDim", BackMark);
+            DimDecal = MakeDim("CardRush_DecalDim", Color.white);
             for (int i = 0; i < CardColors.Count; i++)
             {
-                var c = CardRushCoursePalette.ColorOf((CardColor)i);
-                bright[i] = Make("CardRush_CardBright_" + (CardColor)i, Color.Lerp(c, Color.white, BrightLift));
+                dimFaces[i] = MakeDim("CardRush_CardDim_" + (CardColor)i, CardRushCardPalette.ColorOf((CardColor)i));
             }
-            //  링은 테두리와 같은 진한 금, 불투명(α 1) — 반투명 밝은 금은 노랑 문 앞에서 묻혔다(리뷰 M1).
-            Ring = MakeRingMaterial(new Color(Gold.r, Gold.g, Gold.b, 1f));
-            RingOutline = MakeRingMaterial(new Color(RingDark.r, RingDark.g, RingDark.b, 0.85f));
             Diamond = MakeDiamond();
         }
 
-        public Material Face(CardColor color, bool brightNow) => brightNow ? bright[(int)color] : Palette.Of(color, false);
+        public Material Face(CardColor color, bool dim) => dim ? dimFaces[(int)color] : Palette.Of(color);
 
         private Material Make(string name, Color color)
         {
-            var shader = Shader.Find("LOP/Toon");
-            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Lit");
-            var m = new Material(shader) { name = name, hideFlags = HideFlags.DontSave };
-            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
-            if (m.HasProperty("_Color")) m.SetColor("_Color", color);
-            if (m.HasProperty("_RimStrength")) m.SetFloat("_RimStrength", 0f);
+            var m = CardRushDraw.Opaque(name, color);
             owned.Add(m);
             return m;
         }
 
-        private Material MakeRingMaterial(Color color)
+        private Material MakeDim(string name, Color color)
         {
-            var urp = Shader.Find("Universal Render Pipeline/Unlit");
-            Material m;
-            if (urp == null)
-            {
-                m = new Material(Shader.Find("Sprites/Default")) { hideFlags = HideFlags.DontSave };
-            }
-            else
-            {
-                m = new Material(urp) { hideFlags = HideFlags.DontSave };
-                m.SetFloat("_Surface", 1f);
-                m.SetFloat("_Blend", 0f);
-                m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                m.SetFloat("_ZWrite", 0f);
-                m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-            }
-            m.name = "CardRush_CardRing";
-            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
-            if (m.HasProperty("_Color")) m.SetColor("_Color", color);
+            color.a = CardRushHeadCardView.DimAlpha;
+            var m = CardRushDraw.Transparent(name, color);
             owned.Add(m);
             return m;
         }
@@ -450,7 +348,7 @@ namespace LOP
 
     /// <summary>
     /// 카드 판 한 장 — 금 테두리 + 앞면(색 판 + 흰 모양) 또는 뒷면(회색 판 + 마름모). 높이 1·폭 <see cref="Aspect"/> 기준으로 짓고
-    /// <see cref="Root"/>의 크기로 키운다. 보는 쪽은 -z. 콜라이더 없음 — 그림 전용(머리 위 카드·날아가는 카드·문에 꽂힌 카드가 같은 판).
+    /// <see cref="Root"/>의 크기로 키운다. 보는 쪽은 -z. 콜라이더 없음 — 그림 전용.
     /// </summary>
     public sealed class CardRushCardPlate
     {
@@ -458,15 +356,16 @@ namespace LOP
         public const float RimOfHeight = 0.08f;
 
         private readonly CardRushCardMaterials materials;
+        private readonly Renderer rim;
         private readonly Renderer plate;
         private readonly MeshFilter shapeFilter;
         private readonly Renderer shape;
         private readonly Renderer backMark;
         private bool visible = true;
-        private int drawn = -1;   //  지금 그린 (앞/뒤, 색, 밝음) — 같으면 재질을 다시 안 넣는다
+        private int drawn = -1;   //  지금 그린 (앞/뒤, 색, 흐림) — 같으면 재질을 다시 안 넣는다
 
         public Transform Root { get; }
-        /// <summary>넘김·통통이 크기를 주는 판 몸(테두리·판·모양). 링은 여기 밖이라 같이 찌그러지지 않는다.</summary>
+        /// <summary>넘김이 크기를 주는 판 몸(테두리·판·모양).</summary>
         public Transform Body { get; }
 
         public CardRushCardPlate(Transform parent, string name, CardRushCardMaterials materials, HideFlags hideFlags = HideFlags.None)
@@ -479,20 +378,18 @@ namespace LOP
             Body = bodyGo.transform;
             Body.SetParent(Root, false);
 
-            float rim = RimOfHeight;
-            //  테두리: 판보다 rim만큼 크고 얇다. 판이 1 cm(높이 1 기준) 앞에 서서 같은 평면 깜빡임이 없다.
-            Cube("Rim", Body, new Vector3(0f, 0f, 0f), new Vector3(Aspect + 2f * rim, 1f + 2f * rim, 0.03f), materials.Rim, hideFlags);
-            plate = Cube("Plate", Body, new Vector3(0f, 0f, -0.01f), new Vector3(Aspect, 1f, 0.04f), materials.BackPlate, hideFlags);
+            float r = RimOfHeight;
+            //  테두리: 판보다 r만큼 크고 얇다. 판이 1 cm(높이 1 기준) 앞에 서서 같은 평면 깜빡임이 없다.
+            rim = CardRushDraw.Box("Rim", Body, Vector3.zero, new Vector3(Aspect + 2f * r, 1f + 2f * r, 0.03f), materials.Rim, hideFlags).GetComponent<Renderer>();
+            plate = CardRushDraw.Box("Plate", Body, new Vector3(0f, 0f, -0.01f), new Vector3(Aspect, 1f, 0.04f), materials.BackPlate, hideFlags).GetComponent<Renderer>();
 
-            var shapeGo = new GameObject("Shape") { hideFlags = hideFlags };
-            shapeGo.transform.SetParent(Body, false);
+            var shapeGo = CardRushDraw.Node("Shape", Body, hideFlags);
             shapeGo.transform.localPosition = new Vector3(0f, 0f, -0.045f);
             shapeGo.transform.localScale = Vector3.one * (Aspect * 0.72f);
             shapeFilter = shapeGo.AddComponent<MeshFilter>();
             shape = Renderer(shapeGo, materials.Palette.Decal);
 
-            var markGo = new GameObject("BackMark") { hideFlags = hideFlags };
-            markGo.transform.SetParent(Body, false);
+            var markGo = CardRushDraw.Node("BackMark", Body, hideFlags);
             markGo.transform.localPosition = new Vector3(0f, 0f, -0.045f);
             markGo.transform.localScale = new Vector3(Aspect * 0.6f, Aspect * 0.85f, 1f);
             markGo.AddComponent<MeshFilter>().sharedMesh = materials.Diamond;
@@ -510,37 +407,27 @@ namespace LOP
             return r;
         }
 
-        private static Renderer Cube(string name, Transform parent, Vector3 at, Vector3 scale, Material material, HideFlags hideFlags)
+        /// <summary>앞면이면 그 색 판 + 흰 모양(빨 ●, 노 ▲, 파 ■), 뒷면이면 회색 판 + 마름모. 흐리면 모든 겹이 반투명 짝으로.</summary>
+        public void SetFace(bool faceUp, CardColor color, bool dim)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = name;
-            go.hideFlags = hideFlags;
-            CardRushGagFx.DestroyObject(go.GetComponent<Collider>());
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = at;
-            go.transform.localScale = scale;
-            var r = go.GetComponent<Renderer>();
-            r.sharedMaterial = material;
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            r.receiveShadows = false;
-            return r;
-        }
-
-        /// <summary>앞면이면 그 색 판 + 흰 모양(빨 ●, 노 ▲, 파 ■), 뒷면이면 회색 판 + 마름모.</summary>
-        public void SetFace(bool faceUp, CardColor color, bool bright)
-        {
-            int key = faceUp ? 1 + (int)color * 2 + (bright ? 1 : 0) : 0;
+            int key = (faceUp ? 1 + (int)color : 0) * 2 + (dim ? 1 : 0);
             if (key == drawn)
             {
                 return;
             }
             drawn = key;
-            plate.sharedMaterial = faceUp ? materials.Face(color, bright) : materials.BackPlate;
+            rim.sharedMaterial = dim ? materials.DimRim : materials.Rim;
+            plate.sharedMaterial = faceUp ? materials.Face(color, dim) : dim ? materials.DimBackPlate : materials.BackPlate;
             shape.enabled = faceUp;
             backMark.enabled = faceUp == false;
             if (faceUp)
             {
                 shapeFilter.sharedMesh = materials.Palette.ShapeOf(color);
+                shape.sharedMaterial = dim ? materials.DimDecal : materials.Palette.Decal;
+            }
+            else
+            {
+                backMark.sharedMaterial = dim ? materials.DimBackMark : materials.BackMarkMaterial;
             }
         }
 
@@ -555,6 +442,8 @@ namespace LOP
         }
 
         public bool Visible => visible;
+        /// <summary>판 재질 — 시험·진단용.</summary>
+        public Material PlateMaterial => plate.sharedMaterial;
 
         public void Destroy()
         {

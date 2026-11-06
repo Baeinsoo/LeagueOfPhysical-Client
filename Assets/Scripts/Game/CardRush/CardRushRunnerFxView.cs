@@ -6,12 +6,11 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// 몸개그 그리기(spec §7.4): 몸마다 <see cref="CardRushGag.Phase"/> → <see cref="CardRushGag.PoseAt"/>을 자식 <c>Model</c>에만 준다.
-    /// 뿌리 Transform은 시뮬·보간 몫이라 건드리지 않는다(<see cref="KnockbackFlightFxView"/>와 같은 규칙). 그림 틱도 그 뷰와 같다 —
-    /// 내 몸은 예측 시각에서 한 틱 뒤(그려지는 자리), 남의 몸은 보간 재생 시각.
-    /// <para>물보라·별도 (자세, t01)의 함수라 멈춤이 끝나는 틱에 같이 사라진다. 시뮬 상태는 읽기만 한다.</para>
+    /// 몸 그리기(spec 2026-11-05 §11.3): 몸마다 <see cref="CardRushGag.Phase"/> → <see cref="CardRushGag.PoseAt"/>을 자식 <c>Model</c>에만 주고,
+    /// 방패 구·대시 줄·망치·별·말풍선을 몸에 붙여 그린다. 뿌리 Transform은 시뮬·보간 몫이라 건드리지 않는다(<see cref="KnockbackFlightFxView"/>와 같은 규칙).
+    /// 그림 틱은 내 몸 = 예측 시각의 한 틱 뒤(그려지는 자리), 남의 몸 = 보간 재생 시각. 모두 (상태, 그림 틱)의 함수라 시뮬 상태는 읽기만 한다.
     /// </summary>
-    /// <remarks>틱·보간 뒤(IPostLateTickable)에서 칠한다 — 손·얼굴 자리가 이번 프레임 몸 자리를 따른다(최종 리뷰 I1).</remarks>
+    /// <remarks>틱·보간 뒤(IPostLateTickable)에서 칠한다 — 방패·망치·별이 이번 프레임 몸 자리를 따른다.</remarks>
     public class CardRushRunnerFxView : IStartable, IPostLateTickable, IDisposable
     {
         public readonly struct ModelRest
@@ -22,57 +21,64 @@ namespace LOP
             public ModelRest(Transform model) { Position = model.localPosition; Rotation = model.localRotation; Scale = model.localScale; }
         }
 
+        /// <summary>방패 — 노랑 반투명 구(반지름 0.9 m), 테두리만 진하게. 시작 0.06초(3틱) 커지며 나타나고 끝 0.1초(5틱) 옅어진다.</summary>
+        public const float ShieldRadius = 0.9f;
+        public const float ShieldCenterHeight = 0.85f;
+        public const int ShieldGrowTicks = 3;
+        public const int ShieldFadeTicks = 5;
+        public const float ShieldFillAlpha = 0.16f;
+        public const float ShieldRimAlpha = 0.85f;
+        public static readonly Color ShieldColor = new Color(0.96f, 0.77f, 0.26f);
+
+        /// <summary>대시 — 발밑 뒤로 파란 줄 셋, 0.3초(15틱)에 옅어진다.</summary>
+        public const int StreakTicks = 15;
+        public const float StreakLength = 1.1f;
+        public static readonly Color StreakColor = new Color(0.24f, 0.53f, 0.91f);
+
+        /// <summary>말풍선 — 머리 위 0.8초(40틱) 떠오르며 옅어진다. 남의 것은 ±3레인만, 작게.</summary>
+        public const int BubbleTicks = 40;
+        public const float BubbleRise = 0.4f;
+        public const float OtherBubbleSize = 0.7f;
+        public static readonly Color GoodBubble = new Color(1f, 0.82f, 0.63f);    //  #ffd0a0 — 와장창·막음·버팀
+        public static readonly Color BadBubble = new Color(1f, 0.71f, 0.71f);     //  #ffb4b4 — 꽈당·으악·헛방
+
         private sealed class Entry
         {
+            public string Id;
             public Transform Visual;
             public Transform Model;
             public Transform Head;
             public ModelRest Rest;
             public bool Posed;
             public CardRushGagFx Fx;
-            public string Id;
-            public CardRushCardPlate Thrown;
+            public CardRushRunnerProps Props;
         }
-
-        //  던진 카드(spec 2026-11-03 §5.3): 손 = 몸 오른쪽 0.3 m·높이 1.0 m, 튕겨 돌아올 때 포물선 높이 0.3 m.
-        public const float HandRight = 0.3f;
-        public const float HandHeight = 1.0f;
-        public const float BounceArc = 0.3f;
-        public const float SlapDrop = 0.6f;       //  얼굴에서 떨어지는 거리
-        public const float SlapCardOfHead = 1.0f;
-        /// <summary>손 → 문 비행의 위로 휨(m) — 곧게 날면 뒤 위 카메라에서 큰 머리에 가려 안 보였다(실제 판).</summary>
-        public const float ThrowArc = 0.7f;
-        public const float SlapHold01 = 0.75f;    //  철썩 뒤 이 몫 동안 얼굴에 붙어 있다
 
         private readonly CardRushWorld world;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly ActorRegistry actors;
         private readonly IPlayerContext playerContext;
         private readonly EntityRenderClock renderClock;
+        private readonly CameraController cameraController;
         private readonly Dictionary<string, Entry> entries = new Dictionary<string, Entry>();
         private readonly List<string> gone = new List<string>();
-        //  몸마다 마지막으로 본 돌기 시작 틱 — 던지면 상태에서 지워지므로 틀린 카드의 던진 색을 다시 세려면 기억해야 한다.
-        private readonly Dictionary<string, CardRushSpinMemory> spinStarts = new Dictionary<string, CardRushSpinMemory>();
         private CardRushGagFxMaterials materials;
-        private CardRushCoursePalette palette;
-        private CardRushCardMaterials cardMaterials;
         private GameObject root;
 
         public CardRushRunnerFxView(CardRushWorld world, GameFramework.World.EntityRegistry entityRegistry, ActorRegistry actors,
-                                    IPlayerContext playerContext, EntityRenderClock renderClock)
+                                    IPlayerContext playerContext, EntityRenderClock renderClock, CameraController cameraController)
         {
             this.world = world;
             this.entityRegistry = entityRegistry;
             this.actors = actors;
             this.playerContext = playerContext;
             this.renderClock = renderClock;
+            this.cameraController = cameraController;
         }
 
         public void Start()
         {
             materials = new CardRushGagFxMaterials();
-            palette = new CardRushCoursePalette();
-            cardMaterials = new CardRushCardMaterials(palette);
             root = new GameObject("CardRushGagFx");
         }
 
@@ -86,6 +92,10 @@ namespace LOP
             }
 
             string me = playerContext.entityId;
+            var myRunner = string.IsNullOrEmpty(me) ? null : entityRegistry.Get(me)?.Get<CardRushRunner>();
+            var cam = cameraController != null && cameraController.MainCamera != null ? cameraController.MainCamera : Camera.main;
+            var tuning = world.Tuning;
+            var track = world.Track;
             foreach (var actor in actors.Values)
             {
                 var visual = actor.visualGameObject;
@@ -96,19 +106,13 @@ namespace LOP
                 }
 
                 var state = runner.State;
-                spinStarts.TryGetValue(actor.entityId, out var memory);
-                spinStarts[actor.entityId] = CardRushSpinMemory.Observe(memory, state, world.Timing);
-
-                double drawnTick = DrawnTick(renderClock, actor.entityId, me);
-                var (kind, t01) = CardRushGag.Phase(state, drawnTick, world.Tuning, world.Track);
-                //  던지는 카드는 문 테마만(돌다리는 로비에서 빠졌고 풍덩이 그대로다).
-                var (throwKind, since) = rules.Theme == CardRushTheme.DoorDash
-                    ? CardRushThrowFx.Phase(state, drawnTick, world.Timing)
-                    : (CardRushThrowKind.None, 0d);
+                double d = DrawnTick(renderClock, actor.entityId, me);
+                var (kind, t01) = CardRushGag.Phase(state, d, tuning, track);
+                var props = CardRushRunnerProps.Look(state, d);
 
                 if (entries.TryGetValue(actor.entityId, out var entry) == false || entry.Visual != visual.transform)
                 {
-                    if (kind == CardRushGagKind.None && throwKind == CardRushThrowKind.None)
+                    if (kind == CardRushGagKind.None && props.Any == false)
                     {
                         continue;   // 쉬는 몸은 만들 것도 없다
                     }
@@ -124,10 +128,14 @@ namespace LOP
                     var pose = CardRushGag.PoseAt(kind, t01);
                     ApplyPose(entry.Visual, entry.Model, entry.Rest, pose, rules.Forward);
                     entry.Posed = kind != CardRushGagKind.None;
-                    entry.Fx.Show(kind, t01, entry.Visual.position, rules.Forward, rules.StepSpacing, ChibiHeadSpots.Crown(entry.Model, entry.Head));
                 }
-                //  카드는 자세를 준 뒤에 놓는다 — 철썩 카드는 이번 프레임 머리(젖혀진 자리)에 붙는다.
-                DrawThrown(entry, state, runner.LaneOrigin, throwKind, since, actor.entityId == me, rules);
+                entry.Fx.Show(kind, t01, Crown(entry));
+
+                bool mine = actor.entityId == me;
+                bool near = mine || myRunner == null
+                            || CardRushHeadCardView.LaneGap(runner.LaneOrigin, myRunner.LaneOrigin, rules.Forward, rules.LaneSpacing) <= CardRushHeadCardView.OtherLaneRange;
+                //  소품은 자세를 준 뒤에 놓는다 — 망치·말풍선이 이번 프레임 머리 자리를 따른다.
+                entry.Props.Place(props, entry.Visual.position, Crown(entry), rules.Forward, cam, mine, near);
             }
 
             gone.Clear();
@@ -141,99 +149,15 @@ namespace LOP
             foreach (var id in gone)
             {
                 entries[id].Fx.Destroy();
-                entries[id].Thrown?.Destroy();
+                entries[id].Props.Destroy();
                 entries.Remove(id);
-                spinStarts.Remove(id);
             }
-        }
-
-        /// <summary>
-        /// 날아가는 카드 한 장(spec 2026-11-03 §5.3). 맞음: 손 → 그 칸 문짝 가운데로 직선 + 두 바퀴(꽂힌 뒤는 <see cref="CardRushCourseView"/>가
-        /// 문짝에 그린다). 틀림: 문까지 같고, 문 → 얼굴 포물선, 철썩 뒤 얼굴에서 떨어지며 작아져 사라진다. 색: 맞음 = 그 칸 요구 색,
-        /// 틀림 = 던진 색(원장 판정, <see cref="CardRushThrowFx.TryThrownColor"/>) — 돌기 시작 틱을 못 봤으면 뒷면.
-        /// </summary>
-        private void DrawThrown(Entry entry, in CardRushRunnerState s, Vector3 laneOrigin, CardRushThrowKind kind, double since,
-                                bool mine, CardRushMapRulesField rules)
-        {
-            if (kind == CardRushThrowKind.None)
-            {
-                entry.Thrown?.SetVisible(false);
-                return;
-            }
-            var course = world.Course;
-            if (course == null)
-            {
-                return;
-            }
-            entry.Thrown ??= new CardRushCardPlate(root.transform, "Thrown " + entry.Id, cardMaterials);
-
-            int step = CardRushThrowFx.IsRightThrow(s, world.Timing) ? s.Step - 1 : s.Step;
-            //  꽂힌 판이 켜진 틱이면(코스 그림 틱) 날아가는 판은 끈다 — 한 프레임 두 장 방지.
-            if (CardRushThrowFx.FlyingHiddenByStuck(s, (long)System.Math.Floor(DrawnTick(renderClock, entry.Id, playerContext.entityId)), world.Timing))
-            {
-                entry.Thrown.SetVisible(false);
-                return;
-            }
-            spinStarts.TryGetValue(entry.Id, out var spinMemory);
-            bool faceUp = CardRushThrowFx.TryThrownFace(s, spinMemory, course, world.Timing, out var color);
-
-            var f = CardRushLanes.Flat(rules.Forward);
-            var rightAxis = Vector3.Cross(Vector3.up, f);
-            var body = entry.Visual.position;
-            var hand = body + rightAxis * HandRight + Vector3.up * HandHeight;
-            var door = CardRushCourseLayout.ObstacleAt(rules.Theme, laneOrigin, f, rules.StepSpacing, Mathf.Clamp(step, 0, course.StepCount - 1));
-            //  문짝 가운데의 꽂힐 자리(닫힌 문 기준 — 문 로컬 x 0, 문짝 앞면 조금 앞).
-            var hit = door + Vector3.up * CardRushLaneView.StuckCardLocal.y + f * CardRushLaneView.StuckCardLocal.z;
-            //  얼굴은 자세를 따른다 — 벌러덩하면 얼굴이 하늘을 보고, 붙은 카드가 뒤 위 카메라에 보인다.
-            var modelForward = entry.Model.forward;
-            var modelUp = entry.Model.up;
-            var face = ChibiHeadSpots.FaceFront(entry.Model, entry.Head);
-            float startHeight = mine ? CardRushHeadCardView.MineHeight : CardRushHeadCardView.OtherHeight;
-            var facing = Quaternion.LookRotation(f, Vector3.up);   //  보는 쪽(-z)이 뒤의 카메라를 본다
-
-            var (at, height, roll) = ThrownPlacement(since, hand, hit, face, startHeight);
-            if (height <= 0.01f)
-            {
-                entry.Thrown.SetVisible(false);
-                return;
-            }
-            entry.Thrown.SetVisible(true);
-            entry.Thrown.SetFace(faceUp, color, false);
-            var basis = since >= CardRushThrowFx.SlapTick ? Quaternion.LookRotation(modelForward, modelUp) : facing;
-            entry.Thrown.Root.SetPositionAndRotation(at, basis * Quaternion.AngleAxis(roll, Vector3.forward));
-            entry.Thrown.Root.localScale = Vector3.one * height;
-        }
-
-        /// <summary>
-        /// 던진 카드의 자리·높이·기울기(도) — 던짐에서 since틱. 0~3 손 → 문(두 바퀴 돌아 꽂힌 기울기로 닿음), 3~7 문 → 얼굴 포물선,
-        /// 7~12 얼굴에 붙었다가 떨어지며 작아져 0. 그림만 정하는 순수 식.
-        /// </summary>
-        public static (Vector3 at, float height, float roll) ThrownPlacement(double since, Vector3 hand, Vector3 hit, Vector3 face, float startHeight)
-        {
-            float stuckHeight = CardRushLaneView.StuckCardHeight;
-            float roll0 = CardRushLaneView.StuckCardRoll;
-            if (since < CardRushThrowFx.FlightTicks)
-            {
-                float u = Mathf.Clamp01((float)(since / CardRushThrowFx.FlightTicks));
-                return (Vector3.Lerp(hand, hit, u) + Vector3.up * (4f * ThrowArc * u * (1f - u)),
-                        Mathf.Lerp(startHeight, stuckHeight, u), roll0 + 720f * (1f - u));
-            }
-            if (since < CardRushThrowFx.SlapTick)
-            {
-                float u = (float)((since - CardRushThrowFx.FlightTicks) / CardRushThrowFx.BounceTicks);
-                return (Vector3.Lerp(hit, face, u) + Vector3.up * (4f * BounceArc * u * (1f - u)),
-                        Mathf.Lerp(stuckHeight, startHeight * SlapCardOfHead, u), roll0 - 360f * u);
-            }
-            float w = Mathf.Clamp01((float)((since - CardRushThrowFx.SlapTick) / CardRushThrowFx.DropTicks));
-            //  처음 SlapHold01은 얼굴에 붙어 있다가 떨어지며 작아진다.
-            float fall = Mathf.Clamp01((w - SlapHold01) / (1f - SlapHold01));
-            return (face + Vector3.down * (SlapDrop * fall * fall), startHeight * SlapCardOfHead * (1f - fall), roll0 - 360f - 40f * fall);
         }
 
         private Entry Dress(string id, Transform visual, Entry old)
         {
             old?.Fx.Destroy();
-            old?.Thrown?.Destroy();
+            old?.Props.Destroy();
             entries.Remove(id);
             var model = visual.Find(ChibiRig.ModelChildName);
             if (model == null)
@@ -249,6 +173,7 @@ namespace LOP
                 Head = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Head) : null,
                 Rest = new ModelRest(model),
                 Fx = new CardRushGagFx(root.transform, "Gag " + id, materials),
+                Props = new CardRushRunnerProps(root.transform, "Props " + id, materials),
             };
             entries[id] = entry;
             return entry;
@@ -256,7 +181,7 @@ namespace LOP
 
         /// <summary>
         /// 몸이 그려지는 틱(연속값) — 내 몸 그림은 예측 시각의 한 틱 뒤에 서 있고(KnockbackFlightFxView와 같은 식), 남은 보간 재생 시각.
-        /// 몸개그·던지는 카드·문(열림·꽂힌 카드)이 모두 이 하나를 쓴다 — 기준이 다르면 날아가는 카드와 꽂힌 카드가 겹치거나 비었다.
+        /// 몸개그·장애물·구역이 모두 이 하나를 쓴다 — 기준이 다르면 굴러오는 것과 꽈당이 어긋난다.
         /// </summary>
         public static double DrawnTick(EntityRenderClock clock, string id, string me)
         {
@@ -268,6 +193,8 @@ namespace LOP
             return clock.TimeFor(id) / interval - (id == me ? 1d : 0d);
         }
 
+        /// <summary>정수리 — 몸 프리팹의 정수리 자리(<see cref="ChibiHeadSpots.Crown"/>). 별·망치·말풍선이 이 위아래에 선다.</summary>
+        private static Vector3 Crown(Entry e) => ChibiHeadSpots.Crown(e.Model, e.Head);
 
         /// <summary>
         /// 자세를 모델에 준다. 오프셋·기울기는 진행 방향 기준(월드)이라 몸 뿌리의 회전·크기를 벗겨 모델 로컬로 바꾼다.
@@ -299,66 +226,259 @@ namespace LOP
                     ApplyPose(entry.Visual, entry.Model, entry.Rest, CardRushPose.Rest, Vector3.forward);
                 }
                 entry.Fx.Destroy();
-                entry.Thrown?.Destroy();
+                entry.Props.Destroy();
             }
             entries.Clear();
-            spinStarts.Clear();
             CardRushGagFx.DestroyObject(root);
             root = null;
             materials?.Dispose();
             materials = null;
-            cardMaterials?.Dispose();
-            cardMaterials = null;
-            palette?.Dispose();
-            palette = null;
         }
     }
 
-    /// <summary>물보라(물빛 한 계열)·별(노랑 한 계열) 재질. 효과 하나에 한 색 계열만 — 번쩍임 없음.</summary>
+    /// <summary>몸 소품의 그림 틱 모습 — 방패·대시 줄·망치·말풍선. 상태와 그림 틱만으로 정한다.</summary>
+    public readonly struct CardRushPropsLook
+    {
+        public readonly float Shield01;     //  방패 진행(0 → 1). 음수 = 없음
+        public readonly float ShieldAlpha;  //  나타남·옅어짐을 곱한 몫(0~1)
+        public readonly float ShieldScale;
+        public readonly float Streak01;     //  대시 줄 옅어짐(0 → 1). 음수 = 없음
+        public readonly float Hammer01;     //  망치 내리침(0 → 1). 음수 = 없음
+        public readonly string Bubble;      //  말풍선 글. null = 없음
+        public readonly bool BubbleGood;
+        public readonly float Bubble01;
+
+        public CardRushPropsLook(float shield01, float shieldAlpha, float shieldScale, float streak01, float hammer01, string bubble, bool bubbleGood, float bubble01)
+        {
+            Shield01 = shield01; ShieldAlpha = shieldAlpha; ShieldScale = shieldScale; Streak01 = streak01; Hammer01 = hammer01;
+            Bubble = bubble; BubbleGood = bubbleGood; Bubble01 = bubble01;
+        }
+
+        public bool Any => Shield01 >= 0f || Streak01 >= 0f || Hammer01 >= 0f || Bubble != null;
+    }
+
+    /// <summary>방패 구·대시 줄·망치·말풍선(spec §11.3). 효과마다 한 색 계열 — 방패 노랑, 대시 파랑, 망치 나무·쇠.</summary>
+    public sealed class CardRushRunnerProps
+    {
+        private readonly Transform root;
+        private readonly Renderer shieldFill;
+        private readonly LineRenderer shieldRim;
+        private readonly Renderer[] streaks = new Renderer[3];
+        private readonly Transform hammer;
+        private readonly CardRushWorldLabel bubble;
+        private readonly MaterialPropertyBlock block = new MaterialPropertyBlock();
+        private const int RimSegments = 40;
+
+        public CardRushRunnerProps(Transform parent, string name, CardRushGagFxMaterials materials)
+        {
+            root = CardRushDraw.Node(name, parent).transform;
+            shieldFill = CardRushDraw.Primitive(PrimitiveType.Sphere, "ShieldFill", root, materials.Clear).GetComponent<Renderer>();
+            var rimGo = CardRushDraw.Node("ShieldRim", root);
+            shieldRim = rimGo.AddComponent<LineRenderer>();
+            shieldRim.useWorldSpace = false;
+            shieldRim.loop = true;
+            shieldRim.sharedMaterial = materials.Clear;
+            shieldRim.widthMultiplier = 0.06f;
+            shieldRim.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            shieldRim.receiveShadows = false;
+            shieldRim.positionCount = RimSegments;
+            for (int i = 0; i < RimSegments; i++)
+            {
+                float a = i * Mathf.PI * 2f / RimSegments;
+                shieldRim.SetPosition(i, new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0f) * CardRushRunnerFxView.ShieldRadius);
+            }
+            for (int i = 0; i < streaks.Length; i++)
+            {
+                streaks[i] = CardRushDraw.Box("Streak", root, Vector3.zero, new Vector3(0.06f, 0.01f, CardRushRunnerFxView.StreakLength), materials.Clear).GetComponent<Renderer>();
+            }
+            hammer = CardRushDraw.Node("Hammer", root).transform;
+            var handle = CardRushDraw.Primitive(PrimitiveType.Cylinder, "Handle", hammer, materials.Handle);
+            handle.transform.localPosition = new Vector3(0f, 0.32f, 0f);
+            handle.transform.localScale = new Vector3(0.07f, 0.32f, 0.07f);
+            CardRushDraw.Box("Head", hammer, new Vector3(0f, 0.68f, 0f), new Vector3(0.22f, 0.2f, 0.42f), materials.HammerHead);
+            bubble = CardRushWorldLabel.Create("Bubble", root);
+            SetAll(false);
+        }
+
+        /// <summary>그 그림 틱의 소품 모습.</summary>
+        public static CardRushPropsLook Look(in CardRushRunnerState s, double d)
+        {
+            float shield01 = -1f, shieldAlpha = 0f, shieldScale = 1f;
+            if (s.BlockEndTick != 0)
+            {
+                double start = s.BlockEndTick - CardRushRules.BlockTicks;
+                if (d >= start && d < s.BlockEndTick)
+                {
+                    shield01 = (float)((d - start) / CardRushRules.BlockTicks);
+                    float grow = Mathf.Clamp01((float)((d - start) / CardRushRunnerFxView.ShieldGrowTicks));
+                    float fade = Mathf.Clamp01((float)((s.BlockEndTick - d) / CardRushRunnerFxView.ShieldFadeTicks));
+                    shieldScale = Mathf.Lerp(0.3f, 1f, grow);
+                    shieldAlpha = fade;
+                }
+            }
+
+            float streak = -1f;
+            if (s.DashStartTick != 0 && d >= s.DashStartTick && d < s.DashStartTick + CardRushRunnerFxView.StreakTicks)
+            {
+                streak = (float)((d - s.DashStartTick) / CardRushRunnerFxView.StreakTicks);
+            }
+
+            float hammer01 = -1f;
+            bool swung = s.ObstacleEvent == (int)CardRushObstacleEvent.Smashed || s.ObstacleEvent == (int)CardRushObstacleEvent.Whiff;
+            if (swung && d >= s.ObstacleEventTick && d < s.ObstacleEventTick + CardRushGag.SmashTicks)
+            {
+                hammer01 = (float)((d - s.ObstacleEventTick) / CardRushGag.SmashTicks);
+            }
+
+            //  말풍선 — 장애물·구역 결과 중 늦은 것 하나.
+            string text = null;
+            bool good = false;
+            float bubble01 = 0f;
+            long at = 0;
+            string obstacleText = ObstacleBubble((CardRushObstacleEvent)s.ObstacleEvent, out bool obstacleGood);
+            if (obstacleText != null && In(d, s.ObstacleEventTick))
+            {
+                text = obstacleText; good = obstacleGood; at = s.ObstacleEventTick;
+            }
+            string zoneText = ZoneBubble((CardRushZoneEvent)s.ZoneEvent, out bool zoneGood);
+            if (zoneText != null && In(d, s.ZoneEventTick) && s.ZoneEventTick >= at)
+            {
+                text = zoneText; good = zoneGood; at = s.ZoneEventTick;
+            }
+            if (text != null) bubble01 = (float)((d - at) / CardRushRunnerFxView.BubbleTicks);
+
+            return new CardRushPropsLook(shield01, shieldAlpha, shieldScale, streak, hammer01, text, good, bubble01);
+        }
+
+        private static bool In(double d, long at) => at != 0 && d >= at && d < at + CardRushRunnerFxView.BubbleTicks;
+
+        public static string ObstacleBubble(CardRushObstacleEvent ev, out bool good)
+        {
+            good = ev == CardRushObstacleEvent.Smashed || ev == CardRushObstacleEvent.Blocked;
+            return ev switch
+            {
+                CardRushObstacleEvent.Smashed => "와장창!",
+                CardRushObstacleEvent.Whiff => "헛방",
+                CardRushObstacleEvent.Blocked => "막음!",
+                CardRushObstacleEvent.Tumbled => "꽈당",
+                _ => null,
+            };
+        }
+
+        public static string ZoneBubble(CardRushZoneEvent ev, out bool good)
+        {
+            good = ev == CardRushZoneEvent.Held;
+            return ev switch
+            {
+                CardRushZoneEvent.Held => "버팀!",
+                CardRushZoneEvent.Hit => "으악",
+                _ => null,
+            };
+        }
+
+        public void Place(in CardRushPropsLook look, Vector3 body, Vector3 crown, Vector3 forward, Camera cam, bool mine, bool near)
+        {
+            var f = CardRushLanes.Flat(forward);
+            var right = Vector3.Cross(Vector3.up, f);
+
+            bool shield = look.Shield01 >= 0f;
+            CardRushDraw.SetActive(shieldFill.gameObject, shield);
+            CardRushDraw.SetActive(shieldRim.gameObject, shield);
+            if (shield)
+            {
+                var center = body + Vector3.up * CardRushRunnerFxView.ShieldCenterHeight;
+                float d = CardRushRunnerFxView.ShieldRadius * 2f * look.ShieldScale;
+                shieldFill.transform.SetPositionAndRotation(center, Quaternion.identity);
+                shieldFill.transform.localScale = new Vector3(d, d, d);
+                CardRushDraw.Tint(shieldFill, block, CardRushRunnerFxView.ShieldColor, CardRushRunnerFxView.ShieldFillAlpha * look.ShieldAlpha);
+                //  테두리는 카메라를 보는 원 — 구의 윤곽선 자리에 진하게.
+                var facing = cam != null ? Quaternion.LookRotation(center - cam.transform.position, Vector3.up) : Quaternion.LookRotation(f, Vector3.up);
+                shieldRim.transform.SetPositionAndRotation(center, facing);
+                shieldRim.transform.localScale = Vector3.one * look.ShieldScale;
+                //  무광 셰이더는 꼭짓점 색을 안 쓴다 — 색·알파는 렌더러 블록으로.
+                CardRushDraw.Tint(shieldRim, block, CardRushRunnerFxView.ShieldColor, CardRushRunnerFxView.ShieldRimAlpha * look.ShieldAlpha);
+            }
+
+            bool dash = look.Streak01 >= 0f;
+            for (int i = 0; i < streaks.Length; i++)
+            {
+                CardRushDraw.SetActive(streaks[i].gameObject, dash);
+                if (dash == false) continue;
+                float x = (i - 1) * 0.24f;
+                //  발밑 뒤로 — 가운데 줄이 조금 길게 뒤로.
+                var at = body + right * x + Vector3.up * 0.04f - f * (CardRushRunnerFxView.StreakLength * 0.5f + 0.2f + (i == 1 ? 0.15f : 0f));
+                streaks[i].transform.SetPositionAndRotation(at, Quaternion.LookRotation(f, Vector3.up));
+                CardRushDraw.Tint(streaks[i], block, CardRushRunnerFxView.StreakColor, 0.85f * (1f - look.Streak01));
+            }
+
+            bool swing = look.Hammer01 >= 0f;
+            CardRushDraw.SetActive(hammer.gameObject, swing);
+            if (swing)
+            {
+                //  머리 오른쪽 위에서 들었다가(뒤로 70°) 앞으로 내리친다(앞으로 80°) — 앞 35%에 내리치고 끝 20%에 작아진다.
+                float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(look.Hammer01 / 0.35f));
+                float angle = Mathf.Lerp(-70f, 80f, u);
+                //  옛 치비의 "머리 뼈 + 0.35"를 정수리 기준(정수리 − 0.43)으로 옮겼다.
+                hammer.position = crown - Vector3.up * 0.43f + right * 0.35f;
+                hammer.rotation = Quaternion.AngleAxis(angle, right) * Quaternion.LookRotation(f, Vector3.up);
+                hammer.localScale = Vector3.one * Mathf.Clamp01((1f - look.Hammer01) / 0.2f);
+            }
+
+            if (bubble != null)
+            {
+                if (look.Bubble != null && near && cam != null)
+                {
+                    //  옛 치비의 "머리 뼈 + 2.1/1.5"를 정수리 기준(정수리 + 1.32/0.72)으로 옮겼다 — 머리 위 카드 위.
+                    float lift = (mine ? 1.32f : 0.72f) + CardRushRunnerFxView.BubbleRise * look.Bubble01;
+                    var color = look.BubbleGood ? CardRushRunnerFxView.GoodBubble : CardRushRunnerFxView.BadBubble;
+                    bubble.Show(look.Bubble, crown + Vector3.up * lift, color, 1f - look.Bubble01 * look.Bubble01, mine ? 1.1f : CardRushRunnerFxView.OtherBubbleSize, cam);
+                }
+                else
+                {
+                    bubble.Hide();
+                }
+            }
+        }
+
+        private void SetAll(bool on)
+        {
+            CardRushDraw.SetActive(shieldFill.gameObject, on);
+            CardRushDraw.SetActive(shieldRim.gameObject, on);
+            foreach (var s in streaks) CardRushDraw.SetActive(s.gameObject, on);
+            CardRushDraw.SetActive(hammer.gameObject, on);
+        }
+
+        /// <summary>지금 켜진 소품 — 시험·진단용.</summary>
+        public bool ShieldVisible => shieldFill.gameObject.activeSelf;
+        public bool StreaksVisible => streaks[0].gameObject.activeSelf;
+        public bool HammerVisible => hammer.gameObject.activeSelf;
+
+        public void Destroy()
+        {
+            bubble?.Destroy();
+            CardRushGagFx.DestroyObject(root != null ? root.gameObject : null);
+        }
+    }
+
+    /// <summary>별(노랑 한 계열)·방패·대시 줄·망치 재질. 효과 하나에 한 색 계열만 — 번쩍임 없음.</summary>
     public sealed class CardRushGagFxMaterials : IDisposable
     {
-        public static readonly Color Droplet = new Color(0.90f, 0.97f, 1f);
-        public static readonly Color Ring = new Color(0.62f, 0.85f, 0.97f);
         public static readonly Color Star = new Color(1f, 0.84f, 0.29f);
 
-        public Material Water { get; }
         public Material StarMaterial { get; }
         public Mesh StarMesh { get; }
+        /// <summary>반투명 — 색·알파는 렌더러마다 준다(방패·대시 줄).</summary>
+        public Material Clear { get; }
+        public Material Handle { get; }
+        public Material HammerHead { get; }
 
         public CardRushGagFxMaterials()
         {
-            Water = MakeTransparent();
-            StarMaterial = MakeOpaque(Star);
+            StarMaterial = CardRushDraw.Opaque("CardRush_Star", Star);
             StarMesh = MakeStar(0.5f, 0.22f);
-        }
-
-        private static Material MakeTransparent()
-        {
-            var urp = Shader.Find("Universal Render Pipeline/Unlit");
-            if (urp == null)
-            {
-                return new Material(Shader.Find("Sprites/Default")) { hideFlags = HideFlags.DontSave };
-            }
-            var m = new Material(urp) { hideFlags = HideFlags.DontSave };
-            // 반투명 — URP Unlit의 투명 설정을 코드로 켠다(KnockbackFlightFxView 먼지와 같다).
-            m.SetFloat("_Surface", 1f);
-            m.SetFloat("_Blend", 0f);
-            m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            m.SetFloat("_ZWrite", 0f);
-            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-            return m;
-        }
-
-        private static Material MakeOpaque(Color color)
-        {
-            var shader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (shader == null) shader = Shader.Find("Sprites/Default");
-            var m = new Material(shader) { hideFlags = HideFlags.DontSave };
-            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
-            if (m.HasProperty("_Color")) m.SetColor("_Color", color);
-            return m;
+            Clear = CardRushDraw.Transparent("CardRush_FxClear", Color.white);
+            Handle = CardRushDraw.Opaque("CardRush_HammerHandle", CardRushStageMaterials.WoodLight);
+            HammerHead = CardRushDraw.Opaque("CardRush_HammerHead", CardRushStageMaterials.Iron);
         }
 
         //  다섯 뿔 별(평면, 앞뒤 면). 반지름 outer/inner.
@@ -387,52 +507,31 @@ namespace LOP
 
         public void Dispose()
         {
-            CardRushGagFx.DestroyObject(Water);
             CardRushGagFx.DestroyObject(StarMaterial);
             CardRushGagFx.DestroyObject(StarMesh);
+            CardRushGagFx.DestroyObject(Clear);
+            CardRushGagFx.DestroyObject(Handle);
+            CardRushGagFx.DestroyObject(HammerHead);
         }
     }
 
     /// <summary>
-    /// 몸 하나의 물보라·별. 저장하는 시간이 없다 — 매번 (몸개그 종류, t01)에서 자리를 다시 계산해, 멈춤 끝 틱에 같이 꺼진다.
+    /// 몸 하나의 별 셋 — 꽈당 엉덩방아(0.6~0.85)·으악 납작(0.1~0.7) 동안 머리 위를 돈다. 저장하는 시간이 없다 — 매번 (몸개그, t01)에서
+    /// 자리를 다시 계산해 기절 끝 틱에 같이 꺼진다.
     /// </summary>
     public sealed class CardRushGagFx
     {
-        /// <summary>강물 수면(맵 spec: 돌다리 강물 판 y −0.6). 몸 뿌리 높이(레인 바닥 0) 기준.</summary>
-        public const float WaterSurfaceY = -0.6f;
-
-        public const int DropletCount = 12;
         public const int StarCount = 3;
-
-        //  물보라: 빠지는 순간(0.25)부터 0.35 동안 튀고, 물결은 허우적 끝(0.75)까지 퍼졌다 사라진다.
-        private const float SplashStart = 0.25f, SplashDropletSpan = 0.35f, RingEnd = 0.80f;
-        //  별: 철썩 맞고 나자빠지는 동안(0.30~0.75) 머리 위를 두 바퀴 돈다.
-        private const float StarStart = 0.30f, StarEnd = 0.75f, StarTurns = 2f, StarRadius = 0.42f, StarBelowCrown = 0.40f, StarSize = 0.7f;
+        private const float StarTurns = 2f, StarRadius = 0.42f, StarBelowCrown = 0.40f, StarSize = 0.7f;
 
         private readonly GameObject root;
-        private readonly Transform[] droplets = new Transform[DropletCount];
-        private readonly Renderer[] dropletRenderers = new Renderer[DropletCount];
-        private readonly Transform ring;
-        private readonly Renderer ringRenderer;
         private readonly Transform[] stars = new Transform[StarCount];
-        private readonly MaterialPropertyBlock block = new MaterialPropertyBlock();
-        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-        private static readonly int ColorId = Shader.PropertyToID("_Color");
         private bool visible = true;
 
         public CardRushGagFx(Transform parent, string name, CardRushGagFxMaterials materials)
         {
             root = new GameObject(name);
             root.transform.SetParent(parent, false);
-            for (int i = 0; i < DropletCount; i++)
-            {
-                var go = Primitive(PrimitiveType.Sphere, "Droplet", materials.Water);
-                droplets[i] = go.transform;
-                dropletRenderers[i] = go.GetComponent<Renderer>();
-            }
-            var ringGo = Primitive(PrimitiveType.Cylinder, "Ripple", materials.Water);
-            ring = ringGo.transform;
-            ringRenderer = ringGo.GetComponent<Renderer>();
             for (int i = 0; i < StarCount; i++)
             {
                 var go = new GameObject("Star");
@@ -446,91 +545,27 @@ namespace LOP
             SetVisible(false);
         }
 
-        private GameObject Primitive(PrimitiveType type, string name, Material material)
+        /// <summary>별이 도는 구간(몸개그 안 비율). 없으면 false.</summary>
+        public static bool StarSpan(CardRushGagKind kind, out float from, out float to)
         {
-            var go = GameObject.CreatePrimitive(type);
-            go.name = name;
-            DestroyObject(go.GetComponent<Collider>());
-            go.transform.SetParent(root.transform, false);
-            var r = go.GetComponent<Renderer>();
-            r.sharedMaterial = material;
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            r.receiveShadows = false;
-            return go;
+            switch (kind)
+            {
+                case CardRushGagKind.Tumble: from = CardRushGag.TumbleRollEnd; to = CardRushGag.TumbleSitEnd; return true;
+                case CardRushGagKind.Squash: from = CardRushGag.SquashPressEnd; to = CardRushGag.SquashFlatEnd; return true;
+                default: from = to = 0f; return false;
+            }
         }
 
-        /// <summary>그 순간의 효과를 놓는다. 풍덩·철썩 밖이면 다 숨긴다.</summary>
-        public void Show(CardRushGagKind kind, float t01, Vector3 bodyRoot, Vector3 forward, float stepSpacing, Vector3 crown)
+        //  별은 머리 둘레를 돈다 — 옛 치비의 "머리 뼈 + 0.38"을 정수리 기준(정수리 − 0.40)으로 옮겼다.
+        public void Show(CardRushGagKind kind, float t01, Vector3 crown)
         {
-            float starStart = StarStart, starEnd = StarEnd;
-            //  3차엔 물이 없다. 별은 꽈당 엉덩방아(0.6~0.85)·으악 납작(0.1~0.7) 동안.
-            bool splash = false;
-            bool slap = (kind == CardRushGagKind.Tumble && t01 >= CardRushGag.TumbleRollEnd && t01 < CardRushGag.TumbleSitEnd)
-                     || (kind == CardRushGagKind.Squash && t01 >= CardRushGag.SquashPressEnd && t01 < CardRushGag.SquashFlatEnd);
-            if (slap)
-            {
-                (starStart, starEnd) = kind == CardRushGagKind.Tumble
-                    ? (CardRushGag.TumbleRollEnd, CardRushGag.TumbleSitEnd)
-                    : (CardRushGag.SquashPressEnd, CardRushGag.SquashFlatEnd);
-            }
-            if (splash == false && slap == false)
+            if (StarSpan(kind, out float from, out float to) == false || t01 < from || t01 >= to)
             {
                 SetVisible(false);
                 return;
             }
             SetVisible(true);
-
-            for (int i = 0; i < DropletCount; i++) droplets[i].gameObject.SetActive(splash);
-            ring.gameObject.SetActive(splash);
-            for (int i = 0; i < StarCount; i++) stars[i].gameObject.SetActive(slap);
-
-            if (splash)
-            {
-                var f = CardRushLanes.Flat(forward);
-                var center = bodyRoot + f * (0.5f * stepSpacing);
-                center.y = bodyRoot.y + WaterSurfaceY;
-                PlaceSplash(t01, center, f);
-            }
-            if (slap)
-            {
-                PlaceStars(t01, crown, starStart, starEnd);
-            }
-        }
-
-        private void PlaceSplash(float t01, Vector3 center, Vector3 forward)
-        {
-            var right = Vector3.Cross(Vector3.up, forward);
-            float u = (t01 - SplashStart) / SplashDropletSpan;
-            for (int i = 0; i < DropletCount; i++)
-            {
-                if (u >= 1f)
-                {
-                    droplets[i].gameObject.SetActive(false);
-                    continue;
-                }
-                //  방울마다 정해진 방향·세기(씨앗 없는 고정 표) — 매번 같은 모양으로 튄다.
-                float angle = i * (2f * Mathf.PI / DropletCount) + 0.37f * (i % 3);
-                float reach = 1.0f + 0.8f * ((i * 7) % 5) / 4f;
-                float height = 1.2f + 0.8f * ((i * 3) % 4) / 3f;
-                var dir = right * Mathf.Cos(angle) + forward * Mathf.Sin(angle);
-                droplets[i].position = center + dir * (reach * u) + Vector3.up * (4f * height * u * (1f - u));
-                float size = Mathf.Lerp(0.32f, 0.12f, u);
-                droplets[i].localScale = new Vector3(size, size, size);
-                Tint(dropletRenderers[i], CardRushGagFxMaterials.Droplet, 0.95f * (1f - u * u));
-            }
-
-            float w = Mathf.Clamp01((t01 - SplashStart) / (RingEnd - SplashStart));
-            float radius = Mathf.Lerp(0.5f, 1.9f, Mathf.Sqrt(w));
-            ring.position = center + Vector3.up * 0.02f;
-            ring.rotation = Quaternion.identity;
-            ring.localScale = new Vector3(radius * 2f, 0.01f, radius * 2f);
-            Tint(ringRenderer, CardRushGagFxMaterials.Ring, 0.7f * (1f - w));
-        }
-
-        //  별은 머리 둘레를 돈다 — 옛 치비의 "머리 뼈 + 0.38"을 정수리 기준(정수리 − 0.40)으로 옮겼다.
-        private void PlaceStars(float t01, Vector3 crown, float starStart, float starEnd)
-        {
-            float w = (t01 - starStart) / (starEnd - starStart);
+            float w = (t01 - from) / (to - from);
             //  나타날 때·사라질 때 크기로만 들고 난다(깜빡임 없이).
             float grow = Mathf.Clamp01(w / 0.12f) * Mathf.Clamp01((1f - w) / 0.12f);
             var cam = Camera.main;
@@ -545,15 +580,6 @@ namespace LOP
             }
         }
 
-        private void Tint(Renderer renderer, Color color, float alpha)
-        {
-            color.a = Mathf.Clamp01(alpha);
-            renderer.GetPropertyBlock(block);
-            block.SetColor(BaseColorId, color);
-            block.SetColor(ColorId, color);
-            renderer.SetPropertyBlock(block);
-        }
-
         private void SetVisible(bool on)
         {
             if (visible == on || root == null)
@@ -564,9 +590,8 @@ namespace LOP
             root.SetActive(on);
         }
 
-        /// <summary>지금 켜진 물보라 방울·별 수 — 시험·진단용.</summary>
-        public int ActiveDroplets { get { int n = 0; if (visible) foreach (var d in droplets) if (d.gameObject.activeSelf) n++; return n; } }
-        public int ActiveStars { get { int n = 0; if (visible) foreach (var s in stars) if (s.gameObject.activeSelf) n++; return n; } }
+        /// <summary>지금 켜진 별 수 — 시험·진단용.</summary>
+        public int ActiveStars => visible ? StarCount : 0;
 
         public void Destroy() => DestroyObject(root);
 

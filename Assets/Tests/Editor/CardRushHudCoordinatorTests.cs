@@ -145,5 +145,14 @@ namespace LOP.Tests
             Assert.IsTrue(windows.Closed.Contains(pad), "서버가 확정하면 닫는다");
             Assert.IsTrue(windows.Opened.Exists(v => v is LOP.UI.RaceFinishView), "완주 화면");
         }
+
+        [Test]
+        public void ShouldEnterFinish는_판이_안_끝났고_조작판이_있고_내가_완주했을_때만()
+        {
+            Assert.IsTrue(CardRushHudCoordinator.ShouldEnterFinish(matchEnded: false, padOpen: true, mineFinished: true));
+            Assert.IsFalse(CardRushHudCoordinator.ShouldEnterFinish(matchEnded: true, padOpen: true, mineFinished: true), "결과 화면 위에 겹치지 않는다");
+            Assert.IsFalse(CardRushHudCoordinator.ShouldEnterFinish(matchEnded: false, padOpen: false, mineFinished: true), "이미 넘어갔다");
+            Assert.IsFalse(CardRushHudCoordinator.ShouldEnterFinish(matchEnded: false, padOpen: true, mineFinished: false));
+        }
     }
 }

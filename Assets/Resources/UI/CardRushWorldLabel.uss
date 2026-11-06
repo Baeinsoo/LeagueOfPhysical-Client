@@ -1,0 +1,15 @@
+.label-root {
+    flex-grow: 1;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 카드 러시 월드 글(남은 초·말풍선). 배경 판 없이 테두리로 바닥과 나눈다. 색·크기는 코드가 정한다. */
+.label-text {
+    font-size: 44px;
+    color: rgb(255, 255, 255);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 3px;
+    -unity-text-outline-color: rgba(30, 10, 5, 0.95);
+}

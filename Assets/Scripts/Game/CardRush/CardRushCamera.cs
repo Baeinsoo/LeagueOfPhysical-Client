@@ -7,8 +7,8 @@ namespace LOP
     /// 카드 러시 카메라(spec §7.2) — 따라갈 몸(관전 대상)을 뒤 위에서 보며 진행 방향을 본다. 회전 조작은 받지 않는다.
     ///
     /// <para><see cref="CameraController.BeforeFollow"/>에서 계산한다(<see cref="FlappyCorridorCamera"/>와 같은 갈고리) —
-    /// 그때는 보간기가 이번 프레임 몸 자리를 이미 옮겨 놓았다. 피벗은 몸 자리 + 진행 방향 0.75칸이고, 그 점을
-    /// <c>1 − exp(−10·dt)</c>로 따라간다: 0.3초 이동을 따라가되 덜컥이지 않게. 늦는 것은 카메라뿐, 몸은 늦추지 않는다.</para>
+    /// 그때는 보간기가 이번 프레임 몸 자리를 이미 옮겨 놓았다. 피벗은 몸 자리 + 진행 방향 <see cref="LookAheadMeters"/>이고, 그 점을
+    /// <c>1 − exp(−10·dt)</c>로 따라간다: 대시·밀림을 따라가되 덜컥이지 않게. 늦는 것은 카메라뿐, 몸은 늦추지 않는다.</para>
     ///
     /// <para>카메라의 대상(<see cref="CameraController.Target"/>)은 바꾸지 않고 <see cref="CameraController.PivotOffset"/>으로
     /// 피벗을 직접 놓는다 — 관전 대상이 바뀌어도 SetTarget이 거리·각을 다시 잡으며 튀지 않고, 같은 따라가기로 넘어간다.</para>
@@ -23,12 +23,15 @@ namespace LOP
         public const float PitchDegrees = 35f;
         public const float Distance = 9f;
         public const float PortraitDistanceScale = 1.35f;
-        public const float LookAheadSteps = 0.75f;
+        /// <summary>
+        /// 몸 앞 3 m를 피벗으로 — 굴러오는 것이 풀리는 7 m 앞이 화면 안에 든다(spec 2026-11-05 §11.5, 2차의 0.75칸 = 1.65 m에서 늘림).
+        /// </summary>
+        public const float LookAheadMeters = 3.0f;
         public const float FollowSharpness = 10f;
 
         /// <summary>
         /// 몸·몸개그를 이 높이(화면 아래 0, 위 1)보다 위에 둔다 — 지운 카드 띠(가로 1080p)의 위 끝 값 그대로. 띠는 없어졌지만
-        /// 아래 "연속 N" 글과 손가락 자리를 비우고, 카메라 각·거리를 바꾸지 않았다는 기준으로 남긴다.
+        /// 아래 "무사 N" 글과 손가락 자리를 비우고, 카메라 각·거리를 바꾸지 않았다는 기준으로 남긴다.
         /// </summary>
         public const float KeepClearBottom01 = 0.235f;
 
@@ -49,9 +52,9 @@ namespace LOP
             this.actorRegistry = actorRegistry;
         }
 
-        /// <summary>몸 자리에서 본 목표 피벗 — 바로 앞 칸이 화면 가운데보다 조금 위에 온다.</summary>
-        public static Vector3 PivotTarget(Vector3 body, Vector3 forward, float stepSpacing)
-            => body + CardRushLanes.Flat(forward) * (stepSpacing * LookAheadSteps);
+        /// <summary>몸 자리에서 본 목표 피벗 — 몸 앞 3 m가 화면 가운데.</summary>
+        public static Vector3 PivotTarget(Vector3 body, Vector3 forward)
+            => body + CardRushLanes.Flat(forward) * LookAheadMeters;
 
         /// <summary>
         /// 피벗 기준 자리(진행 방향 <paramref name="forwardMeters"/>, 위 <paramref name="upMeters"/>)가 화면 어느 높이(아래 0, 위 1)에
@@ -98,7 +101,7 @@ namespace LOP
             }
 
             var body = FollowedBody();
-            var target = PivotTarget(body.position, rules.Forward, rules.StepSpacing);
+            var target = PivotTarget(body.position, rules.Forward);
             pivot = hasPivot ? Follow(pivot, target, deltaTime) : target;
             hasPivot = true;
 

@@ -7,11 +7,11 @@ namespace LOP
     /// <list type="bullet">
     /// <item>완주 시간 — <see cref="FinishRecordGate"/>를 그대로 재사용한다(Flappy와 같은 넷코드 모양이라 같은 함정이 있다 —
     /// 리뷰 판정 11-02). 서버 등수(<see cref="FinishPlacement"/> &gt; 0)와 월드가 적은 결승 틱(<see cref="FinishState.FinishedTick"/>,
-    /// <c>CardRushWorld</c>가 완주 순간 <see cref="CardRushRunnerState.MoveStartTick"/>을 그대로 옮겨 적는다)이 둘 다 있는 첫
+    /// <c>CardRushWorld</c>가 <see cref="CardRushRunnerState.FinishTick"/>을 그대로 옮겨 적는다)이 둘 다 있는 첫
     /// 장에 한 번만 적는다. 처음 본 장에 이미 둘 다 있으면(재접속) 이번 스코프가 본 판이 아니라 안 적고, 등수가 끝까지
     /// 없으면(DNF) 영원히 안 적는다.</item>
-    /// <item>연속 정타 최고 — 스냅으로 받은 연속(<see cref="CardRushServerStreak"/>)의 최댓값. <see cref="CardRushRunnerState.BestStreak"/>는
-    /// 와이어에 없는 예측값이라 서버가 버린 탭의 정타가 되감기 앵커에서 살아남을 수 있다(최종 리뷰 I3) — 그 값은 안 본다.
+    /// <item>연속 무사 통과 — 스냅으로 받은 연속(<see cref="CardRushServerStreak"/>)의 최댓값. <see cref="CardRushRunnerState.BestCleanStreak"/>는
+    /// 와이어에 없는 예측값이라 서버가 버린 탭의 통과가 되감기 앵커에서 살아남을 수 있다(2차 최종 리뷰 I3) — 그 값은 안 본다.
     /// 여기서도 본 값의 최댓값만 적어 기록지는 거꾸로 가지 않는다.</item>
     /// </list>
     /// <para>"나"는 <see cref="IGameDataStore.userEntityId"/>로 본다(정보 HUD·<c>FlappyFinishRecorder</c>와 같은 이유 —
@@ -53,7 +53,7 @@ namespace LOP
             if (streak > _bestStreak)
             {
                 _bestStreak = streak;
-                _sheet.Set(CardRushRecordMetrics.StreakBest, _bestStreak);
+                _sheet.Set(CardRushRecordMetrics.CleanBest, _bestStreak);
             }
 
             int placement = mine.Get<FinishPlacement>()?.Value ?? 0;

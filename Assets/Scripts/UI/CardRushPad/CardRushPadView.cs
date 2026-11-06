@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 namespace LOP.UI
 {
     /// <summary>
-    /// 카드 러시 입력 화면(spec 2026-11-03 §5.2). 화면 전체가 투명한 탭 면이고, 화면 아래 가운데에 작은 "연속 N" 글만 있다.
+    /// 카드 러시 입력 화면(spec 2026-11-05 §11.5). 화면 전체가 투명한 탭 면이고, 화면 아래 가운데에 작은 "무사 N"(지금 연속 무사 통과) 글만 있다.
     /// 카드는 머리 위(<see cref="CardRushHeadCardView"/>)로 옮겼다 — 아래 띠·큰 카드·요구 색 칩은 없다.
     /// </summary>
     public class CardRushPadView : UIView
@@ -70,12 +70,12 @@ namespace LOP.UI
                 return;
             }
 
-            int streak = runner.State.Streak;
+            int streak = runner.State.CleanStreak;
             if (streak == _lastStreak)
             {
                 return;
             }
-            _streak.text = $"연속 {streak}";
+            _streak.text = StreakText(streak);
             //  10의 배수에서 숫자가 한 번 통통(같은 색 계열, 소리 없음).
             if (streak > 0 && streak % 10 == 0)
             {
@@ -83,6 +83,9 @@ namespace LOP.UI
             }
             _lastStreak = streak;
         }
+
+        /// <summary>아래 글 — 지금 연속 무사 통과.</summary>
+        public static string StreakText(int streak) => $"무사 {streak}";
 
         private static void Pulse(VisualElement label)
         {

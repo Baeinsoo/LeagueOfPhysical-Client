@@ -49,9 +49,9 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 카드_러시는_문_박치기_하나()
+        public void 카드_러시는_장애물_복도_하나()
         {
-            //  돌다리(맵 19)를 로비에서 뺐다(#Map에서 행 삭제) — 카드 러시(모드 13)는 문 박치기(맵 20) 하나만 남는다.
+            //  돌다리(맵 19)를 로비에서 뺐다(#Map에서 행 삭제) — 카드 러시(모드 13)는 장애물 복도(맵 20) 하나만 남는다.
             var games = new PlayableGameProvider(RealMasterData()).Games;
 
             var cardRush = games.FirstOrDefault(g => g.GameModeId == 13);

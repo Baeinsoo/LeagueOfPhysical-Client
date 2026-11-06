@@ -6,12 +6,9 @@ namespace LOP
     /// 카드 러시 정보 HUD 한 장을 월드에서 채운다(spec §7.3). <see cref="RaceHudViewModel"/>/<see cref="RaceHudView"/>는
     /// Flappy와 그대로 쓰고 소스만 이것으로 갈아 끼운다.
     ///
-    /// <para>진행은 "칸" 단위다(<c>StartX = 0</c>, <c>FinishX = StepCount</c>) — 레인이 씬마다 다른 방향을 보므로
-    /// Flappy의 <see cref="RaceHudSource"/>처럼 그려진 x(월드 좌표)를 그대로 쓸 수 없다. 대신
-    /// <see cref="CardRushLanes.Progress"/>를 (그 몸의 상태, 그림 틱)으로 다시 계산한다.</para>
-    ///
-    /// <para>그림 틱은 몸마다 <see cref="EntityRenderClock.TickFor"/>에 묻는다 — 내 몸은 예측 중인 틱, 남의 몸은
-    /// 공유 보간 시계의 틱(몸이 그려지는 시점). 내 틱을 그대로 쓰면 남이 아직 안 보낸 미래 구간까지 다 간 것처럼 보인다.</para>
+    /// <para>진행은 출발선에서 간 거리(mm)다(<c>StartX = 0</c>, <c>FinishX = TrackMm</c>, spec 2026-11-05 §10) — 레인이 씬마다
+    /// 다른 방향을 보므로 Flappy의 <see cref="RaceHudSource"/>처럼 그려진 x(월드 좌표)를 그대로 쓸 수 없다. 상태의
+    /// <see cref="CardRushRunnerState.PosMm"/>가 곧 진행이다(남의 몸은 최신 스냅 값 — 막대 점 하나라 보간 지연만큼의 차는 안 보인다).</para>
     /// </summary>
     public class CardRushRaceHudSource : IRaceHudSource
     {
@@ -20,21 +17,18 @@ namespace LOP
         private readonly MatchStartState _matchStart;
         private readonly GameFramework.Runner.IRunner _runner;
         private readonly CardRushWorld _world;
-        private readonly EntityRenderClock _renderClock;
 
         public CardRushRaceHudSource(GameFramework.World.EntityRegistry entityRegistry,
                                      IGameDataStore gameDataStore,
                                      MatchStartState matchStart,
                                      GameFramework.Runner.IRunner runner,
-                                     CardRushWorld world,
-                                     EntityRenderClock renderClock)
+                                     CardRushWorld world)
         {
             _entityRegistry = entityRegistry;
             _gameDataStore = gameDataStore;
             _matchStart = matchStart;
             _runner = runner;
             _world = world;
-            _renderClock = renderClock;
         }
 
         public void Fill(RaceHudFrame frame)
@@ -46,9 +40,7 @@ namespace LOP
             frame.NowSeconds = ticker?.elapsedTime ?? 0d;
             frame.SecondsPerTick = ticker?.interval ?? 0d;
 
-            var course = _world.Course;
-            int stepCount = course?.StepCount ?? 0;
-            int moveTicks = _world.Timing.MoveTicks;
+            int trackMm = _world.Track?.TrackMm ?? 0;
 
             foreach (var entity in _entityRegistry.All)
             {
@@ -63,8 +55,7 @@ namespace LOP
                 }
 
                 bool mine = entity.Id == frame.MyId;
-                long tick = _renderClock.TickFor(entity.Id);
-                float x = CardRushCourseLayout.DrawnProgress(runner.State, tick, moveTicks);
+                float x = runner.State.PosMm;
                 int placement = entity.Get<FinishPlacement>()?.Value ?? 0;
                 frame.Birds.Add(new RaceBirdSample(entity.Id, placement, x));
 
@@ -76,8 +67,8 @@ namespace LOP
             }
 
             frame.StartX = 0f;
-            frame.FinishX = stepCount;
-            frame.HasCourse = stepCount > 0;
+            frame.FinishX = trackMm;
+            frame.HasCourse = trackMm > 0;
             //  카드 러시엔 Flappy식 "n막" 구간 표식이 없다(§7.3) — frame.Sections는 빈 채로 둔다.
             //  RaceHudViewModel은 빈 목록이면 띠·배너를 그리지 않는다(연출 절제와도 맞는다).
         }

@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="CardRushWorldLabel.uss" />
+    <ui:VisualElement name="label-root" class="label-root">
+        <ui:Label name="label-text" class="label-text" />
+    </ui:VisualElement>
+</ui:UXML>

@@ -28,7 +28,7 @@ namespace LOP
         private struct Ranked
         {
             public string Id;
-            public int Step;
+            public int PosMm;
         }
 
         /// <summary>지금 볼 수 있는 사람. 선두(가장 앞선 사람)가 0번이다.</summary>
@@ -120,7 +120,7 @@ namespace LOP
                     continue;
                 }
 
-                scratch.Add(new Ranked { Id = entity.Id, Step = runner.State.Step });
+                scratch.Add(new Ranked { Id = entity.Id, PosMm = runner.State.PosMm });
             }
 
             scratch.Sort(LeaderFirst);
@@ -140,11 +140,11 @@ namespace LOP
                 || (entity.Get<FinishPlacement>()?.Value ?? 0) > 0;
         }
 
-        //  칸 수 내림차순(선두가 0번). 같은 칸이면 id 오름차순 — 동률에서도 숫자가 안 깜빡인다.
+        //  간 거리 내림차순(선두가 0번). 같으면 id 오름차순 — 동률에서도 숫자가 안 깜빡인다.
         private static int CompareLeaderFirst(Ranked a, Ranked b)
         {
-            int byStep = b.Step.CompareTo(a.Step);
-            return byStep != 0 ? byStep : string.CompareOrdinal(a.Id, b.Id);
+            int byPos = b.PosMm.CompareTo(a.PosMm);
+            return byPos != 0 ? byPos : string.CompareOrdinal(a.Id, b.Id);
         }
     }
 }

@@ -39,6 +39,24 @@ namespace LOP
             return HeadBonePosition(model, head) + model.up * PolyOneFaceUp + model.forward * PolyOneFaceForward;
         }
 
+        /// <summary>
+        /// 모델 자식(<paramref name="model"/>)이 쉴 때 자세(<paramref name="restPosition"/>·<paramref name="restRotation"/>·<paramref name="restScale"/>,
+        /// 뿌리 <paramref name="visual"/> 기준)였다면 정수리가 있을 자리. 몸개그가 모델에 준 구르기·납작을 벗긴다 — 뼈 애니메이션은 그대로 따른다.
+        /// 짐작(자리 없는 몸)의 "뼈 위 0.78 m"는 쉴 때 자세에서 월드 위로 더한다(<see cref="Crown"/>과 쉴 때 같은 값).
+        /// </summary>
+        public static Vector3 CrownAtRest(Transform visual, Transform model, Transform head,
+                                          Vector3 restPosition, Quaternion restRotation, Vector3 restScale)
+        {
+            Vector3 ToRest(Vector3 world)
+            {
+                var local = model.InverseTransformPoint(world);
+                return visual.TransformPoint(restPosition + restRotation * Vector3.Scale(restScale, local));
+            }
+            var spot = head != null ? head.Find(HatAnchorName) : null;
+            if (spot != null) return ToRest(spot.position);
+            return ToRest(HeadBonePosition(model, head)) + Vector3.up * PolyOneCrownAboveBone;
+        }
+
         private static Vector3 HeadBonePosition(Transform model, Transform head)
             => head != null ? head.position : model.position + model.up * NoHeadBoneHeight;
     }

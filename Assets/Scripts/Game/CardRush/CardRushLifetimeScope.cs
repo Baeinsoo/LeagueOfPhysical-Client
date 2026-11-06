@@ -39,7 +39,7 @@ namespace LOP
                 c.Resolve<GameFramework.World.WorldEventBuffer>(),
                 c.Resolve<CardRushMapRulesField>(),
                 c.Resolve<IMatchSeed>(),
-                c.Resolve<CardRushConfig>().Timing), Lifetime.Singleton)
+                c.Resolve<CardRushConfig>()), Lifetime.Singleton)
                 .As<GameFramework.World.IWorld>().AsSelf();
 
             builder.Register<ICharacterCreator, CardRushRunnerCreator>(Lifetime.Singleton);
@@ -49,7 +49,7 @@ namespace LOP
                 c => new OwnerPredictedSyncPolicy(() => c.Resolve<IGameDataStore>().userEntityId),
                 Lifetime.Singleton);
 
-            //  위치 말고도 칸·멈춤 등 다섯 칸을 서버 판정에 맞춘다.
+            //  위치 말고도 거리·카드·장애물·구역 등 17칸을 서버 판정에 맞춘다.
             builder.Register<IServerCorrectionHandler>(
                 c => new CardRushServerCorrectionHandler(c.Resolve<CardRushWorld>()), Lifetime.Singleton);
             //  외삽 대상이 없다(예측 아니면 보간) — EntityBinder 생성자 의존이라 등록만 한다.
@@ -62,7 +62,7 @@ namespace LOP
             //  진입점이라 IFlappyAudio로도 풀린다(AsImplementedInterfaces, FlappyAudio와 같은 등록).
             builder.RegisterEntryPoint<CardRushAudio>().AsSelf();
 
-            //  개인 기록(spec §7) — 완주 시간·연속 정타 최고를 게임 공용 기록지에 적는다(서버 확정 값만). 판정과 무관하다.
+            //  개인 기록(spec §7) — 완주 시간·연속 무사 통과를 게임 공용 기록지에 적는다(서버 확정 값만). 판정과 무관하다.
             //  스코프 배선 시험이 바로 resolve하므로 AsSelf(이 파일의 다른 진입점과 같은 규칙).
             builder.RegisterEntryPoint<CardRushRecordReporter>().AsSelf();
 
@@ -81,7 +81,7 @@ namespace LOP
             builder.Register(c => new MatchLeaveRequester(c.Resolve<ISubscriber<LeaveMatchToC>>(),
                 message => NetworkClient.Send(new CustomMirrorMessage { payload = message })), Lifetime.Singleton);
 
-            //  조작판 — 화면 아무 데나 탭하면 잡기(+ 아래 "연속 N"). 카드는 머리 위 카드 뷰가 그린다(spec 2026-11-03 §5.1).
+            //  조작판 — 화면 아무 데나 탭하면 잡기(+ 아래 "무사 N"). 카드는 머리 위 카드 뷰가 그린다(spec 2026-11-03 §5.1).
             //  탭·Space 잡기는 틱 앞(ITickable)에서 읽는다 — UI Toolkit 이벤트·패널 스케줄러는 틱 뒤라 한 틱 늦다.
             //  탭이 조작판 면 위인지는 열린 조작판이 채우는 CardRushTapTarget에 묻는다.
             builder.Register<CardRushTapTarget>(Lifetime.Singleton);
@@ -95,11 +95,12 @@ namespace LOP
 
             builder.RegisterEntryPoint<CardRushHudCoordinator>().AsSelf();
 
-            //  돌·문은 씬에 없다 — 몸이 생기면 그 레인에 (칸 수, 코스 색)으로 깐다. 두 테마가 같은 식이다.
-            builder.RegisterEntryPoint<CardRushCourseView>().AsSelf();
+            //  트랙(경계선·눈금·결승 문·술래 얼굴)과 장애물·구역은 씬에 없다 — 몸이 생기면 그 레인에 코스(씨앗)에서 깐다.
+            builder.RegisterEntryPoint<CardRushTrackView>().AsSelf();
+            builder.RegisterEntryPoint<CardRushHazardView>().AsSelf();
             //  뒤 위에서 진행 방향을 보는 고정 각 카메라. 관전 대상은 위 코디네이터가 매 틱 고른다.
             builder.RegisterEntryPoint<CardRushCamera>().AsSelf();
-            //  몸개그(풍덩·철썩·폴짝·결승 몸짓)와 던지는 카드 — 몸의 자식 Model만 움직이는 그림. 상태는 읽기만 한다.
+            //  몸개그(꽈당·으악·결승 몸짓)와 방패·대시 줄·망치·말풍선 — 몸의 자식 Model만 움직이는 그림. 상태는 읽기만 한다.
             builder.RegisterEntryPoint<CardRushRunnerFxView>().AsSelf();
             //  머리 위 카드 — 내 것은 다음 입력 틱으로 칠한다(본 색 = 판정 색). 남의 것은 그림 틱, 내 레인 ±3만.
             builder.RegisterEntryPoint<CardRushHeadCardView>().AsSelf();

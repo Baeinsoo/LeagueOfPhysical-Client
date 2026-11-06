@@ -122,14 +122,15 @@ namespace LOP.Tests
             Assert.IsInstanceOf<OwnerPredictedSyncPolicy>(container.Resolve(typeof(IEntitySyncPolicy)));
             Assert.IsInstanceOf<ZeroExtrapolationAcceleration>(container.Resolve(typeof(IExtrapolationAcceleration)));
             Assert.AreSame(camera, container.Resolve(typeof(CameraController)));
-            //  칸 그림·카메라가 스코프에 걸려 있다 — 빠지면 돌·문이 안 깔리고 카메라가 기본 각에 머문다(에러 없이).
-            Assert.IsNotNull(container.Resolve(typeof(CardRushCourseView)));
+            //  트랙·장애물 그림·카메라가 스코프에 걸려 있다 — 빠지면 레인·장애물·구역이 안 깔리고 카메라가 기본 각에 머문다(에러 없이).
+            Assert.IsNotNull(container.Resolve(typeof(CardRushTrackView)));
+            Assert.IsNotNull(container.Resolve(typeof(CardRushHazardView)));
             Assert.IsNotNull(container.Resolve(typeof(CardRushCamera)));
             Assert.IsNotNull(container.Resolve(typeof(CardRushHudCoordinator)), "완주 뒤 관전 흐름의 의존(판 끝·나가기)이 다 닿는다");
             //  소리·몸개그. IFlappyAudio(RaceHud·RaceFinish가 부름)는 빈 구현이 아니라 진짜 소리 하나와 같은 것.
             Assert.IsNotNull(container.Resolve(typeof(CardRushRunnerFxView)));
             Assert.IsNotNull(container.Resolve(typeof(CardRushHeadCardView)), "머리 위 카드(다음 입력 틱·카메라)가 닿는다");
-            Assert.IsNotNull(container.Resolve(typeof(CardRushRecordReporter)), "개인 기록(완주 시간·연속 정타 최고)이 닿는다");
+            Assert.IsNotNull(container.Resolve(typeof(CardRushRecordReporter)), "개인 기록(완주 시간·연속 무사 통과)이 닿는다");
             //  탭·Space 잡기는 ITickable(틱 앞)이어야 한다 — 틱 뒤 단계로 옮기면 탭이 한 틱 늦게 붙는다(최종 리뷰 I5).
             var keyboard = container.Resolve(typeof(CardRushTapGrab));
             Assert.IsInstanceOf<VContainer.Unity.ITickable>(keyboard);
@@ -152,8 +153,10 @@ namespace LOP.Tests
             var registry = new GameFramework.World.EntityRegistry();
             var store = new FakeGameDataStore { userEntityId = "me" };
             var context = new PlayerContext();
-            //  규칙이 아직 없으면(맵보다 몸이 먼저 오는 비정상 순서) 받은 자리를 그대로 쓴다.
+            //  규칙이 아직 없으면(맵보다 몸이 먼저 오는 비정상 순서) 받은 자리를 그대로 쓰고, 몸마다 크게 알린다.
             var creator = new CardRushRunnerCreator(store, context, registry, new CardRushMapRulesField());
+            UnityEngine.TestTools.LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("CardRushRunnerCreator"));
+            UnityEngine.TestTools.LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("CardRushRunnerCreator"));
 
             creator.Create(new CharacterCreationData { entityId = "me", position = new Vector3(5.2f, 0f, 1f), visualId = "v", maxHP = 100000, currentHP = 100000 });
             creator.Create(new CharacterCreationData { entityId = "other", position = new Vector3(7.8f, 0f, 1f), visualId = "v", maxHP = 100000, currentHP = 100000 });
@@ -178,7 +181,7 @@ namespace LOP.Tests
         public void 재접속해_판_중간_자리로_생겨도_레인_출발점은_출발선()
         {
             var rules = new CardRushMapRulesField();
-            rules.Set(CardRushTheme.StoneBridge, 40, 2.2f, 2.6f, new Vector3(10f, 0f, 5f), Vector3.right);
+            rules.Set(CardRushTheme.StoneBridge, 2.6f, new Vector3(10f, 0f, 5f), Vector3.right);
             var registry = new GameFramework.World.EntityRegistry();
             var creator = new CardRushRunnerCreator(new FakeGameDataStore { userEntityId = "me" }, new PlayerContext(), registry, rules);
 

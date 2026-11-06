@@ -82,8 +82,8 @@ namespace LOP.Tests
             registry.Add(me);
 
             var rules = new CardRushMapRulesField();
-            rules.Set(CardRushTheme.DoorDash, 40, 2.2f, 2.6f, UnityEngine.Vector3.zero, UnityEngine.Vector3.forward);
-            var world = new CardRushWorld(registry, new WorldEventBuffer(), rules, new FixedSeed(), timing);
+            rules.Set(CardRushTheme.DoorDash, 2.6f, UnityEngine.Vector3.zero, UnityEngine.Vector3.forward);
+            var world = new CardRushWorld(registry, new WorldEventBuffer(), rules, new FixedSeed(), CardRushServerCorrectionHandlerTests.Config);
             world.Tick(1, 0.02f);   //  코스를 만든다(Simulated 몸이 없어 아무도 안 움직인다)
             world.GameplayStartTick = Start - 100;
 
@@ -93,51 +93,114 @@ namespace LOP.Tests
             var history = new GameFramework.Netcode.SequenceBuffer<InputCommand>(128);
             var input = new PlayerInputManager(runner, context, null, registry, new InputBufferSystem(), history);
 
-            long boundary = Start + CardRushCard.DwellTicks;
+            long boundary = Start + CardRushRules.CardDwellTicks;
             clock.tick = boundary - 1;
             input.Tick(boundary - 1, 0.02f);
             Assert.AreEqual(boundary, input.NextInputTick);
             return new Rig { Registry = registry, World = world, Input = input, Context = context, Runner = runner, Boundary = boundary, History = history };
         }
         private const long Start = 1000;
-        private static readonly CardRushCourse course = new CardRushCourse(77, 40);
-        private static readonly CardRushTiming timing = new CardRushTiming(15, 30);
+        private const long G = 500;   //  출발 틱
+        private const int Lane = 2;
+        private static readonly CardRushTrack track =
+            CardRushTrack.ForTests(140000, new CardRushObstacle[0], new CardRushZone[0], 77);
 
         private static CardRushHeadCardFace At(CardRushRunnerState s, long tick)
-            => CardRushHeadCard.Compute(s, tick, Start, course, timing);
+            => CardRushHeadCard.Compute(s, tick, G, Lane, track);
 
         [Test]
-        public void 출발_전과_대기는_뒷면()
+        public void 출발_전엔_흐리지_않은_뒷면()
         {
-            var s = new CardRushRunnerState();
-            var before = At(s, Start - 50);
-            Assert.IsTrue(before.Visible); Assert.IsFalse(before.FaceUp);
-            var waiting = At(new CardRushRunnerState { Step = 3, MoveStartTick = 2000 }, 2100);
-            Assert.IsTrue(waiting.Visible); Assert.IsFalse(waiting.FaceUp);
+            var before = At(new CardRushRunnerState(), G - 50);
+            Assert.IsTrue(before.Visible); Assert.IsFalse(before.FaceUp); Assert.IsFalse(before.Dim);
+            Assert.IsTrue(At(new CardRushRunnerState(), G).FaceUp, "출발 틱부터 돈다");
         }
 
         [Test]
-        public void 돌면_그_틱의_색과_남은_시간()
+        public void 돌_때_색은_그_틱의_카드()
         {
-            var s = new CardRushRunnerState { Step = 3, MoveStartTick = 2000, SpinStartTick = 2100 };
-            var f = At(s, 2150);
-            Assert.IsTrue(f.Visible); Assert.IsTrue(f.FaceUp);
-            Assert.IsTrue(CardRushCard.TryColorAt(s, 2150, course, out var c)); Assert.AreEqual(c, f.Color);
-            Assert.AreEqual(1f - 50f / CardRushCard.WindowTicks, f.Remaining01, 1e-5f);
-            Assert.AreEqual(1f, At(s, 2100).Remaining01, 1e-5f);
-            Assert.Greater(At(s, 2399).Remaining01, 0f);
+            var s = new CardRushRunnerState { UseCount = 4, SpinStartTick = 1200 };
+            foreach (long tick in new long[] { 1200, 1222, 1223, 1250, 1300 })
+            {
+                var f = At(s, tick);
+                Assert.IsTrue(f.Visible && f.FaceUp, "틱 " + tick);
+                Assert.IsFalse(f.Dim);
+                Assert.IsTrue(CardRushCard.TryCardAt(s, tick, G, Lane, track, out var c));
+                Assert.AreEqual(c, f.Color, "틱 " + tick);
+            }
         }
 
         [Test]
-        public void 이동_멈춤_완주엔_숨는다()
+        public void 쿨다운엔_흐린_뒷면()
         {
-            Assert.IsFalse(At(new CardRushRunnerState { Step = 3, MoveStartTick = 2000 }, 2010).Visible, "이동 중 — 카드는 던져졌다");
-            Assert.IsFalse(At(new CardRushRunnerState { StunEndTick = 3000, Attempt = 1 }, 2990).Visible, "멈춤 중");
-            Assert.IsFalse(At(new CardRushRunnerState { Step = 40, MoveStartTick = 2000 }, 2500).Visible, "완주 뒤");
+            var s = new CardRushRunnerState { UseCount = 1, SpinStartTick = 1200 };
+            var f = At(s, 1190);
+            Assert.IsTrue(f.Visible); Assert.IsFalse(f.FaceUp); Assert.IsTrue(f.Dim);
+            Assert.IsTrue(At(s, 1200).FaceUp, "쿨다운이 끝나는 틱에 앞면");
+        }
+
+        [Test]
+        public void 기절_중엔_돌지만_흐리다()
+        {
+            var s = new CardRushRunnerState { StunEndTick = 1060 };
+            var f = At(s, 1040);
+            Assert.IsTrue(f.FaceUp, "기절 중에도 카드는 돈다");
+            Assert.IsTrue(f.Dim);
+            Assert.IsFalse(At(s, 1060).Dim, "기절이 끝나는 틱엔 또렷");
+        }
+
+        [Test]
+        public void 완주하면_숨는다()
+        {
+            var s = new CardRushRunnerState { FinishTick = 3000, PosMm = 140000 };
+            Assert.IsTrue(At(s, 2999).Visible);
+            Assert.IsFalse(At(s, 3000).Visible);
+            Assert.IsFalse(At(s, 3100).Visible);
+        }
+
+        [Test]
+        public void 색이_바뀐_장은_가로로_펴진다()
+        {
+            var s = new CardRushRunnerState { SpinStartTick = 1200, UseCount = 2 };
+            Assert.AreEqual(0f, At(s, 1200).FlipT01, 1e-6f, "새 장이 뜬 틱");
+            Assert.AreEqual(1f / CardRushHeadCard.FlipTicks, At(s, 1201).FlipT01, 1e-6f);
+            Assert.AreEqual(1f, At(s, 1200 + CardRushHeadCard.FlipTicks).FlipT01, 1e-6f);
+            Assert.AreEqual(0f, At(s, 1200 + CardRushRules.CardDwellTicks).FlipT01, 1e-6f, "다음 장이 뜬 틱");
+            Assert.AreEqual(1f, At(s, 1190).FlipT01, 1e-6f, "뒷면은 다 펴진 채");
+        }
+
+        //  리뷰 m2: 남의 최신 상태엔 아직 그려지지 않은 꽈당의 기절 끝 틱이 있다 — 기절이 시작한 틱(결과 틱)부터만 흐리게.
+        [Test]
+        public void 남의_카드는_기절이_시작한_뒤에만_흐리다()
+        {
+            var s = new CardRushRunnerState { StunEndTick = 2035, ObstacleEvent = (int)CardRushObstacleEvent.Tumbled, ObstacleEventTick = 2000 };
+            Assert.IsFalse(CardRushHeadCard.ComputeOther(s, 1997, G, Lane, track).Dim, "꽈당 그림 전");
+            Assert.IsTrue(CardRushHeadCard.ComputeOther(s, 2000, G, Lane, track).Dim);
+            var hit = new CardRushRunnerState { StunEndTick = 3050, ZoneEvent = (int)CardRushZoneEvent.Hit, ZoneEventTick = 3000 };
+            Assert.IsFalse(At(hit, 2998).Dim);
+            Assert.IsTrue(At(hit, 3010).Dim);
+        }
+
+        //  남의 상태는 최신 스냅 — 그림 틱이 마지막 사용(돌기 시작 − 쿨다운)보다 이르면 그 전 카드는 상태에 없다. 뒷면으로 남는다.
+        [Test]
+        public void 남의_카드는_그림_틱이_마지막_사용_전이면_뒷면()
+        {
+            var s = new CardRushRunnerState { UseCount = 3, SpinStartTick = 2000 };
+            var early = CardRushHeadCard.ComputeOther(s, 1979, G, Lane, track);
+            Assert.IsTrue(early.Visible); Assert.IsFalse(early.FaceUp); Assert.IsFalse(early.Dim);
+
+            var cooling = CardRushHeadCard.ComputeOther(s, 1980, G, Lane, track);
+            Assert.IsFalse(cooling.FaceUp); Assert.IsTrue(cooling.Dim, "사용 틱부터는 쿨다운(흐린 뒷면)");
+
+            var spun = CardRushHeadCard.ComputeOther(s, 2000, G, Lane, track);
+            Assert.IsTrue(spun.FaceUp);
+            Assert.AreEqual(track.FirstCard(Lane, 3), spun.Color, "새 첫 장");
+
+            Assert.AreEqual(At(s, 2010).Color, CardRushHeadCard.ComputeOther(s, 2010, G, Lane, track).Color, "그림 틱이 따라잡으면 내 식과 같다");
         }
 
         //  옛 CardRushPadViewTests.카드는_다음_입력_틱으로_그린다를 옮겨 온 자리(최종 리뷰 M6: 순수 함수 시험만으로는 뷰가 다른 틱을
-        //  넘겨도 초록이었다). 내 몸이 S에 돌기 시작했으면 다음 입력 틱 S+25는 첫 장, S+26은 다음 색 — 뷰가 그 틱으로 칠하는지 본다.
+        //  넘겨도 초록이었다). 내 몸의 카드가 S에 돌기 시작했으면 다음 입력 틱 S+22는 첫 장, S+23은 다음 장 — 뷰가 그 틱으로 칠하는지 본다.
         [Test]
         public void 내_카드는_다음_입력_틱으로_칠한다()
         {
@@ -148,16 +211,17 @@ namespace LOP.Tests
             var view = new CardRushHeadCardView(rig.World, rig.Registry, new ActorRegistry(), rig.Context, clock, rig.Input, null);
             var state = rig.Registry.Get("me").Get<CardRushRunner>().State;
 
-            var before = CardRushHeadCard.Compute(state, rig.Boundary - 1, rig.World.GameplayStartTick, rig.World.Course, rig.World.Timing);
-            var atBoundary = CardRushHeadCard.Compute(state, rig.Boundary, rig.World.GameplayStartTick, rig.World.Course, rig.World.Timing);
+            var runner = rig.Registry.Get("me").Get<CardRushRunner>();
+            var before = CardRushHeadCard.Compute(state, rig.Boundary - 1, rig.World.GameplayStartTick, runner.Lane, rig.World.Track);
+            var atBoundary = CardRushHeadCard.Compute(state, rig.Boundary, rig.World.GameplayStartTick, runner.Lane, rig.World.Track);
             Assert.IsTrue(before.FaceUp); Assert.IsTrue(atBoundary.FaceUp);
             Assert.AreNotEqual(before.Color, atBoundary.Color, "경계 앞뒤 색이 달라야 틱 하나의 어긋남을 잡는다");
-            Assert.IsTrue(CardRushCard.TryColorAt(state, rig.Boundary, rig.World.Course, out var judged));
-            Assert.AreEqual(judged, atBoundary.Color, "경계 틱에 누르면 판정되는 색");
+            Assert.IsTrue(CardRushCard.TryCardAt(state, rig.Boundary, rig.World.GameplayStartTick, runner.Lane, rig.World.Track, out var judged));
+            Assert.AreEqual(judged, atBoundary.Color, "경계 틱에 누르면 쓰는 카드");
 
             Assert.IsTrue(view.TryComputeMine(out var mine));
             Assert.IsTrue(mine.FaceUp);
-            Assert.AreEqual(atBoundary.Color, mine.Color, "지금 누르면 판정될 틱(S+26)의 색");
+            Assert.AreEqual(atBoundary.Color, mine.Color, "지금 누르면 쓰는 틱(S+23)의 카드");
 
             //  틱을 막 올린 사이(아직 이번 틱 명령을 안 단 때)엔 러너 틱이 곧 다음 입력 틱 — S+25면 첫 장.
             var rig2 = AtBoundary();
@@ -168,7 +232,7 @@ namespace LOP.Tests
             var view2 = new CardRushHeadCardView(rig2.World, rig2.Registry, new ActorRegistry(), rig2.Context,
                 new EntityRenderClock(rig2.Context, rig2.Runner, null, new FakeGameDataStore { userEntityId = "me" }), fresh, null);
             Assert.IsTrue(view2.TryComputeMine(out var first));
-            Assert.AreEqual(before.Color, first.Color, "S+25 = 첫 장");
+            Assert.AreEqual(before.Color, first.Color, "S+22 = 첫 장");
         }
 
         //  컨트롤러 메모(Task 4): 째깍은 머리 위 카드와 같은 틱으로 색을 본다 — 러너 틱으로 보면 경계에서 한 틱 늦게 째깍인다.
@@ -178,7 +242,7 @@ namespace LOP.Tests
             var rig = AtBoundary();
             var store = new FakeGameDataStore { userEntityId = "me" };
             var clock = new EntityRenderClock(rig.Context, rig.Runner, null, store);
-            var audio = new CardRushAudio(rig.World, rig.Registry, store, clock, rig.Input);
+            var audio = new CardRushAudio(rig.World, rig.Registry, store, rig.Input);
             try
             {
                 var view = new CardRushHeadCardView(rig.World, rig.Registry, new ActorRegistry(), rig.Context, clock, rig.Input, null);
@@ -186,9 +250,9 @@ namespace LOP.Tests
                 var frame = audio.ReadFrame("me");
                 Assert.IsTrue(frame.FaceUp);
                 Assert.AreEqual(mine.Color, frame.Color, "본 색 = 들은 째깍의 색");
-                Assert.IsTrue(CardRushCard.TryColorAt(rig.Registry.Get("me").Get<CardRushRunner>().State, rig.Boundary, rig.World.Course, out var judged));
-                Assert.AreEqual(judged, frame.Color, "다음 입력 틱(경계)의 색 — 러너 틱(경계 − 1)이면 한 장 앞 색");
-                Assert.AreEqual(rig.Boundary - 1, (long)frame.DrawnTick, "꽂힘·철썩은 그대로 그림(러너) 틱");
+                var me = rig.Registry.Get("me").Get<CardRushRunner>();
+                Assert.IsTrue(CardRushCard.TryCardAt(me.State, rig.Boundary, rig.World.GameplayStartTick, me.Lane, rig.World.Track, out var judged));
+                Assert.AreEqual(judged, frame.Color, "다음 입력 틱(경계)의 카드 — 러너 틱(경계 − 1)이면 한 장 앞 카드");
             }
             finally
             {
@@ -197,30 +261,44 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 남은_시간_링은_12시부터_시계_방향으로_먹힌다()
-        {
-            var pts = new UnityEngine.Vector3[CardRushHeadCardView.RingSegments + 1];
-            int full = CardRushHeadCardView.RingArc(1f, pts);
-            Assert.AreEqual(CardRushHeadCardView.RingSegments + 1, full);
-            Assert.AreEqual(CardRushHeadCardView.RingRadius, pts[0].y, 1e-4f, "12시에서 시작");
-            Assert.AreEqual(CardRushHeadCardView.RingRadius, pts[full - 1].y, 1e-4f, "한 바퀴 돌아 12시");
-            Assert.Greater(pts[1].x, 0f, "시계 방향(보는 쪽에서 오른쪽으로)");
-
-            int half = CardRushHeadCardView.RingArc(0.5f, pts);
-            Assert.Less(half, full);
-            Assert.AreEqual(-CardRushHeadCardView.RingRadius, pts[0].y, 1e-4f, "반이 먹히면 6시부터 남는다");
-            Assert.Less(pts[1].x, 0f, "6시에서 시계 방향 = 왼쪽 위로");
-            Assert.AreEqual(CardRushHeadCardView.RingRadius, pts[half - 1].y, 1e-4f);
-        }
-
-        [Test]
-        public void 넘김과_통통은_잠깐이고_끝나면_원래_크기()
+        public void 넘김은_잠깐이고_색이_바뀐_장은_06에서_펴진다()
         {
             Assert.AreEqual(1f, CardRushHeadCardView.FlipWidth(-1f));
             Assert.AreEqual(0.15f, CardRushHeadCardView.FlipWidth(CardRushHeadCardView.FlipSeconds * 0.5f), 1e-4f);
             Assert.AreEqual(1f, CardRushHeadCardView.FlipWidth(CardRushHeadCardView.FlipSeconds));
-            Assert.AreEqual(CardRushHeadCardView.PopScale, CardRushHeadCardView.PopSize(0f), 1e-5f);
-            Assert.AreEqual(1f, CardRushHeadCardView.PopSize(CardRushHeadCardView.PopSeconds));
+            Assert.AreEqual(0.6f, CardRushHeadCardView.ChangeWidth(new CardRushHeadCardFace(true, true, CardColor.Red, false, 0f)), 1e-5f);
+            Assert.AreEqual(1f, CardRushHeadCardView.ChangeWidth(new CardRushHeadCardFace(true, true, CardColor.Red, false, 1f)), 1e-5f);
+            Assert.AreEqual(1f, CardRushHeadCardView.ChangeWidth(new CardRushHeadCardFace(true, false, default, true, 0f)), 1e-5f, "뒷면은 그대로");
+        }
+
+        //  흐린 카드(기절·쿨다운)는 같은 판의 알파 0.35 짝 — 색·모양은 그대로 읽히되 "지금은 못 쓴다"가 보인다.
+        [Test]
+        public void 흐린_카드는_알파_035()
+        {
+            var palette = new CardRushCardPalette();
+            var materials = new CardRushCardMaterials(palette);
+            var parent = new UnityEngine.GameObject("plate-test");
+            try
+            {
+                var plate = new CardRushCardPlate(parent.transform, "Plate", materials);
+                plate.SetFace(true, CardColor.Blue, false);
+                Assert.AreSame(palette.Of(CardColor.Blue), plate.PlateMaterial);
+                plate.SetFace(true, CardColor.Blue, true);
+                var dim = plate.PlateMaterial;
+                Assert.AreNotSame(palette.Of(CardColor.Blue), dim);
+                var c = dim.HasProperty("_BaseColor") ? dim.GetColor("_BaseColor") : dim.color;
+                Assert.AreEqual(CardRushHeadCardView.DimAlpha, c.a, 1e-4f);
+                Assert.AreEqual(CardRushCardPalette.Blue.b, c.b, 1e-4f, "색은 그대로");
+                plate.SetFace(false, default, true);
+                Assert.AreEqual(CardRushHeadCardView.DimAlpha, (plate.PlateMaterial.HasProperty("_BaseColor") ? plate.PlateMaterial.GetColor("_BaseColor") : plate.PlateMaterial.color).a, 1e-4f, "쿨다운 뒷면도 흐리게");
+                Assert.IsFalse(parent.GetComponentInChildren<UnityEngine.Collider>(), "그림 전용 — 콜라이더 없음");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(parent);
+                materials.Dispose();
+                palette.Dispose();
+            }
         }
 
         [Test]
@@ -272,11 +350,11 @@ namespace LOP.Tests
         //  카드를 틱 앞에서 칠하면 그 프레임 틱이 돌아 화면 색이 판정 틱보다 한 틱 늦다(60 fps에서 프레임 대부분).
         //  몸 자리·머리 뼈는 보간기 LateUpdate가 옮기므로 그 뒤여야 카드·손 자리가 몸에 붙는다. 탭은 틱 앞에서 읽는다.
         [Test]
-        public void 카드_째깍_몸개그는_틱과_보간_뒤에_칠하고_탭은_틱_앞에서_읽는다()
+        public void 카드_째깍_몸개그_장애물은_틱과_보간_뒤에_칠하고_탭은_틱_앞에서_읽는다()
         {
             var tick = SlotOf(typeof(GameFramework.Runner.ITickUpdater));
             var interpolator = SlotOf(typeof(UnityEngine.MonoBehaviour));
-            foreach (var view in new[] { typeof(CardRushHeadCardView), typeof(CardRushAudio), typeof(CardRushRunnerFxView), typeof(CardRushCourseView) })
+            foreach (var view in new[] { typeof(CardRushHeadCardView), typeof(CardRushAudio), typeof(CardRushRunnerFxView), typeof(CardRushTrackView), typeof(CardRushHazardView) })
             {
                 var at = StageOf(view);
                 Assert.IsTrue(After(at, tick), view.Name + "는 그 프레임 틱 뒤");
@@ -301,33 +379,9 @@ namespace LOP.Tests
             grab.Tick();                                 //  F+1 틱 앞
             rig.Input.Tick(clock.tick, 0.02f);           //  F+1 첫 틱
             Assert.IsTrue(rig.History.TryGet(rig.Boundary, out var command) && command.Grab, "탭은 경계 틱에 실린다");
-            Assert.IsTrue(CardRushCard.TryColorAt(rig.Registry.Get("me").Get<CardRushRunner>().State, rig.Boundary, rig.World.Course, out var judged));
-            Assert.AreEqual(judged, shown.Color, "본 색 = 판정 색");
-        }
-
-        // ── 최종 리뷰 m3: 남의 카드는 던지기 전에 사라지지 않는다 ──
-
-        //  남의 상태는 최신 스냅이라 그려지는 몸보다 앞선다 — 그림 틱이 던짐 전이면 던지기 전 상태로 칠한다.
-        [Test]
-        public void 남의_카드는_그림_틱이_던짐_전이면_돌던_카드를_보인다()
-        {
-            var right = new CardRushRunnerState { Step = 3, MoveStartTick = 1000 };
-            var memory = new CardRushSpinMemory(2, 0, 900);
-            var f = CardRushHeadCard.ComputeDrawn(right, 997, Start - 500, course, timing, memory);
-            Assert.IsTrue(f.Visible); Assert.IsTrue(f.FaceUp);
-            Assert.IsTrue(CardRushCard.TryColorAt(new CardRushRunnerState { Step = 2, SpinStartTick = 900 }, 997, course, out var c));
-            Assert.AreEqual(c, f.Color, "던지기 전 상태(칸 2, 시작 900)의 그 틱 색");
-            Assert.IsFalse(CardRushHeadCard.ComputeDrawn(right, 1000, Start - 500, course, timing, memory).Visible, "던진 틱부터는 손을 떠났다");
-
-            var noMemory = CardRushHeadCard.ComputeDrawn(right, 997, Start - 500, course, timing, default);
-            Assert.IsTrue(noMemory.Visible, "시작을 못 봤어도 사라지지 않고 뒷면으로 남는다");
-            Assert.IsFalse(noMemory.FaceUp);
-
-            var wrong = new CardRushRunnerState { Step = 3, Attempt = 1, StunEndTick = 1030, MoveStartTick = 500 };
-            var w = CardRushHeadCard.ComputeDrawn(wrong, 998, Start - 500, course, timing, new CardRushSpinMemory(3, 0, 950));
-            Assert.IsTrue(w.Visible && w.FaceUp, "틀린 던짐 전에도");
-            Assert.AreEqual(At(new CardRushRunnerState { Step = 3, Attempt = 1, StunEndTick = 1030 }, 1040).Visible,
-                CardRushHeadCard.ComputeDrawn(wrong, 1040, Start - 500, course, timing, default).Visible, "그림 틱이 따라잡으면 보통 식과 같다");
+            var me = rig.Registry.Get("me").Get<CardRushRunner>();
+            Assert.IsTrue(CardRushCard.TryCardAt(me.State, rig.Boundary, rig.World.GameplayStartTick, me.Lane, rig.World.Track, out var judged));
+            Assert.AreEqual(judged, shown.Color, "본 카드 = 쓰는 카드");
         }
     }
 }

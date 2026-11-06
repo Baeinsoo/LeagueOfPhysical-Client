@@ -1,115 +1,185 @@
 namespace LOP
 {
-    public enum CardRushGagKind { None, Hop, DoorRun, Splash, Slap, Finish }
+    public enum CardRushGagKind { None, Tumble, Squash, Block, Dash, Smash, Wait, Finish }
 
     /// <summary>몸개그 자세 — 몸 뿌리(시뮬 자리)에서의 오프셋과 기울기. 시작·끝은 늘 원래 자세다.</summary>
     public readonly struct CardRushPose
     {
         public readonly UnityEngine.Vector3 Offset;     // 진행 방향 기준(x 오른쪽, y 위, z 앞)
-        public readonly UnityEngine.Vector3 EulerDeg;   // 몸 기울기(x 앞뒤, z 좌우). y는 결승 몸짓의 제자리 돌기만
+        public readonly UnityEngine.Vector3 EulerDeg;   // 몸 기울기(x 앞(+)뒤(−), z 좌우). y는 결승 몸짓의 제자리 돌기만
         public readonly float Squash;                   // 1 = 그대로
         public CardRushPose(UnityEngine.Vector3 offset, UnityEngine.Vector3 eulerDeg, float squash) { Offset = offset; EulerDeg = eulerDeg; Squash = squash; }
         public static readonly CardRushPose Rest = new CardRushPose(UnityEngine.Vector3.zero, UnityEngine.Vector3.zero, 1f);
     }
 
     /// <summary>
-    /// 몸개그(spec §7.4)는 (상태, 그림 틱)의 순수 함수다. 시뮬 자리는 레인 위 한 점뿐이고, 몸개그는 그 점에서 떠나
-    /// 그 점으로 돌아오는 장식이라 멈춤·이동이 끝나는 틱에 그림이 정확히 시뮬 자리에 있다(시간을 늘리지 않는다).
+    /// 몸개그(spec 2026-11-05 §11.3)는 (상태, 그림 틱)의 순수 함수다. 시뮬 자리는 레인 위 한 점뿐이고(밀림은 시뮬에서 즉시),
+    /// 몸개그는 그 점에서 떠나 그 점으로 돌아오는 자식 <c>Model</c>의 장식이라 기절이 끝나는 틱에 그림이 정확히 시뮬 자리에 있다.
     /// </summary>
     public static class CardRushGag
     {
-        public const float HopHeight = 0.8f;
-        public const float SplashDepth = 1.1f;
+        //  꽈당(spec §11.3 표): 0~0.15 뒤로 젖혀짐 → 0.15~0.6 뒤로 한 바퀴 반 구르며 위로 0.6 m → 0.6~0.85 엉덩방아 + 별 → 0.85~1 벌떡.
+        public const float TumbleLeanEnd = 0.15f;
+        public const float TumbleRollEnd = 0.6f;
+        public const float TumbleSitEnd = 0.85f;
+        public const float TumbleLeanDegrees = 30f;
+        public const float TumbleTurns = 1.5f;
+        public const float TumbleRiseHeight = 0.6f;
+        /// <summary>엉덩방아 — 뒤로 기운 채 주저앉은 각과 눌림.</summary>
+        public const float TumbleSitDegrees = 20f;
+        public const float TumbleSitSquash = 0.8f;
+        /// <summary>구르는 축(몸 가운데 높이) — 발목이 아니라 배를 축으로 돌아야 구르기로 읽힌다.</summary>
+        public const float BodyCenterHeight = 0.55f;
 
-        /// <summary>철썩(문 박치기 테마의 틀림) — 던지며 숙이는 각, 카드에 맞아 머리가 젖혀지는 각, 뒤로 벌러덩 눕는 각.</summary>
-        public const float SlapLeanDegrees = 10f;
-        public const float SlapSnapDegrees = 20f;
-        public const float SlapFallDegrees = 80f;
+        //  으악: 0~0.1 바위에 눌려 납작(높이 0.35) → 0.1~0.7 납작한 채 부들 + 별 → 0.7~0.85 퐁 튀어 오름(넘침) → 섬.
+        public const float SquashPressEnd = 0.1f;
+        public const float SquashFlatEnd = 0.7f;
+        public const float SquashPopEnd = 0.85f;
+        public const float SquashFlat = 0.35f;
+        public const float SquashOvershoot = 1.15f;
+        public const float SquashPopHeight = 0.4f;
+        public const float SquashShiverDegrees = 6f;
 
-        /// <summary>풍덩 첫머리에 앞 돌 쪽으로 반쯤 뛰어오르는 높이 — 폴짝(0.8 m)보다 낮게 "가다 만" 느낌.</summary>
-        public const float SplashLeapHeight = 0.5f;
-
-        /// <summary>허우적 동안 머리가 위아래로 까딱이는 폭 — 머리만 나온 채 허둥대는 느낌.</summary>
-        public const float SplashBob = 0.1f;
-
-        /// <summary>물에서 퐁 튀어나와 제 돌로 돌아오는 높이.</summary>
-        public const float SplashPopHeight = 0.35f;
+        /// <summary>방패 — 두 팔을 앞으로 막는 자세(작게 뒤로 버팀).</summary>
+        public const float BlockBraceDegrees = 8f;
+        /// <summary>대시 — 앞으로 20° 숙임.</summary>
+        public const float DashLeanDegrees = 20f;
+        /// <summary>부수기 — 망치를 내리치며 앞으로 숙임. 결과 뒤 10틱.</summary>
+        public const int SmashTicks = 10;
+        public const float SmashLeanDegrees = 15f;
+        /// <summary>기다림 — 바리케이드 앞 제자리 발 구르기(작게).</summary>
+        public const float WaitStompHeight = 0.07f;
+        public const int WaitStomps = 6;
 
         /// <summary>결승 몸짓(두 번 뛰며 한 바퀴) 길이. 결승 뒤엔 시뮬 자리가 안 움직이니 자유다.</summary>
         public const float FinishSeconds = 1f;
+        public const float HopHeight = 0.8f;
 
         public static int FinishTicks => CardRushTiming.Ticks(FinishSeconds);
 
-        /// <summary>그 틱에 어떤 몸개그가 몇 % 진행됐나 — 상태만 보고 정한다.</summary>
-        public static (CardRushGagKind kind, float t01) Phase(CardRushTheme theme, in CardRushRunnerState s, double drawnTick, in CardRushTiming timing, int stepCount)
+        /// <summary>
+        /// 그 틱에 어떤 몸개그가 몇 % 진행됐나 — 상태만 보고 정한다. 기절(꽈당·으악)이 먼저, 그다음 결승·부수기·방패·대시·기다림.
+        /// <paramref name="track"/>은 기다림(지금 장애물이 바리케이드인가)에만 쓴다.
+        /// </summary>
+        public static (CardRushGagKind kind, float t01) Phase(in CardRushRunnerState s, double d, in CardRushTuning t, CardRushTrack track = null)
         {
-            if (s.StunEndTick != 0 && drawnTick >= s.StunEndTick - timing.StunTicks && drawnTick < s.StunEndTick)
-                return (theme == CardRushTheme.StoneBridge ? CardRushGagKind.Splash : CardRushGagKind.Slap,
-                        (float)((drawnTick - (s.StunEndTick - timing.StunTicks)) / timing.StunTicks));
-            if (s.MoveStartTick != 0 && drawnTick >= s.MoveStartTick && drawnTick < s.MoveStartTick + timing.MoveTicks)
-                return (theme == CardRushTheme.StoneBridge ? CardRushGagKind.Hop : CardRushGagKind.DoorRun,
-                        (float)((drawnTick - s.MoveStartTick) / timing.MoveTicks));
-            //  완주 = 마지막으로 맞힌 이동이 결승 이동이다. 그 이동이 끝난 뒤 1초.
-            if (s.IsFinished(stepCount) && s.MoveStartTick != 0)
-            {
-                double since = drawnTick - (s.MoveStartTick + timing.MoveTicks);
-                if (since >= 0 && since < FinishTicks)
-                    return (CardRushGagKind.Finish, (float)(since / FinishTicks));
-            }
+            //  둘이 겹치면 나중 것 — 마지막으로 맞은 것이 지금 기절이다.
+            bool tumble = s.ObstacleEvent == (int)CardRushObstacleEvent.Tumbled && In(d, s.ObstacleEventTick, t.RollStunTicks);
+            bool squash = s.ZoneEvent == (int)CardRushZoneEvent.Hit && In(d, s.ZoneEventTick, t.ZoneStunTicks);
+            if (tumble && (!squash || s.ObstacleEventTick >= s.ZoneEventTick))
+                return (CardRushGagKind.Tumble, Of(d, s.ObstacleEventTick, t.RollStunTicks));
+            if (squash)
+                return (CardRushGagKind.Squash, Of(d, s.ZoneEventTick, t.ZoneStunTicks));
+
+            if (s.FinishTick != 0 && In(d, s.FinishTick, FinishTicks))
+                return (CardRushGagKind.Finish, Of(d, s.FinishTick, FinishTicks));
+
+            long swing = SwingTick(s);
+            if (In(d, swing, SmashTicks))
+                return (CardRushGagKind.Smash, Of(d, swing, SmashTicks));
+
+            if (s.BlockEndTick != 0 && In(d, s.BlockEndTick - CardRushRules.BlockTicks, CardRushRules.BlockTicks))
+                return (CardRushGagKind.Block, Of(d, s.BlockEndTick - CardRushRules.BlockTicks, CardRushRules.BlockTicks));
+
+            if (s.DashStartTick != 0 && In(d, s.DashStartTick, CardRushRules.DashTicks))
+                return (CardRushGagKind.Dash, Of(d, s.DashStartTick, CardRushRules.DashTicks));
+
+            if (track != null && s.ObstacleTick != 0 && s.ObstacleIndex < track.Obstacles.Count
+                && track.Obstacles[s.ObstacleIndex].Kind == CardRushObstacleKind.Barricade && In(d, s.ObstacleTick, t.BarricadeWaitTicks))
+                return (CardRushGagKind.Wait, Of(d, s.ObstacleTick, t.BarricadeWaitTicks));
+
             return (CardRushGagKind.None, 0f);
         }
 
-        /// <summary>멈춤 기본 틱 수(0.6초) — 설정이 없을 때만 쓴다. 판에서는 설정(#CardRushConfig.stunSeconds)의 틱 수를 넘긴다.</summary>
-        public const int DefaultStunTicks = 30;
+        /// <summary>마지막으로 망치를 휘두른 틱 — 와장창(장애물 결과)과 헛방(헛방 틱) 중 늦은 것. 0 = 없음.</summary>
+        public static long SwingTick(in CardRushRunnerState s)
+        {
+            long smashed = s.ObstacleEvent == (int)CardRushObstacleEvent.Smashed ? s.ObstacleEventTick : 0;
+            return System.Math.Max(smashed, s.WhiffTick);
+        }
 
-        /// <summary>철썩 순간(멈춤 안 비율) — 던진 카드가 얼굴에 닿는 틱(던짐 + <see cref="CardRushThrowFx.SlapTick"/>) ÷ 멈춤 틱.</summary>
-        public static float SlapHit01(int stunTicks)
-            => UnityEngine.Mathf.Clamp((float)CardRushThrowFx.SlapTick / UnityEngine.Mathf.Max(1, stunTicks), 0.12f, 0.6f);
+        private static bool In(double d, long start, int length) => start != 0 && length > 0 && d >= start && d < start + length;
 
-        /// <summary>철썩 뒤 벌러덩이 시작하는 비율 — 젖힘 0.07 뒤. 별도 이때부터 돈다.</summary>
-        public static float SlapFall01(int stunTicks) => SlapHit01(stunTicks) + 0.07f;
+        private static float Of(double d, long start, int length) => (float)((d - start) / length);
 
-        public static CardRushPose PoseAt(CardRushGagKind kind, float t01, float stepSpacing) => PoseAt(kind, t01, stepSpacing, DefaultStunTicks);
-
-        /// <summary>몸개그 자세. 0과 1에서 Rest — 멈춤·이동이 끝나는 틱에 그림이 시뮬 자리로 돌아온다.</summary>
-        public static CardRushPose PoseAt(CardRushGagKind kind, float t01, float stepSpacing, int stunTicks)
+        /// <summary>몸개그 자세. 0과 1에서 Rest — 기절·대시가 끝나는 틱에 그림이 시뮬 자리로 돌아온다.</summary>
+        public static CardRushPose PoseAt(CardRushGagKind kind, float t01)
         {
             t01 = UnityEngine.Mathf.Clamp01(t01);
             if (t01 <= 0f || t01 >= 1f) return CardRushPose.Rest;
             switch (kind)
             {
-                case CardRushGagKind.Hop:
+                case CardRushGagKind.Tumble:
                 {
-                    float y = 4f * HopHeight * t01 * (1f - t01);   // 포물선, 시뮬이 앞으로 옮기니 높이만
-                    return new CardRushPose(new UnityEngine.Vector3(0, y, 0), new UnityEngine.Vector3(-10f * (1f - 2f * t01), 0, 0), 1f);
+                    float x;
+                    float rise = 0f;
+                    float squash = 1f;
+                    float roll = -(TumbleLeanDegrees + 360f * TumbleTurns);
+                    //  한 바퀴 반 구른 뒤 엉덩방아로 내려앉으며 나머지 반 바퀴를 마저 돌아 뒤로 기운 채 앉는다(−740° = −20°).
+                    float sit = -(720f + TumbleSitDegrees);
+                    if (t01 < TumbleLeanEnd)
+                    {
+                        x = -TumbleLeanDegrees * (t01 / TumbleLeanEnd);
+                    }
+                    else if (t01 < TumbleRollEnd)
+                    {
+                        float u = (t01 - TumbleLeanEnd) / (TumbleRollEnd - TumbleLeanEnd);
+                        x = UnityEngine.Mathf.Lerp(-TumbleLeanDegrees, roll, UnityEngine.Mathf.SmoothStep(0f, 1f, u));
+                        rise = TumbleRiseHeight * UnityEngine.Mathf.Sin(u * UnityEngine.Mathf.PI);
+                    }
+                    else if (t01 < TumbleSitEnd)
+                    {
+                        float u = (t01 - TumbleRollEnd) / (TumbleSitEnd - TumbleRollEnd);
+                        //  앞 30%에 내려앉고 나머지는 앉아 있다(별이 돈다).
+                        x = UnityEngine.Mathf.Lerp(roll, sit, UnityEngine.Mathf.SmoothStep(0f, 1f, UnityEngine.Mathf.Clamp01(u / 0.3f)));
+                        squash = UnityEngine.Mathf.Lerp(1f, TumbleSitSquash, UnityEngine.Mathf.Clamp01(u / 0.3f));
+                    }
+                    else
+                    {
+                        float u = (t01 - TumbleSitEnd) / (1f - TumbleSitEnd);
+                        x = UnityEngine.Mathf.Lerp(sit, -720f, UnityEngine.Mathf.SmoothStep(0f, 1f, u));
+                        squash = UnityEngine.Mathf.Lerp(TumbleSitSquash, 1f, u);
+                    }
+                    return AroundCenter(x, new UnityEngine.Vector3(0f, rise, 0f), squash);
                 }
-                case CardRushGagKind.DoorRun:
-                    return new CardRushPose(UnityEngine.Vector3.zero, new UnityEngine.Vector3(15f * UnityEngine.Mathf.Sin(t01 * UnityEngine.Mathf.PI), 0, 0), 1f);
-                case CardRushGagKind.Splash:
+                case CardRushGagKind.Squash:
                 {
-                    // 0~0.25 앞 돌로 반쯤 뛰어오름 / 0.25~0.40 빠짐 / 0.40~0.75 허우적(머리만, 위아래·좌우) / 0.75~1 물에서 퐁 튀어나와 제 돌로.
-                    // 빠지는 자리는 두 돌 사이(반 칸 앞) — 제자리로 빠지면 제 돌이 몸을 가른다. 앞으로 간 만큼은 돌아오며 되돌린다.
-                    float fwd = Plateau(t01, 0f, 0.25f, 0.80f, 1f) * 0.5f * stepSpacing;
-                    float leap = t01 < 0.25f ? 4f * SplashLeapHeight * (t01 / 0.25f) * (1f - t01 / 0.25f) : 0f;
-                    float down = Plateau(t01, 0.25f, 0.40f, 0.75f, 0.88f) * SplashDepth;
-                    float bob = (t01 > 0.40f && t01 < 0.75f) ? SplashBob * UnityEngine.Mathf.Sin((t01 - 0.40f) * 55f) : 0f;
-                    float pop = t01 > 0.86f ? 4f * SplashPopHeight * ((t01 - 0.86f) / 0.14f) * (1f - (t01 - 0.86f) / 0.14f) : 0f;
-                    float flail = (t01 > 0.40f && t01 < 0.75f) ? 20f * UnityEngine.Mathf.Sin((t01 - 0.40f) * 40f) : 0f;
-                    return new CardRushPose(new UnityEngine.Vector3(0, leap - down + bob + pop, fwd), new UnityEngine.Vector3(25f * Plateau(t01, 0.2f, 0.35f, 0.75f, 0.9f), 0, flail), 1f);
+                    float squash;
+                    float y = 0f;
+                    float shiver = 0f;
+                    if (t01 < SquashPressEnd)
+                    {
+                        squash = UnityEngine.Mathf.Lerp(1f, SquashFlat, t01 / SquashPressEnd);
+                    }
+                    else if (t01 < SquashFlatEnd)
+                    {
+                        squash = SquashFlat;
+                        shiver = SquashShiverDegrees * UnityEngine.Mathf.Sin((t01 - SquashPressEnd) * 90f);
+                    }
+                    else if (t01 < SquashPopEnd)
+                    {
+                        float u = (t01 - SquashFlatEnd) / (SquashPopEnd - SquashFlatEnd);
+                        squash = UnityEngine.Mathf.Lerp(SquashFlat, SquashOvershoot, u);
+                        y = SquashPopHeight * UnityEngine.Mathf.Sin(u * UnityEngine.Mathf.PI * 0.5f);
+                    }
+                    else
+                    {
+                        float u = (t01 - SquashPopEnd) / (1f - SquashPopEnd);
+                        squash = UnityEngine.Mathf.Lerp(SquashOvershoot, 1f, u);
+                        y = SquashPopHeight * UnityEngine.Mathf.Cos(u * UnityEngine.Mathf.PI * 0.5f) * (1f - u);
+                    }
+                    return new CardRushPose(new UnityEngine.Vector3(0f, y, 0f), new UnityEngine.Vector3(0f, 0f, shiver), squash);
                 }
-                case CardRushGagKind.Slap:
+                case CardRushGagKind.Block:
+                    return new CardRushPose(UnityEngine.Vector3.zero, new UnityEngine.Vector3(-BlockBraceDegrees * Plateau(t01, 0f, 0.06f, 0.9f, 1f), 0f, 0f), 1f);
+                case CardRushGagKind.Dash:
+                    return new CardRushPose(UnityEngine.Vector3.zero, new UnityEngine.Vector3(DashLeanDegrees * Plateau(t01, 0f, 0.15f, 0.7f, 1f), 0f, 0f), 1f);
+                case CardRushGagKind.Smash:
+                    return new CardRushPose(UnityEngine.Vector3.zero, new UnityEngine.Vector3(SmashLeanDegrees * Bump(t01, 0f, 0.35f, 1f), 0f, 0f), 1f);
+                case CardRushGagKind.Wait:
                 {
-                    // 0~0.10 던지며 앞으로 숙임 / 0.10~0.23 섬(카드가 돌아오는 걸 본다) / 0.23~0.30 철썩 — 머리가 뒤로 젖혀지고 찌그러짐 /
-                    // 0.30~0.75 발은 제자리, 뒤로 벌러덩 / 0.75~1 벌떡(넘침 후 섬). 뒤로 미끄러지지 않는다(카메라 밖으로 나간다).
-                    // 철썩 = 던짐 뒤 SlapTick(7틱) ÷ 설정의 멈춤 틱(30틱이면 0.23) — 카드가 얼굴에 닿는 그 틱(최종 리뷰 m4).
-                    float hit = SlapHit01(stunTicks);
-                    float fallAt = hit + 0.07f;
-                    float lean = SlapLeanDegrees * Bump(t01, 0f, 0.05f, 0.10f);
-                    float snap = SlapSnapDegrees * Plateau(t01, hit, hit + 0.03f, fallAt, fallAt + 0.04f);
-                    float fall = Plateau(t01, fallAt, fallAt + 0.15f, 0.75f, 0.92f) * SlapFallDegrees;
-                    float overshoot = t01 > 0.92f ? -8f * UnityEngine.Mathf.Sin((t01 - 0.92f) / 0.08f * UnityEngine.Mathf.PI) : 0f;
-                    float squash = t01 > hit && t01 < fallAt ? 0.9f : 1f;
-                    return new CardRushPose(UnityEngine.Vector3.zero, new UnityEngine.Vector3(lean - snap - fall + overshoot, 0, 0), squash);
+                    float y = WaitStompHeight * UnityEngine.Mathf.Abs(UnityEngine.Mathf.Sin(t01 * WaitStomps * UnityEngine.Mathf.PI));
+                    return new CardRushPose(new UnityEngine.Vector3(0f, y, 0f), UnityEngine.Vector3.zero, 1f);
                 }
                 case CardRushGagKind.Finish:
                 {
@@ -121,6 +191,16 @@ namespace LOP
                 default:
                     return CardRushPose.Rest;
             }
+        }
+
+        //  앞뒤 기울기 x(도)를 몸 가운데 높이를 축으로 준다 — 모델은 발을 축으로 돌므로, 가운데가 제자리에 있게 오프셋을 더한다.
+        //  x 양수 = 머리가 앞으로(Quaternion.Euler(x, 0, 0) * up = (0, cos x, sin x)).
+        private static CardRushPose AroundCenter(float xDeg, UnityEngine.Vector3 extra, float squash)
+        {
+            float r = xDeg * UnityEngine.Mathf.Deg2Rad;
+            float h = BodyCenterHeight;
+            var keep = new UnityEngine.Vector3(0f, h - h * UnityEngine.Mathf.Cos(r), -h * UnityEngine.Mathf.Sin(r));
+            return new CardRushPose(keep + extra, new UnityEngine.Vector3(xDeg, 0f, 0f), squash);
         }
 
         // a~b에서 0→1, b~c에서 1→0 (그 밖 0)

@@ -87,7 +87,7 @@ namespace LOP
             if (jump != 0)
             {
                 if (In(d, jump, JumpSquashTicks)) return (CardRushGagKind.Jump, Of(d, jump, JumpSquashTicks));
-                long land = LandTick(jump);
+                long land = LandTick(s, jump, track);
                 if (In(d, land, JumpSquashTicks)) return (CardRushGagKind.Jump, Of(d, land, JumpSquashTicks));
             }
 
@@ -103,6 +103,25 @@ namespace LOP
 
         /// <summary>점프가 끝나 내려앉는 틱 — 점프 시작 틱 + 40 − 1(시뮬이 그 틱에 땅으로 되돌린다).</summary>
         public static long LandTick(long jumpStartTick) => jumpStartTick + CardRushRules.JumpTicks - 1;
+
+        /// <summary>
+        /// 실제 착지 틱 — 그림·먼지가 같이 쓴다. 점프는 40틱 전에도 끝난다(공유 시뮬): 바리케이드에 막히면 ObstacleTick(이미 기다리는 중이면 뛴 틱 그대로),
+        /// 굴러오는 것에 맞으면 ObstacleEventTick(Tumbled), 구역에 맞으면 ZoneEventTick(Hit)에서 JumpStartTick이 0이 된다. 점프 구간 안의 가장 이른 틱.
+        /// 구덩이는 땅에서만 빠지므로 점프를 끊지 않는다.
+        /// </summary>
+        public static long LandTick(in CardRushRunnerState s, long jumpStartTick, CardRushTrack track)
+        {
+            long land = LandTick(jumpStartTick);
+            if (track != null && s.ObstacleTick != 0 && s.ObstacleIndex < track.Obstacles.Count
+                && track.Obstacles[s.ObstacleIndex].Kind == CardRushObstacleKind.Barricade)
+                land = Earlier(land, System.Math.Max(s.ObstacleTick, jumpStartTick), jumpStartTick);
+            if (s.ObstacleEvent == (int)CardRushObstacleEvent.Tumbled) land = Earlier(land, s.ObstacleEventTick, jumpStartTick);
+            if (s.ZoneEvent == (int)CardRushZoneEvent.Hit) land = Earlier(land, s.ZoneEventTick, jumpStartTick);
+            return land;
+        }
+
+        private static long Earlier(long land, long candidate, long jumpStartTick)
+            => candidate >= jumpStartTick && candidate < land ? candidate : land;
 
         /// <summary>
         /// 마지막으로 빨강을 던진 틱 — 날고 있으면 상태(ShotTick), 이미 맞혔거나 꺼졌으면 거꾸로 잡는다(0 = 없음).

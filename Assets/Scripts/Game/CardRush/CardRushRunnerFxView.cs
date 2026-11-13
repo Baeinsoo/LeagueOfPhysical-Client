@@ -324,7 +324,7 @@ namespace LOP
             if (jump != 0)
             {
                 if (d >= jump && d < jump + CardRushRunnerFxView.PuffTicks) dust01 = (float)((d - jump) / CardRushRunnerFxView.PuffTicks);
-                long land = CardRushGag.LandTick(jump);
+                long land = CardRushGag.LandTick(s, jump, track);
                 if (d >= land && d < land + CardRushRunnerFxView.PuffTicks) dust01 = (float)((d - land) / CardRushRunnerFxView.PuffTicks);
             }
 

@@ -315,6 +315,10 @@ namespace LOP.Tests
             long land = CardRushGag.LandTick(3000);
             Assert.Less(CardRushRunnerProps.Look(new CardRushRunnerState(), land + 3).Dust01, 0f, "기억 없이는 못 그린다");
             Assert.AreEqual(3f / CardRushRunnerFxView.PuffTicks, CardRushRunnerProps.Look(new CardRushRunnerState(), land + 3, null, 3000).Dust01, 1e-5f);
+            //  일찍 끝난 점프 — 먼지도 실제 착지(구역에 맞은 틱 3010)에서.
+            var knocked = new CardRushRunnerState { ZoneEvent = (int)CardRushZoneEvent.Hit, ZoneEventTick = 3010 };
+            Assert.AreEqual(5f / CardRushRunnerFxView.PuffTicks, CardRushRunnerProps.Look(knocked, 3015, null, 3000).Dust01, 1e-5f);
+            Assert.Less(CardRushRunnerProps.Look(knocked, land + 3, null, 3000).Dust01, 0f, "계획 틱엔 없다");
 
             var expired = new CardRushRunnerState { ExpireTick = 4000 };
             Assert.AreEqual(0.5f, CardRushRunnerProps.Look(expired, 4000 + CardRushRunnerFxView.PuffTicks * 0.5).Puff01, 1e-5f, "머리 위 카드가 사라질 때 연기 퐁 0.3초");

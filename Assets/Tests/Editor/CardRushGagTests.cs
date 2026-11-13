@@ -166,6 +166,39 @@ namespace LOP.Tests
             Assert.AreEqual(0f, mid.Offset.magnitude, 1e-6f, "자리는 안 옮긴다 — 높이는 시뮬 자리에 이미 있다");
         }
 
+        //  점프는 40틱이 다 차기 전에도 끝난다(바리케이드에 막힘·굴러오는 것/구역에 맞음) — 착지 그림은 실제로 끝난 틱에.
+        [Test]
+        public void 일찍_끝난_점프의_착지_틱은_막힌_틱_맞은_틱()
+        {
+            long start = 3000;
+            var track = CardRushTrack.ForTests(140000, new[] { new CardRushObstacle(CardRushObstacleKind.Barricade, 20000, 0) }, new CardRushZone[0], 1);
+            Assert.AreEqual(start + 39, CardRushGag.LandTick(new CardRushRunnerState(), start, track), "아무 일 없으면 계획 틱");
+
+            var blocked = new CardRushRunnerState { ObstacleIndex = 0, ObstacleTick = 3010 };
+            Assert.AreEqual(3010, CardRushGag.LandTick(blocked, start, track), "막힌 틱");
+            Assert.AreEqual(3000, CardRushGag.LandTick(new CardRushRunnerState { ObstacleTick = 2990 }, start, track), "이미 기다리는 중에 뛰면 그 틱에 바로 내려앉는다");
+            Assert.AreEqual(start + 39, CardRushGag.LandTick(new CardRushRunnerState { ObstacleTick = 3100 }, start, track), "점프 뒤에 막힌 건 이 점프와 무관");
+            Assert.AreEqual(start + 39, CardRushGag.LandTick(blocked, start, null), "코스 없이는 바리케이드인지 모른다");
+
+            var rolled = new CardRushRunnerState { ObstacleEvent = (int)CardRushObstacleEvent.Tumbled, ObstacleEventTick = 3020 };
+            Assert.AreEqual(3020, CardRushGag.LandTick(rolled, start, track), "굴러오는 것에 맞음");
+            var hit = new CardRushRunnerState { ZoneEvent = (int)CardRushZoneEvent.Hit, ZoneEventTick = 3015 };
+            Assert.AreEqual(3015, CardRushGag.LandTick(hit, start, track), "구역에 맞음");
+            var both = new CardRushRunnerState { ObstacleEvent = (int)CardRushObstacleEvent.Tumbled, ObstacleEventTick = 3020, ZoneEvent = (int)CardRushZoneEvent.Hit, ZoneEventTick = 3015 };
+            Assert.AreEqual(3015, CardRushGag.LandTick(both, start, track), "먼저 끝난 쪽");
+            Assert.AreEqual(start + 39, CardRushGag.LandTick(new CardRushRunnerState { ZoneEvent = (int)CardRushZoneEvent.Hit, ZoneEventTick = 2999 }, start, track), "점프 전 결과");
+            Assert.AreEqual(start + 39, CardRushGag.LandTick(new CardRushRunnerState { ZoneEvent = (int)CardRushZoneEvent.Hit, ZoneEventTick = 3039 }, start, track), "계획 틱 이후 결과");
+        }
+
+        [Test]
+        public void 막혀_내려앉은_점프는_계획_틱이_아니라_막힌_틱에_찌그러진다()
+        {
+            var track = CardRushTrack.ForTests(140000, new[] { new CardRushObstacle(CardRushObstacleKind.Barricade, 20000, 0) }, new CardRushZone[0], 1);
+            var s = new CardRushRunnerState { ObstacleIndex = 0, ObstacleTick = 3010 };
+            Assert.AreEqual(CardRushGagKind.Jump, CardRushGag.Phase(s, 3011, Tuning, track, 3000).kind, "막힌 틱에 내려앉음 찌그러짐");
+            Assert.AreNotEqual(CardRushGagKind.Jump, CardRushGag.Phase(s, 3039 + 1, Tuning, track, 3000).kind, "계획 틱엔 이미 서 있다");
+        }
+
         [Test]
         public void 던지기와_점프는_던지기가_먼저_보인다()
         {

@@ -109,13 +109,13 @@ namespace LOP.Tests
         private static void ServerSnap(Entity entity, int streak)
             => GameEntityMessageHandler.ApplyServerOnlyValues(entity, new EntitySnap { entityId = entity.Id, cardCleanStreak = streak });
 
-        //  3차는 옛 문 40칸과 다른 경기라 새 키로 시작한다 — 옛 키와 비교하면 안 된다.
+        //  4차는 3차와 규칙이 달라 새 키로 시작한다 — 옛 키와 비교하면 안 된다.
         [Test]
-        public void 지표는_3차_새_키()
+        public void 지표는_4차_새_키()
         {
-            Assert.AreEqual("cardrush.v3.finishTime", CardRushRecordMetrics.FinishTime.Id);
+            Assert.AreEqual("cardrush.v4.finishTime", CardRushRecordMetrics.FinishTime.Id);
             Assert.AreEqual("완주 시간", CardRushRecordMetrics.FinishTime.Label);
-            Assert.AreEqual("cardrush.v3.cleanBest", CardRushRecordMetrics.CleanBest.Id);
+            Assert.AreEqual("cardrush.v4.cleanBest", CardRushRecordMetrics.CleanBest.Id);
             Assert.AreEqual("연속 무사 통과", CardRushRecordMetrics.CleanBest.Label);
             Assert.AreEqual(RecordDirection.HigherIsBetter, CardRushRecordMetrics.CleanBest.Direction);
         }

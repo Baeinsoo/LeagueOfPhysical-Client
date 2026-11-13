@@ -39,13 +39,18 @@ namespace LOP
         private readonly CardRushMapRulesField rules;
         private readonly ISpectateTargets spectate;
         private readonly ActorRegistry actorRegistry;
+        private readonly GameFramework.World.EntityRegistry entityRegistry;
+        private readonly IPlayerContext playerContext;
 
         private bool hasPivot;
         private Vector3 pivot;
 
         public CardRushCamera(CameraController cameraController, CardRushMapRulesField rules,
-                              ISpectateTargets spectate, ActorRegistry actorRegistry)
+                              ISpectateTargets spectate, ActorRegistry actorRegistry,
+                              GameFramework.World.EntityRegistry entityRegistry, IPlayerContext playerContext)
         {
+            this.entityRegistry = entityRegistry;
+            this.playerContext = playerContext;
             this.cameraController = cameraController;
             this.rules = rules;
             this.spectate = spectate;
@@ -55,6 +60,17 @@ namespace LOP
         /// <summary>몸 자리에서 본 목표 피벗 — 몸 앞 3 m가 화면 가운데.</summary>
         public static Vector3 PivotTarget(Vector3 body, Vector3 forward)
             => body + CardRushLanes.Flat(forward) * LookAheadMeters;
+
+        /// <summary>
+        /// 점프 중엔 몸 높이를 따라가지 않는다(4차 spec §3.6) — 높이는 레인 바닥(<paramref name="groundY"/>)에 고정해
+        /// 점프마다 화면이 출렁이지 않게 한다.
+        /// </summary>
+        public static Vector3 PivotTarget(Vector3 body, Vector3 forward, float groundY)
+        {
+            var p = PivotTarget(body, forward);
+            p.y = groundY;
+            return p;
+        }
 
         /// <summary>
         /// 피벗 기준 자리(진행 방향 <paramref name="forwardMeters"/>, 위 <paramref name="upMeters"/>)가 화면 어느 높이(아래 0, 위 1)에
@@ -101,7 +117,7 @@ namespace LOP
             }
 
             var body = FollowedBody();
-            var target = PivotTarget(body.position, rules.Forward);
+            var target = PivotTarget(body.position, rules.Forward, GroundY(body));
             pivot = hasPivot ? Follow(pivot, target, deltaTime) : target;
             hasPivot = true;
 
@@ -112,6 +128,15 @@ namespace LOP
             cameraController.AimBy(CameraController.StepToward(
                 cameraController.Yaw, cameraController.Pitch, YawDegrees(rules.Forward), PitchDegrees, 1f));
             cameraController.DistanceOverride = DistanceFor(Screen.width, Screen.height);
+        }
+
+        //  따라가는 몸의 레인 바닥 높이 — 러너를 못 찾으면 몸 높이 그대로(점프만 따라간다).
+        private float GroundY(Transform body)
+        {
+            string id = spectate?.Current;
+            if (string.IsNullOrEmpty(id)) id = playerContext?.entityId;
+            var runner = string.IsNullOrEmpty(id) ? null : entityRegistry?.Get(id)?.Get<CardRushRunner>();
+            return runner != null ? runner.LaneOrigin.y : body.position.y;
         }
 
         //  관전 대상이 있으면 그 몸, 아직 몸이 안 붙었으면 카메라가 원래 따라가던 몸(내 몸).

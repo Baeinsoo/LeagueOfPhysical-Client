@@ -83,20 +83,31 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 방패_대시_부수기_기다림은_상태에서_정한다()
+        public void 대시_던지기_기다림은_상태에서_정한다()
         {
-            var block = new CardRushRunnerState { BlockEndTick = 1050 };
-            Assert.AreEqual(CardRushGagKind.Block, CardRushGag.Phase(block, 1010, Tuning).kind);
-            Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(block, 1050, Tuning).kind);
-
             var dash = new CardRushRunnerState { DashStartTick = 1000 };
             Assert.AreEqual(CardRushGagKind.Dash, CardRushGag.Phase(dash, 1005, Tuning).kind);
             Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(dash, 1000 + CardRushRules.DashTicks, Tuning).kind);
             Assert.Greater(CardRushGag.PoseAt(CardRushGagKind.Dash, 0.5f).EulerDeg.x, 19f, "앞으로 20° 숙임");
 
             var whiff = new CardRushRunnerState { WhiffTick = 1000 };
-            Assert.AreEqual(CardRushGagKind.Smash, CardRushGag.Phase(whiff, 1005, Tuning).kind, "헛방도 망치를 내리친다");
-            Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(whiff, 1000 + CardRushGag.SmashTicks, Tuning).kind);
+            //  헛방 틱은 꺼진 틱 — 던진 틱은 27틱 앞(973)이라 헛방 틱 때는 이미 던지는 몸짓이 끝났다.
+            Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(whiff, 1005, Tuning).kind);
+            int thrownAt = 1000 - CardRushHazardLayout.WhiffFlightTicks;
+            Assert.AreEqual(CardRushGagKind.Throw, CardRushGag.Phase(whiff, thrownAt + 5, Tuning).kind, "헛방도 던지는 몸짓(던진 틱부터)");
+            Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(whiff, thrownAt + CardRushGag.ThrowTicks, Tuning).kind);
+
+            var flying = new CardRushRunnerState { ShotTick = 1500 };
+            var (tk, tt) = CardRushGag.Phase(flying, 1505, Tuning);
+            Assert.AreEqual(CardRushGagKind.Throw, tk, "날고 있는 투사체는 던진 틱 그대로");
+            Assert.AreEqual(0.5f, tt, 1e-6f);
+            Assert.Greater(CardRushGag.PoseAt(CardRushGagKind.Throw, 0.35f).EulerDeg.x, 14f, "앞으로 숙임");
+
+            //  이미 맞힌 투사체: 던진 틱 = 쿨다운 틱(SpinStartTick) − 20. 28틱 넘게 벌어지면(다른 사용이 덮은 값) 던진 걸로 안 친다.
+            var smashed = new CardRushRunnerState { ObstacleEvent = (int)CardRushObstacleEvent.Smashed, ObstacleEventTick = 2000, SpinStartTick = 2015 };
+            Assert.AreEqual(1995, CardRushGag.ThrowTick(smashed));
+            smashed.SpinStartTick = 2000 + 500;
+            Assert.AreEqual(0, CardRushGag.ThrowTick(smashed), "쿨다운 틱이 그 뒤 다른 사용으로 덮였다");
 
             var track = CardRushTrack.ForTests(140000, new[] { new CardRushObstacle(CardRushObstacleKind.Barricade, 20000, 0) }, new CardRushZone[0], 1);
             var waiting = new CardRushRunnerState { ObstacleTick = 1000, PosMm = 19510 };
@@ -113,6 +124,87 @@ namespace LOP.Tests
             Assert.AreEqual(0.5f, t, 1e-6f);
             Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(s, 4000 + CardRushGag.FinishTicks, Tuning).kind);
             Assert.Greater(CardRushGag.PoseAt(CardRushGagKind.Finish, 0.25f).Offset.y, 0.7f, "첫 번째 뜀");
+        }
+
+        // ── 4차 ──
+
+        [Test]
+        public void 구덩이에_빠지면_꽈당_짧은_판_길이는_빠짐_기절()
+        {
+            var s = new CardRushRunnerState { ObstacleEvent = (int)CardRushObstacleEvent.Fell, ObstacleEventTick = 2000 };
+            var (k, t) = CardRushGag.Phase(s, 2000 + Tuning.PitStunTicks * 0.5, Tuning);
+            Assert.AreEqual(CardRushGagKind.Tumble, k);
+            Assert.AreEqual(0.5f, t, 1e-6f);
+            Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(s, 2000 + Tuning.PitStunTicks, Tuning).kind, "기절이 끝나는 틱엔 원래 자세");
+            AssertRest(CardRushGag.PoseAt(k, 0f), "시작");
+            AssertRest(CardRushGag.PoseAt(k, 1f), "끝");
+        }
+
+        [Test]
+        public void 점프는_뛸_때와_내려앉을_때_004초_찌그러진다()
+        {
+            long start = 3000;
+            var air = new CardRushRunnerState { JumpStartTick = start };
+            var (k, t) = CardRushGag.Phase(air, start + 2, Tuning);
+            Assert.AreEqual(CardRushGagKind.Jump, k, "뛸 때");
+            Assert.AreEqual(0.5f, t, 1e-6f);
+            Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(air, start + CardRushGag.JumpSquashTicks, Tuning).kind, "공중에선 원래 자세");
+            Assert.AreEqual(CardRushGagKind.Jump, CardRushGag.Phase(air, CardRushGag.LandTick(start) + 1, Tuning).kind, "내려앉기 직전 상태가 아직 점프");
+
+            //  내려앉으면 상태가 점프 틱을 지운다 — 그림이 기억한 틱으로 그린다.
+            var landed = new CardRushRunnerState();
+            long land = CardRushGag.LandTick(start);
+            Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(landed, land + 1, Tuning).kind, "기억 없이는 못 그린다");
+            var (lk, lt) = CardRushGag.Phase(landed, land + 2, Tuning, null, start);
+            Assert.AreEqual(CardRushGagKind.Jump, lk, "내려앉을 때");
+            Assert.AreEqual(0.5f, lt, 1e-6f);
+            Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(landed, land + CardRushGag.JumpSquashTicks, Tuning, null, start).kind);
+            Assert.AreEqual(39 + start, land, "점프 40틱 — 시뮬이 40번째 틱에 땅으로 되돌린다");
+
+            var mid = CardRushGag.PoseAt(CardRushGagKind.Jump, 0.4f);
+            Assert.AreEqual(CardRushGag.JumpSquash, mid.Squash, 1e-5f, "가장 눌렸을 때");
+            Assert.AreEqual(0f, mid.Offset.magnitude, 1e-6f, "자리는 안 옮긴다 — 높이는 시뮬 자리에 이미 있다");
+        }
+
+        //  점프는 40틱이 다 차기 전에도 끝난다(바리케이드에 막힘·굴러오는 것/구역에 맞음) — 착지 그림은 실제로 끝난 틱에.
+        [Test]
+        public void 일찍_끝난_점프의_착지_틱은_막힌_틱_맞은_틱()
+        {
+            long start = 3000;
+            var track = CardRushTrack.ForTests(140000, new[] { new CardRushObstacle(CardRushObstacleKind.Barricade, 20000, 0) }, new CardRushZone[0], 1);
+            Assert.AreEqual(start + 39, CardRushGag.LandTick(new CardRushRunnerState(), start, track), "아무 일 없으면 계획 틱");
+
+            var blocked = new CardRushRunnerState { ObstacleIndex = 0, ObstacleTick = 3010 };
+            Assert.AreEqual(3010, CardRushGag.LandTick(blocked, start, track), "막힌 틱");
+            Assert.AreEqual(3000, CardRushGag.LandTick(new CardRushRunnerState { ObstacleTick = 2990 }, start, track), "이미 기다리는 중에 뛰면 그 틱에 바로 내려앉는다");
+            Assert.AreEqual(start + 39, CardRushGag.LandTick(new CardRushRunnerState { ObstacleTick = 3100 }, start, track), "점프 뒤에 막힌 건 이 점프와 무관");
+            Assert.AreEqual(start + 39, CardRushGag.LandTick(blocked, start, null), "코스 없이는 바리케이드인지 모른다");
+
+            var rolled = new CardRushRunnerState { ObstacleEvent = (int)CardRushObstacleEvent.Tumbled, ObstacleEventTick = 3020 };
+            Assert.AreEqual(3020, CardRushGag.LandTick(rolled, start, track), "굴러오는 것에 맞음");
+            var hit = new CardRushRunnerState { ZoneEvent = (int)CardRushZoneEvent.Hit, ZoneEventTick = 3015 };
+            Assert.AreEqual(3015, CardRushGag.LandTick(hit, start, track), "구역에 맞음");
+            var both = new CardRushRunnerState { ObstacleEvent = (int)CardRushObstacleEvent.Tumbled, ObstacleEventTick = 3020, ZoneEvent = (int)CardRushZoneEvent.Hit, ZoneEventTick = 3015 };
+            Assert.AreEqual(3015, CardRushGag.LandTick(both, start, track), "먼저 끝난 쪽");
+            Assert.AreEqual(start + 39, CardRushGag.LandTick(new CardRushRunnerState { ZoneEvent = (int)CardRushZoneEvent.Hit, ZoneEventTick = 2999 }, start, track), "점프 전 결과");
+            Assert.AreEqual(start + 39, CardRushGag.LandTick(new CardRushRunnerState { ZoneEvent = (int)CardRushZoneEvent.Hit, ZoneEventTick = 3039 }, start, track), "계획 틱 이후 결과");
+        }
+
+        [Test]
+        public void 막혀_내려앉은_점프는_계획_틱이_아니라_막힌_틱에_찌그러진다()
+        {
+            var track = CardRushTrack.ForTests(140000, new[] { new CardRushObstacle(CardRushObstacleKind.Barricade, 20000, 0) }, new CardRushZone[0], 1);
+            var s = new CardRushRunnerState { ObstacleIndex = 0, ObstacleTick = 3010 };
+            Assert.AreEqual(CardRushGagKind.Jump, CardRushGag.Phase(s, 3011, Tuning, track, 3000).kind, "막힌 틱에 내려앉음 찌그러짐");
+            Assert.AreNotEqual(CardRushGagKind.Jump, CardRushGag.Phase(s, 3039 + 1, Tuning, track, 3000).kind, "계획 틱엔 이미 서 있다");
+        }
+
+        [Test]
+        public void 던지기와_점프는_던지기가_먼저_보인다()
+        {
+            var s = new CardRushRunnerState { ShotTick = 1000, JumpStartTick = 1001 };
+            Assert.AreEqual(CardRushGagKind.Throw, CardRushGag.Phase(s, 1002, Tuning).kind);
+            Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(s, 1010, Tuning).kind, "둘 다 끝난 뒤엔 원래 자세");
         }
 
         // ── 자세를 모델에 주기 ──

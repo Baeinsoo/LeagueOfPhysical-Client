@@ -29,6 +29,15 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 점프_높이는_피벗을_안_바꾼다()
+        {
+            var ground = CardRushCamera.PivotTarget(new Vector3(1f, 0f, 2f), Vector3.forward, 0f);
+            var airborne = CardRushCamera.PivotTarget(new Vector3(1f, 1f, 2f), Vector3.forward, 0f);
+            Assert.That(Vector3.Distance(ground, airborne), Is.LessThan(Eps), "몸이 1 m 떠도 피벗은 같다");
+            Assert.AreEqual(0.5f, CardRushCamera.PivotTarget(new Vector3(0f, 3f, 0f), Vector3.forward, 0.5f).y, Eps, "바닥 높이로 고정");
+        }
+
+        [Test]
         public void 카메라_각과_거리()
         {
             Assert.AreEqual(0f, CardRushCamera.YawDegrees(Vector3.forward), Eps);

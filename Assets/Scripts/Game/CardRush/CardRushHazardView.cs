@@ -120,6 +120,10 @@ namespace LOP
         public static readonly Color Skin = new Color(0.94f, 0.79f, 0.66f);
         public static readonly Color Hair = new Color(0.17f, 0.13f, 0.11f);
         public static readonly Color PupilAngry = new Color(0.75f, 0.15f, 0.17f);
+        public static readonly Color PitHole = new Color(0.07f, 0.05f, 0.05f);
+        public static readonly Color Soil = new Color(0.36f, 0.25f, 0.16f);
+        public static readonly Color Caution = new Color(0.96f, 0.77f, 0.26f);
+        public static readonly Color ShotCard = new Color(0.90f, 0.28f, 0.30f);
 
         private readonly List<UnityEngine.Object> owned = new List<UnityEngine.Object>();
 
@@ -138,6 +142,10 @@ namespace LOP
         public Material EyeMat { get; }
         public Material PupilMat { get; }
         public Material PupilAngryMat { get; }
+        public Material PitHoleMat { get; }
+        public Material SoilMat { get; }
+        public Material CautionMat { get; }
+        public Material ShotCardMat { get; }
         /// <summary>반투명 — 알파는 렌더러마다 <see cref="CardRushDraw.Tint"/>로.</summary>
         public Material Clear { get; }
         public Material Checker { get; }
@@ -159,6 +167,10 @@ namespace LOP
             EyeMat = Own(CardRushDraw.Opaque("CardRush_Eye", Color.white));
             PupilMat = Own(CardRushDraw.Opaque("CardRush_Pupil", Hair));
             PupilAngryMat = Own(CardRushDraw.Opaque("CardRush_PupilAngry", PupilAngry));
+            PitHoleMat = Own(CardRushDraw.Opaque("CardRush_PitHole", PitHole));
+            SoilMat = Own(CardRushDraw.Opaque("CardRush_Soil", Soil));
+            CautionMat = Own(CardRushDraw.Opaque("CardRush_Caution", Caution));
+            ShotCardMat = Own(CardRushDraw.Opaque("CardRush_ShotCard", ShotCard));
             Clear = Own(CardRushDraw.Transparent("CardRush_Clear", Color.white));
             Checker = Own(MakeChecker());
         }
@@ -344,6 +356,7 @@ namespace LOP
         private readonly Dictionary<int, ZoneGo> zones = new Dictionary<int, ZoneGo>();
         private readonly List<int> drop = new List<int>();
         private readonly HashSet<int> keep = new HashSet<int>();
+        private ShotGo shot;
 
         public GameObject Root => root.gameObject;
         /// <summary>이 레인을 깐 출발점. 몸의 출발점이 바뀌면(규칙이 늦게 옴) 뷰가 새로 깐다.</summary>
@@ -375,11 +388,14 @@ namespace LOP
             {
                 if (track.Obstacles[i].AtMm > bodyMm + AheadMeters * 1000f) break;
                 var look = CardRushHazardLayout.ObstacleLook(s, i, d, bodyMm, track, tuning);
-                if (look.Phase == CardRushObstaclePhase.Gone || look.AlongMm < bodyMm - BehindMeters * 1000f) continue;
+                //  구덩이는 먼 가장자리까지 몸 뒤로 가야 지운다.
+                float edge = track.Obstacles[i].Kind == CardRushObstacleKind.Pit ? track.Obstacles[i].EndMm : look.AlongMm;
+                if (look.Phase == CardRushObstaclePhase.Gone || edge < bodyMm - BehindMeters * 1000f) continue;
                 keep.Add(i);
                 ShowObstacle(i, track.Obstacles[i], look, cam);
             }
             DropObstaclesExcept(keep);
+            ShowShot(CardRushHazardLayout.ShotLook(s, d, track));
 
             keep.Clear();
             for (int i = Math.Max(0, s.ZoneIndex - 1); i <= s.ZoneIndex && i < track.Zones.Count; i++)
@@ -402,6 +418,18 @@ namespace LOP
                 obstacles.Add(index, o);
             }
             o.Place(look, cam);
+        }
+
+        /// <summary>투사체를 놓는다(없으면 숨김). 미리보기는 안 부른다.</summary>
+        public void ShowShot(in CardRushShotLook look)
+        {
+            if (look.Phase == CardRushShotPhase.None)
+            {
+                shot?.Hide();
+                return;
+            }
+            shot ??= new ShotGo(this);
+            shot.Place(look);
         }
 
         /// <summary>
@@ -446,6 +474,9 @@ namespace LOP
         public int ZoneCount => zones.Count;
         public Transform ObstacleRoot(int index) => obstacles.TryGetValue(index, out var o) ? o.Root : null;
         public Transform ZoneRoot(int index) => zones.TryGetValue(index, out var z) ? z.Root : null;
+        public Transform ShotRoot => shot?.Root;
+        public bool ShotVisible => shot != null && shot.Root.gameObject.activeSelf;
+        public bool ShotSmokeVisible => shot != null && shot.SmokeVisible;
 
         public void Destroy()
         {
@@ -453,6 +484,8 @@ namespace LOP
             foreach (var z in zones.Values) z.Destroy();
             obstacles.Clear();
             zones.Clear();
+            shot?.Destroy();
+            shot = null;
             CardRushGagFx.DestroyObject(root != null ? root.gameObject : null);
         }
 
@@ -469,6 +502,8 @@ namespace LOP
             private readonly Transform[] wheels;
             private readonly Transform[] shards = new Transform[ShardCount];
             private readonly CardRushWorldLabel label;
+            private readonly int pitWidthMm;
+            private Renderer pitDust;
 
             public Transform Root { get; }
 
@@ -479,11 +514,17 @@ namespace LOP
                 variant = obstacle.Variant;
                 atMm = obstacle.AtMm;
                 var m = lane.materials;
-                Root = CardRushDraw.Node((kind == CardRushObstacleKind.Barricade ? "Barricade " : "Roller ") + index, lane.root, lane.hideFlags).transform;
+                Root = CardRushDraw.Node((kind == CardRushObstacleKind.Barricade ? "Barricade " : kind == CardRushObstacleKind.Pit ? "Pit " : "Roller ") + index, lane.root, lane.hideFlags).transform;
                 Root.rotation = lane.facing;
                 body = CardRushDraw.Node("Body", Root, lane.hideFlags).transform;
                 spin = body;
                 wheels = Array.Empty<Transform>();
+                if (kind == CardRushObstacleKind.Pit)
+                {
+                    pitWidthMm = obstacle.WidthMm;
+                    BuildPit(obstacle);
+                    return;
+                }
                 Material shardMat;
                 if (kind == CardRushObstacleKind.Barricade)
                 {
@@ -505,6 +546,47 @@ namespace LOP
                     shards[i].gameObject.SetActive(false);
                 }
                 if (lane.labels) label = CardRushWorldLabel.Create("Seconds", Root);
+            }
+
+            //  구덩이 — 레인 폭의 어두운 구멍(바닥 위 1 cm), 앞 1 m 노랑·검정 경고 줄무늬, 가장자리 흙 테두리. Root는 앞 가장자리(At)에 선다.
+            private void BuildPit(in CardRushObstacle o)
+            {
+                var m = lane.materials;
+                var f = lane.hideFlags;
+                var rect = CardRushHazardLayout.PitRect(o);
+                float width = lane.laneSpacing * 0.92f;
+                float depth = (rect.HoleToMm - rect.HoleFromMm) / 1000f;
+                CardRushDraw.Box("Hole", Root, new Vector3(0f, 0.012f, depth * 0.5f), new Vector3(width, 0.004f, depth), m.PitHoleMat, f);
+
+                float stripe = CardRushHazardLayout.PitStripeMm / 1000f;
+                const int bars = 5;
+                float bar = stripe / bars;
+                for (int i = 0; i < bars; i++)
+                {
+                    float z = -stripe + bar * (i + 0.5f);
+                    CardRushDraw.Box("Stripe", Root, new Vector3(0f, 0.016f, z), new Vector3(width, 0.004f, bar), i % 2 == 0 ? m.CautionMat : m.HairMat, f);
+                }
+
+                float rim = 0.12f;
+                CardRushDraw.Box("RimNear", Root, new Vector3(0f, 0.02f, rim * 0.5f), new Vector3(width, 0.03f, rim), m.SoilMat, f);
+                CardRushDraw.Box("RimFar", Root, new Vector3(0f, 0.02f, depth - rim * 0.5f), new Vector3(width, 0.03f, rim), m.SoilMat, f);
+                CardRushDraw.Box("RimLeft", Root, new Vector3(-width * 0.5f + rim * 0.5f, 0.02f, depth * 0.5f), new Vector3(rim, 0.03f, depth), m.SoilMat, f);
+                CardRushDraw.Box("RimRight", Root, new Vector3(width * 0.5f - rim * 0.5f, 0.02f, depth * 0.5f), new Vector3(rim, 0.03f, depth), m.SoilMat, f);
+
+                pitDust = CardRushDraw.Primitive(PrimitiveType.Cylinder, "Dust", Root, m.Clear, f).GetComponent<Renderer>();
+                pitDust.transform.localPosition = new Vector3(0f, 0.05f, depth * 0.5f);
+                pitDust.gameObject.SetActive(false);
+            }
+
+            private void PlacePit(in CardRushObstacleLook look)
+            {
+                bool splash = look.Phase == CardRushObstaclePhase.PitFell;
+                CardRushDraw.SetActive(pitDust.gameObject, splash);
+                if (splash == false) return;
+                //  구멍 위로 흰 먼지가 퐁 퍼지며 옅어진다(몸이 이미 뒤로 가 있어도 구덩이 자리에서 보인다).
+                float r = Mathf.Lerp(0.5f, 1.8f, Mathf.Sqrt(look.T01));
+                pitDust.transform.localScale = new Vector3(r, 0.002f, r);
+                CardRushDraw.Tint(pitDust, lane.block, CardRushStageMaterials.Dust, 0.45f * (1f - look.T01));
             }
 
             private void BuildBarricade(int v, float width)
@@ -612,6 +694,11 @@ namespace LOP
             public void Place(in CardRushObstacleLook look, Camera cam)
             {
                 Root.position = lane.At(look.AlongMm);
+                if (kind == CardRushObstacleKind.Pit)
+                {
+                    PlacePit(look);
+                    return;
+                }
                 bool broken = look.Phase == CardRushObstaclePhase.Smashed;
                 CardRushDraw.SetActive(body.gameObject, broken == false);
                 for (int i = 0; i < ShardCount; i++) CardRushDraw.SetActive(shards[i].gameObject, broken);
@@ -642,14 +729,11 @@ namespace LOP
                     case CardRushObstaclePhase.Smashed:
                         Shatter(look.T01);
                         break;
-                    case CardRushObstaclePhase.Blocked:
+                    case CardRushObstaclePhase.Jumped:
                     {
-                        //  방패에 튕겨 옆으로 굴러 나간다(몸 쪽으로 안 온다).
+                        //  몸 밑으로 그대로 지나가며 끝에서 작아져 사라진다.
                         Roll(look);
-                        float u = look.T01;
-                        body.localPosition += new Vector3(1.6f * u, 0.5f * Mathf.Sin(u * Mathf.PI), 0.6f * u);
-                        body.localRotation = Quaternion.Euler(0f, 0f, -200f * u) * body.localRotation;
-                        body.localScale = Vector3.one * Mathf.Clamp01((1f - u) / 0.4f);
+                        body.localScale = Vector3.one * Mathf.Clamp01((1f - look.T01) / 0.3f);
                         break;
                     }
                     case CardRushObstaclePhase.Tumbled:
@@ -721,6 +805,59 @@ namespace LOP
                 label?.Destroy();
                 CardRushGagFx.DestroyObject(Root != null ? Root.gameObject : null);
             }
+        }
+
+        // ── 투사체 하나(레인마다 하나) ─────────────────────
+
+        private sealed class ShotGo
+        {
+            private const float SpinDegreesPerMeter = 720f;
+
+            private readonly CardRushLaneHazards lane;
+            private readonly Transform card;
+            private readonly Renderer smoke;
+
+            public Transform Root { get; }
+            public bool SmokeVisible => smoke.gameObject.activeSelf;
+
+            public ShotGo(CardRushLaneHazards lane)
+            {
+                this.lane = lane;
+                Root = CardRushDraw.Node("Shot", lane.root, lane.hideFlags).transform;
+                //  빨간 카드 — 얇은 판. 도는 몸통은 card, 연기는 따로 서 있다.
+                card = CardRushDraw.Box("Card", Root, Vector3.zero, new Vector3(0.24f, 0.34f, 0.03f), lane.materials.ShotCardMat, lane.hideFlags).transform;
+                smoke = CardRushDraw.Primitive(PrimitiveType.Sphere, "Smoke", Root, lane.materials.Clear, lane.hideFlags).GetComponent<Renderer>();
+                smoke.gameObject.SetActive(false);
+            }
+
+            public void Place(in CardRushShotLook look)
+            {
+                CardRushDraw.SetActive(Root.gameObject, true);
+                float meters = look.AlongMm / 1000f;
+                Root.position = lane.origin + lane.forward * meters;
+                float height = CardRushHazardLayout.ShotHeight;
+                float scale = 1f;
+                bool puffing = look.Phase == CardRushShotPhase.Fizzle;
+                if (puffing)
+                {
+                    //  사거리 끝에서 연기가 퐁 퍼지고 카드는 바닥으로 떨어지며 작아진다.
+                    height = Mathf.Lerp(CardRushHazardLayout.ShotHeight, 0.05f, look.T01 * look.T01);
+                    scale = Mathf.Clamp01((1f - look.T01) / 0.4f);
+                    float r = Mathf.Lerp(0.2f, 0.7f, Mathf.Sqrt(look.T01));
+                    smoke.transform.localPosition = new Vector3(0f, CardRushHazardLayout.ShotHeight * 0.6f, 0f);
+                    smoke.transform.localScale = Vector3.one * r;
+                    CardRushDraw.Tint(smoke, lane.block, CardRushRunnerFxView.PuffColor, 0.5f * (1f - look.T01));
+                }
+                CardRushDraw.SetActive(smoke.gameObject, puffing);
+                card.localPosition = Vector3.up * height;
+                card.localScale = new Vector3(0.24f, 0.34f, 0.03f) * scale;
+                //  앞으로 가며 빙글 — 진 거리에 묶어 같은 그림 틱이면 늘 같은 각도.
+                card.rotation = lane.facing * Quaternion.AngleAxis(meters * SpinDegreesPerMeter, Vector3.forward);
+            }
+
+            public void Hide() => CardRushDraw.SetActive(Root.gameObject, false);
+
+            public void Destroy() => CardRushGagFx.DestroyObject(Root != null ? Root.gameObject : null);
         }
 
         // ── 구역 하나 ───────────────────────────────────────

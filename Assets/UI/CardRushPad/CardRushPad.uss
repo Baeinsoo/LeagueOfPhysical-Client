@@ -29,3 +29,20 @@
     -unity-text-align: middle-center;
     transform-origin: center;
 }
+
+/* 조작 안내(4차 spec §4) — 무사 글 위, 더 작고 흐리게. 탭은 아래 면이 받는다. */
+.card-rush-hint {
+    position: absolute;
+    bottom: 12%;
+    left: 50%;
+    translate: -50% 0;
+    font-size: 30px;
+    color: rgba(243, 235, 226, 0.85);
+    -unity-text-align: middle-center;
+    background-color: rgba(28, 22, 16, 0.35);
+    padding-left: 18px;
+    padding-right: 18px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    border-radius: 22px;
+}

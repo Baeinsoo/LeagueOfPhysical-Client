@@ -2,6 +2,7 @@
     <Style src="CardRushPad.uss" />
     <ui:VisualElement name="card-rush-root" class="card-rush-root" picking-mode="Ignore">
         <ui:VisualElement name="card-rush-surface" class="card-rush-surface" />
+        <ui:Label name="card-rush-hint" class="card-rush-hint" text="탭 = 카드 잡기 · 다시 탭 = 쓰기" picking-mode="Ignore" />
         <ui:Label name="card-rush-streak" class="card-rush-streak" text="무사 0" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

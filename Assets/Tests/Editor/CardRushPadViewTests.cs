@@ -38,6 +38,8 @@ namespace LOP.Tests
         {
             Assert.AreEqual("무사 7", CardRushPadView.StreakText(7));
             var uxml = UnityEditor.AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/UI/CardRushPad/CardRushPad.uxml");
+            Assert.AreEqual("탭 = 카드 잡기 · 다시 탭 = 쓰기", CardRushPadView.HintText);
+            Assert.AreEqual(CardRushPadView.HintText, uxml.Instantiate().Q<Label>("card-rush-hint").text, "조작 안내");
             Assert.AreEqual("무사 0", uxml.Instantiate().Q<Label>("card-rush-streak").text, "판 시작 전 글");
         }
     }

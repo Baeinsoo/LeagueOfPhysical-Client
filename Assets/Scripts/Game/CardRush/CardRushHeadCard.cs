@@ -12,12 +12,17 @@ namespace LOP
         public readonly float RingT01;      // 잡은 카드의 남은 시간 몫(1 → 0). 안 잡았으면 0
         public readonly bool RingBlink;     // 링 마지막 1초 중 꺼지는 깜빡 구간
         public readonly float Vanish01;     // 사라지는 중이면 진행(0 초과 ~ 1 미만). 아니면 0
+        public readonly bool Rolling;       // 돌고 있다 — 6초 링(가늘게)이 줄어든다
+        public readonly bool Ready;         // 평소 — 탭하면 돌기 시작한다(뒷면이 숨 쉬듯 커졌다 작아진다)
+        public readonly bool ReadyBig;      // 숨쉬기 중 커진 반
 
         public CardRushHeadCardFace(bool visible, bool faceUp, CardColor color, bool dim, float flipT01,
-                                    bool held = false, float ringT01 = 0f, bool ringBlink = false, float vanish01 = 0f)
+                                    bool held = false, float ringT01 = 0f, bool ringBlink = false, float vanish01 = 0f,
+                                    bool rolling = false, bool ready = false, bool readyBig = false)
         {
             Visible = visible; FaceUp = faceUp; Color = color; Dim = dim; FlipT01 = flipT01;
             Held = held; RingT01 = ringT01; RingBlink = ringBlink; Vanish01 = vanish01;
+            Rolling = rolling; Ready = ready; ReadyBig = readyBig;
         }
     }
 
@@ -33,6 +38,8 @@ namespace LOP
         /// <summary>링 마지막 1초 — 이 안에서 5틱마다 깜빡인다.</summary>
         public const int BlinkTicks = 50;
         public const int BlinkPeriodTicks = 5;
+        /// <summary>평소 뒷면 숨쉬기 반 주기 — 0.5초.</summary>
+        public const int ReadyPulseTicks = 25;
 
         /// <summary>
         /// 내 카드 — 반드시 <c>PlayerInputManager.NextInputTick</c>으로 부른다. 그 틱의 카드가 지금 누르면 쓰는 카드다
@@ -55,11 +62,16 @@ namespace LOP
             }
             if (CardRushCard.CardAt(s, tick, gameplayStartTick, lane, track, out var color) == false)
             {
+                //  평소(쿨다운 끝) — 뒷면이 숨 쉬며 탭을 기다린다. 기절 중이면 흐리게(탭이 버려진다).
+                if (s.RollStartTick == 0 && s.LockTick == 0 && tick >= CardRushCard.SpinBase(s, gameplayStartTick))
+                {
+                    bool big = (tick / ReadyPulseTicks) % 2 == 1;
+                    return new CardRushHeadCardFace(true, false, default, stunned, 1f, ready: true, readyBig: big);
+                }
                 //  쓰고 쉬는 동안 — 뒷면, 흐리게.
                 return new CardRushHeadCardFace(true, false, default, true, 1f);
             }
-            long spinBase = CardRushCard.SpinBase(s, gameplayStartTick);
-            long sinceCard = (tick - spinBase) % CardRushRules.CardDwellTicks;
+            long sinceCard = System.Math.Max(0, tick - s.RollStartTick) % CardRushRules.CardDwellTicks;
             float flip = UnityEngine.Mathf.Clamp01((float)sinceCard / FlipTicks);
             if (s.LockTick != 0)
             {
@@ -70,7 +82,11 @@ namespace LOP
                 float ring = UnityEngine.Mathf.Clamp01((float)left / CardRushRules.LockHoldTicks);
                 return new CardRushHeadCardFace(true, true, color, stunned || airDead, 1f, true, ring, blink);
             }
-            return new CardRushHeadCardFace(true, true, color, stunned, flip);
+            //  돌고 있다 — 6초 링이 줄고 마지막 1초 깜빡, 다 되면 그 색이 잡힌다.
+            long rollLeft = s.RollStartTick + CardRushRules.RollMaxTicks - tick;
+            bool rollBlink = rollLeft <= BlinkTicks && (tick / BlinkPeriodTicks) % 2 == 0;
+            float rollRing = UnityEngine.Mathf.Clamp01((float)rollLeft / CardRushRules.RollMaxTicks);
+            return new CardRushHeadCardFace(true, true, color, stunned, flip, ringT01: rollRing, ringBlink: rollBlink, rolling: true);
         }
 
         /// <summary>
@@ -98,7 +114,10 @@ namespace LOP
             //  남의 상태는 최신 스냅이라 그려지는 틱엔 아직 안 잡은 카드가 이미 잡혀 있을 수 있다 — 잡기 전엔 도는 카드로 그린다.
             var shown = s;
             if (shown.LockTick != 0 && drawnTick < shown.LockTick) shown.LockTick = 0;
-            return Compute(shown, drawnTick, gameplayStartTick, lane, track);
+            if (shown.RollStartTick != 0 && drawnTick < shown.RollStartTick) shown.RollStartTick = 0;
+            var face = Compute(shown, drawnTick, gameplayStartTick, lane, track);
+            //  남의 평소 뒷면은 숨 쉬지 않는다 — 여덟 장이 같이 움직이면 정신없다.
+            return face.Ready ? new CardRushHeadCardFace(true, false, default, face.Dim, 1f) : face;
         }
     }
 }

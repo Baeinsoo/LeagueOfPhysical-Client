@@ -78,7 +78,7 @@ namespace LOP.Tests
             var registry = new EntityRegistry();
             var me = new Entity("me");
             me.Add(new InputBuffer());
-            me.Add(new CardRushRunner { State = new CardRushRunnerState { SpinStartTick = Start } });
+            me.Add(new CardRushRunner { State = new CardRushRunnerState { SpinStartTick = Start, RollStartTick = Start } });
             registry.Add(me);
 
             var rules = new CardRushMapRulesField();
@@ -113,13 +113,16 @@ namespace LOP.Tests
         {
             var before = At(new CardRushRunnerState(), G - 50);
             Assert.IsTrue(before.Visible); Assert.IsFalse(before.FaceUp); Assert.IsFalse(before.Dim);
-            Assert.IsTrue(At(new CardRushRunnerState(), G).FaceUp, "출발 틱부터 돈다");
+            var ready = At(new CardRushRunnerState(), G);
+            Assert.IsFalse(ready.FaceUp, "출발해도 탭하기 전엔 안 돈다");
+            Assert.IsTrue(ready.Ready); Assert.IsFalse(ready.Dim);
+            Assert.IsTrue(At(new CardRushRunnerState { RollStartTick = G }, G).FaceUp, "탭한 틱부터 돈다");
         }
 
         [Test]
         public void 돌_때_색은_그_틱의_카드()
         {
-            var s = new CardRushRunnerState { UseCount = 4, SpinStartTick = 1200 };
+            var s = new CardRushRunnerState { UseCount = 4, SpinStartTick = 1200, RollStartTick = 1200 };
             foreach (long tick in new long[] { 1200, 1222, 1223, 1250, 1300 })
             {
                 var f = At(s, tick);
@@ -136,13 +139,16 @@ namespace LOP.Tests
             var s = new CardRushRunnerState { UseCount = 1, SpinStartTick = 1200 };
             var f = At(s, 1190);
             Assert.IsTrue(f.Visible); Assert.IsFalse(f.FaceUp); Assert.IsTrue(f.Dim);
-            Assert.IsTrue(At(s, 1200).FaceUp, "쿨다운이 끝나는 틱에 앞면");
+            var ready = At(s, 1200);
+            Assert.IsFalse(ready.FaceUp); Assert.IsTrue(ready.Ready, "쿨다운이 끝나면 탭을 기다리는 뒷면");
+            Assert.IsFalse(ready.Dim, "쿨다운(흐림)과 구별된다");
+            Assert.IsFalse(f.Ready);
         }
 
         [Test]
         public void 기절_중엔_돌지만_흐리다()
         {
-            var s = new CardRushRunnerState { StunEndTick = 1060 };
+            var s = new CardRushRunnerState { StunEndTick = 1060, RollStartTick = 1000 };
             var f = At(s, 1040);
             Assert.IsTrue(f.FaceUp, "기절 중에도 카드는 돈다");
             Assert.IsTrue(f.Dim);
@@ -161,12 +167,12 @@ namespace LOP.Tests
         [Test]
         public void 색이_바뀐_장은_가로로_펴진다()
         {
-            var s = new CardRushRunnerState { SpinStartTick = 1200, UseCount = 2 };
+            var s = new CardRushRunnerState { SpinStartTick = 1200, UseCount = 2, RollStartTick = 1200 };
             Assert.AreEqual(0f, At(s, 1200).FlipT01, 1e-6f, "새 장이 뜬 틱");
             Assert.AreEqual(1f / CardRushHeadCard.FlipTicks, At(s, 1201).FlipT01, 1e-6f);
             Assert.AreEqual(1f, At(s, 1200 + CardRushHeadCard.FlipTicks).FlipT01, 1e-6f);
             Assert.AreEqual(0f, At(s, 1200 + CardRushRules.CardDwellTicks).FlipT01, 1e-6f, "다음 장이 뜬 틱");
-            Assert.AreEqual(1f, At(s, 1190).FlipT01, 1e-6f, "뒷면은 다 펴진 채");
+            Assert.AreEqual(1f, At(new CardRushRunnerState { SpinStartTick = 1200, UseCount = 2 }, 1190).FlipT01, 1e-6f, "뒷면은 다 펴진 채");
         }
 
         //  리뷰 m2: 남의 최신 상태엔 아직 그려지지 않은 꽈당의 기절 끝 틱이 있다 — 기절이 시작한 틱(결과 틱)부터만 흐리게.
@@ -193,7 +199,7 @@ namespace LOP.Tests
         [Test]
         public void 남의_카드는_그림_틱이_마지막_사용_전이면_뒷면()
         {
-            var s = new CardRushRunnerState { UseCount = 3, SpinStartTick = 2000 };
+            var s = new CardRushRunnerState { UseCount = 3, SpinStartTick = 2000, RollStartTick = 2000 };
             var early = CardRushHeadCard.ComputeOther(s, 1979, G, Lane, track);
             Assert.IsTrue(early.Visible); Assert.IsFalse(early.FaceUp); Assert.IsFalse(early.Dim);
 
@@ -281,12 +287,15 @@ namespace LOP.Tests
 
         // ── 4차: 잡음·링·사라짐·공중 흐림 ──
 
+        //  잡은 카드는 RollBase에 돌기 시작한 것으로 둔다.
+        private const long RollBase = 1000;
+
         private static CardRushRunnerState Held(long lockTick, int jumpStart = 0)
-            => new CardRushRunnerState { LockTick = lockTick, JumpStartTick = jumpStart };
+            => new CardRushRunnerState { LockTick = lockTick, JumpStartTick = jumpStart, RollStartTick = RollBase };
 
         private static CardColor SpinAt(CardRushRunnerState s, long tick)
         {
-            Assert.IsTrue(CardRushCard.CardAt(new CardRushRunnerState { UseCount = s.UseCount }, tick, G, Lane, track, out var c));
+            Assert.IsTrue(CardRushCard.CardAt(new CardRushRunnerState { UseCount = s.UseCount, RollStartTick = RollBase }, tick, G, Lane, track, out var c));
             return c;
         }
 
@@ -303,7 +312,7 @@ namespace LOP.Tests
             Assert.AreEqual(0.6f, At(s, 1100 + 100).RingT01, 1e-6f, "250틱 중 100틱 지남");
             Assert.AreEqual(1.25f, CardRushHeadCardView.ScaleOf(a), 1e-6f);
             Assert.AreEqual(0.15f, CardRushHeadCardView.LiftOf(a), 1e-6f);
-            Assert.AreEqual(1f, CardRushHeadCardView.ScaleOf(At(new CardRushRunnerState { SpinStartTick = 1000 }, 1010)), "안 잡았으면 그대로");
+            Assert.AreEqual(1f, CardRushHeadCardView.ScaleOf(At(new CardRushRunnerState { SpinStartTick = 1000, RollStartTick = 1000 }, 1010)), "안 잡았으면 그대로");
         }
 
         [Test]
@@ -359,7 +368,7 @@ namespace LOP.Tests
             for (int u = 0; u < 12; u++) { if (Caught(u) == CardColor.Red) red = u; else nonRed = u; }
             Assert.GreaterOrEqual(red, 0); Assert.GreaterOrEqual(nonRed, 0);
 
-            var air = new CardRushRunnerState { LockTick = lockTick, JumpStartTick = 1090 };
+            var air = new CardRushRunnerState { LockTick = lockTick, JumpStartTick = 1090, RollStartTick = RollBase };
             var airRed = air; airRed.UseCount = red;
             var airOther = air; airOther.UseCount = nonRed;
             Assert.IsFalse(At(airRed, 1110).Dim, "빨강은 공중에서도 쓴다");
@@ -376,6 +385,44 @@ namespace LOP.Tests
             Assert.IsFalse(before.Held);
             Assert.AreEqual(SpinAt(s, 1090), before.Color);
             Assert.IsTrue(CardRushHeadCard.ComputeOther(s, 1100, G, Lane, track).Held);
+        }
+
+        // ── 4.1차: 평소 숨쉬기·도는 6초 링 ──
+
+        [Test]
+        public void 평소_뒷면은_숨쉬고_남의_것은_안_숨쉰다()
+        {
+            var s = new CardRushRunnerState { SpinStartTick = 1200, UseCount = 1 };
+            var small = At(s, 1200);
+            var big = At(s, 1200 + CardRushHeadCard.ReadyPulseTicks);
+            Assert.IsTrue(small.Ready && big.Ready);
+            Assert.AreNotEqual(CardRushHeadCardView.ScaleOf(small), CardRushHeadCardView.ScaleOf(big), "커졌다 작아진다");
+            Assert.AreEqual(CardRushHeadCardView.ReadyScale, System.Math.Max(CardRushHeadCardView.ScaleOf(small), CardRushHeadCardView.ScaleOf(big)), 1e-6f);
+            var other = CardRushHeadCard.ComputeOther(s, 1200 + CardRushHeadCard.ReadyPulseTicks, G, Lane, track);
+            Assert.IsFalse(other.Ready); Assert.IsFalse(other.FaceUp);
+            Assert.AreEqual(1f, CardRushHeadCardView.ScaleOf(other), 1e-6f);
+            var stunned = new CardRushRunnerState { SpinStartTick = 1200, StunEndTick = 1300 };
+            Assert.IsTrue(At(stunned, 1250).Dim, "기절 중엔 탭이 버려지니 흐리게");
+        }
+
+        [Test]
+        public void 돌_때_6초_링이_가늘게_줄고_마지막_1초_깜빡인다()
+        {
+            var s = new CardRushRunnerState { RollStartTick = 1000 };
+            var start = At(s, 1000);
+            Assert.IsTrue(start.Rolling); Assert.IsFalse(start.Held);
+            Assert.AreEqual(1f, start.RingT01, 1e-6f);
+            Assert.AreEqual(0.5f, At(s, 1000 + CardRushRules.RollMaxTicks / 2).RingT01, 1e-6f);
+            Assert.IsTrue(CardRushHeadCardView.RingShown(At(s, 1100)), "앞 5초는 켜진 채");
+            long end = 1000 + CardRushRules.RollMaxTicks;
+            bool anyOn = false, anyOff = false;
+            for (long tk = end - CardRushHeadCard.BlinkTicks; tk < end; tk++)
+            {
+                anyOn |= CardRushHeadCardView.RingShown(At(s, tk));
+                anyOff |= !CardRushHeadCardView.RingShown(At(s, tk));
+            }
+            Assert.IsTrue(anyOn && anyOff, "마지막 1초엔 깜빡");
+            Assert.AreEqual(1f, CardRushHeadCardView.ScaleOf(start), 1e-6f, "돌 때는 커지지 않는다");
         }
 
         [Test]
@@ -396,6 +443,10 @@ namespace LOP.Tests
                 Assert.AreEqual(0, plate.RingOn);
                 plate.SetHeld(true);
                 Assert.IsTrue(plate.Held);
+                plate.SetRing(1f, thin: true);
+                Assert.IsTrue(plate.RingThin, "도는 링은 가늘게");
+                plate.SetRing(1f);
+                Assert.IsFalse(plate.RingThin);
             }
             finally
             {

@@ -85,7 +85,7 @@ namespace LOP.UI
         }
 
         /// <summary>조작 안내 — 첫 탭이 잡기, 다음 탭이 쓰기(4차 spec §4).</summary>
-        public const string HintText = "탭 = 카드 잡기 · 다시 탭 = 쓰기";
+        public const string HintText = "탭 = 카드 돌리기 · 다시 탭 = 고르기 · 또 탭 = 쓰기";
 
         /// <summary>아래 글 — 지금 연속 무사 통과.</summary>
         public static string StreakText(int streak) => $"무사 {streak}";

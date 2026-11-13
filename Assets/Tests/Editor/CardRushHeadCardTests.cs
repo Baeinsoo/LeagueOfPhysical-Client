@@ -125,7 +125,7 @@ namespace LOP.Tests
                 var f = At(s, tick);
                 Assert.IsTrue(f.Visible && f.FaceUp, "틱 " + tick);
                 Assert.IsFalse(f.Dim);
-                Assert.IsTrue(CardRushCard.TryCardAt(s, tick, G, Lane, track, out var c));
+                Assert.IsTrue(CardRushCard.CardAt(s, tick, G, Lane, track, out var c));
                 Assert.AreEqual(c, f.Color, "틱 " + tick);
             }
         }
@@ -216,7 +216,7 @@ namespace LOP.Tests
             var atBoundary = CardRushHeadCard.Compute(state, rig.Boundary, rig.World.GameplayStartTick, runner.Lane, rig.World.Track);
             Assert.IsTrue(before.FaceUp); Assert.IsTrue(atBoundary.FaceUp);
             Assert.AreNotEqual(before.Color, atBoundary.Color, "경계 앞뒤 색이 달라야 틱 하나의 어긋남을 잡는다");
-            Assert.IsTrue(CardRushCard.TryCardAt(state, rig.Boundary, rig.World.GameplayStartTick, runner.Lane, rig.World.Track, out var judged));
+            Assert.IsTrue(CardRushCard.CardAt(state, rig.Boundary, rig.World.GameplayStartTick, runner.Lane, rig.World.Track, out var judged));
             Assert.AreEqual(judged, atBoundary.Color, "경계 틱에 누르면 쓰는 카드");
 
             Assert.IsTrue(view.TryComputeMine(out var mine));
@@ -251,7 +251,7 @@ namespace LOP.Tests
                 Assert.IsTrue(frame.FaceUp);
                 Assert.AreEqual(mine.Color, frame.Color, "본 색 = 들은 째깍의 색");
                 var me = rig.Registry.Get("me").Get<CardRushRunner>();
-                Assert.IsTrue(CardRushCard.TryCardAt(me.State, rig.Boundary, rig.World.GameplayStartTick, me.Lane, rig.World.Track, out var judged));
+                Assert.IsTrue(CardRushCard.CardAt(me.State, rig.Boundary, rig.World.GameplayStartTick, me.Lane, rig.World.Track, out var judged));
                 Assert.AreEqual(judged, frame.Color, "다음 입력 틱(경계)의 카드 — 러너 틱(경계 − 1)이면 한 장 앞 카드");
             }
             finally
@@ -380,7 +380,7 @@ namespace LOP.Tests
             rig.Input.Tick(clock.tick, 0.02f);           //  F+1 첫 틱
             Assert.IsTrue(rig.History.TryGet(rig.Boundary, out var command) && command.Grab, "탭은 경계 틱에 실린다");
             var me = rig.Registry.Get("me").Get<CardRushRunner>();
-            Assert.IsTrue(CardRushCard.TryCardAt(me.State, rig.Boundary, rig.World.GameplayStartTick, me.Lane, rig.World.Track, out var judged));
+            Assert.IsTrue(CardRushCard.CardAt(me.State, rig.Boundary, rig.World.GameplayStartTick, me.Lane, rig.World.Track, out var judged));
             Assert.AreEqual(judged, shown.Color, "본 카드 = 쓰는 카드");
         }
     }

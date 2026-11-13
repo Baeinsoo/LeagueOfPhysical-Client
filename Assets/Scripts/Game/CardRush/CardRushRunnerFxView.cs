@@ -312,19 +312,8 @@ namespace LOP
         /// <summary>그 그림 틱의 소품 모습.</summary>
         public static CardRushPropsLook Look(in CardRushRunnerState s, double d)
         {
+            //  방패 구는 4차에 방패가 사라져 늘 꺼 둔다 — Task 4·5가 지운다.
             float shield01 = -1f, shieldAlpha = 0f, shieldScale = 1f;
-            if (s.BlockEndTick != 0)
-            {
-                double start = s.BlockEndTick - CardRushRules.BlockTicks;
-                if (d >= start && d < s.BlockEndTick)
-                {
-                    shield01 = (float)((d - start) / CardRushRules.BlockTicks);
-                    float grow = Mathf.Clamp01((float)((d - start) / CardRushRunnerFxView.ShieldGrowTicks));
-                    float fade = Mathf.Clamp01((float)((s.BlockEndTick - d) / CardRushRunnerFxView.ShieldFadeTicks));
-                    shieldScale = Mathf.Lerp(0.3f, 1f, grow);
-                    shieldAlpha = fade;
-                }
-            }
 
             float streak = -1f;
             if (s.DashStartTick != 0 && d >= s.DashStartTick && d < s.DashStartTick + CardRushRunnerFxView.StreakTicks)

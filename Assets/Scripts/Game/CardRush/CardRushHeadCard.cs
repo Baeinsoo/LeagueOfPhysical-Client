@@ -34,7 +34,7 @@ namespace LOP
             //  출발 전엔 뒷면으로 띄워 무엇을 누를지 자리를 보여 준다.
             if (gameplayStartTick == long.MaxValue || tick < gameplayStartTick) return new CardRushHeadCardFace(true, false, default, false, 1f);
             bool stunned = tick < s.StunEndTick && tick >= StunStart(s);
-            if (CardRushCard.TryCardAt(s, tick, gameplayStartTick, lane, track, out var color) == false)
+            if (CardRushCard.CardAt(s, tick, gameplayStartTick, lane, track, out var color) == false)
             {
                 //  쓰고 쉬는 동안 — 뒷면, 흐리게.
                 return new CardRushHeadCardFace(true, false, default, true, 1f);

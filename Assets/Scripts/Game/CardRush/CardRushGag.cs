@@ -78,8 +78,7 @@ namespace LOP
             if (In(d, swing, SmashTicks))
                 return (CardRushGagKind.Smash, Of(d, swing, SmashTicks));
 
-            if (s.BlockEndTick != 0 && In(d, s.BlockEndTick - CardRushRules.BlockTicks, CardRushRules.BlockTicks))
-                return (CardRushGagKind.Block, Of(d, s.BlockEndTick - CardRushRules.BlockTicks, CardRushRules.BlockTicks));
+            //  방패(Block) 갈래는 4차에 방패가 사라져 뺐다 — Task 4·5가 점프 몸개그로 다시 짠다.
 
             if (s.DashStartTick != 0 && In(d, s.DashStartTick, CardRushRules.DashTicks))
                 return (CardRushGagKind.Dash, Of(d, s.DashStartTick, CardRushRules.DashTicks));

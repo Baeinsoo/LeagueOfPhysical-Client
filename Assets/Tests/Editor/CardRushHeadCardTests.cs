@@ -271,6 +271,132 @@ namespace LOP.Tests
             Assert.AreEqual(1f, CardRushHeadCardView.ChangeWidth(new CardRushHeadCardFace(true, false, default, true, 0f)), 1e-5f, "뒷면은 그대로");
         }
 
+        // ── 4차: 잡음·링·사라짐·공중 흐림 ──
+
+        private static CardRushRunnerState Held(long lockTick, int jumpStart = 0)
+            => new CardRushRunnerState { LockTick = lockTick, JumpStartTick = jumpStart };
+
+        private static CardColor SpinAt(CardRushRunnerState s, long tick)
+        {
+            Assert.IsTrue(CardRushCard.CardAt(new CardRushRunnerState { UseCount = s.UseCount }, tick, G, Lane, track, out var c));
+            return c;
+        }
+
+        [Test]
+        public void 잡으면_잡은_색에서_멈추고_커지며_링이_찬다()
+        {
+            var s = Held(1100);
+            var caught = SpinAt(s, 1100);
+            var a = At(s, 1101);
+            var b = At(s, 1200);   //  한 장(23틱)이 여러 번 바뀔 시간이 지나도
+            Assert.IsTrue(a.Held && b.Held);
+            Assert.AreEqual(caught, a.Color); Assert.AreEqual(caught, b.Color, "멈춘 카드");
+            Assert.AreEqual(1f, At(s, 1100).RingT01, 1e-6f, "잡은 틱 링 가득");
+            Assert.AreEqual(0.6f, At(s, 1100 + 100).RingT01, 1e-6f, "250틱 중 100틱 지남");
+            Assert.AreEqual(1.25f, CardRushHeadCardView.ScaleOf(a), 1e-6f);
+            Assert.AreEqual(0.15f, CardRushHeadCardView.LiftOf(a), 1e-6f);
+            Assert.AreEqual(1f, CardRushHeadCardView.ScaleOf(At(new CardRushRunnerState { SpinStartTick = 1000 }, 1010)), "안 잡았으면 그대로");
+        }
+
+        [Test]
+        public void 링은_마지막_1초에_깜빡인다()
+        {
+            var s = Held(1100);
+            long expire = 1100 + CardRushRules.LockHoldTicks;
+            Assert.IsFalse(At(s, expire - CardRushHeadCard.BlinkTicks - 1).RingBlink, "마지막 1초 전");
+            bool anyOn = false, anyOff = false;
+            for (long tk = expire - CardRushHeadCard.BlinkTicks; tk < expire; tk++)
+            {
+                var f = At(s, tk);
+                anyOn |= CardRushHeadCardView.RingShown(f);
+                anyOff |= !CardRushHeadCardView.RingShown(f);
+            }
+            Assert.IsTrue(anyOn && anyOff, "마지막 1초엔 켜졌다 꺼졌다");
+            Assert.IsTrue(CardRushHeadCardView.RingShown(At(s, 1150)), "앞 4초는 깜빡이지 않는다");
+        }
+
+        [Test]
+        public void 사라지면_0_3초_동안_작아진다()
+        {
+            long expire = 1100 + CardRushRules.LockHoldTicks;
+            var live = Held(1100);
+            Assert.IsTrue(At(live, expire - 1).Held);
+            //  몸 상태는 아직 잡은 채인데 그림 틱이 만료 틱 — 시뮬이 풀기 전에도 사라짐으로 그린다.
+            var v0 = At(live, expire);
+            Assert.IsFalse(v0.Held); Assert.Greater(v0.Vanish01, 0f);
+            //  시뮬이 풀고 난 뒤 상태 — ExpireTick/쿨다운
+            var after = new CardRushRunnerState { ExpireTick = expire, SpinStartTick = expire + CardRushRules.CooldownTicks, UseCount = 1 };
+            var mid = At(after, expire + CardRushHeadCard.VanishTicks / 2);
+            Assert.AreEqual(0.5f, mid.Vanish01, 0.07f);
+            Assert.Less(CardRushHeadCardView.ScaleOf(mid), 1f);
+            Assert.AreEqual(0f, At(after, expire + CardRushHeadCard.VanishTicks).Vanish01, "0.3초가 지나면 끝");
+            Assert.AreEqual(0.3f, CardRushHeadCard.VanishTicks * 0.02f, 1e-6f);
+        }
+
+        [Test]
+        public void 쓰고_나면_사라짐이_아니다()
+        {
+            //  옛 ExpireTick이 남아 있어도 그 뒤 쓴 카드(SpinStartTick이 달라짐)는 사라짐으로 그리지 않는다.
+            var s = new CardRushRunnerState { ExpireTick = 1000, SpinStartTick = 1500, UseCount = 2 };
+            Assert.AreEqual(0f, At(s, 1005).Vanish01);
+        }
+
+        [Test]
+        public void 공중에서_잡은_노랑_파랑은_흐리고_빨강은_안_흐리다()
+        {
+            long lockTick = 1100;
+            //  잡은 색별로 찾는다 — 색은 UseCount로 바뀐다.
+            CardColor Caught(int use) => SpinAt(new CardRushRunnerState { UseCount = use }, lockTick);
+            int red = -1, nonRed = -1;
+            for (int u = 0; u < 12; u++) { if (Caught(u) == CardColor.Red) red = u; else nonRed = u; }
+            Assert.GreaterOrEqual(red, 0); Assert.GreaterOrEqual(nonRed, 0);
+
+            var air = new CardRushRunnerState { LockTick = lockTick, JumpStartTick = 1090 };
+            var airRed = air; airRed.UseCount = red;
+            var airOther = air; airOther.UseCount = nonRed;
+            Assert.IsFalse(At(airRed, 1110).Dim, "빨강은 공중에서도 쓴다");
+            Assert.IsTrue(At(airOther, 1110).Dim, "노랑·파랑은 공중에서 못 쓴다");
+            var ground = airOther; ground.JumpStartTick = 0;
+            Assert.IsFalse(At(ground, 1110).Dim, "땅에선 또렷");
+        }
+
+        [Test]
+        public void 남의_카드는_그림_틱이_잡기_전이면_도는_카드()
+        {
+            var s = Held(1100);
+            var before = CardRushHeadCard.ComputeOther(s, 1090, G, Lane, track);
+            Assert.IsFalse(before.Held);
+            Assert.AreEqual(SpinAt(s, 1090), before.Color);
+            Assert.IsTrue(CardRushHeadCard.ComputeOther(s, 1100, G, Lane, track).Held);
+        }
+
+        [Test]
+        public void 링_조각은_남은_몫만큼_켜진다()
+        {
+            Assert.AreEqual(0, CardRushCardPlate.RingCount(0f));
+            Assert.AreEqual(CardRushCardPlate.RingSegments, CardRushCardPlate.RingCount(1f));
+            Assert.AreEqual(CardRushCardPlate.RingSegments / 2, CardRushCardPlate.RingCount(0.5f));
+            var palette = new CardRushCardPalette();
+            var materials = new CardRushCardMaterials(palette);
+            var parent = new UnityEngine.GameObject("ring-test");
+            try
+            {
+                var plate = new CardRushCardPlate(parent.transform, "Plate", materials);
+                plate.SetRing(0.5f);
+                Assert.AreEqual(CardRushCardPlate.RingSegments / 2, plate.RingOn);
+                plate.SetRing(0f);
+                Assert.AreEqual(0, plate.RingOn);
+                plate.SetHeld(true);
+                Assert.IsTrue(plate.Held);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(parent);
+                materials.Dispose();
+                palette.Dispose();
+            }
+        }
+
         //  흐린 카드(기절·쿨다운)는 같은 판의 알파 0.35 짝 — 색·모양은 그대로 읽히되 "지금은 못 쓴다"가 보인다.
         [Test]
         public void 흐린_카드는_알파_035()

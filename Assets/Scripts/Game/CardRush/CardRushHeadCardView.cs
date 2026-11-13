@@ -45,6 +45,19 @@ namespace LOP
         public const float FlipSeconds = 0.06f;    //  뒷면 → 앞면 넘김(가로 찌그러짐)
         /// <summary>흐린 카드의 알파(시안) — 기절 중(돌지만 못 쓴다)·쿨다운 중.</summary>
         public const float DimAlpha = 0.35f;
+        /// <summary>잡은 카드 — 1.25배로 커지고 위로 0.15 m 뜬다.</summary>
+        public const float HeldScale = 1.25f;
+        public const float HeldLift = 0.15f;
+
+        /// <summary>그 모습의 크기 배율(잡음 1.25, 사라지는 중 1 → 0).</summary>
+        public static float ScaleOf(in CardRushHeadCardFace face)
+            => face.Vanish01 > 0f ? Mathf.Clamp01(1f - face.Vanish01) : face.Held ? HeldScale : 1f;
+
+        /// <summary>위로 더 뜨는 높이(m) — 잡았을 때만.</summary>
+        public static float LiftOf(in CardRushHeadCardFace face) => face.Held ? HeldLift : 0f;
+
+        /// <summary>5초 링이 보이나 — 잡았고 깜빡 꺼짐 구간이 아닐 때.</summary>
+        public static bool RingShown(in CardRushHeadCardFace face) => face.Held && face.RingBlink == false;
 
         private sealed class Entry
         {
@@ -211,7 +224,7 @@ namespace LOP
             }
 
             float height = mine ? MineHeight : OtherHeight;
-            var center = CardCenter(Anchor(entry.Visual, entry.Model, entry.Head), height);
+            var center = CardCenter(Anchor(entry.Visual, entry.Model, entry.Head), height) + Vector3.up * LiftOf(face);
             if (cam != null)
             {
                 center += (cam.transform.position - center).normalized * TowardCamera;
@@ -220,7 +233,7 @@ namespace LOP
             look.y = 0f;
             var rotation = look.sqrMagnitude > 1e-6f ? Quaternion.LookRotation(look, Vector3.up) : Quaternion.identity;
             entry.Plate.Root.SetPositionAndRotation(center, rotation);
-            entry.Plate.Root.localScale = Vector3.one * height;
+            entry.Plate.Root.localScale = Vector3.one * (height * ScaleOf(face));
 
             //  뒷면 → 앞면은 시간으로 넘기고(0.06초), 색이 바뀐 장은 그림 틱으로 가로 0.6 → 1 펴진다(시안 sq).
             if (face.FaceUp && entry.LastFaceUp == false)
@@ -229,6 +242,8 @@ namespace LOP
             }
             entry.Plate.SetVisible(true);
             entry.Plate.SetFace(face.FaceUp, face.Color, face.Dim);
+            entry.Plate.SetRing(RingShown(face) ? face.RingT01 : 0f);
+            entry.Plate.SetHeld(face.Held);
             entry.LastFaceUp = face.FaceUp;
 
             entry.Plate.Body.localScale = new Vector3(FlipWidth(now - entry.FlipStart) * ChangeWidth(face), 1f, 1f);
@@ -281,6 +296,8 @@ namespace LOP
 
         public CardRushCardPalette Palette { get; }
         public Material Rim { get; }
+        public Material RingMaterial { get; }
+        public Material HeldRim { get; }
         public Material BackPlate { get; }
         public Material BackMarkMaterial { get; }
         public Material DimRim { get; }
@@ -293,6 +310,8 @@ namespace LOP
         {
             Palette = palette;
             Rim = Make("CardRush_CardRim", Gold);
+            RingMaterial = Make("CardRush_CardRing", Color.white);
+            HeldRim = Make("CardRush_CardHeldRim", new Color(1f, 0.97f, 0.85f));
             BackPlate = Make("CardRush_CardBack", Back);
             BackMarkMaterial = Make("CardRush_CardBackMark", BackMark);
             DimRim = MakeDim("CardRush_CardRimDim", Gold);
@@ -369,6 +388,8 @@ namespace LOP
     {
         public const float Aspect = 0.7f;
         public const float RimOfHeight = 0.08f;
+        public const int RingSegments = 24;
+        public const float RingRadius = 0.78f;
 
         private readonly CardRushCardMaterials materials;
         private readonly Renderer rim;
@@ -377,6 +398,10 @@ namespace LOP
         private readonly Renderer shape;
         private readonly Renderer backMark;
         private bool visible = true;
+        private bool held;
+        private bool dimDrawn;
+        private readonly Transform[] ringSegments = new Transform[RingSegments];
+        private int ringShown = -1;
         private int drawn = -1;   //  지금 그린 (앞/뒤, 색, 흐림) — 같으면 재질을 다시 안 넣는다
 
         public Transform Root { get; }
@@ -410,8 +435,53 @@ namespace LOP
             markGo.AddComponent<MeshFilter>().sharedMesh = materials.Diamond;
             backMark = Renderer(markGo, materials.BackMarkMaterial);
 
+            for (int i = 0; i < RingSegments; i++)
+            {
+                //  카드 둘레를 도는 작은 조각 — 위(12시)에서 시계 방향으로 놓는다. 남은 몫만큼 앞 조각부터 켠다.
+                float a = (float)i / RingSegments * Mathf.PI * 2f;
+                var seg = CardRushDraw.Box("Ring" + i, Root, new Vector3(Mathf.Sin(a), Mathf.Cos(a), 0f) * RingRadius,
+                                           new Vector3(0.09f, 0.09f, 0.03f), materials.RingMaterial, hideFlags);
+                seg.transform.localRotation = Quaternion.Euler(0f, 0f, -a * Mathf.Rad2Deg);
+                seg.SetActive(false);
+                ringSegments[i] = seg.transform;
+            }
+
             SetFace(false, default, false);
         }
+
+        /// <summary>링이 몇 조각 켜지나 — 남은 몫(1 → 0)을 올림. 몫이 0이면 0.</summary>
+        public static int RingCount(float t01) => t01 <= 0f ? 0 : Mathf.Clamp(Mathf.CeilToInt(t01 * RingSegments), 0, RingSegments);
+
+        /// <summary>5초 링 — 남은 몫만큼 조각을 켠다(0이면 모두 끔).</summary>
+        public void SetRing(float t01)
+        {
+            int n = RingCount(t01);
+            if (n == ringShown)
+            {
+                return;
+            }
+            ringShown = n;
+            for (int i = 0; i < RingSegments; i++)
+            {
+                ringSegments[i].gameObject.SetActive(i < n);
+            }
+        }
+
+        /// <summary>잡은 카드는 테두리가 흰 빛(흐린 판이면 흐린 테두리 그대로).</summary>
+        public void SetHeld(bool on)
+        {
+            if (held == on)
+            {
+                return;
+            }
+            held = on;
+            ApplyRim();
+        }
+
+        public int RingOn => ringShown < 0 ? 0 : ringShown;
+        public bool Held => held;
+
+        private void ApplyRim() => rim.sharedMaterial = dimDrawn ? materials.DimRim : held ? materials.HeldRim : materials.Rim;
 
         private static Renderer Renderer(GameObject go, Material material)
         {
@@ -431,7 +501,8 @@ namespace LOP
                 return;
             }
             drawn = key;
-            rim.sharedMaterial = dim ? materials.DimRim : materials.Rim;
+            dimDrawn = dim;
+            ApplyRim();
             plate.sharedMaterial = faceUp ? materials.Face(color, dim) : dim ? materials.DimBackPlate : materials.BackPlate;
             shape.enabled = faceUp;
             backMark.enabled = faceUp == false;

@@ -405,6 +405,16 @@ namespace LOP.Tests
             Assert.IsTrue(At(stunned, 1250).Dim, "기절 중엔 탭이 버려지니 흐리게");
         }
 
+        //  남의 상태는 최신 스냅 — 그림 틱이 돌기 시작 전이면 아직 평소 뒷면이다(앞면으로 미리 돌지 않는다).
+        [Test]
+        public void 남의_카드는_그림_틱이_돌기_전이면_뒷면()
+        {
+            var s = new CardRushRunnerState { SpinStartTick = 1000, UseCount = 1, RollStartTick = 1100 };
+            var before = CardRushHeadCard.ComputeOther(s, 1090, G, Lane, track);
+            Assert.IsTrue(before.Visible); Assert.IsFalse(before.FaceUp, "돌기 전 그림 틱");
+            Assert.IsTrue(CardRushHeadCard.ComputeOther(s, 1100, G, Lane, track).FaceUp, "돌기 시작한 그림 틱부터 앞면");
+        }
+
         [Test]
         public void 돌_때_6초_링이_가늘게_줄고_마지막_1초_깜빡인다()
         {

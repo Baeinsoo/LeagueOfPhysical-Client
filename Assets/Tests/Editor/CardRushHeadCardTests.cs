@@ -181,6 +181,14 @@ namespace LOP.Tests
             Assert.IsTrue(At(hit, 3010).Dim);
         }
 
+        [Test]
+        public void 남의_카드는_구덩이_기절도_시작한_뒤에만_흐리다()
+        {
+            var fell = new CardRushRunnerState { StunEndTick = 4040, ObstacleEvent = (int)CardRushObstacleEvent.Fell, ObstacleEventTick = 4000 };
+            Assert.IsFalse(At(fell, 3998).Dim, "풍덩 그림 전");
+            Assert.IsTrue(At(fell, 4010).Dim);
+        }
+
         //  남의 상태는 최신 스냅 — 그림 틱이 마지막 사용(돌기 시작 − 쿨다운)보다 이르면 그 전 카드는 상태에 없다. 뒷면으로 남는다.
         [Test]
         public void 남의_카드는_그림_틱이_마지막_사용_전이면_뒷면()

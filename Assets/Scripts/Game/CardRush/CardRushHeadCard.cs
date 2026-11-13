@@ -74,12 +74,12 @@ namespace LOP
         }
 
         /// <summary>
-        /// 기절이 시작한 틱 — 꽈당(장애물 결과)·으악(구역 결과) 중 늦은 것. 남의 최신 상태엔 아직 안 그려진 기절이 있어
+        /// 기절이 시작한 틱 — 꽈당·풍덩(장애물 결과)·으악(구역 결과) 중 늦은 것. 남의 최신 상태엔 아직 안 그려진 기절이 있어
         /// 그 틱부터만 흐리게 한다(리뷰 m2). 결과를 모르면 0(기절 끝 틱만 본다).
         /// </summary>
         public static long StunStart(in CardRushRunnerState s)
         {
-            long tumble = s.ObstacleEvent == (int)CardRushObstacleEvent.Tumbled ? s.ObstacleEventTick : 0;
+            long tumble = s.ObstacleEvent == (int)CardRushObstacleEvent.Tumbled || s.ObstacleEvent == (int)CardRushObstacleEvent.Fell ? s.ObstacleEventTick : 0;
             long hit = s.ZoneEvent == (int)CardRushZoneEvent.Hit ? s.ZoneEventTick : 0;
             return System.Math.Max(tumble, hit);
         }

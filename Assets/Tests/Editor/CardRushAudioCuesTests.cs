@@ -72,25 +72,76 @@ namespace LOP.Tests
             var whiff = last; whiff.WhiffTick = 100;
             CollectionAssert.AreEqual(new[] { CardRushSfx.Whiff }, Step(whiff), "헛방은 헛방 틱으로");
             CollectionAssert.AreEqual(new[] { CardRushSfx.Lift }, Step(Obstacle(CardRushObstacleEvent.Lifted, 200, 0)));
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Clang }, Step(Obstacle(CardRushObstacleEvent.Blocked, 300, 1)), "막음");
             CollectionAssert.AreEqual(new[] { CardRushSfx.Tumble }, Step(Obstacle(CardRushObstacleEvent.Tumbled, 400, 2)), "꽈당");
+            CollectionAssert.IsEmpty(Step(Obstacle(CardRushObstacleEvent.Jumped, 500, 3)), "넘음은 점프 소리가 이미 났다");
 
-            var held = last; held.ZoneEvent = (int)CardRushZoneEvent.Held; held.ZoneEventTick = 500; held.ZoneIndex = 1;
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Clang }, Step(held), "버팀");
-            var hit = held; hit.ZoneEvent = (int)CardRushZoneEvent.Hit; hit.ZoneEventTick = 600; hit.ZoneIndex = 2;
+            //  빠짐은 번호가 안 올라 지금 장애물(번호 4)에 결과가 적힌다.
+            var fell = new CardRushAudioFrame { Has = true, ObstacleEvent = (int)CardRushObstacleEvent.Fell, ObstacleEventTick = 600, ObstacleIndex = 4 };
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Splash }, Step(fell), "풍덩");
+
+            var hit = last; hit.ZoneEvent = (int)CardRushZoneEvent.Hit; hit.ZoneEventTick = 600; hit.ZoneIndex = 2;
             CollectionAssert.AreEqual(new[] { CardRushSfx.Squash }, Step(hit), "으악");
             var dodged = hit; dodged.ZoneEvent = (int)CardRushZoneEvent.Dodged; dodged.ZoneEventTick = 700; dodged.ZoneIndex = 3;
             CollectionAssert.IsEmpty(Step(dodged), "빠져나감은 조용");
         }
 
-        //  리뷰 I1: 막음 결과 칸은 그대로 두고 헛방 틱만 바뀐다 — 헛방 소리 하나, 막음은 다시 안 운다.
+        //  올라감 결과 칸은 그대로 두고 헛방 틱만 바뀐다 — 헛방 소리 하나, 올라감은 다시 안 운다.
         [Test]
-        public void 막음_직후_헛방은_헛방만_운다()
+        public void 올라감_직후_헛방은_헛방만_운다()
         {
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Clang }, Step(Obstacle(CardRushObstacleEvent.Blocked, 500)));
-            var whiff = Obstacle(CardRushObstacleEvent.Blocked, 500); whiff.WhiffTick = 505;
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Lift }, Step(Obstacle(CardRushObstacleEvent.Lifted, 500)));
+            var whiff = Obstacle(CardRushObstacleEvent.Lifted, 500); whiff.WhiffTick = 505;
             CollectionAssert.AreEqual(new[] { CardRushSfx.Whiff }, Step(whiff));
             CollectionAssert.IsEmpty(Step(whiff), "되감아 같은 헛방");
+        }
+
+        [Test]
+        public void 빠짐은_같은_구덩이에_다시_빠지면_또_운다_보정이_틱을_옮기면_조용()
+        {
+            CardRushAudioFrame Fell(long tick) => new CardRushAudioFrame { Has = true, ObstacleEvent = (int)CardRushObstacleEvent.Fell, ObstacleEventTick = tick, ObstacleIndex = 7 };
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Splash }, Step(Fell(1000)));
+            CollectionAssert.IsEmpty(Step(Fell(1000)), "같은 장면");
+            CollectionAssert.IsEmpty(Step(Fell(1003)), "보정이 결과 틱을 옮겼다");
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Splash }, Step(Fell(1090)), "다시 구덩이에 빠졌다 — 번호는 그대로라 틱으로 거른다");
+        }
+
+        [Test]
+        public void 잡기_던지기_점프_사라짐은_그_틱에_한_번_되감거나_틱이_옮겨져도_조용()
+        {
+            var grab = last; grab.LockTick = 1000;
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Grab }, Step(grab));
+            CollectionAssert.IsEmpty(Step(grab));
+            var shifted = grab; shifted.LockTick = 1002;
+            CollectionAssert.IsEmpty(Step(shifted), "보정이 잡은 틱을 옮겼다");
+            var thrown = grab; thrown.LockTick = 0; thrown.ShotTick = 1010;
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Throw }, Step(thrown), "던지기(잡기 해제는 조용)");
+            CollectionAssert.IsEmpty(Step(thrown));
+            var over = thrown; over.ShotTick = 0;
+            CollectionAssert.IsEmpty(Step(over), "투사체가 끝나 0이 되는 건 소리 없음(와장창·헛방이 낸다)");
+            CollectionAssert.IsEmpty(Step(thrown), "되감아 같은 던지기");
+
+            var expire = last; expire.ExpireTick = 1500;
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Expire }, Step(expire), "5초 지나 사라짐");
+            CollectionAssert.IsEmpty(Step(expire));
+            var nextGrab = expire; nextGrab.LockTick = 1530;
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Grab }, Step(nextGrab), "다음 잡기는 새 소리");
+        }
+
+        [Test]
+        public void 점프와_내려앉음은_한_번씩_되감아도_안_겹친다()
+        {
+            var air = last; air.JumpStartTick = 2000;
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Jump }, Step(air));
+            CollectionAssert.IsEmpty(Step(air));
+            var ground = last; ground.JumpStartTick = 0;
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Land }, Step(ground), "점프 틱이 지워지는 순간 내려앉음");
+            CollectionAssert.IsEmpty(Step(ground));
+            //  되감기: 공중으로 돌아갔다가 다시 내려앉아도 같은 점프라 조용.
+            CollectionAssert.IsEmpty(Step(air), "같은 점프로 되감김");
+            CollectionAssert.IsEmpty(Step(ground), "같은 내려앉음");
+            var next = last; next.JumpStartTick = 2060;
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Jump }, Step(next), "다음 점프");
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Land }, Step(ground), "바리케이드에 부딪혀 일찍 내려앉아도 내려앉음");
         }
 
         [Test]
@@ -153,7 +204,11 @@ namespace LOP.Tests
         {
             memory = default;
             var into = new List<CardRushSfx>();
-            var now = new CardRushAudioFrame { Has = true, ObstacleEvent = (int)CardRushObstacleEvent.Smashed, ObstacleEventTick = 900, ZoneTick = 950, FinishTick = 0 };
+            var now = new CardRushAudioFrame
+            {
+                Has = true, ObstacleEvent = (int)CardRushObstacleEvent.Smashed, ObstacleEventTick = 900, ZoneTick = 950, FinishTick = 0,
+                LockTick = 800, ShotTick = 850, JumpStartTick = 870, ExpireTick = 700,
+            };
             CardRushAudioCues.Detect(default, now, into, ref memory);
             CollectionAssert.IsEmpty(into, "들어오자마자 지난 일로 소리 내지 않음");
             CardRushAudioCues.Detect(now, now, into, ref memory);

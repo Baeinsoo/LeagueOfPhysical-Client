@@ -88,7 +88,7 @@ namespace LOP.Tests
         [Test]
         public void 앞으로_올_것은_서_있고_두_개_앞에_치운_것은_없다()
         {
-            var s = new CardRushRunnerState { ObstacleIndex = 2, ObstacleEvent = (int)CardRushObstacleEvent.Blocked, ObstacleEventTick = 5000 };
+            var s = new CardRushRunnerState { ObstacleIndex = 2, ObstacleEvent = (int)CardRushObstacleEvent.Smashed, ObstacleEventTick = 5000 };
             Assert.AreEqual(CardRushObstaclePhase.Gone, Obstacle(s, 0, 5005).Phase);
             Assert.AreEqual(CardRushObstaclePhase.Standing, Obstacle(new CardRushRunnerState(), 2, 100).Phase);
         }
@@ -119,6 +119,137 @@ namespace LOP.Tests
             var lifting = Obstacle(lifted, 0, 4970, 19510f);
             Assert.AreEqual(CardRushObstaclePhase.Lifting, lifting.Phase);
             Assert.AreEqual(30f / 60f, lifting.T01, 1e-5f);
+        }
+
+        // ── 4차: 투사체·구덩이·넘음 ──
+
+        //  0: 바리케이드 20 m, 1: 구덩이 30 m 폭 1.2 m, 2: 굴러오는 것 45 m.
+        private static readonly CardRushTrack pitTrack = CardRushTrack.ForTests(140000,
+            new[]
+            {
+                new CardRushObstacle(CardRushObstacleKind.Barricade, 20000, 0),
+                new CardRushObstacle(CardRushObstacleKind.Pit, 30000, 1, 1200),
+                new CardRushObstacle(CardRushObstacleKind.Roller, 45000, 2),
+            },
+            new CardRushZone[0], 9);
+
+        private static CardRushObstacleLook Pit(CardRushRunnerState s, int index, double d, float bodyMm = 0f)
+            => CardRushHazardLayout.ObstacleLook(s, index, d, bodyMm, pitTrack, tuning);
+
+        [Test]
+        public void 날고_있는_투사체는_던진_틱의_출발_자리에서_틱마다_300mm()
+        {
+            var s = new CardRushRunnerState { ShotTick = 1000, ShotFromMm = 5300 };
+            Assert.AreEqual(CardRushShotPhase.None, CardRushHazardLayout.ShotLook(s, 999, track).Phase, "던지기 전");
+            var at = CardRushHazardLayout.ShotLook(s, 1000, track);
+            Assert.AreEqual(CardRushShotPhase.Flying, at.Phase);
+            Assert.AreEqual(5300f, at.AlongMm, 1e-3f);
+            Assert.AreEqual(5300f + 3000f, CardRushHazardLayout.ShotLook(s, 1010, track).AlongMm, 1e-3f);
+            Assert.AreEqual(5300f + 300f * 10.5f, CardRushHazardLayout.ShotLook(s, 1010.5, track).AlongMm, 1e-3f, "그림 틱 사이도 이어진다");
+            Assert.AreEqual(5300f + CardRushRules.ShotRangeMm, CardRushHazardLayout.ShotLook(s, 1100, track).AlongMm, 1e-3f, "사거리 끝을 넘지 않는다");
+        }
+
+        [Test]
+        public void 헛방은_던진_틱부터_사거리_끝까지_날다_끝에서_03초_꺼진다()
+        {
+            var s = new CardRushRunnerState { WhiffTick = 2000, ShotFromMm = 5300 };
+            int thrown = 2000 - CardRushHazardLayout.WhiffFlightTicks;
+            Assert.AreEqual(27, CardRushHazardLayout.WhiffFlightTicks, "8000 / 300 올림");
+            Assert.AreEqual(CardRushShotPhase.None, CardRushHazardLayout.ShotLook(s, thrown - 1, track).Phase);
+            Assert.AreEqual(5300f, CardRushHazardLayout.ShotLook(s, thrown, track).AlongMm, 1e-3f);
+            var flying = CardRushHazardLayout.ShotLook(s, 1990, track);
+            Assert.AreEqual(CardRushShotPhase.Flying, flying.Phase);
+            Assert.AreEqual(5300f + 300f * (1990 - thrown), flying.AlongMm, 1e-3f);
+
+            var fizzle = CardRushHazardLayout.ShotLook(s, 2000, track);
+            Assert.AreEqual(CardRushShotPhase.Fizzle, fizzle.Phase);
+            Assert.AreEqual(5300f + 8000f, fizzle.AlongMm, 1e-3f, "꺼진 자리 = 출발 + 사거리");
+            Assert.AreEqual(0f, fizzle.T01, 1e-6f);
+            Assert.AreEqual(0.5f, CardRushHazardLayout.ShotLook(s, 2007.5, track).T01, 1e-5f);
+            Assert.AreEqual(CardRushShotPhase.None, CardRushHazardLayout.ShotLook(s, 2015, track).Phase, "0.3초(15틱) 뒤엔 없다");
+        }
+
+        //  남의 레인: 상태는 이미 맞혔지만(결과 틱 3000) 그림 틱엔 아직 날고 있다 — 맞는 순간 와장창과 같이 닿는다.
+        [Test]
+        public void 남의_레인_맞힌_투사체는_결과_틱까지_날아가고_닿는_자리에서_멈춘다()
+        {
+            //  출발 18000, 앞면 20000 → 7틱째(18000 + 2100)에 닿는다 → 던진 틱 2993, 쓴 뒤 쿨다운 틱 3013.
+            var s = new CardRushRunnerState { ObstacleIndex = 1, ObstacleEvent = (int)CardRushObstacleEvent.Smashed, ObstacleEventTick = 3000, ShotFromMm = 18000, SpinStartTick = 3013 };
+            var l = CardRushHazardLayout.ShotLook(s, 2996, pitTrack);
+            Assert.AreEqual(CardRushShotPhase.Flying, l.Phase);
+            Assert.AreEqual(18000f + 300f * 3f, l.AlongMm, 1e-3f);
+            Assert.AreEqual(20000f, CardRushHazardLayout.ShotLook(s, 2999.9, pitTrack).AlongMm, 1e-3f, "바리케이드 앞면에서 멈춘다(넘지 않음)");
+            Assert.AreEqual(CardRushShotPhase.None, CardRushHazardLayout.ShotLook(s, 3000, pitTrack).Phase, "닿은 틱부터는 조각이 대신한다");
+            Assert.AreEqual(CardRushShotPhase.None, CardRushHazardLayout.ShotLook(s, 2992, pitTrack).Phase, "던지기 전");
+            Assert.AreEqual(CardRushObstaclePhase.Standing, CardRushHazardLayout.ObstacleLook(s, 0, 2999, 18000f, pitTrack, tuning).Phase, "투사체가 닿을 때까지 바리케이드는 서 있다");
+        }
+
+        [Test]
+        public void 투사체에_맞은_굴러오는_것은_맞은_자리에서_만난다()
+        {
+            //  출발 22300에서 10틱 → 25300. 굴러오는 것은 38 mm/틱으로 같은 자리에 온다.
+            var s = new CardRushRunnerState { ObstacleIndex = 2, ObstacleEvent = (int)CardRushObstacleEvent.Smashed, ObstacleEventTick = 4000, ShotFromMm = 22300, SpinStartTick = 4010, PosMm = 22000 };
+            var before = CardRushHazardLayout.ObstacleLook(s, 1, 3995, 22000f, track, tuning);
+            Assert.AreEqual(CardRushObstaclePhase.Rolling, before.Phase);
+            Assert.AreEqual(25300f + 38f * 5f, before.AlongMm, 1e-3f);
+            Assert.AreEqual(25300f, CardRushHazardLayout.ShotLook(s, 3999.999, track).AlongMm, 1f, "투사체도 같은 자리로");
+            var after = CardRushHazardLayout.ObstacleLook(s, 1, 4000, 22000f, track, tuning);
+            Assert.AreEqual(CardRushObstaclePhase.Smashed, after.Phase);
+            Assert.AreEqual(25300f, after.AlongMm, 1e-3f, "조각이 맞은 자리에서 흩어진다");
+        }
+
+        [Test]
+        public void 구덩이_사각형은_구멍은_폭만큼_경고_줄무늬는_앞_1m()
+        {
+            var r = CardRushHazardLayout.PitRect(pitTrack.Obstacles[1]);
+            Assert.AreEqual(30000, r.HoleFromMm);
+            Assert.AreEqual(31200, r.HoleToMm);
+            Assert.AreEqual(29000, r.StripeFromMm);
+            Assert.AreEqual(30000, r.StripeToMm);
+        }
+
+        [Test]
+        public void 구덩이는_넘어도_그대로_남는다()
+        {
+            Assert.AreEqual(CardRushObstaclePhase.Pit, Pit(new CardRushRunnerState { ObstacleIndex = 0 }, 1, 100).Phase, "앞으로 올 구덩이도 보인다");
+            Assert.AreEqual(30000f, Pit(new CardRushRunnerState { ObstacleIndex = 0 }, 1, 100).AlongMm);
+            var jumped = new CardRushRunnerState { ObstacleIndex = 2, ObstacleEvent = (int)CardRushObstacleEvent.Jumped, ObstacleEventTick = 6000 };
+            Assert.AreEqual(CardRushObstaclePhase.Pit, Pit(jumped, 1, 6100).Phase, "넘은 구덩이는 남는다");
+            Assert.AreEqual(CardRushObstaclePhase.Gone, Pit(new CardRushRunnerState { ObstacleIndex = 3 }, 1, 6100).Phase, "두 개 앞은 지운다");
+        }
+
+        [Test]
+        public void 빠짐은_구덩이_자리에_03초_먼지()
+        {
+            //  빠지면 번호가 안 올라 지금 장애물에 결과가 적힌다.
+            var s = new CardRushRunnerState { ObstacleIndex = 1, ObstacleEvent = (int)CardRushObstacleEvent.Fell, ObstacleEventTick = 5000, PosMm = 28500 };
+            Assert.AreEqual(CardRushObstaclePhase.Pit, Pit(s, 1, 4999).Phase, "남의 레인 — 몸이 아직 안 빠졌다");
+            var at = Pit(s, 1, 5000);
+            Assert.AreEqual(CardRushObstaclePhase.PitFell, at.Phase);
+            Assert.AreEqual(0f, at.T01, 1e-6f);
+            Assert.AreEqual(30000f, at.AlongMm, "먼지는 몸이 아니라 구덩이 자리");
+            Assert.AreEqual(0.5f, Pit(s, 1, 5007.5).T01, 1e-5f);
+            Assert.AreEqual(CardRushObstaclePhase.Pit, Pit(s, 1, 5015).Phase, "0.3초(15틱) 뒤엔 구멍만");
+        }
+
+        [Test]
+        public void 굴러오는_것을_넘으면_몸_밑으로_지나가_035초에_사라진다()
+        {
+            var s = new CardRushRunnerState { ObstacleIndex = 3, ObstacleEvent = (int)CardRushObstacleEvent.Jumped, ObstacleEventTick = 7000, PosMm = 44000 };
+            var at = Pit(s, 2, 7000, 44000f);
+            Assert.AreEqual(CardRushObstaclePhase.Jumped, at.Phase);
+            Assert.AreEqual(0f, at.T01, 1e-6f);
+            Assert.AreEqual(44000f + CardRushRules.RollerContactMm, at.AlongMm, 1e-3f, "닿은 순간엔 몸 앞 접촉 거리");
+            var later = Pit(s, 2, 7010, 44000f);
+            Assert.AreEqual(44000f - (CardRushRules.JumpMmPerTick + CardRushRules.RollerMmPerTick) * 10f + CardRushRules.RollerContactMm, later.AlongMm, 1e-3f,
+                "몸은 앞으로 60, 굴러오는 것은 몸 쪽으로 38 — 서로 지나친다");
+            Assert.Less(later.AlongMm, 44000f, "10틱 뒤엔 몸 뒤");
+            Assert.AreEqual(CardRushObstaclePhase.Gone, Pit(s, 2, 7018, 44000f).Phase, "0.35초(17.5틱) 뒤엔 없다");
+
+            //  남의 레인: 결과 틱 전엔 아직 굴러온다 — 결과 틱에 접촉 거리였다.
+            var rolling = Pit(s, 2, 6990, 43500f);
+            Assert.AreEqual(CardRushObstaclePhase.Rolling, rolling.Phase);
+            Assert.AreEqual(43500f + CardRushRules.RollerContactMm + 38f * 10f, rolling.AlongMm, 1e-3f);
         }
 
         [Test]

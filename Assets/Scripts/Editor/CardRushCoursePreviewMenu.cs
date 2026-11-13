@@ -8,7 +8,7 @@ namespace LOP.EditorTools
     /// <summary>
     /// 재생 없이 맵 씬에서 장애물·구역 배치를 본다(spec 2026-11-05 §15). 열린 씬의 <see cref="CardRushMapRules"/> 마커 + 고정 씨앗 +
     /// 마스터데이터의 시작 튜닝으로 레인 8개에 실행 중과 같은 그림(<see cref="CardRushTrackDecor"/>·<see cref="CardRushLaneHazards"/>)을 깐다 —
-    /// 장애물은 서 있는 모습, 구역은 경고 중 모습. 저장되지 않는 숨은 오브젝트라 씬을 더럽히지 않고, 메뉴를 다시 누르면 지운다.
+    /// 장애물(바리케이드·굴러오는 것·구덩이)은 서 있는 모습, 구역은 경고 중 모습. 저장되지 않는 숨은 오브젝트라 씬을 더럽히지 않고, 메뉴를 다시 누르면 지운다.
     /// </summary>
     public static class CardRushCoursePreviewMenu
     {
@@ -99,7 +99,9 @@ namespace LOP.EditorTools
                 }
             }
             SceneView.RepaintAll();
-            Debug.Log($"[CardRushPreview] 레인 {CardRushLanes.MaxLanes} × 장애물 {track.Obstacles.Count} · 구역 {track.Zones.Count} · 길이 {track.TrackMm / 1000f} m"
+            int pits = 0;
+            foreach (var o in track.Obstacles) if (o.Kind == CardRushObstacleKind.Pit) pits++;
+            Debug.Log($"[CardRushPreview] 레인 {CardRushLanes.MaxLanes} × 장애물 {track.Obstacles.Count}(구덩이 {pits}) · 구역 {track.Zones.Count} · 길이 {track.TrackMm / 1000f} m"
                       + $" (씨앗 {PreviewSeed}, 지문 {track.Fingerprint:X16}) — 메뉴를 다시 누르면 지운다");
             return root;
         }

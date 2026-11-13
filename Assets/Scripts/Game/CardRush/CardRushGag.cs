@@ -1,6 +1,6 @@
 namespace LOP
 {
-    public enum CardRushGagKind { None, Tumble, Squash, Block, Dash, Smash, Wait, Finish }
+    public enum CardRushGagKind { None, Tumble, Squash, Jump, Dash, Throw, Wait, Finish }
 
     /// <summary>몸개그 자세 — 몸 뿌리(시뮬 자리)에서의 오프셋과 기울기. 시작·끝은 늘 원래 자세다.</summary>
     public readonly struct CardRushPose
@@ -40,13 +40,14 @@ namespace LOP
         public const float SquashPopHeight = 0.4f;
         public const float SquashShiverDegrees = 6f;
 
-        /// <summary>방패 — 두 팔을 앞으로 막는 자세(작게 뒤로 버팀).</summary>
-        public const float BlockBraceDegrees = 8f;
+        /// <summary>점프 — 뛸 때·내려앉을 때 0.08초(4틱) 찌그러졌다 돌아온다(자식 Model만).</summary>
+        public const int JumpSquashTicks = 4;
+        public const float JumpSquash = 0.85f;
         /// <summary>대시 — 앞으로 20° 숙임.</summary>
         public const float DashLeanDegrees = 20f;
-        /// <summary>부수기 — 망치를 내리치며 앞으로 숙임. 결과 뒤 10틱.</summary>
-        public const int SmashTicks = 10;
-        public const float SmashLeanDegrees = 15f;
+        /// <summary>던지기 — 빨강을 쓴 뒤 10틱, 팔을 앞으로 뻗으며 살짝 숙임.</summary>
+        public const int ThrowTicks = 10;
+        public const float ThrowLeanDegrees = 15f;
         /// <summary>기다림 — 바리케이드 앞 제자리 발 구르기(작게).</summary>
         public const float WaitStompHeight = 0.07f;
         public const int WaitStomps = 6;
@@ -58,27 +59,37 @@ namespace LOP
         public static int FinishTicks => CardRushTiming.Ticks(FinishSeconds);
 
         /// <summary>
-        /// 그 틱에 어떤 몸개그가 몇 % 진행됐나 — 상태만 보고 정한다. 기절(꽈당·으악)이 먼저, 그다음 결승·부수기·방패·대시·기다림.
+        /// 그 틱에 어떤 몸개그가 몇 % 진행됐나 — 상태만 보고 정한다. 기절(꽈당·풍덩·으악)이 먼저, 그다음 결승·던지기·점프·대시·기다림.
         /// <paramref name="track"/>은 기다림(지금 장애물이 바리케이드인가)에만 쓴다.
+        /// <paramref name="jumpMemory"/>는 그림이 기억해 둔 마지막 점프 시작 틱 — 내려앉으면 상태가 점프 틱을 지워 내려앉음 찌그러짐을 그릴 근거가 없어서다.
         /// </summary>
-        public static (CardRushGagKind kind, float t01) Phase(in CardRushRunnerState s, double d, in CardRushTuning t, CardRushTrack track = null)
+        public static (CardRushGagKind kind, float t01) Phase(in CardRushRunnerState s, double d, in CardRushTuning t, CardRushTrack track = null, long jumpMemory = 0)
         {
-            //  둘이 겹치면 나중 것 — 마지막으로 맞은 것이 지금 기절이다.
-            bool tumble = s.ObstacleEvent == (int)CardRushObstacleEvent.Tumbled && In(d, s.ObstacleEventTick, t.RollStunTicks);
+            //  꽈당(굴러오는 것)과 풍덩(구덩이)은 같은 몸개그 — 기절 길이만 다르다. 셋이 겹치면 나중 것 — 마지막으로 맞은 것이 지금 기절이다.
+            bool rolled = s.ObstacleEvent == (int)CardRushObstacleEvent.Tumbled && In(d, s.ObstacleEventTick, t.RollStunTicks);
+            bool fell = s.ObstacleEvent == (int)CardRushObstacleEvent.Fell && In(d, s.ObstacleEventTick, t.PitStunTicks);
+            bool tumble = rolled || fell;
+            int tumbleTicks = fell ? t.PitStunTicks : t.RollStunTicks;
             bool squash = s.ZoneEvent == (int)CardRushZoneEvent.Hit && In(d, s.ZoneEventTick, t.ZoneStunTicks);
             if (tumble && (!squash || s.ObstacleEventTick >= s.ZoneEventTick))
-                return (CardRushGagKind.Tumble, Of(d, s.ObstacleEventTick, t.RollStunTicks));
+                return (CardRushGagKind.Tumble, Of(d, s.ObstacleEventTick, tumbleTicks));
             if (squash)
                 return (CardRushGagKind.Squash, Of(d, s.ZoneEventTick, t.ZoneStunTicks));
 
             if (s.FinishTick != 0 && In(d, s.FinishTick, FinishTicks))
                 return (CardRushGagKind.Finish, Of(d, s.FinishTick, FinishTicks));
 
-            long swing = SwingTick(s);
-            if (In(d, swing, SmashTicks))
-                return (CardRushGagKind.Smash, Of(d, swing, SmashTicks));
+            long thrown = ThrowTick(s);
+            if (In(d, thrown, ThrowTicks))
+                return (CardRushGagKind.Throw, Of(d, thrown, ThrowTicks));
 
-            //  방패(Block) 갈래는 4차에 방패가 사라져 뺐다 — Task 4·5가 점프 몸개그로 다시 짠다.
+            long jump = s.JumpStartTick != 0 ? s.JumpStartTick : jumpMemory;
+            if (jump != 0)
+            {
+                if (In(d, jump, JumpSquashTicks)) return (CardRushGagKind.Jump, Of(d, jump, JumpSquashTicks));
+                long land = LandTick(jump);
+                if (In(d, land, JumpSquashTicks)) return (CardRushGagKind.Jump, Of(d, land, JumpSquashTicks));
+            }
 
             if (s.DashStartTick != 0 && In(d, s.DashStartTick, CardRushRules.DashTicks))
                 return (CardRushGagKind.Dash, Of(d, s.DashStartTick, CardRushRules.DashTicks));
@@ -90,11 +101,25 @@ namespace LOP
             return (CardRushGagKind.None, 0f);
         }
 
-        /// <summary>마지막으로 망치를 휘두른 틱 — 와장창(장애물 결과)과 헛방(헛방 틱) 중 늦은 것. 0 = 없음.</summary>
-        public static long SwingTick(in CardRushRunnerState s)
+        /// <summary>점프가 끝나 내려앉는 틱 — 점프 시작 틱 + 40 − 1(시뮬이 그 틱에 땅으로 되돌린다).</summary>
+        public static long LandTick(long jumpStartTick) => jumpStartTick + CardRushRules.JumpTicks - 1;
+
+        /// <summary>
+        /// 마지막으로 빨강을 던진 틱 — 날고 있으면 상태(ShotTick), 이미 맞혔거나 꺼졌으면 거꾸로 잡는다(0 = 없음).
+        /// 꺼진 틱은 사거리 끝까지 난 틱 수(27)만큼 앞이 던진 틱이고, 맞힌 틱은 쓴 뒤 쿨다운 틱(SpinStartTick − 20)에서 안다.
+        /// 맞힌 결과는 던지고 28틱 안에만 던진 것으로 친다 — 쿨다운 틱이 그 뒤 다른 사용·사라짐으로 덮였을 수 있다.
+        /// </summary>
+        public static long ThrowTick(in CardRushRunnerState s)
         {
-            long smashed = s.ObstacleEvent == (int)CardRushObstacleEvent.Smashed ? s.ObstacleEventTick : 0;
-            return System.Math.Max(smashed, s.WhiffTick);
+            long thrown = s.ShotTick;
+            if (s.ObstacleEvent == (int)CardRushObstacleEvent.Smashed && s.ObstacleEventTick != 0)
+            {
+                long guess = s.SpinStartTick - CardRushRules.CooldownTicks;
+                if (guess >= 1 && guess <= s.ObstacleEventTick && s.ObstacleEventTick - guess <= CardRushHazardLayout.WhiffFlightTicks)
+                    thrown = System.Math.Max(thrown, guess);
+            }
+            if (s.WhiffTick != 0) thrown = System.Math.Max(thrown, s.WhiffTick - CardRushHazardLayout.WhiffFlightTicks);
+            return thrown;
         }
 
         private static bool In(double d, long start, int length) => start != 0 && length > 0 && d >= start && d < start + length;
@@ -169,12 +194,12 @@ namespace LOP
                     }
                     return new CardRushPose(new UnityEngine.Vector3(0f, y, 0f), new UnityEngine.Vector3(0f, 0f, shiver), squash);
                 }
-                case CardRushGagKind.Block:
-                    return new CardRushPose(UnityEngine.Vector3.zero, new UnityEngine.Vector3(-BlockBraceDegrees * Plateau(t01, 0f, 0.06f, 0.9f, 1f), 0f, 0f), 1f);
+                case CardRushGagKind.Jump:
+                    return new CardRushPose(UnityEngine.Vector3.zero, UnityEngine.Vector3.zero, 1f - (1f - JumpSquash) * Bump(t01, 0f, 0.4f, 1f));
                 case CardRushGagKind.Dash:
                     return new CardRushPose(UnityEngine.Vector3.zero, new UnityEngine.Vector3(DashLeanDegrees * Plateau(t01, 0f, 0.15f, 0.7f, 1f), 0f, 0f), 1f);
-                case CardRushGagKind.Smash:
-                    return new CardRushPose(UnityEngine.Vector3.zero, new UnityEngine.Vector3(SmashLeanDegrees * Bump(t01, 0f, 0.35f, 1f), 0f, 0f), 1f);
+                case CardRushGagKind.Throw:
+                    return new CardRushPose(UnityEngine.Vector3.zero, new UnityEngine.Vector3(ThrowLeanDegrees * Bump(t01, 0f, 0.35f, 1f), 0f, 0f), 1f);
                 case CardRushGagKind.Wait:
                 {
                     float y = WaitStompHeight * UnityEngine.Mathf.Abs(UnityEngine.Mathf.Sin(t01 * WaitStomps * UnityEngine.Mathf.PI));

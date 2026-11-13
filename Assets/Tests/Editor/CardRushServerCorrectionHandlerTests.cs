@@ -24,7 +24,7 @@ namespace LOP.Tests
             StunEndTick = 1284, ObstacleIndex = 5, ObstacleTick = 1286, ZoneIndex = 3, ZoneTick = 1288,
             ObstacleEvent = (int)CardRushObstacleEvent.Smashed, ObstacleEventTick = 1290,
             ZoneEvent = (int)CardRushZoneEvent.Dodged, ZoneEventTick = 1292, FinishTick = 1293, CleanStreak = 4, WhiffTick = 1294,
-            LockTick = 1295, ExpireTick = 1296, JumpStartTick = 1297, ShotTick = 1298, ShotFromMm = 1299,
+            LockTick = 1295, ExpireTick = 1296, JumpStartTick = 1297, ShotTick = 1298, ShotFromMm = 1299, RollStartTick = 1300,
             BestCleanStreak = 9, Hits = 3,
         };
 
@@ -55,7 +55,7 @@ namespace LOP.Tests
             cardZoneEvent = s.ZoneEvent, cardZoneEventTick = s.ZoneEventTick, cardFinishTick = s.FinishTick,
             cardCleanStreak = s.CleanStreak, cardWhiffTick = s.WhiffTick,
             cardLockTick = s.LockTick, cardExpireTick = s.ExpireTick, cardJumpStartTick = s.JumpStartTick,
-            cardShotTick = s.ShotTick, cardShotFromMm = s.ShotFromMm,
+            cardShotTick = s.ShotTick, cardShotFromMm = s.ShotFromMm, cardRollStartTick = s.RollStartTick,
         };
 
         [Test]
@@ -87,6 +87,7 @@ namespace LOP.Tests
         [TestCase("JumpStartTick")]
         [TestCase("ShotTick")]
         [TestCase("ShotFromMm")]
+        [TestCase("RollStartTick")]
         public void 한_칸만_달라도_되감는다(string field)
         {
             var handler = Make(out _);
@@ -114,6 +115,7 @@ namespace LOP.Tests
                 case "JumpStartTick": snap.cardJumpStartTick = 0; break;                // 서버는 점프를 안 함
                 case "ShotTick": snap.cardShotTick += 1; break;
                 case "ShotFromMm": snap.cardShotFromMm += 1; break;
+                case "RollStartTick": snap.cardRollStartTick += 1; break;
                 default: throw new System.ArgumentException(field);
             }
             Assert.IsFalse(handler.Matches(Tick, snap), $"{field}가 다른데 맞다고 했다");
@@ -184,7 +186,7 @@ namespace LOP.Tests
                 CardStunEndTick = 1284, CardObstacleIndex = 5, CardObstacleTick = 1286, CardZoneIndex = 3, CardZoneTick = 1288,
                 CardObstacleEvent = 1, CardObstacleEventTick = 1290, CardZoneEvent = 2, CardZoneEventTick = 1292,
                 CardFinishTick = 1293, CardCleanStreak = 4, CardWhiffTick = 1294,
-                CardLockTick = 1295, CardExpireTick = 1296, CardJumpStartTick = 1297, CardShotTick = 1298, CardShotFromMm = 1299,
+                CardLockTick = 1295, CardExpireTick = 1296, CardJumpStartTick = 1297, CardShotTick = 1298, CardShotFromMm = 1299, CardRollStartTick = 1300,
             };
             var proto = global::EntitySnap.Parser.ParseFrom(Google.Protobuf.MessageExtensions.ToByteArray(sent));
 
@@ -209,6 +211,7 @@ namespace LOP.Tests
             Assert.AreEqual(1297, m.cardJumpStartTick);
             Assert.AreEqual(1298, m.cardShotTick);
             Assert.AreEqual(1299, m.cardShotFromMm);
+            Assert.AreEqual(1300, m.cardRollStartTick);
             Assert.AreEqual(4, m.cardCleanStreak);
             Assert.AreEqual(1294, m.cardWhiffTick);
         }

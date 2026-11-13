@@ -48,16 +48,18 @@ namespace LOP
         /// <summary>잡은 카드 — 1.25배로 커지고 위로 0.15 m 뜬다.</summary>
         public const float HeldScale = 1.25f;
         public const float HeldLift = 0.15f;
+        /// <summary>평소 뒷면 숨쉬기 — 커진 반에서 1.08배.</summary>
+        public const float ReadyScale = 1.08f;
 
         /// <summary>그 모습의 크기 배율(잡음 1.25, 사라지는 중 1 → 0).</summary>
         public static float ScaleOf(in CardRushHeadCardFace face)
-            => face.Vanish01 > 0f ? Mathf.Clamp01(1f - face.Vanish01) : face.Held ? HeldScale : 1f;
+            => face.Vanish01 > 0f ? Mathf.Clamp01(1f - face.Vanish01) : face.Held ? HeldScale : face.Ready && face.ReadyBig ? ReadyScale : 1f;
 
         /// <summary>위로 더 뜨는 높이(m) — 잡았을 때만.</summary>
         public static float LiftOf(in CardRushHeadCardFace face) => face.Held ? HeldLift : 0f;
 
-        /// <summary>5초 링이 보이나 — 잡았고 깜빡 꺼짐 구간이 아닐 때.</summary>
-        public static bool RingShown(in CardRushHeadCardFace face) => face.Held && face.RingBlink == false;
+        /// <summary>링이 보이나 — 잡았거나(5초) 돌고 있고(6초, 가늘게) 깜빡 꺼짐 구간이 아닐 때.</summary>
+        public static bool RingShown(in CardRushHeadCardFace face) => (face.Held || face.Rolling) && face.RingBlink == false;
 
         private sealed class Entry
         {
@@ -242,7 +244,7 @@ namespace LOP
             }
             entry.Plate.SetVisible(true);
             entry.Plate.SetFace(face.FaceUp, face.Color, face.Dim);
-            entry.Plate.SetRing(RingShown(face) ? face.RingT01 : 0f);
+            entry.Plate.SetRing(RingShown(face) ? face.RingT01 : 0f, thin: face.Rolling);
             entry.Plate.SetHeld(face.Held);
             entry.LastFaceUp = face.FaceUp;
 
@@ -390,6 +392,8 @@ namespace LOP
         public const float RimOfHeight = 0.08f;
         public const int RingSegments = 24;
         public const float RingRadius = 0.78f;
+        public const float RingSegment = 0.09f;
+        public const float ThinRingSegment = 0.05f;
 
         private readonly CardRushCardMaterials materials;
         private readonly Renderer rim;
@@ -401,6 +405,7 @@ namespace LOP
         private bool held;
         private bool dimDrawn;
         private readonly Transform[] ringSegments = new Transform[RingSegments];
+        private bool ringThin;
         private int ringShown = -1;
         private int drawn = -1;   //  지금 그린 (앞/뒤, 색, 흐림) — 같으면 재질을 다시 안 넣는다
 
@@ -440,7 +445,7 @@ namespace LOP
                 //  카드 둘레를 도는 작은 조각 — 위(12시)에서 시계 방향으로 놓는다. 남은 몫만큼 앞 조각부터 켠다.
                 float a = (float)i / RingSegments * Mathf.PI * 2f;
                 var seg = CardRushDraw.Box("Ring" + i, Root, new Vector3(Mathf.Sin(a), Mathf.Cos(a), 0f) * RingRadius,
-                                           new Vector3(0.09f, 0.09f, 0.03f), materials.RingMaterial, hideFlags);
+                                           new Vector3(RingSegment, RingSegment, 0.03f), materials.RingMaterial, hideFlags);
                 seg.transform.localRotation = Quaternion.Euler(0f, 0f, -a * Mathf.Rad2Deg);
                 seg.SetActive(false);
                 ringSegments[i] = seg.transform;
@@ -452,10 +457,19 @@ namespace LOP
         /// <summary>링이 몇 조각 켜지나 — 남은 몫(1 → 0)을 올림. 몫이 0이면 0.</summary>
         public static int RingCount(float t01) => t01 <= 0f ? 0 : Mathf.Clamp(Mathf.CeilToInt(t01 * RingSegments), 0, RingSegments);
 
-        /// <summary>5초 링 — 남은 몫만큼 조각을 켠다(0이면 모두 끔).</summary>
-        public void SetRing(float t01)
+        /// <summary>링 — 남은 몫만큼 조각을 켠다(0이면 모두 끔). 도는 6초 링은 가늘게(잡은 5초 링과 구별).</summary>
+        public void SetRing(float t01, bool thin = false)
         {
             int n = RingCount(t01);
+            if (thin != ringThin)
+            {
+                ringThin = thin;
+                float size = thin ? ThinRingSegment : RingSegment;
+                for (int i = 0; i < RingSegments; i++)
+                {
+                    ringSegments[i].localScale = new Vector3(size, size, 0.03f);
+                }
+            }
             if (n == ringShown)
             {
                 return;
@@ -479,6 +493,7 @@ namespace LOP
         }
 
         public int RingOn => ringShown < 0 ? 0 : ringShown;
+        public bool RingThin => ringThin;
         public bool Held => held;
 
         private void ApplyRim() => rim.sharedMaterial = dimDrawn ? materials.DimRim : held ? materials.HeldRim : materials.Rim;

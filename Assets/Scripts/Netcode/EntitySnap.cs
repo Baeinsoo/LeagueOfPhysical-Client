@@ -49,6 +49,7 @@ namespace LOP
         public long cardJumpStartTick { get; set; }     // CardRush: 점프 시작 틱. 0 = 땅
         public long cardShotTick { get; set; }          // CardRush: 날고 있는 투사체를 던진 틱. 0 = 없음
         public int cardShotFromMm { get; set; }         // CardRush: 투사체 출발 자리(mm)
+        public long cardRollStartTick { get; set; }     // CardRush: 카드가 돌기 시작한 틱. 0 = 안 돈다
         public float postureAxis { get; set; }    // Skydive: 0 = 대자, 1 = 다이브
         public bool gliding { get; set; }         // Skydive: 패러세일을 폈나
         public float stamina { get; set; }        // Skydive: 남은 활공 자원

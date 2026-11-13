@@ -41,7 +41,8 @@ namespace LOP
                 && predicted.ExpireTick == snap.cardExpireTick
                 && predicted.JumpStartTick == snap.cardJumpStartTick
                 && predicted.ShotTick == snap.cardShotTick
-                && predicted.ShotFromMm == snap.cardShotFromMm;
+                && predicted.ShotFromMm == snap.cardShotFromMm
+                && predicted.RollStartTick == snap.cardRollStartTick;
         }
 
         public void ApplyAuthoritative(GameFramework.World.Entity entity, EntitySnap snap, float deltaTime)
@@ -55,7 +56,7 @@ namespace LOP
         }
 
         /// <summary>
-        /// 스냅의 21칸을 상태에 넣는다. 최고 연속·맞은 수는 서버가 안 보내므로 지금 값을 지킨다
+        /// 스냅의 22칸을 상태에 넣는다. 최고 연속·맞은 수는 서버가 안 보내므로 지금 값을 지킨다
         /// (최고 연속은 지금 연속보다 작을 수 없어 max로 맞춘다). 남의 몸에도 같은 식을 쓴다.
         /// 이 최고 연속은 <b>예측값</b>이다(되감기 앵커의 예측 통과가 남을 수 있다) — 기록은 <see cref="CardRushServerStreak"/>를 본다.
         /// </summary>
@@ -82,6 +83,7 @@ namespace LOP
             state.JumpStartTick = snap.cardJumpStartTick;
             state.ShotTick = snap.cardShotTick;
             state.ShotFromMm = snap.cardShotFromMm;
+            state.RollStartTick = snap.cardRollStartTick;
             state.BestCleanStreak = System.Math.Max(state.BestCleanStreak, snap.cardCleanStreak);
         }
     }

@@ -1,6 +1,6 @@
 {
   "name": "card-rush-smoke",
-  "description": "카드 러시 3차 한 판 스모크(로컬 서버 에디터, 탭 = 지금 보이는 카드 쓰기) — 로비까지 띄운 뒤 InMatch를 기다린다. 진입은 시나리오 밖 로비 건너뛰기 eval(cr-enter-20.cs)이 한다. 카운트다운 10초 → 화면 가운데 아래(0.5, 0.6)를 0.3초마다 40번 → 손 뗌 8초(바리케이드 기다림·굴러오는 것·구역에 그대로 맞는 장면, 2초마다 스크린샷) → 0.25초마다 120번(2초마다 스크린샷) → 결과 스크린샷",
+  "description": "카드 러시 4차 한 판 스모크(로컬 서버 에디터) — 탭 = 잡기, 다시 탭 = 쓰기(두 번 박자). 로비까지 띄운 뒤 InMatch를 기다린다(진입은 시나리오 밖 eval). 카운트다운 10초 → 잡고 0.25초 뒤·쓰고 0.12초 뒤 스크린샷 24번 → 한 번 잡고 6.5초 가만히(5초 링·사라짐) → 빠른 두 번 박자 90번 → 결과 스크린샷",
   "repeat": 1,
   "setup": [
     {
@@ -15,13 +15,13 @@
     },
     {
       "op": "boot_to_lobby",
-      "timeout_s": 120
+      "timeout_s": 360
     },
     {
       "op": "ui_wait",
       "name": "play-button",
       "clickable": true,
-      "timeout_s": 60
+      "timeout_s": 120
     }
   ],
   "loop": [
@@ -32,11 +32,13 @@
     },
     {
       "op": "log",
-      "message": "판 씬 진입 — 카운트다운(InMatch가 GO 전에 뜬다) 10초 기다린다"
+      "message": "판 씬 진입 — 출발(race-clock 0:01)까지 기다린다(기다림 방이 길 수 있다)"
     },
     {
-      "op": "wait",
-      "seconds": 10
+      "op": "ui_wait",
+      "name": "race-clock",
+      "text_contains": "0:01.",
+      "timeout_s": 300
     },
     {
       "op": "screenshot",
@@ -44,97 +46,11 @@
     },
     {
       "op": "log",
-      "message": "1구간: 0.3초마다 40번 탭(쿨다운·기절 중 탭은 시뮬이 버린다)"
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
+      "message": "손 뗌 구간: 한 번 잡고 6.5초 가만히 — 링이 줄다 5초에 사라진다(2초마다 스크린샷)"
     },
     {
       "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
+      "seconds": 1.2
     },
     {
       "op": "touch",
@@ -148,355 +64,815 @@
     },
     {
       "op": "screenshot",
-      "as": "tap-10"
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
+      "as": "hold-0s"
     },
     {
       "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
+      "seconds": 2
     },
     {
       "op": "screenshot",
-      "as": "tap-20"
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
+      "as": "hold-2s"
     },
     {
       "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
+      "seconds": 2
     },
     {
       "op": "screenshot",
-      "as": "tap-30"
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
+      "as": "hold-4s"
     },
     {
       "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.3
+      "seconds": 1.2
     },
     {
       "op": "screenshot",
-      "as": "after-40"
+      "as": "hold-expire"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "screenshot",
+      "as": "hold-after"
     },
     {
       "op": "log",
-      "message": "손 뗌 8초 — 바리케이드는 기다리고 굴러오는 것·구역엔 그대로 맞는다(꽈당·으악 장면)"
+      "message": "1구간: 두 번 박자 24번 — 탭(잡기) 0.25초 뒤 스크린샷(잡은 카드+링) → 탭(쓰기) 0.12초 뒤 스크린샷(투사체·점프·대시) → 0.6초 쉼. 3번째마다 스크린샷만 한 번 더"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
     },
     {
       "op": "wait",
-      "seconds": 2
+      "seconds": 0.25
     },
     {
       "op": "screenshot",
-      "as": "idle-2s"
+      "as": "grab-1"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
     },
     {
       "op": "wait",
-      "seconds": 2
+      "seconds": 0.12
     },
     {
       "op": "screenshot",
-      "as": "idle-4s"
+      "as": "use-1"
     },
     {
       "op": "wait",
-      "seconds": 2
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
     },
     {
       "op": "screenshot",
-      "as": "idle-6s"
+      "as": "grab-2"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
     },
     {
       "op": "wait",
-      "seconds": 2
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-2"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-3"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-3"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-4"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-4"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-5"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-5"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-6"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-6"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-7"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-7"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-8"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-8"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-9"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-9"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-10"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-10"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-11"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-11"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-12"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-12"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-13"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-13"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-14"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-14"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-15"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-15"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-16"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-16"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-17"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-17"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-18"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-18"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-19"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-19"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-20"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-20"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-21"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-21"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-22"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-22"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-23"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-23"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.25
+    },
+    {
+      "op": "screenshot",
+      "as": "grab-24"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.12
+    },
+    {
+      "op": "screenshot",
+      "as": "use-24"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.6
     },
     {
       "op": "log",
-      "message": "2구간: 0.25초마다 120번 탭, 8번(2초)마다 스크린샷"
+      "message": "2구간: 빠른 두 번 박자 — 탭 0.2초 탭 0.45초, 6번마다 스크린샷"
     },
     {
       "op": "touch",
@@ -506,7 +882,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -516,7 +892,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -526,7 +902,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -536,7 +912,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -546,7 +922,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -556,7 +932,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -566,7 +942,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -576,11 +952,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "screenshot",
-      "as": "mash-8"
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -590,7 +962,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -600,7 +972,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -610,7 +982,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -620,51 +992,11 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "screenshot",
-      "as": "mash-16"
+      "as": "fast-6"
     },
     {
       "op": "touch",
@@ -674,7 +1006,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -684,7 +1016,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -694,7 +1026,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -704,7 +1036,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -714,7 +1046,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -724,7 +1056,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -734,7 +1066,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -744,11 +1076,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "screenshot",
-      "as": "mash-24"
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -758,7 +1086,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -768,7 +1096,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -778,7 +1106,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -788,51 +1116,11 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "screenshot",
-      "as": "mash-32"
+      "as": "fast-12"
     },
     {
       "op": "touch",
@@ -842,7 +1130,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -852,7 +1140,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -862,7 +1150,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -872,7 +1160,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -882,7 +1170,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -892,7 +1180,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -902,7 +1190,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -912,11 +1200,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "screenshot",
-      "as": "mash-40"
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -926,7 +1210,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -936,7 +1220,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -946,7 +1230,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -956,51 +1240,11 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "screenshot",
-      "as": "mash-48"
+      "as": "fast-18"
     },
     {
       "op": "touch",
@@ -1010,7 +1254,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1020,7 +1264,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1030,7 +1274,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1040,7 +1284,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1050,7 +1294,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1060,7 +1304,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1070,7 +1314,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1080,11 +1324,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "screenshot",
-      "as": "mash-56"
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1094,7 +1334,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1104,7 +1344,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1114,7 +1354,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1124,51 +1364,11 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
-    },
-    {
-      "op": "touch",
-      "device": "touch",
-      "x": 0.5,
-      "y": 0.6
-    },
-    {
-      "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "screenshot",
-      "as": "mash-64"
+      "as": "fast-24"
     },
     {
       "op": "touch",
@@ -1178,7 +1378,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1188,7 +1388,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1198,7 +1398,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1208,7 +1408,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1218,7 +1418,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1228,7 +1428,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1238,7 +1438,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1248,11 +1448,51 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
     },
     {
       "op": "screenshot",
-      "as": "mash-72"
+      "as": "fast-30"
     },
     {
       "op": "touch",
@@ -1262,7 +1502,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1272,7 +1512,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1282,7 +1522,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1292,7 +1532,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1302,7 +1542,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1312,7 +1552,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1322,7 +1562,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1332,11 +1572,51 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
     },
     {
       "op": "screenshot",
-      "as": "mash-80"
+      "as": "fast-36"
     },
     {
       "op": "touch",
@@ -1346,7 +1626,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1356,7 +1636,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1366,7 +1646,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1376,7 +1656,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1386,7 +1666,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1396,7 +1676,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1406,7 +1686,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1416,11 +1696,51 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
     },
     {
       "op": "screenshot",
-      "as": "mash-88"
+      "as": "fast-42"
     },
     {
       "op": "touch",
@@ -1430,7 +1750,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1440,7 +1760,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1450,7 +1770,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1460,7 +1780,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1470,7 +1790,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1480,7 +1800,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1490,7 +1810,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1500,11 +1820,51 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
     },
     {
       "op": "screenshot",
-      "as": "mash-96"
+      "as": "fast-48"
     },
     {
       "op": "touch",
@@ -1514,7 +1874,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1524,7 +1884,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1534,7 +1894,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1544,7 +1904,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1554,7 +1914,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1564,7 +1924,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1574,7 +1934,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1584,11 +1944,51 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
     },
     {
       "op": "screenshot",
-      "as": "mash-104"
+      "as": "fast-54"
     },
     {
       "op": "touch",
@@ -1598,7 +1998,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1608,7 +2008,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1618,7 +2018,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1628,7 +2028,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1638,7 +2038,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1648,7 +2048,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1658,7 +2058,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1668,11 +2068,51 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
     },
     {
       "op": "screenshot",
-      "as": "mash-112"
+      "as": "fast-60"
     },
     {
       "op": "touch",
@@ -1682,7 +2122,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1692,7 +2132,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1702,7 +2142,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1712,7 +2152,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1722,7 +2162,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1732,7 +2172,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
     },
     {
       "op": "touch",
@@ -1742,7 +2182,7 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.2
     },
     {
       "op": "touch",
@@ -1752,11 +2192,175 @@
     },
     {
       "op": "wait",
-      "seconds": 0.25
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
     },
     {
       "op": "screenshot",
-      "as": "mash-120"
+      "as": "fast-66"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.2
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.5,
+      "y": 0.6
+    },
+    {
+      "op": "wait",
+      "seconds": 0.45
+    },
+    {
+      "op": "screenshot",
+      "as": "fast-72"
     },
     {
       "op": "wait_state",

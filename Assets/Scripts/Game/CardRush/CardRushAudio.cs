@@ -6,7 +6,7 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>카드 러시 소리(spec 2026-11-05 §11.5). 결과마다 하나, 내 몸만.</summary>
-    public enum CardRushSfx { CardTick, Smash, Whiff, Shield, Dash, Lift, Clang, Tumble, Squash, ZoneOn, Fanfare }
+    public enum CardRushSfx { CardTick, Smash, Whiff, Dash, Lift, Clang, Tumble, Squash, ZoneOn, Fanfare }
 
     /// <summary>소리를 정할 때 보는 내 몸 한 장면. <see cref="Has"/>가 거짓이면 몸·코스가 아직 없다.</summary>
     public struct CardRushAudioFrame
@@ -20,7 +20,6 @@ namespace LOP
         public int ZoneEvent;
         public long ZoneEventTick;
         public long ZoneTick;
-        public long BlockEndTick;
         public long DashStartTick;
         public long FinishTick;
         public bool FaceUp;
@@ -37,7 +36,6 @@ namespace LOP
             ZoneEvent = s.ZoneEvent,
             ZoneEventTick = s.ZoneEventTick,
             ZoneTick = s.ZoneTick,
-            BlockEndTick = s.BlockEndTick,
             DashStartTick = s.DashStartTick,
             FinishTick = s.FinishTick,
             FaceUp = card.Visible && card.FaceUp,
@@ -58,7 +56,6 @@ namespace LOP
         public int ZoneIndex;           // 마지막으로 결과를 울린 구역 번호
         public int ZoneEvent;
         public int ZoneOnIndex;         // 마지막으로 켜짐을 울린 구역 번호
-        public long ShieldTick;
         public long DashTick;
         public long FinishTick;
     }
@@ -119,12 +116,7 @@ namespace LOP
                 into.Add(CardRushSfx.ZoneOn);
             }
 
-            //  방패·대시는 쓴 틱이 곧 결과 틱이다(방패 = 끝 틱 − 50).
-            if (now.BlockEndTick != 0 && now.BlockEndTick > memory.ShieldTick)
-            {
-                memory.ShieldTick = now.BlockEndTick;
-                into.Add(CardRushSfx.Shield);
-            }
+            //  대시는 쓴 틱이 곧 결과 틱이다.
             if (now.DashStartTick != 0 && now.DashStartTick > memory.DashTick)
             {
                 memory.DashTick = now.DashStartTick;
@@ -158,7 +150,6 @@ namespace LOP
             ZoneEvent = now.ZoneEvent,
             //  켜진 채로 들어왔으면 이 구역은 이미 울린 셈 — 아니면 아직(앞 번호).
             ZoneOnIndex = now.ZoneTick != 0 ? now.ZoneIndex : now.ZoneIndex - 1,
-            ShieldTick = now.BlockEndTick,
             DashTick = now.DashStartTick,
             FinishTick = now.FinishTick,
         };
@@ -265,9 +256,6 @@ namespace LOP
                 case CardRushSfx.Whiff:
                     //  가벼운 휙 — 걸러 낸 잡음 0.1초.
                     return new[] { FlappySynth.Part.Noise(0.1f, 0.6f, 1600f, 1.2f) };
-                case CardRushSfx.Shield:
-                    //  낮은 웅 0.1초.
-                    return new[] { FlappySynth.Part.Tone(180f, 0.1f, FlappySynth.Wave.Sine, 0.7f, 0f, 1.3f) };
                 case CardRushSfx.Dash:
                     //  짧은 슉 — 대역이 위로 미끄러지는 잡음.
                     return new[]
@@ -324,7 +312,7 @@ namespace LOP
         {
             CardRushSfx.CardTick => Gain(TickVolumeDb),
             CardRushSfx.Smash => Gain(SmashVolumeDb),
-            CardRushSfx.Whiff or CardRushSfx.Shield or CardRushSfx.Dash or CardRushSfx.ZoneOn => Gain(SmallVolumeDb),
+            CardRushSfx.Whiff or CardRushSfx.Dash or CardRushSfx.ZoneOn => Gain(SmallVolumeDb),
             CardRushSfx.Lift => Gain(LiftVolumeDb),
             CardRushSfx.Clang => Gain(ClangVolumeDb),
             CardRushSfx.Tumble or CardRushSfx.Squash => Gain(HurtVolumeDb),

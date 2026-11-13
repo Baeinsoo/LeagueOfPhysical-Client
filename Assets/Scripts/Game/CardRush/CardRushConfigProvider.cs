@@ -23,7 +23,8 @@ namespace LOP
                                       r.ZoneGapMinM, r.ZoneGapMaxM, r.BarricadeWaitSeconds,
                                       r.RollKnockM, r.RollStunSeconds, r.ZoneKnockM, r.ZoneStunSeconds,
                                       r.BotReactMinSeconds, r.BotReactMaxSeconds, r.BotReactExtraSeconds,
-                                      r.BotHesitateChance, r.BotFreeDashChance);
+                                      r.BotHesitateChance, r.BotFreeDashChance,
+                                      r.PitShare, r.PitStunSeconds);
         }
     }
 }

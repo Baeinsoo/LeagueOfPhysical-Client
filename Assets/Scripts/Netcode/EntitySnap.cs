@@ -33,7 +33,6 @@ namespace LOP
         public int cardPosMm { get; set; }              // CardRush: 출발선에서 간 거리(mm)
         public int cardUseCount { get; set; }           // CardRush: 카드 쓴 횟수(첫 장 씨앗)
         public long cardDashStartTick { get; set; }     // CardRush: 대시를 쓴 틱. 0 = 대시 중 아님
-        public long cardBlockEndTick { get; set; }      // CardRush: 방패가 끝나는 틱. 0 = 없음
         public int cardObstacleIndex { get; set; }      // CardRush: 지금 상대하는 장애물 번호
         public long cardObstacleTick { get; set; }      // CardRush: 바리케이드 닿은 틱 / 굴러오기 시작한 틱. 0 = 아직
         public int cardZoneIndex { get; set; }          // CardRush: 지금 상대하는 구역 번호
@@ -44,7 +43,12 @@ namespace LOP
         public long cardZoneEventTick { get; set; }
         public long cardFinishTick { get; set; }        // CardRush: 완주 틱. 0 = 아직
         public int cardCleanStreak { get; set; }        // CardRush: 지금 연속 무사 통과
-        public long cardWhiffTick { get; set; }         // CardRush: 마지막 헛방 틱. 0 = 없음
+        public long cardWhiffTick { get; set; }         // CardRush: 투사체가 꺼진 틱. 0 = 없음
+        public long cardLockTick { get; set; }          // CardRush: 카드를 잡은 틱. 0 = 돈다
+        public long cardExpireTick { get; set; }        // CardRush: 잡은 카드가 사라진 틱. 0 = 없음
+        public long cardJumpStartTick { get; set; }     // CardRush: 점프 시작 틱. 0 = 땅
+        public long cardShotTick { get; set; }          // CardRush: 날고 있는 투사체를 던진 틱. 0 = 없음
+        public int cardShotFromMm { get; set; }         // CardRush: 투사체 출발 자리(mm)
         public float postureAxis { get; set; }    // Skydive: 0 = 대자, 1 = 다이브
         public bool gliding { get; set; }         // Skydive: 패러세일을 폈나
         public float stamina { get; set; }        // Skydive: 남은 활공 자원

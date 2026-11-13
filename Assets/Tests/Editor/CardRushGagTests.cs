@@ -83,12 +83,8 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 방패_대시_부수기_기다림은_상태에서_정한다()
+        public void 대시_부수기_기다림은_상태에서_정한다()
         {
-            var block = new CardRushRunnerState { BlockEndTick = 1050 };
-            Assert.AreEqual(CardRushGagKind.Block, CardRushGag.Phase(block, 1010, Tuning).kind);
-            Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(block, 1050, Tuning).kind);
-
             var dash = new CardRushRunnerState { DashStartTick = 1000 };
             Assert.AreEqual(CardRushGagKind.Dash, CardRushGag.Phase(dash, 1005, Tuning).kind);
             Assert.AreEqual(CardRushGagKind.None, CardRushGag.Phase(dash, 1000 + CardRushRules.DashTicks, Tuning).kind);

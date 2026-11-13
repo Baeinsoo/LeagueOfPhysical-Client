@@ -131,20 +131,6 @@ namespace LOP.Tests
         // ── 몸 소품 ──
 
         [Test]
-        public void 방패는_쓴_틱부터_50틱_커지며_나타나고_끝에_옅어진다()
-        {
-            var s = new CardRushRunnerState { BlockEndTick = 1050 };
-            Assert.Less(CardRushRunnerProps.Look(s, 999).Shield01, 0f);
-            var start = CardRushRunnerProps.Look(s, 1000);
-            Assert.AreEqual(0f, start.Shield01, 1e-6f);
-            Assert.AreEqual(0.3f, start.ShieldScale, 1e-5f);
-            Assert.AreEqual(1f, CardRushRunnerProps.Look(s, 1003).ShieldScale, 1e-5f, "0.06초에 다 커진다");
-            Assert.AreEqual(1f, CardRushRunnerProps.Look(s, 1020).ShieldAlpha, 1e-5f);
-            Assert.AreEqual(0.4f, CardRushRunnerProps.Look(s, 1048).ShieldAlpha, 1e-5f, "끝 0.1초에 옅어진다");
-            Assert.Less(CardRushRunnerProps.Look(s, 1050).Shield01, 0f);
-        }
-
-        [Test]
         public void 대시_줄_망치_말풍선은_결과_틱에서_잰다()
         {
             var dash = new CardRushRunnerState { DashStartTick = 1000 };
@@ -219,9 +205,8 @@ namespace LOP.Tests
             try
             {
                 var props = new CardRushRunnerProps(parent.transform, "Props", fxMaterials);
-                var look = CardRushRunnerProps.Look(new CardRushRunnerState { BlockEndTick = 1050, DashStartTick = 1010, WhiffTick = 1012 }, 1015);
+                var look = CardRushRunnerProps.Look(new CardRushRunnerState { DashStartTick = 1010, WhiffTick = 1012 }, 1015);
                 props.Place(look, Vector3.zero, Vector3.up * 1.2f, Vector3.forward, null, true, true);
-                Assert.IsTrue(props.ShieldVisible);
                 Assert.IsTrue(props.StreaksVisible);
                 Assert.IsTrue(props.HammerVisible, "헛방도 망치");
                 Assert.IsEmpty(parent.GetComponentsInChildren<Collider>(true));

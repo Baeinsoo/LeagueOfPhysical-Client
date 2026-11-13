@@ -122,13 +122,11 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 방패_대시는_쓴_틱에_한_번()
+        public void 대시는_쓴_틱에_한_번()
         {
-            var shield = last; shield.BlockEndTick = 1050;
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Shield }, Step(shield));
-            CollectionAssert.IsEmpty(Step(shield));
-            var dash = shield; dash.DashStartTick = 1100;
+            var dash = last; dash.DashStartTick = 1100;
             CollectionAssert.AreEqual(new[] { CardRushSfx.Dash }, Step(dash));
+            CollectionAssert.IsEmpty(Step(dash));
             var ended = dash; ended.DashStartTick = 0;
             CollectionAssert.IsEmpty(Step(ended), "대시가 끝나 0이 되는 건 소리 없음");
         }

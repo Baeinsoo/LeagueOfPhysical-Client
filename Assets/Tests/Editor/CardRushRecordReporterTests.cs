@@ -113,9 +113,9 @@ namespace LOP.Tests
         [Test]
         public void 지표는_4차_새_키()
         {
-            Assert.AreEqual("cardrush.v4.finishTime", CardRushRecordMetrics.FinishTime.Id);
+            Assert.AreEqual("cardrush.v42.finishTime", CardRushRecordMetrics.FinishTime.Id);
             Assert.AreEqual("완주 시간", CardRushRecordMetrics.FinishTime.Label);
-            Assert.AreEqual("cardrush.v4.cleanBest", CardRushRecordMetrics.CleanBest.Id);
+            Assert.AreEqual("cardrush.v42.cleanBest", CardRushRecordMetrics.CleanBest.Id);
             Assert.AreEqual("연속 무사 통과", CardRushRecordMetrics.CleanBest.Label);
             Assert.AreEqual(RecordDirection.HigherIsBetter, CardRushRecordMetrics.CleanBest.Direction);
         }

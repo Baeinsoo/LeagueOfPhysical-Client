@@ -28,7 +28,7 @@ namespace LOP.Tests
             var root = uxml.Instantiate();
             Assert.IsNull(root.Q("card-rush-card"), "큰 카드");
             Assert.IsNull(root.Q("card-rush-next"), "요구 색 칩");
-            Assert.IsNotNull(root.Q("card-rush-surface"), "탭 면");
+            Assert.IsNull(root.Q("card-rush-surface"), "4.2차: 화면 전체 탭 면은 없다 — 카드 버튼만 받는다");
             Assert.IsNotNull(root.Q<Label>("card-rush-streak"), "무사 글");
         }
 
@@ -38,9 +38,52 @@ namespace LOP.Tests
         {
             Assert.AreEqual("무사 7", CardRushPadView.StreakText(7));
             var uxml = UnityEditor.AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/UI/CardRushPad/CardRushPad.uxml");
-            Assert.AreEqual("탭 = 카드 돌리기 · 다시 탭 = 고르기 · 또 탭 = 쓰기", CardRushPadView.HintText);
+            Assert.AreEqual("카드 버튼: 돌리기 → 고르기 → 쓰기", CardRushPadView.HintText);
             Assert.AreEqual(CardRushPadView.HintText, uxml.Instantiate().Q<Label>("card-rush-hint").text, "조작 안내");
             Assert.AreEqual("무사 0", uxml.Instantiate().Q<Label>("card-rush-streak").text, "판 시작 전 글");
+        }
+
+        //  4.2차: 오른쪽 아래 카드 버튼이 내 카드 모습을 그린다 — 모습별 바탕·크기·링 굵기.
+        [Test]
+        public void 카드_버튼은_모습을_그린다()
+        {
+            var ready = new CardRushHeadCardFace(true, false, default, false, 1f, ready: true, readyBig: true);
+            Assert.AreEqual(CardRushHeadCardView.ReadyScale, CardRushCardButton.ScaleOf(ready), "평소 숨쉬기 커진 반");
+            Assert.AreEqual(CardRushCardMaterials.Back, CardRushCardButton.FillOf(ready), "평소 = 회색 뒷면");
+            Assert.AreEqual(0f, CardRushCardButton.RingWidthOf(ready), "평소엔 링 없음");
+
+            var rolling = new CardRushHeadCardFace(true, true, CardColor.Blue, false, 1f, ringT01: 0.5f, rolling: true);
+            Assert.AreEqual(CardRushCardPalette.ColorOf(CardColor.Blue), CardRushCardButton.FillOf(rolling), "도는 색");
+            Assert.AreEqual(CardRushCardButton.ThinRingWidthOfHalf, CardRushCardButton.RingWidthOf(rolling), "도는 6초 링은 가늘게");
+
+            var held = new CardRushHeadCardFace(true, true, CardColor.Red, false, 1f, held: true, ringT01: 0.5f);
+            Assert.AreEqual(CardRushCardButton.RingWidthOfHalf, CardRushCardButton.RingWidthOf(held), "잡은 5초 링은 굵게");
+            var blink = new CardRushHeadCardFace(true, true, CardColor.Red, false, 1f, held: true, ringT01: 0.1f, ringBlink: true);
+            Assert.AreEqual(0f, CardRushCardButton.RingWidthOf(blink), "깜빡 꺼짐");
+
+            var dim = new CardRushHeadCardFace(true, false, default, true, 1f);
+            Assert.AreEqual(CardRushCardButton.DimAlpha, CardRushCardButton.FillOf(dim).a, "쿨다운·기절은 흐리게");
+            var vanish = new CardRushHeadCardFace(true, false, default, true, 1f, vanish01: 0.75f);
+            Assert.AreEqual(0.25f, CardRushCardButton.ScaleOf(vanish), 1e-5f, "사라지며 작아진다");
+
+            var button = new CardRushCardButton();
+            button.SetFace(default);
+            Assert.AreEqual(Visibility.Hidden, button.style.visibility.value, "완주 뒤엔 숨긴다");
+            button.SetFace(held);
+            Assert.AreEqual(Visibility.Visible, button.style.visibility.value);
+            Assert.AreEqual(PickingMode.Position, button.pickingMode, "탭을 받는다");
+        }
+
+        //  4.2차: 머리 위엔 돌거나 잡은 동안만 — 평소·쿨다운 뒷면은 버튼에만.
+        [Test]
+        public void 머리_위엔_돌거나_잡았을_때만_뜬다()
+        {
+            Assert.IsFalse(CardRushHeadCardView.ShownOverHead(new CardRushHeadCardFace(true, false, default, false, 1f, ready: true)), "평소");
+            Assert.IsFalse(CardRushHeadCardView.ShownOverHead(new CardRushHeadCardFace(true, false, default, true, 1f)), "쿨다운");
+            Assert.IsFalse(CardRushHeadCardView.ShownOverHead(default), "숨김");
+            Assert.IsTrue(CardRushHeadCardView.ShownOverHead(new CardRushHeadCardFace(true, true, CardColor.Red, false, 1f, rolling: true)), "돎");
+            Assert.IsTrue(CardRushHeadCardView.ShownOverHead(new CardRushHeadCardFace(true, true, CardColor.Red, false, 1f, held: true)), "잡음");
+            Assert.IsTrue(CardRushHeadCardView.ShownOverHead(new CardRushHeadCardFace(true, false, default, true, 1f, vanish01: 0.3f)), "사라지는 중");
         }
     }
 }

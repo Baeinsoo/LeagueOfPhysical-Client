@@ -2,17 +2,17 @@
     flex-grow: 1;
 }
 
-/* 화면 전체가 입력면 — 손가락마다 PointerDownEvent가 따로 와서 멀티터치가 그대로 된다. */
-.card-rush-surface {
+/* 카드 버튼(4.2차) — 오른쪽 아래에 크게, 엄지가 닿는 자리. 그림은 코드가 그린다(CardRushCardButton). */
+.card-rush-button {
     position: absolute;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
+    right: 3%;
+    bottom: 5%;
+    width: 300px;
+    height: 300px;
 }
 
 /* 연속 무사 통과("무사 N") — 화면 아래 가운데, 작은 어두운 알약 바탕(베이지 바닥 위 대비, 리뷰 L3). 카드는 머리 위로 옮겼다.
-   통통 튀는 건 코드가 scale로 한다. 탭은 아래 면이 받는다(picking-mode Ignore). */
+   통통 튀는 건 코드가 scale로 한다. 탭은 카드 버튼만 받는다(picking-mode Ignore). */
 .card-rush-streak {
     position: absolute;
     bottom: 3%;
@@ -30,7 +30,7 @@
     transform-origin: center;
 }
 
-/* 조작 안내(4차 spec §4) — 무사 글 위, 더 작고 흐리게. 탭은 아래 면이 받는다. */
+/* 조작 안내(4차 spec §4) — 무사 글 위, 더 작고 흐리게. 탭은 카드 버튼만 받는다. */
 .card-rush-hint {
     position: absolute;
     bottom: 12%;

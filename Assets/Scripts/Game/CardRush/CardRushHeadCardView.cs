@@ -7,6 +7,7 @@ namespace LOP
 {
     /// <summary>
     /// 머리 위 카드(spec 2026-11-05 §11.4) — 몸마다 카드 판 하나를 머리 위에 띄워 카메라 쪽으로 돌린다(y축만).
+    /// 4.2차부터 돌거나 잡은 동안만 띄운다(<see cref="ShownOverHead"/>) — 평소엔 오른쪽 아래 카드 버튼만 있다.
     /// 그림은 <see cref="CardRushHeadCard.Compute"/>의 결과를 그리기만 한다: 내 카드는 <see cref="PlayerInputManager.NextInputTick"/>
     /// (지금 누르면 쓰는 틱 — 본 카드 = 쓰는 카드), 남의 카드는 그림 틱(<see cref="CardRushRunnerFxView"/>와 같은 식).
     /// 남의 카드는 내 레인 ±<see cref="OtherLaneRange"/>만, 작게. 기절·쿨다운 중엔 흐리게(알파 0.35). 시뮬 상태는 읽기만 한다.
@@ -57,6 +58,12 @@ namespace LOP
 
         /// <summary>위로 더 뜨는 높이(m) — 잡았을 때만.</summary>
         public static float LiftOf(in CardRushHeadCardFace face) => face.Held ? HeldLift : 0f;
+
+        /// <summary>
+        /// 머리 위에 띄우나(4.2차) — 돌거나 잡았거나 사라지는 중일 때만. 평소·쿨다운 뒷면은 오른쪽 아래 카드 버튼에만 있다(트페처럼).
+        /// </summary>
+        public static bool ShownOverHead(in CardRushHeadCardFace face)
+            => face.Visible && (face.Rolling || face.Held || face.Vanish01 > 0f);
 
         /// <summary>링이 보이나 — 잡았거나(5초) 돌고 있고(6초, 가늘게) 깜빡 꺼짐 구간이 아닐 때.</summary>
         public static bool RingShown(in CardRushHeadCardFace face) => (face.Held || face.Rolling) && face.RingBlink == false;
@@ -170,6 +177,11 @@ namespace LOP
                     //  남의 몸 그림 틱 = 보간 재생 시각(FxView와 같은 식).
                     long drawnTick = interval > 0d ? (long)(renderClock.TimeFor(actor.entityId) / interval) : renderClock?.TickFor(actor.entityId) ?? 0;
                     face = CardRushHeadCard.ComputeOther(runner.State, drawnTick, world.GameplayStartTick, runner.Lane, track);
+                }
+
+                if (ShownOverHead(face) == false)
+                {
+                    face = default;
                 }
 
                 if (entries.TryGetValue(actor.entityId, out var entry) == false || entry.Visual != visual.transform)

@@ -1,8 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="CardRushPad.uss" />
     <ui:VisualElement name="card-rush-root" class="card-rush-root" picking-mode="Ignore">
-        <ui:VisualElement name="card-rush-surface" class="card-rush-surface" />
-        <ui:Label name="card-rush-hint" class="card-rush-hint" text="탭 = 카드 돌리기 · 다시 탭 = 고르기 · 또 탭 = 쓰기" picking-mode="Ignore" />
+        <ui:Label name="card-rush-hint" class="card-rush-hint" text="카드 버튼: 돌리기 → 고르기 → 쓰기" picking-mode="Ignore" />
         <ui:Label name="card-rush-streak" class="card-rush-streak" text="무사 0" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

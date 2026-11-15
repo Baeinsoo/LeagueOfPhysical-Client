@@ -6,7 +6,7 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>카드 러시 소리(4차 spec §9). 결과마다 하나, 내 몸만.</summary>
-    public enum CardRushSfx { CardTick, Grab, Throw, Smash, Whiff, Jump, Land, Splash, Expire, Dash, Lift, Tumble, Squash, ZoneOn, Fanfare }
+    public enum CardRushSfx { CardTick, Grab, Throw, Smash, Whiff, Caught, Escaped, Splash, Expire, Dash, Lift, Tumble, Squash, ZoneOn, Fanfare }
 
     /// <summary>소리를 정할 때 보는 내 몸 한 장면. <see cref="Has"/>가 거짓이면 몸·코스가 아직 없다.</summary>
     public struct CardRushAudioFrame
@@ -23,7 +23,6 @@ namespace LOP
         public long DashStartTick;
         public long LockTick;
         public long ExpireTick;
-        public long JumpStartTick;
         public long ShotTick;
         public long FinishTick;
         public bool FaceUp;
@@ -43,7 +42,6 @@ namespace LOP
             DashStartTick = s.DashStartTick,
             LockTick = s.LockTick,
             ExpireTick = s.ExpireTick,
-            JumpStartTick = s.JumpStartTick,
             ShotTick = s.ShotTick,
             FinishTick = s.FinishTick,
             FaceUp = card.Visible && card.FaceUp,
@@ -67,9 +65,7 @@ namespace LOP
         public long DashTick;
         public long LockTick;
         public long ExpireTick;
-        public long JumpTick;
         public long ShotTick;
-        public long LandedJumpTick;     // 마지막으로 내려앉음을 울린 점프(시작 틱)
         public long FellTick;           // 마지막으로 빠짐(풍덩)을 울린 틱
         public long FinishTick;
     }
@@ -77,7 +73,7 @@ namespace LOP
     public static class CardRushAudioCues
     {
         /// <summary>
-        /// 같은 사건을 보정이 몇 틱 옮겨도 다시 안 울리는 틈. 잡기·던지기·점프·사라짐·빠짐은 다음 같은 사건까지 최소 20틱(쿨다운 0.4초,
+        /// 같은 사건을 보정이 몇 틱 옮겨도 다시 안 울리는 틈. 잡기·던지기·사라짐·빠짐은 다음 같은 사건까지 최소 20틱(쿨다운 0.4초,
         /// 빠짐은 기절 0.8초 + 1.5 m 되돌아옴)이라 10틱 안의 이동은 같은 사건이다.
         /// </summary>
         public const int SameEventGapTicks = 10;
@@ -113,12 +109,14 @@ namespace LOP
                 {
                     memory.ObstacleIndex = cleared;
                     memory.ObstacleEvent = now.ObstacleEvent;
-                    //  넘음(Jumped)은 점프 소리가 이미 났다 — 결과 소리는 없다.
+                    //  넘음(Jumped)은 대시 소리가 이미 났다 — 결과 소리는 없다.
                     switch (ev)
                     {
                         case CardRushObstacleEvent.Smashed: into.Add(CardRushSfx.Smash); break;
                         case CardRushObstacleEvent.Lifted: into.Add(CardRushSfx.Lift); break;
                         case CardRushObstacleEvent.Tumbled: into.Add(CardRushSfx.Tumble); break;
+                        case CardRushObstacleEvent.Caught: into.Add(CardRushSfx.Caught); break;
+                        case CardRushObstacleEvent.Escaped: into.Add(CardRushSfx.Escaped); break;
                     }
                 }
             }
@@ -154,7 +152,7 @@ namespace LOP
                 into.Add(CardRushSfx.Dash);
             }
 
-            //  잡기·던지기·점프·사라짐은 상태가 그 틱을 그대로 갖는다 — 새 틱이면 한 번.
+            //  잡기·던지기·사라짐은 상태가 그 틱을 그대로 갖는다 — 새 틱이면 한 번.
             if (Fresh(now.LockTick, memory.LockTick))
             {
                 memory.LockTick = now.LockTick;
@@ -164,17 +162,6 @@ namespace LOP
             {
                 memory.ShotTick = now.ShotTick;
                 into.Add(CardRushSfx.Throw);
-            }
-            if (Fresh(now.JumpStartTick, memory.JumpTick))
-            {
-                memory.JumpTick = now.JumpStartTick;
-                into.Add(CardRushSfx.Jump);
-            }
-            //  내려앉음 — 점프 틱이 지워지는 순간(부딪혀 내려앉아도·밀려도). 같은 점프는 되감아도 한 번.
-            if (prev.JumpStartTick != 0 && now.JumpStartTick == 0 && prev.JumpStartTick >= memory.LandedJumpTick + SameEventGapTicks)
-            {
-                memory.LandedJumpTick = prev.JumpStartTick;
-                into.Add(CardRushSfx.Land);
             }
             if (Fresh(now.ExpireTick, memory.ExpireTick))
             {
@@ -214,9 +201,7 @@ namespace LOP
             DashTick = now.DashStartTick,
             LockTick = now.LockTick,
             ExpireTick = now.ExpireTick,
-            JumpTick = now.JumpStartTick,
             ShotTick = now.ShotTick,
-            LandedJumpTick = now.JumpStartTick,
             FellTick = now.ObstacleEvent == (int)CardRushObstacleEvent.Fell ? now.ObstacleEventTick : 0,
             FinishTick = now.FinishTick,
         };
@@ -337,15 +322,20 @@ namespace LOP
                 case CardRushSfx.Whiff:
                     //  퐁 — 힘 빠진 짧은 내림음.
                     return new[] { FlappySynth.Part.Tone(520f, 0.12f, FlappySynth.Wave.Sine, 0.5f, 0f, 0.5f) };
-                case CardRushSfx.Jump:
-                    //  뿅 — 위로 튀는 짧은 음.
-                    return new[] { FlappySynth.Part.Tone(380f, 0.14f, FlappySynth.Wave.Sine, 0.55f, 0f, 2.2f) };
-                case CardRushSfx.Land:
-                    //  톡 — 짧고 낮은 닿는 소리.
+                case CardRushSfx.Caught:
+                    //  띠링 — 금빛으로 올라가는 두 음(잡았다).
                     return new[]
                     {
-                        FlappySynth.Part.Tone(180f, 0.06f, FlappySynth.Wave.Sine, 0.7f, 0f, 0.7f),
-                        FlappySynth.Part.Noise(0.03f, 0.4f, 500f, 0.8f),
+                        FlappySynth.Part.Tone(880f, 0.09f, FlappySynth.Wave.Triangle, 0.5f),
+                        FlappySynth.Part.Tone(1319f, 0.2f, FlappySynth.Wave.Triangle, 0.45f, 0.07f),
+                        FlappySynth.Part.Noise(0.1f, 0.3f, 5000f, 1.4f, 0.05f),
+                    };
+                case CardRushSfx.Escaped:
+                    //  뽕 — 연기 속으로 사라지는 내림음(놓쳤다).
+                    return new[]
+                    {
+                        FlappySynth.Part.Tone(600f, 0.18f, FlappySynth.Wave.Sine, 0.5f, 0f, 0.35f),
+                        FlappySynth.Part.Noise(0.12f, 0.35f, 1800f, 0.9f, 0.04f),
                     };
                 case CardRushSfx.Splash:
                     //  풍덩 — 낮은 첨벙 + 물보라 잡음.
@@ -406,7 +396,7 @@ namespace LOP
         {
             CardRushSfx.CardTick => Gain(TickVolumeDb),
             CardRushSfx.Smash => Gain(SmashVolumeDb),
-            CardRushSfx.Grab or CardRushSfx.Throw or CardRushSfx.Whiff or CardRushSfx.Jump or CardRushSfx.Land
+            CardRushSfx.Grab or CardRushSfx.Throw or CardRushSfx.Whiff or CardRushSfx.Caught or CardRushSfx.Escaped
                 or CardRushSfx.Expire or CardRushSfx.Dash or CardRushSfx.ZoneOn => Gain(SmallVolumeDb),
             CardRushSfx.Lift => Gain(LiftVolumeDb),
             CardRushSfx.Splash => Gain(SplashVolumeDb),

@@ -229,6 +229,60 @@ namespace LOP.Tests
             Assert.IsEmpty(lane.Root.GetComponentsInChildren<Collider>(true));
         }
 
+        private static readonly CardRushTrack goblinTrack = CardRushTrack.ForTests(60000,
+            new[] { new CardRushObstacle(CardRushObstacleKind.Goblin, 20000, 0), new CardRushObstacle(CardRushObstacleKind.Barricade, 40000, 0) },
+            new CardRushZone[0], 5);
+
+        [Test]
+        public void 고블린은_나타나기_전엔_숨고_나타나면_달아나는_자리를_따른다()
+        {
+            var lane = Lane();
+            var before = new CardRushRunnerState { PosMm = 10000, ObstacleIndex = 0 };
+            lane.Apply(before, 1000, 10000f, goblinTrack, tuning, null);
+            Assert.IsFalse(lane.ObstacleBodyVisible(0), "아직 안 나타났다");
+
+            var shown = new CardRushRunnerState { PosMm = 15000, ObstacleIndex = 0, ObstacleTick = 1000 };
+            lane.Apply(shown, 1010, 15000f, goblinTrack, tuning, null);
+            Assert.IsTrue(lane.ObstacleBodyVisible(0));
+            float expected = CardRushRunnerSim.GoblinPos(goblinTrack.Obstacles[0], 1000, 1010) / 1000f;
+            Assert.That(Vector3.Distance(Origin + Vector3.right * expected, lane.ObstacleRoot(0).position), Is.LessThan(1e-4f), "나타난 뒤 틱마다 달아난다");
+            lane.Apply(shown, 1060, 15000f, goblinTrack, tuning, null);
+            Assert.Greater(lane.ObstacleRoot(0).position.x, Origin.x + expected + 1.5f, "더 앞으로 갔다");
+            Assert.IsEmpty(lane.Root.GetComponentsInChildren<Collider>(true));
+        }
+
+        [Test]
+        public void 잡으면_금빛_조각이_터지고_사라진다()
+        {
+            var lane = Lane();
+            var caught = new CardRushRunnerState
+            {
+                PosMm = 17000, ObstacleIndex = 1, ObstacleEvent = (int)CardRushObstacleEvent.Caught, ObstacleEventTick = 1000, RushEndTick = 1100,
+            };
+            lane.Apply(caught, 1005, 17000f, goblinTrack, tuning, null);
+            Assert.IsFalse(lane.ObstacleBodyVisible(0), "몸은 사라지고");
+            int shards = 0;
+            foreach (Transform child in lane.ObstacleRoot(0)) if (child.name == "Shard" && child.gameObject.activeSelf) shards++;
+            Assert.AreEqual(CardRushLaneHazards.ShardCount, shards, "금빛 조각이 터진다");
+            lane.Apply(caught, 1040, 17000f, goblinTrack, tuning, null);
+            Assert.IsNull(lane.ObstacleRoot(0), "터진 뒤엔 지운다");
+        }
+
+        [Test]
+        public void 놓치면_연기가_일고_사라진다()
+        {
+            var lane = Lane();
+            var escaped = new CardRushRunnerState
+            {
+                PosMm = 17000, ObstacleIndex = 1, ObstacleEvent = (int)CardRushObstacleEvent.Escaped, ObstacleEventTick = 1000,
+            };
+            lane.Apply(escaped, 1004, 17000f, goblinTrack, tuning, null);
+            Assert.IsTrue(lane.ObstaclePoofVisible(0), "연기");
+            Assert.IsTrue(lane.ObstacleBodyVisible(0), "작아지며 돈다");
+            lane.Apply(escaped, 1040, 17000f, goblinTrack, tuning, null);
+            Assert.IsNull(lane.ObstacleRoot(0));
+        }
+
         [Test]
         public void 구덩이는_넘어도_먼_가장자리를_몸이_4m_지날_때까지_남는다()
         {
@@ -293,7 +347,7 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 풍덩_휙_말풍선과_점프_먼지_사라짐_연기는_상태_틱에서_잰다()
+        public void 풍덩_휙_잡았다_말풍선과_대시_먼지_사라짐_연기는_상태_틱에서_잰다()
         {
             var fell = new CardRushRunnerState { ObstacleIndex = 0, ObstacleEvent = (int)CardRushObstacleEvent.Fell, ObstacleEventTick = 1000 };
             var look = CardRushRunnerProps.Look(fell, 1003, pitTrack);
@@ -308,22 +362,34 @@ namespace LOP.Tests
             Assert.IsNull(CardRushRunnerProps.Look(overPit, 2003, pitTrack).Bubble, "구덩이를 넘은 건 말풍선 없음");
             Assert.IsNull(CardRushRunnerProps.Look(overRoller, 2003).Bubble, "코스 없이는 무엇을 넘었는지 모른다");
 
-            var jump = new CardRushRunnerState { JumpStartTick = 3000 };
-            Assert.AreEqual(0.5f, CardRushRunnerProps.Look(jump, 3000 + CardRushRunnerFxView.PuffTicks * 0.5).Dust01, 1e-5f, "뛸 때 발밑 먼지");
-            Assert.Less(CardRushRunnerProps.Look(jump, 3000 + CardRushRunnerFxView.PuffTicks).Dust01, 0f);
-            //  내려앉으면 상태가 점프 틱을 지운다 — 그림이 기억한 틱으로 내려앉음 먼지를 그린다.
-            long land = CardRushGag.LandTick(3000);
-            Assert.Less(CardRushRunnerProps.Look(new CardRushRunnerState(), land + 3).Dust01, 0f, "기억 없이는 못 그린다");
-            Assert.AreEqual(3f / CardRushRunnerFxView.PuffTicks, CardRushRunnerProps.Look(new CardRushRunnerState(), land + 3, null, 3000).Dust01, 1e-5f);
-            //  일찍 끝난 점프 — 먼지도 실제 착지(구역에 맞은 틱 3010)에서.
-            var knocked = new CardRushRunnerState { ZoneEvent = (int)CardRushZoneEvent.Hit, ZoneEventTick = 3010 };
-            Assert.AreEqual(5f / CardRushRunnerFxView.PuffTicks, CardRushRunnerProps.Look(knocked, 3015, null, 3000).Dust01, 1e-5f);
-            Assert.Less(CardRushRunnerProps.Look(knocked, land + 3, null, 3000).Dust01, 0f, "계획 틱엔 없다");
+            var dash = new CardRushRunnerState { DashStartTick = 3000 };
+            Assert.AreEqual(0.5f, CardRushRunnerProps.Look(dash, 3000 + CardRushRunnerFxView.PuffTicks * 0.5).Dust01, 1e-5f, "대시를 시작할 때 발밑 먼지");
+            Assert.Less(CardRushRunnerProps.Look(dash, 3000 + CardRushRunnerFxView.PuffTicks).Dust01, 0f);
+            Assert.Less(CardRushRunnerProps.Look(new CardRushRunnerState(), 3003).Dust01, 0f, "대시가 아니면 먼지 없음");
+
+            var caught = new CardRushRunnerState { ObstacleIndex = 3, ObstacleEvent = (int)CardRushObstacleEvent.Caught, ObstacleEventTick = 5000 };
+            var catchLook = CardRushRunnerProps.Look(caught, 5003);
+            Assert.AreEqual("잡았다!", catchLook.Bubble);
+            Assert.IsTrue(catchLook.BubbleGood);
+            var escaped = new CardRushRunnerState { ObstacleIndex = 3, ObstacleEvent = (int)CardRushObstacleEvent.Escaped, ObstacleEventTick = 5000 };
+            var escapeLook = CardRushRunnerProps.Look(escaped, 5003);
+            Assert.AreEqual("놓쳤다", escapeLook.Bubble);
+            Assert.IsFalse(escapeLook.BubbleGood);
 
             var expired = new CardRushRunnerState { ExpireTick = 4000 };
             Assert.AreEqual(0.5f, CardRushRunnerProps.Look(expired, 4000 + CardRushRunnerFxView.PuffTicks * 0.5).Puff01, 1e-5f, "머리 위 카드가 사라질 때 연기 퐁 0.3초");
             Assert.Less(CardRushRunnerProps.Look(expired, 4000 + CardRushRunnerFxView.PuffTicks).Puff01, 0f);
             Assert.Less(CardRushRunnerProps.Look(expired, 3999).Puff01, 0f);
+        }
+
+        [Test]
+        public void 골드_러시_줄은_러시_중에만_켜지고_끝나기_전에_옅어진다()
+        {
+            var rush = new CardRushRunnerState { RushEndTick = 2000 };
+            Assert.AreEqual(1f, CardRushRunnerProps.Look(rush, 1900).Rush, 1e-5f, "한창일 때 짙게");
+            Assert.AreEqual(0.5f, CardRushRunnerProps.Look(rush, 2000 - CardRushRunnerFxView.RushFadeTicks * 0.5).Rush, 1e-5f, "끝나기 전 옅어짐");
+            Assert.Less(CardRushRunnerProps.Look(rush, 2000).Rush, 0f, "끝 틱엔 없다");
+            Assert.Less(CardRushRunnerProps.Look(new CardRushRunnerState(), 1900).Rush, 0f, "러시를 안 받았으면 없다");
         }
 
         [Test]
@@ -335,15 +401,16 @@ namespace LOP.Tests
             try
             {
                 var props = new CardRushRunnerProps(parent.transform, "Props", fxMaterials);
-                var look = CardRushRunnerProps.Look(new CardRushRunnerState { DashStartTick = 1010, WhiffTick = 1040, JumpStartTick = 1012, ExpireTick = 1013 }, 1015);
+                var look = CardRushRunnerProps.Look(new CardRushRunnerState { DashStartTick = 1010, WhiffTick = 1040, RushEndTick = 1100, ExpireTick = 1013 }, 1015);
                 props.Place(look, Vector3.zero, Vector3.up * 1.2f, Vector3.forward, null, true, true);
                 Assert.IsTrue(props.StreaksVisible);
                 Assert.IsTrue(props.ThrowArmVisible, "헛방의 던진 틱(1040 − 27 = 1013)에서 10틱 안");
-                Assert.IsTrue(props.DustVisible, "점프 먼지");
+                Assert.IsTrue(props.DustVisible, "대시 먼지");
+                Assert.IsTrue(props.RushStreaksVisible, "골드 러시 줄");
                 Assert.IsTrue(props.PuffVisible, "사라진 카드 연기");
                 Assert.IsEmpty(parent.GetComponentsInChildren<Collider>(true));
                 props.Place(CardRushRunnerProps.Look(new CardRushRunnerState(), 5000), Vector3.zero, Vector3.up, Vector3.forward, null, true, true);
-                Assert.IsFalse(props.StreaksVisible || props.ThrowArmVisible || props.DustVisible || props.PuffVisible);
+                Assert.IsFalse(props.StreaksVisible || props.ThrowArmVisible || props.DustVisible || props.PuffVisible || props.RushStreaksVisible);
             }
             finally
             {

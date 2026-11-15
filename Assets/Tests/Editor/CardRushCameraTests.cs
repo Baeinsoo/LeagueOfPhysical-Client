@@ -29,12 +29,23 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 점프_높이는_피벗을_안_바꾼다()
+        public void 몸_높이는_피벗을_안_바꾼다()
         {
             var ground = CardRushCamera.PivotTarget(new Vector3(1f, 0f, 2f), Vector3.forward, 0f);
             var airborne = CardRushCamera.PivotTarget(new Vector3(1f, 1f, 2f), Vector3.forward, 0f);
             Assert.That(Vector3.Distance(ground, airborne), Is.LessThan(Eps), "몸이 1 m 떠도 피벗은 같다");
             Assert.AreEqual(0.5f, CardRushCamera.PivotTarget(new Vector3(0f, 3f, 0f), Vector3.forward, 0.5f).y, Eps, "바닥 높이로 고정");
+        }
+
+        [Test]
+        public void 골드_러시_중에만_시야각이_넓어지고_천천히_따라간다()
+        {
+            Assert.AreEqual(SceneFov, CardRushCamera.FovTarget(SceneFov, false), Eps);
+            Assert.AreEqual(SceneFov + CardRushCamera.RushFovKick, CardRushCamera.FovTarget(SceneFov, true), Eps);
+            float next = CardRushCamera.FovFollow(SceneFov, SceneFov + CardRushCamera.RushFovKick, 0.02f);
+            Assert.AreEqual(SceneFov + CardRushCamera.RushFovKick * (1f - Mathf.Exp(-CardRushCamera.FovSharpness * 0.02f)), next, Eps);
+            Assert.Less(next, SceneFov + CardRushCamera.RushFovKick, "한 번에 넓어지지 않는다");
+            Assert.Greater(next, SceneFov);
         }
 
         [Test]

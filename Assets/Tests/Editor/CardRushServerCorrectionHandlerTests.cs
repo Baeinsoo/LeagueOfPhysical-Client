@@ -24,7 +24,7 @@ namespace LOP.Tests
             StunEndTick = 1284, ObstacleIndex = 5, ObstacleTick = 1286, ZoneIndex = 3, ZoneTick = 1288,
             ObstacleEvent = (int)CardRushObstacleEvent.Smashed, ObstacleEventTick = 1290,
             ZoneEvent = (int)CardRushZoneEvent.Dodged, ZoneEventTick = 1292, FinishTick = 1293, CleanStreak = 4, WhiffTick = 1294,
-            LockTick = 1295, ExpireTick = 1296, JumpStartTick = 1297, ShotTick = 1298, ShotFromMm = 1299, RollStartTick = 1300,
+            LockTick = 1295, ExpireTick = 1296, RushEndTick = 1297, ShotTick = 1298, ShotFromMm = 1299, RollStartTick = 1300,
             BestCleanStreak = 9, Hits = 3,
         };
 
@@ -54,7 +54,7 @@ namespace LOP.Tests
             cardZoneTick = s.ZoneTick, cardObstacleEvent = s.ObstacleEvent, cardObstacleEventTick = s.ObstacleEventTick,
             cardZoneEvent = s.ZoneEvent, cardZoneEventTick = s.ZoneEventTick, cardFinishTick = s.FinishTick,
             cardCleanStreak = s.CleanStreak, cardWhiffTick = s.WhiffTick,
-            cardLockTick = s.LockTick, cardExpireTick = s.ExpireTick, cardJumpStartTick = s.JumpStartTick,
+            cardLockTick = s.LockTick, cardExpireTick = s.ExpireTick, cardJumpStartTick = s.RushEndTick,
             cardShotTick = s.ShotTick, cardShotFromMm = s.ShotFromMm, cardRollStartTick = s.RollStartTick,
         };
 
@@ -84,7 +84,7 @@ namespace LOP.Tests
         [TestCase("WhiffTick")]
         [TestCase("LockTick")]
         [TestCase("ExpireTick")]
-        [TestCase("JumpStartTick")]
+        [TestCase("RushEndTick")]
         [TestCase("ShotTick")]
         [TestCase("ShotFromMm")]
         [TestCase("RollStartTick")]
@@ -112,7 +112,7 @@ namespace LOP.Tests
                 case "WhiffTick": snap.cardWhiffTick += 1; break;
                 case "LockTick": snap.cardLockTick = 0; break;                          // 서버는 아직 못 잡음
                 case "ExpireTick": snap.cardExpireTick += 1; break;
-                case "JumpStartTick": snap.cardJumpStartTick = 0; break;                // 서버는 점프를 안 함
+                case "RushEndTick": snap.cardJumpStartTick = 0; break;                // 서버는 러시를 안 줌
                 case "ShotTick": snap.cardShotTick += 1; break;
                 case "ShotFromMm": snap.cardShotFromMm += 1; break;
                 case "RollStartTick": snap.cardRollStartTick += 1; break;
@@ -140,7 +140,7 @@ namespace LOP.Tests
                 StunEndTick = 2004, ObstacleIndex = 7, ObstacleTick = 2006, ZoneIndex = 4, ZoneTick = 2008,
                 ObstacleEvent = (int)CardRushObstacleEvent.Tumbled, ObstacleEventTick = 2010,
                 ZoneEvent = (int)CardRushZoneEvent.Held, ZoneEventTick = 2012, FinishTick = 2013, CleanStreak = 2, WhiffTick = 2014,
-                LockTick = 2015, ExpireTick = 2016, JumpStartTick = 2017, ShotTick = 2018, ShotFromMm = 2019,
+                LockTick = 2015, ExpireTick = 2016, RushEndTick = 2017, ShotTick = 2018, ShotFromMm = 2019,
             };
 
             handler.ApplyAuthoritative(runner, SnapOf(server), 0.02f);
@@ -164,7 +164,7 @@ namespace LOP.Tests
             Assert.AreEqual(2014, s.WhiffTick);
             Assert.AreEqual(2015, s.LockTick);
             Assert.AreEqual(2016, s.ExpireTick);
-            Assert.AreEqual(2017, s.JumpStartTick);
+            Assert.AreEqual(2017, s.RushEndTick);
             Assert.AreEqual(2018, s.ShotTick);
             Assert.AreEqual(2019, s.ShotFromMm);
             Assert.AreEqual(9, s.BestCleanStreak, "서버가 안 보내는 값 — 0으로 지워지면 결과 통계가 틀린다");

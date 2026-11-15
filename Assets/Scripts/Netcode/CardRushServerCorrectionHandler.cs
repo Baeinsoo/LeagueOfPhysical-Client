@@ -39,7 +39,7 @@ namespace LOP
                 && predicted.WhiffTick == snap.cardWhiffTick
                 && predicted.LockTick == snap.cardLockTick
                 && predicted.ExpireTick == snap.cardExpireTick
-                && predicted.JumpStartTick == snap.cardJumpStartTick
+                && predicted.RushEndTick == snap.cardJumpStartTick
                 && predicted.ShotTick == snap.cardShotTick
                 && predicted.ShotFromMm == snap.cardShotFromMm
                 && predicted.RollStartTick == snap.cardRollStartTick;
@@ -80,7 +80,7 @@ namespace LOP
             state.WhiffTick = snap.cardWhiffTick;
             state.LockTick = snap.cardLockTick;
             state.ExpireTick = snap.cardExpireTick;
-            state.JumpStartTick = snap.cardJumpStartTick;
+            state.RushEndTick = snap.cardJumpStartTick;
             state.ShotTick = snap.cardShotTick;
             state.ShotFromMm = snap.cardShotFromMm;
             state.RollStartTick = snap.cardRollStartTick;

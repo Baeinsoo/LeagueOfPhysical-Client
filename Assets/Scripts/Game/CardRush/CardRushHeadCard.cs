@@ -75,12 +75,11 @@ namespace LOP
             float flip = UnityEngine.Mathf.Clamp01((float)sinceCard / FlipTicks);
             if (s.LockTick != 0)
             {
-                //  잡았다 — 멈춘 카드. 공중에선 노랑·파랑을 못 쓰니 흐리게(탭이 버려진다는 신호).
+                //  잡았다 — 멈춘 카드.
                 long left = s.LockTick + CardRushRules.LockHoldTicks - tick;
-                bool airDead = s.JumpStartTick != 0 && color != CardColor.Red;
                 bool blink = left <= BlinkTicks && (tick / BlinkPeriodTicks) % 2 == 0;
                 float ring = UnityEngine.Mathf.Clamp01((float)left / CardRushRules.LockHoldTicks);
-                return new CardRushHeadCardFace(true, true, color, stunned || airDead, 1f, true, ring, blink);
+                return new CardRushHeadCardFace(true, true, color, stunned, 1f, true, ring, blink);
             }
             //  돌고 있다 — 6초 링이 줄고 마지막 1초 깜빡, 다 되면 그 색이 잡힌다.
             long rollLeft = s.RollStartTick + CardRushRules.RollMaxTicks - tick;

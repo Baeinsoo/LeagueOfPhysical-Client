@@ -28,6 +28,9 @@ namespace LOP
         /// </summary>
         public const float LookAheadMeters = 3.0f;
         public const float FollowSharpness = 10f;
+        /// <summary>골드 러시 동안 시야각을 이만큼 넓혀 빨라진 느낌을 낸다(4.4차). 번쩍임 없이 천천히 오가게 FovSharpness로 따라간다.</summary>
+        public const float RushFovKick = 6f;
+        public const float FovSharpness = 5f;
 
         /// <summary>
         /// 몸·몸개그를 이 높이(화면 아래 0, 위 1)보다 위에 둔다 — 지운 카드 띠(가로 1080p)의 위 끝 값 그대로. 띠는 없어졌지만
@@ -41,14 +44,19 @@ namespace LOP
         private readonly ActorRegistry actorRegistry;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
         private readonly IPlayerContext playerContext;
+        private readonly EntityRenderClock renderClock;
 
+        private float baseFov;
+        private bool hasBaseFov;
         private bool hasPivot;
         private Vector3 pivot;
 
         public CardRushCamera(CameraController cameraController, CardRushMapRulesField rules,
                               ISpectateTargets spectate, ActorRegistry actorRegistry,
-                              GameFramework.World.EntityRegistry entityRegistry, IPlayerContext playerContext)
+                              GameFramework.World.EntityRegistry entityRegistry, IPlayerContext playerContext,
+                              EntityRenderClock renderClock)
         {
+            this.renderClock = renderClock;
             this.entityRegistry = entityRegistry;
             this.playerContext = playerContext;
             this.cameraController = cameraController;
@@ -62,8 +70,8 @@ namespace LOP
             => body + CardRushLanes.Flat(forward) * LookAheadMeters;
 
         /// <summary>
-        /// 점프 중엔 몸 높이를 따라가지 않는다(4차 spec §3.6) — 높이는 레인 바닥(<paramref name="groundY"/>)에 고정해
-        /// 점프마다 화면이 출렁이지 않게 한다.
+        /// 몸 높이를 따라가지 않는다(4차 spec §3.6) — 높이는 레인 바닥(<paramref name="groundY"/>)에 고정해
+        /// 몸이 뜰 때마다 화면이 출렁이지 않게 한다.
         /// </summary>
         public static Vector3 PivotTarget(Vector3 body, Vector3 forward, float groundY)
         {
@@ -94,6 +102,13 @@ namespace LOP
             var f = CardRushLanes.Flat(forward);
             return Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg;
         }
+
+        /// <summary>러시 중이면 기본 시야각 + RushFovKick, 아니면 기본 그대로.</summary>
+        public static float FovTarget(float baseFov, bool rushing) => rushing ? baseFov + RushFovKick : baseFov;
+
+        /// <summary>시야각을 목표로 다가가는 한 걸음 — 프레임 시간과 무관하게 같은 빠르기.</summary>
+        public static float FovFollow(float current, float target, float deltaTime)
+            => Mathf.Lerp(current, target, 1f - Mathf.Exp(-FovSharpness * deltaTime));
 
         /// <summary>세로 화면은 양옆이 좁아 멀리 선다 — 양옆 레인이 함께 보이게.</summary>
         public static float DistanceFor(int screenWidth, int screenHeight)
@@ -128,9 +143,31 @@ namespace LOP
             cameraController.AimBy(CameraController.StepToward(
                 cameraController.Yaw, cameraController.Pitch, YawDegrees(rules.Forward), PitchDegrees, 1f));
             cameraController.DistanceOverride = DistanceFor(Screen.width, Screen.height);
+            KickFov(deltaTime);
         }
 
-        //  따라가는 몸의 레인 바닥 높이 — 러너를 못 찾으면 몸 높이 그대로(점프만 따라간다).
+        //  따라가는 몸이 골드 러시 중이면 시야각을 살짝 넓힌다 — 카메라 자리·각은 건드리지 않는다.
+        private void KickFov(float deltaTime)
+        {
+            var cam = cameraController.MainCamera != null ? cameraController.MainCamera : Camera.main;
+            if (cam == null)
+            {
+                return;
+            }
+            if (hasBaseFov == false)
+            {
+                baseFov = cam.fieldOfView;
+                hasBaseFov = true;
+            }
+            string id = spectate?.Current;
+            if (string.IsNullOrEmpty(id)) id = playerContext?.entityId;
+            var runner = string.IsNullOrEmpty(id) ? null : entityRegistry?.Get(id)?.Get<CardRushRunner>();
+            bool rushing = runner != null && renderClock != null
+                           && CardRushRunnerSim.IsRushing(runner.State, (long)System.Math.Floor(CardRushRunnerFxView.DrawnTick(renderClock, id, playerContext?.entityId)));
+            cam.fieldOfView = FovFollow(cam.fieldOfView, FovTarget(baseFov, rushing), deltaTime);
+        }
+
+        //  따라가는 몸의 레인 바닥 높이 — 러너를 못 찾으면 몸 높이 그대로.
         private float GroundY(Transform body)
         {
             string id = spectate?.Current;
@@ -161,6 +198,8 @@ namespace LOP
                 cameraController.BeforeFollow -= OnBeforeFollow;
                 cameraController.PivotOffset = Vector3.zero;
                 cameraController.DistanceOverride = null;
+                var cam = cameraController.MainCamera != null ? cameraController.MainCamera : Camera.main;
+                if (cam != null && hasBaseFov) cam.fieldOfView = baseFov;
             }
         }
     }

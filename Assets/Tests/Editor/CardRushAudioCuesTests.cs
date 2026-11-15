@@ -73,7 +73,9 @@ namespace LOP.Tests
             CollectionAssert.AreEqual(new[] { CardRushSfx.Whiff }, Step(whiff), "헛방은 헛방 틱으로");
             CollectionAssert.AreEqual(new[] { CardRushSfx.Lift }, Step(Obstacle(CardRushObstacleEvent.Lifted, 200, 0)));
             CollectionAssert.AreEqual(new[] { CardRushSfx.Tumble }, Step(Obstacle(CardRushObstacleEvent.Tumbled, 400, 2)), "꽈당");
-            CollectionAssert.IsEmpty(Step(Obstacle(CardRushObstacleEvent.Jumped, 500, 3)), "넘음은 점프 소리가 이미 났다");
+            CollectionAssert.IsEmpty(Step(Obstacle(CardRushObstacleEvent.Jumped, 500, 3)), "넘음은 대시 소리가 이미 났다");
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Caught }, Step(Obstacle(CardRushObstacleEvent.Caught, 520, 4)), "고블린을 잡음");
+            CollectionAssert.AreEqual(new[] { CardRushSfx.Escaped }, Step(Obstacle(CardRushObstacleEvent.Escaped, 540, 5)), "고블린을 놓침");
 
             //  빠짐은 번호가 안 올라 지금 장애물(번호 4)에 결과가 적힌다.
             var fell = new CardRushAudioFrame { Has = true, ObstacleEvent = (int)CardRushObstacleEvent.Fell, ObstacleEventTick = 600, ObstacleIndex = 4 };
@@ -125,23 +127,6 @@ namespace LOP.Tests
             CollectionAssert.IsEmpty(Step(expire));
             var nextGrab = expire; nextGrab.LockTick = 1530;
             CollectionAssert.AreEqual(new[] { CardRushSfx.Grab }, Step(nextGrab), "다음 잡기는 새 소리");
-        }
-
-        [Test]
-        public void 점프와_내려앉음은_한_번씩_되감아도_안_겹친다()
-        {
-            var air = last; air.JumpStartTick = 2000;
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Jump }, Step(air));
-            CollectionAssert.IsEmpty(Step(air));
-            var ground = last; ground.JumpStartTick = 0;
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Land }, Step(ground), "점프 틱이 지워지는 순간 내려앉음");
-            CollectionAssert.IsEmpty(Step(ground));
-            //  되감기: 공중으로 돌아갔다가 다시 내려앉아도 같은 점프라 조용.
-            CollectionAssert.IsEmpty(Step(air), "같은 점프로 되감김");
-            CollectionAssert.IsEmpty(Step(ground), "같은 내려앉음");
-            var next = last; next.JumpStartTick = 2060;
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Jump }, Step(next), "다음 점프");
-            CollectionAssert.AreEqual(new[] { CardRushSfx.Land }, Step(ground), "바리케이드에 부딪혀 일찍 내려앉아도 내려앉음");
         }
 
         [Test]
@@ -207,7 +192,7 @@ namespace LOP.Tests
             var now = new CardRushAudioFrame
             {
                 Has = true, ObstacleEvent = (int)CardRushObstacleEvent.Smashed, ObstacleEventTick = 900, ZoneTick = 950, FinishTick = 0,
-                LockTick = 800, ShotTick = 850, JumpStartTick = 870, ExpireTick = 700,
+                LockTick = 800, ShotTick = 850, ExpireTick = 700,
             };
             CardRushAudioCues.Detect(default, now, into, ref memory);
             CollectionAssert.IsEmpty(into, "들어오자마자 지난 일로 소리 내지 않음");

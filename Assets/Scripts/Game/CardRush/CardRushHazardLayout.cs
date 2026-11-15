@@ -1,6 +1,6 @@
 namespace LOP
 {
-    public enum CardRushObstaclePhase { Standing, Lifting, Rolling, Smashed, Lifted, Jumped, Tumbled, Pit, PitFell, Gone }
+    public enum CardRushObstaclePhase { Standing, Lifting, Rolling, Smashed, Lifted, Jumped, Tumbled, Pit, PitFell, Gone, Goblin, GoblinCaught, GoblinEscaped }
 
     public enum CardRushShotPhase { None, Flying, Fizzle }
 
@@ -39,7 +39,7 @@ namespace LOP
     public readonly struct CardRushObstacleLook
     {
         public readonly CardRushObstaclePhase Phase;
-        public readonly float T01;          // 올라감 = 기다린 몫, 결과(와장창·올라감·막음·꽈당) = 그 그림의 진행
+        public readonly float T01;          // 올라감 = 기다린 몫, 결과(와장창·올라감·막음·꽈당·잡음·놓침) = 그 그림의 진행, 고블린 = 나타난 뒤 산 몫
         public readonly float AlongMm;
         public readonly int Variant;
         public readonly float SecondsLeft;  // 올라감 중 남은 초. 그 밖 0
@@ -128,8 +128,10 @@ namespace LOP
             if (ev == CardRushObstacleEvent.None) return Gone(o.Variant);
             //  Blocked·Whiff는 은퇴한 값이다 — 4차엔 이 결과가 상태에 안 나온다.
             if (ev != CardRushObstacleEvent.Smashed && ev != CardRushObstacleEvent.Lifted
-                && ev != CardRushObstacleEvent.Tumbled && ev != CardRushObstacleEvent.Jumped)
+                && ev != CardRushObstacleEvent.Tumbled && ev != CardRushObstacleEvent.Jumped
+                && ev != CardRushObstacleEvent.Caught && ev != CardRushObstacleEvent.Escaped)
                 return Gone(o.Variant);
+            if (o.Kind == CardRushObstacleKind.Goblin) return GoblinResult(s, o, ev, at, d);
 
             if (at > d)
             {
@@ -169,6 +171,36 @@ namespace LOP
             }
         }
 
+        /// <summary>
+        /// 이미 치운 고블린의 그림 — 잡음·놓침이 그림 틱보다 뒤면(남의 레인) 아직 달아나는 중이고, 지나면 그 자리에서 사라지는 그림.
+        /// 나타난 틱은 상태에 안 남아 어림한다: 놓침 = 결과 틱 − 산 틱 수, 잡음 = 골드 러시 길이(RushTicksFor)를 거꾸로 푼 값.
+        /// </summary>
+        private static CardRushObstacleLook GoblinResult(in CardRushRunnerState s, in CardRushObstacle o, CardRushObstacleEvent ev, long at, double d)
+        {
+            long reveal = at - (ev == CardRushObstacleEvent.Escaped ? CardRushRules.GoblinLifeTicks : CaughtAge(s, at));
+            if (at > d) return GoblinAlive(o, reveal, d);
+            float t = (float)((d - at) / ResultTicks);
+            if (t >= 1f) return Gone(o.Variant);
+            var phase = ev == CardRushObstacleEvent.Caught ? CardRushObstaclePhase.GoblinCaught : CardRushObstaclePhase.GoblinEscaped;
+            return new CardRushObstacleLook(phase, t, CardRushRunnerSim.GoblinPos(o, reveal, at), o.Variant, 0f);
+        }
+
+        //  잡은 틱에 이미 지난 틱 수 — RushTicksFor(e) = 최대 − (최대 − 최소) × e / 수명 을 e로 푼다. 러시 정보가 없으면 0.
+        private static long CaughtAge(in CardRushRunnerState s, long at)
+        {
+            long rush = s.RushEndTick - at;
+            if (s.RushEndTick == 0 || rush < CardRushRules.RushMinTicks || rush > CardRushRules.RushMaxTicks) return 0;
+            return (CardRushRules.RushMaxTicks - rush) * CardRushRules.GoblinLifeTicks / (CardRushRules.RushMaxTicks - CardRushRules.RushMinTicks);
+        }
+
+        private static CardRushObstacleLook GoblinAlive(in CardRushObstacle o, long revealTick, double d)
+        {
+            if (revealTick == 0 || revealTick > d) return Standing(o);
+            float t = UnityEngine.Mathf.Clamp01((float)((d - revealTick) / CardRushRules.GoblinLifeTicks));
+            float along = o.AtMm + CardRushRules.GoblinMmPerTick * (float)(d - revealTick);
+            return new CardRushObstacleLook(CardRushObstaclePhase.Goblin, t, along, o.Variant, 0f);
+        }
+
         //  결과 그림이 시작하는 자리. 굴러오는 것은 치운 순간의 자리를 상태가 안 갖고 있어 어림한다 —
         //  부순 것은 투사체가 맞힌 자리, 넘은 것은 몸이 앞으로 가고 굴러오는 것이 몸 쪽으로 오니 둘이 서로 지나치는 만큼 뒤,
         //  꽈당은 몸이 밀려났으니 밀린 만큼 앞.
@@ -180,7 +212,7 @@ namespace LOP
                 case CardRushObstacleEvent.Smashed:
                     return SmashHit(s, o);
                 case CardRushObstacleEvent.Jumped:
-                    return runnerDrawnMm - (float)((CardRushRules.JumpMmPerTick + CardRushRules.RollerMmPerTick) * since) + CardRushRules.RollerContactMm;
+                    return runnerDrawnMm - (float)((CardRushRules.RunMmPerTick + CardRushRules.RollerMmPerTick) * since) + CardRushRules.RollerContactMm;
                 case CardRushObstacleEvent.Tumbled:
                     return runnerDrawnMm + tuning.RollKnockMm + CardRushRules.RollerContactMm;
                 default:
@@ -276,6 +308,7 @@ namespace LOP
         private static CardRushObstacleLook Current(in CardRushObstacle o, long obstacleTick, double d, in CardRushTuning tuning)
         {
             if (obstacleTick == 0 || obstacleTick > d) return Standing(o);
+            if (o.Kind == CardRushObstacleKind.Goblin) return GoblinAlive(o, obstacleTick, d);
             if (o.Kind == CardRushObstacleKind.Barricade)
             {
                 int wait = System.Math.Max(1, tuning.BarricadeWaitTicks);

@@ -285,13 +285,13 @@ namespace LOP.Tests
             Assert.AreEqual(1f, CardRushHeadCardView.ChangeWidth(new CardRushHeadCardFace(true, false, default, true, 0f)), 1e-5f, "뒷면은 그대로");
         }
 
-        // ── 4차: 잡음·링·사라짐·공중 흐림 ──
+        // ── 4차: 잡음·링·사라짐 ──
 
         //  잡은 카드는 RollBase에 돌기 시작한 것으로 둔다.
         private const long RollBase = 1000;
 
-        private static CardRushRunnerState Held(long lockTick, int jumpStart = 0)
-            => new CardRushRunnerState { LockTick = lockTick, JumpStartTick = jumpStart, RollStartTick = RollBase };
+        private static CardRushRunnerState Held(long lockTick)
+            => new CardRushRunnerState { LockTick = lockTick, RollStartTick = RollBase };
 
         private static CardColor SpinAt(CardRushRunnerState s, long tick)
         {
@@ -356,25 +356,6 @@ namespace LOP.Tests
             //  옛 ExpireTick이 남아 있어도 그 뒤 쓴 카드(SpinStartTick이 달라짐)는 사라짐으로 그리지 않는다.
             var s = new CardRushRunnerState { ExpireTick = 1000, SpinStartTick = 1500, UseCount = 2 };
             Assert.AreEqual(0f, At(s, 1005).Vanish01);
-        }
-
-        [Test]
-        public void 공중에서_잡은_노랑_파랑은_흐리고_빨강은_안_흐리다()
-        {
-            long lockTick = 1100;
-            //  잡은 색별로 찾는다 — 색은 UseCount로 바뀐다.
-            CardColor Caught(int use) => SpinAt(new CardRushRunnerState { UseCount = use }, lockTick);
-            int red = -1, nonRed = -1;
-            for (int u = 0; u < 12; u++) { if (Caught(u) == CardColor.Red) red = u; else nonRed = u; }
-            Assert.GreaterOrEqual(red, 0); Assert.GreaterOrEqual(nonRed, 0);
-
-            var air = new CardRushRunnerState { LockTick = lockTick, JumpStartTick = 1090, RollStartTick = RollBase };
-            var airRed = air; airRed.UseCount = red;
-            var airOther = air; airOther.UseCount = nonRed;
-            Assert.IsFalse(At(airRed, 1110).Dim, "빨강은 공중에서도 쓴다");
-            Assert.IsTrue(At(airOther, 1110).Dim, "노랑·파랑은 공중에서 못 쓴다");
-            var ground = airOther; ground.JumpStartTick = 0;
-            Assert.IsFalse(At(ground, 1110).Dim, "땅에선 또렷");
         }
 
         [Test]

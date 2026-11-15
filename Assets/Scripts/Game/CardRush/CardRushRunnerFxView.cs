@@ -29,7 +29,7 @@ namespace LOP
         }
 
         /// <summary>
-        /// 점프 먼지 — 뛸 때·내려앉을 때 발밑에 흰 고리가 0.3초 퍼지며 옅어진다. 사라진 카드의 회색 연기 퐁도 같은 길이.
+        /// 대시 먼지 — 대시를 시작할 때 발밑에 흰 고리가 0.3초 퍼지며 옅어진다. 사라진 카드의 회색 연기 퐁도 같은 길이.
         /// </summary>
         public const int PuffTicks = 15;
         public const float DustRadiusFrom = 0.25f;
@@ -46,6 +46,13 @@ namespace LOP
         public const float StreakLength = 1.1f;
         public static readonly Color StreakColor = new Color(0.24f, 0.53f, 0.91f);
 
+        /// <summary>
+        /// 골드 러시 — 달리는 동안 발밑 뒤로 금빛 줄 셋이 이어진다(대시 줄과 같은 모양, 색만 금). 끝나기 전 RushFadeTicks 동안 옅어진다.
+        /// </summary>
+        public const int RushFadeTicks = 10;
+        public const float RushStreakLength = 1.6f;
+        public static readonly Color RushColor = new Color(1f, 0.78f, 0.2f);
+
         /// <summary>말풍선 — 머리 위 0.8초(40틱) 떠오르며 옅어진다. 남의 것은 ±3레인만, 작게.</summary>
         public const int BubbleTicks = 40;
         public const float BubbleRise = 0.4f;
@@ -61,7 +68,6 @@ namespace LOP
             public Transform Head;
             public ModelRest Rest;
             public bool Posed;
-            public long JumpMemory;     // 마지막으로 본 점프 시작 틱 — 내려앉으면 상태에서 지워져 내려앉음 그림이 이걸 쓴다
             public CardRushGagFx Fx;
             public CardRushRunnerProps Props;
         }
@@ -120,9 +126,8 @@ namespace LOP
                 var state = runner.State;
                 double d = DrawnTick(renderClock, actor.entityId, me);
                 entries.TryGetValue(actor.entityId, out var entry);
-                long jumpMemory = entry != null ? entry.JumpMemory : 0;
-                var (kind, t01) = CardRushGag.Phase(state, d, tuning, track, jumpMemory);
-                var props = CardRushRunnerProps.Look(state, d, track, jumpMemory);
+                var (kind, t01) = CardRushGag.Phase(state, d, tuning, track);
+                var props = CardRushRunnerProps.Look(state, d, track);
 
                 if (entry == null || entry.Visual != visual.transform)
                 {
@@ -136,7 +141,6 @@ namespace LOP
                         continue;
                     }
                 }
-                if (state.JumpStartTick != 0) entry.JumpMemory = state.JumpStartTick;
 
                 if (kind != CardRushGagKind.None || entry.Posed)
                 {
@@ -256,19 +260,21 @@ namespace LOP
     {
         public readonly float Streak01;     //  대시 줄 옅어짐(0 → 1). 음수 = 없음
         public readonly float Throw01;      //  던지는 팔(0 → 1). 음수 = 없음
-        public readonly float Dust01;       //  점프 먼지(0 → 1). 음수 = 없음
+        public readonly float Dust01;       //  대시 먼지(0 → 1). 음수 = 없음
         public readonly float Puff01;       //  사라진 카드 연기 퐁(0 → 1). 음수 = 없음
         public readonly string Bubble;      //  말풍선 글. null = 없음
         public readonly bool BubbleGood;
         public readonly float Bubble01;
+        public readonly float Rush;         //  골드 러시 줄 짙기(0~1). 음수 = 러시 아님
 
-        public CardRushPropsLook(float streak01, float throw01, float dust01, float puff01, string bubble, bool bubbleGood, float bubble01)
+        public CardRushPropsLook(float streak01, float throw01, float dust01, float puff01, string bubble, bool bubbleGood, float bubble01, float rush = -1f)
         {
+            Rush = rush;
             Streak01 = streak01; Throw01 = throw01; Dust01 = dust01; Puff01 = puff01;
             Bubble = bubble; BubbleGood = bubbleGood; Bubble01 = bubble01;
         }
 
-        public bool Any => Streak01 >= 0f || Throw01 >= 0f || Dust01 >= 0f || Puff01 >= 0f || Bubble != null;
+        public bool Any => Streak01 >= 0f || Throw01 >= 0f || Dust01 >= 0f || Puff01 >= 0f || Rush >= 0f || Bubble != null;
     }
 
     /// <summary>대시 줄·던지는 팔·먼지·연기·말풍선(spec 4차 §9). 효과마다 한 색 계열 — 대시 파랑, 던지는 팔 살색+빨강, 먼지 흰색, 연기 회색.</summary>
@@ -276,6 +282,7 @@ namespace LOP
     {
         private readonly Transform root;
         private readonly Renderer[] streaks = new Renderer[3];
+        private readonly Renderer[] rushStreaks = new Renderer[3];
         private readonly Transform arm;
         private readonly Renderer dust;
         private readonly Renderer puff;
@@ -288,6 +295,10 @@ namespace LOP
             for (int i = 0; i < streaks.Length; i++)
             {
                 streaks[i] = CardRushDraw.Box("Streak", root, Vector3.zero, new Vector3(0.06f, 0.01f, CardRushRunnerFxView.StreakLength), materials.Clear).GetComponent<Renderer>();
+            }
+            for (int i = 0; i < rushStreaks.Length; i++)
+            {
+                rushStreaks[i] = CardRushDraw.Box("RushStreak", root, Vector3.zero, new Vector3(0.07f, 0.01f, CardRushRunnerFxView.RushStreakLength), materials.Clear).GetComponent<Renderer>();
             }
             arm = CardRushDraw.Node("ThrowArm", root).transform;
             var sleeve = CardRushDraw.Primitive(PrimitiveType.Cylinder, "Arm", arm, materials.Arm);
@@ -302,9 +313,8 @@ namespace LOP
 
         /// <summary>
         /// 그 그림 틱의 소품 모습. <paramref name="track"/>은 "휙!"이 굴러오는 것을 넘었을 때만 뜨게(구덩이를 넘은 건 말풍선 없음),
-        /// <paramref name="jumpMemory"/>는 그림이 기억한 점프 시작 틱(내려앉음 먼지).
         /// </summary>
-        public static CardRushPropsLook Look(in CardRushRunnerState s, double d, CardRushTrack track = null, long jumpMemory = 0)
+        public static CardRushPropsLook Look(in CardRushRunnerState s, double d, CardRushTrack track = null)
         {
             float streak = -1f;
             if (s.DashStartTick != 0 && d >= s.DashStartTick && d < s.DashStartTick + CardRushRunnerFxView.StreakTicks)
@@ -320,12 +330,16 @@ namespace LOP
             }
 
             float dust01 = -1f;
-            long jump = s.JumpStartTick != 0 ? s.JumpStartTick : jumpMemory;
-            if (jump != 0)
+            if (s.DashStartTick != 0 && d >= s.DashStartTick && d < s.DashStartTick + CardRushRunnerFxView.PuffTicks)
             {
-                if (d >= jump && d < jump + CardRushRunnerFxView.PuffTicks) dust01 = (float)((d - jump) / CardRushRunnerFxView.PuffTicks);
-                long land = CardRushGag.LandTick(s, jump, track);
-                if (d >= land && d < land + CardRushRunnerFxView.PuffTicks) dust01 = (float)((d - land) / CardRushRunnerFxView.PuffTicks);
+                dust01 = (float)((d - s.DashStartTick) / CardRushRunnerFxView.PuffTicks);
+            }
+
+            //  골드 러시 — 러시 중엔 1, 끝나기 전 RushFadeTicks 동안 0으로. 없으면 음수.
+            float rush = -1f;
+            if (s.RushEndTick != 0 && d < s.RushEndTick)
+            {
+                rush = Mathf.Clamp01((float)((s.RushEndTick - d) / CardRushRunnerFxView.RushFadeTicks));
             }
 
             float puff01 = -1f;
@@ -355,21 +369,23 @@ namespace LOP
             }
             if (text != null) bubble01 = (float)((d - at) / CardRushRunnerFxView.BubbleTicks);
 
-            return new CardRushPropsLook(streak, throw01, dust01, puff01, text, good, bubble01);
+            return new CardRushPropsLook(streak, throw01, dust01, puff01, text, good, bubble01, rush);
         }
 
         private static bool In(double d, long at) => at != 0 && d >= at && d < at + CardRushRunnerFxView.BubbleTicks;
 
-        /// <summary>장애물 결과 말풍선. 넘음(Jumped)은 굴러오는 것을 넘었을 때만 "휙!" — 구덩이를 넘은 건 조용하다.</summary>
+        /// <summary>장애물 결과 말풍선. 넘음(Jumped, 대시로 지나감)은 굴러오는 것을 넘었을 때만 "휙!" — 구덩이를 넘은 건 조용하다. 고블린은 잡음·놓침.</summary>
         public static string ObstacleBubble(in CardRushRunnerState s, CardRushTrack track, out bool good)
         {
             var ev = (CardRushObstacleEvent)s.ObstacleEvent;
-            good = ev == CardRushObstacleEvent.Smashed || ev == CardRushObstacleEvent.Jumped;
+            good = ev == CardRushObstacleEvent.Smashed || ev == CardRushObstacleEvent.Jumped || ev == CardRushObstacleEvent.Caught;
             switch (ev)
             {
                 case CardRushObstacleEvent.Smashed: return "와장창!";
                 case CardRushObstacleEvent.Tumbled: return "꽈당";
                 case CardRushObstacleEvent.Fell: return "풍덩";
+                case CardRushObstacleEvent.Caught: return "잡았다!";
+                case CardRushObstacleEvent.Escaped: return "놓쳤다";
                 case CardRushObstacleEvent.Jumped:
                     int cleared = s.ObstacleIndex - 1;
                     return track != null && cleared >= 0 && cleared < track.Obstacles.Count
@@ -399,6 +415,17 @@ namespace LOP
                 var at = body + right * x + Vector3.up * 0.04f - f * (CardRushRunnerFxView.StreakLength * 0.5f + 0.2f + (i == 1 ? 0.15f : 0f));
                 streaks[i].transform.SetPositionAndRotation(at, Quaternion.LookRotation(f, Vector3.up));
                 CardRushDraw.Tint(streaks[i], block, CardRushRunnerFxView.StreakColor, 0.85f * (1f - look.Streak01));
+            }
+
+            bool rushing = look.Rush >= 0f;
+            for (int i = 0; i < rushStreaks.Length; i++)
+            {
+                CardRushDraw.SetActive(rushStreaks[i].gameObject, rushing);
+                if (rushing == false) continue;
+                float x = (i - 1) * 0.3f;
+                var at = body + right * x + Vector3.up * (0.08f + i % 2 * 0.1f) - f * (CardRushRunnerFxView.RushStreakLength * 0.5f + 0.25f + (i == 1 ? 0.2f : 0f));
+                rushStreaks[i].transform.SetPositionAndRotation(at, Quaternion.LookRotation(f, Vector3.up));
+                CardRushDraw.Tint(rushStreaks[i], block, CardRushRunnerFxView.RushColor, 0.7f * look.Rush);
             }
 
             bool swing = look.Throw01 >= 0f;
@@ -455,6 +482,7 @@ namespace LOP
         private void SetAll(bool on)
         {
             foreach (var s in streaks) CardRushDraw.SetActive(s.gameObject, on);
+            foreach (var s in rushStreaks) CardRushDraw.SetActive(s.gameObject, on);
             CardRushDraw.SetActive(arm.gameObject, on);
             CardRushDraw.SetActive(dust.gameObject, on);
             CardRushDraw.SetActive(puff.gameObject, on);
@@ -462,6 +490,7 @@ namespace LOP
 
         /// <summary>지금 켜진 소품 — 시험·진단용.</summary>
         public bool StreaksVisible => streaks[0].gameObject.activeSelf;
+        public bool RushStreaksVisible => rushStreaks[0].gameObject.activeSelf;
         public bool ThrowArmVisible => arm.gameObject.activeSelf;
         public bool DustVisible => dust.gameObject.activeSelf;
         public bool PuffVisible => puff.gameObject.activeSelf;

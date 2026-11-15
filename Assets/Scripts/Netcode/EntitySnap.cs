@@ -46,7 +46,7 @@ namespace LOP
         public long cardWhiffTick { get; set; }         // CardRush: 투사체가 꺼진 틱. 0 = 없음
         public long cardLockTick { get; set; }          // CardRush: 카드를 잡은 틱. 0 = 돈다
         public long cardExpireTick { get; set; }        // CardRush: 잡은 카드가 사라진 틱. 0 = 없음
-        public long cardJumpStartTick { get; set; }     // CardRush: 점프 시작 틱. 0 = 땅
+        public long cardJumpStartTick { get; set; }     // CardRush: 골드 러시 끝 틱(RushEndTick). 0 = 없음. 와이어 칸 이름은 옛 점프 칸 그대로
         public long cardShotTick { get; set; }          // CardRush: 날고 있는 투사체를 던진 틱. 0 = 없음
         public int cardShotFromMm { get; set; }         // CardRush: 투사체 출발 자리(mm)
         public long cardRollStartTick { get; set; }     // CardRush: 카드가 돌기 시작한 틱. 0 = 안 돈다

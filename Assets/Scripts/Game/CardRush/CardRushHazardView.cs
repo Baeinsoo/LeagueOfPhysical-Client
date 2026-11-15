@@ -124,6 +124,7 @@ namespace LOP
         public static readonly Color Soil = new Color(0.36f, 0.25f, 0.16f);
         public static readonly Color Caution = new Color(0.96f, 0.77f, 0.26f);
         public static readonly Color ShotCard = new Color(0.90f, 0.28f, 0.30f);
+        public static readonly Color Gold = new Color(1f, 0.78f, 0.2f);
 
         private readonly List<UnityEngine.Object> owned = new List<UnityEngine.Object>();
 
@@ -146,6 +147,7 @@ namespace LOP
         public Material SoilMat { get; }
         public Material CautionMat { get; }
         public Material ShotCardMat { get; }
+        public Material GoldMat { get; }
         /// <summary>반투명 — 알파는 렌더러마다 <see cref="CardRushDraw.Tint"/>로.</summary>
         public Material Clear { get; }
         public Material Checker { get; }
@@ -171,6 +173,7 @@ namespace LOP
             SoilMat = Own(CardRushDraw.Opaque("CardRush_Soil", Soil));
             CautionMat = Own(CardRushDraw.Opaque("CardRush_Caution", Caution));
             ShotCardMat = Own(CardRushDraw.Opaque("CardRush_ShotCard", ShotCard));
+            GoldMat = Own(CardRushDraw.Opaque("CardRush_Gold", Gold));
             Clear = Own(CardRushDraw.Transparent("CardRush_Clear", Color.white));
             Checker = Own(MakeChecker());
         }
@@ -474,6 +477,8 @@ namespace LOP
         public int ZoneCount => zones.Count;
         public Transform ObstacleRoot(int index) => obstacles.TryGetValue(index, out var o) ? o.Root : null;
         public Transform ZoneRoot(int index) => zones.TryGetValue(index, out var z) ? z.Root : null;
+        public bool ObstacleBodyVisible(int index) => obstacles.TryGetValue(index, out var o) && o.BodyVisible;
+        public bool ObstaclePoofVisible(int index) => obstacles.TryGetValue(index, out var o) && o.PoofVisible;
         public Transform ShotRoot => shot?.Root;
         public bool ShotVisible => shot != null && shot.Root.gameObject.activeSelf;
         public bool ShotSmokeVisible => shot != null && shot.SmokeVisible;
@@ -504,8 +509,12 @@ namespace LOP
             private readonly CardRushWorldLabel label;
             private readonly int pitWidthMm;
             private Renderer pitDust;
+            private Transform legL, legR;
+            private Renderer poof;
 
             public Transform Root { get; }
+            public bool BodyVisible => body.gameObject.activeSelf;
+            public bool PoofVisible => poof != null && poof.gameObject.activeSelf;
 
             public ObstacleGo(CardRushLaneHazards lane, int index, in CardRushObstacle obstacle)
             {
@@ -514,7 +523,7 @@ namespace LOP
                 variant = obstacle.Variant;
                 atMm = obstacle.AtMm;
                 var m = lane.materials;
-                Root = CardRushDraw.Node((kind == CardRushObstacleKind.Barricade ? "Barricade " : kind == CardRushObstacleKind.Pit ? "Pit " : "Roller ") + index, lane.root, lane.hideFlags).transform;
+                Root = CardRushDraw.Node((kind == CardRushObstacleKind.Barricade ? "Barricade " : kind == CardRushObstacleKind.Pit ? "Pit " : kind == CardRushObstacleKind.Goblin ? "Goblin " : "Roller ") + index, lane.root, lane.hideFlags).transform;
                 Root.rotation = lane.facing;
                 body = CardRushDraw.Node("Body", Root, lane.hideFlags).transform;
                 spin = body;
@@ -531,6 +540,11 @@ namespace LOP
                     BuildBarricade(variant, lane.laneSpacing * BarricadeWidthOfLane);
                     shardMat = m.WoodMat;
                 }
+                else if (kind == CardRushObstacleKind.Goblin)
+                {
+                    BuildGoblin();
+                    shardMat = m.GoldMat;
+                }
                 else
                 {
                     switch (variant)
@@ -545,7 +559,7 @@ namespace LOP
                     shards[i] = CardRushDraw.Box("Shard", Root, Vector3.zero, new Vector3(0.38f, 0.12f, 0.08f), shardMat, lane.hideFlags).transform;
                     shards[i].gameObject.SetActive(false);
                 }
-                if (lane.labels) label = CardRushWorldLabel.Create("Seconds", Root);
+                if (lane.labels && kind != CardRushObstacleKind.Goblin) label = CardRushWorldLabel.Create("Seconds", Root);
             }
 
             //  구덩이 — 레인 폭의 어두운 구멍(바닥 위 1 cm), 앞 1 m 노랑·검정 경고 줄무늬, 가장자리 흙 테두리. Root는 앞 가장자리(At)에 선다.
@@ -587,6 +601,74 @@ namespace LOP
                 float r = Mathf.Lerp(0.5f, 1.8f, Mathf.Sqrt(look.T01));
                 pitDust.transform.localScale = new Vector3(r, 0.002f, r);
                 CardRushDraw.Tint(pitDust, lane.block, CardRushStageMaterials.Dust, 0.45f * (1f - look.T01));
+            }
+
+            //  황금 고블린 — 금빛 몸통·큰 머리·뾰족 귀, 등에 자루. 뒤(-z, 쫓는 몸 쪽)를 돌아보며 달아난다.
+            private void BuildGoblin()
+            {
+                var m = lane.materials;
+                var f = lane.hideFlags;
+                var torso = CardRushDraw.Primitive(PrimitiveType.Sphere, "Torso", body, m.GoldMat, f);
+                torso.transform.localPosition = new Vector3(0f, 0.38f, 0f);
+                torso.transform.localScale = new Vector3(0.46f, 0.5f, 0.42f);
+                var head = CardRushDraw.Primitive(PrimitiveType.Sphere, "Head", body, m.GoldMat, f);
+                head.transform.localPosition = new Vector3(0f, 0.78f, -0.03f);
+                head.transform.localScale = Vector3.one * 0.38f;
+                for (int i = -1; i <= 1; i += 2)
+                {
+                    var ear = CardRushDraw.Box("Ear", body, new Vector3(0.22f * i, 0.86f, -0.03f), new Vector3(0.22f, 0.08f, 0.06f), m.GoldMat, f);
+                    ear.transform.localRotation = Quaternion.Euler(0f, 0f, 25f * i);
+                    var eye = CardRushDraw.Primitive(PrimitiveType.Sphere, "Eye", body, m.EyeMat, f);
+                    eye.transform.localPosition = new Vector3(0.08f * i, 0.82f, -0.17f);
+                    eye.transform.localScale = Vector3.one * 0.1f;
+                    var pupil = CardRushDraw.Primitive(PrimitiveType.Sphere, "Pupil", body, m.PupilMat, f);
+                    pupil.transform.localPosition = new Vector3(0.08f * i, 0.82f, -0.215f);
+                    pupil.transform.localScale = Vector3.one * 0.05f;
+                }
+                var sack = CardRushDraw.Primitive(PrimitiveType.Sphere, "Sack", body, m.BarrelMat, f);
+                sack.transform.localPosition = new Vector3(0f, 0.45f, 0.26f);
+                sack.transform.localScale = new Vector3(0.34f, 0.38f, 0.3f);
+                legL = CardRushDraw.Box("LegL", body, new Vector3(-0.1f, 0.1f, 0f), new Vector3(0.08f, 0.2f, 0.08f), m.GoldMat, f).transform;
+                legR = CardRushDraw.Box("LegR", body, new Vector3(0.1f, 0.1f, 0f), new Vector3(0.08f, 0.2f, 0.08f), m.GoldMat, f).transform;
+                poof = CardRushDraw.Primitive(PrimitiveType.Sphere, "Poof", Root, m.Clear, f).GetComponent<Renderer>();
+                poof.transform.localPosition = new Vector3(0f, 0.45f, 0f);
+                poof.gameObject.SetActive(false);
+            }
+
+            //  나타나 달아나는 동안 통통 뛰고 다리가 번갈아 구른다. 잡히면 금빛 조각이 터지고, 놓치면 제자리에서 돌며 작아지고 연기가 인다.
+            private void PlaceGoblin(in CardRushObstacleLook look)
+            {
+                bool alive = look.Phase == CardRushObstaclePhase.Goblin;
+                bool caught = look.Phase == CardRushObstaclePhase.GoblinCaught;
+                bool escaped = look.Phase == CardRushObstaclePhase.GoblinEscaped;
+                CardRushDraw.SetActive(body.gameObject, alive || escaped);
+                for (int i = 0; i < ShardCount; i++) CardRushDraw.SetActive(shards[i].gameObject, caught);
+                CardRushDraw.SetActive(poof.gameObject, escaped);
+
+                body.localPosition = Vector3.zero;
+                body.localRotation = Quaternion.identity;
+                body.localScale = Vector3.one;
+                if (alive)
+                {
+                    float age = look.T01 * CardRushRules.GoblinLifeTicks;
+                    body.localPosition = Vector3.up * (0.22f * Mathf.Abs(Mathf.Sin(age * 0.3f)));
+                    float swing = 35f * Mathf.Sin(age * 0.6f);
+                    legL.localRotation = Quaternion.Euler(swing, 0f, 0f);
+                    legR.localRotation = Quaternion.Euler(-swing, 0f, 0f);
+                }
+                else if (escaped)
+                {
+                    float u = look.T01;
+                    body.localRotation = Quaternion.Euler(0f, 540f * u, 0f);
+                    body.localScale = Vector3.one * Mathf.Clamp01((1f - u) / 0.5f);
+                    float r = Mathf.Lerp(0.4f, 1.6f, Mathf.Sqrt(u));
+                    poof.transform.localScale = Vector3.one * r;
+                    CardRushDraw.Tint(poof, lane.block, CardRushStageMaterials.Gold, 0.5f * (1f - u));
+                }
+                else if (caught)
+                {
+                    Shatter(look.T01);
+                }
             }
 
             private void BuildBarricade(int v, float width)
@@ -697,6 +779,11 @@ namespace LOP
                 if (kind == CardRushObstacleKind.Pit)
                 {
                     PlacePit(look);
+                    return;
+                }
+                if (kind == CardRushObstacleKind.Goblin)
+                {
+                    PlaceGoblin(look);
                     return;
                 }
                 bool broken = look.Phase == CardRushObstaclePhase.Smashed;

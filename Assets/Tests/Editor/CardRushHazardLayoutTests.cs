@@ -232,6 +232,53 @@ namespace LOP.Tests
             Assert.AreEqual(CardRushObstaclePhase.Pit, Pit(s, 1, 5015).Phase, "0.3초(15틱) 뒤엔 구멍만");
         }
 
+        //  0: 고블린 20 m, 1: 바리케이드 40 m.
+        private static readonly CardRushTrack goblinTrack = CardRushTrack.ForTests(100000,
+            new[] { new CardRushObstacle(CardRushObstacleKind.Goblin, 20000, 0), new CardRushObstacle(CardRushObstacleKind.Barricade, 40000, 0) },
+            new CardRushZone[0], 9);
+
+        private static CardRushObstacleLook Goblin(CardRushRunnerState s, int index, double d)
+            => CardRushHazardLayout.ObstacleLook(s, index, d, 0f, goblinTrack, tuning);
+
+        [Test]
+        public void 고블린은_나타난_틱부터_GoblinPos를_따라_달아난다()
+        {
+            var s = new CardRushRunnerState { ObstacleIndex = 0 };
+            Assert.AreEqual(CardRushObstaclePhase.Standing, Goblin(s, 0, 500).Phase, "나타나기 전");
+            s.ObstacleTick = 1000;
+            var at = Goblin(s, 0, 1020);
+            Assert.AreEqual(CardRushObstaclePhase.Goblin, at.Phase);
+            Assert.AreEqual(CardRushRunnerSim.GoblinPos(goblinTrack.Obstacles[0], 1000, 1020), at.AlongMm, 1e-3f);
+            Assert.AreEqual(20f / CardRushRules.GoblinLifeTicks, at.T01, 1e-5f);
+            Assert.AreEqual(CardRushObstaclePhase.Standing, Goblin(s, 0, 999).Phase, "그림 틱이 나타난 틱 전이면 아직");
+        }
+
+        [Test]
+        public void 잡으면_그_자리에서_터지고_035초_뒤_없다()
+        {
+            //  잡은 틱 2000, 골드 러시 100틱 → 나타난 지 75틱 만에 잡았다.
+            var s = new CardRushRunnerState { ObstacleIndex = 1, ObstacleEvent = (int)CardRushObstacleEvent.Caught, ObstacleEventTick = 2000, RushEndTick = 2100 };
+            var at = Goblin(s, 0, 2000);
+            Assert.AreEqual(CardRushObstaclePhase.GoblinCaught, at.Phase);
+            Assert.AreEqual(20000 + CardRushRules.GoblinMmPerTick * 75f, at.AlongMm, 1e-3f, "잡은 자리 = 75틱 달아난 자리");
+            Assert.AreEqual(CardRushObstaclePhase.Gone, Goblin(s, 0, 2018).Phase);
+            //  남의 레인: 잡힌 틱 전엔 아직 달아나는 중.
+            var before = Goblin(s, 0, 1990);
+            Assert.AreEqual(CardRushObstaclePhase.Goblin, before.Phase);
+            Assert.AreEqual(20000 + CardRushRules.GoblinMmPerTick * 65f, before.AlongMm, 1e-3f);
+        }
+
+        [Test]
+        public void 놓치면_수명_끝_자리에서_사라진다()
+        {
+            var s = new CardRushRunnerState { ObstacleIndex = 1, ObstacleEvent = (int)CardRushObstacleEvent.Escaped, ObstacleEventTick = 3000 };
+            var at = Goblin(s, 0, 3000);
+            Assert.AreEqual(CardRushObstaclePhase.GoblinEscaped, at.Phase);
+            Assert.AreEqual(20000 + CardRushRules.GoblinMmPerTick * CardRushRules.GoblinLifeTicks, at.AlongMm, 1e-3f);
+            Assert.AreEqual(CardRushObstaclePhase.Gone, Goblin(s, 0, 3018).Phase);
+            Assert.AreEqual(CardRushObstaclePhase.Goblin, Goblin(s, 0, 2999).Phase, "남의 레인: 아직 달아나는 중");
+        }
+
         [Test]
         public void 굴러오는_것을_넘으면_몸_밑으로_지나가_035초에_사라진다()
         {
@@ -241,8 +288,8 @@ namespace LOP.Tests
             Assert.AreEqual(0f, at.T01, 1e-6f);
             Assert.AreEqual(44000f + CardRushRules.RollerContactMm, at.AlongMm, 1e-3f, "닿은 순간엔 몸 앞 접촉 거리");
             var later = Pit(s, 2, 7010, 44000f);
-            Assert.AreEqual(44000f - (CardRushRules.JumpMmPerTick + CardRushRules.RollerMmPerTick) * 10f + CardRushRules.RollerContactMm, later.AlongMm, 1e-3f,
-                "몸은 앞으로 60, 굴러오는 것은 몸 쪽으로 38 — 서로 지나친다");
+            Assert.AreEqual(44000f - (CardRushRules.RunMmPerTick + CardRushRules.RollerMmPerTick) * 10f + CardRushRules.RollerContactMm, later.AlongMm, 1e-3f,
+                "몸은 대시로 앞으로, 굴러오는 것은 몸 쪽으로 38 — 서로 지나친다");
             Assert.Less(later.AlongMm, 44000f, "10틱 뒤엔 몸 뒤");
             Assert.AreEqual(CardRushObstaclePhase.Gone, Pit(s, 2, 7018, 44000f).Phase, "0.35초(17.5틱) 뒤엔 없다");
 

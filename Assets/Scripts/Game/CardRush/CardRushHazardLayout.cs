@@ -196,6 +196,8 @@ namespace LOP
         private static CardRushObstacleLook GoblinAlive(in CardRushObstacle o, long revealTick, double d)
         {
             if (revealTick == 0 || revealTick > d) return Standing(o);
+            //  완주하면 Step이 멈춰 놓침이 안 온다 — 산 틱을 넘긴 고블린은 지운다(리뷰 m1).
+            if (d - revealTick >= CardRushRules.GoblinLifeTicks) return Gone(o.Variant);
             float t = UnityEngine.Mathf.Clamp01((float)((d - revealTick) / CardRushRules.GoblinLifeTicks));
             float along = o.AtMm + CardRushRules.GoblinMmPerTick * (float)(d - revealTick);
             return new CardRushObstacleLook(CardRushObstaclePhase.Goblin, t, along, o.Variant, 0f);

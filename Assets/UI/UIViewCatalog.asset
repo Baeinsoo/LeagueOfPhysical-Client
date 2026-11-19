@@ -133,3 +133,9 @@ MonoBehaviour:
   - viewName: CardRushPadView
     uxml: {fileID: 9197481963319205126, guid: 9202bca13357043b49904a23e1829840, type: 3}
     uss: {fileID: 7433441132597879392, guid: 0ac416385d304461185c90d09957503b, type: 3}
+  - viewName: TriGrabPadView
+    uxml: {fileID: 9197481963319205126, guid: 70276f511dc724fe49426d7b55ff554c, type: 3}
+    uss: {fileID: 7433441132597879392, guid: 238cf0918cfbf449bb0617f2ad23953b, type: 3}
+  - viewName: TriGrabHudView
+    uxml: {fileID: 9197481963319205126, guid: 071405be1d6b346be8dc762cfc46a5e2, type: 3}
+    uss: {fileID: 7433441132597879392, guid: 57227c1b9c11b4d5787b119e99157666, type: 3}

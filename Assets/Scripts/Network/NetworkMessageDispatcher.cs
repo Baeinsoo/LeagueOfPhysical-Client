@@ -31,6 +31,7 @@ namespace LOP
             IPublisher<DodgeStateToC> dodgeState,
             IPublisher<MountedArcheryStateToC> mountedArcheryState,
             IPublisher<KnockbackStateToC> knockbackState,
+            IPublisher<TriGrabStateToC> triGrabState,
             IPublisher<PlayerPresenceToC> playerPresence,
             IPublisher<MatchEndedToC> matchEnded,
             IPublisher<MatchStartToC> matchStart,
@@ -50,6 +51,7 @@ namespace LOP
             Register(dodgeState);
             Register(mountedArcheryState);
             Register(knockbackState);
+            Register(triGrabState);
             Register(playerPresence);
             Register(matchEnded);
             Register(matchStart);

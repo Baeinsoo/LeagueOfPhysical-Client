@@ -110,13 +110,13 @@
     },
     {
       "op": "log",
-      "message": "라운드 1: 정답마다 'OO N등 +점' 띠·점수판 '✓N +점', 라운드 끝 '라운드 1 결과'(1.4초)"
+      "message": "라운드 1: 정답마다 'OO N등 +점' 띠·점수판 '✓N +점'. 라운드 끝 '라운드 1 결과'(1.4초)는 ui_wait가 놓칠 만큼 짧아 0.4초 간격으로 여섯 장 찍는다. 봇 판은 라운드가 4초 안팎이라 라운드 2~4 기다림은 선택(지나쳤으면 그냥 이어서 쏜다)"
     },
     {
       "op": "ui_wait",
       "name": "toast-text",
       "text_contains": "등 +",
-      "timeout_s": 25,
+      "timeout_s": 15,
       "optional": true
     },
     {
@@ -124,25 +124,59 @@
       "as": "r1-correct-toast"
     },
     {
-      "op": "ui_wait",
-      "name": "toast-text",
-      "text_contains": "라운드 1 결과",
-      "timeout_s": 25,
-      "optional": true
-    },
-    {
       "op": "wait",
-      "seconds": 0.1
+      "seconds": 0.4
     },
     {
       "op": "screenshot",
-      "as": "r1-round-result"
+      "as": "r1-after-correct-1"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.4
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-after-correct-2"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.4
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-after-correct-3"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.4
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-after-correct-4"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.4
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-after-correct-5"
+    },
+    {
+      "op": "wait",
+      "seconds": 0.4
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-after-correct-6"
     },
     {
       "op": "ui_wait",
       "name": "round-text",
       "text_contains": "라운드 2",
-      "timeout_s": 60
+      "timeout_s": 30,
+      "optional": true
     },
     {
       "op": "log",
@@ -246,7 +280,8 @@
       "op": "ui_wait",
       "name": "round-text",
       "text_contains": "라운드 3",
-      "timeout_s": 60
+      "timeout_s": 30,
+      "optional": true
     },
     {
       "op": "log",
@@ -303,7 +338,8 @@
       "op": "ui_wait",
       "name": "round-text",
       "text_contains": "라운드 4",
-      "timeout_s": 60
+      "timeout_s": 30,
+      "optional": true
     },
     {
       "op": "log",

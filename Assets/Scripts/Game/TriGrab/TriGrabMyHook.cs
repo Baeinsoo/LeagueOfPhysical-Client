@@ -71,13 +71,18 @@ namespace LOP
             return server;
         }
 
-        // 서버가 이미 새 라운드로 갔거나, 내가 쏜 틱이 회전판이 멈춘 틱 이후면 서버는 그 쏘기를 받지 않았다.
+        // 서버가 그 쏘기를 받지 않았다고 확정할 수 있는 경우만 버린다:
+        // 이미 새 라운드로 갔다 / 라운드가 끝난 틱(시간 상한 포함) 이후에 쐈다 / 내가 이번 라운드에 이미 정답을 냈다.
+        // 남이 정답을 내는 것만으로는 라운드가 끝나지 않으므로(2차 — 순위 점수) 버리지 않는다.
+        // 정답을 낸 그 갈고리는 같은 상태에 서버 갈고리로 실려 오므로 위에서 먼저 확인된다.
         private bool RejectedByState()
         {
             if (!state.Received) return false;
             if (roundAtFire >= 0 && state.Round != roundAtFire) return true;
+            if (state.RoundLimitTick > 0 && predicted.FireTick >= state.RoundLimitTick) return true;
             bool ended = state.Phase == TriGrabPhase.Resolved || state.Phase == TriGrabPhase.Over;
-            return ended && predicted.FireTick >= state.Clock.FreezeTick;
+            if (ended && predicted.FireTick >= state.Clock.FreezeTick) return true;
+            return state.DoneThisRound(predicted.OwnerId);
         }
 
         /// <summary>내 갈고리가 나가 있나(쏜 틱부터 돌아온 틱까지). 서버 확인을 기다리는 동안도 나가 있는 것으로 본다.</summary>

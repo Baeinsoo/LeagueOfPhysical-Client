@@ -153,13 +153,90 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 정답_띠는_라운드_끝과_판_끝에만()
+        public void 판_끝_띠는_누적_1위_혼자면_우승_같으면_경기_종료()
         {
-            Assert.AreEqual("철수 정답!", LOP.UI.TriGrabHudViewModel.Toast(TriGrabPhase.Resolved, "a", "철수"));
+            Assert.AreEqual("", LOP.UI.TriGrabHudViewModel.Toast(TriGrabPhase.Resolved, "a", "철수"), "라운드 끝은 라운드 결과가 따로 뜬다");
             Assert.AreEqual("", LOP.UI.TriGrabHudViewModel.Toast(TriGrabPhase.Live, "a", "철수"));
-            Assert.AreEqual("", LOP.UI.TriGrabHudViewModel.Toast(TriGrabPhase.Resolved, "", "?"));
             Assert.AreEqual("철수 우승!", LOP.UI.TriGrabHudViewModel.Toast(TriGrabPhase.Over, "a", "철수"));
             Assert.AreEqual("경기 종료", LOP.UI.TriGrabHudViewModel.Toast(TriGrabPhase.Over, "", "?"));
+        }
+
+        // ── 2차: 순위 점수 HUD ──
+
+        [Test]
+        public void 라운드_표시는_N_슬래시_전체()
+        {
+            Assert.AreEqual("라운드 3 / 5", LOP.UI.TriGrabHudViewModel.RoundLabel(3, 5));
+            Assert.AreEqual("", LOP.UI.TriGrabHudViewModel.RoundLabel(0, 5), "시작 전");
+        }
+
+        [Test]
+        public void 점수판_등수_표시와_정답_띠()
+        {
+            Assert.AreEqual("✓1 +10", LOP.UI.TriGrabHudViewModel.PlaceBadge(1, 10));
+            Assert.AreEqual("✓3 +8", LOP.UI.TriGrabHudViewModel.PlaceBadge(3, 8));
+            Assert.AreEqual("", LOP.UI.TriGrabHudViewModel.PlaceBadge(0, 0), "아직 못 냄");
+            Assert.AreEqual("철수 1등 +10", LOP.UI.TriGrabHudViewModel.CorrectToast("철수", 1, 10));
+        }
+
+        [Test]
+        public void 라운드_결과_줄은_정답_낸_사람만_등수_순()
+        {
+            var players = new List<(string, string, int, int)> { ("a", "철수", 2, 9), ("b", "영희", 0, 0), ("c", "봇 1", 1, 10) };
+            Assert.AreEqual("1등 봇 1 +10 · 2등 철수 +9", LOP.UI.TriGrabHudViewModel.RoundResultLine(players));
+            Assert.AreEqual("라운드 2 결과", LOP.UI.TriGrabHudViewModel.RoundResultTitle(2));
+            var none = new List<(string, string, int, int)> { ("a", "철수", 0, 0) };
+            Assert.AreEqual("아무도 못 찾았다", LOP.UI.TriGrabHudViewModel.RoundResultLine(none));
+        }
+
+        [Test]
+        public void 남은_시간_막대는_준비_중_가득_Live에_줄고_끝나면_숨긴다()
+        {
+            Assert.AreEqual(1f, LOP.UI.TriGrabHudViewModel.TimeLeft(TriGrabPhase.Prep, 50, 100, 1100));
+            Assert.AreEqual(1f, LOP.UI.TriGrabHudViewModel.TimeLeft(TriGrabPhase.Live, 100, 100, 1100), 1e-5f);
+            Assert.AreEqual(0.5f, LOP.UI.TriGrabHudViewModel.TimeLeft(TriGrabPhase.Live, 600, 100, 1100), 1e-5f);
+            Assert.AreEqual(0f, LOP.UI.TriGrabHudViewModel.TimeLeft(TriGrabPhase.Live, 1200, 100, 1100));
+            Assert.AreEqual(-1f, LOP.UI.TriGrabHudViewModel.TimeLeft(TriGrabPhase.Resolved, 600, 100, 1100));
+            Assert.AreEqual(-1f, LOP.UI.TriGrabHudViewModel.TimeLeft(TriGrabPhase.Live, 600, 0, 0), "상한을 모르면 숨김");
+        }
+
+        [Test]
+        public void 점수판은_누적_점수_높은_순_같으면_좌석_순()
+        {
+            var state = new TriGrabClientState();
+            var m = TriGrabClientStateTests.Msg(1);
+            m.Players.Clear();
+            m.Players.Add(new TriGrabPlayerWire { EntityId = "a", Score = 9 });
+            m.Players.Add(new TriGrabPlayerWire { EntityId = "b", Score = 19 });
+            m.Players.Add(new TriGrabPlayerWire { EntityId = "c", Score = 9 });
+            m.Players.Add(new TriGrabPlayerWire { EntityId = "d", Score = 0 });
+            state.Apply(m);
+            CollectionAssert.AreEqual(new[] { 1, 0, 2, 3 }, LOP.UI.TriGrabHudViewModel.RankOrder(state));
+        }
+
+        [Test]
+        public void 정답이_날_때마다_잠깐_띠를_띄우고_라운드가_바뀌면_다시_센다()
+        {
+            var a = new LOP.UI.TriGrabHudViewModel.CorrectAnnouncer();
+            var none = new List<(string, string, int, int)> { ("a", "철수", 0, 0), ("b", "영희", 0, 0) };
+            Assert.AreEqual("", a.Update(1, none, 0f));
+            var one = new List<(string, string, int, int)> { ("a", "철수", 0, 0), ("b", "영희", 1, 10) };
+            Assert.AreEqual("영희 1등 +10", a.Update(1, one, 1f));
+            Assert.AreEqual("b", a.LastId);
+            Assert.AreEqual("영희 1등 +10", a.Update(1, one, 1f + LOP.UI.TriGrabHudViewModel.CorrectToastSeconds - 0.01f));
+            Assert.AreEqual("", a.Update(1, one, 1f + LOP.UI.TriGrabHudViewModel.CorrectToastSeconds), "잠깐만");
+            var two = new List<(string, string, int, int)> { ("a", "철수", 2, 9), ("b", "영희", 1, 10) };
+            Assert.AreEqual("철수 2등 +9", a.Update(1, two, 5f), "새 정답만 띄운다");
+            Assert.AreEqual("", a.Update(2, none, 5.1f), "새 라운드");
+            Assert.AreEqual("영희 1등 +10", a.Update(2, one, 6f), "새 라운드 1등도 띄운다");
+        }
+
+        [Test]
+        public void 처음_받은_상태에_이미_있던_정답은_띄우지_않는다()
+        {
+            var a = new LOP.UI.TriGrabHudViewModel.CorrectAnnouncer();
+            var one = new List<(string, string, int, int)> { ("a", "철수", 1, 10) };
+            Assert.AreEqual("", a.Update(3, one, 0f));
         }
     }
 }

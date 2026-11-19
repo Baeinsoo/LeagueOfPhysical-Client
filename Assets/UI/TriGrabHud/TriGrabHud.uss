@@ -12,6 +12,13 @@
     background-color: rgba(10, 12, 20, 0.7);
     color: rgb(170, 178, 200); font-size: 18px;
 }
+.time-bar {
+    margin-top: 4px; width: 260px; height: 8px; border-radius: 4px;
+    background-color: rgba(10, 12, 20, 0.7); overflow: hidden;
+}
+.time-fill { height: 100%; width: 100%; background-color: rgb(120, 214, 140); }
+.time-fill--low { background-color: rgb(255, 92, 92); }
+
 .rule-text {
     margin-top: 4px; padding: 4px 16px; border-radius: 6px;
     background-color: rgba(10, 12, 20, 0.82);
@@ -20,7 +27,7 @@
 }
 
 .scoreboard {
-    position: absolute; top: 14px; right: 14px; width: 210px;
+    position: absolute; top: 14px; right: 14px; width: 260px;
     padding: 6px 8px; border-radius: 6px;
     background-color: rgba(10, 12, 20, 0.7);
 }
@@ -28,7 +35,8 @@
 .score-row--mine { background-color: rgba(255, 255, 255, 0.12); border-radius: 4px; }
 .score-dot { width: 12px; height: 12px; border-radius: 6px; margin-left: 4px; margin-right: 6px; }
 .score-name { flex-grow: 1; font-size: 18px; color: rgb(233, 237, 245); overflow: hidden; }
-.score-value { font-size: 18px; color: rgb(233, 237, 245); -unity-font-style: bold; margin-right: 4px; }
+.score-place { font-size: 15px; color: rgb(140, 230, 160); -unity-font-style: bold; margin-right: 6px; }
+.score-value { font-size: 18px; color: rgb(233, 237, 245); -unity-font-style: bold; margin-right: 4px; min-width: 28px; -unity-text-align: middle-right; }
 
 .prep-box {
     position: absolute; left: 0; right: 0; top: 30%;
@@ -45,8 +53,11 @@
     white-space: nowrap;
 }
 
-.toast-text {
+.toast-box {
     position: absolute; left: 0; right: 0; top: 38%;
+    align-items: center;
+}
+.toast-text {
     -unity-text-align: middle-center;
     font-size: 48px; -unity-font-style: bold;
     -unity-text-outline-width: 3px; -unity-text-outline-color: rgba(10, 12, 20, 0.95);
@@ -58,4 +69,11 @@
     color: rgb(255, 82, 82); font-size: 30px; -unity-font-style: bold;
     -unity-text-outline-width: 3px; -unity-text-outline-color: rgba(30, 5, 5, 0.95);
     display: none;
+}
+
+.toast-sub {
+    margin-top: 6px; padding: 4px 14px; border-radius: 6px;
+    background-color: rgba(10, 12, 20, 0.75);
+    color: rgb(233, 237, 245); font-size: 22px; -unity-font-style: bold;
+    -unity-text-align: middle-center; white-space: nowrap;
 }

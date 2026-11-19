@@ -81,6 +81,81 @@ namespace LOP.Tests
             Assert.IsFalse(LOP.UI.TriGrabPadViewModel.CanFire(TriGrabPhase.Resolved, false, 100, 0));
             Assert.IsFalse(LOP.UI.TriGrabPadViewModel.CanFire(TriGrabPhase.Live, true, 100, 0));
             Assert.IsFalse(LOP.UI.TriGrabPadViewModel.CanFire(TriGrabPhase.Live, false, 99, 100));
+            Assert.IsFalse(LOP.UI.TriGrabPadViewModel.CanFire(TriGrabPhase.Live, false, 100, 100, doneThisRound: true), "이번 라운드 정답을 냈다");
+        }
+
+        [Test]
+        public void 쏘기_버튼_글은_정답을_냈으면_완료()
+        {
+            Assert.AreEqual("완료", LOP.UI.TriGrabPadViewModel.FireLabelFor(true));
+            Assert.AreEqual("갈고리", LOP.UI.TriGrabPadViewModel.FireLabelFor(false));
+        }
+
+        [Test]
+        public void 남이_정답을_내도_미리_그린_내_갈고리는_그대로()
+        {
+            var state = new TriGrabClientState();
+            state.Apply(TriGrabClientStateTests.Msg(1));   // 라운드 2, Live
+            var mine = new TriGrabMyHook(state);
+            var predicted = mine.Fire("me", Vector2.zero, 90f, 300);
+
+            //  남(b)이 1등을 했다 — 2차부터 라운드는 안 끝나고 회전판도 안 멈춘다.
+            var other = TriGrabClientStateTests.Msg(2);
+            other.Hooks.Clear();
+            other.Players.Add(new TriGrabPlayerWire { EntityId = "me" });
+            state.Apply(other);
+            Assert.IsTrue(state.DoneThisRound("b"), "양성 대조 — 남이 정답을 냈다");
+            Assert.AreSame(predicted, mine.Current("me", 302));
+            Assert.IsTrue(mine.IsOut("me", 302));
+        }
+
+        [Test]
+        public void 내가_이미_정답을_냈으면_확인_안_된_미리_그린_갈고리는_버린다()
+        {
+            var state = new TriGrabClientState();
+            state.Apply(TriGrabClientStateTests.Msg(1));
+            var mine = new TriGrabMyHook(state);
+            mine.Fire("me", Vector2.zero, 90f, 300);
+            var done = TriGrabClientStateTests.Msg(2);
+            done.Hooks.Clear();
+            done.Players.Add(new TriGrabPlayerWire { EntityId = "me", Score = 9, RoundPlace = 2, RoundPoints = 9 });
+            state.Apply(done);
+            Assert.IsFalse(mine.IsOut("me", 302));
+            Assert.IsNull(mine.Predicted);
+        }
+
+        [Test]
+        public void 정답을_낸_내_갈고리는_같은_상태의_서버_갈고리로_확인된다()
+        {
+            var state = new TriGrabClientState();
+            state.Apply(TriGrabClientStateTests.Msg(1));
+            var mine = new TriGrabMyHook(state);
+            mine.Fire("me", Vector2.zero, 90f, 300);
+            var done = TriGrabClientStateTests.Msg(2);
+            done.Hooks.Clear();
+            done.Hooks.Add(new TriGrabHookWire { OwnerId = "me", FireTick = 300, DirX = 1f, TurnTick = 306, TurnLength = 3f,
+                Result = (int)TriGrabHookResult.Correct, EndTick = 314, Carried = new TriGrabCardWire { Id = 5 } });
+            done.Players.Add(new TriGrabPlayerWire { EntityId = "me", Score = 10, RoundPlace = 1, RoundPoints = 10 });
+            state.Apply(done);
+            var current = mine.Current("me", 305);
+            Assert.IsNotNull(current, "끌어오는 갈고리는 그린다");
+            Assert.AreEqual(TriGrabHookResult.Correct, current.Result);
+            Assert.IsNull(mine.Predicted);
+        }
+
+        [Test]
+        public void 시간_상한_틱_뒤에_쏜_미리_그린_갈고리는_버린다()
+        {
+            var state = new TriGrabClientState();
+            var m = TriGrabClientStateTests.Msg(1);
+            m.RoundLimitTick = 310;
+            state.Apply(m);
+            var early = new TriGrabMyHook(state);
+            early.Fire("me", Vector2.zero, 90f, 300);
+            Assert.IsTrue(early.IsOut("me", 301), "양성 대조 — 상한 전에 쏨");
+            var late = new TriGrabMyHook(state);
+            late.Fire("me", Vector2.zero, 90f, 310);
+            Assert.IsFalse(late.IsOut("me", 311));
         }
 
         [Test]
@@ -299,6 +374,25 @@ namespace LOP.Tests
             Assert.IsFalse(rig.Vm.Ready);
             Assert.IsFalse(rig.Vm.FireTap());
             Assert.IsNull(rig.MyHook.Predicted);
+        }
+
+        [Test]
+        public void 이번_라운드에_정답을_냈으면_쏘지_못하고_완료지만_걷기는_된다()
+        {
+            var rig = Build();
+            Assert.IsTrue(rig.Vm.Ready, "양성 대조");
+            Assert.IsFalse(rig.Vm.Done);
+            var m = TriGrabClientStateTests.Msg(2, TriGrabPhase.Live);
+            m.Hooks.Clear();
+            m.Players.Add(new TriGrabPlayerWire { EntityId = "me", Score = 10, RoundPlace = 1, RoundPoints = 10 });
+            rig.State.Apply(m);
+            Assert.IsTrue(rig.Vm.Done);
+            Assert.IsFalse(rig.Vm.Ready);
+            Assert.IsFalse(rig.Vm.FireTap());
+            Assert.IsNull(rig.MyHook.Predicted);
+            rig.Vm.Move(new Vector2(0f, 1f));
+            rig.Vm.Apply();
+            Assert.Greater(Step(rig).Vertical, 0.5f, "정답을 낸 뒤에도 로봇은 움직인다");
         }
 
         [Test]

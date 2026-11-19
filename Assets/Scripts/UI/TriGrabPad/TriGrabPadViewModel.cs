@@ -45,9 +45,12 @@ namespace LOP.UI
             return maxDragPx < CancelDragPx ? ReleaseOutcome.Tap : ReleaseOutcome.Cancel;
         }
 
-        /// <summary>쏠 수 있나 — 서버 TryFire와 같은 세 조건(Live, 내 갈고리 없음, 재장전 끝).</summary>
-        public static bool CanFire(TriGrabPhase phase, bool hookOut, long tick, long reloadUntilTick)
-            => phase == TriGrabPhase.Live && !hookOut && tick >= reloadUntilTick;
+        /// <summary>쏠 수 있나 — 서버 TryFire와 같은 조건(Live, 이번 라운드 정답 전, 내 갈고리 없음, 재장전 끝).</summary>
+        public static bool CanFire(TriGrabPhase phase, bool hookOut, long tick, long reloadUntilTick, bool doneThisRound = false)
+            => phase == TriGrabPhase.Live && !doneThisRound && !hookOut && tick >= reloadUntilTick;
+
+        /// <summary>쏘기 버튼 글. 이번 라운드에 정답을 냈으면 "완료".</summary>
+        public static string FireLabelFor(bool doneThisRound) => doneThisRound ? "완료" : "갈고리";
 
         /// <summary>보낼 이동. 갈고리가 나가 있으면 선다.</summary>
         public static Vector2 MoveFor(Vector2 worldMove, bool hookOut) => hookOut ? Vector2.zero : worldMove;
@@ -78,9 +81,12 @@ namespace LOP.UI
             {
                 long tick = RenderTick;
                 long reload = state.TryGetPlayer(playerContext.entityId, out var score) ? score.ReloadUntilTick : 0;
-                return CanFire(state.PhaseAt(tick), myHook.IsOut(playerContext.entityId, tick), tick, reload);
+                return CanFire(state.PhaseAt(tick), myHook.IsOut(playerContext.entityId, tick), tick, reload, Done);
             }
         }
+
+        /// <summary>이번 라운드에 이미 정답을 냈다 — 다음 라운드까지 쏘지 못한다(이동은 된다).</summary>
+        public bool Done => state.DoneThisRound(playerContext.entityId);
 
         /// <summary>방향 스틱(−1~1). 매 프레임 <see cref="Apply"/>가 갈고리 상태를 보고 보낸다.</summary>
         public void Move(Vector2 value) => stick = value;

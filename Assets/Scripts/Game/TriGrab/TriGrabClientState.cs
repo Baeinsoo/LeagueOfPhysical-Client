@@ -24,7 +24,9 @@ namespace LOP
         public TriGrabRoundClock Clock { get; private set; }
         public string RoundWinnerId { get; private set; } = "";
         public string MatchWinnerId { get; private set; } = "";
-        public int TargetScore { get; private set; } = TriGrabConfig.TargetScore;
+        public int TotalRounds { get; private set; } = TriGrabConfig.TotalRounds;
+        /// <summary>이번 라운드 Live의 시간 상한 틱.</summary>
+        public long RoundLimitTick { get; private set; }
 
         public IReadOnlyList<TriGrabHook> Hooks => hooks;
         /// <summary>서버 등록 순서. 좌석 색이 이 순서를 따른다.</summary>
@@ -50,7 +52,8 @@ namespace LOP
             };
             RoundWinnerId = message.RoundWinnerId ?? "";
             MatchWinnerId = message.MatchWinnerId ?? "";
-            TargetScore = message.TargetScore > 0 ? message.TargetScore : TriGrabConfig.TargetScore;
+            TotalRounds = message.TotalRounds > 0 ? message.TotalRounds : TriGrabConfig.TotalRounds;
+            RoundLimitTick = message.RoundLimitTick;
 
             for (int i = 0; i < cards.Length; i++)
             {
@@ -87,6 +90,8 @@ namespace LOP
                     Mistakes = p.Mistakes,
                     ReloadUntilTick = p.ReloadUntilTick,
                     BestRtMs = p.BestRtMs,
+                    RoundPlace = p.RoundPlace,
+                    RoundPoints = p.RoundPoints,
                 };
             }
             return true;
@@ -110,6 +115,9 @@ namespace LOP
         /// <summary>좌석 번호(등록 순서). 모르는 사람이면 -1.</summary>
         public int SeatOf(string entityId) => entityId == null ? -1 : playerIds.IndexOf(entityId);
 
+        /// <summary>이번 라운드에 이미 정답을 냈나(그러면 이번 라운드엔 더 못 쏜다).</summary>
+        public bool DoneThisRound(string entityId) => TryGetPlayer(entityId, out var p) && p.RoundPlace > 0;
+
         public TriGrabHook HookOf(string entityId)
         {
             if (entityId == null) return null;
@@ -122,12 +130,15 @@ namespace LOP
 
         /// <summary>
         /// 그 틱의 단계. 준비 끝 틱이 지났으면 서버 소식이 오기 전에도 Live로 본다 — 준비 끝은 미리 알려진 틱이다.
+        /// 시간 상한 틱이 지났으면 서버 소식 전에도 Resolved로 본다(그 틱부터 서버는 잡기를 받지 않는다).
         /// 라운드 끝 쉼이 지난 뒤는 다음 라운드인지 판 끝인지 모르니 Resolved로 둔다.
         /// </summary>
         public TriGrabPhase PhaseAt(long tick)
         {
-            if (Phase == TriGrabPhase.Prep && tick >= PhaseEndTick) return TriGrabPhase.Live;
-            return Phase;
+            var phase = Phase;
+            if (phase == TriGrabPhase.Prep && tick >= PhaseEndTick) phase = TriGrabPhase.Live;
+            if (phase == TriGrabPhase.Live && RoundLimitTick > 0 && tick >= RoundLimitTick) phase = TriGrabPhase.Resolved;
+            return phase;
         }
 
         /// <summary>소수 틱의 회전판 각. 이웃한 두 정수 틱 사이를 이어 화면에서 끊기지 않게 한다.</summary>

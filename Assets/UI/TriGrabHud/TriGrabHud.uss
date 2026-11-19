@@ -1,0 +1,61 @@
+.trigrab-hud-root {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+
+.rule-box {
+    position: absolute; top: 14px; left: 22%; right: 22%;
+    align-items: center;
+}
+.round-text {
+    padding: 2px 10px; border-radius: 5px;
+    background-color: rgba(10, 12, 20, 0.7);
+    color: rgb(170, 178, 200); font-size: 18px;
+}
+.rule-text {
+    margin-top: 4px; padding: 4px 16px; border-radius: 6px;
+    background-color: rgba(10, 12, 20, 0.82);
+    color: rgb(233, 237, 245); font-size: 30px; -unity-font-style: bold;
+    -unity-text-align: middle-center; white-space: nowrap;
+}
+
+.scoreboard {
+    position: absolute; top: 14px; right: 14px; width: 210px;
+    padding: 6px 8px; border-radius: 6px;
+    background-color: rgba(10, 12, 20, 0.7);
+}
+.score-row { flex-direction: row; align-items: center; height: 26px; }
+.score-row--mine { background-color: rgba(255, 255, 255, 0.12); border-radius: 4px; }
+.score-dot { width: 12px; height: 12px; border-radius: 6px; margin-left: 4px; margin-right: 6px; }
+.score-name { flex-grow: 1; font-size: 18px; color: rgb(233, 237, 245); overflow: hidden; }
+.score-value { font-size: 18px; color: rgb(233, 237, 245); -unity-font-style: bold; margin-right: 4px; }
+
+.prep-box {
+    position: absolute; left: 0; right: 0; top: 30%;
+    align-items: center;
+}
+.prep-title {
+    color: rgb(200, 206, 222); font-size: 34px; -unity-font-style: bold;
+    -unity-text-outline-width: 2px; -unity-text-outline-color: rgba(10, 12, 20, 0.9);
+}
+.prep-rule {
+    margin-top: 8px; padding: 8px 22px; border-radius: 10px;
+    background-color: rgba(10, 12, 20, 0.82);
+    color: rgb(233, 237, 245); font-size: 46px; -unity-font-style: bold;
+    white-space: nowrap;
+}
+
+.toast-text {
+    position: absolute; left: 0; right: 0; top: 38%;
+    -unity-text-align: middle-center;
+    font-size: 48px; -unity-font-style: bold;
+    -unity-text-outline-width: 3px; -unity-text-outline-color: rgba(10, 12, 20, 0.95);
+}
+
+.wrong-text {
+    position: absolute; width: 160px; height: 40px;
+    -unity-text-align: middle-center;
+    color: rgb(255, 82, 82); font-size: 30px; -unity-font-style: bold;
+    -unity-text-outline-width: 3px; -unity-text-outline-color: rgba(30, 5, 5, 0.95);
+    display: none;
+}

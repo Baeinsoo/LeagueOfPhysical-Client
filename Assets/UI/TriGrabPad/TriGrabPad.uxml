@@ -1,0 +1,17 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="TriGrabPad.uss" />
+    <ui:VisualElement name="trigrab-pad-root" class="trigrab-pad-root" picking-mode="Ignore">
+        <!-- 왼쪽 반 아래 어디를 눌러도 그 자리가 이동 스틱 중심이 된다. -->
+        <ui:VisualElement name="joystick-area" class="joystick-area">
+            <ui:VisualElement name="joystick-bg" class="joystick-bg" picking-mode="Ignore">
+                <ui:VisualElement name="joystick-handle" class="joystick-handle" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <!-- 오른쪽 반 아래 = 쏘기. 톡 = 회전판 가운데로, 끌었다 놓기 = 그 방향, 크게 끌었다 돌아와 놓기 = 취소. -->
+        <ui:VisualElement name="fire-area" class="fire-area" />
+        <ui:VisualElement name="fire-button" class="fire-button" picking-mode="Ignore">
+            <ui:Label name="fire-label" class="fire-label" text="갈고리" picking-mode="Ignore" />
+            <ui:VisualElement name="fire-handle" class="fire-handle" picking-mode="Ignore" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

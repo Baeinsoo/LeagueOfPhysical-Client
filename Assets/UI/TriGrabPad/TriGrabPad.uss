@@ -1,0 +1,33 @@
+.trigrab-pad-root {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}
+
+/* 위쪽 주문 띠·점수판을 가리지 않게 화면 아래쪽만 받는다. */
+.joystick-area { position: absolute; left: 0; width: 50%; bottom: 0; height: 60%; }
+.fire-area { position: absolute; right: 0; width: 50%; bottom: 0; height: 60%; }
+
+.joystick-bg {
+    position: absolute; width: 160px; height: 160px;
+    border-radius: 80px; background-color: rgba(255, 255, 255, 0.12);
+}
+.joystick-handle {
+    position: absolute; width: 64px; height: 64px;
+    border-radius: 32px; background-color: rgba(255, 255, 255, 0.45);
+}
+
+.fire-button {
+    position: absolute; right: 48px; bottom: 56px; width: 140px; height: 140px;
+    border-radius: 70px; background-color: rgba(255, 255, 255, 0.14);
+    border-width: 4px; border-color: rgba(255, 255, 255, 0.55);
+    align-items: center; justify-content: center;
+}
+.fire-button--ready { background-color: rgba(255, 204, 51, 0.85); border-color: rgb(255, 245, 210); }
+.fire-label {
+    position: absolute; font-size: 26px; color: rgb(255, 255, 255);
+    -unity-font-style: bold; -unity-text-align: middle-center;
+}
+.fire-button--ready .fire-label { color: rgb(40, 30, 5); }
+.fire-handle {
+    width: 44px; height: 44px; border-radius: 22px; background-color: rgba(255, 255, 255, 0.5);
+}

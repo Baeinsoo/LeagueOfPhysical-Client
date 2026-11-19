@@ -1,0 +1,19 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="TriGrabHud.uss" />
+    <ui:VisualElement name="trigrab-hud-root" class="trigrab-hud-root" picking-mode="Ignore">
+        <!-- 위 가운데 주문 띠. 주문의 색 이름은 그 색으로 칠한다. -->
+        <ui:VisualElement name="rule-box" class="rule-box" picking-mode="Ignore">
+            <ui:Label name="round-text" class="round-text" text="" picking-mode="Ignore" />
+            <ui:Label name="rule-text" class="rule-text" text="" enable-rich-text="true" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <!-- 오른쪽 점수판. 줄은 코드가 사람 수만큼 만든다. -->
+        <ui:VisualElement name="scoreboard" class="scoreboard" picking-mode="Ignore" />
+        <!-- 준비 중 가운데 큰 글 — 회전판이 돌기 전에 주문부터 읽게. -->
+        <ui:VisualElement name="prep-box" class="prep-box" picking-mode="Ignore">
+            <ui:Label name="prep-title" class="prep-title" text="" picking-mode="Ignore" />
+            <ui:Label name="prep-rule" class="prep-rule" text="" enable-rich-text="true" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:Label name="toast-text" class="toast-text" text="" picking-mode="Ignore" />
+        <ui:Label name="wrong-text" class="wrong-text" text="오답 −1" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

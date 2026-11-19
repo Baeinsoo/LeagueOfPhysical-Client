@@ -13,5 +13,6 @@
             <ui:Label name="fire-label" class="fire-label" text="갈고리" picking-mode="Ignore" />
             <ui:VisualElement name="fire-handle" class="fire-handle" picking-mode="Ignore" />
         </ui:VisualElement>
+        <ui:Button name="leave-button" class="leave-button" text="나가기" />
     </ui:VisualElement>
 </ui:UXML>

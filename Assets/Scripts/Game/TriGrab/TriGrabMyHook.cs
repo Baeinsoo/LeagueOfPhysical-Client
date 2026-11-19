@@ -16,6 +16,7 @@ namespace LOP
 
         private readonly TriGrabClientState state;
         private TriGrabHook predicted;
+        private int roundAtFire;
 
         public TriGrabMyHook(TriGrabClientState state)
         {
@@ -28,6 +29,7 @@ namespace LOP
         /// <summary>쏜 순간. 서버와 같은 식으로 빗나감을 가정한 갈고리를 만든다.</summary>
         public TriGrabHook Fire(string ownerId, Vector2 origin, float yawDegrees, long fireTick)
         {
+            roundAtFire = state.Received ? state.Round : -1;
             long turn = fireTick + TriGrabConfig.ReachTicks;
             predicted = new TriGrabHook
             {
@@ -57,7 +59,7 @@ namespace LOP
                     predicted = null;
                     return server;
                 }
-                if (tick - predicted.FireTick > ConfirmWindowTicks)
+                if (RejectedByState() || tick - predicted.FireTick > ConfirmWindowTicks)
                 {
                     predicted = null;
                 }
@@ -69,12 +71,21 @@ namespace LOP
             return server;
         }
 
+        // 서버가 이미 새 라운드로 갔거나, 내가 쏜 틱이 회전판이 멈춘 틱 이후면 서버는 그 쏘기를 받지 않았다.
+        private bool RejectedByState()
+        {
+            if (!state.Received) return false;
+            if (roundAtFire >= 0 && state.Round != roundAtFire) return true;
+            bool ended = state.Phase == TriGrabPhase.Resolved || state.Phase == TriGrabPhase.Over;
+            return ended && predicted.FireTick >= state.Clock.FreezeTick;
+        }
+
         /// <summary>내 갈고리가 나가 있나(쏜 틱부터 돌아온 틱까지). 서버 확인을 기다리는 동안도 나가 있는 것으로 본다.</summary>
         public bool IsOut(string myId, long tick)
         {
             var hook = Current(myId, tick);
             if (hook == null) return false;
-            if (ReferenceEquals(hook, predicted)) return true;
+            if (ReferenceEquals(hook, predicted)) return tick <= hook.EndTick;
             return tick >= hook.FireTick && tick <= hook.EndTick;
         }
 

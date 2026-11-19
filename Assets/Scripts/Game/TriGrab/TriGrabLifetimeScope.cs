@@ -1,4 +1,6 @@
 using LOP.UI;
+using MessagePipe;
+using Mirror;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -48,6 +50,14 @@ namespace LOP
             builder.Register<TriGrabPadView>(Lifetime.Transient);
             builder.Register<TriGrabHudViewModel>(Lifetime.Transient);
             builder.Register<TriGrabHudView>(Lifetime.Transient);
+
+            builder.Register<IRaceStartLook, PlainRaceStartLook>(Lifetime.Singleton);
+            builder.Register<RaceStartViewModel>(Lifetime.Transient);
+            builder.Register<RaceStartView>(Lifetime.Transient);
+            builder.Register<LeaveMatchConfirmViewModel>(Lifetime.Transient);
+            builder.Register<LeaveMatchConfirmView>(Lifetime.Transient);
+            builder.Register(c => new MatchLeaveRequester(c.Resolve<ISubscriber<LeaveMatchToC>>(),
+                message => NetworkClient.Send(new CustomMirrorMessage { payload = message })), Lifetime.Singleton);
         }
 
         protected override void RegisterViewFactories(
@@ -55,6 +65,8 @@ namespace LOP
         {
             sink.Add(windowManager.RegisterViewFactory<TriGrabPadView>(() => container.Resolve<TriGrabPadView>()));
             sink.Add(windowManager.RegisterViewFactory<TriGrabHudView>(() => container.Resolve<TriGrabHudView>()));
+            sink.Add(windowManager.RegisterViewFactory<RaceStartView>(() => container.Resolve<RaceStartView>()));
+            sink.Add(windowManager.RegisterViewFactory<LeaveMatchConfirmView>(() => container.Resolve<LeaveMatchConfirmView>()));
         }
     }
 }

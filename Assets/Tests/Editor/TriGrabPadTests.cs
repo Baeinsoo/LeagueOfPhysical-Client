@@ -135,6 +135,55 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 미리_그린_갈고리는_그림이_끝나면_발을_묶지_않는다()
+        {
+            var mine = new TriGrabMyHook(new TriGrabClientState());
+            var h = mine.Fire("me", Vector2.zero, 90f, 300);
+            Assert.IsTrue(mine.IsOut("me", h.EndTick), "양성 대조 — 끝 틱까지는 나가 있다");
+            Assert.IsFalse(mine.IsOut("me", h.EndTick + 1), "그림이 사라진 뒤엔 풀린다");
+        }
+
+        [Test]
+        public void 서버가_멈춘_뒤의_쏘기와_새_라운드는_미리_그린_갈고리를_버린다()
+        {
+            var state = new TriGrabClientState();
+            state.Apply(TriGrabClientStateTests.Msg(1));   // 라운드 2, Live
+            var mine = new TriGrabMyHook(state);
+            mine.Fire("me", Vector2.zero, 90f, 300);
+            Assert.IsTrue(mine.IsOut("me", 301), "양성 대조");
+
+            var resolved = TriGrabClientStateTests.Msg(2, TriGrabPhase.Resolved);
+            resolved.Hooks.Clear();
+            resolved.FreezeTick = 290;   // 내가 쏜 틱(300)보다 앞서 멈췄다
+            state.Apply(resolved);
+            Assert.IsFalse(mine.IsOut("me", 301));
+            Assert.IsNull(mine.Predicted);
+
+            var mine2 = new TriGrabMyHook(state);
+            mine2.Fire("me", Vector2.zero, 90f, 300);
+            var next = TriGrabClientStateTests.Msg(3);
+            next.Round = 3;
+            next.Hooks.Clear();
+            state.Apply(next);
+            Assert.IsFalse(mine2.IsOut("me", 301), "새 라운드");
+            Assert.IsNull(mine2.Predicted);
+        }
+
+        [Test]
+        public void 판_시작_전에는_주문_띠에_쓸_주문이_없다()
+        {
+            var state = new TriGrabClientState();
+            var m = TriGrabClientStateTests.Msg(1, TriGrabPhase.Waiting);
+            m.Round = 0;
+            state.Apply(m);
+            Assert.AreEqual("", LOP.UI.TriGrabHudViewModel.RuleTextFor(state));
+            m = TriGrabClientStateTests.Msg(2, TriGrabPhase.Prep);
+            m.Round = 1;
+            state.Apply(m);
+            Assert.AreNotEqual("", LOP.UI.TriGrabHudViewModel.RuleTextFor(state));
+        }
+
+        [Test]
         public void 미리_그린_갈고리는_서버와_같은_식이다()
         {
             var mine = new TriGrabMyHook(new TriGrabClientState());

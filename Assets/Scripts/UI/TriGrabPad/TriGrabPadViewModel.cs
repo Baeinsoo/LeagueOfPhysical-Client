@@ -78,7 +78,7 @@ namespace LOP.UI
             {
                 long tick = RenderTick;
                 long reload = state.TryGetPlayer(playerContext.entityId, out var score) ? score.ReloadUntilTick : 0;
-                return CanFire(state.PhaseAt(tick), myHook.IsOut(playerContext.entityId, tick) || myHook.Predicted != null, tick, reload);
+                return CanFire(state.PhaseAt(tick), myHook.IsOut(playerContext.entityId, tick), tick, reload);
             }
         }
 

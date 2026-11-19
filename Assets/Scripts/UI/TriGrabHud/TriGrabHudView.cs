@@ -52,7 +52,7 @@ namespace LOP.UI
         private void Refresh()
         {
             viewModel.Tick();
-            bool on = viewModel.Received;
+            bool on = viewModel.Received && viewModel.RuleText.Length > 0;
             ruleBox.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
             if (!on) return;
 

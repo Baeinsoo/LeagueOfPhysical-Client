@@ -58,7 +58,7 @@ namespace LOP.UI
             long tick = t == null || t.interval <= 0d ? 0 : (long)System.Math.Floor((t.elapsedTime - t.interval) / t.interval);
             var phase = state.PhaseAt(tick);
 
-            RuleText = RuleRichText(state.Rule);
+            RuleText = RuleTextFor(state);
             RoundText = state.Round > 0 ? $"라운드 {state.Round}" : "";
             PrepTitle = phase == TriGrabPhase.Prep ? RoundText : "";
 
@@ -83,6 +83,9 @@ namespace LOP.UI
         }
 
         private string NameOf(string id) => PlayerNames.For(entityRegistry, id, $"{state.SeatOf(id) + 1}P");
+
+        /// <summary>1라운드 전엔 서버가 아직 주문을 안 뽑았다(기본값이 가짜로 보이지 않게 빈 글).</summary>
+        public static string RuleTextFor(TriGrabClientState state) => state.Round >= 1 ? RuleRichText(state.Rule) : "";
 
         /// <summary>주문 글. 주문에 든 색 이름은 그 색으로 칠한다.</summary>
         public static string RuleRichText(in TriGrabRule rule)

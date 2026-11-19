@@ -85,6 +85,9 @@ namespace LOP.Tests
             builder.RegisterInstance(new AppearanceColorPalette(md));
             builder.RegisterInstance<MessagePipe.ISubscriber<LOP.Event.Entity.EntityCreated>>(new FakeSubscriber<LOP.Event.Entity.EntityCreated>());
             builder.RegisterInstance<MessagePipe.ISubscriber<TriGrabStateToC>>(new FakeSubscriber<TriGrabStateToC>());
+            builder.RegisterInstance<MessagePipe.ISubscriber<LeaveMatchToC>>(new FakeSubscriber<LeaveMatchToC>());
+            builder.RegisterInstance(new AppStateMachine(null, null));
+            builder.Register<MatchStartState>(Lifetime.Singleton);
 
             typeof(TriGrabLifetimeScope).GetMethod("ConfigureGame", BindingFlags.Instance | BindingFlags.NonPublic)
                 .Invoke(scope, new object[] { builder });
@@ -110,6 +113,8 @@ namespace LOP.Tests
             Assert.AreSame(container.Resolve(typeof(TriGrabClientState)), container.Resolve(typeof(TriGrabClientState)));
             Assert.IsNotNull(container.Resolve(typeof(LOP.UI.TriGrabPadView)));
             Assert.IsNotNull(container.Resolve(typeof(LOP.UI.TriGrabHudView)));
+            Assert.IsNotNull(container.Resolve(typeof(LOP.UI.RaceStartView)), "카운트다운 화면 — 빠지면 코디네이터가 열 때 터진다");
+            Assert.IsNotNull(container.Resolve(typeof(LOP.UI.LeaveMatchConfirmView)), "나가기 확인 화면");
             //  상태 수신기·HUD 여는 쪽은 엔트리포인트라 Build가 이미 만들어 봤다(의존이 빠졌으면 Build에서 터진다).
         }
 

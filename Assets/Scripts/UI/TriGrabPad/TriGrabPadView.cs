@@ -30,6 +30,8 @@ namespace LOP.UI
         private float _fireMaxPx;
         private IVisualElementScheduledItem _tick;
         private bool _disposed;
+        private System.Action _onLeave;
+        private Button _leave;
 
         public TriGrabPadView(TriGrabPadViewModel viewModel, TriGrabAim aim)
         {
@@ -38,6 +40,8 @@ namespace LOP.UI
         }
 
         public override UILayer Layer => UILayer.Window;
+
+        public void SetLeaveCallback(System.Action onLeave) => _onLeave = onLeave;
 
         public override void OnOpen()
         {
@@ -61,8 +65,13 @@ namespace LOP.UI
             _fireArea.RegisterCallback<PointerUpEvent>(OnFireUp);
             _fireArea.RegisterCallback<PointerCaptureOutEvent>(_ => ResetFire());
 
+            _leave = Root.Q<Button>("leave-button");
+            if (_leave != null) _leave.clicked += OnLeaveClicked;
+
             _tick = Root.schedule.Execute(_ => Tick()).Every(0);
         }
+
+        private void OnLeaveClicked() => _onLeave?.Invoke();
 
         private void Tick()
         {
@@ -221,6 +230,7 @@ namespace LOP.UI
                 if (disposing)
                 {
                     _tick?.Pause();
+                    if (_leave != null) _leave.clicked -= OnLeaveClicked;
                     _aim.Clear();
                     _viewModel.Dispose();
                 }

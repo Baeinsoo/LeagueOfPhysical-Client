@@ -1,6 +1,6 @@
 {
   "name": "tri-grab-smoke",
-  "description": "삼색 그랩 한 판 스모크(로컬 서버 에디터 + 봇 3) — 로비까지 띄운 뒤 InMatch를 기다린다(진입은 시나리오 밖 eval, 서버 픽스처 모드 14). 라운드 1 준비·Live·걷기 → 라운드 2 Live 직후 톡(나감·멀리·돌아옴) → 라운드 3 끌어 쏘기 → 라운드 4 쏘고 스틱 밀기(갈고리 중 이동 0) → 톡 40번(4번마다 스크린샷) → '완료' 버튼 → 라운드 결과 → 라운드 5 정답 띠·점수판 → 라운드 5 결과 → 누적 판 끝 → 결과 → 확인 → 로비 → (두 번째 판, 진입 eval 다시) 라운드 1에서 나가기 → 확인 대화상자 → 나가기 → 로비. 카운트다운(3·2·1·GO)과 그때 주문 띠가 없는지도 찍는다. 2차부터 한 판은 5라운드(라운드마다 최대 20초)이고, 라운드마다 '라운드 N' 글을 기다렸다가 준비가 끝날 즈음(1.2초 뒤)부터 연달아 탭·끌기한다 — 준비 중 탭은 무시되고 Live 첫 탭만 나간다. 취소(끌었다 제자리 놓기)는 drag가 직선이라 매크로로 못 만든다 — 조작판 시험이 지킨다",
+  "description": "삼색 그랩 한 판 스모크(로컬 서버 에디터 + 봇 3) — 로비까지 띄운 뒤 InMatch를 기다린다(진입은 시나리오 밖 eval, 서버 픽스처 모드 14). 라운드 1 준비·Live·걷기·정답 띠·라운드 결과 → 라운드 2 Live 직후 톡(나감·멀리·돌아옴) → 라운드 3 끌어 쏘기 → 라운드 4 쏘고 스틱 밀기(갈고리 중 이동 0) → 톡 40번(4번마다 스크린샷) → 누적 판 끝('우승') → 결과 → 확인 → 로비 → (두 번째 판, 진입 eval 다시) 라운드 1에서 나가기 → 확인 대화상자 → 나가기 → 로비. 카운트다운(3·2·1·GO)과 그때 주문 띠가 없는지도 찍는다. 2차부터 한 판은 5라운드(라운드마다 최대 20초)이고, 라운드마다 '라운드 N' 글을 기다렸다가 준비가 끝날 즈음(1.2초 뒤)부터 연달아 탭·끌기한다 — 준비 중 탭은 무시되고 Live 첫 탭만 나간다. 취소(끌었다 제자리 놓기)는 drag가 직선이라 매크로로 못 만든다 — 조작판 시험이 지킨다",
   "repeat": 1,
   "setup": [
     {
@@ -107,6 +107,36 @@
     {
       "op": "screenshot",
       "as": "r1-after-walk"
+    },
+    {
+      "op": "log",
+      "message": "라운드 1: 정답마다 'OO N등 +점' 띠·점수판 '✓N +점', 라운드 끝 '라운드 1 결과'(1.4초)"
+    },
+    {
+      "op": "ui_wait",
+      "name": "toast-text",
+      "text_contains": "등 +",
+      "timeout_s": 25,
+      "optional": true
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-correct-toast"
+    },
+    {
+      "op": "ui_wait",
+      "name": "toast-text",
+      "text_contains": "라운드 1 결과",
+      "timeout_s": 25,
+      "optional": true
+    },
+    {
+      "op": "wait",
+      "seconds": 0.1
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-round-result"
     },
     {
       "op": "ui_wait",
@@ -865,70 +895,14 @@
     },
     {
       "op": "log",
-      "message": "2차(순위 점수): 라운드 결과·5라운드·누적 판 끝을 찍는다 — 한 라운드에 여럿이 정답을 내고, 정답을 낸 사람은 쏘기 버튼이 '완료'"
-    },
-    {
-      "op": "ui_wait",
-      "name": "fire-label",
-      "text_contains": "완료",
-      "timeout_s": 30,
-      "optional": true
-    },
-    {
-      "op": "screenshot",
-      "as": "pad-done"
+      "message": "판 끝(5라운드 누적) — 'OO 우승!'(같으면 '경기 종료'). 이미 지났으면 건너뛴다"
     },
     {
       "op": "ui_wait",
       "name": "toast-text",
-      "text_contains": "결과",
-      "timeout_s": 60,
-      "optional": true
-    },
-    {
-      "op": "wait",
-      "seconds": 0.2
-    },
-    {
-      "op": "screenshot",
-      "as": "round-result"
-    },
-    {
-      "op": "ui_wait",
-      "name": "round-text",
-      "text_contains": "라운드 5",
+      "text_contains": "우승",
       "timeout_s": 120,
       "optional": true
-    },
-    {
-      "op": "ui_wait",
-      "name": "toast-text",
-      "text_contains": "등 +",
-      "timeout_s": 30,
-      "optional": true
-    },
-    {
-      "op": "screenshot",
-      "as": "r5-correct-toast-scoreboard"
-    },
-    {
-      "op": "ui_wait",
-      "name": "toast-text",
-      "text_contains": "라운드 5 결과",
-      "timeout_s": 60,
-      "optional": true
-    },
-    {
-      "op": "wait",
-      "seconds": 0.2
-    },
-    {
-      "op": "screenshot",
-      "as": "r5-result"
-    },
-    {
-      "op": "wait",
-      "seconds": 1.5
     },
     {
       "op": "screenshot",

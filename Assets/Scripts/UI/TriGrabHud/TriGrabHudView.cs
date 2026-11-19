@@ -17,11 +17,16 @@ namespace LOP.UI
         private Label prepTitle;
         private Label prepRule;
         private VisualElement prepBox;
+        private VisualElement toastBox;
         private Label toast;
+        private Label toastSub;
+        private Label toastLead;
+        private VisualElement timeBar;
+        private VisualElement timeFill;
         private Label wrongText;
         private VisualElement scoreboard;
-        private readonly List<(VisualElement row, VisualElement dot, Label name, Label score)> rowElements =
-            new List<(VisualElement, VisualElement, Label, Label)>();
+        private readonly List<(VisualElement row, VisualElement dot, Label name, Label place, Label score)> rowElements =
+            new List<(VisualElement, VisualElement, Label, Label, Label)>();
         private IVisualElementScheduledItem tick;
         private bool disposed;
 
@@ -43,7 +48,12 @@ namespace LOP.UI
             prepBox = Root.Q<VisualElement>("prep-box");
             prepTitle = Root.Q<Label>("prep-title");
             prepRule = Root.Q<Label>("prep-rule");
+            toastBox = Root.Q<VisualElement>("toast-box");
             toast = Root.Q<Label>("toast-text");
+            toastSub = Root.Q<Label>("toast-sub");
+            toastLead = Root.Q<Label>("toast-lead");
+            timeBar = Root.Q<VisualElement>("time-bar");
+            timeFill = Root.Q<VisualElement>("time-fill");
             wrongText = Root.Q<Label>("wrong-text");
             scoreboard = Root.Q<VisualElement>("scoreboard");
             tick = Root.schedule.Execute(_ => Refresh()).Every(0);
@@ -59,6 +69,14 @@ namespace LOP.UI
             if (ruleText.text != viewModel.RuleText) ruleText.text = viewModel.RuleText;
             if (roundText.text != viewModel.RoundText) roundText.text = viewModel.RoundText;
 
+            float left = viewModel.TimeFraction;
+            timeBar.style.display = left >= 0f ? DisplayStyle.Flex : DisplayStyle.None;
+            if (left >= 0f)
+            {
+                timeFill.style.width = Length.Percent(left * 100f);
+                timeFill.EnableInClassList("time-fill--low", left < TriGrabHudViewModel.TimeLowFraction);
+            }
+
             bool prep = viewModel.PrepTitle.Length > 0;
             prepBox.style.display = prep ? DisplayStyle.Flex : DisplayStyle.None;
             if (prep)
@@ -68,11 +86,17 @@ namespace LOP.UI
             }
 
             bool hasToast = viewModel.ToastText.Length > 0;
-            toast.style.display = hasToast ? DisplayStyle.Flex : DisplayStyle.None;
+            toastBox.style.display = hasToast ? DisplayStyle.Flex : DisplayStyle.None;
             if (hasToast)
             {
                 toast.text = viewModel.ToastText;
                 toast.style.color = viewModel.ToastColor;
+                bool sub = viewModel.ToastSub.Length > 0;
+                toastSub.style.display = sub ? DisplayStyle.Flex : DisplayStyle.None;
+                if (sub) toastSub.text = viewModel.ToastSub;
+                bool lead = viewModel.ToastLead.Length > 0;
+                toastLead.style.display = lead ? DisplayStyle.Flex : DisplayStyle.None;
+                if (lead) toastLead.text = viewModel.ToastLead;
             }
 
             RefreshScoreboard();
@@ -90,13 +114,16 @@ namespace LOP.UI
                 dot.AddToClassList("score-dot");
                 var name = new Label { pickingMode = PickingMode.Ignore };
                 name.AddToClassList("score-name");
+                var place = new Label { pickingMode = PickingMode.Ignore };
+                place.AddToClassList("score-place");
                 var score = new Label { pickingMode = PickingMode.Ignore };
                 score.AddToClassList("score-value");
                 row.Add(dot);
                 row.Add(name);
+                row.Add(place);
                 row.Add(score);
                 scoreboard.Add(row);
-                rowElements.Add((row, dot, name, score));
+                rowElements.Add((row, dot, name, place, score));
             }
             for (int i = 0; i < rowElements.Count; i++)
             {
@@ -108,6 +135,7 @@ namespace LOP.UI
                 e.dot.style.backgroundColor = r.Seat;
                 if (e.name.text != r.Name) e.name.text = r.Name;
                 e.name.style.color = r.Seat;
+                if (e.place.text != r.Place) e.place.text = r.Place;
                 if (e.score.text != r.Score) e.score.text = r.Score;
                 e.row.EnableInClassList("score-row--mine", r.Mine);
             }

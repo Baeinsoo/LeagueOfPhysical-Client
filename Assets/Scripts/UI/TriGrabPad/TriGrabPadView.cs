@@ -22,6 +22,7 @@ namespace LOP.UI
         private VisualElement _fireArea;
         private VisualElement _fireButton;
         private VisualElement _fireHandle;
+        private Label _fireLabel;
         private int _stickPointer = -1;
         private Vector2 _stickOrigin;
         private int _firePointer = -1;
@@ -60,6 +61,7 @@ namespace LOP.UI
             _fireArea = Root.Q<VisualElement>("fire-area");
             _fireButton = Root.Q<VisualElement>("fire-button");
             _fireHandle = Root.Q<VisualElement>("fire-handle");
+            _fireLabel = Root.Q<Label>("fire-label");
             _fireArea.RegisterCallback<PointerDownEvent>(OnFireDown);
             _fireArea.RegisterCallback<PointerMoveEvent>(OnFireMove);
             _fireArea.RegisterCallback<PointerUpEvent>(OnFireUp);
@@ -85,6 +87,9 @@ namespace LOP.UI
             bool ready = _viewModel.Ready;
             _fireButton.style.opacity = ready ? 1f : NotReadyOpacity;
             _fireButton.EnableInClassList("fire-button--ready", ready);
+            bool done = _viewModel.Done;
+            _fireButton.EnableInClassList("fire-button--done", done);
+            if (_fireLabel != null) _fireLabel.text = TriGrabPadViewModel.FireLabelFor(done);
 
             _aim.Active = _firePointer != -1
                           && _viewModel.TryGetAim(_fireDelta, _fireDelta.magnitude, out _aim.Origin, out _aim.Dir);

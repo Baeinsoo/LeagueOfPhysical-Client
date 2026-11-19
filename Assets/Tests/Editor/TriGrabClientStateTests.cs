@@ -11,8 +11,8 @@ namespace LOP.Tests
             {
                 Version = version, Phase = (int)phase, PhaseEndTick = phaseEnd, Round = 2,
                 RuleType = (int)TriGrabRuleType.Ink, RuleColor = 1,
-                BaseAngle0 = 0.3f, Omega = -0.5f, LiveStartTick = 100, FreezeTick = long.MaxValue, TargetScore = 5,
-                RoundWinnerId = "", MatchWinnerId = "",
+                BaseAngle0 = 0.3f, Omega = -0.5f, LiveStartTick = 100, FreezeTick = long.MaxValue,
+                RoundWinnerId = "", MatchWinnerId = "", TotalRounds = 5, RoundLimitTick = 1100,
             };
             for (int i = 0; i < TriGrabConfig.Slots; i++)
             {
@@ -28,7 +28,7 @@ namespace LOP.Tests
                 Carried = new TriGrabCardWire { Id = 99, Word = 2, Ink = 2 }, Result = (int)TriGrabHookResult.Correct, EndTick = 137,
             });
             m.Players.Add(new TriGrabPlayerWire { EntityId = "a", Score = 1, Mistakes = 2, ReloadUntilTick = 140, BestRtMs = 500 });
-            m.Players.Add(new TriGrabPlayerWire { EntityId = "b", Score = 3 });
+            m.Players.Add(new TriGrabPlayerWire { EntityId = "b", Score = 13, RoundPlace = 1, RoundPoints = 10 });
             return m;
         }
 
@@ -68,6 +68,45 @@ namespace LOP.Tests
             Assert.IsTrue(s.TryGetPlayer("a", out var a));
             Assert.AreEqual(2, a.Mistakes);
             Assert.AreEqual(140L, a.ReloadUntilTick);
+        }
+
+        [Test]
+        public void 라운드_수_시간_상한_이번_라운드_등수를_옮긴다()
+        {
+            var s = new TriGrabClientState();
+            s.Apply(Msg(1));
+            Assert.AreEqual(5, s.TotalRounds);
+            Assert.AreEqual(1100L, s.RoundLimitTick);
+            Assert.IsTrue(s.TryGetPlayer("b", out var b));
+            Assert.AreEqual(13, b.Score, "누적");
+            Assert.AreEqual(1, b.RoundPlace);
+            Assert.AreEqual(10, b.RoundPoints);
+            Assert.IsTrue(s.DoneThisRound("b"));
+            Assert.IsFalse(s.DoneThisRound("a"), "아직 못 냄");
+            Assert.IsFalse(s.DoneThisRound("nobody"));
+        }
+
+        [Test]
+        public void 시간_상한_틱이_지나면_소식_전에도_Resolved로_본다()
+        {
+            var s = new TriGrabClientState();
+            s.Apply(Msg(1));
+            Assert.AreEqual(TriGrabPhase.Live, s.PhaseAt(1099), "양성 대조");
+            Assert.AreEqual(TriGrabPhase.Resolved, s.PhaseAt(1100));
+        }
+
+        [Test]
+        public void 시간_상한_틱에서_회전판이_소식_전에도_멈춘다()
+        {
+            var s = new TriGrabClientState();
+            s.Apply(Msg(1));   // FreezeTick 없음(MaxValue), 상한 1100, Omega −0.5
+            Assert.AreEqual(1100L, s.Clock.FreezeTick);
+            Assert.AreNotEqual(s.Clock.BaseAt(1000), s.Clock.BaseAt(1100), "양성 대조 — 상한 전엔 돈다");
+            Assert.AreEqual(s.Clock.BaseAt(1100), s.Clock.BaseAt(1200), 1e-6f);
+            var early = Msg(2);
+            early.FreezeTick = 900;   // 정원으로 먼저 끝났다 — 서버 값이 더 이르면 그대로
+            s.Apply(early);
+            Assert.AreEqual(900L, s.Clock.FreezeTick);
         }
 
         [Test]

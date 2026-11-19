@@ -20,6 +20,7 @@ namespace LOP.UI
         private VisualElement toastBox;
         private Label toast;
         private Label toastSub;
+        private Label toastLead;
         private VisualElement timeBar;
         private VisualElement timeFill;
         private Label wrongText;
@@ -50,6 +51,7 @@ namespace LOP.UI
             toastBox = Root.Q<VisualElement>("toast-box");
             toast = Root.Q<Label>("toast-text");
             toastSub = Root.Q<Label>("toast-sub");
+            toastLead = Root.Q<Label>("toast-lead");
             timeBar = Root.Q<VisualElement>("time-bar");
             timeFill = Root.Q<VisualElement>("time-fill");
             wrongText = Root.Q<Label>("wrong-text");
@@ -92,6 +94,9 @@ namespace LOP.UI
                 bool sub = viewModel.ToastSub.Length > 0;
                 toastSub.style.display = sub ? DisplayStyle.Flex : DisplayStyle.None;
                 if (sub) toastSub.text = viewModel.ToastSub;
+                bool lead = viewModel.ToastLead.Length > 0;
+                toastLead.style.display = lead ? DisplayStyle.Flex : DisplayStyle.None;
+                if (lead) toastLead.text = viewModel.ToastLead;
             }
 
             RefreshScoreboard();

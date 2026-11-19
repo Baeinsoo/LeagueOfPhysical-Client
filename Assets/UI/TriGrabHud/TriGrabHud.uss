@@ -77,3 +77,10 @@
     color: rgb(233, 237, 245); font-size: 22px; -unity-font-style: bold;
     -unity-text-align: middle-center; white-space: nowrap;
 }
+
+.toast-lead {
+    margin-bottom: 4px;
+    color: rgb(140, 230, 160); font-size: 28px; -unity-font-style: bold;
+    -unity-text-outline-width: 2px; -unity-text-outline-color: rgba(10, 12, 20, 0.95);
+    -unity-text-align: middle-center;
+}

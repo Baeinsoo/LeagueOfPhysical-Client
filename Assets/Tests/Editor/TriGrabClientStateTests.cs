@@ -96,6 +96,20 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 시간_상한_틱에서_회전판이_소식_전에도_멈춘다()
+        {
+            var s = new TriGrabClientState();
+            s.Apply(Msg(1));   // FreezeTick 없음(MaxValue), 상한 1100, Omega −0.5
+            Assert.AreEqual(1100L, s.Clock.FreezeTick);
+            Assert.AreNotEqual(s.Clock.BaseAt(1000), s.Clock.BaseAt(1100), "양성 대조 — 상한 전엔 돈다");
+            Assert.AreEqual(s.Clock.BaseAt(1100), s.Clock.BaseAt(1200), 1e-6f);
+            var early = Msg(2);
+            early.FreezeTick = 900;   // 정원으로 먼저 끝났다 — 서버 값이 더 이르면 그대로
+            s.Apply(early);
+            Assert.AreEqual(900L, s.Clock.FreezeTick);
+        }
+
+        [Test]
         public void 늦게_도착한_낡은_판본은_버린다()
         {
             var s = new TriGrabClientState();

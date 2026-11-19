@@ -99,6 +99,8 @@ namespace LOP.UI
         public string PrepTitle { get; private set; } = "";
         /// <summary>정답·라운드 결과·판 끝 띠. 아니면 빈 글.</summary>
         public string ToastText { get; private set; } = "";
+        /// <summary>라운드를 끝낸 정답처럼 결과 띠와 겹친 "○○ N등 +점". 결과 제목 위에 작게. 아니면 빈 글.</summary>
+        public string ToastLead { get; private set; } = "";
         /// <summary>라운드 결과 아래 줄("1등 ○○ +10 · 2등 …"). 아니면 빈 글.</summary>
         public string ToastSub { get; private set; } = "";
         public Color ToastColor { get; private set; } = Color.white;
@@ -129,23 +131,11 @@ namespace LOP.UI
             }
             string correct = announcer.Update(state.Round, places, Time.unscaledTime);
 
-            ToastSub = "";
-            if (phase == TriGrabPhase.Over)
-            {
-                ToastText = Toast(phase, state.MatchWinnerId, NameOf(state.MatchWinnerId));
-                ToastColor = TriGrabPalette.Seat(state.SeatOf(state.MatchWinnerId));
-            }
-            else if (phase == TriGrabPhase.Resolved)
-            {
-                ToastText = RoundResultTitle(state.Round);
-                ToastSub = RoundResultLine(places);
-                ToastColor = Color.white;
-            }
-            else
-            {
-                ToastText = correct;
-                ToastColor = TriGrabPalette.Seat(state.SeatOf(announcer.LastId));
-            }
+            var (text, sub, lead) = ComposeToast(phase, state.Round, places, correct, Toast(phase, state.MatchWinnerId, NameOf(state.MatchWinnerId)));
+            ToastText = text; ToastSub = sub; ToastLead = lead;
+            ToastColor = phase == TriGrabPhase.Over ? TriGrabPalette.Seat(state.SeatOf(state.MatchWinnerId))
+                : phase == TriGrabPhase.Resolved ? Color.white
+                : TriGrabPalette.Seat(state.SeatOf(announcer.LastId));
 
             rows.Clear();
             string me = playerContext.entityId;
@@ -173,6 +163,18 @@ namespace LOP.UI
             //  List.Sort는 안정 정렬이 아니라 좌석 번호로 끝까지 가른다.
             order.Sort((a, b) => ScoreOf(a) != ScoreOf(b) ? ScoreOf(b).CompareTo(ScoreOf(a)) : a.CompareTo(b));
             return order;
+        }
+
+        /// <summary>
+        /// 가운데 띠 셋(큰 글, 아래 줄, 위 작은 글). 판 끝 = 우승 띠, 라운드 끝 = "라운드 N 결과" + 결과 줄
+        /// (라운드를 끝낸 정답의 "○○ N등 +점"은 그 위에 작게 — 결과 띠에 덮이지 않게), 그 밖 = 방금 난 정답 띠.
+        /// </summary>
+        public static (string text, string sub, string lead) ComposeToast(TriGrabPhase phase, int round,
+            IReadOnlyList<(string id, string name, int place, int points)> places, string correctToast, string overToast)
+        {
+            if (phase == TriGrabPhase.Over) return (overToast, "", "");
+            if (phase == TriGrabPhase.Resolved) return (RoundResultTitle(round), RoundResultLine(places), correctToast ?? "");
+            return (correctToast ?? "", "", "");
         }
 
         public static string RoundLabel(int round, int totalRounds) => round > 0 ? $"라운드 {round} / {totalRounds}" : "";

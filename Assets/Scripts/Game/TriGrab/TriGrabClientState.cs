@@ -43,17 +43,18 @@ namespace LOP
             PhaseEndTick = message.PhaseEndTick;
             Round = message.Round;
             Rule = new TriGrabRule((TriGrabRuleType)message.RuleType, message.RuleColor);
+            RoundLimitTick = message.RoundLimitTick;
             Clock = new TriGrabRoundClock
             {
                 BaseAngle0 = message.BaseAngle0,
                 Omega = message.Omega,
                 LiveStartTick = message.LiveStartTick,
-                FreezeTick = message.FreezeTick,
+                //  시간 상한은 미리 아는 틱이다 — 서버 소식을 기다리지 않고 그 틱에 멈춘다(왕복만큼 더 돌다 뒤로 튀지 않게).
+                FreezeTick = RoundLimitTick > 0 ? System.Math.Min(message.FreezeTick, RoundLimitTick) : message.FreezeTick,
             };
             RoundWinnerId = message.RoundWinnerId ?? "";
             MatchWinnerId = message.MatchWinnerId ?? "";
             TotalRounds = message.TotalRounds > 0 ? message.TotalRounds : TriGrabConfig.TotalRounds;
-            RoundLimitTick = message.RoundLimitTick;
 
             for (int i = 0; i < cards.Length; i++)
             {

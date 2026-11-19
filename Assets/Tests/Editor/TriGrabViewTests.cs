@@ -232,6 +232,20 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 라운드를_끝낸_정답_띠는_결과_띠_위에_작게_함께_뜬다()
+        {
+            var places = new List<(string, string, int, int)> { ("a", "철수", 1, 10), ("b", "영희", 3, 8), ("c", "봇", 2, 9) };
+            var resolved = LOP.UI.TriGrabHudViewModel.ComposeToast(TriGrabPhase.Resolved, 2, places, "영희 3등 +8", "");
+            Assert.AreEqual("라운드 2 결과", resolved.text);
+            Assert.AreEqual("1등 철수 +10 · 2등 봇 +9 · 3등 영희 +8", resolved.sub);
+            Assert.AreEqual("영희 3등 +8", resolved.lead);
+            var live = LOP.UI.TriGrabHudViewModel.ComposeToast(TriGrabPhase.Live, 2, places, "봇 2등 +9", "");
+            Assert.AreEqual(("봇 2등 +9", "", ""), live);
+            var over = LOP.UI.TriGrabHudViewModel.ComposeToast(TriGrabPhase.Over, 5, places, "영희 3등 +8", "철수 우승!");
+            Assert.AreEqual(("철수 우승!", "", ""), over);
+        }
+
+        [Test]
         public void 처음_받은_상태에_이미_있던_정답은_띄우지_않는다()
         {
             var a = new LOP.UI.TriGrabHudViewModel.CorrectAnnouncer();

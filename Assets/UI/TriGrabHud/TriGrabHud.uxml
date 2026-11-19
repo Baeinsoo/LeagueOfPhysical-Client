@@ -18,6 +18,7 @@
             <ui:Label name="prep-rule" class="prep-rule" text="" enable-rich-text="true" picking-mode="Ignore" />
         </ui:VisualElement>
         <ui:VisualElement name="toast-box" class="toast-box" picking-mode="Ignore">
+            <ui:Label name="toast-lead" class="toast-lead" text="" picking-mode="Ignore" />
             <ui:Label name="toast-text" class="toast-text" text="" picking-mode="Ignore" />
             <ui:Label name="toast-sub" class="toast-sub" text="" picking-mode="Ignore" />
         </ui:VisualElement>

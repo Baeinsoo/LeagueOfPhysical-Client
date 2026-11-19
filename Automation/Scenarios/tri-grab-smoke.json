@@ -1,6 +1,6 @@
 {
   "name": "tri-grab-smoke",
-  "description": "삼색 그랩 한 판 스모크(로컬 서버 에디터 + 봇 3) — 로비까지 띄운 뒤 InMatch를 기다린다(진입은 시나리오 밖 eval, 서버 픽스처 모드 14). 라운드 1 준비·Live·걷기 → 라운드 2 Live 직후 톡(나감·멀리·돌아옴) → 라운드 3 끌어 쏘기 → 라운드 4 쏘고 스틱 밀기(갈고리 중 이동 0) → 톡 40번(4번마다 스크린샷) → 결과 → 확인 → 로비. 봇이 빨라 한 판이 40초 안팎이라 라운드마다 '라운드 N' 글을 기다렸다가 준비가 끝날 즈음(1.2초 뒤)부터 연달아 탭·끌기한다 — 준비 중 탭은 무시되고 Live 첫 탭만 나간다. 취소(끌었다 제자리 놓기)는 drag가 직선이라 매크로로 못 만든다 — 조작판 시험이 지킨다",
+  "description": "삼색 그랩 한 판 스모크(로컬 서버 에디터 + 봇 3) — 로비까지 띄운 뒤 InMatch를 기다린다(진입은 시나리오 밖 eval, 서버 픽스처 모드 14). 라운드 1 준비·Live·걷기 → 라운드 2 Live 직후 톡(나감·멀리·돌아옴) → 라운드 3 끌어 쏘기 → 라운드 4 쏘고 스틱 밀기(갈고리 중 이동 0) → 톡 40번(4번마다 스크린샷) → 결과 → 확인 → 로비 → (두 번째 판, 진입 eval 다시) 라운드 1에서 나가기 → 확인 대화상자 → 나가기 → 로비. 카운트다운(3·2·1·GO)과 그때 주문 띠가 없는지도 찍는다. 봇이 빨라 한 판이 40초 안팎이라 라운드마다 '라운드 N' 글을 기다렸다가 준비가 끝날 즈음(1.2초 뒤)부터 연달아 탭·끌기한다 — 준비 중 탭은 무시되고 Live 첫 탭만 나간다. 취소(끌었다 제자리 놓기)는 drag가 직선이라 매크로로 못 만든다 — 조작판 시험이 지킨다",
   "repeat": 1,
   "setup": [
     {
@@ -33,6 +33,41 @@
     {
       "op": "log",
       "message": "판 씬 진입 — 카운트다운 뒤 '라운드 1'(준비 1.6초)을 기다린다"
+    },
+    {
+      "op": "ui_wait",
+      "name": "race-start-text",
+      "timeout_s": 120
+    },
+    {
+      "op": "screenshot",
+      "as": "waiting"
+    },
+    {
+      "op": "log",
+      "message": "카운트다운 — '3'이 뜨면 찍는다(1인 판이라 대기 글 'N / 1 대기 중'에는 3이 없다). 시작 전엔 주문 띠가 없어야 한다"
+    },
+    {
+      "op": "ui_wait",
+      "name": "race-start-text",
+      "text_contains": "3",
+      "timeout_s": 30,
+      "optional": true
+    },
+    {
+      "op": "screenshot",
+      "as": "countdown-3-no-rule-banner"
+    },
+    {
+      "op": "ui_wait",
+      "name": "race-start-text",
+      "text_contains": "GO",
+      "timeout_s": 30,
+      "optional": true
+    },
+    {
+      "op": "screenshot",
+      "as": "go"
     },
     {
       "op": "ui_wait",
@@ -860,6 +895,62 @@
     {
       "op": "screenshot",
       "as": "back-to-lobby"
+    },
+    {
+      "op": "log",
+      "message": "두 번째 판 — 나가기. 로비로 돌아온 뒤 진입 eval을 다시 부른다(서버 Play도 다시 켠다)"
+    },
+    {
+      "op": "wait_state",
+      "state": "InMatch",
+      "timeout_s": 600
+    },
+    {
+      "op": "ui_wait",
+      "name": "round-text",
+      "text_contains": "라운드 1",
+      "timeout_s": 180
+    },
+    {
+      "op": "wait",
+      "seconds": 1.0
+    },
+    {
+      "op": "screenshot",
+      "as": "leave-before"
+    },
+    {
+      "op": "ui_click",
+      "name": "leave-button",
+      "timeout_s": 20
+    },
+    {
+      "op": "ui_wait",
+      "name": "leave-confirm",
+      "clickable": true,
+      "timeout_s": 10
+    },
+    {
+      "op": "screenshot",
+      "as": "leave-confirm-dialog"
+    },
+    {
+      "op": "ui_click",
+      "name": "leave-confirm",
+      "timeout_s": 10
+    },
+    {
+      "op": "wait_state",
+      "state": "FrontEnd",
+      "timeout_s": 120
+    },
+    {
+      "op": "wait",
+      "seconds": 2.0
+    },
+    {
+      "op": "screenshot",
+      "as": "leave-back-to-lobby"
     }
   ],
   "teardown": [

@@ -32,8 +32,9 @@
     width: 44px; height: 44px; border-radius: 22px; background-color: rgba(255, 255, 255, 0.5);
 }
 
+/* 왼쪽 위. 오른쪽 위는 점수판 자리라 덮인다. 디버그 손잡이(왼쪽 위 8px, 88×44)를 피해 그 오른쪽에 둔다(RaceHud 기록 시간과 같은 자리). */
 .leave-button {
-    position: absolute; right: 16px; top: 16px; height: 44px; padding: 0 16px;
+    position: absolute; left: 108px; top: 8px; height: 44px; padding: 0 16px;
     font-size: 20px; color: white; background-color: rgba(0, 0, 0, 0.45);
     border-radius: 22px; border-width: 0;
 }

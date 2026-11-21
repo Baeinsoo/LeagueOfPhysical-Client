@@ -1,0 +1,782 @@
+{
+  "name": "tri-grab-brain",
+  "description": "삼색 그랩 3차 확인(로컬 서버 에디터 + 봇 3) — 진입은 시나리오 밖 eval(서버 픽스처 모드 14·맵 23). 라운드마다 준비 화면의 주문(1 한 축 → 3 속임 색 → 4 두 축 → 5 결승 2배·뒤집기)과 카드가 뒤집힌 회전판(원·세모·네모 모양)을 찍고, Live 동안 0.35초 간격으로 톡하며 찍어 정답 띠·내 +점·가장자리 번쩍임·파편을 잡는다. 판 끝 우승 띠와 결과 화면까지.",
+  "repeat": 1,
+  "setup": [
+    {
+      "op": "play_exit"
+    },
+    {
+      "op": "set_environment",
+      "env": "local"
+    },
+    {
+      "op": "play_enter"
+    },
+    {
+      "op": "boot_to_lobby",
+      "timeout_s": 360
+    },
+    {
+      "op": "ui_wait",
+      "name": "play-button",
+      "clickable": true,
+      "timeout_s": 120
+    }
+  ],
+  "loop": [
+    {
+      "op": "wait_state",
+      "state": "InMatch",
+      "timeout_s": 600
+    },
+    {
+      "op": "log",
+      "message": "판 씬 진입 — 카운트다운 뒤 '라운드 1'을 기다린다"
+    },
+    {
+      "op": "ui_wait",
+      "name": "round-text",
+      "text_contains": "라운드 1",
+      "timeout_s": 120,
+      "optional": false
+    },
+    {
+      "op": "wait",
+      "seconds": 0.3
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-prep-order"
+    },
+    {
+      "op": "wait",
+      "seconds": 1.4
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-live-cards"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-t0"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-t1"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-t2"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-t3"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-t4"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-t5"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-t6"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r1-t7"
+    },
+    {
+      "op": "ui_wait",
+      "name": "round-text",
+      "text_contains": "라운드 2",
+      "timeout_s": 120,
+      "optional": true
+    },
+    {
+      "op": "wait",
+      "seconds": 0.3
+    },
+    {
+      "op": "screenshot",
+      "as": "r2-prep-order"
+    },
+    {
+      "op": "wait",
+      "seconds": 1.4
+    },
+    {
+      "op": "screenshot",
+      "as": "r2-live-cards"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r2-t0"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r2-t1"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r2-t2"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r2-t3"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r2-t4"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r2-t5"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r2-t6"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r2-t7"
+    },
+    {
+      "op": "ui_wait",
+      "name": "round-text",
+      "text_contains": "라운드 3",
+      "timeout_s": 120,
+      "optional": true
+    },
+    {
+      "op": "wait",
+      "seconds": 0.3
+    },
+    {
+      "op": "screenshot",
+      "as": "r3-prep-order"
+    },
+    {
+      "op": "wait",
+      "seconds": 1.4
+    },
+    {
+      "op": "screenshot",
+      "as": "r3-live-cards"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r3-t0"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r3-t1"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r3-t2"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r3-t3"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r3-t4"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r3-t5"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r3-t6"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r3-t7"
+    },
+    {
+      "op": "ui_wait",
+      "name": "round-text",
+      "text_contains": "라운드 4",
+      "timeout_s": 120,
+      "optional": true
+    },
+    {
+      "op": "wait",
+      "seconds": 0.3
+    },
+    {
+      "op": "screenshot",
+      "as": "r4-prep-order"
+    },
+    {
+      "op": "wait",
+      "seconds": 1.4
+    },
+    {
+      "op": "screenshot",
+      "as": "r4-live-cards"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r4-t0"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r4-t1"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r4-t2"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r4-t3"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r4-t4"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r4-t5"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r4-t6"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r4-t7"
+    },
+    {
+      "op": "ui_wait",
+      "name": "round-text",
+      "text_contains": "라운드 5",
+      "timeout_s": 120,
+      "optional": true
+    },
+    {
+      "op": "wait",
+      "seconds": 0.3
+    },
+    {
+      "op": "screenshot",
+      "as": "r5-prep-order"
+    },
+    {
+      "op": "wait",
+      "seconds": 1.4
+    },
+    {
+      "op": "screenshot",
+      "as": "r5-live-cards"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r5-t0"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r5-t1"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r5-t2"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r5-t3"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r5-t4"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r5-t5"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r5-t6"
+    },
+    {
+      "op": "touch",
+      "device": "touch",
+      "x": 0.85,
+      "y": 0.8,
+      "hold_ms": 60
+    },
+    {
+      "op": "wait",
+      "seconds": 0.35
+    },
+    {
+      "op": "screenshot",
+      "as": "r5-t7"
+    },
+    {
+      "op": "log",
+      "message": "판 끝 — '우승'(또는 경기 종료) 띠를 기다린다"
+    },
+    {
+      "op": "ui_wait",
+      "name": "toast-text",
+      "text_contains": "우승",
+      "timeout_s": 60,
+      "optional": true
+    },
+    {
+      "op": "screenshot",
+      "as": "over"
+    },
+    {
+      "op": "wait_state",
+      "state": "PostMatch",
+      "timeout_s": 60,
+      "optional": true
+    },
+    {
+      "op": "wait",
+      "seconds": 2
+    },
+    {
+      "op": "screenshot",
+      "as": "result"
+    }
+  ]
+}

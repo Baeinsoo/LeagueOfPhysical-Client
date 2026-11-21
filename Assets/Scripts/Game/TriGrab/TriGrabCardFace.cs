@@ -5,7 +5,8 @@ namespace LOP
 {
     /// <summary>
     /// 카드 한 장의 그림(월드 공간 UI 패널 — 이름표와 같은 방식이라 한글이 그대로 나온다).
-    /// 흰 판 1.6 × 1.1 m, 글자는 글자색, 도는 카드는 점 셋(지금 색을 키운다), 잡힌 카드는 정답 초록·오답 빨강 테두리.
+    /// 흰 판 1.6 × 1.1 m에 카드 모양(원·세모·네모)을 회색으로 크게 깔고 그 위에 글자를 글자색으로 쓴다.
+    /// 도는 카드는 점 셋(지금 색을 키운다), 잡힌 카드는 정답 초록·오답 빨강 테두리.
     /// </summary>
     public sealed class TriGrabCardFace
     {
@@ -23,7 +24,10 @@ namespace LOP
         private readonly VisualElement dots;
         private readonly VisualElement[] dot = new VisualElement[3];
         private readonly VisualElement flash;
+        private readonly TriGrabShapeGlyph glyph;
         private int shownWord = -1, shownInk = -1;
+        private static readonly Color GlyphFill = new Color(0.74f, 0.77f, 0.85f);
+        private static readonly Color GlyphStroke = new Color(0.2f, 0.23f, 0.33f);
         private bool shown = true;
 
         private TriGrabCardFace(GameObject go, VisualElement root)
@@ -34,6 +38,11 @@ namespace LOP
             dots = root.Q<VisualElement>("dots");
             for (int i = 0; i < 3; i++) dot[i] = root.Q<VisualElement>("dot" + i);
             flash = root.Q<VisualElement>("flash");
+            //  글자 뒤에 깔리게 맨 앞에 넣는다.
+            glyph = new TriGrabShapeGlyph { name = "shape" };
+            glyph.style.position = Position.Absolute;
+            glyph.style.left = 2; glyph.style.right = 2; glyph.style.top = 1; glyph.style.bottom = 1;
+            card.Insert(0, glyph);
         }
 
         public GameObject GameObject => go;
@@ -73,11 +82,12 @@ namespace LOP
             go.transform.localScale = Vector3.one * scale;
 
             word.style.display = faceUp ? DisplayStyle.Flex : DisplayStyle.None;
+            glyph.Set(faceUp ? c.Shape : -1, GlyphFill, GlyphStroke, 9f);
             if (faceUp && (c.Word != shownWord || ink != shownInk))
             {
                 shownWord = c.Word;
                 shownInk = ink;
-                word.text = TriGrabRule.ColorName(c.Word);
+                word.text = TriGrabWords.Name(c.Word);
                 word.style.color = TriGrabPalette.Ink(ink);
             }
 

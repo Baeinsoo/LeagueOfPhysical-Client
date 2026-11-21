@@ -101,7 +101,7 @@ namespace LOP
                     if (d.Card == null) d.Card = TriGrabCardFace.Create("Carried", d.Root.transform.parent);
                     var c = hook.Carried.Value;
                     d.Card?.Show(c, TriGrabCarouselView.InkAt(c, renderTick), true, tip, camera.transform.rotation,
-                                 CarriedScale, hook.Result, 0f);
+                                 CarriedScale * GrabPop(renderTick - hook.TurnTick), hook.Result, 0f);
                 }
                 else
                 {
@@ -109,6 +109,14 @@ namespace LOP
                 }
             }
             PlaceAim();
+        }
+
+        /// <summary>잡은 순간 카드가 커졌다 0.2초에 걸쳐 제 크기로 돌아온다(잡았다는 손맛). 그림 크기만 바꾼다.</summary>
+        public static float GrabPop(double ticksSinceGrab)
+        {
+            const double popTicks = 10d;
+            if (ticksSinceGrab < 0d || ticksSinceGrab >= popTicks) return 1f;
+            return 1f + 0.55f * (float)(1d - ticksSinceGrab / popTicks);
         }
 
         private static Vector3 To3(Vector2 p) => new Vector3(p.x, HookHeight, p.y);

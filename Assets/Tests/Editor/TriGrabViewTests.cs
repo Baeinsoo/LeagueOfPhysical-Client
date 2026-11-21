@@ -152,6 +152,68 @@ namespace LOP.Tests
             Assert.AreEqual("글자와 색이 같은 카드", LOP.UI.TriGrabHudViewModel.RuleRichText(new TriGrabRule(TriGrabRuleType.Match, 1)));
         }
 
+        // ── 3차: 속임 색·뒤집기·결승·손맛 ──
+
+        [Test]
+        public void 속임_주문은_색_이름을_다른_색으로_칠한다()
+        {
+            string text = LOP.UI.TriGrabHudViewModel.RuleRichText(new TriGrabRule(TriGrabRuleType.Ink, 0, -1, false, 2));
+            Assert.AreEqual($"글자색이 <color={TriGrabPalette.InkHtml(2)}>빨강</color>인 카드", text);
+            string compound = LOP.UI.TriGrabHudViewModel.RuleRichText(new TriGrabRule(TriGrabRuleType.Word, 1, 1, false, 0));
+            Assert.AreEqual($"'<color={TriGrabPalette.InkHtml(0)}>노랑</color>'이라고 쓰인 세모", compound);
+        }
+
+        [Test]
+        public void 뒤집힌_주문은_아닌을_눈에_띄게_칠한다()
+        {
+            string text = LOP.UI.TriGrabHudViewModel.RuleRichText(new TriGrabRule(TriGrabRuleType.Match, 0, 2, true, -1));
+            Assert.AreEqual("글자와 색이 <color=#FF9E40>다른</color> 네모", text);
+            string plain = LOP.UI.TriGrabHudViewModel.RuleRichText(new TriGrabRule(TriGrabRuleType.Match, 0, 2, false, -1));
+            Assert.AreEqual("글자와 색이 같은 네모", plain, "양성 대조 — 뒤집지 않으면 안 칠한다");
+        }
+
+        [Test]
+        public void 결승_라운드_표시()
+        {
+            Assert.AreEqual("라운드 5 / 5 · 결승 점수 2배", LOP.UI.TriGrabHudViewModel.RoundLabel(5, 5));
+            Assert.AreEqual("라운드 4 / 5", LOP.UI.TriGrabHudViewModel.RoundLabel(4, 5));
+        }
+
+        [Test]
+        public void 잡은_카드는_잠깐_커졌다_돌아온다()
+        {
+            Assert.AreEqual(1f, TriGrabHookView.GrabPop(-1d), "잡기 전");
+            Assert.Greater(TriGrabHookView.GrabPop(0d), 1.5f);
+            Assert.Greater(TriGrabHookView.GrabPop(3d), TriGrabHookView.GrabPop(7d));
+            Assert.AreEqual(1f, TriGrabHookView.GrabPop(10d));
+        }
+
+        [Test]
+        public void 흔들림은_정해진_시간_뒤_0이고_정답은_쏜_쪽으로_민다()
+        {
+            var dir = Vector3.forward;
+            Assert.AreEqual(Vector3.zero, TriGrabJuiceView.ShakeOffset(TriGrabJuiceView.ShakeSeconds, true, 0.6f, dir));
+            Assert.AreEqual(Vector3.zero, TriGrabJuiceView.ShakeOffset(-0.1f, false, 0.3f, dir));
+            var punch = TriGrabJuiceView.ShakeOffset(TriGrabJuiceView.ShakeSeconds * 0.3f, true, 0.6f, dir);
+            Assert.Greater(punch.z, 0.1f);
+            Assert.AreEqual(0f, punch.x, 1e-5f);
+            var shake = TriGrabJuiceView.ShakeOffset(0.01f, false, 0.3f, dir);
+            Assert.AreEqual(0f, shake.z, 1e-5f, "오답은 옆으로 떤다");
+            Assert.AreNotEqual(0f, shake.x);
+        }
+
+        [Test]
+        public void 잡기_결과는_닿는_틱이_화면에_온_뒤_한_번만_터진다()
+        {
+            var seen = new System.Collections.Generic.HashSet<(string, long)>();
+            var hook = new TriGrabHook { OwnerId = "a", FireTick = 100, TurnTick = 110, Result = TriGrabHookResult.Correct };
+            Assert.IsFalse(TriGrabJuiceView.IsNewResult(hook, seen, 109.5), "닿기 전");
+            Assert.IsTrue(TriGrabJuiceView.IsNewResult(hook, seen, 110.2));
+            Assert.IsFalse(TriGrabJuiceView.IsNewResult(hook, seen, 111), "두 번 안 터진다");
+            var miss = new TriGrabHook { OwnerId = "b", FireTick = 100, TurnTick = 110, Result = TriGrabHookResult.None };
+            Assert.IsFalse(TriGrabJuiceView.IsNewResult(miss, seen, 120), "빗나간 갈고리는 안 터진다");
+        }
+
         [Test]
         public void 판_끝_띠는_누적_1위_혼자면_우승_같으면_경기_종료()
         {

@@ -42,7 +42,8 @@ namespace LOP
             Phase = (TriGrabPhase)message.Phase;
             PhaseEndTick = message.PhaseEndTick;
             Round = message.Round;
-            Rule = new TriGrabRule((TriGrabRuleType)message.RuleType, message.RuleColor);
+            Rule = new TriGrabRule((TriGrabRuleType)message.RuleType, message.RuleColor,
+                                   message.RuleShapePlus1 - 1, message.RuleNegate, message.RuleDecoyInkPlus1 - 1);
             RoundLimitTick = message.RoundLimitTick;
             Clock = new TriGrabRoundClock
             {
@@ -100,7 +101,7 @@ namespace LOP
 
         public static TriGrabCard ToCard(TriGrabCardWire w) => new TriGrabCard
         {
-            Id = w.Id, Word = w.Word, Ink = w.Ink, Cycles = w.Cycles, PeriodTicks = w.PeriodTicks, T0Tick = w.T0Tick,
+            Id = w.Id, Word = w.Word, Ink = w.Ink, Shape = w.Shape, Cycles = w.Cycles, PeriodTicks = w.PeriodTicks, T0Tick = w.T0Tick,
         };
 
         public TriGrabCard? CardAt(int slot) => slot >= 0 && slot < cards.Length ? cards[slot] : null;

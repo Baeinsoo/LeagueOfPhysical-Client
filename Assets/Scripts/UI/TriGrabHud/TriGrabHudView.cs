@@ -24,6 +24,8 @@ namespace LOP.UI
         private VisualElement timeBar;
         private VisualElement timeFill;
         private Label wrongText;
+        private Label gainText;
+        private VisualElement edgeFlash;
         private VisualElement scoreboard;
         private readonly List<(VisualElement row, VisualElement dot, Label name, Label place, Label score)> rowElements =
             new List<(VisualElement, VisualElement, Label, Label, Label)>();
@@ -55,6 +57,8 @@ namespace LOP.UI
             timeBar = Root.Q<VisualElement>("time-bar");
             timeFill = Root.Q<VisualElement>("time-fill");
             wrongText = Root.Q<Label>("wrong-text");
+            gainText = Root.Q<Label>("gain-text");
+            edgeFlash = Root.Q<VisualElement>("edge-flash");
             scoreboard = Root.Q<VisualElement>("scoreboard");
             tick = Root.schedule.Execute(_ => Refresh()).Every(0);
         }
@@ -101,6 +105,40 @@ namespace LOP.UI
 
             RefreshScoreboard();
             PlaceWrong();
+            PlaceGain();
+            RefreshEdge();
+        }
+
+        private void RefreshEdge()
+        {
+            if (edgeFlash == null) return;
+            float alpha = viewModel.EdgeAlpha;
+            edgeFlash.style.opacity = alpha;
+            if (alpha <= 0f) return;
+            var c = viewModel.EdgeColor;
+            edgeFlash.style.borderTopColor = c;
+            edgeFlash.style.borderBottomColor = c;
+            edgeFlash.style.borderLeftColor = c;
+            edgeFlash.style.borderRightColor = c;
+        }
+
+        // 내 정답 점수는 내 몸 머리 위에서 크게 떠오른다(오답 글과 같은 자리 규칙).
+        private void PlaceGain()
+        {
+            if (gainText == null) return;
+            float alpha = viewModel.GainAlpha;
+            var camera = cameraController != null ? cameraController.MainCamera : null;
+            if (alpha <= 0f || camera == null || Root.panel == null || !viewModel.TryGetMyHead(actors, out var head))
+            {
+                gainText.style.display = DisplayStyle.None;
+                return;
+            }
+            var p = RuntimePanelUtils.CameraTransformWorldToPanel(Root.panel, head, camera);
+            gainText.style.display = DisplayStyle.Flex;
+            gainText.style.opacity = alpha;
+            if (gainText.text != viewModel.GainText) gainText.text = viewModel.GainText;
+            gainText.style.left = p.x - 100f;
+            gainText.style.top = p.y - 50f - (1f - alpha) * 50f;
         }
 
         private void RefreshScoreboard()

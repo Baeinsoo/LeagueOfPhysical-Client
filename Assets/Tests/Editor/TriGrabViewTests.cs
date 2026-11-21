@@ -203,15 +203,16 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 잡기_결과는_닿는_틱이_화면에_온_뒤_한_번만_터진다()
+        public void 잡기_결과는_한_번만_터진다()
         {
             var seen = new System.Collections.Generic.HashSet<(string, long)>();
             var hook = new TriGrabHook { OwnerId = "a", FireTick = 100, TurnTick = 110, Result = TriGrabHookResult.Correct };
-            Assert.IsFalse(TriGrabJuiceView.IsNewResult(hook, seen, 109.5), "닿기 전");
-            Assert.IsTrue(TriGrabJuiceView.IsNewResult(hook, seen, 110.2));
-            Assert.IsFalse(TriGrabJuiceView.IsNewResult(hook, seen, 111), "두 번 안 터진다");
+            Assert.IsTrue(TriGrabJuiceView.IsNewResult(hook, seen));
+            Assert.IsFalse(TriGrabJuiceView.IsNewResult(hook, seen), "두 번 안 터진다");
+            var other = new TriGrabHook { OwnerId = "a", FireTick = 200, TurnTick = 210, Result = TriGrabHookResult.Wrong };
+            Assert.IsTrue(TriGrabJuiceView.IsNewResult(other, seen), "같은 사람의 다음 갈고리는 새것");
             var miss = new TriGrabHook { OwnerId = "b", FireTick = 100, TurnTick = 110, Result = TriGrabHookResult.None };
-            Assert.IsFalse(TriGrabJuiceView.IsNewResult(miss, seen, 120), "빗나간 갈고리는 안 터진다");
+            Assert.IsFalse(TriGrabJuiceView.IsNewResult(miss, seen), "빗나간 갈고리는 안 터진다");
         }
 
         [Test]

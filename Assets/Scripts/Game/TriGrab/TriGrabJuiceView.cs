@@ -131,11 +131,10 @@ namespace LOP
         }
 
         /// <summary>새로 정해진 잡기 결과. 처음 받은 상태에 이미 있던 결과(다시 접속 등)는 연출하지 않는다.</summary>
-        public static bool IsNewResult(TriGrabHook hook, HashSet<(string, long)> seen, double renderTick)
+        /// <remarks>서버 소식은 왕복만큼 늦게 오므로(렌더 틱은 이미 닿은 틱을 지나 있다) 받는 즉시 터뜨린다.</remarks>
+        public static bool IsNewResult(TriGrabHook hook, HashSet<(string, long)> seen)
         {
             if (hook == null || hook.Result == TriGrabHookResult.None) return false;
-            //  갈고리 끝이 카드에 닿은 틱이 화면에 오기 전엔 아직 터뜨리지 않는다.
-            if (renderTick < hook.TurnTick) return false;
             return seen.Add((hook.OwnerId, hook.FireTick));
         }
 
@@ -144,7 +143,7 @@ namespace LOP
             string me = playerContext.entityId;
             foreach (var hook in state.Hooks)
             {
-                if (!IsNewResult(hook, seenResults, renderTick) || first) continue;
+                if (!IsNewResult(hook, seenResults) || first) continue;
                 bool correct = hook.Result == TriGrabHookResult.Correct;
                 var at = hook.TipAt(hook.TurnTick);
                 Burst(new Vector3(at.x, TriGrabHookView.HookHeight, at.y), correct, hook.OwnerId == me);

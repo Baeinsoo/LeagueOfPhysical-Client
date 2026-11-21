@@ -33,6 +33,8 @@ namespace LOP
 
         private readonly List<Drawn> drawn = new List<Drawn>();
         private readonly List<TriGrabHook> visible = new List<TriGrabHook>();
+        //  잡은 카드를 처음 본 시각 — 서버 소식은 왕복만큼 늦게 오므로 팽창은 서버 틱이 아니라 받은 순간부터 잰다.
+        private readonly Dictionary<(string, long), float> carriedSeenAt = new Dictionary<(string, long), float>();
         private GameObject root;
         private Material chainMaterial, clawMaterial;
         private LineRenderer aimLine;
@@ -101,7 +103,7 @@ namespace LOP
                     if (d.Card == null) d.Card = TriGrabCardFace.Create("Carried", d.Root.transform.parent);
                     var c = hook.Carried.Value;
                     d.Card?.Show(c, TriGrabCarouselView.InkAt(c, renderTick), true, tip, camera.transform.rotation,
-                                 CarriedScale, hook.Result, 0f);
+                                 CarriedScale * GrabPop(SecondsSinceSeen(hook) / TriGrabConfig.TickSeconds), hook.Result, 0f);
                 }
                 else
                 {
@@ -109,6 +111,26 @@ namespace LOP
                 }
             }
             PlaceAim();
+        }
+
+        private float SecondsSinceSeen(TriGrabHook hook)
+        {
+            var key = (hook.OwnerId, hook.FireTick);
+            if (!carriedSeenAt.TryGetValue(key, out float at))
+            {
+                if (carriedSeenAt.Count > 64) carriedSeenAt.Clear();
+                at = Time.unscaledTime;
+                carriedSeenAt[key] = at;
+            }
+            return Time.unscaledTime - at;
+        }
+
+        /// <summary>잡은 순간 카드가 커졌다 0.2초에 걸쳐 제 크기로 돌아온다(잡았다는 손맛). 그림 크기만 바꾼다.</summary>
+        public static float GrabPop(double ticksSinceGrab)
+        {
+            const double popTicks = 10d;
+            if (ticksSinceGrab < 0d || ticksSinceGrab >= popTicks) return 1f;
+            return 1f + 0.55f * (float)(1d - ticksSinceGrab / popTicks);
         }
 
         private static Vector3 To3(Vector2 p) => new Vector3(p.x, HookHeight, p.y);

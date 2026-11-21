@@ -71,6 +71,20 @@
     display: none;
 }
 
+.gain-text {
+    position: absolute; width: 200px; height: 60px;
+    -unity-text-align: middle-center;
+    color: rgb(92, 255, 138); font-size: 48px; -unity-font-style: bold;
+    -unity-text-outline-width: 4px; -unity-text-outline-color: rgba(5, 30, 10, 0.95);
+    display: none;
+}
+
+.edge-flash {
+    position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+    border-width: 26px; border-color: rgba(0, 0, 0, 0);
+    opacity: 0;
+}
+
 .toast-sub {
     margin-top: 6px; padding: 4px 14px; border-radius: 6px;
     background-color: rgba(10, 12, 20, 0.75);

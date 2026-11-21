@@ -14,6 +14,10 @@ namespace LOP.UI
         public const float WrongSeconds = 0.9f;
         /// <summary>"○○ 1등 +10" 띠가 떠 있는 시간(초).</summary>
         public const float CorrectToastSeconds = 1.2f;
+        /// <summary>내 정답 "+10"이 머리 위에 떠 있는 시간(초).</summary>
+        public const float GainSeconds = 1.1f;
+        /// <summary>내 정답·오답 때 화면 가장자리가 번쩍이는 시간(초).</summary>
+        public const float EdgeFlashSeconds = 0.45f;
         /// <summary>남은 시간이 이 비율 아래면 막대가 빨개진다.</summary>
         public const float TimeLowFraction = 0.25f;
 
@@ -82,6 +86,8 @@ namespace LOP.UI
 
         private int seenMistakes = -1;
         private float wrongAt = -100f;
+        private int seenRound = -1, seenPlace;
+        private float gainAt = -100f;
 
         public TriGrabHudViewModel(TriGrabClientState state, IPlayerContext playerContext,
                                    GameFramework.World.EntityRegistry entityRegistry, GameFramework.Runner.IRunner runner)
@@ -107,6 +113,12 @@ namespace LOP.UI
         public IReadOnlyList<ScoreRow> Rows => rows;
         /// <summary>내 오답 글을 지금 보이나와 그 투명도(0~1).</summary>
         public float WrongAlpha { get; private set; }
+        /// <summary>내 정답 점수 글("+10")과 그 투명도(0~1).</summary>
+        public string GainText { get; private set; } = "";
+        public float GainAlpha { get; private set; }
+        /// <summary>화면 가장자리 번쩍임(내 정답 초록·오답 빨강)의 투명도와 색.</summary>
+        public float EdgeAlpha { get; private set; }
+        public Color EdgeColor { get; private set; } = Color.clear;
         /// <summary>이번 라운드 남은 시간 비율(0~1). 음수면 막대를 숨긴다.</summary>
         public float TimeFraction { get; private set; } = -1f;
 
@@ -152,6 +164,27 @@ namespace LOP.UI
             if (seenMistakes >= 0 && mistakes > seenMistakes) wrongAt = Time.unscaledTime;
             seenMistakes = mistakes;
             WrongAlpha = FlashAlpha(Time.unscaledTime - wrongAt, WrongSeconds);
+
+            //  이번 라운드 내 등수가 0에서 생긴 순간이 내 정답이다. 처음 본 라운드(다시 접속 등)는 기준만 잡는다.
+            int place = mine?.RoundPlace ?? 0;
+            if (seenRound != state.Round)
+            {
+                bool firstLook = seenRound < 0;
+                seenRound = state.Round;
+                if (firstLook || place == 0) seenPlace = place;
+            }
+            if (place > 0 && seenPlace == 0)
+            {
+                gainAt = Time.unscaledTime;
+                GainText = $"+{mine.RoundPoints}";
+            }
+            seenPlace = place;
+            GainAlpha = FlashAlpha(Time.unscaledTime - gainAt, GainSeconds);
+
+            float good = FlashAlpha(Time.unscaledTime - gainAt, EdgeFlashSeconds);
+            float bad = FlashAlpha(Time.unscaledTime - wrongAt, EdgeFlashSeconds);
+            EdgeAlpha = Mathf.Max(good, bad);
+            EdgeColor = good >= bad ? TriGrabPalette.Correct : TriGrabPalette.Wrong;
         }
 
         /// <summary>점수판 순서 — 누적 점수 높은 순, 같으면 좌석(등록) 순. 좌석 번호 목록을 돌려준다.</summary>
@@ -177,7 +210,13 @@ namespace LOP.UI
             return (correctToast ?? "", "", "");
         }
 
-        public static string RoundLabel(int round, int totalRounds) => round > 0 ? $"라운드 {round} / {totalRounds}" : "";
+        /// <summary>"라운드 N / 5". 마지막 라운드는 "결승 · 점수 2배"를 붙인다.</summary>
+        public static string RoundLabel(int round, int totalRounds)
+        {
+            if (round <= 0) return "";
+            string label = $"라운드 {round} / {totalRounds}";
+            return round >= totalRounds ? label + " · 결승 점수 2배" : label;
+        }
 
         /// <summary>이번 라운드 등수 표시. 아직 정답 전이면 빈 글.</summary>
         public static string PlaceBadge(int place, int points) => place > 0 ? $"✓{place} +{points}" : "";
@@ -213,14 +252,30 @@ namespace LOP.UI
         /// <summary>1라운드 전엔 서버가 아직 주문을 안 뽑았다(기본값이 가짜로 보이지 않게 빈 글).</summary>
         public static string RuleTextFor(TriGrabClientState state) => state.Round >= 1 ? RuleRichText(state.Rule) : "";
 
-        /// <summary>주문 글. 주문에 든 색 이름은 그 색으로 칠한다.</summary>
+        /// <summary>
+        /// 주문 글. 주문에 든 색 이름은 칠한다 — 보통은 그 색으로, 속임 주문이면 다른 색으로(읽는 순간부터 헷갈리게).
+        /// 뒤집힌 주문의 "아닌·않은·다른"은 눈에 띄게 주황으로 둔다(속임은 글자색 하나로 충분하다).
+        /// </summary>
         public static string RuleRichText(in TriGrabRule rule)
         {
-            if (rule.Type == TriGrabRuleType.Match) return rule.KoreanText;
-            string name = TriGrabRule.ColorName(rule.Color);
-            string tinted = $"<color={TriGrabPalette.InkHtml(rule.Color)}>{name}</color>";
-            return rule.KoreanText.Replace(name, tinted);
+            string text = rule.KoreanText;
+            string token = rule.ColorToken;
+            if (token != null)
+            {
+                text = text.Replace(token, $"<color={TriGrabPalette.InkHtml(rule.ColorTokenInk)}>{token}</color>");
+            }
+            if (rule.Negate)
+            {
+                foreach (var word in NegationWords)
+                {
+                    text = text.Replace(word, $"<color={NegationHtml}>{word}</color>");
+                }
+            }
+            return text;
         }
+
+        private const string NegationHtml = "#FF9E40";
+        private static readonly string[] NegationWords = { "아닌", "않은", "다른" };
 
         /// <summary>판 끝 띠. 누적 1위가 혼자면 "○○ 우승!", 같은 점수면 "경기 종료". 판 끝이 아니면 빈 글.</summary>
         public static string Toast(TriGrabPhase phase, string winnerId, string winnerName)

@@ -44,6 +44,7 @@ namespace LOP
             builder.RegisterEntryPoint<TriGrabCarouselView>().AsSelf();
             builder.RegisterEntryPoint<TriGrabHookView>().AsSelf();
             builder.RegisterEntryPoint<TriGrabRobotView>().AsSelf();
+            builder.RegisterEntryPoint<TriGrabJuiceView>().AsSelf();
 
             builder.RegisterEntryPoint<TriGrabHudCoordinator>();
             builder.Register<TriGrabPadViewModel>(Lifetime.Transient);

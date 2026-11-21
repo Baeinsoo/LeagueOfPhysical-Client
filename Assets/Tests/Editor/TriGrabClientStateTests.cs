@@ -33,6 +33,30 @@ namespace LOP.Tests
         }
 
         [Test]
+        public void 삼차_카드_모양과_주문_확장을_옮긴다()
+        {
+            var m = Msg(1);
+            m.RuleShapePlus1 = (int)TriGrabShape.Triangle + 1;
+            m.RuleNegate = true;
+            m.RuleDecoyInkPlus1 = (int)TriGrabColor.Blue + 1;
+            m.Slots[0].Card.Shape = (int)TriGrabShape.Square;
+            m.Slots[0].Card.Word = 5;
+            var s = new TriGrabClientState();
+            s.Apply(m);
+            Assert.AreEqual((int)TriGrabShape.Triangle, s.Rule.ShapeFilter);
+            Assert.IsTrue(s.Rule.Negate);
+            Assert.AreEqual((int)TriGrabColor.Blue, s.Rule.DecoyInk);
+            Assert.AreEqual((int)TriGrabShape.Square, s.CardAt(0).Value.Shape);
+            Assert.AreEqual(5, s.CardAt(0).Value.Word);
+
+            var plain = new TriGrabClientState();
+            plain.Apply(Msg(1));
+            Assert.AreEqual(-1, plain.Rule.ShapeFilter, "0은 거르기 없음");
+            Assert.AreEqual(-1, plain.Rule.DecoyInk, "0은 속임 없음");
+            Assert.IsFalse(plain.Rule.IsCompound);
+        }
+
+        [Test]
         public void 새_판본이면_카드_시계_갈고리_점수를_Shared_타입으로_옮긴다()
         {
             var s = new TriGrabClientState();

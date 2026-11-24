@@ -1,148 +1,158 @@
 using NUnit.Framework;
-using UnityEngine;
+using TG = LOP.TriGrab;
 
 namespace LOP.Tests
 {
+    /// <summary>원형 판 상태 받기 — 와이어를 Shared 타입으로 옮기고, 낡은 판본·되풀이된 연출은 버린다.</summary>
     public class TriGrabClientStateTests
     {
-        public static TriGrabStateToC Msg(int version, TriGrabPhase phase = TriGrabPhase.Live, long phaseEnd = 200)
+        public static TriGrabRingStateToC Msg(int version, TG.TriGrabPhase phase = TG.TriGrabPhase.Live, long phaseEnd = 600)
         {
-            var m = new TriGrabStateToC
+            return new TriGrabRingStateToC
             {
-                Version = version, Phase = (int)phase, PhaseEndTick = phaseEnd, Round = 2,
-                RuleType = (int)TriGrabRuleType.Ink, RuleColor = 1,
-                BaseAngle0 = 0.3f, Omega = -0.5f, LiveStartTick = 100, FreezeTick = long.MaxValue,
-                RoundWinnerId = "", MatchWinnerId = "", TotalRounds = 5, RoundLimitTick = 1100,
+                Version = version,
+                Phase = (int)phase,
+                PhaseEndTick = phaseEnd,
+                Round = 3,
+                TotalRounds = 10,
+                RuleType = (int)TG.TriGrabRuleType.Ink,
+                RuleValue = 2,
+                RuleLure = 0,
+                LiveStartTick = 200,
+                Quota = 6,
+                OkSpawned = 2,
             };
-            for (int i = 0; i < TriGrabConfig.Slots; i++)
+        }
+
+        [Test]
+        public void ClientState_AppliesCardsMolesHooksPlayers()
+        {
+            var state = new TriGrabClientState();
+            var m = Msg(4);
+            m.Cards.Add(new TriGrabRingCardWire { Id = 7, Word = 1, Ink = 2, Fill = 3, Ok = true, BornTick = 210, CarriedBy = "" });
+            m.Cards.Add(new TriGrabRingCardWire { Id = 8, Word = 0, Ink = 1, Fill = 2, Ok = false, BornTick = 220, CarriedBy = "b" });
+            m.Hooks.Add(new TriGrabRingHookWire
             {
-                var slot = new TriGrabSlotWire { EmptyUntilTick = 0 };
-                //  3번 슬롯은 비었다(카드 없음).
-                if (i != 3) slot.Card = new TriGrabCardWire { Id = 10 + i, Word = i % 3, Ink = (i + 1) % 3, Cycles = i == 5, PeriodTicks = 30, T0Tick = 100 };
-                else slot.EmptyUntilTick = 150;
-                m.Slots.Add(slot);
-            }
-            m.Hooks.Add(new TriGrabHookWire
-            {
-                OwnerId = "b", FireTick = 120, OriginX = 7f, OriginZ = 0f, DirX = -1f, DirZ = 0f, TurnTick = 128, TurnLength = 4.6f,
-                Carried = new TriGrabCardWire { Id = 99, Word = 2, Ink = 2 }, Result = (int)TriGrabHookResult.Correct, EndTick = 137,
+                OwnerId = "b", FireTick = 230, OriginX = 7f, OriginZ = -1f, DirX = -1f, DirZ = 0f,
+                State = (int)TG.TriGrabHookState.Back, End = (int)TG.TriGrabHookEnd.Card, CardId = 8,
+                TurnTick = 240, TurnLength = 6.5f, TipX = 1f, TipZ = -1f,
             });
-            m.Players.Add(new TriGrabPlayerWire { EntityId = "a", Score = 1, Mistakes = 2, ReloadUntilTick = 140, BestRtMs = 500 });
-            m.Players.Add(new TriGrabPlayerWire { EntityId = "b", Score = 13, RoundPlace = 1, RoundPoints = 10 });
-            return m;
-        }
+            m.Moles.Add(new TriGrabRingMoleWire { Id = 2, X = 1.5f, Z = -2f, SpawnTick = 225, StandTicks = 70, BonkTick = -1, Say = 3, BonkLine = 4 });
+            m.Players.Add(new TriGrabRingPlayerWire { EntityId = "a", Score = 3, Correct = 4, Wrong = 1, StunUntilTick = 0, CooldownUntilTick = 250, Place = 1 });
+            m.Players.Add(new TriGrabRingPlayerWire { EntityId = "b", Score = -1, Correct = 0, Wrong = 1, StunUntilTick = 280, Place = 2 });
 
-        [Test]
-        public void 새_판본이면_카드_시계_갈고리_점수를_Shared_타입으로_옮긴다()
-        {
-            var s = new TriGrabClientState();
-            Assert.IsFalse(s.Received);
-            Assert.IsTrue(s.Apply(Msg(1)));
-            Assert.IsTrue(s.Received);
+            Assert.IsTrue(state.Apply(m));
 
-            Assert.AreEqual(TriGrabPhase.Live, s.Phase);
-            Assert.AreEqual(2, s.Round);
-            Assert.AreEqual(TriGrabRuleType.Ink, s.Rule.Type);
-            Assert.AreEqual(1, s.Rule.Color);
-            Assert.AreEqual(-0.5f, s.Clock.Omega);
-            Assert.AreEqual(100L, s.Clock.LiveStartTick);
+            Assert.AreEqual(TG.TriGrabPhase.Live, state.Phase);
+            Assert.AreEqual(3, state.Round);
+            Assert.AreEqual(10, state.TotalRounds);
+            Assert.AreEqual(TG.TriGrabRuleType.Ink, state.Rule.Type);
+            Assert.AreEqual(2, state.Rule.Value);
+            Assert.AreEqual(0, state.Rule.Lure);
+            Assert.AreEqual(6, state.Quota);
+            Assert.AreEqual(2, state.OkSpawned);
 
-            Assert.IsNull(s.CardAt(3), "카드 없는 슬롯은 빈 슬롯");
-            Assert.AreEqual(150L, s.EmptyUntilTick(3));
-            var c5 = s.CardAt(5).Value;
-            Assert.AreEqual(15, c5.Id);
-            Assert.IsTrue(c5.Cycles);
-            Assert.AreEqual(30, c5.PeriodTicks);
-            //  같은 식 — 도는 카드는 T0+주기에 한 칸 간다.
-            Assert.AreEqual((c5.Ink + 1) % 3, c5.InkAt(130));
+            Assert.AreEqual(2, state.Cards.Count);
+            Assert.IsTrue(state.TryGetCard(7, out var c7));
+            Assert.AreEqual((1, 2, 3, true, 210L), (c7.Word, c7.Ink, c7.Fill, c7.Ok, c7.BornTick));
+            Assert.IsNull(c7.CarriedBy, "빈 문자열 = 안 끌려감");
+            Assert.IsTrue(state.TryGetCard(8, out var c8));
+            Assert.AreEqual("b", c8.CarriedBy);
 
-            Assert.AreEqual(1, s.Hooks.Count);
-            var h = s.HookOf("b");
-            Assert.AreEqual(new Vector2(7f, 0f), h.Origin);
-            Assert.AreEqual(TriGrabHookResult.Correct, h.Result);
-            Assert.AreEqual(99, h.Carried.Value.Id);
-            Assert.IsNull(s.HookOf("a"));
+            var hook = state.HookOf("b");
+            Assert.IsNotNull(hook);
+            Assert.AreEqual(230, hook.FireTick);
+            Assert.AreEqual(new System.Numerics.Vector2(7f, -1f), hook.Origin);
+            Assert.AreEqual(new System.Numerics.Vector2(-1f, 0f), hook.Dir);
+            Assert.AreEqual(TG.TriGrabHookState.Back, hook.State);
+            Assert.AreEqual(TG.TriGrabHookEnd.Card, hook.End);
+            Assert.AreEqual(8, hook.CardId);
+            Assert.AreEqual(240, hook.TurnTick);
+            Assert.AreEqual(6.5f, hook.TurnLength);
+            Assert.IsNull(state.HookOf("a"));
 
-            CollectionAssert.AreEqual(new[] { "a", "b" }, s.PlayerIds);
-            Assert.AreEqual(1, s.SeatOf("b"));
-            Assert.IsTrue(s.TryGetPlayer("a", out var a));
-            Assert.AreEqual(2, a.Mistakes);
-            Assert.AreEqual(140L, a.ReloadUntilTick);
-        }
+            Assert.AreEqual(1, state.Moles.Count);
+            var mole = state.Moles[0];
+            Assert.AreEqual((2, 225L, 70, -1L, 3, 4), (mole.Id, mole.SpawnTick, mole.StandTicks, mole.BonkTick, mole.SayIndex, mole.BonkLineIndex));
+            Assert.AreEqual(new System.Numerics.Vector2(1.5f, -2f), mole.Pos);
+            Assert.AreEqual(1f, mole.HeightAt(225 + TG.TriGrabMole.RiseTicks), "두더지 높이는 Shared 식 그대로");
 
-        [Test]
-        public void 라운드_수_시간_상한_이번_라운드_등수를_옮긴다()
-        {
-            var s = new TriGrabClientState();
-            s.Apply(Msg(1));
-            Assert.AreEqual(5, s.TotalRounds);
-            Assert.AreEqual(1100L, s.RoundLimitTick);
-            Assert.IsTrue(s.TryGetPlayer("b", out var b));
-            Assert.AreEqual(13, b.Score, "누적");
-            Assert.AreEqual(1, b.RoundPlace);
-            Assert.AreEqual(10, b.RoundPoints);
-            Assert.IsTrue(s.DoneThisRound("b"));
-            Assert.IsFalse(s.DoneThisRound("a"), "아직 못 냄");
-            Assert.IsFalse(s.DoneThisRound("nobody"));
-        }
-
-        [Test]
-        public void 시간_상한_틱이_지나면_소식_전에도_Resolved로_본다()
-        {
-            var s = new TriGrabClientState();
-            s.Apply(Msg(1));
-            Assert.AreEqual(TriGrabPhase.Live, s.PhaseAt(1099), "양성 대조");
-            Assert.AreEqual(TriGrabPhase.Resolved, s.PhaseAt(1100));
-        }
-
-        [Test]
-        public void 시간_상한_틱에서_회전판이_소식_전에도_멈춘다()
-        {
-            var s = new TriGrabClientState();
-            s.Apply(Msg(1));   // FreezeTick 없음(MaxValue), 상한 1100, Omega −0.5
-            Assert.AreEqual(1100L, s.Clock.FreezeTick);
-            Assert.AreNotEqual(s.Clock.BaseAt(1000), s.Clock.BaseAt(1100), "양성 대조 — 상한 전엔 돈다");
-            Assert.AreEqual(s.Clock.BaseAt(1100), s.Clock.BaseAt(1200), 1e-6f);
-            var early = Msg(2);
-            early.FreezeTick = 900;   // 정원으로 먼저 끝났다 — 서버 값이 더 이르면 그대로
-            s.Apply(early);
-            Assert.AreEqual(900L, s.Clock.FreezeTick);
+            Assert.AreEqual(new[] { "a", "b" }, state.PlayerIds);
+            Assert.IsTrue(state.TryGetPlayer("b", out var pb));
+            Assert.AreEqual((-1, 0, 1, 280L), (pb.Score, pb.Correct, pb.Wrong, pb.StunUntilTick));
+            Assert.IsTrue(state.TryGetPlayer("a", out var pa));
+            Assert.AreEqual(250, pa.CooldownUntilTick);
+            Assert.AreEqual(1, state.PlaceOf("a"));
+            Assert.AreEqual(2, state.PlaceOf("b"));
         }
 
         [Test]
         public void 늦게_도착한_낡은_판본은_버린다()
         {
-            var s = new TriGrabClientState();
-            var newer = Msg(5);
-            newer.Players[0].Score = 4;
-            s.Apply(newer);
-            var older = Msg(4);
-            older.Players[0].Score = 0;
-            Assert.IsFalse(s.Apply(older));
-            Assert.IsFalse(s.Apply(Msg(5)), "같은 판본도 버린다");
-            s.TryGetPlayer("a", out var a);
-            Assert.AreEqual(4, a.Score);
+            var state = new TriGrabClientState();
+            var m5 = Msg(5);
+            m5.Players.Add(new TriGrabRingPlayerWire { EntityId = "a", Score = 5 });
+            Assert.IsTrue(state.Apply(m5));
+            var m4 = Msg(4);
+            m4.Players.Add(new TriGrabRingPlayerWire { EntityId = "a", Score = 1 });
+            Assert.IsFalse(state.Apply(m4));
+            Assert.IsFalse(state.Apply(Msg(5)), "같은 판본도 버린다");
+            state.TryGetPlayer("a", out var p);
+            Assert.AreEqual(5, p.Score);
         }
 
         [Test]
-        public void 준비_끝_틱이_지나면_소식_전에도_Live로_본다()
+        public void Fx_NotRepeatedOnResend()
         {
-            var s = new TriGrabClientState();
-            s.Apply(Msg(1, TriGrabPhase.Prep, phaseEnd: 100));
-            Assert.AreEqual(TriGrabPhase.Prep, s.PhaseAt(99));
-            Assert.AreEqual(TriGrabPhase.Live, s.PhaseAt(100));
-            s.Apply(Msg(2, TriGrabPhase.Resolved, phaseEnd: 300));
-            Assert.AreEqual(TriGrabPhase.Resolved, s.PhaseAt(400), "쉼 뒤는 다음 라운드인지 모른다");
+            var state = new TriGrabClientState();
+            var m = Msg(1);
+            m.Fx.Add(new TriGrabRingFxWire { Kind = (int)TG.TriGrabFxKind.Correct, X = 1f, Z = 2f, OwnerId = "a", Tick = 300 });
+            m.Fx.Add(new TriGrabRingFxWire { Kind = (int)TG.TriGrabFxKind.MoleBonk, X = 0f, Z = 0f, OwnerId = "b", Line = 4, Tick = 300 });
+            state.Apply(m);
+            Assert.AreEqual(2, state.PendingFxCount);
+            Assert.IsTrue(state.TryDequeueFx(out var first));
+            Assert.AreEqual(TG.TriGrabFxKind.Correct, first.Kind);
+            Assert.AreEqual(new UnityEngine.Vector2(1f, 2f), first.Pos);
+            Assert.IsTrue(state.TryDequeueFx(out var second));
+            Assert.AreEqual(4, second.Line);
+            Assert.IsFalse(state.TryDequeueFx(out _));
+
+            //  같은 연출이 더 높은 판본에 다시 실려 와도(재전송) 다시 띄우지 않는다.
+            var again = Msg(2);
+            again.Fx.Add(new TriGrabRingFxWire { Kind = (int)TG.TriGrabFxKind.Correct, X = 1f, Z = 2f, OwnerId = "a", Tick = 300 });
+            //  양성 대조 — 같은 사람의 다음 틱 정답은 새 연출이다.
+            again.Fx.Add(new TriGrabRingFxWire { Kind = (int)TG.TriGrabFxKind.Correct, X = 1f, Z = 2f, OwnerId = "a", Tick = 340 });
+            state.Apply(again);
+            Assert.AreEqual(1, state.PendingFxCount);
+            Assert.IsTrue(state.TryDequeueFx(out var third));
+            Assert.AreEqual(340, third.Tick);
         }
 
         [Test]
-        public void 소수_틱의_회전판_각은_이웃한_두_틱_사이를_잇는다()
+        public void 남은_정답_수는_할당량_빼기_만든_수_더하기_판_위_정답()
         {
-            var clock = new TriGrabRoundClock { BaseAngle0 = 1f, Omega = 0.5f, LiveStartTick = 10, FreezeTick = long.MaxValue };
-            Assert.AreEqual(clock.BaseAt(20), TriGrabClientState.BaseAt(clock, 20.0), 1e-6f);
-            float mid = TriGrabClientState.BaseAt(clock, 20.5);
-            Assert.AreEqual((clock.BaseAt(20) + clock.BaseAt(21)) * 0.5f, mid, 1e-6f);
-            Assert.AreNotEqual(clock.BaseAt(20), mid, "돌고 있으면 사이 값이 달라야 한다");
+            var state = new TriGrabClientState();
+            var m = Msg(1);
+            m.Quota = 6;
+            m.OkSpawned = 4;
+            m.Cards.Add(new TriGrabRingCardWire { Id = 1, Ok = true });
+            m.Cards.Add(new TriGrabRingCardWire { Id = 2, Ok = true, CarriedBy = "a" });
+            m.Cards.Add(new TriGrabRingCardWire { Id = 3, Ok = true, Gone = true });
+            m.Cards.Add(new TriGrabRingCardWire { Id = 4, Ok = false });
+            state.Apply(m);
+            Assert.AreEqual(6 - 4 + 2, state.RemainingOk, "끌려가는 정답은 아직 남은 것, 사라진 것·틀린 카드는 아니다");
+        }
+
+        [Test]
+        public void 준비_끝_틱과_시간_상한_틱은_소식_전에도_단계를_넘긴다()
+        {
+            var state = new TriGrabClientState();
+            state.Apply(Msg(1, TG.TriGrabPhase.Prep, phaseEnd: 500));
+            Assert.AreEqual(TG.TriGrabPhase.Prep, state.PhaseAt(499));
+            Assert.AreEqual(TG.TriGrabPhase.Live, state.PhaseAt(500));
+            state.Apply(Msg(2, TG.TriGrabPhase.Live, phaseEnd: 900));
+            Assert.AreEqual(TG.TriGrabPhase.Live, state.PhaseAt(899));
+            Assert.AreEqual(TG.TriGrabPhase.Resolved, state.PhaseAt(900));
         }
     }
 }

@@ -1,161 +1,223 @@
 using System.Collections.Generic;
-using UnityEngine;
+using TG = LOP.TriGrab;
 
 namespace LOP
 {
+    /// <summary>서버가 알린 한 번짜리 연출(정답·오답·두더지·빗나감).</summary>
+    public readonly struct TriGrabFxEvent
+    {
+        public readonly TG.TriGrabFxKind Kind;
+        public readonly UnityEngine.Vector2 Pos;
+        public readonly string Owner;
+        public readonly int Line;
+        public readonly long Tick;
+
+        public TriGrabFxEvent(TG.TriGrabFxKind kind, UnityEngine.Vector2 pos, string owner, int line, long tick)
+        {
+            Kind = kind; Pos = pos; Owner = owner; Line = line; Tick = tick;
+        }
+    }
+
     /// <summary>
-    /// 서버가 보낸 삼색 그랩 상태(클라). 와이어를 Shared 타입(카드·시계·갈고리)으로 바꿔 두어,
-    /// 그림이 서버 판정과 같은 식에 렌더 틱을 넣어 그리게 한다. 점수·잡음은 여기서만 읽는다(클라는 판정하지 않는다).
+    /// 서버가 보낸 원형 판 상태(클라). 와이어를 Shared 타입(카드 정체·손·두더지·점수)으로 바꿔 둔다.
+    /// 카드 자리는 여기 없다 — <see cref="TriGrabCardTrack"/>이 따로 받는다. 클라는 판정하지 않고 읽기만 한다.
     /// </summary>
     public class TriGrabClientState
     {
-        private readonly TriGrabCard?[] cards = new TriGrabCard?[TriGrabConfig.Slots];
-        private readonly long[] emptyUntil = new long[TriGrabConfig.Slots];
-        private readonly List<TriGrabHook> hooks = new List<TriGrabHook>();
+        /// <summary>이만큼 오래된 연출 키는 잊는다(같은 연출이 이렇게 늦게 다시 오는 일은 없다).</summary>
+        public const long FxMemoryTicks = 500;
+
+        private readonly Dictionary<int, TG.TriGrabCard> cards = new Dictionary<int, TG.TriGrabCard>();
+        private readonly List<TG.TriGrabCard> cardList = new List<TG.TriGrabCard>();
+        private readonly List<TG.TriGrabHook> hooks = new List<TG.TriGrabHook>();
+        private readonly List<TG.TriGrabMole> moles = new List<TG.TriGrabMole>();
         private readonly List<string> playerIds = new List<string>();
-        private readonly Dictionary<string, TriGrabPlayerScore> players = new Dictionary<string, TriGrabPlayerScore>();
+        private readonly Dictionary<string, TG.TriGrabPlayerScore> players = new Dictionary<string, TG.TriGrabPlayerScore>();
+        private readonly Dictionary<string, int> places = new Dictionary<string, int>();
+        private readonly Queue<TriGrabFxEvent> fx = new Queue<TriGrabFxEvent>();
+        private readonly Dictionary<(long tick, int kind, string owner), long> seenFx = new Dictionary<(long, int, string), long>();
+        private readonly List<(long, int, string)> forget = new List<(long, int, string)>();
 
         public int Version { get; private set; }
         public bool Received => Version > 0;
-        public TriGrabPhase Phase { get; private set; }
+        public TG.TriGrabPhase Phase { get; private set; }
         public long PhaseEndTick { get; private set; }
         public int Round { get; private set; }
-        public TriGrabRule Rule { get; private set; }
-        public TriGrabRoundClock Clock { get; private set; }
-        public string RoundWinnerId { get; private set; } = "";
-        public string MatchWinnerId { get; private set; } = "";
-        public int TotalRounds { get; private set; } = TriGrabConfig.TotalRounds;
-        /// <summary>이번 라운드 Live의 시간 상한 틱.</summary>
-        public long RoundLimitTick { get; private set; }
+        public int TotalRounds { get; private set; } = TG.TriGrabConfig.TotalRounds;
+        public TG.TriGrabRule Rule { get; private set; }
+        public long LiveStartTick { get; private set; }
+        public int Quota { get; private set; }
+        public int OkSpawned { get; private set; }
 
-        public IReadOnlyList<TriGrabHook> Hooks => hooks;
+        /// <summary>이번 라운드 카드(사라진 것 포함), 서버 순서.</summary>
+        public IReadOnlyList<TG.TriGrabCard> Cards => cardList;
+        public IReadOnlyList<TG.TriGrabHook> Hooks => hooks;
+        public IReadOnlyList<TG.TriGrabMole> Moles => moles;
         /// <summary>서버 등록 순서. 좌석 색이 이 순서를 따른다.</summary>
         public IReadOnlyList<string> PlayerIds => playerIds;
 
-        public bool Apply(TriGrabStateToC message)
+        public bool Apply(TriGrabRingStateToC message)
         {
             if (message.Version <= Version)
             {
                 return false;
             }
             Version = message.Version;
-            Phase = (TriGrabPhase)message.Phase;
+            Phase = (TG.TriGrabPhase)message.Phase;
             PhaseEndTick = message.PhaseEndTick;
             Round = message.Round;
-            Rule = new TriGrabRule((TriGrabRuleType)message.RuleType, message.RuleColor);
-            RoundLimitTick = message.RoundLimitTick;
-            Clock = new TriGrabRoundClock
-            {
-                BaseAngle0 = message.BaseAngle0,
-                Omega = message.Omega,
-                LiveStartTick = message.LiveStartTick,
-                //  시간 상한은 미리 아는 틱이다 — 서버 소식을 기다리지 않고 그 틱에 멈춘다(왕복만큼 더 돌다 뒤로 튀지 않게).
-                FreezeTick = RoundLimitTick > 0 ? System.Math.Min(message.FreezeTick, RoundLimitTick) : message.FreezeTick,
-            };
-            RoundWinnerId = message.RoundWinnerId ?? "";
-            MatchWinnerId = message.MatchWinnerId ?? "";
-            TotalRounds = message.TotalRounds > 0 ? message.TotalRounds : TriGrabConfig.TotalRounds;
+            TotalRounds = message.TotalRounds > 0 ? message.TotalRounds : TG.TriGrabConfig.TotalRounds;
+            Rule = new TG.TriGrabRule((TG.TriGrabRuleType)message.RuleType, message.RuleValue, message.RuleLure);
+            LiveStartTick = message.LiveStartTick;
+            Quota = message.Quota;
+            OkSpawned = message.OkSpawned;
 
-            for (int i = 0; i < cards.Length; i++)
+            cards.Clear();
+            cardList.Clear();
+            foreach (var w in message.Cards)
             {
-                var w = i < message.Slots.Count ? message.Slots[i] : null;
-                cards[i] = w?.Card != null ? ToCard(w.Card) : (TriGrabCard?)null;
-                emptyUntil[i] = w?.EmptyUntilTick ?? 0;
+                var c = new TG.TriGrabCard
+                {
+                    Id = w.Id, Word = w.Word, Ink = w.Ink, Fill = w.Fill, Ok = w.Ok, BornTick = w.BornTick,
+                    CarriedBy = string.IsNullOrEmpty(w.CarriedBy) ? null : w.CarriedBy, Gone = w.Gone,
+                };
+                cards[c.Id] = c;
+                cardList.Add(c);
             }
 
             hooks.Clear();
             foreach (var w in message.Hooks)
             {
-                hooks.Add(new TriGrabHook
+                hooks.Add(new TG.TriGrabHook
                 {
-                    OwnerId = w.OwnerId,
+                    Owner = w.OwnerId,
                     FireTick = w.FireTick,
-                    Origin = new Vector2(w.OriginX, w.OriginZ),
-                    Dir = new Vector2(w.DirX, w.DirZ),
+                    Origin = new System.Numerics.Vector2(w.OriginX, w.OriginZ),
+                    Dir = new System.Numerics.Vector2(w.DirX, w.DirZ),
+                    State = (TG.TriGrabHookState)w.State,
+                    End = (TG.TriGrabHookEnd)w.End,
+                    CardId = w.CardId,
                     TurnTick = w.TurnTick,
                     TurnLength = w.TurnLength,
-                    Carried = w.Carried != null ? ToCard(w.Carried) : (TriGrabCard?)null,
-                    Result = (TriGrabHookResult)w.Result,
-                    EndTick = w.EndTick,
+                    Tip = new System.Numerics.Vector2(w.TipX, w.TipZ),
+                });
+            }
+
+            moles.Clear();
+            foreach (var w in message.Moles)
+            {
+                moles.Add(new TG.TriGrabMole
+                {
+                    Id = w.Id,
+                    Pos = new System.Numerics.Vector2(w.X, w.Z),
+                    SpawnTick = w.SpawnTick,
+                    StandTicks = w.StandTicks,
+                    BonkTick = w.BonkTick,
+                    SayIndex = w.Say,
+                    BonkLineIndex = w.BonkLine,
                 });
             }
 
             playerIds.Clear();
             players.Clear();
+            places.Clear();
             foreach (var p in message.Players)
             {
                 playerIds.Add(p.EntityId);
-                players[p.EntityId] = new TriGrabPlayerScore
+                players[p.EntityId] = new TG.TriGrabPlayerScore
                 {
-                    Score = p.Score,
-                    Mistakes = p.Mistakes,
-                    ReloadUntilTick = p.ReloadUntilTick,
-                    BestRtMs = p.BestRtMs,
-                    RoundPlace = p.RoundPlace,
-                    RoundPoints = p.RoundPoints,
+                    Score = p.Score, Correct = p.Correct, Wrong = p.Wrong,
+                    StunUntilTick = p.StunUntilTick, CooldownUntilTick = p.CooldownUntilTick,
                 };
+                places[p.EntityId] = p.Place;
             }
+
+            long newest = long.MinValue;
+            foreach (var f in message.Fx)
+            {
+                if (f.Tick > newest) newest = f.Tick;
+                //  같은 틱·종류·사람의 연출은 한 번만 — 상태가 다시 와도 두 번 띄우지 않는다.
+                var key = (f.Tick, f.Kind, f.OwnerId ?? "");
+                if (seenFx.ContainsKey(key)) continue;
+                seenFx[key] = f.Tick;
+                fx.Enqueue(new TriGrabFxEvent((TG.TriGrabFxKind)f.Kind, new UnityEngine.Vector2(f.X, f.Z), f.OwnerId ?? "", f.Line, f.Tick));
+            }
+            if (newest != long.MinValue) ForgetFxBefore(newest - FxMemoryTicks);
             return true;
         }
 
-        public static TriGrabCard ToCard(TriGrabCardWire w) => new TriGrabCard
+        private void ForgetFxBefore(long tick)
         {
-            Id = w.Id, Word = w.Word, Ink = w.Ink, Cycles = w.Cycles, PeriodTicks = w.PeriodTicks, T0Tick = w.T0Tick,
-        };
+            forget.Clear();
+            foreach (var pair in seenFx)
+            {
+                if (pair.Value < tick) forget.Add(pair.Key);
+            }
+            foreach (var k in forget) seenFx.Remove(k);
+        }
 
-        public TriGrabCard? CardAt(int slot) => slot >= 0 && slot < cards.Length ? cards[slot] : null;
+        /// <summary>아직 안 띄운 연출을 하나 꺼낸다.</summary>
+        public bool TryDequeueFx(out TriGrabFxEvent e)
+        {
+            if (fx.Count > 0)
+            {
+                e = fx.Dequeue();
+                return true;
+            }
+            e = default;
+            return false;
+        }
 
-        public long EmptyUntilTick(int slot) => slot >= 0 && slot < emptyUntil.Length ? emptyUntil[slot] : 0;
+        public int PendingFxCount => fx.Count;
 
-        public bool TryGetPlayer(string entityId, out TriGrabPlayerScore score)
+        public bool TryGetCard(int id, out TG.TriGrabCard card) => cards.TryGetValue(id, out card);
+
+        public bool TryGetPlayer(string entityId, out TG.TriGrabPlayerScore score)
         {
             score = null;
             return entityId != null && players.TryGetValue(entityId, out score);
         }
 
+        /// <summary>지금 누적 점수 순위(같은 점수는 공동). 모르면 0.</summary>
+        public int PlaceOf(string entityId) => entityId != null && places.TryGetValue(entityId, out var p) ? p : 0;
+
         /// <summary>좌석 번호(등록 순서). 모르는 사람이면 -1.</summary>
         public int SeatOf(string entityId) => entityId == null ? -1 : playerIds.IndexOf(entityId);
 
-        /// <summary>이번 라운드에 이미 정답을 냈나(그러면 이번 라운드엔 더 못 쏜다).</summary>
-        public bool DoneThisRound(string entityId) => TryGetPlayer(entityId, out var p) && p.RoundPlace > 0;
-
-        public TriGrabHook HookOf(string entityId)
+        public TG.TriGrabHook HookOf(string entityId)
         {
             if (entityId == null) return null;
             foreach (var h in hooks)
             {
-                if (h.OwnerId == entityId) return h;
+                if (h.Owner == entityId) return h;
             }
             return null;
         }
 
+        /// <summary>남은 정답 카드 수 = 아직 안 낸 할당량 + 판 위(끌려가는 것 포함)의 정답 카드.</summary>
+        public int RemainingOk
+        {
+            get
+            {
+                int onDisc = 0;
+                foreach (var c in cardList)
+                {
+                    if (c.Ok && !c.Gone) onDisc++;
+                }
+                return System.Math.Max(0, Quota - OkSpawned + onDisc);
+            }
+        }
+
         /// <summary>
-        /// 그 틱의 단계. 준비 끝 틱이 지났으면 서버 소식이 오기 전에도 Live로 본다 — 준비 끝은 미리 알려진 틱이다.
-        /// 시간 상한 틱이 지났으면 서버 소식 전에도 Resolved로 본다(그 틱부터 서버는 잡기를 받지 않는다).
-        /// 라운드 끝 쉼이 지난 뒤는 다음 라운드인지 판 끝인지 모르니 Resolved로 둔다.
+        /// 그 틱의 단계. 준비 끝 틱이 지났으면 소식 전에도 Live로, Live의 시간 상한 틱이 지났으면 Resolved로 본다 —
+        /// 둘 다 미리 알려진 틱이다. 할당량을 다 잡아 일찍 끝나는 것은 서버 소식으로만 안다.
         /// </summary>
-        public TriGrabPhase PhaseAt(long tick)
+        public TG.TriGrabPhase PhaseAt(long tick)
         {
             var phase = Phase;
-            if (phase == TriGrabPhase.Prep && tick >= PhaseEndTick) phase = TriGrabPhase.Live;
-            if (phase == TriGrabPhase.Live && RoundLimitTick > 0 && tick >= RoundLimitTick) phase = TriGrabPhase.Resolved;
+            if (phase == TG.TriGrabPhase.Prep && tick >= PhaseEndTick) return TG.TriGrabPhase.Live;
+            if (phase == TG.TriGrabPhase.Live && tick >= PhaseEndTick) return TG.TriGrabPhase.Resolved;
             return phase;
-        }
-
-        /// <summary>소수 틱의 회전판 각. 이웃한 두 정수 틱 사이를 이어 화면에서 끊기지 않게 한다.</summary>
-        public static float BaseAt(in TriGrabRoundClock clock, double tick)
-        {
-            long t0 = (long)System.Math.Floor(tick);
-            float frac = (float)(tick - t0);
-            return Mathf.LerpUnclamped(clock.BaseAt(t0), clock.BaseAt(t0 + 1), frac);
-        }
-
-        /// <summary>소수 틱의 갈고리 끝 자리(같은 방식으로 이어 준다).</summary>
-        public static Vector2 TipAt(TriGrabHook hook, double tick)
-        {
-            long t0 = (long)System.Math.Floor(tick);
-            float frac = (float)(tick - t0);
-            return Vector2.LerpUnclamped(hook.TipAt(t0), hook.TipAt(t0 + 1), frac);
         }
     }
 }

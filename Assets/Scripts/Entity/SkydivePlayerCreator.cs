@@ -60,6 +60,7 @@ namespace LOP
             worldEntity.Add(new Stamina { Current = config.StaminaMax });
             worldEntity.Add(new WindDrift());
             worldEntity.Add(new SkydiveSave());   // 세이브 발판 — 서버 크리에이터에도 같이
+            worldEntity.Add(new StormState());   // 몸개그 장애물 — 클·서 크리에이터 둘 다
             entityRegistry.Add(worldEntity);
 
             if (isUserEntity)

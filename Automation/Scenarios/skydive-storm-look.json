@@ -1,0 +1,21 @@
+{
+  "name": "skydive-storm-look",
+  "description": "스카이다이브 태풍의 눈(맵 12) 몸개그 장애물·잔해 옷 확인 — 로컬 서버 에디터(픽스처 gameModeId 8·mapId 12)에 붙어, 매칭은 혼자 되는 피하기(9)로 잡고 EditorPrefs LOP.Debug.ForceGameModeId=8·ForceMapId=12로 바꿔 끼운다(스카이다이브는 최소 2명).  판에 들어가 출발 직후와 낙하 중을 찍는다. 장애물에 닿는 순간은 서버 eval로 몸을 옮겨 찍는다(Automation/README 참고)",
+  "repeat": 1,
+  "setup": [
+    { "op": "play_exit" },
+    { "op": "set_environment", "env": "local" },
+    { "op": "play_enter" },
+    { "op": "boot_to_lobby", "timeout_s": 120 }
+  ],
+  "loop": [
+    { "op": "select_game", "game_mode_id": 9, "queue": "casual" },
+    { "op": "ui_click", "name": "play-button", "timeout_s": 20 },
+    { "op": "wait_state", "state": "InMatch", "timeout_s": 180 },
+    { "op": "wait", "seconds": 8 },
+    { "op": "screenshot", "as": "start" },
+    { "op": "wait", "seconds": 6 },
+    { "op": "screenshot", "as": "falling" }
+  ],
+  "teardown": []
+}

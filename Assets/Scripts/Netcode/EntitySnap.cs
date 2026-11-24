@@ -54,6 +54,18 @@ namespace LOP
         public bool gliding { get; set; }         // Skydive: 패러세일을 폈나
         public float stamina { get; set; }        // Skydive: 남은 활공 자원
         public float emergencyRemaining { get; set; } // Skydive: 잔고 0에서 쓴 구제 창의 남은 초
+        //  Skydive 태풍의 눈 몸개그 장애물(StormState) — 끝나는 절대 틱. 0 = 없음
+        public long stormStunEndTick { get; set; }
+        public long stormLiftEndTick { get; set; }
+        public float stormEjectX { get; set; }
+        public float stormEjectZ { get; set; }
+        public long stormGullOnHeadEndTick { get; set; }
+        public long stormCushionReadyTick { get; set; }
+        public long stormCloudReadyTick { get; set; }
+        public long stormGullReadyTick { get; set; }
+        public long stormUpdraftReadyTick { get; set; }
+        public int stormLastHitKind { get; set; }
+        public long stormLastHitTick { get; set; }
         public int activeAbilityId { get; set; }
         public long abilityEndTick { get; set; }
 

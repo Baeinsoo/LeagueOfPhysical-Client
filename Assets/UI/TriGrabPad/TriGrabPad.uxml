@@ -7,10 +7,10 @@
                 <ui:VisualElement name="joystick-handle" class="joystick-handle" picking-mode="Ignore" />
             </ui:VisualElement>
         </ui:VisualElement>
-        <!-- 오른쪽 반 아래 = 쏘기. 톡 = 회전판 가운데로, 끌었다 놓기 = 그 방향, 크게 끌었다 돌아와 놓기 = 취소. -->
+        <!-- 오른쪽 반 아래 = 조준 스틱. 바깥으로 끌어 떼기 = 그 방향으로 손, 톡·안쪽으로 되돌아와 떼기 = 취소. -->
         <ui:VisualElement name="fire-area" class="fire-area" />
         <ui:VisualElement name="fire-button" class="fire-button" picking-mode="Ignore">
-            <ui:Label name="fire-label" class="fire-label" text="갈고리" picking-mode="Ignore" />
+            <ui:Label name="fire-label" class="fire-label" text="손" picking-mode="Ignore" />
             <ui:VisualElement name="fire-handle" class="fire-handle" picking-mode="Ignore" />
         </ui:VisualElement>
         <ui:Button name="leave-button" class="leave-button" text="나가기" />

@@ -39,18 +39,12 @@
 .score-value { font-size: 18px; color: rgb(233, 237, 245); -unity-font-style: bold; margin-right: 4px; min-width: 28px; -unity-text-align: middle-right; }
 
 .prep-box {
-    position: absolute; left: 0; right: 0; top: 30%;
+    position: absolute; left: 0; right: 0; top: 17%;
     align-items: center;
 }
 .prep-title {
     color: rgb(200, 206, 222); font-size: 34px; -unity-font-style: bold;
     -unity-text-outline-width: 2px; -unity-text-outline-color: rgba(10, 12, 20, 0.9);
-}
-.prep-rule {
-    margin-top: 8px; padding: 8px 22px; border-radius: 10px;
-    background-color: rgba(10, 12, 20, 0.82);
-    color: rgb(233, 237, 245); font-size: 46px; -unity-font-style: bold;
-    white-space: nowrap;
 }
 
 .toast-box {
@@ -63,13 +57,6 @@
     -unity-text-outline-width: 3px; -unity-text-outline-color: rgba(10, 12, 20, 0.95);
 }
 
-.wrong-text {
-    position: absolute; width: 160px; height: 40px;
-    -unity-text-align: middle-center;
-    color: rgb(255, 82, 82); font-size: 30px; -unity-font-style: bold;
-    -unity-text-outline-width: 3px; -unity-text-outline-color: rgba(30, 5, 5, 0.95);
-    display: none;
-}
 
 .toast-sub {
     margin-top: 6px; padding: 4px 14px; border-radius: 6px;
@@ -78,9 +65,3 @@
     -unity-text-align: middle-center; white-space: nowrap;
 }
 
-.toast-lead {
-    margin-bottom: 4px;
-    color: rgb(140, 230, 160); font-size: 28px; -unity-font-style: bold;
-    -unity-text-outline-width: 2px; -unity-text-outline-color: rgba(10, 12, 20, 0.95);
-    -unity-text-align: middle-center;
-}

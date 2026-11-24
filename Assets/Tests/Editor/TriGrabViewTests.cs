@@ -151,6 +151,30 @@ namespace LOP.Tests
             Assert.IsFalse(TriGrabCardsView.TryCardPosition(card, state, track, myHook, "me", end, 200.0, out _, out _));
         }
 
+        [Test]
+        public void 서버에서_지워진_남의_손은_돌아오는_틱까지_계속_그린다()
+        {
+            var state = new TriGrabClientState();
+            var m = TriGrabClientStateTests.Msg(1);
+            m.Cards.Add(new TriGrabRingCardWire { Id = 5, CarriedBy = "b" });
+            m.Hooks.Add(CarryHook(105));
+            state.Apply(m);
+            var myHook = new TriGrabMyHook(state);
+
+            var done = TriGrabClientStateTests.Msg(2);
+            done.Cards.Add(new TriGrabRingCardWire { Id = 5, Gone = true });
+            done.Fx.Add(new TriGrabRingFxWire { Kind = (int)TG.TriGrabFxKind.Correct, OwnerId = "b", X = 8f, Z = 0f, Tick = 118 });
+            state.Apply(done);
+            Assert.IsNull(state.HookOf("b"), "서버 상태에선 이미 지워졌다");
+
+            var list = new List<TriGrabHookView.Drawn>();
+            TriGrabHookView.Collect(state, myHook, "me", 110.0, 200.0, list);
+            Assert.AreEqual(1, list.Count, "그리는 시각(110)엔 아직 카드를 끌고 오는 중 — 사슬 없이 카드만 날지 않게");
+            Assert.AreEqual("b", list[0].Hook.Owner);
+            TriGrabHookView.Collect(state, myHook, "me", 118.0, 200.0, list);
+            Assert.AreEqual(0, list.Count, "돌아온 틱부터 안 그린다");
+        }
+
         // ── 손끝 식(서버 StepOut·StepBack과 같은 틱) ──
 
         [Test]

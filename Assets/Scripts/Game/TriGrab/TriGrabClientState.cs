@@ -33,6 +33,7 @@ namespace LOP
         private readonly Dictionary<int, long> goneTicks = new Dictionary<int, long>();
         private readonly Dictionary<int, TG.TriGrabHook> lastCarriers = new Dictionary<int, TG.TriGrabHook>();
         private readonly List<int> staleIds = new List<int>();
+        private readonly List<(TG.TriGrabHook hook, long untilTick)> leftHooks = new List<(TG.TriGrabHook, long)>();
         private readonly List<TG.TriGrabCard> cardList = new List<TG.TriGrabCard>();
         private readonly List<TG.TriGrabHook> hooks = new List<TG.TriGrabHook>();
         private readonly List<TG.TriGrabMole> moles = new List<TG.TriGrabMole>();
@@ -70,6 +71,7 @@ namespace LOP
             }
             Version = message.Version;
             var previousPhase = Phase;
+            int previousRound = Round;
             Phase = (TG.TriGrabPhase)message.Phase;
             PhaseEndTick = message.PhaseEndTick;
             Round = message.Round;
@@ -154,8 +156,41 @@ namespace LOP
             }
             if (newest != long.MinValue) ForgetFxBefore(newest - FxMemoryTicks);
             RecordGoneTicks(message, previousPhase);
+            RecordLeftHooks(previousPhase, previousRound);
             return true;
         }
+
+        /// <summary>
+        /// 서버에서 지워진 손. 손은 신뢰 소식으로 바로 지워지지만 남의 손은 원격 시각(조금 과거)으로 그리므로,
+        /// 돌아오는 틱까지 계속 그려야 끌려오던 카드가 사슬 없이 날지 않는다. 돌아오는 틱은 카드 사라진 틱과 같은 추정을 쓴다.
+        /// </summary>
+        private void RecordLeftHooks(TG.TriGrabPhase previousPhase, int previousRound)
+        {
+            if (Round != previousRound)
+            {
+                leftHooks.Clear();
+            }
+            //  같은 사람이 새로 쏜 손이 상태에 있으면 옛 손은 이미 돌아왔다.
+            leftHooks.RemoveAll(l => HookOf(l.hook.Owner) != null);
+            foreach (var h in previousHooks)
+            {
+                bool still = false;
+                foreach (var now in hooks)
+                {
+                    if (now.Owner == h.Owner && now.FireTick == h.FireTick) still = true;
+                }
+                if (still) continue;
+                long until;
+                if (h.CardId >= 0 && goneTicks.TryGetValue(h.CardId, out var gone) && gone != long.MinValue) until = gone;
+                else if (Phase == TG.TriGrabPhase.Resolved && previousPhase == TG.TriGrabPhase.Live) until = PhaseEndTick - TG.TriGrabConfig.ResolvedTicks;
+                else until = TriGrabHookPath.EndTick(h) + 1;
+                leftHooks.RemoveAll(l => l.hook.Owner == h.Owner);
+                leftHooks.Add((h, until));
+            }
+        }
+
+        /// <summary>서버에서 지워졌지만 그 틱 전까지는 그려야 할 손과 그 틱(이 틱부터 안 그린다).</summary>
+        public IReadOnlyList<(TG.TriGrabHook hook, long untilTick)> LeftHooks => leftHooks;
 
         /// <summary>
         /// 카드가 사라진 틱 추정. 사라짐은 신뢰 소식으로 바로 오지만 카드는 원격 시각(조금 과거)으로 그리므로,

@@ -56,7 +56,7 @@ namespace LOP
             this.playerContext = playerContext;
         }
 
-        /// <summary>그릴 손과 그 손을 그릴 시각. 남의 것은 서버 손(원격 시각), 내 것은 미리 그린 것이나 서버 것(내 시각).</summary>
+        /// <summary>그릴 손과 그 손을 그릴 시각. 남의 것은 서버 손과 서버에서 막 지워진 손(원격 시각), 내 것은 미리 그린 것이나 서버 것(내 시각).</summary>
         public static void Collect(TriGrabClientState state, TriGrabMyHook myHook, string myId, double remoteTick, double localTick,
                                    List<Drawn> into)
         {
@@ -64,6 +64,11 @@ namespace LOP
             foreach (var h in state.Hooks)
             {
                 if (h.Owner != myId && TriGrabHookPath.IsOut(h, remoteTick)) into.Add(new Drawn(h, remoteTick));
+            }
+            //  서버에선 지워졌어도 원격 시각으로는 아직 돌아오는 중인 남의 손.
+            foreach (var (h, until) in state.LeftHooks)
+            {
+                if (h.Owner != myId && remoteTick >= h.FireTick && remoteTick < until) into.Add(new Drawn(h, remoteTick));
             }
             var mine = myHook.Current(myId, (long)System.Math.Floor(localTick));
             if (TriGrabHookPath.IsOut(mine, localTick)) into.Add(new Drawn(mine, localTick));

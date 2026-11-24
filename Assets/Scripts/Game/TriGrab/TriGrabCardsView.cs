@@ -158,6 +158,18 @@ namespace LOP
         {
             carried = false;
             pos = default;
+            //  서버 소식 전에 미리 그린 내 손이 화면 속에서 이 카드에 닿았다 — 돌아오는 동안 집게에 붙이고, 몸에 닿으면 숨긴다.
+            //  서버가 이미 다른 사람 것·사라진 것으로 알리면 서버를 따른다.
+            myHook.Current(myId, (long)Math.Floor(localTick));
+            var mine = myHook.Predicted;
+            if (mine != null && mine.State == TG.TriGrabHookState.Back && mine.CardId == c.Id && !c.Gone
+                && (c.CarriedBy == null || c.CarriedBy == myId) && localTick >= mine.TurnTick)
+            {
+                if (localTick >= TriGrabHookPath.EndTick(mine)) return false;
+                pos = TriGrabHookPath.TipAt(mine, localTick);
+                carried = true;
+                return true;
+            }
             TG.TriGrabHook hook = null;
             if (c.Gone)
             {

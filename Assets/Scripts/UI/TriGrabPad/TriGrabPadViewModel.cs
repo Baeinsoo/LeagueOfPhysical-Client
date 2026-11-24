@@ -73,7 +73,7 @@ namespace LOP.UI
             {
                 long tick = InputTick;
                 var me = Me;
-                return myHook.IsOut(playerContext.entityId, tick) || (me != null && tick < me.StunUntilTick);
+                return myHook.IsOut(playerContext.entityId, tick) || tick < StunUntil(me);
             }
         }
 
@@ -85,9 +85,13 @@ namespace LOP.UI
                 var me = Me;
                 //  손 쉼은 서버 소식보다 먼저 안다 — 마지막 손이 돌아온 틱 + 쉼.
                 long cooldown = System.Math.Max(me?.CooldownUntilTick ?? 0, LocalCooldownUntil(myHook.LastEndTick));
-                return CanFire(state.PhaseAt(tick), myHook.IsOut(playerContext.entityId, tick), tick, me?.StunUntilTick ?? 0, cooldown);
+                return CanFire(state.PhaseAt(tick), myHook.IsOut(playerContext.entityId, tick), tick, StunUntil(me), cooldown);
             }
         }
+
+        //  기절은 서버 소식보다 먼저 안다 — 오답 카드를 끈 내 손이 몸에 닿는 틱 + 기절 시간(서버와 같은 규칙).
+        private long StunUntil(TG.TriGrabPlayerScore me)
+            => System.Math.Max(me?.StunUntilTick ?? 0, myHook.StunUntil(playerContext.entityId));
 
         /// <summary>손이 돌아온 틱에 서버가 정하는 손 쉼 끝 틱.</summary>
         public static long LocalCooldownUntil(long lastEndTick)

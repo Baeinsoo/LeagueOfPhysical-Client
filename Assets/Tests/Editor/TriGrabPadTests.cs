@@ -147,6 +147,70 @@ namespace LOP.Tests
             Assert.IsTrue(rig.Vm.Ready);
         }
 
+        //  서버 상태: 내 손이 카드(ok)를 끌고 돌아오는 중. 그 손이 몸에 닿는 틱을 돌려준다.
+        private static long ApplyMyHookCarrying(Rig rig, bool ok, long phaseEnd = 100000)
+        {
+            long now = rig.Input.NextInputTick;
+            var m = TriGrabClientStateTests.Msg(rig.State.Version + 1, TG.TriGrabPhase.Live, phaseEnd: phaseEnd);
+            m.Players.Add(new TriGrabRingPlayerWire { EntityId = "me" });
+            m.Cards.Add(new TriGrabRingCardWire { Id = 9, Ok = ok, CarriedBy = "me" });
+            m.Hooks.Add(new TriGrabRingHookWire
+            {
+                OwnerId = "me", FireTick = now - 4, OriginX = 0f, OriginZ = -7f, DirX = 0f, DirZ = 1f,
+                State = (int)TG.TriGrabHookState.Back, End = (int)TG.TriGrabHookEnd.Card, CardId = 9,
+                TurnTick = now - 1, TurnLength = 2.5f,
+            });
+            rig.State.Apply(m);
+            return TriGrabHookPath.EndTick(rig.State.HookOf("me"));
+        }
+
+        private static void StepUntilInputTick(Rig rig, long tick)
+        {
+            for (int i = 0; i < 200 && rig.Input.NextInputTick < tick; i++) Step(rig);
+            Assert.AreEqual(tick, rig.Input.NextInputTick);
+        }
+
+        [Test]
+        public void 오답_카드를_끌고_오면_서버_소식_전에도_기절로_본다()
+        {
+            var rig = Build();
+            long end = ApplyMyHookCarrying(rig, ok: false);
+            StepUntilInputTick(rig, end + 1);
+            Assert.IsTrue(rig.Vm.MoveBlocked, "손이 돌아온 다음 틱 — 서버는 기절로 이동을 막는다");
+            Assert.IsFalse(rig.Vm.Ready, "기절 중엔 쏘지 않는다(유령 손 없음)");
+            Assert.IsFalse(rig.Vm.FireDrag(new Vector2(0f, 40f)));
+            Assert.IsNull(rig.MyHook.Predicted);
+
+            StepUntilInputTick(rig, end + TG.TriGrabConfig.StunTicks - 1);
+            Assert.IsTrue(rig.Vm.MoveBlocked, "기절 마지막 틱");
+            StepUntilInputTick(rig, end + TG.TriGrabConfig.StunTicks);
+            Assert.IsFalse(rig.Vm.MoveBlocked, "서버 기절 끝 틱(도착 틱 + 50)부터 걷는다");
+            Assert.IsTrue(rig.Vm.Ready, "기절이 풀린 틱에 바로 쏜다(손 쉼은 이미 지났다)");
+        }
+
+        [Test]
+        public void 정답_카드면_기절이_아니다()
+        {
+            var rig = Build();
+            long end = ApplyMyHookCarrying(rig, ok: true);
+            StepUntilInputTick(rig, end + 1);
+            Assert.IsFalse(rig.Vm.MoveBlocked);
+            StepUntilInputTick(rig, end + TG.TriGrabConfig.HookCooldownTicks);
+            Assert.IsTrue(rig.Vm.Ready);
+        }
+
+        [Test]
+        public void 라운드가_먼저_끝나면_오답_카드를_끌던_손도_기절이_없다()
+        {
+            var rig = Build();
+            //  잡기 시간 상한이 손 도착 전이면 서버는 손과 카드를 점수 없이 지운다(기절 없음).
+            long now = rig.Input.NextInputTick;
+            long end = ApplyMyHookCarrying(rig, ok: false, phaseEnd: now + 1);
+            Assert.Greater(end, now + 1, "전제: 손 도착이 라운드 끝 뒤");
+            StepUntilInputTick(rig, end + 1);
+            Assert.IsFalse(rig.Vm.MoveBlocked);
+        }
+
         [Test]
         public void 준비_중엔_쏘지_못한다()
         {

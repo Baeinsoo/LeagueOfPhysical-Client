@@ -93,15 +93,15 @@ namespace LOP
 
     /// <summary>
     /// 원판(판 윗면)과 동전 카드. 카드 정체는 상태, 자리는 <see cref="TriGrabCardTrack"/>을 원격 몸과 같은 시각으로 보간한다.
-    /// 끌려가는 카드는 그 손끝에 붙는다(내 손이면 앞서 그린 손끝). 새 카드는 위에서 떨어지며 커진다(PopK).
+    /// 끌려가는 카드는 그 손끝에 붙는다(내 손이면 앞서 그린 손끝). 새 카드는 가운데에서 작게 나와 미끄러지며 커진다(PopK).
     /// </summary>
     public class TriGrabCardsView : IStartable, IDisposable
     {
         /// <summary>판 윗면 높이(m). 맵 받침(0.05)보다 조금 위.</summary>
         public const float PlateTop = 0.08f;
         public const float CoinThickness = 0.12f;
-        /// <summary>새 카드가 떨어지기 시작하는 높이(m) — 시안 14.</summary>
-        public const float PopDrop = 1.4f;
+        /// <summary>동전 그림만 키우는 배율(판정 반지름은 그대로) — 폰 화면에서 글씨가 읽히게.</summary>
+        public const float VisualScale = 1.25f;
         private static readonly Color PlateColor = new Color(0.16f, 0.14f, 0.25f);
         private static readonly Color RimColor = new Color(1f, 0.62f, 0.11f);
         private static readonly Color CoinBaseColor = new Color(0.05f, 0.04f, 0.09f);
@@ -138,13 +138,11 @@ namespace LOP
             this.playerContext = playerContext;
         }
 
-        /// <summary>새 카드 크기 배율과 떠 있는 높이(시안 syncCards). Live가 아니면 다 나타난 것으로 본다.</summary>
-        public static void Pop(TG.TriGrabCard c, double renderTick, bool live, out float scale, out float lift)
+        /// <summary>새 카드 크기 배율(0.35 → 1). 자리는 서버가 가운데에서 바깥으로 보내 준다. Live가 아니면 다 나타난 것으로 본다.</summary>
+        public static float Pop(TG.TriGrabCard c, double renderTick, bool live)
         {
             float k = live ? TG.TriGrabCards.PopK(c, (long)Math.Floor(renderTick)) : 1f;
-            k = Mathf.Clamp01(k);
-            scale = 0.35f + 0.65f * k;
-            lift = (1f - k) * PopDrop;
+            return 0.35f + 0.65f * Mathf.Clamp01(k);
         }
 
         /// <summary>
@@ -270,18 +268,18 @@ namespace LOP
                 if (remote < c.BornTick) continue;
                 if (!TryCardPosition(c, state, track, myHook, me, remote, local, out var p, out bool carried)) continue;
                 var coin = coins.Get(c.Id, out _);
-                Pop(c, remote, live && !carried, out float scale, out float lift);
-                float y = carried ? TriGrabHookView.HookHeight - 0.1f : PlateTop + lift;
+                float scale = Pop(c, remote, live && !carried);
+                float y = carried ? TriGrabHookView.HookHeight - 0.1f : PlateTop;
 
                 coin.Base.gameObject.SetActive(!(resolved && !c.Ok));
                 coin.Base.position = new Vector3(p.x, y + CoinThickness * 0.5f * scale, p.y);
-                float baseDiameter = (r + 0.045f) * 2f * scale * (resolved && c.Ok ? 1.12f : 1f);
+                float baseDiameter = (r + 0.045f) * 2f * scale * VisualScale * (resolved && c.Ok ? 1.12f : 1f);
                 coin.Base.localScale = new Vector3(baseDiameter, CoinThickness * 0.5f * scale, baseDiameter);
                 CardRushDraw.Tint(coin.BaseRenderer, block, resolved && c.Ok ? TriGrabPalette.Correct : CoinBaseColor, 1f);
 
                 float pop = live ? 1f - Mathf.Clamp01((float)((remote - c.BornTick) / TG.TriGrabConfig.PopTicks)) : 0f;
                 coin.Face?.Show(c, new Vector3(p.x, y + CoinThickness * scale + 0.005f, p.y), facing,
-                                r * 2f * scale, resolved && c.Ok, resolved && !c.Ok, pop);
+                                r * 2f * scale * VisualScale, resolved && c.Ok, resolved && !c.Ok, pop);
             }
             coins.EndFrame();
         }

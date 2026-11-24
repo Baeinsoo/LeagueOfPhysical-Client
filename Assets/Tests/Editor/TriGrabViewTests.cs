@@ -33,17 +33,21 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 새_카드는_작게_위에서_떨어지고_다_나타나면_제자리()
+        public void 새_카드는_작게_나와_커지고_다_나타나면_원래_크기()
         {
             var card = new TG.TriGrabCard { BornTick = 100 };
-            TriGrabCardsView.Pop(card, 100.0, true, out float s0, out float lift0);
-            Assert.AreEqual(0.35f, s0, 1e-4f);
-            Assert.AreEqual(TriGrabCardsView.PopDrop, lift0, 1e-4f);
-            TriGrabCardsView.Pop(card, 100 + TG.TriGrabConfig.PopTicks, true, out float s1, out float lift1);
-            Assert.AreEqual(1f, s1, 1e-4f);
-            Assert.AreEqual(0f, lift1, 1e-4f);
-            TriGrabCardsView.Pop(card, 100.0, false, out float sRes, out _);
-            Assert.AreEqual(1f, sRes, "Live가 아니면 다 나타난 것으로 그린다");
+            Assert.AreEqual(0.35f, TriGrabCardsView.Pop(card, 100.0, true), 1e-4f);
+            Assert.AreEqual(1f, TriGrabCardsView.Pop(card, 100 + TG.TriGrabConfig.PopTicks, true), 1e-4f);
+            Assert.AreEqual(1f, TriGrabCardsView.Pop(card, 100.0, false), "Live가 아니면 다 나타난 것으로 그린다");
+        }
+
+        [Test]
+        public void 글씨는_동전_지름의_80퍼센트쯤_채우고_그림만_키운다()
+        {
+            float span = TriGrabCardFace.WordFontPx * TriGrabCardFace.WordChars / TriGrabCardFace.PanelPixels.x;
+            Assert.That(span, Is.InRange(0.75f, 0.85f));
+            Assert.LessOrEqual(TriGrabCardsView.VisualScale, 1.25f);
+            Assert.Greater(TriGrabCardsView.VisualScale, 1f);
         }
 
         [Test]

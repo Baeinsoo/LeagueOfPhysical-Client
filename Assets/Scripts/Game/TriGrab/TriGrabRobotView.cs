@@ -6,8 +6,8 @@ namespace LOP
 {
     /// <summary>
     /// 선수 몸마다 도형 로봇(바퀴 두 줄·좌석 색 몸통·어깨 팔 뿌리)을 붙이고 치비를 그 위 조종석에 세운다.
-    /// 치비는 그림(모델)만 들어 올린다 — 몸의 실제 자리는 건드리지 않는다. 팔은 갈고리·조준 방향을, 없으면 회전판 가운데를 본다.
-    /// 재장전 중엔 몸통 위 고리가 차오른다(서버가 보낸 재장전 끝 틱으로).
+    /// 치비는 그림(모델)만 들어 올린다 — 몸의 실제 자리는 건드리지 않는다. 팔은 손·조준 방향을, 없으면 원판 가운데를 본다.
+    /// 기절 중엔 몸통 위 빨간 고리가 차오른다(서버가 보낸 기절 끝 틱으로).
     /// </summary>
     public class TriGrabRobotView : IStartable, System.IDisposable
     {
@@ -18,8 +18,6 @@ namespace LOP
         private const int RingSegments = 40;
         private const float RingRadius = 0.95f;
         private const float RingHeight = 1.05f;
-        /// <summary>오답 재장전(65틱)처럼 긴 재장전은 빨강, 빗나감(13틱)은 노랑.</summary>
-        public const long LongReloadTicks = 30;
 
         private static readonly Color TreadColor = new Color(0.17f, 0.2f, 0.28f);
         private static readonly Color ArmColor = new Color(0.55f, 0.59f, 0.7f);
@@ -38,6 +36,7 @@ namespace LOP
         }
 
         private readonly GameFramework.Runner.IRunner runner;
+        private readonly EntityRenderClock renderClock;
         private readonly TriGrabClientState state;
         private readonly TriGrabMyHook myHook;
         private readonly TriGrabAim aim;
@@ -56,11 +55,12 @@ namespace LOP
         private Material faceMaterial;
         private KnockbackLateUpdateDriver driver;
 
-        public TriGrabRobotView(GameFramework.Runner.IRunner runner, TriGrabClientState state, TriGrabMyHook myHook, TriGrabAim aim,
+        public TriGrabRobotView(GameFramework.Runner.IRunner runner, EntityRenderClock renderClock, TriGrabClientState state, TriGrabMyHook myHook, TriGrabAim aim,
                                 IPlayerContext playerContext, ActorRegistry actors, GameFramework.World.EntityRegistry entityRegistry,
                                 CosmeticCatalog catalog, AppearanceColorPalette palette)
         {
             this.runner = runner;
+            this.renderClock = renderClock;
             this.state = state;
             this.myHook = myHook;
             this.aim = aim;
@@ -71,21 +71,21 @@ namespace LOP
             this.palette = palette;
         }
 
-        /// <summary>팔이 볼 방향(바닥 xz). 갈고리가 나가 있으면 그 방향, 아니면 회전판 가운데 쪽.</summary>
-        public static Vector2 ArmDirection(Vector2 bodyPosition, TriGrabHook hook, bool aiming, Vector2 aimDir)
+        /// <summary>팔이 볼 방향(바닥 xz). 손이 나가 있으면 그 방향, 끄는 중이면 조준 방향, 아니면 원판 가운데 쪽.</summary>
+        public static Vector2 ArmDirection(Vector2 bodyPosition, Vector2? hookDir, bool aiming, Vector2 aimDir)
         {
-            if (hook != null && hook.Dir.sqrMagnitude > 1e-6f) return hook.Dir;
+            if (hookDir.HasValue && hookDir.Value.sqrMagnitude > 1e-6f) return hookDir.Value.normalized;
             if (aiming && aimDir.sqrMagnitude > 1e-6f) return aimDir.normalized;
             var toCenter = -bodyPosition;
             return toCenter.sqrMagnitude > 1e-6f ? toCenter.normalized : Vector2.up;
         }
 
-        /// <summary>재장전 고리를 보이나와 채운 몫(0~1). 갈고리가 나가 있는 동안은 안 보인다(그동안은 갈고리가 보인다).</summary>
-        public static bool ReloadRing(long renderTick, long reloadUntilTick, bool hookOut, long total, out float fill01)
+        /// <summary>기절 고리를 보이나와 채운 몫(0~1). 기절 끝 틱까지 남은 동안만.</summary>
+        public static bool StunRing(long renderTick, long stunUntilTick, long total, out float fill01)
         {
             fill01 = 0f;
-            long left = reloadUntilTick - renderTick;
-            if (hookOut || left <= 0 || total <= 0) return false;
+            long left = stunUntilTick - renderTick;
+            if (left <= 0 || total <= 0) return false;
             fill01 = Mathf.Clamp01(1f - left / (float)total);
             return true;
         }
@@ -107,9 +107,9 @@ namespace LOP
 
         private void Place()
         {
-            double renderTickD = TriGrabCarouselView.RenderTickOf(runner);
-            if (double.IsNaN(renderTickD)) return;
-            long renderTick = (long)System.Math.Floor(renderTickD);
+            double local = TriGrabRenderTicks.Local(runner);
+            double remote = TriGrabRenderTicks.Remote(renderClock);
+            if (double.IsNaN(local) || double.IsNaN(remote)) return;
             string me = playerContext.entityId;
 
             for (int seat = 0; seat < state.PlayerIds.Count; seat++)
@@ -135,17 +135,21 @@ namespace LOP
                 if (robot.Model != null) robot.Model.localPosition = robot.ModelRest + Vector3.up * CockpitLift;
 
                 bool mine = id == me;
+                //  내 몸은 내 시각, 남의 몸은 원격 시각으로 그려진다 — 손·고리도 그 몸과 같은 시각으로 묻는다.
+                double tickD = mine ? local : remote;
+                long renderTick = (long)System.Math.Floor(tickD);
                 var hook = mine ? myHook.Current(me, renderTick) : state.HookOf(id);
-                bool hookOut = TriGrabHookView.IsDrawn(hook, renderTickD);
+                bool hookOut = TriGrabHookPath.IsOut(hook, tickD);
                 var p = visual.transform.position;
-                var dir = ArmDirection(new Vector2(p.x, p.z), hookOut ? hook : null, mine && aim.Active, aim.Dir);
+                Vector2? hookDir = hookOut ? TriGrabHookPath.ToUnity(hook.Dir) : (Vector2?)null;
+                var dir = ArmDirection(new Vector2(p.x, p.z), hookDir, mine && aim.Active, aim.Dir);
                 robot.ArmPivot.rotation = Quaternion.LookRotation(new Vector3(dir.x, 0f, dir.y), Vector3.up);
 
-                long reloadUntil = state.TryGetPlayer(id, out var score) ? score.ReloadUntilTick : 0;
-                long left = reloadUntil - renderTick;
-                if (hookOut || left <= 0) robot.RingTotal = 0;
+                long stunUntil = state.TryGetPlayer(id, out var score) ? score.StunUntilTick : 0;
+                long left = stunUntil - renderTick;
+                if (left <= 0) robot.RingTotal = 0;
                 else if (robot.RingTotal == 0) robot.RingTotal = left;
-                PlaceRing(robot, renderTick, reloadUntil, hookOut);
+                PlaceRing(robot, renderTick, stunUntil);
             }
 
             gone.Clear();
@@ -160,16 +164,15 @@ namespace LOP
             }
         }
 
-        private void PlaceRing(Robot robot, long renderTick, long reloadUntil, bool hookOut)
+        private void PlaceRing(Robot robot, long renderTick, long stunUntil)
         {
-            if (!ReloadRing(renderTick, reloadUntil, hookOut, robot.RingTotal, out float fill))
+            if (!StunRing(renderTick, stunUntil, robot.RingTotal, out float fill))
             {
                 robot.Ring.enabled = false;
                 return;
             }
             robot.Ring.enabled = true;
-            var color = robot.RingTotal > LongReloadTicks ? TriGrabPalette.Wrong : TriGrabPalette.Ink(1);
-            CardRushDraw.Tint(robot.Ring, block, color, 0.95f);
+            CardRushDraw.Tint(robot.Ring, block, TriGrabPalette.Wrong, 0.95f);
             int n = Mathf.Max(2, Mathf.CeilToInt(RingSegments * fill) + 1);
             var center = robot.Root.transform.position + Vector3.up * RingHeight;
             for (int i = 0; i < n; i++)
@@ -201,7 +204,7 @@ namespace LOP
             pivot.localPosition = new Vector3(0f, ArmHeight, 0f);
             CardRushDraw.Box("Arm", pivot, new Vector3(0f, 0f, 0.55f), new Vector3(0.28f, 0.24f, 0.5f), armMaterial);
 
-            var ringGo = new GameObject("ReloadRing");
+            var ringGo = new GameObject("StunRing");
             ringGo.transform.SetParent(root.transform, false);
             var ring = ringGo.AddComponent<LineRenderer>();
             ring.useWorldSpace = true;

@@ -1,103 +1,275 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using VContainer.Unity;
+using TG = LOP.TriGrab;
 
 namespace LOP
 {
-    /// <summary>
-    /// 회전판 카드 8장. 서버가 보낸 카드 목록·회전판 시계에 렌더 틱을 넣어 서버 판정과 같은 식으로 자리를 낸다(스펙 §6).
-    /// 각은 소수 렌더 틱으로 이어 그리고, 글자색은 정수 틱으로 묻는다(색은 틱 단위 사실이다). 빈 슬롯은 숨긴다.
-    /// </summary>
-    public class TriGrabCarouselView : IStartable, System.IDisposable
+    /// <summary>그림이 쓰는 두 시각. 둘 다 소수 틱이다.</summary>
+    public static class TriGrabRenderTicks
     {
-        /// <summary>카드 가운데 높이(m). 받침 위로 조금 띄워 몸·갈고리와 겹쳐 보이지 않게.</summary>
-        public const float CardHeight = 0.9f;
-        public const float PopSeconds = 0.25f;
-        /// <summary>카드 판 배율. 1이면 1.6 × 1.1 m — 폰에서 글자가 작아 시안처럼 판정 원 지름(2.3 m) 가까이 키운다.</summary>
-        public const float CardScale = 1.35f;
-
-        private readonly GameFramework.Runner.IRunner runner;
-        private readonly TriGrabClientState state;
-
-        private readonly TriGrabCardFace[] faces = new TriGrabCardFace[TriGrabConfig.Slots];
-        private readonly int[] shownId = new int[TriGrabConfig.Slots];
-        private readonly float[] bornAt = new float[TriGrabConfig.Slots];
-        private GameObject root;
-        private KnockbackLateUpdateDriver driver;
-
-        public TriGrabCarouselView(GameFramework.Runner.IRunner runner, TriGrabClientState state)
-        {
-            this.runner = runner;
-            this.state = state;
-            for (int i = 0; i < shownId.Length; i++) shownId[i] = -1;
-        }
-
-        /// <summary>그 렌더 틱(소수)의 슬롯 카드 가운데 자리.</summary>
-        public static Vector3 CardWorldPosition(int slot, in TriGrabRoundClock clock, double renderTick)
-        {
-            var p = TriGrabCarousel.SlotPosition(slot, TriGrabClientState.BaseAt(clock, renderTick));
-            return new Vector3(p.x, CardHeight, p.y);
-        }
-
-        /// <summary>그 렌더 틱의 글자색 — 정수 틱(내림)으로 묻는다.</summary>
-        public static int InkAt(in TriGrabCard card, double renderTick) => card.InkAt((long)System.Math.Floor(renderTick));
-
-        /// <summary>글자를 보이나. 준비 중엔 흰 판만 — 주문을 먼저 읽게(시안과 같다).</summary>
-        public static bool FaceUp(TriGrabPhase phase) => phase != TriGrabPhase.Prep && phase != TriGrabPhase.Waiting;
-
-        public static double RenderTickOf(GameFramework.Runner.IRunner runner)
+        /// <summary>내 몸·내 손을 그리는 시각 — 내 몸 보간과 같은 "한 틱 전".</summary>
+        public static double Local(GameFramework.Runner.IRunner runner)
         {
             var t = runner?.tickUpdater;
             if (t == null || t.interval <= 0d) return double.NaN;
             return (t.elapsedTime - t.interval) / t.interval;
         }
 
+        /// <summary>
+        /// 남의 몸을 그리는 시각(원격 보간 재생 시계). 카드·두더지·남의 손도 이 시각으로 그려야 남의 몸과 어긋나 보이지 않는다.
+        /// </summary>
+        public static double Remote(EntityRenderClock clock)
+        {
+            if (clock == null || clock.SecondsPerTick <= 0d) return double.NaN;
+            return clock.TimeFor(null) / clock.SecondsPerTick;
+        }
+    }
+
+    /// <summary>
+    /// id마다 하나씩 꺼내 쓰고, 이번 프레임에 안 쓴 것은 숨겨 다음 id에 다시 준다(지우지 않는다).
+    /// </summary>
+    public sealed class TriGrabPool<T> where T : class
+    {
+        private readonly Func<T> make;
+        private readonly Action<T> hide;
+        private readonly Dictionary<int, T> used = new Dictionary<int, T>();
+        private readonly Stack<T> free = new Stack<T>();
+        private readonly HashSet<int> touched = new HashSet<int>();
+        private readonly List<int> drop = new List<int>();
+
+        public TriGrabPool(Func<T> make, Action<T> hide)
+        {
+            this.make = make;
+            this.hide = hide;
+        }
+
+        public int Made { get; private set; }
+        public int InUse => used.Count;
+        public IEnumerable<T> All => used.Values;
+
+        /// <summary>이 id의 그림. 처음이면 숨겨 둔 것을 다시 쓰거나 새로 만든다. <paramref name="fresh"/>는 이번에 새로 맡았나.</summary>
+        public T Get(int id, out bool fresh)
+        {
+            touched.Add(id);
+            if (used.TryGetValue(id, out var item))
+            {
+                fresh = false;
+                return item;
+            }
+            fresh = true;
+            if (free.Count > 0) item = free.Pop();
+            else
+            {
+                item = make();
+                Made++;
+            }
+            used[id] = item;
+            return item;
+        }
+
+        /// <summary>이번 프레임에 <see cref="Get"/>하지 않은 것을 숨겨 돌려놓는다.</summary>
+        public void EndFrame()
+        {
+            drop.Clear();
+            foreach (var pair in used)
+            {
+                if (!touched.Contains(pair.Key)) drop.Add(pair.Key);
+            }
+            foreach (var id in drop)
+            {
+                var item = used[id];
+                used.Remove(id);
+                if (item != null)
+                {
+                    hide?.Invoke(item);
+                    free.Push(item);
+                }
+            }
+            touched.Clear();
+        }
+    }
+
+    /// <summary>
+    /// 원판(판 윗면)과 동전 카드. 카드 정체는 상태, 자리는 <see cref="TriGrabCardTrack"/>을 원격 몸과 같은 시각으로 보간한다.
+    /// 끌려가는 카드는 그 손끝에 붙는다(내 손이면 앞서 그린 손끝). 새 카드는 위에서 떨어지며 커진다(PopK).
+    /// </summary>
+    public class TriGrabCardsView : IStartable, IDisposable
+    {
+        /// <summary>판 윗면 높이(m). 맵 받침(0.05)보다 조금 위.</summary>
+        public const float PlateTop = 0.08f;
+        public const float CoinThickness = 0.12f;
+        /// <summary>새 카드가 떨어지기 시작하는 높이(m) — 시안 14.</summary>
+        public const float PopDrop = 1.4f;
+        private static readonly Color PlateColor = new Color(0.16f, 0.14f, 0.25f);
+        private static readonly Color RimColor = new Color(1f, 0.62f, 0.11f);
+        private static readonly Color CoinBaseColor = new Color(0.05f, 0.04f, 0.09f);
+
+        private sealed class Coin
+        {
+            public GameObject Root;
+            public Transform Base;
+            public Renderer BaseRenderer;
+            public TriGrabCardFace Face;
+        }
+
+        private readonly GameFramework.Runner.IRunner runner;
+        private readonly EntityRenderClock renderClock;
+        private readonly TriGrabClientState state;
+        private readonly TriGrabCardTrack track;
+        private readonly TriGrabMyHook myHook;
+        private readonly IPlayerContext playerContext;
+
+        private TriGrabPool<Coin> coins;
+        private GameObject root;
+        private Material plateMaterial, rimMaterial, baseMaterial;
+        private readonly MaterialPropertyBlock block = new MaterialPropertyBlock();
+        private KnockbackLateUpdateDriver driver;
+
+        public TriGrabCardsView(GameFramework.Runner.IRunner runner, EntityRenderClock renderClock, TriGrabClientState state,
+                                TriGrabCardTrack track, TriGrabMyHook myHook, IPlayerContext playerContext)
+        {
+            this.runner = runner;
+            this.renderClock = renderClock;
+            this.state = state;
+            this.track = track;
+            this.myHook = myHook;
+            this.playerContext = playerContext;
+        }
+
+        /// <summary>새 카드 크기 배율과 떠 있는 높이(시안 syncCards). Live가 아니면 다 나타난 것으로 본다.</summary>
+        public static void Pop(TG.TriGrabCard c, double renderTick, bool live, out float scale, out float lift)
+        {
+            float k = live ? TG.TriGrabCards.PopK(c, (long)Math.Floor(renderTick)) : 1f;
+            k = Mathf.Clamp01(k);
+            scale = 0.35f + 0.65f * k;
+            lift = (1f - k) * PopDrop;
+        }
+
+        /// <summary>
+        /// 그 카드를 그릴 바닥 자리. 끌려가면 주인 손끝, 아니면 자리 기록 보간. 그릴 수 없으면 false.
+        /// </summary>
+        public static bool TryCardPosition(TG.TriGrabCard c, TriGrabClientState state, TriGrabCardTrack track,
+                                           TriGrabMyHook myHook, string myId, double remoteTick, double localTick,
+                                           out Vector2 pos, out bool carried)
+        {
+            carried = false;
+            pos = default;
+            if (c.Gone) return false;
+            if (c.CarriedBy != null)
+            {
+                bool mine = c.CarriedBy == myId;
+                var hook = mine ? myHook.Current(myId, (long)Math.Floor(localTick)) : state.HookOf(c.CarriedBy);
+                if (hook != null && hook.CardId == c.Id)
+                {
+                    pos = TriGrabHookPath.TipAt(hook, mine ? localTick : remoteTick);
+                    carried = true;
+                    return true;
+                }
+            }
+            return track.TryGet(c.Id, remoteTick, out pos);
+        }
+
         public void Start()
         {
-            root = new GameObject("TriGrabCarousel");
-            driver = KnockbackLateUpdateDriver.Create("TriGrabCarouselDriver", Place);
+            root = new GameObject("TriGrabCards");
+            plateMaterial = CardRushDraw.Opaque("TriGrab_Plate", PlateColor);
+            rimMaterial = CardRushDraw.Opaque("TriGrab_Rim", RimColor);
+            baseMaterial = CardRushDraw.Opaque("TriGrab_CoinBase", CoinBaseColor);
+            BuildPlate();
+            coins = new TriGrabPool<Coin>(MakeCoin, HideCoin);
+            driver = KnockbackLateUpdateDriver.Create("TriGrabCardsDriver", Place);
+        }
+
+        //  맵 받침(반지름 4.6)은 울타리 안쪽(5.5)보다 작아, 카드가 받침 밖에 있으면 판 밖처럼 보인다 — 울타리까지 판을 덮는다.
+        private void BuildPlate()
+        {
+            float r = TG.TriGrabConfig.DiscRadius;
+            var plate = CardRushDraw.Primitive(PrimitiveType.Cylinder, "Plate", root.transform, plateMaterial);
+            plate.transform.localScale = new Vector3(r * 2f, 0.02f, r * 2f);
+            plate.transform.localPosition = new Vector3(0f, PlateTop - 0.02f, 0f);
+            var rim = new GameObject("Rim");
+            rim.transform.SetParent(root.transform, false);
+            var line = rim.AddComponent<LineRenderer>();
+            const int n = 72;
+            line.positionCount = n;
+            line.loop = true;
+            line.useWorldSpace = true;
+            line.widthMultiplier = 0.18f;
+            line.sharedMaterial = rimMaterial;
+            line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            for (int i = 0; i < n; i++)
+            {
+                float a = i * Mathf.PI * 2f / n;
+                line.SetPosition(i, new Vector3(Mathf.Cos(a) * (r - 0.09f), PlateTop + 0.005f, Mathf.Sin(a) * (r - 0.09f)));
+            }
+        }
+
+        private Coin MakeCoin()
+        {
+            var go = new GameObject("Coin");
+            go.transform.SetParent(root.transform, false);
+            var b = CardRushDraw.Primitive(PrimitiveType.Cylinder, "Base", go.transform, baseMaterial);
+            return new Coin
+            {
+                Root = go,
+                Base = b.transform,
+                BaseRenderer = b.GetComponent<Renderer>(),
+                Face = TriGrabCardFace.Create("Face", go.transform),
+            };
+        }
+
+        private static void HideCoin(Coin coin)
+        {
+            if (coin.Base != null) coin.Base.gameObject.SetActive(false);
+            coin.Face?.Hide();
         }
 
         private void Place()
         {
-            double renderTick = RenderTickOf(runner);
+            double remote = TriGrabRenderTicks.Remote(renderClock);
+            double local = TriGrabRenderTicks.Local(runner);
             var camera = Camera.main;
-            if (double.IsNaN(renderTick) || camera == null || root == null) return;
+            if (double.IsNaN(remote) || double.IsNaN(local) || camera == null || root == null) return;
 
-            bool any = state.Received;
-            var phase = state.PhaseAt((long)System.Math.Floor(renderTick));
-            bool faceUp = FaceUp(phase);
+            var phase = state.PhaseAt((long)Math.Floor(remote));
+            bool live = phase == TG.TriGrabPhase.Live;
+            bool resolved = phase == TG.TriGrabPhase.Resolved;
+            string me = playerContext.entityId;
             var facing = camera.transform.rotation;
-            for (int i = 0; i < faces.Length; i++)
+            float r = TG.TriGrabConfig.CoinRadius;
+
+            foreach (var c in state.Cards)
             {
-                var card = any ? state.CardAt(i) : null;
-                if (card == null)
-                {
-                    faces[i]?.Hide();
-                    shownId[i] = -1;
-                    continue;
-                }
-                if (faces[i] == null)
-                {
-                    faces[i] = TriGrabCardFace.Create("Card" + i, root.transform);
-                    if (faces[i] == null) continue;
-                }
-                var c = card.Value;
-                if (c.Id != shownId[i])
-                {
-                    //  처음 받은 판의 카드는 번쩍이지 않는다 — 빈자리를 채운 새 카드만.
-                    bornAt[i] = shownId[i] == -1 && phase != TriGrabPhase.Live ? -100f : Time.unscaledTime;
-                    shownId[i] = c.Id;
-                }
-                float pop = 1f - (Time.unscaledTime - bornAt[i]) / PopSeconds;
-                faces[i].Show(c, InkAt(c, renderTick), faceUp, CardWorldPosition(i, state.Clock, renderTick), facing,
-                              CardScale * (1f + Mathf.Clamp01(pop) * 0.15f), TriGrabHookResult.None, pop);
+                //  정체는 신뢰 소식이라 그리는 시각보다 먼저 올 수 있다 — 생긴 틱 전엔 그리지 않는다.
+                if (remote < c.BornTick) continue;
+                if (!TryCardPosition(c, state, track, myHook, me, remote, local, out var p, out bool carried)) continue;
+                var coin = coins.Get(c.Id, out _);
+                Pop(c, remote, live && !carried, out float scale, out float lift);
+                float y = carried ? TriGrabHookView.HookHeight - 0.1f : PlateTop + lift;
+
+                coin.Base.gameObject.SetActive(!(resolved && !c.Ok));
+                coin.Base.position = new Vector3(p.x, y + CoinThickness * 0.5f * scale, p.y);
+                float baseDiameter = (r + 0.045f) * 2f * scale * (resolved && c.Ok ? 1.12f : 1f);
+                coin.Base.localScale = new Vector3(baseDiameter, CoinThickness * 0.5f * scale, baseDiameter);
+                CardRushDraw.Tint(coin.BaseRenderer, block, resolved && c.Ok ? TriGrabPalette.Correct : CoinBaseColor, 1f);
+
+                float pop = live ? 1f - Mathf.Clamp01((float)((remote - c.BornTick) / TG.TriGrabConfig.PopTicks)) : 0f;
+                coin.Face?.Show(c, new Vector3(p.x, y + CoinThickness * scale + 0.005f, p.y), facing,
+                                r * 2f * scale, resolved && c.Ok, resolved && !c.Ok, pop);
             }
+            coins.EndFrame();
         }
 
         public void Dispose()
         {
-            if (driver != null) Object.Destroy(driver.gameObject);
-            if (root != null) Object.Destroy(root);
+            if (driver != null) UnityEngine.Object.Destroy(driver.gameObject);
+            if (root != null) UnityEngine.Object.Destroy(root);
+            foreach (var m in new[] { plateMaterial, rimMaterial, baseMaterial })
+            {
+                if (m != null) UnityEngine.Object.Destroy(m);
+            }
         }
     }
 }

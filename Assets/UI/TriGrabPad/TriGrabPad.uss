@@ -28,8 +28,8 @@
     -unity-font-style: bold; -unity-text-align: middle-center;
 }
 .fire-button--ready .fire-label { color: rgb(40, 30, 5); }
-/* 이번 라운드 정답을 냈다 — 다음 라운드까지 쉰다. 흐림(0.35)은 그대로 두고 초록 테두리로 "끝났다"를 보인다. */
-.fire-button--done { background-color: rgba(60, 170, 90, 0.75); border-color: rgb(190, 255, 205); }
+/* 끄는 중 손잡이가 안쪽이면 떼도 안 나간다(취소) — 테두리를 빨갛게. */
+.fire-button--cancel { border-color: rgb(255, 77, 109); }
 .fire-handle {
     width: 44px; height: 44px; border-radius: 22px; background-color: rgba(255, 255, 255, 0.5);
 }

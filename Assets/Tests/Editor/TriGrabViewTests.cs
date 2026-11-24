@@ -1,106 +1,379 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
+using TG = LOP.TriGrab;
 
 namespace LOP.Tests
 {
-    /// <summary>그림이 서버 판정과 같은 식(렌더 틱)을 쓰는지 — 카드 자리·글자색, 갈고리 고르기, 재장전 고리, 카메라.</summary>
+    /// <summary>그림 — 동전 풀, 손끝 식, 두더지 높이, 주문·연출 글, 탑뷰 카메라.</summary>
     public class TriGrabViewTests
     {
-        static readonly TriGrabRoundClock Clock = new TriGrabRoundClock
-        {
-            BaseAngle0 = 0.4f, Omega = 0.55f, LiveStartTick = 100, FreezeTick = long.MaxValue,
-        };
+        sealed class FakeCoin { public bool Hidden; }
 
         [Test]
-        public void 카드_자리는_Shared_회전판_식에_렌더_틱을_넣은_값()
+        public void CardsView_SpawnsAndRecyclesCoins()
         {
-            for (int slot = 0; slot < TriGrabConfig.Slots; slot++)
-            {
-                var expected = TriGrabCarousel.SlotPosition(slot, Clock.BaseAt(250));
-                var p = TriGrabCarouselView.CardWorldPosition(slot, Clock, 250.0);
-                Assert.AreEqual(expected.x, p.x, 1e-5f);
-                Assert.AreEqual(expected.y, p.z, 1e-5f, "Shared Vector2의 y가 바닥 z");
-                Assert.AreEqual(TriGrabCarouselView.CardHeight, p.y);
-            }
+            var pool = new TriGrabPool<FakeCoin>(() => new FakeCoin(), c => c.Hidden = true);
+            var a = pool.Get(1, out bool freshA);
+            var b = pool.Get(2, out _);
+            pool.EndFrame();
+            Assert.IsTrue(freshA);
+            Assert.AreEqual(2, pool.Made);
+
+            Assert.AreSame(a, pool.Get(1, out bool freshAgain), "같은 카드는 같은 동전");
+            Assert.IsFalse(freshAgain);
+            pool.EndFrame();
+            Assert.IsTrue(b.Hidden, "이번 프레임에 안 쓴 동전(잡혀 간 카드)은 숨긴다");
+            Assert.AreEqual(1, pool.InUse);
+
+            var c = pool.Get(3, out bool freshC);
+            Assert.AreSame(b, c, "새 카드는 숨겨 둔 동전을 다시 쓴다");
+            Assert.IsTrue(freshC);
+            Assert.AreEqual(2, pool.Made, "새로 만들지 않는다");
         }
 
         [Test]
-        public void 소수_렌더_틱이면_두_틱_사이에_그린다()
+        public void 새_카드는_작게_위에서_떨어지고_다_나타나면_제자리()
         {
-            var a = TriGrabCarouselView.CardWorldPosition(2, Clock, 250.0);
-            var b = TriGrabCarouselView.CardWorldPosition(2, Clock, 251.0);
-            var mid = TriGrabCarouselView.CardWorldPosition(2, Clock, 250.5);
-            Assert.Greater(Vector3.Distance(a, b), 1e-3f, "돌고 있다");
-            Assert.Less(Vector3.Distance(mid, (a + b) * 0.5f), 1e-3f);
+            var card = new TG.TriGrabCard { BornTick = 100 };
+            TriGrabCardsView.Pop(card, 100.0, true, out float s0, out float lift0);
+            Assert.AreEqual(0.35f, s0, 1e-4f);
+            Assert.AreEqual(TriGrabCardsView.PopDrop, lift0, 1e-4f);
+            TriGrabCardsView.Pop(card, 100 + TG.TriGrabConfig.PopTicks, true, out float s1, out float lift1);
+            Assert.AreEqual(1f, s1, 1e-4f);
+            Assert.AreEqual(0f, lift1, 1e-4f);
+            TriGrabCardsView.Pop(card, 100.0, false, out float sRes, out _);
+            Assert.AreEqual(1f, sRes, "Live가 아니면 다 나타난 것으로 그린다");
         }
 
         [Test]
-        public void 라운드가_끝나면_카드도_멈춘다()
-        {
-            var frozen = Clock;
-            frozen.FreezeTick = 300;
-            Assert.AreEqual(TriGrabCarouselView.CardWorldPosition(0, frozen, 300.0), TriGrabCarouselView.CardWorldPosition(0, frozen, 340.7));
-        }
-
-        [Test]
-        public void 글자색은_정수_틱으로_묻는다()
-        {
-            var card = new TriGrabCard { Id = 1, Word = 0, Ink = 0, Cycles = true, PeriodTicks = 30, T0Tick = 100 };
-            Assert.AreEqual(0, TriGrabCarouselView.InkAt(card, 129.99), "경계 직전 소수 틱은 아직 앞 색");
-            Assert.AreEqual(1, TriGrabCarouselView.InkAt(card, 130.0));
-            Assert.AreEqual(card.InkAt(175), TriGrabCarouselView.InkAt(card, 175.6));
-        }
-
-        [Test]
-        public void 준비_중엔_글자를_가린다()
-        {
-            Assert.IsFalse(TriGrabCarouselView.FaceUp(TriGrabPhase.Prep));
-            Assert.IsTrue(TriGrabCarouselView.FaceUp(TriGrabPhase.Live));
-            Assert.IsTrue(TriGrabCarouselView.FaceUp(TriGrabPhase.Resolved));
-        }
-
-        [Test]
-        public void 남의_갈고리는_서버_것_내_것은_미리_그린_것을_그린다()
+        public void 끌려가는_카드는_주인_손끝에_붙는다()
         {
             var state = new TriGrabClientState();
             var m = TriGrabClientStateTests.Msg(1);
-            m.Hooks.Add(new TriGrabHookWire { OwnerId = "me", FireTick = 90, DirX = 1f, TurnTick = 108, TurnLength = 9f, EndTick = 122 });
+            m.Cards.Add(new TriGrabRingCardWire { Id = 5, CarriedBy = "b" });
+            m.Cards.Add(new TriGrabRingCardWire { Id = 6 });
+            m.Hooks.Add(new TriGrabRingHookWire
+            {
+                OwnerId = "b", FireTick = 100, OriginX = 8f, OriginZ = 0f, DirX = -1f, DirZ = 0f,
+                State = (int)TG.TriGrabHookState.Back, End = (int)TG.TriGrabHookEnd.Card, CardId = 5,
+                TurnTick = 105, TurnLength = 3.6f,
+            });
+            state.Apply(m);
+            var track = new TriGrabCardTrack(state);
+            track.Push(104, new[] { 5, 6 }, new[] { 0f, 1f }, new[] { 0f, 1f });
+            var myHook = new TriGrabMyHook(state);
+
+            state.TryGetCard(5, out var carried);
+            Assert.IsTrue(TriGrabCardsView.TryCardPosition(carried, state, track, myHook, "me", 107.0, 120.0, out var p, out bool isCarried));
+            Assert.IsTrue(isCarried);
+            Assert.AreEqual(TriGrabHookPath.TipAt(state.HookOf("b"), 107.0), p, "남의 손은 원격 시각으로");
+
+            state.TryGetCard(6, out var free);
+            Assert.IsTrue(TriGrabCardsView.TryCardPosition(free, state, track, myHook, "me", 107.0, 120.0, out var q, out bool freeCarried));
+            Assert.IsFalse(freeCarried);
+            Assert.AreEqual(new Vector2(1f, 1f), q, "원판 위 카드는 자리 기록");
+        }
+
+        static TriGrabRingHookWire CarryHook(long turnTick) => new TriGrabRingHookWire
+        {
+            OwnerId = "b", FireTick = 100, OriginX = 8f, OriginZ = 0f, DirX = -1f, DirZ = 0f,
+            State = (int)TG.TriGrabHookState.Back, End = (int)TG.TriGrabHookEnd.Card, CardId = 5,
+            TurnTick = turnTick, TurnLength = 7f,
+        };
+
+        [Test]
+        public void 잡히기_전_시각엔_카드가_제자리_잡힌_틱부터_손끝을_따라간다()
+        {
+            var state = new TriGrabClientState();
+            var m = TriGrabClientStateTests.Msg(1);
+            m.Cards.Add(new TriGrabRingCardWire { Id = 5, CarriedBy = "b" });
+            m.Hooks.Add(CarryHook(110));
+            state.Apply(m);
+            var track = new TriGrabCardTrack(state);
+            track.Push(104, new[] { 5 }, new[] { 1f }, new[] { 1f });
+            var myHook = new TriGrabMyHook(state);
+            state.TryGetCard(5, out var card);
+
+            Assert.IsTrue(TriGrabCardsView.TryCardPosition(card, state, track, myHook, "me", 107.0, 130.0, out var before, out bool carriedBefore));
+            Assert.IsFalse(carriedBefore, "그리는 시각엔 아직 손이 닿기 전 — 손끝으로 순간이동하지 않는다");
+            Assert.AreEqual(new Vector2(1f, 1f), before);
+
+            Assert.IsTrue(TriGrabCardsView.TryCardPosition(card, state, track, myHook, "me", 112.0, 130.0, out var after, out bool carriedAfter));
+            Assert.IsTrue(carriedAfter);
+            Assert.AreEqual(TriGrabHookPath.TipAt(state.HookOf("b"), 112.0), after);
+        }
+
+        [Test]
+        public void 사라진_카드는_사라진_틱까지_손끝에_붙어_그린다()
+        {
+            var state = new TriGrabClientState();
+            var m = TriGrabClientStateTests.Msg(1);
+            m.Cards.Add(new TriGrabRingCardWire { Id = 5, CarriedBy = "b" });
+            m.Hooks.Add(CarryHook(105));
+            state.Apply(m);
+            var hook = state.HookOf("b");
+            var track = new TriGrabCardTrack(state);
+            track.Push(104, new[] { 5 }, new[] { 1f }, new[] { 1f });
+            var myHook = new TriGrabMyHook(state);
+
+            //  손이 몸에 닿아 점수가 났다 — 손은 지워지고 카드는 Gone, 정답 연출이 그 틱(118)을 알린다.
+            var done = TriGrabClientStateTests.Msg(2);
+            done.Cards.Add(new TriGrabRingCardWire { Id = 5, Gone = true });
+            done.Fx.Add(new TriGrabRingFxWire { Kind = (int)TG.TriGrabFxKind.Correct, OwnerId = "b", X = 8f, Z = 0f, Tick = 118 });
+            state.Apply(done);
+            state.TryGetCard(5, out var card);
+
+            Assert.IsTrue(TriGrabCardsView.TryCardPosition(card, state, track, myHook, "me", 110.0, 130.0, out var p, out bool carried),
+                "그리는 시각(110)엔 아직 끌려오는 중");
+            Assert.IsTrue(carried);
+            Assert.AreEqual(TriGrabHookPath.TipAt(hook, 110.0), p);
+            Assert.IsFalse(TriGrabCardsView.TryCardPosition(card, state, track, myHook, "me", 118.0, 130.0, out _, out _), "사라진 틱부터 안 그린다");
+        }
+
+        [Test]
+        public void 연출이_없으면_사라진_틱은_끌던_손이_돌아온_틱()
+        {
+            var state = new TriGrabClientState();
+            var m = TriGrabClientStateTests.Msg(1);
+            m.Cards.Add(new TriGrabRingCardWire { Id = 5, CarriedBy = "b" });
+            m.Hooks.Add(CarryHook(105));
+            state.Apply(m);
+            long end = TriGrabHookPath.EndTick(state.HookOf("b"));
+            var track = new TriGrabCardTrack(state);
+            track.Push(104, new[] { 5 }, new[] { 1f }, new[] { 1f });
+            var myHook = new TriGrabMyHook(state);
+            var done = TriGrabClientStateTests.Msg(2);
+            done.Cards.Add(new TriGrabRingCardWire { Id = 5, Gone = true });
+            state.Apply(done);
+            state.TryGetCard(5, out var card);
+            Assert.IsTrue(TriGrabCardsView.TryCardPosition(card, state, track, myHook, "me", end - 1, 200.0, out _, out _));
+            Assert.IsFalse(TriGrabCardsView.TryCardPosition(card, state, track, myHook, "me", end, 200.0, out _, out _));
+        }
+
+        [Test]
+        public void 서버에서_지워진_남의_손은_돌아오는_틱까지_계속_그린다()
+        {
+            var state = new TriGrabClientState();
+            var m = TriGrabClientStateTests.Msg(1);
+            m.Cards.Add(new TriGrabRingCardWire { Id = 5, CarriedBy = "b" });
+            m.Hooks.Add(CarryHook(105));
+            state.Apply(m);
+            var myHook = new TriGrabMyHook(state);
+
+            var done = TriGrabClientStateTests.Msg(2);
+            done.Cards.Add(new TriGrabRingCardWire { Id = 5, Gone = true });
+            done.Fx.Add(new TriGrabRingFxWire { Kind = (int)TG.TriGrabFxKind.Correct, OwnerId = "b", X = 8f, Z = 0f, Tick = 118 });
+            state.Apply(done);
+            Assert.IsNull(state.HookOf("b"), "서버 상태에선 이미 지워졌다");
+
+            var list = new List<TriGrabHookView.Drawn>();
+            TriGrabHookView.Collect(state, myHook, "me", 110.0, 200.0, list);
+            Assert.AreEqual(1, list.Count, "그리는 시각(110)엔 아직 카드를 끌고 오는 중 — 사슬 없이 카드만 날지 않게");
+            Assert.AreEqual("b", list[0].Hook.Owner);
+            TriGrabHookView.Collect(state, myHook, "me", 118.0, 200.0, list);
+            Assert.AreEqual(0, list.Count, "돌아온 틱부터 안 그린다");
+        }
+
+        // ── 손끝 식(서버 StepOut·StepBack과 같은 틱) ──
+
+        [Test]
+        public void 나가는_손은_쏜_틱에_한_걸음_사거리_끝에서_돌아선다()
+        {
+            var h = TG.TriGrabHook.Fire("a", new System.Numerics.Vector2(0f, -8f), 0f, 100);
+            float step = TG.TriGrabConfig.HookOutSpeed * TG.TriGrabConfig.TickSeconds;
+            Assert.AreEqual(step, TriGrabHookPath.LengthAt(h, 100), 1e-4f, "서버는 쏜 틱 끝에도 한 걸음 나간다");
+            Assert.AreEqual(0f, TriGrabHookPath.LengthAt(h, 99));
+
+            //  서버 식을 그대로 돌려 사거리 끝 틱을 맞춘다(카드·두더지 없음).
+            var server = TG.TriGrabHook.Fire("a", new System.Numerics.Vector2(0f, -8f), 0f, 100);
+            var none = new List<TG.TriGrabCard>();
+            var moles = new List<TG.TriGrabMole>();
+            long tick = 100;
+            for (int i = 0; i < 100 && server.State == TG.TriGrabHookState.Out; i++, tick++)
+            {
+                TG.TriGrabHook.StepOut(server, none, moles, tick, TG.TriGrabConfig.TickSeconds);
+                Assert.AreEqual(server.Length, TriGrabHookPath.LengthAt(h, tick), 1e-3f, $"틱 {tick}");
+            }
+            TriGrabHookPath.Turn(h, out long turnTick, out float turnLength);
+            Assert.AreEqual(server.TurnTick, turnTick);
+            Assert.AreEqual(TG.TriGrabConfig.HookRange, turnLength, 1e-4f);
+
+            //  돌아오기도 서버 StepBack과 같은 틱에 도착한다(몸은 쏜 자리에 서 있다).
+            var cards = new Dictionary<int, TG.TriGrabCard>();
+            long arrived = -1;
+            for (int i = 0; i < 100; i++, tick++)
+            {
+                if (TG.TriGrabHook.StepBack(server, server.Origin, cards, TG.TriGrabConfig.TickSeconds)) { arrived = tick; break; }
+                Assert.AreEqual(server.Length, TriGrabHookPath.LengthAt(h, tick), 0.6f, $"돌아오는 틱 {tick}");
+            }
+            Assert.AreEqual(arrived, TriGrabHookPath.EndTick(h));
+        }
+
+        [Test]
+        public void 서버가_잡았다고_알린_손은_그_틱에서_돌아선다()
+        {
+            var h = new TG.TriGrabHook
+            {
+                Owner = "a", FireTick = 100, Origin = System.Numerics.Vector2.Zero, Dir = new System.Numerics.Vector2(1f, 0f),
+                State = TG.TriGrabHookState.Back, TurnTick = 105, TurnLength = 4f,
+            };
+            Assert.AreEqual(4f, TriGrabHookPath.LengthAt(h, 105), 1e-4f, "돌아선 틱엔 돌아선 길이(나간 걸음보다 짧아도)");
+            Assert.Less(TriGrabHookPath.LengthAt(h, 106), 4f);
+            Assert.AreEqual((4f + TriGrabHookPath.LengthAt(h, 106)) * 0.5f, TriGrabHookPath.TipAt(h, 105.5).x, 1e-4f, "소수 틱은 이웃 틱 사이");
+            Assert.IsTrue(TriGrabHookPath.IsOut(h, TriGrabHookPath.EndTick(h)));
+            Assert.IsFalse(TriGrabHookPath.IsOut(h, TriGrabHookPath.EndTick(h) + 1));
+        }
+
+        [Test]
+        public void 남의_손은_서버_것_내_것은_미리_그린_것을_그린다()
+        {
+            var state = new TriGrabClientState();
+            var m = TriGrabClientStateTests.Msg(1);
+            m.Hooks.Add(new TriGrabRingHookWire { OwnerId = "b", FireTick = 100, DirX = 1f, State = (int)TG.TriGrabHookState.Out });
             state.Apply(m);
             var mine = new TriGrabMyHook(state);
-            var predicted = mine.Fire("me", Vector2.zero, 0f, 125);
+            var predicted = mine.Fire("me", Vector2.zero, 0f, 130);
 
-            var list = new List<TriGrabHook>();
-            TriGrabHookView.Collect(state, mine, "me", 126.3, list);
+            var list = new List<TriGrabHookView.Drawn>();
+            TriGrabHookView.Collect(state, mine, "me", 110.0, 131.0, list);
             Assert.AreEqual(2, list.Count);
-            Assert.AreEqual("b", list[0].OwnerId);
-            Assert.AreSame(predicted, list[1], "서버에 남은 옛 내 갈고리가 아니라 방금 쏜 것");
+            Assert.AreEqual("b", list[0].Hook.Owner);
+            Assert.AreEqual(110.0, list[0].Tick, "남의 손은 원격 시각");
+            Assert.AreSame(predicted, list[1].Hook);
+            Assert.AreEqual(131.0, list[1].Tick, "내 손은 내 시각");
 
-            TriGrabHookView.Collect(state, mine, "me", 137.5, list);
-            Assert.AreEqual(1, list.Count, "b는 끝 틱(137)이 지나면 안 그린다");
+            TriGrabHookView.Collect(state, mine, "me", 99.0, 131.0, list);
+            Assert.AreEqual(1, list.Count, "쏘기 전 시각이면 남의 손은 아직 안 그린다");
         }
 
         [Test]
-        public void 재장전_고리는_갈고리가_돌아온_뒤에만_차오른다()
+        public void 서버가_같은_쏜_틱의_손을_보내면_서버_것으로_바꾼다()
         {
-            Assert.IsFalse(TriGrabRobotView.ReloadRing(100, 130, true, 30, out _), "갈고리가 나가 있으면 안 보임");
-            Assert.IsTrue(TriGrabRobotView.ReloadRing(100, 130, false, 60, out float fill));
-            Assert.AreEqual(0.5f, fill, 1e-5f);
-            Assert.IsFalse(TriGrabRobotView.ReloadRing(130, 130, false, 60, out _), "끝 틱이면 다 찼다");
+            var state = new TriGrabClientState();
+            state.Apply(TriGrabClientStateTests.Msg(1));
+            var mine = new TriGrabMyHook(state);
+            var predicted = mine.Fire("me", Vector2.zero, 90f, 200);
+            Assert.AreSame(predicted, mine.Current("me", 203));
+
+            var m = TriGrabClientStateTests.Msg(2);
+            m.Hooks.Add(new TriGrabRingHookWire { OwnerId = "me", FireTick = 201, DirX = 1f, State = (int)TG.TriGrabHookState.Back, TurnTick = 206, TurnLength = 3f, CardId = 4 });
+            state.Apply(m);
+            var current = mine.Current("me", 204);
+            Assert.AreNotSame(predicted, current);
+            Assert.AreEqual(4, current.CardId);
+            Assert.IsNull(mine.Predicted);
         }
 
         [Test]
-        public void 팔은_갈고리_방향_없으면_가운데를_본다()
+        public void 확인이_안_오면_기다림이_끝난_뒤_버리고_새_라운드면_바로_버린다()
         {
-            var hook = new TriGrabHook { Dir = new Vector2(1f, 0f) };
-            Assert.AreEqual(new Vector2(1f, 0f), TriGrabRobotView.ArmDirection(new Vector2(0f, -7f), hook, false, Vector2.zero));
+            var state = new TriGrabClientState();
+            state.Apply(TriGrabClientStateTests.Msg(1));
+            var mine = new TriGrabMyHook(state);
+            mine.Fire("me", Vector2.zero, 0f, 200);
+            Assert.IsNotNull(mine.Current("me", 200 + TriGrabMyHook.ConfirmWindowTicks));
+            Assert.IsNull(mine.Current("me", 201 + TriGrabMyHook.ConfirmWindowTicks));
+
+            mine.Fire("me", Vector2.zero, 0f, 300);
+            var next = TriGrabClientStateTests.Msg(2, TG.TriGrabPhase.Prep);
+            next.Round = 4;
+            state.Apply(next);
+            Assert.IsNull(mine.Current("me", 301));
+        }
+
+        // ── 두더지 ──
+
+        [Test]
+        public void MoleView_HeightFollowsTick()
+        {
+            var mole = new TG.TriGrabMole { Id = 1, SpawnTick = 100, StandTicks = 60 };
+            Assert.AreEqual(TriGrabMoleView.SunkOffset, TriGrabMoleView.BodyY(mole, 100.0), 1e-4f, "막 생기면 땅속");
+            Assert.AreEqual(TriGrabMoleView.SunkOffset + TriGrabMoleView.RiseSpan * 0.5f,
+                            TriGrabMoleView.BodyY(mole, 100 + TG.TriGrabMole.RiseTicks * 0.5), 1e-4f, "솟는 중엔 소수 틱 사이를 잇는다");
+            Assert.AreEqual(TriGrabMoleView.SunkOffset + TriGrabMoleView.RiseSpan, TriGrabMoleView.BodyY(mole, 130.0), 1e-4f, "서 있다");
+            Assert.AreEqual(TriGrabMoleView.SunkOffset, TriGrabMoleView.BodyY(mole, 160 + TG.TriGrabMole.SinkTicks), 1e-4f, "다시 숨었다");
+            Assert.AreEqual("ㅎㅎ", TriGrabMoleView.SpeechOf(new TG.TriGrabMole { SpawnTick = 100, StandTicks = 60, SayIndex = 3 }, 130.0));
+            Assert.IsNull(TriGrabMoleView.SpeechOf(mole, 101.0), "덜 솟았으면 말이 없다");
+
+            mole.BonkTick = 130;
+            Assert.IsTrue(TriGrabMoleView.Bonked(mole, 131.0));
+            Assert.AreEqual("★ ★", TriGrabMoleView.SpeechOf(mole, 131.0));
+            Assert.IsFalse(TriGrabMoleView.Bonked(mole, 129.0));
+            Assert.IsFalse(TriGrabMoleView.Bonked(mole, 130 + TG.TriGrabMole.BonkedStandTicks));
+        }
+
+        // ── 주문·연출 글 ──
+
+        [Test]
+        public void 원판_주문은_종류_목표_꼬리로_목표는_미끼_색()
+        {
+            var ink = new TG.TriGrabRule(TG.TriGrabRuleType.Ink, 2, 0);
+            Assert.AreEqual("글씨 색이", TriGrabOverlayView.RuleKind(ink));
+            Assert.AreEqual("파랑", TriGrabOverlayView.RuleTarget(ink));
+            Assert.AreEqual("인 카드를 잡아라", TriGrabOverlayView.RuleSuffix(ink));
+            Assert.AreEqual(TriGrabPalette.Ink(0), TriGrabOverlayView.RuleTargetColor(ink), "파랑을 빨강 글씨로 — 속임");
+
+            var word = new TG.TriGrabRule(TG.TriGrabRuleType.Word, 3, 1);
+            Assert.AreEqual("쓰인 말이", TriGrabOverlayView.RuleKind(word));
+            Assert.AreEqual("초록", TriGrabOverlayView.RuleTarget(word));
+
+            var match = new TG.TriGrabRule(TG.TriGrabRuleType.Match, 0, 1);
+            Assert.AreEqual("글자와 글씨 색이", TriGrabOverlayView.RuleKind(match));
+            Assert.AreEqual("같은", TriGrabOverlayView.RuleTarget(match));
+            Assert.AreEqual("카드를 잡아라", TriGrabOverlayView.RuleSuffix(match));
+            Assert.AreEqual(Color.white, TriGrabOverlayView.RuleTargetColor(match));
+        }
+
+        [Test]
+        public void 연출_글은_정답_초록_오답_빨강_빗나감은_내_것만_두더지는_대사()
+        {
+            Assert.AreEqual("+1", TriGrabOverlayView.FxText(Fx(TG.TriGrabFxKind.Correct, "b"), "me", out var c1));
+            Assert.AreEqual(TriGrabPalette.Correct, c1);
+            Assert.AreEqual("땡! −1", TriGrabOverlayView.FxText(Fx(TG.TriGrabFxKind.Wrong, "b"), "me", out var c2));
+            Assert.AreEqual(TriGrabPalette.Wrong, c2);
+            Assert.AreEqual("빗나감", TriGrabOverlayView.FxText(Fx(TG.TriGrabFxKind.Range, "me"), "me", out _));
+            Assert.IsNull(TriGrabOverlayView.FxText(Fx(TG.TriGrabFxKind.Range, "b"), "me", out _), "남의 빗나감은 안 띄운다");
+            Assert.AreEqual(TG.TriGrabMoles.BonkLines[4], TriGrabOverlayView.FxText(Fx(TG.TriGrabFxKind.MoleBonk, "b", 4), "me", out _));
+        }
+
+        static TriGrabFxEvent Fx(TG.TriGrabFxKind kind, string owner, int line = 0)
+            => new TriGrabFxEvent(kind, Vector2.zero, owner, line, 100);
+
+        [Test]
+        public void 카드_면은_4색_이름과_진한_바탕()
+        {
+            Assert.AreEqual(new[] { "빨강", "노랑", "파랑", "초록" },
+                new[] { TriGrabPalette.ColorName(0), TriGrabPalette.ColorName(1), TriGrabPalette.ColorName(2), TriGrabPalette.ColorName(3) });
+            ColorUtility.TryParseHtmlString(TG.TriGrabColors.FillHex[3], out var fill);
+            Assert.AreEqual(fill, TriGrabPalette.Fill(3));
+            ColorUtility.TryParseHtmlString(TG.TriGrabColors.InkHex[1], out var ink);
+            Assert.AreEqual(ink, TriGrabPalette.Ink(1));
+        }
+
+        // ── 로봇 ──
+
+        [Test]
+        public void 팔은_손_방향_끄는_중엔_조준_없으면_가운데를_본다()
+        {
+            Assert.AreEqual(new Vector2(1f, 0f), TriGrabRobotView.ArmDirection(new Vector2(0f, -7f), new Vector2(2f, 0f), false, Vector2.zero));
             Assert.AreEqual(new Vector2(0f, 1f), TriGrabRobotView.ArmDirection(new Vector2(0f, -7f), null, false, Vector2.zero));
             Assert.AreEqual(new Vector2(-1f, 0f), TriGrabRobotView.ArmDirection(new Vector2(0f, -7f), null, true, new Vector2(-3f, 0f)));
         }
 
+        [Test]
+        public void 기절_고리는_기절_끝_틱까지_차오른다()
+        {
+            Assert.IsFalse(TriGrabRobotView.StunRing(300, 300, 50, out _));
+            Assert.IsTrue(TriGrabRobotView.StunRing(275, 300, 50, out float half));
+            Assert.AreEqual(0.5f, half, 1e-4f);
+        }
+
+        // ── 카메라 ──
+
         [TestCase(16f / 9f)]
         [TestCase(9f / 19.5f)]
-        public void 고정_카메라는_경기장_전체를_담는다(float aspect)
+        public void Camera_TopDownFitsArena(float aspect)
         {
             var go = new GameObject("trigrab-camera-fit");
             try
@@ -108,9 +381,14 @@ namespace LOP.Tests
                 var camera = go.AddComponent<Camera>();
                 camera.fieldOfView = 40f;
                 camera.aspect = aspect;
-                go.transform.rotation = Quaternion.Euler(56f, 0f, 0f);
+                go.transform.rotation = TriGrabCameraFit.TopDown;
                 go.transform.position = TriGrabCameraFit.FitPosition(camera);
                 Assert.IsTrue(TriGrabCameraFit.Fits(camera));
+                Assert.AreEqual(0f, go.transform.position.x, 1e-3f);
+                Assert.AreEqual(0f, go.transform.position.z, 1e-3f, "경기장 가운데 바로 위");
+                Assert.Less(Vector3.Distance(Vector3.down, go.transform.forward), 1e-4f, "바로 아래를 본다");
+                Assert.Less(Vector3.Distance(Vector3.forward, go.transform.up), 1e-4f, "화면 위 = 월드 +z");
+                Assert.AreEqual(TG.TriGrabConfig.ArenaOuterRadius, TriGrabCameraFit.ArenaRadius);
                 //  딱 맞는 거리다 — 조금만 당기면 넘친다(너무 멀리 두지 않았다).
                 go.transform.position *= 0.95f;
                 Assert.IsFalse(TriGrabCameraFit.Fits(camera));
@@ -119,138 +397,6 @@ namespace LOP.Tests
             {
                 Object.DestroyImmediate(go);
             }
-        }
-
-        [Test]
-        public void 세로_화면이면_더_멀리_간다()
-        {
-            var go = new GameObject("trigrab-camera-fit");
-            try
-            {
-                var camera = go.AddComponent<Camera>();
-                camera.fieldOfView = 40f;
-                go.transform.rotation = Quaternion.Euler(56f, 0f, 0f);
-                camera.aspect = 16f / 9f;
-                float wide = TriGrabCameraFit.FitPosition(camera).magnitude;
-                camera.aspect = 9f / 19.5f;
-                float tall = TriGrabCameraFit.FitPosition(camera).magnitude;
-                Assert.Greater(tall, wide * 1.3f);
-            }
-            finally
-            {
-                Object.DestroyImmediate(go);
-            }
-        }
-
-        [Test]
-        public void 주문_글은_색_이름만_그_색으로_칠한다()
-        {
-            string ink = LOP.UI.TriGrabHudViewModel.RuleRichText(new TriGrabRule(TriGrabRuleType.Ink, 0));
-            Assert.AreEqual($"글자색이 <color={TriGrabPalette.InkHtml(0)}>빨강</color>인 카드", ink);
-            string word = LOP.UI.TriGrabHudViewModel.RuleRichText(new TriGrabRule(TriGrabRuleType.Word, 2));
-            StringAssert.Contains($"<color={TriGrabPalette.InkHtml(2)}>파랑</color>", word);
-            Assert.AreEqual("글자와 색이 같은 카드", LOP.UI.TriGrabHudViewModel.RuleRichText(new TriGrabRule(TriGrabRuleType.Match, 1)));
-        }
-
-        [Test]
-        public void 판_끝_띠는_누적_1위_혼자면_우승_같으면_경기_종료()
-        {
-            Assert.AreEqual("", LOP.UI.TriGrabHudViewModel.Toast(TriGrabPhase.Resolved, "a", "철수"), "라운드 끝은 라운드 결과가 따로 뜬다");
-            Assert.AreEqual("", LOP.UI.TriGrabHudViewModel.Toast(TriGrabPhase.Live, "a", "철수"));
-            Assert.AreEqual("철수 우승!", LOP.UI.TriGrabHudViewModel.Toast(TriGrabPhase.Over, "a", "철수"));
-            Assert.AreEqual("경기 종료", LOP.UI.TriGrabHudViewModel.Toast(TriGrabPhase.Over, "", "?"));
-        }
-
-        // ── 2차: 순위 점수 HUD ──
-
-        [Test]
-        public void 라운드_표시는_N_슬래시_전체()
-        {
-            Assert.AreEqual("라운드 3 / 5", LOP.UI.TriGrabHudViewModel.RoundLabel(3, 5));
-            Assert.AreEqual("", LOP.UI.TriGrabHudViewModel.RoundLabel(0, 5), "시작 전");
-        }
-
-        [Test]
-        public void 점수판_등수_표시와_정답_띠()
-        {
-            Assert.AreEqual("✓1 +10", LOP.UI.TriGrabHudViewModel.PlaceBadge(1, 10));
-            Assert.AreEqual("✓3 +8", LOP.UI.TriGrabHudViewModel.PlaceBadge(3, 8));
-            Assert.AreEqual("", LOP.UI.TriGrabHudViewModel.PlaceBadge(0, 0), "아직 못 냄");
-            Assert.AreEqual("철수 1등 +10", LOP.UI.TriGrabHudViewModel.CorrectToast("철수", 1, 10));
-        }
-
-        [Test]
-        public void 라운드_결과_줄은_정답_낸_사람만_등수_순()
-        {
-            var players = new List<(string, string, int, int)> { ("a", "철수", 2, 9), ("b", "영희", 0, 0), ("c", "봇 1", 1, 10) };
-            Assert.AreEqual("1등 봇 1 +10 · 2등 철수 +9", LOP.UI.TriGrabHudViewModel.RoundResultLine(players));
-            Assert.AreEqual("라운드 2 결과", LOP.UI.TriGrabHudViewModel.RoundResultTitle(2));
-            var none = new List<(string, string, int, int)> { ("a", "철수", 0, 0) };
-            Assert.AreEqual("아무도 못 찾았다", LOP.UI.TriGrabHudViewModel.RoundResultLine(none));
-        }
-
-        [Test]
-        public void 남은_시간_막대는_준비_중_가득_Live에_줄고_끝나면_숨긴다()
-        {
-            Assert.AreEqual(1f, LOP.UI.TriGrabHudViewModel.TimeLeft(TriGrabPhase.Prep, 50, 100, 1100));
-            Assert.AreEqual(1f, LOP.UI.TriGrabHudViewModel.TimeLeft(TriGrabPhase.Live, 100, 100, 1100), 1e-5f);
-            Assert.AreEqual(0.5f, LOP.UI.TriGrabHudViewModel.TimeLeft(TriGrabPhase.Live, 600, 100, 1100), 1e-5f);
-            Assert.AreEqual(0f, LOP.UI.TriGrabHudViewModel.TimeLeft(TriGrabPhase.Live, 1200, 100, 1100));
-            Assert.AreEqual(-1f, LOP.UI.TriGrabHudViewModel.TimeLeft(TriGrabPhase.Resolved, 600, 100, 1100));
-            Assert.AreEqual(-1f, LOP.UI.TriGrabHudViewModel.TimeLeft(TriGrabPhase.Live, 600, 0, 0), "상한을 모르면 숨김");
-        }
-
-        [Test]
-        public void 점수판은_누적_점수_높은_순_같으면_좌석_순()
-        {
-            var state = new TriGrabClientState();
-            var m = TriGrabClientStateTests.Msg(1);
-            m.Players.Clear();
-            m.Players.Add(new TriGrabPlayerWire { EntityId = "a", Score = 9 });
-            m.Players.Add(new TriGrabPlayerWire { EntityId = "b", Score = 19 });
-            m.Players.Add(new TriGrabPlayerWire { EntityId = "c", Score = 9 });
-            m.Players.Add(new TriGrabPlayerWire { EntityId = "d", Score = 0 });
-            state.Apply(m);
-            CollectionAssert.AreEqual(new[] { 1, 0, 2, 3 }, LOP.UI.TriGrabHudViewModel.RankOrder(state));
-        }
-
-        [Test]
-        public void 정답이_날_때마다_잠깐_띠를_띄우고_라운드가_바뀌면_다시_센다()
-        {
-            var a = new LOP.UI.TriGrabHudViewModel.CorrectAnnouncer();
-            var none = new List<(string, string, int, int)> { ("a", "철수", 0, 0), ("b", "영희", 0, 0) };
-            Assert.AreEqual("", a.Update(1, none, 0f));
-            var one = new List<(string, string, int, int)> { ("a", "철수", 0, 0), ("b", "영희", 1, 10) };
-            Assert.AreEqual("영희 1등 +10", a.Update(1, one, 1f));
-            Assert.AreEqual("b", a.LastId);
-            Assert.AreEqual("영희 1등 +10", a.Update(1, one, 1f + LOP.UI.TriGrabHudViewModel.CorrectToastSeconds - 0.01f));
-            Assert.AreEqual("", a.Update(1, one, 1f + LOP.UI.TriGrabHudViewModel.CorrectToastSeconds), "잠깐만");
-            var two = new List<(string, string, int, int)> { ("a", "철수", 2, 9), ("b", "영희", 1, 10) };
-            Assert.AreEqual("철수 2등 +9", a.Update(1, two, 5f), "새 정답만 띄운다");
-            Assert.AreEqual("", a.Update(2, none, 5.1f), "새 라운드");
-            Assert.AreEqual("영희 1등 +10", a.Update(2, one, 6f), "새 라운드 1등도 띄운다");
-        }
-
-        [Test]
-        public void 라운드를_끝낸_정답_띠는_결과_띠_위에_작게_함께_뜬다()
-        {
-            var places = new List<(string, string, int, int)> { ("a", "철수", 1, 10), ("b", "영희", 3, 8), ("c", "봇", 2, 9) };
-            var resolved = LOP.UI.TriGrabHudViewModel.ComposeToast(TriGrabPhase.Resolved, 2, places, "영희 3등 +8", "");
-            Assert.AreEqual("라운드 2 결과", resolved.text);
-            Assert.AreEqual("1등 철수 +10 · 2등 봇 +9 · 3등 영희 +8", resolved.sub);
-            Assert.AreEqual("영희 3등 +8", resolved.lead);
-            var live = LOP.UI.TriGrabHudViewModel.ComposeToast(TriGrabPhase.Live, 2, places, "봇 2등 +9", "");
-            Assert.AreEqual(("봇 2등 +9", "", ""), live);
-            var over = LOP.UI.TriGrabHudViewModel.ComposeToast(TriGrabPhase.Over, 5, places, "영희 3등 +8", "철수 우승!");
-            Assert.AreEqual(("철수 우승!", "", ""), over);
-        }
-
-        [Test]
-        public void 처음_받은_상태에_이미_있던_정답은_띄우지_않는다()
-        {
-            var a = new LOP.UI.TriGrabHudViewModel.CorrectAnnouncer();
-            var one = new List<(string, string, int, int)> { ("a", "철수", 1, 10) };
-            Assert.AreEqual("", a.Update(3, one, 0f));
         }
     }
 }

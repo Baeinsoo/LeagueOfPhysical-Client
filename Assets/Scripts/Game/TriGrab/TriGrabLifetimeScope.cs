@@ -10,8 +10,8 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// 삼색 그랩 덩어리(클라) — 피하기와 같은 캐릭터 월드에 걷기 하나. 카드·회전판·갈고리는 서버가 보낸 상태를
-    /// 같은 식에 렌더 틱을 넣어 그리기만 한다(판정은 서버). 내 갈고리만 쏜 순간 미리 그린다.
+    /// 삼색 그랩 덩어리(클라) — 피하기와 같은 캐릭터 월드에 걷기 하나(이 모드만 7 m/s). 카드 정체·손·두더지는 서버 상태,
+    /// 카드 자리는 서버가 보낸 자리를 원격 몸과 같은 시각으로 보간해 그린다(판정은 서버). 내 손만 쏜 순간 미리 그린다.
     /// </summary>
     public class TriGrabLifetimeScope : GameLifetimeScope
     {
@@ -27,7 +27,9 @@ namespace LOP
             // DodgeLifetimeScope와 같은 월드 배선 — 보정 핸들러가 구체 LOPWorld를 직접 본다.
             builder.Register<LOPWorld>(Lifetime.Singleton).As<GameFramework.World.IWorld>().AsSelf();
             builder.Register<IServerCorrectionHandler, LOPServerCorrectionHandler>(Lifetime.Singleton);
-            builder.Register<ICharacterCreator, CharacterCreator>(Lifetime.Singleton);
+            builder.Register<CharacterCreator>(Lifetime.Singleton);
+            builder.Register<ICharacterCreator>(c => new TriGrabCharacterCreator(
+                c.Resolve<CharacterCreator>(), c.Resolve<GameFramework.World.EntityRegistry>()), Lifetime.Singleton);
 
             // 내 몸만 예측한다 — 남은 보간으로 충분하다(스펙 §6).
             builder.Register<IEntitySyncPolicy>(c =>
@@ -36,14 +38,18 @@ namespace LOP
             builder.Register<IExtrapolationAcceleration, ZeroExtrapolationAcceleration>(Lifetime.Singleton);
 
             builder.Register<TriGrabClientState>(Lifetime.Singleton);
+            builder.Register<TriGrabCardTrack>(Lifetime.Singleton);
             builder.Register<TriGrabMyHook>(Lifetime.Singleton);
             builder.Register<TriGrabAim>(Lifetime.Singleton);
             builder.RegisterEntryPoint<TriGrabStateHandler>();
+            builder.RegisterEntryPoint<TriGrabCardsHandler>();
 
             builder.RegisterEntryPoint<TriGrabCameraFit>().AsSelf();
-            builder.RegisterEntryPoint<TriGrabCarouselView>().AsSelf();
+            builder.RegisterEntryPoint<TriGrabCardsView>().AsSelf();
+            builder.RegisterEntryPoint<TriGrabMoleView>().AsSelf();
             builder.RegisterEntryPoint<TriGrabHookView>().AsSelf();
             builder.RegisterEntryPoint<TriGrabRobotView>().AsSelf();
+            builder.RegisterEntryPoint<TriGrabOverlayView>().AsSelf();
 
             builder.RegisterEntryPoint<TriGrabHudCoordinator>();
             builder.Register<TriGrabPadViewModel>(Lifetime.Transient);

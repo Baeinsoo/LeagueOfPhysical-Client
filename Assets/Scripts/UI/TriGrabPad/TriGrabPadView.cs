@@ -4,7 +4,8 @@ using UnityEngine.UIElements;
 namespace LOP.UI
 {
     /// <summary>
-    /// 삼색 그랩 조작 화면. 왼쪽 반은 누른 자리가 중심이 되는 이동 스틱, 오른쪽 반은 쏘기(톡·끌기·취소).
+    /// 삼색 그랩 조작 화면. 왼쪽 반은 누른 자리가 중심이 되는 이동 스틱, 오른쪽 반은 조준 스틱(끌어 떼기 = 쏘기,
+    /// 톡·되돌아와 떼기 = 취소 — 손잡이가 안쪽에 있는 동안 테두리가 빨개 떼면 안 나간다는 걸 보인다).
     /// 좌표 해석만 하고 판정은 ViewModel이 한다.
     /// </summary>
     public class TriGrabPadView : UIView
@@ -22,13 +23,11 @@ namespace LOP.UI
         private VisualElement _fireArea;
         private VisualElement _fireButton;
         private VisualElement _fireHandle;
-        private Label _fireLabel;
         private int _stickPointer = -1;
         private Vector2 _stickOrigin;
         private int _firePointer = -1;
         private Vector2 _fireOrigin;
         private Vector2 _fireDelta;     // 화면 px, 위 = +y
-        private float _fireMaxPx;
         private IVisualElementScheduledItem _tick;
         private bool _disposed;
         private System.Action _onLeave;
@@ -61,7 +60,6 @@ namespace LOP.UI
             _fireArea = Root.Q<VisualElement>("fire-area");
             _fireButton = Root.Q<VisualElement>("fire-button");
             _fireHandle = Root.Q<VisualElement>("fire-handle");
-            _fireLabel = Root.Q<Label>("fire-label");
             _fireArea.RegisterCallback<PointerDownEvent>(OnFireDown);
             _fireArea.RegisterCallback<PointerMoveEvent>(OnFireMove);
             _fireArea.RegisterCallback<PointerUpEvent>(OnFireUp);
@@ -87,9 +85,9 @@ namespace LOP.UI
             bool ready = _viewModel.Ready;
             _fireButton.style.opacity = ready ? 1f : NotReadyOpacity;
             _fireButton.EnableInClassList("fire-button--ready", ready);
-            bool done = _viewModel.Done;
-            _fireButton.EnableInClassList("fire-button--done", done);
-            if (_fireLabel != null) _fireLabel.text = TriGrabPadViewModel.FireLabelFor(done);
+            bool cancelling = _firePointer != -1
+                              && TriGrabPadViewModel.OutcomeOnRelease(_fireDelta.magnitude) == TriGrabPadViewModel.ReleaseOutcome.Cancel;
+            _fireButton.EnableInClassList("fire-button--cancel", cancelling);
 
             _aim.Active = _firePointer != -1
                           && _viewModel.TryGetAim(_fireDelta, _fireDelta.magnitude, out _aim.Origin, out _aim.Dir);
@@ -100,11 +98,6 @@ namespace LOP.UI
 
         private void PollDesktopFire()
         {
-            var keyboard = UnityEngine.InputSystem.Keyboard.current;
-            if (keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
-            {
-                _viewModel.FireTap();
-            }
             var mouse = UnityEngine.InputSystem.Mouse.current;
             if (!MouseActsAsTouch && mouse != null && mouse.leftButton.wasPressedThisFrame)
             {
@@ -121,7 +114,6 @@ namespace LOP.UI
             _firePointer = evt.pointerId;
             _fireOrigin = evt.position;
             _fireDelta = Vector2.zero;
-            _fireMaxPx = 0f;
             ((VisualElement)evt.currentTarget).CapturePointer(evt.pointerId);
             evt.StopPropagation();
         }
@@ -135,7 +127,6 @@ namespace LOP.UI
             Vector2 delta = (Vector2)evt.position - _fireOrigin;
             //  UI의 y는 아래가 양수라 뒤집어야 "위로 끌면 화면 위쪽"이 된다.
             _fireDelta = new Vector2(delta.x, -delta.y);
-            _fireMaxPx = Mathf.Max(_fireMaxPx, delta.magnitude);
             Vector2 shown = Vector2.ClampMagnitude(delta, FireHandleRadius);
             _fireHandle.style.translate = new Translate(shown.x, shown.y);
         }
@@ -147,14 +138,10 @@ namespace LOP.UI
                 return;
             }
             //  캡처를 풀면 CaptureOut이 값을 지우므로 먼저 챙긴다.
-            var outcome = TriGrabPadViewModel.OutcomeOnRelease(_fireMaxPx, _fireDelta.magnitude);
+            var outcome = TriGrabPadViewModel.OutcomeOnRelease(_fireDelta.magnitude);
             Vector2 drag = _fireDelta;
             ((VisualElement)evt.currentTarget).ReleasePointer(evt.pointerId);
-            if (outcome == TriGrabPadViewModel.ReleaseOutcome.Tap)
-            {
-                _viewModel.FireTap();
-            }
-            else if (outcome == TriGrabPadViewModel.ReleaseOutcome.Fire)
+            if (outcome == TriGrabPadViewModel.ReleaseOutcome.Fire)
             {
                 _viewModel.FireDrag(drag);
             }
@@ -165,8 +152,8 @@ namespace LOP.UI
         {
             _firePointer = -1;
             _fireDelta = Vector2.zero;
-            _fireMaxPx = 0f;
             _aim.Clear();
+            _fireButton?.EnableInClassList("fire-button--cancel", false);
             if (_fireHandle != null)
             {
                 _fireHandle.style.translate = new Translate(0, 0);

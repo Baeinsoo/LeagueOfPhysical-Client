@@ -64,7 +64,7 @@ namespace LOP.Tests
         }
 
         [Test]
-        public void 스코프_등록만으로_월드_보정_그림_조작판이_만들어진다()
+        public void Scope_RegistersNewTypes()
         {
             var go = new GameObject("trigrab-client-scope-test");
             spawned.Add(go);
@@ -84,7 +84,8 @@ namespace LOP.Tests
             builder.RegisterInstance(new CosmeticCatalog(md));
             builder.RegisterInstance(new AppearanceColorPalette(md));
             builder.RegisterInstance<MessagePipe.ISubscriber<LOP.Event.Entity.EntityCreated>>(new FakeSubscriber<LOP.Event.Entity.EntityCreated>());
-            builder.RegisterInstance<MessagePipe.ISubscriber<TriGrabStateToC>>(new FakeSubscriber<TriGrabStateToC>());
+            builder.RegisterInstance<MessagePipe.ISubscriber<TriGrabRingStateToC>>(new FakeSubscriber<TriGrabRingStateToC>());
+            builder.RegisterInstance<MessagePipe.ISubscriber<TriGrabCardsToC>>(new FakeSubscriber<TriGrabCardsToC>());
             builder.RegisterInstance<MessagePipe.ISubscriber<LeaveMatchToC>>(new FakeSubscriber<LeaveMatchToC>());
             builder.RegisterInstance(new AppStateMachine(null, null));
             builder.Register<MatchStartState>(Lifetime.Singleton);
@@ -96,19 +97,23 @@ namespace LOP.Tests
             var world = container.Resolve(typeof(GameFramework.World.IWorld));
             Assert.IsInstanceOf<LOPWorld>(world);
             Assert.AreSame(world, container.Resolve(typeof(LOPWorld)), "보정 처리기가 보는 월드와 같은 하나");
-            Assert.IsInstanceOf<CharacterCreator>(container.Resolve(typeof(ICharacterCreator)));
+            Assert.IsInstanceOf<TriGrabCharacterCreator>(container.Resolve(typeof(ICharacterCreator)), "이 모드만 7 m/s — 서버와 같은 속도로 예측");
             Assert.IsInstanceOf<LOPServerCorrectionHandler>(container.Resolve(typeof(IServerCorrectionHandler)));
             Assert.IsInstanceOf<OwnerPredictedSyncPolicy>(container.Resolve(typeof(IEntitySyncPolicy)));
             Assert.IsInstanceOf<ZeroExtrapolationAcceleration>(container.Resolve(typeof(IExtrapolationAcceleration)));
             Assert.AreSame(camera, container.Resolve(typeof(CameraController)));
 
-            //  그림·카메라가 스코프에 걸려 있다 — 빠지면 카드·갈고리·로봇이 안 그려진다(에러 없이).
+            //  그림·카메라가 스코프에 걸려 있다 — 빠지면 카드·손·두더지·로봇·주문이 안 그려진다(에러 없이).
             Assert.IsNotNull(container.Resolve(typeof(TriGrabCameraFit)));
-            Assert.IsNotNull(container.Resolve(typeof(TriGrabCarouselView)));
+            Assert.IsNotNull(container.Resolve(typeof(TriGrabCardsView)));
+            Assert.IsNotNull(container.Resolve(typeof(TriGrabMoleView)));
             Assert.IsNotNull(container.Resolve(typeof(TriGrabHookView)));
             Assert.IsNotNull(container.Resolve(typeof(TriGrabRobotView)));
+            Assert.IsNotNull(container.Resolve(typeof(TriGrabOverlayView)));
+            Assert.AreSame(container.Resolve(typeof(TriGrabCardTrack)), container.Resolve(typeof(TriGrabCardTrack)),
+                "카드 자리 받는 쪽과 그리는 쪽이 같은 기록");
 
-            //  조작판과 갈고리 그림이 같은 "내 갈고리"·같은 상태를 본다 — 둘이 다르면 미리 그린 갈고리가 안 보인다.
+            //  조작판과 손 그림이 같은 "내 손"·같은 상태를 본다 — 둘이 다르면 미리 그린 손이 안 보인다.
             Assert.AreSame(container.Resolve(typeof(TriGrabMyHook)), container.Resolve(typeof(TriGrabMyHook)));
             Assert.AreSame(container.Resolve(typeof(TriGrabClientState)), container.Resolve(typeof(TriGrabClientState)));
             Assert.IsNotNull(container.Resolve(typeof(LOP.UI.TriGrabPadView)));
@@ -150,6 +155,8 @@ namespace LOP.Tests
             builder.Register<PlayerInputManager>(Lifetime.Singleton).AsSelf();
             builder.Register(_ => new GameFramework.Netcode.SequenceBuffer<InputCommand>(128), Lifetime.Singleton);
             builder.Register<ActorRegistry>(Lifetime.Singleton);
+            builder.Register<RemoteInterpolationClock>(Lifetime.Singleton);
+            builder.Register<EntityRenderClock>(Lifetime.Singleton);
         }
 
         private sealed class FakeRunnerForWiring : GameFramework.Runner.IRunner

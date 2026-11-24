@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace LOP.UI
@@ -8,33 +7,26 @@ namespace LOP.UI
     public class TriGrabHudView : UIView
     {
         private readonly TriGrabHudViewModel viewModel;
-        private readonly ActorRegistry actors;
-        private readonly CameraController cameraController;
 
         private VisualElement ruleBox;
         private Label ruleText;
         private Label roundText;
         private Label prepTitle;
-        private Label prepRule;
         private VisualElement prepBox;
         private VisualElement toastBox;
         private Label toast;
         private Label toastSub;
-        private Label toastLead;
         private VisualElement timeBar;
         private VisualElement timeFill;
-        private Label wrongText;
         private VisualElement scoreboard;
         private readonly List<(VisualElement row, VisualElement dot, Label name, Label place, Label score)> rowElements =
             new List<(VisualElement, VisualElement, Label, Label, Label)>();
         private IVisualElementScheduledItem tick;
         private bool disposed;
 
-        public TriGrabHudView(TriGrabHudViewModel viewModel, ActorRegistry actors, CameraController cameraController)
+        public TriGrabHudView(TriGrabHudViewModel viewModel)
         {
             this.viewModel = viewModel;
-            this.actors = actors;
-            this.cameraController = cameraController;
         }
 
         public override UILayer Layer => UILayer.Window;
@@ -47,14 +39,11 @@ namespace LOP.UI
             roundText = Root.Q<Label>("round-text");
             prepBox = Root.Q<VisualElement>("prep-box");
             prepTitle = Root.Q<Label>("prep-title");
-            prepRule = Root.Q<Label>("prep-rule");
             toastBox = Root.Q<VisualElement>("toast-box");
             toast = Root.Q<Label>("toast-text");
             toastSub = Root.Q<Label>("toast-sub");
-            toastLead = Root.Q<Label>("toast-lead");
             timeBar = Root.Q<VisualElement>("time-bar");
             timeFill = Root.Q<VisualElement>("time-fill");
-            wrongText = Root.Q<Label>("wrong-text");
             scoreboard = Root.Q<VisualElement>("scoreboard");
             tick = Root.schedule.Execute(_ => Refresh()).Every(0);
         }
@@ -79,11 +68,7 @@ namespace LOP.UI
 
             bool prep = viewModel.PrepTitle.Length > 0;
             prepBox.style.display = prep ? DisplayStyle.Flex : DisplayStyle.None;
-            if (prep)
-            {
-                prepTitle.text = viewModel.PrepTitle;
-                prepRule.text = viewModel.RuleText;
-            }
+            if (prep) prepTitle.text = viewModel.PrepTitle;
 
             bool hasToast = viewModel.ToastText.Length > 0;
             toastBox.style.display = hasToast ? DisplayStyle.Flex : DisplayStyle.None;
@@ -94,13 +79,9 @@ namespace LOP.UI
                 bool sub = viewModel.ToastSub.Length > 0;
                 toastSub.style.display = sub ? DisplayStyle.Flex : DisplayStyle.None;
                 if (sub) toastSub.text = viewModel.ToastSub;
-                bool lead = viewModel.ToastLead.Length > 0;
-                toastLead.style.display = lead ? DisplayStyle.Flex : DisplayStyle.None;
-                if (lead) toastLead.text = viewModel.ToastLead;
             }
 
             RefreshScoreboard();
-            PlaceWrong();
         }
 
         private void RefreshScoreboard()
@@ -139,24 +120,6 @@ namespace LOP.UI
                 if (e.score.text != r.Score) e.score.text = r.Score;
                 e.row.EnableInClassList("score-row--mine", r.Mine);
             }
-        }
-
-        // 내 오답 글은 내 몸 머리 위 화면 자리에 띄운다.
-        private void PlaceWrong()
-        {
-            float alpha = viewModel.WrongAlpha;
-            var camera = cameraController != null ? cameraController.MainCamera : null;
-            if (alpha <= 0f || camera == null || Root.panel == null || !viewModel.TryGetMyHead(actors, out var head))
-            {
-                wrongText.style.display = DisplayStyle.None;
-                return;
-            }
-            var p = RuntimePanelUtils.CameraTransformWorldToPanel(Root.panel, head, camera);
-            wrongText.style.display = DisplayStyle.Flex;
-            wrongText.style.opacity = alpha;
-            //  떠오르며 사라진다.
-            wrongText.style.left = p.x - 80f;
-            wrongText.style.top = p.y - 30f - (1f - alpha) * 30f;
         }
 
         protected override void Dispose(bool disposing)

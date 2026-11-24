@@ -1,13 +1,8 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="TriGrabCard.uss" />
-    <!-- 회전판 카드 한 장(월드 공간 패널). 흰 판 위에 글자를 글자색으로, 도는 카드는 아래에 점 셋. -->
+    <!-- 동전 카드 한 장(월드 공간 패널). 진한 바탕 동그라미 안에 색 이름 글자를 글씨 색으로. -->
     <ui:VisualElement name="card" class="card">
         <ui:Label name="word" class="word" text="빨강" />
-        <ui:VisualElement name="dots" class="dots">
-            <ui:VisualElement name="dot0" class="dot" />
-            <ui:VisualElement name="dot1" class="dot" />
-            <ui:VisualElement name="dot2" class="dot" />
-        </ui:VisualElement>
         <ui:VisualElement name="flash" class="flash" />
     </ui:VisualElement>
 </ui:UXML>

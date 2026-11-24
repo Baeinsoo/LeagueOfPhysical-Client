@@ -4,19 +4,22 @@ using VContainer.Unity;
 namespace LOP
 {
     /// <summary>
-    /// 경기장 전체를 위에서 비스듬히 보는 고정 카메라(스펙 §9). 씬에 놓인 각도는 그대로 두고, 화면비에 맞춰
-    /// 경기장 원(바깥 벽 포함)이 위 주문 띠 아래로 다 들어오는 거리까지만 뒤로 뺀다 — 세로 화면이면 더 멀어진다.
+    /// 경기장 전체를 바로 위에서 내려다보는 고정 카메라(스펙 §3). 화면 위 = 월드 +z라 조준 스틱의 화면 방향이 곧 경기장 방향이다.
+    /// 화면비에 맞춰 경기장 원(바깥 벽 윗면까지)이 위 주문 띠 아래로 다 들어오는 높이까지만 올린다 — 세로 화면이면 더 높아진다.
     /// </summary>
     public class TriGrabCameraFit : ITickable
     {
-        /// <summary>담아야 할 경기장 반지름(m) — 바깥 벽 바깥까지.</summary>
-        public const float ArenaRadius = 10.6f;
+        /// <summary>담아야 할 경기장 반지름(m) — 바깥 벽 안쪽 면.</summary>
+        public const float ArenaRadius = LOP.TriGrab.TriGrabConfig.ArenaOuterRadius;
         public const float WallHeight = 1.2f;
         /// <summary>화면 위쪽 이만큼(뷰포트 몫)은 주문 띠 자리라 비운다.</summary>
         public const float TopReserve = 0.12f;
         public const float SideMargin = 0.02f;
         private const float MinDistance = 8f;
-        private const float MaxDistance = 120f;
+        private const float MaxDistance = 150f;
+
+        /// <summary>바로 위에서, 화면 위가 +z.</summary>
+        public static readonly Quaternion TopDown = Quaternion.Euler(90f, 0f, 0f);
 
         private readonly CameraController cameraController;
         private float fittedAspect = -1f;
@@ -31,6 +34,7 @@ namespace LOP
             var camera = cameraController != null ? cameraController.MainCamera : null;
             if (camera == null || Mathf.Approximately(camera.aspect, fittedAspect)) return;
             fittedAspect = camera.aspect;
+            camera.transform.rotation = TopDown;
             camera.transform.position = FitPosition(camera);
         }
 

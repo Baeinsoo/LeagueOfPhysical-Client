@@ -1,19 +1,16 @@
 using System.Collections.Generic;
 using UnityEngine;
+using TG = LOP.TriGrab;
 
 namespace LOP.UI
 {
     /// <summary>
-    /// 삼색 그랩 HUD — 위 가운데 "라운드 N / 5"·남은 시간 막대·주문 띠, 오른쪽 점수판(누적 점수 + 이번 라운드 등수),
-    /// 준비 중 큰 "라운드 N", 정답마다 "○○ 1등 +10" 띠, 라운드 끝 "라운드 결과", 내 오답 "오답 −1".
-    /// 값은 매 프레임 서버 상태에서 읽는다(점수·잡음은 서버만 정한다).
+    /// 삼색 그랩 HUD — 위 가운데 "라운드 N / 10"·남은 정답 수·남은 시간 막대·주문 띠(목표 글은 미끼 색), 오른쪽 점수판(점수순),
+    /// 라운드 끝 띠, 판 끝 우승 띠와 순위 줄. 값은 매 프레임 서버 상태에서 읽는다(점수는 서버만 정한다).
+    /// 원판 위 주문·연출 글(+1, 땡!)은 월드 쪽 <see cref="TriGrabOverlayView"/>가 그린다.
     /// </summary>
     public class TriGrabHudViewModel : System.IDisposable
     {
-        /// <summary>내 오답 글이 머리 위에 떠 있는 시간(초).</summary>
-        public const float WrongSeconds = 0.9f;
-        /// <summary>"○○ 1등 +10" 띠가 떠 있는 시간(초).</summary>
-        public const float CorrectToastSeconds = 1.2f;
         /// <summary>남은 시간이 이 비율 아래면 막대가 빨개진다.</summary>
         public const float TimeLowFraction = 0.25f;
 
@@ -21,9 +18,8 @@ namespace LOP.UI
         {
             public readonly string Name;
             public readonly Color Seat;
-            /// <summary>누적 점수.</summary>
             public readonly string Score;
-            /// <summary>이번 라운드 등수 표시("✓1 +10"). 아직이면 빈 글.</summary>
+            /// <summary>지금 순위("1위"). 같은 점수는 같은 순위.</summary>
             public readonly string Place;
             public readonly bool Mine;
             public ScoreRow(string name, Color seat, string score, string place, bool mine)
@@ -32,110 +28,49 @@ namespace LOP.UI
             }
         }
 
-        /// <summary>
-        /// 정답이 날 때마다 "○○ 1등 +10"을 잠깐 띄운다. 라운드가 바뀌면 처음부터 센다.
-        /// 처음 받은 상태에 이미 있던 정답(다시 접속 등)은 띄우지 않는다.
-        /// </summary>
-        public sealed class CorrectAnnouncer
-        {
-            private readonly HashSet<string> announced = new HashSet<string>();
-            private int round = -1;
-            private string text = "";
-            private float shownAt = -100f;
-
-            /// <summary>지금 띄운(또는 마지막으로 띄운) 정답을 낸 사람.</summary>
-            public string LastId { get; private set; } = "";
-
-            public string Update(int currentRound, IReadOnlyList<(string id, string name, int place, int points)> players, float now)
-            {
-                bool first = round < 0;
-                if (currentRound != round)
-                {
-                    round = currentRound;
-                    announced.Clear();
-                    text = "";
-                }
-                int bestPlace = 0;
-                foreach (var p in players)
-                {
-                    if (p.place <= 0 || !announced.Add(p.id) || first) continue;
-                    //  한 번에 여럿이 들어오면 가장 늦은 등수를 보인다(가장 최근 정답).
-                    if (p.place > bestPlace)
-                    {
-                        bestPlace = p.place;
-                        text = CorrectToast(p.name, p.place, p.points);
-                        LastId = p.id;
-                        shownAt = now;
-                    }
-                }
-                return now - shownAt < CorrectToastSeconds ? text : "";
-            }
-        }
-
         private readonly TriGrabClientState state;
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
-        private readonly GameFramework.Runner.IRunner runner;
+        private readonly EntityRenderClock renderClock;
         private readonly List<ScoreRow> rows = new List<ScoreRow>();
-        private readonly List<(string id, string name, int place, int points)> places = new List<(string, string, int, int)>();
-        private readonly CorrectAnnouncer announcer = new CorrectAnnouncer();
-
-        private int seenMistakes = -1;
-        private float wrongAt = -100f;
 
         public TriGrabHudViewModel(TriGrabClientState state, IPlayerContext playerContext,
-                                   GameFramework.World.EntityRegistry entityRegistry, GameFramework.Runner.IRunner runner)
+                                   GameFramework.World.EntityRegistry entityRegistry, EntityRenderClock renderClock)
         {
             this.state = state;
             this.playerContext = playerContext;
             this.entityRegistry = entityRegistry;
-            this.runner = runner;
+            this.renderClock = renderClock;
         }
 
         public bool Received => state.Received;
         public string RuleText { get; private set; } = "";
         public string RoundText { get; private set; } = "";
-        /// <summary>준비 중 가운데 큰 글("라운드 N / 5"). 아니면 빈 글.</summary>
+        /// <summary>준비 중 가운데 큰 글("라운드 N / 10"). 아니면 빈 글.</summary>
         public string PrepTitle { get; private set; } = "";
-        /// <summary>정답·라운드 결과·판 끝 띠. 아니면 빈 글.</summary>
         public string ToastText { get; private set; } = "";
-        /// <summary>라운드를 끝낸 정답처럼 결과 띠와 겹친 "○○ N등 +점". 결과 제목 위에 작게. 아니면 빈 글.</summary>
-        public string ToastLead { get; private set; } = "";
-        /// <summary>라운드 결과 아래 줄("1등 ○○ +10 · 2등 …"). 아니면 빈 글.</summary>
+        /// <summary>판 끝 순위 줄. 아니면 빈 글.</summary>
         public string ToastSub { get; private set; } = "";
         public Color ToastColor { get; private set; } = Color.white;
         public IReadOnlyList<ScoreRow> Rows => rows;
-        /// <summary>내 오답 글을 지금 보이나와 그 투명도(0~1).</summary>
-        public float WrongAlpha { get; private set; }
         /// <summary>이번 라운드 남은 시간 비율(0~1). 음수면 막대를 숨긴다.</summary>
         public float TimeFraction { get; private set; } = -1f;
 
         public void Tick()
         {
             if (!state.Received) return;
-            var t = runner?.tickUpdater;
-            double renderTick = t == null || t.interval <= 0d ? 0d : (t.elapsedTime - t.interval) / t.interval;
-            long tick = (long)System.Math.Floor(renderTick);
-            var phase = state.PhaseAt(tick);
+            double renderTick = TriGrabRenderTicks.Remote(renderClock);
+            if (double.IsNaN(renderTick)) renderTick = 0d;
+            var phase = state.PhaseAt((long)System.Math.Floor(renderTick));
 
             RuleText = RuleTextFor(state);
-            RoundText = RoundLabel(state.Round, state.TotalRounds);
-            PrepTitle = phase == TriGrabPhase.Prep ? RoundText : "";
-            TimeFraction = TimeLeft(phase, renderTick, state.Clock.LiveStartTick, state.RoundLimitTick);
+            RoundText = RoundLine(state.Round, state.TotalRounds, phase, state.RemainingOk);
+            PrepTitle = phase == TG.TriGrabPhase.Prep ? RoundLabel(state.Round, state.TotalRounds) : "";
+            TimeFraction = TimeLeft(phase, renderTick, state.PhaseEndTick);
 
-            places.Clear();
-            foreach (var id in state.PlayerIds)
-            {
-                state.TryGetPlayer(id, out var p);
-                places.Add((id, NameOf(id), p?.RoundPlace ?? 0, p?.RoundPoints ?? 0));
-            }
-            string correct = announcer.Update(state.Round, places, Time.unscaledTime);
-
-            var (text, sub, lead) = ComposeToast(phase, state.Round, places, correct, Toast(phase, state.MatchWinnerId, NameOf(state.MatchWinnerId)));
-            ToastText = text; ToastSub = sub; ToastLead = lead;
-            ToastColor = phase == TriGrabPhase.Over ? TriGrabPalette.Seat(state.SeatOf(state.MatchWinnerId))
-                : phase == TriGrabPhase.Resolved ? Color.white
-                : TriGrabPalette.Seat(state.SeatOf(announcer.LastId));
+            ToastText = Toast(phase, state.Round, TopNames());
+            ToastSub = phase == TG.TriGrabPhase.Over ? FinalLine(Standings()) : "";
+            ToastColor = phase == TG.TriGrabPhase.Over ? TriGrabPalette.Correct : Color.white;
 
             rows.Clear();
             string me = playerContext.entityId;
@@ -143,18 +78,35 @@ namespace LOP.UI
             {
                 string id = state.PlayerIds[i];
                 state.TryGetPlayer(id, out var score);
+                int place = state.PlaceOf(id);
                 rows.Add(new ScoreRow(NameOf(id), TriGrabPalette.Seat(i), $"{score?.Score ?? 0}",
-                    PlaceBadge(score?.RoundPlace ?? 0, score?.RoundPoints ?? 0), id == me));
+                                      place > 0 ? $"{place}위" : "", id == me));
             }
-
-            //  실수 수가 오른 순간이 내 오답이다(서버가 −1을 정한 뒤라 조금 늦지만 되돌릴 일은 없다).
-            int mistakes = state.TryGetPlayer(me, out var mine) ? mine.Mistakes : 0;
-            if (seenMistakes >= 0 && mistakes > seenMistakes) wrongAt = Time.unscaledTime;
-            seenMistakes = mistakes;
-            WrongAlpha = FlashAlpha(Time.unscaledTime - wrongAt, WrongSeconds);
         }
 
-        /// <summary>점수판 순서 — 누적 점수 높은 순, 같으면 좌석(등록) 순. 좌석 번호 목록을 돌려준다.</summary>
+        private List<(string name, int place, int score)> Standings()
+        {
+            var list = new List<(string, int, int)>();
+            foreach (int i in RankOrder(state))
+            {
+                string id = state.PlayerIds[i];
+                state.TryGetPlayer(id, out var score);
+                list.Add((NameOf(id), state.PlaceOf(id), score?.Score ?? 0));
+            }
+            return list;
+        }
+
+        private List<string> TopNames()
+        {
+            var names = new List<string>();
+            foreach (var id in state.PlayerIds)
+            {
+                if (state.PlaceOf(id) == 1) names.Add(NameOf(id));
+            }
+            return names;
+        }
+
+        /// <summary>점수판 순서 — 점수 높은 순, 같으면 좌석(등록) 순. 좌석 번호 목록을 돌려준다.</summary>
         public static List<int> RankOrder(TriGrabClientState state)
         {
             var order = new List<int>();
@@ -165,46 +117,22 @@ namespace LOP.UI
             return order;
         }
 
-        /// <summary>
-        /// 가운데 띠 셋(큰 글, 아래 줄, 위 작은 글). 판 끝 = 우승 띠, 라운드 끝 = "라운드 N 결과" + 결과 줄
-        /// (라운드를 끝낸 정답의 "○○ N등 +점"은 그 위에 작게 — 결과 띠에 덮이지 않게), 그 밖 = 방금 난 정답 띠.
-        /// </summary>
-        public static (string text, string sub, string lead) ComposeToast(TriGrabPhase phase, int round,
-            IReadOnlyList<(string id, string name, int place, int points)> places, string correctToast, string overToast)
-        {
-            if (phase == TriGrabPhase.Over) return (overToast, "", "");
-            if (phase == TriGrabPhase.Resolved) return (RoundResultTitle(round), RoundResultLine(places), correctToast ?? "");
-            return (correctToast ?? "", "", "");
-        }
-
         public static string RoundLabel(int round, int totalRounds) => round > 0 ? $"라운드 {round} / {totalRounds}" : "";
 
-        /// <summary>이번 라운드 등수 표시. 아직 정답 전이면 빈 글.</summary>
-        public static string PlaceBadge(int place, int points) => place > 0 ? $"✓{place} +{points}" : "";
-
-        public static string CorrectToast(string name, int place, int points) => $"{name} {place}등 +{points}";
-
-        public static string RoundResultTitle(int round) => $"라운드 {round} 결과";
-
-        /// <summary>라운드 결과 아래 줄. 정답 낸 사람만 등수 순으로.</summary>
-        public static string RoundResultLine(IReadOnlyList<(string id, string name, int place, int points)> players)
+        /// <summary>위 띠 첫 줄. 잡기 중엔 남은 정답 수를 붙인다.</summary>
+        public static string RoundLine(int round, int totalRounds, TG.TriGrabPhase phase, int remainingOk)
         {
-            var done = new List<(string id, string name, int place, int points)>();
-            foreach (var p in players) if (p.place > 0) done.Add(p);
-            if (done.Count == 0) return "아무도 못 찾았다";
-            done.Sort((a, b) => a.place.CompareTo(b.place));
-            var parts = new List<string>();
-            foreach (var p in done) parts.Add($"{p.place}등 {p.name} +{p.points}");
-            return string.Join(" · ", parts);
+            string label = RoundLabel(round, totalRounds);
+            if (label.Length == 0) return "";
+            return phase == TG.TriGrabPhase.Live ? $"{label} · 정답 {remainingOk}장 남음" : label;
         }
 
-        /// <summary>남은 시간 비율. 준비 중은 가득, Live는 상한까지 줄고, 그 밖엔 숨긴다(-1).</summary>
-        public static float TimeLeft(TriGrabPhase phase, double renderTick, long liveStartTick, long roundLimitTick)
+        /// <summary>남은 시간 비율. 준비 중은 가득, 잡기 중엔 시간 상한(8초)까지 줄고, 그 밖엔 숨긴다(-1).</summary>
+        public static float TimeLeft(TG.TriGrabPhase phase, double renderTick, long phaseEndTick)
         {
-            if (roundLimitTick <= liveStartTick) return -1f;
-            if (phase == TriGrabPhase.Prep) return 1f;
-            if (phase != TriGrabPhase.Live) return -1f;
-            double left = (roundLimitTick - renderTick) / (roundLimitTick - liveStartTick);
+            if (phase == TG.TriGrabPhase.Prep) return 1f;
+            if (phase != TG.TriGrabPhase.Live) return -1f;
+            double left = (phaseEndTick - renderTick) / TG.TriGrabConfig.LiveLimitTicks;
             return Mathf.Clamp01((float)left);
         }
 
@@ -213,37 +141,36 @@ namespace LOP.UI
         /// <summary>1라운드 전엔 서버가 아직 주문을 안 뽑았다(기본값이 가짜로 보이지 않게 빈 글).</summary>
         public static string RuleTextFor(TriGrabClientState state) => state.Round >= 1 ? RuleRichText(state.Rule) : "";
 
-        /// <summary>주문 글. 주문에 든 색 이름은 그 색으로 칠한다.</summary>
-        public static string RuleRichText(in TriGrabRule rule)
+        /// <summary>주문 글. 목표 글(색 이름)은 미끼 색으로 칠한다 — 원판 가운데 주문과 같은 속임.</summary>
+        public static string RuleRichText(TG.TriGrabRule rule)
         {
-            if (rule.Type == TriGrabRuleType.Match) return rule.KoreanText;
-            string name = TriGrabRule.ColorName(rule.Color);
-            string tinted = $"<color={TriGrabPalette.InkHtml(rule.Color)}>{name}</color>";
-            return rule.KoreanText.Replace(name, tinted);
+            string target = TriGrabOverlayView.RuleTarget(rule);
+            string tinted = rule.Type == TG.TriGrabRuleType.Match
+                ? target
+                : $"<color={TriGrabPalette.InkHtml(rule.Lure)}>{target}</color>";
+            string suffix = TriGrabOverlayView.RuleSuffix(rule);
+            //  "인 카드…"는 목표 글에 붙이고, "카드를 잡아라"는 띄어 쓴다.
+            return rule.Type == TG.TriGrabRuleType.Match
+                ? $"{TriGrabOverlayView.RuleKind(rule)} {tinted} {suffix}"
+                : $"{TriGrabOverlayView.RuleKind(rule)} {tinted}{suffix}";
         }
 
-        /// <summary>판 끝 띠. 누적 1위가 혼자면 "○○ 우승!", 같은 점수면 "경기 종료". 판 끝이 아니면 빈 글.</summary>
-        public static string Toast(TriGrabPhase phase, string winnerId, string winnerName)
+        /// <summary>가운데 띠. 판 끝 = 우승(공동이면 이름 여럿), 라운드 끝 = "라운드 N 끝", 그 밖엔 빈 글.</summary>
+        public static string Toast(TG.TriGrabPhase phase, int round, IReadOnlyList<string> winners)
         {
-            if (phase != TriGrabPhase.Over) return "";
-            return string.IsNullOrEmpty(winnerId) ? "경기 종료" : $"{winnerName} 우승!";
+            if (phase == TG.TriGrabPhase.Over)
+            {
+                return winners == null || winners.Count == 0 ? "경기 종료" : $"{string.Join(" · ", winners)} 우승!";
+            }
+            return phase == TG.TriGrabPhase.Resolved ? $"라운드 {round} 끝" : "";
         }
 
-        /// <summary>떠오른 뒤 지난 초에 따른 투명도. 처음 60%는 그대로, 남은 동안 사라진다.</summary>
-        public static float FlashAlpha(float elapsed, float duration)
+        /// <summary>판 끝 순위 줄("1위 가 5 · 2위 나 3").</summary>
+        public static string FinalLine(IReadOnlyList<(string name, int place, int score)> standings)
         {
-            if (elapsed < 0f || elapsed >= duration) return 0f;
-            float fadeFrom = duration * 0.6f;
-            return elapsed <= fadeFrom ? 1f : 1f - (elapsed - fadeFrom) / (duration - fadeFrom);
-        }
-
-        /// <summary>내 몸의 머리 위 자리(월드). 몸이 없으면 false.</summary>
-        public bool TryGetMyHead(ActorRegistry actors, out Vector3 position)
-        {
-            position = default;
-            if (actors == null || !actors.TryGet(playerContext.entityId, out var actor) || actor?.visualGameObject == null) return false;
-            position = actor.visualGameObject.transform.position + Vector3.up * 2.6f;
-            return true;
+            var parts = new List<string>();
+            foreach (var s in standings) parts.Add($"{s.place}위 {s.name} {s.score}");
+            return string.Join(" · ", parts);
         }
 
         public void Dispose() { }

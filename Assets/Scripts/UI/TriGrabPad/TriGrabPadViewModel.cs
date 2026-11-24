@@ -1,19 +1,19 @@
 using UnityEngine;
+using TG = LOP.TriGrab;
 
 namespace LOP.UI
 {
     /// <summary>
-    /// 삼색 그랩 조작 — 왼쪽 이동 스틱, 오른쪽 쏘기. 톡 = 회전판 가운데로, 끌었다 놓기 = 끈 방향(카메라 기준),
-    /// 크게 끌었다 제자리로 돌아와 놓기 = 취소. 내 갈고리가 나가 있는 동안은 이동을 0으로 보낸다(스펙 §5).
+    /// 삼색 그랩 조작 — 왼쪽 이동 스틱, 오른쪽 조준 스틱. 바깥으로 끈 채 떼면 그 방향으로 손을 쏘고,
+    /// 톡(끌지 않음)이나 안쪽으로 되돌아와 떼면 취소(스펙 §3). 손이 나가 있거나 기절 중엔 이동을 0으로 보낸다
+    /// (서버도 같은 틱에 이동을 막는다 — 다르면 내 몸 예측이 떨린다).
     /// </summary>
     public class TriGrabPadViewModel : System.IDisposable
     {
-        /// <summary>놓을 때 이만큼(px) 넘게 끌려 있으면 그 방향으로 쏜다.</summary>
+        /// <summary>뗄 때 이만큼(px) 이상 끌려 있으면 그 방향으로 쏜다. 그보다 안쪽이면 취소.</summary>
         public const float FireDragPx = 14f;
-        /// <summary>한 번이라도 이만큼(px) 넘게 끌었다가 제자리에서 놓으면 취소. 그보다 덜 끌었으면 톡.</summary>
-        public const float CancelDragPx = 30f;
 
-        public enum ReleaseOutcome { Tap, Fire, Cancel }
+        public enum ReleaseOutcome { Fire, Cancel }
 
         private readonly PlayerInputManager input;
         private readonly CameraController cameraController;
@@ -21,13 +21,12 @@ namespace LOP.UI
         private readonly TriGrabMyHook myHook;
         private readonly IPlayerContext playerContext;
         private readonly GameFramework.World.EntityRegistry entityRegistry;
-        private readonly GameFramework.Runner.IRunner runner;
 
         private Vector2 stick;
 
         public TriGrabPadViewModel(PlayerInputManager input, CameraController cameraController, TriGrabClientState state,
                                    TriGrabMyHook myHook, IPlayerContext playerContext,
-                                   GameFramework.World.EntityRegistry entityRegistry, GameFramework.Runner.IRunner runner)
+                                   GameFramework.World.EntityRegistry entityRegistry)
         {
             this.input = input;
             this.cameraController = cameraController;
@@ -35,68 +34,78 @@ namespace LOP.UI
             this.myHook = myHook;
             this.playerContext = playerContext;
             this.entityRegistry = entityRegistry;
-            this.runner = runner;
         }
 
-        /// <summary>손을 뗀 순간의 판정. 놓을 때 끌린 거리가 먼저다 — 크게 끌었어도 놓을 때 끌려 있으면 쏜다.</summary>
-        public static ReleaseOutcome OutcomeOnRelease(float maxDragPx, float dragPx)
+        /// <summary>손을 뗀 순간의 판정 — 뗄 때 끌린 거리만 본다. 톡도, 끌었다 되돌아온 것도 취소다.</summary>
+        public static ReleaseOutcome OutcomeOnRelease(float dragPx)
+            => dragPx >= FireDragPx ? ReleaseOutcome.Fire : ReleaseOutcome.Cancel;
+
+        /// <summary>쏠 수 있나 — 서버 TryFire와 같은 조건(Live, 기절 끝, 손 쉼 끝, 내 손 없음).</summary>
+        public static bool CanFire(TG.TriGrabPhase phase, bool hookOut, long tick, long stunUntilTick, long cooldownUntilTick)
+            => phase == TG.TriGrabPhase.Live && !hookOut && tick >= stunUntilTick && tick >= cooldownUntilTick;
+
+        /// <summary>보낼 이동. 손이 나가 있거나 기절 중이면 선다.</summary>
+        public static Vector2 MoveFor(Vector2 worldMove, bool blocked) => blocked ? Vector2.zero : worldMove;
+
+        /// <summary>
+        /// 화면 위쪽이 가리키는 월드 yaw(도). 바로 위에서 보는 카메라는 앞(forward)이 땅을 향해 방향이 없으니 위(up)로 잰다.
+        /// </summary>
+        public static float ScreenYaw(Camera camera)
         {
-            if (dragPx > FireDragPx) return ReleaseOutcome.Fire;
-            return maxDragPx < CancelDragPx ? ReleaseOutcome.Tap : ReleaseOutcome.Cancel;
+            var t = camera.transform;
+            var v = Mathf.Abs(t.forward.y) > 0.99f ? t.up : t.forward;
+            return Mathf.Atan2(v.x, v.z) * Mathf.Rad2Deg;
         }
 
-        /// <summary>쏠 수 있나 — 서버 TryFire와 같은 조건(Live, 이번 라운드 정답 전, 내 갈고리 없음, 재장전 끝).</summary>
-        public static bool CanFire(TriGrabPhase phase, bool hookOut, long tick, long reloadUntilTick, bool doneThisRound = false)
-            => phase == TriGrabPhase.Live && !doneThisRound && !hookOut && tick >= reloadUntilTick;
+        /// <summary>화면 방향(위 = +y)을 월드 바닥 방향(x, z)으로.</summary>
+        public static Vector2 ScreenToWorld(Vector2 screen, float screenYawDegrees)
+            => KnockbackPadViewModel.AimDirection(screen, screenYawDegrees);
 
-        /// <summary>쏘기 버튼 글. 이번 라운드에 정답을 냈으면 "완료".</summary>
-        public static string FireLabelFor(bool doneThisRound) => doneThisRound ? "완료" : "갈고리";
+        /// <summary>입력이 실릴 틱(서버가 그 입력을 처리하는 틱과 같다).</summary>
+        private long InputTick => input.NextInputTick;
 
-        /// <summary>보낼 이동. 갈고리가 나가 있으면 선다.</summary>
-        public static Vector2 MoveFor(Vector2 worldMove, bool hookOut) => hookOut ? Vector2.zero : worldMove;
+        private TG.TriGrabPlayerScore Me => state.TryGetPlayer(playerContext.entityId, out var p) ? p : null;
 
-        /// <summary>톡 = 내 자리에서 회전판 가운데(원점) 쪽 yaw. 가운데에 서 있으면 방향이 없다.</summary>
-        public static float? TapYaw(Vector2 myPosition)
-        {
-            var dir = -myPosition;
-            return dir.sqrMagnitude > 1e-6f ? TriGrabMath.YawFromDir(dir) : (float?)null;
-        }
-
-        /// <summary>화면에 그리는 틱(정수). 쏘기 막기·버튼 흐림이 화면에 보이는 것과 같은 틱을 쓴다.</summary>
-        public long RenderTick
+        /// <summary>이번 입력 틱에 서버가 이동을 막는가 — 내 손이 나가 있거나 기절 중.</summary>
+        public bool MoveBlocked
         {
             get
             {
-                var t = runner?.tickUpdater;
-                if (t == null || t.interval <= 0d) return 0;
-                return (long)System.Math.Floor((t.elapsedTime - t.interval) / t.interval);
+                long tick = InputTick;
+                var me = Me;
+                return myHook.IsOut(playerContext.entityId, tick) || tick < StunUntil(me);
             }
         }
-
-        public bool HookOut => myHook.IsOut(playerContext.entityId, input.NextInputTick);
 
         public bool Ready
         {
             get
             {
-                long tick = RenderTick;
-                long reload = state.TryGetPlayer(playerContext.entityId, out var score) ? score.ReloadUntilTick : 0;
-                return CanFire(state.PhaseAt(tick), myHook.IsOut(playerContext.entityId, tick), tick, reload, Done);
+                long tick = InputTick;
+                var me = Me;
+                //  손 쉼은 서버 소식보다 먼저 안다 — 마지막 손이 돌아온 틱 + 쉼.
+                long cooldown = System.Math.Max(me?.CooldownUntilTick ?? 0, LocalCooldownUntil(myHook.LastEndTick));
+                return CanFire(state.PhaseAt(tick), myHook.IsOut(playerContext.entityId, tick), tick, StunUntil(me), cooldown);
             }
         }
 
-        /// <summary>이번 라운드에 이미 정답을 냈다 — 다음 라운드까지 쏘지 못한다(이동은 된다).</summary>
-        public bool Done => state.DoneThisRound(playerContext.entityId);
+        //  기절은 서버 소식보다 먼저 안다 — 오답 카드를 끈 내 손이 몸에 닿는 틱 + 기절 시간(서버와 같은 규칙).
+        private long StunUntil(TG.TriGrabPlayerScore me)
+            => System.Math.Max(me?.StunUntilTick ?? 0, myHook.StunUntil(playerContext.entityId));
 
-        /// <summary>방향 스틱(−1~1). 매 프레임 <see cref="Apply"/>가 갈고리 상태를 보고 보낸다.</summary>
+        /// <summary>손이 돌아온 틱에 서버가 정하는 손 쉼 끝 틱.</summary>
+        public static long LocalCooldownUntil(long lastEndTick)
+            => lastEndTick == long.MinValue ? 0 : lastEndTick + TG.TriGrabConfig.HookCooldownTicks;
+
+        /// <summary>방향 스틱(−1~1). 매 프레임 <see cref="Apply"/>가 막힘을 보고 보낸다.</summary>
         public void Move(Vector2 value) => stick = value;
 
-        /// <summary>매 프레임 — 스틱 값을 카메라 기준으로 돌려 보내되, 갈고리가 나가 있으면 0을 보낸다.</summary>
+        /// <summary>매 프레임 — 스틱 값을 화면 기준으로 돌려 보내되, 손이 나가 있거나 기절 중이면 0을 보낸다.</summary>
         public void Apply()
         {
             var camera = cameraController != null ? cameraController.MainCamera : null;
-            var world = camera != null ? DodgePadViewModel.CameraRelative(stick, camera) : Vector2.zero;
-            var send = MoveFor(world, HookOut);
+            var world = camera != null && stick != Vector2.zero ? ScreenToWorld(stick, ScreenYaw(camera)) : Vector2.zero;
+            var send = MoveFor(world, MoveBlocked);
             input.SetMovement(send.x, send.y);
         }
 
@@ -115,16 +124,11 @@ namespace LOP.UI
             Move(dir == Vector2.zero ? Vector2.zero : dir.normalized);
         }
 
-        /// <summary>끌기 방향(화면, 위 = +y)의 월드 yaw. 넉백 조작판과 같은 식.</summary>
+        /// <summary>끌기 방향(화면, 위 = +y)의 월드 yaw.</summary>
         public float? DragYaw(Vector2 screenDrag)
         {
             var camera = cameraController != null ? cameraController.MainCamera : null;
-            return camera == null ? (float?)null : KnockbackPadViewModel.AimYaw(screenDrag, camera.transform.eulerAngles.y);
-        }
-
-        public bool FireTap()
-        {
-            return TryGetMyPosition(out var me) && Fire(TapYaw(me));
+            return camera == null ? (float?)null : KnockbackPadViewModel.AimYaw(screenDrag, ScreenYaw(camera));
         }
 
         public bool FireDrag(Vector2 screenDrag) => Fire(DragYaw(screenDrag));
@@ -140,7 +144,7 @@ namespace LOP.UI
             if (t <= 0f) return false;
             var hit = ray.origin + ray.direction * t;
             var dir = new Vector2(hit.x - me.x, hit.z - me.y);
-            return dir.sqrMagnitude > 1e-6f && Fire(TriGrabMath.YawFromDir(dir));
+            return dir.sqrMagnitude > 1e-6f && Fire(TG.TriGrabMath.YawFromDir(new System.Numerics.Vector2(dir.x, dir.y)));
         }
 
         private bool Fire(float? yaw)
@@ -149,7 +153,7 @@ namespace LOP.UI
             {
                 return false;
             }
-            long fireTick = input.NextInputTick;
+            long fireTick = InputTick;
             input.SetFire(yaw.Value);
             //  쏘는 틱부터 서야 서버가 재는 출발점(그 틱 이동 뒤 자리)이 지금 자리와 같다.
             input.SetMovement(0f, 0f);
@@ -157,14 +161,15 @@ namespace LOP.UI
             return true;
         }
 
-        /// <summary>조준선 출발점·방향(월드 xz). 끌기가 쏘기 거리 안이면 false.</summary>
+        /// <summary>조준선 출발점·방향(월드 xz). 끌기가 쏘기 거리 안(떼면 취소)이면 false.</summary>
         public bool TryGetAim(Vector2 screenDrag, float dragPx, out Vector2 origin, out Vector2 dir)
         {
             dir = Vector2.zero;
-            if (!TryGetMyPosition(out origin) || dragPx <= FireDragPx) return false;
+            if (!TryGetMyPosition(out origin) || OutcomeOnRelease(dragPx) != ReleaseOutcome.Fire) return false;
             var yaw = DragYaw(screenDrag);
             if (!yaw.HasValue) return false;
-            dir = TriGrabMath.DirFromYaw(yaw.Value);
+            var d = TG.TriGrabMath.DirFromYaw(yaw.Value);
+            dir = new Vector2(d.X, d.Y);
             return true;
         }
 

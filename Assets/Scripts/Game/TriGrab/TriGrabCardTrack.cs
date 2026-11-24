@@ -55,12 +55,13 @@ namespace LOP
         }
 
         /// <summary>
-        /// 그 렌더 틱의 카드 자리. 사라진(Gone) 카드와 샘플이 하나도 없는 카드는 false.
+        /// 그 렌더 틱의 카드 자리. 사라진 틱이 지난 카드와 샘플이 하나도 없는 카드는 false.
         /// </summary>
         public bool TryGet(int id, double renderTick, out Vector2 pos)
         {
             pos = default;
-            if (state != null && state.TryGetCard(id, out var card) && card.Gone)
+            //  사라진 카드도 사라진 틱 전(그리는 시각이 아직 과거)이면 자리를 낸다.
+            if (state != null && renderTick >= state.GoneTickOf(id))
             {
                 return false;
             }

@@ -75,6 +75,82 @@ namespace LOP.Tests
             Assert.AreEqual(new Vector2(1f, 1f), q, "원판 위 카드는 자리 기록");
         }
 
+        static TriGrabRingHookWire CarryHook(long turnTick) => new TriGrabRingHookWire
+        {
+            OwnerId = "b", FireTick = 100, OriginX = 8f, OriginZ = 0f, DirX = -1f, DirZ = 0f,
+            State = (int)TG.TriGrabHookState.Back, End = (int)TG.TriGrabHookEnd.Card, CardId = 5,
+            TurnTick = turnTick, TurnLength = 7f,
+        };
+
+        [Test]
+        public void 잡히기_전_시각엔_카드가_제자리_잡힌_틱부터_손끝을_따라간다()
+        {
+            var state = new TriGrabClientState();
+            var m = TriGrabClientStateTests.Msg(1);
+            m.Cards.Add(new TriGrabRingCardWire { Id = 5, CarriedBy = "b" });
+            m.Hooks.Add(CarryHook(110));
+            state.Apply(m);
+            var track = new TriGrabCardTrack(state);
+            track.Push(104, new[] { 5 }, new[] { 1f }, new[] { 1f });
+            var myHook = new TriGrabMyHook(state);
+            state.TryGetCard(5, out var card);
+
+            Assert.IsTrue(TriGrabCardsView.TryCardPosition(card, state, track, myHook, "me", 107.0, 130.0, out var before, out bool carriedBefore));
+            Assert.IsFalse(carriedBefore, "그리는 시각엔 아직 손이 닿기 전 — 손끝으로 순간이동하지 않는다");
+            Assert.AreEqual(new Vector2(1f, 1f), before);
+
+            Assert.IsTrue(TriGrabCardsView.TryCardPosition(card, state, track, myHook, "me", 112.0, 130.0, out var after, out bool carriedAfter));
+            Assert.IsTrue(carriedAfter);
+            Assert.AreEqual(TriGrabHookPath.TipAt(state.HookOf("b"), 112.0), after);
+        }
+
+        [Test]
+        public void 사라진_카드는_사라진_틱까지_손끝에_붙어_그린다()
+        {
+            var state = new TriGrabClientState();
+            var m = TriGrabClientStateTests.Msg(1);
+            m.Cards.Add(new TriGrabRingCardWire { Id = 5, CarriedBy = "b" });
+            m.Hooks.Add(CarryHook(105));
+            state.Apply(m);
+            var hook = state.HookOf("b");
+            var track = new TriGrabCardTrack(state);
+            track.Push(104, new[] { 5 }, new[] { 1f }, new[] { 1f });
+            var myHook = new TriGrabMyHook(state);
+
+            //  손이 몸에 닿아 점수가 났다 — 손은 지워지고 카드는 Gone, 정답 연출이 그 틱(118)을 알린다.
+            var done = TriGrabClientStateTests.Msg(2);
+            done.Cards.Add(new TriGrabRingCardWire { Id = 5, Gone = true });
+            done.Fx.Add(new TriGrabRingFxWire { Kind = (int)TG.TriGrabFxKind.Correct, OwnerId = "b", X = 8f, Z = 0f, Tick = 118 });
+            state.Apply(done);
+            state.TryGetCard(5, out var card);
+
+            Assert.IsTrue(TriGrabCardsView.TryCardPosition(card, state, track, myHook, "me", 110.0, 130.0, out var p, out bool carried),
+                "그리는 시각(110)엔 아직 끌려오는 중");
+            Assert.IsTrue(carried);
+            Assert.AreEqual(TriGrabHookPath.TipAt(hook, 110.0), p);
+            Assert.IsFalse(TriGrabCardsView.TryCardPosition(card, state, track, myHook, "me", 118.0, 130.0, out _, out _), "사라진 틱부터 안 그린다");
+        }
+
+        [Test]
+        public void 연출이_없으면_사라진_틱은_끌던_손이_돌아온_틱()
+        {
+            var state = new TriGrabClientState();
+            var m = TriGrabClientStateTests.Msg(1);
+            m.Cards.Add(new TriGrabRingCardWire { Id = 5, CarriedBy = "b" });
+            m.Hooks.Add(CarryHook(105));
+            state.Apply(m);
+            long end = TriGrabHookPath.EndTick(state.HookOf("b"));
+            var track = new TriGrabCardTrack(state);
+            track.Push(104, new[] { 5 }, new[] { 1f }, new[] { 1f });
+            var myHook = new TriGrabMyHook(state);
+            var done = TriGrabClientStateTests.Msg(2);
+            done.Cards.Add(new TriGrabRingCardWire { Id = 5, Gone = true });
+            state.Apply(done);
+            state.TryGetCard(5, out var card);
+            Assert.IsTrue(TriGrabCardsView.TryCardPosition(card, state, track, myHook, "me", end - 1, 200.0, out _, out _));
+            Assert.IsFalse(TriGrabCardsView.TryCardPosition(card, state, track, myHook, "me", end, 200.0, out _, out _));
+        }
+
         // ── 손끝 식(서버 StepOut·StepBack과 같은 틱) ──
 
         [Test]

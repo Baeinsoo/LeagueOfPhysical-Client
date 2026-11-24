@@ -148,7 +148,9 @@ namespace LOP
         }
 
         /// <summary>
-        /// 그 카드를 그릴 바닥 자리. 끌려가면 주인 손끝, 아니면 자리 기록 보간. 그릴 수 없으면 false.
+        /// 그 카드를 그릴 바닥 자리. 끌던 손이 그 카드에 닿은 틱(돌아선 틱) 이후의 시각이면 손끝, 그 전이면 자리 기록 보간.
+        /// 사라진 카드도 사라진 틱 전까지는 그린다 — 상태는 바로 오지만 카드는 조금 과거 시각으로 그리기 때문이다.
+        /// 손 시각은 내 손이면 내 시각, 남의 손이면 원격 시각. 그릴 수 없으면 false.
         /// </summary>
         public static bool TryCardPosition(TG.TriGrabCard c, TriGrabClientState state, TriGrabCardTrack track,
                                            TriGrabMyHook myHook, string myId, double remoteTick, double localTick,
@@ -156,14 +158,24 @@ namespace LOP
         {
             carried = false;
             pos = default;
-            if (c.Gone) return false;
-            if (c.CarriedBy != null)
+            TG.TriGrabHook hook = null;
+            if (c.Gone)
             {
-                bool mine = c.CarriedBy == myId;
-                var hook = mine ? myHook.Current(myId, (long)Math.Floor(localTick)) : state.HookOf(c.CarriedBy);
-                if (hook != null && hook.CardId == c.Id)
+                hook = state.LastCarrierOf(c.Id);
+                double t = hook != null && hook.Owner == myId ? localTick : remoteTick;
+                if (t >= state.GoneTickOf(c.Id)) return false;
+            }
+            else if (c.CarriedBy != null)
+            {
+                hook = c.CarriedBy == myId ? myHook.Current(myId, (long)Math.Floor(localTick)) : state.HookOf(c.CarriedBy);
+                if (hook != null && hook.CardId != c.Id) hook = null;
+            }
+            if (hook != null)
+            {
+                double t = hook.Owner == myId ? localTick : remoteTick;
+                if (t >= hook.TurnTick)
                 {
-                    pos = TriGrabHookPath.TipAt(hook, mine ? localTick : remoteTick);
+                    pos = TriGrabHookPath.TipAt(hook, t);
                     carried = true;
                     return true;
                 }

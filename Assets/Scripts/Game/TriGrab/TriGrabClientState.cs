@@ -27,7 +27,12 @@ namespace LOP
         /// <summary>이만큼 오래된 연출 키는 잊는다(같은 연출이 이렇게 늦게 다시 오는 일은 없다).</summary>
         public const long FxMemoryTicks = 500;
 
-        private readonly Dictionary<int, TG.TriGrabCard> cards = new Dictionary<int, TG.TriGrabCard>();
+        private Dictionary<int, TG.TriGrabCard> cards = new Dictionary<int, TG.TriGrabCard>();
+        private Dictionary<int, TG.TriGrabCard> previousCards = new Dictionary<int, TG.TriGrabCard>();
+        private readonly List<TG.TriGrabHook> previousHooks = new List<TG.TriGrabHook>();
+        private readonly Dictionary<int, long> goneTicks = new Dictionary<int, long>();
+        private readonly Dictionary<int, TG.TriGrabHook> lastCarriers = new Dictionary<int, TG.TriGrabHook>();
+        private readonly List<int> staleIds = new List<int>();
         private readonly List<TG.TriGrabCard> cardList = new List<TG.TriGrabCard>();
         private readonly List<TG.TriGrabHook> hooks = new List<TG.TriGrabHook>();
         private readonly List<TG.TriGrabMole> moles = new List<TG.TriGrabMole>();
@@ -35,8 +40,9 @@ namespace LOP
         private readonly Dictionary<string, TG.TriGrabPlayerScore> players = new Dictionary<string, TG.TriGrabPlayerScore>();
         private readonly Dictionary<string, int> places = new Dictionary<string, int>();
         private readonly Queue<TriGrabFxEvent> fx = new Queue<TriGrabFxEvent>();
-        private readonly Dictionary<(long tick, int kind, string owner), long> seenFx = new Dictionary<(long, int, string), long>();
-        private readonly List<(long, int, string)> forget = new List<(long, int, string)>();
+        private readonly Dictionary<(long tick, int kind, string owner, float x, float z, int line), long> seenFx =
+            new Dictionary<(long, int, string, float, float, int), long>();
+        private readonly List<(long, int, string, float, float, int)> forget = new List<(long, int, string, float, float, int)>();
 
         public int Version { get; private set; }
         public bool Received => Version > 0;
@@ -63,6 +69,7 @@ namespace LOP
                 return false;
             }
             Version = message.Version;
+            var previousPhase = Phase;
             Phase = (TG.TriGrabPhase)message.Phase;
             PhaseEndTick = message.PhaseEndTick;
             Round = message.Round;
@@ -72,8 +79,11 @@ namespace LOP
             Quota = message.Quota;
             OkSpawned = message.OkSpawned;
 
+            (previousCards, cards) = (cards, previousCards);
             cards.Clear();
             cardList.Clear();
+            previousHooks.Clear();
+            previousHooks.AddRange(hooks);
             foreach (var w in message.Cards)
             {
                 var c = new TG.TriGrabCard
@@ -136,15 +146,77 @@ namespace LOP
             foreach (var f in message.Fx)
             {
                 if (f.Tick > newest) newest = f.Tick;
-                //  같은 틱·종류·사람의 연출은 한 번만 — 상태가 다시 와도 두 번 띄우지 않는다.
-                var key = (f.Tick, f.Kind, f.OwnerId ?? "");
+                //  같은 연출(틱·종류·사람·자리·대사)은 한 번만 — 상태가 다시 와도 두 번 띄우지 않는다.
+                var key = (f.Tick, f.Kind, f.OwnerId ?? "", f.X, f.Z, f.Line);
                 if (seenFx.ContainsKey(key)) continue;
                 seenFx[key] = f.Tick;
                 fx.Enqueue(new TriGrabFxEvent((TG.TriGrabFxKind)f.Kind, new UnityEngine.Vector2(f.X, f.Z), f.OwnerId ?? "", f.Line, f.Tick));
             }
             if (newest != long.MinValue) ForgetFxBefore(newest - FxMemoryTicks);
+            RecordGoneTicks(message, previousPhase);
             return true;
         }
+
+        /// <summary>
+        /// 카드가 사라진 틱 추정. 사라짐은 신뢰 소식으로 바로 오지만 카드는 원격 시각(조금 과거)으로 그리므로,
+        /// 그 틱까지는 계속 그려야 손끝에서 갑자기 꺼지지 않는다. 끌던 사람의 정답·오답 연출 틱 → 라운드 끝 틱 → 끌던 손이 돌아오는 틱 순.
+        /// </summary>
+        private void RecordGoneTicks(TriGrabRingStateToC message, TG.TriGrabPhase previousPhase)
+        {
+            foreach (var c in cardList)
+            {
+                if (!c.Gone || goneTicks.ContainsKey(c.Id)) continue;
+                long gone = long.MinValue;
+                TG.TriGrabHook carrier = null;
+                if (previousCards.TryGetValue(c.Id, out var before) && !before.Gone && before.CarriedBy != null)
+                {
+                    foreach (var h in previousHooks)
+                    {
+                        if (h.Owner == before.CarriedBy && h.CardId == c.Id) carrier = h;
+                    }
+                    foreach (var f in message.Fx)
+                    {
+                        var kind = (TG.TriGrabFxKind)f.Kind;
+                        if ((kind == TG.TriGrabFxKind.Correct || kind == TG.TriGrabFxKind.Wrong) && f.OwnerId == before.CarriedBy)
+                        {
+                            gone = System.Math.Max(gone, f.Tick);
+                        }
+                    }
+                    if (gone == long.MinValue && Phase == TG.TriGrabPhase.Resolved && previousPhase == TG.TriGrabPhase.Live)
+                    {
+                        gone = PhaseEndTick - TG.TriGrabConfig.ResolvedTicks;
+                    }
+                    if (gone == long.MinValue && carrier != null)
+                    {
+                        gone = TriGrabHookPath.EndTick(carrier);
+                    }
+                }
+                goneTicks[c.Id] = gone;
+                if (carrier != null) lastCarriers[c.Id] = carrier;
+            }
+
+            //  지난 라운드 카드는 잊는다(카드 번호는 판 안에서 겹치지 않는다).
+            staleIds.Clear();
+            foreach (var id in goneTicks.Keys)
+            {
+                if (!cards.ContainsKey(id)) staleIds.Add(id);
+            }
+            foreach (var id in staleIds)
+            {
+                goneTicks.Remove(id);
+                lastCarriers.Remove(id);
+            }
+        }
+
+        /// <summary>카드가 사라진 틱. 그 틱부터 안 그린다. 안 사라졌으면 long.MaxValue, 언제인지 모르면 long.MinValue.</summary>
+        public long GoneTickOf(int id)
+        {
+            if (!cards.TryGetValue(id, out var c) || !c.Gone) return long.MaxValue;
+            return goneTicks.TryGetValue(id, out var t) ? t : long.MinValue;
+        }
+
+        /// <summary>사라진 카드를 마지막에 끌던 손(사라진 틱까지 그 손끝에 그린다). 없으면 null.</summary>
+        public TG.TriGrabHook LastCarrierOf(int id) => lastCarriers.TryGetValue(id, out var h) ? h : null;
 
         private void ForgetFxBefore(long tick)
         {

@@ -126,6 +126,13 @@ namespace LOP.Tests
             Assert.AreEqual(1, state.PendingFxCount);
             Assert.IsTrue(state.TryDequeueFx(out var third));
             Assert.AreEqual(340, third.Tick);
+
+            //  같은 틱에 다른 일 둘(두더지 두 마리를 같은 사람이 한 틱에 치는 등)은 둘 다 띄운다.
+            var two = Msg(3);
+            two.Fx.Add(new TriGrabRingFxWire { Kind = (int)TG.TriGrabFxKind.MoleBonk, X = 1f, Z = 1f, OwnerId = "b", Line = 1, Tick = 400 });
+            two.Fx.Add(new TriGrabRingFxWire { Kind = (int)TG.TriGrabFxKind.MoleBonk, X = -2f, Z = 3f, OwnerId = "b", Line = 5, Tick = 400 });
+            state.Apply(two);
+            Assert.AreEqual(2, state.PendingFxCount);
         }
 
         [Test]

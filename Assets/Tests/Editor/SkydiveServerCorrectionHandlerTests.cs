@@ -130,5 +130,71 @@ namespace LOP.Tests
                 Fixture.Snap("no-posture", tick: Fixture.SnapTick, postureAxis: 0.5f, gliding: true),
                 Fixture.TickInterval));
         }
+
+        //  태풍의 눈 몸개그 장애물: 기절·떠오름은 끝나는 틱으로 싣는다(ADR-0015). 서버만 맞은 경우(남의 몸 예측이
+        //  빗나간 경우 등) 클라는 그 사실을 스냅샷으로만 안다 — 다르면 되감고, 서버 값으로 덮어야 한다.
+
+        [Test]
+        public void 서버만_기절했으면_틀리다()
+        {
+            var handler = Fixture.Handler(out var world, out var diver);
+            world.Tick(0, Fixture.TickInterval);
+            world.SaveState(0);
+
+            var snap = Fixture.Snap(diver.Id, tick: 0);
+            snap.stormStunEndTick = 70;
+            Assert.IsFalse(handler.Matches(0, snap));
+        }
+
+        [Test]
+        public void 기절_끝_틱이_같으면_맞는다()
+        {
+            var handler = Fixture.Handler(out var world, out var diver);
+            diver.Get<StormState>().StunEndTick = 70;
+            world.Tick(0, Fixture.TickInterval);
+            world.SaveState(0);
+
+            var snap = Fixture.Snap(diver.Id, tick: 0);
+            snap.stormStunEndTick = 70;
+            Assert.IsTrue(handler.Matches(0, snap), "양성 대조 — 같으면 되감지 않는다");
+        }
+
+        [Test]
+        public void 서버만_떠올랐으면_틀리다()
+        {
+            var handler = Fixture.Handler(out var world, out var diver);
+            world.Tick(0, Fixture.TickInterval);
+            world.SaveState(0);
+
+            var snap = Fixture.Snap(diver.Id, tick: 0);
+            snap.stormLiftEndTick = 110;
+            Assert.IsFalse(handler.Matches(0, snap));
+        }
+
+        [Test]
+        public void 서버의_몸개그_상태로_덮는다()
+        {
+            var handler = Fixture.Handler(out _, out var diver);
+            var snap = Fixture.Snap(diver.Id, tick: 0);
+            snap.stormStunEndTick = 70; snap.stormLiftEndTick = 110; snap.stormEjectX = 0.6f; snap.stormEjectZ = -0.8f;
+            snap.stormGullOnHeadEndTick = 250; snap.stormCushionReadyTick = 12; snap.stormCloudReadyTick = 60;
+            snap.stormGullReadyTick = 75; snap.stormUpdraftReadyTick = 260;
+            snap.stormLastHitKind = (int)StormHazardKind.Updraft; snap.stormLastHitTick = 3;
+
+            handler.ApplyAuthoritative(diver, snap, Fixture.TickInterval);
+
+            var s = diver.Get<StormState>();
+            Assert.AreEqual(70, s.StunEndTick);
+            Assert.AreEqual(110, s.LiftEndTick);
+            Assert.AreEqual(0.6f, s.EjectX, 1e-6f);
+            Assert.AreEqual(-0.8f, s.EjectZ, 1e-6f);
+            Assert.AreEqual(250, s.GullOnHeadEndTick);
+            Assert.AreEqual(12, s.CushionReadyTick);
+            Assert.AreEqual(60, s.CloudReadyTick);
+            Assert.AreEqual(75, s.GullReadyTick);
+            Assert.AreEqual(260, s.UpdraftReadyTick);
+            Assert.AreEqual(StormHazardKind.Updraft, s.LastHitKind);
+            Assert.AreEqual(3, s.LastHitTick);
+        }
     }
 }

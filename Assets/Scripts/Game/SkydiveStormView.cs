@@ -109,15 +109,16 @@ namespace LOP
                 CloudCushion c = field.Cushions[i];
                 var node = CardRushDraw.Node("Cushion" + i, root.transform);
                 node.transform.position = c.Top;
-                //  윗면이 판정 높이에 오도록 덩이들을 아래로 매단다. 가장 큰 덩이 반지름 = 쿠션 반지름.
+                //  그림은 판정(윗면 원판) 아래·안쪽에만 — 덩이 윗면이 판정 높이(0)를 넘지 않고 가로로 반지름을 넘지 않는다.
                 var rng = new System.Random(i * 31 + 7);
-                Puff(node.transform, Vector3.down * c.Radius * 0.35f, c.Radius * 0.95f, 0.7f, cloudWhite);
+                float mainHalfHeight = c.Radius * 0.95f * 0.7f;
+                Puff(node.transform, Vector3.down * mainHalfHeight, c.Radius * 0.95f, 0.7f, cloudWhite);
                 for (int k = 0; k < 7; k++)
                 {
                     float a = (float)(k * Math.PI * 2 / 7 + rng.NextDouble() * 0.4);
-                    float r = c.Radius * (0.45f + (float)rng.NextDouble() * 0.2f);
-                    float s = c.Radius * (0.45f + (float)rng.NextDouble() * 0.15f);
-                    Puff(node.transform, new Vector3(Mathf.Cos(a) * r, -s * 0.55f - 0.2f, Mathf.Sin(a) * r), s, 0.75f, k % 3 == 0 ? cloudShadow : cloudWhite);
+                    float s = c.Radius * (0.3f + (float)rng.NextDouble() * 0.1f);
+                    float r = c.Radius - s - 0.05f;
+                    Puff(node.transform, new Vector3(Mathf.Cos(a) * r, -s * 0.75f - 0.05f, Mathf.Sin(a) * r), s, 0.75f, k % 3 == 0 ? cloudShadow : cloudWhite);
                 }
                 cushions.Add(node.transform);
             }
@@ -164,7 +165,7 @@ namespace LOP
                 var birds = new (Transform, Transform, Transform)[flock.Count];
                 for (int b = 0; b < flock.Count; b++)
                 {
-                    birds[b] = MakeGull(root.transform, 1.4f);
+                    birds[b] = MakeGull(root.transform, 1f);   // 날개 끝 1.8m = 판정 반지름
                 }
                 gulls.Add(birds);
             }
@@ -258,7 +259,7 @@ namespace LOP
                 for (int b = 0; b < birds.Length; b++)
                 {
                     Vector3 p = flock.BirdAt(b, renderTick);
-                    bool inside = new Vector2(p.x, p.z).magnitude < 61f;
+                    bool inside = new Vector2(p.x, p.z).magnitude <= StormHazardSystem.WallHide;
                     birds[b].body.gameObject.SetActive(inside);
                     if (inside == false) continue;
                     birds[b].body.SetPositionAndRotation(p, face);
@@ -303,13 +304,30 @@ namespace LOP
                 }
             }
 
-            DressObstacles();
+            //  문 장식은 태풍의 눈에서만(다른 스카이다이브 맵은 그대로).
+            if (field.IsEmpty == false) DressObstacles();
             DetectHits(t);
         }
 
         //  몸마다 "방금 무엇에 닿았나"를 읽어 글을 띄운다. 되감기로 같은 틱을 다시 돌아도 한 번만.
+        private readonly List<string> gone = new List<string>();
+
         private void DetectHits(float now)
         {
+            //  사라진 몸의 별·머리 위 갈매기를 치운다 — 안 치우면 마지막 자리에 떠 있다.
+            gone.Clear();
+            foreach (var id in bodies.Keys)
+            {
+                if (entityRegistry.Get(id) == null) gone.Add(id);
+            }
+            foreach (var id in gone)
+            {
+                var b = bodies[id];
+                if (b.Stars != null) UnityEngine.Object.Destroy(b.Stars);
+                if (b.Gull != null) UnityEngine.Object.Destroy(b.Gull);
+                bodies.Remove(id);
+            }
+
             foreach (var entity in entityRegistry.All)
             {
                 var storm = entity.Get<StormState>();
@@ -322,7 +340,8 @@ namespace LOP
                     body = new Body { ShownHitTick = storm.LastHitTick };
                     bodies[entity.Id] = body;
                 }
-                if (storm.LastHitTick <= body.ShownHitTick)
+                //  되감기로 맞은 틱이 앞당겨져도 다시 띄운다(같은 틱만 건너뛴다).
+                if (storm.LastHitTick == body.ShownHitTick || storm.LastHitTick < 0)
                 {
                     continue;
                 }

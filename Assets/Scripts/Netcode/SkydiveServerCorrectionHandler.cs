@@ -37,8 +37,14 @@ namespace LOP
             //  안 본다(연속값이라 매 틱 미세하게 달라서 넣으면 거의 매 틱 되돌린다) —
             //  ApplyAuthoritative에서 덮는 것으로 충분하다.
             const float AxisTolerance = 0.1f;
+            //  태풍의 눈: 기절·떠오름 끝 틱이 다르면 이동 자체가 갈린다(조작 잠김·떠오름 속도·뱉는 틱).
+            //  끝 틱은 정수라 그대로 비교한다. 쉬는 틱·연출 칸은 덮기만 한다(ApplyAuthoritative).
+            long predictedStun = predicted.Storm?.StunEndTick ?? 0;
+            long predictedLift = predicted.Storm?.LiftEndTick ?? 0;
             return predicted.Gliding == snap.gliding
-                && System.Math.Abs(predicted.Axis - snap.postureAxis) < AxisTolerance;
+                && System.Math.Abs(predicted.Axis - snap.postureAxis) < AxisTolerance
+                && predictedStun == snap.stormStunEndTick
+                && predictedLift == snap.stormLiftEndTick;
         }
 
         public void ApplyAuthoritative(GameFramework.World.Entity entity, EntitySnap snap, float deltaTime)
@@ -62,6 +68,22 @@ namespace LOP
                 //  EmergencyUsed는 안 싣는다 — 남에게는 TryStartGlide가 안 불려 그 값이 예측에
                 //  영향을 줄 길이 없다(true를 안 보내도 잘못 접힐 일이 없다는 뜻).
                 stamina.EmergencyRemaining = snap.emergencyRemaining;
+            }
+
+            var storm = entity.Get<StormState>();
+            if (storm != null)
+            {
+                storm.StunEndTick = snap.stormStunEndTick;
+                storm.LiftEndTick = snap.stormLiftEndTick;
+                storm.EjectX = snap.stormEjectX;
+                storm.EjectZ = snap.stormEjectZ;
+                storm.GullOnHeadEndTick = snap.stormGullOnHeadEndTick;
+                storm.CushionReadyTick = snap.stormCushionReadyTick;
+                storm.CloudReadyTick = snap.stormCloudReadyTick;
+                storm.GullReadyTick = snap.stormGullReadyTick;
+                storm.UpdraftReadyTick = snap.stormUpdraftReadyTick;
+                storm.LastHitKind = (StormHazardKind)snap.stormLastHitKind;
+                storm.LastHitTick = snap.stormLastHitTick;
             }
         }
     }

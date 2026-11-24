@@ -79,6 +79,7 @@ namespace LOP.Tests
             entity.Add(new Stamina { Current = 100f });
             entity.Add(new InputBuffer());
             entity.Add(new WindDrift());
+            entity.Add(new StormState());
             entity.Add(new GameFramework.World.Simulated());   // 이게 있어야 SaveState가 이 다이버를 담는다
             return entity;
         }

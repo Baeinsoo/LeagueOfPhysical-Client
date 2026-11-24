@@ -10,7 +10,7 @@ namespace LOP
     /// <list type="bullet">
     /// <item>장애물 넷을 원시 도형으로 짓고, 움직이는 것(먹구름·갈매기)은 프레임마다 소수 틱으로 세운다 — 판정과 같은 식에 같은 틱.</item>
     /// <item>몸에 닿으면 몸 위에 글("뽀잉!")을 띄우고, 기절이면 굴러 돌며 별, 갈매기면 머리에 한 마리, 상승 기류면 빙글빙글 돈다.</item>
-    /// <item>큰 지형물(원판·풍차·조리개·문)에 "태풍에 휩쓸린 잔해" 옷을 입힌다 — 콜라이더 윗면을 짚어 그 안쪽에만 장식을 놓는다(그림 ⊆ 판정).</item>
+    /// <item>큰 지형물: 원판·풍차·조리개는 시뮬이 잔해 판정(통나무 뗏목·뽑힌 거목·판자 더미)으로 갈아 끼우고, 여기서 그 상자 안에 그림을 넣는다. 문은 콜라이더 윗면을 짚어 장식만 입힌다(그림 ⊆ 판정).</item>
     /// <item>벽을 따라 잔해(판자·잎·짚)가 빙빙 돈다.</item>
     /// </list>
     /// 몸 연출은 보간기·자세 기울기 뒤에 와야 지워지지 않는다 — <see cref="SkydiveStormFxDriver"/>(실행 순서 3060)가 부른다.
@@ -164,7 +164,7 @@ namespace LOP
                 var birds = new (Transform, Transform, Transform)[flock.Count];
                 for (int b = 0; b < flock.Count; b++)
                 {
-                    birds[b] = MakeGull(root.transform, 1f);
+                    birds[b] = MakeGull(root.transform, 1.4f);
                 }
                 gulls.Add(birds);
             }
@@ -510,7 +510,8 @@ namespace LOP
             {
                 foreach (var o in obstacles.All)
                 {
-                    if (o is Component c) Dress(c.gameObject, index);
+                    //  큰 장애물은 시뮬이 첫 틱에 잔해 판정으로 갈아 끼운다(StormDebrisRebuilder) — 그 뒤에 그 조각들에 그림을 입힌다.
+                    if (o is Component c && c != null && c.GetComponent<StormDebrisBuilt>() != null) DressDebris(c.gameObject);
                     index++;
                 }
             }
@@ -715,6 +716,128 @@ namespace LOP
                     }
                 }
             }
+        }
+
+        // ---------------- 잔해 판정 조각 그림: 통나무·거목·판자 ----------------
+
+        private Material[] bark, plankMats, leafMats;
+        private Material cutWood, rope, earth, rootMat;
+
+        private void EnsureDebrisMaterials()
+        {
+            if (bark != null) return;
+            bark = new[]
+            {
+                Keep(CardRushDraw.Opaque("Debris_Bark0", new Color(0.42f, 0.28f, 0.16f))),
+                Keep(CardRushDraw.Opaque("Debris_Bark1", new Color(0.50f, 0.34f, 0.20f))),
+                Keep(CardRushDraw.Opaque("Debris_Bark2", new Color(0.36f, 0.25f, 0.17f))),
+            };
+            plankMats = new[]
+            {
+                Keep(CardRushDraw.Opaque("Debris_Plank0", new Color(0.66f, 0.48f, 0.30f))),
+                Keep(CardRushDraw.Opaque("Debris_Plank1", new Color(0.56f, 0.40f, 0.25f))),
+                Keep(CardRushDraw.Opaque("Debris_Tile", new Color(0.62f, 0.27f, 0.20f))),
+                Keep(CardRushDraw.Opaque("Debris_Painted", new Color(0.36f, 0.52f, 0.62f))),
+                Keep(CardRushDraw.Opaque("Debris_Thatch", new Color(0.82f, 0.68f, 0.36f))),
+            };
+            leafMats = new[]
+            {
+                Keep(CardRushDraw.Opaque("Debris_Leaf0", new Color(0.33f, 0.58f, 0.27f))),
+                Keep(CardRushDraw.Opaque("Debris_Leaf1", new Color(0.42f, 0.68f, 0.30f))),
+                Keep(CardRushDraw.Opaque("Debris_Leaf2", new Color(0.26f, 0.48f, 0.25f))),
+            };
+            cutWood = Keep(CardRushDraw.Opaque("Debris_Cut", new Color(0.86f, 0.70f, 0.47f)));
+            rope = Keep(CardRushDraw.Opaque("Debris_Rope", new Color(0.86f, 0.76f, 0.50f)));
+            earth = Keep(CardRushDraw.Opaque("Debris_Earth", new Color(0.38f, 0.27f, 0.19f)));
+            rootMat = Keep(CardRushDraw.Opaque("Debris_Root", new Color(0.30f, 0.21f, 0.14f)));
+        }
+
+        //  그림은 판정 상자 안에만 — 통나무 원기둥 지름은 상자 두께·폭 이하, 잎 덩이도 상자 안.
+        private void DressDebris(GameObject obstacle)
+        {
+            if (dressed.Add(obstacle.GetInstanceID()) == false) return;
+            EnsureDebrisMaterials();
+            var tags = obstacle.GetComponentsInChildren<StormDebrisTag>(true);
+            for (int i = 0; i < tags.Length; i++)
+            {
+                var tag = tags[i];
+                var box = tag.GetComponent<BoxCollider>();
+                if (box == null) continue;
+                Vector3 size = box.size;
+                var rng = new System.Random(i * 7919 + obstacle.name.Length * 31);
+                Transform t = tag.transform;
+                switch (tag.Kind)
+                {
+                    case StormDebrisKind.Log:
+                        Log(t, size, Mathf.Min(size.y, size.z) * 0.96f, bark[rng.Next(bark.Length)], true, rng);
+                        break;
+                    case StormDebrisKind.Trunk:
+                        Log(t, size, Mathf.Min(size.y, size.z) * 0.96f, bark[2], false, rng);
+                        break;
+                    case StormDebrisKind.Branch:
+                        Log(t, size, Mathf.Min(size.y, size.z) * 0.85f, bark[0], false, rng);
+                        break;
+                    case StormDebrisKind.Crown:
+                        for (int k = 0; k < 7; k++)
+                        {
+                            float sx = size.x * (0.35f + (float)rng.NextDouble() * 0.15f);
+                            float sz = size.z * (0.3f + (float)rng.NextDouble() * 0.15f);
+                            float sy = size.y * (0.7f + (float)rng.NextDouble() * 0.28f);
+                            var at = new Vector3(((float)rng.NextDouble() - 0.5f) * (size.x - sx), ((float)rng.NextDouble() - 0.5f) * (size.y - sy), ((float)rng.NextDouble() - 0.5f) * (size.z - sz));
+                            Shape(t, PrimitiveType.Sphere, at, Quaternion.identity, new Vector3(sx, sy, sz), leafMats[rng.Next(leafMats.Length)]);
+                        }
+                        break;
+                    case StormDebrisKind.RootBall:
+                        Shape(t, PrimitiveType.Sphere, Vector3.zero, Quaternion.identity, new Vector3(size.x * 0.95f, size.y * 0.9f, size.z * 0.95f), earth);
+                        for (int k = 0; k < 9; k++)
+                        {
+                            float a = k * 40f + (float)rng.NextDouble() * 20f;
+                            Quaternion q = Quaternion.Euler(0f, -a, (float)rng.NextDouble() * 30f - 15f);
+                            Vector3 d = q * Vector3.right;
+                            float len = size.x * 0.42f;
+                            Shape(t, PrimitiveType.Cylinder, d * (len * 0.5f), q * Quaternion.Euler(0f, 0f, 90f), new Vector3(0.5f, len * 0.5f, 0.5f), rootMat);
+                        }
+                        break;
+                    case StormDebrisKind.Plank:
+                        //  대부분 나무색, 가끔 기와·칠한 판자·짚(날아온 집 조각)
+                        int pick = rng.Next(10);
+                        Material m = plankMats[pick < 4 ? 0 : pick < 8 ? 1 : 2 + rng.Next(3)];
+                        Shape(t, PrimitiveType.Cube, Vector3.zero, Quaternion.identity, size * 0.97f, m);
+                        for (int k = -1; k <= 1; k += 2)
+                        {
+                            Shape(t, PrimitiveType.Cube, new Vector3(0f, size.y * 0.47f, k * size.z * 0.25f), Quaternion.identity,
+                                  new Vector3(size.x * 0.95f, 0.04f, 0.12f), bark[0]);
+                        }
+                        break;
+                }
+            }
+        }
+
+        //  상자 길이 방향(로컬 X)으로 누운 통나무. 끝은 잘린 나무색, 뗏목 통나무엔 새끼줄 묶음.
+        private void Log(Transform parent, Vector3 size, float diameter, Material skin, bool lashed, System.Random rng)
+        {
+            Quaternion lie = Quaternion.Euler(0f, 0f, 90f);
+            float len = size.x * 0.98f;
+            Shape(parent, PrimitiveType.Cylinder, Vector3.zero, lie, new Vector3(diameter, len * 0.5f, diameter), skin);
+            for (int e = -1; e <= 1; e += 2)
+            {
+                Shape(parent, PrimitiveType.Cylinder, new Vector3(e * (len * 0.5f - 0.03f), 0f, 0f), lie, new Vector3(diameter * 0.86f, 0.04f, diameter * 0.86f), cutWood);
+            }
+            if (lashed)
+            {
+                for (float x = -len * 0.5f + 4f + (float)rng.NextDouble() * 3f; x < len * 0.5f - 2f; x += 9f)
+                {
+                    Shape(parent, PrimitiveType.Cylinder, new Vector3(x, 0f, 0f), lie, new Vector3(diameter * 1.02f, 0.25f, diameter * 1.02f), rope);
+                }
+            }
+        }
+
+        private static void Shape(Transform parent, PrimitiveType type, Vector3 localPosition, Quaternion localRotation, Vector3 localScale, Material m)
+        {
+            var go = CardRushDraw.Primitive(type, type.ToString(), parent, m);
+            go.transform.localPosition = localPosition;
+            go.transform.localRotation = localRotation;
+            go.transform.localScale = localScale;
         }
 
         private static Vector3 Divide(Vector3 a, Vector3 b) =>

@@ -7,10 +7,11 @@
 }
 /* 굵은 글씨. 바탕과 글씨 색이 비슷해도 읽히게 어두운 테두리를 두른다(시안과 같다). */
 .word {
-    font-size: 44px;
+    font-size: 48px;
+    -unity-font-style: bold;
     -unity-font-definition: url("project://database/Assets/UI/Kit/Fonts/BlackHanSans-Regular%20SDF%20Dynamic.asset?fileID=11400000&guid=da5712ebc3331f74c927a6ca7626e5e2&type=2#BlackHanSans-Regular SDF Dynamic");
     -unity-text-align: middle-center;
-    -unity-text-outline-width: 3px;
+    -unity-text-outline-width: 4px;
     -unity-text-outline-color: rgba(13, 11, 22, 0.95);
     padding: 0; margin: 0;
 }

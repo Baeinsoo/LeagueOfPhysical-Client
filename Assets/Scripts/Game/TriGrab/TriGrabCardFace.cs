@@ -15,6 +15,9 @@ namespace LOP
         public static readonly Vector2 PanelPixels = new Vector2(120f, 120f);
         /// <summary>배율 1일 때 지름(m).</summary>
         public const float PanelMeters = 1.2f;
+        /// <summary>글자 크기(px). 두 글자 이름이 동전 지름(120 px)의 약 80%를 채운다(한글 한 글자 ≈ 글자 크기 1배 폭).</summary>
+        public const float WordFontPx = 48f;
+        public const int WordChars = 2;
 
         private static PanelSettings panelSettings;
         private static VisualTreeAsset uxml;
@@ -32,6 +35,7 @@ namespace LOP
             card = root.Q<VisualElement>("card");
             word = root.Q<Label>("word");
             flash = root.Q<VisualElement>("flash");
+            word.style.fontSize = WordFontPx;
         }
 
         public GameObject GameObject => go;
